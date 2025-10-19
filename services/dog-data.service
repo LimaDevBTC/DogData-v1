@@ -1,0 +1,24 @@
+[Unit]
+Description=DOG Data Automated System
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=bitmax
+Group=bitmax
+WorkingDirectory=/home/bitmax/Projects/bitcoin-fullstack
+ExecStart=/home/bitmax/Projects/bitcoin-fullstack/start_automated_system.sh
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Configurações de segurança
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/home/bitmax/Projects/bitcoin-fullstack
+
+[Install]
+WantedBy=multi-user.target
