@@ -59,7 +59,7 @@ function TradingViewWidget() {
           
           // 🛠️ Ferramentas e Funcionalidades
           "enable_publishing": false,          // Não permitir publicar ideias
-          "hide_top_toolbar": false,           // Mostrar toolbar superior
+          "hide_top_toolbar": true,            // Ocultar toolbar superior completamente
           "hide_side_toolbar": false,          // Mostrar barra lateral (ferramentas de desenho) ⭐
           "hide_legend": false,                // Mostrar legenda
           "save_image": true,                  // Permitir salvar imagem
@@ -68,11 +68,14 @@ function TradingViewWidget() {
           "details": true,                     // Mostrar detalhes do ativo
           "hotlist": false,                    // Não mostrar hotlist
           "calendar": false,                   // Não mostrar calendário
+          "show_volume": true,                 // Mostrar volume
+          "show_volume_ma": false,             // Não mostrar média móvel do volume
+          "show_volume_ma_volume": false,      // Não mostrar MA do volume
           
           // 📊 Indicadores Técnicos (opcionais)
           "studies": [
             "MASimple@tv-basicstudies",        // Média Móvel Simples
-            "Volume@tv-basicstudies"           // Volume
+            "Volume@tv-basicstudies"           // Volume (usuário pode redimensionar)
           ],
           
           // 🎯 Configurações Avançadas
@@ -81,7 +84,19 @@ function TradingViewWidget() {
           "popup_height": "650",
           
           // 📈 Configurações do gráfico
-          "studies_overrides": {},
+          "studies_overrides": {
+            // Ajustar cores do volume
+            "volume.volume.color.0": "#ef5350",       // Vermelho para baixa
+            "volume.volume.color.1": "#26a69a",       // Verde para alta
+            "volume.volume.transparency": 50,
+            "volume.volume ma.color": "#FF6D00",
+            "volume.volume ma.transparency": 30,
+            "volume.volume ma.linewidth": 2,
+            "volume.show ma": false,
+            // Altura inicial do painel de volume (~20% da altura total)
+            "volume.pane.height": 0.2
+          },
+          
           "overrides": {
             // Cores dos candles
             "mainSeriesProperties.candleStyle.upColor": "#26a69a",
@@ -101,11 +116,19 @@ function TradingViewWidget() {
           },
           
           // 🔧 Outras configurações
-          "disabled_features": [],
+          "disabled_features": [
+            "use_localstorage_for_settings"    // Evitar conflitos de cache
+          ],
           "enabled_features": [
             "study_templates",                 // Templates de estudos
             "side_toolbar_in_fullscreen_mode", // Toolbar no fullscreen
-            "header_in_fullscreen_mode"        // Header no fullscreen
+            "header_in_fullscreen_mode",       // Header no fullscreen
+            "header_widget",                   // Widget do header
+            "timeframes_toolbar",              // Toolbar de timeframes
+            "edit_buttons_in_legend",          // Botões de edição na legenda
+            "context_menus",                   // Menus de contexto
+            "control_bar",                     // Barra de controle
+            "timeframes_toolbar"               // Toolbar de períodos
           ],
         });
       }
