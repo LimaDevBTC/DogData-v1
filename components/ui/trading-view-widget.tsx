@@ -59,7 +59,7 @@ function TradingViewWidget() {
           
           // 🛠️ Ferramentas e Funcionalidades
           "enable_publishing": false,          // Não permitir publicar ideias
-          "hide_top_toolbar": false,           // Mostrar toolbar superior
+          "hide_top_toolbar": true,            // Esconder toolbar superior (barra cinza vazia) ⭐
           "hide_side_toolbar": false,          // Mostrar barra lateral (ferramentas de desenho) ⭐
           "hide_legend": false,                // Mostrar legenda
           "save_image": true,                  // Permitir salvar imagem
