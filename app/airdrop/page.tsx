@@ -530,7 +530,7 @@ export default function AirdropPage() {
         </CardContent>
       </Card>
 
-      <SectionDivider title="Behavioral Profiles" icon={BarChart3} badge="FORENSIC" />
+      <SectionDivider title="Behavioral Profiles" icon={BarChart3} />
 
       {/* Behavior Lists */}
       <Card variant="glass">
