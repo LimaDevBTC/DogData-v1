@@ -619,9 +619,11 @@ app.get('/api/forensic/profiles', (req, res) => {
         const paginatedProfiles = filteredProfiles.slice(startIndex, endIndex);
         
         res.json({
+            success: true,
             profiles: paginatedProfiles,
             totalProfiles: totalProfiles,
             totalPages: totalPages,
+            totalCount: totalProfiles,
             currentPage: currentPage,
             filters: { pattern, minScore: minScoreNum, maxScore: maxScoreNum },
             timestamp: behavioralAnalysis.timestamp,

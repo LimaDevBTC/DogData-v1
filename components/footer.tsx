@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { 
   Heart, 
   Github, 
@@ -14,6 +15,7 @@ import {
 
 export default function Footer() {
   const currentYear = new Date().getFullYear()
+  const [showTransactionsComingSoon, setShowTransactionsComingSoon] = useState(false)
 
   const handleDonate = () => {
     const donateAddress = "bc1qyouraddresshere"
@@ -92,6 +94,26 @@ export default function Footer() {
                 <a href="#network" className="text-gray-300 hover:text-orange-400 transition-all duration-300 flex items-center group py-2 hover:bg-orange-500/10">
                   <div className="w-2 h-2 bg-orange-400 mr-4 group-hover:scale-150 group-hover:shadow-lg group-hover:shadow-orange-400/50 transition-all duration-300"></div>
                   <span className="font-mono text-sm font-medium tracking-wide">NETWORK</span>
+                </a>
+              </li>
+              <li>
+                <a 
+                  href="#" 
+                  onClick={(e) => {
+                    e.preventDefault()
+                    setShowTransactionsComingSoon(true)
+                    setTimeout(() => setShowTransactionsComingSoon(false), 2000)
+                  }}
+                  className={`transition-colors duration-300 flex items-center group py-2 ${
+                    showTransactionsComingSoon 
+                      ? 'text-orange-400 bg-orange-500/10' 
+                      : 'text-gray-300 hover:text-orange-400 hover:bg-orange-500/10'
+                  }`}
+                >
+                  <div className="w-2 h-2 bg-orange-400 mr-4 flex-shrink-0 group-hover:scale-150 group-hover:shadow-lg group-hover:shadow-orange-400/50 transition-all duration-300"></div>
+                  <span className="font-mono text-sm font-medium tracking-wide inline-block w-[130px]">
+                    {showTransactionsComingSoon ? 'COMING SOON' : 'TRANSACTIONS'}
+                  </span>
                 </a>
               </li>
             </ul>

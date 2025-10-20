@@ -36,6 +36,7 @@ export default function HoldersPage() {
   const [totalHolders, setTotalHolders] = useState(0)
   const [goToPage, setGoToPage] = useState('')
   const [searchTerm, setSearchTerm] = useState("")
+  const [clickedDetailsIndex, setClickedDetailsIndex] = useState<number | null>(null)
   
   // SSE states
   const [isSSEConnected, setIsSSEConnected] = useState(false)
@@ -377,10 +378,19 @@ export default function HoldersPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="btn-sharp"
-                        title="Coming Soon"
+                        className={`btn-sharp w-[130px] transition-colors duration-300 ${
+                          clickedDetailsIndex === index 
+                            ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' 
+                            : ''
+                        }`}
+                        onClick={() => {
+                          setClickedDetailsIndex(index)
+                          setTimeout(() => setClickedDetailsIndex(null), 2000)
+                        }}
                       >
-                        View Details
+                        <span className="whitespace-nowrap block">
+                          {clickedDetailsIndex === index ? 'COMING SOON' : 'View Details'}
+                        </span>
                       </Button>
                     </td>
                   </tr>

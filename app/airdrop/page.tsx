@@ -80,6 +80,8 @@ export default function AirdropPage() {
   const [searchAddress, setSearchAddress] = useState("")
   const [goToPage, setGoToPage] = useState('')
   const [searchResult, setSearchResult] = useState<BehavioralProfile | null>(null)
+  const [isUpdating, setIsUpdating] = useState(false)
+  const [initialLoad, setInitialLoad] = useState(true)
 
   const ITEMS_PER_PAGE = 50
 
@@ -128,8 +130,23 @@ export default function AirdropPage() {
   const handleGoToPage = () => {
     const page = parseInt(goToPage)
     if (page >= 1 && page <= totalPages) {
+      // Preservar posição de scroll
+      const currentScrollPosition = window.scrollY
       setCurrentPage(page)
       setGoToPage('')
+      // Restaurar posição após atualização
+      setTimeout(() => {
+        window.scrollTo(0, currentScrollPosition)
+      }, 100)
+    }
+  }
+
+  // Função para validar input (apenas números)
+  const handleGoToPageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    // Permitir apenas números e campo vazio
+    if (value === '' || /^\d+$/.test(value)) {
+      setGoToPage(value)
     }
   }
 
@@ -137,6 +154,7 @@ export default function AirdropPage() {
     if (currentList === 'all') {
       return Object.values(forensicStats?.by_pattern || {}).reduce((sum, val) => sum + val, 0)
     } else if (currentList === 'accumulators') {
+      // Accumulators: Qualquer pessoa que comprou mais DOG (adicionou ao airdrop)
       return (forensicStats?.by_pattern.mega_whale || 0) + 
              (forensicStats?.by_pattern.whale || 0) + 
              (forensicStats?.by_pattern.mega_accumulator || 0) + 
@@ -172,7 +190,13 @@ export default function AirdropPage() {
 
   const fetchData = async () => {
     try {
-      setLoading(true)
+      // Só mostrar loading na primeira carga
+      if (initialLoad) {
+        setLoading(true)
+      } else {
+        // Para atualizações subsequentes, apenas indicar que está atualizando
+        setIsUpdating(true)
+      }
       
       // Fetch summary
       const summaryResponse = await fetch('http://localhost:3001/api/airdrop/summary')
@@ -199,6 +223,7 @@ export default function AirdropPage() {
         // Map consolidated categories to backend patterns
         let patterns = []
         if (currentList === 'accumulators') {
+          // Accumulators: Qualquer pessoa que comprou mais DOG (adicionou ao airdrop)
           patterns = ['mega_whale', 'whale', 'mega_accumulator', 'strong_accumulator', 'accumulator']
         } else if (currentList === 'partial_sellers') {
           patterns = ['strong_holder', 'moderate_holder', 'weak_holder']
@@ -256,8 +281,23 @@ export default function AirdropPage() {
     } catch (error) {
       console.error('Error fetching data:', error)
     } finally {
-      setLoading(false)
+      if (initialLoad) {
+        setLoading(false)
+        setInitialLoad(false)
+      }
+      setIsUpdating(false)
     }
+  }
+
+  // Função para mudar de lista de forma suave
+  const handleListChange = (newList: BehaviorList) => {
+    setCurrentList(newList)
+    setCurrentPage(1) // Reset para primeira página
+  }
+
+  // Função para mudar de página de forma suave
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
   }
 
   const searchRecipient = async () => {
@@ -357,6 +397,22 @@ export default function AirdropPage() {
 
         <Card variant="glass">
           <CardHeader className="pb-1">
+            <CardTitle className="text-cyan-400 text-sm">
+              Current Holders
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-1">
+            <div className="text-2xl font-bold text-white font-mono">
+              {formatNumber(forensicStats?.still_holding || 0)}
+            </div>
+            <p className="text-gray-400 text-xs font-mono mt-1">
+              Still holding original airdrop tokens
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card variant="glass">
+          <CardHeader className="pb-1">
             <CardTitle className="text-purple-400 text-sm">
               Diamond Hands
             </CardTitle>
@@ -366,7 +422,7 @@ export default function AirdropPage() {
               {formatNumber(forensicStats?.diamond_hands || 0)}
             </div>
             <p className="text-gray-400 text-xs font-mono mt-1">
-              Never moved (95%+)
+              Kept exactly airdrop amount
             </p>
           </CardContent>
         </Card>
@@ -388,7 +444,7 @@ export default function AirdropPage() {
               )}
             </div>
             <p className="text-gray-400 text-xs font-mono mt-1">
-              Bought more
+              Added any amount to airdrop
             </p>
           </CardContent>
         </Card>
@@ -429,22 +485,6 @@ export default function AirdropPage() {
             </div>
             <p className="text-gray-400 text-xs font-mono mt-1">
               Sold 50%-90% of airdrop
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card variant="glass">
-          <CardHeader className="pb-1">
-            <CardTitle className="text-cyan-400 text-sm">
-              Current Holders
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-1">
-            <div className="text-2xl font-bold text-white font-mono">
-              {formatNumber(forensicStats?.still_holding || 0)}
-            </div>
-            <p className="text-gray-400 text-xs font-mono mt-1">
-              Still holding DOG
             </p>
           </CardContent>
         </Card>
@@ -553,7 +593,7 @@ export default function AirdropPage() {
                 // All Recipients = soma de todos os padrões
                 count = Object.values(forensicStats?.by_pattern || {}).reduce((sum, val) => sum + val, 0)
               } else if (list.key === 'accumulators') {
-                // All Accumulators = mega_whale + whale + mega_accumulator + strong_accumulator + accumulator
+                // Accumulators: Qualquer pessoa que comprou mais DOG (adicionou ao airdrop)
                 count = (forensicStats?.by_pattern.mega_whale || 0) + 
                        (forensicStats?.by_pattern.whale || 0) + 
                        (forensicStats?.by_pattern.mega_accumulator || 0) + 
@@ -584,10 +624,7 @@ export default function AirdropPage() {
                       ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' 
                       : 'text-gray-300 hover:text-white hover:bg-gray-800/30 border border-transparent hover:border-gray-700/30'
                   }`}
-                  onClick={() => {
-                    setCurrentList(list.key as BehaviorList)
-                    setCurrentPage(1)
-                  }}
+                  onClick={() => handleListChange(list.key as BehaviorList)}
                 >
                   <div className="flex items-center justify-between w-full">
                     <span className="text-sm font-mono">{list.name}</span>
@@ -624,8 +661,9 @@ export default function AirdropPage() {
           </div>
 
           {/* Profiles Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="content-container">
+            <div className={`overflow-x-auto transition-opacity duration-300 ${isUpdating ? 'opacity-90' : 'opacity-100'}`}>
+              <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-700/50">
                   <th className="text-left py-3 px-4 text-orange-400 font-mono text-sm">#</th>
@@ -639,7 +677,10 @@ export default function AirdropPage() {
               </thead>
               <tbody>
                 {profiles.map((profile, index) => (
-                  <tr key={profile.address} className="table-row">
+                  <tr 
+                    key={profile.address} 
+                    className="table-row"
+                  >
                     <td className="py-3 px-4">
                       <span className="text-white font-mono font-bold">
                         #{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}
@@ -691,7 +732,8 @@ export default function AirdropPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
           </div>
 
           {/* Pagination */}
@@ -700,7 +742,7 @@ export default function AirdropPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
               disabled={currentPage === 1}
               className="btn-sharp"
             >
@@ -718,7 +760,7 @@ export default function AirdropPage() {
                   <Button
                     variant={currentPage === page ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setCurrentPage(page as number)}
+                    onClick={() => handlePageChange(page as number)}
                     className={`btn-sharp ${
                       currentPage === page 
                         ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' 
@@ -735,7 +777,7 @@ export default function AirdropPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+              onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage === totalPages}
               className="btn-sharp"
             >
@@ -744,18 +786,22 @@ export default function AirdropPage() {
 
             {/* Go to Page */}
             <div className="flex items-center space-x-2 ml-4">
-              <span className="text-gray-400 text-sm font-mono">Go to</span>
               <Input
-                type="number"
-                min="1"
-                max={totalPages}
+                type="text"
                 value={goToPage}
-                onChange={(e) => setGoToPage(e.target.value)}
+                onChange={handleGoToPageChange}
                 onKeyPress={(e) => e.key === 'Enter' && handleGoToPage()}
-                className="w-16 h-8 text-center text-sm"
-                placeholder="Page"
+                className="w-24 h-8 text-center text-sm font-mono bg-gray-800/30"
+                placeholder="Go to..."
               />
-              <span className="text-gray-400 text-sm font-mono">Page</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleGoToPage}
+                className="btn-sharp h-8"
+              >
+                Go
+              </Button>
             </div>
           </div>
         </CardContent>

@@ -58,7 +58,7 @@
   
   /* Grid Pattern */
   --grid-size: 64px;
-  --grid-color: rgba(247, 147, 26, 0.08);
+  --grid-color: rgba(247, 147, 26, 0.03);
 }
 
 * {
@@ -100,7 +100,7 @@ body::before {
   background-size: 
     var(--grid-size) var(--grid-size),
     var(--grid-size) var(--grid-size);
-  opacity: 0.6;
+  opacity: 0.4;
   mask-image: radial-gradient(ellipse 90% 80% at 50% 40%, black 60%, transparent 100%);
   -webkit-mask-image: radial-gradient(ellipse 90% 80% at 50% 40%, black 60%, transparent 100%);
 }
@@ -407,4 +407,41 @@ header::before {
   100% {
     background-position: -200% 0;
   }
+}
+
+/* Transições suaves para tabelas */
+.table-row {
+  transition: all 0.15s ease-in-out;
+}
+
+.table-row:hover {
+  background-color: rgba(249, 115, 22, 0.05);
+}
+
+/* Prevent layout shift durante updates */
+.content-container {
+  min-height: 600px;
+  will-change: opacity;
+}
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Prevent content jump durante page transitions */
+.container-fluid {
+  min-height: calc(100vh - 64px);
+  will-change: opacity;
+}
+
+/* Page transition wrapper */
+main {
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Sharp buttons - no border radius */
+.btn-sharp {
+  border-radius: 0 !important;
 }

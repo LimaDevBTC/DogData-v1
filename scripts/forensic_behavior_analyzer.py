@@ -135,14 +135,8 @@ def classify_behavior(profile):
     # Diamond Score (0-100)
     diamond_score = 0
     
-    # DIAMOND HANDS PRIMEIRO (mantém 95%+ do airdrop original)
-    if retention >= 95 and change_pct < 10:  # Mantém 95%+ E não acumulou muito
-        profile['behavior_pattern'] = 'diamond_hands'
-        profile['behavior_category'] = 'Diamond Hands (95%+)'
-        diamond_score = 100
-        
-    # Classificação por mudança percentual (ACUMULAÇÃO)
-    elif change_pct >= 1000:  # 10x ou mais
+    # ACCUMULATORS: Qualquer um que comprou mais (change_pct > 0)
+    if change_pct >= 1000:  # 10x ou mais
         profile['behavior_pattern'] = 'mega_whale'
         profile['behavior_category'] = 'Mega Whale (10x+)'
         diamond_score = 90
@@ -162,15 +156,16 @@ def classify_behavior(profile):
         profile['behavior_category'] = 'Strong Accumulator (50%+)'
         diamond_score = 75
         
-    elif change_pct >= 10:  # 10%-50%
+    elif change_pct > 0:  # Qualquer acumulação positiva
         profile['behavior_pattern'] = 'accumulator'
-        profile['behavior_category'] = 'Accumulator (10%+)'
+        profile['behavior_category'] = 'Accumulator (Added Any Amount)'
         diamond_score = 70
         
-    elif change_pct >= 0:  # 0%-10%
-        profile['behavior_pattern'] = 'holder'
-        profile['behavior_category'] = 'Holder (Stable)'
-        diamond_score = 65
+    # DIAMOND HANDS: Manteve exatamente o airdrop (não comprou nem vendeu)
+    elif change_pct == 0:  # Manteve exatamente 100%
+        profile['behavior_pattern'] = 'diamond_hands'
+        profile['behavior_category'] = 'Diamond Hands (Kept Exact Airdrop)'
+        diamond_score = 100
         
     elif retention >= 90:  # Perdeu até 10%
         profile['behavior_pattern'] = 'strong_holder'
@@ -323,8 +318,8 @@ def save_behavioral_analysis(profiles, stats, forensic_data):
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     
     # Top performers
-    top_diamond_hands = [p for p in profiles if p['diamond_score'] >= 95][:50]
-    top_accumulators = sorted(profiles, key=lambda x: x['percentage_change'], reverse=True)[:50]
+    top_diamond_hands = [p for p in profiles if p['behavior_pattern'] == 'diamond_hands'][:50]
+    top_accumulators = [p for p in profiles if p['behavior_pattern'] in ['mega_whale', 'whale', 'mega_accumulator', 'strong_accumulator', 'accumulator']][:50]
     biggest_dumpers = sorted([p for p in profiles if p['is_dumping']], 
                             key=lambda x: x['retention_rate'])[:50]
     
@@ -347,8 +342,12 @@ def save_behavioral_analysis(profiles, stats, forensic_data):
     
     # Mostrar top insights
     print(f"\nTOP 10 DIAMOND HANDS:")
-    for i, p in enumerate(profiles[:10]):
+    for i, p in enumerate(top_diamond_hands[:10]):
         print(f"   #{i+1}: {p['address'][:30]}... - Score: {p['diamond_score']} - {p['behavior_category']}")
+    
+    print(f"\nTOP 10 ACCUMULATORS:")
+    for i, p in enumerate(top_accumulators[:10]):
+        print(f"   #{i+1}: {p['address'][:30]}... - Change: +{p['percentage_change']:.1f}% - {p['behavior_category']}")
 
 def main():
     print("="*80)
