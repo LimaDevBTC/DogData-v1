@@ -15,10 +15,10 @@ export default function TransactionsPage() {
       {/* Header */}
       <div className="text-center space-y-4">
         <h1 className="text-4xl font-bold text-white font-mono flex items-center justify-center">
-          <Activity className="w-10 h-10 mr-4 text-dog-orange" />
+          <Activity className="w-10 h-10 mr-4 text-orange-400" />
           DOG Transactions
         </h1>
-        <p className="text-dog-gray-400 font-mono text-lg">
+        <p className="text-gray-400 font-mono text-lg">
           Real-time transaction tracking and analysis
         </p>
       </div>
@@ -29,8 +29,8 @@ export default function TransactionsPage() {
           <CardHeader className="text-center pb-4">
             <div className="flex justify-center mb-6">
               <div className="relative">
-                <Clock className="w-24 h-24 text-dog-orange animate-pulse" />
-                <Zap className="w-8 h-8 text-dog-yellow absolute -top-2 -right-2" />
+                <Clock className="w-24 h-24 text-orange-400 animate-pulse" />
+                <Zap className="w-8 h-8 text-yellow-400 absolute -top-2 -right-2" />
               </div>
             </div>
             <CardTitle className="text-3xl font-bold text-white font-mono">
@@ -38,31 +38,31 @@ export default function TransactionsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="text-center space-y-6">
-            <p className="text-dog-gray-400 font-mono text-lg">
+            <p className="text-gray-400 font-mono text-lg">
               Estamos desenvolvendo um sistema avançado de rastreamento de transações DOG
             </p>
             
             <div className="space-y-4 mt-8">
               <div className="flex items-center justify-center space-x-3">
-                <div className="w-2 h-2 bg-dog-green rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 bg-green-400 animate-pulse"></div>
                 <span className="text-white font-mono">Rastreamento em tempo real</span>
               </div>
               <div className="flex items-center justify-center space-x-3">
-                <div className="w-2 h-2 bg-dog-orange rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                <div className="w-2 h-2 bg-orange-400 animate-pulse" style={{ animationDelay: '0.2s' }}></div>
                 <span className="text-white font-mono">Análise detalhada de transferências</span>
               </div>
               <div className="flex items-center justify-center space-x-3">
-                <div className="w-2 h-2 bg-dog-blue rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                <div className="w-2 h-2 bg-blue-400 animate-pulse" style={{ animationDelay: '0.4s' }}></div>
                 <span className="text-white font-mono">Histórico completo de movimentações</span>
               </div>
               <div className="flex items-center justify-center space-x-3">
-                <div className="w-2 h-2 bg-dog-yellow rounded-full animate-pulse" style={{ animationDelay: '0.6s' }}></div>
+                <div className="w-2 h-2 bg-yellow-400 animate-pulse" style={{ animationDelay: '0.6s' }}></div>
                 <span className="text-white font-mono">Identificação de padrões e tendências</span>
               </div>
             </div>
 
-            <div className="mt-8 pt-8 border-t border-dog-gray-700">
-              <Badge variant="outline" className="text-dog-orange border-dog-orange px-4 py-2 text-sm">
+            <div className="mt-8 pt-8 border-t border-gray-700/50">
+              <Badge variant="outline" className="text-orange-400 border-orange-400 px-4 py-2 text-sm">
                 <TrendingUp className="w-4 h-4 mr-2" />
                 Em desenvolvimento ativo
               </Badge>

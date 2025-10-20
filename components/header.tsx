@@ -70,7 +70,7 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
                 <button
                   key={item.name}
                   onClick={() => setCurrentPage(item.page)}
-                  className={`flex items-center px-4 py-2 text-sm font-medium transition-all duration-300 ${
+                  className={`flex items-center px-4 py-2 text-sm font-mono font-medium tracking-wide transition-all duration-300 ${
                     isActive
                       ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
                       : 'text-gray-300 hover:text-white hover:bg-gray-800/30 border border-transparent hover:border-gray-700/30'
@@ -93,11 +93,11 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
                 navigator.clipboard.writeText(donateAddress)
                 alert("🐕 Endereço de doação copiado!\n\nObrigado por apoiar a comunidade DOG! 🧡")
               }}
-              className="hidden sm:flex items-center px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium transition-all duration-300 shadow-lg shadow-orange-500/20 hover:shadow-orange-500/40 hover:scale-105 group"
+              className="hidden sm:flex items-center px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-mono font-medium tracking-wide transition-all duration-300 shadow-lg shadow-orange-500/20 hover:shadow-orange-500/40 hover:scale-105 group"
               title="Support DOG Data"
             >
               <Heart className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform duration-300" />
-              <span className="text-sm font-semibold">Donate</span>
+              <span className="text-sm font-semibold tracking-wide">Donate</span>
             </button>
             
             <div className="px-3 py-2 bg-gray-800/50 border border-gray-700/50 flex items-center space-x-2">
@@ -125,7 +125,7 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
               navigator.clipboard.writeText(donateAddress)
               alert("🐕 Endereço de doação copiado!\n\nObrigado por apoiar a comunidade DOG! 🧡")
             }}
-            className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold transition-all duration-300 w-full shadow-lg shadow-orange-500/30"
+            className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-mono font-semibold tracking-wide transition-all duration-300 w-full shadow-lg shadow-orange-500/30"
           >
             <Heart className="w-5 h-5 mr-2" />
             Support DOG Data
@@ -139,7 +139,7 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
               <button
                 key={item.name}
                 onClick={() => setCurrentPage(item.page)}
-                className={`flex items-center px-4 py-3 text-base font-medium transition-all duration-300 w-full text-left ${
+                className={`flex items-center px-4 py-3 text-base font-mono font-medium tracking-wide transition-all duration-300 w-full text-left ${
                   isActive
                     ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
                     : 'text-gray-300 hover:text-white hover:bg-gray-800/30 border border-transparent hover:border-gray-700/30'

@@ -214,8 +214,8 @@ export default function AirdropPage() {
           const allProfiles = []
           for (const pattern of patterns) {
             const patternParams = new URLSearchParams({
-              page: 1,
-              limit: 1000, // Buscar todos para combinar
+              page: '1',
+              limit: '1000', // Buscar todos para combinar
               pattern: pattern
             })
             const patternResponse = await fetch(`${url}?${patternParams}`)
@@ -297,15 +297,13 @@ export default function AirdropPage() {
   const getChangeIndicator = (change: number) => {
     if (change > 0) {
       return (
-        <span className="text-green-400 flex items-center">
-          <TrendingUp className="w-4 h-4 mr-1" />
+        <span className="text-green-400 font-mono">
           +{change.toFixed(0)}%
         </span>
       )
     } else if (change < 0) {
       return (
-        <span className="text-red-400 flex items-center">
-          <TrendingDown className="w-4 h-4 mr-1" />
+        <span className="text-red-400 font-mono">
           {change.toFixed(0)}%
         </span>
       )
@@ -331,11 +329,10 @@ export default function AirdropPage() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="text-center space-y-4">
-        <h1 className="text-4xl font-bold text-white font-mono flex items-center justify-center">
-          <Gift className="w-10 h-10 mr-4 text-dog-orange" />
+        <h1 className="text-4xl font-bold text-white font-mono text-center">
           Airdrop Analysis
         </h1>
-        <p className="text-dog-gray-400 font-mono text-lg">
+        <p className="text-gray-400 font-mono text-lg">
           Complete forensic analysis of DOG airdrop recipients
         </p>
       </div>
@@ -344,8 +341,7 @@ export default function AirdropPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 xl:grid-cols-7 gap-3">
         <Card variant="glass" className="glow-effect">
           <CardHeader className="pb-1">
-            <CardTitle className="text-dog-orange text-sm flex items-center">
-              <Users className="w-4 h-4 mr-1" />
+            <CardTitle className="text-orange-400 text-sm">
               Total Recipients
             </CardTitle>
           </CardHeader>
@@ -353,7 +349,7 @@ export default function AirdropPage() {
             <div className="text-2xl font-bold text-white font-mono">
               {formatNumber(forensicStats?.total_analyzed || 0)}
             </div>
-            <p className="text-dog-gray-400 text-xs font-mono mt-1">
+            <p className="text-gray-400 text-xs font-mono mt-1">
               Airdrop recipients
             </p>
           </CardContent>
@@ -361,8 +357,7 @@ export default function AirdropPage() {
 
         <Card variant="glass">
           <CardHeader className="pb-1">
-            <CardTitle className="text-purple-400 text-sm flex items-center">
-              <Trophy className="w-4 h-4 mr-1" />
+            <CardTitle className="text-purple-400 text-sm">
               Diamond Hands
             </CardTitle>
           </CardHeader>
@@ -370,7 +365,7 @@ export default function AirdropPage() {
             <div className="text-2xl font-bold text-white font-mono">
               {formatNumber(forensicStats?.diamond_hands || 0)}
             </div>
-            <p className="text-dog-gray-400 text-xs font-mono mt-1">
+            <p className="text-gray-400 text-xs font-mono mt-1">
               Never moved (95%+)
             </p>
           </CardContent>
@@ -378,8 +373,7 @@ export default function AirdropPage() {
 
         <Card variant="glass">
           <CardHeader className="pb-1">
-            <CardTitle className="text-green-400 text-sm flex items-center">
-              <TrendingUp className="w-4 h-4 mr-1" />
+            <CardTitle className="text-green-400 text-sm">
               Accumulators
             </CardTitle>
           </CardHeader>
@@ -393,7 +387,7 @@ export default function AirdropPage() {
                 (forensicStats?.by_pattern.accumulator || 0)
               )}
             </div>
-            <p className="text-dog-gray-400 text-xs font-mono mt-1">
+            <p className="text-gray-400 text-xs font-mono mt-1">
               Bought more
             </p>
           </CardContent>
@@ -401,8 +395,7 @@ export default function AirdropPage() {
 
         <Card variant="glass">
           <CardHeader className="pb-1">
-            <CardTitle className="text-orange-400 text-sm flex items-center">
-              <TrendingDown className="w-4 h-4 mr-1" />
+            <CardTitle className="text-orange-400 text-sm">
               Partial Sellers
             </CardTitle>
           </CardHeader>
@@ -414,7 +407,7 @@ export default function AirdropPage() {
                 (forensicStats?.by_pattern.weak_holder || 0)
               )}
             </div>
-            <p className="text-dog-gray-400 text-xs font-mono mt-1">
+            <p className="text-gray-400 text-xs font-mono mt-1">
               Sold 10%-50% of airdrop
             </p>
           </CardContent>
@@ -422,8 +415,7 @@ export default function AirdropPage() {
 
         <Card variant="glass">
           <CardHeader className="pb-1">
-            <CardTitle className="text-red-400 text-sm flex items-center">
-              <AlertTriangle className="w-4 h-4 mr-1" />
+            <CardTitle className="text-red-400 text-sm">
               Heavy Sellers
             </CardTitle>
           </CardHeader>
@@ -435,7 +427,7 @@ export default function AirdropPage() {
                 (forensicStats?.by_pattern.almost_sold || 0)
               )}
             </div>
-            <p className="text-dog-gray-400 text-xs font-mono mt-1">
+            <p className="text-gray-400 text-xs font-mono mt-1">
               Sold 50%-90% of airdrop
             </p>
           </CardContent>
@@ -443,8 +435,7 @@ export default function AirdropPage() {
 
         <Card variant="glass">
           <CardHeader className="pb-1">
-            <CardTitle className="text-cyan-400 text-sm flex items-center">
-              <Users className="w-4 h-4 mr-1" />
+            <CardTitle className="text-cyan-400 text-sm">
               Current Holders
             </CardTitle>
           </CardHeader>
@@ -452,7 +443,7 @@ export default function AirdropPage() {
             <div className="text-2xl font-bold text-white font-mono">
               {formatNumber(forensicStats?.still_holding || 0)}
             </div>
-            <p className="text-dog-gray-400 text-xs font-mono mt-1">
+            <p className="text-gray-400 text-xs font-mono mt-1">
               Still holding DOG
             </p>
           </CardContent>
@@ -460,8 +451,7 @@ export default function AirdropPage() {
 
         <Card variant="glass">
           <CardHeader className="pb-1">
-            <CardTitle className="text-red-200 text-sm flex items-center">
-              <TrendingDown className="w-4 h-4 mr-1" />
+            <CardTitle className="text-red-200 text-sm">
               Paper Hands
             </CardTitle>
           </CardHeader>
@@ -469,7 +459,7 @@ export default function AirdropPage() {
             <div className="text-2xl font-bold text-white font-mono">
               {formatNumber(forensicStats?.by_pattern.paper_hands || 0)}
             </div>
-            <p className="text-dog-gray-400 text-xs font-mono mt-1">
+            <p className="text-gray-400 text-xs font-mono mt-1">
               Sold everything
             </p>
           </CardContent>
@@ -481,8 +471,7 @@ export default function AirdropPage() {
       {/* Address Search */}
       <Card variant="glass">
         <CardHeader>
-          <CardTitle className="text-white text-xl flex items-center">
-            <Search className="w-6 h-6 mr-3" />
+          <CardTitle className="text-white text-xl">
             Search Recipient Profile
           </CardTitle>
         </CardHeader>
@@ -493,43 +482,42 @@ export default function AirdropPage() {
               value={searchAddress}
               onChange={(e) => setSearchAddress(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && searchRecipient()}
-              className="flex-1 bg-dog-gray-800 border-dog-gray-700 text-white"
+              className="flex-1 bg-transparent border-gray-700/50 text-white"
             />
             <Button onClick={searchRecipient} className="btn-sharp">
-              <Search className="w-4 h-4 mr-2" />
               Search
             </Button>
           </div>
           
           {searchResult && (
-            <div className="mt-4 p-4 bg-dog-gray-800 border border-dog-gray-700 rounded">
+            <div className="mt-4 p-4 bg-transparent border border-gray-700/50">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-dog-gray-400 text-sm">Address</p>
+                  <p className="text-gray-400 text-sm">Address</p>
                   <code className="text-white text-xs">{searchResult.address}</code>
                 </div>
                 <div>
-                  <p className="text-dog-gray-400 text-sm">Airdrop Amount</p>
+                  <p className="text-gray-400 text-sm">Airdrop Amount</p>
                   <p className="text-white font-mono">{formatDOG(searchResult.airdrop_amount)}</p>
                 </div>
                 <div>
-                  <p className="text-dog-gray-400 text-sm">Current Balance</p>
+                  <p className="text-gray-400 text-sm">Current Balance</p>
                   <p className="text-white font-mono">{formatDOG(searchResult.current_balance)}</p>
                 </div>
                 <div>
-                  <p className="text-dog-gray-400 text-sm">Change</p>
+                  <p className="text-gray-400 text-sm">Change</p>
                   {getChangeIndicator(searchResult.percentage_change)}
                 </div>
                 <div>
-                  <p className="text-dog-gray-400 text-sm">Behavior</p>
-                  <Badge variant="outline" className="text-dog-orange border-dog-orange">
+                  <p className="text-gray-400 text-sm">Behavior</p>
+                  <span className="text-orange-400 text-sm font-mono">
                     {searchResult.behavior_category}
-                  </Badge>
+                  </span>
                 </div>
               </div>
               {searchResult.insights.length > 0 && (
                 <div className="mt-4">
-                  <p className="text-dog-gray-400 text-sm mb-2">Insights:</p>
+                  <p className="text-gray-400 text-sm mb-2">Insights:</p>
                   <ul className="space-y-1">
                     {searchResult.insights.map((insight, idx) => (
                       <li key={idx} className="text-white text-sm font-mono">• {insight}</li>
@@ -547,11 +535,10 @@ export default function AirdropPage() {
       {/* Behavior Lists */}
       <Card variant="glass">
         <CardHeader>
-          <CardTitle className="text-white text-xl flex items-center">
-            <Filter className="w-6 h-6 mr-3" />
+          <CardTitle className="text-white text-xl">
             Behavioral Lists
           </CardTitle>
-          <p className="text-dog-gray-400 text-sm mt-2">
+          <p className="text-gray-400 text-sm mt-2">
             Complete lists of recipients by behavioral pattern
           </p>
         </CardHeader>
@@ -594,40 +581,39 @@ export default function AirdropPage() {
                   variant={isActive ? "default" : "outline"}
                   className={`flex items-center justify-between p-3 h-auto ${
                     isActive 
-                      ? 'bg-dog-orange text-white' 
-                      : 'bg-dog-gray-800 text-dog-gray-300 hover:bg-dog-gray-700'
+                      ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' 
+                      : 'text-gray-300 hover:text-white hover:bg-gray-800/30 border border-transparent hover:border-gray-700/30'
                   }`}
                   onClick={() => {
                     setCurrentList(list.key as BehaviorList)
                     setCurrentPage(1)
                   }}
                 >
-                  <div className="flex items-center">
-                    <Icon className={`w-4 h-4 mr-2 ${isActive ? 'text-white' : list.color}`} />
+                  <div className="flex items-center justify-between w-full">
                     <span className="text-sm font-mono">{list.name}</span>
+                    <span className="text-xs font-mono text-gray-400">
+                      {formatNumber(count)}
+                    </span>
                   </div>
-                  <Badge variant="secondary" className="ml-2 text-xs">
-                    {formatNumber(count)}
-                  </Badge>
                 </Button>
               )
             })}
           </div>
 
           {/* Current List Info */}
-          <div className="mb-4 p-4 bg-dog-gray-800 rounded border border-dog-gray-700">
+          <div className="mb-4 p-4 bg-transparent border border-gray-700/50">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-white font-mono text-lg">
                   {behaviorLists.find(l => l.key === currentList)?.name}
                 </h3>
-                <p className="text-dog-gray-400 text-sm">
+                <p className="text-gray-400 text-sm">
                   Showing {formatNumber(profiles.length)} of {formatNumber(getTotalCount())} recipients
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-dog-gray-400 text-sm">Page {currentPage} of {totalPages}</p>
-                <p className="text-dog-orange text-sm font-mono">
+                <p className="text-gray-400 text-sm">Page {currentPage} of {totalPages}</p>
+                <p className="text-orange-400 text-sm font-mono">
                   {formatNumber((currentPage - 1) * ITEMS_PER_PAGE + 1)} - {formatNumber(Math.min(
                     currentPage * ITEMS_PER_PAGE, 
                     getTotalCount()
@@ -641,14 +627,14 @@ export default function AirdropPage() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-dog-gray-700">
-                  <th className="text-left py-3 px-4 text-dog-orange font-mono text-sm">#</th>
-                  <th className="text-left py-3 px-4 text-dog-orange font-mono text-sm">Address</th>
-                  <th className="text-right py-3 px-4 text-dog-orange font-mono text-sm">Airdrop</th>
-                  <th className="text-right py-3 px-4 text-dog-orange font-mono text-sm">Current</th>
-                  <th className="text-center py-3 px-4 text-dog-orange font-mono text-sm">Change</th>
-                  <th className="text-left py-3 px-4 text-dog-orange font-mono text-sm">Behavior</th>
-                  <th className="text-center py-3 px-4 text-dog-orange font-mono text-sm">Actions</th>
+                <tr className="border-b border-gray-700/50">
+                  <th className="text-left py-3 px-4 text-orange-400 font-mono text-sm">#</th>
+                  <th className="text-left py-3 px-4 text-orange-400 font-mono text-sm">Address</th>
+                  <th className="text-right py-3 px-4 text-orange-400 font-mono text-sm">Airdrop</th>
+                  <th className="text-right py-3 px-4 text-orange-400 font-mono text-sm">Current</th>
+                  <th className="text-center py-3 px-4 text-orange-400 font-mono text-sm">Change</th>
+                  <th className="text-left py-3 px-4 text-orange-400 font-mono text-sm">Behavior</th>
+                  <th className="text-center py-3 px-4 text-orange-400 font-mono text-sm">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -675,7 +661,7 @@ export default function AirdropPage() {
                       </div>
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <span className="text-dog-gray-400 font-mono text-sm">
+                      <span className="text-gray-400 font-mono text-sm">
                         {formatDOG(profile.airdrop_amount)}
                       </span>
                     </td>
@@ -688,7 +674,7 @@ export default function AirdropPage() {
                       {getChangeIndicator(profile.percentage_change)}
                     </td>
                     <td className="py-3 px-4">
-                      <span className="text-dog-gray-300 text-xs font-mono">
+                      <span className="text-gray-300 text-xs font-mono">
                         {profile.behavior_category}
                       </span>
                     </td>
@@ -725,7 +711,7 @@ export default function AirdropPage() {
             {getPageNumbers().map((page, index) => (
               <div key={index}>
                 {page === '...' ? (
-                  <span className="px-2 py-1 text-dog-gray-400">
+                  <span className="px-2 py-1 text-gray-400">
                     <MoreHorizontal className="w-4 h-4" />
                   </span>
                 ) : (
@@ -735,8 +721,8 @@ export default function AirdropPage() {
                     onClick={() => setCurrentPage(page as number)}
                     className={`btn-sharp ${
                       currentPage === page 
-                        ? 'bg-dog-orange text-white border-dog-orange' 
-                        : 'hover:bg-dog-gray-700'
+                        ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' 
+                        : 'hover:bg-gray-800/30'
                     }`}
                   >
                     {page}
@@ -758,7 +744,7 @@ export default function AirdropPage() {
 
             {/* Go to Page */}
             <div className="flex items-center space-x-2 ml-4">
-              <span className="text-dog-gray-400 text-sm font-mono">Go to</span>
+              <span className="text-gray-400 text-sm font-mono">Go to</span>
               <Input
                 type="number"
                 min="1"
@@ -769,7 +755,7 @@ export default function AirdropPage() {
                 className="w-16 h-8 text-center text-sm"
                 placeholder="Page"
               />
-              <span className="text-dog-gray-400 text-sm font-mono">Page</span>
+              <span className="text-gray-400 text-sm font-mono">Page</span>
             </div>
           </div>
         </CardContent>

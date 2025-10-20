@@ -82,14 +82,20 @@ export function PriceCards() {
       if (exchange.name === 'MEXC') {
         // MEXC 24hr ticker - tem preço e mudança 24h
         price = parseFloat(data.lastPrice);
-        change24h = parseFloat(data.priceChangePercent);
+        // MEXC retorna priceChangePercent já em formato de porcentagem (ex: 5.23 para 5.23%)
+        // Mas se vier em decimal (ex: 0.0523), multiplicamos por 100
+        const rawChange = parseFloat(data.priceChangePercent);
+        // Se o valor absoluto é menor que 1, provavelmente está em formato decimal
+        change24h = Math.abs(rawChange) < 1 ? rawChange * 100 : rawChange;
         volume24h = parseFloat(data.volume);
       } else if (exchange.name === 'Kraken') {
         // Kraken ticker - tem preço e mudança 24h
         if (data.result && data.result.DOGUSD) {
           const pairData = data.result.DOGUSD;
-          price = parseFloat(pairData.c[0]); // last price
-          change24h = parseFloat(pairData.p[0]); // 24h change
+          price = parseFloat(pairData.c[0]); // last price (close)
+          const openPrice = parseFloat(pairData.o); // open price
+          // Calcular mudança percentual: ((current - open) / open) * 100
+          change24h = ((price - openPrice) / openPrice) * 100;
           volume24h = parseFloat(pairData.v[1]); // 24h volume
         }
       } else if (exchange.name === 'Bitget') {
@@ -236,7 +242,7 @@ export function PriceCards() {
                         }}
                       />
                       <div 
-                        className={`hidden ${exchange.name === 'Gate.io' || exchange.name === 'Bitget' ? 'w-10 h-10' : 'w-14 h-14'} rounded bg-gradient-to-r ${exchange.color} flex items-center justify-center text-white font-bold ${exchange.name === 'Gate.io' || exchange.name === 'Bitget' ? 'text-sm' : 'text-lg'}`}
+                        className={`hidden ${exchange.name === 'Gate.io' || exchange.name === 'Bitget' ? 'w-10 h-10' : 'w-14 h-14'} bg-gradient-to-r ${exchange.color} flex items-center justify-center text-white font-bold ${exchange.name === 'Gate.io' || exchange.name === 'Bitget' ? 'text-sm' : 'text-lg'}`}
                       >
                         {exchange.icon}
                       </div>
@@ -247,7 +253,7 @@ export function PriceCards() {
                   </div>
                   {isSuccess && (
                     <div className="flex items-center">
-                      <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                      <div className="w-2 h-2 bg-green-400"></div>
                     </div>
                   )}
                 </CardTitle>
@@ -260,8 +266,8 @@ export function PriceCards() {
                   </div>
                 ) : isLoading && !priceData ? (
                   <div className="space-y-2">
-                    <div className="h-6 bg-gray-700/50 animate-pulse rounded"></div>
-                    <div className="h-4 bg-gray-700/30 animate-pulse rounded"></div>
+                    <div className="h-6 bg-gray-700/50 animate-pulse"></div>
+                    <div className="h-4 bg-gray-700/30 animate-pulse"></div>
                   </div>
                 ) : isError ? (
                   <div className="space-y-2">

@@ -176,8 +176,8 @@ export default function BitcoinNetworkPage() {
               <div className="text-2xl font-bold bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent font-mono">
                 {formatNumber(stats?.difficulty || 0)}
               </div>
-              <div className="w-full bg-dog-gray-700 rounded-full h-2">
-                <div className="bg-gradient-to-r from-orange-500 to-orange-400 h-2 rounded-full shadow-lg shadow-orange-500/50" style={{ width: '85%' }}></div>
+              <div className="w-full bg-gray-800/50 h-2">
+                <div className="bg-gradient-to-r from-orange-500 to-orange-400 h-2 shadow-lg shadow-orange-500/50" style={{ width: '85%' }}></div>
               </div>
               <p className="text-dog-gray-400 text-sm font-mono">
                 Mining difficulty adjustment
@@ -198,8 +198,8 @@ export default function BitcoinNetworkPage() {
               <div className="text-2xl font-bold bg-gradient-to-r from-green-400 to-green-500 bg-clip-text text-transparent font-mono">
                 {formatNumber(stats?.totalSupply || 0)} / 21M BTC
               </div>
-              <div className="w-full bg-dog-gray-700 rounded-full h-2">
-                <div className="bg-gradient-to-r from-green-500 to-green-400 h-2 rounded-full shadow-lg shadow-green-500/50" style={{ width: '95%' }}></div>
+              <div className="w-full bg-gray-800/50 h-2">
+                <div className="bg-gradient-to-r from-green-500 to-green-400 h-2 shadow-lg shadow-green-500/50" style={{ width: '95%' }}></div>
               </div>
               <p className="text-dog-gray-400 text-sm font-mono">
                 {((stats?.totalSupply || 0) / 21000000 * 100).toFixed(1)}% of total supply mined
@@ -319,7 +319,7 @@ export default function BitcoinNetworkPage() {
             {Array.from({ length: 5 }, (_, i) => (
               <div key={i} className="flex items-center justify-between p-4 bg-dog-gray-800/50 border border-dog-gray-700">
                 <div className="flex items-center space-x-3">
-                  <div className="w-2 h-2 bg-dog-green rounded-full"></div>
+                  <div className="w-2 h-2 bg-green-400"></div>
                   <span className="text-white font-mono">Block #{stats?.blockHeight! - i}</span>
                 </div>
                 <div className="text-dog-gray-400 font-mono text-sm">
