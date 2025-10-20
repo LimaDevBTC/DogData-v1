@@ -6,7 +6,8 @@ import {
   Gift, 
   Activity,
   Wifi,
-  RefreshCw
+  RefreshCw,
+  Heart
 } from "lucide-react"
 
 type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'transactions'
@@ -82,8 +83,23 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
             })}
           </nav>
 
-          {/* Live Status & Refresh */}
+          {/* Live Status, Refresh & Donate */}
           <div className="flex items-center space-x-2">
+            {/* Donate Button */}
+            <button
+              onClick={() => {
+                // Adicione aqui o endereço Bitcoin para doação
+                const donateAddress = "bc1qyouraddresshere"
+                navigator.clipboard.writeText(donateAddress)
+                alert("🐕 Endereço de doação copiado!\n\nObrigado por apoiar a comunidade DOG! 🧡")
+              }}
+              className="hidden sm:flex items-center px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium transition-all duration-300 shadow-lg shadow-orange-500/20 hover:shadow-orange-500/40 hover:scale-105 group"
+              title="Support DOG Data"
+            >
+              <Heart className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform duration-300" />
+              <span className="text-sm font-semibold">Donate</span>
+            </button>
+            
             <div className="px-3 py-2 bg-gray-800/50 border border-gray-700/50 flex items-center space-x-2">
               <div className="w-2 h-2 bg-green-400 animate-pulse"></div>
               <span className="text-green-400 text-xs font-mono font-medium">LIVE</span>
@@ -102,6 +118,19 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
       {/* Mobile Navigation */}
       <div className="md:hidden border-t border-gray-800/50 bg-black/90 backdrop-blur-lg">
         <div className="px-4 pt-3 pb-4 space-y-2">
+          {/* Mobile Donate Button */}
+          <button
+            onClick={() => {
+              const donateAddress = "bc1qyouraddresshere"
+              navigator.clipboard.writeText(donateAddress)
+              alert("🐕 Endereço de doação copiado!\n\nObrigado por apoiar a comunidade DOG! 🧡")
+            }}
+            className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold transition-all duration-300 w-full shadow-lg shadow-orange-500/30"
+          >
+            <Heart className="w-5 h-5 mr-2" />
+            Support DOG Data
+          </button>
+          
           {navigation.map((item) => {
             const isActive = currentPage === item.page
             const Icon = item.icon
