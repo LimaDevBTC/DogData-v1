@@ -15,6 +15,7 @@ interface Holder {
   utxo_count: number;
   first_seen: string;
   last_seen: string;
+  is_airdrop_recipient?: boolean;
 }
 
 interface HoldersResponse {
@@ -37,6 +38,7 @@ export default function HoldersPage() {
   const [goToPage, setGoToPage] = useState('')
   const [searchTerm, setSearchTerm] = useState("")
   const [clickedDetailsIndex, setClickedDetailsIndex] = useState<number | null>(null)
+  const [airdropRecipients, setAirdropRecipients] = useState<Set<string>>(new Set())
   
   // SSE states
   const [isSSEConnected, setIsSSEConnected] = useState(false)
@@ -48,6 +50,23 @@ export default function HoldersPage() {
       minimumFractionDigits: 5,
       maximumFractionDigits: 5
     }).format(num);
+  };
+
+  // Carregar lista de recipients do airdrop
+  const loadAirdropRecipients = async () => {
+    try {
+      const response = await fetch('/api/airdrop/recipients')
+      if (response.ok) {
+        const data = await response.json()
+        if (data.recipients && Array.isArray(data.recipients)) {
+          const addresses = data.recipients.map((r: any) => r.address)
+          setAirdropRecipients(new Set(addresses))
+          console.log(`✅ Loaded ${addresses.length} airdrop recipients`)
+        }
+      }
+    } catch (error) {
+      console.error('Error loading airdrop recipients:', error)
+    }
   };
 
   // Função para gerar números das páginas
@@ -164,6 +183,7 @@ export default function HoldersPage() {
 
   useEffect(() => {
     loadData()
+    loadAirdropRecipients()
   }, [currentPage])
 
   const handlePageChange = (newPage: number) => {
@@ -227,7 +247,7 @@ export default function HoldersPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card variant="glass" className="stagger-item border-orange-500/20 hover:border-orange-500/40 transition-all">
           <CardHeader className="pb-2">
             <CardTitle className="text-dog-orange text-lg flex items-center">
@@ -242,6 +262,21 @@ export default function HoldersPage() {
               </div>
               <TrendIndicator value={1.8} type="percentage" size="sm" />
             </div>
+          </CardContent>
+        </Card>
+
+        <Card variant="glass" className="stagger-item border-purple-500/20 hover:border-purple-500/40 transition-all">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-purple-400 text-lg flex items-center">
+              <MoreHorizontal className="w-5 h-5 mr-2" />
+              Total UTXOs
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-purple-500 bg-clip-text text-transparent font-mono">
+              270,685
+            </div>
+            <p className="text-gray-400 text-xs font-mono mt-1">DOG UTXOs on-chain</p>
           </CardContent>
         </Card>
 
@@ -318,9 +353,16 @@ export default function HoldersPage() {
       {/* Holders Table */}
       <Card variant="glass">
         <CardHeader>
-          <CardTitle className="text-white text-xl">
-            Holders List
-            {loading && <span className="ml-2 text-dog-gray-400">(Loading...)</span>}
+          <CardTitle className="text-white text-xl flex items-center justify-between">
+            <div>
+              Holders List
+              {loading && <span className="ml-2 text-dog-gray-400">(Loading...)</span>}
+            </div>
+            {airdropRecipients.size > 0 && (
+              <div className="text-sm text-gray-400 font-mono">
+                {airdropRecipients.size.toLocaleString()} airdrop recipients loaded
+              </div>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -332,6 +374,7 @@ export default function HoldersPage() {
                   <th className="text-left py-3 px-4 text-dog-orange font-mono text-sm">Address</th>
                   <th className="text-right py-3 px-4 text-dog-orange font-mono text-sm">DOG Balance</th>
                   <th className="text-center py-3 px-4 text-dog-orange font-mono text-sm">UTXOs</th>
+                  <th className="text-center py-3 px-4 text-dog-orange font-mono text-sm">Airdrop</th>
                   <th className="text-center py-3 px-4 text-dog-orange font-mono text-sm">Actions</th>
                 </tr>
               </thead>
@@ -375,6 +418,21 @@ export default function HoldersPage() {
                       </Badge>
                     </td>
                     <td className="py-3 px-4 text-center">
+                      {airdropRecipients.size === 0 ? (
+                        <Badge variant="outline" className="border-gray-500/30 text-gray-500">
+                          ...
+                        </Badge>
+                      ) : airdropRecipients.has(holder.address) ? (
+                        <Badge variant="success" className="bg-green-500/20 text-green-400 border-green-500/30">
+                          YES
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="border-gray-500/50 text-gray-400">
+                          NO
+                        </Badge>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-center">
                       <Button
                         size="sm"
                         variant="outline"
@@ -402,14 +460,12 @@ export default function HoldersPage() {
       </Card>
 
       {/* Pagination */}
-      <Card className="card-sharp card-hover">
-        <CardContent className="p-6">
-          <div className="flex flex-col items-center gap-4">
-            <div className="text-dog-gray-300 font-mono text-sm">
-              Showing {allHolders.length} of {totalHolders.toLocaleString('en-US')} holders
-            </div>
-            
-            <div className="flex items-center justify-center space-x-2">
+      <div className="flex flex-col items-center gap-4">
+        <div className="text-dog-gray-300 font-mono text-sm">
+          Showing {allHolders.length} of {totalHolders.toLocaleString('en-US')} holders
+        </div>
+        
+        <div className="flex items-center justify-center space-x-2">
               {/* Previous Button */}
               <Button
                 variant="outline"
@@ -473,8 +529,6 @@ export default function HoldersPage() {
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }

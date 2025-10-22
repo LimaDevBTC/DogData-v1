@@ -10,17 +10,24 @@ import {
   Globe,
   BarChart3,
   Users,
-  Gift
+  Gift,
+  Activity,
+  CreditCard
 } from "lucide-react"
 
-export default function Footer() {
+type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'transactions' | 'donate'
+
+interface FooterProps {
+  currentPage?: PageType
+  setCurrentPage?: (page: PageType) => void
+}
+
+export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
   const currentYear = new Date().getFullYear()
   const [showTransactionsComingSoon, setShowTransactionsComingSoon] = useState(false)
 
   const handleDonate = () => {
-    const donateAddress = "bc1qyouraddresshere"
-    navigator.clipboard.writeText(donateAddress)
-    alert("🐕 Donation address copied!\n\nThank you for supporting the DOG community! 🧡")
+    setCurrentPage?.('donate')
   }
 
   return (
@@ -73,38 +80,64 @@ export default function Footer() {
             
             <ul className="space-y-4">
               <li>
-                <a href="#overview" className="text-gray-300 hover:text-orange-400 transition-all duration-300 flex items-center group py-2 hover:bg-orange-500/10">
+                <button 
+                  onClick={() => setCurrentPage?.('overview')}
+                  className={`w-full text-left transition-all duration-300 flex items-center group py-2 ${
+                    currentPage === 'overview' 
+                      ? 'text-orange-400 bg-orange-500/10' 
+                      : 'text-gray-300 hover:text-orange-400 hover:bg-orange-500/10'
+                  }`}
+                >
                   <div className="w-2 h-2 bg-orange-400 mr-4 group-hover:scale-150 group-hover:shadow-lg group-hover:shadow-orange-400/50 transition-all duration-300"></div>
                   <span className="font-mono text-sm font-medium tracking-wide">OVERVIEW</span>
-                </a>
+                </button>
               </li>
               <li>
-                <a href="#holders" className="text-gray-300 hover:text-orange-400 transition-all duration-300 flex items-center group py-2 hover:bg-orange-500/10">
+                <button 
+                  onClick={() => setCurrentPage?.('holders')}
+                  className={`w-full text-left transition-all duration-300 flex items-center group py-2 ${
+                    currentPage === 'holders' 
+                      ? 'text-orange-400 bg-orange-500/10' 
+                      : 'text-gray-300 hover:text-orange-400 hover:bg-orange-500/10'
+                  }`}
+                >
                   <div className="w-2 h-2 bg-orange-400 mr-4 group-hover:scale-150 group-hover:shadow-lg group-hover:shadow-orange-400/50 transition-all duration-300"></div>
                   <span className="font-mono text-sm font-medium tracking-wide">HOLDERS</span>
-                </a>
+                </button>
               </li>
               <li>
-                <a href="#airdrop" className="text-gray-300 hover:text-orange-400 transition-all duration-300 flex items-center group py-2 hover:bg-orange-500/10">
+                <button 
+                  onClick={() => setCurrentPage?.('airdrop')}
+                  className={`w-full text-left transition-all duration-300 flex items-center group py-2 ${
+                    currentPage === 'airdrop' 
+                      ? 'text-orange-400 bg-orange-500/10' 
+                      : 'text-gray-300 hover:text-orange-400 hover:bg-orange-500/10'
+                  }`}
+                >
                   <div className="w-2 h-2 bg-orange-400 mr-4 group-hover:scale-150 group-hover:shadow-lg group-hover:shadow-orange-400/50 transition-all duration-300"></div>
-                  <span className="font-mono text-sm font-medium tracking-wide">AIRDROP</span>
-                </a>
+                  <span className="font-mono text-sm font-medium tracking-wide">AIRDROP ANALYSIS</span>
+                </button>
               </li>
               <li>
-                <a href="#network" className="text-gray-300 hover:text-orange-400 transition-all duration-300 flex items-center group py-2 hover:bg-orange-500/10">
+                <button 
+                  onClick={() => setCurrentPage?.('bitcoin-network')}
+                  className={`w-full text-left transition-all duration-300 flex items-center group py-2 ${
+                    currentPage === 'bitcoin-network' 
+                      ? 'text-orange-400 bg-orange-500/10' 
+                      : 'text-gray-300 hover:text-orange-400 hover:bg-orange-500/10'
+                  }`}
+                >
                   <div className="w-2 h-2 bg-orange-400 mr-4 group-hover:scale-150 group-hover:shadow-lg group-hover:shadow-orange-400/50 transition-all duration-300"></div>
-                  <span className="font-mono text-sm font-medium tracking-wide">NETWORK</span>
-                </a>
+                  <span className="font-mono text-sm font-medium tracking-wide">BITCOIN NETWORK</span>
+                </button>
               </li>
               <li>
-                <a 
-                  href="#" 
-                  onClick={(e) => {
-                    e.preventDefault()
+                <button 
+                  onClick={() => {
                     setShowTransactionsComingSoon(true)
                     setTimeout(() => setShowTransactionsComingSoon(false), 2000)
                   }}
-                  className={`transition-colors duration-300 flex items-center group py-2 ${
+                  className={`w-full text-left transition-colors duration-300 flex items-center group py-2 ${
                     showTransactionsComingSoon 
                       ? 'text-orange-400 bg-orange-500/10' 
                       : 'text-gray-300 hover:text-orange-400 hover:bg-orange-500/10'
@@ -114,7 +147,7 @@ export default function Footer() {
                   <span className="font-mono text-sm font-medium tracking-wide inline-block w-[130px]">
                     {showTransactionsComingSoon ? 'COMING SOON' : 'TRANSACTIONS'}
                   </span>
-                </a>
+                </button>
               </li>
             </ul>
           </div>

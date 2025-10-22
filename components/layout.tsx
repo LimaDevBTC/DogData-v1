@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Header from "./header"
 import Footer from "./footer"
 
-type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'transactions'
+type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'transactions' | 'donate'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -49,7 +49,7 @@ export function Layout({ children, currentPage, setCurrentPage }: LayoutProps) {
       </main>
       
       {/* Footer */}
-      <Footer />
+      <Footer currentPage={currentPage} setCurrentPage={setCurrentPage} />
     </div>
   )
 }

@@ -67,7 +67,7 @@ interface ForensicStats {
   };
 }
 
-type BehaviorList = 'all' | 'diamond_hands' | 'accumulators' | 'partial_sellers' | 'active_sellers' | 'paper_hands';
+type BehaviorList = 'all' | 'accumulators' | 'holders' | 'sellers';
 
 export default function AirdropPage() {
   const [summary, setSummary] = useState<AirdropSummary | null>(null)
@@ -155,21 +155,22 @@ export default function AirdropPage() {
       return Object.values(forensicStats?.by_pattern || {}).reduce((sum, val) => sum + val, 0)
     } else if (currentList === 'accumulators') {
       // Accumulators: Qualquer pessoa que comprou mais DOG (adicionou ao airdrop)
-      return (forensicStats?.by_pattern.mega_whale || 0) + 
-             (forensicStats?.by_pattern.whale || 0) + 
-             (forensicStats?.by_pattern.mega_accumulator || 0) + 
-             (forensicStats?.by_pattern.strong_accumulator || 0) + 
-             (forensicStats?.by_pattern.accumulator || 0)
-    } else if (currentList === 'partial_sellers') {
-      // Venderam parte (50%-90% do airdrop)
-      return (forensicStats?.by_pattern.strong_holder || 0) + 
-             (forensicStats?.by_pattern.moderate_holder || 0) + 
-             (forensicStats?.by_pattern.weak_holder || 0)
-    } else if (currentList === 'active_sellers') {
-      // Vendendo ativamente (10%-50% do airdrop)
-      return (forensicStats?.by_pattern.heavy_seller || 0) + 
-             (forensicStats?.by_pattern.dumper || 0) + 
-             (forensicStats?.by_pattern.almost_sold || 0)
+      return (forensicStats?.by_pattern.satoshi_visionary || 0) + 
+             (forensicStats?.by_pattern.btc_maximalist || 0) + 
+             (forensicStats?.by_pattern.rune_master || 0) + 
+             (forensicStats?.by_pattern.ordinal_believer || 0) + 
+             (forensicStats?.by_pattern.dog_legend || 0)
+    } else if (currentList === 'holders') {
+      // Holders: Mantiveram EXATAMENTE o airdrop (apenas 100%)
+      return (forensicStats?.by_pattern.diamond_paws || 0)
+    } else if (currentList === 'sellers') {
+      // Sellers: Venderam qualquer quantidade (mesmo que parcial)
+      return (forensicStats?.by_pattern.hodl_hero || 0) +
+             (forensicStats?.by_pattern.steady_holder || 0) +
+             (forensicStats?.by_pattern.profit_taker || 0) + 
+             (forensicStats?.by_pattern.early_exit || 0) + 
+             (forensicStats?.by_pattern.panic_seller || 0) + 
+             (forensicStats?.by_pattern.paper_hands || 0)
     } else {
       return forensicStats?.by_pattern[currentList] || 0
     }
@@ -177,11 +178,9 @@ export default function AirdropPage() {
 
   const behaviorLists = [
     { key: 'all', name: 'All Recipients', icon: Users, color: 'text-blue-400' },
-    { key: 'diamond_hands', name: 'Diamond Hands', icon: Trophy, color: 'text-purple-400' },
     { key: 'accumulators', name: 'Accumulators', icon: TrendingUp, color: 'text-green-400' },
-    { key: 'partial_sellers', name: 'Partial Sellers', icon: TrendingDown, color: 'text-orange-400' },
-        { key: 'active_sellers', name: 'Heavy Sellers', icon: AlertTriangle, color: 'text-red-400' },
-    { key: 'paper_hands', name: 'Paper Hands', icon: TrendingDown, color: 'text-red-200' }
+    { key: 'holders', name: 'Holders', icon: Trophy, color: 'text-purple-400' },
+    { key: 'sellers', name: 'Sellers', icon: TrendingDown, color: 'text-red-400' }
   ]
 
   useEffect(() => {
@@ -224,11 +223,13 @@ export default function AirdropPage() {
         let patterns = []
         if (currentList === 'accumulators') {
           // Accumulators: Qualquer pessoa que comprou mais DOG (adicionou ao airdrop)
-          patterns = ['mega_whale', 'whale', 'mega_accumulator', 'strong_accumulator', 'accumulator']
-        } else if (currentList === 'partial_sellers') {
-          patterns = ['strong_holder', 'moderate_holder', 'weak_holder']
-        } else if (currentList === 'active_sellers') {
-          patterns = ['heavy_seller', 'dumper', 'almost_sold']
+          patterns = ['satoshi_visionary', 'btc_maximalist', 'rune_master', 'ordinal_believer', 'dog_legend']
+        } else if (currentList === 'holders') {
+          // Holders: Mantiveram EXATAMENTE o airdrop (apenas 100%)
+          patterns = ['diamond_paws']
+        } else if (currentList === 'sellers') {
+          // Sellers: Venderam qualquer quantidade (mesmo que parcial)
+          patterns = ['hodl_hero', 'steady_holder', 'profit_taker', 'early_exit', 'panic_seller', 'paper_hands']
         } else {
           patterns = [currentList]
         }
@@ -377,130 +378,116 @@ export default function AirdropPage() {
         </p>
       </div>
 
-      {/* Main Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 xl:grid-cols-7 gap-3">
-        <Card variant="glass" className="glow-effect">
-          <CardHeader className="pb-1">
-            <CardTitle className="text-orange-400 text-sm">
+      {/* Main Stats - Row 1: Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <Card variant="glass">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-orange-400">
               Total Recipients
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-1">
-            <div className="text-2xl font-bold text-white font-mono">
+          <CardContent>
+            <div className="text-3xl font-bold text-white font-mono">
               {formatNumber(forensicStats?.total_analyzed || 0)}
             </div>
-            <p className="text-gray-400 text-xs font-mono mt-1">
-              Airdrop recipients
+            <p className="text-gray-400 text-sm font-mono mt-2">
+              Airdrop recipients analyzed
             </p>
           </CardContent>
         </Card>
 
         <Card variant="glass">
-          <CardHeader className="pb-1">
-            <CardTitle className="text-cyan-400 text-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-cyan-400">
               Current Holders
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-1">
-            <div className="text-2xl font-bold text-white font-mono">
+          <CardContent>
+            <div className="text-3xl font-bold text-white font-mono">
               {formatNumber(forensicStats?.still_holding || 0)}
             </div>
-            <p className="text-gray-400 text-xs font-mono mt-1">
+            <p className="text-gray-400 text-sm font-mono mt-2">
               Still holding original airdrop tokens
             </p>
           </CardContent>
         </Card>
 
         <Card variant="glass">
-          <CardHeader className="pb-1">
-            <CardTitle className="text-purple-400 text-sm">
-              Diamond Hands
+          <CardHeader className="pb-3">
+            <CardTitle className="text-red-200">
+              Full Exits
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-1">
-            <div className="text-2xl font-bold text-white font-mono">
-              {formatNumber(forensicStats?.diamond_hands || 0)}
+          <CardContent>
+            <div className="text-3xl font-bold text-white font-mono">
+              {formatNumber(forensicStats?.sold_everything || 0)}
             </div>
-            <p className="text-gray-400 text-xs font-mono mt-1">
-              Kept exactly airdrop amount
+            <p className="text-gray-400 text-sm font-mono mt-2">
+              Sold all airdrop tokens
             </p>
           </CardContent>
         </Card>
+      </div>
 
+      {/* Main Stats - Row 2: Behavioral Categories */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <Card variant="glass">
-          <CardHeader className="pb-1">
-            <CardTitle className="text-green-400 text-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-green-400">
               Accumulators
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-1">
-            <div className="text-2xl font-bold text-white font-mono">
+          <CardContent>
+            <div className="text-3xl font-bold text-white font-mono">
               {formatNumber(
-                (forensicStats?.by_pattern.mega_whale || 0) + 
-                (forensicStats?.by_pattern.whale || 0) + 
-                (forensicStats?.by_pattern.mega_accumulator || 0) + 
-                (forensicStats?.by_pattern.strong_accumulator || 0) + 
-                (forensicStats?.by_pattern.accumulator || 0)
+                (forensicStats?.by_pattern.satoshi_visionary || 0) + 
+                (forensicStats?.by_pattern.btc_maximalist || 0) + 
+                (forensicStats?.by_pattern.rune_master || 0) + 
+                (forensicStats?.by_pattern.ordinal_believer || 0) + 
+                (forensicStats?.by_pattern.dog_legend || 0)
               )}
             </div>
-            <p className="text-gray-400 text-xs font-mono mt-1">
+            <p className="text-gray-400 text-sm font-mono mt-2">
               Added any amount to airdrop
             </p>
           </CardContent>
         </Card>
 
         <Card variant="glass">
-          <CardHeader className="pb-1">
-            <CardTitle className="text-orange-400 text-sm">
-              Partial Sellers
+          <CardHeader className="pb-3">
+            <CardTitle className="text-purple-400">
+              Holders
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-1">
-            <div className="text-2xl font-bold text-white font-mono">
-              {formatNumber(
-                (forensicStats?.by_pattern.strong_holder || 0) + 
-                (forensicStats?.by_pattern.moderate_holder || 0) + 
-                (forensicStats?.by_pattern.weak_holder || 0)
-              )}
+          <CardContent>
+            <div className="text-3xl font-bold text-white font-mono">
+              {formatNumber(forensicStats?.by_pattern.diamond_paws || 0)}
             </div>
-            <p className="text-gray-400 text-xs font-mono mt-1">
-              Sold 10%-50% of airdrop
+            <p className="text-gray-400 text-sm font-mono mt-2">
+              Kept exact airdrop amount
             </p>
           </CardContent>
         </Card>
 
         <Card variant="glass">
-          <CardHeader className="pb-1">
-            <CardTitle className="text-red-400 text-sm">
-              Heavy Sellers
+          <CardHeader className="pb-3">
+            <CardTitle className="text-red-400">
+              Sellers
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-1">
-            <div className="text-2xl font-bold text-white font-mono">
+          <CardContent>
+            <div className="text-3xl font-bold text-white font-mono">
               {formatNumber(
-                (forensicStats?.by_pattern.heavy_seller || 0) + 
-                (forensicStats?.by_pattern.dumper || 0) + 
-                (forensicStats?.by_pattern.almost_sold || 0)
+                (forensicStats?.by_pattern.hodl_hero || 0) +
+                (forensicStats?.by_pattern.steady_holder || 0) +
+                (forensicStats?.by_pattern.profit_taker || 0) + 
+                (forensicStats?.by_pattern.early_exit || 0) + 
+                (forensicStats?.by_pattern.panic_seller || 0) + 
+                (forensicStats?.by_pattern.paper_hands || 0)
               )}
             </div>
-            <p className="text-gray-400 text-xs font-mono mt-1">
-              Sold 50%-90% of airdrop
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card variant="glass">
-          <CardHeader className="pb-1">
-            <CardTitle className="text-red-200 text-sm">
-              Paper Hands
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-1">
-            <div className="text-2xl font-bold text-white font-mono">
-              {formatNumber(forensicStats?.by_pattern.paper_hands || 0)}
-            </div>
-            <p className="text-gray-400 text-xs font-mono mt-1">
-              Sold everything
+            <p className="text-gray-400 text-sm font-mono mt-2">
+              Sold any amount of airdrop
             </p>
           </CardContent>
         </Card>
@@ -594,21 +581,22 @@ export default function AirdropPage() {
                 count = Object.values(forensicStats?.by_pattern || {}).reduce((sum, val) => sum + val, 0)
               } else if (list.key === 'accumulators') {
                 // Accumulators: Qualquer pessoa que comprou mais DOG (adicionou ao airdrop)
-                count = (forensicStats?.by_pattern.mega_whale || 0) + 
-                       (forensicStats?.by_pattern.whale || 0) + 
-                       (forensicStats?.by_pattern.mega_accumulator || 0) + 
-                       (forensicStats?.by_pattern.strong_accumulator || 0) + 
-                       (forensicStats?.by_pattern.accumulator || 0)
-              } else if (list.key === 'partial_sellers') {
-                // Partial Sellers = strong_holder + moderate_holder + weak_holder
-                count = (forensicStats?.by_pattern.strong_holder || 0) + 
-                       (forensicStats?.by_pattern.moderate_holder || 0) + 
-                       (forensicStats?.by_pattern.weak_holder || 0)
-              } else if (list.key === 'active_sellers') {
-                // Active Sellers = heavy_seller + dumper + almost_sold
-                count = (forensicStats?.by_pattern.heavy_seller || 0) + 
-                       (forensicStats?.by_pattern.dumper || 0) + 
-                       (forensicStats?.by_pattern.almost_sold || 0)
+                count = (forensicStats?.by_pattern.satoshi_visionary || 0) + 
+                       (forensicStats?.by_pattern.btc_maximalist || 0) + 
+                       (forensicStats?.by_pattern.rune_master || 0) + 
+                       (forensicStats?.by_pattern.ordinal_believer || 0) + 
+                       (forensicStats?.by_pattern.dog_legend || 0)
+              } else if (list.key === 'holders') {
+                // Holders: Mantiveram EXATAMENTE o airdrop (apenas 100%)
+                count = (forensicStats?.by_pattern.diamond_paws || 0)
+              } else if (list.key === 'sellers') {
+                // Sellers: Venderam qualquer quantidade (mesmo que parcial)
+                count = (forensicStats?.by_pattern.hodl_hero || 0) +
+                       (forensicStats?.by_pattern.steady_holder || 0) +
+                       (forensicStats?.by_pattern.profit_taker || 0) + 
+                       (forensicStats?.by_pattern.early_exit || 0) + 
+                       (forensicStats?.by_pattern.panic_seller || 0) + 
+                       (forensicStats?.by_pattern.paper_hands || 0)
               } else {
                 count = forensicStats?.by_pattern[list.key] || 0
               }
@@ -736,76 +724,79 @@ export default function AirdropPage() {
             </div>
           </div>
 
-          {/* Pagination */}
-          <div className="flex items-center justify-center mt-6 space-x-2">
-            {/* Previous Button */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
-              className="btn-sharp"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-
-            {/* Page Numbers */}
-            {getPageNumbers().map((page, index) => (
-              <div key={index}>
-                {page === '...' ? (
-                  <span className="px-2 py-1 text-gray-400">
-                    <MoreHorizontal className="w-4 h-4" />
-                  </span>
-                ) : (
-                  <Button
-                    variant={currentPage === page ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handlePageChange(page as number)}
-                    className={`btn-sharp ${
-                      currentPage === page 
-                        ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' 
-                        : 'hover:bg-gray-800/30'
-                    }`}
-                  >
-                    {page}
-                  </Button>
-                )}
-              </div>
-            ))}
-
-            {/* Next Button */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage === totalPages}
-              className="btn-sharp"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-
-            {/* Go to Page */}
-            <div className="flex items-center space-x-2 ml-4">
-              <Input
-                type="text"
-                value={goToPage}
-                onChange={handleGoToPageChange}
-                onKeyPress={(e) => e.key === 'Enter' && handleGoToPage()}
-                className="w-24 h-8 text-center text-sm font-mono bg-gray-800/30"
-                placeholder="Go to..."
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleGoToPage}
-                className="btn-sharp h-8"
-              >
-                Go
-              </Button>
-            </div>
-          </div>
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      <div className="flex flex-col items-center gap-4">
+        <div className="text-dog-gray-300 font-mono text-sm">
+          Showing {profiles.length} of {getTotalCount().toLocaleString('en-US')} {currentList}
+        </div>
+        
+        <div className="flex items-center justify-center space-x-2">
+          {/* Previous Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+            className="btn-sharp"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+
+          {/* Page Numbers */}
+          {getPageNumbers().map((page, index) => (
+            <div key={index}>
+              {page === '...' ? (
+                <span className="px-2 py-1 text-gray-400">
+                  <MoreHorizontal className="w-4 h-4" />
+                </span>
+              ) : (
+                <Button
+                  variant={currentPage === page ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => handlePageChange(page as number)}
+                  className={`btn-sharp ${
+                    currentPage === page 
+                      ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' 
+                      : 'hover:bg-gray-800/30'
+                  }`}
+                >
+                  {page}
+                </Button>
+              )}
+            </div>
+          ))}
+
+          {/* Next Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+            className="btn-sharp"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+
+          {/* Go to Page */}
+          <div className="flex items-center space-x-2 ml-4">
+            <span className="text-dog-gray-400 text-sm font-mono">Go to</span>
+            <Input
+              type="number"
+              min="1"
+              max={totalPages}
+              value={goToPage}
+              onChange={handleGoToPageChange}
+              onKeyPress={(e) => e.key === 'Enter' && handleGoToPage()}
+              className="w-16 h-8 text-center text-sm"
+              placeholder="Page"
+            />
+            <span className="text-dog-gray-400 text-sm font-mono">Page</span>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

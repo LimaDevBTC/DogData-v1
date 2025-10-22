@@ -12,7 +12,7 @@ import {
   CreditCard
 } from "lucide-react"
 
-type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'transactions'
+type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'transactions' | 'donate'
 
 const navigation = [
   { name: 'Overview', page: 'overview' as PageType, icon: BarChart3 },
@@ -105,12 +105,7 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
           <div className="flex items-center space-x-4">
             {/* Donate Button */}
             <button
-              onClick={() => {
-                // Adicione aqui o endereço Bitcoin para doação
-                const donateAddress = "bc1qyouraddresshere"
-                navigator.clipboard.writeText(donateAddress)
-                alert("🐕 Endereço de doação copiado!\n\nObrigado por apoiar a comunidade DOG! 🧡")
-              }}
+              onClick={() => setCurrentPage('donate')}
               className="hidden sm:flex items-center px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-mono font-medium tracking-wide transition-all duration-300 shadow-lg shadow-orange-500/20 hover:shadow-orange-500/40 hover:scale-105 group"
               title="Support DOG Data"
             >
@@ -138,11 +133,7 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
         <div className="px-4 pt-3 pb-4 space-y-2">
           {/* Mobile Donate Button */}
           <button
-            onClick={() => {
-              const donateAddress = "bc1qyouraddresshere"
-              navigator.clipboard.writeText(donateAddress)
-              alert("🐕 Endereço de doação copiado!\n\nObrigado por apoiar a comunidade DOG! 🧡")
-            }}
+            onClick={() => setCurrentPage('donate')}
             className="flex items-center justify-center px-4 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-mono font-semibold tracking-wide transition-all duration-300 w-full shadow-lg shadow-orange-500/30"
           >
             <Heart className="w-5 h-5 mr-2" />

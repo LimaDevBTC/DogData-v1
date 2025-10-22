@@ -137,66 +137,79 @@ def classify_behavior(profile):
     
     # ACCUMULATORS: Qualquer um que comprou mais (change_pct > 0)
     if change_pct >= 1000:  # 10x ou mais
-        profile['behavior_pattern'] = 'mega_whale'
-        profile['behavior_category'] = 'Mega Whale (10x+)'
-        diamond_score = 90
+        profile['behavior_pattern'] = 'satoshi_visionary'
+        profile['behavior_category'] = 'Accumulator'  # Categoria consolidada
+        profile['behavior_detail'] = 'Satoshi Visionary (10x+)'  # Detalhe interno
+        diamond_score = 95
         
     elif change_pct >= 500:  # 5x-10x
-        profile['behavior_pattern'] = 'whale'
-        profile['behavior_category'] = 'Whale (5x-10x)'
-        diamond_score = 85
+        profile['behavior_pattern'] = 'btc_maximalist'
+        profile['behavior_category'] = 'Accumulator'
+        profile['behavior_detail'] = 'BTC Maximalist (5x-10x)'
+        diamond_score = 90
         
     elif change_pct >= 200:  # 2x-5x
-        profile['behavior_pattern'] = 'mega_accumulator'
-        profile['behavior_category'] = 'Mega Accumulator (2x-5x)'
-        diamond_score = 80
+        profile['behavior_pattern'] = 'rune_master'
+        profile['behavior_category'] = 'Accumulator'
+        profile['behavior_detail'] = 'Rune Master (2x-5x)'
+        diamond_score = 85
         
     elif change_pct >= 50:  # 50%-200%
-        profile['behavior_pattern'] = 'strong_accumulator'
-        profile['behavior_category'] = 'Strong Accumulator (50%+)'
-        diamond_score = 75
+        profile['behavior_pattern'] = 'ordinal_believer'
+        profile['behavior_category'] = 'Accumulator'
+        profile['behavior_detail'] = 'Ordinal Believer (50%+)'
+        diamond_score = 80
         
     elif change_pct > 0:  # Qualquer acumulação positiva
-        profile['behavior_pattern'] = 'accumulator'
-        profile['behavior_category'] = 'Accumulator (Added Any Amount)'
-        diamond_score = 70
+        profile['behavior_pattern'] = 'dog_legend'
+        profile['behavior_category'] = 'Accumulator'
+        profile['behavior_detail'] = 'DOG Legend (Added Any Amount)'
+        diamond_score = 75
         
-    # DIAMOND HANDS: Manteve exatamente o airdrop (não comprou nem vendeu)
+    # HOLDERS: Manteve EXATAMENTE o airdrop (apenas 100%)
     elif change_pct == 0:  # Manteve exatamente 100%
-        profile['behavior_pattern'] = 'diamond_hands'
-        profile['behavior_category'] = 'Diamond Hands (Kept Exact Airdrop)'
+        profile['behavior_pattern'] = 'diamond_paws'
+        profile['behavior_category'] = 'Holder'
+        profile['behavior_detail'] = 'Diamond Paws 🐾 (Kept Exact Airdrop)'
         diamond_score = 100
         
-    elif retention >= 90:  # Perdeu até 10%
-        profile['behavior_pattern'] = 'strong_holder'
-        profile['behavior_category'] = 'Remaining Holder (90%+)'
-        diamond_score = 60
+    # SELLERS: Venderam qualquer quantidade (mesmo que parcial)
+    elif retention >= 90:  # Vendeu até 10%
+        profile['behavior_pattern'] = 'hodl_hero'
+        profile['behavior_category'] = 'Seller'
+        profile['behavior_detail'] = 'HODL Hero (90%+)'
+        diamond_score = 65
         
-    elif retention >= 75:  # 75%-90%
-        profile['behavior_pattern'] = 'moderate_holder'
-        profile['behavior_category'] = 'Moderate Holder (75%+)'
-        diamond_score = 50
+    elif retention >= 75:  # Vendeu 10%-25%
+        profile['behavior_pattern'] = 'steady_holder'
+        profile['behavior_category'] = 'Seller'
+        profile['behavior_detail'] = 'Steady Holder (75%+)'
+        diamond_score = 55
         
-    elif retention >= 50:  # 50%-75%
-        profile['behavior_pattern'] = 'weak_holder'
-        profile['behavior_category'] = 'Weak Holder (50%+)'
-        diamond_score = 40
+    elif retention >= 50:  # Vendeu 25%-50%
+        profile['behavior_pattern'] = 'profit_taker'
+        profile['behavior_category'] = 'Seller'
+        profile['behavior_detail'] = 'Profit Taker (50%+)'
+        diamond_score = 45
         
-    elif retention >= 25:  # 25%-50%
-        profile['behavior_pattern'] = 'heavy_seller'
-        profile['behavior_category'] = 'Heavy Seller (25%+)'
-        diamond_score = 25
+    elif retention >= 25:  # Vendeu 50%-75%
+        profile['behavior_pattern'] = 'early_exit'
+        profile['behavior_category'] = 'Seller'
+        profile['behavior_detail'] = 'Early Exit (25%+)'
+        diamond_score = 30
         profile['is_dumping'] = True
         
-    elif retention >= 10:  # 10%-25%
-        profile['behavior_pattern'] = 'dumper'
-        profile['behavior_category'] = 'Active Dumper (10%+)'
-        diamond_score = 10
+    elif retention >= 10:  # Vendeu 75%-90%
+        profile['behavior_pattern'] = 'panic_seller'
+        profile['behavior_category'] = 'Seller'
+        profile['behavior_detail'] = 'Panic Seller (10%+)'
+        diamond_score = 15
         profile['is_dumping'] = True
         
-    else:  # < 10%
-        profile['behavior_pattern'] = 'almost_sold'
-        profile['behavior_category'] = 'Almost Sold (<10%)'
+    else:  # Vendeu 90%+ ou tudo
+        profile['behavior_pattern'] = 'paper_hands'
+        profile['behavior_category'] = 'Seller'
+        profile['behavior_detail'] = 'Paper Hands 📄 (<10%)'
         diamond_score = 5
         profile['is_dumping'] = True
     
@@ -287,8 +300,8 @@ def generate_behavioral_analysis(forensic_data, holders_data):
         if profile['is_dumping']:
             stats['dumping'] += 1
         
-        if profile['behavior_pattern'] == 'diamond_hands':
-            stats['diamond_hands'] += 1
+        if profile['behavior_pattern'] == 'diamond_paws':
+            stats['diamond_hands'] += 1  # Mantém nome da chave para compatibilidade
         
         # Contar por padrão
         pattern = profile['behavior_pattern']
@@ -318,9 +331,9 @@ def save_behavioral_analysis(profiles, stats, forensic_data):
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     
     # Top performers
-    top_diamond_hands = [p for p in profiles if p['behavior_pattern'] == 'diamond_hands'][:50]
-    top_accumulators = [p for p in profiles if p['behavior_pattern'] in ['mega_whale', 'whale', 'mega_accumulator', 'strong_accumulator', 'accumulator']][:50]
-    biggest_dumpers = sorted([p for p in profiles if p['is_dumping']], 
+    top_diamond_paws = [p for p in profiles if p['behavior_pattern'] == 'diamond_paws'][:50]
+    top_accumulators = [p for p in profiles if p['behavior_pattern'] in ['satoshi_visionary', 'btc_maximalist', 'rune_master', 'ordinal_believer', 'dog_legend']][:50]
+    biggest_sellers = sorted([p for p in profiles if p['is_dumping']], 
                             key=lambda x: x['retention_rate'])[:50]
     
     output_data = {
@@ -328,9 +341,9 @@ def save_behavioral_analysis(profiles, stats, forensic_data):
         'analysis_type': 'forensic_behavioral',
         'statistics': stats,
         'top_performers': {
-            'diamond_hands': top_diamond_hands,
+            'diamond_hands': top_diamond_paws,  # Mantém nome da chave para compatibilidade
             'accumulators': top_accumulators,
-            'dumpers': biggest_dumpers
+            'sellers': biggest_sellers
         },
         'all_profiles': profiles
     }
@@ -341,8 +354,8 @@ def save_behavioral_analysis(profiles, stats, forensic_data):
     print(f"{len(profiles):,} perfis comportamentais salvos!")
     
     # Mostrar top insights
-    print(f"\nTOP 10 DIAMOND HANDS:")
-    for i, p in enumerate(top_diamond_hands[:10]):
+    print(f"\nTOP 10 DIAMOND PAWS 🐾:")
+    for i, p in enumerate(top_diamond_paws[:10]):
         print(f"   #{i+1}: {p['address'][:30]}... - Score: {p['diamond_score']} - {p['behavior_category']}")
     
     print(f"\nTOP 10 ACCUMULATORS:")
