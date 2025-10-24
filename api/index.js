@@ -252,6 +252,59 @@ module.exports = async (req, res) => {
       });
     }
     
+    // ============ PRICE ENDPOINTS ============
+    
+    if (pathname === '/api/price/mexc') {
+      const response = await fetch('https://api.mexc.com/api/v3/ticker/24hr?symbol=DOGUSDT');
+      const priceData = await response.json();
+      return res.json(priceData);
+    }
+    
+    if (pathname === '/api/price/kraken') {
+      const response = await fetch('https://api.kraken.com/0/public/Ticker?pair=DOGUSD');
+      const priceData = await response.json();
+      return res.json(priceData);
+    }
+    
+    if (pathname === '/api/price/bitget') {
+      const response = await fetch('https://api.bitget.com/api/v2/spot/market/tickers?symbol=DOGUSDT');
+      const priceData = await response.json();
+      const dogData = priceData.data?.find(item => item.symbol === 'DOGUSDT');
+      return res.json(dogData || {});
+    }
+    
+    if (pathname === '/api/price/pionex') {
+      const response = await fetch('https://api.pionex.com/api/v1/market/tickers');
+      const priceData = await response.json();
+      const dogData = priceData.data?.tickers?.find(item => item.symbol === 'DOG_USDT');
+      return res.json(dogData || {});
+    }
+    
+    if (pathname === '/api/price/gateio') {
+      // Usar API simples da Gate.io
+      const response = await fetch('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=DOG_USDT');
+      const priceData = await response.json();
+      return res.json(priceData[0] || {});
+    }
+    
+    if (pathname === '/api/dog-rune/data') {
+      // Dados da rune DOG
+      const burned = 23486991.67;
+      const totalSupply = 100000000000;
+      const circulatingSupply = totalSupply - burned;
+      
+      return res.json({
+        name: "DOG•GO•TO•THE•MOON",
+        runeId: "840000:3",
+        totalSupply: totalSupply,
+        burned: burned,
+        circulatingSupply: circulatingSupply,
+        burnedPercentage: (burned / totalSupply) * 100,
+        lastUpdated: new Date().toISOString(),
+        source: "api"
+      });
+    }
+    
     // ============ HEALTH CHECK ============
     
     if (pathname === '/api/health') {
