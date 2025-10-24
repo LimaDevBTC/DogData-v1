@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useRouter, usePathname } from "next/navigation"
 import Header from "./header"
 import Footer from "./footer"
 
@@ -12,44 +12,33 @@ interface LayoutProps {
   setCurrentPage: (page: PageType) => void
 }
 
-export function Layout({ children, currentPage, setCurrentPage }: LayoutProps) {
-  const [isTransitioning, setIsTransitioning] = useState(false)
-  const [prevPage, setPrevPage] = useState(currentPage)
+export function Layout({ children, currentPage }: LayoutProps) {
+  const router = useRouter()
+  const pathname = usePathname()
 
-  useEffect(() => {
-    if (currentPage !== prevPage) {
-      // Iniciar transição
-      setIsTransitioning(true)
-      
-      // Scroll suave para o topo
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-      
-      // Pequeno delay para a transição ser visível
-      setTimeout(() => {
-        setPrevPage(currentPage)
-        setIsTransitioning(false)
-      }, 150)
+  const handleSetCurrentPage = (page: PageType) => {
+    // Salvar no localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('dogdata-current-page', page)
     }
-  }, [currentPage, prevPage])
+    // Navegar para a rota
+    router.push(`/${page}`)
+  }
 
   return (
     <div className="min-h-screen bg-black text-white grid-container flex flex-col">
       {/* Header */}
-      <Header currentPage={currentPage} setCurrentPage={setCurrentPage} />
+      <Header currentPage={currentPage} setCurrentPage={handleSetCurrentPage} />
       
       {/* Main Content */}
       <main className="relative pt-20 flex-1">
-        <div 
-          className={`container-fluid transition-opacity duration-150 ease-in-out ${
-            isTransitioning ? 'opacity-90' : 'opacity-100'
-          }`}
-        >
+        <div className="container-fluid transition-opacity duration-150 ease-in-out opacity-100">
           {children}
         </div>
       </main>
       
       {/* Footer */}
-      <Footer currentPage={currentPage} setCurrentPage={setCurrentPage} />
+      <Footer currentPage={currentPage} setCurrentPage={handleSetCurrentPage} />
     </div>
   )
 }
