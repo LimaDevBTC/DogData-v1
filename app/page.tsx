@@ -7,18 +7,8 @@ export default function HomePage() {
   const router = useRouter()
 
   useEffect(() => {
-    // Redirecionar para a última página salva ou overview
-    const savedPage = localStorage.getItem('dogdata-current-page') || 'overview'
-    router.push(`/${savedPage}`)
-  }, [router])
+    router.replace('/overview')
+  }, [])
 
-  return (
-    <div className="min-h-screen bg-black text-white grid-container flex items-center justify-center">
-      <div className="loading-dots mx-auto">
-        <div></div>
-        <div></div>
-        <div></div>
-      </div>
-    </div>
-  )
+  return null
 }
