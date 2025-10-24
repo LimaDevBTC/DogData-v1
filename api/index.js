@@ -45,23 +45,38 @@ const loadAllData = async (req) => {
   
   // Recarregar se cache expirou
   if (now - cache.lastLoad > CACHE_DURATION) {
-    console.log('🔄 Reloading data...');
+    console.log('🔄 Starting data load...');
+    console.log('   Cache expired, loading fresh data');
     
-    cache.dogData = await fetchJSON('dog_holders_by_address.json', req);
-    cache.airdropAnalytics = await fetchJSON('airdrop_analytics.json', req);
-    cache.forensicData = await fetchJSON('forensic_airdrop_data.json', req);
-    cache.behavioralAnalysis = await fetchJSON('forensic_behavioral_analysis.json', req);
-    cache.lastLoad = now;
-    
-    // Adicionar ranking aos holders
-    if (cache.dogData && cache.dogData.holders) {
-      cache.dogData.holders = cache.dogData.holders.map((holder, index) => ({
-        ...holder,
-        rank: index + 1
-      }));
+    try {
+      cache.dogData = await fetchJSON('dog_holders_by_address.json', req);
+      console.log('   dogData loaded:', !!cache.dogData);
+      
+      cache.airdropAnalytics = await fetchJSON('airdrop_analytics.json', req);
+      console.log('   airdropAnalytics loaded:', !!cache.airdropAnalytics);
+      
+      cache.forensicData = await fetchJSON('forensic_airdrop_data.json', req);
+      console.log('   forensicData loaded:', !!cache.forensicData);
+      
+      cache.behavioralAnalysis = await fetchJSON('forensic_behavioral_analysis.json', req);
+      console.log('   behavioralAnalysis loaded:', !!cache.behavioralAnalysis);
+      
+      cache.lastLoad = now;
+      
+      // Adicionar ranking aos holders
+      if (cache.dogData && cache.dogData.holders) {
+        cache.dogData.holders = cache.dogData.holders.map((holder, index) => ({
+          ...holder,
+          rank: index + 1
+        }));
+      }
+      
+      console.log('✅ Data loaded successfully');
+    } catch (error) {
+      console.error('❌ Error in loadAllData:', error.message);
     }
-    
-    console.log('✅ Data loaded successfully');
+  } else {
+    console.log('📦 Using cached data (age:', Math.floor((now - cache.lastLoad) / 1000), 'seconds)');
   }
   
   return cache;
