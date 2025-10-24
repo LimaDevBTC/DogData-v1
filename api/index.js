@@ -284,69 +284,34 @@ module.exports = async (req, res) => {
     }
     
     if (pathname === '/api/price/gateio') {
-      // Usar API do TradingView para dados reais
+      // Usar API direta da Gate.io (mais confiável)
       try {
-        const response = await fetch('https://scanner.tradingview.com/crypto/scan', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            "filter": [
-              {
-                "left": "name",
-                "operation": "match",
-                "right": "GATEIO:DOGUSDT"
-              }
-            ],
-            "options": {
-              "lang": "en"
-            },
-            "markets": ["crypto"],
-            "symbols": {
-              "query": {
-                "types": []
-              },
-              "tickers": []
-            },
-            "columns": [
-              "name",
-              "close",
-              "change",
-              "change_abs",
-              "volume",
-              "high",
-              "low",
-              "open"
-            ]
-          })
-        });
+        const gateResponse = await fetch('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=DOG_USDT');
+        const gateData = await gateResponse.json();
         
-        const data = await response.json();
-        
-        if (data.data && data.data.length > 0) {
-          const symbolData = data.data[0].d;
+        if (gateData && gateData.length > 0) {
+          const ticker = gateData[0];
           const gateioData = {
-            lastPrice: symbolData[1].toFixed(6),
-            priceChangePercent: symbolData[2].toFixed(2),
-            volume: symbolData[4].toFixed(2),
-            highPrice: symbolData[5].toFixed(6),
-            lowPrice: symbolData[6].toFixed(6),
-            openPrice: symbolData[7].toFixed(6),
-            closePrice: symbolData[1].toFixed(6),
+            lastPrice: ticker.last,
+            priceChangePercent: ticker.change_percentage,
+            volume: ticker.quote_volume,
+            highPrice: ticker.high_24h,
+            lowPrice: ticker.low_24h,
+            openPrice: ticker.last, // Gate.io API não fornece open, usar last
+            closePrice: ticker.last,
             timestamp: Date.now(),
-            source: "TradingView API"
+            source: "Gate.io API"
           };
           return res.json(gateioData);
         }
         
-        // Fallback se não houver dados
-        return res.json({
+        return res.status(404).json({
           lastPrice: "0",
           priceChangePercent: "0",
           source: "No data"
         });
       } catch (error) {
+        console.error('❌ Error fetching Gate.io price:', error.message);
         return res.status(500).json({ error: error.message });
       }
     }
