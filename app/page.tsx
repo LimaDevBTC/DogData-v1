@@ -34,7 +34,7 @@ export default function HomePage() {
   const renderPage = () => {
     switch (currentPage) {
       case 'overview':
-        return <OverviewPage setCurrentPage={setCurrentPage} />
+        return <OverviewPage />
       case 'holders':
         return <HoldersPage />
       case 'airdrop':
