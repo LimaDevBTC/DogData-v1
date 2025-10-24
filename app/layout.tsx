@@ -11,6 +11,11 @@ export const metadata: Metadata = {
   authors: [{ name: 'DOG DATA Team' }],
   viewport: 'width=device-width, initial-scale=1',
   themeColor: '#f97316',
+  icons: {
+    icon: '/dog-logo.png',
+    shortcut: '/dog-logo.png',
+    apple: '/dog-logo.png',
+  },
   openGraph: {
     title: 'DOG DATA - DOG Rune Explorer',
     description: 'Professional explorer for DOG rune with real-time data and forensic analysis',

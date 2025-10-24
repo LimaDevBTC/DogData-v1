@@ -118,3 +118,4 @@ export interface CoinGeckoApiResponse {
   };
 }
 
+

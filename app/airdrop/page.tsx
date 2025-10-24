@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Image from "next/image"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -34,12 +35,14 @@ interface AirdropSummary {
   sold_everything: number;
   retention_rate: number;
   total_current_balance: number;
+  recipients_with_multiple: number;
 }
 
 interface BehavioralProfile {
   address: string;
   airdrop_rank: number;
   airdrop_amount: number;
+  receive_count: number;
   current_balance: number;
   current_rank: number | null;
   absolute_change: number;
@@ -76,7 +79,6 @@ export default function AirdropPage() {
   const [profiles, setProfiles] = useState<BehavioralProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(0)
   const [searchAddress, setSearchAddress] = useState("")
   const [goToPage, setGoToPage] = useState('')
   const [searchResult, setSearchResult] = useState<BehavioralProfile | null>(null)
@@ -85,10 +87,39 @@ export default function AirdropPage() {
 
   const ITEMS_PER_PAGE = 50
 
+  // Calcular totalPages dinamicamente baseado em forensicStats
+  const calculateTotalPages = () => {
+    if (!forensicStats) return 0
+    
+    let totalCount = 0
+    if (currentList === 'all') {
+      totalCount = Object.values(forensicStats.by_pattern || {}).reduce((sum: number, val: any) => sum + (val || 0), 0)
+    } else if (currentList === 'accumulators') {
+      totalCount = (forensicStats.by_pattern.satoshi_visionary || 0) +
+                  (forensicStats.by_pattern.btc_maximalist || 0) +
+                  (forensicStats.by_pattern.rune_master || 0) + 
+                  (forensicStats.by_pattern.ordinal_believer || 0) + 
+                  (forensicStats.by_pattern.dog_legend || 0)
+    } else if (currentList === 'holders') {
+      totalCount = (forensicStats.by_pattern.diamond_paws || 0)
+    } else if (currentList === 'sellers') {
+      totalCount = (forensicStats.by_pattern.hodl_hero || 0) +
+                  (forensicStats.by_pattern.steady_holder || 0) +
+                  (forensicStats.by_pattern.profit_taker || 0) + 
+                  (forensicStats.by_pattern.early_exit || 0) + 
+                  (forensicStats.by_pattern.panic_seller || 0) + 
+                  (forensicStats.by_pattern.paper_hands || 0)
+    }
+    return Math.ceil(totalCount / ITEMS_PER_PAGE)
+  }
+  
+  const calculatedTotalPages = calculateTotalPages()
+
   // Função para gerar números das páginas
   const getPageNumbers = () => {
     const pages = []
-    const total = totalPages
+    const total = calculatedTotalPages
+    console.log('📄 getPageNumbers called - totalPages:', total, 'currentPage:', currentPage)
     
     if (total <= 7) {
       // Se tem 7 páginas ou menos, mostra todas
@@ -123,13 +154,14 @@ export default function AirdropPage() {
       }
     }
     
+    console.log('📄 getPageNumbers returning:', pages.length, 'pages:', pages)
     return pages
   }
 
   // Função para ir para uma página específica
   const handleGoToPage = () => {
     const page = parseInt(goToPage)
-    if (page >= 1 && page <= totalPages) {
+    if (page >= 1 && page <= calculatedTotalPages) {
       // Preservar posição de scroll
       const currentScrollPosition = window.scrollY
       setCurrentPage(page)
@@ -141,14 +173,6 @@ export default function AirdropPage() {
     }
   }
 
-  // Função para validar input (apenas números)
-  const handleGoToPageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    // Permitir apenas números e campo vazio
-    if (value === '' || /^\d+$/.test(value)) {
-      setGoToPage(value)
-    }
-  }
 
   const getTotalCount = () => {
     if (currentList === 'all') {
@@ -164,7 +188,7 @@ export default function AirdropPage() {
       // Holders: Mantiveram EXATAMENTE o airdrop (apenas 100%)
       return (forensicStats?.by_pattern.diamond_paws || 0)
     } else if (currentList === 'sellers') {
-      // Sellers: Venderam qualquer quantidade (mesmo que parcial)
+      // Sold or Moved: Venderam ou moveram qualquer quantidade (mesmo que parcial)
       return (forensicStats?.by_pattern.hodl_hero || 0) +
              (forensicStats?.by_pattern.steady_holder || 0) +
              (forensicStats?.by_pattern.profit_taker || 0) + 
@@ -180,7 +204,7 @@ export default function AirdropPage() {
     { key: 'all', name: 'All Recipients', icon: Users, color: 'text-blue-400' },
     { key: 'accumulators', name: 'Accumulators', icon: TrendingUp, color: 'text-green-400' },
     { key: 'holders', name: 'Holders', icon: Trophy, color: 'text-purple-400' },
-    { key: 'sellers', name: 'Sellers', icon: TrendingDown, color: 'text-red-400' }
+    { key: 'sellers', name: 'Sold or Moved', icon: TrendingDown, color: 'text-red-400' }
   ]
 
   useEffect(() => {
@@ -209,6 +233,28 @@ export default function AirdropPage() {
       if (forensicResponse.ok) {
         const forensicData = await forensicResponse.json()
         setForensicStats(forensicData.statistics)
+        
+        // Calcular totalPages imediatamente após carregar forensicStats
+        const stats = forensicData.statistics
+        let totalCount = 0
+        if (currentList === 'all') {
+          totalCount = Object.values(stats?.by_pattern || {}).reduce((sum: number, val: any) => sum + (val || 0), 0)
+        } else if (currentList === 'accumulators') {
+          totalCount = (stats?.by_pattern.satoshi_visionary || 0) +
+                      (stats?.by_pattern.btc_maximalist || 0) +
+                      (stats?.by_pattern.rune_master || 0) + 
+                      (stats?.by_pattern.ordinal_believer || 0) + 
+                      (stats?.by_pattern.dog_legend || 0)
+        } else if (currentList === 'holders') {
+          totalCount = (stats?.by_pattern.diamond_paws || 0)
+        } else if (currentList === 'sellers') {
+          totalCount = (stats?.by_pattern.hodl_hero || 0) +
+                      (stats?.by_pattern.steady_holder || 0) +
+                      (stats?.by_pattern.profit_taker || 0) + 
+                      (stats?.by_pattern.early_exit || 0) + 
+                      (stats?.by_pattern.panic_seller || 0) + 
+                      (stats?.by_pattern.paper_hands || 0)
+        }
       }
       
       // Fetch profiles based on current list
@@ -228,7 +274,7 @@ export default function AirdropPage() {
           // Holders: Mantiveram EXATAMENTE o airdrop (apenas 100%)
           patterns = ['diamond_paws']
         } else if (currentList === 'sellers') {
-          // Sellers: Venderam qualquer quantidade (mesmo que parcial)
+          // Sold or Moved: Venderam ou moveram qualquer quantidade (mesmo que parcial)
           patterns = ['hodl_hero', 'steady_holder', 'profit_taker', 'early_exit', 'panic_seller', 'paper_hands']
         } else {
           patterns = [currentList]
@@ -251,8 +297,13 @@ export default function AirdropPage() {
             }
           }
           
-          // Ordenar por current_balance DESC
-          allProfiles.sort((a, b) => b.current_balance - a.current_balance)
+          // Ordenar por receive_count (maior primeiro), depois por airdrop_amount
+          allProfiles.sort((a, b) => {
+            if (b.receive_count !== a.receive_count) {
+              return b.receive_count - a.receive_count
+            }
+            return b.airdrop_amount - a.airdrop_amount
+          })
           
           // Paginar manualmente
           const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
@@ -260,7 +311,6 @@ export default function AirdropPage() {
           const paginatedProfiles = allProfiles.slice(startIndex, endIndex)
           
           setProfiles(paginatedProfiles)
-          setTotalPages(Math.ceil(allProfiles.length / ITEMS_PER_PAGE))
           return
         } else if (patterns.length === 1) {
           params.append('pattern', patterns[0])
@@ -271,12 +321,8 @@ export default function AirdropPage() {
       if (profilesResponse.ok) {
         const profilesData = await profilesResponse.json()
         
-        // Ordenar por current_balance DESC para todos os casos
-        const sortedProfiles = [...profilesData.profiles].sort((a, b) => b.current_balance - a.current_balance)
-        
-        setProfiles(sortedProfiles)
-        const totalCount = getTotalCount()
-        setTotalPages(Math.ceil(totalCount / ITEMS_PER_PAGE))
+        // Manter a ordenação do backend (já vem ordenado por receive_count)
+        setProfiles(profilesData.profiles)
       }
       
     } catch (error) {
@@ -370,9 +416,18 @@ export default function AirdropPage() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="text-center space-y-4">
-        <h1 className="text-4xl font-bold text-white font-mono text-center">
-          Airdrop Analysis
-        </h1>
+        <div className="flex items-center justify-center gap-4">
+          <Image 
+            src="/Runestone.png" 
+            alt="Runestone" 
+            width={60} 
+            height={60}
+            className="object-contain"
+          />
+          <h1 className="text-4xl font-bold text-white font-mono">
+            Airdrop Analysis
+          </h1>
+        </div>
         <p className="text-gray-400 font-mono text-lg">
           Complete forensic analysis of DOG airdrop recipients
         </p>
@@ -472,7 +527,7 @@ export default function AirdropPage() {
         <Card variant="glass">
           <CardHeader className="pb-3">
             <CardTitle className="text-red-400">
-              Sellers
+              Sold or Moved
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -590,7 +645,7 @@ export default function AirdropPage() {
                 // Holders: Mantiveram EXATAMENTE o airdrop (apenas 100%)
                 count = (forensicStats?.by_pattern.diamond_paws || 0)
               } else if (list.key === 'sellers') {
-                // Sellers: Venderam qualquer quantidade (mesmo que parcial)
+                // Sold or Moved: Venderam ou moveram qualquer quantidade (mesmo que parcial)
                 count = (forensicStats?.by_pattern.hodl_hero || 0) +
                        (forensicStats?.by_pattern.steady_holder || 0) +
                        (forensicStats?.by_pattern.profit_taker || 0) + 
@@ -637,7 +692,7 @@ export default function AirdropPage() {
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-gray-400 text-sm">Page {currentPage} of {totalPages}</p>
+                <p className="text-gray-400 text-sm">Page {currentPage} of {calculatedTotalPages}</p>
                 <p className="text-orange-400 text-sm font-mono">
                   {formatNumber((currentPage - 1) * ITEMS_PER_PAGE + 1)} - {formatNumber(Math.min(
                     currentPage * ITEMS_PER_PAGE, 
@@ -656,6 +711,7 @@ export default function AirdropPage() {
                 <tr className="border-b border-gray-700/50">
                   <th className="text-left py-3 px-4 text-orange-400 font-mono text-sm">#</th>
                   <th className="text-left py-3 px-4 text-orange-400 font-mono text-sm">Address</th>
+                  <th className="text-center py-3 px-4 text-orange-400 font-mono text-sm">Received</th>
                   <th className="text-right py-3 px-4 text-orange-400 font-mono text-sm">Airdrop</th>
                   <th className="text-right py-3 px-4 text-orange-400 font-mono text-sm">Current</th>
                   <th className="text-center py-3 px-4 text-orange-400 font-mono text-sm">Change</th>
@@ -688,6 +744,15 @@ export default function AirdropPage() {
                           <Copy className="w-3 h-3" />
                         </Button>
                       </div>
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      {profile.receive_count > 1 ? (
+                        <Badge variant="default" className="bg-orange-500/20 text-orange-400 border border-orange-500/30 font-mono font-bold">
+                          {profile.receive_count}x
+                        </Badge>
+                      ) : (
+                        <span className="text-gray-500 font-mono text-xs">1x</span>
+                      )}
                     </td>
                     <td className="py-3 px-4 text-right">
                       <span className="text-gray-400 font-mono text-sm">
@@ -738,7 +803,7 @@ export default function AirdropPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+            onClick={() => handlePageChange(currentPage - 1)}
             disabled={currentPage === 1}
             className="btn-sharp"
           >
@@ -749,7 +814,7 @@ export default function AirdropPage() {
           {getPageNumbers().map((page, index) => (
             <div key={index}>
               {page === '...' ? (
-                <span className="px-2 py-1 text-gray-400">
+                <span className="px-2 py-1 text-dog-gray-400">
                   <MoreHorizontal className="w-4 h-4" />
                 </span>
               ) : (
@@ -759,8 +824,8 @@ export default function AirdropPage() {
                   onClick={() => handlePageChange(page as number)}
                   className={`btn-sharp ${
                     currentPage === page 
-                      ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' 
-                      : 'hover:bg-gray-800/30'
+                      ? 'bg-dog-orange text-white border-dog-orange' 
+                      : 'hover:bg-dog-gray-700'
                   }`}
                 >
                   {page}
@@ -773,8 +838,8 @@ export default function AirdropPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
-            disabled={currentPage === totalPages}
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === calculatedTotalPages}
             className="btn-sharp"
           >
             <ChevronRight className="w-4 h-4" />
@@ -786,9 +851,9 @@ export default function AirdropPage() {
             <Input
               type="number"
               min="1"
-              max={totalPages}
+              max={calculatedTotalPages}
               value={goToPage}
-              onChange={handleGoToPageChange}
+              onChange={(e) => setGoToPage(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleGoToPage()}
               className="w-16 h-8 text-center text-sm"
               placeholder="Page"

@@ -17,7 +17,8 @@ import {
   RefreshCw,
   BarChart3,
   Network,
-  Heart
+  Heart,
+  Flame
 } from "lucide-react"
 import { SectionDivider } from "@/components/ui/section-divider"
 import { TrendIndicator } from "@/components/ui/trend-indicator"
@@ -255,7 +256,7 @@ export default function OverviewPage({ setCurrentPage }: OverviewPageProps = {})
                 {runeData ? formatBurnedTokens(runeData.burned) : '23.487M'}
               </div>
               <div className="flex items-center space-x-2">
-                <Activity className="w-4 h-4 text-red-500" />
+                <Flame className="w-4 h-4 text-orange-500" />
                 <span className="text-sm text-gray-400 font-mono">DOG Tokens</span>
               </div>
             </div>
@@ -285,45 +286,6 @@ export default function OverviewPage({ setCurrentPage }: OverviewPageProps = {})
 
       <SectionDivider title="Multi-Exchange Prices" icon={TrendingUp} />
       <PriceCards />
-      
-      <SectionDivider title="Support the Project" icon={Heart} />
-      
-      {/* Donation Section */}
-      <Card variant="glass" className="border-red-500/20 hover:border-red-500/40 transition-all">
-        <CardContent className="p-8">
-          <div className="text-center space-y-6">
-            <div className="flex items-center justify-center space-x-3">
-              <Heart className="w-8 h-8 text-red-500 animate-pulse" />
-              <h3 className="text-2xl font-bold text-white font-mono">
-                Support DOG Community
-              </h3>
-            </div>
-            
-            <p className="text-gray-300 font-mono text-lg max-w-2xl mx-auto">
-              Help us continue building advanced Bitcoin rune analytics and ordinal technology tools. 
-              Your support powers our research and development.
-            </p>
-            
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Button
-                onClick={() => setCurrentPage?.('donate')}
-                className="bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white font-mono px-8 py-3 rounded-lg transition-all duration-300 transform hover:scale-105"
-              >
-                <Heart className="w-5 h-5 mr-2" />
-                Donate Now
-              </Button>
-              
-              <div className="flex items-center space-x-4 text-sm text-gray-400 font-mono">
-                <span>Bitcoin</span>
-                <span>•</span>
-                <span>DOG</span>
-                <span>•</span>
-                <span>Stacks</span>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
       
       <SectionDivider title="Price Chart" icon={BarChart3} />
 

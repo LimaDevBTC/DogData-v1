@@ -33,6 +33,33 @@ export function NetworkStatsCards({ data }: NetworkStatsCardsProps) {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Bitcoin Price */}
+      <Card variant="glass" className="border-yellow-500/20 hover:border-yellow-500/40 transition-all">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-yellow-400 text-lg flex items-center">
+            <DollarSign className="w-5 h-5 mr-2" />
+            Bitcoin Price
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-yellow-500 bg-clip-text text-transparent font-mono transition-all duration-500 ease-in-out">
+            {BitcoinApiService.formatPrice(data.price.usd)}
+          </div>
+          <div className="flex items-center mt-1">
+            {data.price.change24h >= 0 ? (
+              <TrendingUp className="w-4 h-4 text-green-400 mr-1" />
+            ) : (
+              <TrendingDown className="w-4 h-4 text-red-400 mr-1" />
+            )}
+            <span className={`text-sm font-mono ${
+              data.price.change24h >= 0 ? 'text-green-400' : 'text-red-400'
+            }`}>
+              {BitcoinApiService.formatPercentage(data.price.change24h)}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Block Height */}
       <Card variant="glass" className="border-orange-500/20 hover:border-orange-500/40 transition-all">
         <CardHeader className="pb-2">
@@ -84,33 +111,6 @@ export function NetworkStatsCards({ data }: NetworkStatsCardsProps) {
           <p className="text-gray-400 text-sm font-mono mt-1">
             Pending transactions
           </p>
-        </CardContent>
-      </Card>
-
-      {/* Bitcoin Price */}
-      <Card variant="glass" className="border-yellow-500/20 hover:border-yellow-500/40 transition-all">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-yellow-400 text-lg flex items-center">
-            <DollarSign className="w-5 h-5 mr-2" />
-            Bitcoin Price
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-yellow-500 bg-clip-text text-transparent font-mono transition-all duration-500 ease-in-out">
-            {BitcoinApiService.formatPrice(data.price.usd)}
-          </div>
-          <div className="flex items-center mt-1">
-            {data.price.change24h >= 0 ? (
-              <TrendingUp className="w-4 h-4 text-green-400 mr-1" />
-            ) : (
-              <TrendingDown className="w-4 h-4 text-red-400 mr-1" />
-            )}
-            <span className={`text-sm font-mono ${
-              data.price.change24h >= 0 ? 'text-green-400' : 'text-red-400'
-            }`}>
-              {BitcoinApiService.formatPercentage(data.price.change24h)}
-            </span>
-          </div>
         </CardContent>
       </Card>
 

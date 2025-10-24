@@ -121,9 +121,9 @@ export default function BitcoinNetworkPage() {
       <SectionDivider title="Mining Pools" icon={Network} />
 
       {/* Mining Pools */}
-      <Card variant="glass" className="border-purple-500/20">
+      <Card variant="glass" className="border-orange-500/20">
         <CardHeader>
-          <CardTitle className="text-purple-400 text-xl">
+          <CardTitle className="text-orange-400 text-xl">
             Top Mining Pools (7 Days)
           </CardTitle>
         </CardHeader>
@@ -132,7 +132,7 @@ export default function BitcoinNetworkPage() {
             {data.miningPools.slice(0, 10).map((pool, index) => (
               <div key={pool.poolId} className="flex items-center justify-between p-4 bg-gray-800/50 border border-gray-700">
                 <div className="flex items-center space-x-4">
-                  <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                  <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-orange-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
                     {index + 1}
                   </div>
                   <div>

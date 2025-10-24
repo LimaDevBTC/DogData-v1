@@ -609,6 +609,16 @@ app.get('/api/forensic/profiles', (req, res) => {
             p.diamond_score >= minScoreNum && p.diamond_score <= maxScoreNum
         );
         
+        // Ordenar por receive_count primeiro, depois por airdrop_amount (maior para menor)
+        filteredProfiles.sort((a, b) => {
+            const receiveA = a.receive_count || 1;
+            const receiveB = b.receive_count || 1;
+            if (receiveB !== receiveA) {
+                return receiveB - receiveA; // Ordem decrescente por receive_count
+            }
+            return (b.airdrop_amount || 0) - (a.airdrop_amount || 0); // Desempate por airdrop_amount
+        });
+        
         const currentPage = parseInt(page);
         const limitPerPage = parseInt(limit);
         const totalProfiles = filteredProfiles.length;

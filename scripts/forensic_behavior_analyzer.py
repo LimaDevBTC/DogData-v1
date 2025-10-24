@@ -22,7 +22,7 @@ from datetime import datetime
 
 # Configurações
 BASE_DIR = Path(__file__).parent.parent
-FORENSIC_DATA_FILE = BASE_DIR / 'data' / 'forensic_airdrop_data.json'
+AIRDROP_DATA_FILE = BASE_DIR / 'data' / 'airdrop_recipients.json'
 HOLDERS_FILE = BASE_DIR / 'backend' / 'data' / 'dog_holders_by_address.json'
 OUTPUT_FILE = BASE_DIR / 'data' / 'forensic_behavioral_analysis.json'
 
@@ -66,16 +66,16 @@ def calculate_behavior_metrics(recipient, holders_map):
     - Velocidade de mudança
     """
     address = recipient['address']
-    airdrop_amount = recipient['total_received']
-    airdrop_rank = recipient['airdrop_rank']
+    airdrop_amount = recipient['airdrop_amount']
+    airdrop_rank = recipient.get('rank', 0)
     
     profile = {
         'address': address,
         'airdrop_rank': airdrop_rank,
         'airdrop_amount': airdrop_amount,
         'receive_count': recipient['receive_count'],
-        'first_receive_block': recipient['first_receive_block'],
-        'first_receive_time': recipient['first_receive_time'],
+        'first_receive_block': recipient.get('first_receive_block', 0),
+        'first_receive_time': recipient.get('first_receive_time', ''),
         'current_balance': 0,
         'current_rank': None,
         'absolute_change': 0,
@@ -83,7 +83,7 @@ def calculate_behavior_metrics(recipient, holders_map):
         'retention_rate': 0,
         'rank_change': None,
         'behavior_pattern': 'paper_hands',
-        'behavior_category': 'Sold Everything',
+        'behavior_category': 'Sold or Moved',
         'accumulation_rate': 0,
         'is_dumping': False,
         'diamond_score': 0,  # 0-100 score
@@ -173,42 +173,42 @@ def classify_behavior(profile):
         profile['behavior_detail'] = 'Diamond Paws 🐾 (Kept Exact Airdrop)'
         diamond_score = 100
         
-    # SELLERS: Venderam qualquer quantidade (mesmo que parcial)
-    elif retention >= 90:  # Vendeu até 10%
+    # SOLD OR MOVED: Venderam ou moveram qualquer quantidade (mesmo que parcial)
+    elif retention >= 90:  # Vendeu ou moveu até 10%
         profile['behavior_pattern'] = 'hodl_hero'
-        profile['behavior_category'] = 'Seller'
+        profile['behavior_category'] = 'Sold or Moved'
         profile['behavior_detail'] = 'HODL Hero (90%+)'
         diamond_score = 65
         
     elif retention >= 75:  # Vendeu 10%-25%
         profile['behavior_pattern'] = 'steady_holder'
-        profile['behavior_category'] = 'Seller'
+        profile['behavior_category'] = 'Sold or Moved'
         profile['behavior_detail'] = 'Steady Holder (75%+)'
         diamond_score = 55
         
     elif retention >= 50:  # Vendeu 25%-50%
         profile['behavior_pattern'] = 'profit_taker'
-        profile['behavior_category'] = 'Seller'
+        profile['behavior_category'] = 'Sold or Moved'
         profile['behavior_detail'] = 'Profit Taker (50%+)'
         diamond_score = 45
         
     elif retention >= 25:  # Vendeu 50%-75%
         profile['behavior_pattern'] = 'early_exit'
-        profile['behavior_category'] = 'Seller'
+        profile['behavior_category'] = 'Sold or Moved'
         profile['behavior_detail'] = 'Early Exit (25%+)'
         diamond_score = 30
         profile['is_dumping'] = True
         
     elif retention >= 10:  # Vendeu 75%-90%
         profile['behavior_pattern'] = 'panic_seller'
-        profile['behavior_category'] = 'Seller'
+        profile['behavior_category'] = 'Sold or Moved'
         profile['behavior_detail'] = 'Panic Seller (10%+)'
         diamond_score = 15
         profile['is_dumping'] = True
         
     else:  # Vendeu 90%+ ou tudo
         profile['behavior_pattern'] = 'paper_hands'
-        profile['behavior_category'] = 'Seller'
+        profile['behavior_category'] = 'Sold or Moved'
         profile['behavior_detail'] = 'Paper Hands 📄 (<10%)'
         diamond_score = 5
         profile['is_dumping'] = True
@@ -260,11 +260,11 @@ def generate_insights(profile):
     
     return insights
 
-def generate_behavioral_analysis(forensic_data, holders_data):
+def generate_behavioral_analysis(airdrop_data, holders_data):
     """Gera análise comportamental completa"""
     print("\nGerando análise comportamental...")
     
-    recipients = forensic_data.get('recipients', [])
+    recipients = airdrop_data.get('recipients', [])
     holders_map = create_holders_map(holders_data)
     
     print(f"   {len(recipients):,} recipients do airdrop")
@@ -324,7 +324,7 @@ def generate_behavioral_analysis(forensic_data, holders_data):
     
     return profiles, stats
 
-def save_behavioral_analysis(profiles, stats, forensic_data):
+def save_behavioral_analysis(profiles, stats, airdrop_data):
     """Salva análise comportamental"""
     print(f"\nSalvando análise em {OUTPUT_FILE}...")
     
@@ -367,13 +367,13 @@ def main():
     print("ANALISADOR COMPORTAMENTAL FORENSE")
     print("="*80)
     
-    # 1. Carregar dados forenses do airdrop
-    print(f"\nCarregando dados forenses de {FORENSIC_DATA_FILE}...")
-    forensic_data = load_json(FORENSIC_DATA_FILE)
-    if not forensic_data:
-        print("\nExecute primeiro: python3 scripts/forensic_airdrop_extractor.py")
+    # 1. Carregar dados completos do airdrop
+    print(f"\nCarregando dados do airdrop de {AIRDROP_DATA_FILE}...")
+    airdrop_data = load_json(AIRDROP_DATA_FILE)
+    if not airdrop_data:
+        print("\nExecute primeiro: cd ../ord && python3 trace_dog_flow_complete.py")
         sys.exit(1)
-    print(f"{forensic_data['statistics']['total_recipients']:,} recipients carregados")
+    print(f"{airdrop_data['total_recipients']:,} recipients carregados")
     
     # 2. Carregar holders atuais
     print(f"\nCarregando holders atuais de {HOLDERS_FILE}...")
@@ -384,10 +384,10 @@ def main():
     print(f"{holders_data.get('total_holders', 0):,} holders carregados")
     
     # 3. Gerar análise comportamental
-    profiles, stats = generate_behavioral_analysis(forensic_data, holders_data)
+    profiles, stats = generate_behavioral_analysis(airdrop_data, holders_data)
     
     # 4. Salvar resultado
-    save_behavioral_analysis(profiles, stats, forensic_data)
+    save_behavioral_analysis(profiles, stats, airdrop_data)
     
     print("\n" + "="*80)
     print("ANÁLISE COMPORTAMENTAL COMPLETA!")

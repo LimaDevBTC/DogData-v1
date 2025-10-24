@@ -164,3 +164,4 @@ backend/
 5. ✅ Adicionar campo **totalUTXOs** no card do frontend
 6. 🧹 Limpar scripts obsoletos
 
+
