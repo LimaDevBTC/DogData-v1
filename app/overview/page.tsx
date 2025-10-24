@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { Layout } from "@/components/layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -154,7 +155,8 @@ export default function OverviewPage() {
   }
 
   return (
-    <div className="min-h-screen py-8 space-y-8">
+    <Layout currentPage="overview" setCurrentPage={() => {}}>
+      <div className="min-h-screen py-8 space-y-8">
       {/* Hero Section */}
       <div className="text-center space-y-6 animate-fade-in">
         <div className="space-y-4">
@@ -293,6 +295,7 @@ export default function OverviewPage() {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </Layout>
   )
 }

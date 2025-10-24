@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Image from "next/image"
+import { Layout } from "@/components/layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -413,8 +414,9 @@ export default function AirdropPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
+    <Layout currentPage="airdrop" setCurrentPage={() => {}}>
+      <div className="p-6 space-y-6">
+        {/* Header */}
       <div className="text-center space-y-4">
         <div className="flex items-center justify-center gap-4">
           <Image 
@@ -862,6 +864,7 @@ export default function AirdropPage() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </Layout>
   )
 }

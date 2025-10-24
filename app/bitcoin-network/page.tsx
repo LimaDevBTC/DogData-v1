@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { Layout } from "@/components/layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { SectionDivider } from "@/components/ui/section-divider"
 import { Network, RefreshCw } from "lucide-react"
@@ -72,8 +73,9 @@ export default function BitcoinNetworkPage() {
   }
 
   return (
-    <div className="p-6 space-y-8">
-             {/* Header */}
+    <Layout currentPage="bitcoin-network" setCurrentPage={() => {}}>
+      <div className="p-6 space-y-8">
+        {/* Header */}
              <div className="text-center space-y-4">
                <h1 className="text-4xl font-bold text-white font-mono flex items-center justify-center">
                  <Network className="w-10 h-10 mr-4 text-orange-500" />
@@ -191,7 +193,8 @@ export default function BitcoinNetworkPage() {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </Layout>
   )
 }
 

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { Layout } from "@/components/layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { 
@@ -71,8 +72,9 @@ export default function DonatePage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white relative">
-      {/* Header */}
+    <Layout currentPage="donate" setCurrentPage={() => {}}>
+      <div className="min-h-screen bg-black text-white relative">
+        {/* Header */}
       <div className="p-6 text-center space-y-6">
         <div className="flex items-center justify-center space-x-4">
           <Heart className="w-12 h-12 text-orange-500 animate-pulse" />
@@ -314,6 +316,7 @@ export default function DonatePage() {
           </Card>
         </div>
       )}
-    </div>
+      </div>
+    </Layout>
   )
 }

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { Layout } from "@/components/layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -234,7 +235,8 @@ export default function HoldersPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <Layout currentPage="holders" setCurrentPage={() => {}}>
+      <div className="p-6 space-y-6">
       {/* Header */}
       <div className="text-center space-y-4">
         <h1 className="text-4xl font-bold text-white font-mono flex items-center justify-center">
@@ -529,7 +531,8 @@ export default function HoldersPage() {
               </div>
             </div>
           </div>
-    </div>
+      </div>
+    </Layout>
   )
 }
 
