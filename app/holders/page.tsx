@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Search, Download, Copy, ExternalLink, ChevronLeft, ChevronRight, Wifi, WifiOff, MoreHorizontal, Users, Filter } from "lucide-react"
+import { Search, Download, Copy, ExternalLink, ChevronLeft, ChevronRight, Wifi, WifiOff, MoreHorizontal, Users, Filter, Ticket } from "lucide-react"
 import { SectionDivider } from "@/components/ui/section-divider"
 import { TrendIndicator } from "@/components/ui/trend-indicator"
 
@@ -267,15 +267,15 @@ export default function HoldersPage() {
           </CardContent>
         </Card>
 
-        <Card variant="glass" className="stagger-item border-purple-500/20 hover:border-purple-500/40 transition-all">
+        <Card variant="glass" className="stagger-item border-orange-500/20 hover:border-orange-500/40 transition-all">
           <CardHeader className="pb-2">
-            <CardTitle className="text-purple-400 text-lg flex items-center">
-              <MoreHorizontal className="w-5 h-5 mr-2" />
+            <CardTitle className="text-orange-400 text-lg flex items-center">
+              <Ticket className="w-5 h-5 mr-2" />
               Total UTXOs
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-purple-500 bg-clip-text text-transparent font-mono">
+            <div className="text-3xl font-bold bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent font-mono">
               270,685
             </div>
             <p className="text-gray-400 text-xs font-mono mt-1">DOG UTXOs on-chain</p>
