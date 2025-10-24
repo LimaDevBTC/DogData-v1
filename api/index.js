@@ -1,24 +1,30 @@
 // Helper para fazer fetch de JSON (arquivos servidos como estáticos)
-const fetchJSON = async (fileName) => {
+const fetchJSON = async (fileName, req) => {
   try {
-    const baseUrl = process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}`
-      : 'http://localhost:3000';
+    // Usar o host da requisição para garantir URL correta
+    const protocol = req.headers['x-forwarded-proto'] || 'https';
+    const host = req.headers['x-forwarded-host'] || req.headers.host || process.env.VERCEL_URL;
+    const baseUrl = `${protocol}://${host}`;
     
     const url = `${baseUrl}/data/${fileName}`;
-    console.log(`📥 Fetching: ${url}`);
+    console.log(`📥 Attempting to fetch: ${url}`);
+    console.log(`   VERCEL_URL: ${process.env.VERCEL_URL}`);
+    console.log(`   Host: ${host}`);
     
     const response = await fetch(url);
+    console.log(`   Response status: ${response.status}`);
+    
     if (!response.ok) {
       console.error(`❌ Fetch failed: ${response.status} ${response.statusText}`);
       return null;
     }
     
     const data = await response.json();
-    console.log(`✅ Loaded: ${fileName}`);
+    console.log(`✅ Successfully loaded: ${fileName} (${JSON.stringify(data).length} bytes)`);
     return data;
   } catch (error) {
-    console.error(`Error fetching ${fileName}:`, error.message);
+    console.error(`❌ Error fetching ${fileName}:`, error.message);
+    console.error(`   Stack:`, error.stack);
     return null;
   }
 };
@@ -34,17 +40,17 @@ let cache = {
 
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
 
-const loadAllData = async () => {
+const loadAllData = async (req) => {
   const now = Date.now();
   
   // Recarregar se cache expirou
   if (now - cache.lastLoad > CACHE_DURATION) {
     console.log('🔄 Reloading data...');
     
-    cache.dogData = await fetchJSON('dog_holders_by_address.json');
-    cache.airdropAnalytics = await fetchJSON('airdrop_analytics.json');
-    cache.forensicData = await fetchJSON('forensic_airdrop_data.json');
-    cache.behavioralAnalysis = await fetchJSON('forensic_behavioral_analysis.json');
+    cache.dogData = await fetchJSON('dog_holders_by_address.json', req);
+    cache.airdropAnalytics = await fetchJSON('airdrop_analytics.json', req);
+    cache.forensicData = await fetchJSON('forensic_airdrop_data.json', req);
+    cache.behavioralAnalysis = await fetchJSON('forensic_behavioral_analysis.json', req);
     cache.lastLoad = now;
     
     // Adicionar ranking aos holders
@@ -73,7 +79,7 @@ module.exports = async (req, res) => {
     return;
   }
 
-  const data = await loadAllData();
+  const data = await loadAllData(req);
   const { pathname } = new URL(req.url, `http://${req.headers.host}`);
   
   // Helper para extrair query params
