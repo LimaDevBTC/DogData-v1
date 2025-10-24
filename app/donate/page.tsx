@@ -271,7 +271,7 @@ export default function DonatePage() {
             <CardContent className="space-y-6">
               {/* QR Code */}
               <div className="text-center">
-                <div className="bg-white p-4 rounded-lg inline-block">
+                <div className="bg-black p-4 rounded-lg inline-block">
                   <Image
                     src={DONATION_DATA[selectedDonation].qr}
                     alt={`${DONATION_DATA[selectedDonation].title} QR Code`}

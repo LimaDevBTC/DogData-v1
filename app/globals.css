@@ -58,7 +58,7 @@
   
   /* Grid Pattern */
   --grid-size: 64px;
-  --grid-color: rgba(247, 147, 26, 0.03);
+  --grid-color: rgba(247, 147, 26, 0.015);
 }
 
 * {
@@ -100,7 +100,7 @@ body::before {
   background-size: 
     var(--grid-size) var(--grid-size),
     var(--grid-size) var(--grid-size);
-  opacity: 0.4;
+  opacity: 0.2;
   mask-image: radial-gradient(ellipse 90% 80% at 50% 40%, black 60%, transparent 100%);
   -webkit-mask-image: radial-gradient(ellipse 90% 80% at 50% 40%, black 60%, transparent 100%);
 }
@@ -127,13 +127,13 @@ body > * {
   pointer-events: none;
   background-image: 
     /* Horizontal lines */
-    linear-gradient(to bottom, transparent calc(var(--grid-size) - 1px), rgba(247, 147, 26, 0.05) calc(var(--grid-size) - 1px), rgba(247, 147, 26, 0.05) var(--grid-size)),
+    linear-gradient(to bottom, transparent calc(var(--grid-size) - 1px), rgba(247, 147, 26, 0.02) calc(var(--grid-size) - 1px), rgba(247, 147, 26, 0.02) var(--grid-size)),
     /* Vertical lines */
-    linear-gradient(to right, transparent calc(var(--grid-size) - 1px), rgba(247, 147, 26, 0.05) calc(var(--grid-size) - 1px), rgba(247, 147, 26, 0.05) var(--grid-size));
+    linear-gradient(to right, transparent calc(var(--grid-size) - 1px), rgba(247, 147, 26, 0.02) calc(var(--grid-size) - 1px), rgba(247, 147, 26, 0.02) var(--grid-size));
   background-size: 
     var(--grid-size) var(--grid-size),
     var(--grid-size) var(--grid-size);
-  opacity: 0.5;
+  opacity: 0.25;
   mask-image: radial-gradient(ellipse 90% 80% at 50% 50%, black 60%, transparent 100%);
   -webkit-mask-image: radial-gradient(ellipse 90% 80% at 50% 50%, black 60%, transparent 100%);
 }
@@ -165,7 +165,7 @@ body > * {
   background-size: 
     var(--grid-size) var(--grid-size),
     var(--grid-size) var(--grid-size);
-  opacity: 0.6;
+  opacity: 0.3;
   mask-image: radial-gradient(ellipse 90% 80% at 50% 50%, black 60%, transparent 100%);
   -webkit-mask-image: radial-gradient(ellipse 90% 80% at 50% 50%, black 60%, transparent 100%);
 }

@@ -12,9 +12,9 @@ export const metadata: Metadata = {
   viewport: 'width=device-width, initial-scale=1',
   themeColor: '#f97316',
   icons: {
-    icon: '/dog-logo.png',
-    shortcut: '/dog-logo.png',
-    apple: '/dog-logo.png',
+    icon: '/favicondog.png',
+    shortcut: '/favicondog.png',
+    apple: '/favicondog.png',
   },
   openGraph: {
     title: 'DOG DATA - DOG Rune Explorer',
