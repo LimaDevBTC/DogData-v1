@@ -74,23 +74,27 @@ export default function OverviewPage() {
         const runeResponse = await fetch('/api/dog-rune/data')
         const runeData = await runeResponse.json()
         
-        // Buscar percentual de mudança da Kraken
+        // Buscar preço da Kraken
         const krakenResponse = await fetch('/api/price/kraken')
         const krakenData = await krakenResponse.json()
         
-        // Calcular percentual de mudança da Kraken
+        // Extrair preço e calcular mudança
+        let currentPrice = 0
         let changePercent = 0
         if (krakenData.result && krakenData.result.DOGUSD) {
-          const currentPrice = parseFloat(krakenData.result.DOGUSD.c[0])
+          currentPrice = parseFloat(krakenData.result.DOGUSD.c[0])
           const openPrice = parseFloat(krakenData.result.DOGUSD.o)
           changePercent = ((currentPrice - openPrice) / openPrice) * 100
         }
         
+        // Calcular Market Cap (preço × circulating supply)
+        const calculatedMarketCap = currentPrice * runeData.circulatingSupply
+        
         setStats({
           totalHolders: statsData.totalHolders || 0,
           totalSupply: runeData.totalSupply,
-          marketCap: (statsData.price || 0) * runeData.circulatingSupply,
-          price: statsData.price || 0,
+          marketCap: calculatedMarketCap,
+          price: currentPrice,
           lastUpdated: statsData.lastUpdated || new Date().toISOString(),
           totalTransactions: statsData.totalUtxos || 0,
           activeAddresses: statsData.totalHolders || 0,
