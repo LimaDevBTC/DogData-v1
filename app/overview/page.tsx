@@ -60,7 +60,7 @@ interface OverviewPageProps {
   setCurrentPage?: (page: any) => void
 }
 
-export default function OverviewPage({ setCurrentPage }: OverviewPageProps = {}) {
+export default function OverviewPage({ setCurrentPage }: OverviewPageProps) {
   const [stats, setStats] = useState<DogStats | null>(null)
   const [runeData, setRuneData] = useState<DogRuneData | null>(null)
   const [krakenChange, setKrakenChange] = useState<number>(0)
