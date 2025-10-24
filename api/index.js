@@ -4,9 +4,25 @@ const path = require('path');
 // Helper para ler JSON
 const readJSON = (filePath) => {
   try {
-    const fullPath = path.join(process.cwd(), filePath);
-    const data = fs.readFileSync(fullPath, 'utf8');
-    return JSON.parse(data);
+    // Tentar múltiplos caminhos possíveis
+    const possiblePaths = [
+      path.join(process.cwd(), filePath),
+      path.join(process.cwd(), '.next', 'static', filePath),
+      path.join('/var/task', filePath),
+      path.join('/var/task/.next/static', filePath),
+    ];
+    
+    for (const fullPath of possiblePaths) {
+      if (fs.existsSync(fullPath)) {
+        console.log(`✅ Found file at: ${fullPath}`);
+        const data = fs.readFileSync(fullPath, 'utf8');
+        return JSON.parse(data);
+      }
+    }
+    
+    console.error(`❌ File not found in any path: ${filePath}`);
+    console.error('Tried paths:', possiblePaths);
+    return null;
   } catch (error) {
     console.error(`Error reading ${filePath}:`, error.message);
     return null;
