@@ -296,7 +296,7 @@ module.exports = async (req, res) => {
               {
                 "left": "name",
                 "operation": "match",
-                "right": "DOGUSDT.P"
+                "right": "GATEIO:DOGUSDT"
               }
             ],
             "options": {
