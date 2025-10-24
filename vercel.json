@@ -1,4 +1,8 @@
 {
+  "buildCommand": "next build",
+  "devCommand": "next dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
   "rewrites": [
     {
       "source": "/api/:path*",
@@ -6,4 +10,3 @@
     }
   ]
 }
-
