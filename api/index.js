@@ -1,30 +1,24 @@
-const fs = require('fs');
-const path = require('path');
-
-// Helper para ler JSON
-const readJSON = (filePath) => {
+// Helper para fazer fetch de JSON (arquivos servidos como estáticos)
+const fetchJSON = async (fileName) => {
   try {
-    // Tentar múltiplos caminhos possíveis
-    const possiblePaths = [
-      path.join(process.cwd(), filePath),
-      path.join(process.cwd(), '.next', 'static', filePath),
-      path.join('/var/task', filePath),
-      path.join('/var/task/.next/static', filePath),
-    ];
+    const baseUrl = process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}`
+      : 'http://localhost:3000';
     
-    for (const fullPath of possiblePaths) {
-      if (fs.existsSync(fullPath)) {
-        console.log(`✅ Found file at: ${fullPath}`);
-        const data = fs.readFileSync(fullPath, 'utf8');
-        return JSON.parse(data);
-      }
+    const url = `${baseUrl}/data/${fileName}`;
+    console.log(`📥 Fetching: ${url}`);
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.error(`❌ Fetch failed: ${response.status} ${response.statusText}`);
+      return null;
     }
     
-    console.error(`❌ File not found in any path: ${filePath}`);
-    console.error('Tried paths:', possiblePaths);
-    return null;
+    const data = await response.json();
+    console.log(`✅ Loaded: ${fileName}`);
+    return data;
   } catch (error) {
-    console.error(`Error reading ${filePath}:`, error.message);
+    console.error(`Error fetching ${fileName}:`, error.message);
     return null;
   }
 };
@@ -40,17 +34,17 @@ let cache = {
 
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
 
-const loadAllData = () => {
+const loadAllData = async () => {
   const now = Date.now();
   
   // Recarregar se cache expirou
   if (now - cache.lastLoad > CACHE_DURATION) {
     console.log('🔄 Reloading data...');
     
-    cache.dogData = readJSON('public/data/dog_holders_by_address.json');
-    cache.airdropAnalytics = readJSON('public/data/airdrop_analytics.json');
-    cache.forensicData = readJSON('public/data/forensic_airdrop_data.json');
-    cache.behavioralAnalysis = readJSON('public/data/forensic_behavioral_analysis.json');
+    cache.dogData = await fetchJSON('dog_holders_by_address.json');
+    cache.airdropAnalytics = await fetchJSON('airdrop_analytics.json');
+    cache.forensicData = await fetchJSON('forensic_airdrop_data.json');
+    cache.behavioralAnalysis = await fetchJSON('forensic_behavioral_analysis.json');
     cache.lastLoad = now;
     
     // Adicionar ranking aos holders
@@ -79,7 +73,7 @@ module.exports = async (req, res) => {
     return;
   }
 
-  const data = loadAllData();
+  const data = await loadAllData();
   const { pathname } = new URL(req.url, `http://${req.headers.host}`);
   
   // Helper para extrair query params
