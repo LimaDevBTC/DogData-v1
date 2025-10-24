@@ -55,7 +55,7 @@ export default function HoldersPage() {
   // Carregar lista de recipients do airdrop
   const loadAirdropRecipients = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/airdrop/recipients')
+      const response = await fetch('/api/airdrop/recipients')
       if (response.ok) {
         const data = await response.json()
         if (data.recipients && Array.isArray(data.recipients)) {
@@ -122,7 +122,7 @@ export default function HoldersPage() {
   const fetchHolders = async (page: number, limit: number = 50) => {
     try {
       setLoading(true)
-      const response = await fetch(`http://localhost:3001/api/dog-rune/holders?page=${page}&limit=${limit}`)
+      const response = await fetch(`/api/dog-rune/holders?page=${page}&limit=${limit}`)
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)

@@ -222,14 +222,14 @@ export default function AirdropPage() {
       }
       
       // Fetch summary
-      const summaryResponse = await fetch('http://localhost:3001/api/airdrop/summary')
+      const summaryResponse = await fetch('/api/airdrop/summary')
       if (summaryResponse.ok) {
         const summaryData = await summaryResponse.json()
         setSummary(summaryData)
       }
       
       // Fetch forensic stats
-      const forensicResponse = await fetch('http://localhost:3001/api/forensic/summary')
+      const forensicResponse = await fetch('/api/forensic/summary')
       if (forensicResponse.ok) {
         const forensicData = await forensicResponse.json()
         setForensicStats(forensicData.statistics)
@@ -258,7 +258,7 @@ export default function AirdropPage() {
       }
       
       // Fetch profiles based on current list
-      let url = 'http://localhost:3001/api/forensic/profiles'
+      let url = '/api/forensic/profiles'
       const params = new URLSearchParams({
         page: currentPage.toString(),
         limit: ITEMS_PER_PAGE.toString()
@@ -351,7 +351,7 @@ export default function AirdropPage() {
     if (!searchAddress.trim()) return
     
     try {
-      const response = await fetch(`http://localhost:3001/api/forensic/recipient/${searchAddress.trim()}`)
+      const response = await fetch(`/api/forensic/recipient/${searchAddress.trim()}`)
       if (response.ok) {
         const data = await response.json()
         setSearchResult(data.profile)
