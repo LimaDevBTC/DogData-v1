@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import { useSSE } from "@/hooks/use-sse"
 import { Badge } from "@/components/ui/badge"
 import { Wifi, WifiOff, RefreshCw } from "lucide-react"
