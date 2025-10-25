@@ -480,8 +480,8 @@ export default function AirdropPage() {
 
         <Card variant="glass">
           <CardHeader className="pb-3">
-            <CardTitle className="text-red-200">
-              Full Exits
+            <CardTitle className="text-gray-300">
+              Complete Exits
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -489,7 +489,7 @@ export default function AirdropPage() {
               {formatNumber(forensicStats?.sold_everything || 0)}
             </div>
             <p className="text-gray-400 text-sm font-mono mt-2">
-              Sold all airdrop tokens
+              Sold or moved all airdrop tokens
             </p>
           </CardContent>
         </Card>
