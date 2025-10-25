@@ -85,6 +85,7 @@ export default function AirdropPage() {
   const [searchResult, setSearchResult] = useState<BehavioralProfile | null>(null)
   const [isUpdating, setIsUpdating] = useState(false)
   const [initialLoad, setInitialLoad] = useState(true)
+  const [copiedAddress, setCopiedAddress] = useState<string | null>(null)
 
   const ITEMS_PER_PAGE = 50
 
@@ -367,6 +368,8 @@ export default function AirdropPage() {
 
   const copyAddress = (address: string) => {
     navigator.clipboard.writeText(address)
+    setCopiedAddress(address)
+    setTimeout(() => setCopiedAddress(null), 2000)
   }
 
   const formatNumber = (num: number) => {
@@ -578,7 +581,22 @@ export default function AirdropPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-gray-400 text-sm">Address</p>
-                  <code className="text-white text-xs">{searchResult.address}</code>
+                  <div className="flex items-center gap-2">
+                    <code className="text-white text-xs">{searchResult.address}</code>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => copyAddress(searchResult.address)}
+                      className="p-1 h-6 w-6"
+                      title={copiedAddress === searchResult.address ? "Copied!" : "Copy address"}
+                    >
+                      {copiedAddress === searchResult.address ? (
+                        <span className="text-green-400 text-xs font-bold">✓</span>
+                      ) : (
+                        <Copy className="w-3 h-3" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
                 <div>
                   <p className="text-gray-400 text-sm">Airdrop Amount</p>
@@ -742,8 +760,13 @@ export default function AirdropPage() {
                           variant="ghost"
                           onClick={() => copyAddress(profile.address)}
                           className="p-1 h-6 w-6"
+                          title={copiedAddress === profile.address ? "Copied!" : "Copy address"}
                         >
-                          <Copy className="w-3 h-3" />
+                          {copiedAddress === profile.address ? (
+                            <span className="text-green-400 text-xs font-bold">✓</span>
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
                         </Button>
                       </div>
                     </td>

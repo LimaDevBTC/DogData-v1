@@ -38,8 +38,11 @@ export default function HoldersPage() {
   const [totalHolders, setTotalHolders] = useState(0)
   const [goToPage, setGoToPage] = useState('')
   const [searchTerm, setSearchTerm] = useState("")
+  const [searchAddress, setSearchAddress] = useState("")
   const [clickedDetailsIndex, setClickedDetailsIndex] = useState<number | null>(null)
   const [airdropRecipients, setAirdropRecipients] = useState<Set<string>>(new Set())
+  const [copiedAddress, setCopiedAddress] = useState<string | null>(null)
+  const [searchResult, setSearchResult] = useState<Holder | null>(null)
   
   // SSE states
   const [isSSEConnected, setIsSSEConnected] = useState(false)
@@ -197,6 +200,25 @@ export default function HoldersPage() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
+    setCopiedAddress(text)
+    setTimeout(() => setCopiedAddress(null), 2000)
+  };
+
+  const searchHolderByAddress = async () => {
+    if (!searchAddress.trim()) return
+    
+    try {
+      // Buscar nos holders carregados
+      const holder = allHolders.find(h => h.address.toLowerCase() === searchAddress.trim().toLowerCase())
+      if (holder) {
+        setSearchResult(holder)
+      } else {
+        setSearchResult(null)
+        alert('Holder not found')
+      }
+    } catch (error) {
+      console.error('Error searching holder:', error)
+    }
   };
 
   const exportToCSV = () => {
@@ -316,28 +338,86 @@ export default function HoldersPage() {
       {/* Search and Controls */}
       <Card variant="glass">
         <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-            <div className="flex-1 max-w-md">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-dog-gray-400 w-4 h-4" />
-                <Input
-                  placeholder="Search by address..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+          <div className="flex flex-col gap-4">
+            {/* Search by Address with Button */}
+            <div className="flex gap-2">
+              <Input
+                placeholder="Enter Bitcoin address..."
+                value={searchAddress}
+                onChange={(e) => setSearchAddress(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && searchHolderByAddress()}
+                className="flex-1 bg-transparent border-gray-700/50 text-white"
+              />
+              <Button onClick={searchHolderByAddress} className="btn-sharp">
+                <Search className="w-4 h-4 mr-2" />
+                Search
+              </Button>
             </div>
             
-            <div className="flex gap-2">
-              <Button
-                onClick={exportToCSV}
-                variant="outline"
-                className="btn-sharp"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Export CSV
-              </Button>
+            {/* Search Result */}
+            {searchResult && (
+              <div className="p-4 border border-orange-500/30 bg-orange-500/5 rounded">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-orange-400 font-mono font-bold">Holder Found</h4>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setSearchResult(null)}
+                    className="p-1 h-6 w-6"
+                  >
+                    ✕
+                  </Button>
+                </div>
+                <div className="space-y-1 text-sm font-mono">
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-400">Address:</span>
+                    <code className="text-white">{searchResult.address}</code>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => copyToClipboard(searchResult.address)}
+                      className="p-1 h-6 w-6"
+                    >
+                      {copiedAddress === searchResult.address ? (
+                        <span className="text-green-400 text-xs">✓</span>
+                      ) : (
+                        <Copy className="w-3 h-3" />
+                      )}
+                    </Button>
+                  </div>
+                  <div><span className="text-gray-400">Balance:</span> <span className="text-white">{formatNumber(searchResult.total_dog)} DOG</span></div>
+                  <div><span className="text-gray-400">UTXOs:</span> <span className="text-white">{searchResult.utxo_count}</span></div>
+                  {searchResult.is_airdrop_recipient && (
+                    <div className="text-orange-400">🎁 Airdrop Recipient</div>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            {/* Filter and Export Row */}
+            <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+              <div className="flex-1 max-w-md">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-dog-gray-400 w-4 h-4" />
+                  <Input
+                    placeholder="Filter by address..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-2">
+                <Button
+                  onClick={exportToCSV}
+                  variant="outline"
+                  className="btn-sharp"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Export CSV
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -396,8 +476,13 @@ export default function HoldersPage() {
                           variant="ghost"
                           onClick={() => copyToClipboard(holder.address)}
                           className="p-1 h-6 w-6"
+                          title={copiedAddress === holder.address ? "Copied!" : "Copy address"}
                         >
-                          <Copy className="w-3 h-3" />
+                          {copiedAddress === holder.address ? (
+                            <span className="text-green-400 text-xs font-bold">✓</span>
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
                         </Button>
                         <Button
                           size="sm"
