@@ -364,39 +364,42 @@ export default function HoldersPage() {
             
             {/* Search Result */}
             {searchResult && (
-              <div className="p-4 border border-orange-500/30 bg-orange-500/5 rounded">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-orange-400 font-mono font-bold">Holder Found</h4>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setSearchResult(null)}
-                    className="p-1 h-6 w-6"
-                  >
-                    ✕
-                  </Button>
-                </div>
-                <div className="space-y-1 text-sm font-mono">
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-400">Address:</span>
-                    <code className="text-white break-all">{searchResult.address}</code>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => copyToClipboard(searchResult.address)}
-                      className="p-1 h-6 w-6"
-                    >
-                      {copiedAddress === searchResult.address ? (
-                        <span className="text-green-400 text-xs">✓</span>
-                      ) : (
-                        <Copy className="w-3 h-3" />
-                      )}
-                    </Button>
+              <div className="mt-4 p-4 bg-transparent border border-gray-700/50 rounded">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-gray-400 text-sm">Address</p>
+                    <div className="flex items-center gap-2">
+                      <code className="text-white text-xs break-all">{searchResult.address}</code>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => copyToClipboard(searchResult.address)}
+                        className="p-1 h-6 w-6"
+                        title={copiedAddress === searchResult.address ? "Copied!" : "Copy address"}
+                      >
+                        {copiedAddress === searchResult.address ? (
+                          <span className="text-green-400 text-xs font-bold">✓</span>
+                        ) : (
+                          <Copy className="w-3 h-3" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
-                  <div><span className="text-gray-400">Balance:</span> <span className="text-white">{formatNumber(searchResult.total_dog)} DOG</span></div>
-                  <div><span className="text-gray-400">UTXOs:</span> <span className="text-white">{searchResult.utxo_count}</span></div>
+                  <div>
+                    <p className="text-gray-400 text-sm">DOG Balance</p>
+                    <p className="text-white font-mono">{formatNumber(searchResult.total_dog)} DOG</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">UTXOs</p>
+                    <p className="text-white font-mono">{searchResult.utxo_count}</p>
+                  </div>
                   {searchResult.is_airdrop_recipient && (
-                    <div className="text-orange-400">🎁 Airdrop Recipient</div>
+                    <div>
+                      <p className="text-gray-400 text-sm">Airdrop</p>
+                      <span className="text-orange-400 text-sm font-mono">
+                        🎁 Recipient
+                      </span>
+                    </div>
                   )}
                 </div>
               </div>
