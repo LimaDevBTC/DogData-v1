@@ -79,12 +79,18 @@ export function HashrateChart({ data }: HashrateChartProps) {
             </LineChart>
           </ResponsiveContainer>
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-4">
+        <div className="mt-4 grid grid-cols-3 gap-4">
           <div className="text-center">
             <div className="text-2xl font-bold text-green-400 font-mono">
               {BitcoinApiService.formatHashRate(data.hashrate)}
             </div>
             <div className="text-gray-400 text-sm font-mono">Current Hash Rate</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-yellow-400 font-mono">
+              {BitcoinApiService.formatHashRate(Math.max(...data.hashrateHistory.map(h => h.avgHashrate)))}
+            </div>
+            <div className="text-gray-400 text-sm font-mono">ATH Hash Rate</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-white font-mono">
