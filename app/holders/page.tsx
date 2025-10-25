@@ -211,23 +211,20 @@ export default function HoldersPage() {
     
     try {
       setLoading(true)
-      
-      // Buscar o holder
+      // Buscar todos os holders via API
       const holdersResponse = await fetch(`/data/dog_holders_by_address.json`)
-      
       if (holdersResponse.ok) {
         const holdersData = await holdersResponse.json()
         // Buscar o endereço específico
         const holder = holdersData.holders.find((h: Holder) => 
           h.address.toLowerCase() === searchAddress.trim().toLowerCase()
         )
-        
         if (holder) {
-          // Verificar se é recipient do airdrop (usando o Set já carregado)
+          // Verificar se é recipient do airdrop e buscar quantidade recebida
           holder.is_airdrop_recipient = airdropRecipients.has(holder.address)
           
-          // Se for recipient, buscar a quantidade recebida
           if (holder.is_airdrop_recipient) {
+            // Buscar dados do airdrop
             try {
               const airdropResponse = await fetch(`/data/airdrop_recipients.json`)
               if (airdropResponse.ok) {
@@ -240,7 +237,7 @@ export default function HoldersPage() {
                 }
               }
             } catch (err) {
-              console.error('Error fetching airdrop amount:', err)
+              console.error('Error fetching airdrop data:', err)
             }
           }
           
@@ -416,16 +413,29 @@ export default function HoldersPage() {
                     <p className="text-gray-400 text-sm">UTXOs</p>
                     <p className="text-white font-mono">{searchResult.utxo_count}</p>
                   </div>
-                  <div>
-                    <p className="text-gray-400 text-sm">Airdrop Amount</p>
-                    {searchResult.is_airdrop_recipient && searchResult.airdrop_amount ? (
-                      <p className="text-white font-mono">{formatNumber(searchResult.airdrop_amount)} DOG</p>
-                    ) : (
+                  {searchResult.is_airdrop_recipient ? (
+                    <>
+                      <div>
+                        <p className="text-gray-400 text-sm">Airdrop Recipient</p>
+                        <span className="text-orange-400 text-sm font-mono">
+                          Yes
+                        </span>
+                      </div>
+                      {searchResult.airdrop_amount && (
+                        <div>
+                          <p className="text-gray-400 text-sm">Airdrop Amount</p>
+                          <p className="text-white font-mono">{formatNumber(searchResult.airdrop_amount)} DOG</p>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div>
+                      <p className="text-gray-400 text-sm">Airdrop Recipient</p>
                       <span className="text-gray-500 text-sm font-mono">
-                        Not a recipient
+                        No
                       </span>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
