@@ -208,16 +208,32 @@ export default function HoldersPage() {
     if (!searchAddress.trim()) return
     
     try {
-      // Buscar nos holders carregados
-      const holder = allHolders.find(h => h.address.toLowerCase() === searchAddress.trim().toLowerCase())
-      if (holder) {
-        setSearchResult(holder)
+      setLoading(true)
+      // Buscar todos os holders via API
+      const response = await fetch(`/data/dog_holders_by_address.json`)
+      if (response.ok) {
+        const data = await response.json()
+        // Buscar o endereço específico
+        const holder = data.holders.find((h: Holder) => 
+          h.address.toLowerCase() === searchAddress.trim().toLowerCase()
+        )
+        if (holder) {
+          // Verificar se é recipient do airdrop
+          holder.is_airdrop_recipient = airdropRecipients.has(holder.address)
+          setSearchResult(holder)
+        } else {
+          setSearchResult(null)
+          alert('Holder not found')
+        }
       } else {
         setSearchResult(null)
-        alert('Holder not found')
+        alert('Error loading holders data')
       }
     } catch (error) {
       console.error('Error searching holder:', error)
+      alert('Error searching holder')
+    } finally {
+      setLoading(false)
     }
   };
 
@@ -340,30 +356,59 @@ export default function HoldersPage() {
         <CardContent className="p-6">
           <div className="flex flex-col gap-4">
             {/* Search by Address with Button */}
-            <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-              <div className="flex-1 flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-dog-gray-400 w-4 h-4" />
-                  <Input
-                    placeholder="Filter by address..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
+            <div className="flex gap-2">
+              <Input
+                placeholder="Enter Bitcoin address..."
+                value={searchAddress}
+                onChange={(e) => setSearchAddress(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && searchHolderByAddress()}
+                className="flex-1 bg-transparent border-gray-700/50 text-white"
+              />
+              <Button onClick={searchHolderByAddress} className="btn-sharp">
+                <Search className="w-4 h-4 mr-2" />
+                Search
+              </Button>
+            </div>
+            
+            {/* Search Result */}
+            {searchResult && (
+              <div className="p-4 border border-orange-500/30 bg-orange-500/5 rounded">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-orange-400 font-mono font-bold">Holder Found</h4>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setSearchResult(null)}
+                    className="p-1 h-6 w-6"
+                  >
+                    ✕
+                  </Button>
+                </div>
+                <div className="space-y-1 text-sm font-mono">
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-400">Address:</span>
+                    <code className="text-white break-all">{searchResult.address}</code>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => copyToClipboard(searchResult.address)}
+                      className="p-1 h-6 w-6"
+                    >
+                      {copiedAddress === searchResult.address ? (
+                        <span className="text-green-400 text-xs">✓</span>
+                      ) : (
+                        <Copy className="w-3 h-3" />
+                      )}
+                    </Button>
+                  </div>
+                  <div><span className="text-gray-400">Balance:</span> <span className="text-white">{formatNumber(searchResult.total_dog)} DOG</span></div>
+                  <div><span className="text-gray-400">UTXOs:</span> <span className="text-white">{searchResult.utxo_count}</span></div>
+                  {searchResult.is_airdrop_recipient && (
+                    <div className="text-orange-400">🎁 Airdrop Recipient</div>
+                  )}
                 </div>
               </div>
-              
-              <div className="flex gap-2">
-                <Button
-                  onClick={exportToCSV}
-                  variant="outline"
-                  className="btn-sharp"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Export CSV
-                </Button>
-              </div>
-            </div>
+            )}
           </div>
         </CardContent>
       </Card>

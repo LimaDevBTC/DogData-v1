@@ -353,16 +353,30 @@ export default function AirdropPage() {
     if (!searchAddress.trim()) return
     
     try {
-      const response = await fetch(`/api/forensic/recipient/${searchAddress.trim()}`)
+      setLoading(true)
+      // Buscar diretamente no JSON de dados forenses
+      const response = await fetch(`/data/forensic_airdrop_data.json`)
       if (response.ok) {
         const data = await response.json()
-        setSearchResult(data.profile)
+        // Buscar o endereço específico
+        const profile = data.recipients.find((r: BehavioralProfile) => 
+          r.address.toLowerCase() === searchAddress.trim().toLowerCase()
+        )
+        if (profile) {
+          setSearchResult(profile)
+        } else {
+          setSearchResult(null)
+          alert('Recipient not found')
+        }
       } else {
         setSearchResult(null)
-        alert('Recipient not found')
+        alert('Error loading recipients data')
       }
     } catch (error) {
       console.error('Error searching recipient:', error)
+      alert('Error searching recipient')
+    } finally {
+      setLoading(false)
     }
   }
 
