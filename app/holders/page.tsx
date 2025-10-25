@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { Layout } from "@/components/layout"
+import { LoadingScreen } from "@/components/loading-screen"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -260,16 +261,7 @@ export default function HoldersPage() {
 
 
   if (loading && allHolders.length === 0) {
-    return (
-      <div className="p-6">
-        <div className="loading-dots mx-auto">
-          <div></div>
-          <div></div>
-          <div></div>
-          <div></div>
-        </div>
-      </div>
-    )
+    return <LoadingScreen message="Loading DOG holders..." />
   }
 
   return (

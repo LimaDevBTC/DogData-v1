@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Layout } from "@/components/layout"
+import { LoadingScreen } from "@/components/loading-screen"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -148,14 +149,7 @@ export default function OverviewPage() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <RefreshCw className="w-8 h-8 animate-spin text-orange-500 mx-auto" />
-          <p className="text-gray-400 font-mono">Loading DOG data...</p>
-        </div>
-      </div>
-    )
+    return <LoadingScreen message="Loading DOG data..." />
   }
 
   return (

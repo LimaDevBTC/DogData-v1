@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import { Layout } from "@/components/layout"
+import { LoadingScreen } from "@/components/loading-screen"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -418,16 +419,7 @@ export default function AirdropPage() {
   };
 
   if (loading) {
-    return (
-      <div className="p-6">
-        <div className="loading-dots mx-auto">
-          <div></div>
-          <div></div>
-          <div></div>
-          <div></div>
-        </div>
-      </div>
-    )
+    return <LoadingScreen message="Loading airdrop analysis..." />
   }
 
   return (
