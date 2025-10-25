@@ -413,29 +413,16 @@ export default function HoldersPage() {
                     <p className="text-gray-400 text-sm">UTXOs</p>
                     <p className="text-white font-mono">{searchResult.utxo_count}</p>
                   </div>
-                  {searchResult.is_airdrop_recipient ? (
-                    <>
-                      <div>
-                        <p className="text-gray-400 text-sm">Airdrop Recipient</p>
-                        <span className="text-orange-400 text-sm font-mono">
-                          🎁 Yes
-                        </span>
-                      </div>
-                      {searchResult.airdrop_amount && (
-                        <div>
-                          <p className="text-gray-400 text-sm">Airdrop Amount</p>
-                          <p className="text-white font-mono">{formatNumber(searchResult.airdrop_amount)} DOG</p>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div>
-                      <p className="text-gray-400 text-sm">Airdrop Recipient</p>
+                  <div>
+                    <p className="text-gray-400 text-sm">Airdrop Amount</p>
+                    {searchResult.is_airdrop_recipient && searchResult.airdrop_amount ? (
+                      <p className="text-white font-mono">{formatNumber(searchResult.airdrop_amount)} DOG</p>
+                    ) : (
                       <span className="text-gray-500 text-sm font-mono">
-                        No
+                        Not a recipient
                       </span>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             )}
