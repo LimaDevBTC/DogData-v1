@@ -354,12 +354,12 @@ export default function AirdropPage() {
     
     try {
       setLoading(true)
-      // Buscar diretamente no JSON de dados forenses
-      const response = await fetch(`/data/forensic_airdrop_data.json`)
+      // Buscar diretamente no JSON de dados comportamentais
+      const response = await fetch(`/data/forensic_behavioral_analysis.json`)
       if (response.ok) {
         const data = await response.json()
-        // Buscar o endereço específico
-        const profile = data.recipients.find((r: BehavioralProfile) => 
+        // Buscar o endereço específico em all_profiles
+        const profile = data.all_profiles?.find((r: BehavioralProfile) => 
           r.address.toLowerCase() === searchAddress.trim().toLowerCase()
         )
         if (profile) {
