@@ -212,11 +212,8 @@ export default function HoldersPage() {
     try {
       setLoading(true)
       
-      // Buscar os dados em paralelo
-      const [holdersResponse, airdropResponse] = await Promise.all([
-        fetch(`/data/dog_holders_by_address.json`),
-        fetch(`/data/airdrop_recipients.json`)
-      ])
+      // Buscar o holder
+      const holdersResponse = await fetch(`/data/dog_holders_by_address.json`)
       
       if (holdersResponse.ok) {
         const holdersData = await holdersResponse.json()
@@ -226,17 +223,24 @@ export default function HoldersPage() {
         )
         
         if (holder) {
-          // Buscar dados do airdrop se disponível
-          if (airdropResponse.ok) {
-            const airdropData = await airdropResponse.json()
-            const airdropRecipient = airdropData.recipients?.find((r: any) => 
-              r.address.toLowerCase() === holder.address.toLowerCase()
-            )
-            if (airdropRecipient) {
-              holder.is_airdrop_recipient = true
-              holder.airdrop_amount = airdropRecipient.airdrop_amount
-            } else {
-              holder.is_airdrop_recipient = false
+          // Verificar se é recipient do airdrop (usando o Set já carregado)
+          holder.is_airdrop_recipient = airdropRecipients.has(holder.address)
+          
+          // Se for recipient, buscar a quantidade recebida
+          if (holder.is_airdrop_recipient) {
+            try {
+              const airdropResponse = await fetch(`/data/airdrop_recipients.json`)
+              if (airdropResponse.ok) {
+                const airdropData = await airdropResponse.json()
+                const airdropRecipient = airdropData.recipients?.find((r: any) => 
+                  r.address.toLowerCase() === holder.address.toLowerCase()
+                )
+                if (airdropRecipient) {
+                  holder.airdrop_amount = airdropRecipient.airdrop_amount
+                }
+              }
+            } catch (err) {
+              console.error('Error fetching airdrop amount:', err)
             }
           }
           
