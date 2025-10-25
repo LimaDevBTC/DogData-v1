@@ -164,6 +164,23 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
             <ul className="space-y-4">
               <li>
                 <a 
+                  href="https://dogofbitcoin.com/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-gray-300 hover:text-orange-400 transition-all duration-300 flex items-center group py-2 hover:bg-orange-500/10"
+                >
+                  <div className="w-8 h-8 bg-gray-800/50 border border-gray-700/50 flex items-center justify-center mr-4 group-hover:border-orange-500/50 group-hover:bg-orange-500/10 transition-all duration-300">
+                    <Globe className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1">
+                    <span className="font-mono text-sm font-medium tracking-wide block">DOG OFFICIAL SITE</span>
+                    <span className="text-xs text-gray-500 font-mono">dogofbitcoin.com</span>
+                  </div>
+                  <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                </a>
+              </li>
+              <li>
+                <a 
                   href="https://ordinals.com" 
                   target="_blank" 
                   rel="noopener noreferrer"
