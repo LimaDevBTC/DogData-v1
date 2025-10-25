@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Layout } from "@/components/layout"
+import { LoadingScreen } from "@/components/loading-screen"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { SectionDivider } from "@/components/ui/section-divider"
 import { Network, RefreshCw } from "lucide-react"
@@ -47,14 +48,7 @@ export default function BitcoinNetworkPage() {
   }, [])
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <RefreshCw className="w-8 h-8 animate-spin text-orange-500 mx-auto" />
-          <p className="text-gray-400 font-mono">Loading Bitcoin network data...</p>
-        </div>
-      </div>
-    )
+    return <LoadingScreen message="Loading Bitcoin network data..." />
   }
 
   if (error || !data) {
