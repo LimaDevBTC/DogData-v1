@@ -832,7 +832,7 @@ async function updateGateioPrice() {
                 console.log('✅ Preço Gate.io atualizado via TradingView API:', gateioPriceCache.lastPrice);
             }
         }
-    } catch (error) {
+  } catch (error) {
         console.error('Erro ao extrair preço real do TradingView:', error);
         // Manter o cache atual se houver erro
     }

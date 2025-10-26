@@ -156,13 +156,16 @@ export default function OverviewPage() {
     <Layout currentPage="overview" setCurrentPage={() => {}}>
       <div className="min-h-screen py-8 space-y-8">
       {/* Hero Section */}
-      <div className="text-center space-y-6 animate-fade-in">
-        <div className="space-y-4">
-          <h1 className="text-6xl font-display font-bold tracking-tight">
-            <span className="text-gray-400 font-mono tracking-wider">DOG•GO•TO•THE•MOON</span>
+      <div className="text-center space-y-4 md:space-y-6 animate-fade-in px-4">
+        <div className="space-y-3 md:space-y-4 max-w-full overflow-hidden">
+          <h1 className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-display font-bold tracking-tight break-words">
+            <span className="text-gray-400 font-mono tracking-wider block">
+              <span className="inline-block">DOG•GO•TO</span>
+              <span className="inline-block ml-2">•THE•MOON</span>
+            </span>
           </h1>
           <div className="flex items-center justify-center">
-            <Badge variant="outline" className="border-orange-500/30 text-orange-400 font-mono">
+            <Badge variant="outline" className="border-orange-500/30 text-orange-400 font-mono text-xs md:text-sm">
               840000:3
             </Badge>
           </div>
