@@ -70,18 +70,18 @@ export default function BitcoinNetworkPage() {
     <Layout currentPage="bitcoin-network" setCurrentPage={() => {}}>
       <div className="p-6 space-y-8">
         {/* Header */}
-             <div className="text-center space-y-4">
-               <h1 className="text-4xl font-bold text-white font-mono flex items-center justify-center">
-                 <Network className="w-10 h-10 mr-4 text-orange-500" />
+             <div className="text-center space-y-3 md:space-y-4 px-4">
+               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white font-mono flex items-center justify-center whitespace-nowrap">
+                 <Network className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 mr-2 md:mr-4 text-orange-500 flex-shrink-0" />
                  Bitcoin Network
                  {updating && (
-                   <div className="ml-3 w-3 h-3 bg-orange-500 rounded-full animate-pulse"></div>
+                   <div className="ml-2 md:ml-3 w-2 h-2 md:w-3 md:h-3 bg-orange-500 rounded-full animate-pulse flex-shrink-0"></div>
                  )}
                </h1>
-               <p className="text-gray-400 font-mono text-lg">
+               <p className="text-gray-400 font-mono text-sm md:text-lg">
                  Real-time Bitcoin blockchain statistics and network health
                  {updating && (
-                   <span className="ml-2 text-orange-400 text-sm">• Updating...</span>
+                   <span className="ml-2 text-orange-400 text-xs md:text-sm">• Updating...</span>
                  )}
                </p>
              </div>

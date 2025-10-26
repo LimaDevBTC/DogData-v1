@@ -426,21 +426,21 @@ export default function AirdropPage() {
     <Layout currentPage="airdrop" setCurrentPage={() => {}}>
       <div className="p-6 space-y-6">
         {/* Header */}
-      <div className="text-center space-y-4">
-        <div className="flex items-center justify-center gap-4">
+      <div className="text-center space-y-3 md:space-y-4 px-4">
+        <div className="flex items-center justify-center gap-2 md:gap-4">
           <Image 
             src="/Runestone.png" 
             alt="Runestone" 
-            width={60} 
-            height={60}
-            className="object-contain"
+            width={40} 
+            height={40}
+            className="object-contain md:w-[60px] md:h-[60px]"
           />
-          <h1 className="text-4xl font-bold text-white font-mono">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white font-mono whitespace-nowrap">
             Airdrop Analysis
           </h1>
         </div>
-        <p className="text-gray-400 font-mono text-lg">
-          Complete forensic analysis of DOG airdrop recipients
+        <p className="text-gray-400 font-mono text-sm md:text-lg">
+          Independent audit of DOG•GO•TO•THE•MOON Airdrop - Rune 840000:3
         </p>
       </div>
 
