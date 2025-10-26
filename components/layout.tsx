@@ -31,7 +31,7 @@ export function Layout({ children, currentPage }: LayoutProps) {
       <Header currentPage={currentPage} setCurrentPage={handleSetCurrentPage} />
       
       {/* Main Content */}
-      <main className="relative pt-16 md:pt-20 flex-1">
+      <main className="relative pt-[25px] md:pt-20 flex-1">
         <div className="container-fluid transition-opacity duration-150 ease-in-out opacity-100">
           {children}
         </div>

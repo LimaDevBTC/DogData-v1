@@ -286,9 +286,9 @@ export default function HoldersPage() {
 
   return (
     <Layout currentPage="holders" setCurrentPage={() => {}}>
-      <div className="p-6 space-y-6">
+      <div className="pt-2 pb-3 px-3 md:p-6 space-y-3 md:space-y-6">
       {/* Header */}
-      <div className="text-center space-y-4">
+      <div className="text-center space-y-2 md:space-y-4">
         <h1 className="text-4xl font-bold text-white font-mono flex items-center justify-center">
           <Users className="w-10 h-10 mr-4 text-dog-orange" />
           DOG Holders

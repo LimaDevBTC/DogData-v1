@@ -424,9 +424,9 @@ export default function AirdropPage() {
 
   return (
     <Layout currentPage="airdrop" setCurrentPage={() => {}}>
-      <div className="p-6 space-y-6">
+      <div className="pt-2 pb-3 px-3 md:p-6 space-y-3 md:space-y-6">
         {/* Header */}
-      <div className="text-center space-y-3 md:space-y-4 px-4">
+      <div className="text-center space-y-2 md:space-y-4 px-4">
         <div className="flex items-center justify-center gap-2 md:gap-4">
           <Image 
             src="/Runestone.png" 
