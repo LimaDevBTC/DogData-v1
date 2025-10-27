@@ -1,6 +1,6 @@
 import React from 'react';
 import Image from 'next/image';
-import { CheckCircle2, Award } from 'lucide-react';
+import { Award } from 'lucide-react';
 
 interface AddressBadgeProps {
   address: string;
@@ -87,7 +87,10 @@ export function AddressBadge({ address, size = 'md', showName = true }: AddressB
     return (
       <div className="inline-flex items-center gap-1.5">
         {verified.logo && (
-          <div className={`relative ${iconSize} rounded-full overflow-hidden bg-white/10`}>
+          <div 
+            className={`relative ${iconSize} rounded-full overflow-hidden bg-white/10 cursor-pointer transition-transform hover:scale-110`}
+            title={verified.name || 'Verified'}
+          >
             <Image
               src={verified.logo}
               alt={verified.name || 'Verified'}
@@ -102,7 +105,6 @@ export function AddressBadge({ address, size = 'md', showName = true }: AddressB
             {verified.name}
           </span>
         )}
-        <CheckCircle2 className={`${iconSize} text-blue-400`} />
       </div>
     );
   }
