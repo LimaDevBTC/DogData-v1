@@ -30,6 +30,7 @@ import {
   ExternalLink,
   MoreHorizontal
 } from "lucide-react"
+import { AddressBadge } from "@/components/address-badge"
 
 interface AirdropSummary {
   total_recipients: number;
@@ -761,6 +762,7 @@ export default function AirdropPage() {
                         <code className="address-text text-xs">
                           {profile.address}
                         </code>
+                        <AddressBadge address={profile.address} size="sm" showName={false} />
                         <Button
                           size="sm"
                           variant="ghost"

@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Search, Download, Copy, ExternalLink, ChevronLeft, ChevronRight, Wifi, WifiOff, MoreHorizontal, Users, Filter, Ticket } from "lucide-react"
 import { SectionDivider } from "@/components/ui/section-divider"
 import { TrendIndicator } from "@/components/ui/trend-indicator"
+import { AddressBadge } from "@/components/address-badge"
 
 interface Holder {
   address: string;
@@ -491,6 +492,7 @@ export default function HoldersPage() {
                         <code className="address-text text-sm">
                           {holder.address}
                         </code>
+                        <AddressBadge address={holder.address} size="sm" showName={false} />
                         <Button
                           size="sm"
                           variant="ghost"
