@@ -373,7 +373,7 @@ export function PriceCards() {
               variant="glass"
               className={`${exchange.borderColor} ${exchange.hoverBorderColor} transition-all hover:scale-[1.01] hover:shadow-xl`}
             >
-v              <CardContent className="p-4 md:p-6 relative">
+              <CardContent className="p-4 md:p-6 relative">
                 {/* Layout Mobile: Vertical / Desktop: Horizontal */}
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-8">
                   {/* Logo */}
