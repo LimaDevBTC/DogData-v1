@@ -5,16 +5,26 @@ export const revalidate = 0
 
 export async function GET() {
   try {
-    // 1. Buscar preço do Bitcoin da nossa própria API
-    const btcResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/bitcoin/price`, {
-      cache: 'no-store'
+    // 1. Buscar preço do Bitcoin do CoinGecko (mais confiável para API routes)
+    const btcResponse = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd', {
+      cache: 'no-store',
+      headers: {
+        'Accept': 'application/json'
+      }
     })
+    
+    if (!btcResponse.ok) {
+      throw new Error(`Failed to fetch BTC price: ${btcResponse.status}`)
+    }
+    
     const btcData = await btcResponse.json()
-    const btcPrice = btcData.price || 0
+    const btcPrice = btcData.bitcoin?.usd || 0
 
     if (!btcPrice) {
-      throw new Error('Failed to fetch BTC price from our API')
+      throw new Error('BTC price not available')
     }
+    
+    console.log('📊 BTC Price:', btcPrice)
 
     // 2. Buscar ticker da Bitflow
     const response = await fetch(
@@ -74,11 +84,12 @@ export async function GET() {
       change24h = ((dogUsdPrice - midPrice) / midPrice) * 100
     }
 
-    console.log('📊 Bitflow DOG Price:', {
-      btcPrice: `$${btcPrice.toFixed(2)}`,
-      btcDogRate: btcDogRate,
-      dogUsdPrice: `$${dogUsdPrice.toFixed(8)}`,
-      change24h: change24h.toFixed(2) + '%',
+    console.log('📊 Bitflow DOG Price Calculation:', {
+      step1_btcPrice: `$${btcPrice.toFixed(2)}`,
+      step2_btcDogRate: btcDogRate.toLocaleString(),
+      step3_rawCalc: (btcPrice / btcDogRate).toFixed(12),
+      step4_withSatoshis: dogUsdPrice.toFixed(8),
+      step5_change24h: change24h.toFixed(2) + '%',
       ticker: dogTicker.ticker_id
     })
 
