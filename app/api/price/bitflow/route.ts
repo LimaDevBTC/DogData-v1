@@ -105,10 +105,11 @@ export async function GET() {
     const volume = parseFloat(dogTicker.base_volume) || 0
     
     // Buscar variação 24h da Kraken como referência (mais confiável)
-    let change24h = 0
+    let change24h = cachedData?.change24h || 0 // Usar cache anterior se disponível
     try {
       const krakenResponse = await fetch('https://api.kraken.com/0/public/Ticker?pair=DOGUSD', {
-        cache: 'no-store'
+        cache: 'no-store',
+        signal: AbortSignal.timeout(5000) // Timeout de 5 segundos
       })
       const krakenData = await krakenResponse.json()
       
@@ -117,9 +118,15 @@ export async function GET() {
         const krakenOpen = parseFloat(krakenData.result.DOGUSD.o)
         change24h = ((krakenPrice - krakenOpen) / krakenOpen) * 100
         console.log('📊 Using Kraken change24h as reference:', change24h.toFixed(2) + '%')
+      } else if (cachedData) {
+        console.log('📊 Using cached change24h:', cachedData.change24h.toFixed(2) + '%')
       }
     } catch (error) {
-      console.warn('⚠️ Could not fetch Kraken change24h, using 0%')
+      if (cachedData) {
+        console.warn('⚠️ Kraken fetch failed, using cached change24h:', cachedData.change24h.toFixed(2) + '%')
+      } else {
+        console.warn('⚠️ Could not fetch Kraken change24h and no cache, using 0%')
+      }
     }
 
     console.log('📊 Bitflow DOG Price Calculation:', {
