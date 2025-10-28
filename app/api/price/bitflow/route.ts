@@ -3,26 +3,28 @@ import { NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-// Cache em memória com TTL de 30 segundos
+// Cache persistente em memória - NUNCA expira, só atualiza quando consegue dados novos
 let cachedData: {
   price: number
   change24h: number
   timestamp: number
+  lastSuccessfulFetch: number
 } | null = null
 
-const CACHE_TTL = 30000 // 30 segundos
+const REFRESH_INTERVAL = 30000 // Tentar atualizar a cada 30 segundos
 
 export async function GET() {
-  // Verificar cache primeiro
   const now = Date.now()
-  if (cachedData && (now - cachedData.timestamp) < CACHE_TTL) {
-    console.log('📦 Using cached Bitflow data')
+  
+  // Se temos cache E ainda não passou o intervalo de refresh, retornar cache
+  if (cachedData && (now - cachedData.lastSuccessfulFetch) < REFRESH_INTERVAL) {
+    console.log('📦 Using cached Bitflow data (fresh)')
     return NextResponse.json({
       lastPrice: cachedData.price.toFixed(8),
       change24h: cachedData.change24h.toString(),
       volume: '0',
       cached: true,
-      cacheAge: Math.floor((now - cachedData.timestamp) / 1000)
+      cacheAge: Math.floor((now - cachedData.lastSuccessfulFetch) / 1000)
     })
   }
   try {
@@ -114,12 +116,16 @@ export async function GET() {
       ticker: dogTicker.ticker_id
     })
 
-    // Atualizar cache
+    // Atualizar cache com dados frescos
+    const fetchTime = Date.now()
     cachedData = {
       price: dogUsdPrice,
       change24h: change24h,
-      timestamp: Date.now()
+      timestamp: fetchTime,
+      lastSuccessfulFetch: fetchTime
     }
+
+    console.log('✅ Cache updated with fresh data')
 
     return NextResponse.json({
       lastPrice: dogUsdPrice.toFixed(8),
@@ -136,25 +142,30 @@ export async function GET() {
   } catch (error) {
     console.error('❌ Bitflow API Error:', error)
     
-    // Se temos cache antigo, usar como fallback
+    // SEMPRE retornar cache se existir - NUNCA mostrar erro ao usuário
     if (cachedData) {
-      console.log('⚠️ Using stale cache as fallback')
+      const cacheAge = Math.floor((Date.now() - cachedData.lastSuccessfulFetch) / 1000)
+      console.log(`⚠️ API failed, using cache from ${cacheAge}s ago`)
+      
       return NextResponse.json({
         lastPrice: cachedData.price.toFixed(8),
         change24h: cachedData.change24h.toString(),
         volume: '0',
         cached: true,
         stale: true,
-        cacheAge: Math.floor((Date.now() - cachedData.timestamp) / 1000)
+        cacheAge: cacheAge,
+        error: 'API temporarily unavailable, showing cached data'
       })
     }
     
+    // Só retorna erro se NÃO tiver cache nenhum (primeira requisição)
+    console.error('💥 No cache available, returning error')
     return NextResponse.json(
       { 
         error: 'Failed to fetch Bitflow price',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: 'Service temporarily unavailable. Please try again in a moment.'
       },
-      { status: 500 }
+      { status: 503 } // Service Unavailable, não 500
     )
   }
 }
