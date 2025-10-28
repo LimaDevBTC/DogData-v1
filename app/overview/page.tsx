@@ -154,10 +154,10 @@ export default function OverviewPage() {
 
   return (
     <Layout currentPage="overview" setCurrentPage={() => {}}>
-      <div className="min-h-screen pt-1 pb-2 md:py-4 space-y-3 md:space-y-4">
+      <div className="min-h-screen pt-1 pb-2 md:py-2 space-y-3 md:space-y-3">
       {/* Hero Section */}
-      <div className="text-center space-y-1 md:space-y-3 animate-fade-in px-4">
-        <div className="space-y-2 md:space-y-2 max-w-full overflow-hidden">
+      <div className="text-center space-y-1 md:space-y-2 animate-fade-in px-4">
+        <div className="space-y-2 md:space-y-1 max-w-full overflow-hidden">
           <h1 className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-display font-bold tracking-tight break-words">
             <span className="text-gray-400 font-mono tracking-wider block">
               <span className="inline-block">DOG•GO•TO</span>
