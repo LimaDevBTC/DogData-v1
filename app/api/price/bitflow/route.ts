@@ -94,18 +94,25 @@ export async function GET() {
     // Preço simples: quanto vale 1 DOG em USD
     const dogUsdPrice = btcPrice / btcDogRate
     
-    // Extrair outros dados
+    // Extrair volume
     const volume = parseFloat(dogTicker.base_volume) || 0
-    const high = parseFloat(dogTicker.high) || 0
-    const low = parseFloat(dogTicker.low) || 0
     
-    // Calcular mudança 24h com base no high/low em USD
+    // Buscar variação 24h da Kraken como referência (mais confiável)
     let change24h = 0
-    if (high > 0 && low > 0) {
-      const highUsd = btcPrice / high
-      const lowUsd = btcPrice / low
-      const midPrice = (highUsd + lowUsd) / 2
-      change24h = ((dogUsdPrice - midPrice) / midPrice) * 100
+    try {
+      const krakenResponse = await fetch('https://api.kraken.com/0/public/Ticker?pair=DOGUSD', {
+        cache: 'no-store'
+      })
+      const krakenData = await krakenResponse.json()
+      
+      if (krakenData.result && krakenData.result.DOGUSD) {
+        const krakenPrice = parseFloat(krakenData.result.DOGUSD.c[0])
+        const krakenOpen = parseFloat(krakenData.result.DOGUSD.o)
+        change24h = ((krakenPrice - krakenOpen) / krakenOpen) * 100
+        console.log('📊 Using Kraken change24h as reference:', change24h.toFixed(2) + '%')
+      }
+    } catch (error) {
+      console.warn('⚠️ Could not fetch Kraken change24h, using 0%')
     }
 
     console.log('📊 Bitflow DOG Price Calculation:', {
@@ -131,12 +138,11 @@ export async function GET() {
       lastPrice: dogUsdPrice.toFixed(8),
       change24h: change24h.toString(),
       volume: volume.toString(),
-      high: high.toString(),
-      low: low.toString(),
       ticker_id: dogTicker.ticker_id,
       liquidity: dogTicker.liquidity_in_usd || 0,
       btcPrice: btcPrice,
-      cached: false
+      cached: false,
+      change24hSource: 'Kraken'
     })
 
   } catch (error) {
