@@ -64,9 +64,9 @@ const exchanges = [
   {
     name: 'Magic Eden',
     apiUrl: '/api/price/magiceden',
-    color: 'from-purple-400 to-pink-500',
-    borderColor: 'border-purple-500/20',
-    hoverBorderColor: 'hover:border-purple-500/40',
+    color: 'from-[#EB136C] to-[#C41159]',
+    borderColor: 'border-[#EB136C]/20',
+    hoverBorderColor: 'hover:border-[#EB136C]/40',
     icon: 'ME',
     working: true
   }
