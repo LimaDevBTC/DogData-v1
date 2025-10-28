@@ -415,9 +415,9 @@ export function PriceCards() {
                     </div>
                   ) : (
                     <>
-                      <div className="flex flex-col md:flex-row items-center md:items-end gap-2 md:gap-6">
+                      <div className="flex flex-col md:flex-row items-center md:items-center gap-2 md:gap-6">
                         {/* Preço em USD e Sats */}
-                        <div className="flex flex-col items-center md:items-end gap-1">
+                        <div className="flex flex-col items-center md:items-end gap-1 mt-1">
                           <div className="text-2xl md:text-4xl font-bold font-mono bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent leading-none">
                             {formatPrice(priceData?.price || 0)}
                           </div>
@@ -430,7 +430,7 @@ export function PriceCards() {
                         </div>
                         
                         {/* Variação e Status na mesma linha */}
-                        <div className="flex items-center gap-2 md:gap-3 mb-auto">
+                        <div className="flex items-center gap-2 md:gap-3 -mt-2">
                           {/* Variação */}
                           {priceData?.change24h !== undefined && priceData.change24h !== 0 && (
                             <div className="flex items-center gap-2">
