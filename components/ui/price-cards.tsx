@@ -12,6 +12,7 @@ interface PriceData {
   lastUpdate: Date;
   status: 'loading' | 'success' | 'error';
   error?: string;
+  priceSats?: string;
 }
 
 const exchanges = [
@@ -59,6 +60,15 @@ const exchanges = [
     hoverBorderColor: 'hover:border-red-500/40',
     icon: 'P',
     working: true
+  },
+  {
+    name: 'Magic Eden',
+    apiUrl: '/api/price/magiceden',
+    color: 'from-purple-400 to-pink-500',
+    borderColor: 'border-purple-500/20',
+    hoverBorderColor: 'hover:border-purple-500/40',
+    icon: 'ME',
+    working: true
   }
 ];
 
@@ -89,6 +99,7 @@ export function PriceCards() {
       let price = 0;
       let change24h = 0;
       let volume24h = 0;
+      let priceSats = undefined;
       
       // Parse response based on exchange
       if (exchange.name === 'MEXC') {
@@ -144,8 +155,18 @@ export function PriceCards() {
           price = parseFloat(data.lastPrice);
           change24h = parseFloat(data.change24h);
           volume24h = parseFloat(data.volume);
+          priceSats = data.priceSats; // Preço em satoshis
         } else {
           throw new Error('DOG data not found on Bitflow');
+        }
+      } else if (exchange.name === 'Magic Eden') {
+        // Magic Eden - NFT Marketplace com Runes
+        if (data) {
+          price = parseFloat(data.lastPrice);
+          change24h = parseFloat(data.change24h);
+          volume24h = parseFloat(data.volume24h);
+        } else {
+          throw new Error('DOG data not found on Magic Eden');
         }
       }
       
@@ -155,7 +176,8 @@ export function PriceCards() {
         change24h,
         volume24h,
         lastUpdate: new Date(),
-        status: 'success'
+        status: 'success',
+        priceSats
       };
     } catch (error) {
       return {
@@ -228,8 +250,8 @@ export function PriceCards() {
 
   return (
     <div className="space-y-6">
-      {/* Linha de cima: 5 exchanges originais */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+      {/* Grid 2x3: 6 exchanges em duas linhas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {exchanges.map((exchange, index) => {
           const priceData = prices.find(p => p.exchange === exchange.name);
           const isSuccess = priceData?.status === 'success';
@@ -245,18 +267,19 @@ export function PriceCards() {
               }`}
               style={{ animationDelay: `${index * 0.1}s` }}
             >
-              <CardHeader className={`${exchange.name === 'Gate.io' || exchange.name === 'Bitget' || exchange.name === 'Bitflow' ? 'pb-2.5' : 'pb-2'}`}>
+              <CardHeader className={`${exchange.name === 'Gate.io' || exchange.name === 'Bitget' || exchange.name === 'Bitflow' || exchange.name === 'Magic Eden' ? 'pb-2.5' : 'pb-2'}`}>
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <div className={`${exchange.name === 'Gate.io' || exchange.name === 'Bitget' || exchange.name === 'Bitflow' ? 'h-14 flex items-center -mt-0.5' : 'h-14 flex items-center'}`}>
+                    <div className={`${exchange.name === 'Gate.io' || exchange.name === 'Bitget' || exchange.name === 'Bitflow' || exchange.name === 'Magic Eden' ? 'h-14 flex items-center -mt-0.5' : 'h-14 flex items-center'}`}>
                       <img 
                         src={`/${
                           exchange.name === 'MEXC' ? 'MEXC ' : 
                           exchange.name === 'Gate.io' ? 'Gate' : 
+                          exchange.name === 'Magic Eden' ? 'MagicEden' :
                           exchange.name
                         }.png`}
                         alt={exchange.name}
-                        className={`${exchange.name === 'Gate.io' || exchange.name === 'Bitget' || exchange.name === 'Bitflow' ? 'h-10' : 'h-14'} w-auto object-contain`}
+                        className={`${exchange.name === 'Gate.io' || exchange.name === 'Bitget' || exchange.name === 'Bitflow' || exchange.name === 'Magic Eden' ? 'h-10' : 'h-14'} w-auto object-contain`}
                         onError={(e) => {
                           // Fallback to icon if image fails
                           e.currentTarget.style.display = 'none';
@@ -265,7 +288,7 @@ export function PriceCards() {
                         }}
                       />
                       <div 
-                        className={`hidden ${exchange.name === 'Gate.io' || exchange.name === 'Bitget' || exchange.name === 'Bitflow' ? 'w-10 h-10' : 'w-14 h-14'} bg-gradient-to-r ${exchange.color} flex items-center justify-center text-white font-bold ${exchange.name === 'Gate.io' || exchange.name === 'Bitget' || exchange.name === 'Bitflow' ? 'text-sm' : 'text-lg'}`}
+                        className={`hidden ${exchange.name === 'Gate.io' || exchange.name === 'Bitget' || exchange.name === 'Bitflow' || exchange.name === 'Magic Eden' ? 'w-10 h-10' : 'w-14 h-14'} bg-gradient-to-r ${exchange.color} flex items-center justify-center text-white font-bold ${exchange.name === 'Gate.io' || exchange.name === 'Bitget' || exchange.name === 'Bitflow' || exchange.name === 'Magic Eden' ? 'text-sm' : 'text-lg'}`}
                       >
                         {exchange.icon}
                       </div>
@@ -300,7 +323,10 @@ export function PriceCards() {
                 ) : (
                   <div className="space-y-2">
                     <div className={`text-2xl font-bold font-mono bg-gradient-to-r ${exchange.color} bg-clip-text text-transparent`}>
-                      {formatPrice(priceData?.price || 0)}
+                      {exchange.name === 'Magic Eden' && priceData?.price 
+                        ? `${(priceData.price * 100000000).toFixed(2)} sats`
+                        : formatPrice(priceData?.price || 0)
+                      }
                     </div>
                     {priceData?.change24h !== undefined && priceData.change24h !== 0 && (
                       <div className="flex items-center space-x-1">
@@ -346,7 +372,7 @@ export function PriceCards() {
               variant="glass"
               className={`${exchange.borderColor} ${exchange.hoverBorderColor} transition-all hover:scale-[1.01] hover:shadow-xl`}
             >
-              <CardContent className="p-4 md:p-6 relative">
+v              <CardContent className="p-4 md:p-6 relative">
                 {/* Layout Mobile: Vertical / Desktop: Horizontal */}
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-8">
                   {/* Logo */}
@@ -389,9 +415,17 @@ export function PriceCards() {
                   ) : (
                     <>
                       <div className="flex flex-col md:flex-row items-center gap-2 md:gap-6">
-                        {/* Preço */}
-                        <div className="text-2xl md:text-4xl font-bold font-mono bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
-                          {formatPrice(priceData?.price || 0)}
+                        {/* Preço em USD e Sats */}
+                        <div className="flex flex-col items-center md:items-end gap-1">
+                          <div className="text-2xl md:text-4xl font-bold font-mono bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
+                            {formatPrice(priceData?.price || 0)}
+                          </div>
+                          <div className="text-xs md:text-sm text-gray-400 font-mono">
+                            {priceData?.priceSats 
+                              ? `${priceData.priceSats} sats` 
+                              : priceData?.price ? `${(priceData.price * 100000000).toFixed(2)} sats` : ''
+                            }
+                          </div>
                         </div>
                         
                         {/* Variação e Status na mesma linha */}

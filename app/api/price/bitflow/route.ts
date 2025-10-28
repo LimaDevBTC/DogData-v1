@@ -91,8 +91,13 @@ export async function GET() {
       throw new Error('Invalid BTC/DOG rate')
     }
 
-    // Preço simples: quanto vale 1 DOG em USD
+    // Preço em USD: quanto vale 1 DOG em USD
     const dogUsdPrice = btcPrice / btcDogRate
+    
+    // Preço em satoshis: 1 BTC = 100,000,000 sats
+    // Se 1 BTC = 64,099,926 DOG
+    // Então 1 DOG = 100,000,000 / 64,099,926 = 1.56 sats
+    const dogSatsPrice = 100000000 / btcDogRate
     
     // Extrair volume
     const volume = parseFloat(dogTicker.base_volume) || 0
@@ -118,8 +123,9 @@ export async function GET() {
     console.log('📊 Bitflow DOG Price Calculation:', {
       step1_btcPrice: `$${btcPrice.toFixed(2)}`,
       step2_btcDogRate: btcDogRate.toLocaleString(),
-      step3_dogUsdPrice: dogUsdPrice.toFixed(8),
-      step4_change24h: change24h.toFixed(2) + '%',
+      step3_dogUsdPrice: `$${dogUsdPrice.toFixed(8)}`,
+      step4_dogSatsPrice: `${dogSatsPrice.toFixed(2)} sats`,
+      step5_change24h: change24h.toFixed(2) + '%',
       ticker: dogTicker.ticker_id
     })
 
@@ -136,6 +142,7 @@ export async function GET() {
 
     return NextResponse.json({
       lastPrice: dogUsdPrice.toFixed(8),
+      priceSats: dogSatsPrice.toFixed(2),
       change24h: change24h.toString(),
       volume: volume.toString(),
       ticker_id: dogTicker.ticker_id,
