@@ -346,14 +346,15 @@ export function PriceCards() {
               variant="glass"
               className={`${exchange.borderColor} ${exchange.hoverBorderColor} transition-all hover:scale-[1.01] hover:shadow-xl`}
             >
-              <CardContent className="p-8">
-                <div className="flex items-center justify-between gap-12">
-                  {/* Logo Maior */}
-                  <div className="flex items-center flex-shrink-0">
+              <CardContent className="p-4 md:p-8">
+                {/* Layout Mobile: Vertical / Desktop: Horizontal */}
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-12">
+                  {/* Logo */}
+                  <div className="flex items-center justify-center md:justify-start flex-shrink-0">
                     <img 
                       src="/Bitflow.png"
                       alt="Bitflow"
-                      className="h-24 w-auto object-contain"
+                      className="h-16 md:h-24 w-auto object-contain"
                       onError={(e) => {
                         e.currentTarget.style.display = 'none';
                         const fallback = e.currentTarget.nextElementSibling as HTMLElement;
@@ -361,58 +362,62 @@ export function PriceCards() {
                       }}
                     />
                     <div 
-                      className="hidden w-24 h-24 bg-gradient-to-r from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-3xl rounded-lg"
+                      className="hidden w-16 md:w-24 h-16 md:h-24 bg-gradient-to-r from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-2xl md:text-3xl rounded-lg"
                     >
                       BF
                     </div>
                   </div>
 
-                  {/* Espaçador flexível */}
-                  <div className="flex-1"></div>
+                  {/* Espaçador flexível (apenas desktop) */}
+                  <div className="hidden md:block md:flex-1"></div>
 
-                  {/* Preço e Variação - Alinhados à direita */}
+                  {/* Preço e Variação */}
                   {!isWorking ? (
-                    <div className="text-right">
-                      <div className="text-gray-400 font-mono text-lg">Coming Soon</div>
+                    <div className="text-center md:text-right">
+                      <div className="text-gray-400 font-mono text-base md:text-lg">Coming Soon</div>
                     </div>
                   ) : isLoading && !priceData ? (
-                    <div className="flex items-center gap-8">
-                      <div className="h-12 w-40 bg-gray-700/50 animate-pulse rounded"></div>
-                      <div className="h-8 w-32 bg-gray-700/30 animate-pulse rounded"></div>
+                    <div className="flex flex-col md:flex-row items-center gap-4 md:gap-8">
+                      <div className="h-10 md:h-12 w-32 md:w-40 bg-gray-700/50 animate-pulse rounded"></div>
+                      <div className="h-6 md:h-8 w-24 md:w-32 bg-gray-700/30 animate-pulse rounded"></div>
                     </div>
                   ) : isError ? (
-                    <div className="text-right">
-                      <div className="text-red-400 font-mono">Error</div>
+                    <div className="text-center md:text-right">
+                      <div className="text-red-400 font-mono text-sm md:text-base">Error</div>
                       <div className="text-xs text-gray-500">{priceData?.error}</div>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-8">
-                      <div className="text-5xl font-bold font-mono bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
+                    <div className="flex flex-col md:flex-row items-center gap-3 md:gap-8">
+                      {/* Preço */}
+                      <div className="text-3xl md:text-5xl font-bold font-mono bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
                         {formatPrice(priceData?.price || 0)}
                       </div>
                       
-                      {/* Variação */}
-                      {priceData?.change24h !== undefined && priceData.change24h !== 0 && (
-                        <div className="flex items-center gap-2">
-                          {priceData.change24h > 0 ? (
-                            <TrendingUp className="w-7 h-7 text-green-400" />
-                          ) : (
-                            <TrendingDown className="w-7 h-7 text-red-400" />
-                          )}
-                          <span className={`text-3xl font-mono font-bold ${
-                            priceData.change24h > 0 ? 'text-green-400' : 'text-red-400'
-                          }`}>
-                            {formatChange(priceData.change24h)}
-                          </span>
-                        </div>
-                      )}
-                      
-                      {/* Status Indicator */}
-                      {isSuccess && (
-                        <div className="ml-4">
-                          <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-                        </div>
-                      )}
+                      {/* Variação e Status na mesma linha */}
+                      <div className="flex items-center gap-3 md:gap-4">
+                        {/* Variação */}
+                        {priceData?.change24h !== undefined && priceData.change24h !== 0 && (
+                          <div className="flex items-center gap-2">
+                            {priceData.change24h > 0 ? (
+                              <TrendingUp className="w-5 md:w-7 h-5 md:h-7 text-green-400" />
+                            ) : (
+                              <TrendingDown className="w-5 md:w-7 h-5 md:h-7 text-red-400" />
+                            )}
+                            <span className={`text-xl md:text-3xl font-mono font-bold ${
+                              priceData.change24h > 0 ? 'text-green-400' : 'text-red-400'
+                            }`}>
+                              {formatChange(priceData.change24h)}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {/* Status Indicator */}
+                        {isSuccess && (
+                          <div>
+                            <div className="w-2 md:w-3 h-2 md:h-3 bg-green-400 rounded-full animate-pulse"></div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
