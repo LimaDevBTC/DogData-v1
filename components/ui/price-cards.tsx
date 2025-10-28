@@ -62,6 +62,18 @@ const exchanges = [
   }
 ];
 
+const bitflowExchange = {
+  name: 'Bitflow',
+  apiUrl: '/api/price/bitflow',
+  color: 'from-cyan-400 to-blue-500',
+  borderColor: 'border-cyan-500/20',
+  hoverBorderColor: 'hover:border-cyan-500/40',
+  icon: 'BF',
+  working: true,
+  sponsored: true,
+  url: 'https://btflw.link/brl'
+};
+
 export function PriceCards() {
   const [prices, setPrices] = useState<PriceData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -126,6 +138,15 @@ export function PriceCards() {
         } else {
           throw new Error('DOGUSDT data not found on Gate.io');
         }
+      } else if (exchange.name === 'Bitflow') {
+        // Bitflow - DEX na rede Stacks
+        if (data) {
+          price = parseFloat(data.lastPrice);
+          change24h = parseFloat(data.change24h);
+          volume24h = parseFloat(data.volume);
+        } else {
+          throw new Error('DOG data not found on Bitflow');
+        }
       }
       
       return {
@@ -149,13 +170,14 @@ export function PriceCards() {
 
   const fetchAllPrices = async () => {
     setIsLoading(true);
-    // Only fetch from working exchanges
-    const workingExchanges = exchanges.filter(exchange => exchange.working);
+    // Fetch from all working exchanges including Bitflow
+    const allExchanges = [...exchanges, bitflowExchange];
+    const workingExchanges = allExchanges.filter(exchange => exchange.working);
     const pricePromises = workingExchanges.map(exchange => fetchPrice(exchange));
     const results = await Promise.all(pricePromises);
     
     // Add placeholder data for non-working exchanges
-    const allResults = exchanges.map(exchange => {
+    const allResults = allExchanges.map(exchange => {
       if (exchange.working) {
         return results.find(r => r.exchange === exchange.name) || {
           exchange: exchange.name,
@@ -206,6 +228,7 @@ export function PriceCards() {
 
   return (
     <div className="space-y-6">
+      {/* Linha de cima: 5 exchanges originais */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         {exchanges.map((exchange, index) => {
           const priceData = prices.find(p => p.exchange === exchange.name);
@@ -222,10 +245,10 @@ export function PriceCards() {
               }`}
               style={{ animationDelay: `${index * 0.1}s` }}
             >
-              <CardHeader className={`${exchange.name === 'Gate.io' || exchange.name === 'Bitget' ? 'pb-2.5' : 'pb-2'}`}>
+              <CardHeader className={`${exchange.name === 'Gate.io' || exchange.name === 'Bitget' || exchange.name === 'Bitflow' ? 'pb-2.5' : 'pb-2'}`}>
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <div className={`${exchange.name === 'Gate.io' || exchange.name === 'Bitget' ? 'h-14 flex items-center -mt-0.5' : 'h-14 flex items-center'}`}>
+                    <div className={`${exchange.name === 'Gate.io' || exchange.name === 'Bitget' || exchange.name === 'Bitflow' ? 'h-14 flex items-center -mt-0.5' : 'h-14 flex items-center'}`}>
                       <img 
                         src={`/${
                           exchange.name === 'MEXC' ? 'MEXC ' : 
@@ -233,7 +256,7 @@ export function PriceCards() {
                           exchange.name
                         }.png`}
                         alt={exchange.name}
-                        className={`${exchange.name === 'Gate.io' || exchange.name === 'Bitget' ? 'h-10' : 'h-14'} w-auto object-contain`}
+                        className={`${exchange.name === 'Gate.io' || exchange.name === 'Bitget' || exchange.name === 'Bitflow' ? 'h-10' : 'h-14'} w-auto object-contain`}
                         onError={(e) => {
                           // Fallback to icon if image fails
                           e.currentTarget.style.display = 'none';
@@ -242,7 +265,7 @@ export function PriceCards() {
                         }}
                       />
                       <div 
-                        className={`hidden ${exchange.name === 'Gate.io' || exchange.name === 'Bitget' ? 'w-10 h-10' : 'w-14 h-14'} bg-gradient-to-r ${exchange.color} flex items-center justify-center text-white font-bold ${exchange.name === 'Gate.io' || exchange.name === 'Bitget' ? 'text-sm' : 'text-lg'}`}
+                        className={`hidden ${exchange.name === 'Gate.io' || exchange.name === 'Bitget' || exchange.name === 'Bitflow' ? 'w-10 h-10' : 'w-14 h-14'} bg-gradient-to-r ${exchange.color} flex items-center justify-center text-white font-bold ${exchange.name === 'Gate.io' || exchange.name === 'Bitget' || exchange.name === 'Bitflow' ? 'text-sm' : 'text-lg'}`}
                       >
                         {exchange.icon}
                       </div>
@@ -303,6 +326,98 @@ export function PriceCards() {
           );
         })}
       </div>
+
+      {/* Linha de baixo: Card da Bitflow (Sponsored) */}
+      {(() => {
+        const exchange = bitflowExchange;
+        const priceData = prices.find(p => p.exchange === exchange.name);
+        const isSuccess = priceData?.status === 'success';
+        const isError = priceData?.status === 'error';
+        const isWorking = exchange.working;
+
+        return (
+          <a
+            href={exchange.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block cursor-pointer"
+          >
+            <Card
+              variant="glass"
+              className={`${exchange.borderColor} ${exchange.hoverBorderColor} transition-all hover:scale-[1.01] hover:shadow-xl`}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between gap-8">
+                  {/* Logo Grande */}
+                  <div className="flex items-center">
+                    <img 
+                      src="/Bitflow.png"
+                      alt="Bitflow"
+                      className="h-20 w-auto object-contain"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                        if (fallback) fallback.style.display = 'flex';
+                      }}
+                    />
+                    <div 
+                      className="hidden w-20 h-20 bg-gradient-to-r from-cyan-400 to-blue-500 flex items-center justify-center text-white font-bold text-2xl rounded-lg"
+                    >
+                      BF
+                    </div>
+                  </div>
+
+                  {/* Preço */}
+                  {!isWorking ? (
+                    <div className="flex-1 text-center">
+                      <div className="text-gray-400 font-mono text-lg">Coming Soon</div>
+                    </div>
+                  ) : isLoading && !priceData ? (
+                    <div className="flex items-center gap-8">
+                      <div className="h-12 w-40 bg-gray-700/50 animate-pulse rounded"></div>
+                      <div className="h-8 w-32 bg-gray-700/30 animate-pulse rounded"></div>
+                    </div>
+                  ) : isError ? (
+                    <div className="flex-1 text-center">
+                      <div className="text-red-400 font-mono">Error</div>
+                      <div className="text-xs text-gray-500">{priceData?.error}</div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-4xl font-bold font-mono bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+                        {formatPrice(priceData?.price || 0)}
+                      </div>
+                      
+                      {/* Variação */}
+                      {priceData?.change24h !== undefined && priceData.change24h !== 0 && (
+                        <div className="flex items-center gap-2">
+                          {priceData.change24h > 0 ? (
+                            <TrendingUp className="w-6 h-6 text-green-400" />
+                          ) : (
+                            <TrendingDown className="w-6 h-6 text-red-400" />
+                          )}
+                          <span className={`text-2xl font-mono font-bold ${
+                            priceData.change24h > 0 ? 'text-green-400' : 'text-red-400'
+                          }`}>
+                            {formatChange(priceData.change24h)}
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  
+                  {/* Status Indicator */}
+                  {isSuccess && (
+                    <div>
+                      <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </a>
+        );
+      })()}
     </div>
   );
 }
