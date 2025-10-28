@@ -58,17 +58,18 @@ export async function GET() {
     }
 
     // 3. Converter pBTC/DOG para USD/DOG
-    // O last_price está em satoshis (1 BTC = 100,000,000 satoshis)
-    // Se pBTC/DOG = 64,099,926 satoshis de DOG por 1 BTC
-    // Então DOG/USD = (BTC_USD / pBTC_DOG) * 100,000,000
+    // O last_price representa quantos DOG você recebe por 1 BTC
+    // Se pBTC/DOG = 64,099,926 (você recebe 64M DOG por 1 BTC)
+    // Então 1 DOG = BTC_USD / pBTC_DOG
+    // Exemplo: $97,000 / 64,099,926 = $0.00151
     const btcDogRate = parseFloat(dogTicker.last_price) || 0
     
     if (btcDogRate === 0) {
       throw new Error('Invalid BTC/DOG rate')
     }
 
-    // Converter para o preço correto considerando satoshis
-    const dogUsdPrice = (btcPrice / btcDogRate) * 100000000
+    // Preço simples: quanto vale 1 DOG em USD
+    const dogUsdPrice = btcPrice / btcDogRate
     
     // Extrair outros dados
     const volume = parseFloat(dogTicker.base_volume) || 0
