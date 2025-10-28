@@ -165,6 +165,7 @@ export function PriceCards() {
           price = parseFloat(data.lastPrice);
           change24h = parseFloat(data.change24h);
           volume24h = parseFloat(data.volume24h);
+          priceSats = data.priceSats; // Floor price em sats
         } else {
           throw new Error('DOG data not found on Magic Eden');
         }
@@ -323,8 +324,8 @@ export function PriceCards() {
                 ) : (
                   <div className="space-y-2">
                     <div className={`text-2xl font-bold font-mono bg-gradient-to-r ${exchange.color} bg-clip-text text-transparent`}>
-                      {exchange.name === 'Magic Eden' && priceData?.price 
-                        ? `${(priceData.price * 100000000).toFixed(2)} sats`
+                      {exchange.name === 'Magic Eden' && priceData?.priceSats
+                        ? `${priceData.priceSats} sats`
                         : formatPrice(priceData?.price || 0)
                       }
                     </div>

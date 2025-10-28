@@ -6,6 +6,7 @@ export const revalidate = 0
 // Cache persistente em memória - NUNCA expira, só atualiza quando consegue dados novos
 let cachedData: {
   price: number
+  priceSats: number
   change24h: number
   timestamp: number
   lastSuccessfulFetch: number
@@ -21,6 +22,7 @@ export async function GET() {
     console.log('📦 Using cached Bitflow data (fresh)')
     return NextResponse.json({
       lastPrice: cachedData.price.toFixed(8),
+      priceSats: cachedData.priceSats.toFixed(2),
       change24h: cachedData.change24h.toString(),
       volume: '0',
       cached: true,
@@ -133,6 +135,7 @@ export async function GET() {
     const fetchTime = Date.now()
     cachedData = {
       price: dogUsdPrice,
+      priceSats: dogSatsPrice,
       change24h: change24h,
       timestamp: fetchTime,
       lastSuccessfulFetch: fetchTime
@@ -162,6 +165,7 @@ export async function GET() {
       
       return NextResponse.json({
         lastPrice: cachedData.price.toFixed(8),
+        priceSats: cachedData.priceSats.toFixed(2),
         change24h: cachedData.change24h.toString(),
         volume: '0',
         cached: true,

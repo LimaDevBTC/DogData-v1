@@ -6,6 +6,7 @@ export const revalidate = 0
 // Cache persistente em memória - NUNCA expira, só atualiza quando consegue dados novos
 let cachedData: {
   price: number
+  priceSats: number
   change24h: number
   timestamp: number
   lastSuccessfulFetch: number
@@ -21,6 +22,7 @@ export async function GET() {
     console.log('📦 Using cached Magic Eden data (fresh)')
     return NextResponse.json({
       lastPrice: cachedData.price.toString(),
+      priceSats: cachedData.priceSats.toFixed(4),
       change24h: cachedData.change24h.toString(),
       cached: true,
       cacheAge: Math.floor((now - cachedData.lastSuccessfulFetch) / 1000)
@@ -78,6 +80,7 @@ export async function GET() {
     const fetchTime = Date.now()
     cachedData = {
       price: dogUsdPrice,
+      priceSats: floorSats,
       change24h: change24h,
       timestamp: fetchTime,
       lastSuccessfulFetch: fetchTime
@@ -87,8 +90,8 @@ export async function GET() {
 
     return NextResponse.json({
       lastPrice: dogUsdPrice.toFixed(8),
+      priceSats: floorSats.toFixed(4), // Floor price já vem em sats corretos
       change24h: change24h.toString(),
-      floorSats: floorSats.toString(),
       volume24h: data.volume?.['1d'] || 0,
       txnCount24h: data.txnCount?.['1d'] || 0,
       cached: false
@@ -104,6 +107,7 @@ export async function GET() {
       
       return NextResponse.json({
         lastPrice: cachedData.price.toFixed(8),
+        priceSats: cachedData.priceSats.toFixed(4),
         change24h: cachedData.change24h.toString(),
         cached: true,
         stale: true,
