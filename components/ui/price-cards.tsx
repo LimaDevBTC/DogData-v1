@@ -450,7 +450,7 @@ export function PriceCards() {
                           {/* Status Indicator */}
                           {isSuccess && (
                             <div>
-                              <div className="w-2 md:w-3 h-2 md:h-3 bg-green-400 rounded-full animate-pulse"></div>
+                              <div className="w-2 md:w-3 h-2 md:h-3 bg-green-400"></div>
                             </div>
                           )}
                         </div>
