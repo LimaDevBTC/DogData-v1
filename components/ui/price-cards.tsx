@@ -45,9 +45,9 @@ const exchanges = [
   {
     name: 'Bitget',
     apiUrl: '/api/price/bitget',
-    color: 'from-orange-400 to-orange-600',
-    borderColor: 'border-orange-500/20',
-    hoverBorderColor: 'hover:border-orange-500/40',
+    color: 'from-cyan-400 to-blue-500',
+    borderColor: 'border-cyan-500/20',
+    hoverBorderColor: 'hover:border-cyan-500/40',
     icon: 'B',
     working: true
   },
@@ -65,9 +65,9 @@ const exchanges = [
 const bitflowExchange = {
   name: 'Bitflow',
   apiUrl: '/api/price/bitflow',
-  color: 'from-cyan-400 to-blue-500',
-  borderColor: 'border-cyan-500/20',
-  hoverBorderColor: 'hover:border-cyan-500/40',
+  color: 'from-orange-400 to-orange-600',
+  borderColor: 'border-orange-500/20',
+  hoverBorderColor: 'hover:border-orange-500/40',
   icon: 'BF',
   working: true,
   sponsored: true,
@@ -346,14 +346,14 @@ export function PriceCards() {
               variant="glass"
               className={`${exchange.borderColor} ${exchange.hoverBorderColor} transition-all hover:scale-[1.01] hover:shadow-xl`}
             >
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between gap-8">
-                  {/* Logo Grande */}
-                  <div className="flex items-center">
+              <CardContent className="p-8">
+                <div className="flex items-center justify-between gap-12">
+                  {/* Logo Maior */}
+                  <div className="flex items-center flex-shrink-0">
                     <img 
                       src="/Bitflow.png"
                       alt="Bitflow"
-                      className="h-20 w-auto object-contain"
+                      className="h-24 w-auto object-contain"
                       onError={(e) => {
                         e.currentTarget.style.display = 'none';
                         const fallback = e.currentTarget.nextElementSibling as HTMLElement;
@@ -361,15 +361,18 @@ export function PriceCards() {
                       }}
                     />
                     <div 
-                      className="hidden w-20 h-20 bg-gradient-to-r from-cyan-400 to-blue-500 flex items-center justify-center text-white font-bold text-2xl rounded-lg"
+                      className="hidden w-24 h-24 bg-gradient-to-r from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-3xl rounded-lg"
                     >
                       BF
                     </div>
                   </div>
 
-                  {/* Preço */}
+                  {/* Espaçador flexível */}
+                  <div className="flex-1"></div>
+
+                  {/* Preço e Variação - Alinhados à direita */}
                   {!isWorking ? (
-                    <div className="flex-1 text-center">
+                    <div className="text-right">
                       <div className="text-gray-400 font-mono text-lg">Coming Soon</div>
                     </div>
                   ) : isLoading && !priceData ? (
@@ -378,13 +381,13 @@ export function PriceCards() {
                       <div className="h-8 w-32 bg-gray-700/30 animate-pulse rounded"></div>
                     </div>
                   ) : isError ? (
-                    <div className="flex-1 text-center">
+                    <div className="text-right">
                       <div className="text-red-400 font-mono">Error</div>
                       <div className="text-xs text-gray-500">{priceData?.error}</div>
                     </div>
                   ) : (
-                    <>
-                      <div className="text-4xl font-bold font-mono bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+                    <div className="flex items-center gap-8">
+                      <div className="text-5xl font-bold font-mono bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
                         {formatPrice(priceData?.price || 0)}
                       </div>
                       
@@ -392,24 +395,24 @@ export function PriceCards() {
                       {priceData?.change24h !== undefined && priceData.change24h !== 0 && (
                         <div className="flex items-center gap-2">
                           {priceData.change24h > 0 ? (
-                            <TrendingUp className="w-6 h-6 text-green-400" />
+                            <TrendingUp className="w-7 h-7 text-green-400" />
                           ) : (
-                            <TrendingDown className="w-6 h-6 text-red-400" />
+                            <TrendingDown className="w-7 h-7 text-red-400" />
                           )}
-                          <span className={`text-2xl font-mono font-bold ${
+                          <span className={`text-3xl font-mono font-bold ${
                             priceData.change24h > 0 ? 'text-green-400' : 'text-red-400'
                           }`}>
                             {formatChange(priceData.change24h)}
                           </span>
                         </div>
                       )}
-                    </>
-                  )}
-                  
-                  {/* Status Indicator */}
-                  {isSuccess && (
-                    <div>
-                      <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                      
+                      {/* Status Indicator */}
+                      {isSuccess && (
+                        <div className="ml-4">
+                          <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
