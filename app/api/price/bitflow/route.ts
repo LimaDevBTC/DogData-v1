@@ -3,7 +3,28 @@ import { NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
+// Cache em memória com TTL de 30 segundos
+let cachedData: {
+  price: number
+  change24h: number
+  timestamp: number
+} | null = null
+
+const CACHE_TTL = 30000 // 30 segundos
+
 export async function GET() {
+  // Verificar cache primeiro
+  const now = Date.now()
+  if (cachedData && (now - cachedData.timestamp) < CACHE_TTL) {
+    console.log('📦 Using cached Bitflow data')
+    return NextResponse.json({
+      lastPrice: cachedData.price.toFixed(8),
+      change24h: cachedData.change24h.toString(),
+      volume: '0',
+      cached: true,
+      cacheAge: Math.floor((now - cachedData.timestamp) / 1000)
+    })
+  }
   try {
     // 1. Buscar preço do Bitcoin do CoinGecko (mais confiável para API routes)
     const btcResponse = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd', {
@@ -88,11 +109,17 @@ export async function GET() {
     console.log('📊 Bitflow DOG Price Calculation:', {
       step1_btcPrice: `$${btcPrice.toFixed(2)}`,
       step2_btcDogRate: btcDogRate.toLocaleString(),
-      step3_rawCalc: (btcPrice / btcDogRate).toFixed(12),
-      step4_withSatoshis: dogUsdPrice.toFixed(8),
-      step5_change24h: change24h.toFixed(2) + '%',
+      step3_dogUsdPrice: dogUsdPrice.toFixed(8),
+      step4_change24h: change24h.toFixed(2) + '%',
       ticker: dogTicker.ticker_id
     })
+
+    // Atualizar cache
+    cachedData = {
+      price: dogUsdPrice,
+      change24h: change24h,
+      timestamp: Date.now()
+    }
 
     return NextResponse.json({
       lastPrice: dogUsdPrice.toFixed(8),
@@ -102,11 +129,26 @@ export async function GET() {
       low: low.toString(),
       ticker_id: dogTicker.ticker_id,
       liquidity: dogTicker.liquidity_in_usd || 0,
-      btcPrice: btcPrice
+      btcPrice: btcPrice,
+      cached: false
     })
 
   } catch (error) {
     console.error('❌ Bitflow API Error:', error)
+    
+    // Se temos cache antigo, usar como fallback
+    if (cachedData) {
+      console.log('⚠️ Using stale cache as fallback')
+      return NextResponse.json({
+        lastPrice: cachedData.price.toFixed(8),
+        change24h: cachedData.change24h.toString(),
+        volume: '0',
+        cached: true,
+        stale: true,
+        cacheAge: Math.floor((Date.now() - cachedData.timestamp) / 1000)
+      })
+    }
+    
     return NextResponse.json(
       { 
         error: 'Failed to fetch Bitflow price',
