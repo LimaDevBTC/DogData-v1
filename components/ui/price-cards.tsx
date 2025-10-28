@@ -346,7 +346,7 @@ export function PriceCards() {
               variant="glass"
               className={`${exchange.borderColor} ${exchange.hoverBorderColor} transition-all hover:scale-[1.01] hover:shadow-xl`}
             >
-              <CardContent className="p-4 md:p-8">
+              <CardContent className="p-4 md:p-8 relative">
                 {/* Layout Mobile: Vertical / Desktop: Horizontal */}
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-12">
                   {/* Logo */}
@@ -387,38 +387,47 @@ export function PriceCards() {
                       <div className="text-xs text-gray-500">{priceData?.error}</div>
                     </div>
                   ) : (
-                    <div className="flex flex-col md:flex-row items-center gap-3 md:gap-8">
-                      {/* Preço */}
-                      <div className="text-3xl md:text-5xl font-bold font-mono bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
-                        {formatPrice(priceData?.price || 0)}
+                    <>
+                      <div className="flex flex-col md:flex-row items-center gap-3 md:gap-8">
+                        {/* Preço */}
+                        <div className="text-3xl md:text-5xl font-bold font-mono bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
+                          {formatPrice(priceData?.price || 0)}
+                        </div>
+                        
+                        {/* Variação e Status na mesma linha */}
+                        <div className="flex items-center gap-3 md:gap-4">
+                          {/* Variação */}
+                          {priceData?.change24h !== undefined && priceData.change24h !== 0 && (
+                            <div className="flex items-center gap-2">
+                              {priceData.change24h > 0 ? (
+                                <TrendingUp className="w-5 md:w-7 h-5 md:h-7 text-green-400" />
+                              ) : (
+                                <TrendingDown className="w-5 md:w-7 h-5 md:h-7 text-red-400" />
+                              )}
+                              <span className={`text-xl md:text-3xl font-mono font-bold ${
+                                priceData.change24h > 0 ? 'text-green-400' : 'text-red-400'
+                              }`}>
+                                {formatChange(priceData.change24h)}
+                              </span>
+                            </div>
+                          )}
+                          
+                          {/* Status Indicator */}
+                          {isSuccess && (
+                            <div>
+                              <div className="w-2 md:w-3 h-2 md:h-3 bg-green-400 rounded-full animate-pulse"></div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                       
-                      {/* Variação e Status na mesma linha */}
-                      <div className="flex items-center gap-3 md:gap-4">
-                        {/* Variação */}
-                        {priceData?.change24h !== undefined && priceData.change24h !== 0 && (
-                          <div className="flex items-center gap-2">
-                            {priceData.change24h > 0 ? (
-                              <TrendingUp className="w-5 md:w-7 h-5 md:h-7 text-green-400" />
-                            ) : (
-                              <TrendingDown className="w-5 md:w-7 h-5 md:h-7 text-red-400" />
-                            )}
-                            <span className={`text-xl md:text-3xl font-mono font-bold ${
-                              priceData.change24h > 0 ? 'text-green-400' : 'text-red-400'
-                            }`}>
-                              {formatChange(priceData.change24h)}
-                            </span>
-                          </div>
-                        )}
-                        
-                        {/* Status Indicator */}
-                        {isSuccess && (
-                          <div>
-                            <div className="w-2 md:w-3 h-2 md:h-3 bg-green-400 rounded-full animate-pulse"></div>
-                          </div>
-                        )}
+                      {/* Timestamp - Discreto no canto inferior direito (mobile: centro) */}
+                      <div className="text-center md:text-right md:absolute md:bottom-3 md:right-4 mt-2 md:mt-0">
+                        <div className="text-xs text-gray-500 font-mono">
+                          {priceData?.lastUpdate?.toLocaleTimeString()}
+                        </div>
                       </div>
-                    </div>
+                    </>
                   )}
                 </div>
               </CardContent>
