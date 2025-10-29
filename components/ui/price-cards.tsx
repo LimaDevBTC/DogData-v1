@@ -13,6 +13,8 @@ interface PriceData {
   status: 'loading' | 'success' | 'error';
   error?: string;
   priceSats?: string;
+  cached?: boolean;
+  stale?: boolean;
 }
 
 const exchanges = [
@@ -166,6 +168,11 @@ export function PriceCards() {
           change24h = parseFloat(data.change24h);
           volume24h = parseFloat(data.volume24h);
           priceSats = data.priceSats; // Floor price em sats
+          
+          // Se estiver usando cache antigo (stale), ajustar status mas manter dados
+          if (data.stale && data.cached) {
+            console.log(`⚠️ ${exchange.name} usando cache antigo (${data.cacheAge}s)`);
+          }
         } else {
           throw new Error('DOG data not found on Magic Eden');
         }
@@ -178,9 +185,12 @@ export function PriceCards() {
         volume24h,
         lastUpdate: new Date(),
         status: 'success',
-        priceSats
+        priceSats,
+        cached: data?.cached || false,
+        stale: data?.stale || false
       };
     } catch (error) {
+      console.error(`❌ Error fetching ${exchange.name}:`, error);
       return {
         exchange: exchange.name,
         price: 0,

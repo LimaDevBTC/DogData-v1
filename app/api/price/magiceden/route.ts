@@ -10,9 +10,17 @@ let cachedData: {
   change24h: number
   timestamp: number
   lastSuccessfulFetch: number
-} | null = null
+} | null = {
+  // Cache inicial com dados default para evitar erro na primeira vez
+  price: 0.00000181,
+  priceSats: 1.81,
+  change24h: 0,
+  timestamp: Date.now(),
+  lastSuccessfulFetch: Date.now() - 600000 // 10 min atrás para forçar tentativa de atualização
+}
 
 const REFRESH_INTERVAL = 30000 // Tentar atualizar a cada 30 segundos
+const API_TIMEOUT = 8000 // Timeout de 8 segundos para APIs
 
 export async function GET() {
   const now = Date.now()
@@ -30,11 +38,12 @@ export async function GET() {
   }
 
   try {
-    // Buscar dados do Magic Eden
+    // Buscar dados do Magic Eden com timeout
     const response = await fetch(
       'https://api-mainnet.magiceden.dev/v2/ord/btc/runes/market/DOGGOTOTHEMOON/info',
       {
         cache: 'no-store',
+        signal: AbortSignal.timeout(API_TIMEOUT),
         headers: {
           'Accept': 'application/json'
         }
@@ -42,6 +51,7 @@ export async function GET() {
     )
 
     if (!response.ok) {
+      console.warn(`⚠️ Magic Eden API returned ${response.status}`)
       throw new Error(`Magic Eden API error: ${response.status}`)
     }
 
@@ -51,9 +61,10 @@ export async function GET() {
     const floorSats = parseFloat(data.floorUnitPrice?.formatted || '0')
     
     // Converter sats para USD (1 sat = preço do BTC / 100M)
-    // Buscar preço do BTC
+    // Buscar preço do BTC com timeout
     const btcResponse = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd', {
-      cache: 'no-store'
+      cache: 'no-store',
+      signal: AbortSignal.timeout(API_TIMEOUT)
     })
     const btcData = await btcResponse.json()
     const btcPrice = btcData.bitcoin?.usd || 0
