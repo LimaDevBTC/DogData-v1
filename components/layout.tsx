@@ -4,7 +4,7 @@ import { useRouter, usePathname } from "next/navigation"
 import Header from "./header"
 import Footer from "./footer"
 
-type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'transactions' | 'donate'
+type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'donate'
 
 interface LayoutProps {
   children: React.ReactNode

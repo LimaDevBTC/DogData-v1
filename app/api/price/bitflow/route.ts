@@ -101,8 +101,8 @@ export async function GET() {
     // Então 1 DOG = 100,000,000 / 64,099,926 = 1.56 sats
     const dogSatsPrice = 100000000 / btcDogRate
     
-    // Extrair volume
-    const volume = parseFloat(dogTicker.base_volume) || 0
+    // Extrair volume (target_volume está em DOG, base_volume está em pBTC)
+    const volume = parseFloat(dogTicker.target_volume) || 0
     
     // Buscar variação 24h da Kraken como referência (mais confiável)
     let change24h = 0

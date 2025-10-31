@@ -62,6 +62,7 @@ export default function OverviewPage() {
   const [stats, setStats] = useState<DogStats | null>(null)
   const [runeData, setRuneData] = useState<DogRuneData | null>(null)
   const [krakenChange, setKrakenChange] = useState<number>(0)
+  const [volume24h, setVolume24h] = useState<number>(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -78,6 +79,21 @@ export default function OverviewPage() {
         // Buscar preço da Kraken
         const krakenResponse = await fetch('/api/price/kraken')
         const krakenData = await krakenResponse.json()
+        
+        // Buscar volume 24h dos markets
+        try {
+          const marketsResponse = await fetch('/api/markets')
+          if (marketsResponse.ok) {
+            const contentType = marketsResponse.headers.get('content-type')
+            if (contentType?.includes('application/json')) {
+              const marketsData = await marketsResponse.json()
+              setVolume24h(marketsData.marketData?.totalVolume || 0)
+            }
+          }
+        } catch (error) {
+          console.warn('⚠️ Failed to fetch volume 24h:', error)
+          setVolume24h(0)
+        }
         
         // Extrair preço e calcular mudança
         let currentPrice = 0
@@ -175,7 +191,7 @@ export default function OverviewPage() {
       <SectionDivider title="Key Metrics" icon={BarChart3} />
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Total Holders */}
         <Card variant="glass" className="stagger-item">
           <CardHeader className="pb-3">
@@ -191,6 +207,26 @@ export default function OverviewPage() {
               <div className="flex items-center space-x-2">
                 <Users className="w-4 h-4 text-orange-500" />
                 <span className="text-sm text-gray-400 font-mono">Active Addresses</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Volume 24h */}
+        <Card variant="glass" className="stagger-item">
+          <CardHeader className="pb-3">
+            <CardTitle variant="mono" className="text-sm text-gray-400">
+              Volume 24h
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="text-3xl font-bold text-white font-mono">
+                {formatCurrency(volume24h)}
+              </div>
+              <div className="flex items-center space-x-2">
+                <Activity className="w-4 h-4 text-green-500" />
+                <span className="text-sm text-gray-400 font-mono">Trading Volume</span>
               </div>
             </div>
           </CardContent>

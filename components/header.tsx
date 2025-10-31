@@ -11,16 +11,19 @@ import {
   Heart,
   CreditCard,
   Menu,
-  X
+  X,
+  Network,
+  Sparkles
 } from "lucide-react"
 
-type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'transactions' | 'donate'
+type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'donate'
 
 const navigation = [
   { name: 'Overview', page: 'overview' as PageType, icon: BarChart3 },
   { name: 'Holders', page: 'holders' as PageType, icon: Users },
-  { name: 'Airdrop Analysis', page: 'airdrop' as PageType, icon: Gift },
-  { name: 'Bitcoin Network', page: 'bitcoin-network' as PageType, icon: Activity },
+  { name: 'Airdrop Analysis', page: 'airdrop' as PageType, icon: Sparkles }, // Runestone effect
+  { name: 'Bitcoin Network', page: 'bitcoin-network' as PageType, icon: Network },
+  { name: 'Markets', page: 'markets' as PageType, icon: BarChart3 },
   { name: 'Transactions', page: 'transactions' as PageType, icon: CreditCard },
 ]
 
