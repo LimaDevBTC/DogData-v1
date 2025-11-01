@@ -55,7 +55,7 @@ export async function GET() {
 
     const data = result.data[0]
     const currentPrice = parseFloat(data.lastPr)
-    const changePercent = parseFloat(data.changeUtc)
+    const changePercent = parseFloat(data.changeUtc24h || data.change24h || 0)
     const volume24h = parseFloat(data.quoteVolume)
 
     console.log('📊 Bitget DOG Price:', {

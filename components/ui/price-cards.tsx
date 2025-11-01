@@ -409,7 +409,7 @@ export function PriceCards() {
                           </div>
                           <div className="text-xs md:text-sm text-gray-400 font-mono">
                             {priceData?.priceSats 
-                              ? `${priceData.priceSats} sats` 
+                              ? `${parseFloat(priceData.priceSats).toFixed(2)} sats` 
                               : priceData?.price ? `${(priceData.price * 100000000).toFixed(2)} sats` : ''
                             }
                           </div>

@@ -93,9 +93,67 @@ export async function GET() {
   } catch (error) {
     console.error('❌ Kraken API error:', error)
 
-    // Se temos cache, retornar (mesmo que antigo)
+    // Tentar buscar do CoinGecko como fallback
+    try {
+      console.log('🔄 Trying CoinGecko as fallback for Kraken data...')
+      
+      const cgResponse = await fetch(
+        'https://api.coingecko.com/api/v3/coins/dog-go-to-the-moon-rune/tickers',
+        {
+          cache: 'no-store',
+          signal: AbortSignal.timeout(API_TIMEOUT),
+          headers: {
+            'Accept': 'application/json'
+          }
+        }
+      )
+      
+      if (cgResponse.ok) {
+        const cgData = await cgResponse.json()
+        
+        // Procurar ticker da Kraken no CoinGecko
+        const krakenTicker = cgData.tickers?.find((t: any) => 
+          t.market?.name?.toLowerCase().includes('kraken') && t.target === 'USD'
+        )
+        
+        if (krakenTicker) {
+          console.log('✅ Found Kraken price on CoinGecko:', krakenTicker.last)
+          
+          // Criar resposta no formato da Kraken
+          const krakenFormat = {
+            DOGUSD: {
+              c: [krakenTicker.last.toString()],
+              o: krakenTicker.last.toString(),
+              h: [krakenTicker.last.toString()],
+              l: [krakenTicker.last.toString()],
+              v: [krakenTicker.volume?.toString() || '0'],
+              p: ['0']
+            }
+          }
+          
+          // Atualizar cache com dados do CoinGecko
+          const fetchTime = Date.now()
+          cachedData = {
+            result: krakenFormat,
+            timestamp: fetchTime,
+            lastSuccessfulFetch: fetchTime
+          }
+          
+          return NextResponse.json({
+            result: krakenFormat,
+            cached: false,
+            source: 'coingecko',
+            timestamp: new Date(fetchTime).toISOString()
+          })
+        }
+      }
+    } catch (cgError) {
+      console.warn('⚠️ CoinGecko fallback also failed:', cgError)
+    }
+
+    // Se temos cache antigo, retornar
     if (cachedData) {
-      console.log('📦 Using stale cache as fallback')
+      console.log('📦 Using stale cache as last resort')
       return NextResponse.json({
         result: cachedData.result,
         cached: true,
@@ -104,7 +162,7 @@ export async function GET() {
       })
     }
 
-    // Sem cache, retornar erro
+    // Sem cache e sem fallback, retornar erro
     return NextResponse.json({
       error: ['Kraken API unavailable'],
       result: null
