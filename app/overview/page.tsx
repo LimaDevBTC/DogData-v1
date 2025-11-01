@@ -76,9 +76,101 @@ export default function OverviewPage() {
         const runeResponse = await fetch('/api/dog-rune/data')
         const runeData = await runeResponse.json()
         
-        // Buscar preço da Kraken
-        const krakenResponse = await fetch('/api/price/kraken')
-        const krakenData = await krakenResponse.json()
+        // Buscar preço com fallback em cascata: Kraken -> Gate.io -> MEXC -> CoinGecko
+        let currentPrice = 0
+        let changePercent = 0
+        let priceSource = 'unknown'
+        
+        // 1ª tentativa: Kraken
+        try {
+          const krakenResponse = await fetch('/api/price/kraken', { signal: AbortSignal.timeout(5000) })
+          
+          if (krakenResponse.ok) {
+            const krakenData = await krakenResponse.json()
+            
+            if (krakenData.result && krakenData.result.DOGUSD) {
+              currentPrice = parseFloat(krakenData.result.DOGUSD.c[0])
+              const openPrice = parseFloat(krakenData.result.DOGUSD.o)
+              changePercent = ((currentPrice - openPrice) / openPrice) * 100
+              priceSource = 'Kraken'
+              console.log('✅ Price from Kraken:', currentPrice)
+            }
+          }
+        } catch (error) {
+          console.warn('⚠️ Kraken API failed, trying Gate.io...', error)
+        }
+        
+        // 2ª tentativa: Gate.io (se Kraken falhou)
+        if (currentPrice === 0) {
+          try {
+            const gateResponse = await fetch('/api/price/gateio', { signal: AbortSignal.timeout(5000) })
+            
+            if (gateResponse.ok) {
+              const gateData = await gateResponse.json()
+              
+              if (gateData.price && gateData.price > 0) {
+                currentPrice = gateData.price
+                changePercent = gateData.change24h || 0
+                priceSource = 'Gate.io'
+                console.log('✅ Price from Gate.io (fallback):', currentPrice)
+              }
+            }
+          } catch (error) {
+            console.warn('⚠️ Gate.io API failed, trying MEXC...', error)
+          }
+        }
+        
+        // 3ª tentativa: MEXC (se Gate.io também falhou)
+        if (currentPrice === 0) {
+          try {
+            const mexcResponse = await fetch('/api/price/mexc', { signal: AbortSignal.timeout(5000) })
+            
+            if (mexcResponse.ok) {
+              const mexcData = await mexcResponse.json()
+              
+              if (mexcData.price && mexcData.price > 0) {
+                currentPrice = mexcData.price
+                changePercent = mexcData.change24h || 0
+                priceSource = 'MEXC'
+                console.log('✅ Price from MEXC (fallback):', currentPrice)
+              }
+            }
+          } catch (error) {
+            console.warn('⚠️ MEXC API failed, trying CoinGecko...', error)
+          }
+        }
+        
+        // 4ª tentativa: CoinGecko (último recurso)
+        if (currentPrice === 0) {
+          try {
+            const cgResponse = await fetch('/api/markets', { signal: AbortSignal.timeout(5000) })
+            
+            if (cgResponse.ok) {
+              const contentType = cgResponse.headers.get('content-type')
+              if (contentType?.includes('application/json')) {
+                const cgData = await cgResponse.json()
+                
+                if (cgData.marketData?.price && cgData.marketData.price > 0) {
+                  currentPrice = cgData.marketData.price
+                  changePercent = cgData.marketData.priceChange24h || 0
+                  priceSource = 'CoinGecko'
+                  console.log('✅ Price from CoinGecko (fallback):', currentPrice)
+                }
+              }
+            }
+          } catch (error) {
+            console.warn('⚠️ CoinGecko API failed', error)
+          }
+        }
+        
+        // Fallback final: usar preço default se tudo falhar
+        if (currentPrice === 0) {
+          currentPrice = 0.00163 // Preço default razoável
+          priceSource = 'cached'
+          console.warn('⚠️ All APIs failed, using default price')
+        }
+        
+        console.log(`📊 Final price: $${currentPrice} from ${priceSource}`)
         
         // Buscar volume 24h dos markets
         try {
@@ -93,15 +185,6 @@ export default function OverviewPage() {
         } catch (error) {
           console.warn('⚠️ Failed to fetch volume 24h:', error)
           setVolume24h(0)
-        }
-        
-        // Extrair preço e calcular mudança
-        let currentPrice = 0
-        let changePercent = 0
-        if (krakenData.result && krakenData.result.DOGUSD) {
-          currentPrice = parseFloat(krakenData.result.DOGUSD.c[0])
-          const openPrice = parseFloat(krakenData.result.DOGUSD.o)
-          changePercent = ((currentPrice - openPrice) / openPrice) * 100
         }
         
         // Calcular Market Cap (preço × circulating supply)

@@ -104,78 +104,37 @@ export function PriceCards() {
       let priceSats = undefined;
       
       // Parse response based on exchange
-      if (exchange.name === 'MEXC') {
-        // MEXC 24hr ticker - tem preço e mudança 24h
-        price = parseFloat(data.lastPrice);
-        // MEXC retorna priceChangePercent já em formato de porcentagem (ex: 5.23 para 5.23%)
-        // Mas se vier em decimal (ex: 0.0523), multiplicamos por 100
-        const rawChange = parseFloat(data.priceChangePercent);
-        // Se o valor absoluto é menor que 1, provavelmente está em formato decimal
-        change24h = Math.abs(rawChange) < 1 ? rawChange * 100 : rawChange;
-        volume24h = parseFloat(data.volume);
+      // Todas as exchanges agora retornam formato padronizado: { price, change24h, volume24h }
+      if (exchange.name === 'Bitflow' || exchange.name === 'Magic Eden') {
+        // Bitflow e Magic Eden têm formato especial com priceSats
+        price = parseFloat(data.price) || 0;
+        change24h = parseFloat(data.change24h) || 0;
+        volume24h = parseFloat(data.volume24h || data.volume) || 0;
+        priceSats = data.priceSats; // Preço em satoshis
+        
+        // Log se estiver usando cache antigo
+        if (data.stale && data.cached) {
+          console.log(`⚠️ ${exchange.name} usando cache antigo (${data.cacheAge}s)`);
+        }
       } else if (exchange.name === 'Kraken') {
-        // Kraken ticker - tem preço e mudança 24h
+        // Kraken retorna formato original com result.DOGUSD
         if (data.result && data.result.DOGUSD) {
           const pairData = data.result.DOGUSD;
-          price = parseFloat(pairData.c[0]); // last price (close)
-          const openPrice = parseFloat(pairData.o); // open price
-          // Calcular mudança percentual: ((current - open) / open) * 100
-          change24h = ((price - openPrice) / openPrice) * 100;
-          volume24h = parseFloat(pairData.v[1]); // 24h volume
-        }
-      } else if (exchange.name === 'Bitget') {
-        // Bitget - dados já filtrados pelo proxy
-        if (data) {
-          price = parseFloat(data.lastPr);
-          change24h = parseFloat(data.change24h) * 100;
-          volume24h = parseFloat(data.baseVolume);
+          price = parseFloat(pairData.c[0]) || 0;
+          const openPrice = parseFloat(pairData.o) || 0;
+          change24h = openPrice > 0 ? ((price - openPrice) / openPrice) * 100 : 0;
+          volume24h = parseFloat(pairData.v[1]) || 0;
         } else {
-          throw new Error('DOGUSDT data not found on Bitget');
+          // Se não tem result, usar formato padrão da API route
+          price = parseFloat(data.price) || 0;
+          change24h = parseFloat(data.change24h) || 0;
+          volume24h = parseFloat(data.volume24h) || 0;
         }
-      } else if (exchange.name === 'Pionex') {
-        // Pionex - dados já filtrados pelo proxy
-        if (data) {
-          price = parseFloat(data.close);
-          const openPrice = parseFloat(data.open);
-          change24h = ((price - openPrice) / openPrice) * 100;
-          volume24h = parseFloat(data.volume);
-        } else {
-          throw new Error('DOGUSDT data not found on Pionex');
-        }
-      } else if (exchange.name === 'Gate.io') {
-        // Gate.io - dados extraídos do gráfico TradingView
-        if (data) {
-          price = parseFloat(data.lastPrice);
-          change24h = parseFloat(data.priceChangePercent);
-          volume24h = parseFloat(data.volume);
-        } else {
-          throw new Error('DOGUSDT data not found on Gate.io');
-        }
-      } else if (exchange.name === 'Bitflow') {
-        // Bitflow - DEX na rede Stacks
-        if (data) {
-          price = parseFloat(data.lastPrice);
-          change24h = parseFloat(data.change24h);
-          volume24h = parseFloat(data.volume);
-          priceSats = data.priceSats; // Preço em satoshis
-        } else {
-          throw new Error('DOG data not found on Bitflow');
-        }
-      } else if (exchange.name === 'Magic Eden') {
-        // Magic Eden - NFT Marketplace com Runes
-        if (data) {
-          price = parseFloat(data.lastPrice);
-          change24h = parseFloat(data.change24h);
-          volume24h = parseFloat(data.volume24h);
-          priceSats = data.priceSats; // Floor price em sats
-          
-          // Se estiver usando cache antigo (stale), ajustar status mas manter dados
-          if (data.stale && data.cached) {
-            console.log(`⚠️ ${exchange.name} usando cache antigo (${data.cacheAge}s)`);
-          }
-        } else {
-          throw new Error('DOG data not found on Magic Eden');
-        }
+      } else {
+        // MEXC, Gate.io, Bitget, Pionex - formato padronizado da API route
+        price = parseFloat(data.price) || 0;
+        change24h = parseFloat(data.change24h) || 0;
+        volume24h = parseFloat(data.volume24h) || 0;
       }
       
       return {
@@ -253,7 +212,8 @@ export function PriceCards() {
     return `$${price.toFixed(2)}`;
   };
 
-  const formatChange = (change: number) => {
+  const formatChange = (change: number | undefined) => {
+    if (change === undefined || change === null || isNaN(change)) return '0.00%';
     if (change === 0) return '0.00%';
     const sign = change > 0 ? '+' : '';
     return `${sign}${change.toFixed(2)}%`;
