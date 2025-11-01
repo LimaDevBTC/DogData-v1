@@ -1,85 +1,177 @@
-// Helper para fazer fetch de JSON (arquivos servidos como estáticos)
-const fetchJSON = async (fileName, req) => {
-  try {
-    // Usar o host da requisição para garantir URL correta
-    const protocol = req.headers['x-forwarded-proto'] || 'https';
-    const host = req.headers['x-forwarded-host'] || req.headers.host || process.env.VERCEL_URL;
-    const baseUrl = `${protocol}://${host}`;
-    
-    const url = `${baseUrl}/data/${fileName}`;
-    console.log(`📥 Attempting to fetch: ${url}`);
-    console.log(`   VERCEL_URL: ${process.env.VERCEL_URL}`);
-    console.log(`   Host: ${host}`);
-    
-    const response = await fetch(url);
-    console.log(`   Response status: ${response.status}`);
-    
-    if (!response.ok) {
-      console.error(`❌ Fetch failed: ${response.status} ${response.statusText}`);
-      return null;
+// Helper para fazer fetch de JSON com retry (arquivos servidos como estáticos)
+const fetchJSON = async (fileName, req, retries = 3) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      // Usar o host da requisição para garantir URL correta
+      const protocol = req.headers['x-forwarded-proto'] || 'https';
+      const host = req.headers['x-forwarded-host'] || req.headers.host || process.env.VERCEL_URL;
+      const baseUrl = `${protocol}://${host}`;
+      
+      const url = `${baseUrl}/data/${fileName}`;
+      
+      if (i === 0) {
+        console.log(`📥 Attempting to fetch: ${url}`);
+      } else {
+        console.log(`🔄 Retry ${i}/${retries - 1} for: ${fileName}`);
+      }
+      
+      const response = await fetch(url, {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Accept': 'application/json'
+        },
+        signal: AbortSignal.timeout(15000) // 15s timeout
+      });
+      
+      console.log(`   Response status: ${response.status}`);
+      
+      if (!response.ok) {
+        console.error(`❌ Fetch failed: ${response.status} ${response.statusText}`);
+        if (i < retries - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // Exponential backoff
+          continue;
+        }
+        return null;
+      }
+      
+      const data = await response.json();
+      console.log(`✅ Successfully loaded: ${fileName} (${JSON.stringify(data).length} bytes)`);
+      return data;
+    } catch (error) {
+      console.error(`❌ Error fetching ${fileName} (attempt ${i + 1}/${retries}):`, error.message);
+      if (i < retries - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+      } else {
+        console.error(`   Stack:`, error.stack);
+        return null;
+      }
     }
-    
-    const data = await response.json();
-    console.log(`✅ Successfully loaded: ${fileName} (${JSON.stringify(data).length} bytes)`);
-    return data;
-  } catch (error) {
-    console.error(`❌ Error fetching ${fileName}:`, error.message);
-    console.error(`   Stack:`, error.stack);
-    return null;
   }
+  return null;
 };
 
-// Cache simples
+// Cache robusto com fallback
 let cache = {
   dogData: null,
   airdropAnalytics: null,
   forensicData: null,
   behavioralAnalysis: null,
-  lastLoad: 0
+  lastLoad: 0,
+  lastSuccessfulLoad: 0,
+  isLoading: false
 };
 
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
+const CACHE_DURATION = 30 * 60 * 1000; // 30 minutos (arquivos grandes)
+const STALE_CACHE_MAX_AGE = 24 * 60 * 60 * 1000; // 24 horas - arquivos estáticos não mudam tanto
 
 const loadAllData = async (req) => {
   const now = Date.now();
   
-  // Recarregar se cache expirou
-  if (now - cache.lastLoad > CACHE_DURATION) {
-    console.log('🔄 Starting data load...');
-    console.log('   Cache expired, loading fresh data');
+  // Se está carregando, aguardar um pouco e retornar cache
+  if (cache.isLoading) {
+    console.log('⏳ Already loading data, using current cache');
+    return cache;
+  }
+  
+  // Se cache ainda é fresco, retornar
+  if (now - cache.lastLoad < CACHE_DURATION) {
+    console.log('📦 Using fresh cached data (age:', Math.floor((now - cache.lastLoad) / 1000), 'seconds)');
+    return cache;
+  }
+  
+  // Se cache é muito antigo MAS temos dados, tentar recarregar em background
+  if (cache.dogData && now - cache.lastSuccessfulLoad < STALE_CACHE_MAX_AGE) {
+    console.log('📦 Using stale cache while reloading (age:', Math.floor((now - cache.lastLoad) / 1000), 'seconds)');
     
-    try {
-      cache.dogData = await fetchJSON('dog_holders_by_address.json', req);
-      console.log('   dogData loaded:', !!cache.dogData);
-      
-      cache.airdropAnalytics = await fetchJSON('airdrop_analytics.json', req);
-      console.log('   airdropAnalytics loaded:', !!cache.airdropAnalytics);
-      
-      cache.forensicData = await fetchJSON('forensic_airdrop_data.json', req);
-      console.log('   forensicData loaded:', !!cache.forensicData);
-      
-      cache.behavioralAnalysis = await fetchJSON('forensic_behavioral_analysis.json', req);
-      console.log('   behavioralAnalysis loaded:', !!cache.behavioralAnalysis);
-      
-      cache.lastLoad = now;
-      
+    // Recarregar em background (não aguardar)
+    (async () => {
+      cache.isLoading = true;
+      try {
+        await reloadCache(req);
+      } finally {
+        cache.isLoading = false;
+      }
+    })();
+    
+    return cache;
+  }
+  
+  // Cache expirou ou não existe - recarregar agora
+  console.log('🔄 Cache expired or empty, reloading now...');
+  cache.isLoading = true;
+  
+  try {
+    await reloadCache(req);
+  } finally {
+    cache.isLoading = false;
+  }
+  
+  return cache;
+};
+
+const reloadCache = async (req) => {
+  console.log('🔄 Starting data reload...');
+  const now = Date.now();
+  
+  try {
+    // PRIORIDADE 1: Dados essenciais (holders e airdrop analytics)
+    // Carregar em paralelo mas com timeout individual
+    const [newDogData, newAirdropAnalytics] = await Promise.all([
+      fetchJSON('dog_holders_by_address.json', req, 2), // 2 retries (arquivo grande)
+      fetchJSON('airdrop_analytics.json', req, 2)
+    ]);
+    
+    if (newDogData) {
       // Adicionar ranking aos holders
-      if (cache.dogData && cache.dogData.holders) {
-        cache.dogData.holders = cache.dogData.holders.map((holder, index) => ({
+      if (newDogData.holders) {
+        newDogData.holders = newDogData.holders.map((holder, index) => ({
           ...holder,
           rank: index + 1
         }));
       }
-      
-      console.log('✅ Data loaded successfully');
-    } catch (error) {
-      console.error('❌ Error in loadAllData:', error.message);
+      cache.dogData = newDogData;
+      cache.lastSuccessfulLoad = now;
+      console.log('   ✅ dogData reloaded (16 MB)');
+    } else {
+      console.log('   ⚠️ dogData reload failed, keeping old cache');
     }
-  } else {
-    console.log('📦 Using cached data (age:', Math.floor((now - cache.lastLoad) / 1000), 'seconds)');
+    
+    if (newAirdropAnalytics) {
+      cache.airdropAnalytics = newAirdropAnalytics;
+      console.log('   ✅ airdropAnalytics reloaded (18 MB)');
+    } else {
+      console.log('   ⚠️ airdropAnalytics reload failed, keeping old cache');
+    }
+    
+    // PRIORIDADE 2: Dados forenses (muito grandes, carregar depois)
+    // Carregar de forma lazy, não bloquear se falhar
+    setTimeout(async () => {
+      console.log('🔄 Loading forensic data in background...');
+      
+      const [newForensicData, newBehavioralAnalysis] = await Promise.all([
+        fetchJSON('forensic_airdrop_data.json', req, 1), // 1 retry apenas (59 MB!)
+        fetchJSON('forensic_behavioral_analysis.json', req, 1) // 1 retry apenas (49 MB!)
+      ]);
+      
+      if (newForensicData) {
+        cache.forensicData = newForensicData;
+        console.log('   ✅ forensicData loaded (59 MB)');
+      }
+      
+      if (newBehavioralAnalysis) {
+        cache.behavioralAnalysis = newBehavioralAnalysis;
+        console.log('   ✅ behavioralAnalysis loaded (49 MB)');
+      }
+      
+      console.log('✅ Background forensic data load completed');
+    }, 100); // Delay mínimo para não bloquear
+    
+    cache.lastLoad = now;
+    console.log('✅ Essential data reload completed (forensic data loading in background)');
+  } catch (error) {
+    console.error('❌ Error in reloadCache:', error.message);
+    // Não limpar cache em caso de erro - manter dados antigos
   }
-  
-  return cache;
 };
 
 module.exports = async (req, res) => {
