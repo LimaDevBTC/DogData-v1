@@ -68,7 +68,7 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
               </div>
               
               {/* Nome do app com tipografia responsiva */}
-              <span className="text-white font-mono text-lg md:text-2xl font-bold tracking-wider hover:text-orange-400 transition-colors duration-300">
+              <span className="text-white font-mono text-lg md:text-2xl font-bold tracking-wider hover:text-orange-400 transition-colors duration-300 whitespace-nowrap">
                 DOG DATA
               </span>
             </button>
