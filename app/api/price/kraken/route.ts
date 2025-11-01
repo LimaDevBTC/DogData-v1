@@ -9,8 +9,8 @@ let cachedData: {
     DOGUSD: {
       c: [string]
       o: string
-      h: string
-      l: string
+      h: [string]
+      l: [string]
       v: string
       p: string
     }
@@ -108,47 +108,60 @@ export async function GET() {
         }
       )
       
-      if (cgResponse.ok) {
-        const cgData = await cgResponse.json()
+      if (!cgResponse.ok) {
+        throw new Error(`CoinGecko API error: ${cgResponse.status}`)
+      }
+      
+      const cgData = await cgResponse.json()
+      console.log('📊 CoinGecko response received, searching for Kraken ticker...')
+      
+      // Procurar ticker da Kraken no CoinGecko (case-insensitive)
+      const krakenTicker = cgData.tickers?.find((t: any) => {
+        const marketName = t.market?.name?.toLowerCase() || ''
+        const isKraken = marketName === 'kraken'
+        const isUSD = t.target === 'USD'
+        return isKraken && isUSD
+      })
+      
+      if (krakenTicker) {
+        const price = krakenTicker.last
+        console.log('✅ Found Kraken price on CoinGecko:', {
+          price: `$${price.toFixed(8)}`,
+          volume: krakenTicker.volume,
+          market: krakenTicker.market.name
+        })
         
-        // Procurar ticker da Kraken no CoinGecko
-        const krakenTicker = cgData.tickers?.find((t: any) => 
-          t.market?.name?.toLowerCase().includes('kraken') && t.target === 'USD'
-        )
-        
-        if (krakenTicker) {
-          console.log('✅ Found Kraken price on CoinGecko:', krakenTicker.last)
-          
-          // Criar resposta no formato da Kraken
-          const krakenFormat = {
-            DOGUSD: {
-              c: [krakenTicker.last.toString()] as [string],
-              o: krakenTicker.last.toString(),
-              h: krakenTicker.last.toString(),
-              l: krakenTicker.last.toString(),
-              v: krakenTicker.volume?.toString() || '0',
-              p: '0'
-            }
+        // Criar resposta no formato da Kraken
+        const krakenFormat = {
+          DOGUSD: {
+            c: [price.toString()] as [string],
+            o: price.toString(),
+            h: [price.toString()] as [string],
+            l: [price.toString()] as [string],
+            v: krakenTicker.volume?.toString() || '0',
+            p: '0'
           }
-          
-          // Atualizar cache com dados do CoinGecko
-          const fetchTime = Date.now()
-          cachedData = {
-            result: krakenFormat,
-            timestamp: fetchTime,
-            lastSuccessfulFetch: fetchTime
-          }
-          
-          return NextResponse.json({
-            result: krakenFormat,
-            cached: false,
-            source: 'coingecko',
-            timestamp: new Date(fetchTime).toISOString()
-          })
         }
+        
+        // Atualizar cache com dados do CoinGecko
+        const fetchTime = Date.now()
+        cachedData = {
+          result: krakenFormat,
+          timestamp: fetchTime,
+          lastSuccessfulFetch: fetchTime
+        }
+        
+        return NextResponse.json({
+          result: krakenFormat,
+          cached: false,
+          source: 'coingecko',
+          timestamp: new Date(fetchTime).toISOString()
+        })
+      } else {
+        console.warn('⚠️ Kraken ticker not found in CoinGecko response')
       }
     } catch (cgError) {
-      console.warn('⚠️ CoinGecko fallback also failed:', cgError)
+      console.error('⚠️ CoinGecko fallback failed:', cgError)
     }
 
     // Se temos cache antigo, retornar
