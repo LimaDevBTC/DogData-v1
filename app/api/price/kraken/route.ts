@@ -122,12 +122,12 @@ export async function GET() {
           // Criar resposta no formato da Kraken
           const krakenFormat = {
             DOGUSD: {
-              c: [krakenTicker.last.toString()],
+              c: [krakenTicker.last.toString()] as [string],
               o: krakenTicker.last.toString(),
-              h: [krakenTicker.last.toString()],
-              l: [krakenTicker.last.toString()],
-              v: [krakenTicker.volume?.toString() || '0'],
-              p: ['0']
+              h: krakenTicker.last.toString(),
+              l: krakenTicker.last.toString(),
+              v: krakenTicker.volume?.toString() || '0',
+              p: '0'
             }
           }
           
