@@ -150,12 +150,29 @@ export function PriceCards() {
       };
     } catch (error) {
       console.error(`❌ Error fetching ${exchange.name}:`, error);
+      
+      // Criar mensagem de erro amigável
+      let errorMessage = `${exchange.name} API temporarily unavailable`;
+      
+      if (error instanceof Error) {
+        // Se for erro 503, usar mensagem específica
+        if (error.message.includes('503')) {
+          errorMessage = `${exchange.name} under maintenance`;
+        } else if (error.message.includes('timeout') || error.message.includes('aborted')) {
+          errorMessage = `${exchange.name} not responding`;
+        } else if (error.message.includes('404')) {
+          errorMessage = `${exchange.name} endpoint not found`;
+        } else if (error.message.includes('500') || error.message.includes('502')) {
+          errorMessage = `${exchange.name} server error`;
+        }
+      }
+      
       return {
         exchange: exchange.name,
         price: 0,
         lastUpdate: new Date(),
         status: 'error',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: errorMessage
       };
     }
   };
@@ -288,8 +305,7 @@ export function PriceCards() {
                   </div>
                 ) : isError ? (
                   <div className="space-y-2">
-                    <div className="text-red-400 font-mono text-sm">Error</div>
-                    <div className="text-gray-500 text-xs">{priceData?.error}</div>
+                    <div className="text-orange-400 font-mono text-sm">{priceData?.error}</div>
                   </div>
                 ) : (
                   <div className="space-y-2">

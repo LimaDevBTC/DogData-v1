@@ -21,10 +21,11 @@ export async function GET() {
   if (cachedData && (now - cachedData.lastSuccessfulFetch) < REFRESH_INTERVAL) {
     console.log('📦 Using cached Bitflow data (fresh)')
     return NextResponse.json({
+      price: cachedData.price,
       lastPrice: cachedData.price.toFixed(8),
-      priceSats: cachedData.priceSats.toFixed(2),
-      change24h: cachedData.change24h.toString(),
-      volume: '0',
+      priceSats: cachedData.priceSats,
+      change24h: cachedData.change24h,
+      volume: 0,
       cached: true,
       cacheAge: Math.floor((now - cachedData.lastSuccessfulFetch) / 1000)
     })
@@ -154,10 +155,12 @@ export async function GET() {
     console.log('✅ Cache updated with fresh data')
 
     return NextResponse.json({
+      price: dogUsdPrice,
       lastPrice: dogUsdPrice.toFixed(8),
-      priceSats: dogSatsPrice.toFixed(2),
-      change24h: change24h.toString(),
-      volume: volume.toString(),
+      priceSats: dogSatsPrice,
+      change24h: change24h,
+      volume24h: volume,
+      volume: volume,
       ticker_id: dogTicker.ticker_id,
       liquidity: dogTicker.liquidity_in_usd || 0,
       btcPrice: btcPrice,
@@ -174,10 +177,12 @@ export async function GET() {
       console.log(`⚠️ API failed, using cache from ${cacheAge}s ago`)
       
       return NextResponse.json({
+        price: cachedData.price,
         lastPrice: cachedData.price.toFixed(8),
-        priceSats: cachedData.priceSats.toFixed(2),
-        change24h: cachedData.change24h.toString(),
-        volume: '0',
+        priceSats: cachedData.priceSats,
+        change24h: cachedData.change24h,
+        volume24h: 0,
+        volume: 0,
         cached: true,
         stale: true,
         cacheAge: cacheAge,
