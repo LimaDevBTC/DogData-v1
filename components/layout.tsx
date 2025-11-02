@@ -22,7 +22,12 @@ export function Layout({ children, currentPage }: LayoutProps) {
       localStorage.setItem('dogdata-current-page', page)
     }
     // Navegar para a rota
-    router.push(`/${page}`)
+    // Overview vai para a home (/) ao invés de /overview
+    if (page === 'overview') {
+      router.push('/')
+    } else {
+      router.push(`/${page}`)
+    }
   }
 
   return (
