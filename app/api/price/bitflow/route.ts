@@ -70,17 +70,48 @@ export async function GET() {
     const data = await response.json()
     
     // Procurar pelo par pBTC/DOG (Bitcoin/DOG)
-    const dogTicker = data.find((ticker: any) => {
+    let dogTicker = data.find((ticker: any) => {
       const tickerIdUpper = ticker.ticker_id?.toUpperCase() || ''
       return tickerIdUpper.includes('PBTC') && tickerIdUpper.includes('DOG')
     })
 
-    if (!dogTicker) {
-      console.warn('⚠️ DOG/BTC ticker not found on Bitflow')
-      return NextResponse.json(
-        { error: 'DOG ticker not found' },
-        { status: 404 }
-      )
+    // Se pBTC/DOG não tiver liquidez (last_price = 0), usar sBTC/DOG como fallback
+    if (!dogTicker || parseFloat(dogTicker.last_price) === 0) {
+      console.log('⚠️ pBTC/DOG pool has no liquidity, trying sBTC/DOG...')
+      dogTicker = data.find((ticker: any) => {
+        const tickerIdUpper = ticker.ticker_id?.toUpperCase() || ''
+        return tickerIdUpper.includes('SBTC') && tickerIdUpper.includes('DOG')
+      })
+      
+      if (!dogTicker || parseFloat(dogTicker.last_price) === 0) {
+        console.warn('⚠️ No active DOG/BTC ticker found on Bitflow')
+        
+        // Se temos cache, retornar ele mesmo em caso de erro
+        if (cachedData) {
+          const cacheAge = Math.floor((Date.now() - cachedData.lastSuccessfulFetch) / 1000)
+          console.log(`⚠️ No active pool, using cache from ${cacheAge}s ago`)
+          
+          return NextResponse.json({
+            price: cachedData.price,
+            lastPrice: cachedData.price.toFixed(8),
+            priceSats: cachedData.priceSats,
+            change24h: cachedData.change24h,
+            volume24h: 0,
+            volume: 0,
+            cached: true,
+            stale: true,
+            cacheAge: cacheAge,
+            error: 'No active liquidity pool, showing cached data'
+          })
+        }
+        
+        return NextResponse.json(
+          { error: 'DOG ticker not found or no liquidity' },
+          { status: 404 }
+        )
+      }
+      
+      console.log('✅ Using sBTC/DOG pool as fallback')
     }
 
     // 3. Converter pBTC/DOG para USD/DOG

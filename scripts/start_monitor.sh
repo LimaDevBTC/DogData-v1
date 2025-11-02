@@ -1,4 +1,4 @@
-#!/bin/bash
+n#!/bin/bash
 
 # Script para iniciar o monitor unificado de DOG
 # Este script garante que o monitor rode de forma persistente

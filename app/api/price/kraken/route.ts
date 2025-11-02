@@ -29,7 +29,7 @@ export async function GET() {
   if (cachedData && (now - cachedData.lastSuccessfulFetch) < REFRESH_INTERVAL) {
     console.log('📦 Using cached Kraken data (fresh)')
     return NextResponse.json({
-      ...cachedData.result,
+      result: cachedData.result,
       cached: true,
       cacheAge: Math.floor((now - cachedData.lastSuccessfulFetch) / 1000)
     })
@@ -166,12 +166,13 @@ export async function GET() {
 
     // Se temos cache antigo, retornar
     if (cachedData) {
+      const cacheAge = Math.floor((now - cachedData.lastSuccessfulFetch) / 1000)
       console.log('📦 Using stale cache as last resort')
       return NextResponse.json({
         result: cachedData.result,
         cached: true,
         stale: true,
-        cacheAge: Math.floor((now - cachedData.lastSuccessfulFetch) / 1000)
+        cacheAge: cacheAge
       })
     }
 
