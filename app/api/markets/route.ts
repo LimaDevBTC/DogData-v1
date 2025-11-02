@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 interface MarketTicker {
-d  market: {
+  market: {
     name: string
   }
   base: string
