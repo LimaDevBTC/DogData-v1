@@ -172,6 +172,7 @@ export async function GET() {
     }
 
     // Adicionar Bitflow manualmente (sempre presente)
+    // Usar sBTC/DOG como pool padrão (tem liquidez)
     try {
       const bitflowRes = await fetch('https://bitflow-sdk-api-gateway-7owjsmt8.uc.gateway.dev/ticker', {
         cache: 'no-store',
@@ -180,11 +181,13 @@ export async function GET() {
       
       if (bitflowRes.ok) {
         const bitflowData = await bitflowRes.json()
+        
+        // Buscar pool sBTC/DOG (pool padrão com liquidez)
         const dogTicker = bitflowData.find((t: any) => 
-          t.ticker_id?.toUpperCase().includes('PBTC') && t.ticker_id?.toUpperCase().includes('DOG')
+          t.ticker_id?.toUpperCase().includes('SBTC') && t.ticker_id?.toUpperCase().includes('DOG')
         )
         
-        if (dogTicker) {
+        if (dogTicker && parseFloat(dogTicker.last_price) > 0) {
           // Buscar preço do BTC
           const btcRes = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd', {
             cache: 'no-store',
@@ -201,19 +204,26 @@ export async function GET() {
             
             const bitflowTicker = {
               market: 'Bitflow',
-              pair: 'DOG/pBTC',
+              pair: 'DOG/sBTC',
               price: dogUsdPrice,
               volumeUsd: volumeUsd,
               volume: volumeDog,
-              spread: 0.50,
+              spread: parseFloat(dogTicker.bid_ask_spread_percentage) || 0.50,
               trustScore: 'green',
               tradeUrl: 'https://btflw.link/brl'
             }
             
             // Adicionar Bitflow no topo
             tickers.unshift(bitflowTicker)
-            console.log('✅ Bitflow added to markets:', { price: dogUsdPrice.toFixed(8), volumeDog, volumeUsd: volumeUsd.toFixed(2) })
+            console.log('✅ Bitflow (sBTC/DOG) added to markets:', { 
+              price: dogUsdPrice.toFixed(8), 
+              volumeDog: volumeDog.toFixed(2), 
+              volumeUsd: volumeUsd.toFixed(2),
+              liquidity: parseFloat(dogTicker.liquidity_in_usd || 0).toFixed(2)
+            })
           }
+        } else {
+          console.warn('⚠️ sBTC/DOG pool not found or has no liquidity on Bitflow')
         }
       }
     } catch (error) {
