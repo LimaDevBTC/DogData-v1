@@ -311,7 +311,7 @@ export default function HoldersPage() {
           <CardContent>
             <div className="flex items-center justify-between">
               <div className="text-3xl font-bold bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent font-mono">
-                {totalHolders.toLocaleString('pt-BR')}
+                {totalHolders ? totalHolders.toLocaleString('pt-BR') : '0'}
               </div>
               <TrendIndicator value={1.8} type="percentage" size="sm" />
             </div>
@@ -571,7 +571,7 @@ export default function HoldersPage() {
       {/* Pagination */}
       <div className="flex flex-col items-center gap-4">
         <div className="text-dog-gray-300 font-mono text-sm">
-          Showing {allHolders.length} of {totalHolders.toLocaleString('en-US')} holders
+          Showing {allHolders.length} of {totalHolders ? totalHolders.toLocaleString('en-US') : '0'} holders
         </div>
         
         <div className="flex items-center justify-center space-x-2">
