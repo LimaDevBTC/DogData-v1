@@ -126,8 +126,8 @@ export class BitcoinApiService {
       const transformedData: BitcoinNetworkData = {
         ...this.transformApiData(apiData),
         price: {
-          usd: apiData.price.bitcoin.usd,
-          change24h: apiData.price.bitcoin.usd_24h_change,
+          usd: apiData.price?.bitcoin?.usd || 108000,
+          change24h: apiData.price?.bitcoin?.usd_24h_change || 0,
         }
       } as BitcoinNetworkData;
 
