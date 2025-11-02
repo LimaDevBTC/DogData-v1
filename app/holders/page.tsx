@@ -135,11 +135,19 @@ export default function HoldersPage() {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
       
-      const data: HoldersResponse = await response.json()
+      const data = await response.json()
+      
+      // A API retorna pagination.total, não totalHolders
       setAllHolders(data.holders)
-      setTotalPages(data.totalPages)
-      setTotalHolders(data.totalHolders)
+      setTotalPages(data.pagination.totalPages)
+      setTotalHolders(data.pagination.total)
       setError(null)
+      
+      console.log('✅ Holders carregados:', {
+        holders: data.holders.length,
+        total: data.pagination.total,
+        pages: data.pagination.totalPages
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro desconhecido')
       console.error('Error fetching holders:', err)
