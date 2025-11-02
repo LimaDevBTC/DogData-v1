@@ -71,7 +71,8 @@ export default function MarketsPage() {
     return () => clearInterval(interval)
   }, [])
 
-  const formatNumber = (num: number) => {
+  const formatNumber = (num: number | null | undefined) => {
+    if (!num && num !== 0) return '$0.00'
     if (num >= 1000000) {
       return `$${(num / 1000000).toFixed(2)}M`
     }
@@ -81,11 +82,13 @@ export default function MarketsPage() {
     return `$${num.toFixed(2)}`
   }
 
-  const formatPrice = (price: number) => {
+  const formatPrice = (price: number | null | undefined) => {
+    if (!price && price !== 0) return '$0.00000000'
     return `$${price.toFixed(8)}`
   }
 
-  const formatVolume = (volume: number) => {
+  const formatVolume = (volume: number | null | undefined) => {
+    if (!volume && volume !== 0) return '0'
     if (volume >= 1000000000) {
       return `${(volume / 1000000000).toFixed(2)}B`
     }
@@ -162,7 +165,7 @@ export default function MarketsPage() {
                   <div className="text-2xl font-bold text-white font-mono">
                     {formatPrice(data.marketData.price)}
                   </div>
-                  {data.marketData.priceChange24h !== 0 && (
+                  {data.marketData.priceChange24h != null && data.marketData.priceChange24h !== 0 && (
                     <div className={`flex items-center space-x-1 mt-2 ${data.marketData.priceChange24h > 0 ? 'text-green-400' : 'text-red-400'}`}>
                       {data.marketData.priceChange24h > 0 ? (
                         <TrendingUp className="w-4 h-4" />
