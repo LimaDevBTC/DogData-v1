@@ -50,7 +50,8 @@ export async function GET() {
     const data = await response.json()
     
     const currentPrice = parseFloat(data.lastPrice)
-    const changePercent = parseFloat(data.priceChangePercent)
+    // MEXC API retorna em formato decimal (0.07 = 7%), precisa multiplicar por 100
+    const changePercent = parseFloat(data.priceChangePercent) * 100
     const volume24h = parseFloat(data.quoteVolume)
 
     console.log('📊 MEXC DOG Price:', {
