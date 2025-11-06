@@ -257,7 +257,7 @@ export default function OverviewPage() {
       {/* Hero Section */}
       <div className="text-center space-y-1 md:space-y-2 animate-fade-in px-4 mt-8 md:mt-10">
         <div className="space-y-3 md:space-y-4 max-w-full overflow-hidden">
-          <h1 className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-display font-bold tracking-tight break-words">
+          <h1 className="text-2xl sm:text-3xl md:text-6xl lg:text-7xl font-display font-bold tracking-tight break-words">
             <span className="text-gray-400 font-mono tracking-wider block">
               <span className="inline-block">DOG•GO•TO</span>
               <span className="inline-block ml-2">•THE•MOON</span>
