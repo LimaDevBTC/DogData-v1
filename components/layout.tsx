@@ -3,6 +3,7 @@
 import { useRouter, usePathname } from "next/navigation"
 import Header from "./header"
 import Footer from "./footer"
+import { C2BlockchainBanner } from "./c2-blockchain-banner"
 
 type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'donate'
 
@@ -26,7 +27,7 @@ export function Layout({ children, currentPage }: LayoutProps) {
     if (page === 'overview') {
       router.push('/')
     } else {
-      router.push(`/${page}`)
+    router.push(`/${page}`)
     }
   }
 
@@ -38,6 +39,9 @@ export function Layout({ children, currentPage }: LayoutProps) {
       {/* Main Content */}
       <main className="relative pt-[25px] md:pt-20 flex-1">
         <div className="container-fluid transition-opacity duration-150 ease-in-out opacity-100">
+          {/* C2 Blockchain Partner Banner - Topo de todas as páginas */}
+          <C2BlockchainBanner />
+          
           {children}
         </div>
       </main>

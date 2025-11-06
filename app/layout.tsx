@@ -1,10 +1,12 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, DM_Sans } from 'next/font/google'
 import './globals.css'
 import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
+import { VerifiedAddressesProvider } from "@/contexts/VerifiedAddressesContext"
 
 const inter = Inter({ subsets: ['latin'] })
+const dmSans = DM_Sans({ subsets: ['latin'], weight: ['700'], variable: '--font-dm-sans' })
 
 export const metadata: Metadata = {
   title: 'DOG DATA - Real-time DOG Rune Explorer',
@@ -38,10 +40,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className={inter.className}>
-        <div className="min-h-screen bg-gradient-to-br from-dog-gray-900 via-black to-dog-gray-900">
-          {children}
-        </div>
+      <body className={`${inter.className} ${dmSans.variable}`}>
+        <VerifiedAddressesProvider>
+          <div className="min-h-screen bg-gradient-to-br from-dog-gray-900 via-black to-dog-gray-900">
+            {children}
+          </div>
+        </VerifiedAddressesProvider>
         <Analytics />
         <SpeedInsights />
       </body>
