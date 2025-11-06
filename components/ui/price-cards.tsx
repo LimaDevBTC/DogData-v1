@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './card';
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, ExternalLink } from 'lucide-react';
 
 interface PriceData {
   exchange: string;
@@ -401,49 +401,59 @@ export function PriceCards() {
                     </div>
                   ) : (
                     <>
-                      <div className="flex flex-col md:flex-row items-center md:items-center gap-2 md:gap-6">
-                        {/* Preço em USD e Sats */}
-                        <div className="flex flex-col items-center md:items-end gap-1 mt-1">
-                          <div className="text-2xl md:text-4xl font-bold font-mono bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent leading-none">
-                            {formatPrice(priceData?.price || 0)}
+                      {/* Container para alinhar tudo à direita no desktop */}
+                      <div className="flex flex-col items-center md:items-end gap-2 md:gap-1.5">
+                        {/* Badge "Official Partner" - Alinhado à direita */}
+                        <div className="flex items-center gap-1.5 -mb-1">
+                          <span className="text-gray-400 text-[10px] font-mono font-medium uppercase tracking-wide">
+                            Official Partner
+                          </span>
+                          <ExternalLink className="w-3 h-3 text-gray-400" />
+                        </div>
+
+                        {/* Preço, Sats, Variação e Status - Alinhados à direita */}
+                        <div className="flex flex-col md:flex-row items-center md:items-center gap-2 md:gap-6">
+                          {/* Preço em USD e Sats */}
+                          <div className="flex flex-col items-center md:items-end gap-1">
+                            <div className="text-2xl md:text-4xl font-bold font-mono bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent leading-none">
+                              {formatPrice(priceData?.price || 0)}
+                            </div>
+                            <div className="text-xs md:text-sm text-gray-400 font-mono">
+                              {priceData?.priceSats 
+                                ? `${parseFloat(priceData.priceSats).toFixed(2)} sats` 
+                                : priceData?.price ? `${(priceData.price * 100000000).toFixed(2)} sats` : ''
+                              }
+                            </div>
                           </div>
-                          <div className="text-xs md:text-sm text-gray-400 font-mono">
-                            {priceData?.priceSats 
-                              ? `${parseFloat(priceData.priceSats).toFixed(2)} sats` 
-                              : priceData?.price ? `${(priceData.price * 100000000).toFixed(2)} sats` : ''
-                            }
+                          
+                          {/* Variação e Status na mesma linha */}
+                          <div className="flex items-center gap-2 md:gap-3">
+                            {/* Variação */}
+                            {priceData?.change24h !== undefined && priceData.change24h !== 0 && (
+                              <div className="flex items-center gap-2">
+                                {priceData.change24h > 0 ? (
+                                  <TrendingUp className="w-5 md:w-7 h-5 md:h-7 text-green-400" />
+                                ) : (
+                                  <TrendingDown className="w-5 md:w-7 h-5 md:h-7 text-red-400" />
+                                )}
+                              <span className={`text-lg md:text-2xl font-mono font-bold ${
+                                priceData.change24h > 0 ? 'text-green-400' : 'text-red-400'
+                              }`}>
+                                {formatChange(priceData.change24h)}
+                              </span>
+                              </div>
+                            )}
+                            
+                            {/* Status Indicator */}
+                            {isSuccess && (
+                              <div>
+                                <div className="w-2 md:w-3 h-2 md:h-3 bg-green-400"></div>
+                              </div>
+                            )}
                           </div>
                         </div>
                         
-                        {/* Variação e Status na mesma linha */}
-                        <div className="flex items-center gap-2 md:gap-3 -mt-2">
-                          {/* Variação */}
-                          {priceData?.change24h !== undefined && priceData.change24h !== 0 && (
-                            <div className="flex items-center gap-2">
-                              {priceData.change24h > 0 ? (
-                                <TrendingUp className="w-5 md:w-7 h-5 md:h-7 text-green-400" />
-                              ) : (
-                                <TrendingDown className="w-5 md:w-7 h-5 md:h-7 text-red-400" />
-                              )}
-                            <span className={`text-lg md:text-2xl font-mono font-bold ${
-                              priceData.change24h > 0 ? 'text-green-400' : 'text-red-400'
-                            }`}>
-                              {formatChange(priceData.change24h)}
-                            </span>
-                            </div>
-                          )}
-                          
-                          {/* Status Indicator */}
-                          {isSuccess && (
-                            <div>
-                              <div className="w-2 md:w-3 h-2 md:h-3 bg-green-400"></div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      
-                      {/* Timestamp - Discreto no canto inferior direito (mobile: centro) */}
-                      <div className="text-center md:text-right md:absolute md:bottom-2 md:right-3 mt-1 md:mt-0">
+                        {/* Timestamp - Alinhado à direita */}
                         <div className="text-xs text-gray-500 font-mono">
                           {priceData?.lastUpdate?.toLocaleTimeString()}
                         </div>
