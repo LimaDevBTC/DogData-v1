@@ -260,6 +260,7 @@ export default function OverviewPage() {
   const c2TreasuryUSD = dogPrice * C2_TREASURY_DOG
   const c2TreasuryUSDFormatted = dogPrice > 0 ? formatCurrency(c2TreasuryUSD) : '$0.00'
   const c2TreasuryProgress = Math.min(C2_TREASURY_DOG / C2_TREASURY_TARGET, 1)
+  const cardBaseClass = "stagger-item min-h-[190px] h-full"
 
   if (loading) {
     return <LoadingScreen message="Loading DOG data..." />
@@ -290,7 +291,7 @@ export default function OverviewPage() {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         {/* Total Holders */}
-        <Card variant="glass" className="stagger-item">
+        <Card variant="glass" className={cardBaseClass}>
           <CardHeader className="pb-3">
             <CardTitle variant="mono" className="text-sm text-gray-400">
               Total Holders
@@ -310,7 +311,7 @@ export default function OverviewPage() {
         </Card>
 
         {/* Volume 24h */}
-        <Card variant="glass" className="stagger-item">
+        <Card variant="glass" className={cardBaseClass}>
           <CardHeader className="pb-3">
             <CardTitle variant="mono" className="text-sm text-gray-400">
               Volume 24h
@@ -330,7 +331,7 @@ export default function OverviewPage() {
         </Card>
 
         {/* Market Cap */}
-        <Card variant="glass" className="stagger-item">
+        <Card variant="glass" className={cardBaseClass}>
           <CardHeader className="pb-3">
             <CardTitle variant="mono" className="text-sm text-gray-400">
               Market Cap
@@ -360,11 +361,11 @@ export default function OverviewPage() {
           href="https://www.c2dog.com"
           target="_blank"
           rel="noopener noreferrer sponsored"
-          className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 rounded-xl"
+          className="block h-full focus:outline-none focus-visible:ring-2 focus-visible-ring-blue-400/60 rounded-xl mb-6 xl:mb-0"
         >
           <Card
             variant="glass"
-            className="stagger-item border border-blue-500/20 bg-gradient-to-br from-blue-950/60 via-blue-900/30 to-transparent hover:border-blue-400/40 transition-all duration-300"
+            className={`${cardBaseClass} border border-blue-500/20 bg-gradient-to-br from-blue-950/60 via-blue-900/30 to-transparent hover:border-blue-400/40 transition-all duration-300`}
           >
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -408,13 +409,31 @@ export default function OverviewPage() {
             </CardContent>
           </Card>
         </a>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
-        {/* Market Cap placeholder for layout alignment on mobile */}
+        {/* Total Transactions 24h (Coming Soon) */}
+        <Card variant="glass" className={`${cardBaseClass} border border-dashed border-gray-700/60`}
+        >
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle variant="mono" className="text-sm text-gray-400 uppercase tracking-wide">
+                Total Transactions 24h
+              </CardTitle>
+              <span className="text-[10px] font-mono uppercase text-gray-500 bg-gray-800/60 rounded px-2 py-0.5">
+                Coming Soon
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent className="h-full">
+            <div className="flex flex-col items-start justify-center h-full">
+              <div className="text-2xl font-bold text-gray-500 font-mono">
+                —
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Total Supply */}
-        <Card variant="glass" className="stagger-item">
+        <Card variant="glass" className={cardBaseClass}>
           <CardHeader className="pb-3">
             <CardTitle variant="mono" className="text-sm text-gray-400">
               Total Supply
@@ -434,7 +453,7 @@ export default function OverviewPage() {
         </Card>
 
         {/* Burned */}
-        <Card variant="glass" className="stagger-item">
+        <Card variant="glass" className={cardBaseClass}>
           <CardHeader className="pb-3">
             <CardTitle variant="mono" className="text-sm text-gray-400">
               Burned
@@ -454,7 +473,7 @@ export default function OverviewPage() {
         </Card>
 
         {/* Circulating Supply */}
-        <Card variant="glass" className="stagger-item">
+        <Card variant="glass" className={cardBaseClass}>
           <CardHeader className="pb-3">
             <CardTitle variant="mono" className="text-sm text-gray-400">
               Circulating Supply
