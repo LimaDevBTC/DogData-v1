@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
+import Image from "next/image"
 import { Layout } from "@/components/layout"
 import { LoadingScreen } from "@/components/loading-screen"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -247,6 +248,19 @@ export default function OverviewPage() {
     }).format(num) + ' DOG'
   }
 
+  const dogPrice = useMemo(() => {
+    if (stats?.price && stats.price > 0) return stats.price
+    const runePrice = runeData && typeof (runeData as any).price === 'number' ? (runeData as any).price : 0
+    if (runePrice > 0) return runePrice
+    return 0.00163
+  }, [stats?.price, runeData])
+
+  const C2_TREASURY_DOG = 549_784_364
+  const C2_TREASURY_TARGET = 1_000_000_000
+  const c2TreasuryUSD = dogPrice * C2_TREASURY_DOG
+  const c2TreasuryUSDFormatted = dogPrice > 0 ? formatCurrency(c2TreasuryUSD) : '$0.00'
+  const c2TreasuryProgress = Math.min(C2_TREASURY_DOG / C2_TREASURY_TARGET, 1)
+
   if (loading) {
     return <LoadingScreen message="Loading DOG data..." />
   }
@@ -274,7 +288,7 @@ export default function OverviewPage() {
       <SectionDivider title="Key Metrics" icon={BarChart3} />
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         {/* Total Holders */}
         <Card variant="glass" className="stagger-item">
           <CardHeader className="pb-3">
@@ -340,6 +354,64 @@ export default function OverviewPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* C2 Blockchain Treasury */}
+        <a
+          href="https://www.c2dog.com"
+          target="_blank"
+          rel="noopener noreferrer sponsored"
+          className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 rounded-xl"
+        >
+          <Card
+            variant="glass"
+            className="stagger-item border border-blue-500/20 bg-gradient-to-br from-blue-950/60 via-blue-900/30 to-transparent hover:border-blue-400/40 transition-all duration-300"
+          >
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 flex-nowrap">
+                  <div className="relative w-6 h-6">
+                    <Image
+                      src="/C2.png"
+                      alt="C2 Blockchain logo"
+                      fill
+                      className="object-contain"
+                      sizes="24px"
+                    />
+                  </div>
+                  <CardTitle variant="mono" className="text-sm text-blue-200/80 uppercase tracking-wide whitespace-nowrap">
+                    C2 Blockchain $DOG Treasury
+                  </CardTitle>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="text-2xl font-bold font-mono text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-blue-200 to-blue-400">
+                  {C2_TREASURY_DOG.toLocaleString('en-US')} DOG
+                </div>
+                <div className="text-sm text-gray-300 font-mono">
+                  ≈ {c2TreasuryUSDFormatted} USD
+                </div>
+                <div className="space-y-1">
+                  <div className="h-1.5 w-full rounded-full bg-blue-900/60 overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-400 via-blue-300 to-blue-500"
+                      style={{ width: `${(c2TreasuryProgress * 100).toFixed(0)}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] uppercase tracking-wide text-blue-200/70 font-mono">
+                    <span>Treasury Progress</span>
+                    <span>{(c2TreasuryProgress * 100).toFixed(1)}% of 1B Target</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </a>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+        {/* Market Cap placeholder for layout alignment on mobile */}
 
         {/* Total Supply */}
         <Card variant="glass" className="stagger-item">
