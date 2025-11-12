@@ -13,8 +13,8 @@ const XVERSE_API_KEY = process.env.XVERSE_API_KEY || '';
 const XVERSE_ACTIVITY_LIMIT = 25;
 const XVERSE_MAX_PAGES = Number(process.env.XVERSE_ACTIVITY_MAX_PAGES || 160);
 const XVERSE_EXISTING_BREAK_THRESHOLD = Number(process.env.XVERSE_ACTIVITY_BREAK_THRESHOLD || 180);
-const XVERSE_RATE_LIMIT_DELAY_MS = Number(process.env.XVERSE_ACTIVITY_DELAY_MS || 250);
-const XVERSE_FEE_DELAY_MS = Number(process.env.XVERSE_FEE_DELAY_MS || 400);
+const XVERSE_RATE_LIMIT_DELAY_MS = Number(process.env.XVERSE_ACTIVITY_DELAY_MS || 1000);
+const XVERSE_FEE_DELAY_MS = Number(process.env.XVERSE_FEE_DELAY_MS || 800);
 const XVERSE_FETCH_FEES = (process.env.XVERSE_FETCH_FEES ?? 'true') !== 'false';
 const SATOSHIS_PER_BTC = 100_000_000;
 
@@ -220,8 +220,30 @@ async function fetchTransactionsFromXverse(existingMap: Map<string, Transaction>
   let offset = 0;
   let pages = 0;
 
+  let rateLimitHits = 0;
+
   while (grouped.size < MAX_TRANSACTIONS && pages < XVERSE_MAX_PAGES) {
-    const page = await fetchXverseActivityPage(offset);
+    let page: XverseActivityResponse;
+    try {
+      page = await fetchXverseActivityPage(offset);
+      rateLimitHits = 0;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const isRateLimit = message.includes('status 429');
+      if (isRateLimit) {
+        rateLimitHits += 1;
+        const backoffMs = Math.max(XVERSE_RATE_LIMIT_DELAY_MS, 1000) * Math.min(2 ** (rateLimitHits - 1), 8);
+        console.warn(`⚠️ [UPDATE] Xverse rate limit atingido (${rateLimitHits}). Aguardando ${backoffMs}ms antes da nova tentativa.`);
+        await sleep(backoffMs);
+        if (rateLimitHits > 5) {
+          console.error('❌ [UPDATE] Múltiplos rate limits consecutivos da Xverse. Abortando tentativa.');
+          throw error;
+        }
+        continue;
+      }
+      throw error;
+    }
+
     const items = page.items;
 
     if (!items.length) {
