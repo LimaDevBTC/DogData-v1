@@ -13,23 +13,49 @@ import { TrendIndicator } from "@/components/ui/trend-indicator"
 import { AddressBadge } from "@/components/address-badge"
 
 interface Holder {
+  rank: number;
   address: string;
+  total_amount: number;
   total_dog: number;
-  utxo_count: number;
-  first_seen: string;
-  last_seen: string;
+  utxo_count?: number;
   is_airdrop_recipient?: boolean;
   airdrop_amount?: number;
 }
 
+interface HolderSearchResult extends Holder {
+  available_amount?: number;
+  available_dog?: number;
+  projected_amount?: number;
+  projected_dog?: number;
+  pending_incoming?: number;
+  pending_outgoing?: number;
+  pending_net?: number;
+}
+
 interface HoldersResponse {
   holders: Holder[];
-  totalHolders: number;
-  totalPages: number;
-  currentPage: number;
-  totalUtxos: number;
-  lastUpdated: string;
-  source: string;
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+  metadata: {
+    runeId: string;
+    divisibility: number;
+    source: string;
+    updatedAt: string;
+  };
+}
+
+interface HolderSearchResponse {
+  holder: HolderSearchResult;
+  metadata: {
+    runeId: string;
+    divisibility: number;
+    source: string;
+    updatedAt: string;
+  };
 }
 
 export default function HoldersPage() {
@@ -39,17 +65,21 @@ export default function HoldersPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
   const [totalHolders, setTotalHolders] = useState(0)
+  const [pageLimit, setPageLimit] = useState(25)
   const [goToPage, setGoToPage] = useState('')
   const [searchTerm, setSearchTerm] = useState("")
   const [searchAddress, setSearchAddress] = useState("")
   const [clickedDetailsIndex, setClickedDetailsIndex] = useState<number | null>(null)
   const [airdropRecipients, setAirdropRecipients] = useState<Set<string>>(new Set())
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null)
-  const [searchResult, setSearchResult] = useState<Holder | null>(null)
+  const [searchResult, setSearchResult] = useState<HolderSearchResult | null>(null)
   
   // SSE states
   const [isSSEConnected, setIsSSEConnected] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<string | null>(null)
+  const [holdersMetadata, setHoldersMetadata] = useState<{ divisibility: number; updatedAt: string; source: string } | null>(null)
+  const [totalSupply, setTotalSupply] = useState<number | null>(null)
+  const [circulatingSupply, setCirculatingSupply] = useState<number | null>(null)
   const eventSourceRef = useRef<EventSource | null>(null)
 
   const formatNumber = (num: number) => {
@@ -58,6 +88,8 @@ export default function HoldersPage() {
       maximumFractionDigits: 5
     }).format(num);
   };
+
+  const resolvedLastUpdate = lastUpdate ?? holdersMetadata?.updatedAt ?? null
 
   // Carregar lista de recipients do airdrop
   const loadAirdropRecipients = async () => {
@@ -126,7 +158,7 @@ export default function HoldersPage() {
     }
   };
 
-  const fetchHolders = async (page: number, limit: number = 50) => {
+  const fetchHolders = async (page: number, limit: number = pageLimit) => {
     try {
       setLoading(true)
       const response = await fetch(`/api/dog-rune/holders?page=${page}&limit=${limit}`)
@@ -135,12 +167,18 @@ export default function HoldersPage() {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
       
-      const data = await response.json()
+      const data: HoldersResponse = await response.json()
       
-      // A API retorna pagination.total, não totalHolders
       setAllHolders(data.holders)
       setTotalPages(data.pagination.totalPages)
       setTotalHolders(data.pagination.total)
+      setPageLimit(data.pagination.limit)
+      setHoldersMetadata({
+        divisibility: data.metadata.divisibility,
+        updatedAt: data.metadata.updatedAt,
+        source: data.metadata.source,
+      })
+      setLastUpdate(new Date(data.metadata.updatedAt).toISOString())
       setError(null)
       
       console.log('✅ Holders carregados:', {
@@ -160,6 +198,27 @@ export default function HoldersPage() {
     await fetchHolders(currentPage)
   };
 
+  const loadStats = async () => {
+    try {
+      const response = await fetch('/api/dog-rune/stats')
+      if (!response.ok) {
+        throw new Error(`Stats error: ${response.status}`)
+      }
+      const stats = await response.json()
+      setTotalSupply(typeof stats.totalSupply === 'number' ? stats.totalSupply : null)
+      setCirculatingSupply(typeof stats.circulatingSupply === 'number' ? stats.circulatingSupply : null)
+      if (stats.metadata?.lastUpdated) {
+        setHoldersMetadata(prev => ({
+          divisibility: stats.metadata.divisibility ?? prev?.divisibility ?? 0,
+          updatedAt: stats.metadata.lastUpdated,
+          source: stats.metadata.source ?? prev?.source ?? 'xverse'
+        }))
+      }
+    } catch (error) {
+      console.error('Error loading stats:', error)
+    }
+  }
+
   // SSE Connection
   useEffect(() => {
     const eventSource = new EventSource('/api/events')
@@ -177,7 +236,7 @@ export default function HoldersPage() {
         
         if (message.type === 'data_updated') {
           console.log('🔄 Dados atualizados via SSE, recarregando...')
-          setLastUpdate(new Date().toLocaleString('pt-BR'))
+          setLastUpdate(new Date().toISOString())
           loadData() // Recarrega os dados automaticamente
         }
       } catch (err) {
@@ -201,6 +260,10 @@ export default function HoldersPage() {
     loadAirdropRecipients()
   }, [currentPage])
 
+  useEffect(() => {
+    loadStats()
+  }, [])
+
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
       setCurrentPage(newPage)
@@ -216,48 +279,58 @@ export default function HoldersPage() {
   };
 
   const searchHolderByAddress = async () => {
-    if (!searchAddress.trim()) return
+    const address = searchAddress.trim()
+    if (!address) return
     
     try {
       setLoading(true)
-      // Buscar todos os holders via API
-      const holdersResponse = await fetch(`/data/dog_holders_by_address.json`)
-      if (holdersResponse.ok) {
-        const holdersData = await holdersResponse.json()
-        // Buscar o endereço específico
-        const holder = holdersData.holders.find((h: Holder) => 
-          h.address.toLowerCase() === searchAddress.trim().toLowerCase()
-        )
-        if (holder) {
-          // Verificar se é recipient do airdrop e buscar quantidade recebida
-          holder.is_airdrop_recipient = airdropRecipients.has(holder.address)
-          
-          if (holder.is_airdrop_recipient) {
-            // Buscar dados do airdrop
-            try {
-              const airdropResponse = await fetch(`/data/airdrop_recipients.json`)
-              if (airdropResponse.ok) {
-                const airdropData = await airdropResponse.json()
-                const airdropRecipient = airdropData.recipients?.find((r: any) => 
-                  r.address.toLowerCase() === holder.address.toLowerCase()
-                )
-                if (airdropRecipient) {
-                  holder.airdrop_amount = airdropRecipient.airdrop_amount
-                }
-              }
-            } catch (err) {
-              console.error('Error fetching airdrop data:', err)
-            }
-          }
-          
-          setSearchResult(holder)
-        } else {
-          setSearchResult(null)
-          alert('Holder not found')
+      const response = await fetch(`/api/dog-rune/holders?address=${encodeURIComponent(address)}`)
+      
+      if (response.status === 404) {
+        setSearchResult(null)
+        alert('Holder not found')
+        return
+      }
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      const data: HolderSearchResponse = await response.json()
+      let holder = data.holder
+      
+      if (holder) {
+        holder = {
+          ...holder,
+          is_airdrop_recipient: airdropRecipients.has(holder.address),
         }
+        
+        if (holder.is_airdrop_recipient) {
+          try {
+            const airdropResponse = await fetch(`/data/airdrop_recipients.json`)
+            if (airdropResponse.ok) {
+              const airdropData = await airdropResponse.json()
+              const airdropRecipient = airdropData.recipients?.find((r: any) => 
+                r.address.toLowerCase() === holder.address.toLowerCase()
+              )
+              if (airdropRecipient) {
+                holder.airdrop_amount = airdropRecipient.airdrop_amount
+              }
+            }
+          } catch (err) {
+            console.error('Error fetching airdrop data:', err)
+          }
+        }
+        
+        setSearchResult(holder)
+        setHoldersMetadata(prev => ({
+          divisibility: data.metadata.divisibility ?? prev?.divisibility ?? 0,
+          updatedAt: data.metadata.updatedAt,
+          source: data.metadata.source ?? prev?.source ?? 'xverse',
+        }))
       } else {
         setSearchResult(null)
-        alert('Error loading holders data')
+        alert('Holder not found')
       }
     } catch (error) {
       console.error('Error searching holder:', error)
@@ -269,13 +342,11 @@ export default function HoldersPage() {
 
   const exportToCSV = () => {
     const csvContent = [
-      ['Endereço', 'Saldo DOG', 'UTXOs', 'Primeira Transação', 'Última Transação'],
+      ['Address', 'DOG Balance', 'Rank'],
       ...allHolders.map(holder => [
         holder.address,
         holder.total_dog.toString(),
-        holder.utxo_count.toString(),
-        holder.first_seen,
-        holder.last_seen
+        holder.rank.toString()
       ])
     ].map(row => row.join(',')).join('\n')
 
@@ -305,14 +376,27 @@ export default function HoldersPage() {
         <p className="text-dog-gray-400 font-mono text-lg">
           Complete holder database with real-time updates
         </p>
+        {(resolvedLastUpdate) && (
+          <p className="text-dog-gray-500 font-mono text-sm">
+            Last update: {new Date(resolvedLastUpdate).toLocaleString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+              hour12: true
+            })}
+          </p>
+        )}
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card variant="glass" className="stagger-item border-orange-500/20 hover:border-orange-500/40 transition-all">
           <CardHeader className="pb-2">
-            <CardTitle className="text-dog-orange text-lg flex items-center">
-              <Users className="w-5 h-5 mr-2" />
+            <CardTitle className="flex items-center gap-2 text-orange-400 text-xs font-mono uppercase tracking-[0.3em]">
+              <Users className="w-4 h-4" />
               Total Holders
             </CardTitle>
           </CardHeader>
@@ -328,23 +412,22 @@ export default function HoldersPage() {
 
         <Card variant="glass" className="stagger-item border-orange-500/20 hover:border-orange-500/40 transition-all">
           <CardHeader className="pb-2">
-            <CardTitle className="text-orange-400 text-lg flex items-center">
-              <Ticket className="w-5 h-5 mr-2" />
-              Total UTXOs
+            <CardTitle className="flex items-center gap-2 text-orange-300 text-xs font-mono uppercase tracking-[0.3em]">
+              <Ticket className="w-4 h-4" />
+              Circulating Supply
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent font-mono">
-              270,685
+              {circulatingSupply != null ? circulatingSupply.toLocaleString('en-US', { maximumFractionDigits: 3 }) : '—'}
             </div>
-            <p className="text-gray-400 text-xs font-mono mt-1">DOG UTXOs on-chain</p>
           </CardContent>
         </Card>
 
         <Card variant="glass" className="stagger-item border-green-500/20 hover:border-green-500/40 transition-all">
           <CardHeader className="pb-2">
-            <CardTitle className="text-dog-green text-lg flex items-center">
-              <ChevronRight className="w-5 h-5 mr-2" />
+            <CardTitle className="flex items-center gap-2 text-green-300 text-xs font-mono uppercase tracking-[0.3em]">
+              <ChevronRight className="w-4 h-4" />
               Current Page
             </CardTitle>
           </CardHeader>
@@ -357,8 +440,8 @@ export default function HoldersPage() {
 
         <Card variant="glass" className="stagger-item border-blue-500/20 hover:border-blue-500/40 transition-all">
           <CardHeader className="pb-2">
-            <CardTitle className="text-dog-blue text-lg flex items-center">
-              <Search className="w-5 h-5 mr-2" />
+            <CardTitle className="flex items-center gap-2 text-blue-300 text-xs font-mono uppercase tracking-[0.3em]">
+              <Search className="w-4 h-4" />
               Holders on Page
             </CardTitle>
           </CardHeader>
@@ -398,6 +481,9 @@ export default function HoldersPage() {
                   <div>
                     <p className="text-gray-400 text-sm">Address</p>
                     <div className="flex items-center gap-2">
+                      <Badge className="bg-orange-500/20 text-orange-300 border-orange-500/40 font-mono text-[10px] uppercase tracking-wide">
+                        Rank #{searchResult.rank.toLocaleString('en-US')}
+                      </Badge>
                       <code className="text-white text-xs break-all">{searchResult.address}</code>
                       <Button
                         size="sm"
@@ -420,7 +506,19 @@ export default function HoldersPage() {
                   </div>
                   <div>
                     <p className="text-gray-400 text-sm">UTXOs</p>
-                    <p className="text-white font-mono">{searchResult.utxo_count}</p>
+                    <p className="text-white font-mono">{searchResult.utxo_count != null ? searchResult.utxo_count : '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">Available DOG</p>
+                    <p className="text-white font-mono">{searchResult.available_dog != null ? formatNumber(searchResult.available_dog) : '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">Projected DOG</p>
+                    <p className="text-white font-mono">{searchResult.projected_dog != null ? formatNumber(searchResult.projected_dog) : '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400 text-sm">Pending (net)</p>
+                    <p className="text-white font-mono">{searchResult.pending_net != null ? formatNumber(searchResult.pending_net) : '—'}</p>
                   </div>
                   {searchResult.is_airdrop_recipient ? (
                     <>
@@ -464,40 +562,38 @@ export default function HoldersPage() {
       {/* Holders Table */}
       <Card variant="glass">
         <CardHeader>
-          <CardTitle className="text-white text-xl flex items-center justify-between">
-            <div>
-              Holders List
-              {loading && <span className="ml-2 text-dog-gray-400">(Loading...)</span>}
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-white text-xl font-mono">Holders List</CardTitle>
+            <div className="flex items-center gap-2 text-green-400 font-mono text-xs">
+              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+              LIVE
             </div>
-            {airdropRecipients.size > 0 && (
-              <div className="text-sm text-gray-400 font-mono">
-                {airdropRecipients.size.toLocaleString()} airdrop recipients loaded
-              </div>
-            )}
-          </CardTitle>
+          </div>
+          {loading && (
+            <p className="text-gray-500 font-mono text-xs mt-1">Loading latest holder data…</p>
+          )}
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-dog-gray-700">
-                  <th className="text-left py-3 px-4 text-dog-orange font-mono text-sm">#</th>
-                  <th className="text-left py-3 px-4 text-dog-orange font-mono text-sm">Address</th>
-                  <th className="text-right py-3 px-4 text-dog-orange font-mono text-sm">DOG Balance</th>
-                  <th className="text-center py-3 px-4 text-dog-orange font-mono text-sm">UTXOs</th>
-                  <th className="text-center py-3 px-4 text-dog-orange font-mono text-sm">Airdrop</th>
-                  <th className="text-center py-3 px-4 text-dog-orange font-mono text-sm">Actions</th>
+                <tr className="border-b border-gray-700/50">
+                  <th className="text-left py-3 px-4 text-orange-400 font-mono text-xs uppercase tracking-[0.25em]">Address</th>
+                  <th className="text-right py-3 px-4 text-orange-400 font-mono text-xs uppercase tracking-[0.25em]">DOG Balance</th>
+                  <th className="text-center py-3 px-4 text-orange-400 font-mono text-xs uppercase tracking-[0.25em]">UTXOs</th>
+                  <th className="text-center py-3 px-4 text-orange-400 font-mono text-xs uppercase tracking-[0.25em]">Airdrop</th>
+                  <th className="text-center py-3 px-4 text-orange-400 font-mono text-xs uppercase tracking-[0.25em]">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {allHolders.map((holder, index) => (
                   <tr key={holder.address} className="table-row">
-                    <td className="py-3 px-4 text-dog-gray-300 font-mono text-sm">
-                      {(currentPage - 1) * 50 + index + 1}
-                    </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
-                        <code className="address-text text-sm">
+                        <Badge className="bg-orange-500/20 text-orange-300 border-orange-500/40 font-mono text-[10px] uppercase tracking-wide">
+                          Rank #{holder.rank.toLocaleString('en-US')}
+                        </Badge>
+                        <code className="text-cyan-400 text-xs">
                           {holder.address}
                         </code>
                         <AddressBadge address={holder.address} size="sm" showName={false} />
@@ -525,15 +621,15 @@ export default function HoldersPage() {
                       </div>
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <span className="amount-text text-sm">
+                      <span className="font-mono text-sm text-orange-300">
                         {formatNumber(holder.total_dog)}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-center">
-                      <Badge variant="outline" className="border-dog-gray-500 text-dog-gray-300">
-                        {holder.utxo_count}
-                      </Badge>
-                    </td>
+                    <td className="px-4 py-3 text-center">
+                          <span className="text-xs font-mono text-gray-300">
+                            {holder.utxo_count != null ? holder.utxo_count : '—'}
+                          </span>
+                        </td>
                     <td className="py-3 px-4 text-center">
                       {airdropRecipients.size === 0 ? (
                         <Badge variant="outline" className="border-gray-500/30 text-gray-500">

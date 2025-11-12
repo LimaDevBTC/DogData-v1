@@ -8,5 +8,15 @@
       "source": "/api/:path*",
       "destination": "/api/index.js"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/update-transactions?secret=dog-update-secret",
+      "schedule": "*/3 * * * *"
+    },
+    {
+      "path": "/api/dog-rune/holders?snapshot=refresh",
+      "schedule": "0 * * * *"
+    }
   ]
 }

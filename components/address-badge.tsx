@@ -1,3 +1,5 @@
+'use client'
+
 import React from 'react';
 import Image from 'next/image';
 import { Award } from 'lucide-react';
@@ -57,11 +59,13 @@ async function loadVerifiedAddresses(): Promise<VerifiedAddresses> {
 export function AddressBadge({ address, size = 'md', showName = true }: AddressBadgeProps) {
   const [verified, setVerified] = React.useState<VerifiedAddress | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [imageError, setImageError] = React.useState(false);
 
   React.useEffect(() => {
     loadVerifiedAddresses().then(data => {
       setVerified(data.verified[address] || null);
       setLoading(false);
+      setImageError(false);
     });
   }, [address]);
 
@@ -84,6 +88,19 @@ export function AddressBadge({ address, size = 'md', showName = true }: AddressB
 
   // Exchange oficial com logo
   if (verified.type === 'official' && verified.logo) {
+    if (imageError) {
+      return (
+        <div className="inline-flex items-center gap-1.5">
+          <Award className={`${iconSize} text-orange-400`} />
+          {showName && verified.name && (
+            <span className={`${textSize} font-medium text-gray-300`}>
+              {verified.name}
+            </span>
+          )}
+        </div>
+      );
+    }
+
     return (
       <div className="inline-flex items-center gap-1.5">
         {verified.logo && (
@@ -97,6 +114,7 @@ export function AddressBadge({ address, size = 'md', showName = true }: AddressB
               width={size === 'sm' ? 16 : size === 'md' ? 20 : 24}
               height={size === 'sm' ? 16 : size === 'md' ? 20 : 24}
               className="object-contain"
+              onError={() => setImageError(true)}
             />
           </div>
         )}

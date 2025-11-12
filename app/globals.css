@@ -418,6 +418,26 @@ header::before {
   background-color: rgba(249, 115, 22, 0.05);
 }
 
+/* Remover espaçamentos indesejados na tabela */
+table {
+  border-collapse: collapse !important;
+  border-spacing: 0 !important;
+}
+
+table thead,
+table tbody {
+  border-spacing: 0 !important;
+}
+
+table tr {
+  border-spacing: 0 !important;
+}
+
+table td,
+table th {
+  border-spacing: 0 !important;
+}
+
 /* Prevent layout shift durante updates */
 .content-container {
   min-height: 600px;

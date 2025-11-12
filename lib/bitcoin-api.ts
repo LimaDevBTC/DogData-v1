@@ -97,6 +97,7 @@ export class BitcoinApiService {
         weight: block.weight,
         difficulty: block.difficulty,
         reward: block.extras?.reward || 0,
+        miner: block.extras?.pool?.name || block.extras?.miner || null,
       })) || [],
       
       feeHistogram: data.mempool.fee_histogram || [],

@@ -114,6 +114,54 @@ export default function BitcoinNetworkPage() {
         <MempoolChart data={data} />
       </div>
 
+      <SectionDivider title="Recent Blocks" icon={Network} />
+
+      {/* Recent Blocks */}
+      <Card variant="glass" className="border-orange-500/20">
+        <CardHeader>
+          <CardTitle className="text-orange-400 text-xl">
+            Recent Blocks
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {data.recentBlocks.slice(0, 10).map((block, index) => (
+              <div key={block.id} className="flex items-center justify-between p-4 border-b border-gray-800">
+                <div className="flex items-center space-x-4">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  <div>
+                    <div className="text-white font-mono font-semibold">
+                      Block #{block.height}
+                    </div>
+                    <div className="text-gray-400 font-mono text-sm">
+                      {block.txCount} transactions • {BitcoinApiService.formatNumber(block.size)} bytes
+                    </div>
+                    {block.miner && (
+                      <div className="text-dog-gray-500 font-mono text-xs">
+                        Mined by {block.miner}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-white font-mono">
+                    {new Date(block.timestamp).toLocaleTimeString('en-US', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                      hour12: true
+                    })}
+                  </div>
+                  <div className="text-gray-400 font-mono text-sm">
+                    {(block.reward / 100000000).toFixed(8)} BTC reward
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       <SectionDivider title="Mining Pools" icon={Network} />
 
       {/* Mining Pools */}
@@ -142,44 +190,6 @@ export default function BitcoinNetworkPage() {
                   </div>
                   <div className="text-gray-400 font-mono text-sm">
                     {pool.avgFeeDelta}% Fee Delta
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      <SectionDivider title="Recent Blocks" icon={Network} />
-
-      {/* Recent Blocks */}
-      <Card variant="glass" className="border-orange-500/20">
-        <CardHeader>
-          <CardTitle className="text-orange-400 text-xl">
-            Recent Blocks
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {data.recentBlocks.slice(0, 10).map((block, index) => (
-              <div key={block.id} className="flex items-center justify-between p-4 border-b border-gray-800">
-                <div className="flex items-center space-x-4">
-                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                  <div>
-                    <div className="text-white font-mono font-semibold">
-                      Block #{block.height}
-                    </div>
-                    <div className="text-gray-400 font-mono text-sm">
-                      {block.txCount} transactions • {BitcoinApiService.formatNumber(block.size)} bytes
-                    </div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-white font-mono">
-                    {new Date(block.timestamp).toLocaleTimeString('pt-BR')}
-                  </div>
-                  <div className="text-gray-400 font-mono text-sm">
-                    {(block.reward / 100000000).toFixed(8)} BTC reward
                   </div>
                 </div>
               </div>

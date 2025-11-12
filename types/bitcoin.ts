@@ -61,6 +61,7 @@ export interface BitcoinNetworkData {
     weight: number;
     difficulty: number;
     reward: number;
+    miner?: string | null;
   }[];
   
   // Mempool Fee Histogram (for charts)

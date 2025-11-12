@@ -20,11 +20,11 @@ type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'market
 
 const navigation = [
   { name: 'Overview', page: 'overview' as PageType, icon: BarChart3 },
+  { name: 'Transactions', page: 'transactions' as PageType, icon: CreditCard },
   { name: 'Holders', page: 'holders' as PageType, icon: Users },
+  { name: 'Markets', page: 'markets' as PageType, icon: BarChart3 },
   { name: 'Airdrop Analysis', page: 'airdrop' as PageType, icon: Sparkles }, // Runestone effect
   { name: 'Bitcoin Network', page: 'bitcoin-network' as PageType, icon: Network },
-  { name: 'Markets', page: 'markets' as PageType, icon: BarChart3 },
-  { name: 'Transactions', page: 'transactions' as PageType, icon: CreditCard },
 ]
 
 interface HeaderProps {
@@ -33,7 +33,6 @@ interface HeaderProps {
 }
 
 export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
-  const [showTransactionsComingSoon, setShowTransactionsComingSoon] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
@@ -84,26 +83,17 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
                 <button
                   key={item.name}
                   onClick={() => {
-                    if (item.page === 'transactions') {
-                      setShowTransactionsComingSoon(true)
-                      setTimeout(() => setShowTransactionsComingSoon(false), 2000)
-                    } else {
-                      setCurrentPage(item.page)
-                    }
+                    setCurrentPage(item.page)
                   }}
                   className={`flex items-center justify-center px-5 py-3 text-sm font-mono font-medium tracking-wide transition-colors duration-300 ${
-                    item.page === 'transactions' ? 'w-[170px]' : ''
-                  } ${
                     isActive
-                      ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
-                      : item.page === 'transactions' && showTransactionsComingSoon
                       ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
                       : 'text-gray-300 hover:text-white hover:bg-gray-800/30 border border-transparent hover:border-gray-700/30'
                   }`}
                 >
                   <Icon className="w-4 h-4 mr-2 flex-shrink-0" />
                   <span className="whitespace-nowrap block">
-                    {item.page === 'transactions' && showTransactionsComingSoon ? 'COMING SOON' : item.name}
+                    {item.name}
                   </span>
                 </button>
               )
@@ -172,30 +162,23 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
             {navigation.map((item) => {
               const isActive = currentPage === item.page
               const Icon = item.icon
-              
+
               return (
                 <button
                   key={item.name}
                   onClick={() => {
-                    if (item.page === 'transactions') {
-                      setShowTransactionsComingSoon(true)
-                      setTimeout(() => setShowTransactionsComingSoon(false), 2000)
-                    } else {
-                      setCurrentPage(item.page)
-                      setMobileMenuOpen(false)
-                    }
+                    setCurrentPage(item.page)
+                    setMobileMenuOpen(false)
                   }}
                   className={`flex items-center px-3 py-2.5 text-sm font-mono font-medium tracking-wide transition-colors duration-300 w-full text-left ${
                     isActive
-                      ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
-                      : item.page === 'transactions' && showTransactionsComingSoon
                       ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
                       : 'text-gray-300 hover:text-white hover:bg-gray-800/30 border border-transparent hover:border-gray-700/30'
                   }`}
                 >
                   <Icon className="w-4 h-4 mr-2.5 flex-shrink-0" />
                   <span className="whitespace-nowrap block">
-                    {item.page === 'transactions' && showTransactionsComingSoon ? 'COMING SOON' : item.name}
+                    {item.name}
                   </span>
                 </button>
               )

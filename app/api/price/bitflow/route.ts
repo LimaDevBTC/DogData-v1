@@ -105,10 +105,10 @@ export async function GET() {
           })
         }
         
-        return NextResponse.json(
+      return NextResponse.json(
           { error: 'DOG ticker not found or no liquidity' },
-          { status: 404 }
-        )
+        { status: 404 }
+      )
       }
       
       console.log('✅ Using sBTC/DOG pool as fallback')

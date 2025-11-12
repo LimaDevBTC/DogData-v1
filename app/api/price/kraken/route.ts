@@ -112,9 +112,9 @@ export async function GET() {
         throw new Error(`CoinGecko API error: ${cgResponse.status}`)
       }
       
-      const cgData = await cgResponse.json()
+        const cgData = await cgResponse.json()
       console.log('📊 CoinGecko response received, searching for Kraken ticker...')
-      
+        
       // Procurar ticker da Kraken no CoinGecko (case-insensitive)
       const krakenTicker = cgData.tickers?.find((t: any) => {
         const marketName = t.market?.name?.toLowerCase() || ''
@@ -122,41 +122,41 @@ export async function GET() {
         const isUSD = t.target === 'USD'
         return isKraken && isUSD
       })
-      
-      if (krakenTicker) {
+        
+        if (krakenTicker) {
         const price = krakenTicker.last
         console.log('✅ Found Kraken price on CoinGecko:', {
           price: `$${price.toFixed(8)}`,
           volume: krakenTicker.volume,
           market: krakenTicker.market.name
         })
-        
-        // Criar resposta no formato da Kraken
-        const krakenFormat = {
-          DOGUSD: {
+          
+          // Criar resposta no formato da Kraken
+          const krakenFormat = {
+            DOGUSD: {
             c: [price.toString()] as [string],
             o: price.toString(),
             h: [price.toString()] as [string],
             l: [price.toString()] as [string],
-            v: krakenTicker.volume?.toString() || '0',
-            p: '0'
+              v: krakenTicker.volume?.toString() || '0',
+              p: '0'
+            }
           }
-        }
-        
-        // Atualizar cache com dados do CoinGecko
-        const fetchTime = Date.now()
-        cachedData = {
-          result: krakenFormat,
-          timestamp: fetchTime,
-          lastSuccessfulFetch: fetchTime
-        }
-        
-        return NextResponse.json({
-          result: krakenFormat,
-          cached: false,
-          source: 'coingecko',
-          timestamp: new Date(fetchTime).toISOString()
-        })
+          
+          // Atualizar cache com dados do CoinGecko
+          const fetchTime = Date.now()
+          cachedData = {
+            result: krakenFormat,
+            timestamp: fetchTime,
+            lastSuccessfulFetch: fetchTime
+          }
+          
+          return NextResponse.json({
+            result: krakenFormat,
+            cached: false,
+            source: 'coingecko',
+            timestamp: new Date(fetchTime).toISOString()
+          })
       } else {
         console.warn('⚠️ Kraken ticker not found in CoinGecko response')
       }

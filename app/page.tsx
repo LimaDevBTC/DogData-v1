@@ -48,6 +48,35 @@ interface DogStats {
   networkHashRate: number
 }
 
+interface Transactions24hMetrics {
+  txCount: number
+  totalDogMoved: number
+  blockCount: number
+  avgTxPerBlock: number
+  avgDogPerTx: number
+  topActiveWallet?: {
+    address: string
+    txCount: number
+  } | null
+  topVolumeWallet?: {
+    address: string
+    dogMoved: number
+    direction: 'IN' | 'OUT'
+  } | null
+  topOutWallet?: {
+    address: string
+    dogMoved: number
+  } | null
+  topInWallet?: {
+    address: string
+    dogMoved: number
+  } | null
+  feesSats?: number
+  feesBtc?: number
+  activeWalletCount?: number
+  volumeWalletCount?: number
+}
+
 interface DogRuneData {
   name: string
   runeId: string
@@ -64,6 +93,7 @@ export default function OverviewPage() {
   const [runeData, setRuneData] = useState<DogRuneData | null>(null)
   const [krakenChange, setKrakenChange] = useState<number>(0)
   const [volume24h, setVolume24h] = useState<number>(0)
+  const [metrics24h, setMetrics24h] = useState<Transactions24hMetrics | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -204,6 +234,35 @@ export default function OverviewPage() {
         
         setRuneData(runeData)
         setKrakenChange(changePercent)
+
+        try {
+          const txSummaryResponse = await fetch('/api/dog-rune/transactions-kv?summary=1', { cache: 'no-store' })
+          if (txSummaryResponse.ok) {
+            const summaryData = await txSummaryResponse.json()
+            const metrics = summaryData?.metrics?.last24h
+            if (metrics) {
+              setMetrics24h({
+                txCount: metrics.txCount || 0,
+                totalDogMoved: metrics.totalDogMoved || 0,
+                blockCount: metrics.blockCount || 0,
+                avgTxPerBlock: metrics.avgTxPerBlock || 0,
+                avgDogPerTx: metrics.avgDogPerTx || 0,
+                topActiveWallet: metrics.topActiveWallet || null,
+                topVolumeWallet: metrics.topVolumeWallet || null,
+                topOutWallet: metrics.topOutWallet || null,
+                topInWallet: metrics.topInWallet || null,
+                feesSats: metrics.feesSats ?? 0,
+                feesBtc: metrics.feesBtc ?? 0,
+                activeWalletCount: metrics.activeWalletCount || 0,
+                volumeWalletCount: metrics.volumeWalletCount || 0,
+              })
+            }
+          } else {
+            console.warn('⚠️ Falha ao carregar resumo de transações 24h')
+          }
+        } catch (err) {
+          console.warn('⚠️ Erro ao buscar resumo de transações 24h:', err)
+        }
       } catch (error) {
         console.error('Error fetching data:', error)
       } finally {
@@ -410,24 +469,26 @@ export default function OverviewPage() {
           </Card>
         </a>
 
-        {/* Total Transactions 24h (Coming Soon) */}
-        <Card variant="glass" className={`${cardBaseClass} border border-dashed border-gray-700/60`}
-        >
+        {/* Total On-Chain Transactions 24h */}
+         <Card variant="glass" className={cardBaseClass}>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle variant="mono" className="text-sm text-gray-400 uppercase tracking-wide">
-                Total Transactions 24h
+              <CardTitle variant="mono" className="text-sm text-gray-300 flex items-center gap-2">
+                <Activity className="w-4 h-4 text-green-400" />
+                Total On-Chain Transactions 24h
               </CardTitle>
-              <span className="text-[10px] font-mono uppercase text-gray-500 bg-gray-800/60 rounded px-2 py-0.5">
-                Coming Soon
-              </span>
             </div>
           </CardHeader>
-          <CardContent className="h-full">
-            <div className="flex flex-col items-start justify-center h-full">
-              <div className="text-2xl font-bold text-gray-500 font-mono">
-                —
+          <CardContent>
+            <div className="space-y-2">
+              <div className="text-3xl font-bold text-white font-mono">
+                {metrics24h
+                  ? metrics24h.txCount.toLocaleString()
+                  : (loading ? 'Loading...' : 'N/A')}
               </div>
+              <p className="text-xs md:text-sm text-gray-400 font-mono uppercase tracking-wide">
+                Past 24 hours
+              </p>
             </div>
           </CardContent>
         </Card>

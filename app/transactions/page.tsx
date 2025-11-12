@@ -1,75 +1,1709 @@
 "use client"
 
+import { useState, useEffect, useRef, useCallback, Fragment } from "react"
+import Image from "next/image"
+import { Layout } from "@/components/layout"
+import { LoadingScreen } from "@/components/loading-screen"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { SectionDivider } from "@/components/ui/section-divider"
 import { 
-  Activity, 
-  Clock, 
-  Zap,
-  TrendingUp
+  Activity,
+  AlertCircle,
+  ArrowDownLeft,
+  ArrowRightLeft,
+  ArrowUpRight,
+  Bell,
+  Bolt,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  BarChart3,
+  Clock,
+  Coins,
+  Database,
+  Download,
+  ExternalLink,
+  Eye,
+  Filter,
+  HardDriveDownload,
+  History,
+  Info,
+  Layers,
+  LineChart,
+  ListFilter,
+  Loader2,
+  PauseCircle,
+  PlayCircle,
+  RefreshCw,
+  Search,
+  Sparkles,
+  Star,
+  TimerReset,
+  TrendingUp,
+  TriangleAlert,
+  Truck,
+  Upload,
+  Users,
+  Zap
 } from "lucide-react"
+import { AddressBadge } from "@/components/address-badge"
 
-export default function TransactionsPage() {
+interface Sender {
+  address: string;
+  input: string;
+  amount?: number;
+  amount_dog?: number;
+  has_dog?: boolean;
+}
+
+interface Receiver {
+  address: string;
+  vout: number;
+  amount: number;
+  amount_dog: number;
+  is_change?: boolean;  // Flag para indicar troco
+}
+
+interface Transaction {
+  txid: string;
+  block_height: number;
+  timestamp: string | number;  // Unix timestamp (number) ou ISO string
+  type?: string;
+  senders: Sender[];
+  receivers: Receiver[];
+  total_dog_moved: number;
+  net_transfer?: number;      // Valor líquido enviado para OUTROS
+  change_amount?: number;      // Valor de troco
+  has_change?: boolean;        // Tem troco?
+  sender_count: number;
+  receiver_count: number;
+  fee_sats?: number;
+}
+
+interface TransactionsData {
+  timestamp: string;
+  total_transactions: number;
+  last_block: number;
+  last_update: string;
+  transactions: Transaction[];
+  metrics?: {
+    last24h?: {
+      txCount: number;
+      totalDogMoved: number;
+      blockCount: number;
+      avgTxPerBlock: number;
+      avgDogPerTx: number;
+      activeWalletCount: number;
+      volumeWalletCount: number;
+      topActiveWallet?: { address: string; txCount: number; holderRank?: number | null } | null;
+      topVolumeWallet?: { address: string; dogMoved: number; direction: 'IN' | 'OUT'; holderRank?: number | null } | null;
+      topOutWallet?: { address: string; dogMoved: number; holderRank?: number | null } | null;
+      topInWallet?: { address: string; dogMoved: number; holderRank?: number | null } | null;
+      topOutWallets?: { address: string; dogMoved: number; rank: number; holderRank?: number | null }[];
+      topInWallets?: { address: string; dogMoved: number; rank: number; holderRank?: number | null }[];
+      feesSats?: number;
+      feesBtc?: number;
+    };
+  };
+}
+
+type MetricsLast24h = NonNullable<NonNullable<TransactionsData['metrics']>['last24h']>;
+
+type InflowEntry = { address: string; dogMoved: number; rank?: number; holderRank?: number | null };
+
+const HOLDER_SNAPSHOT_LIMIT = 500;
+
+const formatDOG = (amount: number) => {
   return (
-    <div className="p-6 space-y-8">
-      {/* Header */}
-      <div className="text-center space-y-4">
-        <h1 className="text-4xl font-bold text-white font-mono flex items-center justify-center">
-          <Activity className="w-10 h-10 mr-4 text-orange-400" />
-          DOG Transactions
-        </h1>
-        <p className="text-gray-400 font-mono text-lg">
-          Real-time transaction tracking and analysis
-        </p>
+    new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount) + ' DOG'
+  )
+}
+
+const SATOSHIS_PER_BTC = 100_000_000
+
+const formatBTC = (amount: number) => {
+  return (
+    new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 4,
+      maximumFractionDigits: 8
+    }).format(amount) + ' BTC'
+  )
+}
+
+const formatSats = (sats: number) => {
+  return `${new Intl.NumberFormat('en-US').format(Math.round(sats))} sats`
+}
+
+const shortAddress = (address?: string) => {
+  if (!address) return '—'
+  if (address.length <= 12) return address
+  return `${address.slice(0, 6)}...${address.slice(-4)}`
+}
+
+const computeMetrics24h = (txs: Transaction[]): MetricsLast24h => {
+  const now = Date.now()
+  const threshold = now - 24 * 60 * 60 * 1000
+  const windowTxs = txs.filter((tx) => {
+    const ts = new Date(tx.timestamp).getTime()
+    return !Number.isNaN(ts) && ts >= threshold
+  })
+
+  const txCount = windowTxs.length
+  let totalDog = 0
+  const senderCounts = new Map<string, number>()
+  const senderVolumes = new Map<string, number>()
+  const receiverVolumes = new Map<string, number>()
+  const activeWalletSet = new Set<string>()
+  const volumeWalletSet = new Set<string>()
+  const blockMap = new Map<number, { txCount: number; dog: number }>()
+  let totalFeesSats = 0
+
+  for (const tx of windowTxs) {
+    const volume = typeof tx.net_transfer === 'number' ? tx.net_transfer : (tx.total_dog_moved || 0)
+    totalDog += volume
+    if (typeof tx.fee_sats === 'number' && Number.isFinite(tx.fee_sats)) {
+      totalFeesSats += tx.fee_sats
+    }
+
+    blockMap.set(tx.block_height, {
+      txCount: (blockMap.get(tx.block_height)?.txCount || 0) + 1,
+      dog: Number(((blockMap.get(tx.block_height)?.dog || 0) + volume).toFixed(5)),
+    })
+
+    const txSenderAmounts = new Map<string, number>()
+    const txSenderAddresses = new Set<string>()
+    let txSenderTotal = 0
+
+    for (const sender of tx.senders) {
+      const address = sender.address
+      if (!address) continue
+      const amountDog = typeof sender.amount_dog === 'number'
+        ? sender.amount_dog
+        : Number(sender.amount_dog) || 0
+
+      txSenderAmounts.set(address, (txSenderAmounts.get(address) || 0) + amountDog)
+      txSenderTotal += amountDog
+
+      if (!txSenderAddresses.has(address)) {
+        txSenderAddresses.add(address)
+        activeWalletSet.add(address)
+        senderCounts.set(address, (senderCounts.get(address) || 0) + 1)
+      }
+    }
+
+    for (const receiver of tx.receivers) {
+      if (!receiver.address || receiver.is_change) continue
+      const amountDog = typeof receiver.amount_dog === 'number'
+        ? receiver.amount_dog
+        : Number(receiver.amount_dog) || 0
+      receiverVolumes.set(receiver.address, (receiverVolumes.get(receiver.address) || 0) + amountDog)
+      volumeWalletSet.add(receiver.address)
+    }
+
+    if (volume > 0 && txSenderAddresses.size > 0) {
+      if (txSenderTotal > 0) {
+        for (const [address, amountDog] of Array.from(txSenderAmounts.entries())) {
+          const share = (amountDog / txSenderTotal) * volume
+          senderVolumes.set(address, (senderVolumes.get(address) || 0) + share)
+          volumeWalletSet.add(address)
+        }
+      } else {
+        const equalShare = volume / txSenderAddresses.size
+        for (const address of Array.from(txSenderAddresses)) {
+          senderVolumes.set(address, (senderVolumes.get(address) || 0) + equalShare)
+          volumeWalletSet.add(address)
+        }
+      }
+    }
+  }
+
+  const blockCount = blockMap.size
+  const avgTxPerBlock = blockCount > 0 ? txCount / blockCount : 0
+  const avgDogPerTx = txCount > 0 ? totalDog / txCount : 0
+
+  const topActiveEntry = Array.from(senderCounts.entries()).sort((a, b) => b[1] - a[1])[0]
+  const sortedOutEntries = Array.from(senderVolumes.entries()).sort((a, b) => b[1] - a[1])
+  const sortedInEntries = Array.from(receiverVolumes.entries()).sort((a, b) => b[1] - a[1])
+
+  const topOutEntry = sortedOutEntries[0]
+  const topInEntry = sortedInEntries[0]
+
+  const topOutWallets = sortedOutEntries.slice(0, 5).map(([address, amount], index) => ({
+    address,
+    dogMoved: Number(amount.toFixed(5)),
+    rank: index + 1,
+    holderRank: null,
+  }))
+
+  const topInWallets = sortedInEntries.slice(0, 5).map(([address, amount], index) => ({
+    address,
+    dogMoved: Number(amount.toFixed(5)),
+    rank: index + 1,
+    holderRank: null,
+  }))
+
+  const topOutWallet = topOutEntry ? { address: topOutEntry[0], dogMoved: Number(topOutEntry[1].toFixed(5)), holderRank: null } : null
+  const topInWallet = topInEntry ? { address: topInEntry[0], dogMoved: Number(topInEntry[1].toFixed(5)), holderRank: null } : null
+
+  let topVolumeEntry: { address: string; dogMoved: number; direction: 'IN' | 'OUT' } | null = null
+  if (topOutEntry && (!topInEntry || topOutEntry[1] >= (topInEntry?.[1] || 0))) {
+    topVolumeEntry = { address: topOutEntry[0], dogMoved: Number(topOutEntry[1].toFixed(5)), direction: 'OUT' }
+  } else if (topInEntry) {
+    topVolumeEntry = { address: topInEntry[0], dogMoved: Number(topInEntry[1].toFixed(5)), direction: 'IN' }
+  }
+
+  const feesSats = Math.round(totalFeesSats)
+  const feesBtc = Number((feesSats / SATOSHIS_PER_BTC).toFixed(8))
+
+  return {
+    txCount,
+    totalDogMoved: Number(totalDog.toFixed(5)),
+    blockCount,
+    avgTxPerBlock: Number(avgTxPerBlock.toFixed(2)),
+    avgDogPerTx: Number(avgDogPerTx.toFixed(5)),
+    activeWalletCount: activeWalletSet.size,
+    volumeWalletCount: volumeWalletSet.size,
+    topActiveWallet: topActiveEntry ? { address: topActiveEntry[0], txCount: topActiveEntry[1] } : null,
+    topVolumeWallet: topVolumeEntry,
+    topOutWallet,
+    topInWallet,
+    topOutWallets,
+    topInWallets,
+    feesSats,
+    feesBtc,
+  }
+}
+ 
+export default function TransactionsPage() {
+  // Estado principal das transações
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false) // DESABILITADO - apenas JSON local
+  const [offset, setOffset] = useState(0)
+  const [metrics24h, setMetrics24h] = useState<MetricsLast24h | null>(null)
+  const metricsCardClass = "stagger-item min-h-[160px] h-full border border-gray-800/60 bg-gradient-to-br from-black/40 via-dog-gray-900/30 to-black/20"
+  const [copiedAddress, setCopiedAddress] = useState<string | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
+  const [holderRankOverrides, setHolderRankOverrides] = useState<Record<string, number | null>>({})
+  const [holderRankMap, setHolderRankMap] = useState<Record<string, number>>({})
+  const [localRankCacheLoaded, setLocalRankCacheLoaded] = useState(false)
+  
+  // Estados auxiliares
+  const [searchTxid, setSearchTxid] = useState("")
+  const [searchResult, setSearchResult] = useState<Transaction | null>(null)
+  const [copiedTxid, setCopiedTxid] = useState<string | null>(null)
+  const [totalEvents, setTotalEvents] = useState<number>(() => {
+    // Tentar carregar do localStorage imediatamente
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('dog_total_events')
+      if (cached) {
+        return parseInt(cached)
+      }
+    }
+    // Fallback: valor aproximado (atualizado 2025-11-03)
+    return 2953886
+  })
+  const [lastBlock, setLastBlock] = useState<number>(0)
+  const [newTxsCount, setNewTxsCount] = useState<number>(0)
+  const [showNewTxsBanner, setShowNewTxsBanner] = useState(false)
+  const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null)
+  const [autoRefresh, setAutoRefresh] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('dog_auto_refresh')
+      if (stored !== null) return stored === 'true'
+    }
+    return true
+  })
+
+  const topInflowWallets: InflowEntry[] = metrics24h?.topInWallets?.length
+    ? metrics24h.topInWallets
+    : metrics24h?.topInWallet
+      ? [{ ...metrics24h.topInWallet, rank: 1 }]
+      : []
+ 
+  // Ref para o IntersectionObserver
+  const loadMoreRef = useRef<HTMLDivElement>(null)
+  const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const isRefreshingRef = useRef(false)
+  const lastBlockRef = useRef<number>(0)
+ 
+  const fetchTransactionsFromCache = useCallback(async (silent = false) => {
+    if (isRefreshingRef.current) {
+      if (silent) {
+        return
+      }
+      // Aguarda ciclo atual concluir antes de um refresh explícito
+      while (isRefreshingRef.current) {
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
+    }
+
+    isRefreshingRef.current = true
+    setIsRefreshing(true)
+
+    try {
+      const response = await fetch('/api/dog-rune/transactions-kv', {
+        cache: silent ? 'no-store' : 'default'
+      })
+
+      let jsonData: any = null
+      let source = 'kv'
+
+      if (response.ok) {
+        jsonData = await response.json()
+      } else {
+        console.error('❌ [KV] Response not OK:', response.status)
+        source = 'fallback-json'
+        try {
+          const fallbackResponse = await fetch(`/data/dog_transactions.json?${Date.now()}`, {
+            cache: 'no-store'
+          })
+          if (fallbackResponse.ok) {
+            jsonData = await fallbackResponse.json()
+          } else {
+            console.error('❌ Fallback JSON também falhou:', fallbackResponse.status)
+          }
+        } catch (fallbackError: any) {
+          console.error('❌ Erro ao carregar fallback JSON:', fallbackError?.message || fallbackError)
+        }
+      }
+
+      if (!jsonData) {
+        throw new Error('Não foi possível carregar transações do cache ou fallback')
+      }
+
+      const transactionsList: Transaction[] = Array.isArray(jsonData.transactions) ? jsonData.transactions : []
+
+        setTransactions(transactionsList)
+        setSelectedTransaction((prev) => {
+          if (!prev) return prev
+          return transactionsList.find((item) => item.txid === prev.txid) || null
+        })
+        const metricsSource = jsonData.metrics?.last24h
+        if (metricsSource) {
+          const feesSats = metricsSource.feesSats ?? 0
+          const feesBtc = metricsSource.feesBtc ?? (feesSats ? Number((feesSats / SATOSHIS_PER_BTC).toFixed(8)) : 0)
+          const fallbackMetrics = computeMetrics24h(transactionsList)
+          const {
+            txCount: fallbackTxCount,
+            totalDogMoved: fallbackTotalDogMoved,
+            blockCount: fallbackBlockCount,
+            avgTxPerBlock: fallbackAvgTxPerBlock,
+            avgDogPerTx: fallbackAvgDogPerTx,
+            topActiveWallet: fallbackTopActiveWallet = null,
+            topVolumeWallet: fallbackTopVolumeWallet = null,
+            topOutWallet: fallbackTopOutWallet = null,
+            topInWallet: fallbackTopInWallet = null,
+            topOutWallets: fallbackTopOutWallets = [],
+            topInWallets: fallbackTopInWallets = [],
+            activeWalletCount: fallbackActiveWalletCount = 0,
+            volumeWalletCount: fallbackVolumeWalletCount = 0,
+          } = fallbackMetrics
+
+          const resolvedTopInWallets = Array.isArray(metricsSource.topInWallets) && metricsSource.topInWallets.length > 0
+            ? metricsSource.topInWallets
+            : fallbackTopInWallets
+
+          const resolvedTopOutWallets = Array.isArray(metricsSource.topOutWallets) && metricsSource.topOutWallets.length > 0
+            ? metricsSource.topOutWallets
+            : fallbackTopOutWallets
+
+          const resolvedTopInWallet = metricsSource.topInWallet ?? fallbackTopInWallet
+          const resolvedTopOutWallet = metricsSource.topOutWallet ?? fallbackTopOutWallet
+          const resolvedTopActiveWallet = metricsSource.topActiveWallet ?? fallbackTopActiveWallet
+          const resolvedTopVolumeWallet = metricsSource.topVolumeWallet ?? fallbackTopVolumeWallet
+          const resolvedActiveWalletCount = metricsSource.activeWalletCount ?? fallbackActiveWalletCount
+          const resolvedVolumeWalletCount = metricsSource.volumeWalletCount ?? fallbackVolumeWalletCount
+
+          setMetrics24h({
+            txCount: metricsSource.txCount || fallbackTxCount || 0,
+            totalDogMoved: metricsSource.totalDogMoved || fallbackTotalDogMoved || 0,
+            blockCount: metricsSource.blockCount || fallbackBlockCount || 0,
+            avgTxPerBlock: metricsSource.avgTxPerBlock || fallbackAvgTxPerBlock || 0,
+            avgDogPerTx: metricsSource.avgDogPerTx || fallbackAvgDogPerTx || 0,
+            topActiveWallet: resolvedTopActiveWallet,
+            topVolumeWallet: resolvedTopVolumeWallet,
+            topOutWallet: resolvedTopOutWallet,
+            topInWallet: resolvedTopInWallet,
+            topOutWallets: resolvedTopOutWallets,
+            topInWallets: resolvedTopInWallets,
+            feesSats,
+            feesBtc,
+            activeWalletCount: resolvedActiveWalletCount,
+            volumeWalletCount: resolvedVolumeWalletCount,
+          })
+        } else if (transactionsList.length > 0) {
+          setMetrics24h(computeMetrics24h(transactionsList))
+        }
+
+        const nextLastBlock: number = jsonData.last_block || 0
+        const prevLastBlock = lastBlockRef.current
+
+        if (prevLastBlock && nextLastBlock > prevLastBlock) {
+          const diff = nextLastBlock - prevLastBlock
+          setNewTxsCount(diff)
+          setShowNewTxsBanner(true)
+          setTimeout(() => setShowNewTxsBanner(false), 10000)
+        } else {
+          setNewTxsCount(0)
+          setShowNewTxsBanner(false)
+        }
+
+        setLastBlock(nextLastBlock)
+        lastBlockRef.current = nextLastBlock
+
+        const updatedAt = jsonData.last_updated ? new Date(jsonData.last_updated) : new Date()
+        setLastUpdateTime(updatedAt)
+
+        if (typeof jsonData.total_events === 'number') {
+          setTotalEvents(jsonData.total_events)
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('dog_total_events', String(jsonData.total_events))
+            localStorage.setItem('dog_total_events_timestamp', new Date().toISOString())
+          }
+        }
+
+        console.log(`✅ ${transactionsList.length} transações carregadas (${source}). Bloco ${prevLastBlock} → ${nextLastBlock}`)
+    } catch (error: any) {
+      console.error('❌ Error fetching transactions cache:', error.message || error)
+    } finally {
+      setLoading(false)
+      setIsRefreshing(false)
+      isRefreshingRef.current = false
+    }
+  }, [])
+
+  const loadInitialTransactions = useCallback(async () => {
+    await fetchTransactionsFromCache(false)
+  }, [fetchTransactionsFromCache])
+
+  const handleManualRefresh = useCallback(() => {
+    fetchTransactionsFromCache(true)
+  }, [fetchTransactionsFromCache])
+
+  const toggleAutoRefresh = useCallback(() => {
+    setAutoRefresh(prev => !prev)
+  }, [])
+ 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('dog_auto_refresh', String(autoRefresh))
+    }
+  }, [autoRefresh])
+
+  useEffect(() => {
+    lastBlockRef.current = lastBlock
+  }, [lastBlock])
+ 
+  useEffect(() => {
+    if (refreshIntervalRef.current) {
+      clearInterval(refreshIntervalRef.current)
+      refreshIntervalRef.current = null
+    }
+
+    if (!autoRefresh || loading) {
+      console.log('⏸️ Auto refresh desativado pelo usuário')
+      return
+    }
+
+    console.log('⏱️ Auto refresh ativado (3 minutos)')
+    fetchTransactionsFromCache(true)
+    refreshIntervalRef.current = setInterval(() => {
+      fetchTransactionsFromCache(true)
+    }, 180000)
+
+    return () => {
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current)
+        refreshIntervalRef.current = null
+      }
+    }
+  }, [autoRefresh, fetchTransactionsFromCache, loading])
+
+  // Carregar mais transações antigas da Unisat API
+  const loadMoreTransactions = useCallback(async () => {
+    if (loadingMore || !hasMore) return
+    
+    setLoadingMore(true)
+    try {
+      console.log(`🔄 Carregando mais TXs, offset: ${offset}`)
+      const response = await fetch(`/api/dog-rune/transactions-unisat?offset=${offset}`)
+      
+      if (response.ok) {
+        const data = await response.json()
+        
+        if (data.transactions && data.transactions.length > 0) {
+          setTransactions(prev => {
+            // Filtrar duplicatas por TXID
+            const existingIds = new Set(prev.map(tx => tx.txid))
+            const newTxs = data.transactions.filter((tx: Transaction) => !existingIds.has(tx.txid))
+            return [...prev, ...newTxs]
+          })
+          setOffset(data.nextOffset)
+          setHasMore(data.hasMore)
+          if (data.metrics?.last24h) {
+            setMetrics24h(data.metrics.last24h)
+          }
+          console.log(`✅ +${data.transactions.length} novas TXs carregadas`)
+        } else {
+          setHasMore(false)
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error loading more transactions:', error)
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [offset, loadingMore, hasMore])
+
+  // Carregar dados iniciais
+  useEffect(() => {
+    console.log('🚀 useEffect inicial executado')
+    loadInitialTransactions()
+    console.log('✅ Total Events usando fallback: 2.95M')
+  }, [loadInitialTransactions])
+
+  // IntersectionObserver DESABILITADO - apenas JSON local (1000 TXs)
+  // Se precisar de mais TXs antigas, usar a busca manual
+  useEffect(() => {
+    console.log('📜 Scroll infinito DESABILITADO - exibindo apenas JSON local')
+  }, [])
+
+  const HolderRankBadge = ({
+    rank,
+    loading = false,
+    unavailable = false
+  }: {
+    rank: number | null
+    loading?: boolean
+    unavailable?: boolean
+  }) => {
+    return (
+      <Badge className="bg-orange-500/20 text-orange-300 border-orange-500/40 font-mono text-[9px] uppercase tracking-wide min-w-[118px] flex items-center justify-center gap-1">
+        {loading ? (
+          <>
+            <Loader2 className="w-3 h-3 animate-spin" />
+            <span>Resolving…</span>
+          </>
+        ) : rank && rank > 0 ? (
+          <span>Holder Rank #{rank.toLocaleString('en-US')}</span>
+        ) : unavailable ? (
+          <span>{`Rank > ${HOLDER_SNAPSHOT_LIMIT}`}</span>
+        ) : (
+          <span>Rank —</span>
+        )}
+      </Badge>
+    )
+  }
+
+  const fetchHolderRank = useCallback(async (address: string) => {
+    setHolderRankOverrides((prev) => {
+      const existing = prev[address]
+      if (typeof existing === 'number' && existing > 0) {
+        return prev
+      }
+      return {
+        ...prev,
+        [address]: -2
+      }
+    })
+
+    try {
+      const response = await fetch(`/api/dog-rune/holders?address=${encodeURIComponent(address)}`)
+      if (!response.ok) {
+        throw new Error(`Status ${response.status}`)
+      }
+      const data = await response.json()
+      const rank = data?.holder?.holder_rank
+      setHolderRankOverrides((prev) => ({
+        ...prev,
+        [address]: typeof rank === 'number' ? rank : -1,
+      }))
+    } catch (error) {
+      console.warn('⚠️ Failed to fetch holder rank for', address, error)
+      setHolderRankOverrides((prev) => ({
+        ...prev,
+        [address]: -1,
+      }))
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200))
+  }, [])
+
+  useEffect(() => {
+    const fetchMissingRanks = async () => {
+      const addresses = [
+        metrics24h?.topActiveWallet?.address,
+        metrics24h?.topInWallet?.address,
+        metrics24h?.topOutWallet?.address,
+        metrics24h?.topVolumeWallet?.address,
+      ].filter((addr): addr is string => Boolean(addr))
+
+      const pending = addresses.filter((addr) => {
+        const rank = resolveHolderRank(addr, undefined, holderRankOverrides, holderRankMap)
+        return rank == null
+      })
+
+      if (pending.length === 0) return
+
+      pending.reduce((promise, addr) => {
+        return promise.then(async () => {
+          if (holderRankOverrides[addr] === undefined) {
+            await fetchHolderRank(addr)
+          }
+        })
+      }, Promise.resolve())
+    }
+
+    fetchMissingRanks()
+  }, [metrics24h?.topActiveWallet?.address, metrics24h?.topInWallet?.address, metrics24h?.topOutWallet?.address, metrics24h?.topVolumeWallet?.address, holderRankOverrides, holderRankMap, fetchHolderRank])
+
+  useEffect(() => {
+    const fetchMissingRanks = async () => {
+      const missing = topInflowWallets.filter((wallet) => (wallet.holderRank == null) && (holderRankOverrides[wallet.address] === undefined) && (holderRankMap[wallet.address] == null));
+      if (missing.length === 0) return;
+      for (const wallet of missing) {
+        await fetchHolderRank(wallet.address)
+      }
+    }
+
+    fetchMissingRanks()
+  }, [topInflowWallets, holderRankOverrides, holderRankMap, fetchHolderRank])
+
+  useEffect(() => {
+    if (localRankCacheLoaded) return
+    const unresolved = topInflowWallets.some((wallet) => {
+      const rank = resolveHolderRank(wallet.address, wallet.holderRank, holderRankOverrides, holderRankMap)
+      return rank == null
+    })
+    if (!unresolved) return
+
+    const loadLocalRanks = async () => {
+      try {
+        const response = await fetch('/api/dog-rune/holders?snapshot=1')
+        if (!response.ok) {
+          console.warn('⚠️ Failed to load local holders dataset:', response.status)
+          return
+        }
+        const data = await response.json()
+        if (!Array.isArray(data?.holders)) return
+        const map: Record<string, number> = {}
+        data.holders.forEach((holder: { address: string; rank?: number }, index: number) => {
+          if (holder?.address) {
+            const rank = typeof holder.rank === 'number' ? holder.rank : index + 1
+            map[holder.address] = rank
+          }
+        })
+        setHolderRankMap((prev) => ({ ...map, ...prev }))
+        setHolderRankOverrides((prev) => ({ ...prev, ...map }))
+        setLocalRankCacheLoaded(true)
+      } catch (error) {
+        console.warn('⚠️ Failed to load local holder ranks:', error)
+      }
+    }
+
+    loadLocalRanks()
+  }, [topInflowWallets, holderRankOverrides, holderRankMap, localRankCacheLoaded])
+
+  const resolveHolderRank = (
+    address?: string | null,
+    provided?: number | null,
+    overrides: Record<string, number | null> = {},
+    snapshots: Record<string, number> = {}
+  ) => {
+    if (!address) return null
+    if (typeof provided === 'number' && provided > 0) return provided
+    const override = overrides[address]
+    if (typeof override === 'number') return override > 0 ? override : null
+    const snap = snapshots[address]
+    if (typeof snap === 'number') return snap
+    return null
+  }
+
+  const getRankDisplayState = useCallback(
+    (address?: string | null, provided?: number | null) => {
+      const rank = resolveHolderRank(address, provided, holderRankOverrides, holderRankMap)
+      if (!address) {
+        return { rank, loading: false, unavailable: false }
+      }
+      const override = holderRankOverrides[address]
+      const loading = override === -2
+      const unavailable = override === -1
+      return { rank, loading, unavailable }
+    },
+    [holderRankOverrides, holderRankMap]
+  )
+
+  const renderRankBadge = useCallback(
+    (address?: string | null, provided?: number | null) => {
+      if (!address) return null
+      const { rank, loading, unavailable } = getRankDisplayState(address, provided)
+      return <HolderRankBadge rank={rank} loading={loading} unavailable={unavailable} />
+    },
+    [getRankDisplayState]
+  )
+ 
+  const copyTxid = (txid: string) => {
+    navigator.clipboard.writeText(txid)
+    setCopiedTxid(txid)
+    setTimeout(() => setCopiedTxid(null), 2000)
+  }
+
+  const clearCache = () => {
+    if (confirm('Limpar cache de transações? A página será recarregada.')) {
+      localStorage.removeItem('dog_gap_transactions')
+      localStorage.removeItem('dog_gap_transactions_timestamp')
+      localStorage.removeItem('dog_total_events')
+      localStorage.removeItem('dog_total_events_timestamp')
+      window.location.reload()
+    }
+  }
+
+  const searchTransaction = async () => {
+    if (!searchTxid.trim()) return
+    
+    // 1. Buscar localmente primeiro
+    const tx = transactions.find(t => 
+      t.txid.toLowerCase().includes(searchTxid.trim().toLowerCase())
+    )
+    
+    if (tx) {
+      setSearchResult(tx)
+      return
+    }
+    
+    // 2. Se não encontrou localmente, buscar na API
+    console.log('🔍 Transação não encontrada no cache, buscando na API...')
+    
+    try {
+      const response = await fetch(`/api/dog-rune/search-tx?txid=${searchTxid.trim()}`)
+      
+      if (response.ok) {
+        const txData = await response.json()
+        console.log('✅ Transação encontrada na API:', txData)
+        setSearchResult(txData)
+      } else if (response.status === 404) {
+        setSearchResult(null)
+        alert('❌ Transação não encontrada nem no cache nem na blockchain')
+      } else {
+        throw new Error(`API error: ${response.status}`)
+      }
+    } catch (error) {
+      console.error('❌ Erro ao buscar transação:', error)
+      setSearchResult(null)
+      alert('❌ Erro ao buscar transação. A API pode estar lenta, tente novamente.')
+    }
+  }
+
+  const handleCopyAddress = async (address?: string) => {
+    if (!address) return
+    try {
+      await navigator.clipboard.writeText(address)
+      setCopiedAddress(address)
+      setTimeout(() => {
+        setCopiedAddress((prev) => (prev === address ? null : prev))
+      }, 2000)
+    } catch (err) {
+      console.warn('⚠️ Clipboard copy failed:', err)
+    }
+  }
+
+  const formatTime = (timestamp: string | number) => {
+    const date = typeof timestamp === 'number' ? new Date(timestamp * 1000) : new Date(timestamp)
+    const month = (date.getMonth() + 1).toString().padStart(2, '0')
+    const day = date.getDate().toString().padStart(2, '0')
+    const year = date.getFullYear().toString().slice(-2)
+    const hours = date.getHours().toString().padStart(2, '0')
+    const minutes = date.getMinutes().toString().padStart(2, '0')
+    return `${month}/${day}/${year}, ${hours}:${minutes}`
+  }
+
+  const formatLastUpdate = (date: Date | null) => {
+    if (!date) return 'Never'
+    const hours = date.getHours().toString().padStart(2, '0')
+    const minutes = date.getMinutes().toString().padStart(2, '0')
+    const seconds = date.getSeconds().toString().padStart(2, '0')
+    return `${hours}:${minutes}:${seconds}`
+  }
+
+  const renderTransactionDetails = (tx: Transaction) => (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <code className="text-white text-xs break-all">{tx.txid}</code>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => copyTxid(tx.txid)}
+            className="p-1 h-6 w-6"
+            title="Copy transaction ID"
+          >
+            {copiedTxid === tx.txid ? (
+              <span className="text-green-400 text-xs">✓</span>
+            ) : (
+              <Copy className="w-3 h-3" />
+            )}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => window.open(`https://mempool.space/tx/${tx.txid}`, '_blank')}
+            className="p-1 h-6 w-6"
+            title="Open on mempool.space"
+          >
+            <ExternalLink className="w-3 h-3" />
+          </Button>
+        </div>
       </div>
 
-      {/* Coming Soon Card */}
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Card className="card-sharp card-hover glow-effect max-w-2xl w-full">
-          <CardHeader className="text-center pb-4">
-            <div className="flex justify-center mb-6">
-              <div className="relative">
-                <Clock className="w-24 h-24 text-orange-400 animate-pulse" />
-                <Zap className="w-8 h-8 text-yellow-400 absolute -top-2 -right-2" />
-              </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div>
+          <p className="text-gray-400 text-sm">Block Height</p>
+          <p className="text-white font-mono">{tx.block_height.toLocaleString()}</p>
+        </div>
+        <div>
+          <p className="text-gray-400 text-sm">Amount Sent</p>
+          <p className="text-orange-400 font-mono font-bold">
+            {tx.net_transfer !== undefined ? formatDOG(tx.net_transfer) : formatDOG(tx.total_dog_moved)}
+          </p>
+        </div>
+        <div>
+          <p className="text-gray-400 text-sm">Timestamp</p>
+          <p className="text-white font-mono text-xs">{formatTime(tx.timestamp)}</p>
+        </div>
+      </div>
+
+      {tx.has_change && tx.net_transfer !== undefined && (
+        <div className="bg-gray-800/30 border border-gray-700/50 rounded-lg p-2.5">
+          <div className="flex justify-between items-center text-[11px] font-mono text-gray-500">
+            <span>Change returned to sender:</span>
+            <span className="text-gray-400">{formatDOG(tx.change_amount || 0)}</span>
+          </div>
+        </div>
+      )}
+
+      <div>
+        <p className="text-gray-400 text-sm mb-2">Inputs ({tx.sender_count})</p>
+        <div className="space-y-1.5">
+          {tx.senders.slice(0, 5).map((sender, idx) => (
+            <div key={`${sender.address}-${idx}`} className="flex items-center gap-1.5">
+              <code className="text-xs text-cyan-400 break-all">
+                {sender.address}
+              </code>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => copyTxid(sender.address)}
+                className="p-0.5 h-5 w-5"
+                title="Copy address"
+              >
+                {copiedTxid === sender.address ? (
+                  <span className="text-green-400 text-xs">✓</span>
+                ) : (
+                  <Copy className="w-2.5 h-2.5" />
+                )}
+              </Button>
+              <AddressBadge 
+                address={sender.address} 
+                size="sm" 
+                showName={false} 
+              />
+              <span className="text-gray-400 font-mono text-xs ml-auto">
+                {sender.amount_dog ? formatDOG(sender.amount_dog) : '~DOG'}
+              </span>
             </div>
-            <CardTitle className="text-3xl font-bold text-white font-mono">
-              Coming Soon
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-center space-y-6">
-            <p className="text-gray-400 font-mono text-lg">
-              Estamos desenvolvendo um sistema avançado de rastreamento de transações DOG
+          ))}
+          {tx.sender_count > 5 && (
+            <p className="text-gray-500 text-xs pl-2">
+              + {tx.sender_count - 5} more inputs
             </p>
-            
-            <div className="space-y-4 mt-8">
-              <div className="flex items-center justify-center space-x-3">
-                <div className="w-2 h-2 bg-green-400 animate-pulse"></div>
-                <span className="text-white font-mono">Rastreamento em tempo real</span>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <p className="text-gray-400 text-sm mb-2">Outputs ({tx.receiver_count})</p>
+        <div className="space-y-1.5">
+          {tx.receivers.map((receiver, idx) => (
+            <div key={`${receiver.address}-${idx}`} className="flex items-center gap-1.5">
+              <code className="text-xs text-green-400 break-all">{receiver.address}</code>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => copyTxid(receiver.address)}
+                className="p-0.5 h-5 w-5"
+                title="Copy address"
+              >
+                {copiedTxid === receiver.address ? (
+                  <span className="text-green-400 text-xs">✓</span>
+                ) : (
+                  <Copy className="w-2.5 h-2.5" />
+                )}
+              </Button>
+              <AddressBadge 
+                address={receiver.address} 
+                size="sm" 
+                showName={false} 
+              />
+              {receiver.is_change && (
+                <Badge className="text-[9px] px-1 py-0 bg-purple-500/20 text-purple-400 border-purple-500/30">
+                  SELF
+                </Badge>
+              )}
+              <span className="text-orange-400 font-mono text-xs font-bold ml-auto">
+                {formatDOG(receiver.amount_dog)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+
+  if (loading) {
+    return <LoadingScreen message="Loading DOG transactions..." />
+  }
+
+  return (
+    <Layout currentPage="transactions" setCurrentPage={() => {}}>
+      <div className="pt-2 pb-3 px-3 md:p-6 space-y-3 md:space-y-6">
+        {/* Banner de Novas Transações */}
+        {showNewTxsBanner && (
+          <div className="mb-4 p-3 bg-gradient-to-r from-green-500/20 to-green-600/20 border border-green-500/50 rounded-lg animate-pulse">
+            <div className="flex items-center justify-center gap-3">
+              <span className="text-green-400 text-2xl">🆕</span>
+              <p className="text-white font-mono text-sm md:text-base font-bold">
+                Novas transações disponíveis!
+              </p>
+              <Button
+                size="sm"
+                onClick={() => window.location.reload()}
+                className="bg-green-500 hover:bg-green-600 text-white font-mono"
+              >
+                🔄 Recarregar
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setShowNewTxsBanner(false)}
+                className="text-white hover:text-green-400"
+              >
+                ✕
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Header */}
+        <div className="text-center space-y-2 md:space-y-4 px-4">
+          <div className="flex items-center justify-center gap-2 md:gap-4">
+            <Activity className="w-10 h-10 md:w-14 md:h-14 text-orange-400" />
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white font-mono whitespace-nowrap">
+              DOG Transactions
+            </h1>
+          </div>
+          <p className="text-gray-400 font-mono text-sm md:text-lg">
+            Real-time transaction tracking - Rune 840000:3
+          </p>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-3 gap-4 md:gap-6">
+          <Card variant="glass">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-orange-400 flex items-center gap-2">
+                <ArrowRightLeft className="w-5 h-5" />
+                Total Events
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-white font-mono">
+                {totalEvents > 0 ? (totalEvents / 1000000).toFixed(2) + 'M' : (loading ? 'Loading...' : '0M')}
               </div>
-              <div className="flex items-center justify-center space-x-3">
-                <div className="w-2 h-2 bg-orange-400 animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-                <span className="text-white font-mono">Análise detalhada de transferências</span>
+              <p className="text-gray-400 text-sm font-mono mt-2">
+                DOG rune events tracked
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card variant="glass">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-cyan-400 flex items-center gap-2">
+                <Zap className="w-5 h-5" />
+                Last Block Processed
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-white font-mono">
+                {lastBlock > 0 ? lastBlock.toLocaleString() : (loading ? 'Loading...' : 'N/A')}
               </div>
-              <div className="flex items-center justify-center space-x-3">
-                <div className="w-2 h-2 bg-blue-400 animate-pulse" style={{ animationDelay: '0.4s' }}></div>
-                <span className="text-white font-mono">Histórico completo de movimentações</span>
+              <p className="text-gray-400 text-sm font-mono mt-2">
+                Most recent block scanned by our tracker
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card variant="glass">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-purple-400 flex items-center gap-2">
+                  <Clock className="w-5 h-5" />
+                  Last Update
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleManualRefresh}
+                    className="h-8 w-8 text-gray-400 hover:text-purple-200"
+                    title="Refresh now"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-purple-300' : ''}`} />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={toggleAutoRefresh}
+                    className={`font-mono text-[11px] px-3 py-1 border ${
+                      autoRefresh
+                        ? 'border-purple-500/40 text-purple-200 hover:text-purple-100'
+                        : 'border-gray-600 text-gray-400 hover:text-gray-300'
+                    }`}
+                  >
+                    {autoRefresh ? 'AUTO ON' : 'AUTO OFF'}
+                  </Button>
+                </div>
               </div>
-              <div className="flex items-center justify-center space-x-3">
-                <div className="w-2 h-2 bg-yellow-400 animate-pulse" style={{ animationDelay: '0.6s' }}></div>
-                <span className="text-white font-mono">Identificação de padrões e tendências</span>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-white font-mono">
+                {lastUpdateTime ? formatLastUpdate(lastUpdateTime) : 'Loading...'}
               </div>
+              <p className="text-gray-400 text-sm font-mono mt-2">
+                {lastUpdateTime 
+                  ? `${String(lastUpdateTime.getMonth() + 1).padStart(2, '0')}/${String(lastUpdateTime.getDate()).padStart(2, '0')}/${lastUpdateTime.getFullYear()}`
+                  : 'Waiting for data'}
+              </p>
+              <p className="text-[11px] text-gray-500 font-mono uppercase tracking-wide mt-2">
+                {autoRefresh ? 'Auto refresh every 3 minutes' : 'Auto refresh disabled'}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6 mt-4">
+          <Card variant="glass" className={metricsCardClass}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle variant="mono" className="text-sm text-gray-300 flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-orange-400" />
+                  Total Transactions (24h)
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="text-3xl font-bold text-white font-mono">
+                  {metrics24h ? metrics24h.txCount.toLocaleString() : (loading ? 'Loading...' : 'N/A')}
+                </div>
+                <p className="text-gray-400 text-xs md:text-sm font-mono uppercase tracking-wide">
+                  On-chain DOG transfers in the last 24 hours
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card variant="glass" className={metricsCardClass}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle variant="mono" className="text-sm text-gray-300 flex items-center gap-2">
+                  <Users className="w-4 h-4 text-emerald-400" />
+                  Total Active Wallets (24h)
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="text-3xl font-bold text-white font-mono">
+                  {metrics24h ? metrics24h.activeWalletCount.toLocaleString() : (loading ? 'Loading...' : 'N/A')}
+                </div>
+                <p className="text-gray-400 text-xs md:text-sm font-mono uppercase tracking-wide">
+                  Unique wallets that sent or received DOG in 24 hours
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card variant="glass" className={metricsCardClass}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle variant="mono" className="text-sm text-gray-300 flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-yellow-300" />
+                  On-Chain Volume (24h)
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="text-3xl font-bold text-white font-mono">
+                  {metrics24h ? formatDOG(metrics24h.totalDogMoved) : (loading ? 'Loading...' : 'N/A')}
+                </div>
+                <p className="text-gray-400 text-xs md:text-sm font-mono uppercase tracking-wide">
+                  Total DOG moved on-chain in the last 24 hours
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card variant="glass" className={metricsCardClass}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle variant="mono" className="text-sm text-gray-300 flex items-center gap-2">
+                  <Users className="w-4 h-4 text-cyan-400" />
+                  Most Active Wallet (24h)
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {metrics24h?.topActiveWallet ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <AddressBadge address={metrics24h.topActiveWallet.address} size="sm" showName />
+                      <code className="text-xs text-gray-300 font-mono">
+                        {shortAddress(metrics24h.topActiveWallet.address)}
+                      </code>
+                      {renderRankBadge(
+                        metrics24h.topActiveWallet.address,
+                        metrics24h.topActiveWallet.holderRank
+                      )}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-gray-400 hover:text-cyan-200"
+                      onClick={() => handleCopyAddress(metrics24h.topActiveWallet?.address)}
+                    >
+                      {copiedAddress === metrics24h.topActiveWallet.address ? (
+                        <Check className="w-4 h-4" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <div className="text-sm text-gray-400 font-mono">
+                    {metrics24h.topActiveWallet.txCount.toLocaleString()} transactions
+                  </div>
+                  <p className="text-[11px] text-gray-500 font-mono uppercase tracking-wide">
+                    Most active among {metrics24h.activeWalletCount?.toLocaleString() || '—'} wallets
+                  </p>
+                </div>
+              ) : (
+                <p className="text-gray-500 text-sm font-mono">Not enough data</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card variant="glass" className={metricsCardClass}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle variant="mono" className="text-sm text-gray-300 flex items-center gap-2">
+                  <ArrowDownLeft className="w-4 h-4 text-emerald-400" />
+                  Largest DOG Inflow (24h)
+                </CardTitle>
+                {metrics24h?.topInWallet && (
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] font-mono tracking-wide border border-emerald-500/50 text-emerald-300 px-2 py-0.5"
+                  >
+                    Inflow
+                  </Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {metrics24h?.topInWallet ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <AddressBadge address={metrics24h.topInWallet.address} size="sm" showName />
+                      <code className="text-xs text-gray-300 font-mono">
+                        {shortAddress(metrics24h.topInWallet.address)}
+                      </code>
+                      {renderRankBadge(
+                        metrics24h.topInWallet.address,
+                        metrics24h.topInWallet.holderRank
+                      )}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-gray-400 hover:text-emerald-200"
+                      onClick={() => handleCopyAddress(metrics24h.topInWallet?.address)}
+                    >
+                      {copiedAddress === metrics24h.topInWallet.address ? (
+                        <Check className="w-4 h-4" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <div className="text-sm text-gray-400 font-mono">
+                    {formatDOG(metrics24h.topInWallet.dogMoved)} received
+                  </div>
+                  <p className="text-[11px] text-gray-500 font-mono uppercase tracking-wide">
+                    Across {metrics24h.volumeWalletCount?.toLocaleString() || '—'} wallets
+                  </p>
+                </div>
+              ) : (
+                <p className="text-gray-500 text-sm font-mono">Not enough data</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card variant="glass" className={metricsCardClass}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle variant="mono" className="text-sm text-gray-300 flex items-center gap-2">
+                  <ArrowUpRight className="w-4 h-4 text-red-400" />
+                  Largest DOG Outflow (24h)
+                </CardTitle>
+                {metrics24h?.topOutWallet && (
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] font-mono tracking-wide border border-red-500/50 text-red-300 px-2 py-0.5"
+                  >
+                    Outflow
+                  </Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {metrics24h?.topOutWallet ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <AddressBadge address={metrics24h.topOutWallet.address} size="sm" showName />
+                      <code className="text-xs text-gray-300 font-mono">
+                        {shortAddress(metrics24h.topOutWallet.address)}
+                      </code>
+                      {renderRankBadge(
+                        metrics24h.topOutWallet.address,
+                        metrics24h.topOutWallet.holderRank
+                      )}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-gray-400 hover:text-red-200"
+                      onClick={() => handleCopyAddress(metrics24h.topOutWallet?.address)}
+                    >
+                      {copiedAddress === metrics24h.topOutWallet.address ? (
+                        <Check className="w-4 h-4" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <div className="text-sm text-gray-400 font-mono">
+                    {formatDOG(metrics24h.topOutWallet.dogMoved)} sent out
+                  </div>
+                  <p className="text-[11px] text-gray-500 font-mono uppercase tracking-wide">
+                    Across {metrics24h.volumeWalletCount?.toLocaleString() || '—'} wallets
+                  </p>
+                </div>
+              ) : (
+                <p className="text-gray-500 text-sm font-mono">Not enough data</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card variant="glass" className={metricsCardClass}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle variant="mono" className="text-sm text-gray-300 flex items-center gap-2">
+                  <Coins className="w-4 h-4 text-amber-300" />
+                  Miner Fees (24h)
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="text-3xl font-bold text-white font-mono">
+                  {metrics24h
+                    ? metrics24h.feesBtc !== undefined
+                      ? formatBTC(metrics24h.feesBtc)
+                      : 'N/A'
+                    : (loading ? 'Loading...' : 'N/A')}
+                </div>
+                <p className="text-gray-400 text-xs md:text-sm font-mono uppercase tracking-wide">
+                  {metrics24h?.feesSats !== undefined
+                    ? `${formatSats(metrics24h.feesSats)} paid to Bitcoin miners`
+                    : 'Bitcoin fees generated by DOG transfers in the last 24 hours'}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card variant="glass" className={metricsCardClass}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle variant="mono" className="text-sm text-gray-300 flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-amber-400" />
+                  Avg Transactions per Block (24h)
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-white font-mono">
+                {metrics24h ? metrics24h.avgTxPerBlock.toFixed(2) : (loading ? 'Loading...' : '—')}
+              </div>
+              <p className="text-gray-400 text-xs md:text-sm font-mono">
+                Across {metrics24h?.blockCount || 0} blocks
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {topInflowWallets.length > 0 && (
+          <Card variant="glass" className="border border-emerald-500/20 bg-gradient-to-br from-black/40 via-emerald-900/10 to-black/10">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle variant="mono" className="text-sm text-emerald-200 flex items-center gap-2 uppercase tracking-[0.3em]">
+                  <ArrowDownLeft className="w-4 h-4" />
+                  Top Inflow Wallets (24h)
+                </CardTitle>
+                <Badge className="bg-emerald-500/20 text-emerald-200 border-emerald-400/40 font-mono text-[10px] uppercase tracking-wide">
+                  {topInflowWallets.length} wallets
+                </Badge>
+              </div>
+              <p className="text-gray-500 text-xs font-mono mt-1">
+                Ranked by DOG received in the last 24 hours
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="border-b border-emerald-500/20">
+                      <th className="text-left py-2 px-3 text-emerald-300 font-mono text-xs uppercase tracking-[0.25em] w-16">Rank</th>
+                      <th className="text-left py-2 px-3 text-emerald-300 font-mono text-xs uppercase tracking-[0.25em]">Wallet</th>
+                      <th className="text-right py-2 px-3 text-emerald-300 font-mono text-xs uppercase tracking-[0.25em]">DOG Inflow</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topInflowWallets.slice(0, 5).map((wallet, index) => (
+                      <tr key={wallet.address} className="border-b border-emerald-500/10 last:border-b-0">
+                        <td className="py-3 px-3 font-mono text-xs text-emerald-200">
+                          #{index + 1}
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className="flex items-center gap-2">
+                            {renderRankBadge(wallet.address, wallet.holderRank ?? null)}
+                            <code className="text-emerald-200 text-xs">
+                              {shortAddress(wallet.address)}
+                            </code>
+                            <AddressBadge address={wallet.address} size="sm" showName={false} />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleCopyAddress(wallet.address)}
+                              className="p-0.5 h-5 w-5"
+                              title={copiedAddress === wallet.address ? "Copied!" : "Copy address"}
+                            >
+                              {copiedAddress === wallet.address ? (
+                                <Check className="w-3.5 h-3.5" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </Button>
+                          </div>
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          <span className="font-mono text-sm text-emerald-200">
+                            {formatDOG(wallet.dogMoved)}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <SectionDivider title="Transaction Search" icon={Search} />
+
+        {/* Search */}
+        <Card variant="glass">
+          <CardHeader>
+            <CardTitle className="text-white text-xl font-mono">Search Transaction</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Enter transaction ID (txid)..."
+                value={searchTxid}
+                onChange={(e) => setSearchTxid(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && searchTransaction()}
+                className="flex-1 bg-transparent border-gray-700/50 text-white"
+              />
+              <Button onClick={searchTransaction} className="btn-sharp">
+                Search
+              </Button>
             </div>
 
-            <div className="mt-8 pt-8 border-t border-gray-700/50">
-              <Badge variant="outline" className="text-orange-400 border-orange-400 px-4 py-2 text-sm">
-                <TrendingUp className="w-4 h-4 mr-2" />
-                Em desenvolvimento ativo
-              </Badge>
+            {/* Search Result */}
+            {searchResult && (
+              <div className="mt-4 p-4 bg-transparent border border-orange-500/30 rounded-lg">
+                {renderTransactionDetails(searchResult)}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <SectionDivider title="Recent Transactions" icon={Activity} />
+
+        {/* Transactions List */}
+        <Card variant="glass">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-white text-xl font-mono">
+                Transaction History
+              </CardTitle>
+              <div className="flex items-center gap-2 text-green-400 font-mono text-sm">
+                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                LIVE
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="content-container">
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse table-auto">
+                  <thead>
+                    <tr className="border-b border-gray-700/50">
+                      <th className="text-left py-2 px-2 text-orange-400 font-mono text-xs w-[70px]">Block</th>
+                      <th className="text-left py-2 px-2 text-orange-400 font-mono text-xs w-[180px]">From</th>
+                      <th className="text-left py-2 px-2 text-orange-400 font-mono text-xs w-[180px]">To</th>
+                      <th className="text-right py-2 px-2 text-orange-400 font-mono text-xs w-[130px]">DOG Moved</th>
+                      <th className="text-center py-2 px-2 text-orange-400 font-mono text-xs w-[70px]">Flow</th>
+                      <th className="text-left py-2 px-2 text-orange-400 font-mono text-xs w-[110px]">Time</th>
+                      <th className="text-center py-2 px-2 text-orange-400 font-mono text-xs w-[120px]">TXID</th>
+                    </tr>
+                  </thead>
+                  <tbody className="border-spacing-0">
+                    {transactions.map((tx, index) => {
+                      // Pegar primeiro sender (principal) e primeiro receiver
+                      const mainSender = tx.senders[0]
+                      const mainReceiver = tx.receivers[0]
+                      const isSelected = selectedTransaction?.txid === tx.txid
+                      
+                      return (
+                        <Fragment key={tx.txid}>
+                        <tr 
+                          onClick={() => setSelectedTransaction(isSelected ? null : tx)}
+                          className={`table-row cursor-pointer transition-colors ${
+                            isSelected ? 'bg-blue-500/10 border-y border-blue-500/20' : 'hover:bg-blue-500/5'
+                          }`}
+                        >
+                          {/* Block Height */}
+                          <td className="py-2 px-1">
+                            <span className="text-cyan-400 font-mono text-xs">
+                              {tx.block_height.toLocaleString()}
+                            </span>
+                          </td>
+
+                          {/* FROM (Sender) - Compacto */}
+                          <td className="py-2 px-1">
+                            <div className="flex items-center gap-1">
+                              <code className="text-cyan-400 text-xs">
+                                {mainSender?.address.substring(0, 8)}...{mainSender?.address.substring(mainSender?.address.length - 6) || ''}
+                              </code>
+                              <AddressBadge 
+                                address={mainSender?.address || ''} 
+                                size="sm" 
+                                showName={false} 
+                              />
+                              {mainSender && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    copyTxid(mainSender.address)
+                                  }}
+                                  className="p-0.5 h-5 w-5"
+                                  title="Copy sender"
+                                >
+                                  {copiedTxid === mainSender.address ? (
+                                    <span className="text-green-400 text-xs">✓</span>
+                                  ) : (
+                                    <Copy className="w-2.5 h-2.5" />
+                                  )}
+                                </Button>
+                              )}
+                              {tx.sender_count > 1 && (
+                                <span className="text-gray-500 text-xs">+{tx.sender_count - 1}</span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* TO (Receiver) - Compacto */}
+                          <td className="py-2 px-1">
+                            <div className="flex items-center gap-1">
+                              <code className="text-green-400 text-xs">
+                                {mainReceiver?.address.substring(0, 8)}...{mainReceiver?.address.substring(mainReceiver?.address.length - 6) || ''}
+                              </code>
+                              <AddressBadge 
+                                address={mainReceiver?.address || ''} 
+                                size="sm" 
+                                showName={false} 
+                              />
+                              {mainReceiver && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    copyTxid(mainReceiver.address)
+                                  }}
+                                  className="p-0.5 h-5 w-5"
+                                  title="Copy receiver"
+                                >
+                                  {copiedTxid === mainReceiver.address ? (
+                                    <span className="text-green-400 text-xs">✓</span>
+                                  ) : (
+                                    <Copy className="w-2.5 h-2.5" />
+                                  )}
+                                </Button>
+                              )}
+                              {tx.receiver_count > 1 && (
+                                <span className="text-gray-500 text-xs whitespace-nowrap">+{tx.receiver_count - 1}</span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* DOG Moved - Valor líquido enviado */}
+                          <td className="py-2 px-1 text-right">
+                            <span className="text-orange-400 font-mono font-bold text-xs">
+                              {tx.net_transfer !== undefined 
+                                ? formatDOG(tx.net_transfer) 
+                                : formatDOG(tx.total_dog_moved)}
+                            </span>
+                          </td>
+
+                          {/* Flow - Compacto */}
+                          <td className="py-2 px-1 text-center">
+                            <div className="flex items-center justify-center gap-1 text-xs font-mono">
+                              <span className="text-cyan-400">{tx.sender_count}</span>
+                              <ArrowRightLeft className="w-2.5 h-2.5 text-gray-500" />
+                              <span className="text-green-400">{tx.receiver_count}</span>
+                            </div>
+                          </td>
+
+                          {/* Time - Compacto */}
+                          <td className="py-2 px-2">
+                            <span className="text-gray-400 font-mono text-xs">
+                              {formatTime(tx.timestamp)}
+                            </span>
+                          </td>
+
+                          {/* TXID + Actions - Compacto */}
+                          <td className="py-2 px-2">
+                            <div className="flex items-center justify-center gap-0.5">
+                              <code className={`text-xs font-mono ${isSelected ? 'text-blue-200' : 'text-white'}`}>
+                                {tx.txid.substring(0, 6)}...
+                              </code>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  copyTxid(tx.txid)
+                                }}
+                                className="p-0.5 h-5 w-5"
+                                title="Copy txid"
+                              >
+                                {copiedTxid === tx.txid ? (
+                                  <span className="text-green-400 text-xs">✓</span>
+                                ) : (
+                                  <Copy className="w-2.5 h-2.5" />
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  window.open(`https://mempool.space/tx/${tx.txid}`, '_blank')
+                                }}
+                                className="p-0.5 h-5 w-5"
+                                title="Mempool"
+                              >
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                        {isSelected && (
+                          <tr className="bg-blue-500/5 border-b border-blue-500/20">
+                            <td colSpan={7} className="px-4 py-4">
+                              {renderTransactionDetails(tx)}
+                            </td>
+                          </tr>
+                        )}
+                        </Fragment>
+                      )
+                    })}
+                  </tbody>
+                </table>
+
+                {transactions.length === 0 && !loading && (
+                  <div className="text-center py-12">
+                    <Activity className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                    <p className="text-gray-400 font-mono">No transactions yet</p>
+                    <p className="text-gray-500 text-sm font-mono mt-2">Waiting for new blocks...</p>
+                  </div>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
+
+        <div className="mt-4 text-left md:text-center text-gray-500 font-mono text-xs md:text-sm">
+          <p>Showing the last 500 DOG transactions.</p>
+        </div>
+
+        {hasMore && (
+          <div ref={loadMoreRef} className="w-full h-12 flex items-center justify-center">
+            {loadingMore ? (
+              <div className="flex items-center gap-2 text-gray-400 font-mono text-xs">
+                <RefreshCw className="w-3 h-3 animate-spin" />
+                Loading more transactions...
+              </div>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="btn-sharp"
+                onClick={loadMoreTransactions}
+              >
+                Load more
+              </Button>
+            )}
+          </div>
+        )}
       </div>
-    </div>
+    </Layout>
   )
 }

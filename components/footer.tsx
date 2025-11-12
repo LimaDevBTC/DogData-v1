@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import { 
   Heart, 
   Github, 
@@ -24,8 +23,6 @@ interface FooterProps {
 
 export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
   const currentYear = new Date().getFullYear()
-  const [showTransactionsComingSoon, setShowTransactionsComingSoon] = useState(false)
-
   const handleDonate = () => {
     setCurrentPage?.('donate')
   }
@@ -94,6 +91,19 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
               </li>
               <li>
                 <button 
+                  onClick={() => setCurrentPage?.('transactions')}
+                  className={`w-full text-left transition-all duration-300 flex items-center group py-2 ${
+                    currentPage === 'transactions' 
+                      ? 'text-orange-400 bg-orange-500/10' 
+                      : 'text-gray-300 hover:text-orange-400 hover:bg-orange-500/10'
+                  }`}
+                >
+                  <div className="w-2 h-2 bg-orange-400 mr-4 group-hover:scale-150 group-hover:shadow-lg group-hover:shadow-orange-400/50 transition-all duration-300"></div>
+                  <span className="font-mono text-sm font-medium tracking-wide">TRANSACTIONS</span>
+                </button>
+              </li>
+              <li>
+                <button 
                   onClick={() => setCurrentPage?.('holders')}
                   className={`w-full text-left transition-all duration-300 flex items-center group py-2 ${
                     currentPage === 'holders' 
@@ -133,20 +143,15 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
               </li>
               <li>
                 <button 
-                  onClick={() => {
-                    setShowTransactionsComingSoon(true)
-                    setTimeout(() => setShowTransactionsComingSoon(false), 2000)
-                  }}
-                  className={`w-full text-left transition-colors duration-300 flex items-center group py-2 ${
-                    showTransactionsComingSoon 
+                  onClick={() => setCurrentPage?.('markets')}
+                  className={`w-full text-left transition-all duration-300 flex items-center group py-2 ${
+                    currentPage === 'markets' 
                       ? 'text-orange-400 bg-orange-500/10' 
                       : 'text-gray-300 hover:text-orange-400 hover:bg-orange-500/10'
                   }`}
                 >
-                  <div className="w-2 h-2 bg-orange-400 mr-4 flex-shrink-0 group-hover:scale-150 group-hover:shadow-lg group-hover:shadow-orange-400/50 transition-all duration-300"></div>
-                  <span className="font-mono text-sm font-medium tracking-wide inline-block w-[130px]">
-                    {showTransactionsComingSoon ? 'COMING SOON' : 'TRANSACTIONS'}
-                  </span>
+                  <div className="w-2 h-2 bg-orange-400 mr-4 group-hover:scale-150 group-hover:shadow-lg group-hover:shadow-orange-400/50 transition-all duration-300"></div>
+                  <span className="font-mono text-sm font-medium tracking-wide">MARKETS</span>
                 </button>
               </li>
             </ul>
