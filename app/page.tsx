@@ -26,6 +26,7 @@ import {
 import { SectionDivider } from "@/components/ui/section-divider"
 import { TrendIndicator } from "@/components/ui/trend-indicator"
 import { PriceCards } from "@/components/ui/price-cards"
+import dogStatsFallback from '@/data/dog_stats_fallback.json'
 import dynamic from 'next/dynamic'
 
 const TradingViewWidget = dynamic(() => import('@/components/ui/trading-view-widget'), {
@@ -95,6 +96,9 @@ export default function OverviewPage() {
   const [volume24h, setVolume24h] = useState<number>(0)
   const [metrics24h, setMetrics24h] = useState<Transactions24hMetrics | null>(null)
   const [loading, setLoading] = useState(true)
+
+  const FALLBACK_TOTAL_HOLDERS = (dogStatsFallback as any)?.totalHolders ?? 0
+  const FALLBACK_ACTIVE_ADDRESSES = (dogStatsFallback as any)?.activeAddresses ?? FALLBACK_TOTAL_HOLDERS
 
   useEffect(() => {
     const fetchData = async () => {
@@ -222,13 +226,13 @@ export default function OverviewPage() {
         const calculatedMarketCap = currentPrice * runeData.circulatingSupply
         
         setStats({
-          totalHolders: statsData.totalHolders || 0,
+          totalHolders: statsData.totalHolders || FALLBACK_TOTAL_HOLDERS,
           totalSupply: runeData.totalSupply,
           marketCap: calculatedMarketCap,
           price: currentPrice,
           lastUpdated: statsData.lastUpdated || new Date().toISOString(),
           totalTransactions: statsData.totalUtxos || 0,
-          activeAddresses: statsData.totalHolders || 0,
+          activeAddresses: statsData.totalHolders || FALLBACK_ACTIVE_ADDRESSES,
           networkHashRate: 450000000000000000
         })
         
@@ -359,7 +363,11 @@ export default function OverviewPage() {
           <CardContent>
             <div className="space-y-2">
               <div className="text-3xl font-bold text-white font-mono">
-                {stats?.totalHolders?.toLocaleString() || '0'}
+                {(
+                  stats?.totalHolders && stats.totalHolders > 0
+                    ? stats.totalHolders
+                    : FALLBACK_TOTAL_HOLDERS
+                ).toLocaleString('en-US')}
               </div>
               <div className="flex items-center space-x-2">
                 <Users className="w-4 h-4 text-orange-500" />
