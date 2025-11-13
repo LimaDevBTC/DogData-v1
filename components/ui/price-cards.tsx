@@ -46,21 +46,21 @@ const exchanges = [
     working: true
   },
   {
+    name: 'Pionex',
+    apiUrl: '/api/price/pionex',
+    color: 'from-red-400 to-red-600',
+    borderColor: 'border-red-500/20',
+    hoverBorderColor: 'hover-border-red-500/40',
+    icon: 'P',
+    working: true
+  },
+  {
     name: 'Bitget',
     apiUrl: '/api/price/bitget',
     color: 'from-cyan-400 to-blue-500',
     borderColor: 'border-cyan-500/20',
     hoverBorderColor: 'hover:border-cyan-500/40',
     icon: 'B',
-    working: true
-  },
-  {
-    name: 'Pionex',
-    apiUrl: '/api/price/pionex',
-    color: 'from-red-400 to-red-600',
-    borderColor: 'border-red-500/20',
-    hoverBorderColor: 'hover:border-red-500/40',
-    icon: 'P',
     working: true
   },
   {
