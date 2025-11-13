@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+const UNISAT_API_TOKEN = process.env.UNISAT_API_TOKEN;
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const txid = searchParams.get('txid');
@@ -11,6 +13,14 @@ export async function GET(request: Request) {
     );
   }
 
+  if (!UNISAT_API_TOKEN) {
+    console.error('❌ UNISAT_API_TOKEN não configurado.');
+    return NextResponse.json(
+      { error: 'Unisat API token not configured' },
+      { status: 500 }
+    );
+  }
+
   try {
     console.log(`🔍 Buscando TX ${txid} na Unisat...`);
 
@@ -19,7 +29,7 @@ export async function GET(request: Request) {
       `https://open-api.unisat.io/v1/indexer/runes/event?rune=DOG%E2%80%A2GO%E2%80%A2TO%E2%80%A2THE%E2%80%A2MOON&start=0&limit=100`,
       {
         headers: {
-          'Authorization': 'Bearer 4478b2eaea855f5077a91089130f495d226935eccd4477be5340f01ec59db008',
+          Authorization: `Bearer ${UNISAT_API_TOKEN}`,
           'User-Agent': 'DogData Explorer/1.0'
         }
       }

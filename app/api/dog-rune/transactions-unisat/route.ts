@@ -13,6 +13,7 @@ interface UnisatEvent {
 
 // Cache de transações já processadas (evitar reprocessamento)
 const processedTxIds = new Set<string>();
+const UNISAT_API_TOKEN = process.env.UNISAT_API_TOKEN;
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -20,6 +21,14 @@ export async function GET(request: NextRequest) {
   const limit = 100; // Reduzido para melhor performance (era 500)
   
   try {
+    if (!UNISAT_API_TOKEN) {
+      console.error('❌ UNISAT_API_TOKEN não configurado.');
+      return NextResponse.json(
+        { error: 'Unisat API token not configured' },
+        { status: 500 }
+      );
+    }
+
     console.log(`🔍 Buscando eventos Unisat: offset=${offset}, limit=${limit}`);
     
     // Buscar eventos da Unisat (com timeout)
@@ -30,7 +39,7 @@ export async function GET(request: NextRequest) {
       `https://open-api.unisat.io/v1/indexer/runes/event?rune=DOG%E2%80%A2GO%E2%80%A2TO%E2%80%A2THE%E2%80%A2MOON&start=${offset}&limit=${limit}`,
       {
         headers: {
-          'Authorization': 'Bearer 4478b2eaea855f5077a91089130f495d226935eccd4477be5340f01ec59db008',
+          Authorization: `Bearer ${UNISAT_API_TOKEN}`,
           'User-Agent': 'DogData Explorer/1.0'
         },
         signal: controller.signal
