@@ -13,6 +13,11 @@ const MAX_LIMIT = 25;
 const SNAPSHOT_LIMIT = 500;
 const CHUNK_LIMIT = 100;
 const CACHE_TTL_SECONDS = 60 * 15; // 15 minutos
+const XVERSE_HOLDERS_LIMIT_PER_REQUEST = Number(process.env.XVERSE_HOLDERS_LIMIT || 100);
+const XVERSE_HOLDERS_DELAY_MS = Number(process.env.XVERSE_HOLDERS_DELAY_MS || 1200);
+const XVERSE_HOLDERS_BACKOFF_BASE_MS = Number(process.env.XVERSE_HOLDERS_BACKOFF_BASE_MS || 1200);
+const XVERSE_HOLDERS_RETRY_MAX = Number(process.env.XVERSE_HOLDERS_RETRY_MAX || 6);
+const XVERSE_SNAPSHOT_CHUNK_DELAY_MS = Number(process.env.XVERSE_SNAPSHOT_CHUNK_DELAY_MS || 1500);
 const XVERSE_API_BASE = process.env.XVERSE_API_BASE || 'https://api.secretkeylabs.io';
 const XVERSE_API_KEY = process.env.XVERSE_API_KEY || '';
 
@@ -79,35 +84,53 @@ function runesToDog(amount: number, divisibility: number) {
   return amount / 10 ** divisibility;
 }
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 async function fetchHoldersPage(offset: number, limit: number) {
   if (!XVERSE_API_KEY) {
     throw new Error('Missing XVERSE_API_KEY environment variable');
   }
 
-  const url = new URL(`/v1/runes/${DOG_RUNE_ID}/holders`, XVERSE_API_BASE);
-  url.searchParams.set('offset', String(offset));
-  url.searchParams.set('limit', String(limit));
+  const cappedLimit = Math.min(limit, XVERSE_HOLDERS_LIMIT_PER_REQUEST);
+  let attempt = 0;
 
-  const response = await fetch(url.toString(), {
-    method: 'GET',
-    headers: {
-      'x-api-key': XVERSE_API_KEY,
-      accept: 'application/json',
-    },
-    next: { revalidate: 0 },
-  });
+  while (attempt < XVERSE_HOLDERS_RETRY_MAX) {
+    const url = new URL(`/v1/runes/${DOG_RUNE_ID}/holders`, XVERSE_API_BASE);
+    url.searchParams.set('offset', String(offset));
+    url.searchParams.set('limit', String(cappedLimit));
 
-  if (!response.ok) {
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'x-api-key': XVERSE_API_KEY,
+        accept: 'application/json',
+      },
+      next: { revalidate: 0 },
+    });
+
+    if (response.ok) {
+      const payload = (await response.json()) as XverseHolderResponse;
+      if (!payload || !Array.isArray(payload.items)) {
+        throw new Error('Invalid holders payload from Xverse');
+      }
+      return payload;
+    }
+
     const errorBody = await response.text().catch(() => '');
-    throw new Error(`Xverse holders request failed (${response.status}): ${errorBody}`);
+    const message = `Xverse holders request failed (${response.status}): ${errorBody}`;
+
+    if (response.status === 429 || response.status === 503) {
+      attempt += 1;
+      const backoffMs = XVERSE_HOLDERS_BACKOFF_BASE_MS * Math.min(2 ** (attempt - 1), 8);
+      console.warn(`⚠️ [HOLDERS] Rate limit (${response.status}). Tentativa ${attempt}/${XVERSE_HOLDERS_RETRY_MAX}. Aguardando ${backoffMs}ms.`);
+      await sleep(backoffMs);
+      continue;
+    }
+
+    throw new Error(message);
   }
 
-  const payload = (await response.json()) as XverseHolderResponse;
-  if (!payload || !Array.isArray(payload.items)) {
-    throw new Error('Invalid holders payload from Xverse');
-  }
-
-  return payload;
+  throw new Error('Exceeded maximum retries while fetching holders from Xverse');
 }
 
 async function loadLocalSnapshot(): Promise<{
@@ -556,6 +579,9 @@ async function generateSnapshot(divisibility: number) {
       if (page.items.length < limit || offset >= total) {
         break;
       }
+      if (XVERSE_SNAPSHOT_CHUNK_DELAY_MS > 0) {
+        await sleep(XVERSE_SNAPSHOT_CHUNK_DELAY_MS);
+      }
     } catch (err) {
       rkIndex += 1;
       if (rkIndex >= RK_WINDOW.length) {
@@ -566,7 +592,7 @@ async function generateSnapshot(divisibility: number) {
         break;
       }
       console.warn(`⚠️ Snapshot chunk failed, retrying with smaller window (${RK_WINDOW[rkIndex]})`, err);
-      await new Promise((resolve) => setTimeout(resolve, 250));
+      await sleep(Math.max(XVERSE_HOLDERS_DELAY_MS, 500));
     }
   }
 
