@@ -12,7 +12,7 @@ interface PriceData {
   lastUpdate: Date;
   status: 'loading' | 'success' | 'error';
   error?: string;
-  priceSats?: string;
+  priceSats?: string | null;
   cached?: boolean;
   stale?: boolean;
 }
@@ -86,11 +86,23 @@ const bitflowExchange = {
   url: 'https://btflw.link/brl'
 };
 
+const dogswapExchange = {
+  name: 'Dogswap',
+  apiUrl: '/api/price/dogswap',
+  color: 'from-sky-500 to-blue-700',
+  borderColor: 'border-sky-500/20',
+  hoverBorderColor: 'hover:border-sky-500/40',
+  icon: 'DS',
+  working: true,
+  sponsored: true,
+  url: 'https://dotswap.app/'
+};
+
 export function PriceCards() {
   const [prices, setPrices] = useState<PriceData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchPrice = async (exchange: typeof exchanges[0]): Promise<PriceData> => {
+  const fetchPrice = async (exchange: typeof exchanges[0] | typeof bitflowExchange | typeof dogswapExchange): Promise<PriceData> => {
     try {
       const response = await fetch(exchange.apiUrl);
       if (!response.ok) {
@@ -101,23 +113,21 @@ export function PriceCards() {
       let price = 0;
       let change24h = 0;
       let volume24h = 0;
-      let priceSats = undefined;
+      let priceSats: string | null | undefined = undefined;
       
-      // Parse response based on exchange
-      // Todas as exchanges agora retornam formato padronizado: { price, change24h, volume24h }
       if (exchange.name === 'Bitflow' || exchange.name === 'Magic Eden') {
-        // Bitflow e Magic Eden têm formato especial com priceSats
         price = parseFloat(data.price) || 0;
         change24h = parseFloat(data.change24h) || 0;
         volume24h = parseFloat(data.volume24h || data.volume) || 0;
-        priceSats = data.priceSats; // Preço em satoshis
-        
-        // Log se estiver usando cache antigo
+        priceSats = data.priceSats;
         if (data.stale && data.cached) {
           console.log(`⚠️ ${exchange.name} usando cache antigo (${data.cacheAge}s)`);
         }
+      } else if (exchange.name === 'Dogswap') {
+        price = parseFloat(data.price) || 0;
+        change24h = parseFloat(data.change24h) || 0;
+        priceSats = data.priceSats ?? null;
       } else if (exchange.name === 'Kraken') {
-        // Kraken retorna formato original com result.DOGUSD
         if (data.result && data.result.DOGUSD) {
           const pairData = data.result.DOGUSD;
           price = parseFloat(pairData.c[0]) || 0;
@@ -125,13 +135,11 @@ export function PriceCards() {
           change24h = openPrice > 0 ? ((price - openPrice) / openPrice) * 100 : 0;
           volume24h = parseFloat(pairData.v[1]) || 0;
         } else {
-          // Se não tem result, usar formato padrão da API route
           price = parseFloat(data.price) || 0;
           change24h = parseFloat(data.change24h) || 0;
           volume24h = parseFloat(data.volume24h) || 0;
         }
       } else {
-        // MEXC, Gate.io, Bitget, Pionex - formato padronizado da API route
         price = parseFloat(data.price) || 0;
         change24h = parseFloat(data.change24h) || 0;
         volume24h = parseFloat(data.volume24h) || 0;
@@ -150,12 +158,8 @@ export function PriceCards() {
       };
     } catch (error) {
       console.error(`❌ Error fetching ${exchange.name}:`, error);
-      
-      // Criar mensagem de erro amigável
       let errorMessage = `${exchange.name} API temporarily unavailable`;
-      
       if (error instanceof Error) {
-        // Se for erro 503, usar mensagem específica
         if (error.message.includes('503')) {
           errorMessage = `${exchange.name} under maintenance`;
         } else if (error.message.includes('timeout') || error.message.includes('aborted')) {
@@ -166,7 +170,6 @@ export function PriceCards() {
           errorMessage = `${exchange.name} server error`;
         }
       }
-      
       return {
         exchange: exchange.name,
         price: 0,
@@ -179,13 +182,11 @@ export function PriceCards() {
 
   const fetchAllPrices = async () => {
     setIsLoading(true);
-    // Fetch from all working exchanges including Bitflow
-    const allExchanges = [...exchanges, bitflowExchange];
+    const allExchanges = [...exchanges, bitflowExchange, dogswapExchange];
     const workingExchanges = allExchanges.filter(exchange => exchange.working);
     const pricePromises = workingExchanges.map(exchange => fetchPrice(exchange));
     const results = await Promise.all(pricePromises);
-    
-    // Add placeholder data for non-working exchanges
+
     const allResults = allExchanges.map(exchange => {
       if (exchange.working) {
         return results.find(r => r.exchange === exchange.name) || {
@@ -195,17 +196,16 @@ export function PriceCards() {
           status: 'error' as const,
           error: 'Not available'
         };
-      } else {
-        return {
-          exchange: exchange.name,
-          price: 0,
-          lastUpdate: new Date(),
-          status: 'error' as const,
-          error: 'Coming Soon'
-        };
       }
+      return {
+        exchange: exchange.name,
+        price: 0,
+        lastUpdate: new Date(),
+        status: 'error' as const,
+        error: 'Coming Soon'
+      };
     });
-    
+
     setPrices(allResults);
     setIsLoading(false);
     console.log('📊 Prices updated:', allResults.map(p => `${p.exchange}: $${p.price} (${p.change24h}%)`));
@@ -213,8 +213,6 @@ export function PriceCards() {
 
   useEffect(() => {
     fetchAllPrices();
-    
-    // Update every 10 seconds for more frequent updates
     const interval = setInterval(() => {
       console.log('🔄 Updating prices...');
       fetchAllPrices();
@@ -236,48 +234,44 @@ export function PriceCards() {
     return `${sign}${change.toFixed(2)}%`;
   };
 
+  const dogswapData = prices.find(p => p.exchange === dogswapExchange.name);
+
   return (
     <div className="space-y-6">
-      {/* Grid 2x3: 6 exchanges em duas linhas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1.15fr)] gap-4 lg:auto-rows-[minmax(0,1fr)]">
         {exchanges.map((exchange, index) => {
           const priceData = prices.find(p => p.exchange === exchange.name);
           const isSuccess = priceData?.status === 'success';
           const isError = priceData?.status === 'error';
           const isWorking = exchange.working;
-          
+
           return (
             <Card
               key={exchange.name}
               variant="glass"
-              className={`stagger-item ${exchange.borderColor} ${exchange.hoverBorderColor} transition-all ${
-                !isWorking ? 'opacity-60' : ''
-              }`}
-              style={{ animationDelay: `${index * 0.1}s` }}
+              className={`stagger-item ${exchange.borderColor} ${exchange.hoverBorderColor} transition-all lg:h-full ${!isWorking ? 'opacity-60' : ''}`}
+              style={{ animationDelay: `${index * 0.08}s` }}
             >
-              <CardHeader className={`${exchange.name === 'Gate.io' || exchange.name === 'Bitget' || exchange.name === 'Bitflow' || exchange.name === 'Magic Eden' ? 'pb-2.5' : 'pb-2'}`}>
+              <CardHeader className="pb-2.5">
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <div className={`${exchange.name === 'Gate.io' || exchange.name === 'Bitget' || exchange.name === 'Bitflow' || exchange.name === 'Magic Eden' ? 'h-14 flex items-center -mt-0.5' : 'h-14 flex items-center'}`}>
-                      <img 
+                    <div className="h-12 flex items-center">
+                      <img
                         src={`/${
-                          exchange.name === 'MEXC' ? 'MEXC ' : 
-                          exchange.name === 'Gate.io' ? 'Gate' : 
+                          exchange.name === 'MEXC' ? 'MEXC ' :
+                          exchange.name === 'Gate.io' ? 'Gate' :
                           exchange.name === 'Magic Eden' ? 'MagicEden' :
                           exchange.name
                         }.png`}
                         alt={exchange.name}
-                        className={`${exchange.name === 'Gate.io' || exchange.name === 'Bitget' || exchange.name === 'Bitflow' || exchange.name === 'Magic Eden' ? 'h-10' : 'h-14'} w-auto object-contain`}
+                        className="h-10 w-auto object-contain"
                         onError={(e) => {
-                          // Fallback to icon if image fails
                           e.currentTarget.style.display = 'none';
                           const fallback = e.currentTarget.nextElementSibling as HTMLElement;
                           if (fallback) fallback.style.display = 'flex';
                         }}
                       />
-                      <div 
-                        className={`hidden ${exchange.name === 'Gate.io' || exchange.name === 'Bitget' || exchange.name === 'Bitflow' || exchange.name === 'Magic Eden' ? 'w-10 h-10' : 'w-14 h-14'} bg-gradient-to-r ${exchange.color} flex items-center justify-center text-white font-bold ${exchange.name === 'Gate.io' || exchange.name === 'Bitget' || exchange.name === 'Bitflow' || exchange.name === 'Magic Eden' ? 'text-sm' : 'text-lg'}`}
-                      >
+                      <div className="hidden w-12 h-12 bg-gradient-to-r from-gray-600 to-gray-700 flex items-center justify-center text-white font-bold text-base uppercase rounded">
                         {exchange.icon}
                       </div>
                     </div>
@@ -287,29 +281,29 @@ export function PriceCards() {
                   </div>
                   {isSuccess && (
                     <div className="flex items-center">
-                      <div className="w-2 h-2 bg-green-400"></div>
+                      <div className="w-2 h-2 bg-green-400 rounded-full"></div>
                     </div>
                   )}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 space-y-3">
                 {!isWorking ? (
                   <div className="space-y-2">
-                    <div className="text-gray-400 font-mono text-lg">Coming Soon</div>
+                    <div className="text-gray-400 font-mono text-sm">Coming Soon</div>
                     <div className="text-gray-500 text-xs">API integration pending</div>
                   </div>
                 ) : isLoading && !priceData ? (
                   <div className="space-y-2">
-                    <div className="h-6 bg-gray-700/50 animate-pulse"></div>
-                    <div className="h-4 bg-gray-700/30 animate-pulse"></div>
+                    <div className="h-5 bg-gray-700/50 animate-pulse rounded"></div>
+                    <div className="h-4 bg-gray-700/30 animate-pulse rounded"></div>
                   </div>
                 ) : isError ? (
                   <div className="space-y-2">
-                    <div className="text-orange-400 font-mono text-sm">{priceData?.error}</div>
+                    <div className="text-orange-400 font-mono text-xs">{priceData?.error}</div>
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <div className={`text-2xl font-bold font-mono bg-gradient-to-r ${exchange.color} bg-clip-text text-transparent`}>
+                    <div className={`text-xl font-bold font-mono bg-gradient-to-r ${exchange.color} bg-clip-text text-transparent`}>
                       {exchange.name === 'Magic Eden' && priceData?.priceSats
                         ? `${priceData.priceSats} sats`
                         : formatPrice(priceData?.price || 0)
@@ -322,14 +316,14 @@ export function PriceCards() {
                         ) : (
                           <TrendingDown className="w-4 h-4 text-red-400" />
                         )}
-                        <span className={`text-sm font-mono ${
+                        <span className={`text-xs font-mono ${
                           priceData.change24h > 0 ? 'text-green-400' : 'text-red-400'
                         }`}>
                           {formatChange(priceData.change24h)}
                         </span>
                       </div>
                     )}
-                    <div className="text-xs text-gray-500 font-mono">
+                    <div className="text-[11px] text-gray-500 font-mono">
                       {priceData?.lastUpdate?.toLocaleTimeString()}
                     </div>
                   </div>
@@ -338,9 +332,70 @@ export function PriceCards() {
             </Card>
           );
         })}
+
+        {/* Dogswap Partner Card */}
+        <a
+          href={dogswapExchange.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block lg:row-span-2 lg:col-start-4"
+        >
+          <Card
+            variant="glass"
+            className={`${dogswapExchange.borderColor} ${dogswapExchange.hoverBorderColor} transition-all hover:scale-[1.01] hover:shadow-xl h-full`}
+          >
+            <CardContent className="p-5 md:p-6 h-full flex flex-col justify-between bg-gradient-to-br from-sky-900/20 via-transparent to-sky-500/10">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <img
+                    src="/dogswap_logo.png"
+                    alt="Dogswap"
+                    className="h-12 md:h-16 w-auto object-contain"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                  <div className="flex flex-col">
+                    <span className="text-white font-mono text-base md:text-lg">Dogswap</span>
+                    <span className="text-xs uppercase tracking-[0.4em] text-sky-300 font-mono">Official Partner</span>
+                  </div>
+                </div>
+                <ExternalLink className="text-sky-300 w-4 h-4 md:w-5 md:h-5" />
+              </div>
+
+              <div className="mt-6 flex-1 flex flex-col gap-4 justify-center">
+                {isLoading && !dogswapData ? (
+                  <div className="space-y-3">
+                    <div className="h-8 bg-gray-700/50 animate-pulse rounded"></div>
+                    <div className="h-4 bg-gray-700/30 animate-pulse rounded w-2/3"></div>
+                  </div>
+                ) : dogswapData?.status === 'error' ? (
+                  <div className="text-orange-400 font-mono text-sm">{dogswapData?.error}</div>
+                ) : (
+                  <>
+                    <div className="text-3xl md:text-4xl font-bold font-mono text-white">
+                      {formatPrice(dogswapData?.price || 0)}
+                    </div>
+                    <div className="text-sm md:text-base text-sky-300 font-mono">
+                      {dogswapData?.priceSats ? `${Number(dogswapData.priceSats).toLocaleString('en-US')} sats` : '— sats'}
+                    </div>
+                    <div className="text-xs text-gray-400 font-mono uppercase tracking-wide">
+                      Updated {dogswapData?.lastUpdate?.toLocaleTimeString()}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="pt-4 border-t border-sky-500/20 text-xs text-gray-400 font-mono flex items-center justify-between">
+                <span>Best price directly on Dogswap</span>
+                <span className="text-sky-300">View market &rarr;</span>
+              </div>
+            </CardContent>
+          </Card>
+        </a>
       </div>
 
-      {/* Linha de baixo: Card da Bitflow (Sponsored) */}
+      {/* Sponsored Bitflow Card */}
       {(() => {
         const exchange = bitflowExchange;
         const priceData = prices.find(p => p.exchange === exchange.name);
@@ -360,11 +415,9 @@ export function PriceCards() {
               className={`${exchange.borderColor} ${exchange.hoverBorderColor} transition-all hover:scale-[1.01] hover:shadow-xl`}
             >
               <CardContent className="p-4 md:p-6 relative">
-                {/* Layout Mobile: Vertical / Desktop: Horizontal */}
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-8">
-                  {/* Logo */}
                   <div className="flex items-center justify-center md:justify-start flex-shrink-0">
-                    <img 
+                    <img
                       src="/Bitflow.png"
                       alt="Bitflow"
                       className="h-14 md:h-20 w-auto object-contain"
@@ -374,17 +427,15 @@ export function PriceCards() {
                         if (fallback) fallback.style.display = 'flex';
                       }}
                     />
-                    <div 
+                    <div
                       className="hidden w-16 md:w-24 h-16 md:h-24 bg-gradient-to-r from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-2xl md:text-3xl rounded-lg"
                     >
                       BF
                     </div>
                   </div>
 
-                  {/* Espaçador flexível (apenas desktop) */}
                   <div className="hidden md:block md:flex-1"></div>
 
-                  {/* Preço e Variação */}
                   {!isWorking ? (
                     <div className="text-center md:text-right">
                       <div className="text-gray-400 font-mono text-base md:text-lg">Coming Soon</div>
@@ -400,65 +451,18 @@ export function PriceCards() {
                       <div className="text-xs text-gray-500">{priceData?.error}</div>
                     </div>
                   ) : (
-                    <>
-                      {/* Container para alinhar tudo à direita no desktop */}
-                      <div className="flex flex-col items-center md:items-end gap-2 md:gap-1.5">
-                        {/* Badge "Official Partner" - Alinhado à direita */}
-                        <div className="flex items-center gap-1.5 -mb-1">
-                          <span className="text-gray-400 text-[10px] font-mono font-medium uppercase tracking-wide">
-                            Official Partner
-                          </span>
-                          <ExternalLink className="w-3 h-3 text-gray-400" />
-                        </div>
-
-                        {/* Preço, Sats, Variação e Status - Alinhados à direita */}
-                        <div className="flex flex-col md:flex-row items-center md:items-center gap-2 md:gap-6">
-                          {/* Preço em USD e Sats */}
-                          <div className="flex flex-col items-center md:items-end gap-1">
-                            <div className="text-2xl md:text-4xl font-bold font-mono bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent leading-none">
-                              {formatPrice(priceData?.price || 0)}
-                            </div>
-                            <div className="text-xs md:text-sm text-gray-400 font-mono">
-                              {priceData?.priceSats 
-                                ? `${parseFloat(priceData.priceSats).toFixed(2)} sats` 
-                                : priceData?.price ? `${(priceData.price * 100000000).toFixed(2)} sats` : ''
-                              }
-                            </div>
-                          </div>
-                          
-                          {/* Variação e Status na mesma linha */}
-                          <div className="flex items-center gap-2 md:gap-3">
-                            {/* Variação */}
-                            {priceData?.change24h !== undefined && priceData.change24h !== 0 && (
-                              <div className="flex items-center gap-2">
-                                {priceData.change24h > 0 ? (
-                                  <TrendingUp className="w-5 md:w-7 h-5 md:h-7 text-green-400" />
-                                ) : (
-                                  <TrendingDown className="w-5 md:w-7 h-5 md:h-7 text-red-400" />
-                                )}
-                              <span className={`text-lg md:text-2xl font-mono font-bold ${
-                                priceData.change24h > 0 ? 'text-green-400' : 'text-red-400'
-                              }`}>
-                                {formatChange(priceData.change24h)}
-                              </span>
-                              </div>
-                            )}
-                            
-                            {/* Status Indicator */}
-                            {isSuccess && (
-                              <div>
-                                <div className="w-2 md:w-3 h-2 md:h-3 bg-green-400"></div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        
-                        {/* Timestamp - Alinhado à direita */}
-                        <div className="text-xs text-gray-500 font-mono">
-                          {priceData?.lastUpdate?.toLocaleTimeString()}
-                        </div>
+                    <div className="flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-6">
+                      <div className="text-3xl md:text-4xl font-bold font-mono text-white">
+                        {formatPrice(priceData?.price || 0)}
                       </div>
-                    </>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs uppercase tracking-[0.4em] text-orange-300 font-mono">Sponsored</span>
+                        <ExternalLink className="text-orange-300 w-4 h-4" />
+                      </div>
+                      <div className="text-sm text-orange-200 font-mono">
+                        {priceData?.priceSats ? `${priceData.priceSats} sats` : '— sats'}
+                      </div>
+                    </div>
                   )}
                 </div>
               </CardContent>
