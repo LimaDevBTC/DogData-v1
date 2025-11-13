@@ -1167,6 +1167,27 @@ export default function TransactionsPage() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle variant="mono" className="text-sm text-gray-300 flex items-center gap-2">
+                  <LineChart className="w-4 h-4 text-orange-300" />
+                  Avg DOG per Tx (24h)
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="text-3xl font-bold text-white font-mono">
+                  {metrics24h ? formatDOG(metrics24h.avgDogPerTx) : (loading ? 'Loading...' : 'N/A')}
+                </div>
+                <p className="text-gray-400 text-xs md:text-sm font-mono uppercase tracking-wide">
+                  Average DOG moved per transaction in the last 24 hours
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card variant="glass" className={metricsCardClass}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle variant="mono" className="text-sm text-gray-300 flex items-center gap-2">
                   <Users className="w-4 h-4 text-cyan-400" />
                   Most Active Wallet (24h)
                 </CardTitle>
