@@ -475,37 +475,72 @@ export default function TransactionsPage() {
             volumeWalletCount: fallbackVolumeWalletCount = 0,
           } = fallbackMetrics
 
-          const resolvedTopInWallets = Array.isArray(metricsSource.topInWallets) && metricsSource.topInWallets.length > 0
-            ? metricsSource.topInWallets
-            : fallbackTopInWallets
+          // Função auxiliar para validar e sanitizar valores de wallet
+          const sanitizeWallet = (wallet: any): any | null => {
+            if (!wallet || !wallet.address) return null
+            const dogMoved = wallet.dogMoved || 0
+            // Validar se o valor é impossível (maior que 100 bilhões)
+            if (!Number.isFinite(dogMoved) || dogMoved < 0 || dogMoved > MAX_DOG_AMOUNT) {
+              console.warn(`⚠️ [Frontend] Wallet ${wallet.address} com dogMoved inválido: ${dogMoved}, descartando`)
+              return null
+            }
+            return { ...wallet, dogMoved: Number(dogMoved.toFixed(5)) }
+          }
 
-          const resolvedTopOutWallets = Array.isArray(metricsSource.topOutWallets) && metricsSource.topOutWallets.length > 0
-            ? metricsSource.topOutWallets
-            : fallbackTopOutWallets
+          // Validar e sanitizar arrays de wallets
+          const sanitizeWalletArray = (wallets: any[]): any[] => {
+            if (!Array.isArray(wallets)) return []
+            return wallets.map(sanitizeWallet).filter((w): w is any => w !== null)
+          }
 
-          const resolvedTopInWallet = metricsSource.topInWallet ?? fallbackTopInWallet
-          const resolvedTopOutWallet = metricsSource.topOutWallet ?? fallbackTopOutWallet
-          const resolvedTopActiveWallet = metricsSource.topActiveWallet ?? fallbackTopActiveWallet
-          const resolvedTopVolumeWallet = metricsSource.topVolumeWallet ?? fallbackTopVolumeWallet
-          const resolvedActiveWalletCount = metricsSource.activeWalletCount ?? fallbackActiveWalletCount
-          const resolvedVolumeWalletCount = metricsSource.volumeWalletCount ?? fallbackVolumeWalletCount
+          // Validar métricas numéricas
+          const sanitizeMetric = (value: any, fallback: number, maxValue: number = MAX_DOG_AMOUNT): number => {
+            const num = typeof value === 'number' ? value : Number(value) || 0
+            if (!Number.isFinite(num) || num < 0 || num > maxValue) {
+              console.warn(`⚠️ [Frontend] Métrica inválida: ${value}, usando fallback: ${fallback}`)
+              return fallback
+            }
+            return num
+          }
+
+          // Sanitizar wallets do backend
+          const sanitizedTopInWallet = sanitizeWallet(metricsSource.topInWallet) ?? fallbackTopInWallet
+          const sanitizedTopOutWallet = sanitizeWallet(metricsSource.topOutWallet) ?? fallbackTopOutWallet
+          const sanitizedTopActiveWallet = metricsSource.topActiveWallet ?? fallbackTopActiveWallet
+          const sanitizedTopVolumeWallet = sanitizeWallet(metricsSource.topVolumeWallet) ?? null
+          
+          // Sanitizar arrays
+          const sanitizedTopInWallets = sanitizeWalletArray(metricsSource.topInWallets || [])
+          const sanitizedTopOutWallets = sanitizeWalletArray(metricsSource.topOutWallets || [])
+          
+          // Usar arrays do backend se válidos, senão usar fallback
+          const resolvedTopInWallets = sanitizedTopInWallets.length > 0 ? sanitizedTopInWallets : fallbackTopInWallets
+          const resolvedTopOutWallets = sanitizedTopOutWallets.length > 0 ? sanitizedTopOutWallets : fallbackTopOutWallets
+
+          // Sanitizar métricas numéricas
+          const resolvedTxCount = sanitizeMetric(metricsSource.txCount, fallbackTxCount, 1000000)
+          const resolvedTotalDogMoved = sanitizeMetric(metricsSource.totalDogMoved, fallbackTotalDogMoved, MAX_DOG_AMOUNT)
+          const resolvedAvgDogPerTx = sanitizeMetric(metricsSource.avgDogPerTx, fallbackAvgDogPerTx, MAX_DOG_AMOUNT)
+          const resolvedAvgTxPerBlock = sanitizeMetric(metricsSource.avgTxPerBlock, fallbackAvgTxPerBlock, 10000)
+          const resolvedActiveWalletCount = sanitizeMetric(metricsSource.activeWalletCount, fallbackActiveWalletCount, 1000000)
+          const resolvedVolumeWalletCount = sanitizeMetric(metricsSource.volumeWalletCount, fallbackVolumeWalletCount, 1000000)
 
           setMetrics24h({
-            txCount: fallbackTxCount || metricsSource.txCount || 0,
-            totalDogMoved: fallbackTotalDogMoved || metricsSource.totalDogMoved || 0,
+            txCount: resolvedTxCount || fallbackTxCount || 0,
+            totalDogMoved: resolvedTotalDogMoved || fallbackTotalDogMoved || 0,
             blockCount: metricsSource.blockCount || fallbackBlockCount || 0,
-            avgTxPerBlock: metricsSource.avgTxPerBlock || fallbackAvgTxPerBlock || 0,
-            avgDogPerTx: metricsSource.avgDogPerTx || fallbackAvgDogPerTx || 0,
-            topActiveWallet: resolvedTopActiveWallet,
-            topVolumeWallet: resolvedTopVolumeWallet,
-            topOutWallet: resolvedTopOutWallet,
-            topInWallet: resolvedTopInWallet,
+            avgTxPerBlock: resolvedAvgTxPerBlock || fallbackAvgTxPerBlock || 0,
+            avgDogPerTx: resolvedAvgDogPerTx || fallbackAvgDogPerTx || 0,
+            topActiveWallet: sanitizedTopActiveWallet,
+            topVolumeWallet: sanitizedTopVolumeWallet,
+            topOutWallet: sanitizedTopOutWallet,
+            topInWallet: sanitizedTopInWallet,
             topOutWallets: resolvedTopOutWallets,
             topInWallets: resolvedTopInWallets,
             feesSats,
             feesBtc,
-            activeWalletCount: resolvedActiveWalletCount,
-            volumeWalletCount: resolvedVolumeWalletCount,
+            activeWalletCount: resolvedActiveWalletCount || fallbackActiveWalletCount || 0,
+            volumeWalletCount: resolvedVolumeWalletCount || fallbackVolumeWalletCount || 0,
           })
         } else if (sanitizedTransactions.length > 0) {
           setMetrics24h(computeMetrics24h(sanitizedTransactions))
