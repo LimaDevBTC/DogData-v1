@@ -39,7 +39,7 @@ interface CachedHoldersPage {
   metadata: {
     runeId: string;
     divisibility: number;
-    source: 'xverse';
+    source: 'xverse' | 'fallback';
     updatedAt: string;
   };
 }
@@ -66,7 +66,7 @@ interface HolderSearchResponse {
     runeId: string;
     divisibility: number;
     indexerHeight: number | null;
-    source: 'xverse';
+    source: 'xverse' | 'fallback';
     updatedAt: string;
   };
 }
