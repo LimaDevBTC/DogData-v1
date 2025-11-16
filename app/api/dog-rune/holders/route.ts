@@ -468,7 +468,46 @@ export async function GET(request: NextRequest) {
     const page = clampPage(pageParam);
     const limit = clampLimit(limitParam);
 
-    const cachedPage = await getCachedPage(page, limit);
+    // Sempre tentar cache primeiro
+    let cachedPage = await getCachedPage(page, limit);
+    
+    // Se não houver cache e for página 1, tentar usar snapshot do Redis
+    if (!cachedPage && page === 1) {
+      try {
+        const snapshot = await ensureSnapshot(5);
+        if (snapshot && snapshot.holders && snapshot.holders.length > 0) {
+          const start = (page - 1) * limit;
+          const slice = snapshot.holders.slice(start, start + limit);
+          if (slice.length > 0) {
+            let divisibility = 5;
+            try {
+              divisibility = await getDivisibility();
+            } catch {
+              // usar 5 como padrão
+            }
+            
+            cachedPage = {
+              holders: slice,
+              pagination: {
+                total: snapshot.total_holders || slice.length,
+                page,
+                limit,
+                totalPages: Math.max(1, Math.ceil((snapshot.total_holders || slice.length) / limit)),
+              },
+              metadata: {
+                runeId: DOG_RUNE_ID,
+                divisibility,
+                source: 'fallback',
+                updatedAt: snapshot.timestamp ?? new Date().toISOString(),
+              },
+            };
+          }
+        }
+      } catch (snapshotError) {
+        console.warn('⚠️ Failed to load snapshot as initial fallback:', snapshotError);
+      }
+    }
+    
     if (cachedPage) {
       return NextResponse.json(cachedPage, {
         headers: {
@@ -501,8 +540,11 @@ export async function GET(request: NextRequest) {
       });
     } catch (fetchError) {
       console.error('❌ Failed to fetch fresh holders page, attempting fallback cache:', fetchError);
+      
+      // Tentar cache do Redis primeiro
       const fallbackCached = await getCachedPage(page, limit);
       if (fallbackCached) {
+        console.warn('⚠️ Serving holders from Redis cache fallback');
         return NextResponse.json(fallbackCached, {
           headers: {
             'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30',
@@ -510,6 +552,7 @@ export async function GET(request: NextRequest) {
         });
       }
 
+      // Tentar snapshot local como último recurso
       try {
         const snapshot = await loadLocalSnapshot();
         const start = (page - 1) * limit;
@@ -518,10 +561,10 @@ export async function GET(request: NextRequest) {
           const fallbackPage: CachedHoldersPage = {
             holders: slice,
             pagination: {
-              total: snapshot.total,
+              total: snapshot.total || slice.length,
               page,
               limit,
-              totalPages: Math.max(1, Math.ceil(snapshot.total / limit)),
+              totalPages: Math.max(1, Math.ceil((snapshot.total || slice.length) / limit)),
             },
             metadata: {
               runeId: DOG_RUNE_ID,
@@ -542,24 +585,92 @@ export async function GET(request: NextRequest) {
         console.error('❌ Failed to load local holders snapshot fallback:', snapshotError);
       }
 
-      console.error('❌ No cached holders data available as fallback');
-      return NextResponse.json(
-        {
-          error: 'Failed to fetch holders data',
-          message: fetchError instanceof Error ? fetchError.message : 'Unknown error',
+      // Último recurso: retornar página vazia mas válida ao invés de erro 503
+      // Isso evita que a página fique completamente quebrada
+      console.error('❌ No cached holders data available, returning empty page as last resort');
+      const emptyPage: CachedHoldersPage = {
+        holders: [],
+        pagination: {
+          total: 0,
+          page,
+          limit,
+          totalPages: 1,
         },
-        { status: 503 },
-      );
+        metadata: {
+          runeId: DOG_RUNE_ID,
+          divisibility,
+          source: 'fallback',
+          updatedAt: new Date().toISOString(),
+        },
+      };
+      
+      return NextResponse.json(emptyPage, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=5',
+        },
+      });
     }
   } catch (error) {
-    console.error('❌ Error loading holders from Xverse:', error);
-    return NextResponse.json(
-      {
-        error: 'Failed to load holders data',
-        message: error instanceof Error ? error.message : 'Unknown error',
+    console.error('❌ Error loading holders from Xverse, attempting final fallback:', error);
+    
+    // Última tentativa: snapshot local
+    try {
+      const snapshot = await loadLocalSnapshot();
+      const page = clampPage(1);
+      const limit = clampLimit(25);
+      const start = (page - 1) * limit;
+      const slice = snapshot.holders.slice(start, start + limit);
+      
+      if (slice.length > 0) {
+        const fallbackPage: CachedHoldersPage = {
+          holders: slice,
+          pagination: {
+            total: snapshot.total || slice.length,
+            page,
+            limit,
+            totalPages: Math.max(1, Math.ceil((snapshot.total || slice.length) / limit)),
+          },
+          metadata: {
+            runeId: DOG_RUNE_ID,
+            divisibility: 5,
+            source: 'fallback',
+            updatedAt: snapshot.timestamp ?? new Date().toISOString(),
+          },
+        };
+        
+        console.warn('⚠️ Serving holders from local snapshot as final fallback');
+        return NextResponse.json(fallbackPage, {
+          headers: {
+            'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=15',
+          },
+        });
+      }
+    } catch (finalError) {
+      console.error('❌ All fallback methods failed:', finalError);
+    }
+    
+    // Retornar página vazia válida ao invés de erro 500
+    const emptyPage: CachedHoldersPage = {
+      holders: [],
+      pagination: {
+        total: 0,
+        page: 1,
+        limit: 25,
+        totalPages: 1,
       },
-      { status: 500 },
-    );
+      metadata: {
+        runeId: DOG_RUNE_ID,
+        divisibility: 5,
+        source: 'fallback',
+        updatedAt: new Date().toISOString(),
+      },
+    };
+    
+    return NextResponse.json(emptyPage, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=5',
+      },
+    });
   }
 }
 

@@ -164,31 +164,59 @@ export default function HoldersPage() {
       const response = await fetch(`/api/dog-rune/holders?page=${page}&limit=${limit}`)
       
       if (!response.ok) {
+        // Mesmo com erro HTTP, tentar parsear a resposta caso seja uma página vazia válida
+        try {
+          const data: HoldersResponse = await response.json()
+          if (data.holders && Array.isArray(data.holders)) {
+            setAllHolders(data.holders)
+            setTotalPages(data.pagination?.totalPages || 1)
+            setTotalHolders(data.pagination?.total || 0)
+            setPageLimit(data.pagination?.limit || limit)
+            setHoldersMetadata({
+              divisibility: data.metadata?.divisibility || 5,
+              updatedAt: data.metadata?.updatedAt || new Date().toISOString(),
+              source: data.metadata?.source || 'fallback',
+            })
+            setError(null)
+            return
+          }
+        } catch {
+          // Se não conseguir parsear, continuar com o erro
+        }
         throw new Error(`HTTP error! status: ${response.status}`)
       }
       
       const data: HoldersResponse = await response.json()
       
-      setAllHolders(data.holders)
-      setTotalPages(data.pagination.totalPages)
-      setTotalHolders(data.pagination.total)
-      setPageLimit(data.pagination.limit)
+      // Verificar se é uma página vazia (mas válida)
+      if (data.holders && Array.isArray(data.holders) && data.holders.length === 0 && data.pagination?.total === 0) {
+        console.warn('⚠️ Recebida página vazia, pode indicar problema temporário na API')
+        setError('Dados temporariamente indisponíveis. Tente novamente em alguns instantes.')
+      } else {
+        setError(null)
+      }
+      
+      setAllHolders(data.holders || [])
+      setTotalPages(data.pagination?.totalPages || 1)
+      setTotalHolders(data.pagination?.total || 0)
+      setPageLimit(data.pagination?.limit || limit)
       setHoldersMetadata({
-        divisibility: data.metadata.divisibility,
-        updatedAt: data.metadata.updatedAt,
-        source: data.metadata.source,
+        divisibility: data.metadata?.divisibility || 5,
+        updatedAt: data.metadata?.updatedAt || new Date().toISOString(),
+        source: data.metadata?.source || 'xverse',
       })
-      setLastUpdate(new Date(data.metadata.updatedAt).toISOString())
-      setError(null)
+      setLastUpdate(new Date(data.metadata?.updatedAt || new Date().toISOString()).toISOString())
       
       console.log('✅ Holders carregados:', {
-        holders: data.holders.length,
-        total: data.pagination.total,
-        pages: data.pagination.totalPages
+        holders: data.holders?.length || 0,
+        total: data.pagination?.total || 0,
+        pages: data.pagination?.totalPages || 1,
+        source: data.metadata?.source || 'unknown'
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro desconhecido')
       console.error('Error fetching holders:', err)
+      // Não limpar holders anteriores em caso de erro, mantém os últimos dados válidos
     } finally {
       setLoading(false)
     }
