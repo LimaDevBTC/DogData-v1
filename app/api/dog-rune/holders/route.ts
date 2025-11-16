@@ -136,6 +136,7 @@ async function fetchHoldersPage(offset: number, limit: number) {
 async function loadLocalSnapshot(): Promise<{
   total: number;
   holders: HolderDTO[];
+  timestamp?: string;
 }> {
   try {
     const fs = await import('fs/promises');
@@ -156,6 +157,7 @@ async function loadLocalSnapshot(): Promise<{
     return {
       total: data?.total_holders || holders.length,
       holders,
+      timestamp: data?.timestamp,
     };
   } catch (error) {
     console.warn('⚠️ Failed to load local holders snapshot:', error);
@@ -507,6 +509,39 @@ export async function GET(request: NextRequest) {
           },
         });
       }
+
+      try {
+        const snapshot = await loadLocalSnapshot();
+        const start = (page - 1) * limit;
+        const slice = snapshot.holders.slice(start, start + limit);
+        if (slice.length > 0) {
+          const fallbackPage: CachedHoldersPage = {
+            holders: slice,
+            pagination: {
+              total: snapshot.total,
+              page,
+              limit,
+              totalPages: Math.max(1, Math.ceil(snapshot.total / limit)),
+            },
+            metadata: {
+              runeId: DOG_RUNE_ID,
+              divisibility,
+              source: 'fallback',
+              updatedAt: snapshot.timestamp ?? new Date().toISOString(),
+            },
+          };
+
+          console.warn('⚠️ Serving holders data from local snapshot fallback');
+          return NextResponse.json(fallbackPage, {
+            headers: {
+              'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=15',
+            },
+          });
+        }
+      } catch (snapshotError) {
+        console.error('❌ Failed to load local holders snapshot fallback:', snapshotError);
+      }
+
       console.error('❌ No cached holders data available as fallback');
       return NextResponse.json(
         {

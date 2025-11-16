@@ -43,6 +43,56 @@ function runesToDog(amount: string | number | undefined, divisibility: number) {
   return value / 10 ** divisibility;
 }
 
+async function loadFallbackStats() {
+  try {
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const statsPath = path.join(process.cwd(), 'data', 'dog_stats_fallback.json');
+    const statsRaw = await fs.readFile(statsPath, 'utf-8');
+    const stats = JSON.parse(statsRaw) as {
+      totalHolders?: number;
+      circulatingSupply?: number;
+      totalSupply?: number;
+      lastUpdated?: string;
+    };
+
+    let top10Holders: Array<{ rank: number; address: string; total_amount: number; total_dog: number }> = [];
+    try {
+      const holdersPath = path.join(process.cwd(), 'public', 'data', 'dog_holders_by_address.json');
+      const holdersRaw = await fs.readFile(holdersPath, 'utf-8');
+      const holdersJson = JSON.parse(holdersRaw) as {
+        holders?: Array<{ address: string; total_amount: number; total_dog: number }>;
+      };
+      if (Array.isArray(holdersJson?.holders)) {
+        top10Holders = holdersJson.holders.slice(0, 10).map((holder, index) => ({
+          rank: index + 1,
+          address: holder.address,
+          total_amount: holder.total_amount,
+          total_dog: holder.total_dog,
+        }));
+      }
+    } catch (holderError) {
+      console.warn('⚠️ Failed to load fallback holders snapshot:', holderError);
+    }
+
+    return {
+      totalHolders: stats.totalHolders ?? 0,
+      totalSupply: stats.totalSupply ?? stats.circulatingSupply ?? 0,
+      circulatingSupply: stats.circulatingSupply ?? stats.totalSupply ?? 0,
+      top10Holders,
+      metadata: {
+        runeId: DOG_RUNE_ID,
+        divisibility: 5,
+        source: 'fallback',
+        lastUpdated: stats.lastUpdated ?? new Date().toISOString(),
+      },
+    };
+  } catch (error) {
+    console.warn('⚠️ Failed to load fallback stats:', error);
+    return null;
+  }
+}
+
 async function fetchRuneMetadata(): Promise<{ metadata: RuneMetadataResponse; divisibility: number; totalHolders: number }> {
   if (!XVERSE_API_KEY) {
     throw new Error('Missing XVERSE_API_KEY environment variable');
@@ -223,13 +273,21 @@ export async function GET() {
     });
   } catch (error) {
     console.error('❌ Error loading DOG stats from Xverse:', error);
+    const fallback = await loadFallbackStats();
+    if (fallback) {
+      console.warn('⚠️ Serving fallback DOG stats payload');
+      return NextResponse.json(fallback, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30',
+        },
+      });
+    }
     return NextResponse.json({
       error: 'Failed to load DOG stats',
       message: error instanceof Error ? error.message : 'Unknown error',
     }, { status: 500 });
   }
 }
-
 
 
 

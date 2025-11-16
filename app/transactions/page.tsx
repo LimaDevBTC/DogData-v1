@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { SectionDivider } from "@/components/ui/section-divider"
 import { 
-  Activity,
+  Activity, 
   AlertCircle,
   ArrowDownLeft,
   ArrowRightLeft,
@@ -22,7 +22,7 @@ import {
   ChevronRight,
   Copy,
   BarChart3,
-  Clock,
+  Clock, 
   Coins,
   Database,
   Download,
@@ -280,7 +280,7 @@ const computeMetrics24h = (txs: Transaction[]): MetricsLast24h => {
     feesBtc,
   }
 }
- 
+
 export default function TransactionsPage() {
   // Estado principal das transações
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -587,7 +587,7 @@ export default function TransactionsPage() {
     loading?: boolean
     unavailable?: boolean
   }) => {
-    return (
+  return (
       <Badge className="bg-orange-500/20 text-orange-300 border-orange-500/40 font-mono text-[9px] uppercase tracking-wide min-w-[118px] flex items-center justify-center gap-1">
         {loading ? (
           <>
@@ -1002,18 +1002,18 @@ export default function TransactionsPage() {
           </div>
         )}
 
-        {/* Header */}
+      {/* Header */}
         <div className="text-center space-y-2 md:space-y-4 px-4">
           <div className="flex items-center justify-center gap-2 md:gap-4">
             <Activity className="w-10 h-10 md:w-14 md:h-14 text-orange-400" />
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white font-mono whitespace-nowrap">
-              DOG Transactions
-            </h1>
+          DOG Transactions
+        </h1>
           </div>
           <p className="text-gray-400 font-mono text-sm md:text-lg">
             Real-time transaction tracking - Rune 840000:3
-          </p>
-        </div>
+        </p>
+      </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-3 gap-4 md:gap-6">
@@ -1044,7 +1044,7 @@ export default function TransactionsPage() {
             <CardContent>
               <div className="text-3xl font-bold text-white font-mono">
                 {lastBlock > 0 ? lastBlock.toLocaleString() : (loading ? 'Loading...' : 'N/A')}
-              </div>
+            </div>
               <p className="text-gray-400 text-sm font-mono mt-2">
                 Most recent block scanned by our tracker
               </p>
@@ -1057,7 +1057,7 @@ export default function TransactionsPage() {
                 <CardTitle className="text-purple-400 flex items-center gap-2">
                   <Clock className="w-5 h-5" />
                   Last Update
-                </CardTitle>
+            </CardTitle>
                 <div className="flex items-center gap-2">
                   <Button
                     variant="ghost"
@@ -1082,7 +1082,7 @@ export default function TransactionsPage() {
                   </Button>
                 </div>
               </div>
-            </CardHeader>
+          </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-white font-mono">
                 {lastUpdateTime ? formatLastUpdate(lastUpdateTime) : 'Loading...'}
@@ -1113,7 +1113,7 @@ export default function TransactionsPage() {
               <div className="space-y-2">
                 <div className="text-3xl font-bold text-white font-mono">
                   {metrics24h ? metrics24h.txCount.toLocaleString() : (loading ? 'Loading...' : 'N/A')}
-                </div>
+              </div>
                 <p className="text-gray-400 text-xs md:text-sm font-mono uppercase tracking-wide">
                   On-chain DOG transfers in the last 24 hours
                 </p>
@@ -1134,7 +1134,7 @@ export default function TransactionsPage() {
               <div className="space-y-2">
                 <div className="text-3xl font-bold text-white font-mono">
                   {metrics24h ? metrics24h.activeWalletCount.toLocaleString() : (loading ? 'Loading...' : 'N/A')}
-                </div>
+            </div>
                 <p className="text-gray-400 text-xs md:text-sm font-mono uppercase tracking-wide">
                   Unique wallets that sent or received DOG in 24 hours
                 </p>
@@ -1225,9 +1225,9 @@ export default function TransactionsPage() {
                     className="text-[10px] font-mono tracking-wide border border-emerald-500/50 text-emerald-300 px-2 py-0.5"
                   >
                     Inflow
-                  </Badge>
+              </Badge>
                 )}
-              </div>
+            </div>
             </CardHeader>
             <CardContent>
               {metrics24h?.topInWallet ? (
@@ -1266,8 +1266,8 @@ export default function TransactionsPage() {
               ) : (
                 <p className="text-gray-500 text-sm font-mono">Not enough data</p>
               )}
-            </CardContent>
-          </Card>
+          </CardContent>
+        </Card>
 
           <Card variant="glass" className={metricsCardClass}>
             <CardHeader className="pb-3">
@@ -1284,7 +1284,7 @@ export default function TransactionsPage() {
                     Outflow
                   </Badge>
                 )}
-              </div>
+      </div>
             </CardHeader>
             <CardContent>
               {metrics24h?.topOutWallet ? (
@@ -1299,7 +1299,7 @@ export default function TransactionsPage() {
                         metrics24h.topOutWallet.address,
                         metrics24h.topOutWallet.holderRank
                       )}
-                    </div>
+    </div>
                     <Button
                       variant="ghost"
                       size="icon"

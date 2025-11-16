@@ -318,7 +318,7 @@ export default function OverviewPage() {
     return 0.00163
   }, [stats?.price, runeData])
 
-  const C2_TREASURY_DOG = 549_784_364
+  const C2_TREASURY_DOG = 573_579_822
   const C2_TREASURY_TARGET = 1_000_000_000
   const c2TreasuryUSD = dogPrice * C2_TREASURY_DOG
   const c2TreasuryUSDFormatted = dogPrice > 0 ? formatCurrency(c2TreasuryUSD) : '$0.00'

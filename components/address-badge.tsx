@@ -157,4 +157,3 @@ export function AddressBadgeInline({ address }: { address: string }) {
     </div>
   );
 }
-
