@@ -150,9 +150,20 @@ const shortAddress = (address?: string) => {
 const computeMetrics24h = (txs: Transaction[]): MetricsLast24h => {
   const now = Date.now()
   const threshold = now - 24 * 60 * 60 * 1000
+  const MAX_DOG_AMOUNT = 100_000_000_000 // 100 bilhões de DOG
+  
   const windowTxs = txs.filter((tx) => {
     const ts = new Date(tx.timestamp).getTime()
-    return !Number.isNaN(ts) && ts >= threshold
+    if (Number.isNaN(ts) || ts < threshold) return false
+    
+    // Filtrar transações com valores impossíveis ANTES de processar
+    const volume = typeof tx.net_transfer === 'number' ? tx.net_transfer : (tx.total_dog_moved || 0)
+    if (volume > MAX_DOG_AMOUNT) {
+      console.warn(`⚠️ [computeMetrics24h] Ignorando TX ${tx.txid} com volume inválido: ${volume}`)
+      return false
+    }
+    
+    return true
   })
 
   const txCount = windowTxs.length
@@ -167,6 +178,13 @@ const computeMetrics24h = (txs: Transaction[]): MetricsLast24h => {
 
   for (const tx of windowTxs) {
     const volume = typeof tx.net_transfer === 'number' ? tx.net_transfer : (tx.total_dog_moved || 0)
+    
+    // Validação adicional por segurança
+    if (!Number.isFinite(volume) || volume < 0 || volume > MAX_DOG_AMOUNT) {
+      console.warn(`⚠️ [computeMetrics24h] Pulando TX ${tx.txid} com volume inválido: ${volume}`)
+      continue
+    }
+    
     totalDog += volume
     if (typeof tx.fee_sats === 'number' && Number.isFinite(tx.fee_sats)) {
       totalFeesSats += tx.fee_sats
@@ -184,9 +202,15 @@ const computeMetrics24h = (txs: Transaction[]): MetricsLast24h => {
     for (const sender of tx.senders) {
       const address = sender.address
       if (!address) continue
-      const amountDog = typeof sender.amount_dog === 'number'
+      let amountDog = typeof sender.amount_dog === 'number'
         ? sender.amount_dog
         : Number(sender.amount_dog) || 0
+      
+      // Validar e limitar valores impossíveis
+      if (!Number.isFinite(amountDog) || amountDog < 0 || amountDog > MAX_DOG_AMOUNT) {
+        console.warn(`⚠️ [computeMetrics24h] Ignorando sender inválido na TX ${tx.txid}: ${address} = ${amountDog}`)
+        amountDog = 0
+      }
 
       txSenderAmounts.set(address, (txSenderAmounts.get(address) || 0) + amountDog)
       txSenderTotal += amountDog
@@ -200,25 +224,37 @@ const computeMetrics24h = (txs: Transaction[]): MetricsLast24h => {
 
     for (const receiver of tx.receivers) {
       if (!receiver.address || receiver.is_change) continue
-      const amountDog = typeof receiver.amount_dog === 'number'
+      let amountDog = typeof receiver.amount_dog === 'number'
         ? receiver.amount_dog
         : Number(receiver.amount_dog) || 0
+      
+      // Validar e limitar valores impossíveis
+      if (!Number.isFinite(amountDog) || amountDog < 0 || amountDog > MAX_DOG_AMOUNT) {
+        console.warn(`⚠️ [computeMetrics24h] Ignorando receiver inválido na TX ${tx.txid}: ${receiver.address} = ${amountDog}`)
+        amountDog = 0
+      }
+      
       receiverVolumes.set(receiver.address, (receiverVolumes.get(receiver.address) || 0) + amountDog)
       volumeWalletSet.add(receiver.address)
     }
 
-    if (volume > 0 && txSenderAddresses.size > 0) {
-      if (txSenderTotal > 0) {
+    if (volume > 0 && volume <= MAX_DOG_AMOUNT && txSenderAddresses.size > 0) {
+      if (txSenderTotal > 0 && Number.isFinite(txSenderTotal)) {
         for (const [address, amountDog] of Array.from(txSenderAmounts.entries())) {
+          if (!Number.isFinite(amountDog) || amountDog < 0 || amountDog > MAX_DOG_AMOUNT) continue
           const share = (amountDog / txSenderTotal) * volume
-          senderVolumes.set(address, (senderVolumes.get(address) || 0) + share)
-          volumeWalletSet.add(address)
+          if (Number.isFinite(share) && share > 0 && share <= MAX_DOG_AMOUNT) {
+            senderVolumes.set(address, (senderVolumes.get(address) || 0) + share)
+            volumeWalletSet.add(address)
+          }
         }
-      } else {
+      } else if (txSenderAddresses.size > 0) {
         const equalShare = volume / txSenderAddresses.size
-        for (const address of Array.from(txSenderAddresses)) {
-          senderVolumes.set(address, (senderVolumes.get(address) || 0) + equalShare)
-          volumeWalletSet.add(address)
+        if (Number.isFinite(equalShare) && equalShare > 0 && equalShare <= MAX_DOG_AMOUNT) {
+          for (const address of Array.from(txSenderAddresses)) {
+            senderVolumes.set(address, (senderVolumes.get(address) || 0) + equalShare)
+            volumeWalletSet.add(address)
+          }
         }
       }
     }
@@ -383,16 +419,46 @@ export default function TransactionsPage() {
 
       const transactionsList: Transaction[] = Array.isArray(jsonData.transactions) ? jsonData.transactions : []
 
-        setTransactions(transactionsList)
+      // Filtrar transações com valores impossíveis ANTES de processar
+      // Isso previne travamentos e problemas de performance
+      const MAX_DOG_AMOUNT = 100_000_000_000 // 100 bilhões de DOG
+      const sanitizedTransactions = transactionsList.filter((tx) => {
+        const volume = typeof tx.net_transfer === 'number' ? tx.net_transfer : (tx.total_dog_moved || 0)
+        if (!Number.isFinite(volume) || volume < 0 || volume > MAX_DOG_AMOUNT) {
+          console.warn(`⚠️ [Frontend] Removendo TX ${tx.txid} com volume inválido: ${volume}`)
+          return false
+        }
+        
+        // Validar senders e receivers também
+        const hasInvalidSender = tx.senders?.some((s: any) => {
+          const amt = s.amount_dog || 0
+          return !Number.isFinite(amt) || amt < 0 || amt > MAX_DOG_AMOUNT
+        })
+        const hasInvalidReceiver = tx.receivers?.some((r: any) => {
+          const amt = r.amount_dog || 0
+          return !Number.isFinite(amt) || amt < 0 || amt > MAX_DOG_AMOUNT
+        })
+        
+        if (hasInvalidSender || hasInvalidReceiver) {
+          console.warn(`⚠️ [Frontend] Removendo TX ${tx.txid} com sender/receiver inválido`)
+          return false
+        }
+        
+        return true
+      })
+
+      console.log(`✅ [Frontend] ${sanitizedTransactions.length} transações válidas (${transactionsList.length - sanitizedTransactions.length} removidas)`)
+      
+      setTransactions(sanitizedTransactions)
         setSelectedTransaction((prev) => {
           if (!prev) return prev
-          return transactionsList.find((item) => item.txid === prev.txid) || null
+          return sanitizedTransactions.find((item) => item.txid === prev.txid) || null
         })
         const metricsSource = jsonData.metrics?.last24h
         if (metricsSource) {
           const feesSats = metricsSource.feesSats ?? 0
           const feesBtc = metricsSource.feesBtc ?? (feesSats ? Number((feesSats / SATOSHIS_PER_BTC).toFixed(8)) : 0)
-          const fallbackMetrics = computeMetrics24h(transactionsList)
+          const fallbackMetrics = computeMetrics24h(sanitizedTransactions)
           const {
             txCount: fallbackTxCount,
             totalDogMoved: fallbackTotalDogMoved,
@@ -425,8 +491,8 @@ export default function TransactionsPage() {
           const resolvedVolumeWalletCount = metricsSource.volumeWalletCount ?? fallbackVolumeWalletCount
 
           setMetrics24h({
-            txCount: metricsSource.txCount || fallbackTxCount || 0,
-            totalDogMoved: metricsSource.totalDogMoved || fallbackTotalDogMoved || 0,
+            txCount: fallbackTxCount || metricsSource.txCount || 0,
+            totalDogMoved: fallbackTotalDogMoved || metricsSource.totalDogMoved || 0,
             blockCount: metricsSource.blockCount || fallbackBlockCount || 0,
             avgTxPerBlock: metricsSource.avgTxPerBlock || fallbackAvgTxPerBlock || 0,
             avgDogPerTx: metricsSource.avgDogPerTx || fallbackAvgDogPerTx || 0,
@@ -441,8 +507,8 @@ export default function TransactionsPage() {
             activeWalletCount: resolvedActiveWalletCount,
             volumeWalletCount: resolvedVolumeWalletCount,
           })
-        } else if (transactionsList.length > 0) {
-          setMetrics24h(computeMetrics24h(transactionsList))
+        } else if (sanitizedTransactions.length > 0) {
+          setMetrics24h(computeMetrics24h(sanitizedTransactions))
         }
 
         const nextLastBlock: number = jsonData.last_block || 0
@@ -472,7 +538,7 @@ export default function TransactionsPage() {
           }
         }
 
-        console.log(`✅ ${transactionsList.length} transações carregadas (${source}). Bloco ${prevLastBlock} → ${nextLastBlock}`)
+        console.log(`✅ ${sanitizedTransactions.length} transações carregadas (${source}). Bloco ${prevLastBlock} → ${nextLastBlock}`)
     } catch (error: any) {
       console.error('❌ Error fetching transactions cache:', error.message || error)
     } finally {
@@ -587,9 +653,24 @@ export default function TransactionsPage() {
     loading?: boolean
     unavailable?: boolean
   }) => {
-  return (
+    // Se está carregando há muito tempo (mais de 3s), mostrar como indisponível
+    const [showLoading, setShowLoading] = useState(loading)
+    
+    useEffect(() => {
+      if (loading) {
+        setShowLoading(true)
+        const timeout = setTimeout(() => {
+          setShowLoading(false) // Após 3s, parar de mostrar loading para não travar a UI
+        }, 3000)
+        return () => clearTimeout(timeout)
+      } else {
+        setShowLoading(false)
+      }
+    }, [loading])
+
+    return (
       <Badge className="bg-orange-500/20 text-orange-300 border-orange-500/40 font-mono text-[9px] uppercase tracking-wide min-w-[118px] flex items-center justify-center gap-1">
-        {loading ? (
+        {showLoading && loading ? (
           <>
             <Loader2 className="w-3 h-3 animate-spin" />
             <span>Resolving…</span>
@@ -606,19 +687,31 @@ export default function TransactionsPage() {
   }
 
   const fetchHolderRank = useCallback(async (address: string) => {
+    // Verificar se já está carregando ou já tem rank
     setHolderRankOverrides((prev) => {
       const existing = prev[address]
       if (typeof existing === 'number' && existing > 0) {
-        return prev
+        return prev // Já tem rank válido
+      }
+      if (existing === -2) {
+        return prev // Já está carregando
       }
       return {
         ...prev,
-        [address]: -2
+        [address]: -2 // Marcando como carregando
       }
     })
 
     try {
-      const response = await fetch(`/api/dog-rune/holders?address=${encodeURIComponent(address)}`)
+      // Timeout de 5 segundos para evitar travamentos
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000)
+      
+      const response = await fetch(`/api/dog-rune/holders?address=${encodeURIComponent(address)}`, {
+        signal: controller.signal
+      })
+      clearTimeout(timeoutId)
+      
       if (!response.ok) {
         throw new Error(`Status ${response.status}`)
       }
@@ -626,75 +719,142 @@ export default function TransactionsPage() {
       const rank = data?.holder?.holder_rank
       setHolderRankOverrides((prev) => ({
         ...prev,
-        [address]: typeof rank === 'number' ? rank : -1,
+        [address]: typeof rank === 'number' && rank > 0 ? rank : -1,
       }))
-    } catch (error) {
-      console.warn('⚠️ Failed to fetch holder rank for', address, error)
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.warn('⚠️ Timeout ao buscar holder rank para', address)
+      } else {
+        console.warn('⚠️ Failed to fetch holder rank for', address, error)
+      }
       setHolderRankOverrides((prev) => ({
         ...prev,
-        [address]: -1,
+        [address]: -1, // Marcar como indisponível após erro
       }))
     }
-    await new Promise((resolve) => setTimeout(resolve, 200))
+    // Delay reduzido para não travar tanto
+    await new Promise((resolve) => setTimeout(resolve, 100))
   }, [])
 
+  // Debounce para evitar múltiplas execuções
+  const fetchRanksDebounceRef = useRef<NodeJS.Timeout | null>(null)
+  
   useEffect(() => {
-    const fetchMissingRanks = async () => {
-      const addresses = [
-        metrics24h?.topActiveWallet?.address,
-        metrics24h?.topInWallet?.address,
-        metrics24h?.topOutWallet?.address,
-        metrics24h?.topVolumeWallet?.address,
-      ].filter((addr): addr is string => Boolean(addr))
-
-      const pending = addresses.filter((addr) => {
-        const rank = resolveHolderRank(addr, undefined, holderRankOverrides, holderRankMap)
-        return rank == null
-      })
-
-      if (pending.length === 0) return
-
-      pending.reduce((promise, addr) => {
-        return promise.then(async () => {
-          if (holderRankOverrides[addr] === undefined) {
-            await fetchHolderRank(addr)
-          }
-        })
-      }, Promise.resolve())
+    // Limpar timeout anterior
+    if (fetchRanksDebounceRef.current) {
+      clearTimeout(fetchRanksDebounceRef.current)
     }
 
-    fetchMissingRanks()
-  }, [metrics24h?.topActiveWallet?.address, metrics24h?.topInWallet?.address, metrics24h?.topOutWallet?.address, metrics24h?.topVolumeWallet?.address, holderRankOverrides, holderRankMap, fetchHolderRank])
+    // Aguardar snapshot local carregar primeiro, depois buscar ranks individuais
+    // Debounce de 1s para dar tempo do snapshot carregar
+    fetchRanksDebounceRef.current = setTimeout(() => {
+      const fetchMissingRanks = async () => {
+        // Se o snapshot ainda não carregou, aguardar um pouco mais
+        if (!localRankCacheLoaded) {
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        }
+        
+        const addresses = [
+          metrics24h?.topActiveWallet?.address,
+          metrics24h?.topInWallet?.address,
+          metrics24h?.topOutWallet?.address,
+          metrics24h?.topVolumeWallet?.address,
+        ].filter((addr): addr is string => Boolean(addr))
 
-  useEffect(() => {
-    const fetchMissingRanks = async () => {
-      const missing = topInflowWallets.filter((wallet) => (wallet.holderRank == null) && (holderRankOverrides[wallet.address] === undefined) && (holderRankMap[wallet.address] == null));
-      if (missing.length === 0) return;
-      for (const wallet of missing) {
-        await fetchHolderRank(wallet.address)
+        const pending = addresses.filter((addr) => {
+          const rank = resolveHolderRank(addr, undefined, holderRankOverrides, holderRankMap)
+          return rank == null && holderRankOverrides[addr] === undefined
+        })
+
+        if (pending.length === 0) return
+
+        // Processar de forma assíncrona e não-bloqueante
+        // Limitar a 1 chamada por vez para não sobrecarregar a API
+        for (const addr of pending) {
+          await fetchHolderRank(addr).catch(err => {
+            console.warn('⚠️ Erro ao buscar rank para', addr, err)
+          })
+          // Delay entre chamadas para não sobrecarregar
+          await new Promise(resolve => setTimeout(resolve, 400))
+        }
+      }
+
+      fetchMissingRanks()
+    }, localRankCacheLoaded ? 500 : 2000) // Se snapshot já carregou, delay menor
+
+    return () => {
+      if (fetchRanksDebounceRef.current) {
+        clearTimeout(fetchRanksDebounceRef.current)
       }
     }
+  }, [metrics24h?.topActiveWallet?.address, metrics24h?.topInWallet?.address, metrics24h?.topOutWallet?.address, metrics24h?.topVolumeWallet?.address, holderRankOverrides, holderRankMap, fetchHolderRank, localRankCacheLoaded])
 
-    fetchMissingRanks()
-  }, [topInflowWallets, holderRankOverrides, holderRankMap, fetchHolderRank])
+  // Debounce também para topInflowWallets
+  const fetchInflowRanksDebounceRef = useRef<NodeJS.Timeout | null>(null)
+  
+  useEffect(() => {
+    if (fetchInflowRanksDebounceRef.current) {
+      clearTimeout(fetchInflowRanksDebounceRef.current)
+    }
 
+    fetchInflowRanksDebounceRef.current = setTimeout(() => {
+      const fetchMissingRanks = async () => {
+        // Aguardar snapshot local carregar primeiro
+        if (!localRankCacheLoaded) {
+          await new Promise(resolve => setTimeout(resolve, 1500))
+        }
+        
+        const missing = topInflowWallets.filter((wallet) => 
+          (wallet.holderRank == null) && 
+          (holderRankOverrides[wallet.address] === undefined) && 
+          (holderRankMap[wallet.address] == null)
+        );
+        if (missing.length === 0) return;
+        
+        // Processar uma por vez para não sobrecarregar
+        for (const wallet of missing) {
+          await fetchHolderRank(wallet.address).catch(err => {
+            console.warn('⚠️ Erro ao buscar rank para', wallet.address, err)
+          })
+          // Delay entre chamadas
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
+      }
+
+      fetchMissingRanks()
+    }, localRankCacheLoaded ? 1200 : 2500) // Delay maior se snapshot não carregou
+
+    return () => {
+      if (fetchInflowRanksDebounceRef.current) {
+        clearTimeout(fetchInflowRanksDebounceRef.current)
+      }
+    }
+  }, [topInflowWallets, holderRankOverrides, holderRankMap, fetchHolderRank, localRankCacheLoaded])
+
+  // Carregar snapshot local PRIMEIRO, antes de fazer chamadas individuais
   useEffect(() => {
     if (localRankCacheLoaded) return
-    const unresolved = topInflowWallets.some((wallet) => {
-      const rank = resolveHolderRank(wallet.address, wallet.holderRank, holderRankOverrides, holderRankMap)
-      return rank == null
-    })
-    if (!unresolved) return
 
     const loadLocalRanks = async () => {
       try {
-        const response = await fetch('/api/dog-rune/holders?snapshot=1')
+        console.log('📥 Carregando snapshot local de holders...')
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 10000) // Timeout de 10s
+        
+        const response = await fetch('/api/dog-rune/holders?snapshot=1', {
+          signal: controller.signal
+        })
+        clearTimeout(timeoutId)
         if (!response.ok) {
           console.warn('⚠️ Failed to load local holders dataset:', response.status)
+          setLocalRankCacheLoaded(true) // Marcar como carregado mesmo em erro para não tentar de novo
           return
         }
         const data = await response.json()
-        if (!Array.isArray(data?.holders)) return
+        if (!Array.isArray(data?.holders)) {
+          setLocalRankCacheLoaded(true)
+          return
+        }
         const map: Record<string, number> = {}
         data.holders.forEach((holder: { address: string; rank?: number }, index: number) => {
           if (holder?.address) {
@@ -705,13 +865,20 @@ export default function TransactionsPage() {
         setHolderRankMap((prev) => ({ ...map, ...prev }))
         setHolderRankOverrides((prev) => ({ ...prev, ...map }))
         setLocalRankCacheLoaded(true)
-      } catch (error) {
-        console.warn('⚠️ Failed to load local holder ranks:', error)
+        console.log(`✅ Snapshot local carregado: ${Object.keys(map).length} holders`)
+      } catch (error: any) {
+        if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+          console.warn('⚠️ Timeout ao carregar snapshot local')
+        } else {
+          console.warn('⚠️ Failed to load local holder ranks:', error)
+        }
+        setLocalRankCacheLoaded(true) // Marcar como carregado para não tentar de novo
       }
     }
 
+    // Carregar snapshot imediatamente quando a página carrega
     loadLocalRanks()
-  }, [topInflowWallets, holderRankOverrides, holderRankMap, localRankCacheLoaded])
+  }, [localRankCacheLoaded])
 
   const resolveHolderRank = (
     address?: string | null,
@@ -737,6 +904,9 @@ export default function TransactionsPage() {
       const override = holderRankOverrides[address]
       const loading = override === -2
       const unavailable = override === -1
+      
+      // Se está carregando há mais de 3 segundos, considerar indisponível para não travar
+      // (isso será tratado pelo timeout no fetchHolderRank, mas adicionamos segurança extra)
       return { rank, loading, unavailable }
     },
     [holderRankOverrides, holderRankMap]

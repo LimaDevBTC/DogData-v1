@@ -44,19 +44,54 @@ interface GroupedActivity {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Limite máximo razoável: 21 bilhões de Bitcoin * 10^8 sats * 10^5 divisibility = 2.1e15
+// Mas considerando que DOG é um rune, vamos ser mais conservadores: 1 trilhão de unidades brutas
+const MAX_RAW_AMOUNT = 1_000_000_000_000_000; // 1 quadrilhão (1e15)
+
 const safeInt = (value: string | number | null | undefined): number => {
-  if (typeof value === 'number' && Number.isFinite(value)) {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value < 0) return 0;
+    // Limitar valores muito grandes que podem ser erros
+    if (value > MAX_RAW_AMOUNT) {
+      console.warn(`[safeInt] Valor muito grande ignorado: ${value}`);
+      return 0;
+    }
     return Math.trunc(value);
   }
   if (typeof value === 'string') {
-    const parsed = Number.parseInt(value, 10);
-    return Number.isFinite(parsed) ? parsed : 0;
+    // Remover espaços e caracteres não numéricos (exceto sinal negativo)
+    const cleaned = value.trim().replace(/[^\d-]/g, '');
+    if (!cleaned || cleaned === '-') return 0;
+    
+    // Usar BigInt para valores muito grandes e depois converter
+    try {
+      // Tentar como número normal primeiro
+      const parsed = Number.parseInt(cleaned, 10);
+      if (!Number.isFinite(parsed) || parsed < 0) return 0;
+      if (parsed > MAX_RAW_AMOUNT) {
+        console.warn(`[safeInt] String com valor muito grande ignorado: ${value} (${parsed})`);
+        return 0;
+      }
+      return parsed;
+    } catch (e) {
+      console.warn(`[safeInt] Erro ao parsear valor: ${value}`, e);
+      return 0;
+    }
   }
   return 0;
 };
 
-const toDogAmount = (raw: number): number =>
-  Number((raw / DOG_FACTOR).toFixed(DOG_DIVISIBILITY));
+const toDogAmount = (raw: number): number => {
+  if (!Number.isFinite(raw) || raw < 0) return 0;
+  const result = Number((raw / DOG_FACTOR).toFixed(DOG_DIVISIBILITY));
+  // Limite máximo de DOG razoável: 100 bilhões (considerando o supply total)
+  const MAX_DOG_AMOUNT = 100_000_000_000;
+  if (result > MAX_DOG_AMOUNT) {
+    console.warn(`[toDogAmount] Valor de DOG muito grande ignorado: ${raw} -> ${result}`);
+    return 0;
+  }
+  return result;
+};
 
 const normalizeTimestamp = (value: string | number | undefined): string => {
   if (!value) {
@@ -70,37 +105,65 @@ const normalizeTimestamp = (value: string | number | undefined): string => {
 };
 
 function buildTransactionFromActivity(txid: string, grouped: GroupedActivity): Transaction {
-  const senders = grouped.inputs
-    .filter((item) => !!item.address)
-    .map((item) => {
-      const amount = safeInt(item.amount);
-      const amountDog = toDogAmount(amount);
-      const address = item.address ?? '';
-      return {
-        address,
-        amount,
-        amount_dog: amountDog,
-        has_dog: amountDog > 0
-      };
-    });
+  // Deduplicar inputs por endereço+índice para evitar contar o mesmo input múltiplas vezes
+  // Se a API retornar múltiplos eventos para o mesmo input, manteremos o maior valor
+  const inputMap = new Map<string, { address: string; amount: number; amount_dog: number }>();
+  for (const item of grouped.inputs) {
+    if (!item.address) continue;
+    const key = `${item.address}:${item.index}`;
+    const amount = safeInt(item.amount);
+    const amountDog = toDogAmount(amount);
+    
+    // Se já existe, manter o maior valor (não somar, pois são eventos duplicados do mesmo UTXO)
+    const existing = inputMap.get(key);
+    if (existing) {
+      if (amount > existing.amount) {
+        existing.amount = amount;
+        existing.amount_dog = amountDog;
+      }
+    } else {
+      inputMap.set(key, { address: item.address, amount, amount_dog: amountDog });
+    }
+  }
+
+  const senders = Array.from(inputMap.values()).map(({ address, amount, amount_dog }) => ({
+    address,
+    amount,
+    amount_dog,
+    has_dog: amount_dog > 0
+  }));
 
   const senderAddresses = new Set(senders.map((sender) => sender.address).filter(Boolean));
 
-  const receivers = grouped.outputs
-    .filter((item) => !!item.address)
-    .map((item) => {
-      const amount = safeInt(item.amount);
-      const amountDog = toDogAmount(amount);
-      const address = item.address ?? '';
-      const isChange = senderAddresses.has(address);
-      return {
-        address,
-        amount,
-        amount_dog: amountDog,
-        has_dog: amountDog > 0,
-        is_change: isChange
-      };
-    });
+  // Deduplicar outputs por endereço+índice para evitar contar o mesmo output múltiplas vezes
+  // Se a API retornar múltiplos eventos para o mesmo output, manteremos o maior valor
+  const outputMap = new Map<string, { address: string; amount: number; amount_dog: number; is_change: boolean }>();
+  for (const item of grouped.outputs) {
+    if (!item.address) continue;
+    const key = `${item.address}:${item.index}`;
+    const amount = safeInt(item.amount);
+    const amountDog = toDogAmount(amount);
+    const isChange = senderAddresses.has(item.address);
+    
+    // Se já existe, manter o maior valor (não somar, pois são eventos duplicados do mesmo UTXO)
+    const existing = outputMap.get(key);
+    if (existing) {
+      if (amount > existing.amount) {
+        existing.amount = amount;
+        existing.amount_dog = amountDog;
+      }
+    } else {
+      outputMap.set(key, { address: item.address, amount, amount_dog: amountDog, is_change: isChange });
+    }
+  }
+
+  const receivers = Array.from(outputMap.values()).map(({ address, amount, amount_dog, is_change }) => ({
+    address,
+    amount,
+    amount_dog,
+    has_dog: amount_dog > 0,
+    is_change
+  }));
 
   const totalDogOut = receivers.reduce((sum, receiver) => sum + receiver.amount_dog, 0);
   const totalChange = receivers
@@ -108,6 +171,39 @@ function buildTransactionFromActivity(txid: string, grouped: GroupedActivity): T
     .reduce((sum, receiver) => sum + receiver.amount_dog, 0);
   const totalDogIn = senders.reduce((sum, sender) => sum + sender.amount_dog, 0) || totalDogOut;
   const netTransfer = Math.max(totalDogOut - totalChange, 0);
+
+  // Validação final: garantir que os valores não excedam limites razoáveis
+  const MAX_DOG_AMOUNT = 100_000_000_000; // 100 bilhões de DOG
+  
+  if (totalDogOut > MAX_DOG_AMOUNT || totalDogIn > MAX_DOG_AMOUNT || netTransfer > MAX_DOG_AMOUNT) {
+    console.error(`⚠️ [buildTransaction] TX ${txid} com valores inválidos:`, {
+      totalDogOut,
+      totalDogIn,
+      netTransfer,
+      inputs: grouped.inputs.map(i => ({ amount: i.amount, address: i.address })),
+      outputs: grouped.outputs.map(o => ({ amount: o.amount, address: o.address }))
+    });
+    // Retornar valores zerados para esta transação problemática
+    return {
+      txid,
+      block_height: grouped.blockHeight,
+      timestamp: normalizeTimestamp(grouped.blockTime),
+      senders: [],
+      receivers: [],
+      sender_count: 0,
+      receiver_count: 0,
+      total_dog_in: 0,
+      total_dog_out: 0,
+      total_dog_moved: 0,
+      net_transfer: 0,
+      change_amount: 0,
+      has_change: false
+    };
+  }
+
+  // total_dog_moved deve usar net_transfer (excluindo change), não total_dog_out
+  // Isso representa o volume REAL movido na transação
+  const total_dog_moved = netTransfer;
 
   return {
     txid,
@@ -119,7 +215,7 @@ function buildTransactionFromActivity(txid: string, grouped: GroupedActivity): T
     receiver_count: receivers.length,
     total_dog_in: Number(totalDogIn.toFixed(5)),
     total_dog_out: Number(totalDogOut.toFixed(5)),
-    total_dog_moved: Number(totalDogOut.toFixed(5)),
+    total_dog_moved: Number(total_dog_moved.toFixed(5)),
     net_transfer: Number(netTransfer.toFixed(5)),
     change_amount: Number(totalChange.toFixed(5)),
     has_change: totalChange > 0
@@ -456,8 +552,8 @@ function processEvents(events: UnisatEvent[]): Transaction[] {
     const senderAddresses = new Set<string>();
     const senders = sends.map((send: UnisatEvent) => {
       senderAddresses.add(send.address);
-      const amountRaw = parseInt(send.amount, 10) || 0;
-      const amount_dog = amountRaw / DOG_FACTOR;
+      const amountRaw = safeInt(send.amount);
+      const amount_dog = toDogAmount(amountRaw);
       return {
         address: send.address,
         amount: amountRaw,
@@ -471,8 +567,8 @@ function processEvents(events: UnisatEvent[]): Transaction[] {
     // Processar receivers
     let total_to_self = 0;
     const receivers = receives.map((receive: UnisatEvent) => {
-      const amountRaw = parseInt(receive.amount, 10) || 0;
-      const amount_dog = amountRaw / DOG_FACTOR;
+      const amountRaw = safeInt(receive.amount);
+      const amount_dog = toDogAmount(amountRaw);
       const is_change = senderAddresses.has(receive.address);
       if (is_change) total_to_self += amount_dog;
       return {
@@ -487,6 +583,25 @@ function processEvents(events: UnisatEvent[]): Transaction[] {
     const total_dog_out = receivers.reduce((sum, receiver) => sum + receiver.amount_dog, 0);
     const net_transfer = Math.max(total_dog_out - total_to_self, 0);
 
+    // Validação final: garantir que os valores não excedam limites razoáveis
+    const MAX_DOG_AMOUNT = 100_000_000_000; // 100 bilhões de DOG
+    
+    if (total_dog_out > MAX_DOG_AMOUNT || total_dog_in > MAX_DOG_AMOUNT || net_transfer > MAX_DOG_AMOUNT) {
+      console.error(`⚠️ [processEvents] TX ${txid} com valores inválidos (Unisat):`, {
+        totalDogOut: total_dog_out,
+        totalDogIn: total_dog_in,
+        netTransfer: net_transfer,
+        sends: sends.map(s => ({ amount: s.amount, address: s.address })),
+        receives: receives.map(r => ({ amount: r.amount, address: r.address }))
+      });
+      // Pular esta transação problemática
+      continue;
+    }
+
+    // total_dog_moved deve usar net_transfer (excluindo change), não total_dog_out
+    // Isso representa o volume REAL movido na transação
+    const total_dog_moved = net_transfer;
+
     transactions.push({
       txid,
       block_height,
@@ -497,7 +612,7 @@ function processEvents(events: UnisatEvent[]): Transaction[] {
       receiver_count: receivers.length,
       total_dog_in: Number(total_dog_in.toFixed(5)),
       total_dog_out: Number(total_dog_out.toFixed(5)),
-      total_dog_moved: Number(total_dog_out.toFixed(5)),
+      total_dog_moved: Number(total_dog_moved.toFixed(5)),
       net_transfer: Number(net_transfer.toFixed(5)),
       change_amount: Number(total_to_self.toFixed(5)),
       has_change: total_to_self > 0
@@ -536,21 +651,70 @@ function sanitizeTransaction(tx: any): Transaction {
   const net_transfer = typeof tx?.net_transfer === 'number' ? tx.net_transfer : Number(tx?.net_transfer) || 0;
   const change_amount = typeof tx?.change_amount === 'number' ? tx.change_amount : Number(tx?.change_amount) || 0;
 
+  // Sanitizar valores de amount_dog para garantir limites razoáveis
+  const MAX_DOG_AMOUNT = 100_000_000_000; // 100 bilhões de DOG
+  const sanitizeDogAmount = (val: number): number => {
+    if (!Number.isFinite(val) || val < 0 || val > MAX_DOG_AMOUNT) return 0;
+    return val;
+  };
+
+  // Sanitizar senders e receivers
+  const sanitizedSenders = senders.map((s: { address: string; amount: number; amount_dog: number; has_dog: boolean }) => ({
+    ...s,
+    amount_dog: sanitizeDogAmount(s.amount_dog)
+  }));
+
+  const sanitizedReceivers = receivers.map((r: { address: string; amount: number; amount_dog: number; has_dog: boolean; is_change: boolean }) => ({
+    ...r,
+    amount_dog: sanitizeDogAmount(r.amount_dog)
+  }));
+
+  const total_dog_in = typeof tx?.total_dog_in === 'number' ? sanitizeDogAmount(tx.total_dog_in) : sanitizeDogAmount(Number(tx?.total_dog_in) || 0);
+  const total_dog_out = typeof tx?.total_dog_out === 'number' ? sanitizeDogAmount(tx.total_dog_out) : sanitizeDogAmount(Number(tx?.total_dog_out) || 0);
+  const total_dog_moved = typeof tx?.total_dog_moved === 'number' ? sanitizeDogAmount(tx.total_dog_moved) : sanitizeDogAmount(Number(tx?.total_dog_moved) || 0);
+  const sanitized_net_transfer = sanitizeDogAmount(net_transfer);
+  const sanitized_change_amount = sanitizeDogAmount(change_amount);
+
+  // Se valores são inválidos, zerar a transação
+  if (total_dog_in > MAX_DOG_AMOUNT || total_dog_out > MAX_DOG_AMOUNT || sanitized_net_transfer > MAX_DOG_AMOUNT) {
+    console.warn(`⚠️ [sanitizeTransaction] TX ${tx?.txid} com valores inválidos sendo zerada:`, {
+      total_dog_in,
+      total_dog_out,
+      net_transfer: sanitized_net_transfer
+    });
+    return {
+      txid: tx?.txid || '',
+      block_height: Number(tx?.block_height) || 0,
+      timestamp: typeof tx?.timestamp === 'string' ? tx.timestamp : new Date(tx?.timestamp || Date.now()).toISOString(),
+      senders: [],
+      receivers: [],
+      sender_count: 0,
+      receiver_count: 0,
+      total_dog_in: 0,
+      total_dog_out: 0,
+      total_dog_moved: 0,
+      net_transfer: 0,
+      change_amount: 0,
+      has_change: false,
+      fee_sats: typeof tx?.fee_sats === 'number' && Number.isFinite(tx.fee_sats) ? tx.fee_sats : undefined
+    };
+  }
+
   return {
     txid: tx?.txid || '',
     block_height: Number(tx?.block_height) || 0,
     timestamp: typeof tx?.timestamp === 'string' ? tx.timestamp : new Date(tx?.timestamp || Date.now()).toISOString(),
-    senders,
-    receivers,
-    sender_count: Number(tx?.sender_count) || senders.length,
-    receiver_count: Number(tx?.receiver_count) || receivers.length,
-    total_dog_in: typeof tx?.total_dog_in === 'number' ? tx.total_dog_in : Number(tx?.total_dog_in) || 0,
-    total_dog_out: typeof tx?.total_dog_out === 'number' ? tx.total_dog_out : Number(tx?.total_dog_out) || 0,
-    total_dog_moved: typeof tx?.total_dog_moved === 'number' ? tx.total_dog_moved : Number(tx?.total_dog_moved) || 0,
-    net_transfer: Number(net_transfer.toFixed(5)),
-    change_amount: Number(change_amount.toFixed(5)),
+    senders: sanitizedSenders,
+    receivers: sanitizedReceivers,
+    sender_count: Number(tx?.sender_count) || sanitizedSenders.length,
+    receiver_count: Number(tx?.receiver_count) || sanitizedReceivers.length,
+    total_dog_in: Number(total_dog_in.toFixed(5)),
+    total_dog_out: Number(total_dog_out.toFixed(5)),
+    total_dog_moved: Number(total_dog_moved.toFixed(5)),
+    net_transfer: Number(sanitized_net_transfer.toFixed(5)),
+    change_amount: Number(sanitized_change_amount.toFixed(5)),
     has_change: Boolean(tx?.has_change),
-    fee_sats: typeof tx?.fee_sats === 'number' ? tx.fee_sats : Number(tx?.fee_sats) || undefined
+    fee_sats: typeof tx?.fee_sats === 'number' && Number.isFinite(tx.fee_sats) ? tx.fee_sats : undefined
   };
 }
 
@@ -791,18 +955,94 @@ export async function GET(request: NextRequest) {
     }
 
     const merged = Array.from(mergedMap.values());
-    merged.sort((a, b) => b.block_height - a.block_height || (new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
-    const trimmed = merged.slice(0, MAX_TRANSACTIONS);
+    
+    // FILTRO CRÍTICO: Remover transações com valores impossíveis ANTES de salvar no cache
+    // Isso previne que transações inválidas sejam persistidas e apareçam no frontend
+    const MAX_DOG_AMOUNT = 100_000_000_000; // 100 bilhões de DOG
+    
+    // Lista de transações conhecidas como problemáticas (a serem removidas)
+    const KNOWN_PROBLEMATIC_TXIDS = new Set([
+      '14f96ee20dd3a27878012c2909a82fdae5542d30f2213ff28a89f073f2f7b82d'
+    ]);
+    
+    const validTransactions = merged.filter((tx) => {
+      // Remover transações conhecidas como problemáticas
+      if (KNOWN_PROBLEMATIC_TXIDS.has(tx.txid)) {
+        console.warn(`🚫 [BACKEND FILTER] Removendo TX ${tx.txid} - transação conhecida como problemática`);
+        return false;
+      }
+      
+      // Validar total_dog_moved
+      const volume = typeof tx.net_transfer === 'number' ? tx.net_transfer : (tx.total_dog_moved || 0);
+      if (!Number.isFinite(volume) || volume < 0 || volume > MAX_DOG_AMOUNT) {
+        console.warn(`🚫 [BACKEND FILTER] Removendo TX ${tx.txid} com volume inválido: ${volume}`);
+        return false;
+      }
+      
+      // Validar total_dog_out e total_dog_in
+      if ((typeof tx.total_dog_out === 'number' && (tx.total_dog_out < 0 || tx.total_dog_out > MAX_DOG_AMOUNT)) ||
+          (typeof tx.total_dog_in === 'number' && (tx.total_dog_in < 0 || tx.total_dog_in > MAX_DOG_AMOUNT))) {
+        console.warn(`🚫 [BACKEND FILTER] Removendo TX ${tx.txid} com total_dog_out/in inválido`);
+        return false;
+      }
+      
+      // Validar senders
+      const hasInvalidSender = tx.senders?.some((s: any) => {
+        const amt = s.amount_dog || 0;
+        return !Number.isFinite(amt) || amt < 0 || amt > MAX_DOG_AMOUNT;
+      });
+      
+      // Validar receivers
+      const hasInvalidReceiver = tx.receivers?.some((r: any) => {
+        const amt = r.amount_dog || 0;
+        return !Number.isFinite(amt) || amt < 0 || amt > MAX_DOG_AMOUNT;
+      });
+      
+      if (hasInvalidSender || hasInvalidReceiver) {
+        console.warn(`🚫 [BACKEND FILTER] Removendo TX ${tx.txid} com sender/receiver inválido`);
+        return false;
+      }
+      
+      // Validar consistência: se há receivers vazios mas senders com valores
+      if (tx.receivers?.length === 0 && tx.senders?.length > 0 && tx.senders.some((s: any) => (s.amount_dog || 0) > 0)) {
+        console.warn(`🚫 [BACKEND FILTER] Removendo TX ${tx.txid} - tem senders mas nenhum receiver`);
+        return false;
+      }
+      
+      // Validar se há duplicações suspeitas de outputs (mesmo endereço com valores muito similares)
+      if (tx.receivers && tx.receivers.length > 1) {
+        const receiverKeys = new Set<string>();
+        for (const receiver of tx.receivers) {
+          // Usar address + amount_dog como chave para detectar duplicações
+          const key = `${receiver.address}:${receiver.amount_dog || 0}`;
+          if (receiverKeys.has(key)) {
+            console.warn(`🚫 [BACKEND FILTER] Removendo TX ${tx.txid} - outputs duplicados detectados`);
+            return false;
+          }
+          receiverKeys.add(key);
+        }
+      }
+      
+      return true;
+    });
+    
+    const removedCount = merged.length - validTransactions.length;
+    if (removedCount > 0) {
+      console.warn(`⚠️ [BACKEND FILTER] ${removedCount} transações inválidas removidas antes de salvar no cache`);
+    }
+    
+    validTransactions.sort((a, b) => b.block_height - a.block_height || (new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+    const trimmed = validTransactions.slice(0, MAX_TRANSACTIONS);
     const lastBlock = trimmed[0]?.block_height || existingData?.last_block || 0;
 
     const metrics = computeMetrics(trimmed);
 
     const payload = {
       timestamp: new Date().toISOString(),
-      total_transactions: mergedMap.size,
+      total_transactions: trimmed.length, // Usar trimmed.length ao invés de mergedMap.size
       last_block: lastBlock,
       last_update: new Date().toISOString(),
-      transactions: merged,
+      transactions: trimmed, // Usar trimmed (transações válidas filtradas) ao invés de merged
       metrics,
     };
 
@@ -811,7 +1051,8 @@ export async function GET(request: NextRequest) {
     }
 
     await redisClient.set('dog:transactions', JSON.stringify(payload));
-    console.log(`✅ [UPDATE] Cache salvo no Upstash - ${mergedMap.size} TXs, bloco ${lastBlock}`);
+    const filterMessage = removedCount > 0 ? `${removedCount} inválidas removidas` : 'todas válidas';
+    console.log(`✅ [UPDATE] Cache salvo no Upstash - ${trimmed.length} TXs válidas (${filterMessage}), bloco ${lastBlock}`);
 
     return NextResponse.json({
       success: true,
