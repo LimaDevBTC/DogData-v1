@@ -144,23 +144,46 @@ async function loadLocalSnapshot(): Promise<{
     const filePath = path.join(process.cwd(), 'public', 'data', 'dog_holders_by_address.json');
     const raw = await fs.readFile(filePath, 'utf-8');
     const data = JSON.parse(raw);
+    
     if (!Array.isArray(data?.holders)) {
-      throw new Error('Invalid local holders file');
+      console.error('❌ Invalid local holders file format: holders is not an array', {
+        hasHolders: !!data?.holders,
+        holdersType: typeof data?.holders,
+        keys: data ? Object.keys(data) : []
+      });
+      throw new Error('Invalid local holders file: holders is not an array');
     }
-    const holders: HolderDTO[] = data.holders.slice(0, SNAPSHOT_LIMIT).map((holder: any, index: number) => ({
-      rank: holder?.rank ?? index + 1,
-      address: holder?.address || '',
-      total_amount: holder?.total_amount || 0,
-      total_dog: holder?.total_dog || 0,
-    })).filter((holder: HolderDTO) => Boolean(holder.address));
+    
+    const holders: HolderDTO[] = data.holders.slice(0, SNAPSHOT_LIMIT).map((holder: any, index: number) => {
+      // Suportar formato com ou sem rank
+      const rank = typeof holder?.rank === 'number' ? holder.rank : (index + 1);
+      const address = holder?.address || '';
+      const total_amount = typeof holder?.total_amount === 'number' ? holder.total_amount : (typeof holder?.total_amount === 'string' ? Number(holder.total_amount) : 0);
+      const total_dog = typeof holder?.total_dog === 'number' ? holder.total_dog : (typeof holder?.total_dog === 'string' ? Number(holder.total_dog) : 0);
+      
+      return {
+        rank,
+        address,
+        total_amount: Number.isFinite(total_amount) ? total_amount : 0,
+        total_dog: Number.isFinite(total_dog) ? total_dog : 0,
+      };
+    }).filter((holder: HolderDTO) => Boolean(holder.address) && holder.address.length > 0);
 
-    return {
-      total: data?.total_holders || holders.length,
+    if (holders.length === 0) {
+      console.error('❌ Local snapshot loaded but contains no valid holders');
+      throw new Error('Local snapshot contains no valid holders');
+    }
+
+    const result = {
+      total: typeof data?.total_holders === 'number' ? data.total_holders : (holders.length || 91963), // fallback para valor conhecido
       holders,
-      timestamp: data?.timestamp,
+      timestamp: data?.timestamp || new Date().toISOString(),
     };
+    
+    console.log(`✅ Local snapshot loaded: ${holders.length} holders, total: ${result.total}`);
+    return result;
   } catch (error) {
-    console.warn('⚠️ Failed to load local holders snapshot:', error);
+    console.error('❌ Failed to load local holders snapshot:', error);
     throw error;
   }
 }
@@ -471,13 +494,14 @@ export async function GET(request: NextRequest) {
     // Sempre tentar cache primeiro
     let cachedPage = await getCachedPage(page, limit);
     
-    // Se não houver cache e for página 1, tentar usar snapshot do Redis
+    // Se não houver cache e for página 1, tentar usar snapshot local primeiro (mais confiável)
     if (!cachedPage && page === 1) {
       try {
-        const snapshot = await ensureSnapshot(5);
-        if (snapshot && snapshot.holders && snapshot.holders.length > 0) {
+        // Primeiro tentar snapshot local (mais rápido e confiável)
+        const localSnapshot = await loadLocalSnapshot();
+        if (localSnapshot && localSnapshot.holders && localSnapshot.holders.length > 0) {
           const start = (page - 1) * limit;
-          const slice = snapshot.holders.slice(start, start + limit);
+          const slice = localSnapshot.holders.slice(start, start + limit);
           if (slice.length > 0) {
             let divisibility = 5;
             try {
@@ -489,22 +513,57 @@ export async function GET(request: NextRequest) {
             cachedPage = {
               holders: slice,
               pagination: {
-                total: snapshot.total_holders || slice.length,
+                total: localSnapshot.total || localSnapshot.holders.length,
                 page,
                 limit,
-                totalPages: Math.max(1, Math.ceil((snapshot.total_holders || slice.length) / limit)),
+                totalPages: Math.max(1, Math.ceil((localSnapshot.total || localSnapshot.holders.length) / limit)),
               },
               metadata: {
                 runeId: DOG_RUNE_ID,
                 divisibility,
                 source: 'fallback',
-                updatedAt: snapshot.timestamp ?? new Date().toISOString(),
+                updatedAt: localSnapshot.timestamp ?? new Date().toISOString(),
               },
             };
+            console.warn('⚠️ Serving page 1 from local snapshot (fast fallback)');
           }
         }
-      } catch (snapshotError) {
-        console.warn('⚠️ Failed to load snapshot as initial fallback:', snapshotError);
+      } catch (localError) {
+        console.warn('⚠️ Failed to load local snapshot, trying Redis snapshot:', localError);
+        // Se snapshot local falhar, tentar snapshot do Redis
+        try {
+          const snapshot = await ensureSnapshot(5);
+          if (snapshot && snapshot.holders && snapshot.holders.length > 0) {
+            const start = (page - 1) * limit;
+            const slice = snapshot.holders.slice(start, start + limit);
+            if (slice.length > 0) {
+              let divisibility = 5;
+              try {
+                divisibility = await getDivisibility();
+              } catch {
+                // usar 5 como padrão
+              }
+              
+              cachedPage = {
+                holders: slice,
+                pagination: {
+                  total: snapshot.total_holders || slice.length,
+                  page,
+                  limit,
+                  totalPages: Math.max(1, Math.ceil((snapshot.total_holders || slice.length) / limit)),
+                },
+                metadata: {
+                  runeId: DOG_RUNE_ID,
+                  divisibility,
+                  source: 'fallback',
+                  updatedAt: snapshot.timestamp ?? new Date().toISOString(),
+                },
+              };
+            }
+          }
+        } catch (snapshotError) {
+          console.warn('⚠️ Failed to load snapshot as initial fallback:', snapshotError);
+        }
       }
     }
     

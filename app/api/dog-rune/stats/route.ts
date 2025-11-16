@@ -272,7 +272,7 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error('❌ Error loading DOG stats from Xverse:', error);
+    console.error('❌ Error loading DOG stats from Xverse, attempting fallback:', error);
     const fallback = await loadFallbackStats();
     if (fallback) {
       console.warn('⚠️ Serving fallback DOG stats payload');
@@ -282,10 +282,25 @@ export async function GET() {
         },
       });
     }
+    
+    // Último recurso: retornar dados mínimos válidos ao invés de erro 500
+    console.error('❌ All fallback methods failed, returning minimal valid response');
     return NextResponse.json({
-      error: 'Failed to load DOG stats',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    }, { status: 500 });
+      totalHolders: 0,
+      totalSupply: 0,
+      circulatingSupply: 0,
+      top10Holders: [],
+      metadata: {
+        runeId: DOG_RUNE_ID,
+        divisibility: 5,
+        source: 'fallback',
+        lastUpdated: new Date().toISOString(),
+      },
+    }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=5',
+      },
+    });
   }
 }
 
