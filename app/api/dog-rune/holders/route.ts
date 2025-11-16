@@ -133,20 +133,119 @@ async function fetchHoldersPage(offset: number, limit: number) {
   throw new Error('Exceeded maximum retries while fetching holders from Xverse');
 }
 
+function processSnapshotData(data: any): {
+  total: number;
+  holders: HolderDTO[];
+  timestamp?: string;
+} {
+  if (!Array.isArray(data?.holders)) {
+    console.error('❌ Invalid local holders file format: holders is not an array', {
+      hasHolders: !!data?.holders,
+      holdersType: typeof data?.holders,
+      keys: data ? Object.keys(data) : []
+    });
+    throw new Error('Invalid local holders file: holders is not an array');
+  }
+  
+  const holders: HolderDTO[] = data.holders.slice(0, SNAPSHOT_LIMIT).map((holder: any, index: number) => {
+    // Suportar formato com ou sem rank
+    const rank = typeof holder?.rank === 'number' ? holder.rank : (index + 1);
+    const address = holder?.address || '';
+    const total_amount = typeof holder?.total_amount === 'number' ? holder.total_amount : (typeof holder?.total_amount === 'string' ? Number(holder.total_amount) : 0);
+    const total_dog = typeof holder?.total_dog === 'number' ? holder.total_dog : (typeof holder?.total_dog === 'string' ? Number(holder.total_dog) : 0);
+    
+    return {
+      rank,
+      address,
+      total_amount: Number.isFinite(total_amount) ? total_amount : 0,
+      total_dog: Number.isFinite(total_dog) ? total_dog : 0,
+    };
+  }).filter((holder: HolderDTO) => Boolean(holder.address) && holder.address.length > 0);
+
+  if (holders.length === 0) {
+    console.error('❌ Local snapshot loaded but contains no valid holders');
+    throw new Error('Local snapshot contains no valid holders');
+  }
+
+  const result = {
+    total: typeof data?.total_holders === 'number' ? data.total_holders : (holders.length || 91963), // fallback para valor conhecido
+    holders,
+    timestamp: data?.timestamp || new Date().toISOString(),
+  };
+  
+  console.log(`✅ Local snapshot processed: ${holders.length} holders, total: ${result.total}`);
+  return result;
+}
+
 async function loadLocalSnapshot(): Promise<{
   total: number;
   holders: HolderDTO[];
   timestamp?: string;
 }> {
+  // Primeiro tentar via HTTP (funciona no Vercel e produção)
+  // Arquivos em public/ são servidos estaticamente pelo Next.js
+  try {
+    // No Vercel, VERCEL_URL não inclui protocolo e pode não ser o domínio de produção
+    // Usar NEXT_PUBLIC_APP_URL se disponível, senão construir a partir do VERCEL_URL
+    let baseUrl: string;
+    if (process.env.NEXT_PUBLIC_APP_URL) {
+      baseUrl = process.env.NEXT_PUBLIC_APP_URL;
+    } else if (process.env.VERCEL_URL) {
+      // VERCEL_URL pode ser preview ou production, sempre usar https
+      baseUrl = `https://${process.env.VERCEL_URL}`;
+    } else {
+      baseUrl = 'http://localhost:3000';
+    }
+    
+    const url = `${baseUrl}/data/dog_holders_by_address.json`;
+    console.log(`📥 Attempting to fetch local snapshot from: ${url}`);
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Accept': 'application/json'
+        },
+        next: { revalidate: 0 },
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          console.log(`✅ Local snapshot loaded via HTTP from: ${url}`);
+          return processSnapshotData(data);
+        } else {
+          console.warn(`⚠️ HTTP response is not JSON (${contentType}), trying file system...`);
+        }
+      } else {
+        console.warn(`⚠️ HTTP fetch failed (${response.status}), trying file system...`);
+      }
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      if (fetchError?.name !== 'AbortError') {
+        throw fetchError;
+      }
+      console.warn(`⚠️ HTTP fetch timeout, trying file system...`);
+    }
+  } catch (httpError: any) {
+    console.warn(`⚠️ HTTP fetch failed, trying file system:`, httpError?.message || httpError);
+  }
+  
+  // Fallback: tentar via filesystem (funciona localmente)
   try {
     const fs = await import('fs/promises');
     const path = await import('path');
     
-    // Tentar múltiplos caminhos possíveis (no Vercel, arquivos public/ ficam na raiz após build)
     const possiblePaths = [
       path.join(process.cwd(), 'public', 'data', 'dog_holders_by_address.json'),
       path.join(process.cwd(), 'data', 'dog_holders_by_address.json'),
-      path.join(process.cwd(), '.next', 'server', 'app', 'api', 'dog-rune', 'holders', '..', '..', '..', '..', '..', 'public', 'data', 'dog_holders_by_address.json'),
     ];
     
     let raw: string | null = null;
@@ -159,56 +258,18 @@ async function loadLocalSnapshot(): Promise<{
         break;
       } catch (err) {
         lastError = err instanceof Error ? err : new Error(String(err));
-        // Continuar tentando outros caminhos
       }
     }
     
     if (!raw) {
-      throw new Error(`Failed to find local snapshot file. Tried: ${possiblePaths.join(', ')}. Last error: ${lastError?.message}`);
+      throw new Error(`Failed to load local snapshot via HTTP and file system. Last error: ${lastError?.message}`);
     }
     
     const data = JSON.parse(raw);
-    
-    if (!Array.isArray(data?.holders)) {
-      console.error('❌ Invalid local holders file format: holders is not an array', {
-        hasHolders: !!data?.holders,
-        holdersType: typeof data?.holders,
-        keys: data ? Object.keys(data) : []
-      });
-      throw new Error('Invalid local holders file: holders is not an array');
-    }
-    
-    const holders: HolderDTO[] = data.holders.slice(0, SNAPSHOT_LIMIT).map((holder: any, index: number) => {
-      // Suportar formato com ou sem rank
-      const rank = typeof holder?.rank === 'number' ? holder.rank : (index + 1);
-      const address = holder?.address || '';
-      const total_amount = typeof holder?.total_amount === 'number' ? holder.total_amount : (typeof holder?.total_amount === 'string' ? Number(holder.total_amount) : 0);
-      const total_dog = typeof holder?.total_dog === 'number' ? holder.total_dog : (typeof holder?.total_dog === 'string' ? Number(holder.total_dog) : 0);
-      
-      return {
-        rank,
-        address,
-        total_amount: Number.isFinite(total_amount) ? total_amount : 0,
-        total_dog: Number.isFinite(total_dog) ? total_dog : 0,
-      };
-    }).filter((holder: HolderDTO) => Boolean(holder.address) && holder.address.length > 0);
-
-    if (holders.length === 0) {
-      console.error('❌ Local snapshot loaded but contains no valid holders');
-      throw new Error('Local snapshot contains no valid holders');
-    }
-
-    const result = {
-      total: typeof data?.total_holders === 'number' ? data.total_holders : (holders.length || 91963), // fallback para valor conhecido
-      holders,
-      timestamp: data?.timestamp || new Date().toISOString(),
-    };
-    
-    console.log(`✅ Local snapshot loaded: ${holders.length} holders, total: ${result.total}`);
-    return result;
-  } catch (error) {
-    console.error('❌ Failed to load local holders snapshot:', error);
-    throw error;
+    return processSnapshotData(data);
+  } catch (fsError: any) {
+    console.error(`❌ File system also failed:`, fsError?.message || fsError);
+    throw new Error(`Failed to load local snapshot: ${fsError?.message || 'Unknown error'}`);
   }
 }
 
