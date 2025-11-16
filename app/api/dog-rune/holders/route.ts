@@ -185,8 +185,9 @@ async function loadLocalSnapshot(): Promise<{
   // Primeiro tentar via HTTP (funciona no Vercel e produção)
   // Arquivos em public/ são servidos estaticamente pelo Next.js
   try {
-    // No Vercel, VERCEL_URL não inclui protocolo e pode não ser o domínio de produção
-    // Usar NEXT_PUBLIC_APP_URL se disponível, senão construir a partir do VERCEL_URL
+    // No Vercel, precisamos usar a URL absoluta do domínio de produção
+    // VERCEL_URL não inclui protocolo e pode ser preview/deployment
+    // Usar NEXT_PUBLIC_APP_URL se disponível (deve ser configurado com domínio de produção)
     let baseUrl: string;
     if (process.env.NEXT_PUBLIC_APP_URL) {
       baseUrl = process.env.NEXT_PUBLIC_APP_URL;
@@ -194,9 +195,12 @@ async function loadLocalSnapshot(): Promise<{
       // VERCEL_URL pode ser preview ou production, sempre usar https
       baseUrl = `https://${process.env.VERCEL_URL}`;
     } else {
+      // Local development
       baseUrl = 'http://localhost:3000';
     }
     
+    // Remover trailing slash se houver
+    baseUrl = baseUrl.replace(/\/$/, '');
     const url = `${baseUrl}/data/dog_holders_by_address.json`;
     console.log(`📥 Attempting to fetch local snapshot from: ${url}`);
     
