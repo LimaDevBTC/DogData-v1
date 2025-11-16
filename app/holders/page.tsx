@@ -191,7 +191,15 @@ export default function HoldersPage() {
       // Verificar se é uma página vazia (mas válida)
       if (data.holders && Array.isArray(data.holders) && data.holders.length === 0 && data.pagination?.total === 0) {
         console.warn('⚠️ Recebida página vazia, pode indicar problema temporário na API')
-        setError('Dados temporariamente indisponíveis. Tente novamente em alguns instantes.')
+        // Só mostrar erro se não tivermos dados anteriores válidos
+        if (allHolders.length === 0) {
+          setError('Dados temporariamente indisponíveis. Tente novamente em alguns instantes.')
+        } else {
+          // Manter dados anteriores e apenas logar o problema
+          console.warn('⚠️ Mantendo dados anteriores válidos devido a resposta vazia')
+          setError(null)
+          return // Não atualizar com dados vazios
+        }
       } else {
         setError(null)
       }

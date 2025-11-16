@@ -141,8 +141,32 @@ async function loadLocalSnapshot(): Promise<{
   try {
     const fs = await import('fs/promises');
     const path = await import('path');
-    const filePath = path.join(process.cwd(), 'public', 'data', 'dog_holders_by_address.json');
-    const raw = await fs.readFile(filePath, 'utf-8');
+    
+    // Tentar múltiplos caminhos possíveis (no Vercel, arquivos public/ ficam na raiz após build)
+    const possiblePaths = [
+      path.join(process.cwd(), 'public', 'data', 'dog_holders_by_address.json'),
+      path.join(process.cwd(), 'data', 'dog_holders_by_address.json'),
+      path.join(process.cwd(), '.next', 'server', 'app', 'api', 'dog-rune', 'holders', '..', '..', '..', '..', '..', 'public', 'data', 'dog_holders_by_address.json'),
+    ];
+    
+    let raw: string | null = null;
+    let lastError: Error | null = null;
+    
+    for (const filePath of possiblePaths) {
+      try {
+        raw = await fs.readFile(filePath, 'utf-8');
+        console.log(`✅ Local snapshot found at: ${filePath}`);
+        break;
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+        // Continuar tentando outros caminhos
+      }
+    }
+    
+    if (!raw) {
+      throw new Error(`Failed to find local snapshot file. Tried: ${possiblePaths.join(', ')}. Last error: ${lastError?.message}`);
+    }
+    
     const data = JSON.parse(raw);
     
     if (!Array.isArray(data?.holders)) {
