@@ -190,13 +190,13 @@ export default function HoldersPage() {
       
       // Verificar se é uma página vazia (mas válida)
       if (data.holders && Array.isArray(data.holders) && data.holders.length === 0 && data.pagination?.total === 0) {
-        console.warn('⚠️ Recebida página vazia, pode indicar problema temporário na API')
+        console.warn('⚠️ Empty page received, may indicate temporary API issue')
         // Só mostrar erro se não tivermos dados anteriores válidos
         if (allHolders.length === 0) {
-          setError('Dados temporariamente indisponíveis. Tente novamente em alguns instantes.')
+          setError('Data temporarily unavailable. Please try again in a few moments.')
         } else {
           // Manter dados anteriores e apenas logar o problema
-          console.warn('⚠️ Mantendo dados anteriores válidos devido a resposta vazia')
+          console.warn('⚠️ Keeping previous valid data due to empty response')
           setError(null)
           return // Não atualizar com dados vazios
         }
@@ -215,14 +215,14 @@ export default function HoldersPage() {
       })
       setLastUpdate(new Date(data.metadata?.updatedAt || new Date().toISOString()).toISOString())
       
-      console.log('✅ Holders carregados:', {
+      console.log('✅ Holders loaded:', {
         holders: data.holders?.length || 0,
         total: data.pagination?.total || 0,
         pages: data.pagination?.totalPages || 1,
         source: data.metadata?.source || 'unknown'
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro desconhecido')
+      setError(err instanceof Error ? err.message : 'Unknown error')
       console.error('Error fetching holders:', err)
       // Não limpar holders anteriores em caso de erro, mantém os últimos dados válidos
     } finally {
@@ -261,27 +261,27 @@ export default function HoldersPage() {
     eventSourceRef.current = eventSource
 
     eventSource.onopen = () => {
-      console.log('🔗 Conectado ao SSE')
+      console.log('🔗 Connected to SSE')
       setIsSSEConnected(true)
     }
 
     eventSource.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data)
-        console.log('📨 Mensagem SSE recebida:', message)
+        console.log('📨 SSE message received:', message)
         
         if (message.type === 'data_updated') {
-          console.log('🔄 Dados atualizados via SSE, recarregando...')
+          console.log('🔄 Data updated via SSE, reloading...')
           setLastUpdate(new Date().toISOString())
           loadData() // Recarrega os dados automaticamente
         }
       } catch (err) {
-        console.error('❌ Erro ao processar mensagem SSE:', err)
+        console.error('❌ Error processing SSE message:', err)
       }
     }
 
     eventSource.onerror = (event) => {
-      console.error('❌ Erro na conexão SSE:', event)
+      console.error('❌ SSE connection error:', event)
       setIsSSEConnected(false)
     }
 
@@ -439,7 +439,7 @@ export default function HoldersPage() {
           <CardContent>
             <div className="flex items-center justify-between">
               <div className="text-3xl font-bold bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent font-mono">
-                {totalHolders ? totalHolders.toLocaleString('pt-BR') : '0'}
+                {totalHolders ? totalHolders.toLocaleString('en-US') : '0'}
               </div>
               <TrendIndicator value={1.8} type="percentage" size="sm" />
             </div>
