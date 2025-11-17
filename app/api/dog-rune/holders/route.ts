@@ -547,14 +547,32 @@ export async function GET(request: NextRequest) {
           },
         });
       } catch (snapshotError) {
-        console.error('❌ Failed to serve holders snapshot:', snapshotError);
-        return NextResponse.json(
-          {
-            error: 'Failed to load holders snapshot',
-            message: snapshotError instanceof Error ? snapshotError.message : 'Unknown error',
-          },
-          { status: 503 },
-        );
+        console.error('❌ Failed to serve holders snapshot, trying local fallback:', snapshotError);
+        // Tentar fallback local antes de retornar erro
+        try {
+          const localSnapshot = await loadLocalSnapshot();
+          const fallbackSnapshot = {
+            timestamp: localSnapshot.timestamp ?? new Date().toISOString(),
+            total_holders: localSnapshot.total,
+            snapshot_size: localSnapshot.holders.length,
+            holders: localSnapshot.holders.slice(0, SNAPSHOT_LIMIT),
+          };
+          console.warn('⚠️ Serving snapshot from local fallback');
+          return NextResponse.json(fallbackSnapshot, {
+            headers: {
+              'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
+            },
+          });
+        } catch (fallbackError) {
+          console.error('❌ Local fallback also failed:', fallbackError);
+          return NextResponse.json(
+            {
+              error: 'Failed to load holders snapshot',
+              message: snapshotError instanceof Error ? snapshotError.message : 'Unknown error',
+            },
+            { status: 503 },
+          );
+        }
       }
     }
 
@@ -885,14 +903,37 @@ async function generateSnapshot(divisibility: number) {
       if (XVERSE_SNAPSHOT_CHUNK_DELAY_MS > 0) {
         await sleep(XVERSE_SNAPSHOT_CHUNK_DELAY_MS);
       }
-    } catch (err) {
+    } catch (err: any) {
+      // Se for erro de autenticação (401), usar fallback local imediatamente
+      const isAuthError = err?.message?.includes('401') || 
+                         err?.message?.includes('Invalid API key') ||
+                         err?.message?.includes('Unauthorized');
+      
+      if (isAuthError) {
+        console.warn('⚠️ Xverse API authentication failed, using local snapshot fallback');
+        try {
+          const fallback = await loadLocalSnapshot();
+          holders.splice(0, holders.length, ...fallback.holders);
+          total = fallback.total;
+          break;
+        } catch (fallbackError) {
+          console.error('❌ Failed to load local snapshot fallback:', fallbackError);
+          throw new Error('Failed to generate snapshot: API authentication failed and local fallback unavailable');
+        }
+      }
+      
       rkIndex += 1;
       if (rkIndex >= RK_WINDOW.length) {
-        console.warn('⚠️ Falling back to local holders snapshot due to repeated rate limits');
-        const fallback = await loadLocalSnapshot();
-        holders.splice(0, holders.length, ...fallback.holders);
-        total = fallback.total;
-        break;
+        console.warn('⚠️ Falling back to local holders snapshot due to repeated failures');
+        try {
+          const fallback = await loadLocalSnapshot();
+          holders.splice(0, holders.length, ...fallback.holders);
+          total = fallback.total;
+          break;
+        } catch (fallbackError) {
+          console.error('❌ Failed to load local snapshot fallback:', fallbackError);
+          throw new Error('Failed to generate snapshot: all retries exhausted and local fallback unavailable');
+        }
       }
       console.warn(`⚠️ Snapshot chunk failed, retrying with smaller window (${RK_WINDOW[rkIndex]})`, err);
       await sleep(Math.max(XVERSE_HOLDERS_DELAY_MS, 500));
