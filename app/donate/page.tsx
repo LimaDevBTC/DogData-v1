@@ -12,15 +12,40 @@ import {
   Shield,
   Users,
   Star,
-  X
+  X,
+  Trophy,
+  ExternalLink
 } from "lucide-react"
 import { SectionDivider } from "@/components/ui/section-divider"
+import { Badge } from "@/components/ui/badge"
 import Image from "next/image"
 
 const DONATION_ADDRESSES = {
   bitcoin: "bc1qkq43gqyr7gjzj0mxz0v7e0nzs3cm59g9jspc63",
   dog: "bc1pxk7aw9ug55jkkz02z7ayhlkxxq92ya0ctegcwm5j8jumgaavjlkqdylk2p",
   stacks: "SP18DX0ANJTAA3WWWA501QHR27J76KPGV9MQ0J01Y"
+}
+
+// Hall da Fama - Doações recebidas
+const DONATIONS_RECEIVED = [
+  {
+    amount: 5000,
+    amountFormatted: "5,000",
+    date: "2025-11-15",
+    txid: null, // Pode ser adicionado depois se tiver o TXID
+    donor: null // Pode ser adicionado depois se quiser mostrar o endereço
+  },
+  {
+    amount: 800,
+    amountFormatted: "800",
+    date: "2025-11-14",
+    txid: null,
+    donor: null
+  }
+]
+
+const formatNumber = (num: number): string => {
+  return num.toLocaleString('en-US', { maximumFractionDigits: 2 })
 }
 
 const DONATION_DATA = {
@@ -73,23 +98,19 @@ export default function DonatePage() {
 
   return (
     <Layout currentPage="donate" setCurrentPage={() => {}}>
-      <div className="min-h-screen bg-black text-white relative">
+      <div className="pt-2 pb-3 px-3 md:p-6 space-y-3 md:space-y-6">
         {/* Header */}
-      <div className="p-6 text-center space-y-6">
-        <div className="flex items-center justify-center space-x-4">
-          <Heart className="w-12 h-12 text-orange-500 animate-pulse" />
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 bg-clip-text text-transparent font-mono">
+        <div className="text-center space-y-2 md:space-y-4">
+          <h1 className="text-4xl font-bold text-white font-mono flex items-center justify-center">
+            <Heart className="w-10 h-10 mr-4 text-dog-orange" />
             Support DOG Community
           </h1>
-        </div>
         
-        <div className="max-w-4xl mx-auto space-y-6">
-          <p className="text-xl text-gray-300 font-mono leading-relaxed">
-            Help us build the future of Bitcoin runes and ordinal technology. 
-            Your support powers our research, development, and community initiatives.
+          <p className="text-dog-gray-400 font-mono text-lg">
+            Help us build the future of Bitcoin runes and ordinal technology
           </p>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mt-4 md:mt-8">
             <div className="flex items-center justify-center space-x-2 text-green-400">
               <Shield className="w-5 h-5" />
               <span className="font-mono text-sm">Secure & Transparent</span>
@@ -104,12 +125,11 @@ export default function DonatePage() {
             </div>
           </div>
         </div>
-      </div>
 
       <SectionDivider title="Choose Your Donation Method" icon={Heart} />
 
       {/* Donation Methods - Logo Grid */}
-      <div className="p-6 max-w-6xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Bitcoin Logo Card */}
           <Card 
@@ -181,11 +201,73 @@ export default function DonatePage() {
           </Card>
         </div>
 
+        {/* Hall da Fama - Doações Recebidas */}
+        <SectionDivider title="Donations Hall of Fame" icon={Trophy} />
+        
+        <Card variant="glass" className="border-orange-500/20">
+          <CardHeader>
+            <CardTitle className="text-orange-400 text-xl font-mono flex items-center gap-2">
+              <Trophy className="w-5 h-5" />
+              DOG Donations Received
+            </CardTitle>
+            <p className="text-gray-400 font-mono text-sm mt-2">
+              Total: {formatNumber(DONATIONS_RECEIVED.reduce((sum, d) => sum + d.amount, 0))} DOG
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {DONATIONS_RECEIVED.map((donation, index) => (
+                <div
+                  key={index}
+                  className="p-4 border border-orange-500/20 rounded-lg bg-orange-500/5 hover:bg-orange-500/10 transition-colors"
+                >
+                  <div className="flex items-center justify-between flex-wrap gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center justify-center w-12 h-12 rounded-full bg-orange-500/20 border border-orange-500/40">
+                        <Trophy className="w-6 h-6 text-orange-400" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl font-bold text-orange-400 font-mono">
+                            {donation.amountFormatted} DOG
+                          </span>
+                          {index === 0 && (
+                            <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/40 font-mono text-xs">
+                              #1
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-gray-400 font-mono text-sm mt-1">
+                          {new Date(donation.date).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                    {donation.txid && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => window.open(`https://mempool.space/tx/${donation.txid}`, '_blank')}
+                        className="btn-sharp"
+                      >
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        View TX
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Impact Section */}
-        <div className="mt-16 text-center space-y-8">
-          <h2 className="text-3xl font-bold text-white font-mono">
-            Your Impact
-          </h2>
+        <SectionDivider title="Your Impact" icon={Star} />
+        
+        <div className="text-center space-y-8">
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card variant="glass" className="border-orange-500/20">
@@ -316,7 +398,6 @@ export default function DonatePage() {
           </Card>
         </div>
       )}
-      </div>
     </Layout>
   )
 }
