@@ -686,8 +686,17 @@ export async function GET(request: NextRequest) {
           'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=60',
         },
       });
-    } catch (fetchError) {
-      console.error('❌ Failed to fetch fresh holders page, attempting fallback cache:', fetchError);
+    } catch (fetchError: any) {
+      // Se o erro for 401 (API key inválida), pular direto para fallback local
+      const isAuthError = fetchError?.message?.includes('401') || 
+                         fetchError?.message?.includes('Invalid API key') ||
+                         fetchError?.message?.includes('Unauthorized');
+      
+      if (isAuthError) {
+        console.warn('⚠️ Xverse API authentication failed, using local snapshot fallback');
+      } else {
+        console.error('❌ Failed to fetch fresh holders page, attempting fallback cache:', fetchError);
+      }
       
       // Tentar cache do Redis primeiro
       const fallbackCached = await getCachedPage(page, limit);
