@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Search, Download, Copy, ExternalLink, ChevronLeft, ChevronRight, Wifi, WifiOff, MoreHorizontal, Users, Filter, Ticket } from "lucide-react"
 import { SectionDivider } from "@/components/ui/section-divider"
-import { TrendIndicator } from "@/components/ui/trend-indicator"
 import { AddressBadge } from "@/components/address-badge"
 
 interface Holder {
@@ -437,11 +436,8 @@ export default function HoldersPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between">
-              <div className="text-3xl font-bold bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent font-mono">
-                {totalHolders ? totalHolders.toLocaleString('en-US') : '0'}
-              </div>
-              <TrendIndicator value={1.8} type="percentage" size="sm" />
+            <div className="text-3xl font-bold bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent font-mono">
+              {totalHolders ? totalHolders.toLocaleString('en-US') : '0'}
             </div>
           </CardContent>
         </Card>
