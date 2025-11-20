@@ -103,9 +103,32 @@ export default function OverviewPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Buscar stats básicos
-        const statsResponse = await fetch('/api/dog-rune/stats')
-        const statsData = await statsResponse.json()
+        // Buscar stats básicos (com fallback para holders locais)
+        let statsData: any = {}
+        try {
+          const statsResponse = await fetch('/api/dog-rune/stats')
+          statsData = await statsResponse.json()
+        } catch (statsError) {
+          console.warn('⚠️ Failed to fetch stats, trying holders API...', statsError)
+        }
+        
+        // Buscar total de holders do arquivo local (fonte mais confiável)
+        let totalHoldersFromLocal = 0
+        try {
+          const holdersResponse = await fetch('/api/dog-rune/holders?page=1&limit=1')
+          if (holdersResponse.ok) {
+            const holdersData = await holdersResponse.json()
+            totalHoldersFromLocal = holdersData.pagination?.total || 0
+            console.log(`✅ Total holders from local file: ${totalHoldersFromLocal}`)
+          }
+        } catch (holdersError) {
+          console.warn('⚠️ Failed to fetch holders count:', holdersError)
+        }
+        
+        // Usar holders locais se disponível, senão usar stats
+        if (totalHoldersFromLocal > 0) {
+          statsData.totalHolders = totalHoldersFromLocal
+        }
         
         // Buscar dados precisos da rune
         const runeResponse = await fetch('/api/dog-rune/data')
