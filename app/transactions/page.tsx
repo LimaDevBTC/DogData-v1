@@ -147,7 +147,7 @@ const shortAddress = (address?: string) => {
   return `${address.slice(0, 6)}...${address.slice(-4)}`
 }
 
-const computeMetrics24h = (txs: Transaction[]): MetricsLast24h => {
+const computeMetrics24h = (txs: Transaction[], holderRankMap: Map<string, number> = new Map()): MetricsLast24h => {
   const now = Date.now()
   const threshold = now - 24 * 60 * 60 * 1000
   const MAX_DOG_AMOUNT = 100_000_000_000 // 100 bilhões de DOG
@@ -271,28 +271,51 @@ const computeMetrics24h = (txs: Transaction[]): MetricsLast24h => {
   const topOutEntry = sortedOutEntries[0]
   const topInEntry = sortedInEntries[0]
 
+  // Função auxiliar para obter rank do Map
+  const getHolderRank = (address: string): number | null => {
+    return holderRankMap.get(address.toLowerCase()) || null
+  }
+
   const topOutWallets = sortedOutEntries.slice(0, 5).map(([address, amount], index) => ({
     address,
     dogMoved: Number(amount.toFixed(5)),
     rank: index + 1,
-    holderRank: null,
+    holderRank: getHolderRank(address),
   }))
 
   const topInWallets = sortedInEntries.slice(0, 5).map(([address, amount], index) => ({
     address,
     dogMoved: Number(amount.toFixed(5)),
     rank: index + 1,
-    holderRank: null,
+    holderRank: getHolderRank(address),
   }))
 
-  const topOutWallet = topOutEntry ? { address: topOutEntry[0], dogMoved: Number(topOutEntry[1].toFixed(5)), holderRank: null } : null
-  const topInWallet = topInEntry ? { address: topInEntry[0], dogMoved: Number(topInEntry[1].toFixed(5)), holderRank: null } : null
+  const topOutWallet = topOutEntry ? { 
+    address: topOutEntry[0], 
+    dogMoved: Number(topOutEntry[1].toFixed(5)), 
+    holderRank: getHolderRank(topOutEntry[0])
+  } : null
+  const topInWallet = topInEntry ? { 
+    address: topInEntry[0], 
+    dogMoved: Number(topInEntry[1].toFixed(5)), 
+    holderRank: getHolderRank(topInEntry[0])
+  } : null
 
-  let topVolumeEntry: { address: string; dogMoved: number; direction: 'IN' | 'OUT' } | null = null
+  let topVolumeEntry: { address: string; dogMoved: number; direction: 'IN' | 'OUT'; holderRank: number | null } | null = null
   if (topOutEntry && (!topInEntry || topOutEntry[1] >= (topInEntry?.[1] || 0))) {
-    topVolumeEntry = { address: topOutEntry[0], dogMoved: Number(topOutEntry[1].toFixed(5)), direction: 'OUT' }
+    topVolumeEntry = { 
+      address: topOutEntry[0], 
+      dogMoved: Number(topOutEntry[1].toFixed(5)), 
+      direction: 'OUT',
+      holderRank: getHolderRank(topOutEntry[0])
+    }
   } else if (topInEntry) {
-    topVolumeEntry = { address: topInEntry[0], dogMoved: Number(topInEntry[1].toFixed(5)), direction: 'IN' }
+    topVolumeEntry = { 
+      address: topInEntry[0], 
+      dogMoved: Number(topInEntry[1].toFixed(5)), 
+      direction: 'IN',
+      holderRank: getHolderRank(topInEntry[0])
+    }
   }
 
   const feesSats = Math.round(totalFeesSats)
@@ -306,7 +329,11 @@ const computeMetrics24h = (txs: Transaction[]): MetricsLast24h => {
     avgDogPerTx: Number(avgDogPerTx.toFixed(5)),
     activeWalletCount: activeWalletSet.size,
     volumeWalletCount: volumeWalletSet.size,
-    topActiveWallet: topActiveEntry ? { address: topActiveEntry[0], txCount: topActiveEntry[1] } : null,
+    topActiveWallet: topActiveEntry ? { 
+      address: topActiveEntry[0], 
+      txCount: topActiveEntry[1],
+      holderRank: getHolderRank(topActiveEntry[0])
+    } : null,
     topVolumeWallet: topVolumeEntry,
     topOutWallet,
     topInWallet,
@@ -329,9 +356,9 @@ export default function TransactionsPage() {
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
-  const [holderRankOverrides, setHolderRankOverrides] = useState<Record<string, number | null>>({})
-  const [holderRankMap, setHolderRankMap] = useState<Record<string, number>>({})
-  const [localRankCacheLoaded, setLocalRankCacheLoaded] = useState(false)
+  // Map completo de holders: address -> rank (carregado uma vez do JSON local)
+  const [holderRankMap, setHolderRankMap] = useState<Map<string, number>>(new Map())
+  const [holdersLoaded, setHoldersLoaded] = useState(false)
   
   // Estados auxiliares
   const [searchTxid, setSearchTxid] = useState("")
@@ -458,7 +485,7 @@ export default function TransactionsPage() {
         if (metricsSource) {
           const feesSats = metricsSource.feesSats ?? 0
           const feesBtc = metricsSource.feesBtc ?? (feesSats ? Number((feesSats / SATOSHIS_PER_BTC).toFixed(8)) : 0)
-          const fallbackMetrics = computeMetrics24h(sanitizedTransactions)
+          const fallbackMetrics = computeMetrics24h(sanitizedTransactions, holderRankMap)
           const {
             txCount: fallbackTxCount,
             totalDogMoved: fallbackTotalDogMoved,
@@ -543,7 +570,7 @@ export default function TransactionsPage() {
             volumeWalletCount: resolvedVolumeWalletCount || fallbackVolumeWalletCount || 0,
           })
         } else if (sanitizedTransactions.length > 0) {
-          setMetrics24h(computeMetrics24h(sanitizedTransactions))
+          setMetrics24h(computeMetrics24h(sanitizedTransactions, holderRankMap))
         }
 
         const nextLastBlock: number = jsonData.last_block || 0
@@ -681,279 +708,103 @@ export default function TransactionsPage() {
 
   const HolderRankBadge = ({
     rank,
-    loading = false,
-    unavailable = false
+    isNewHolder = false
   }: {
     rank: number | null
-    loading?: boolean
-    unavailable?: boolean
+    isNewHolder?: boolean
   }) => {
-    // Se está carregando há muito tempo (mais de 3s), mostrar como indisponível
-    const [showLoading, setShowLoading] = useState(loading)
-    
-    useEffect(() => {
-      if (loading) {
-        setShowLoading(true)
-        const timeout = setTimeout(() => {
-          setShowLoading(false) // Após 3s, parar de mostrar loading para não travar a UI
-        }, 3000)
-        return () => clearTimeout(timeout)
-      } else {
-        setShowLoading(false)
-      }
-    }, [loading])
+    // Se é new holder (não está no ranking mas recebeu DOG), mostrar "NEW"
+    if (isNewHolder) {
+      return (
+        <Badge className="bg-orange-500/20 text-orange-300 border-orange-500/40 font-mono text-[9px] uppercase tracking-wide min-w-[80px] flex items-center justify-center">
+          <span>NEW HOLDER</span>
+        </Badge>
+      )
+    }
 
-    return (
-      <Badge className="bg-orange-500/20 text-orange-300 border-orange-500/40 font-mono text-[9px] uppercase tracking-wide min-w-[118px] flex items-center justify-center gap-1">
-        {showLoading && loading ? (
-          <>
-            <Loader2 className="w-3 h-3 animate-spin" />
-            <span>Resolving…</span>
-          </>
-        ) : rank && rank > 0 ? (
+    // Se tem rank, mostrar o rank
+    if (rank && rank > 0) {
+      return (
+        <Badge className="bg-orange-500/20 text-orange-300 border-orange-500/40 font-mono text-[9px] uppercase tracking-wide min-w-[118px] flex items-center justify-center">
           <span>Holder Rank #{rank.toLocaleString('en-US')}</span>
-        ) : unavailable ? (
-          <span>{`Rank > ${HOLDER_SNAPSHOT_LIMIT}`}</span>
-        ) : (
-          <span>Rank —</span>
-        )}
-      </Badge>
-    )
-  }
-
-  const fetchHolderRank = useCallback(async (address: string) => {
-    // Verificar se já está carregando ou já tem rank
-    setHolderRankOverrides((prev) => {
-      const existing = prev[address]
-      if (typeof existing === 'number' && existing > 0) {
-        return prev // Já tem rank válido
-      }
-      if (existing === -2) {
-        return prev // Já está carregando
-      }
-      return {
-        ...prev,
-        [address]: -2 // Marcando como carregando
-      }
-    })
-
-    try {
-      // Timeout de 5 segundos para evitar travamentos
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 5000)
-      
-      const response = await fetch(`/api/dog-rune/holders?address=${encodeURIComponent(address)}`, {
-        signal: controller.signal
-      })
-      clearTimeout(timeoutId)
-      
-      if (!response.ok) {
-        throw new Error(`Status ${response.status}`)
-      }
-      const data = await response.json()
-      const rank = data?.holder?.holder_rank
-      setHolderRankOverrides((prev) => ({
-        ...prev,
-        [address]: typeof rank === 'number' && rank > 0 ? rank : -1,
-      }))
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
-        console.warn('⚠️ Timeout ao buscar holder rank para', address)
-      } else {
-        console.warn('⚠️ Failed to fetch holder rank for', address, error)
-      }
-      setHolderRankOverrides((prev) => ({
-        ...prev,
-        [address]: -1, // Marcar como indisponível após erro
-      }))
-    }
-    // Delay reduzido para não travar tanto
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }, [])
-
-  // Debounce para evitar múltiplas execuções
-  const fetchRanksDebounceRef = useRef<NodeJS.Timeout | null>(null)
-  
-  useEffect(() => {
-    // Limpar timeout anterior
-    if (fetchRanksDebounceRef.current) {
-      clearTimeout(fetchRanksDebounceRef.current)
+        </Badge>
+      )
     }
 
-    // Aguardar snapshot local carregar primeiro, depois buscar ranks individuais
-    // Debounce de 1s para dar tempo do snapshot carregar
-    fetchRanksDebounceRef.current = setTimeout(() => {
-      const fetchMissingRanks = async () => {
-        // Se o snapshot ainda não carregou, aguardar um pouco mais
-        if (!localRankCacheLoaded) {
-          await new Promise(resolve => setTimeout(resolve, 1000))
-        }
-        
-        const addresses = [
-          metrics24h?.topActiveWallet?.address,
-          metrics24h?.topInWallet?.address,
-          metrics24h?.topOutWallet?.address,
-          metrics24h?.topVolumeWallet?.address,
-        ].filter((addr): addr is string => Boolean(addr))
-
-        const pending = addresses.filter((addr) => {
-          const rank = resolveHolderRank(addr, undefined, holderRankOverrides, holderRankMap)
-          return rank == null && holderRankOverrides[addr] === undefined
-        })
-
-        if (pending.length === 0) return
-
-        // Processar de forma assíncrona e não-bloqueante
-        // Limitar a 1 chamada por vez para não sobrecarregar a API
-        for (const addr of pending) {
-          await fetchHolderRank(addr).catch(err => {
-            console.warn('⚠️ Erro ao buscar rank para', addr, err)
-          })
-          // Delay entre chamadas para não sobrecarregar
-          await new Promise(resolve => setTimeout(resolve, 400))
-        }
-      }
-
-      fetchMissingRanks()
-    }, localRankCacheLoaded ? 500 : 2000) // Se snapshot já carregou, delay menor
-
-    return () => {
-      if (fetchRanksDebounceRef.current) {
-        clearTimeout(fetchRanksDebounceRef.current)
-      }
-    }
-  }, [metrics24h?.topActiveWallet?.address, metrics24h?.topInWallet?.address, metrics24h?.topOutWallet?.address, metrics24h?.topVolumeWallet?.address, holderRankOverrides, holderRankMap, fetchHolderRank, localRankCacheLoaded])
-
-  // Debounce também para topInflowWallets
-  const fetchInflowRanksDebounceRef = useRef<NodeJS.Timeout | null>(null)
-  
-  useEffect(() => {
-    if (fetchInflowRanksDebounceRef.current) {
-      clearTimeout(fetchInflowRanksDebounceRef.current)
-    }
-
-    fetchInflowRanksDebounceRef.current = setTimeout(() => {
-      const fetchMissingRanks = async () => {
-        // Aguardar snapshot local carregar primeiro
-        if (!localRankCacheLoaded) {
-          await new Promise(resolve => setTimeout(resolve, 1500))
-        }
-        
-        const missing = topInflowWallets.filter((wallet) => 
-          (wallet.holderRank == null) && 
-          (holderRankOverrides[wallet.address] === undefined) && 
-          (holderRankMap[wallet.address] == null)
-        );
-        if (missing.length === 0) return;
-        
-        // Processar uma por vez para não sobrecarregar
-        for (const wallet of missing) {
-          await fetchHolderRank(wallet.address).catch(err => {
-            console.warn('⚠️ Erro ao buscar rank para', wallet.address, err)
-          })
-          // Delay entre chamadas
-          await new Promise(resolve => setTimeout(resolve, 500))
-        }
-      }
-
-      fetchMissingRanks()
-    }, localRankCacheLoaded ? 1200 : 2500) // Delay maior se snapshot não carregou
-
-    return () => {
-      if (fetchInflowRanksDebounceRef.current) {
-        clearTimeout(fetchInflowRanksDebounceRef.current)
-      }
-    }
-  }, [topInflowWallets, holderRankOverrides, holderRankMap, fetchHolderRank, localRankCacheLoaded])
-
-  // Carregar snapshot local PRIMEIRO, antes de fazer chamadas individuais
-  useEffect(() => {
-    if (localRankCacheLoaded) return
-
-    const loadLocalRanks = async () => {
-      try {
-        console.log('📥 Carregando snapshot local de holders...')
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 10000) // Timeout de 10s
-        
-        const response = await fetch('/api/dog-rune/holders?snapshot=1', {
-          signal: controller.signal
-        })
-        clearTimeout(timeoutId)
-        if (!response.ok) {
-          console.warn('⚠️ Failed to load local holders dataset:', response.status)
-          setLocalRankCacheLoaded(true) // Marcar como carregado mesmo em erro para não tentar de novo
-          return
-        }
-        const data = await response.json()
-        if (!Array.isArray(data?.holders)) {
-          setLocalRankCacheLoaded(true)
-          return
-        }
-        const map: Record<string, number> = {}
-        data.holders.forEach((holder: { address: string; rank?: number }, index: number) => {
-          if (holder?.address) {
-            const rank = typeof holder.rank === 'number' ? holder.rank : index + 1
-            map[holder.address] = rank
-          }
-        })
-        setHolderRankMap((prev) => ({ ...map, ...prev }))
-        setHolderRankOverrides((prev) => ({ ...prev, ...map }))
-        setLocalRankCacheLoaded(true)
-        console.log(`✅ Snapshot local carregado: ${Object.keys(map).length} holders`)
-      } catch (error: any) {
-        if (error.name === 'AbortError' || error.name === 'TimeoutError') {
-          console.warn('⚠️ Timeout ao carregar snapshot local')
-        } else {
-          console.warn('⚠️ Failed to load local holder ranks:', error)
-        }
-        setLocalRankCacheLoaded(true) // Marcar como carregado para não tentar de novo
-      }
-    }
-
-    // Carregar snapshot imediatamente quando a página carrega
-    loadLocalRanks()
-  }, [localRankCacheLoaded])
-
-  const resolveHolderRank = (
-    address?: string | null,
-    provided?: number | null,
-    overrides: Record<string, number | null> = {},
-    snapshots: Record<string, number> = {}
-  ) => {
-    if (!address) return null
-    if (typeof provided === 'number' && provided > 0) return provided
-    const override = overrides[address]
-    if (typeof override === 'number') return override > 0 ? override : null
-    const snap = snapshots[address]
-    if (typeof snap === 'number') return snap
+    // Se não tem rank e não é new holder, não mostrar badge
     return null
   }
 
-  const getRankDisplayState = useCallback(
-    (address?: string | null, provided?: number | null) => {
-      const rank = resolveHolderRank(address, provided, holderRankOverrides, holderRankMap)
-      if (!address) {
-        return { rank, loading: false, unavailable: false }
+  // Carregar lista completa de holders do JSON local (uma vez)
+  useEffect(() => {
+    if (holdersLoaded) return
+
+    const loadAllHolders = async () => {
+      try {
+        console.log('📥 Carregando lista completa de holders do JSON local...')
+        const response = await fetch('/api/dog-rune/holders?page=1&limit=100000', {
+          cache: 'default'
+        })
+        
+        if (!response.ok) {
+          console.warn('⚠️ Failed to load holders:', response.status)
+          setHoldersLoaded(true)
+          return
+        }
+        
+        const data = await response.json()
+        if (!Array.isArray(data?.holders)) {
+          console.warn('⚠️ Invalid holders data format')
+          setHoldersLoaded(true)
+          return
+        }
+
+        // Criar Map para lookup rápido: address (lowercase) -> rank
+        const rankMap = new Map<string, number>()
+        data.holders.forEach((holder: { address: string; rank?: number }) => {
+          if (holder?.address && holder?.rank) {
+            rankMap.set(holder.address.toLowerCase(), holder.rank)
+          }
+        })
+
+        setHolderRankMap(rankMap)
+        setHoldersLoaded(true)
+        console.log(`✅ Lista completa de holders carregada: ${rankMap.size} holders com ranking`)
+      } catch (error: any) {
+        console.warn('⚠️ Failed to load holders:', error)
+        setHoldersLoaded(true)
       }
-      const override = holderRankOverrides[address]
-      const loading = override === -2
-      const unavailable = override === -1
-      
-      // Se está carregando há mais de 3 segundos, considerar indisponível para não travar
-      // (isso será tratado pelo timeout no fetchHolderRank, mas adicionamos segurança extra)
-      return { rank, loading, unavailable }
-    },
-    [holderRankOverrides, holderRankMap]
-  )
+    }
+
+    loadAllHolders()
+  }, [holdersLoaded])
+
+  // Função para obter rank e detectar new holder
+  const getHolderInfo = useCallback((address: string | null | undefined, hasReceivedDog: boolean = false): { rank: number | null; isNewHolder: boolean } => {
+    if (!address) return { rank: null, isNewHolder: false }
+    
+    const rank = holderRankMap.get(address.toLowerCase()) || null
+    
+    // Se não tem rank mas recebeu DOG, é new holder
+    const isNewHolder = rank === null && hasReceivedDog
+    
+    return { rank, isNewHolder }
+  }, [holderRankMap])
 
   const renderRankBadge = useCallback(
-    (address?: string | null, provided?: number | null) => {
+    (address?: string | null, provided?: number | null, hasReceivedDog: boolean = false) => {
       if (!address) return null
-      const { rank, loading, unavailable } = getRankDisplayState(address, provided)
-      return <HolderRankBadge rank={rank} loading={loading} unavailable={unavailable} />
+      
+      // Se já tem rank fornecido (do backend), usar ele
+      if (typeof provided === 'number' && provided > 0) {
+        return <HolderRankBadge rank={provided} isNewHolder={false} />
+      }
+      
+      // Caso contrário, buscar do Map
+      const { rank, isNewHolder } = getHolderInfo(address, hasReceivedDog)
+      return <HolderRankBadge rank={rank} isNewHolder={isNewHolder} />
     },
-    [getRankDisplayState]
+    [getHolderInfo]
   )
  
   const copyTxid = (txid: string) => {
@@ -1445,7 +1296,8 @@ export default function TransactionsPage() {
                       </code>
                       {renderRankBadge(
                         metrics24h.topInWallet.address,
-                        metrics24h.topInWallet.holderRank
+                        metrics24h.topInWallet.holderRank,
+                        true // hasReceivedDog = true (inflow)
                       )}
                     </div>
                     <Button
@@ -1633,7 +1485,7 @@ export default function TransactionsPage() {
                         </td>
                         <td className="py-3 px-3">
                           <div className="flex items-center gap-2">
-                            {renderRankBadge(wallet.address, wallet.holderRank ?? null)}
+                            {renderRankBadge(wallet.address, wallet.holderRank ?? null, true)}
                             <code className="text-emerald-200 text-xs">
                               {shortAddress(wallet.address)}
                             </code>
@@ -1795,6 +1647,7 @@ export default function TransactionsPage() {
                                 size="sm" 
                                 showName={false} 
                               />
+                              {mainReceiver && renderRankBadge(mainReceiver.address, null, true)}
                               {mainReceiver && (
                                 <Button
                                   size="sm"

@@ -1,31 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { redisClient } from '@/lib/upstash';
+import fs from 'fs/promises';
+import path from 'path';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 const DOG_RUNE_ID = '840000:3';
-const CACHE_PREFIX = 'dog:holders';
-const HOLDER_RANK_HASH = `${CACHE_PREFIX}:ranks`;
-const HOLDER_SNAPSHOT_KEY = `${CACHE_PREFIX}:snapshot`;
+const DOG_DIVISIBILITY = 5;
 const DEFAULT_LIMIT = 25;
 const MAX_LIMIT = 25;
-const SNAPSHOT_LIMIT = 500;
-const CHUNK_LIMIT = 100;
-const CACHE_TTL_SECONDS = Number(process.env.HOLDERS_CACHE_TTL_SECONDS || 60 * 60); // padrão 1 hora
-const XVERSE_HOLDERS_LIMIT_PER_REQUEST = Number(process.env.XVERSE_HOLDERS_LIMIT || 100);
-const XVERSE_HOLDERS_DELAY_MS = Number(process.env.XVERSE_HOLDERS_DELAY_MS || 1200);
-const XVERSE_HOLDERS_BACKOFF_BASE_MS = Number(process.env.XVERSE_HOLDERS_BACKOFF_BASE_MS || 1200);
-const XVERSE_HOLDERS_RETRY_MAX = Number(process.env.XVERSE_HOLDERS_RETRY_MAX || 6);
-const XVERSE_SNAPSHOT_CHUNK_DELAY_MS = Number(process.env.XVERSE_SNAPSHOT_CHUNK_DELAY_MS || 1500);
-const XVERSE_API_BASE = process.env.XVERSE_API_BASE || 'https://api.secretkeylabs.io';
-const XVERSE_API_KEY = process.env.XVERSE_API_KEY || '';
 
-interface XverseHolderResponse {
-  offset: number;
-  limit: number;
-  total: number;
-  items: Array<{ address: string; amount: string }>;
+interface HolderDTO {
+  rank: number;
+  address: string;
+  total_amount: number;
+  total_dog: number;
+  utxo_count?: number;
 }
 
 interface CachedHoldersPage {
@@ -39,36 +30,34 @@ interface CachedHoldersPage {
   metadata: {
     runeId: string;
     divisibility: number;
-    source: 'xverse' | 'fallback';
+    source: 'local';
     updatedAt: string;
   };
-}
-
-interface HolderDTO {
-  rank: number;
-  address: string;
-  total_amount: number;
-  total_dog: number;
 }
 
 interface HolderSearchResponse {
   holder: HolderDTO & {
-    available_amount: number;
-    available_dog: number;
-    projected_amount: number;
-    projected_dog: number;
-    pending_incoming: number;
-    pending_outgoing: number;
-    pending_net: number;
-    holder_rank?: number | null;
+    holder_rank: number | null;
   };
   metadata: {
     runeId: string;
     divisibility: number;
-    indexerHeight: number | null;
-    source: 'xverse' | 'fallback';
+    source: 'local';
     updatedAt: string;
   };
+}
+
+interface LocalHoldersData {
+  timestamp: string;
+  total_holders: number;
+  total_utxos: number;
+  holders: Array<{
+    rank: number;
+    address: string;
+    total_amount: number;
+    total_dog: number;
+    utxo_count?: number;
+  }>;
 }
 
 function clampPage(page: number) {
@@ -80,129 +69,40 @@ function clampLimit(limit: number) {
   return Math.min(Math.floor(limit), MAX_LIMIT);
 }
 
-function runesToDog(amount: number, divisibility: number) {
-  return amount / 10 ** divisibility;
-}
+async function loadLocalHolders(): Promise<LocalHoldersData | null> {
+  // Tentar múltiplos caminhos possíveis
+  const possiblePaths = [
+    path.join(process.cwd(), 'public', 'data', 'dog_holders_by_address.json'),
+    path.join(process.cwd(), 'data', 'dog_holders_by_address.json'),
+    path.join(process.cwd(), '..', 'DogData-v1', 'public', 'data', 'dog_holders_by_address.json'),
+    path.join(process.cwd(), '..', 'DogData-v1', 'data', 'dog_holders_by_address.json'),
+  ];
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-async function fetchHoldersPage(offset: number, limit: number) {
-  if (!XVERSE_API_KEY) {
-    throw new Error('Missing XVERSE_API_KEY environment variable');
-  }
-
-  const cappedLimit = Math.min(limit, XVERSE_HOLDERS_LIMIT_PER_REQUEST);
-  let attempt = 0;
-
-  while (attempt < XVERSE_HOLDERS_RETRY_MAX) {
-    const url = new URL(`/v1/runes/${DOG_RUNE_ID}/holders`, XVERSE_API_BASE);
-    url.searchParams.set('offset', String(offset));
-    url.searchParams.set('limit', String(cappedLimit));
-
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'x-api-key': XVERSE_API_KEY,
-        accept: 'application/json',
-      },
-      next: { revalidate: 0 },
-    });
-
-    if (response.ok) {
-      const payload = (await response.json()) as XverseHolderResponse;
-      if (!payload || !Array.isArray(payload.items)) {
-        throw new Error('Invalid holders payload from Xverse');
-      }
-      return payload;
+  // Primeiro tentar via filesystem (local development)
+  for (const filePath of possiblePaths) {
+    try {
+      const raw = await fs.readFile(filePath, 'utf-8');
+      const data = JSON.parse(raw) as LocalHoldersData;
+      console.log(`✅ Local holders loaded from: ${filePath}`);
+      return data;
+    } catch (err) {
+      // Continuar tentando outros caminhos
     }
-
-    const errorBody = await response.text().catch(() => '');
-    const message = `Xverse holders request failed (${response.status}): ${errorBody}`;
-
-    if (response.status === 429 || response.status === 503) {
-      attempt += 1;
-      const backoffMs = XVERSE_HOLDERS_BACKOFF_BASE_MS * Math.min(2 ** (attempt - 1), 8);
-      console.warn(`⚠️ [HOLDERS] Rate limit (${response.status}). Tentativa ${attempt}/${XVERSE_HOLDERS_RETRY_MAX}. Aguardando ${backoffMs}ms.`);
-      await sleep(backoffMs);
-      continue;
-    }
-
-    throw new Error(message);
   }
 
-  throw new Error('Exceeded maximum retries while fetching holders from Xverse');
-}
-
-function processSnapshotData(data: any): {
-  total: number;
-  holders: HolderDTO[];
-  timestamp?: string;
-} {
-  if (!Array.isArray(data?.holders)) {
-    console.error('❌ Invalid local holders file format: holders is not an array', {
-      hasHolders: !!data?.holders,
-      holdersType: typeof data?.holders,
-      keys: data ? Object.keys(data) : []
-    });
-    throw new Error('Invalid local holders file: holders is not an array');
-  }
-  
-  const holders: HolderDTO[] = data.holders.slice(0, SNAPSHOT_LIMIT).map((holder: any, index: number) => {
-    // Suportar formato com ou sem rank
-    const rank = typeof holder?.rank === 'number' ? holder.rank : (index + 1);
-    const address = holder?.address || '';
-    const total_amount = typeof holder?.total_amount === 'number' ? holder.total_amount : (typeof holder?.total_amount === 'string' ? Number(holder.total_amount) : 0);
-    const total_dog = typeof holder?.total_dog === 'number' ? holder.total_dog : (typeof holder?.total_dog === 'string' ? Number(holder.total_dog) : 0);
-    
-    return {
-      rank,
-      address,
-      total_amount: Number.isFinite(total_amount) ? total_amount : 0,
-      total_dog: Number.isFinite(total_dog) ? total_dog : 0,
-    };
-  }).filter((holder: HolderDTO) => Boolean(holder.address) && holder.address.length > 0);
-
-  if (holders.length === 0) {
-    console.error('❌ Local snapshot loaded but contains no valid holders');
-    throw new Error('Local snapshot contains no valid holders');
-  }
-
-  const result = {
-    total: typeof data?.total_holders === 'number' ? data.total_holders : (holders.length || 91963), // fallback para valor conhecido
-    holders,
-    timestamp: data?.timestamp || new Date().toISOString(),
-  };
-  
-  console.log(`✅ Local snapshot processed: ${holders.length} holders, total: ${result.total}`);
-  return result;
-}
-
-async function loadLocalSnapshot(): Promise<{
-  total: number;
-  holders: HolderDTO[];
-  timestamp?: string;
-}> {
-  // Primeiro tentar via HTTP (funciona no Vercel e produção)
-  // Arquivos em public/ são servidos estaticamente pelo Next.js
+  // Se filesystem falhar, tentar via HTTP (Vercel/produção)
   try {
-    // No Vercel, precisamos usar a URL absoluta do domínio de produção
-    // VERCEL_URL não inclui protocolo e pode ser preview/deployment
-    // Usar NEXT_PUBLIC_APP_URL se disponível (deve ser configurado com domínio de produção)
     let baseUrl: string;
     if (process.env.NEXT_PUBLIC_APP_URL) {
       baseUrl = process.env.NEXT_PUBLIC_APP_URL;
     } else if (process.env.VERCEL_URL) {
-      // VERCEL_URL pode ser preview ou production, sempre usar https
       baseUrl = `https://${process.env.VERCEL_URL}`;
     } else {
-      // Local development
       baseUrl = 'http://localhost:3000';
     }
     
-    // Remover trailing slash se houver
     baseUrl = baseUrl.replace(/\/$/, '');
     const url = `${baseUrl}/data/dog_holders_by_address.json`;
-    console.log(`📥 Attempting to fetch local snapshot from: ${url}`);
     
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
@@ -222,304 +122,58 @@ async function loadLocalSnapshot(): Promise<{
       if (response.ok) {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
-          const data = await response.json();
-          console.log(`✅ Local snapshot loaded via HTTP from: ${url}`);
-          return processSnapshotData(data);
-        } else {
-          console.warn(`⚠️ HTTP response is not JSON (${contentType}), trying file system...`);
+          const data = await response.json() as LocalHoldersData;
+          console.log(`✅ Local holders loaded via HTTP from: ${url}`);
+          return data;
         }
-      } else {
-        console.warn(`⚠️ HTTP fetch failed (${response.status}), trying file system...`);
       }
     } catch (fetchError: any) {
       clearTimeout(timeoutId);
       if (fetchError?.name !== 'AbortError') {
         throw fetchError;
       }
-      console.warn(`⚠️ HTTP fetch timeout, trying file system...`);
     }
-  } catch (httpError: any) {
-    console.warn(`⚠️ HTTP fetch failed, trying file system:`, httpError?.message || httpError);
+  } catch (httpError) {
+    console.warn('⚠️ HTTP fetch failed:', httpError);
   }
-  
-  // Fallback: tentar via filesystem (funciona localmente)
-  try {
-    const fs = await import('fs/promises');
-    const path = await import('path');
-    
-    const possiblePaths = [
-      path.join(process.cwd(), 'public', 'data', 'dog_holders_by_address.json'),
-      path.join(process.cwd(), 'data', 'dog_holders_by_address.json'),
-    ];
-    
-    let raw: string | null = null;
-    let lastError: Error | null = null;
-    
-    for (const filePath of possiblePaths) {
-      try {
-        raw = await fs.readFile(filePath, 'utf-8');
-        console.log(`✅ Local snapshot found at: ${filePath}`);
-        break;
-      } catch (err) {
-        lastError = err instanceof Error ? err : new Error(String(err));
-      }
-    }
-    
-    if (!raw) {
-      throw new Error(`Failed to load local snapshot via HTTP and file system. Last error: ${lastError?.message}`);
-    }
-    
-    const data = JSON.parse(raw);
-    return processSnapshotData(data);
-  } catch (fsError: any) {
-    console.error(`❌ File system also failed:`, fsError?.message || fsError);
-    throw new Error(`Failed to load local snapshot: ${fsError?.message || 'Unknown error'}`);
-  }
+
+  console.error('❌ Failed to load local holders from all possible paths');
+  return null;
 }
 
-async function fetchRuneMetadata() {
-  if (!XVERSE_API_KEY) {
-    throw new Error('Missing XVERSE_API_KEY environment variable');
+function processHoldersData(data: LocalHoldersData): {
+  total: number;
+  holders: HolderDTO[];
+  timestamp: string;
+} {
+  if (!Array.isArray(data?.holders)) {
+    throw new Error('Invalid local holders file: holders is not an array');
   }
 
-  const url = new URL(`/v1/runes/${DOG_RUNE_ID}`, XVERSE_API_BASE);
-  const response = await fetch(url.toString(), {
-    method: 'GET',
-    headers: {
-      'x-api-key': XVERSE_API_KEY,
-      accept: 'application/json',
-    },
-    next: { revalidate: 0 },
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.text().catch(() => '');
-    throw new Error(`Xverse rune metadata request failed (${response.status}): ${errorBody}`);
-  }
-
-  return response.json() as Promise<{
-    divisibility?: string | number;
-    holders?: string | number;
-    supply?: string;
-    premine?: string;
-  }>;
-}
-
-async function getDivisibility(): Promise<number> {
-  const metaKey = `${CACHE_PREFIX}:meta`;
-
-  try {
-    const cachedMetaRaw = await redisClient.get<string>(metaKey);
-    if (cachedMetaRaw) {
-      const cachedMeta = JSON.parse(cachedMetaRaw) as { divisibility?: number };
-      if (typeof cachedMeta.divisibility === 'number') {
-        return cachedMeta.divisibility;
-      }
-    }
-  } catch (error) {
-    console.warn('⚠️ Failed to read divisibility from cache:', error);
-  }
-
-  try {
-    const runeMeta = await fetchRuneMetadata();
-    const divisibility = typeof runeMeta.divisibility === 'string'
-      ? Number(runeMeta.divisibility)
-      : Number(runeMeta.divisibility ?? 0);
-
-    const metaPayload = {
-      divisibility,
-      updatedAt: new Date().toISOString(),
+  const holders: HolderDTO[] = data.holders.map((holder: any) => {
+    const rank = typeof holder?.rank === 'number' ? holder.rank : 0;
+    const address = holder?.address || '';
+    const total_amount = typeof holder?.total_amount === 'number' 
+      ? holder.total_amount 
+      : (typeof holder?.total_amount === 'string' ? Number(holder.total_amount) : 0);
+    const total_dog = typeof holder?.total_dog === 'number' 
+      ? holder.total_dog 
+      : (typeof holder?.total_dog === 'string' ? Number(holder.total_dog) : 0);
+    const utxo_count = typeof holder?.utxo_count === 'number' ? holder.utxo_count : undefined;
+    
+    return {
+      rank,
+      address,
+      total_amount: Number.isFinite(total_amount) ? total_amount : 0,
+      total_dog: Number.isFinite(total_dog) ? total_dog : 0,
+      ...(utxo_count !== undefined ? { utxo_count } : {}),
     };
-
-    try {
-      await redisClient.set(metaKey, JSON.stringify(metaPayload), { ex: CACHE_TTL_SECONDS });
-    } catch (cacheError) {
-      console.warn('⚠️ Failed to cache rune metadata:', cacheError);
-    }
-
-    return divisibility;
-  } catch (fetchError) {
-    console.warn('⚠️ Failed to fetch rune metadata, defaulting divisibility to 5:', fetchError);
-    return 5;
-  }
-}
-
-async function getCachedPage(page: number, limit: number): Promise<CachedHoldersPage | null> {
-  const key = `${CACHE_PREFIX}:page:${page}:limit:${limit}`;
-  try {
-    const cached = await redisClient.get<string>(key);
-    if (!cached) return null;
-    return JSON.parse(cached) as CachedHoldersPage;
-  } catch (error) {
-    console.warn('⚠️ Failed to load cached holders page:', error);
-    return null;
-  }
-}
-
-async function setCachedPage(page: number, limit: number, payload: CachedHoldersPage) {
-  const key = `${CACHE_PREFIX}:page:${page}:limit:${limit}`;
-  try {
-    await redisClient.set(key, JSON.stringify(payload), { ex: CACHE_TTL_SECONDS });
-  } catch (error) {
-    console.warn('⚠️ Failed to cache holders page:', error);
-  }
-}
-
-async function fetchAndCachePage(page: number, limit: number, divisibility: number): Promise<CachedHoldersPage> {
-  const offset = (page - 1) * limit;
-  const holders = await fetchHoldersPage(offset, limit);
-
-  const dto: CachedHoldersPage = {
-    holders: holders.items.map((item, index) => {
-      const totalAmount = Number(item.amount);
-      return {
-        rank: offset + index + 1,
-        address: item.address,
-        total_amount: totalAmount,
-        total_dog: runesToDog(totalAmount, divisibility),
-      };
-    }),
-    pagination: {
-      total: holders.total,
-      page,
-      limit,
-      totalPages: Math.max(1, Math.ceil(holders.total / limit)),
-    },
-    metadata: {
-      runeId: DOG_RUNE_ID,
-      divisibility,
-      source: 'xverse',
-      updatedAt: new Date().toISOString(),
-    },
-  };
-
-  await setCachedPage(page, limit, dto);
-
-  const ranksPayload: Record<string, number> = {};
-  for (const holder of dto.holders) {
-    ranksPayload[holder.address] = holder.rank;
-  }
-  try {
-    if (Object.keys(ranksPayload).length > 0) {
-      await redisClient.hset(HOLDER_RANK_HASH, ranksPayload);
-    }
-  } catch (rankCacheError) {
-    console.warn('⚠️ Failed to cache holder ranks:', rankCacheError);
-  }
-
-  if (page === 1) {
-    ensureSnapshot(divisibility).catch((err) => {
-      console.warn('⚠️ Failed to refresh holders snapshot:', err);
-    });
-  }
-
-  const metaKey = `${CACHE_PREFIX}:meta`;
-  try {
-    const currentMetaRaw = await redisClient.get<string>(metaKey);
-    const newMeta = {
-      runeId: DOG_RUNE_ID,
-      divisibility,
-      total: holders.total,
-      updatedAt: dto.metadata.updatedAt,
-    };
-
-    if (!currentMetaRaw) {
-      await redisClient.set(metaKey, JSON.stringify(newMeta), { ex: CACHE_TTL_SECONDS });
-    } else {
-      const currentMeta = JSON.parse(currentMetaRaw);
-      await redisClient.set(metaKey, JSON.stringify({ ...currentMeta, ...newMeta }), { ex: CACHE_TTL_SECONDS });
-    }
-  } catch (error) {
-    console.warn('⚠️ Failed to update holders metadata cache:', error);
-  }
-
-  return dto;
-}
-
-async function fetchHolderByAddress(address: string): Promise<HolderSearchResponse | null> {
-  if (!XVERSE_API_KEY) {
-    throw new Error('Missing XVERSE_API_KEY environment variable');
-  }
-
-  const url = new URL(`/v2/runes/address/${address}/balance`, XVERSE_API_BASE);
-  url.searchParams.set('runeId', DOG_RUNE_ID);
-
-  const response = await fetch(url.toString(), {
-    method: 'GET',
-    headers: {
-      'x-api-key': XVERSE_API_KEY,
-      accept: 'application/json',
-    },
-    cache: 'no-store',
-  });
-
-  if (response.status === 404) {
-    return null;
-  }
-
-  if (!response.ok) {
-    const errorBody = await response.text().catch(() => '');
-    throw new Error(`Xverse rune balance request failed (${response.status}): ${errorBody}`);
-  }
-
-  const payload = await response.json() as {
-    balances: Array<{
-      runeId: string;
-      confirmedBalance: string;
-      availableBalance: string;
-      projectedBalance: string;
-      pendingBalance: {
-        incomingAmount: string;
-        outgoingAmount: string;
-        netAmount: string;
-      };
-      divisibility?: number;
-    }>;
-    indexerHeight?: number;
-  };
-
-  if (!Array.isArray(payload.balances) || payload.balances.length === 0) {
-    return null;
-  }
-
-  const entry = payload.balances.find((b) => b.runeId === DOG_RUNE_ID) ?? payload.balances[0];
-  const divisibility = typeof entry.divisibility === 'number' ? entry.divisibility : await getDivisibility();
-
-  const holderRankRaw = await redisClient.hget<number | string>(`${CACHE_PREFIX}:ranks`, address).catch((err) => {
-    console.warn('⚠️ Failed to fetch holder rank from cache:', err);
-    return null;
-  });
-  const holderRank = holderRankRaw !== null && holderRankRaw !== undefined ? Number(holderRankRaw) : null;
-
-  const confirmedAmount = Number(entry.confirmedBalance);
-  const availableAmount = Number(entry.availableBalance);
-  const projectedAmount = Number(entry.projectedBalance);
-  const pendingIncoming = Number(entry.pendingBalance?.incomingAmount ?? 0);
-  const pendingOutgoing = Number(entry.pendingBalance?.outgoingAmount ?? 0);
-  const pendingNet = Number(entry.pendingBalance?.netAmount ?? 0);
+  }).filter((holder: HolderDTO) => Boolean(holder.address) && holder.address.length > 0);
 
   return {
-    holder: {
-      rank: -1,
-      address,
-      total_amount: confirmedAmount,
-      total_dog: runesToDog(confirmedAmount, divisibility),
-      available_amount: availableAmount,
-      available_dog: runesToDog(availableAmount, divisibility),
-      projected_amount: projectedAmount,
-      projected_dog: runesToDog(projectedAmount, divisibility),
-      pending_incoming: pendingIncoming,
-      pending_outgoing: pendingOutgoing,
-      pending_net: pendingNet,
-      holder_rank: holderRank,
-    },
-    metadata: {
-      runeId: DOG_RUNE_ID,
-      divisibility,
-      indexerHeight: payload.indexerHeight ?? null,
-      source: 'xverse',
-      updatedAt: new Date().toISOString(),
-    },
+    total: data.total_holders || holders.length,
+    holders,
+    timestamp: data.timestamp || new Date().toISOString(),
   };
 }
 
@@ -528,301 +182,118 @@ export async function GET(request: NextRequest) {
     const url = request.nextUrl;
     const searchParams = url.searchParams;
 
-    const snapshotQuery = searchParams.get('snapshot');
-    if (snapshotQuery) {
-      let divisibility = 5;
-      try {
-        divisibility = await getDivisibility();
-      } catch (divError) {
-        console.warn('⚠️ Failed to fetch divisibility for snapshot, defaulting to 5:', divError);
-      }
-
-      try {
-        const snapshot = await (snapshotQuery === 'refresh'
-          ? generateSnapshot(divisibility)
-          : ensureSnapshot(divisibility));
-        return NextResponse.json(snapshot, {
-          headers: {
-            'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
-          },
-        });
-      } catch (snapshotError) {
-        console.error('❌ Failed to serve holders snapshot, trying local fallback:', snapshotError);
-        // Tentar fallback local antes de retornar erro
-        try {
-          const localSnapshot = await loadLocalSnapshot();
-          const fallbackSnapshot = {
-            timestamp: localSnapshot.timestamp ?? new Date().toISOString(),
-            total_holders: localSnapshot.total,
-            snapshot_size: localSnapshot.holders.length,
-            holders: localSnapshot.holders.slice(0, SNAPSHOT_LIMIT),
-          };
-          console.warn('⚠️ Serving snapshot from local fallback');
-          return NextResponse.json(fallbackSnapshot, {
-            headers: {
-              'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
-            },
-          });
-        } catch (fallbackError) {
-          console.error('❌ Local fallback also failed:', fallbackError);
-          return NextResponse.json(
-            {
-              error: 'Failed to load holders snapshot',
-              message: snapshotError instanceof Error ? snapshotError.message : 'Unknown error',
-            },
-            { status: 503 },
-          );
-        }
-      }
-    }
-
+    // Busca por endereço específico
     const addressQuery = searchParams.get('address');
     if (addressQuery) {
-      const result = await fetchHolderByAddress(addressQuery.trim());
-      if (!result) {
+      const data = await loadLocalHolders();
+      if (!data) {
         return NextResponse.json(
-          { error: 'Holder not found', address: addressQuery },
-          { status: 404 },
+          { error: 'Holders data not available' },
+          { status: 503 }
         );
       }
-      return NextResponse.json(result, {
-        headers: {
-          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30',
-        },
-      });
-    }
 
-    const pageParam = Number(searchParams.get('page'));
-    const limitParam = Number(searchParams.get('limit'));
+      const { holders } = processHoldersData(data);
+      const holder = holders.find(h => 
+        h.address.toLowerCase() === addressQuery.trim().toLowerCase()
+      );
 
-    const page = clampPage(pageParam);
-    const limit = clampLimit(limitParam);
-
-    // Sempre tentar cache primeiro
-    let cachedPage = await getCachedPage(page, limit);
-    
-    // Se não houver cache e for página 1, tentar usar snapshot local primeiro (mais confiável)
-    if (!cachedPage && page === 1) {
-      try {
-        // Primeiro tentar snapshot local (mais rápido e confiável)
-        const localSnapshot = await loadLocalSnapshot();
-        if (localSnapshot && localSnapshot.holders && localSnapshot.holders.length > 0) {
-          const start = (page - 1) * limit;
-          const slice = localSnapshot.holders.slice(start, start + limit);
-          if (slice.length > 0) {
-            let divisibility = 5;
-            try {
-              divisibility = await getDivisibility();
-            } catch {
-              // usar 5 como padrão
-            }
-            
-            cachedPage = {
-              holders: slice,
-              pagination: {
-                total: localSnapshot.total || localSnapshot.holders.length,
-                page,
-                limit,
-                totalPages: Math.max(1, Math.ceil((localSnapshot.total || localSnapshot.holders.length) / limit)),
-              },
-              metadata: {
-                runeId: DOG_RUNE_ID,
-                divisibility,
-                source: 'fallback',
-                updatedAt: localSnapshot.timestamp ?? new Date().toISOString(),
-              },
-            };
-            console.warn('⚠️ Serving page 1 from local snapshot (fast fallback)');
-          }
-        }
-      } catch (localError) {
-        console.warn('⚠️ Failed to load local snapshot, trying Redis snapshot:', localError);
-        // Se snapshot local falhar, tentar snapshot do Redis
-        try {
-          const snapshot = await ensureSnapshot(5);
-          if (snapshot && snapshot.holders && snapshot.holders.length > 0) {
-            const start = (page - 1) * limit;
-            const slice = snapshot.holders.slice(start, start + limit);
-            if (slice.length > 0) {
-              let divisibility = 5;
-              try {
-                divisibility = await getDivisibility();
-              } catch {
-                // usar 5 como padrão
-              }
-              
-              cachedPage = {
-                holders: slice,
-                pagination: {
-                  total: snapshot.total_holders || slice.length,
-                  page,
-                  limit,
-                  totalPages: Math.max(1, Math.ceil((snapshot.total_holders || slice.length) / limit)),
-                },
-                metadata: {
-                  runeId: DOG_RUNE_ID,
-                  divisibility,
-                  source: 'fallback',
-                  updatedAt: snapshot.timestamp ?? new Date().toISOString(),
-                },
-              };
-            }
-          }
-        } catch (snapshotError) {
-          console.warn('⚠️ Failed to load snapshot as initial fallback:', snapshotError);
-        }
-      }
-    }
-    
-    if (cachedPage) {
-      return NextResponse.json(cachedPage, {
-        headers: {
-          'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=60',
-        },
-      });
-    }
-
-    let divisibility = 5;
-    try {
-      divisibility = await getDivisibility();
-    } catch (divError) {
-      console.warn('⚠️ Falling back to default divisibility 5:', divError);
-      divisibility = 5;
-    }
-
-    try {
-      const freshPage = await fetchAndCachePage(page, limit, divisibility);
-
-      if (page === 1) {
-        ensureSnapshot(divisibility).catch((err) => {
-          console.warn('⚠️ Failed to refresh holders snapshot after page fetch:', err);
-        });
+      if (!holder) {
+        return NextResponse.json(
+          { error: 'Holder not found', address: addressQuery },
+          { status: 404 }
+        );
       }
 
-      return NextResponse.json(freshPage, {
-        headers: {
-          'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=60',
-        },
-      });
-    } catch (fetchError: any) {
-      // Se o erro for 401 (API key inválida), pular direto para fallback local
-      const isAuthError = fetchError?.message?.includes('401') || 
-                         fetchError?.message?.includes('Invalid API key') ||
-                         fetchError?.message?.includes('Unauthorized');
-      
-      if (isAuthError) {
-        console.warn('⚠️ Xverse API authentication failed, using local snapshot fallback');
-      } else {
-        console.error('❌ Failed to fetch fresh holders page, attempting fallback cache:', fetchError);
-      }
-      
-      // Tentar cache do Redis primeiro
-      const fallbackCached = await getCachedPage(page, limit);
-      if (fallbackCached) {
-        console.warn('⚠️ Serving holders from Redis cache fallback');
-        return NextResponse.json(fallbackCached, {
-          headers: {
-            'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30',
-          },
-        });
-      }
-
-      // Tentar snapshot local como último recurso
-      try {
-        const snapshot = await loadLocalSnapshot();
-        const start = (page - 1) * limit;
-        const slice = snapshot.holders.slice(start, start + limit);
-        if (slice.length > 0) {
-          const fallbackPage: CachedHoldersPage = {
-            holders: slice,
-            pagination: {
-              total: snapshot.total || slice.length,
-              page,
-              limit,
-              totalPages: Math.max(1, Math.ceil((snapshot.total || slice.length) / limit)),
-            },
-            metadata: {
-              runeId: DOG_RUNE_ID,
-              divisibility,
-              source: 'fallback',
-              updatedAt: snapshot.timestamp ?? new Date().toISOString(),
-            },
-          };
-
-          console.warn('⚠️ Serving holders data from local snapshot fallback');
-          return NextResponse.json(fallbackPage, {
-            headers: {
-              'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=15',
-            },
-          });
-        }
-      } catch (snapshotError) {
-        console.error('❌ Failed to load local holders snapshot fallback:', snapshotError);
-      }
-
-      // Último recurso: retornar página vazia mas válida ao invés de erro 503
-      // Isso evita que a página fique completamente quebrada
-      console.error('❌ No cached holders data available, returning empty page as last resort');
-      const emptyPage: CachedHoldersPage = {
-        holders: [],
-        pagination: {
-          total: 0,
-          page,
-          limit,
-          totalPages: 1,
+      const response: HolderSearchResponse = {
+        holder: {
+          ...holder,
+          holder_rank: holder.rank,
         },
         metadata: {
           runeId: DOG_RUNE_ID,
-          divisibility,
-          source: 'fallback',
-          updatedAt: new Date().toISOString(),
+          divisibility: DOG_DIVISIBILITY,
+          source: 'local',
+          updatedAt: data.timestamp,
         },
       };
-      
-      return NextResponse.json(emptyPage, {
+
+      return NextResponse.json(response, {
         headers: {
-          'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=5',
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
         },
       });
     }
-  } catch (error) {
-    console.error('❌ Error loading holders from Xverse, attempting final fallback:', error);
-    
-    // Última tentativa: snapshot local
-    try {
-      const snapshot = await loadLocalSnapshot();
-      const page = clampPage(1);
-      const limit = clampLimit(25);
-      const start = (page - 1) * limit;
-      const slice = snapshot.holders.slice(start, start + limit);
-      
-      if (slice.length > 0) {
-        const fallbackPage: CachedHoldersPage = {
-          holders: slice,
-          pagination: {
-            total: snapshot.total || slice.length,
-            page,
-            limit,
-            totalPages: Math.max(1, Math.ceil((snapshot.total || slice.length) / limit)),
-          },
-          metadata: {
-            runeId: DOG_RUNE_ID,
-            divisibility: 5,
-            source: 'fallback',
-            updatedAt: snapshot.timestamp ?? new Date().toISOString(),
-          },
-        };
-        
-        console.warn('⚠️ Serving holders from local snapshot as final fallback');
-        return NextResponse.json(fallbackPage, {
-          headers: {
-            'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=15',
-          },
-        });
+
+    // Snapshot endpoint (para compatibilidade)
+    const snapshotQuery = searchParams.get('snapshot');
+    if (snapshotQuery) {
+      const data = await loadLocalHolders();
+      if (!data) {
+        return NextResponse.json(
+          { error: 'Holders data not available' },
+          { status: 503 }
+        );
       }
-    } catch (finalError) {
-      console.error('❌ All fallback methods failed:', finalError);
+
+      const { holders, total, timestamp } = processHoldersData(data);
+      
+      return NextResponse.json({
+        timestamp,
+        total_holders: total,
+        snapshot_size: holders.length,
+        holders: holders.slice(0, 500), // Limitar snapshot a top 500
+      }, {
+        headers: {
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
+        },
+      });
     }
+
+    // Paginação
+    const pageParam = Number(searchParams.get('page'));
+    const limitParam = Number(searchParams.get('limit'));
+
+    // Se limit for muito grande (>= 100000), retornar todos os holders
+    const page = clampPage(pageParam);
+    const limit = limitParam >= 100000 ? 1000000 : clampLimit(limitParam);
+
+    const data = await loadLocalHolders();
+    if (!data) {
+      return NextResponse.json(
+        { error: 'Holders data not available' },
+        { status: 503 }
+      );
+    }
+
+    const { holders, total, timestamp } = processHoldersData(data);
+    const start = (page - 1) * limit;
+    const end = start + limit;
+    const pageHolders = holders.slice(start, end);
+
+    const response: CachedHoldersPage = {
+      holders: pageHolders,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+      metadata: {
+        runeId: DOG_RUNE_ID,
+        divisibility: DOG_DIVISIBILITY,
+        source: 'local',
+        updatedAt: timestamp,
+      },
+    };
+
+    return NextResponse.json(response, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
+      },
+    });
+  } catch (error) {
+    console.error('❌ Error loading holders:', error);
     
     // Retornar página vazia válida ao invés de erro 500
     const emptyPage: CachedHoldersPage = {
@@ -835,8 +306,8 @@ export async function GET(request: NextRequest) {
       },
       metadata: {
         runeId: DOG_RUNE_ID,
-        divisibility: 5,
-        source: 'fallback',
+        divisibility: DOG_DIVISIBILITY,
+        source: 'local',
         updatedAt: new Date().toISOString(),
       },
     };
@@ -848,127 +319,3 @@ export async function GET(request: NextRequest) {
     });
   }
 }
-
-async function ensureSnapshot(divisibility: number) {
-  try {
-    const cached = await redisClient.get<string>(HOLDER_SNAPSHOT_KEY);
-    if (cached) {
-      return JSON.parse(cached);
-    }
-  } catch (error) {
-    console.warn('⚠️ Failed to read holders snapshot from cache:', error);
-  }
-
-  return generateSnapshot(divisibility);
-}
-
-async function generateSnapshot(divisibility: number) {
-  const holders: HolderDTO[] = [];
-  const ranksPayload: Record<string, number> = {};
-  let total = 0;
-
-  const fetchChunk = async (offset: number, chunkLimit: number) => {
-    const page = await fetchHoldersPage(offset, chunkLimit);
-    const baseRank = offset;
-    page.items.forEach((item, index) => {
-      const totalAmount = Number(item.amount);
-      const rank = baseRank + index + 1;
-      const holder: HolderDTO = {
-        rank,
-        address: item.address,
-        total_amount: totalAmount,
-        total_dog: runesToDog(totalAmount, divisibility),
-      };
-      if (holders.length < SNAPSHOT_LIMIT) {
-        holders.push(holder);
-      }
-      ranksPayload[holder.address] = rank;
-    });
-    return page;
-  };
-
-  const RK_WINDOW = [500, 200, 100, 50, 25];
-  let offset = 0;
-  let rkIndex = 0;
-
-  while (holders.length < SNAPSHOT_LIMIT) {
-    const limit = rkIndex < RK_WINDOW.length ? RK_WINDOW[rkIndex] : DEFAULT_LIMIT;
-    try {
-      const page = await fetchChunk(offset, limit);
-      total = page.total;
-      offset += page.items.length;
-      if (page.items.length < limit || offset >= total) {
-        break;
-      }
-      if (XVERSE_SNAPSHOT_CHUNK_DELAY_MS > 0) {
-        await sleep(XVERSE_SNAPSHOT_CHUNK_DELAY_MS);
-      }
-    } catch (err: any) {
-      // Se for erro de autenticação (401), usar fallback local imediatamente
-      const isAuthError = err?.message?.includes('401') || 
-                         err?.message?.includes('Invalid API key') ||
-                         err?.message?.includes('Unauthorized');
-      
-      if (isAuthError) {
-        console.warn('⚠️ Xverse API authentication failed, using local snapshot fallback');
-        try {
-          const fallback = await loadLocalSnapshot();
-          holders.splice(0, holders.length, ...fallback.holders);
-          total = fallback.total;
-          break;
-        } catch (fallbackError) {
-          console.error('❌ Failed to load local snapshot fallback:', fallbackError);
-          throw new Error('Failed to generate snapshot: API authentication failed and local fallback unavailable');
-        }
-      }
-      
-      rkIndex += 1;
-      if (rkIndex >= RK_WINDOW.length) {
-        console.warn('⚠️ Falling back to local holders snapshot due to repeated failures');
-        try {
-          const fallback = await loadLocalSnapshot();
-          holders.splice(0, holders.length, ...fallback.holders);
-          total = fallback.total;
-          break;
-        } catch (fallbackError) {
-          console.error('❌ Failed to load local snapshot fallback:', fallbackError);
-          throw new Error('Failed to generate snapshot: all retries exhausted and local fallback unavailable');
-        }
-      }
-      console.warn(`⚠️ Snapshot chunk failed, retrying with smaller window (${RK_WINDOW[rkIndex]})`, err);
-      await sleep(Math.max(XVERSE_HOLDERS_DELAY_MS, 500));
-    }
-  }
-
-  if (holders.length === 0) {
-    throw new Error('Snapshot returned no holders');
-  }
-
-  try {
-    if (Object.keys(ranksPayload).length > 0) {
-      await redisClient.hset(HOLDER_RANK_HASH, ranksPayload);
-    }
-  } catch (error) {
-    console.warn('⚠️ Failed to cache snapshot ranks:', error);
-  }
-
-  const snapshot = {
-    timestamp: new Date().toISOString(),
-    total_holders: total,
-    snapshot_size: holders.length,
-    holders,
-  };
-
-  try {
-    await redisClient.set(HOLDER_SNAPSHOT_KEY, JSON.stringify(snapshot), { ex: CACHE_TTL_SECONDS });
-  } catch (error) {
-    console.warn('⚠️ Failed to cache holders snapshot:', error);
-  }
-
-  return snapshot;
-}
-
-
-
-
-
