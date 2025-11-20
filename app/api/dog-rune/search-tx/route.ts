@@ -46,9 +46,20 @@ export async function GET(request: Request) {
     }
 
     const events = data.data.detail;
+    const DOG_RUNE_ID = '840000:3'; // ID da runa DOG
 
-    // Filtrar eventos deste TXID
-    const txEvents = events.filter((e: any) => e.txid === txid);
+    // VALIDAÇÃO CRÍTICA: Filtrar apenas eventos que realmente são de DOG (runeId = 840000:3)
+    // E que pertencem a este TXID
+    const txEvents = events.filter((e: any) => {
+      const isCorrectTx = e.txid === txid;
+      const isDog = (e.runeId || '') === DOG_RUNE_ID;
+      
+      if (isCorrectTx && !isDog && e.runeId) {
+        console.warn(`⚠️ [SEARCH-TX] Evento ignorado - não é DOG: runeId=${e.runeId}, rune=${e.rune || 'N/A'}, txid=${txid.substring(0, 8)}...`);
+      }
+      
+      return isCorrectTx && isDog;
+    });
 
     if (txEvents.length === 0) {
       return NextResponse.json(

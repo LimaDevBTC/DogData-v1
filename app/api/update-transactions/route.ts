@@ -253,60 +253,116 @@ async function fetchXverseActivityPage(offset: number): Promise<XverseActivityRe
 }
 
 async function fetchTransactionBtcTotals(txid: string): Promise<{ inSats: number; outSats: number } | null> {
-  if (!XVERSE_API_KEY) {
-    return null;
+  // Tentar Xverse primeiro
+  if (XVERSE_API_KEY) {
+    try {
+      const inputsUrl = new URL(`/v1/ordinals/tx/${txid}/inputs`, XVERSE_API_BASE);
+      const inputsResponse = await fetch(inputsUrl.toString(), {
+        headers: {
+          'x-api-key': XVERSE_API_KEY,
+          'User-Agent': 'DogData Explorer/1.0',
+          Accept: 'application/json'
+        },
+        cache: 'no-store',
+        next: { revalidate: 0 },
+        signal: AbortSignal.timeout(10000) // 10s timeout
+      });
+
+      if (!inputsResponse.ok) {
+        if (inputsResponse.status === 429) {
+          console.warn(`⚠️ [FEES] Xverse rate limit para ${txid.substring(0, 8)}...`);
+        } else {
+          throw new Error(`inputs status ${inputsResponse.status}`);
+        }
+      } else {
+        const inputsJson = await inputsResponse.json();
+        const inSats = Array.isArray(inputsJson?.items)
+          ? inputsJson.items.reduce((sum: number, item: any) => sum + safeInt(item?.value), 0)
+          : 0;
+
+        if (XVERSE_FEE_DELAY_MS > 0) {
+          await sleep(XVERSE_FEE_DELAY_MS);
+        }
+
+        const outputsUrl = new URL(`/v1/ordinals/tx/${txid}/outputs`, XVERSE_API_BASE);
+        const outputsResponse = await fetch(outputsUrl.toString(), {
+          headers: {
+            'x-api-key': XVERSE_API_KEY,
+            'User-Agent': 'DogData Explorer/1.0',
+            Accept: 'application/json'
+          },
+          cache: 'no-store',
+          next: { revalidate: 0 },
+          signal: AbortSignal.timeout(10000)
+        });
+
+        if (outputsResponse.ok) {
+          const outputsJson = await outputsResponse.json();
+          const outSats = Array.isArray(outputsJson?.items)
+            ? outputsJson.items.reduce((sum: number, item: any) => sum + safeInt(item?.value), 0)
+            : 0;
+
+          return { inSats, outSats };
+        }
+      }
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        console.warn(`⚠️ [FEES] Xverse falhou para ${txid.substring(0, 8)}...:`, error.message || error);
+      }
+    }
   }
 
+  // Fallback: mempool.space API (retorna fee diretamente)
   try {
-    const inputsUrl = new URL(`/v1/ordinals/tx/${txid}/inputs`, XVERSE_API_BASE);
-    const inputsResponse = await fetch(inputsUrl.toString(), {
+    const mempoolUrl = `https://mempool.space/api/tx/${txid}`;
+    const response = await fetch(mempoolUrl, {
       headers: {
-        'x-api-key': XVERSE_API_KEY,
         'User-Agent': 'DogData Explorer/1.0',
         Accept: 'application/json'
       },
       cache: 'no-store',
-      next: { revalidate: 0 }
+      next: { revalidate: 0 },
+      signal: AbortSignal.timeout(8000) // 8s timeout
     });
 
-    if (!inputsResponse.ok) {
-      throw new Error(`inputs status ${inputsResponse.status}`);
+    if (response.ok) {
+      const txData = await response.json();
+      
+      // mempool.space retorna 'fee' em sats diretamente
+      if (typeof txData?.fee === 'number' && txData.fee > 0) {
+        // Calcular inSats e outSats para retornar formato consistente
+        const inSats = Array.isArray(txData.vin)
+          ? txData.vin.reduce((sum: number, vin: any) => sum + safeInt(vin?.prevout?.value || 0), 0)
+          : 0;
+        const outSats = Array.isArray(txData.vout)
+          ? txData.vout.reduce((sum: number, vout: any) => sum + safeInt(vout?.value || 0), 0)
+          : 0;
+
+        // Se conseguimos calcular ambos, retornar
+        if (inSats > 0 && outSats > 0) {
+          return { inSats, outSats };
+        }
+        
+        // Se não, usar fee direto e estimar valores
+        // fee = inSats - outSats, então inSats = fee + outSats
+        if (outSats > 0) {
+          return { inSats: txData.fee + outSats, outSats };
+        }
+        // Se não temos outSats, usar fee como base e estimar
+        if (inSats > 0) {
+          return { inSats, outSats: Math.max(0, inSats - txData.fee) };
+        }
+        // Último recurso: usar fee e assumir outSats mínimo
+        return { inSats: txData.fee + 546, outSats: 546 }; // 546 = dust limit mínimo
+      }
     }
-
-    const inputsJson = await inputsResponse.json();
-    const inSats = Array.isArray(inputsJson?.items)
-      ? inputsJson.items.reduce((sum: number, item: any) => sum + safeInt(item?.value), 0)
-      : 0;
-
-    if (XVERSE_FEE_DELAY_MS > 0) {
-      await sleep(XVERSE_FEE_DELAY_MS);
+  } catch (error: any) {
+    if (error.name !== 'AbortError') {
+      console.warn(`⚠️ [FEES] Mempool.space falhou para ${txid.substring(0, 8)}...:`, error.message || error);
     }
-
-    const outputsUrl = new URL(`/v1/ordinals/tx/${txid}/outputs`, XVERSE_API_BASE);
-    const outputsResponse = await fetch(outputsUrl.toString(), {
-      headers: {
-        'x-api-key': XVERSE_API_KEY,
-        'User-Agent': 'DogData Explorer/1.0',
-        Accept: 'application/json'
-      },
-      cache: 'no-store',
-      next: { revalidate: 0 }
-    });
-
-    if (!outputsResponse.ok) {
-      throw new Error(`outputs status ${outputsResponse.status}`);
-    }
-
-    const outputsJson = await outputsResponse.json();
-    const outSats = Array.isArray(outputsJson?.items)
-      ? outputsJson.items.reduce((sum: number, item: any) => sum + safeInt(item?.value), 0)
-      : 0;
-
-    return { inSats, outSats };
-  } catch (error) {
-    console.warn(`⚠️ [UPDATE] Falha ao obter dados BTC para ${txid}:`, error);
-    return null;
   }
+
+  return null;
 }
 
 async function fetchTransactionsFromXverse(existingMap: Map<string, Transaction>): Promise<Transaction[]> {
@@ -411,22 +467,55 @@ async function fetchTransactionsFromXverse(existingMap: Map<string, Transaction>
   const trimmed = transactions.slice(0, MAX_TRANSACTIONS);
 
   if (XVERSE_FETCH_FEES) {
+    let feesCalculated = 0;
+    let feesSkipped = 0;
+    let feesFailed = 0;
+    let feesFromCache = 0;
+
+    console.log(`🔄 [FEES] Processando fees para ${trimmed.length} transações...`);
+
     for (const tx of trimmed) {
       const existing = existingMap.get(tx.txid);
-      if (existing?.fee_sats !== undefined) {
+      if (existing?.fee_sats !== undefined && existing.fee_sats > 0) {
         tx.fee_sats = existing.fee_sats;
+        feesSkipped++;
+        feesFromCache++;
         continue;
       }
 
-      const totals = await fetchTransactionBtcTotals(tx.txid);
-      if (totals) {
-        tx.fee_sats = Math.max(totals.inSats - totals.outSats, 0);
+      // Tentar calcular fee apenas se não existe ou é zero
+      if (existing?.fee_sats === 0 || !existing?.fee_sats) {
+        const totals = await fetchTransactionBtcTotals(tx.txid);
+        if (totals && totals.inSats > 0 && totals.outSats >= 0) {
+          const fee = Math.max(totals.inSats - totals.outSats, 0);
+          // Validar fee razoável: entre 1 sat e 0.1 BTC (10,000,000 sats)
+          // Fees muito altas podem ser erros de cálculo
+          if (fee > 0 && fee <= 10_000_000) {
+            tx.fee_sats = fee;
+            feesCalculated++;
+          } else {
+            console.warn(`⚠️ [FEES] Fee inválida para ${tx.txid.substring(0, 8)}...: ${fee} sats (in: ${totals.inSats}, out: ${totals.outSats})`);
+            feesFailed++;
+          }
+        } else {
+          if (totals) {
+            console.warn(`⚠️ [FEES] Totals inválidos para ${tx.txid.substring(0, 8)}...: inSats=${totals.inSats}, outSats=${totals.outSats}`);
+          }
+          feesFailed++;
+        }
+      } else {
+        feesSkipped++;
       }
 
-      if (XVERSE_FEE_DELAY_MS > 0) {
-        await sleep(XVERSE_FEE_DELAY_MS);
+      // Delay reduzido para não travar muito (já tem delay dentro de fetchTransactionBtcTotals)
+      if (XVERSE_FEE_DELAY_MS > 0 && feesCalculated % 10 === 0) {
+        await sleep(Math.min(XVERSE_FEE_DELAY_MS, 200)); // Delay menor entre batches
       }
     }
+
+    console.log(`✅ [FEES] Calculadas: ${feesCalculated}, Do cache: ${feesFromCache}, Reutilizadas: ${feesSkipped}, Falhas: ${feesFailed}`);
+  } else {
+    console.log(`⚠️ [FEES] XVERSE_FETCH_FEES está desabilitado`);
   }
 
   return trimmed;
@@ -440,6 +529,8 @@ interface UnisatEvent {
   type?: string;
   address: string;
   amount: string;
+  runeId?: string;  // ID da runa (ex: "840000:3")
+  rune?: string;    // Nome da runa
 }
 
 interface Transaction {
@@ -520,7 +611,26 @@ async function fetchUnisatEvents(limit = 600): Promise<UnisatEvent[]> {
     throw new Error(`Unisat API error: ${data.msg}`);
   }
 
-  return data.data.detail || [];
+  const allEvents: UnisatEvent[] = data.data.detail || [];
+  
+  // VALIDAÇÃO CRÍTICA: Filtrar apenas eventos que realmente são de DOG (runeId = 840000:3)
+  // A API pode retornar eventos de outras runas com nomes similares
+  const dogEvents = allEvents.filter((event) => {
+    const runeId = event.runeId || '';
+    const isDog = runeId === DOG_RUNE_ID;
+    
+    if (!isDog && event.runeId) {
+      console.warn(`⚠️ [UNISAT] Evento ignorado - não é DOG: runeId=${event.runeId}, rune=${event.rune || 'N/A'}, txid=${event.txid.substring(0, 8)}...`);
+    }
+    
+    return isDog;
+  });
+  
+  if (dogEvents.length < allEvents.length) {
+    console.log(`⚠️ [UNISAT] Filtrados ${allEvents.length - dogEvents.length} eventos que não são DOG de ${allEvents.length} eventos totais`);
+  }
+  
+  return dogEvents;
 }
 
 // Função para processar eventos em transações
@@ -737,14 +847,20 @@ function computeMetrics(transactions: Transaction[]): TransactionsMetrics {
   const blockStats = new Map<number, { txCount: number; dogMoved: number }>();
   let totalFeesSats = 0;
 
+  let txWithFees = 0;
+  let txWithoutFees = 0;
+  
   for (const tx of windowTxs) {
     const volume = typeof tx.net_transfer === 'number'
       ? tx.net_transfer
       : (typeof tx.total_dog_moved === 'number' ? tx.total_dog_moved : 0);
 
     totalDogMoved += volume;
-    if (typeof tx.fee_sats === 'number' && Number.isFinite(tx.fee_sats)) {
+    if (typeof tx.fee_sats === 'number' && Number.isFinite(tx.fee_sats) && tx.fee_sats > 0) {
       totalFeesSats += tx.fee_sats;
+      txWithFees++;
+    } else {
+      txWithoutFees++;
     }
 
     if (!blockStats.has(tx.block_height)) {
@@ -869,6 +985,11 @@ function computeMetrics(transactions: Transaction[]): TransactionsMetrics {
       seriesPerBlock,
     },
   };
+  
+  // Log detalhado sobre fees
+  if (txWithFees > 0 || txWithoutFees > 0) {
+    console.log(`📊 [METRICS] Fees 24h: ${totalFeesSats} sats (${(totalFeesSats / SATOSHIS_PER_BTC).toFixed(8)} BTC) | TXs com fees: ${txWithFees}/${txCount} | TXs sem fees: ${txWithoutFees}`);
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -955,6 +1076,60 @@ export async function GET(request: NextRequest) {
     }
 
     const merged = Array.from(mergedMap.values());
+    
+    // BACKFILL: Calcular fees para transações antigas que não têm fees (apenas últimas 24h)
+    if (XVERSE_FETCH_FEES) {
+      const now = Date.now();
+      const threshold24h = now - 24 * 60 * 60 * 1000;
+      const transactionsNeedingFees = merged.filter(tx => {
+        const ts = new Date(tx.timestamp).getTime();
+        const is24h = !Number.isNaN(ts) && ts >= threshold24h;
+        const needsFee = !tx.fee_sats || tx.fee_sats === 0;
+        return is24h && needsFee;
+      });
+      
+      if (transactionsNeedingFees.length > 0) {
+        console.log(`🔄 [FEES] Backfilling fees para ${transactionsNeedingFees.length} transações das últimas 24h sem fees...`);
+        let backfillCalculated = 0;
+        let backfillFailed = 0;
+        let backfillSkipped = 0;
+        
+        // Processar todas as transações que precisam de fees (limitado a 100 por execução para não travar)
+        const maxBackfill = 100;
+        const toProcess = transactionsNeedingFees.slice(0, maxBackfill);
+        
+        for (let i = 0; i < toProcess.length; i++) {
+          const tx = toProcess[i];
+          const totals = await fetchTransactionBtcTotals(tx.txid);
+          if (totals && totals.inSats > 0 && totals.outSats >= 0) {
+            const fee = Math.max(totals.inSats - totals.outSats, 0);
+            if (fee > 0 && fee <= 10_000_000) {
+              tx.fee_sats = fee;
+              backfillCalculated++;
+            } else {
+              console.warn(`⚠️ [FEES] Backfill: Fee inválida para ${tx.txid.substring(0, 8)}...: ${fee} sats`);
+              backfillFailed++;
+            }
+          } else {
+            if (totals) {
+              console.warn(`⚠️ [FEES] Backfill: Totals inválidos para ${tx.txid.substring(0, 8)}...: inSats=${totals.inSats}, outSats=${totals.outSats}`);
+            }
+            backfillFailed++;
+          }
+          
+          // Delay entre requests para não sobrecarregar APIs
+          if (i < toProcess.length - 1 && XVERSE_FEE_DELAY_MS > 0) {
+            await sleep(Math.min(XVERSE_FEE_DELAY_MS, 200));
+          }
+        }
+        
+        if (transactionsNeedingFees.length > maxBackfill) {
+          backfillSkipped = transactionsNeedingFees.length - maxBackfill;
+        }
+        
+        console.log(`✅ [FEES] Backfill: ${backfillCalculated} calculadas, ${backfillFailed} falhas${backfillSkipped > 0 ? `, ${backfillSkipped} aguardando próxima execução` : ''}`);
+      }
+    }
     
     // FILTRO CRÍTICO: Remover transações com valores impossíveis ANTES de salvar no cache
     // Isso previne que transações inválidas sejam persistidas e apareçam no frontend

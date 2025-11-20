@@ -359,22 +359,12 @@ export default function TransactionsPage() {
   // Map completo de holders: address -> rank (carregado uma vez do JSON local)
   const [holderRankMap, setHolderRankMap] = useState<Map<string, number>>(new Map())
   const [holdersLoaded, setHoldersLoaded] = useState(false)
+  const [newHolders24h, setNewHolders24h] = useState<number | null>(null)
   
   // Estados auxiliares
   const [searchTxid, setSearchTxid] = useState("")
   const [searchResult, setSearchResult] = useState<Transaction | null>(null)
   const [copiedTxid, setCopiedTxid] = useState<string | null>(null)
-  const [totalEvents, setTotalEvents] = useState<number>(() => {
-    // Tentar carregar do localStorage imediatamente
-    if (typeof window !== 'undefined') {
-      const cached = localStorage.getItem('dog_total_events')
-      if (cached) {
-        return parseInt(cached)
-      }
-    }
-    // Fallback: valor aproximado (atualizado 2025-11-03)
-    return 2953886
-  })
   const [lastBlock, setLastBlock] = useState<number>(0)
   const [newTxsCount, setNewTxsCount] = useState<number>(0)
   const [showNewTxsBanner, setShowNewTxsBanner] = useState(false)
@@ -593,7 +583,7 @@ export default function TransactionsPage() {
         setLastUpdateTime(updatedAt)
 
         if (typeof jsonData.total_events === 'number') {
-          setTotalEvents(jsonData.total_events)
+          // totalEvents removido - não é mais usado
           if (typeof window !== 'undefined') {
             localStorage.setItem('dog_total_events', String(jsonData.total_events))
             localStorage.setItem('dog_total_events_timestamp', new Date().toISOString())
@@ -693,12 +683,84 @@ export default function TransactionsPage() {
     }
   }, [offset, loadingMore, hasMore])
 
+  // Calcular novos holders das últimas 24h
+  const calculateNewHolders24h = useCallback(async () => {
+    try {
+      // Usar as transações já carregadas em memória (mais eficiente)
+      if (transactions.length === 0) return
+      
+      // Buscar lista completa de holders para verificar quem já tinha DOG antes
+      const holdersResponse = await fetch('/api/dog-rune/holders?page=1&limit=100000', { cache: 'no-store' })
+      if (!holdersResponse.ok) {
+        throw new Error(`Holders error: ${holdersResponse.status}`)
+      }
+      
+      const holdersData = await holdersResponse.json()
+      const allHoldersMap = new Map<string, boolean>()
+      
+      // Criar mapa de todos os holders atuais (lowercase para comparação)
+      if (holdersData.holders && Array.isArray(holdersData.holders)) {
+        holdersData.holders.forEach((holder: any) => {
+          if (holder.address) {
+            allHoldersMap.set(holder.address.toLowerCase(), true)
+          }
+        })
+      }
+      
+      // Filtrar transações das últimas 24h
+      const now = Date.now()
+      const threshold24h = now - 24 * 60 * 60 * 1000
+      
+      const newHoldersSet = new Set<string>()
+      
+      for (const tx of transactions) {
+        const txTime = new Date(tx.timestamp).getTime()
+        if (Number.isNaN(txTime) || txTime < threshold24h) continue
+        
+        // Verificar receivers que são novos holders
+        if (tx.receivers && Array.isArray(tx.receivers)) {
+          const senderAddresses = (tx.senders || []).map((s: any) => (s.address || '').toLowerCase())
+          
+          for (const receiver of tx.receivers) {
+            const receiverAddress = receiver.address
+            if (!receiverAddress) continue
+            
+            const receiverLower = receiverAddress.toLowerCase()
+            const hasReceivedDog = (receiver.amount_dog || 0) > 0
+            const wasSender = senderAddresses.includes(receiverLower)
+            const isInRanking = allHoldersMap.has(receiverLower)
+            
+            // É novo holder se:
+            // - Recebeu DOG nesta transação
+            // - NÃO estava nos senders (não tinha DOG antes desta transação)
+            // - NÃO está no ranking atual (não tinha DOG antes)
+            if (hasReceivedDog && !wasSender && !isInRanking) {
+              newHoldersSet.add(receiverLower)
+            }
+          }
+        }
+      }
+      
+      setNewHolders24h(newHoldersSet.size)
+      console.log(`✅ New holders 24h: ${newHoldersSet.size}`)
+    } catch (error) {
+      console.error('Error calculating new holders 24h:', error)
+      setNewHolders24h(null)
+    }
+  }, [transactions])
+
   // Carregar dados iniciais
   useEffect(() => {
     console.log('🚀 useEffect inicial executado')
     loadInitialTransactions()
-    console.log('✅ Total Events usando fallback: 2.95M')
   }, [loadInitialTransactions])
+
+  // Calcular novos holders quando transações forem carregadas
+  useEffect(() => {
+    if (transactions.length > 0 && holdersLoaded) {
+      calculateNewHolders24h()
+    }
+  }, [transactions.length, holdersLoaded, calculateNewHolders24h])
 
   // IntersectionObserver DESABILITADO - apenas JSON local (1000 TXs)
   // Se precisar de mais TXs antigas, usar a busca manual
@@ -770,6 +832,16 @@ export default function TransactionsPage() {
         setHolderRankMap(rankMap)
         setHoldersLoaded(true)
         console.log(`✅ Lista completa de holders carregada: ${rankMap.size} holders com ranking`)
+        
+        // Debug: verificar se há ranks duplicados (não deveria acontecer)
+        const rankCounts = new Map<number, number>()
+        rankMap.forEach((rank) => {
+          rankCounts.set(rank, (rankCounts.get(rank) || 0) + 1)
+        })
+        const duplicates = Array.from(rankCounts.entries()).filter(([_, count]) => count > 1)
+        if (duplicates.length > 0) {
+          console.warn(`⚠️ [HOLDERS] Encontrados ${duplicates.length} ranks duplicados:`, duplicates.slice(0, 5))
+        }
       } catch (error: any) {
         console.warn('⚠️ Failed to load holders:', error)
         setHoldersLoaded(true)
@@ -780,28 +852,50 @@ export default function TransactionsPage() {
   }, [holdersLoaded])
 
   // Função para obter rank e detectar new holder
-  const getHolderInfo = useCallback((address: string | null | undefined, hasReceivedDog: boolean = false): { rank: number | null; isNewHolder: boolean } => {
+  // Uma carteira é "new holder" se:
+  // 1. Recebeu DOG nesta transação
+  // 2. NÃO está no ranking (não tinha DOG antes de nenhuma transação)
+  // 3. NÃO estava nos senders desta transação (não tinha DOG antes desta transação específica)
+  // IMPORTANTE: Se está no ranking, ela já tinha DOG antes, então NÃO é novo holder
+  const getHolderInfo = useCallback((
+    address: string | null | undefined, 
+    hasReceivedDog: boolean = false,
+    senderAddresses: string[] = []
+  ): { rank: number | null; isNewHolder: boolean } => {
     if (!address) return { rank: null, isNewHolder: false }
     
-    const rank = holderRankMap.get(address.toLowerCase()) || null
+    const addressLower = address.toLowerCase()
+    const rank = holderRankMap.get(addressLower) || null
     
-    // Se não tem rank mas recebeu DOG, é new holder
-    const isNewHolder = rank === null && hasReceivedDog
+    // Verificar se a carteira estava nos senders (tinha DOG antes desta transação)
+    const wasSender = senderAddresses.some(addr => addr.toLowerCase() === addressLower)
+    
+    // É "new holder" APENAS se:
+    // - Recebeu DOG nesta transação
+    // - NÃO está no ranking (não tinha DOG antes de nenhuma transação)
+    // - NÃO estava nos senders desta transação (não tinha DOG antes desta transação específica)
+    // Se está no ranking, ela já tinha DOG antes, então NÃO é novo holder
+    const isNewHolder = hasReceivedDog && rank === null && !wasSender
     
     return { rank, isNewHolder }
   }, [holderRankMap])
 
   const renderRankBadge = useCallback(
-    (address?: string | null, provided?: number | null, hasReceivedDog: boolean = false) => {
+    (address?: string | null, provided?: number | null, hasReceivedDog: boolean = false, senderAddresses: string[] = []) => {
       if (!address) return null
       
-      // Se já tem rank fornecido (do backend), usar ele
-      if (typeof provided === 'number' && provided > 0) {
-        return <HolderRankBadge rank={provided} isNewHolder={false} />
+      // SEMPRE buscar do Map - esta é a fonte de verdade
+      // NUNCA usar 'provided' como fallback, pois pode estar incorreto
+      // Se a carteira não está no Map, ela não tem rank, mesmo que 'provided' tenha um valor
+      const { rank, isNewHolder } = getHolderInfo(address, hasReceivedDog, senderAddresses)
+      
+      // Debug: verificar se há discrepância entre provided e rank do Map
+      if (typeof provided === 'number' && provided > 0 && rank !== provided) {
+        console.warn(`⚠️ [RANK] Discrepância para ${address.substring(0, 12)}...: provided=${provided}, Map=${rank}`)
       }
       
-      // Caso contrário, buscar do Map
-      const { rank, isNewHolder } = getHolderInfo(address, hasReceivedDog)
+      // Usar apenas o rank do Map (se encontrado)
+      // Se não encontrou no Map, a carteira não tem rank (null)
       return <HolderRankBadge rank={rank} isNewHolder={isNewHolder} />
     },
     [getHolderInfo]
@@ -1075,17 +1169,17 @@ export default function TransactionsPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-3 gap-4 md:gap-6">
           <Card variant="glass">
             <CardHeader className="pb-3">
-              <CardTitle className="text-orange-400 flex items-center gap-2">
-                <ArrowRightLeft className="w-5 h-5" />
-                Total Events
+              <CardTitle className="text-yellow-400 flex items-center gap-2">
+                <Sparkles className="w-5 h-5" />
+                New Holders (24h)
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-white font-mono">
-                {totalEvents > 0 ? (totalEvents / 1000000).toFixed(2) + 'M' : (loading ? 'Loading...' : '0M')}
+                {newHolders24h != null ? newHolders24h.toLocaleString('en-US') : (loading ? 'Loading...' : '—')}
               </div>
               <p className="text-gray-400 text-sm font-mono mt-2">
-                DOG rune events tracked
+                New wallets in last 24 hours
               </p>
             </CardContent>
           </Card>
@@ -1239,7 +1333,9 @@ export default function TransactionsPage() {
                       </code>
                       {renderRankBadge(
                         metrics24h.topActiveWallet.address,
-                        metrics24h.topActiveWallet.holderRank
+                        metrics24h.topActiveWallet.holderRank,
+                        false, // Não recebeu DOG (é sender)
+                        [] // Não temos contexto de transação
                       )}
                     </div>
                     <Button
@@ -1297,7 +1393,8 @@ export default function TransactionsPage() {
                       {renderRankBadge(
                         metrics24h.topInWallet.address,
                         metrics24h.topInWallet.holderRank,
-                        true // hasReceivedDog = true (inflow)
+                        true, // hasReceivedDog = true (inflow)
+                        [] // Não temos contexto de transação aqui, mas se tem rank não é new holder
                       )}
                     </div>
                     <Button
@@ -1354,7 +1451,9 @@ export default function TransactionsPage() {
                       </code>
                       {renderRankBadge(
                         metrics24h.topOutWallet.address,
-                        metrics24h.topOutWallet.holderRank
+                        metrics24h.topOutWallet.holderRank,
+                        false, // Não recebeu DOG (é sender)
+                        [] // Não temos contexto de transação
                       )}
     </div>
                     <Button
@@ -1485,7 +1584,12 @@ export default function TransactionsPage() {
                         </td>
                         <td className="py-3 px-3">
                           <div className="flex items-center gap-2">
-                            {renderRankBadge(wallet.address, wallet.holderRank ?? null, true)}
+                            {renderRankBadge(
+                              wallet.address, 
+                              wallet.holderRank ?? null, 
+                              true, // hasReceivedDog
+                              [] // Não temos contexto de transação, mas se tem rank não é new holder
+                            )}
                             <code className="text-emerald-200 text-xs">
                               {shortAddress(wallet.address)}
                             </code>
@@ -1647,7 +1751,12 @@ export default function TransactionsPage() {
                                 size="sm" 
                                 showName={false} 
                               />
-                              {mainReceiver && renderRankBadge(mainReceiver.address, null, true)}
+                              {mainReceiver && renderRankBadge(
+                                mainReceiver.address, 
+                                null, 
+                                true, // hasReceivedDog
+                                tx.senders.map(s => s.address) // senderAddresses para verificar se já tinha DOG
+                              )}
                               {mainReceiver && (
                                 <Button
                                   size="sm"

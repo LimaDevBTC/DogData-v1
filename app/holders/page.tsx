@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Search, Download, Copy, ExternalLink, ChevronLeft, ChevronRight, Wifi, WifiOff, MoreHorizontal, Users, Filter, Ticket } from "lucide-react"
+import { Search, Download, Copy, ExternalLink, ChevronLeft, ChevronRight, Wifi, WifiOff, MoreHorizontal, Users, Filter, Ticket, Sparkles } from "lucide-react"
 import { SectionDivider } from "@/components/ui/section-divider"
 import { AddressBadge } from "@/components/address-badge"
 
@@ -79,6 +79,7 @@ export default function HoldersPage() {
   const [holdersMetadata, setHoldersMetadata] = useState<{ divisibility: number; updatedAt: string; source: string } | null>(null)
   const [totalSupply, setTotalSupply] = useState<number | null>(null)
   const [circulatingSupply, setCirculatingSupply] = useState<number | null>(null)
+  const [newHolders24h, setNewHolders24h] = useState<number | null>(null)
   const eventSourceRef = useRef<EventSource | null>(null)
 
   const formatNumber = (num: number) => {
@@ -254,6 +255,82 @@ export default function HoldersPage() {
     }
   }
 
+  // Calcular novos holders das últimas 24h
+  const calculateNewHolders24h = async () => {
+    try {
+      // Buscar transações das últimas 24h (sem summary para obter todas as transações)
+      const response = await fetch('/api/dog-rune/transactions-kv', { cache: 'no-store' })
+      if (!response.ok) {
+        throw new Error(`Transactions error: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      const transactions = data.transactions || []
+      
+      // Buscar lista completa de holders para verificar quem já tinha DOG antes
+      const holdersResponse = await fetch('/api/dog-rune/holders?page=1&limit=100000', { cache: 'no-store' })
+      if (!holdersResponse.ok) {
+        throw new Error(`Holders error: ${holdersResponse.status}`)
+      }
+      
+      const holdersData = await holdersResponse.json()
+      const allHoldersMap = new Map<string, boolean>()
+      
+      // Criar mapa de todos os holders atuais (lowercase para comparação)
+      if (holdersData.holders && Array.isArray(holdersData.holders)) {
+        holdersData.holders.forEach((holder: Holder) => {
+          if (holder.address) {
+            allHoldersMap.set(holder.address.toLowerCase(), true)
+          }
+        })
+      }
+      
+      // Filtrar transações das últimas 24h
+      const now = Date.now()
+      const threshold24h = now - 24 * 60 * 60 * 1000
+      
+      const newHoldersSet = new Set<string>()
+      
+      for (const tx of transactions) {
+        const txTime = new Date(tx.timestamp).getTime()
+        if (Number.isNaN(txTime) || txTime < threshold24h) continue
+        
+        // Verificar receivers que são novos holders
+        if (tx.receivers && Array.isArray(tx.receivers)) {
+          const senderAddresses = (tx.senders || []).map((s: any) => (s.address || '').toLowerCase())
+          
+          for (const receiver of tx.receivers) {
+            const receiverAddress = receiver.address
+            if (!receiverAddress) continue
+            
+            const receiverLower = receiverAddress.toLowerCase()
+            const hasReceivedDog = (receiver.amount_dog || 0) > 0
+            const wasSender = senderAddresses.includes(receiverLower)
+            const isInRanking = allHoldersMap.has(receiverLower)
+            
+            // É novo holder se:
+            // - Recebeu DOG nesta transação
+            // - NÃO estava nos senders (não tinha DOG antes desta transação)
+            // - NÃO está no ranking atual (não tinha DOG antes)
+            // 
+            // Nota: Se está no ranking atual, provavelmente já tinha DOG antes das últimas 24h
+            // Mas pode ter entrado no ranking justamente nas últimas 24h. Para ser mais preciso,
+            // vamos contar apenas os que não estão no ranking (mais conservador)
+            if (hasReceivedDog && !wasSender && !isInRanking) {
+              newHoldersSet.add(receiverLower)
+            }
+          }
+        }
+      }
+      
+      setNewHolders24h(newHoldersSet.size)
+      console.log(`✅ New holders 24h: ${newHoldersSet.size}`)
+    } catch (error) {
+      console.error('Error calculating new holders 24h:', error)
+      setNewHolders24h(null)
+    }
+  }
+
   // SSE Connection
   useEffect(() => {
     const eventSource = new EventSource('/api/events')
@@ -297,6 +374,7 @@ export default function HoldersPage() {
 
   useEffect(() => {
     loadStats()
+    calculateNewHolders24h()
   }, [])
 
   const handlePageChange = (newPage: number) => {
@@ -442,17 +520,20 @@ export default function HoldersPage() {
           </CardContent>
         </Card>
 
-        <Card variant="glass" className="stagger-item border-orange-500/20 hover:border-orange-500/40 transition-all">
+        <Card variant="glass" className="stagger-item border-yellow-500/20 hover:border-yellow-500/40 transition-all">
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-orange-300 text-xs font-mono uppercase tracking-[0.3em]">
-              <Ticket className="w-4 h-4" />
-              Circulating Supply
+            <CardTitle className="flex items-center gap-2 text-yellow-300 text-xs font-mono uppercase tracking-[0.3em]">
+              <Sparkles className="w-4 h-4" />
+              New Holders (24h)
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent font-mono">
-              {circulatingSupply != null ? circulatingSupply.toLocaleString('en-US', { maximumFractionDigits: 3 }) : '—'}
+            <div className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-yellow-500 bg-clip-text text-transparent font-mono">
+              {newHolders24h != null ? newHolders24h.toLocaleString('en-US') : '—'}
             </div>
+            <p className="text-gray-500 text-xs font-mono mt-1 uppercase tracking-wide">
+              New wallets in last 24h
+            </p>
           </CardContent>
         </Card>
 

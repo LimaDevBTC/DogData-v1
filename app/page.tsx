@@ -112,27 +112,46 @@ export default function OverviewPage() {
           console.warn('⚠️ Failed to fetch stats, trying holders API...', statsError)
         }
         
-        // Buscar total de holders do arquivo local (fonte mais confiável)
-        let totalHoldersFromLocal = 0
+        // Buscar total de holders usando a mesma API que a página de holders usa
+        // Isso garante que estamos usando exatamente os mesmos dados
+        let totalHoldersFromLocal: number | null = null
         try {
-          const holdersResponse = await fetch('/api/dog-rune/holders?page=1&limit=1')
+          // Usar a API de holders que já funciona na página de holders
+          // Adicionar timestamp para evitar cache
+          const holdersResponse = await fetch(`/api/dog-rune/holders?page=1&limit=1&_t=${Date.now()}`, {
+            cache: 'no-store',
+            next: { revalidate: 0 }
+          })
           if (holdersResponse.ok) {
             const holdersData = await holdersResponse.json()
-            totalHoldersFromLocal = holdersData.pagination?.total || 0
-            console.log(`✅ Total holders from local file: ${totalHoldersFromLocal}`)
+            totalHoldersFromLocal = holdersData.pagination?.total || null
+            
+            if (totalHoldersFromLocal !== null && totalHoldersFromLocal > 0) {
+              console.log(`✅ Total holders from holders API: ${totalHoldersFromLocal}`)
+            } else {
+              console.warn(`⚠️ Total holders inválido da API: ${totalHoldersFromLocal}`)
+            }
+          } else {
+            console.warn(`⚠️ Failed to load holders API: ${holdersResponse.status} ${holdersResponse.statusText}`)
           }
-        } catch (holdersError) {
-          console.warn('⚠️ Failed to fetch holders count:', holdersError)
-        }
-        
-        // Usar holders locais se disponível, senão usar stats
-        if (totalHoldersFromLocal > 0) {
-          statsData.totalHolders = totalHoldersFromLocal
+        } catch (holdersError: any) {
+          console.warn('⚠️ Failed to fetch holders from API:', holdersError?.message || holdersError)
         }
         
         // Buscar dados precisos da rune
-        const runeResponse = await fetch('/api/dog-rune/data')
-        const runeData = await runeResponse.json()
+        let runeData: any = {}
+        try {
+          const runeResponse = await fetch('/api/dog-rune/data')
+          if (runeResponse.ok) {
+            runeData = await runeResponse.json()
+          } else {
+            console.warn('⚠️ Failed to fetch rune data, using defaults')
+            runeData = { totalSupply: 0, circulatingSupply: 0 }
+          }
+        } catch (runeError) {
+          console.warn('⚠️ Error fetching rune data:', runeError)
+          runeData = { totalSupply: 0, circulatingSupply: 0 }
+        }
         
         // Buscar preço com fallback em cascata: Kraken -> Gate.io -> MEXC -> CoinGecko
         let currentPrice = 0
@@ -248,14 +267,33 @@ export default function OverviewPage() {
         // Calcular Market Cap (preço × circulating supply)
         const calculatedMarketCap = currentPrice * runeData.circulatingSupply
         
+        // SEMPRE priorizar dados da API de holders (que lê o arquivo local atualizado pelo script)
+        // Esta é a fonte de verdade, mesma que a página de holders usa
+        let finalTotalHolders = FALLBACK_TOTAL_HOLDERS
+        
+        // PRIORIDADE 1: API de holders (mesma fonte da página de holders)
+        if (totalHoldersFromLocal !== null) {
+          // Se conseguiu carregar da API de holders, usar esse valor (mesmo que seja 0)
+          finalTotalHolders = totalHoldersFromLocal
+        } 
+        // PRIORIDADE 2: Stats API como fallback
+        else if (statsData.totalHolders && statsData.totalHolders > 0) {
+          finalTotalHolders = statsData.totalHolders
+          console.warn(`⚠️ [HOLDERS] API de holders não disponível, usando API stats: ${finalTotalHolders}`)
+        } 
+        // PRIORIDADE 3: Fallback estático
+        else {
+          console.warn(`⚠️ [HOLDERS] Usando fallback: ${finalTotalHolders}`)
+        }
+        
         setStats({
-          totalHolders: statsData.totalHolders || FALLBACK_TOTAL_HOLDERS,
+          totalHolders: finalTotalHolders,
           totalSupply: runeData.totalSupply,
           marketCap: calculatedMarketCap,
           price: currentPrice,
           lastUpdated: statsData.lastUpdated || new Date().toISOString(),
           totalTransactions: statsData.totalUtxos || 0,
-          activeAddresses: statsData.totalHolders || FALLBACK_ACTIVE_ADDRESSES,
+          activeAddresses: finalTotalHolders, // Usar mesmo valor de totalHolders
           networkHashRate: 450000000000000000
         })
         
@@ -386,11 +424,9 @@ export default function OverviewPage() {
           <CardContent>
             <div className="space-y-2">
               <div className="text-3xl font-bold text-white font-mono">
-                {(
-                  stats?.totalHolders && stats.totalHolders > 0
-                    ? stats.totalHolders
-                    : FALLBACK_TOTAL_HOLDERS
-                ).toLocaleString('en-US')}
+                {stats?.totalHolders 
+                  ? stats.totalHolders.toLocaleString('en-US')
+                  : FALLBACK_TOTAL_HOLDERS.toLocaleString('en-US')}
               </div>
               <div className="flex items-center space-x-2">
                 <Users className="w-4 h-4 text-orange-500" />

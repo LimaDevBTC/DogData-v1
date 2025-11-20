@@ -9,11 +9,14 @@ interface UnisatEvent {
   txid: string;
   timestamp: number;
   vout: number;
+  runeId?: string;  // ID da runa (ex: "840000:3")
+  rune?: string;    // Nome da runa
 }
 
 // Cache de transações já processadas (evitar reprocessamento)
 const processedTxIds = new Set<string>();
 const UNISAT_API_TOKEN = process.env.UNISAT_API_TOKEN;
+const DOG_RUNE_ID = '840000:3'; // ID da runa DOG
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -59,10 +62,35 @@ export async function GET(request: NextRequest) {
 
     const events: UnisatEvent[] = data.data.detail;
     
+    // VALIDAÇÃO CRÍTICA: Filtrar apenas eventos que realmente são de DOG (runeId = 840000:3)
+    // A API pode retornar eventos de outras runas com nomes similares
+    const dogEvents = events.filter((event) => {
+      const runeId = event.runeId || '';
+      const isDog = runeId === DOG_RUNE_ID;
+      
+      if (!isDog && event.runeId) {
+        console.warn(`⚠️ [UNISAT] Evento ignorado - não é DOG: runeId=${event.runeId}, rune=${event.rune || 'N/A'}, txid=${event.txid.substring(0, 8)}...`);
+      }
+      
+      return isDog;
+    });
+    
+    if (dogEvents.length === 0) {
+      console.log(`⚠️ [UNISAT] Nenhum evento de DOG encontrado nos ${events.length} eventos retornados`);
+      return NextResponse.json({
+        transactions: [],
+        hasMore: false,
+        nextOffset: offset + limit,
+        totalEvents: data.data.total
+      });
+    }
+    
+    console.log(`✅ [UNISAT] ${dogEvents.length} eventos de DOG válidos de ${events.length} eventos totais`);
+    
     // Agrupar eventos por TXID
     const txGroups = new Map<string, UnisatEvent[]>();
     
-    for (const event of events) {
+    for (const event of dogEvents) {
       if (!txGroups.has(event.txid)) {
         txGroups.set(event.txid, []);
       }
