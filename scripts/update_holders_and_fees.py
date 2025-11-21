@@ -48,15 +48,35 @@ DATA_DIR = PROJECT_ROOT / 'data'
 PUBLIC_DATA_DIR = PROJECT_ROOT / 'public' / 'data'
 
 def get_address_from_utxo(txid, output):
-    """Obtém o endereço de um UTXO específico"""
+    """Obtém o endereço de um UTXO específico
+    
+    Tenta primeiro gettxout (para UTXOs não gastos).
+    Se falhar, usa getrawtransaction como fallback (para UTXOs gastos).
+    """
+    # Método 1: gettxout (mais rápido, funciona para UTXOs não gastos)
     try:
         result = subprocess.run(['bitcoin-cli', 'gettxout', txid, str(output)], 
                               capture_output=True, text=True, timeout=10)
-        if result.returncode == 0:
+        if result.returncode == 0 and result.stdout.strip():
             data = json.loads(result.stdout)
-            return data['scriptPubKey']['address']
+            if data and 'scriptPubKey' in data:
+                return data['scriptPubKey'].get('address')
     except:
         pass
+    
+    # Método 2: getrawtransaction (fallback para UTXOs gastos)
+    try:
+        result = subprocess.run(['bitcoin-cli', 'getrawtransaction', txid, 'true'], 
+                              capture_output=True, text=True, timeout=10)
+        if result.returncode == 0:
+            tx_data = json.loads(result.stdout)
+            if 'vout' in tx_data and isinstance(output, int) and output < len(tx_data['vout']):
+                output_data = tx_data['vout'][output]
+                script_pubkey = output_data.get('scriptPubKey', {})
+                return script_pubkey.get('address')
+    except:
+        pass
+    
     return None
 
 def update_holders():
