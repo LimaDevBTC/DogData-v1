@@ -147,7 +147,58 @@ const shortAddress = (address?: string) => {
   return `${address.slice(0, 6)}...${address.slice(-4)}`
 }
 
-const computeMetrics24h = (txs: Transaction[], holderRankMap: Map<string, number> = new Map()): MetricsLast24h => {
+// Função auxiliar para filtrar topInWallets: só incluir carteiras que ainda mantêm os tokens recebidos
+// Pega mais candidatos (top 20) antes de filtrar, para garantir que temos top 5 válidas após o filtro
+const filterTopInWallets = (
+  wallets: Array<{ address: string; dogMoved: number; rank?: number; holderRank?: number | null }>,
+  holderBalancesMap: Map<string, number>,
+  targetCount: number = 5,
+  candidateCount: number = 20
+): Array<{ address: string; dogMoved: number; rank: number; holderRank: number | null }> => {
+  // Primeiro, pegar mais candidatos (top 20) antes de filtrar
+  const candidates = wallets.slice(0, candidateCount)
+  
+  // Filtrar candidatos: só incluir carteiras que ainda mantêm os tokens recebidos
+  const filtered = candidates
+    .filter((wallet) => {
+      if (!wallet.address) return false
+      const addressLower = wallet.address.toLowerCase()
+      const currentBalance = holderBalancesMap.get(addressLower) ?? 0
+      const inflow24h = wallet.dogMoved || 0
+      const shouldInclude = currentBalance >= inflow24h
+      
+      // Debug específico para a carteira reportada
+      if (addressLower === 'bc1ple4xkrptgjdm2gj5njnkgryedehg885gqtsrxvc9kzzekhnqma6qkz3kmv'.toLowerCase()) {
+        console.error(`🚨 [TOP INFLOW FILTER] Carteira problemática no backend:`, {
+          address: wallet.address.substring(0, 20) + '...',
+          addressLower,
+          currentBalance,
+          inflow24h,
+          shouldInclude,
+          hasBalanceInMap: holderBalancesMap.has(addressLower),
+          holderBalancesMapSize: holderBalancesMap.size
+        })
+      }
+      
+      return shouldInclude
+    })
+  
+  // Pegar as top N (geralmente 5) após o filtro
+  return filtered
+    .slice(0, targetCount)
+    .map((wallet, index) => ({
+      address: wallet.address,
+      dogMoved: wallet.dogMoved,
+      rank: index + 1,
+      holderRank: wallet.holderRank ?? null,
+    }))
+}
+
+const computeMetrics24h = (
+  txs: Transaction[], 
+  holderRankMap: Map<string, number> = new Map(),
+  holderBalancesMap: Map<string, number> = new Map() // address -> total_dog (saldo atual)
+): MetricsLast24h => {
   const now = Date.now()
   const threshold = now - 24 * 60 * 60 * 1000
   const MAX_DOG_AMOUNT = 100_000_000_000 // 100 bilhões de DOG
@@ -269,7 +320,22 @@ const computeMetrics24h = (txs: Transaction[], holderRankMap: Map<string, number
   const sortedInEntries = Array.from(receiverVolumes.entries()).sort((a, b) => b[1] - a[1])
 
   const topOutEntry = sortedOutEntries[0]
-  const topInEntry = sortedInEntries[0]
+  
+  // Filtrar topInEntry: só usar se a carteira ainda mantém os tokens
+  const topInEntryFiltered = sortedInEntries
+    .find(([address, inflow24h]) => {
+      const addressLower = address.toLowerCase()
+      const currentBalance = holderBalancesMap.get(addressLower) || 0
+      const shouldInclude = currentBalance >= inflow24h
+      
+      // Debug: log para primeira carteira (maior inflow)
+      if (sortedInEntries.indexOf([address, inflow24h]) === 0) {
+        console.log(`🔍 [TOP INFLOW] Primeira carteira: ${address.substring(0, 16)}..., saldo=${currentBalance}, inflow24h=${inflow24h}, mantém=${shouldInclude}`)
+      }
+      
+      return shouldInclude
+    })
+  const topInEntry = topInEntryFiltered || null
 
   // Função auxiliar para obter rank do Map
   const getHolderRank = (address: string): number | null => {
@@ -283,12 +349,17 @@ const computeMetrics24h = (txs: Transaction[], holderRankMap: Map<string, number
     holderRank: getHolderRank(address),
   }))
 
-  const topInWallets = sortedInEntries.slice(0, 5).map(([address, amount], index) => ({
-    address,
-    dogMoved: Number(amount.toFixed(5)),
-    rank: index + 1,
-    holderRank: getHolderRank(address),
-  }))
+  // Filtrar topInWallets: só incluir carteiras que ainda mantêm os tokens recebidos
+  // Uma carteira deve ter saldo_atual >= inflow_24h para aparecer na lista
+  // Pega top 20 candidatos antes de filtrar, para garantir top 5 válidas após o filtro
+  const topInWalletsCandidates = sortedInEntries
+    .slice(0, 20) // Pegar top 20 candidatos antes de filtrar
+    .map(([address, amount]) => ({
+      address,
+      dogMoved: Number(amount.toFixed(5)),
+      holderRank: getHolderRank(address),
+    }))
+  const topInWalletsFiltered = filterTopInWallets(topInWalletsCandidates, holderBalancesMap, 5, 20)
 
   const topOutWallet = topOutEntry ? { 
     address: topOutEntry[0], 
@@ -338,7 +409,7 @@ const computeMetrics24h = (txs: Transaction[], holderRankMap: Map<string, number
     topOutWallet,
     topInWallet,
     topOutWallets,
-    topInWallets,
+    topInWallets: topInWalletsFiltered,
     feesSats,
     feesBtc,
   }
@@ -358,6 +429,8 @@ export default function TransactionsPage() {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
   // Map completo de holders: address -> rank (carregado uma vez do JSON local)
   const [holderRankMap, setHolderRankMap] = useState<Map<string, number>>(new Map())
+  // Map de saldos atuais: address -> total_dog (para validar se mantém tokens recebidos)
+  const [holderBalancesMap, setHolderBalancesMap] = useState<Map<string, number>>(new Map())
   const [holdersLoaded, setHoldersLoaded] = useState(false)
   const [newHolders24h, setNewHolders24h] = useState<number | null>(null)
   
@@ -475,7 +548,7 @@ export default function TransactionsPage() {
         if (metricsSource) {
           const feesSats = metricsSource.feesSats ?? 0
           const feesBtc = metricsSource.feesBtc ?? (feesSats ? Number((feesSats / SATOSHIS_PER_BTC).toFixed(8)) : 0)
-          const fallbackMetrics = computeMetrics24h(sanitizedTransactions, holderRankMap)
+          const fallbackMetrics = computeMetrics24h(sanitizedTransactions, holderRankMap, holderBalancesMap)
           const {
             txCount: fallbackTxCount,
             totalDogMoved: fallbackTotalDogMoved,
@@ -520,8 +593,19 @@ export default function TransactionsPage() {
             return num
           }
 
-          // Sanitizar wallets do backend
-          const sanitizedTopInWallet = sanitizeWallet(metricsSource.topInWallet) ?? fallbackTopInWallet
+          // Filtrar topInWallet do backend: só usar se a carteira ainda mantém os tokens
+          const rawTopInWallet = sanitizeWallet(metricsSource.topInWallet) ?? fallbackTopInWallet
+          let sanitizedTopInWallet = rawTopInWallet
+          if (rawTopInWallet && rawTopInWallet.address && holderBalancesMap.size > 0) {
+            const addressLower = rawTopInWallet.address.toLowerCase()
+            const currentBalance = holderBalancesMap.get(addressLower) ?? 0
+            const inflow24h = rawTopInWallet.dogMoved || 0
+            if (currentBalance < inflow24h) {
+              // Carteira não mantém mais os tokens, usar null
+              sanitizedTopInWallet = null
+              console.warn(`⚠️ [TOP INFLOW] Carteira ${addressLower.substring(0, 16)}... do backend não mantém mais os tokens: saldo=${currentBalance}, inflow=${inflow24h}`)
+            }
+          }
           const sanitizedTopOutWallet = sanitizeWallet(metricsSource.topOutWallet) ?? fallbackTopOutWallet
           const sanitizedTopActiveWallet = metricsSource.topActiveWallet ?? fallbackTopActiveWallet
           const sanitizedTopVolumeWallet = sanitizeWallet(metricsSource.topVolumeWallet) ?? null
@@ -530,8 +614,24 @@ export default function TransactionsPage() {
           const sanitizedTopInWallets = sanitizeWalletArray(metricsSource.topInWallets || [])
           const sanitizedTopOutWallets = sanitizeWalletArray(metricsSource.topOutWallets || [])
           
+          // Filtrar topInWallets do backend: só incluir carteiras que ainda mantêm os tokens
+          // Isso garante consistência mesmo quando os dados vêm do cache/backend
+          // Só aplicar o filtro se o holderBalancesMap já foi carregado
+          // NOTA: Quando vem do backend, já vem limitado a 5, então se alguns forem filtrados,
+          // ficaremos com menos de 5. Isso será corrigido quando recalcularmos localmente.
+          let filteredTopInWallets: Array<{ address: string; dogMoved: number; rank: number; holderRank: number | null }> = []
+          if (holderBalancesMap.size > 0) {
+            filteredTopInWallets = sanitizedTopInWallets.length > 0 
+              ? filterTopInWallets(sanitizedTopInWallets, holderBalancesMap, 5, sanitizedTopInWallets.length)
+              : filterTopInWallets(fallbackTopInWallets, holderBalancesMap, 5, fallbackTopInWallets.length)
+          } else {
+            // Se o Map ainda não foi carregado, usar dados sem filtro (será recalculado depois)
+            console.warn('⚠️ [TOP INFLOW] holderBalancesMap ainda não carregado, pulando filtro temporariamente')
+            filteredTopInWallets = sanitizedTopInWallets.length > 0 ? sanitizedTopInWallets : fallbackTopInWallets
+          }
+          
           // Usar arrays do backend se válidos, senão usar fallback
-          const resolvedTopInWallets = sanitizedTopInWallets.length > 0 ? sanitizedTopInWallets : fallbackTopInWallets
+          const resolvedTopInWallets = filteredTopInWallets.length > 0 ? filteredTopInWallets : []
           const resolvedTopOutWallets = sanitizedTopOutWallets.length > 0 ? sanitizedTopOutWallets : fallbackTopOutWallets
 
           // Sanitizar métricas numéricas
@@ -560,7 +660,7 @@ export default function TransactionsPage() {
             volumeWalletCount: resolvedVolumeWalletCount || fallbackVolumeWalletCount || 0,
           })
         } else if (sanitizedTransactions.length > 0) {
-          setMetrics24h(computeMetrics24h(sanitizedTransactions, holderRankMap))
+          setMetrics24h(computeMetrics24h(sanitizedTransactions, holderRankMap, holderBalancesMap))
         }
 
         const nextLastBlock: number = jsonData.last_block || 0
@@ -823,15 +923,30 @@ export default function TransactionsPage() {
 
         // Criar Map para lookup rápido: address (lowercase) -> rank
         const rankMap = new Map<string, number>()
-        data.holders.forEach((holder: { address: string; rank?: number }) => {
-          if (holder?.address && holder?.rank) {
-            rankMap.set(holder.address.toLowerCase(), holder.rank)
+        // Criar Map de saldos atuais: address (lowercase) -> total_dog
+        const balancesMap = new Map<string, number>()
+        data.holders.forEach((holder: { address: string; rank?: number; total_dog?: number }) => {
+          if (holder?.address) {
+            const addressLower = holder.address.toLowerCase()
+            if (holder?.rank) {
+              rankMap.set(addressLower, holder.rank)
+            }
+            // Armazenar saldo atual (total_dog) para validar se mantém tokens recebidos
+            if (typeof holder?.total_dog === 'number' && Number.isFinite(holder.total_dog) && holder.total_dog > 0) {
+              balancesMap.set(addressLower, holder.total_dog)
+            }
           }
         })
 
         setHolderRankMap(rankMap)
+        setHolderBalancesMap(balancesMap)
         setHoldersLoaded(true)
-        console.log(`✅ Lista completa de holders carregada: ${rankMap.size} holders com ranking`)
+        console.log(`✅ Lista completa de holders carregada: ${rankMap.size} holders com ranking, ${balancesMap.size} holders com saldo`)
+        
+        // Debug específico para a carteira reportada
+        const problematicAddress = 'bc1ple4xkrptgjdm2gj5njnkgryedehg885gqtsrxvc9kzzekhnqma6qkz3kmv'.toLowerCase()
+        const problematicBalance = balancesMap.get(problematicAddress)
+        console.log(`🔍 [HOLDERS LOADED] Carteira problemática ${problematicAddress.substring(0, 20)}...: saldo=${problematicBalance ?? 'não encontrada'}`)
         
         // Debug: verificar se há ranks duplicados (não deveria acontecer)
         const rankCounts = new Map<number, number>()
@@ -850,6 +965,51 @@ export default function TransactionsPage() {
 
     loadAllHolders()
   }, [holdersLoaded])
+
+  // Recalcular métricas quando holders são carregados (para aplicar filtro de topInWallets)
+  useEffect(() => {
+    if (!holdersLoaded || holderBalancesMap.size === 0 || transactions.length === 0) return
+    
+    // Recalcular métricas locais para aplicar o filtro correto de topInWallets
+    // Isso garante que mesmo se os dados vieram do backend, o filtro será aplicado corretamente
+    const recalculatedMetrics = computeMetrics24h(transactions, holderRankMap, holderBalancesMap)
+    
+    // Atualizar métricas apenas se já temos métricas existentes (para não sobrescrever dados do backend que ainda não foram filtrados)
+    setMetrics24h(prev => {
+      if (!prev) return recalculatedMetrics
+      
+      // Usar as métricas recalculadas localmente, que têm acesso a todos os dados
+      // e podem pegar top 20 candidatos antes de filtrar, garantindo top 5 válidas após o filtro
+      // Isso resolve o problema de termos menos de 5 carteiras quando filtramos dados do backend
+      const filteredTopInWallets = recalculatedMetrics.topInWallets || prev.topInWallets || []
+      
+      // Debug: verificar se a carteira problemática está sendo filtrada
+      const problematicAddress = 'bc1ple4xkrptgjdm2gj5njnkgryedehg885gqtsrxvc9kzzekhnqma6qkz3kmv'.toLowerCase()
+      const wasIncluded = prev.topInWallets?.some(w => w.address.toLowerCase() === problematicAddress)
+      const isStillIncluded = filteredTopInWallets.some(w => w.address.toLowerCase() === problematicAddress)
+      if (wasIncluded && !isStillIncluded) {
+        console.log(`✅ [RECALC] Carteira problemática filtrada após holders carregados`)
+      } else if (wasIncluded && isStillIncluded) {
+        console.warn(`⚠️ [RECALC] Carteira problemática ainda na lista após filtro!`, filteredTopInWallets.find(w => w.address.toLowerCase() === problematicAddress))
+      }
+      
+      console.log(`✅ [RECALC] TopInWallets recalculado: ${filteredTopInWallets.length} carteiras (objetivo: 5)`)
+      
+      // Usar topInWallet das métricas recalculadas (já filtrado corretamente)
+      const filteredTopInWallet = recalculatedMetrics.topInWallet || prev.topInWallet
+      
+      return {
+        ...prev,
+        topInWallets: filteredTopInWallets,
+        topInWallet: filteredTopInWallet,
+        // Usar outros valores recalculados também para garantir consistência
+        topOutWallets: recalculatedMetrics.topOutWallets || prev.topOutWallets,
+        topOutWallet: recalculatedMetrics.topOutWallet || prev.topOutWallet,
+        topActiveWallet: recalculatedMetrics.topActiveWallet || prev.topActiveWallet,
+        topVolumeWallet: recalculatedMetrics.topVolumeWallet || prev.topVolumeWallet,
+      }
+    })
+  }, [holdersLoaded, holderBalancesMap.size, transactions, holderRankMap])
 
   // Função para obter rank e detectar new holder
   // Uma carteira é "new holder" se:
