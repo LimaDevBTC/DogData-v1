@@ -7,9 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Search, Download, Copy, ExternalLink, ChevronLeft, ChevronRight, Wifi, WifiOff, MoreHorizontal, Users, Filter, Ticket, Sparkles } from "lucide-react"
+import { Search, Download, Copy, ExternalLink, ChevronLeft, ChevronRight, Wifi, WifiOff, MoreHorizontal, Users, Filter, Ticket, Sparkles, BarChart3 } from "lucide-react"
 import { SectionDivider } from "@/components/ui/section-divider"
 import { AddressBadge } from "@/components/address-badge"
+import { HoldersDistributionChart } from "@/components/holders/holders-distribution-chart"
 
 interface Holder {
   rank: number;
@@ -80,6 +81,8 @@ export default function HoldersPage() {
   const [totalSupply, setTotalSupply] = useState<number | null>(null)
   const [circulatingSupply, setCirculatingSupply] = useState<number | null>(null)
   const [newHolders24h, setNewHolders24h] = useState<number | null>(null)
+  const [allHoldersForChart, setAllHoldersForChart] = useState<Holder[]>([]) // Todos os holders para o gráfico
+  const [loadingChart, setLoadingChart] = useState(true) // Estado de loading do gráfico
   const eventSourceRef = useRef<EventSource | null>(null)
 
   const formatNumber = (num: number) => {
@@ -161,7 +164,17 @@ export default function HoldersPage() {
   const fetchHolders = async (page: number, limit: number = pageLimit) => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/dog-rune/holders?page=${page}&limit=${limit}`)
+      // Carregar dados da página E todos os holders para o gráfico em paralelo
+      const [pageResponse, allHoldersResponse] = await Promise.all([
+        fetch(`/api/dog-rune/holders?page=${page}&limit=${limit}`),
+        // Se ainda não carregamos os dados do gráfico, carregar agora junto
+        allHoldersForChart.length === 0 
+          ? fetch('/data/dog_holders_by_address.json', { cache: 'force-cache' })
+          : Promise.resolve(null)
+      ])
+      
+      // Processar resposta da página
+      const response = pageResponse
       
       if (!response.ok) {
         // Mesmo com erro HTTP, tentar parsear a resposta caso seja uma página vazia válida
@@ -221,6 +234,20 @@ export default function HoldersPage() {
         pages: data.pagination?.totalPages || 1,
         source: data.metadata?.source || 'unknown'
       })
+      
+      // Processar dados do gráfico se foram carregados em paralelo
+      if (allHoldersResponse && allHoldersResponse.ok) {
+        try {
+          const allHoldersData = await allHoldersResponse.json()
+          if (allHoldersData.holders && Array.isArray(allHoldersData.holders)) {
+            console.log(`✅ Gráfico: ${allHoldersData.holders.length} holders carregados junto com a lista`)
+            setAllHoldersForChart(allHoldersData.holders)
+            setLoadingChart(false)
+          }
+        } catch (chartError) {
+          console.warn('⚠️ Erro ao processar dados do gráfico:', chartError)
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')
       console.error('Error fetching holders:', err)
@@ -372,9 +399,73 @@ export default function HoldersPage() {
     loadAirdropRecipients()
   }, [currentPage])
 
+  // Carregar todos os holders para o gráfico de distribuição
+  // Tentar carregar diretamente do JSON público primeiro (mais rápido)
+  const loadAllHoldersForChart = async () => {
+    setLoadingChart(true)
+    try {
+      // Prioridade 1: Tentar carregar diretamente do JSON público (mais rápido, sem processamento da API)
+      // Este arquivo está servido estaticamente e é muito mais rápido que a API
+      const startTime = performance.now()
+      const publicResponse = await fetch('/data/dog_holders_by_address.json', {
+        cache: 'force-cache', // Cache agressivo para arquivo estático
+        priority: 'high', // Prioridade alta para carregamento
+      })
+      
+      if (publicResponse.ok) {
+        const publicData = await publicResponse.json()
+        const loadTime = performance.now() - startTime
+        console.log(`⏱️ Gráfico: JSON carregado em ${loadTime.toFixed(0)}ms`)
+        
+        if (publicData.holders && Array.isArray(publicData.holders)) {
+          console.log(`✅ Gráfico: ${publicData.holders.length} holders carregados do JSON público`)
+          setAllHoldersForChart(publicData.holders)
+          setLoadingChart(false)
+          return // Sucesso, sair da função imediatamente
+        }
+      }
+
+      // Prioridade 2: Fallback para API (mais lento, mas funciona sempre)
+      console.warn('⚠️ Fallback para API do gráfico')
+      const response = await fetch('/api/dog-rune/holders?page=1&limit=100000', { 
+        cache: 'default',
+      })
+      if (response.ok) {
+        const data = await response.json()
+        if (data.holders && Array.isArray(data.holders)) {
+          console.log('✅ Gráfico: dados carregados da API')
+          setAllHoldersForChart(data.holders)
+        }
+      }
+    } catch (error) {
+      console.error('Error loading all holders for chart:', error)
+    } finally {
+      setLoadingChart(false)
+    }
+  }
+
+  // Carregar dados do gráfico apenas se não foram carregados junto com a lista
   useEffect(() => {
-    loadStats()
-    calculateNewHolders24h()
+    // Se ainda não temos os dados do gráfico após carregar a lista, tentar carregar agora
+    // Mas só se realmente não temos dados (após um pequeno delay para dar tempo da lista carregar)
+    if (allHoldersForChart.length === 0 && !loading) {
+      const timer = setTimeout(() => {
+        if (allHoldersForChart.length === 0) {
+          loadAllHoldersForChart()
+        }
+      }, 100) // Pequeno delay para ver se a lista já carregou os dados
+      return () => clearTimeout(timer)
+    }
+  }, [loading]) // Verificar quando o loading da lista terminar
+
+  // Carregar outros dados em paralelo (não bloqueia o gráfico)
+  useEffect(() => {
+    Promise.all([
+      loadStats(),
+      calculateNewHolders24h()
+    ]).catch(error => {
+      console.error('Error loading initial data:', error)
+    })
   }, [])
 
   const handlePageChange = (newPage: number) => {
@@ -473,7 +564,9 @@ export default function HoldersPage() {
   };
 
 
-  if (loading && allHolders.length === 0) {
+  // Não bloquear a renderização da página inteira enquanto carrega
+  // Mostrar loading apenas se não temos nenhum dado ainda
+  if (loading && allHolders.length === 0 && totalHolders === 0) {
     return <LoadingScreen message="Loading DOG holders..." />
   }
 
@@ -503,6 +596,31 @@ export default function HoldersPage() {
           </p>
         )}
       </div>
+
+      {/* Distribution Chart - Sempre mostrar, com loading ou dados */}
+      <Card variant="glass" className="border-orange-500/20 hover:border-orange-500/40 transition-all">
+        <CardHeader>
+          <CardTitle className="text-orange-400 text-xl flex items-center">
+            <BarChart3 className="w-6 h-6 mr-3 text-orange-500" />
+            Address Holdings Distribution
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loadingChart || (allHoldersForChart.length === 0 || !circulatingSupply) ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+                <p className="text-gray-400 font-mono text-sm">Loading distribution data...</p>
+              </div>
+            </div>
+          ) : (
+            <HoldersDistributionChart 
+              allHolders={allHoldersForChart} 
+              totalSupply={circulatingSupply} 
+            />
+          )}
+        </CardContent>
+      </Card>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
