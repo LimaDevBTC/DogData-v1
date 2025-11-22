@@ -409,7 +409,6 @@ export default function HoldersPage() {
       const startTime = performance.now()
       const publicResponse = await fetch('/data/dog_holders_by_address.json', {
         cache: 'force-cache', // Cache agressivo para arquivo estático
-        priority: 'high', // Prioridade alta para carregamento
       })
       
       if (publicResponse.ok) {
