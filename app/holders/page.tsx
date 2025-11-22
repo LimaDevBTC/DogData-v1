@@ -243,10 +243,18 @@ export default function HoldersPage() {
             console.log(`✅ Gráfico: ${allHoldersData.holders.length} holders carregados junto com a lista`)
             setAllHoldersForChart(allHoldersData.holders)
             setLoadingChart(false)
+            console.log(`✅ LoadingChart setado para false`)
+          } else {
+            console.warn('⚠️ Dados do gráfico não têm formato esperado:', allHoldersData)
+            setLoadingChart(false) // Mesmo assim, parar o loading
           }
         } catch (chartError) {
           console.warn('⚠️ Erro ao processar dados do gráfico:', chartError)
+          setLoadingChart(false) // Parar o loading mesmo em caso de erro
         }
+      } else {
+        // Se não carregou junto, tentar carregar separadamente
+        console.log('⚠️ Dados do gráfico não carregados junto, tentando carregar separadamente...')
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')
@@ -605,17 +613,20 @@ export default function HoldersPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {loadingChart || (allHoldersForChart.length === 0 || !circulatingSupply) ? (
+          {loadingChart || allHoldersForChart.length === 0 ? (
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
                 <p className="text-gray-400 font-mono text-sm">Loading distribution data...</p>
+                <p className="text-gray-500 font-mono text-xs mt-2">
+                  {loadingChart ? 'Loading chart...' : `Waiting for data... (${allHoldersForChart.length} holders)`}
+                </p>
               </div>
             </div>
           ) : (
             <HoldersDistributionChart 
               allHolders={allHoldersForChart} 
-              totalSupply={circulatingSupply} 
+              totalSupply={circulatingSupply || undefined} 
             />
           )}
         </CardContent>

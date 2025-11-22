@@ -15,7 +15,7 @@ interface Holder {
 
 interface HoldersDistributionChartProps {
   allHolders: Holder[];
-  totalSupply: number; // Circulating supply em DOG (usado apenas como referência)
+  totalSupply?: number; // Circulating supply em DOG (usado apenas como referência, opcional)
 }
 
 interface DistributionData {
@@ -171,8 +171,16 @@ export function HoldersDistributionChart({ allHolders, totalSupply }: HoldersDis
   };
 
   if (!distributionData || !distributionData?.chartData || distributionData.chartData.length === 0) {
+    console.warn('⚠️ Gráfico: Não renderizando - dados ausentes', {
+      hasData: !!distributionData,
+      hasChartData: !!distributionData?.chartData,
+      chartDataLength: distributionData?.chartData?.length || 0,
+      allHoldersLength: allHolders?.length || 0
+    })
     return null;
   }
+  
+  console.log('✅ Gráfico: Renderizando com', distributionData.chartData.length, 'categorias e', allHolders.length, 'holders')
 
   return (
     <div className="flex flex-col lg:flex-row gap-8 items-center justify-center">
