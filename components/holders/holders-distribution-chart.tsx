@@ -26,10 +26,15 @@ interface DistributionData {
   color: string;
 }
 
+interface DistributionResult {
+  displayData: DistributionData[];
+  chartData: DistributionData[];
+}
+
 export function HoldersDistributionChart({ allHolders, totalSupply }: HoldersDistributionChartProps) {
-  const distributionData = useMemo(() => {
+  const distributionData = useMemo<DistributionResult | null>(() => {
     if (!allHolders || allHolders.length === 0) {
-      return [];
+      return null;
     }
 
     // Calcular valores acumulados
@@ -114,10 +119,11 @@ export function HoldersDistributionChart({ allHolders, totalSupply }: HoldersDis
     ].filter(item => item.value > 0);
 
     // Retornar dados estratificados para gráfico e tabela (mesmos dados)
-    return {
+    const result: DistributionResult = {
       displayData: distributionData, // Dados estratificados para tabela
       chartData: distributionData, // Dados estratificados para gráfico
     };
+    return result;
   }, [allHolders, totalSupply]);
 
   const CustomTooltip = ({ active, payload }: any) => {
@@ -164,7 +170,7 @@ export function HoldersDistributionChart({ allHolders, totalSupply }: HoldersDis
     );
   };
 
-  if (!distributionData || !distributionData.chartData || distributionData.chartData.length === 0) {
+  if (!distributionData || !distributionData?.chartData || distributionData.chartData.length === 0) {
     return null;
   }
 
@@ -175,7 +181,13 @@ export function HoldersDistributionChart({ allHolders, totalSupply }: HoldersDis
         <ResponsiveContainer width="100%" height={400}>
           <PieChart>
             <Pie
-              data={distributionData.chartData}
+              data={distributionData.chartData.map(item => ({
+                name: item.name,
+                value: item.value,
+                percentage: item.percentage,
+                holders: item.holders,
+                color: item.color,
+              }))}
               cx="50%"
               cy="50%"
               labelLine={false}
