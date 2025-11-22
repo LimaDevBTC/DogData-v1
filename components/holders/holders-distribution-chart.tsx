@@ -67,46 +67,41 @@ export function HoldersDistributionChart({ allHolders, totalSupply }: HoldersDis
       }
     });
 
-    // Para o gráfico de pizza, precisamos das diferenças (não acumulado)
-    // Mas na legenda mostraremos os valores acumulados
-    const top10Only = top10Accumulated; // 1-10
-    const top11to50Only = top50Accumulated - top10Accumulated; // 11-50 (diferença)
-    const top51to100Only = top100Accumulated - top50Accumulated; // 51-100 (diferença)
+    // Calcular valores estratificados (exclusivos por faixa, não acumulados)
+    const top10Only = top10Accumulated; // 1-10 (valor exclusivo)
+    const top11to50Only = top50Accumulated - top10Accumulated; // 11-50 (valor exclusivo)
+    const top51to100Only = top100Accumulated - top50Accumulated; // 51-100 (valor exclusivo)
 
     // Calcular total de DOG de todos os holders (base para percentuais)
     const totalDogFromHolders = top100Accumulated + others;
 
-    // Calcular percentuais acumulados para exibição
-    const top10Percentage = totalDogFromHolders > 0 ? (top10Accumulated / totalDogFromHolders) * 100 : 0;
-    const top50Percentage = totalDogFromHolders > 0 ? (top50Accumulated / totalDogFromHolders) * 100 : 0;
-    const top100Percentage = totalDogFromHolders > 0 ? (top100Accumulated / totalDogFromHolders) * 100 : 0;
-    const othersPercentage = totalDogFromHolders > 0 ? (others / totalDogFromHolders) * 100 : 0;
-
-    // Calcular percentuais para o gráfico (diferenças)
+    // Calcular percentuais estratificados (não acumulados)
     const top10OnlyPercentage = totalDogFromHolders > 0 ? (top10Only / totalDogFromHolders) * 100 : 0;
     const top11to50OnlyPercentage = totalDogFromHolders > 0 ? (top11to50Only / totalDogFromHolders) * 100 : 0;
     const top51to100OnlyPercentage = totalDogFromHolders > 0 ? (top51to100Only / totalDogFromHolders) * 100 : 0;
+    const othersPercentage = totalDogFromHolders > 0 ? (others / totalDogFromHolders) * 100 : 0;
 
-    const data: DistributionData[] = [
+    // Dados estratificados para exibição (gráfico e tabela usam os mesmos dados)
+    const distributionData: DistributionData[] = [
       {
-        name: 'Top 10',
-        value: top10Accumulated, // Valor acumulado para exibição
-        percentage: top10Percentage, // Percentual acumulado
+        name: 'Top 1-10',
+        value: top10Only, // Valor exclusivo da faixa 1-10
+        percentage: top10OnlyPercentage, // Percentual exclusivo
         holders: top10Count,
         color: '#3b82f6', // Blue
       },
       {
-        name: 'Top 50',
-        value: top50Accumulated, // Valor acumulado
-        percentage: top50Percentage, // Percentual acumulado
-        holders: top50Count,
+        name: 'Top 11-50',
+        value: top11to50Only, // Valor exclusivo da faixa 11-50
+        percentage: top11to50OnlyPercentage, // Percentual exclusivo
+        holders: top50Count - top10Count,
         color: '#06b6d4', // Cyan/Teal
       },
       {
-        name: 'Top 100',
-        value: top100Accumulated, // Valor acumulado
-        percentage: top100Percentage, // Percentual acumulado
-        holders: top100Count,
+        name: 'Top 51-100',
+        value: top51to100Only, // Valor exclusivo da faixa 51-100
+        percentage: top51to100OnlyPercentage, // Percentual exclusivo
+        holders: top100Count - top50Count,
         color: '#f97316', // Orange
       },
       {
@@ -116,45 +111,12 @@ export function HoldersDistributionChart({ allHolders, totalSupply }: HoldersDis
         holders: othersCount,
         color: '#a855f7', // Purple
       },
-    ];
-
-    // Dados para o gráfico (usando diferenças para não sobrepor)
-    const chartData = [
-      {
-        name: 'Top 1-10',
-        value: top10Only,
-        percentage: top10OnlyPercentage,
-        holders: top10Count,
-        color: '#3b82f6',
-      },
-      {
-        name: 'Top 11-50',
-        value: top11to50Only,
-        percentage: top11to50OnlyPercentage,
-        holders: top50Count - top10Count,
-        color: '#06b6d4',
-      },
-      {
-        name: 'Top 51-100',
-        value: top51to100Only,
-        percentage: top51to100OnlyPercentage,
-        holders: top100Count - top50Count,
-        color: '#f97316',
-      },
-      {
-        name: 'Others',
-        value: others,
-        percentage: othersPercentage,
-        holders: othersCount,
-        color: '#a855f7',
-      },
     ].filter(item => item.value > 0);
 
-    // Retornar dados acumulados para exibição na legenda
-    // e dados de diferenças para o gráfico
+    // Retornar dados estratificados para gráfico e tabela (mesmos dados)
     return {
-      displayData: data.filter(item => item.value > 0), // Dados acumulados para legenda
-      chartData: chartData, // Dados de diferenças para gráfico
+      displayData: distributionData, // Dados estratificados para tabela
+      chartData: distributionData, // Dados estratificados para gráfico
     };
   }, [allHolders, totalSupply]);
 
@@ -230,15 +192,6 @@ export function HoldersDistributionChart({ allHolders, totalSupply }: HoldersDis
             <Tooltip content={<CustomTooltip />} />
           </PieChart>
         </ResponsiveContainer>
-        {/* Texto centralizado no donut - sobreposto */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <p className="text-orange-400 font-mono font-bold text-base mb-1">
-            Limited Supply
-          </p>
-          <p className="text-white font-mono font-bold text-xl">
-            100B
-          </p>
-        </div>
       </div>
 
       {/* Legenda com detalhes */}
