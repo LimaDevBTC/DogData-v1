@@ -11,6 +11,7 @@ import { Search, Download, Copy, ExternalLink, ChevronLeft, ChevronRight, Wifi, 
 import { SectionDivider } from "@/components/ui/section-divider"
 import { AddressBadge } from "@/components/address-badge"
 import { HoldersDistributionChart } from "@/components/holders/holders-distribution-chart"
+import { Top100WhalesMovement } from "@/components/holders/top100-whales-movement"
 
 interface Holder {
   rank: number;
@@ -631,6 +632,11 @@ export default function HoldersPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Top 100 Whales Movement */}
+      {allHoldersForChart.length > 0 && (
+        <Top100WhalesMovement allHolders={allHoldersForChart} />
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
