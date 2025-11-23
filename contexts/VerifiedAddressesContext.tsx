@@ -41,16 +41,28 @@ export function VerifiedAddressesProvider({ children }: { children: ReactNode })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let cancelled = false;
+    
     // Carregar JSON apenas UMA vez para toda a aplicação
-    fetch('/data/verified_addresses.json')
-      .then(res => res.json())
+    fetch('/data/verified_addresses.json', {
+      signal: AbortSignal.timeout(5000) // 5s timeout
+    })
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
       .then(jsonData => {
+        if (cancelled) return;
         setData(jsonData)
         setLoading(false)
         console.log('✅ Verified addresses loaded:', Object.keys(jsonData.verified || {}).length, 'addresses')
       })
       .catch(error => {
-        console.error('❌ Error loading verified addresses:', error)
+        if (cancelled) return;
+        // Silenciar erro se for apenas timeout ou cancelamento
+        if (error.name !== 'AbortError' && error.name !== 'TimeoutError') {
+          console.error('❌ Error loading verified addresses:', error)
+        }
         // Fallback vazio
         setData({
           config: {
@@ -63,6 +75,10 @@ export function VerifiedAddressesProvider({ children }: { children: ReactNode })
         })
         setLoading(false)
       })
+    
+    return () => {
+      cancelled = true;
+    };
   }, [])
 
   const getVerified = (address: string): VerifiedAddress | null => {

@@ -3,6 +3,7 @@ import { Inter, DM_Sans } from 'next/font/google'
 import './globals.css'
 import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
+import { VerifiedAddressesProvider } from '@/contexts/VerifiedAddressesContext'
 
 const inter = Inter({ subsets: ['latin'] })
 const dmSans = DM_Sans({ subsets: ['latin'], weight: ['700'], variable: '--font-dm-sans' })
@@ -40,9 +41,11 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={`${inter.className} ${dmSans.variable}`}>
-        <div className="min-h-screen bg-gradient-to-br from-dog-gray-900 via-black to-dog-gray-900">
-          {children}
-        </div>
+        <VerifiedAddressesProvider>
+          <div className="min-h-screen bg-gradient-to-br from-dog-gray-900 via-black to-dog-gray-900">
+            {children}
+          </div>
+        </VerifiedAddressesProvider>
         <Analytics />
         <SpeedInsights />
       </body>

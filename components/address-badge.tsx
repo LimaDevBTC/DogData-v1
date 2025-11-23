@@ -3,6 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import { Award } from 'lucide-react';
+import { useVerifiedAddresses } from '@/contexts/VerifiedAddressesContext';
 
 interface AddressBadgeProps {
   address: string;
@@ -10,66 +11,18 @@ interface AddressBadgeProps {
   showName?: boolean;
 }
 
-interface VerifiedAddress {
-  type: 'official' | 'community';
-  name?: string;
-  logo?: string;
-  website?: string;
-  twitter?: string;
-  twitter_name?: string;
-  verified_at: string;
-}
-
-interface VerifiedAddresses {
-  config: {
-    donation_address: string;
-    verification_fee: number;
-    update_fee: number;
-  };
-  verified: {
-    [address: string]: VerifiedAddress;
-  };
-  pending_claims: any;
-}
-
-// Carregar dados de endereços verificados
-let verifiedData: VerifiedAddresses | null = null;
-
-async function loadVerifiedAddresses(): Promise<VerifiedAddresses> {
-  if (verifiedData) return verifiedData;
-  
-  try {
-    const response = await fetch('/data/verified_addresses.json');
-    verifiedData = await response.json();
-    return verifiedData!;
-  } catch (error) {
-    console.error('Erro ao carregar endereços verificados:', error);
-    return {
-      config: {
-        donation_address: '',
-        verification_fee: 0,
-        update_fee: 0
-      },
-      verified: {},
-      pending_claims: {}
-    };
-  }
-}
-
 export function AddressBadge({ address, size = 'md', showName = true }: AddressBadgeProps) {
-  const [verified, setVerified] = React.useState<VerifiedAddress | null>(null);
-  const [loading, setLoading] = React.useState(true);
+  const { getVerified, loading } = useVerifiedAddresses();
   const [imageError, setImageError] = React.useState(false);
 
-  React.useEffect(() => {
-    loadVerifiedAddresses().then(data => {
-      setVerified(data.verified[address] || null);
-      setLoading(false);
-      setImageError(false);
-    });
-  }, [address]);
-
-  if (loading || !verified) return null;
+  // Early return se ainda carregando
+  if (loading) return null;
+  
+  // Lookup direto usando o contexto
+  const verified = getVerified(address);
+  
+  // Early return se não verificado
+  if (!verified) return null;
 
   const sizeClasses = {
     sm: 'w-4 h-4',
@@ -157,3 +110,4 @@ export function AddressBadgeInline({ address }: { address: string }) {
     </div>
   );
 }
+

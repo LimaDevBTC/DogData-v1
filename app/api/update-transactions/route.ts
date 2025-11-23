@@ -134,6 +134,8 @@ function buildTransactionFromActivity(txid: string, grouped: GroupedActivity): T
   }));
 
   const senderAddresses = new Set(senders.map((sender) => sender.address).filter(Boolean));
+  // Criar também versão lowercase para comparação case-insensitive
+  const senderAddressesLower = new Set(Array.from(senderAddresses).map(addr => addr.toLowerCase()));
 
   // Deduplicar outputs por endereço+índice para evitar contar o mesmo output múltiplas vezes
   // Se a API retornar múltiplos eventos para o mesmo output, manteremos o maior valor
@@ -143,7 +145,8 @@ function buildTransactionFromActivity(txid: string, grouped: GroupedActivity): T
     const key = `${item.address}:${item.index}`;
     const amount = safeInt(item.amount);
     const amountDog = toDogAmount(amount);
-    const isChange = senderAddresses.has(item.address);
+    // Verificação case-insensitive para identificar change
+    const isChange = senderAddresses.has(item.address) || senderAddressesLower.has(item.address.toLowerCase());
     
     // Se já existe, manter o maior valor (não somar, pois são eventos duplicados do mesmo UTXO)
     const existing = outputMap.get(key);
@@ -166,6 +169,32 @@ function buildTransactionFromActivity(txid: string, grouped: GroupedActivity): T
   }));
 
   const totalDogOut = receivers.reduce((sum, receiver) => sum + receiver.amount_dog, 0);
+  
+  // HEURÍSTICA: Se não há senders mas há múltiplos outputs, o maior output provavelmente é change
+  // Isso corrige casos onde a API Xverse não retorna inputs corretamente
+  if (senders.length === 0 && receivers.length > 1) {
+    const sortedReceivers = [...receivers].sort((a, b) => b.amount_dog - a.amount_dog);
+    const largestOutput = sortedReceivers[0];
+    const secondLargestOutput = sortedReceivers[1];
+    
+    // Se o maior output é muito maior que o segundo (mais de 10x), provavelmente é change
+    if (largestOutput.amount_dog > secondLargestOutput.amount_dog * 10) {
+      // Marcar o maior output como change
+      const largestIndex = receivers.findIndex(r => 
+        r.address === largestOutput.address && 
+        r.amount_dog === largestOutput.amount_dog
+      );
+      if (largestIndex >= 0) {
+        receivers[largestIndex].is_change = true;
+        console.warn(`⚠️ [buildTransaction] TX ${txid.substring(0, 16)}... sem senders: marcando maior output como change (heurística)`, {
+          largest: largestOutput.amount_dog,
+          second: secondLargestOutput.amount_dog,
+          address: largestOutput.address.substring(0, 20) + '...'
+        });
+      }
+    }
+  }
+  
   const totalChange = receivers
     .filter((receiver) => receiver.is_change)
     .reduce((sum, receiver) => sum + receiver.amount_dog, 0);
@@ -746,15 +775,43 @@ function sanitizeTransaction(tx: any): Transaction {
     };
   }) : [];
 
+  // Criar Set de endereços de senders para identificar change outputs (corrige dados antigos)
+  // Usar versões case-insensitive para garantir que funcione mesmo com diferenças de case
+  const senderAddressesForChange = new Set(senders.map((s: any) => s.address).filter(Boolean));
+  const senderAddressesLower = new Set(
+    Array.from(senderAddressesForChange).map((addr) => String(addr).toLowerCase())
+  );
+  
   const receivers = Array.isArray(tx?.receivers) ? tx.receivers.map((receiver: any) => {
     const amount = Number(receiver?.amount) || 0;
     const amount_dog = typeof receiver?.amount_dog === 'number' ? receiver.amount_dog : Number(receiver?.amount_dog) || 0;
+    const address = receiver?.address || '';
+    const addressLower = address.toLowerCase();
+    
+    // Se is_change não está definido, calcular baseado em se o endereço está nos senders
+    // Comparação case-insensitive para garantir que funcione mesmo com diferenças de case
+    // Isso corrige dados antigos no cache que podem não ter esse campo
+    const isChange = receiver?.is_change !== undefined
+      ? Boolean(receiver.is_change)
+      : senderAddressesForChange.has(address) || senderAddressesLower.has(addressLower);
+    
+    // Log para debug de transações problemáticas (valores muito grandes provavelmente são change)
+    if (isChange && amount_dog > 100_000_000 && tx?.txid) {
+      console.warn(`⚠️ [sanitizeTransaction] Change output detectado e corrigido:`, {
+        txid: tx.txid.substring(0, 16) + '...',
+        address: address.substring(0, 20) + '...',
+        amount_dog,
+        is_change_field: receiver?.is_change,
+        is_in_senders: senderAddressesForChange.has(address) || senderAddressesLower.has(addressLower)
+      });
+    }
+    
     return {
-      address: receiver?.address || '',
+      address,
       amount,
       amount_dog,
       has_dog: Boolean(receiver?.has_dog),
-      is_change: Boolean(receiver?.is_change)
+      is_change: isChange
     };
   }) : [];
 
@@ -779,11 +836,54 @@ function sanitizeTransaction(tx: any): Transaction {
     amount_dog: sanitizeDogAmount(r.amount_dog)
   }));
 
+  // HEURÍSTICA: Se não há senders mas há múltiplos outputs, o maior output provavelmente é change
+  // Isso corrige casos onde a API Xverse não retorna inputs corretamente
+  if (senders.length === 0 && sanitizedReceivers.length > 1) {
+    const sortedReceivers = [...sanitizedReceivers].sort((a, b) => b.amount_dog - a.amount_dog);
+    const largestOutput = sortedReceivers[0];
+    const secondLargestOutput = sortedReceivers[1];
+    
+    // Se o maior output é muito maior que o segundo (mais de 10x), provavelmente é change
+    if (largestOutput.amount_dog > secondLargestOutput.amount_dog * 10) {
+      // Marcar o maior output como change
+      const largestIndex = sanitizedReceivers.findIndex((r: { address: string; amount_dog: number }) => 
+        r.address === largestOutput.address && 
+        r.amount_dog === largestOutput.amount_dog
+      );
+      if (largestIndex >= 0 && !sanitizedReceivers[largestIndex].is_change) {
+        sanitizedReceivers[largestIndex].is_change = true;
+        console.warn(`⚠️ [sanitizeTransaction] TX ${tx?.txid?.substring(0, 16) || 'unknown'}... sem senders: marcando maior output como change (heurística)`, {
+          largest: largestOutput.amount_dog,
+          second: secondLargestOutput.amount_dog,
+          address: largestOutput.address.substring(0, 20) + '...'
+        });
+      }
+    }
+  }
+
+  // Recalcular change_amount e net_transfer baseado nos receivers sanitizados (garantir consistência)
+  // Isso corrige dados antigos no cache que podem ter valores incorretos
+  const recalculated_change_amount = sanitizedReceivers
+    .filter((r: { is_change: boolean }) => r.is_change)
+    .reduce((sum: number, r: { amount_dog: number }) => sum + r.amount_dog, 0);
+  
+  const recalculated_net_transfer = sanitizedReceivers
+    .filter((r: { is_change: boolean }) => !r.is_change)
+    .reduce((sum: number, r: { amount_dog: number }) => sum + r.amount_dog, 0);
+  
   const total_dog_in = typeof tx?.total_dog_in === 'number' ? sanitizeDogAmount(tx.total_dog_in) : sanitizeDogAmount(Number(tx?.total_dog_in) || 0);
   const total_dog_out = typeof tx?.total_dog_out === 'number' ? sanitizeDogAmount(tx.total_dog_out) : sanitizeDogAmount(Number(tx?.total_dog_out) || 0);
-  const total_dog_moved = typeof tx?.total_dog_moved === 'number' ? sanitizeDogAmount(tx.total_dog_moved) : sanitizeDogAmount(Number(tx?.total_dog_moved) || 0);
-  const sanitized_net_transfer = sanitizeDogAmount(net_transfer);
-  const sanitized_change_amount = sanitizeDogAmount(change_amount);
+  
+  // Usar valores recalculados se disponíveis, senão usar valores do cache
+  const sanitized_change_amount = recalculated_change_amount > 0 
+    ? sanitizeDogAmount(recalculated_change_amount)
+    : sanitizeDogAmount(change_amount);
+  const sanitized_net_transfer = recalculated_net_transfer > 0
+    ? sanitizeDogAmount(recalculated_net_transfer)
+    : sanitizeDogAmount(net_transfer);
+  
+  // total_dog_moved deve ser igual a net_transfer (volume real, excluindo change)
+  const total_dog_moved = sanitized_net_transfer;
 
   // Se valores são inválidos, zerar a transação
   if (total_dog_in > MAX_DOG_AMOUNT || total_dog_out > MAX_DOG_AMOUNT || sanitized_net_transfer > MAX_DOG_AMOUNT) {
@@ -891,8 +991,32 @@ function computeMetrics(transactions: Transaction[]): TransactionsMetrics {
       }
     }
 
+    // Processar receivers: NUNCA contar change outputs como inflow
     for (const receiver of tx.receivers) {
-      if (!receiver.address || receiver.is_change) continue;
+      if (!receiver.address) continue;
+      
+      // Verificação dupla: usar is_change se disponível, senão verificar se endereço está nos senders
+      // Isso garante que dados antigos no cache também sejam tratados corretamente
+      const receiverAddressLower = receiver.address.toLowerCase();
+      const isChange = receiver.is_change !== undefined
+        ? Boolean(receiver.is_change)
+        : Array.from(txSenderAddresses).some(addr => addr.toLowerCase() === receiverAddressLower);
+      
+      // CRÍTICO: NUNCA contar change outputs como inflow
+      if (isChange) {
+        // Log para debug de transações problemáticas
+        if (receiver.amount_dog > 100_000_000) { // Valores muito grandes provavelmente são change
+          console.warn(`⚠️ [computeMetrics] Change output detectado e excluído:`, {
+            txid: tx.txid.substring(0, 16) + '...',
+            address: receiver.address.substring(0, 20) + '...',
+            amount_dog: receiver.amount_dog,
+            is_change_field: receiver.is_change,
+            is_in_senders: Array.from(txSenderAddresses).some(addr => addr.toLowerCase() === receiverAddressLower)
+          });
+        }
+        continue;
+      }
+      
       const amountDog = typeof receiver.amount_dog === 'number'
         ? receiver.amount_dog
         : Number(receiver.amount_dog) || 0;

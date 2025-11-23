@@ -273,8 +273,36 @@ const computeMetrics24h = (
       }
     }
 
+    // Processar receivers: NUNCA contar change outputs como inflow
+    // Criar versão lowercase dos endereços de senders para comparação case-insensitive
+    const txSenderAddressesLower = new Set(Array.from(txSenderAddresses).map(addr => addr.toLowerCase()))
+    
     for (const receiver of tx.receivers) {
-      if (!receiver.address || receiver.is_change) continue
+      if (!receiver.address) continue
+      
+      const receiverAddressLower = receiver.address.toLowerCase()
+      
+      // Verificação dupla: usar is_change se disponível, senão verificar se endereço está nos senders
+      // Comparação case-insensitive para garantir que funcione mesmo com diferenças de case
+      const isChange = receiver.is_change !== undefined
+        ? Boolean(receiver.is_change)
+        : txSenderAddresses.has(receiver.address) || txSenderAddressesLower.has(receiverAddressLower)
+      
+      // CRÍTICO: NUNCA contar change outputs como inflow
+      if (isChange) {
+        // Log para debug de transações problemáticas (valores muito grandes provavelmente são change)
+        if (receiver.amount_dog > 100_000_000) {
+          console.warn(`⚠️ [computeMetrics24h] Change output detectado e excluído:`, {
+            txid: tx.txid.substring(0, 16) + '...',
+            address: receiver.address.substring(0, 20) + '...',
+            amount_dog: receiver.amount_dog,
+            is_change_field: receiver.is_change,
+            is_in_senders: txSenderAddresses.has(receiver.address) || txSenderAddressesLower.has(receiverAddressLower)
+          })
+        }
+        continue
+      }
+      
       let amountDog = typeof receiver.amount_dog === 'number'
         ? receiver.amount_dog
         : Number(receiver.amount_dog) || 0
