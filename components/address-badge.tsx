@@ -63,17 +63,19 @@ export function AddressBadge({ address, size = 'md', showName = true }: AddressB
       <div className="inline-flex items-center gap-1.5">
         {verified.logo && (
           <div 
-            className={`relative ${iconSize} rounded-full overflow-hidden bg-white/10 cursor-pointer transition-transform hover:scale-110`}
+            className={`relative ${iconSize} rounded-full overflow-hidden bg-white/10 cursor-pointer transition-transform hover:scale-110 flex items-center justify-center shrink-0`}
             title={verified.name || 'Verified'}
           >
-            <Image
-              src={verified.logo}
-              alt={verified.name || 'Verified'}
-              width={size === 'sm' ? 16 : size === 'md' ? 20 : 24}
-              height={size === 'sm' ? 16 : size === 'md' ? 20 : 24}
-              className="object-contain"
-              onError={() => setImageError(true)}
-            />
+            <div className="w-full h-full flex items-center justify-center p-[2px]">
+              <Image
+                src={verified.logo}
+                alt={verified.name || 'Verified'}
+                width={size === 'sm' ? 14 : size === 'md' ? 18 : 22}
+                height={size === 'sm' ? 14 : size === 'md' ? 18 : 22}
+                className="object-contain rounded-full"
+                onError={() => setImageError(true)}
+              />
+            </div>
           </div>
         )}
         {showName && verified.name && (
