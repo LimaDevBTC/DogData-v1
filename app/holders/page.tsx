@@ -83,6 +83,7 @@ export default function HoldersPage() {
   const [circulatingSupply, setCirculatingSupply] = useState<number | null>(null)
   const [newHolders24h, setNewHolders24h] = useState<number | null>(null)
   const [allHoldersForChart, setAllHoldersForChart] = useState<Holder[]>([]) // Todos os holders para o gráfico
+  const [totalHoldersFromJSON, setTotalHoldersFromJSON] = useState<number | null>(null) // Total de holders do JSON
   const [loadingChart, setLoadingChart] = useState(true) // Estado de loading do gráfico
   const eventSourceRef = useRef<EventSource | null>(null)
 
@@ -165,98 +166,63 @@ export default function HoldersPage() {
   const fetchHolders = async (page: number, limit: number = pageLimit) => {
     try {
       setLoading(true)
-      // Carregar dados da página E todos os holders para o gráfico em paralelo
-      const [pageResponse, allHoldersResponse] = await Promise.all([
-        fetch(`/api/dog-rune/holders?page=${page}&limit=${limit}`),
-        // Se ainda não carregamos os dados do gráfico, carregar agora junto
-        allHoldersForChart.length === 0 
-          ? fetch('/data/dog_holders_by_address.json', { cache: 'force-cache' })
-          : Promise.resolve(null)
-      ])
-      
-      // Processar resposta da página
-      const response = pageResponse
-      
-      if (!response.ok) {
-        // Mesmo com erro HTTP, tentar parsear a resposta caso seja uma página vazia válida
-        try {
-          const data: HoldersResponse = await response.json()
-          if (data.holders && Array.isArray(data.holders)) {
-            setAllHolders(data.holders)
-            setTotalPages(data.pagination?.totalPages || 1)
-            setTotalHolders(data.pagination?.total || 0)
-            setPageLimit(data.pagination?.limit || limit)
-            setHoldersMetadata({
-              divisibility: data.metadata?.divisibility || 5,
-              updatedAt: data.metadata?.updatedAt || new Date().toISOString(),
-              source: data.metadata?.source || 'fallback',
-            })
-            setError(null)
-            return
-          }
-        } catch {
-          // Se não conseguir parsear, continuar com o erro
+      // Carregar JSON completo (única fonte de dados)
+      const timestamp = Date.now()
+      const jsonResponse = await fetch(`/data/dog_holders_by_address.json?_t=${timestamp}`, { 
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
         }
-        throw new Error(`HTTP error! status: ${response.status}`)
+      })
+      
+      if (!jsonResponse.ok) {
+        throw new Error(`Failed to load holders JSON: ${jsonResponse.status}`)
       }
       
-      const data: HoldersResponse = await response.json()
+      const jsonData = await jsonResponse.json()
       
-      // Verificar se é uma página vazia (mas válida)
-      if (data.holders && Array.isArray(data.holders) && data.holders.length === 0 && data.pagination?.total === 0) {
-        console.warn('⚠️ Empty page received, may indicate temporary API issue')
-        // Só mostrar erro se não tivermos dados anteriores válidos
-        if (allHolders.length === 0) {
-          setError('Data temporarily unavailable. Please try again in a few moments.')
-        } else {
-          // Manter dados anteriores e apenas logar o problema
-          console.warn('⚠️ Keeping previous valid data due to empty response')
-          setError(null)
-          return // Não atualizar com dados vazios
-        }
-      } else {
-        setError(null)
+      if (!jsonData.holders || !Array.isArray(jsonData.holders)) {
+        throw new Error('Invalid JSON format: holders is not an array')
       }
       
-      setAllHolders(data.holders || [])
-      setTotalPages(data.pagination?.totalPages || 1)
-      setTotalHolders(data.pagination?.total || 0)
-      setPageLimit(data.pagination?.limit || limit)
+      const allHoldersFromJSON = jsonData.holders
+      const totalHoldersFromJSONValue = typeof jsonData.total_holders === 'number' 
+        ? jsonData.total_holders 
+        : allHoldersFromJSON.length
+      
+      console.log(`📊 [JSON] Carregados ${allHoldersFromJSON.length} holders, total_holders: ${totalHoldersFromJSONValue}`)
+      
+      // Atualizar dados do gráfico (todos os holders)
+      setAllHoldersForChart(allHoldersFromJSON)
+      setTotalHoldersFromJSON(totalHoldersFromJSONValue)
+      setLoadingChart(false)
+      
+      // Fazer paginação no cliente
+      const startIndex = (page - 1) * limit
+      const endIndex = startIndex + limit
+      const paginatedHolders = allHoldersFromJSON.slice(startIndex, endIndex)
+      const totalPagesCalculated = Math.ceil(allHoldersFromJSON.length / limit)
+      
+      // Atualizar estados
+      setAllHolders(paginatedHolders)
+      setTotalPages(totalPagesCalculated)
+      setTotalHolders(totalHoldersFromJSONValue)
+      setPageLimit(limit)
       setHoldersMetadata({
-        divisibility: data.metadata?.divisibility || 5,
-        updatedAt: data.metadata?.updatedAt || new Date().toISOString(),
-        source: data.metadata?.source || 'xverse',
+        divisibility: 5, // DOG tem 5 casas decimais
+        updatedAt: jsonData.timestamp || new Date().toISOString(),
+        source: 'json',
       })
-      setLastUpdate(new Date(data.metadata?.updatedAt || new Date().toISOString()).toISOString())
+      setLastUpdate(jsonData.timestamp || new Date().toISOString())
+      setError(null)
       
-      console.log('✅ Holders loaded:', {
-        holders: data.holders?.length || 0,
-        total: data.pagination?.total || 0,
-        pages: data.pagination?.totalPages || 1,
-        source: data.metadata?.source || 'unknown'
+      console.log('✅ Holders loaded from JSON:', {
+        holders: paginatedHolders.length,
+        total: totalHoldersFromJSONValue,
+        pages: totalPagesCalculated,
+        page,
+        source: 'json'
       })
-      
-      // Processar dados do gráfico se foram carregados em paralelo
-      if (allHoldersResponse && allHoldersResponse.ok) {
-        try {
-          const allHoldersData = await allHoldersResponse.json()
-          if (allHoldersData.holders && Array.isArray(allHoldersData.holders)) {
-            console.log(`✅ Gráfico: ${allHoldersData.holders.length} holders carregados junto com a lista`)
-            setAllHoldersForChart(allHoldersData.holders)
-            setLoadingChart(false)
-            console.log(`✅ LoadingChart setado para false`)
-          } else {
-            console.warn('⚠️ Dados do gráfico não têm formato esperado:', allHoldersData)
-            setLoadingChart(false) // Mesmo assim, parar o loading
-          }
-        } catch (chartError) {
-          console.warn('⚠️ Erro ao processar dados do gráfico:', chartError)
-          setLoadingChart(false) // Parar o loading mesmo em caso de erro
-        }
-      } else {
-        // Se não carregou junto, tentar carregar separadamente
-        console.log('⚠️ Dados do gráfico não carregados junto, tentando carregar separadamente...')
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')
       console.error('Error fetching holders:', err)
@@ -303,10 +269,16 @@ export default function HoldersPage() {
       const data = await response.json()
       const transactions = data.transactions || []
       
-      // Buscar lista completa de holders para verificar quem já tinha DOG antes
-      const holdersResponse = await fetch('/api/dog-rune/holders?page=1&limit=100000', { cache: 'no-store' })
+      // Buscar lista completa de holders do JSON para verificar quem já tinha DOG antes
+      const timestamp = Date.now()
+      const holdersResponse = await fetch(`/data/dog_holders_by_address.json?_t=${timestamp}`, { 
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+        }
+      })
       if (!holdersResponse.ok) {
-        throw new Error(`Holders error: ${holdersResponse.status}`)
+        throw new Error(`Holders JSON error: ${holdersResponse.status}`)
       }
       
       const holdersData = await holdersResponse.json()
@@ -416,8 +388,14 @@ export default function HoldersPage() {
       // Prioridade 1: Tentar carregar diretamente do JSON público (mais rápido, sem processamento da API)
       // Este arquivo está servido estaticamente e é muito mais rápido que a API
       const startTime = performance.now()
-      const publicResponse = await fetch('/data/dog_holders_by_address.json', {
-        cache: 'force-cache', // Cache agressivo para arquivo estático
+      // Usar no-store + timestamp para forçar bypass completo do cache
+      const timestamp = Date.now()
+      const publicResponse = await fetch(`/data/dog_holders_by_address.json?_t=${timestamp}`, {
+        cache: 'no-store', // Sem cache para garantir dados atualizados do JSON
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        }
       })
       
       if (publicResponse.ok) {
@@ -428,23 +406,24 @@ export default function HoldersPage() {
         if (publicData.holders && Array.isArray(publicData.holders)) {
           console.log(`✅ Gráfico: ${publicData.holders.length} holders carregados do JSON público`)
           setAllHoldersForChart(publicData.holders)
+          // Usar total_holders do JSON se disponível, senão usar o length do array
+          const jsonTotalHolders = typeof publicData.total_holders === 'number' 
+            ? publicData.total_holders 
+            : publicData.holders.length
+          console.log(`📊 [JSON] total_holders do JSON: ${publicData.total_holders}, holders.length: ${publicData.holders.length}, usando: ${jsonTotalHolders}`)
+          setTotalHoldersFromJSON(jsonTotalHolders)
+          // Também atualizar totalHolders para manter consistência (se o JSON tem o valor correto)
+          if (jsonTotalHolders > 0 && jsonTotalHolders !== totalHolders) {
+            console.log(`🔄 Atualizando totalHolders de ${totalHolders} para ${jsonTotalHolders} (do JSON)`)
+            setTotalHolders(jsonTotalHolders)
+          }
           setLoadingChart(false)
           return // Sucesso, sair da função imediatamente
         }
       }
 
-      // Prioridade 2: Fallback para API (mais lento, mas funciona sempre)
-      console.warn('⚠️ Fallback para API do gráfico')
-      const response = await fetch('/api/dog-rune/holders?page=1&limit=100000', { 
-        cache: 'default',
-      })
-      if (response.ok) {
-        const data = await response.json()
-        if (data.holders && Array.isArray(data.holders)) {
-          console.log('✅ Gráfico: dados carregados da API')
-          setAllHoldersForChart(data.holders)
-        }
-      }
+      // Se chegou aqui, o JSON não foi carregado - não há fallback, apenas erro
+      console.error('❌ Falha ao carregar JSON de holders para o gráfico')
     } catch (error) {
       console.error('Error loading all holders for chart:', error)
     } finally {
@@ -496,28 +475,38 @@ export default function HoldersPage() {
     
     try {
       setLoading(true)
-      const response = await fetch(`/api/dog-rune/holders?address=${encodeURIComponent(address)}`)
+      // Buscar no JSON completo
+      const timestamp = Date.now()
+      const jsonResponse = await fetch(`/data/dog_holders_by_address.json?_t=${timestamp}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+        }
+      })
       
-      if (response.status === 404) {
-        setSearchResult(null)
-        alert('Holder not found')
-        return
+      if (!jsonResponse.ok) {
+        throw new Error(`Failed to load holders JSON: ${jsonResponse.status}`)
       }
       
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+      const jsonData = await jsonResponse.json()
+      
+      if (!jsonData.holders || !Array.isArray(jsonData.holders)) {
+        throw new Error('Invalid JSON format')
       }
       
-      const data: HolderSearchResponse = await response.json()
-      let holder = data.holder
+      // Buscar holder pelo endereço (case-insensitive)
+      const addressLower = address.toLowerCase()
+      const holder = jsonData.holders.find((h: Holder) => 
+        h.address && h.address.toLowerCase() === addressLower
+      )
       
       if (holder) {
-        holder = {
+        const holderWithAirdrop = {
           ...holder,
           is_airdrop_recipient: airdropRecipients.has(holder.address),
         }
         
-        if (holder.is_airdrop_recipient) {
+        if (holderWithAirdrop.is_airdrop_recipient) {
           try {
             const airdropResponse = await fetch(`/data/airdrop_recipients.json`)
             if (airdropResponse.ok) {
@@ -526,7 +515,7 @@ export default function HoldersPage() {
                 r.address.toLowerCase() === holder.address.toLowerCase()
               )
               if (airdropRecipient) {
-                holder.airdrop_amount = airdropRecipient.airdrop_amount
+                holderWithAirdrop.airdrop_amount = airdropRecipient.airdrop_amount
               }
             }
           } catch (err) {
@@ -534,12 +523,12 @@ export default function HoldersPage() {
           }
         }
         
-        setSearchResult(holder)
-        setHoldersMetadata(prev => ({
-          divisibility: data.metadata.divisibility ?? prev?.divisibility ?? 0,
-          updatedAt: data.metadata.updatedAt,
-          source: data.metadata.source ?? prev?.source ?? 'xverse',
-        }))
+        setSearchResult(holderWithAirdrop)
+        setHoldersMetadata({
+          divisibility: 5,
+          updatedAt: jsonData.timestamp || new Date().toISOString(),
+          source: 'json',
+        })
       } else {
         setSearchResult(null)
         alert('Holder not found')
@@ -608,10 +597,19 @@ export default function HoldersPage() {
       {/* Distribution Chart - Sempre mostrar, com loading ou dados */}
       <Card variant="glass" className="border-orange-500/20 hover:border-orange-500/40 transition-all">
         <CardHeader>
-          <CardTitle className="text-orange-400 text-xl flex items-center">
+          <CardTitle className="text-orange-400 text-xl font-mono uppercase tracking-[0.3em] flex items-center">
             <BarChart3 className="w-6 h-6 mr-3 text-orange-500" />
             Address Holdings Distribution
           </CardTitle>
+          <p className="text-gray-500 text-xs font-mono mt-2">
+            Total Holders: {totalHoldersFromJSON !== null
+              ? totalHoldersFromJSON.toLocaleString('en-US')
+              : allHoldersForChart.length > 0 
+                ? allHoldersForChart.length.toLocaleString('en-US')
+                : totalHolders > 0 
+                  ? totalHolders.toLocaleString('en-US')
+                  : '—'}
+          </p>
         </CardHeader>
         <CardContent>
           {loadingChart || allHoldersForChart.length === 0 ? (
@@ -649,7 +647,11 @@ export default function HoldersPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent font-mono">
-              {totalHolders ? totalHolders.toLocaleString('en-US') : '0'}
+              {totalHoldersFromJSON !== null
+                ? totalHoldersFromJSON.toLocaleString('en-US')
+                : totalHolders > 0 
+                  ? totalHolders.toLocaleString('en-US')
+                  : '0'}
             </div>
           </CardContent>
         </Card>

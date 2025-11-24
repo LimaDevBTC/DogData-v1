@@ -287,7 +287,7 @@ export function Top100WhalesMovement({ allHolders }: Top100WhalesMovementProps) 
   return (
     <Card variant="glass" className="border-orange-500/20 hover:border-orange-500/40 transition-all">
       <CardHeader>
-        <CardTitle className="text-orange-400 text-xl flex items-center">
+        <CardTitle className="text-orange-400 text-xl font-mono uppercase tracking-[0.3em] flex items-center">
           <Wallet className="w-6 h-6 mr-3 text-orange-500" />
           Top 100 Whales Movement (24h)
         </CardTitle>

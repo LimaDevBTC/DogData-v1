@@ -37,6 +37,8 @@ export function HoldersDistributionChart({ allHolders, totalSupply }: HoldersDis
       return null;
     }
 
+    console.log(`📊 [Gráfico] Processando ${allHolders.length} holders do JSON`)
+
     // Calcular valores acumulados
     let top10Accumulated = 0; // Carteiras 1-10
     let top50Accumulated = 0; // Carteiras 1-50 (inclui top 10)
@@ -48,29 +50,50 @@ export function HoldersDistributionChart({ allHolders, totalSupply }: HoldersDis
     let top100Count = 0;
     let othersCount = 0;
 
+    let holdersWithoutRank = 0;
+    let holdersWithInvalidRank = 0;
+    
     allHolders.forEach((holder) => {
       const dogAmount = holder.total_dog || 0;
+      const rank = holder.rank;
       
-      if (holder.rank >= 1 && holder.rank <= 10) {
+      // Verificar se o holder tem rank válido
+      if (!rank || typeof rank !== 'number' || rank < 1) {
+        holdersWithoutRank++;
+        // Se não tem rank válido, considerar como "others"
+        others += dogAmount;
+        othersCount++;
+        return;
+      }
+      
+      if (rank >= 1 && rank <= 10) {
         top10Accumulated += dogAmount;
         top50Accumulated += dogAmount;
         top100Accumulated += dogAmount;
         top10Count++;
         top50Count++;
         top100Count++;
-      } else if (holder.rank >= 11 && holder.rank <= 50) {
+      } else if (rank >= 11 && rank <= 50) {
         top50Accumulated += dogAmount;
         top100Accumulated += dogAmount;
         top50Count++;
         top100Count++;
-      } else if (holder.rank >= 51 && holder.rank <= 100) {
+      } else if (rank >= 51 && rank <= 100) {
         top100Accumulated += dogAmount;
         top100Count++;
       } else {
+        // Rank > 100 ou inválido
         others += dogAmount;
         othersCount++;
+        if (rank > 100) {
+          holdersWithInvalidRank++;
+        }
       }
     });
+    
+    if (holdersWithoutRank > 0 || holdersWithInvalidRank > 0) {
+      console.warn(`⚠️ [Gráfico] Holders sem rank válido: ${holdersWithoutRank}, Holders com rank > 100: ${holdersWithInvalidRank}`)
+    }
 
     // Calcular valores estratificados (exclusivos por faixa, não acumulados)
     const top10Only = top10Accumulated; // 1-10 (valor exclusivo)
@@ -79,6 +102,9 @@ export function HoldersDistributionChart({ allHolders, totalSupply }: HoldersDis
 
     // Calcular total de DOG de todos os holders (base para percentuais)
     const totalDogFromHolders = top100Accumulated + others;
+    
+    console.log(`📊 [Gráfico] Total DOG calculado: ${totalDogFromHolders.toLocaleString('en-US')} DOG`)
+    console.log(`📊 [Gráfico] Holders processados: Top 10=${top10Count}, Top 50=${top50Count}, Top 100=${top100Count}, Others=${othersCount}, Total=${top10Count + top50Count - top10Count + top100Count - top50Count + othersCount}`)
 
     // Calcular percentuais estratificados (não acumulados)
     const top10OnlyPercentage = totalDogFromHolders > 0 ? (top10Only / totalDogFromHolders) * 100 : 0;
@@ -150,23 +176,51 @@ export function HoldersDistributionChart({ allHolders, totalSupply }: HoldersDis
     return null;
   };
 
-  const CustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
+  const CustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name, x, y }: any) => {
+    // Quando labelLine está habilitado, o Recharts fornece x e y que são o ponto final da linha
+    // onde o texto deve começar. Se não fornecido, calculamos manualmente.
     const RADIAN = Math.PI / 180;
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+    
+    let labelX = x;
+    let labelY = y;
+    
+    // Se x e y não foram fornecidos (fallback), calcular manualmente
+    if (labelX === undefined || labelY === undefined) {
+      const labelRadius = outerRadius + 40;
+      labelX = cx + labelRadius * Math.cos(-midAngle * RADIAN);
+      labelY = cy + labelRadius * Math.sin(-midAngle * RADIAN);
+    }
+
+    // Determinar alinhamento do texto baseado na posição
+    const textAnchor = labelX > cx ? 'start' : 'end';
 
     return (
-      <text
-        x={x}
-        y={y}
-        fill="white"
-        textAnchor={x > cx ? 'start' : 'end'}
-        dominantBaseline="central"
-        className="font-mono text-sm font-semibold"
-      >
-        {`${(percent * 100).toFixed(1)}%`}
-      </text>
+      <g>
+        {/* Texto com percentual */}
+        <text
+          x={labelX}
+          y={labelY - 6}
+          fill="white"
+          textAnchor={textAnchor}
+          dominantBaseline="central"
+          className="font-mono text-sm font-bold"
+          style={{ fontSize: '14px' }}
+        >
+          {`${(percent * 100).toFixed(2)}%`}
+        </text>
+        {/* Nome da categoria (menor) */}
+        <text
+          x={labelX}
+          y={labelY + 8}
+          fill="#9ca3af"
+          textAnchor={textAnchor}
+          dominantBaseline="central"
+          className="font-mono text-xs"
+          style={{ fontSize: '11px' }}
+        >
+          {name}
+        </text>
+      </g>
     );
   };
 
@@ -185,8 +239,8 @@ export function HoldersDistributionChart({ allHolders, totalSupply }: HoldersDis
   return (
     <div className="flex flex-col lg:flex-row gap-8 items-center justify-center">
       {/* Gráfico de Pizza (Donut) */}
-      <div className="w-full lg:w-1/2 max-w-md relative">
-        <ResponsiveContainer width="100%" height={400}>
+      <div className="w-full lg:w-1/2 max-w-lg relative">
+        <ResponsiveContainer width="100%" height={500}>
           <PieChart>
             <Pie
               data={distributionData.chartData.map(item => ({
@@ -198,10 +252,14 @@ export function HoldersDistributionChart({ allHolders, totalSupply }: HoldersDis
               }))}
               cx="50%"
               cy="50%"
-              labelLine={false}
+              labelLine={{
+                stroke: '#6b7280',
+                strokeWidth: 1.5,
+                strokeDasharray: '0 0',
+              }}
               label={CustomLabel}
-              outerRadius={120}
-              innerRadius={60}
+              outerRadius={100}
+              innerRadius={50}
               fill="#8884d8"
               dataKey="value"
             >
