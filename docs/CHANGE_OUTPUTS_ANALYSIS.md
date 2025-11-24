@@ -140,3 +140,4 @@ Esta correção garante que:
 3. ⏳ Testar com a transação específica mencionada
 4. ⏳ Considerar backfill do cache para corrigir dados históricos
 
+
