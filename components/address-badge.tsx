@@ -21,6 +21,11 @@ export function AddressBadge({ address, size = 'md', showName = true }: AddressB
   // Lookup direto usando o contexto
   const verified = getVerified(address);
   
+  // Debug temporário
+  if (address.toLowerCase().includes('bc1pz66497g7mj8cq0ncj2hjjfxcxuzv44yxnlach5puypf39ghejmaq20zgne')) {
+    console.log('🔍 [AddressBadge] Buscando endereço:', address, 'Verificado:', verified)
+  }
+  
   // Early return se não verificado
   if (!verified) return null;
 

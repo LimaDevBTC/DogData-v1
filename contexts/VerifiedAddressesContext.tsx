@@ -82,8 +82,23 @@ export function VerifiedAddressesProvider({ children }: { children: ReactNode })
   }, [])
 
   const getVerified = (address: string): VerifiedAddress | null => {
-    if (!data) return null
-    return data.verified[address] || null
+    if (!data || !address) return null
+    // Normalizar endereço para lowercase para busca case-insensitive
+    const addressLower = address.toLowerCase()
+    // Tentar busca direta primeiro
+    if (data.verified[address]) {
+      return data.verified[address]
+    }
+    // Tentar busca case-insensitive
+    const verifiedKey = Object.keys(data.verified).find(
+      key => key.toLowerCase() === addressLower
+    )
+    const result = verifiedKey ? data.verified[verifiedKey] : null
+    // Debug temporário para Dog of Bitcoin
+    if (addressLower.includes('bc1pz66497g7mj8cq0ncj2hjjfxcxuzv44yxnlach5puypf39ghejmaq20zgne')) {
+      console.log('🔍 [getVerified] Endereço:', address, 'Lower:', addressLower, 'Key encontrada:', verifiedKey, 'Resultado:', result)
+    }
+    return result
   }
 
   return (

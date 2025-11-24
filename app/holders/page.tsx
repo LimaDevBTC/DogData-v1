@@ -734,6 +734,7 @@ export default function HoldersPage() {
                         Rank #{searchResult.rank.toLocaleString('en-US')}
                       </Badge>
                       <code className="text-white text-xs break-all">{searchResult.address}</code>
+                      <AddressBadge address={searchResult.address} size="sm" showName={true} />
                       <Button
                         size="sm"
                         variant="ghost"
