@@ -97,15 +97,15 @@ export default function DonatePage() {
             <div className="flex items-center justify-center space-x-2 text-yellow-400">
               <Star className="w-5 h-5" />
               <span className="font-mono text-sm">Open Source</span>
-            </div>
           </div>
         </div>
+      </div>
 
-        <SectionDivider title="Choose Your Donation Method" icon={Heart} />
+      <SectionDivider title="Choose Your Donation Method" icon={Heart} />
 
-        {/* Donation Methods - Logo Grid */}
+      {/* Donation Methods - Logo Grid */}
         <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Bitcoin Logo Card */}
           <Card 
             variant="glass" 
@@ -174,14 +174,14 @@ export default function DonatePage() {
               </p>
             </CardContent>
           </Card>
-          </div>
+        </div>
 
-          {/* Impact Section */}
+        {/* Impact Section */}
           <SectionDivider title="Your Impact" icon={Star} />
           
           <div className="text-center space-y-8">
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card variant="glass" className="border-orange-500/20">
               <CardContent className="p-6 text-center">
                 <div className="text-4xl font-bold text-orange-400 font-mono mb-2">
@@ -214,26 +214,26 @@ export default function DonatePage() {
                 </p>
               </CardContent>
             </Card>
-            </div>
-
-            <div className="max-w-2xl mx-auto">
-              <p className="text-gray-300 font-mono text-lg leading-relaxed">
-                Every donation, no matter the size, helps us continue building tools 
-                that benefit the entire Bitcoin and DOG community. Thank you for your support! 🙏
-              </p>
-            </div>
           </div>
 
-          {/* Back Button */}
-          <div className="mt-12 text-center">
-            <Button
-              variant="outline"
-              onClick={() => window.history.back()}
-              className="btn-sharp"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
-            </Button>
+          <div className="max-w-2xl mx-auto">
+            <p className="text-gray-300 font-mono text-lg leading-relaxed">
+              Every donation, no matter the size, helps us continue building tools 
+              that benefit the entire Bitcoin and DOG community. Thank you for your support! 🙏
+            </p>
+          </div>
+        </div>
+
+        {/* Back Button */}
+        <div className="mt-12 text-center">
+          <Button
+            variant="outline"
+            onClick={() => window.history.back()}
+            className="btn-sharp"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Dashboard
+          </Button>
           </div>
         </div>
       </div>

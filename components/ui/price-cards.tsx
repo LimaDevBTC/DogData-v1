@@ -195,7 +195,7 @@ export function PriceCards() {
     const workingExchanges = allExchanges.filter(exchange => exchange.working);
     const pricePromises = workingExchanges.map(exchange => fetchPrice(exchange));
     const results = await Promise.all(pricePromises);
-
+    
     const resultByExchange: Record<string, PriceData> = {};
     for (const r of results) {
       resultByExchange[r.exchange] = r;
@@ -228,7 +228,7 @@ export function PriceCards() {
             price: newData.price || 0,
             change24h: newData.change24h || 0,
             stale: true,
-          };
+        };
         }
 
         // Totalmente sem informação (primeira chamada falhou completamente)
@@ -243,7 +243,7 @@ export function PriceCards() {
           priceSats: null,
           stale: true,
         };
-      });
+    });
       return nextPrices;
     });
 
@@ -276,25 +276,25 @@ export function PriceCards() {
 
   const renderExchangeCard = (exchange: typeof exchanges[0], index: number) => {
     const priceData = prices.find((p) => p.exchange === exchange.name);
-    const isSuccess = priceData?.status === 'success';
+          const isSuccess = priceData?.status === 'success';
     const isStale = !!priceData?.stale;
-    const isWorking = exchange.working;
-
-    return (
-      <Card
-        key={exchange.name}
-        variant="glass"
+          const isWorking = exchange.working;
+          
+          return (
+            <Card
+              key={exchange.name}
+              variant="glass"
         className={`stagger-item ${exchange.borderColor} ${exchange.hoverBorderColor} transition-all lg:h-full ${
-          !isWorking ? 'opacity-60' : ''
-        }`}
+                !isWorking ? 'opacity-60' : ''
+              }`}
         style={{ animationDelay: `${index * 0.08}s` }}
-      >
+            >
         <CardHeader className="pb-2.5">
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
               <div className="h-12 flex items-center">
-                <img
-                  src={`/${
+                      <img 
+                        src={`/${
                     exchange.name === 'MEXC'
                       ? 'MEXC '
                       : exchange.name === 'Gate.io'
@@ -302,72 +302,72 @@ export function PriceCards() {
                       : exchange.name === 'Magic Eden'
                       ? 'MagicEden'
                       : exchange.name
-                  }.png`}
-                  alt={exchange.name}
+                        }.png`}
+                        alt={exchange.name}
                   className="h-10 w-auto object-contain"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                    const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                    if (fallback) fallback.style.display = 'flex';
-                  }}
-                />
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                          if (fallback) fallback.style.display = 'flex';
+                        }}
+                      />
                 <div className="hidden w-12 h-12 bg-gradient-to-r from-gray-600 to-gray-700 flex items-center justify-center text-white font-bold text-base uppercase rounded">
-                  {exchange.icon}
-                </div>
-              </div>
+                        {exchange.icon}
+                      </div>
+                    </div>
               {!isWorking && <span className="text-xs text-gray-500">Coming Soon</span>}
-            </div>
-            {isSuccess && (
-              <div className="flex items-center">
+                  </div>
+                  {isSuccess && (
+                    <div className="flex items-center">
                 <div className={`w-2 h-2 ${isStale ? 'bg-gray-500' : 'bg-green-400'}`}></div>
-              </div>
-            )}
-          </CardTitle>
-        </CardHeader>
+                    </div>
+                  )}
+                </CardTitle>
+              </CardHeader>
         <CardContent className="p-4 space-y-3">
-          {!isWorking ? (
-            <div className="space-y-2">
+                {!isWorking ? (
+                  <div className="space-y-2">
               <div className="text-gray-400 font-mono text-sm">Coming Soon</div>
-              <div className="text-gray-500 text-xs">API integration pending</div>
-            </div>
-          ) : isLoading && !priceData ? (
-            <div className="space-y-2">
+                    <div className="text-gray-500 text-xs">API integration pending</div>
+                  </div>
+                ) : isLoading && !priceData ? (
+                  <div className="space-y-2">
               <div className="h-5 bg-gray-700/50 animate-pulse rounded"></div>
               <div className="h-4 bg-gray-700/30 animate-pulse rounded"></div>
-            </div>
-          ) : (
-            <div className="space-y-2">
+                  </div>
+                ) : (
+                  <div className="space-y-2">
               <div
                 className={`text-xl font-bold font-mono bg-gradient-to-r ${exchange.color} bg-clip-text text-transparent`}
               >
-                {exchange.name === 'Magic Eden' && priceData?.priceSats
-                  ? `${priceData.priceSats} sats`
+                      {exchange.name === 'Magic Eden' && priceData?.priceSats
+                        ? `${priceData.priceSats} sats`
                   : formatPrice(priceData?.price || 0)}
-              </div>
-              {priceData?.change24h !== undefined && priceData.change24h !== 0 && (
-                <div className="flex items-center space-x-1">
-                  {priceData.change24h > 0 ? (
-                    <TrendingUp className="w-4 h-4 text-green-400" />
-                  ) : (
-                    <TrendingDown className="w-4 h-4 text-red-400" />
-                  )}
+                    </div>
+                    {priceData?.change24h !== undefined && priceData.change24h !== 0 && (
+                      <div className="flex items-center space-x-1">
+                        {priceData.change24h > 0 ? (
+                          <TrendingUp className="w-4 h-4 text-green-400" />
+                        ) : (
+                          <TrendingDown className="w-4 h-4 text-red-400" />
+                        )}
                   <span
                     className={`text-xs font-mono ${
-                      priceData.change24h > 0 ? 'text-green-400' : 'text-red-400'
+                          priceData.change24h > 0 ? 'text-green-400' : 'text-red-400'
                     }`}
                   >
-                    {formatChange(priceData.change24h)}
-                  </span>
-                </div>
-              )}
+                          {formatChange(priceData.change24h)}
+                        </span>
+                      </div>
+                    )}
               <div className="text-[11px] text-gray-500 font-mono">
-                {priceData?.lastUpdate?.toLocaleTimeString()}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    );
+                      {priceData?.lastUpdate?.toLocaleTimeString()}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
   };
 
   const dogswapData = prices.find((p) => p.exchange === dogswapExchange.name);
@@ -429,10 +429,10 @@ export function PriceCards() {
       return '— sats';
     };
 
-    return (
-      <a
+        return (
+          <a
         key={exchange.name}
-        href={exchange.url}
+            href={exchange.url}
         target="_blank"
         rel="noopener noreferrer"
         className={`block h-full ${desktopPlacementClass} ${rowSpanClass} ${wrapperClassName}`}
@@ -513,35 +513,35 @@ export function PriceCards() {
       <div className="hidden lg:block">
         <a
           href={bitflowExchange.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block cursor-pointer"
-        >
-          <Card
-            variant="glass"
-            className={`${bitflowExchange.borderColor} ${bitflowExchange.hoverBorderColor} transition-all hover:scale-[1.01] hover:shadow-xl`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block cursor-pointer"
           >
-            <CardContent className="p-4 md:p-6 relative">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-8">
-                <div className="flex items-center justify-center md:justify-start flex-shrink-0">
-                  <img
-                    src="/Bitflow.png"
-                    alt="Bitflow"
-                    className="h-14 md:h-20 w-auto object-contain"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                      const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                      if (fallback) fallback.style.display = 'flex';
-                    }}
-                  />
-                  <div
-                    className="hidden w-16 md:w-24 h-16 md:h-24 bg-gradient-to-r from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-2xl md:text-3xl rounded-lg"
-                  >
-                    BF
+            <Card
+              variant="glass"
+            className={`${bitflowExchange.borderColor} ${bitflowExchange.hoverBorderColor} transition-all hover:scale-[1.01] hover:shadow-xl`}
+            >
+              <CardContent className="p-4 md:p-6 relative">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-8">
+                  <div className="flex items-center justify-center md:justify-start flex-shrink-0">
+                    <img 
+                      src="/Bitflow.png"
+                      alt="Bitflow"
+                      className="h-14 md:h-20 w-auto object-contain"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                        if (fallback) fallback.style.display = 'flex';
+                      }}
+                    />
+                    <div 
+                      className="hidden w-16 md:w-24 h-16 md:h-24 bg-gradient-to-r from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-2xl md:text-3xl rounded-lg"
+                    >
+                      BF
+                    </div>
                   </div>
-                </div>
 
-                <div className="hidden md:block md:flex-1"></div>
+                  <div className="hidden md:block md:flex-1"></div>
 
                 <div className="flex flex-col items-center md:items-end gap-2 md:gap-1.5">
                   <div className="flex items-center gap-1.5 -mb-1">
@@ -549,56 +549,56 @@ export function PriceCards() {
                       Official Partner
                     </span>
                     <ExternalLink className="w-3 h-3 text-gray-400" />
-                  </div>
+                    </div>
 
-                  <div className="flex flex-col md:flex-row items-center md:items-center gap-2 md:gap-6">
+                      <div className="flex flex-col md:flex-row items-center md:items-center gap-2 md:gap-6">
                     <div className="flex flex-col items-center md:items-end gap-1">
-                      <div className="text-2xl md:text-4xl font-bold font-mono bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent leading-none">
+                          <div className="text-2xl md:text-4xl font-bold font-mono bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent leading-none">
                         {formatPrice(bitflowData?.price || 0)}
-                      </div>
-                      <div className="text-xs md:text-sm text-gray-400 font-mono">
+                          </div>
+                          <div className="text-xs md:text-sm text-gray-400 font-mono">
                         {bitflowData?.priceSats
                           ? `${parseFloat(bitflowData.priceSats).toFixed(2)} sats`
                           : bitflowData?.price
                           ? `${(bitflowData.price * 100000000).toFixed(2)} sats`
                           : ''}
-                      </div>
-                    </div>
-
+                          </div>
+                        </div>
+                        
                     <div className="flex items-center gap-2 md:gap-3">
                       {bitflowData?.change24h !== undefined && bitflowData.change24h !== 0 && (
-                        <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2">
                           {bitflowData.change24h > 0 ? (
-                            <TrendingUp className="w-5 md:w-7 h-5 md:h-7 text-green-400" />
-                          ) : (
-                            <TrendingDown className="w-5 md:w-7 h-5 md:h-7 text-red-400" />
-                          )}
+                                <TrendingUp className="w-5 md:w-7 h-5 md:h-7 text-green-400" />
+                              ) : (
+                                <TrendingDown className="w-5 md:w-7 h-5 md:h-7 text-red-400" />
+                              )}
                           <span
                             className={`text-lg md:text-2xl font-mono font-bold ${
                               bitflowData.change24h > 0 ? 'text-green-400' : 'text-red-400'
                             }`}
                           >
                             {formatChange(bitflowData.change24h || 0)}
-                          </span>
-                        </div>
-                      )}
-
+                            </span>
+                            </div>
+                          )}
+                          
                       {bitflowData?.status === "success" && (
-                        <div>
+                            <div>
                           <div className={`w-2 md:w-3 h-2 md:h-3 ${bitflowData?.stale ? 'bg-gray-500' : 'bg-green-400'}`}></div>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  </div>
+                      </div>
                 </div>
               </div>
 
               <div className="mt-4 text-xs text-gray-500 font-mono text-right">
                 {bitflowData?.lastUpdate?.toLocaleTimeString()}
-              </div>
-            </CardContent>
-          </Card>
-        </a>
+                </div>
+              </CardContent>
+            </Card>
+          </a>
       </div>
 
       {/* Mobile: Bitflow e Dogswap primeiro */}
