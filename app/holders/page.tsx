@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import Image from "next/image"
 import { Layout } from "@/components/layout"
 import { LoadingScreen } from "@/components/loading-screen"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -437,13 +438,11 @@ export default function HoldersPage() {
     // Mas só se realmente não temos dados (após um pequeno delay para dar tempo da lista carregar)
     if (allHoldersForChart.length === 0 && !loading) {
       const timer = setTimeout(() => {
-        if (allHoldersForChart.length === 0) {
-          loadAllHoldersForChart()
-        }
+        loadAllHoldersForChart()
       }, 100) // Pequeno delay para ver se a lista já carregou os dados
       return () => clearTimeout(timer)
     }
-  }, [loading]) // Verificar quando o loading da lista terminar
+  }, [loading, allHoldersForChart.length]) // Verificar quando o loading da lista terminar e quando allHoldersForChart mudar
 
   // Carregar outros dados em paralelo (não bloqueia o gráfico)
   useEffect(() => {
@@ -646,12 +645,33 @@ export default function HoldersPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent font-mono">
-              {totalHoldersFromJSON !== null
-                ? totalHoldersFromJSON.toLocaleString('en-US')
-                : totalHolders > 0 
-                  ? totalHolders.toLocaleString('en-US')
-                  : '0'}
+            <div className="space-y-3">
+              <div className="text-3xl font-bold bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent font-mono">
+                101,880
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <Image src="/BTC.png" alt="Bitcoin" width={12} height={12} className="opacity-70" />
+                    <span className="text-gray-400 font-mono">Bitcoin L1</span>
+                  </div>
+                  <span className="text-gray-300 font-mono">91,522</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <Image src="/sol.png" alt="Solana" width={12} height={12} className="opacity-70" />
+                    <span className="text-gray-400 font-mono">Solana</span>
+                  </div>
+                  <span className="text-gray-300 font-mono">10,073</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <Image src="/STX .png" alt="Stacks" width={12} height={12} className="opacity-70" />
+                    <span className="text-gray-400 font-mono">Stacks</span>
+                  </div>
+                  <span className="text-gray-300 font-mono">285</span>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>

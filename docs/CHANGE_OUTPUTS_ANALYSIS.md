@@ -141,3 +141,4 @@ Esta correção garante que:
 4. ⏳ Considerar backfill do cache para corrigir dados históricos
 
 
+
