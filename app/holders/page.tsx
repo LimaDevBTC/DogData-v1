@@ -647,7 +647,7 @@ export default function HoldersPage() {
           <CardContent>
             <div className="space-y-3">
               <div className="text-3xl font-bold bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent font-mono">
-                101,904
+                101,906
               </div>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
@@ -655,14 +655,14 @@ export default function HoldersPage() {
                     <Image src="/BTC.png" alt="Bitcoin" width={12} height={12} className="opacity-70" />
                     <span className="text-gray-400 font-mono">Bitcoin L1</span>
                   </div>
-                  <span className="text-gray-300 font-mono">91,542</span>
+                  <span className="text-gray-300 font-mono">91,527</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5">
                     <Image src="/sol.png" alt="Solana" width={12} height={12} className="opacity-70" />
                     <span className="text-gray-400 font-mono">Solana</span>
                   </div>
-                  <span className="text-gray-300 font-mono">10,076</span>
+                  <span className="text-gray-300 font-mono">10,093</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5">
