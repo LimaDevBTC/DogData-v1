@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import Image from "next/image"
 import { Layout } from "@/components/layout"
 import { LoadingScreen } from "@/components/loading-screen"
@@ -13,6 +13,7 @@ import { SectionDivider } from "@/components/ui/section-divider"
 import { AddressBadge } from "@/components/address-badge"
 import { HoldersDistributionChart } from "@/components/holders/holders-distribution-chart"
 import { Top100WhalesMovement } from "@/components/holders/top100-whales-movement"
+import { useVerifiedAddresses } from "@/contexts/VerifiedAddressesContext"
 
 interface Holder {
   rank: number;
@@ -75,6 +76,12 @@ export default function HoldersPage() {
   const [airdropRecipients, setAirdropRecipients] = useState<Set<string>>(new Set())
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null)
   const [searchResult, setSearchResult] = useState<HolderSearchResult | null>(null)
+  const [expandedHolder, setExpandedHolder] = useState<HolderSearchResult | null>(null)
+  const [expandedAddress, setExpandedAddress] = useState<string | null>(null)
+  const { getVerified, data: verifiedData } = useVerifiedAddresses()
+  const [searchSuggestions, setSearchSuggestions] = useState<Array<{address: string, name: string, logo?: string}>>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   
   // SSE states
   const [isSSEConnected, setIsSSEConnected] = useState(false)
@@ -468,13 +475,136 @@ export default function HoldersPage() {
     setTimeout(() => setCopiedAddress(null), 2000)
   };
 
-  const searchHolderByAddress = async () => {
-    const address = searchAddress.trim()
-    if (!address) return
+  // Busca dinâmica por nome ou endereço
+  const searchByNameOrAddress = (query: string): Array<{address: string, name: string, logo?: string}> => {
+    if (!query || query.trim().length === 0) return []
     
+    const queryLower = query.toLowerCase().trim()
+    const suggestions: Array<{address: string, name: string, logo?: string}> = []
+    const queryWords = queryLower.split(/\s+/).filter(w => w.length > 0)
+    
+    // Buscar em carteiras verificadas por nome (prioridade)
+    if (verifiedData?.verified) {
+      Object.entries(verifiedData.verified).forEach(([address, verified]) => {
+        if (verified.name) {
+          const nameLower = verified.name.toLowerCase()
+          let matches = false
+          
+          // Remove espaços e caracteres especiais para busca contínua (primeiro, mais eficiente)
+          const nameClean = nameLower.replace(/[^a-z0-9]/g, '')
+          const queryClean = queryLower.replace(/[^a-z0-9]/g, '')
+          
+          // Busca contínua (ex: "dogdata" encontra "DogData Treasury")
+          if (nameClean.includes(queryClean) || queryClean.includes(nameClean)) {
+            matches = true
+          }
+          // Busca exata ou parcial (com espaços)
+          else if (nameLower.includes(queryLower) || queryLower.includes(nameLower)) {
+            matches = true
+          }
+          // Busca por palavras (ex: "dog of" encontra "Dog of Bitcoin")
+          else if (queryWords.length > 0) {
+            const nameWords = nameLower.split(/\s+/)
+            matches = queryWords.some(qWord => {
+              // Busca direta por palavra
+              if (nameLower.includes(qWord)) return true
+              // Busca por parte da palavra (ex: "dogdata" encontra "DogData")
+              return nameWords.some(nWord => {
+                const nWordClean = nWord.replace(/[^a-z0-9]/g, '') // Remove caracteres especiais
+                const qWordClean = qWord.replace(/[^a-z0-9]/g, '')
+                return nWordClean.includes(qWordClean) || qWordClean.includes(nWordClean)
+              })
+            })
+          }
+          
+          if (matches) {
+            suggestions.push({
+              address,
+              name: verified.name,
+              logo: verified.logo
+            })
+          }
+        }
+      })
+    }
+    
+    // Buscar por endereço (parcial) - apenas se tiver pelo menos 4 caracteres
+    if (queryLower.length >= 4) {
+      // Primeiro, buscar em carteiras verificadas (prioridade)
+      if (verifiedData?.verified) {
+        Object.entries(verifiedData.verified).forEach(([addr, verified]) => {
+          if (addr.toLowerCase().includes(queryLower)) {
+            // Só adiciona se não estiver já na lista
+            if (!suggestions.find(s => s.address === addr)) {
+              suggestions.push({
+                address: addr,
+                name: verified.name || addr.substring(0, 12) + '...',
+                logo: verified.logo
+              })
+            }
+          }
+        })
+      }
+      
+      // Depois, buscar nos holders (limitado para performance, mas prioriza verificadas)
+      if (allHolders.length > 0) {
+        // Se a query parece ser um endereço completo ou quase completo, buscar em todos
+        const isFullAddress = queryLower.length >= 20
+        const holdersToSearch = isFullAddress ? allHolders : allHolders.slice(0, 100)
+        
+        holdersToSearch.forEach(holder => {
+          if (holder.address.toLowerCase().includes(queryLower)) {
+            // Só adiciona se não estiver já na lista
+            if (!suggestions.find(s => s.address === holder.address)) {
+              const verified = verifiedData?.verified?.[holder.address]
+              suggestions.push({
+                address: holder.address,
+                name: verified?.name || holder.address.substring(0, 12) + '...',
+                logo: verified?.logo
+              })
+            }
+          }
+        })
+      }
+    }
+    
+    // Ordenar: primeiro por nome (carteiras verificadas), depois por endereço
+    suggestions.sort((a, b) => {
+      const aHasLogo = !!a.logo
+      const bHasLogo = !!b.logo
+      if (aHasLogo && !bHasLogo) return -1
+      if (!aHasLogo && bHasLogo) return 1
+      return a.name.localeCompare(b.name)
+    })
+    
+    // Remover duplicatas e limitar a 10 sugestões
+    const unique = suggestions.filter((item, index, self) => 
+      index === self.findIndex(t => t.address === item.address)
+    )
+    
+    return unique.slice(0, 10)
+  };
+
+  // Busca dinâmica enquanto digita (com debounce)
+  useEffect(() => {
+    if (searchAddress.trim().length === 0) {
+      setSearchSuggestions([])
+      setShowSuggestions(false)
+      return
+    }
+    
+    // Debounce: aguarda 150ms após parar de digitar
+    const timeoutId = setTimeout(() => {
+      const suggestions = searchByNameOrAddress(searchAddress)
+      setSearchSuggestions(suggestions)
+      setShowSuggestions(suggestions.length > 0)
+    }, 150)
+    
+    return () => clearTimeout(timeoutId)
+  }, [searchAddress, verifiedData, allHolders])
+
+  const fetchHolderDetails = async (address: string): Promise<HolderSearchResult | null> => {
     try {
-      setLoading(true)
-      // Buscar no JSON completo
       const timestamp = Date.now()
       const jsonResponse = await fetch(`/data/dog_holders_by_address.json?_t=${timestamp}`, {
         cache: 'no-store',
@@ -493,7 +623,6 @@ export default function HoldersPage() {
         throw new Error('Invalid JSON format')
       }
       
-      // Buscar holder pelo endereço (case-insensitive)
       const addressLower = address.toLowerCase()
       const holder = jsonData.holders.find((h: Holder) => 
         h.address && h.address.toLowerCase() === addressLower
@@ -522,12 +651,111 @@ export default function HoldersPage() {
           }
         }
         
-        setSearchResult(holderWithAirdrop)
+        return holderWithAirdrop
+      }
+      return null
+    } catch (error) {
+      console.error('Error fetching holder details:', error)
+      return null
+    }
+  };
+
+  const toggleHolderExpansion = async (holderAddress: string) => {
+    if (expandedAddress === holderAddress) {
+      // Se já está expandido, fecha
+      setExpandedAddress(null)
+      setExpandedHolder(null)
+    } else {
+      // Busca e expande
+      setExpandedAddress(holderAddress)
+      const details = await fetchHolderDetails(holderAddress)
+      setExpandedHolder(details)
+    }
+  };
+
+  const searchHolderByAddress = async (addressToSearch?: string | any) => {
+    // Garantir que sempre seja uma string
+    let address: string
+    if (addressToSearch !== undefined && addressToSearch !== null) {
+      address = String(addressToSearch).trim()
+    } else if (searchAddress) {
+      address = String(searchAddress).trim()
+    } else {
+      return
+    }
+    
+    if (!address) return
+    
+    // Se não parece um endereço Bitcoin, tentar buscar por nome
+    const isAddress = address.startsWith('bc1') || address.startsWith('1') || address.startsWith('3') || address.length > 20
+    if (!isAddress) {
+      // Buscar por nome nas carteiras verificadas
+      if (verifiedData?.verified) {
+        const searchLower = address.toLowerCase()
+        const queryWords = searchLower.split(/\s+/).filter(w => w.length > 0)
+        
+        const found = Object.entries(verifiedData.verified).find(([addr, verified]) => {
+          if (!verified.name) return false
+          const nameLower = verified.name.toLowerCase()
+          
+          // Remove espaços e caracteres especiais para busca contínua (primeiro, mais eficiente)
+          const nameClean = nameLower.replace(/[^a-z0-9]/g, '')
+          const searchClean = searchLower.replace(/[^a-z0-9]/g, '')
+          
+          // Busca contínua (ex: "dogdata" encontra "DogData Treasury")
+          if (nameClean.includes(searchClean) || searchClean.includes(nameClean)) {
+            return true
+          }
+          // Busca exata ou parcial (com espaços)
+          if (nameLower.includes(searchLower) || searchLower.includes(nameLower)) {
+            return true
+          }
+          // Busca por palavras (ex: "dog of" encontra "Dog of Bitcoin")
+          if (queryWords.length > 0) {
+            const nameWords = nameLower.split(/\s+/)
+            return queryWords.some(qWord => {
+              // Busca direta por palavra
+              if (nameLower.includes(qWord)) return true
+              // Busca por parte da palavra (ex: "dogdata" encontra "DogData")
+              return nameWords.some(nWord => {
+                const nWordClean = nWord.replace(/[^a-z0-9]/g, '') // Remove caracteres especiais
+                const qWordClean = qWord.replace(/[^a-z0-9]/g, '')
+                return nWordClean.includes(qWordClean) || qWordClean.includes(nWordClean) || nWord.startsWith(qWord)
+              })
+            })
+          }
+          return false
+        })
+        
+        if (found) {
+          address = found[0] // Usar o endereço encontrado
+          setSearchAddress(address) // Atualizar o campo de busca
+        } else {
+          // Se não encontrou por nome, tentar buscar nas sugestões
+          const suggestions = searchByNameOrAddress(address)
+          if (suggestions.length > 0) {
+            address = suggestions[0].address
+            setSearchAddress(address)
+          } else {
+            alert(`No wallet found for "${address}"`)
+            return
+          }
+        }
+      }
+    }
+    
+    try {
+      setLoading(true)
+      const holderDetails = await fetchHolderDetails(address)
+      
+      if (holderDetails) {
+        setSearchResult(holderDetails)
         setHoldersMetadata({
           divisibility: 5,
-          updatedAt: jsonData.timestamp || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
           source: 'json',
         })
+        setShowSuggestions(false)
       } else {
         setSearchResult(null)
         alert('Holder not found')
@@ -725,18 +953,99 @@ export default function HoldersPage() {
       <SectionDivider title="Search & Filters" icon={Filter} />
 
       {/* Search and Controls */}
-      <Card variant="glass">
-        <CardContent className="p-6">
+      <Card variant="glass" className="overflow-visible">
+        <CardContent className="p-6 overflow-visible">
           <div className="flex flex-col gap-4">
-            {/* Search by Address with Button */}
-            <div className="flex gap-2">
-              <Input
-                placeholder="Enter Bitcoin address..."
-                value={searchAddress}
-                onChange={(e) => setSearchAddress(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && searchHolderByAddress()}
-                className="flex-1 bg-transparent border-gray-700/50 text-white"
-              />
+            {/* Search by Address or Name with Autocomplete */}
+            <div className="relative flex gap-2">
+              <div className="flex-1 relative overflow-visible">
+                <Input
+                  ref={searchInputRef}
+                  placeholder="Search by address or name (e.g., Bitget, DotSwap, Dog of Bitcoin, Gate.io...)"
+                  value={searchAddress}
+                  onChange={(e) => {
+                    setSearchAddress(e.target.value)
+                    setShowSuggestions(true)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      if (searchSuggestions.length > 0) {
+                        // Se tem sugestões, usa a primeira
+                        const firstSuggestion = searchSuggestions[0]
+                        const address = firstSuggestion?.address ? String(firstSuggestion.address) : ''
+                        if (address) {
+                          setSearchAddress(address)
+                          searchHolderByAddress(address)
+                          setShowSuggestions(false)
+                        }
+                      } else {
+                        searchHolderByAddress()
+                        setShowSuggestions(false)
+                      }
+                    } else if (e.key === 'Escape') {
+                      setShowSuggestions(false)
+                      searchInputRef.current?.blur()
+                    }
+                  }}
+                  onFocus={() => {
+                    if (searchSuggestions.length > 0) {
+                      setShowSuggestions(true)
+                    }
+                  }}
+                  onBlur={(e) => {
+                    // Delay para permitir clique nas sugestões
+                    // Verifica se o foco está indo para um elemento dentro do dropdown
+                    const relatedTarget = e.relatedTarget as HTMLElement
+                    if (!relatedTarget || !relatedTarget.closest('.suggestions-dropdown')) {
+                      setTimeout(() => setShowSuggestions(false), 200)
+                    }
+                  }}
+                  className="flex-1 bg-transparent border-gray-700/50 text-white"
+                />
+                
+                {/* Dropdown de Sugestões */}
+                {showSuggestions && searchSuggestions.length > 0 && (
+                  <div className="suggestions-dropdown absolute z-[9999] w-full mt-2 bg-gray-900 border border-orange-500/50 rounded-lg shadow-2xl max-h-80 overflow-y-auto">
+                    {searchSuggestions.map((suggestion, idx) => (
+                      <div
+                        key={suggestion.address}
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-orange-500/20 hover:border-l-2 hover:border-l-orange-500/50 cursor-pointer transition-all duration-200 border-b border-gray-700/20 last:border-b-0 first:rounded-t-lg last:rounded-b-lg"
+                        onMouseDown={(e) => {
+                          e.preventDefault() // Previne o blur do input
+                          const address = suggestion?.address ? String(suggestion.address) : ''
+                          if (address) {
+                            setSearchAddress(address)
+                            searchHolderByAddress(address)
+                            setShowSuggestions(false)
+                          }
+                        }}
+                      >
+                        {suggestion.logo ? (
+                          <div className="relative w-10 h-10 rounded-full overflow-hidden bg-white/10 border border-orange-500/30 flex items-center justify-center shrink-0 shadow-lg">
+                            <Image
+                              src={suggestion.logo}
+                              alt={suggestion.name}
+                              width={32}
+                              height={32}
+                              className="object-contain p-1.5"
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-orange-500/20 border border-orange-500/30 flex items-center justify-center shrink-0">
+                            <span className="text-orange-400 text-xs font-bold">?</span>
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="text-white font-semibold text-sm font-mono">{suggestion.name}</div>
+                          <div className="text-cyan-400/80 text-xs font-mono truncate mt-0.5">{suggestion.address}</div>
+                        </div>
+                        <Search className="w-4 h-4 text-orange-400/60 shrink-0" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               <Button onClick={searchHolderByAddress} className="btn-sharp">
                 <Search className="w-4 h-4 mr-2" />
                 Search
@@ -745,74 +1054,107 @@ export default function HoldersPage() {
             
             {/* Search Result */}
             {searchResult && (
-              <div className="mt-4 p-4 bg-transparent border border-gray-700/50 rounded">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-gray-400 text-sm">Address</p>
-                    <div className="flex items-center gap-2">
-                      <Badge className="bg-orange-500/20 text-orange-300 border-orange-500/40 font-mono text-[10px] uppercase tracking-wide">
-                        Rank #{searchResult.rank.toLocaleString('en-US')}
-                      </Badge>
-                      <code className="text-white text-xs break-all">{searchResult.address}</code>
-                      <AddressBadge address={searchResult.address} size="sm" showName={true} />
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => copyToClipboard(searchResult.address)}
-                        className="p-1 h-6 w-6"
-                        title={copiedAddress === searchResult.address ? "Copied!" : "Copy address"}
-                      >
-                        {copiedAddress === searchResult.address ? (
-                          <span className="text-green-400 text-xs font-bold">✓</span>
-                        ) : (
-                          <Copy className="w-3 h-3" />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-gray-400 text-sm">DOG Balance</p>
-                    <p className="text-white font-mono">{formatNumber(searchResult.total_dog)} DOG</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-400 text-sm">UTXOs</p>
-                    <p className="text-white font-mono">{searchResult.utxo_count != null ? searchResult.utxo_count : '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-400 text-sm">Available DOG</p>
-                    <p className="text-white font-mono">{searchResult.available_dog != null ? formatNumber(searchResult.available_dog) : '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-400 text-sm">Projected DOG</p>
-                    <p className="text-white font-mono">{searchResult.projected_dog != null ? formatNumber(searchResult.projected_dog) : '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-400 text-sm">Pending (net)</p>
-                    <p className="text-white font-mono">{searchResult.pending_net != null ? formatNumber(searchResult.pending_net) : '—'}</p>
-                  </div>
-                  {searchResult.is_airdrop_recipient ? (
-                    <>
-                      <div>
-                        <p className="text-gray-400 text-sm">Airdrop Recipient</p>
-                        <span className="text-orange-400 text-sm font-mono">
-                          Yes
-                        </span>
-                      </div>
-                      {searchResult.airdrop_amount && (
-                        <div>
-                          <p className="text-gray-400 text-sm">Airdrop Amount</p>
-                          <p className="text-white font-mono">{formatNumber(searchResult.airdrop_amount)} DOG</p>
+              <div className="mt-4 p-6 bg-gray-900 border border-orange-500/30 rounded-lg">
+                <div className="space-y-6">
+                  {/* Identificação da Carteira */}
+                  {(() => {
+                    const verified = getVerified(searchResult.address)
+                    if (verified && verified.type === 'official' && verified.logo) {
+                      return (
+                        <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-orange-500/10 to-orange-500/5 rounded-lg border border-orange-500/20">
+                          <div className="relative w-16 h-16 rounded-full overflow-hidden bg-white/10 border-2 border-orange-500/30 flex items-center justify-center shrink-0">
+                            <Image
+                              src={verified.logo}
+                              alt={verified.name || 'Verified'}
+                              width={56}
+                              height={56}
+                              className="object-contain p-2"
+                            />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xl font-bold text-orange-300">{verified.name}</span>
+                              <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
+                                VERIFIED
+                              </Badge>
+                            </div>
+                            {verified.website && (
+                              <a
+                                href={verified.website}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+                              >
+                                {verified.website}
+                              </a>
+                            )}
+                            {verified.description && (
+                              <p className="text-xs text-gray-400 mt-1">{verified.description}</p>
+                            )}
+                          </div>
                         </div>
-                      )}
-                    </>
-                  ) : (
+                      )
+                    }
+                    return null
+                  })()}
+
+                  {/* Detalhes do Holder */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     <div>
-                      <p className="text-gray-400 text-sm">Airdrop Recipient</p>
-                      <span className="text-gray-500 text-sm font-mono">
-                        No
-                      </span>
+                      <p className="text-gray-400 text-sm mb-1">Address</p>
+                      <div className="flex items-center gap-2">
+                        <code className="text-cyan-400 text-xs break-all">{searchResult.address}</code>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => copyToClipboard(searchResult.address)}
+                          className="p-1 h-6 w-6"
+                        >
+                          <Copy className="w-3 h-3" />
+                        </Button>
+                      </div>
                     </div>
-                  )}
+                    <div>
+                      <p className="text-gray-400 text-sm mb-1">Rank</p>
+                      <p className="text-white font-mono font-bold">#{searchResult.rank.toLocaleString('en-US')}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400 text-sm mb-1">DOG Balance</p>
+                      <p className="text-white font-mono font-bold">{formatNumber(searchResult.total_dog)} DOG</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400 text-sm mb-1">UTXOs</p>
+                      <p className="text-white font-mono">{searchResult.utxo_count != null ? searchResult.utxo_count : '—'}</p>
+                    </div>
+                    {searchResult.available_dog != null && (
+                      <div>
+                        <p className="text-gray-400 text-sm mb-1">Available DOG</p>
+                        <p className="text-white font-mono">{formatNumber(searchResult.available_dog)} DOG</p>
+                      </div>
+                    )}
+                    {searchResult.projected_dog != null && (
+                      <div>
+                        <p className="text-gray-400 text-sm mb-1">Projected DOG</p>
+                        <p className="text-white font-mono">{formatNumber(searchResult.projected_dog)} DOG</p>
+                      </div>
+                    )}
+                    {searchResult.is_airdrop_recipient && (
+                      <>
+                        <div>
+                          <p className="text-gray-400 text-sm mb-1">Airdrop Recipient</p>
+                          <Badge variant="success" className="bg-green-500/20 text-green-400 border-green-500/30">
+                            YES
+                          </Badge>
+                        </div>
+                        {searchResult.airdrop_amount && (
+                          <div>
+                            <p className="text-gray-400 text-sm mb-1">Airdrop Amount</p>
+                            <p className="text-white font-mono">{formatNumber(searchResult.airdrop_amount)} DOG</p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -857,20 +1199,33 @@ export default function HoldersPage() {
               </thead>
               <tbody>
                 {allHolders.map((holder, index) => (
-                  <tr key={holder.address} className="table-row">
+                  <React.Fragment key={holder.address}>
+                  <tr 
+                    className={`table-row cursor-pointer hover:bg-orange-500/5 transition-colors ${expandedAddress === holder.address ? 'bg-orange-500/10' : ''}`}
+                    onClick={() => toggleHolderExpansion(holder.address)}
+                  >
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
                         <Badge className="bg-orange-500/20 text-orange-300 border-orange-500/40 font-mono text-[10px] uppercase tracking-wide">
                           Rank #{holder.rank.toLocaleString('en-US')}
                         </Badge>
-                        <code className="text-cyan-400 text-xs">
+                        <code 
+                          className="text-cyan-400 text-xs cursor-pointer hover:text-cyan-300 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            toggleHolderExpansion(holder.address)
+                          }}
+                        >
                           {holder.address}
                         </code>
                         <AddressBadge address={holder.address} size="sm" showName={false} />
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => copyToClipboard(holder.address)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            copyToClipboard(holder.address)
+                          }}
                           className="p-1 h-6 w-6"
                           title={copiedAddress === holder.address ? "Copied!" : "Copy address"}
                         >
@@ -883,7 +1238,10 @@ export default function HoldersPage() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => window.open(`https://mempool.space/address/${holder.address}`, '_blank')}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            window.open(`https://mempool.space/address/${holder.address}`, '_blank')
+                          }}
                           className="p-1 h-6 w-6"
                         >
                           <ExternalLink className="w-3 h-3" />
@@ -916,25 +1274,119 @@ export default function HoldersPage() {
                       )}
                     </td>
                     <td className="py-3 px-4 text-center">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className={`btn-sharp w-[130px] transition-colors duration-300 ${
-                          clickedDetailsIndex === index 
-                            ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' 
-                            : ''
-                        }`}
-                        onClick={() => {
-                          setClickedDetailsIndex(index)
-                          setTimeout(() => setClickedDetailsIndex(null), 2000)
-                        }}
-                      >
-                        <span className="whitespace-nowrap block">
-                          {clickedDetailsIndex === index ? 'COMING SOON' : 'View Details'}
-                        </span>
-                      </Button>
+                      <span className="text-xs text-gray-400">
+                        {expandedAddress === holder.address ? '▼' : '▶'}
+                      </span>
                     </td>
                   </tr>
+                  {expandedAddress === holder.address && expandedHolder && (
+                    <tr className="bg-gray-900 border-t border-orange-500/30">
+                      <td colSpan={5} className="p-6">
+                        <div className="space-y-6">
+                          {/* Identificação Melhorada */}
+                          {(() => {
+                            const verified = getVerified(expandedHolder.address)
+                            if (verified && verified.type === 'official' && verified.logo) {
+                              return (
+                                <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-orange-500/10 to-orange-500/5 rounded-lg border border-orange-500/20">
+                                  <div className="relative w-16 h-16 rounded-full overflow-hidden bg-white/10 border-2 border-orange-500/30 flex items-center justify-center shrink-0">
+                                    <Image
+                                      src={verified.logo}
+                                      alt={verified.name || 'Verified'}
+                                      width={56}
+                                      height={56}
+                                      className="object-contain p-2"
+                                    />
+                                  </div>
+                                  <div>
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="text-xl font-bold text-orange-300">{verified.name}</span>
+                                      <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
+                                        VERIFIED
+                                      </Badge>
+                                    </div>
+                                    {verified.website && (
+                                      <a 
+                                        href={verified.website} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+                                      >
+                                        {verified.website}
+                                      </a>
+                                    )}
+                                    {verified.description && (
+                                      <p className="text-xs text-gray-400 mt-1">{verified.description}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            }
+                            return null
+                          })()}
+                          
+                          {/* Detalhes do Holder */}
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                            <div>
+                              <p className="text-gray-400 text-sm mb-1">Address</p>
+                              <div className="flex items-center gap-2">
+                                <code className="text-cyan-400 text-xs break-all">{expandedHolder.address}</code>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => copyToClipboard(expandedHolder.address)}
+                                  className="p-1 h-6 w-6"
+                                >
+                                  <Copy className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-gray-400 text-sm mb-1">Rank</p>
+                              <p className="text-white font-mono font-bold">#{expandedHolder.rank.toLocaleString('en-US')}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-400 text-sm mb-1">DOG Balance</p>
+                              <p className="text-white font-mono font-bold">{formatNumber(expandedHolder.total_dog)} DOG</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-400 text-sm mb-1">UTXOs</p>
+                              <p className="text-white font-mono">{expandedHolder.utxo_count != null ? expandedHolder.utxo_count : '—'}</p>
+                            </div>
+                            {expandedHolder.available_dog != null && (
+                              <div>
+                                <p className="text-gray-400 text-sm mb-1">Available DOG</p>
+                                <p className="text-white font-mono">{formatNumber(expandedHolder.available_dog)} DOG</p>
+                              </div>
+                            )}
+                            {expandedHolder.projected_dog != null && (
+                              <div>
+                                <p className="text-gray-400 text-sm mb-1">Projected DOG</p>
+                                <p className="text-white font-mono">{formatNumber(expandedHolder.projected_dog)} DOG</p>
+                              </div>
+                            )}
+                            {expandedHolder.is_airdrop_recipient && (
+                              <>
+                                <div>
+                                  <p className="text-gray-400 text-sm mb-1">Airdrop Recipient</p>
+                                  <Badge variant="success" className="bg-green-500/20 text-green-400 border-green-500/30">
+                                    YES
+                                  </Badge>
+                                </div>
+                                {expandedHolder.airdrop_amount && (
+                                  <div>
+                                    <p className="text-gray-400 text-sm mb-1">Airdrop Amount</p>
+                                    <p className="text-white font-mono">{formatNumber(expandedHolder.airdrop_amount)} DOG</p>
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>
