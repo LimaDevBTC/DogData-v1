@@ -10,6 +10,7 @@ interface VerifiedAddress {
   twitter?: string
   twitter_name?: string
   verified_at: string
+  description?: string
 }
 
 interface VerifiedAddressesData {
