@@ -953,12 +953,12 @@ export default function HoldersPage() {
       <SectionDivider title="Search & Filters" icon={Filter} />
 
       {/* Search and Controls */}
-      <Card variant="glass" className="overflow-visible" style={{ zIndex: 100 }}>
+      <Card variant="glass" className="overflow-visible" style={{ position: 'relative', zIndex: 1000, isolation: 'isolate' }}>
         <CardContent className="p-6 overflow-visible">
           <div className="flex flex-col gap-4">
             {/* Search by Address or Name with Autocomplete */}
-            <div className="relative flex gap-2" style={{ zIndex: 100 }}>
-              <div className="flex-1 relative overflow-visible" style={{ zIndex: 100 }}>
+            <div className="relative flex gap-2" style={{ position: 'relative', zIndex: 1001 }}>
+              <div className="flex-1 relative" style={{ position: 'relative', zIndex: 1002 }}>
                 <Input
                   ref={searchInputRef}
                   placeholder="Search by address or name (e.g., Bitget, DotSwap, Dog of Bitcoin, Gate.io...)"
@@ -1006,11 +1006,11 @@ export default function HoldersPage() {
                 
                 {/* Dropdown de Sugestões */}
                 {showSuggestions && searchSuggestions.length > 0 && (
-                  <div className="suggestions-dropdown absolute z-[99999] w-full mt-2 bg-gray-900 border border-orange-500/50 rounded-lg shadow-2xl max-h-80 overflow-y-auto" style={{ zIndex: 99999 }}>
+                  <div className="suggestions-dropdown absolute w-full mt-2 bg-gray-900 border border-gray-800/50 shadow-xl max-h-80 overflow-y-auto" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10000, isolation: 'isolate' }}>
                     {searchSuggestions.map((suggestion, idx) => (
                       <div
                         key={suggestion.address}
-                        className="flex items-center gap-3 px-4 py-3 hover:bg-orange-500/20 hover:border-l-2 hover:border-l-orange-500/50 cursor-pointer transition-all duration-200 border-b border-gray-700/20 last:border-b-0 first:rounded-t-lg last:rounded-b-lg"
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-gray-800/50 hover:border-l-2 hover:border-l-orange-500 cursor-pointer transition-all duration-200 border-b border-gray-800/50 last:border-b-0"
                         onMouseDown={(e) => {
                           e.preventDefault() // Previne o blur do input
                           const address = suggestion?.address ? String(suggestion.address) : ''
@@ -1022,7 +1022,7 @@ export default function HoldersPage() {
                         }}
                       >
                         {suggestion.logo ? (
-                          <div className="relative w-10 h-10 rounded-full overflow-hidden bg-white/10 border border-orange-500/30 flex items-center justify-center shrink-0 shadow-lg">
+                          <div className="relative w-10 h-10 overflow-hidden bg-gray-800/50 border border-gray-700/50 flex items-center justify-center shrink-0">
                             <Image
                               src={suggestion.logo}
                               alt={suggestion.name}
@@ -1032,15 +1032,15 @@ export default function HoldersPage() {
                             />
                           </div>
                         ) : (
-                          <div className="w-10 h-10 rounded-full bg-orange-500/20 border border-orange-500/30 flex items-center justify-center shrink-0">
-                            <span className="text-orange-400 text-xs font-bold">?</span>
+                          <div className="w-10 h-10 bg-gray-800/50 border border-gray-700/50 flex items-center justify-center shrink-0">
+                            <span className="text-gray-400 text-xs font-mono font-bold">?</span>
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <div className="text-white font-semibold text-sm font-mono">{suggestion.name}</div>
-                          <div className="text-cyan-400/80 text-xs font-mono truncate mt-0.5">{suggestion.address}</div>
+                          <div className="text-white font-mono text-sm">{suggestion.name}</div>
+                          <div className="text-gray-400 text-xs font-mono truncate mt-0.5">{suggestion.address}</div>
                         </div>
-                        <Search className="w-4 h-4 text-orange-400/60 shrink-0" />
+                        <Search className="w-4 h-4 text-gray-500 shrink-0" />
                       </div>
                     ))}
                   </div>
@@ -1054,15 +1054,15 @@ export default function HoldersPage() {
             
             {/* Search Result */}
             {searchResult && (
-              <div className="mt-4 p-6 bg-gray-900 border border-orange-500/30 rounded-lg">
+              <div className="mt-4 p-6 bg-gray-900 border border-gray-800/50">
                 <div className="space-y-6">
                   {/* Identificação da Carteira */}
                   {(() => {
                     const verified = getVerified(searchResult.address)
                     if (verified && verified.type === 'official' && verified.logo) {
                       return (
-                        <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-orange-500/10 to-orange-500/5 rounded-lg border border-orange-500/20">
-                          <div className="relative w-16 h-16 rounded-full overflow-hidden bg-white/10 border-2 border-orange-500/30 flex items-center justify-center shrink-0">
+                        <div className="flex items-center gap-4 p-4 bg-gray-800/30 border border-gray-700/50">
+                          <div className="relative w-16 h-16 overflow-hidden bg-gray-800/50 border border-gray-700/50 flex items-center justify-center shrink-0">
                             <Image
                               src={verified.logo}
                               alt={verified.name || 'Verified'}
@@ -1073,8 +1073,8 @@ export default function HoldersPage() {
                           </div>
                           <div>
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xl font-bold text-orange-300">{verified.name}</span>
-                              <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
+                              <span className="text-xl font-mono font-bold text-white">{verified.name}</span>
+                              <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs font-mono">
                                 VERIFIED
                               </Badge>
                             </div>
@@ -1083,13 +1083,13 @@ export default function HoldersPage() {
                                 href={verified.website}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+                                className="text-sm text-orange-400 hover:text-orange-300 transition-colors font-mono"
                               >
                                 {verified.website}
                               </a>
                             )}
                             {verified.description && (
-                              <p className="text-xs text-gray-400 mt-1">{verified.description}</p>
+                              <p className="text-xs text-gray-400 mt-1 font-mono">{verified.description}</p>
                             )}
                           </div>
                         </div>
@@ -1101,9 +1101,9 @@ export default function HoldersPage() {
                   {/* Detalhes do Holder */}
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     <div>
-                      <p className="text-gray-400 text-sm mb-1">Address</p>
+                      <p className="text-gray-400 text-sm mb-1 font-mono">Address</p>
                       <div className="flex items-center gap-2">
-                        <code className="text-cyan-400 text-xs break-all">{searchResult.address}</code>
+                        <code className="text-orange-400 text-xs break-all font-mono">{searchResult.address}</code>
                         <Button
                           size="sm"
                           variant="ghost"
@@ -1115,40 +1115,40 @@ export default function HoldersPage() {
                       </div>
                     </div>
                     <div>
-                      <p className="text-gray-400 text-sm mb-1">Rank</p>
+                      <p className="text-gray-400 text-sm mb-1 font-mono">Rank</p>
                       <p className="text-white font-mono font-bold">#{searchResult.rank.toLocaleString('en-US')}</p>
                     </div>
                     <div>
-                      <p className="text-gray-400 text-sm mb-1">DOG Balance</p>
+                      <p className="text-gray-400 text-sm mb-1 font-mono">DOG Balance</p>
                       <p className="text-white font-mono font-bold">{formatNumber(searchResult.total_dog)} DOG</p>
                     </div>
                     <div>
-                      <p className="text-gray-400 text-sm mb-1">UTXOs</p>
+                      <p className="text-gray-400 text-sm mb-1 font-mono">UTXOs</p>
                       <p className="text-white font-mono">{searchResult.utxo_count != null ? searchResult.utxo_count : '—'}</p>
                     </div>
                     {searchResult.available_dog != null && (
                       <div>
-                        <p className="text-gray-400 text-sm mb-1">Available DOG</p>
+                        <p className="text-gray-400 text-sm mb-1 font-mono">Available DOG</p>
                         <p className="text-white font-mono">{formatNumber(searchResult.available_dog)} DOG</p>
                       </div>
                     )}
                     {searchResult.projected_dog != null && (
                       <div>
-                        <p className="text-gray-400 text-sm mb-1">Projected DOG</p>
+                        <p className="text-gray-400 text-sm mb-1 font-mono">Projected DOG</p>
                         <p className="text-white font-mono">{formatNumber(searchResult.projected_dog)} DOG</p>
                       </div>
                     )}
                     {searchResult.is_airdrop_recipient && (
                       <>
                         <div>
-                          <p className="text-gray-400 text-sm mb-1">Airdrop Recipient</p>
-                          <Badge variant="success" className="bg-green-500/20 text-green-400 border-green-500/30">
+                          <p className="text-gray-400 text-sm mb-1 font-mono">Airdrop Recipient</p>
+                          <Badge variant="success" className="bg-green-500/20 text-green-400 border-green-500/30 font-mono">
                             YES
                           </Badge>
                         </div>
                         {searchResult.airdrop_amount && (
                           <div>
-                            <p className="text-gray-400 text-sm mb-1">Airdrop Amount</p>
+                            <p className="text-gray-400 text-sm mb-1 font-mono">Airdrop Amount</p>
                             <p className="text-white font-mono">{formatNumber(searchResult.airdrop_amount)} DOG</p>
                           </div>
                         )}
@@ -1288,8 +1288,8 @@ export default function HoldersPage() {
                             const verified = getVerified(expandedHolder.address)
                             if (verified && verified.type === 'official' && verified.logo) {
                               return (
-                                <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-orange-500/10 to-orange-500/5 rounded-lg border border-orange-500/20">
-                                  <div className="relative w-16 h-16 rounded-full overflow-hidden bg-white/10 border-2 border-orange-500/30 flex items-center justify-center shrink-0">
+                                <div className="flex items-center gap-4 p-4 bg-gray-800/30 border border-gray-700/50">
+                                  <div className="relative w-16 h-16 overflow-hidden bg-gray-800/50 border border-gray-700/50 flex items-center justify-center shrink-0">
                                     <Image
                                       src={verified.logo}
                                       alt={verified.name || 'Verified'}
@@ -1300,8 +1300,8 @@ export default function HoldersPage() {
                                   </div>
                                   <div>
                                     <div className="flex items-center gap-2 mb-1">
-                                      <span className="text-xl font-bold text-orange-300">{verified.name}</span>
-                                      <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
+                                      <span className="text-xl font-mono font-bold text-white">{verified.name}</span>
+                                      <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs font-mono">
                                         VERIFIED
                                       </Badge>
                                     </div>
@@ -1310,13 +1310,13 @@ export default function HoldersPage() {
                                         href={verified.website} 
                                         target="_blank" 
                                         rel="noopener noreferrer"
-                                        className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+                                        className="text-sm text-orange-400 hover:text-orange-300 transition-colors font-mono"
                                       >
                                         {verified.website}
                                       </a>
                                     )}
                                     {verified.description && (
-                                      <p className="text-xs text-gray-400 mt-1">{verified.description}</p>
+                                      <p className="text-xs text-gray-400 mt-1 font-mono">{verified.description}</p>
                                     )}
                                   </div>
                                 </div>
@@ -1328,9 +1328,9 @@ export default function HoldersPage() {
                           {/* Detalhes do Holder */}
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                             <div>
-                              <p className="text-gray-400 text-sm mb-1">Address</p>
+                              <p className="text-gray-400 text-sm mb-1 font-mono">Address</p>
                               <div className="flex items-center gap-2">
-                                <code className="text-cyan-400 text-xs break-all">{expandedHolder.address}</code>
+                                <code className="text-orange-400 text-xs break-all font-mono">{expandedHolder.address}</code>
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -1342,40 +1342,40 @@ export default function HoldersPage() {
                               </div>
                             </div>
                             <div>
-                              <p className="text-gray-400 text-sm mb-1">Rank</p>
+                              <p className="text-gray-400 text-sm mb-1 font-mono">Rank</p>
                               <p className="text-white font-mono font-bold">#{expandedHolder.rank.toLocaleString('en-US')}</p>
                             </div>
                             <div>
-                              <p className="text-gray-400 text-sm mb-1">DOG Balance</p>
+                              <p className="text-gray-400 text-sm mb-1 font-mono">DOG Balance</p>
                               <p className="text-white font-mono font-bold">{formatNumber(expandedHolder.total_dog)} DOG</p>
                             </div>
                             <div>
-                              <p className="text-gray-400 text-sm mb-1">UTXOs</p>
+                              <p className="text-gray-400 text-sm mb-1 font-mono">UTXOs</p>
                               <p className="text-white font-mono">{expandedHolder.utxo_count != null ? expandedHolder.utxo_count : '—'}</p>
                             </div>
                             {expandedHolder.available_dog != null && (
                               <div>
-                                <p className="text-gray-400 text-sm mb-1">Available DOG</p>
+                                <p className="text-gray-400 text-sm mb-1 font-mono">Available DOG</p>
                                 <p className="text-white font-mono">{formatNumber(expandedHolder.available_dog)} DOG</p>
                               </div>
                             )}
                             {expandedHolder.projected_dog != null && (
                               <div>
-                                <p className="text-gray-400 text-sm mb-1">Projected DOG</p>
+                                <p className="text-gray-400 text-sm mb-1 font-mono">Projected DOG</p>
                                 <p className="text-white font-mono">{formatNumber(expandedHolder.projected_dog)} DOG</p>
                               </div>
                             )}
                             {expandedHolder.is_airdrop_recipient && (
                               <>
                                 <div>
-                                  <p className="text-gray-400 text-sm mb-1">Airdrop Recipient</p>
-                                  <Badge variant="success" className="bg-green-500/20 text-green-400 border-green-500/30">
+                                  <p className="text-gray-400 text-sm mb-1 font-mono">Airdrop Recipient</p>
+                                  <Badge variant="success" className="bg-green-500/20 text-green-400 border-green-500/30 font-mono">
                                     YES
                                   </Badge>
                                 </div>
                                 {expandedHolder.airdrop_amount && (
                                   <div>
-                                    <p className="text-gray-400 text-sm mb-1">Airdrop Amount</p>
+                                    <p className="text-gray-400 text-sm mb-1 font-mono">Airdrop Amount</p>
                                     <p className="text-white font-mono">{formatNumber(expandedHolder.airdrop_amount)} DOG</p>
                                   </div>
                                 )}
