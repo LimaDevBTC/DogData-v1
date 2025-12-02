@@ -953,12 +953,12 @@ export default function HoldersPage() {
       <SectionDivider title="Search & Filters" icon={Filter} />
 
       {/* Search and Controls */}
-      <Card variant="glass" className="overflow-visible">
+      <Card variant="glass" className="overflow-visible" style={{ zIndex: 100 }}>
         <CardContent className="p-6 overflow-visible">
           <div className="flex flex-col gap-4">
             {/* Search by Address or Name with Autocomplete */}
-            <div className="relative flex gap-2">
-              <div className="flex-1 relative overflow-visible">
+            <div className="relative flex gap-2" style={{ zIndex: 100 }}>
+              <div className="flex-1 relative overflow-visible" style={{ zIndex: 100 }}>
                 <Input
                   ref={searchInputRef}
                   placeholder="Search by address or name (e.g., Bitget, DotSwap, Dog of Bitcoin, Gate.io...)"
@@ -1006,7 +1006,7 @@ export default function HoldersPage() {
                 
                 {/* Dropdown de Sugestões */}
                 {showSuggestions && searchSuggestions.length > 0 && (
-                  <div className="suggestions-dropdown absolute z-[9999] w-full mt-2 bg-gray-900 border border-orange-500/50 rounded-lg shadow-2xl max-h-80 overflow-y-auto">
+                  <div className="suggestions-dropdown absolute z-[99999] w-full mt-2 bg-gray-900 border border-orange-500/50 rounded-lg shadow-2xl max-h-80 overflow-y-auto" style={{ zIndex: 99999 }}>
                     {searchSuggestions.map((suggestion, idx) => (
                       <div
                         key={suggestion.address}
@@ -1172,7 +1172,7 @@ export default function HoldersPage() {
       )}
 
       {/* Holders Table */}
-      <Card variant="glass">
+      <Card variant="glass" style={{ position: 'relative', zIndex: 1 }}>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-white text-xl font-mono">Holders List</CardTitle>
