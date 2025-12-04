@@ -93,6 +93,10 @@ export default function HoldersPage() {
   const [allHoldersForChart, setAllHoldersForChart] = useState<Holder[]>([]) // Todos os holders para o gráfico
   const [totalHoldersFromJSON, setTotalHoldersFromJSON] = useState<number | null>(null) // Total de holders do JSON
   const [loadingChart, setLoadingChart] = useState(true) // Estado de loading do gráfico
+  // Totais por rede
+  const [bitcoinHolders, setBitcoinHolders] = useState<number>(0)
+  const [solanaHolders, setSolanaHolders] = useState<number>(10103)
+  const [stacksHolders, setStacksHolders] = useState<number>(288)
   const eventSourceRef = useRef<EventSource | null>(null)
 
   const formatNumber = (num: number) => {
@@ -203,6 +207,7 @@ export default function HoldersPage() {
       // Atualizar dados do gráfico (todos os holders)
       setAllHoldersForChart(allHoldersFromJSON)
       setTotalHoldersFromJSON(totalHoldersFromJSONValue)
+      setBitcoinHolders(totalHoldersFromJSONValue) // Atualizar holders do Bitcoin
       setLoadingChart(false)
       
       // Fazer paginação no cliente
@@ -419,6 +424,7 @@ export default function HoldersPage() {
             ? publicData.total_holders 
             : publicData.holders.length
           console.log(`📊 [JSON] total_holders do JSON: ${publicData.total_holders}, holders.length: ${publicData.holders.length}, usando: ${jsonTotalHolders}`)
+          setBitcoinHolders(jsonTotalHolders) // Atualizar holders do Bitcoin
           setTotalHoldersFromJSON(jsonTotalHolders)
           // Também atualizar totalHolders para manter consistência (se o JSON tem o valor correto)
           if (jsonTotalHolders > 0 && jsonTotalHolders !== totalHolders) {
@@ -829,13 +835,8 @@ export default function HoldersPage() {
             Address Holdings Distribution
           </CardTitle>
           <p className="text-gray-500 text-xs font-mono mt-2">
-            Total Holders: {totalHoldersFromJSON !== null
-              ? totalHoldersFromJSON.toLocaleString('en-US')
-              : allHoldersForChart.length > 0 
-                ? allHoldersForChart.length.toLocaleString('en-US')
-                : totalHolders > 0 
-                  ? totalHolders.toLocaleString('en-US')
-                  : '—'}
+            Total Holders: {(bitcoinHolders + solanaHolders + stacksHolders).toLocaleString('en-US')} 
+            {' '}(Bitcoin: {bitcoinHolders.toLocaleString('en-US')}, Solana: {solanaHolders.toLocaleString('en-US')}, Stacks: {stacksHolders.toLocaleString('en-US')})
           </p>
         </CardHeader>
         <CardContent>
@@ -875,7 +876,7 @@ export default function HoldersPage() {
           <CardContent>
             <div className="space-y-3">
               <div className="text-3xl font-bold bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent font-mono">
-                101,878
+                {(bitcoinHolders + solanaHolders + stacksHolders).toLocaleString('en-US')}
               </div>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
@@ -883,14 +884,14 @@ export default function HoldersPage() {
                     <Image src="/BTC.png" alt="Bitcoin" width={12} height={12} className="opacity-70" />
                     <span className="text-gray-400 font-mono">Bitcoin L1</span>
                   </div>
-                  <span className="text-gray-300 font-mono">91,496</span>
+                  <span className="text-gray-300 font-mono">{bitcoinHolders.toLocaleString('en-US')}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5">
                     <Image src="/sol.png" alt="Solana" width={12} height={12} className="opacity-70" />
                     <span className="text-gray-400 font-mono">Solana</span>
                   </div>
-                  <span className="text-gray-300 font-mono">10,094</span>
+                  <span className="text-gray-300 font-mono">{solanaHolders.toLocaleString('en-US')}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5">
