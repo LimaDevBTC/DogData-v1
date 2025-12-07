@@ -424,7 +424,7 @@ export default function OverviewPage() {
           <CardContent>
             <div className="space-y-3">
               <div className="text-3xl font-bold text-white font-mono">
-                101,853
+                101,847
               </div>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
@@ -439,7 +439,7 @@ export default function OverviewPage() {
                     <Image src="/sol.png" alt="Solana" width={12} height={12} className="opacity-70" />
                     <span className="text-gray-400 font-mono">Solana</span>
                   </div>
-                  <span className="text-gray-300 font-mono">10,111</span>
+                  <span className="text-gray-300 font-mono">10,105</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5">
