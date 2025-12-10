@@ -96,7 +96,7 @@ export default function HoldersPage() {
   // Totais por rede
   const [bitcoinHolders, setBitcoinHolders] = useState<number>(0)
   const [solanaHolders, setSolanaHolders] = useState<number>(10115)
-  const [stacksHolders, setStacksHolders] = useState<number>(291)
+  const [stacksHolders, setStacksHolders] = useState<number>(293)
   const eventSourceRef = useRef<EventSource | null>(null)
 
   const formatNumber = (num: number) => {
