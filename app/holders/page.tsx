@@ -898,7 +898,7 @@ export default function HoldersPage() {
                     <Image src="/STX .png" alt="Stacks" width={12} height={12} className="opacity-70" />
                     <span className="text-gray-400 font-mono">Stacks</span>
                   </div>
-                  <span className="text-gray-300 font-mono">288</span>
+                  <span className="text-gray-300 font-mono">{stacksHolders.toLocaleString('en-US')}</span>
                 </div>
               </div>
             </div>
