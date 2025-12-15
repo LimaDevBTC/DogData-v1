@@ -95,8 +95,8 @@ export default function HoldersPage() {
   const [loadingChart, setLoadingChart] = useState(true) // Estado de loading do gráfico
   // Totais por rede
   const [bitcoinHolders, setBitcoinHolders] = useState<number>(0)
-  const [solanaHolders, setSolanaHolders] = useState<number>(10134)
-  const [stacksHolders, setStacksHolders] = useState<number>(295)
+  const [solanaHolders, setSolanaHolders] = useState<number>(10179)
+  const [stacksHolders, setStacksHolders] = useState<number>(297)
   const eventSourceRef = useRef<EventSource | null>(null)
 
   const formatNumber = (num: number) => {
