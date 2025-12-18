@@ -15,6 +15,7 @@ import subprocess
 import json
 import sys
 import os
+import time
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from pathlib import Path
@@ -87,15 +88,46 @@ def update_holders():
     
     print("🔍 Extraindo dados de DOG do indexador...")
     
-    # Obter dados de balance
-    print("📊 Carregando dados de balance...")
-    ord_cmd = [ORD_BINARY, '--data-dir', ORD_DATA_DIR, 'balances']
-    # Executar do diretório ord (3 níveis acima: scripts -> DogData-v1 -> bitcoin-fullstack -> ord)
+    # Verificar se ord server está rodando e parar temporariamente
     ord_dir = Path(__file__).parent.parent.parent / 'ord'
     if not ord_dir.exists():
         print(f"❌ Diretório ord não encontrado: {ord_dir}")
         return False
+    
+    ord_running = subprocess.run(['pgrep', '-f', 'ord.*server'], capture_output=True).returncode == 0
+    ord_was_running = ord_running
+    
+    if ord_running:
+        print("⏸️  Ord server está rodando. Parando temporariamente para acessar o banco...")
+        subprocess.run(['pkill', '-TERM', '-f', 'ord.*server'], capture_output=True)
+        # Aguardar até o ord parar completamente
+        for i in range(20):
+            if subprocess.run(['pgrep', '-f', 'ord.*server'], capture_output=True).returncode != 0:
+                print(f"✅ Ord parou após {i+1} segundos")
+                break
+            time.sleep(1)
+        else:
+            # Se ainda estiver rodando, forçar kill
+            print("⚠️  Ord não parou graciosamente, forçando parada...")
+            subprocess.run(['pkill', '-KILL', '-f', 'ord.*server'], capture_output=True)
+            time.sleep(2)
+        time.sleep(3)  # Garantir que o banco foi liberado completamente
+    
+    # Obter dados de balance
+    print("📊 Carregando dados de balance...")
+    ord_cmd = [ORD_BINARY, '--data-dir', ORD_DATA_DIR, 'balances']
     result = subprocess.run(ord_cmd, capture_output=True, text=True, cwd=str(ord_dir))
+    
+    # Reiniciar ord se estava rodando antes
+    if ord_was_running:
+        print("🔄 Reiniciando Ord server...")
+        subprocess.Popen(
+            ['nohup', 'ord', '--data-dir', 'data', '--index-runes', 'server', '--http-port', '8080'],
+            cwd=str(ord_dir),
+            stdout=open(ord_dir / 'ord.log', 'a'),
+            stderr=subprocess.STDOUT
+        )
+        time.sleep(2)
     
     if result.returncode != 0:
         print(f"❌ Erro ao obter dados: {result.stderr}")
