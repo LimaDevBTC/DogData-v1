@@ -103,166 +103,113 @@ export default function OverviewPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Buscar stats básicos (com fallback para holders locais)
-        let statsData: any = {}
-        try {
-          const statsResponse = await fetch('/api/dog-rune/stats')
-          statsData = await statsResponse.json()
-        } catch (statsError) {
-          console.warn('⚠️ Failed to fetch stats, trying holders API...', statsError)
-        }
+        // OTIMIZAÇÃO: Carregar dados em paralelo para melhor performance
+        // 1. Buscar holders diretamente do JSON (mais rápido que API)
+        // 2. Buscar stats, rune data e markets em paralelo
+        // 3. Buscar preços em paralelo (primeira que responder vence)
         
-        // Buscar total de holders usando a mesma API que a página de holders usa
-        // Isso garante que estamos usando exatamente os mesmos dados
+        const timestamp = Date.now()
+        
+        // Carregar holders diretamente do JSON (mesma fonte da página de holders)
         let totalHoldersFromLocal: number | null = null
         try {
-          // Usar a API de holders que já funciona na página de holders
-          // Adicionar timestamp para evitar cache
-          const holdersResponse = await fetch(`/api/dog-rune/holders?page=1&limit=1&_t=${Date.now()}`, {
-            cache: 'no-store',
-            next: { revalidate: 0 }
-          })
-          if (holdersResponse.ok) {
-            const holdersData = await holdersResponse.json()
-            totalHoldersFromLocal = holdersData.pagination?.total || null
-            
-            if (totalHoldersFromLocal !== null && totalHoldersFromLocal > 0) {
-              console.log(`✅ Total holders from holders API: ${totalHoldersFromLocal}`)
-            } else {
-              console.warn(`⚠️ Total holders inválido da API: ${totalHoldersFromLocal}`)
+          const holdersJsonResponse = await fetch(`/data/dog_holders_by_address.json?_t=${timestamp}`, {
+            next: { revalidate: 300 }, // Cache por 5 minutos
+            headers: {
+              'Cache-Control': 'public, max-age=300, stale-while-revalidate=600',
             }
-          } else {
-            console.warn(`⚠️ Failed to load holders API: ${holdersResponse.status} ${holdersResponse.statusText}`)
+          })
+          if (holdersJsonResponse.ok) {
+            const holdersJsonData = await holdersJsonResponse.json()
+            totalHoldersFromLocal = typeof holdersJsonData.total_holders === 'number' 
+              ? holdersJsonData.total_holders 
+              : (holdersJsonData.holders?.length || null)
+            if (totalHoldersFromLocal !== null && totalHoldersFromLocal > 0) {
+              console.log(`✅ Total holders from JSON: ${totalHoldersFromLocal}`)
+            }
           }
         } catch (holdersError: any) {
-          console.warn('⚠️ Failed to fetch holders from API:', holdersError?.message || holdersError)
+          console.warn('⚠️ Failed to fetch holders from JSON:', holdersError?.message || holdersError)
         }
         
-        // Buscar dados precisos da rune
-        let runeData: any = {}
-        try {
-          const runeResponse = await fetch('/api/dog-rune/data')
-          if (runeResponse.ok) {
-            runeData = await runeResponse.json()
-          } else {
-            console.warn('⚠️ Failed to fetch rune data, using defaults')
-            runeData = { totalSupply: 0, circulatingSupply: 0 }
-          }
-        } catch (runeError) {
-          console.warn('⚠️ Error fetching rune data:', runeError)
-          runeData = { totalSupply: 0, circulatingSupply: 0 }
+        // Buscar stats, rune data e markets em paralelo
+        const [statsResult, runeResult, marketsResult] = await Promise.allSettled([
+          fetch('/api/dog-rune/stats').then(r => r.ok ? r.json() : {}),
+          fetch('/api/dog-rune/data').then(r => r.ok ? r.json() : { totalSupply: 0, circulatingSupply: 0 }),
+          fetch('/api/markets').then(r => r.ok ? r.json() : {})
+        ])
+        
+        const statsData: any = statsResult.status === 'fulfilled' ? statsResult.value : {}
+        const runeData: any = runeResult.status === 'fulfilled' ? runeResult.value : { totalSupply: 0, circulatingSupply: 0 }
+        const marketsData: any = marketsResult.status === 'fulfilled' ? marketsResult.value : {}
+        
+        // Extrair volume 24h dos markets
+        if (marketsData.marketData?.totalVolume) {
+          setVolume24h(marketsData.marketData.totalVolume)
         }
         
-        // Buscar preço com fallback em cascata: Kraken -> Gate.io -> MEXC -> CoinGecko
+        // OTIMIZAÇÃO: Buscar preços em paralelo - primeira que responder vence
         let currentPrice = 0
         let changePercent = 0
         let priceSource = 'unknown'
         
-        // 1ª tentativa: Kraken
-        try {
-          const krakenResponse = await fetch('/api/price/kraken', { signal: AbortSignal.timeout(5000) })
-          
-          if (krakenResponse.ok) {
-            const krakenData = await krakenResponse.json()
-            
-            if (krakenData.result && krakenData.result.DOGUSD) {
-              currentPrice = parseFloat(krakenData.result.DOGUSD.c[0])
-              const openPrice = parseFloat(krakenData.result.DOGUSD.o)
-              changePercent = ((currentPrice - openPrice) / openPrice) * 100
-              priceSource = 'Kraken'
-              console.log('✅ Price from Kraken:', currentPrice)
-            }
-          }
-        } catch (error) {
-          console.warn('⚠️ Kraken API failed, trying Gate.io...', error)
-        }
-        
-        // 2ª tentativa: Gate.io (se Kraken falhou)
-        if (currentPrice === 0) {
-          try {
-            const gateResponse = await fetch('/api/price/gateio', { signal: AbortSignal.timeout(5000) })
-            
-            if (gateResponse.ok) {
-              const gateData = await gateResponse.json()
-              
-              if (gateData.price && gateData.price > 0) {
-                currentPrice = gateData.price
-                changePercent = gateData.change24h || 0
-                priceSource = 'Gate.io'
-                console.log('✅ Price from Gate.io (fallback):', currentPrice)
+        // Tentar todas as APIs de preço em paralelo com timeout
+        const pricePromises = [
+          fetch('/api/price/kraken', { signal: AbortSignal.timeout(3000) })
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+              if (data?.result?.DOGUSD) {
+                const price = parseFloat(data.result.DOGUSD.c[0])
+                const openPrice = parseFloat(data.result.DOGUSD.o)
+                return { price, change: ((price - openPrice) / openPrice) * 100, source: 'Kraken' }
               }
-            }
-          } catch (error) {
-            console.warn('⚠️ Gate.io API failed, trying MEXC...', error)
-          }
-        }
-        
-        // 3ª tentativa: MEXC (se Gate.io também falhou)
-        if (currentPrice === 0) {
-          try {
-            const mexcResponse = await fetch('/api/price/mexc', { signal: AbortSignal.timeout(5000) })
-            
-            if (mexcResponse.ok) {
-              const mexcData = await mexcResponse.json()
-              
-              if (mexcData.price && mexcData.price > 0) {
-                currentPrice = mexcData.price
-                changePercent = mexcData.change24h || 0
-                priceSource = 'MEXC'
-                console.log('✅ Price from MEXC (fallback):', currentPrice)
+              return null
+            })
+            .catch(() => null),
+          fetch('/api/price/gateio', { signal: AbortSignal.timeout(3000) })
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+              if (data?.price && data.price > 0) {
+                return { price: data.price, change: data.change24h || 0, source: 'Gate.io' }
               }
-            }
-          } catch (error) {
-            console.warn('⚠️ MEXC API failed, trying CoinGecko...', error)
-          }
-        }
-        
-        // 4ª tentativa: CoinGecko (último recurso)
-        if (currentPrice === 0) {
-          try {
-            const cgResponse = await fetch('/api/markets', { signal: AbortSignal.timeout(5000) })
-            
-            if (cgResponse.ok) {
-              const contentType = cgResponse.headers.get('content-type')
-              if (contentType?.includes('application/json')) {
-                const cgData = await cgResponse.json()
-                
-                if (cgData.marketData?.price && cgData.marketData.price > 0) {
-                  currentPrice = cgData.marketData.price
-                  changePercent = cgData.marketData.priceChange24h || 0
-                  priceSource = 'CoinGecko'
-                  console.log('✅ Price from CoinGecko (fallback):', currentPrice)
-                }
+              return null
+            })
+            .catch(() => null),
+          fetch('/api/price/mexc', { signal: AbortSignal.timeout(3000) })
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+              if (data?.price && data.price > 0) {
+                return { price: data.price, change: data.change24h || 0, source: 'MEXC' }
               }
-            }
-          } catch (error) {
-            console.warn('⚠️ CoinGecko API failed', error)
+              return null
+            })
+            .catch(() => null),
+          // Usar markets data já carregado se disponível
+          Promise.resolve(marketsData.marketData?.price && marketsData.marketData.price > 0
+            ? { price: marketsData.marketData.price, change: marketsData.marketData.priceChange24h || 0, source: 'CoinGecko' }
+            : null)
+        ]
+        
+        // Pegar a primeira resposta válida
+        const priceResults = await Promise.allSettled(pricePromises)
+        for (const result of priceResults) {
+          if (result.status === 'fulfilled' && result.value && result.value.price > 0) {
+            currentPrice = result.value.price
+            changePercent = result.value.change
+            priceSource = result.value.source
+            console.log(`✅ Price from ${priceSource}:`, currentPrice)
+            break
           }
         }
         
         // Fallback final: usar preço default se tudo falhar
         if (currentPrice === 0) {
-          currentPrice = 0.00163 // Preço default razoável
+          currentPrice = 0.00163
           priceSource = 'cached'
-          console.warn('⚠️ All APIs failed, using default price')
+          console.warn('⚠️ All price APIs failed, using default price')
         }
         
         console.log(`📊 Final price: $${currentPrice} from ${priceSource}`)
-        
-        // Buscar volume 24h dos markets
-        try {
-          const marketsResponse = await fetch('/api/markets')
-          if (marketsResponse.ok) {
-            const contentType = marketsResponse.headers.get('content-type')
-            if (contentType?.includes('application/json')) {
-              const marketsData = await marketsResponse.json()
-              setVolume24h(marketsData.marketData?.totalVolume || 0)
-            }
-          }
-        } catch (error) {
-          console.warn('⚠️ Failed to fetch volume 24h:', error)
-          setVolume24h(0)
-        }
         
         // Calcular Market Cap (preço × circulating supply)
         const calculatedMarketCap = currentPrice * runeData.circulatingSupply
@@ -300,10 +247,15 @@ export default function OverviewPage() {
         setRuneData(runeData)
         setKrakenChange(changePercent)
 
-        try {
-          const txSummaryResponse = await fetch('/api/dog-rune/transactions-kv?summary=1', { cache: 'no-store' })
-          if (txSummaryResponse.ok) {
-            const summaryData = await txSummaryResponse.json()
+        // Buscar métricas 24h em paralelo (não bloqueia carregamento inicial)
+        fetch('/api/dog-rune/transactions-kv?summary=1', { 
+          next: { revalidate: 60 }, // Cache por 1 minuto
+          headers: {
+            'Cache-Control': 'public, max-age=60, stale-while-revalidate=120',
+          }
+        })
+          .then(r => r.ok ? r.json() : null)
+          .then(summaryData => {
             const metrics = summaryData?.metrics?.last24h
             if (metrics) {
               setMetrics24h({
@@ -322,12 +274,10 @@ export default function OverviewPage() {
                 volumeWalletCount: metrics.volumeWalletCount || 0,
               })
             }
-          } else {
-            console.warn('⚠️ Falha ao carregar resumo de transações 24h')
-          }
-        } catch (err) {
-          console.warn('⚠️ Erro ao buscar resumo de transações 24h:', err)
-        }
+          })
+          .catch(err => {
+            console.warn('⚠️ Erro ao buscar resumo de transações 24h:', err)
+          })
       } catch (error) {
         console.error('Error fetching data:', error)
       } finally {
