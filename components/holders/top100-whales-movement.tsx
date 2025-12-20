@@ -278,7 +278,9 @@ export function Top100WhalesMovement({ allHolders }: Top100WhalesMovementProps) 
   }
 
   // Função para copiar endereço
-  const copyToClipboard = async (text: string) => {
+  const copyToClipboard = async (e: React.MouseEvent, text: string) => {
+    e.preventDefault()
+    e.stopPropagation()
     try {
       await navigator.clipboard.writeText(text)
       // Opcional: mostrar feedback visual
@@ -337,7 +339,7 @@ export function Top100WhalesMovement({ allHolders }: Top100WhalesMovementProps) 
                           />
                           <span className="text-gray-300 text-xs font-mono">{shortenAddress(movement.address)}</span>
                           <button
-                            onClick={() => copyToClipboard(movement.address)}
+                            onClick={(e) => copyToClipboard(e, movement.address)}
                             className="p-1 hover:bg-emerald-500/20 rounded transition-colors group"
                             title="Copy address"
                           >
@@ -387,7 +389,7 @@ export function Top100WhalesMovement({ allHolders }: Top100WhalesMovementProps) 
                           />
                           <span className="text-gray-300 text-xs font-mono">{shortenAddress(movement.address)}</span>
                           <button
-                            onClick={() => copyToClipboard(movement.address)}
+                            onClick={(e) => copyToClipboard(e, movement.address)}
                             className="p-1 hover:bg-red-500/20 rounded transition-colors group"
                             title="Copy address"
                           >
