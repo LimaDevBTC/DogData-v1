@@ -330,6 +330,11 @@ export function Top100WhalesMovement({ allHolders }: Top100WhalesMovementProps) 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-gray-400 text-xs font-mono">#{movement.rank}</span>
+                          <AddressBadge 
+                            address={movement.address} 
+                            size="sm" 
+                            showName={false}
+                          />
                           <span className="text-gray-300 text-xs font-mono">{shortenAddress(movement.address)}</span>
                           <button
                             onClick={() => copyToClipboard(movement.address)}
@@ -375,6 +380,11 @@ export function Top100WhalesMovement({ allHolders }: Top100WhalesMovementProps) 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-gray-400 text-xs font-mono">#{movement.rank}</span>
+                          <AddressBadge 
+                            address={movement.address} 
+                            size="sm" 
+                            showName={false}
+                          />
                           <span className="text-gray-300 text-xs font-mono">{shortenAddress(movement.address)}</span>
                           <button
                             onClick={() => copyToClipboard(movement.address)}
