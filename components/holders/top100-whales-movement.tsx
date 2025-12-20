@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { AddressBadge } from "@/components/address-badge"
-import { TrendingUp, TrendingDown, Wallet } from "lucide-react"
+import { TrendingUp, TrendingDown, Wallet, Copy } from "lucide-react"
 
 interface Transaction {
   txid: string
@@ -271,6 +271,22 @@ export function Top100WhalesMovement({ allHolders }: Top100WhalesMovementProps) 
     return absAmount.toFixed(2)
   }
 
+  // Função para abreviar endereço (4 primeiros + 4 últimos)
+  const shortenAddress = (address: string) => {
+    if (address.length <= 8) return address
+    return `${address.slice(0, 4)}...${address.slice(-4)}`
+  }
+
+  // Função para copiar endereço
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      // Opcional: mostrar feedback visual
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
+  }
+
   if (loading) {
     return (
       <Card variant="glass" className="border-orange-500/20">
@@ -314,11 +330,14 @@ export function Top100WhalesMovement({ allHolders }: Top100WhalesMovementProps) 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-gray-400 text-xs font-mono">#{movement.rank}</span>
-                          <AddressBadge 
-                            address={movement.address} 
-                            size="sm" 
-                            showName={false}
-                          />
+                          <span className="text-gray-300 text-xs font-mono">{shortenAddress(movement.address)}</span>
+                          <button
+                            onClick={() => copyToClipboard(movement.address)}
+                            className="p-1 hover:bg-emerald-500/20 rounded transition-colors group"
+                            title="Copy address"
+                          >
+                            <Copy className="w-3 h-3 text-gray-400 group-hover:text-emerald-400" />
+                          </button>
                         </div>
                         <div className="text-xs text-gray-500 font-mono">
                           In: {formatDOGCompact(movement.inflow)} | Out: {formatDOGCompact(movement.outflow)}
@@ -356,11 +375,14 @@ export function Top100WhalesMovement({ allHolders }: Top100WhalesMovementProps) 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-gray-400 text-xs font-mono">#{movement.rank}</span>
-                          <AddressBadge 
-                            address={movement.address} 
-                            size="sm" 
-                            showName={false}
-                          />
+                          <span className="text-gray-300 text-xs font-mono">{shortenAddress(movement.address)}</span>
+                          <button
+                            onClick={() => copyToClipboard(movement.address)}
+                            className="p-1 hover:bg-red-500/20 rounded transition-colors group"
+                            title="Copy address"
+                          >
+                            <Copy className="w-3 h-3 text-gray-400 group-hover:text-red-400" />
+                          </button>
                         </div>
                         <div className="text-xs text-gray-500 font-mono">
                           In: {formatDOGCompact(movement.inflow)} | Out: {formatDOGCompact(movement.outflow)}
