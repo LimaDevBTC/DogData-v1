@@ -270,9 +270,22 @@ export default function HoldersPage() {
     }
   }
 
-  // Calcular novos holders das últimas 24h
+  // Calcular novos holders das últimas 24h (otimizado - não bloqueia carregamento inicial)
   const calculateNewHolders24h = async () => {
     try {
+      // Usar os dados já carregados em allHoldersForChart em vez de fazer novo fetch
+      const allHoldersMap = new Map<string, boolean>()
+      if (allHoldersForChart.length > 0) {
+        allHoldersForChart.forEach((holder: Holder) => {
+          if (holder.address) {
+            allHoldersMap.set(holder.address.toLowerCase(), true)
+          }
+        })
+      } else {
+        // Se ainda não temos os dados, pular por enquanto (será recalculado depois)
+        return
+      }
+      
       // Buscar transações das últimas 24h (sem summary para obter todas as transações)
       const response = await fetch('/api/dog-rune/transactions-kv', { cache: 'no-store' })
       if (!response.ok) {
@@ -281,30 +294,6 @@ export default function HoldersPage() {
       
       const data = await response.json()
       const transactions = data.transactions || []
-      
-      // Buscar lista completa de holders do JSON para verificar quem já tinha DOG antes
-      const timestamp = Date.now()
-      const holdersResponse = await fetch(`/data/dog_holders_by_address.json?_t=${timestamp}`, { 
-        cache: 'no-store',
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-        }
-      })
-      if (!holdersResponse.ok) {
-        throw new Error(`Holders JSON error: ${holdersResponse.status}`)
-      }
-      
-      const holdersData = await holdersResponse.json()
-      const allHoldersMap = new Map<string, boolean>()
-      
-      // Criar mapa de todos os holders atuais (lowercase para comparação)
-      if (holdersData.holders && Array.isArray(holdersData.holders)) {
-        holdersData.holders.forEach((holder: Holder) => {
-          if (holder.address) {
-            allHoldersMap.set(holder.address.toLowerCase(), true)
-          }
-        })
-      }
       
       // Filtrar transações das últimas 24h
       const now = Date.now()
@@ -333,10 +322,6 @@ export default function HoldersPage() {
             // - Recebeu DOG nesta transação
             // - NÃO estava nos senders (não tinha DOG antes desta transação)
             // - NÃO está no ranking atual (não tinha DOG antes)
-            // 
-            // Nota: Se está no ranking atual, provavelmente já tinha DOG antes das últimas 24h
-            // Mas pode ter entrado no ranking justamente nas últimas 24h. Para ser mais preciso,
-            // vamos contar apenas os que não estão no ranking (mais conservador)
             if (hasReceivedDog && !wasSender && !isInRanking) {
               newHoldersSet.add(receiverLower)
             }
@@ -393,79 +378,24 @@ export default function HoldersPage() {
     loadAirdropRecipients()
   }, [currentPage])
 
-  // Carregar todos os holders para o gráfico de distribuição
-  // Tentar carregar diretamente do JSON público primeiro (mais rápido)
-  const loadAllHoldersForChart = async () => {
-    setLoadingChart(true)
-    try {
-      // Prioridade 1: Tentar carregar diretamente do JSON público (mais rápido, sem processamento da API)
-      // Este arquivo está servido estaticamente e é muito mais rápido que a API
-      const startTime = performance.now()
-      // Usar no-store + timestamp para forçar bypass completo do cache
-      const timestamp = Date.now()
-      const publicResponse = await fetch(`/data/dog_holders_by_address.json?_t=${timestamp}`, {
-        cache: 'no-store', // Sem cache para garantir dados atualizados do JSON
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-        }
-      })
-      
-      if (publicResponse.ok) {
-        const publicData = await publicResponse.json()
-        const loadTime = performance.now() - startTime
-        console.log(`⏱️ Gráfico: JSON carregado em ${loadTime.toFixed(0)}ms`)
-        
-        if (publicData.holders && Array.isArray(publicData.holders)) {
-          console.log(`✅ Gráfico: ${publicData.holders.length} holders carregados do JSON público`)
-          setAllHoldersForChart(publicData.holders)
-          // Usar total_holders do JSON se disponível, senão usar o length do array
-          const jsonTotalHolders = typeof publicData.total_holders === 'number' 
-            ? publicData.total_holders 
-            : publicData.holders.length
-          console.log(`📊 [JSON] total_holders do JSON: ${publicData.total_holders}, holders.length: ${publicData.holders.length}, usando: ${jsonTotalHolders}`)
-          setBitcoinHolders(jsonTotalHolders) // Atualizar holders do Bitcoin
-          setTotalHoldersFromJSON(jsonTotalHolders)
-          // Também atualizar totalHolders para manter consistência (se o JSON tem o valor correto)
-          if (jsonTotalHolders > 0 && jsonTotalHolders !== totalHolders) {
-            console.log(`🔄 Atualizando totalHolders de ${totalHolders} para ${jsonTotalHolders} (do JSON)`)
-            setTotalHolders(jsonTotalHolders)
-          }
-          setLoadingChart(false)
-          return // Sucesso, sair da função imediatamente
-        }
-      }
-
-      // Se chegou aqui, o JSON não foi carregado - não há fallback, apenas erro
-      console.error('❌ Falha ao carregar JSON de holders para o gráfico')
-    } catch (error) {
-      console.error('Error loading all holders for chart:', error)
-    } finally {
-      setLoadingChart(false)
-    }
-  }
-
-  // Carregar dados do gráfico apenas se não foram carregados junto com a lista
-  useEffect(() => {
-    // Se ainda não temos os dados do gráfico após carregar a lista, tentar carregar agora
-    // Mas só se realmente não temos dados (após um pequeno delay para dar tempo da lista carregar)
-    if (allHoldersForChart.length === 0 && !loading) {
-      const timer = setTimeout(() => {
-        loadAllHoldersForChart()
-      }, 100) // Pequeno delay para ver se a lista já carregou os dados
-      return () => clearTimeout(timer)
-    }
-  }, [loading, allHoldersForChart.length]) // Verificar quando o loading da lista terminar e quando allHoldersForChart mudar
+  // Removido loadAllHoldersForChart - os dados já são carregados no fetchHolders()
+  // Isso evita carregamento duplicado do mesmo arquivo JSON
 
   // Carregar outros dados em paralelo (não bloqueia o gráfico)
   useEffect(() => {
-    Promise.all([
-      loadStats(),
-      calculateNewHolders24h()
-    ]).catch(error => {
-      console.error('Error loading initial data:', error)
+    loadStats().catch(error => {
+      console.error('Error loading stats:', error)
     })
   }, [])
+
+  // Calcular novos holders 24h apenas após os dados principais estarem carregados
+  useEffect(() => {
+    if (allHoldersForChart.length > 0) {
+      calculateNewHolders24h().catch(error => {
+        console.error('Error calculating new holders 24h:', error)
+      })
+    }
+  }, [allHoldersForChart.length])
 
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
@@ -611,55 +541,67 @@ export default function HoldersPage() {
 
   const fetchHolderDetails = async (address: string): Promise<HolderSearchResult | null> => {
     try {
-      const timestamp = Date.now()
-      const jsonResponse = await fetch(`/data/dog_holders_by_address.json?_t=${timestamp}`, {
-        cache: 'no-store',
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-        }
-      })
-      
-      if (!jsonResponse.ok) {
-        throw new Error(`Failed to load holders JSON: ${jsonResponse.status}`)
-      }
-      
-      const jsonData = await jsonResponse.json()
-      
-      if (!jsonData.holders || !Array.isArray(jsonData.holders)) {
-        throw new Error('Invalid JSON format')
-      }
-      
+      // Usar dados já carregados em allHoldersForChart em vez de fazer novo fetch
       const addressLower = address.toLowerCase()
-      const holder = jsonData.holders.find((h: Holder) => 
-        h.address && h.address.toLowerCase() === addressLower
-      )
+      let holder: Holder | undefined
       
-      if (holder) {
-        const holderWithAirdrop = {
-          ...holder,
-          is_airdrop_recipient: airdropRecipients.has(holder.address),
-        }
-        
-        if (holderWithAirdrop.is_airdrop_recipient) {
-          try {
-            const airdropResponse = await fetch(`/data/airdrop_recipients.json`)
-            if (airdropResponse.ok) {
-              const airdropData = await airdropResponse.json()
-              const airdropRecipient = airdropData.recipients?.find((r: any) => 
-                r.address.toLowerCase() === holder.address.toLowerCase()
-              )
-              if (airdropRecipient) {
-                holderWithAirdrop.airdrop_amount = airdropRecipient.airdrop_amount
-              }
-            }
-          } catch (err) {
-            console.error('Error fetching airdrop data:', err)
+      if (allHoldersForChart.length > 0) {
+        // Usar dados já carregados (muito mais rápido)
+        holder = allHoldersForChart.find((h: Holder) => 
+          h.address && h.address.toLowerCase() === addressLower
+        )
+      } else {
+        // Fallback: se não temos os dados ainda, fazer fetch (mas isso não deveria acontecer)
+        const timestamp = Date.now()
+        const jsonResponse = await fetch(`/data/dog_holders_by_address.json?_t=${timestamp}`, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
           }
+        })
+        
+        if (!jsonResponse.ok) {
+          throw new Error(`Failed to load holders JSON: ${jsonResponse.status}`)
         }
         
-        return holderWithAirdrop
+        const jsonData = await jsonResponse.json()
+        
+        if (!jsonData.holders || !Array.isArray(jsonData.holders)) {
+          throw new Error('Invalid JSON format')
+        }
+        
+        holder = jsonData.holders.find((h: Holder) => 
+          h.address && h.address.toLowerCase() === addressLower
+        )
       }
-      return null
+      
+      if (!holder) {
+        return null
+      }
+      
+      const holderWithAirdrop = {
+        ...holder,
+        is_airdrop_recipient: airdropRecipients.has(holder.address),
+      }
+      
+      if (holderWithAirdrop.is_airdrop_recipient) {
+        try {
+          const airdropResponse = await fetch(`/data/airdrop_recipients.json`)
+          if (airdropResponse.ok) {
+            const airdropData = await airdropResponse.json()
+            const airdropRecipient = airdropData.recipients?.find((r: any) => 
+              r.address.toLowerCase() === holderWithAirdrop.address.toLowerCase()
+            )
+            if (airdropRecipient) {
+              holderWithAirdrop.airdrop_amount = airdropRecipient.airdrop_amount
+            }
+          }
+        } catch (err) {
+          console.error('Error fetching airdrop data:', err)
+        }
+      }
+      
+      return holderWithAirdrop
     } catch (error) {
       console.error('Error fetching holder details:', error)
       return null
