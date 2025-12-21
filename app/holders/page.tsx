@@ -989,7 +989,7 @@ export default function HoldersPage() {
                   </div>
                 )}
               </div>
-              <Button onClick={searchHolderByAddress} className="btn-sharp">
+              <Button onClick={() => searchHolderByAddress()} className="btn-sharp">
                 <Search className="w-4 h-4 mr-2" />
                 Search
               </Button>
