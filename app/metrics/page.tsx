@@ -54,10 +54,12 @@ interface HolderConcentration {
   top1000_supply_pct: number
 }
 
-interface UTXOCountHistory {
+interface UTXOCountHistoryItem {
   date: string
   total_utxos: number
-}[]
+}
+
+type UTXOCountHistory = UTXOCountHistoryItem[]
 
 interface UTXOAgeStats {
   total_utxos: number
@@ -258,8 +260,10 @@ export default function MetricsPage() {
               if (tagName !== 'rect' || (!fill || (!fill.includes('10B981') && !fill.includes('059669') &&
                   !fill.includes('EF4444') && !fill.includes('DC2626') &&
                   !fill.includes('url(#colorProfit') && !fill.includes('url(#colorLoss')))) {
-                el.style.backgroundColor = 'transparent'
-                el.style.background = 'transparent'
+                if (el instanceof HTMLElement) {
+                  el.style.backgroundColor = 'transparent'
+                  el.style.background = 'transparent'
+                }
               }
             }
           })
@@ -900,7 +904,6 @@ export default function MetricsPage() {
                         dataKey="size"
                         aspectRatio={4/3}
                         stroke="#111827"
-                        strokeWidth={2}
                         animationDuration={800}
                         nameKey="name"
                       >
