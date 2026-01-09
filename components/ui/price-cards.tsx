@@ -106,8 +106,27 @@ export function PriceCards() {
     exchange: typeof exchanges[0] | typeof bitflowExchange | typeof dogswapExchange
   ): Promise<PriceData> => {
     try {
-      const response = await fetch(exchange.apiUrl);
+      // Adicionar timeout de 5 segundos
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      const response = await fetch(exchange.apiUrl, {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
       if (!response.ok) {
+        // Para status 503, 502, 500 - não lançar erro, apenas retornar status error
+        if (response.status >= 500 && response.status < 600) {
+          return {
+            exchange: exchange.name,
+            price: 0,
+            lastUpdate: new Date(),
+            status: 'error',
+            error: `${exchange.name} temporarily unavailable (${response.status})`
+          };
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const contentType = response.headers.get('content-type') || '';
@@ -166,18 +185,36 @@ export function PriceCards() {
         stale: data?.stale || false
       };
     } catch (error) {
-      console.error(`❌ Error fetching ${exchange.name}:`, error);
+      // Silenciar logs para erros esperados (503, timeout, etc.)
+      const isExpectedError = error instanceof Error && (
+        error.message.includes('503') ||
+        error.message.includes('502') ||
+        error.message.includes('500') ||
+        error.message.includes('timeout') ||
+        error.message.includes('aborted') ||
+        error.message.includes('network') ||
+        error.name === 'AbortError'
+      );
+      
+      if (!isExpectedError) {
+        console.error(`❌ Error fetching ${exchange.name}:`, error);
+      }
+      
       let errorMessage = `${exchange.name} API temporarily unavailable`;
       if (error instanceof Error) {
-        if (error.message.includes('503')) {
+        if (error.name === 'AbortError' || error.message.includes('aborted')) {
+          errorMessage = `${exchange.name} timeout (not responding)`;
+        } else if (error.message.includes('503')) {
           errorMessage = `${exchange.name} under maintenance`;
-        } else if (error.message.includes('timeout') || error.message.includes('aborted')) {
+        } else if (error.message.includes('timeout')) {
           errorMessage = `${exchange.name} not responding`;
         } else if (error.message.includes('404')) {
           errorMessage = `${exchange.name} endpoint not found`;
         } else if (error.message.includes('500') || error.message.includes('502')) {
           errorMessage = `${exchange.name} server error`;
         }
+      } else if (error && typeof error === 'object' && 'name' in error && error.name === 'AbortError') {
+        errorMessage = `${exchange.name} timeout (not responding)`;
       }
       return {
         exchange: exchange.name,

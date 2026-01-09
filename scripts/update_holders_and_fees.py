@@ -3,6 +3,7 @@
 Script unificado para atualizar:
 1. Lista de holders de DOG (via ord indexer)
 2. Fees de transações (via Bitcoin Core RPC)
+3. Métricas de UTXO (histórico diário)
 
 Uso:
     python3 update_holders_and_fees.py
@@ -142,8 +143,9 @@ def update_holders():
     
     print(f"📊 Encontrados {len(dog_runes)} UTXOs com DOG")
     
-    # Agrupar por endereço
+    # Agrupar por endereço e coletar informações de UTXOs
     address_balances = defaultdict(lambda: {'total_amount': 0, 'utxo_count': 0})
+    utxo_details = []  # Armazenar detalhes de cada UTXO para análise de idade
     processed = 0
     errors = 0
     
@@ -151,11 +153,20 @@ def update_holders():
         if rune_data.get('amount', 0) > 0:
             try:
                 txid, output = utxo_key.split(':')
-                address = get_address_from_utxo(txid, int(output))
+                output_int = int(output)
+                address = get_address_from_utxo(txid, output_int)
                 
                 if address:
                     address_balances[address]['total_amount'] += rune_data['amount']
                     address_balances[address]['utxo_count'] += 1
+                    
+                    # Coletar detalhes do UTXO para análise de idade
+                    utxo_details.append({
+                        'txid': txid,
+                        'vout': output_int,
+                        'address': address,
+                        'amount': rune_data['amount']
+                    })
                 else:
                     errors += 1
             except Exception as e:
@@ -192,12 +203,172 @@ def update_holders():
     for i, holder in enumerate(holders[:10]):
         print(f"  {i+1}. {holder['address']}: {holder['total_dog']:.5f} DOG ({holder['utxo_count']} UTXOs)")
     
+    # Carregar histórico de preços
+    print("\n💰 Carregando histórico de preços de DOG...")
+    price_history = load_price_history()
+    if price_history:
+        print(f"✅ Histórico carregado: {len(price_history)} dias")
+    else:
+        print("⚠️ Histórico de preços não encontrado. Execute build_price_history.py primeiro.")
+    
+    # Buscar preço atual
+    current_price = get_current_price()
+    if current_price:
+        print(f"✅ Preço atual: ${current_price:.8f}")
+    else:
+        print("⚠️ Não foi possível obter preço atual")
+    
+    # Calcular idade de TODOS os UTXOs e preço de criação
+    print("\n📅 Calculando idade e preço de criação de TODOS os UTXOs...")
+    print(f"   Processando {len(utxo_details)} UTXOs (isso pode levar alguns minutos)...")
+    utxo_ages = []
+    age_processed = 0
+    age_errors = 0
+    price_errors = 0
+    BLOCK_CACHE = {}  # Cache de blocos para evitar chamadas duplicadas
+    
+    for utxo in utxo_details:
+        result = get_utxo_age_and_timestamp(utxo['txid'], utxo['vout'], BLOCK_CACHE)
+        if result:
+            age_days, block_timestamp = result
+            price_at_creation = get_price_at_timestamp(block_timestamp, price_history) if price_history else None
+            
+            utxo_ages.append({
+                'age_days': age_days,
+                'amount': utxo['amount'],
+                'creation_timestamp': block_timestamp,
+                'price_at_creation': price_at_creation
+            })
+            
+            if price_at_creation is None:
+                price_errors += 1
+        else:
+            age_errors += 1
+        
+        age_processed += 1
+        if age_processed % 1000 == 0:
+            print(f"⏳ Calculando idade: {age_processed}/{len(utxo_details)} UTXOs ({len(utxo_ages)} sucesso, {age_errors} erros, {price_errors} sem preço)...")
+        # Pequeno delay para não sobrecarregar o node
+        if age_processed % 100 == 0:
+            time.sleep(0.01)
+    
+    # Calcular estatísticas de idade e distribuição por tamanho
+    utxo_age_stats = {}
+    utxo_size_distribution = {}
+    if utxo_ages:
+        total_supply = sum(u['amount'] for u in utxo_ages)
+        ages = [u['age_days'] for u in utxo_ages]
+        
+        # Classificar por idade
+        sth_supply = sum(u['amount'] for u in utxo_ages if u['age_days'] < 155)  # < 155 dias = STH
+        lth_supply = sum(u['amount'] for u in utxo_ages if u['age_days'] >= 155)  # >= 155 dias = LTH
+        
+        # Calcular distribuição por tamanho de UTXO (individual, não por holder)
+        # Converter amount para DOG para comparação (1 DOG = 100,000 amount)
+        size_ranges = [
+            {'range': '< 1K DOG', 'min': 0, 'max': 1000 * 100000},
+            {'range': '1K - 10K DOG', 'min': 1000 * 100000, 'max': 10000 * 100000},
+            {'range': '10K - 100K DOG', 'min': 10000 * 100000, 'max': 100000 * 100000},
+            {'range': '100K - 1M DOG', 'min': 100000 * 100000, 'max': 1000000 * 100000},
+            {'range': '1M - 10M DOG', 'min': 1000000 * 100000, 'max': 10000000 * 100000},
+            {'range': '> 10M DOG', 'min': 10000000 * 100000, 'max': float('inf')},
+        ]
+        
+        for size_range in size_ranges:
+            utxos_in_range = [u for u in utxo_ages if size_range['min'] <= u['amount'] < size_range['max']]
+            count = len(utxos_in_range)
+            supply = sum(u['amount'] for u in utxos_in_range)
+            
+            utxo_size_distribution[size_range['range']] = {
+                'count': count,
+                'supply': supply,  # Em amount (unidades menores)
+                'percentage': (supply / total_supply * 100) if total_supply > 0 else 0
+            }
+        
+        utxo_age_stats = {
+            'total_utxos': len(utxo_ages),
+            'total_supply': total_supply,
+            'avg_age_days': sum(ages) / len(ages) if ages else 0,
+            'median_age_days': sorted(ages)[len(ages) // 2] if ages else 0,
+            'sth_supply': sth_supply,
+            'lth_supply': lth_supply,
+            'sth_percentage': (sth_supply / total_supply * 100) if total_supply > 0 else 0,
+            'lth_percentage': (lth_supply / total_supply * 100) if total_supply > 0 else 0,
+            'age_distribution': {
+                '< 1 day': sum(u['amount'] for u in utxo_ages if u['age_days'] < 1),
+                '1-7 days': sum(u['amount'] for u in utxo_ages if 1 <= u['age_days'] < 7),
+                '7-30 days': sum(u['amount'] for u in utxo_ages if 7 <= u['age_days'] < 30),
+                '30-90 days': sum(u['amount'] for u in utxo_ages if 30 <= u['age_days'] < 90),
+                '90-180 days': sum(u['amount'] for u in utxo_ages if 90 <= u['age_days'] < 180),
+                '180-365 days': sum(u['amount'] for u in utxo_ages if 180 <= u['age_days'] < 365),
+                '> 365 days': sum(u['amount'] for u in utxo_ages if u['age_days'] >= 365),
+            },
+            'size_distribution': utxo_size_distribution
+        }
+        print(f"✅ Idade calculada para {len(utxo_ages)} UTXOs (TODOS)")
+        print(f"   STH (< 155 dias): {utxo_age_stats['sth_percentage']:.2f}% ({utxo_age_stats['sth_supply'] / 100000:,.0f} DOG)")
+        print(f"   LTH (>= 155 dias): {utxo_age_stats['lth_percentage']:.2f}% ({utxo_age_stats['lth_supply'] / 100000:,.0f} DOG)")
+        if age_errors > 0:
+            print(f"   ⚠️ {age_errors} UTXOs não puderam ter idade calculada")
+        
+        # Calcular Realized Cap e Supply in Profit/Loss
+        if current_price and price_history:
+            print("\n💰 Calculando Realized Cap e Supply in Profit/Loss...")
+            realized_cap = 0
+            supply_in_profit = 0
+            supply_in_loss = 0
+            utxos_with_price = 0
+            
+            for utxo in utxo_ages:
+                if utxo.get('price_at_creation') is not None:
+                    amount_dog = utxo['amount'] / 100000  # Converter para DOG
+                    price_at_creation = utxo['price_at_creation']
+                    
+                    # Realized Cap
+                    realized_cap += amount_dog * price_at_creation
+                    
+                    # Supply in Profit/Loss
+                    if current_price > price_at_creation:
+                        supply_in_profit += amount_dog
+                    else:
+                        supply_in_loss += amount_dog
+                    
+                    utxos_with_price += 1
+            
+            total_supply_dog = total_supply / 100000
+            market_cap = total_supply_dog * current_price
+            mvrv_ratio = market_cap / realized_cap if realized_cap > 0 else 0
+            
+            profit_pct = (supply_in_profit / total_supply_dog * 100) if total_supply_dog > 0 else 0
+            loss_pct = (supply_in_loss / total_supply_dog * 100) if total_supply_dog > 0 else 0
+            
+            # Adicionar às estatísticas
+            utxo_age_stats['realized_cap'] = realized_cap
+            utxo_age_stats['market_cap'] = market_cap
+            utxo_age_stats['mvrv_ratio'] = mvrv_ratio
+            utxo_age_stats['supply_in_profit'] = supply_in_profit
+            utxo_age_stats['supply_in_loss'] = supply_in_loss
+            utxo_age_stats['supply_in_profit_pct'] = profit_pct
+            utxo_age_stats['supply_in_loss_pct'] = loss_pct
+            utxo_age_stats['current_price'] = current_price
+            utxo_age_stats['utxos_with_price'] = utxos_with_price
+            
+            print(f"   Realized Cap: ${realized_cap:,.2f}")
+            print(f"   Market Cap: ${market_cap:,.2f}")
+            print(f"   MVRV Ratio: {mvrv_ratio:.2f}")
+            print(f"   Supply in Profit: {profit_pct:.2f}% ({supply_in_profit:,.0f} DOG)")
+            print(f"   Supply in Loss: {loss_pct:.2f}% ({supply_in_loss:,.0f} DOG)")
+            print(f"   UTXOs com preço histórico: {utxos_with_price}/{len(utxo_ages)}")
+        else:
+            print("⚠️ Não foi possível calcular Realized Cap (faltam preço atual ou histórico)")
+    
     # Criar estrutura de dados
     output_data = {
         'timestamp': datetime.now().isoformat(),
         'total_holders': len(holders),
         'total_utxos': len(dog_runes),
-        'holders': holders
+        'holders': holders,
+        'utxo_age_stats': utxo_age_stats if utxo_age_stats else None
     }
     
     # Garantir que os diretórios existam
@@ -247,6 +418,119 @@ def run_bitcoin_cli(*args):
         return None
     except Exception:
         return None
+
+def get_utxo_age_days(txid: str, vout: int, block_cache: dict = None) -> Optional[float]:
+    """Calcula a idade de um UTXO em dias
+    
+    Retorna a idade em dias desde que o UTXO foi criado (quando a transação foi incluída no bloco)
+    Usa cache de blocos para otimizar chamadas duplicadas
+    """
+    result = get_utxo_age_and_timestamp(txid, vout, block_cache)
+    return result[0] if result else None
+
+def get_utxo_age_and_timestamp(txid: str, vout: int, block_cache: dict = None) -> Optional[tuple]:
+    """Calcula a idade de um UTXO em dias e retorna também o timestamp de criação
+    
+    Retorna: (age_days, block_timestamp) ou None
+    Usa cache de blocos para otimizar chamadas duplicadas
+    """
+    if block_cache is None:
+        block_cache = {}
+    
+    try:
+        # Buscar a transação que criou o UTXO (com cache)
+        tx_data = get_tx_cached(txid)
+        if not tx_data:
+            return None
+        
+        # Obter o bloco hash onde a transação foi incluída
+        block_hash = tx_data.get('blockhash')
+        if not block_hash:
+            # Transação ainda não confirmada
+            return (0, int(time.time()))
+        
+        # Verificar cache de bloco
+        if block_hash in block_cache:
+            block_time = block_cache[block_hash]
+        else:
+            # Obter informações do bloco
+            block_data = run_bitcoin_cli('getblock', block_hash)
+            if not block_data:
+                return None
+            
+            # Obter timestamp do bloco
+            block_time = block_data.get('time')
+            if not block_time:
+                return None
+            
+            # Armazenar no cache
+            block_cache[block_hash] = block_time
+        
+        # Calcular idade em dias
+        current_time = time.time()
+        age_seconds = current_time - block_time
+        age_days = age_seconds / (24 * 60 * 60)
+        
+        return (age_days, int(block_time))
+    except Exception:
+        return None
+
+def load_price_history() -> Dict[str, float]:
+    """Carrega histórico de preços de DOG"""
+    price_file = DATA_DIR / 'dog_price_history.json'
+    if price_file.exists():
+        try:
+            with open(price_file, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"⚠️ Erro ao carregar histórico de preços: {e}")
+            return {}
+    return {}
+
+def get_price_at_timestamp(timestamp: int, price_history: Dict[str, float]) -> Optional[float]:
+    """Retorna o preço de DOG no timestamp especificado
+    
+    Converte timestamp para data (YYYY-MM-DD) e busca no histórico
+    Se não encontrar data exata, usa a data anterior mais próxima
+    """
+    try:
+        # Converter timestamp para data
+        dt = datetime.fromtimestamp(timestamp)
+        date_str = dt.strftime('%Y-%m-%d')
+        
+        # Tentar data exata
+        if date_str in price_history:
+            return price_history[date_str]
+        
+        # Tentar data anterior mais próxima
+        sorted_dates = sorted(price_history.keys())
+        for date in reversed(sorted_dates):
+            if date <= date_str:
+                return price_history[date]
+        
+        # Tentar data posterior mais próxima (se não houver anterior)
+        for date in sorted_dates:
+            if date >= date_str:
+                return price_history[date]
+        
+        return None
+    except Exception:
+        return None
+
+def get_current_price() -> Optional[float]:
+    """Busca preço atual de DOG da Gate.io"""
+    try:
+        response = requests.get(
+            'https://api.gateio.ws/api/v4/spot/tickers?currency_pair=DOG_USDT',
+            timeout=10
+        )
+        if response.ok:
+            data = response.json()
+            if data and len(data) > 0:
+                return float(data[0].get('last', 0))
+    except Exception:
+        pass
+    return None
 
 def get_tx_cached(txid: str) -> Optional[Dict]:
     """Busca transação com cache para evitar chamadas duplicadas"""
@@ -504,9 +788,79 @@ def update_fees():
     
     return fees_calculated > 0
 
+def update_utxo_metrics():
+    """Atualiza o histórico de métricas de UTXO"""
+    print("\n" + "="*80)
+    print("📊 ATUALIZANDO MÉTRICAS DE UTXO")
+    print("="*80)
+    
+    # Ler dados atuais de holders (já atualizados)
+    holders_file = PUBLIC_DATA_DIR / 'dog_holders.json'
+    if not holders_file.exists():
+        print(f"⚠️ Arquivo de holders não encontrado, pulando métricas de UTXO")
+        return False
+    
+    with open(holders_file, 'r') as f:
+        holders_data = json.load(f)
+    
+    current_utxos = holders_data.get('total_utxos', 0)
+    if current_utxos == 0:
+        print("⚠️ Total de UTXOs é 0, pulando atualização de métricas")
+        return False
+    
+    # Ler ou criar histórico
+    history_file = DATA_DIR / 'utxo_count_history.json'
+    if history_file.exists():
+        with open(history_file, 'r') as f:
+            history_data = json.load(f)
+    else:
+        history_data = {
+            "history": [],
+            "last_updated": None
+        }
+    
+    # Data de hoje
+    today = datetime.now().strftime('%Y-%m-%d')
+    
+    # Verificar se já temos entrada para hoje
+    history = history_data.get('history', [])
+    today_entry = next((entry for entry in history if entry.get('date') == today), None)
+    
+    if today_entry:
+        # Atualizar entrada existente
+        today_entry['total_utxos'] = current_utxos
+        print(f"✅ Atualizado histórico para {today}: {current_utxos:,} UTXOs")
+    else:
+        # Adicionar nova entrada
+        history.append({
+            "date": today,
+            "total_utxos": current_utxos
+        })
+        print(f"✅ Adicionado novo registro para {today}: {current_utxos:,} UTXOs")
+    
+    # Ordenar por data (mais antigo primeiro)
+    history.sort(key=lambda x: x['date'])
+    
+    # Atualizar metadata
+    history_data['history'] = history
+    history_data['last_updated'] = datetime.now().isoformat()
+    history_data['total_points'] = len(history)
+    
+    # Salvar
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    with open(history_file, 'w') as f:
+        json.dump(history_data, f, indent=2)
+    
+    print(f"✅ Histórico salvo: {len(history)} pontos de dados")
+    if history:
+        print(f"   Primeiro registro: {history[0]['date']}")
+        print(f"   Último registro: {history[-1]['date']}")
+    
+    return True
+
 def main():
     print("\n" + "="*80)
-    print("🚀 ATUALIZAÇÃO DE HOLDERS E FEES")
+    print("🚀 ATUALIZAÇÃO COMPLETA: HOLDERS, FEES E MÉTRICAS")
     print("="*80)
     print(f"⏰ Iniciado em: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
@@ -516,14 +870,26 @@ def main():
     # 2. Atualizar fees
     fees_success = update_fees()
     
+    # 3. Atualizar métricas de UTXO (só se holders foram atualizados com sucesso)
+    utxo_metrics_success = False
+    if holders_success:
+        utxo_metrics_success = update_utxo_metrics()
+    else:
+        print("\n⚠️ Pulando atualização de métricas UTXO (holders não foram atualizados)")
+    
     # Resumo final
     print("\n" + "="*80)
     print("📊 RESUMO FINAL")
     print("="*80)
     print(f"✅ Holders: {'Sucesso' if holders_success else 'Falhou'}")
     print(f"✅ Fees: {'Sucesso' if fees_success else 'Falhou'}")
+    print(f"✅ Métricas UTXO: {'Sucesso' if utxo_metrics_success else 'Falhou/Pulado'}")
     print(f"⏰ Finalizado em: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("="*80)
+    
+    # Exit code baseado no sucesso
+    if not holders_success:
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

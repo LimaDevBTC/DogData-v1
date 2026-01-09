@@ -465,3 +465,401 @@ main {
 .btn-sharp {
   border-radius: 0 !important;
 }
+
+/* Recharts background fix - ensure transparent/black background */
+.hodl-waves-chart .recharts-wrapper,
+.hodl-waves-chart .recharts-surface {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.hodl-waves-chart .recharts-cartesian-grid-horizontal line,
+.hodl-waves-chart .recharts-cartesian-grid-vertical line {
+  stroke: #374151 !important;
+}
+
+/* Completely hide activeBar element - it creates a gray box on hover */
+.hodl-waves-chart .recharts-active-bar {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.hodl-waves-chart .recharts-active-bar * {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Hide any gray/light colored rectangles that appear on hover */
+.hodl-waves-chart svg g.recharts-active-bar rect,
+.hodl-waves-chart svg g.recharts-active-shape rect,
+.hodl-waves-chart svg rect[fill="#f5f5f5"],
+.hodl-waves-chart svg rect[fill="#f0f0f0"],
+.hodl-waves-chart svg rect[fill="#e5e5e5"],
+.hodl-waves-chart svg rect[fill="#d3d3d3"],
+.hodl-waves-chart svg rect[fill="#cccccc"],
+.hodl-waves-chart svg rect[fill="rgb(245, 245, 245)"],
+.hodl-waves-chart svg rect[fill="rgb(240, 240, 240)"],
+.hodl-waves-chart svg rect[fill="rgb(229, 229, 229)"],
+.hodl-waves-chart svg rect[fill="rgb(211, 211, 211)"],
+.hodl-waves-chart svg rect[fill="rgb(204, 204, 204)"],
+.hodl-waves-chart svg rect[fill="rgba(245, 245, 245"],
+.hodl-waves-chart svg rect[fill="rgba(240, 240, 240"],
+.hodl-waves-chart svg rect[fill="rgba(229, 229, 229"],
+.hodl-waves-chart svg rect[fill="rgba(211, 211, 211"],
+.hodl-waves-chart svg rect[fill="rgba(204, 204, 204"] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  fill: transparent !important;
+  pointer-events: none !important;
+}
+
+/* Hide ANY gray/light colored element that appears on hover */
+.hodl-waves-chart svg rect[fill]:not([fill="#F97316"]):not([fill="#FB923C"]):not([fill="#EA580C"]):not([fill="#10B981"]):not([fill="#F59E0B"]):not([fill="#C2410C"]):not([fill="#9A3412"]):not([fill="none"]):not([fill="transparent"]) {
+  /* Check if fill is a light color (gray/white) */
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* More specific: hide any rectangle with light gray colors */
+.hodl-waves-chart svg g:hover rect[fill="#f5f5f5"],
+.hodl-waves-chart svg g:hover rect[fill="#f0f0f0"],
+.hodl-waves-chart svg g:hover rect[fill="#e5e5e5"],
+.hodl-waves-chart svg g:hover rect[fill="#d3d3d3"],
+.hodl-waves-chart svg g:hover rect[fill="#cccccc"] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+.hodl-waves-chart .recharts-bar-rectangle {
+  transition: opacity 0.2s ease;
+}
+
+.hodl-waves-chart .recharts-bar-rectangle:hover {
+  opacity: 0.85;
+}
+
+/* Supply Profit/Loss BarChart - Remove white background on hover */
+.recharts-bar-rectangle:hover ~ rect,
+.recharts-bar-rectangle:hover + rect,
+.recharts-bar-rectangle:hover rect,
+.recharts-bar .recharts-bar-rectangle:hover ~ rect[fill="#f5f5f5"],
+.recharts-bar .recharts-bar-rectangle:hover ~ rect[fill="#f0f0f0"],
+.recharts-bar .recharts-bar-rectangle:hover ~ rect[fill="#e5e5e5"],
+.recharts-bar .recharts-bar-rectangle:hover ~ rect[fill="#d3d3d3"],
+.recharts-bar .recharts-bar-rectangle:hover ~ rect[fill="#cccccc"],
+.recharts-bar .recharts-bar-rectangle:hover ~ rect[fill="rgb(245, 245, 245)"],
+.recharts-bar .recharts-bar-rectangle:hover ~ rect[fill="rgb(240, 240, 240)"],
+.recharts-bar .recharts-bar-rectangle:hover ~ rect[fill="rgb(229, 229, 229)"],
+.recharts-bar .recharts-bar-rectangle:hover ~ rect[fill="rgb(211, 211, 211)"],
+.recharts-bar .recharts-bar-rectangle:hover ~ rect[fill="rgb(204, 204, 204)"] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  fill: transparent !important;
+  pointer-events: none !important;
+}
+
+/* Hide any background rectangles created by Recharts on BarChart hover */
+.recharts-bar-chart svg rect[fill="#f5f5f5"],
+.recharts-bar-chart svg rect[fill="#f0f0f0"],
+.recharts-bar-chart svg rect[fill="#e5e5e5"],
+.recharts-bar-chart svg rect[fill="#d3d3d3"],
+.recharts-bar-chart svg rect[fill="#cccccc"],
+.recharts-bar-chart svg rect[fill="rgb(245, 245, 245)"],
+.recharts-bar-chart svg rect[fill="rgb(240, 240, 240)"],
+.recharts-bar-chart svg rect[fill="rgb(229, 229, 229)"],
+.recharts-bar-chart svg rect[fill="rgb(211, 211, 211)"],
+.recharts-bar-chart svg rect[fill="rgb(204, 204, 204)"] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  fill: transparent !important;
+  pointer-events: none !important;
+}
+
+/* Supply Profit/Loss BarChart - Remove white background on hover */
+.supply-profit-loss-chart svg rect[fill="#f5f5f5"],
+.supply-profit-loss-chart svg rect[fill="#f0f0f0"],
+.supply-profit-loss-chart svg rect[fill="#e5e5e5"],
+.supply-profit-loss-chart svg rect[fill="#d3d3d3"],
+.supply-profit-loss-chart svg rect[fill="#cccccc"],
+.supply-profit-loss-chart svg rect[fill="rgb(245, 245, 245)"],
+.supply-profit-loss-chart svg rect[fill="rgb(240, 240, 240)"],
+.supply-profit-loss-chart svg rect[fill="rgb(229, 229, 229)"],
+.supply-profit-loss-chart svg rect[fill="rgb(211, 211, 211)"],
+.supply-profit-loss-chart svg rect[fill="rgb(204, 204, 204)"],
+.supply-profit-loss-chart svg rect[fill="rgba(245, 245, 245"],
+.supply-profit-loss-chart svg rect[fill="rgba(240, 240, 240"],
+.supply-profit-loss-chart svg rect[fill="rgba(229, 229, 229"],
+.supply-profit-loss-chart svg rect[fill="rgba(211, 211, 211"],
+.supply-profit-loss-chart svg rect[fill="rgba(204, 204, 204"] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  fill: transparent !important;
+  pointer-events: none !important;
+}
+
+.supply-profit-loss-chart .recharts-bar-rectangle {
+  transition: opacity 0.2s ease;
+}
+
+.supply-profit-loss-chart .recharts-bar-rectangle:hover {
+  opacity: 0.85;
+}
+
+/* Garantir que o background do gráfico permaneça transparente - ULTRA AGRESSIVO */
+.supply-profit-loss-chart .recharts-wrapper,
+.supply-profit-loss-chart .recharts-wrapper > svg,
+.supply-profit-loss-chart .recharts-surface,
+.supply-profit-loss-chart .recharts-surface > rect,
+.supply-profit-loss-chart .recharts-surface rect:first-child,
+.supply-profit-loss-chart svg > rect:first-child,
+.supply-profit-loss-chart svg rect[width][height] {
+  background: transparent !important;
+  background-color: transparent !important;
+  fill: transparent !important;
+}
+
+/* Remover QUALQUER rect que cubra toda a área do gráfico (background) */
+.supply-profit-loss-chart svg rect[width][height][fill]:not([fill*="10B981"]):not([fill*="059669"]):not([fill*="EF4444"]):not([fill*="DC2626"]):not([fill*="url(#colorProfit"]):not([fill*="url(#colorLoss"]):not([fill="none"]):not([fill="transparent"]) {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  fill: transparent !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Esconder QUALQUER rect que apareça no hover - abordagem ultra agressiva */
+.supply-profit-loss-chart svg g:hover rect,
+.supply-profit-loss-chart svg g:hover rect[fill],
+.supply-profit-loss-chart svg rect[fill="#f5f5f5"],
+.supply-profit-loss-chart svg rect[fill="#f0f0f0"],
+.supply-profit-loss-chart svg rect[fill="#e5e5e5"],
+.supply-profit-loss-chart svg rect[fill="#d3d3d3"],
+.supply-profit-loss-chart svg rect[fill="#cccccc"],
+.supply-profit-loss-chart svg rect[fill="#ffffff"],
+.supply-profit-loss-chart svg rect[fill="#fafafa"] {
+  /* Só esconder se não for verde ou vermelho */
+}
+
+/* Remover QUALQUER rect que não seja verde ou vermelho - incluindo backgrounds grandes */
+.supply-profit-loss-chart svg rect[fill]:not([fill*="10B981"]):not([fill*="059669"]):not([fill*="EF4444"]):not([fill*="DC2626"]):not([fill*="url(#colorProfit"]):not([fill*="url(#colorLoss"]):not([fill="none"]):not([fill="transparent"]) {
+  /* Se tiver width e height grandes, é provavelmente um background */
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  fill: transparent !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Agressivo: remover QUALQUER rect branco/cinza no BarChart de Supply Profit/Loss */
+.supply-profit-loss-chart svg rect[fill="#f5f5f5"],
+.supply-profit-loss-chart svg rect[fill="#f0f0f0"],
+.supply-profit-loss-chart svg rect[fill="#e5e5e5"],
+.supply-profit-loss-chart svg rect[fill="#d3d3d3"],
+.supply-profit-loss-chart svg rect[fill="#cccccc"],
+.supply-profit-loss-chart svg rect[fill="#ffffff"],
+.supply-profit-loss-chart svg rect[fill="#fafafa"],
+.supply-profit-loss-chart svg rect[fill="rgb(245, 245, 245)"],
+.supply-profit-loss-chart svg rect[fill="rgb(240, 240, 240)"],
+.supply-profit-loss-chart svg rect[fill="rgb(229, 229, 229)"],
+.supply-profit-loss-chart svg rect[fill="rgb(211, 211, 211)"],
+.supply-profit-loss-chart svg rect[fill="rgb(204, 204, 204)"],
+.supply-profit-loss-chart svg rect[fill="rgb(255, 255, 255)"],
+.supply-profit-loss-chart svg rect[fill="rgba(245, 245, 245"],
+.supply-profit-loss-chart svg rect[fill="rgba(240, 240, 240"],
+.supply-profit-loss-chart svg rect[fill="rgba(229, 229, 229"],
+.supply-profit-loss-chart svg rect[fill="rgba(211, 211, 211"],
+.supply-profit-loss-chart svg rect[fill="rgba(204, 204, 204"],
+.supply-profit-loss-chart svg rect[fill="rgba(255, 255, 255"],
+.supply-profit-loss-chart svg g.recharts-bar-rectangle-group rect[fill="#f5f5f5"],
+.supply-profit-loss-chart svg g.recharts-bar-rectangle-group rect[fill="#f0f0f0"],
+.supply-profit-loss-chart svg g.recharts-bar-rectangle-group rect[fill="#e5e5e5"],
+.supply-profit-loss-chart svg g.recharts-bar-rectangle-group rect[fill="#d3d3d3"],
+.supply-profit-loss-chart svg g.recharts-bar-rectangle-group rect[fill="#cccccc"],
+.supply-profit-loss-chart svg g.recharts-active-bar rect,
+.supply-profit-loss-chart svg g.recharts-active-shape rect,
+.supply-profit-loss-chart svg g.recharts-active-bar,
+.supply-profit-loss-chart svg g.recharts-active-shape {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  fill: transparent !important;
+  pointer-events: none !important;
+}
+
+/* Remover qualquer background criado pelo Recharts no hover - versão mais agressiva */
+.supply-profit-loss-chart .recharts-wrapper .recharts-surface rect[fill]:not([fill*="10B981"]):not([fill*="059669"]):not([fill*="EF4444"]):not([fill*="DC2626"]):not([fill*="url(#colorProfit"]):not([fill*="url(#colorLoss"]) {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  fill: transparent !important;
+  pointer-events: none !important;
+}
+
+/* Esconder QUALQUER elemento com classe recharts-active-* e TODOS os seus filhos */
+.supply-profit-loss-chart .recharts-active-bar,
+.supply-profit-loss-chart .recharts-active-shape,
+.supply-profit-loss-chart [class*="recharts-active"],
+.supply-profit-loss-chart .recharts-active-bar *,
+.supply-profit-loss-chart .recharts-active-shape *,
+.supply-profit-loss-chart [class*="recharts-active"] * {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  fill: transparent !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* Remover qualquer elemento criado pelo Recharts no hover */
+.supply-profit-loss-chart svg g[class*="active"] rect,
+.supply-profit-loss-chart svg g[class*="hover"] rect,
+.supply-profit-loss-chart svg g[class*="active"],
+.supply-profit-loss-chart svg g[class*="hover"] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  fill: transparent !important;
+  pointer-events: none !important;
+}
+
+/* NOVA ABORDAGEM: Esconder QUALQUER rect que apareça quando há hover */
+.supply-profit-loss-chart:hover svg rect[fill]:not([fill*="10B981"]):not([fill*="059669"]):not([fill*="EF4444"]):not([fill*="DC2626"]):not([fill*="url(#colorProfit"]):not([fill*="url(#colorLoss"]):not([fill="none"]):not([fill="transparent"]) {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  fill: transparent !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Esconder qualquer rect que seja criado dinamicamente no hover */
+.supply-profit-loss-chart svg g:hover ~ g rect,
+.supply-profit-loss-chart svg g:hover + g rect {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  fill: transparent !important;
+  pointer-events: none !important;
+}
+
+/* REGRA ULTRA AGRESSIVA FINAL: Qualquer rect branco/cinza que apareça */
+.supply-profit-loss-chart svg rect[fill="#f5f5f5"],
+.supply-profit-loss-chart svg rect[fill="#f0f0f0"],
+.supply-profit-loss-chart svg rect[fill="#e5e5e5"],
+.supply-profit-loss-chart svg rect[fill="#d3d3d3"],
+.supply-profit-loss-chart svg rect[fill="#cccccc"],
+.supply-profit-loss-chart svg rect[fill="#ffffff"],
+.supply-profit-loss-chart svg rect[fill="#fafafa"],
+.supply-profit-loss-chart svg rect[fill="rgb(245, 245, 245)"],
+.supply-profit-loss-chart svg rect[fill="rgb(240, 240, 240)"],
+.supply-profit-loss-chart svg rect[fill="rgb(229, 229, 229)"],
+.supply-profit-loss-chart svg rect[fill="rgb(211, 211, 211)"],
+.supply-profit-loss-chart svg rect[fill="rgb(204, 204, 204)"],
+.supply-profit-loss-chart svg rect[fill="rgb(255, 255, 255)"],
+.supply-profit-loss-chart svg rect[fill="rgba(245, 245, 245"],
+.supply-profit-loss-chart svg rect[fill="rgba(240, 240, 240"],
+.supply-profit-loss-chart svg rect[fill="rgba(229, 229, 229"],
+.supply-profit-loss-chart svg rect[fill="rgba(211, 211, 211"],
+.supply-profit-loss-chart svg rect[fill="rgba(204, 204, 204"],
+.supply-profit-loss-chart svg rect[fill="rgba(255, 255, 255"] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  fill: transparent !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Holder concentration chart - same fix */
+.holder-concentration-chart .recharts-wrapper,
+.holder-concentration-chart .recharts-surface {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.holder-concentration-chart .recharts-cartesian-grid-horizontal line,
+.holder-concentration-chart .recharts-cartesian-grid-vertical line {
+  stroke: #374151 !important;
+}
+
+/* Completely hide activeBar element - it creates a gray box on hover */
+.holder-concentration-chart .recharts-active-bar {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.holder-concentration-chart .recharts-active-bar * {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Hide any gray/light colored rectangles that appear on hover */
+.holder-concentration-chart svg g.recharts-active-bar rect,
+.holder-concentration-chart svg g.recharts-active-shape rect,
+.holder-concentration-chart svg rect[fill="#f5f5f5"],
+.holder-concentration-chart svg rect[fill="#f0f0f0"],
+.holder-concentration-chart svg rect[fill="#e5e5e5"],
+.holder-concentration-chart svg rect[fill="#d3d3d3"],
+.holder-concentration-chart svg rect[fill="#cccccc"],
+.holder-concentration-chart svg rect[fill="rgb(245, 245, 245)"],
+.holder-concentration-chart svg rect[fill="rgb(240, 240, 240)"],
+.holder-concentration-chart svg rect[fill="rgb(229, 229, 229)"],
+.holder-concentration-chart svg rect[fill="rgb(211, 211, 211)"],
+.holder-concentration-chart svg rect[fill="rgb(204, 204, 204)"],
+.holder-concentration-chart svg rect[fill="rgba(245, 245, 245"],
+.holder-concentration-chart svg rect[fill="rgba(240, 240, 240"],
+.holder-concentration-chart svg rect[fill="rgba(229, 229, 229"],
+.holder-concentration-chart svg rect[fill="rgba(211, 211, 211"],
+.holder-concentration-chart svg rect[fill="rgba(204, 204, 204"] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  fill: transparent !important;
+  pointer-events: none !important;
+}
+
+/* Hide ANY gray/light colored element that appears on hover */
+.holder-concentration-chart svg rect[fill]:not([fill="#F97316"]):not([fill="none"]):not([fill="transparent"]) {
+  /* Check if fill is a light color (gray/white) - but allow our orange bar */
+  opacity: 1 !important;
+}
+
+/* More specific: hide any rectangle with light gray colors on hover */
+.holder-concentration-chart svg g:hover rect[fill="#f5f5f5"],
+.holder-concentration-chart svg g:hover rect[fill="#f0f0f0"],
+.holder-concentration-chart svg g:hover rect[fill="#e5e5e5"],
+.holder-concentration-chart svg g:hover rect[fill="#d3d3d3"],
+.holder-concentration-chart svg g:hover rect[fill="#cccccc"] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+.holder-concentration-chart .recharts-bar-rectangle {
+  transition: opacity 0.2s ease;
+}
+
+.holder-concentration-chart .recharts-bar-rectangle:hover {
+  opacity: 0.85;
+}

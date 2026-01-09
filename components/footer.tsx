@@ -14,7 +14,7 @@ import {
   CreditCard
 } from "lucide-react"
 
-type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'donate'
+type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate'
 
 interface FooterProps {
   currentPage?: PageType
@@ -113,6 +113,19 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
                 >
                   <div className="w-2 h-2 bg-orange-400 mr-4 group-hover:scale-150 group-hover:shadow-lg group-hover:shadow-orange-400/50 transition-all duration-300"></div>
                   <span className="font-mono text-sm font-medium tracking-wide">HOLDERS</span>
+                </button>
+              </li>
+              <li>
+                <button 
+                  onClick={() => setCurrentPage?.('metrics')}
+                  className={`w-full text-left transition-all duration-300 flex items-center group py-2 ${
+                    currentPage === 'metrics' 
+                      ? 'text-orange-400 bg-orange-500/10' 
+                      : 'text-gray-300 hover:text-orange-400 hover:bg-orange-500/10'
+                  }`}
+                >
+                  <div className="w-2 h-2 bg-orange-400 mr-4 group-hover:scale-150 group-hover:shadow-lg group-hover:shadow-orange-400/50 transition-all duration-300"></div>
+                  <span className="font-mono text-sm font-medium tracking-wide">ON-CHAIN METRICS</span>
                 </button>
               </li>
               <li>

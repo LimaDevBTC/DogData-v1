@@ -13,15 +13,17 @@ import {
   Menu,
   X,
   Network,
-  Sparkles
+  Sparkles,
+  Zap
 } from "lucide-react"
 
-type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'donate'
+type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate'
 
 const navigation = [
   { name: 'Overview', page: 'overview' as PageType, icon: BarChart3 },
   { name: 'Transactions', page: 'transactions' as PageType, icon: CreditCard },
   { name: 'Holders', page: 'holders' as PageType, icon: Users },
+  { name: 'On-Chain Metrics', page: 'metrics' as PageType, icon: Zap },
   { name: 'Markets', page: 'markets' as PageType, icon: BarChart3 },
   { name: 'Airdrop Analysis', page: 'airdrop' as PageType, icon: Sparkles }, // Runestone effect
   { name: 'Bitcoin Network', page: 'bitcoin-network' as PageType, icon: Network },
@@ -40,7 +42,7 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 md:h-20">
           {/* Logo */}
-          <div className="flex items-center">
+          <div className="flex items-center flex-shrink-0 mr-4 md:mr-8">
             <button 
               onClick={() => {
                 setCurrentPage('overview')
@@ -74,7 +76,7 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
           </div>
 
           {/* Navigation */}
-          <nav className="hidden md:flex space-x-2">
+          <nav className="hidden md:flex space-x-1.5 flex-1 justify-center max-w-5xl mx-4">
             {navigation.map((item) => {
               const isActive = currentPage === item.page
               const Icon = item.icon
@@ -85,14 +87,14 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
                   onClick={() => {
                     setCurrentPage(item.page)
                   }}
-                  className={`flex items-center justify-center px-5 py-3 text-sm font-mono font-medium tracking-wide transition-colors duration-300 ${
+                  className={`flex items-center justify-center px-3 py-2.5 text-xs font-mono font-medium tracking-wide transition-colors duration-300 flex-shrink-0 ${
                     isActive
                       ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
                       : 'text-gray-300 hover:text-white hover:bg-gray-800/30 border border-transparent hover:border-gray-700/30'
                   }`}
                 >
-                  <Icon className="w-4 h-4 mr-2 flex-shrink-0" />
-                  <span className="whitespace-nowrap block">
+                  <Icon className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" />
+                  <span className="whitespace-nowrap">
                     {item.name}
                   </span>
                 </button>
@@ -101,7 +103,7 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
           </nav>
 
           {/* Live Status, Refresh & Donate */}
-          <div className="flex items-center space-x-2 md:space-x-4">
+          <div className="flex items-center space-x-2 md:space-x-3 flex-shrink-0 ml-4">
             {/* Donate Button - Hidden on small mobile */}
             <button
               onClick={() => setCurrentPage('donate')}
