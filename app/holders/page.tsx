@@ -94,7 +94,7 @@ export default function HoldersPage() {
   const [totalHoldersFromJSON, setTotalHoldersFromJSON] = useState<number | null>(null) // Total de holders do JSON
   const [loadingChart, setLoadingChart] = useState(true) // Estado de loading do gráfico
   // Totais por rede
-  const [bitcoinHolders, setBitcoinHolders] = useState<number>(0)
+  const [bitcoinHolders, setBitcoinHolders] = useState<number>(90619) // Valor inicial atualizado
   const [solanaHolders, setSolanaHolders] = useState<number>(10474)
   const [stacksHolders, setStacksHolders] = useState<number>(304)
   const eventSourceRef = useRef<EventSource | null>(null)
