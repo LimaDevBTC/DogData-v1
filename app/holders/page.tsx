@@ -94,9 +94,11 @@ export default function HoldersPage() {
   const [totalHoldersFromJSON, setTotalHoldersFromJSON] = useState<number | null>(null) // Total de holders do JSON
   const [loadingChart, setLoadingChart] = useState(true) // Estado de loading do gráfico
   // Totais por rede
-  const [bitcoinHolders, setBitcoinHolders] = useState<number>(90619) // Valor inicial atualizado
-  const [solanaHolders, setSolanaHolders] = useState<number>(10474)
-  const [stacksHolders, setStacksHolders] = useState<number>(304)
+  // Bitcoin: sempre do JSON (dinâmico)
+  // Solana e Stacks: valores hardcoded (únicos valores fixos)
+  const [bitcoinHolders, setBitcoinHolders] = useState<number>(0) // Será atualizado do JSON
+  const [solanaHolders, setSolanaHolders] = useState<number>(10474) // Hardcoded
+  const [stacksHolders, setStacksHolders] = useState<number>(304) // Hardcoded
   const eventSourceRef = useRef<EventSource | null>(null)
 
   const formatNumber = (num: number) => {
@@ -202,16 +204,12 @@ export default function HoldersPage() {
         ? jsonData.total_holders 
         : allHoldersFromJSON.length
       
-      // Garantir que sempre use o valor correto atualizado (90,619)
-      // Se o JSON tiver valor antigo (90,641), usar o valor correto (90,619)
-      const correctBitcoinHolders = totalHoldersFromJSONValue === 90641 ? 90619 : 
-        (totalHoldersFromJSONValue >= 90619 ? totalHoldersFromJSONValue : 90619)
-      console.log(`📊 [JSON] Carregados ${allHoldersFromJSON.length} holders, total_holders: ${totalHoldersFromJSONValue}, usando: ${correctBitcoinHolders}`)
+      console.log(`📊 [JSON] Carregados ${allHoldersFromJSON.length} holders, total_holders: ${totalHoldersFromJSONValue}`)
       
       // Atualizar dados do gráfico (todos os holders)
       setAllHoldersForChart(allHoldersFromJSON)
-      setTotalHoldersFromJSON(correctBitcoinHolders)
-      setBitcoinHolders(correctBitcoinHolders) // Atualizar holders do Bitcoin
+      setTotalHoldersFromJSON(totalHoldersFromJSONValue)
+      setBitcoinHolders(totalHoldersFromJSONValue) // Atualizar holders do Bitcoin (sempre do JSON)
       setLoadingChart(false)
       
       // Fazer paginação no cliente
@@ -424,16 +422,12 @@ export default function HoldersPage() {
           console.log(`✅ Gráfico: ${publicData.holders.length} holders carregados do JSON público`)
           setAllHoldersForChart(publicData.holders)
           // Usar total_holders do JSON se disponível, senão usar o length do array
-          // Garantir que sempre use o valor correto atualizado (90,619)
           const jsonTotalHolders = typeof publicData.total_holders === 'number' 
             ? publicData.total_holders 
             : publicData.holders.length
-          // Forçar valor correto se o JSON tiver valor antigo (90,641)
-          const correctBitcoinHolders = jsonTotalHolders === 90641 ? 90619 : 
-            (jsonTotalHolders >= 90619 ? jsonTotalHolders : 90619)
-          console.log(`📊 [JSON] total_holders do JSON: ${publicData.total_holders}, holders.length: ${publicData.holders.length}, usando: ${correctBitcoinHolders}`)
-          setBitcoinHolders(correctBitcoinHolders) // Atualizar holders do Bitcoin
-          setTotalHoldersFromJSON(correctBitcoinHolders)
+          console.log(`📊 [JSON] total_holders do JSON: ${publicData.total_holders}, holders.length: ${publicData.holders.length}, usando: ${jsonTotalHolders}`)
+          setBitcoinHolders(jsonTotalHolders) // Atualizar holders do Bitcoin (sempre do JSON)
+          setTotalHoldersFromJSON(jsonTotalHolders)
           // Também atualizar totalHolders para manter consistência (se o JSON tem o valor correto)
           if (jsonTotalHolders > 0 && jsonTotalHolders !== totalHolders) {
             console.log(`🔄 Atualizando totalHolders de ${totalHolders} para ${jsonTotalHolders} (do JSON)`)
