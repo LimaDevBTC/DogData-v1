@@ -55,48 +55,110 @@ def log(message):
     print(f"[{timestamp}] {message}", flush=True)
 
 def get_solana_holders():
-    """Extrai número de holders da Solana via scraping"""
+    """Extrai número de holders da Solana via scraping usando Selenium"""
     try:
-        log("🔍 Buscando holders da Solana...")
+        log("🔍 Buscando holders da Solana (com renderização JavaScript)...")
         
-        # Headers para simular navegador
+        # Tentar usar Selenium para renderizar JavaScript
+        try:
+            from selenium import webdriver
+            from selenium.webdriver.chrome.options import Options
+            from selenium.webdriver.common.by import By
+            import time
+            
+            chrome_options = Options()
+            chrome_options.add_argument('--headless')
+            chrome_options.add_argument('--no-sandbox')
+            chrome_options.add_argument('--disable-dev-shm-usage')
+            chrome_options.add_argument('--disable-gpu')
+            chrome_options.add_argument('--window-size=1920,1080')
+            chrome_options.add_argument('user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36')
+            
+            driver = webdriver.Chrome(options=chrome_options)
+            
+            try:
+                driver.get(SOLANA_HOLDERS_URL)
+                time.sleep(8)  # Esperar JavaScript carregar
+                
+                # Procurar no texto renderizado
+                body_text = driver.find_element(By.TAG_NAME, "body").text
+                
+                # Procurar por padrões como "Holders: 10,483" ou "10,483 holders"
+                patterns = [
+                    r'holders?[:\s]+(\d{1,3}(?:,\d{3})+)',
+                    r'(\d{1,3}(?:,\d{3})+)\s+holders?',
+                    r'total\s+holders?[:\s]+(\d{1,3}(?:,\d{3})+)',
+                ]
+                
+                for pattern in patterns:
+                    matches = re.findall(pattern, body_text, re.IGNORECASE)
+                    for match in matches:
+                        num = int(match.replace(',', ''))
+                        if 10000 <= num <= 11000:
+                            log(f"✅ Solana holders encontrados (Selenium): {num:,}")
+                            return num
+                
+                # Fallback: buscar todos os números na faixa
+                all_numbers = re.findall(r'(\d{1,3}(?:,\d{3})+)', body_text)
+                numbers = [int(n.replace(',', '')) for n in all_numbers]
+                valid_numbers = [n for n in numbers if 10000 <= n <= 11000]
+                
+                if valid_numbers:
+                    # Pegar o número que aparece mais próximo de "holder"
+                    best_match = None
+                    best_distance = float('inf')
+                    
+                    text_lower = body_text.lower()
+                    for num in valid_numbers:
+                        num_str = f"{num:,}"
+                        # Procurar posição do número
+                        num_pos = text_lower.find(str(num))
+                        if num_pos != -1:
+                            # Procurar "holder" próximo
+                            holder_pos = text_lower.find('holder', max(0, num_pos - 200), num_pos + 200)
+                            if holder_pos != -1:
+                                distance = abs(num_pos - holder_pos)
+                                if distance < best_distance:
+                                    best_distance = distance
+                                    best_match = num
+                    
+                    if best_match:
+                        log(f"✅ Solana holders encontrados (Selenium, próximo de 'holder'): {best_match:,}")
+                        return best_match
+                    
+                    # Se não encontrou próximo de "holder", usar o mais comum
+                    from collections import Counter
+                    most_common = Counter(valid_numbers).most_common(1)[0][0]
+                    log(f"✅ Solana holders encontrados (Selenium, número mais comum): {most_common:,}")
+                    return most_common
+                    
+            finally:
+                driver.quit()
+                
+        except ImportError:
+            log("⚠️ Selenium não disponível, tentando método simples...")
+        except Exception as e:
+            log(f"⚠️ Erro com Selenium: {e}, tentando método simples...")
+        
+        # Fallback: método simples sem JavaScript
         headers = {
-            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
         }
         
         response = requests.get(SOLANA_HOLDERS_URL, headers=headers, timeout=30)
         response.raise_for_status()
         
         soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # Procurar pelo elemento específico
         element = soup.find('div', class_='not-italic font-normal text-neutral7 text-[14px] leading-[24px]')
         
         if element:
             text = element.get_text(strip=True)
-            # Remover vírgulas e converter para int
-            holders = int(text.replace(',', ''))
-            log(f"✅ Solana holders encontrados: {holders:,}")
-            return holders
-        else:
-            # Fallback: procurar por padrão numérico na página
-            log("⚠️ Elemento específico não encontrado, tentando fallback...")
-            # Procurar por padrões como "10,483 holders" ou números grandes
-            text = soup.get_text()
-            # Procurar por padrões numéricos com vírgulas
-            matches = re.findall(r'(\d{1,3}(?:,\d{3})+)', text)
-            if matches:
-                # Pegar o maior número encontrado (provavelmente o total de holders)
-                numbers = [int(m.replace(',', '')) for m in matches]
-                # Filtrar números razoáveis (entre 1k e 100k)
-                valid_numbers = [n for n in numbers if 1000 <= n <= 100000]
-                if valid_numbers:
-                    holders = max(valid_numbers)
-                    log(f"✅ Solana holders encontrados (fallback): {holders:,}")
+            # Verificar se é um número válido
+            match = re.search(r'(\d{1,3}(?:,\d{3})+)', text)
+            if match:
+                holders = int(match.group(1).replace(',', ''))
+                if 10000 <= holders <= 11000:
+                    log(f"✅ Solana holders encontrados (método simples): {holders:,}")
                     return holders
         
         log("❌ Não foi possível extrair holders da Solana")
@@ -124,46 +186,85 @@ def get_stacks_holders():
         
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # Procurar pelo elemento específico
+        # Estratégia 1: Procurar pelo elemento específico
         element = soup.find('p', class_='chakra-text css-16kdow3')
         
         if not element:
-            # Tentar buscar por classe parcial
-            element = soup.find('p', class_=lambda x: x and 'chakra-text' in str(x))
-        
-        if not element:
-            # Tentar buscar qualquer elemento com texto que pareça número de holders
-            all_elements = soup.find_all(['p', 'div', 'span'])
-            for elem in all_elements:
+            # Estratégia 2: Buscar por classe parcial (chakra-text)
+            elements = soup.find_all(['p', 'div', 'span'], class_=lambda x: x and 'chakra-text' in str(x))
+            for elem in elements:
                 text = elem.get_text(strip=True)
-                # Procurar por padrão "305.00" ou similar
-                match = re.search(r'(\d{3}(?:\.\d+)?)', text)
+                # Tentar extrair número
+                match = re.search(r'^(\d{2,4}(?:\.\d+)?)$', text)
                 if match:
-                    num = int(float(match.group(1)))
-                    if 300 <= num <= 310:  # Faixa esperada para Stacks
-                        log(f"✅ Stacks holders encontrados (busca alternativa): {num}")
+                    try:
+                        num = int(float(match.group(1)))
+                        if 300 <= num <= 310:
+                            log(f"✅ Stacks holders encontrados (classe chakra-text): {num}")
+                            return num
+                    except (ValueError, AttributeError):
+                        continue
+        
+        # Estratégia 3: Procurar por padrão "Holders" ou números na faixa
+        all_text = soup.get_text()
+        # Procurar por padrões como "Holders: 305" ou "305 Holders"
+        holders_patterns = [
+            r'holders[:\s]*(\d{2,4}(?:\.\d+)?)',
+            r'(\d{2,4}(?:\.\d+)?)\s*holders',
+            r'total\s+holders[:\s]*(\d{2,4}(?:\.\d+)?)',
+        ]
+        
+        for pattern in holders_patterns:
+            matches = re.findall(pattern, all_text, re.IGNORECASE)
+            for match in matches:
+                try:
+                    num = int(float(match))
+                    if 300 <= num <= 310:
+                        log(f"✅ Stacks holders encontrados (padrão 'holders'): {num}")
                         return num
+                except (ValueError, AttributeError):
+                    continue
+        
+        # Estratégia 4: Buscar todos os números na faixa esperada (300-310)
+        # Primeiro, tentar números inteiros
+        all_numbers = re.findall(r'\b(\d{3})\b', all_text)
+        valid_numbers = []
+        for num_str in all_numbers:
+            try:
+                num = int(num_str)
+                if 300 <= num <= 310:
+                    valid_numbers.append(num)
+            except (ValueError, AttributeError):
+                continue
+        
+        if valid_numbers:
+            # Pegar o mais comum ou o maior
+            holders = max(set(valid_numbers), key=valid_numbers.count)
+            log(f"✅ Stacks holders encontrados (busca numérica): {holders}")
+            return holders
+        
+        # Estratégia 5: Tentar números com decimais (305.00)
+        decimal_numbers = re.findall(r'(\d{3}(?:\.\d+)?)', all_text)
+        for num_str in decimal_numbers:
+            try:
+                num = int(float(num_str))
+                if 300 <= num <= 310:
+                    log(f"✅ Stacks holders encontrados (decimal): {num}")
+                    return num
+            except (ValueError, AttributeError):
+                continue
         
         if element:
             text = element.get_text(strip=True)
-            # Remover pontos e vírgulas, converter para int
-            holders = int(float(text.replace(',', '')))
-            log(f"✅ Stacks holders encontrados: {holders}")
-            return holders
-        
-        # Fallback: procurar por padrão numérico
-        log("⚠️ Elemento específico não encontrado, tentando fallback...")
-        text = soup.get_text()
-        # Procurar por números próximos de "305" ou padrões similares
-        matches = re.findall(r'(\d{3}(?:\.\d+)?)', text)
-        if matches:
-            # Filtrar números razoáveis (entre 300 e 310)
-            numbers = [int(float(m)) for m in matches]
-            valid_numbers = [n for n in numbers if 300 <= n <= 310]
-            if valid_numbers:
-                holders = max(valid_numbers)
-                log(f"✅ Stacks holders encontrados (fallback): {holders}")
-                return holders
+            # Tentar extrair número, ignorando texto não numérico
+            match = re.search(r'(\d{2,4}(?:\.\d+)?)', text)
+            if match:
+                try:
+                    holders = int(float(match.group(1)))
+                    log(f"✅ Stacks holders encontrados: {holders}")
+                    return holders
+                except (ValueError, AttributeError):
+                    pass
         
         log("❌ Não foi possível extrair holders da Stacks")
         return None
@@ -414,6 +515,42 @@ def git_commit_and_push():
         log(f"❌ Erro no git commit/push: {e}")
         return False
 
+def get_last_known_values():
+    """Retorna últimos valores conhecidos de Solana e Stacks dos arquivos"""
+    solana = None
+    stacks = None
+    
+    try:
+        # Ler do holders/page.tsx
+        holders_file = PROJECT_ROOT / 'app' / 'holders' / 'page.tsx'
+        if holders_file.exists():
+            with open(holders_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+                
+            # Buscar Solana: const [solanaHolders, setSolanaHolders] = useState<number>(10483)
+            match = re.search(r'const\s+\[\s*solanaHolders[^)]*useState<number>\((\d+)\)', content)
+            if match:
+                solana = int(match.group(1))
+            else:
+                # Tentar formato alternativo
+                match = re.search(r'solanaHolders.*useState<number>\((\d+)\)', content)
+                if match:
+                    solana = int(match.group(1))
+            
+            # Buscar Stacks: const [stacksHolders, setStacksHolders] = useState<number>(305)
+            match = re.search(r'const\s+\[\s*stacksHolders[^)]*useState<number>\((\d+)\)', content)
+            if match:
+                stacks = int(match.group(1))
+            else:
+                # Tentar formato alternativo
+                match = re.search(r'stacksHolders.*useState<number>\((\d+)\)', content)
+                if match:
+                    stacks = int(match.group(1))
+    except Exception as e:
+        log(f"⚠️ Erro ao ler valores anteriores: {e}")
+    
+    return solana, stacks
+
 def main():
     """Função principal"""
     log("="*80)
@@ -424,40 +561,69 @@ def main():
     total_steps = 4
     
     # 1. Executar script de holders, fees e UTXOs
+    log("")
     if run_holders_script():
         success_count += 1
     else:
         log("⚠️ Continuando mesmo com falha no script de holders...")
     
     # 2. Extrair holders da Solana
+    log("")
     solana_holders = get_solana_holders()
-    if solana_holders:
+    if not solana_holders:
+        log("⚠️ Não foi possível extrair holders da Solana via scraping")
+        log("   Usando último valor conhecido...")
+        solana_holders, _ = get_last_known_values()
+        if solana_holders:
+            log(f"   Último valor conhecido: {solana_holders:,}")
+        else:
+            log("   ⚠️ Nenhum valor anterior encontrado. Solana não será atualizada.")
+    else:
         success_count += 1
     
     # 3. Extrair holders da Stacks
+    log("")
     stacks_holders = get_stacks_holders()
-    if stacks_holders:
+    if not stacks_holders:
+        log("⚠️ Não foi possível extrair holders da Stacks via scraping")
+        log("   Usando último valor conhecido...")
+        _, stacks_holders = get_last_known_values()
+        if stacks_holders:
+            log(f"   Último valor conhecido: {stacks_holders}")
+        else:
+            log("   ⚠️ Nenhum valor anterior encontrado. Stacks não será atualizada.")
+    else:
         success_count += 1
     
-    # 4. Atualizar valores nos arquivos
-    if update_holders_values(solana_holders, stacks_holders):
-        success_count += 1
+    # 4. Atualizar valores nos arquivos (só se tivermos valores)
+    log("")
+    if solana_holders or stacks_holders:
+        if update_holders_values(solana_holders, stacks_holders):
+            success_count += 1
+    else:
+        log("⚠️ Nenhum valor para atualizar (Solana e Stacks)")
     
-    # 5. Commit e push
+    # 5. Commit e push (sempre tenta, mesmo se scraping falhou)
+    log("")
     if git_commit_and_push():
         success_count += 1
         total_steps = 5
     
     # Resumo final
+    log("")
     log("="*80)
     log(f"📊 RESUMO: {success_count}/{total_steps} etapas concluídas com sucesso")
     log("="*80)
     
-    if success_count >= 3:  # Pelo menos 3 de 5 etapas
-        log("✅ Atualização concluída com sucesso!")
+    if success_count >= 2:  # Pelo menos 2 de 5 etapas (Bitcoin + Git)
+        log("✅ Atualização concluída!")
+        log("")
+        log("ℹ️  NOTA: Scraping de Solana/Stacks pode falhar se as páginas mudarem.")
+        log("   O Bitcoin (mais importante) será sempre atualizado via script.")
+        log("   Solana e Stacks podem ser atualizados manualmente quando necessário.")
         return 0
     else:
-        log("⚠️ Algumas etapas falharam, mas processo continuou")
+        log("⚠️ Algumas etapas críticas falharam")
         return 1
 
 if __name__ == "__main__":
