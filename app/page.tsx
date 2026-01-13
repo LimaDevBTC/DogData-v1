@@ -372,7 +372,7 @@ export default function OverviewPage() {
           <CardContent>
             <div className="space-y-3">
               <div className="text-3xl font-bold text-white font-mono">
-                101,397
+                101,395
               </div>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
@@ -380,21 +380,21 @@ export default function OverviewPage() {
                     <Image src="/BTC.png" alt="Bitcoin" width={12} height={12} className="opacity-70" />
                     <span className="text-gray-400 font-mono">Bitcoin L1</span>
                   </div>
-                  <span className="text-gray-300 font-mono">90,619</span>
+                  <span className="text-gray-300 font-mono">90,607</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5">
                     <Image src="/sol.png" alt="Solana" width={12} height={12} className="opacity-70" />
                     <span className="text-gray-400 font-mono">Solana</span>
                   </div>
-                  <span className="text-gray-300 font-mono">10,474</span>
+                  <span className="text-gray-300 font-mono">10,483</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5">
                     <Image src="/STX .png" alt="Stacks" width={12} height={12} className="opacity-70" />
                     <span className="text-gray-400 font-mono">Stacks</span>
                   </div>
-                  <span className="text-gray-300 font-mono">304</span>
+                  <span className="text-gray-300 font-mono">305</span>
                 </div>
               </div>
             </div>
