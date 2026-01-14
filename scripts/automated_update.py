@@ -158,18 +158,23 @@ def update_holders_values(solana_holders, stacks_holders):
                     
                     # No page.tsx: <span className="text-gray-300 font-mono">10,483</span>
                     elif 'page.tsx' in str(file_path) and 'holders' not in str(file_path):
-                        if 'Solana' in line and 'font-mono' in line:
-                            match = re.search(r'>(\d{1,3}(?:,\d{3})?)<', line)
-                            if match:
-                                old_val = int(match.group(1).replace(',', ''))
-                                if 10000 <= old_val <= 11000:  # Faixa esperada
-                                    lines[i] = re.sub(
-                                        r'>\d{1,3}(?:,\d{3})?<',
-                                        f'>{solana_holders:,}<',
-                                        line
-                                    )
-                                    changes_made = True
-                                    log(f"  ✅ Atualizado Solana display em {file_path.name}: {old_val:,} -> {solana_holders:,}")
+                        # Procurar linha com "Solana" e depois a próxima linha com o número
+                        if 'Solana' in line:
+                            # Verificar as próximas 2 linhas para encontrar o número
+                            for j in range(i, min(i+3, len(lines))):
+                                if 'font-mono' in lines[j]:
+                                    match = re.search(r'>(\d{1,3}(?:,\d{3})?)<', lines[j])
+                                    if match:
+                                        old_val = int(match.group(1).replace(',', ''))
+                                        if 10000 <= old_val <= 11000:  # Faixa esperada
+                                            lines[j] = re.sub(
+                                                r'>\d{1,3}(?:,\d{3})?<',
+                                                f'>{solana_holders:,}<',
+                                                lines[j]
+                                            )
+                                            changes_made = True
+                                            log(f"  ✅ Atualizado Solana display em {file_path.name}: {old_val:,} -> {solana_holders:,}")
+                                            break
                 content = '\n'.join(lines)
             
             # Atualizar Stacks
@@ -192,18 +197,23 @@ def update_holders_values(solana_holders, stacks_holders):
                     
                     # No page.tsx: <span className="text-gray-300 font-mono">305</span>
                     elif 'page.tsx' in str(file_path) and 'holders' not in str(file_path):
-                        if 'Stacks' in line and 'font-mono' in line:
-                            match = re.search(r'>(\d{2,3})<', line)
-                            if match:
-                                old_val = int(match.group(1))
-                                if 300 <= old_val <= 310:  # Faixa esperada
-                                    lines[i] = re.sub(
-                                        r'>\d{2,3}<',
-                                        f'>{stacks_holders}<',
-                                        line
-                                    )
-                                    changes_made = True
-                                    log(f"  ✅ Atualizado Stacks display em {file_path.name}: {old_val} -> {stacks_holders}")
+                        # Procurar linha com "Stacks" e depois a próxima linha com o número
+                        if 'Stacks' in line:
+                            # Verificar as próximas 2 linhas para encontrar o número
+                            for j in range(i, min(i+3, len(lines))):
+                                if 'font-mono' in lines[j]:
+                                    match = re.search(r'>(\d{2,3})<', lines[j])
+                                    if match:
+                                        old_val = int(match.group(1))
+                                        if 300 <= old_val <= 320:  # Faixa esperada (ajustada para incluir 307)
+                                            lines[j] = re.sub(
+                                                r'>\d{2,3}<',
+                                                f'>{stacks_holders}<',
+                                                lines[j]
+                                            )
+                                            changes_made = True
+                                            log(f"  ✅ Atualizado Stacks display em {file_path.name}: {old_val} -> {stacks_holders}")
+                                            break
                 content = '\n'.join(lines)
             
             # Atualizar Bitcoin no page.tsx (home) - sempre atualizar se tivermos o valor
