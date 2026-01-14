@@ -258,3 +258,4 @@ def calculate_realized_cap_and_profit_loss(utxo_details, current_price):
 **Tempo estimado**: 6-8 horas de desenvolvimento
 
 
+

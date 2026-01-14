@@ -79,3 +79,4 @@ O script roda **de hora em hora** via cron, então:
 - Atualize o arquivo quando tiver novos valores
 - O script pegará os valores na próxima execução (máximo 1 hora de atraso)
 
+

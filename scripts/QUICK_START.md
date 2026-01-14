@@ -77,3 +77,4 @@ bash scripts/check_dependencies.sh
 - `scripts/README_AUTOMATED_UPDATE.md` - Documentação completa
 - `logs/automated_update.log` - Logs (criado automaticamente)
 
+

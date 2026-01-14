@@ -151,3 +151,4 @@ Para mudar a frequência, edite o crontab:
 - A cada 2 horas: `0 */2 * * *`
 - Diariamente às 00:00: `0 0 * * *`
 
+

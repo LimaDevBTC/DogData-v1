@@ -51,3 +51,4 @@ echo ""
 echo "🗑️  Para remover o cron job:"
 echo "   crontab -l | grep -v '$PYTHON_SCRIPT' | crontab -"
 
+

@@ -102,6 +102,23 @@ def update_holders_values(solana_holders, stacks_holders):
     try:
         log("📝 Atualizando valores nos arquivos...")
         
+        # Ler valor atual de Bitcoin do JSON (uma vez, antes do loop)
+        bitcoin_holders = None
+        try:
+            with open(PUBLIC_DATA_DIR / 'dog_holders.json', 'r') as f:
+                holders_data = json.load(f)
+                bitcoin_holders = holders_data.get('total_holders', 0)
+        except:
+            try:
+                with open(DATA_DIR / 'dog_holders.json', 'r') as f:
+                    holders_data = json.load(f)
+                    bitcoin_holders = holders_data.get('total_holders', 0)
+            except:
+                bitcoin_holders = None
+        
+        if bitcoin_holders:
+            log(f"  📊 Bitcoin holders carregados: {bitcoin_holders:,}")
+        
         # Arquivos a atualizar
         files_to_update = [
             PROJECT_ROOT / 'app' / 'page.tsx',
@@ -189,28 +206,39 @@ def update_holders_values(solana_holders, stacks_holders):
                                     log(f"  ✅ Atualizado Stacks display em {file_path.name}: {old_val} -> {stacks_holders}")
                 content = '\n'.join(lines)
             
-            # Atualizar total (calcular novo total se ambos valores foram atualizados)
-            if solana_holders and stacks_holders:
-                # Ler valor atual de Bitcoin do JSON
-                try:
-                    with open(PUBLIC_DATA_DIR / 'dog_holders.json', 'r') as f:
-                        holders_data = json.load(f)
-                        bitcoin_holders = holders_data.get('total_holders', 0)
-                except:
-                    try:
-                        with open(DATA_DIR / 'dog_holders.json', 'r') as f:
-                            holders_data = json.load(f)
-                            bitcoin_holders = holders_data.get('total_holders', 0)
-                    except:
-                        bitcoin_holders = 0
-                
+            # Atualizar Bitcoin no page.tsx (home) - sempre atualizar se tivermos o valor
+            if bitcoin_holders and 'page.tsx' in str(file_path) and 'holders' not in str(file_path):
+                lines = content.split('\n')
+                for i, line in enumerate(lines):
+                    # Procurar linha com "Bitcoin L1"
+                    if 'Bitcoin L1' in line:
+                        # Procurar número nas próximas 2 linhas
+                        for j in range(i, min(i+3, len(lines))):
+                            match = re.search(r'(\d{1,3}(?:,\d{3})+)', lines[j])
+                            if match:
+                                old_btc = int(match.group(1).replace(',', ''))
+                                if 80000 <= old_btc <= 100000:  # Faixa esperada para Bitcoin
+                                    lines[j] = re.sub(
+                                        r'\b\d{1,3}(?:,\d{3})+\b',
+                                        f"{bitcoin_holders:,}",
+                                        lines[j],
+                                        count=1
+                                    )
+                                    changes_made = True
+                                    log(f"  ✅ Atualizado Bitcoin em {file_path.name}: {old_btc:,} -> {bitcoin_holders:,}")
+                                    break
+                        break
+                content = '\n'.join(lines)
+            
+            # Atualizar total (calcular novo total se tivermos todos os valores)
+            if solana_holders and stacks_holders and bitcoin_holders:
                 new_total = bitcoin_holders + solana_holders + stacks_holders
                 
-                # Atualizar total no page.tsx (linha com "101,395")
+                # Atualizar total no page.tsx (linha com "101,424")
                 if 'page.tsx' in str(file_path) and 'holders' not in str(file_path):
                     lines = content.split('\n')
                     for i, line in enumerate(lines):
-                        # Procurar linha com o total (formato: "101,395")
+                        # Procurar linha com o total (formato: "101,424")
                         if 'text-3xl font-bold text-white font-mono' in line:
                             # Próxima linha deve ter o número
                             if i + 1 < len(lines):
