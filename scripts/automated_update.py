@@ -315,6 +315,29 @@ def git_commit_and_push():
     try:
         log("📤 Preparando commit e push para GitHub...")
         
+        # Primeiro, fazer pull para sincronizar com o remoto
+        log("🔄 Sincronizando com o repositório remoto...")
+        pull_result = subprocess.run(
+            ['git', 'pull', 'origin', 'main', '--rebase'],
+            cwd=str(PROJECT_ROOT),
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+        
+        if pull_result.returncode != 0:
+            log(f"⚠️ Aviso no pull: {pull_result.stderr}")
+            # Tentar pull sem rebase se rebase falhar
+            pull_result = subprocess.run(
+                ['git', 'pull', 'origin', 'main'],
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            if pull_result.returncode != 0:
+                log(f"⚠️ Aviso no pull (sem rebase): {pull_result.stderr}")
+        
         # Verificar se há mudanças
         result = subprocess.run(
             ['git', 'status', '--porcelain'],
