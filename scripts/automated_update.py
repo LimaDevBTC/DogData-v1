@@ -315,10 +315,51 @@ def git_commit_and_push():
     try:
         log("📤 Preparando commit e push para GitHub...")
         
-        # Primeiro, fazer pull para sincronizar com o remoto
+        # Verificar se há mudanças locais primeiro
+        status_result = subprocess.run(
+            ['git', 'status', '--porcelain'],
+            cwd=str(PROJECT_ROOT),
+            capture_output=True,
+            text=True
+        )
+        
+        has_local_changes = bool(status_result.stdout.strip())
+        
+        # Se há mudanças locais, commitar primeiro
+        if has_local_changes:
+            log(f"📋 Mudanças detectadas:\n{status_result.stdout}")
+            
+            # Adicionar todos os arquivos modificados
+            subprocess.run(
+                ['git', 'add', '-A'],
+                cwd=str(PROJECT_ROOT),
+                check=True
+            )
+            
+            # Fazer commit
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            commit_message = f"🤖 Auto-update: {timestamp}"
+            
+            commit_result = subprocess.run(
+                ['git', 'commit', '-m', commit_message],
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                text=True
+            )
+            
+            if commit_result.returncode == 0:
+                log("✅ Commit criado com sucesso")
+            else:
+                log(f"⚠️ Aviso no commit: {commit_result.stderr}")
+                if "nothing to commit" in commit_result.stderr.lower():
+                    log("ℹ️ Nenhuma mudança para commitar (já estava commitado)")
+                else:
+                    return False
+        
+        # Agora fazer pull para sincronizar com o remoto
         log("🔄 Sincronizando com o repositório remoto...")
         pull_result = subprocess.run(
-            ['git', 'pull', 'origin', 'main', '--rebase'],
+            ['git', 'pull', 'origin', 'main', '--rebase', '--no-edit'],
             cwd=str(PROJECT_ROOT),
             capture_output=True,
             text=True,
@@ -326,57 +367,63 @@ def git_commit_and_push():
         )
         
         if pull_result.returncode != 0:
-            log(f"⚠️ Aviso no pull: {pull_result.stderr}")
+            log(f"⚠️ Erro no pull com rebase: {pull_result.stderr}")
             # Tentar pull sem rebase se rebase falhar
+            log("🔄 Tentando pull sem rebase...")
             pull_result = subprocess.run(
-                ['git', 'pull', 'origin', 'main'],
+                ['git', 'pull', 'origin', 'main', '--no-edit'],
                 cwd=str(PROJECT_ROOT),
                 capture_output=True,
                 text=True,
                 timeout=60
             )
             if pull_result.returncode != 0:
-                log(f"⚠️ Aviso no pull (sem rebase): {pull_result.stderr}")
+                log(f"❌ Erro no pull: {pull_result.stderr}")
+                return False
+            else:
+                log("✅ Pull realizado com sucesso (merge)")
+        else:
+            log("✅ Pull realizado com sucesso (rebase)")
         
-        # Verificar se há mudanças
-        result = subprocess.run(
+        # Verificar se há mudanças após o pull
+        status_result = subprocess.run(
             ['git', 'status', '--porcelain'],
             cwd=str(PROJECT_ROOT),
             capture_output=True,
             text=True
         )
         
-        if not result.stdout.strip():
+        if not status_result.stdout.strip() and not has_local_changes:
             log("ℹ️ Nenhuma mudança para commitar")
             return True
         
-        log(f"📋 Mudanças detectadas:\n{result.stdout}")
-        
-        # Adicionar todos os arquivos modificados
-        subprocess.run(
-            ['git', 'add', '-A'],
-            cwd=str(PROJECT_ROOT),
-            check=True
-        )
-        
-        # Fazer commit
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        commit_message = f"🤖 Auto-update: {timestamp}"
-        
-        result = subprocess.run(
-            ['git', 'commit', '-m', commit_message],
-            cwd=str(PROJECT_ROOT),
-            capture_output=True,
-            text=True
-        )
-        
-        if result.returncode == 0:
-            log("✅ Commit criado com sucesso")
-        else:
-            log(f"⚠️ Aviso no commit: {result.stderr}")
+        # Se ainda há mudanças após pull, commitar novamente
+        if status_result.stdout.strip():
+            log(f"📋 Mudanças após pull:\n{status_result.stdout}")
+            subprocess.run(
+                ['git', 'add', '-A'],
+                cwd=str(PROJECT_ROOT),
+                check=True
+            )
+            
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            commit_message = f"🤖 Auto-update: {timestamp}"
+            
+            commit_result = subprocess.run(
+                ['git', 'commit', '-m', commit_message],
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                text=True
+            )
+            
+            if commit_result.returncode == 0:
+                log("✅ Commit criado com sucesso (após pull)")
+            else:
+                log(f"⚠️ Aviso no commit: {commit_result.stderr}")
         
         # Push para GitHub
-        result = subprocess.run(
+        log("📤 Fazendo push para GitHub...")
+        push_result = subprocess.run(
             ['git', 'push', 'origin', 'main'],
             cwd=str(PROJECT_ROOT),
             capture_output=True,
@@ -384,11 +431,11 @@ def git_commit_and_push():
             timeout=60
         )
         
-        if result.returncode == 0:
+        if push_result.returncode == 0:
             log("✅ Push para GitHub realizado com sucesso")
             return True
         else:
-            log(f"❌ Erro no push: {result.stderr}")
+            log(f"❌ Erro no push: {push_result.stderr}")
             return False
             
     except subprocess.TimeoutExpired:
