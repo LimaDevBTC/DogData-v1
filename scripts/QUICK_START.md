@@ -78,3 +78,4 @@ bash scripts/check_dependencies.sh
 - `logs/automated_update.log` - Logs (criado automaticamente)
 
 
+
