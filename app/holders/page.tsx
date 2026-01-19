@@ -97,7 +97,7 @@ export default function HoldersPage() {
   // Bitcoin: sempre do JSON (dinâmico)
   // Solana e Stacks: valores hardcoded (únicos valores fixos)
   const [bitcoinHolders, setBitcoinHolders] = useState<number>(0) // Será atualizado do JSON
-  const [solanaHolders, setSolanaHolders] = useState<number>(10640) // Hardcoded
+  const [solanaHolders, setSolanaHolders] = useState<number>(10665) // Hardcoded
   const [stacksHolders, setStacksHolders] = useState<number>(308) // Hardcoded
   const eventSourceRef = useRef<EventSource | null>(null)
 
