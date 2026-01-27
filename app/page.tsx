@@ -387,7 +387,7 @@ export default function OverviewPage() {
                     <Image src="/sol.png" alt="Solana" width={12} height={12} className="opacity-70" />
                     <span className="text-gray-400 font-mono">Solana</span>
                   </div>
-                  <span className="text-gray-300 font-mono">10,756</span>
+                  <span className="text-gray-300 font-mono">10,754</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5">
