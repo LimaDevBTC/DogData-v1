@@ -142,19 +142,18 @@ def update_holders_values(solana_holders, stacks_holders):
             if solana_holders:
                 lines = content.split('\n')
                 for i, line in enumerate(lines):
-                    # No holders/page.tsx: useState<number>(10483) // Hardcoded
+                    # No holders/page.tsx: useState<number>(10754) // Hardcoded
                     if 'holders/page.tsx' in str(file_path) and 'useState<number>' in line and 'Solana' in line and 'Hardcoded' in line:
                         match = re.search(r'useState<number>\((\d+)\)', line)
                         if match:
                             old_val = int(match.group(1))
-                            if 10000 <= old_val <= 11000:  # Faixa esperada
-                                lines[i] = re.sub(
-                                    r'useState<number>\(\d+\)',
-                                    f'useState<number>({solana_holders})',
-                                    line
-                                )
-                                changes_made = True
-                                log(f"  ✅ Atualizado Solana useState em {file_path.name}: {old_val} -> {solana_holders}")
+                            lines[i] = re.sub(
+                                r'useState<number>\(\d+\)',
+                                f'useState<number>({solana_holders})',
+                                line
+                            )
+                            changes_made = True
+                            log(f"  ✅ Atualizado Solana useState em {file_path.name}: {old_val} -> {solana_holders}")
                     
                     # No page.tsx: <span className="text-gray-300 font-mono">10,483</span>
                     elif 'page.tsx' in str(file_path) and 'holders' not in str(file_path):
@@ -166,15 +165,14 @@ def update_holders_values(solana_holders, stacks_holders):
                                     match = re.search(r'>(\d{1,3}(?:,\d{3})?)<', lines[j])
                                     if match:
                                         old_val = int(match.group(1).replace(',', ''))
-                                        if 10000 <= old_val <= 11000:  # Faixa esperada
-                                            lines[j] = re.sub(
-                                                r'>\d{1,3}(?:,\d{3})?<',
-                                                f'>{solana_holders:,}<',
-                                                lines[j]
-                                            )
-                                            changes_made = True
-                                            log(f"  ✅ Atualizado Solana display em {file_path.name}: {old_val:,} -> {solana_holders:,}")
-                                            break
+                                        lines[j] = re.sub(
+                                            r'>\d{1,3}(?:,\d{3})?<',
+                                            f'>{solana_holders:,}<',
+                                            lines[j]
+                                        )
+                                        changes_made = True
+                                        log(f"  ✅ Atualizado Solana display em {file_path.name}: {old_val:,} -> {solana_holders:,}")
+                                        break
                 content = '\n'.join(lines)
             
             # Atualizar Stacks
@@ -186,14 +184,13 @@ def update_holders_values(solana_holders, stacks_holders):
                         match = re.search(r'useState<number>\((\d+)\)', line)
                         if match:
                             old_val = int(match.group(1))
-                            if 300 <= old_val <= 310:  # Faixa esperada
-                                lines[i] = re.sub(
-                                    r'useState<number>\(\d+\)',
-                                    f'useState<number>({stacks_holders})',
-                                    line
-                                )
-                                changes_made = True
-                                log(f"  ✅ Atualizado Stacks useState em {file_path.name}: {old_val} -> {stacks_holders}")
+                            lines[i] = re.sub(
+                                r'useState<number>\(\d+\)',
+                                f'useState<number>({stacks_holders})',
+                                line
+                            )
+                            changes_made = True
+                            log(f"  ✅ Atualizado Stacks useState em {file_path.name}: {old_val} -> {stacks_holders}")
                     
                     # No page.tsx: <span className="text-gray-300 font-mono">305</span>
                     elif 'page.tsx' in str(file_path) and 'holders' not in str(file_path):
@@ -205,15 +202,14 @@ def update_holders_values(solana_holders, stacks_holders):
                                     match = re.search(r'>(\d{2,3})<', lines[j])
                                     if match:
                                         old_val = int(match.group(1))
-                                        if 300 <= old_val <= 320:  # Faixa esperada (ajustada para incluir 307)
-                                            lines[j] = re.sub(
-                                                r'>\d{2,3}<',
-                                                f'>{stacks_holders}<',
-                                                lines[j]
-                                            )
-                                            changes_made = True
-                                            log(f"  ✅ Atualizado Stacks display em {file_path.name}: {old_val} -> {stacks_holders}")
-                                            break
+                                        lines[j] = re.sub(
+                                            r'>\d{2,3}<',
+                                            f'>{stacks_holders}<',
+                                            lines[j]
+                                        )
+                                        changes_made = True
+                                        log(f"  ✅ Atualizado Stacks display em {file_path.name}: {old_val} -> {stacks_holders}")
+                                        break
                 content = '\n'.join(lines)
             
             # Atualizar Bitcoin no page.tsx (home) - sempre atualizar se tivermos o valor
@@ -227,16 +223,15 @@ def update_holders_values(solana_holders, stacks_holders):
                             match = re.search(r'(\d{1,3}(?:,\d{3})+)', lines[j])
                             if match:
                                 old_btc = int(match.group(1).replace(',', ''))
-                                if 80000 <= old_btc <= 100000:  # Faixa esperada para Bitcoin
-                                    lines[j] = re.sub(
-                                        r'\b\d{1,3}(?:,\d{3})+\b',
-                                        f"{bitcoin_holders:,}",
-                                        lines[j],
-                                        count=1
-                                    )
-                                    changes_made = True
-                                    log(f"  ✅ Atualizado Bitcoin em {file_path.name}: {old_btc:,} -> {bitcoin_holders:,}")
-                                    break
+                                lines[j] = re.sub(
+                                    r'\b\d{1,3}(?:,\d{3})+\b',
+                                    f"{bitcoin_holders:,}",
+                                    lines[j],
+                                    count=1
+                                )
+                                changes_made = True
+                                log(f"  ✅ Atualizado Bitcoin em {file_path.name}: {old_btc:,} -> {bitcoin_holders:,}")
+                                break
                         break
                 content = '\n'.join(lines)
             
@@ -255,14 +250,13 @@ def update_holders_values(solana_holders, stacks_holders):
                                 match = re.search(r'(\d{1,3}(?:,\d{3})+)', lines[i + 1])
                                 if match:
                                     old_total = int(match.group(1).replace(',', ''))
-                                    if 100000 <= old_total <= 110000:  # Faixa esperada
-                                        lines[i + 1] = re.sub(
-                                            r'\d{1,3}(?:,\d{3})+',
-                                            f"{new_total:,}",
-                                            lines[i + 1]
-                                        )
-                                        changes_made = True
-                                        log(f"  ✅ Atualizado Total em {file_path.name}: {old_total:,} -> {new_total:,}")
+                                    lines[i + 1] = re.sub(
+                                        r'\d{1,3}(?:,\d{3})+',
+                                        f"{new_total:,}",
+                                        lines[i + 1]
+                                    )
+                                    changes_made = True
+                                    log(f"  ✅ Atualizado Total em {file_path.name}: {old_total:,} -> {new_total:,}")
                     content = '\n'.join(lines)
             
             if changes_made and content != original_content:
@@ -445,42 +439,6 @@ def git_commit_and_push():
         log(f"❌ Erro no git commit/push: {e}")
         return False
 
-def get_last_known_values():
-    """Retorna últimos valores conhecidos de Solana e Stacks dos arquivos"""
-    solana = None
-    stacks = None
-    
-    try:
-        # Ler do holders/page.tsx
-        holders_file = PROJECT_ROOT / 'app' / 'holders' / 'page.tsx'
-        if holders_file.exists():
-            with open(holders_file, 'r', encoding='utf-8') as f:
-                content = f.read()
-                
-            # Buscar Solana: const [solanaHolders, setSolanaHolders] = useState<number>(10483)
-            match = re.search(r'const\s+\[\s*solanaHolders[^)]*useState<number>\((\d+)\)', content)
-            if match:
-                solana = int(match.group(1))
-            else:
-                # Tentar formato alternativo
-                match = re.search(r'solanaHolders.*useState<number>\((\d+)\)', content)
-                if match:
-                    solana = int(match.group(1))
-            
-            # Buscar Stacks: const [stacksHolders, setStacksHolders] = useState<number>(305)
-            match = re.search(r'const\s+\[\s*stacksHolders[^)]*useState<number>\((\d+)\)', content)
-            if match:
-                stacks = int(match.group(1))
-            else:
-                # Tentar formato alternativo
-                match = re.search(r'stacksHolders.*useState<number>\((\d+)\)', content)
-                if match:
-                    stacks = int(match.group(1))
-    except Exception as e:
-        log(f"⚠️ Erro ao ler valores anteriores: {e}")
-    
-    return solana, stacks
-
 def main():
     """Função principal"""
     log("="*80)
@@ -497,31 +455,19 @@ def main():
     else:
         log("⚠️ Continuando mesmo com falha no script de holders...")
     
-    # 2. Extrair holders da Solana
+    # 2. Extrair holders da Solana (apenas external_holders.json)
     log("")
     solana_holders = get_solana_holders()
     if not solana_holders:
-        log("⚠️ Solana holders não encontrado no arquivo externo")
-        log("   Usando último valor conhecido...")
-        solana_holders, _ = get_last_known_values()
-        if solana_holders:
-            log(f"   Último valor conhecido: {solana_holders:,}")
-        else:
-            log("   ⚠️ Nenhum valor anterior encontrado. Solana não será atualizada.")
+        log("⚠️ Solana holders não encontrado no external_holders.json — não será atualizada")
     else:
         success_count += 1
     
-    # 3. Extrair holders da Stacks
+    # 3. Extrair holders da Stacks (apenas external_holders.json)
     log("")
     stacks_holders = get_stacks_holders()
     if not stacks_holders:
-        log("⚠️ Stacks holders não encontrado no arquivo externo")
-        log("   Usando último valor conhecido...")
-        _, stacks_holders = get_last_known_values()
-        if stacks_holders:
-            log(f"   Último valor conhecido: {stacks_holders}")
-        else:
-            log("   ⚠️ Nenhum valor anterior encontrado. Stacks não será atualizada.")
+        log("⚠️ Stacks holders não encontrado no external_holders.json — não será atualizada")
     else:
         success_count += 1
     

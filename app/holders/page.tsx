@@ -98,7 +98,7 @@ export default function HoldersPage() {
   // Solana e Stacks: valores hardcoded (únicos valores fixos)
   const [bitcoinHolders, setBitcoinHolders] = useState<number>(0) // Será atualizado do JSON
   const [solanaHolders, setSolanaHolders] = useState<number>(10754) // Hardcoded
-  const [stacksHolders, setStacksHolders] = useState<number>(311) // Hardcoded
+  const [stacksHolders, setStacksHolders] = useState<number>(309) // Hardcoded - atualizado a cada hora pelo script (external_holders.json)
   const eventSourceRef = useRef<EventSource | null>(null)
 
   const formatNumber = (num: number) => {
@@ -900,7 +900,7 @@ export default function HoldersPage() {
                     <Image src="/STX .png" alt="Stacks" width={12} height={12} className="opacity-70" />
                     <span className="text-gray-400 font-mono">Stacks</span>
                   </div>
-                  <span className="text-gray-300 font-mono">288</span>
+                  <span className="text-gray-300 font-mono">{stacksHolders.toLocaleString('en-US')}</span>
                 </div>
               </div>
             </div>
