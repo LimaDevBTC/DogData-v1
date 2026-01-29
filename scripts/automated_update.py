@@ -304,10 +304,41 @@ def run_holders_script():
         log(f"❌ Erro ao executar script: {e}")
         return False
 
+def clean_rebase_state():
+    """Remove estado de rebase travado para pull/push funcionarem."""
+    rebase_merge = PROJECT_ROOT / '.git' / 'rebase-merge'
+    rebase_apply = PROJECT_ROOT / '.git' / 'rebase-apply'
+    if rebase_merge.exists() or rebase_apply.exists():
+        try:
+            subprocess.run(
+                ['git', 'rebase', '--abort'],
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            log("   ↩️ Estado de rebase travado removido (rebase --abort).")
+        except Exception:
+            pass
+        import shutil
+        if rebase_merge.exists():
+            try:
+                shutil.rmtree(rebase_merge)
+                log("   ↩️ Removido .git/rebase-merge.")
+            except Exception:
+                pass
+        if rebase_apply.exists():
+            try:
+                shutil.rmtree(rebase_apply)
+                log("   ↩️ Removido .git/rebase-apply.")
+            except Exception:
+                pass
+
 def git_commit_and_push():
     """Faz commit e push das mudanças para o GitHub"""
     try:
         log("📤 Preparando commit e push para GitHub...")
+        clean_rebase_state()
         
         # Verificar se há mudanças locais primeiro
         status_result = subprocess.run(
@@ -350,34 +381,19 @@ def git_commit_and_push():
                 else:
                     return False
         
-        # Agora fazer pull para sincronizar com o remoto
+        # Agora fazer pull para sincronizar com o remoto (sempre merge, nunca rebase para não travar)
         log("🔄 Sincronizando com o repositório remoto...")
         pull_result = subprocess.run(
-            ['git', 'pull', 'origin', 'main', '--rebase', '--no-edit'],
+            ['git', 'pull', 'origin', 'main', '--no-rebase', '--no-edit'],
             cwd=str(PROJECT_ROOT),
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=300
         )
-        
         if pull_result.returncode != 0:
-            log(f"⚠️ Erro no pull com rebase: {pull_result.stderr}")
-            # Tentar pull sem rebase se rebase falhar
-            log("🔄 Tentando pull sem rebase...")
-            pull_result = subprocess.run(
-                ['git', 'pull', 'origin', 'main', '--no-edit'],
-                cwd=str(PROJECT_ROOT),
-                capture_output=True,
-                text=True,
-                timeout=60
-            )
-            if pull_result.returncode != 0:
-                log(f"❌ Erro no pull: {pull_result.stderr}")
-                return False
-            else:
-                log("✅ Pull realizado com sucesso (merge)")
-        else:
-            log("✅ Pull realizado com sucesso (rebase)")
+            log(f"❌ Erro no pull: {pull_result.stderr}")
+            return False
+        log("✅ Pull realizado com sucesso (merge)")
         
         # Verificar se há mudanças após o pull
         status_result = subprocess.run(
