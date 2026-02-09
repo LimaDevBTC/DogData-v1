@@ -8,7 +8,14 @@ import { VerifiedAddressesProvider } from '@/contexts/VerifiedAddressesContext'
 const inter = Inter({ subsets: ['latin'] })
 const dmSans = DM_Sans({ subsets: ['latin'], weight: ['700'], variable: '--font-dm-sans' })
 
+const siteUrl = (() => {
+  const u = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
+  if (!u) return 'https://dogdata.xyz'
+  return u.startsWith('http') ? u.replace(/\/$/, '') : `https://${u}`
+})()
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: 'DOG DATA - Real-time DOG Rune Explorer',
   description: 'Professional explorer for DOG•GO•TO•THE•MOON rune with real-time data, holder lists, statistics and exclusive forensic analysis.',
   keywords: 'DOG, Bitcoin, Rune, Ordinals, Holders, Blockchain, Explorer, Real-time, Forensic Analysis',
@@ -25,11 +32,20 @@ export const metadata: Metadata = {
     description: 'Professional explorer for DOG rune with real-time data and forensic analysis',
     type: 'website',
     locale: 'en_US',
+    images: [
+      {
+        url: '/DOGDATAOG.png',
+        width: 1200,
+        height: 630,
+        alt: 'DOG DATA - DOG Rune Explorer',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'DOG DATA - DOG Rune Explorer',
     description: 'Professional explorer for DOG rune with real-time data and forensic analysis',
+    images: ['/DOGDATAOG.png'],
   },
 }
 
