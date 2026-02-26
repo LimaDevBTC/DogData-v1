@@ -409,7 +409,7 @@ export default function MetricsPage() {
         <div className="text-center space-y-1 md:space-y-2 animate-fade-in px-4 mt-8 md:mt-10">
           <div className="space-y-3 md:space-y-4 max-w-full overflow-hidden">
             <h1 className="text-2xl md:text-4xl font-display font-bold tracking-tight break-words">
-              <span className="text-dusty font-mono tracking-wider block">
+              <span className="text-lava-dark font-mono tracking-wider block">
                 <span className="inline-block">ON-CHAIN</span>
                 <span className="inline-block ml-4 md:ml-6">METRICS</span>
               </span>

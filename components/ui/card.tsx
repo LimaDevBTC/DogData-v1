@@ -17,7 +17,7 @@ const Card = React.forwardRef<
     <div
       ref={ref}
       className={cn(
-        "p-4 md:p-6 overflow-hidden transition-all duration-300 hover:bg-lava-dark/[0.04] hover:border-lava-dark/30",
+        "p-3 md:p-6 overflow-hidden transition-all duration-300 hover:bg-lava-dark/[0.04] hover:border-lava-dark/30",
         variants[variant],
         className
       )}
@@ -33,7 +33,7 @@ const CardHeader = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("flex flex-col space-y-1.5 pb-4", className)}
+    className={cn("flex flex-col space-y-1 md:space-y-1.5 pb-2 md:pb-4", className)}
     {...props}
   />
 ))
@@ -48,7 +48,7 @@ const CardTitle = React.forwardRef<
   const variants = {
     default: "text-lava-dark font-display font-semibold text-base md:text-lg",
     gradient: "gradient-text font-display font-bold text-lg md:text-xl",
-    mono: "text-snow font-mono font-semibold text-sm md:text-lg"
+    mono: "text-snow font-mono font-semibold text-xs md:text-lg"
   }
 
   return (

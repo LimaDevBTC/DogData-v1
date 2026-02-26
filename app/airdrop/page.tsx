@@ -436,7 +436,7 @@ export default function AirdropPage() {
             height={40}
             className="object-contain md:w-[60px] md:h-[60px]"
           />
-          <h1 className="text-2xl md:text-4xl font-bold text-snow font-mono font-display whitespace-nowrap">
+          <h1 className="text-2xl md:text-4xl font-bold text-lava-dark font-mono font-display whitespace-nowrap">
             Airdrop Analysis
           </h1>
         </div>

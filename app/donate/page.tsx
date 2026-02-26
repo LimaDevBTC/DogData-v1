@@ -76,7 +76,7 @@ export default function DonatePage() {
       <div className="pt-2 pb-3 px-3 md:p-6 space-y-3 md:space-y-6">
         {/* Header */}
         <div className="text-center space-y-2 md:space-y-4">
-          <h1 className="text-2xl md:text-4xl font-bold text-snow font-display flex items-center justify-center">
+          <h1 className="text-2xl md:text-4xl font-bold text-lava-dark font-display flex items-center justify-center">
             <Heart className="w-8 h-8 md:w-10 md:h-10 mr-3 md:mr-4 text-lava" />
             Support DOG Community
           </h1>

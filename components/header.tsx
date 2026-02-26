@@ -1,17 +1,18 @@
 "use client"
 
+import { useState, useEffect, useCallback } from "react"
 import {
   BarChart3,
   Users,
-  Gift,
-  Activity,
-  Wifi,
   RefreshCw,
   Heart,
   CreditCard,
   Network,
   Sparkles,
-  Zap
+  Zap,
+  Menu,
+  X,
+  TrendingUp
 } from "lucide-react"
 
 type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate'
@@ -21,7 +22,7 @@ const navigation = [
   { name: 'Transactions', page: 'transactions' as PageType, icon: CreditCard },
   { name: 'Holders', page: 'holders' as PageType, icon: Users },
   { name: 'On-Chain Metrics', page: 'metrics' as PageType, icon: Zap },
-  { name: 'Markets', page: 'markets' as PageType, icon: BarChart3 },
+  { name: 'Markets', page: 'markets' as PageType, icon: TrendingUp },
   { name: 'Airdrop Analysis', page: 'airdrop' as PageType, icon: Sparkles },
   { name: 'Bitcoin Network', page: 'bitcoin-network' as PageType, icon: Network },
 ]
@@ -32,14 +33,44 @@ interface HeaderProps {
 }
 
 export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  const handleNavClick = useCallback((page: PageType) => {
+    setCurrentPage(page)
+    setMenuOpen(false)
+  }, [setCurrentPage])
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!menuOpen) return
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (!target.closest('[data-header-nav]')) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener('click', handleClick)
+    return () => document.removeEventListener('click', handleClick)
+  }, [menuOpen])
+
+  // Close menu on escape
+  useEffect(() => {
+    if (!menuOpen) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false)
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [menuOpen])
+
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-void/90 backdrop-blur-xl border-b border-lava-dark/30">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-void/90 backdrop-blur-xl border-b border-lava-dark/30" data-header-nav>
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14 md:h-20">
           {/* Logo */}
           <div className="flex items-center flex-shrink-0 mr-4 md:mr-8">
             <button
-              onClick={() => setCurrentPage('overview')}
+              onClick={() => handleNavClick('overview')}
               className="flex items-center space-x-2 md:space-x-3 hover:opacity-80 transition-all duration-300 group"
             >
               <div className="relative w-10 h-10 md:w-14 md:h-14 flex-shrink-0">
@@ -88,7 +119,7 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
             })}
           </nav>
 
-          {/* Live Status, Refresh & Donate */}
+          {/* Right side: Live Status, Refresh, Donate & Hamburger */}
           <div className="flex items-center space-x-2 md:space-x-3 flex-shrink-0 ml-4">
             {/* Donate Button - Hidden on small screens */}
             <button
@@ -114,9 +145,63 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
             >
               <RefreshCw className="w-4 h-4 text-dusty group-hover:text-lava group-hover:rotate-180 transition-all duration-500" />
             </button>
+
+            {/* Hamburger Button - Mobile only */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setMenuOpen(!menuOpen)
+              }}
+              className="md:hidden px-2.5 py-2 bg-transparent border border-lava-dark/20 hover:bg-lava-dark/10 hover:border-lava-dark/40 transition-all duration-300"
+              title="Menu"
+            >
+              {menuOpen ? (
+                <X className="w-5 h-5 text-lava" />
+              ) : (
+                <Menu className="w-5 h-5 text-dusty" />
+              )}
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Mobile Dropdown Menu */}
+      {menuOpen && (
+        <div className="md:hidden border-t border-lava-dark/20 bg-void/95 backdrop-blur-xl">
+          <nav className="max-w-[1600px] mx-auto px-4 py-2">
+            {navigation.map((item) => {
+              const isActive = currentPage === item.page
+              const Icon = item.icon
+              return (
+                <button
+                  key={item.page}
+                  onClick={() => handleNavClick(item.page)}
+                  className={`w-full flex items-center gap-3 px-3 py-3 font-mono text-sm tracking-wide transition-colors duration-200 ${
+                    isActive
+                      ? 'text-lava bg-lava/10 border-l-2 border-lava'
+                      : 'text-dusty hover:text-snow hover:bg-surface/30 border-l-2 border-transparent'
+                  }`}
+                >
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  {item.name}
+                </button>
+              )
+            })}
+            {/* Donate in mobile menu */}
+            <button
+              onClick={() => handleNavClick('donate')}
+              className={`w-full flex items-center gap-3 px-3 py-3 font-mono text-sm tracking-wide transition-colors duration-200 ${
+                currentPage === 'donate'
+                  ? 'text-lava bg-lava/10 border-l-2 border-lava'
+                  : 'text-dusty hover:text-snow hover:bg-surface/30 border-l-2 border-transparent'
+              }`}
+            >
+              <Heart className="w-4 h-4 flex-shrink-0" />
+              Donate
+            </button>
+          </nav>
+        </div>
+      )}
     </header>
   )
 }

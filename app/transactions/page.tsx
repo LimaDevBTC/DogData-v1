@@ -1344,7 +1344,7 @@ export default function TransactionsPage() {
         <div className="text-center space-y-2 md:space-y-4 px-4">
           <div className="flex items-center justify-center gap-2 md:gap-4">
             <Activity className="w-10 h-10 md:w-14 md:h-14 text-lava" />
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-snow font-display whitespace-nowrap">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-lava-dark font-display whitespace-nowrap">
           DOG Transactions
         </h1>
           </div>

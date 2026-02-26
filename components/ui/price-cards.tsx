@@ -46,15 +46,6 @@ const exchanges = [
     working: true
   },
   {
-    name: 'Pionex',
-    apiUrl: '/api/price/pionex',
-    color: 'from-red-400 to-red-600',
-    borderColor: 'border-red-500/20',
-    hoverBorderColor: 'hover:border-red-500/40',
-    icon: 'P',
-    working: true
-  },
-  {
     name: 'Magic Eden',
     apiUrl: '/api/price/magiceden',
     color: 'from-[#EB136C] to-[#C41159]',
@@ -326,11 +317,11 @@ export function PriceCards() {
               }`}
         style={{ animationDelay: `${index * 0.08}s` }}
             >
-        <CardHeader className="pb-2.5">
+        <CardHeader className="pb-1.5 md:pb-2.5">
                 <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-              <div className="h-12 flex items-center">
-                      <img 
+                  <div className="flex items-center space-x-2 md:space-x-3">
+              <div className="h-8 md:h-12 flex items-center">
+                      <img
                         src={`/${
                     exchange.name === 'MEXC'
                       ? 'MEXC '
@@ -341,27 +332,27 @@ export function PriceCards() {
                       : exchange.name
                         }.png`}
                         alt={exchange.name}
-                  className="h-10 w-auto object-contain"
+                  className="h-7 md:h-10 w-auto object-contain"
                         onError={(e) => {
                           e.currentTarget.style.display = 'none';
                           const fallback = e.currentTarget.nextElementSibling as HTMLElement;
                           if (fallback) fallback.style.display = 'flex';
                         }}
                       />
-                <div className="hidden w-12 h-12 bg-gradient-to-r from-elevated to-elevated flex items-center justify-center text-snow font-bold text-base uppercase rounded">
+                <div className="hidden w-8 h-8 md:w-12 md:h-12 bg-gradient-to-r from-elevated to-elevated flex items-center justify-center text-snow font-bold text-xs md:text-base uppercase rounded">
                         {exchange.icon}
                       </div>
                     </div>
-              {!isWorking && <span className="text-xs text-dusty/70">Coming Soon</span>}
+              {!isWorking && <span className="text-[10px] md:text-xs text-dusty/70">Soon</span>}
                   </div>
                   {isSuccess && (
                     <div className="flex items-center">
-                <div className={`w-2 h-2 ${isStale ? 'bg-gray-500' : 'bg-green-400'}`}></div>
+                <div className={`w-1.5 h-1.5 md:w-2 md:h-2 ${isStale ? 'bg-gray-500' : 'bg-green-400'}`}></div>
                     </div>
                   )}
                 </CardTitle>
               </CardHeader>
-        <CardContent className="p-4 space-y-3">
+        <CardContent className="p-3 md:p-4 space-y-1.5 md:space-y-3">
                 {!isWorking ? (
                   <div className="space-y-2">
               <div className="text-dusty font-mono text-sm">Coming Soon</div>
@@ -373,9 +364,9 @@ export function PriceCards() {
               <div className="h-4 bg-elevated/30 animate-pulse rounded"></div>
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-1 md:space-y-2">
               <div
-                className={`text-xl font-bold font-mono bg-gradient-to-r ${exchange.color} bg-clip-text text-transparent`}
+                className={`text-base md:text-xl font-bold font-mono bg-gradient-to-r ${exchange.color} bg-clip-text text-transparent`}
               >
                       {exchange.name === 'Magic Eden' && priceData?.priceSats
                         ? `${priceData.priceSats} sats`
@@ -384,12 +375,12 @@ export function PriceCards() {
                     {priceData?.change24h !== undefined && priceData.change24h !== 0 && (
                       <div className="flex items-center space-x-1">
                         {priceData.change24h > 0 ? (
-                          <TrendingUp className="w-4 h-4 text-green-400" />
+                          <TrendingUp className="w-3 h-3 md:w-4 md:h-4 text-green-400" />
                         ) : (
-                          <TrendingDown className="w-4 h-4 text-red-400" />
+                          <TrendingDown className="w-3 h-3 md:w-4 md:h-4 text-red-400" />
                         )}
                   <span
-                    className={`text-xs font-mono ${
+                    className={`text-[10px] md:text-xs font-mono ${
                           priceData.change24h > 0 ? 'text-green-400' : 'text-red-400'
                     }`}
                   >
@@ -397,7 +388,7 @@ export function PriceCards() {
                         </span>
                       </div>
                     )}
-              <div className="text-[11px] text-dusty/70 font-mono">
+              <div className="text-[10px] md:text-[11px] text-dusty/70 font-mono">
                       {priceData?.lastUpdate?.toLocaleTimeString()}
                     </div>
                   </div>
@@ -414,8 +405,10 @@ export function PriceCards() {
       ? dogswapData.change24h
       : magicEdenData?.change24h;
   const bitflowData = prices.find((p) => p.exchange === bitflowExchange.name);
-  const firstRowExchanges = exchanges.slice(0, 3);
-  const secondRowExchanges = exchanges.slice(3);
+  // Desktop: Row 1: MEXC, Kraken, Gate.io, Dogswap | Row 2: Bitflow(2cols), MagicEden, Bitget
+  // Mobile: Bitflow(2cols), Dogswap+MEXC, Kraken+Gate.io, MagicEden+Bitget
+  const topRowExchanges = exchanges.slice(0, 3);    // MEXC, Kraken, Gate.io
+  const bottomRowExchanges = exchanges.slice(3);     // MagicEden, Bitget
 
   const renderPartnerCard = ({
     exchange,
@@ -429,7 +422,9 @@ export function PriceCards() {
     negativeChangeClass,
     changeOverride,
     rowSpanClass = '',
+    colSpanClass = '',
     wrapperClassName = '',
+    horizontal = false,
   }: {
     exchange: typeof bitflowExchange | typeof dogswapExchange;
     data: PriceData | undefined;
@@ -442,7 +437,9 @@ export function PriceCards() {
     negativeChangeClass: string;
     changeOverride?: number | null;
     rowSpanClass?: string;
+    colSpanClass?: string;
     wrapperClassName?: string;
+    horizontal?: boolean;
   }) => {
     const changeValue = changeOverride ?? data?.change24h ?? null;
 
@@ -466,24 +463,103 @@ export function PriceCards() {
       return '— sats';
     };
 
-        return (
-          <a
+    if (horizontal) {
+      return (
+        <a
+          key={exchange.name}
+          href={exchange.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`block h-full ${desktopPlacementClass} ${rowSpanClass} ${colSpanClass} ${wrapperClassName}`}
+        >
+          <Card
+            variant="glass"
+            className={`${exchange.borderColor} ${exchange.hoverBorderColor} transition-all hover:scale-[1.01] hover:shadow-xl h-full`}
+          >
+            <CardContent className="p-3 md:p-5 h-full">
+              <div className="flex items-center gap-3 md:gap-5 h-full">
+                {/* Logo */}
+                <img
+                  src={logoSrc}
+                  alt={exchange.name}
+                  className={logoClassName}
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+
+                {/* Price + Sats */}
+                <div className="flex-1 flex flex-col gap-0.5 md:gap-1 min-w-0">
+                  {isLoading && !data ? (
+                    <div className="space-y-2">
+                      <div className="h-6 bg-elevated/50 animate-pulse rounded"></div>
+                      <div className="h-3 bg-elevated/30 animate-pulse rounded w-2/3"></div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className={`text-lg md:text-3xl font-bold font-mono ${priceClassName} leading-tight`}>
+                        {formatPrice(data?.price || 0)}
+                      </div>
+                      <div className={`${satsClassName} font-mono`}>
+                        {formatSatsDisplay()}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Change + Status */}
+                <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                  {changeValue !== null && changeValue !== undefined && (
+                    <div className="flex items-center gap-1">
+                      {changeValue > 0 ? (
+                        <TrendingUp className="w-3.5 h-3.5 md:w-5 md:h-5 text-sky-300" />
+                      ) : changeValue < 0 ? (
+                        <TrendingDown className="w-3.5 h-3.5 md:w-5 md:h-5 text-red-400" />
+                      ) : null}
+                      <span
+                        className={`text-xs md:text-sm font-mono font-semibold ${
+                          changeValue > 0
+                            ? positiveChangeClass
+                            : changeValue < 0
+                            ? negativeChangeClass
+                            : 'text-dusty'
+                        }`}
+                      >
+                        {formatChange(changeValue)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] md:text-[11px] text-dusty/70 font-mono">
+                      {data?.lastUpdate?.toLocaleTimeString()}
+                    </span>
+                    {data?.status === "success" && (
+                      <div className={`w-1.5 h-1.5 md:w-2 md:h-2 ${data?.stale ? 'bg-gray-500' : 'bg-green-400'}`}></div>
+                    )}
+                    <ExternalLink className="text-dusty w-2.5 h-2.5 md:w-3 md:h-3" />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </a>
+      );
+    }
+
+    return (
+      <a
         key={exchange.name}
-            href={exchange.url}
+        href={exchange.url}
         target="_blank"
         rel="noopener noreferrer"
-        className={`block h-full ${desktopPlacementClass} ${rowSpanClass} ${wrapperClassName}`}
+        className={`block h-full ${desktopPlacementClass} ${rowSpanClass} ${colSpanClass} ${wrapperClassName}`}
       >
         <Card
           variant="glass"
           className={`${exchange.borderColor} ${exchange.hoverBorderColor} transition-all hover:scale-[1.01] hover:shadow-xl h-full`}
         >
-          <CardContent className="p-5 md:p-6 h-full flex flex-col justify-between">
-            <div className="flex flex-col gap-3">
-              <div className="flex justify-end items-center gap-1 text-dusty text-[10px] font-mono font-medium uppercase tracking-wide whitespace-nowrap">
-                <span>Official Partner</span>
-                <ExternalLink className="text-dusty w-3.5 h-3.5" />
-              </div>
+          <CardContent className="p-3 md:p-6 h-full flex flex-col justify-between">
+            <div className="flex items-center justify-between">
               <img
                 src={logoSrc}
                 alt={exchange.name}
@@ -492,31 +568,37 @@ export function PriceCards() {
                   e.currentTarget.style.display = 'none';
                 }}
               />
+              <div className="flex items-center gap-1">
+                <ExternalLink className="text-dusty w-2.5 h-2.5 md:w-3 md:h-3" />
+                {data?.status === "success" && (
+                  <div className={`w-1.5 h-1.5 md:w-2 md:h-2 ${data?.stale ? 'bg-gray-500' : 'bg-green-400'}`}></div>
+                )}
+              </div>
             </div>
 
-            <div className="mt-6 flex-1 flex flex-col gap-4 justify-center">
+            <div className="mt-2 md:mt-6 flex-1 flex flex-col gap-1.5 md:gap-4 justify-center">
               {isLoading && !data ? (
-                <div className="space-y-3">
-                  <div className="h-8 bg-elevated/50 animate-pulse rounded"></div>
-                  <div className="h-4 bg-elevated/30 animate-pulse rounded w-2/3"></div>
+                <div className="space-y-2">
+                  <div className="h-6 bg-elevated/50 animate-pulse rounded"></div>
+                  <div className="h-3 bg-elevated/30 animate-pulse rounded w-2/3"></div>
                 </div>
               ) : (
                 <>
-                  <div className={`text-3xl md:text-4xl font-bold font-mono ${priceClassName}`}>
+                  <div className={`text-xl md:text-4xl font-bold font-mono ${priceClassName}`}>
                     {formatPrice(data?.price || 0)}
                   </div>
                   <div className={`${satsClassName} font-mono`}>
                     {formatSatsDisplay()}
                   </div>
                   {changeValue !== null && changeValue !== undefined && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       {changeValue > 0 ? (
-                        <TrendingUp className="w-4 h-4 text-sky-300" />
+                        <TrendingUp className="w-3 h-3 md:w-4 md:h-4 text-sky-300" />
                       ) : changeValue < 0 ? (
-                        <TrendingDown className="w-4 h-4 text-red-400" />
+                        <TrendingDown className="w-3 h-3 md:w-4 md:h-4 text-red-400" />
                       ) : null}
                       <span
-                        className={`text-xs font-mono ${
+                        className={`text-[10px] md:text-xs font-mono ${
                           changeValue > 0
                             ? positiveChangeClass
                             : changeValue < 0
@@ -532,11 +614,8 @@ export function PriceCards() {
               )}
             </div>
 
-            <div className="flex items-center justify-between text-xs text-dusty/70 font-mono mt-4">
-              <span>{data?.lastUpdate?.toLocaleTimeString()}</span>
-              {data?.status === "success" && (
-                <div className={`w-2 h-2 ${data?.stale ? 'bg-gray-500' : 'bg-green-400'}`}></div>
-              )}
+            <div className="text-[10px] md:text-xs text-dusty/70 font-mono mt-1.5 md:mt-4">
+              {data?.lastUpdate?.toLocaleTimeString()}
             </div>
           </CardContent>
         </Card>
@@ -545,148 +624,41 @@ export function PriceCards() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Bitflow em destaque no topo (desktop) */}
-      <div className="hidden lg:block">
-        <a
-          href={bitflowExchange.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block cursor-pointer"
-          >
-            <Card
-              variant="glass"
-            className={`${bitflowExchange.borderColor} ${bitflowExchange.hoverBorderColor} transition-all hover:scale-[1.01] hover:shadow-xl`}
-            >
-              <CardContent className="p-4 md:p-6 relative">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-8">
-                  <div className="flex items-center justify-center md:justify-start flex-shrink-0">
-                    <img 
-                      src="/Bitflow.png"
-                      alt="Bitflow"
-                      className="h-14 md:h-20 w-auto object-contain"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                        const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                        if (fallback) fallback.style.display = 'flex';
-                      }}
-                    />
-                    <div
-                      className="hidden w-16 md:w-24 h-16 md:h-24 bg-gradient-to-r from-lava to-lava-dark flex items-center justify-center text-snow font-bold text-2xl md:text-3xl rounded-lg"
-                    >
-                      BF
-                    </div>
-                  </div>
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 md:gap-4">
+      {/* Bitflow - Sponsored Partner (spans 2 columns, horizontal layout) */}
+      {renderPartnerCard({
+        exchange: bitflowExchange,
+        data: bitflowData,
+        colSpanClass: 'col-span-2',
+        horizontal: true,
+        logoSrc: '/Bitflow.png',
+        logoClassName: 'h-10 md:h-16 w-auto object-contain flex-shrink-0',
+        priceClassName: 'bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent',
+        satsClassName: 'text-[10px] md:text-sm text-dusty',
+        positiveChangeClass: 'text-orange-200',
+        negativeChangeClass: 'text-red-400',
+      })}
 
-                  <div className="hidden md:block md:flex-1"></div>
+      {/* Dogswap - Sponsored Partner */}
+      {renderPartnerCard({
+        exchange: dogswapExchange,
+        data: dogswapData,
+        logoSrc: '/dogswap_logo.png',
+        logoClassName: 'h-6 md:h-12 w-auto object-contain',
+        priceClassName: 'text-snow',
+        satsClassName: 'text-[10px] md:text-base text-dusty',
+        positiveChangeClass: 'text-sky-300',
+        negativeChangeClass: 'text-red-400',
+        changeOverride: dogswapChange,
+      })}
 
-                <div className="flex flex-col items-center md:items-end gap-2 md:gap-1.5">
-                  <div className="flex items-center gap-1.5 -mb-1">
-                    <span className="text-dusty text-[10px] font-mono font-medium uppercase tracking-wide">
-                      Official Partner
-                    </span>
-                    <ExternalLink className="w-3 h-3 text-dusty" />
-                    </div>
+      {/* Top row exchanges: MEXC, Kraken, Gate.io */}
+      {topRowExchanges.map((exchange, index) => renderExchangeCard(exchange, index))}
 
-                      <div className="flex flex-col md:flex-row items-center md:items-center gap-2 md:gap-6">
-                    <div className="flex flex-col items-center md:items-end gap-1">
-                          <div className="text-2xl md:text-4xl font-bold font-mono bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent leading-none">
-                        {formatPrice(bitflowData?.price || 0)}
-                          </div>
-                          <div className="text-xs md:text-sm text-dusty font-mono">
-                        {bitflowData?.priceSats
-                          ? `${parseFloat(bitflowData.priceSats).toFixed(2)} sats`
-                          : bitflowData?.price
-                          ? `${(bitflowData.price * 100000000).toFixed(2)} sats`
-                          : ''}
-                          </div>
-                        </div>
-                        
-                    <div className="flex items-center gap-2 md:gap-3">
-                      {bitflowData?.change24h !== undefined && bitflowData.change24h !== 0 && (
-                            <div className="flex items-center gap-2">
-                          {bitflowData.change24h > 0 ? (
-                                <TrendingUp className="w-5 md:w-7 h-5 md:h-7 text-green-400" />
-                              ) : (
-                                <TrendingDown className="w-5 md:w-7 h-5 md:h-7 text-red-400" />
-                              )}
-                          <span
-                            className={`text-lg md:text-2xl font-mono font-bold ${
-                              bitflowData.change24h > 0 ? 'text-green-400' : 'text-red-400'
-                            }`}
-                          >
-                            {formatChange(bitflowData.change24h || 0)}
-                            </span>
-                            </div>
-                          )}
-                          
-                      {bitflowData?.status === "success" && (
-                            <div>
-                          <div className={`w-2 md:w-3 h-2 md:h-3 ${bitflowData?.stale ? 'bg-gray-500' : 'bg-green-400'}`}></div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                </div>
-              </div>
-
-              <div className="mt-4 text-xs text-dusty/70 font-mono text-right">
-                {bitflowData?.lastUpdate?.toLocaleTimeString()}
-                </div>
-              </CardContent>
-            </Card>
-          </a>
-      </div>
-
-      {/* Mobile: Bitflow e Dogswap primeiro */}
-      <div className="lg:hidden space-y-4">
-        {renderPartnerCard({
-          exchange: bitflowExchange,
-          data: bitflowData,
-          logoSrc: '/Bitflow.png',
-          logoClassName: 'self-start h-17 md:h-21 w-auto object-contain',
-          priceClassName: 'bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent',
-          satsClassName: 'text-sm md:text-base text-dusty',
-          positiveChangeClass: 'text-orange-200',
-          negativeChangeClass: 'text-red-400',
-        })}
-
-        {renderPartnerCard({
-          exchange: dogswapExchange,
-          data: dogswapData,
-          logoSrc: '/dogswap_logo.png',
-          logoClassName: 'self-start h-12 md:h-16 w-auto object-contain',
-          priceClassName: 'text-snow',
-          satsClassName: 'text-sm md:text-base text-dusty',
-          positiveChangeClass: 'text-sky-300',
-          negativeChangeClass: 'text-red-400',
-          changeOverride: dogswapChange,
-        })}
-      </div>
-
-      {/* Grade de corretoras + Dogswap grande (desktop) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1fr)] gap-4 lg:auto-rows-[minmax(0,1fr)]">
-        {firstRowExchanges.map((exchange, index) => renderExchangeCard(exchange, index))}
-
-        {renderPartnerCard({
-          exchange: dogswapExchange,
-          data: dogswapData,
-          desktopPlacementClass: 'lg:col-start-4 lg:row-start-1',
-          rowSpanClass: 'lg:row-span-2',
-          logoSrc: '/dogswap_logo.png',
-          logoClassName: 'self-start h-12 md:h-16 w-auto object-contain',
-          priceClassName: 'text-snow',
-          satsClassName: 'text-sm md:text-base text-dusty',
-          positiveChangeClass: 'text-sky-300',
-          negativeChangeClass: 'text-red-400',
-          changeOverride: dogswapChange,
-          wrapperClassName: 'hidden lg:block',
-        })}
-
-        {secondRowExchanges.map((exchange, index) =>
-          renderExchangeCard(exchange, index + firstRowExchanges.length)
-        )}
-      </div>
+      {/* Bottom row exchanges: MagicEden, Bitget */}
+      {bottomRowExchanges.map((exchange, index) =>
+        renderExchangeCard(exchange, index + topRowExchanges.length)
+      )}
     </div>
   );
 }

@@ -3,7 +3,6 @@
 import { useRouter, usePathname } from "next/navigation"
 import Header from "./header"
 import Footer from "./footer"
-import MobileBottomNav from "./mobile-bottom-nav"
 import { C2BlockchainBanner } from "./c2-blockchain-banner"
 
 type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate'
@@ -38,7 +37,7 @@ export function Layout({ children, currentPage }: LayoutProps) {
       <Header currentPage={currentPage} setCurrentPage={handleSetCurrentPage} />
 
       {/* Main Content */}
-      <main className="relative pt-16 md:pt-20 flex-1 pb-20 md:pb-0">
+      <main className="relative pt-16 md:pt-20 flex-1">
         <div className="container-fluid transition-opacity duration-150 ease-in-out opacity-100">
           {/* C2 Blockchain Partner Banner - Topo de todas as páginas */}
           <C2BlockchainBanner />
@@ -50,8 +49,6 @@ export function Layout({ children, currentPage }: LayoutProps) {
       {/* Footer */}
       <Footer currentPage={currentPage} setCurrentPage={handleSetCurrentPage} />
 
-      {/* Mobile Bottom Navigation */}
-      <MobileBottomNav currentPage={currentPage} setCurrentPage={handleSetCurrentPage} />
     </div>
   )
 }

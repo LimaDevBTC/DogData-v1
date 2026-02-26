@@ -71,7 +71,7 @@ export default function BitcoinNetworkPage() {
       <div className="pt-2 pb-3 px-3 md:p-6 space-y-3 md:space-y-8">
         {/* Header */}
              <div className="text-center space-y-2 md:space-y-4 px-4">
-               <h1 className="text-2xl md:text-4xl font-bold text-snow font-display flex items-center justify-center whitespace-nowrap">
+               <h1 className="text-2xl md:text-4xl font-bold text-lava-dark font-display flex items-center justify-center whitespace-nowrap">
                  <Network className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 mr-2 md:mr-4 text-lava flex-shrink-0" />
                  Bitcoin Network
                  {updating && (
