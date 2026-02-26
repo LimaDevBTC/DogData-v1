@@ -109,7 +109,7 @@ export default function BitcoinNetworkPage() {
       <SectionDivider title="Network Analytics" icon={Network} />
 
       {/* Charts Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-2 gap-3 md:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-6">
         <HashrateChart data={data} />
         <MempoolChart data={data} />
       </div>

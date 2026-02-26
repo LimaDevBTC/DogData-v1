@@ -497,7 +497,7 @@ export function PriceCards() {
                     </div>
                   ) : (
                     <>
-                      <div className={`text-lg md:text-3xl font-bold font-mono ${priceClassName} leading-tight`}>
+                      <div className={`text-base md:text-3xl font-bold font-mono ${priceClassName} leading-tight`}>
                         {formatPrice(data?.price || 0)}
                       </div>
                       <div className={`${satsClassName} font-mono`}>
