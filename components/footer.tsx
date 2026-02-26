@@ -28,7 +28,7 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
   }
 
   return (
-    <footer className="border-t border-lava/20 mt-20 relative pb-24 md:pb-0">
+    <footer className="border-t border-lava-dark/30 mt-20 relative pb-24 md:pb-0">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         {/* Main Footer Content - Aligned to grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
@@ -51,11 +51,11 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
                 </div>
               </div>
               <div>
-                <h3 className="text-snow font-display text-2xl font-bold tracking-wider">DOG DATA</h3>
+                <h3 className="text-lava-dark font-display text-2xl font-bold tracking-wider">DOG DATA</h3>
               </div>
             </div>
 
-            <p className="text-snow/80 text-sm leading-relaxed font-mono">
+            <p className="text-dusty text-sm leading-relaxed font-mono">
               The ultimate platform for DOG rune analysis on Bitcoin.
               Real-time data and professional tools for the community.
             </p>
@@ -72,7 +72,7 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
               <div className="w-8 h-8 bg-lava/20 border border-lava/30 flex items-center justify-center">
                 <BarChart3 className="w-4 h-4 text-lava" />
               </div>
-              <h4 className="text-snow font-display text-lg font-bold tracking-wider">NAVIGATION</h4>
+              <h4 className="text-lava-dark font-display text-lg font-bold tracking-wider">NAVIGATION</h4>
             </div>
 
             <ul className="space-y-4">
@@ -82,7 +82,7 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
                   className={`w-full text-left transition-all duration-300 flex items-center group py-2 ${
                     currentPage === 'overview'
                       ? 'text-lava bg-lava/10'
-                      : 'text-snow/80 hover:text-lava hover:bg-lava/10'
+                      : 'text-dusty hover:text-lava hover:bg-lava-dark/10'
                   }`}
                 >
                   <div className="w-2 h-2 bg-lava mr-4 group-hover:scale-150 group-hover:shadow-lg group-hover:shadow-lava/50 transition-all duration-300"></div>
@@ -95,7 +95,7 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
                   className={`w-full text-left transition-all duration-300 flex items-center group py-2 ${
                     currentPage === 'transactions'
                       ? 'text-lava bg-lava/10'
-                      : 'text-snow/80 hover:text-lava hover:bg-lava/10'
+                      : 'text-dusty hover:text-lava hover:bg-lava-dark/10'
                   }`}
                 >
                   <div className="w-2 h-2 bg-lava mr-4 group-hover:scale-150 group-hover:shadow-lg group-hover:shadow-lava/50 transition-all duration-300"></div>
@@ -108,7 +108,7 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
                   className={`w-full text-left transition-all duration-300 flex items-center group py-2 ${
                     currentPage === 'holders'
                       ? 'text-lava bg-lava/10'
-                      : 'text-snow/80 hover:text-lava hover:bg-lava/10'
+                      : 'text-dusty hover:text-lava hover:bg-lava-dark/10'
                   }`}
                 >
                   <div className="w-2 h-2 bg-lava mr-4 group-hover:scale-150 group-hover:shadow-lg group-hover:shadow-lava/50 transition-all duration-300"></div>
@@ -121,7 +121,7 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
                   className={`w-full text-left transition-all duration-300 flex items-center group py-2 ${
                     currentPage === 'metrics'
                       ? 'text-lava bg-lava/10'
-                      : 'text-snow/80 hover:text-lava hover:bg-lava/10'
+                      : 'text-dusty hover:text-lava hover:bg-lava-dark/10'
                   }`}
                 >
                   <div className="w-2 h-2 bg-lava mr-4 group-hover:scale-150 group-hover:shadow-lg group-hover:shadow-lava/50 transition-all duration-300"></div>
@@ -134,7 +134,7 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
                   className={`w-full text-left transition-all duration-300 flex items-center group py-2 ${
                     currentPage === 'airdrop'
                       ? 'text-lava bg-lava/10'
-                      : 'text-snow/80 hover:text-lava hover:bg-lava/10'
+                      : 'text-dusty hover:text-lava hover:bg-lava-dark/10'
                   }`}
                 >
                   <div className="w-2 h-2 bg-lava mr-4 group-hover:scale-150 group-hover:shadow-lg group-hover:shadow-lava/50 transition-all duration-300"></div>
@@ -147,7 +147,7 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
                   className={`w-full text-left transition-all duration-300 flex items-center group py-2 ${
                     currentPage === 'bitcoin-network'
                       ? 'text-lava bg-lava/10'
-                      : 'text-snow/80 hover:text-lava hover:bg-lava/10'
+                      : 'text-dusty hover:text-lava hover:bg-lava-dark/10'
                   }`}
                 >
                   <div className="w-2 h-2 bg-lava mr-4 group-hover:scale-150 group-hover:shadow-lg group-hover:shadow-lava/50 transition-all duration-300"></div>
@@ -160,7 +160,7 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
                   className={`w-full text-left transition-all duration-300 flex items-center group py-2 ${
                     currentPage === 'markets'
                       ? 'text-lava bg-lava/10'
-                      : 'text-snow/80 hover:text-lava hover:bg-lava/10'
+                      : 'text-dusty hover:text-lava hover:bg-lava-dark/10'
                   }`}
                 >
                   <div className="w-2 h-2 bg-lava mr-4 group-hover:scale-150 group-hover:shadow-lg group-hover:shadow-lava/50 transition-all duration-300"></div>
@@ -176,7 +176,7 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
               <div className="w-8 h-8 bg-lava/20 border border-lava/30 flex items-center justify-center">
                 <Globe className="w-4 h-4 text-lava" />
               </div>
-              <h4 className="text-snow font-display text-lg font-bold tracking-wider">RESOURCES</h4>
+              <h4 className="text-lava-dark font-display text-lg font-bold tracking-wider">RESOURCES</h4>
             </div>
 
             <ul className="space-y-4">
@@ -185,9 +185,9 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
                   href="https://dogofbitcoin.com/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-snow/80 hover:text-lava transition-all duration-300 flex items-center group py-2 hover:bg-lava/10"
+                  className="text-dusty hover:text-lava transition-all duration-300 flex items-center group py-2 hover:bg-lava-dark/10"
                 >
-                  <div className="w-8 h-8 bg-surface/50 border border-elevated/50 flex items-center justify-center mr-4 group-hover:border-lava/50 group-hover:bg-lava/10 transition-all duration-300">
+                  <div className="w-8 h-8 bg-transparent border border-lava-dark/20 flex items-center justify-center mr-4 group-hover:border-lava/50 group-hover:bg-lava/10 transition-all duration-300">
                     <Globe className="w-4 h-4" />
                   </div>
                   <div className="flex-1">
@@ -202,9 +202,9 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
                   href="https://ordinals.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-snow/80 hover:text-lava transition-all duration-300 flex items-center group py-2 hover:bg-lava/10"
+                  className="text-dusty hover:text-lava transition-all duration-300 flex items-center group py-2 hover:bg-lava-dark/10"
                 >
-                  <div className="w-8 h-8 bg-surface/50 border border-elevated/50 flex items-center justify-center mr-4 group-hover:border-lava/50 group-hover:bg-lava/10 transition-all duration-300">
+                  <div className="w-8 h-8 bg-transparent border border-lava-dark/20 flex items-center justify-center mr-4 group-hover:border-lava/50 group-hover:bg-lava/10 transition-all duration-300">
                     <Shield className="w-4 h-4" />
                   </div>
                   <div className="flex-1">
@@ -219,9 +219,9 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
                   href="https://mempool.space"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-snow/80 hover:text-lava transition-all duration-300 flex items-center group py-2 hover:bg-lava/10"
+                  className="text-dusty hover:text-lava transition-all duration-300 flex items-center group py-2 hover:bg-lava-dark/10"
                 >
-                  <div className="w-8 h-8 bg-surface/50 border border-elevated/50 flex items-center justify-center mr-4 group-hover:border-lava/50 group-hover:bg-lava/10 transition-all duration-300">
+                  <div className="w-8 h-8 bg-transparent border border-lava-dark/20 flex items-center justify-center mr-4 group-hover:border-lava/50 group-hover:bg-lava/10 transition-all duration-300">
                     <Zap className="w-4 h-4" />
                   </div>
                   <div className="flex-1">
@@ -240,7 +240,7 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
               <div className="w-8 h-8 bg-lava/20 border border-lava/30 flex items-center justify-center">
                 <Users className="w-4 h-4 text-lava" />
               </div>
-              <h4 className="text-snow font-display text-lg font-bold tracking-wider">COMMUNITY</h4>
+              <h4 className="text-lava-dark font-display text-lg font-bold tracking-wider">COMMUNITY</h4>
             </div>
 
             <ul className="space-y-4">
@@ -249,9 +249,9 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
                   href="https://x.com/dogdatabtc"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-snow/80 hover:text-lava transition-all duration-300 flex items-center group py-2 hover:bg-lava/10"
+                  className="text-dusty hover:text-lava transition-all duration-300 flex items-center group py-2 hover:bg-lava-dark/10"
                 >
-                  <div className="w-8 h-8 bg-surface/50 border border-elevated/50 flex items-center justify-center mr-4 group-hover:border-lava/50 group-hover:bg-lava/10 transition-all duration-300">
+                  <div className="w-8 h-8 bg-transparent border border-lava-dark/20 flex items-center justify-center mr-4 group-hover:border-lava/50 group-hover:bg-lava/10 transition-all duration-300">
                     {/* X Logo (Twitter rebrand) */}
                     <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                       <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
@@ -269,7 +269,7 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
         </div>
 
         {/* Donate Section */}
-        <div className="border-t border-lava/20 pt-12 mb-12">
+        <div className="border-t border-lava-dark/30 pt-12 mb-12">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
             <div className="flex items-center space-x-4 md:space-x-6">
               <div className="relative">
@@ -279,7 +279,7 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
                 <div className="absolute inset-0 bg-lava/20 blur-xl -z-10"></div>
               </div>
               <div>
-                <h3 className="text-snow font-display text-lg md:text-2xl font-bold tracking-wider">SUPPORT DOG DATA</h3>
+                <h3 className="text-lava-dark font-display text-lg md:text-2xl font-bold tracking-wider">SUPPORT DOG DATA</h3>
                 <p className="text-dusty text-xs md:text-sm font-mono tracking-wide">
                   Keep the project free and open source
                 </p>
@@ -296,7 +296,7 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
         </div>
 
         {/* Bottom Bar */}
-        <div className="border-t border-lava/20 pt-8">
+        <div className="border-t border-lava-dark/30 pt-8">
           <div className="flex flex-col md:flex-row items-center justify-between space-y-6 md:space-y-0">
             <div className="text-dusty text-sm font-mono tracking-wide">
               &copy; {currentYear} DOG DATA. ALL RIGHTS RESERVED.

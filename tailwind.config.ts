@@ -10,7 +10,7 @@ const config: Config = {
     extend: {
       colors: {
         // New semantic tokens - Terminal Luxe palette
-        'void': '#151419',
+        'void': '#000000',
         'surface': '#1B1B1E',
         'elevated': '#262626',
         'lava': {
@@ -22,10 +22,10 @@ const config: Config = {
         'snow': '#FBFBFB',
 
         // Legacy redirects (backward compatibility)
-        'black': '#151419',
-        'dark-gray': '#151419',
+        'black': '#000000',
+        'dark-gray': '#000000',
         'gray': {
-          900: '#151419',
+          900: '#000000',
           800: '#1B1B1E',
           700: '#262626',
           600: '#404040',
@@ -52,7 +52,7 @@ const config: Config = {
           600: '#404040',
           700: '#262626',
           800: '#1B1B1E',
-          900: '#151419',
+          900: '#000000',
         },
         'dog-blue': '#3B82F6',
         'dog-green': '#10B981',

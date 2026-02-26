@@ -10,7 +10,7 @@ const badgeVariants = cva(
         default: "border-transparent bg-lava text-snow shadow",
         secondary: "border-transparent bg-surface text-dusty",
         destructive: "border-transparent bg-red-600 text-snow shadow",
-        outline: "text-dusty border-elevated",
+        outline: "text-dusty border-lava-dark/20",
         success: "border-transparent bg-green-600 text-snow shadow",
         warning: "border-transparent bg-yellow-600 text-snow shadow",
       },

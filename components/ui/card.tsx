@@ -8,16 +8,16 @@ const Card = React.forwardRef<
   }
 >(({ className, variant = 'default', ...props }, ref) => {
   const variants = {
-    default: "bg-surface/50 border border-elevated/50",
-    glass: "glass bg-snow/5 backdrop-blur-lg border border-snow/10",
-    elevated: "bg-surface/80 border border-elevated/50 shadow-xl"
+    default: "bg-transparent border border-lava-dark/20",
+    glass: "glass bg-transparent backdrop-blur-lg border border-lava-dark/15",
+    elevated: "bg-transparent border border-lava-dark/25 shadow-xl"
   }
 
   return (
     <div
       ref={ref}
       className={cn(
-        "p-4 md:p-6 transition-all duration-300 hover:bg-snow/[0.02] hover:border-snow/20",
+        "p-4 md:p-6 overflow-hidden transition-all duration-300 hover:bg-lava-dark/[0.04] hover:border-lava-dark/30",
         variants[variant],
         className
       )}
@@ -46,7 +46,7 @@ const CardTitle = React.forwardRef<
   }
 >(({ className, variant = 'default', ...props }, ref) => {
   const variants = {
-    default: "text-snow font-display font-semibold text-base md:text-lg",
+    default: "text-lava-dark font-display font-semibold text-base md:text-lg",
     gradient: "gradient-text font-display font-bold text-lg md:text-xl",
     mono: "text-snow font-mono font-semibold text-sm md:text-lg"
   }

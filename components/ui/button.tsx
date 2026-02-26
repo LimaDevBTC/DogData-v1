@@ -5,7 +5,7 @@ const buttonVariants = {
   variant: {
     default: "bg-lava hover:bg-lava-dark text-snow",
     glass: "bg-snow/5 hover:bg-snow/10 text-snow border border-snow/20 hover:border-snow/30",
-    outline: "border border-elevated hover:border-dusty text-dusty hover:text-snow hover:bg-surface/30",
+    outline: "border border-lava-dark/20 hover:border-dusty text-dusty hover:text-snow hover:bg-surface/30",
     ghost: "text-dusty hover:text-snow hover:bg-surface/20",
     destructive: "bg-red-500/20 hover:bg-red-500/25 text-red-400 border border-red-500/30",
   },

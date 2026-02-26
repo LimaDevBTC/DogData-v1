@@ -102,9 +102,9 @@ export function TransactionDetailsModal({ transaction, isOpen, onClose }: Transa
 
   return (
     <div className="fixed inset-0 bg-void/90 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-surface border border-elevated rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-surface border border-lava-dark/20 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-elevated">
+        <div className="flex items-center justify-between p-6 border-b border-lava-dark/20">
           <div className="flex items-center gap-3">
             <Hash className="w-6 h-6 text-lava" />
             <h2 className="text-2xl font-bold text-snow">
@@ -272,7 +272,7 @@ export function TransactionDetailsModal({ transaction, isOpen, onClose }: Transa
           </div>
 
           {/* Footer */}
-          <div className="flex justify-end pt-4 border-t border-elevated">
+          <div className="flex justify-end pt-4 border-t border-lava-dark/20">
             <Button
               variant="outline"
               onClick={() => window.open(`https://mempool.space/block/${transaction.block_height}`, '_blank')}

@@ -33,7 +33,7 @@ interface HeaderProps {
 
 export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-void/90 backdrop-blur-xl border-b border-elevated/50">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-void/90 backdrop-blur-xl border-b border-lava-dark/30">
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14 md:h-20">
           {/* Logo */}
@@ -57,7 +57,7 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
                 </div>
               </div>
 
-              <span className="text-snow font-display text-lg md:text-2xl font-bold tracking-wider hover:text-lava transition-colors duration-300 whitespace-nowrap">
+              <span className="text-lava-dark font-display text-lg md:text-2xl font-bold tracking-wider hover:text-lava transition-colors duration-300 whitespace-nowrap">
                 DOG DATA
               </span>
             </button>
@@ -76,7 +76,7 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
                   className={`flex items-center justify-center px-3 py-2.5 text-xs font-mono font-medium tracking-wide transition-colors duration-300 flex-shrink-0 ${
                     isActive
                       ? 'bg-lava/20 text-lava border border-lava/30'
-                      : 'text-dusty hover:text-snow hover:bg-surface/30 border border-transparent hover:border-elevated/30'
+                      : 'text-dusty hover:text-snow hover:bg-surface/30 border border-transparent hover:border-lava-dark/20'
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" />
@@ -101,7 +101,7 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
             </button>
 
             {/* Live Status */}
-            <div className="px-2 md:px-4 py-2 md:py-3 bg-surface/50 border border-elevated/50 flex items-center space-x-1 md:space-x-2">
+            <div className="px-2 md:px-4 py-2 md:py-3 bg-transparent border border-lava-dark/20 flex items-center space-x-1 md:space-x-2">
               <div className="w-2 h-2 bg-green-400 animate-pulse"></div>
               <span className="text-green-400 text-xs font-mono font-medium">LIVE</span>
             </div>
@@ -109,7 +109,7 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
             {/* Refresh Button - Visible on all sizes */}
             <button
               onClick={() => window.location.reload()}
-              className="px-3 py-2 md:py-3 bg-surface/50 border border-elevated/50 hover:bg-elevated/50 hover:border-dusty/30 transition-all duration-300 group"
+              className="px-3 py-2 md:py-3 bg-transparent border border-lava-dark/20 hover:bg-lava-dark/10 hover:border-lava-dark/40 transition-all duration-300 group"
               title="Refresh Data"
             >
               <RefreshCw className="w-4 h-4 text-dusty group-hover:text-lava group-hover:rotate-180 transition-all duration-500" />

@@ -5,7 +5,7 @@
 
 :root {
   /* New Semantic Palette - Terminal Luxe */
-  --color-void: #151419;
+  --color-void: #000000;
   --color-surface: #1B1B1E;
   --color-elevated: #262626;
   --color-lava: #F56E0F;
@@ -15,9 +15,9 @@
   --color-snow: #FBFBFB;
 
   /* Legacy aliases (redirects) */
-  --color-black: #151419;
-  --color-dark-gray: #151419;
-  --color-gray-900: #151419;
+  --color-black: #000000;
+  --color-dark-gray: #000000;
+  --color-gray-900: #000000;
   --color-gray-800: #1B1B1E;
   --color-gray-700: #262626;
   --color-gray-600: #404040;
@@ -55,7 +55,7 @@
   --space-24: 6rem;      /* 96px */
 
   /* Glassmorphism - warmer tones */
-  --glass-bg: rgba(27, 27, 30, 0.6);
+  --glass-bg: rgba(0, 0, 0, 0.6);
   --glass-border: rgba(251, 251, 251, 0.08);
   --glass-blur: blur(16px);
 
@@ -68,7 +68,7 @@
 
   /* Grid Pattern - lava */
   --grid-size: 64px;
-  --grid-color: rgba(245, 110, 15, 0.015);
+  --grid-color: rgba(212, 93, 13, 0.025);
 }
 
 * {

@@ -126,7 +126,7 @@ export default function BitcoinNetworkPage() {
         <CardContent>
           <div className="space-y-4">
             {data.recentBlocks.slice(0, 10).map((block, index) => (
-              <div key={block.id} className="flex items-center justify-between p-4 border-b border-elevated">
+              <div key={block.id} className="flex items-center justify-between p-4 border-b border-lava-dark/15">
                 <div className="flex items-center space-x-4">
                   <div className="w-2 h-2 bg-green-400 rounded-full"></div>
                   <div>
@@ -174,7 +174,7 @@ export default function BitcoinNetworkPage() {
         <CardContent>
           <div className="space-y-4">
             {data.miningPools.slice(0, 10).map((pool, index) => (
-              <div key={pool.poolId} className="flex items-center justify-between p-4 border-b border-elevated">
+              <div key={pool.poolId} className="flex items-center justify-between p-4 border-b border-lava-dark/15">
                 <div className="flex items-center space-x-4">
                   <div className="w-8 h-8 bg-gradient-to-r from-lava to-lava-dark rounded-full flex items-center justify-center text-snow font-bold text-sm">
                     {index + 1}

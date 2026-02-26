@@ -251,7 +251,7 @@ export default function MarketsPage() {
                     <select
                       value={sortBy}
                       onChange={(e) => setSortBy(e.target.value as any)}
-                      className="bg-surface/50 border border-elevated text-snow px-3 py-2 font-mono text-sm focus:outline-none focus:border-lava transition-colors"
+                      className="bg-transparent border border-lava-dark/15 text-snow px-3 py-2 font-mono text-sm focus:outline-none focus:border-lava transition-colors"
                     >
                       <option value="volume">Volume</option>
                       <option value="spread">Spread</option>
@@ -259,7 +259,7 @@ export default function MarketsPage() {
                     </select>
                     <button
                       onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                      className="px-3 py-2 bg-surface/50 border border-elevated hover:border-lava transition-colors text-snow"
+                      className="px-3 py-2 bg-transparent border border-lava-dark/15 hover:border-lava transition-colors text-snow"
                     >
                       {sortOrder === 'asc' ? '↑' : '↓'}
                     </button>
@@ -335,7 +335,7 @@ export default function MarketsPage() {
                 {/* Mobile Cards - shown on mobile, hidden on desktop */}
                 <div className="md:hidden space-y-3">
                   {sortedTickers.map((ticker, index) => (
-                    <Card key={index} variant="glass" className="border-elevated/50">
+                    <Card key={index} variant="glass" className="border-lava-dark/15/50">
                       <CardContent className="p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-2">

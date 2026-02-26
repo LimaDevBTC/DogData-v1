@@ -576,7 +576,7 @@ export default function AirdropPage() {
               value={searchAddress}
               onChange={(e) => setSearchAddress(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && searchRecipient()}
-              className="flex-1 bg-transparent border-elevated/50 text-snow"
+              className="flex-1 bg-transparent border-lava-dark/15/50 text-snow"
             />
             <Button onClick={searchRecipient} className="btn-sharp">
               Search
@@ -584,7 +584,7 @@ export default function AirdropPage() {
           </div>
           
           {searchResult && (
-            <div className="mt-4 p-4 bg-transparent border border-elevated/50">
+            <div className="mt-4 p-4 bg-transparent border border-lava-dark/15/50">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-dusty text-sm">Address</p>
@@ -692,7 +692,7 @@ export default function AirdropPage() {
                   className={`flex items-center justify-between p-3 h-auto ${
                     isActive 
                       ? 'bg-lava/20 text-lava border border-lava/30' 
-                      : 'text-snow/80 hover:text-snow hover:bg-surface/30 border border-transparent hover:border-elevated/30'
+                      : 'text-snow/80 hover:text-snow hover:bg-surface/30 border border-transparent hover:border-lava-dark/15/30'
                   }`}
                   onClick={() => handleListChange(list.key as BehaviorList)}
                 >
@@ -708,7 +708,7 @@ export default function AirdropPage() {
           </div>
 
           {/* Current List Info */}
-          <div className="mb-4 p-4 bg-transparent border border-elevated/50">
+          <div className="mb-4 p-4 bg-transparent border border-lava-dark/15/50">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-snow font-mono text-lg">
@@ -735,7 +735,7 @@ export default function AirdropPage() {
             <div className={`overflow-x-auto transition-opacity duration-300 ${isUpdating ? 'opacity-90' : 'opacity-100'}`}>
               <table className="w-full">
               <thead>
-                <tr className="border-b border-elevated/50">
+                <tr className="border-b border-lava-dark/15/50">
                   <th className="text-left py-3 px-4 text-lava font-mono text-sm">#</th>
                   <th className="text-left py-3 px-4 text-lava font-mono text-sm">Address</th>
                   <th className="text-center py-3 px-4 text-lava font-mono text-sm">Received</th>

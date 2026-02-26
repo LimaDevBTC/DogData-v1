@@ -1004,12 +1004,12 @@ export default function HoldersPage() {
                       setTimeout(() => setShowSuggestions(false), 200)
                     }
                   }}
-                  className="flex-1 bg-transparent border-elevated/50 text-snow"
+                  className="flex-1 bg-transparent border-lava-dark/15/50 text-snow"
                 />
                 
                 {/* Dropdown de Sugestões */}
                 {showSuggestions && searchSuggestions.length > 0 && (
-                  <div className="suggestions-dropdown absolute w-full mt-2 bg-surface border border-elevated/50 shadow-xl max-h-80 overflow-y-auto" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10000, isolation: 'isolate' }}>
+                  <div className="suggestions-dropdown absolute w-full mt-2 bg-surface border border-lava-dark/20 shadow-xl max-h-80 overflow-y-auto" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10000, isolation: 'isolate' }}>
                     {searchSuggestions.map((suggestion, idx) => (
                       <div
                         key={suggestion.address}
@@ -1025,7 +1025,7 @@ export default function HoldersPage() {
                         }}
                       >
                         {suggestion.logo ? (
-                          <div className="relative w-10 h-10 overflow-hidden bg-surface/50 border border-elevated/50 flex items-center justify-center shrink-0">
+                          <div className="relative w-10 h-10 overflow-hidden bg-surface/50 border border-lava-dark/20 flex items-center justify-center shrink-0">
                             <Image
                               src={suggestion.logo}
                               alt={suggestion.name}
@@ -1035,7 +1035,7 @@ export default function HoldersPage() {
                             />
                           </div>
                         ) : (
-                          <div className="w-10 h-10 bg-surface/50 border border-elevated/50 flex items-center justify-center shrink-0">
+                          <div className="w-10 h-10 bg-surface/50 border border-lava-dark/20 flex items-center justify-center shrink-0">
                             <span className="text-dusty text-xs font-mono font-bold">?</span>
                           </div>
                         )}
@@ -1057,15 +1057,15 @@ export default function HoldersPage() {
             
             {/* Search Result */}
             {searchResult && (
-              <div className="mt-4 p-6 bg-surface border border-elevated/50">
+              <div className="mt-4 p-6 bg-transparent border border-lava-dark/20">
                 <div className="space-y-6">
                   {/* Identificação da Carteira */}
                   {(() => {
                     const verified = getVerified(searchResult.address)
                     if (verified && verified.type === 'official' && verified.logo) {
                       return (
-                        <div className="flex items-center gap-4 p-4 bg-surface/30 border border-elevated/50">
-                          <div className="relative w-16 h-16 overflow-hidden bg-surface/50 border border-elevated/50 flex items-center justify-center shrink-0">
+                        <div className="flex items-center gap-4 p-4 bg-transparent border border-lava-dark/20">
+                          <div className="relative w-16 h-16 overflow-hidden bg-transparent border border-lava-dark/20 flex items-center justify-center shrink-0">
                             <Image
                               src={verified.logo}
                               alt={verified.name || 'Verified'}
@@ -1192,7 +1192,7 @@ export default function HoldersPage() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-elevated/50">
+                <tr className="border-b border-lava-dark/15/50">
                   <th className="text-left py-3 px-4 text-lava font-mono text-xs uppercase tracking-[0.25em]">Address</th>
                   <th className="text-right py-3 px-4 text-lava font-mono text-xs uppercase tracking-[0.25em]">DOG Balance</th>
                   <th className="text-center py-3 px-4 text-lava font-mono text-xs uppercase tracking-[0.25em]">UTXOs</th>
@@ -1283,7 +1283,7 @@ export default function HoldersPage() {
                     </td>
                   </tr>
                   {expandedAddress === holder.address && expandedHolder && (
-                    <tr className="bg-surface border-t border-elevated/30">
+                    <tr className="bg-transparent border-t border-lava-dark/15/30">
                       <td colSpan={5} className="p-6">
                         <div className="space-y-6">
                           {/* Identificação Melhorada */}
@@ -1291,8 +1291,8 @@ export default function HoldersPage() {
                             const verified = getVerified(expandedHolder.address)
                             if (verified && verified.type === 'official' && verified.logo) {
                               return (
-                                <div className="flex items-center gap-4 p-4 bg-surface/30 border border-elevated/50">
-                                  <div className="relative w-16 h-16 overflow-hidden bg-surface/50 border border-elevated/50 flex items-center justify-center shrink-0">
+                                <div className="flex items-center gap-4 p-4 bg-transparent border border-lava-dark/20">
+                                  <div className="relative w-16 h-16 overflow-hidden bg-transparent border border-lava-dark/20 flex items-center justify-center shrink-0">
                                     <Image
                                       src={verified.logo}
                                       alt={verified.name || 'Verified'}

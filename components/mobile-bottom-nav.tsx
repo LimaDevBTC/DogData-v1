@@ -57,7 +57,7 @@ export default function MobileBottomNav({ currentPage, setCurrentPage }: MobileB
             onClick={() => setMoreOpen(false)}
           />
           {/* Menu */}
-          <div className="relative z-50 mx-3 mb-2 bg-surface/95 backdrop-blur-xl border border-elevated rounded-t-lg animate-fade-in overflow-hidden">
+          <div className="relative z-50 mx-3 mb-2 bg-surface/95 backdrop-blur-xl border border-lava-dark/20 rounded-t-lg animate-fade-in overflow-hidden">
             <div className="grid grid-cols-2 gap-px bg-elevated/30">
               {moreNav.map((item) => {
                 const Icon = item.icon
@@ -85,7 +85,7 @@ export default function MobileBottomNav({ currentPage, setCurrentPage }: MobileB
       )}
 
       {/* Main bottom bar */}
-      <nav className="bg-void/95 backdrop-blur-xl border-t border-elevated/50 pb-[env(safe-area-inset-bottom)]">
+      <nav className="bg-void/95 backdrop-blur-xl border-t border-lava-dark/20/50 pb-[env(safe-area-inset-bottom)]">
         <div className="flex items-stretch justify-around h-16">
           {/* Primary nav items */}
           {primaryNav.map((item) => {

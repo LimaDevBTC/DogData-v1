@@ -451,7 +451,7 @@ export default function TransactionsPage() {
   const [hasMore, setHasMore] = useState(false) // DESABILITADO - apenas JSON local
   const [offset, setOffset] = useState(0)
   const [metrics24h, setMetrics24h] = useState<MetricsLast24h | null>(null)
-  const metricsCardClass = "stagger-item md:min-h-[160px] h-full border border-elevated/60 bg-gradient-to-br from-void/40 via-surface/30 to-void/20"
+  const metricsCardClass = "stagger-item md:min-h-[160px] h-full border border-lava-dark/15/60 bg-gradient-to-br from-void/40 via-surface/30 to-void/20"
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
@@ -1220,7 +1220,7 @@ export default function TransactionsPage() {
       </div>
 
       {tx.has_change && tx.net_transfer !== undefined && (
-        <div className="bg-surface/30 border border-elevated/50 rounded-lg p-2.5">
+        <div className="bg-transparent border border-lava-dark/20 rounded-lg p-2.5">
           <div className="flex justify-between items-center text-[11px] font-mono text-dusty/70">
             <span>Change returned to sender:</span>
             <span className="text-dusty">{formatDOG(tx.change_amount || 0)}</span>
@@ -1413,7 +1413,7 @@ export default function TransactionsPage() {
                     className={`font-mono text-[11px] px-3 py-1 border ${
                       autoRefresh
                         ? 'border-purple-500/40 text-purple-200 hover:text-purple-100'
-                        : 'border-elevated text-dusty hover:text-snow/80'
+                        : 'border-lava-dark/15 text-dusty hover:text-snow/80'
                     }`}
                   >
                     {autoRefresh ? 'AUTO ON' : 'AUTO OFF'}
@@ -1825,7 +1825,7 @@ export default function TransactionsPage() {
                 value={searchTxid}
                 onChange={(e) => setSearchTxid(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && searchTransaction()}
-                className="flex-1 bg-transparent border-elevated/50 text-snow"
+                className="flex-1 bg-transparent border-lava-dark/15/50 text-snow"
               />
               <Button onClick={searchTransaction} className="btn-sharp">
                 Search
@@ -1861,7 +1861,7 @@ export default function TransactionsPage() {
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse table-auto">
                   <thead>
-                    <tr className="border-b border-elevated/50">
+                    <tr className="border-b border-lava-dark/15/50">
                       <th className="text-left py-2 px-2 text-lava font-mono text-xs w-[70px]">Block</th>
                       <th className="text-left py-2 px-2 text-lava font-mono text-xs w-[180px]">From</th>
                       <th className="text-left py-2 px-2 text-lava font-mono text-xs w-[180px]">To</th>
