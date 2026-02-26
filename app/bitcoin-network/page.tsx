@@ -58,7 +58,7 @@ export default function BitcoinNetworkPage() {
           <h2 className="text-2xl font-bold text-red-400 font-mono mb-4">
             Error Loading Data
           </h2>
-          <p className="text-gray-400 font-mono">
+          <p className="text-dusty font-mono">
             {error || 'Unable to load Bitcoin network data'}
           </p>
         </div>
@@ -71,17 +71,17 @@ export default function BitcoinNetworkPage() {
       <div className="pt-2 pb-3 px-3 md:p-6 space-y-3 md:space-y-8">
         {/* Header */}
              <div className="text-center space-y-2 md:space-y-4 px-4">
-               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white font-mono flex items-center justify-center whitespace-nowrap">
-                 <Network className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 mr-2 md:mr-4 text-orange-500 flex-shrink-0" />
+               <h1 className="text-2xl md:text-4xl font-bold text-snow font-display flex items-center justify-center whitespace-nowrap">
+                 <Network className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 mr-2 md:mr-4 text-lava flex-shrink-0" />
                  Bitcoin Network
                  {updating && (
-                   <div className="ml-2 md:ml-3 w-2 h-2 md:w-3 md:h-3 bg-orange-500 rounded-full animate-pulse flex-shrink-0"></div>
+                   <div className="ml-2 md:ml-3 w-2 h-2 md:w-3 md:h-3 bg-lava rounded-full animate-pulse flex-shrink-0"></div>
                  )}
                </h1>
-               <p className="text-gray-400 font-mono text-sm md:text-lg">
+               <p className="text-dusty font-mono text-sm md:text-lg">
                  Real-time Bitcoin blockchain statistics and network health
                  {updating && (
-                   <span className="ml-2 text-orange-400 text-xs md:text-sm">• Updating...</span>
+                   <span className="ml-2 text-lava text-xs md:text-sm">• Updating...</span>
                  )}
                </p>
              </div>
@@ -92,10 +92,10 @@ export default function BitcoinNetworkPage() {
       <SectionDivider title="Bitcoin Price Chart" icon={Network} />
 
       {/* TradingView Chart */}
-      <Card variant="glass" className="border-orange-500/20">
+      <Card variant="glass" className="border-lava/20">
         <CardHeader>
-          <CardTitle className="text-orange-400 text-xl flex items-center">
-            <Network className="w-6 h-6 mr-3 text-orange-500" />
+          <CardTitle className="text-lava text-xl font-display flex items-center">
+            <Network className="w-6 h-6 mr-3 text-lava" />
             Bitcoin Price Analysis
           </CardTitle>
         </CardHeader>
@@ -109,7 +109,7 @@ export default function BitcoinNetworkPage() {
       <SectionDivider title="Network Analytics" icon={Network} />
 
       {/* Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-2 lg:grid-cols-2 gap-3 md:gap-6">
         <HashrateChart data={data} />
         <MempoolChart data={data} />
       </div>
@@ -117,23 +117,23 @@ export default function BitcoinNetworkPage() {
       <SectionDivider title="Recent Blocks" icon={Network} />
 
       {/* Recent Blocks */}
-      <Card variant="glass" className="border-orange-500/20">
+      <Card variant="glass" className="border-lava/20">
         <CardHeader>
-          <CardTitle className="text-orange-400 text-xl">
+          <CardTitle className="text-lava text-xl font-display">
             Recent Blocks
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {data.recentBlocks.slice(0, 10).map((block, index) => (
-              <div key={block.id} className="flex items-center justify-between p-4 border-b border-gray-800">
+              <div key={block.id} className="flex items-center justify-between p-4 border-b border-elevated">
                 <div className="flex items-center space-x-4">
                   <div className="w-2 h-2 bg-green-400 rounded-full"></div>
                   <div>
-                    <div className="text-white font-mono font-semibold">
+                    <div className="text-snow font-mono font-semibold">
                       Block #{block.height}
                     </div>
-                    <div className="text-gray-400 font-mono text-sm">
+                    <div className="text-dusty font-mono text-sm">
                       {block.txCount} transactions • {BitcoinApiService.formatNumber(block.size)} bytes
                     </div>
                     {block.miner && (
@@ -144,7 +144,7 @@ export default function BitcoinNetworkPage() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-white font-mono">
+                  <div className="text-snow font-mono">
                     {new Date(block.timestamp).toLocaleTimeString('en-US', {
                       hour: '2-digit',
                       minute: '2-digit',
@@ -152,7 +152,7 @@ export default function BitcoinNetworkPage() {
                       hour12: true
                     })}
                   </div>
-                  <div className="text-gray-400 font-mono text-sm">
+                  <div className="text-dusty font-mono text-sm">
                     {(block.reward / 100000000).toFixed(8)} BTC reward
                   </div>
                 </div>
@@ -165,30 +165,30 @@ export default function BitcoinNetworkPage() {
       <SectionDivider title="Mining Pools" icon={Network} />
 
       {/* Mining Pools */}
-      <Card variant="glass" className="border-orange-500/20">
+      <Card variant="glass" className="border-lava/20">
         <CardHeader>
-          <CardTitle className="text-orange-400 text-xl">
+          <CardTitle className="text-lava text-xl font-display">
             Top Mining Pools (7 Days)
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {data.miningPools.slice(0, 10).map((pool, index) => (
-              <div key={pool.poolId} className="flex items-center justify-between p-4 border-b border-gray-800">
+              <div key={pool.poolId} className="flex items-center justify-between p-4 border-b border-elevated">
                 <div className="flex items-center space-x-4">
-                  <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-orange-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                  <div className="w-8 h-8 bg-gradient-to-r from-lava to-lava-dark rounded-full flex items-center justify-center text-snow font-bold text-sm">
                     {index + 1}
                   </div>
                   <div>
-                    <div className="text-white font-mono font-semibold">{pool.name}</div>
-                    <div className="text-gray-400 font-mono text-sm">{pool.blockCount} blocks</div>
+                    <div className="text-snow font-mono font-semibold">{pool.name}</div>
+                    <div className="text-dusty font-mono text-sm">{pool.blockCount} blocks</div>
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="text-green-400 font-mono font-bold">
                     {pool.avgMatchRate}% Match Rate
                   </div>
-                  <div className="text-gray-400 font-mono text-sm">
+                  <div className="text-dusty font-mono text-sm">
                     {pool.avgFeeDelta}% Fee Delta
                   </div>
                 </div>

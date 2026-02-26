@@ -63,7 +63,7 @@ export const TransactionRow = React.memo(function TransactionRow({
   const mainReceiver = tx.receivers[0]
 
   return (
-    <tr style={style} className="table-row border-b border-gray-800/30 hover:bg-gray-800/20">
+    <tr style={style} className="table-row border-b border-elevated/30 hover:bg-surface/20">
       {/* Block Height */}
       <td className="py-2 px-1">
         <span className="text-cyan-400 font-mono text-xs">
@@ -98,7 +98,7 @@ export const TransactionRow = React.memo(function TransactionRow({
             </Button>
           )}
           {tx.sender_count > 1 && (
-            <span className="text-gray-500 text-xs">+{tx.sender_count - 1}</span>
+            <span className="text-dusty/70 text-xs">+{tx.sender_count - 1}</span>
           )}
         </div>
       </td>
@@ -130,7 +130,7 @@ export const TransactionRow = React.memo(function TransactionRow({
             </Button>
           )}
           {tx.receiver_count > 1 && (
-            <span className="text-gray-500 text-xs">+{tx.receiver_count - 1}</span>
+            <span className="text-dusty/70 text-xs">+{tx.receiver_count - 1}</span>
           )}
         </div>
       </td>
@@ -144,7 +144,7 @@ export const TransactionRow = React.memo(function TransactionRow({
 
       {/* Amount - Valor líquido enviado */}
       <td className="py-2 px-1 text-right">
-        <span className="text-orange-400 font-mono font-bold text-xs">
+        <span className="text-lava font-mono font-bold text-xs">
           {tx.net_transfer !== undefined 
             ? formatDOG(tx.net_transfer) 
             : formatDOG(tx.total_dog_moved)}
@@ -155,14 +155,14 @@ export const TransactionRow = React.memo(function TransactionRow({
       <td className="py-2 px-1 text-center">
         <div className="flex items-center justify-center gap-1 text-xs font-mono">
           <span className="text-cyan-400">{tx.sender_count}</span>
-          <ArrowRightLeft className="w-2.5 h-2.5 text-gray-500" />
+          <ArrowRightLeft className="w-2.5 h-2.5 text-dusty/70" />
           <span className="text-green-400">{tx.receiver_count}</span>
         </div>
       </td>
 
       {/* Time - Compacto */}
       <td className="py-2 px-2">
-        <span className="text-gray-400 font-mono text-xs">
+        <span className="text-dusty font-mono text-xs">
           {formatTime(tx.timestamp)}
         </span>
       </td>
@@ -170,7 +170,7 @@ export const TransactionRow = React.memo(function TransactionRow({
       {/* TXID + Actions - Compacto */}
       <td className="py-2 px-2">
         <div className="flex items-center justify-center gap-0.5">
-          <code className="text-white text-xs">
+          <code className="text-snow text-xs">
             {tx.txid.substring(0, 6)}...
           </code>
           <Button

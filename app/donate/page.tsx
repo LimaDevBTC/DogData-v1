@@ -76,27 +76,27 @@ export default function DonatePage() {
       <div className="pt-2 pb-3 px-3 md:p-6 space-y-3 md:space-y-6">
         {/* Header */}
         <div className="text-center space-y-2 md:space-y-4">
-          <h1 className="text-4xl font-bold text-white font-mono flex items-center justify-center">
-            <Heart className="w-10 h-10 mr-4 text-dog-orange" />
+          <h1 className="text-2xl md:text-4xl font-bold text-snow font-display flex items-center justify-center">
+            <Heart className="w-8 h-8 md:w-10 md:h-10 mr-3 md:mr-4 text-lava" />
             Support DOG Community
           </h1>
-        
-          <p className="text-dog-gray-400 font-mono text-lg">
+
+          <p className="text-dusty font-mono text-base md:text-lg">
             Help us build the future of Bitcoin runes and ordinal technology
           </p>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mt-4 md:mt-8">
+          <div className="grid grid-cols-3 gap-3 md:gap-6 mt-4 md:mt-8">
             <div className="flex items-center justify-center space-x-2 text-green-400">
-              <Shield className="w-5 h-5" />
-              <span className="font-mono text-sm">Secure & Transparent</span>
+              <Shield className="w-4 h-4 md:w-5 md:h-5" />
+              <span className="font-mono text-xs md:text-sm">Secure</span>
             </div>
             <div className="flex items-center justify-center space-x-2 text-blue-400">
-              <Users className="w-5 h-5" />
-              <span className="font-mono text-sm">Community Driven</span>
+              <Users className="w-4 h-4 md:w-5 md:h-5" />
+              <span className="font-mono text-xs md:text-sm">Community</span>
             </div>
             <div className="flex items-center justify-center space-x-2 text-yellow-400">
-              <Star className="w-5 h-5" />
-              <span className="font-mono text-sm">Open Source</span>
+              <Star className="w-4 h-4 md:w-5 md:h-5" />
+              <span className="font-mono text-xs md:text-sm">Open Source</span>
           </div>
         </div>
       </div>
@@ -107,13 +107,13 @@ export default function DonatePage() {
         <div className="max-w-6xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Bitcoin Logo Card */}
-          <Card 
-            variant="glass" 
-            className="border-orange-500/20 hover:border-orange-500/60 transition-all cursor-pointer group"
+          <Card
+            variant="glass"
+            className="border-lava/20 hover:border-lava/60 transition-all cursor-pointer group"
             onClick={() => handleLogoClick('bitcoin')}
           >
-            <CardContent className="p-8 flex flex-col items-center justify-center space-y-4">
-              <div className="relative w-32 h-32 group-hover:scale-110 transition-transform duration-300">
+            <CardContent className="p-5 md:p-8 flex flex-col items-center justify-center space-y-4">
+              <div className="relative w-24 h-24 md:w-32 md:h-32 group-hover:scale-110 transition-transform duration-300">
                 <Image
                   src="/BTC.png"
                   alt="Bitcoin"
@@ -122,21 +122,21 @@ export default function DonatePage() {
                   className="w-full h-full object-contain"
                 />
               </div>
-              <h3 className="text-2xl font-bold text-orange-400 font-mono">Bitcoin</h3>
-              <p className="text-gray-400 text-sm font-mono text-center">
+              <h3 className="text-xl md:text-2xl font-bold text-lava font-display">Bitcoin</h3>
+              <p className="text-dusty text-sm font-mono text-center">
                 Click to donate with BTC
               </p>
             </CardContent>
           </Card>
 
           {/* DOG Logo Card */}
-          <Card 
-            variant="glass" 
-            className="border-orange-500/20 hover:border-orange-500/60 transition-all cursor-pointer group"
+          <Card
+            variant="glass"
+            className="border-lava/20 hover:border-lava/60 transition-all cursor-pointer group"
             onClick={() => handleLogoClick('dog')}
           >
-            <CardContent className="p-8 flex flex-col items-center justify-center space-y-4">
-              <div className="relative w-32 h-32 group-hover:scale-110 transition-transform duration-300">
+            <CardContent className="p-5 md:p-8 flex flex-col items-center justify-center space-y-4">
+              <div className="relative w-24 h-24 md:w-32 md:h-32 group-hover:scale-110 transition-transform duration-300">
                 <Image
                   src="/DOG.png"
                   alt="DOG Rune"
@@ -145,21 +145,21 @@ export default function DonatePage() {
                   className="w-full h-full object-contain"
                 />
               </div>
-              <h3 className="text-2xl font-bold text-orange-400 font-mono">DOG</h3>
-              <p className="text-gray-400 text-sm font-mono text-center">
+              <h3 className="text-xl md:text-2xl font-bold text-lava font-display">DOG</h3>
+              <p className="text-dusty text-sm font-mono text-center">
                 Click to donate with DOG
               </p>
             </CardContent>
           </Card>
 
           {/* Stacks Logo Card */}
-          <Card 
-            variant="glass" 
-            className="border-orange-500/20 hover:border-orange-500/60 transition-all cursor-pointer group"
+          <Card
+            variant="glass"
+            className="border-lava/20 hover:border-lava/60 transition-all cursor-pointer group"
             onClick={() => handleLogoClick('stacks')}
           >
-            <CardContent className="p-8 flex flex-col items-center justify-center space-y-4">
-              <div className="relative w-32 h-32 group-hover:scale-110 transition-transform duration-300">
+            <CardContent className="p-5 md:p-8 flex flex-col items-center justify-center space-y-4">
+              <div className="relative w-24 h-24 md:w-32 md:h-32 group-hover:scale-110 transition-transform duration-300">
                 <Image
                   src="/STX .png"
                   alt="Stacks"
@@ -168,8 +168,8 @@ export default function DonatePage() {
                   className="w-full h-full object-contain"
                 />
               </div>
-              <h3 className="text-2xl font-bold text-orange-400 font-mono">Stacks</h3>
-              <p className="text-gray-400 text-sm font-mono text-center">
+              <h3 className="text-xl md:text-2xl font-bold text-lava font-display">Stacks</h3>
+              <p className="text-dusty text-sm font-mono text-center">
                 Click to donate with STX
               </p>
             </CardContent>
@@ -182,34 +182,34 @@ export default function DonatePage() {
           <div className="text-center space-y-8">
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card variant="glass" className="border-orange-500/20">
-              <CardContent className="p-6 text-center">
-                <div className="text-4xl font-bold text-orange-400 font-mono mb-2">
+            <Card variant="glass" className="border-lava/20">
+              <CardContent className="p-4 md:p-6 text-center">
+                <div className="text-2xl md:text-4xl font-bold text-lava font-display mb-2">
                   Research
                 </div>
-                <p className="text-gray-400 font-mono text-sm">
+                <p className="text-dusty font-mono text-sm">
                   Advanced Bitcoin rune analytics and ordinal technology research
                 </p>
               </CardContent>
             </Card>
 
-            <Card variant="glass" className="border-orange-500/20">
-              <CardContent className="p-6 text-center">
-                <div className="text-4xl font-bold text-orange-400 font-mono mb-2">
+            <Card variant="glass" className="border-lava/20">
+              <CardContent className="p-4 md:p-6 text-center">
+                <div className="text-2xl md:text-4xl font-bold text-lava font-display mb-2">
                   Development
                 </div>
-                <p className="text-gray-400 font-mono text-sm">
+                <p className="text-dusty font-mono text-sm">
                   Open-source tools and infrastructure for the DOG ecosystem
                 </p>
               </CardContent>
             </Card>
 
-            <Card variant="glass" className="border-orange-500/20">
-              <CardContent className="p-6 text-center">
-                <div className="text-4xl font-bold text-orange-400 font-mono mb-2">
+            <Card variant="glass" className="border-lava/20">
+              <CardContent className="p-4 md:p-6 text-center">
+                <div className="text-2xl md:text-4xl font-bold text-lava font-display mb-2">
                   Community
                 </div>
-                <p className="text-gray-400 font-mono text-sm">
+                <p className="text-dusty font-mono text-sm">
                   Educational content and community building initiatives
                 </p>
               </CardContent>
@@ -217,7 +217,7 @@ export default function DonatePage() {
           </div>
 
           <div className="max-w-2xl mx-auto">
-            <p className="text-gray-300 font-mono text-lg leading-relaxed">
+            <p className="text-snow/80 font-mono text-base md:text-lg leading-relaxed">
               Every donation, no matter the size, helps us continue building tools 
               that benefit the entire Bitcoin and DOG community. Thank you for your support! 🙏
             </p>
@@ -240,28 +240,28 @@ export default function DonatePage() {
 
       {/* Modal Overlay for Donation Details */}
       {selectedDonation && (
-        <div 
-          className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-6"
+        <div
+          className="fixed inset-0 bg-void/90 backdrop-blur-sm z-50 flex items-center justify-center p-4 md:p-6"
           onClick={handleClose}
         >
-          <Card 
-            variant="glass" 
-            className="border-orange-500/40 max-w-md w-full"
+          <Card
+            variant="glass"
+            className="border-lava/40 max-w-md w-full"
             onClick={(e) => e.stopPropagation()}
           >
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="text-orange-400 text-2xl font-mono">
+                <CardTitle className="text-lava text-xl md:text-2xl font-display">
                   {DONATION_DATA[selectedDonation].title}
                 </CardTitle>
                 <button
                   onClick={handleClose}
-                  className="text-gray-400 hover:text-white transition-colors"
+                  className="text-dusty hover:text-snow transition-colors"
                 >
                   <X className="w-6 h-6" />
                 </button>
               </div>
-              <p className="text-gray-400 text-sm font-mono mt-2">
+              <p className="text-dusty text-sm font-mono mt-2">
                 {DONATION_DATA[selectedDonation].description}
               </p>
             </CardHeader>
@@ -277,13 +277,13 @@ export default function DonatePage() {
                     className="w-full h-auto"
                   />
                 </div>
-                <p className="text-xs text-gray-400 font-mono mt-3">Scan with your wallet</p>
+                <p className="text-xs text-dusty font-mono mt-3">Scan with your wallet</p>
               </div>
 
               {/* Address */}
-              <div className="p-4 border border-orange-500/30 bg-orange-500/5">
-                <div className="text-xs text-orange-400 font-mono mb-2 uppercase tracking-wide">Address:</div>
-                <div className="font-mono text-sm break-all text-gray-200">
+              <div className="p-4 border border-lava/30 bg-lava/5">
+                <div className="text-xs text-lava font-mono mb-2 uppercase tracking-wide">Address:</div>
+                <div className="font-mono text-sm break-all text-snow/90">
                   {DONATION_ADDRESSES[selectedDonation]}
                 </div>
               </div>
@@ -293,7 +293,7 @@ export default function DonatePage() {
                 variant="outline"
                 size="lg"
                 onClick={() => copyToClipboard(DONATION_ADDRESSES[selectedDonation], selectedDonation)}
-                className="w-full btn-sharp bg-orange-500/10 hover:bg-orange-500/20 border-orange-500/30"
+                className="w-full btn-sharp bg-lava/10 hover:bg-lava/20 border-lava/30"
               >
                 {copiedAddress === selectedDonation ? (
                   <>

@@ -30,16 +30,16 @@ export function TrendIndicator({
     lg: 'w-5 h-5'
   }
   
-  const colorClass = isNeutral 
-    ? 'text-gray-400' 
-    : isPositive 
-      ? 'text-green-400' 
+  const colorClass = isNeutral
+    ? 'text-dusty'
+    : isPositive
+      ? 'text-green-400'
       : 'text-red-400'
-  
-  const bgClass = isNeutral 
-    ? 'bg-gray-500/10' 
-    : isPositive 
-      ? 'bg-green-500/10' 
+
+  const bgClass = isNeutral
+    ? 'bg-dusty/10'
+    : isPositive
+      ? 'bg-green-500/10'
       : 'bg-red-500/10'
   
   const Icon = isNeutral ? Minus : isPositive ? TrendingUp : TrendingDown

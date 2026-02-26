@@ -348,11 +348,11 @@ export function PriceCards() {
                           if (fallback) fallback.style.display = 'flex';
                         }}
                       />
-                <div className="hidden w-12 h-12 bg-gradient-to-r from-gray-600 to-gray-700 flex items-center justify-center text-white font-bold text-base uppercase rounded">
+                <div className="hidden w-12 h-12 bg-gradient-to-r from-elevated to-elevated flex items-center justify-center text-snow font-bold text-base uppercase rounded">
                         {exchange.icon}
                       </div>
                     </div>
-              {!isWorking && <span className="text-xs text-gray-500">Coming Soon</span>}
+              {!isWorking && <span className="text-xs text-dusty/70">Coming Soon</span>}
                   </div>
                   {isSuccess && (
                     <div className="flex items-center">
@@ -364,13 +364,13 @@ export function PriceCards() {
         <CardContent className="p-4 space-y-3">
                 {!isWorking ? (
                   <div className="space-y-2">
-              <div className="text-gray-400 font-mono text-sm">Coming Soon</div>
-                    <div className="text-gray-500 text-xs">API integration pending</div>
+              <div className="text-dusty font-mono text-sm">Coming Soon</div>
+                    <div className="text-dusty/70 text-xs">API integration pending</div>
                   </div>
                 ) : isLoading && !priceData ? (
                   <div className="space-y-2">
-              <div className="h-5 bg-gray-700/50 animate-pulse rounded"></div>
-              <div className="h-4 bg-gray-700/30 animate-pulse rounded"></div>
+              <div className="h-5 bg-elevated/50 animate-pulse rounded"></div>
+              <div className="h-4 bg-elevated/30 animate-pulse rounded"></div>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -397,7 +397,7 @@ export function PriceCards() {
                         </span>
                       </div>
                     )}
-              <div className="text-[11px] text-gray-500 font-mono">
+              <div className="text-[11px] text-dusty/70 font-mono">
                       {priceData?.lastUpdate?.toLocaleTimeString()}
                     </div>
                   </div>
@@ -480,9 +480,9 @@ export function PriceCards() {
         >
           <CardContent className="p-5 md:p-6 h-full flex flex-col justify-between">
             <div className="flex flex-col gap-3">
-              <div className="flex justify-end items-center gap-1 text-gray-400 text-[10px] font-mono font-medium uppercase tracking-wide whitespace-nowrap">
+              <div className="flex justify-end items-center gap-1 text-dusty text-[10px] font-mono font-medium uppercase tracking-wide whitespace-nowrap">
                 <span>Official Partner</span>
-                <ExternalLink className="text-gray-400 w-3.5 h-3.5" />
+                <ExternalLink className="text-dusty w-3.5 h-3.5" />
               </div>
               <img
                 src={logoSrc}
@@ -497,8 +497,8 @@ export function PriceCards() {
             <div className="mt-6 flex-1 flex flex-col gap-4 justify-center">
               {isLoading && !data ? (
                 <div className="space-y-3">
-                  <div className="h-8 bg-gray-700/50 animate-pulse rounded"></div>
-                  <div className="h-4 bg-gray-700/30 animate-pulse rounded w-2/3"></div>
+                  <div className="h-8 bg-elevated/50 animate-pulse rounded"></div>
+                  <div className="h-4 bg-elevated/30 animate-pulse rounded w-2/3"></div>
                 </div>
               ) : (
                 <>
@@ -521,7 +521,7 @@ export function PriceCards() {
                             ? positiveChangeClass
                             : changeValue < 0
                             ? negativeChangeClass
-                            : 'text-gray-400'
+                            : 'text-dusty'
                         }`}
                       >
                         {formatChange(changeValue)}
@@ -532,7 +532,7 @@ export function PriceCards() {
               )}
             </div>
 
-            <div className="flex items-center justify-between text-xs text-gray-500 font-mono mt-4">
+            <div className="flex items-center justify-between text-xs text-dusty/70 font-mono mt-4">
               <span>{data?.lastUpdate?.toLocaleTimeString()}</span>
               {data?.status === "success" && (
                 <div className={`w-2 h-2 ${data?.stale ? 'bg-gray-500' : 'bg-green-400'}`}></div>
@@ -571,8 +571,8 @@ export function PriceCards() {
                         if (fallback) fallback.style.display = 'flex';
                       }}
                     />
-                    <div 
-                      className="hidden w-16 md:w-24 h-16 md:h-24 bg-gradient-to-r from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-2xl md:text-3xl rounded-lg"
+                    <div
+                      className="hidden w-16 md:w-24 h-16 md:h-24 bg-gradient-to-r from-lava to-lava-dark flex items-center justify-center text-snow font-bold text-2xl md:text-3xl rounded-lg"
                     >
                       BF
                     </div>
@@ -582,10 +582,10 @@ export function PriceCards() {
 
                 <div className="flex flex-col items-center md:items-end gap-2 md:gap-1.5">
                   <div className="flex items-center gap-1.5 -mb-1">
-                    <span className="text-gray-400 text-[10px] font-mono font-medium uppercase tracking-wide">
+                    <span className="text-dusty text-[10px] font-mono font-medium uppercase tracking-wide">
                       Official Partner
                     </span>
-                    <ExternalLink className="w-3 h-3 text-gray-400" />
+                    <ExternalLink className="w-3 h-3 text-dusty" />
                     </div>
 
                       <div className="flex flex-col md:flex-row items-center md:items-center gap-2 md:gap-6">
@@ -593,7 +593,7 @@ export function PriceCards() {
                           <div className="text-2xl md:text-4xl font-bold font-mono bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent leading-none">
                         {formatPrice(bitflowData?.price || 0)}
                           </div>
-                          <div className="text-xs md:text-sm text-gray-400 font-mono">
+                          <div className="text-xs md:text-sm text-dusty font-mono">
                         {bitflowData?.priceSats
                           ? `${parseFloat(bitflowData.priceSats).toFixed(2)} sats`
                           : bitflowData?.price
@@ -630,7 +630,7 @@ export function PriceCards() {
                 </div>
               </div>
 
-              <div className="mt-4 text-xs text-gray-500 font-mono text-right">
+              <div className="mt-4 text-xs text-dusty/70 font-mono text-right">
                 {bitflowData?.lastUpdate?.toLocaleTimeString()}
                 </div>
               </CardContent>
@@ -646,7 +646,7 @@ export function PriceCards() {
           logoSrc: '/Bitflow.png',
           logoClassName: 'self-start h-17 md:h-21 w-auto object-contain',
           priceClassName: 'bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent',
-          satsClassName: 'text-sm md:text-base text-gray-400',
+          satsClassName: 'text-sm md:text-base text-dusty',
           positiveChangeClass: 'text-orange-200',
           negativeChangeClass: 'text-red-400',
         })}
@@ -656,8 +656,8 @@ export function PriceCards() {
           data: dogswapData,
           logoSrc: '/dogswap_logo.png',
           logoClassName: 'self-start h-12 md:h-16 w-auto object-contain',
-          priceClassName: 'text-white',
-          satsClassName: 'text-sm md:text-base text-gray-400',
+          priceClassName: 'text-snow',
+          satsClassName: 'text-sm md:text-base text-dusty',
           positiveChangeClass: 'text-sky-300',
           negativeChangeClass: 'text-red-400',
           changeOverride: dogswapChange,
@@ -675,8 +675,8 @@ export function PriceCards() {
           rowSpanClass: 'lg:row-span-2',
           logoSrc: '/dogswap_logo.png',
           logoClassName: 'self-start h-12 md:h-16 w-auto object-contain',
-          priceClassName: 'text-white',
-          satsClassName: 'text-sm md:text-base text-gray-400',
+          priceClassName: 'text-snow',
+          satsClassName: 'text-sm md:text-base text-dusty',
           positiveChangeClass: 'text-sky-300',
           negativeChangeClass: 'text-red-400',
           changeOverride: dogswapChange,

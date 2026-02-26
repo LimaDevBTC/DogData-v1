@@ -351,11 +351,11 @@ export default function MetricsPage() {
     }).format(num)
   }
 
-  // Estilo padrão para tooltips - usando o mesmo background das legendas (bg-gray-900/50)
+  // Estilo padrão para tooltips - usando o mesmo background das legendas (bg-surface/50)
   const standardTooltipStyle = {
     contentStyle: { 
       backgroundColor: 'rgba(17, 24, 39, 0.5)', // gray-900/50 - mesmo das legendas
-      border: '1px solid #374151', // border-gray-700/50
+      border: '1px solid #374151', // border-elevated/50
       borderRadius: '0px',
       color: '#F3F4F6',
       fontFamily: 'monospace',
@@ -408,14 +408,14 @@ export default function MetricsPage() {
         {/* Hero Section */}
         <div className="text-center space-y-1 md:space-y-2 animate-fade-in px-4 mt-8 md:mt-10">
           <div className="space-y-3 md:space-y-4 max-w-full overflow-hidden">
-            <h1 className="text-2xl sm:text-3xl md:text-6xl lg:text-7xl font-display font-bold tracking-tight break-words">
-              <span className="text-gray-400 font-mono tracking-wider block">
+            <h1 className="text-2xl md:text-4xl font-display font-bold tracking-tight break-words">
+              <span className="text-dusty font-mono tracking-wider block">
                 <span className="inline-block">ON-CHAIN</span>
                 <span className="inline-block ml-4 md:ml-6">METRICS</span>
               </span>
             </h1>
             <div className="flex items-center justify-center">
-              <span className="text-orange-400 font-mono text-xs md:text-sm">
+              <span className="text-lava font-mono text-xs md:text-sm">
                 UTXO-Based Indicators • Node Exclusive Data
               </span>
             </div>
@@ -425,13 +425,13 @@ export default function MetricsPage() {
         <SectionDivider title="UTXO Metrics" icon={Coins} />
 
         {/* Key Metrics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
+        <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-6 max-w-7xl mx-auto">
           {/* UTXO Count */}
-          <Card variant="glass" className="stagger-item h-full flex flex-col border-orange-500/20 hover:border-orange-500/40 transition-all">
+          <Card variant="glass" className="stagger-item h-full flex flex-col border-lava/20 hover:border-lava/40 transition-all">
             <CardHeader className="pb-3">
-              <CardTitle variant="mono" className="text-sm text-gray-400 flex items-center justify-between">
+              <CardTitle variant="mono" className="text-sm text-dusty flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-orange-400" />
+                  <Activity className="w-4 h-4 text-lava" />
                   Total UTXOs
                 </div>
                 {utxoCountHistory.length >= 2 && (() => {
@@ -454,10 +454,10 @@ export default function MetricsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                <div className="text-3xl font-bold text-white font-mono">
+                <div className="text-xl md:text-3xl font-bold text-snow font-mono">
                   {utxoMetrics ? utxoMetrics.total_utxos.toLocaleString('en-US') : '—'}
                 </div>
-                <p className="text-xs text-gray-400 font-mono uppercase tracking-wide">
+                <p className="text-xs text-dusty font-mono uppercase tracking-wide">
                   Unspent Transaction Outputs
                 </p>
                 {utxoCountHistory.length >= 2 && (() => {
@@ -468,9 +468,9 @@ export default function MetricsPage() {
                   const date = new Date(previous.date)
                   
                   return (
-                    <div className="pt-2 border-t border-gray-700/50">
+                    <div className="pt-2 border-t border-elevated/50">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-400 font-mono">vs {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}:</span>
+                        <span className="text-dusty font-mono">vs {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}:</span>
                         <span className={`font-mono font-semibold ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
                           {isPositive ? '+' : ''}{change.toLocaleString('en-US')}
                         </span>
@@ -485,17 +485,17 @@ export default function MetricsPage() {
           {/* Average UTXO Size */}
           <Card variant="glass" className="stagger-item h-full flex flex-col">
             <CardHeader className="pb-3">
-              <CardTitle variant="mono" className="text-sm text-gray-400 flex items-center gap-2">
+              <CardTitle variant="mono" className="text-sm text-dusty flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-blue-400" />
                 Average UTXO Size
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <div className="text-3xl font-bold text-white font-mono">
+                <div className="text-xl md:text-3xl font-bold text-snow font-mono">
                   {utxoMetrics ? formatDOG(utxoMetrics.avg_utxo_size, true) : '—'}
                 </div>
-                <p className="text-xs text-gray-400 font-mono uppercase tracking-wide">
+                <p className="text-xs text-dusty font-mono uppercase tracking-wide">
                   Mean DOG per UTXO
                 </p>
               </div>
@@ -505,19 +505,19 @@ export default function MetricsPage() {
           {/* Gini Coefficient */}
           <Card variant="glass" className="stagger-item h-full flex flex-col">
             <CardHeader className="pb-3">
-              <CardTitle variant="mono" className="text-sm text-gray-400 flex items-center gap-2">
+              <CardTitle variant="mono" className="text-sm text-dusty flex items-center gap-2">
                 <PieChart className="w-4 h-4 text-purple-400" />
                 Holder Concentration
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <div className="text-3xl font-bold text-white font-mono">
+                <div className="text-xl md:text-3xl font-bold text-snow font-mono">
                   {holderConcentration 
                     ? holderConcentration.gini_coefficient.toFixed(3)
                     : '—'}
                 </div>
-                <p className="text-xs text-gray-400 font-mono uppercase tracking-wide">
+                <p className="text-xs text-dusty font-mono uppercase tracking-wide">
                   Gini Coefficient (0 = equal, 1 = concentrated)
                 </p>
               </div>
@@ -527,19 +527,19 @@ export default function MetricsPage() {
           {/* Top 10 Supply %} */}
           <Card variant="glass" className="stagger-item h-full flex flex-col">
             <CardHeader className="pb-3">
-              <CardTitle variant="mono" className="text-sm text-gray-400 flex items-center gap-2">
+              <CardTitle variant="mono" className="text-sm text-dusty flex items-center gap-2">
                 <Users className="w-4 h-4 text-green-400" />
                 Top 10 Holders
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <div className="text-3xl font-bold text-white font-mono">
+                <div className="text-xl md:text-3xl font-bold text-snow font-mono">
                   {holderConcentration 
                     ? `${holderConcentration.top10_supply_pct.toFixed(2)}%`
                     : '—'}
                 </div>
-                <p className="text-xs text-gray-400 font-mono uppercase tracking-wide">
+                <p className="text-xs text-dusty font-mono uppercase tracking-wide">
                   Of Total Supply
                 </p>
               </div>
@@ -551,9 +551,9 @@ export default function MetricsPage() {
         {utxoAgeStats && utxoAgeStats.hodl_waves.length > 0 && (
           <>
             <SectionDivider title="HODL Waves" icon={BarChart3} />
-            <Card variant="glass" className="max-w-7xl mx-auto border-orange-500/20">
+            <Card variant="glass" className="max-w-7xl mx-auto border-lava/20">
               <CardHeader>
-                <CardTitle className="text-orange-400 text-xl font-mono">
+                <CardTitle className="text-lava text-xl font-display font-mono">
                   Supply Distribution by UTXO Age
                 </CardTitle>
               </CardHeader>
@@ -610,19 +610,19 @@ export default function MetricsPage() {
                   </ResponsiveContainer>
                 </div>
                 <div className="mt-6">
-                  <h3 className="text-orange-400 font-mono text-sm uppercase tracking-wide mb-3">Legend</h3>
+                  <h3 className="text-lava font-mono text-sm uppercase tracking-wide mb-3">Legend</h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {utxoAgeStats.hodl_waves.map((wave, idx) => {
                       const colors = ['#F97316', '#FB923C', '#EA580C', '#10B981', '#F59E0B', '#C2410C', '#9A3412']
                       return (
-                        <div key={idx} className="flex items-center gap-3 p-3 bg-gray-900/50 border border-gray-700/50 hover:border-orange-500/50 hover:bg-gray-800/50 transition-all">
+                        <div key={idx} className="flex items-center gap-3 p-3 bg-surface/50 border border-elevated/50 hover:border-lava/50 hover:bg-surface/50 transition-all">
                           <div 
                             className="w-4 h-4 flex-shrink-0 shadow-sm" 
                             style={{ backgroundColor: colors[idx % colors.length] }}
                           />
                           <div className="flex-1 min-w-0">
-                            <div className="text-white font-mono text-sm font-medium truncate">{wave.range}</div>
-                            <div className="text-orange-400 font-mono text-xs font-bold">
+                            <div className="text-snow font-mono text-sm font-medium truncate">{wave.range}</div>
+                            <div className="text-lava font-mono text-xs font-bold">
                               {wave.percentage.toFixed(2)}%
                             </div>
                           </div>
@@ -631,7 +631,7 @@ export default function MetricsPage() {
                     })}
                   </div>
                 </div>
-                <p className="text-center text-gray-500 text-xs font-mono mt-4">
+                <p className="text-center text-dusty/70 text-xs font-mono mt-4">
                   Average age: {utxoAgeStats.avg_age_days.toFixed(1)} days • 
                   Median age: {utxoAgeStats.median_age_days.toFixed(1)} days
                 </p>
@@ -646,9 +646,9 @@ export default function MetricsPage() {
             <SectionDivider title="STH vs LTH Supply" icon={Zap} />
             <div className="max-w-7xl mx-auto space-y-6">
               {/* Horizontal Stacked Bar - Estilo Dashboard Moderno e Claro */}
-              <Card variant="glass" className="border-orange-500/20">
+              <Card variant="glass" className="border-lava/20">
                 <CardHeader>
-                  <CardTitle className="text-orange-400 text-xl font-mono">
+                  <CardTitle className="text-lava text-xl font-display font-mono">
                     STH vs LTH Supply Distribution
                   </CardTitle>
                 </CardHeader>
@@ -656,7 +656,7 @@ export default function MetricsPage() {
                   <div className="space-y-6">
                     {/* Gráfico de Barras Empilhadas Horizontais - Muito mais claro e moderno */}
                     <div className="relative">
-                      <div className="h-32 w-full bg-gray-900/30 overflow-hidden relative border border-gray-700/50">
+                      <div className="h-32 w-full bg-surface/30 overflow-hidden relative border border-elevated/50">
                         {/* Barra STH (verde) */}
                         <div 
                           className="absolute top-0 left-0 h-full flex items-center justify-center transition-all duration-500"
@@ -666,7 +666,7 @@ export default function MetricsPage() {
                           }}
                         >
                           {utxoAgeStats.sth_percentage > 15 && (
-                            <span className="text-white font-mono font-bold text-lg px-4">
+                            <span className="text-snow font-mono font-bold text-lg px-4">
                               {utxoAgeStats.sth_percentage.toFixed(1)}%
                             </span>
                           )}
@@ -681,7 +681,7 @@ export default function MetricsPage() {
                           }}
                         >
                           {utxoAgeStats.lth_percentage > 15 && (
-                            <span className="text-white font-mono font-bold text-lg px-4">
+                            <span className="text-snow font-mono font-bold text-lg px-4">
                               {utxoAgeStats.lth_percentage.toFixed(1)}%
                             </span>
                           )}
@@ -690,7 +690,7 @@ export default function MetricsPage() {
                         {/* Label para valores pequenos */}
                         {utxoAgeStats.sth_percentage <= 15 && (
                           <div 
-                            className="absolute top-1/2 -translate-y-1/2 left-2 text-white font-mono font-bold text-sm"
+                            className="absolute top-1/2 -translate-y-1/2 left-2 text-snow font-mono font-bold text-sm"
                             style={{ left: `${utxoAgeStats.sth_percentage / 2}%` }}
                           >
                             STH: {utxoAgeStats.sth_percentage.toFixed(1)}%
@@ -698,7 +698,7 @@ export default function MetricsPage() {
                         )}
                         {utxoAgeStats.lth_percentage <= 15 && (
                           <div 
-                            className="absolute top-1/2 -translate-y-1/2 text-white font-mono font-bold text-sm"
+                            className="absolute top-1/2 -translate-y-1/2 text-snow font-mono font-bold text-sm"
                             style={{ right: `${utxoAgeStats.lth_percentage / 2}%` }}
                           >
                             LTH: {utxoAgeStats.lth_percentage.toFixed(1)}%
@@ -713,45 +713,45 @@ export default function MetricsPage() {
                     </div>
 
                     {/* Legenda - Sem border-radius */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-4 bg-gray-900/50 border border-gray-700/50">
+                    <div className="grid grid-cols-2 md:grid-cols-2 gap-3 md:gap-6">
+                      <div className="p-4 bg-surface/50 border border-elevated/50">
                         <div className="flex items-center gap-3 mb-3">
                           <div className="w-4 h-4" style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}></div>
-                          <h3 className="text-white font-mono font-semibold text-sm">Short-Term Holders (STH)</h3>
+                          <h3 className="text-snow font-mono font-semibold text-sm">Short-Term Holders (STH)</h3>
                         </div>
                         <div className="space-y-1">
                           <div className="text-2xl font-bold text-green-400 font-mono">
                             {utxoAgeStats.sth_percentage.toFixed(2)}%
                           </div>
-                          <div className="text-gray-400 font-mono text-sm">
+                          <div className="text-dusty font-mono text-sm">
                             {formatDOG(utxoAgeStats.sth_supply)}
                           </div>
-                          <div className="text-gray-500 font-mono text-xs">
+                          <div className="text-dusty/70 font-mono text-xs">
                             UTXOs &lt; 155 days old
                           </div>
                         </div>
                       </div>
 
-                      <div className="p-4 bg-gray-900/50 border border-gray-700/50">
+                      <div className="p-4 bg-surface/50 border border-elevated/50">
                         <div className="flex items-center gap-3 mb-3">
                           <div className="w-4 h-4" style={{ background: 'linear-gradient(135deg, #F97316, #EA580C)' }}></div>
-                          <h3 className="text-white font-mono font-semibold text-sm">Long-Term Holders (LTH)</h3>
+                          <h3 className="text-snow font-mono font-semibold text-sm">Long-Term Holders (LTH)</h3>
                         </div>
                         <div className="space-y-1">
-                          <div className="text-2xl font-bold text-orange-400 font-mono">
+                          <div className="text-2xl font-bold text-lava font-mono">
                             {utxoAgeStats.lth_percentage.toFixed(2)}%
                           </div>
-                          <div className="text-gray-400 font-mono text-sm">
+                          <div className="text-dusty font-mono text-sm">
                             {formatDOG(utxoAgeStats.lth_supply)}
                           </div>
-                          <div className="text-gray-500 font-mono text-xs">
+                          <div className="text-dusty/70 font-mono text-xs">
                             UTXOs ≥ 155 days old
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                  <p className="text-center text-gray-500 text-xs font-mono mt-4">
+                  <p className="text-center text-dusty/70 text-xs font-mono mt-4">
                     Complete data from {(utxoAgeStats.total_utxos || 0).toLocaleString()} tracked UTXOs (100% of supply)
                   </p>
                 </CardContent>
@@ -766,9 +766,9 @@ export default function MetricsPage() {
             <SectionDivider title="Holder Concentration" icon={Users} />
             <div className="max-w-7xl mx-auto space-y-6">
               {/* Gráfico de Barras */}
-              <Card variant="glass" className="border-orange-500/20">
+              <Card variant="glass" className="border-lava/20">
                 <CardHeader>
-                  <CardTitle className="text-orange-400 text-xl font-mono">
+                  <CardTitle className="text-lava text-xl font-display font-mono">
                     Supply Distribution by Top Holders
                   </CardTitle>
                 </CardHeader>
@@ -820,46 +820,46 @@ export default function MetricsPage() {
 
                     {/* Legenda - Sem border-radius */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="p-4 bg-gray-900/50 border border-gray-700/50">
+                      <div className="p-4 bg-surface/50 border border-elevated/50">
                         <div className="flex items-center gap-3 mb-3">
                           <div className="w-4 h-4" style={{ background: 'linear-gradient(135deg, #F97316, #EA580C)' }}></div>
-                          <h3 className="text-white font-mono font-semibold text-sm">Top 10</h3>
+                          <h3 className="text-snow font-mono font-semibold text-sm">Top 10</h3>
                         </div>
                         <div className="space-y-1">
-                          <div className="text-2xl font-bold text-orange-400 font-mono">
+                          <div className="text-2xl font-bold text-lava font-mono">
                             {holderConcentration.top10_supply_pct.toFixed(2)}%
                           </div>
-                          <div className="text-gray-500 font-mono text-xs">
+                          <div className="text-dusty/70 font-mono text-xs">
                             of total supply
                           </div>
                         </div>
                       </div>
 
-                      <div className="p-4 bg-gray-900/50 border border-gray-700/50">
+                      <div className="p-4 bg-surface/50 border border-elevated/50">
                         <div className="flex items-center gap-3 mb-3">
                           <div className="w-4 h-4" style={{ background: 'linear-gradient(135deg, #F97316, #EA580C)' }}></div>
-                          <h3 className="text-white font-mono font-semibold text-sm">Top 100</h3>
+                          <h3 className="text-snow font-mono font-semibold text-sm">Top 100</h3>
                         </div>
                         <div className="space-y-1">
-                          <div className="text-2xl font-bold text-orange-400 font-mono">
+                          <div className="text-2xl font-bold text-lava font-mono">
                             {holderConcentration.top100_supply_pct.toFixed(2)}%
                           </div>
-                          <div className="text-gray-500 font-mono text-xs">
+                          <div className="text-dusty/70 font-mono text-xs">
                             of total supply
                           </div>
                         </div>
                       </div>
 
-                      <div className="p-4 bg-gray-900/50 border border-gray-700/50">
+                      <div className="p-4 bg-surface/50 border border-elevated/50">
                         <div className="flex items-center gap-3 mb-3">
                           <div className="w-4 h-4" style={{ background: 'linear-gradient(135deg, #F97316, #EA580C)' }}></div>
-                          <h3 className="text-white font-mono font-semibold text-sm">Top 1000</h3>
+                          <h3 className="text-snow font-mono font-semibold text-sm">Top 1000</h3>
                         </div>
                         <div className="space-y-1">
-                          <div className="text-2xl font-bold text-orange-400 font-mono">
+                          <div className="text-2xl font-bold text-lava font-mono">
                             {holderConcentration.top1000_supply_pct.toFixed(2)}%
                           </div>
-                          <div className="text-gray-500 font-mono text-xs">
+                          <div className="text-dusty/70 font-mono text-xs">
                             of total supply
                           </div>
                         </div>
@@ -876,9 +876,9 @@ export default function MetricsPage() {
         {utxoMetrics && utxoMetrics.utxo_distribution.length > 0 && (
           <>
             <SectionDivider title="UTXO Distribution by Size" icon={PieChart} />
-            <Card variant="glass" className="max-w-7xl mx-auto border-orange-500/20">
+            <Card variant="glass" className="max-w-7xl mx-auto border-lava/20">
               <CardHeader>
-                <CardTitle className="text-orange-400 text-xl font-mono">
+                <CardTitle className="text-lava text-xl font-display font-mono">
                   Distribution of UTXOs by Size
                 </CardTitle>
               </CardHeader>
@@ -948,20 +948,20 @@ export default function MetricsPage() {
                         const orangeColors = ['#FF6B00', '#FF8C00', '#FF7F00', '#FFA500', '#FF9500', '#FFB340']
                         const color = orangeColors[idx % orangeColors.length]
                         return (
-                          <div key={dist.range} className="flex items-center justify-between p-3 bg-gray-900/50 border border-gray-700/50 hover:border-orange-500/50 hover:bg-gray-800/50 transition-all">
+                          <div key={dist.range} className="flex items-center justify-between p-3 bg-surface/50 border border-elevated/50 hover:border-lava/50 hover:bg-surface/50 transition-all">
                             <div className="flex items-center gap-3 flex-1 min-w-0">
                               <div 
                                 className="w-4 h-4 flex-shrink-0 rounded-sm" 
                                 style={{ backgroundColor: color }}
                               />
                             <div className="flex-1 min-w-0">
-                              <div className="text-white font-mono text-sm truncate">{dist.range}</div>
-                              <div className="text-gray-400 font-mono text-xs truncate">
+                              <div className="text-snow font-mono text-sm truncate">{dist.range}</div>
+                              <div className="text-dusty font-mono text-xs truncate">
                                 {formatNumber(dist.count)} UTXOs • {formatDOG(dist.supply, true)}
                               </div>
                             </div>
                           </div>
-                          <div className="text-orange-400 font-mono font-bold text-sm ml-2">
+                          <div className="text-lava font-mono font-bold text-sm ml-2">
                             {dist.percentage.toFixed(1)}%
                           </div>
                         </div>
@@ -978,11 +978,11 @@ export default function MetricsPage() {
         {realizedCapMetrics && (
           <>
             <SectionDivider title="Realized Cap / MVRV Ratio" icon={Zap} />
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-7xl mx-auto items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-6 max-w-7xl mx-auto items-start">
               {/* MVRV Ratio - Visual Comparison Card */}
-              <Card variant="glass" className="border-orange-500/20 lg:col-span-2">
+              <Card variant="glass" className="border-lava/20 lg:col-span-2">
                 <CardHeader>
-                  <CardTitle className="text-orange-400 text-xl font-mono">
+                  <CardTitle className="text-lava text-xl font-display font-mono">
                     MVRV Ratio
                   </CardTitle>
                 </CardHeader>
@@ -993,9 +993,9 @@ export default function MetricsPage() {
                       <div className="text-6xl font-bold bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 bg-clip-text text-transparent font-mono mb-3">
                         {realizedCapMetrics.mvrv_ratio.toFixed(2)}
                       </div>
-                      <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900/50 border border-gray-700/50">
+                      <div className="inline-flex items-center gap-2 px-4 py-2 bg-surface/50 border border-elevated/50">
                         <div className={`w-2 h-2 rounded-full ${realizedCapMetrics.mvrv_ratio < 1.0 ? 'bg-green-400' : realizedCapMetrics.mvrv_ratio > 3.7 ? 'bg-red-400' : 'bg-yellow-400'}`}></div>
-                        <p className="text-sm font-mono uppercase tracking-wide text-gray-300">
+                        <p className="text-sm font-mono uppercase tracking-wide text-snow/80">
                           {realizedCapMetrics.mvrv_ratio < 1.0 ? 'Undervalued' : realizedCapMetrics.mvrv_ratio > 3.7 ? 'Overvalued' : 'Fair Value'}
                         </p>
                       </div>
@@ -1003,11 +1003,11 @@ export default function MetricsPage() {
 
                     {/* Comparação Visual Market Cap vs Realized Cap */}
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between text-xs text-gray-400 font-mono uppercase tracking-wide">
+                      <div className="flex items-center justify-between text-xs text-dusty font-mono uppercase tracking-wide">
                         <span>Market Cap</span>
                         <span>Realized Cap</span>
                       </div>
-                      <div className="relative h-32 w-full bg-gray-900/30 border border-gray-700/50 overflow-hidden">
+                      <div className="relative h-32 w-full bg-surface/30 border border-elevated/50 overflow-hidden">
                         {/* Market Cap Bar */}
                         <div 
                           className="absolute top-0 left-0 h-full flex items-center justify-center transition-all duration-500"
@@ -1016,7 +1016,7 @@ export default function MetricsPage() {
                             background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(37, 99, 235, 0.6))'
                           }}
                         >
-                          <span className="text-white font-mono font-bold text-sm px-3">
+                          <span className="text-snow font-mono font-bold text-sm px-3">
                             ${(realizedCapMetrics.market_cap / 1_000_000).toFixed(2)}M
                           </span>
                         </div>
@@ -1030,14 +1030,14 @@ export default function MetricsPage() {
                         ></div>
                         
                         {/* Label Realized Cap */}
-                        <div className="absolute bottom-2 right-4 text-white font-mono font-semibold text-xs">
+                        <div className="absolute bottom-2 right-4 text-snow font-mono font-semibold text-xs">
                           Realized: ${(realizedCapMetrics.realized_cap / 1_000_000).toFixed(2)}M
                         </div>
                       </div>
                       
                       {/* Interpretação */}
-                      <div className="pt-4 border-t border-gray-700/50">
-                        <p className="text-xs text-gray-400 font-mono leading-relaxed">
+                      <div className="pt-4 border-t border-elevated/50">
+                        <p className="text-xs text-dusty font-mono leading-relaxed">
                           MVRV Ratio compares Market Cap to Realized Cap. 
                           {realizedCapMetrics.mvrv_ratio < 1.0 
                             ? ' Values below 1.0 indicate the asset is trading below its average cost basis (undervalued).'
@@ -1053,18 +1053,18 @@ export default function MetricsPage() {
 
               {/* Info Cards - Alinhados no topo */}
               <div className="space-y-6 flex flex-col">
-                <Card variant="glass" className="border-orange-500/20 hover:border-orange-500/40 transition-all">
+                <Card variant="glass" className="border-lava/20 hover:border-lava/40 transition-all">
                   <CardHeader className="pb-3">
-                    <CardTitle variant="mono" className="text-sm text-gray-400 flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4 text-orange-400" />
+                    <CardTitle variant="mono" className="text-sm text-dusty flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-lava" />
                       Realized Cap
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-white font-mono">
+                    <div className="text-2xl font-bold text-snow font-mono">
                       ${(realizedCapMetrics.realized_cap / 1_000_000).toFixed(2)}M
                     </div>
-                    <p className="text-xs text-gray-400 font-mono uppercase tracking-wide mt-1">
+                    <p className="text-xs text-dusty font-mono uppercase tracking-wide mt-1">
                       Total Cost Basis
                     </p>
                   </CardContent>
@@ -1072,16 +1072,16 @@ export default function MetricsPage() {
 
                 <Card variant="glass" className="border-blue-500/20 hover:border-blue-500/40 transition-all">
                   <CardHeader className="pb-3">
-                    <CardTitle variant="mono" className="text-sm text-gray-400 flex items-center gap-2">
+                    <CardTitle variant="mono" className="text-sm text-dusty flex items-center gap-2">
                       <BarChart3 className="w-4 h-4 text-blue-400" />
                       Market Cap
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-white font-mono">
+                    <div className="text-2xl font-bold text-snow font-mono">
                       ${(realizedCapMetrics.market_cap / 1_000_000).toFixed(2)}M
                     </div>
-                    <p className="text-xs text-gray-400 font-mono uppercase tracking-wide mt-1">
+                    <p className="text-xs text-dusty font-mono uppercase tracking-wide mt-1">
                       Current Valuation
                     </p>
                   </CardContent>
@@ -1089,16 +1089,16 @@ export default function MetricsPage() {
 
                 <Card variant="glass" className="border-purple-500/20 hover:border-purple-500/40 transition-all">
                   <CardHeader className="pb-3">
-                    <CardTitle variant="mono" className="text-sm text-gray-400 flex items-center gap-2">
+                    <CardTitle variant="mono" className="text-sm text-dusty flex items-center gap-2">
                       <Coins className="w-4 h-4 text-purple-400" />
                       Current Price
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-white font-mono">
+                    <div className="text-2xl font-bold text-snow font-mono">
                       ${realizedCapMetrics.current_price.toFixed(8)}
                     </div>
-                    <p className="text-xs text-gray-400 font-mono uppercase tracking-wide mt-1">
+                    <p className="text-xs text-dusty font-mono uppercase tracking-wide mt-1">
                       USD per DOG
                     </p>
                   </CardContent>
@@ -1112,9 +1112,9 @@ export default function MetricsPage() {
         {supplyProfitLoss && (
           <>
             <SectionDivider title="Supply in Profit/Loss" icon={TrendingUp} />
-            <Card variant="glass" className="max-w-7xl mx-auto border-orange-500/20">
+            <Card variant="glass" className="max-w-7xl mx-auto border-lava/20">
               <CardHeader>
-                <CardTitle className="text-orange-400 text-xl font-mono">
+                <CardTitle className="text-lava text-xl font-display font-mono">
                   Supply Distribution by Profit/Loss Status
                 </CardTitle>
               </CardHeader>
@@ -1122,7 +1122,7 @@ export default function MetricsPage() {
                 <div className="space-y-6">
                   {/* Gráfico de Barras Empilhadas Horizontais - Mesmo estilo do STH vs LTH */}
                   <div className="relative">
-                    <div className="h-32 w-full bg-gray-900/30 overflow-hidden relative border border-gray-700/50">
+                    <div className="h-32 w-full bg-surface/30 overflow-hidden relative border border-elevated/50">
                       {/* Barra Profit (verde) */}
                       <div 
                         className="absolute top-0 left-0 h-full flex items-center justify-center transition-all duration-500"
@@ -1132,7 +1132,7 @@ export default function MetricsPage() {
                         }}
                       >
                         {supplyProfitLoss.supply_in_profit_pct > 15 && (
-                          <span className="text-white font-mono font-bold text-lg px-4">
+                          <span className="text-snow font-mono font-bold text-lg px-4">
                             {supplyProfitLoss.supply_in_profit_pct.toFixed(2)}%
                           </span>
                         )}
@@ -1147,7 +1147,7 @@ export default function MetricsPage() {
                         }}
                       >
                         {supplyProfitLoss.supply_in_loss_pct > 15 && (
-                          <span className="text-white font-mono font-bold text-lg px-4">
+                          <span className="text-snow font-mono font-bold text-lg px-4">
                             {supplyProfitLoss.supply_in_loss_pct.toFixed(2)}%
                           </span>
                         )}
@@ -1156,7 +1156,7 @@ export default function MetricsPage() {
                       {/* Label para valores pequenos */}
                       {supplyProfitLoss.supply_in_profit_pct <= 15 && (
                         <div 
-                          className="absolute top-1/2 -translate-y-1/2 left-2 text-white font-mono font-bold text-sm"
+                          className="absolute top-1/2 -translate-y-1/2 left-2 text-snow font-mono font-bold text-sm"
                           style={{ left: `${supplyProfitLoss.supply_in_profit_pct / 2}%` }}
                         >
                           Profit: {supplyProfitLoss.supply_in_profit_pct.toFixed(2)}%
@@ -1164,7 +1164,7 @@ export default function MetricsPage() {
                       )}
                       {supplyProfitLoss.supply_in_loss_pct <= 15 && (
                         <div 
-                          className="absolute top-1/2 -translate-y-1/2 text-white font-mono font-bold text-sm"
+                          className="absolute top-1/2 -translate-y-1/2 text-snow font-mono font-bold text-sm"
                           style={{ right: `${supplyProfitLoss.supply_in_loss_pct / 2}%` }}
                         >
                           Loss: {supplyProfitLoss.supply_in_loss_pct.toFixed(2)}%
@@ -1174,38 +1174,38 @@ export default function MetricsPage() {
                   </div>
 
                   {/* Legenda - Sem border-radius */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-4 bg-gray-900/50 border border-gray-700/50">
+                  <div className="grid grid-cols-2 md:grid-cols-2 gap-3 md:gap-6">
+                    <div className="p-4 bg-surface/50 border border-elevated/50">
                       <div className="flex items-center gap-3 mb-3">
                         <div className="w-4 h-4" style={{ background: 'linear-gradient(135deg, #22C55E, #16A34A)' }}></div>
-                        <h3 className="text-white font-mono font-semibold text-sm">Supply in Profit</h3>
+                        <h3 className="text-snow font-mono font-semibold text-sm">Supply in Profit</h3>
                       </div>
                       <div className="space-y-1">
                         <div className="text-2xl font-bold text-green-400 font-mono">
                           {supplyProfitLoss.supply_in_profit_pct.toFixed(2)}%
                         </div>
-                        <div className="text-gray-400 font-mono text-sm">
+                        <div className="text-dusty font-mono text-sm">
                           {formatDOG(supplyProfitLoss.supply_in_profit, true)}
                         </div>
-                        <div className="text-gray-500 font-mono text-xs">
+                        <div className="text-dusty/70 font-mono text-xs">
                           Currently in profit
                         </div>
                       </div>
                     </div>
 
-                    <div className="p-4 bg-gray-900/50 border border-gray-700/50">
+                    <div className="p-4 bg-surface/50 border border-elevated/50">
                       <div className="flex items-center gap-3 mb-3">
                         <div className="w-4 h-4" style={{ background: 'linear-gradient(135deg, #DC2626, #B91C1C)' }}></div>
-                        <h3 className="text-white font-mono font-semibold text-sm">Supply in Loss</h3>
+                        <h3 className="text-snow font-mono font-semibold text-sm">Supply in Loss</h3>
                       </div>
                       <div className="space-y-1">
                         <div className="text-2xl font-bold text-red-400 font-mono">
                           {supplyProfitLoss.supply_in_loss_pct.toFixed(2)}%
                         </div>
-                        <div className="text-gray-400 font-mono text-sm">
+                        <div className="text-dusty font-mono text-sm">
                           {formatDOG(supplyProfitLoss.supply_in_loss, true)}
                         </div>
-                        <div className="text-gray-500 font-mono text-xs">
+                        <div className="text-dusty/70 font-mono text-xs">
                           Currently in loss
                         </div>
                       </div>

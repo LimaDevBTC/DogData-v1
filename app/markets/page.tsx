@@ -140,29 +140,29 @@ export default function MarketsPage() {
         {/* Hero Section */}
         <div className="text-center space-y-1 md:space-y-2 animate-fade-in px-4">
           <div className="flex items-center justify-center space-x-4">
-            <BarChart3 className="w-8 h-8 md:w-12 md:h-12 text-orange-500" />
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 bg-clip-text text-transparent font-mono">
+            <BarChart3 className="w-8 h-8 md:w-12 md:h-12 text-lava" />
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold font-display bg-gradient-to-r from-lava-light via-lava to-lava-dark bg-clip-text text-transparent">
               Markets
             </h1>
           </div>
-          <p className="text-gray-400 text-sm md:text-base font-mono">
+          <p className="text-dusty text-sm md:text-base font-mono">
             Real-time market data from top exchanges
           </p>
         </div>
 
         {/* Market Overview Cards */}
         {!loading && data && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
               {/* Price */}
-              <Card variant="glass" className="border-orange-500/20">
-                <CardContent className="p-6">
+              <Card variant="glass" className="border-lava/20">
+                <CardContent className="p-4 md:p-6">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
-                      <DollarSign className="w-5 h-5 text-orange-400" />
-                      <h3 className="text-sm text-gray-400 font-mono">Price</h3>
+                      <DollarSign className="w-5 h-5 text-lava" />
+                      <h3 className="text-sm text-dusty font-mono">Price</h3>
                     </div>
                   </div>
-                  <div className="text-2xl font-bold text-white font-mono">
+                  <div className="text-xl md:text-2xl font-bold text-snow font-mono">
                     {formatPrice(data.marketData.price)}
                   </div>
                   {data.marketData.priceChange24h != null && data.marketData.priceChange24h !== 0 && (
@@ -180,14 +180,14 @@ export default function MarketsPage() {
 
               {/* Market Cap */}
               <Card variant="glass" className="border-blue-500/20">
-                <CardContent className="p-6">
+                <CardContent className="p-4 md:p-6">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
                       <Activity className="w-5 h-5 text-blue-400" />
-                      <h3 className="text-sm text-gray-400 font-mono">Market Cap</h3>
+                      <h3 className="text-sm text-dusty font-mono">Market Cap</h3>
                     </div>
                   </div>
-                  <div className="text-2xl font-bold text-white font-mono">
+                  <div className="text-xl md:text-2xl font-bold text-snow font-mono">
                     {formatNumber(data.marketData.marketCap)}
                   </div>
                 </CardContent>
@@ -195,14 +195,14 @@ export default function MarketsPage() {
 
               {/* Volume 24h */}
               <Card variant="glass" className="border-green-500/20">
-                <CardContent className="p-6">
+                <CardContent className="p-4 md:p-6">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
                       <BarChart3 className="w-5 h-5 text-green-400" />
-                      <h3 className="text-sm text-gray-400 font-mono">Volume 24h</h3>
+                      <h3 className="text-sm text-dusty font-mono">Volume 24h</h3>
                     </div>
                   </div>
-                  <div className="text-2xl font-bold text-white font-mono">
+                  <div className="text-xl md:text-2xl font-bold text-snow font-mono">
                     {formatNumber(data.marketData.totalVolume)}
                   </div>
                 </CardContent>
@@ -210,17 +210,17 @@ export default function MarketsPage() {
 
               {/* Markets Count */}
               <Card variant="glass" className="border-purple-500/20">
-                <CardContent className="p-6">
+                <CardContent className="p-4 md:p-6">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
                       <RefreshCw className="w-5 h-5 text-purple-400" />
-                      <h3 className="text-sm text-gray-400 font-mono">Markets</h3>
+                      <h3 className="text-sm text-dusty font-mono">Markets</h3>
                     </div>
                   </div>
-                  <div className="text-2xl font-bold text-white font-mono">
+                  <div className="text-xl md:text-2xl font-bold text-snow font-mono">
                     {data.tickers?.length || 0}
                   </div>
-                  <div className="text-xs text-gray-500 mt-2 font-mono">
+                  <div className="text-xs text-dusty/70 mt-2 font-mono">
                     Active exchanges
                   </div>
                 </CardContent>
@@ -232,8 +232,8 @@ export default function MarketsPage() {
           {loading && (
             <div className="flex items-center justify-center py-20">
               <div className="text-center space-y-4">
-                <RefreshCw className="w-12 h-12 text-orange-500 animate-spin mx-auto" />
-                <p className="text-gray-400 font-mono">Loading markets data...</p>
+                <RefreshCw className="w-12 h-12 text-lava animate-spin mx-auto" />
+                <p className="text-dusty font-mono">Loading markets data...</p>
               </div>
             </div>
           )}
@@ -247,11 +247,11 @@ export default function MarketsPage() {
                     Exchange Markets
                   </CardTitle>
                   <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-400 font-mono">Sort by:</span>
+                    <span className="text-sm text-dusty font-mono">Sort by:</span>
                     <select
                       value={sortBy}
                       onChange={(e) => setSortBy(e.target.value as any)}
-                      className="bg-gray-800/50 border border-gray-700 text-white px-3 py-2 font-mono text-sm focus:outline-none focus:border-orange-500 transition-colors"
+                      className="bg-surface/50 border border-elevated text-snow px-3 py-2 font-mono text-sm focus:outline-none focus:border-lava transition-colors"
                     >
                       <option value="volume">Volume</option>
                       <option value="spread">Spread</option>
@@ -259,7 +259,7 @@ export default function MarketsPage() {
                     </select>
                     <button
                       onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                      className="px-3 py-2 bg-gray-800/50 border border-gray-700 hover:border-orange-500 transition-colors"
+                      className="px-3 py-2 bg-surface/50 border border-elevated hover:border-lava transition-colors text-snow"
                     >
                       {sortOrder === 'asc' ? '↑' : '↓'}
                     </button>
@@ -267,8 +267,8 @@ export default function MarketsPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                {/* Desktop Table */}
-                <div>
+                {/* Desktop Table - hidden on mobile */}
+                <div className="hidden md:block">
                   <table className="w-full table-fixed">
                     <thead>
                       <tr className="border-b border-dog-gray-700">
@@ -283,27 +283,27 @@ export default function MarketsPage() {
                     <tbody>
                       {sortedTickers.map((ticker, index) => (
                         <tr key={index} className="table-row">
-                          <td className="py-3 px-4 text-dog-gray-300 font-mono text-sm">
+                          <td className="py-3 px-4 text-snow/70 font-mono text-sm">
                             {index + 1}
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex items-center space-x-2">
                               <div className={`w-2 h-2 rounded-full flex-shrink-0 ${getTrustScoreColor(ticker.trustScore)}`}></div>
                               {ticker.market === 'Bitflow' ? (
-                                <a 
+                                <a
                                   href="https://btflw.link/brl"
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-orange-400 hover:text-orange-300 font-mono font-medium transition-colors underline decoration-orange-400/30 hover:decoration-orange-400"
+                                  className="text-lava hover:text-lava-light font-mono font-medium transition-colors underline decoration-lava/30 hover:decoration-lava"
                                 >
                                   {ticker.market}
                                 </a>
                               ) : (
-                                <span className="text-white font-mono font-medium">{ticker.market}</span>
+                                <span className="text-snow font-mono font-medium">{ticker.market}</span>
                               )}
                             </div>
                           </td>
-                          <td className="py-3 px-4 text-gray-300 font-mono text-sm truncate" title={ticker.pair}>
+                          <td className="py-3 px-4 text-snow/80 font-mono text-sm truncate" title={ticker.pair}>
                             {ticker.pair}
                           </td>
                           <td className="py-3 px-4 text-right">
@@ -316,7 +316,7 @@ export default function MarketsPage() {
                               <span className="amount-text text-sm">
                                 {formatNumber(ticker.volumeUsd)}
                               </span>
-                              <span className="text-gray-500 font-mono text-xs">
+                              <span className="text-dusty/70 font-mono text-xs">
                                 {formatVolume(ticker.volume)} DOG
                               </span>
                             </div>
@@ -332,30 +332,41 @@ export default function MarketsPage() {
                   </table>
                 </div>
 
-                {/* Mobile Cards - Hidden, table is responsive */}
-                <div className="hidden">
+                {/* Mobile Cards - shown on mobile, hidden on desktop */}
+                <div className="md:hidden space-y-3">
                   {sortedTickers.map((ticker, index) => (
-                    <Card key={index} variant="glass" className="border-gray-700/50">
+                    <Card key={index} variant="glass" className="border-elevated/50">
                       <CardContent className="p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-2">
                             <div className={`w-2 h-2 rounded-full ${getTrustScoreColor(ticker.trustScore)}`}></div>
-                            <span className="text-white font-mono font-medium">{ticker.market}</span>
+                            {ticker.market === 'Bitflow' ? (
+                              <a
+                                href="https://btflw.link/brl"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-lava hover:text-lava-light font-mono font-medium transition-colors underline decoration-lava/30"
+                              >
+                                {ticker.market}
+                              </a>
+                            ) : (
+                              <span className="text-snow font-mono font-medium">{ticker.market}</span>
+                            )}
                           </div>
-                          <span className="text-gray-400 font-mono text-sm">{ticker.pair}</span>
+                          <span className="text-dusty font-mono text-sm">{ticker.pair}</span>
                         </div>
-                        
+
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <div className="text-xs text-gray-500 font-mono mb-1">Price</div>
-                            <div className="text-white font-mono text-sm">{formatPrice(ticker.price)}</div>
+                            <div className="text-xs text-dusty/70 font-mono mb-1">Price</div>
+                            <div className="text-snow font-mono text-sm">{formatPrice(ticker.price)}</div>
                           </div>
                           <div>
-                            <div className="text-xs text-gray-500 font-mono mb-1">Volume 24h</div>
-                            <div className="text-white font-mono text-sm">{formatNumber(ticker.volumeUsd)}</div>
+                            <div className="text-xs text-dusty/70 font-mono mb-1">Volume 24h</div>
+                            <div className="text-snow font-mono text-sm">{formatNumber(ticker.volumeUsd)}</div>
                           </div>
                           <div>
-                            <div className="text-xs text-gray-500 font-mono mb-1">Spread</div>
+                            <div className="text-xs text-dusty/70 font-mono mb-1">Spread</div>
                             <div className={`font-mono text-sm ${ticker.spread && ticker.spread < 0.3 ? 'text-green-400' : ticker.spread && ticker.spread < 0.6 ? 'text-yellow-400' : 'text-red-400'}`}>
                               {ticker.spread != null ? ticker.spread.toFixed(2) + '%' : 'N/A'}
                             </div>
@@ -365,7 +376,7 @@ export default function MarketsPage() {
                               href={ticker.tradeUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center space-x-1 px-3 py-1.5 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 font-mono text-xs transition-colors w-full justify-center"
+                              className="inline-flex items-center space-x-1 px-3 py-1.5 bg-lava/20 hover:bg-lava/30 text-lava font-mono text-xs transition-colors w-full justify-center"
                             >
                               <span>Trade</span>
                               <ExternalLink className="w-3 h-3" />
@@ -383,7 +394,7 @@ export default function MarketsPage() {
           {/* Cache Info */}
           {data?.stale && (
             <div className="text-center">
-              <p className="text-xs text-gray-500 font-mono">
+              <p className="text-xs text-dusty/70 font-mono">
                 ⚠️ Using cached data ({data.cacheAge}s old) - API temporarily unavailable
               </p>
             </div>

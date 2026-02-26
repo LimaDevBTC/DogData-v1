@@ -18,13 +18,13 @@ export function PartnerBanner({ imageUrl, link, alt = "Partner Banner" }: Partne
         rel="noopener noreferrer sponsored"
         className="block w-full group cursor-pointer"
       >
-        <div className="relative w-full overflow-hidden bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 border border-orange-500/20 hover:border-orange-500/40 transition-all duration-300">
+        <div className="relative w-full overflow-hidden bg-gradient-to-r from-surface via-elevated to-surface border border-lava/20 hover:border-lava/40 transition-all duration-300">
           {/* Badge "Official Partner" - Canto superior direito */}
-          <div className="absolute top-2 right-2 z-10 bg-orange-500/90 px-2 py-0.5 flex items-center gap-1">
-            <span className="text-white text-[9px] font-mono font-bold uppercase tracking-wide">
+          <div className="absolute top-2 right-2 z-10 bg-lava/90 px-2 py-0.5 flex items-center gap-1">
+            <span className="text-snow text-[9px] font-mono font-bold uppercase tracking-wide">
               Official Partner
             </span>
-            <ExternalLink className="w-2 h-2 text-white" />
+            <ExternalLink className="w-2 h-2 text-snow" />
           </div>
 
           {/* Imagem do parceiro */}
@@ -39,7 +39,7 @@ export function PartnerBanner({ imageUrl, link, alt = "Partner Banner" }: Partne
           </div>
 
           {/* Efeito hover overlay */}
-          <div className="absolute inset-0 bg-orange-500/0 group-hover:bg-orange-500/5 transition-all duration-300"></div>
+          <div className="absolute inset-0 bg-lava/0 group-hover:bg-lava/5 transition-all duration-300"></div>
         </div>
       </a>
     </div>

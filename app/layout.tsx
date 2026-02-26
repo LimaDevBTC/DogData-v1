@@ -1,12 +1,22 @@
-import type { Metadata } from 'next'
-import { Inter, DM_Sans } from 'next/font/google'
+import type { Metadata, Viewport } from 'next'
+import { JetBrains_Mono, Syne } from 'next/font/google'
 import './globals.css'
 import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { VerifiedAddressesProvider } from '@/contexts/VerifiedAddressesContext'
 
-const inter = Inter({ subsets: ['latin'] })
-const dmSans = DM_Sans({ subsets: ['latin'], weight: ['700'], variable: '--font-dm-sans' })
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+  display: 'swap',
+})
+
+const syne = Syne({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-display',
+  display: 'swap',
+})
 
 const siteUrl = (() => {
   const u = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
@@ -14,14 +24,18 @@ const siteUrl = (() => {
   return u.startsWith('http') ? u.replace(/\/$/, '') : `https://${u}`
 })()
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: '#F56E0F',
+}
+
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: 'DOG DATA - Real-time DOG Rune Explorer',
   description: 'Professional explorer for DOG•GO•TO•THE•MOON rune with real-time data, holder lists, statistics and exclusive forensic analysis.',
   keywords: 'DOG, Bitcoin, Rune, Ordinals, Holders, Blockchain, Explorer, Real-time, Forensic Analysis',
   authors: [{ name: 'DOG DATA Team' }],
-  viewport: 'width=device-width, initial-scale=1',
-  themeColor: '#f97316',
   icons: {
     icon: '/favicondog.png',
     shortcut: '/favicondog.png',
@@ -60,9 +74,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.className} ${dmSans.variable}`}>
+      <body className={`${jetbrainsMono.variable} ${syne.variable} font-mono`}>
         <VerifiedAddressesProvider>
-          <div className="min-h-screen bg-gradient-to-br from-dog-gray-900 via-black to-dog-gray-900">
+          <div className="min-h-screen bg-void">
             {children}
           </div>
         </VerifiedAddressesProvider>

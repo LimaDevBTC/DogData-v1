@@ -1,26 +1,36 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700;800&family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  /* Color Palette */
-  --color-black: #000000;
-  --color-dark-gray: #0a0a0a;
-  --color-gray-900: #111111;
-  --color-gray-800: #1a1a1a;
-  --color-gray-700: #2a2a2a;
+  /* New Semantic Palette - Terminal Luxe */
+  --color-void: #151419;
+  --color-surface: #1B1B1E;
+  --color-elevated: #262626;
+  --color-lava: #F56E0F;
+  --color-lava-light: #FF8C3A;
+  --color-lava-dark: #D45D0D;
+  --color-dusty: #878787;
+  --color-snow: #FBFBFB;
+
+  /* Legacy aliases (redirects) */
+  --color-black: #151419;
+  --color-dark-gray: #151419;
+  --color-gray-900: #151419;
+  --color-gray-800: #1B1B1E;
+  --color-gray-700: #262626;
   --color-gray-600: #404040;
   --color-gray-500: #666666;
-  --color-gray-400: #999999;
+  --color-gray-400: #878787;
   --color-gray-300: #cccccc;
   --color-gray-200: #e5e5e5;
   --color-gray-100: #f5f5f5;
-  --color-white: #ffffff;
-  --color-orange: #f7931a;
-  --color-orange-light: #ffa726;
-  --color-orange-dark: #e65100;
-  
+  --color-white: #FBFBFB;
+  --color-orange: #F56E0F;
+  --color-orange-light: #FF8C3A;
+  --color-orange-dark: #D45D0D;
+
   /* Typography Scale */
   --text-xs: 0.75rem;    /* 12px */
   --text-sm: 0.875rem;   /* 14px */
@@ -32,7 +42,7 @@
   --text-4xl: 2.25rem;   /* 36px */
   --text-5xl: 3rem;      /* 48px */
   --text-6xl: 3.75rem;   /* 60px */
-  
+
   /* Spacing Scale (8px base) */
   --space-1: 0.25rem;    /* 4px */
   --space-2: 0.5rem;     /* 8px */
@@ -43,22 +53,22 @@
   --space-12: 3rem;      /* 48px */
   --space-16: 4rem;      /* 64px */
   --space-24: 6rem;      /* 96px */
-  
-  /* Glassmorphism */
-  --glass-bg: rgba(255, 255, 255, 0.03);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-blur: blur(12px);
-  
+
+  /* Glassmorphism - warmer tones */
+  --glass-bg: rgba(27, 27, 30, 0.6);
+  --glass-border: rgba(251, 251, 251, 0.08);
+  --glass-blur: blur(16px);
+
   /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  --shadow-glow: 0 0 20px rgba(247, 147, 26, 0.3);
-  
-  /* Grid Pattern */
+  --shadow-glow: 0 0 20px rgba(245, 110, 15, 0.3);
+
+  /* Grid Pattern - lava */
   --grid-size: 64px;
-  --grid-color: rgba(247, 147, 26, 0.015);
+  --grid-color: rgba(245, 110, 15, 0.015);
 }
 
 * {
@@ -75,9 +85,9 @@ html {
 }
 
 body {
-  font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', 'Consolas', monospace;
-  background: var(--color-black);
-  color: var(--color-white);
+  font-family: var(--font-mono, 'JetBrains Mono'), 'Fira Code', 'Monaco', 'Consolas', monospace;
+  background: var(--color-void);
+  color: var(--color-snow);
   overflow-x: hidden;
   position: relative;
 }
@@ -191,13 +201,9 @@ header::before {
 }
 
 .font-display {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-display, 'Syne'), -apple-system, BlinkMacSystemFont, sans-serif;
   font-weight: 700;
-  letter-spacing: -0.025em;
-}
-
-.font-ubuntu {
-  font-family: 'Ubuntu', -apple-system, BlinkMacSystemFont, sans-serif;
+  letter-spacing: -0.02em;
 }
 
 /* Glassmorphism Components */
@@ -278,10 +284,10 @@ header::before {
 
 @keyframes glow {
   0%, 100% {
-    box-shadow: 0 0 20px rgba(247, 147, 26, 0.3);
+    box-shadow: 0 0 20px rgba(245, 110, 15, 0.3);
   }
   50% {
-    box-shadow: 0 0 30px rgba(247, 147, 26, 0.6);
+    box-shadow: 0 0 30px rgba(245, 110, 15, 0.6);
   }
 }
 
@@ -329,7 +335,7 @@ header::before {
 
 /* Gradient Text */
 .gradient-text {
-  background: linear-gradient(135deg, var(--color-orange), var(--color-orange-light));
+  background: linear-gradient(135deg, var(--color-lava), var(--color-lava-light));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -395,7 +401,7 @@ header::before {
 
 /* Loading States */
 .loading-skeleton {
-  background: linear-gradient(90deg, var(--color-gray-800) 25%, var(--color-gray-700) 50%, var(--color-gray-800) 75%);
+  background: linear-gradient(90deg, var(--color-surface) 25%, var(--color-elevated) 50%, var(--color-surface) 75%);
   background-size: 200% 100%;
   animation: loading 1.5s infinite;
 }
@@ -464,6 +470,19 @@ main {
 /* Sharp buttons - no border radius */
 .btn-sharp {
   border-radius: 0 !important;
+}
+
+/* Bottom nav clearance on mobile */
+@media (max-width: 767px) {
+  .container-fluid {
+    padding-bottom: 5rem;
+  }
+}
+
+/* Touch-friendly targets */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
 }
 
 /* Recharts background fix - ensure transparent/black background */

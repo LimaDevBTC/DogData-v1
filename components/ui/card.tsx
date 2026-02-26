@@ -8,16 +8,16 @@ const Card = React.forwardRef<
   }
 >(({ className, variant = 'default', ...props }, ref) => {
   const variants = {
-    default: "bg-gray-900/50 border border-gray-800/50",
-    glass: "glass bg-white/5 backdrop-blur-lg border border-white/10",
-    elevated: "bg-gray-900/80 border border-gray-700/50 shadow-xl"
+    default: "bg-surface/50 border border-elevated/50",
+    glass: "glass bg-snow/5 backdrop-blur-lg border border-snow/10",
+    elevated: "bg-surface/80 border border-elevated/50 shadow-xl"
   }
-  
+
   return (
     <div
       ref={ref}
       className={cn(
-        "p-6 transition-all duration-300 hover:bg-white/[0.02] hover:border-white/20",
+        "p-4 md:p-6 transition-all duration-300 hover:bg-snow/[0.02] hover:border-snow/20",
         variants[variant],
         className
       )}
@@ -46,11 +46,11 @@ const CardTitle = React.forwardRef<
   }
 >(({ className, variant = 'default', ...props }, ref) => {
   const variants = {
-    default: "text-white font-semibold text-lg",
-    gradient: "gradient-text font-bold text-xl",
-    mono: "text-white font-mono font-semibold text-lg"
+    default: "text-snow font-display font-semibold text-base md:text-lg",
+    gradient: "gradient-text font-display font-bold text-lg md:text-xl",
+    mono: "text-snow font-mono font-semibold text-sm md:text-lg"
   }
-  
+
   return (
     <h3
       ref={ref}
@@ -67,7 +67,7 @@ const CardDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <p
     ref={ref}
-    className={cn("text-gray-400 text-sm font-mono", className)}
+    className={cn("text-dusty text-xs md:text-sm font-mono", className)}
     {...props}
   />
 ))

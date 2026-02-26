@@ -415,7 +415,7 @@ export default function AirdropPage() {
         </span>
       )
     } else {
-      return <span className="text-gray-400">0%</span>
+      return <span className="text-dusty">0%</span>
     }
   };
 
@@ -436,28 +436,28 @@ export default function AirdropPage() {
             height={40}
             className="object-contain md:w-[60px] md:h-[60px]"
           />
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white font-mono whitespace-nowrap">
+          <h1 className="text-2xl md:text-4xl font-bold text-snow font-mono font-display whitespace-nowrap">
             Airdrop Analysis
           </h1>
         </div>
-        <p className="text-gray-400 font-mono text-sm md:text-lg">
+        <p className="text-dusty font-mono text-sm md:text-lg">
           Independent audit of DOG•GO•TO•THE•MOON Airdrop - Rune 840000:3
         </p>
       </div>
 
       {/* Main Stats - Row 1: Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6 mb-6">
         <Card variant="glass">
           <CardHeader className="pb-3">
-            <CardTitle className="text-orange-400">
+            <CardTitle className="text-lava">
               Total Recipients
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-white font-mono">
+            <div className="text-xl md:text-3xl font-bold text-snow font-mono">
               {formatNumber(forensicStats?.total_analyzed || 0)}
             </div>
-            <p className="text-gray-400 text-sm font-mono mt-2">
+            <p className="text-dusty text-sm font-mono mt-2">
               Airdrop recipients analyzed
             </p>
           </CardContent>
@@ -470,10 +470,10 @@ export default function AirdropPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-white font-mono">
+            <div className="text-xl md:text-3xl font-bold text-snow font-mono">
               {formatNumber(forensicStats?.still_holding || 0)}
             </div>
-            <p className="text-gray-400 text-sm font-mono mt-2">
+            <p className="text-dusty text-sm font-mono mt-2">
               Still holding original airdrop tokens
             </p>
           </CardContent>
@@ -481,15 +481,15 @@ export default function AirdropPage() {
 
         <Card variant="glass">
           <CardHeader className="pb-3">
-            <CardTitle className="text-gray-300">
+            <CardTitle className="text-snow/80">
               Complete Exits
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-white font-mono">
+            <div className="text-xl md:text-3xl font-bold text-snow font-mono">
               {formatNumber(forensicStats?.sold_everything || 0)}
             </div>
-            <p className="text-gray-400 text-sm font-mono mt-2">
+            <p className="text-dusty text-sm font-mono mt-2">
               Sold or moved all airdrop tokens
             </p>
           </CardContent>
@@ -497,7 +497,7 @@ export default function AirdropPage() {
       </div>
 
       {/* Main Stats - Row 2: Behavioral Categories */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6 mb-8">
         <Card variant="glass">
           <CardHeader className="pb-3">
             <CardTitle className="text-green-400">
@@ -505,7 +505,7 @@ export default function AirdropPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-white font-mono">
+            <div className="text-xl md:text-3xl font-bold text-snow font-mono">
               {formatNumber(
                 (forensicStats?.by_pattern.satoshi_visionary || 0) + 
                 (forensicStats?.by_pattern.btc_maximalist || 0) + 
@@ -514,7 +514,7 @@ export default function AirdropPage() {
                 (forensicStats?.by_pattern.dog_legend || 0)
               )}
             </div>
-            <p className="text-gray-400 text-sm font-mono mt-2">
+            <p className="text-dusty text-sm font-mono mt-2">
               Added any amount to airdrop
             </p>
           </CardContent>
@@ -527,10 +527,10 @@ export default function AirdropPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-white font-mono">
+            <div className="text-xl md:text-3xl font-bold text-snow font-mono">
               {formatNumber(forensicStats?.by_pattern.diamond_paws || 0)}
             </div>
-            <p className="text-gray-400 text-sm font-mono mt-2">
+            <p className="text-dusty text-sm font-mono mt-2">
               Kept exact airdrop amount
             </p>
           </CardContent>
@@ -543,7 +543,7 @@ export default function AirdropPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-white font-mono">
+            <div className="text-xl md:text-3xl font-bold text-snow font-mono">
               {formatNumber(
                 (forensicStats?.by_pattern.hodl_hero || 0) +
                 (forensicStats?.by_pattern.steady_holder || 0) +
@@ -553,7 +553,7 @@ export default function AirdropPage() {
                 (forensicStats?.by_pattern.paper_hands || 0)
               )}
             </div>
-            <p className="text-gray-400 text-sm font-mono mt-2">
+            <p className="text-dusty text-sm font-mono mt-2">
               Sold any amount of airdrop
             </p>
           </CardContent>
@@ -565,7 +565,7 @@ export default function AirdropPage() {
       {/* Address Search */}
       <Card variant="glass">
         <CardHeader>
-          <CardTitle className="text-white text-xl">
+          <CardTitle className="text-snow text-xl font-display">
             Search Recipient Profile
           </CardTitle>
         </CardHeader>
@@ -576,7 +576,7 @@ export default function AirdropPage() {
               value={searchAddress}
               onChange={(e) => setSearchAddress(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && searchRecipient()}
-              className="flex-1 bg-transparent border-gray-700/50 text-white"
+              className="flex-1 bg-transparent border-elevated/50 text-snow"
             />
             <Button onClick={searchRecipient} className="btn-sharp">
               Search
@@ -584,12 +584,12 @@ export default function AirdropPage() {
           </div>
           
           {searchResult && (
-            <div className="mt-4 p-4 bg-transparent border border-gray-700/50">
+            <div className="mt-4 p-4 bg-transparent border border-elevated/50">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-gray-400 text-sm">Address</p>
+                  <p className="text-dusty text-sm">Address</p>
                   <div className="flex items-center gap-2">
-                    <code className="text-white text-xs">{searchResult.address}</code>
+                    <code className="text-snow text-xs">{searchResult.address}</code>
                     <Button
                       size="sm"
                       variant="ghost"
@@ -606,30 +606,30 @@ export default function AirdropPage() {
                   </div>
                 </div>
                 <div>
-                  <p className="text-gray-400 text-sm">Airdrop Amount</p>
-                  <p className="text-white font-mono">{formatDOG(searchResult.airdrop_amount)}</p>
+                  <p className="text-dusty text-sm">Airdrop Amount</p>
+                  <p className="text-snow font-mono">{formatDOG(searchResult.airdrop_amount)}</p>
                 </div>
                 <div>
-                  <p className="text-gray-400 text-sm">Current Balance</p>
-                  <p className="text-white font-mono">{formatDOG(searchResult.current_balance)}</p>
+                  <p className="text-dusty text-sm">Current Balance</p>
+                  <p className="text-snow font-mono">{formatDOG(searchResult.current_balance)}</p>
                 </div>
                 <div>
-                  <p className="text-gray-400 text-sm">Change</p>
+                  <p className="text-dusty text-sm">Change</p>
                   {getChangeIndicator(searchResult.percentage_change)}
                 </div>
                 <div>
-                  <p className="text-gray-400 text-sm">Behavior</p>
-                  <span className="text-orange-400 text-sm font-mono">
+                  <p className="text-dusty text-sm">Behavior</p>
+                  <span className="text-lava text-sm font-mono">
                     {searchResult.behavior_category}
                   </span>
                 </div>
               </div>
               {searchResult.insights.length > 0 && (
                 <div className="mt-4">
-                  <p className="text-gray-400 text-sm mb-2">Insights:</p>
+                  <p className="text-dusty text-sm mb-2">Insights:</p>
                   <ul className="space-y-1">
                     {searchResult.insights.map((insight, idx) => (
-                      <li key={idx} className="text-white text-sm font-mono">• {insight}</li>
+                      <li key={idx} className="text-snow text-sm font-mono">• {insight}</li>
                     ))}
                   </ul>
                 </div>
@@ -644,10 +644,10 @@ export default function AirdropPage() {
       {/* Behavior Lists */}
       <Card variant="glass">
         <CardHeader>
-          <CardTitle className="text-white text-xl">
+          <CardTitle className="text-snow text-xl font-display">
             Behavioral Lists
           </CardTitle>
-          <p className="text-gray-400 text-sm mt-2">
+          <p className="text-dusty text-sm mt-2">
             Complete lists of recipients by behavioral pattern
           </p>
         </CardHeader>
@@ -691,14 +691,14 @@ export default function AirdropPage() {
                   variant={isActive ? "default" : "outline"}
                   className={`flex items-center justify-between p-3 h-auto ${
                     isActive 
-                      ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' 
-                      : 'text-gray-300 hover:text-white hover:bg-gray-800/30 border border-transparent hover:border-gray-700/30'
+                      ? 'bg-lava/20 text-lava border border-lava/30' 
+                      : 'text-snow/80 hover:text-snow hover:bg-surface/30 border border-transparent hover:border-elevated/30'
                   }`}
                   onClick={() => handleListChange(list.key as BehaviorList)}
                 >
                   <div className="flex items-center justify-between w-full">
                     <span className="text-sm font-mono">{list.name}</span>
-                    <span className="text-xs font-mono text-gray-400">
+                    <span className="text-xs font-mono text-dusty">
                       {formatNumber(count)}
                     </span>
                   </div>
@@ -708,19 +708,19 @@ export default function AirdropPage() {
           </div>
 
           {/* Current List Info */}
-          <div className="mb-4 p-4 bg-transparent border border-gray-700/50">
+          <div className="mb-4 p-4 bg-transparent border border-elevated/50">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-white font-mono text-lg">
+                <h3 className="text-snow font-mono text-lg">
                   {behaviorLists.find(l => l.key === currentList)?.name}
                 </h3>
-                <p className="text-gray-400 text-sm">
+                <p className="text-dusty text-sm">
                   Showing {formatNumber(profiles.length)} of {formatNumber(getTotalCount())} recipients
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-gray-400 text-sm">Page {currentPage} of {calculatedTotalPages}</p>
-                <p className="text-orange-400 text-sm font-mono">
+                <p className="text-dusty text-sm">Page {currentPage} of {calculatedTotalPages}</p>
+                <p className="text-lava text-sm font-mono">
                   {formatNumber((currentPage - 1) * ITEMS_PER_PAGE + 1)} - {formatNumber(Math.min(
                     currentPage * ITEMS_PER_PAGE, 
                     getTotalCount()
@@ -735,15 +735,15 @@ export default function AirdropPage() {
             <div className={`overflow-x-auto transition-opacity duration-300 ${isUpdating ? 'opacity-90' : 'opacity-100'}`}>
               <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-700/50">
-                  <th className="text-left py-3 px-4 text-orange-400 font-mono text-sm">#</th>
-                  <th className="text-left py-3 px-4 text-orange-400 font-mono text-sm">Address</th>
-                  <th className="text-center py-3 px-4 text-orange-400 font-mono text-sm">Received</th>
-                  <th className="text-right py-3 px-4 text-orange-400 font-mono text-sm">Airdrop</th>
-                  <th className="text-right py-3 px-4 text-orange-400 font-mono text-sm">Current</th>
-                  <th className="text-center py-3 px-4 text-orange-400 font-mono text-sm">Change</th>
-                  <th className="text-left py-3 px-4 text-orange-400 font-mono text-sm">Behavior</th>
-                  <th className="text-center py-3 px-4 text-orange-400 font-mono text-sm">Actions</th>
+                <tr className="border-b border-elevated/50">
+                  <th className="text-left py-3 px-4 text-lava font-mono text-sm">#</th>
+                  <th className="text-left py-3 px-4 text-lava font-mono text-sm">Address</th>
+                  <th className="text-center py-3 px-4 text-lava font-mono text-sm">Received</th>
+                  <th className="text-right py-3 px-4 text-lava font-mono text-sm">Airdrop</th>
+                  <th className="text-right py-3 px-4 text-lava font-mono text-sm">Current</th>
+                  <th className="text-center py-3 px-4 text-lava font-mono text-sm">Change</th>
+                  <th className="text-left py-3 px-4 text-lava font-mono text-sm">Behavior</th>
+                  <th className="text-center py-3 px-4 text-lava font-mono text-sm">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -753,7 +753,7 @@ export default function AirdropPage() {
                     className="table-row"
                   >
                     <td className="py-3 px-4">
-                      <span className="text-white font-mono font-bold">
+                      <span className="text-snow font-mono font-bold">
                         #{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}
                       </span>
                     </td>
@@ -780,20 +780,20 @@ export default function AirdropPage() {
                     </td>
                     <td className="py-3 px-4 text-center">
                       {profile.receive_count > 1 ? (
-                        <Badge variant="default" className="bg-orange-500/20 text-orange-400 border border-orange-500/30 font-mono font-bold">
+                        <Badge variant="default" className="bg-lava/20 text-lava border border-lava/30 font-mono font-bold">
                           {profile.receive_count}x
                         </Badge>
                       ) : (
-                        <span className="text-gray-500 font-mono text-xs">1x</span>
+                        <span className="text-dusty/70 font-mono text-xs">1x</span>
                       )}
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <span className="text-gray-400 font-mono text-sm">
+                      <span className="text-dusty font-mono text-sm">
                         {formatDOG(profile.airdrop_amount)}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <span className="text-white font-mono font-bold text-sm">
+                      <span className="text-snow font-mono font-bold text-sm">
                         {formatDOG(profile.current_balance)}
                       </span>
                     </td>
@@ -801,7 +801,7 @@ export default function AirdropPage() {
                       {getChangeIndicator(profile.percentage_change)}
                     </td>
                     <td className="py-3 px-4">
-                      <span className="text-gray-300 text-xs font-mono">
+                      <span className="text-snow/80 text-xs font-mono">
                         {profile.behavior_category}
                       </span>
                     </td>
@@ -857,7 +857,7 @@ export default function AirdropPage() {
                   onClick={() => handlePageChange(page as number)}
                   className={`btn-sharp ${
                     currentPage === page 
-                      ? 'bg-dog-orange text-white border-dog-orange' 
+                      ? 'bg-dog-orange text-snow border-dog-orange' 
                       : 'hover:bg-dog-gray-700'
                   }`}
                 >

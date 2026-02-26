@@ -49,9 +49,9 @@ export function AddressBadge({ address, size = 'md', showName = true }: AddressB
     if (imageError) {
       return (
         <div className="inline-flex items-center gap-1.5">
-          <Award className={`${iconSize} text-orange-400`} />
+          <Award className={`${iconSize} text-lava`} />
           {showName && verified.name && (
-            <span className={`${textSize} font-medium text-gray-300`}>
+            <span className={`${textSize} font-medium text-snow/80`}>
               {verified.name}
             </span>
           )}
@@ -63,7 +63,7 @@ export function AddressBadge({ address, size = 'md', showName = true }: AddressB
       <div className="inline-flex items-center gap-1.5">
         {verified.logo && (
           <div 
-            className={`relative ${iconSize} rounded-full overflow-hidden bg-white/10 cursor-pointer transition-transform hover:scale-110 flex items-center justify-center shrink-0`}
+            className={`relative ${iconSize} rounded-full overflow-hidden bg-snow/10 cursor-pointer transition-transform hover:scale-110 flex items-center justify-center shrink-0`}
             title={verified.name || 'Verified'}
           >
             <div className="w-full h-full flex items-center justify-center p-[2px]">
@@ -79,7 +79,7 @@ export function AddressBadge({ address, size = 'md', showName = true }: AddressB
           </div>
         )}
         {showName && verified.name && (
-          <span className={`${textSize} font-medium text-gray-300`}>
+          <span className={`${textSize} font-medium text-snow/80`}>
             {verified.name}
           </span>
         )}
@@ -91,13 +91,13 @@ export function AddressBadge({ address, size = 'md', showName = true }: AddressB
   if (verified.type === 'community' && verified.twitter) {
     return (
       <div className="inline-flex items-center gap-1.5">
-        <Award className={`${iconSize} text-orange-400`} />
+        <Award className={`${iconSize} text-lava`} />
         {showName && verified.twitter_name && (
           <a
             href={`https://twitter.com/${verified.twitter.replace('@', '')}`}
             target="_blank"
             rel="noopener noreferrer"
-            className={`${textSize} font-medium text-orange-400 hover:text-orange-300 transition-colors`}
+            className={`${textSize} font-medium text-lava hover:text-lava-light transition-colors`}
           >
             {verified.twitter}
           </a>
@@ -112,7 +112,7 @@ export function AddressBadge({ address, size = 'md', showName = true }: AddressB
 export function AddressBadgeInline({ address }: { address: string }) {
   return (
     <div className="inline-flex items-center gap-2">
-      <code className="text-white text-xs break-all">{address}</code>
+      <code className="text-snow text-xs break-all">{address}</code>
       <AddressBadge address={address} size="sm" showName={false} />
     </div>
   );

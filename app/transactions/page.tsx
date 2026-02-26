@@ -451,7 +451,7 @@ export default function TransactionsPage() {
   const [hasMore, setHasMore] = useState(false) // DESABILITADO - apenas JSON local
   const [offset, setOffset] = useState(0)
   const [metrics24h, setMetrics24h] = useState<MetricsLast24h | null>(null)
-  const metricsCardClass = "stagger-item min-h-[160px] h-full border border-gray-800/60 bg-gradient-to-br from-black/40 via-dog-gray-900/30 to-black/20"
+  const metricsCardClass = "stagger-item md:min-h-[160px] h-full border border-elevated/60 bg-gradient-to-br from-void/40 via-surface/30 to-void/20"
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
@@ -906,7 +906,7 @@ export default function TransactionsPage() {
     // Se é new holder (não está no ranking mas recebeu DOG), mostrar "NEW"
     if (isNewHolder) {
       return (
-        <Badge className="bg-orange-500/20 text-orange-300 border-orange-500/40 font-mono text-[9px] uppercase tracking-wide min-w-[80px] flex items-center justify-center">
+        <Badge className="bg-lava/20 text-lava-light border-lava/40 font-mono text-[9px] uppercase tracking-wide min-w-[80px] flex items-center justify-center">
           <span>NEW HOLDER</span>
         </Badge>
       )
@@ -915,7 +915,7 @@ export default function TransactionsPage() {
     // Se tem rank, mostrar o rank
     if (rank && rank > 0) {
       return (
-        <Badge className="bg-orange-500/20 text-orange-300 border-orange-500/40 font-mono text-[9px] uppercase tracking-wide min-w-[118px] flex items-center justify-center">
+        <Badge className="bg-lava/20 text-lava-light border-lava/40 font-mono text-[9px] uppercase tracking-wide min-w-[118px] flex items-center justify-center">
           <span>Holder Rank #{rank.toLocaleString('en-US')}</span>
         </Badge>
       )
@@ -1175,7 +1175,7 @@ export default function TransactionsPage() {
   const renderTransactionDetails = (tx: Transaction) => (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <code className="text-white text-xs break-all">{tx.txid}</code>
+        <code className="text-snow text-xs break-all">{tx.txid}</code>
         <div className="flex items-center gap-2">
           <Button
             size="sm"
@@ -1204,32 +1204,32 @@ export default function TransactionsPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div>
-          <p className="text-gray-400 text-sm">Block Height</p>
-          <p className="text-white font-mono">{tx.block_height.toLocaleString()}</p>
+          <p className="text-dusty text-sm">Block Height</p>
+          <p className="text-snow font-mono">{tx.block_height.toLocaleString()}</p>
         </div>
         <div>
-          <p className="text-gray-400 text-sm">Amount Sent</p>
-          <p className="text-orange-400 font-mono font-bold">
+          <p className="text-dusty text-sm">Amount Sent</p>
+          <p className="text-lava font-mono font-bold">
             {tx.net_transfer !== undefined ? formatDOG(tx.net_transfer) : formatDOG(tx.total_dog_moved)}
           </p>
         </div>
         <div>
-          <p className="text-gray-400 text-sm">Timestamp</p>
-          <p className="text-white font-mono text-xs">{formatTime(tx.timestamp)}</p>
+          <p className="text-dusty text-sm">Timestamp</p>
+          <p className="text-snow font-mono text-xs">{formatTime(tx.timestamp)}</p>
         </div>
       </div>
 
       {tx.has_change && tx.net_transfer !== undefined && (
-        <div className="bg-gray-800/30 border border-gray-700/50 rounded-lg p-2.5">
-          <div className="flex justify-between items-center text-[11px] font-mono text-gray-500">
+        <div className="bg-surface/30 border border-elevated/50 rounded-lg p-2.5">
+          <div className="flex justify-between items-center text-[11px] font-mono text-dusty/70">
             <span>Change returned to sender:</span>
-            <span className="text-gray-400">{formatDOG(tx.change_amount || 0)}</span>
+            <span className="text-dusty">{formatDOG(tx.change_amount || 0)}</span>
           </div>
         </div>
       )}
 
       <div>
-        <p className="text-gray-400 text-sm mb-2">Inputs ({tx.sender_count})</p>
+        <p className="text-dusty text-sm mb-2">Inputs ({tx.sender_count})</p>
         <div className="space-y-1.5">
           {tx.senders.slice(0, 5).map((sender, idx) => (
             <div key={`${sender.address}-${idx}`} className="flex items-center gap-1.5">
@@ -1254,13 +1254,13 @@ export default function TransactionsPage() {
                 size="sm" 
                 showName={false} 
               />
-              <span className="text-gray-400 font-mono text-xs ml-auto">
+              <span className="text-dusty font-mono text-xs ml-auto">
                 {sender.amount_dog ? formatDOG(sender.amount_dog) : '~DOG'}
               </span>
             </div>
           ))}
           {tx.sender_count > 5 && (
-            <p className="text-gray-500 text-xs pl-2">
+            <p className="text-dusty/70 text-xs pl-2">
               + {tx.sender_count - 5} more inputs
             </p>
           )}
@@ -1268,7 +1268,7 @@ export default function TransactionsPage() {
       </div>
 
       <div>
-        <p className="text-gray-400 text-sm mb-2">Outputs ({tx.receiver_count})</p>
+        <p className="text-dusty text-sm mb-2">Outputs ({tx.receiver_count})</p>
         <div className="space-y-1.5">
           {tx.receivers.map((receiver, idx) => (
             <div key={`${receiver.address}-${idx}`} className="flex items-center gap-1.5">
@@ -1296,7 +1296,7 @@ export default function TransactionsPage() {
                   SELF
                 </Badge>
               )}
-              <span className="text-orange-400 font-mono text-xs font-bold ml-auto">
+              <span className="text-lava font-mono text-xs font-bold ml-auto">
                 {formatDOG(receiver.amount_dog)}
               </span>
             </div>
@@ -1318,13 +1318,13 @@ export default function TransactionsPage() {
           <div className="mb-4 p-3 bg-gradient-to-r from-green-500/20 to-green-600/20 border border-green-500/50 rounded-lg animate-pulse">
             <div className="flex items-center justify-center gap-3">
               <span className="text-green-400 text-2xl">🆕</span>
-              <p className="text-white font-mono text-sm md:text-base font-bold">
+              <p className="text-snow font-mono text-sm md:text-base font-bold">
                 Novas transações disponíveis!
               </p>
               <Button
                 size="sm"
                 onClick={() => window.location.reload()}
-                className="bg-green-500 hover:bg-green-600 text-white font-mono"
+                className="bg-green-500 hover:bg-green-600 text-snow font-mono"
               >
                 🔄 Recarregar
               </Button>
@@ -1343,18 +1343,18 @@ export default function TransactionsPage() {
       {/* Header */}
         <div className="text-center space-y-2 md:space-y-4 px-4">
           <div className="flex items-center justify-center gap-2 md:gap-4">
-            <Activity className="w-10 h-10 md:w-14 md:h-14 text-orange-400" />
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white font-mono whitespace-nowrap">
+            <Activity className="w-10 h-10 md:w-14 md:h-14 text-lava" />
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-snow font-display whitespace-nowrap">
           DOG Transactions
         </h1>
           </div>
-          <p className="text-gray-400 font-mono text-sm md:text-lg">
+          <p className="text-dusty font-mono text-sm md:text-lg">
             Real-time transaction tracking - Rune 840000:3
         </p>
       </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-3 gap-4 md:gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-3 gap-3 md:gap-6">
           <Card variant="glass">
             <CardHeader className="pb-3">
               <CardTitle className="text-yellow-400 flex items-center gap-2">
@@ -1363,10 +1363,10 @@ export default function TransactionsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-white font-mono">
+              <div className="text-xl md:text-3xl font-bold text-snow font-mono">
                 {newHolders24h != null ? newHolders24h.toLocaleString('en-US') : (loading ? 'Loading...' : '—')}
               </div>
-              <p className="text-gray-400 text-sm font-mono mt-2">
+              <p className="text-dusty text-sm font-mono mt-2">
                 New wallets in last 24 hours
               </p>
             </CardContent>
@@ -1380,10 +1380,10 @@ export default function TransactionsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-white font-mono">
+              <div className="text-xl md:text-3xl font-bold text-snow font-mono">
                 {lastBlock > 0 ? lastBlock.toLocaleString() : (loading ? 'Loading...' : 'N/A')}
             </div>
-              <p className="text-gray-400 text-sm font-mono mt-2">
+              <p className="text-dusty text-sm font-mono mt-2">
                 Most recent block scanned by our tracker
               </p>
             </CardContent>
@@ -1401,7 +1401,7 @@ export default function TransactionsPage() {
                     variant="ghost"
                     size="icon"
                     onClick={handleManualRefresh}
-                    className="h-8 w-8 text-gray-400 hover:text-purple-200"
+                    className="h-8 w-8 text-dusty hover:text-purple-200"
                     title="Refresh now"
                   >
                     <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-purple-300' : ''}`} />
@@ -1413,7 +1413,7 @@ export default function TransactionsPage() {
                     className={`font-mono text-[11px] px-3 py-1 border ${
                       autoRefresh
                         ? 'border-purple-500/40 text-purple-200 hover:text-purple-100'
-                        : 'border-gray-600 text-gray-400 hover:text-gray-300'
+                        : 'border-elevated text-dusty hover:text-snow/80'
                     }`}
                   >
                     {autoRefresh ? 'AUTO ON' : 'AUTO OFF'}
@@ -1422,37 +1422,37 @@ export default function TransactionsPage() {
               </div>
           </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-white font-mono">
+              <div className="text-2xl font-bold text-snow font-mono">
                 {lastUpdateTime ? formatLastUpdate(lastUpdateTime) : 'Loading...'}
               </div>
-              <p className="text-gray-400 text-sm font-mono mt-2">
+              <p className="text-dusty text-sm font-mono mt-2">
                 {lastUpdateTime 
                   ? `${String(lastUpdateTime.getMonth() + 1).padStart(2, '0')}/${String(lastUpdateTime.getDate()).padStart(2, '0')}/${lastUpdateTime.getFullYear()}`
                   : 'Waiting for data'}
               </p>
-              <p className="text-[11px] text-gray-500 font-mono uppercase tracking-wide mt-2">
+              <p className="text-[11px] text-dusty/70 font-mono uppercase tracking-wide mt-2">
                 {autoRefresh ? 'Auto refresh every 3 minutes' : 'Auto refresh disabled'}
               </p>
             </CardContent>
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6 mt-4">
+        <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-6 mt-4">
           <Card variant="glass" className={metricsCardClass}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle variant="mono" className="text-sm text-gray-300 flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-orange-400" />
+                <CardTitle variant="mono" className="text-sm text-snow/80 flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-lava" />
                   Total Transactions (24h)
                 </CardTitle>
               </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <div className="text-3xl font-bold text-white font-mono">
+                <div className="text-xl md:text-3xl font-bold text-snow font-mono">
                   {metrics24h ? metrics24h.txCount.toLocaleString() : (loading ? 'Loading...' : 'N/A')}
               </div>
-                <p className="text-gray-400 text-xs md:text-sm font-mono uppercase tracking-wide">
+                <p className="text-dusty text-xs md:text-sm font-mono uppercase tracking-wide">
                   On-chain DOG transfers in the last 24 hours
                 </p>
               </div>
@@ -1462,7 +1462,7 @@ export default function TransactionsPage() {
           <Card variant="glass" className={metricsCardClass}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle variant="mono" className="text-sm text-gray-300 flex items-center gap-2">
+                <CardTitle variant="mono" className="text-sm text-snow/80 flex items-center gap-2">
                   <Users className="w-4 h-4 text-emerald-400" />
                   Total Active Wallets (24h)
                 </CardTitle>
@@ -1470,10 +1470,10 @@ export default function TransactionsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <div className="text-3xl font-bold text-white font-mono">
+                <div className="text-xl md:text-3xl font-bold text-snow font-mono">
                   {metrics24h ? metrics24h.activeWalletCount.toLocaleString() : (loading ? 'Loading...' : 'N/A')}
             </div>
-                <p className="text-gray-400 text-xs md:text-sm font-mono uppercase tracking-wide">
+                <p className="text-dusty text-xs md:text-sm font-mono uppercase tracking-wide">
                   Unique wallets that sent or received DOG in 24 hours
                 </p>
               </div>
@@ -1483,7 +1483,7 @@ export default function TransactionsPage() {
           <Card variant="glass" className={metricsCardClass}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle variant="mono" className="text-sm text-gray-300 flex items-center gap-2">
+                <CardTitle variant="mono" className="text-sm text-snow/80 flex items-center gap-2">
                   <Zap className="w-4 h-4 text-yellow-300" />
                   On-Chain Volume (24h)
                 </CardTitle>
@@ -1491,10 +1491,10 @@ export default function TransactionsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <div className="text-3xl font-bold text-white font-mono">
+                <div className="text-xl md:text-3xl font-bold text-snow font-mono">
                   {metrics24h ? formatDOG(metrics24h.totalDogMoved) : (loading ? 'Loading...' : 'N/A')}
                 </div>
-                <p className="text-gray-400 text-xs md:text-sm font-mono uppercase tracking-wide">
+                <p className="text-dusty text-xs md:text-sm font-mono uppercase tracking-wide">
                   Total DOG moved on-chain in the last 24 hours
                 </p>
               </div>
@@ -1504,7 +1504,7 @@ export default function TransactionsPage() {
           <Card variant="glass" className={metricsCardClass}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle variant="mono" className="text-sm text-gray-300 flex items-center gap-2">
+                <CardTitle variant="mono" className="text-sm text-snow/80 flex items-center gap-2">
                   <Users className="w-4 h-4 text-cyan-400" />
                   Most Active Wallet (24h)
                 </CardTitle>
@@ -1516,7 +1516,7 @@ export default function TransactionsPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <AddressBadge address={metrics24h.topActiveWallet.address} size="sm" showName />
-                      <code className="text-xs text-gray-300 font-mono">
+                      <code className="text-xs text-snow/80 font-mono">
                         {shortAddress(metrics24h.topActiveWallet.address)}
                       </code>
                       {renderRankBadge(
@@ -1529,7 +1529,7 @@ export default function TransactionsPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 text-gray-400 hover:text-cyan-200"
+                      className="h-7 w-7 text-dusty hover:text-cyan-200"
                       onClick={() => handleCopyAddress(metrics24h.topActiveWallet?.address)}
                     >
                       {copiedAddress === metrics24h.topActiveWallet.address ? (
@@ -1539,15 +1539,15 @@ export default function TransactionsPage() {
                       )}
                     </Button>
                   </div>
-                  <div className="text-sm text-gray-400 font-mono">
+                  <div className="text-sm text-dusty font-mono">
                     {metrics24h.topActiveWallet.txCount.toLocaleString()} transactions
                   </div>
-                  <p className="text-[11px] text-gray-500 font-mono uppercase tracking-wide">
+                  <p className="text-[11px] text-dusty/70 font-mono uppercase tracking-wide">
                     Most active among {metrics24h.activeWalletCount?.toLocaleString() || '—'} wallets
                   </p>
                 </div>
               ) : (
-                <p className="text-gray-500 text-sm font-mono">Not enough data</p>
+                <p className="text-dusty/70 text-sm font-mono">Not enough data</p>
               )}
             </CardContent>
           </Card>
@@ -1555,7 +1555,7 @@ export default function TransactionsPage() {
           <Card variant="glass" className={metricsCardClass}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle variant="mono" className="text-sm text-gray-300 flex items-center gap-2">
+                <CardTitle variant="mono" className="text-sm text-snow/80 flex items-center gap-2">
                   <ArrowDownLeft className="w-4 h-4 text-emerald-400" />
                   Largest DOG Inflow (24h)
                 </CardTitle>
@@ -1575,7 +1575,7 @@ export default function TransactionsPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <AddressBadge address={metrics24h.topInWallet.address} size="sm" showName />
-                      <code className="text-xs text-gray-300 font-mono">
+                      <code className="text-xs text-snow/80 font-mono">
                         {shortAddress(metrics24h.topInWallet.address)}
                       </code>
                       {renderRankBadge(
@@ -1588,7 +1588,7 @@ export default function TransactionsPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 text-gray-400 hover:text-emerald-200"
+                      className="h-7 w-7 text-dusty hover:text-emerald-200"
                       onClick={() => handleCopyAddress(metrics24h.topInWallet?.address)}
                     >
                       {copiedAddress === metrics24h.topInWallet.address ? (
@@ -1598,15 +1598,15 @@ export default function TransactionsPage() {
                       )}
                     </Button>
                   </div>
-                  <div className="text-sm text-gray-400 font-mono">
+                  <div className="text-sm text-dusty font-mono">
                     {formatDOG(metrics24h.topInWallet.dogMoved)} received
                   </div>
-                  <p className="text-[11px] text-gray-500 font-mono uppercase tracking-wide">
+                  <p className="text-[11px] text-dusty/70 font-mono uppercase tracking-wide">
                     Across {metrics24h.volumeWalletCount?.toLocaleString() || '—'} wallets
                   </p>
                 </div>
               ) : (
-                <p className="text-gray-500 text-sm font-mono">Not enough data</p>
+                <p className="text-dusty/70 text-sm font-mono">Not enough data</p>
               )}
           </CardContent>
         </Card>
@@ -1614,7 +1614,7 @@ export default function TransactionsPage() {
           <Card variant="glass" className={metricsCardClass}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle variant="mono" className="text-sm text-gray-300 flex items-center gap-2">
+                <CardTitle variant="mono" className="text-sm text-snow/80 flex items-center gap-2">
                   <ArrowUpRight className="w-4 h-4 text-red-400" />
                   Largest DOG Outflow (24h)
                 </CardTitle>
@@ -1634,7 +1634,7 @@ export default function TransactionsPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <AddressBadge address={metrics24h.topOutWallet.address} size="sm" showName />
-                      <code className="text-xs text-gray-300 font-mono">
+                      <code className="text-xs text-snow/80 font-mono">
                         {shortAddress(metrics24h.topOutWallet.address)}
                       </code>
                       {renderRankBadge(
@@ -1647,7 +1647,7 @@ export default function TransactionsPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 text-gray-400 hover:text-red-200"
+                      className="h-7 w-7 text-dusty hover:text-red-200"
                       onClick={() => handleCopyAddress(metrics24h.topOutWallet?.address)}
                     >
                       {copiedAddress === metrics24h.topOutWallet.address ? (
@@ -1657,15 +1657,15 @@ export default function TransactionsPage() {
                       )}
                     </Button>
                   </div>
-                  <div className="text-sm text-gray-400 font-mono">
+                  <div className="text-sm text-dusty font-mono">
                     {formatDOG(metrics24h.topOutWallet.dogMoved)} sent out
                   </div>
-                  <p className="text-[11px] text-gray-500 font-mono uppercase tracking-wide">
+                  <p className="text-[11px] text-dusty/70 font-mono uppercase tracking-wide">
                     Across {metrics24h.volumeWalletCount?.toLocaleString() || '—'} wallets
                   </p>
                 </div>
               ) : (
-                <p className="text-gray-500 text-sm font-mono">Not enough data</p>
+                <p className="text-dusty/70 text-sm font-mono">Not enough data</p>
               )}
             </CardContent>
           </Card>
@@ -1673,7 +1673,7 @@ export default function TransactionsPage() {
           <Card variant="glass" className={metricsCardClass}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle variant="mono" className="text-sm text-gray-300 flex items-center gap-2">
+                <CardTitle variant="mono" className="text-sm text-snow/80 flex items-center gap-2">
                   <Coins className="w-4 h-4 text-amber-300" />
                   Miner Fees (24h)
                 </CardTitle>
@@ -1681,14 +1681,14 @@ export default function TransactionsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <div className="text-3xl font-bold text-white font-mono">
+                <div className="text-xl md:text-3xl font-bold text-snow font-mono">
                   {metrics24h
                     ? metrics24h.feesBtc !== undefined
                       ? formatBTC(metrics24h.feesBtc)
                       : 'N/A'
                     : (loading ? 'Loading...' : 'N/A')}
                 </div>
-                <p className="text-gray-400 text-xs md:text-sm font-mono uppercase tracking-wide">
+                <p className="text-dusty text-xs md:text-sm font-mono uppercase tracking-wide">
                   {metrics24h?.feesSats !== undefined
                     ? `${formatSats(metrics24h.feesSats)} paid to Bitcoin miners`
                     : 'Bitcoin fees generated by DOG transfers in the last 24 hours'}
@@ -1700,18 +1700,18 @@ export default function TransactionsPage() {
           <Card variant="glass" className={metricsCardClass}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle variant="mono" className="text-sm text-gray-300 flex items-center gap-2">
-                  <LineChart className="w-4 h-4 text-orange-300" />
+                <CardTitle variant="mono" className="text-sm text-snow/80 flex items-center gap-2">
+                  <LineChart className="w-4 h-4 text-lava-light" />
                   Avg DOG per Tx (24h)
                 </CardTitle>
               </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <div className="text-3xl font-bold text-white font-mono">
+                <div className="text-xl md:text-3xl font-bold text-snow font-mono">
                   {metrics24h ? formatDOG(metrics24h.avgDogPerTx) : (loading ? 'Loading...' : 'N/A')}
                 </div>
-                <p className="text-gray-400 text-xs md:text-sm font-mono uppercase tracking-wide">
+                <p className="text-dusty text-xs md:text-sm font-mono uppercase tracking-wide">
                   Average DOG moved per transaction in the last 24 hours
                 </p>
               </div>
@@ -1721,17 +1721,17 @@ export default function TransactionsPage() {
           <Card variant="glass" className={metricsCardClass}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle variant="mono" className="text-sm text-gray-300 flex items-center gap-2">
+                <CardTitle variant="mono" className="text-sm text-snow/80 flex items-center gap-2">
                   <BarChart3 className="w-4 h-4 text-amber-400" />
                   Avg Transactions per Block (24h)
                 </CardTitle>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-white font-mono">
+              <div className="text-xl md:text-3xl font-bold text-snow font-mono">
                 {metrics24h ? metrics24h.avgTxPerBlock.toFixed(2) : (loading ? 'Loading...' : '—')}
               </div>
-              <p className="text-gray-400 text-xs md:text-sm font-mono">
+              <p className="text-dusty text-xs md:text-sm font-mono">
                 Across {metrics24h?.blockCount || 0} blocks
               </p>
             </CardContent>
@@ -1750,7 +1750,7 @@ export default function TransactionsPage() {
                   {topInflowWallets.length} wallets
                 </Badge>
               </div>
-              <p className="text-gray-500 text-xs font-mono mt-1">
+              <p className="text-dusty/70 text-xs font-mono mt-1">
                 Ranked by DOG received in the last 24 hours
               </p>
             </CardHeader>
@@ -1816,7 +1816,7 @@ export default function TransactionsPage() {
         {/* Search */}
         <Card variant="glass">
           <CardHeader>
-            <CardTitle className="text-white text-xl font-mono">Search Transaction</CardTitle>
+            <CardTitle className="text-snow text-xl font-mono">Search Transaction</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex gap-2">
@@ -1825,7 +1825,7 @@ export default function TransactionsPage() {
                 value={searchTxid}
                 onChange={(e) => setSearchTxid(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && searchTransaction()}
-                className="flex-1 bg-transparent border-gray-700/50 text-white"
+                className="flex-1 bg-transparent border-elevated/50 text-snow"
               />
               <Button onClick={searchTransaction} className="btn-sharp">
                 Search
@@ -1834,7 +1834,7 @@ export default function TransactionsPage() {
 
             {/* Search Result */}
             {searchResult && (
-              <div className="mt-4 p-4 bg-transparent border border-orange-500/30 rounded-lg">
+              <div className="mt-4 p-4 bg-transparent border border-lava/30 rounded-lg">
                 {renderTransactionDetails(searchResult)}
               </div>
             )}
@@ -1847,7 +1847,7 @@ export default function TransactionsPage() {
         <Card variant="glass">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-white text-xl font-mono">
+              <CardTitle className="text-snow text-xl font-mono">
                 Transaction History
               </CardTitle>
               <div className="flex items-center gap-2 text-green-400 font-mono text-sm">
@@ -1861,14 +1861,14 @@ export default function TransactionsPage() {
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse table-auto">
                   <thead>
-                    <tr className="border-b border-gray-700/50">
-                      <th className="text-left py-2 px-2 text-orange-400 font-mono text-xs w-[70px]">Block</th>
-                      <th className="text-left py-2 px-2 text-orange-400 font-mono text-xs w-[180px]">From</th>
-                      <th className="text-left py-2 px-2 text-orange-400 font-mono text-xs w-[180px]">To</th>
-                      <th className="text-right py-2 px-2 text-orange-400 font-mono text-xs w-[130px]">DOG Moved</th>
-                      <th className="text-center py-2 px-2 text-orange-400 font-mono text-xs w-[70px]">Flow</th>
-                      <th className="text-left py-2 px-2 text-orange-400 font-mono text-xs w-[110px]">Time</th>
-                      <th className="text-center py-2 px-2 text-orange-400 font-mono text-xs w-[120px]">TXID</th>
+                    <tr className="border-b border-elevated/50">
+                      <th className="text-left py-2 px-2 text-lava font-mono text-xs w-[70px]">Block</th>
+                      <th className="text-left py-2 px-2 text-lava font-mono text-xs w-[180px]">From</th>
+                      <th className="text-left py-2 px-2 text-lava font-mono text-xs w-[180px]">To</th>
+                      <th className="text-right py-2 px-2 text-lava font-mono text-xs w-[130px]">DOG Moved</th>
+                      <th className="text-center py-2 px-2 text-lava font-mono text-xs w-[70px]">Flow</th>
+                      <th className="text-left py-2 px-2 text-lava font-mono text-xs w-[110px]">Time</th>
+                      <th className="text-center py-2 px-2 text-lava font-mono text-xs w-[120px]">TXID</th>
                     </tr>
                   </thead>
                   <tbody className="border-spacing-0">
@@ -1923,7 +1923,7 @@ export default function TransactionsPage() {
                                 </Button>
                               )}
                               {tx.sender_count > 1 && (
-                                <span className="text-gray-500 text-xs">+{tx.sender_count - 1}</span>
+                                <span className="text-dusty/70 text-xs">+{tx.sender_count - 1}</span>
                               )}
                             </div>
                           </td>
@@ -1964,14 +1964,14 @@ export default function TransactionsPage() {
                                 </Button>
                               )}
                               {tx.receiver_count > 1 && (
-                                <span className="text-gray-500 text-xs whitespace-nowrap">+{tx.receiver_count - 1}</span>
+                                <span className="text-dusty/70 text-xs whitespace-nowrap">+{tx.receiver_count - 1}</span>
                               )}
                             </div>
                           </td>
 
                           {/* DOG Moved - Valor líquido enviado */}
                           <td className="py-2 px-1 text-right">
-                            <span className="text-orange-400 font-mono font-bold text-xs">
+                            <span className="text-lava font-mono font-bold text-xs">
                               {tx.net_transfer !== undefined 
                                 ? formatDOG(tx.net_transfer) 
                                 : formatDOG(tx.total_dog_moved)}
@@ -1982,14 +1982,14 @@ export default function TransactionsPage() {
                           <td className="py-2 px-1 text-center">
                             <div className="flex items-center justify-center gap-1 text-xs font-mono">
                               <span className="text-cyan-400">{tx.sender_count}</span>
-                              <ArrowRightLeft className="w-2.5 h-2.5 text-gray-500" />
+                              <ArrowRightLeft className="w-2.5 h-2.5 text-dusty/70" />
                               <span className="text-green-400">{tx.receiver_count}</span>
                             </div>
                           </td>
 
                           {/* Time - Compacto */}
                           <td className="py-2 px-2">
-                            <span className="text-gray-400 font-mono text-xs">
+                            <span className="text-dusty font-mono text-xs">
                               {formatTime(tx.timestamp)}
                             </span>
                           </td>
@@ -2046,9 +2046,9 @@ export default function TransactionsPage() {
 
                 {transactions.length === 0 && !loading && (
                   <div className="text-center py-12">
-                    <Activity className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                    <p className="text-gray-400 font-mono">No transactions yet</p>
-                    <p className="text-gray-500 text-sm font-mono mt-2">Waiting for new blocks...</p>
+                    <Activity className="w-16 h-16 text-elevated mx-auto mb-4" />
+                    <p className="text-dusty font-mono">No transactions yet</p>
+                    <p className="text-dusty/70 text-sm font-mono mt-2">Waiting for new blocks...</p>
                   </div>
                 )}
               </div>
@@ -2056,14 +2056,14 @@ export default function TransactionsPage() {
           </CardContent>
         </Card>
 
-        <div className="mt-4 text-left md:text-center text-gray-500 font-mono text-xs md:text-sm">
+        <div className="mt-4 text-left md:text-center text-dusty/70 font-mono text-xs md:text-sm">
           <p>Showing the last 500 DOG transactions.</p>
         </div>
 
         {hasMore && (
           <div ref={loadMoreRef} className="w-full h-12 flex items-center justify-center">
             {loadingMore ? (
-              <div className="flex items-center gap-2 text-gray-400 font-mono text-xs">
+              <div className="flex items-center gap-2 text-dusty font-mono text-xs">
                 <RefreshCw className="w-3 h-3 animate-spin" />
                 Loading more transactions...
               </div>
