@@ -66,8 +66,8 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
             </div>
           </div>
 
-          {/* Quick Links - Hidden on mobile (bottom nav handles this) */}
-          <div className="hidden md:block space-y-6">
+          {/* Quick Links */}
+          <div className="space-y-6">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-lava/20 border border-lava/30 flex items-center justify-center">
                 <BarChart3 className="w-4 h-4 text-lava" />
@@ -170,8 +170,8 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
             </ul>
           </div>
 
-          {/* Resources - Hidden on mobile */}
-          <div className="hidden md:block space-y-6">
+          {/* Resources */}
+          <div className="space-y-6">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-lava/20 border border-lava/30 flex items-center justify-center">
                 <Globe className="w-4 h-4 text-lava" />
