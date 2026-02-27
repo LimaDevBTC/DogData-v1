@@ -906,8 +906,8 @@ export default function TransactionsPage() {
     // Se é new holder (não está no ranking mas recebeu DOG), mostrar "NEW"
     if (isNewHolder) {
       return (
-        <Badge className="bg-lava/20 text-lava-light border-lava/40 font-mono text-[9px] uppercase tracking-wide min-w-[80px] flex items-center justify-center">
-          <span>NEW HOLDER</span>
+        <Badge className="bg-lava/20 text-lava-light border-lava/40 font-mono text-[8px] md:text-[9px] uppercase tracking-wide px-1.5 py-0 md:px-2 md:py-0.5 whitespace-nowrap">
+          <span>NEW</span>
         </Badge>
       )
     }
@@ -915,8 +915,8 @@ export default function TransactionsPage() {
     // Se tem rank, mostrar o rank
     if (rank && rank > 0) {
       return (
-        <Badge className="bg-lava/20 text-lava-light border-lava/40 font-mono text-[9px] uppercase tracking-wide min-w-[118px] flex items-center justify-center">
-          <span>Holder Rank #{rank.toLocaleString('en-US')}</span>
+        <Badge className="bg-lava/20 text-lava-light border-lava/40 font-mono text-[8px] md:text-[9px] uppercase tracking-wide px-1.5 py-0 md:px-2 md:py-0.5 whitespace-nowrap">
+          <span>#{rank.toLocaleString('en-US')}</span>
         </Badge>
       )
     }
@@ -1292,7 +1292,7 @@ export default function TransactionsPage() {
                 showName={false} 
               />
               {receiver.is_change && (
-                <Badge className="text-[9px] px-1 py-0 bg-purple-500/20 text-purple-400 border-purple-500/30">
+                <Badge className="text-[8px] md:text-[9px] px-1 py-0 bg-purple-500/20 text-purple-400 border-purple-500/30">
                   SELF
                 </Badge>
               )}
@@ -1389,7 +1389,7 @@ export default function TransactionsPage() {
             </CardContent>
           </Card>
 
-          <Card variant="glass">
+          <Card variant="glass" className="col-span-2 md:col-span-1">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-purple-400 flex items-center gap-2">
@@ -1512,30 +1512,30 @@ export default function TransactionsPage() {
             </CardHeader>
             <CardContent>
               {metrics24h?.topActiveWallet ? (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
+                <div className="space-y-2 md:space-y-3">
+                  <div className="flex items-center justify-between gap-1.5 md:gap-3">
+                    <div className="flex items-center gap-1.5 md:gap-3 min-w-0 flex-wrap">
                       <AddressBadge address={metrics24h.topActiveWallet.address} size="sm" showName />
-                      <code className="text-xs text-snow/80 font-mono">
+                      <code className="text-[10px] md:text-xs text-snow/80 font-mono truncate">
                         {shortAddress(metrics24h.topActiveWallet.address)}
                       </code>
                       {renderRankBadge(
                         metrics24h.topActiveWallet.address,
                         metrics24h.topActiveWallet.holderRank,
-                        false, // Não recebeu DOG (é sender)
-                        [] // Não temos contexto de transação
+                        false,
+                        []
                       )}
                     </div>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 text-dusty hover:text-cyan-200"
+                      className="h-6 w-6 md:h-7 md:w-7 text-dusty hover:text-cyan-200 flex-shrink-0"
                       onClick={() => handleCopyAddress(metrics24h.topActiveWallet?.address)}
                     >
                       {copiedAddress === metrics24h.topActiveWallet.address ? (
-                        <Check className="w-4 h-4" />
+                        <Check className="w-3.5 h-3.5 md:w-4 md:h-4" />
                       ) : (
-                        <Copy className="w-4 h-4" />
+                        <Copy className="w-3.5 h-3.5 md:w-4 md:h-4" />
                       )}
                     </Button>
                   </div>
@@ -1562,7 +1562,7 @@ export default function TransactionsPage() {
                 {metrics24h?.topInWallet && (
                   <Badge
                     variant="outline"
-                    className="text-[10px] font-mono tracking-wide border border-emerald-500/50 text-emerald-300 px-2 py-0.5"
+                    className="text-[8px] md:text-[10px] font-mono tracking-wide border border-emerald-500/50 text-emerald-300 px-1.5 py-0 md:px-2 md:py-0.5"
                   >
                     Inflow
               </Badge>
@@ -1571,30 +1571,30 @@ export default function TransactionsPage() {
             </CardHeader>
             <CardContent>
               {metrics24h?.topInWallet ? (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
+                <div className="space-y-2 md:space-y-3">
+                  <div className="flex items-center justify-between gap-1.5 md:gap-3">
+                    <div className="flex items-center gap-1.5 md:gap-3 min-w-0 flex-wrap">
                       <AddressBadge address={metrics24h.topInWallet.address} size="sm" showName />
-                      <code className="text-xs text-snow/80 font-mono">
+                      <code className="text-[10px] md:text-xs text-snow/80 font-mono truncate">
                         {shortAddress(metrics24h.topInWallet.address)}
                       </code>
                       {renderRankBadge(
                         metrics24h.topInWallet.address,
                         metrics24h.topInWallet.holderRank,
-                        true, // hasReceivedDog = true (inflow)
-                        [] // Não temos contexto de transação aqui, mas se tem rank não é new holder
+                        true,
+                        []
                       )}
                     </div>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 text-dusty hover:text-emerald-200"
+                      className="h-6 w-6 md:h-7 md:w-7 text-dusty hover:text-emerald-200 flex-shrink-0"
                       onClick={() => handleCopyAddress(metrics24h.topInWallet?.address)}
                     >
                       {copiedAddress === metrics24h.topInWallet.address ? (
-                        <Check className="w-4 h-4" />
+                        <Check className="w-3.5 h-3.5 md:w-4 md:h-4" />
                       ) : (
-                        <Copy className="w-4 h-4" />
+                        <Copy className="w-3.5 h-3.5 md:w-4 md:h-4" />
                       )}
                     </Button>
                   </div>
@@ -1621,7 +1621,7 @@ export default function TransactionsPage() {
                 {metrics24h?.topOutWallet && (
                   <Badge
                     variant="outline"
-                    className="text-[10px] font-mono tracking-wide border border-red-500/50 text-red-300 px-2 py-0.5"
+                    className="text-[8px] md:text-[10px] font-mono tracking-wide border border-red-500/50 text-red-300 px-1.5 py-0 md:px-2 md:py-0.5"
                   >
                     Outflow
                   </Badge>
@@ -1630,30 +1630,30 @@ export default function TransactionsPage() {
             </CardHeader>
             <CardContent>
               {metrics24h?.topOutWallet ? (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
+                <div className="space-y-2 md:space-y-3">
+                  <div className="flex items-center justify-between gap-1.5 md:gap-3">
+                    <div className="flex items-center gap-1.5 md:gap-3 min-w-0 flex-wrap">
                       <AddressBadge address={metrics24h.topOutWallet.address} size="sm" showName />
-                      <code className="text-xs text-snow/80 font-mono">
+                      <code className="text-[10px] md:text-xs text-snow/80 font-mono truncate">
                         {shortAddress(metrics24h.topOutWallet.address)}
                       </code>
                       {renderRankBadge(
                         metrics24h.topOutWallet.address,
                         metrics24h.topOutWallet.holderRank,
-                        false, // Não recebeu DOG (é sender)
-                        [] // Não temos contexto de transação
+                        false,
+                        []
                       )}
-    </div>
+                    </div>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 text-dusty hover:text-red-200"
+                      className="h-6 w-6 md:h-7 md:w-7 text-dusty hover:text-red-200 flex-shrink-0"
                       onClick={() => handleCopyAddress(metrics24h.topOutWallet?.address)}
                     >
                       {copiedAddress === metrics24h.topOutWallet.address ? (
-                        <Check className="w-4 h-4" />
+                        <Check className="w-3.5 h-3.5 md:w-4 md:h-4" />
                       ) : (
-                        <Copy className="w-4 h-4" />
+                        <Copy className="w-3.5 h-3.5 md:w-4 md:h-4" />
                       )}
                     </Button>
                   </div>
@@ -1718,7 +1718,7 @@ export default function TransactionsPage() {
             </CardContent>
           </Card>
 
-          <Card variant="glass" className={metricsCardClass}>
+          <Card variant="glass" className={`${metricsCardClass} col-span-2 xl:col-span-1`}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle variant="mono" className="text-sm text-snow/80 flex items-center gap-2">
@@ -1746,7 +1746,7 @@ export default function TransactionsPage() {
                   <ArrowDownLeft className="w-4 h-4" />
                   Top Inflow Wallets (24h)
                 </CardTitle>
-                <Badge className="bg-emerald-500/20 text-emerald-200 border-emerald-400/40 font-mono text-[10px] uppercase tracking-wide">
+                <Badge className="bg-emerald-500/20 text-emerald-200 border-emerald-400/40 font-mono text-[8px] md:text-[10px] uppercase tracking-wide px-1.5 py-0 md:px-2.5 md:py-0.5">
                   {topInflowWallets.length} wallets
                 </Badge>
               </div>
