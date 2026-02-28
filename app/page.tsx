@@ -327,7 +327,7 @@ export default function OverviewPage() {
     return 0.00163
   }, [stats?.price, runeData])
 
-  const C2_TREASURY_DOG = 672_711_213
+  const C2_TREASURY_DOG = 700_646_482.5
   const C2_TREASURY_TARGET = 1_000_000_000
   const c2TreasuryUSD = dogPrice * C2_TREASURY_DOG
   const c2TreasuryUSDFormatted = dogPrice > 0 ? formatCurrency(c2TreasuryUSD) : '$0.00'
@@ -380,7 +380,7 @@ export default function OverviewPage() {
                     <Image src="/BTC.png" alt="Bitcoin" width={12} height={12} className="opacity-70" />
                     <span className="text-dusty font-mono">Bitcoin L1</span>
                   </div>
-                  <span className="text-snow/80 font-mono">89,716</span>
+                  <span className="text-snow/80 font-mono">89,645</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5">
