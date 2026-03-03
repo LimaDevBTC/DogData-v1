@@ -372,7 +372,7 @@ export default function OverviewPage() {
           <CardContent>
             <div className="space-y-3">
               <div className="text-lg md:text-3xl font-bold text-snow font-mono">
-                101,022
+                101,028
               </div>
               <div className="space-y-1.5 hidden md:block">
                 <div className="flex items-center justify-between text-xs">
