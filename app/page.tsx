@@ -380,21 +380,21 @@ export default function OverviewPage() {
                     <Image src="/BTC.png" alt="Bitcoin" width={12} height={12} className="opacity-70" />
                     <span className="text-dusty font-mono">Bitcoin L1</span>
                   </div>
-                  <span className="text-snow/80 font-mono">89,497</span>
+                  <span className="text-snow/80 font-mono">89,499</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5">
                     <Image src="/sol.png" alt="Solana" width={12} height={12} className="opacity-70" />
                     <span className="text-dusty font-mono">Solana</span>
                   </div>
-                  <span className="text-snow/80 font-mono">10,926</span>
+                  <span className="text-snow/80 font-mono">10,944</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5">
                     <Image src="/STX .png" alt="Stacks" width={12} height={12} className="opacity-70" />
                     <span className="text-dusty font-mono">Stacks</span>
                   </div>
-                  <span className="text-snow/80 font-mono">570</span>
+                  <span className="text-snow/80 font-mono">572</span>
                 </div>
               </div>
             </div>
