@@ -372,7 +372,7 @@ export default function OverviewPage() {
           <CardContent>
             <div className="space-y-3">
               <div className="text-lg md:text-3xl font-bold text-snow font-mono">
-                101,028
+                {stats ? (stats.totalHolders + 10944 + 572).toLocaleString('en-US') : '—'}
               </div>
               <div className="space-y-1.5 hidden md:block">
                 <div className="flex items-center justify-between text-xs">
@@ -380,7 +380,7 @@ export default function OverviewPage() {
                     <Image src="/BTC.png" alt="Bitcoin" width={12} height={12} className="opacity-70" />
                     <span className="text-dusty font-mono">Bitcoin L1</span>
                   </div>
-                  <span className="text-snow/80 font-mono">89,453</span>
+                  <span className="text-snow/80 font-mono">{stats ? stats.totalHolders.toLocaleString('en-US') : '—'}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5">
