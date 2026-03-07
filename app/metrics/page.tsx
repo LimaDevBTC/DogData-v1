@@ -5,9 +5,9 @@ import { Layout } from "@/components/layout"
 import { LoadingScreen } from "@/components/loading-screen"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { SectionDivider } from "@/components/ui/section-divider"
-import { 
-  BarChart3, 
-  TrendingUp, 
+import {
+  BarChart3,
+  TrendingUp,
   TrendingDown,
   Activity,
   Users,
@@ -16,6 +16,8 @@ import {
   LineChart,
   Zap
 } from "lucide-react"
+import { MetricSparkline } from "@/components/ui/metric-sparkline"
+import { HistoricalChartsSection } from "@/components/metrics/historical-charts"
 import { 
   LineChart as RechartsLineChart, 
   Line, 
@@ -102,6 +104,7 @@ export default function MetricsPage() {
   const [utxoAgeStats, setUtxoAgeStats] = useState<UTXOAgeStats | null>(null)
   const [realizedCapMetrics, setRealizedCapMetrics] = useState<RealizedCapMetrics | null>(null)
   const [supplyProfitLoss, setSupplyProfitLoss] = useState<SupplyProfitLoss | null>(null)
+  const [sparklineData, setSparklineData] = useState<any[]>([])
 
   useEffect(() => {
     const fetchMetrics = async () => {
@@ -147,6 +150,14 @@ export default function MetricsPage() {
         if (profitLossData && !profitLossData.error) {
           setSupplyProfitLoss(profitLossData)
         }
+
+        // Fetch sparkline data (non-blocking)
+        fetch('/api/metrics/history?range=7d', { cache: 'no-store' })
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data?.history?.length > 0) setSparklineData(data.history)
+          })
+          .catch(err => console.warn('Sparkline data not available:', err))
       } catch (error) {
         console.error('Error fetching metrics:', error)
       } finally {
@@ -460,6 +471,13 @@ export default function MetricsPage() {
                 <p className="text-xs text-dusty font-mono uppercase tracking-wide">
                   Unspent Transaction Outputs
                 </p>
+                {sparklineData.length > 0 && (
+                  <MetricSparkline
+                    data={sparklineData.map(p => ({ recorded_at: p.recorded_at, value: p.total_utxos }))}
+                    color="#F97316"
+                    height={40}
+                  />
+                )}
                 {utxoCountHistory.length >= 2 && (() => {
                   const latest = utxoCountHistory[utxoCountHistory.length - 1]
                   const previous = utxoCountHistory[utxoCountHistory.length - 2]
@@ -520,6 +538,13 @@ export default function MetricsPage() {
                 <p className="text-xs text-dusty font-mono uppercase tracking-wide">
                   Gini Coefficient (0 = equal, 1 = concentrated)
                 </p>
+                {sparklineData.length > 0 && (
+                  <MetricSparkline
+                    data={sparklineData.map(p => ({ recorded_at: p.recorded_at, value: p.gini_coefficient })).filter(p => p.value > 0)}
+                    color="#a855f7"
+                    height={40}
+                  />
+                )}
               </div>
             </CardContent>
           </Card>
@@ -542,6 +567,13 @@ export default function MetricsPage() {
                 <p className="text-xs text-dusty font-mono uppercase tracking-wide">
                   Of Total Supply
                 </p>
+                {sparklineData.length > 0 && (
+                  <MetricSparkline
+                    data={sparklineData.map(p => ({ recorded_at: p.recorded_at, value: p.top10_supply_pct })).filter(p => p.value > 0)}
+                    color="#10B981"
+                    height={40}
+                  />
+                )}
               </div>
             </CardContent>
           </Card>
@@ -1216,6 +1248,9 @@ export default function MetricsPage() {
             </Card>
           </>
         )}
+
+        {/* Historical Trends Section */}
+        <HistoricalChartsSection />
       </div>
     </Layout>
   )

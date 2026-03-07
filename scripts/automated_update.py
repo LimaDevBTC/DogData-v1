@@ -501,6 +501,29 @@ def main():
         success_count += 1
         total_steps = 5
     
+    # 6. Coletar métricas históricas para Supabase
+    log("")
+    log("📊 Coletando métricas históricas para Supabase...")
+    try:
+        collector_result = subprocess.run(
+            ['npx', 'tsx', str(PROJECT_ROOT / 'scripts' / 'collect_metrics_history.ts')],
+            cwd=str(PROJECT_ROOT),
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+        if collector_result.returncode == 0:
+            log("✅ Métricas históricas coletadas com sucesso")
+            if collector_result.stdout:
+                for line in collector_result.stdout.strip().split('\n'):
+                    log(f"   {line}")
+        else:
+            log(f"⚠️ Collector warning: {collector_result.stderr[:200] if collector_result.stderr else 'unknown error'}")
+    except subprocess.TimeoutExpired:
+        log("⚠️ Collector timeout (non-fatal)")
+    except Exception as e:
+        log(f"⚠️ Collector error (non-fatal): {e}")
+
     # Resumo final
     log("")
     log("="*80)
