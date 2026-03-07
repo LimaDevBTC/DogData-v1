@@ -380,7 +380,7 @@ export default function OverviewPage() {
                     <Image src="/BTC.png" alt="Bitcoin" width={12} height={12} className="opacity-70" />
                     <span className="text-dusty font-mono">Bitcoin L1</span>
                   </div>
-                  <span className="text-snow/80 font-mono">89,456</span>
+                  <span className="text-snow/80 font-mono">89,455</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5">
