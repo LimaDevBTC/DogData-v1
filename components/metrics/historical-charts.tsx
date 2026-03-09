@@ -40,58 +40,69 @@ const CHART_CONFIGS = [
     title: 'MVRV Ratio',
     color: '#F97316',
     format: (v: number) => v.toFixed(3),
-    yDomain: undefined as [number, number] | undefined,
+    fixedDomain: undefined as [number, number] | undefined,
   },
   {
     key: 'total_holders',
     title: 'Total Holders',
     color: '#3b82f6',
     format: (v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}K` : v.toString(),
-    yDomain: undefined as [number, number] | undefined,
+    fixedDomain: undefined as [number, number] | undefined,
   },
   {
     key: 'total_utxos',
     title: 'Total UTXOs',
     color: '#06b6d4',
     format: (v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}K` : v.toString(),
-    yDomain: undefined as [number, number] | undefined,
+    fixedDomain: undefined as [number, number] | undefined,
   },
   {
     key: 'gini_coefficient',
     title: 'Gini Coefficient',
     color: '#a855f7',
     format: (v: number) => v.toFixed(4),
-    yDomain: [0, 1] as [number, number],
+    fixedDomain: [0, 1] as [number, number],
   },
   {
     key: 'sth_percentage',
     title: 'STH Supply %',
     color: '#10B981',
     format: (v: number) => `${v.toFixed(2)}%`,
-    yDomain: undefined as [number, number] | undefined,
+    fixedDomain: [0, 100] as [number, number],
   },
   {
     key: 'supply_in_profit_pct',
     title: 'Supply in Profit %',
     color: '#22C55E',
     format: (v: number) => `${v.toFixed(2)}%`,
-    yDomain: [0, 100] as [number, number],
+    fixedDomain: [0, 100] as [number, number],
   },
   {
     key: 'current_price',
     title: 'DOG Price (USD)',
     color: '#F59E0B',
     format: (v: number) => `$${v.toFixed(6)}`,
-    yDomain: undefined as [number, number] | undefined,
+    fixedDomain: undefined as [number, number] | undefined,
   },
   {
     key: 'realized_cap',
     title: 'Realized Cap (USD)',
     color: '#EF4444',
     format: (v: number) => v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : `$${v.toFixed(0)}`,
-    yDomain: undefined as [number, number] | undefined,
+    fixedDomain: undefined as [number, number] | undefined,
   },
 ]
+
+// Tick count por range para ~6-8 ticks visíveis
+function getTickCount(range: TimeRange): number {
+  switch (range) {
+    case '24h': return 8
+    case '7d':  return 7
+    case '30d': return 6
+    case '90d': return 6
+    case 'all': return 8
+  }
+}
 
 const tooltipStyle = {
   contentStyle: {
@@ -134,10 +145,43 @@ export function HistoricalChartsSection() {
 
   const formatXAxis = (dateStr: string) => {
     const d = new Date(dateStr)
-    if (range === '24h') return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-    if (range === '7d') return d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' })
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    switch (range) {
+      case '24h':
+        return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+      case '7d':
+        return d.toLocaleDateString('en-US', { weekday: 'short' }) + ' ' +
+               d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+      case '30d':
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      case '90d':
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      case 'all':
+        return d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+      default:
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    }
   }
+
+  const formatTooltipLabel = (dateStr: string) => {
+    const d = new Date(dateStr)
+    switch (range) {
+      case '24h':
+        return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+      case '7d':
+        return d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' }) + ' ' +
+               d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+      case '30d':
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      case '90d':
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      case 'all':
+        return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+      default:
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    }
+  }
+
+  const tickCount = getTickCount(range)
 
   return (
     <>
@@ -205,24 +249,21 @@ export function HistoricalChartsSection() {
                           stroke="#878787"
                           style={{ fontSize: '10px', fontFamily: 'JetBrains Mono, monospace' }}
                           tickFormatter={formatXAxis}
-                          interval="preserveStartEnd"
+                          interval={Math.max(0, Math.ceil(chartData.length / tickCount) - 1)}
                         />
                         <YAxis
                           stroke="#878787"
                           style={{ fontSize: '10px', fontFamily: 'JetBrains Mono, monospace' }}
                           tickFormatter={cfg.format}
                           width={70}
-                          domain={cfg.yDomain || ['auto', 'auto']}
+                          domain={cfg.fixedDomain || [
+                            (dataMin: number) => dataMin * 0.95,
+                            (dataMax: number) => dataMax * 1.05,
+                          ]}
                         />
                         <Tooltip
                           {...tooltipStyle}
-                          labelFormatter={(label) => {
-                            const d = new Date(label)
-                            return d.toLocaleDateString('en-US', {
-                              month: 'short', day: 'numeric', year: 'numeric',
-                              hour: '2-digit', minute: '2-digit'
-                            })
-                          }}
+                          labelFormatter={formatTooltipLabel}
                           formatter={(value: number) => [cfg.format(value), cfg.title]}
                         />
                         <Area
