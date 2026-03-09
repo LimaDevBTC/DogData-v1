@@ -13,6 +13,70 @@ let cachedData: {
 
 const CACHE_DURATION = 5 * 60 * 1000 // 5 minutos
 
+// Métricas que usam MAX (contadores), o resto usa AVG
+const MAX_METRICS = new Set(['total_holders', 'total_utxos'])
+
+// Intervalo de bucket em ms por range
+function getBucketMs(range: string): number {
+  switch (range) {
+    case '24h': return 1 * 3600 * 1000       // 1 hora
+    case '7d':  return 4 * 3600 * 1000       // 4 horas
+    case '30d': return 24 * 3600 * 1000      // 1 dia
+    case '90d': return 3 * 24 * 3600 * 1000  // 3 dias
+    case 'all': return 30 * 24 * 3600 * 1000 // ~1 mês
+    default:    return 24 * 3600 * 1000
+  }
+}
+
+// Agrupa dados brutos em buckets temporais com AVG/MAX por tipo de métrica
+function downsample(rows: any[], range: string): any[] {
+  if (rows.length === 0) return []
+
+  const bucketMs = getBucketMs(range)
+  const buckets = new Map<number, any[]>()
+
+  for (const row of rows) {
+    const ts = new Date(row.recorded_at).getTime()
+    const bucketKey = Math.floor(ts / bucketMs) * bucketMs
+    if (!buckets.has(bucketKey)) buckets.set(bucketKey, [])
+    buckets.get(bucketKey)!.push(row)
+  }
+
+  // Identificar colunas numéricas (excluir recorded_at e id)
+  const sampleRow = rows[0]
+  const numericKeys = Object.keys(sampleRow).filter(
+    k => k !== 'recorded_at' && k !== 'id' && typeof sampleRow[k] === 'number'
+  )
+
+  const result: any[] = []
+  const sortedKeys = Array.from(buckets.keys()).sort((a, b) => a - b)
+
+  for (const bucketKey of sortedKeys) {
+    const group = buckets.get(bucketKey)!
+    const aggregated: any = {
+      recorded_at: new Date(bucketKey).toISOString(),
+    }
+
+    for (const col of numericKeys) {
+      const values = group.map(r => r[col]).filter((v: any) => v != null && v !== 0)
+      if (values.length === 0) {
+        aggregated[col] = 0
+        continue
+      }
+
+      if (MAX_METRICS.has(col)) {
+        aggregated[col] = Math.max(...values)
+      } else {
+        aggregated[col] = values.reduce((sum: number, v: number) => sum + v, 0) / values.length
+      }
+    }
+
+    result.push(aggregated)
+  }
+
+  return result
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -65,7 +129,7 @@ export async function GET(request: Request) {
       }
     }
 
-    // Query
+    // Query — buscar dados brutos
     let query = supabase
       .from('dog_metrics_history')
       .select(selectColumns)
@@ -75,7 +139,7 @@ export async function GET(request: Request) {
       query = query.gte('recorded_at', cutoffDate.toISOString())
     }
 
-    query = query.limit(2200) // max ~90 dias de dados horários
+    query = query.limit(2200)
 
     const { data, error } = await query
 
@@ -92,9 +156,13 @@ export async function GET(request: Request) {
       )
     }
 
+    // Downsample: agrupar em buckets temporais
+    const downsampled = downsample(data || [], range)
+
     const result = {
-      history: data || [],
-      total_points: data?.length || 0,
+      history: downsampled,
+      total_points: downsampled.length,
+      raw_points: data?.length || 0,
       range,
       last_updated: data && data.length > 0 ? (data[data.length - 1] as any).recorded_at : null
     }
