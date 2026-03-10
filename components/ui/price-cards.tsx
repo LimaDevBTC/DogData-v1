@@ -46,15 +46,6 @@ const exchanges = [
     working: true
   },
   {
-    name: 'Magic Eden',
-    apiUrl: '/api/price/magiceden',
-    color: 'from-[#EB136C] to-[#C41159]',
-    borderColor: 'border-[#EB136C]/20',
-    hoverBorderColor: 'hover:border-[#EB136C]/40',
-    icon: 'ME',
-    working: true
-  },
-  {
     name: 'Bitget',
     apiUrl: '/api/price/bitget',
     color: 'from-cyan-400 to-blue-500',
@@ -134,7 +125,7 @@ export function PriceCards() {
       let volume24h = 0;
       let priceSats: string | null | undefined = undefined;
       
-      if (exchange.name === 'Bitflow' || exchange.name === 'Magic Eden') {
+      if (exchange.name === 'Bitflow') {
         price = parseFloat(data.price) || 0;
         change24h = parseFloat(data.change24h) || 0;
         volume24h = parseFloat(data.volume24h || data.volume) || 0;
@@ -327,8 +318,6 @@ export function PriceCards() {
                       ? 'MEXC '
                       : exchange.name === 'Gate.io'
                       ? 'Gate'
-                      : exchange.name === 'Magic Eden'
-                      ? 'MagicEden'
                       : exchange.name
                         }.png`}
                         alt={exchange.name}
@@ -368,9 +357,7 @@ export function PriceCards() {
               <div
                 className={`text-base md:text-xl font-bold font-mono bg-gradient-to-r ${exchange.color} bg-clip-text text-transparent`}
               >
-                      {exchange.name === 'Magic Eden' && priceData?.priceSats
-                        ? `${priceData.priceSats} sats`
-                  : formatPrice(priceData?.price || 0)}
+                      {formatPrice(priceData?.price || 0)}
                     </div>
                     {priceData?.change24h !== undefined && priceData.change24h !== 0 && (
                       <div className="flex items-center space-x-1">
@@ -399,16 +386,8 @@ export function PriceCards() {
   };
 
   const dogswapData = prices.find((p) => p.exchange === dogswapExchange.name);
-  const magicEdenData = prices.find((p) => p.exchange === "Magic Eden");
-  const dogswapChange =
-    dogswapData && dogswapData.change24h && dogswapData.change24h !== 0
-      ? dogswapData.change24h
-      : magicEdenData?.change24h;
+  const dogswapChange = dogswapData?.change24h ?? null;
   const bitflowData = prices.find((p) => p.exchange === bitflowExchange.name);
-  // Desktop: Row 1: MEXC, Kraken, Gate.io, Dogswap | Row 2: Bitflow(2cols), MagicEden, Bitget
-  // Mobile: Bitflow(2cols), Dogswap+MEXC, Kraken+Gate.io, MagicEden+Bitget
-  const topRowExchanges = exchanges.slice(0, 3);    // MEXC, Kraken, Gate.io
-  const bottomRowExchanges = exchanges.slice(3);     // MagicEden, Bitget
 
   const renderPartnerCard = ({
     exchange,
@@ -476,7 +455,7 @@ export function PriceCards() {
             variant="glass"
             className={`${exchange.borderColor} ${exchange.hoverBorderColor} transition-all hover:scale-[1.01] hover:shadow-xl h-full`}
           >
-            <CardContent className="p-3 md:p-5 h-full">
+            <CardContent className="p-2.5 md:p-4 h-full">
               <div className="flex items-center gap-3 md:gap-5 h-full">
                 {/* Logo */}
                 <img
@@ -497,7 +476,7 @@ export function PriceCards() {
                     </div>
                   ) : (
                     <>
-                      <div className={`text-base md:text-3xl font-bold font-mono ${priceClassName} leading-tight`}>
+                      <div className={`text-sm md:text-xl font-bold font-mono ${priceClassName} leading-tight`}>
                         {formatPrice(data?.price || 0)}
                       </div>
                       <div className={`${satsClassName} font-mono`}>
@@ -508,16 +487,16 @@ export function PriceCards() {
                 </div>
 
                 {/* Change + Status */}
-                <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                <div className="flex flex-col items-end gap-1 flex-shrink-0">
                   {changeValue !== null && changeValue !== undefined && (
                     <div className="flex items-center gap-1">
                       {changeValue > 0 ? (
-                        <TrendingUp className="w-3.5 h-3.5 md:w-5 md:h-5 text-sky-300" />
+                        <TrendingUp className="w-3 h-3 md:w-4 md:h-4 text-sky-300" />
                       ) : changeValue < 0 ? (
-                        <TrendingDown className="w-3.5 h-3.5 md:w-5 md:h-5 text-red-400" />
+                        <TrendingDown className="w-3 h-3 md:w-4 md:h-4 text-red-400" />
                       ) : null}
                       <span
-                        className={`text-xs md:text-sm font-mono font-semibold ${
+                        className={`text-[10px] md:text-xs font-mono font-semibold ${
                           changeValue > 0
                             ? positiveChangeClass
                             : changeValue < 0
@@ -632,33 +611,30 @@ export function PriceCards() {
         colSpanClass: 'col-span-2',
         horizontal: true,
         logoSrc: '/Bitflow.png',
-        logoClassName: 'h-10 md:h-16 w-auto object-contain flex-shrink-0',
+        logoClassName: 'h-12 md:h-20 w-auto object-contain flex-shrink-0',
         priceClassName: 'bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent',
         satsClassName: 'text-[10px] md:text-sm text-dusty',
         positiveChangeClass: 'text-orange-200',
         negativeChangeClass: 'text-red-400',
       })}
 
-      {/* Dogswap - Sponsored Partner */}
+      {/* Dogswap - Sponsored Partner (spans 2 columns, horizontal layout) */}
       {renderPartnerCard({
         exchange: dogswapExchange,
         data: dogswapData,
+        colSpanClass: 'col-span-2',
+        horizontal: true,
         logoSrc: '/dogswap_logo.png',
-        logoClassName: 'h-6 md:h-12 w-auto object-contain',
+        logoClassName: 'h-6 md:h-10 w-auto object-contain flex-shrink-0',
         priceClassName: 'text-snow',
-        satsClassName: 'text-[10px] md:text-base text-dusty',
+        satsClassName: 'text-[10px] md:text-sm text-dusty',
         positiveChangeClass: 'text-sky-300',
         negativeChangeClass: 'text-red-400',
         changeOverride: dogswapChange,
       })}
 
-      {/* Top row exchanges: MEXC, Kraken, Gate.io */}
-      {topRowExchanges.map((exchange, index) => renderExchangeCard(exchange, index))}
-
-      {/* Bottom row exchanges: MagicEden, Bitget */}
-      {bottomRowExchanges.map((exchange, index) =>
-        renderExchangeCard(exchange, index + topRowExchanges.length)
-      )}
+      {/* Exchanges: MEXC, Kraken, Gate.io, Bitget */}
+      {exchanges.map((exchange, index) => renderExchangeCard(exchange, index))}
     </div>
   );
 }
