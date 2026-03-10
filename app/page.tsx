@@ -387,14 +387,14 @@ export default function OverviewPage() {
                     <Image src="/sol.png" alt="Solana" width={12} height={12} className="opacity-70" />
                     <span className="text-dusty font-mono">Solana</span>
                   </div>
-                  <span className="text-snow/80 font-mono">10,964</span>
+                  <span className="text-snow/80 font-mono">10,970</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5">
                     <Image src="/STX .png" alt="Stacks" width={12} height={12} className="opacity-70" />
                     <span className="text-dusty font-mono">Stacks</span>
                   </div>
-                  <span className="text-snow/80 font-mono">573</span>
+                  <span className="text-snow/80 font-mono">574</span>
                 </div>
               </div>
             </div>
