@@ -78,6 +78,7 @@ async function fetchBlockFeeMap(
     // Passo 2: Paginar pelas txs do bloco ate encontrar todas as targetTxids
     let startIndex = 0;
     let found = 0;
+    let rateLimitRetries = 0;
 
     while (found < targetTxids.size) {
       if (MEMPOOL_BLOCK_DELAY_MS > 0 && startIndex > 0) {
