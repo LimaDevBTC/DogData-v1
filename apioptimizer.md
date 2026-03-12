@@ -260,8 +260,8 @@ async function fetchFeesIndividualFallback(
       failed++;
     }
 
-    if (XVERSE_FEE_DELAY_MS > 0) {
-      await sleep(Math.min(XVERSE_FEE_DELAY_MS, 300));
+    if (MEMPOOL_BLOCK_DELAY_MS > 0) {
+      await sleep(MEMPOOL_BLOCK_DELAY_MS);
     }
   }
 
@@ -427,11 +427,11 @@ Isso elimina completamente os endpoints `/v1/ordinals/tx/{txid}/inputs` e `/v1/o
 | `MEMPOOL_API_BASE` | `https://mempool.space/api` | Base URL da API mempool.space |
 | `MEMPOOL_BLOCK_DELAY_MS` | `300` | Delay entre requests de bloco para rate limiting |
 
-## Variaveis que podem ser removidas (opcional)
+## Variaveis que podem ser removidas (opcional, apos confirmar que tudo funciona)
 
 | Variavel | Motivo |
 |----------|--------|
-| `XVERSE_FEE_DELAY_MS` | Nao sera mais usada no fallback simplificado |
+| `XVERSE_FEE_DELAY_MS` | Nao sera mais usada - fallback agora usa `MEMPOOL_BLOCK_DELAY_MS` |
 
 ## Arquivo afetado
 
