@@ -611,7 +611,7 @@ export function PriceCards() {
         colSpanClass: 'col-span-2',
         horizontal: true,
         logoSrc: '/Bitflow.png',
-        logoClassName: 'h-12 md:h-20 w-auto object-contain flex-shrink-0',
+        logoClassName: 'h-10 md:h-20 w-auto object-contain flex-shrink-0',
         priceClassName: 'bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent',
         satsClassName: 'text-[10px] md:text-sm text-dusty',
         positiveChangeClass: 'text-orange-200',
