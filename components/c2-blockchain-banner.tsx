@@ -5,14 +5,14 @@ import { ExternalLink } from 'lucide-react'
 
 export function C2BlockchainBanner() {
   return (
-    <div className="w-full mb-10">
-      <a 
+    <div className="w-full mb-6 md:mb-8">
+      <a
         href="https://c2blockchain.com/"
         target="_blank"
         rel="noopener noreferrer sponsored"
         className="block w-full group cursor-pointer"
       >
-        <div className="relative w-full overflow-hidden bg-black border border-orange-500/20 hover:border-orange-500/40 transition-all duration-300 shadow-sm hover:shadow-lg hover:shadow-orange-500/10">
+        <div className="relative w-full overflow-hidden bg-surface/40 border border-snow/[0.06] hover:border-snow/[0.1] transition-all duration-200 rounded-xl shadow-sm hover:shadow-lg hover:shadow-black/20">
           {/* Badge "Official Partner" - Menor em mobile */}
           <div className="absolute top-2 right-2 md:top-3 md:right-3 z-10 flex items-center gap-1">
             <span className="text-gray-400 text-[8px] md:text-[10px] font-mono font-medium uppercase tracking-wide">

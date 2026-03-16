@@ -64,7 +64,7 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
   }, [menuOpen])
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-void/90 backdrop-blur-xl border-b border-lava-dark/30" data-header-nav>
+    <header className="fixed top-0 left-0 right-0 z-50 bg-void/80 backdrop-blur-2xl border-b border-snow/[0.06]" data-header-nav>
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14 md:h-20">
           {/* Logo */}
@@ -104,10 +104,10 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
                 <button
                   key={item.name}
                   onClick={() => setCurrentPage(item.page)}
-                  className={`flex items-center justify-center px-3 py-2.5 text-xs font-mono font-medium tracking-wide transition-colors duration-300 flex-shrink-0 ${
+                  className={`flex items-center justify-center px-3 py-2 text-xs font-mono font-medium tracking-wide transition-all duration-200 flex-shrink-0 rounded-lg ${
                     isActive
-                      ? 'bg-lava/20 text-lava border border-lava/30'
-                      : 'text-dusty hover:text-snow hover:bg-surface/30 border border-transparent hover:border-lava-dark/20'
+                      ? 'bg-lava/15 text-lava border border-lava/20'
+                      : 'text-dusty hover:text-snow hover:bg-snow/[0.04] border border-transparent'
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" />
@@ -124,7 +124,7 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
             {/* Donate Button - Hidden on small screens */}
             <button
               onClick={() => setCurrentPage('donate')}
-              className="hidden lg:flex items-center px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-lava to-lava-dark hover:from-lava-dark hover:to-lava-dark text-snow font-mono font-medium tracking-wide transition-all duration-300 shadow-lg shadow-lava/20 hover:shadow-lava/40 hover:scale-105 group"
+              className="hidden lg:flex items-center px-4 md:px-6 py-2 md:py-2.5 bg-gradient-to-r from-lava to-lava-dark hover:from-lava-dark hover:to-lava-dark text-snow font-mono font-medium tracking-wide transition-all duration-200 shadow-lg shadow-lava/20 hover:shadow-lava/30 hover:scale-[1.02] group rounded-lg"
               title="Support DOG Data"
             >
               <Heart className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform duration-300" />
@@ -132,15 +132,15 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
             </button>
 
             {/* Live Status */}
-            <div className="px-2 md:px-4 py-2 md:py-3 bg-transparent border border-lava-dark/20 flex items-center space-x-1 md:space-x-2">
-              <div className="w-2 h-2 bg-green-400 animate-pulse"></div>
-              <span className="text-green-400 text-xs font-mono font-medium">LIVE</span>
+            <div className="px-2 md:px-3 py-1.5 md:py-2 bg-snow/[0.03] border border-snow/[0.06] flex items-center space-x-1.5 rounded-lg">
+              <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></div>
+              <span className="text-green-400 text-[10px] md:text-xs font-mono font-medium">LIVE</span>
             </div>
 
             {/* Refresh Button - Visible on all sizes */}
             <button
               onClick={() => window.location.reload()}
-              className="px-3 py-2 md:py-3 bg-transparent border border-lava-dark/20 hover:bg-lava-dark/10 hover:border-lava-dark/40 transition-all duration-300 group"
+              className="px-2.5 py-2 md:py-2 bg-snow/[0.03] border border-snow/[0.06] hover:bg-snow/[0.06] transition-all duration-200 group rounded-lg"
               title="Refresh Data"
             >
               <RefreshCw className="w-4 h-4 text-dusty group-hover:text-lava group-hover:rotate-180 transition-all duration-500" />
@@ -152,7 +152,7 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
                 e.stopPropagation()
                 setMenuOpen(!menuOpen)
               }}
-              className="md:hidden px-2.5 py-2 bg-transparent border border-lava-dark/20 hover:bg-lava-dark/10 hover:border-lava-dark/40 transition-all duration-300"
+              className="md:hidden px-2.5 py-2 bg-snow/[0.03] border border-snow/[0.06] hover:bg-snow/[0.06] transition-all duration-200 rounded-lg"
               title="Menu"
             >
               {menuOpen ? (
@@ -167,8 +167,8 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
 
       {/* Mobile Dropdown Menu */}
       {menuOpen && (
-        <div className="md:hidden border-t border-lava-dark/20 bg-void/95 backdrop-blur-xl">
-          <nav className="max-w-[1600px] mx-auto px-4 py-2">
+        <div className="md:hidden border-t border-snow/[0.06] bg-void/95 backdrop-blur-2xl">
+          <nav className="max-w-[1600px] mx-auto px-3 py-2 space-y-0.5">
             {navigation.map((item) => {
               const isActive = currentPage === item.page
               const Icon = item.icon
@@ -176,10 +176,10 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
                 <button
                   key={item.page}
                   onClick={() => handleNavClick(item.page)}
-                  className={`w-full flex items-center gap-3 px-3 py-3 font-mono text-sm tracking-wide transition-colors duration-200 ${
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 font-mono text-sm tracking-wide transition-all duration-150 rounded-lg ${
                     isActive
-                      ? 'text-lava bg-lava/10 border-l-2 border-lava'
-                      : 'text-dusty hover:text-snow hover:bg-surface/30 border-l-2 border-transparent'
+                      ? 'text-lava bg-lava/10'
+                      : 'text-dusty hover:text-snow hover:bg-snow/[0.04]'
                   }`}
                 >
                   <Icon className="w-4 h-4 flex-shrink-0" />
@@ -187,13 +187,12 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
                 </button>
               )
             })}
-            {/* Donate in mobile menu */}
             <button
               onClick={() => handleNavClick('donate')}
-              className={`w-full flex items-center gap-3 px-3 py-3 font-mono text-sm tracking-wide transition-colors duration-200 ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 font-mono text-sm tracking-wide transition-all duration-150 rounded-lg ${
                 currentPage === 'donate'
-                  ? 'text-lava bg-lava/10 border-l-2 border-lava'
-                  : 'text-dusty hover:text-snow hover:bg-surface/30 border-l-2 border-transparent'
+                  ? 'text-lava bg-lava/10'
+                  : 'text-dusty hover:text-snow hover:bg-snow/[0.04]'
               }`}
             >
               <Heart className="w-4 h-4 flex-shrink-0" />

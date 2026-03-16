@@ -342,59 +342,59 @@ export default function OverviewPage() {
     <Layout currentPage="overview" setCurrentPage={() => {}}>
       <div className="min-h-screen pt-1 pb-2 md:py-2 space-y-3 md:space-y-3">
       {/* Hero Section */}
-      <div className="text-center space-y-1 md:space-y-2 animate-fade-in px-4 mt-2 md:mt-10">
-        <div className="space-y-2 md:space-y-4 max-w-full overflow-hidden">
-          <h1 className="text-xl sm:text-3xl md:text-6xl lg:text-7xl font-display font-bold tracking-tight break-words">
-            <span className="text-lava-dark font-mono tracking-wider block">
-              <span className="inline-block">DOG•GO•TO</span>
-              <span className="inline-block ml-1 md:ml-2">•THE•MOON</span>
-            </span>
-          </h1>
-          <div className="flex items-center justify-center">
-            <Badge variant="outline" className="border-lava/30 text-lava font-mono text-xs md:text-sm">
-              840000:3
-            </Badge>
+      <div className="animate-fade-in px-4 mt-3 md:mt-8">
+        <div className="flex items-center justify-between md:justify-center md:flex-col md:text-center gap-2 md:gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
+            <h1 className="text-lg sm:text-2xl md:text-5xl lg:text-6xl font-display font-bold tracking-tight">
+              <span className="text-lava-dark font-mono tracking-wider">
+                DOG•GO•TO•THE•MOON
+              </span>
+            </h1>
           </div>
+          <Badge variant="outline" className="border-lava/30 text-lava font-mono text-[10px] md:text-sm flex-shrink-0">
+            840000:3
+          </Badge>
         </div>
       </div>
 
       <SectionDivider title="Key Metrics" icon={BarChart3} />
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-2.5 md:gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-2 md:gap-4">
         {/* Total Holders */}
         <Card variant="glass" className={cardBaseClass}>
-          <CardHeader className="pb-3">
-            <CardTitle variant="mono" className="text-sm text-dusty">
+          <CardHeader className="pb-2">
+            <CardTitle variant="mono" className="text-[11px] md:text-sm text-dusty flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5 text-lava/70" />
               Total Holders
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
+            <div className="space-y-2">
               <div className="text-lg md:text-3xl font-bold text-snow font-mono">
                 {stats ? (stats.totalHolders + 10944 + 572).toLocaleString('en-US') : '—'}
               </div>
-              <div className="space-y-1.5 hidden md:block">
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-1.5">
-                    <Image src="/BTC.png" alt="Bitcoin" width={12} height={12} className="opacity-70" />
-                    <span className="text-dusty font-mono">Bitcoin L1</span>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-[10px] md:text-xs">
+                  <div className="flex items-center gap-1">
+                    <Image src="/BTC.png" alt="Bitcoin" width={10} height={10} className="opacity-70" />
+                    <span className="text-dusty font-mono">BTC</span>
                   </div>
-                  <span className="text-snow/80 font-mono">{stats ? stats.totalHolders.toLocaleString('en-US') : '—'}</span>
+                  <span className="text-snow/70 font-mono">{stats ? stats.totalHolders.toLocaleString('en-US') : '—'}</span>
                 </div>
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-1.5">
-                    <Image src="/sol.png" alt="Solana" width={12} height={12} className="opacity-70" />
-                    <span className="text-dusty font-mono">Solana</span>
+                <div className="flex items-center justify-between text-[10px] md:text-xs">
+                  <div className="flex items-center gap-1">
+                    <Image src="/sol.png" alt="Solana" width={10} height={10} className="opacity-70" />
+                    <span className="text-dusty font-mono">SOL</span>
                   </div>
-                  <span className="text-snow/80 font-mono">10,982</span>
+                  <span className="text-snow/70 font-mono">10,982</span>
                 </div>
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-1.5">
-                    <Image src="/STX .png" alt="Stacks" width={12} height={12} className="opacity-70" />
-                    <span className="text-dusty font-mono">Stacks</span>
+                <div className="flex items-center justify-between text-[10px] md:text-xs">
+                  <div className="flex items-center gap-1">
+                    <Image src="/STX .png" alt="Stacks" width={10} height={10} className="opacity-70" />
+                    <span className="text-dusty font-mono">STX</span>
                   </div>
-                  <span className="text-snow/80 font-mono">575</span>
+                  <span className="text-snow/70 font-mono">575</span>
                 </div>
               </div>
             </div>
@@ -403,43 +403,42 @@ export default function OverviewPage() {
 
         {/* Volume 24h */}
         <Card variant="glass" className={cardBaseClass}>
-          <CardHeader className="pb-3">
-            <CardTitle variant="mono" className="text-sm text-dusty">
+          <CardHeader className="pb-2">
+            <CardTitle variant="mono" className="text-[11px] md:text-sm text-dusty flex items-center gap-1.5">
+              <Activity className="w-3.5 h-3.5 text-green-400/70" />
               Volume 24h
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <div className="text-lg md:text-3xl font-bold text-snow font-mono">
                 {formatCurrency(volume24h)}
               </div>
-              <div className="flex items-center space-x-2">
-                <Activity className="w-4 h-4 text-green-400" />
-                <span className="text-sm text-dusty font-mono hidden md:inline">Trading Volume</span>
-              </div>
+              <span className="text-[10px] md:text-xs text-dusty/60 font-mono">Trading Volume</span>
             </div>
           </CardContent>
         </Card>
 
         {/* Market Cap */}
         <Card variant="glass" className={cardBaseClass}>
-          <CardHeader className="pb-3">
-            <CardTitle variant="mono" className="text-sm text-dusty">
+          <CardHeader className="pb-2">
+            <CardTitle variant="mono" className="text-[11px] md:text-sm text-dusty flex items-center gap-1.5">
+              <BarChart3 className="w-3.5 h-3.5 text-lava/70" />
               Market Cap
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <div className="text-lg md:text-3xl font-bold text-snow font-mono">
                 {runeData && stats?.price ? formatMarketCap(stats.price * runeData.circulatingSupply) : '$0.0M'}
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center gap-1.5">
                 {krakenChange >= 0 ? (
-                  <TrendingUp className="w-4 h-4 text-green-400" />
+                  <TrendingUp className="w-3 h-3 text-green-400" />
                 ) : (
-                  <TrendingDown className="w-4 h-4 text-red-400" />
+                  <TrendingDown className="w-3 h-3 text-red-400" />
                 )}
-                <span className={`text-sm font-mono ${krakenChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                <span className={`text-[11px] md:text-sm font-mono font-medium ${krakenChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                   {krakenChange >= 0 ? '+' : ''}{krakenChange.toFixed(2)}%
                 </span>
               </div>
@@ -452,48 +451,46 @@ export default function OverviewPage() {
           href="https://www.c2dog.com"
           target="_blank"
           rel="noopener noreferrer sponsored"
-          className="block h-full focus:outline-none focus-visible:ring-2 focus-visible-ring-blue-400/60 rounded-xl"
+          className="block h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 rounded-xl"
         >
           <Card
             variant="glass"
-            className={`${cardBaseClass} border border-blue-500/20 bg-gradient-to-br from-blue-950/60 via-blue-900/30 to-transparent hover:border-blue-400/40 transition-all duration-300`}
+            className={`${cardBaseClass} border border-blue-500/20 bg-gradient-to-br from-blue-950/40 via-blue-900/20 to-transparent hover:border-blue-400/30 transition-all duration-200`}
           >
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 flex-nowrap">
-                  <div className="relative w-6 h-6">
-                    <Image
-                      src="/C2.png"
-                      alt="C2 Blockchain logo"
-                      fill
-                      className="object-contain"
-                      sizes="24px"
-                    />
-                  </div>
-                  <CardTitle variant="mono" className="text-[10px] md:text-sm text-blue-200/80 uppercase tracking-wide whitespace-nowrap">
-                    C2 $DOG Treasury
-                  </CardTitle>
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2 flex-nowrap">
+                <div className="relative w-5 h-5 md:w-6 md:h-6 flex-shrink-0">
+                  <Image
+                    src="/C2.png"
+                    alt="C2 Blockchain logo"
+                    fill
+                    className="object-contain"
+                    sizes="24px"
+                  />
                 </div>
+                <CardTitle variant="mono" className="text-[10px] md:text-sm text-blue-200/70 uppercase tracking-wide whitespace-nowrap">
+                  C2 $DOG Treasury
+                </CardTitle>
               </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                <div className="text-base md:text-2xl font-bold font-mono text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-blue-200 to-blue-400">
+                <div className="text-sm md:text-2xl font-bold font-mono text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-blue-200 to-blue-400">
                   {C2_TREASURY_DOG.toLocaleString('en-US')} DOG
                 </div>
-                <div className="text-xs md:text-sm text-snow/80 font-mono">
+                <div className="text-[10px] md:text-sm text-snow/60 font-mono">
                   ≈ {c2TreasuryUSDFormatted} USD
                 </div>
                 <div className="space-y-1">
-                  <div className="h-1.5 w-full rounded-full bg-blue-900/60 overflow-hidden">
+                  <div className="h-1 md:h-1.5 w-full rounded-full bg-blue-900/40 overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-blue-400 via-blue-300 to-blue-500"
+                      className="h-full rounded-full bg-gradient-to-r from-blue-400 via-blue-300 to-blue-500"
                       style={{ width: `${(c2TreasuryProgress * 100).toFixed(0)}%` }}
                     />
                   </div>
-                  <div className="flex items-center justify-between text-[10px] uppercase tracking-wide text-blue-200/70 font-mono">
-                    <span>Treasury Progress</span>
-                    <span>{(c2TreasuryProgress * 100).toFixed(1)}% of 1B Target</span>
+                  <div className="flex items-center justify-between text-[9px] md:text-[10px] uppercase tracking-wide text-blue-200/50 font-mono">
+                    <span>Progress</span>
+                    <span>{(c2TreasuryProgress * 100).toFixed(1)}% of 1B</span>
                   </div>
                 </div>
               </div>
@@ -502,86 +499,78 @@ export default function OverviewPage() {
         </a>
 
         {/* Total On-Chain Transactions 24h */}
-         <Card variant="glass" className={cardBaseClass}>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle variant="mono" className="text-xs md:text-sm text-snow/80 flex items-center gap-2">
-                <Activity className="w-4 h-4 text-green-400" />
-                <span className="hidden md:inline">Total On-Chain Transactions 24h</span>
-                <span className="md:hidden">Txns 24h</span>
-              </CardTitle>
-            </div>
+        <Card variant="glass" className={cardBaseClass}>
+          <CardHeader className="pb-2">
+            <CardTitle variant="mono" className="text-[11px] md:text-sm text-dusty flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-yellow-400/70" />
+              <span className="hidden md:inline">On-Chain Txns 24h</span>
+              <span className="md:hidden">Txns 24h</span>
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <div className="text-lg md:text-3xl font-bold text-snow font-mono">
                 {metrics24h
                   ? metrics24h.txCount.toLocaleString()
-                  : (loading ? 'Loading...' : 'N/A')}
+                  : (loading ? '...' : 'N/A')}
               </div>
-              <p className="text-xs text-dusty font-mono uppercase tracking-wide hidden md:block">
-                Past 24 hours
-              </p>
+              <span className="text-[10px] md:text-xs text-dusty/60 font-mono">Past 24 hours</span>
             </div>
           </CardContent>
         </Card>
 
         {/* Total Supply */}
         <Card variant="glass" className={cardBaseClass}>
-          <CardHeader className="pb-3">
-            <CardTitle variant="mono" className="text-sm text-dusty">
+          <CardHeader className="pb-2">
+            <CardTitle variant="mono" className="text-[11px] md:text-sm text-dusty flex items-center gap-1.5">
+              <Coins className="w-3.5 h-3.5 text-lava/70" />
               Total Supply
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <div className="text-lg md:text-3xl font-bold text-snow font-mono">
                 {runeData ? (runeData.totalSupply / 1000000000).toFixed(0) + 'B' : '100B'}
               </div>
-              <div className="flex items-center space-x-2">
-                <Coins className="w-4 h-4 text-lava" />
-                <span className="text-sm text-dusty font-mono hidden md:inline">DOG Tokens</span>
-              </div>
+              <span className="text-[10px] md:text-xs text-dusty/60 font-mono">DOG Tokens</span>
             </div>
           </CardContent>
         </Card>
 
         {/* Burned */}
         <Card variant="glass" className={cardBaseClass}>
-          <CardHeader className="pb-3">
-            <CardTitle variant="mono" className="text-sm text-dusty">
+          <CardHeader className="pb-2">
+            <CardTitle variant="mono" className="text-[11px] md:text-sm text-dusty flex items-center gap-1.5">
+              <Flame className="w-3.5 h-3.5 text-red-400/70" />
               Burned
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <div className="text-lg md:text-3xl font-bold text-snow font-mono">
                 {runeData ? formatBurnedTokens(runeData.burned) : '23.487M'}
               </div>
-              <div className="flex items-center space-x-2">
-                <Flame className="w-4 h-4 text-lava" />
-                <span className="text-sm text-dusty font-mono hidden md:inline">DOG Tokens</span>
-              </div>
+              <span className="text-[10px] md:text-xs text-dusty/60 font-mono">
+                {runeData ? `${runeData.burnedPercentage?.toFixed(3) || '0.023'}%` : '0.023%'} of supply
+              </span>
             </div>
           </CardContent>
         </Card>
 
         {/* Circulating Supply */}
         <Card variant="glass" className={cardBaseClass}>
-          <CardHeader className="pb-3">
-            <CardTitle variant="mono" className="text-xs md:text-sm text-dusty">
-              Circulating Supply
+          <CardHeader className="pb-2">
+            <CardTitle variant="mono" className="text-[11px] md:text-sm text-dusty flex items-center gap-1.5">
+              <TrendingUp className="w-3.5 h-3.5 text-green-400/70" />
+              Circulating
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <div className="text-lg md:text-3xl font-bold text-snow font-mono">
                 {runeData ? (runeData.circulatingSupply / 1000000000).toFixed(5) + 'B' : '99.97650B'}
               </div>
-              <div className="flex items-center space-x-2">
-                <TrendingUp className="w-4 h-4 text-green-400" />
-                <span className="text-sm text-dusty font-mono hidden md:inline">DOG Tokens</span>
-              </div>
+              <span className="text-[10px] md:text-xs text-dusty/60 font-mono">DOG Tokens</span>
             </div>
           </CardContent>
         </Card>
@@ -589,13 +578,13 @@ export default function OverviewPage() {
 
       <SectionDivider title="Multi-Exchange Prices" icon={TrendingUp} />
       <PriceCards />
-      
+
       <SectionDivider title="Price Chart" icon={BarChart3} />
 
       {/* TradingView Chart */}
-      <Card variant="glass">
+      <Card variant="glass" className="overflow-hidden">
         <CardContent className="p-0">
-          <div className="h-[280px] md:h-[600px]">
+          <div className="h-[320px] md:h-[600px]">
             <TradingViewWidget />
           </div>
         </CardContent>

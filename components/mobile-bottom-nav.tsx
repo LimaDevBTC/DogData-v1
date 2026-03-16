@@ -57,8 +57,8 @@ export default function MobileBottomNav({ currentPage, setCurrentPage }: MobileB
             onClick={() => setMoreOpen(false)}
           />
           {/* Menu */}
-          <div className="relative z-50 mx-3 mb-2 bg-surface/95 backdrop-blur-xl border border-lava-dark/20 rounded-t-lg animate-fade-in overflow-hidden">
-            <div className="grid grid-cols-2 gap-px bg-elevated/30">
+          <div className="relative z-50 mx-3 mb-2 bg-surface/95 backdrop-blur-2xl border border-snow/[0.08] rounded-2xl animate-fade-in overflow-hidden shadow-xl shadow-black/40">
+            <div className="grid grid-cols-2 gap-px bg-snow/[0.04]">
               {moreNav.map((item) => {
                 const Icon = item.icon
                 const isActive = currentPage === item.page
@@ -66,10 +66,10 @@ export default function MobileBottomNav({ currentPage, setCurrentPage }: MobileB
                   <button
                     key={item.page}
                     onClick={() => handleMoreItemClick(item.page)}
-                    className={`flex flex-col items-center justify-center py-4 px-3 min-h-[72px] active:scale-95 transition-all duration-100 ${
+                    className={`flex flex-col items-center justify-center py-4 px-3 min-h-[68px] active:scale-95 transition-all duration-100 ${
                       isActive
                         ? 'bg-lava/10 text-lava'
-                        : 'bg-surface/80 text-dusty hover:text-snow'
+                        : 'bg-surface/60 text-dusty hover:text-snow'
                     }`}
                   >
                     <Icon className="w-5 h-5 mb-1.5" />
@@ -85,8 +85,8 @@ export default function MobileBottomNav({ currentPage, setCurrentPage }: MobileB
       )}
 
       {/* Main bottom bar */}
-      <nav className="bg-void/95 backdrop-blur-xl border-t border-lava-dark/20/50 pb-[env(safe-area-inset-bottom)]">
-        <div className="flex items-stretch justify-around h-16">
+      <nav className="bg-void/90 backdrop-blur-2xl border-t border-snow/[0.06] pb-[env(safe-area-inset-bottom)]">
+        <div className="flex items-stretch justify-around h-14">
           {/* Primary nav items */}
           {primaryNav.map((item) => {
             const Icon = item.icon
@@ -102,14 +102,12 @@ export default function MobileBottomNav({ currentPage, setCurrentPage }: MobileB
                   isActive ? 'text-lava' : 'text-snow/60'
                 }`}
               >
-                {/* Active indicator line */}
-                {isActive && (
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-lava" />
-                )}
-                <Icon className={`w-5 h-5 mb-1 transition-transform duration-200 ${isActive ? 'scale-105' : ''}`} />
-                <span className="text-[10px] font-mono uppercase tracking-wide">
+                {/* Active indicator dot */}
+                <Icon className={`w-5 h-5 mb-0.5 transition-transform duration-200 ${isActive ? 'scale-105' : ''}`} />
+                <span className={`text-[9px] font-mono uppercase tracking-wide ${isActive ? 'font-semibold' : ''}`}>
                   {item.name}
                 </span>
+                {isActive && <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-lava rounded-full" />}
               </button>
             )
           })}
@@ -124,18 +122,15 @@ export default function MobileBottomNav({ currentPage, setCurrentPage }: MobileB
               moreOpen || isMoreActive ? 'text-lava' : 'text-snow/60'
             }`}
           >
-            {/* Active indicator line */}
-            {isMoreActive && !moreOpen && (
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-lava" />
-            )}
             {moreOpen ? (
-              <X className="w-5 h-5 mb-1" />
+              <X className="w-5 h-5 mb-0.5" />
             ) : (
-              <LayoutGrid className="w-5 h-5 mb-1" />
+              <LayoutGrid className="w-5 h-5 mb-0.5" />
             )}
-            <span className="text-[10px] font-mono uppercase tracking-wide">
+            <span className={`text-[9px] font-mono uppercase tracking-wide ${isMoreActive ? 'font-semibold' : ''}`}>
               More
             </span>
+            {isMoreActive && !moreOpen && <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-lava rounded-full" />}
           </button>
         </div>
       </nav>

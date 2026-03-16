@@ -8,16 +8,16 @@ const Card = React.forwardRef<
   }
 >(({ className, variant = 'default', ...props }, ref) => {
   const variants = {
-    default: "bg-transparent border border-lava-dark/20",
-    glass: "glass bg-transparent backdrop-blur-lg border border-lava-dark/15",
-    elevated: "bg-transparent border border-lava-dark/25 shadow-xl"
+    default: "bg-surface/50 border border-snow/[0.06] rounded-xl",
+    glass: "bg-surface/40 backdrop-blur-lg border border-snow/[0.06] rounded-xl",
+    elevated: "bg-surface/60 border border-snow/[0.08] shadow-xl rounded-xl"
   }
 
   return (
     <div
       ref={ref}
       className={cn(
-        "p-3 md:p-6 overflow-hidden transition-all duration-300 hover:bg-lava-dark/[0.04] hover:border-lava-dark/30",
+        "p-3 md:p-6 overflow-hidden transition-all duration-200 hover:bg-surface/60 hover:border-snow/[0.1]",
         variants[variant],
         className
       )}
