@@ -451,7 +451,7 @@ export default function TransactionsPage() {
   const [hasMore, setHasMore] = useState(false) // DESABILITADO - apenas JSON local
   const [offset, setOffset] = useState(0)
   const [metrics24h, setMetrics24h] = useState<MetricsLast24h | null>(null)
-  const metricsCardClass = "stagger-item md:min-h-[160px] h-full border border-lava-dark/15/60 bg-gradient-to-br from-void/40 via-surface/30 to-void/20"
+  const metricsCardClass = "stagger-item md:min-h-[160px] h-full border border-white/[0.05] bg-gradient-to-br from-void/40 via-white/[0.03] to-void/20"
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
@@ -1220,7 +1220,7 @@ export default function TransactionsPage() {
       </div>
 
       {tx.has_change && tx.net_transfer !== undefined && (
-        <div className="bg-transparent border border-lava-dark/20 rounded-lg p-2.5">
+        <div className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-2.5">
           <div className="flex justify-between items-center text-[11px] font-mono text-dusty/70">
             <span>Change returned to sender:</span>
             <span className="text-dusty">{formatDOG(tx.change_amount || 0)}</span>
@@ -1342,16 +1342,20 @@ export default function TransactionsPage() {
 
       {/* Header */}
         <div className="text-center space-y-2 md:space-y-4 px-4">
-          <div className="flex items-center justify-center gap-2 md:gap-4">
-            <Activity className="w-10 h-10 md:w-14 md:h-14 text-lava" />
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-lava-dark font-display whitespace-nowrap">
-          DOG Transactions
-        </h1>
+          <div className="hero-glow">
+            <div className="flex items-center justify-center gap-2 md:gap-4">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-lava/[0.07] border border-lava/[0.1] flex items-center justify-center">
+                <Activity className="w-5 h-5 md:w-6 md:h-6 text-lava" />
+              </div>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold gradient-text-hero whitespace-nowrap">
+                DOG Transactions
+              </h1>
+            </div>
           </div>
           <p className="text-dusty font-mono text-sm md:text-lg">
             Real-time transaction tracking - Rune 840000:3
-        </p>
-      </div>
+          </p>
+        </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-3 gap-3 md:gap-6">
@@ -1363,7 +1367,7 @@ export default function TransactionsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-xl md:text-3xl font-bold text-snow font-mono">
+              <div className="text-xl md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
                 {newHolders24h != null ? newHolders24h.toLocaleString('en-US') : (loading ? 'Loading...' : '—')}
               </div>
               <p className="text-dusty text-sm font-mono mt-2">
@@ -1380,7 +1384,7 @@ export default function TransactionsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-xl md:text-3xl font-bold text-snow font-mono">
+              <div className="text-xl md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
                 {lastBlock > 0 ? lastBlock.toLocaleString() : (loading ? 'Loading...' : 'N/A')}
             </div>
               <p className="text-dusty text-sm font-mono mt-2">
@@ -1413,7 +1417,7 @@ export default function TransactionsPage() {
                     className={`font-mono text-[11px] px-3 py-1 border ${
                       autoRefresh
                         ? 'border-purple-500/40 text-purple-200 hover:text-purple-100'
-                        : 'border-lava-dark/15 text-dusty hover:text-snow/80'
+                        : 'border-white/[0.05] text-dusty hover:text-snow/80'
                     }`}
                   >
                     {autoRefresh ? 'AUTO ON' : 'AUTO OFF'}
@@ -1449,7 +1453,7 @@ export default function TransactionsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <div className="text-xl md:text-3xl font-bold text-snow font-mono">
+                <div className="text-xl md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
                   {metrics24h ? metrics24h.txCount.toLocaleString() : (loading ? 'Loading...' : 'N/A')}
               </div>
                 <p className="text-dusty text-xs md:text-sm font-mono uppercase tracking-wide">
@@ -1470,7 +1474,7 @@ export default function TransactionsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <div className="text-xl md:text-3xl font-bold text-snow font-mono">
+                <div className="text-xl md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
                   {metrics24h ? metrics24h.activeWalletCount.toLocaleString() : (loading ? 'Loading...' : 'N/A')}
             </div>
                 <p className="text-dusty text-xs md:text-sm font-mono uppercase tracking-wide">
@@ -1491,7 +1495,7 @@ export default function TransactionsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <div className="text-xl md:text-3xl font-bold text-snow font-mono">
+                <div className="text-xl md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
                   {metrics24h ? formatDOG(metrics24h.totalDogMoved) : (loading ? 'Loading...' : 'N/A')}
                 </div>
                 <p className="text-dusty text-xs md:text-sm font-mono uppercase tracking-wide">
@@ -1681,7 +1685,7 @@ export default function TransactionsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <div className="text-xl md:text-3xl font-bold text-snow font-mono">
+                <div className="text-xl md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
                   {metrics24h
                     ? metrics24h.feesBtc !== undefined
                       ? formatBTC(metrics24h.feesBtc)
@@ -1708,7 +1712,7 @@ export default function TransactionsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <div className="text-xl md:text-3xl font-bold text-snow font-mono">
+                <div className="text-xl md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
                   {metrics24h ? formatDOG(metrics24h.avgDogPerTx) : (loading ? 'Loading...' : 'N/A')}
                 </div>
                 <p className="text-dusty text-xs md:text-sm font-mono uppercase tracking-wide">
@@ -1728,7 +1732,7 @@ export default function TransactionsPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-xl md:text-3xl font-bold text-snow font-mono">
+              <div className="text-xl md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
                 {metrics24h ? metrics24h.avgTxPerBlock.toFixed(2) : (loading ? 'Loading...' : '—')}
               </div>
               <p className="text-dusty text-xs md:text-sm font-mono">
@@ -1825,9 +1829,9 @@ export default function TransactionsPage() {
                 value={searchTxid}
                 onChange={(e) => setSearchTxid(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && searchTransaction()}
-                className="flex-1 bg-transparent border-lava-dark/15/50 text-snow"
+                className="flex-1 bg-transparent border-white/[0.05] text-snow"
               />
-              <Button onClick={searchTransaction} className="btn-sharp">
+              <Button onClick={searchTransaction} className="rounded-lg">
                 Search
               </Button>
             </div>
@@ -1861,7 +1865,7 @@ export default function TransactionsPage() {
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse table-auto">
                   <thead>
-                    <tr className="border-b border-lava-dark/15/50">
+                    <tr className="border-b border-white/[0.05]">
                       <th className="text-left py-2 px-2 text-lava font-mono text-xs w-[70px]">Block</th>
                       <th className="text-left py-2 px-2 text-lava font-mono text-xs w-[180px]">From</th>
                       <th className="text-left py-2 px-2 text-lava font-mono text-xs w-[180px]">To</th>
@@ -2071,7 +2075,7 @@ export default function TransactionsPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="btn-sharp"
+                className="rounded-lg"
                 onClick={loadMoreTransactions}
               >
                 Load more

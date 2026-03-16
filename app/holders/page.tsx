@@ -807,10 +807,16 @@ export default function HoldersPage() {
       <div className="pt-2 pb-3 px-3 md:p-6 space-y-3 md:space-y-6">
       {/* Header */}
       <div className="text-center space-y-2 md:space-y-4">
-        <h1 className="text-2xl md:text-4xl font-bold text-lava-dark font-display flex items-center justify-center">
-          <Users className="w-8 h-8 md:w-10 md:h-10 mr-3 md:mr-4 text-lava" />
-          DOG Holders
-        </h1>
+        <div className="hero-glow">
+          <div className="flex items-center justify-center gap-3 md:gap-4">
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-lava/[0.07] border border-lava/[0.1] flex items-center justify-center">
+              <Users className="w-5 h-5 md:w-6 md:h-6 text-lava" />
+            </div>
+            <h1 className="text-2xl md:text-4xl font-bold gradient-text-hero">
+              DOG Holders
+            </h1>
+          </div>
+        </div>
         <p className="text-dusty font-mono text-base md:text-lg">
           Complete holder database with real-time updates
         </p>
@@ -830,7 +836,7 @@ export default function HoldersPage() {
       </div>
 
       {/* Distribution Chart - Sempre mostrar, com loading ou dados */}
-      <Card variant="glass" className="border-lava/20 hover:border-lava/40 transition-all">
+      <Card variant="glass" className="border-lava/[0.08] hover:border-lava/40 transition-all">
         <CardHeader>
           <CardTitle className="text-lava text-xl font-display uppercase tracking-[0.3em] flex items-center">
             <BarChart3 className="w-6 h-6 mr-3 text-lava" />
@@ -868,7 +874,7 @@ export default function HoldersPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
-        <Card variant="glass" className="stagger-item border-lava/20 hover:border-lava/40 transition-all">
+        <Card variant="glass" className="stagger-item border-lava/[0.08] hover:border-lava/40 transition-all">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-lava text-xs font-mono uppercase tracking-[0.3em]">
               <Users className="w-4 h-4" />
@@ -1004,16 +1010,16 @@ export default function HoldersPage() {
                       setTimeout(() => setShowSuggestions(false), 200)
                     }
                   }}
-                  className="flex-1 bg-transparent border-lava-dark/15/50 text-snow"
+                  className="flex-1 bg-transparent border-white/[0.05] text-snow"
                 />
                 
                 {/* Dropdown de Sugestões */}
                 {showSuggestions && searchSuggestions.length > 0 && (
-                  <div className="suggestions-dropdown absolute w-full mt-2 bg-surface border border-lava-dark/20 shadow-xl max-h-80 overflow-y-auto" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10000, isolation: 'isolate' }}>
+                  <div className="suggestions-dropdown absolute w-full mt-2 bg-surface border border-white/[0.05] shadow-xl max-h-80 overflow-y-auto" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10000, isolation: 'isolate' }}>
                     {searchSuggestions.map((suggestion, idx) => (
                       <div
                         key={suggestion.address}
-                        className="flex items-center gap-3 px-4 py-3 hover:bg-surface/50 hover:border-l-2 hover:border-l-lava cursor-pointer transition-all duration-200 border-b border-gray-800/50 last:border-b-0"
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.03] hover:border-l-2 hover:border-l-lava cursor-pointer transition-all duration-200 border-b border-gray-800/50 last:border-b-0"
                         onMouseDown={(e) => {
                           e.preventDefault() // Previne o blur do input
                           const address = suggestion?.address ? String(suggestion.address) : ''
@@ -1025,7 +1031,7 @@ export default function HoldersPage() {
                         }}
                       >
                         {suggestion.logo ? (
-                          <div className="relative w-10 h-10 overflow-hidden bg-surface/50 border border-lava-dark/20 flex items-center justify-center shrink-0">
+                          <div className="relative w-10 h-10 overflow-hidden bg-white/[0.03] border border-white/[0.05] flex items-center justify-center shrink-0">
                             <Image
                               src={suggestion.logo}
                               alt={suggestion.name}
@@ -1035,7 +1041,7 @@ export default function HoldersPage() {
                             />
                           </div>
                         ) : (
-                          <div className="w-10 h-10 bg-surface/50 border border-lava-dark/20 flex items-center justify-center shrink-0">
+                          <div className="w-10 h-10 bg-white/[0.03] border border-white/[0.05] flex items-center justify-center shrink-0">
                             <span className="text-dusty text-xs font-mono font-bold">?</span>
                           </div>
                         )}
@@ -1049,7 +1055,7 @@ export default function HoldersPage() {
                   </div>
                 )}
               </div>
-              <Button onClick={() => searchHolderByAddress()} className="btn-sharp">
+              <Button onClick={() => searchHolderByAddress()} className="rounded-lg">
                 <Search className="w-4 h-4 mr-2" />
                 Search
               </Button>
@@ -1057,15 +1063,15 @@ export default function HoldersPage() {
             
             {/* Search Result */}
             {searchResult && (
-              <div className="mt-4 p-6 bg-transparent border border-lava-dark/20">
+              <div className="mt-4 p-6 bg-white/[0.02] border border-white/[0.05] rounded-xl">
                 <div className="space-y-6">
                   {/* Identificação da Carteira */}
                   {(() => {
                     const verified = getVerified(searchResult.address)
                     if (verified && verified.type === 'official' && verified.logo) {
                       return (
-                        <div className="flex items-center gap-4 p-4 bg-transparent border border-lava-dark/20">
-                          <div className="relative w-16 h-16 overflow-hidden bg-transparent border border-lava-dark/20 flex items-center justify-center shrink-0">
+                        <div className="flex items-center gap-4 p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl">
+                          <div className="relative w-16 h-16 overflow-hidden bg-white/[0.02] border border-white/[0.05] rounded-xl flex items-center justify-center shrink-0">
                             <Image
                               src={verified.logo}
                               alt={verified.name || 'Verified'}
@@ -1167,9 +1173,9 @@ export default function HoldersPage() {
 
       {/* Error State */}
       {error && (
-        <Card variant="glass" className="bg-dog-red/10 border-dog-red">
+        <Card variant="glass" className="bg-red-500/10 border-red-500">
           <CardContent className="p-4">
-            <p className="text-dog-red font-mono">❌ Error: {error}</p>
+            <p className="text-red-400 font-mono">❌ Error: {error}</p>
           </CardContent>
         </Card>
       )}
@@ -1192,7 +1198,7 @@ export default function HoldersPage() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-lava-dark/15/50">
+                <tr className="border-b border-white/[0.05]">
                   <th className="text-left py-3 px-4 text-lava font-mono text-xs uppercase tracking-[0.25em]">Address</th>
                   <th className="text-right py-3 px-4 text-lava font-mono text-xs uppercase tracking-[0.25em]">DOG Balance</th>
                   <th className="text-center py-3 px-4 text-lava font-mono text-xs uppercase tracking-[0.25em]">UTXOs</th>
@@ -1283,7 +1289,7 @@ export default function HoldersPage() {
                     </td>
                   </tr>
                   {expandedAddress === holder.address && expandedHolder && (
-                    <tr className="bg-transparent border-t border-lava-dark/15/30">
+                    <tr className="bg-transparent border-t border-white/[0.04]">
                       <td colSpan={5} className="p-6">
                         <div className="space-y-6">
                           {/* Identificação Melhorada */}
@@ -1291,8 +1297,8 @@ export default function HoldersPage() {
                             const verified = getVerified(expandedHolder.address)
                             if (verified && verified.type === 'official' && verified.logo) {
                               return (
-                                <div className="flex items-center gap-4 p-4 bg-transparent border border-lava-dark/20">
-                                  <div className="relative w-16 h-16 overflow-hidden bg-transparent border border-lava-dark/20 flex items-center justify-center shrink-0">
+                                <div className="flex items-center gap-4 p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl">
+                                  <div className="relative w-16 h-16 overflow-hidden bg-white/[0.02] border border-white/[0.05] rounded-xl flex items-center justify-center shrink-0">
                                     <Image
                                       src={verified.logo}
                                       alt={verified.name || 'Verified'}
@@ -1399,7 +1405,7 @@ export default function HoldersPage() {
 
       {/* Pagination */}
       <div className="flex flex-col items-center gap-4">
-        <div className="text-dog-gray-300 font-mono text-sm">
+        <div className="text-dusty font-mono text-sm">
           Showing {allHolders.length} of {totalHolders ? totalHolders.toLocaleString('en-US') : '0'} holders
         </div>
         
@@ -1410,7 +1416,7 @@ export default function HoldersPage() {
                 size="sm"
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="btn-sharp"
+                className="rounded-lg"
               >
                 <ChevronLeft className="w-4 h-4" />
               </Button>
@@ -1427,10 +1433,10 @@ export default function HoldersPage() {
                       variant={currentPage === page ? "default" : "outline"}
                       size="sm"
                       onClick={() => handlePageChange(page as number)}
-                      className={`btn-sharp ${
+                      className={`rounded-lg ${
                         currentPage === page 
-                          ? 'bg-dog-orange text-snow border-dog-orange' 
-                          : 'hover:bg-dog-gray-700'
+                          ? 'bg-lava text-snow border-lava' 
+                          : 'hover:bg-white/[0.04]'
                       }`}
                     >
                       {page}
@@ -1445,7 +1451,7 @@ export default function HoldersPage() {
                 size="sm"
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className="btn-sharp"
+                className="rounded-lg"
               >
                 <ChevronRight className="w-4 h-4" />
               </Button>

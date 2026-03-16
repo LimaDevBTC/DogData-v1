@@ -63,7 +63,7 @@ export const TransactionRow = React.memo(function TransactionRow({
   const mainReceiver = tx.receivers[0]
 
   return (
-    <tr style={style} className="table-row border-b border-lava-dark/15/30 hover:bg-snow/[0.02]">
+    <tr style={style} className="table-row border-b border-white/[0.05] hover:bg-snow/[0.02]">
       {/* Block Height */}
       <td className="py-2 px-1">
         <span className="text-cyan-400 font-mono text-xs">

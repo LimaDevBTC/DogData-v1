@@ -22,8 +22,8 @@ const exchanges = [
     name: 'MEXC',
     apiUrl: '/api/price/mexc',
     color: 'from-blue-400 to-blue-600',
-    borderColor: 'border-blue-500/20',
-    hoverBorderColor: 'hover:border-blue-500/40',
+    borderColor: 'border-blue-500/[0.1]',
+    hoverBorderColor: 'hover:border-blue-500/[0.2]',
     icon: 'M',
     working: true
   },
@@ -31,8 +31,8 @@ const exchanges = [
     name: 'Kraken',
     apiUrl: '/api/price/kraken',
     color: 'from-purple-400 to-purple-600',
-    borderColor: 'border-purple-500/20',
-    hoverBorderColor: 'hover:border-purple-500/40',
+    borderColor: 'border-purple-500/[0.1]',
+    hoverBorderColor: 'hover:border-purple-500/[0.2]',
     icon: 'K',
     working: true
   },
@@ -40,8 +40,8 @@ const exchanges = [
     name: 'Gate.io',
     apiUrl: '/api/price/gateio',
     color: 'from-green-400 to-green-600',
-    borderColor: 'border-green-500/20',
-    hoverBorderColor: 'hover:border-green-500/40',
+    borderColor: 'border-green-500/[0.1]',
+    hoverBorderColor: 'hover:border-green-500/[0.2]',
     icon: 'G',
     working: true
   },
@@ -49,8 +49,8 @@ const exchanges = [
     name: 'Bitget',
     apiUrl: '/api/price/bitget',
     color: 'from-cyan-400 to-blue-500',
-    borderColor: 'border-cyan-500/20',
-    hoverBorderColor: 'hover:border-cyan-500/40',
+    borderColor: 'border-cyan-500/[0.1]',
+    hoverBorderColor: 'hover:border-cyan-500/[0.2]',
     icon: 'B',
     working: true
   }
@@ -60,8 +60,8 @@ const bitflowExchange = {
   name: 'Bitflow',
   apiUrl: '/api/price/bitflow',
   color: 'from-orange-400 to-orange-600',
-  borderColor: 'border-orange-500/20',
-  hoverBorderColor: 'hover:border-orange-500/40',
+  borderColor: 'border-orange-500/[0.1]',
+  hoverBorderColor: 'hover:border-orange-500/[0.2]',
   icon: 'BF',
   working: true,
   sponsored: true,
@@ -72,8 +72,8 @@ const dogswapExchange = {
   name: 'Dogswap',
   apiUrl: '/api/price/dogswap',
   color: 'from-sky-500 to-blue-700',
-  borderColor: 'border-sky-500/20',
-  hoverBorderColor: 'hover:border-sky-500/40',
+  borderColor: 'border-sky-500/[0.1]',
+  hoverBorderColor: 'hover:border-sky-500/[0.2]',
   icon: 'DS',
   working: true,
   sponsored: true,
@@ -328,7 +328,7 @@ export function PriceCards() {
                           if (fallback) fallback.style.display = 'flex';
                         }}
                       />
-                <div className="hidden w-8 h-8 md:w-12 md:h-12 bg-gradient-to-r from-elevated to-elevated flex items-center justify-center text-snow font-bold text-xs md:text-base uppercase rounded">
+                <div className="hidden w-8 h-8 md:w-12 md:h-12 bg-white/[0.06] flex items-center justify-center text-snow font-bold text-xs md:text-base uppercase rounded">
                         {exchange.icon}
                       </div>
                     </div>
@@ -349,13 +349,13 @@ export function PriceCards() {
                   </div>
                 ) : isLoading && !priceData ? (
                   <div className="space-y-2">
-              <div className="h-5 bg-elevated/50 animate-pulse rounded"></div>
-              <div className="h-4 bg-elevated/30 animate-pulse rounded"></div>
+              <div className="h-5 bg-white/[0.04] animate-pulse rounded"></div>
+              <div className="h-4 bg-white/[0.03] animate-pulse rounded"></div>
                   </div>
                 ) : (
                   <div className="space-y-1 md:space-y-2">
               <div
-                className={`text-base md:text-xl font-bold font-mono bg-gradient-to-r ${exchange.color} bg-clip-text text-transparent`}
+                className={`metric-value text-base md:text-xl font-bold font-mono bg-gradient-to-r ${exchange.color} bg-clip-text text-transparent`}
               >
                       {formatPrice(priceData?.price || 0)}
                     </div>
@@ -471,12 +471,12 @@ export function PriceCards() {
                 <div className="flex-1 flex flex-col gap-0.5 md:gap-1 min-w-0">
                   {isLoading && !data ? (
                     <div className="space-y-2">
-                      <div className="h-6 bg-elevated/50 animate-pulse rounded"></div>
-                      <div className="h-3 bg-elevated/30 animate-pulse rounded w-2/3"></div>
+                      <div className="h-6 bg-white/[0.04] animate-pulse rounded"></div>
+                      <div className="h-3 bg-white/[0.03] animate-pulse rounded w-2/3"></div>
                     </div>
                   ) : (
                     <>
-                      <div className={`text-sm md:text-xl font-bold font-mono ${priceClassName} leading-tight`}>
+                      <div className={`metric-value text-sm md:text-xl font-bold font-mono ${priceClassName} leading-tight`}>
                         {formatPrice(data?.price || 0)}
                       </div>
                       <div className={`${satsClassName} font-mono`}>
@@ -558,12 +558,12 @@ export function PriceCards() {
             <div className="mt-2 md:mt-6 flex-1 flex flex-col gap-1.5 md:gap-4 justify-center">
               {isLoading && !data ? (
                 <div className="space-y-2">
-                  <div className="h-6 bg-elevated/50 animate-pulse rounded"></div>
-                  <div className="h-3 bg-elevated/30 animate-pulse rounded w-2/3"></div>
+                  <div className="h-6 bg-white/[0.04] animate-pulse rounded"></div>
+                  <div className="h-3 bg-white/[0.03] animate-pulse rounded w-2/3"></div>
                 </div>
               ) : (
                 <>
-                  <div className={`text-xl md:text-4xl font-bold font-mono ${priceClassName}`}>
+                  <div className={`metric-value text-xl md:text-4xl font-bold font-mono ${priceClassName}`}>
                     {formatPrice(data?.price || 0)}
                   </div>
                   <div className={`${satsClassName} font-mono`}>

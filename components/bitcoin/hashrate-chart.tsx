@@ -29,8 +29,8 @@ export function HashrateChart({ data }: HashrateChartProps) {
     if (active && payload && payload.length) {
       const dataPoint = payload[0].payload;
       return (
-        <div className="bg-gray-800/90 border border-gray-700 rounded-lg p-3 shadow-lg">
-          <p className="text-gray-300 font-mono text-sm">
+        <div className="bg-[#0A0A0C]/90 border border-white/[0.05] rounded-lg p-3 shadow-lg">
+          <p className="text-dusty font-mono text-sm">
             {new Date(dataPoint.time).toLocaleString('pt-BR')}
           </p>
           <p className="text-green-400 font-mono font-bold">
@@ -81,22 +81,22 @@ export function HashrateChart({ data }: HashrateChartProps) {
         </div>
         <div className="mt-4 grid grid-cols-3 gap-4">
           <div className="text-center">
-            <div className="text-2xl font-bold text-green-400 font-mono">
+            <div className="text-2xl font-bold text-green-400 font-mono tracking-tight tabular-nums">
               {BitcoinApiService.formatHashRate(data.hashrate)}
             </div>
-            <div className="text-gray-400 text-sm font-mono">Current Hash Rate</div>
+            <div className="text-dusty text-sm font-mono">Current Hash Rate</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-yellow-400 font-mono">
+            <div className="text-2xl font-bold text-yellow-400 font-mono tracking-tight tabular-nums">
               {BitcoinApiService.formatHashRate(Math.max(...data.hashrateHistory.map(h => h.avgHashrate)))}
             </div>
-            <div className="text-gray-400 text-sm font-mono">ATH Hash Rate</div>
+            <div className="text-dusty text-sm font-mono">ATH Hash Rate</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-white font-mono">
+            <div className="text-2xl font-bold text-white font-mono tracking-tight tabular-nums">
               {data.miningPools.length}
             </div>
-            <div className="text-gray-400 text-sm font-mono">Active Mining Pools</div>
+            <div className="text-dusty text-sm font-mono">Active Mining Pools</div>
           </div>
         </div>
       </CardContent>

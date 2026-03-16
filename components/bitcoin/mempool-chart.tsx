@@ -52,7 +52,7 @@ export function MempoolChart({ data }: MempoolChartProps) {
         </CardHeader>
         <CardContent>
           <div className="h-80 w-full flex items-center justify-center">
-            <div className="text-gray-400 font-mono text-center">
+            <div className="text-dusty font-mono text-center">
               <div className="text-lg mb-2">No fee data available</div>
               <div className="text-sm">Mempool data is being loaded...</div>
             </div>
@@ -65,8 +65,8 @@ export function MempoolChart({ data }: MempoolChartProps) {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-gray-800/90 border border-gray-700 rounded-lg p-3 shadow-lg">
-          <p className="text-gray-300 font-mono text-sm">
+        <div className="bg-[#0A0A0C]/90 border border-white/[0.05] rounded-lg p-3 shadow-lg">
+          <p className="text-dusty font-mono text-sm">
             Fee Range: {label} sat/vB
           </p>
           <p className="text-blue-400 font-mono font-bold">
@@ -133,22 +133,22 @@ export function MempoolChart({ data }: MempoolChartProps) {
         </div>
         <div className="mt-4 grid grid-cols-3 gap-4">
           <div className="text-center">
-            <div className="text-2xl font-bold text-blue-400 font-mono">
+            <div className="text-2xl font-bold text-blue-400 font-mono tracking-tight tabular-nums">
               {data.mempoolSize.toLocaleString()}
             </div>
-            <div className="text-gray-400 text-sm font-mono">Pending Transactions</div>
+            <div className="text-dusty text-sm font-mono">Pending Transactions</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-white font-mono">
+            <div className="text-2xl font-bold text-white font-mono tracking-tight tabular-nums">
               {(data.mempoolVsize / 1024 / 1024).toFixed(1)} MB
             </div>
-            <div className="text-gray-400 text-sm font-mono">Mempool Size</div>
+            <div className="text-dusty text-sm font-mono">Mempool Size</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-bold text-green-400 font-mono">
+            <div className="text-2xl font-bold text-green-400 font-mono tracking-tight tabular-nums">
               {data.fees.fastest} sat/vB
             </div>
-            <div className="text-gray-400 text-sm font-mono">Fastest Fee</div>
+            <div className="text-dusty text-sm font-mono">Fastest Fee</div>
           </div>
         </div>
       </CardContent>

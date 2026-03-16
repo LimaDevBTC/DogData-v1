@@ -61,7 +61,7 @@ const AddressBadgeOptimized = React.memo(function AddressBadge({
           />
         </div>
         {showName && verified.name && (
-          <span className={`${textSize} font-medium text-gray-300`}>
+          <span className={`${textSize} font-medium text-dusty`}>
             {verified.name}
           </span>
         )}
@@ -73,13 +73,13 @@ const AddressBadgeOptimized = React.memo(function AddressBadge({
   if (verified.type === 'community' && verified.twitter) {
     return (
       <div className="inline-flex items-center gap-1.5">
-        <Award className={`${iconSize} text-orange-400`} />
+        <Award className={`${iconSize} text-lava/70`} />
         {showName && verified.twitter_name && (
           <a
             href={`https://twitter.com/${verified.twitter.replace('@', '')}`}
             target="_blank"
             rel="noopener noreferrer"
-            className={`${textSize} font-medium text-orange-400 hover:text-orange-300 transition-colors`}
+            className={`${textSize} font-medium text-lava/70 hover:text-lava transition-colors`}
           >
             {verified.twitter}
           </a>

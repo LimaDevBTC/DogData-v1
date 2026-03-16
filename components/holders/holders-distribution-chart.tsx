@@ -156,18 +156,18 @@ export function HoldersDistributionChart({ allHolders, totalSupply }: HoldersDis
     if (active && payload && payload.length) {
       const data = payload[0].payload as DistributionData;
       return (
-        <div className="bg-black/90 border border-gray-700 rounded-lg p-3 shadow-xl">
+        <div className="bg-[#0A0A0C]/90 border border-white/[0.05] rounded-lg p-3 shadow-xl">
           <p className="text-white font-mono font-semibold mb-2">{data.name}</p>
-          <p className="text-gray-300 font-mono text-sm">
+          <p className="text-dusty font-mono text-sm">
             <span className="text-blue-400">Holders:</span> {data.holders.toLocaleString('en-US')}
           </p>
-          <p className="text-gray-300 font-mono text-sm">
+          <p className="text-dusty font-mono text-sm">
             <span className="text-green-400">DOG:</span> {data.value.toLocaleString('en-US', { 
               minimumFractionDigits: 2, 
               maximumFractionDigits: 2 
             })}
           </p>
-          <p className="text-gray-300 font-mono text-sm">
+          <p className="text-dusty font-mono text-sm">
             <span className="text-yellow-400">Percentage:</span> {data.percentage.toFixed(2)}%
           </p>
         </div>
@@ -278,7 +278,7 @@ export function HoldersDistributionChart({ allHolders, totalSupply }: HoldersDis
             {distributionData.displayData.map((item, index) => (
               <div
                 key={index}
-                className="flex items-center justify-between p-3 bg-black/30 rounded-lg border border-gray-700/50 hover:border-gray-600 transition-colors"
+                className="flex items-center justify-between p-3 bg-black/30 rounded-lg border border-white/[0.05] hover:border-white/[0.06] transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <div
@@ -287,22 +287,22 @@ export function HoldersDistributionChart({ allHolders, totalSupply }: HoldersDis
                   />
                   <div>
                     <p className="text-white font-mono font-semibold">{item.name}</p>
-                    <p className="text-gray-400 font-mono text-xs">
+                    <p className="text-dusty font-mono text-xs">
                       {item.holders.toLocaleString('en-US')} holder{item.holders !== 1 ? 's' : ''}
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-orange-400 font-mono font-bold text-lg">
+                  <p className="text-lava/70 font-mono font-bold text-lg tracking-tight tabular-nums">
                     {item.percentage.toFixed(2)}%
                   </p>
-                  <p className="text-gray-400 font-mono text-xs">
+                  <p className="text-dusty font-mono text-xs">
                     {item.value.toLocaleString('en-US', { 
                       minimumFractionDigits: 2, 
                       maximumFractionDigits: 2 
                     })} DOG
                   </p>
-                  <p className="text-gray-500 font-mono text-[10px] mt-0.5">
+                  <p className="text-dusty/70 font-mono text-[10px] mt-0.5">
                     {item.value.toLocaleString('en-US', { 
                       minimumFractionDigits: 0, 
                       maximumFractionDigits: 0,

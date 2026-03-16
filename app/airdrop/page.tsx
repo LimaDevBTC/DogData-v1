@@ -428,17 +428,21 @@ export default function AirdropPage() {
       <div className="pt-2 pb-3 px-3 md:p-6 space-y-3 md:space-y-6">
         {/* Header */}
       <div className="text-center space-y-2 md:space-y-4 px-4">
-        <div className="flex items-center justify-center gap-2 md:gap-4">
-          <Image 
-            src="/Runestone.png" 
-            alt="Runestone" 
-            width={40} 
-            height={40}
-            className="object-contain md:w-[60px] md:h-[60px]"
-          />
-          <h1 className="text-2xl md:text-4xl font-bold text-lava-dark font-mono font-display whitespace-nowrap">
-            Airdrop Analysis
-          </h1>
+        <div className="hero-glow">
+          <div className="flex items-center justify-center gap-2 md:gap-4">
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-lava/[0.07] border border-lava/[0.1] flex items-center justify-center">
+              <Image
+                src="/Runestone.png"
+                alt="Runestone"
+                width={28}
+                height={28}
+                className="object-contain md:w-[36px] md:h-[36px]"
+              />
+            </div>
+            <h1 className="text-2xl md:text-4xl font-bold gradient-text-hero whitespace-nowrap">
+              Airdrop Analysis
+            </h1>
+          </div>
         </div>
         <p className="text-dusty font-mono text-sm md:text-lg">
           Independent audit of DOG•GO•TO•THE•MOON Airdrop - Rune 840000:3
@@ -454,7 +458,7 @@ export default function AirdropPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl md:text-3xl font-bold text-snow font-mono">
+            <div className="text-xl md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
               {formatNumber(forensicStats?.total_analyzed || 0)}
             </div>
             <p className="text-dusty text-sm font-mono mt-2">
@@ -470,7 +474,7 @@ export default function AirdropPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl md:text-3xl font-bold text-snow font-mono">
+            <div className="text-xl md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
               {formatNumber(forensicStats?.still_holding || 0)}
             </div>
             <p className="text-dusty text-sm font-mono mt-2">
@@ -486,7 +490,7 @@ export default function AirdropPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl md:text-3xl font-bold text-snow font-mono">
+            <div className="text-xl md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
               {formatNumber(forensicStats?.sold_everything || 0)}
             </div>
             <p className="text-dusty text-sm font-mono mt-2">
@@ -505,7 +509,7 @@ export default function AirdropPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl md:text-3xl font-bold text-snow font-mono">
+            <div className="text-xl md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
               {formatNumber(
                 (forensicStats?.by_pattern.satoshi_visionary || 0) + 
                 (forensicStats?.by_pattern.btc_maximalist || 0) + 
@@ -527,7 +531,7 @@ export default function AirdropPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl md:text-3xl font-bold text-snow font-mono">
+            <div className="text-xl md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
               {formatNumber(forensicStats?.by_pattern.diamond_paws || 0)}
             </div>
             <p className="text-dusty text-sm font-mono mt-2">
@@ -543,7 +547,7 @@ export default function AirdropPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl md:text-3xl font-bold text-snow font-mono">
+            <div className="text-xl md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
               {formatNumber(
                 (forensicStats?.by_pattern.hodl_hero || 0) +
                 (forensicStats?.by_pattern.steady_holder || 0) +
@@ -576,15 +580,15 @@ export default function AirdropPage() {
               value={searchAddress}
               onChange={(e) => setSearchAddress(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && searchRecipient()}
-              className="flex-1 bg-transparent border-lava-dark/15/50 text-snow"
+              className="flex-1 bg-transparent border-white/[0.05] text-snow"
             />
-            <Button onClick={searchRecipient} className="btn-sharp">
+            <Button onClick={searchRecipient} className="rounded-lg">
               Search
             </Button>
           </div>
           
           {searchResult && (
-            <div className="mt-4 p-4 bg-transparent border border-lava-dark/15/50">
+            <div className="mt-4 p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-dusty text-sm">Address</p>
@@ -692,7 +696,7 @@ export default function AirdropPage() {
                   className={`flex items-center justify-between p-3 h-auto ${
                     isActive 
                       ? 'bg-lava/20 text-lava border border-lava/30' 
-                      : 'text-snow/80 hover:text-snow hover:bg-surface/30 border border-transparent hover:border-lava-dark/15/30'
+                      : 'text-snow/80 hover:text-snow hover:bg-white/[0.03] border border-transparent hover:border-white/[0.06]'
                   }`}
                   onClick={() => handleListChange(list.key as BehaviorList)}
                 >
@@ -708,7 +712,7 @@ export default function AirdropPage() {
           </div>
 
           {/* Current List Info */}
-          <div className="mb-4 p-4 bg-transparent border border-lava-dark/15/50">
+          <div className="mb-4 p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-snow font-mono text-lg">
@@ -735,7 +739,7 @@ export default function AirdropPage() {
             <div className={`overflow-x-auto transition-opacity duration-300 ${isUpdating ? 'opacity-90' : 'opacity-100'}`}>
               <table className="w-full">
               <thead>
-                <tr className="border-b border-lava-dark/15/50">
+                <tr className="border-b border-white/[0.05]">
                   <th className="text-left py-3 px-4 text-lava font-mono text-sm">#</th>
                   <th className="text-left py-3 px-4 text-lava font-mono text-sm">Address</th>
                   <th className="text-center py-3 px-4 text-lava font-mono text-sm">Received</th>
@@ -827,7 +831,7 @@ export default function AirdropPage() {
 
       {/* Pagination */}
       <div className="flex flex-col items-center gap-4">
-        <div className="text-dog-gray-300 font-mono text-sm">
+        <div className="text-dusty font-mono text-sm">
           Showing {profiles.length} of {getTotalCount().toLocaleString('en-US')} {currentList}
         </div>
         
@@ -838,7 +842,7 @@ export default function AirdropPage() {
             size="sm"
             onClick={() => handlePageChange(currentPage - 1)}
             disabled={currentPage === 1}
-            className="btn-sharp"
+            className="rounded-lg"
           >
             <ChevronLeft className="w-4 h-4" />
           </Button>
@@ -847,7 +851,7 @@ export default function AirdropPage() {
           {getPageNumbers().map((page, index) => (
             <div key={index}>
               {page === '...' ? (
-                <span className="px-2 py-1 text-dog-gray-400">
+                <span className="px-2 py-1 text-dusty/70">
                   <MoreHorizontal className="w-4 h-4" />
                 </span>
               ) : (
@@ -855,10 +859,10 @@ export default function AirdropPage() {
                   variant={currentPage === page ? "default" : "outline"}
                   size="sm"
                   onClick={() => handlePageChange(page as number)}
-                  className={`btn-sharp ${
+                  className={`rounded-lg ${
                     currentPage === page 
-                      ? 'bg-dog-orange text-snow border-dog-orange' 
-                      : 'hover:bg-dog-gray-700'
+                      ? 'bg-lava text-snow border-lava' 
+                      : 'hover:bg-white/[0.04]'
                   }`}
                 >
                   {page}
@@ -873,14 +877,14 @@ export default function AirdropPage() {
             size="sm"
             onClick={() => handlePageChange(currentPage + 1)}
             disabled={currentPage === calculatedTotalPages}
-            className="btn-sharp"
+            className="rounded-lg"
           >
             <ChevronRight className="w-4 h-4" />
           </Button>
 
           {/* Go to Page */}
           <div className="flex items-center space-x-2 ml-4">
-            <span className="text-dog-gray-400 text-sm font-mono">Go to</span>
+            <span className="text-dusty/70 text-sm font-mono">Go to</span>
             <Input
               type="number"
               min="1"
@@ -891,7 +895,7 @@ export default function AirdropPage() {
               className="w-16 h-8 text-center text-sm"
               placeholder="Page"
             />
-            <span className="text-dog-gray-400 text-sm font-mono">Page</span>
+            <span className="text-dusty/70 text-sm font-mono">Page</span>
           </div>
         </div>
       </div>

@@ -34,7 +34,7 @@ export function RealtimeStatus({ onDataUpdate }: RealtimeStatusProps) {
       )}
       
       {lastMessage?.type === 'data_updated' && (
-        <Badge variant="outline" className="text-green-600 border-green-600">
+        <Badge variant="outline" className="text-green-500 border-green-500/30">
           <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
           Atualizado
         </Badge>

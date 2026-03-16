@@ -196,7 +196,7 @@ export function HistoricalChartsSection() {
             className={`px-3 py-1.5 text-xs font-mono uppercase tracking-wide border transition-all
               ${range === r
                 ? 'border-lava bg-lava/20 text-lava'
-                : 'border-lava-dark/20 text-dusty hover:border-lava/40 hover:text-snow'
+                : 'border-white/[0.05] text-dusty hover:border-lava/40 hover:text-snow'
               }`}
           >
             {r}

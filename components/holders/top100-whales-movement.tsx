@@ -291,11 +291,11 @@ export function Top100WhalesMovement({ allHolders }: Top100WhalesMovementProps) 
 
   if (loading) {
     return (
-      <Card variant="glass" className="border-orange-500/20">
+      <Card variant="glass" className="border-lava/[0.08]">
         <CardContent className="p-6">
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-            <span className="ml-3 text-gray-400 font-mono">Loading whale movements...</span>
+            <span className="ml-3 text-dusty font-mono">Loading whale movements...</span>
           </div>
         </CardContent>
       </Card>
@@ -303,9 +303,9 @@ export function Top100WhalesMovement({ allHolders }: Top100WhalesMovementProps) 
   }
 
   return (
-    <Card variant="glass" className="border-orange-500/20 hover:border-orange-500/40 transition-all">
+    <Card variant="glass" className="border-lava/[0.08] hover:border-lava/40 transition-all">
       <CardHeader>
-        <CardTitle className="text-orange-400 text-xl font-mono uppercase tracking-[0.3em] flex items-center">
+        <CardTitle className="text-lava/70 text-xl font-mono uppercase tracking-[0.3em] flex items-center">
           <Wallet className="w-6 h-6 mr-3 text-orange-500" />
           Top 100 Whales Movement (24h)
         </CardTitle>
@@ -321,7 +321,7 @@ export function Top100WhalesMovement({ allHolders }: Top100WhalesMovementProps) 
             </h3>
             <div className="space-y-2 max-h-[500px] overflow-y-auto">
               {positiveMovements.length === 0 ? (
-                <p className="text-gray-500 text-sm font-mono text-center py-4">No positive movements</p>
+                <p className="text-dusty/70 text-sm font-mono text-center py-4">No positive movements</p>
               ) : (
                 positiveMovements.map((movement) => (
                   <div
@@ -331,22 +331,22 @@ export function Top100WhalesMovement({ allHolders }: Top100WhalesMovementProps) 
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-gray-400 text-xs font-mono">#{movement.rank}</span>
+                          <span className="text-dusty text-xs font-mono">#{movement.rank}</span>
                           <AddressBadge 
                             address={movement.address} 
                             size="sm" 
                             showName={false}
                           />
-                          <span className="text-gray-300 text-xs font-mono">{shortenAddress(movement.address)}</span>
+                          <span className="text-dusty text-xs font-mono">{shortenAddress(movement.address)}</span>
                           <button
                             onClick={(e) => copyToClipboard(e, movement.address)}
                             className="p-1 hover:bg-emerald-500/20 rounded transition-colors group"
                             title="Copy address"
                           >
-                            <Copy className="w-3 h-3 text-gray-400 group-hover:text-emerald-400" />
+                            <Copy className="w-3 h-3 text-dusty group-hover:text-emerald-400" />
                           </button>
                         </div>
-                        <div className="text-xs text-gray-500 font-mono">
+                        <div className="text-xs text-dusty/70 font-mono">
                           In: {formatDOGCompact(movement.inflow)} | Out: {formatDOGCompact(movement.outflow)}
                         </div>
                       </div>
@@ -354,7 +354,7 @@ export function Top100WhalesMovement({ allHolders }: Top100WhalesMovementProps) 
                         <div className="text-emerald-400 font-bold font-mono text-sm">
                           +{formatDOGCompact(movement.net)}
                         </div>
-                        <div className="text-gray-500 text-xs font-mono">DOG</div>
+                        <div className="text-dusty/70 text-xs font-mono">DOG</div>
                       </div>
                     </div>
                   </div>
@@ -371,7 +371,7 @@ export function Top100WhalesMovement({ allHolders }: Top100WhalesMovementProps) 
             </h3>
             <div className="space-y-2 max-h-[500px] overflow-y-auto">
               {negativeMovements.length === 0 ? (
-                <p className="text-gray-500 text-sm font-mono text-center py-4">No negative movements</p>
+                <p className="text-dusty/70 text-sm font-mono text-center py-4">No negative movements</p>
               ) : (
                 negativeMovements.map((movement) => (
                   <div
@@ -381,22 +381,22 @@ export function Top100WhalesMovement({ allHolders }: Top100WhalesMovementProps) 
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-gray-400 text-xs font-mono">#{movement.rank}</span>
+                          <span className="text-dusty text-xs font-mono">#{movement.rank}</span>
                           <AddressBadge 
                             address={movement.address} 
                             size="sm" 
                             showName={false}
                           />
-                          <span className="text-gray-300 text-xs font-mono">{shortenAddress(movement.address)}</span>
+                          <span className="text-dusty text-xs font-mono">{shortenAddress(movement.address)}</span>
                           <button
                             onClick={(e) => copyToClipboard(e, movement.address)}
                             className="p-1 hover:bg-red-500/20 rounded transition-colors group"
                             title="Copy address"
                           >
-                            <Copy className="w-3 h-3 text-gray-400 group-hover:text-red-400" />
+                            <Copy className="w-3 h-3 text-dusty group-hover:text-red-400" />
                           </button>
                         </div>
-                        <div className="text-xs text-gray-500 font-mono">
+                        <div className="text-xs text-dusty/70 font-mono">
                           In: {formatDOGCompact(movement.inflow)} | Out: {formatDOGCompact(movement.outflow)}
                         </div>
                       </div>
@@ -404,7 +404,7 @@ export function Top100WhalesMovement({ allHolders }: Top100WhalesMovementProps) 
                         <div className="text-red-400 font-bold font-mono text-sm">
                           -{formatDOGCompact(movement.net)}
                         </div>
-                        <div className="text-gray-500 text-xs font-mono">DOG</div>
+                        <div className="text-dusty/70 text-xs font-mono">DOG</div>
                       </div>
                     </div>
                   </div>
@@ -415,16 +415,16 @@ export function Top100WhalesMovement({ allHolders }: Top100WhalesMovementProps) 
         </div>
 
         {/* Saldo Net - Abaixo das colunas */}
-        <div className="bg-gradient-to-r from-orange-500/10 to-orange-600/10 border border-orange-500/20 rounded-lg p-4">
+        <div className="bg-gradient-to-r from-orange-500/10 to-orange-600/10 border border-lava/[0.08] rounded-lg p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-sm font-mono uppercase tracking-wide">Daily Net Flow</p>
-              <p className={`text-2xl font-bold font-mono mt-1 ${
+              <p className="text-dusty text-sm font-mono uppercase tracking-wide">Daily Net Flow</p>
+              <p className={`text-2xl font-bold font-mono mt-1 tracking-tight tabular-nums ${
                 totalNet > 0 
                   ? 'text-emerald-400' 
                   : totalNet < 0 
                     ? 'text-red-400' 
-                    : 'text-gray-400'
+                    : 'text-dusty'
               }`}>
                 {totalNet > 0 ? '+' : ''}{formatDOG(totalNet)} DOG
               </p>

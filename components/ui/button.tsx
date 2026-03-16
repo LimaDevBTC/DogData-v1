@@ -3,10 +3,10 @@ import { cn } from "@/lib/utils"
 
 const buttonVariants = {
   variant: {
-    default: "bg-lava hover:bg-lava-dark text-snow",
-    glass: "bg-snow/5 hover:bg-snow/10 text-snow border border-snow/20 hover:border-snow/30",
-    outline: "border border-lava-dark/20 hover:border-dusty text-dusty hover:text-snow hover:bg-surface/30",
-    ghost: "text-dusty hover:text-snow hover:bg-surface/20",
+    default: "bg-lava hover:bg-lava-dark text-snow shadow-[0_0_16px_rgba(245,110,15,0.1)] hover:shadow-[0_0_24px_rgba(245,110,15,0.15)]",
+    glass: "bg-white/[0.04] hover:bg-white/[0.07] text-snow border border-white/[0.06] hover:border-white/[0.1]",
+    outline: "border border-white/[0.06] hover:border-white/[0.1] text-dusty hover:text-snow hover:bg-white/[0.03]",
+    ghost: "text-dusty hover:text-snow hover:bg-white/[0.04]",
     destructive: "bg-red-500/20 hover:bg-red-500/25 text-red-400 border border-red-500/30",
   },
   size: {
@@ -30,7 +30,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <button
         className={cn(
-          "inline-flex items-center justify-center font-medium transition-all duration-300 min-h-[44px] md:min-h-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lava focus-visible:ring-offset-2 focus-visible:ring-offset-void disabled:pointer-events-none disabled:opacity-50",
+          "inline-flex items-center justify-center rounded-lg font-medium transition-all duration-300 min-h-[44px] md:min-h-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lava focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-50",
           buttonVariants.variant[variant],
           buttonVariants.size[size],
           className

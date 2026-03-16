@@ -71,17 +71,23 @@ export default function BitcoinNetworkPage() {
       <div className="pt-2 pb-3 px-3 md:p-6 space-y-3 md:space-y-8">
         {/* Header */}
              <div className="text-center space-y-2 md:space-y-4 px-4">
-               <h1 className="text-2xl md:text-4xl font-bold text-lava-dark font-display flex items-center justify-center whitespace-nowrap">
-                 <Network className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 mr-2 md:mr-4 text-lava flex-shrink-0" />
-                 Bitcoin Network
-                 {updating && (
-                   <div className="ml-2 md:ml-3 w-2 h-2 md:w-3 md:h-3 bg-lava rounded-full animate-pulse flex-shrink-0"></div>
-                 )}
-               </h1>
+               <div className="hero-glow">
+                 <div className="flex items-center justify-center gap-3 md:gap-4">
+                   <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-lava/[0.07] border border-lava/[0.1] flex items-center justify-center">
+                     <Network className="w-5 h-5 md:w-6 md:h-6 text-lava" />
+                   </div>
+                   <h1 className="text-2xl md:text-4xl font-bold gradient-text-hero whitespace-nowrap">
+                     Bitcoin Network
+                   </h1>
+                   {updating && (
+                     <div className="ml-1 w-2 h-2 md:w-3 md:h-3 bg-lava rounded-full animate-pulse flex-shrink-0"></div>
+                   )}
+                 </div>
+               </div>
                <p className="text-dusty font-mono text-sm md:text-lg">
                  Real-time Bitcoin blockchain statistics and network health
                  {updating && (
-                   <span className="ml-2 text-lava text-xs md:text-sm">• Updating...</span>
+                   <span className="ml-2 text-lava text-xs md:text-sm">* Updating...</span>
                  )}
                </p>
              </div>
@@ -92,7 +98,7 @@ export default function BitcoinNetworkPage() {
       <SectionDivider title="Bitcoin Price Chart" icon={Network} />
 
       {/* TradingView Chart */}
-      <Card variant="glass" className="border-lava/20">
+      <Card variant="glass" className="border-lava/[0.08]">
         <CardHeader>
           <CardTitle className="text-lava text-xl font-display flex items-center">
             <Network className="w-6 h-6 mr-3 text-lava" />
@@ -117,7 +123,7 @@ export default function BitcoinNetworkPage() {
       <SectionDivider title="Recent Blocks" icon={Network} />
 
       {/* Recent Blocks */}
-      <Card variant="glass" className="border-lava/20">
+      <Card variant="glass" className="border-lava/[0.08]">
         <CardHeader>
           <CardTitle className="text-lava text-xl font-display">
             Recent Blocks
@@ -126,7 +132,7 @@ export default function BitcoinNetworkPage() {
         <CardContent>
           <div className="space-y-4">
             {data.recentBlocks.slice(0, 10).map((block, index) => (
-              <div key={block.id} className="flex items-center justify-between p-4 border-b border-lava-dark/15">
+              <div key={block.id} className="flex items-center justify-between p-4 border-b border-white/[0.05]">
                 <div className="flex items-center space-x-4">
                   <div className="w-2 h-2 bg-green-400 rounded-full"></div>
                   <div>
@@ -137,7 +143,7 @@ export default function BitcoinNetworkPage() {
                       {block.txCount} transactions • {BitcoinApiService.formatNumber(block.size)} bytes
                     </div>
                     {block.miner && (
-                      <div className="text-dog-gray-500 font-mono text-xs">
+                      <div className="text-dusty/50 font-mono text-xs">
                         Mined by {block.miner}
                       </div>
                     )}
@@ -165,7 +171,7 @@ export default function BitcoinNetworkPage() {
       <SectionDivider title="Mining Pools" icon={Network} />
 
       {/* Mining Pools */}
-      <Card variant="glass" className="border-lava/20">
+      <Card variant="glass" className="border-lava/[0.08]">
         <CardHeader>
           <CardTitle className="text-lava text-xl font-display">
             Top Mining Pools (7 Days)
@@ -174,7 +180,7 @@ export default function BitcoinNetworkPage() {
         <CardContent>
           <div className="space-y-4">
             {data.miningPools.slice(0, 10).map((pool, index) => (
-              <div key={pool.poolId} className="flex items-center justify-between p-4 border-b border-lava-dark/15">
+              <div key={pool.poolId} className="flex items-center justify-between p-4 border-b border-white/[0.05]">
                 <div className="flex items-center space-x-4">
                   <div className="w-8 h-8 bg-gradient-to-r from-lava to-lava-dark rounded-full flex items-center justify-center text-snow font-bold text-sm">
                     {index + 1}

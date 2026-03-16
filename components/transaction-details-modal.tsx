@@ -102,12 +102,12 @@ export function TransactionDetailsModal({ transaction, isOpen, onClose }: Transa
 
   return (
     <div className="fixed inset-0 bg-void/90 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-surface border border-lava-dark/20 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-[#0A0A0C] border border-white/[0.05] rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-lava-dark/20">
+        <div className="flex items-center justify-between p-6 border-b border-white/[0.05]">
           <div className="flex items-center gap-3">
             <Hash className="w-6 h-6 text-lava" />
-            <h2 className="text-2xl font-bold text-snow">
+            <h2 className="text-2xl font-bold text-snow tracking-tight tabular-nums">
               Detalhes da Transação DOG
             </h2>
           </div>
@@ -125,12 +125,12 @@ export function TransactionDetailsModal({ transaction, isOpen, onClose }: Transa
         <div className="p-6 space-y-6">
           {/* Resumo da Transação */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-elevated p-4 rounded-lg">
+            <div className="bg-[#141416] p-4 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
                 <Wallet className="w-5 h-5 text-dog-green" />
                 <span className="text-snow/80 font-medium">DOG Movidos</span>
               </div>
-              <div className="text-2xl font-bold text-dog-green">
+              <div className="text-2xl font-bold text-dog-green tracking-tight tabular-nums">
                 {formatDogAmount(totalDogMoved)}
               </div>
               <div className="text-sm text-dusty">
@@ -138,12 +138,12 @@ export function TransactionDetailsModal({ transaction, isOpen, onClose }: Transa
               </div>
             </div>
 
-            <div className="bg-elevated p-4 rounded-lg">
+            <div className="bg-[#141416] p-4 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
                 <User className="w-5 h-5 text-dog-blue" />
                 <span className="text-snow/80 font-medium">Bloco</span>
               </div>
-              <div className="text-2xl font-bold text-snow">
+              <div className="text-2xl font-bold text-snow tracking-tight tabular-nums">
                 {formatNumber(transaction.block_height)}
               </div>
               <div className="text-sm text-dusty">
@@ -151,7 +151,7 @@ export function TransactionDetailsModal({ transaction, isOpen, onClose }: Transa
               </div>
             </div>
 
-            <div className="bg-elevated p-4 rounded-lg">
+            <div className="bg-[#141416] p-4 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
                 <Hash className="w-5 h-5 text-lava" />
                 <span className="text-snow/80 font-medium">UTXOs</span>
@@ -166,14 +166,14 @@ export function TransactionDetailsModal({ transaction, isOpen, onClose }: Transa
           </div>
 
           {/* Senders */}
-          <div className="bg-elevated p-4 rounded-lg">
+          <div className="bg-[#141416] p-4 rounded-lg">
             <h3 className="text-lg font-bold text-dog-red mb-4 flex items-center gap-2">
               <User className="w-5 h-5" />
               Remetentes ({transaction.all_inputs.length})
             </h3>
             <div className="space-y-3">
               {transaction.all_inputs.map((sender, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-surface/80 rounded">
+                <div key={index} className="flex items-center justify-between p-3 bg-[#0A0A0C]/80 rounded">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-dog-red bg-opacity-20 rounded-full flex items-center justify-center">
                       <span className="text-dog-red font-bold text-sm">
@@ -208,14 +208,14 @@ export function TransactionDetailsModal({ transaction, isOpen, onClose }: Transa
           </div>
 
           {/* Receivers */}
-          <div className="bg-elevated p-4 rounded-lg">
+          <div className="bg-[#141416] p-4 rounded-lg">
             <h3 className="text-lg font-bold text-dog-green mb-4 flex items-center gap-2">
               <User className="w-5 h-5" />
               Receptores ({transaction.dog_outputs.length})
             </h3>
             <div className="space-y-3">
               {transaction.dog_outputs.map((receiver, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-surface/80 rounded">
+                <div key={index} className="flex items-center justify-between p-3 bg-[#0A0A0C]/80 rounded">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-dog-green bg-opacity-20 rounded-full flex items-center justify-center">
                       <span className="text-dog-green font-bold text-sm">
@@ -250,29 +250,29 @@ export function TransactionDetailsModal({ transaction, isOpen, onClose }: Transa
           </div>
 
           {/* Resumo UTXOs */}
-          <div className="bg-elevated p-4 rounded-lg">
+          <div className="bg-[#141416] p-4 rounded-lg">
             <h3 className="text-lg font-bold text-snow mb-4 flex items-center gap-2">
               <Hash className="w-5 h-5" />
               Resumo de UTXOs
             </h3>
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <div className="text-2xl font-bold text-dog-red">-{transaction.all_inputs?.length || 0}</div>
+                <div className="text-2xl font-bold text-dog-red tracking-tight tabular-nums">-{transaction.all_inputs?.length || 0}</div>
                 <div className="text-sm text-dusty">UTXOs Gastos</div>
               </div>
               <div>
-                <div className="text-2xl font-bold text-dog-green">+{transaction.dog_outputs.length}</div>
+                <div className="text-2xl font-bold text-dog-green tracking-tight tabular-nums tracking-tight tabular-nums">+{transaction.dog_outputs.length}</div>
                 <div className="text-sm text-dusty">UTXOs Criados</div>
               </div>
               <div>
-                <div className="text-2xl font-bold text-lava">{transaction.dog_inputs.length}</div>
+                <div className="text-2xl font-bold text-lava tracking-tight tabular-nums">{transaction.dog_inputs.length}</div>
                 <div className="text-sm text-dusty">DOG Inputs</div>
               </div>
             </div>
           </div>
 
           {/* Footer */}
-          <div className="flex justify-end pt-4 border-t border-lava-dark/20">
+          <div className="flex justify-end pt-4 border-t border-white/[0.05]">
             <Button
               variant="outline"
               onClick={() => window.open(`https://mempool.space/block/${transaction.block_height}`, '_blank')}

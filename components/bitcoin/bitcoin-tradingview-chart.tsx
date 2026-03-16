@@ -145,7 +145,7 @@ function BitcoinTradingViewChart() {
   if (!isClient) {
     return (
       <div style={{ height: "100%", width: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div className="text-gray-400 font-mono">Loading Bitcoin chart...</div>
+        <div className="text-dusty font-mono">Loading Bitcoin chart...</div>
       </div>
     );
   }

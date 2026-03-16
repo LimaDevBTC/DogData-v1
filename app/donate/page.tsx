@@ -76,10 +76,16 @@ export default function DonatePage() {
       <div className="pt-2 pb-3 px-3 md:p-6 space-y-3 md:space-y-6">
         {/* Header */}
         <div className="text-center space-y-2 md:space-y-4">
-          <h1 className="text-2xl md:text-4xl font-bold text-lava-dark font-display flex items-center justify-center">
-            <Heart className="w-8 h-8 md:w-10 md:h-10 mr-3 md:mr-4 text-lava" />
-            Support DOG Community
-          </h1>
+          <div className="hero-glow">
+            <div className="flex items-center justify-center gap-3 md:gap-4">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-lava/[0.07] border border-lava/[0.1] flex items-center justify-center">
+                <Heart className="w-5 h-5 md:w-6 md:h-6 text-lava" />
+              </div>
+              <h1 className="text-2xl md:text-4xl font-bold gradient-text-hero">
+                Support DOG Community
+              </h1>
+            </div>
+          </div>
 
           <p className="text-dusty font-mono text-base md:text-lg">
             Help us build the future of Bitcoin runes and ordinal technology
@@ -109,7 +115,7 @@ export default function DonatePage() {
           {/* Bitcoin Logo Card */}
           <Card
             variant="glass"
-            className="border-lava/20 hover:border-lava/60 transition-all cursor-pointer group"
+            className="border-lava/[0.08] hover:border-lava/60 transition-all cursor-pointer group"
             onClick={() => handleLogoClick('bitcoin')}
           >
             <CardContent className="p-5 md:p-8 flex flex-col items-center justify-center space-y-4">
@@ -132,7 +138,7 @@ export default function DonatePage() {
           {/* DOG Logo Card */}
           <Card
             variant="glass"
-            className="border-lava/20 hover:border-lava/60 transition-all cursor-pointer group"
+            className="border-lava/[0.08] hover:border-lava/60 transition-all cursor-pointer group"
             onClick={() => handleLogoClick('dog')}
           >
             <CardContent className="p-5 md:p-8 flex flex-col items-center justify-center space-y-4">
@@ -155,7 +161,7 @@ export default function DonatePage() {
           {/* Stacks Logo Card */}
           <Card
             variant="glass"
-            className="border-lava/20 hover:border-lava/60 transition-all cursor-pointer group"
+            className="border-lava/[0.08] hover:border-lava/60 transition-all cursor-pointer group"
             onClick={() => handleLogoClick('stacks')}
           >
             <CardContent className="p-5 md:p-8 flex flex-col items-center justify-center space-y-4">
@@ -182,7 +188,7 @@ export default function DonatePage() {
           <div className="text-center space-y-8">
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card variant="glass" className="border-lava/20">
+            <Card variant="glass" className="border-lava/[0.08]">
               <CardContent className="p-4 md:p-6 text-center">
                 <div className="text-2xl md:text-4xl font-bold text-lava font-display mb-2">
                   Research
@@ -193,7 +199,7 @@ export default function DonatePage() {
               </CardContent>
             </Card>
 
-            <Card variant="glass" className="border-lava/20">
+            <Card variant="glass" className="border-lava/[0.08]">
               <CardContent className="p-4 md:p-6 text-center">
                 <div className="text-2xl md:text-4xl font-bold text-lava font-display mb-2">
                   Development
@@ -204,7 +210,7 @@ export default function DonatePage() {
               </CardContent>
             </Card>
 
-            <Card variant="glass" className="border-lava/20">
+            <Card variant="glass" className="border-lava/[0.08]">
               <CardContent className="p-4 md:p-6 text-center">
                 <div className="text-2xl md:text-4xl font-bold text-lava font-display mb-2">
                   Community
@@ -229,7 +235,7 @@ export default function DonatePage() {
           <Button
             variant="outline"
             onClick={() => window.history.back()}
-            className="btn-sharp"
+            className="rounded-lg"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Dashboard
@@ -293,7 +299,7 @@ export default function DonatePage() {
                 variant="outline"
                 size="lg"
                 onClick={() => copyToClipboard(DONATION_ADDRESSES[selectedDonation], selectedDonation)}
-                className="w-full btn-sharp bg-lava/10 hover:bg-lava/20 border-lava/30"
+                className="w-full rounded-lg bg-lava/10 hover:bg-lava/20 border-lava/30"
               >
                 {copiedAddress === selectedDonation ? (
                   <>

@@ -37,10 +37,10 @@ export function TrendIndicator({
       : 'text-red-400'
 
   const bgClass = isNeutral
-    ? 'bg-dusty/10'
+    ? 'bg-white/[0.04]'
     : isPositive
-      ? 'bg-green-500/10'
-      : 'bg-red-500/10'
+      ? 'bg-green-500/[0.08]'
+      : 'bg-red-500/[0.08]'
   
   const Icon = isNeutral ? Minus : isPositive ? TrendingUp : TrendingDown
   
@@ -49,7 +49,7 @@ export function TrendIndicator({
     : `${isPositive ? '+' : ''}${value.toLocaleString()}`
   
   return (
-    <div className={`inline-flex items-center gap-1 px-2 py-1 ${bgClass} font-mono ${sizeClasses[size]} ${colorClass} ${className}`}>
+    <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-md ${bgClass} font-mono ${sizeClasses[size]} ${colorClass} ${className}`}>
       {showIcon && <Icon className={iconSizes[size]} />}
       <span className="font-semibold">{formattedValue}</span>
     </div>

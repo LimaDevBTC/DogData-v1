@@ -135,15 +135,19 @@ export default function MarketsPage() {
 
   return (
     <Layout currentPage="markets" setCurrentPage={() => {}}>
-      <div className="min-h-screen pt-1 pb-2 md:py-2 space-y-3 md:space-y-3">
+      <div className="min-h-screen pt-1 pb-2 md:py-2 space-y-3 md:space-y-4">
         
         {/* Hero Section */}
         <div className="text-center space-y-1 md:space-y-2 animate-fade-in px-4">
-          <div className="flex items-center justify-center space-x-4">
-            <BarChart3 className="w-8 h-8 md:w-12 md:h-12 text-lava" />
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold font-display bg-gradient-to-r from-lava-light via-lava to-lava-dark bg-clip-text text-transparent">
-              Markets
-            </h1>
+          <div className="hero-glow">
+            <div className="flex items-center justify-center space-x-4">
+              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-lava/[0.07] border border-lava/[0.1] flex items-center justify-center">
+                <BarChart3 className="w-5 h-5 md:w-6 md:h-6 text-lava" />
+              </div>
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold font-display gradient-text-hero">
+                Markets
+              </h1>
+            </div>
           </div>
           <p className="text-dusty text-sm md:text-base font-mono">
             Real-time market data from top exchanges
@@ -154,7 +158,7 @@ export default function MarketsPage() {
         {!loading && data && (
           <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
               {/* Price */}
-              <Card variant="glass" className="border-lava/20">
+              <Card variant="glass" className="border-lava/[0.08]">
                 <CardContent className="p-4 md:p-6">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
@@ -162,7 +166,7 @@ export default function MarketsPage() {
                       <h3 className="text-sm text-dusty font-mono">Price</h3>
                     </div>
                   </div>
-                  <div className="text-xl md:text-2xl font-bold text-snow font-mono">
+                  <div className="text-xl md:text-2xl font-bold text-snow font-mono metric-value tracking-tight">
                     {formatPrice(data.marketData.price)}
                   </div>
                   {data.marketData.priceChange24h != null && data.marketData.priceChange24h !== 0 && (
@@ -187,7 +191,7 @@ export default function MarketsPage() {
                       <h3 className="text-sm text-dusty font-mono">Market Cap</h3>
                     </div>
                   </div>
-                  <div className="text-xl md:text-2xl font-bold text-snow font-mono">
+                  <div className="text-xl md:text-2xl font-bold text-snow font-mono metric-value tracking-tight">
                     {formatNumber(data.marketData.marketCap)}
                   </div>
                 </CardContent>
@@ -202,7 +206,7 @@ export default function MarketsPage() {
                       <h3 className="text-sm text-dusty font-mono">Volume 24h</h3>
                     </div>
                   </div>
-                  <div className="text-xl md:text-2xl font-bold text-snow font-mono">
+                  <div className="text-xl md:text-2xl font-bold text-snow font-mono metric-value tracking-tight">
                     {formatNumber(data.marketData.totalVolume)}
                   </div>
                 </CardContent>
@@ -217,7 +221,7 @@ export default function MarketsPage() {
                       <h3 className="text-sm text-dusty font-mono">Markets</h3>
                     </div>
                   </div>
-                  <div className="text-xl md:text-2xl font-bold text-snow font-mono">
+                  <div className="text-xl md:text-2xl font-bold text-snow font-mono metric-value tracking-tight">
                     {data.tickers?.length || 0}
                   </div>
                   <div className="text-xs text-dusty/70 mt-2 font-mono">
@@ -251,7 +255,7 @@ export default function MarketsPage() {
                     <select
                       value={sortBy}
                       onChange={(e) => setSortBy(e.target.value as any)}
-                      className="bg-transparent border border-lava-dark/15 text-snow px-3 py-2 font-mono text-sm focus:outline-none focus:border-lava transition-colors"
+                      className="bg-white/[0.03] border border-white/[0.06] rounded-lg focus:border-lava/30 text-snow px-3 py-2 font-mono text-sm focus:outline-none focus:border-lava transition-colors"
                     >
                       <option value="volume">Volume</option>
                       <option value="spread">Spread</option>
@@ -259,7 +263,7 @@ export default function MarketsPage() {
                     </select>
                     <button
                       onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                      className="px-3 py-2 bg-transparent border border-lava-dark/15 hover:border-lava transition-colors text-snow"
+                      className="px-3 py-2 bg-white/[0.03] border border-white/[0.06] rounded-lg focus:border-lava/30 hover:border-lava transition-colors text-snow"
                     >
                       {sortOrder === 'asc' ? '↑' : '↓'}
                     </button>
@@ -271,13 +275,13 @@ export default function MarketsPage() {
                 <div className="hidden md:block">
                   <table className="w-full table-fixed">
                     <thead>
-                      <tr className="border-b border-dog-gray-700">
-                        <th className="text-left py-3 px-4 text-dog-orange font-mono text-sm">#</th>
-                        <th className="text-left py-3 px-4 text-dog-orange font-mono text-sm">Exchange</th>
-                        <th className="text-left py-3 px-4 text-dog-orange font-mono text-sm">Pair</th>
-                        <th className="text-right py-3 px-4 text-dog-orange font-mono text-sm">Price</th>
-                        <th className="text-right py-3 px-4 text-dog-orange font-mono text-sm">Volume 24h</th>
-                        <th className="text-right py-3 px-4 text-dog-orange font-mono text-sm">Spread</th>
+                      <tr className="border-b border-white/[0.05]">
+                        <th className="text-left py-3 px-4 text-lava/70 font-mono text-xs tracking-wider uppercase">#</th>
+                        <th className="text-left py-3 px-4 text-lava/70 font-mono text-xs tracking-wider uppercase">Exchange</th>
+                        <th className="text-left py-3 px-4 text-lava/70 font-mono text-xs tracking-wider uppercase">Pair</th>
+                        <th className="text-right py-3 px-4 text-lava/70 font-mono text-xs tracking-wider uppercase">Price</th>
+                        <th className="text-right py-3 px-4 text-lava/70 font-mono text-xs tracking-wider uppercase">Volume 24h</th>
+                        <th className="text-right py-3 px-4 text-lava/70 font-mono text-xs tracking-wider uppercase">Spread</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -335,7 +339,7 @@ export default function MarketsPage() {
                 {/* Mobile Cards - shown on mobile, hidden on desktop */}
                 <div className="md:hidden space-y-3">
                   {sortedTickers.map((ticker, index) => (
-                    <Card key={index} variant="glass" className="border-lava-dark/15/50">
+                    <Card key={index} variant="glass" className="border-white/[0.05]">
                       <CardContent className="p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-2">

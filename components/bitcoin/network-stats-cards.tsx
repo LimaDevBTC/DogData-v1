@@ -42,7 +42,7 @@ export function NetworkStatsCards({ data }: NetworkStatsCardsProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-base md:text-3xl font-bold bg-gradient-to-r from-yellow-400 to-yellow-500 bg-clip-text text-transparent font-mono transition-all duration-500 ease-in-out">
+          <div className="text-base md:text-3xl font-bold bg-gradient-to-r from-yellow-400 to-yellow-500 bg-clip-text text-transparent font-mono tracking-tight tabular-nums transition-all duration-500 ease-in-out">
             {BitcoinApiService.formatPrice(data.price.usd)}
           </div>
           <div className="flex items-center mt-1">
@@ -69,10 +69,10 @@ export function NetworkStatsCards({ data }: NetworkStatsCardsProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-base md:text-3xl font-bold bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent font-mono transition-all duration-500 ease-in-out">
+          <div className="text-base md:text-3xl font-bold bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent font-mono tracking-tight tabular-nums transition-all duration-500 ease-in-out">
             {BitcoinApiService.formatNumber(data.blockHeight)}
           </div>
-          <p className="text-gray-400 text-[10px] md:text-sm font-mono mt-1">
+          <p className="text-dusty text-[10px] md:text-sm font-mono mt-1">
             Current block
           </p>
         </CardContent>
@@ -87,10 +87,10 @@ export function NetworkStatsCards({ data }: NetworkStatsCardsProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-base md:text-3xl font-bold bg-gradient-to-r from-green-400 to-green-500 bg-clip-text text-transparent font-mono transition-all duration-500 ease-in-out">
+          <div className="text-base md:text-3xl font-bold bg-gradient-to-r from-green-400 to-green-500 bg-clip-text text-transparent font-mono tracking-tight tabular-nums transition-all duration-500 ease-in-out">
             {BitcoinApiService.formatHashRate(data.hashrate)}
           </div>
-          <p className="text-gray-400 text-[10px] md:text-sm font-mono mt-1">
+          <p className="text-dusty text-[10px] md:text-sm font-mono mt-1">
             Network power
           </p>
         </CardContent>
@@ -105,10 +105,10 @@ export function NetworkStatsCards({ data }: NetworkStatsCardsProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-base md:text-3xl font-bold bg-gradient-to-r from-blue-400 to-blue-500 bg-clip-text text-transparent font-mono transition-all duration-500 ease-in-out">
+          <div className="text-base md:text-3xl font-bold bg-gradient-to-r from-blue-400 to-blue-500 bg-clip-text text-transparent font-mono tracking-tight tabular-nums transition-all duration-500 ease-in-out">
             {BitcoinApiService.formatNumber(data.mempoolSize)}
           </div>
-          <p className="text-gray-400 text-[10px] md:text-sm font-mono mt-1">
+          <p className="text-dusty text-[10px] md:text-sm font-mono mt-1">
             Pending transactions
           </p>
         </CardContent>
@@ -123,10 +123,10 @@ export function NetworkStatsCards({ data }: NetworkStatsCardsProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-base md:text-3xl font-bold bg-gradient-to-r from-purple-400 to-purple-500 bg-clip-text text-transparent font-mono">
+          <div className="text-base md:text-3xl font-bold bg-gradient-to-r from-purple-400 to-purple-500 bg-clip-text text-transparent font-mono tracking-tight tabular-nums">
             {BitcoinApiService.formatDifficulty(data.difficulty)}
           </div>
-          <p className="text-gray-400 text-[10px] md:text-sm font-mono mt-1">
+          <p className="text-dusty text-[10px] md:text-sm font-mono mt-1">
             Mining difficulty
           </p>
         </CardContent>
@@ -141,10 +141,10 @@ export function NetworkStatsCards({ data }: NetworkStatsCardsProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-base md:text-3xl font-bold bg-gradient-to-r from-cyan-400 to-cyan-500 bg-clip-text text-transparent font-mono">
+          <div className="text-base md:text-3xl font-bold bg-gradient-to-r from-cyan-400 to-cyan-500 bg-clip-text text-transparent font-mono tracking-tight tabular-nums">
             ~10m
           </div>
-          <p className="text-gray-400 text-[10px] md:text-sm font-mono mt-1">
+          <p className="text-dusty text-[10px] md:text-sm font-mono mt-1">
             Time between blocks
           </p>
         </CardContent>
@@ -159,10 +159,10 @@ export function NetworkStatsCards({ data }: NetworkStatsCardsProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-base md:text-3xl font-bold bg-gradient-to-r from-red-400 to-red-500 bg-clip-text text-transparent font-mono">
+          <div className="text-base md:text-3xl font-bold bg-gradient-to-r from-red-400 to-red-500 bg-clip-text text-transparent font-mono tracking-tight tabular-nums">
             {data.fees.fastest} sat/vB
           </div>
-          <p className="text-gray-400 text-[10px] md:text-sm font-mono mt-1">
+          <p className="text-dusty text-[10px] md:text-sm font-mono mt-1">
             Fastest fee
           </p>
         </CardContent>
@@ -185,7 +185,7 @@ export function NetworkStatsCards({ data }: NetworkStatsCardsProps) {
               {data.networkHealth.uptime}% Uptime
             </Badge>
           </div>
-          <p className="text-gray-400 text-[10px] md:text-sm font-mono mt-1">
+          <p className="text-dusty text-[10px] md:text-sm font-mono mt-1">
             {data.networkHealth.nodeCount.toLocaleString()} nodes
           </p>
         </CardContent>

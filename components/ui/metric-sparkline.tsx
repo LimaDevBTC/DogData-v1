@@ -34,9 +34,9 @@ export function MetricSparkline({
           {showTooltip && (
             <Tooltip
               contentStyle={{
-                backgroundColor: 'rgba(0, 0, 0, 0.85)',
-                border: '1px solid rgba(245, 110, 15, 0.3)',
-                borderRadius: '0px',
+                backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '8px',
                 color: '#FBFBFB',
                 fontFamily: 'JetBrains Mono, monospace',
                 fontSize: '11px',

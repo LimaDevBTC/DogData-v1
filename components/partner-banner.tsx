@@ -18,7 +18,7 @@ export function PartnerBanner({ imageUrl, link, alt = "Partner Banner" }: Partne
         rel="noopener noreferrer sponsored"
         className="block w-full group cursor-pointer"
       >
-        <div className="relative w-full overflow-hidden bg-gradient-to-r from-surface via-elevated to-surface border border-lava/20 hover:border-lava/40 transition-all duration-300">
+        <div className="relative w-full overflow-hidden bg-gradient-to-r from-[#0A0A0C] via-[#141416] to-[#0A0A0C] border border-lava/[0.08] hover:border-lava/40 transition-all duration-300">
           {/* Badge "Official Partner" - Canto superior direito */}
           <div className="absolute top-2 right-2 z-10 bg-lava/90 px-2 py-0.5 flex items-center gap-1">
             <span className="text-snow text-[9px] font-mono font-bold uppercase tracking-wide">
