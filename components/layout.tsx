@@ -33,13 +33,16 @@ export function Layout({ children, currentPage }: LayoutProps) {
 
   return (
     <div className="min-h-screen bg-void text-snow grid-container flex flex-col">
+      {/* Aurora Ambient Light */}
+      <div className="aurora-bg" aria-hidden="true" />
+
       {/* Header */}
       <Header currentPage={currentPage} setCurrentPage={handleSetCurrentPage} />
 
       {/* Main Content */}
-      <main className="relative pt-14 md:pt-20 flex-1">
-        <div className="container-fluid transition-opacity duration-150 ease-in-out opacity-100">
-          {/* C2 Blockchain Partner Banner - Topo de todas as páginas */}
+      <main className="relative pt-14 md:pt-16 flex-1">
+        <div className="container-fluid transition-opacity duration-200 ease-out opacity-100">
+          {/* C2 Blockchain Partner Banner */}
           <C2BlockchainBanner />
 
           {children}

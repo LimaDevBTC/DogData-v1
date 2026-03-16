@@ -57,8 +57,8 @@ export default function MobileBottomNav({ currentPage, setCurrentPage }: MobileB
             onClick={() => setMoreOpen(false)}
           />
           {/* Menu */}
-          <div className="relative z-50 mx-3 mb-2 bg-surface/95 backdrop-blur-2xl border border-snow/[0.08] rounded-2xl animate-fade-in overflow-hidden shadow-xl shadow-black/40">
-            <div className="grid grid-cols-2 gap-px bg-snow/[0.04]">
+          <div className="relative z-50 mx-3 mb-2 bg-[#0A0A0C]/95 backdrop-blur-2xl border border-white/[0.06] rounded-2xl animate-fade-in overflow-hidden shadow-xl shadow-black/50">
+            <div className="grid grid-cols-2 gap-px bg-white/[0.03]">
               {moreNav.map((item) => {
                 const Icon = item.icon
                 const isActive = currentPage === item.page
@@ -66,14 +66,14 @@ export default function MobileBottomNav({ currentPage, setCurrentPage }: MobileB
                   <button
                     key={item.page}
                     onClick={() => handleMoreItemClick(item.page)}
-                    className={`flex flex-col items-center justify-center py-4 px-3 min-h-[68px] active:scale-95 transition-all duration-100 ${
+                    className={`flex flex-col items-center justify-center py-4 px-3 min-h-[68px] active:scale-95 transition-all duration-150 ${
                       isActive
-                        ? 'bg-lava/10 text-lava'
-                        : 'bg-surface/60 text-dusty hover:text-snow'
+                        ? 'bg-lava/[0.08] text-lava'
+                        : 'bg-[#0A0A0C]/60 text-[#6B6B78] hover:text-snow'
                     }`}
                   >
                     <Icon className="w-5 h-5 mb-1.5" />
-                    <span className="text-[10px] font-mono uppercase tracking-wide font-medium">
+                    <span className="text-[10px] font-mono uppercase tracking-wider font-medium">
                       {item.name}
                     </span>
                   </button>
@@ -85,7 +85,7 @@ export default function MobileBottomNav({ currentPage, setCurrentPage }: MobileB
       )}
 
       {/* Main bottom bar */}
-      <nav className="bg-void/90 backdrop-blur-2xl border-t border-snow/[0.06] pb-[env(safe-area-inset-bottom)]">
+      <nav className="bg-void/90 backdrop-blur-2xl border-t border-white/[0.04] pb-[env(safe-area-inset-bottom)]">
         <div className="flex items-stretch justify-around h-14">
           {/* Primary nav items */}
           {primaryNav.map((item) => {

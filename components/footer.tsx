@@ -2,16 +2,13 @@
 
 import {
   Heart,
-  Github,
   ExternalLink,
   Shield,
   Zap,
   Globe,
   BarChart3,
   Users,
-  Gift,
-  Activity,
-  CreditCard
+  Gift
 } from "lucide-react"
 
 type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate'
@@ -28,30 +25,36 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
   }
 
   return (
-    <footer className="border-t border-snow/[0.06] mt-12 md:mt-20 relative pb-20 md:pb-0">
+    <footer className="border-t border-white/[0.04] mt-12 md:mt-20 relative pb-20 md:pb-0">
+      {/* Top gradient line */}
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-lava/20 to-transparent" />
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        {/* Main Footer Content - Aligned to grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
+        {/* Main Footer Content */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 mb-14">
 
           {/* DOG Data Info */}
           <div className="space-y-6">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
               <div className="relative">
                 <img
                   src="/dog-logo.png"
                   alt="DOG DATA"
-                  className="w-14 h-14 object-contain"
+                  className="w-12 h-12 object-contain"
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                     e.currentTarget.nextElementSibling?.classList.remove('hidden');
                   }}
                 />
-                <div className="hidden w-14 h-14 bg-gradient-to-br from-lava to-lava-light flex items-center justify-center shadow-lg shadow-lava/30">
-                  <span className="text-snow font-bold text-2xl font-mono">D</span>
+                <div className="hidden w-12 h-12 bg-gradient-to-br from-lava to-lava-light flex items-center justify-center rounded-xl">
+                  <span className="text-snow font-bold text-xl font-mono">D</span>
                 </div>
               </div>
               <div>
-                <h3 className="text-lava-dark font-display text-2xl font-bold tracking-wider">DOG DATA</h3>
+                <h3 className="font-display text-xl font-bold tracking-wide">
+                  <span className="text-snow">DOG</span>
+                  <span className="text-lava ml-1">DATA</span>
+                </h3>
               </div>
             </div>
 
@@ -60,208 +63,116 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
               Real-time data and professional tools for the community.
             </p>
 
-            <div className="flex items-center space-x-3">
-              <div className="w-3 h-3 bg-green-400 animate-pulse shadow-lg shadow-green-400/50"></div>
-              <span className="text-green-400 text-sm font-mono font-semibold tracking-wide">SYSTEM ONLINE</span>
+            <div className="flex items-center space-x-2.5">
+              <div className="relative w-2.5 h-2.5">
+                <div className="absolute inset-0 bg-green-400 rounded-full" />
+                <div className="absolute inset-0 bg-green-400 rounded-full animate-ping opacity-30" />
+              </div>
+              <span className="text-green-400/80 text-xs font-mono font-semibold tracking-widest">SYSTEM ONLINE</span>
             </div>
           </div>
 
           {/* Quick Links */}
-          <div className="space-y-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-lava/20 border border-lava/30 flex items-center justify-center">
-                <BarChart3 className="w-4 h-4 text-lava" />
+          <div className="space-y-5">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-7 h-7 bg-lava/[0.08] border border-lava/[0.12] rounded-lg flex items-center justify-center">
+                <BarChart3 className="w-3.5 h-3.5 text-lava/70" />
               </div>
-              <h4 className="text-lava-dark font-display text-lg font-bold tracking-wider">NAVIGATION</h4>
+              <h4 className="text-snow/80 font-display text-sm font-bold tracking-widest uppercase">Navigation</h4>
             </div>
 
-            <ul className="space-y-4">
-              <li>
-                <button
-                  onClick={() => setCurrentPage?.('overview')}
-                  className={`w-full text-left transition-all duration-300 flex items-center group py-2 ${
-                    currentPage === 'overview'
-                      ? 'text-lava bg-lava/10'
-                      : 'text-dusty hover:text-lava hover:bg-lava-dark/10'
-                  }`}
-                >
-                  <div className="w-2 h-2 bg-lava mr-4 group-hover:scale-150 group-hover:shadow-lg group-hover:shadow-lava/50 transition-all duration-300"></div>
-                  <span className="font-mono text-sm font-medium tracking-wide">OVERVIEW</span>
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => setCurrentPage?.('transactions')}
-                  className={`w-full text-left transition-all duration-300 flex items-center group py-2 ${
-                    currentPage === 'transactions'
-                      ? 'text-lava bg-lava/10'
-                      : 'text-dusty hover:text-lava hover:bg-lava-dark/10'
-                  }`}
-                >
-                  <div className="w-2 h-2 bg-lava mr-4 group-hover:scale-150 group-hover:shadow-lg group-hover:shadow-lava/50 transition-all duration-300"></div>
-                  <span className="font-mono text-sm font-medium tracking-wide">TRANSACTIONS</span>
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => setCurrentPage?.('holders')}
-                  className={`w-full text-left transition-all duration-300 flex items-center group py-2 ${
-                    currentPage === 'holders'
-                      ? 'text-lava bg-lava/10'
-                      : 'text-dusty hover:text-lava hover:bg-lava-dark/10'
-                  }`}
-                >
-                  <div className="w-2 h-2 bg-lava mr-4 group-hover:scale-150 group-hover:shadow-lg group-hover:shadow-lava/50 transition-all duration-300"></div>
-                  <span className="font-mono text-sm font-medium tracking-wide">HOLDERS</span>
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => setCurrentPage?.('metrics')}
-                  className={`w-full text-left transition-all duration-300 flex items-center group py-2 ${
-                    currentPage === 'metrics'
-                      ? 'text-lava bg-lava/10'
-                      : 'text-dusty hover:text-lava hover:bg-lava-dark/10'
-                  }`}
-                >
-                  <div className="w-2 h-2 bg-lava mr-4 group-hover:scale-150 group-hover:shadow-lg group-hover:shadow-lava/50 transition-all duration-300"></div>
-                  <span className="font-mono text-sm font-medium tracking-wide">ON-CHAIN METRICS</span>
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => setCurrentPage?.('airdrop')}
-                  className={`w-full text-left transition-all duration-300 flex items-center group py-2 ${
-                    currentPage === 'airdrop'
-                      ? 'text-lava bg-lava/10'
-                      : 'text-dusty hover:text-lava hover:bg-lava-dark/10'
-                  }`}
-                >
-                  <div className="w-2 h-2 bg-lava mr-4 group-hover:scale-150 group-hover:shadow-lg group-hover:shadow-lava/50 transition-all duration-300"></div>
-                  <span className="font-mono text-sm font-medium tracking-wide">AIRDROP ANALYSIS</span>
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => setCurrentPage?.('bitcoin-network')}
-                  className={`w-full text-left transition-all duration-300 flex items-center group py-2 ${
-                    currentPage === 'bitcoin-network'
-                      ? 'text-lava bg-lava/10'
-                      : 'text-dusty hover:text-lava hover:bg-lava-dark/10'
-                  }`}
-                >
-                  <div className="w-2 h-2 bg-lava mr-4 group-hover:scale-150 group-hover:shadow-lg group-hover:shadow-lava/50 transition-all duration-300"></div>
-                  <span className="font-mono text-sm font-medium tracking-wide">BITCOIN NETWORK</span>
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => setCurrentPage?.('markets')}
-                  className={`w-full text-left transition-all duration-300 flex items-center group py-2 ${
-                    currentPage === 'markets'
-                      ? 'text-lava bg-lava/10'
-                      : 'text-dusty hover:text-lava hover:bg-lava-dark/10'
-                  }`}
-                >
-                  <div className="w-2 h-2 bg-lava mr-4 group-hover:scale-150 group-hover:shadow-lg group-hover:shadow-lava/50 transition-all duration-300"></div>
-                  <span className="font-mono text-sm font-medium tracking-wide">MARKETS</span>
-                </button>
-              </li>
+            <ul className="space-y-1">
+              {[
+                { label: 'OVERVIEW', page: 'overview' as PageType },
+                { label: 'TRANSACTIONS', page: 'transactions' as PageType },
+                { label: 'HOLDERS', page: 'holders' as PageType },
+                { label: 'ON-CHAIN METRICS', page: 'metrics' as PageType },
+                { label: 'AIRDROP ANALYSIS', page: 'airdrop' as PageType },
+                { label: 'BITCOIN NETWORK', page: 'bitcoin-network' as PageType },
+                { label: 'MARKETS', page: 'markets' as PageType },
+              ].map((item) => (
+                <li key={item.page}>
+                  <button
+                    onClick={() => setCurrentPage?.(item.page)}
+                    className={`w-full text-left transition-all duration-200 flex items-center group py-1.5 px-2 rounded-lg ${
+                      currentPage === item.page
+                        ? 'text-lava bg-lava/[0.06]'
+                        : 'text-dusty hover:text-snow/80 hover:bg-white/[0.02]'
+                    }`}
+                  >
+                    <div className={`w-1 h-1 rounded-full mr-3 transition-all duration-200 ${
+                      currentPage === item.page ? 'bg-lava' : 'bg-dusty/30 group-hover:bg-dusty/60'
+                    }`} />
+                    <span className="font-mono text-xs font-medium tracking-wide">{item.label}</span>
+                  </button>
+                </li>
+              ))}
             </ul>
           </div>
 
           {/* Resources */}
-          <div className="space-y-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-lava/20 border border-lava/30 flex items-center justify-center">
-                <Globe className="w-4 h-4 text-lava" />
+          <div className="space-y-5">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-7 h-7 bg-lava/[0.08] border border-lava/[0.12] rounded-lg flex items-center justify-center">
+                <Globe className="w-3.5 h-3.5 text-lava/70" />
               </div>
-              <h4 className="text-lava-dark font-display text-lg font-bold tracking-wider">RESOURCES</h4>
+              <h4 className="text-snow/80 font-display text-sm font-bold tracking-widest uppercase">Resources</h4>
             </div>
 
-            <ul className="space-y-4">
-              <li>
-                <a
-                  href="https://dogofbitcoin.com/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-dusty hover:text-lava transition-all duration-300 flex items-center group py-2 hover:bg-lava-dark/10"
-                >
-                  <div className="w-8 h-8 bg-transparent border border-lava-dark/20 flex items-center justify-center mr-4 group-hover:border-lava/50 group-hover:bg-lava/10 transition-all duration-300">
-                    <Globe className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1">
-                    <span className="font-mono text-sm font-medium tracking-wide block">DOG OFFICIAL SITE</span>
-                    <span className="text-xs text-dusty/70 font-mono">dogofbitcoin.com</span>
-                  </div>
-                  <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://ordinals.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-dusty hover:text-lava transition-all duration-300 flex items-center group py-2 hover:bg-lava-dark/10"
-                >
-                  <div className="w-8 h-8 bg-transparent border border-lava-dark/20 flex items-center justify-center mr-4 group-hover:border-lava/50 group-hover:bg-lava/10 transition-all duration-300">
-                    <Shield className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1">
-                    <span className="font-mono text-sm font-medium tracking-wide block">ORDINALS PROTOCOL</span>
-                    <span className="text-xs text-dusty/70 font-mono">Official Documentation</span>
-                  </div>
-                  <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://mempool.space"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-dusty hover:text-lava transition-all duration-300 flex items-center group py-2 hover:bg-lava-dark/10"
-                >
-                  <div className="w-8 h-8 bg-transparent border border-lava-dark/20 flex items-center justify-center mr-4 group-hover:border-lava/50 group-hover:bg-lava/10 transition-all duration-300">
-                    <Zap className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1">
-                    <span className="font-mono text-sm font-medium tracking-wide block">MEMPOOL EXPLORER</span>
-                    <span className="text-xs text-dusty/70 font-mono">Bitcoin Network</span>
-                  </div>
-                  <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                </a>
-              </li>
+            <ul className="space-y-1">
+              {[
+                { label: 'DOG OFFICIAL SITE', sub: 'dogofbitcoin.com', href: 'https://dogofbitcoin.com/', icon: Globe },
+                { label: 'ORDINALS PROTOCOL', sub: 'Official Documentation', href: 'https://ordinals.com', icon: Shield },
+                { label: 'MEMPOOL EXPLORER', sub: 'Bitcoin Network', href: 'https://mempool.space', icon: Zap },
+              ].map((item) => (
+                <li key={item.href}>
+                  <a
+                    href={item.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-dusty hover:text-snow/80 transition-all duration-200 flex items-center group py-2 px-2 rounded-lg hover:bg-white/[0.02]"
+                  >
+                    <div className="w-7 h-7 bg-white/[0.02] border border-white/[0.05] rounded-lg flex items-center justify-center mr-3 group-hover:border-lava/20 group-hover:bg-lava/[0.04] transition-all duration-200">
+                      <item.icon className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-mono text-xs font-medium tracking-wide block">{item.label}</span>
+                      <span className="text-[10px] text-dusty/50 font-mono">{item.sub}</span>
+                    </div>
+                    <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity duration-200 flex-shrink-0" />
+                  </a>
+                </li>
+              ))}
             </ul>
           </div>
 
           {/* Community */}
-          <div className="space-y-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-lava/20 border border-lava/30 flex items-center justify-center">
-                <Users className="w-4 h-4 text-lava" />
+          <div className="space-y-5">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-7 h-7 bg-lava/[0.08] border border-lava/[0.12] rounded-lg flex items-center justify-center">
+                <Users className="w-3.5 h-3.5 text-lava/70" />
               </div>
-              <h4 className="text-lava-dark font-display text-lg font-bold tracking-wider">COMMUNITY</h4>
+              <h4 className="text-snow/80 font-display text-sm font-bold tracking-widest uppercase">Community</h4>
             </div>
 
-            <ul className="space-y-4">
+            <ul className="space-y-1">
               <li>
                 <a
                   href="https://x.com/dogdatabtc"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-dusty hover:text-lava transition-all duration-300 flex items-center group py-2 hover:bg-lava-dark/10"
+                  className="text-dusty hover:text-snow/80 transition-all duration-200 flex items-center group py-2 px-2 rounded-lg hover:bg-white/[0.02]"
                 >
-                  <div className="w-8 h-8 bg-transparent border border-lava-dark/20 flex items-center justify-center mr-4 group-hover:border-lava/50 group-hover:bg-lava/10 transition-all duration-300">
-                    {/* X Logo (Twitter rebrand) */}
-                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <div className="w-7 h-7 bg-white/[0.02] border border-white/[0.05] rounded-lg flex items-center justify-center mr-3 group-hover:border-lava/20 group-hover:bg-lava/[0.04] transition-all duration-200">
+                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                       <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
                     </svg>
                   </div>
                   <div className="flex-1">
-                    <span className="font-mono text-sm font-medium tracking-wide block">FOLLOW US ON X</span>
-                    <span className="text-xs text-dusty/70 font-mono">@dogdatabtc</span>
+                    <span className="font-mono text-xs font-medium tracking-wide block">FOLLOW US ON X</span>
+                    <span className="text-[10px] text-dusty/50 font-mono">@dogdatabtc</span>
                   </div>
-                  <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-60 transition-opacity duration-200" />
                 </a>
               </li>
             </ul>
@@ -269,17 +180,19 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
         </div>
 
         {/* Donate Section */}
-        <div className="border-t border-lava-dark/30 pt-12 mb-12">
+        <div className="border-t border-white/[0.04] pt-10 mb-10">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
-            <div className="flex items-center space-x-4 md:space-x-6">
+            <div className="flex items-center space-x-4 md:space-x-5">
               <div className="relative">
-                <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-lava to-lava-dark flex items-center justify-center shadow-2xl shadow-lava/30">
-                  <Heart className="w-6 h-6 md:w-8 md:h-8 text-snow" />
+                <div className="w-11 h-11 md:w-14 md:h-14 bg-gradient-to-br from-lava to-lava-dark flex items-center justify-center rounded-xl shadow-[0_0_24px_rgba(245,110,15,0.15)]">
+                  <Heart className="w-5 h-5 md:w-7 md:h-7 text-snow" />
                 </div>
-                <div className="absolute inset-0 bg-lava/20 blur-xl -z-10"></div>
               </div>
               <div>
-                <h3 className="text-lava-dark font-display text-lg md:text-2xl font-bold tracking-wider">SUPPORT DOG DATA</h3>
+                <h3 className="font-display text-base md:text-xl font-bold tracking-wide">
+                  <span className="text-snow">SUPPORT</span>
+                  <span className="text-lava ml-1.5">DOG DATA</span>
+                </h3>
                 <p className="text-dusty text-xs md:text-sm font-mono tracking-wide">
                   Keep the project free and open source
                 </p>
@@ -287,22 +200,22 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
             </div>
             <button
               onClick={handleDonate}
-              className="w-full md:w-auto px-6 md:px-8 py-3 md:py-4 bg-gradient-to-r from-lava to-lava-dark hover:from-lava-dark hover:to-lava-dark text-snow font-mono font-bold transition-all duration-300 shadow-2xl shadow-lava/30 hover:shadow-lava/50 hover:scale-105 flex items-center justify-center space-x-3 group border border-lava-light/30"
+              className="w-full md:w-auto px-6 md:px-8 py-3 bg-gradient-to-r from-lava to-lava-dark hover:from-lava-dark hover:to-lava-dark text-snow font-mono font-bold text-sm transition-all duration-300 shadow-[0_0_24px_rgba(245,110,15,0.15)] hover:shadow-[0_0_36px_rgba(245,110,15,0.25)] hover:scale-[1.02] flex items-center justify-center space-x-2.5 group rounded-xl"
             >
-              <Gift className="w-6 h-6 group-hover:scale-110 transition-transform duration-300" />
-              <span className="tracking-wide">MAKE DONATION</span>
+              <Gift className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" />
+              <span className="tracking-wider">MAKE DONATION</span>
             </button>
           </div>
         </div>
 
         {/* Bottom Bar */}
-        <div className="border-t border-lava-dark/30 pt-8">
-          <div className="flex flex-col md:flex-row items-center justify-between space-y-6 md:space-y-0">
-            <div className="text-dusty text-sm font-mono tracking-wide">
+        <div className="border-t border-white/[0.04] pt-8">
+          <div className="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
+            <div className="text-dusty/60 text-xs font-mono tracking-wide">
               &copy; {currentYear} DOG DATA. ALL RIGHTS RESERVED.
             </div>
-            <div className="flex items-center space-x-2 text-sm">
-              <span className="text-dusty font-mono tracking-wide">MADE BY</span>
+            <div className="flex items-center space-x-2 text-xs">
+              <span className="text-dusty/60 font-mono tracking-wide">MADE BY</span>
               <a
                 href="https://x.com/bitmaxdog"
                 target="_blank"
@@ -311,7 +224,7 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
               >
                 bitmax
               </a>
-              <span className="text-dusty font-mono tracking-wide">FOR THE DOG COMMUNITY</span>
+              <span className="text-dusty/60 font-mono tracking-wide">FOR THE DOG COMMUNITY</span>
             </div>
           </div>
         </div>

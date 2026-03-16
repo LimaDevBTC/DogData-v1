@@ -6,25 +6,17 @@ import { Layout } from "@/components/layout"
 import { LoadingScreen } from "@/components/loading-screen"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { 
-  TrendingUp, 
+import {
+  TrendingUp,
   TrendingDown,
-  Users, 
-  Coins, 
+  Users,
+  Coins,
   Activity,
-  Clock,
   Zap,
-  Shield,
-  ArrowUpRight,
-  RefreshCw,
   BarChart3,
-  Network,
-  Heart,
   Flame
 } from "lucide-react"
 import { SectionDivider } from "@/components/ui/section-divider"
-import { TrendIndicator } from "@/components/ui/trend-indicator"
 import { PriceCards } from "@/components/ui/price-cards"
 import dogStatsFallback from '@/data/dog_stats_fallback.json'
 import dynamic from 'next/dynamic'
@@ -33,7 +25,7 @@ const TradingViewWidget = dynamic(() => import('@/components/ui/trading-view-wid
   ssr: false,
   loading: () => (
     <div className="flex items-center justify-center h-full">
-      <div className="text-dusty font-mono">Loading chart...</div>
+      <div className="text-dusty font-mono text-sm">Loading chart...</div>
     </div>
   )
 })
@@ -103,47 +95,31 @@ export default function OverviewPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Buscar dados em paralelo para melhor performance
-        // Usar cache adequado (5 minutos) para evitar requisições desnecessárias
         const [statsResponse, holdersResponse, runeResponse, marketsResponse] = await Promise.allSettled([
           fetch('/api/dog-rune/stats', { next: { revalidate: 300 } }),
           fetch('/api/dog-rune/holders?page=1&limit=1', { next: { revalidate: 300 } }),
           fetch('/api/dog-rune/data', { next: { revalidate: 300 } }),
           fetch('/api/markets', { next: { revalidate: 300 } })
         ])
-        
-        // Processar stats
+
         let statsData: any = {}
         if (statsResponse.status === 'fulfilled' && statsResponse.value.ok) {
-          try {
-            statsData = await statsResponse.value.json()
-          } catch (e) {
-            console.warn('⚠️ Failed to parse stats:', e)
-          }
+          try { statsData = await statsResponse.value.json() } catch (e) { console.warn('Failed to parse stats:', e) }
         }
-        
-        // Processar holders
+
         let totalHoldersFromLocal: number | null = null
         if (holdersResponse.status === 'fulfilled' && holdersResponse.value.ok) {
           try {
             const holdersData = await holdersResponse.value.json()
             totalHoldersFromLocal = holdersData.pagination?.total || null
-          } catch (e) {
-            console.warn('⚠️ Failed to parse holders:', e)
-          }
+          } catch (e) { console.warn('Failed to parse holders:', e) }
         }
-        
-        // Processar rune data
+
         let runeData: any = { totalSupply: 0, circulatingSupply: 0 }
         if (runeResponse.status === 'fulfilled' && runeResponse.value.ok) {
-          try {
-            runeData = await runeResponse.value.json()
-          } catch (e) {
-            console.warn('⚠️ Failed to parse rune data:', e)
-          }
+          try { runeData = await runeResponse.value.json() } catch (e) { console.warn('Failed to parse rune data:', e) }
         }
-        
-        // Processar markets (volume 24h)
+
         if (marketsResponse.status === 'fulfilled' && marketsResponse.value.ok) {
           try {
             const contentType = marketsResponse.value.headers.get('content-type')
@@ -151,26 +127,22 @@ export default function OverviewPage() {
               const marketsData = await marketsResponse.value.json()
               setVolume24h(marketsData.marketData?.totalVolume || 0)
             }
-          } catch (e) {
-            console.warn('⚠️ Failed to parse markets:', e)
-          }
+          } catch (e) { console.warn('Failed to parse markets:', e) }
         }
-        
-        // Buscar preço - tentar múltiplas APIs em paralelo com timeout curto
+
         let currentPrice = 0
         let changePercent = 0
         let priceSource = 'unknown'
-        
+
         const priceFetches = Promise.allSettled([
           fetch('/api/price/kraken', { signal: AbortSignal.timeout(3000) }).then(r => r.ok ? r.json() : null),
           fetch('/api/price/gateio', { signal: AbortSignal.timeout(3000) }).then(r => r.ok ? r.json() : null),
           fetch('/api/price/mexc', { signal: AbortSignal.timeout(3000) }).then(r => r.ok ? r.json() : null)
         ])
-        
+
         try {
           const [krakenResult, gateResult, mexcResult] = await priceFetches
-          
-          // Prioridade: Kraken -> Gate.io -> MEXC
+
           if (krakenResult.status === 'fulfilled' && krakenResult.value?.result?.DOGUSD) {
             currentPrice = parseFloat(krakenResult.value.result.DOGUSD.c[0])
             const openPrice = parseFloat(krakenResult.value.result.DOGUSD.o)
@@ -186,10 +158,9 @@ export default function OverviewPage() {
             priceSource = 'MEXC'
           }
         } catch (error) {
-          console.warn('⚠️ Price APIs failed, trying CoinGecko...', error)
+          console.warn('Price APIs failed, trying CoinGecko...', error)
         }
-        
-        // Último recurso: CoinGecko (só se todas falharam)
+
         if (currentPrice === 0) {
           try {
             const cgResponse = await fetch('/api/markets', { signal: AbortSignal.timeout(3000) })
@@ -205,30 +176,26 @@ export default function OverviewPage() {
               }
             }
           } catch (error) {
-            console.warn('⚠️ CoinGecko API also failed', error)
+            console.warn('CoinGecko API also failed', error)
           }
         }
-        
-        // Fallback final
+
         if (currentPrice === 0) {
           currentPrice = 0.00163
           priceSource = 'cached'
         }
-        
-        console.log(`📊 Final price: $${currentPrice} from ${priceSource}`)
-        
-        // Calcular Market Cap (preço × circulating supply)
+
+        console.log(`Final price: $${currentPrice} from ${priceSource}`)
+
         const calculatedMarketCap = currentPrice * runeData.circulatingSupply
-        
-        // Priorizar dados da API de holders
+
         let finalTotalHolders = FALLBACK_TOTAL_HOLDERS
         if (totalHoldersFromLocal !== null) {
           finalTotalHolders = totalHoldersFromLocal
         } else if (statsData.totalHolders && statsData.totalHolders > 0) {
           finalTotalHolders = statsData.totalHolders
         }
-        
-        // Atualizar estados principais primeiro (para permitir renderização)
+
         setStats({
           totalHolders: finalTotalHolders,
           totalSupply: runeData.totalSupply,
@@ -239,19 +206,14 @@ export default function OverviewPage() {
           activeAddresses: finalTotalHolders,
           networkHashRate: 450000000000000000
         })
-        
+
         setRuneData(runeData)
         setKrakenChange(changePercent)
-        
-        // Permitir renderização da página enquanto busca dados não críticos
         setLoading(false)
 
-        // Buscar métricas 24h de forma assíncrona (não bloqueia renderização)
         fetch('/api/dog-rune/transactions-kv?summary=1', { next: { revalidate: 60 } })
           .then(txSummaryResponse => {
-            if (txSummaryResponse.ok) {
-              return txSummaryResponse.json()
-            }
+            if (txSummaryResponse.ok) return txSummaryResponse.json()
             return null
           })
           .then(summaryData => {
@@ -274,9 +236,7 @@ export default function OverviewPage() {
               })
             }
           })
-          .catch(err => {
-            console.warn('⚠️ Erro ao buscar resumo de transações 24h:', err)
-          })
+          .catch(err => console.warn('Error fetching 24h transaction summary:', err))
       } catch (error) {
         console.error('Error fetching data:', error)
         setLoading(false)
@@ -303,13 +263,11 @@ export default function OverviewPage() {
   }
 
   const formatMarketCap = (num: number) => {
-    // Formatar em milhões com 2 casas decimais (ex: 162.00M)
     const millions = num / 1000000
     return `$${millions.toFixed(2)}M`
   }
 
   const formatBurnedTokens = (num: number) => {
-    // Formatar tokens queimados em milhões (ex: 23.350M)
     const millions = num / 1000000
     return `${millions.toFixed(3)}M`
   }
@@ -340,256 +298,283 @@ export default function OverviewPage() {
 
   return (
     <Layout currentPage="overview" setCurrentPage={() => {}}>
-      <div className="min-h-screen pt-1 pb-2 md:py-2 space-y-3 md:space-y-3">
-      {/* Hero Section */}
-      <div className="animate-fade-in px-4 mt-3 md:mt-8">
-        <div className="flex items-center justify-between md:justify-center md:flex-col md:text-center gap-2 md:gap-3">
-          <div className="flex items-center gap-2 md:gap-3">
-            <h1 className="text-lg sm:text-2xl md:text-5xl lg:text-6xl font-display font-bold tracking-tight">
-              <span className="text-lava-dark font-mono tracking-wider">
-                DOG•GO•TO•THE•MOON
+      {/* Aurora Background */}
+      <div className="aurora-bg" />
+
+      <div className="min-h-screen pt-1 pb-2 md:py-2 space-y-3 md:space-y-4 relative z-10">
+
+        {/* === HERO SECTION === */}
+        <div className="animate-fade-in px-4 mt-4 md:mt-10 mb-2 md:mb-4">
+          <div className="relative flex flex-col items-center text-center hero-glow">
+            {/* Rune ID Badge */}
+            <Badge variant="outline" className="border-lava/20 text-lava/80 font-mono text-[10px] md:text-xs mb-3 md:mb-4 px-3 py-1 tracking-widest">
+              RUNE 840000:3
+            </Badge>
+
+            {/* Title */}
+            <h1 className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-display font-bold tracking-tight leading-none">
+              <span className="gradient-text-hero">
+                DOG&#x2022;GO&#x2022;TO&#x2022;THE&#x2022;MOON
               </span>
             </h1>
-          </div>
-          <Badge variant="outline" className="border-lava/30 text-lava font-mono text-[10px] md:text-sm flex-shrink-0">
-            840000:3
-          </Badge>
-        </div>
-      </div>
 
-      <SectionDivider title="Key Metrics" icon={BarChart3} />
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-2 md:gap-4">
-        {/* Total Holders */}
-        <Card variant="glass" className={cardBaseClass}>
-          <CardHeader className="pb-2">
-            <CardTitle variant="mono" className="text-[11px] md:text-sm text-dusty flex items-center gap-1.5">
-              <Users className="w-3.5 h-3.5 text-lava/70" />
-              Total Holders
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="text-lg md:text-3xl font-bold text-snow font-mono">
-                {stats ? (stats.totalHolders + 10944 + 572).toLocaleString('en-US') : '—'}
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-[10px] md:text-xs">
-                  <div className="flex items-center gap-1">
-                    <Image src="/BTC.png" alt="Bitcoin" width={10} height={10} className="opacity-70" />
-                    <span className="text-dusty font-mono">BTC</span>
-                  </div>
-                  <span className="text-snow/70 font-mono">{stats ? stats.totalHolders.toLocaleString('en-US') : '—'}</span>
-                </div>
-                <div className="flex items-center justify-between text-[10px] md:text-xs">
-                  <div className="flex items-center gap-1">
-                    <Image src="/sol.png" alt="Solana" width={10} height={10} className="opacity-70" />
-                    <span className="text-dusty font-mono">SOL</span>
-                  </div>
-                  <span className="text-snow/70 font-mono">10,982</span>
-                </div>
-                <div className="flex items-center justify-between text-[10px] md:text-xs">
-                  <div className="flex items-center gap-1">
-                    <Image src="/STX .png" alt="Stacks" width={10} height={10} className="opacity-70" />
-                    <span className="text-dusty font-mono">STX</span>
-                  </div>
-                  <span className="text-snow/70 font-mono">575</span>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Volume 24h */}
-        <Card variant="glass" className={cardBaseClass}>
-          <CardHeader className="pb-2">
-            <CardTitle variant="mono" className="text-[11px] md:text-sm text-dusty flex items-center gap-1.5">
-              <Activity className="w-3.5 h-3.5 text-green-400/70" />
-              Volume 24h
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-1.5">
-              <div className="text-lg md:text-3xl font-bold text-snow font-mono">
-                {formatCurrency(volume24h)}
-              </div>
-              <span className="text-[10px] md:text-xs text-dusty/60 font-mono">Trading Volume</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Market Cap */}
-        <Card variant="glass" className={cardBaseClass}>
-          <CardHeader className="pb-2">
-            <CardTitle variant="mono" className="text-[11px] md:text-sm text-dusty flex items-center gap-1.5">
-              <BarChart3 className="w-3.5 h-3.5 text-lava/70" />
-              Market Cap
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-1.5">
-              <div className="text-lg md:text-3xl font-bold text-snow font-mono">
-                {runeData && stats?.price ? formatMarketCap(stats.price * runeData.circulatingSupply) : '$0.0M'}
-              </div>
-              <div className="flex items-center gap-1.5">
-                {krakenChange >= 0 ? (
-                  <TrendingUp className="w-3 h-3 text-green-400" />
-                ) : (
-                  <TrendingDown className="w-3 h-3 text-red-400" />
-                )}
-                <span className={`text-[11px] md:text-sm font-mono font-medium ${krakenChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {krakenChange >= 0 ? '+' : ''}{krakenChange.toFixed(2)}%
+            {/* Price Ticker */}
+            {stats?.price && stats.price > 0 && (
+              <div className="mt-4 md:mt-6 flex items-center gap-3 md:gap-4">
+                <span className="text-xl md:text-3xl font-mono font-bold text-snow/95 tracking-tight metric-value">
+                  ${stats.price < 0.01 ? stats.price.toFixed(6) : stats.price < 1 ? stats.price.toFixed(4) : stats.price.toFixed(2)}
                 </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* C2 Blockchain Treasury */}
-        <a
-          href="https://www.c2dog.com"
-          target="_blank"
-          rel="noopener noreferrer sponsored"
-          className="block h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 rounded-xl"
-        >
-          <Card
-            variant="glass"
-            className={`${cardBaseClass} border border-blue-500/20 bg-gradient-to-br from-blue-950/40 via-blue-900/20 to-transparent hover:border-blue-400/30 transition-all duration-200`}
-          >
-            <CardHeader className="pb-2">
-              <div className="flex items-center gap-2 flex-nowrap">
-                <div className="relative w-5 h-5 md:w-6 md:h-6 flex-shrink-0">
-                  <Image
-                    src="/C2.png"
-                    alt="C2 Blockchain logo"
-                    fill
-                    className="object-contain"
-                    sizes="24px"
-                  />
+                <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md font-mono text-xs md:text-sm font-semibold ${
+                  krakenChange >= 0
+                    ? 'bg-green-500/[0.08] text-green-400 border border-green-500/[0.12]'
+                    : 'bg-red-500/[0.08] text-red-400 border border-red-500/[0.12]'
+                }`}>
+                  {krakenChange >= 0 ? (
+                    <TrendingUp className="w-3 h-3 md:w-3.5 md:h-3.5" />
+                  ) : (
+                    <TrendingDown className="w-3 h-3 md:w-3.5 md:h-3.5" />
+                  )}
+                  {krakenChange >= 0 ? '+' : ''}{krakenChange.toFixed(2)}%
                 </div>
-                <CardTitle variant="mono" className="text-[10px] md:text-sm text-blue-200/70 uppercase tracking-wide whitespace-nowrap">
-                  C2 $DOG Treasury
-                </CardTitle>
               </div>
+            )}
+          </div>
+        </div>
+
+        <SectionDivider title="Key Metrics" icon={BarChart3} />
+
+        {/* === STATS GRID === */}
+        <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-2 md:gap-3">
+
+          {/* Total Holders */}
+          <Card variant="glass" className={cardBaseClass}>
+            <CardHeader className="pb-2">
+              <CardTitle variant="mono" className="text-[11px] md:text-sm text-dusty flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-lava/60" />
+                Total Holders
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                <div className="text-sm md:text-2xl font-bold font-mono text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-blue-200 to-blue-400">
-                  {C2_TREASURY_DOG.toLocaleString('en-US')} DOG
-                </div>
-                <div className="text-[10px] md:text-sm text-snow/60 font-mono">
-                  ≈ {c2TreasuryUSDFormatted} USD
+              <div className="space-y-2">
+                <div className="text-lg md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
+                  {stats ? (stats.totalHolders + 10944 + 572).toLocaleString('en-US') : '—'}
                 </div>
                 <div className="space-y-1">
-                  <div className="h-1 md:h-1.5 w-full rounded-full bg-blue-900/40 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-blue-400 via-blue-300 to-blue-500"
-                      style={{ width: `${(c2TreasuryProgress * 100).toFixed(0)}%` }}
-                    />
+                  <div className="flex items-center justify-between text-[10px] md:text-xs">
+                    <div className="flex items-center gap-1">
+                      <Image src="/BTC.png" alt="Bitcoin" width={10} height={10} className="opacity-60" />
+                      <span className="text-dusty font-mono">BTC</span>
+                    </div>
+                    <span className="text-snow/60 font-mono tabular-nums">{stats ? stats.totalHolders.toLocaleString('en-US') : '—'}</span>
                   </div>
-                  <div className="flex items-center justify-between text-[9px] md:text-[10px] uppercase tracking-wide text-blue-200/50 font-mono">
-                    <span>Progress</span>
-                    <span>{(c2TreasuryProgress * 100).toFixed(1)}% of 1B</span>
+                  <div className="flex items-center justify-between text-[10px] md:text-xs">
+                    <div className="flex items-center gap-1">
+                      <Image src="/sol.png" alt="Solana" width={10} height={10} className="opacity-60" />
+                      <span className="text-dusty font-mono">SOL</span>
+                    </div>
+                    <span className="text-snow/60 font-mono tabular-nums">10,982</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] md:text-xs">
+                    <div className="flex items-center gap-1">
+                      <Image src="/STX .png" alt="Stacks" width={10} height={10} className="opacity-60" />
+                      <span className="text-dusty font-mono">STX</span>
+                    </div>
+                    <span className="text-snow/60 font-mono tabular-nums">575</span>
                   </div>
                 </div>
               </div>
             </CardContent>
           </Card>
-        </a>
 
-        {/* Total On-Chain Transactions 24h */}
-        <Card variant="glass" className={cardBaseClass}>
-          <CardHeader className="pb-2">
-            <CardTitle variant="mono" className="text-[11px] md:text-sm text-dusty flex items-center gap-1.5">
-              <Zap className="w-3.5 h-3.5 text-yellow-400/70" />
-              <span className="hidden md:inline">On-Chain Txns 24h</span>
-              <span className="md:hidden">Txns 24h</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-1.5">
-              <div className="text-lg md:text-3xl font-bold text-snow font-mono">
-                {metrics24h
-                  ? metrics24h.txCount.toLocaleString()
-                  : (loading ? '...' : 'N/A')}
+          {/* Volume 24h */}
+          <Card variant="glass" className={cardBaseClass}>
+            <CardHeader className="pb-2">
+              <CardTitle variant="mono" className="text-[11px] md:text-sm text-dusty flex items-center gap-1.5">
+                <Activity className="w-3.5 h-3.5 text-green-400/60" />
+                Volume 24h
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-1.5">
+                <div className="text-lg md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
+                  {formatCurrency(volume24h)}
+                </div>
+                <span className="text-[10px] md:text-xs text-dusty/50 font-mono">Trading Volume</span>
               </div>
-              <span className="text-[10px] md:text-xs text-dusty/60 font-mono">Past 24 hours</span>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* Total Supply */}
-        <Card variant="glass" className={cardBaseClass}>
-          <CardHeader className="pb-2">
-            <CardTitle variant="mono" className="text-[11px] md:text-sm text-dusty flex items-center gap-1.5">
-              <Coins className="w-3.5 h-3.5 text-lava/70" />
-              Total Supply
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-1.5">
-              <div className="text-lg md:text-3xl font-bold text-snow font-mono">
-                {runeData ? (runeData.totalSupply / 1000000000).toFixed(0) + 'B' : '100B'}
+          {/* Market Cap */}
+          <Card variant="glass" className={cardBaseClass}>
+            <CardHeader className="pb-2">
+              <CardTitle variant="mono" className="text-[11px] md:text-sm text-dusty flex items-center gap-1.5">
+                <BarChart3 className="w-3.5 h-3.5 text-lava/60" />
+                Market Cap
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-1.5">
+                <div className="text-lg md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
+                  {runeData && stats?.price ? formatMarketCap(stats.price * runeData.circulatingSupply) : '$0.0M'}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {krakenChange >= 0 ? (
+                    <TrendingUp className="w-3 h-3 text-green-400" />
+                  ) : (
+                    <TrendingDown className="w-3 h-3 text-red-400" />
+                  )}
+                  <span className={`text-[11px] md:text-sm font-mono font-medium tabular-nums ${krakenChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {krakenChange >= 0 ? '+' : ''}{krakenChange.toFixed(2)}%
+                  </span>
+                </div>
               </div>
-              <span className="text-[10px] md:text-xs text-dusty/60 font-mono">DOG Tokens</span>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* Burned */}
-        <Card variant="glass" className={cardBaseClass}>
-          <CardHeader className="pb-2">
-            <CardTitle variant="mono" className="text-[11px] md:text-sm text-dusty flex items-center gap-1.5">
-              <Flame className="w-3.5 h-3.5 text-red-400/70" />
-              Burned
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-1.5">
-              <div className="text-lg md:text-3xl font-bold text-snow font-mono">
-                {runeData ? formatBurnedTokens(runeData.burned) : '23.487M'}
-              </div>
-              <span className="text-[10px] md:text-xs text-dusty/60 font-mono">
-                {runeData ? `${runeData.burnedPercentage?.toFixed(3) || '0.023'}%` : '0.023%'} of supply
-              </span>
-            </div>
-          </CardContent>
-        </Card>
+          {/* C2 Blockchain Treasury */}
+          <a
+            href="https://www.c2dog.com"
+            target="_blank"
+            rel="noopener noreferrer sponsored"
+            className="block h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 rounded-xl"
+          >
+            <Card
+              variant="glass"
+              className={`${cardBaseClass} border border-blue-500/[0.12] bg-gradient-to-br from-blue-950/30 via-blue-900/10 to-transparent hover:border-blue-400/20 transition-all duration-300`}
+            >
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2 flex-nowrap">
+                  <div className="relative w-5 h-5 md:w-6 md:h-6 flex-shrink-0">
+                    <Image
+                      src="/C2.png"
+                      alt="C2 Blockchain logo"
+                      fill
+                      className="object-contain"
+                      sizes="24px"
+                    />
+                  </div>
+                  <CardTitle variant="mono" className="text-[10px] md:text-sm text-blue-200/60 uppercase tracking-wider whitespace-nowrap">
+                    C2 $DOG Treasury
+                  </CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="text-sm md:text-2xl font-bold font-mono text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-blue-200 to-blue-400 tracking-tight">
+                    {C2_TREASURY_DOG.toLocaleString('en-US')} DOG
+                  </div>
+                  <div className="text-[10px] md:text-sm text-snow/50 font-mono tabular-nums">
+                    ≈ {c2TreasuryUSDFormatted} USD
+                  </div>
+                  <div className="space-y-1">
+                    <div className="h-1 md:h-1.5 w-full rounded-full bg-blue-900/30 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-blue-400 via-blue-300 to-blue-500 transition-all duration-1000 ease-out"
+                        style={{ width: `${(c2TreasuryProgress * 100).toFixed(0)}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-[9px] md:text-[10px] uppercase tracking-wider text-blue-200/40 font-mono">
+                      <span>Progress</span>
+                      <span className="tabular-nums">{(c2TreasuryProgress * 100).toFixed(1)}% of 1B</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </a>
 
-        {/* Circulating Supply */}
-        <Card variant="glass" className={cardBaseClass}>
-          <CardHeader className="pb-2">
-            <CardTitle variant="mono" className="text-[11px] md:text-sm text-dusty flex items-center gap-1.5">
-              <TrendingUp className="w-3.5 h-3.5 text-green-400/70" />
-              Circulating
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-1.5">
-              <div className="text-lg md:text-3xl font-bold text-snow font-mono">
-                {runeData ? (runeData.circulatingSupply / 1000000000).toFixed(5) + 'B' : '99.97650B'}
+          {/* On-Chain Txns 24h */}
+          <Card variant="glass" className={cardBaseClass}>
+            <CardHeader className="pb-2">
+              <CardTitle variant="mono" className="text-[11px] md:text-sm text-dusty flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5 text-yellow-400/60" />
+                <span className="hidden md:inline">On-Chain Txns 24h</span>
+                <span className="md:hidden">Txns 24h</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-1.5">
+                <div className="text-lg md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
+                  {metrics24h
+                    ? metrics24h.txCount.toLocaleString()
+                    : (loading ? '...' : 'N/A')}
+                </div>
+                <span className="text-[10px] md:text-xs text-dusty/50 font-mono">Past 24 hours</span>
               </div>
-              <span className="text-[10px] md:text-xs text-dusty/60 font-mono">DOG Tokens</span>
+            </CardContent>
+          </Card>
+
+          {/* Total Supply */}
+          <Card variant="glass" className={cardBaseClass}>
+            <CardHeader className="pb-2">
+              <CardTitle variant="mono" className="text-[11px] md:text-sm text-dusty flex items-center gap-1.5">
+                <Coins className="w-3.5 h-3.5 text-lava/60" />
+                Total Supply
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-1.5">
+                <div className="text-lg md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
+                  {runeData ? (runeData.totalSupply / 1000000000).toFixed(0) + 'B' : '100B'}
+                </div>
+                <span className="text-[10px] md:text-xs text-dusty/50 font-mono">DOG Tokens</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Burned */}
+          <Card variant="glass" className={cardBaseClass}>
+            <CardHeader className="pb-2">
+              <CardTitle variant="mono" className="text-[11px] md:text-sm text-dusty flex items-center gap-1.5">
+                <Flame className="w-3.5 h-3.5 text-red-400/60" />
+                Burned
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-1.5">
+                <div className="text-lg md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
+                  {runeData ? formatBurnedTokens(runeData.burned) : '23.487M'}
+                </div>
+                <span className="text-[10px] md:text-xs text-dusty/50 font-mono">
+                  {runeData ? `${runeData.burnedPercentage?.toFixed(3) || '0.023'}%` : '0.023%'} of supply
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Circulating Supply */}
+          <Card variant="glass" className={cardBaseClass}>
+            <CardHeader className="pb-2">
+              <CardTitle variant="mono" className="text-[11px] md:text-sm text-dusty flex items-center gap-1.5">
+                <TrendingUp className="w-3.5 h-3.5 text-green-400/60" />
+                Circulating
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-1.5">
+                <div className="text-lg md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
+                  {runeData ? (runeData.circulatingSupply / 1000000000).toFixed(5) + 'B' : '99.97650B'}
+                </div>
+                <span className="text-[10px] md:text-xs text-dusty/50 font-mono">DOG Tokens</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <SectionDivider title="Multi-Exchange Prices" icon={TrendingUp} />
+        <PriceCards />
+
+        <SectionDivider title="Price Chart" icon={BarChart3} />
+
+        {/* TradingView Chart */}
+        <Card variant="glass" className="overflow-hidden">
+          <CardContent className="p-0">
+            <div className="h-[320px] md:h-[600px]">
+              <TradingViewWidget />
             </div>
           </CardContent>
         </Card>
       </div>
-
-      <SectionDivider title="Multi-Exchange Prices" icon={TrendingUp} />
-      <PriceCards />
-
-      <SectionDivider title="Price Chart" icon={BarChart3} />
-
-      {/* TradingView Chart */}
-      <Card variant="glass" className="overflow-hidden">
-        <CardContent className="p-0">
-          <div className="h-[320px] md:h-[600px]">
-            <TradingViewWidget />
-          </div>
-        </CardContent>
-      </Card>
-    </div>
     </Layout>
   )
 }

@@ -34,26 +34,29 @@ interface HeaderProps {
 
 export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
 
   const handleNavClick = useCallback((page: PageType) => {
     setCurrentPage(page)
     setMenuOpen(false)
   }, [setCurrentPage])
 
-  // Close menu on outside click
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 8)
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
   useEffect(() => {
     if (!menuOpen) return
     const handleClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement
-      if (!target.closest('[data-header-nav]')) {
-        setMenuOpen(false)
-      }
+      if (!target.closest('[data-header-nav]')) setMenuOpen(false)
     }
     document.addEventListener('click', handleClick)
     return () => document.removeEventListener('click', handleClick)
   }, [menuOpen])
 
-  // Close menu on escape
   useEffect(() => {
     if (!menuOpen) return
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -64,38 +67,46 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
   }, [menuOpen])
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-void/80 backdrop-blur-2xl border-b border-snow/[0.06]" data-header-nav>
+    <header
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
+        scrolled
+          ? 'bg-void/90 backdrop-blur-2xl border-b border-white/[0.04] shadow-[0_4px_24px_-4px_rgba(0,0,0,0.5)]'
+          : 'bg-void/60 backdrop-blur-xl border-b border-transparent'
+      }`}
+      data-header-nav
+    >
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-14 md:h-20">
+        <div className="flex items-center justify-between h-14 md:h-16">
           {/* Logo */}
           <div className="flex items-center flex-shrink-0 mr-4 md:mr-8">
             <button
               onClick={() => handleNavClick('overview')}
-              className="flex items-center space-x-2 md:space-x-3 hover:opacity-80 transition-all duration-300 group"
+              className="flex items-center space-x-2 md:space-x-3 hover:opacity-90 transition-all duration-300 group"
             >
-              <div className="relative w-10 h-10 md:w-14 md:h-14 flex-shrink-0">
+              <div className="relative w-8 h-8 md:w-10 md:h-10 flex-shrink-0">
                 <img
                   src="/dog-logo.png"
                   alt="DOG DATA"
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                     e.currentTarget.nextElementSibling?.classList.remove('hidden');
                   }}
                 />
-                <div className="hidden w-full h-full bg-gradient-to-br from-lava to-lava-light flex items-center justify-center group-hover:opacity-90 transition-all duration-300">
-                  <span className="text-snow font-bold text-lg md:text-xl font-mono">D</span>
+                <div className="hidden w-full h-full bg-gradient-to-br from-lava to-lava-light flex items-center justify-center rounded-lg">
+                  <span className="text-snow font-bold text-lg font-mono">D</span>
                 </div>
               </div>
 
-              <span className="text-lava-dark font-display text-lg md:text-2xl font-bold tracking-wider hover:text-lava transition-colors duration-300 whitespace-nowrap">
-                DOG DATA
+              <span className="font-display text-base md:text-lg font-bold tracking-wide whitespace-nowrap">
+                <span className="text-snow">DOG</span>
+                <span className="text-lava ml-1">DATA</span>
               </span>
             </button>
           </div>
 
-          {/* Navigation - Desktop only */}
-          <nav className="hidden md:flex space-x-1.5 flex-1 justify-center max-w-5xl mx-4">
+          {/* Navigation - Desktop */}
+          <nav className="hidden md:flex space-x-0.5 flex-1 justify-center max-w-5xl mx-4">
             {navigation.map((item) => {
               const isActive = currentPage === item.page
               const Icon = item.icon
@@ -104,70 +115,76 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
                 <button
                   key={item.name}
                   onClick={() => setCurrentPage(item.page)}
-                  className={`flex items-center justify-center px-3 py-2 text-xs font-mono font-medium tracking-wide transition-all duration-200 flex-shrink-0 rounded-lg ${
+                  className={`relative flex items-center justify-center px-3 py-1.5 text-[11px] font-mono font-medium tracking-wide transition-all duration-300 flex-shrink-0 rounded-lg group ${
                     isActive
-                      ? 'bg-lava/15 text-lava border border-lava/20'
-                      : 'text-dusty hover:text-snow hover:bg-snow/[0.04] border border-transparent'
+                      ? 'text-lava'
+                      : 'text-[#6B6B78] hover:text-snow/90'
                   }`}
                 >
-                  <Icon className="w-3.5 h-3.5 mr-1.5 flex-shrink-0" />
-                  <span className="whitespace-nowrap">
-                    {item.name}
-                  </span>
+                  {isActive && (
+                    <div className="absolute inset-0 bg-lava/[0.08] border border-lava/[0.12] rounded-lg" />
+                  )}
+                  <Icon className={`relative w-3.5 h-3.5 mr-1.5 flex-shrink-0 transition-colors duration-300 ${
+                    isActive ? 'text-lava' : 'text-[#4A4A52] group-hover:text-[#6B6B78]'
+                  }`} />
+                  <span className="relative whitespace-nowrap">{item.name}</span>
                 </button>
               )
             })}
           </nav>
 
-          {/* Right side: Live Status, Refresh, Donate & Hamburger */}
-          <div className="flex items-center space-x-2 md:space-x-3 flex-shrink-0 ml-4">
-            {/* Donate Button - Hidden on small screens */}
+          {/* Right side */}
+          <div className="flex items-center space-x-2 md:space-x-2.5 flex-shrink-0 ml-4">
+            {/* Donate */}
             <button
               onClick={() => setCurrentPage('donate')}
-              className="hidden lg:flex items-center px-4 md:px-6 py-2 md:py-2.5 bg-gradient-to-r from-lava to-lava-dark hover:from-lava-dark hover:to-lava-dark text-snow font-mono font-medium tracking-wide transition-all duration-200 shadow-lg shadow-lava/20 hover:shadow-lava/30 hover:scale-[1.02] group rounded-lg"
+              className="hidden lg:flex items-center px-4 py-1.5 bg-gradient-to-r from-lava to-lava-dark text-snow font-mono font-medium text-xs tracking-wide transition-all duration-300 shadow-[0_0_20px_rgba(245,110,15,0.15)] hover:shadow-[0_0_30px_rgba(245,110,15,0.25)] hover:scale-[1.02] group rounded-lg"
               title="Support DOG Data"
             >
-              <Heart className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform duration-300" />
-              <span className="text-sm font-semibold tracking-wide">Donate</span>
+              <Heart className="w-3.5 h-3.5 mr-1.5 group-hover:scale-110 transition-transform duration-300" />
+              <span className="font-semibold">Donate</span>
             </button>
 
             {/* Live Status */}
-            <div className="px-2 md:px-3 py-1.5 md:py-2 bg-snow/[0.03] border border-snow/[0.06] flex items-center space-x-1.5 rounded-lg">
-              <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></div>
-              <span className="text-green-400 text-[10px] md:text-xs font-mono font-medium">LIVE</span>
+            <div className="px-2.5 py-1.5 bg-white/[0.02] border border-white/[0.05] flex items-center space-x-1.5 rounded-lg">
+              <div className="relative w-1.5 h-1.5">
+                <div className="absolute inset-0 bg-green-400 rounded-full"></div>
+                <div className="absolute inset-0 bg-green-400 rounded-full animate-ping opacity-40"></div>
+              </div>
+              <span className="text-green-400/90 text-[10px] md:text-[11px] font-mono font-semibold tracking-wider">LIVE</span>
             </div>
 
-            {/* Refresh Button - Visible on all sizes */}
+            {/* Refresh */}
             <button
               onClick={() => window.location.reload()}
-              className="px-2.5 py-2 md:py-2 bg-snow/[0.03] border border-snow/[0.06] hover:bg-snow/[0.06] transition-all duration-200 group rounded-lg"
+              className="px-2 py-1.5 bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.04] hover:border-white/[0.08] transition-all duration-300 group rounded-lg"
               title="Refresh Data"
             >
-              <RefreshCw className="w-4 h-4 text-dusty group-hover:text-lava group-hover:rotate-180 transition-all duration-500" />
+              <RefreshCw className="w-3.5 h-3.5 text-[#6B6B78] group-hover:text-lava group-hover:rotate-180 transition-all duration-700" />
             </button>
 
-            {/* Hamburger Button - Mobile only */}
+            {/* Hamburger - Mobile */}
             <button
               onClick={(e) => {
                 e.stopPropagation()
                 setMenuOpen(!menuOpen)
               }}
-              className="md:hidden px-2.5 py-2 bg-snow/[0.03] border border-snow/[0.06] hover:bg-snow/[0.06] transition-all duration-200 rounded-lg"
+              className="md:hidden px-2 py-1.5 bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.04] transition-all duration-200 rounded-lg"
               title="Menu"
             >
               {menuOpen ? (
                 <X className="w-5 h-5 text-lava" />
               ) : (
-                <Menu className="w-5 h-5 text-dusty" />
+                <Menu className="w-5 h-5 text-[#6B6B78]" />
               )}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile Dropdown Menu */}
+      {/* Mobile Menu */}
       {menuOpen && (
-        <div className="md:hidden border-t border-snow/[0.06] bg-void/95 backdrop-blur-2xl">
+        <div className="md:hidden border-t border-white/[0.04] bg-void/95 backdrop-blur-2xl animate-fade-in">
           <nav className="max-w-[1600px] mx-auto px-3 py-2 space-y-0.5">
             {navigation.map((item) => {
               const isActive = currentPage === item.page
@@ -176,10 +193,10 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
                 <button
                   key={item.page}
                   onClick={() => handleNavClick(item.page)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 font-mono text-sm tracking-wide transition-all duration-150 rounded-lg ${
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 font-mono text-sm tracking-wide transition-all duration-200 rounded-lg ${
                     isActive
-                      ? 'text-lava bg-lava/10'
-                      : 'text-dusty hover:text-snow hover:bg-snow/[0.04]'
+                      ? 'text-lava bg-lava/[0.08]'
+                      : 'text-[#6B6B78] hover:text-snow hover:bg-white/[0.03]'
                   }`}
                 >
                   <Icon className="w-4 h-4 flex-shrink-0" />
@@ -189,10 +206,10 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
             })}
             <button
               onClick={() => handleNavClick('donate')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 font-mono text-sm tracking-wide transition-all duration-150 rounded-lg ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 font-mono text-sm tracking-wide transition-all duration-200 rounded-lg ${
                 currentPage === 'donate'
-                  ? 'text-lava bg-lava/10'
-                  : 'text-dusty hover:text-snow hover:bg-snow/[0.04]'
+                  ? 'text-lava bg-lava/[0.08]'
+                  : 'text-[#6B6B78] hover:text-snow hover:bg-white/[0.03]'
               }`}
             >
               <Heart className="w-4 h-4 flex-shrink-0" />
