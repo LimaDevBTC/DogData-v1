@@ -34,7 +34,7 @@ export default function ChartContainer({
     }
   };
 
-  const borderColor = accentColor === 'bitcoin' ? 'bg-accent-primary' : 'bg-accent-data-dim';
+  const borderColor = accentColor === 'bitcoin' ? 'bg-accent-primary' : 'bg-accent-data';
 
   return (
     <div className="relative rounded-lg bg-bg-surface overflow-hidden">

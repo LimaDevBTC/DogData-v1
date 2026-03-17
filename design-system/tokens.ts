@@ -2,45 +2,45 @@
 
 export const colors = {
   bg: {
-    void: '#04060A',
-    base: '#080C12',
-    surface: '#0D1117',
-    elevated: '#111820',
-    overlay: '#161E2A',
+    void: '#000000',
+    base: '#050505',
+    surface: '#0A0A0A',
+    elevated: '#111111',
+    overlay: '#1A1A1A',
   },
   border: {
     subtle: 'rgba(255,255,255,0.04)',
-    default: 'rgba(255,255,255,0.08)',
-    strong: 'rgba(255,255,255,0.14)',
+    default: 'rgba(255,255,255,0.07)',
+    strong: 'rgba(247,147,26,0.2)',
     focus: 'rgba(247,147,26,0.5)',
   },
   accent: {
     primary: '#F7931A',
     primaryDim: 'rgba(247,147,26,0.15)',
     primaryGlow: 'rgba(247,147,26,0.25)',
-    data: '#00D4FF',
-    dataDim: 'rgba(0,212,255,0.12)',
-    dataGlow: 'rgba(0,212,255,0.2)',
-    positive: '#00E676',
-    positiveDim: 'rgba(0,230,118,0.12)',
-    negative: '#FF4560',
-    negativeDim: 'rgba(255,69,96,0.12)',
+    data: '#E8820E',
+    dataDim: 'rgba(232,130,14,0.12)',
+    dataGlow: 'rgba(232,130,14,0.2)',
+    positive: '#2ECC71',
+    positiveDim: 'rgba(46,204,113,0.12)',
+    negative: '#E74C3C',
+    negativeDim: 'rgba(231,76,60,0.12)',
   },
   text: {
-    primary: '#F0F4F8',
-    secondary: '#8B95A1',
-    tertiary: '#4A5568',
+    primary: '#EDEDED',
+    secondary: '#666666',
+    tertiary: '#3A3A3A',
     accent: '#F7931A',
-    data: '#00D4FF',
+    data: '#E8820E',
   },
 } as const
 
 export const gradients = {
-  bitcoin: 'linear-gradient(135deg, #F7931A 0%, #FFB347 100%)',
-  data: 'linear-gradient(135deg, #00D4FF 0%, #0099CC 100%)',
-  surface: 'linear-gradient(180deg, #0D1117 0%, #080C12 100%)',
-  glowBitcoin: 'radial-gradient(ellipse at center, rgba(247,147,26,0.15) 0%, transparent 70%)',
-  glowData: 'radial-gradient(ellipse at center, rgba(0,212,255,0.12) 0%, transparent 70%)',
+  bitcoin: 'linear-gradient(135deg, #F7931A 0%, #E8820E 100%)',
+  data: 'linear-gradient(135deg, #E8820E 0%, #C06B00 100%)',
+  surface: 'linear-gradient(180deg, #0A0A0A 0%, #050505 100%)',
+  glowBitcoin: 'radial-gradient(ellipse at center, rgba(247,147,26,0.18) 0%, transparent 70%)',
+  glowData: 'radial-gradient(ellipse at center, rgba(232,130,14,0.12) 0%, transparent 70%)',
 } as const
 
 export const shadows = {
@@ -49,7 +49,7 @@ export const shadows = {
   lg: '0 8px 32px rgba(0,0,0,0.6)',
   xl: '0 16px 64px rgba(0,0,0,0.7)',
   bitcoin: '0 0 40px rgba(247,147,26,0.2), 0 0 80px rgba(247,147,26,0.08)',
-  data: '0 0 40px rgba(0,212,255,0.15), 0 0 80px rgba(0,212,255,0.06)',
+  data: '0 0 40px rgba(232,130,14,0.15), 0 0 80px rgba(232,130,14,0.06)',
 } as const
 
 export const typography = {

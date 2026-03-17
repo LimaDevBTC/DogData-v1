@@ -221,7 +221,7 @@ export default function DataTable({
                       content = (
                         <button
                           onClick={() => handleCopyAddress(value)}
-                          className="font-mono text-text-data hover:text-text-accent transition-colors cursor-pointer"
+                          className="font-mono text-text-accent hover:text-accent-primary transition-colors cursor-pointer"
                           title={copiedAddress === value ? 'Copied!' : 'Click to copy'}
                         >
                           {truncateAddress(value)}

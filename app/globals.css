@@ -4,42 +4,42 @@
 
 :root {
   /* === Bitcoin Intelligence Design System Tokens === */
-  --bg-void: #04060A;
-  --bg-base: #080C12;
-  --bg-surface: #0D1117;
-  --bg-elevated: #111820;
-  --bg-overlay: #161E2A;
+  --bg-void: #000000;
+  --bg-base: #050505;
+  --bg-surface: #0A0A0A;
+  --bg-elevated: #111111;
+  --bg-overlay: #1A1A1A;
 
   --border-subtle: rgba(255,255,255,0.04);
-  --border-default: rgba(255,255,255,0.08);
-  --border-strong: rgba(255,255,255,0.14);
+  --border-default: rgba(255,255,255,0.07);
+  --border-strong: rgba(247,147,26,0.2);
   --border-focus: rgba(247, 147, 26, 0.5);
 
   --accent-primary: #F7931A;
   --accent-primary-dim: rgba(247, 147, 26, 0.15);
   --accent-primary-glow: rgba(247, 147, 26, 0.25);
-  --accent-data: #00D4FF;
-  --accent-data-dim: rgba(0, 212, 255, 0.12);
-  --accent-data-glow: rgba(0, 212, 255, 0.2);
-  --accent-positive: #00E676;
-  --accent-positive-dim: rgba(0, 230, 118, 0.12);
-  --accent-negative: #FF4560;
-  --accent-negative-dim: rgba(255, 69, 96, 0.12);
+  --accent-data: #E8820E;
+  --accent-data-dim: rgba(232, 130, 14, 0.12);
+  --accent-data-glow: rgba(232, 130, 14, 0.2);
+  --accent-positive: #2ECC71;
+  --accent-positive-dim: rgba(46, 204, 113, 0.12);
+  --accent-negative: #E74C3C;
+  --accent-negative-dim: rgba(231, 76, 60, 0.12);
 
-  --text-primary: #F0F4F8;
-  --text-secondary: #8B95A1;
-  --text-tertiary: #4A5568;
+  --text-primary: #EDEDED;
+  --text-secondary: #666666;
+  --text-tertiary: #3A3A3A;
   --text-accent: #F7931A;
-  --text-data: #00D4FF;
+  --text-data: #E8820E;
 
-  --gradient-bitcoin: linear-gradient(135deg, #F7931A 0%, #FFB347 100%);
-  --gradient-data: linear-gradient(135deg, #00D4FF 0%, #0099CC 100%);
-  --gradient-surface: linear-gradient(180deg, #0D1117 0%, #080C12 100%);
-  --gradient-glow-bitcoin: radial-gradient(ellipse at center, rgba(247,147,26,0.15) 0%, transparent 70%);
-  --gradient-glow-data: radial-gradient(ellipse at center, rgba(0,212,255,0.12) 0%, transparent 70%);
+  --gradient-bitcoin: linear-gradient(135deg, #F7931A 0%, #E8820E 100%);
+  --gradient-data: linear-gradient(135deg, #E8820E 0%, #C06B00 100%);
+  --gradient-surface: linear-gradient(180deg, #0A0A0A 0%, #050505 100%);
+  --gradient-glow-bitcoin: radial-gradient(ellipse at center, rgba(247,147,26,0.18) 0%, transparent 70%);
+  --gradient-glow-data: radial-gradient(ellipse at center, rgba(232,130,14,0.12) 0%, transparent 70%);
 
   --shadow-bitcoin: 0 0 40px rgba(247,147,26,0.2), 0 0 80px rgba(247,147,26,0.08);
-  --shadow-data: 0 0 40px rgba(0,212,255,0.15), 0 0 80px rgba(0,212,255,0.06);
+  --shadow-data: 0 0 40px rgba(232,130,14,0.15), 0 0 80px rgba(232,130,14,0.06);
 
   /* === Legacy Obsidian Aurora Palette === */
   --color-void: #000000;
@@ -333,9 +333,9 @@ header::before {
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #080C12; }
-::-webkit-scrollbar-thumb { background: #1a2332; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #243040; }
+::-webkit-scrollbar-track { background: #050505; }
+::-webkit-scrollbar-thumb { background: #222222; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #F7931A; }
 
 /* Text Selection */
 ::selection { background: rgba(247,147,26,0.2); color: #F0F4F8; }

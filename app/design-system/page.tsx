@@ -267,7 +267,7 @@ export default function DesignSystemPage() {
                       className="flex-1 rounded-t transition-all hover:opacity-80"
                       style={{
                         height: `${h}%`,
-                        background: `linear-gradient(to top, rgba(0,212,255,0.6), rgba(0,212,255,0.1))`,
+                        background: `linear-gradient(to top, rgba(232,130,14,0.6), rgba(232,130,14,0.1))`,
                       }}
                     />
                   )
@@ -406,7 +406,7 @@ export default function DesignSystemPage() {
             <div className="p-6 rounded-lg border border-border bg-bg-surface">
               <span className="font-sans text-xs uppercase tracking-widest text-text-accent">Font Mono &mdash; JetBrains Mono</span>
               <div className="mt-4 space-y-2">
-                <p className="font-mono text-2xl text-text-data">$892,450,000.00</p>
+                <p className="font-mono text-2xl text-text-accent">$892,450,000.00</p>
                 <p className="font-mono text-lg text-text-primary">0.00508 USD &middot; +5.23%</p>
                 <p className="font-mono text-sm text-text-secondary">bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh</p>
                 <p className="font-mono text-xs text-text-tertiary">tx: a1b2c3d4e5f6...7890abcd</p>

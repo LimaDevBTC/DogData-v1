@@ -10,11 +10,11 @@ interface HeatmapCellProps {
 }
 
 function interpolateColor(ratio: number): string {
-  // bg-bg-void (#0a0a0a) -> accent-data (#22d3ee mid-cyan) -> accent-primary (#f7931a orange)
+  // bg-bg-void (#000000) -> accent-data (#E8820E deep orange) -> accent-primary (#F7931A bright orange)
   const colors = [
-    { r: 10, g: 10, b: 10 },    // void / 0
-    { r: 34, g: 211, b: 238 },  // data / mid
-    { r: 247, g: 147, b: 26 },  // primary / max
+    { r: 0, g: 0, b: 0 },       // void / 0
+    { r: 160, g: 80, b: 0 },    // deep burnt orange / mid
+    { r: 247, g: 147, b: 26 },  // primary orange / max
   ];
 
   const clamped = Math.max(0, Math.min(1, ratio));
@@ -58,7 +58,7 @@ export default function HeatmapCell({ value, max, label, date }: HeatmapCellProp
           <div className="bg-bg-overlay rounded px-2 py-1 text-xs font-mono text-text-primary whitespace-nowrap shadow-md border border-border-subtle">
             {date && <span className="text-text-secondary">{date}: </span>}
             {label && <span className="text-text-secondary">{label} </span>}
-            <span className="text-text-data">{value}</span>
+            <span className="text-text-accent">{value}</span>
           </div>
         </div>
       )}
