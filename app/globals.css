@@ -431,12 +431,7 @@ header::before {
 }
 
 .gradient-text-hero {
-  background: linear-gradient(135deg, var(--color-lava-dark) 0%, var(--color-lava) 30%, var(--color-amber) 70%, var(--color-lava-light) 100%);
-  background-size: 200% 100%;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  animation: shimmer 8s ease-in-out infinite;
+  color: var(--color-lava-dark);
 }
 
 /* Status Indicators */
