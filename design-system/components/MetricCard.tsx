@@ -48,7 +48,7 @@ function CountUpValue({
   });
 
   return (
-    <span ref={ref} className={`font-mono font-bold ${sizeClasses[size]} text-text-primary`}>
+    <span ref={ref as React.RefObject<HTMLSpanElement>} className={`font-mono font-bold ${sizeClasses[size]} text-text-primary`}>
       {displayValue}
     </span>
   );
