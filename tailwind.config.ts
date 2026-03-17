@@ -5,11 +5,46 @@ const config: Config = {
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
+    './design-system/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
     extend: {
       colors: {
-        // Obsidian Aurora palette
+        // === Bitcoin Intelligence Design System ===
+        bg: {
+          void: '#04060A',
+          base: '#080C12',
+          surface: '#0D1117',
+          elevated: '#111820',
+          overlay: '#161E2A',
+        },
+        border: {
+          subtle: 'rgba(255,255,255,0.04)',
+          DEFAULT: 'rgba(255,255,255,0.08)',
+          strong: 'rgba(255,255,255,0.14)',
+          focus: 'rgba(247,147,26,0.5)',
+        },
+        accent: {
+          primary: '#F7931A',
+          'primary-dim': 'rgba(247,147,26,0.15)',
+          'primary-glow': 'rgba(247,147,26,0.25)',
+          data: '#00D4FF',
+          'data-dim': 'rgba(0,212,255,0.12)',
+          'data-glow': 'rgba(0,212,255,0.2)',
+          positive: '#00E676',
+          'positive-dim': 'rgba(0,230,118,0.12)',
+          negative: '#FF4560',
+          'negative-dim': 'rgba(255,69,96,0.12)',
+        },
+        text: {
+          primary: '#F0F4F8',
+          secondary: '#8B95A1',
+          tertiary: '#4A5568',
+          accent: '#F7931A',
+          data: '#00D4FF',
+        },
+
+        // === Legacy Obsidian Aurora (backward compat) ===
         'void': '#000000',
         'surface': '#0A0A0C',
         'elevated': '#141416',
@@ -23,8 +58,6 @@ const config: Config = {
         'dusty': '#6B6B78',
         'mist': '#9CA3AF',
         'snow': '#F0F0F2',
-
-        // Legacy redirects (backward compatibility)
         'black': '#000000',
         'dark-gray': '#000000',
         'gray': {
@@ -44,7 +77,6 @@ const config: Config = {
           400: '#FF8C3A',
           600: '#D45D0D',
         },
-        // Legacy aliases
         'dog-orange': '#F56E0F',
         'dog-gray': {
           100: '#F3F4F6',
@@ -63,34 +95,48 @@ const config: Config = {
         'dog-yellow': '#F59E0B',
       },
       fontFamily: {
+        'display': ['var(--font-display)', 'Syne', 'sans-serif'],
+        'sans': ['var(--font-sans)', 'DM Sans', 'sans-serif'],
         'mono': ['var(--font-mono)', 'JetBrains Mono', 'Fira Code', 'Consolas', 'monospace'],
-        'sans': ['Inter', 'system-ui', 'sans-serif'],
-        'display': ['var(--font-display)', 'Syne', 'Inter', 'system-ui', 'sans-serif'],
       },
       fontSize: {
-        'xs': ['0.75rem', { lineHeight: '1.125rem' }],
-        'sm': ['0.875rem', { lineHeight: '1.25rem' }],
-        'base': ['1rem', { lineHeight: '1.5rem' }],
-        'lg': ['1.125rem', { lineHeight: '1.75rem' }],
-        'xl': ['1.25rem', { lineHeight: '1.75rem' }],
-        '2xl': ['1.5rem', { lineHeight: '2rem' }],
+        'xs': ['11px', { lineHeight: '1.4' }],
+        'sm': ['13px', { lineHeight: '1.5' }],
+        'base': ['15px', { lineHeight: '1.6' }],
+        'lg': ['18px', { lineHeight: '1.4' }],
+        'xl': ['24px', { lineHeight: '1.3' }],
+        '2xl': ['32px', { lineHeight: '1.2', letterSpacing: '-0.01em' }],
         '3xl': ['1.875rem', { lineHeight: '2.25rem' }],
         '4xl': ['2.25rem', { lineHeight: '2.5rem' }],
         '5xl': ['3rem', { lineHeight: '1' }],
         '6xl': ['3.75rem', { lineHeight: '1' }],
+        'hero': ['64px', { lineHeight: '1.0', letterSpacing: '-0.02em' }],
+        'mega': ['96px', { lineHeight: '0.95', letterSpacing: '-0.03em' }],
       },
       spacing: {
-        '1': '0.25rem',
-        '2': '0.5rem',
-        '3': '0.75rem',
-        '4': '1rem',
-        '6': '1.5rem',
-        '8': '2rem',
-        '12': '3rem',
-        '16': '4rem',
+        '0.5': '2px',
+        '1': '4px',
+        '2': '8px',
+        '3': '12px',
+        '4': '16px',
+        '6': '24px',
+        '8': '32px',
+        '12': '48px',
+        '16': '64px',
         '18': '4.5rem',
         '20': '5rem',
-        '24': '6rem',
+        '24': '96px',
+        '32': '128px',
+        '48': '192px',
+      },
+      borderRadius: {
+        'sm': '4px',
+        'md': '8px',
+        'lg': '12px',
+        'xl': '16px',
+        '2xl': '24px',
+        '4xl': '2rem',
+        'full': '9999px',
       },
       backdropBlur: {
         'xs': '2px',
@@ -102,6 +148,11 @@ const config: Config = {
         '3xl': '40px',
       },
       backgroundImage: {
+        'gradient-bitcoin': 'linear-gradient(135deg, #F7931A 0%, #FFB347 100%)',
+        'gradient-data': 'linear-gradient(135deg, #00D4FF 0%, #0099CC 100%)',
+        'gradient-surface': 'linear-gradient(180deg, #0D1117 0%, #080C12 100%)',
+        'glow-bitcoin': 'radial-gradient(ellipse at 50% 0%, rgba(247,147,26,0.15) 0%, transparent 60%)',
+        'glow-data': 'radial-gradient(ellipse at 50% 0%, rgba(0,212,255,0.12) 0%, transparent 60%)',
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
         'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
         'gradient-orange': 'linear-gradient(135deg, #F56E0F, #FF8C3A)',
@@ -112,6 +163,12 @@ const config: Config = {
         'grid': '20px 20px',
       },
       boxShadow: {
+        'sm': '0 1px 3px rgba(0,0,0,0.4)',
+        'md': '0 4px 16px rgba(0,0,0,0.5)',
+        'lg': '0 8px 32px rgba(0,0,0,0.6)',
+        'xl': '0 16px 64px rgba(0,0,0,0.7)',
+        'bitcoin': '0 0 40px rgba(247,147,26,0.2), 0 0 80px rgba(247,147,26,0.08)',
+        'data': '0 0 40px rgba(0,212,255,0.15), 0 0 80px rgba(0,212,255,0.06)',
         'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.03)',
         'glow': '0 0 20px rgba(245, 110, 15, 0.15), 0 0 60px rgba(245, 110, 15, 0.05)',
         'glow-lg': '0 0 30px rgba(245, 110, 15, 0.25), 0 0 80px rgba(245, 110, 15, 0.1)',
@@ -119,11 +176,13 @@ const config: Config = {
       },
       animation: {
         'fade-in': 'fadeIn 0.7s cubic-bezier(0.16, 1, 0.3, 1)',
+        'fade-slide-up': 'fadeSlideUp 0.5s ease-out forwards',
         'slide-in': 'slideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
         'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'pulse-dot': 'pulseDot 2s ease-in-out infinite',
         'glow': 'glow 3s ease-in-out infinite',
         'float': 'float 6s ease-in-out infinite',
-        'shimmer': 'shimmer 3s ease-in-out infinite',
+        'shimmer': 'shimmer 1.8s linear infinite',
         'breathe': 'breathe 4s ease-in-out infinite',
       },
       keyframes: {
@@ -131,9 +190,17 @@ const config: Config = {
           '0%': { opacity: '0', transform: 'translateY(16px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        fadeSlideUp: {
+          from: { opacity: '0', transform: 'translateY(16px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
         slideIn: {
           '0%': { opacity: '0', transform: 'translateX(-16px)' },
           '100%': { opacity: '1', transform: 'translateX(0)' },
+        },
+        pulseDot: {
+          '0%, 100%': { opacity: '1', transform: 'scale(1)' },
+          '50%': { opacity: '0.5', transform: 'scale(0.85)' },
         },
         glow: {
           '0%, 100%': { boxShadow: '0 0 20px rgba(245, 110, 15, 0.2)' },
@@ -144,8 +211,8 @@ const config: Config = {
           '50%': { transform: 'translateY(-4px)' },
         },
         shimmer: {
-          '0%': { backgroundPosition: '-200% 0' },
-          '100%': { backgroundPosition: '200% 0' },
+          '0%': { backgroundPosition: '-1000px 0' },
+          '100%': { backgroundPosition: '1000px 0' },
         },
         breathe: {
           '0%, 100%': { opacity: '0.4', transform: 'scale(1)' },

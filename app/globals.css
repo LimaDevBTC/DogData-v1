@@ -1,10 +1,47 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  /* Obsidian Aurora Palette */
+  /* === Bitcoin Intelligence Design System Tokens === */
+  --bg-void: #04060A;
+  --bg-base: #080C12;
+  --bg-surface: #0D1117;
+  --bg-elevated: #111820;
+  --bg-overlay: #161E2A;
+
+  --border-subtle: rgba(255,255,255,0.04);
+  --border-default: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.14);
+  --border-focus: rgba(247, 147, 26, 0.5);
+
+  --accent-primary: #F7931A;
+  --accent-primary-dim: rgba(247, 147, 26, 0.15);
+  --accent-primary-glow: rgba(247, 147, 26, 0.25);
+  --accent-data: #00D4FF;
+  --accent-data-dim: rgba(0, 212, 255, 0.12);
+  --accent-data-glow: rgba(0, 212, 255, 0.2);
+  --accent-positive: #00E676;
+  --accent-positive-dim: rgba(0, 230, 118, 0.12);
+  --accent-negative: #FF4560;
+  --accent-negative-dim: rgba(255, 69, 96, 0.12);
+
+  --text-primary: #F0F4F8;
+  --text-secondary: #8B95A1;
+  --text-tertiary: #4A5568;
+  --text-accent: #F7931A;
+  --text-data: #00D4FF;
+
+  --gradient-bitcoin: linear-gradient(135deg, #F7931A 0%, #FFB347 100%);
+  --gradient-data: linear-gradient(135deg, #00D4FF 0%, #0099CC 100%);
+  --gradient-surface: linear-gradient(180deg, #0D1117 0%, #080C12 100%);
+  --gradient-glow-bitcoin: radial-gradient(ellipse at center, rgba(247,147,26,0.15) 0%, transparent 70%);
+  --gradient-glow-data: radial-gradient(ellipse at center, rgba(0,212,255,0.12) 0%, transparent 70%);
+
+  --shadow-bitcoin: 0 0 40px rgba(247,147,26,0.2), 0 0 80px rgba(247,147,26,0.08);
+  --shadow-data: 0 0 40px rgba(0,212,255,0.15), 0 0 80px rgba(0,212,255,0.06);
+
+  /* === Legacy Obsidian Aurora Palette === */
   --color-void: #000000;
   --color-surface: #0A0A0C;
   --color-elevated: #141416;
@@ -16,8 +53,6 @@
   --color-dusty: #6B6B78;
   --color-mist: #9CA3AF;
   --color-snow: #F0F0F2;
-
-  /* Legacy aliases (redirects) */
   --color-black: #000000;
   --color-dark-gray: #000000;
   --color-gray-900: #000000;
@@ -128,17 +163,13 @@ body::before {
 body::after {
   content: '';
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 0;
+  inset: 0;
+  z-index: 9998;
   pointer-events: none;
-  opacity: 0.025;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  opacity: 0.4;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 256px 256px;
-  mix-blend-mode: overlay;
 }
 
 /* Ensure content is above backgrounds */
@@ -301,21 +332,19 @@ header::before {
 }
 
 /* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #080C12; }
+::-webkit-scrollbar-thumb { background: #1a2332; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #243040; }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+/* Text Selection */
+::selection { background: rgba(247,147,26,0.2); color: #F0F4F8; }
 
-::-webkit-scrollbar-thumb {
-  background: rgba(107, 107, 120, 0.3);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-lava);
+/* Global Focus Ring */
+*:focus-visible {
+  outline: 2px solid rgba(247,147,26,0.5);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 /* === ANIMATIONS === */

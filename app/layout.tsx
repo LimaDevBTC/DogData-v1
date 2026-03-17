@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { JetBrains_Mono, Syne } from 'next/font/google'
+import { JetBrains_Mono, Syne, DM_Sans } from 'next/font/google'
 import './globals.css'
 import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
@@ -18,6 +18,13 @@ const syne = Syne({
   display: 'swap',
 })
 
+const dmSans = DM_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-sans',
+  display: 'swap',
+})
+
 const siteUrl = (() => {
   const u = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
   if (!u) return 'https://dogdata.xyz'
@@ -27,13 +34,13 @@ const siteUrl = (() => {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#F56E0F',
+  themeColor: '#F7931A',
 }
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: 'DOG DATA - Real-time DOG Rune Explorer',
-  description: 'Professional explorer for DOG•GO•TO•THE•MOON rune with real-time data, holder lists, statistics and exclusive forensic analysis.',
+  description: 'Professional explorer for DOG\u2022GO\u2022TO\u2022THE\u2022MOON rune with real-time data, holder lists, statistics and exclusive forensic analysis.',
   keywords: 'DOG, Bitcoin, Rune, Ordinals, Holders, Blockchain, Explorer, Real-time, Forensic Analysis',
   authors: [{ name: 'DOG DATA Team' }],
   icons: {
@@ -74,7 +81,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className={`${jetbrainsMono.variable} ${syne.variable} font-mono`}>
+      <body className={`${jetbrainsMono.variable} ${syne.variable} ${dmSans.variable} font-mono`}>
         <VerifiedAddressesProvider>
           <div className="min-h-screen bg-void">
             {children}
