@@ -61,6 +61,14 @@ interface RedisTransaction {
   receivers?: Array<{ address: string; amount_dog: number; is_change?: boolean }>
 }
 
+// ─── Cell sizes per timeframe (px) — square cells ────────────
+const CELL_SIZES: Record<HeatmapTimeframe, { size: number; gap: number }> = {
+  '1d':  { size: 18, gap: 2 },
+  '7d':  { size: 18, gap: 2 },
+  '30d': { size: 16, gap: 2 },
+  '1y':  { size: 12, gap: 1 },
+}
+
 // ─── Color gradients ──────────────────────────────────────────
 function interpolateColor(ratio: number): string {
   const stops = [
@@ -122,7 +130,7 @@ function getRowLabels(timeframe: HeatmapTimeframe): string[] {
   }
 }
 
-function getColLabels(timeframe: HeatmapTimeframe, buckets: HeatmapBucket[], cols: number): string[] {
+function getColLabels(timeframe: HeatmapTimeframe): string[] {
   switch (timeframe) {
     case '1d': {
       return Array.from({ length: 24 }, (_, h) => {
@@ -186,7 +194,6 @@ function processRedisData(transactions: RedisTransaction[], layer: HeatmapLayer)
 
   let totalTx = 0
   let totalVolume = 0
-  const blocks = new Set<number>()
 
   for (const tx of transactions) {
     let ts: number
@@ -217,7 +224,6 @@ function processRedisData(transactions: RedisTransaction[], layer: HeatmapLayer)
 
     totalTx++
     totalVolume += vol
-    if (tx.block_height) blocks.add(tx.block_height)
   }
 
   // Set value based on layer
@@ -288,7 +294,6 @@ export function TransactionHeatmap() {
 
       try {
         if (timeframe === '1d') {
-          // Use Redis for real-time 1d data
           const res = await fetch('/api/dog-rune/transactions-kv', { cache: 'no-store' })
           if (res.ok) {
             const data = await res.json()
@@ -307,7 +312,6 @@ export function TransactionHeatmap() {
           }
         }
 
-        // Comparison mode: fetch previous period
         if (compareMode) {
           const prevRes = await fetch(`/api/dog-rune/heatmap?timeframe=${timeframe}&layer=${layer}&compare=prev`, { cache: 'no-store' })
           if (prevRes.ok) {
@@ -349,6 +353,8 @@ export function TransactionHeatmap() {
 
   // ─── Drill-down handler ─────────────────────────────────────
   const handleCellClick = useCallback(async (bucket: HeatmapBucket) => {
+    if (bucket.txCount === 0 && bucket.volume === 0) return // skip empty cells
+
     if (drillBucket?.index === bucket.index) {
       setDrillBucket(null)
       setDrillTxs([])
@@ -358,7 +364,6 @@ export function TransactionHeatmap() {
     setDrillLoading(true)
     try {
       if (timeframe === '1d' && rawTransactions.length > 0) {
-        // Use local Redis data for 1d drill-down (avoids Supabase timestamp mismatch)
         const now = Date.now()
         const dayAgo = now - 24 * 60 * 60 * 1000
         const BUCKET_MS = 15 * 60 * 1000
@@ -414,6 +419,23 @@ export function TransactionHeatmap() {
     return Math.min(95, Math.floor((now - dayAgo) / (15 * 60 * 1000)))
   }, [timeframe, buckets])
 
+  // ─── Build 2D grid lookup ──────────────────────────────────
+  const gridLookup = useMemo(() => {
+    const lookup = new Map<string, HeatmapBucket>()
+    for (const b of buckets) {
+      lookup.set(`${b.row}:${b.col}`, b)
+    }
+    return lookup
+  }, [buckets])
+
+  const compareGridLookup = useMemo(() => {
+    const lookup = new Map<string, HeatmapBucket>()
+    for (const b of compareBuckets) {
+      lookup.set(`${b.row}:${b.col}`, b)
+    }
+    return lookup
+  }, [compareBuckets])
+
   // ─── Loading ────────────────────────────────────────────────
   if (loading) {
     return (
@@ -434,20 +456,24 @@ export function TransactionHeatmap() {
 
   const gridConfig = meta?.gridConfig || { rows: 4, cols: 24, rowLabel: 'quarter', colLabel: 'hour' }
   const rowLabels = getRowLabels(timeframe)
-  const colLabels = getColLabels(timeframe, buckets, gridConfig.cols)
+  const colLabels = getColLabels(timeframe)
+  const { size: cellSize, gap: cellGap } = CELL_SIZES[timeframe]
+  const labelWidth = 44
 
-  // ─── Render grid ────────────────────────────────────────────
-  const renderGrid = (gridBuckets: HeatmapBucket[], gridMax: number, interactive: boolean = true) => {
-    const showRowLabels = gridConfig.rows <= 7
-    const cellGap = timeframe === '1y' ? '1px' : '2px'
+  // ─── Render grid — square cells with fixed pixel sizes ─────
+  const renderGrid = (lookup: Map<string, HeatmapBucket>, gridMax: number, interactive: boolean = true) => {
+    const gridWidth = gridConfig.cols * cellSize + (gridConfig.cols - 1) * cellGap
 
     return (
-      <div className="overflow-x-clip">
-        <div style={{ minWidth: timeframe === '1y' ? 800 : timeframe === '7d' ? 400 : 600 }}>
+      <div className="overflow-x-auto">
+        <div style={{ display: 'inline-block' }}>
           {/* Col labels top */}
-          <div className="flex mb-1" style={{ paddingLeft: showRowLabels ? 44 : 28 }}>
+          <div className="flex mb-1" style={{ paddingLeft: labelWidth }}>
             {colLabels.map((label, c) => (
-              <div key={c} className="flex-1 text-center">
+              <div
+                key={c}
+                style={{ width: cellSize, marginRight: c < colLabels.length - 1 ? cellGap : 0, textAlign: 'center' }}
+              >
                 {label && (
                   <span className="font-mono text-[9px] text-text-tertiary leading-none">{label}</span>
                 )}
@@ -457,23 +483,26 @@ export function TransactionHeatmap() {
 
           {/* Grid rows */}
           {Array.from({ length: gridConfig.rows }).map((_, r) => (
-            <div key={r} className="flex items-center gap-0 mb-[2px]">
+            <div key={r} className="flex items-center" style={{ marginBottom: r < gridConfig.rows - 1 ? cellGap : 0 }}>
               {/* Row label */}
-              <div className={`${showRowLabels ? 'w-11' : 'w-7'} flex-shrink-0 text-right pr-1.5`}>
-                {(timeframe === '7d' ? r % 4 === 0 : true) && (
-                  <span className="font-mono text-[9px] text-text-tertiary">{rowLabels[r]}</span>
-                )}
+              <div style={{ width: labelWidth, flexShrink: 0, textAlign: 'right', paddingRight: 6 }}>
+                <span className="font-mono text-[9px] text-text-tertiary">{rowLabels[r] || ''}</span>
               </div>
-              {/* Cells */}
-              <div className="flex-1 flex" style={{ gap: cellGap }}>
-                {gridBuckets.filter(b => b.row === r).sort((a, b) => a.col - b.col).map(bucket => {
+              {/* Cells — fixed-size squares */}
+              <div className="flex" style={{ gap: cellGap }}>
+                {Array.from({ length: gridConfig.cols }).map((_, c) => {
+                  const bucket = lookup.get(`${r}:${c}`)
+                  if (!bucket) {
+                    return <div key={c} style={{ width: cellSize, height: cellSize, borderRadius: 2, backgroundColor: 'rgb(12,12,12)' }} />
+                  }
+
                   const ratio = bucket.value / gridMax
                   const isHovered = interactive && hovered?.index === bucket.index
                   const isCurrentSlot = interactive && bucket.index === currentBucketIdx
                   const isDrilling = interactive && drillBucket?.index === bucket.index
 
                   return (
-                    <div key={bucket.index} className="flex-1 relative" style={{ aspectRatio: '1' }}>
+                    <div key={bucket.index} className="relative" style={{ width: cellSize, height: cellSize }}>
                       <div
                         className={`absolute inset-0 rounded-[2px] transition-all duration-100
                           ${interactive ? 'cursor-pointer' : 'cursor-default'}
@@ -507,7 +536,6 @@ export function TransactionHeatmap() {
                                 </span>
                               )}
                             </div>
-                            {/* Whale indicator */}
                             {bucket.hasWhale && (
                               <div className="flex items-center gap-1 mt-0.5">
                                 <Flame className="w-3 h-3 text-text-accent" />
@@ -516,13 +544,11 @@ export function TransactionHeatmap() {
                                 </span>
                               </div>
                             )}
-                            {/* Fee info */}
                             {bucket.avgFee !== null && bucket.avgFee > 0 && (
                               <p className="text-text-tertiary font-mono text-[10px] mt-0.5">
                                 Avg fee: {bucket.avgFee.toLocaleString()} sats
                               </p>
                             )}
-                            {/* Volume brackets mini-bar */}
                             {bucket.volume > 0 && (
                               <div className="flex gap-px mt-1 h-1.5 rounded-full overflow-hidden" style={{ width: 80 }}>
                                 {bucket.retailVolume > 0 && <div className="bg-green-500/60" style={{ flex: bucket.retailVolume }} />}
@@ -637,23 +663,24 @@ export function TransactionHeatmap() {
         <div className="flex flex-col lg:flex-row gap-4">
           <div className="flex-1">
             <p className="font-mono text-[10px] text-text-accent uppercase tracking-wider mb-2">Current</p>
-            {renderGrid(buckets, maxValue)}
+            {renderGrid(gridLookup, maxValue)}
           </div>
           <div className="flex-1">
             <p className="font-mono text-[10px] text-text-tertiary uppercase tracking-wider mb-2">Previous</p>
-            {renderGrid(compareBuckets, Math.max(1, ...compareBuckets.map(b => b.value)), false)}
+            {renderGrid(compareGridLookup, Math.max(1, ...compareBuckets.map(b => b.value)), false)}
           </div>
         </div>
       ) : (
-        renderGrid(buckets, maxValue)
+        renderGrid(gridLookup, maxValue)
       )}
 
       {/* ── Drill-down Panel ─────────────────────────────── */}
       {drillBucket && (
         <div className="mt-3 border border-accent-primary/20 rounded-lg bg-bg-surface/80 p-3">
+          {/* Bucket summary — always shows full stats */}
           <div className="flex items-center justify-between mb-2">
             <p className="font-mono text-xs text-text-accent font-semibold">
-              {drillBucket.label} — {drillBucket.txCount} transactions
+              {drillBucket.label}
             </p>
             <button
               onClick={() => { setDrillBucket(null); setDrillTxs([]) }}
@@ -662,30 +689,88 @@ export function TransactionHeatmap() {
               ✕
             </button>
           </div>
+
+          {/* Bucket stats grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+            <div className="bg-bg-elevated/60 rounded px-2 py-1.5">
+              <p className="font-mono text-[9px] text-text-tertiary uppercase">Transactions</p>
+              <p className="font-mono text-sm font-bold text-text-primary">{drillBucket.txCount}</p>
+            </div>
+            <div className="bg-bg-elevated/60 rounded px-2 py-1.5">
+              <p className="font-mono text-[9px] text-text-tertiary uppercase">Volume</p>
+              <p className="font-mono text-sm font-bold text-text-accent">{fmtVolume(drillBucket.volume)} DOG</p>
+            </div>
+            <div className="bg-bg-elevated/60 rounded px-2 py-1.5">
+              <p className="font-mono text-[9px] text-text-tertiary uppercase">Net Flow</p>
+              <p className={`font-mono text-sm font-bold ${drillBucket.netFlow >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {drillBucket.netFlow >= 0 ? '+' : ''}{fmtVolume(drillBucket.netFlow)}
+              </p>
+            </div>
+            <div className="bg-bg-elevated/60 rounded px-2 py-1.5">
+              <p className="font-mono text-[9px] text-text-tertiary uppercase">Avg Fee</p>
+              <p className="font-mono text-sm font-bold text-text-primary">
+                {drillBucket.avgFee !== null ? `${Math.round(drillBucket.avgFee).toLocaleString()} sats` : '—'}
+              </p>
+            </div>
+          </div>
+
+          {/* Volume composition bar */}
+          {drillBucket.volume > 0 && (
+            <div className="mb-3">
+              <p className="font-mono text-[9px] text-text-tertiary uppercase mb-1">Volume Breakdown</p>
+              <div className="flex h-2 rounded-full overflow-hidden gap-px">
+                {drillBucket.retailVolume > 0 && (
+                  <div className="bg-green-500/70 rounded-sm" style={{ flex: drillBucket.retailVolume }} title={`Retail: ${fmtVolume(drillBucket.retailVolume)}`} />
+                )}
+                {drillBucket.mediumVolume > 0 && (
+                  <div className="bg-yellow-500/70 rounded-sm" style={{ flex: drillBucket.mediumVolume }} title={`Medium: ${fmtVolume(drillBucket.mediumVolume)}`} />
+                )}
+                {drillBucket.largeVolume > 0 && (
+                  <div className="bg-orange-500/70 rounded-sm" style={{ flex: drillBucket.largeVolume }} title={`Large: ${fmtVolume(drillBucket.largeVolume)}`} />
+                )}
+                {drillBucket.whaleVolume > 0 && (
+                  <div className="bg-red-500/70 rounded-sm" style={{ flex: drillBucket.whaleVolume }} title={`Whale: ${fmtVolume(drillBucket.whaleVolume)}`} />
+                )}
+              </div>
+              <div className="flex gap-3 mt-1">
+                {drillBucket.retailVolume > 0 && <span className="font-mono text-[9px] text-green-400">Retail {fmtVolume(drillBucket.retailVolume)}</span>}
+                {drillBucket.mediumVolume > 0 && <span className="font-mono text-[9px] text-yellow-400">Medium {fmtVolume(drillBucket.mediumVolume)}</span>}
+                {drillBucket.largeVolume > 0 && <span className="font-mono text-[9px] text-orange-400">Large {fmtVolume(drillBucket.largeVolume)}</span>}
+                {drillBucket.whaleVolume > 0 && <span className="font-mono text-[9px] text-red-400">Whale {fmtVolume(drillBucket.whaleVolume)}</span>}
+              </div>
+            </div>
+          )}
+
+          {/* Transaction list */}
           {drillLoading ? (
             <div className="h-16 bg-bg-elevated rounded animate-shimmer" />
           ) : drillTxs.length === 0 ? (
-            <p className="text-text-tertiary font-mono text-xs">No transactions in this slot</p>
+            <p className="text-text-tertiary font-mono text-xs">
+              {drillBucket.txCount > 0 ? 'Individual transactions not available for this timeframe' : 'No transactions in this slot'}
+            </p>
           ) : (
-            <div className="max-h-48 overflow-y-auto space-y-1">
-              {drillTxs.map(tx => (
-                <div key={tx.txid} className="flex items-center gap-3 py-1 px-2 rounded bg-bg-elevated/50 font-mono text-[11px]">
-                  <span className="text-text-secondary truncate w-24" title={tx.txid}>
-                    {tx.txid.slice(0, 8)}…{tx.txid.slice(-6)}
-                  </span>
-                  <span className={`font-bold ${Number(tx.total_dog_moved) >= 1_000_000 ? 'text-text-accent' : 'text-text-primary'}`}>
-                    {fmtVolume(Number(tx.total_dog_moved))} DOG
-                  </span>
-                  <span className="text-text-tertiary">{tx.type}</span>
-                  {tx.fee_sats && (
-                    <span className="text-text-tertiary">{tx.fee_sats.toLocaleString()} sats</span>
-                  )}
-                  <span className="text-text-tertiary ml-auto">
-                    {tx.sender_count}→{tx.receiver_count}
-                  </span>
-                </div>
-              ))}
-            </div>
+            <>
+              <p className="font-mono text-[9px] text-text-tertiary uppercase mb-1">Transactions ({drillTxs.length})</p>
+              <div className="max-h-48 overflow-y-auto space-y-1">
+                {drillTxs.map(tx => (
+                  <div key={tx.txid} className="flex items-center gap-3 py-1 px-2 rounded bg-bg-elevated/50 font-mono text-[11px]">
+                    <span className="text-text-secondary truncate w-24" title={tx.txid}>
+                      {tx.txid.slice(0, 8)}…{tx.txid.slice(-6)}
+                    </span>
+                    <span className={`font-bold ${Number(tx.total_dog_moved) >= 1_000_000 ? 'text-text-accent' : 'text-text-primary'}`}>
+                      {fmtVolume(Number(tx.total_dog_moved))} DOG
+                    </span>
+                    <span className="text-text-tertiary">{tx.type}</span>
+                    {tx.fee_sats && (
+                      <span className="text-text-tertiary">{tx.fee_sats.toLocaleString()} sats</span>
+                    )}
+                    <span className="text-text-tertiary ml-auto">
+                      {tx.sender_count}→{tx.receiver_count}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
       )}
