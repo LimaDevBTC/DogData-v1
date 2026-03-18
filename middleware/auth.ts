@@ -70,7 +70,7 @@ export async function validateApiKey(req: NextRequest): Promise<ApiKeyInfo | nul
     await redisClient.set(`apikey:${keyHash}`, JSON.stringify(keyInfo), { ex: 300 }).catch(() => {});
 
     // Update last_used_at in Supabase (non-blocking)
-    supabase.from('api_keys').update({ last_used_at: new Date().toISOString() }).eq('id', data.id).then().catch(() => {});
+    void supabase.from('api_keys').update({ last_used_at: new Date().toISOString() }).eq('id', data.id);
 
     return keyInfo;
   } catch {

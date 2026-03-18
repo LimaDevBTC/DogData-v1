@@ -35,8 +35,10 @@ class MemoryCache {
 
   stats(): { size: number; keys: string[] } {
     // Clean expired entries first
-    for (const [key, entry] of this.cache) {
-      if (Date.now() - entry.timestamp > entry.ttl) {
+    const keys = Array.from(this.cache.keys());
+    for (const key of keys) {
+      const entry = this.cache.get(key);
+      if (entry && Date.now() - entry.timestamp > entry.ttl) {
         this.cache.delete(key);
       }
     }
