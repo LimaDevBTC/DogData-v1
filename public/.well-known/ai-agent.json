@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "name": "DOG DATA",
+  "description": "Real-time DOG\u2022GO\u2022TO\u2022THE\u2022MOON rune data on Bitcoin L1. 89,000+ holders, 250,000+ UTXOs, forensic analysis, multi-exchange pricing.",
+  "api": {
+    "type": "openapi",
+    "url": "https://www.dogdata.xyz/api/openapi.json"
+  },
+  "mcp": {
+    "url": "https://www.dogdata.xyz/mcp",
+    "npm": "@dogdata/mcp-server"
+  },
+  "auth": {
+    "type": "bearer",
+    "signup_url": "https://www.dogdata.xyz/api-keys"
+  },
+  "capabilities": {
+    "url": "https://www.dogdata.xyz/api/agent/capabilities"
+  }
+}

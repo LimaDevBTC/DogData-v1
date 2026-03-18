@@ -109,7 +109,14 @@ function fmtVolume(v: number): string {
 function getRowLabels(timeframe: HeatmapTimeframe): string[] {
   switch (timeframe) {
     case '1d': return [':00', ':15', ':30', ':45']
-    case '7d': return Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`)
+    case '7d': {
+      const labels: string[] = []
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000 + i * 24 * 60 * 60 * 1000)
+        labels.push(d.toLocaleDateString('en-US', { weekday: 'short' }))
+      }
+      return labels
+    }
     case '30d': return ['00-06', '06-12', '12-18', '18-24']
     case '1y': return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
   }
@@ -125,9 +132,9 @@ function getColLabels(timeframe: HeatmapTimeframe, buckets: HeatmapBucket[], col
       })
     }
     case '7d': {
-      return Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000 + i * 24 * 60 * 60 * 1000)
-        return d.toLocaleDateString('en-US', { weekday: 'short' })
+      return Array.from({ length: 24 }, (_, h) => {
+        if (h % 3 !== 0) return ''
+        return `${String(h).padStart(2, '0')}:00`
       })
     }
     case '30d': {
@@ -267,6 +274,7 @@ export function TransactionHeatmap() {
   const [drillBucket, setDrillBucket] = useState<HeatmapBucket | null>(null)
   const [drillTxs, setDrillTxs] = useState<DrillTransaction[]>([])
   const [drillLoading, setDrillLoading] = useState(false)
+  const [rawTransactions, setRawTransactions] = useState<RedisTransaction[]>([])
   const [compareMode, setCompareMode] = useState(false)
   const [compareBuckets, setCompareBuckets] = useState<HeatmapBucket[]>([])
   const [compareMeta, setCompareMeta] = useState<HeatmapMeta | null>(null)
@@ -285,6 +293,7 @@ export function TransactionHeatmap() {
           if (res.ok) {
             const data = await res.json()
             const txs: RedisTransaction[] = Array.isArray(data) ? data : data.transactions || []
+            setRawTransactions(txs)
             const result = processRedisData(txs, layer)
             setBuckets(result.buckets)
             setMeta(result.meta)
@@ -348,17 +357,48 @@ export function TransactionHeatmap() {
     setDrillBucket(bucket)
     setDrillLoading(true)
     try {
-      const res = await fetch(`/api/dog-rune/heatmap?timeframe=${timeframe}&drill=${bucket.index}`)
-      if (res.ok) {
-        const data = await res.json()
-        setDrillTxs(data.transactions || [])
+      if (timeframe === '1d' && rawTransactions.length > 0) {
+        // Use local Redis data for 1d drill-down (avoids Supabase timestamp mismatch)
+        const now = Date.now()
+        const dayAgo = now - 24 * 60 * 60 * 1000
+        const BUCKET_MS = 15 * 60 * 1000
+        const bucketStart = dayAgo + bucket.index * BUCKET_MS
+        const bucketEnd = bucketStart + BUCKET_MS
+
+        const matched = rawTransactions.filter(tx => {
+          let ts: number
+          if (typeof tx.timestamp === 'number') {
+            ts = tx.timestamp < 1e12 ? tx.timestamp * 1000 : tx.timestamp
+          } else {
+            ts = new Date(tx.timestamp).getTime()
+          }
+          return ts >= bucketStart && ts < bucketEnd
+        }).sort((a, b) => (b.total_dog_moved || 0) - (a.total_dog_moved || 0))
+
+        setDrillTxs(matched.map(tx => ({
+          txid: tx.txid,
+          block_height: tx.block_height,
+          timestamp: typeof tx.timestamp === 'number' ? new Date(tx.timestamp < 1e12 ? tx.timestamp * 1000 : tx.timestamp).toISOString() : String(tx.timestamp),
+          type: 'transfer',
+          total_dog_moved: tx.total_dog_moved || 0,
+          net_transfer: tx.net_transfer || 0,
+          fee_sats: tx.fee_sats || null,
+          sender_count: tx.sender_count || 0,
+          receiver_count: tx.receiver_count || 0,
+        })))
+      } else {
+        const res = await fetch(`/api/dog-rune/heatmap?timeframe=${timeframe}&drill=${bucket.index}`)
+        if (res.ok) {
+          const data = await res.json()
+          setDrillTxs(data.transactions || [])
+        }
       }
     } catch {
       setDrillTxs([])
     } finally {
       setDrillLoading(false)
     }
-  }, [timeframe, drillBucket])
+  }, [timeframe, drillBucket, rawTransactions])
 
   // ─── Computed values ────────────────────────────────────────
   const maxValue = useMemo(() => Math.max(1, ...buckets.map(b => b.value)), [buckets])
@@ -400,9 +440,6 @@ export function TransactionHeatmap() {
   const renderGrid = (gridBuckets: HeatmapBucket[], gridMax: number, interactive: boolean = true) => {
     const showRowLabels = gridConfig.rows <= 7
     const cellGap = timeframe === '1y' ? '1px' : '2px'
-    // Fixed total grid height (~120px), cells adapt to fit
-    const gridHeight = 120
-    const cellHeight = Math.max(3, Math.floor(gridHeight / gridConfig.rows))
 
     return (
       <div className="overflow-x-clip">
@@ -436,7 +473,7 @@ export function TransactionHeatmap() {
                   const isDrilling = interactive && drillBucket?.index === bucket.index
 
                   return (
-                    <div key={bucket.index} className="flex-1 relative" style={{ height: cellHeight }}>
+                    <div key={bucket.index} className="flex-1 relative" style={{ aspectRatio: '1' }}>
                       <div
                         className={`absolute inset-0 rounded-[2px] transition-all duration-100
                           ${interactive ? 'cursor-pointer' : 'cursor-default'}

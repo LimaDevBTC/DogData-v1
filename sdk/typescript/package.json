@@ -1,0 +1,31 @@
+{
+  "name": "@dogdata/sdk",
+  "version": "1.0.0",
+  "description": "TypeScript SDK for DOG DATA API",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["dogdata", "bitcoin", "runes", "dog-go-to-the-moon", "api", "sdk"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dogdata/sdk-typescript"
+  }
+}

@@ -24,7 +24,7 @@ interface GridConfig {
 
 const GRID_CONFIGS: Record<string, GridConfig> = {
   '1d':  { bucketMs: 15 * 60 * 1000,      rows: 4,  cols: 24, rowLabel: 'quarter', colLabel: 'hour' },
-  '7d':  { bucketMs: 60 * 60 * 1000,       rows: 24, cols: 7,  rowLabel: 'hour',    colLabel: 'day' },
+  '7d':  { bucketMs: 60 * 60 * 1000,       rows: 7,  cols: 24, rowLabel: 'day',     colLabel: 'hour' },
   '30d': { bucketMs: 6 * 60 * 60 * 1000,   rows: 4,  cols: 30, rowLabel: '6h-slot', colLabel: 'day' },
   '1y':  { bucketMs: 24 * 60 * 60 * 1000,  rows: 7,  cols: 52, rowLabel: 'weekday', colLabel: 'week' },
 }
@@ -70,7 +70,7 @@ function getBucketRowCol(timeframe: string, bucketIdx: number): { row: number; c
     case '1d':
       return { row: bucketIdx % 4, col: Math.floor(bucketIdx / 4) }
     case '7d':
-      return { row: bucketIdx % 24, col: Math.floor(bucketIdx / 24) }
+      return { row: Math.floor(bucketIdx / 24), col: bucketIdx % 24 }
     case '30d':
       return { row: bucketIdx % 4, col: Math.floor(bucketIdx / 4) }
     case '1y': {
