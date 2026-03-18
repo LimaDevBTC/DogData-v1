@@ -495,13 +495,40 @@ def main():
     else:
         log("⚠️ Nenhum valor para atualizar (Solana e Stacks)")
     
-    # 5. Commit e push (sempre tenta)
+    # 5. Regenerar airdrop analytics (cruzar holders atuais com recipients)
+    log("")
+    log("📊 Regenerando airdrop analytics...")
+    try:
+        airdrop_script = SCRIPT_DIR / 'update_airdrop_analytics.py'
+        if airdrop_script.exists():
+            airdrop_result = subprocess.run(
+                [sys.executable, str(airdrop_script)],
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                text=True,
+                timeout=300
+            )
+            if airdrop_result.returncode == 0:
+                log("✅ Airdrop analytics regenerado com sucesso")
+                if airdrop_result.stdout:
+                    for line in airdrop_result.stdout.strip().split('\n'):
+                        log(f"   {line}")
+            else:
+                log(f"⚠️ Erro no airdrop analytics: {airdrop_result.stderr[:200] if airdrop_result.stderr else 'unknown'}")
+        else:
+            log(f"⚠️ Script não encontrado: {airdrop_script}")
+    except subprocess.TimeoutExpired:
+        log("⚠️ Airdrop analytics timeout (non-fatal)")
+    except Exception as e:
+        log(f"⚠️ Airdrop analytics error (non-fatal): {e}")
+
+    # 6. Commit e push (sempre tenta)
     log("")
     if git_commit_and_push():
         success_count += 1
         total_steps = 5
     
-    # 6. Coletar métricas históricas para Supabase
+    # 7. Coletar métricas históricas para Supabase
     log("")
     log("📊 Coletando métricas históricas para Supabase...")
     try:
