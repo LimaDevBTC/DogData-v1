@@ -57,6 +57,9 @@ UPSTASH_URL = os.environ.get('UPSTASH_KV_REST_API_URL', '')
 UPSTASH_TOKEN = os.environ.get('UPSTASH_KV_REST_API_TOKEN', '')
 REDIS_KEY = 'dog:transactions'
 
+SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
+SUPABASE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '') or os.environ.get('SUPABASE_ANON_KEY', '')
+
 DOG_RUNE_NAME = 'DOG•GO•TO•THE•MOON'
 DOG_RUNE_ID = '840000:3'
 DOG_DIVISIBILITY = 5
@@ -546,6 +549,59 @@ def push_to_redis(new_txs):
         return False
 
 
+def push_to_supabase(new_txs):
+    """Insert transactions into Supabase dog_transactions table."""
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        log.warning('Supabase not configured, skipping')
+        return False
+
+    import requests as req
+
+    headers = {
+        'apikey': SUPABASE_KEY,
+        'Authorization': f'Bearer {SUPABASE_KEY}',
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=ignore-duplicates',
+    }
+
+    try:
+        rows = []
+        for tx in new_txs:
+            rows.append({
+                'txid': tx['txid'],
+                'block_height': tx['block_height'],
+                'timestamp': tx['timestamp'],
+                'type': tx.get('type', 'transfer'),
+                'total_dog_moved': tx.get('total_dog_moved', 0),
+                'net_transfer': tx.get('net_transfer', 0),
+                'change_amount': tx.get('change_amount', 0),
+                'has_change': tx.get('has_change', False),
+                'fee_sats': tx.get('fee_sats'),
+                'sender_count': tx.get('sender_count', 0),
+                'receiver_count': tx.get('receiver_count', 0),
+                'senders': json.dumps(tx.get('senders', [])),
+                'receivers': json.dumps(tx.get('receivers', [])),
+            })
+
+        resp = req.post(
+            f'{SUPABASE_URL}/rest/v1/dog_transactions',
+            headers=headers,
+            json=rows,
+            timeout=15
+        )
+
+        if resp.status_code in (200, 201):
+            log.info(f'Supabase: inserted {len(rows)} txs')
+            return True
+        else:
+            log.error(f'Supabase insert failed: {resp.status_code} {resp.text[:200]}')
+            return False
+
+    except Exception as e:
+        log.error(f'Supabase push failed: {e}')
+        return False
+
+
 def save_block_txs(height, txs):
     """Save block transactions to local JSON file."""
     TX_LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -594,6 +650,7 @@ def process_pending_blocks(utxo_set, state, single_block=None):
 
             save_block_txs(height, all_txs)
             push_to_redis(all_txs)
+            push_to_supabase(all_txs)
             total_dog_txs += len(all_txs)
 
             elapsed = time.time() - t
