@@ -400,6 +400,9 @@ export function TransactionHeatmap() {
   const renderGrid = (gridBuckets: HeatmapBucket[], gridMax: number, interactive: boolean = true) => {
     const showRowLabels = gridConfig.rows <= 7
     const cellGap = timeframe === '1y' ? '1px' : '2px'
+    // Fixed total grid height (~120px), cells adapt to fit
+    const gridHeight = 120
+    const cellHeight = Math.max(3, Math.floor(gridHeight / gridConfig.rows))
 
     return (
       <div className="overflow-x-clip">
@@ -433,7 +436,7 @@ export function TransactionHeatmap() {
                   const isDrilling = interactive && drillBucket?.index === bucket.index
 
                   return (
-                    <div key={bucket.index} className="flex-1 relative" style={{ aspectRatio: timeframe === '7d' ? '2' : '1' }}>
+                    <div key={bucket.index} className="flex-1 relative" style={{ height: cellHeight }}>
                       <div
                         className={`absolute inset-0 rounded-[2px] transition-all duration-100
                           ${interactive ? 'cursor-pointer' : 'cursor-default'}
