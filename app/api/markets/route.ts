@@ -122,10 +122,10 @@ export async function GET() {
         // Filtrar preços absurdos (muito diferentes da média)
         const isReasonablePrice = t.last > 0.00001 && t.last < 0.01
         
-        // Apenas exchanges com trust score válido
-        const hasTrustScore = t.trust_score && ['green', 'yellow'].includes(t.trust_score)
-        
-        return isValidPair && isReasonablePrice && hasTrustScore
+        // Filtrar exchanges com trust score ruim (red), mas aceitar null/undefined
+        const isNotUntrusted = t.trust_score !== 'red'
+
+        return isValidPair && isReasonablePrice && isNotUntrusted
       })
       .map((t: MarketTicker) => ({
         market: t.market.name,
@@ -134,7 +134,7 @@ export async function GET() {
         volumeUsd: t.converted_volume.usd,
         volume: t.volume,
         spread: t.bid_ask_spread_percentage,
-        trustScore: t.trust_score,
+        trustScore: t.trust_score || 'green',
         tradeUrl: t.trade_url
       }))
       .sort((a: any, b: any) => b.volumeUsd - a.volumeUsd) // Ordenar por volume

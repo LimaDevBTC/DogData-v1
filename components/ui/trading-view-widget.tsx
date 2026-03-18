@@ -41,7 +41,7 @@ function TradingViewWidget() {
         widgetRef.current = new window.TradingView.widget({
           // 📍 Configurações Básicas
           "container_id": "tradingview_advanced_chart",
-          "symbol": "GATEIO:DOGUSDT",
+          "symbol": "KRAKEN:DOGUSD",
           "interval": "60",                    // 1 hora (pode mudar: 1, 5, 15, 60, 240, D, W)
           "timezone": "America/Sao_Paulo",
           "locale": "pt_BR",
