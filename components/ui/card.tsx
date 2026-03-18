@@ -8,9 +8,9 @@ const Card = React.forwardRef<
   }
 >(({ className, variant = 'default', ...props }, ref) => {
   const variants = {
-    default: "bg-[#0A0A0C]/60 border border-white/[0.04] rounded-xl",
-    glass: "bg-[#0A0A0C]/50 backdrop-blur-xl border border-white/[0.05] rounded-xl shadow-[inset_0_1px_0_0_rgba(255,255,255,0.02)]",
-    elevated: "bg-[#0A0A0C]/70 backdrop-blur-xl border border-white/[0.06] shadow-xl rounded-xl shadow-[inset_0_1px_0_0_rgba(255,255,255,0.03)]"
+    default: "bg-bg-surface/60 border border-border-subtle rounded-xl",
+    glass: "bg-bg-surface/50 backdrop-blur-xl border border-border-subtle rounded-xl shadow-[inset_0_1px_0_0_rgba(255,255,255,0.02)]",
+    elevated: "bg-bg-surface/70 backdrop-blur-xl border border-border shadow-xl rounded-xl shadow-[inset_0_1px_0_0_rgba(255,255,255,0.03)]"
   }
 
   return (
@@ -18,7 +18,7 @@ const Card = React.forwardRef<
       ref={ref}
       className={cn(
         "p-3 md:p-6 overflow-hidden transition-all duration-300 ease-out card-glow",
-        "hover:bg-[#0E0E10]/70 hover:border-white/[0.08] hover:shadow-[0_8px_32px_-8px_rgba(0,0,0,0.5),inset_0_1px_0_0_rgba(255,255,255,0.04)]",
+        "hover:bg-bg-elevated/70 hover:border-border hover:shadow-[0_8px_32px_-8px_rgba(0,0,0,0.5),inset_0_1px_0_0_rgba(255,255,255,0.04)]",
         variants[variant],
         className
       )}
@@ -47,9 +47,9 @@ const CardTitle = React.forwardRef<
   }
 >(({ className, variant = 'default', ...props }, ref) => {
   const variants = {
-    default: "text-lava-dark font-display font-semibold text-base md:text-lg",
+    default: "text-text-accent font-display font-semibold text-base md:text-lg",
     gradient: "gradient-text font-display font-bold text-lg md:text-xl",
-    mono: "text-snow font-mono font-semibold text-xs md:text-lg"
+    mono: "text-text-primary font-mono font-semibold text-xs md:text-lg"
   }
 
   return (
@@ -68,7 +68,7 @@ const CardDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <p
     ref={ref}
-    className={cn("text-dusty text-xs md:text-sm font-mono", className)}
+    className={cn("text-text-secondary text-xs md:text-sm font-mono", className)}
     {...props}
   />
 ))

@@ -38,56 +38,56 @@ const CHART_CONFIGS = [
   {
     key: 'mvrv_ratio',
     title: 'MVRV Ratio',
-    color: '#F97316',
+    color: '#F7931A',
     format: (v: number) => v.toFixed(3),
     fixedDomain: undefined as [number, number] | undefined,
   },
   {
     key: 'total_holders',
     title: 'Total Holders',
-    color: '#3b82f6',
+    color: '#E8820E',
     format: (v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}K` : v.toString(),
     fixedDomain: undefined as [number, number] | undefined,
   },
   {
     key: 'total_utxos',
     title: 'Total UTXOs',
-    color: '#06b6d4',
+    color: '#FF6B00',
     format: (v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}K` : v.toString(),
     fixedDomain: undefined as [number, number] | undefined,
   },
   {
     key: 'gini_coefficient',
     title: 'Gini Coefficient',
-    color: '#a855f7',
+    color: '#C45E00',
     format: (v: number) => v.toFixed(4),
     fixedDomain: [0, 1] as [number, number],
   },
   {
     key: 'sth_percentage',
     title: 'STH Supply %',
-    color: '#10B981',
+    color: '#F7931A',
     format: (v: number) => `${v.toFixed(2)}%`,
     fixedDomain: [0, 100] as [number, number],
   },
   {
     key: 'supply_in_profit_pct',
     title: 'Supply in Profit %',
-    color: '#22C55E',
+    color: '#D47214',
     format: (v: number) => `${v.toFixed(2)}%`,
     fixedDomain: [0, 100] as [number, number],
   },
   {
     key: 'current_price',
     title: 'DOG Price (USD)',
-    color: '#F59E0B',
+    color: '#FF8C3A',
     format: (v: number) => `$${v.toFixed(6)}`,
     fixedDomain: undefined as [number, number] | undefined,
   },
   {
     key: 'realized_cap',
     title: 'Realized Cap (USD)',
-    color: '#EF4444',
+    color: '#B35400',
     format: (v: number) => v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : `$${v.toFixed(0)}`,
     fixedDomain: undefined as [number, number] | undefined,
   },
@@ -106,9 +106,9 @@ function getTickCount(range: TimeRange): number {
 
 const tooltipStyle = {
   contentStyle: {
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    border: '1px solid rgba(245, 110, 15, 0.3)',
-    borderRadius: '0px',
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    border: '1px solid rgba(247,147,26,0.3)',
+    borderRadius: '6px',
     color: '#FBFBFB',
     fontFamily: 'JetBrains Mono, monospace',
     fontSize: '12px',
@@ -193,10 +193,10 @@ export function HistoricalChartsSection() {
           <button
             key={r}
             onClick={() => setRange(r)}
-            className={`px-3 py-1.5 text-xs font-mono uppercase tracking-wide border transition-all
+            className={`px-3 py-1.5 text-xs font-mono uppercase tracking-wide border rounded-md transition-all
               ${range === r
-                ? 'border-lava bg-lava/20 text-lava'
-                : 'border-white/[0.05] text-dusty hover:border-lava/40 hover:text-snow'
+                ? 'border-accent-primary/30 bg-accent-primary-dim text-text-accent'
+                : 'border-border-subtle bg-bg-elevated text-text-secondary hover:text-text-primary'
               }`}
           >
             {r}
@@ -205,9 +205,9 @@ export function HistoricalChartsSection() {
       </div>
 
       {loading ? (
-        <div className="text-center text-dusty font-mono text-sm py-8">Loading historical data...</div>
+        <div className="text-center text-text-secondary font-mono text-sm py-8">Loading historical data...</div>
       ) : history.length === 0 ? (
-        <div className="text-center text-dusty font-mono text-sm py-8">
+        <div className="text-center text-text-secondary font-mono text-sm py-8">
           No historical data available yet. Data collection starts hourly.
         </div>
       ) : (
@@ -224,9 +224,9 @@ export function HistoricalChartsSection() {
             if (chartData.length < 2) return null
 
             return (
-              <Card key={cfg.key} variant="glass" className="stagger-item">
+              <Card key={cfg.key} variant="glass" className="border-border-subtle hover:border-accent-primary/20 transition-all">
                 <CardHeader className="pb-2">
-                  <CardTitle variant="mono" className="text-sm text-dusty">
+                  <CardTitle variant="mono" className="text-sm text-text-secondary">
                     {cfg.title}
                   </CardTitle>
                 </CardHeader>
@@ -239,20 +239,20 @@ export function HistoricalChartsSection() {
                       >
                         <defs>
                           <linearGradient id={`grad-${cfg.key}`} x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor={cfg.color} stopOpacity={0.4} />
-                            <stop offset="95%" stopColor={cfg.color} stopOpacity={0.05} />
+                            <stop offset="5%" stopColor={cfg.color} stopOpacity={0.5} />
+                            <stop offset="95%" stopColor={cfg.color} stopOpacity={0.02} />
                           </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.2} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1A1A1A" opacity={0.5} />
                         <XAxis
                           dataKey="date"
-                          stroke="#878787"
+                          stroke="#3A3A3A"
                           style={{ fontSize: '10px', fontFamily: 'JetBrains Mono, monospace' }}
                           tickFormatter={formatXAxis}
                           interval={Math.max(0, Math.ceil(chartData.length / tickCount) - 1)}
                         />
                         <YAxis
-                          stroke="#878787"
+                          stroke="#3A3A3A"
                           style={{ fontSize: '10px', fontFamily: 'JetBrains Mono, monospace' }}
                           tickFormatter={cfg.format}
                           width={70}
@@ -273,7 +273,7 @@ export function HistoricalChartsSection() {
                           strokeWidth={2}
                           fill={`url(#grad-${cfg.key})`}
                           dot={false}
-                          activeDot={{ r: 4, stroke: cfg.color, strokeWidth: 2, fill: '#000' }}
+                          activeDot={{ r: 5, stroke: cfg.color, strokeWidth: 2, fill: '#000' }}
                         />
                       </AreaChart>
                     </ResponsiveContainer>

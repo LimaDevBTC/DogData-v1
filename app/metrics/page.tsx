@@ -13,25 +13,18 @@ import {
   Users,
   Coins,
   PieChart,
-  LineChart,
   Zap
 } from "lucide-react"
 import { MetricSparkline } from "@/components/ui/metric-sparkline"
 import { HistoricalChartsSection } from "@/components/metrics/historical-charts"
-import { 
-  LineChart as RechartsLineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import {
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
-  PieChart as RechartsPieChart,
-  Pie,
-  Cell,
   BarChart,
   Bar,
-  Legend,
   AreaChart,
   Area,
   Treemap
@@ -96,6 +89,26 @@ interface SupplyProfitLoss {
   last_updated: string
 }
 
+// ─── Premium Chart Tooltip ────────────────────────────────────
+function ChartTooltip({ active, payload, label, labelFormatter, formatter }: any) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="bg-black/95 border border-accent-primary/30 rounded-md px-4 py-3 shadow-bitcoin backdrop-blur-sm">
+      <p className="text-text-accent font-mono text-xs font-semibold mb-2">
+        {labelFormatter ? labelFormatter(label) : label}
+      </p>
+      {payload.map((entry: any, i: number) => {
+        const [val, name] = formatter ? formatter(entry.value, entry.name, entry) : [entry.value, entry.name]
+        return (
+          <p key={i} className="text-text-primary font-mono text-sm">
+            {val}
+          </p>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function MetricsPage() {
   const [loading, setLoading] = useState(true)
   const [utxoMetrics, setUtxoMetrics] = useState<UTXOMetrics | null>(null)
@@ -110,9 +123,6 @@ export default function MetricsPage() {
     const fetchMetrics = async () => {
       try {
         setLoading(true)
-        
-        // Buscar todas as APIs em paralelo para melhor performance
-        // Usar no-cache para garantir dados atualizados
         const cacheBuster = `?t=${Date.now()}`
         const [utxoResponse, concentrationResponse, historyResponse, ageResponse, realizedCapResponse, profitLossResponse] = await Promise.all([
           fetch(`/api/metrics/utxo${cacheBuster}`, { cache: 'no-store' }),
@@ -123,7 +133,6 @@ export default function MetricsPage() {
           fetch(`/api/metrics/supply-profit-loss${cacheBuster}`, { cache: 'no-store' })
         ])
 
-        // Processar respostas em paralelo
         const [utxoData, concentrationData, historyData, ageData, realizedCapData, profitLossData] = await Promise.all([
           utxoResponse.ok ? utxoResponse.json().catch(() => null) : null,
           concentrationResponse.ok ? concentrationResponse.json().catch(() => null) : null,
@@ -133,7 +142,6 @@ export default function MetricsPage() {
           profitLossResponse.ok ? profitLossResponse.json().catch(() => null) : null
         ])
 
-        // Atualizar estados conforme dados chegam
         if (utxoData) setUtxoMetrics(utxoData)
         if (concentrationData) setHolderConcentration(concentrationData)
         if (historyData) setUtxoCountHistory(historyData.history || [])
@@ -141,17 +149,10 @@ export default function MetricsPage() {
           setUtxoAgeStats(ageData)
         } else if (ageData?.error) {
           console.warn('UTXO age stats not available:', ageData.message || ageData.error)
-        } else if (!ageResponse.ok) {
-          console.warn('Failed to fetch UTXO age stats:', ageResponse.status, ageResponse.statusText)
         }
-        if (realizedCapData && !realizedCapData.error) {
-          setRealizedCapMetrics(realizedCapData)
-        }
-        if (profitLossData && !profitLossData.error) {
-          setSupplyProfitLoss(profitLossData)
-        }
+        if (realizedCapData && !realizedCapData.error) setRealizedCapMetrics(realizedCapData)
+        if (profitLossData && !profitLossData.error) setSupplyProfitLoss(profitLossData)
 
-        // Fetch sparkline data (non-blocking)
         fetch('/api/metrics/history?range=7d', { cache: 'no-store' })
           .then(res => res.ok ? res.json() : null)
           .then(data => {
@@ -168,193 +169,6 @@ export default function MetricsPage() {
     fetchMetrics()
   }, [])
 
-  // Remove gray backgrounds created by Recharts on hover and enforce Treemap colors
-  useEffect(() => {
-    const removeGrayBackgrounds = () => {
-      const charts = document.querySelectorAll('.hodl-waves-chart, .holder-concentration-chart, .supply-profit-loss-chart')
-      charts.forEach(chart => {
-        const svg = chart.querySelector('svg')
-        if (svg) {
-          // MutationObserver to watch for new elements
-          const observer = new MutationObserver(() => {
-            const rects = svg.querySelectorAll('rect')
-            rects.forEach(rect => {
-              const fill = rect.getAttribute('fill')
-              const computedStyle = window.getComputedStyle(rect)
-              
-              if (fill) {
-                // Lista de cores permitidas (nossas cores de gradiente)
-                const allowedColors = [
-                  '#F97316', '#FB923C', '#EA580C', '#10B981', '#F59E0B', '#C2410C', '#9A3412',
-                  '#059669', '#EF4444', '#DC2626'
-                ]
-                const isAllowedColor = allowedColors.includes(fill) || 
-                                       fill.includes('url(#color') ||
-                                       fill.includes('10B981') || fill.includes('059669') ||
-                                       fill.includes('EF4444') || fill.includes('DC2626') ||
-                                       fill === 'none' || fill === 'transparent'
-                
-                // Se for uma cor branca/cinza/clara, remover IMEDIATAMENTE
-                if (!isAllowedColor && (
-                  fill === '#f5f5f5' || fill === '#f0f0f0' || fill === '#e5e5e5' ||
-                  fill === '#d3d3d3' || fill === '#cccccc' || fill === '#ffffff' ||
-                  fill === '#fafafa' || fill === '#f9f9f9' || fill === '#fdfdfd' ||
-                  fill.includes('rgb(245') || fill.includes('rgb(240') ||
-                  fill.includes('rgb(229') || fill.includes('rgb(211') || fill.includes('rgb(204') ||
-                  fill.includes('rgb(255') || fill.includes('rgb(250') ||
-                  fill.includes('rgba(245') || fill.includes('rgba(240') ||
-                  fill.includes('rgba(229') || fill.includes('rgba(211') || fill.includes('rgba(204') ||
-                  fill.includes('rgba(255') || fill.includes('rgba(250') ||
-                  fill.includes('rgba(253')
-                )) {
-                  rect.remove() // Remover completamente do DOM
-                }
-              }
-              
-              // Remover qualquer rect que seja filho de um grupo com classe recharts-active
-              const parent = rect.parentElement
-              if (parent && (
-                parent.classList.contains('recharts-active-bar') ||
-                parent.classList.contains('recharts-active-shape') ||
-                parent.getAttribute('class')?.includes('recharts-active')
-              )) {
-                rect.remove()
-              }
-            })
-          })
-          
-          observer.observe(svg, { childList: true, subtree: true, attributes: true, attributeFilter: ['fill'] })
-        }
-      })
-    }
-    
-    // Wait for charts to render, then set up observer
-    const timer = setTimeout(() => {
-      removeGrayBackgrounds()
-    }, 1000)
-    
-    // Limpeza contínua a cada 50ms para garantir que backgrounds sejam removidos IMEDIATAMENTE
-    const interval = setInterval(() => {
-      removeGrayBackgrounds()
-      
-      // Limpeza específica para supply-profit-loss-chart - ULTRA AGRESSIVA
-      const profitLossChart = document.querySelector('.supply-profit-loss-chart')
-      if (profitLossChart) {
-        const svg = profitLossChart.querySelector('svg')
-        if (svg) {
-          // Remover TODOS os elementos (não só rects) que possam ser backgrounds
-          const allElements = svg.querySelectorAll('*')
-          allElements.forEach(el => {
-            const tagName = el.tagName.toLowerCase()
-            const fill = el.getAttribute('fill')
-            const style = window.getComputedStyle(el)
-            const bgColor = style.backgroundColor
-            
-            // Se for qualquer elemento com fill/bg branco/cinza, remover
-            if (fill && (fill.includes('rgb(245') || fill.includes('rgb(240') || 
-                fill.includes('rgb(229') || fill.includes('rgb(211') ||
-                fill.includes('rgb(204') || fill.includes('rgb(255') ||
-                fill === '#f5f5f5' || fill === '#f0f0f0' || fill === '#e5e5e5' ||
-                fill === '#d3d3d3' || fill === '#cccccc' || fill === '#ffffff' ||
-                fill === '#fafafa')) {
-              if (!fill.includes('10B981') && !fill.includes('059669') &&
-                  !fill.includes('EF4444') && !fill.includes('DC2626') &&
-                  !fill.includes('url(#colorProfit') && !fill.includes('url(#colorLoss')) {
-                el.remove()
-              }
-            }
-            
-            // Verificar também backgroundColor
-            if (bgColor && (bgColor.includes('rgb(245') || bgColor.includes('rgb(240') ||
-                bgColor.includes('rgb(229') || bgColor.includes('rgb(211') ||
-                bgColor.includes('rgb(204') || bgColor.includes('rgb(255'))) {
-              if (tagName !== 'rect' || (!fill || (!fill.includes('10B981') && !fill.includes('059669') &&
-                  !fill.includes('EF4444') && !fill.includes('DC2626') &&
-                  !fill.includes('url(#colorProfit') && !fill.includes('url(#colorLoss')))) {
-                if (el instanceof HTMLElement) {
-                  el.style.backgroundColor = 'transparent'
-                  el.style.background = 'transparent'
-                }
-              }
-            }
-          })
-          
-          // Remover TODOS os rects que não sejam nossas cores
-          const allRects = svg.querySelectorAll('rect')
-              allRects.forEach(rect => {
-                const fill = rect.getAttribute('fill')
-                const width = rect.getAttribute('width')
-                const height = rect.getAttribute('height')
-                const computedFill = window.getComputedStyle(rect).fill
-                
-                // Se for um rect grande (background), remover imediatamente
-                if (width && height && parseFloat(width) > 100 && parseFloat(height) > 50) {
-                  const isOurBar = fill && (
-                    fill.includes('10B981') || fill.includes('059669') ||
-                    fill.includes('EF4444') || fill.includes('DC2626') ||
-                    fill.includes('url(#colorProfit') || fill.includes('url(#colorLoss')
-                  )
-                  if (!isOurBar) {
-                    rect.remove()
-                    return
-                  }
-                }
-                
-                // Se não for verde, vermelho ou gradiente, remover
-                if (fill && computedFill && 
-                    !fill.includes('10B981') && !fill.includes('059669') &&
-                    !fill.includes('EF4444') && !fill.includes('DC2626') &&
-                    !fill.includes('url(#colorProfit') && !fill.includes('url(#colorLoss') &&
-                    !fill.includes('url(#color') &&
-                    (fill.includes('rgb(245') || fill.includes('rgb(240') || 
-                     fill.includes('rgb(229') || fill.includes('rgb(211') ||
-                     fill.includes('rgb(204') || fill.includes('rgb(255') ||
-                     fill.includes('rgba(245') || fill.includes('rgba(240') ||
-                     fill.includes('rgba(229') || fill.includes('rgba(211') ||
-                     fill.includes('rgba(204') || fill.includes('rgba(255') ||
-                     fill === '#f5f5f5' || fill === '#f0f0f0' || fill === '#e5e5e5' ||
-                     fill === '#d3d3d3' || fill === '#cccccc' || fill === '#ffffff' ||
-                     fill === '#fafafa' ||
-                     computedFill.includes('rgb(245') || computedFill.includes('rgb(240') ||
-                     computedFill.includes('rgb(229') || computedFill.includes('rgb(211') ||
-                     computedFill.includes('rgb(204') || computedFill.includes('rgb(255'))) {
-                  rect.remove()
-                }
-                
-                // Remover se for filho de elemento ativo
-                const parent = rect.parentElement
-                if (parent && (
-                  parent.classList.contains('recharts-active-bar') ||
-                  parent.classList.contains('recharts-active-shape') ||
-                  parent.getAttribute('class')?.includes('recharts-active')
-                )) {
-                  rect.remove()
-                }
-              })
-              
-              // Remover qualquer grupo com classe active
-              const activeGroups = svg.querySelectorAll('g[class*="active"], g[class*="hover"]')
-              activeGroups.forEach(group => {
-                const rects = group.querySelectorAll('rect')
-                rects.forEach(rect => {
-                  const fill = rect.getAttribute('fill')
-                  if (!fill || (!fill.includes('10B981') && !fill.includes('059669') &&
-                      !fill.includes('EF4444') && !fill.includes('DC2626') &&
-                      !fill.includes('url(#colorProfit') && !fill.includes('url(#colorLoss'))) {
-                    rect.remove()
-                  }
-                })
-              })
-            }
-          }
-    }, 50)
-    
-    return () => {
-      clearTimeout(timer)
-      clearInterval(interval)
-    }
-  }, [utxoMetrics, holderConcentration, supplyProfitLoss])
-
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat('en-US', {
       notation: 'compact',
@@ -362,73 +176,37 @@ export default function MetricsPage() {
     }).format(num)
   }
 
-  // Estilo padrão para tooltips - usando o mesmo background das legendas (bg-surface/50)
-  const standardTooltipStyle = {
-    contentStyle: { 
-      backgroundColor: 'rgba(17, 24, 39, 0.5)', // gray-900/50 - mesmo das legendas
-      border: '1px solid #374151', // border-white/[0.05]
-      borderRadius: '0px',
-      color: '#F3F4F6',
-      fontFamily: 'monospace',
-      padding: '12px 16px',
-      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.8)'
-    },
-    itemStyle: { 
-      color: '#F3F4F6',
-      padding: '6px 0',
-      fontSize: '13px'
-    },
-    labelStyle: { 
-      color: '#F97316',
-      fontWeight: 'bold',
-      marginBottom: '8px',
-      fontSize: '14px'
-    }
-  }
-
   const formatDOG = (num: number, alreadyInDOG: boolean = false) => {
-    // Se alreadyInDOG = true, num já está em DOG (não precisa dividir)
-    // Se alreadyInDOG = false, num está em amount (precisa dividir por 100,000)
     const dogAmount = alreadyInDOG ? num : num / 100000
-    
-    // Para valores muito grandes (bilhões), mostrar de forma mais legível
-    if (dogAmount >= 1_000_000_000) {
-      const billions = dogAmount / 1_000_000_000
-      return `${billions.toFixed(2)}B DOG`
-    } else if (dogAmount >= 1_000_000) {
-      const millions = dogAmount / 1_000_000
-      return `${millions.toFixed(2)}M DOG`
-    } else if (dogAmount >= 1_000) {
-      const thousands = dogAmount / 1_000
-      return `${thousands.toFixed(2)}K DOG`
-    }
-    
-    return new Intl.NumberFormat('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(dogAmount) + ' DOG'
+    if (dogAmount >= 1_000_000_000) return `${(dogAmount / 1_000_000_000).toFixed(2)}B DOG`
+    if (dogAmount >= 1_000_000) return `${(dogAmount / 1_000_000).toFixed(2)}M DOG`
+    if (dogAmount >= 1_000) return `${(dogAmount / 1_000).toFixed(2)}K DOG`
+    return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(dogAmount) + ' DOG'
   }
 
   if (loading) {
     return <LoadingScreen message="Loading on-chain metrics..." />
   }
 
+  // HODL waves orange palette
+  const hodlColors = ['#F7931A', '#E8820E', '#FF6B00', '#C45E00', '#FF8C3A', '#D47214', '#B35400']
+
   return (
     <Layout currentPage="metrics" setCurrentPage={() => {}}>
       <div className="min-h-screen pt-1 pb-2 md:py-2 space-y-6 md:space-y-8 px-4 md:px-6">
-        {/* Hero Section */}
+        {/* ═══ Hero ═══ */}
         <div className="text-center space-y-1 md:space-y-2 animate-fade-in px-4 mt-8 md:mt-10">
           <div className="hero-glow">
             <div className="space-y-3 md:space-y-4 max-w-full overflow-hidden">
-              <h1 className="text-2xl md:text-4xl font-display font-bold tracking-tight break-words gradient-text-hero">
-                <span className="font-mono tracking-wider block">
+              <h1 className="text-2xl md:text-4xl font-display font-bold tracking-tight">
+                <span className="font-mono tracking-wider block text-text-accent">
                   <span className="inline-block">ON-CHAIN</span>
                   <span className="inline-block ml-4 md:ml-6">METRICS</span>
                 </span>
               </h1>
               <div className="flex items-center justify-center">
-                <span className="text-lava font-mono text-xs md:text-sm">
-                  UTXO-Based Indicators • Node Exclusive Data
+                <span className="text-text-accent font-mono text-xs md:text-sm opacity-70">
+                  UTXO-Based Indicators &bull; Node Exclusive Data
                 </span>
               </div>
             </div>
@@ -437,27 +215,26 @@ export default function MetricsPage() {
 
         <SectionDivider title="UTXO Metrics" icon={Coins} />
 
-        {/* Key Metrics Cards */}
+        {/* ═══ Key Metrics Cards ═══ */}
         <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-6 max-w-7xl mx-auto">
           {/* UTXO Count */}
-          <Card variant="glass" className="stagger-item h-full flex flex-col border-lava/[0.08] hover:border-lava/40 transition-all">
+          <Card variant="glass" className="stagger-item h-full flex flex-col border-accent-primary/10 hover:border-accent-primary/40 transition-all">
             <CardHeader className="pb-3">
-              <CardTitle variant="mono" className="text-sm text-dusty flex items-center justify-between">
+              <CardTitle variant="mono" className="text-sm text-text-secondary flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-lava" />
+                  <Activity className="w-4 h-4 text-text-accent" />
                   Total UTXOs
                 </div>
                 {utxoCountHistory.length >= 2 && (() => {
                   const latest = utxoCountHistory[utxoCountHistory.length - 1]
                   const previous = utxoCountHistory[utxoCountHistory.length - 2]
                   const change = latest.total_utxos - previous.total_utxos
-                  const changePercent = previous.total_utxos > 0 
-                    ? ((change / previous.total_utxos) * 100) 
+                  const changePercent = previous.total_utxos > 0
+                    ? ((change / previous.total_utxos) * 100)
                     : 0
                   const isPositive = change >= 0
-                  
                   return (
-                    <div className={`flex items-center gap-1.5 text-xs ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+                    <div className={`flex items-center gap-1.5 text-xs ${isPositive ? 'text-accent-positive' : 'text-accent-negative'}`}>
                       {isPositive ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
                       <span>{Math.abs(changePercent).toFixed(3)}%</span>
                     </div>
@@ -467,16 +244,16 @@ export default function MetricsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                <div className="text-xl md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
+                <div className="text-xl md:text-3xl font-bold text-text-primary font-mono metric-value tracking-tight">
                   {utxoMetrics ? utxoMetrics.total_utxos.toLocaleString('en-US') : '—'}
                 </div>
-                <p className="text-xs text-dusty font-mono uppercase tracking-wide">
+                <p className="text-xs text-text-tertiary font-mono uppercase tracking-wide">
                   Unspent Transaction Outputs
                 </p>
                 {sparklineData.length > 0 && (
                   <MetricSparkline
                     data={sparklineData.map(p => ({ recorded_at: p.recorded_at, value: p.total_utxos }))}
-                    color="#F97316"
+                    color="#F7931A"
                     height={40}
                   />
                 )}
@@ -486,12 +263,11 @@ export default function MetricsPage() {
                   const change = latest.total_utxos - previous.total_utxos
                   const isPositive = change >= 0
                   const date = new Date(previous.date)
-                  
                   return (
-                    <div className="pt-2 border-t border-white/[0.05]">
+                    <div className="pt-2 border-t border-border-subtle">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-dusty font-mono">vs {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}:</span>
-                        <span className={`font-mono font-semibold ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+                        <span className="text-text-secondary font-mono">vs {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}:</span>
+                        <span className={`font-mono font-semibold ${isPositive ? 'text-accent-positive' : 'text-accent-negative'}`}>
                           {isPositive ? '+' : ''}{change.toLocaleString('en-US')}
                         </span>
                       </div>
@@ -503,19 +279,19 @@ export default function MetricsPage() {
           </Card>
 
           {/* Average UTXO Size */}
-          <Card variant="glass" className="stagger-item h-full flex flex-col">
+          <Card variant="glass" className="stagger-item h-full flex flex-col border-accent-primary/10 hover:border-accent-primary/40 transition-all">
             <CardHeader className="pb-3">
-              <CardTitle variant="mono" className="text-sm text-dusty flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-blue-400" />
+              <CardTitle variant="mono" className="text-sm text-text-secondary flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-text-accent" />
                 Average UTXO Size
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <div className="text-xl md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
+                <div className="text-xl md:text-3xl font-bold text-text-primary font-mono metric-value tracking-tight">
                   {utxoMetrics ? formatDOG(utxoMetrics.avg_utxo_size, true) : '—'}
                 </div>
-                <p className="text-xs text-dusty font-mono uppercase tracking-wide">
+                <p className="text-xs text-text-tertiary font-mono uppercase tracking-wide">
                   Mean DOG per UTXO
                 </p>
               </div>
@@ -523,27 +299,27 @@ export default function MetricsPage() {
           </Card>
 
           {/* Gini Coefficient */}
-          <Card variant="glass" className="stagger-item h-full flex flex-col">
+          <Card variant="glass" className="stagger-item h-full flex flex-col border-accent-primary/10 hover:border-accent-primary/40 transition-all">
             <CardHeader className="pb-3">
-              <CardTitle variant="mono" className="text-sm text-dusty flex items-center gap-2">
-                <PieChart className="w-4 h-4 text-purple-400" />
+              <CardTitle variant="mono" className="text-sm text-text-secondary flex items-center gap-2">
+                <PieChart className="w-4 h-4 text-text-accent" />
                 Holder Concentration
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <div className="text-xl md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
-                  {holderConcentration 
+                <div className="text-xl md:text-3xl font-bold text-text-primary font-mono metric-value tracking-tight">
+                  {holderConcentration
                     ? holderConcentration.gini_coefficient.toFixed(3)
                     : '—'}
                 </div>
-                <p className="text-xs text-dusty font-mono uppercase tracking-wide">
+                <p className="text-xs text-text-tertiary font-mono uppercase tracking-wide">
                   Gini Coefficient (0 = equal, 1 = concentrated)
                 </p>
                 {sparklineData.length > 0 && (
                   <MetricSparkline
                     data={sparklineData.map(p => ({ recorded_at: p.recorded_at, value: p.gini_coefficient })).filter(p => p.value > 0)}
-                    color="#a855f7"
+                    color="#E8820E"
                     height={40}
                   />
                 )}
@@ -551,28 +327,28 @@ export default function MetricsPage() {
             </CardContent>
           </Card>
 
-          {/* Top 10 Supply %} */}
-          <Card variant="glass" className="stagger-item h-full flex flex-col">
+          {/* Top 10 Supply % */}
+          <Card variant="glass" className="stagger-item h-full flex flex-col border-accent-primary/10 hover:border-accent-primary/40 transition-all">
             <CardHeader className="pb-3">
-              <CardTitle variant="mono" className="text-sm text-dusty flex items-center gap-2">
-                <Users className="w-4 h-4 text-green-400" />
+              <CardTitle variant="mono" className="text-sm text-text-secondary flex items-center gap-2">
+                <Users className="w-4 h-4 text-text-accent" />
                 Top 10 Holders
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                <div className="text-xl md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
-                  {holderConcentration 
+                <div className="text-xl md:text-3xl font-bold text-text-primary font-mono metric-value tracking-tight">
+                  {holderConcentration
                     ? `${holderConcentration.top10_supply_pct.toFixed(2)}%`
                     : '—'}
                 </div>
-                <p className="text-xs text-dusty font-mono uppercase tracking-wide">
+                <p className="text-xs text-text-tertiary font-mono uppercase tracking-wide">
                   Of Total Supply
                 </p>
                 {sparklineData.length > 0 && (
                   <MetricSparkline
                     data={sparklineData.map(p => ({ recorded_at: p.recorded_at, value: p.top10_supply_pct })).filter(p => p.value > 0)}
-                    color="#10B981"
+                    color="#FF6B00"
                     height={40}
                   />
                 )}
@@ -581,92 +357,102 @@ export default function MetricsPage() {
           </Card>
         </div>
 
-        {/* HODL Waves */}
+        {/* ═══ HODL Waves ═══ */}
         {utxoAgeStats && utxoAgeStats.hodl_waves.length > 0 && (
           <>
             <SectionDivider title="HODL Waves" icon={BarChart3} />
-            <Card variant="glass" className="max-w-7xl mx-auto border-lava/[0.08]">
+            <Card variant="glass" className="max-w-7xl mx-auto border-accent-primary/10">
               <CardHeader>
-                <CardTitle className="text-lava text-xl font-display font-mono">
+                <CardTitle className="text-text-accent text-xl font-display">
                   Supply Distribution by UTXO Age
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-80 w-full hodl-waves-chart">
+                <div className="h-80 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart 
-                      data={utxoAgeStats.hodl_waves.map(wave => ({
+                    <BarChart
+                      data={utxoAgeStats.hodl_waves.map((wave, idx) => ({
                         range: wave.range,
                         percentage: wave.percentage,
-                        supply: wave.supply
+                        supply: wave.supply,
+                        fill: hodlColors[idx % hodlColors.length]
                       }))}
                       margin={{ top: 10, right: 30, left: 0, bottom: 60 }}
                     >
                       <defs>
-                        {/* Gradiente estilo TradingView - usando laranja principal */}
-                        <linearGradient id="colorHODLWaves" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#F97316" stopOpacity={0.9}/>
-                          <stop offset="95%" stopColor="#F97316" stopOpacity={0.1}/>
-                        </linearGradient>
+                        {hodlColors.map((color, i) => (
+                          <linearGradient key={i} id={`hodlGrad${i}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={color} stopOpacity={0.9}/>
+                            <stop offset="100%" stopColor={color} stopOpacity={0.4}/>
+                          </linearGradient>
+                        ))}
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.2} />
-                      <XAxis 
-                        dataKey="range" 
-                        stroke="#9CA3AF"
-                        style={{ fontSize: '11px', fontFamily: 'monospace' }}
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1A1A1A" opacity={0.5} />
+                      <XAxis
+                        dataKey="range"
+                        stroke="#3A3A3A"
+                        style={{ fontSize: '11px', fontFamily: 'var(--font-mono), monospace' }}
                         angle={-45}
                         textAnchor="end"
                         height={80}
+                        tick={{ fill: '#666666' }}
                       />
-                      <YAxis 
-                        stroke="#9CA3AF"
-                        style={{ fontSize: '12px', fontFamily: 'monospace' }}
+                      <YAxis
+                        stroke="#3A3A3A"
+                        style={{ fontSize: '12px', fontFamily: 'var(--font-mono), monospace' }}
                         tickFormatter={(value) => `${value.toFixed(1)}%`}
+                        tick={{ fill: '#666666' }}
                       />
-                      <Tooltip 
-                        {...standardTooltipStyle}
-                        labelFormatter={(label) => `Age Range: ${label}`}
-                        formatter={(value: number, name: string, props: any) => [
-                          `${value.toFixed(2)}% • ${formatDOG(props.payload.supply)}`,
-                          'Supply'
-                        ]}
+                      <Tooltip
+                        content={({ active, payload, label }) => {
+                          if (!active || !payload?.length) return null
+                          const data = payload[0].payload
+                          return (
+                            <div className="bg-black/95 border border-accent-primary/30 rounded-md px-4 py-3 shadow-bitcoin">
+                              <p className="text-text-accent font-mono text-xs font-semibold mb-1">
+                                Age: {label}
+                              </p>
+                              <p className="text-text-primary font-mono text-sm">
+                                {data.percentage.toFixed(2)}% &bull; {formatDOG(data.supply)}
+                              </p>
+                            </div>
+                          )
+                        }}
                       />
-                      <Area
-                        type="monotone"
+                      <Bar
                         dataKey="percentage"
-                        stroke="#F97316"
-                        strokeWidth={2.5}
-                        fill="url(#colorHODLWaves)"
-                        fillOpacity={0.75}
-                        activeDot={{ r: 6, stroke: '#F97316', strokeWidth: 2, fill: '#fff' }}
-                      />
-                    </AreaChart>
+                        radius={[4, 4, 0, 0]}
+                        activeBar={false}
+                      >
+                        {utxoAgeStats.hodl_waves.map((_, idx) => (
+                          <rect key={idx} fill={`url(#hodlGrad${idx % hodlColors.length})`} />
+                        ))}
+                      </Bar>
+                    </BarChart>
                   </ResponsiveContainer>
                 </div>
+                {/* Legend */}
                 <div className="mt-6">
-                  <h3 className="text-lava font-mono text-sm uppercase tracking-wide mb-3">Legend</h3>
+                  <h3 className="text-text-accent font-mono text-sm uppercase tracking-wide mb-3">Legend</h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {utxoAgeStats.hodl_waves.map((wave, idx) => {
-                      const colors = ['#F97316', '#FB923C', '#EA580C', '#10B981', '#F59E0B', '#C2410C', '#9A3412']
-                      return (
-                        <div key={idx} className="flex items-center gap-3 p-3 bg-white/[0.02] border border-white/[0.05] rounded-xl hover:border-lava/50 hover:bg-snow/[0.03] transition-all">
-                          <div 
-                            className="w-4 h-4 flex-shrink-0 shadow-sm" 
-                            style={{ backgroundColor: colors[idx % colors.length] }}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="text-snow font-mono text-sm font-medium truncate">{wave.range}</div>
-                            <div className="text-lava font-mono text-xs font-bold">
-                              {wave.percentage.toFixed(2)}%
-                            </div>
+                    {utxoAgeStats.hodl_waves.map((wave, idx) => (
+                      <div key={idx} className="flex items-center gap-3 p-3 bg-bg-elevated/50 border border-border-subtle rounded-lg hover:border-accent-primary/30 transition-all">
+                        <div
+                          className="w-4 h-4 flex-shrink-0 rounded-sm"
+                          style={{ backgroundColor: hodlColors[idx % hodlColors.length] }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-text-primary font-mono text-sm font-medium truncate">{wave.range}</div>
+                          <div className="text-text-accent font-mono text-xs font-bold">
+                            {wave.percentage.toFixed(2)}%
                           </div>
                         </div>
-                      )
-                    })}
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <p className="text-center text-dusty/70 text-xs font-mono mt-4">
-                  Average age: {utxoAgeStats.avg_age_days.toFixed(1)} days • 
+                <p className="text-center text-text-tertiary text-xs font-mono mt-4">
+                  Average age: {utxoAgeStats.avg_age_days.toFixed(1)} days &bull;
                   Median age: {utxoAgeStats.median_age_days.toFixed(1)} days
                 </p>
               </CardContent>
@@ -674,118 +460,103 @@ export default function MetricsPage() {
           </>
         )}
 
-        {/* STH vs LTH Supply */}
+        {/* ═══ STH vs LTH Supply ═══ */}
         {utxoAgeStats && (
           <>
             <SectionDivider title="STH vs LTH Supply" icon={Zap} />
             <div className="max-w-7xl mx-auto space-y-6">
-              {/* Horizontal Stacked Bar - Estilo Dashboard Moderno e Claro */}
-              <Card variant="glass" className="border-lava/[0.08]">
+              <Card variant="glass" className="border-accent-primary/10">
                 <CardHeader>
-                  <CardTitle className="text-lava text-xl font-display font-mono">
+                  <CardTitle className="text-text-accent text-xl font-display">
                     STH vs LTH Supply Distribution
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
-                    {/* Gráfico de Barras Empilhadas Horizontais - Muito mais claro e moderno */}
                     <div className="relative">
-                      <div className="h-32 w-full bg-transparent overflow-hidden relative border border-white/[0.05]">
-                        {/* Barra STH (verde) */}
-                        <div 
+                      <div className="h-32 w-full bg-transparent overflow-hidden relative border border-border-subtle rounded-lg">
+                        {/* STH bar */}
+                        <div
                           className="absolute top-0 left-0 h-full flex items-center justify-center transition-all duration-500"
-                          style={{ 
+                          style={{
                             width: `${utxoAgeStats.sth_percentage}%`,
-                            background: 'linear-gradient(135deg, #10B981, #059669)'
+                            background: 'linear-gradient(135deg, #2ECC71, #27AE60)'
                           }}
                         >
                           {utxoAgeStats.sth_percentage > 15 && (
-                            <span className="text-snow font-mono font-bold text-lg px-4">
+                            <span className="text-text-primary font-mono font-bold text-lg px-4">
                               {utxoAgeStats.sth_percentage.toFixed(1)}%
                             </span>
                           )}
                         </div>
-                        
-                        {/* Barra LTH (laranja) */}
-                        <div 
+                        {/* LTH bar */}
+                        <div
                           className="absolute top-0 right-0 h-full flex items-center justify-center transition-all duration-500"
-                          style={{ 
+                          style={{
                             width: `${utxoAgeStats.lth_percentage}%`,
-                            background: 'linear-gradient(135deg, #F97316, #EA580C)'
+                            background: 'linear-gradient(135deg, #F7931A, #E8820E)'
                           }}
                         >
                           {utxoAgeStats.lth_percentage > 15 && (
-                            <span className="text-snow font-mono font-bold text-lg px-4">
+                            <span className="text-text-primary font-mono font-bold text-lg px-4">
                               {utxoAgeStats.lth_percentage.toFixed(1)}%
                             </span>
                           )}
                         </div>
-                        
-                        {/* Label para valores pequenos */}
                         {utxoAgeStats.sth_percentage <= 15 && (
-                          <div 
-                            className="absolute top-1/2 -translate-y-1/2 left-2 text-snow font-mono font-bold text-sm"
-                            style={{ left: `${utxoAgeStats.sth_percentage / 2}%` }}
-                          >
+                          <div className="absolute top-1/2 -translate-y-1/2 left-2 text-text-primary font-mono font-bold text-sm"
+                            style={{ left: `${utxoAgeStats.sth_percentage / 2}%` }}>
                             STH: {utxoAgeStats.sth_percentage.toFixed(1)}%
                           </div>
                         )}
                         {utxoAgeStats.lth_percentage <= 15 && (
-                          <div 
-                            className="absolute top-1/2 -translate-y-1/2 text-snow font-mono font-bold text-sm"
-                            style={{ right: `${utxoAgeStats.lth_percentage / 2}%` }}
-                          >
+                          <div className="absolute top-1/2 -translate-y-1/2 text-text-primary font-mono font-bold text-sm"
+                            style={{ right: `${utxoAgeStats.lth_percentage / 2}%` }}>
                             LTH: {utxoAgeStats.lth_percentage.toFixed(1)}%
                           </div>
                         )}
                       </div>
-                      
-                      {/* Indicadores de hover/tooltip customizado */}
-                      <div className="absolute inset-0 flex items-center pointer-events-none opacity-0 hover:opacity-100 transition-opacity">
-                        {/* Tooltips aparecem no hover via CSS */}
-                      </div>
                     </div>
 
-                    {/* Legenda - Sem border-radius */}
-                    <div className="grid grid-cols-2 md:grid-cols-2 gap-3 md:gap-6">
-                      <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl">
+                    <div className="grid grid-cols-2 gap-3 md:gap-6">
+                      <div className="p-4 bg-bg-elevated/50 border border-border-subtle rounded-lg">
                         <div className="flex items-center gap-3 mb-3">
-                          <div className="w-4 h-4" style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}></div>
-                          <h3 className="text-snow font-mono font-semibold text-sm">Short-Term Holders (STH)</h3>
+                          <div className="w-4 h-4 rounded-sm" style={{ background: 'linear-gradient(135deg, #2ECC71, #27AE60)' }} />
+                          <h3 className="text-text-primary font-mono font-semibold text-sm">Short-Term Holders</h3>
                         </div>
                         <div className="space-y-1">
-                          <div className="text-2xl font-bold text-green-400 font-mono">
+                          <div className="text-2xl font-bold text-accent-positive font-mono">
                             {utxoAgeStats.sth_percentage.toFixed(2)}%
                           </div>
-                          <div className="text-dusty font-mono text-sm">
+                          <div className="text-text-secondary font-mono text-sm">
                             {formatDOG(utxoAgeStats.sth_supply)}
                           </div>
-                          <div className="text-dusty/70 font-mono text-xs">
+                          <div className="text-text-tertiary font-mono text-xs">
                             UTXOs &lt; 155 days old
                           </div>
                         </div>
                       </div>
 
-                      <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl">
+                      <div className="p-4 bg-bg-elevated/50 border border-border-subtle rounded-lg">
                         <div className="flex items-center gap-3 mb-3">
-                          <div className="w-4 h-4" style={{ background: 'linear-gradient(135deg, #F97316, #EA580C)' }}></div>
-                          <h3 className="text-snow font-mono font-semibold text-sm">Long-Term Holders (LTH)</h3>
+                          <div className="w-4 h-4 rounded-sm" style={{ background: 'linear-gradient(135deg, #F7931A, #E8820E)' }} />
+                          <h3 className="text-text-primary font-mono font-semibold text-sm">Long-Term Holders</h3>
                         </div>
                         <div className="space-y-1">
-                          <div className="text-2xl font-bold text-lava font-mono">
+                          <div className="text-2xl font-bold text-text-accent font-mono">
                             {utxoAgeStats.lth_percentage.toFixed(2)}%
                           </div>
-                          <div className="text-dusty font-mono text-sm">
+                          <div className="text-text-secondary font-mono text-sm">
                             {formatDOG(utxoAgeStats.lth_supply)}
                           </div>
-                          <div className="text-dusty/70 font-mono text-xs">
-                            UTXOs ≥ 155 days old
+                          <div className="text-text-tertiary font-mono text-xs">
+                            UTXOs &ge; 155 days old
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                  <p className="text-center text-dusty/70 text-xs font-mono mt-4">
+                  <p className="text-center text-text-tertiary text-xs font-mono mt-4">
                     Complete data from {(utxoAgeStats.total_utxos || 0).toLocaleString()} tracked UTXOs (100% of supply)
                   </p>
                 </CardContent>
@@ -794,110 +565,103 @@ export default function MetricsPage() {
           </>
         )}
 
-        {/* Top Holders Supply Distribution */}
+        {/* ═══ Holder Concentration — Bar Chart (was 3-point area = straight lines) ═══ */}
         {holderConcentration && (
           <>
             <SectionDivider title="Holder Concentration" icon={Users} />
             <div className="max-w-7xl mx-auto space-y-6">
-              {/* Gráfico de Barras */}
-              <Card variant="glass" className="border-lava/[0.08]">
+              <Card variant="glass" className="border-accent-primary/10">
                 <CardHeader>
-                  <CardTitle className="text-lava text-xl font-display font-mono">
+                  <CardTitle className="text-text-accent text-xl font-display">
                     Supply Distribution by Top Holders
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
-                    <div className="h-80 w-full holder-concentration-chart">
+                    <div className="h-80 w-full">
                       <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart 
+                        <BarChart
                           data={[
-                            { name: 'Top 10', value: holderConcentration.top10_supply_pct },
-                            { name: 'Top 100', value: holderConcentration.top100_supply_pct },
-                            { name: 'Top 1000', value: holderConcentration.top1000_supply_pct }
+                            { name: 'Top 10', value: holderConcentration.top10_supply_pct, fill: '#F7931A' },
+                            { name: 'Top 100', value: holderConcentration.top100_supply_pct, fill: '#E8820E' },
+                            { name: 'Top 1000', value: holderConcentration.top1000_supply_pct, fill: '#C45E00' },
+                            { name: 'Others', value: Math.max(0, 100 - holderConcentration.top1000_supply_pct), fill: '#3A3A3A' }
                           ]}
-                          margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                          margin={{ top: 10, right: 30, left: 0, bottom: 10 }}
                         >
                           <defs>
-                            <linearGradient id="colorHolderConcentration" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#F97316" stopOpacity={0.9}/>
-                              <stop offset="95%" stopColor="#F97316" stopOpacity={0.1}/>
+                            <linearGradient id="barGrad1" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#F7931A" stopOpacity={1}/>
+                              <stop offset="100%" stopColor="#F7931A" stopOpacity={0.5}/>
+                            </linearGradient>
+                            <linearGradient id="barGrad2" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#E8820E" stopOpacity={1}/>
+                              <stop offset="100%" stopColor="#E8820E" stopOpacity={0.5}/>
+                            </linearGradient>
+                            <linearGradient id="barGrad3" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#C45E00" stopOpacity={1}/>
+                              <stop offset="100%" stopColor="#C45E00" stopOpacity={0.5}/>
+                            </linearGradient>
+                            <linearGradient id="barGrad4" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#3A3A3A" stopOpacity={0.6}/>
+                              <stop offset="100%" stopColor="#3A3A3A" stopOpacity={0.2}/>
                             </linearGradient>
                           </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.2} />
-                          <XAxis 
-                            dataKey="name" 
-                            stroke="#9CA3AF"
-                            style={{ fontSize: '12px', fontFamily: 'monospace' }}
+                          <CartesianGrid strokeDasharray="3 3" stroke="#1A1A1A" opacity={0.5} />
+                          <XAxis
+                            dataKey="name"
+                            stroke="#3A3A3A"
+                            style={{ fontSize: '12px', fontFamily: 'var(--font-mono), monospace' }}
+                            tick={{ fill: '#666666' }}
                           />
-                          <YAxis 
-                            stroke="#9CA3AF"
-                            style={{ fontSize: '12px', fontFamily: 'monospace' }}
-                            tickFormatter={(value) => `${value.toFixed(1)}%`}
+                          <YAxis
+                            stroke="#3A3A3A"
+                            style={{ fontSize: '12px', fontFamily: 'var(--font-mono), monospace' }}
+                            tickFormatter={(value) => `${value.toFixed(0)}%`}
+                            tick={{ fill: '#666666' }}
                           />
-                          <Tooltip 
-                            {...standardTooltipStyle}
-                            formatter={(value: number) => [`${value.toFixed(2)}%`, 'Supply']}
+                          <Tooltip
+                            content={({ active, payload }) => {
+                              if (!active || !payload?.length) return null
+                              const d = payload[0].payload
+                              return (
+                                <div className="bg-black/95 border border-accent-primary/30 rounded-md px-4 py-3 shadow-bitcoin">
+                                  <p className="text-text-accent font-mono text-xs font-semibold mb-1">{d.name}</p>
+                                  <p className="text-text-primary font-mono text-sm font-bold">{d.value.toFixed(2)}%</p>
+                                </div>
+                              )
+                            }}
                           />
-                          <Area
-                            type="monotone"
-                            dataKey="value"
-                            stroke="#F97316"
-                            strokeWidth={2.5}
-                            fill="url(#colorHolderConcentration)"
-                            fillOpacity={0.75}
-                            activeDot={{ r: 6, stroke: '#F97316', strokeWidth: 2, fill: '#fff' }}
-                          />
-                        </AreaChart>
+                          <Bar dataKey="value" radius={[6, 6, 0, 0]} activeBar={false}>
+                            {[0,1,2,3].map(i => (
+                              <rect key={i} fill={`url(#barGrad${i+1})`} />
+                            ))}
+                          </Bar>
+                        </BarChart>
                       </ResponsiveContainer>
                     </div>
 
-                    {/* Legenda - Sem border-radius */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl">
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="w-4 h-4" style={{ background: 'linear-gradient(135deg, #F97316, #EA580C)' }}></div>
-                          <h3 className="text-snow font-mono font-semibold text-sm">Top 10</h3>
-                        </div>
-                        <div className="space-y-1">
-                          <div className="text-2xl font-bold text-lava font-mono">
-                            {holderConcentration.top10_supply_pct.toFixed(2)}%
+                      {[
+                        { label: 'Top 10', value: holderConcentration.top10_supply_pct, color: '#F7931A' },
+                        { label: 'Top 100', value: holderConcentration.top100_supply_pct, color: '#E8820E' },
+                        { label: 'Top 1000', value: holderConcentration.top1000_supply_pct, color: '#C45E00' },
+                      ].map((item) => (
+                        <div key={item.label} className="p-4 bg-bg-elevated/50 border border-border-subtle rounded-lg">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="w-4 h-4 rounded-sm" style={{ backgroundColor: item.color }} />
+                            <h3 className="text-text-primary font-mono font-semibold text-sm">{item.label}</h3>
                           </div>
-                          <div className="text-dusty/70 font-mono text-xs">
-                            of total supply
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl">
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="w-4 h-4" style={{ background: 'linear-gradient(135deg, #F97316, #EA580C)' }}></div>
-                          <h3 className="text-snow font-mono font-semibold text-sm">Top 100</h3>
-                        </div>
-                        <div className="space-y-1">
-                          <div className="text-2xl font-bold text-lava font-mono">
-                            {holderConcentration.top100_supply_pct.toFixed(2)}%
-                          </div>
-                          <div className="text-dusty/70 font-mono text-xs">
-                            of total supply
+                          <div className="space-y-1">
+                            <div className="text-2xl font-bold text-text-accent font-mono">
+                              {item.value.toFixed(2)}%
+                            </div>
+                            <div className="text-text-tertiary font-mono text-xs">
+                              of total supply
+                            </div>
                           </div>
                         </div>
-                      </div>
-
-                      <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl">
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="w-4 h-4" style={{ background: 'linear-gradient(135deg, #F97316, #EA580C)' }}></div>
-                          <h3 className="text-snow font-mono font-semibold text-sm">Top 1000</h3>
-                        </div>
-                        <div className="space-y-1">
-                          <div className="text-2xl font-bold text-lava font-mono">
-                            {holderConcentration.top1000_supply_pct.toFixed(2)}%
-                          </div>
-                          <div className="text-dusty/70 font-mono text-xs">
-                            of total supply
-                          </div>
-                        </div>
-                      </div>
+                      ))}
                     </div>
                   </div>
                 </CardContent>
@@ -906,26 +670,24 @@ export default function MetricsPage() {
           </>
         )}
 
-        {/* UTXO Distribution */}
+        {/* ═══ UTXO Distribution by Size ═══ */}
         {utxoMetrics && utxoMetrics.utxo_distribution.length > 0 && (
           <>
             <SectionDivider title="UTXO Distribution by Size" icon={PieChart} />
-            <Card variant="glass" className="max-w-7xl mx-auto border-lava/[0.08]">
+            <Card variant="glass" className="max-w-7xl mx-auto border-accent-primary/10">
               <CardHeader>
-                <CardTitle className="text-lava text-xl font-display font-mono">
+                <CardTitle className="text-text-accent text-xl font-display">
                   Distribution of UTXOs by Size
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  {/* Treemap - Cores Sólidas Laranja */}
                   <div className="h-96 w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <Treemap
                         data={(() => {
-                          // Ordenar por supply e adicionar cores laranja vibrantes
                           const sorted = [...utxoMetrics.utxo_distribution].sort((a, b) => b.supply - a.supply)
-                          const orangeColors = ['#FF6B00', '#FF8C00', '#FF7F00', '#FFA500', '#FF9500', '#FFB340']
+                          const orangeColors = ['#F7931A', '#E8820E', '#FF6B00', '#C45E00', '#FF8C3A', '#B35400']
                           return sorted.map((dist, index) => ({
                             name: dist.range,
                             size: dist.supply,
@@ -937,70 +699,60 @@ export default function MetricsPage() {
                         })()}
                         dataKey="size"
                         aspectRatio={4/3}
-                        stroke="#111827"
+                        stroke="#000000"
+                        strokeWidth={2}
                         animationDuration={800}
                         nameKey="name"
                       >
                         <Tooltip
-                          {...standardTooltipStyle}
                           content={({ active, payload }) => {
-                            if (active && payload && payload.length) {
-                              const data = payload[0].payload
-                              const name = data.name || data.range || 'Unknown'
-                              
-                              // Buscar o percentage do objeto original
-                              const originalData = utxoMetrics.utxo_distribution.find(d => d.range === name)
-                              const percentage = originalData?.percentage || data.percentage || 0
-                              const count = data.count || originalData?.count || 0
-                              const supply = data.supply || data.size || originalData?.supply || 0
-                              
-                              return (
-                                <div style={standardTooltipStyle.contentStyle}>
-                                  <p style={standardTooltipStyle.labelStyle}>{name}</p>
-                                  <p style={standardTooltipStyle.itemStyle}>
-                                    {percentage.toFixed(2)}% • {formatNumber(count)} UTXOs
-                                  </p>
-                                  <p style={standardTooltipStyle.itemStyle}>
-                                    {formatDOG(supply, true)} Supply
-                                  </p>
-                                </div>
-                              )
-                            }
-                            return null
+                            if (!active || !payload?.length) return null
+                            const data = payload[0].payload
+                            const name = data.name || data.range || 'Unknown'
+                            const originalData = utxoMetrics.utxo_distribution.find(d => d.range === name)
+                            const percentage = originalData?.percentage || data.percentage || 0
+                            const count = data.count || originalData?.count || 0
+                            const supply = data.supply || data.size || originalData?.supply || 0
+                            return (
+                              <div className="bg-black/95 border border-accent-primary/30 rounded-md px-4 py-3 shadow-bitcoin">
+                                <p className="text-text-accent font-mono text-xs font-semibold mb-1">{name}</p>
+                                <p className="text-text-primary font-mono text-sm">
+                                  {percentage.toFixed(2)}% &bull; {formatNumber(count)} UTXOs
+                                </p>
+                                <p className="text-text-secondary font-mono text-xs mt-1">
+                                  {formatDOG(supply, true)} Supply
+                                </p>
+                              </div>
+                            )
                           }}
                         />
                       </Treemap>
                     </ResponsiveContainer>
                   </div>
-                  
-                  {/* Lista de Dados - Ordenada por volume (supply) */}
+
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {[...utxoMetrics.utxo_distribution]
                       .sort((a, b) => b.supply - a.supply)
                       .map((dist, idx) => {
-                        // Cores laranja vibrantes - mesma ordem do Treemap
-                        const orangeColors = ['#FF6B00', '#FF8C00', '#FF7F00', '#FFA500', '#FF9500', '#FFB340']
+                        const orangeColors = ['#F7931A', '#E8820E', '#FF6B00', '#C45E00', '#FF8C3A', '#B35400']
                         const color = orangeColors[idx % orangeColors.length]
                         return (
-                          <div key={dist.range} className="flex items-center justify-between p-3 bg-white/[0.02] border border-white/[0.05] rounded-xl hover:border-lava/50 hover:bg-snow/[0.03] transition-all">
+                          <div key={dist.range} className="flex items-center justify-between p-3 bg-bg-elevated/50 border border-border-subtle rounded-lg hover:border-accent-primary/30 transition-all">
                             <div className="flex items-center gap-3 flex-1 min-w-0">
-                              <div 
-                                className="w-4 h-4 flex-shrink-0 rounded-sm" 
-                                style={{ backgroundColor: color }}
-                              />
-                            <div className="flex-1 min-w-0">
-                              <div className="text-snow font-mono text-sm truncate">{dist.range}</div>
-                              <div className="text-dusty font-mono text-xs truncate">
-                                {formatNumber(dist.count)} UTXOs • {formatDOG(dist.supply, true)}
+                              <div className="w-4 h-4 flex-shrink-0 rounded-sm" style={{ backgroundColor: color }} />
+                              <div className="flex-1 min-w-0">
+                                <div className="text-text-primary font-mono text-sm truncate">{dist.range}</div>
+                                <div className="text-text-secondary font-mono text-xs truncate">
+                                  {formatNumber(dist.count)} UTXOs &bull; {formatDOG(dist.supply, true)}
+                                </div>
                               </div>
                             </div>
+                            <div className="text-text-accent font-mono font-bold text-sm ml-2">
+                              {dist.percentage.toFixed(1)}%
+                            </div>
                           </div>
-                          <div className="text-lava font-mono font-bold text-sm ml-2">
-                            {dist.percentage.toFixed(1)}%
-                          </div>
-                        </div>
-                      )
-                    })}
+                        )
+                      })}
                   </div>
                 </div>
               </CardContent>
@@ -1008,72 +760,65 @@ export default function MetricsPage() {
           </>
         )}
 
-        {/* Realized Cap / MVRV Ratio */}
+        {/* ═══ Realized Cap / MVRV Ratio ═══ */}
         {realizedCapMetrics && (
           <>
             <SectionDivider title="Realized Cap / MVRV Ratio" icon={Zap} />
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-6 max-w-7xl mx-auto items-start">
-              {/* MVRV Ratio - Visual Comparison Card */}
-              <Card variant="glass" className="border-lava/[0.08] lg:col-span-2">
+              {/* MVRV Ratio Visual */}
+              <Card variant="glass" className="border-accent-primary/10 lg:col-span-2">
                 <CardHeader>
-                  <CardTitle className="text-lava text-xl font-display font-mono">
+                  <CardTitle className="text-text-accent text-xl font-display">
                     MVRV Ratio
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-8">
-                    {/* Valor Principal */}
                     <div className="text-center">
-                      <div className="text-6xl font-bold bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 bg-clip-text text-transparent font-mono mb-3">
+                      <div className="text-6xl font-bold bg-gradient-bitcoin bg-clip-text text-transparent font-mono mb-3">
                         {realizedCapMetrics.mvrv_ratio.toFixed(2)}
                       </div>
-                      <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/[0.02] border border-white/[0.05] rounded-xl">
-                        <div className={`w-2 h-2 rounded-full ${realizedCapMetrics.mvrv_ratio < 1.0 ? 'bg-green-400' : realizedCapMetrics.mvrv_ratio > 3.7 ? 'bg-red-400' : 'bg-yellow-400'}`}></div>
-                        <p className="text-sm font-mono uppercase tracking-wide text-snow/80">
+                      <div className="inline-flex items-center gap-2 px-4 py-2 bg-bg-elevated/50 border border-border-subtle rounded-lg">
+                        <div className={`w-2 h-2 rounded-full ${
+                          realizedCapMetrics.mvrv_ratio < 1.0 ? 'bg-accent-positive' :
+                          realizedCapMetrics.mvrv_ratio > 3.7 ? 'bg-accent-negative' : 'bg-accent-primary'
+                        }`} />
+                        <p className="text-sm font-mono uppercase tracking-wide text-text-primary/80">
                           {realizedCapMetrics.mvrv_ratio < 1.0 ? 'Undervalued' : realizedCapMetrics.mvrv_ratio > 3.7 ? 'Overvalued' : 'Fair Value'}
                         </p>
                       </div>
                     </div>
 
-                    {/* Comparação Visual Market Cap vs Realized Cap */}
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between text-xs text-dusty font-mono uppercase tracking-wide">
+                      <div className="flex items-center justify-between text-xs text-text-secondary font-mono uppercase tracking-wide">
                         <span>Market Cap</span>
                         <span>Realized Cap</span>
                       </div>
-                      <div className="relative h-32 w-full bg-white/[0.02] border border-white/[0.05] rounded-xl overflow-hidden">
-                        {/* Market Cap Bar */}
-                        <div 
+                      <div className="relative h-32 w-full bg-bg-elevated/30 border border-border-subtle rounded-lg overflow-hidden">
+                        <div
                           className="absolute top-0 left-0 h-full flex items-center justify-center transition-all duration-500"
-                          style={{ 
-                            width: `${(realizedCapMetrics.market_cap / realizedCapMetrics.realized_cap) * 100}%`,
-                            background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(37, 99, 235, 0.6))'
+                          style={{
+                            width: `${Math.min(100, (realizedCapMetrics.market_cap / realizedCapMetrics.realized_cap) * 100)}%`,
+                            background: 'linear-gradient(135deg, #F7931A, #E8820E)'
                           }}
                         >
-                          <span className="text-snow font-mono font-bold text-sm px-3">
+                          <span className="text-text-primary font-mono font-bold text-sm px-3">
                             ${(realizedCapMetrics.market_cap / 1_000_000).toFixed(2)}M
                           </span>
                         </div>
-                        
-                        {/* Realized Cap Background (full width reference) */}
-                        <div 
-                          className="absolute top-0 right-0 h-full w-full opacity-20"
-                          style={{ 
-                            background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.3), rgba(234, 88, 12, 0.2))'
-                          }}
-                        ></div>
-                        
-                        {/* Label Realized Cap */}
-                        <div className="absolute bottom-2 right-4 text-snow font-mono font-semibold text-xs">
+                        <div
+                          className="absolute top-0 right-0 h-full w-full opacity-10"
+                          style={{ background: 'linear-gradient(135deg, #F7931A, #C45E00)' }}
+                        />
+                        <div className="absolute bottom-2 right-4 text-text-primary font-mono font-semibold text-xs">
                           Realized: ${(realizedCapMetrics.realized_cap / 1_000_000).toFixed(2)}M
                         </div>
                       </div>
-                      
-                      {/* Interpretação */}
-                      <div className="pt-4 border-t border-white/[0.05]">
-                        <p className="text-xs text-dusty font-mono leading-relaxed">
-                          MVRV Ratio compares Market Cap to Realized Cap. 
-                          {realizedCapMetrics.mvrv_ratio < 1.0 
+
+                      <div className="pt-4 border-t border-border-subtle">
+                        <p className="text-xs text-text-secondary font-mono leading-relaxed">
+                          MVRV Ratio compares Market Cap to Realized Cap.
+                          {realizedCapMetrics.mvrv_ratio < 1.0
                             ? ' Values below 1.0 indicate the asset is trading below its average cost basis (undervalued).'
                             : realizedCapMetrics.mvrv_ratio > 3.7
                             ? ' Values above 3.7 suggest the asset may be overvalued relative to historical cost basis.'
@@ -1085,54 +830,54 @@ export default function MetricsPage() {
                 </CardContent>
               </Card>
 
-              {/* Info Cards - Alinhados no topo */}
+              {/* Info Cards */}
               <div className="space-y-6 flex flex-col">
-                <Card variant="glass" className="border-lava/[0.08] hover:border-lava/40 transition-all">
+                <Card variant="glass" className="border-accent-primary/10 hover:border-accent-primary/40 transition-all">
                   <CardHeader className="pb-3">
-                    <CardTitle variant="mono" className="text-sm text-dusty flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4 text-lava" />
+                    <CardTitle variant="mono" className="text-sm text-text-secondary flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-text-accent" />
                       Realized Cap
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-snow font-mono">
+                    <div className="text-2xl font-bold text-text-primary font-mono">
                       ${(realizedCapMetrics.realized_cap / 1_000_000).toFixed(2)}M
                     </div>
-                    <p className="text-xs text-dusty font-mono uppercase tracking-wide mt-1">
+                    <p className="text-xs text-text-tertiary font-mono uppercase tracking-wide mt-1">
                       Total Cost Basis
                     </p>
                   </CardContent>
                 </Card>
 
-                <Card variant="glass" className="border-blue-500/20 hover:border-blue-500/40 transition-all">
+                <Card variant="glass" className="border-accent-primary/10 hover:border-accent-primary/40 transition-all">
                   <CardHeader className="pb-3">
-                    <CardTitle variant="mono" className="text-sm text-dusty flex items-center gap-2">
-                      <BarChart3 className="w-4 h-4 text-blue-400" />
+                    <CardTitle variant="mono" className="text-sm text-text-secondary flex items-center gap-2">
+                      <BarChart3 className="w-4 h-4 text-text-accent" />
                       Market Cap
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-snow font-mono">
+                    <div className="text-2xl font-bold text-text-primary font-mono">
                       ${(realizedCapMetrics.market_cap / 1_000_000).toFixed(2)}M
                     </div>
-                    <p className="text-xs text-dusty font-mono uppercase tracking-wide mt-1">
+                    <p className="text-xs text-text-tertiary font-mono uppercase tracking-wide mt-1">
                       Current Valuation
                     </p>
                   </CardContent>
                 </Card>
 
-                <Card variant="glass" className="border-purple-500/20 hover:border-purple-500/40 transition-all">
+                <Card variant="glass" className="border-accent-primary/10 hover:border-accent-primary/40 transition-all">
                   <CardHeader className="pb-3">
-                    <CardTitle variant="mono" className="text-sm text-dusty flex items-center gap-2">
-                      <Coins className="w-4 h-4 text-purple-400" />
+                    <CardTitle variant="mono" className="text-sm text-text-secondary flex items-center gap-2">
+                      <Coins className="w-4 h-4 text-text-accent" />
                       Current Price
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-snow font-mono">
+                    <div className="text-2xl font-bold text-text-primary font-mono">
                       ${realizedCapMetrics.current_price.toFixed(8)}
                     </div>
-                    <p className="text-xs text-dusty font-mono uppercase tracking-wide mt-1">
+                    <p className="text-xs text-text-tertiary font-mono uppercase tracking-wide mt-1">
                       USD per DOG
                     </p>
                   </CardContent>
@@ -1142,104 +887,93 @@ export default function MetricsPage() {
           </>
         )}
 
-        {/* Supply in Profit/Loss */}
+        {/* ═══ Supply in Profit/Loss ═══ */}
         {supplyProfitLoss && (
           <>
             <SectionDivider title="Supply in Profit/Loss" icon={TrendingUp} />
-            <Card variant="glass" className="max-w-7xl mx-auto border-lava/[0.08]">
+            <Card variant="glass" className="max-w-7xl mx-auto border-accent-primary/10">
               <CardHeader>
-                <CardTitle className="text-lava text-xl font-display font-mono">
+                <CardTitle className="text-text-accent text-xl font-display">
                   Supply Distribution by Profit/Loss Status
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  {/* Gráfico de Barras Empilhadas Horizontais - Mesmo estilo do STH vs LTH */}
                   <div className="relative">
-                    <div className="h-32 w-full bg-transparent overflow-hidden relative border border-white/[0.05]">
-                      {/* Barra Profit (verde) */}
-                      <div 
+                    <div className="h-32 w-full bg-transparent overflow-hidden relative border border-border-subtle rounded-lg">
+                      <div
                         className="absolute top-0 left-0 h-full flex items-center justify-center transition-all duration-500"
-                        style={{ 
+                        style={{
                           width: `${supplyProfitLoss.supply_in_profit_pct}%`,
-                          background: 'linear-gradient(135deg, #22C55E, #16A34A)'
+                          background: 'linear-gradient(135deg, #2ECC71, #27AE60)'
                         }}
                       >
                         {supplyProfitLoss.supply_in_profit_pct > 15 && (
-                          <span className="text-snow font-mono font-bold text-lg px-4">
+                          <span className="text-text-primary font-mono font-bold text-lg px-4">
                             {supplyProfitLoss.supply_in_profit_pct.toFixed(2)}%
                           </span>
                         )}
                       </div>
-                      
-                      {/* Barra Loss (vermelho) */}
-                      <div 
+                      <div
                         className="absolute top-0 right-0 h-full flex items-center justify-center transition-all duration-500"
-                        style={{ 
+                        style={{
                           width: `${supplyProfitLoss.supply_in_loss_pct}%`,
-                          background: 'linear-gradient(135deg, #DC2626, #B91C1C)'
+                          background: 'linear-gradient(135deg, #E74C3C, #C0392B)'
                         }}
                       >
                         {supplyProfitLoss.supply_in_loss_pct > 15 && (
-                          <span className="text-snow font-mono font-bold text-lg px-4">
+                          <span className="text-text-primary font-mono font-bold text-lg px-4">
                             {supplyProfitLoss.supply_in_loss_pct.toFixed(2)}%
                           </span>
                         )}
                       </div>
-                      
-                      {/* Label para valores pequenos */}
                       {supplyProfitLoss.supply_in_profit_pct <= 15 && (
-                        <div 
-                          className="absolute top-1/2 -translate-y-1/2 left-2 text-snow font-mono font-bold text-sm"
-                          style={{ left: `${supplyProfitLoss.supply_in_profit_pct / 2}%` }}
-                        >
+                        <div className="absolute top-1/2 -translate-y-1/2 left-2 text-text-primary font-mono font-bold text-sm"
+                          style={{ left: `${supplyProfitLoss.supply_in_profit_pct / 2}%` }}>
                           Profit: {supplyProfitLoss.supply_in_profit_pct.toFixed(2)}%
                         </div>
                       )}
                       {supplyProfitLoss.supply_in_loss_pct <= 15 && (
-                        <div 
-                          className="absolute top-1/2 -translate-y-1/2 text-snow font-mono font-bold text-sm"
-                          style={{ right: `${supplyProfitLoss.supply_in_loss_pct / 2}%` }}
-                        >
+                        <div className="absolute top-1/2 -translate-y-1/2 text-text-primary font-mono font-bold text-sm"
+                          style={{ right: `${supplyProfitLoss.supply_in_loss_pct / 2}%` }}>
                           Loss: {supplyProfitLoss.supply_in_loss_pct.toFixed(2)}%
                         </div>
                       )}
                     </div>
                   </div>
 
-                  {/* Legenda - Sem border-radius */}
-                  <div className="grid grid-cols-2 md:grid-cols-2 gap-3 md:gap-6">
-                    <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl">
+                  <div className="grid grid-cols-2 gap-3 md:gap-6">
+                    <div className="p-4 bg-bg-elevated/50 border border-border-subtle rounded-lg">
                       <div className="flex items-center gap-3 mb-3">
-                        <div className="w-4 h-4" style={{ background: 'linear-gradient(135deg, #22C55E, #16A34A)' }}></div>
-                        <h3 className="text-snow font-mono font-semibold text-sm">Supply in Profit</h3>
+                        <div className="w-4 h-4 rounded-sm" style={{ background: 'linear-gradient(135deg, #2ECC71, #27AE60)' }} />
+                        <h3 className="text-text-primary font-mono font-semibold text-sm">Supply in Profit</h3>
                       </div>
                       <div className="space-y-1">
-                        <div className="text-2xl font-bold text-green-400 font-mono">
+                        <div className="text-2xl font-bold text-accent-positive font-mono">
                           {supplyProfitLoss.supply_in_profit_pct.toFixed(2)}%
                         </div>
-                        <div className="text-dusty font-mono text-sm">
+                        <div className="text-text-secondary font-mono text-sm">
                           {formatDOG(supplyProfitLoss.supply_in_profit, true)}
                         </div>
-                        <div className="text-dusty/70 font-mono text-xs">
+                        <div className="text-text-tertiary font-mono text-xs">
                           Currently in profit
                         </div>
                       </div>
                     </div>
 
-                    <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl">
+                    <div className="p-4 bg-bg-elevated/50 border border-border-subtle rounded-lg">
                       <div className="flex items-center gap-3 mb-3">
-                        <div className="w-4 h-4" style={{ background: 'linear-gradient(135deg, #DC2626, #B91C1C)' }}></div>
-                        <h3 className="text-snow font-mono font-semibold text-sm">Supply in Loss</h3>
+                        <div className="w-4 h-4 rounded-sm" style={{ background: 'linear-gradient(135deg, #E74C3C, #C0392B)' }} />
+                        <h3 className="text-text-primary font-mono font-semibold text-sm">Supply in Loss</h3>
                       </div>
                       <div className="space-y-1">
-                        <div className="text-2xl font-bold text-red-400 font-mono">
+                        <div className="text-2xl font-bold text-accent-negative font-mono">
                           {supplyProfitLoss.supply_in_loss_pct.toFixed(2)}%
                         </div>
-                        <div className="text-dusty font-mono text-sm">
+                        <div className="text-text-secondary font-mono text-sm">
                           {formatDOG(supplyProfitLoss.supply_in_loss, true)}
                         </div>
-                        <div className="text-dusty/70 font-mono text-xs">
+                        <div className="text-text-tertiary font-mono text-xs">
                           Currently in loss
                         </div>
                       </div>
@@ -1251,10 +985,9 @@ export default function MetricsPage() {
           </>
         )}
 
-        {/* Historical Trends Section */}
+        {/* ═══ Historical Trends ═══ */}
         <HistoricalChartsSection />
       </div>
     </Layout>
   )
 }
-
