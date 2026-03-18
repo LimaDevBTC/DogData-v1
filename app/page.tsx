@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 import { SectionDivider } from "@/components/ui/section-divider"
 import { PriceCards } from "@/components/ui/price-cards"
+import { TransactionHeatmap } from "@/components/ui/transaction-heatmap"
 import dogStatsFallback from '@/data/dog_stats_fallback.json'
 import dynamic from 'next/dynamic'
 
@@ -563,6 +564,9 @@ export default function OverviewPage() {
 
         <SectionDivider title="Multi-Exchange Prices" icon={TrendingUp} />
         <PriceCards />
+
+        <SectionDivider title="On-Chain Activity" icon={Activity} />
+        <TransactionHeatmap />
 
         <SectionDivider title="Price Chart" icon={BarChart3} />
 
