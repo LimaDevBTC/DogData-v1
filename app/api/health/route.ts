@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
 import { redisClient } from '@/lib/upstash';
-import fs from 'fs';
-import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,55 +7,54 @@ export async function GET() {
   const checks: Record<string, { status: 'ok' | 'degraded' | 'down'; latency_ms?: number; details?: string }> = {};
   let overallStatus: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
 
-  // Check 1: Data files availability
-  const dataStart = Date.now();
-  try {
-    const holdersPath = path.join(process.cwd(), 'data', 'dog_holders_by_address.json');
-    if (fs.existsSync(holdersPath)) {
-      const stats = fs.statSync(holdersPath);
-      const ageHours = (Date.now() - stats.mtimeMs) / (1000 * 60 * 60);
-      checks.data_files = {
-        status: ageHours < 24 ? 'ok' : 'degraded',
-        latency_ms: Date.now() - dataStart,
-        details: `Holders file age: ${ageHours.toFixed(1)}h`
-      };
-      if (ageHours >= 24) overallStatus = 'degraded';
-    } else {
-      checks.data_files = { status: 'down', details: 'Holders file not found' };
-      overallStatus = 'unhealthy';
-    }
-  } catch (e: any) {
-    checks.data_files = { status: 'down', details: e.message };
-    overallStatus = 'unhealthy';
-  }
-
-  // Check 2: Redis connectivity
+  // Check 1: Redis connectivity
   const redisStart = Date.now();
   try {
     await redisClient.ping();
     checks.redis = { status: 'ok', latency_ms: Date.now() - redisStart };
   } catch (e: any) {
     checks.redis = { status: 'down', latency_ms: Date.now() - redisStart, details: e.message };
-    overallStatus = overallStatus === 'healthy' ? 'degraded' : overallStatus;
+    overallStatus = 'degraded';
   }
 
-  // Check 3: Scanner status
+  // Check 2: Holders data availability (via internal API, avoids fs bloat)
+  const holdersStart = Date.now();
   try {
-    const scannerPath = path.join(process.cwd(), 'data', 'scanner_state.json');
-    if (fs.existsSync(scannerPath)) {
-      const state = JSON.parse(fs.readFileSync(scannerPath, 'utf-8'));
-      const lastScanTime = new Date(state.timestamp || state.last_updated || 0).getTime();
-      const scannerLagMinutes = (Date.now() - lastScanTime) / (1000 * 60);
-      checks.scanner = {
-        status: scannerLagMinutes < 10 ? 'ok' : scannerLagMinutes < 60 ? 'degraded' : 'down',
-        details: `Last scan: ${scannerLagMinutes.toFixed(1)}min ago, block: ${state.last_block || state.block_height || 'unknown'}`
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+      || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+    const res = await fetch(`${baseUrl}/api/dog-rune/holders?limit=1`, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(8000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const total = data.pagination?.total || 0;
+      checks.holders_data = {
+        status: total > 0 ? 'ok' : 'down',
+        latency_ms: Date.now() - holdersStart,
+        details: `${total} holders, updated: ${data.metadata?.updatedAt || 'unknown'}`,
       };
-      if (scannerLagMinutes >= 60) overallStatus = overallStatus === 'healthy' ? 'degraded' : overallStatus;
+      if (total === 0) overallStatus = 'unhealthy';
     } else {
-      checks.scanner = { status: 'degraded', details: 'Scanner state file not found' };
+      checks.holders_data = { status: 'down', latency_ms: Date.now() - holdersStart, details: `HTTP ${res.status}` };
+      overallStatus = 'unhealthy';
     }
   } catch (e: any) {
-    checks.scanner = { status: 'degraded', details: e.message };
+    checks.holders_data = { status: 'down', latency_ms: Date.now() - holdersStart, details: e.message };
+    overallStatus = 'unhealthy';
+  }
+
+  // Check 3: Transactions in Redis
+  try {
+    const txData = await redisClient.get('dog:transactions');
+    if (txData) {
+      checks.transactions = { status: 'ok', details: 'Cached in Redis' };
+    } else {
+      checks.transactions = { status: 'degraded', details: 'No cached transactions' };
+      if (overallStatus === 'healthy') overallStatus = 'degraded';
+    }
+  } catch (e: any) {
+    checks.transactions = { status: 'degraded', details: e.message };
   }
 
   const statusCode = overallStatus === 'unhealthy' ? 503 : 200;

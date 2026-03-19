@@ -1,30 +1,24 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   let totalHolders = 89287;
   let totalUtxos = 250002;
-  let lastBlock = 0;
   let lastScan = new Date().toISOString();
 
+  // Fetch live stats via internal API (avoids fs which bloats serverless bundle)
   try {
-    const holdersPath = path.join(process.cwd(), 'data', 'dog_holders_by_address.json');
-    if (fs.existsSync(holdersPath)) {
-      const data = JSON.parse(fs.readFileSync(holdersPath, 'utf-8'));
-      totalHolders = data.total_holders || totalHolders;
-      totalUtxos = data.total_utxos || totalUtxos;
-      lastScan = data.timestamp || lastScan;
-    }
-  } catch {}
-
-  try {
-    const scannerPath = path.join(process.cwd(), 'data', 'scanner_state.json');
-    if (fs.existsSync(scannerPath)) {
-      const state = JSON.parse(fs.readFileSync(scannerPath, 'utf-8'));
-      lastBlock = state.last_block || state.block_height || 0;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+      || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+    const res = await fetch(`${baseUrl}/api/dog-rune/holders?limit=1`, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      totalHolders = data.pagination?.total || totalHolders;
+      lastScan = data.metadata?.updatedAt || lastScan;
     }
   } catch {}
 
@@ -84,7 +78,7 @@ export async function GET() {
         endpoints: ["/api/airdrop/summary", "/api/airdrop/recipients"]
       },
       bitcoin: {
-        description: "Bitcoin network status \u2014 blocks, hashrate, mempool, fees",
+        description: "Bitcoin network status — blocks, hashrate, mempool, fees",
         endpoints: ["/api/bitcoin"]
       },
       markets: {
@@ -95,7 +89,6 @@ export async function GET() {
     data_quality: {
       source: "Bitcoin Core + Ord (local full node)",
       indexing_method: "direct block scanning (no third-party APIs)",
-      current_block: lastBlock,
       total_holders_indexed: totalHolders,
       total_utxos_tracked: totalUtxos,
       last_scan: lastScan
