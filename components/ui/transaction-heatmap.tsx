@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Activity, Download, ArrowLeftRight, Flame } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────
@@ -61,13 +61,17 @@ interface RedisTransaction {
   receivers?: Array<{ address: string; amount_dog: number; is_change?: boolean }>
 }
 
-// ─── Cell sizes per timeframe (px) — square cells ────────────
-const CELL_SIZES: Record<HeatmapTimeframe, { size: number; gap: number }> = {
-  '1d':  { size: 18, gap: 2 },
-  '7d':  { size: 18, gap: 2 },
-  '30d': { size: 16, gap: 2 },
-  '1y':  { size: 12, gap: 1 },
+// ─── Cell gap per timeframe (px) — cell size computed dynamically ─
+const CELL_GAPS: Record<HeatmapTimeframe, number> = {
+  '1d':  2,
+  '7d':  2,
+  '30d': 2,
+  '1y':  1,
 }
+
+// Minimum cell sizes to keep things usable
+const MIN_CELL_SIZE = 6
+const MAX_CELL_SIZE = 28
 
 // ─── Color gradients ──────────────────────────────────────────
 function interpolateColor(ratio: number): string {
@@ -284,6 +288,19 @@ export function TransactionHeatmap() {
   const [compareMode, setCompareMode] = useState(false)
   const [compareBuckets, setCompareBuckets] = useState<HeatmapBucket[]>([])
   const [compareMeta, setCompareMeta] = useState<HeatmapMeta | null>(null)
+  const gridContainerRef = useRef<HTMLDivElement>(null)
+  const [containerWidth, setContainerWidth] = useState(0)
+
+  // ─── Measure container width ────────────────────────────────
+  useEffect(() => {
+    const el = gridContainerRef.current
+    if (!el) return
+    const ro = new ResizeObserver(([entry]) => {
+      setContainerWidth(entry.contentRect.width)
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   // ─── Fetch data ─────────────────────────────────────────────
   useEffect(() => {
@@ -457,16 +474,23 @@ export function TransactionHeatmap() {
   const gridConfig = meta?.gridConfig || { rows: 4, cols: 24, rowLabel: 'quarter', colLabel: 'hour' }
   const rowLabels = getRowLabels(timeframe)
   const colLabels = getColLabels(timeframe)
-  const { size: cellSize, gap: cellGap } = CELL_SIZES[timeframe]
+  const cellGap = CELL_GAPS[timeframe]
   const labelWidth = 44
+
+  // Compute cell size to fill available width (account for compare mode splitting)
+  const effectiveWidth = compareMode && compareBuckets.length > 0
+    ? (containerWidth - 16) / 2  // gap between the two grids
+    : containerWidth
+  const availableForCells = effectiveWidth - labelWidth - (gridConfig.cols - 1) * cellGap
+  const cellSize = containerWidth > 0
+    ? Math.max(MIN_CELL_SIZE, Math.min(MAX_CELL_SIZE, Math.floor(availableForCells / gridConfig.cols)))
+    : 14 // fallback before measurement
 
   // ─── Render grid — square cells with fixed pixel sizes ─────
   const renderGrid = (lookup: Map<string, HeatmapBucket>, gridMax: number, interactive: boolean = true) => {
-    const gridWidth = gridConfig.cols * cellSize + (gridConfig.cols - 1) * cellGap
-
     return (
       <div className="overflow-x-auto">
-        <div style={{ display: 'inline-block' }}>
+        <div>
           {/* Col labels top */}
           <div className="flex mb-1" style={{ paddingLeft: labelWidth }}>
             {colLabels.map((label, c) => (
@@ -572,7 +596,7 @@ export function TransactionHeatmap() {
   }
 
   return (
-    <div className="rounded-xl bg-bg-surface/50 backdrop-blur-sm border border-border-subtle p-4 md:p-5">
+    <div ref={gridContainerRef} className="rounded-xl bg-bg-surface/50 backdrop-blur-sm border border-border-subtle p-4 md:p-5">
       {/* ── Header ────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-2">
