@@ -70,8 +70,8 @@ const CELL_GAPS: Record<HeatmapTimeframe, number> = {
 }
 
 // Minimum cell sizes to keep things usable
-const MIN_CELL_SIZE = 6
-const MAX_CELL_SIZE = 28
+const MIN_CELL_SIZE = 8
+const MAX_CELL_SIZE = 56
 
 // ─── Color gradients ──────────────────────────────────────────
 function interpolateColor(ratio: number): string {
@@ -461,7 +461,7 @@ export function TransactionHeatmap() {
           <div className="h-5 w-44 bg-bg-elevated rounded animate-shimmer" />
           <div className="h-4 w-24 bg-bg-elevated rounded animate-shimmer" />
         </div>
-        <div className="h-[100px] bg-bg-elevated rounded animate-shimmer" />
+        <div className="h-[200px] md:h-[280px] bg-bg-elevated rounded animate-shimmer" />
         <div className="flex gap-4 mt-4">
           <div className="h-12 flex-1 bg-bg-elevated rounded animate-shimmer" />
           <div className="h-12 flex-1 bg-bg-elevated rounded animate-shimmer" />
@@ -486,7 +486,9 @@ export function TransactionHeatmap() {
     ? Math.max(MIN_CELL_SIZE, Math.min(MAX_CELL_SIZE, Math.floor(availableForCells / gridConfig.cols)))
     : 14 // fallback before measurement
 
-  // ─── Render grid — square cells with fixed pixel sizes ─────
+  // ─── Render grid — responsive square cells ──────────────────
+  const cellRadius = Math.max(2, Math.round(cellSize * 0.08))
+
   const renderGrid = (lookup: Map<string, HeatmapBucket>, gridMax: number, interactive: boolean = true) => {
     return (
       <div className="overflow-x-auto">
@@ -517,7 +519,7 @@ export function TransactionHeatmap() {
                 {Array.from({ length: gridConfig.cols }).map((_, c) => {
                   const bucket = lookup.get(`${r}:${c}`)
                   if (!bucket) {
-                    return <div key={c} style={{ width: cellSize, height: cellSize, borderRadius: 2, backgroundColor: 'rgb(12,12,12)' }} />
+                    return <div key={c} style={{ width: cellSize, height: cellSize, borderRadius: cellRadius, backgroundColor: 'rgb(12,12,12)' }} />
                   }
 
                   const ratio = bucket.value / gridMax
@@ -528,10 +530,11 @@ export function TransactionHeatmap() {
                   return (
                     <div key={bucket.index} className="relative" style={{ width: cellSize, height: cellSize }}>
                       <div
-                        className={`absolute inset-0 rounded-[2px] transition-all duration-100
+                        className={`absolute inset-0 transition-all duration-100
                           ${interactive ? 'cursor-pointer' : 'cursor-default'}
                           ${isCurrentSlot && bucket.txCount > 0 ? 'animate-breathe' : ''}`}
                         style={{
+                          borderRadius: cellRadius,
                           backgroundColor: getColor(layer, ratio),
                           outline: isHovered ? '1.5px solid rgba(247,147,26,0.6)' : isDrilling ? '1.5px solid rgba(247,147,26,0.8)' : 'none',
                           outlineOffset: '0.5px',

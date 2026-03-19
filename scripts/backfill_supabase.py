@@ -41,7 +41,7 @@ def insert_batch(txs, source=''):
         'apikey': SUPABASE_KEY,
         'Authorization': f'Bearer {SUPABASE_KEY}',
         'Content-Type': 'application/json',
-        'Prefer': 'resolution=ignore-duplicates',
+        'Prefer': 'resolution=merge-duplicates',
     }
 
     rows = []
