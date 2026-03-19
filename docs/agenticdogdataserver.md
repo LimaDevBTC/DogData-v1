@@ -539,7 +539,7 @@ Response:
     },
     "pricing": {
       "description": "Multi-exchange DOG pricing",
-      "exchanges": ["kraken", "gateio", "mexc", "bitget", "pionex", "magiceden", "bitflow", "dogswap"],
+      "exchanges": ["kraken", "gateio", "mexc", "bitget", "bitflow", "dogswap"],
       "update_frequency": "30s",
       "endpoints": ["/price", "/price/{exchange}"]
     },
@@ -1337,7 +1337,7 @@ Orquestrador              ░░░░░░░░░░░░░░████
 
 3. **MCP first-mover** — Seremos um dos primeiros projetos crypto com MCP Server nativo. Agentes Claude terão acesso direto.
 
-4. **Cobertura de preço** — 8 exchanges simultâneos (Kraken, Gate.io, MEXC, Bitget, Pionex, Magic Eden, Bitflow, Dogswap). Visão completa do mercado.
+4. **Cobertura de preço** — 6 exchanges simultâneos (Kraken, Gate.io, MEXC, Bitget, Bitflow, Dogswap). Visão completa do mercado.
 
 5. **On-chain metrics profundas** — Gini coefficient, HODL waves, realized cap, MVRV, supply in profit/loss. Nível de análise comparável ao Glassnode, mas específico para DOG.
 

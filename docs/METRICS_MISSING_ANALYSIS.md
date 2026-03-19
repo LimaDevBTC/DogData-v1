@@ -24,7 +24,7 @@
 5. **Block height** onde cada UTXO foi criado
 
 ### Preço atual de DOG:
-- ✅ Múltiplas APIs de exchanges (Kraken, Gate.io, MEXC, Pionex, Bitget, etc.)
+- ✅ Múltiplas APIs de exchanges (Kraken, Gate.io, MEXC, Bitget, Bitflow, Dogswap)
 - ✅ Preço atual em USD/BTC disponível
 
 ### Script Python:

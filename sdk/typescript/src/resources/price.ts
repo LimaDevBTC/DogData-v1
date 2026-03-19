@@ -1,7 +1,7 @@
 import type { DogData } from '../client.js';
 import type { PriceData, AggregatedPrice } from '../types.js';
 
-export type Exchange = 'kraken' | 'gateio' | 'mexc' | 'bitget' | 'pionex' | 'magiceden' | 'bitflow' | 'dogswap';
+export type Exchange = 'kraken' | 'gateio' | 'mexc' | 'bitget' | 'bitflow' | 'dogswap';
 
 export class PriceResource {
   constructor(private client: DogData) {}
@@ -15,7 +15,7 @@ export class PriceResource {
   }
 
   async all(): Promise<PriceData[]> {
-    const exchanges: Exchange[] = ['kraken', 'gateio', 'mexc', 'bitget', 'pionex', 'magiceden', 'bitflow', 'dogswap'];
+    const exchanges: Exchange[] = ['kraken', 'gateio', 'mexc', 'bitget', 'bitflow', 'dogswap'];
     const results = await Promise.allSettled(
       exchanges.map(exchange => this.fromExchange(exchange))
     );
@@ -38,14 +38,6 @@ export class PriceResource {
 
   async bitget(): Promise<PriceData> {
     return this.fromExchange('bitget');
-  }
-
-  async pionex(): Promise<PriceData> {
-    return this.fromExchange('pionex');
-  }
-
-  async magiceden(): Promise<PriceData> {
-    return this.fromExchange('magiceden');
   }
 
   async bitflow(): Promise<PriceData> {

@@ -5,7 +5,7 @@ from typing import Any, TYPE_CHECKING
 if TYPE_CHECKING:
     from dogdata.client import DogData
 
-EXCHANGES = ["kraken", "gateio", "mexc", "bitget", "pionex", "magiceden", "bitflow", "dogswap"]
+EXCHANGES = ["kraken", "gateio", "mexc", "bitget", "bitflow", "dogswap"]
 
 
 class PriceResource:
@@ -40,12 +40,6 @@ class PriceResource:
 
     def bitget(self) -> dict[str, Any]:
         return self.from_exchange("bitget")
-
-    def pionex(self) -> dict[str, Any]:
-        return self.from_exchange("pionex")
-
-    def magiceden(self) -> dict[str, Any]:
-        return self.from_exchange("magiceden")
 
     def bitflow(self) -> dict[str, Any]:
         return self.from_exchange("bitflow")

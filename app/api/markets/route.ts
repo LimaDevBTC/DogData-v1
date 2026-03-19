@@ -44,8 +44,7 @@ let cachedData: {
     { market: 'Bitflow', pair: 'DOG/pBTC', price: 0.00176, volumeUsd: 50, volume: 28000, spread: 0.50, trustScore: 'green', tradeUrl: 'https://btflw.link/brl' },
     // Green trust score (15 exchanges)
     { market: 'MEXC', pair: 'DOG/USDT', price: 0.00163, volumeUsd: 443000, volume: 271000000, spread: 0.55, trustScore: 'green', tradeUrl: 'https://www.mexc.com/exchange/DOG_USDT' },
-    { market: 'Pionex', pair: 'DOG/USDT', price: 0.00162, volumeUsd: 495000, volume: 305000000, spread: 0.25, trustScore: 'green', tradeUrl: 'https://www.pionex.com/en/trade/DOG_USDT/Bot' },
-    { market: 'Gate', pair: 'DOG/USDT', price: 0.00163, volumeUsd: 538000, volume: 329700000, spread: 0.13, trustScore: 'green', tradeUrl: 'https://www.gate.com/trade/DOG_USDT' },
+{ market: 'Gate', pair: 'DOG/USDT', price: 0.00163, volumeUsd: 538000, volume: 329700000, spread: 0.13, trustScore: 'green', tradeUrl: 'https://www.gate.com/trade/DOG_USDT' },
     { market: 'Hotcoin', pair: 'DOG/USDT', price: 0.00162, volumeUsd: 484000, volume: 298000000, spread: 0.26, trustScore: 'green', tradeUrl: 'https://www.hotcoin.com/currencyExchange/dog_usdt' },
     { market: 'Bitget', pair: 'DOG/USDT', price: 0.00163, volumeUsd: 401000, volume: 245000000, spread: 0.24, trustScore: 'green', tradeUrl: 'https://www.bitget.com/spot/DOGUSDT' },
     { market: 'DigiFinex', pair: 'DOG/USDT', price: 0.00163, volumeUsd: 281000, volume: 172000000, spread: 0.30, trustScore: 'green', tradeUrl: 'https://www.digifinex.com/en-ww/trade/USDT/DOG' },

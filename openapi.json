@@ -876,7 +876,7 @@
         "operationId": "getAllPrices",
         "tags": ["Price"],
         "summary": "Get DOG price from all tracked exchanges",
-        "description": "Returns DOG price data from all tracked exchanges (Kraken, MEXC, Gate, Bitget, Pionex, Bitflow, MagicEden, etc.) for cross-exchange comparison.",
+        "description": "Returns DOG price data from all tracked exchanges (Kraken, MEXC, Gate, Bitget, Bitflow, Dogswap) for cross-exchange comparison.",
         "responses": {
           "200": {
             "description": "Multi-exchange price data",
@@ -913,13 +913,13 @@
         "operationId": "getPriceByExchange",
         "tags": ["Price"],
         "summary": "Get DOG price from a specific exchange",
-        "description": "Returns DOG price from a specific exchange. Supported: kraken, mexc, gateio, bitget, pionex, bitflow, magiceden, dogswap.",
+        "description": "Returns DOG price from a specific exchange. Supported: kraken, mexc, gateio, bitget, bitflow, dogswap.",
         "parameters": [
           {
             "name": "exchange",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "enum": ["kraken", "mexc", "gateio", "bitget", "pionex", "bitflow", "magiceden", "dogswap"] },
+            "schema": { "type": "string", "enum": ["kraken", "mexc", "gateio", "bitget", "bitflow", "dogswap"] },
             "description": "Exchange identifier"
           }
         ],

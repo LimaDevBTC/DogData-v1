@@ -43,10 +43,8 @@ All endpoints return JSON. Use header `Accept: application/json`.
 | `GET /api/price/bitget` | Bitget price |
 | `GET /api/price/mexc` | MEXC price |
 | `GET /api/price/gateio` | Gate.io price |
-| `GET /api/price/pionex` | Pionex price |
 | `GET /api/price/bitflow` | Bitflow DEX price |
 | `GET /api/price/dogswap` | DogSwap price |
-| `GET /api/price/magiceden` | Magic Eden price |
 
 ### Bitcoin Network
 

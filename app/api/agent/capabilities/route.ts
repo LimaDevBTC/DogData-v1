@@ -64,10 +64,10 @@ export async function GET() {
         endpoints: ["/api/forensic/profiles", "/api/forensic/summary"]
       },
       pricing: {
-        description: "Multi-exchange DOG pricing from 8+ sources",
-        exchanges: ["kraken", "gateio", "mexc", "bitget", "pionex", "magiceden", "bitflow", "dogswap"],
+        description: "Multi-exchange DOG pricing from 6 sources",
+        exchanges: ["kraken", "gateio", "mexc", "bitget", "bitflow", "dogswap"],
         update_frequency: "30s",
-        endpoints: ["/api/price/kraken", "/api/price/gateio", "/api/price/mexc", "/api/price/bitget", "/api/price/pionex", "/api/price/magiceden", "/api/price/bitflow", "/api/price/dogswap"]
+        endpoints: ["/api/price/kraken", "/api/price/gateio", "/api/price/mexc", "/api/price/bitget", "/api/price/bitflow", "/api/price/dogswap"]
       },
       metrics: {
         description: "On-chain analytics: UTXO distribution, concentration, realized cap",

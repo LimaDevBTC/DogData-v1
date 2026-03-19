@@ -368,13 +368,6 @@ module.exports = async (req, res) => {
       return res.json(dogData || {});
     }
     
-    if (pathname === '/api/price/pionex') {
-      const response = await fetch('https://api.pionex.com/api/v1/market/tickers');
-      const priceData = await response.json();
-      const dogData = priceData.data?.tickers?.find(item => item.symbol === 'DOG_USDT');
-      return res.json(dogData || {});
-    }
-    
     if (pathname === '/api/price/gateio') {
       // Usar API direta da Gate.io (mais confiável)
       try {

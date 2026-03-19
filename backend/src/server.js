@@ -740,18 +740,6 @@ app.get('/api/price/bitget', async (req, res) => {
     }
 });
 
-app.get('/api/price/pionex', async (req, res) => {
-    try {
-        const response = await fetch('https://api.pionex.com/api/v1/market/tickers');
-        const data = await response.json();
-        // Filtrar apenas DOG_USDT dos dados
-        const dogData = data.data.tickers.find(item => item.symbol === 'DOG_USDT');
-        res.json(dogData);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
 // Cache para o preço da Gate.io (extraído do gráfico TradingView)
 let gateioPriceCache = {
     lastPrice: "0.001641",
