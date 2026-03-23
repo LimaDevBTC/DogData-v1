@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-// ─── In-memory cache (same pattern as metrics/history) ─────────
+// ─── In-memory cache ──────────────────────────────────────────────
 let cachedData: {
   data: any
   timestamp: number
@@ -13,23 +13,21 @@ let cachedData: {
 
 const CACHE_DURATION = 3 * 60 * 1000 // 3 minutes
 
-// ─── Grid configurations per timeframe ─────────────────────────
-interface GridConfig {
-  bucketMs: number
+// ─── Block-based grid configurations ──────────────────────────────
+interface BlockGridConfig {
+  blocksPerBucket: number
   rows: number
   cols: number
-  rowLabel: string
-  colLabel: string
 }
 
-const GRID_CONFIGS: Record<string, GridConfig> = {
-  '1d':  { bucketMs: 15 * 60 * 1000,      rows: 4,  cols: 24, rowLabel: 'quarter', colLabel: 'hour' },
-  '7d':  { bucketMs: 60 * 60 * 1000,       rows: 7,  cols: 24, rowLabel: 'day',     colLabel: 'hour' },
-  '30d': { bucketMs: 6 * 60 * 60 * 1000,   rows: 4,  cols: 30, rowLabel: '6h-slot', colLabel: 'day' },
-  '1y':  { bucketMs: 24 * 60 * 60 * 1000,  rows: 7,  cols: 52, rowLabel: 'weekday', colLabel: 'week' },
+const GRID_CONFIGS: Record<string, BlockGridConfig> = {
+  '1d':  { blocksPerBucket: 1,   rows: 3,  cols: 48 },  // 144 blocks
+  '7d':  { blocksPerBucket: 3,   rows: 7,  cols: 48 },  // 1,008 blocks
+  '30d': { blocksPerBucket: 10,  rows: 9,  cols: 48 },  // 4,320 blocks
+  '1y':  { blocksPerBucket: 144, rows: 7,  cols: 52 },  // 52,416 blocks
 }
 
-// ─── Supabase client ───────────────────────────────────────────
+// ─── Supabase client ──────────────────────────────────────────────
 function getSupabase() {
   const url = process.env.SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
@@ -37,55 +35,23 @@ function getSupabase() {
   return createClient(url, key)
 }
 
-// ─── Bucket label generators ───────────────────────────────────
-function getBucketLabel(timeframe: string, bucketIdx: number, startTime: Date): string {
-  const config = GRID_CONFIGS[timeframe]
-  const bucketStart = new Date(startTime.getTime() + bucketIdx * config.bucketMs)
-
-  switch (timeframe) {
-    case '1d': {
-      return bucketStart.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' })
-    }
-    case '7d': {
-      const day = bucketStart.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })
-      const hour = bucketStart.toLocaleTimeString('en-US', { hour: '2-digit', hour12: false, timeZone: 'UTC' })
-      return `${day} ${hour}:00`
-    }
-    case '30d': {
-      const day = bucketStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
-      const hour = bucketStart.getUTCHours()
-      return `${day} ${String(hour).padStart(2, '0')}:00`
-    }
-    case '1y': {
-      return bucketStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
-    }
-    default:
-      return bucketStart.toISOString()
+// ─── Bucket label (block-based) ──────────────────────────────────
+function getBucketLabel(startBlock: number, endBlock: number): string {
+  if (endBlock - startBlock === 1) {
+    return `Block #${startBlock.toLocaleString()}`
   }
+  return `Blocks #${startBlock.toLocaleString()} – #${(endBlock - 1).toLocaleString()}`
 }
 
-function getBucketRowCol(timeframe: string, bucketIdx: number): { row: number; col: number } {
-  const config = GRID_CONFIGS[timeframe]
-  switch (timeframe) {
-    case '1d':
-      return { row: bucketIdx % 4, col: Math.floor(bucketIdx / 4) }
-    case '7d':
-      return { row: Math.floor(bucketIdx / 24), col: bucketIdx % 24 }
-    case '30d':
-      return { row: bucketIdx % 4, col: Math.floor(bucketIdx / 4) }
-    case '1y': {
-      return { row: bucketIdx % 7, col: Math.floor(bucketIdx / 7) }
-    }
-    default:
-      return { row: 0, col: bucketIdx }
-  }
+// ─── Row/Col from bucket index (column-first fill) ───────────────
+function getBucketRowCol(bucketIdx: number, rows: number): { row: number; col: number } {
+  return { row: bucketIdx % rows, col: Math.floor(bucketIdx / rows) }
 }
 
-// ─── Main handler ──────────────────────────────────────────────
+// ─── Main handler ─────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
-  const timeframe = searchParams.get('timeframe') || '1d'
-  const layer = searchParams.get('layer') || 'volume'
+  const timeframe = searchParams.get('timeframe') || '7d'
   const drillIdx = searchParams.get('drill')
 
   if (!GRID_CONFIGS[timeframe]) {
@@ -93,7 +59,7 @@ export async function GET(request: NextRequest) {
   }
 
   const config = GRID_CONFIGS[timeframe]
-  const cacheKey = `${timeframe}:${layer}:${drillIdx || ''}`
+  const cacheKey = `block:${timeframe}:${drillIdx || ''}`
 
   // Check cache
   if (cachedData && cachedData.key === cacheKey && Date.now() - cachedData.timestamp < CACHE_DURATION) {
@@ -104,28 +70,53 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabase = getSupabase()
-    const now = new Date()
     const totalBuckets = config.rows * config.cols
 
-    // Calculate time range
-    const startTime = new Date(now.getTime() - totalBuckets * config.bucketMs)
-    const bucketSecs = config.bucketMs / 1000
+    // Get tip block height
+    const { data: tipRow, error: tipError } = await supabase
+      .from('dog_transactions')
+      .select('block_height')
+      .order('block_height', { ascending: false })
+      .limit(1)
+      .single()
 
-    // ─── Drill-down: return full transactions for a specific bucket ──
+    if (tipError || !tipRow) {
+      return NextResponse.json({
+        buckets: [],
+        meta: {
+          timeframe,
+          gridConfig: config,
+          startBlock: 0,
+          endBlock: 0,
+          totalTx: 0,
+          totalVolume: 0,
+          peakBucket: { index: 0, value: 0, label: '' },
+          whaleCount: 0,
+          activeSlots: 0,
+        }
+      })
+    }
+
+    const tipBlock = tipRow.block_height
+    const totalBlocks = totalBuckets * config.blocksPerBucket
+    const startBlock = tipBlock - totalBlocks + 1
+    const endBlock = tipBlock + 1
+
+    // ─── Drill-down: return transactions for a specific bucket ────
     if (drillIdx !== null && drillIdx !== undefined) {
       const idx = parseInt(drillIdx)
       if (isNaN(idx) || idx < 0 || idx >= totalBuckets) {
         return NextResponse.json({ error: 'Invalid drill index' }, { status: 400 })
       }
 
-      const bucketStart = new Date(startTime.getTime() + idx * config.bucketMs)
-      const bucketEnd = new Date(bucketStart.getTime() + config.bucketMs)
+      const bucketStartBlock = startBlock + idx * config.blocksPerBucket
+      const bucketEndBlock = bucketStartBlock + config.blocksPerBucket
 
       const { data: txs, error } = await supabase
         .from('dog_transactions')
         .select('*')
-        .gte('timestamp', bucketStart.toISOString())
-        .lt('timestamp', bucketEnd.toISOString())
+        .gte('block_height', bucketStartBlock)
+        .lt('block_height', bucketEndBlock)
         .order('total_dog_moved', { ascending: false })
         .limit(50)
 
@@ -133,38 +124,39 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json({
         bucketIndex: idx,
-        label: getBucketLabel(timeframe, idx, startTime),
-        startTime: bucketStart.toISOString(),
-        endTime: bucketEnd.toISOString(),
+        label: getBucketLabel(bucketStartBlock, bucketEndBlock),
+        startBlock: bucketStartBlock,
+        endBlock: bucketEndBlock,
         transactions: txs || []
       })
     }
 
-    // ─── Aggregated bucket query ────────────────────────────────
-    const { data: rawRows, error } = await supabase.rpc('heatmap_buckets', {
-      p_start: startTime.toISOString(),
-      p_end: now.toISOString(),
-      p_bucket_secs: bucketSecs,
+    // ─── Aggregated bucket query ─────────────────────────────────
+    const { data: rawRows, error } = await supabase.rpc('heatmap_block_buckets', {
+      p_start_block: startBlock,
+      p_end_block: endBlock,
+      p_blocks_per_bucket: config.blocksPerBucket,
     })
 
     let bucketMap: Map<number, any> = new Map()
 
     if (error) {
-      // Fallback: if RPC doesn't exist, use raw query via REST
-      console.warn('RPC heatmap_buckets not found, using fallback query')
+      // Fallback: query raw transactions and bucket client-side
+      console.warn('RPC heatmap_block_buckets not found, using fallback query')
       const { data: fallbackRows, error: fbError } = await supabase
         .from('dog_transactions')
-        .select('timestamp, total_dog_moved, net_transfer, fee_sats')
-        .gte('timestamp', startTime.toISOString())
-        .lt('timestamp', now.toISOString())
-        .order('timestamp', { ascending: true })
+        .select('block_height, total_dog_moved, net_transfer, fee_sats')
+        .gte('block_height', startBlock)
+        .lt('block_height', endBlock)
+        .order('block_height', { ascending: true })
 
       if (fbError) throw fbError
 
-      // Client-side bucketing
       for (const row of fallbackRows || []) {
-        const ts = new Date(row.timestamp).getTime()
-        const idx = Math.min(totalBuckets - 1, Math.floor((ts - startTime.getTime()) / config.bucketMs))
+        const idx = Math.min(
+          totalBuckets - 1,
+          Math.floor((row.block_height - startBlock) / config.blocksPerBucket)
+        )
 
         if (!bucketMap.has(idx)) {
           bucketMap.set(idx, {
@@ -189,13 +181,12 @@ export async function GET(request: NextRequest) {
         else b.retail_volume += vol
       }
     } else {
-      // Use RPC results
       for (const row of rawRows || []) {
         bucketMap.set(Number(row.bucket_idx), row)
       }
     }
 
-    // ─── Build response buckets ─────────────────────────────────
+    // ─── Build response buckets ──────────────────────────────────
     const buckets = []
     let totalTx = 0
     let totalVolume = 0
@@ -205,8 +196,9 @@ export async function GET(request: NextRequest) {
 
     for (let i = 0; i < totalBuckets; i++) {
       const raw = bucketMap.get(i)
-      const { row, col } = getBucketRowCol(timeframe, i)
-      const bucketStart = new Date(startTime.getTime() + i * config.bucketMs)
+      const { row, col } = getBucketRowCol(i, config.rows)
+      const bucketStartBlock = startBlock + i * config.blocksPerBucket
+      const bucketEndBlock = bucketStartBlock + config.blocksPerBucket
 
       const txCount = raw?.tx_count || 0
       const volume = Number(raw?.volume || 0)
@@ -218,26 +210,16 @@ export async function GET(request: NextRequest) {
       const mediumVolume = Number(raw?.medium_volume || 0)
       const largeVolume = Number(raw?.large_volume || 0)
 
-      // Determine primary value based on layer
-      let value = 0
-      switch (layer) {
-        case 'count': value = txCount; break
-        case 'fee': value = avgFee || 0; break
-        case 'whale': value = whaleVolume; break
-        case 'retail': value = retailVolume; break
-        default: value = volume; break
-      }
-
       totalTx += txCount
       totalVolume += volume
       if (hasWhale) whaleCount++
-      if (value > peakValue) { peakValue = value; peakIdx = i }
+      if (volume > peakValue) { peakValue = volume; peakIdx = i }
 
       buckets.push({
         index: i,
         row,
         col,
-        value: Math.round(value * 100) / 100,
+        value: Math.round(volume * 100) / 100,
         txCount,
         volume: Math.round(volume * 100) / 100,
         avgFee: avgFee !== null ? Math.round(avgFee) : null,
@@ -247,35 +229,36 @@ export async function GET(request: NextRequest) {
         mediumVolume: Math.round(mediumVolume * 100) / 100,
         largeVolume: Math.round(largeVolume * 100) / 100,
         netFlow: Math.round(netFlow * 100) / 100,
-        label: getBucketLabel(timeframe, i, startTime),
-        startTime: bucketStart.toISOString(),
+        label: getBucketLabel(bucketStartBlock, bucketEndBlock),
+        startBlock: bucketStartBlock,
+        endBlock: bucketEndBlock,
       })
     }
 
+    const peakBucket = buckets[peakIdx]
     const response = {
       buckets,
       meta: {
         timeframe,
-        layer,
         gridConfig: {
           rows: config.rows,
           cols: config.cols,
-          rowLabel: config.rowLabel,
-          colLabel: config.colLabel,
+          blocksPerBucket: config.blocksPerBucket,
         },
+        startBlock,
+        endBlock,
         totalTx,
         totalVolume: Math.round(totalVolume * 100) / 100,
         peakBucket: {
           index: peakIdx,
           value: Math.round(peakValue * 100) / 100,
-          label: getBucketLabel(timeframe, peakIdx, startTime),
+          label: peakBucket?.label || '',
         },
         whaleCount,
         activeSlots: buckets.filter(b => b.txCount > 0).length,
       },
     }
 
-    // Cache
     cachedData = { data: response, timestamp: Date.now(), key: cacheKey }
 
     return NextResponse.json(response, {
