@@ -62,32 +62,34 @@ interface RedisTransaction {
   receivers?: Array<{ address: string; amount_dog: number; is_change?: boolean }>
 }
 
-// ─── Block-based grid configs ─────────────────────────────────
-const BLOCK_GRIDS: Record<HeatmapTimeframe, { blocksPerBucket: number; rows: number; cols: number }> = {
-  '1d':  { blocksPerBucket: 1,   rows: 3,  cols: 48 },  // 144 blocks
-  '7d':  { blocksPerBucket: 3,   rows: 7,  cols: 48 },  // 1,008 blocks
-  '30d': { blocksPerBucket: 10,  rows: 9,  cols: 48 },  // 4,320 blocks
-  '1y':  { blocksPerBucket: 144, rows: 7,  cols: 52 },  // 52,416 blocks
+// ─── Fixed grid: 7 rows × 52 cols for ALL timeframes ──────────
+const GRID_ROWS = 7
+const GRID_COLS = 52
+const TOTAL_CELLS = GRID_ROWS * GRID_COLS // 364
+
+const BLOCKS_PER_CELL: Record<HeatmapTimeframe, number> = {
+  '1d':  1,     // 364 blocks  ≈ 2.5 days
+  '7d':  3,     // 1,092 blocks ≈ 7.6 days
+  '30d': 12,    // 4,368 blocks ≈ 30 days
+  '1y':  144,   // 52,416 blocks ≈ 1 year
 }
 
-const CELL_GAPS: Record<HeatmapTimeframe, number> = {
-  '1d':  2,
-  '7d':  2,
-  '30d': 1,
-  '1y':  1,
-}
-
+const CELL_GAP = 1
 const MIN_CELL_SIZE = 8
 const MAX_CELL_SIZE = 56
 
+// ─── Color: empty cell ────────────────────────────────────────
+const EMPTY_CELL_COLOR = 'rgb(8,8,8)'
+
 // ─── Color gradient (orange/bitcoin) ──────────────────────────
+// Starts at a visible warm tone so even low-activity cells stand out
 function interpolateColor(ratio: number): string {
   const stops = [
-    [12, 12, 12],
-    [30, 25, 10],
-    [80, 60, 10],
-    [180, 110, 10],
-    [247, 147, 26],
+    [45, 32, 10],     // 0.00 — warm dark brown (visible floor)
+    [80, 55, 10],     // 0.25 — amber-brown
+    [140, 90, 10],    // 0.50 — medium orange
+    [200, 125, 15],   // 0.75 — strong orange
+    [247, 147, 26],   // 1.00 — peak bitcoin orange
   ]
   const c = Math.max(0, Math.min(1, ratio))
   const seg = c * (stops.length - 1)
@@ -110,23 +112,23 @@ function fmtBlock(height: number): string {
 
 // ─── Process Redis data into block-based heatmap (1d) ─────────
 function processRedisData(transactions: RedisTransaction[]): { buckets: HeatmapBucket[]; meta: HeatmapMeta } {
-  const config = BLOCK_GRIDS['1d']
-  const totalBuckets = config.rows * config.cols // 144
+  const bpc = BLOCKS_PER_CELL['1d'] // 1
 
   const heights = transactions.map(tx => tx.block_height).filter(h => h > 0)
   if (heights.length === 0) {
     return {
-      buckets: Array.from({ length: totalBuckets }, (_, i) => ({
+      buckets: Array.from({ length: TOTAL_CELLS }, (_, i) => ({
         index: i,
-        row: i % config.rows,
-        col: Math.floor(i / config.rows),
+        row: i % GRID_ROWS,
+        col: Math.floor(i / GRID_ROWS),
         value: 0, txCount: 0, volume: 0, avgFee: null,
         whaleVolume: 0, hasWhale: false, retailVolume: 0,
         mediumVolume: 0, largeVolume: 0, netFlow: 0,
         label: '', startBlock: 0, endBlock: 0,
       })),
       meta: {
-        timeframe: '1d', gridConfig: config,
+        timeframe: '1d',
+        gridConfig: { rows: GRID_ROWS, cols: GRID_COLS, blocksPerBucket: bpc },
         startBlock: 0, endBlock: 0,
         totalTx: 0, totalVolume: 0,
         peakBucket: { index: 0, value: 0, label: '' },
@@ -136,20 +138,24 @@ function processRedisData(transactions: RedisTransaction[]): { buckets: HeatmapB
   }
 
   const tipBlock = Math.max(...heights)
-  const startBlock = tipBlock - totalBuckets + 1
+  const totalBlocks = TOTAL_CELLS * bpc
+  const startBlock = tipBlock - totalBlocks + 1
 
+  // Pre-create ALL cells (including future/empty ones)
   const grid: HeatmapBucket[] = []
-  for (let i = 0; i < totalBuckets; i++) {
-    const blockStart = startBlock + i * config.blocksPerBucket
-    const blockEnd = blockStart + config.blocksPerBucket
+  for (let i = 0; i < TOTAL_CELLS; i++) {
+    const blockStart = startBlock + i * bpc
+    const blockEnd = blockStart + bpc
     grid.push({
       index: i,
-      row: i % config.rows,
-      col: Math.floor(i / config.rows),
+      row: i % GRID_ROWS,
+      col: Math.floor(i / GRID_ROWS),
       value: 0, txCount: 0, volume: 0, avgFee: null,
       whaleVolume: 0, hasWhale: false, retailVolume: 0,
       mediumVolume: 0, largeVolume: 0, netFlow: 0,
-      label: `Block ${fmtBlock(blockStart)}`,
+      label: blockEnd - blockStart === 1
+        ? `Block ${fmtBlock(blockStart)}`
+        : `Blocks ${fmtBlock(blockStart)} – ${fmtBlock(blockEnd - 1)}`,
       startBlock: blockStart,
       endBlock: blockEnd,
     })
@@ -162,7 +168,7 @@ function processRedisData(transactions: RedisTransaction[]): { buckets: HeatmapB
     const h = tx.block_height
     if (!h || h < startBlock || h > tipBlock) continue
 
-    const idx = Math.min(totalBuckets - 1, Math.floor((h - startBlock) / config.blocksPerBucket))
+    const idx = Math.min(TOTAL_CELLS - 1, Math.floor((h - startBlock) / bpc))
     const b = grid[idx]
     const vol = tx.total_dog_moved || 0
     const fee = tx.fee_sats || 0
@@ -184,7 +190,6 @@ function processRedisData(transactions: RedisTransaction[]): { buckets: HeatmapB
     totalVolume += vol
   }
 
-  // Value = volume for all buckets
   for (const b of grid) {
     b.value = b.volume
   }
@@ -195,7 +200,7 @@ function processRedisData(transactions: RedisTransaction[]): { buckets: HeatmapB
     buckets: grid,
     meta: {
       timeframe: '1d',
-      gridConfig: config,
+      gridConfig: { rows: GRID_ROWS, cols: GRID_COLS, blocksPerBucket: bpc },
       startBlock,
       endBlock: tipBlock + 1,
       totalTx,
@@ -354,16 +359,15 @@ export function TransactionHeatmap() {
   // ─── Column labels (block heights) ─────────────────────────
   const colLabels = useMemo(() => {
     if (!meta || buckets.length === 0) return []
-    const config = BLOCK_GRIDS[timeframe]
-    const interval = timeframe === '1y' ? 8 : 6
-    return Array.from({ length: config.cols }, (_, c) => {
+    const interval = 8
+    return Array.from({ length: GRID_COLS }, (_, c) => {
       if (c % interval !== 0) return ''
-      const cellIdx = c * config.rows
+      const cellIdx = c * GRID_ROWS
       const bucket = buckets[cellIdx]
       if (!bucket) return ''
       return fmtBlock(bucket.startBlock)
     })
-  }, [meta, buckets, timeframe])
+  }, [meta, buckets])
 
   // ─── Loading ────────────────────────────────────────────────
   if (loading) {
@@ -383,83 +387,80 @@ export function TransactionHeatmap() {
     )
   }
 
-  const gridConfig = meta?.gridConfig || BLOCK_GRIDS[timeframe]
-  const cellGap = CELL_GAPS[timeframe]
-  const labelWidth = 0 // no row labels needed for block-based grid
-
-  // Compute cell size to fill available width
-  const availableForCells = containerWidth - (gridConfig.cols - 1) * cellGap
+  // Compute cell size — fixed grid for all timeframes
+  const availableForCells = containerWidth - (GRID_COLS - 1) * CELL_GAP
   const cellSize = containerWidth > 0
-    ? Math.max(MIN_CELL_SIZE, Math.min(MAX_CELL_SIZE, Math.floor(availableForCells / gridConfig.cols)))
+    ? Math.max(MIN_CELL_SIZE, Math.min(MAX_CELL_SIZE, Math.floor(availableForCells / GRID_COLS)))
     : 14
 
-  const cellRadius = Math.max(2, Math.round(cellSize * 0.08))
+  const cellRadius = Math.max(2, Math.round(cellSize * 0.15))
+
+  // Exact pixel width of the grid for centering
+  const gridPixelWidth = GRID_COLS * cellSize + (GRID_COLS - 1) * CELL_GAP
 
   return (
-    <div ref={gridContainerRef} className="rounded-xl bg-bg-surface/50 backdrop-blur-sm border border-border-subtle p-4 md:p-5">
+    <div ref={gridContainerRef} className="rounded-xl bg-bg-surface/50 backdrop-blur-sm border border-border-subtle p-4 md:p-6">
+
       {/* ── Header ────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <div className="flex items-center gap-2.5">
           <Activity className="w-4 h-4 text-text-accent" />
           <h3 className="font-sans text-sm font-semibold text-text-primary">
             Block Activity
           </h3>
-          {meta && (
-            <span className="font-mono text-[10px] text-text-tertiary">
-              {fmtBlock(meta.startBlock)} → {fmtBlock(meta.endBlock - 1)}
-            </span>
-          )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Timeframe selector */}
-          <div className="flex gap-1">
-            {(['1d', '7d', '30d', '1y'] as HeatmapTimeframe[]).map(tf => (
-              <button
-                key={tf}
-                onClick={() => setTimeframe(tf)}
-                className={`px-2 py-1 text-[10px] font-mono uppercase tracking-wide border rounded-md transition-all
-                  ${timeframe === tf
-                    ? 'border-accent-primary/30 bg-accent-primary/10 text-text-accent'
-                    : 'border-border-subtle bg-bg-elevated text-text-secondary hover:text-text-primary'
-                  }`}
-              >
-                {tf}
-              </button>
-            ))}
-          </div>
-
-          {/* Export CSV */}
-          <button
-            onClick={() => exportCSV(buckets, timeframe)}
-            className="p-1 border border-border-subtle bg-bg-elevated text-text-tertiary hover:text-text-primary rounded-md transition-all"
-            title="Export CSV"
-          >
-            <Download className="w-3.5 h-3.5" />
-          </button>
-
-          {/* Color legend */}
-          <div className="flex items-center gap-1.5 ml-1">
-            <span className="font-mono text-[10px] text-text-tertiary">Less</span>
-            <div className="flex gap-px">
-              {[0, 0.15, 0.35, 0.6, 1].map((v, i) => (
-                <div key={i} className="w-[10px] h-[10px] rounded-[2px]" style={{ backgroundColor: interpolateColor(v) }} />
-              ))}
-            </div>
-            <span className="font-mono text-[10px] text-text-tertiary">More</span>
-          </div>
+        <div className="flex gap-1">
+          {(['1d', '7d', '30d', '1y'] as HeatmapTimeframe[]).map(tf => (
+            <button
+              key={tf}
+              onClick={() => setTimeframe(tf)}
+              className={`px-2.5 py-1 text-[10px] font-mono uppercase tracking-wide border rounded-md transition-all
+                ${timeframe === tf
+                  ? 'border-accent-primary/30 bg-accent-primary/10 text-text-accent'
+                  : 'border-border-subtle bg-bg-elevated text-text-secondary hover:text-text-primary'
+                }`}
+            >
+              {tf}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* ── Heatmap Grid ──────────────────────────────────── */}
-      <div className="overflow-x-auto">
-        <div>
+      {/* ── Summary Stats (compact row above grid) ────────── */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-1 mb-5">
+        <div className="flex items-baseline gap-1.5">
+          <span className="font-mono text-[10px] text-text-tertiary uppercase tracking-wider">Txs</span>
+          <span className="font-mono text-sm font-bold text-text-primary">{(meta?.totalTx || 0).toLocaleString()}</span>
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <span className="font-mono text-[10px] text-text-tertiary uppercase tracking-wider">Vol</span>
+          <span className="font-mono text-sm font-bold text-text-accent">{fmtVolume(meta?.totalVolume || 0)} DOG</span>
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <span className="font-mono text-[10px] text-text-tertiary uppercase tracking-wider">Active</span>
+          <span className="font-mono text-sm font-bold text-text-primary">{meta?.activeSlots || 0}<span className="text-text-tertiary font-normal">/{TOTAL_CELLS}</span></span>
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <Flame className="w-3 h-3 text-text-accent" />
+          <span className="font-mono text-sm font-bold text-text-primary">{meta?.whaleCount || 0}</span>
+        </div>
+        {meta && (
+          <span className="font-mono text-[10px] text-text-tertiary ml-auto hidden sm:inline">
+            {fmtBlock(meta.startBlock)} → {fmtBlock(meta.endBlock - 1)}
+          </span>
+        )}
+      </div>
+
+      {/* ── Heatmap Grid (centered) ───────────────────────── */}
+      <div className="flex justify-center">
+        <div style={{ width: gridPixelWidth }}>
           {/* Col labels (block heights) */}
           <div className="flex mb-1">
             {colLabels.map((label, c) => (
               <div
                 key={c}
-                style={{ width: cellSize, marginRight: c < colLabels.length - 1 ? cellGap : 0, textAlign: 'center' }}
+                style={{ width: cellSize, marginRight: c < colLabels.length - 1 ? CELL_GAP : 0, textAlign: 'center' }}
               >
                 {label && (
                   <span className="font-mono text-[8px] text-text-tertiary leading-none whitespace-nowrap">{label}</span>
@@ -469,91 +470,121 @@ export function TransactionHeatmap() {
           </div>
 
           {/* Grid rows */}
-          {Array.from({ length: gridConfig.rows }).map((_, r) => (
-            <div key={r} className="flex items-center" style={{ marginBottom: r < gridConfig.rows - 1 ? cellGap : 0 }}>
-              <div className="flex" style={{ gap: cellGap }}>
-                {Array.from({ length: gridConfig.cols }).map((_, c) => {
-                  const bucket = gridLookup.get(`${r}:${c}`)
-                  if (!bucket) {
-                    return <div key={c} style={{ width: cellSize, height: cellSize, borderRadius: cellRadius, backgroundColor: 'rgb(12,12,12)' }} />
-                  }
+          {Array.from({ length: GRID_ROWS }).map((_, r) => (
+            <div key={r} className="flex" style={{ marginBottom: r < GRID_ROWS - 1 ? CELL_GAP : 0 }}>
+              {Array.from({ length: GRID_COLS }).map((_, c) => {
+                const bucket = gridLookup.get(`${r}:${c}`)
+                if (!bucket) {
+                  return <div key={c} style={{ width: cellSize, height: cellSize, marginRight: c < GRID_COLS - 1 ? CELL_GAP : 0, borderRadius: cellRadius, backgroundColor: EMPTY_CELL_COLOR }} />
+                }
 
-                  const ratio = bucket.value / maxValue
-                  const isHovered = hovered?.index === bucket.index
-                  const isCurrentSlot = bucket.index === currentBucketIdx
-                  const isDrilling = drillBucket?.index === bucket.index
+                const hasActivity = bucket.txCount > 0
+                const rawRatio = bucket.value / maxValue
+                const isHovered = hovered?.index === bucket.index
+                const isCurrentSlot = bucket.index === currentBucketIdx
+                const isDrilling = drillBucket?.index === bucket.index
 
-                  return (
-                    <div key={bucket.index} className="relative" style={{ width: cellSize, height: cellSize }}>
-                      <div
-                        className={`absolute inset-0 transition-all duration-100 cursor-pointer
-                          ${isCurrentSlot && bucket.txCount > 0 ? 'animate-breathe' : ''}`}
-                        style={{
-                          borderRadius: cellRadius,
-                          backgroundColor: interpolateColor(ratio),
-                          outline: isHovered ? '1.5px solid rgba(247,147,26,0.6)' : isDrilling ? '1.5px solid rgba(247,147,26,0.8)' : 'none',
-                          outlineOffset: '0.5px',
-                          boxShadow: bucket.hasWhale ? '0 0 6px rgba(247,147,26,0.4), inset 0 0 3px rgba(247,147,26,0.2)' : 'none',
-                          border: bucket.hasWhale ? '1px solid rgba(247,147,26,0.35)' : '1px solid transparent',
-                        }}
-                        onMouseEnter={() => handleMouseEnter(bucket)}
-                        onMouseLeave={() => handleMouseLeave()}
-                        onClick={() => handleCellClick(bucket)}
-                      />
+                // Empty cells stay dark; active cells get a visible floor
+                const cellColor = hasActivity
+                  ? interpolateColor(Math.max(0.08, rawRatio))
+                  : EMPTY_CELL_COLOR
 
-                      {/* Tooltip */}
-                      {isHovered && (
-                        <div className={`absolute left-1/2 -translate-x-1/2 z-50 pointer-events-none ${
-                          bucket.row <= Math.floor(gridConfig.rows / 2) - 1 ? 'top-full mt-1.5' : 'bottom-full mb-1.5'
-                        }`}>
-                          <div className="bg-black/95 border border-accent-primary/30 rounded-md px-3 py-2 shadow-bitcoin whitespace-nowrap">
-                            <p className="text-text-accent font-mono text-[11px] font-semibold">{bucket.label}</p>
-                            <div className="flex items-center gap-3 mt-0.5">
-                              <span className="text-text-primary font-mono text-xs font-bold">
-                                {bucket.txCount} tx{bucket.txCount !== 1 ? 's' : ''}
-                              </span>
-                              {bucket.volume > 0 && (
-                                <span className="text-text-secondary font-mono text-[11px]">
-                                  {fmtVolume(bucket.volume)} DOG
-                                </span>
-                              )}
-                            </div>
-                            {bucket.hasWhale && (
-                              <div className="flex items-center gap-1 mt-0.5">
-                                <Flame className="w-3 h-3 text-text-accent" />
-                                <span className="text-text-accent font-mono text-[10px]">
-                                  {fmtVolume(bucket.whaleVolume)} whale
-                                </span>
-                              </div>
-                            )}
-                            {bucket.avgFee !== null && bucket.avgFee > 0 && (
-                              <p className="text-text-tertiary font-mono text-[10px] mt-0.5">
-                                Avg fee: {bucket.avgFee.toLocaleString()} sats
-                              </p>
-                            )}
+                return (
+                  <div
+                    key={bucket.index}
+                    className="relative"
+                    style={{ width: cellSize, height: cellSize, marginRight: c < GRID_COLS - 1 ? CELL_GAP : 0 }}
+                  >
+                    <div
+                      className={`absolute inset-0 transition-all duration-100 cursor-pointer
+                        ${isCurrentSlot && hasActivity ? 'animate-breathe' : ''}`}
+                      style={{
+                        borderRadius: cellRadius,
+                        backgroundColor: cellColor,
+                        outline: isHovered ? '1.5px solid rgba(247,147,26,0.6)' : isDrilling ? '1.5px solid rgba(247,147,26,0.8)' : 'none',
+                        outlineOffset: '0.5px',
+                        boxShadow: bucket.hasWhale ? '0 0 6px rgba(247,147,26,0.4), inset 0 0 3px rgba(247,147,26,0.2)' : 'none',
+                        border: bucket.hasWhale ? '1px solid rgba(247,147,26,0.35)' : '1px solid transparent',
+                      }}
+                      onMouseEnter={() => handleMouseEnter(bucket)}
+                      onMouseLeave={() => handleMouseLeave()}
+                      onClick={() => handleCellClick(bucket)}
+                    />
+
+                    {/* Tooltip */}
+                    {isHovered && (
+                      <div className={`absolute left-1/2 -translate-x-1/2 z-50 pointer-events-none ${
+                        bucket.row <= Math.floor(GRID_ROWS / 2) - 1 ? 'top-full mt-1.5' : 'bottom-full mb-1.5'
+                      }`}>
+                        <div className="bg-black/95 border border-accent-primary/30 rounded-md px-3 py-2 shadow-bitcoin whitespace-nowrap">
+                          <p className="text-text-accent font-mono text-[11px] font-semibold">{bucket.label}</p>
+                          <div className="flex items-center gap-3 mt-0.5">
+                            <span className="text-text-primary font-mono text-xs font-bold">
+                              {bucket.txCount} tx{bucket.txCount !== 1 ? 's' : ''}
+                            </span>
                             {bucket.volume > 0 && (
-                              <div className="flex gap-px mt-1 h-1.5 rounded-full overflow-hidden" style={{ width: 80 }}>
-                                {bucket.retailVolume > 0 && <div className="bg-green-500/60" style={{ flex: bucket.retailVolume }} />}
-                                {bucket.mediumVolume > 0 && <div className="bg-yellow-500/60" style={{ flex: bucket.mediumVolume }} />}
-                                {bucket.largeVolume > 0 && <div className="bg-orange-500/60" style={{ flex: bucket.largeVolume }} />}
-                                {bucket.whaleVolume > 0 && <div className="bg-red-500/60" style={{ flex: bucket.whaleVolume }} />}
-                              </div>
+                              <span className="text-text-secondary font-mono text-[11px]">
+                                {fmtVolume(bucket.volume)} DOG
+                              </span>
                             )}
                           </div>
+                          {bucket.hasWhale && (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <Flame className="w-3 h-3 text-text-accent" />
+                              <span className="text-text-accent font-mono text-[10px]">
+                                {fmtVolume(bucket.whaleVolume)} whale
+                              </span>
+                            </div>
+                          )}
+                          {bucket.avgFee !== null && bucket.avgFee > 0 && (
+                            <p className="text-text-tertiary font-mono text-[10px] mt-0.5">
+                              Avg fee: {bucket.avgFee.toLocaleString()} sats
+                            </p>
+                          )}
+                          {bucket.volume > 0 && (
+                            <div className="flex gap-px mt-1 h-1.5 rounded-full overflow-hidden" style={{ width: 80 }}>
+                              {bucket.retailVolume > 0 && <div className="bg-green-500/60" style={{ flex: bucket.retailVolume }} />}
+                              {bucket.mediumVolume > 0 && <div className="bg-yellow-500/60" style={{ flex: bucket.mediumVolume }} />}
+                              {bucket.largeVolume > 0 && <div className="bg-orange-500/60" style={{ flex: bucket.largeVolume }} />}
+                              {bucket.whaleVolume > 0 && <div className="bg-red-500/60" style={{ flex: bucket.whaleVolume }} />}
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           ))}
+
+          {/* ── Grid footer: legend + export ───────────────── */}
+          <div className="flex items-center justify-between mt-2">
+            <div className="flex items-center gap-1.5">
+              <div className="w-[9px] h-[9px] rounded-[2px]" style={{ backgroundColor: EMPTY_CELL_COLOR }} />
+              <span className="font-mono text-[9px] text-text-tertiary mx-0.5">0</span>
+              <div className="flex gap-px">
+                {[0, 0.25, 0.5, 0.75, 1].map((v, i) => (
+                  <div key={i} className="w-[9px] h-[9px] rounded-[2px]" style={{ backgroundColor: interpolateColor(v) }} />
+                ))}
+              </div>
+              <span className="font-mono text-[9px] text-text-tertiary">Max</span>
+            </div>
+            <button
+              onClick={() => exportCSV(buckets, timeframe)}
+              className="flex items-center gap-1 text-text-tertiary hover:text-text-primary transition-colors"
+              title="Export CSV"
+            >
+              <Download className="w-3 h-3" />
+              <span className="font-mono text-[9px]">CSV</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* ── Drill-down Panel ─────────────────────────────── */}
       {drillBucket && (
-        <div className="mt-3 border border-accent-primary/20 rounded-lg bg-bg-surface/80 p-3">
+        <div className="mt-4 border border-accent-primary/20 rounded-lg bg-bg-surface/80 p-3">
           <div className="flex items-center justify-between mb-2">
             <p className="font-mono text-xs text-text-accent font-semibold">
               {drillBucket.label}
@@ -649,35 +680,6 @@ export function TransactionHeatmap() {
           )}
         </div>
       )}
-
-      {/* ── Summary Stats ─────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4 pt-4 border-t border-border-subtle">
-        <div>
-          <p className="font-mono text-[10px] text-text-tertiary uppercase tracking-wider">Transactions</p>
-          <p className="font-mono text-lg font-bold text-text-primary mt-0.5">{(meta?.totalTx || 0).toLocaleString()}</p>
-        </div>
-        <div>
-          <p className="font-mono text-[10px] text-text-tertiary uppercase tracking-wider">Volume</p>
-          <p className="font-mono text-lg font-bold text-text-accent mt-0.5">{fmtVolume(meta?.totalVolume || 0)} DOG</p>
-        </div>
-        <div>
-          <p className="font-mono text-[10px] text-text-tertiary uppercase tracking-wider">Active Blocks</p>
-          <p className="font-mono text-lg font-bold text-text-primary mt-0.5">{(meta?.activeSlots || 0).toLocaleString()}</p>
-        </div>
-        <div>
-          <p className="font-mono text-[10px] text-text-tertiary uppercase tracking-wider">Peak</p>
-          <p className="font-mono text-lg font-bold text-text-accent mt-0.5">
-            {meta?.peakBucket ? fmtVolume(meta.peakBucket.value) : '0'}
-          </p>
-        </div>
-        <div>
-          <p className="font-mono text-[10px] text-text-tertiary uppercase tracking-wider">Whale Blocks</p>
-          <p className="font-mono text-lg font-bold text-text-primary mt-0.5">
-            {(meta?.whaleCount || 0).toLocaleString()}
-            <Flame className="w-3.5 h-3.5 text-text-accent inline ml-1 -mt-0.5" />
-          </p>
-        </div>
-      </div>
     </div>
   )
 }

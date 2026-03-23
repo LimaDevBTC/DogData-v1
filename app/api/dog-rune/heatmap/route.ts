@@ -13,18 +13,16 @@ let cachedData: {
 
 const CACHE_DURATION = 3 * 60 * 1000 // 3 minutes
 
-// ─── Block-based grid configurations ──────────────────────────────
-interface BlockGridConfig {
-  blocksPerBucket: number
-  rows: number
-  cols: number
-}
+// ─── Fixed grid: 7 rows × 52 cols for ALL timeframes ──────────────
+const GRID_ROWS = 7
+const GRID_COLS = 52
+const TOTAL_CELLS = GRID_ROWS * GRID_COLS // 364
 
-const GRID_CONFIGS: Record<string, BlockGridConfig> = {
-  '1d':  { blocksPerBucket: 1,   rows: 3,  cols: 48 },  // 144 blocks
-  '7d':  { blocksPerBucket: 3,   rows: 7,  cols: 48 },  // 1,008 blocks
-  '30d': { blocksPerBucket: 10,  rows: 9,  cols: 48 },  // 4,320 blocks
-  '1y':  { blocksPerBucket: 144, rows: 7,  cols: 52 },  // 52,416 blocks
+const BLOCKS_PER_CELL: Record<string, number> = {
+  '1d':  1,     // 364 blocks  ≈ 2.5 days
+  '7d':  3,     // 1,092 blocks ≈ 7.6 days
+  '30d': 12,    // 4,368 blocks ≈ 30 days
+  '1y':  144,   // 52,416 blocks ≈ 1 year
 }
 
 // ─── Supabase client ──────────────────────────────────────────────
@@ -44,8 +42,8 @@ function getBucketLabel(startBlock: number, endBlock: number): string {
 }
 
 // ─── Row/Col from bucket index (column-first fill) ───────────────
-function getBucketRowCol(bucketIdx: number, rows: number): { row: number; col: number } {
-  return { row: bucketIdx % rows, col: Math.floor(bucketIdx / rows) }
+function getBucketRowCol(bucketIdx: number): { row: number; col: number } {
+  return { row: bucketIdx % GRID_ROWS, col: Math.floor(bucketIdx / GRID_ROWS) }
 }
 
 // ─── Main handler ─────────────────────────────────────────────────
@@ -54,11 +52,11 @@ export async function GET(request: NextRequest) {
   const timeframe = searchParams.get('timeframe') || '7d'
   const drillIdx = searchParams.get('drill')
 
-  if (!GRID_CONFIGS[timeframe]) {
+  const bpc = BLOCKS_PER_CELL[timeframe]
+  if (!bpc) {
     return NextResponse.json({ error: 'Invalid timeframe' }, { status: 400 })
   }
 
-  const config = GRID_CONFIGS[timeframe]
   const cacheKey = `block:${timeframe}:${drillIdx || ''}`
 
   // Check cache
@@ -70,7 +68,6 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabase = getSupabase()
-    const totalBuckets = config.rows * config.cols
 
     // Get tip block height
     const { data: tipRow, error: tipError } = await supabase
@@ -85,7 +82,7 @@ export async function GET(request: NextRequest) {
         buckets: [],
         meta: {
           timeframe,
-          gridConfig: config,
+          gridConfig: { rows: GRID_ROWS, cols: GRID_COLS, blocksPerBucket: bpc },
           startBlock: 0,
           endBlock: 0,
           totalTx: 0,
@@ -98,19 +95,19 @@ export async function GET(request: NextRequest) {
     }
 
     const tipBlock = tipRow.block_height
-    const totalBlocks = totalBuckets * config.blocksPerBucket
+    const totalBlocks = TOTAL_CELLS * bpc
     const startBlock = tipBlock - totalBlocks + 1
     const endBlock = tipBlock + 1
 
     // ─── Drill-down: return transactions for a specific bucket ────
     if (drillIdx !== null && drillIdx !== undefined) {
       const idx = parseInt(drillIdx)
-      if (isNaN(idx) || idx < 0 || idx >= totalBuckets) {
+      if (isNaN(idx) || idx < 0 || idx >= TOTAL_CELLS) {
         return NextResponse.json({ error: 'Invalid drill index' }, { status: 400 })
       }
 
-      const bucketStartBlock = startBlock + idx * config.blocksPerBucket
-      const bucketEndBlock = bucketStartBlock + config.blocksPerBucket
+      const bucketStartBlock = startBlock + idx * bpc
+      const bucketEndBlock = bucketStartBlock + bpc
 
       const { data: txs, error } = await supabase
         .from('dog_transactions')
@@ -135,7 +132,7 @@ export async function GET(request: NextRequest) {
     const { data: rawRows, error } = await supabase.rpc('heatmap_block_buckets', {
       p_start_block: startBlock,
       p_end_block: endBlock,
-      p_blocks_per_bucket: config.blocksPerBucket,
+      p_blocks_per_bucket: bpc,
     })
 
     let bucketMap: Map<number, any> = new Map()
@@ -154,8 +151,8 @@ export async function GET(request: NextRequest) {
 
       for (const row of fallbackRows || []) {
         const idx = Math.min(
-          totalBuckets - 1,
-          Math.floor((row.block_height - startBlock) / config.blocksPerBucket)
+          TOTAL_CELLS - 1,
+          Math.floor((row.block_height - startBlock) / bpc)
         )
 
         if (!bucketMap.has(idx)) {
@@ -194,11 +191,11 @@ export async function GET(request: NextRequest) {
     let peakIdx = 0
     let whaleCount = 0
 
-    for (let i = 0; i < totalBuckets; i++) {
+    for (let i = 0; i < TOTAL_CELLS; i++) {
       const raw = bucketMap.get(i)
-      const { row, col } = getBucketRowCol(i, config.rows)
-      const bucketStartBlock = startBlock + i * config.blocksPerBucket
-      const bucketEndBlock = bucketStartBlock + config.blocksPerBucket
+      const { row, col } = getBucketRowCol(i)
+      const bucketStartBlock = startBlock + i * bpc
+      const bucketEndBlock = bucketStartBlock + bpc
 
       const txCount = raw?.tx_count || 0
       const volume = Number(raw?.volume || 0)
@@ -241,9 +238,9 @@ export async function GET(request: NextRequest) {
       meta: {
         timeframe,
         gridConfig: {
-          rows: config.rows,
-          cols: config.cols,
-          blocksPerBucket: config.blocksPerBucket,
+          rows: GRID_ROWS,
+          cols: GRID_COLS,
+          blocksPerBucket: bpc,
         },
         startBlock,
         endBlock,
