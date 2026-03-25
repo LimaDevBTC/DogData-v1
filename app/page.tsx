@@ -313,7 +313,7 @@ export default function OverviewPage() {
             </Badge>
 
             {/* Title */}
-            <h1 className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-display font-bold tracking-tight leading-none">
+            <h1 className="text-[clamp(1.1rem,5vw,1.5rem)] sm:text-3xl md:text-5xl lg:text-6xl font-display font-bold tracking-tight leading-none">
               <span className="gradient-text-hero">
                 DOG&#x2022;GO&#x2022;TO&#x2022;THE&#x2022;MOON
               </span>
