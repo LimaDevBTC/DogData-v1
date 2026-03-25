@@ -24,7 +24,8 @@ import os
 import time
 import logging
 import argparse
-from datetime import datetime, timezone
+from collections import Counter, defaultdict
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Optional
 
@@ -483,6 +484,94 @@ def scan_block(height, utxo_set):
     return results
 
 
+# === Metrics ===
+
+def compute_24h_metrics(transactions):
+    """Compute last-24h metrics from a list of transactions."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    recent = [tx for tx in transactions if (tx.get('timestamp') or '') >= cutoff]
+
+    if not recent:
+        return {'last24h': {
+            'txCount': 0, 'totalDogMoved': 0, 'blockCount': 0,
+            'avgTxPerBlock': 0, 'avgDogPerTx': 0, 'feesSats': 0, 'feesBtc': 0,
+            'activeWalletCount': 0, 'volumeWalletCount': 0,
+            'topActiveWallet': None, 'topVolumeWallet': None,
+            'topOutWallet': None, 'topInWallet': None,
+        }}
+
+    tx_count = len(recent)
+    total_dog = sum(tx.get('total_dog_moved', 0) for tx in recent)
+    blocks = set(tx.get('block_height', 0) for tx in recent)
+    block_count = len(blocks)
+    fees_sats = sum(tx.get('fee_sats', 0) for tx in recent)
+
+    # Wallet activity tracking
+    wallet_tx_count = Counter()
+    wallet_sent = defaultdict(float)
+    wallet_received = defaultdict(float)
+
+    for tx in recent:
+        for s in tx.get('senders', []):
+            addr = s.get('address', '')
+            if addr:
+                wallet_tx_count[addr] += 1
+                wallet_sent[addr] += s.get('amount_dog', 0)
+        for r in tx.get('receivers', []):
+            addr = r.get('address', '')
+            if addr and not r.get('is_change', False):
+                wallet_tx_count[addr] += 1
+                wallet_received[addr] += r.get('amount_dog', 0)
+
+    # Top active wallet (most txs)
+    top_active = None
+    if wallet_tx_count:
+        addr, count = wallet_tx_count.most_common(1)[0]
+        top_active = {'address': addr, 'txCount': count}
+
+    # Top volume wallet (most DOG moved in either direction)
+    wallet_volume = {}
+    for addr in set(list(wallet_sent.keys()) + list(wallet_received.keys())):
+        sent = wallet_sent.get(addr, 0)
+        recv = wallet_received.get(addr, 0)
+        if sent >= recv:
+            wallet_volume[addr] = {'dogMoved': sent, 'direction': 'OUT'}
+        else:
+            wallet_volume[addr] = {'dogMoved': recv, 'direction': 'IN'}
+
+    top_volume = None
+    if wallet_volume:
+        addr = max(wallet_volume, key=lambda a: wallet_volume[a]['dogMoved'])
+        top_volume = {'address': addr, **wallet_volume[addr]}
+
+    # Top out/in wallets
+    top_out = None
+    if wallet_sent:
+        addr = max(wallet_sent, key=wallet_sent.get)
+        top_out = {'address': addr, 'dogMoved': wallet_sent[addr]}
+
+    top_in = None
+    if wallet_received:
+        addr = max(wallet_received, key=wallet_received.get)
+        top_in = {'address': addr, 'dogMoved': wallet_received[addr]}
+
+    return {'last24h': {
+        'txCount': tx_count,
+        'totalDogMoved': round(total_dog, 2),
+        'blockCount': block_count,
+        'avgTxPerBlock': round(tx_count / block_count, 2) if block_count else 0,
+        'avgDogPerTx': round(total_dog / tx_count, 2) if tx_count else 0,
+        'feesSats': fees_sats,
+        'feesBtc': round(fees_sats / 1e8, 8),
+        'activeWalletCount': len(wallet_tx_count),
+        'volumeWalletCount': len(wallet_volume),
+        'topActiveWallet': top_active,
+        'topVolumeWallet': top_volume,
+        'topOutWallet': top_out,
+        'topInWallet': top_in,
+    }}
+
+
 # === Redis/Upstash ===
 
 def push_to_redis(new_txs):
@@ -529,7 +618,7 @@ def push_to_redis(new_txs):
             'last_block': last_block,
             'last_update': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
             'transactions': trimmed,
-            'metrics': {},
+            'metrics': compute_24h_metrics(trimmed),
         }
 
         # Save to Redis

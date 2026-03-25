@@ -484,23 +484,23 @@ export default function OverviewPage() {
             </Card>
           </a>
 
-          {/* On-Chain Txns 24h */}
+          {/* Miner Fees 24h */}
           <Card variant="glass" className={cardBaseClass}>
             <CardHeader className="pb-2">
               <CardTitle variant="mono" className="text-[11px] md:text-sm text-dusty flex items-center gap-1.5">
                 <Zap className="w-3.5 h-3.5 text-yellow-400/60" />
-                <span className="hidden md:inline">On-Chain Txns 24h</span>
-                <span className="md:hidden">Txns 24h</span>
+                <span className="hidden md:inline">Miner Fees 24h</span>
+                <span className="md:hidden">Fees 24h</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-1.5">
                 <div className="text-lg md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
                   {metrics24h
-                    ? metrics24h.txCount.toLocaleString()
+                    ? `${metrics24h.feesBtc?.toFixed(4)} BTC`
                     : (loading ? '...' : 'N/A')}
                 </div>
-                <span className="text-[10px] md:text-xs text-dusty/50 font-mono">Past 24 hours</span>
+                <span className="text-[10px] md:text-xs text-dusty/50 font-mono">DOG txn fees to miners</span>
               </div>
             </CardContent>
           </Card>
