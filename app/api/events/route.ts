@@ -34,6 +34,9 @@ export async function GET(request: NextRequest) {
     ? new Set(eventsParam.split(',').map(e => e.trim()).filter(e => AVAILABLE_EVENT_TYPES.includes(e as EventType)))
     : new Set(AVAILABLE_EVENT_TYPES);
 
+  // Configurable whale threshold (default: 1M DOG)
+  const whaleThreshold = parseInt(url.searchParams.get('whale_threshold') || '1000000', 10);
+
   // Always include heartbeat
   requestedTypes.add('heartbeat');
 
@@ -118,15 +121,27 @@ export async function GET(request: NextRequest) {
                   });
                 }
 
-                // Check for whale alert (transfers >= 1B DOG)
-                const amount = parseFloat(tx.amount || tx.value || '0');
-                if (requestedTypes.has('whale_alert') && amount >= 1_000_000_000) {
+                // Check for whale alert (configurable threshold, default 1M DOG)
+                const amount = parseFloat(tx.total_dog_moved || tx.amount || tx.value || '0');
+                if (requestedTypes.has('whale_alert') && amount >= whaleThreshold) {
+                  const formatDog = (n: number) =>
+                    n >= 1e9 ? `${(n / 1e9).toFixed(2)}B`
+                    : n >= 1e6 ? `${(n / 1e6).toFixed(2)}M`
+                    : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K`
+                    : n.toFixed(2);
+                  const severity =
+                    amount >= 100_000_000 ? 'MEGA'
+                    : amount >= 10_000_000 ? 'HIGH'
+                    : amount >= 5_000_000 ? 'MEDIUM'
+                    : 'ALERT';
                   enqueue({
                     type: 'whale_alert',
                     data: {
                       ...tx,
-                      alert: 'Large transfer detected',
-                      threshold: '1B DOG',
+                      severity,
+                      total_dog_formatted: `${formatDog(amount)} DOG`,
+                      threshold_used: whaleThreshold,
+                      dogdata_url: `https://www.dogdata.xyz/transactions?search=${tx.txid || ''}`,
                     },
                     timestamp: new Date().toISOString(),
                   });

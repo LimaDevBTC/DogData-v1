@@ -68,6 +68,9 @@ Then use: Authorization: Bearer dog_live_xxx
 | /api/forensic/summary | Forensic overview stats |
 | /api/airdrop/summary | Airdrop distribution stats |
 | /api/bitcoin | Bitcoin network status |
+| /api/whale-alerts | Large transfers with severity, context, tweet text |
+| /api/whale-alerts?format=tweet | Tweet-ready whale alerts |
+| /api/whale-alerts?threshold=5000000 | Custom threshold (default: 1M DOG) |
 | /api/events | SSE real-time event stream |
 
 ## Data Quality

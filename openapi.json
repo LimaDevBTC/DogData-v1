@@ -35,7 +35,8 @@
     { "name": "Markets", "description": "Multi-exchange market tickers and aggregated market data" },
     { "name": "Agent", "description": "AI agent discovery and capabilities" },
     { "name": "System", "description": "Health checks, status, and OpenAPI spec" },
-    { "name": "Events", "description": "Server-Sent Events for real-time updates" }
+    { "name": "Events", "description": "Server-Sent Events for real-time updates" },
+    { "name": "Whale Alerts", "description": "Large DOG transfers with context, severity, and tweet-ready format" }
   ],
   "components": {
     "securitySchemes": {
@@ -1546,6 +1547,71 @@
               }
             }
           }
+        }
+      }
+    },
+    "/v1/whale-alerts": {
+      "get": {
+        "operationId": "getWhaleAlerts",
+        "tags": ["Whale Alerts"],
+        "summary": "Get large DOG transfers with context and tweet-ready format",
+        "description": "Returns DOG transactions above the specified threshold with severity classification, USD value, sender/receiver analysis, contextual interpretation, and pre-formatted tweet text. Default threshold: 1M DOG.",
+        "parameters": [
+          {
+            "name": "threshold",
+            "in": "query",
+            "schema": { "type": "integer", "default": 1000000 },
+            "description": "Minimum DOG amount to trigger alert (default: 1,000,000)"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "default": 50, "maximum": 200 },
+            "description": "Maximum number of alerts to return"
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["full", "tweet", "compact"], "default": "full" },
+            "description": "Response format: full (all fields), tweet (tweet text only), compact (summary)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Whale alerts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "service": { "type": "string" },
+                    "threshold": { "type": "string" },
+                    "dog_price_usd": { "type": "number" },
+                    "total_alerts": { "type": "integer" },
+                    "scanned_transactions": { "type": "integer" },
+                    "alerts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "txid": { "type": "string" },
+                          "total_dog_moved": { "type": "number" },
+                          "total_dog_formatted": { "type": "string" },
+                          "usd_value": { "type": "string" },
+                          "severity": { "type": "string", "enum": ["MEGA", "HIGH", "MEDIUM", "ALERT"] },
+                          "classification": { "type": "string" },
+                          "context": { "type": "string" },
+                          "tweet": { "type": "string" },
+                          "dogdata_url": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": { "$ref": "#/components/responses/RateLimited" }
         }
       }
     },

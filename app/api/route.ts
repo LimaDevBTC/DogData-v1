@@ -83,6 +83,9 @@ export async function GET() {
         recipients: '/api/airdrop/recipients',
       },
       bitcoin: '/api/bitcoin',
+      whale_alerts: '/api/whale-alerts',
+      whale_alerts_tweet: '/api/whale-alerts?format=tweet',
+      whale_alerts_custom: '/api/whale-alerts?threshold=5000000&limit=10',
       realtime_sse: '/api/events',
     },
     protocols: {
