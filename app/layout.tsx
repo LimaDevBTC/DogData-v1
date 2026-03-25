@@ -39,10 +39,20 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: 'DOG DATA - Real-time DOG Rune Explorer',
-  description: 'Professional explorer for DOG\u2022GO\u2022TO\u2022THE\u2022MOON rune with real-time data, holder lists, statistics and exclusive forensic analysis.',
-  keywords: 'DOG, Bitcoin, Rune, Ordinals, Holders, Blockchain, Explorer, Real-time, Forensic Analysis',
+  title: 'DOG DATA \u2014 Real-time DOG\u2022GO\u2022TO\u2022THE\u2022MOON Rune Data API & Explorer',
+  description:
+    "The world's most comprehensive data platform for DOG rune on Bitcoin L1. " +
+    '89,000+ holders, 250,000+ UTXOs, forensic behavioral analysis, multi-exchange pricing. ' +
+    '35 REST API endpoints, MCP Server for AI agents, SSE real-time events. ' +
+    'Powered by our own Bitcoin Core + Ord full node.',
+  keywords: [
+    'DOG', 'DOG GO TO THE MOON', 'Bitcoin', 'Rune', 'API', 'MCP Server',
+    'AI agents', 'on-chain analytics', 'holders', 'UTXO', 'forensic analysis',
+    'Diamond Score', 'real-time', 'blockchain data', 'trading bot', 'DeFi',
+  ],
   authors: [{ name: 'DOG DATA Team' }],
+  robots: { index: true, follow: true },
+  alternates: { canonical: siteUrl },
   icons: {
     icon: '/favicondog.png',
     shortcut: '/favicondog.png',
@@ -53,23 +63,28 @@ export const metadata: Metadata = {
     ],
   },
   openGraph: {
-    title: 'DOG DATA - DOG Rune Explorer',
-    description: 'Professional explorer for DOG rune with real-time data and forensic analysis',
+    title: 'DOG DATA API \u2014 89K+ Holders | 35 Endpoints | AI Agent Ready',
+    description:
+      'Real-time DOG\u2022GO\u2022TO\u2022THE\u2022MOON rune data for AI agents and trading bots. ' +
+      'REST API, MCP Server, SSE events. Forensic analysis, multi-exchange pricing, on-chain metrics.',
     type: 'website',
     locale: 'en_US',
+    siteName: 'DOG DATA',
     images: [
       {
         url: '/DOGDATAOG.png',
         width: 1200,
         height: 630,
-        alt: 'DOG DATA - DOG Rune Explorer',
+        alt: 'DOG DATA \u2014 The world\'s most comprehensive DOG rune data platform',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'DOG DATA - DOG Rune Explorer',
-    description: 'Professional explorer for DOG rune with real-time data and forensic analysis',
+    title: 'DOG DATA API \u2014 Real-time DOG Rune Data for AI Agents',
+    description:
+      '89K+ holders, 35 API endpoints, MCP Server, SSE events. ' +
+      'Forensic analysis & Diamond Score. Bitcoin Core + Ord powered.',
     images: ['/DOGDATAOG.png'],
   },
 }
