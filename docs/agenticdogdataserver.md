@@ -1,40 +1,89 @@
 # DOG DATA — Agentic Data Server
 ## Plano de Implementação para Servidor Mundial de Dados DOG para Agentes de IA
 
-**Versão:** 1.0
-**Data:** 2026-03-18
-**Status:** EXECUÇÃO IMEDIATA
-**Modo:** Agêntico — todas as fases executadas em paralelo por sub-agentes
-**Visão:** Tornar o DOG DATA a referência mundial em dados on-chain do DOG•GO•TO•THE•MOON para milhares de agentes de IA autônomos.
+**Versão:** 2.0
+**Data:** 2026-03-25
+**Revisão anterior:** 2026-03-18 (v1.0)
+**Status:** FASE DE VISIBILIDADE — infraestrutura pronta, descoberta invisível
+**Modo:** Agêntico — fases executadas em paralelo por sub-agentes
+**Visão:** Tornar o DOG DATA a referência mundial em dados on-chain do DOG•GO•TO•THE•MOON para centenas de agentes de IA autônomos.
 
 ---
 
-## Sumário Executivo
+## Resumo do Estado Atual (2026-03-25)
 
-O DOG DATA já possui a infraestrutura de dados mais completa do ecossistema DOG: scanner próprio rodando sobre Bitcoin Core + Ord, 89.287 holders indexados, 250.002 UTXOs rastreados, análise forense de 75.490 endereços, preços de 8+ exchanges, e 29 endpoints REST em produção. **Nenhum outro projeto no mundo oferece esse nível de dados DOG.**
+### O que foi construído (Fases 1-4: ~80% concluído)
 
-O próximo passo é transformar essa infraestrutura em uma plataforma agent-native: um servidor de dados que milhares de agentes de IA ao redor do mundo possam consumir de forma autônoma, segura e escalável.
+A infraestrutura core está **implementada e em produção** em `dogdata.xyz`:
 
-Este documento define o plano completo de implementação em 5 fases, projetado para **execução agêntica paralela** — múltiplos sub-agentes implementando simultaneamente.
+| Componente | Status | Detalhes |
+|---|---|---|
+| MCP Server | **PRODUÇÃO** | 12 tools, 8 resources, 4 prompts, HTTP + STDIO |
+| REST API | **PRODUÇÃO** | 35 endpoints em 11 categorias |
+| OpenAPI 3.0.3 | **PRODUÇÃO** | Spec completa em `/api/openapi.json` |
+| API Gateway | **PRODUÇÃO** | Auth bearer, 4 tiers, rate limiting Redis |
+| API Keys | **PRODUÇÃO** | Geração, validação, SHA256, Supabase |
+| Rate Limiting | **PRODUÇÃO** | 20/100/5.000/50.000 req/hr por tier |
+| SSE Events | **PRODUÇÃO** | transactions, whale alerts, price, heartbeat |
+| Agent Discovery | **PRODUÇÃO** | `/.well-known/ai-agent.json` + `/api/agent/capabilities` |
+| SDK TypeScript | **CÓDIGO PRONTO** | `@dogdata/sdk` em `/sdk/typescript/` |
+| SDK Python | **CÓDIGO PRONTO** | `dogdata` em `/sdk/python/` |
+| Health/Status | **PRODUÇÃO** | `/api/health` (Redis 13ms) + `/api/status` (35 endpoints) |
+
+### Health Check ao Vivo (2026-03-25T17:24Z)
+
+```
+/api/status    → 200 OK — v1.0.0, 89.194 holders, 35 endpoints, 11 categorias
+/api/health    → 200 OK — Redis 13ms, Holders 493ms, Transactions cached
+/api/agent/capabilities → 200 OK — Documento completo de capabilities
+/api/openapi.json → 200 OK — OpenAPI 3.0.3 spec completa
+```
+
+### O PROBLEMA CRÍTICO: Agentes não encontram nada
+
+**Feedback real do agente Xored Pike (2026-03-25):**
+
+> "O site é 100% client-side (Next.js SPA) — não dá pra scrape via fetch.
+> Sem API pública documentada (nem /api, nem sitemap, nem docs).
+> GitHub vazio — 0 repos públicos na org github.com/dogdata.
+> Sem presença significativa no X/Twitter.
+> **Problema: sem API pública, o agente não consegue consumir dados programaticamente.**"
+
+**Diagnóstico: a infraestrutura está completa mas INVISÍVEL.**
+
+| Recurso de Discovery | Status | Impacto |
+|---|---|---|
+| `/api` (raiz) | **404** | Primeira coisa que todo agente tenta |
+| `/docs` | **404** | Devs e agentes procuram docs aqui |
+| `/robots.txt` | **404** | Crawlers não sabem o que indexar |
+| `/sitemap.xml` | **404** | Buscadores não indexam as rotas |
+| GitHub `dogdata` org | **0 repos públicos** | Parece projeto fantasma |
+| npm `@dogdata/mcp-server` | **Não publicado** | Agentes Claude não conseguem instalar |
+| PyPI `dogdata` | **Não publicado** | Agentes Python não conseguem instalar |
+| Homepage meta tags | **Client-side only** | Crawlers veem página em branco |
+| Twitter/X | **Sem presença** | Zero social proof |
+
+**Conclusão:** Construímos a melhor API de dados DOG do mundo e ninguém sabe que ela existe.
 
 ---
 
 ## Índice
 
 1. [Arquitetura Geral](#1-arquitetura-geral)
-2. [Fase 1 — MCP Server](#2-fase-1--mcp-server)
-3. [Fase 2 — OpenAPI Spec + Portal de Documentação](#3-fase-2--openapi-spec--portal-de-documentação)
-4. [Fase 3 — API Gateway: Auth, Rate Limiting & Tiers](#4-fase-3--api-gateway-auth-rate-limiting--tiers)
-5. [Fase 4 — Agent Discovery & SDK](#5-fase-4--agent-discovery--sdk)
-6. [Fase 5 — Escalabilidade & Observabilidade](#6-fase-5--escalabilidade--observabilidade)
-7. [Definição dos Tools MCP](#7-definição-dos-tools-mcp)
-8. [Definição dos Resources MCP](#8-definição-dos-resources-mcp)
-9. [Schema de API Unificado](#9-schema-de-api-unificado)
-10. [Sistema de Tiers & Rate Limiting](#10-sistema-de-tiers--rate-limiting)
-11. [Infraestrutura & Deploy](#11-infraestrutura--deploy)
-12. [Métricas de Sucesso](#12-métricas-de-sucesso)
-13. [Riscos & Mitigações](#13-riscos--mitigações)
-14. [Cronograma Visual](#14-cronograma-visual)
+2. [Fase 1 — MCP Server](#2-fase-1--mcp-server) ✅ CONCLUÍDA
+3. [Fase 2 — OpenAPI Spec + Schemas](#3-fase-2--openapi-spec--schemas) ✅ CONCLUÍDA
+4. [Fase 3 — API Gateway: Auth, Rate Limiting & Tiers](#4-fase-3--api-gateway-auth-rate-limiting--tiers) ✅ CONCLUÍDA
+5. [Fase 4 — Agent Discovery & SDK](#5-fase-4--agent-discovery--sdk) ⚠️ PARCIAL
+6. [Fase 5 — DISCOVERABILITY: A Fase Invisível](#6-fase-5--discoverability-a-fase-invisível) 🔴 CRÍTICA — EXECUTAR AGORA
+7. [Fase 6 — Escalabilidade & Observabilidade](#7-fase-6--escalabilidade--observabilidade) ⏳ PENDENTE
+8. [Definição dos Tools MCP](#8-definição-dos-tools-mcp)
+9. [Definição dos Resources MCP](#9-definição-dos-resources-mcp)
+10. [Schema de API Unificado](#10-schema-de-api-unificado)
+11. [Sistema de Tiers & Rate Limiting](#11-sistema-de-tiers--rate-limiting)
+12. [Infraestrutura & Deploy](#12-infraestrutura--deploy)
+13. [Métricas de Sucesso](#13-métricas-de-sucesso)
+14. [Riscos & Mitigações](#14-riscos--mitigações)
+15. [Plano de Execução Agêntica](#15-plano-de-execução-agêntica)
 
 ---
 
@@ -53,7 +102,16 @@ Este documento define o plano completo de implementação em 5 fases, projetado 
 └───────┼──────────────┼──────────────┼───────────────┼───────────┘
         │              │              │               │
 ┌───────▼──────────────▼──────────────▼───────────────▼───────────┐
-│                     API GATEWAY LAYER                            │
+│                   DISCOVERY LAYER (FASE 5 — NOVO)               │
+│                                                                 │
+│  ┌────────────┐ ┌────────────┐ ┌───────────┐ ┌──────────────┐  │
+│  │ /api index │ │ /docs page │ │ robots.txt│ │ sitemap.xml  │  │
+│  │ (discovery)│ │ (Scalar UI)│ │ + SEO     │ │ + meta tags  │  │
+│  └────────────┘ └────────────┘ └───────────┘ └──────────────┘  │
+└─────────────────────────────┬───────────────────────────────────┘
+                              │
+┌─────────────────────────────▼───────────────────────────────────┐
+│                     API GATEWAY LAYER ✅                         │
 │                                                                 │
 │  ┌─────────────┐  ┌──────────┐  ┌───────────┐  ┌────────────┐  │
 │  │ Auth &      │  │ Rate     │  │ Request   │  │ Usage      │  │
@@ -62,23 +120,23 @@ Este documento define o plano completo de implementação em 5 fases, projetado 
 └─────────────────────────────┬───────────────────────────────────┘
                               │
 ┌─────────────────────────────▼───────────────────────────────────┐
-│                     PROTOCOL LAYER                              │
+│                     PROTOCOL LAYER ✅                            │
 │                                                                 │
 │  ┌──────────────────────┐  ┌─────────────────────────────────┐  │
-│  │ MCP Server           │  │ REST API (Next.js /api/)        │  │
-│  │ (Streamable HTTP +   │  │ (29 endpoints existentes +     │  │
-│  │  stdio transport)    │  │  novos endpoints agent-ready)  │  │
-│  │                      │  │                                 │  │
-│  │ • 12 Tools           │  │ • OpenAPI 3.0 Spec             │  │
-│  │ • 8 Resources        │  │ • JSON responses padronizadas  │  │
-│  │ • 4 Prompts          │  │ • Field selection (?fields=)   │  │
+│  │ MCP Server ✅         │  │ REST API (Next.js /api/) ✅      │  │
+│  │ (Streamable HTTP +   │  │ (35 endpoints em produção)      │  │
+│  │  stdio transport)    │  │                                 │  │
+│  │                      │  │ • OpenAPI 3.0.3 Spec ✅          │  │
+│  │ • 12 Tools ✅         │  │ • JSON responses padronizadas  │  │
+│  │ • 8 Resources ✅      │  │ • SSE real-time events ✅       │  │
+│  │ • 4 Prompts ✅        │  │                                 │  │
 │  └──────────┬───────────┘  └──────────────┬──────────────────┘  │
 │             │                             │                     │
 │             └──────────────┬──────────────┘                     │
 └────────────────────────────┼────────────────────────────────────┘
                              │
 ┌────────────────────────────▼────────────────────────────────────┐
-│                     DATA LAYER                                  │
+│                     DATA LAYER ✅                                │
 │                                                                 │
 │  ┌──────────────┐  ┌──────────────┐  ┌────────────────────┐    │
 │  │ Local JSON   │  │ Upstash      │  │ Supabase           │    │
@@ -93,7 +151,7 @@ Este documento define o plano completo de implementação em 5 fases, projetado 
 └─────────┼───────────────────────────────────────────────────────┘
           │
 ┌─────────▼───────────────────────────────────────────────────────┐
-│                     INDEXING LAYER                               │
+│                     INDEXING LAYER ✅                             │
 │                                                                 │
 │  ┌──────────────────┐  ┌──────────────────┐                    │
 │  │ dog_block_scanner │  │ update_holders   │                    │
@@ -108,548 +166,373 @@ Este documento define o plano completo de implementação em 5 fases, projetado 
 
 ---
 
-## 2. Fase 1 — MCP Server
+## 2. Fase 1 — MCP Server ✅ CONCLUÍDA
 
+**Status:** Implementado e funcional em `/mcp-server/`
 **Impacto:** Agentes Claude podem consumir dados DOG nativamente
-**Prioridade:** CRÍTICA — diferencial competitivo imediato
-**Execução:** Sub-agente dedicado — implementa server core, tools, resources, prompts e transports
 
-### 2.1 Estrutura de Arquivos
+### 2.1 Estrutura Implementada
 
 ```
 DogData-v1/
 ├── mcp-server/
-│   ├── index.ts                  # Entry point do MCP server
-│   ├── server.ts                 # Configuração do McpServer
-│   ├── tools/
-│   │   ├── holders.ts            # get_dog_holders, search_holder
-│   │   ├── transactions.ts       # get_recent_transactions, search_transaction
-│   │   ├── price.ts              # get_dog_price, get_multi_exchange_prices
-│   │   ├── metrics.ts            # get_onchain_metrics, get_utxo_distribution
-│   │   ├── forensic.ts           # get_forensic_profiles, get_diamond_scores
-│   │   ├── airdrop.ts            # get_airdrop_analysis
-│   │   ├── bitcoin.ts            # get_bitcoin_network_status
-│   │   └── markets.ts            # get_market_data
-│   ├── resources/
-│   │   ├── stats.ts              # dog://stats (read-only resource)
-│   │   ├── top-holders.ts        # dog://top-holders
-│   │   ├── supply.ts             # dog://supply-info
-│   │   └── network.ts            # dog://bitcoin-network
-│   ├── prompts/
-│   │   ├── analyze-holder.ts     # Prompt template for holder analysis
-│   │   ├── market-report.ts      # Prompt template for market report
-│   │   ├── whale-alert.ts        # Prompt template for whale detection
-│   │   └── portfolio-check.ts    # Prompt template for address check
+│   ├── index.ts                  ✅ Entry point (STDIO + HTTP modes)
+│   ├── server.ts                 ✅ McpServer config + 12 tools + 8 resources + 4 prompts
 │   ├── transport/
-│   │   ├── stdio.ts              # STDIO transport (Claude Desktop)
-│   │   └── http.ts               # Streamable HTTP transport (remote)
-│   ├── auth/
-│   │   └── api-keys.ts           # API key validation for MCP
-│   ├── utils/
-│   │   ├── data-loader.ts        # Shared data loading logic
-│   │   └── formatters.ts         # Response formatting for agents
-│   ├── package.json
-│   └── tsconfig.json
+│   │   └── http.ts               ✅ Express + Streamable HTTP (porta 3002)
+│   ├── package.json              ✅ @dogdata/mcp-server
+│   ├── tsconfig.json             ✅
+│   └── README.md                 ✅ Deploy guide
 ```
 
-### 2.2 Dependências
+### 2.2 Entregáveis Fase 1
 
-```json
-{
-  "name": "@dogdata/mcp-server",
-  "version": "1.0.0",
-  "description": "DOG DATA MCP Server — Real-time DOG rune data for AI agents",
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.0",
-    "zod": "^3.24.0",
-    "@upstash/redis": "^1.34.0",
-    "@supabase/supabase-js": "^2.47.0"
-  },
-  "engines": {
-    "node": ">=22.18.0"
-  }
-}
-```
-
-### 2.3 Implementação do Server Core
-
-```typescript
-// mcp-server/server.ts
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { z } from "zod";
-
-const server = new McpServer({
-  name: "dogdata",
-  version: "1.0.0",
-  description: "Real-time DOG•GO•TO•THE•MOON rune data on Bitcoin L1. " +
-    "89,000+ holders, 250,000+ UTXOs, forensic analysis, " +
-    "multi-exchange pricing, and on-chain metrics."
-});
-
-// Tools registrados nas seções seguintes (Seção 7)
-// Resources registrados na Seção 8
-```
-
-### 2.4 Transports
-
-**STDIO** (para Claude Desktop e Claude Code):
-```typescript
-// mcp-server/transport/stdio.ts
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-
-const transport = new StdioServerTransport();
-await server.connect(transport);
-// IMPORTANTE: Nunca usar console.log() — corrompe JSON-RPC via stdio
-// Usar console.error() para logging
-```
-
-**Streamable HTTP** (para agentes remotos):
-```typescript
-// mcp-server/transport/http.ts
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import express from "express";
-
-const app = express();
-app.post("/mcp", async (req, res) => {
-  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
-  res.writeHead(200, { "Content-Type": "application/json" });
-  await server.connect(transport);
-  await transport.handleRequest(req, res);
-});
-// Roda na porta 3002 ou integrado ao Next.js
-```
-
-### 2.5 Publicação
-
-- Publicar no **npm** como `@dogdata/mcp-server`
-- Registrar no **MCP Server Directory** (modelcontextprotocol.io)
-- Configuração para Claude Desktop:
-```json
-{
-  "mcpServers": {
-    "dogdata": {
-      "command": "npx",
-      "args": ["@dogdata/mcp-server"]
-    }
-  }
-}
-```
-
-### 2.6 Entregáveis Fase 1
-
-- [ ] MCP Server funcional com 12 tools, 8 resources, 4 prompts
-- [ ] Transport STDIO para Claude Desktop/Code
-- [ ] Transport HTTP para agentes remotos
-- [ ] Publicado no npm
-- [ ] Registrado no MCP Directory
-- [ ] README com instruções de instalação
+- [x] MCP Server funcional com 12 tools, 8 resources, 4 prompts
+- [x] Transport STDIO para Claude Desktop/Code
+- [x] Transport HTTP para agentes remotos (porta 3002)
+- [x] README com instruções de instalação
+- [ ] **Publicado no npm** → movido para Fase 5
+- [ ] **Registrado no MCP Directory** → movido para Fase 5
 - [ ] Testes de integração com Claude
 
 ---
 
-## 3. Fase 2 — OpenAPI Spec + Portal de Documentação
+## 3. Fase 2 — OpenAPI Spec + Schemas ✅ CONCLUÍDA
 
-**Impacto:** Qualquer agente pode auto-descobrir e consumir APIs
-**Prioridade:** ALTA
-**Execução:** Sub-agente dedicado — gera Zod schemas, OpenAPI spec, response padronizado
+**Status:** OpenAPI 3.0.3 spec completa servida em `/api/openapi.json`
 
-### 3.1 OpenAPI 3.0 Specification
+### 3.1 Entregáveis Fase 2
 
-Gerar spec completa para todos os endpoints REST. Usar `next-openapi-gen` + Zod schemas como source of truth.
-
-```yaml
-# openapi.yaml (resumo estrutural)
-openapi: "3.0.3"
-info:
-  title: "DOG DATA API"
-  version: "1.0.0"
-  description: |
-    The world's most comprehensive data API for DOG•GO•TO•THE•MOON rune on Bitcoin L1.
-    Real-time holder tracking, UTXO analysis, forensic behavioral profiling,
-    multi-exchange pricing, and on-chain metrics.
-  contact:
-    name: "DOG DATA Team"
-    url: "https://www.dogdata.xyz"
-  license:
-    name: "Proprietary"
-
-servers:
-  - url: "https://api.dogdata.xyz/v1"
-    description: "Production API"
-  - url: "https://www.dogdata.xyz/api"
-    description: "Legacy API (will be deprecated)"
-
-tags:
-  - name: holders
-    description: "DOG rune holder data — 89,000+ unique addresses"
-  - name: transactions
-    description: "Real-time DOG transaction tracking"
-  - name: price
-    description: "Multi-exchange pricing from 8+ sources"
-  - name: metrics
-    description: "On-chain analytics — UTXO, concentration, realized cap"
-  - name: forensic
-    description: "Behavioral analysis & Diamond Score profiling"
-  - name: airdrop
-    description: "Airdrop recipient analysis — 75,000+ addresses"
-  - name: bitcoin
-    description: "Bitcoin network status — blocks, hashrate, mempool"
-  - name: markets
-    description: "Aggregated market data across exchanges"
-  - name: agent
-    description: "Agent discovery & capability endpoints"
-```
-
-### 3.2 Schemas Zod (Source of Truth)
-
-Criar schemas Zod compartilhados entre API routes e OpenAPI:
-
-```
-DogData-v1/
-├── schemas/
-│   ├── holder.ts          # HolderSchema, HolderListSchema
-│   ├── transaction.ts     # TransactionSchema, TxListSchema
-│   ├── price.ts           # PriceSchema, MultiPriceSchema
-│   ├── metrics.ts         # UtxoSchema, ConcentrationSchema, etc.
-│   ├── forensic.ts        # ProfileSchema, DiamondScoreSchema
-│   ├── airdrop.ts         # RecipientSchema, SummarySchema
-│   ├── bitcoin.ts         # NetworkSchema, BlockSchema
-│   ├── markets.ts         # MarketSchema, TickerSchema
-│   ├── common.ts          # PaginationSchema, MetadataSchema, ErrorSchema
-│   └── index.ts           # Re-exports
-```
-
-### 3.3 Response Padronizado para Agentes
-
-Todas as respostas seguem formato unificado:
-
-```typescript
-interface AgentResponse<T> {
-  data: T;                          // Dados solicitados
-  metadata: {
-    source: string;                 // "dogdata.xyz"
-    version: string;                // "1.0.0"
-    timestamp: string;              // ISO 8601
-    cached: boolean;                // Se veio do cache
-    cache_age_seconds?: number;     // Idade do cache
-    data_freshness: string;         // "real-time" | "hourly" | "daily"
-    block_height?: number;          // Último bloco processado
-  };
-  pagination?: {
-    total: number;
-    page: number;
-    limit: number;
-    total_pages: number;
-    has_next: boolean;
-    has_prev: boolean;
-  };
-}
-```
-
-### 3.4 Portal de Documentação
-
-Implementar documentação interativa em `/docs` ou subdomínio `docs.dogdata.xyz`:
-
-- **Swagger UI** ou **Scalar** para playground interativo
-- Exemplos de request/response para cada endpoint
-- Guia "Getting Started for AI Agents"
-- Code snippets em Python, TypeScript, cURL
-- Seção dedicada "MCP Integration Guide"
-
-### 3.5 Entregáveis Fase 2
-
-- [ ] OpenAPI 3.0 spec completa para todos os endpoints
-- [ ] Zod schemas compartilhados (single source of truth)
-- [ ] Response format padronizado implementado em todos os endpoints
-- [ ] Suporte a `?fields=` para field selection
-- [ ] Portal de documentação interativo
-- [ ] Endpoint `GET /api/openapi.json` servindo a spec
-- [ ] Guia de integração para agentes
+- [x] OpenAPI 3.0.3 spec completa (30+ endpoints, 12 tags)
+- [x] Endpoint `GET /api/openapi.json` servindo a spec
+- [x] Response format padronizado em endpoints
+- [ ] **Zod schemas compartilhados como single source of truth** → pendente
+- [ ] **Suporte a `?fields=` para field selection** → pendente
+- [ ] **Portal de documentação interativo** → movido para Fase 5
 
 ---
 
-## 4. Fase 3 — API Gateway: Auth, Rate Limiting & Tiers
+## 4. Fase 3 — API Gateway: Auth, Rate Limiting & Tiers ✅ CONCLUÍDA
 
-**Impacto:** Segurança e controle para milhares de agentes
-**Prioridade:** ALTA
-**Execução:** Sub-agente dedicado — implementa auth middleware, rate limiting, API keys
+**Status:** Auth, rate limiting e API keys em produção
 
-### 4.1 Sistema de API Keys
+### 4.1 Entregáveis Fase 3
 
-```
-Tabela: api_keys (Supabase)
-├── id: uuid (PK)
-├── key_hash: text (SHA-256 do API key)
-├── key_prefix: text (primeiros 8 chars, para identificação)
-├── name: text (nome descritivo)
-├── owner_email: text
-├── tier: enum (free, pro, enterprise)
-├── permissions: text[] (scopes permitidos)
-├── created_at: timestamptz
-├── expires_at: timestamptz (nullable)
-├── last_used_at: timestamptz
-├── is_active: boolean
-├── metadata: jsonb (informações adicionais)
-```
-
-**Formato da API Key:**
-```
-dog_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxx    (produção)
-dog_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxx    (sandbox)
-```
-
-**Header de autenticação:**
-```
-Authorization: Bearer dog_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
-```
-
-### 4.2 Middleware de Autenticação
-
-```typescript
-// middleware/auth.ts
-export async function validateApiKey(req: NextRequest): Promise<ApiKeyInfo | null> {
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer dog_")) return null;
-
-  const key = authHeader.slice(7);
-  const keyHash = sha256(key);
-
-  // Verificar no Upstash (cache) primeiro, depois Supabase
-  let keyInfo = await redis.get(`apikey:${keyHash}`);
-  if (!keyInfo) {
-    keyInfo = await supabase.from("api_keys")
-      .select("*")
-      .eq("key_hash", keyHash)
-      .eq("is_active", true)
-      .single();
-    if (keyInfo) await redis.set(`apikey:${keyHash}`, keyInfo, { ex: 300 });
-  }
-
-  return keyInfo;
-}
-```
-
-### 4.3 Rate Limiting via Upstash
-
-```typescript
-// middleware/rate-limit.ts
-import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
-
-const rateLimiters = {
-  free:       new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(100, "1h") }),
-  pro:        new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5000, "1h") }),
-  enterprise: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(50000, "1h") }),
-};
-
-// Headers retornados em cada response:
-// X-RateLimit-Limit: 5000
-// X-RateLimit-Remaining: 4987
-// X-RateLimit-Reset: 1710792000
-// Retry-After: 120 (quando excedido)
-```
-
-### 4.4 Definição de Tiers
-
-Ver seção 10 para detalhamento completo.
-
-### 4.5 Usage Tracking
-
-```
-Tabela: api_usage (Supabase)
-├── id: bigint (PK)
-├── api_key_id: uuid (FK → api_keys)
-├── endpoint: text
-├── method: text
-├── status_code: int
-├── response_time_ms: int
-├── timestamp: timestamptz
-├── ip_address: text
-├── user_agent: text
-```
-
-Agregação horária para dashboard de analytics.
-
-### 4.6 Entregáveis Fase 3
-
-- [ ] Sistema de API keys (geração, validação, revogação)
-- [ ] Rate limiting por tier via Upstash Redis
-- [ ] Headers de rate limit em todas as responses
-- [ ] Usage tracking em Supabase
-- [ ] Dashboard de uso para key owners
-- [ ] Endpoint de self-service: `POST /api/keys/generate`
-- [ ] Página de signup em dogdata.xyz
+- [x] Sistema de API keys (geração SHA256, validação, Supabase)
+- [x] Rate limiting por tier via Upstash Redis (sliding window)
+- [x] Headers de rate limit (`X-RateLimit-*`, `Retry-After`)
+- [x] Endpoint `POST /api/keys/generate`
+- [x] Endpoint `POST /api/keys/verify`
+- [x] Migration SQL (`001_api_keys.sql`)
+- [x] API Gateway middleware com detecção de tier
+- [x] Usage logging em Redis (buckets horários, 7 dias retenção)
+- [ ] Dashboard de uso para key owners → Fase 6
+- [ ] Página de signup em dogdata.xyz → Fase 5
 
 ---
 
-## 5. Fase 4 — Agent Discovery & SDK
+## 5. Fase 4 — Agent Discovery & SDK ⚠️ PARCIAL
 
-**Impacto:** Agentes podem auto-configurar integração
-**Prioridade:** ALTA
-**Execução:** Sub-agente dedicado — cria discovery endpoints, well-known, SDKs
+**Status:** Endpoints de discovery implementados, SDKs não publicados
 
-### 5.1 Agent Discovery Endpoint
+### 5.1 Entregáveis Fase 4
+
+- [x] Endpoint `GET /api/agent/capabilities` (retorna capabilities completas)
+- [x] `/.well-known/ai-agent.json` (agent discovery manifest)
+- [x] SDK TypeScript (`@dogdata/sdk`) — código em `/sdk/typescript/`
+- [x] SDK Python (`dogdata`) — código em `/sdk/python/`
+- [ ] **SDK TypeScript publicado no npm** → Fase 5
+- [ ] **SDK Python publicado no PyPI** → Fase 5
+- [ ] Exemplos de integração para 3 protocolos
+
+---
+
+## 6. Fase 5 — DISCOVERABILITY: A Fase Invisível 🔴 CRÍTICA
+
+**Impacto:** SEM ESTA FASE, NENHUM AGENTE NOS ENCONTRA
+**Prioridade:** BLOQUEADORA — deve ser executada antes de qualquer outra coisa
+**Evidência:** Feedback real do agente Xored Pike confirmou que a API é invisível
+**Execução:** Sub-agente dedicado — cria todas as rotas de discovery, SEO e presença pública
+
+### 6.1 Problema
+
+Agentes e crawlers seguem um padrão previsível de discovery:
 
 ```
-GET /api/agent/capabilities
+1. GET /api               → "Existe API?"          → 404 ❌ PARA AQUI
+2. GET /docs              → "Tem documentação?"     → 404 ❌
+3. GET /robots.txt        → "O que posso acessar?"  → 404 ❌
+4. GET /sitemap.xml       → "Que páginas existem?"  → 404 ❌
+5. GitHub org             → "É projeto real?"       → vazio ❌
+6. npm search             → "Tem SDK?"              → nada ❌
+7. CONCLUSÃO: "Sem API pública" — exatamente o que Xored Pike concluiu
 ```
 
-Response:
+### 6.2 Entregáveis — Rota de Discovery `/api` (index)
+
+**Arquivo:** `app/api/route.ts`
+**Prioridade:** IMEDIATA — 5 minutos, maior impacto
+
+Criar rota raiz que retorna JSON de discovery:
+
 ```json
 {
   "service": "DOG DATA",
   "version": "1.0.0",
-  "description": "World's most comprehensive DOG•GO•TO•THE•MOON data platform",
+  "description": "The world's most comprehensive DOG•GO•TO•THE•MOON data platform on Bitcoin L1. Real-time holder tracking, forensic analysis, multi-exchange pricing for AI agents.",
+  "quick_start": {
+    "no_key_required": [
+      "GET /api/dog-rune/stats",
+      "GET /api/price/kraken",
+      "GET /api/health"
+    ],
+    "get_api_key": "POST /api/keys/generate",
+    "full_capabilities": "GET /api/agent/capabilities"
+  },
+  "endpoints": {
+    "stats": "/api/dog-rune/stats",
+    "holders": "/api/dog-rune/holders",
+    "transactions": "/api/dog-rune/transactions-kv",
+    "price_kraken": "/api/price/kraken",
+    "price_all": "/api/markets",
+    "metrics": "/api/metrics/utxo",
+    "forensic": "/api/forensic/profiles",
+    "airdrop": "/api/airdrop/summary",
+    "bitcoin": "/api/bitcoin",
+    "events_sse": "/api/events"
+  },
   "protocols": {
-    "rest": {
-      "base_url": "https://api.dogdata.xyz/v1",
-      "openapi_spec": "https://api.dogdata.xyz/v1/openapi.json",
-      "auth": "bearer_token",
-      "docs": "https://docs.dogdata.xyz"
-    },
-    "mcp": {
-      "npm_package": "@dogdata/mcp-server",
-      "http_endpoint": "https://mcp.dogdata.xyz",
-      "transport": ["stdio", "streamable-http"],
-      "tools_count": 12,
-      "resources_count": 8
-    },
-    "sse": {
-      "endpoint": "https://api.dogdata.xyz/v1/events",
-      "events": ["new_transaction", "price_update", "whale_alert", "new_block"]
-    }
-  },
-  "datasets": {
-    "holders": {
-      "description": "Complete DOG holder list with rankings and UTXO counts",
-      "total_records": 89287,
-      "update_frequency": "hourly",
-      "endpoints": ["/holders", "/holders/{address}"]
-    },
-    "transactions": {
-      "description": "Real-time DOG transactions from Bitcoin L1",
-      "update_frequency": "real-time (~30s)",
-      "endpoints": ["/transactions", "/transactions/{txid}"]
-    },
-    "forensic": {
-      "description": "Behavioral analysis of 75,490 airdrop recipients",
-      "total_profiles": 75490,
-      "categories": 14,
-      "endpoints": ["/forensic/profiles", "/forensic/summary"]
-    },
-    "pricing": {
-      "description": "Multi-exchange DOG pricing",
-      "exchanges": ["kraken", "gateio", "mexc", "bitget", "bitflow", "dogswap"],
-      "update_frequency": "30s",
-      "endpoints": ["/price", "/price/{exchange}"]
-    },
-    "metrics": {
-      "description": "On-chain analytics: UTXO distribution, concentration, realized cap",
-      "endpoints": ["/metrics/utxo", "/metrics/concentration", "/metrics/realized-cap"]
-    }
-  },
-  "data_quality": {
-    "source": "Bitcoin Core + Ord (local full node)",
-    "indexing_method": "direct block scanning (no third-party APIs)",
-    "current_block": 941187,
-    "last_scan": "2026-03-18T17:44:38Z"
-  },
-  "rate_limits": {
-    "free": { "requests_per_hour": 100, "description": "For testing and evaluation" },
-    "pro": { "requests_per_hour": 5000, "description": "For production agents" },
-    "enterprise": { "requests_per_hour": 50000, "description": "For high-volume agents" }
-  }
-}
-```
-
-### 5.2 Well-Known Discovery
-
-Implementar `/.well-known/ai-agent.json` seguindo padrões emergentes:
-
-```json
-{
-  "schema_version": "1.0",
-  "name": "DOG DATA",
-  "description": "Real-time DOG•GO•TO•THE•MOON rune data on Bitcoin L1",
-  "api": {
-    "type": "openapi",
-    "url": "https://api.dogdata.xyz/v1/openapi.json"
-  },
-  "mcp": {
-    "url": "https://mcp.dogdata.xyz",
-    "npm": "@dogdata/mcp-server"
+    "rest": { "base_url": "https://www.dogdata.xyz/api", "spec": "/api/openapi.json" },
+    "mcp": { "http": "https://www.dogdata.xyz/mcp", "npm": "@dogdata/mcp-server" },
+    "sse": { "endpoint": "/api/events", "events": ["new_transaction", "price_update", "whale_alert"] }
   },
   "auth": {
     "type": "bearer",
-    "signup_url": "https://www.dogdata.xyz/api-keys"
+    "format": "dog_live_xxx",
+    "tiers": { "public": "20 req/hr (no key)", "free": "100 req/hr", "pro": "5000 req/hr", "enterprise": "50000 req/hr" }
+  },
+  "links": {
+    "docs": "/docs",
+    "openapi": "/api/openapi.json",
+    "capabilities": "/api/agent/capabilities",
+    "health": "/api/health",
+    "status": "/api/status"
+  },
+  "data": {
+    "holders": "89,000+",
+    "utxos": "250,000+",
+    "forensic_profiles": "75,490+",
+    "exchanges": 6,
+    "source": "Bitcoin Core + Ord (local full node)",
+    "update_frequency": "~30s (transactions), ~1h (holders)"
   }
 }
 ```
 
-### 5.3 SDK Leve (TypeScript)
+### 6.3 Entregáveis — `/docs` (Documentação Interativa)
 
-```typescript
-// @dogdata/sdk
-import { DogData } from "@dogdata/sdk";
+**Arquivo:** `app/docs/page.tsx`
+**Prioridade:** IMEDIATA — 10 minutos
 
-const dog = new DogData({ apiKey: "dog_live_xxx" });
+Opções (do mais rápido ao mais completo):
 
-// Holder data
-const holders = await dog.holders.list({ page: 1, limit: 50 });
-const holder = await dog.holders.get("bc1p...");
+**Opção A — Redirect para Scalar (recomendado, rápido):**
+Página Next.js que renderiza Scalar API Reference apontando para `/api/openapi.json`:
 
-// Transactions
-const txs = await dog.transactions.recent({ limit: 20 });
-const tx = await dog.transactions.get("txid...");
+```tsx
+// app/docs/page.tsx
+import ApiReference from '@scalar/nextjs-api-reference'
 
-// Price
-const price = await dog.price.current();         // Kraken (primary)
-const prices = await dog.price.all();             // All exchanges
-const kraken = await dog.price.exchange("kraken");
-
-// Metrics
-const utxo = await dog.metrics.utxo();
-const concentration = await dog.metrics.concentration();
-
-// Forensic
-const profiles = await dog.forensic.profiles({ pattern: "diamond_hands" });
-
-// Real-time
-dog.events.on("new_transaction", (tx) => { ... });
-dog.events.on("whale_alert", (alert) => { ... });
+export default function DocsPage() {
+  return <ApiReference spec={{ url: '/api/openapi.json' }} />
+}
 ```
 
-### 5.4 SDK Python
-
-```python
-# dogdata-sdk (PyPI)
-from dogdata import DogData
-
-dog = DogData(api_key="dog_live_xxx")
-
-holders = dog.holders.list(page=1, limit=50)
-holder = dog.holders.get("bc1p...")
-price = dog.price.current()
-txs = dog.transactions.recent(limit=20)
+**Opção B — Swagger UI embed:**
+```tsx
+import SwaggerUI from 'swagger-ui-react'
 ```
 
-### 5.5 Entregáveis Fase 4
+**Opção C — Página estática com links:**
+Markdown renderizado com seções: Quick Start, Authentication, Endpoints, MCP, SSE, SDKs.
 
-- [ ] Endpoint `/api/agent/capabilities`
-- [ ] `/.well-known/ai-agent.json`
-- [ ] SDK TypeScript publicado no npm (`@dogdata/sdk`)
-- [ ] SDK Python publicado no PyPI (`dogdata-sdk`)
-- [ ] Exemplos de integração para os 3 protocolos (REST, MCP, SSE)
+### 6.4 Entregáveis — `robots.txt`
+
+**Arquivo:** `public/robots.txt`
+**Prioridade:** IMEDIATA — 2 minutos
+
+```
+User-agent: *
+Allow: /
+Allow: /api/
+Allow: /docs
+Allow: /.well-known/
+
+Sitemap: https://www.dogdata.xyz/sitemap.xml
+
+# DOG DATA — Real-time DOG•GO•TO•THE•MOON rune data API
+# API Docs: https://www.dogdata.xyz/docs
+# OpenAPI Spec: https://www.dogdata.xyz/api/openapi.json
+# Agent Discovery: https://www.dogdata.xyz/.well-known/ai-agent.json
+```
+
+### 6.5 Entregáveis — `sitemap.xml`
+
+**Arquivo:** `public/sitemap.xml` ou gerado via `app/sitemap.ts`
+**Prioridade:** IMEDIATA — 5 minutos
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://www.dogdata.xyz/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
+  <url><loc>https://www.dogdata.xyz/docs</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.dogdata.xyz/api</loc><changefreq>daily</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.dogdata.xyz/api/openapi.json</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.dogdata.xyz/api/agent/capabilities</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.dogdata.xyz/api/status</loc><changefreq>always</changefreq><priority>0.7</priority></url>
+  <url><loc>https://www.dogdata.xyz/api/dog-rune/stats</loc><changefreq>hourly</changefreq><priority>0.7</priority></url>
+</urlset>
+```
+
+### 6.6 Entregáveis — Meta Tags SSR na Homepage
+
+**Arquivo:** `app/layout.tsx` (metadata export)
+**Prioridade:** ALTA — 5 minutos
+
+```tsx
+export const metadata: Metadata = {
+  title: 'DOG DATA — Real-time DOG•GO•TO•THE•MOON Rune Data API',
+  description: 'The world\'s most comprehensive data platform for DOG rune on Bitcoin L1. 89,000+ holders, 250,000+ UTXOs, forensic analysis, multi-exchange pricing. REST API, MCP Server, SSE events for AI agents.',
+  keywords: ['DOG', 'rune', 'bitcoin', 'API', 'holders', 'MCP', 'AI agents', 'on-chain analytics'],
+  openGraph: {
+    title: 'DOG DATA API — 89K+ Holders | 35 Endpoints | AI Agent Ready',
+    description: 'Real-time DOG•GO•TO•THE•MOON data for AI agents. REST API, MCP Server, SSE events.',
+    url: 'https://www.dogdata.xyz',
+    type: 'website',
+  },
+  robots: { index: true, follow: true },
+  alternates: { canonical: 'https://www.dogdata.xyz' }
+}
+```
+
+### 6.7 Entregáveis — Publicação npm + PyPI
+
+**Prioridade:** ALTA — 15 minutos cada
+
+**npm (@dogdata/mcp-server):**
+```bash
+cd mcp-server && npm publish --access public
+```
+
+**npm (@dogdata/sdk):**
+```bash
+cd sdk/typescript && npm publish --access public
+```
+
+**PyPI (dogdata):**
+```bash
+cd sdk/python && pip install build twine && python -m build && twine upload dist/*
+```
+
+### 6.8 Entregáveis — GitHub Public Repos
+
+**Prioridade:** ALTA — 15 minutos
+
+Criar repos públicos mínimos na org `github.com/dogdata`:
+
+1. **`dogdata/mcp-server`** — Código do MCP server + README
+2. **`dogdata/sdk-typescript`** — SDK TypeScript + README
+3. **`dogdata/sdk-python`** — SDK Python + README
+4. **`dogdata/docs`** — Opcional: integration guides, examples
+
+Cada repo deve ter:
+- README claro com quick start
+- Link para `dogdata.xyz/docs`
+- Link para `/api/agent/capabilities`
+- Badge de versão (npm/PyPI)
+
+### 6.9 Entregáveis — `llms.txt` (Padrão de Discovery para LLMs)
+
+**Arquivo:** `public/llms.txt`
+**Prioridade:** MÉDIA — 5 minutos
+
+Seguindo o padrão emergente `llms.txt` para que LLMs descubram APIs:
+
+```
+# DOG DATA
+> The world's most comprehensive DOG•GO•TO•THE•MOON data platform on Bitcoin L1.
+
+## API Access
+- REST API: https://www.dogdata.xyz/api (35 endpoints, OpenAPI spec at /api/openapi.json)
+- MCP Server: npm install @dogdata/mcp-server (12 tools, 8 resources for Claude/AI agents)
+- SSE Events: https://www.dogdata.xyz/api/events (real-time transactions, whale alerts, prices)
+
+## Quick Start (no API key required)
+- GET https://www.dogdata.xyz/api/dog-rune/stats — token overview (89,000+ holders)
+- GET https://www.dogdata.xyz/api/price/kraken — current DOG price
+- GET https://www.dogdata.xyz/api/health — service health
+
+## Data
+- 89,000+ DOG holders indexed hourly
+- 250,000+ UTXOs tracked continuously
+- 75,490 forensic behavioral profiles with Diamond Score
+- 6 exchange price feeds (30s updates)
+- Direct Bitcoin Core + Ord indexing (no third-party APIs)
+
+## Authentication
+- Public: 20 requests/hour (no key needed)
+- Free tier: 100 req/hr — POST /api/keys/generate
+- Pro tier: 5,000 req/hr
+- Enterprise: 50,000 req/hr
+
+## Full Documentation
+- Agent capabilities: https://www.dogdata.xyz/api/agent/capabilities
+- OpenAPI spec: https://www.dogdata.xyz/api/openapi.json
+- Interactive docs: https://www.dogdata.xyz/docs
+```
+
+### 6.10 Checklist Completo Fase 5
+
+```
+BLOCO A — Rotas de Discovery (executar PRIMEIRO, 20 min total)
+- [ ] Criar /api/route.ts (index JSON de discovery)
+- [ ] Criar /docs page (Scalar ou Swagger UI sobre /api/openapi.json)
+- [ ] Criar public/robots.txt
+- [ ] Criar public/sitemap.xml (ou app/sitemap.ts dinâmico)
+- [ ] Criar public/llms.txt
+- [ ] Adicionar metadata SSR em app/layout.tsx (title, description, og tags)
+
+BLOCO B — Publicação de Pacotes (30 min total)
+- [ ] Publicar @dogdata/mcp-server no npm
+- [ ] Publicar @dogdata/sdk no npm
+- [ ] Publicar dogdata no PyPI
+- [ ] Registrar MCP server no MCP Directory (modelcontextprotocol.io)
+
+BLOCO C — Presença Pública (30 min total)
+- [ ] Criar repo público github.com/dogdata/mcp-server
+- [ ] Criar repo público github.com/dogdata/sdk-typescript
+- [ ] Criar repo público github.com/dogdata/sdk-python
+- [ ] README em cada repo com quick start + links
+
+BLOCO D — Validação (15 min)
+- [ ] Testar: fetch https://dogdata.xyz/api → 200 com JSON discovery
+- [ ] Testar: fetch https://dogdata.xyz/docs → 200 com documentação
+- [ ] Testar: fetch https://dogdata.xyz/robots.txt → 200
+- [ ] Testar: fetch https://dogdata.xyz/sitemap.xml → 200
+- [ ] Testar: fetch https://dogdata.xyz/llms.txt → 200
+- [ ] Testar: npx @dogdata/mcp-server → server inicia
+- [ ] Pedir para um agente externo redescobrir dogdata.xyz
+```
 
 ---
 
-## 6. Fase 5 — Escalabilidade & Observabilidade
+## 7. Fase 6 — Escalabilidade & Observabilidade ⏳ PENDENTE
 
-**Impacto:** Suportar milhares de conexões simultâneas
-**Prioridade:** ALTA
-**Execução:** Sub-agente dedicado — expande cache, SSE, alerting
+**Impacto:** Suportar centenas de agentes simultâneos com confiabilidade
+**Prioridade:** ALTA (após Fase 5)
+**Execução:** Sub-agente dedicado — expande cache, observabilidade, alerting, webhooks
 
-### 6.1 Cache Layer Expandido
+### 7.1 Cache Layer Expandido
 
 ```
 Estratégia de Cache Multi-Tier:
@@ -675,7 +558,7 @@ Tier 3 — CDN (Vercel Edge / Cloudflare)
 └── Capacidade: global edge
 ```
 
-### 6.2 Observabilidade
+### 7.2 Observabilidade
 
 ```
 Métricas a rastrear:
@@ -703,7 +586,7 @@ Infraestrutura:
 └── Vercel function cold starts
 ```
 
-### 6.3 Alerting
+### 7.3 Alerting
 
 ```
 Alertas críticos:
@@ -717,63 +600,97 @@ Alertas críticos:
 Alertas informativos:
 ├── Novo API key registrado
 ├── Key atingiu 80% do rate limit
-├── Whale transaction detectada (> 1M DOG)
+├── Whale transaction detectada (> 1B DOG)
 └── Novo holder milestone (90k, 100k, etc.)
 ```
 
-### 6.4 SSE Expandido para Agentes
+### 7.4 Agent Registry
 
-Expandir o endpoint `/api/events` com eventos estruturados:
+Sistema para registrar e rastrear agentes consumidores:
 
-```typescript
-// Eventos disponíveis para agentes
-interface DogDataEvents {
-  "new_transaction": {
-    txid: string;
-    type: string;
-    total_dog_moved: number;
-    sender_count: number;
-    receiver_count: number;
-    block_height: number;
-  };
-  "whale_alert": {
-    txid: string;
-    amount_dog: number;
-    from: string;
-    to: string;
-    type: "accumulation" | "distribution" | "transfer";
-  };
-  "price_update": {
-    exchange: string;
-    price_usd: number;
-    change_24h: number;
-    volume_24h: number;
-  };
-  "new_block": {
-    height: number;
-    dog_tx_count: number;
-    total_dog_moved: number;
-  };
-  "holder_milestone": {
-    total_holders: number;
-    milestone: number;
-    timestamp: string;
-  };
-}
+```
+Tabela: agent_registry (Supabase)
+├── id: uuid (PK)
+├── api_key_id: uuid (FK → api_keys)
+├── agent_name: text (ex: "Xored Pike", "Trading Bot v2")
+├── agent_type: text (ex: "defi_analyzer", "whale_tracker", "portfolio_manager")
+├── description: text
+├── first_seen: timestamptz
+├── last_seen: timestamptz
+├── total_requests: bigint
+├── favorite_endpoints: text[] (top 5 mais usados)
+├── metadata: jsonb
 ```
 
-### 6.5 Entregáveis Fase 5
+### 7.5 Webhook Push Delivery
 
-- [ ] Cache multi-tier implementado
-- [ ] Dashboard de observabilidade
-- [ ] Sistema de alertas
-- [ ] SSE expandido com 5+ tipos de evento
+Para agentes serverless que não podem manter conexão SSE:
+
+```
+POST /api/webhooks/register
+{
+  "url": "https://agent.example.com/webhook",
+  "events": ["whale_alert", "price_update"],
+  "secret": "whsec_xxx"  // Para validação HMAC
+}
+
+Delivery:
+POST https://agent.example.com/webhook
+Headers:
+  X-DogData-Event: whale_alert
+  X-DogData-Signature: sha256=xxx
+  X-DogData-Timestamp: 1710000000
+Body: { event payload }
+```
+
+### 7.6 Bulk/Batch Endpoints
+
+Para agentes que precisam de muitos dados de uma vez:
+
+```
+POST /api/batch
+{
+  "requests": [
+    { "endpoint": "/api/dog-rune/stats" },
+    { "endpoint": "/api/price/kraken" },
+    { "endpoint": "/api/dog-rune/holders", "params": { "limit": 10 } },
+    { "endpoint": "/api/forensic/summary" }
+  ]
+}
+
+Response: Array de respostas individuais em uma única chamada HTTP
+```
+
+### 7.7 Entregáveis Fase 6
+
+```
+BLOCO A — Observabilidade
+- [ ] Dashboard de métricas (requests/s, latência, erros por endpoint)
+- [ ] Dashboard de uso por API key / agente
+- [ ] Logging estruturado com request_id
+- [ ] Health check expandido com latência de cada componente
+
+BLOCO B — Resiliência
+- [ ] Cache multi-tier implementado (memory → Redis → CDN)
+- [ ] Circuit breakers para APIs externas (Kraken, CoinGecko, mempool.space)
+- [ ] Graceful degradation quando Redis offline (fail-open)
 - [ ] Load testing (target: 1000 req/s)
-- [ ] Documentação de SLA
+
+BLOCO C — Features para Agentes
+- [ ] Agent registry (identificação e tracking de agentes consumidores)
+- [ ] Webhook push delivery (alternativa ao SSE para serverless)
+- [ ] Batch endpoint (múltiplas queries em uma chamada)
+- [ ] Field selection (?fields=address,balance,rank)
+
+BLOCO D — Documentação de SLA
+- [ ] SLA formal por tier (99.5% free, 99.9% enterprise)
+- [ ] Status page pública (status.dogdata.xyz ou similar)
+- [ ] Incident response documentation
+```
 
 ---
 
-## 7. Definição dos Tools MCP
+## 8. Definição dos Tools MCP
 
 Os tools são ações que agentes podem executar. Cada tool é uma function com inputs tipados e output estruturado.
 
@@ -831,7 +748,7 @@ Descrição: Get DOG price from all tracked exchanges simultaneously
 Inputs:
   - exchanges: string[] (optional, filter specific exchanges)
 Output: Array de {exchange, price, change_24h, volume_24h, spread}
-Data Source: All 8 exchange APIs
+Data Source: All 6 exchange APIs
 ```
 
 ### Tool 7: `get_onchain_metrics`
@@ -892,161 +809,91 @@ Data Source: CoinGecko + exchange APIs
 
 ---
 
-## 8. Definição dos Resources MCP
+## 9. Definição dos Resources MCP
 
 Resources são dados read-only que agentes podem incorporar como contexto.
 
-### Resource 1: `dog://stats`
-```
-Descrição: Current DOG rune statistics snapshot
-URI: dog://stats
-MIME: application/json
-Dados: total_holders, total_supply, circulating_supply, total_utxos,
-       current_price, market_cap, 24h_volume, last_block_scanned
-Atualização: a cada request (cached 60s)
-```
-
-### Resource 2: `dog://top-holders`
-```
-Descrição: Top 100 DOG holders with rankings
-URI: dog://top-holders
-MIME: application/json
-Dados: Array dos 100 maiores holders (rank, address, balance, % of supply)
-Atualização: hourly
-```
-
-### Resource 3: `dog://supply-info`
-```
-Descrição: DOG supply distribution and tokenomics
-URI: dog://supply-info
-MIME: application/json
-Dados: total_supply, circulating, burned, airdrop_allocation,
-       concentration_metrics (gini, top10%, top100%)
-Atualização: hourly
-```
-
-### Resource 4: `dog://bitcoin-network`
-```
-Descrição: Current Bitcoin network status relevant to DOG
-URI: dog://bitcoin-network
-MIME: application/json
-Dados: block_height, hashrate, difficulty, mempool_size, avg_fee
-Atualização: 30s cache
-```
-
-### Resource 5: `dog://price-summary`
-```
-Descrição: DOG price across all tracked exchanges
-URI: dog://price-summary
-MIME: application/json
-Dados: Array de {exchange, price, volume, change_24h}
-Atualização: 30s cache
-```
-
-### Resource 6: `dog://forensic-summary`
-```
-Descrição: Aggregated behavioral analysis of DOG community
-URI: dog://forensic-summary
-MIME: application/json
-Dados: total_analyzed, category_distribution, avg_diamond_score,
-       retention_stats, behavior_patterns
-Atualização: daily
-```
-
-### Resource 7: `dog://utxo-distribution`
-```
-Descrição: DOG UTXO size and age distribution
-URI: dog://utxo-distribution
-MIME: application/json
-Dados: size_buckets, age_buckets, hodl_waves, sth_lth_ratio
-Atualização: hourly
-```
-
-### Resource 8: `dog://airdrop-summary`
-```
-Descrição: DOG airdrop distribution and recipient behavior summary
-URI: dog://airdrop-summary
-MIME: application/json
-Dados: total_recipients, retention_rate, category_breakdown
-Atualização: daily
-```
+| Resource | URI | Descrição | Atualização |
+|---|---|---|---|
+| Stats | `dog://stats` | Current DOG rune statistics snapshot | 60s cache |
+| Top Holders | `dog://top-holders` | Top 100 DOG holders with rankings | hourly |
+| Supply Info | `dog://supply-info` | Supply distribution and tokenomics | hourly |
+| Bitcoin Network | `dog://bitcoin-network` | Bitcoin network status | 30s cache |
+| Price Summary | `dog://price-summary` | DOG price across all exchanges | 30s cache |
+| Forensic Summary | `dog://forensic-summary` | Aggregated behavioral analysis | daily |
+| UTXO Distribution | `dog://utxo-distribution` | UTXO size and age distribution | hourly |
+| Airdrop Summary | `dog://airdrop-summary` | Airdrop distribution and recipient behavior | daily |
 
 ---
 
-## 9. Schema de API Unificado
+## 10. Schema de API Unificado
 
-### 9.1 Endpoints Consolidados (Nova Estrutura)
-
-A API unificada reorganiza os 29 endpoints existentes em uma estrutura limpa e consistente:
+### 10.1 Endpoints em Produção (35 total)
 
 ```
-BASE: https://api.dogdata.xyz/v1
+BASE: https://www.dogdata.xyz/api
 
-# Core Data
-GET  /v1/stats                           → Estatísticas gerais
-GET  /v1/holders                         → Lista paginada de holders
-GET  /v1/holders/:address                → Detalhe de holder específico
-GET  /v1/holders/snapshot                → Top 500 holders (snapshot rápido)
+# Discovery & System
+GET  /api                              → Discovery index (FASE 5)
+GET  /api/status                       → System status (35 endpoints) ✅
+GET  /api/health                       → Health check com latências ✅
+GET  /api/openapi.json                 → OpenAPI 3.0.3 spec ✅
+GET  /api/agent/capabilities           → Agent capabilities document ✅
 
-# Transactions
-GET  /v1/transactions                    → Transações recentes
-GET  /v1/transactions/:txid              → Busca por txid
-GET  /v1/transactions/heatmap            → Heatmap de atividade
+# DOG Rune Stats & Holders
+GET  /api/dog-rune/stats               → Metadata, supply, top 10 ✅
+GET  /api/dog-rune/holders             → Paginated (page, limit) ✅
+GET  /api/dog-rune/holders?address=    → Address lookup ✅
+GET  /api/dog-rune/holders?snapshot=   → Top 500 ✅
+GET  /api/dog-rune/events-count        → Event count ✅
+GET  /api/dog-rune/search-tx           → Search transactions ✅
+GET  /api/dog-rune/transactions-kv     → Cached transactions ✅
+GET  /api/dog-rune/transactions-unisat → Via Unisat ✅
 
-# Pricing
-GET  /v1/price                           → Preço primário (Kraken)
-GET  /v1/price/all                       → Todos os exchanges
-GET  /v1/price/:exchange                 → Exchange específico
+# Pricing (6 exchanges)
+GET  /api/price/kraken                 ✅
+GET  /api/price/bitget                 ✅
+GET  /api/price/mexc                   ✅
+GET  /api/price/gateio                 ✅
+GET  /api/price/bitflow                ✅
+GET  /api/price/dogswap                ✅
+GET  /api/markets                      → Aggregated ✅
 
 # On-Chain Metrics
-GET  /v1/metrics                         → Métricas atuais consolidadas
-GET  /v1/metrics/history                 → Séries temporais
-GET  /v1/metrics/utxo                    → Distribuição de UTXOs
-GET  /v1/metrics/utxo-age               → Idade dos UTXOs (HODL waves)
-GET  /v1/metrics/concentration           → Concentração (Gini, top%)
-GET  /v1/metrics/realized-cap            → Realized cap & MVRV
-GET  /v1/metrics/supply                  → Supply in profit/loss
+GET  /api/metrics/utxo                 ✅
+GET  /api/metrics/utxo-age             ✅
+GET  /api/metrics/utxo-count-history   ✅
+GET  /api/metrics/holder-concentration ✅
+GET  /api/metrics/realized-cap         ✅
+GET  /api/metrics/supply-profit-loss   ✅
 
-# Forensic Analysis
-GET  /v1/forensic/profiles               → Perfis comportamentais
-GET  /v1/forensic/summary                → Resumo forense
-GET  /v1/forensic/:address               → Perfil de endereço específico
-
-# Airdrop
-GET  /v1/airdrop/summary                 → Resumo do airdrop
-GET  /v1/airdrop/recipients              → Lista de recipientes
+# Forensic & Airdrop
+GET  /api/forensic/summary             ✅
+GET  /api/forensic/profiles            ✅
+GET  /api/airdrop/summary              ✅
+GET  /api/airdrop/recipients           ✅
 
 # Bitcoin Network
-GET  /v1/bitcoin                         → Status da rede Bitcoin
+GET  /api/bitcoin                      ✅
 
-# Markets
-GET  /v1/markets                         → Dados agregados de mercado
+# Real-Time Events
+GET  /api/events                       → SSE stream ✅
 
-# Agent Discovery
-GET  /v1/agent/capabilities              → Capacidades da plataforma
-GET  /v1/openapi.json                    → OpenAPI 3.0 spec
-
-# Real-time
-GET  /v1/events                          → SSE stream
-
-# System
-GET  /v1/health                          → Health check
-GET  /v1/status                          → System status
+# API Key Management
+POST /api/keys/generate                ✅
+POST /api/keys/verify                  ✅
 ```
 
-### 9.2 Query Parameters Universais
-
-Todos os endpoints list suportam:
+### 10.2 Query Parameters Universais
 
 | Param | Tipo | Descrição |
 |-------|------|-----------|
 | `page` | int | Página (default: 1) |
 | `limit` | int | Items por página (default: 50, max: 100) |
-| `fields` | string | Campos a retornar (comma-separated) |
-| `format` | string | `json` (default) ou `csv` |
-| `pretty` | bool | JSON formatado (para debug) |
+| `fields` | string | Campos a retornar — pendente Fase 6 |
+| `format` | string | `json` (default) — pendente: `csv` |
 
-### 9.3 Error Responses Padronizadas
+### 10.3 Error Responses Padronizadas
 
 ```json
 {
@@ -1055,104 +902,87 @@ Todos os endpoints list suportam:
     "message": "Rate limit exceeded. Upgrade to Pro for 5,000 requests/hour.",
     "status": 429,
     "retry_after": 120,
-    "docs_url": "https://docs.dogdata.xyz/rate-limits"
+    "docs_url": "https://www.dogdata.xyz/docs"
   }
 }
 ```
 
-Códigos de erro:
-- `UNAUTHORIZED` (401) — API key ausente ou inválida
-- `FORBIDDEN` (403) — Permissão insuficiente
-- `NOT_FOUND` (404) — Recurso não encontrado
-- `RATE_LIMIT_EXCEEDED` (429) — Rate limit excedido
-- `INTERNAL_ERROR` (500) — Erro interno
-- `SERVICE_UNAVAILABLE` (503) — Dados indisponíveis temporariamente
+---
+
+## 11. Sistema de Tiers & Rate Limiting
+
+### 11.1 Tier Definitions (em produção)
+
+| Feature | Public | Free | Pro | Enterprise |
+|---------|--------|------|-----|------------|
+| **Requests/hora** | 20 | 100 | 5.000 | 50.000 |
+| **API Key** | Não precisa | Sim | Sim | Sim |
+| **Endpoints** | Básicos | Todos (read) | Todos (read) | Todos + SSE + Webhooks |
+| **SLA** | Best effort | Best effort | 99.5% | 99.9% |
+
+### 11.2 Acesso Público sem Key
+
+Endpoints que não requerem API key:
+- `GET /api` — Discovery index
+- `GET /api/dog-rune/stats` — Estatísticas básicas
+- `GET /api/price/kraken` — Preço atual
+- `GET /api/health` — Health check
+- `GET /api/status` — System status
+- `GET /api/agent/capabilities` — Discovery
+- `GET /api/openapi.json` — Spec
 
 ---
 
-## 10. Sistema de Tiers & Rate Limiting
+## 12. Infraestrutura & Deploy
 
-### 10.1 Tier Definitions
+### 12.1 Domínios
 
-| Feature | Free | Pro | Enterprise |
-|---------|------|-----|------------|
-| **Requests/hora** | 100 | 5.000 | 50.000 |
-| **Requests/dia** | 1.000 | 100.000 | 1.000.000 |
-| **Endpoints** | Todos (read) | Todos (read) | Todos + SSE + Webhooks |
-| **Rate limit** | 2 req/s | 20 req/s | 100 req/s |
-| **Cache** | 5min min | 1min min | Real-time |
-| **Field selection** | Não | Sim | Sim |
-| **CSV export** | Não | Sim | Sim |
-| **Bulk queries** | Não | Até 10 addresses | Até 100 addresses |
-| **SSE stream** | Não | Não | Sim |
-| **Webhook alerts** | Não | Não | Sim |
-| **SLA** | Best effort | 99.5% | 99.9% |
-| **Suporte** | Docs only | Email | Dedicado |
-| **Preço** | Grátis | DOG tokens* | Negociável |
+| Domínio | Propósito | Status |
+|---------|-----------|--------|
+| `www.dogdata.xyz` | Frontend + API Routes | ✅ Produção |
+| `dogdata.xyz` | Redirect → www | ✅ |
+| `api.dogdata.xyz` | API v1 (futuro) | ⏳ Configurar |
+| `mcp.dogdata.xyz` | MCP Server HTTP | ⏳ Configurar |
+| `docs.dogdata.xyz` | Portal de documentação (futuro) | ⏳ |
 
-*Pagamento em DOG tokens é o modelo preferencial — alinhamento com o ecossistema.
-
-### 10.2 Acesso Público sem Key
-
-Endpoints que não requerem API key (para acessibilidade):
-- `GET /v1/stats` — Estatísticas básicas
-- `GET /v1/price` — Preço atual
-- `GET /v1/health` — Health check
-- `GET /v1/agent/capabilities` — Discovery
-
-Rate limit sem key: 20 requests/hora por IP.
-
----
-
-## 11. Infraestrutura & Deploy
-
-### 11.1 Domínios
-
-| Domínio | Propósito |
-|---------|-----------|
-| `www.dogdata.xyz` | Frontend (dashboard, signup) |
-| `api.dogdata.xyz` | REST API (v1) |
-| `mcp.dogdata.xyz` | MCP Server (Streamable HTTP) |
-| `docs.dogdata.xyz` | Portal de documentação |
-
-### 11.2 Stack de Deploy
+### 12.2 Stack Atual
 
 ```
 Frontend + API Routes:
-├── Vercel (Next.js) — auto-scaling, edge network
-├── Custom domain: api.dogdata.xyz → Vercel
-└── Environment: SUPABASE_*, UPSTASH_*, API secrets
+├── Vercel (Next.js) — auto-scaling, edge network ✅
+├── 35 API routes em produção ✅
+└── Environment: SUPABASE_*, UPSTASH_*, API secrets ✅
 
 MCP Server:
-├── Opção A: Vercel Functions (integrado)
-├── Opção B: Cloudflare Workers (edge global)
-├── Opção C: Railway/Fly.io (container dedicado)
-└── npm package: @dogdata/mcp-server (stdio)
+├── Express + Streamable HTTP (porta 3002) ✅
+├── STDIO transport ✅
+└── npm package: @dogdata/mcp-server (não publicado)
 
 Data Infrastructure:
-├── Bitcoin Core + Ord (VPS dedicado — atual)
-├── dog_block_scanner.py (systemd service — atual)
-├── Upstash Redis (cache distribuído — atual)
-├── Supabase PostgreSQL (dados históricos — atual)
-└── Local JSON files (dados primários — atual)
-```
-
-### 11.3 CI/CD Pipeline
-
-```
-GitHub Push
-  → Vercel auto-deploy (frontend + API)
-  → npm publish @dogdata/mcp-server (on tag)
-  → PyPI publish dogdata-sdk (on tag)
-  → OpenAPI spec validation (CI check)
-  → Integration tests contra staging
+├── Bitcoin Core + Ord (VPS dedicado) ✅
+├── dog_block_scanner (systemd service, 30s) ✅
+├── Upstash Redis (cache + rate limits) ✅
+├── Supabase PostgreSQL (API keys, usage, history) ✅
+└── Local JSON files (holders, forensic, airdrop) ✅
 ```
 
 ---
 
-## 12. Métricas de Sucesso
+## 13. Métricas de Sucesso
 
-### 12.1 KPIs de Lançamento (Mês 1)
+### 13.1 KPIs Pré-Lançamento (Fase 5 — Agora)
+
+| Métrica | Target | Status |
+|---------|--------|--------|
+| `/api` retorna 200 | Sim | ❌ Retorna 404 |
+| `/docs` retorna 200 | Sim | ❌ Retorna 404 |
+| `robots.txt` existe | Sim | ❌ |
+| `sitemap.xml` existe | Sim | ❌ |
+| npm `@dogdata/mcp-server` instalável | Sim | ❌ |
+| GitHub repos públicos | 1+ | ❌ 0 repos |
+| Agente externo consegue descobrir API | Sim | ❌ Xored Pike falhou |
+
+### 13.2 KPIs de Lançamento (Mês 1 após Fase 5)
 
 | Métrica | Target |
 |---------|--------|
@@ -1161,9 +991,9 @@ GitHub Push
 | MCP installs (npm) | 50+ |
 | Uptime | 99.5% |
 | Avg response time | < 500ms |
-| Endpoints documentados | 100% |
+| Agente externo redescobre API com sucesso | 100% |
 
-### 12.2 KPIs de Crescimento (Mês 3)
+### 13.3 KPIs de Crescimento (Mês 3)
 
 | Métrica | Target |
 |---------|--------|
@@ -1172,41 +1002,37 @@ GitHub Push
 | Agentes únicos/dia | 200+ |
 | Pro tier subscribers | 50+ |
 | MCP installs (npm) | 500+ |
-| Menções em AI/crypto communities | 20+ |
 
-### 12.3 KPIs de Escala (Mês 6)
+### 13.4 KPIs de Escala (Mês 6)
 
 | Métrica | Target |
 |---------|--------|
 | API keys ativas | 2.000+ |
 | Requests/dia | 1.000.000+ |
 | Enterprise clients | 10+ |
-| Revenue mensal (DOG) | Sustentável |
 | Uptime | 99.9% |
 | Referência em rankings | Top 3 DOG data providers |
 
 ---
 
-## 13. Riscos & Mitigações
+## 14. Riscos & Mitigações
 
 | Risco | Probabilidade | Impacto | Mitigação |
 |-------|--------------|---------|-----------|
-| **Sobrecarga no Bitcoin node** | Média | Alto | Rate limiting rigoroso, cache agressivo, réplica read-only |
-| **Abuso de API keys free** | Alta | Médio | Rate limiting por IP + key, CAPTCHA no signup, ban automático |
-| **Downtime do scanner** | Baixa | Alto | Alerting < 5min, dados cached servem por horas, fallback APIs |
-| **Concorrência** | Baixa | Médio | Vantagem: único com scanner próprio + forense, MCP first-mover |
-| **Custos Upstash/Supabase** | Média | Médio | Monitorar uso, otimizar queries, tier free com limites |
-| **Mudanças no protocolo MCP** | Média | Médio | Seguir spec oficial, SDK abstrai transport layer |
-| **DDoS** | Média | Alto | Cloudflare/Vercel proteção, rate limiting distribuído |
-| **Data staleness** | Baixa | Alto | Monitorar scanner lag, health checks automáticos |
+| **Agentes não encontram a API** | **CONFIRMADO** | **CRÍTICO** | **Fase 5 — resolver AGORA** |
+| **Sobrecarga no Bitcoin node** | Média | Alto | Rate limiting rigoroso, cache agressivo |
+| **Abuso de API keys free** | Alta | Médio | Rate limiting por IP + key, ban automático |
+| **Downtime do scanner** | Baixa | Alto | Alerting < 5min, dados cached servem por horas |
+| **Concorrência** | Baixa | Médio | Vantagem: único com scanner próprio + forense |
+| **Custos Upstash/Supabase** | Média | Médio | Monitorar uso, otimizar queries |
+| **Mudanças no protocolo MCP** | Média | Médio | Seguir spec oficial, SDK abstrai transport |
+| **DDoS** | Média | Alto | Vercel proteção, rate limiting distribuído |
 
 ---
 
-## 14. Plano de Execução Agêntica
+## 15. Plano de Execução Agêntica
 
-Este plano é projetado para execução simultânea por múltiplos sub-agentes de IA. Cada agente recebe uma fase e implementa de forma autônoma.
-
-### Arquitetura de Sub-Agentes
+### Estado Atual dos Sub-Agentes
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -1217,113 +1043,60 @@ Este plano é projetado para execução simultânea por múltiplos sub-agentes d
      ▼          ▼          ▼          ▼          ▼
 ┌─────────┐┌─────────┐┌─────────┐┌─────────┐┌─────────┐
 │ Agent 1 ││ Agent 2 ││ Agent 3 ││ Agent 4 ││ Agent 5 │
-│ MCP     ││ OpenAPI ││ Gateway ││Discovery││ Scale   │
-│ Server  ││ + Docs  ││ + Auth  ││ + SDK   ││ + Obs   │
+│ MCP     ││ OpenAPI ││ Gateway ││Discovery││Discover-│
+│ Server  ││ + Docs  ││ + Auth  ││ + SDK   ││ ability │
+│ ✅ DONE  ││ ✅ DONE  ││ ✅ DONE  ││ ⚠️ 70%  ││ 🔴 NOW  │
 └─────────┘└─────────┘└─────────┘└─────────┘└─────────┘
+                                              │
+                                     ┌────────┴────────┐
+                                     │ Agent 6         │
+                                     │ Scale + Obs     │
+                                     │ ⏳ AFTER 5      │
+                                     └─────────────────┘
 ```
 
-### Agent 1 — MCP Server (CRÍTICO, executa primeiro)
-```
-Responsabilidades:
-├── Criar /mcp-server/ com toda a estrutura
-├── Implementar McpServer com 12 tools
-├── Implementar 8 resources
-├── Implementar 4 prompts
-├── Transport STDIO + Streamable HTTP
-├── Data loaders (lê JSON local, Upstash, Supabase)
-├── package.json + tsconfig.json
-└── README com instruções de instalação
-
-Dependências: Nenhuma (usa dados existentes)
-Output: MCP Server funcional testável localmente
-```
-
-### Agent 2 — OpenAPI + Schemas (paralelo ao Agent 1)
-```
-Responsabilidades:
-├── Criar /schemas/ com Zod schemas para todos os tipos
-├── Gerar openapi.json completo (OpenAPI 3.0)
-├── Implementar response wrapper padronizado (AgentResponse<T>)
-├── Adicionar suporte a ?fields= nos endpoints existentes
-├── Criar endpoint GET /api/openapi.json
-└── Refatorar endpoints existentes para usar schemas compartilhados
-
-Dependências: Nenhuma (documenta endpoints existentes)
-Output: Spec OpenAPI completa + schemas Zod reutilizáveis
-```
-
-### Agent 3 — API Gateway (paralelo, precisa dos schemas do Agent 2)
-```
-Responsabilidades:
-├── Criar tabelas api_keys e api_usage no Supabase
-├── Implementar middleware de autenticação
-├── Implementar rate limiting via Upstash (@upstash/ratelimit)
-├── Headers X-RateLimit-* em todas as responses
-├── Endpoint POST /api/keys/generate
-├── Error responses padronizadas
-└── Usage tracking (log de requests)
-
-Dependências: Schemas do Agent 2 (para error responses)
-Output: Auth + rate limiting funcional
-```
-
-### Agent 4 — Agent Discovery + SDK (paralelo)
-```
-Responsabilidades:
-├── Endpoint GET /api/agent/capabilities
-├── Arquivo /.well-known/ai-agent.json (public/)
-├── SDK TypeScript (@dogdata/sdk) em /sdk/typescript/
-├── SDK Python (dogdata-sdk) em /sdk/python/
-└── Exemplos de integração
-
-Dependências: Nenhuma (consome APIs existentes)
-Output: Discovery endpoint + SDKs publicáveis
-```
-
-### Agent 5 — Escalabilidade + SSE (paralelo)
-```
-Responsabilidades:
-├── Expandir /api/events com tipos de evento estruturados
-├── Implementar cache multi-tier (in-memory → Redis → CDN headers)
-├── Health check endpoint (/api/health com métricas)
-├── Status endpoint (/api/status com scanner state)
-└── Otimizar endpoints existentes com cache headers
-
-Dependências: Nenhuma (melhora infraestrutura existente)
-Output: SSE expandido + cache otimizado
-```
-
-### Ordem de Execução
+### Ordem de Execução ATUALIZADA
 
 ```
-PARALELO ──────────────────────────────────────────►
+CONCLUÍDO ────────────────────────────────────────────────
+Agent 1 (MCP Server)      ████████████████████████ ✅
+Agent 2 (OpenAPI/Schemas)  ████████████████████████ ✅
+Agent 3 (Gateway/Auth)     ████████████████████████ ✅
+Agent 4 (Discovery/SDK)    ██████████████████░░░░░░ ⚠️ 70%
 
-Agent 1 (MCP Server)      ████████████████████████
-Agent 2 (OpenAPI/Schemas)  ████████████████████████
-Agent 4 (Discovery/SDK)    ████████████████████████
-Agent 5 (Scale/SSE)        ████████████████████████
+EXECUTAR AGORA ───────────────────────────────────────────
+Agent 5 (Discoverability)  ░░░░░░████████████████████ 🔴
 
-SEQUENCIAL (após Agent 2) ─────────────────────────►
+APÓS FASE 5 ──────────────────────────────────────────────
+Agent 4 (Publicação npm/PyPI) ░░░░░░░░░░░░░░░████████
+Agent 6 (Scale + Obs)         ░░░░░░░░░░░░░░░████████
 
-Agent 3 (Gateway/Auth)              ████████████████
-
-INTEGRAÇÃO FINAL ──────────────────────────────────►
-
-Orquestrador              ░░░░░░░░░░░░░░██████████
-                          (monitora)    (integra)
+VALIDAÇÃO ────────────────────────────────────────────────
+Orquestrador              ░░░░░░░░░░░░░░░░░░░░████
+                          (agente externo redescobre)
 ```
 
-### Instruções para o Orquestrador
+### Instruções para o Agente Executor (Fase 5)
 
-1. Lançar Agents 1, 2, 4 e 5 em paralelo imediatamente
-2. Quando Agent 2 completar os Zod schemas, lançar Agent 3
-3. Quando todos completarem, fazer integração final:
-   - MCP Server importa schemas do Agent 2
-   - Gateway middleware aplicado nos endpoints do MCP e REST
-   - Discovery endpoint reflete tools/resources do MCP Server
-   - SDKs testados contra a API com auth
-4. Validar tudo funciona end-to-end
-5. Deploy
+1. **BLOCO A primeiro** — Criar rotas de discovery (20 min):
+   - `/api/route.ts` → JSON discovery index
+   - `/docs/page.tsx` → Scalar/Swagger UI
+   - `public/robots.txt`
+   - `public/sitemap.xml`
+   - `public/llms.txt`
+   - Metadata SSR em `app/layout.tsx`
+
+2. **BLOCO B** — Publicar pacotes (30 min):
+   - `npm publish` para MCP server e SDK
+   - `twine upload` para SDK Python
+   - Registrar no MCP Directory
+
+3. **BLOCO C** — Presença GitHub (30 min):
+   - Criar repos públicos com READMEs
+
+4. **BLOCO D** — Validar discovery (15 min):
+   - Testar todos os URLs retornam 200
+   - Pedir para agente externo redescobrir
 
 ---
 
@@ -1331,17 +1104,17 @@ Orquestrador              ░░░░░░░░░░░░░░████
 
 ### Por que o DOG DATA será a referência mundial:
 
-1. **Scanner próprio** — Único projeto que indexa DOG diretamente do Bitcoin Core + Ord, sem dependência de APIs terceiras (Xverse, Unisat, Hiro). Dados de primeira mão.
+1. **Scanner próprio** — Único projeto que indexa DOG diretamente do Bitcoin Core + Ord, sem dependência de APIs terceiras. Dados de primeira mão.
 
 2. **Análise forense** — 75.490 perfis comportamentais com Diamond Score, 14 categorias de comportamento. Nenhum outro projeto DOG oferece isso.
 
-3. **MCP first-mover** — Seremos um dos primeiros projetos crypto com MCP Server nativo. Agentes Claude terão acesso direto.
+3. **MCP first-mover** — Um dos primeiros projetos crypto com MCP Server nativo. Agentes Claude têm acesso direto.
 
-4. **Cobertura de preço** — 6 exchanges simultâneos (Kraken, Gate.io, MEXC, Bitget, Bitflow, Dogswap). Visão completa do mercado.
+4. **Cobertura de preço** — 6 exchanges simultâneos (Kraken, Gate.io, MEXC, Bitget, Bitflow, Dogswap).
 
-5. **On-chain metrics profundas** — Gini coefficient, HODL waves, realized cap, MVRV, supply in profit/loss. Nível de análise comparável ao Glassnode, mas específico para DOG.
+5. **On-chain metrics profundas** — Gini coefficient, HODL waves, realized cap, MVRV, supply in profit/loss.
 
-6. **Real-time** — Scanner processa blocos em ~30s. Dados quase em tempo real, não snapshots diários.
+6. **Real-time** — Scanner processa blocos em ~30s. Dados quase em tempo real.
 
 7. **Full-stack** — Do Bitcoin node até o frontend. Controle total da stack.
 
@@ -1354,11 +1127,12 @@ Orquestrador              ░░░░░░░░░░░░░░████
 | Análise forense | ✅ 14 categorias | ❌ | ❌ | ❌ |
 | Diamond Score | ✅ | ❌ | ❌ | ❌ |
 | UTXO analytics | ✅ 250k+ | ❌ | ❌ | ❌ |
-| Multi-exchange prices | ✅ 8 exchanges | ❌ | ❌ ✅ 1 |
-| MCP Server | ✅ (em breve) | ❌ | ❌ | ❌ |
-| API para agentes | ✅ (em breve) | Limitado | Limitado | Limitado |
+| Multi-exchange prices | ✅ 6 exchanges | ❌ | ❌ | ✅ 1 |
+| MCP Server | ✅ | ❌ | ❌ | ❌ |
+| API para agentes | ✅ 35 endpoints | Limitado | Limitado | Limitado |
 | On-chain metrics | ✅ Glassnode-level | ❌ | ❌ | ❌ |
 | Real-time txs | ✅ ~30s | ✅ | ✅ | ❌ |
+| **Discoverability** | **🔴 Fase 5** | ✅ | ✅ | ✅ |
 
 ---
 
@@ -1377,25 +1151,21 @@ Orquestrador              ░░░░░░░░░░░░░░████
 }
 ```
 
-Depois, qualquer agente Claude pode perguntar:
-- "Quantos holders o DOG tem?"
-- "Qual o preço do DOG agora?"
-- "Mostre as últimas transações whale de DOG"
-- "Qual o Diamond Score do endereço bc1p...?"
-
 ### Usando via REST API:
 
 ```bash
 # Sem key (20 req/hora)
-curl https://api.dogdata.xyz/v1/stats
+curl https://www.dogdata.xyz/api/dog-rune/stats
+curl https://www.dogdata.xyz/api/price/kraken
 
-# Com key
-curl -H "Authorization: Bearer dog_live_xxx" \
-  https://api.dogdata.xyz/v1/holders?limit=10
+# Gerar key
+curl -X POST https://www.dogdata.xyz/api/keys/generate \
+  -H "Content-Type: application/json" \
+  -d '{"email": "agent@example.com", "name": "My Agent"}'
 
-# Field selection (Pro+)
+# Com key (100+ req/hora)
 curl -H "Authorization: Bearer dog_live_xxx" \
-  "https://api.dogdata.xyz/v1/holders?fields=address,total_dog,rank&limit=100"
+  https://www.dogdata.xyz/api/dog-rune/holders?limit=10
 ```
 
 ### Usando via SDK:
@@ -1404,11 +1174,17 @@ curl -H "Authorization: Bearer dog_live_xxx" \
 import { DogData } from "@dogdata/sdk";
 const dog = new DogData({ apiKey: "dog_live_xxx" });
 const { data } = await dog.holders.list({ limit: 10 });
-console.log(`DOG has ${data.pagination.total} holders`);
+```
+
+### Usando via SSE (real-time):
+
+```javascript
+const events = new EventSource("https://www.dogdata.xyz/api/events?events=whale_alert,price_update");
+events.addEventListener("whale_alert", (e) => console.log(JSON.parse(e.data)));
 ```
 
 ---
 
 *DOG DATA — The world's most comprehensive DOG•GO•TO•THE•MOON data platform for AI agents.*
 
-*DOG GO TO THE MOON 🌙*
+*Versão 2.0 — Atualizado 2026-03-25 com diagnóstico de discoverability e Fase 5 crítica.*

@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!-- Main pages -->
+  <url>
+    <loc>https://www.dogdata.xyz/</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://www.dogdata.xyz/docs</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- API Discovery -->
+  <url>
+    <loc>https://www.dogdata.xyz/api</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://www.dogdata.xyz/api/openapi.json</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.dogdata.xyz/api/agent/capabilities</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.dogdata.xyz/api/status</loc>
+    <changefreq>always</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Data Endpoints -->
+  <url>
+    <loc>https://www.dogdata.xyz/api/dog-rune/stats</loc>
+    <changefreq>hourly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.dogdata.xyz/api/dog-rune/holders</loc>
+    <changefreq>hourly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.dogdata.xyz/api/price/kraken</loc>
+    <changefreq>always</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.dogdata.xyz/api/markets</loc>
+    <changefreq>always</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.dogdata.xyz/api/forensic/summary</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://www.dogdata.xyz/api/bitcoin</loc>
+    <changefreq>always</changefreq>
+    <priority>0.6</priority>
+  </url>
+
+  <!-- Static resources -->
+  <url>
+    <loc>https://www.dogdata.xyz/bots.md</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.5</priority>
+  </url>
+</urlset>
