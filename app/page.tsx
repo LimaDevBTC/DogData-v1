@@ -12,9 +12,9 @@ import {
   Users,
   Coins,
   Activity,
-  Zap,
   BarChart3,
-  Flame
+  Flame,
+  Percent
 } from "lucide-react"
 import { SectionDivider } from "@/components/ui/section-divider"
 import { PriceCards } from "@/components/ui/price-cards"
@@ -69,6 +69,8 @@ interface Transactions24hMetrics {
   feesBtc?: number
   activeWalletCount?: number
   volumeWalletCount?: number
+  btcTxCount24h?: number | null
+  dogDominance24h?: number | null
 }
 
 interface DogRuneData {
@@ -484,23 +486,27 @@ export default function OverviewPage() {
             </Card>
           </a>
 
-          {/* Miner Fees 24h */}
+          {/* BTC Dominance 24h */}
           <Card variant="glass" className={cardBaseClass}>
             <CardHeader className="pb-2">
               <CardTitle variant="mono" className="text-[11px] md:text-sm text-dusty flex items-center gap-1.5">
-                <Zap className="w-3.5 h-3.5 text-yellow-400/60" />
-                <span className="hidden md:inline">Miner Fees 24h</span>
-                <span className="md:hidden">Fees 24h</span>
+                <Percent className="w-3.5 h-3.5 text-yellow-400/60" />
+                <span className="hidden md:inline">BTC Chain Share</span>
+                <span className="md:hidden">BTC Share</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-1.5">
                 <div className="text-lg md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
-                  {metrics24h
-                    ? `${metrics24h.feesBtc?.toFixed(4)} BTC`
+                  {metrics24h?.dogDominance24h != null
+                    ? `${metrics24h.dogDominance24h < 0.01 ? metrics24h.dogDominance24h.toFixed(4) : metrics24h.dogDominance24h.toFixed(2)}%`
                     : (loading ? '...' : 'N/A')}
                 </div>
-                <span className="text-[10px] md:text-xs text-dusty/50 font-mono">DOG txn fees to miners</span>
+                <span className="text-[10px] md:text-xs text-dusty/50 font-mono">
+                  {metrics24h?.txCount && metrics24h?.btcTxCount24h
+                    ? `${metrics24h.txCount.toLocaleString()} of ${metrics24h.btcTxCount24h.toLocaleString()} BTC txns`
+                    : 'of all Bitcoin txns 24h'}
+                </span>
               </div>
             </CardContent>
           </Card>

@@ -486,10 +486,51 @@ def scan_block(height, utxo_set):
 
 # === Metrics ===
 
+def fetch_btc_tx_count_24h():
+    """Fetch total Bitcoin transaction count for the last ~24h via mempool.space API."""
+    import requests as req
+    try:
+        # Get recent blocks (mempool.space returns ~15 blocks per call, paginate via start_height)
+        cutoff_ts = int((datetime.now(timezone.utc) - timedelta(hours=24)).timestamp())
+        total_txs = 0
+        start_height = None
+
+        for _ in range(20):  # max ~300 blocks, ~24h ≈ 144 blocks
+            url = 'https://mempool.space/api/v1/blocks'
+            if start_height is not None:
+                url += f'/{start_height}'
+            resp = req.get(url, timeout=10)
+            resp.raise_for_status()
+            blocks = resp.json()
+
+            if not blocks:
+                break
+
+            reached_cutoff = False
+            for block in blocks:
+                if block['timestamp'] < cutoff_ts:
+                    reached_cutoff = True
+                    break
+                total_txs += block['tx_count']
+
+            if reached_cutoff:
+                break
+
+            start_height = blocks[-1]['height'] - 1
+
+        return total_txs
+    except Exception as e:
+        log.warning(f'Failed to fetch BTC tx count from mempool.space: {e}')
+        return None
+
+
 def compute_24h_metrics(transactions):
     """Compute last-24h metrics from a list of transactions."""
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
     recent = [tx for tx in transactions if (tx.get('timestamp') or '') >= cutoff]
+
+    # Fetch total BTC txs for dominance calculation
+    btc_tx_count = fetch_btc_tx_count_24h()
 
     if not recent:
         return {'last24h': {
@@ -498,6 +539,8 @@ def compute_24h_metrics(transactions):
             'activeWalletCount': 0, 'volumeWalletCount': 0,
             'topActiveWallet': None, 'topVolumeWallet': None,
             'topOutWallet': None, 'topInWallet': None,
+            'btcTxCount24h': btc_tx_count,
+            'dogDominance24h': 0,
         }}
 
     tx_count = len(recent)
@@ -555,6 +598,8 @@ def compute_24h_metrics(transactions):
         addr = max(wallet_received, key=wallet_received.get)
         top_in = {'address': addr, 'dogMoved': wallet_received[addr]}
 
+    dominance = round((tx_count / btc_tx_count) * 100, 4) if btc_tx_count else None
+
     return {'last24h': {
         'txCount': tx_count,
         'totalDogMoved': round(total_dog, 2),
@@ -565,6 +610,8 @@ def compute_24h_metrics(transactions):
         'feesBtc': round(fees_sats / 1e8, 8),
         'activeWalletCount': len(wallet_tx_count),
         'volumeWalletCount': len(wallet_volume),
+        'btcTxCount24h': btc_tx_count,
+        'dogDominance24h': dominance,
         'topActiveWallet': top_active,
         'topVolumeWallet': top_volume,
         'topOutWallet': top_out,
