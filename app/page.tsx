@@ -219,11 +219,46 @@ export default function OverviewPage() {
             if (txSummaryResponse.ok) return txSummaryResponse.json()
             return null
           })
-          .then(summaryData => {
+          .then(async (summaryData) => {
             if (summaryData?.metrics?.last24h) {
               const metrics = summaryData.metrics.last24h
+              const dogTxCount = metrics.txCount || 0
+
+              // Use backend btcTxCount if available, otherwise fetch from mempool.space
+              let btcTxCount = metrics.btcTxCount24h ?? null
+              let dominance = metrics.dogDominance24h ?? null
+
+              if (btcTxCount == null && dogTxCount > 0) {
+                try {
+                  const cutoff = Math.floor(Date.now() / 1000) - 86400
+                  let total = 0
+                  let startHeight: number | null = null
+                  for (let i = 0; i < 20; i++) {
+                    const blocksUrl: string = startHeight != null
+                      ? `https://mempool.space/api/v1/blocks/${startHeight}`
+                      : 'https://mempool.space/api/v1/blocks'
+                    const blocksResp: Response = await fetch(blocksUrl)
+                    const blocksData: Array<{ timestamp: number; tx_count: number; height: number }> = await blocksResp.json()
+                    if (!blocksData?.length) break
+                    let done = false
+                    for (const b of blocksData) {
+                      if (b.timestamp < cutoff) { done = true; break }
+                      total += b.tx_count
+                    }
+                    if (done) break
+                    startHeight = blocksData[blocksData.length - 1].height - 1
+                  }
+                  if (total > 0) {
+                    btcTxCount = total
+                    dominance = Math.round((dogTxCount / total) * 10000) / 10000
+                  }
+                } catch (e) {
+                  console.warn('Failed to fetch BTC tx count from mempool.space:', e)
+                }
+              }
+
               setMetrics24h({
-                txCount: metrics.txCount || 0,
+                txCount: dogTxCount,
                 totalDogMoved: metrics.totalDogMoved || 0,
                 blockCount: metrics.blockCount || 0,
                 avgTxPerBlock: metrics.avgTxPerBlock || 0,
@@ -236,8 +271,8 @@ export default function OverviewPage() {
                 feesBtc: metrics.feesBtc ?? 0,
                 activeWalletCount: metrics.activeWalletCount || 0,
                 volumeWalletCount: metrics.volumeWalletCount || 0,
-                btcTxCount24h: metrics.btcTxCount24h ?? null,
-                dogDominance24h: metrics.dogDominance24h ?? null,
+                btcTxCount24h: btcTxCount,
+                dogDominance24h: dominance,
               })
             }
           })
