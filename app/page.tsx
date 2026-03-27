@@ -236,6 +236,8 @@ export default function OverviewPage() {
                 feesBtc: metrics.feesBtc ?? 0,
                 activeWalletCount: metrics.activeWalletCount || 0,
                 volumeWalletCount: metrics.volumeWalletCount || 0,
+                btcTxCount24h: metrics.btcTxCount24h ?? null,
+                dogDominance24h: metrics.dogDominance24h ?? null,
               })
             }
           })
