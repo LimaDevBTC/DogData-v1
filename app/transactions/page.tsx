@@ -51,6 +51,7 @@ import {
   Zap
 } from "lucide-react"
 import { AddressBadge } from "@/components/address-badge"
+import { Globe } from "lucide-react"
 
 interface Sender {
   address: string;
@@ -477,6 +478,68 @@ export default function TransactionsPage() {
     }
     return true
   })
+
+  // Cross-chain tabs
+  type ChainTab = 'bitcoin' | 'solana' | 'stacks' | 'all'
+  const [activeChain, setActiveChain] = useState<ChainTab>('bitcoin')
+  const [crossChainTxs, setCrossChainTxs] = useState<any[]>([])
+  const [crossChainLoading, setCrossChainLoading] = useState(false)
+  const [copiedCrossChain, setCopiedCrossChain] = useState<string | null>(null)
+
+  const handleCrossChainCopy = (text: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedCrossChain(text)
+    setTimeout(() => setCopiedCrossChain(null), 2000)
+  }
+
+  const CHAIN_EXPLORERS: Record<string, { tx: string; addr: string; logo: string; label: string }> = {
+    solana: { tx: 'https://solscan.io/tx/', addr: 'https://solscan.io/account/', logo: 'https://assets.coingecko.com/coins/images/4128/small/solana.png', label: 'Solana' },
+    stacks: { tx: 'https://explorer.hiro.so/txid/', addr: 'https://explorer.hiro.so/address/', logo: '/STX .png', label: 'Stacks' },
+    bitcoin: { tx: 'https://mempool.space/tx/', addr: 'https://mempool.space/address/', logo: 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png', label: 'Bitcoin' },
+  }
+
+  // Fetch cross-chain transactions when tab changes
+  useEffect(() => {
+    if (activeChain === 'bitcoin') return
+    setCrossChainLoading(true)
+    const url = activeChain === 'all'
+      ? '/api/multichain/transactions?limit=50'
+      : `/api/multichain/transactions?chain=${activeChain}&limit=50`
+    fetch(url)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data) return
+        const allTxs: any[] = []
+        if (data.solana?.transactions) allTxs.push(...data.solana.transactions)
+        if (data.stacks?.transactions) allTxs.push(...data.stacks.transactions)
+
+        // For "All" tab, include Bitcoin transactions too
+        if (activeChain === 'all' && transactions.length > 0) {
+          for (const btcTx of transactions.slice(0, 50)) {
+            const mainSender = btcTx.senders?.[0]
+            const mainReceiver = btcTx.receivers?.[0]
+            allTxs.push({
+              chain: 'bitcoin',
+              tx_id: btcTx.txid,
+              type: btcTx.type || 'transfer',
+              from_address: mainSender?.address || '',
+              to_address: mainReceiver?.address || '',
+              amount: btcTx.net_transfer ?? btcTx.total_dog_moved ?? 0,
+              amount_usd: null,
+              timestamp: typeof btcTx.timestamp === 'number'
+                ? new Date(btcTx.timestamp * 1000).toISOString()
+                : btcTx.timestamp,
+              block_height: btcTx.block_height,
+            })
+          }
+        }
+
+        allTxs.sort((a: any, b: any) => b.timestamp.localeCompare(a.timestamp))
+        setCrossChainTxs(allTxs)
+      })
+      .catch(err => console.warn('Cross-chain txs error:', err))
+      .finally(() => setCrossChainLoading(false))
+  }, [activeChain, transactions])
 
   const topInflowWallets: InflowEntry[] = metrics24h?.topInWallets?.length
     ? metrics24h.topInWallets
@@ -1353,11 +1416,41 @@ export default function TransactionsPage() {
             </div>
           </div>
           <p className="text-dusty font-mono text-sm md:text-lg">
-            Real-time transaction tracking - Rune 840000:3
+            Real-time transaction tracking across all chains
           </p>
+
+          {/* Chain Tabs */}
+          <div className="flex items-center justify-center gap-1 mt-3">
+            {([
+              { key: 'bitcoin' as ChainTab, label: 'Bitcoin', logo: CHAIN_EXPLORERS.bitcoin.logo },
+              { key: 'solana' as ChainTab, label: 'Solana', logo: CHAIN_EXPLORERS.solana.logo },
+              { key: 'stacks' as ChainTab, label: 'Stacks', logo: CHAIN_EXPLORERS.stacks.logo },
+              { key: 'all' as ChainTab, label: 'All Chains', logo: '' },
+            ]).map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveChain(tab.key)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm font-mono font-medium rounded-lg transition-all duration-200 ${
+                  activeChain === tab.key
+                    ? 'bg-lava/10 text-lava border border-lava/20'
+                    : 'text-dusty/60 hover:text-snow/80 border border-transparent'
+                }`}
+              >
+                {tab.logo ? (
+                  <Image src={tab.logo} alt={tab.label} width={14} height={14} className="opacity-80" />
+                ) : (
+                  <Globe className="w-3.5 h-3.5" />
+                )}
+                <span className="hidden md:inline">{tab.label}</span>
+                <span className="md:hidden">{tab.key === 'all' ? 'All' : tab.key === 'bitcoin' ? 'BTC' : tab.key === 'solana' ? 'SOL' : 'STX'}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Stats Cards */}
+        {/* Stats Cards - Bitcoin only */}
+        {activeChain === 'bitcoin' && (
+        <>
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-3 gap-3 md:gap-6">
           <Card variant="glass">
             <CardHeader className="pb-3">
@@ -2082,6 +2175,140 @@ export default function TransactionsPage() {
               </Button>
             )}
           </div>
+        )}
+        </>
+        )}
+
+        {/* Cross-chain transactions (Solana, Stacks, All) */}
+        {activeChain !== 'bitcoin' && (
+          <>
+            <SectionDivider title={activeChain === 'all' ? 'All Chains Transactions' : `${CHAIN_EXPLORERS[activeChain]?.label} Transactions`} icon={Activity} />
+
+            <Card variant="glass">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-snow text-xl font-mono flex items-center gap-2">
+                    {activeChain !== 'all' && CHAIN_EXPLORERS[activeChain] && (
+                      <Image src={CHAIN_EXPLORERS[activeChain].logo} alt="" width={20} height={20} className="opacity-80" />
+                    )}
+                    {activeChain === 'all' ? 'Cross-Chain' : CHAIN_EXPLORERS[activeChain]?.label} Transactions
+                  </CardTitle>
+                  <span className="text-dusty/50 font-mono text-xs">{crossChainTxs.length} txs</span>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {crossChainLoading ? (
+                  <div className="flex items-center justify-center py-12 gap-2 text-dusty font-mono text-sm">
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Loading transactions...
+                  </div>
+                ) : crossChainTxs.length === 0 ? (
+                  <div className="text-center py-12 text-dusty/50 font-mono text-sm">
+                    No transactions found
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse table-auto">
+                      <thead>
+                        <tr className="border-b border-white/[0.05]">
+                          {activeChain === 'all' && <th className="text-left py-2 px-2 text-lava font-mono text-xs w-[50px]">Chain</th>}
+                          <th className="text-left py-2 px-2 text-lava font-mono text-xs">Type</th>
+                          <th className="text-left py-2 px-2 text-lava font-mono text-xs">From</th>
+                          <th className="text-left py-2 px-2 text-lava font-mono text-xs">To</th>
+                          <th className="text-right py-2 px-2 text-lava font-mono text-xs">Amount</th>
+                          <th className="text-left py-2 px-2 text-lava font-mono text-xs">Time</th>
+                          <th className="text-center py-2 px-2 text-lava font-mono text-xs">TXID</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {crossChainTxs.map((tx: any) => {
+                          const explorer = CHAIN_EXPLORERS[tx.chain] || CHAIN_EXPLORERS.bitcoin
+                          const shortAddr = (addr: string) => addr?.length > 16 ? `${addr.slice(0, 8)}...${addr.slice(-6)}` : (addr || '')
+                          const formatDogAmount = (n: number) => {
+                            if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`
+                            if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M`
+                            if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`
+                            return n.toFixed(2)
+                          }
+                          const timeAgo = (ts: string) => {
+                            const diff = Date.now() - new Date(ts).getTime()
+                            const mins = Math.floor(diff / 60000)
+                            if (mins < 60) return `${mins}m ago`
+                            const hours = Math.floor(mins / 60)
+                            if (hours < 24) return `${hours}h ago`
+                            return `${Math.floor(hours / 24)}d ago`
+                          }
+
+                          return (
+                            <tr key={`${tx.chain}-${tx.tx_id}`} className="border-b border-white/[0.05] hover:bg-snow/[0.02]">
+                              {/* Chain icon */}
+                              {activeChain === 'all' && (
+                                <td className="py-2 px-2">
+                                  <Image src={explorer.logo} alt={tx.chain} width={16} height={16} className="opacity-80" />
+                                </td>
+                              )}
+
+                              {/* Type */}
+                              <td className="py-2 px-2">
+                                <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${
+                                  tx.type === 'swap' ? 'border-purple-500/30 text-purple-400' : 'border-snow/10 text-dusty/60'
+                                }`}>
+                                  {tx.type}
+                                </Badge>
+                              </td>
+
+                              {/* From */}
+                              <td className="py-2 px-1">
+                                <div className="flex items-center gap-1">
+                                  <code className="text-cyan-400 text-xs">{shortAddr(tx.from_address)}</code>
+                                  <button onClick={() => handleCrossChainCopy(tx.from_address)} className="p-0.5 text-dusty/30 hover:text-snow/80" title="Copy">
+                                    {copiedCrossChain === tx.from_address ? <span className="text-green-400 text-[10px]">✓</span> : <Copy className="w-2.5 h-2.5" />}
+                                  </button>
+                                </div>
+                              </td>
+
+                              {/* To */}
+                              <td className="py-2 px-1">
+                                <div className="flex items-center gap-1">
+                                  <code className="text-green-400 text-xs">{shortAddr(tx.to_address)}</code>
+                                  <button onClick={() => handleCrossChainCopy(tx.to_address)} className="p-0.5 text-dusty/30 hover:text-snow/80" title="Copy">
+                                    {copiedCrossChain === tx.to_address ? <span className="text-green-400 text-[10px]">✓</span> : <Copy className="w-2.5 h-2.5" />}
+                                  </button>
+                                </div>
+                              </td>
+
+                              {/* Amount */}
+                              <td className="py-2 px-2 text-right">
+                                <span className="text-lava font-mono font-bold text-xs">{formatDogAmount(tx.amount)}</span>
+                              </td>
+
+                              {/* Time */}
+                              <td className="py-2 px-2">
+                                <span className="text-dusty font-mono text-xs">{timeAgo(tx.timestamp)}</span>
+                              </td>
+
+                              {/* TXID */}
+                              <td className="py-2 px-2">
+                                <div className="flex items-center justify-center gap-0.5">
+                                  <code className="text-snow text-xs">{tx.tx_id.substring(0, 8)}...</code>
+                                  <button onClick={() => handleCrossChainCopy(tx.tx_id)} className="p-0.5 text-dusty/30 hover:text-snow/80" title="Copy tx">
+                                    {copiedCrossChain === tx.tx_id ? <span className="text-green-400 text-[10px]">✓</span> : <Copy className="w-2.5 h-2.5" />}
+                                  </button>
+                                  <a href={`${explorer.tx}${tx.tx_id}`} target="_blank" rel="noopener noreferrer" className="p-0.5 text-dusty/30 hover:text-lava">
+                                    <ExternalLink className="w-2.5 h-2.5" />
+                                  </a>
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </>
         )}
       </div>
     </Layout>

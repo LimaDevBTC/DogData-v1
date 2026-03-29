@@ -132,11 +132,17 @@ function formatCompact(n: number): string {
   return '$0'
 }
 
+const DOG_TOTAL_SUPPLY = 100_000_000_000 // 100B total across all chains
+
 function formatDOG(amount: number): string {
   if (amount >= 1e9) return `${(amount / 1e9).toFixed(2)}B`
   if (amount >= 1e6) return `${(amount / 1e6).toFixed(2)}M`
   if (amount >= 1e3) return `${(amount / 1e3).toFixed(1)}K`
   return amount.toFixed(2)
+}
+
+function pctOfTotal(balance: number): string {
+  return ((balance / DOG_TOTAL_SUPPLY) * 100).toFixed(6)
 }
 
 function shortAddr(addr: string): string {
@@ -381,7 +387,8 @@ export default function MultiChainPage() {
                           <th className="text-left py-1.5 pr-2">#</th>
                           <th className="text-left py-1.5">Address</th>
                           <th className="text-right py-1.5">Balance</th>
-                          <th className="text-right py-1.5">% Supply</th>
+                          <th className="text-right py-1.5">% Bridged</th>
+                          <th className="text-right py-1.5">% Total</th>
                           <th className="text-right py-1.5 hidden md:table-cell">USD Value</th>
                         </tr>
                       </thead>
@@ -401,6 +408,7 @@ export default function MultiChainPage() {
                             </td>
                             <td className="py-1.5 text-right text-snow/80">{formatDOG(h.balance)}</td>
                             <td className="py-1.5 text-right text-dusty/60">{h.percentage_of_supply.toFixed(2)}%</td>
+                            <td className="py-1.5 text-right text-snow/40">{pctOfTotal(h.balance)}%</td>
                             <td className="py-1.5 text-right text-dusty/50 hidden md:table-cell">
                               {h.balance_usd ? formatCompact(h.balance_usd) : '-'}
                             </td>
@@ -434,7 +442,8 @@ export default function MultiChainPage() {
                             <th className="text-left py-1.5 pr-2">#</th>
                             <th className="text-left py-1.5">Address</th>
                             <th className="text-right py-1.5">Balance</th>
-                            <th className="text-right py-1.5">% Supply</th>
+                            <th className="text-right py-1.5">% Bridged</th>
+                            <th className="text-right py-1.5">% Total</th>
                             <th className="text-right py-1.5 hidden md:table-cell">USD Value</th>
                           </tr>
                         </thead>
@@ -454,6 +463,7 @@ export default function MultiChainPage() {
                               </td>
                               <td className="py-1.5 text-right text-snow/80">{formatDOG(h.balance)}</td>
                               <td className="py-1.5 text-right text-dusty/60">{h.percentage_of_supply?.toFixed(2)}%</td>
+                              <td className="py-1.5 text-right text-snow/40">{pctOfTotal(h.balance)}%</td>
                               <td className="py-1.5 text-right text-dusty/50 hidden md:table-cell">
                                 {h.balance_usd ? formatCompact(h.balance_usd) : '-'}
                               </td>
