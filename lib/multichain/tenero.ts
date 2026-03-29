@@ -227,11 +227,12 @@ export async function getStacksTransactions(limit = 50): Promise<{
     ).catch(() => ({ rows: [] })),
   ])
 
-  const transactions: ChainTransaction[] = []
+  // Use a Map to deduplicate by tx_id, keeping the richest data source
+  const txMap = new Map<string, ChainTransaction>()
 
-  // Map trades
+  // Map trades first (have USD amounts from DEX)
   for (const t of tradesData.rows || []) {
-    transactions.push({
+    txMap.set(t.tx_id, {
       chain: 'stacks',
       tx_id: t.tx_id,
       type: 'swap',
@@ -244,21 +245,23 @@ export async function getStacksTransactions(limit = 50): Promise<{
     })
   }
 
-  // Map non-trade transfers (avoid duplicating DEX swaps)
+  // Map transfers — adds wallet-to-wallet txs and enriches trade txs with real from/to
   for (const t of transfersData.rows || []) {
-    if (t.is_trade) continue
-    transactions.push({
+    if (txMap.has(t.tx_id)) continue // trade already captured with better data
+    txMap.set(t.tx_id, {
       chain: 'stacks',
       tx_id: t.tx_id,
-      type: 'transfer',
+      type: t.is_trade ? 'swap' : 'transfer',
       from_address: t.from_address,
       to_address: t.to_address,
       amount: t.amount ?? 0,
-      amount_usd: t.amount * tokenInfo.price_usd,
+      amount_usd: (t.amount ?? 0) * tokenInfo.price_usd,
       timestamp: new Date(t.block_time).toISOString(),
       block_height: t.block_height,
     })
   }
+
+  const transactions = Array.from(txMap.values())
 
   // Sort by timestamp desc
   transactions.sort((a, b) => b.timestamp.localeCompare(a.timestamp))
