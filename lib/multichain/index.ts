@@ -1,5 +1,10 @@
 export * from './types'
-export { getSolanaTokenInfo, getSolanaPrice, getSolanaTransactions } from './birdeye'
+export { getSolanaTokenInfo, getSolanaPrice } from './birdeye'
+export {
+  getSolanaHolders,
+  getSolanaTransactions,
+  getSolanaSupply,
+} from './helius'
 export {
   getStacksTokenInfo,
   getStacksHolders,

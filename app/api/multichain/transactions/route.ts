@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getStacksTransactions } from '@/lib/multichain/tenero'
+import { getSolanaTransactions } from '@/lib/multichain/helius'
 import type { Chain } from '@/lib/multichain/types'
 
 export const dynamic = 'force-dynamic'
@@ -8,22 +9,35 @@ export const runtime = 'nodejs'
 export async function GET(request: NextRequest) {
   try {
     const chain = request.nextUrl.searchParams.get('chain') as Chain | null
-    const limit = parseInt(request.nextUrl.searchParams.get('limit') || '50', 10)
+    const limit = parseInt(request.nextUrl.searchParams.get('limit') || '30', 10)
 
     const response: Record<string, any> = {}
 
+    const fetches: Promise<void>[] = []
+
     if (!chain || chain === 'stacks') {
-      response.stacks = await getStacksTransactions(limit)
+      fetches.push(
+        getStacksTransactions(limit)
+          .then(data => { response.stacks = data })
+          .catch(err => {
+            console.warn('Stacks transactions error:', err.message)
+            response.stacks = { transactions: [], total_count: 0 }
+          })
+      )
     }
 
     if (!chain || chain === 'solana') {
-      // Birdeye free tier doesn't expose individual transactions
-      response.solana = {
-        transactions: [],
-        total_count: 0,
-        note: 'Individual transactions not available on Birdeye free tier. Trade count available via /api/multichain/stats',
-      }
+      fetches.push(
+        getSolanaTransactions(limit)
+          .then(data => { response.solana = data })
+          .catch(err => {
+            console.warn('Solana transactions error:', err.message)
+            response.solana = { transactions: [], total_count: 0 }
+          })
+      )
     }
+
+    await Promise.all(fetches)
 
     return NextResponse.json(response, {
       headers: {

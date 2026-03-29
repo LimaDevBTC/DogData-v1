@@ -413,7 +413,7 @@ export default function MultiChainPage() {
               </Card>
             )}
 
-            {/* Solana holder summary */}
+            {/* Solana holders */}
             {holdersData.solana && (
               <Card variant="glass" className={`border ${CHAIN_CONFIG.solana.borderColor}`}>
                 <CardHeader className="pb-2">
@@ -426,9 +426,45 @@ export default function MultiChainPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-xs text-dusty/50 font-mono">
-                    Individual holder list not available on Birdeye free tier. Total holder count sourced from token overview.
-                  </p>
+                  {holdersData.solana.holders?.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs font-mono">
+                        <thead>
+                          <tr className="text-dusty/40 uppercase tracking-wider text-[9px]">
+                            <th className="text-left py-1.5 pr-2">#</th>
+                            <th className="text-left py-1.5">Address</th>
+                            <th className="text-right py-1.5">Balance</th>
+                            <th className="text-right py-1.5">% Supply</th>
+                            <th className="text-right py-1.5 hidden md:table-cell">USD Value</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {holdersData.solana.holders.map((h: any) => (
+                            <tr key={h.address} className="border-t border-snow/[0.03] hover:bg-snow/[0.02]">
+                              <td className="py-1.5 pr-2 text-dusty/40">{h.rank}</td>
+                              <td className="py-1.5">
+                                <a
+                                  href={`${CHAIN_CONFIG.solana.explorer}${h.address}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-purple-400/80 hover:text-purple-300 transition-colors"
+                                >
+                                  {shortAddr(h.address)}
+                                </a>
+                              </td>
+                              <td className="py-1.5 text-right text-snow/80">{formatDOG(h.balance)}</td>
+                              <td className="py-1.5 text-right text-dusty/60">{h.percentage_of_supply?.toFixed(2)}%</td>
+                              <td className="py-1.5 text-right text-dusty/50 hidden md:table-cell">
+                                {h.balance_usd ? formatCompact(h.balance_usd) : '-'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-dusty/50 font-mono">Loading holders...</p>
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -561,8 +597,8 @@ export default function MultiChainPage() {
               </Card>
             )}
 
-            {/* Solana note */}
-            {txData.solana && (
+            {/* Solana transactions */}
+            {txData.solana && txData.solana.transactions.length > 0 && (
               <Card variant="glass" className={`border ${CHAIN_CONFIG.solana.borderColor}`}>
                 <CardHeader className="pb-2">
                   <CardTitle variant="mono" className="text-sm text-dusty flex items-center gap-2">
@@ -571,9 +607,67 @@ export default function MultiChainPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-xs text-dusty/50 font-mono">
-                    Individual transaction list not available on Birdeye free tier. Trading stats available on the Per Chain tab.
-                  </p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs font-mono">
+                      <thead>
+                        <tr className="text-dusty/40 uppercase tracking-wider text-[9px]">
+                          <th className="text-left py-1.5">Type</th>
+                          <th className="text-left py-1.5">From</th>
+                          <th className="text-left py-1.5">To</th>
+                          <th className="text-right py-1.5">Amount</th>
+                          <th className="text-right py-1.5">Time</th>
+                          <th className="text-center py-1.5">Tx</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(txData.solana.transactions as StacksTransaction[]).map((tx: StacksTransaction) => (
+                          <tr key={tx.tx_id} className="border-t border-snow/[0.03] hover:bg-snow/[0.02]">
+                            <td className="py-2 pr-2">
+                              <Badge
+                                variant="outline"
+                                className={`text-[9px] px-1.5 py-0 ${
+                                  tx.type === 'swap' ? 'border-purple-500/30 text-purple-400' : 'border-snow/10 text-dusty/60'
+                                }`}
+                              >
+                                {tx.type}
+                              </Badge>
+                            </td>
+                            <td className="py-2 pr-1">
+                              <div className="flex items-center gap-1">
+                                <code className="text-cyan-400">{shortAddr(tx.from_address)}</code>
+                                <button onClick={() => handleCopy(tx.from_address)} className="p-0.5 hover:text-snow/80 text-dusty/30 transition-colors" title="Copy address">
+                                  {copiedText === tx.from_address ? <span className="text-green-400 text-[10px]">✓</span> : <Copy className="w-2.5 h-2.5" />}
+                                </button>
+                              </div>
+                            </td>
+                            <td className="py-2 pr-1">
+                              <div className="flex items-center gap-1">
+                                <code className="text-green-400">{shortAddr(tx.to_address)}</code>
+                                <button onClick={() => handleCopy(tx.to_address)} className="p-0.5 hover:text-snow/80 text-dusty/30 transition-colors" title="Copy address">
+                                  {copiedText === tx.to_address ? <span className="text-green-400 text-[10px]">✓</span> : <Copy className="w-2.5 h-2.5" />}
+                                </button>
+                              </div>
+                            </td>
+                            <td className="py-2 text-right">
+                              <span className="text-lava font-bold">{formatDOG(tx.amount)} DOG</span>
+                            </td>
+                            <td className="py-2 text-right text-dusty/50">{timeAgo(tx.timestamp)}</td>
+                            <td className="py-2 pl-2">
+                              <div className="flex items-center justify-center gap-0.5">
+                                <code className="text-snow/60">{tx.tx_id.substring(0, 8)}...</code>
+                                <button onClick={() => handleCopy(tx.tx_id)} className="p-0.5 hover:text-snow/80 text-dusty/30 transition-colors" title="Copy tx">
+                                  {copiedText === tx.tx_id ? <span className="text-green-400 text-[10px]">✓</span> : <Copy className="w-2.5 h-2.5" />}
+                                </button>
+                                <a href={`${CHAIN_CONFIG.solana.explorerTx}${tx.tx_id}`} target="_blank" rel="noopener noreferrer" className="p-0.5 hover:text-purple-400 text-dusty/30 transition-colors" title="View on Solscan">
+                                  <ExternalLink className="w-2.5 h-2.5" />
+                                </a>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </CardContent>
               </Card>
             )}
