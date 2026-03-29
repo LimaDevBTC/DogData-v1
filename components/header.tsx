@@ -12,15 +12,17 @@ import {
   Zap,
   Menu,
   X,
-  TrendingUp
+  TrendingUp,
+  Globe
 } from "lucide-react"
 
-type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate'
+type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain'
 
 const navigation = [
   { name: 'Overview', page: 'overview' as PageType, icon: BarChart3 },
   { name: 'Transactions', page: 'transactions' as PageType, icon: CreditCard },
   { name: 'Holders', page: 'holders' as PageType, icon: Users },
+  { name: 'Cross-Chain', page: 'multichain' as PageType, icon: Globe },
   { name: 'On-Chain Metrics', page: 'metrics' as PageType, icon: Zap },
   { name: 'Markets', page: 'markets' as PageType, icon: TrendingUp },
   { name: 'Airdrop Analysis', page: 'airdrop' as PageType, icon: Sparkles },

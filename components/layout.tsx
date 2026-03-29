@@ -5,7 +5,7 @@ import Header from "./header"
 import Footer from "./footer"
 import { C2BlockchainBanner } from "./c2-blockchain-banner"
 
-type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate'
+type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain'
 
 interface LayoutProps {
   children: React.ReactNode

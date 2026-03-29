@@ -95,10 +95,10 @@ export default function HoldersPage() {
   const [loadingChart, setLoadingChart] = useState(true) // Estado de loading do gráfico
   // Totais por rede
   // Bitcoin: sempre do JSON (dinâmico)
-  // Solana e Stacks: valores hardcoded (únicos valores fixos)
-  const [bitcoinHolders, setBitcoinHolders] = useState<number>(0) // Será atualizado do JSON
-  const [solanaHolders, setSolanaHolders] = useState<number>(10975) // Hardcoded
-  const [stacksHolders, setStacksHolders] = useState<number>(585) // Hardcoded - atualizado a cada hora pelo script (external_holders.json)
+  // Solana e Stacks: dinâmico via /api/multichain/stats
+  const [bitcoinHolders, setBitcoinHolders] = useState<number>(0)
+  const [solanaHolders, setSolanaHolders] = useState<number>(0)
+  const [stacksHolders, setStacksHolders] = useState<number>(0)
   const eventSourceRef = useRef<EventSource | null>(null)
 
   const formatNumber = (num: number) => {
@@ -393,6 +393,19 @@ export default function HoldersPage() {
   useEffect(() => {
     loadData()
     loadAirdropRecipients()
+
+    // Fetch cross-chain holder counts from multichain API
+    fetch('/api/multichain/stats')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.chains) {
+          const solana = data.chains.find((c: any) => c.chain === 'solana')
+          const stacks = data.chains.find((c: any) => c.chain === 'stacks')
+          if (solana?.holder_count) setSolanaHolders(solana.holder_count)
+          if (stacks?.holder_count) setStacksHolders(stacks.holder_count)
+        }
+      })
+      .catch(err => console.warn('Error fetching multichain holders:', err))
   }, [currentPage])
 
   // Carregar todos os holders para o gráfico de distribuição
@@ -896,14 +909,14 @@ export default function HoldersPage() {
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5">
-                    <Image src="/sol.png" alt="Solana" width={12} height={12} className="opacity-70" />
+                    <Image src="/sol.png" alt="Solana" width={18} height={18} className="opacity-70" />
                     <span className="text-dusty font-mono">Solana</span>
                   </div>
                   <span className="text-snow/80 font-mono">{solanaHolders.toLocaleString('en-US')}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5">
-                    <Image src="/STX .png" alt="Stacks" width={12} height={12} className="opacity-70" />
+                    <Image src="/STX .png" alt="Stacks" width={24} height={24} className="opacity-70" />
                     <span className="text-dusty font-mono">Stacks</span>
                   </div>
                   <span className="text-snow/80 font-mono">{stacksHolders.toLocaleString('en-US')}</span>

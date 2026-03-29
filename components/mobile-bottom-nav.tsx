@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { BarChart3, CreditCard, Users, Zap, LayoutGrid, X, Sparkles, Network, Heart, TrendingUp } from "lucide-react"
+import { BarChart3, CreditCard, Users, Zap, LayoutGrid, X, Sparkles, Network, Heart, TrendingUp, Globe } from "lucide-react"
 
-type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate'
+type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain'
 
 const primaryNav = [
   { name: 'Overview', page: 'overview' as PageType, icon: BarChart3 },
@@ -13,6 +13,7 @@ const primaryNav = [
 ]
 
 const moreNav = [
+  { name: 'Cross-Chain', page: 'multichain' as PageType, icon: Globe },
   { name: 'Markets', page: 'markets' as PageType, icon: TrendingUp },
   { name: 'Airdrop', page: 'airdrop' as PageType, icon: Sparkles },
   { name: 'Bitcoin', page: 'bitcoin-network' as PageType, icon: Network },

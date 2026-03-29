@@ -14,11 +14,13 @@ import {
   Activity,
   BarChart3,
   Flame,
-  Percent
+  Percent,
+  Globe
 } from "lucide-react"
 import { SectionDivider } from "@/components/ui/section-divider"
 import { PriceCards } from "@/components/ui/price-cards"
 import { TransactionHeatmap } from "@/components/ui/transaction-heatmap"
+import { MultiChainStats } from "@/components/ui/multichain-stats"
 import dogStatsFallback from '@/data/dog_stats_fallback.json'
 import dynamic from 'next/dynamic'
 
@@ -90,6 +92,7 @@ export default function OverviewPage() {
   const [krakenChange, setKrakenChange] = useState<number>(0)
   const [volume24h, setVolume24h] = useState<number>(0)
   const [metrics24h, setMetrics24h] = useState<Transactions24hMetrics | null>(null)
+  const [chainHolders, setChainHolders] = useState<{ solana: number; stacks: number }>({ solana: 0, stacks: 0 })
   const [loading, setLoading] = useState(true)
 
   const FALLBACK_TOTAL_HOLDERS = (dogStatsFallback as any)?.totalHolders ?? 0
@@ -284,6 +287,21 @@ export default function OverviewPage() {
     }
 
     fetchData()
+
+    // Fetch cross-chain holder counts
+    fetch('/api/multichain/stats')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.chains) {
+          const solana = data.chains.find((c: any) => c.chain === 'solana')
+          const stacks = data.chains.find((c: any) => c.chain === 'stacks')
+          setChainHolders({
+            solana: solana?.holder_count ?? 0,
+            stacks: stacks?.holder_count ?? 0,
+          })
+        }
+      })
+      .catch(err => console.warn('Error fetching multichain stats:', err))
   }, [])
 
   const formatNumber = (num: number) => {
@@ -397,7 +415,7 @@ export default function OverviewPage() {
             <CardContent>
               <div className="space-y-2">
                 <div className="text-lg md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
-                  {stats ? (stats.totalHolders + 10944 + 572).toLocaleString('en-US') : '—'}
+                  {stats ? (stats.totalHolders + chainHolders.solana + chainHolders.stacks).toLocaleString('en-US') : '—'}
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center justify-between text-[10px] md:text-xs">
@@ -409,17 +427,17 @@ export default function OverviewPage() {
                   </div>
                   <div className="flex items-center justify-between text-[10px] md:text-xs">
                     <div className="flex items-center gap-1">
-                      <Image src="/sol.png" alt="Solana" width={10} height={10} className="opacity-60" />
+                      <Image src="/sol.png" alt="Solana" width={15} height={15} className="opacity-60" />
                       <span className="text-dusty font-mono">SOL</span>
                     </div>
-                    <span className="text-snow/60 font-mono tabular-nums">10,982</span>
+                    <span className="text-snow/60 font-mono tabular-nums">{chainHolders.solana ? chainHolders.solana.toLocaleString('en-US') : '...'}</span>
                   </div>
                   <div className="flex items-center justify-between text-[10px] md:text-xs">
                     <div className="flex items-center gap-1">
-                      <Image src="/STX .png" alt="Stacks" width={10} height={10} className="opacity-60" />
+                      <Image src="/STX .png" alt="Stacks" width={20} height={20} className="opacity-60" />
                       <span className="text-dusty font-mono">STX</span>
                     </div>
-                    <span className="text-snow/60 font-mono tabular-nums">575</span>
+                    <span className="text-snow/60 font-mono tabular-nums">{chainHolders.stacks ? chainHolders.stacks.toLocaleString('en-US') : '...'}</span>
                   </div>
                 </div>
               </div>
@@ -604,6 +622,9 @@ export default function OverviewPage() {
             </CardContent>
           </Card>
         </div>
+
+        <SectionDivider title="Cross-Chain DOG" icon={Globe} />
+        <MultiChainStats />
 
         <SectionDivider title="Multi-Exchange Prices" icon={TrendingUp} />
         <PriceCards />
