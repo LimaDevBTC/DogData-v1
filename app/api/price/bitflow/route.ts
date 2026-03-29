@@ -69,28 +69,26 @@ export async function GET() {
 
     const data = await response.json()
     
-    // Procurar pelo par pBTC/DOG (Bitcoin/DOG)
+    // Priorizar sBTC/DOG (mais liquidez), pBTC/DOG como fallback
     let dogTicker = data.find((ticker: any) => {
       const tickerIdUpper = ticker.ticker_id?.toUpperCase() || ''
-      return tickerIdUpper.includes('PBTC') && tickerIdUpper.includes('DOG')
+      return tickerIdUpper.includes('SBTC') && tickerIdUpper.includes('DOG')
     })
 
-    // Se pBTC/DOG não tiver liquidez (last_price = 0), usar sBTC/DOG como fallback
     if (!dogTicker || parseFloat(dogTicker.last_price) === 0) {
-      console.log('⚠️ pBTC/DOG pool has no liquidity, trying sBTC/DOG...')
+      console.log('⚠️ sBTC/DOG pool has no liquidity, trying pBTC/DOG...')
       dogTicker = data.find((ticker: any) => {
         const tickerIdUpper = ticker.ticker_id?.toUpperCase() || ''
-        return tickerIdUpper.includes('SBTC') && tickerIdUpper.includes('DOG')
+        return tickerIdUpper.includes('PBTC') && tickerIdUpper.includes('DOG')
       })
-      
+
       if (!dogTicker || parseFloat(dogTicker.last_price) === 0) {
         console.warn('⚠️ No active DOG/BTC ticker found on Bitflow')
-        
-        // Se temos cache, retornar ele mesmo em caso de erro
+
         if (cachedData) {
           const cacheAge = Math.floor((Date.now() - cachedData.lastSuccessfulFetch) / 1000)
           console.log(`⚠️ No active pool, using cache from ${cacheAge}s ago`)
-          
+
           return NextResponse.json({
             price: cachedData.price,
             lastPrice: cachedData.price.toFixed(8),
@@ -104,19 +102,19 @@ export async function GET() {
             error: 'No active liquidity pool, showing cached data'
           })
         }
-        
-      return NextResponse.json(
+
+        return NextResponse.json(
           { error: 'DOG ticker not found or no liquidity' },
-        { status: 404 }
-      )
+          { status: 404 }
+        )
       }
-      
-      console.log('✅ Using sBTC/DOG pool as fallback')
+
+      console.log('✅ Using pBTC/DOG pool as fallback')
     }
 
-    // 3. Converter pBTC/DOG para USD/DOG
+    // 3. Converter sBTC/DOG para USD/DOG
     // O last_price representa quantos DOG você recebe por 1 BTC
-    // Se pBTC/DOG = 64,099,926 (você recebe 64M DOG por 1 BTC)
+    // Se sBTC/DOG = 82,901,636 (você recebe ~83M DOG por 1 sBTC)
     // Então 1 DOG = BTC_USD / pBTC_DOG
     // Exemplo: $97,000 / 64,099,926 = $0.00151
     const btcDogRate = parseFloat(dogTicker.last_price) || 0

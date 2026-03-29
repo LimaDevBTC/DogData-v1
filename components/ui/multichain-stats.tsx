@@ -39,8 +39,8 @@ const CHAIN_CONFIG: Record<string, {
     borderColor: 'border-purple-500/[0.12]',
     gradientFrom: 'from-purple-950/30',
     gradientTo: 'to-purple-900/5',
-    logo: '/sol.png',
-    logoSize: 24,
+    logo: 'https://assets.coingecko.com/coins/images/4128/small/solana.png',
+    logoSize: 20,
   },
   stacks: {
     label: 'Stacks',
@@ -49,7 +49,7 @@ const CHAIN_CONFIG: Record<string, {
     gradientFrom: 'from-orange-950/30',
     gradientTo: 'to-orange-900/5',
     logo: '/STX .png',
-    logoSize: 32,
+    logoSize: 20,
   },
 }
 

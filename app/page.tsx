@@ -420,21 +420,21 @@ export default function OverviewPage() {
                 <div className="space-y-1">
                   <div className="flex items-center justify-between text-[10px] md:text-xs">
                     <div className="flex items-center gap-1">
-                      <Image src="/BTC.png" alt="Bitcoin" width={10} height={10} className="opacity-60" />
+                      <Image src="https://assets.coingecko.com/coins/images/1/small/bitcoin.png" alt="Bitcoin" width={14} height={14} className="opacity-70" />
                       <span className="text-dusty font-mono">BTC</span>
                     </div>
                     <span className="text-snow/60 font-mono tabular-nums">{stats ? stats.totalHolders.toLocaleString('en-US') : '—'}</span>
                   </div>
                   <div className="flex items-center justify-between text-[10px] md:text-xs">
                     <div className="flex items-center gap-1">
-                      <Image src="/sol.png" alt="Solana" width={15} height={15} className="opacity-60" />
+                      <Image src="https://assets.coingecko.com/coins/images/4128/small/solana.png" alt="Solana" width={14} height={14} className="opacity-70" />
                       <span className="text-dusty font-mono">SOL</span>
                     </div>
                     <span className="text-snow/60 font-mono tabular-nums">{chainHolders.solana ? chainHolders.solana.toLocaleString('en-US') : '...'}</span>
                   </div>
                   <div className="flex items-center justify-between text-[10px] md:text-xs">
                     <div className="flex items-center gap-1">
-                      <Image src="/STX .png" alt="Stacks" width={20} height={20} className="opacity-60" />
+                      <Image src="/STX .png" alt="Stacks" width={14} height={14} className="opacity-70" />
                       <span className="text-dusty font-mono">STX</span>
                     </div>
                     <span className="text-snow/60 font-mono tabular-nums">{chainHolders.stacks ? chainHolders.stacks.toLocaleString('en-US') : '...'}</span>

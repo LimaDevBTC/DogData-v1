@@ -79,8 +79,8 @@ export async function getSolanaTokenInfo(): Promise<ChainTokenInfo> {
     volume_24h_usd: data.v24hUSD ?? 0,
     liquidity_usd: data.liquidity ?? null,
     holder_count: data.holder ?? 0,
-    total_supply: data.supply ?? 0,
-    circulating_supply: data.circulatingSupply ?? data.supply ?? 0,
+    total_supply: 0, // Birdeye reports full SPL contract supply, not bridged amount
+    circulating_supply: 0,
     last_updated: new Date().toISOString(),
   }
 

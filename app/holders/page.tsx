@@ -902,21 +902,21 @@ export default function HoldersPage() {
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5">
-                    <Image src="/BTC.png" alt="Bitcoin" width={12} height={12} className="opacity-70" />
+                    <Image src="https://assets.coingecko.com/coins/images/1/small/bitcoin.png" alt="Bitcoin" width={16} height={16} className="opacity-70" />
                     <span className="text-dusty font-mono">Bitcoin L1</span>
                   </div>
                   <span className="text-snow/80 font-mono">{bitcoinHolders.toLocaleString('en-US')}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5">
-                    <Image src="/sol.png" alt="Solana" width={18} height={18} className="opacity-70" />
+                    <Image src="https://assets.coingecko.com/coins/images/4128/small/solana.png" alt="Solana" width={16} height={16} className="opacity-70" />
                     <span className="text-dusty font-mono">Solana</span>
                   </div>
                   <span className="text-snow/80 font-mono">{solanaHolders.toLocaleString('en-US')}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-1.5">
-                    <Image src="/STX .png" alt="Stacks" width={24} height={24} className="opacity-70" />
+                    <Image src="/STX .png" alt="Stacks" width={16} height={16} className="opacity-70" />
                     <span className="text-dusty font-mono">Stacks</span>
                   </div>
                   <span className="text-snow/80 font-mono">{stacksHolders.toLocaleString('en-US')}</span>

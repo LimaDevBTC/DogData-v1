@@ -16,8 +16,10 @@ import {
   TrendingDown,
   ArrowUpRight,
   ArrowDownRight,
+  ArrowRightLeft,
   Repeat,
   ExternalLink,
+  Copy,
 } from "lucide-react"
 
 // === Types ===
@@ -81,7 +83,7 @@ const CHAIN_CONFIG: Record<string, {
 }> = {
   bitcoin: {
     label: 'Bitcoin',
-    logo: '/BTC.png',
+    logo: 'https://assets.coingecko.com/coins/images/1/small/bitcoin.png',
     logoSize: 20,
     color: 'bg-amber-500',
     textColor: 'text-amber-400',
@@ -92,8 +94,8 @@ const CHAIN_CONFIG: Record<string, {
   },
   solana: {
     label: 'Solana',
-    logo: '/sol.png',
-    logoSize: 24,
+    logo: 'https://assets.coingecko.com/coins/images/4128/small/solana.png',
+    logoSize: 20,
     color: 'bg-purple-500',
     textColor: 'text-purple-400',
     borderColor: 'border-purple-500/[0.15]',
@@ -104,7 +106,7 @@ const CHAIN_CONFIG: Record<string, {
   stacks: {
     label: 'Stacks',
     logo: '/STX .png',
-    logoSize: 32,
+    logoSize: 20,
     color: 'bg-orange-500',
     textColor: 'text-orange-400',
     borderColor: 'border-orange-500/[0.15]',
@@ -159,6 +161,13 @@ export default function MultiChainPage() {
   const [txData, setTxData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'overview' | 'holders' | 'transactions'>('overview')
+  const [copiedText, setCopiedText] = useState<string | null>(null)
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedText(text)
+    setTimeout(() => setCopiedText(null), 2000)
+  }
 
   useEffect(() => {
     Promise.all([
@@ -229,10 +238,11 @@ export default function MultiChainPage() {
               </Card>
               <Card variant="glass">
                 <CardContent className="p-3 md:p-4">
-                  <div className="text-[9px] md:text-[10px] text-dusty/50 font-mono uppercase tracking-wider mb-1">Total Supply</div>
+                  <div className="text-[9px] md:text-[10px] text-dusty/50 font-mono uppercase tracking-wider mb-1">Active Chains</div>
                   <div className="text-lg md:text-2xl font-bold text-snow font-mono metric-value">
-                    {formatDOG(stats.total_supply_all_chains)}
+                    {stats.chains.length + 1}
                   </div>
+                  <div className="text-[9px] text-dusty/40 font-mono mt-0.5">BTC + {stats.chains.map(c => c.chain === 'solana' ? 'SOL' : 'STX').join(' + ')}</div>
                 </CardContent>
               </Card>
             </div>
@@ -320,14 +330,16 @@ export default function MultiChainPage() {
                               {chain.liquidity_usd ? formatCompact(chain.liquidity_usd) : 'N/A'}
                             </div>
                           </div>
-                          <div>
-                            <div className="flex items-center gap-1 text-[9px] text-dusty/50 font-mono uppercase tracking-wider mb-0.5">
-                              Supply
+                          {chain.circulating_supply > 0 && (
+                            <div>
+                              <div className="flex items-center gap-1 text-[9px] text-dusty/50 font-mono uppercase tracking-wider mb-0.5">
+                                Supply
+                              </div>
+                              <div className="text-sm font-mono font-semibold text-snow/80">
+                                {formatDOG(chain.circulating_supply)}
+                              </div>
                             </div>
-                            <div className="text-sm font-mono font-semibold text-snow/80">
-                              {formatDOG(chain.circulating_supply)}
-                            </div>
-                          </div>
+                          )}
                         </div>
                       </div>
                     </CardContent>
@@ -438,43 +450,112 @@ export default function MultiChainPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-1">
-                    {(txData.stacks.transactions as StacksTransaction[]).map((tx: StacksTransaction) => (
-                      <div key={`${tx.tx_id}-${tx.from_address}`} className="flex items-center justify-between py-2 border-b border-snow/[0.03] last:border-0">
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <Badge
-                            variant="outline"
-                            className={`text-[9px] px-1.5 py-0 shrink-0 ${
-                              tx.type === 'swap' ? 'border-purple-500/30 text-purple-400' : 'border-snow/10 text-dusty/60'
-                            }`}
-                          >
-                            {tx.type}
-                          </Badge>
-                          <div className="flex items-center gap-1 text-[10px] font-mono text-dusty/50 truncate">
-                            <span className="text-snow/60">{shortAddr(tx.from_address)}</span>
-                            <ArrowUpRight className="w-2.5 h-2.5 text-dusty/30 shrink-0" />
-                            <span className="text-snow/60">{shortAddr(tx.to_address)}</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3 shrink-0 ml-2">
-                          <div className="text-right">
-                            <div className="text-xs font-mono font-semibold text-snow/80">{formatDOG(tx.amount)} DOG</div>
-                            {tx.amount_usd != null && tx.amount_usd > 0 && (
-                              <div className="text-[9px] font-mono text-dusty/40">{formatCompact(tx.amount_usd)}</div>
-                            )}
-                          </div>
-                          <div className="text-[9px] font-mono text-dusty/30 w-12 text-right">{timeAgo(tx.timestamp)}</div>
-                          <a
-                            href={`${CHAIN_CONFIG.stacks.explorerTx}${tx.tx_id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-dusty/30 hover:text-orange-400 transition-colors"
-                          >
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs font-mono">
+                      <thead>
+                        <tr className="text-dusty/40 uppercase tracking-wider text-[9px]">
+                          <th className="text-left py-1.5">Type</th>
+                          <th className="text-left py-1.5">From</th>
+                          <th className="text-left py-1.5">To</th>
+                          <th className="text-right py-1.5">Amount</th>
+                          <th className="text-right py-1.5">Time</th>
+                          <th className="text-center py-1.5">Tx</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(txData.stacks.transactions as StacksTransaction[]).map((tx: StacksTransaction) => (
+                          <tr key={`${tx.tx_id}-${tx.from_address}`} className="border-t border-snow/[0.03] hover:bg-snow/[0.02]">
+                            {/* Type */}
+                            <td className="py-2 pr-2">
+                              <Badge
+                                variant="outline"
+                                className={`text-[9px] px-1.5 py-0 ${
+                                  tx.type === 'swap' ? 'border-purple-500/30 text-purple-400' : 'border-snow/10 text-dusty/60'
+                                }`}
+                              >
+                                {tx.type}
+                              </Badge>
+                            </td>
+
+                            {/* From */}
+                            <td className="py-2 pr-1">
+                              <div className="flex items-center gap-1">
+                                <code className="text-cyan-400">{shortAddr(tx.from_address)}</code>
+                                <button
+                                  onClick={() => handleCopy(tx.from_address)}
+                                  className="p-0.5 hover:text-snow/80 text-dusty/30 transition-colors"
+                                  title="Copy address"
+                                >
+                                  {copiedText === tx.from_address ? (
+                                    <span className="text-green-400 text-[10px]">✓</span>
+                                  ) : (
+                                    <Copy className="w-2.5 h-2.5" />
+                                  )}
+                                </button>
+                              </div>
+                            </td>
+
+                            {/* To */}
+                            <td className="py-2 pr-1">
+                              <div className="flex items-center gap-1">
+                                <code className="text-green-400">{shortAddr(tx.to_address)}</code>
+                                <button
+                                  onClick={() => handleCopy(tx.to_address)}
+                                  className="p-0.5 hover:text-snow/80 text-dusty/30 transition-colors"
+                                  title="Copy address"
+                                >
+                                  {copiedText === tx.to_address ? (
+                                    <span className="text-green-400 text-[10px]">✓</span>
+                                  ) : (
+                                    <Copy className="w-2.5 h-2.5" />
+                                  )}
+                                </button>
+                              </div>
+                            </td>
+
+                            {/* Amount */}
+                            <td className="py-2 text-right">
+                              <span className="text-lava font-bold">{formatDOG(tx.amount)}</span>
+                              {tx.amount_usd != null && tx.amount_usd > 0 && (
+                                <div className="text-[9px] text-dusty/40">{formatCompact(tx.amount_usd)}</div>
+                              )}
+                            </td>
+
+                            {/* Time */}
+                            <td className="py-2 text-right text-dusty/50">
+                              {timeAgo(tx.timestamp)}
+                            </td>
+
+                            {/* Tx ID + Actions */}
+                            <td className="py-2 pl-2">
+                              <div className="flex items-center justify-center gap-0.5">
+                                <code className="text-snow/60">{tx.tx_id.substring(0, 8)}...</code>
+                                <button
+                                  onClick={() => handleCopy(tx.tx_id)}
+                                  className="p-0.5 hover:text-snow/80 text-dusty/30 transition-colors"
+                                  title="Copy tx ID"
+                                >
+                                  {copiedText === tx.tx_id ? (
+                                    <span className="text-green-400 text-[10px]">✓</span>
+                                  ) : (
+                                    <Copy className="w-2.5 h-2.5" />
+                                  )}
+                                </button>
+                                <a
+                                  href={`${CHAIN_CONFIG.stacks.explorerTx}${tx.tx_id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-0.5 hover:text-orange-400 text-dusty/30 transition-colors"
+                                  title="View on Explorer"
+                                >
+                                  <ExternalLink className="w-2.5 h-2.5" />
+                                </a>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </CardContent>
               </Card>
