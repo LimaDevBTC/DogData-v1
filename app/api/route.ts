@@ -101,8 +101,11 @@ export async function GET() {
       },
       bitcoin: '/api/bitcoin',
       whale_alerts: '/api/whale-alerts',
+      whale_alerts_bitcoin: '/api/whale-alerts?chain=bitcoin',
+      whale_alerts_stacks: '/api/whale-alerts?chain=stacks',
+      whale_alerts_solana: '/api/whale-alerts?chain=solana',
       whale_alerts_tweet: '/api/whale-alerts?format=tweet',
-      whale_alerts_custom: '/api/whale-alerts?threshold=5000000&limit=10',
+      whale_alerts_custom: '/api/whale-alerts?chain=bitcoin&threshold=5000000&limit=10',
       realtime_sse: '/api/events',
     },
     protocols: {

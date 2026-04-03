@@ -1,5 +1,7 @@
 import { NextRequest } from 'next/server';
 import { redisClient } from '@/lib/upstash';
+import { getStacksTransactionsResilient } from '@/lib/multichain/stacks-resilient';
+import { getSolanaTransactions } from '@/lib/multichain/helius';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -42,8 +44,11 @@ export async function GET(request: NextRequest) {
 
   let heartbeatInterval: NodeJS.Timeout | null = null;
   let transactionPollInterval: NodeJS.Timeout | null = null;
+  let multichainPollInterval: NodeJS.Timeout | null = null;
   let pricePollInterval: NodeJS.Timeout | null = null;
   let lastKnownTxId: string | null = null;
+  let lastKnownStacksTxId: string | null = null;
+  let lastKnownSolanaTxId: string | null = null;
   let closed = false;
 
   const stream = new ReadableStream({
@@ -66,6 +71,10 @@ export async function GET(request: NextRequest) {
         if (transactionPollInterval) {
           clearInterval(transactionPollInterval);
           transactionPollInterval = null;
+        }
+        if (multichainPollInterval) {
+          clearInterval(multichainPollInterval);
+          multichainPollInterval = null;
         }
         if (pricePollInterval) {
           clearInterval(pricePollInterval);
@@ -138,9 +147,11 @@ export async function GET(request: NextRequest) {
                     type: 'whale_alert',
                     data: {
                       ...tx,
+                      chain: 'bitcoin',
                       severity,
                       total_dog_formatted: `${formatDog(amount)} DOG`,
                       threshold_used: whaleThreshold,
+                      explorer_url: `https://mempool.space/tx/${tx.txid || ''}`,
                       dogdata_url: `https://www.dogdata.xyz/transactions?search=${tx.txid || ''}`,
                     },
                     timestamp: new Date().toISOString(),
@@ -158,6 +169,91 @@ export async function GET(request: NextRequest) {
         // Initial poll to set baseline
         pollTransactions();
         transactionPollInterval = setInterval(pollTransactions, 30000);
+      }
+
+      // Poll Stacks & Solana for whale alerts every 60 seconds
+      if (requestedTypes.has('whale_alert')) {
+        const formatDogShort = (n: number) =>
+          n >= 1e9 ? `${(n / 1e9).toFixed(2)}B`
+          : n >= 1e6 ? `${(n / 1e6).toFixed(2)}M`
+          : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K`
+          : n.toFixed(2);
+
+        const multichainSeverity = (amount: number) =>
+          amount >= 100_000_000 ? 'MEGA'
+          : amount >= 10_000_000 ? 'HIGH'
+          : amount >= 5_000_000 ? 'MEDIUM'
+          : 'ALERT';
+
+        const pollMultichain = async () => {
+          if (closed) return;
+          try {
+            // Stacks
+            const { transactions: stacksTxs } = await getStacksTransactionsResilient(10);
+            if (stacksTxs.length > 0) {
+              const latestId = stacksTxs[0].tx_id;
+              if (lastKnownStacksTxId !== null && latestId !== lastKnownStacksTxId) {
+                for (const tx of stacksTxs) {
+                  if (tx.tx_id === lastKnownStacksTxId) break;
+                  if (tx.amount >= whaleThreshold) {
+                    enqueue({
+                      type: 'whale_alert',
+                      data: {
+                        chain: 'stacks',
+                        txid: tx.tx_id,
+                        amount: tx.amount,
+                        total_dog_formatted: `${formatDogShort(tx.amount)} DOG`,
+                        from: tx.from_address,
+                        to: tx.to_address,
+                        type: tx.type,
+                        severity: multichainSeverity(tx.amount),
+                        threshold_used: whaleThreshold,
+                        explorer_url: `https://explorer.hiro.so/txid/${tx.tx_id}`,
+                      },
+                      timestamp: tx.timestamp,
+                    });
+                  }
+                }
+              }
+              lastKnownStacksTxId = latestId;
+            }
+          } catch {}
+
+          try {
+            // Solana
+            const { transactions: solanaTxs } = await getSolanaTransactions(10);
+            if (solanaTxs.length > 0) {
+              const latestId = solanaTxs[0].tx_id;
+              if (lastKnownSolanaTxId !== null && latestId !== lastKnownSolanaTxId) {
+                for (const tx of solanaTxs) {
+                  if (tx.tx_id === lastKnownSolanaTxId) break;
+                  if (tx.amount >= whaleThreshold) {
+                    enqueue({
+                      type: 'whale_alert',
+                      data: {
+                        chain: 'solana',
+                        txid: tx.tx_id,
+                        amount: tx.amount,
+                        total_dog_formatted: `${formatDogShort(tx.amount)} DOG`,
+                        from: tx.from_address,
+                        to: tx.to_address,
+                        type: tx.type,
+                        severity: multichainSeverity(tx.amount),
+                        threshold_used: whaleThreshold,
+                        explorer_url: `https://solscan.io/tx/${tx.tx_id}`,
+                      },
+                      timestamp: tx.timestamp,
+                    });
+                  }
+                }
+              }
+              lastKnownSolanaTxId = latestId;
+            }
+          } catch {}
+        };
+
+        pollMultichain();
+        multichainPollInterval = setInterval(pollMultichain, 60000);
       }
 
       // Poll price every 60 seconds
@@ -199,6 +295,10 @@ export async function GET(request: NextRequest) {
       if (transactionPollInterval) {
         clearInterval(transactionPollInterval);
         transactionPollInterval = null;
+      }
+      if (multichainPollInterval) {
+        clearInterval(multichainPollInterval);
+        multichainPollInterval = null;
       }
       if (pricePollInterval) {
         clearInterval(pricePollInterval);

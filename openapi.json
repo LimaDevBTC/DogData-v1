@@ -1772,9 +1772,15 @@
       "get": {
         "operationId": "getWhaleAlerts",
         "tags": ["Whale Alerts"],
-        "summary": "Get large DOG transfers with context and tweet-ready format",
-        "description": "Returns DOG transactions above the specified threshold with severity classification, USD value, sender/receiver analysis, contextual interpretation, and pre-formatted tweet text. Default threshold: 1M DOG.",
+        "summary": "Get large DOG transfers across Bitcoin, Stacks, and Solana",
+        "description": "Returns DOG transactions above the specified threshold across all supported chains (Bitcoin L1, Stacks, Solana). Includes severity classification, USD value, sender/receiver analysis, contextual interpretation, explorer links, and pre-formatted tweet text. Default threshold: 1M DOG. Filter by chain or get alerts from all chains at once.",
         "parameters": [
+          {
+            "name": "chain",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["bitcoin", "stacks", "solana"] },
+            "description": "Filter by blockchain. Omit for all chains."
+          },
           {
             "name": "threshold",
             "in": "query",
@@ -1806,12 +1812,13 @@
                     "threshold": { "type": "string" },
                     "dog_price_usd": { "type": "number" },
                     "total_alerts": { "type": "integer" },
-                    "scanned_transactions": { "type": "integer" },
+                    "alerts_by_chain": { "type": "object", "description": "Alert count per chain" },
                     "alerts": {
                       "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
+                          "chain": { "type": "string", "enum": ["bitcoin", "stacks", "solana"] },
                           "txid": { "type": "string" },
                           "total_dog_moved": { "type": "number" },
                           "total_dog_formatted": { "type": "string" },
@@ -1820,6 +1827,7 @@
                           "classification": { "type": "string" },
                           "context": { "type": "string" },
                           "tweet": { "type": "string" },
+                          "explorer_url": { "type": "string", "description": "Chain-native explorer URL" },
                           "dogdata_url": { "type": "string" }
                         }
                       }

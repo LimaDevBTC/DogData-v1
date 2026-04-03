@@ -67,7 +67,7 @@ export async function getHiroTokenInfo(): Promise<ChainTokenInfo> {
   ])
 
   const decimals = metadata?.decimals ?? DOG_TOKENS.stacks.decimals
-  const rawSupply = metadata?.total_supply ? BigInt(metadata.total_supply) : 0n
+  const rawSupply = metadata?.total_supply ? BigInt(metadata.total_supply) : BigInt(0)
   const totalSupply = Number(rawSupply) / 10 ** decimals
 
   return {
