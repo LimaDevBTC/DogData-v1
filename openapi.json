@@ -36,7 +36,9 @@
     { "name": "Agent", "description": "AI agent discovery and capabilities" },
     { "name": "System", "description": "Health checks, status, and OpenAPI spec" },
     { "name": "Events", "description": "Server-Sent Events for real-time updates" },
-    { "name": "Whale Alerts", "description": "Large DOG transfers with context, severity, and tweet-ready format" }
+    { "name": "Whale Alerts", "description": "Large DOG transfers with context, severity, and tweet-ready format" },
+    { "name": "Multichain", "description": "Cross-chain DOG data on Stacks and Solana — holders, transactions, and aggregated stats" },
+    { "name": "Stacks", "description": "Stacks-specific DOG data with historical metrics and trend analysis" }
   ],
   "components": {
     "securitySchemes": {
@@ -1449,6 +1451,222 @@
                       }
                     },
                     "metadata": { "$ref": "#/components/schemas/Metadata" }
+                  }
+                }
+              }
+            }
+          },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/v1/multichain/holders": {
+      "get": {
+        "operationId": "getMultichainHolders",
+        "tags": ["Multichain"],
+        "summary": "Get DOG holders on Stacks and/or Solana",
+        "description": "Returns top holders of bridged DOG tokens on Stacks (via Tenero) and Solana (via Helius). Includes balances, USD values, holder stats, and concentration percentages. Omit `chain` to get both chains.",
+        "parameters": [
+          {
+            "name": "chain",
+            "in": "query",
+            "description": "Filter by blockchain: stacks or solana. Omit for both.",
+            "required": false,
+            "schema": { "type": "string", "enum": ["stacks", "solana"] }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of top holders to return (default 20)",
+            "required": false,
+            "schema": { "type": "integer", "default": 20 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Multi-chain holder data with stats and concentration metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stacks": {
+                      "type": "object",
+                      "description": "Stacks holders, stats, and concentration data"
+                    },
+                    "solana": {
+                      "type": "object",
+                      "description": "Solana holders with USD-enriched balances"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/v1/multichain/transactions": {
+      "get": {
+        "operationId": "getMultichainTransactions",
+        "tags": ["Multichain"],
+        "summary": "Get DOG transactions on Stacks and/or Solana",
+        "description": "Returns recent DOG token transactions (transfers and swaps) on Stacks (via Tenero) and Solana (via Helius Enhanced API). Omit `chain` to get both chains. Gracefully degrades if one chain is unavailable.",
+        "parameters": [
+          {
+            "name": "chain",
+            "in": "query",
+            "description": "Filter by blockchain: stacks or solana. Omit for both.",
+            "required": false,
+            "schema": { "type": "string", "enum": ["stacks", "solana"] }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of transactions to return (default 30)",
+            "required": false,
+            "schema": { "type": "integer", "default": 30 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Multi-chain transaction feeds",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stacks": {
+                      "type": "object",
+                      "description": "Stacks transactions (trades + transfers)"
+                    },
+                    "solana": {
+                      "type": "object",
+                      "description": "Solana DOG token transfers and swaps"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/v1/multichain/stats": {
+      "get": {
+        "operationId": "getMultichainStats",
+        "tags": ["Multichain"],
+        "summary": "Aggregated DOG stats across Stacks and Solana",
+        "description": "Returns aggregated statistics for DOG tokens across Stacks and Solana — total holders, market cap, 24h volume, and circulating supply per chain. Uses Tenero (Stacks) and Birdeye (Solana) as data sources.",
+        "responses": {
+          "200": {
+            "description": "Aggregated multi-chain statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total_holders": { "type": "integer", "description": "Combined holder count across chains" },
+                    "total_market_cap_usd": { "type": "number", "description": "Combined market cap in USD" },
+                    "total_volume_24h_usd": { "type": "number", "description": "Combined 24h volume in USD" },
+                    "total_supply_all_chains": { "type": "number", "description": "Total circulating supply across chains" },
+                    "chains": {
+                      "type": "array",
+                      "description": "Per-chain token info",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "chain": { "type": "string" },
+                          "holder_count": { "type": "integer" },
+                          "market_cap_usd": { "type": "number" },
+                          "volume_24h_usd": { "type": "number" },
+                          "price_usd": { "type": "number" }
+                        }
+                      }
+                    },
+                    "last_updated": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/v1/stacks/history": {
+      "get": {
+        "operationId": "getStacksHistory",
+        "tags": ["Stacks"],
+        "summary": "Historical Stacks DOG metrics (hourly snapshots)",
+        "description": "Returns time-series data of Stacks DOG metrics from Supabase. Captures holder count, price, market cap, volume, concentration (top 10/25/50%), whale wallets, and active/fresh holder counts. Snapshots are taken hourly via Vercel cron.",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "description": "Lookback window in days (default 30, max 365)",
+            "required": false,
+            "schema": { "type": "integer", "default": 30, "maximum": 365 }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Max rows to return (default 720)",
+            "required": false,
+            "schema": { "type": "integer", "default": 720, "maximum": 5000 }
+          },
+          {
+            "name": "latest",
+            "in": "query",
+            "description": "Set to 'true' for only the most recent snapshot",
+            "required": false,
+            "schema": { "type": "string", "enum": ["true"] }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Historical metrics snapshots",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "snapshots": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "snapshot_at": { "type": "string", "format": "date-time" },
+                          "holder_count": { "type": "integer" },
+                          "price_usd": { "type": "number" },
+                          "market_cap_usd": { "type": "number" },
+                          "volume_24h_usd": { "type": "number" },
+                          "liquidity_usd": { "type": "number", "nullable": true },
+                          "circulating_supply": { "type": "number" },
+                          "top_10_pct": { "type": "number" },
+                          "top_25_pct": { "type": "number" },
+                          "top_50_pct": { "type": "number" },
+                          "whale_wallets": { "type": "integer" },
+                          "active_1w": { "type": "integer" },
+                          "fresh_1w": { "type": "integer" }
+                        }
+                      }
+                    },
+                    "count": { "type": "integer" },
+                    "range": {
+                      "type": "object",
+                      "properties": {
+                        "from": { "type": "string", "format": "date-time" },
+                        "to": { "type": "string", "format": "date-time" }
+                      }
+                    }
                   }
                 }
               }

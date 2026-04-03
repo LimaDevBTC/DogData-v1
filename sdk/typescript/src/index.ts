@@ -19,4 +19,8 @@ export type {
   BitcoinStatus,
   MarketData,
   ApiError,
+  Chain,
+  MultichainHoldersResponse,
+  MultichainTransactionsResponse,
+  MultichainStatsResponse,
 } from './types.js';

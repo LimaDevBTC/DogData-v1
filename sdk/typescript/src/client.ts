@@ -7,6 +7,7 @@ import { ForensicResource } from './resources/forensic.js';
 import { AirdropResource } from './resources/airdrop.js';
 import { BitcoinResource } from './resources/bitcoin.js';
 import { MarketsResource } from './resources/markets.js';
+import { MultichainResource } from './resources/multichain.js';
 
 export class DogDataError extends Error {
   public status: number;
@@ -33,6 +34,7 @@ export class DogData {
   public readonly airdrop: AirdropResource;
   public readonly bitcoin: BitcoinResource;
   public readonly markets: MarketsResource;
+  public readonly multichain: MultichainResource;
 
   constructor(config: DogDataConfig = {}) {
     this.baseUrl = (config.baseUrl || 'https://www.dogdata.xyz').replace(/\/$/, '');
@@ -47,6 +49,7 @@ export class DogData {
     this.airdrop = new AirdropResource(this);
     this.bitcoin = new BitcoinResource(this);
     this.markets = new MarketsResource(this);
+    this.multichain = new MultichainResource(this);
   }
 
   async request<T>(path: string, params?: Record<string, string | number | boolean | undefined>): Promise<T> {

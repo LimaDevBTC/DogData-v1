@@ -17,6 +17,10 @@
     {
       "path": "/api/dog-rune/holders?snapshot=refresh",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/stacks/snapshot",
+      "schedule": "0 * * * *"
     }
   ]
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getStacksTransactions } from '@/lib/multichain/tenero'
+import { getStacksTransactionsResilient as getStacksTransactions } from '@/lib/multichain/stacks-resilient'
 import { getSolanaTransactions } from '@/lib/multichain/helius'
 import type { Chain } from '@/lib/multichain/types'
 

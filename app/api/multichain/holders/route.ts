@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getStacksHolders, getStacksHolderStats, getStacksHolderPercentages } from '@/lib/multichain/tenero'
+import {
+  getStacksHoldersResilient as getStacksHolders,
+  getStacksHolderStatsResilient as getStacksHolderStats,
+  getStacksHolderPercentagesResilient as getStacksHolderPercentages,
+} from '@/lib/multichain/stacks-resilient'
 import { getSolanaHolders } from '@/lib/multichain/helius'
 import { getSolanaTokenInfo } from '@/lib/multichain/birdeye'
 import type { Chain } from '@/lib/multichain/types'

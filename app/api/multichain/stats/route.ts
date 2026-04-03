@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSolanaTokenInfo } from '@/lib/multichain/birdeye'
-import { getStacksTokenInfo } from '@/lib/multichain/tenero'
+import { getStacksTokenInfoResilient as getStacksTokenInfo } from '@/lib/multichain/stacks-resilient'
 import type { MultiChainStats, ChainTokenInfo } from '@/lib/multichain/types'
 
 export const dynamic = 'force-dynamic'

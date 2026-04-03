@@ -9,6 +9,7 @@ import { registerForensicTools } from "./tools/forensic.js";
 import { registerAirdropTools } from "./tools/airdrop.js";
 import { registerBitcoinTools } from "./tools/bitcoin.js";
 import { registerMarketTools } from "./tools/markets.js";
+import { registerMultichainTools } from "./tools/multichain.js";
 
 // Resources
 import { registerStatsResource } from "./resources/stats.js";
@@ -41,7 +42,7 @@ export function createServer(): McpServer {
       "and market metrics for AI agents.",
   });
 
-  // Register 12 tools
+  // Register 15 tools
   registerHolderTools(server);       // get_dog_holders, search_holder
   registerTransactionTools(server);  // get_recent_transactions, search_transaction
   registerPriceTools(server);        // get_dog_price, get_multi_exchange_prices
@@ -50,6 +51,7 @@ export function createServer(): McpServer {
   registerAirdropTools(server);      // get_airdrop_analysis
   registerBitcoinTools(server);      // get_bitcoin_network
   registerMarketTools(server);       // get_market_data
+  registerMultichainTools(server);   // get_multichain_holders, get_multichain_transactions, get_multichain_stats
 
   // Register 8 resources
   registerStatsResource(server);             // dog://stats

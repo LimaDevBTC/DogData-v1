@@ -25,7 +25,7 @@ export async function GET() {
   const capabilities = {
     service: "DOG DATA",
     version: "1.0.0",
-    description: "World's most comprehensive DOG\u2022GO\u2022TO\u2022THE\u2022MOON data platform on Bitcoin L1",
+    description: "World's most comprehensive DOG\u2022GO\u2022TO\u2022THE\u2022MOON data platform — Bitcoin L1, Stacks, and Solana",
     protocols: {
       rest: {
         base_url: "https://www.dogdata.xyz/api",
@@ -37,7 +37,7 @@ export async function GET() {
         npm_package: "@dogdata/mcp-server",
         http_endpoint: "https://www.dogdata.xyz/mcp",
         transport: ["stdio", "streamable-http"],
-        tools_count: 12,
+        tools_count: 15,
         resources_count: 8
       },
       sse: {
@@ -84,14 +84,52 @@ export async function GET() {
       markets: {
         description: "Aggregated market data across 20+ exchanges",
         endpoints: ["/api/markets"]
+      },
+      multichain: {
+        description: "Cross-chain DOG data on Stacks (via Tenero) and Solana (via Helius). Holders, transactions, and aggregated stats for bridged DOG tokens.",
+        chains: ["stacks", "solana"],
+        update_frequency: "5 minutes (cached)",
+        endpoints: ["/api/multichain/holders", "/api/multichain/transactions", "/api/multichain/stats"],
+        query_params: {
+          chain: "Filter by chain: 'stacks' | 'solana' (omit for both)",
+          limit: "Number of results (default 20 for holders, 30 for transactions)"
+        }
+      },
+      stacks_history: {
+        description: "Historical Stacks DOG metrics — hourly snapshots persisted to Supabase. Enables trend analysis for holder count, price, concentration, whale activity, and more.",
+        data_sources: ["tenero (primary)", "hiro (fallback)"],
+        resilience: "3-tier: memory cache → Redis (1h TTL) → Tenero → Hiro fallback",
+        update_frequency: "hourly (Vercel cron)",
+        endpoints: ["/api/stacks/history"],
+        query_params: {
+          days: "Lookback window in days (default 30, max 365)",
+          limit: "Max rows (default 720)",
+          latest: "Set to 'true' for most recent snapshot only"
+        },
+        fields: [
+          "holder_count", "price_usd", "market_cap_usd", "volume_24h_usd",
+          "liquidity_usd", "circulating_supply", "top_10_pct", "top_25_pct",
+          "top_50_pct", "whale_wallets", "active_1w", "fresh_1w"
+        ]
       }
     },
     data_quality: {
-      source: "Bitcoin Core + Ord (local full node)",
-      indexing_method: "direct block scanning (no third-party APIs)",
-      total_holders_indexed: totalHolders,
-      total_utxos_tracked: totalUtxos,
-      last_scan: lastScan
+      bitcoin_l1: {
+        source: "Bitcoin Core + Ord (local full node)",
+        indexing_method: "direct block scanning (no third-party APIs)",
+        total_holders_indexed: totalHolders,
+        total_utxos_tracked: totalUtxos,
+        last_scan: lastScan
+      },
+      stacks: {
+        source: "Tenero API (primary) + Hiro API (fallback)",
+        caching: "memory (5 min) → Redis/Upstash (1 h) → origin APIs",
+        persistence: "Supabase (hourly snapshots for trend analysis)",
+        resilience: "automatic failover between Tenero and Hiro"
+      },
+      solana: {
+        source: "Helius RPC + Enhanced API (primary) + Birdeye (pricing)"
+      }
     },
     rate_limits: {
       public: { requests_per_hour: 20, description: "No API key required" },

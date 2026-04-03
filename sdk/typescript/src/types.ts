@@ -151,6 +151,50 @@ export interface MarketData {
   timestamp: string;
 }
 
+export type Chain = 'stacks' | 'solana';
+
+export interface MultichainHoldersResponse {
+  stacks?: {
+    holders: Array<{ address: string; balance: number; rank: number; percentage: number; balance_usd?: number | null }>;
+    stats: { whale_count: number; active_traders: number; fresh_holders: number };
+    concentration: { top_10: number; top_25: number; top_50: number };
+  };
+  solana?: {
+    holders: Array<{ address: string; balance: number; rank: number; balance_usd?: number | null }>;
+    total_count: number;
+    bridgeSupply: number;
+    circulatingOnChain: number | null;
+    stats: { holder_count: number; volume_24h_usd: number };
+  };
+}
+
+export interface MultichainTransactionsResponse {
+  stacks?: {
+    transactions: Array<{ txid: string; type: string; amount: number; timestamp: string; from?: string; to?: string }>;
+    total_count: number;
+  };
+  solana?: {
+    transactions: Array<{ txid: string; type: string; amount: number; timestamp: string; from?: string; to?: string }>;
+    total_count: number;
+  };
+}
+
+export interface MultichainStatsResponse {
+  total_holders: number;
+  total_market_cap_usd: number;
+  total_volume_24h_usd: number;
+  total_supply_all_chains: number;
+  chains: Array<{
+    chain: string;
+    holder_count: number;
+    market_cap_usd: number;
+    volume_24h_usd: number;
+    price_usd: number;
+    circulating_supply: number;
+  }>;
+  last_updated: string;
+}
+
 export interface ApiError {
   error: string;
   message: string;
