@@ -11,6 +11,7 @@ const SOL_DOG_POOL = '96P9KSNysfTADDzfxgsSrfyfgy47omctoCZPgJsj93ML'
 // Cache persistente em memória
 let cachedData: {
   price: number
+  change24h: number | null
   solPrice: number
   timestamp: number
   lastSuccessfulFetch: number
@@ -18,6 +19,21 @@ let cachedData: {
 
 const REFRESH_INTERVAL = 30000 // 30 segundos
 const API_TIMEOUT = 8000
+
+async function fetchJupiterChange(): Promise<number | null> {
+  try {
+    const res = await fetch(
+      `https://api.jup.ag/price/v3?ids=${DOG_MINT}`,
+      { cache: 'no-store', signal: AbortSignal.timeout(API_TIMEOUT), headers: { 'Accept': 'application/json' } }
+    )
+    if (!res.ok) return null
+    const json = await res.json()
+    const change = json[DOG_MINT]?.priceChange24h
+    return typeof change === 'number' ? change : null
+  } catch {
+    return null
+  }
+}
 
 export async function GET() {
   const now = Date.now()
@@ -27,7 +43,7 @@ export async function GET() {
     console.log('📦 Using cached Orca data (fresh)')
     return NextResponse.json({
       price: cachedData.price,
-      change24h: null,
+      change24h: cachedData.change24h,
       source: 'orca',
       cached: true,
       cacheAge: Math.floor((now - cachedData.lastSuccessfulFetch) / 1000)
@@ -35,8 +51,8 @@ export async function GET() {
   }
 
   try {
-    // Buscar preço do SOL e do pool SOL/DOG em paralelo
-    const [solRes, poolRes] = await Promise.all([
+    // Buscar preço do SOL, pool SOL/DOG e variação 24h em paralelo
+    const [solRes, poolRes, change24h] = await Promise.all([
       fetch(`https://api.orca.so/v2/solana/tokens/${SOL_MINT}`, {
         cache: 'no-store',
         signal: AbortSignal.timeout(API_TIMEOUT),
@@ -46,7 +62,8 @@ export async function GET() {
         cache: 'no-store',
         signal: AbortSignal.timeout(API_TIMEOUT),
         headers: { 'Accept': 'application/json' }
-      })
+      }),
+      fetchJupiterChange()
     ])
 
     if (!solRes.ok) throw new Error(`Orca SOL token error: ${solRes.status}`)
@@ -67,12 +84,14 @@ export async function GET() {
     console.log('📊 Orca DOG Price:', {
       solPrice: `$${solPrice.toFixed(2)}`,
       solDogRate: solDogRate.toFixed(0),
-      dogPrice: `$${price.toFixed(8)}`
+      dogPrice: `$${price.toFixed(8)}`,
+      change24h
     })
 
     const fetchTime = Date.now()
     cachedData = {
       price,
+      change24h,
       solPrice,
       timestamp: fetchTime,
       lastSuccessfulFetch: fetchTime
@@ -82,7 +101,7 @@ export async function GET() {
 
     return NextResponse.json({
       price,
-      change24h: null,
+      change24h,
       source: 'orca',
       cached: false,
       timestamp: new Date(fetchTime).toISOString()
@@ -95,7 +114,7 @@ export async function GET() {
       console.log('📦 Using stale cache as fallback')
       return NextResponse.json({
         price: cachedData.price,
-        change24h: null,
+        change24h: cachedData.change24h,
         source: 'orca',
         cached: true,
         stale: true,

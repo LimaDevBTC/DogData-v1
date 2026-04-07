@@ -8,6 +8,7 @@ const DOG_MINT = 'dog1viwbb2vWDpER5FrJ4YFG6gq6XuyFohUe9TXN65u'
 // Cache persistente em memória
 let cachedData: {
   price: number
+  change24h: number | null
   tvl: number
   pool: string
   timestamp: number
@@ -25,6 +26,21 @@ interface MeteoraPool {
   pool_tvl: string
 }
 
+async function fetchJupiterChange(): Promise<number | null> {
+  try {
+    const res = await fetch(
+      `https://api.jup.ag/price/v3?ids=${DOG_MINT}`,
+      { cache: 'no-store', signal: AbortSignal.timeout(API_TIMEOUT), headers: { 'Accept': 'application/json' } }
+    )
+    if (!res.ok) return null
+    const json = await res.json()
+    const change = json[DOG_MINT]?.priceChange24h
+    return typeof change === 'number' ? change : null
+  } catch {
+    return null
+  }
+}
+
 export async function GET() {
   const now = Date.now()
 
@@ -33,7 +49,7 @@ export async function GET() {
     console.log('📦 Using cached Meteora data (fresh)')
     return NextResponse.json({
       price: cachedData.price,
-      change24h: null,
+      change24h: cachedData.change24h,
       tvl: cachedData.tvl,
       pool: cachedData.pool,
       source: 'meteora',
@@ -43,16 +59,17 @@ export async function GET() {
   }
 
   try {
-    const response = await fetch(
-      `https://damm-api.meteora.ag/pools/search?page=0&size=5&include_token_mints=${DOG_MINT}`,
-      {
-        cache: 'no-store',
-        signal: AbortSignal.timeout(API_TIMEOUT),
-        headers: {
-          'Accept': 'application/json'
+    const [response, change24h] = await Promise.all([
+      fetch(
+        `https://damm-api.meteora.ag/pools/search?page=0&size=5&include_token_mints=${DOG_MINT}`,
+        {
+          cache: 'no-store',
+          signal: AbortSignal.timeout(API_TIMEOUT),
+          headers: { 'Accept': 'application/json' }
         }
-      }
-    )
+      ),
+      fetchJupiterChange()
+    ])
 
     if (!response.ok) {
       throw new Error(`Meteora API error: ${response.status}`)
@@ -92,12 +109,14 @@ export async function GET() {
     console.log('📊 Meteora DOG Price:', {
       price: `$${price.toFixed(8)}`,
       pool: pool.pool_name,
-      tvl: `$${tvl.toFixed(2)}`
+      tvl: `$${tvl.toFixed(2)}`,
+      change24h
     })
 
     const fetchTime = Date.now()
     cachedData = {
       price,
+      change24h,
       tvl,
       pool: pool.pool_name,
       timestamp: fetchTime,
@@ -108,7 +127,7 @@ export async function GET() {
 
     return NextResponse.json({
       price,
-      change24h: null,
+      change24h,
       tvl,
       pool: pool.pool_name,
       source: 'meteora',
@@ -123,7 +142,7 @@ export async function GET() {
       console.log('📦 Using stale cache as fallback')
       return NextResponse.json({
         price: cachedData.price,
-        change24h: null,
+        change24h: cachedData.change24h,
         tvl: cachedData.tvl,
         pool: cachedData.pool,
         source: 'meteora',

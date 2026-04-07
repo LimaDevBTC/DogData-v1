@@ -80,6 +80,15 @@ const exchanges = [
     hoverBorderColor: 'hover:border-violet-500/[0.2]',
     icon: 'MET',
     working: true
+  },
+  {
+    name: 'Raydium',
+    apiUrl: '/api/price/raydium',
+    color: 'from-blue-400 to-indigo-500',
+    borderColor: 'border-blue-500/[0.1]',
+    hoverBorderColor: 'hover:border-blue-500/[0.2]',
+    icon: 'RAY',
+    working: true
   }
 ];
 
@@ -348,7 +357,7 @@ export function PriceCards() {
                       : exchange.name
                         }.png`}
                         alt={exchange.name}
-                  className="h-7 md:h-10 w-auto object-contain"
+                  className={`w-auto object-contain ${exchange.name === 'Gate.io' || exchange.name === 'Bitget' ? 'h-5 md:h-7' : 'h-7 md:h-10'}`}
                         onError={(e) => {
                           e.currentTarget.style.display = 'none';
                           const fallback = e.currentTarget.nextElementSibling as HTMLElement;
