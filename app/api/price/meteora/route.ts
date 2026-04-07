@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 const DOG_MINT = 'dog1viwbb2vWDpER5FrJ4YFG6gq6XuyFohUe9TXN65u'
+const SOL_MINT = 'So11111111111111111111111111111111111111112'
 
 // Cache persistente em memória
 let cachedData: {
@@ -22,7 +23,6 @@ interface MeteoraPool {
   pool_name: string
   pool_token_mints: string[]
   pool_token_amounts: string[]
-  pool_token_usd_amounts: string[]
   pool_tvl: string
 }
 
@@ -59,69 +59,58 @@ export async function GET() {
   }
 
   try {
-    const [response, change24h] = await Promise.all([
+    // Buscar pool DOG-SOL, preço live do SOL e variação 24h em paralelo
+    const [poolRes, solRes, change24h] = await Promise.all([
       fetch(
         `https://damm-api.meteora.ag/pools/search?page=0&size=5&include_token_mints=${DOG_MINT}`,
-        {
-          cache: 'no-store',
-          signal: AbortSignal.timeout(API_TIMEOUT),
-          headers: { 'Accept': 'application/json' }
-        }
+        { cache: 'no-store', signal: AbortSignal.timeout(API_TIMEOUT), headers: { 'Accept': 'application/json' } }
+      ),
+      fetch(
+        `https://api.orca.so/v2/solana/tokens/${SOL_MINT}`,
+        { cache: 'no-store', signal: AbortSignal.timeout(API_TIMEOUT), headers: { 'Accept': 'application/json' } }
       ),
       fetchJupiterChange()
     ])
 
-    if (!response.ok) {
-      throw new Error(`Meteora API error: ${response.status}`)
-    }
+    if (!poolRes.ok) throw new Error(`Meteora API error: ${poolRes.status}`)
+    if (!solRes.ok) throw new Error(`SOL price error: ${solRes.status}`)
 
-    const json = await response.json()
-    const pools: MeteoraPool[] = json.data
+    const [poolJson, solJson] = await Promise.all([poolRes.json(), solRes.json()])
 
-    if (!pools || pools.length === 0) {
-      throw new Error('No DOG pools found on Meteora')
-    }
+    const pools: MeteoraPool[] = poolJson.data
+    if (!pools || pools.length === 0) throw new Error('No DOG pools found on Meteora')
 
-    // Usar o pool com maior TVL
-    const pool = pools.reduce((best, p) =>
-      parseFloat(p.pool_tvl) > parseFloat(best.pool_tvl) ? p : best
-    )
+    // Pool com maior TVL que contenha ambos os tokens
+    const pool = pools
+      .filter(p => p.pool_token_mints.includes(DOG_MINT) && p.pool_token_mints.includes(SOL_MINT))
+      .reduce((best, p) => parseFloat(p.pool_tvl) > parseFloat(best.pool_tvl) ? p : best)
 
     const dogIdx = pool.pool_token_mints.indexOf(DOG_MINT)
-    if (dogIdx === -1) {
-      throw new Error('DOG mint not found in pool token mints')
-    }
+    const solIdx = pool.pool_token_mints.indexOf(SOL_MINT)
 
-    const dogUsdAmount = parseFloat(pool.pool_token_usd_amounts[dogIdx])
-    const dogTokenAmount = parseFloat(pool.pool_token_amounts[dogIdx])
+    const dogAmount = parseFloat(pool.pool_token_amounts[dogIdx])
+    const solAmount = parseFloat(pool.pool_token_amounts[solIdx])
+    const solPrice = parseFloat(solJson.data?.priceUsdc)
 
-    if (dogTokenAmount <= 0) {
-      throw new Error('Invalid DOG token amount in pool')
-    }
+    if (dogAmount <= 0) throw new Error('Invalid DOG amount in pool')
+    if (isNaN(solPrice) || solPrice <= 0) throw new Error('Invalid SOL price')
 
-    const price = dogUsdAmount / dogTokenAmount
+    // Preço live: usa amounts brutos do pool + preço atual do SOL
+    const price = (solAmount * solPrice) / dogAmount
     const tvl = parseFloat(pool.pool_tvl)
 
-    if (isNaN(price) || price <= 0) {
-      throw new Error('Invalid price calculated from Meteora pool')
-    }
+    if (isNaN(price) || price <= 0) throw new Error('Invalid price calculated from Meteora pool')
 
     console.log('📊 Meteora DOG Price:', {
+      solAmount, dogAmount,
+      solPrice: `$${solPrice.toFixed(2)}`,
       price: `$${price.toFixed(8)}`,
       pool: pool.pool_name,
-      tvl: `$${tvl.toFixed(2)}`,
       change24h
     })
 
     const fetchTime = Date.now()
-    cachedData = {
-      price,
-      change24h,
-      tvl,
-      pool: pool.pool_name,
-      timestamp: fetchTime,
-      lastSuccessfulFetch: fetchTime
-    }
+    cachedData = { price, change24h, tvl, pool: pool.pool_name, timestamp: fetchTime, lastSuccessfulFetch: fetchTime }
 
     console.log('✅ Meteora cache updated')
 

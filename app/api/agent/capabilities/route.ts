@@ -37,7 +37,7 @@ export async function GET() {
         npm_package: "@dogdata/mcp-server",
         http_endpoint: "https://www.dogdata.xyz/mcp",
         transport: ["stdio", "streamable-http"],
-        tools_count: 15,
+        tools_count: 16,
         resources_count: 8
       },
       sse: {
@@ -64,10 +64,16 @@ export async function GET() {
         endpoints: ["/api/forensic/profiles", "/api/forensic/summary"]
       },
       pricing: {
-        description: "Multi-exchange DOG pricing from 6 sources",
-        exchanges: ["kraken", "gateio", "mexc", "bitget", "bitflow", "dogswap"],
+        description: "Multi-exchange DOG pricing from 10 sources: 6 CEXes and 4 Solana DEXes",
+        exchanges: ["kraken", "gateio", "mexc", "bitget", "bitflow", "dogswap", "orca", "raydium", "meteora", "jupiter"],
+        cex: ["kraken", "gateio", "mexc", "bitget", "bitflow", "dogswap"],
+        solana_dex: ["orca", "raydium", "meteora", "jupiter"],
         update_frequency: "30s",
-        endpoints: ["/api/price/kraken", "/api/price/gateio", "/api/price/mexc", "/api/price/bitget", "/api/price/bitflow", "/api/price/dogswap"]
+        endpoints: [
+          "/api/price/kraken", "/api/price/gateio", "/api/price/mexc",
+          "/api/price/bitget", "/api/price/bitflow", "/api/price/dogswap",
+          "/api/price/orca", "/api/price/raydium", "/api/price/meteora", "/api/price/jupiter"
+        ]
       },
       metrics: {
         description: "On-chain analytics: UTXO distribution, concentration, realized cap",

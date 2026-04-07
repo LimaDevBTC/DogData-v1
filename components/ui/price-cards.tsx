@@ -339,83 +339,75 @@ export function PriceCards() {
             <Card
               key={exchange.name}
               variant="glass"
-        className={`stagger-item ${exchange.borderColor} ${exchange.hoverBorderColor} transition-all lg:h-full ${
+              className={`stagger-item ${exchange.borderColor} ${exchange.hoverBorderColor} transition-all lg:h-full ${
                 !isWorking ? 'opacity-60' : ''
               }`}
-        style={{ animationDelay: `${index * 0.08}s` }}
+              style={{ animationDelay: `${index * 0.08}s` }}
             >
-        <CardHeader className="pb-1.5 md:pb-2.5">
-                <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2 md:space-x-3">
-              <div className="h-8 md:h-12 flex items-center">
-                      <img
-                        src={`/${
-                    exchange.name === 'MEXC'
-                      ? 'MEXC '
-                      : exchange.name === 'Gate.io'
-                      ? 'Gate'
-                      : exchange.name
-                        }.png`}
-                        alt={exchange.name}
-                  className={`w-auto object-contain ${exchange.name === 'Gate.io' || exchange.name === 'Bitget' ? 'h-5 md:h-7' : 'h-7 md:h-10'}`}
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                          const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                          if (fallback) fallback.style.display = 'flex';
-                        }}
-                      />
-                <div className="hidden w-8 h-8 md:w-12 md:h-12 bg-white/[0.06] flex items-center justify-center text-snow font-bold text-xs md:text-base uppercase rounded">
-                        {exchange.icon}
-                      </div>
+              <CardContent className="p-3 md:p-6 flex flex-col">
+                {/* Header: logo left, status right */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <img
+                      src={`/${
+                        exchange.name === 'MEXC'
+                          ? 'MEXC '
+                          : exchange.name === 'Gate.io'
+                          ? 'Gate'
+                          : exchange.name
+                      }.png`}
+                      alt={exchange.name}
+                      className={`w-auto object-contain ${exchange.name === 'Gate.io' || exchange.name === 'Bitget' ? 'h-5 md:h-7' : 'h-7 md:h-10'}`}
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                        if (fallback) fallback.style.display = 'flex';
+                      }}
+                    />
+                    <div className="hidden w-8 h-8 md:w-10 md:h-10 bg-white/[0.06] items-center justify-center text-snow font-bold text-xs md:text-base uppercase rounded">
+                      {exchange.icon}
                     </div>
-              {!isWorking && <span className="text-[10px] md:text-xs text-dusty/70">Soon</span>}
                   </div>
                   {isSuccess && (
-                    <div className="flex items-center">
-                <div className={`w-1.5 h-1.5 md:w-2 md:h-2 ${isStale ? 'bg-gray-500' : 'bg-green-400'}`}></div>
-                    </div>
+                    <div className={`w-1.5 h-1.5 md:w-2 md:h-2 ${isStale ? 'bg-gray-500' : 'bg-green-400'}`}></div>
                   )}
-                </CardTitle>
-              </CardHeader>
-        <CardContent className="p-3 md:p-4 space-y-1.5 md:space-y-3">
-                {!isWorking ? (
-                  <div className="space-y-2">
-              <div className="text-dusty font-mono text-sm">Coming Soon</div>
-                    <div className="text-dusty/70 text-xs">API integration pending</div>
-                  </div>
-                ) : isLoading && !priceData ? (
-                  <div className="space-y-2">
-              <div className="h-5 bg-white/[0.04] animate-pulse rounded"></div>
-              <div className="h-4 bg-white/[0.03] animate-pulse rounded"></div>
-                  </div>
-                ) : (
-                  <div className="space-y-1 md:space-y-2">
-              <div
-                className={`metric-value text-base md:text-xl font-bold font-mono bg-gradient-to-r ${exchange.color} bg-clip-text text-transparent`}
-              >
-                      {formatPrice(priceData?.price || 0)}
+                </div>
+
+                {/* Price content */}
+                <div className="mt-3 flex flex-col gap-1.5">
+                  {!isWorking ? (
+                    <div className="space-y-2">
+                      <div className="text-dusty font-mono text-sm">Coming Soon</div>
+                      <div className="text-dusty/70 text-xs">API integration pending</div>
                     </div>
-                    {priceData?.change24h !== undefined && priceData.change24h !== 0 && (
-                      <div className="flex items-center space-x-1">
-                        {priceData.change24h > 0 ? (
-                          <TrendingUp className="w-3 h-3 md:w-4 md:h-4 text-green-400" />
-                        ) : (
-                          <TrendingDown className="w-3 h-3 md:w-4 md:h-4 text-red-400" />
-                        )}
-                  <span
-                    className={`text-[10px] md:text-xs font-mono ${
-                          priceData.change24h > 0 ? 'text-green-400' : 'text-red-400'
-                    }`}
-                  >
-                          {formatChange(priceData.change24h)}
-                        </span>
+                  ) : isLoading && !priceData ? (
+                    <div className="space-y-2">
+                      <div className="h-5 bg-white/[0.04] animate-pulse rounded"></div>
+                      <div className="h-4 bg-white/[0.03] animate-pulse rounded"></div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className={`metric-value text-base md:text-xl font-bold font-mono bg-gradient-to-r ${exchange.color} bg-clip-text text-transparent`}>
+                        {formatPrice(priceData?.price || 0)}
                       </div>
-                    )}
-              <div className="text-[10px] md:text-[11px] text-dusty/70 font-mono">
-                      {priceData?.lastUpdate?.toLocaleTimeString()}
-                    </div>
-                  </div>
-                )}
+                      {priceData?.change24h !== undefined && priceData.change24h !== 0 && (
+                        <div className="flex items-center gap-1">
+                          {priceData.change24h > 0 ? (
+                            <TrendingUp className="w-3 h-3 md:w-4 md:h-4 text-green-400" />
+                          ) : (
+                            <TrendingDown className="w-3 h-3 md:w-4 md:h-4 text-red-400" />
+                          )}
+                          <span className={`text-[10px] md:text-xs font-mono ${priceData.change24h > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            {formatChange(priceData.change24h)}
+                          </span>
+                        </div>
+                      )}
+                      <div className="text-[10px] md:text-[11px] text-dusty/70 font-mono">
+                        {priceData?.lastUpdate?.toLocaleTimeString()}
+                      </div>
+                    </>
+                  )}
+                </div>
               </CardContent>
             </Card>
           );

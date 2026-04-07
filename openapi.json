@@ -879,7 +879,7 @@
         "operationId": "getAllPrices",
         "tags": ["Price"],
         "summary": "Get DOG price from all tracked exchanges",
-        "description": "Returns DOG price data from all tracked exchanges (Kraken, MEXC, Gate, Bitget, Bitflow, Dogswap) for cross-exchange comparison.",
+        "description": "Returns DOG price data from all tracked exchanges (Kraken, MEXC, Gate, Bitget, Bitflow, Dogswap) and Solana DEXes (Orca, Raydium, Meteora, Jupiter) for cross-exchange comparison.",
         "responses": {
           "200": {
             "description": "Multi-exchange price data",
@@ -916,13 +916,13 @@
         "operationId": "getPriceByExchange",
         "tags": ["Price"],
         "summary": "Get DOG price from a specific exchange",
-        "description": "Returns DOG price from a specific exchange. Supported: kraken, mexc, gateio, bitget, bitflow, dogswap.",
+        "description": "Returns DOG price from a specific exchange. Supported CEXes: kraken, mexc, gateio, bitget, bitflow, dogswap. Solana DEXes: orca, raydium, meteora, jupiter.",
         "parameters": [
           {
             "name": "exchange",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "enum": ["kraken", "mexc", "gateio", "bitget", "bitflow", "dogswap"] },
+            "schema": { "type": "string", "enum": ["kraken", "mexc", "gateio", "bitget", "bitflow", "dogswap", "orca", "raydium", "meteora", "jupiter"] },
             "description": "Exchange identifier"
           }
         ],

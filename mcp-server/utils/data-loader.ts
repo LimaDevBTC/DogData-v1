@@ -437,6 +437,112 @@ export async function fetchBitcoinNetwork(): Promise<MempoolData> {
 }
 
 // ---------------------------------------------------------------------------
+// Solana DEX price fetchers
+// ---------------------------------------------------------------------------
+
+const DOG_MINT = "dog1viwbb2vWDpER5FrJ4YFG6gq6XuyFohUe9TXN65u";
+const SOL_MINT = "So11111111111111111111111111111111111111112";
+const ORCA_SOL_DOG_POOL = "96P9KSNysfTADDzfxgsSrfyfgy47omctoCZPgJsj93ML";
+const DEX_TIMEOUT = 8_000;
+
+export interface SolanaDexPrice {
+  source: string;
+  price: number;
+  change24h: number | null;
+  extra?: Record<string, unknown>;
+}
+
+export async function fetchOrcaPrice(): Promise<SolanaDexPrice> {
+  const cacheKey = "api:orca";
+  const cached = getCached<SolanaDexPrice>(cacheKey);
+  if (cached) return cached;
+
+  const [solRes, poolRes] = await Promise.all([
+    fetch(`https://api.orca.so/v2/solana/tokens/${SOL_MINT}`, { signal: AbortSignal.timeout(DEX_TIMEOUT) }),
+    fetch(`https://api.orca.so/v2/solana/pools/${ORCA_SOL_DOG_POOL}`, { signal: AbortSignal.timeout(DEX_TIMEOUT) }),
+  ]);
+  if (!solRes.ok || !poolRes.ok) throw new Error("Orca API error");
+  const [solJson, poolJson] = await Promise.all([solRes.json(), poolRes.json()]);
+  const solPrice = parseFloat(solJson.data?.priceUsdc);
+  const solDogRate = parseFloat(poolJson.data?.price);
+  if (isNaN(solPrice) || solPrice <= 0 || isNaN(solDogRate) || solDogRate <= 0)
+    throw new Error("Invalid Orca price data");
+  const price = solPrice / solDogRate;
+  const data: SolanaDexPrice = { source: "orca", price, change24h: null };
+  return setCache(cacheKey, data, 30_000);
+}
+
+export async function fetchRaydiumPrice(): Promise<SolanaDexPrice> {
+  const cacheKey = "api:raydium";
+  const cached = getCached<SolanaDexPrice>(cacheKey);
+  if (cached) return cached;
+
+  const res = await fetch(`https://api-v3.raydium.io/mint/price?mints=${DOG_MINT}`, {
+    signal: AbortSignal.timeout(DEX_TIMEOUT),
+  });
+  if (!res.ok) throw new Error(`Raydium API error: ${res.status}`);
+  const json = await res.json();
+  if (!json.success) throw new Error("Raydium returned success=false");
+  const price = parseFloat(json.data?.[DOG_MINT]);
+  if (isNaN(price) || price <= 0) throw new Error("Invalid Raydium price");
+  const data: SolanaDexPrice = { source: "raydium", price, change24h: null };
+  return setCache(cacheKey, data, 30_000);
+}
+
+export async function fetchJupiterPrice(): Promise<SolanaDexPrice> {
+  const cacheKey = "api:jupiter";
+  const cached = getCached<SolanaDexPrice>(cacheKey);
+  if (cached) return cached;
+
+  const res = await fetch(`https://api.jup.ag/price/v3?ids=${DOG_MINT}`, {
+    signal: AbortSignal.timeout(DEX_TIMEOUT),
+  });
+  if (!res.ok) throw new Error(`Jupiter API error: ${res.status}`);
+  const json = await res.json();
+  const tokenData = json[DOG_MINT];
+  if (!tokenData || tokenData.usdPrice == null) throw new Error("No Jupiter price data");
+  const price = tokenData.usdPrice as number;
+  const change24h = tokenData.priceChange24h as number ?? null;
+  const liquidity = tokenData.liquidity as number ?? 0;
+  const data: SolanaDexPrice = { source: "jupiter", price, change24h, extra: { liquidity } };
+  return setCache(cacheKey, data, 30_000);
+}
+
+export async function fetchMeteoraPrice(): Promise<SolanaDexPrice> {
+  const cacheKey = "api:meteora";
+  const cached = getCached<SolanaDexPrice>(cacheKey);
+  if (cached) return cached;
+
+  const res = await fetch(
+    `https://damm-api.meteora.ag/pools/search?page=0&size=5&include_token_mints=${DOG_MINT}`,
+    { signal: AbortSignal.timeout(DEX_TIMEOUT) }
+  );
+  if (!res.ok) throw new Error(`Meteora API error: ${res.status}`);
+  const json = await res.json();
+  const pools = json.data as Array<{
+    pool_name: string;
+    pool_token_mints: string[];
+    pool_token_amounts: string[];
+    pool_token_usd_amounts: string[];
+    pool_tvl: string;
+  }>;
+  if (!pools || pools.length === 0) throw new Error("No DOG pools on Meteora");
+  const pool = pools.reduce((best, p) =>
+    parseFloat(p.pool_tvl) > parseFloat(best.pool_tvl) ? p : best
+  );
+  const dogIdx = pool.pool_token_mints.indexOf(DOG_MINT);
+  if (dogIdx === -1) throw new Error("DOG mint not in Meteora pool");
+  const dogUsd = parseFloat(pool.pool_token_usd_amounts[dogIdx]);
+  const dogAmt = parseFloat(pool.pool_token_amounts[dogIdx]);
+  if (dogAmt <= 0) throw new Error("Invalid Meteora DOG amount");
+  const price = dogUsd / dogAmt;
+  if (isNaN(price) || price <= 0) throw new Error("Invalid Meteora price");
+  const tvl = parseFloat(pool.pool_tvl);
+  const data: SolanaDexPrice = { source: "meteora", price, change24h: null, extra: { tvl, pool: pool.pool_name } };
+  return setCache(cacheKey, data, 30_000);
+}
+
+// ---------------------------------------------------------------------------
 // DOG supply constant
 // ---------------------------------------------------------------------------
 export const DOG_TOTAL_SUPPLY = 100_000_000_000; // 100 billion DOG

@@ -1,6 +1,13 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { fetchKrakenPrice, fetchCoinGeckoData } from "../utils/data-loader.js";
+import {
+  fetchKrakenPrice,
+  fetchCoinGeckoData,
+  fetchOrcaPrice,
+  fetchRaydiumPrice,
+  fetchJupiterPrice,
+  fetchMeteoraPrice,
+} from "../utils/data-loader.js";
 import { toolResult } from "../utils/formatters.js";
 
 export function registerPriceTools(server: McpServer): void {
@@ -41,6 +48,44 @@ export function registerPriceTools(server: McpServer): void {
           message: err instanceof Error ? err.message : String(err),
         });
       }
+    }
+  );
+
+  // -----------------------------------------------------------------------
+  // get_solana_dex_prices — from Orca, Raydium, Meteora, Jupiter
+  // -----------------------------------------------------------------------
+  server.tool(
+    "get_solana_dex_prices",
+    "Get DOG token prices from all 4 Solana DEXes: Orca (Whirlpool), Raydium, Meteora, and Jupiter. " +
+      "Returns price per DEX, 24h change where available, and extra liquidity/TVL data. " +
+      "Also computes the average price across all reporting DEXes.",
+    {},
+    async () => {
+      const results = await Promise.allSettled([
+        fetchOrcaPrice(),
+        fetchRaydiumPrice(),
+        fetchJupiterPrice(),
+        fetchMeteoraPrice(),
+      ]);
+
+      const dexes = results.map((r) =>
+        r.status === "fulfilled"
+          ? r.value
+          : { source: "unknown", price: 0, change24h: null, error: (r.reason as Error)?.message }
+      );
+
+      const reporting = dexes.filter((d) => d.price > 0);
+      const avgPrice =
+        reporting.length > 0
+          ? reporting.reduce((sum, d) => sum + d.price, 0) / reporting.length
+          : 0;
+
+      return toolResult({
+        dexes,
+        average_price_usd: avgPrice,
+        dexes_reporting: reporting.length,
+        timestamp: new Date().toISOString(),
+      });
     }
   );
 
