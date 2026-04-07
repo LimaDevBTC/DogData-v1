@@ -53,6 +53,33 @@ const exchanges = [
     hoverBorderColor: 'hover:border-cyan-500/[0.2]',
     icon: 'B',
     working: true
+  },
+  {
+    name: 'Jupiter',
+    apiUrl: '/api/price/jupiter',
+    color: 'from-emerald-400 to-teal-500',
+    borderColor: 'border-emerald-500/[0.1]',
+    hoverBorderColor: 'hover:border-emerald-500/[0.2]',
+    icon: 'JUP',
+    working: true
+  },
+  {
+    name: 'Orca',
+    apiUrl: '/api/price/orca',
+    color: 'from-pink-400 to-rose-500',
+    borderColor: 'border-pink-500/[0.1]',
+    hoverBorderColor: 'hover:border-pink-500/[0.2]',
+    icon: 'ORCA',
+    working: true
+  },
+  {
+    name: 'Meteora',
+    apiUrl: '/api/price/meteora',
+    color: 'from-violet-400 to-indigo-600',
+    borderColor: 'border-violet-500/[0.1]',
+    hoverBorderColor: 'hover:border-violet-500/[0.2]',
+    icon: 'MET',
+    working: true
   }
 ];
 
