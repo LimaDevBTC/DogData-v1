@@ -357,7 +357,7 @@ export function PriceCards() {
                           : exchange.name
                       }.png`}
                       alt={exchange.name}
-                      className={`w-auto object-contain ${exchange.name === 'Gate.io' || exchange.name === 'Bitget' ? 'h-5 md:h-7' : 'h-7 md:h-10'}`}
+                      className={`w-auto object-contain object-left ${exchange.name === 'Gate.io' || exchange.name === 'Bitget' ? 'h-5 md:h-7 max-w-[80px] md:max-w-[100px]' : exchange.name === 'Orca' || exchange.name === 'Meteora' ? 'h-3.5 md:h-5 max-w-[70px] md:max-w-[90px]' : exchange.name === 'Jupiter' || exchange.name === 'Raydium' ? 'h-4 md:h-6 max-w-[80px] md:max-w-[100px]' : 'h-7 md:h-10'}`}
                       onError={(e) => {
                         e.currentTarget.style.display = 'none';
                         const fallback = e.currentTarget.nextElementSibling as HTMLElement;
