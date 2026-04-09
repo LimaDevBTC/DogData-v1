@@ -5,6 +5,10 @@
   "framework": "nextjs",
   "rewrites": [
     {
+      "source": "/api/cron/:path*",
+      "destination": "/api/cron/:path*"
+    },
+    {
       "source": "/api/:path*",
       "destination": "/api/index.js"
     }

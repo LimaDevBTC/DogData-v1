@@ -192,9 +192,11 @@ function normalizeSource(source: string): string | undefined {
     CREMA: 'Crema',
     STEP: 'Step Finance',
     COINFRA: 'Coinfra',
-    UNKNOWN: undefined,
+    UNKNOWN: '',
   }
-  return map[source] ?? (source && source !== 'UNKNOWN' ? source : undefined)
+  const mapped = map[source]
+  if (mapped !== undefined) return mapped || undefined
+  return source && source !== 'UNKNOWN' ? source : undefined
 }
 
 export async function getSolanaTransactions(limit = 30): Promise<{
