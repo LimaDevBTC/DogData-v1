@@ -27,6 +27,12 @@ export interface ChainHolder {
   last_active: string | null
 }
 
+export interface ChainTransfer {
+  from: string
+  to: string
+  amount: number
+}
+
 export interface ChainTransaction {
   chain: Chain
   tx_id: string
@@ -37,6 +43,12 @@ export interface ChainTransaction {
   amount_usd: number | null
   timestamp: string
   block_height: number | null
+  // Enrichment fields (optional — populated when available)
+  protocol?: string           // DEX / platform name (e.g. Jupiter, Raydium, ALEX, Velar)
+  description?: string        // Human-readable description (e.g. from Helius)
+  fee?: number                // Transaction fee (SOL in lamports→SOL, STX in µSTX→STX)
+  fee_token?: 'SOL' | 'STX'  // Which token the fee is denominated in
+  all_transfers?: ChainTransfer[] // All DOG transfers in the tx (multi-hop / multi-output)
 }
 
 export interface MultiChainStats {

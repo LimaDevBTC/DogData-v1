@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { Activity, Download, Flame } from 'lucide-react'
+import Link from 'next/link'
+import { Activity, Copy, Check, Download, ExternalLink, Flame } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────
 type HeatmapTimeframe = '1d' | '7d' | '30d' | '1y'
@@ -238,6 +239,7 @@ export function TransactionHeatmap() {
   const [drillTxs, setDrillTxs] = useState<DrillTransaction[]>([])
   const [drillLoading, setDrillLoading] = useState(false)
   const [rawTransactions, setRawTransactions] = useState<RedisTransaction[]>([])
+  const [copiedTxid, setCopiedTxid] = useState<string | null>(null)
   const gridContainerRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(0)
 
@@ -387,16 +389,13 @@ export function TransactionHeatmap() {
     )
   }
 
-  // Compute cell size — fixed grid for all timeframes
+  // Compute cell height only — width is handled by flex layout (flex: 1)
   const availableForCells = containerWidth - (GRID_COLS - 1) * CELL_GAP
   const cellSize = containerWidth > 0
-    ? Math.max(MIN_CELL_SIZE, Math.min(MAX_CELL_SIZE, Math.floor(availableForCells / GRID_COLS)))
+    ? Math.max(4, Math.min(MAX_CELL_SIZE, Math.floor(availableForCells / GRID_COLS)))
     : 14
 
-  const cellRadius = Math.max(2, Math.round(cellSize * 0.15))
-
-  // Exact pixel width of the grid for centering
-  const gridPixelWidth = GRID_COLS * cellSize + (GRID_COLS - 1) * CELL_GAP
+  const cellRadius = Math.max(1, Math.round(cellSize * 0.15))
 
   return (
     <div ref={gridContainerRef} className="rounded-xl bg-bg-surface/50 backdrop-blur-sm border border-border-subtle p-4 md:p-6">
@@ -452,133 +451,131 @@ export function TransactionHeatmap() {
         )}
       </div>
 
-      {/* ── Heatmap Grid (centered) ───────────────────────── */}
-      <div className="flex justify-center">
-        <div style={{ width: gridPixelWidth }}>
-          {/* Col labels (block heights) */}
-          <div className="flex mb-1">
-            {colLabels.map((label, c) => (
-              <div
-                key={c}
-                style={{ width: cellSize, marginRight: c < colLabels.length - 1 ? CELL_GAP : 0, textAlign: 'center' }}
-              >
-                {label && (
-                  <span className="font-mono text-[8px] text-text-tertiary leading-none whitespace-nowrap">{label}</span>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Grid rows */}
-          {Array.from({ length: GRID_ROWS }).map((_, r) => (
-            <div key={r} className="flex" style={{ marginBottom: r < GRID_ROWS - 1 ? CELL_GAP : 0 }}>
-              {Array.from({ length: GRID_COLS }).map((_, c) => {
-                const bucket = gridLookup.get(`${r}:${c}`)
-                if (!bucket) {
-                  return <div key={c} style={{ width: cellSize, height: cellSize, marginRight: c < GRID_COLS - 1 ? CELL_GAP : 0, borderRadius: cellRadius, backgroundColor: EMPTY_CELL_COLOR }} />
-                }
-
-                const hasActivity = bucket.txCount > 0
-                const rawRatio = bucket.value / maxValue
-                const isHovered = hovered?.index === bucket.index
-                const isCurrentSlot = bucket.index === currentBucketIdx
-                const isDrilling = drillBucket?.index === bucket.index
-
-                // Empty cells stay dark; active cells get a visible floor
-                const cellColor = hasActivity
-                  ? interpolateColor(Math.max(0.08, rawRatio))
-                  : EMPTY_CELL_COLOR
-
-                return (
-                  <div
-                    key={bucket.index}
-                    className="relative"
-                    style={{ width: cellSize, height: cellSize, marginRight: c < GRID_COLS - 1 ? CELL_GAP : 0 }}
-                  >
-                    <div
-                      className={`absolute inset-0 transition-all duration-100 cursor-pointer
-                        ${isCurrentSlot && hasActivity ? 'animate-breathe' : ''}`}
-                      style={{
-                        borderRadius: cellRadius,
-                        backgroundColor: cellColor,
-                        outline: isHovered ? '1.5px solid rgba(247,147,26,0.6)' : isDrilling ? '1.5px solid rgba(247,147,26,0.8)' : 'none',
-                        outlineOffset: '0.5px',
-                        boxShadow: bucket.hasWhale ? '0 0 6px rgba(247,147,26,0.4), inset 0 0 3px rgba(247,147,26,0.2)' : 'none',
-                        border: bucket.hasWhale ? '1px solid rgba(247,147,26,0.35)' : '1px solid transparent',
-                      }}
-                      onMouseEnter={() => handleMouseEnter(bucket)}
-                      onMouseLeave={() => handleMouseLeave()}
-                      onClick={() => handleCellClick(bucket)}
-                    />
-
-                    {/* Tooltip */}
-                    {isHovered && (
-                      <div className={`absolute left-1/2 -translate-x-1/2 z-50 pointer-events-none ${
-                        bucket.row <= Math.floor(GRID_ROWS / 2) - 1 ? 'top-full mt-1.5' : 'bottom-full mb-1.5'
-                      }`}>
-                        <div className="bg-black/95 border border-accent-primary/30 rounded-md px-3 py-2 shadow-bitcoin whitespace-nowrap">
-                          <p className="text-text-accent font-mono text-[11px] font-semibold">{bucket.label}</p>
-                          <div className="flex items-center gap-3 mt-0.5">
-                            <span className="text-text-primary font-mono text-xs font-bold">
-                              {bucket.txCount} tx{bucket.txCount !== 1 ? 's' : ''}
-                            </span>
-                            {bucket.volume > 0 && (
-                              <span className="text-text-secondary font-mono text-[11px]">
-                                {fmtVolume(bucket.volume)} DOG
-                              </span>
-                            )}
-                          </div>
-                          {bucket.hasWhale && (
-                            <div className="flex items-center gap-1 mt-0.5">
-                              <Flame className="w-3 h-3 text-text-accent" />
-                              <span className="text-text-accent font-mono text-[10px]">
-                                {fmtVolume(bucket.whaleVolume)} whale
-                              </span>
-                            </div>
-                          )}
-                          {bucket.avgFee !== null && bucket.avgFee > 0 && (
-                            <p className="text-text-tertiary font-mono text-[10px] mt-0.5">
-                              Avg fee: {bucket.avgFee.toLocaleString()} sats
-                            </p>
-                          )}
-                          {bucket.volume > 0 && (
-                            <div className="flex gap-px mt-1 h-1.5 rounded-full overflow-hidden" style={{ width: 80 }}>
-                              {bucket.retailVolume > 0 && <div className="bg-green-500/60" style={{ flex: bucket.retailVolume }} />}
-                              {bucket.mediumVolume > 0 && <div className="bg-yellow-500/60" style={{ flex: bucket.mediumVolume }} />}
-                              {bucket.largeVolume > 0 && <div className="bg-orange-500/60" style={{ flex: bucket.largeVolume }} />}
-                              {bucket.whaleVolume > 0 && <div className="bg-red-500/60" style={{ flex: bucket.whaleVolume }} />}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
+      {/* ── Heatmap Grid (full width) ───────────────────────── */}
+      <div className="w-full overflow-hidden">
+        {/* Col labels (block heights) */}
+        <div className="flex mb-1" style={{ gap: CELL_GAP }}>
+          {colLabels.map((label, c) => (
+            <div
+              key={c}
+              style={{ flex: 1, minWidth: 0, textAlign: 'center', overflow: 'hidden' }}
+            >
+              {label && (
+                <span className="font-mono text-[8px] text-text-tertiary leading-none whitespace-nowrap">{label}</span>
+              )}
             </div>
           ))}
+        </div>
 
-          {/* ── Grid footer: legend + export ───────────────── */}
-          <div className="flex items-center justify-between mt-2">
-            <div className="flex items-center gap-1.5">
-              <div className="w-[9px] h-[9px] rounded-[2px]" style={{ backgroundColor: EMPTY_CELL_COLOR }} />
-              <span className="font-mono text-[9px] text-text-tertiary mx-0.5">0</span>
-              <div className="flex gap-px">
-                {[0, 0.25, 0.5, 0.75, 1].map((v, i) => (
-                  <div key={i} className="w-[9px] h-[9px] rounded-[2px]" style={{ backgroundColor: interpolateColor(v) }} />
-                ))}
-              </div>
-              <span className="font-mono text-[9px] text-text-tertiary">Max</span>
-            </div>
-            <button
-              onClick={() => exportCSV(buckets, timeframe)}
-              className="flex items-center gap-1 text-text-tertiary hover:text-text-primary transition-colors"
-              title="Export CSV"
-            >
-              <Download className="w-3 h-3" />
-              <span className="font-mono text-[9px]">CSV</span>
-            </button>
+        {/* Grid rows */}
+        {Array.from({ length: GRID_ROWS }).map((_, r) => (
+          <div key={r} className="flex" style={{ gap: CELL_GAP, marginBottom: r < GRID_ROWS - 1 ? CELL_GAP : 0 }}>
+            {Array.from({ length: GRID_COLS }).map((_, c) => {
+              const bucket = gridLookup.get(`${r}:${c}`)
+              if (!bucket) {
+                return <div key={c} style={{ flex: 1, height: cellSize, borderRadius: cellRadius, backgroundColor: EMPTY_CELL_COLOR }} />
+              }
+
+              const hasActivity = bucket.txCount > 0
+              const rawRatio = bucket.value / maxValue
+              const isHovered = hovered?.index === bucket.index
+              const isCurrentSlot = bucket.index === currentBucketIdx
+              const isDrilling = drillBucket?.index === bucket.index
+
+              // Empty cells stay dark; active cells get a visible floor
+              const cellColor = hasActivity
+                ? interpolateColor(Math.max(0.08, rawRatio))
+                : EMPTY_CELL_COLOR
+
+              return (
+                <div
+                  key={bucket.index}
+                  className="relative"
+                  style={{ flex: 1, height: cellSize }}
+                >
+                  <div
+                    className={`absolute inset-0 transition-all duration-100 cursor-pointer
+                      ${isCurrentSlot && hasActivity ? 'animate-breathe' : ''}`}
+                    style={{
+                      borderRadius: cellRadius,
+                      backgroundColor: cellColor,
+                      outline: isHovered ? '1.5px solid rgba(247,147,26,0.6)' : isDrilling ? '1.5px solid rgba(247,147,26,0.8)' : 'none',
+                      outlineOffset: '0.5px',
+                      boxShadow: bucket.hasWhale ? '0 0 6px rgba(247,147,26,0.4), inset 0 0 3px rgba(247,147,26,0.2)' : 'none',
+                      border: bucket.hasWhale ? '1px solid rgba(247,147,26,0.35)' : '1px solid transparent',
+                    }}
+                    onMouseEnter={() => handleMouseEnter(bucket)}
+                    onMouseLeave={() => handleMouseLeave()}
+                    onClick={() => handleCellClick(bucket)}
+                  />
+
+                  {/* Tooltip */}
+                  {isHovered && (
+                    <div className={`absolute left-1/2 -translate-x-1/2 z-50 pointer-events-none ${
+                      bucket.row <= Math.floor(GRID_ROWS / 2) - 1 ? 'top-full mt-1.5' : 'bottom-full mb-1.5'
+                    }`}>
+                      <div className="bg-black/95 border border-accent-primary/30 rounded-md px-3 py-2 shadow-bitcoin whitespace-nowrap">
+                        <p className="text-text-accent font-mono text-[11px] font-semibold">{bucket.label}</p>
+                        <div className="flex items-center gap-3 mt-0.5">
+                          <span className="text-text-primary font-mono text-xs font-bold">
+                            {bucket.txCount} tx{bucket.txCount !== 1 ? 's' : ''}
+                          </span>
+                          {bucket.volume > 0 && (
+                            <span className="text-text-secondary font-mono text-[11px]">
+                              {fmtVolume(bucket.volume)} DOG
+                            </span>
+                          )}
+                        </div>
+                        {bucket.hasWhale && (
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <Flame className="w-3 h-3 text-text-accent" />
+                            <span className="text-text-accent font-mono text-[10px]">
+                              {fmtVolume(bucket.whaleVolume)} whale
+                            </span>
+                          </div>
+                        )}
+                        {bucket.avgFee !== null && bucket.avgFee > 0 && (
+                          <p className="text-text-tertiary font-mono text-[10px] mt-0.5">
+                            Avg fee: {bucket.avgFee.toLocaleString()} sats
+                          </p>
+                        )}
+                        {bucket.volume > 0 && (
+                          <div className="flex gap-px mt-1 h-1.5 rounded-full overflow-hidden" style={{ width: 80 }}>
+                            {bucket.retailVolume > 0 && <div className="bg-green-500/60" style={{ flex: bucket.retailVolume }} />}
+                            {bucket.mediumVolume > 0 && <div className="bg-yellow-500/60" style={{ flex: bucket.mediumVolume }} />}
+                            {bucket.largeVolume > 0 && <div className="bg-orange-500/60" style={{ flex: bucket.largeVolume }} />}
+                            {bucket.whaleVolume > 0 && <div className="bg-red-500/60" style={{ flex: bucket.whaleVolume }} />}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
+        ))}
+
+        {/* ── Grid footer: legend + export ───────────────── */}
+        <div className="flex items-center justify-between mt-2">
+          <div className="flex items-center gap-1.5">
+            <div className="w-[9px] h-[9px] rounded-[2px]" style={{ backgroundColor: EMPTY_CELL_COLOR }} />
+            <span className="font-mono text-[9px] text-text-tertiary mx-0.5">0</span>
+            <div className="flex gap-px">
+              {[0, 0.25, 0.5, 0.75, 1].map((v, i) => (
+                <div key={i} className="w-[9px] h-[9px] rounded-[2px]" style={{ backgroundColor: interpolateColor(v) }} />
+              ))}
+            </div>
+            <span className="font-mono text-[9px] text-text-tertiary">Max</span>
+          </div>
+          <button
+            onClick={() => exportCSV(buckets, timeframe)}
+            className="flex items-center gap-1 text-text-tertiary hover:text-text-primary transition-colors"
+            title="Export CSV"
+          >
+            <Download className="w-3 h-3" />
+            <span className="font-mono text-[9px]">CSV</span>
+          </button>
         </div>
       </div>
 
@@ -657,18 +654,40 @@ export function TransactionHeatmap() {
               <p className="font-mono text-[9px] text-text-tertiary uppercase mb-1">Transactions ({drillTxs.length})</p>
               <div className="max-h-48 overflow-y-auto space-y-1">
                 {drillTxs.map(tx => (
-                  <div key={tx.txid} className="flex items-center gap-3 py-1 px-2 rounded bg-bg-elevated/50 font-mono text-[11px]">
-                    <span className="text-text-secondary truncate w-24" title={tx.txid}>
-                      {tx.txid.slice(0, 8)}…{tx.txid.slice(-6)}
-                    </span>
-                    <span className={`font-bold ${Number(tx.total_dog_moved) >= 1_000_000 ? 'text-text-accent' : 'text-text-primary'}`}>
+                  <div key={tx.txid} className="flex items-center gap-2 py-1.5 px-2 rounded bg-bg-elevated/50 font-mono text-[11px] group">
+                    {/* Txid + ações */}
+                    <Link
+                      href={`/transactions?txid=${tx.txid}`}
+                      className="flex items-center gap-1 text-text-accent hover:text-text-primary transition-colors min-w-0 shrink-0"
+                      title={tx.txid}
+                    >
+                      <span className="truncate">{tx.txid.slice(0, 8)}…{tx.txid.slice(-6)}</span>
+                      <ExternalLink className="w-2.5 h-2.5 opacity-60 shrink-0" />
+                    </Link>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(tx.txid)
+                        setCopiedTxid(tx.txid)
+                        setTimeout(() => setCopiedTxid(null), 2000)
+                      }}
+                      className="shrink-0 text-text-tertiary hover:text-text-primary transition-colors"
+                      title="Copiar txid"
+                    >
+                      {copiedTxid === tx.txid
+                        ? <Check className="w-2.5 h-2.5 text-green-400" />
+                        : <Copy className="w-2.5 h-2.5" />
+                      }
+                    </button>
+
+                    {/* Dados */}
+                    <span className={`font-bold ml-1 ${Number(tx.total_dog_moved) >= 1_000_000 ? 'text-text-accent' : 'text-text-primary'}`}>
                       {fmtVolume(Number(tx.total_dog_moved))} DOG
                     </span>
                     <span className="text-text-tertiary text-[10px]">
                       {fmtBlock(tx.block_height)}
                     </span>
                     {tx.fee_sats && (
-                      <span className="text-text-tertiary">{tx.fee_sats.toLocaleString()} sats</span>
+                      <span className="text-text-tertiary hidden sm:inline">{tx.fee_sats.toLocaleString()} sats</span>
                     )}
                     <span className="text-text-tertiary ml-auto">
                       {tx.sender_count}→{tx.receiver_count}

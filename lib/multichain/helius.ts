@@ -1,5 +1,5 @@
 import { memoryCache } from '@/lib/cache'
-import { ChainHolder, ChainTransaction, DOG_TOKENS } from './types'
+import { ChainHolder, ChainTransaction, ChainTransfer, DOG_TOKENS } from './types'
 
 const TOKEN_MINT = DOG_TOKENS.solana.address
 const DECIMALS = DOG_TOKENS.solana.decimals
@@ -174,6 +174,29 @@ interface HeliusTransaction {
   }>
 }
 
+// Normalize Helius source names to human-readable protocol labels
+function normalizeSource(source: string): string | undefined {
+  const map: Record<string, string> = {
+    RAYDIUM: 'Raydium',
+    JUPITER: 'Jupiter',
+    ORCA: 'Orca',
+    METEORA: 'Meteora',
+    MAGIC_EDEN: 'Magic Eden',
+    TENSOR: 'Tensor',
+    DRIFT: 'Drift',
+    MANGO: 'Mango',
+    OPENBOOK: 'OpenBook',
+    PHOENIX: 'Phoenix',
+    LIFINITY: 'Lifinity',
+    ALDRIN: 'Aldrin',
+    CREMA: 'Crema',
+    STEP: 'Step Finance',
+    COINFRA: 'Coinfra',
+    UNKNOWN: undefined,
+  }
+  return map[source] ?? (source && source !== 'UNKNOWN' ? source : undefined)
+}
+
 export async function getSolanaTransactions(limit = 30): Promise<{
   transactions: ChainTransaction[]
   total_count: number
@@ -191,16 +214,36 @@ export async function getSolanaTransactions(limit = 30): Promise<{
   const transactions: ChainTransaction[] = []
 
   for (const tx of data) {
-    // Find DOG token transfers in this transaction
+    // Find all DOG token transfers in this transaction
     const dogTransfers = (tx.tokenTransfers || []).filter(t => t.mint === TOKEN_MINT)
     if (dogTransfers.length === 0) continue
 
-    // Use the largest DOG transfer as the main one
+    // Use the largest DOG transfer as the primary from/to
     const mainTransfer = dogTransfers.reduce((a, b) => a.tokenAmount > b.tokenAmount ? a : b)
+
+    // Total DOG moved = sum of all outgoing DOG transfers
+    const totalAmount = dogTransfers.reduce((sum, t) => sum + t.tokenAmount, 0)
 
     const txType = tx.type === 'SWAP' ? 'swap' as const
       : tx.type === 'TRANSFER' ? 'transfer' as const
       : 'transfer' as const
+
+    // All individual DOG transfers (for multi-hop / multi-output visibility)
+    const allTransfers: ChainTransfer[] = dogTransfers.map(t => ({
+      from: t.fromUserAccount,
+      to: t.toUserAccount,
+      amount: t.tokenAmount,
+    }))
+
+    // Fee: Helius returns lamports — convert to SOL (1 SOL = 1e9 lamports)
+    const feeInSol = tx.fee > 0 ? tx.fee / 1_000_000_000 : undefined
+
+    const protocol = normalizeSource(tx.source)
+
+    // Description: use Helius description when meaningful, otherwise omit
+    const description = tx.description && tx.description.length > 0 && tx.description !== 'Unknown'
+      ? tx.description
+      : undefined
 
     transactions.push({
       chain: 'solana',
@@ -208,10 +251,15 @@ export async function getSolanaTransactions(limit = 30): Promise<{
       type: txType,
       from_address: mainTransfer.fromUserAccount || tx.feePayer,
       to_address: mainTransfer.toUserAccount || '',
-      amount: mainTransfer.tokenAmount,
-      amount_usd: null, // could enrich with price
+      amount: totalAmount,
+      amount_usd: null,
       timestamp: new Date(tx.timestamp * 1000).toISOString(),
       block_height: tx.slot,
+      protocol,
+      description,
+      fee: feeInSol,
+      fee_token: 'SOL',
+      all_transfers: allTransfers.length > 1 ? allTransfers : undefined,
     })
   }
 

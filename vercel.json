@@ -21,6 +21,10 @@
     {
       "path": "/api/stacks/snapshot",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/whale-poster",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

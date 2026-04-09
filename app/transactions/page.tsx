@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback, Fragment } from "react"
+import { useSearchParams } from "next/navigation"
 import Image from "next/image"
 import { Layout } from "@/components/layout"
 import { LoadingScreen } from "@/components/loading-screen"
@@ -463,8 +464,10 @@ export default function TransactionsPage() {
   const [holdersLoaded, setHoldersLoaded] = useState(false)
   const [newHolders24h, setNewHolders24h] = useState<number | null>(null)
   
+  const searchParams = useSearchParams()
+
   // Estados auxiliares
-  const [searchTxid, setSearchTxid] = useState("")
+  const [searchTxid, setSearchTxid] = useState(() => searchParams.get("txid") ?? "")
   const [searchResult, setSearchResult] = useState<Transaction | null>(null)
   const [copiedTxid, setCopiedTxid] = useState<string | null>(null)
   const [lastBlock, setLastBlock] = useState<number>(0)
@@ -1168,25 +1171,26 @@ export default function TransactionsPage() {
     }
   }
 
-  const searchTransaction = async () => {
-    if (!searchTxid.trim()) return
-    
+  const searchTransaction = useCallback(async (overrideTxid?: string) => {
+    const query = (overrideTxid ?? searchTxid).trim()
+    if (!query) return
+
     // 1. Buscar localmente primeiro
-    const tx = transactions.find(t => 
-      t.txid.toLowerCase().includes(searchTxid.trim().toLowerCase())
+    const tx = transactions.find(t =>
+      t.txid.toLowerCase().includes(query.toLowerCase())
     )
-    
+
     if (tx) {
       setSearchResult(tx)
       return
     }
-    
+
     // 2. Se não encontrou localmente, buscar na API
     console.log('🔍 Transação não encontrada no cache, buscando na API...')
-    
+
     try {
-      const response = await fetch(`/api/dog-rune/search-tx?txid=${searchTxid.trim()}`)
-      
+      const response = await fetch(`/api/dog-rune/search-tx?txid=${query}`)
+
       if (response.ok) {
         const txData = await response.json()
         console.log('✅ Transação encontrada na API:', txData)
@@ -1202,7 +1206,19 @@ export default function TransactionsPage() {
       setSearchResult(null)
       alert('❌ Erro ao buscar transação. A API pode estar lenta, tente novamente.')
     }
-  }
+  }, [searchTxid, transactions])
+
+  // Auto-busca quando a página é aberta com ?txid= na URL
+  useEffect(() => {
+    const txidParam = searchParams.get("txid")
+    if (txidParam) {
+      searchTransaction(txidParam)
+      // Scroll suave até a seção de busca
+      setTimeout(() => {
+        document.getElementById("tx-search")?.scrollIntoView({ behavior: "smooth", block: "center" })
+      }, 500)
+    }
+  }, [searchParams]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCopyAddress = async (address?: string) => {
     if (!address) return
@@ -1911,7 +1927,7 @@ export default function TransactionsPage() {
         <SectionDivider title="Transaction Search" icon={Search} />
 
         {/* Search */}
-        <Card variant="glass">
+        <Card variant="glass" id="tx-search">
           <CardHeader>
             <CardTitle className="text-snow text-xl font-mono">Search Transaction</CardTitle>
           </CardHeader>
@@ -1924,7 +1940,7 @@ export default function TransactionsPage() {
                 onKeyPress={(e) => e.key === 'Enter' && searchTransaction()}
                 className="flex-1 bg-transparent border-white/[0.05] text-snow"
               />
-              <Button onClick={searchTransaction} className="rounded-lg">
+              <Button onClick={() => searchTransaction()} className="rounded-lg">
                 Search
               </Button>
             </div>

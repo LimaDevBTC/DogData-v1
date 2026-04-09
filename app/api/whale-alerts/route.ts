@@ -65,6 +65,12 @@ interface WhaleAlert {
   dogdata_url: string
   context: string
   tweet: string
+  // Enrichment fields (populated for Stacks and Solana when available)
+  protocol?: string
+  description?: string
+  fee?: number
+  fee_token?: string
+  transfer_count?: number  // number of DOG transfer legs in the tx
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────
@@ -151,8 +157,14 @@ function classifyBitcoinTx(tx: BitcoinTransaction): string {
 }
 
 function classifyMultichainTx(tx: ChainTransaction): string {
-  if (tx.type === 'swap') return 'DEX Swap'
-  if (tx.type === 'bridge') return 'Bridge Transfer'
+  if (tx.type === 'swap') {
+    return tx.protocol ? `DEX Swap via ${tx.protocol}` : 'DEX Swap'
+  }
+  if (tx.type === 'bridge') {
+    return tx.protocol ? `Bridge Transfer via ${tx.protocol}` : 'Bridge Transfer'
+  }
+  // Use description-derived type from Tenero transfer_type when available
+  if (tx.description) return tx.description
   return 'Transfer'
 }
 
@@ -187,22 +199,37 @@ function buildMultichainContext(tx: ChainTransaction, classification: string): s
   if (tx.from_address) parts.push(`from ${shortenAddress(tx.from_address)}`)
   if (tx.to_address) parts.push(`to ${shortenAddress(tx.to_address)}`)
   if (tx.amount_usd) parts.push(`(${formatUSD(tx.amount_usd)})`)
+  if (tx.all_transfers && tx.all_transfers.length > 1) {
+    parts.push(`— ${tx.all_transfers.length} transfer legs`)
+  }
+  if (tx.fee != null && tx.fee_token) {
+    parts.push(`fee: ${tx.fee.toFixed(6)} ${tx.fee_token}`)
+  }
   return parts.join(' ') + '.'
 }
 
 function buildTweet(alert: Omit<WhaleAlert, 'tweet'>): string {
-  const sevEmoji = alert.severity === 'MEGA' ? '🔴'
-    : alert.severity === 'HIGH' ? '🟠'
-    : alert.severity === 'MEDIUM' ? '🟡'
-    : '⚪'
+  // 3-tier alert system:
+  //   ALERT  (1M–5M)   → normal  ⚪
+  //   MEDIUM (5M–10M)  → médio   🟡
+  //   HIGH   (10M–99M) → forte   🔴
+  //   MEGA   (100M+)   → forte   🔴🔴
+  const isStrong = alert.severity === 'HIGH' || alert.severity === 'MEGA'
+  const isMega   = alert.severity === 'MEGA'
+
+  const headerEmoji = isMega ? '🔴🔴' : isStrong ? '🔴' : alert.severity === 'MEDIUM' ? '🟡' : '⚪'
+  const alertLabel  = isMega ? 'MEGA WHALE ALERT'
+    : isStrong        ? 'WHALE ALERT 🚨'
+    : alert.severity === 'MEDIUM' ? 'WHALE ALERT'
+    : 'WHALE ALERT'
 
   const chainEmoji = CHAIN_EMOJIS[alert.chain]
   const chainLabel = CHAIN_LABELS[alert.chain]
 
   const lines = [
-    `${sevEmoji} DOG WHALE ALERT ${chainEmoji} ${chainLabel} ${sevEmoji}`,
+    `${headerEmoji} DOG ${alertLabel} ${chainEmoji} ${chainLabel}`,
     '',
-    `${alert.total_dog_formatted} DOG (${alert.usd_value}) transferred`,
+    `${alert.total_dog_formatted} DOG (${alert.usd_value}) moved`,
     '',
     `${alert.from_short} → ${alert.to_short}`,
   ]
@@ -322,6 +349,24 @@ function chainTxToAlert(tx: ChainTransaction, dogPrice: number): WhaleAlert {
   const severity = getSeverity(tx.amount)
   const usdValueRaw = tx.amount_usd ?? tx.amount * dogPrice
 
+  // Build senders/receivers from all_transfers when available, else single entry
+  const allTransfers = tx.all_transfers ?? [{ from: tx.from_address, to: tx.to_address, amount: tx.amount }]
+
+  const senders = allTransfers.map(t => ({
+    address: t.from,
+    address_short: shortenAddress(t.from),
+    amount_dog: t.amount,
+    amount_formatted: `${formatDogAmount(t.amount)} DOG`,
+  }))
+
+  const receivers = allTransfers.map(t => ({
+    address: t.to,
+    address_short: shortenAddress(t.to),
+    amount_dog: t.amount,
+    amount_formatted: `${formatDogAmount(t.amount)} DOG`,
+    is_change: false,
+  }))
+
   const alertBase = {
     chain,
     txid: tx.tx_id,
@@ -337,21 +382,10 @@ function chainTxToAlert(tx: ChainTransaction, dogPrice: number): WhaleAlert {
     from_short: shortenAddress(tx.from_address),
     to: tx.to_address,
     to_short: shortenAddress(tx.to_address),
-    senders: [{
-      address: tx.from_address,
-      address_short: shortenAddress(tx.from_address),
-      amount_dog: tx.amount,
-      amount_formatted: `${formatDogAmount(tx.amount)} DOG`,
-    }],
-    receivers: [{
-      address: tx.to_address,
-      address_short: shortenAddress(tx.to_address),
-      amount_dog: tx.amount,
-      amount_formatted: `${formatDogAmount(tx.amount)} DOG`,
-      is_change: false,
-    }],
-    sender_count: 1,
-    receiver_count: 1,
+    senders,
+    receivers,
+    sender_count: senders.length,
+    receiver_count: receivers.length,
     net_transfer: tx.amount,
     net_transfer_formatted: `${formatDogAmount(tx.amount)} DOG`,
     block_height: tx.block_height,
@@ -360,6 +394,11 @@ function chainTxToAlert(tx: ChainTransaction, dogPrice: number): WhaleAlert {
     explorer_url: explorerUrl(chain, tx.tx_id),
     dogdata_url: `https://www.dogdata.xyz/transactions?search=${tx.tx_id}`,
     context: buildMultichainContext(tx, classification),
+    // Enrichment fields
+    ...(tx.protocol && { protocol: tx.protocol }),
+    ...(tx.description && { description: tx.description }),
+    ...(tx.fee != null && { fee: tx.fee, fee_token: tx.fee_token }),
+    ...(allTransfers.length > 1 && { transfer_count: allTransfers.length }),
   }
 
   return { ...alertBase, tweet: buildTweet(alertBase) }

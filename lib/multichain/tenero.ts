@@ -207,6 +207,29 @@ interface TeneroTransfer {
   transfer_type: string
 }
 
+// Normalize Tenero pool platform names to human-readable labels
+function normalizePlatform(platform: string): string {
+  const map: Record<string, string> = {
+    alex: 'ALEX',
+    alexgo: 'ALEX',
+    velar: 'Velar',
+    arkadiko: 'Arkadiko',
+    stackswap: 'StackSwap',
+    bitflow: 'Bitflow',
+    pontis: 'Pontis Bridge',
+  }
+  const key = platform.toLowerCase()
+  return map[key] ?? platform
+}
+
+// Convert snake_case transfer_type to readable label
+function capitalizeTransferType(type: string): string {
+  return type
+    .split('_')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+}
+
 export async function getStacksTransactions(limit = 50): Promise<{
   transactions: ChainTransaction[]
   total_count: number
@@ -232,6 +255,10 @@ export async function getStacksTransactions(limit = 50): Promise<{
 
   // Map trades first (have USD amounts from DEX)
   for (const t of tradesData.rows || []) {
+    const protocol = t.pool_platform && t.pool_platform !== 'unknown'
+      ? normalizePlatform(t.pool_platform)
+      : undefined
+
     txMap.set(t.tx_id, {
       chain: 'stacks',
       tx_id: t.tx_id,
@@ -242,6 +269,7 @@ export async function getStacksTransactions(limit = 50): Promise<{
       amount_usd: t.amount_usd ?? null,
       timestamp: new Date(t.block_time).toISOString(),
       block_height: t.block_height,
+      protocol,
     })
   }
 
@@ -258,6 +286,10 @@ export async function getStacksTransactions(limit = 50): Promise<{
       amount_usd: (t.amount ?? 0) * tokenInfo.price_usd,
       timestamp: new Date(t.block_time).toISOString(),
       block_height: t.block_height,
+      protocol: t.is_trade ? undefined : undefined, // transfers don't have pool info
+      description: t.transfer_type && t.transfer_type !== 'transfer'
+        ? capitalizeTransferType(t.transfer_type)
+        : undefined,
     })
   }
 
