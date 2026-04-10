@@ -5,10 +5,6 @@
   "framework": "nextjs",
   "rewrites": [
     {
-      "source": "/api/cron/:path*",
-      "destination": "/api/cron/:path*"
-    },
-    {
       "source": "/api/:path*",
       "destination": "/api/index.js"
     }
@@ -27,7 +23,7 @@
       "schedule": "0 * * * *"
     },
     {
-      "path": "/api/cron/whale-poster",
+      "path": "/cron/whale-poster",
       "schedule": "*/5 * * * *"
     }
   ]
