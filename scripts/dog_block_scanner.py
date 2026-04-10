@@ -423,12 +423,19 @@ def process_dog_tx(tx, dog_inputs, utxo_set):
     net_transfer = round(total_out - change_amount, DOG_DIVISIBILITY)
 
     # Classify transaction type
+    real_receivers = [r for r in receivers if not r['is_change']]
     tx_type = 'transfer'
     if len(senders) == 0:
         tx_type = 'receive_only'
     elif len(receivers) == 0:
-        tx_type = 'burn'
-    elif len(senders) > 1 and len(receivers) == 1:
+        # receivers=0 means our allocation found nowhere to put the DOG.
+        # This is a tracking gap — NOT a burn. DOG is never burned.
+        # Likely cause: get_first_non_opreturn_output failed or ord decode gave no edicts.
+        tx_type = 'tracking_error'
+    elif len(real_receivers) == 0 and net_transfer == 0:
+        # All DOG went back to sender address(es) — UTXO consolidation / self-transfer
+        tx_type = 'self_transfer'
+    elif len(senders) > 1 and len(real_receivers) == 1:
         tx_type = 'consolidation'
 
     # Calculate fee
@@ -561,7 +568,10 @@ def compute_24h_metrics(transactions):
         }}
 
     tx_count = len(recent)
-    total_dog = sum(tx.get('total_dog_moved', 0) for tx in recent)
+    # Use net_transfer (real DOG that changed hands, excluding change outputs)
+    # Exclude self_transfer and tracking_error from volume metrics
+    volume_txs = [tx for tx in recent if tx.get('type') not in ('self_transfer', 'tracking_error', 'receive_only')]
+    total_dog = sum(tx.get('net_transfer', tx.get('total_dog_moved', 0)) for tx in volume_txs)
     blocks = set(tx.get('block_height', 0) for tx in recent)
     block_count = len(blocks)
     fees_sats = sum(tx.get('fee_sats', 0) for tx in recent)
