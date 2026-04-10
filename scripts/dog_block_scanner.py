@@ -281,9 +281,13 @@ def parse_runestone_dog_edicts(decoded):
 def allocate_dog_outputs(tx, dog_input_total, decoded_runestone):
     """Determine where DOG runes go in the outputs.
 
-    Returns: dict {output_index: amount_raw}
+    Returns:
+        allocation: dict {output_index: amount_raw}
+        remainder_outputs: set of output indices that received unallocated remainder
+                           (these are change regardless of address match)
     """
     edicts = parse_runestone_dog_edicts(decoded_runestone)
+    remainder_outputs = set()
 
     if edicts:
         # Explicit allocation via edicts
@@ -291,13 +295,16 @@ def allocate_dog_outputs(tx, dog_input_total, decoded_runestone):
         allocated = 0
         for output_idx, amount in edicts:
             if amount == 0:
-                # amount=0 means "all remaining"
+                # amount=0 means "all remaining" — this output is explicitly a transfer
                 amount = dog_input_total - allocated
             actual = min(amount, dog_input_total - allocated)
             if actual > 0:
                 allocation[output_idx] = allocation.get(output_idx, 0) + actual
                 allocated += actual
+
         # Unallocated remainder goes to pointer or first non-OP_RETURN output
+        # The remainder output is ALWAYS change — it's the unallocated balance
+        # returning to the sender, regardless of whether the address matches.
         remainder = dog_input_total - allocated
         if remainder > 0:
             pointer = None
@@ -308,19 +315,24 @@ def allocate_dog_outputs(tx, dog_input_total, decoded_runestone):
                 pointer = rs.get('pointer')
             if pointer is not None:
                 allocation[pointer] = allocation.get(pointer, 0) + remainder
+                remainder_outputs.add(pointer)
             else:
                 default_out = get_first_non_opreturn_output(tx)
                 if default_out is not None:
                     allocation[default_out] = allocation.get(default_out, 0) + remainder
-        return allocation
+                    remainder_outputs.add(default_out)
 
-    # No runestone or no DOG edicts: all DOG goes to first non-OP_RETURN output
+        return allocation, remainder_outputs
+
+    # No runestone or no DOG edicts: all DOG goes to first non-OP_RETURN output.
+    # With no edicts, we cannot distinguish change from transfer by runestone alone —
+    # fall back to address matching in process_dog_tx.
     default_out = get_first_non_opreturn_output(tx)
     if default_out is not None:
-        return {default_out: dog_input_total}
+        return {default_out: dog_input_total}, remainder_outputs
 
     # All outputs are OP_RETURN → DOG is burned
-    return {}
+    return {}, remainder_outputs
 
 
 # === Transaction Processing ===
@@ -352,7 +364,7 @@ def process_dog_tx(tx, dog_inputs, utxo_set):
         decoded = ord_decode(txid)
 
     # Allocate DOG to outputs
-    allocation = allocate_dog_outputs(tx, dog_input_total, decoded)
+    allocation, remainder_outputs = allocate_dog_outputs(tx, dog_input_total, decoded)
 
     # Resolve input addresses (senders)
     sender_addresses = {}
@@ -386,7 +398,12 @@ def process_dog_tx(tx, dog_inputs, utxo_set):
 
     for vout_idx, amount in allocation.items():
         addr = get_output_address(tx, vout_idx)
-        is_change = addr in sender_addr_set if addr else False
+
+        # Change detection — two signals, either is sufficient:
+        # 1. Runestone remainder output: unallocated DOG that goes back to sender
+        #    (most reliable — works even with HD wallet change addresses)
+        # 2. Address match: output goes to a known sender address
+        is_change = (vout_idx in remainder_outputs) or (addr in sender_addr_set if addr else False)
 
         receivers.append({
             'address': addr or 'unknown',
