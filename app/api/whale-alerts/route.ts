@@ -283,14 +283,26 @@ async function fetchBitcoinWhales(threshold: number, limit: number, dogPrice: nu
 
   const transactions: BitcoinTransaction[] = txData.transactions
   const whales = transactions
-    .filter(tx => tx.total_dog_moved >= threshold)
-    .sort((a, b) => b.total_dog_moved - a.total_dog_moved)
+    // Use net_transfer (real DOG that changed hands, excluding change outputs)
+    // Fall back to total_dog_moved for old cached data that lacks net_transfer
+    .filter(tx => {
+      const realMoved = (tx.net_transfer != null && tx.net_transfer > 0) ? tx.net_transfer : tx.total_dog_moved
+      return realMoved >= threshold
+    })
+    .sort((a, b) => {
+      const aReal = (a.net_transfer != null && a.net_transfer > 0) ? a.net_transfer : a.total_dog_moved
+      const bReal = (b.net_transfer != null && b.net_transfer > 0) ? b.net_transfer : b.total_dog_moved
+      return bReal - aReal
+    })
     .slice(0, limit)
 
   return whales.map(tx => {
+    // Real amount = net_transfer (excludes change UTXOs back to sender)
+    const realMoved = (tx.net_transfer != null && tx.net_transfer > 0) ? tx.net_transfer : tx.total_dog_moved
+
     const classification = classifyBitcoinTx(tx)
-    const severity = getSeverity(tx.total_dog_moved)
-    const usdValueRaw = tx.total_dog_moved * dogPrice
+    const severity = getSeverity(realMoved)
+    const usdValueRaw = realMoved * dogPrice
 
     const senders = (tx.senders || []).map(s => ({
       address: s.address,
@@ -314,8 +326,8 @@ async function fetchBitcoinWhales(threshold: number, limit: number, dogPrice: nu
       chain: 'bitcoin' as AlertChain,
       txid: tx.txid,
       txid_short: `${tx.txid.slice(0, 8)}...${tx.txid.slice(-6)}`,
-      total_dog_moved: tx.total_dog_moved,
-      total_dog_formatted: `${formatDogAmount(tx.total_dog_moved)}`,
+      total_dog_moved: realMoved,
+      total_dog_formatted: `${formatDogAmount(realMoved)}`,
       usd_value: dogPrice > 0 ? formatUSD(usdValueRaw) : 'N/A',
       usd_value_raw: Math.round(usdValueRaw * 100) / 100,
       type: tx.type,
