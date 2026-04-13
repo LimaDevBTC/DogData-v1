@@ -209,44 +209,46 @@ function buildMultichainContext(tx: ChainTransaction, classification: string): s
 }
 
 function buildTweet(alert: Omit<WhaleAlert, 'tweet'>): string {
-  // 3-tier alert system:
-  //   ALERT  (1M–5M)   → normal  ⚪
-  //   MEDIUM (5M–10M)  → médio   🟡
-  //   HIGH   (10M–99M) → forte   🔴
-  //   MEGA   (100M+)   → forte   🔴🔴
-  const isStrong = alert.severity === 'HIGH' || alert.severity === 'MEGA'
-  const isMega   = alert.severity === 'MEGA'
-
-  const headerEmoji = isMega ? '🔴🔴' : isStrong ? '🔴' : alert.severity === 'MEDIUM' ? '🟡' : '⚪'
-  const alertLabel  = isMega ? 'MEGA WHALE ALERT'
-    : isStrong        ? 'WHALE ALERT 🚨'
-    : alert.severity === 'MEDIUM' ? 'WHALE ALERT'
-    : 'WHALE ALERT'
+  // Severity tiers — emoji conveys excitement, not danger
+  //   ALERT  (1M–5M)   🐾  DOG on the move
+  //   MEDIUM (5M–10M)  💎  significant weight
+  //   HIGH   (10M–99M) 🔥  hot activity
+  //   MEGA   (100M+)   🐋🔥 rare, historic move
+  const headerEmoji = alert.severity === 'MEGA'   ? '🐋🔥'
+    : alert.severity === 'HIGH'   ? '🔥'
+    : alert.severity === 'MEDIUM' ? '💎'
+    : '🐾'
 
   const chainEmoji = CHAIN_EMOJIS[alert.chain]
   const chainLabel = CHAIN_LABELS[alert.chain]
 
+  // Amount line
+  const amountLine = alert.usd_value !== 'N/A'
+    ? `${alert.total_dog_formatted} $DOG (${alert.usd_value})`
+    : `${alert.total_dog_formatted} $DOG`
+
   const lines = [
-    `${headerEmoji} DOG ${alertLabel} ${chainEmoji} ${chainLabel}`,
+    `${headerEmoji} ${amountLine} em movimento — ${chainEmoji} ${chainLabel}`,
     '',
-    `${alert.total_dog_formatted} DOG${alert.usd_value !== 'N/A' ? ` (${alert.usd_value})` : ''} moved`,
-    '',
-    `${alert.from_short} → ${alert.to_short}`,
+    `${alert.from_short} ➜ ${alert.to_short}`,
   ]
 
-  if (alert.classification !== 'Transfer' && alert.classification !== 'Direct Transfer') {
-    lines.push(`Type: ${alert.classification}`)
+  // Classification — only when meaningful
+  if (
+    alert.classification !== 'Transfer' &&
+    alert.classification !== 'Direct Transfer'
+  ) {
+    lines.push(`↳ ${alert.classification}`)
   }
 
   lines.push('')
   if (alert.block_height) {
-    lines.push(`Block ${alert.block_height.toLocaleString()} | ${alert.time_ago}`)
+    lines.push(`⛓ Bloco ${alert.block_height.toLocaleString()} · ${alert.time_ago}`)
   } else {
-    lines.push(alert.time_ago)
+    lines.push(`🕐 ${alert.time_ago}`)
   }
-  lines.push(alert.explorer_url)
   lines.push('')
-  lines.push('Powered by DOG DATA | dogdata.xyz')
+  lines.push(`DOG DATA · ${alert.dogdata_url}`)
 
   return lines.join('\n')
 }
