@@ -229,7 +229,7 @@ function buildTweet(alert: Omit<WhaleAlert, 'tweet'>): string {
   const lines = [
     `${headerEmoji} DOG ${alertLabel} ${chainEmoji} ${chainLabel}`,
     '',
-    `${alert.total_dog_formatted} DOG (${alert.usd_value}) moved`,
+    `${alert.total_dog_formatted} DOG${alert.usd_value !== 'N/A' ? ` (${alert.usd_value})` : ''} moved`,
     '',
     `${alert.from_short} → ${alert.to_short}`,
   ]
@@ -263,7 +263,11 @@ async function getDogPrice(): Promise<number> {
     })
     if (res.ok) {
       const data = await res.json()
-      return parseFloat(data.price || data.last_price || '0')
+      // Kraken route returns { result: { DOGUSD: { c: ["price"] } } }
+      const price = data.result?.DOGUSD?.c?.[0]
+        ?? data.price
+        ?? data.last_price
+      return parseFloat(price || '0')
     }
   } catch {}
   return 0
