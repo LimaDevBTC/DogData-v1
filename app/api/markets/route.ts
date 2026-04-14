@@ -280,7 +280,7 @@ export async function GET() {
           const price = d.price as number
           if (!price || price <= 0) return
           // Remover placeholder (price=0) e adicionar com preço real
-          const existing = tickers.findIndex(t => t.market === dex.market && t.pair === dex.pair)
+          const existing = tickers.findIndex((t: any) => t.market === dex.market && t.pair === dex.pair)
           const ticker = {
             market: dex.market,
             pair: dex.pair,

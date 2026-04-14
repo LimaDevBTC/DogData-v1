@@ -209,11 +209,11 @@ function buildMultichainContext(tx: ChainTransaction, classification: string): s
 }
 
 function buildTweet(alert: Omit<WhaleAlert, 'tweet'>): string {
-  // Severity tiers — emoji conveys excitement, not danger
-  //   ALERT  (1M–5M)   🐾  DOG on the move
-  //   MEDIUM (5M–10M)  💎  significant weight
-  //   HIGH   (10M–99M) 🔥  hot activity
-  //   MEGA   (100M+)   🐋🔥 rare, historic move
+  // Severity tiers
+  //   ALERT  (1M–5M)   🐾
+  //   MEDIUM (5M–10M)  💎
+  //   HIGH   (10M–99M) 🔥
+  //   MEGA   (100M+)   🐋🔥
   const headerEmoji = alert.severity === 'MEGA'   ? '🐋🔥'
     : alert.severity === 'HIGH'   ? '🔥'
     : alert.severity === 'MEDIUM' ? '💎'
@@ -222,18 +222,30 @@ function buildTweet(alert: Omit<WhaleAlert, 'tweet'>): string {
   const chainEmoji = CHAIN_EMOJIS[alert.chain]
   const chainLabel = CHAIN_LABELS[alert.chain]
 
-  // Amount line
   const amountLine = alert.usd_value !== 'N/A'
     ? `${alert.total_dog_formatted} $DOG (${alert.usd_value})`
     : `${alert.total_dog_formatted} $DOG`
 
+  // Context line for high-impact moves
+  const contextLine = alert.severity === 'MEGA'
+    ? `Largest $DOG move tracked today`
+    : alert.severity === 'HIGH'
+    ? `One of the largest moves in the last 24h`
+    : null
+
+  const blockLine = alert.block_height
+    ? `⛓ Block ${alert.block_height.toLocaleString()} · ${alert.time_ago} · DOG DATA`
+    : `🕐 ${alert.time_ago} · DOG DATA`
+
   const lines = [
-    `${headerEmoji} ${amountLine} on the move — ${chainEmoji} ${chainLabel}`,
-    '',
-    `${alert.from_short} ➜ ${alert.to_short}`,
+    `${headerEmoji} ${amountLine} just moved on ${chainEmoji} ${chainLabel}`,
   ]
 
-  // Classification — only when meaningful
+  if (contextLine) lines.push(contextLine)
+
+  lines.push('')
+  lines.push(`${alert.from_short} ➜ ${alert.to_short}`)
+
   if (
     alert.classification !== 'Transfer' &&
     alert.classification !== 'Direct Transfer'
@@ -242,13 +254,10 @@ function buildTweet(alert: Omit<WhaleAlert, 'tweet'>): string {
   }
 
   lines.push('')
-  if (alert.block_height) {
-    lines.push(`⛓ Block ${alert.block_height.toLocaleString()} · ${alert.time_ago}`)
-  } else {
-    lines.push(`🕐 ${alert.time_ago}`)
-  }
+  lines.push(`🔍 Full breakdown — senders, receivers & history:`)
+  lines.push(alert.dogdata_url)
   lines.push('')
-  lines.push(`DOG DATA · ${alert.dogdata_url}`)
+  lines.push(blockLine)
 
   return lines.join('\n')
 }
