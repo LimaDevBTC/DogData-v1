@@ -34,8 +34,8 @@ interface MarketsResponse {
 export default function MarketsPage() {
   const [data, setData] = useState<MarketsResponse | null>(null)
   const [loading, setLoading] = useState(true)
-  const [sortBy, setSortBy] = useState<'volume' | 'spread' | 'price'>('volume')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [sortBy, setSortBy] = useState<'alpha' | 'volume' | 'spread' | 'price'>('alpha')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
 
   const fetchMarkets = async () => {
     try {
@@ -108,19 +108,24 @@ export default function MarketsPage() {
   }
 
   const sortedTickers = data?.tickers ? (() => {
-    // Separar Bitflow das outras exchanges
     const bitflow = data.tickers.find(t => t.market === 'Bitflow')
     const others = data.tickers.filter(t => t.market !== 'Bitflow')
-    
-    // Ordenar apenas as outras exchanges
+
     const sortedOthers = [...others].sort((a, b) => {
       let comparison = 0
       switch (sortBy) {
+        case 'alpha':
+          comparison = a.market.localeCompare(b.market)
+          break
         case 'volume':
           comparison = (a.volumeUsd || 0) - (b.volumeUsd || 0)
           break
         case 'spread':
-          comparison = (a.spread || 999) - (b.spread || 999) // N/A goes to end
+          // entradas sem spread (DEXs) vão para o final
+          if (a.spread == null && b.spread == null) comparison = 0
+          else if (a.spread == null) comparison = 1
+          else if (b.spread == null) comparison = -1
+          else comparison = a.spread - b.spread
           break
         case 'price':
           comparison = (a.price || 0) - (b.price || 0)
@@ -128,7 +133,7 @@ export default function MarketsPage() {
       }
       return sortOrder === 'asc' ? comparison : -comparison
     })
-    
+
     // Bitflow SEMPRE no topo
     return bitflow ? [bitflow, ...sortedOthers] : sortedOthers
   })() : []
@@ -257,6 +262,7 @@ export default function MarketsPage() {
                       onChange={(e) => setSortBy(e.target.value as any)}
                       className="bg-white/[0.03] border border-white/[0.06] rounded-lg focus:border-lava/30 text-snow px-3 py-2 font-mono text-sm focus:outline-none focus:border-lava transition-colors"
                     >
+                      <option value="alpha">A → Z</option>
                       <option value="volume">Volume</option>
                       <option value="spread">Spread</option>
                       <option value="price">Price</option>
@@ -326,8 +332,8 @@ export default function MarketsPage() {
                             </div>
                           </td>
                           <td className="py-3 px-4 text-right">
-                            <span className={`font-mono text-sm ${ticker.spread && ticker.spread < 0.3 ? 'text-green-400' : ticker.spread && ticker.spread < 0.6 ? 'text-yellow-400' : 'text-red-400'}`}>
-                              {ticker.spread != null ? ticker.spread.toFixed(2) + '%' : 'N/A'}
+                            <span className={`font-mono text-sm ${ticker.spread == null ? 'text-dusty/50' : ticker.spread < 0.3 ? 'text-green-400' : ticker.spread < 0.6 ? 'text-yellow-400' : 'text-red-400'}`}>
+                              {ticker.spread != null ? ticker.spread.toFixed(2) + '%' : '—'}
                             </span>
                           </td>
                         </tr>
@@ -371,8 +377,8 @@ export default function MarketsPage() {
                           </div>
                           <div>
                             <div className="text-xs text-dusty/70 font-mono mb-1">Spread</div>
-                            <div className={`font-mono text-sm ${ticker.spread && ticker.spread < 0.3 ? 'text-green-400' : ticker.spread && ticker.spread < 0.6 ? 'text-yellow-400' : 'text-red-400'}`}>
-                              {ticker.spread != null ? ticker.spread.toFixed(2) + '%' : 'N/A'}
+                            <div className={`font-mono text-sm ${ticker.spread == null ? 'text-dusty/50' : ticker.spread < 0.3 ? 'text-green-400' : ticker.spread < 0.6 ? 'text-yellow-400' : 'text-red-400'}`}>
+                              {ticker.spread != null ? ticker.spread.toFixed(2) + '%' : '—'}
                             </div>
                           </div>
                           <div className="flex items-end">

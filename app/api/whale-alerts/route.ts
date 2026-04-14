@@ -228,7 +228,7 @@ function buildTweet(alert: Omit<WhaleAlert, 'tweet'>): string {
     : `${alert.total_dog_formatted} $DOG`
 
   const lines = [
-    `${headerEmoji} ${amountLine} em movimento — ${chainEmoji} ${chainLabel}`,
+    `${headerEmoji} ${amountLine} on the move — ${chainEmoji} ${chainLabel}`,
     '',
     `${alert.from_short} ➜ ${alert.to_short}`,
   ]
@@ -243,7 +243,7 @@ function buildTweet(alert: Omit<WhaleAlert, 'tweet'>): string {
 
   lines.push('')
   if (alert.block_height) {
-    lines.push(`⛓ Bloco ${alert.block_height.toLocaleString()} · ${alert.time_ago}`)
+    lines.push(`⛓ Block ${alert.block_height.toLocaleString()} · ${alert.time_ago}`)
   } else {
     lines.push(`🕐 ${alert.time_ago}`)
   }
