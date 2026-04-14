@@ -34,8 +34,8 @@ interface MarketsResponse {
 export default function MarketsPage() {
   const [data, setData] = useState<MarketsResponse | null>(null)
   const [loading, setLoading] = useState(true)
-  const [sortBy, setSortBy] = useState<'alpha' | 'volume' | 'spread' | 'price'>('alpha')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [sortBy, setSortBy] = useState<'alpha' | 'volume' | 'spread' | 'price'>('volume')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
   const fetchMarkets = async () => {
     try {
@@ -260,7 +260,7 @@ export default function MarketsPage() {
                     <select
                       value={sortBy}
                       onChange={(e) => setSortBy(e.target.value as any)}
-                      className="bg-white/[0.03] border border-white/[0.06] rounded-lg focus:border-lava/30 text-snow px-3 py-2 font-mono text-sm focus:outline-none focus:border-lava transition-colors"
+                      className="bg-[#0d0d0d] border border-white/[0.06] rounded-lg focus:border-lava/30 text-snow px-3 py-2 font-mono text-sm focus:outline-none focus:border-lava transition-colors appearance-none"
                     >
                       <option value="alpha">A → Z</option>
                       <option value="volume">Volume</option>
