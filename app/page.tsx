@@ -623,9 +623,6 @@ export default function OverviewPage() {
           </Card>
         </div>
 
-        <SectionDivider title="Cross-Chain DOG" icon={Globe} />
-        <MultiChainStats />
-
         <SectionDivider title="Multi-Exchange Prices" icon={TrendingUp} />
         <PriceCards />
 
