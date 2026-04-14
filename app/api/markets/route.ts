@@ -29,32 +29,13 @@ interface MarketData {
 // ─── Solana DEX trade URLs ────────────────────────────────────────
 const DOG_MINT = 'dog1viwbb2vWDpER5FrJ4YFG6gq6XuyFohUe9TXN65u'
 
-const SOLANA_DEXS = [
-  {
-    market: 'Jupiter',
-    pair: 'DOG/SOL',
-    route: '/api/price/jupiter',
-    tradeUrl: `https://jup.ag/swap/SOL-${DOG_MINT}`,
-  },
-  {
-    market: 'Meteora',
-    pair: 'DOG/SOL',
-    route: '/api/price/meteora',
-    tradeUrl: 'https://app.meteora.ag/',
-  },
-  {
-    market: 'Orca',
-    pair: 'DOG/SOL',
-    route: '/api/price/orca',
-    tradeUrl: `https://www.orca.so/?inputMint=So11111111111111111111111111111111111111112&outputMint=${DOG_MINT}`,
-  },
-  {
-    market: 'Raydium',
-    pair: 'DOG/SOL',
-    route: '/api/price/raydium',
-    tradeUrl: `https://raydium.io/swap/?inputMint=sol&outputMint=${DOG_MINT}`,
-  },
-]
+// DexScreener dexId → market config
+const SOLANA_DEX_CONFIG: Record<string, { market: string; tradeUrl: string }> = {
+  jupiter:  { market: 'Jupiter',  tradeUrl: `https://jup.ag/swap/SOL-${DOG_MINT}` },
+  meteora:  { market: 'Meteora',  tradeUrl: 'https://app.meteora.ag/' },
+  orca:     { market: 'Orca',     tradeUrl: `https://www.orca.so/?inputMint=So11111111111111111111111111111111111111112&outputMint=${DOG_MINT}` },
+  raydium:  { market: 'Raydium',  tradeUrl: `https://raydium.io/swap/?inputMint=sol&outputMint=${DOG_MINT}` },
+}
 
 // Cache persistente - NUNCA expira, só atualiza quando consegue dados novos
 let cachedData: {
@@ -72,11 +53,7 @@ let cachedData: {
   tickers: [
     // Bitflow DEX (sempre no topo)
     { market: 'Bitflow', pair: 'DOG/sBTC', price: 0.00176, volumeUsd: 50, volume: 28000, spread: 0.50, trustScore: 'green', tradeUrl: 'https://btflw.link/brl' },
-    // Solana DEXs (placeholders — substituídos na primeira busca real)
-    { market: 'Jupiter',  pair: 'DOG/SOL', price: 0, volumeUsd: 0, volume: 0, spread: null, trustScore: 'green', tradeUrl: `https://jup.ag/swap/SOL-${DOG_MINT}` },
-    { market: 'Meteora',  pair: 'DOG/SOL', price: 0, volumeUsd: 0, volume: 0, spread: null, trustScore: 'green', tradeUrl: 'https://app.meteora.ag/' },
-    { market: 'Orca',     pair: 'DOG/SOL', price: 0, volumeUsd: 0, volume: 0, spread: null, trustScore: 'green', tradeUrl: `https://www.orca.so/?inputMint=So11111111111111111111111111111111111111112&outputMint=${DOG_MINT}` },
-    { market: 'Raydium',  pair: 'DOG/SOL', price: 0, volumeUsd: 0, volume: 0, spread: null, trustScore: 'green', tradeUrl: `https://raydium.io/swap/?inputMint=sol&outputMint=${DOG_MINT}` },
+    // Solana DEXs — preenchidos dinamicamente pelo DexScreener na primeira busca real
     // CEX — green trust score
     { market: 'BingX',    pair: 'DOG/USDT', price: 0.00163, volumeUsd: 76000,  volume: 46000000,  spread: 0.06, trustScore: 'green',  tradeUrl: 'https://bingx.com/en-us/spot/DOGUSDT' },
     { market: 'BitKan',   pair: 'DOG/USDT', price: 0.00158, volumeUsd: 43000,  volume: 27000000,  spread: 0.28, trustScore: 'green',  tradeUrl: 'https://www.bitkan.com/trade/dog-usdt' },
@@ -264,41 +241,55 @@ export async function GET() {
       console.warn('⚠️ Failed to fetch Bitflow for markets, using cache value')
     }
 
-    // Buscar as 4 Solana DEXs em paralelo via routes internas
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL
-      || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+    // Buscar as 4 Solana DEXs via DexScreener — retorna preço + volume por DEX num único request
+    try {
+      const dsRes = await fetch(
+        `https://api.dexscreener.com/latest/dex/tokens/${DOG_MINT}`,
+        { cache: 'no-store', signal: AbortSignal.timeout(API_TIMEOUT) }
+      )
+      if (dsRes.ok) {
+        const dsJson = await dsRes.json()
+        const pairs: any[] = dsJson.pairs ?? []
 
-    await Promise.allSettled(
-      SOLANA_DEXS.map(async (dex) => {
-        try {
-          const res = await fetch(`${baseUrl}${dex.route}`, {
-            cache: 'no-store',
-            signal: AbortSignal.timeout(API_TIMEOUT),
-          })
-          if (!res.ok) return
-          const d = await res.json()
-          const price = d.price as number
-          if (!price || price <= 0) return
-          // Remover placeholder (price=0) e adicionar com preço real
-          const existing = tickers.findIndex((t: any) => t.market === dex.market && t.pair === dex.pair)
+        // Agregar volume e pegar melhor preço por dexId
+        const dexAgg: Record<string, { volumeUsd: number; price: number }> = {}
+        for (const pair of pairs) {
+          const dexId = (pair.dexId as string)?.toLowerCase()
+          if (!SOLANA_DEX_CONFIG[dexId]) continue
+          const vol = pair.volume?.h24 ?? 0
+          const price = parseFloat(pair.priceUsd ?? '0')
+          if (!dexAgg[dexId]) {
+            dexAgg[dexId] = { volumeUsd: 0, price: 0 }
+          }
+          dexAgg[dexId].volumeUsd += vol
+          // Manter o preço do par com maior volume
+          if (vol > (dexAgg[dexId].price === 0 ? -1 : 0)) {
+            dexAgg[dexId].price = price
+          }
+        }
+
+        for (const [dexId, agg] of Object.entries(dexAgg)) {
+          const cfg = SOLANA_DEX_CONFIG[dexId]
+          if (!agg.price || agg.price <= 0) continue
           const ticker = {
-            market: dex.market,
-            pair: dex.pair,
-            price,
-            volumeUsd: 0,
+            market: cfg.market,
+            pair: 'DOG/SOL',
+            price: agg.price,
+            volumeUsd: Math.round(agg.volumeUsd),
             volume: 0,
             spread: null,
             trustScore: 'green',
-            tradeUrl: dex.tradeUrl,
+            tradeUrl: cfg.tradeUrl,
           }
+          const existing = tickers.findIndex((t: any) => t.market === cfg.market)
           if (existing >= 0) tickers[existing] = ticker
           else tickers.push(ticker)
-          console.log(`✅ ${dex.market} price added to markets: $${price.toFixed(8)}`)
-        } catch {
-          console.warn(`⚠️ Failed to fetch ${dex.market} price for markets`)
+          console.log(`✅ ${cfg.market} via DexScreener: $${agg.price.toFixed(8)}, vol $${agg.volumeUsd.toFixed(0)}`)
         }
-      })
-    )
+      }
+    } catch (error) {
+      console.warn('⚠️ DexScreener fetch failed for Solana DEXs:', error)
+    }
 
     console.log('📊 Markets data updated:', {
       exchanges: tickers.length,
