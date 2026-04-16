@@ -297,12 +297,20 @@ async function fetchBitcoinWhales(threshold: number, limit: number, dogPrice: nu
   if (!txData?.transactions) return []
 
   const transactions: BitcoinTransaction[] = txData.transactions
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000 // 24h ago
+
   const whales = transactions
     // Use net_transfer (real DOG that changed hands, excluding change outputs)
     // Fall back to total_dog_moved for old cached data that lacks net_transfer
     .filter(tx => {
       const realMoved = (tx.net_transfer != null && tx.net_transfer > 0) ? tx.net_transfer : tx.total_dog_moved
-      return realMoved >= threshold
+      if (realMoved < threshold) return false
+      // Rejeitar txs mais antigas que 24h
+      const ts = tx.timestamp
+      const txTime = typeof ts === 'number'
+        ? (ts < 1e12 ? ts * 1000 : ts)
+        : new Date(ts).getTime()
+      return txTime >= cutoff
     })
     .sort((a, b) => {
       const aReal = (a.net_transfer != null && a.net_transfer > 0) ? a.net_transfer : a.total_dog_moved
@@ -433,9 +441,14 @@ function chainTxToAlert(tx: ChainTransaction, dogPrice: number): WhaleAlert {
 
 async function fetchStacksWhales(threshold: number, limit: number, dogPrice: number): Promise<WhaleAlert[]> {
   try {
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000
     const { transactions } = await getStacksTransactionsResilient(100)
     return transactions
-      .filter(tx => tx.amount >= threshold)
+      .filter(tx => {
+        if (tx.amount < threshold) return false
+        const txTime = new Date(tx.timestamp).getTime()
+        return txTime >= cutoff
+      })
       .sort((a, b) => b.amount - a.amount)
       .slice(0, limit)
       .map(tx => chainTxToAlert(tx, dogPrice))
@@ -447,9 +460,14 @@ async function fetchStacksWhales(threshold: number, limit: number, dogPrice: num
 
 async function fetchSolanaWhales(threshold: number, limit: number, dogPrice: number): Promise<WhaleAlert[]> {
   try {
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000
     const { transactions } = await getSolanaTransactions(100)
     return transactions
-      .filter(tx => tx.amount >= threshold)
+      .filter(tx => {
+        if (tx.amount < threshold) return false
+        const txTime = new Date(tx.timestamp).getTime()
+        return txTime >= cutoff
+      })
       .sort((a, b) => b.amount - a.amount)
       .slice(0, limit)
       .map(tx => chainTxToAlert(tx, dogPrice))
