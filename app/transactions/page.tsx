@@ -1207,16 +1207,15 @@ export default function TransactionsPage() {
   }, [searchTxid, transactions])
 
   // Auto-busca quando a página é aberta com ?txid= na URL
+  // Aguarda o loading terminar para garantir que o cache local já foi hidratado
   useEffect(() => {
     const txidParam = searchParams.get("txid")
-    if (txidParam) {
-      searchTransaction(txidParam)
-      // Scroll suave até a seção de busca
-      setTimeout(() => {
-        document.getElementById("tx-search")?.scrollIntoView({ behavior: "smooth", block: "center" })
-      }, 500)
-    }
-  }, [searchParams]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!txidParam || loading) return
+    searchTransaction(txidParam)
+    setTimeout(() => {
+      document.getElementById("tx-search")?.scrollIntoView({ behavior: "smooth", block: "center" })
+    }, 300)
+  }, [searchParams, loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCopyAddress = async (address?: string) => {
     if (!address) return
