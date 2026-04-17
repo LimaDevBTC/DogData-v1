@@ -370,7 +370,7 @@ async function fetchBitcoinWhales(threshold: number, limit: number, dogPrice: nu
       timestamp: tx.timestamp,
       time_ago: timeAgo(tx.timestamp),
       explorer_url: explorerUrl('bitcoin', tx.txid),
-      dogdata_url: `https://www.dogdata.xyz/transactions?search=${tx.txid}`,
+      dogdata_url: `https://www.dogdata.xyz/transactions?txid=${tx.txid}`,
       context: buildBitcoinContext(tx, classification),
     }
 
@@ -427,7 +427,7 @@ function chainTxToAlert(tx: ChainTransaction, dogPrice: number): WhaleAlert {
     timestamp: tx.timestamp,
     time_ago: timeAgo(tx.timestamp),
     explorer_url: explorerUrl(chain, tx.tx_id),
-    dogdata_url: `https://www.dogdata.xyz/transactions?search=${tx.tx_id}`,
+    dogdata_url: `https://www.dogdata.xyz/transactions?txid=${tx.tx_id}`,
     context: buildMultichainContext(tx, classification),
     // Enrichment fields
     ...(tx.protocol && { protocol: tx.protocol }),

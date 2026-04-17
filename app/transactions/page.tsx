@@ -1197,14 +1197,12 @@ export default function TransactionsPage() {
         setSearchResult(txData)
       } else if (response.status === 404) {
         setSearchResult(null)
-        alert('❌ Transação não encontrada nem no cache nem na blockchain')
       } else {
         throw new Error(`API error: ${response.status}`)
       }
     } catch (error) {
       console.error('❌ Erro ao buscar transação:', error)
       setSearchResult(null)
-      alert('❌ Erro ao buscar transação. A API pode estar lenta, tente novamente.')
     }
   }, [searchTxid, transactions])
 
