@@ -300,11 +300,16 @@ async function fetchBitcoinWhales(threshold: number, limit: number, dogPrice: nu
   const cutoff = Date.now() - 24 * 60 * 60 * 1000 // 24h ago
 
   const whales = transactions
-    // Use net_transfer (real DOG that changed hands, excluding change outputs)
-    // Fall back to total_dog_moved for old cached data that lacks net_transfer
     .filter(tx => {
-      const realMoved = (tx.net_transfer != null && tx.net_transfer > 0) ? tx.net_transfer : tx.total_dog_moved
+      // net_transfer = DOG that genuinely changed hands (excludes self-sends and change UTXOs)
+      // Only fall back to total_dog_moved when net_transfer is absent (old cache data)
+      const hasNetTransfer = tx.net_transfer != null
+      const realMoved = hasNetTransfer ? tx.net_transfer : tx.total_dog_moved
+
+      // Reject self-transfers: net_transfer present but zero or negative means no real movement
+      if (hasNetTransfer && tx.net_transfer <= 0) return false
       if (realMoved < threshold) return false
+
       // Rejeitar txs mais antigas que 24h
       const ts = tx.timestamp
       const txTime = typeof ts === 'number'
