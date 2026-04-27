@@ -40,7 +40,7 @@ import {
 // ---------------------------------------------------------------------------
 
 const MEMORY_TTL = 5 * 60 * 1000     // 5 min
-const REDIS_TTL_SEC = 60 * 60         // 1 h — stale-while-revalidate window
+const REDIS_TTL_SEC = 15 * 60         // 15 min — stale-while-revalidate window
 const REDIS_PREFIX = 'stacks:'
 
 // ---------------------------------------------------------------------------

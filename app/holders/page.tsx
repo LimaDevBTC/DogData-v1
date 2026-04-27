@@ -354,6 +354,22 @@ export default function HoldersPage() {
     }
   }
 
+  const fetchMultichainStats = async () => {
+    try {
+      const response = await fetch('/api/multichain/stats', { cache: 'no-store' })
+      if (!response.ok) return
+      const data = await response.json()
+      if (data?.chains) {
+        const solana = data.chains.find((c: any) => c.chain === 'solana')
+        const stacks = data.chains.find((c: any) => c.chain === 'stacks')
+        if (solana?.holder_count > 0) setSolanaHolders(solana.holder_count)
+        if (stacks?.holder_count > 0) setStacksHolders(stacks.holder_count)
+      }
+    } catch (err) {
+      console.warn('Error fetching multichain holders:', err)
+    }
+  }
+
   // SSE Connection
   useEffect(() => {
     const eventSource = new EventSource('/api/events')
@@ -368,11 +384,12 @@ export default function HoldersPage() {
       try {
         const message = JSON.parse(event.data)
         console.log('📨 SSE message received:', message)
-        
+
         if (message.type === 'data_updated') {
           console.log('🔄 Data updated via SSE, reloading...')
           setLastUpdate(new Date().toISOString())
           loadData() // Recarrega os dados automaticamente
+          fetchMultichainStats() // Atualiza holders de Solana e Stacks
         }
       } catch (err) {
         console.error('❌ Error processing SSE message:', err)
@@ -393,19 +410,11 @@ export default function HoldersPage() {
   useEffect(() => {
     loadData()
     loadAirdropRecipients()
+    fetchMultichainStats()
 
-    // Fetch cross-chain holder counts from multichain API
-    fetch('/api/multichain/stats')
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data?.chains) {
-          const solana = data.chains.find((c: any) => c.chain === 'solana')
-          const stacks = data.chains.find((c: any) => c.chain === 'stacks')
-          if (solana?.holder_count) setSolanaHolders(solana.holder_count)
-          if (stacks?.holder_count) setStacksHolders(stacks.holder_count)
-        }
-      })
-      .catch(err => console.warn('Error fetching multichain holders:', err))
+    // Refresh multichain stats every 5 minutes
+    const interval = setInterval(fetchMultichainStats, 5 * 60 * 1000)
+    return () => clearInterval(interval)
   }, [currentPage])
 
   // Carregar todos os holders para o gráfico de distribuição
@@ -1238,7 +1247,14 @@ export default function HoldersPage() {
                             toggleHolderExpansion(holder.address)
                           }}
                         >
-                          {holder.address}
+                          <a
+                            href={`/address/bitcoin/${holder.address}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="hover:text-orange-400 transition-colors"
+                            title="View on DogData Explorer"
+                          >
+                            {holder.address}
+                          </a>
                         </code>
                         <AddressBadge address={holder.address} size="sm" showName={false} />
                         <Button

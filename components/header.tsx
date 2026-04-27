@@ -13,7 +13,8 @@ import {
   Menu,
   X,
   TrendingUp,
-  Globe
+  Globe,
+  Search
 } from "lucide-react"
 
 type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain'
@@ -133,6 +134,14 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
                 </button>
               )
             })}
+            {/* Explorer — external route */}
+            <a
+              href="/explorer"
+              className="relative flex items-center justify-center px-3 py-1.5 text-[11px] font-mono font-medium tracking-wide transition-all duration-300 flex-shrink-0 rounded-lg group text-[#6B6B78] hover:text-snow/90"
+            >
+              <Search className="relative w-3.5 h-3.5 mr-1.5 flex-shrink-0 text-[#4A4A52] group-hover:text-[#6B6B78] transition-colors duration-300" />
+              <span className="relative whitespace-nowrap">Explorer</span>
+            </a>
           </nav>
 
           {/* Right side */}
@@ -206,6 +215,13 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
                 </button>
               )
             })}
+            <a
+              href="/explorer"
+              className="w-full flex items-center gap-3 px-3 py-2.5 font-mono text-sm tracking-wide transition-all duration-200 rounded-lg text-[#6B6B78] hover:text-snow hover:bg-white/[0.03]"
+            >
+              <Search className="w-4 h-4 flex-shrink-0" />
+              Explorer
+            </a>
             <button
               onClick={() => handleNavClick('donate')}
               className={`w-full flex items-center gap-3 px-3 py-2.5 font-mono text-sm tracking-wide transition-all duration-200 rounded-lg ${

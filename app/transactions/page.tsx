@@ -1251,7 +1251,11 @@ export default function TransactionsPage() {
   const renderTransactionDetails = (tx: Transaction) => (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <code className="text-snow text-xs break-all">{tx.txid}</code>
+        <code className="text-snow text-xs break-all">
+          <a href={`/tx/bitcoin/${tx.txid}`} className="hover:text-orange-400 transition-colors" title="View on DogData Explorer">
+            {tx.txid}
+          </a>
+        </code>
         <div className="flex items-center gap-2">
           <Button
             size="sm"
@@ -1310,7 +1314,9 @@ export default function TransactionsPage() {
           {tx.senders.slice(0, 5).map((sender, idx) => (
             <div key={`${sender.address}-${idx}`} className="flex items-center gap-1.5">
               <code className="text-xs text-cyan-400 break-all">
-                {sender.address}
+                <a href={`/address/bitcoin/${sender.address}`} className="hover:text-orange-400 transition-colors" title="View on DogData Explorer">
+                  {sender.address}
+                </a>
               </code>
               <Button
                 size="sm"
@@ -1348,7 +1354,11 @@ export default function TransactionsPage() {
         <div className="space-y-1.5">
           {tx.receivers.map((receiver, idx) => (
             <div key={`${receiver.address}-${idx}`} className="flex items-center gap-1.5">
-              <code className="text-xs text-green-400 break-all">{receiver.address}</code>
+              <code className="text-xs text-green-400 break-all">
+                <a href={`/address/bitcoin/${receiver.address}`} className="hover:text-orange-400 transition-colors" title="View on DogData Explorer">
+                  {receiver.address}
+                </a>
+              </code>
               <Button
                 size="sm"
                 variant="ghost"
