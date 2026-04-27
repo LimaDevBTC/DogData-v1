@@ -110,12 +110,11 @@ function classifyTx(
   return 'normal'
 }
 
-// ─── Block file reader ────────────────────────────────────────────────────────
+// ─── Block file readers ───────────────────────────────────────────────────────
 
 async function readTxFromBlockFile(txid: string, blockHeight: number): Promise<any | null> {
   const padded = String(blockHeight).padStart(7, '0')
   const filePath = path.join(process.cwd(), 'data', 'dog_transactions', `block_${padded}.json`)
-
   try {
     const raw = await fs.readFile(filePath, 'utf-8')
     const block = JSON.parse(raw)
@@ -123,6 +122,40 @@ async function readTxFromBlockFile(txid: string, blockHeight: number): Promise<a
   } catch {
     return null
   }
+}
+
+// Full file scan fallback — used when Redis txid index hasn't been built
+async function scanBlockFilesForTx(txid: string): Promise<any | null> {
+  const TX_DIR = path.join(process.cwd(), 'data', 'dog_transactions')
+  let files: string[]
+  try {
+    files = await fs.readdir(TX_DIR)
+  } catch {
+    return null
+  }
+
+  const blockFiles = files
+    .filter(f => f.startsWith('block_') && f.endsWith('.json'))
+    .sort()
+
+  const BATCH = 80
+  for (let i = 0; i < blockFiles.length; i += BATCH) {
+    const batch = blockFiles.slice(i, i + BATCH)
+    const results = await Promise.all(
+      batch.map(async f => {
+        try {
+          const raw = await fs.readFile(path.join(TX_DIR, f), 'utf-8')
+          const block = JSON.parse(raw)
+          return (block.transactions || []).find((t: any) => t.txid === txid) || null
+        } catch {
+          return null
+        }
+      })
+    )
+    const found = results.find(r => r !== null)
+    if (found) return found
+  }
+  return null
 }
 
 // ─── Handler ─────────────────────────────────────────────────────────────────
@@ -152,7 +185,7 @@ export async function GET(
       rawTx = await readTxFromBlockFile(txid, blockHeight)
     }
 
-    // 2. Fallback: scan Redis dog:transactions cache
+    // 2. Fallback: Redis dog:transactions cache (500 recent txs)
     if (!rawTx) {
       const cachedRaw = await redisClient.get<string>('dog:transactions')
       if (cachedRaw) {
@@ -162,6 +195,11 @@ export async function GET(
           rawTx = cached.transactions.find((t: any) => t.txid === txid) || null
         }
       }
+    }
+
+    // 3. Fallback: full scan of local block files (dev only — when Redis index not built)
+    if (!rawTx) {
+      rawTx = await scanBlockFilesForTx(txid)
     }
 
     if (!rawTx) {

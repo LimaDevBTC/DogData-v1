@@ -49,6 +49,7 @@ interface TxEntry {
   direction: 'in' | 'out' | 'self'; amount_dog: number
   counterparty: string | null; counterparties: string[]
   total_dog_moved: number; fee_sats: number
+  synthetic?: boolean; synthetic_label?: string
 }
 
 interface AddressData {
@@ -69,7 +70,7 @@ interface AddressData {
     first_tx_block: number | null; last_tx_block: number | null
     largest_single_receive: number; largest_single_send: number
   }
-  metadata: { indexed_blocks: number; last_updated: string; total_holders: number }
+  metadata: { indexed_blocks: number; last_updated: string; total_holders: number; block_range?: { from: number; to: number } }
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -200,6 +201,27 @@ function TxRow({ tx }: { tx: TxEntry }) {
     : tx.direction === 'out'
       ? 'text-red-400'
       : 'text-dusty'
+
+  if (tx.synthetic) {
+    return (
+      <tr className="border-b border-white/[0.03] bg-lava/[0.02]">
+        <td className="py-2.5 pl-4 pr-2 w-8">
+          <div className="flex items-center justify-center">
+            <ArrowDownLeft className="w-3.5 h-3.5 text-green-400/60" />
+          </div>
+        </td>
+        <td className={`py-2.5 px-2 font-mono text-xs font-semibold text-green-400/70 whitespace-nowrap`}>
+          {fmt(tx.amount_dog)} DOG
+        </td>
+        <td className="py-2.5 px-2 font-mono text-xs text-dusty/40 italic" colSpan={3}>
+          {tx.synthetic_label || 'DOG Airdrop'}
+        </td>
+        <td className="py-2.5 pl-2 pr-4 font-mono text-xs text-dusty/20 italic">
+          est. block ~840,000
+        </td>
+      </tr>
+    )
+  }
 
   return (
     <tr className="border-b border-white/[0.03] hover:bg-lava/[0.02] transition-colors duration-150 group">
@@ -475,6 +497,17 @@ export default function AddressPage() {
                     )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Coverage notice */}
+              <div className="mt-3 pt-3 border-t border-white/[0.03] flex items-start gap-2 text-xs font-mono text-dusty/30">
+                <Clock className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                <span>
+                  Indexed range: blocks{' '}
+                  {(data.metadata.block_range?.from ?? 941111).toLocaleString()}–
+                  {(data.metadata.block_range?.to ?? 946936).toLocaleString()}.
+                  Earlier activity (incl. the DOG airdrop at ~block 840,000) appears as an estimate where available.
+                </span>
               </div>
 
               {/* Pagination */}
