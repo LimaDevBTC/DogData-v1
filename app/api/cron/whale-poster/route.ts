@@ -24,7 +24,7 @@ export const maxDuration = 30
 
 // Minimum severity to post. 'ALERT' = all (1M+), 'MEDIUM' = 5M+, 'HIGH' = 10M+, 'MEGA' = 100M+
 const MIN_SEVERITY: Record<string, number> = { ALERT: 0, MEDIUM: 1, HIGH: 2, MEGA: 3 }
-const SEVERITY_THRESHOLD = 'ALERT' // posts all alerts above 1M DOG
+const SEVERITY_THRESHOLD = 'HIGH' // posts HIGH (10M+) and MEGA (100M+) only
 
 // Max tweets per cron run (X Free tier = 1,500/month; 5-min cron = ~8,640 runs/month)
 const MAX_TWEETS_PER_RUN = 3
@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL
       || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
 
-    const alertsRes = await fetch(`${baseUrl}/api/whale-alerts?threshold=1000000&limit=20&format=full`, {
+    const alertsRes = await fetch(`${baseUrl}/api/whale-alerts?threshold=10000000&limit=20&format=full`, {
       cache: 'no-store',
       signal: AbortSignal.timeout(15_000),
     })
