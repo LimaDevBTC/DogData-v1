@@ -202,7 +202,7 @@ export default function TxPage() {
   // ── Error ──────────────────────────────────────────────────────────────────
   if (error || !data) {
     return (
-      <Layout currentPage="overview" setCurrentPage={() => {}}>
+      <Layout currentPage="explorer" setCurrentPage={() => {}}>
         <div className="pt-4 pb-12 px-3 md:px-6 max-w-3xl mx-auto space-y-6 animate-fade-in">
           <Breadcrumb txid={txid} />
           <Card variant="glass" className="border-red-500/10">
@@ -235,7 +235,7 @@ export default function TxPage() {
   const classBadge = CLASS_BADGE[data.classification] || CLASS_BADGE.normal
 
   return (
-    <Layout currentPage="overview" setCurrentPage={() => {}}>
+    <Layout currentPage="explorer" setCurrentPage={() => {}}>
       <div className="pt-4 pb-12 px-3 md:px-6 space-y-6 max-w-5xl mx-auto animate-fade-in">
 
         <Breadcrumb txid={txid} />

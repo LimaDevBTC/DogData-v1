@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { BarChart3, CreditCard, Users, Zap, LayoutGrid, X, Sparkles, Network, Heart, TrendingUp, Globe } from "lucide-react"
 
-type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain'
+type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain' | 'explorer'
 
 const primaryNav = [
   { name: 'Overview', page: 'overview' as PageType, icon: BarChart3 },

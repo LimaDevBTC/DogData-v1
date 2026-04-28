@@ -305,7 +305,7 @@ export default function AddressPage() {
   // ── Not a DOG holder ───────────────────────────────────────────────────────
   if (!error && data?.status === 'not_a_dog_holder') {
     return (
-      <Layout currentPage="overview" setCurrentPage={() => {}}>
+      <Layout currentPage="explorer" setCurrentPage={() => {}}>
         <div className="pt-4 pb-12 px-3 md:px-6 max-w-3xl mx-auto space-y-6 animate-fade-in">
           <Breadcrumb address={address} />
           <AddressHeader address={address} mempoolLink={mempoolLink} labels={[]} />
@@ -326,7 +326,7 @@ export default function AddressPage() {
   // ── Error ──────────────────────────────────────────────────────────────────
   if (error || !data) {
     return (
-      <Layout currentPage="overview" setCurrentPage={() => {}}>
+      <Layout currentPage="explorer" setCurrentPage={() => {}}>
         <div className="pt-4 pb-12 px-3 md:px-6 max-w-3xl mx-auto space-y-6 animate-fade-in">
           <Breadcrumb address={address} />
           <Card variant="glass" className="border-red-500/10">
@@ -346,7 +346,7 @@ export default function AddressPage() {
 
   // ── Main render ────────────────────────────────────────────────────────────
   return (
-    <Layout currentPage="overview" setCurrentPage={() => {}}>
+    <Layout currentPage="explorer" setCurrentPage={() => {}}>
       <div className="pt-4 pb-12 px-3 md:px-6 space-y-6 max-w-6xl mx-auto animate-fade-in">
 
         <Breadcrumb address={address} />

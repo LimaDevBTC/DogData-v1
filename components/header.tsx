@@ -17,7 +17,7 @@ import {
   Search
 } from "lucide-react"
 
-type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain'
+type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain' | 'explorer'
 
 const navigation = [
   { name: 'Overview', page: 'overview' as PageType, icon: BarChart3 },
@@ -137,9 +137,15 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
             {/* Explorer — external route */}
             <a
               href="/explorer"
-              className="relative flex items-center justify-center px-3 py-1.5 text-[11px] font-mono font-medium tracking-wide transition-all duration-300 flex-shrink-0 rounded-lg group text-[#6B6B78] hover:text-snow/90"
+              className={`relative flex items-center justify-center px-3 py-1.5 text-[11px] font-mono font-medium tracking-wide transition-all duration-300 flex-shrink-0 rounded-lg group ${
+                currentPage === 'explorer'
+                  ? 'text-lava bg-lava/[0.06] border border-lava/[0.15]'
+                  : 'text-[#6B6B78] hover:text-snow/90'
+              }`}
             >
-              <Search className="relative w-3.5 h-3.5 mr-1.5 flex-shrink-0 text-[#4A4A52] group-hover:text-[#6B6B78] transition-colors duration-300" />
+              <Search className={`relative w-3.5 h-3.5 mr-1.5 flex-shrink-0 transition-colors duration-300 ${
+                currentPage === 'explorer' ? 'text-lava' : 'text-[#4A4A52] group-hover:text-[#6B6B78]'
+              }`} />
               <span className="relative whitespace-nowrap">Explorer</span>
             </a>
           </nav>
@@ -217,7 +223,11 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
             })}
             <a
               href="/explorer"
-              className="w-full flex items-center gap-3 px-3 py-2.5 font-mono text-sm tracking-wide transition-all duration-200 rounded-lg text-[#6B6B78] hover:text-snow hover:bg-white/[0.03]"
+              className={`w-full flex items-center gap-3 px-3 py-2.5 font-mono text-sm tracking-wide transition-all duration-200 rounded-lg ${
+                currentPage === 'explorer'
+                  ? 'text-lava bg-lava/[0.08]'
+                  : 'text-[#6B6B78] hover:text-snow hover:bg-white/[0.03]'
+              }`}
             >
               <Search className="w-4 h-4 flex-shrink-0" />
               Explorer

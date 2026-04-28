@@ -47,7 +47,7 @@ export default function ExplorerPage() {
   }
 
   return (
-    <Layout currentPage="overview" setCurrentPage={() => {}}>
+    <Layout currentPage="explorer" setCurrentPage={() => {}}>
       <div className="pt-4 pb-12 px-3 md:px-6 space-y-8 max-w-4xl mx-auto animate-fade-in">
 
         {/* Hero */}
