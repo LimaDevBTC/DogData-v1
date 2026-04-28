@@ -189,12 +189,11 @@ export default function TxPage() {
     setLoading(true)
     setError(null)
     fetch(`/api/tx/bitcoin/${txid}`)
-      .then(r => r.json())
-      .then(d => {
-        if (d.error) setError(d.error)
-        else setData(d)
-        setLoading(false)
+      .then(r => {
+        if (!r.ok) return r.json().then(body => { throw new Error(body?.message || body?.error || `HTTP ${r.status}`) })
+        return r.json()
       })
+      .then(d => { setData(d); setLoading(false) })
       .catch(e => { setError(e.message); setLoading(false) })
   }, [txid])
 

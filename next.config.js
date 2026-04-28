@@ -4,6 +4,16 @@ const nextConfig = {
     unoptimized: true,
   },
   experimental: {
+    outputFileTracingIncludes: {
+      '/api/address/bitcoin/[address]': [
+        './data/dog_holders_by_address.json',
+        './data/forensic_behavioral_analysis.json',
+      ],
+      '/api/tx/bitcoin/[txid]': [
+        './data/dog_holders_by_address.json',
+        './data/forensic_behavioral_analysis.json',
+      ],
+    },
     outputFileTracingExcludes: {
       '*': [
         './data/forensic_airdrop_data.json',

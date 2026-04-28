@@ -290,7 +290,10 @@ export default function AddressPage() {
     setLoading(true)
     setError(null)
     fetch(`/api/address/bitcoin/${encodeURIComponent(address)}`)
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) return r.json().then(body => { throw new Error(body?.message || `HTTP ${r.status}`) })
+        return r.json()
+      })
       .then(d => { setData(d); setLoading(false) })
       .catch(e => { setError(e.message); setLoading(false) })
   }, [address])
