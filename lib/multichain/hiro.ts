@@ -24,7 +24,7 @@ async function hiroFetch<T>(path: string): Promise<T> {
 
   const resp = await fetch(`${BASE_URL}${path}`, {
     headers,
-    next: { revalidate: 300 },
+    cache: 'no-store', // Disable Next.js Data Cache — memoryCache handles TTL
     signal: AbortSignal.timeout(10_000),
   })
 

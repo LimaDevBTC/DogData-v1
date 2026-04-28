@@ -13,7 +13,7 @@ const CACHE_TTL = 5 * 60 * 1000 // 5 min
 async function teneroFetch<T>(path: string): Promise<T> {
   const resp = await fetch(`${BASE_URL}${path}`, {
     headers: { accept: 'application/json' },
-    next: { revalidate: 300 },
+    cache: 'no-store', // Disable Next.js Data Cache — memoryCache handles TTL
   })
 
   if (!resp.ok) {

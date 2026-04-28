@@ -4,10 +4,11 @@
   "installCommand": "npm install",
   "framework": "nextjs",
   "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "/api/index.js"
-    }
+    { "source": "/api/dog-rune/:path*",  "destination": "/api/index.js" },
+    { "source": "/api/airdrop/:path*",   "destination": "/api/index.js" },
+    { "source": "/api/forensic/:path*",  "destination": "/api/index.js" },
+    { "source": "/api/price/:path*",     "destination": "/api/index.js" },
+    { "source": "/api/health",           "destination": "/api/index.js" }
   ],
   "crons": [
     {

@@ -18,7 +18,7 @@ async function birdeyeFetch<T>(path: string): Promise<T> {
       'x-chain': 'solana',
       'accept': 'application/json',
     },
-    next: { revalidate: 300 },
+    cache: 'no-store', // Disable Next.js Data Cache — memoryCache handles TTL
   })
 
   if (!resp.ok) {
