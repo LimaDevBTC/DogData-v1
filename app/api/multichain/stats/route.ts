@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { getSolanaTokenInfo } from '@/lib/multichain/birdeye'
+import { getSolanaTokenInfoFromDexScreener } from '@/lib/multichain/dexscreener'
+import { getSolanaTokenInfo as getSolanaTokenInfoBirdeye } from '@/lib/multichain/birdeye'
 import { getSolanaHolderCount } from '@/lib/multichain/helius'
 import { getStacksTokenInfoResilient as getStacksTokenInfo } from '@/lib/multichain/stacks-resilient'
 import type { MultiChainStats, ChainTokenInfo } from '@/lib/multichain/types'
@@ -7,13 +8,22 @@ import type { MultiChainStats, ChainTokenInfo } from '@/lib/multichain/types'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
+async function getSolanaInfo(): Promise<ChainTokenInfo> {
+  // DexScreener is primary (free, no limits) — Birdeye as fallback
+  try {
+    return await getSolanaTokenInfoFromDexScreener()
+  } catch (err) {
+    console.warn('DexScreener failed, falling back to Birdeye:', (err as Error).message)
+    return await getSolanaTokenInfoBirdeye()
+  }
+}
+
 export async function GET() {
   try {
-    // Fetch all chains in parallel — gracefully handle failures
     const [solanaResult, stacksResult, heliusCountResult] = await Promise.allSettled([
-      getSolanaTokenInfo(),
+      getSolanaInfo(),
       getStacksTokenInfo(),
-      getSolanaHolderCount(), // Helius DAS as fallback for Birdeye holder count
+      getSolanaHolderCount(),
     ])
 
     const chains: ChainTokenInfo[] = []
@@ -22,12 +32,11 @@ export async function GET() {
 
     if (solanaResult.status === 'fulfilled') {
       const solanaInfo = solanaResult.value
-      // Helius DAS is primary for holder count
       if (heliusCount > 0) solanaInfo.holder_count = heliusCount
       chains.push(solanaInfo)
     } else {
-      console.warn('Multichain Solana (Birdeye) failed:', solanaResult.reason?.message)
-      // Build minimal Solana entry from Helius count so Stacks is not lost
+      console.warn('Multichain Solana failed:', solanaResult.reason?.message)
+      // Still push a minimal entry so Stacks is not lost
       if (heliusCount > 0) {
         chains.push({
           chain: 'solana',
