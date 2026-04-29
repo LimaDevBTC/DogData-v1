@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSolanaTokenInfo } from '@/lib/multichain/birdeye'
+import { getSolanaHolderCount } from '@/lib/multichain/helius'
 import { getStacksTokenInfoResilient as getStacksTokenInfo } from '@/lib/multichain/stacks-resilient'
 import type { MultiChainStats, ChainTokenInfo } from '@/lib/multichain/types'
 
@@ -9,19 +10,30 @@ export const runtime = 'nodejs'
 export async function GET() {
   try {
     // Fetch all chains in parallel — gracefully handle failures
-    const results = await Promise.allSettled([
+    const [solanaResult, stacksResult, heliusCountResult] = await Promise.allSettled([
       getSolanaTokenInfo(),
       getStacksTokenInfo(),
+      getSolanaHolderCount(), // Helius DAS as fallback for Birdeye holder count
     ])
 
     const chains: ChainTokenInfo[] = []
 
-    for (const result of results) {
-      if (result.status === 'fulfilled') {
-        chains.push(result.value)
-      } else {
-        console.warn('Multichain fetch error:', result.reason?.message)
+    if (solanaResult.status === 'fulfilled') {
+      const solanaInfo = solanaResult.value
+      // Helius DAS is primary for holder count — Birdeye free tier doesn't reliably return it
+      if (heliusCountResult.status === 'fulfilled' && heliusCountResult.value > 0) {
+        solanaInfo.holder_count = heliusCountResult.value
       }
+      // else: keep Birdeye's holder_count as fallback (if Helius failed)
+      chains.push(solanaInfo)
+    } else {
+      console.warn('Multichain Solana fetch error:', solanaResult.reason?.message)
+    }
+
+    if (stacksResult.status === 'fulfilled') {
+      chains.push(stacksResult.value)
+    } else {
+      console.warn('Multichain Stacks fetch error:', stacksResult.reason?.message)
     }
 
     const stats: MultiChainStats = {
