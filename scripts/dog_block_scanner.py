@@ -646,6 +646,144 @@ def compute_24h_metrics(transactions):
     }}
 
 
+# === Address TX Index ===
+
+def update_address_tx_index(new_txs):
+    """Update per-address transaction index in Redis (dog:addr:txs:{addr}).
+    Called after every block so the Explorer shows up-to-date history.
+    """
+    if not UPSTASH_URL or not UPSTASH_TOKEN:
+        log.warning('Upstash not configured, skipping address index update')
+        return
+
+    import requests
+
+    headers = {
+        'Authorization': f'Bearer {UPSTASH_TOKEN}',
+        'Content-Type': 'application/json',
+    }
+
+    # Build per-address entries and txid→height map from the new txs
+    addr_entries = defaultdict(list)
+    txid_heights = {}
+
+    for tx in new_txs:
+        txid = tx['txid']
+        block_height = tx['block_height']
+        timestamp = tx['timestamp']
+
+        senders = [s for s in tx.get('senders', [])
+                   if s.get('has_dog') is not False and s.get('amount_dog', 0) > 0]
+        receivers = [r for r in tx.get('receivers', [])
+                     if r.get('has_dog') is not False and r.get('amount_dog', 0) > 0
+                     and not r.get('is_change', False)]
+
+        sender_addrs = {s['address'] for s in senders}
+        receiver_addrs = {r['address'] for r in receivers}
+        all_addrs = sender_addrs | receiver_addrs
+
+        txid_heights[txid] = block_height
+
+        for addr in all_addrs:
+            is_sender = addr in sender_addrs
+            is_receiver = addr in receiver_addrs
+
+            if is_sender and is_receiver:
+                direction = 'self'
+                amount_dog = next((s['amount_dog'] for s in senders if s['address'] == addr), 0)
+            elif is_sender:
+                direction = 'out'
+                amount_dog = next((s['amount_dog'] for s in senders if s['address'] == addr), 0)
+            else:
+                direction = 'in'
+                amount_dog = next((r['amount_dog'] for r in receivers if r['address'] == addr), 0)
+
+            other_senders = [s['address'] for s in senders if s['address'] != addr]
+            other_receivers = [r['address'] for r in receivers if r['address'] != addr]
+            counterparties = list(set(other_senders + other_receivers))
+
+            addr_entries[addr.lower()].append({
+                'txid': txid,
+                'block_height': block_height,
+                'timestamp': timestamp,
+                'direction': direction,
+                'amount_dog': amount_dog,
+                'counterparty': counterparties[0] if len(counterparties) == 1 else None,
+                'counterparties': counterparties,
+                'total_dog_moved': tx.get('total_dog_moved', 0),
+                'fee_sats': tx.get('fee_sats', 0),
+            })
+
+    if not addr_entries:
+        return
+
+    # Update each address: fetch existing → merge → save
+    for addr, new_entries in addr_entries.items():
+        key = f'dog:addr:txs:{addr}'
+        try:
+            resp = requests.get(f'{UPSTASH_URL}/get/{key}', headers=headers, timeout=10)
+            resp.raise_for_status()
+            existing_raw = resp.json().get('result')
+            existing = json.loads(existing_raw) if existing_raw else []
+        except Exception:
+            existing = []
+
+        seen = {e['txid'] for e in existing}
+        merged = existing[:]
+        for entry in new_entries:
+            if entry['txid'] not in seen:
+                merged.append(entry)
+                seen.add(entry['txid'])
+
+        merged.sort(key=lambda e: e['block_height'], reverse=True)
+
+        try:
+            requests.post(
+                UPSTASH_URL,
+                headers=headers,
+                json=['SET', key, json.dumps(merged)],
+                timeout=10
+            )
+        except Exception as e:
+            log.warning(f'Failed to update address index for {addr}: {e}')
+
+    # Batch-write txid → block_height index via pipeline
+    try:
+        pipeline_cmds = [['SET', f'dog:txid:{txid}', height]
+                         for txid, height in txid_heights.items()]
+        requests.post(
+            f'{UPSTASH_URL}/pipeline',
+            headers=headers,
+            json=pipeline_cmds,
+            timeout=15
+        )
+    except Exception as e:
+        log.warning(f'Failed to update txid index: {e}')
+
+    # Update meta (last indexed block)
+    last_block = max(tx['block_height'] for tx in new_txs)
+    try:
+        resp = requests.get(f'{UPSTASH_URL}/get/dog:addr:index:meta', headers=headers, timeout=5)
+        meta = json.loads(resp.json().get('result') or '{}')
+    except Exception:
+        meta = {}
+
+    meta['last_block'] = max(meta.get('last_block', 0), last_block)
+    meta['built_at'] = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+
+    try:
+        requests.post(
+            UPSTASH_URL,
+            headers=headers,
+            json=['SET', 'dog:addr:index:meta', json.dumps(meta)],
+            timeout=5
+        )
+    except Exception as e:
+        log.warning(f'Failed to update address index meta: {e}')
+
+    log.info(f'Address index updated: {len(addr_entries)} addresses, {len(txid_heights)} txids')
+
+
 # === Redis/Upstash ===
 
 def push_to_redis(new_txs):
@@ -814,6 +952,7 @@ def process_pending_blocks(utxo_set, state, single_block=None):
             save_block_txs(height, all_txs)
             push_to_redis(all_txs)
             push_to_supabase(all_txs)
+            update_address_tx_index(all_txs)
             total_dog_txs += len(all_txs)
 
             elapsed = time.time() - t
