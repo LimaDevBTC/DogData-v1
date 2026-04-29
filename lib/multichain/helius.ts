@@ -138,7 +138,12 @@ export async function getSolanaHolders(limit = 20): Promise<{
   return res
 }
 
-// === Total Holder Count via Helius DAS ===
+// === Total Holder Count via Helius DAS (pagination) ===
+// Helius DAS does not return a global total — we paginate until a partial page is found.
+// Result is cached for 30 min to avoid hammering the API on every stats request.
+
+const HOLDER_COUNT_TTL = 30 * 60 * 1000 // 30 min
+const PAGE_SIZE = 1000
 
 export async function getSolanaHolderCount(): Promise<number> {
   const cacheKey = 'helius:holder_count'
@@ -146,19 +151,31 @@ export async function getSolanaHolderCount(): Promise<number> {
   if (cached !== null) return cached
 
   try {
-    const dasResult = await rpcCall<{ total: number; token_accounts: any[] }>(
-      'getTokenAccounts',
-      { mint: TOKEN_MINT, page: 1, limit: 1 }
-    )
-    const count = dasResult.total ?? 0
-    if (count > 0) {
-      memoryCache.set(cacheKey, count, CACHE_TTL)
-      return count
+    let page = 1
+    let total = 0
+
+    while (true) {
+      const result = await rpcCall<{ token_accounts: any[] }>(
+        'getTokenAccounts',
+        { mint: TOKEN_MINT, page, limit: PAGE_SIZE }
+      )
+      const accounts = result.token_accounts ?? []
+      total += accounts.length
+
+      if (accounts.length < PAGE_SIZE) break // last page
+      page++
+
+      // Safety cap — stop after 50 pages (50k holders) to avoid infinite loops
+      if (page > 50) break
     }
+
+    if (total > 0) {
+      memoryCache.set(cacheKey, total, HOLDER_COUNT_TTL)
+    }
+    return total
   } catch {
-    // fall through to return 0
+    return 0
   }
-  return 0
 }
 
 // === Transactions (Enhanced API) ===
