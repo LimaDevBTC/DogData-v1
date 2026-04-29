@@ -1,106 +1,67 @@
 "use client"
 
-import React, { useEffect, useRef, memo, useState } from 'react';
+import React, { memo } from 'react';
 
-declare global {
-  interface Window {
-    TradingView: any;
-  }
-}
-
+// Symbol Overview via iframe srcdoc — única abordagem que garante que
+// document.currentScript funciona corretamente (o widget lê o JSON via currentScript.textContent)
 function TradingViewMobileWidget() {
-  const container = useRef<HTMLDivElement>(null);
-  const [isClient, setIsClient] = useState(false);
-  const widgetRef = useRef<any>(null);
+  const config = {
+    symbols: [["KRAKEN:DOGUSD|3M"]],
+    chartOnly: false,
+    width: "100%",
+    height: "100%",
+    locale: "pt_BR",
+    colorTheme: "dark",
+    autosize: true,
+    showVolume: false,
+    showMA: false,
+    hideDateRanges: false,
+    hideMarketStatus: true,
+    hideSymbolLogo: false,
+    scalePosition: "right",
+    scaleMode: "Normal",
+    fontSize: "10",
+    noTimeScale: false,
+    valuesTracking: "1",
+    changeMode: "price-and-percent",
+    chartType: "area",
+    lineWidth: 2,
+    lineColor: "#f7931a",
+    topColor: "rgba(247, 147, 26, 0.25)",
+    bottomColor: "rgba(247, 147, 26, 0.0)",
+    backgroundColor: "rgba(0, 0, 0, 1)",
+    gridLineColor: "rgba(26, 26, 26, 1)",
+  };
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  useEffect(() => {
-    if (!isClient || !container.current) return;
-
-    container.current.innerHTML = '';
-
-    const widgetDiv = document.createElement("div");
-    widgetDiv.id = "tradingview_mobile_chart";
-    widgetDiv.style.height = "100%";
-    widgetDiv.style.width = "100%";
-    container.current.appendChild(widgetDiv);
-
-    const initWidget = () => {
-      if (window.TradingView && !widgetRef.current) {
-        widgetRef.current = new window.TradingView.widget({
-          "container_id": "tradingview_mobile_chart",
-          "symbol": "KRAKEN:DOGUSD",
-          "interval": "D",
-          "timezone": "America/Sao_Paulo",
-          "locale": "pt_BR",
-          "theme": "dark",
-          "style": "3",              // Area chart
-          "toolbar_bg": "#000000",
-          "backgroundColor": "#000000",
-          "width": "100%",
-          "height": "100%",
-          "autosize": true,
-          "enable_publishing": false,
-          "hide_top_toolbar": true,
-          "hide_side_toolbar": true,
-          "hide_legend": true,
-          "withdateranges": true,
-          "details": false,
-          "hotlist": false,
-          "calendar": false,
-          "show_volume": false,
-          "overrides": {
-            "paneProperties.background": "#000000",
-            "paneProperties.backgroundType": "solid",
-            "paneProperties.vertGridProperties.color": "#1a1a1a",
-            "paneProperties.horzGridProperties.color": "#1a1a1a",
-            "mainSeriesProperties.areaStyle.color1": "rgba(247, 147, 26, 0.25)",
-            "mainSeriesProperties.areaStyle.color2": "rgba(247, 147, 26, 0.05)",
-            "mainSeriesProperties.areaStyle.linecolor": "#f7931a",
-            "mainSeriesProperties.areaStyle.linewidth": 2,
-          },
-          "disabled_features": [
-            "use_localstorage_for_settings",
-            "header_widget",
-            "left_toolbar",
-            "context_menus",
-            "control_bar",
-          ],
-          "enabled_features": [],
-        });
-      }
-    };
-
-    // tv.js pode já estar carregado pelo widget desktop
-    if (window.TradingView) {
-      initWidget();
-    } else {
-      const script = document.createElement("script");
-      script.src = "https://s3.tradingview.com/tv.js";
-      script.type = "text/javascript";
-      script.async = true;
-      script.onload = initWidget;
-      container.current.appendChild(script);
-    }
-
-    return () => {
-      widgetRef.current = null;
-    };
-  }, [isClient]);
-
-  if (!isClient) {
-    return (
-      <div style={{ height: "100%", width: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div className="text-gray-400 font-mono text-sm">Loading chart...</div>
-      </div>
-    );
-  }
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; width: 100%; background: #000; overflow: hidden; }
+    .tradingview-widget-container { height: 100%; width: 100%; }
+    .tradingview-widget-container__widget { height: 100%; width: 100%; }
+  </style>
+</head>
+<body>
+  <div class="tradingview-widget-container">
+    <div class="tradingview-widget-container__widget"></div>
+    <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js" async>
+    ${JSON.stringify(config)}
+    </script>
+  </div>
+</body>
+</html>`;
 
   return (
-    <div ref={container} style={{ height: "100%", width: "100%" }} />
+    <iframe
+      srcDoc={html}
+      style={{ border: 'none', width: '100%', height: '100%', display: 'block' }}
+      title="DOG Price Chart"
+      loading="lazy"
+    />
   );
 }
 
