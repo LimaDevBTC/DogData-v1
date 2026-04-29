@@ -18,16 +18,34 @@ export async function GET() {
 
     const chains: ChainTokenInfo[] = []
 
+    const heliusCount = heliusCountResult.status === 'fulfilled' ? heliusCountResult.value : 0
+
     if (solanaResult.status === 'fulfilled') {
       const solanaInfo = solanaResult.value
-      // Helius DAS is primary for holder count — Birdeye free tier doesn't reliably return it
-      if (heliusCountResult.status === 'fulfilled' && heliusCountResult.value > 0) {
-        solanaInfo.holder_count = heliusCountResult.value
-      }
-      // else: keep Birdeye's holder_count as fallback (if Helius failed)
+      // Helius DAS is primary for holder count
+      if (heliusCount > 0) solanaInfo.holder_count = heliusCount
       chains.push(solanaInfo)
     } else {
-      console.warn('Multichain Solana fetch error:', solanaResult.reason?.message)
+      console.warn('Multichain Solana (Birdeye) failed:', solanaResult.reason?.message)
+      // Build minimal Solana entry from Helius count so Stacks is not lost
+      if (heliusCount > 0) {
+        chains.push({
+          chain: 'solana',
+          address: 'dog1viwbb2vWDpER5FrJ4YFG6gq6XuyFohUe9TXN65u',
+          symbol: 'DOG',
+          name: 'Dog (Bitcoin)',
+          decimals: 5,
+          price_usd: 0,
+          price_change_24h: 0,
+          market_cap_usd: 0,
+          volume_24h_usd: 0,
+          liquidity_usd: null,
+          holder_count: heliusCount,
+          total_supply: 0,
+          circulating_supply: 0,
+          last_updated: new Date().toISOString(),
+        })
+      }
     }
 
     if (stacksResult.status === 'fulfilled') {
