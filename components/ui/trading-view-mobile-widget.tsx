@@ -20,12 +20,13 @@ function TradingViewMobileWidget() {
       symbol="KRAKEN:DOGUSD"
       show-time-scale
       color-theme="dark"
+      is-transparent
       locale="pt_BR"
       date-range="3M"
       trend-line-color="#f7931a"
       under-line-color="rgba(247,147,26,0.15)"
       under-line-bottom-color="rgba(247,147,26,0)"
-      style={{ width: '100%', height: '100%', display: 'block' }}
+      style={{ width: '100%', height: '100%', display: 'block', background: 'transparent' }}
     />
   );
 }
