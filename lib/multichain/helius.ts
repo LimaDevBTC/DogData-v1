@@ -131,23 +131,34 @@ export async function getSolanaHolders(limit = 20): Promise<{
     }
   })
 
-  // Get approximate total holder count via DAS pagination
-  let totalHolderCount = 0
+  const holderCount = await getSolanaHolderCount()
+
+  const res = { holders, total_count: holderCount, bridgeSupply }
+  memoryCache.set(cacheKey, res, CACHE_TTL)
+  return res
+}
+
+// === Total Holder Count via Helius DAS ===
+
+export async function getSolanaHolderCount(): Promise<number> {
+  const cacheKey = 'helius:holder_count'
+  const cached = memoryCache.get<number>(cacheKey)
+  if (cached !== null) return cached
+
   try {
     const dasResult = await rpcCall<{ total: number; token_accounts: any[] }>(
       'getTokenAccounts',
       { mint: TOKEN_MINT, page: 1, limit: 1 }
     )
-    // DAS total = limit when there are more, so we need Birdeye for count
-    // For now use the holder count from Birdeye (already fetched by caller)
-    totalHolderCount = dasResult.token_accounts?.length > 0 ? -1 : 0 // -1 = unknown but exists
+    const count = dasResult.total ?? 0
+    if (count > 0) {
+      memoryCache.set(cacheKey, count, CACHE_TTL)
+      return count
+    }
   } catch {
-    totalHolderCount = -1
+    // fall through to return 0
   }
-
-  const res = { holders, total_count: totalHolderCount, bridgeSupply }
-  memoryCache.set(cacheKey, res, CACHE_TTL)
-  return res
+  return 0
 }
 
 // === Transactions (Enhanced API) ===

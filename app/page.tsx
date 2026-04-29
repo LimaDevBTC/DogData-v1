@@ -33,6 +33,15 @@ const TradingViewWidget = dynamic(() => import('@/components/ui/trading-view-wid
   )
 })
 
+const TradingViewMobileWidget = dynamic(() => import('@/components/ui/trading-view-mobile-widget'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-full">
+      <div className="text-dusty font-mono text-sm">Loading chart...</div>
+    </div>
+  )
+})
+
 interface DogStats {
   totalHolders: number
   totalSupply: number
@@ -631,10 +640,15 @@ export default function OverviewPage() {
 
         <SectionDivider title="Price Chart" icon={BarChart3} />
 
-        {/* TradingView Chart */}
+        {/* TradingView Chart — mobile vs desktop */}
         <Card variant="glass" className="overflow-hidden">
           <CardContent className="p-0">
-            <div className="h-[320px] md:h-[600px]">
+            {/* Mobile: Symbol Overview (área limpa, sem toolbars) */}
+            <div className="block md:hidden h-[300px]">
+              <TradingViewMobileWidget />
+            </div>
+            {/* Desktop: gráfico avançado com candles e ferramentas */}
+            <div className="hidden md:block h-[600px]">
               <TradingViewWidget />
             </div>
           </CardContent>
