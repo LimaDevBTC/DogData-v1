@@ -15,11 +15,11 @@ function isValidTxid(s: string): boolean {
 }
 
 const TOP_HOLDERS = [
-  { rank: 1,  address: "bc1p50n9sksy5gwe6fgrxxsqfcp6ndsfjhykjqef64m8067hfadd9efqrhpp9k", dog: "3.43B" },
-  { rank: 2,  address: "bc1pk8g4rztfkxs2q9c40g6keeknjw6aadx3kzu4suzlll0remfw7xxs5x9ctv", dog: "3.41B" },
-  { rank: 3,  address: "3G7gSaxPY7BhbEASd2pnZY5cg7uEQMQvd8", dog: "2.18B" },
-  { rank: 4,  address: "bc1qj7dam98j6ktjcp320qu77y2vrylv49c2k2hkmu", dog: "2.17B" },
-  { rank: 5,  address: "bc1pmqjlx3afzdrmv8gc6dpq990h4xwucdtgt9el3u5fmalek34zqysq96plm5", dog: "110M" },
+  { rank: 1, address: "bc1pk8g4rztfkxs2q9c40g6keeknjw6aadx3kzu4suzlll0remfw7xxs5x9ctv", dog: "3.42B" },
+  { rank: 2, address: "bc1p50n9sksy5gwe6fgrxxsqfcp6ndsfjhykjqef64m8067hfadd9efqrhpp9k", dog: "3.42B" },
+  { rank: 3, address: "3G7gSaxPY7BhbEASd2pnZY5cg7uEQMQvd8", dog: "2.19B" },
+  { rank: 4, address: "bc1qj7dam98j6ktjcp320qu77y2vrylv49c2k2hkmu", dog: "2.15B" },
+  { rank: 5, address: "bc1p8d8kexdxatnfejdvd9dq7uky4m9wjxl59r3dnqg7nqq9gaxz2jxq6ntach", dog: "1.88B" },
 ]
 
 export default function ExplorerPage() {
