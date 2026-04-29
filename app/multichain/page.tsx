@@ -145,7 +145,8 @@ function pctOfTotal(balance: number): string {
   return ((balance / DOG_TOTAL_SUPPLY) * 100).toFixed(6)
 }
 
-function shortAddr(addr: string): string {
+function shortAddr(addr: string | null | undefined): string {
+  if (!addr) return '—'
   if (addr.length <= 16) return addr
   return `${addr.slice(0, 8)}...${addr.slice(-6)}`
 }
@@ -487,7 +488,7 @@ export default function MultiChainPage() {
             <SectionDivider title="Recent Transactions" icon={Repeat} />
 
             {/* Stacks transactions */}
-            {txData.stacks && txData.stacks.transactions.length > 0 && (
+            {txData.stacks && (txData.stacks.transactions?.length ?? 0) > 0 && (
               <Card variant="glass" className={`border ${CHAIN_CONFIG.stacks.borderColor}`}>
                 <CardHeader className="pb-2">
                   <CardTitle variant="mono" className="text-sm text-dusty flex items-center gap-2">
@@ -509,7 +510,7 @@ export default function MultiChainPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {(txData.stacks.transactions as StacksTransaction[]).map((tx: StacksTransaction) => (
+                        {(txData.stacks.transactions as StacksTransaction[] ?? []).map((tx: StacksTransaction) => (
                           <tr key={`${tx.tx_id}-${tx.from_address}`} className="border-t border-snow/[0.03] hover:bg-snow/[0.02]">
                             {/* Type */}
                             <td className="py-2 pr-2">
@@ -575,9 +576,9 @@ export default function MultiChainPage() {
                             {/* Tx ID + Actions */}
                             <td className="py-2 pl-2">
                               <div className="flex items-center justify-center gap-0.5">
-                                <code className="text-snow/60">{tx.tx_id.substring(0, 8)}...</code>
+                                <code className="text-snow/60">{tx.tx_id?.substring(0, 8) ?? '—'}...</code>
                                 <button
-                                  onClick={() => handleCopy(tx.tx_id)}
+                                  onClick={() => tx.tx_id && handleCopy(tx.tx_id)}
                                   className="p-0.5 hover:text-snow/80 text-dusty/30 transition-colors"
                                   title="Copy tx ID"
                                 >
@@ -608,7 +609,7 @@ export default function MultiChainPage() {
             )}
 
             {/* Solana transactions */}
-            {txData.solana && txData.solana.transactions.length > 0 && (
+            {txData.solana && (txData.solana.transactions?.length ?? 0) > 0 && (
               <Card variant="glass" className={`border ${CHAIN_CONFIG.solana.borderColor}`}>
                 <CardHeader className="pb-2">
                   <CardTitle variant="mono" className="text-sm text-dusty flex items-center gap-2">
@@ -630,7 +631,7 @@ export default function MultiChainPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {(txData.solana.transactions as StacksTransaction[]).map((tx: StacksTransaction) => (
+                        {(txData.solana.transactions as StacksTransaction[] ?? []).map((tx: StacksTransaction) => (
                           <tr key={tx.tx_id} className="border-t border-snow/[0.03] hover:bg-snow/[0.02]">
                             <td className="py-2 pr-2">
                               <Badge
@@ -664,8 +665,8 @@ export default function MultiChainPage() {
                             <td className="py-2 text-right text-dusty/50">{timeAgo(tx.timestamp)}</td>
                             <td className="py-2 pl-2">
                               <div className="flex items-center justify-center gap-0.5">
-                                <code className="text-snow/60">{tx.tx_id.substring(0, 8)}...</code>
-                                <button onClick={() => handleCopy(tx.tx_id)} className="p-0.5 hover:text-snow/80 text-dusty/30 transition-colors" title="Copy tx">
+                                <code className="text-snow/60">{tx.tx_id?.substring(0, 8) ?? '—'}...</code>
+                                <button onClick={() => tx.tx_id && handleCopy(tx.tx_id)} className="p-0.5 hover:text-snow/80 text-dusty/30 transition-colors" title="Copy tx">
                                   {copiedText === tx.tx_id ? <span className="text-green-400 text-[10px]">✓</span> : <Copy className="w-2.5 h-2.5" />}
                                 </button>
                                 <a href={`${CHAIN_CONFIG.solana.explorerTx}${tx.tx_id}`} target="_blank" rel="noopener noreferrer" className="p-0.5 hover:text-purple-400 text-dusty/30 transition-colors" title="View on Solscan">

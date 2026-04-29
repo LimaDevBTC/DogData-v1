@@ -36,7 +36,9 @@ export async function getSolanaTokenInfoFromDexScreener(): Promise<ChainTokenInf
     throw new Error(`DexScreener: ${resp.status} ${resp.statusText}`)
   }
 
-  const pairs: DexScreenerPair[] = await resp.json()
+  const raw = await resp.json()
+  // API returns either a direct array or { schemaVersion, pairs: [...] }
+  const pairs: DexScreenerPair[] = Array.isArray(raw) ? raw : (raw.pairs ?? [])
 
   if (!pairs?.length) {
     throw new Error('DexScreener: no pairs found for DOG')
