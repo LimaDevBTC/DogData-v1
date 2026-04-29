@@ -2,32 +2,41 @@
 """
 DOG Historical Backfill — blocks 840,000 → 941,110
 
-Reconstrói o histórico completo de transações DOG desde o genesis,
-mantendo a cadeia de UTXOs ininterrupta.
+Estratégia em 2 fases aproveitando os dados já existentes:
 
-Seed: UTXO genesis único (etch block 840,000, tx index 3)
-  outpoint: e79134080a83fe3e0e06ed6990c5a9b63b362313341745707a2bff7d788a1375:1
-  amount:   10,000,000,000,000,000 (= 100,000,000,000 DOG)
+FASE 1 — Bootstrap a partir dos dados de airdrop (840,654 → 858,368)
+  Temos airdrop_recipients_exact.json com 844 txids, 75,490 recipients,
+  blocos 840,654–858,368. Usamos esses dados para:
+    a) Construir block files (block_XXXXXXX.json) para os blocos de airdrop
+    b) Pre-popular o UTXO set com os outputs do airdrop
+  Isso cobre a fase de distribuição sem precisar re-escanear via Bitcoin Core.
+  O genesis UTXO (840,000) → gasto no bloco 840,654 (confirmado pelos dados).
 
-Output:
-  - data/dog_transactions/block_XXXXXXX.json  (mesmo formato do scanner)
-  - data/backfill_utxo_set.json               (UTXO set reconstruído)
-  - data/backfill_state.json                  (checkpoint para resume)
+FASE 2 — Scan forward via Bitcoin Core (858,369 → 941,110)
+  A partir do UTXO set estabelecido pela Fase 1, escaneia bloco a bloco
+  com getblock verbosity=2 + getrawtransaction (txindex ativo).
+  Detecta qualquer tx que gaste UTXOs DOG conhecidos e mantém a cadeia
+  de custódia contínua até o handoff para o scanner live (bloco 941,111).
 
-Ao final, compara o UTXO set reconstruído com dog_utxo_set.json
-(estado atual do scanner) para garantir integridade.
+FASE 3 — Verificação de integridade
+  Compara o UTXO set reconstruído com dog_utxo_set.json (estado atual).
+  Qualquer UTXO do live sem origem rastreável indica gap.
+
+FASE 4 — Indexação Redis
+  Roda build-address-tx-index.ts para indexar tudo no Explorer.
 
 Uso:
-    python3 scripts/backfill_dog_history.py              # resume do checkpoint
-    python3 scripts/backfill_dog_history.py --reset      # reinicia do genesis
-    python3 scripts/backfill_dog_history.py --verify     # só verifica integridade
-    python3 scripts/backfill_dog_history.py --index      # só roda o índice de endereços
+    python3 scripts/backfill_dog_history.py              # executa todas as fases
+    python3 scripts/backfill_dog_history.py --reset      # reinicia do zero
+    python3 scripts/backfill_dog_history.py --phase1     # só fase 1 (airdrop bootstrap)
+    python3 scripts/backfill_dog_history.py --phase2     # só fase 2 (scan forward)
+    python3 scripts/backfill_dog_history.py --verify     # só verificação
+    python3 scripts/backfill_dog_history.py --index      # só indexação Redis
 """
 
 import subprocess
 import json
 import sys
-import os
 import time
 import logging
 import argparse
@@ -43,36 +52,41 @@ try:
 except ImportError:
     pass
 
-# === Configurações ===
+# ─── Configurações ────────────────────────────────────────────────────────────
 
-BITCOIN_CLI    = 'bitcoin-cli'
-ORD_BINARY     = '/home/bitmax/Projects/bitcoin-fullstack/ord/target/release/ord'
-ORD_DATA_DIR   = '/home/bitmax/Projects/bitcoin-fullstack/ord/data'
+BITCOIN_CLI  = 'bitcoin-cli'
+ORD_BINARY   = '/home/bitmax/Projects/bitcoin-fullstack/ord/target/release/ord'
+ORD_DATA_DIR = '/home/bitmax/Projects/bitcoin-fullstack/ord/data'
 
-SCRIPT_DIR     = Path(__file__).parent
-PROJECT_ROOT   = SCRIPT_DIR.parent
-DATA_DIR       = PROJECT_ROOT / 'data'
-TX_LOG_DIR     = DATA_DIR / 'dog_transactions'
+SCRIPT_DIR   = Path(__file__).parent
+PROJECT_ROOT = SCRIPT_DIR.parent
+DATA_DIR     = PROJECT_ROOT / 'data'
+TX_LOG_DIR   = DATA_DIR / 'dog_transactions'
 
 BACKFILL_STATE_FILE = DATA_DIR / 'backfill_state.json'
 BACKFILL_UTXO_FILE  = DATA_DIR / 'backfill_utxo_set.json'
 LIVE_UTXO_FILE      = DATA_DIR / 'dog_utxo_set.json'
+AIRDROP_EXACT_FILE  = DATA_DIR / 'airdrop_recipients_exact.json'
+FORENSIC_FILE       = DATA_DIR / 'forensic_airdrop_data.json'
 
-# Range do backfill
-START_BLOCK = 840_000   # genesis DOG
-END_BLOCK   = 941_110   # um antes do primeiro bloco já processado pelo scanner
-
-# DOG genesis UTXO — único seed necessário
-# Etch: block 840,000, tx index 3, pointer=1 → output[1] recebe todo o premine
+# Genesis DOG — etch block 840,000 tx index 3, pointer=1
 GENESIS_OUTPOINT = 'e79134080a83fe3e0e06ed6990c5a9b63b362313341745707a2bff7d788a1375:1'
-GENESIS_AMOUNT   = 10_000_000_000_000_000  # raw (divisibility=5)
+GENESIS_AMOUNT   = 10_000_000_000_000_000  # raw
+GENESIS_ADDRESS  = 'bc1pry0ne0yf5pkgqsszmytmqkpzs4aflhr8tfptz9sydqrhxexgujcqqler2t'
+
+# Airdrop phase (confirmado pelos dados existentes)
+AIRDROP_START_BLOCK  = 840_654
+AIRDROP_END_BLOCK    = 858_368
+
+# Scan phase (após o airdrop até o handoff pro scanner live)
+SCAN_START_BLOCK = AIRDROP_END_BLOCK + 1   # 858,369
+SCAN_END_BLOCK   = 941_110
 
 DOG_RUNE_ID    = '840000:3'
-DOG_DIVISIBILITY = 5
-DOG_FACTOR     = 10 ** DOG_DIVISIBILITY
+DOG_FACTOR     = 100_000  # 10^5 (divisibility=5)
 
-SAVE_INTERVAL  = 500   # salva checkpoint a cada N blocos
-LOG_INTERVAL   = 100   # log de progresso a cada N blocos
+SAVE_INTERVAL  = 500
+LOG_INTERVAL   = 100
 
 logging.basicConfig(
     level=logging.INFO,
@@ -84,62 +98,55 @@ log = logging.getLogger('dog-backfill')
 
 # ─── Bitcoin CLI ──────────────────────────────────────────────────────────────
 
-def bitcoin_cli(*args, timeout=60):
-    result = subprocess.run(
-        [BITCOIN_CLI, *args],
-        capture_output=True, text=True, timeout=timeout
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f'bitcoin-cli {args[0]} failed: {result.stderr.strip()}')
-    return result.stdout.strip()
+def btc(*args, timeout=60):
+    r = subprocess.run([BITCOIN_CLI, *args], capture_output=True, text=True, timeout=timeout)
+    if r.returncode != 0:
+        raise RuntimeError(f'bitcoin-cli {args[0]}: {r.stderr.strip()}')
+    return r.stdout.strip()
 
 
 def get_block_hash(height):
-    return bitcoin_cli('getblockhash', str(height))
+    return btc('getblockhash', str(height))
 
 
 def get_block(block_hash, verbosity=2):
-    raw = bitcoin_cli('getblock', block_hash, str(verbosity), timeout=180)
-    return json.loads(raw)
+    return json.loads(btc('getblock', block_hash, str(verbosity), timeout=180))
 
 
 def get_raw_tx(txid):
-    """txindex está ativo — funciona para qualquer tx histórica."""
-    raw = bitcoin_cli('getrawtransaction', txid, 'true', timeout=30)
-    return json.loads(raw)
+    return json.loads(btc('getrawtransaction', txid, 'true', timeout=30))
 
 
-def get_tx_fee_sats(tx_data):
+def get_tx_fee_sats(tx):
     total_in = 0
-    for vin in tx_data.get('vin', []):
+    for vin in tx.get('vin', []):
         if 'coinbase' in vin:
             return 0
         try:
-            prev_tx = get_raw_tx(vin['txid'])
-            prev_vout = prev_tx['vout'][vin['vout']]
-            total_in += int(prev_vout['value'] * 1e8)
+            prev = get_raw_tx(vin['txid'])
+            total_in += int(prev['vout'][vin['vout']]['value'] * 1e8)
         except Exception:
             return None
-    total_out = sum(int(v['value'] * 1e8) for v in tx_data.get('vout', []))
+    total_out = sum(int(v['value'] * 1e8) for v in tx.get('vout', []))
     return total_in - total_out
 
 
-# ─── Ord ─────────────────────────────────────────────────────────────────────
+# ─── Ord ──────────────────────────────────────────────────────────────────────
 
 def ord_decode(txid):
     try:
-        result = subprocess.run(
+        r = subprocess.run(
             [ORD_BINARY, '--data-dir', ORD_DATA_DIR, 'decode', '--txid', txid],
             capture_output=True, text=True, timeout=20
         )
-        if result.returncode == 0:
-            return json.loads(result.stdout)
+        if r.returncode == 0:
+            return json.loads(r.stdout)
     except Exception:
         pass
     return None
 
 
-# ─── Runestone helpers ────────────────────────────────────────────────────────
+# ─── Runestone ────────────────────────────────────────────────────────────────
 
 def has_runestone(tx):
     for vout in tx.get('vout', []):
@@ -148,66 +155,52 @@ def has_runestone(tx):
     return False
 
 
-def get_first_non_opreturn_output(tx):
+def get_first_non_opreturn(tx):
     for i, vout in enumerate(tx.get('vout', [])):
         if vout.get('scriptPubKey', {}).get('type') != 'nulldata':
             return i
     return None
 
 
-def parse_runestone_dog_edicts(decoded):
+def parse_dog_edicts(decoded):
     if not decoded or not decoded.get('runestone'):
         return None
     rs = decoded['runestone']
     if isinstance(rs, dict) and 'Runestone' in rs:
         rs = rs['Runestone']
-    edicts = rs.get('edicts', [])
-    dog_edicts = [(e.get('output', 0), e.get('amount', 0))
-                  for e in edicts if e.get('id', '') == DOG_RUNE_ID]
-    if dog_edicts:
-        return dog_edicts
-    return None
+    edicts = [(e.get('output', 0), e.get('amount', 0))
+              for e in rs.get('edicts', []) if e.get('id', '') == DOG_RUNE_ID]
+    return edicts if edicts else None
 
 
-def allocate_dog_outputs(tx, dog_input_total, decoded_runestone):
-    """Retorna (allocation: {vout_idx: amount_raw}, remainder_outputs: set)."""
-    edicts = parse_runestone_dog_edicts(decoded_runestone)
+def allocate_dog_outputs(tx, dog_input_total, decoded):
+    edicts = parse_dog_edicts(decoded)
     remainder_outputs = set()
 
     if edicts:
-        allocation = {}
-        allocated = 0
-        for output_idx, amount in edicts:
+        allocation, allocated = {}, 0
+        for out_idx, amount in edicts:
             if amount == 0:
                 amount = dog_input_total - allocated
             actual = min(amount, dog_input_total - allocated)
             if actual > 0:
-                allocation[output_idx] = allocation.get(output_idx, 0) + actual
+                allocation[out_idx] = allocation.get(out_idx, 0) + actual
                 allocated += actual
-
         remainder = dog_input_total - allocated
         if remainder > 0:
-            pointer = None
-            rs = decoded_runestone.get('runestone') if decoded_runestone else None
+            rs = decoded.get('runestone') if decoded else None
             if isinstance(rs, dict) and 'Runestone' in rs:
                 rs = rs['Runestone']
-            if rs:
-                pointer = rs.get('pointer')
-            if pointer is not None:
-                allocation[pointer] = allocation.get(pointer, 0) + remainder
-                remainder_outputs.add(pointer)
-            else:
-                default_out = get_first_non_opreturn_output(tx)
-                if default_out is not None:
-                    allocation[default_out] = allocation.get(default_out, 0) + remainder
-                    remainder_outputs.add(default_out)
-
+            pointer = rs.get('pointer') if rs else None
+            dest = pointer if pointer is not None else get_first_non_opreturn(tx)
+            if dest is not None:
+                allocation[dest] = allocation.get(dest, 0) + remainder
+                remainder_outputs.add(dest)
         return allocation, remainder_outputs
 
-    # Sem edicts: todo o DOG vai para o primeiro output não-OP_RETURN
-    default_out = get_first_non_opreturn_output(tx)
-    if default_out is not None:
-        return {default_out: dog_input_total}, remainder_outputs
+    default = get_first_non_opreturn(tx)
+    if default is not None:
+        return {default: dog_input_total}, remainder_outputs
     return {}, remainder_outputs
 
 
@@ -217,70 +210,58 @@ def get_output_address(tx, vout_idx):
     return None
 
 
-# ─── Processamento de TX ─────────────────────────────────────────────────────
+# ─── Processamento de TX ──────────────────────────────────────────────────────
 
 def process_dog_tx(tx, dog_inputs):
-    """
-    Processa uma tx DOG e retorna (tx_data, new_utxos, spent_outpoints).
-    dog_inputs: list of (outpoint_str, amount_raw)
-    """
+    """Processa uma tx DOG. Retorna (tx_data, new_utxos, spent_outpoints)."""
     txid = tx['txid']
-    dog_input_total = sum(amt for _, amt in dog_inputs)
-
+    dog_input_total = sum(a for _, a in dog_inputs)
     decoded = ord_decode(txid) if has_runestone(tx) else None
     allocation, remainder_outputs = allocate_dog_outputs(tx, dog_input_total, decoded)
 
-    # Senders — resolver endereços dos inputs
+    # Senders
     sender_amounts = defaultdict(int)
     for outpoint, amount in dog_inputs:
-        prev_txid, prev_vout_idx = outpoint.rsplit(':', 1)
+        prev_txid, prev_vout = outpoint.rsplit(':', 1)
         try:
             prev_tx = get_raw_tx(prev_txid)
-            addr = get_output_address(prev_tx, int(prev_vout_idx))
+            addr = get_output_address(prev_tx, int(prev_vout))
             if addr:
                 sender_amounts[addr] += amount
         except Exception as e:
-            log.warning(f'  Falha ao resolver sender {outpoint}: {e}')
+            log.warning(f'  Sender resolve falhou {outpoint}: {e}')
 
     senders = [
         {'address': addr, 'amount': amt,
-         'amount_dog': round(amt / DOG_FACTOR, DOG_DIVISIBILITY), 'has_dog': True}
+         'amount_dog': round(amt / DOG_FACTOR, 5), 'has_dog': True}
         for addr, amt in sender_amounts.items()
     ]
 
-    # Receivers — construir a partir da allocation
+    # Receivers
     sender_addr_set = set(sender_amounts.keys())
-    receivers = []
-    new_utxos = {}
-
+    receivers, new_utxos = [], {}
     for vout_idx, amount in allocation.items():
         addr = get_output_address(tx, vout_idx)
         is_change = (vout_idx in remainder_outputs) or (addr in sender_addr_set if addr else False)
         receivers.append({
             'address': addr or 'unknown',
             'amount': amount,
-            'amount_dog': round(amount / DOG_FACTOR, DOG_DIVISIBILITY),
+            'amount_dog': round(amount / DOG_FACTOR, 5),
             'has_dog': True,
             'is_change': is_change,
         })
         new_utxos[f'{txid}:{vout_idx}'] = amount
 
-    total_out    = round(sum(r['amount_dog'] for r in receivers), DOG_DIVISIBILITY)
-    change_amount = round(sum(r['amount_dog'] for r in receivers if r['is_change']), DOG_DIVISIBILITY)
-    net_transfer = round(total_out - change_amount, DOG_DIVISIBILITY)
-
+    total_out     = round(sum(r['amount_dog'] for r in receivers), 5)
+    change_amount = round(sum(r['amount_dog'] for r in receivers if r['is_change']), 5)
+    net_transfer  = round(total_out - change_amount, 5)
     real_receivers = [r for r in receivers if not r['is_change']]
-    tx_type = 'transfer'
-    if not senders:
-        tx_type = 'receive_only'
-    elif not receivers:
-        tx_type = 'tracking_error'
-    elif not real_receivers and net_transfer == 0:
-        tx_type = 'self_transfer'
-    elif len(senders) > 1 and len(real_receivers) == 1:
-        tx_type = 'consolidation'
 
-    fee_sats = get_tx_fee_sats(tx)
+    tx_type = 'transfer'
+    if not senders:                                    tx_type = 'receive_only'
+    elif not receivers:                                tx_type = 'tracking_error'
+    elif not real_receivers and net_transfer == 0:    tx_type = 'self_transfer'
+    elif len(senders) > 1 and len(real_receivers) == 1: tx_type = 'consolidation'
 
     block_time = tx.get('time', tx.get('blocktime', 0))
     timestamp = (datetime.fromtimestamp(block_time, tz=timezone.utc)
@@ -297,52 +278,40 @@ def process_dog_tx(tx, dog_inputs):
         'receivers': receivers,
         'sender_count': len(senders),
         'receiver_count': len(receivers),
-        'total_dog_in': round(dog_input_total / DOG_FACTOR, DOG_DIVISIBILITY),
+        'total_dog_in': round(dog_input_total / DOG_FACTOR, 5),
         'total_dog_out': total_out,
         'total_dog_moved': total_out,
         'net_transfer': net_transfer,
         'change_amount': change_amount,
         'has_change': change_amount > 0,
-        'fee_sats': fee_sats,
+        'fee_sats': get_tx_fee_sats(tx),
     }
-
     return tx_data, new_utxos, [op for op, _ in dog_inputs]
 
 
 # ─── Scan de bloco ────────────────────────────────────────────────────────────
 
 def scan_block(height, utxo_set):
-    """
-    Escaneia um bloco por txs DOG.
-    Retorna list of (tx_data, new_utxos, spent_outpoints).
-    """
     block_hash = get_block_hash(height)
     block = get_block(block_hash, verbosity=2)
-
     dog_outpoints = set(utxo_set.keys())
     results = []
 
     for tx in block['tx']:
-        dog_inputs = []
-        for vin in tx.get('vin', []):
-            if 'coinbase' in vin:
-                continue
-            prev_out = f'{vin["txid"]}:{vin["vout"]}'
-            if prev_out in dog_outpoints:
-                dog_inputs.append((prev_out, utxo_set[prev_out]))
-
+        dog_inputs = [
+            (f'{vin["txid"]}:{vin["vout"]}', utxo_set[f'{vin["txid"]}:{vin["vout"]}'])
+            for vin in tx.get('vin', [])
+            if 'coinbase' not in vin
+            and f'{vin["txid"]}:{vin["vout"]}' in dog_outpoints
+        ]
         if not dog_inputs:
             continue
-
         tx['height'] = block['height']
         tx['time']   = block.get('time', 0)
-
         try:
-            result = process_dog_tx(tx, dog_inputs)
-            if result:
-                results.append(result)
+            results.append(process_dog_tx(tx, dog_inputs))
         except Exception as e:
-            log.error(f'  Erro ao processar tx {tx["txid"][:16]}...: {e}')
+            log.error(f'  Erro tx {tx["txid"][:16]}...: {e}')
 
     return results
 
@@ -350,300 +319,393 @@ def scan_block(height, utxo_set):
 # ─── Persistência ─────────────────────────────────────────────────────────────
 
 def load_state():
-    if BACKFILL_STATE_FILE.exists():
-        with open(BACKFILL_STATE_FILE) as f:
-            return json.load(f)
-    return {}
+    return json.loads(BACKFILL_STATE_FILE.read_text()) if BACKFILL_STATE_FILE.exists() else {}
 
 
 def save_state(state):
-    with open(BACKFILL_STATE_FILE, 'w') as f:
-        json.dump(state, f, indent=2)
+    BACKFILL_STATE_FILE.write_text(json.dumps(state, indent=2))
 
 
-def load_backfill_utxo():
+def load_utxo():
     if BACKFILL_UTXO_FILE.exists():
-        with open(BACKFILL_UTXO_FILE) as f:
-            return json.load(f)
-    # Seed: genesis UTXO
-    log.info(f'Iniciando UTXO set com genesis: {GENESIS_OUTPOINT} → {GENESIS_AMOUNT/DOG_FACTOR:,.0f} DOG')
+        return json.loads(BACKFILL_UTXO_FILE.read_text())
+    log.info(f'Novo UTXO set — seed genesis: {GENESIS_OUTPOINT}')
     return {GENESIS_OUTPOINT: GENESIS_AMOUNT}
 
 
-def save_backfill_utxo(utxo_set):
-    with open(BACKFILL_UTXO_FILE, 'w') as f:
-        json.dump(utxo_set, f)
+def save_utxo(utxo_set):
+    BACKFILL_UTXO_FILE.write_text(json.dumps(utxo_set))
 
 
-def save_block_file(height, txs, block_timestamp):
+def save_block_file(height, txs, block_ts):
     TX_LOG_DIR.mkdir(parents=True, exist_ok=True)
-    filepath = TX_LOG_DIR / f'block_{height:07d}.json'
-    with open(filepath, 'w') as f:
-        json.dump({
-            'block_height': height,
-            'timestamp': block_timestamp,
-            'transactions': txs,
-        }, f, separators=(',', ':'))  # compact para economizar espaço
-    return filepath
+    p = TX_LOG_DIR / f'block_{height:07d}.json'
+    p.write_text(json.dumps(
+        {'block_height': height, 'timestamp': block_ts, 'transactions': txs},
+        separators=(',', ':')
+    ))
 
 
 def block_file_exists(height):
     return (TX_LOG_DIR / f'block_{height:07d}.json').exists()
 
 
-# ─── Verificação de integridade ───────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+# FASE 1 — Bootstrap a partir dos dados de airdrop existentes
+# ═══════════════════════════════════════════════════════════════════════════════
 
-def verify_integrity():
+def phase1_bootstrap(utxo_set, state):
     """
-    Compara o UTXO set reconstruído com o live set do scanner.
-    UTXOs do backfill que existem no live set = corretos.
-    UTXOs do backfill que NÃO existem no live set = foram gastos entre 941,111 e hoje = normal.
-    UTXOs do live set sem outpoint no backfill = UTXOs criados antes do START_BLOCK = impossível (DOG só existe a partir de 840k).
+    Constrói block files e UTXO set para os blocos de airdrop (840,654–858,368)
+    usando airdrop_recipients_exact.json + forensic_airdrop_data.json.
+
+    Estratégia:
+    1. Marcar o genesis como gasto (era o input do primeiro airdrop tx)
+    2. Para cada tx de airdrop: construir receivers a partir dos dados existentes
+    3. Resolver senders via Bitcoin Core (o distribuidor é sempre GENESIS_ADDRESS)
+    4. Salvar block files e atualizar UTXO set com os novos outputs
     """
-    log.info('\n═══════════════════════════════════════════')
-    log.info('VERIFICAÇÃO DE INTEGRIDADE DO UTXO SET')
-    log.info('═══════════════════════════════════════════')
-
-    if not BACKFILL_UTXO_FILE.exists():
-        log.error('backfill_utxo_set.json não encontrado. Rode o backfill primeiro.')
-        return False
-
-    if not LIVE_UTXO_FILE.exists():
-        log.error('dog_utxo_set.json não encontrado.')
-        return False
-
-    with open(BACKFILL_UTXO_FILE) as f:
-        backfill = json.load(f)
-    with open(LIVE_UTXO_FILE) as f:
-        live = json.load(f)
-
-    backfill_total = sum(backfill.values()) / DOG_FACTOR
-    live_total     = sum(live.values())     / DOG_FACTOR
-
-    log.info(f'Backfill UTXOs (ao final do bloco {END_BLOCK}): {len(backfill):,}')
-    log.info(f'Live UTXOs (estado atual):                      {len(live):,}')
-    log.info(f'Backfill total DOG: {backfill_total:>20,.5f}')
-    log.info(f'Live total DOG:     {live_total:>20,.5f}')
-
-    # UTXOs do backfill que ainda estão no live set (ainda não gastos)
-    still_unspent = {k: v for k, v in backfill.items() if k in live}
-    # UTXOs do backfill que já foram gastos entre 941,111 e hoje (esperado)
-    spent_since   = {k: v for k, v in backfill.items() if k not in live}
-    # UTXOs do live que NÃO estão no backfill (só poderia acontecer se foram criados
-    # antes do genesis — impossível para DOG, indica erro de rastreamento)
-    orphan_live   = {k: v for k, v in live.items() if k not in backfill}
-
-    log.info(f'\nUTXOs ainda não gastos desde {END_BLOCK}: {len(still_unspent):,}')
-    log.info(f'UTXOs gastos entre {END_BLOCK} e hoje:    {len(spent_since):,}  ← esperado')
-    log.info(f'UTXOs órfãos no live (erro):              {len(orphan_live):,}  ← deve ser 0')
-
-    if orphan_live:
-        log.warning(f'\n⚠️  {len(orphan_live)} UTXOs no live set sem origem rastreável:')
-        for k, v in list(orphan_live.items())[:10]:
-            log.warning(f'   {k} → {v/DOG_FACTOR:,.5f} DOG')
-        if len(orphan_live) > 10:
-            log.warning(f'   ... e mais {len(orphan_live)-10}')
-    else:
-        log.info('\n✅ Integridade confirmada: todos os UTXOs live têm origem rastreável.')
-
-    # Cobertura de supply
-    supply = 100_000_000_000.0
-    backfill_coverage = backfill_total / supply * 100
-    live_coverage     = live_total     / supply * 100
-    log.info(f'\nCobertura do supply (100B DOG):')
-    log.info(f'  Backfill: {backfill_coverage:.4f}%')
-    log.info(f'  Live:     {live_coverage:.4f}%')
-
-    return len(orphan_live) == 0
-
-
-# ─── Backfill principal ───────────────────────────────────────────────────────
-
-def run_backfill(reset=False):
-    TX_LOG_DIR.mkdir(parents=True, exist_ok=True)
-
-    if reset:
-        log.info('Reset solicitado: removendo checkpoint e UTXO set do backfill.')
-        BACKFILL_STATE_FILE.unlink(missing_ok=True)
-        BACKFILL_UTXO_FILE.unlink(missing_ok=True)
-
-    state    = load_state()
-    utxo_set = load_backfill_utxo()
-
-    last_done = state.get('last_block', START_BLOCK - 1)
-    start     = last_done + 1
-
-    if start > END_BLOCK:
-        log.info(f'Backfill já completo (último bloco: {last_done}). Use --verify para checar integridade.')
-        return
-
-    total_blocks   = END_BLOCK - START_BLOCK + 1
-    blocks_done    = last_done - START_BLOCK + 1 if last_done >= START_BLOCK else 0
-    blocks_remaining = END_BLOCK - start + 1
+    if state.get('phase1_done'):
+        log.info('Fase 1 já concluída (checkpoint). Pulando.')
+        return utxo_set
 
     log.info('═══════════════════════════════════════════════════════')
-    log.info('DOG HISTORICAL BACKFILL')
-    log.info(f'Range:    {START_BLOCK:,} → {END_BLOCK:,}  ({total_blocks:,} blocos)')
-    log.info(f'Retomando do bloco {start:,}  ({blocks_done:,} já processados, {blocks_remaining:,} restantes)')
-    log.info(f'UTXO set: {len(utxo_set):,} UTXOs  ({sum(utxo_set.values())/DOG_FACTOR:,.0f} DOG)')
+    log.info('FASE 1 — Bootstrap airdrop (840,654 → 858,368)')
+    log.info('Carregando dados de airdrop existentes...')
+
+    # Carregar airdrop_recipients_exact.json
+    with open(AIRDROP_EXACT_FILE) as f:
+        exact_data = json.load(f)
+
+    recipients_list = exact_data.get('recipients', [])
+    log.info(f'  Recipients: {len(recipients_list):,}')
+
+    # Agrupar por bloco → txid → receivers
+    # Estrutura: {block: {txid: {vout: {address, amount_raw}}}}
+    blocks_data: dict[int, dict[str, dict]] = defaultdict(lambda: defaultdict(dict))
+
+    for recipient in recipients_list:
+        address = recipient.get('address', '')
+        airdrop_amount = recipient.get('airdrop_amount', 0)  # total recebido (raw)
+        airdrop_txs = recipient.get('airdrop_txs', [])
+        n_txs = len(airdrop_txs) if airdrop_txs else 1
+        amount_per_tx = airdrop_amount // n_txs if n_txs else airdrop_amount
+
+        for tx_entry in airdrop_txs:
+            txid  = tx_entry.get('tx', '')
+            block = tx_entry.get('block', 0)
+            vout  = tx_entry.get('vout', 1)
+            if txid and block and address:
+                blocks_data[block][txid][vout] = {
+                    'address': address,
+                    'amount_raw': amount_per_tx,
+                }
+
+    # Também carregar forensic_airdrop_data para enriquecer com timestamps
+    block_timestamps: dict[int, int] = {}  # block → unix timestamp
+    try:
+        with open(FORENSIC_FILE) as f:
+            forensic = json.load(f)
+        for dist_tx in forensic.get('distribution_transactions', []):
+            bh = dist_tx.get('block_height', 0)
+            bt = dist_tx.get('block_time', 0)
+            if bh and bt:
+                block_timestamps[bh] = bt
+        for r in forensic.get('recipients', []):
+            for h in r.get('receive_history', []):
+                if h.get('block') and h.get('time'):
+                    block_timestamps[h['block']] = h['time']
+    except Exception as e:
+        log.warning(f'  forensic_airdrop_data.json parcialmente carregado: {e}')
+
+    log.info(f'  Blocos de airdrop: {sorted(blocks_data.keys())}')
+
+    # Remover genesis do UTXO set (foi gasto no primeiro bloco de airdrop)
+    utxo_set.pop(GENESIS_OUTPOINT, None)
+    log.info(f'  Genesis UTXO removido (gasto no bloco {AIRDROP_START_BLOCK})')
+
+    total_outputs_created = 0
+    total_txs_processed   = 0
+
+    for block_height in sorted(blocks_data.keys()):
+        if block_file_exists(block_height):
+            # Replay: carregar o arquivo existente e re-popular UTXO set
+            existing = json.loads((TX_LOG_DIR / f'block_{block_height:07d}.json').read_text())
+            for tx in existing.get('transactions', []):
+                for r in tx.get('receivers', []):
+                    # Não temos o outpoint diretamente — reconstruir
+                    pass
+            # Para garantir consistência, re-processar mesmo assim (sobrescreve)
+
+        block_txs_data = blocks_data[block_height]
+        block_ts_unix  = block_timestamps.get(block_height, 0)
+        block_ts_str   = (datetime.fromtimestamp(block_ts_unix, tz=timezone.utc)
+                          .isoformat().replace('+00:00', 'Z')
+                          if block_ts_unix else
+                          datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'))
+
+        block_txs = []
+
+        for txid, vout_map in block_txs_data.items():
+            # Construir receivers a partir dos dados de airdrop
+            receivers = []
+            new_utxos_for_tx = {}
+
+            for vout_idx, rdata in sorted(vout_map.items()):
+                address    = rdata['address']
+                amount_raw = rdata['amount_raw']
+                receivers.append({
+                    'address':    address,
+                    'amount':     amount_raw,
+                    'amount_dog': round(amount_raw / DOG_FACTOR, 5),
+                    'has_dog':    True,
+                    'is_change':  False,
+                })
+                outpoint = f'{txid}:{vout_idx}'
+                new_utxos_for_tx[outpoint] = amount_raw
+
+            if not receivers:
+                continue
+
+            total_out = round(sum(r['amount_dog'] for r in receivers), 5)
+
+            # O sender é sempre o distribuidor (bc1pry0ne0...)
+            # Não temos o amount_raw exato de entrada, mas é a soma dos outputs
+            total_raw_out = sum(r['amount'] for r in receivers)
+            senders = [{
+                'address':    GENESIS_ADDRESS,
+                'amount':     total_raw_out,
+                'amount_dog': round(total_raw_out / DOG_FACTOR, 5),
+                'has_dog':    True,
+            }]
+
+            tx_data = {
+                'txid':           txid,
+                'block_height':   block_height,
+                'timestamp':      block_ts_str,
+                'type':           'transfer',
+                'senders':        senders,
+                'receivers':      receivers,
+                'sender_count':   1,
+                'receiver_count': len(receivers),
+                'total_dog_in':   round(total_raw_out / DOG_FACTOR, 5),
+                'total_dog_out':  total_out,
+                'total_dog_moved': total_out,
+                'net_transfer':   total_out,
+                'change_amount':  0.0,
+                'has_change':     False,
+                'fee_sats':       None,  # não disponível nos dados de airdrop
+            }
+
+            block_txs.append(tx_data)
+            utxo_set.update(new_utxos_for_tx)
+            total_outputs_created += len(new_utxos_for_tx)
+            total_txs_processed   += 1
+
+        if block_txs:
+            save_block_file(block_height, block_txs, block_ts_str)
+            log.info(f'  Bloco {block_height:,}: {len(block_txs)} txs, '
+                     f'{sum(len(t["receivers"]) for t in block_txs)} recipients')
+
+    log.info(f'\nFase 1 concluída:')
+    log.info(f'  Txs processadas:   {total_txs_processed:,}')
+    log.info(f'  UTXOs criados:     {total_outputs_created:,}')
+    log.info(f'  UTXO set total:    {len(utxo_set):,}')
+    log.info(f'  DOG rastreado:     {sum(utxo_set.values())/DOG_FACTOR:,.0f}')
+
+    state['phase1_done'] = True
+    state['phase1_utxo_count'] = len(utxo_set)
+    save_state(state)
+    save_utxo(utxo_set)
+
+    return utxo_set
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FASE 2 — Scan forward via Bitcoin Core (858,369 → 941,110)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def phase2_scan(utxo_set, state):
+    if state.get('phase2_done'):
+        log.info('Fase 2 já concluída (checkpoint). Pulando.')
+        return utxo_set
+
+    start = state.get('phase2_last_block', SCAN_START_BLOCK - 1) + 1
+    total_blocks     = SCAN_END_BLOCK - SCAN_START_BLOCK + 1
+    blocks_remaining = SCAN_END_BLOCK - start + 1
+
+    log.info('═══════════════════════════════════════════════════════')
+    log.info(f'FASE 2 — Scan forward via Bitcoin Core ({start:,} → {SCAN_END_BLOCK:,})')
+    log.info(f'  {blocks_remaining:,} blocos restantes  |  UTXO set: {len(utxo_set):,}')
     log.info('═══════════════════════════════════════════════════════\n')
 
     total_dog_txs = 0
-    total_blocks_with_txs = 0
     t_start = time.time()
-    t_last_log = t_start
 
-    for height in range(start, END_BLOCK + 1):
-
-        # Bloco já tem arquivo? Pular scan mas ainda atualizar UTXO set
-        # (arquivo pode ter sido criado por um run anterior incompleto)
-        if block_file_exists(height) and height > last_done:
-            # Ler o arquivo e replay das tx para manter UTXO set coerente
-            filepath = TX_LOG_DIR / f'block_{height:07d}.json'
-            try:
-                with open(filepath) as f:
-                    bdata = json.load(f)
-                for tx in bdata.get('transactions', []):
-                    # Gastar inputs
-                    for s in tx.get('senders', []):
-                        # Não temos os outpoints aqui — impossível fazer replay seguro
-                        # Nesse caso, re-scan do bloco para garantir UTXO coerente
-                        pass
-                # Se não conseguimos fazer replay limpo, re-scan mesmo assim
-                # (o arquivo será sobrescrito com dados idênticos)
-            except Exception:
-                pass
+    for height in range(start, SCAN_END_BLOCK + 1):
 
         t_block = time.time()
         try:
             results = scan_block(height, utxo_set)
         except Exception as e:
             log.error(f'Bloco {height}: erro fatal: {e}')
-            # Salvar estado antes de abortar
-            save_state({**state, 'last_block': height - 1, 'error': str(e)})
-            save_backfill_utxo(utxo_set)
+            state['phase2_last_block'] = height - 1
+            save_state(state)
+            save_utxo(utxo_set)
             raise
 
         if results:
             all_txs = []
-            block_time_str = None
-
-            for tx_data, new_utxos, spent_outpoints in results:
+            block_ts = None
+            for tx_data, new_utxos, spent in results:
                 all_txs.append(tx_data)
-
-                # Atualizar UTXO set
-                for op in spent_outpoints:
+                for op in spent:
                     utxo_set.pop(op, None)
                 utxo_set.update(new_utxos)
+                if block_ts is None:
+                    block_ts = tx_data['timestamp']
 
-                if block_time_str is None:
-                    block_time_str = tx_data['timestamp']
-
-            if block_time_str is None:
-                block_time_str = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
-
-            save_block_file(height, all_txs, block_time_str)
+            save_block_file(height, all_txs,
+                            block_ts or datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'))
             total_dog_txs += len(all_txs)
-            total_blocks_with_txs += 1
-
-            elapsed_block = time.time() - t_block
-            log.info(f'Bloco {height:,}: {len(all_txs)} tx DOG  UTXO set: {len(utxo_set):,}  ({elapsed_block:.1f}s)')
+            log.info(f'Bloco {height:,}: {len(all_txs)} DOG txs  '
+                     f'UTXO: {len(utxo_set):,}  ({time.time()-t_block:.1f}s)')
 
         # Checkpoint periódico
-        if height % SAVE_INTERVAL == 0 or height == END_BLOCK:
-            save_state({
-                'last_block':          height,
-                'total_dog_txs':       total_dog_txs,
-                'total_blocks_with_txs': total_blocks_with_txs,
-                'utxo_count':          len(utxo_set),
-                'last_saved':          datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
-            })
-            save_backfill_utxo(utxo_set)
+        if height % SAVE_INTERVAL == 0 or height == SCAN_END_BLOCK:
+            state['phase2_last_block'] = height
+            state['phase2_dog_txs']    = total_dog_txs
+            save_state(state)
+            save_utxo(utxo_set)
 
-        # Log de progresso periódico
+        # Progresso
         if height % LOG_INTERVAL == 0:
-            elapsed   = time.time() - t_start
-            done      = height - start + 1
-            remaining = END_BLOCK - height
-            rate      = done / elapsed if elapsed > 0 else 0
-            eta_s     = remaining / rate if rate > 0 else 0
-            eta_h     = eta_s / 3600
-            pct       = (height - START_BLOCK + 1) / total_blocks * 100
-            log.info(
-                f'  ── {pct:.1f}%  bloco {height:,}/{END_BLOCK:,}  '
-                f'txs DOG: {total_dog_txs}  '
-                f'rate: {rate:.1f} bl/s  '
-                f'ETA: {eta_h:.1f}h'
-            )
+            elapsed = time.time() - t_start
+            done    = height - start + 1
+            rate    = done / elapsed if elapsed > 0 else 0
+            eta_h   = ((SCAN_END_BLOCK - height) / rate / 3600) if rate > 0 else 0
+            pct     = (height - SCAN_START_BLOCK + 1) / total_blocks * 100
+            log.info(f'  ── {pct:.1f}%  bloco {height:,}  '
+                     f'DOG txs: {total_dog_txs}  rate: {rate:.1f} bl/s  ETA: {eta_h:.1f}h')
 
-    # Salvar estado final
-    save_state({
-        'last_block':            END_BLOCK,
-        'total_dog_txs':         total_dog_txs,
-        'total_blocks_with_txs': total_blocks_with_txs,
-        'utxo_count':            len(utxo_set),
-        'completed_at':          datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
-    })
-    save_backfill_utxo(utxo_set)
+    log.info(f'\nFase 2 concluída:')
+    log.info(f'  DOG txs encontradas: {total_dog_txs:,}')
+    log.info(f'  UTXO set final:      {len(utxo_set):,}')
 
-    elapsed_total = time.time() - t_start
+    state['phase2_done']        = True
+    state['phase2_dog_txs']     = total_dog_txs
+    state['phase2_last_block']  = SCAN_END_BLOCK
+    save_state(state)
+    save_utxo(utxo_set)
+
+    return utxo_set
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FASE 3 — Verificação de integridade
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def phase3_verify():
     log.info('\n═══════════════════════════════════════════════════════')
-    log.info('BACKFILL COMPLETO')
-    log.info(f'  Blocos escaneados:   {blocks_remaining:,}')
-    log.info(f'  Blocos com DOG txs:  {total_blocks_with_txs:,}')
-    log.info(f'  Total txs DOG:       {total_dog_txs:,}')
-    log.info(f'  UTXO set final:      {len(utxo_set):,} UTXOs')
-    log.info(f'  Tempo total:         {elapsed_total/3600:.1f}h')
-    log.info('═══════════════════════════════════════════════════════\n')
+    log.info('FASE 3 — Verificação de integridade')
+
+    if not BACKFILL_UTXO_FILE.exists():
+        log.error('backfill_utxo_set.json não encontrado.')
+        return False
+    if not LIVE_UTXO_FILE.exists():
+        log.error('dog_utxo_set.json não encontrado.')
+        return False
+
+    backfill = json.loads(BACKFILL_UTXO_FILE.read_text())
+    live     = json.loads(LIVE_UTXO_FILE.read_text())
+
+    backfill_total = sum(backfill.values()) / DOG_FACTOR
+    live_total     = sum(live.values())     / DOG_FACTOR
+    supply         = 100_000_000_000.0
+
+    still_unspent = {k: v for k, v in backfill.items() if k in live}
+    spent_since   = {k: v for k, v in backfill.items() if k not in live}
+    orphan_live   = {k: v for k, v in live.items()     if k not in backfill}
+
+    log.info(f'Backfill UTXO set (ao fim do bloco {SCAN_END_BLOCK:,}): {len(backfill):,}')
+    log.info(f'Live UTXO set (estado atual):                            {len(live):,}')
+    log.info(f'Backfill DOG: {backfill_total:>22,.5f}  ({backfill_total/supply*100:.4f}% do supply)')
+    log.info(f'Live DOG:     {live_total:>22,.5f}  ({live_total/supply*100:.4f}% do supply)')
+    log.info(f'\nUTXOs não gastos desde {SCAN_END_BLOCK:,}: {len(still_unspent):,}')
+    log.info(f'UTXOs gastos entre {SCAN_END_BLOCK:,}–hoje: {len(spent_since):,}  ← esperado')
+    log.info(f'UTXOs órfãos no live (sem origem):        {len(orphan_live):,}  ← deve ser 0')
+
+    if orphan_live:
+        log.warning(f'\n⚠️  {len(orphan_live)} UTXOs no live sem origem rastreável:')
+        for k, v in list(orphan_live.items())[:10]:
+            log.warning(f'   {k}  →  {v/DOG_FACTOR:,.5f} DOG')
+        if len(orphan_live) > 10:
+            log.warning(f'   ... e mais {len(orphan_live)-10}')
+        return False
+
+    log.info('\n✅ Integridade confirmada — todos os UTXOs live têm origem rastreável.')
+    return True
 
 
-# ─── Indexação de endereços ───────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+# FASE 4 — Indexação Redis
+# ═══════════════════════════════════════════════════════════════════════════════
 
-def run_address_index():
-    """Chama build-address-tx-index.ts para indexar tudo no Redis."""
-    log.info('Rodando build-address-tx-index.ts...')
-    result = subprocess.run(
+def phase4_index():
+    log.info('\n═══════════════════════════════════════════════════════')
+    log.info('FASE 4 — Indexação Redis (Explorer)')
+    r = subprocess.run(
         ['npx', 'tsx', str(PROJECT_ROOT / 'scripts' / 'build-address-tx-index.ts')],
-        cwd=str(PROJECT_ROOT),
-        timeout=600,
+        cwd=str(PROJECT_ROOT), timeout=600
     )
-    if result.returncode == 0:
-        log.info('✅ Índice de endereços atualizado.')
+    if r.returncode == 0:
+        log.info('✅ Índice Redis atualizado.')
     else:
-        log.error('❌ Falha no índice de endereços.')
-    return result.returncode == 0
+        log.error('❌ Falha na indexação Redis.')
+    return r.returncode == 0
 
 
-# ─── Entry point ─────────────────────────────────────────────────────────────
+# ─── Entry point ──────────────────────────────────────────────────────────────
 
 def main():
     parser = argparse.ArgumentParser(description='DOG Historical Backfill')
-    parser.add_argument('--reset',  action='store_true', help='Reinicia do genesis (apaga checkpoint)')
-    parser.add_argument('--verify', action='store_true', help='Apenas verifica integridade do UTXO set')
-    parser.add_argument('--index',  action='store_true', help='Apenas roda o índice de endereços no Redis')
+    parser.add_argument('--reset',  action='store_true', help='Reinicia do zero')
+    parser.add_argument('--phase1', action='store_true', help='Só fase 1 (airdrop bootstrap)')
+    parser.add_argument('--phase2', action='store_true', help='Só fase 2 (scan forward)')
+    parser.add_argument('--verify', action='store_true', help='Só verificação de integridade')
+    parser.add_argument('--index',  action='store_true', help='Só indexação Redis')
     args = parser.parse_args()
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     TX_LOG_DIR.mkdir(parents=True, exist_ok=True)
 
     if args.verify:
-        ok = verify_integrity()
-        sys.exit(0 if ok else 1)
-
+        sys.exit(0 if phase3_verify() else 1)
     if args.index:
-        ok = run_address_index()
-        sys.exit(0 if ok else 1)
+        sys.exit(0 if phase4_index() else 1)
 
-    # Backfill completo
-    run_backfill(reset=args.reset)
+    if args.reset:
+        log.info('Reset: removendo checkpoint e UTXO set do backfill.')
+        BACKFILL_STATE_FILE.unlink(missing_ok=True)
+        BACKFILL_UTXO_FILE.unlink(missing_ok=True)
 
-    # Verificação automática ao final
-    log.info('\nExecutando verificação de integridade...')
-    verify_integrity()
+    state    = load_state()
+    utxo_set = load_utxo()
 
-    # Indexar no Redis
-    log.info('\nIndexando histórico no Redis...')
-    run_address_index()
+    if args.phase1:
+        phase1_bootstrap(utxo_set, state)
+        return
+    if args.phase2:
+        phase2_scan(utxo_set, state)
+        return
+
+    # Fluxo completo
+    utxo_set = phase1_bootstrap(utxo_set, state)
+    utxo_set = phase2_scan(utxo_set, state)
+    ok = phase3_verify()
+    phase4_index()
+
+    log.info('\n' + ('✅ Backfill completo!' if ok else '⚠️  Backfill completo com avisos.'))
 
 
 if __name__ == '__main__':
