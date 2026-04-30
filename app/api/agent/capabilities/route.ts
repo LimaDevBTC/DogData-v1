@@ -131,6 +131,14 @@ export async function GET() {
           "liquidity_usd", "circulating_supply", "top_10_pct", "top_25_pct",
           "top_50_pct", "whale_wallets", "active_1w", "fresh_1w"
         ]
+      },
+      status: {
+        description: "Service health & uptime — passive observations of crons, infra and external APIs persisted to Supabase. Powers the public /status page with 30/90-day uptime per component.",
+        update_frequency: "real-time (per request) + every cron execution",
+        endpoints: ["/api/status", "/api/status/full"],
+        components_tracked: 15,
+        component_categories: ["cron", "infra", "external_api", "data_source"],
+        public_page: "/status"
       }
     },
     data_quality: {

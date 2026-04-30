@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { probedFetch } from '@/lib/health-logger';
 
 interface UnisatEvent {
   type: 'send' | 'receive';
@@ -38,7 +39,8 @@ export async function GET(request: NextRequest) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
     
-    const response = await fetch(
+    const response = await probedFetch(
+      'external:unisat',
       `https://open-api.unisat.io/v1/indexer/runes/event?rune=DOG%E2%80%A2GO%E2%80%A2TO%E2%80%A2THE%E2%80%A2MOON&start=${offset}&limit=${limit}`,
       {
         headers: {

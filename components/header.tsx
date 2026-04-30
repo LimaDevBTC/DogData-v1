@@ -17,7 +17,7 @@ import {
   Search
 } from "lucide-react"
 
-type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain' | 'explorer'
+type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain' | 'explorer' | 'status'
 
 const navigation = [
   { name: 'Overview', page: 'overview' as PageType, icon: BarChart3 },
@@ -162,14 +162,18 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
               <span className="font-semibold">Donate</span>
             </button>
 
-            {/* Live Status */}
-            <div className="px-2.5 py-1.5 bg-white/[0.02] border border-white/[0.05] flex items-center space-x-1.5 rounded-lg">
+            {/* Status — clickable, shows live system health (links to /status page) */}
+            <a
+              href="/status"
+              title="View system status"
+              className="px-2.5 py-1.5 bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.04] hover:border-green-400/[0.2] flex items-center space-x-1.5 rounded-lg transition-all duration-300 group"
+            >
               <div className="relative w-1.5 h-1.5">
                 <div className="absolute inset-0 bg-green-400 rounded-full"></div>
                 <div className="absolute inset-0 bg-green-400 rounded-full animate-ping opacity-40"></div>
               </div>
-              <span className="text-green-400/90 text-[10px] md:text-[11px] font-mono font-semibold tracking-wider">LIVE</span>
-            </div>
+              <span className="text-green-400/90 group-hover:text-green-400 text-[10px] md:text-[11px] font-mono font-semibold tracking-wider transition-colors">STATUS</span>
+            </a>
 
             {/* Refresh */}
             <button

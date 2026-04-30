@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { redisClient } from '@/lib/upstash';
+import { recordHealth } from '@/lib/health-logger';
 
 const UNISAT_API_URL = 'https://open-api.unisat.io/v1/indexer/runes/event';
 const RUNE_NAME = 'DOG•GO•TO•THE•MOON';
@@ -1213,6 +1214,7 @@ function computeMetrics(transactions: Transaction[]): TransactionsMetrics {
 }
 
 export async function GET(request: NextRequest) {
+  const cronStart = Date.now();
   try {
     // Validar secret token
     const secret = request.nextUrl.searchParams.get('secret');
@@ -1251,17 +1253,53 @@ export async function GET(request: NextRequest) {
 
     let freshTransactions: Transaction[] = [];
     let source: 'xverse' | 'unisat' = 'xverse';
+    let xverseError: string | undefined;
 
+    const xverseStart = Date.now();
     try {
       freshTransactions = await fetchTransactionsFromXverse(existingTxMap);
       console.log(`✅ [UPDATE] ${freshTransactions.length} transações processadas via Xverse`);
-    } catch (error) {
+      void recordHealth({
+        component: 'external:xverse',
+        component_type: 'external_api',
+        status: 'ok',
+        latency_ms: Date.now() - xverseStart,
+      });
+    } catch (error: any) {
       source = 'unisat';
+      xverseError = error?.message ?? String(error);
       console.error('⚠️ [UPDATE] Falha ao usar Xverse, acionando fallback Unisat:', error);
+      void recordHealth({
+        component: 'external:xverse',
+        component_type: 'external_api',
+        status: 'down',
+        latency_ms: Date.now() - xverseStart,
+        error_message: xverseError,
+      });
     }
 
     if (source === 'unisat') {
-      const events = await fetchUnisatEvents(MAX_TRANSACTIONS);
+      const unisatStart = Date.now();
+      let events: UnisatEvent[] = [];
+      try {
+        events = await fetchUnisatEvents(MAX_TRANSACTIONS);
+        void recordHealth({
+          component: 'external:unisat',
+          component_type: 'external_api',
+          status: 'ok',
+          latency_ms: Date.now() - unisatStart,
+          metadata: { event_count: events.length },
+        });
+      } catch (err: any) {
+        void recordHealth({
+          component: 'external:unisat',
+          component_type: 'external_api',
+          status: 'down',
+          latency_ms: Date.now() - unisatStart,
+          error_message: err?.message ?? String(err),
+        });
+        throw err;
+      }
       console.log(`✅ [UPDATE] ${events.length} eventos recebidos da Unisat`);
 
       if (!events.length && !existingTransactions.length) {
@@ -1427,6 +1465,19 @@ export async function GET(request: NextRequest) {
     const filterMessage = removedCount > 0 ? `${removedCount} invalid removed` : 'all valid';
     console.log(`✅ [UPDATE] Cache saved to Upstash - ${trimmed.length} valid TXs (${filterMessage}), block ${lastBlock}`);
 
+    void recordHealth({
+      component: 'cron:update-transactions',
+      component_type: 'cron',
+      status: 'ok',
+      latency_ms: Date.now() - cronStart,
+      metadata: {
+        source,
+        tx_count: trimmed.length,
+        last_block: lastBlock,
+        invalid_removed: removedCount,
+      },
+    });
+
     return NextResponse.json({
       success: true,
       message: 'Transactions updated successfully',
@@ -1435,10 +1486,17 @@ export async function GET(request: NextRequest) {
 
   } catch (error: any) {
     console.error('❌ [UPDATE] Erro:', error);
+    void recordHealth({
+      component: 'cron:update-transactions',
+      component_type: 'cron',
+      status: 'down',
+      latency_ms: Date.now() - cronStart,
+      error_message: error?.message,
+    });
     return NextResponse.json(
-      { 
+      {
         error: 'Internal server error',
-        message: error.message 
+        message: error.message
       },
       { status: 500 }
     );

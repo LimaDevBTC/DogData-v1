@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { TwitterApi } from 'twitter-api-v2'
 import { redisClient } from '@/lib/upstash'
+import { recordHealth } from '@/lib/health-logger'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -92,6 +93,7 @@ export async function GET(request: NextRequest) {
   const posted: string[] = []
   const skipped: string[] = []
   const errors: string[] = []
+  const cronStart = Date.now()
 
   try {
     // 1. Fetch whale alerts from our own API
@@ -133,6 +135,13 @@ export async function GET(request: NextRequest) {
     log.push(`${newAlerts.length} new alerts to post, ${skipped.length} skipped`)
 
     if (newAlerts.length === 0) {
+      void recordHealth({
+        component: 'cron:whale-poster',
+        component_type: 'cron',
+        status: 'ok',
+        latency_ms: Date.now() - cronStart,
+        metadata: { posted: 0, skipped: skipped.length, no_new_alerts: true },
+      })
       return NextResponse.json({
         ok: true,
         posted: [],
@@ -159,6 +168,31 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const cronStatus: 'ok' | 'degraded' | 'down' =
+      errors.length === 0 ? 'ok' : (posted.length > 0 ? 'degraded' : 'down')
+
+    void recordHealth({
+      component: 'cron:whale-poster',
+      component_type: 'cron',
+      status: cronStatus,
+      latency_ms: Date.now() - cronStart,
+      metadata: {
+        posted: posted.length,
+        skipped: skipped.length,
+        errors: errors.length,
+      },
+    })
+
+    if (newAlerts.length > 0) {
+      void recordHealth({
+        component: 'external:twitter',
+        component_type: 'external_api',
+        status: errors.length === 0 ? 'ok' : (posted.length > 0 ? 'degraded' : 'down'),
+        metadata: { posted: posted.length, errors: errors.length },
+        error_message: errors[0],
+      })
+    }
+
     return NextResponse.json({
       ok: errors.length === 0,
       posted,
@@ -168,6 +202,13 @@ export async function GET(request: NextRequest) {
     })
   } catch (err: any) {
     console.error('[whale-poster]', err)
+    void recordHealth({
+      component: 'cron:whale-poster',
+      component_type: 'cron',
+      status: 'down',
+      latency_ms: Date.now() - cronStart,
+      error_message: err?.message,
+    })
     return NextResponse.json(
       { ok: false, error: err.message, log },
       { status: 500 }

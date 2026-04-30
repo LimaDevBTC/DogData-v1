@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { redisClient } from '@/lib/upstash';
+import { recordHealth } from '@/lib/health-logger';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -225,11 +226,21 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Snapshot endpoint (para compatibilidade)
+    // Snapshot endpoint (para compatibilidade) — também alvo do cron `snapshot=refresh`
     const snapshotQuery = searchParams.get('snapshot');
     if (snapshotQuery) {
+      const snapshotStart = Date.now();
       const data = await loadLocalHolders();
       if (!data) {
+        if (snapshotQuery === 'refresh') {
+          void recordHealth({
+            component: 'cron:dog-rune-holders',
+            component_type: 'cron',
+            status: 'down',
+            latency_ms: Date.now() - snapshotStart,
+            error_message: 'Holders data not available',
+          });
+        }
         return NextResponse.json(
           { error: 'Holders data not available' },
           { status: 503 }
@@ -237,7 +248,20 @@ export async function GET(request: NextRequest) {
       }
 
       const { holders, total, timestamp } = processHoldersData(data);
-      
+
+      if (snapshotQuery === 'refresh') {
+        void recordHealth({
+          component: 'cron:dog-rune-holders',
+          component_type: 'cron',
+          status: 'ok',
+          latency_ms: Date.now() - snapshotStart,
+          metadata: {
+            total_holders: total,
+            data_timestamp: timestamp,
+          },
+        });
+      }
+
       return NextResponse.json({
         timestamp,
         total_holders: total,

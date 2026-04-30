@@ -11,7 +11,7 @@ import {
   Gift
 } from "lucide-react"
 
-type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain' | 'explorer'
+type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain' | 'explorer' | 'status'
 
 interface FooterProps {
   currentPage?: PageType
@@ -63,13 +63,18 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
               Real-time data and professional tools for the community.
             </p>
 
-            <div className="flex items-center space-x-2.5">
+            <a
+              href="/status"
+              className="flex items-center space-x-2.5 group transition-opacity hover:opacity-80"
+              title="System status"
+            >
               <div className="relative w-2.5 h-2.5">
                 <div className="absolute inset-0 bg-green-400 rounded-full" />
                 <div className="absolute inset-0 bg-green-400 rounded-full animate-ping opacity-30" />
               </div>
-              <span className="text-green-400/80 text-xs font-mono font-semibold tracking-widest">SYSTEM ONLINE</span>
-            </div>
+              <span className="text-green-400/80 text-xs font-mono font-semibold tracking-widest group-hover:text-green-400">SYSTEM ONLINE</span>
+              <span className="text-dusty/60 text-[10px] font-mono group-hover:text-dusty">→ status</span>
+            </a>
           </div>
 
           {/* Quick Links */}

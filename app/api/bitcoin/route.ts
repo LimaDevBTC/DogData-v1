@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { probedFetch } from '@/lib/health-logger';
 
 const MEMPOOL_API = 'https://mempool.space/api';
 const COINGECKO_API = 'https://api.coingecko.com/api/v3';
@@ -22,7 +23,7 @@ export async function GET() {
     
     // Fetch all data in parallel with error handling
     const [difficultyAdjustment, hashrate, mempool, fees, blocks, pools, price] = await Promise.all([
-      fetch(`${MEMPOOL_API}/v1/difficulty-adjustment`)
+      probedFetch('external:mempool', `${MEMPOOL_API}/v1/difficulty-adjustment`)
         .then(r => r.json())
         .catch(e => {
           console.error('Error fetching difficulty:', e);
