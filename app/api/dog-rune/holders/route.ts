@@ -233,7 +233,7 @@ export async function GET(request: NextRequest) {
       const data = await loadLocalHolders();
       if (!data) {
         if (snapshotQuery === 'refresh') {
-          void recordHealth({
+          await recordHealth({
             component: 'cron:dog-rune-holders',
             component_type: 'cron',
             status: 'down',
@@ -250,7 +250,7 @@ export async function GET(request: NextRequest) {
       const { holders, total, timestamp } = processHoldersData(data);
 
       if (snapshotQuery === 'refresh') {
-        void recordHealth({
+        await recordHealth({
           component: 'cron:dog-rune-holders',
           component_type: 'cron',
           status: 'ok',

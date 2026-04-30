@@ -169,7 +169,7 @@ export async function GET() {
 
   // Persist these observations (best-effort, non-blocking).
   for (const [component, obs] of Object.entries(liveChecks)) {
-    void recordHealth({
+    await recordHealth({
       component,
       component_type: 'infra',
       status: obs.status,

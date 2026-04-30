@@ -1,4 +1,5 @@
 import { memoryCache } from '@/lib/cache'
+import { probedFetch } from '@/lib/health-logger'
 import {
   ChainTokenInfo,
   ChainHolder,
@@ -11,7 +12,7 @@ const TOKEN_ADDRESS = DOG_TOKENS.stacks.address
 const CACHE_TTL = 5 * 60 * 1000 // 5 min
 
 async function teneroFetch<T>(path: string): Promise<T> {
-  const resp = await fetch(`${BASE_URL}${path}`, {
+  const resp = await probedFetch('external:tenero', `${BASE_URL}${path}`, {
     headers: { accept: 'application/json' },
     cache: 'no-store', // Disable Next.js Data Cache — memoryCache handles TTL
   })

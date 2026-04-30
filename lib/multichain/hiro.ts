@@ -11,6 +11,7 @@
  */
 
 import { ChainHolder, ChainTransaction, ChainTokenInfo, DOG_TOKENS } from './types'
+import { probedFetch } from '@/lib/health-logger'
 
 const BASE_URL = 'https://api.hiro.so'
 const TOKEN_CONTRACT = DOG_TOKENS.stacks.address // SP14NS8MVBRHXMM96BQY0727AJ59SWPV7RMHC0NCG.pontis-bridge-DOG
@@ -22,7 +23,7 @@ async function hiroFetch<T>(path: string): Promise<T> {
   const apiKey = process.env.HIRO_API_KEY
   if (apiKey) headers['x-api-key'] = apiKey
 
-  const resp = await fetch(`${BASE_URL}${path}`, {
+  const resp = await probedFetch('external:hiro', `${BASE_URL}${path}`, {
     headers,
     cache: 'no-store', // Disable Next.js Data Cache — memoryCache handles TTL
     signal: AbortSignal.timeout(10_000),

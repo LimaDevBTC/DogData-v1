@@ -1358,7 +1358,7 @@ export async function GET(request: NextRequest) {
     const filterMessage = removedCount > 0 ? `${removedCount} invalid removed` : 'all valid';
     console.log(`✅ [UPDATE] Cache saved to Upstash - ${trimmed.length} valid TXs (${filterMessage}), block ${lastBlock}`);
 
-    void recordHealth({
+    await recordHealth({
       component: 'cron:update-transactions',
       component_type: 'cron',
       status: 'ok',
@@ -1378,7 +1378,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: any) {
     console.error('❌ [UPDATE] Error:', error);
-    void recordHealth({
+    await recordHealth({
       component: 'cron:update-transactions',
       component_type: 'cron',
       status: 'down',

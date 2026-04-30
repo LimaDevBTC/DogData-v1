@@ -135,7 +135,7 @@ export async function GET(request: NextRequest) {
     log.push(`${newAlerts.length} new alerts to post, ${skipped.length} skipped`)
 
     if (newAlerts.length === 0) {
-      void recordHealth({
+      await recordHealth({
         component: 'cron:whale-poster',
         component_type: 'cron',
         status: 'ok',
@@ -171,7 +171,7 @@ export async function GET(request: NextRequest) {
     const cronStatus: 'ok' | 'degraded' | 'down' =
       errors.length === 0 ? 'ok' : (posted.length > 0 ? 'degraded' : 'down')
 
-    void recordHealth({
+    await recordHealth({
       component: 'cron:whale-poster',
       component_type: 'cron',
       status: cronStatus,
@@ -184,7 +184,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (newAlerts.length > 0) {
-      void recordHealth({
+      await recordHealth({
         component: 'external:twitter',
         component_type: 'external_api',
         status: errors.length === 0 ? 'ok' : (posted.length > 0 ? 'degraded' : 'down'),
@@ -202,7 +202,7 @@ export async function GET(request: NextRequest) {
     })
   } catch (err: any) {
     console.error('[whale-poster]', err)
-    void recordHealth({
+    await recordHealth({
       component: 'cron:whale-poster',
       component_type: 'cron',
       status: 'down',

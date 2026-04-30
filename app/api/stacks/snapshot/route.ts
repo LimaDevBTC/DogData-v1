@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
   try {
     const snapshot = await captureStacksSnapshot()
 
-    void recordHealth({
+    await recordHealth({
       component: 'cron:stacks-snapshot',
       component_type: 'cron',
       status: 'ok',
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Passive observation of the upstream actually used (Tenero primary, Hiro fallback).
-    void recordHealth({
+    await recordHealth({
       component: snapshot.source === 'tenero' ? 'external:tenero' : 'external:hiro',
       component_type: 'external_api',
       status: 'ok',
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Stacks snapshot error:', error)
 
-    void recordHealth({
+    await recordHealth({
       component: 'cron:stacks-snapshot',
       component_type: 'cron',
       status: 'down',
