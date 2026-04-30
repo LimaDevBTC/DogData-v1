@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs/promises'
 import path from 'path'
-import { redisClient } from '@/lib/upstash'
+import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
+
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY!,
+  { auth: { persistSession: false } }
+)
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -24,8 +30,6 @@ interface AddressLabel {
   text: string
   description: string
 }
-
-// ─── Module-level caches ──────────────────────────────────────────────────────
 
 let holdersMap: Map<string, HolderEntry> | null = null
 let forensicMap: Map<string, ForensicProfile> | null = null
@@ -96,7 +100,6 @@ function classifyTx(
   senders: Array<{ address: string; amount_dog: number; holder_rank: number | null }>,
   receivers: Array<{ address: string; amount_dog: number; holder_rank: number | null; is_change: boolean }>
 ): 'whale_movement' | 'airdrop_og_activity' | 'consolidation' | 'normal' {
-  // Self-consolidation: same address in senders and receivers
   const senderSet = new Set(senders.map(s => s.address.toLowerCase()))
   const allReceiversAreSenders = receivers.filter(r => !r.is_change).every(r => senderSet.has(r.address.toLowerCase()))
   if (allReceiversAreSenders && receivers.filter(r => !r.is_change).length > 0) return 'consolidation'
@@ -110,52 +113,10 @@ function classifyTx(
   return 'normal'
 }
 
-// ─── Block file readers ───────────────────────────────────────────────────────
-
-async function readTxFromBlockFile(txid: string, blockHeight: number): Promise<any | null> {
-  const padded = String(blockHeight).padStart(7, '0')
-  const filePath = path.join(process.cwd(), 'data', 'dog_transactions', `block_${padded}.json`)
-  try {
-    const raw = await fs.readFile(filePath, 'utf-8')
-    const block = JSON.parse(raw)
-    return (block.transactions || []).find((t: any) => t.txid === txid) || null
-  } catch {
-    return null
-  }
-}
-
-// Full file scan fallback — used when Redis txid index hasn't been built
-async function scanBlockFilesForTx(txid: string): Promise<any | null> {
-  const TX_DIR = path.join(process.cwd(), 'data', 'dog_transactions')
-  let files: string[]
-  try {
-    files = await fs.readdir(TX_DIR)
-  } catch {
-    return null
-  }
-
-  const blockFiles = files
-    .filter(f => f.startsWith('block_') && f.endsWith('.json'))
-    .sort()
-
-  const BATCH = 80
-  for (let i = 0; i < blockFiles.length; i += BATCH) {
-    const batch = blockFiles.slice(i, i + BATCH)
-    const results = await Promise.all(
-      batch.map(async f => {
-        try {
-          const raw = await fs.readFile(path.join(TX_DIR, f), 'utf-8')
-          const block = JSON.parse(raw)
-          return (block.transactions || []).find((t: any) => t.txid === txid) || null
-        } catch {
-          return null
-        }
-      })
-    )
-    const found = results.find(r => r !== null)
-    if (found) return found
-  }
-  return null
+function parseJsonArr(val: string | any[] | null | undefined): any[] {
+  if (!val) return []
+  if (Array.isArray(val)) return val
+  try { return JSON.parse(val) } catch { return [] }
 }
 
 // ─── Handler ─────────────────────────────────────────────────────────────────
@@ -172,41 +133,24 @@ export async function GET(
   }
 
   try {
-    const [holders, forensic] = await Promise.all([getHoldersMap(), getForensicMap()])
+    const [holders, forensic, txQuery] = await Promise.all([
+      getHoldersMap(),
+      getForensicMap(),
+      supabase
+        .from('dog_transactions')
+        .select('txid, block_height, timestamp, type, fee_sats, total_dog_moved, senders, receivers')
+        .eq('txid', txid)
+        .maybeSingle(),
+    ])
 
-    // 1. Try Redis KV (recent txs stored as dog:transactions)
-    let rawTx: any = null
+    if (txQuery.error) throw new Error(`Supabase tx query failed: ${txQuery.error.message}`)
 
-    // Check txid index for block height
-    const blockHeightRaw = await redisClient.get<number>(`dog:txid:${txid}`)
-    const blockHeight = typeof blockHeightRaw === 'number' ? blockHeightRaw : null
-
-    if (blockHeight !== null) {
-      rawTx = await readTxFromBlockFile(txid, blockHeight)
-    }
-
-    // 2. Fallback: Redis dog:transactions cache (500 recent txs)
-    if (!rawTx) {
-      const cachedRaw = await redisClient.get<string>('dog:transactions')
-      if (cachedRaw) {
-        let cached: any
-        try { cached = typeof cachedRaw === 'string' ? JSON.parse(cachedRaw) : cachedRaw } catch {}
-        if (cached?.transactions) {
-          rawTx = cached.transactions.find((t: any) => t.txid === txid) || null
-        }
-      }
-    }
-
-    // 3. Fallback: full scan of local block files (dev only — when Redis index not built)
-    if (!rawTx) {
-      rawTx = await scanBlockFilesForTx(txid)
-    }
-
+    const rawTx = txQuery.data
     if (!rawTx) {
       return NextResponse.json({ error: 'Transaction not found', txid }, { status: 404 })
     }
 
-    const senders = (rawTx.senders || [])
+    const senders = parseJsonArr(rawTx.senders)
       .filter((s: any) => s.has_dog !== false && s.amount_dog > 0)
       .map((s: any) => ({
         address: s.address,
@@ -214,7 +158,7 @@ export async function GET(
         ...enrichAddress(s.address, holders, forensic),
       }))
 
-    const receivers = (rawTx.receivers || [])
+    const receivers = parseJsonArr(rawTx.receivers)
       .filter((r: any) => r.has_dog !== false && r.amount_dog > 0)
       .map((r: any) => ({
         address: r.address,

@@ -11,7 +11,14 @@ Uso:
 
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
+
+
+def utc_now_iso() -> str:
+    """ISO 8601 UTC timestamp with 'Z' suffix (millisecond precision)."""
+    n = datetime.now(timezone.utc)
+    return n.strftime('%Y-%m-%dT%H:%M:%S.') + f"{n.microsecond // 1000:03d}Z"
+
 
 BASE_DIR = Path(__file__).parent.parent
 DATA_DIR = BASE_DIR / 'data'
@@ -86,7 +93,7 @@ def main():
     }
 
     analytics = {
-        'timestamp': datetime.now().isoformat(),
+        'timestamp': utc_now_iso(),
         'data_source': 'trace_dog_flow_complete',
         'analytics': {
             'summary': {

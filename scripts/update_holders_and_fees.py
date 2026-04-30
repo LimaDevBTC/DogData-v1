@@ -17,11 +17,17 @@ import json
 import sys
 import os
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 from pathlib import Path
 import requests
 from collections import defaultdict
+
+
+def utc_now_iso() -> str:
+    """ISO 8601 UTC timestamp with 'Z' suffix (millisecond precision)."""
+    n = datetime.now(timezone.utc)
+    return n.strftime('%Y-%m-%dT%H:%M:%S.') + f"{n.microsecond // 1000:03d}Z"
 
 # Tentar carregar .env se disponível
 try:
@@ -364,7 +370,7 @@ def update_holders():
     
     # Criar estrutura de dados
     output_data = {
-        'timestamp': datetime.now().isoformat(),
+        'timestamp': utc_now_iso(),
         'total_holders': len(holders),
         'total_utxos': len(dog_runes),
         'holders': holders,
@@ -764,7 +770,7 @@ def update_fees():
         if fees_calculated > 0:
             print(f"  💾 Salvando progresso...", end=' ', flush=True)
             cache_data['transactions'] = transactions
-            cache_data['last_update'] = datetime.now().isoformat()
+            cache_data['last_update'] = utc_now_iso()
             
             if update_cache_in_upstash(cache_data):
                 print("✅")
@@ -843,7 +849,7 @@ def update_utxo_metrics():
     
     # Atualizar metadata
     history_data['history'] = history
-    history_data['last_updated'] = datetime.now().isoformat()
+    history_data['last_updated'] = utc_now_iso()
     history_data['total_points'] = len(history)
     
     # Salvar

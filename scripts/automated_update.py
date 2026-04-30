@@ -553,29 +553,6 @@ def main():
     except Exception as e:
         log(f"⚠️ Análise forense error (non-fatal): {e}")
 
-    # 7. Atualizar índice de endereços para o Explorer (incremental, apenas blocos novos)
-    log("")
-    log("📇 Atualizando índice de endereços (Explorer)...")
-    try:
-        index_result = subprocess.run(
-            ['npx', 'tsx', str(PROJECT_ROOT / 'scripts' / 'build-address-tx-index.ts')],
-            cwd=str(PROJECT_ROOT),
-            capture_output=True,
-            text=True,
-            timeout=300
-        )
-        if index_result.returncode == 0:
-            log("✅ Índice de endereços atualizado com sucesso")
-            if index_result.stdout:
-                for line in index_result.stdout.strip().split('\n')[-5:]:
-                    log(f"   {line}")
-        else:
-            log(f"⚠️ Índice de endereços warning: {index_result.stderr[:200] if index_result.stderr else 'unknown'}")
-    except subprocess.TimeoutExpired:
-        log("⚠️ Índice de endereços timeout (non-fatal)")
-    except Exception as e:
-        log(f"⚠️ Índice de endereços error (non-fatal): {e}")
-
     # 7. Commit e push (sempre tenta)
     log("")
     if git_commit_and_push():

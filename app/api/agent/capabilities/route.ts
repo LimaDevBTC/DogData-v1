@@ -6,19 +6,32 @@ export async function GET() {
   let totalHolders = 89287;
   let totalUtxos = 250002;
   let lastScan = new Date().toISOString();
+  let totalForensicProfiles = 75497;
 
   // Fetch live stats via internal API (avoids fs which bloats serverless bundle)
   try {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL
       || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-    const res = await fetch(`${baseUrl}/api/dog-rune/holders?limit=1`, {
-      cache: 'no-store',
-      signal: AbortSignal.timeout(5000),
-    });
-    if (res.ok) {
-      const data = await res.json();
+
+    const [holdersRes, forensicRes] = await Promise.allSettled([
+      fetch(`${baseUrl}/api/dog-rune/holders?limit=1`, {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(5000),
+      }),
+      fetch(`${baseUrl}/api/forensic/summary`, {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(5000),
+      }),
+    ]);
+
+    if (holdersRes.status === 'fulfilled' && holdersRes.value.ok) {
+      const data = await holdersRes.value.json();
       totalHolders = data.pagination?.total || totalHolders;
       lastScan = data.metadata?.updatedAt || lastScan;
+    }
+    if (forensicRes.status === 'fulfilled' && forensicRes.value.ok) {
+      const data = await forensicRes.value.json();
+      totalForensicProfiles = data.statistics?.total_analyzed || totalForensicProfiles;
     }
   } catch {}
 
@@ -58,8 +71,8 @@ export async function GET() {
         endpoints: ["/api/dog-rune/transactions-kv"]
       },
       forensic: {
-        description: "Behavioral analysis of 75,490+ airdrop recipients with Diamond Score",
-        total_profiles: 75490,
+        description: `Behavioral analysis of ${totalForensicProfiles.toLocaleString('en-US')} airdrop recipients with Diamond Score`,
+        total_profiles: totalForensicProfiles,
         categories: 14,
         endpoints: ["/api/forensic/profiles", "/api/forensic/summary"]
       },

@@ -82,7 +82,7 @@ def upsert(rows, retries=3):
     for attempt in range(retries):
         try:
             r = requests.post(
-                f'{SUPABASE_URL}/rest/v1/dog_transactions',
+                f'{SUPABASE_URL}/rest/v1/dog_transactions?on_conflict=txid',
                 headers=H, json=rows, timeout=60,
             )
             if r.status_code in (200, 201, 204):

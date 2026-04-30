@@ -850,8 +850,12 @@ def push_to_redis(new_txs):
         return False
 
 
-def push_to_supabase(new_txs):
-    """Insert transactions into Supabase dog_transactions table."""
+def push_to_supabase(new_txs, addresses=False):
+    """Insert transactions into Supabase dog_transactions table.
+
+    addresses=True populates the denormalized `addresses` TEXT[] column
+    used by the Explorer for GIN-indexed lookups.
+    """
     if not SUPABASE_URL or not SUPABASE_KEY:
         log.warning('Supabase not configured, skipping')
         return False
@@ -862,13 +866,15 @@ def push_to_supabase(new_txs):
         'apikey': SUPABASE_KEY,
         'Authorization': f'Bearer {SUPABASE_KEY}',
         'Content-Type': 'application/json',
-        'Prefer': 'resolution=ignore-duplicates',
+        'Prefer': 'resolution=merge-duplicates,return=minimal',
     }
 
     try:
         rows = []
         for tx in new_txs:
-            rows.append({
+            senders = tx.get('senders', [])
+            receivers = tx.get('receivers', [])
+            row = {
                 'txid': tx['txid'],
                 'block_height': tx['block_height'],
                 'timestamp': tx['timestamp'],
@@ -880,19 +886,26 @@ def push_to_supabase(new_txs):
                 'fee_sats': tx.get('fee_sats'),
                 'sender_count': tx.get('sender_count', 0),
                 'receiver_count': tx.get('receiver_count', 0),
-                'senders': json.dumps(tx.get('senders', [])),
-                'receivers': json.dumps(tx.get('receivers', [])),
-            })
+                'senders': json.dumps(senders),
+                'receivers': json.dumps(receivers),
+            }
+            if addresses:
+                row['addresses'] = list({
+                    a['address']
+                    for a in (senders + receivers)
+                    if a.get('address')
+                })
+            rows.append(row)
 
         resp = req.post(
-            f'{SUPABASE_URL}/rest/v1/dog_transactions',
+            f'{SUPABASE_URL}/rest/v1/dog_transactions?on_conflict=txid',
             headers=headers,
             json=rows,
-            timeout=15
+            timeout=30
         )
 
-        if resp.status_code in (200, 201):
-            log.info(f'Supabase: inserted {len(rows)} txs')
+        if resp.status_code in (200, 201, 204):
+            log.info(f'Supabase: upserted {len(rows)} txs')
             return True
         else:
             log.error(f'Supabase insert failed: {resp.status_code} {resp.text[:200]}')
@@ -951,8 +964,7 @@ def process_pending_blocks(utxo_set, state, single_block=None):
 
             save_block_txs(height, all_txs)
             push_to_redis(all_txs)
-            push_to_supabase(all_txs)
-            update_address_tx_index(all_txs)
+            push_to_supabase(all_txs, addresses=True)
             total_dog_txs += len(all_txs)
 
             elapsed = time.time() - t

@@ -16,14 +16,26 @@ export async function GET() {
   try {
     const internalBase = process.env.NEXT_PUBLIC_APP_URL
       || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-    const res = await fetch(`${internalBase}/api/dog-rune/holders?limit=1`, {
-      cache: 'no-store',
-      signal: AbortSignal.timeout(3000),
-    });
-    if (res.ok) {
-      const data = await res.json();
+    const [holdersRes, forensicRes] = await Promise.allSettled([
+      fetch(`${internalBase}/api/dog-rune/holders?limit=1`, {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(3000),
+      }),
+      fetch(`${internalBase}/api/forensic/summary`, {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(3000),
+      }),
+    ]);
+    if (holdersRes.status === 'fulfilled' && holdersRes.value.ok) {
+      const data = await holdersRes.value.json();
       if (data.pagination?.total) {
         liveStats.total_holders = data.pagination.total.toLocaleString() + '+';
+      }
+    }
+    if (forensicRes.status === 'fulfilled' && forensicRes.value.ok) {
+      const data = await forensicRes.value.json();
+      if (data.statistics?.total_analyzed) {
+        liveStats.forensic_profiles = data.statistics.total_analyzed.toLocaleString();
       }
     }
   } catch {}

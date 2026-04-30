@@ -1,114 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs/promises'
 import path from 'path'
-import { redisClient } from '@/lib/upstash'
+import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-// ─── File-based index (fallback when Redis index not built) ───────────────────
-//
-// Built lazily on first request, kept in module memory for the lifetime of the
-// Node.js process. On Vercel (where block files are excluded from the bundle)
-// this stays null and the Redis index is the only source.
+// ─── Supabase client (service role for unrestricted reads) ────────────────────
 
-let fileAddrIndex: Map<string, TxEntry[]> | null = null
-let fileIndexPromise: Promise<Map<string, TxEntry[]>> | null = null
-
-async function buildFileIndex(): Promise<Map<string, TxEntry[]>> {
-  if (fileAddrIndex) return fileAddrIndex
-
-  const TX_DIR = path.join(process.cwd(), 'data', 'dog_transactions')
-  let files: string[]
-  try {
-    files = await fs.readdir(TX_DIR)
-  } catch {
-    // Block files not available (e.g. Vercel serverless)
-    return new Map()
-  }
-
-  const blockFiles = files
-    .filter(f => f.startsWith('block_') && f.endsWith('.json'))
-    .sort()
-
-  const index = new Map<string, TxEntry[]>()
-
-  // Process in parallel batches of 80 to avoid too many open file handles
-  const BATCH = 80
-  for (let i = 0; i < blockFiles.length; i += BATCH) {
-    const batch = blockFiles.slice(i, i + BATCH)
-    const contents = await Promise.all(
-      batch.map(f => fs.readFile(path.join(TX_DIR, f), 'utf-8').catch(() => null))
-    )
-
-    for (const raw of contents) {
-      if (!raw) continue
-      let block: any
-      try { block = JSON.parse(raw) } catch { continue }
-
-      for (const tx of block.transactions || []) {
-        const senders = (tx.senders || []).filter((s: any) => s.has_dog !== false && s.amount_dog > 0)
-        const receivers = (tx.receivers || []).filter((r: any) => r.has_dog !== false && r.amount_dog > 0 && !r.is_change)
-
-        const senderAddrs = new Set(senders.map((s: any) => s.address as string))
-        const receiverAddrs = new Set(receivers.map((r: any) => r.address as string))
-        const allAddrs = Array.from(new Set([...Array.from(senderAddrs), ...Array.from(receiverAddrs)]))
-
-        for (const addr of allAddrs) {
-          const addrLower = (addr as string).toLowerCase()
-          const isSender = senderAddrs.has(addr as string)
-          const isReceiver = receiverAddrs.has(addr)
-
-          const direction: 'in' | 'out' | 'self' =
-            isSender && isReceiver ? 'self' : isSender ? 'out' : 'in'
-
-          const amount_dog: number = isSender
-            ? (senders.find((s: any) => s.address === addr)?.amount_dog || 0)
-            : (receivers.find((r: any) => r.address === addr)?.amount_dog || 0)
-
-          const otherAddrs = [
-            ...senders.filter((s: any) => s.address !== addr).map((s: any) => s.address),
-            ...receivers.filter((r: any) => r.address !== addr).map((r: any) => r.address),
-          ]
-          const counterparties: string[] = Array.from(new Set(otherAddrs))
-
-          const entry: TxEntry = {
-            txid: tx.txid,
-            block_height: tx.block_height,
-            timestamp: tx.timestamp,
-            direction,
-            amount_dog,
-            counterparty: counterparties.length === 1 ? counterparties[0] : null,
-            counterparties,
-            total_dog_moved: tx.total_dog_moved || 0,
-            fee_sats: tx.fee_sats || 0,
-          }
-
-          if (!index.has(addrLower)) index.set(addrLower, [])
-          index.get(addrLower)!.push(entry)
-        }
-      }
-    }
-  }
-
-  // Sort each address list by block desc
-  for (const [, txs] of Array.from(index)) {
-    txs.sort((a, b) => b.block_height - a.block_height)
-  }
-
-  fileAddrIndex = index
-  console.log(`[address-index] File index built: ${index.size} addresses from ${blockFiles.length} blocks`)
-  return index
-}
-
-async function getFileIndexForAddress(addrLower: string): Promise<TxEntry[]> {
-  // Start building once, share the same promise across concurrent requests
-  if (!fileIndexPromise) {
-    fileIndexPromise = buildFileIndex()
-  }
-  const index = await fileIndexPromise
-  return index.get(addrLower) || []
-}
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY!,
+  { auth: { persistSession: false } }
+)
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -155,42 +59,91 @@ interface AddressLabel {
   description: string
 }
 
-// ─── Module-level caches (survive across requests in the same Node.js process) ─
+interface SupabaseRow {
+  txid: string
+  block_height: number
+  timestamp: string
+  total_dog_moved: number | null
+  fee_sats: number | null
+  senders: string | any[] | null
+  receivers: string | any[] | null
+}
+
+// ─── Module-level caches (file-based holder/forensic data) ────────────────────
 
 let holdersMap: Map<string, HolderEntry> | null = null
 let holdersTimestamp = ''
 let holdersTotal = 0
-
 let forensicMap: Map<string, ForensicProfile> | null = null
 
-async function getHoldersMap(): Promise<{ map: Map<string, HolderEntry>; total: number; timestamp: string }> {
+async function getHoldersMap() {
   if (holdersMap) return { map: holdersMap, total: holdersTotal, timestamp: holdersTimestamp }
-
   const filePath = path.join(process.cwd(), 'data', 'dog_holders_by_address.json')
-  const raw = await fs.readFile(filePath, 'utf-8')
-  const data = JSON.parse(raw)
-
+  const data = JSON.parse(await fs.readFile(filePath, 'utf-8'))
   holdersTotal = data.total_holders || data.holders?.length || 0
   holdersTimestamp = data.timestamp || new Date().toISOString()
   holdersMap = new Map()
-  for (const h of data.holders || []) {
-    holdersMap.set(h.address.toLowerCase(), h)
-  }
+  for (const h of data.holders || []) holdersMap.set(h.address.toLowerCase(), h)
   return { map: holdersMap, total: holdersTotal, timestamp: holdersTimestamp }
 }
 
-async function getForensicMap(): Promise<Map<string, ForensicProfile>> {
+async function getForensicMap() {
   if (forensicMap) return forensicMap
-
   const filePath = path.join(process.cwd(), 'data', 'forensic_behavioral_analysis.json')
-  const raw = await fs.readFile(filePath, 'utf-8')
-  const data = JSON.parse(raw)
-
+  const data = JSON.parse(await fs.readFile(filePath, 'utf-8'))
   forensicMap = new Map()
-  for (const p of data.all_profiles || []) {
-    forensicMap.set(p.address.toLowerCase(), p)
-  }
+  for (const p of data.all_profiles || []) forensicMap.set(p.address.toLowerCase(), p)
   return forensicMap
+}
+
+// ─── Convert Supabase rows → TxEntry[] for a given address ────────────────────
+
+function parseJsonArr(val: string | any[] | null | undefined): any[] {
+  if (!val) return []
+  if (Array.isArray(val)) return val
+  try { return JSON.parse(val) } catch { return [] }
+}
+
+function rowsToTxEntries(rows: SupabaseRow[], targetAddr: string): TxEntry[] {
+  const target = targetAddr.toLowerCase()
+  const entries: TxEntry[] = []
+
+  for (const row of rows) {
+    const senders = parseJsonArr(row.senders)
+      .filter((s: any) => s.has_dog !== false && s.amount_dog > 0)
+    const receivers = parseJsonArr(row.receivers)
+      .filter((r: any) => r.has_dog !== false && r.amount_dog > 0 && !r.is_change)
+
+    const isSender = senders.some((s: any) => s.address?.toLowerCase() === target)
+    const isReceiver = receivers.some((r: any) => r.address?.toLowerCase() === target)
+    if (!isSender && !isReceiver) continue
+
+    const direction: 'in' | 'out' | 'self' =
+      isSender && isReceiver ? 'self' : isSender ? 'out' : 'in'
+
+    const amount_dog: number = isSender
+      ? (senders.find((s: any) => s.address?.toLowerCase() === target)?.amount_dog || 0)
+      : (receivers.find((r: any) => r.address?.toLowerCase() === target)?.amount_dog || 0)
+
+    const otherAddrs = [
+      ...senders.filter((s: any) => s.address?.toLowerCase() !== target).map((s: any) => s.address),
+      ...receivers.filter((r: any) => r.address?.toLowerCase() !== target).map((r: any) => r.address),
+    ]
+    const counterparties = Array.from(new Set(otherAddrs.filter(Boolean)))
+
+    entries.push({
+      txid: row.txid,
+      block_height: row.block_height,
+      timestamp: row.timestamp,
+      direction,
+      amount_dog,
+      counterparty: counterparties.length === 1 ? counterparties[0] : null,
+      counterparties,
+      total_dog_moved: row.total_dog_moved || 0,
+      fee_sats: row.fee_sats || 0,
+    })
+  }
+  return entries
 }
 
 // ─── Labels ──────────────────────────────────────────────────────────────────
@@ -221,38 +174,27 @@ const behaviorLabelMap: Record<string, { text: string; description: string }> = 
 
 function computeLabels(holder: HolderEntry | null, forensic: ForensicProfile | null): AddressLabel[] {
   const labels: AddressLabel[] = []
-
   if (holder) {
     labels.push(getTierLabel(holder.total_dog))
     if (holder.rank <= 10)       labels.push({ id: 'top10',  text: 'Top 10 Holder',  description: 'Rank #' + holder.rank })
     else if (holder.rank <= 100) labels.push({ id: 'top100', text: 'Top 100 Holder', description: 'Rank #' + holder.rank })
   }
-
   if (forensic) {
     labels.push({ id: 'airdrop_og', text: 'Airdrop OG', description: `Airdrop rank #${forensic.airdrop_rank}` })
-
     const bl = behaviorLabelMap[forensic.behavior_pattern]
     if (bl) labels.push({ id: forensic.behavior_pattern, ...bl })
-
     if (forensic.current_balance > forensic.airdrop_amount) {
       labels.push({ id: 'accumulator', text: 'Accumulator', description: 'Bought more after airdrop' })
     }
   }
-
   return labels
 }
 
-// ─── Stats from tx history ────────────────────────────────────────────────────
-
 function computeStats(txs: TxEntry[]) {
-  let total_received = 0
-  let total_sent = 0
-  let first_ts: string | null = null
-  let last_ts: string | null = null
-  let first_block: number | null = null
-  let last_block: number | null = null
-  let largest_receive = 0
-  let largest_send = 0
+  let total_received = 0, total_sent = 0
+  let first_ts: string | null = null, last_ts: string | null = null
+  let first_block: number | null = null, last_block: number | null = null
+  let largest_receive = 0, largest_send = 0
 
   for (const tx of txs) {
     if (tx.direction === 'in') {
@@ -262,7 +204,6 @@ function computeStats(txs: TxEntry[]) {
       total_sent += tx.amount_dog
       if (tx.amount_dog > largest_send) largest_send = tx.amount_dog
     }
-
     if (!first_block || tx.block_height < first_block) {
       first_block = tx.block_height
       first_ts = tx.timestamp
@@ -295,11 +236,10 @@ export async function GET(
   const address = rawAddress.trim()
   const addressLower = address.toLowerCase()
 
-  // Optional pagination & filter for the transactions array
   const sp = req.nextUrl.searchParams
   const txLimitRaw = Number(sp.get('limit') ?? '0')
   const txOffsetRaw = Number(sp.get('offset') ?? '0')
-  const direction = sp.get('direction') // "in" | "out" | null (= all)
+  const direction = sp.get('direction')
   const wantsPagination = sp.has('limit') || sp.has('offset') || sp.has('direction')
   const txLimit = Number.isFinite(txLimitRaw) && txLimitRaw > 0
     ? Math.min(Math.floor(txLimitRaw), 500)
@@ -307,33 +247,31 @@ export async function GET(
   const txOffset = Number.isFinite(txOffsetRaw) && txOffsetRaw >= 0 ? Math.floor(txOffsetRaw) : 0
 
   try {
-    const [holdersData, forensicData, txsRaw, indexMeta] = await Promise.all([
+    const [holdersData, forensicData, txQuery, blockQuery] = await Promise.all([
       getHoldersMap(),
       getForensicMap(),
-      redisClient.get<string>(`dog:addr:txs:${addressLower}`),
-      redisClient.get<string>('dog:addr:index:meta'),
+      supabase
+        .from('dog_transactions')
+        .select('txid, block_height, timestamp, total_dog_moved, fee_sats, senders, receivers')
+        .contains('addresses', [address])
+        .order('block_height', { ascending: false })
+        .limit(10000),
+      supabase
+        .from('dog_transactions')
+        .select('block_height')
+        .order('block_height', { ascending: false })
+        .limit(1)
+        .single(),
     ])
+
+    if (txQuery.error) throw new Error(`Supabase tx query failed: ${txQuery.error.message}`)
 
     const holder = holdersData.map.get(addressLower) || null
     const forensic = forensicData.get(addressLower) || null
 
-    // Parse transactions from Redis
-    let transactions: TxEntry[] = []
-    if (txsRaw) {
-      try {
-        transactions = typeof txsRaw === 'string' ? JSON.parse(txsRaw) : (txsRaw as TxEntry[])
-      } catch {}
-    }
+    let transactions: TxEntry[] = rowsToTxEntries((txQuery.data as SupabaseRow[]) || [], address)
 
-    // Fallback: if Redis index not yet built, scan block files in memory
-    const redisIndexBuilt = !!indexMeta
-    if (!redisIndexBuilt && transactions.length === 0) {
-      transactions = await getFileIndexForAddress(addressLower)
-    }
-
-    // Synthetic airdrop entry: forensic profile exists but no txs found in indexed range
-    // The DOG airdrop was at block ~840,000; our block files start at 941,111.
-    // We synthesise a representative entry so the holder sees their original receipt.
+    // Synthetic airdrop entry: forensic profile but no historical txs found
     if (forensic && transactions.length === 0 && forensic.airdrop_amount > 0) {
       transactions = [{
         txid: 'airdrop-synthetic',
@@ -370,16 +308,9 @@ export async function GET(
       })
     }
 
-    let meta: { last_block?: number; built_at?: string } = {}
-    if (indexMeta) {
-      try { meta = typeof indexMeta === 'string' ? JSON.parse(indexMeta) : (indexMeta as object) } catch {}
-    }
+    const lastIndexedBlock = blockQuery.data?.block_height ?? 0
 
-    const status = holder
-      ? 'holder'
-      : forensic
-        ? 'forensic_only'
-        : 'tx_only'
+    const status = holder ? 'holder' : forensic ? 'forensic_only' : 'tx_only'
 
     const holderPayload = holder
       ? {
@@ -405,7 +336,6 @@ export async function GET(
         }
       : null
 
-    // Apply optional direction filter + pagination over transactions
     const filteredTxs = direction === 'in' || direction === 'out'
       ? transactions.filter(t => t.direction === direction)
       : transactions
@@ -433,12 +363,12 @@ export async function GET(
             direction: direction ?? 'all',
           }
         : null,
-      last_updated: meta.built_at || new Date().toISOString(),
+      last_updated: new Date().toISOString(),
       metadata: {
-        indexed_blocks: meta.last_block || 0,
-        last_updated: meta.built_at || new Date().toISOString(),
+        indexed_blocks: lastIndexedBlock,
+        last_updated: new Date().toISOString(),
         total_holders: holdersData.total,
-        block_range: { from: 941111, to: meta.last_block || 946936 },
+        block_range: { from: 840654, to: lastIndexedBlock },
       },
     }, {
       headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60' },
