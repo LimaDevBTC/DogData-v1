@@ -7,7 +7,7 @@ interface RateLimitConfig {
 }
 
 const TIER_LIMITS: Record<string, RateLimitConfig> = {
-  public:     { maxRequests: 20,    windowMs: 3600000 },  // 20/hour
+  public:     { maxRequests: 100,   windowMs: 3600000 },  // 100/hour
   free:       { maxRequests: 100,   windowMs: 3600000 },  // 100/hour
   pro:        { maxRequests: 5000,  windowMs: 3600000 },  // 5000/hour
   enterprise: { maxRequests: 50000, windowMs: 3600000 },  // 50000/hour

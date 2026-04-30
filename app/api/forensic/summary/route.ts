@@ -18,10 +18,15 @@ export async function GET() {
     const fileContent = fs.readFileSync(filePath, 'utf-8');
     const data = JSON.parse(fileContent);
     
-    // Retornar as estatísticas
+    const timestamp = data.timestamp ?? null;
+    const staleness_hours = timestamp
+      ? Math.floor((Date.now() - new Date(timestamp).getTime()) / 3_600_000)
+      : null;
+
     return NextResponse.json({
       statistics: data.statistics || {},
-      timestamp: data.timestamp
+      timestamp,
+      staleness_hours,
     }, {
       headers: {
         'Cache-Control': 'no-store, max-age=0',

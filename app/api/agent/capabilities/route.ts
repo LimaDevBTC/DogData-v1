@@ -64,9 +64,10 @@ export async function GET() {
         endpoints: ["/api/forensic/profiles", "/api/forensic/summary"]
       },
       pricing: {
-        description: "Multi-exchange DOG pricing from 10 sources: 6 CEXes and 4 Solana DEXes",
+        description: "Multi-exchange DOG pricing from 10 sources: 4 CEXes, 2 BTC-layer DEXes, and 4 Solana DEXes",
         exchanges: ["kraken", "gateio", "mexc", "bitget", "bitflow", "dogswap", "orca", "raydium", "meteora", "jupiter"],
-        cex: ["kraken", "gateio", "mexc", "bitget", "bitflow", "dogswap"],
+        cex: ["kraken", "gateio", "mexc", "bitget"],
+        btc_l2_dex: ["bitflow", "dogswap"],
         solana_dex: ["orca", "raydium", "meteora", "jupiter"],
         update_frequency: "30s",
         endpoints: [
@@ -138,7 +139,7 @@ export async function GET() {
       }
     },
     rate_limits: {
-      public: { requests_per_hour: 20, description: "No API key required" },
+      public: { requests_per_hour: 100, description: "No API key required" },
       free: { requests_per_hour: 100, description: "For testing and evaluation" },
       pro: { requests_per_hour: 5000, description: "For production agents" },
       enterprise: { requests_per_hour: 50000, description: "For high-volume agents" }

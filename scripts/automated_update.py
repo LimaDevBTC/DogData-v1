@@ -522,7 +522,38 @@ def main():
     except Exception as e:
         log(f"⚠️ Airdrop analytics error (non-fatal): {e}")
 
-    # 6. Atualizar índice de endereços para o Explorer (incremental, apenas blocos novos)
+    # 6. Análise forense comportamental (atualiza forensic_behavioral_analysis.json +
+    #    acumula série temporal em forensic_history.json + snapshot diário em snapshots/)
+    log("")
+    log("🔬 Executando análise forense comportamental...")
+    try:
+        forensic_script = SCRIPT_DIR / 'update_forensic_analysis.py'
+        if forensic_script.exists():
+            forensic_result = subprocess.run(
+                [sys.executable, str(forensic_script)],
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                text=True,
+                timeout=600  # análise de 75k perfis pode levar até 10 minutos
+            )
+            if forensic_result.returncode == 0:
+                log("✅ Análise forense atualizada com sucesso")
+                if forensic_result.stdout:
+                    for line in forensic_result.stdout.strip().split('\n'):
+                        log(f"   {line}")
+            else:
+                log(f"⚠️ Erro na análise forense: {forensic_result.stderr[:300] if forensic_result.stderr else 'unknown'}")
+                if forensic_result.stdout:
+                    for line in forensic_result.stdout.strip().split('\n')[-5:]:
+                        log(f"   {line}")
+        else:
+            log(f"⚠️ Script não encontrado: {forensic_script}")
+    except subprocess.TimeoutExpired:
+        log("⚠️ Análise forense timeout (non-fatal) — será tentada na próxima hora")
+    except Exception as e:
+        log(f"⚠️ Análise forense error (non-fatal): {e}")
+
+    # 7. Atualizar índice de endereços para o Explorer (incremental, apenas blocos novos)
     log("")
     log("📇 Atualizando índice de endereços (Explorer)...")
     try:

@@ -66,11 +66,18 @@ interface ForensicStats {
   sold_everything: number;
   accumulated: number;
   dumping: number;
-  diamond_hands: number;
   retention_rate: number;
+  accumulator_rate: number;
+  days_since_airdrop: number;
+  current_block: number;
   by_pattern: {
     [key: string]: number;
   };
+}
+
+interface ForensicMeta {
+  timestamp: string;
+  staleness_hours: number;
 }
 
 type BehaviorList = 'all' | 'accumulators' | 'holders' | 'sellers';
@@ -78,6 +85,7 @@ type BehaviorList = 'all' | 'accumulators' | 'holders' | 'sellers';
 export default function AirdropPage() {
   const [summary, setSummary] = useState<AirdropSummary | null>(null)
   const [forensicStats, setForensicStats] = useState<ForensicStats | null>(null)
+  const [forensicMeta, setForensicMeta] = useState<ForensicMeta | null>(null)
   const [currentList, setCurrentList] = useState<BehaviorList>('all')
   const [profiles, setProfiles] = useState<BehavioralProfile[]>([])
   const [loading, setLoading] = useState(true)
@@ -237,27 +245,10 @@ export default function AirdropPage() {
       if (forensicResponse.ok) {
         const forensicData = await forensicResponse.json()
         setForensicStats(forensicData.statistics)
-        
-        // Calcular totalPages imediatamente após carregar forensicStats
-        const stats = forensicData.statistics
-        let totalCount = 0
-        if (currentList === 'all') {
-          totalCount = Object.values(stats?.by_pattern || {}).reduce((sum: number, val: any) => sum + (val || 0), 0)
-        } else if (currentList === 'accumulators') {
-          totalCount = (stats?.by_pattern.satoshi_visionary || 0) +
-                      (stats?.by_pattern.btc_maximalist || 0) +
-                      (stats?.by_pattern.rune_master || 0) + 
-                      (stats?.by_pattern.ordinal_believer || 0) + 
-                      (stats?.by_pattern.dog_legend || 0)
-        } else if (currentList === 'holders') {
-          totalCount = (stats?.by_pattern.diamond_paws || 0)
-        } else if (currentList === 'sellers') {
-          totalCount = (stats?.by_pattern.hodl_hero || 0) +
-                      (stats?.by_pattern.steady_holder || 0) +
-                      (stats?.by_pattern.profit_taker || 0) + 
-                      (stats?.by_pattern.early_exit || 0) + 
-                      (stats?.by_pattern.panic_seller || 0) + 
-                      (stats?.by_pattern.paper_hands || 0)
+        if (forensicData.timestamp) {
+          const ts = new Date(forensicData.timestamp)
+          const staleness_hours = Math.floor((Date.now() - ts.getTime()) / 3_600_000)
+          setForensicMeta({ timestamp: forensicData.timestamp, staleness_hours })
         }
       }
       
@@ -353,26 +344,21 @@ export default function AirdropPage() {
 
   const searchRecipient = async () => {
     if (!searchAddress.trim()) return
-    
+
     try {
       setLoading(true)
-      // Buscar diretamente no JSON de dados comportamentais
-      const response = await fetch(`/data/forensic_behavioral_analysis.json`)
+      const response = await fetch(
+        `/api/forensic/profile?address=${encodeURIComponent(searchAddress.trim())}`
+      )
       if (response.ok) {
         const data = await response.json()
-        // Buscar o endereço específico em all_profiles
-        const profile = data.all_profiles?.find((r: BehavioralProfile) => 
-          r.address.toLowerCase() === searchAddress.trim().toLowerCase()
-        )
-        if (profile) {
-          setSearchResult(profile)
-        } else {
-          setSearchResult(null)
-          alert('Recipient not found')
-        }
+        setSearchResult(data.profile)
+      } else if (response.status === 404) {
+        setSearchResult(null)
+        alert('Address not found in airdrop recipients')
       } else {
         setSearchResult(null)
-        alert('Error loading recipients data')
+        alert('Error fetching profile')
       }
     } catch (error) {
       console.error('Error searching recipient:', error)
@@ -449,8 +435,33 @@ export default function AirdropPage() {
         </p>
       </div>
 
+      {/* Data freshness banner */}
+      {forensicMeta && (
+        <div className={`flex items-center justify-between px-4 py-2 rounded-lg border text-xs font-mono ${
+          forensicMeta.staleness_hours < 2
+            ? 'bg-green-500/[0.06] border-green-500/20 text-green-400'
+            : forensicMeta.staleness_hours < 24
+            ? 'bg-lava/[0.06] border-lava/20 text-lava'
+            : 'bg-yellow-500/[0.06] border-yellow-500/20 text-yellow-400'
+        }`}>
+          <span>
+            {forensicMeta.staleness_hours < 1
+              ? 'Updated less than 1 hour ago'
+              : `Last updated ${forensicMeta.staleness_hours}h ago`}
+            {forensicStats?.days_since_airdrop && (
+              <span className="text-dusty ml-2">
+                · {Math.round(forensicStats.days_since_airdrop)} days since airdrop · block {forensicStats.current_block?.toLocaleString('en-US')}
+              </span>
+            )}
+          </span>
+          <span className="text-dusty hidden md:block">
+            {new Date(forensicMeta.timestamp).toUTCString()}
+          </span>
+        </div>
+      )}
+
       {/* Main Stats - Row 1: Overview */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mb-6">
         <Card variant="glass">
           <CardHeader className="pb-3">
             <CardTitle className="text-lava">
@@ -462,7 +473,7 @@ export default function AirdropPage() {
               {formatNumber(forensicStats?.total_analyzed || 0)}
             </div>
             <p className="text-dusty text-sm font-mono mt-2">
-              Airdrop recipients analyzed
+              Airdrop OGs analyzed
             </p>
           </CardContent>
         </Card>
@@ -470,6 +481,22 @@ export default function AirdropPage() {
         <Card variant="glass">
           <CardHeader className="pb-3">
             <CardTitle className="text-cyan-400">
+              Retention Rate
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xl md:text-3xl font-bold text-cyan-400 font-mono metric-value tracking-tight">
+              {forensicStats?.retention_rate?.toFixed(2) ?? '—'}%
+            </div>
+            <p className="text-dusty text-sm font-mono mt-2">
+              OGs still holding any DOG
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card variant="glass">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-green-400">
               Current Holders
             </CardTitle>
           </CardHeader>
@@ -478,14 +505,14 @@ export default function AirdropPage() {
               {formatNumber(forensicStats?.still_holding || 0)}
             </div>
             <p className="text-dusty text-sm font-mono mt-2">
-              Still holding original airdrop tokens
+              Still holding original airdrop
             </p>
           </CardContent>
         </Card>
 
         <Card variant="glass">
           <CardHeader className="pb-3">
-            <CardTitle className="text-snow/80">
+            <CardTitle className="text-snow/60">
               Complete Exits
             </CardTitle>
           </CardHeader>
@@ -494,14 +521,14 @@ export default function AirdropPage() {
               {formatNumber(forensicStats?.sold_everything || 0)}
             </div>
             <p className="text-dusty text-sm font-mono mt-2">
-              Sold or moved all airdrop tokens
+              Sold or moved all tokens
             </p>
           </CardContent>
         </Card>
       </div>
 
       {/* Main Stats - Row 2: Behavioral Categories */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mb-8">
         <Card variant="glass">
           <CardHeader className="pb-3">
             <CardTitle className="text-green-400">
@@ -509,17 +536,17 @@ export default function AirdropPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
+            <div className="text-xl md:text-3xl font-bold text-green-400 font-mono metric-value tracking-tight">
               {formatNumber(
-                (forensicStats?.by_pattern.satoshi_visionary || 0) + 
-                (forensicStats?.by_pattern.btc_maximalist || 0) + 
-                (forensicStats?.by_pattern.rune_master || 0) + 
-                (forensicStats?.by_pattern.ordinal_believer || 0) + 
+                (forensicStats?.by_pattern.satoshi_visionary || 0) +
+                (forensicStats?.by_pattern.btc_maximalist || 0) +
+                (forensicStats?.by_pattern.rune_master || 0) +
+                (forensicStats?.by_pattern.ordinal_believer || 0) +
                 (forensicStats?.by_pattern.dog_legend || 0)
               )}
             </div>
             <p className="text-dusty text-sm font-mono mt-2">
-              Added any amount to airdrop
+              {forensicStats?.accumulator_rate?.toFixed(1) ?? '—'}% — bought more since airdrop
             </p>
           </CardContent>
         </Card>
@@ -527,23 +554,23 @@ export default function AirdropPage() {
         <Card variant="glass">
           <CardHeader className="pb-3">
             <CardTitle className="text-purple-400">
-              Holders
+              Diamond Paws
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-xl md:text-3xl font-bold text-snow font-mono metric-value tracking-tight">
+            <div className="text-xl md:text-3xl font-bold text-purple-400 font-mono metric-value tracking-tight">
               {formatNumber(forensicStats?.by_pattern.diamond_paws || 0)}
             </div>
             <p className="text-dusty text-sm font-mono mt-2">
-              Kept exact airdrop amount
+              Kept exact airdrop, never moved
             </p>
           </CardContent>
         </Card>
 
         <Card variant="glass">
           <CardHeader className="pb-3">
-            <CardTitle className="text-red-400">
-              Sold or Moved
+            <CardTitle className="text-yellow-400">
+              Partial Sellers
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -551,14 +578,29 @@ export default function AirdropPage() {
               {formatNumber(
                 (forensicStats?.by_pattern.hodl_hero || 0) +
                 (forensicStats?.by_pattern.steady_holder || 0) +
-                (forensicStats?.by_pattern.profit_taker || 0) + 
-                (forensicStats?.by_pattern.early_exit || 0) + 
-                (forensicStats?.by_pattern.panic_seller || 0) + 
-                (forensicStats?.by_pattern.paper_hands || 0)
+                (forensicStats?.by_pattern.profit_taker || 0) +
+                (forensicStats?.by_pattern.early_exit || 0) +
+                (forensicStats?.by_pattern.panic_seller || 0)
               )}
             </div>
             <p className="text-dusty text-sm font-mono mt-2">
-              Sold any amount of airdrop
+              Sold part of their airdrop
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card variant="glass">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-red-400">
+              Paper Hands
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xl md:text-3xl font-bold text-red-400 font-mono metric-value tracking-tight">
+              {formatNumber(forensicStats?.by_pattern.paper_hands || 0)}
+            </div>
+            <p className="text-dusty text-sm font-mono mt-2">
+              Sold 90%+ of their airdrop
             </p>
           </CardContent>
         </Card>
@@ -624,7 +666,18 @@ export default function AirdropPage() {
                 <div>
                   <p className="text-dusty text-sm">Behavior</p>
                   <span className="text-lava text-sm font-mono">
-                    {searchResult.behavior_category}
+                    {(searchResult as any).behavior_detail || searchResult.behavior_category}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-dusty text-sm">Diamond Score</p>
+                  <span className={`text-sm font-mono font-bold ${
+                    searchResult.diamond_score >= 90 ? 'text-yellow-400' :
+                    searchResult.diamond_score >= 70 ? 'text-green-400' :
+                    searchResult.diamond_score >= 40 ? 'text-snow' :
+                    'text-red-400'
+                  }`}>
+                    {searchResult.diamond_score}/100
                   </span>
                 </div>
               </div>
@@ -742,12 +795,13 @@ export default function AirdropPage() {
                 <tr className="border-b border-white/[0.05]">
                   <th className="text-left py-3 px-4 text-lava font-mono text-sm">#</th>
                   <th className="text-left py-3 px-4 text-lava font-mono text-sm">Address</th>
-                  <th className="text-center py-3 px-4 text-lava font-mono text-sm">Received</th>
+                  <th className="text-center py-3 px-4 text-lava font-mono text-sm">Rcv</th>
                   <th className="text-right py-3 px-4 text-lava font-mono text-sm">Airdrop</th>
                   <th className="text-right py-3 px-4 text-lava font-mono text-sm">Current</th>
                   <th className="text-center py-3 px-4 text-lava font-mono text-sm">Change</th>
                   <th className="text-left py-3 px-4 text-lava font-mono text-sm">Behavior</th>
-                  <th className="text-center py-3 px-4 text-lava font-mono text-sm">Actions</th>
+                  <th className="text-center py-3 px-4 text-lava font-mono text-sm hidden md:table-cell">Score</th>
+                  <th className="text-center py-3 px-4 text-lava font-mono text-sm">Link</th>
                 </tr>
               </thead>
               <tbody>
@@ -805,8 +859,22 @@ export default function AirdropPage() {
                       {getChangeIndicator(profile.percentage_change)}
                     </td>
                     <td className="py-3 px-4">
-                      <span className="text-snow/80 text-xs font-mono">
-                        {profile.behavior_category}
+                      <span className={`text-xs font-mono ${
+                        profile.behavior_category === 'Accumulator' ? 'text-green-400' :
+                        profile.behavior_category === 'Holder' ? 'text-purple-400' :
+                        'text-snow/60'
+                      }`}>
+                        {(profile as any).behavior_detail || profile.behavior_category}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-center hidden md:table-cell">
+                      <span className={`text-xs font-mono font-bold ${
+                        profile.diamond_score >= 90 ? 'text-yellow-400' :
+                        profile.diamond_score >= 70 ? 'text-green-400' :
+                        profile.diamond_score >= 40 ? 'text-snow/70' :
+                        'text-red-400/70'
+                      }`}>
+                        {profile.diamond_score}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-center">

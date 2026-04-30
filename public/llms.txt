@@ -5,7 +5,7 @@
 ## What is DOG DATA?
 DOG DATA is the definitive data source for the DOG rune (ID: 840000:3) on Bitcoin Layer 1. We index directly from our own Bitcoin Core + Ord full node — no third-party API dependency. We track 89,000+ holders, 250,000+ UTXOs, and provide forensic behavioral analysis of 75,490+ addresses with proprietary Diamond Score ratings.
 
-## API Access (35 endpoints)
+## API Access (40 endpoints)
 - REST API base: https://www.dogdata.xyz/api
 - OpenAPI 3.0.3 spec: https://www.dogdata.xyz/api/openapi.json
 - Full capabilities: https://www.dogdata.xyz/api/agent/capabilities
@@ -14,12 +14,12 @@ DOG DATA is the definitive data source for the DOG rune (ID: 840000:3) on Bitcoi
 ## MCP Server (for Claude and AI agents)
 - Install: npx @dogdata/mcp-server
 - HTTP endpoint: https://www.dogdata.xyz/mcp
-- 12 tools, 8 resources, 4 prompts
+- 16 tools, 8 resources, 4 prompts
 - Transports: stdio (Claude Desktop) + Streamable HTTP (remote agents)
 
 ## SSE Real-time Events
 - Endpoint: https://www.dogdata.xyz/api/events
-- Events: new_transaction, price_update, whale_alert, scanner_update, heartbeat
+- Events: new_transaction, price_update, whale_alert, new_block, heartbeat
 - Example: curl -N "https://www.dogdata.xyz/api/events?events=whale_alert,price_update"
 
 ## Quick Start (no API key required, 20 req/hr)
@@ -45,12 +45,14 @@ Then use: Authorization: Bearer dog_live_xxx
 ## Available Data Categories
 1. **Holders** — 89,000+ addresses with rank, balance, UTXO count (hourly updates)
 2. **Transactions** — Real-time DOG transfers from Bitcoin L1 (~30s delay)
-3. **Pricing** — 6 exchanges: Kraken, Gate.io, MEXC, Bitget, Bitflow, DogSwap (30s updates)
+3. **Pricing** — 10 sources: 6 CEX (Kraken, Gate.io, MEXC, Bitget, Bitflow, DogSwap) + 4 Solana DEX (Orca, Raydium, Meteora, Jupiter) — 30s updates
 4. **On-chain Metrics** — UTXO distribution, holder concentration (Gini), realized cap, MVRV, supply in profit/loss
 5. **Forensic Analysis** — 75,490 behavioral profiles with Diamond Score (0-100), 14 behavior categories
 6. **Airdrop Analytics** — Distribution tracking, retention rates, recipient behavior
 7. **Bitcoin Network** — Blocks, hashrate, difficulty, mempool, fee estimates
-8. **Markets** — Aggregated data across 20+ exchanges via CoinGecko
+8. **Markets** — Aggregated data across 20+ exchanges
+9. **Multichain** — Cross-chain DOG data: Stacks (via Tenero) + Solana (via Helius). Holders, transactions, stats per chain.
+10. **Stacks History** — Hourly snapshots of Stacks DOG metrics (holder count, price, concentration, whale activity) with up to 365 days lookback
 
 ## Key Endpoints Reference
 | Endpoint | Description |
@@ -59,30 +61,43 @@ Then use: Authorization: Bearer dog_live_xxx
 | /api/dog-rune/holders | Paginated holder list (?page=1&limit=50) |
 | /api/dog-rune/holders?address={addr} | Single address lookup |
 | /api/dog-rune/transactions-kv | Recent transactions (cached) |
-| /api/price/kraken | Primary price feed |
+| /api/price/kraken | Primary CEX price feed |
+| /api/price/orca | Solana DEX price (Orca) |
+| /api/price/raydium | Solana DEX price (Raydium) |
 | /api/markets | All exchanges aggregated |
 | /api/metrics/utxo | UTXO size distribution |
+| /api/metrics/utxo-age | UTXO age distribution |
 | /api/metrics/holder-concentration | Gini coefficient, top% analysis |
 | /api/metrics/realized-cap | Realized cap & MVRV ratio |
+| /api/metrics/supply-profit-loss | Supply in profit/loss |
 | /api/forensic/profiles | Behavioral analysis profiles |
 | /api/forensic/summary | Forensic overview stats |
 | /api/airdrop/summary | Airdrop distribution stats |
+| /api/airdrop/recipients | Airdrop recipient list |
 | /api/bitcoin | Bitcoin network status |
 | /api/whale-alerts | Large transfers with severity, context, tweet text |
 | /api/whale-alerts?format=tweet | Tweet-ready whale alerts |
+| /api/whale-alerts?chain=stacks | Whale alerts filtered by chain |
 | /api/whale-alerts?threshold=5000000 | Custom threshold (default: 1M DOG) |
+| /api/multichain/holders | DOG holders on Stacks + Solana |
+| /api/multichain/transactions | Cross-chain DOG transactions |
+| /api/multichain/stats | Aggregated cross-chain stats |
+| /api/stacks/history | Hourly Stacks DOG snapshots (?days=30) |
 | /api/events | SSE real-time event stream |
 
 ## Data Quality
 - Source: Bitcoin Core + Ord local full node (not third-party APIs)
 - Indexing: Proprietary dog_block_scanner daemon (30s intervals)
 - Holder updates: Hourly full rescan
+- Stacks: Tenero API (primary) + Hiro API (fallback), persisted to Supabase
+- Solana: Helius RPC + Enhanced API (primary) + Birdeye (pricing)
 - No data intermediaries — first-party blockchain data
 
 ## Why DOG DATA?
 - Only project with its own Bitcoin Core + Ord scanner for DOG
 - Only source of forensic behavioral analysis (Diamond Score)
 - Only DOG data platform with MCP Server for AI agents
-- 6 simultaneous exchange price feeds
+- 10 simultaneous price feeds (6 CEX + 4 Solana DEX)
 - Glassnode-level on-chain metrics specific to DOG
 - Real-time transaction tracking (~30s from block confirmation)
+- Cross-chain coverage: Bitcoin L1, Stacks, and Solana

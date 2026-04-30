@@ -1279,7 +1279,7 @@ export async function GET(request: NextRequest) {
     if (!freshTransactions.length && existingTransactions.length === 0) {
       return NextResponse.json({
         success: false,
-        message: 'Nenhuma transação disponível no momento',
+        message: 'No transactions available at the moment',
         timestamp: new Date().toISOString()
       });
     }
@@ -1424,12 +1424,12 @@ export async function GET(request: NextRequest) {
     }
 
     await redisClient.set('dog:transactions', JSON.stringify(payload));
-    const filterMessage = removedCount > 0 ? `${removedCount} inválidas removidas` : 'todas válidas';
-    console.log(`✅ [UPDATE] Cache salvo no Upstash - ${trimmed.length} TXs válidas (${filterMessage}), bloco ${lastBlock}`);
+    const filterMessage = removedCount > 0 ? `${removedCount} invalid removed` : 'all valid';
+    console.log(`✅ [UPDATE] Cache saved to Upstash - ${trimmed.length} valid TXs (${filterMessage}), block ${lastBlock}`);
 
     return NextResponse.json({
       success: true,
-      message: 'Transações atualizadas com sucesso',
+      message: 'Transactions updated successfully',
       data: payload
     });
 

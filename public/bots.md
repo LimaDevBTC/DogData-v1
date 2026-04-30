@@ -2,11 +2,35 @@
 
 Documentation to facilitate bot and integration access to DOG (Dog•Go•To•The•Moon) data on DogData.
 
-**Base URL:** `https://dogdata.xyz` (or your production domain)
+**Base URL:** `https://www.dogdata.xyz`
 
 ---
 
-## 📡 API Endpoints
+## Authentication
+
+Most endpoints work without an API key (public tier: 20 req/hr). For higher limits, generate a key:
+
+```bash
+curl -s -X POST "https://www.dogdata.xyz/api/keys/generate" \
+  -H "Content-Type: application/json" \
+  -d '{"email": "bot@example.com", "name": "My Bot"}'
+```
+
+Then pass it as a Bearer token:
+```
+Authorization: Bearer dog_live_xxx
+```
+
+| Tier | Requests/hour |
+|------|--------------|
+| Public (no key) | 20 |
+| Free | 100 |
+| Pro | 5,000 |
+| Enterprise | 50,000 |
+
+---
+
+## API Endpoints
 
 All endpoints return JSON. Use header `Accept: application/json`.
 
@@ -21,36 +45,71 @@ All endpoints return JSON. Use header `Accept: application/json`.
 | `GET /api/dog-rune/events-count` | Events count | — |
 | `GET /api/dog-rune/search-tx` | Search transactions | `q`, `limit` |
 | `GET /api/dog-rune/transactions-kv` | Transactions (KV cache) | — |
-| `GET /api/dog-rune/transactions-unisat` | Transactions via Unisat | — |
 
 ### On-Chain Metrics
 
 | Endpoint | Description |
 |----------|-------------|
 | `GET /api/metrics/utxo` | UTXO metrics (total, distribution) |
-| `GET /api/metrics/utxo-age` | UTXO age stats |
+| `GET /api/metrics/utxo-age` | UTXO age distribution |
 | `GET /api/metrics/utxo-count-history` | UTXO count history |
-| `GET /api/metrics/holder-concentration` | Holder concentration |
-| `GET /api/metrics/realized-cap` | Realized Cap |
+| `GET /api/metrics/holder-concentration` | Holder concentration (Gini) |
+| `GET /api/metrics/realized-cap` | Realized Cap & MVRV |
 | `GET /api/metrics/supply-profit-loss` | Supply in profit/loss |
 
 ### Price & Markets
 
 | Endpoint | Description |
 |----------|-------------|
-| `GET /api/markets` | Tickers, volume, market cap (CoinGecko + Bitflow) |
+| `GET /api/markets` | Tickers, volume, market cap (20+ exchanges) |
 | `GET /api/price/kraken` | Kraken price |
 | `GET /api/price/bitget` | Bitget price |
 | `GET /api/price/mexc` | MEXC price |
 | `GET /api/price/gateio` | Gate.io price |
 | `GET /api/price/bitflow` | Bitflow DEX price |
 | `GET /api/price/dogswap` | DogSwap price |
+| `GET /api/price/orca` | Orca (Solana DEX) |
+| `GET /api/price/raydium` | Raydium (Solana DEX) |
+| `GET /api/price/meteora` | Meteora (Solana DEX) |
+| `GET /api/price/jupiter` | Jupiter aggregator (Solana) |
 
 ### Bitcoin Network
 
 | Endpoint | Description |
 |----------|-------------|
 | `GET /api/bitcoin` | Difficulty, hashrate, mempool, fees, blocks |
+
+### Whale Alerts
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/whale-alerts` | Recent large transfers (all chains) |
+| `GET /api/whale-alerts?chain=bitcoin` | Bitcoin L1 whale alerts |
+| `GET /api/whale-alerts?chain=stacks` | Stacks whale alerts |
+| `GET /api/whale-alerts?chain=solana` | Solana whale alerts |
+| `GET /api/whale-alerts?format=tweet` | Tweet-ready text format |
+| `GET /api/whale-alerts?threshold=5000000&limit=10` | Custom threshold (DOG units) |
+
+### Multichain (Stacks + Solana)
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/multichain/holders` | DOG holders on Stacks + Solana |
+| `GET /api/multichain/holders?chain=stacks` | Stacks holders only |
+| `GET /api/multichain/holders?chain=solana` | Solana holders only |
+| `GET /api/multichain/transactions` | Cross-chain transactions |
+| `GET /api/multichain/transactions?chain=stacks` | Stacks transactions only |
+| `GET /api/multichain/stats` | Aggregated cross-chain stats |
+
+### Stacks History
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/stacks/history` | Hourly snapshots (default 30 days) |
+| `GET /api/stacks/history?days=7` | Last 7 days |
+| `GET /api/stacks/history?latest=true` | Most recent snapshot only |
+
+Fields: `holder_count`, `price_usd`, `market_cap_usd`, `volume_24h_usd`, `liquidity_usd`, `top_10_pct`, `top_25_pct`, `whale_wallets`, `active_1w`, `fresh_1w`.
 
 ### Airdrop & Forensics
 
@@ -59,97 +118,102 @@ All endpoints return JSON. Use header `Accept: application/json`.
 | `GET /api/airdrop/summary` | Airdrop summary |
 | `GET /api/airdrop/recipients` | Recipients list |
 | `GET /api/forensic/summary` | Forensic summary |
-| `GET /api/forensic/profiles` | Forensic profiles |
+| `GET /api/forensic/profiles` | Behavioral profiles (Diamond Score) |
 
-### Events
+### Real-time Events (SSE)
 
 | Endpoint | Description |
 |----------|-------------|
-| `GET /api/events` | Recent events |
+| `GET /api/events` | SSE stream: `new_transaction`, `price_update`, `whale_alert`, `new_block`, `heartbeat` |
+
+```bash
+curl -N "https://www.dogdata.xyz/api/events?events=whale_alert,price_update"
+```
+
+### Service
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/health` | Health check |
+| `GET /api/status` | Full service status |
 
 ---
 
-## 📁 Static Data (JSON)
+## MCP Server (for Claude and AI agents)
 
-Files under `/data/` — access directly via GET:
-
-| File | Description |
-|------|-------------|
-| `/data/dog_holders.json` | Bitcoin holders, UTXO stats, on-chain metrics |
-| `/data/dog_holders_by_address.json` | Holders sorted by address |
-| `/data/dog_price_history.json` | Price history |
-| `/data/dog_transactions.json` | DOG transactions |
-| `/data/airdrop_analytics.json` | Airdrop analytics |
-| `/data/forensic_airdrop_data.json` | Forensic airdrop data |
-| `/data/forensic_behavioral_analysis.json` | Behavioral analysis |
-| `/data/verified_addresses.json` | Verified addresses (exchanges, etc.) |
-
-**Example:**
+```bash
+npx @dogdata/mcp-server
 ```
-GET https://dogdata.xyz/data/dog_holders.json
-GET https://dogdata.xyz/data/dog_holders_by_address.json
-```
+
+- HTTP endpoint: `https://www.dogdata.xyz/mcp`
+- 16 tools, 8 resources, 4 prompts
+- Transports: `stdio` (Claude Desktop) + `streamable-http` (remote agents)
+- Full capabilities: `https://www.dogdata.xyz/api/agent/capabilities`
 
 ---
 
-## 🤖 Usage Examples for Bots
+## Usage Examples for Bots
 
 ### cURL — Rune stats
 ```bash
-curl -s "https://dogdata.xyz/api/dog-rune/stats" | jq
+curl -s "https://www.dogdata.xyz/api/dog-rune/stats" | jq
 ```
 
 ### cURL — Holder by address
 ```bash
-curl -s "https://dogdata.xyz/api/dog-rune/holders?address=bc1q..." | jq
+curl -s "https://www.dogdata.xyz/api/dog-rune/holders?address=bc1q..." | jq
 ```
 
-### cURL — Paginated holders
+### cURL — Whale alerts (tweet format)
 ```bash
-curl -s "https://dogdata.xyz/api/dog-rune/holders?page=1&limit=25" | jq
+curl -s "https://www.dogdata.xyz/api/whale-alerts?format=tweet" | jq
+```
+
+### cURL — Multichain holders
+```bash
+curl -s "https://www.dogdata.xyz/api/multichain/holders?chain=stacks" | jq
 ```
 
 ### cURL — Markets
 ```bash
-curl -s "https://dogdata.xyz/api/markets" | jq
-```
-
-### cURL — Static data
-```bash
-curl -s "https://dogdata.xyz/data/dog_holders.json" | jq '.total_holders'
+curl -s "https://www.dogdata.xyz/api/markets" | jq
 ```
 
 ### Python
 ```python
 import requests
 
-r = requests.get("https://dogdata.xyz/api/dog-rune/stats")
+r = requests.get("https://www.dogdata.xyz/api/dog-rune/stats")
 stats = r.json()
 print(stats.get("totalHolders"), stats.get("metadata", {}).get("supply"))
 ```
 
 ### JavaScript/Node
 ```javascript
-const res = await fetch('https://dogdata.xyz/api/markets');
+const res = await fetch('https://www.dogdata.xyz/api/markets');
 const data = await res.json();
 console.log(data.marketData?.price, data.marketData?.marketCap);
 ```
 
 ---
 
-## ⏱ Update Frequency
+## Update Frequency
 
 | Data | Update |
 |------|--------|
-| Transactions | ~3 min (cron) |
-| Holders snapshot | ~15 min (cron) |
-| Holders/fees/UTXO | ~1 hour (local cron) |
-| Markets | ~60 s (cache) |
-| Stats | 5 min cache |
+| Transactions (Bitcoin L1) | ~30s (block scanner daemon) |
+| Prices (CEX) | ~30s |
+| Prices (Solana DEX) | ~30s |
+| Whale alerts | ~30s |
+| Markets | ~60s (cache) |
+| Holders (Bitcoin L1) | ~1 hour (full rescan) |
+| Stacks data | ~5 min (cached) |
+| Stacks history snapshots | Hourly (Vercel cron) |
+| Forensic profiles | ~1 hour |
 
 ---
 
-## 📋 DOG Rune
+## DOG Rune
 
 - **Rune ID:** `840000:3`
 - **Name:** Dog•Go•To•The•Moon
@@ -157,12 +221,17 @@ console.log(data.marketData?.price, data.marketData?.marketCap);
 
 ---
 
-## 🔗 Useful Links
+## Useful Links
 
-- **Site:** https://dogdata.xyz
+- **Site:** https://www.dogdata.xyz
+- **API Discovery:** https://www.dogdata.xyz/api
+- **Docs:** https://www.dogdata.xyz/docs
+- **OpenAPI spec:** https://www.dogdata.xyz/api/openapi.json
+- **Capabilities:** https://www.dogdata.xyz/api/agent/capabilities
+- **LLM context:** https://www.dogdata.xyz/llms.txt
 - **Twitter:** @dogdatabtc
-- **This file:** https://dogdata.xyz/bots.md
+- **This file:** https://www.dogdata.xyz/bots.md
 
 ---
 
-*Last updated: 2026-02-06*
+*Last updated: 2026-04-29*

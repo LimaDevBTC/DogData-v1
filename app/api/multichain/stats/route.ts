@@ -69,7 +69,13 @@ export async function GET() {
       total_volume_24h_usd: chains.reduce((sum, c) => sum + c.volume_24h_usd, 0),
       total_supply_all_chains: chains.reduce((sum, c) => sum + c.circulating_supply, 0),
       chains,
-      last_updated: new Date().toISOString(),
+      last_updated: chains.length
+        ? chains.reduce((oldest, c) =>
+            c.last_updated < oldest ? c.last_updated : oldest,
+            chains[0].last_updated
+          )
+        : new Date().toISOString(),
+      last_updated_note: "Timestamp of the least-recently-updated chain. Check per-chain last_updated for individual freshness.",
     }
 
     return NextResponse.json(stats, {
