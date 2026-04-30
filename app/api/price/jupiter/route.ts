@@ -1,4 +1,32 @@
 import { NextResponse } from 'next/server'
+import { buildPriceResponse } from '@/lib/price-normalizer'
+
+const JUPITER_META = { exchange: 'jupiter', type: 'aggregator' as const, chain: 'solana' as const, pair: 'DOG/USD' }
+
+function jupiterPayload(
+  d: { price: number; change24h: number; liquidity: number },
+  fetchedAt: number,
+  cached: boolean,
+  stale = false
+) {
+  return buildPriceResponse({
+    ...JUPITER_META,
+    price_usd: d.price,
+    change_24h_pct: d.change24h,
+    liquidity_usd: d.liquidity,
+    fetched_at: new Date(fetchedAt).toISOString(),
+    cached,
+    stale,
+    cache_age_s: cached ? Math.floor((Date.now() - fetchedAt) / 1000) : undefined,
+    legacy: {
+      price: d.price,
+      change24h: d.change24h,
+      liquidity: d.liquidity,
+      source: 'jupiter',
+      timestamp: new Date(fetchedAt).toISOString(),
+    },
+  })
+}
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -23,14 +51,7 @@ export async function GET() {
   // Retornar cache se ainda está fresco
   if (cachedData && (now - cachedData.lastSuccessfulFetch) < REFRESH_INTERVAL) {
     console.log('📦 Using cached Jupiter data (fresh)')
-    return NextResponse.json({
-      price: cachedData.price,
-      change24h: cachedData.change24h,
-      liquidity: cachedData.liquidity,
-      source: 'jupiter',
-      cached: true,
-      cacheAge: Math.floor((now - cachedData.lastSuccessfulFetch) / 1000)
-    })
+    return NextResponse.json(jupiterPayload(cachedData, cachedData.lastSuccessfulFetch, true))
   }
 
   try {
@@ -77,38 +98,19 @@ export async function GET() {
 
     console.log('✅ Jupiter cache updated')
 
-    return NextResponse.json({
-      price,
-      change24h,
-      liquidity,
-      source: 'jupiter',
-      cached: false,
-      timestamp: new Date(fetchTime).toISOString()
-    })
+    return NextResponse.json(jupiterPayload({ price, change24h, liquidity }, fetchTime, false))
 
   } catch (error) {
     console.error('❌ Jupiter API error:', error)
 
     if (cachedData) {
       console.log('📦 Using stale cache as fallback')
-      return NextResponse.json({
-        price: cachedData.price,
-        change24h: cachedData.change24h,
-        liquidity: cachedData.liquidity,
-        source: 'jupiter',
-        cached: true,
-        stale: true,
-        cacheAge: Math.floor((now - cachedData.lastSuccessfulFetch) / 1000)
-      })
+      return NextResponse.json(jupiterPayload(cachedData, cachedData.lastSuccessfulFetch, true, true))
     }
 
     return NextResponse.json({
-      price: 0,
-      change24h: 0,
-      liquidity: 0,
-      source: 'jupiter',
+      ...jupiterPayload({ price: 0, change24h: 0, liquidity: 0 }, Date.now(), false),
       error: 'Jupiter API unavailable',
-      cached: false
     }, { status: 503 })
   }
 }

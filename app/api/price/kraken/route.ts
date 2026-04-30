@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { buildPriceResponse } from '@/lib/price-normalizer'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -22,17 +23,47 @@ let cachedData: {
 const REFRESH_INTERVAL = 30000 // 30 segundos
 const API_TIMEOUT = 8000
 
+const KRAKEN_META = { exchange: 'kraken', type: 'cex' as const, chain: null, pair: 'DOG/USD' }
+
+function krakenPayload(
+  result: NonNullable<typeof cachedData>['result'],
+  fetchedAt: number,
+  cached: boolean,
+  stale = false
+) {
+  const ticker = result.DOGUSD
+  const price = parseFloat(ticker.c[0])
+  const open = parseFloat(ticker.o)
+  const high = parseFloat(ticker.h[0])
+  const low = parseFloat(ticker.l[0])
+  const volumeDog = parseFloat(ticker.v)
+  const change_24h_pct = open > 0 ? ((price - open) / open) * 100 : null
+
+  return buildPriceResponse({
+    ...KRAKEN_META,
+    price_usd: price,
+    change_24h_pct,
+    volume_24h_usd: Number.isFinite(volumeDog) ? volumeDog * price : null,
+    high_24h: Number.isFinite(high) ? high : null,
+    low_24h: Number.isFinite(low) ? low : null,
+    fetched_at: new Date(fetchedAt).toISOString(),
+    cached,
+    stale,
+    cache_age_s: cached ? Math.floor((Date.now() - fetchedAt) / 1000) : undefined,
+    legacy: {
+      result, // kraken raw shape preserved for existing consumers
+      timestamp: new Date(fetchedAt).toISOString(),
+    },
+  })
+}
+
 export async function GET() {
   const now = Date.now()
-  
+
   // Retornar cache se ainda está fresco
   if (cachedData && (now - cachedData.lastSuccessfulFetch) < REFRESH_INTERVAL) {
     console.log('📦 Using cached Kraken data (fresh)')
-    return NextResponse.json({
-      result: cachedData.result,
-      cached: true,
-      cacheAge: Math.floor((now - cachedData.lastSuccessfulFetch) / 1000)
-    })
+    return NextResponse.json(krakenPayload(cachedData.result, cachedData.lastSuccessfulFetch, true))
   }
 
   try {
@@ -84,11 +115,7 @@ export async function GET() {
 
     console.log('✅ Kraken cache updated')
 
-    return NextResponse.json({
-      result: data.result,
-      cached: false,
-      timestamp: new Date(fetchTime).toISOString()
-    })
+    return NextResponse.json(krakenPayload(data.result, fetchTime, false))
 
   } catch (error) {
     console.error('❌ Kraken API error:', error)
@@ -152,10 +179,8 @@ export async function GET() {
           }
           
           return NextResponse.json({
-            result: krakenFormat,
-            cached: false,
+            ...krakenPayload(krakenFormat, fetchTime, false),
             source: 'coingecko',
-            timestamp: new Date(fetchTime).toISOString()
           })
       } else {
         console.warn('⚠️ Kraken ticker not found in CoinGecko response')
@@ -168,12 +193,7 @@ export async function GET() {
     if (cachedData) {
       const cacheAge = Math.floor((now - cachedData.lastSuccessfulFetch) / 1000)
       console.log('📦 Using stale cache as last resort')
-      return NextResponse.json({
-        result: cachedData.result,
-        cached: true,
-        stale: true,
-        cacheAge: cacheAge
-      })
+      return NextResponse.json(krakenPayload(cachedData.result, cachedData.lastSuccessfulFetch, true, true))
     }
 
     // Sem cache e sem fallback, retornar erro

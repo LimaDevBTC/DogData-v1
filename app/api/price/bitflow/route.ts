@@ -1,4 +1,35 @@
 import { NextResponse } from 'next/server'
+import { buildPriceResponse } from '@/lib/price-normalizer'
+
+const BITFLOW_META = { exchange: 'bitflow', type: 'dex' as const, chain: 'stacks' as const, pair: 'DOG/sBTC' }
+
+function bitflowPayload(
+  d: { price: number; priceSats: number; change24h: number; volume?: number; liquidity?: number },
+  fetchedAt: number,
+  cached: boolean,
+  stale = false
+) {
+  return buildPriceResponse({
+    ...BITFLOW_META,
+    price_usd: d.price,
+    price_sats: d.priceSats || null,
+    change_24h_pct: d.change24h,
+    volume_24h_usd: d.volume ?? null,
+    liquidity_usd: d.liquidity ?? null,
+    fetched_at: new Date(fetchedAt).toISOString(),
+    cached,
+    stale,
+    cache_age_s: cached ? Math.floor((Date.now() - fetchedAt) / 1000) : undefined,
+    legacy: {
+      price: d.price,
+      lastPrice: d.price.toFixed(8),
+      priceSats: d.priceSats,
+      change24h: d.change24h,
+      volume: d.volume ?? 0,
+      volume24h: d.volume ?? 0,
+    },
+  })
+}
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -17,18 +48,9 @@ const REFRESH_INTERVAL = 30000 // Tentar atualizar a cada 30 segundos
 export async function GET() {
   const now = Date.now()
   
-  // Se temos cache E ainda não passou o intervalo de refresh, retornar cache
   if (cachedData && (now - cachedData.lastSuccessfulFetch) < REFRESH_INTERVAL) {
     console.log('📦 Using cached Bitflow data (fresh)')
-    return NextResponse.json({
-      price: cachedData.price,
-      lastPrice: cachedData.price.toFixed(8),
-      priceSats: cachedData.priceSats,
-      change24h: cachedData.change24h,
-      volume: 0,
-      cached: true,
-      cacheAge: Math.floor((now - cachedData.lastSuccessfulFetch) / 1000)
-    })
+    return NextResponse.json(bitflowPayload(cachedData, cachedData.lastSuccessfulFetch, true))
   }
   try {
     // 1. Buscar preço do Bitcoin do CoinGecko (mais confiável para API routes)
@@ -86,20 +108,10 @@ export async function GET() {
         console.warn('⚠️ No active DOG/BTC ticker found on Bitflow')
 
         if (cachedData) {
-          const cacheAge = Math.floor((Date.now() - cachedData.lastSuccessfulFetch) / 1000)
-          console.log(`⚠️ No active pool, using cache from ${cacheAge}s ago`)
-
+          console.log('⚠️ No active pool, using cache')
           return NextResponse.json({
-            price: cachedData.price,
-            lastPrice: cachedData.price.toFixed(8),
-            priceSats: cachedData.priceSats,
-            change24h: cachedData.change24h,
-            volume24h: 0,
-            volume: 0,
-            cached: true,
-            stale: true,
-            cacheAge: cacheAge,
-            error: 'No active liquidity pool, showing cached data'
+            ...bitflowPayload(cachedData, cachedData.lastSuccessfulFetch, true, true),
+            error: 'No active liquidity pool, showing cached data',
           })
         }
 
@@ -184,38 +196,24 @@ export async function GET() {
     console.log('✅ Cache updated with fresh data')
 
     return NextResponse.json({
-      price: dogUsdPrice,
-      lastPrice: dogUsdPrice.toFixed(8),
-      priceSats: dogSatsPrice,
-      change24h: change24h,
-      volume24h: volume,
-      volume: volume,
+      ...bitflowPayload(
+        { price: dogUsdPrice, priceSats: dogSatsPrice, change24h, volume, liquidity: dogTicker.liquidity_in_usd || 0 },
+        fetchTime,
+        false
+      ),
       ticker_id: dogTicker.ticker_id,
-      liquidity: dogTicker.liquidity_in_usd || 0,
-      btcPrice: btcPrice,
-      cached: false,
-      change24hSource: 'Kraken'
+      btcPrice,
+      change24hSource: 'Kraken',
     })
 
   } catch (error) {
     console.error('❌ Bitflow API Error:', error)
     
-    // SEMPRE retornar cache se existir - NUNCA mostrar erro ao usuário
     if (cachedData) {
-      const cacheAge = Math.floor((Date.now() - cachedData.lastSuccessfulFetch) / 1000)
-      console.log(`⚠️ API failed, using cache from ${cacheAge}s ago`)
-      
+      console.log('⚠️ API failed, using cache')
       return NextResponse.json({
-        price: cachedData.price,
-        lastPrice: cachedData.price.toFixed(8),
-        priceSats: cachedData.priceSats,
-        change24h: cachedData.change24h,
-        volume24h: 0,
-        volume: 0,
-        cached: true,
-        stale: true,
-        cacheAge: cacheAge,
-        error: 'API temporarily unavailable, showing cached data'
+        ...bitflowPayload(cachedData, cachedData.lastSuccessfulFetch, true, true),
+        error: 'API temporarily unavailable, showing cached data',
       })
     }
     

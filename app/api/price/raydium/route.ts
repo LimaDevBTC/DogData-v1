@@ -1,4 +1,30 @@
 import { NextResponse } from 'next/server'
+import { buildPriceResponse } from '@/lib/price-normalizer'
+
+const RAYDIUM_META = { exchange: 'raydium', type: 'dex' as const, chain: 'solana' as const, pair: 'DOG/USDC' }
+
+function raydiumPayload(
+  d: { price: number; change24h: number | null },
+  fetchedAt: number,
+  cached: boolean,
+  stale = false
+) {
+  return buildPriceResponse({
+    ...RAYDIUM_META,
+    price_usd: d.price,
+    change_24h_pct: d.change24h,
+    fetched_at: new Date(fetchedAt).toISOString(),
+    cached,
+    stale,
+    cache_age_s: cached ? Math.floor((Date.now() - fetchedAt) / 1000) : undefined,
+    legacy: {
+      price: d.price,
+      change24h: d.change24h,
+      source: 'raydium',
+      timestamp: new Date(fetchedAt).toISOString(),
+    },
+  })
+}
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -36,13 +62,7 @@ export async function GET() {
 
   if (cachedData && (now - cachedData.lastSuccessfulFetch) < REFRESH_INTERVAL) {
     console.log('📦 Using cached Raydium data (fresh)')
-    return NextResponse.json({
-      price: cachedData.price,
-      change24h: cachedData.change24h,
-      source: 'raydium',
-      cached: true,
-      cacheAge: Math.floor((now - cachedData.lastSuccessfulFetch) / 1000)
-    })
+    return NextResponse.json(raydiumPayload(cachedData, cachedData.lastSuccessfulFetch, true))
   }
 
   try {
@@ -74,35 +94,19 @@ export async function GET() {
 
     console.log('✅ Raydium cache updated')
 
-    return NextResponse.json({
-      price,
-      change24h,
-      source: 'raydium',
-      cached: false,
-      timestamp: new Date(fetchTime).toISOString()
-    })
+    return NextResponse.json(raydiumPayload({ price, change24h }, fetchTime, false))
 
   } catch (error) {
     console.error('❌ Raydium API error:', error)
 
     if (cachedData) {
       console.log('📦 Using stale cache as fallback')
-      return NextResponse.json({
-        price: cachedData.price,
-        change24h: cachedData.change24h,
-        source: 'raydium',
-        cached: true,
-        stale: true,
-        cacheAge: Math.floor((now - cachedData.lastSuccessfulFetch) / 1000)
-      })
+      return NextResponse.json(raydiumPayload(cachedData, cachedData.lastSuccessfulFetch, true, true))
     }
 
     return NextResponse.json({
-      price: 0,
-      change24h: null,
-      source: 'raydium',
+      ...raydiumPayload({ price: 0, change24h: null }, Date.now(), false),
       error: 'Raydium API unavailable',
-      cached: false
     }, { status: 503 })
   }
 }

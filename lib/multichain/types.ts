@@ -58,6 +58,7 @@ export interface MultiChainStats {
   total_supply_all_chains: number
   chains: ChainTokenInfo[]
   last_updated: string
+  last_updated_note?: string
 }
 
 export interface MultiChainHolders {
