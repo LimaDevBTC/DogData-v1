@@ -110,7 +110,7 @@ def get_block_hash(height):
 
 
 def get_block(block_hash, verbosity=2):
-    return json.loads(btc('getblock', block_hash, str(verbosity), timeout=180))
+    return json.loads(btc('getblock', block_hash, str(verbosity), timeout=600))
 
 
 def get_raw_tx(txid):
