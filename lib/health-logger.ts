@@ -93,7 +93,9 @@ export async function probedFetch(
     const status: HealthStatus = res.ok
       ? (latency > 5000 ? 'degraded' : 'ok')
       : (res.status >= 500 || res.status === 429 ? 'down' : 'degraded')
-    void recordHealth({
+    // Awaited so that Vercel serverless doesn't freeze the function before
+    // the Supabase insert completes. Adds ~50-150ms tail latency to the fetch.
+    await recordHealth({
       component,
       component_type: componentType,
       status,
@@ -103,7 +105,7 @@ export async function probedFetch(
     return res
   } catch (e) {
     const latency = Date.now() - start
-    void recordHealth({
+    await recordHealth({
       component,
       component_type: componentType,
       status: 'down',

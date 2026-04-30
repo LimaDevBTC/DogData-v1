@@ -1213,13 +1213,74 @@ function computeMetrics(transactions: Transaction[]): TransactionsMetrics {
   }
 }
 
+// ─── Supabase client (service-role for unrestricted reads) ────────────────────
+//
+// Source-of-truth for DOG transactions is `dog_transactions` (Supabase),
+// populated by the local `dog_block_scanner.py` watching Bitcoin Core. We
+// no longer fetch from Xverse/Unisat here — the local node is canonical.
+
+const _txSupabase = (() => {
+  const { createClient } = require('@supabase/supabase-js');
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key, { auth: { persistSession: false } });
+})();
+
+function parseJsonArr(value: unknown): any[] {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    try { return JSON.parse(value); } catch { return []; }
+  }
+  return [];
+}
+
+function rowToTransaction(row: any): Transaction {
+  const senders = parseJsonArr(row.senders).map((s: any) => ({
+    address: s.address,
+    amount: safeInt(s.amount ?? 0),
+    amount_dog: Number(s.amount_dog ?? 0),
+    has_dog: s.has_dog !== false && Number(s.amount_dog ?? 0) > 0,
+  }));
+
+  const receivers = parseJsonArr(row.receivers).map((r: any) => ({
+    address: r.address,
+    amount: safeInt(r.amount ?? 0),
+    amount_dog: Number(r.amount_dog ?? 0),
+    has_dog: r.has_dog !== false && Number(r.amount_dog ?? 0) > 0,
+    is_change: !!r.is_change,
+  }));
+
+  const total_dog_in = senders.reduce((s, x) => s + (x.amount_dog || 0), 0);
+  const total_dog_out = receivers
+    .filter((r) => !r.is_change)
+    .reduce((s, x) => s + (x.amount_dog || 0), 0);
+
+  return {
+    txid: row.txid,
+    block_height: row.block_height,
+    timestamp: typeof row.timestamp === 'string' ? row.timestamp : new Date(row.timestamp).toISOString(),
+    type: row.type || 'transfer',
+    senders,
+    receivers,
+    sender_count: row.sender_count ?? senders.length,
+    receiver_count: row.receiver_count ?? receivers.length,
+    total_dog_in,
+    total_dog_out,
+    total_dog_moved: Number(row.total_dog_moved ?? total_dog_out),
+    net_transfer: Number(row.net_transfer ?? 0),
+    change_amount: Number(row.change_amount ?? 0),
+    has_change: !!row.has_change,
+    fee_sats: row.fee_sats ?? null,
+  } as Transaction;
+}
+
 export async function GET(request: NextRequest) {
   const cronStart = Date.now();
   try {
-    // Validar secret token
     const secret = request.nextUrl.searchParams.get('secret');
     const expectedSecret = process.env.UPDATE_SECRET || 'your-secret-token-here';
-
     if (secret !== expectedSecret) {
       return NextResponse.json(
         { error: 'Unauthorized - Invalid secret token' },
@@ -1227,94 +1288,26 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log('🔄 [UPDATE] Iniciando atualização de transações...');
-
-    // Buscar cache existente no Upstash
-    const existingRaw = await redisClient.get('dog:transactions');
-    let existingData: any = null;
-
-    if (existingRaw) {
-      if (typeof existingRaw === 'string') {
-        try {
-          existingData = JSON.parse(existingRaw);
-        } catch (err) {
-          console.warn('⚠️ [UPDATE] Falha ao parsear cache existente, sobrescrevendo...', err);
-        }
-      } else {
-        existingData = existingRaw;
-      }
+    if (!_txSupabase) {
+      throw new Error('Supabase client not initialized — SUPABASE_URL/KEY missing');
     }
 
-    const existingTransactions: Transaction[] = Array.isArray(existingData?.transactions)
-      ? existingData.transactions.map(sanitizeTransaction)
-      : [];
+    console.log('🔄 [UPDATE] Reading 500 latest tx from Supabase…');
 
-    const existingTxMap = new Map(existingTransactions.map((tx) => [tx.txid, tx]));
+    const { data: rows, error } = await _txSupabase
+      .from('dog_transactions')
+      .select('txid, block_height, timestamp, type, total_dog_moved, net_transfer, change_amount, has_change, fee_sats, sender_count, receiver_count, senders, receivers')
+      .order('block_height', { ascending: false })
+      .order('timestamp', { ascending: false })
+      .limit(MAX_TRANSACTIONS);
 
-    let freshTransactions: Transaction[] = [];
-    let source: 'xverse' | 'unisat' = 'xverse';
-    let xverseError: string | undefined;
-
-    const xverseStart = Date.now();
-    try {
-      freshTransactions = await fetchTransactionsFromXverse(existingTxMap);
-      console.log(`✅ [UPDATE] ${freshTransactions.length} transações processadas via Xverse`);
-      void recordHealth({
-        component: 'external:xverse',
-        component_type: 'external_api',
-        status: 'ok',
-        latency_ms: Date.now() - xverseStart,
-      });
-    } catch (error: any) {
-      source = 'unisat';
-      xverseError = error?.message ?? String(error);
-      console.error('⚠️ [UPDATE] Falha ao usar Xverse, acionando fallback Unisat:', error);
-      void recordHealth({
-        component: 'external:xverse',
-        component_type: 'external_api',
-        status: 'down',
-        latency_ms: Date.now() - xverseStart,
-        error_message: xverseError,
-      });
+    if (error) {
+      throw new Error(`Supabase query failed: ${error.message}`);
     }
 
-    if (source === 'unisat') {
-      const unisatStart = Date.now();
-      let events: UnisatEvent[] = [];
-      try {
-        events = await fetchUnisatEvents(MAX_TRANSACTIONS);
-        void recordHealth({
-          component: 'external:unisat',
-          component_type: 'external_api',
-          status: 'ok',
-          latency_ms: Date.now() - unisatStart,
-          metadata: { event_count: events.length },
-        });
-      } catch (err: any) {
-        void recordHealth({
-          component: 'external:unisat',
-          component_type: 'external_api',
-          status: 'down',
-          latency_ms: Date.now() - unisatStart,
-          error_message: err?.message ?? String(err),
-        });
-        throw err;
-      }
-      console.log(`✅ [UPDATE] ${events.length} eventos recebidos da Unisat`);
+    const transactions: Transaction[] = (rows || []).map(rowToTransaction);
 
-      if (!events.length && !existingTransactions.length) {
-        return NextResponse.json({
-          success: false,
-          message: 'Nenhum evento encontrado',
-          timestamp: new Date().toISOString()
-        });
-      }
-
-      freshTransactions = processEvents(events);
-      console.log(`✅ [UPDATE] ${freshTransactions.length} transações processadas via fallback Unisat`);
-    }
-
-    if (!freshTransactions.length && existingTransactions.length === 0) {
+    if (transactions.length === 0) {
       return NextResponse.json({
         success: false,
         message: 'No transactions available at the moment',
@@ -1322,139 +1315,39 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Mesclar e remover duplicatas (novas primeiro)
-    const mergedMap = new Map<string, Transaction>();
-    for (const tx of [...freshTransactions, ...existingTransactions]) {
-      if (!tx.txid) continue;
-      const normalized = sanitizeTransaction(tx);
-      const current = mergedMap.get(tx.txid);
-      if (!current || current.block_height < normalized.block_height) {
-        mergedMap.set(tx.txid, normalized);
-      }
-    }
-
-    const merged = Array.from(mergedMap.values());
-    
-    // BACKFILL: Calcular fees para transacoes antigas que nao tem fees (apenas ultimas 24h)
-    if (XVERSE_FETCH_FEES) {
-      const now = Date.now();
-      const threshold24h = now - 24 * 60 * 60 * 1000;
-      const transactionsNeedingFees = merged.filter(tx => {
-        const ts = new Date(tx.timestamp).getTime();
-        const is24h = !Number.isNaN(ts) && ts >= threshold24h;
-        const needsFee = !tx.fee_sats || tx.fee_sats === 0;
-        return is24h && needsFee;
-      });
-
-      if (transactionsNeedingFees.length > 0) {
-        console.log(`[FEES] Backfilling fees para ${transactionsNeedingFees.length} txs das ultimas 24h...`);
-
-        const backfillBatch = await fetchFeesBatchByBlock(
-          transactionsNeedingFees.slice(0, 100),
-          existingTxMap
-        );
-
-        if (backfillBatch.failed > 0) {
-          await fetchFeesIndividualFallback(transactionsNeedingFees.slice(0, 100), 10);
-        }
-
-        const remaining = transactionsNeedingFees.length > 100
-          ? transactionsNeedingFees.length - 100
-          : 0;
-        if (remaining > 0) {
-          console.log(`[FEES] Backfill: ${remaining} txs aguardando proxima execucao`);
-        }
-      }
-    }
-    
-    // FILTRO CRÍTICO: Remover transações com valores impossíveis ANTES de salvar no cache
-    // Isso previne que transações inválidas sejam persistidas e apareçam no frontend
-    const MAX_DOG_AMOUNT = 100_000_000_000; // 100 bilhões de DOG
-    
-    // Lista de transações conhecidas como problemáticas (a serem removidas)
-    const KNOWN_PROBLEMATIC_TXIDS = new Set([
-      '14f96ee20dd3a27878012c2909a82fdae5542d30f2213ff28a89f073f2f7b82d'
-    ]);
-    
-    const validTransactions = merged.filter((tx) => {
-      // Remover transações conhecidas como problemáticas
-      if (KNOWN_PROBLEMATIC_TXIDS.has(tx.txid)) {
-        console.warn(`🚫 [BACKEND FILTER] Removendo TX ${tx.txid} - transação conhecida como problemática`);
+    // Validation: filter out impossible amounts (defensive — shouldn't happen
+    // since the scanner upstream already filters, but keeping as a safety net).
+    const MAX_DOG_AMOUNT = 100_000_000_000; // 100B DOG total supply ceiling
+    const validTransactions = transactions.filter((tx) => {
+      if (typeof tx.total_dog_moved === 'number' && (tx.total_dog_moved < 0 || tx.total_dog_moved > MAX_DOG_AMOUNT)) {
+        console.warn(`🚫 [BACKEND FILTER] Removing TX ${tx.txid} with invalid total_dog_moved`);
         return false;
       }
-      
-      // Validar total_dog_moved
-      const volume = typeof tx.net_transfer === 'number' ? tx.net_transfer : (tx.total_dog_moved || 0);
-      if (!Number.isFinite(volume) || volume < 0 || volume > MAX_DOG_AMOUNT) {
-        console.warn(`🚫 [BACKEND FILTER] Removendo TX ${tx.txid} com volume inválido: ${volume}`);
+      const hasInvalidAmount = (arr: any[]) =>
+        arr?.some((x) => {
+          const a = x.amount_dog || 0;
+          return !Number.isFinite(a) || a < 0 || a > MAX_DOG_AMOUNT;
+        });
+      if (hasInvalidAmount(tx.senders) || hasInvalidAmount(tx.receivers)) {
+        console.warn(`🚫 [BACKEND FILTER] Removing TX ${tx.txid} with invalid sender/receiver amount`);
         return false;
       }
-      
-      // Validar total_dog_out e total_dog_in
-      if ((typeof tx.total_dog_out === 'number' && (tx.total_dog_out < 0 || tx.total_dog_out > MAX_DOG_AMOUNT)) ||
-          (typeof tx.total_dog_in === 'number' && (tx.total_dog_in < 0 || tx.total_dog_in > MAX_DOG_AMOUNT))) {
-        console.warn(`🚫 [BACKEND FILTER] Removendo TX ${tx.txid} com total_dog_out/in inválido`);
-        return false;
-      }
-      
-      // Validar senders
-      const hasInvalidSender = tx.senders?.some((s: any) => {
-        const amt = s.amount_dog || 0;
-        return !Number.isFinite(amt) || amt < 0 || amt > MAX_DOG_AMOUNT;
-      });
-      
-      // Validar receivers
-      const hasInvalidReceiver = tx.receivers?.some((r: any) => {
-        const amt = r.amount_dog || 0;
-        return !Number.isFinite(amt) || amt < 0 || amt > MAX_DOG_AMOUNT;
-      });
-      
-      if (hasInvalidSender || hasInvalidReceiver) {
-        console.warn(`🚫 [BACKEND FILTER] Removendo TX ${tx.txid} com sender/receiver inválido`);
-        return false;
-      }
-      
-      // Validar consistência: se há receivers vazios mas senders com valores
-      if (tx.receivers?.length === 0 && tx.senders?.length > 0 && tx.senders.some((s: any) => (s.amount_dog || 0) > 0)) {
-        console.warn(`🚫 [BACKEND FILTER] Removendo TX ${tx.txid} - tem senders mas nenhum receiver`);
-        return false;
-      }
-      
-      // Validar se há duplicações suspeitas de outputs (mesmo endereço com valores muito similares)
-      if (tx.receivers && tx.receivers.length > 1) {
-        const receiverKeys = new Set<string>();
-        for (const receiver of tx.receivers) {
-          // Usar address + amount_dog como chave para detectar duplicações
-          const key = `${receiver.address}:${receiver.amount_dog || 0}`;
-          if (receiverKeys.has(key)) {
-            console.warn(`🚫 [BACKEND FILTER] Removendo TX ${tx.txid} - outputs duplicados detectados`);
-            return false;
-          }
-          receiverKeys.add(key);
-        }
-      }
-      
       return true;
     });
-    
-    const removedCount = merged.length - validTransactions.length;
-    if (removedCount > 0) {
-      console.warn(`⚠️ [BACKEND FILTER] ${removedCount} transações inválidas removidas antes de salvar no cache`);
-    }
-    
-    validTransactions.sort((a, b) => b.block_height - a.block_height || (new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
-    const trimmed = validTransactions.slice(0, MAX_TRANSACTIONS);
-    const lastBlock = trimmed[0]?.block_height || existingData?.last_block || 0;
 
+    const removedCount = transactions.length - validTransactions.length;
+    const trimmed = validTransactions.slice(0, MAX_TRANSACTIONS);
+    const lastBlock = trimmed[0]?.block_height || 0;
     const metrics = computeMetrics(trimmed);
 
     const payload = {
       timestamp: new Date().toISOString(),
-      total_transactions: trimmed.length, // Usar trimmed.length ao invés de mergedMap.size
+      total_transactions: trimmed.length,
       last_block: lastBlock,
       last_update: new Date().toISOString(),
-      transactions: trimmed, // Usar trimmed (transações válidas filtradas) ao invés de merged
+      transactions: trimmed,
       metrics,
+      source: 'supabase' as const,
     };
 
     if (payload.metrics?.last24h) {
@@ -1471,7 +1364,7 @@ export async function GET(request: NextRequest) {
       status: 'ok',
       latency_ms: Date.now() - cronStart,
       metadata: {
-        source,
+        source: 'supabase',
         tx_count: trimmed.length,
         last_block: lastBlock,
         invalid_removed: removedCount,
@@ -1481,11 +1374,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'Transactions updated successfully',
-      data: payload
+      data: payload,
     });
-
   } catch (error: any) {
-    console.error('❌ [UPDATE] Erro:', error);
+    console.error('❌ [UPDATE] Error:', error);
     void recordHealth({
       component: 'cron:update-transactions',
       component_type: 'cron',
@@ -1494,10 +1386,7 @@ export async function GET(request: NextRequest) {
       error_message: error?.message,
     });
     return NextResponse.json(
-      {
-        error: 'Internal server error',
-        message: error.message
-      },
+      { error: 'Internal server error', message: error.message },
       { status: 500 }
     );
   }

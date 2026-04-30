@@ -35,19 +35,19 @@ interface CatalogEntry {
 
 const CATALOG: CatalogEntry[] = [
   // Cron jobs
-  { id: 'cron:update-transactions', name: 'Transaction Updates', category: 'cron', description: 'Pulls latest DOG transactions, fees and holder ranks every 3 minutes.', expected_interval_minutes: 3 },
+  { id: 'cron:update-transactions', name: 'Transaction Cache', category: 'cron', description: 'Refreshes the Redis hot-cache of the 500 latest DOG transactions from Supabase every 3 minutes.', expected_interval_minutes: 3 },
   { id: 'cron:dog-rune-holders', name: 'Holders Snapshot', category: 'cron', description: 'Refreshes holder list and ranks every 15 minutes.', expected_interval_minutes: 15 },
   { id: 'cron:stacks-snapshot', name: 'Stacks Snapshot', category: 'cron', description: 'Hourly snapshot of Stacks DOG metrics persisted to Supabase.', expected_interval_minutes: 60 },
   { id: 'cron:whale-poster', name: 'Whale Alert Poster', category: 'cron', description: 'Posts new whale-tier transfers to @dogdata on X every 5 minutes.', expected_interval_minutes: 5 },
 
   // Infrastructure
   { id: 'infra:redis', name: 'Redis (Upstash)', category: 'infra', description: 'Cache layer for transactions, holders and dedup state.' },
-  { id: 'infra:supabase', name: 'Supabase Postgres', category: 'infra', description: 'Stores Stacks history snapshots and system health log.' },
+  { id: 'infra:supabase', name: 'Supabase Postgres', category: 'infra', description: 'Source-of-truth for transaction history, Stacks history, and system health log.' },
+  { id: 'infra:dog-scanner', name: 'DOG Block Scanner', category: 'infra', description: 'Local Python scanner watching Bitcoin Core for DOG rune transactions; pushes new blocks to Supabase as they confirm.', tier: 'critical' },
 
-  // External APIs (passively probed via the crons that consume them)
-  { id: 'external:xverse', name: 'Xverse API', category: 'external_api', description: 'Primary source for Bitcoin L1 rune transactions.', tier: 'critical' },
-  { id: 'external:mempool', name: 'Mempool.space', category: 'external_api', description: 'Bitcoin block + fee data, fallback for transactions.', tier: 'critical' },
-  { id: 'external:unisat', name: 'Unisat Indexer', category: 'external_api', description: 'Secondary rune events source (Xverse fallback).', tier: 'high' },
+  // External APIs (passively probed via the crons / endpoints that consume them)
+  { id: 'external:mempool', name: 'Mempool.space', category: 'external_api', description: 'Bitcoin network state — block heights, hashrate, fees, mempool size.', tier: 'high' },
+  { id: 'external:unisat', name: 'Unisat Indexer', category: 'external_api', description: 'Secondary rune-event source for transaction enrichment.', tier: 'medium' },
   { id: 'external:tenero', name: 'Tenero (Stacks)', category: 'external_api', description: 'Primary holder + price source for Stacks DOG.', tier: 'high' },
   { id: 'external:hiro', name: 'Hiro (Stacks)', category: 'external_api', description: 'Stacks fallback when Tenero is unavailable.', tier: 'medium' },
   { id: 'external:twitter', name: 'X / Twitter API', category: 'external_api', description: 'Whale alert posting endpoint for @dogdata.', tier: 'low' },
@@ -251,6 +251,35 @@ export async function GET() {
     freshness['data:holders'] = { last_update_at: null, metadata: null, status: 'down', error: e?.message }
   }
 
+  // infra:dog-scanner ← latest tx in dog_transactions (Supabase). The local
+  // dog_block_scanner.py pushes new blocks to Supabase as they confirm; if the
+  // most recent tx is fresh (≤ 30 min), the scanner is alive. If > 60 min,
+  // something is wrong (Bitcoin Core stalled, scanner crashed, etc.).
+  if (supabaseReachable) {
+    try {
+      const { data, error } = await supabase
+        .from('dog_transactions')
+        .select('block_height, timestamp')
+        .order('block_height', { ascending: false })
+        .limit(1)
+      if (error || !data?.length) {
+        freshness['infra:dog-scanner'] = { last_update_at: null, metadata: null, status: 'unknown', error: error?.message }
+      } else {
+        const latest = data[0] as any
+        const ageMin = (Date.now() - new Date(latest.timestamp).getTime()) / 60000
+        freshness['infra:dog-scanner'] = {
+          last_update_at: latest.timestamp,
+          metadata: { last_block: latest.block_height, age_minutes: Number(ageMin.toFixed(1)) },
+          status: ageMin <= 30 ? 'ok' : ageMin <= 60 ? 'degraded' : 'down',
+        }
+      }
+    } catch (e: any) {
+      freshness['infra:dog-scanner'] = { last_update_at: null, metadata: null, status: 'unknown', error: e?.message }
+    }
+  } else {
+    freshness['infra:dog-scanner'] = { last_update_at: null, metadata: null, status: 'unknown', error: 'supabase unreachable' }
+  }
+
   // data:stacks-history ← latest row from stacks_metrics_history
   if (supabaseReachable) {
     try {
@@ -294,7 +323,8 @@ export async function GET() {
         last_checked_at: generatedAt,
         error: live.error ?? null,
       }
-    } else if (entry.category === 'data_source' && freshness[entry.id]) {
+    } else if (freshness[entry.id]) {
+      // Used by both `data_source` and passive-`infra` entries (e.g. dog-scanner)
       const f = freshness[entry.id]
       current = {
         status: f.status,
