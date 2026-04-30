@@ -271,18 +271,24 @@ export async function GET(request: NextRequest) {
     const end = start + limit;
     const pageHolders = holders.slice(start, end);
 
-    const response: CachedHoldersPage = {
-      holders: pageHolders,
+    const total_pages = Math.max(1, Math.ceil(total / limit));
+    const response = {
+      // canonical envelope
+      data: pageHolders,
       pagination: {
-        total,
         page,
         limit,
-        totalPages: Math.max(1, Math.ceil(total / limit)),
+        total,
+        total_pages,
+        has_more: page < total_pages,
       },
+      last_updated: timestamp,
+      // legacy fields preserved
+      holders: pageHolders,
       metadata: {
         runeId: DOG_RUNE_ID,
         divisibility: DOG_DIVISIBILITY,
-        source: 'local',
+        source: 'local' as const,
         updatedAt: timestamp,
       },
     };
@@ -294,21 +300,18 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('❌ Error loading holders:', error);
-    
-    // Retornar página vazia válida ao invés de erro 500
-    const emptyPage: CachedHoldersPage = {
+
+    const ts = new Date().toISOString();
+    const emptyPage = {
+      data: [],
+      pagination: { page: 1, limit: 25, total: 0, total_pages: 1, has_more: false },
+      last_updated: ts,
       holders: [],
-      pagination: {
-        total: 0,
-        page: 1,
-        limit: 25,
-        totalPages: 1,
-      },
       metadata: {
         runeId: DOG_RUNE_ID,
         divisibility: DOG_DIVISIBILITY,
-        source: 'local',
-        updatedAt: new Date().toISOString(),
+        source: 'local' as const,
+        updatedAt: ts,
       },
     };
     

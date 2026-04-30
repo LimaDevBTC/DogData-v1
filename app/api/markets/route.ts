@@ -98,6 +98,8 @@ export async function GET() {
     console.log('📦 Using cached markets data (fresh)')
     return NextResponse.json({
       ...cachedData,
+      last_updated: new Date(cachedData.lastSuccessfulFetch).toISOString(),
+      total_exchanges: cachedData.tickers.length,
       cached: true,
       cacheAge: Math.floor((now - cachedData.lastSuccessfulFetch) / 1000)
     })
@@ -310,6 +312,8 @@ export async function GET() {
 
     return NextResponse.json({
       ...cachedData,
+      last_updated: new Date(fetchTime).toISOString(),
+      total_exchanges: tickers.length,
       cached: false
     })
 
@@ -323,6 +327,8 @@ export async function GET() {
       
       return NextResponse.json({
         ...cachedData,
+        last_updated: new Date(cachedData.lastSuccessfulFetch).toISOString(),
+        total_exchanges: cachedData.tickers.length,
         cached: true,
         stale: true,
         cacheAge: cacheAge

@@ -288,12 +288,23 @@ function computeStats(txs: TxEntry[]) {
 // ─── Handler ─────────────────────────────────────────────────────────────────
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ address: string }> }
 ) {
   const { address: rawAddress } = await params
   const address = rawAddress.trim()
   const addressLower = address.toLowerCase()
+
+  // Optional pagination & filter for the transactions array
+  const sp = req.nextUrl.searchParams
+  const txLimitRaw = Number(sp.get('limit') ?? '0')
+  const txOffsetRaw = Number(sp.get('offset') ?? '0')
+  const direction = sp.get('direction') // "in" | "out" | null (= all)
+  const wantsPagination = sp.has('limit') || sp.has('offset') || sp.has('direction')
+  const txLimit = Number.isFinite(txLimitRaw) && txLimitRaw > 0
+    ? Math.min(Math.floor(txLimitRaw), 500)
+    : 50
+  const txOffset = Number.isFinite(txOffsetRaw) && txOffsetRaw >= 0 ? Math.floor(txOffsetRaw) : 0
 
   try {
     const [holdersData, forensicData, txsRaw, indexMeta] = await Promise.all([
@@ -394,15 +405,35 @@ export async function GET(
         }
       : null
 
+    // Apply optional direction filter + pagination over transactions
+    const filteredTxs = direction === 'in' || direction === 'out'
+      ? transactions.filter(t => t.direction === direction)
+      : transactions
+
+    const totalTxs = filteredTxs.length
+    const pagedTxs = wantsPagination
+      ? filteredTxs.slice(txOffset, txOffset + txLimit)
+      : filteredTxs
+
     return NextResponse.json({
       address,
       status,
       holder: holderPayload,
       forensic: forensicPayload,
       labels: computeLabels(holder, forensic),
-      transactions,
-      tx_count: transactions.length,
+      transactions: pagedTxs,
+      tx_count: totalTxs,
       stats: computeStats(transactions),
+      pagination: wantsPagination
+        ? {
+            offset: txOffset,
+            limit: txLimit,
+            total: totalTxs,
+            has_more: txOffset + txLimit < totalTxs,
+            direction: direction ?? 'all',
+          }
+        : null,
+      last_updated: meta.built_at || new Date().toISOString(),
       metadata: {
         indexed_blocks: meta.last_block || 0,
         last_updated: meta.built_at || new Date().toISOString(),

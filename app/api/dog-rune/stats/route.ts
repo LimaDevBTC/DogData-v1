@@ -96,17 +96,35 @@ export async function GET() {
       utxo_count: h.utxo_count,
     }));
 
+    const circulating = Math.round(circulatingSupply * 100) / 100;
+    const burned = Math.max(0, DOG_TOTAL_SUPPLY - circulating);
+    const burned_pct = parseFloat(((burned / DOG_TOTAL_SUPPLY) * 100).toFixed(4));
+    const lastUpdated = data.timestamp || new Date().toISOString();
+
     return NextResponse.json({
+      // ─── canonical snake_case (documented at /api/openapi.json) ──
+      total_holders: totalHolders,
+      total_utxos: data.total_utxos || 0,
+      total_supply: DOG_TOTAL_SUPPLY,
+      circulating_supply: circulating,
+      burned,
+      burned_pct,
+      top10_holders: top10Holders,
+      rune_id: DOG_RUNE_ID,
+      divisibility: DOG_DIVISIBILITY,
+      last_updated: lastUpdated,
+
+      // ─── legacy camelCase preserved for existing UI consumers ────
       totalHolders,
       totalSupply: DOG_TOTAL_SUPPLY,
-      circulatingSupply: Math.round(circulatingSupply * 100) / 100,
+      circulatingSupply: circulating,
       totalUtxos: data.total_utxos || 0,
       top10Holders,
       metadata: {
         runeId: DOG_RUNE_ID,
         divisibility: DOG_DIVISIBILITY,
         source: 'local',
-        lastUpdated: data.timestamp || new Date().toISOString(),
+        lastUpdated,
       },
     }, {
       headers: {
