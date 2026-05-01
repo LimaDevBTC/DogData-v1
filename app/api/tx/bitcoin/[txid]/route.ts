@@ -73,10 +73,11 @@ const behaviorLabels: Record<string, { text: string }> = {
 }
 
 function enrichAddress(
-  address: string,
+  address: string | null,
   holders: Map<string, HolderEntry>,
   forensic: Map<string, ForensicProfile>
 ): { holder_rank: number | null; label: AddressLabel | null; is_known: boolean } {
+  if (!address) return { holder_rank: null, label: null, is_known: false }
   const addrLower = address.toLowerCase()
   const holder = holders.get(addrLower)
   const profile = forensic.get(addrLower)
@@ -97,12 +98,16 @@ function enrichAddress(
 }
 
 function classifyTx(
-  senders: Array<{ address: string; amount_dog: number; holder_rank: number | null }>,
-  receivers: Array<{ address: string; amount_dog: number; holder_rank: number | null; is_change: boolean }>
+  senders: Array<{ amount_dog: number; holder_rank: number | null }>,
+  receivers: Array<{ amount_dog: number; holder_rank: number | null; is_change: boolean; address: string | null }>,
 ): 'whale_movement' | 'airdrop_og_activity' | 'consolidation' | 'normal' {
-  const senderSet = new Set(senders.map(s => s.address.toLowerCase()))
-  const allReceiversAreSenders = receivers.filter(r => !r.is_change).every(r => senderSet.has(r.address.toLowerCase()))
-  if (allReceiversAreSenders && receivers.filter(r => !r.is_change).length > 0) return 'consolidation'
+  const dogReceivers = receivers.filter(r => r.amount_dog > 0 && !r.is_change && r.address)
+  const senderAddrs = new Set(
+    senders.filter(s => s.amount_dog > 0).map(s => (s as any).address?.toLowerCase()).filter(Boolean)
+  )
+  if (dogReceivers.length > 0 && dogReceivers.every(r => senderAddrs.has(r.address!.toLowerCase()))) {
+    return 'consolidation'
+  }
 
   const totalMoved = senders.reduce((s, x) => s + x.amount_dog, 0)
   if (totalMoved >= 1_000_000) return 'whale_movement'
@@ -119,6 +124,51 @@ function parseJsonArr(val: string | any[] | null | undefined): any[] {
   try { return JSON.parse(val) } catch { return [] }
 }
 
+// ─── mempool.space enrichment ────────────────────────────────────────────────
+
+interface MempoolVin {
+  txid: string
+  vout: number
+  is_coinbase?: boolean
+  prevout?: {
+    scriptpubkey?: string
+    scriptpubkey_address?: string | null
+    scriptpubkey_type?: string
+    value?: number
+  } | null
+}
+
+interface MempoolVout {
+  scriptpubkey?: string
+  scriptpubkey_address?: string | null
+  scriptpubkey_type?: string
+  value: number
+}
+
+interface MempoolTx {
+  txid: string
+  vin: MempoolVin[]
+  vout: MempoolVout[]
+  size: number
+  weight: number
+  fee: number
+  status: {
+    confirmed: boolean
+    block_height?: number
+    block_time?: number
+  }
+}
+
+async function fetchMempool<T>(url: string): Promise<T> {
+  const res = await fetch(url, {
+    headers: { 'User-Agent': 'DogData/1.0' },
+    next: { revalidate: 600 },
+  })
+  if (!res.ok) throw new Error(`mempool.space ${url} → ${res.status}`)
+  const ct = res.headers.get('content-type') || ''
+  return ct.includes('application/json') ? res.json() : (res.text() as any)
+}
+
 // ─── Handler ─────────────────────────────────────────────────────────────────
 
 export async function GET(
@@ -133,7 +183,7 @@ export async function GET(
   }
 
   try {
-    const [holders, forensic, txQuery] = await Promise.all([
+    const [holders, forensic, txQuery, mempoolTxRes, tipHeightRes] = await Promise.all([
       getHoldersMap(),
       getForensicMap(),
       supabase
@@ -141,6 +191,8 @@ export async function GET(
         .select('txid, block_height, timestamp, type, fee_sats, total_dog_moved, senders, receivers')
         .eq('txid', txid)
         .maybeSingle(),
+      fetchMempool<MempoolTx>(`https://mempool.space/api/tx/${txid}`).catch(() => null),
+      fetchMempool<number | string>('https://mempool.space/api/blocks/tip/height').catch(() => null),
     ])
 
     if (txQuery.error) throw new Error(`Supabase tx query failed: ${txQuery.error.message}`)
@@ -150,38 +202,150 @@ export async function GET(
       return NextResponse.json({ error: 'Transaction not found', txid }, { status: 404 })
     }
 
-    const senders = parseJsonArr(rawTx.senders)
-      .filter((s: any) => s.has_dog !== false && s.amount_dog > 0)
-      .map((s: any) => ({
+    // ── DOG attribution maps (address → dog amount) ─────────────────────────
+    const dogSenders = parseJsonArr(rawTx.senders).filter((s: any) => s.has_dog !== false && s.amount_dog > 0)
+    const dogReceivers = parseJsonArr(rawTx.receivers).filter((r: any) => r.has_dog !== false && r.amount_dog > 0)
+
+    const dogSenderMap = new Map<string, number>()
+    for (const s of dogSenders) dogSenderMap.set(String(s.address).toLowerCase(), Number(s.amount_dog))
+
+    const dogReceiverMap = new Map<string, { amount: number; is_change: boolean }>()
+    for (const r of dogReceivers) {
+      dogReceiverMap.set(String(r.address).toLowerCase(), {
+        amount: Number(r.amount_dog),
+        is_change: !!r.is_change,
+      })
+    }
+
+    // ── Build inputs/outputs ────────────────────────────────────────────────
+    type IO = {
+      position: number
+      address: string | null
+      sats: number
+      script_type: string | null
+      amount_dog: number
+      is_change?: boolean
+      is_op_return?: boolean
+      op_return_hex?: string
+      holder_rank: number | null
+      label: AddressLabel | null
+      is_known: boolean
+    }
+
+    let inputs: IO[] = []
+    let outputs: IO[] = []
+    const seenInputDog = new Set<string>()
+    const seenOutputDog = new Set<string>()
+
+    if (mempoolTxRes) {
+      mempoolTxRes.vin.forEach((vin, i) => {
+        const addr = vin.prevout?.scriptpubkey_address ?? null
+        const addrKey = addr?.toLowerCase() ?? null
+        let amount_dog = 0
+        if (addrKey && dogSenderMap.has(addrKey) && !seenInputDog.has(addrKey)) {
+          amount_dog = dogSenderMap.get(addrKey)!
+          seenInputDog.add(addrKey)
+        }
+        inputs.push({
+          position: i + 1,
+          address: addr,
+          sats: vin.prevout?.value ?? 0,
+          script_type: vin.prevout?.scriptpubkey_type ?? null,
+          amount_dog,
+          ...enrichAddress(addr, holders, forensic),
+        })
+      })
+
+      mempoolTxRes.vout.forEach((vout, i) => {
+        const addr = vout.scriptpubkey_address ?? null
+        const addrKey = addr?.toLowerCase() ?? null
+        const isOpReturn = vout.scriptpubkey_type === 'op_return'
+        let amount_dog = 0
+        let is_change = false
+        if (addrKey && dogReceiverMap.has(addrKey) && !seenOutputDog.has(addrKey)) {
+          const r = dogReceiverMap.get(addrKey)!
+          amount_dog = r.amount
+          is_change = r.is_change
+          seenOutputDog.add(addrKey)
+        }
+        outputs.push({
+          position: i + 1,
+          address: isOpReturn ? null : addr,
+          sats: vout.value,
+          script_type: vout.scriptpubkey_type ?? null,
+          amount_dog,
+          is_change,
+          is_op_return: isOpReturn,
+          op_return_hex: isOpReturn ? vout.scriptpubkey : undefined,
+          ...enrichAddress(isOpReturn ? null : addr, holders, forensic),
+        })
+      })
+    } else {
+      // Fallback: mempool.space unavailable — use stored DOG-only data
+      inputs = dogSenders.map((s: any, i: number) => ({
+        position: i + 1,
         address: s.address,
-        amount_dog: s.amount_dog,
+        sats: 0,
+        script_type: null,
+        amount_dog: Number(s.amount_dog),
         ...enrichAddress(s.address, holders, forensic),
       }))
-
-    const receivers = parseJsonArr(rawTx.receivers)
-      .filter((r: any) => r.has_dog !== false && r.amount_dog > 0)
-      .map((r: any) => ({
+      outputs = dogReceivers.map((r: any, i: number) => ({
+        position: i + 1,
         address: r.address,
-        amount_dog: r.amount_dog,
-        is_change: r.is_change || false,
+        sats: 0,
+        script_type: null,
+        amount_dog: Number(r.amount_dog),
+        is_change: !!r.is_change,
         ...enrichAddress(r.address, holders, forensic),
       }))
+    }
 
-    const classification = classifyTx(senders, receivers)
+    // ── Fee / vsize / confirmations ─────────────────────────────────────────
+    const size = mempoolTxRes?.size ?? null
+    const weight = mempoolTxRes?.weight ?? null
+    const vsize = weight !== null ? Math.ceil(weight / 4) : null
+    const fee_sats = mempoolTxRes?.fee ?? rawTx.fee_sats ?? 0
+    const fee_rate = vsize ? fee_sats / vsize : null
+
+    let confirmations: number | null = null
+    if (tipHeightRes !== null && rawTx.block_height) {
+      const tip = typeof tipHeightRes === 'number' ? tipHeightRes : parseInt(String(tipHeightRes), 10)
+      if (!isNaN(tip)) confirmations = Math.max(0, tip - rawTx.block_height + 1)
+    }
+
+    // ── Classification (uses DOG senders/receivers) ─────────────────────────
+    const classification = classifyTx(
+      dogSenders.map((s: any) => ({
+        address: s.address,
+        amount_dog: Number(s.amount_dog),
+        ...enrichAddress(s.address, holders, forensic),
+      })),
+      dogReceivers.map((r: any) => ({
+        address: r.address,
+        amount_dog: Number(r.amount_dog),
+        is_change: !!r.is_change,
+        ...enrichAddress(r.address, holders, forensic),
+      })),
+    )
 
     return NextResponse.json({
       txid: rawTx.txid,
       block_height: rawTx.block_height,
       timestamp: rawTx.timestamp,
       type: rawTx.type || 'transfer',
-      fee_sats: rawTx.fee_sats || 0,
+      size,
+      vsize,
+      weight,
+      fee_sats,
+      fee_rate,
+      confirmations,
       total_dog_moved: rawTx.total_dog_moved || 0,
-      senders,
-      receivers,
+      inputs,
+      outputs,
       classification,
-      mempool_link: `https://mempool.space/tx/${rawTx.txid}`,
     }, {
-      headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=300' },
+      headers: { 'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=300' },
     })
   } catch (err: any) {
     console.error('[tx route] error:', err)

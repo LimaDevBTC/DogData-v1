@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import {
   Copy, Check, ExternalLink, Search, ArrowDownLeft, ArrowUpRight,
-  ArrowLeftRight, ChevronLeft, ChevronRight, Filter, Wallet,
+  ArrowLeftRight, ArrowLeft, ChevronLeft, ChevronRight, Filter,
   Activity, TrendingDown, Hash, Zap, Shield, Star, Award,
   TrendingUp, AlertTriangle, Clock, Layers, Bitcoin, Eye,
   type LucideIcon
@@ -307,7 +307,7 @@ export default function AddressPage() {
     return (
       <Layout currentPage="explorer" setCurrentPage={() => {}}>
         <div className="pt-4 pb-12 px-3 md:px-6 max-w-3xl mx-auto space-y-6 animate-fade-in">
-          <Breadcrumb address={address} />
+          <BackButton />
           <AddressHeader address={address} mempoolLink={mempoolLink} labels={[]} />
           <Card variant="glass" className="border-white/[0.04]">
             <CardContent className="pt-8 pb-8 text-center space-y-2">
@@ -328,7 +328,7 @@ export default function AddressPage() {
     return (
       <Layout currentPage="explorer" setCurrentPage={() => {}}>
         <div className="pt-4 pb-12 px-3 md:px-6 max-w-3xl mx-auto space-y-6 animate-fade-in">
-          <Breadcrumb address={address} />
+          <BackButton />
           <Card variant="glass" className="border-red-500/10">
             <CardContent className="pt-8 pb-8 text-center">
               <p className="text-red-400/80 font-mono text-sm">{error || 'Failed to load data.'}</p>
@@ -349,7 +349,7 @@ export default function AddressPage() {
     <Layout currentPage="explorer" setCurrentPage={() => {}}>
       <div className="pt-4 pb-12 px-3 md:px-6 space-y-6 max-w-6xl mx-auto animate-fade-in">
 
-        <Breadcrumb address={address} />
+        <BackButton />
 
         {/* ── Address header + labels ── */}
         <AddressHeader address={address} mempoolLink={mempoolLink} labels={data.labels} />
@@ -548,13 +548,20 @@ export default function AddressPage() {
 
 // ─── Shared sub-components ───────────────────────────────────────────────────
 
-function Breadcrumb({ address }: { address: string }) {
+function BackButton() {
+  const router = useRouter()
+  const handleBack = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) router.back()
+    else router.push('/explorer')
+  }
   return (
-    <nav className="flex items-center gap-2 text-xs font-mono text-dusty/40">
-      <a href="/explorer" className="hover:text-lava transition-colors duration-150">Explorer</a>
-      <span>/</span>
-      <span className="text-dusty/25 truncate max-w-[200px] md:max-w-xs">{address}</span>
-    </nav>
+    <button
+      onClick={handleBack}
+      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/[0.06] hover:border-lava/20 text-dusty/60 hover:text-snow text-xs font-mono transition-all duration-200"
+    >
+      <ArrowLeft className="w-3.5 h-3.5" />
+      Back
+    </button>
   )
 }
 
@@ -565,12 +572,6 @@ function AddressHeader({
     <div className="space-y-3">
       {/* Address row */}
       <div className="flex items-start gap-2 flex-wrap">
-        <div className="flex items-center gap-1.5 mr-1 flex-shrink-0">
-          <div className="w-6 h-6 rounded-full bg-lava/10 border border-lava/20 flex items-center justify-center">
-            <Wallet className="w-3 h-3 text-lava" />
-          </div>
-          <span className="text-xs font-mono text-lava/70 font-semibold uppercase tracking-wider">Bitcoin</span>
-        </div>
         <code className="font-mono text-xs text-snow/60 break-all flex-1 leading-relaxed">
           {address}
         </code>

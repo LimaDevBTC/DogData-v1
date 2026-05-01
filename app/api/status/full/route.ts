@@ -34,23 +34,20 @@ interface CatalogEntry {
 }
 
 const CATALOG: CatalogEntry[] = [
-  // Cron jobs
+  // Cron jobs (data-generating only — operational/notification crons are excluded)
   { id: 'cron:update-transactions', name: 'Transaction Cache', category: 'cron', description: 'Refreshes the Redis hot-cache of the 500 latest DOG transactions from Supabase every 3 minutes.', expected_interval_minutes: 3 },
   { id: 'cron:dog-rune-holders', name: 'Holders Snapshot', category: 'cron', description: 'Refreshes holder list and ranks every 15 minutes.', expected_interval_minutes: 15 },
   { id: 'cron:stacks-snapshot', name: 'Stacks Snapshot', category: 'cron', description: 'Hourly snapshot of Stacks DOG metrics persisted to Supabase.', expected_interval_minutes: 60 },
-  { id: 'cron:whale-poster', name: 'Whale Alert Poster', category: 'cron', description: 'Posts new whale-tier transfers to @dogdata on X every 5 minutes.', expected_interval_minutes: 5 },
 
   // Infrastructure
   { id: 'infra:redis', name: 'Redis (Upstash)', category: 'infra', description: 'Cache layer for transactions, holders and dedup state.' },
   { id: 'infra:supabase', name: 'Supabase Postgres', category: 'infra', description: 'Source-of-truth for transaction history, Stacks history, and system health log.' },
   { id: 'infra:dog-scanner', name: 'DOG Block Scanner', category: 'infra', description: 'Local Python scanner watching Bitcoin Core for DOG rune transactions; pushes new blocks to Supabase as they confirm.', tier: 'critical' },
 
-  // External APIs (passively probed via the crons / endpoints that consume them)
+  // External APIs — only primary data dependencies. Fallbacks (Hiro, Unisat)
+  // and outbound notification endpoints (X/Twitter) are intentionally omitted.
   { id: 'external:mempool', name: 'Mempool.space', category: 'external_api', description: 'Bitcoin network state — block heights, hashrate, fees, mempool size.', tier: 'high' },
-  { id: 'external:unisat', name: 'Unisat Indexer', category: 'external_api', description: 'Secondary rune-event source for transaction enrichment.', tier: 'medium' },
   { id: 'external:tenero', name: 'Tenero (Stacks)', category: 'external_api', description: 'Primary holder + price source for Stacks DOG.', tier: 'high' },
-  { id: 'external:hiro', name: 'Hiro (Stacks)', category: 'external_api', description: 'Stacks fallback when Tenero is unavailable.', tier: 'medium' },
-  { id: 'external:twitter', name: 'X / Twitter API', category: 'external_api', description: 'Whale alert posting endpoint for @dogdata.', tier: 'low' },
 
   // Data sources (freshness observed from underlying caches/tables)
   { id: 'data:transactions', name: 'Transactions Feed', category: 'data_source', description: 'Latest 500 DOG transactions cached in Redis.' },

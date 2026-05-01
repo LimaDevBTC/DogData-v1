@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import {
-  Copy, Check, ExternalLink, Search, ArrowRight, Activity, Zap,
+  Copy, Check, Search, ArrowLeft, Activity, Zap,
   TrendingUp, Shield, Award, Star, AlertTriangle, Layers,
-  type LucideIcon
+  CheckCircle2, FileCode2,
+  type LucideIcon,
 } from "lucide-react"
 import { Layout } from "@/components/layout"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { LoadingScreen } from "@/components/loading-screen"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -34,10 +35,15 @@ const LABEL_ICONS: Record<string, { Icon: LucideIcon; color: string }> = {
   rune_master:  { Icon: Layers,        color: 'text-emerald-400' },
 }
 
-interface TxParty {
-  address: string
+interface IO {
+  position: number
+  address: string | null
+  sats: number
+  script_type: string | null
   amount_dog: number
   is_change?: boolean
+  is_op_return?: boolean
+  op_return_hex?: string
   holder_rank: number | null
   label: AddressLabel | null
   is_known: boolean
@@ -48,56 +54,78 @@ interface TxData {
   block_height: number
   timestamp: string
   type: string
+  size: number | null
+  vsize: number | null
+  weight: number | null
   fee_sats: number
+  fee_rate: number | null
+  confirmations: number | null
   total_dog_moved: number
-  senders: TxParty[]
-  receivers: TxParty[]
+  inputs: IO[]
+  outputs: IO[]
   classification: 'whale_movement' | 'airdrop_og_activity' | 'normal' | 'consolidation'
-  mempool_link: string
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function fmt(n: number): string {
+function fmtDog(n: number): string {
   if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(2) + 'B'
   if (n >= 1_000_000)     return (n / 1_000_000).toFixed(2) + 'M'
   if (n >= 1_000)         return (n / 1_000).toFixed(1) + 'K'
   return n.toLocaleString('en-US', { maximumFractionDigits: 4 })
 }
 
-function fmtDate(ts: string): string {
+function satsToBtc(sats: number): string {
+  return (sats / 100_000_000).toFixed(8).replace(/\.?0+$/, '') || '0'
+}
+
+function fmtFullDate(ts: string): string {
   try {
     return new Date(ts).toLocaleString('en-US', {
       year: 'numeric', month: 'short', day: '2-digit',
       hour: '2-digit', minute: '2-digit', second: '2-digit',
-      hour12: false, timeZoneName: 'short'
+      hour12: false,
     })
   } catch { return ts }
 }
 
-function shortAddr(addr: string): string {
-  if (addr.length <= 16) return addr
-  return addr.slice(0, 8) + '…' + addr.slice(-6)
+function relativeTime(ts: string): string {
+  try {
+    const diff = Date.now() - new Date(ts).getTime()
+    const m = Math.floor(diff / 60_000)
+    if (m < 1) return 'just now'
+    if (m < 60) return `${m} minute${m !== 1 ? 's' : ''} ago`
+    const h = Math.floor(m / 60)
+    if (h < 24) return `${h} hour${h !== 1 ? 's' : ''} ago`
+    const d = Math.floor(h / 24)
+    return `${d} day${d !== 1 ? 's' : ''} ago`
+  } catch { return '' }
+}
+
+function shortHex(s: string, head = 12, tail = 8): string {
+  if (s.length <= head + tail + 1) return s
+  return s.slice(0, head) + '…' + s.slice(-tail)
 }
 
 const CLASS_BADGE: Record<string, { label: string; Icon: LucideIcon; className: string }> = {
-  whale_movement:      { label: 'Whale Movement',      Icon: Zap,          className: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/20' },
-  airdrop_og_activity: { label: 'Airdrop OG Activity', Icon: Star,         className: 'text-lava bg-lava/10 border-lava/20' },
-  consolidation:       { label: 'Consolidation',       Icon: Layers,       className: 'text-dusty/60 bg-white/[0.03] border-white/[0.06]' },
-  normal:              { label: 'Transfer',             Icon: Activity,     className: 'text-dusty/40 bg-white/[0.02] border-white/[0.04]' },
+  whale_movement:      { label: 'Whale Movement',      Icon: Zap,      className: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/20' },
+  airdrop_og_activity: { label: 'Airdrop OG Activity', Icon: Star,     className: 'text-lava bg-lava/10 border-lava/20' },
+  consolidation:       { label: 'Consolidation',       Icon: Layers,   className: 'text-dusty/60 bg-white/[0.03] border-white/[0.06]' },
+  normal:              { label: 'Transfer',            Icon: Activity, className: 'text-dusty/40 bg-white/[0.02] border-white/[0.04]' },
 }
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function CopyBtn({ text }: { text: string }) {
+function CopyBtn({ text, size = 'sm' }: { text: string; size?: 'sm' | 'xs' }) {
   const [copied, setCopied] = useState(false)
+  const cls = size === 'xs' ? 'w-3 h-3' : 'w-3.5 h-3.5'
   return (
     <button
-      onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500) }}
+      onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500) }}
       className="p-1 rounded text-dusty/40 hover:text-snow transition-colors duration-200"
       title="Copy"
     >
-      {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+      {copied ? <Check className={`${cls} text-green-400`} /> : <Copy className={cls} />}
     </button>
   )
 }
@@ -127,50 +155,124 @@ function ExplorerSearchBar() {
   )
 }
 
-function PartyCard({ party, side }: { party: TxParty; side: 'sender' | 'receiver' }) {
-  const accentColor = side === 'sender' ? 'text-red-400' : 'text-green-400'
-  const borderClass = party.is_change
-    ? 'border-white/[0.03] opacity-40'
-    : 'border-white/[0.05] hover:border-lava/[0.12]'
+function MetaRow({ label, value, sub }: { label: string; value: React.ReactNode; sub?: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <p className="text-[10px] font-mono text-dusty/40 uppercase tracking-wider">{label}</p>
+      <div className="font-mono text-sm text-snow/85">{value}</div>
+      {sub && <div className="text-[11px] font-mono text-dusty/40">{sub}</div>}
+    </div>
+  )
+}
+
+function RuneCapsule({ amount }: { amount: number }) {
+  return (
+    <div className="inline-flex items-center gap-2 bg-void/60 border border-white/[0.06] rounded-lg pl-1 pr-2.5 py-1 max-w-full">
+      <div className="w-6 h-6 rounded-full bg-void/80 border border-white/[0.08] flex items-center justify-center flex-shrink-0 overflow-hidden">
+        <img src="/dog-rune.webp" alt="" className="w-6 h-6 object-cover" />
+      </div>
+      <div className="flex flex-col leading-tight min-w-0">
+        <div className="flex items-center gap-1.5">
+          <span className="font-mono text-[11px] font-semibold text-snow/85 tracking-tight whitespace-nowrap">
+            DOG•GO•TO•THE•MOON
+          </span>
+          <span className="text-[9px] font-mono text-lava/80 bg-lava/10 border border-lava/20 px-1 py-px rounded uppercase tracking-wider">
+            runes
+          </span>
+        </div>
+        <span className="font-mono text-[11px] text-dusty/70">
+          {fmtDog(amount)}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function IORow({ io, side }: { io: IO; side: 'in' | 'out' }) {
+  const sideClr = side === 'in' ? 'text-red-400/80' : 'text-green-400/80'
+
+  // OP_RETURN
+  if (io.is_op_return) {
+    return (
+      <div className="border-b border-white/[0.04] last:border-b-0 px-3 py-3">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="flex items-start gap-2 min-w-0">
+            <span className="font-mono text-xs text-dusty/40 mt-0.5 flex-shrink-0">{io.position}</span>
+            <FileCode2 className="w-3.5 h-3.5 text-lava/60 flex-shrink-0 mt-0.5" />
+            <span className="font-mono text-xs text-lava/70 uppercase tracking-wider">OP_RETURN</span>
+          </div>
+          <span className="font-mono text-xs text-dusty/40">0 BTC</span>
+        </div>
+        {io.op_return_hex && (
+          <div className="mt-2 ml-6 flex items-center gap-1 max-w-full">
+            <code className="font-mono text-[11px] text-dusty/40 bg-void/60 border border-white/[0.04] rounded px-2 py-1 truncate">
+              {io.op_return_hex}
+            </code>
+            <CopyBtn text={io.op_return_hex} size="xs" />
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const addressDisplay = io.address ?? '—'
+  const linkable = !!io.address
 
   return (
-    <div className={`glass ${borderClass} rounded-xl p-4 flex flex-col gap-2.5 transition-all duration-300`}>
-      {/* Address row */}
-      <div className="flex items-start gap-1.5">
-        <a
-          href={`/address/bitcoin/${party.address}`}
-          className="flex-1 font-mono text-xs text-dusty/60 hover:text-lava break-all leading-relaxed transition-colors duration-150"
-          title={party.address}
-        >
-          {party.address}
-        </a>
-        <CopyBtn text={party.address} />
+    <div className="border-b border-white/[0.04] last:border-b-0 px-3 py-3 hover:bg-lava/[0.015] transition-colors duration-150">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        {/* Position + address */}
+        <div className="flex items-start gap-2 min-w-0 flex-1">
+          <span className="font-mono text-xs text-dusty/40 mt-0.5 flex-shrink-0 w-4 text-right">{io.position}</span>
+          {linkable ? (
+            <a
+              href={`/address/bitcoin/${io.address}`}
+              className="font-mono text-xs text-snow/70 hover:text-lava transition-colors duration-150 break-all leading-relaxed"
+              title={io.address!}
+            >
+              {addressDisplay}
+            </a>
+          ) : (
+            <span className="font-mono text-xs text-dusty/40 italic">unparseable script</span>
+          )}
+          {io.address && <CopyBtn text={io.address} size="xs" />}
+        </div>
+
+        {/* BTC amount */}
+        <div className="flex flex-col items-end flex-shrink-0">
+          <span className={`font-mono text-xs font-semibold ${sideClr}`}>
+            {satsToBtc(io.sats)} BTC
+          </span>
+          <span className="font-mono text-[10px] text-dusty/40">
+            {io.sats.toLocaleString()} sats
+          </span>
+        </div>
       </div>
 
-      {/* Amount + labels */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className={`font-mono text-sm font-bold ${accentColor}`}>
-          {fmt(party.amount_dog)} DOG
-        </span>
-        {party.label && (() => {
-          const iconDef = LABEL_ICONS[party.label.id]
-          const Icon = iconDef?.Icon
-          return (
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-mono bg-white/[0.04] border border-white/[0.06] text-dusty/60">
-              {Icon && <Icon className={`w-3 h-3 flex-shrink-0 ${iconDef.color}`} />}
-              <span>{party.label.text}</span>
+      {/* Rune transfer + labels */}
+      {(io.amount_dog > 0 || io.label || io.is_change) && (
+        <div className="mt-2 ml-6 flex items-center gap-2 flex-wrap">
+          {io.amount_dog > 0 && <RuneCapsule amount={io.amount_dog} />}
+          {io.label && (() => {
+            const iconDef = LABEL_ICONS[io.label.id]
+            const Icon = iconDef?.Icon
+            return (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono bg-white/[0.03] border border-white/[0.06] text-dusty/60">
+                {Icon && <Icon className={`w-2.5 h-2.5 flex-shrink-0 ${iconDef.color}`} />}
+                <span>{io.label.text}</span>
+              </span>
+            )
+          })()}
+          {io.holder_rank !== null && (
+            <span className="text-[10px] font-mono text-dusty/40">
+              #{io.holder_rank.toLocaleString()}
             </span>
-          )
-        })()}
-        {party.holder_rank && (
-          <span className="text-xs font-mono text-dusty/35">
-            #{party.holder_rank.toLocaleString()}
-          </span>
-        )}
-        {party.is_change && (
-          <span className="text-xs font-mono text-dusty/30">(change)</span>
-        )}
-      </div>
+          )}
+          {io.is_change && (
+            <span className="text-[10px] font-mono text-dusty/40 italic">change</span>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -199,12 +301,11 @@ export default function TxPage() {
 
   if (loading) return <LoadingScreen message="Loading transaction…" />
 
-  // ── Error ──────────────────────────────────────────────────────────────────
   if (error || !data) {
     return (
       <Layout currentPage="explorer" setCurrentPage={() => {}}>
         <div className="pt-4 pb-12 px-3 md:px-6 max-w-3xl mx-auto space-y-6 animate-fade-in">
-          <Breadcrumb txid={txid} />
+          <BackButton />
           <Card variant="glass" className="border-red-500/10">
             <CardContent className="pt-8 pb-8 text-center space-y-4">
               <p className="text-red-400/80 font-mono text-sm">
@@ -213,15 +314,6 @@ export default function TxPage() {
               <p className="text-dusty/30 font-mono text-xs">
                 This transaction may not have $DOG activity or is not indexed yet.
               </p>
-              <a
-                href={`https://mempool.space/tx/${txid}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-mono text-dusty/40 hover:text-lava transition-colors duration-150"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-                View on mempool.space
-              </a>
             </CardContent>
           </Card>
           <div className="flex justify-center">
@@ -233,130 +325,122 @@ export default function TxPage() {
   }
 
   const classBadge = CLASS_BADGE[data.classification] || CLASS_BADGE.normal
+  const inputCount = data.inputs.length
+  const outputCount = data.outputs.length
 
   return (
     <Layout currentPage="explorer" setCurrentPage={() => {}}>
-      <div className="pt-4 pb-12 px-3 md:px-6 space-y-6 max-w-5xl mx-auto animate-fade-in">
+      <div className="pt-4 pb-12 px-3 md:px-6 space-y-5 max-w-6xl mx-auto animate-fade-in">
 
-        <Breadcrumb txid={txid} />
+        <BackButton />
 
-        {/* ── Transaction header ── */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-lava/10 border border-lava/20 flex items-center justify-center">
-                <Activity className="w-3 h-3 text-lava" />
-              </div>
-              <span className="text-xs font-mono text-lava/70 font-semibold uppercase tracking-wider">Transaction</span>
-            </div>
-            <span className={`inline-flex items-center gap-1.5 text-xs font-mono px-2.5 py-0.5 rounded-full border ${classBadge.className}`}>
+        {/* ── Title row ── */}
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h1 className="text-base md:text-lg font-display text-snow font-semibold tracking-wide">
+            Transaction details
+          </h1>
+          <div className="flex items-center gap-2">
+            <span className={`inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-md border ${classBadge.className}`}>
               <classBadge.Icon className="w-3 h-3 flex-shrink-0" />
               {classBadge.label}
             </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <code className="font-mono text-xs text-snow/50 break-all flex-1 leading-relaxed">
-              {data.txid}
-            </code>
-            <div className="flex items-center gap-1 flex-shrink-0">
-              <CopyBtn text={data.txid} />
-              <a
-                href={data.mempool_link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-1 rounded text-dusty/40 hover:text-snow transition-colors duration-200"
-                title="View on mempool.space"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            </div>
+            {data.confirmations !== null && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-md border bg-green-500/10 border-green-500/20 text-green-400">
+                <CheckCircle2 className="w-3 h-3 flex-shrink-0" />
+                {data.confirmations.toLocaleString()} confirmation{data.confirmations !== 1 ? 's' : ''}
+              </span>
+            )}
           </div>
         </div>
 
-        {/* ── Meta card ── */}
+        {/* ── Txid ── */}
+        <div className="flex items-center gap-2">
+          <code className="font-mono text-xs text-snow/55 break-all flex-1 leading-relaxed">
+            {data.txid}
+          </code>
+          <CopyBtn text={data.txid} />
+        </div>
+
+        {/* ── Meta cards (2 columns) ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Card variant="glass" className="border-white/[0.04]">
+            <CardContent className="pt-4 pb-4 space-y-3">
+              <MetaRow label="Block" value={data.block_height.toLocaleString()} />
+              <MetaRow
+                label="Type"
+                value={
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-lava/10 border border-lava/20 text-lava text-xs">
+                    {data.type === 'transfer' ? 'Runes' : data.type}
+                  </span>
+                }
+              />
+              <MetaRow
+                label="Timestamp"
+                value={<span className="text-snow/70 text-xs">{relativeTime(data.timestamp)}</span>}
+                sub={fmtFullDate(data.timestamp)}
+              />
+            </CardContent>
+          </Card>
+
+          <Card variant="glass" className="border-white/[0.04]">
+            <CardContent className="pt-4 pb-4 space-y-3">
+              {data.size !== null && (
+                <MetaRow label="Size" value={`${data.size.toLocaleString()} B`} />
+              )}
+              {data.vsize !== null && (
+                <MetaRow label="Virtual Size" value={`${data.vsize.toLocaleString()} B`} />
+              )}
+              <MetaRow label="Fee" value={`${data.fee_sats.toLocaleString()} sats`} />
+              {data.fee_rate !== null && (
+                <MetaRow label="Fee Rate" value={`${data.fee_rate.toFixed(2)} sat/vB`} />
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ── Inputs/Outputs counter ── */}
+        <div className="text-xs font-mono text-dusty/50 px-1">
+          {inputCount} Input{inputCount !== 1 ? 's' : ''}, {outputCount} Output{outputCount !== 1 ? 's' : ''}
+        </div>
+
+        {/* ── Inputs/Outputs flow ── */}
         <Card variant="glass" className="border-white/[0.04]">
-          <CardContent className="pt-4 pb-4">
-            <div className="flex flex-wrap gap-x-8 gap-y-3">
-              <div>
-                <p className="text-xs font-mono text-dusty/40 uppercase tracking-wider mb-1">Block</p>
-                <p className="font-mono text-sm text-snow">{data.block_height.toLocaleString()}</p>
+          <CardContent className="p-0">
+            <div className="grid grid-cols-1 md:grid-cols-2">
+              {/* From */}
+              <div className="border-b md:border-b-0 md:border-r border-white/[0.04]">
+                <div className="px-4 py-2.5 border-b border-white/[0.04] bg-white/[0.01]">
+                  <span className="text-[11px] font-mono text-dusty/50 uppercase tracking-wider">From</span>
+                </div>
+                <div>
+                  {data.inputs.length === 0 ? (
+                    <div className="px-4 py-6 text-center text-xs font-mono text-dusty/30">
+                      No input data
+                    </div>
+                  ) : (
+                    data.inputs.map(io => <IORow key={`in-${io.position}`} io={io} side="in" />)
+                  )}
+                </div>
               </div>
+
+              {/* To */}
               <div>
-                <p className="text-xs font-mono text-dusty/40 uppercase tracking-wider mb-1">Timestamp</p>
-                <p className="font-mono text-xs text-snow/70">{fmtDate(data.timestamp)}</p>
-              </div>
-              <div>
-                <p className="text-xs font-mono text-dusty/40 uppercase tracking-wider mb-1">Total Moved</p>
-                <p className="font-mono text-sm font-bold text-lava">{fmt(data.total_dog_moved)} DOG</p>
-              </div>
-              <div>
-                <p className="text-xs font-mono text-dusty/40 uppercase tracking-wider mb-1">Fee</p>
-                <p className="font-mono text-sm text-snow/70">{data.fee_sats.toLocaleString()} sats</p>
+                <div className="px-4 py-2.5 border-b border-white/[0.04] bg-white/[0.01]">
+                  <span className="text-[11px] font-mono text-dusty/50 uppercase tracking-wider">To</span>
+                </div>
+                <div>
+                  {data.outputs.length === 0 ? (
+                    <div className="px-4 py-6 text-center text-xs font-mono text-dusty/30">
+                      No output data
+                    </div>
+                  ) : (
+                    data.outputs.map(io => <IORow key={`out-${io.position}`} io={io} side="out" />)
+                  )}
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
-
-        {/* ── Flow diagram ── */}
-        <div className="flex flex-col md:flex-row gap-4 items-start">
-          {/* Inputs */}
-          <div className="flex-1 min-w-0 space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="h-px flex-1 bg-red-500/10" />
-              <p className="text-xs font-mono text-dusty/40 uppercase tracking-wider whitespace-nowrap">
-                Inputs ({data.senders.length})
-              </p>
-              <div className="h-px flex-1 bg-red-500/10" />
-            </div>
-            {data.senders.map((s, i) => (
-              <PartyCard key={i} party={s} side="sender" />
-            ))}
-          </div>
-
-          {/* Arrow */}
-          <div className="flex md:flex-col items-center justify-center md:pt-12 px-1 self-center md:self-auto">
-            <div className="p-2 rounded-full glass border border-lava/10">
-              <ArrowRight className="w-4 h-4 text-lava/40 md:rotate-0 rotate-90" />
-            </div>
-          </div>
-
-          {/* Outputs */}
-          <div className="flex-1 min-w-0 space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="h-px flex-1 bg-green-500/10" />
-              <p className="text-xs font-mono text-dusty/40 uppercase tracking-wider whitespace-nowrap">
-                Outputs ({data.receivers.length})
-              </p>
-              <div className="h-px flex-1 bg-green-500/10" />
-            </div>
-            {data.receivers.map((r, i) => (
-              <PartyCard key={i} party={r} side="receiver" />
-            ))}
-          </div>
-        </div>
-
-        {/* ── External link ── */}
-        <div className="flex justify-center gap-6 pt-2">
-          <a
-            href={data.mempool_link}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs font-mono text-dusty/30 hover:text-lava transition-colors duration-150"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-            View tx on mempool.space
-          </a>
-          <a
-            href={`https://mempool.space/block-height/${data.block_height}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs font-mono text-dusty/30 hover:text-lava transition-colors duration-150"
-          >
-            <Zap className="w-3.5 h-3.5" />
-            View block {data.block_height.toLocaleString()}
-          </a>
-        </div>
 
       </div>
     </Layout>
@@ -365,12 +449,19 @@ export default function TxPage() {
 
 // ─── Shared ───────────────────────────────────────────────────────────────────
 
-function Breadcrumb({ txid }: { txid: string }) {
+function BackButton() {
+  const router = useRouter()
+  const handleBack = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) router.back()
+    else router.push('/explorer')
+  }
   return (
-    <nav className="flex items-center gap-2 text-xs font-mono text-dusty/40">
-      <a href="/explorer" className="hover:text-lava transition-colors duration-150">Explorer</a>
-      <span>/</span>
-      <span className="text-dusty/25 truncate max-w-[200px] md:max-w-sm">{txid}</span>
-    </nav>
+    <button
+      onClick={handleBack}
+      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/[0.06] hover:border-lava/20 text-dusty/60 hover:text-snow text-xs font-mono transition-all duration-200"
+    >
+      <ArrowLeft className="w-3.5 h-3.5" />
+      Back
+    </button>
   )
 }
