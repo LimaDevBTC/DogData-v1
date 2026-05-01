@@ -17,7 +17,7 @@
     },
     {
       "path": "/api/dog-rune/holders?snapshot=refresh",
-      "schedule": "*/15 * * * *"
+      "schedule": "35 * * * *"
     },
     {
       "path": "/api/stacks/snapshot",
@@ -26,6 +26,10 @@
     {
       "path": "/cron/whale-poster",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/cron/health-probes",
+      "schedule": "*/10 * * * *"
     }
   ]
 }

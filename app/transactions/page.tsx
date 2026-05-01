@@ -2000,9 +2000,8 @@ export default function TransactionsPage() {
                       
                       return (
                         <Fragment key={tx.txid}>
-                        <tr 
-                          onClick={() => setSelectedTransaction(isSelected ? null : tx)}
-                          className={`table-row cursor-pointer transition-colors ${
+                        <tr
+                          className={`table-row transition-colors ${
                             isSelected ? 'bg-blue-500/10 border-y border-blue-500/20' : 'hover:bg-blue-500/5'
                           }`}
                         >
@@ -2016,9 +2015,17 @@ export default function TransactionsPage() {
                           {/* FROM (Sender) - Compacto */}
                           <td className="py-2 px-1">
                             <div className="flex items-center gap-1">
-                              <code className="text-cyan-400 text-xs">
-                                {mainSender?.address.substring(0, 8)}...{mainSender?.address.substring(mainSender?.address.length - 6) || ''}
-                              </code>
+                              {mainSender ? (
+                                <a
+                                  href={`/address/bitcoin/${mainSender.address}`}
+                                  className="text-cyan-400 hover:text-cyan-300 hover:underline text-xs font-mono"
+                                  title={mainSender.address}
+                                >
+                                  {mainSender.address.substring(0, 8)}...{mainSender.address.substring(mainSender.address.length - 6)}
+                                </a>
+                              ) : (
+                                <code className="text-cyan-400 text-xs">—</code>
+                              )}
                               <AddressBadge 
                                 address={mainSender?.address || ''} 
                                 size="sm" 
@@ -2051,9 +2058,17 @@ export default function TransactionsPage() {
                           {/* TO (Receiver) - Compacto */}
                           <td className="py-2 px-1">
                             <div className="flex items-center gap-1">
-                              <code className="text-green-400 text-xs">
-                                {mainReceiver?.address.substring(0, 8)}...{mainReceiver?.address.substring(mainReceiver?.address.length - 6) || ''}
-                              </code>
+                              {mainReceiver ? (
+                                <a
+                                  href={`/address/bitcoin/${mainReceiver.address}`}
+                                  className="text-green-400 hover:text-green-300 hover:underline text-xs font-mono"
+                                  title={mainReceiver.address}
+                                >
+                                  {mainReceiver.address.substring(0, 8)}...{mainReceiver.address.substring(mainReceiver.address.length - 6)}
+                                </a>
+                              ) : (
+                                <code className="text-green-400 text-xs">—</code>
+                              )}
                               <AddressBadge 
                                 address={mainReceiver?.address || ''} 
                                 size="sm" 
@@ -2117,16 +2132,17 @@ export default function TransactionsPage() {
                           {/* TXID + Actions - Compacto */}
                           <td className="py-2 px-2">
                             <div className="flex items-center justify-center gap-0.5">
-                              <code className={`text-xs font-mono ${isSelected ? 'text-blue-200' : 'text-white'}`}>
+                              <a
+                                href={`/tx/bitcoin/${tx.txid}`}
+                                className={`text-xs font-mono hover:underline ${isSelected ? 'text-blue-200 hover:text-blue-100' : 'text-white hover:text-lava'}`}
+                                title={tx.txid}
+                              >
                                 {tx.txid.substring(0, 6)}...
-                              </code>
+                              </a>
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  copyTxid(tx.txid)
-                                }}
+                                onClick={() => copyTxid(tx.txid)}
                                 className="p-0.5 h-5 w-5"
                                 title="Copy txid"
                               >
@@ -2139,14 +2155,12 @@ export default function TransactionsPage() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  window.open(`https://mempool.space/tx/${tx.txid}`, '_blank')
-                                }}
+                                onClick={() => setSelectedTransaction(isSelected ? null : tx)}
                                 className="p-0.5 h-5 w-5"
-                                title="Mempool"
+                                title={isSelected ? 'Collapse details' : 'Expand details'}
+                                aria-expanded={isSelected}
                               >
-                                <ExternalLink className="w-2.5 h-2.5" />
+                                <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isSelected ? 'rotate-180' : ''}`} />
                               </Button>
                             </div>
                           </td>

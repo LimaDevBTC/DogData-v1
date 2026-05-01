@@ -9,12 +9,22 @@
  */
 
 import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 import { redisClient } from '@/lib/upstash'
-import { supabase } from '@/lib/supabase'
 import { recordHealth } from '@/lib/health-logger'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
+
+// Service-role client. Required to read `system_health_log` (RLS blocks the
+// anon key from selecting). Falls back to anon for environments where the
+// service-role key isn't provisioned, matching the pattern used elsewhere
+// in this codebase.
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY!,
+  { auth: { persistSession: false } }
+)
 
 // ─── Catalog ─────────────────────────────────────────────────────────────────
 //
@@ -36,7 +46,7 @@ interface CatalogEntry {
 const CATALOG: CatalogEntry[] = [
   // Cron jobs (data-generating only — operational/notification crons are excluded)
   { id: 'cron:update-transactions', name: 'Transaction Cache', category: 'cron', description: 'Refreshes the Redis hot-cache of the 500 latest DOG transactions from Supabase every 3 minutes.', expected_interval_minutes: 3 },
-  { id: 'cron:dog-rune-holders', name: 'Holders Snapshot', category: 'cron', description: 'Refreshes holder list and ranks every 15 minutes.', expected_interval_minutes: 15 },
+  { id: 'cron:dog-rune-holders', name: 'Holders Snapshot', category: 'cron', description: 'Refreshes holder list and ranks every hour.', expected_interval_minutes: 60 },
   { id: 'cron:stacks-snapshot', name: 'Stacks Snapshot', category: 'cron', description: 'Hourly snapshot of Stacks DOG metrics persisted to Supabase.', expected_interval_minutes: 60 },
 
   // Infrastructure
@@ -239,7 +249,9 @@ export async function GET() {
       freshness['data:holders'] = {
         last_update_at: updatedAt,
         metadata: { total_holders: total, age_minutes: ageMin !== null ? Number(ageMin.toFixed(1)) : null },
-        status: ageMin === null ? 'unknown' : ageMin <= 30 ? 'ok' : ageMin <= 60 ? 'degraded' : 'down',
+        // Hourly refresh cycle (local cron + GitHub push + Vercel deploy).
+        // Allow the full hour plus deploy/build buffer before flagging.
+        status: ageMin === null ? 'unknown' : ageMin <= 75 ? 'ok' : ageMin <= 150 ? 'degraded' : 'down',
       }
     } else {
       freshness['data:holders'] = { last_update_at: null, metadata: null, status: 'down', error: `HTTP ${res.status}` }
@@ -249,9 +261,11 @@ export async function GET() {
   }
 
   // infra:dog-scanner ← latest tx in dog_transactions (Supabase). The local
-  // dog_block_scanner.py pushes new blocks to Supabase as they confirm; if the
-  // most recent tx is fresh (≤ 30 min), the scanner is alive. If > 60 min,
-  // something is wrong (Bitcoin Core stalled, scanner crashed, etc.).
+  // dog_block_scanner.py pushes new blocks to Supabase as they confirm. Age
+  // here reflects DOG tx frequency, not just scanner liveness — a quiet
+  // period for DOG runes is normal. Use generous thresholds: only flag when
+  // we've gone hours without a single DOG tx, which strongly suggests the
+  // scanner is wedged rather than the chain being slow.
   if (supabaseReachable) {
     try {
       const { data, error } = await supabase
@@ -267,7 +281,7 @@ export async function GET() {
         freshness['infra:dog-scanner'] = {
           last_update_at: latest.timestamp,
           metadata: { last_block: latest.block_height, age_minutes: Number(ageMin.toFixed(1)) },
-          status: ageMin <= 30 ? 'ok' : ageMin <= 60 ? 'degraded' : 'down',
+          status: ageMin <= 120 ? 'ok' : ageMin <= 360 ? 'degraded' : 'down',
         }
       }
     } catch (e: any) {
