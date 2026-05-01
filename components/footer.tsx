@@ -95,6 +95,8 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
                 { label: 'AIRDROP ANALYSIS', page: 'airdrop' as PageType },
                 { label: 'BITCOIN NETWORK', page: 'bitcoin-network' as PageType },
                 { label: 'MARKETS', page: 'markets' as PageType },
+                { label: 'EXPLORER', page: 'explorer' as PageType },
+                { label: 'STATUS', page: 'status' as PageType },
               ].map((item) => (
                 <li key={item.page}>
                   <button

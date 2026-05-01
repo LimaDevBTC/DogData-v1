@@ -9,12 +9,12 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { SectionDivider } from "@/components/ui/section-divider"
-import { 
-  Gift, 
-  Users, 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
+import {
+  Gift,
+  Users,
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
   Activity,
   BarChart3,
   PieChart,
@@ -28,9 +28,20 @@ import {
   Sparkles,
   Copy,
   ExternalLink,
-  MoreHorizontal
+  MoreHorizontal,
+  Info
 } from "lucide-react"
 import { AddressBadge } from "@/components/address-badge"
+import {
+  TIERS,
+  TIER_BY_KEY,
+  CATEGORY_META,
+  ACCUMULATOR_KEYS,
+  HOLDER_KEYS,
+  SELLER_KEYS,
+  tierLabel,
+  type TierKey,
+} from "@/lib/airdrop-tiers"
 
 interface AirdropSummary {
   total_recipients: number;
@@ -80,7 +91,21 @@ interface ForensicMeta {
   staleness_hours: number;
 }
 
-type BehaviorList = 'all' | 'accumulators' | 'holders' | 'sellers';
+type BehaviorList = 'all' | 'accumulators' | 'holders' | 'sellers' | TierKey;
+
+const CATEGORY_KEYS: BehaviorList[] = ['accumulators', 'holders', 'sellers'];
+
+function isTierKey(value: BehaviorList): value is TierKey {
+  return value in TIER_BY_KEY;
+}
+
+function listDisplayName(value: BehaviorList): string {
+  if (value === 'all') return 'All Recipients';
+  if (value === 'accumulators') return 'Accumulators';
+  if (value === 'holders') return 'Holders (Diamond Paws)';
+  if (value === 'sellers') return 'Sold or Moved';
+  return tierLabel(value);
+}
 
 export default function AirdropPage() {
   const [summary, setSummary] = useState<AirdropSummary | null>(null)
@@ -117,10 +142,13 @@ export default function AirdropPage() {
     } else if (currentList === 'sellers') {
       totalCount = (forensicStats.by_pattern.hodl_hero || 0) +
                   (forensicStats.by_pattern.steady_holder || 0) +
-                  (forensicStats.by_pattern.profit_taker || 0) + 
-                  (forensicStats.by_pattern.early_exit || 0) + 
-                  (forensicStats.by_pattern.panic_seller || 0) + 
+                  (forensicStats.by_pattern.profit_taker || 0) +
+                  (forensicStats.by_pattern.early_exit || 0) +
+                  (forensicStats.by_pattern.panic_seller || 0) +
                   (forensicStats.by_pattern.paper_hands || 0)
+    } else {
+      // Single tier key (e.g. 'satoshi_visionary')
+      totalCount = forensicStats.by_pattern[currentList] || 0
     }
     return Math.ceil(totalCount / ITEMS_PER_PAGE)
   }
@@ -211,13 +239,6 @@ export default function AirdropPage() {
       return forensicStats?.by_pattern[currentList] || 0
     }
   }
-
-  const behaviorLists = [
-    { key: 'all', name: 'All Recipients', icon: Users, color: 'text-blue-400' },
-    { key: 'accumulators', name: 'Accumulators', icon: TrendingUp, color: 'text-green-400' },
-    { key: 'holders', name: 'Holders', icon: Trophy, color: 'text-purple-400' },
-    { key: 'sellers', name: 'Sold or Moved', icon: TrendingDown, color: 'text-red-400' }
-  ]
 
   useEffect(() => {
     fetchData()
@@ -654,8 +675,11 @@ export default function AirdropPage() {
                 <div>
                   <p className="text-dusty text-sm">Behavior</p>
                   <span className="text-lava text-sm font-mono">
-                    {(searchResult as any).behavior_detail || searchResult.behavior_category}
+                    {tierLabel(searchResult.behavior_pattern)}
                   </span>
+                  <p className="text-dusty/70 text-[10px] font-mono mt-0.5">
+                    {TIER_BY_KEY[searchResult.behavior_pattern as TierKey]?.threshold}
+                  </p>
                 </div>
                 <div>
                   <p className="text-dusty text-sm">Diamond Score</p>
@@ -697,68 +721,145 @@ export default function AirdropPage() {
           </p>
         </CardHeader>
         <CardContent>
-          {/* List Selector */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 xl:grid-cols-6 gap-2 mb-6">
-            {behaviorLists.map((list) => {
-              const Icon = list.icon
-              let count = 0
-              
-              if (list.key === 'all') {
-                // All Recipients = soma de todos os padrões
-                count = Object.values(forensicStats?.by_pattern || {}).reduce((sum, val) => sum + val, 0)
-              } else if (list.key === 'accumulators') {
-                // Accumulators: Qualquer pessoa que comprou mais DOG (adicionou ao airdrop)
-                count = (forensicStats?.by_pattern.satoshi_visionary || 0) + 
-                       (forensicStats?.by_pattern.btc_maximalist || 0) + 
-                       (forensicStats?.by_pattern.rune_master || 0) + 
-                       (forensicStats?.by_pattern.ordinal_believer || 0) + 
-                       (forensicStats?.by_pattern.dog_legend || 0)
-              } else if (list.key === 'holders') {
-                // Holders: Mantiveram EXATAMENTE o airdrop (apenas 100%)
-                count = (forensicStats?.by_pattern.diamond_paws || 0)
-              } else if (list.key === 'sellers') {
-                // Sold or Moved: Venderam ou moveram qualquer quantidade (mesmo que parcial)
-                count = (forensicStats?.by_pattern.hodl_hero || 0) +
-                       (forensicStats?.by_pattern.steady_holder || 0) +
-                       (forensicStats?.by_pattern.profit_taker || 0) + 
-                       (forensicStats?.by_pattern.early_exit || 0) + 
-                       (forensicStats?.by_pattern.panic_seller || 0) + 
-                       (forensicStats?.by_pattern.paper_hands || 0)
-              } else {
-                count = forensicStats?.by_pattern[list.key] || 0
-              }
-              
-              const isActive = currentList === list.key
-              
-              return (
-                <Button
-                  key={list.key}
-                  variant={isActive ? "default" : "outline"}
-                  className={`flex items-center justify-between p-3 h-auto ${
-                    isActive 
-                      ? 'bg-lava/20 text-lava border border-lava/30' 
-                      : 'text-snow/80 hover:text-snow hover:bg-white/[0.03] border border-transparent hover:border-white/[0.06]'
-                  }`}
-                  onClick={() => handleListChange(list.key as BehaviorList)}
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <span className="text-sm font-mono">{list.name}</span>
-                    <span className="text-xs font-mono text-dusty">
-                      {formatNumber(count)}
-                    </span>
+          {/* Distribution: header + bar + legend */}
+          {(() => {
+            const tierCount = (key: TierKey) => forensicStats?.by_pattern[key] || 0
+            const totalAll = Object.values(forensicStats?.by_pattern || {}).reduce(
+              (sum, val) => sum + (val || 0),
+              0,
+            )
+            const sumKeys = (keys: TierKey[]) => keys.reduce((sum, k) => sum + tierCount(k), 0)
+            const pct = (n: number) => (totalAll > 0 ? (n / totalAll) * 100 : 0)
+            const fmtPct = (p: number) => (p >= 10 ? p.toFixed(1) : p.toFixed(2))
+
+            return (
+              <div className="space-y-4 mb-6">
+                {/* Top row: title + All Recipients reset */}
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="text-snow font-display font-bold text-base">Behavioral Distribution</div>
+                    <div className="text-dusty text-xs font-mono mt-0.5">
+                      Click a category, segment, or tier to filter the list below
+                    </div>
                   </div>
-                </Button>
-              )
-            })}
-          </div>
+                  <button
+                    onClick={() => handleListChange('all')}
+                    className={`px-3 py-1.5 rounded-lg border text-xs font-mono transition-all ${
+                      currentList === 'all'
+                        ? 'bg-lava/15 text-lava border-lava/40'
+                        : 'bg-white/[0.02] text-snow/80 border-white/[0.06] hover:border-white/[0.15] hover:text-snow'
+                    }`}
+                  >
+                    All Recipients · {formatNumber(totalAll)}
+                  </button>
+                </div>
+
+                {/* Category headers (clickable) */}
+                <div className="grid grid-cols-3 gap-2">
+                  {CATEGORY_META.map((cat) => {
+                    const count = sumKeys(cat.tierKeys)
+                    const p = pct(count)
+                    const isActive = currentList === cat.key
+                    return (
+                      <button
+                        key={cat.key}
+                        onClick={() => handleListChange(cat.key)}
+                        className={`text-left p-3 rounded-lg border transition-all ${
+                          isActive
+                            ? `${cat.borderColor} bg-white/[0.04]`
+                            : 'border-white/[0.05] bg-white/[0.02] hover:border-white/[0.12]'
+                        }`}
+                      >
+                        <div className={`text-xs font-mono font-bold uppercase tracking-wider ${cat.textColor}`}>
+                          {cat.short}
+                        </div>
+                        <div className="mt-1 flex items-baseline gap-2">
+                          <span className="text-snow text-base md:text-lg font-mono font-bold">
+                            {formatNumber(count)}
+                          </span>
+                          <span className="text-dusty text-xs font-mono">{fmtPct(p)}%</span>
+                        </div>
+                        <div className="text-dusty/70 text-[10px] font-mono mt-0.5 hidden sm:block">
+                          {cat.description}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Stacked distribution bar — 12 tiers */}
+                <div className="flex h-9 w-full overflow-hidden rounded-md bg-white/[0.04] border border-white/[0.05]">
+                  {TIERS.map((tier) => {
+                    const count = tierCount(tier.key)
+                    const p = pct(count)
+                    if (p <= 0) return null
+                    const isActive = currentList === tier.key
+                    return (
+                      <button
+                        key={tier.key}
+                        onClick={() => handleListChange(tier.key)}
+                        style={{ width: `${p}%` }}
+                        title={`${tier.label} — ${formatNumber(count)} (${fmtPct(p)}%) · ${tier.threshold}`}
+                        className={`${tier.barColor} transition-all hover:brightness-125 hover:z-10 ${
+                          isActive ? 'ring-2 ring-snow ring-inset' : 'opacity-90 hover:opacity-100'
+                        }`}
+                        aria-label={`${tier.label}: ${formatNumber(count)} recipients (${fmtPct(p)}%)`}
+                      />
+                    )
+                  })}
+                </div>
+
+                {/* Legend grid — 12 tier mini-cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                  {TIERS.map((tier) => {
+                    const count = tierCount(tier.key)
+                    const p = pct(count)
+                    const isActive = currentList === tier.key
+                    return (
+                      <button
+                        key={tier.key}
+                        onClick={() => handleListChange(tier.key)}
+                        className={`text-left p-2.5 rounded-lg border transition-all ${
+                          isActive
+                            ? 'border-lava/50 bg-lava/[0.06]'
+                            : 'border-white/[0.05] bg-white/[0.02] hover:border-white/[0.12] hover:bg-white/[0.04]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className={`w-2.5 h-2.5 rounded-sm flex-shrink-0 ${tier.barColor}`} />
+                          <span className={`text-xs font-mono font-semibold truncate ${tier.textColor}`}>
+                            {tier.label}
+                          </span>
+                        </div>
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className="text-snow font-mono text-sm font-bold">
+                            {formatNumber(count)}
+                          </span>
+                          <span className="text-dusty text-[10px] font-mono">{fmtPct(p)}%</span>
+                        </div>
+                        <div className="text-dusty/60 text-[10px] font-mono mt-0.5 truncate">
+                          {tier.threshold}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Current List Info */}
           <div className="mb-4 p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-snow font-mono text-lg">
-                  {behaviorLists.find(l => l.key === currentList)?.name}
+                  {listDisplayName(currentList)}
                 </h3>
+                {isTierKey(currentList) && (
+                  <p className="text-dusty/80 text-xs font-mono mt-0.5">
+                    {TIER_BY_KEY[currentList].description} · {TIER_BY_KEY[currentList].threshold}
+                  </p>
+                )}
                 <p className="text-dusty text-sm">
                   Showing {formatNumber(profiles.length)} of {formatNumber(getTotalCount())} recipients
                 </p>
@@ -847,12 +948,15 @@ export default function AirdropPage() {
                       {getChangeIndicator(profile.percentage_change)}
                     </td>
                     <td className="py-3 px-4">
-                      <span className={`text-xs font-mono ${
-                        profile.behavior_category === 'Accumulator' ? 'text-green-400' :
-                        profile.behavior_category === 'Holder' ? 'text-purple-400' :
-                        'text-snow/60'
-                      }`}>
-                        {(profile as any).behavior_detail || profile.behavior_category}
+                      <span
+                        className={`text-xs font-mono ${
+                          profile.behavior_category === 'Accumulator' ? 'text-emerald-400' :
+                          profile.behavior_category === 'Holder' ? 'text-purple-400' :
+                          'text-snow/60'
+                        }`}
+                        title={TIER_BY_KEY[profile.behavior_pattern as TierKey]?.threshold || ''}
+                      >
+                        {tierLabel(profile.behavior_pattern)}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-center hidden md:table-cell">
@@ -888,7 +992,7 @@ export default function AirdropPage() {
       {/* Pagination */}
       <div className="flex flex-col items-center gap-4">
         <div className="text-dusty font-mono text-sm">
-          Showing {profiles.length} of {getTotalCount().toLocaleString('en-US')} {currentList}
+          Showing {profiles.length} of {getTotalCount().toLocaleString('en-US')} in {listDisplayName(currentList)}
         </div>
         
         <div className="flex items-center justify-center space-x-2">
@@ -955,6 +1059,82 @@ export default function AirdropPage() {
           </div>
         </div>
       </div>
+
+      <SectionDivider title="Methodology" icon={Info} />
+
+      {/* Methodology — public, auditable definitions for the 12 tiers */}
+      <Card variant="glass">
+        <CardHeader>
+          <CardTitle className="text-snow text-xl font-display">
+            How recipients are classified
+          </CardTitle>
+          <p className="text-dusty text-sm mt-2 font-mono">
+            Each airdrop recipient lands in <span className="text-snow">exactly one</span> of 12 mutually-exclusive tiers, based on how their balance changed since the airdrop. Classifier source: <code className="text-lava">scripts/update_forensic_analysis.py</code> · API: <code className="text-lava">/api/forensic/profiles?pattern=&lt;key&gt;</code>
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            {CATEGORY_META.map((cat) => (
+              <div key={cat.key}>
+                <div className="flex items-baseline gap-3 mb-3">
+                  <h3 className={`font-display font-bold text-lg ${cat.textColor}`}>{cat.short}</h3>
+                  <span className="text-dusty text-xs font-mono">{cat.description}</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-white/[0.05] text-left">
+                        <th className="py-2 px-3 text-dusty/70 font-mono text-[11px] uppercase tracking-wider">Tier</th>
+                        <th className="py-2 px-3 text-dusty/70 font-mono text-[11px] uppercase tracking-wider">Threshold</th>
+                        <th className="py-2 px-3 text-dusty/70 font-mono text-[11px] uppercase tracking-wider">Description</th>
+                        <th className="py-2 px-3 text-dusty/70 font-mono text-[11px] uppercase tracking-wider text-right">Diamond Score</th>
+                        <th className="py-2 px-3 text-dusty/70 font-mono text-[11px] uppercase tracking-wider hidden md:table-cell">DB key</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cat.tierKeys.map((key) => {
+                        const tier = TIER_BY_KEY[key]
+                        return (
+                          <tr key={key} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
+                            <td className="py-2.5 px-3">
+                              <div className="flex items-center gap-2">
+                                <div className={`w-2.5 h-2.5 rounded-sm flex-shrink-0 ${tier.barColor}`} />
+                                <span className={`font-mono text-sm font-semibold ${tier.textColor}`}>{tier.label}</span>
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-3 text-snow/80 font-mono text-xs">{tier.threshold}</td>
+                            <td className="py-2.5 px-3 text-dusty font-mono text-xs">{tier.description}</td>
+                            <td className="py-2.5 px-3 text-right">
+                              <span className={`font-mono text-xs font-bold ${
+                                tier.diamondScore >= 90 ? 'text-yellow-400' :
+                                tier.diamondScore >= 70 ? 'text-emerald-400' :
+                                tier.diamondScore >= 40 ? 'text-snow/80' :
+                                'text-red-400/80'
+                              }`}>
+                                {tier.diamondScore}/100
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 hidden md:table-cell">
+                              <code className="text-dusty/60 font-mono text-[11px]">{tier.key}</code>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+
+            <div className="pt-4 border-t border-white/[0.05] text-dusty/70 text-xs font-mono leading-relaxed space-y-1">
+              <p><span className="text-snow/80">Percentage change</span> = (current_balance − airdrop_amount) / airdrop_amount × 100</p>
+              <p><span className="text-snow/80">Retention rate</span> = current_balance / airdrop_amount × 100 (only used when percentage_change ≤ 0)</p>
+              <p><span className="text-snow/80">Diamond Score</span> is adjusted ±5 to ±10 based on rank movement (rank_change &gt; 1000 or &lt; −1000)</p>
+              <p className="pt-2 text-dusty/60">DB keys are stable for API/data continuity. Display labels may change (e.g. <code className="text-dusty">dog_legend</code> renders as "DOG Supporter").</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
       </div>
     </Layout>
   )
