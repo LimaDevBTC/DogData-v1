@@ -319,9 +319,9 @@ export default function StatusPage() {
         {/* Hero */}
         <Card variant="glass" className="border-white/[0.06]">
           <CardContent className="p-5 md:p-8">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div className="flex items-start gap-4">
-                <div className="relative">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-4 min-w-0">
+                <div className="relative shrink-0 mt-2 md:mt-3">
                   <div
                     className={`w-3 h-3 rounded-full ${
                       data ? statusDotClass(
@@ -337,30 +337,29 @@ export default function StatusPage() {
                     <span className="absolute inset-0 rounded-full bg-emerald-400/30 animate-ping" />
                   )}
                 </div>
-                <div>
+                <div className="min-w-0">
                   <h1 className={`font-display font-bold text-2xl md:text-4xl tracking-tight ${overallLabel.tone}`}>
                     {loading ? "Checking systems…" : overallLabel.label}
                   </h1>
-                  <p className="text-xs md:text-sm font-mono text-text-secondary mt-1">
-                    Live health of every DOG DATA component, cron, and upstream — passively observed from real traffic.
+                  <p className="text-dusty font-mono text-sm md:text-base mt-2">
+                    Real-time health of every component, cron, and upstream.
+                  </p>
+                  <p className="text-dusty/60 font-mono text-xs mt-1">
+                    {data ? `Last sync ${formatRelative(data.generated_at)}` : "—"}
+                    <span className="mx-1.5 text-dusty/40">·</span>
+                    auto-refresh every 30s
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 self-start md:self-center">
-                <div className="text-right text-xs font-mono text-text-secondary">
-                  <div>Last check</div>
-                  <div className="text-snow">{data ? formatRelative(data.generated_at) : "—"}</div>
-                </div>
-                <button
-                  onClick={() => fetchStatus()}
-                  disabled={refreshing}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06] hover:border-lava/30 hover:bg-white/[0.05] transition-colors disabled:opacity-50"
-                  title="Refresh"
-                >
-                  <RefreshCw className={`w-4 h-4 text-lava ${refreshing ? "animate-spin" : ""}`} />
-                  <span className="text-xs font-mono text-snow">Refresh</span>
-                </button>
-              </div>
+              <button
+                onClick={() => fetchStatus()}
+                disabled={refreshing}
+                title="Refresh now"
+                aria-label="Refresh now"
+                className="shrink-0 p-2 rounded-lg border border-white/[0.06] hover:border-lava/40 hover:bg-white/[0.04] transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={`w-4 h-4 text-lava ${refreshing ? "animate-spin" : ""}`} />
+              </button>
             </div>
 
             {/* Stat tiles */}

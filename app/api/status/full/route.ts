@@ -416,11 +416,20 @@ export async function GET() {
   }
 
   let overallStatus: OverallSummary['status'] = 'operational'
-  // Major outage if any critical/cron is down
-  const criticalDown = components.some((c) =>
-    c.current.status === 'down' && (c.tier === 'critical' || c.category === 'cron' || c.category === 'infra')
-  )
-  if (criticalDown) overallStatus = 'major_outage'
+  // Major outage = the product can't deliver data:
+  //   - a tier:critical component is down (e.g. dog-scanner)
+  //   - core infra is down (Redis or Supabase unreachable)
+  //   - any data_source is down (the actual product output is broken)
+  // A failed cron alone is "degraded" — it'll retry on the next tick and the
+  // downstream data_source freshness check will escalate if it really matters.
+  const isMajorOutage = components.some((c) => {
+    if (c.current.status !== 'down') return false
+    if (c.tier === 'critical') return true
+    if (c.category === 'infra') return true
+    if (c.category === 'data_source') return true
+    return false
+  })
+  if (isMajorOutage) overallStatus = 'major_outage'
   else if (degCount > 0 || downCount > 0) overallStatus = 'degraded'
 
   const response: StatusResponse = {

@@ -34,12 +34,21 @@
  * -- $$ LANGUAGE plpgsql;
  */
 
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 import {
   getStacksTokenInfoResilient,
   getStacksHolderStatsResilient,
   getStacksHolderPercentagesResilient,
 } from './stacks-resilient'
+
+// Service-role client. Required for INSERT into `stacks_metrics_history`
+// (RLS blocks the anon key from writing). Falls back to anon if the
+// service-role key isn't provisioned.
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY!,
+  { auth: { persistSession: false } }
+)
 
 const TABLE = 'stacks_metrics_history'
 

@@ -271,9 +271,13 @@ export async function GET(
 
     let transactions: TxEntry[] = rowsToTxEntries((txQuery.data as SupabaseRow[]) || [], address)
 
-    // Synthetic airdrop entry: forensic profile but no historical txs found
-    if (forensic && transactions.length === 0 && forensic.airdrop_amount > 0) {
-      transactions = [{
+    // Synthetic airdrop entry — appended whenever forensic data attests to an
+    // airdrop allocation. The airdrop tx is at ~block 840,000, before our
+    // indexed range (840,654+), so it can never be in `transactions` already.
+    // Without this, wallets with later transfers would show inflated balances
+    // unexplained by their captured tx history.
+    if (forensic && forensic.airdrop_amount > 0) {
+      transactions.push({
         txid: 'airdrop-synthetic',
         block_height: 840000,
         timestamp: '2024-04-20T00:00:00.000Z',
@@ -285,7 +289,11 @@ export async function GET(
         fee_sats: 0,
         synthetic: true,
         synthetic_label: 'DOG Airdrop (block ~840,000)',
-      }]
+      })
+      // Re-sort so the airdrop appears in chronological position (oldest first
+      // when iterating from end). Frontend renders newest first, so airdrop
+      // ends up at the bottom of the list.
+      transactions.sort((a, b) => b.block_height - a.block_height)
     }
 
     if (!holder && !forensic && transactions.length === 0) {
