@@ -41,9 +41,9 @@ import {
   getStacksHolderPercentagesResilient,
 } from './stacks-resilient'
 
-// Service-role client. Required for INSERT into `stacks_metrics_history`
-// (RLS blocks the anon key from writing). Falls back to anon if the
-// service-role key isn't provisioned.
+// Service-role for writes; anon is fine for reads. The snapshot insert
+// fails the check below loudly so we don't silently fall back to anon —
+// that path used to surface as a confusing RLS error from the insert.
 const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY!,
@@ -74,6 +74,14 @@ export interface StacksMetricsSnapshot {
 }
 
 export async function captureStacksSnapshot(): Promise<StacksMetricsSnapshot> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error(
+      'SUPABASE_SERVICE_ROLE_KEY is required to persist Stacks snapshots ' +
+      '(RLS blocks the anon key from writing to stacks_metrics_history). ' +
+      'Set it in Vercel: Settings → Environment Variables.'
+    )
+  }
+
   const [tokenInfo, holderStats, holderPct] = await Promise.all([
     getStacksTokenInfoResilient(),
     getStacksHolderStatsResilient(),

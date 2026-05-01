@@ -433,32 +433,20 @@ export default function AirdropPage() {
         <p className="text-dusty font-mono text-sm md:text-lg">
           Independent audit of DOG•GO•TO•THE•MOON Airdrop - Rune 840000:3
         </p>
+        {forensicMeta && (
+          <p className="text-dusty/70 font-mono text-sm">
+            Last update: {new Date(forensicMeta.timestamp).toLocaleString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+              hour12: true
+            })}
+          </p>
+        )}
       </div>
-
-      {/* Data freshness banner */}
-      {forensicMeta && (
-        <div className={`flex items-center justify-between px-4 py-2 rounded-lg border text-xs font-mono ${
-          forensicMeta.staleness_hours < 2
-            ? 'bg-green-500/[0.06] border-green-500/20 text-green-400'
-            : forensicMeta.staleness_hours < 24
-            ? 'bg-lava/[0.06] border-lava/20 text-lava'
-            : 'bg-yellow-500/[0.06] border-yellow-500/20 text-yellow-400'
-        }`}>
-          <span>
-            {forensicMeta.staleness_hours < 1
-              ? 'Updated less than 1 hour ago'
-              : `Last updated ${forensicMeta.staleness_hours}h ago`}
-            {forensicStats?.days_since_airdrop && (
-              <span className="text-dusty ml-2">
-                · {Math.round(forensicStats.days_since_airdrop)} days since airdrop · block {forensicStats.current_block?.toLocaleString('en-US')}
-              </span>
-            )}
-          </span>
-          <span className="text-dusty hidden md:block">
-            {new Date(forensicMeta.timestamp).toUTCString()}
-          </span>
-        </div>
-      )}
 
       {/* Main Stats - Row 1: Overview */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mb-6">

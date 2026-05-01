@@ -1474,7 +1474,7 @@ export default function TransactionsPage() {
         {/* Stats Cards - Bitcoin only */}
         {activeChain === 'bitcoin' && (
         <>
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-3 gap-3 md:gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-2 gap-3 md:gap-6">
           <Card variant="glass">
             <CardHeader className="pb-3">
               <CardTitle className="text-yellow-400 flex items-center gap-2">
@@ -1509,52 +1509,6 @@ export default function TransactionsPage() {
             </CardContent>
           </Card>
 
-          <Card variant="glass" className="col-span-2 md:col-span-1">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-purple-400 flex items-center gap-2">
-                  <Clock className="w-5 h-5" />
-                  Last Update
-            </CardTitle>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleManualRefresh}
-                    className="h-8 w-8 text-dusty hover:text-purple-200"
-                    title="Refresh now"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-purple-300' : ''}`} />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={toggleAutoRefresh}
-                    className={`font-mono text-[11px] px-3 py-1 border ${
-                      autoRefresh
-                        ? 'border-purple-500/40 text-purple-200 hover:text-purple-100'
-                        : 'border-white/[0.05] text-dusty hover:text-snow/80'
-                    }`}
-                  >
-                    {autoRefresh ? 'AUTO ON' : 'AUTO OFF'}
-                  </Button>
-                </div>
-              </div>
-          </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-snow font-mono">
-                {lastUpdateTime ? formatLastUpdate(lastUpdateTime) : 'Loading...'}
-              </div>
-              <p className="text-dusty text-sm font-mono mt-2">
-                {lastUpdateTime 
-                  ? `${String(lastUpdateTime.getMonth() + 1).padStart(2, '0')}/${String(lastUpdateTime.getDate()).padStart(2, '0')}/${lastUpdateTime.getFullYear()}`
-                  : 'Waiting for data'}
-              </p>
-              <p className="text-[11px] text-dusty/70 font-mono uppercase tracking-wide mt-2">
-                {autoRefresh ? 'Auto refresh every 3 minutes' : 'Auto refresh disabled'}
-              </p>
-            </CardContent>
-          </Card>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-6 mt-4">
@@ -1966,13 +1920,38 @@ export default function TransactionsPage() {
         {/* Transactions List */}
         <Card variant="glass">
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
               <CardTitle className="text-snow text-xl font-mono">
                 Transaction History
               </CardTitle>
-              <div className="flex items-center gap-2 text-green-400 font-mono text-sm">
-                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-                LIVE
+              <div className="flex items-center gap-2">
+                {lastUpdateTime && (
+                  <span className="font-mono text-[11px] text-dusty/50 hidden sm:inline">
+                    Updated {formatLastUpdate(lastUpdateTime)}
+                  </span>
+                )}
+                <button
+                  onClick={handleManualRefresh}
+                  className="p-1.5 rounded-md border border-white/[0.06] text-dusty/50 hover:text-snow hover:border-lava/20 transition-all duration-200"
+                  title="Refresh now"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-lava' : ''}`} />
+                </button>
+                <button
+                  onClick={toggleAutoRefresh}
+                  className={`font-mono text-[10px] uppercase tracking-wider px-2 py-1 rounded-md border transition-all duration-200 ${
+                    autoRefresh
+                      ? 'border-green-500/30 text-green-400 bg-green-500/[0.05]'
+                      : 'border-white/[0.06] text-dusty/50 hover:text-snow'
+                  }`}
+                  title={autoRefresh ? 'Auto refresh enabled' : 'Auto refresh disabled'}
+                >
+                  Auto {autoRefresh ? 'on' : 'off'}
+                </button>
+                <div className="flex items-center gap-1.5 text-green-400 font-mono text-xs ml-1 pl-2 border-l border-white/[0.06]">
+                  <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
+                  LIVE
+                </div>
               </div>
             </div>
           </CardHeader>
