@@ -4,15 +4,10 @@ import { useState, useEffect, useMemo } from "react"
 import { Layout } from "@/components/layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
-  Activity,
-  CheckCircle2,
-  AlertTriangle,
   XCircle,
-  HelpCircle,
   RefreshCw,
   Database,
   Cloud,
-  Zap,
   Globe,
   Cog,
 } from "lucide-react"
@@ -205,11 +200,10 @@ function ComponentRow({ c }: { c: ComponentStatus }) {
               Latency: <span className="text-snow">{formatLatency(c.current.latency_ms)}</span>
             </div>
           )}
-          {c.uptime.days_30 != null && (
+          {c.uptime.days_90 != null && (
             <div>
-              30d: <span className="text-snow">{c.uptime.days_30.toFixed(2)}%</span>
-              <span className="mx-1 text-white/20">·</span>
-              90d: <span className="text-snow">{c.uptime.days_90?.toFixed(2)}%</span>
+              <span className="text-snow">{c.uptime.days_90.toFixed(2)}%</span>{" "}
+              <span className="text-text-secondary/60">uptime · 90d</span>
             </div>
           )}
         </div>
@@ -341,13 +335,8 @@ export default function StatusPage() {
                   <h1 className={`font-display font-bold text-2xl md:text-4xl tracking-tight ${overallLabel.tone}`}>
                     {loading ? "Checking systems…" : overallLabel.label}
                   </h1>
-                  <p className="text-dusty font-mono text-sm md:text-base mt-2">
-                    Real-time health of every component, cron, and upstream.
-                  </p>
-                  <p className="text-dusty/60 font-mono text-xs mt-1">
-                    {data ? `Last sync ${formatRelative(data.generated_at)}` : "—"}
-                    <span className="mx-1.5 text-dusty/40">·</span>
-                    auto-refresh every 30s
+                  <p className="text-dusty/60 font-mono text-xs mt-2">
+                    {data ? `Updated ${formatRelative(data.generated_at)}` : "—"}
                   </p>
                 </div>
               </div>
@@ -362,23 +351,6 @@ export default function StatusPage() {
               </button>
             </div>
 
-            {/* Stat tiles */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mt-6">
-              {[
-                { label: "Operational", count: data?.overall.components_operational ?? 0, icon: CheckCircle2, color: "text-emerald-400", border: "border-emerald-500/20" },
-                { label: "Degraded", count: data?.overall.components_degraded ?? 0, icon: AlertTriangle, color: "text-amber-400", border: "border-amber-500/20" },
-                { label: "Down", count: data?.overall.components_down ?? 0, icon: XCircle, color: "text-red-400", border: "border-red-500/20" },
-                { label: "Unknown", count: data?.overall.components_unknown ?? 0, icon: HelpCircle, color: "text-zinc-500", border: "border-white/[0.06]" },
-              ].map((tile) => (
-                <div key={tile.label} className={`rounded-lg border ${tile.border} bg-bg-surface/40 p-3 md:p-4 backdrop-blur`}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[11px] md:text-xs font-mono uppercase tracking-wider text-text-secondary">{tile.label}</span>
-                    <tile.icon className={`w-4 h-4 ${tile.color}`} />
-                  </div>
-                  <div className={`text-xl md:text-3xl font-mono font-bold ${tile.color}`}>{tile.count}</div>
-                </div>
-              ))}
-            </div>
           </CardContent>
         </Card>
 
@@ -433,11 +405,6 @@ export default function StatusPage() {
               emptyHint="Probes are passive — observed from real upstream calls made by the crons. Components without recent traffic show as Unknown."
             />
 
-            {/* Footer */}
-            <div className="text-center text-[11px] font-mono text-text-secondary/60 pt-2">
-              Status auto-refreshes every 30s · 30/90-day uptime aggregated from{" "}
-              <span className="text-text-secondary">system_health_log</span> · Built passively from real traffic
-            </div>
           </>
         )}
       </div>
