@@ -10,22 +10,10 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { SectionDivider } from "@/components/ui/section-divider"
 import {
-  Gift,
-  Users,
-  TrendingUp,
-  TrendingDown,
-  DollarSign,
-  Activity,
   BarChart3,
-  PieChart,
   Search,
   ChevronLeft,
   ChevronRight,
-  Trophy,
-  Award,
-  AlertTriangle,
-  Filter,
-  Sparkles,
   Copy,
   ExternalLink,
   MoreHorizontal,
