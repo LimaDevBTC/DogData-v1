@@ -1,0 +1,70 @@
+{
+  "block_height": 843966,
+  "timestamp": "2026-05-02T22:36:02.628865Z",
+  "transactions": [
+    {
+      "txid": "0bde2f788e2965e3fff7daf552ea3c3ee5028111b0516e1ce30e39fc1ee389cc",
+      "block_height": 843966,
+      "timestamp": "2024-05-18T06:51:11Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1p6eu0hkl3jy449wrm52exssure7a8083dcsfkydh02c4vyrs2y83shdcmsy",
+          "amount": 17796120000,
+          "amount_dog": 177961.2,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1p6eu0hkl3jy449wrm52exssure7a8083dcsfkydh02c4vyrs2y83shdcmsy",
+          "amount": 17796120000,
+          "amount_dog": 177961.2,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 177961.2,
+      "total_dog_out": 177961.2,
+      "total_dog_moved": 177961.2,
+      "net_transfer": 0.0,
+      "change_amount": 177961.2,
+      "has_change": true,
+      "fee_sats": 4464
+    },
+    {
+      "txid": "c441326be69709a511109d6756838ef6b92ff63a29490e5a6134e92d925d08ea",
+      "block_height": 843966,
+      "timestamp": "2024-05-18T06:51:11Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1puevxs4mhmm3qpvnhsh4rq89dk6v94f9d6ta0kjxvm2uypewxv9rqq9wr6t",
+          "amount": 2966020000,
+          "amount_dog": 29660.2,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pyf5f0r5eqxer5rdrwm98grgz5tem6k8xgtnm49he2m4kjhacrsms6p6888",
+          "amount": 2966020000,
+          "amount_dog": 29660.2,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 29660.2,
+      "total_dog_out": 29660.2,
+      "total_dog_moved": 29660.2,
+      "net_transfer": 29660.2,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 2000
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "block_height": 844511,
+  "timestamp": "2026-05-02T22:41:45.577372Z",
+  "transactions": [
+    {
+      "txid": "17b6cfa74a4f7a66848724d99548fced78d7b9110e6c4d7ca48d8c6da7deb762",
+      "block_height": 844511,
+      "timestamp": "2024-05-22T00:48:40Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1ppxqlcrz0a4f6y3q97fk728tssls564pevuwv2auyaneujmz77rwsluhkfr",
+          "amount": 23898060000,
+          "amount_dog": 238980.6,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pphcpmzxt76kseplm088v6r5hr4rsalrl69ptm3eq4fjdus7hxyjsy8tacw",
+          "amount": 23898060000,
+          "amount_dog": 238980.6,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 238980.6,
+      "total_dog_out": 238980.6,
+      "total_dog_moved": 238980.6,
+      "net_transfer": 238980.6,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 6990
+    },
+    {
+      "txid": "d649912c3be968be8491a19b7968bdb56ccfa9551f42fac76c5aaf49c8ae4faf",
+      "block_height": 844511,
+      "timestamp": "2024-05-22T00:48:40Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1p3nmhhpy5zv6l38zrnzcpe869097x5qjs5veh72s79wyyt55ghsjqgvncnn",
+          "amount": 2966020000,
+          "amount_dog": 29660.2,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1p3nmhhpy5zv6l38zrnzcpe869097x5qjs5veh72s79wyyt55ghsjqgvncnn",
+          "amount": 2966020000,
+          "amount_dog": 29660.2,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 29660.2,
+      "total_dog_out": 29660.2,
+      "total_dog_moved": 29660.2,
+      "net_transfer": 0.0,
+      "change_amount": 29660.2,
+      "has_change": true,
+      "fee_sats": 2590
+    }
+  ]
+}

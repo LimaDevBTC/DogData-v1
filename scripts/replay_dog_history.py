@@ -118,6 +118,37 @@ def chain_tip():
     return int(scanner.bitcoin_cli('getblockcount').strip())
 
 
+def _push_with_retry(all_txs, height, max_attempts=8):
+    """Upsert into Supabase with bounded exponential backoff.
+
+    The previous run lost 2 blocks (844443, 844446) to flaky residential
+    internet — push_to_supabase returns False on connection errors but
+    doesn't retry. Over an 18-hour run that adds up. This wrapper waits
+    out transient outages: 5s, 10s, 20s, ... up to ~5 min between tries,
+    then gives up, appending the block to a failed-blocks list for the
+    end-of-run reconcile pass.
+    """
+    for attempt in range(max_attempts):
+        try:
+            ok = scanner.push_to_supabase(all_txs, addresses=True)
+        except Exception as e:
+            scanner.log.warning(f'  block {height}: push raised: {e}')
+            ok = False
+        if ok:
+            return
+        delay = min(5 * (2 ** attempt), 300)
+        scanner.log.warning(
+            f'  block {height}: supabase push failed (attempt {attempt + 1}/'
+            f'{max_attempts}); retrying in {delay}s'
+        )
+        time.sleep(delay)
+    # All retries exhausted — record so we can fix it after the run.
+    failed_path = DATA_DIR / 'replay_failed_blocks.txt'
+    with failed_path.open('a') as f:
+        f.write(f'{height}\n')
+    scanner.log.error(f'  block {height}: GAVE UP after {max_attempts} attempts; appended to {failed_path.name}')
+
+
 def replay(from_block=None, to_block=None):
     state = load_replay_state()
     if state.get('started_at') is None:
@@ -162,7 +193,7 @@ def replay(from_block=None, to_block=None):
             # naturally once it resumes. Pushing every replayed block would
             # also trigger 15-s timeouts under flaky network and dwarf the
             # actual work — observed cost was ~50% of total wall time.
-            scanner.push_to_supabase(all_txs, addresses=True)
+            _push_with_retry(all_txs, height)
             txs_total += len(all_txs)
 
         # Persist state + utxo_set together every 100 blocks. Atomicity
