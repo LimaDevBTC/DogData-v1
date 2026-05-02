@@ -1,0 +1,70 @@
+{
+  "block_height": 842619,
+  "timestamp": "2026-05-02T21:24:30.133062Z",
+  "transactions": [
+    {
+      "txid": "a66f3020d3f46f9ecd981827d5b33d995ded24992408ba230ac3e4ada9860839",
+      "block_height": 842619,
+      "timestamp": "2024-05-08T22:40:41Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1p488cm6hgtkljnlvw5ss3ny22kzf7xve3upu6a80th953dvpetl7qquqesg",
+          "amount": 17796120000,
+          "amount_dog": 177961.2,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1p9w0frutcxl2hvj87082uh2fg30353ka6ju4xzsz73ndyjvjf9zsswzxux0",
+          "amount": 17796120000,
+          "amount_dog": 177961.2,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 177961.2,
+      "total_dog_out": 177961.2,
+      "total_dog_moved": 177961.2,
+      "net_transfer": 177961.2,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 5059
+    },
+    {
+      "txid": "c7b3fe572a2f2c56b777c1f13e8ff68e95a078fedf0ca02bb0357da8eb066926",
+      "block_height": 842619,
+      "timestamp": "2024-05-08T22:40:41Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pch9wev84xea93e2gqye56aq25lkynsl6n2fm9tsg46nltkvsc4lq8hgwj4",
+          "amount": 2966020000,
+          "amount_dog": 29660.2,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pch9wev84xea93e2gqye56aq25lkynsl6n2fm9tsg46nltkvsc4lq8hgwj4",
+          "amount": 2966020000,
+          "amount_dog": 29660.2,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 29660.2,
+      "total_dog_out": 29660.2,
+      "total_dog_moved": 29660.2,
+      "net_transfer": 0.0,
+      "change_amount": 29660.2,
+      "has_change": true,
+      "fee_sats": 4665
+    }
+  ]
+}
