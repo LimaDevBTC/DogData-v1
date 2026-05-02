@@ -157,17 +157,22 @@ def replay(from_block=None, to_block=None):
                 utxo_set.update(new_utxos)
 
             scanner.save_block_txs(height, all_txs)
-            try:
-                scanner.push_to_redis(all_txs)
-            except Exception as e:
-                log(f'  warn: redis push at block {height}: {e}')
+            # Skip Redis pushes during replay. Redis only holds the live
+            # hot-cache (latest 500 txs) which the live scanner re-populates
+            # naturally once it resumes. Pushing every replayed block would
+            # also trigger 15-s timeouts under flaky network and dwarf the
+            # actual work — observed cost was ~50% of total wall time.
             scanner.push_to_supabase(all_txs, addresses=True)
             txs_total += len(all_txs)
 
-        # persist state every 100 blocks (cheap, restart-safe)
+        # Persist state + utxo_set together every 100 blocks. Atomicity
+        # matters for resume — if the two drift, blocks between the saves
+        # would be skipped on restart with a stale utxo_set, leaking DOG
+        # history. Writing both here keeps them in lockstep.
         if height % 100 == 0:
             state['last_block'] = height
             state['tx_count'] = txs_total
+            REPLAY_UTXO_FILE.write_text(json.dumps(utxo_set))
             save_replay_state(state)
 
             elapsed = time.time() - started
@@ -177,12 +182,6 @@ def replay(from_block=None, to_block=None):
             eta_min = blocks_left / rate_blocks / 60 if rate_blocks else 0
             log(f'  block {height} | utxos={len(utxo_set):,} | dog_txs_total={txs_total:,} | '
                 f'rate={rate_blocks:.1f} blk/s | eta={eta_min:.1f}min')
-
-        # snapshot replay utxo_set every 1000 blocks so a crash resumes
-        # with the correctly-rebuilt set. Writes to REPLAY_UTXO_FILE only —
-        # the live `dog_utxo_set.json` is left alone for downstream readers.
-        if height % 1000 == 0:
-            REPLAY_UTXO_FILE.write_text(json.dumps(utxo_set))
 
     # final persist (still only to REPLAY_UTXO_FILE — promote to production
     # explicitly via the validation step after the run completes)
