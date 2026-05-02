@@ -123,12 +123,12 @@ export function TxBreakdown() {
   }, [data])
 
   const totals = data?.totals
-  const classSubclasses = totals?.class_subclasses ?? {}
-  const dogCount = classSubclasses['runes']?.dog ?? 0
-  const runesCount = totals?.classes['runes'] ?? 0
-  const totalTxs = totals?.total_txs ?? 0
-  const dogPctOfTotal = totalTxs > 0 ? (dogCount / totalTxs) * 100 : 0
-  const dogPctOfRunes = runesCount > 0 ? (dogCount / runesCount) * 100 : 0
+  // class_subclasses contains per-class drill-down (e.g. op_return_protocol → thorchain/lifi/babylon).
+  // Runes subclassification is intentionally hidden until we add a proper Runestone parser
+  // (current dog count comes from dog_block_scanner which under-counts and ignores UNCOMMON•GOODS).
+  const classSubclasses = Object.fromEntries(
+    Object.entries(totals?.class_subclasses ?? {}).filter(([parent]) => parent !== 'runes')
+  )
 
   return (
     <Card variant="glass" className="border-accent-primary/10 max-w-7xl mx-auto">
@@ -166,15 +166,10 @@ export function TxBreakdown() {
           {CLASSES.map(c => {
             const pct = totals?.pct[c.key] ?? 0
             const count = totals?.classes[c.key] ?? 0
-            const isRunes = c.key === 'runes'
             return (
               <div
                 key={c.key}
-                className={`bg-bg-elevated/50 border rounded-md p-3 ${
-                  isRunes && dogCount > 0
-                    ? 'border-accent-primary/30 ring-1 ring-accent-primary/10'
-                    : 'border-border-subtle'
-                }`}
+                className="bg-bg-elevated/50 border border-border-subtle rounded-md p-3"
               >
                 <div className="flex items-center gap-2 mb-1">
                   <span className="w-2 h-2 rounded-sm" style={{ background: c.color }} />
@@ -188,21 +183,6 @@ export function TxBreakdown() {
                 <div className="text-[10px] text-text-secondary font-mono">
                   {formatNumber(count)} txs
                 </div>
-                {isRunes && dogCount > 0 && (
-                  <div className="mt-2 pt-2 border-t border-border-subtle">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] uppercase tracking-wider text-accent-primary font-mono">
-                        DOG
-                      </span>
-                      <span className="font-mono text-xs text-text-primary font-semibold">
-                        {dogPctOfTotal.toFixed(2)}%
-                      </span>
-                    </div>
-                    <div className="text-[9px] text-text-secondary font-mono">
-                      {formatNumber(dogCount)} · {dogPctOfRunes.toFixed(1)}% of Runes
-                    </div>
-                  </div>
-                )}
               </div>
             )
           })}
