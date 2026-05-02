@@ -281,30 +281,77 @@ def parse_runestone_dog_edicts(decoded):
 def allocate_dog_outputs(tx, dog_input_total, decoded_runestone):
     """Determine where DOG runes go in the outputs.
 
+    Per the runes protocol, an edict's `output` field carries three meanings:
+      • output < num_outputs            → allocate `amount` to that vout
+      • output == num_outputs           → SPLIT: distribute `amount` (or
+                                          remaining if `amount == 0`)
+                                          equally across non-OP_RETURN
+                                          outputs, with the modulo
+                                          remainder going to the first one
+      • output  > num_outputs           → invalid edict, ignored (any
+                                          unallocated DOG flows to the
+                                          pointer/default-output via the
+                                          remainder rule below)
+
+    The split-to-all case (output == num_outputs) is what the original
+    implementation missed, causing a chain-wide cascade miss starting at
+    block 840,648 — that tx had a single edict pointing at output==31 in a
+    31-output tx, and the bug ghosted 30 of those outputs. Without proper
+    distribution, every subsequent spend of those ghosted UTXOs was
+    invisible to the scanner.
+
     Returns:
         allocation: dict {output_index: amount_raw}
-        remainder_outputs: set of output indices that received unallocated remainder
-                           (these are change regardless of address match)
+        remainder_outputs: set of output indices that received unallocated
+                           remainder (treated as change regardless of
+                           address match in process_dog_tx).
     """
     edicts = parse_runestone_dog_edicts(decoded_runestone)
     remainder_outputs = set()
 
+    num_outputs = len(tx.get('vout', []))
+    # Non-OP_RETURN output indices, in order. Used for split-to-all and
+    # default-output fallback.
+    non_opreturn_outs = []
+    for i, vout in enumerate(tx.get('vout', [])):
+        spk = vout.get('scriptPubKey', {})
+        if spk.get('type') != 'nulldata':
+            non_opreturn_outs.append(i)
+
     if edicts:
-        # Explicit allocation via edicts
         allocation = {}
         allocated = 0
         for output_idx, amount in edicts:
-            if amount == 0:
-                # amount=0 means "all remaining" — this output is explicitly a transfer
-                amount = dog_input_total - allocated
-            actual = min(amount, dog_input_total - allocated)
-            if actual > 0:
-                allocation[output_idx] = allocation.get(output_idx, 0) + actual
-                allocated += actual
+            remaining = dog_input_total - allocated
+            if remaining <= 0:
+                break
 
-        # Unallocated remainder goes to pointer or first non-OP_RETURN output
-        # The remainder output is ALWAYS change — it's the unallocated balance
-        # returning to the sender, regardless of whether the address matches.
+            if output_idx == num_outputs:
+                # Split-to-all marker. amount=0 means "split everything
+                # remaining"; otherwise split exactly `amount`.
+                amount_to_split = (
+                    remaining if amount == 0 else min(amount, remaining)
+                )
+                if non_opreturn_outs and amount_to_split > 0:
+                    n = len(non_opreturn_outs)
+                    per = amount_to_split // n
+                    leftover = amount_to_split - per * n
+                    if per > 0:
+                        for idx in non_opreturn_outs:
+                            allocation[idx] = allocation.get(idx, 0) + per
+                    if leftover > 0:
+                        first = non_opreturn_outs[0]
+                        allocation[first] = allocation.get(first, 0) + leftover
+                    allocated += amount_to_split
+            elif output_idx < num_outputs:
+                amt = remaining if amount == 0 else min(amount, remaining)
+                if amt > 0:
+                    allocation[output_idx] = allocation.get(output_idx, 0) + amt
+                    allocated += amt
+            # output_idx > num_outputs: invalid edict, ignored. Any DOG that
+            # would have gone there falls through to the remainder rule.
+
+        # Unallocated remainder → pointer (if valid) or first non-OP_RETURN.
         remainder = dog_input_total - allocated
         if remainder > 0:
             pointer = None
@@ -313,25 +360,24 @@ def allocate_dog_outputs(tx, dog_input_total, decoded_runestone):
                 if isinstance(rs, dict) and 'Runestone' in rs:
                     rs = rs['Runestone']
                 pointer = rs.get('pointer')
-            if pointer is not None:
+            if pointer is not None and pointer < num_outputs:
                 allocation[pointer] = allocation.get(pointer, 0) + remainder
                 remainder_outputs.add(pointer)
-            else:
-                default_out = get_first_non_opreturn_output(tx)
-                if default_out is not None:
-                    allocation[default_out] = allocation.get(default_out, 0) + remainder
-                    remainder_outputs.add(default_out)
+            elif non_opreturn_outs:
+                default_out = non_opreturn_outs[0]
+                allocation[default_out] = allocation.get(default_out, 0) + remainder
+                remainder_outputs.add(default_out)
+            # else: all outputs are OP_RETURN, DOG is burned
 
         return allocation, remainder_outputs
 
     # No runestone or no DOG edicts: all DOG goes to first non-OP_RETURN output.
-    # With no edicts, we cannot distinguish change from transfer by runestone alone —
-    # fall back to address matching in process_dog_tx.
-    default_out = get_first_non_opreturn_output(tx)
-    if default_out is not None:
-        return {default_out: dog_input_total}, remainder_outputs
+    # With no edicts, we cannot distinguish change from transfer by runestone
+    # alone — fall back to address matching in process_dog_tx.
+    if non_opreturn_outs:
+        return {non_opreturn_outs[0]: dog_input_total}, remainder_outputs
 
-    # All outputs are OP_RETURN → DOG is burned
+    # All outputs are OP_RETURN → DOG is burned.
     return {}, remainder_outputs
 
 

@@ -249,9 +249,11 @@ export async function GET() {
       freshness['data:holders'] = {
         last_update_at: updatedAt,
         metadata: { total_holders: total, age_minutes: ageMin !== null ? Number(ageMin.toFixed(1)) : null },
-        // Hourly refresh cycle (local cron + GitHub push + Vercel deploy).
-        // Allow the full hour plus deploy/build buffer before flagging.
-        status: ageMin === null ? 'unknown' : ageMin <= 75 ? 'ok' : ageMin <= 150 ? 'degraded' : 'down',
+        // Hourly refresh cycle: cron starts ~minute 20–35 of each hour, then
+        // GitHub push + Vercel deploy adds ~5–10 min before prod sees the new
+        // timestamp. Worst-case age right before the next refresh lands is
+        // ~75 min; add buffer for cron lag and deploy variance.
+        status: ageMin === null ? 'unknown' : ageMin <= 95 ? 'ok' : ageMin <= 180 ? 'degraded' : 'down',
       }
     } else {
       freshness['data:holders'] = { last_update_at: null, metadata: null, status: 'down', error: `HTTP ${res.status}` }

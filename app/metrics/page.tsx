@@ -16,6 +16,7 @@ import {
   Zap
 } from "lucide-react"
 import { HistoricalChartsSection } from "@/components/metrics/historical-charts"
+import { TxBreakdown } from "@/components/metrics/tx-breakdown"
 import {
   XAxis,
   YAxis,
@@ -204,6 +205,10 @@ export default function MetricsPage() {
             </div>
           </div>
         </div>
+
+        {/* ═══ Transaction Breakdown (Runes vs Inscriptions vs OP_RETURN vs Financial) ═══ */}
+        <SectionDivider title="Transaction Breakdown" icon={Activity} />
+        <TxBreakdown />
 
         <SectionDivider title="UTXO Metrics" icon={Coins} />
 

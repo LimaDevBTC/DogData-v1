@@ -77,6 +77,10 @@ import dog_block_scanner as scanner  # noqa: E402
 
 DATA_DIR = PROJECT_ROOT / 'data'
 REPLAY_STATE_FILE = DATA_DIR / 'replay_state.json'
+# Isolated UTXO snapshot for the replay. Keeps the live `dog_utxo_set.json`
+# (which `update_holders_and_fees.py` reads every hour) untouched during the
+# run, so a partial replay can't poison holder data downstream.
+REPLAY_UTXO_FILE = DATA_DIR / 'replay_utxo_set.json'
 
 # DOG genesis: etching at block 840,000, premine 100B DOG, pointer→vout 1.
 # Confirmed via `ord decode --txid <etch>` against the local 182GB index.
@@ -128,14 +132,14 @@ def replay(from_block=None, to_block=None):
         log(f'nothing to do (last_done={last_done}, requested {from_block}..{to_block})')
         return
 
-    # rebuild or resume utxo_set
-    if last_done == ETCH_BLOCK:
+    # rebuild or resume utxo_set (always from REPLAY_UTXO_FILE — never the
+    # production dog_utxo_set.json, which the live data pipeline depends on)
+    if last_done == ETCH_BLOCK or not REPLAY_UTXO_FILE.exists():
         utxo_set = init_seed()
         log(f'seeded utxo_set with genesis: {ETCH_TXID[:16]}…:{ETCH_VOUT} = {ETCH_PREMINE_ATOMIC:,} atomic ({ETCH_PREMINE_ATOMIC/scanner.DOG_FACTOR:,.0f} DOG)')
     else:
-        # Resume — load whatever the scanner persisted last.
-        utxo_set = scanner.load_utxo_set()
-        log(f'resumed from block {last_done}; utxo_set has {len(utxo_set):,} entries')
+        utxo_set = json.loads(REPLAY_UTXO_FILE.read_text())
+        log(f'resumed from block {last_done}; replay utxo_set has {len(utxo_set):,} entries')
 
     log(f'replaying blocks {start} → {end}  ({end - start + 1:,} blocks)')
 
@@ -174,20 +178,23 @@ def replay(from_block=None, to_block=None):
             log(f'  block {height} | utxos={len(utxo_set):,} | dog_txs_total={txs_total:,} | '
                 f'rate={rate_blocks:.1f} blk/s | eta={eta_min:.1f}min')
 
-        # snapshot utxo_set every 1000 blocks so a resume after a crash
-        # picks up with the correctly-rebuilt set instead of the pre-replay
-        # backup. dog_utxo_set.json is ~20 MB; the write is cheap.
+        # snapshot replay utxo_set every 1000 blocks so a crash resumes
+        # with the correctly-rebuilt set. Writes to REPLAY_UTXO_FILE only —
+        # the live `dog_utxo_set.json` is left alone for downstream readers.
         if height % 1000 == 0:
-            scanner.save_utxo_set(utxo_set)
+            REPLAY_UTXO_FILE.write_text(json.dumps(utxo_set))
 
-    # final persist
+    # final persist (still only to REPLAY_UTXO_FILE — promote to production
+    # explicitly via the validation step after the run completes)
     state['last_block'] = end
     state['tx_count'] = txs_total
     save_replay_state(state)
-    scanner.save_utxo_set(utxo_set)
+    REPLAY_UTXO_FILE.write_text(json.dumps(utxo_set))
 
     elapsed = time.time() - started
     log(f'done in {elapsed/60:.1f}min — {txs_total:,} dog txs, {len(utxo_set):,} utxos')
+    log(f'replay utxo set saved to {REPLAY_UTXO_FILE.name} (production file untouched)')
+    log('next step: validate replay_utxo_set vs `ord balances`, then promote.')
 
 
 def main():
