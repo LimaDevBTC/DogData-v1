@@ -20,6 +20,7 @@ import {
   Info
 } from "lucide-react"
 import { AddressBadge } from "@/components/address-badge"
+import { InfoTooltip } from "@/components/ui/info-tooltip"
 import {
   TIERS,
   TIER_BY_KEY,
@@ -79,6 +80,30 @@ interface ForensicMeta {
   staleness_hours: number;
 }
 
+interface LostStats {
+  generated_at: string;
+  staleness_hours: number;
+  diamond_paws_total: number;
+  diamond_paws_dog: number;
+  dog_total_supply: number;
+  lost: {
+    wallets: number;
+    dog_locked: number;
+    pct_of_supply: number;
+    pct_of_diamond_paws: number;
+    pct_of_diamond_paws_dog: number;
+  };
+  active: {
+    wallets: number;
+    dog_held: number;
+  };
+  methodology: {
+    plain_text: string;
+    notes: string[];
+    ceiling_disclaimer: string;
+  };
+}
+
 type BehaviorList = 'all' | 'accumulators' | 'holders' | 'sellers' | TierKey;
 
 const CATEGORY_KEYS: BehaviorList[] = ['accumulators', 'holders', 'sellers'];
@@ -99,6 +124,7 @@ export default function AirdropPage() {
   const [summary, setSummary] = useState<AirdropSummary | null>(null)
   const [forensicStats, setForensicStats] = useState<ForensicStats | null>(null)
   const [forensicMeta, setForensicMeta] = useState<ForensicMeta | null>(null)
+  const [lostStats, setLostStats] = useState<LostStats | null>(null)
   const [currentList, setCurrentList] = useState<BehaviorList>('all')
   const [profiles, setProfiles] = useState<BehavioralProfile[]>([])
   const [loading, setLoading] = useState(true)
@@ -259,6 +285,16 @@ export default function AirdropPage() {
           const staleness_hours = Math.floor((Date.now() - ts.getTime()) / 3_600_000)
           setForensicMeta({ timestamp: forensicData.timestamp, staleness_hours })
         }
+      }
+
+      // Fetch "possible lost DOG" stats (best-effort — file may not exist on first deploy)
+      try {
+        const lostResponse = await fetch('/api/airdrop/lost')
+        if (lostResponse.ok) {
+          setLostStats(await lostResponse.json())
+        }
+      } catch {
+        // intentionally swallow — lost card is non-critical
       }
       
       // Fetch profiles based on current list
@@ -602,6 +638,64 @@ export default function AirdropPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Possible Lost DOG — single emphasis card. Hidden if data file isn't deployed. */}
+      {lostStats && (
+        <div className="mb-8">
+          <Card variant="elevated" className="border-amber-400/20 hover:border-amber-400/40">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-amber-400">
+                  Possible Lost DOG
+                </CardTitle>
+                <InfoTooltip align="left" width="wide">
+                  <p className="text-snow/90 font-semibold text-sm mb-1">Methodology</p>
+                  <p>{lostStats.methodology.plain_text}</p>
+                  <ul className="list-disc list-outside pl-4 space-y-1 text-dusty/80">
+                    {lostStats.methodology.notes.map((note, i) => (
+                      <li key={i}>{note}</li>
+                    ))}
+                  </ul>
+                  <p className="pt-2 border-t border-white/[0.05] text-amber-300/80 text-[11px]">
+                    {lostStats.methodology.ceiling_disclaimer}
+                  </p>
+                </InfoTooltip>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+                <div>
+                  <div className="text-2xl md:text-4xl font-bold text-amber-400 font-mono metric-value tracking-tight">
+                    {formatDOG(lostStats.lost.dog_locked)}
+                  </div>
+                  <p className="text-dusty text-xs md:text-sm font-mono mt-1">DOG locked</p>
+                </div>
+                <div>
+                  <div className="text-2xl md:text-4xl font-bold text-snow font-mono metric-value tracking-tight">
+                    {lostStats.lost.pct_of_supply.toFixed(2)}%
+                  </div>
+                  <p className="text-dusty text-xs md:text-sm font-mono mt-1">of total supply</p>
+                </div>
+                <div>
+                  <div className="text-2xl md:text-4xl font-bold text-snow font-mono metric-value tracking-tight">
+                    {formatNumber(lostStats.lost.wallets)}
+                  </div>
+                  <p className="text-dusty text-xs md:text-sm font-mono mt-1">
+                    wallets that never signed a tx
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 pt-4 border-t border-white/[0.05]">
+                <p className="text-dusty/80 text-xs md:text-sm font-mono leading-relaxed">
+                  Wallets in the {formatNumber(lostStats.diamond_paws_total)} Diamond Paws cohort that never sent any transaction since the airdrop —
+                  not in DOG, BTC, or any other asset. {lostStats.lost.pct_of_diamond_paws.toFixed(1)}% of diamond paws fall in this group.
+                  Likely throwaway addresses created for inscription/rare-sat hunting in 2024 and forgotten.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <SectionDivider title="Recipient Search" icon={Search} />
 

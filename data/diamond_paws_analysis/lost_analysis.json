@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-05-03T14:39:19.544944Z",
+  "generated_at": "2026-05-03T22:20:51.150829+00:00",
   "data_source": {
-    "diamond_paws_csv": "data/diamond_paws_analysis/diamond_paws.csv",
+    "forensic_behavioral_analysis": "data/forensic_behavioral_analysis.json",
     "chain_stats_jsonl": "data/diamond_paws_analysis/chain_stats.jsonl",
-    "external_api": "https://blockstream.info/api"
+    "verification": "Local bitcoind scantxoutset detects newly-active wallets each run; new diamond paw addresses pulled via blockstream.info."
   },
   "constants": {
     "dog_total_supply": 100000000000,
@@ -16,42 +16,42 @@
     }
   },
   "totals": {
-    "diamond_paws_with_stats": 19878,
+    "diamond_paws_with_stats": 19877,
     "diamond_paws_missing_stats": 0,
-    "total_airdrop_dog": 20510028300.0,
-    "pct_of_supply": 20.5100283
+    "total_airdrop_dog": 20509138494.0,
+    "pct_of_supply": 20.509138494000002
   },
   "lost_relaxed": {
     "count": 6035,
-    "pct_of_diamond_paws": 30.360197202937922,
+    "pct_of_diamond_paws": 30.36172460632892,
     "dog_locked": 5739248700.0,
-    "pct_of_diamond_paws_dog": 27.9826464208243,
+    "pct_of_diamond_paws_dog": 27.983860471170114,
     "pct_of_supply": 5.7392487
   },
   "lost_strict": {
     "count": 2,
-    "pct_of_diamond_paws": 0.01006137438374082,
+    "pct_of_diamond_paws": 0.010061880565477688,
     "dog_locked": 1779612.0,
-    "pct_of_diamond_paws_dog": 0.008676789587852495,
+    "pct_of_diamond_paws_dog": 0.008677166037572128,
     "pct_of_supply": 0.0017796119999999999
   },
   "active_after_airdrop": {
-    "count": 13843,
-    "pct_of_diamond_paws": 69.63980279706207,
-    "dog_held": 14770779600.0,
+    "count": 13842,
+    "pct_of_diamond_paws": 69.63827539367108,
+    "dog_held": 14769889794.0,
     "spent_txo_buckets": {
-      "100+": 1939,
+      "100+": 1938,
       "21-100": 3758,
       "6-20": 3410,
       "2-5": 2771,
       "1": 1965
     },
-    "note": "Surprising \u2014 these wallets sent something but their DOG balance equals the airdrop. Either round-trip or the diamond_paws label needs re-examination."
+    "note": "These wallets sent something (BTC, other runes\u2026) but their DOG balance equals the airdrop amount \u2014 they're alive HODLers, not lost."
   },
   "funded_after_airdrop_but_unspent": {
     "count": 6035,
     "dog_in_these_wallets": 5739248700.0,
-    "interpretation": "Received additional deposits (dust attacks, later airdrops, etc.) but never spent. Still 'lost' under relaxed criterion.",
+    "interpretation": "Received passive deposits (dust attacks, later airdrops, etc.) but never spent. Still 'lost relaxed' \u2014 incoming proves nothing about key control.",
     "extra_deposits_distribution": {
       "1_to_2": {
         "wallets": 2,
@@ -83,7 +83,7 @@
       "p2wpkh/p2wsh": 272
     },
     "active": {
-      "p2tr": 11395,
+      "p2tr": 11394,
       "p2sh": 342,
       "p2wpkh/p2wsh": 1950,
       "p2pkh": 156

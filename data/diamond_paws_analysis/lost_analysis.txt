@@ -1,54 +1,13 @@
 ======================================================================
-DIAMOND PAWS — DOG AIRDROP LOST-WALLET ANALYSIS
+DIAMOND PAWS — POSSIBLE LOST DOG (auto-generated)
 ======================================================================
-Generated: 2026-05-03T14:39:19.544944Z
-Source: forensic_behavioral_analysis.json + blockstream.info /api/address
+Generated: 2026-05-03T22:20:51.150829+00:00
+Diamond paws: 19,877  (missing chain_stats: 0)
+Total DOG held: 20,509,138,494 (20.51% of 100B supply)
 
-Total diamond paws analyzed:  19,878  (missing on-chain stats: 0)
-Total DOG held by them:       20,510,028,300  (20.51% of 100B supply)
+LOST RELAXED  (never spent any UTXO):
+  wallets: 6,035  (30.4% of diamond paws)
+  DOG locked: 5,739,248,700  (5.74% of supply)
 
-─── LOST (RELAXED: never spent anything) ────────────────────────────
-  wallets:            6,035  (30.4% of diamond paws)
-  DOG locked:         5,739,248,700
-  % of diamond paws DOG: 27.98%
-  % of total supply:     5.74%
-
-─── LOST (STRICT: never spent + no extra deposits + no mempool) ─────
-  wallets:            2  (0.0% of diamond paws)
-  DOG locked:         1,779,612
-  % of diamond paws DOG: 0.01%
-  % of total supply:     0.00%
-
-─── ACTIVE (spent at least once, balance returned to airdrop level) ──
-  wallets:            13,843  (69.6%)
-  DOG these hold:     14,770,779,600
-  Spent-tx buckets:   {'100+': 1939, '21-100': 3758, '6-20': 3410, '2-5': 2771, '1': 1965}
-
-─── EXTRA DEPOSITS DISTRIBUTION (lost-relaxed) ───────────────────────
-  Every lost wallet received SOMETHING beyond the airdrop (dust/drops),
-  but never spent — so passive receives don't prove key access.
-  1_to_2              wallets=    2  DOG=      1,779,612
-  3_to_5              wallets=  660  DOG=    591,720,990
-  6_to_20             wallets=4,102  DOG=  3,878,664,354
-  21_to_100           wallets=1,156  DOG=  1,159,417,218
-  100_plus            wallets=  115  DOG=    107,666,526
-
-─── BY ADDRESS TYPE (lost relaxed vs active) ─────────────────────────
-  p2tr            lost=5,641  active=11,395  (33.1% lost)
-  p2wpkh/p2wsh    lost=272  active=1,950  (12.2% lost)
-  p2sh            lost=54  active=342  (13.6% lost)
-  p2pkh           lost=68  active=156  (30.4% lost)
-
-─── TOP 10 LOST WALLETS (relaxed) BY DOG ─────────────────────────────
-  # 1  bc1p2nj2teu3znnx7pukqre6n5ryjrcsv3hr74334gezgwencrwylupsa55j8k        16,016,508 DOG  (funded_txos=50)
-  # 2  bc1plsg4xz2jvknf87x0a9tn9rys4u6xpwgh95tglnxd444pn8s0cv2sga0try        10,677,672 DOG  (funded_txos=108)
-  # 3  bc1ppxm2y58nh22ykjlelvwmvewakr2j47nq9qk5hja4z3g2063d6d3q77xkcu         9,787,866 DOG  (funded_txos=94)
-  # 4  bc1phjx6m8qdrmyx5gpjzhhgntgfd92t89pxuhl3uqwvu36zf7xygrrsnswpp0         8,898,060 DOG  (funded_txos=28)
-  # 5  bc1p0rm0ktlh7l0w23jdc086vksz7thpqqkawklyuf75z58kfwufu8sqd3e4up         7,118,448 DOG  (funded_txos=86)
-  # 6  bc1pkrntdfdsne8pzktru90vmjgpr83deak0kpfte7ppmdmahy637n6q6cc758         7,118,448 DOG  (funded_txos=52)
-  # 7  bc1ptcv6ar7zulxemt57hvvudgx09ywn9r6qflxkk2tq2apweftvgj3s485rrm         7,118,448 DOG  (funded_txos=51)
-  # 8  bc1p04jdwdmz7mffaam3qp64d6hyye34vda4qk6xhx7eprp3y4nvsa9qd0y476         6,228,642 DOG  (funded_txos=31)
-  # 9  bc1pp7aq2cnwck75lylwah44ad3nsru3ng42hw4kc7tp72ha6r06metqysp8gy         6,228,642 DOG  (funded_txos=22)
-  #10  bc1p7v75kzj8pmwjqj38s93lk6mjsqheq4hv44t58qd68r99dv4sx7pqen72s2         5,338,836 DOG  (funded_txos=21)
-
-======================================================================
+ACTIVE (HODL but spent BTC/other runes):
+  wallets: 13,842  (69.6%)
