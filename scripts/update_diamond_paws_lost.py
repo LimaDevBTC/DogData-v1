@@ -467,7 +467,9 @@ def main() -> int:
 
     if not chain_stats:
         log("❌ chain_stats.jsonl is empty or missing.")
-        log("   Bootstrap with: python3 scripts/dp_fetch_chain_stats.py  (one-time)")
+        log("   The repo ships with a populated chain_stats.jsonl. If you're on a fresh")
+        log("   deploy, restore from git or run scripts/archived/dp_fetch_chain_stats.py")
+        log("   once (slow ~7h via blockstream API).")
         log("   (skipping this run; will retry next hour)")
         return 0
 

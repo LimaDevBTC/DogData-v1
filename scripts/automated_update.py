@@ -553,6 +553,33 @@ def main():
     except Exception as e:
         log(f"⚠️ Análise forense error (non-fatal): {e}")
 
+    # 6.5 "Possible Lost DOG" — auto-incremental, depends on the forensic output above.
+    log("")
+    log("💎 Atualizando análise de Possible Lost DOG (diamond paws)…")
+    try:
+        lost_script = SCRIPT_DIR / 'update_diamond_paws_lost.py'
+        if lost_script.exists():
+            lost_result = subprocess.run(
+                [sys.executable, str(lost_script)],
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                text=True,
+                timeout=900  # local-node scantxoutset ~6 min for 6k addrs
+            )
+            if lost_result.returncode == 0:
+                log("✅ Possible Lost DOG atualizado")
+                if lost_result.stdout:
+                    for line in lost_result.stdout.strip().split('\n')[-5:]:
+                        log(f"   {line}")
+            else:
+                log(f"⚠️ Erro no Lost DOG (non-fatal): {lost_result.stderr[:300] if lost_result.stderr else 'unknown'}")
+        else:
+            log(f"⚠️ Script não encontrado: {lost_script}")
+    except subprocess.TimeoutExpired:
+        log("⚠️ Lost DOG timeout (non-fatal) — será tentado na próxima hora")
+    except Exception as e:
+        log(f"⚠️ Lost DOG error (non-fatal): {e}")
+
     # 7. Commit e push (sempre tenta)
     log("")
     if git_commit_and_push():

@@ -4,6 +4,9 @@ import fs from 'fs';
 
 export const dynamic = 'force-dynamic';
 
+interface TopWallet { address: string; dog: number; funded_txos?: number; tx_count?: number }
+interface ExtrasBucket { wallets: number; dog: number }
+
 interface LostAnalysis {
   generated_at: string;
   constants: { dog_total_supply: number };
@@ -18,10 +21,26 @@ interface LostAnalysis {
     pct_of_supply: number;
     pct_of_diamond_paws_dog: number;
   };
+  lost_strict: {
+    count: number;
+    dog_locked: number;
+    pct_of_supply: number;
+  };
   active_after_airdrop: {
     count: number;
     dog_held: number;
+    spent_txo_buckets: Record<string, number>;
   };
+  funded_after_airdrop_but_unspent: {
+    count: number;
+    dog_in_these_wallets: number;
+    extra_deposits_distribution: Record<string, ExtrasBucket>;
+  };
+  address_type_breakdown: {
+    lost_relaxed: Record<string, number>;
+    active: Record<string, number>;
+  };
+  top_20_lost_wallets_by_dog: TopWallet[];
 }
 
 export async function GET() {
@@ -53,10 +72,23 @@ export async function GET() {
           pct_of_diamond_paws: data.lost_relaxed.pct_of_diamond_paws,
           pct_of_diamond_paws_dog: data.lost_relaxed.pct_of_diamond_paws_dog,
         },
+        strict: {
+          wallets: data.lost_strict.count,
+          dog_locked: data.lost_strict.dog_locked,
+          pct_of_supply: data.lost_strict.pct_of_supply,
+        },
         active: {
           wallets: data.active_after_airdrop.count,
           dog_held: data.active_after_airdrop.dog_held,
+          spent_txo_buckets: data.active_after_airdrop.spent_txo_buckets,
         },
+        funded_unspent: {
+          wallets: data.funded_after_airdrop_but_unspent.count,
+          dog: data.funded_after_airdrop_but_unspent.dog_in_these_wallets,
+          extras: data.funded_after_airdrop_but_unspent.extra_deposits_distribution,
+        },
+        address_type_breakdown: data.address_type_breakdown,
+        top_lost_wallets: data.top_20_lost_wallets_by_dog,
         methodology: {
           criterion: 'spent_txo_count == 0',
           plain_text:
