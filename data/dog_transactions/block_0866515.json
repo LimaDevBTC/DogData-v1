@@ -1,0 +1,70 @@
+{
+  "block_height": 866515,
+  "timestamp": "2026-05-03T02:52:52.037717Z",
+  "transactions": [
+    {
+      "txid": "6ff4be92cdee674a72016b318b335568d68c42cf890aa98c9f7dee8cf69909e4",
+      "block_height": 866515,
+      "timestamp": "2024-10-20T12:25:48Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pqs7le5ry3gt9cv43e7yufklfu2dus2y05k5vk9w5qvgqmhzac60qv055uq",
+          "amount": 329557777,
+          "amount_dog": 3295.57777,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pqs7le5ry3gt9cv43e7yufklfu2dus2y05k5vk9w5qvgqmhzac60qv055uq",
+          "amount": 329557777,
+          "amount_dog": 3295.57777,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 3295.57777,
+      "total_dog_out": 3295.57777,
+      "total_dog_moved": 3295.57777,
+      "net_transfer": 0.0,
+      "change_amount": 3295.57777,
+      "has_change": true,
+      "fee_sats": 17612
+    },
+    {
+      "txid": "a6f1b82481a27126a78005e80e5a4a4980433a38a2a3f9a48b369810532b81b5",
+      "block_height": 866515,
+      "timestamp": "2024-10-20T12:25:48Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1qajcp9gl0jfwfeqmuhs6yln72plamytxdu83rn0",
+          "amount": 494336666,
+          "amount_dog": 4943.36666,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1py0d9pfr0xegdw6r6m6jw9lsnss2v72u3m7m3gja8jq5dt7wvkwhsys678x",
+          "amount": 494336666,
+          "amount_dog": 4943.36666,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 4943.36666,
+      "total_dog_out": 4943.36666,
+      "total_dog_moved": 4943.36666,
+      "net_transfer": 4943.36666,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 3992
+    }
+  ]
+}

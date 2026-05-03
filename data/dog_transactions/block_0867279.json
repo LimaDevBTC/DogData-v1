@@ -1,0 +1,70 @@
+{
+  "block_height": 867279,
+  "timestamp": "2026-05-03T03:00:32.605664Z",
+  "transactions": [
+    {
+      "txid": "d5cdbe37000eddaf34c5b31bbe85568461182b8f8020416e31ee7c2e388104eb",
+      "block_height": 867279,
+      "timestamp": "2024-10-25T09:31:32Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pjfts4uugcexwpv9qh7nzux9ws9tukr6cw3waadw7msas6l69zfesytfgp6",
+          "amount": 341546988,
+          "amount_dog": 3415.46988,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1p9gmfpyu0t8wzf4r4ul8duxyy3y07agdmymkg06lxphvnhs87h4ds84xnlp",
+          "amount": 341546988,
+          "amount_dog": 3415.46988,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 3415.46988,
+      "total_dog_out": 3415.46988,
+      "total_dog_moved": 3415.46988,
+      "net_transfer": 3415.46988,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 1607
+    },
+    {
+      "txid": "950f6017459e318c7a162b66ea5e4833161062e08357c861f4c3a783ac826c3c",
+      "block_height": 867279,
+      "timestamp": "2024-10-25T09:31:32Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pjfts4uugcexwpv9qh7nzux9ws9tukr6cw3waadw7msas6l69zfesytfgp6",
+          "amount": 142186,
+          "amount_dog": 1.42186,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pjfts4uugcexwpv9qh7nzux9ws9tukr6cw3waadw7msas6l69zfesytfgp6",
+          "amount": 142186,
+          "amount_dog": 1.42186,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 1.42186,
+      "total_dog_out": 1.42186,
+      "total_dog_moved": 1.42186,
+      "net_transfer": 0.0,
+      "change_amount": 1.42186,
+      "has_change": true,
+      "fee_sats": 1552
+    }
+  ]
+}

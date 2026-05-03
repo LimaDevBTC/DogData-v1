@@ -1,0 +1,70 @@
+{
+  "block_height": 867323,
+  "timestamp": "2026-05-03T03:00:57.626895Z",
+  "transactions": [
+    {
+      "txid": "d1f1b6816212cc655281b9cc11e26fe1a7c024f7784cfc88fa7e6fbf49b88e00",
+      "block_height": 867323,
+      "timestamp": "2024-10-25T16:49:09Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1qr35hws365juz5rtlsjtvmulu97957kqvr3zpw3",
+          "amount": 1225355736,
+          "amount_dog": 12253.55736,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1qr35hws365juz5rtlsjtvmulu97957kqvr3zpw3",
+          "amount": 1225355736,
+          "amount_dog": 12253.55736,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 12253.55736,
+      "total_dog_out": 12253.55736,
+      "total_dog_moved": 12253.55736,
+      "net_transfer": 0.0,
+      "change_amount": 12253.55736,
+      "has_change": true,
+      "fee_sats": 24044
+    },
+    {
+      "txid": "4bbdf64577543e783da20ff5fc71c26d7f2c01d198f08acfee11be5f6e8fdd37",
+      "block_height": 867323,
+      "timestamp": "2024-10-25T16:49:09Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pemvpxgvd8pm63xyfzmlswg729us59p4ts55u3un8ucct6sg8hzyshlre0y",
+          "amount": 3890493772,
+          "amount_dog": 38904.93772,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pumuq5mqmsd6dxq38n7fu9u26zteg6j2xqem990k2d3w8qsv6sd6s752k0s",
+          "amount": 3890493772,
+          "amount_dog": 38904.93772,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 38904.93772,
+      "total_dog_out": 38904.93772,
+      "total_dog_moved": 38904.93772,
+      "net_transfer": 38904.93772,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 1946
+    }
+  ]
+}

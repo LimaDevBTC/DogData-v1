@@ -1,0 +1,70 @@
+{
+  "block_height": 867543,
+  "timestamp": "2026-05-03T03:03:19.682576Z",
+  "transactions": [
+    {
+      "txid": "f0f4a129311a3a5ad5b856195b53331f5cae9e0b4bbd4eea338bfee00891869c",
+      "block_height": 867543,
+      "timestamp": "2024-10-27T04:54:17Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pk8z96tzr6ynjgx95etzq84ekdu6h4z88lxsa8k84wznygx8u68cqy8ug39",
+          "amount": 593204000,
+          "amount_dog": 5932.04,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1p5ejpd4ysstm4qprf7q6tqsxcldveyduulnzmag75aanm9hxa4faqnmhsnp",
+          "amount": 593204000,
+          "amount_dog": 5932.04,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 5932.04,
+      "total_dog_out": 5932.04,
+      "total_dog_moved": 5932.04,
+      "net_transfer": 5932.04,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 1871
+    },
+    {
+      "txid": "955be4ea315d29f3ed4cb68e3a7dffb8b4c3d4a8beeffafbfd69a4c083fb788d",
+      "block_height": 867543,
+      "timestamp": "2024-10-27T04:54:17Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1p8e8myyavc7g5jzmalx4zpfnhj0jmfjxswnwqe9jcdz52fr607jhsezck4n",
+          "amount": 269638181,
+          "amount_dog": 2696.38181,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1p8e8myyavc7g5jzmalx4zpfnhj0jmfjxswnwqe9jcdz52fr607jhsezck4n",
+          "amount": 269638181,
+          "amount_dog": 2696.38181,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 2696.38181,
+      "total_dog_out": 2696.38181,
+      "total_dog_moved": 2696.38181,
+      "net_transfer": 0.0,
+      "change_amount": 2696.38181,
+      "has_change": true,
+      "fee_sats": 554
+    }
+  ]
+}
