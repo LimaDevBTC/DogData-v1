@@ -1,0 +1,70 @@
+{
+  "block_height": 915736,
+  "timestamp": "2026-05-03T11:06:46.554822Z",
+  "transactions": [
+    {
+      "txid": "3077b9a46d30850d7ede941681ad9d7997b0ce45d548e4a82f971a56527deb5a",
+      "block_height": 915736,
+      "timestamp": "2025-09-21T12:27:06Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1p575hgpn9stnltewrpvt8qjnpcghxr97usw08cj7ke6h8w6r6txxqe54paq",
+          "amount": 1318231110,
+          "amount_dog": 13182.3111,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1p7483s2guwpm6khqdzpj7k5alykh2mxr0xa9w0t9u6jh8sffmaukswwdguy",
+          "amount": 1318231110,
+          "amount_dog": 13182.3111,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 13182.3111,
+      "total_dog_out": 13182.3111,
+      "total_dog_moved": 13182.3111,
+      "net_transfer": 13182.3111,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 501
+    },
+    {
+      "txid": "f1c26acca43852aba9e58094be37a846f9acf228c9733ff0f25ddf949759f783",
+      "block_height": 915736,
+      "timestamp": "2025-09-21T12:27:06Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pws6pvj75rcsc2eglpp9k570prnjh40nfpyahlyumk8y8smjayvasyhns5c",
+          "amount": 3666020000,
+          "amount_dog": 36660.2,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pws6pvj75rcsc2eglpp9k570prnjh40nfpyahlyumk8y8smjayvasyhns5c",
+          "amount": 3666020000,
+          "amount_dog": 36660.2,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 36660.2,
+      "total_dog_out": 36660.2,
+      "total_dog_moved": 36660.2,
+      "net_transfer": 0.0,
+      "change_amount": 36660.2,
+      "has_change": true,
+      "fee_sats": 537
+    }
+  ]
+}

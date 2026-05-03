@@ -1,0 +1,70 @@
+{
+  "block_height": 913151,
+  "timestamp": "2026-05-03T10:45:40.050036Z",
+  "transactions": [
+    {
+      "txid": "ac90943810947d196903f4236a3605e2bcdd82076610b1291756b4627f095807",
+      "block_height": 913151,
+      "timestamp": "2025-09-04T11:57:01Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1py2apuj8gp8znd5x703an849zkck4w9fswq6swck6s8pcxyxe35pqxsln7z",
+          "amount": 30609630,
+          "amount_dog": 306.0963,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pjqvd2pjjq7ty89cp3a0kpjse50v74rn4tsmndqu8x9g59glygdgqhuux9r",
+          "amount": 30609630,
+          "amount_dog": 306.0963,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 306.0963,
+      "total_dog_out": 306.0963,
+      "total_dog_moved": 306.0963,
+      "net_transfer": 306.0963,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 341
+    },
+    {
+      "txid": "749de7634131085dab735911c50c85b164cf2cad36d41dd28093283cb4585197",
+      "block_height": 913151,
+      "timestamp": "2025-09-04T11:57:01Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pwper8wpfssxl4pd5grudsvcwxc8pecerxm46flmupj9n8l675rtsehu659",
+          "amount": 97715181,
+          "amount_dog": 977.15181,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pwper8wpfssxl4pd5grudsvcwxc8pecerxm46flmupj9n8l675rtsehu659",
+          "amount": 97715181,
+          "amount_dog": 977.15181,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 977.15181,
+      "total_dog_out": 977.15181,
+      "total_dog_moved": 977.15181,
+      "net_transfer": 0.0,
+      "change_amount": 977.15181,
+      "has_change": true,
+      "fee_sats": 431
+    }
+  ]
+}

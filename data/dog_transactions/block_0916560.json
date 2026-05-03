@@ -1,0 +1,70 @@
+{
+  "block_height": 916560,
+  "timestamp": "2026-05-03T11:14:35.436367Z",
+  "transactions": [
+    {
+      "txid": "06ead487f951e89a374de813293c13d9f5e18819a923d3d42f99cad28fd75e6d",
+      "block_height": 916560,
+      "timestamp": "2025-09-27T03:37:47Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1qekye3c6wa2kql9s96ejeaw0kn3clkan5fd3m5a",
+          "amount": 98380381,
+          "amount_dog": 983.80381,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pd3d2qhmdgsuu2s7d2s8f0ga5fwc7sqssfl8t0hmzwys7hhq9cczsfrhrh9",
+          "amount": 98380381,
+          "amount_dog": 983.80381,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 983.80381,
+      "total_dog_out": 983.80381,
+      "total_dog_moved": 983.80381,
+      "net_transfer": 983.80381,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 532
+    },
+    {
+      "txid": "5d3ecb7e97542ed6dbdfe7ab1d2f834a89e3db95aa521894e25544a7f23c97f0",
+      "block_height": 916560,
+      "timestamp": "2025-09-27T03:37:47Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pud2j5tpy5s3c5u6y7e2lqn8tp5208q0mmxjtjqncmzp9wyj5gssswnz8nk",
+          "amount": 1019004431,
+          "amount_dog": 10190.04431,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pud2j5tpy5s3c5u6y7e2lqn8tp5208q0mmxjtjqncmzp9wyj5gssswnz8nk",
+          "amount": 1019004431,
+          "amount_dog": 10190.04431,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 10190.04431,
+      "total_dog_out": 10190.04431,
+      "total_dog_moved": 10190.04431,
+      "net_transfer": 0.0,
+      "change_amount": 10190.04431,
+      "has_change": true,
+      "fee_sats": 875
+    }
+  ]
+}

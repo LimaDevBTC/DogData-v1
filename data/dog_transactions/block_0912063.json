@@ -1,0 +1,70 @@
+{
+  "block_height": 912063,
+  "timestamp": "2026-05-03T10:36:39.294984Z",
+  "transactions": [
+    {
+      "txid": "a765bd2cd59619469fb08e8fcd32790e8250ee11d417f307ddb615bae47ac16f",
+      "block_height": 912063,
+      "timestamp": "2025-08-28T08:50:38Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1p96utmwdngv3xwdn90d7wg4tyqke70fs6js8ajgqkk89zn08z8d5q8xzchd",
+          "amount": 44939696,
+          "amount_dog": 449.39696,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1p96utmwdngv3xwdn90d7wg4tyqke70fs6js8ajgqkk89zn08z8d5q8xzchd",
+          "amount": 44939696,
+          "amount_dog": 449.39696,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 449.39696,
+      "total_dog_out": 449.39696,
+      "total_dog_moved": 449.39696,
+      "net_transfer": 0.0,
+      "change_amount": 449.39696,
+      "has_change": true,
+      "fee_sats": 1451
+    },
+    {
+      "txid": "05a01ed069ce7ff152b5cc38f838c8fef61376c4b90edeb11ef1f57016a8a6a5",
+      "block_height": 912063,
+      "timestamp": "2025-08-28T08:50:38Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1ppxgjwqyhyp85ath5clpclmlumdte2cxa60ln8yu4ptq5fhn773msex5w03",
+          "amount": 78440198,
+          "amount_dog": 784.40198,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1prqpwzqqcfzlrtjz3at5kuz4zevqsmvxc5xjuzvg58y48leu67x0q0kvy85",
+          "amount": 78440198,
+          "amount_dog": 784.40198,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 784.40198,
+      "total_dog_out": 784.40198,
+      "total_dog_moved": 784.40198,
+      "net_transfer": 784.40198,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 593
+    }
+  ]
+}

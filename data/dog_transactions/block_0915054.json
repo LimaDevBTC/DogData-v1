@@ -1,1 +1,114 @@
-{"block_height":915054,"timestamp":"2025-09-17T03:19:40Z","transactions":[{"txid":"ad66be34bf1d67342e6c6d307f7562a69dd8f9a4853630ce3eef0cb8a8e2cfc7","block_height":915054,"timestamp":"2025-09-17T03:19:40Z","type":"transfer","senders":[{"address":"bc1pr6zjet75amyutpnj9xahzxnlu5sush6d53ucjvecf6r7wvqm3vrqdhlyrr","amount":889806,"amount_dog":8.89806,"has_dog":true}],"receivers":[{"address":"bc1pvw78xjuzmqy0wttjw07c3c4x27re0h6kz4xyp9n2x9uzpch9z8mqs5ac93","amount":889806,"amount_dog":8.89806,"has_dog":true,"is_change":false}],"sender_count":1,"receiver_count":1,"total_dog_in":8.89806,"total_dog_out":8.89806,"total_dog_moved":8.89806,"net_transfer":8.89806,"change_amount":0,"has_change":false,"fee_sats":1017}]}
+{
+  "block_height": 915054,
+  "timestamp": "2026-05-03T11:01:07.215361Z",
+  "transactions": [
+    {
+      "txid": "b2cc17d2cb601a97a18221b0e4f4c6ffb7a6767e75bb1bda4e2b0083cbf50d73",
+      "block_height": 915054,
+      "timestamp": "2025-09-17T03:19:40Z",
+      "type": "consolidation",
+      "senders": [
+        {
+          "address": "bc1px0hkuhvy645jrtz69f6pv8ne6mdmr5mcjkgjpufxzvzzsnw7fwmq55gxn5",
+          "amount": 539276371,
+          "amount_dog": 5392.76371,
+          "has_dog": true
+        },
+        {
+          "address": "bc1pt65exley6pv6uqws7xr3ku7u922tween0nfyz257rnl5300cjnrsjp9er6",
+          "amount": 351085921,
+          "amount_dog": 3510.85921,
+          "has_dog": true
+        },
+        {
+          "address": "bc1p5ahrmtwrmh6mq6u3jh7ktwyqud4mvxsdsmgxzmz03clxfz3j7phsth2gmt",
+          "amount": 329557777,
+          "amount_dog": 3295.57777,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1p42rklc9tq7fveu525lsn7xumy2fmlkmhe4znl6rcjgrhlx0e2efqd0wf6w",
+          "amount": 1219920069,
+          "amount_dog": 12199.20069,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 3,
+      "receiver_count": 1,
+      "total_dog_in": 12199.20069,
+      "total_dog_out": 12199.20069,
+      "total_dog_moved": 12199.20069,
+      "net_transfer": 12199.20069,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 2763
+    },
+    {
+      "txid": "ad66be34bf1d67342e6c6d307f7562a69dd8f9a4853630ce3eef0cb8a8e2cfc7",
+      "block_height": 915054,
+      "timestamp": "2025-09-17T03:19:40Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pr6zjet75amyutpnj9xahzxnlu5sush6d53ucjvecf6r7wvqm3vrqdhlyrr",
+          "amount": 3478461272,
+          "amount_dog": 34784.61272,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pvw78xjuzmqy0wttjw07c3c4x27re0h6kz4xyp9n2x9uzpch9z8mqs5ac93",
+          "amount": 3478461272,
+          "amount_dog": 34784.61272,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 34784.61272,
+      "total_dog_out": 34784.61272,
+      "total_dog_moved": 34784.61272,
+      "net_transfer": 34784.61272,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 1017
+    },
+    {
+      "txid": "c12cb2927131c1b72c8bca0c23e74dcc6f6b36458b0e6313ac9f6af3a2ccad5e",
+      "block_height": 915054,
+      "timestamp": "2025-09-17T03:19:40Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "1FWQiwK27EnGXb6BiBMRLJvunJQZZPMcGd",
+          "amount": 4092123794,
+          "amount_dog": 40921.23794,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "1FWQiwK27EnGXb6BiBMRLJvunJQZZPMcGd",
+          "amount": 4092123794,
+          "amount_dog": 40921.23794,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 40921.23794,
+      "total_dog_out": 40921.23794,
+      "total_dog_moved": 40921.23794,
+      "net_transfer": 0.0,
+      "change_amount": 40921.23794,
+      "has_change": true,
+      "fee_sats": 99931
+    }
+  ]
+}

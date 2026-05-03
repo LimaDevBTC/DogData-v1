@@ -1,0 +1,70 @@
+{
+  "block_height": 912945,
+  "timestamp": "2026-05-03T10:43:52.112296Z",
+  "transactions": [
+    {
+      "txid": "58b38757e6aa65c0d2497f04a831d7ac69b023cc53112ddceff34bc2337ba8a8",
+      "block_height": 912945,
+      "timestamp": "2025-09-03T00:49:01Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1phanlakwgm08rwz8rt47hnnry85vrkrk85w0t7te87drckgv7jfjss8asyp",
+          "amount": 296602000,
+          "amount_dog": 2966.02,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1p7en5plyzmuhmzw8p3a9ydsu0uuac3gnfhaay93e9fjcg6chpr5fsq56h90",
+          "amount": 296602000,
+          "amount_dog": 2966.02,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 2966.02,
+      "total_dog_out": 2966.02,
+      "total_dog_moved": 2966.02,
+      "net_transfer": 2966.02,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 864
+    },
+    {
+      "txid": "7ab49d70bd71c4122bc264b3ffa776dcadcbbfe518766314d2d4a7218387d337",
+      "block_height": 912945,
+      "timestamp": "2025-09-03T00:49:01Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1par2vcu6wn8vvtqqlzq3kpg5fwmpkfu5gu04pu5lcrx4mfnnw07msfqwplg",
+          "amount": 616315844,
+          "amount_dog": 6163.15844,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1par2vcu6wn8vvtqqlzq3kpg5fwmpkfu5gu04pu5lcrx4mfnnw07msfqwplg",
+          "amount": 616315844,
+          "amount_dog": 6163.15844,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 6163.15844,
+      "total_dog_out": 6163.15844,
+      "total_dog_moved": 6163.15844,
+      "net_transfer": 0.0,
+      "change_amount": 6163.15844,
+      "has_change": true,
+      "fee_sats": 517
+    }
+  ]
+}

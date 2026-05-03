@@ -1,0 +1,76 @@
+{
+  "block_height": 912787,
+  "timestamp": "2026-05-03T10:42:38.239570Z",
+  "transactions": [
+    {
+      "txid": "5224047415c5a1d57160326a44cff8ffada701e603c4b006b3278b1534a621eb",
+      "block_height": 912787,
+      "timestamp": "2025-09-02T01:28:06Z",
+      "type": "consolidation",
+      "senders": [
+        {
+          "address": "bc1qnrr6l03cfzf0lhpy3fa0xvxauajj20rhpjz2xg4lgmknkvygt8nsgkyr6w",
+          "amount": 14298181,
+          "amount_dog": 142.98181,
+          "has_dog": true
+        },
+        {
+          "address": "bc1q3zm9r6d7a3cnc207zp8npv9jhg4ck4fm8jx8jjtgvvyfj304yles62y7s0",
+          "amount": 1154473267,
+          "amount_dog": 11544.73267,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1qeh6nndpltwkhn42u5ezcvnectrdmn0mtdh6s3lyyqs92xh8lpdjqag5xk3",
+          "amount": 1168771448,
+          "amount_dog": 11687.71448,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 2,
+      "receiver_count": 1,
+      "total_dog_in": 11687.71448,
+      "total_dog_out": 11687.71448,
+      "total_dog_moved": 11687.71448,
+      "net_transfer": 11687.71448,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 40019
+    },
+    {
+      "txid": "6cbefa554a69573f9f3a8b0fa9829a7229474d27acc9335de591afb3362722ff",
+      "block_height": 912787,
+      "timestamp": "2025-09-02T01:28:06Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1q8k6uxnvengl4tdgjt2rgmle8mqftgvyzx3umts",
+          "amount": 269638181,
+          "amount_dog": 2696.38181,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1q5gxm33kx02j7sfvpawtrwpxh76gsppdxkx5hr2",
+          "amount": 269638181,
+          "amount_dog": 2696.38181,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 2696.38181,
+      "total_dog_out": 2696.38181,
+      "total_dog_moved": 2696.38181,
+      "net_transfer": 2696.38181,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 53572
+    }
+  ]
+}
