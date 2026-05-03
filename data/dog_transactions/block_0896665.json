@@ -1,0 +1,70 @@
+{
+  "block_height": 896665,
+  "timestamp": "2026-05-03T08:08:13.706117Z",
+  "transactions": [
+    {
+      "txid": "0461fdb9935cc1373616b179777f54ccb39035ab2485bcd78f217a64c2bbcffc",
+      "block_height": 896665,
+      "timestamp": "2025-05-14T12:15:10Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pt65exley6pv6uqws7xr3ku7u922tween0nfyz257rnl5300cjnrsjp9er6",
+          "amount": 1985609581,
+          "amount_dog": 19856.09581,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1ppkj78z5thxqw3g3drx96aedd487t98xgvajmgm2rx7evz75rsvxsywjytu",
+          "amount": 1985609581,
+          "amount_dog": 19856.09581,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 19856.09581,
+      "total_dog_out": 19856.09581,
+      "total_dog_moved": 19856.09581,
+      "net_transfer": 19856.09581,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 15092
+    },
+    {
+      "txid": "4b744a07df56c6e8e6ea1db41bb2e3f7a7c942516360671453a2bb5f976a0e12",
+      "block_height": 896665,
+      "timestamp": "2025-05-14T12:15:10Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pws6pvj75rcsc2eglpp9k570prnjh40nfpyahlyumk8y8smjayvasyhns5c",
+          "amount": 3666020000,
+          "amount_dog": 36660.2,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pws6pvj75rcsc2eglpp9k570prnjh40nfpyahlyumk8y8smjayvasyhns5c",
+          "amount": 3666020000,
+          "amount_dog": 36660.2,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 36660.2,
+      "total_dog_out": 36660.2,
+      "total_dog_moved": 36660.2,
+      "net_transfer": 0.0,
+      "change_amount": 36660.2,
+      "has_change": true,
+      "fee_sats": 814
+    }
+  ]
+}

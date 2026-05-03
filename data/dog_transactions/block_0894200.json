@@ -1,0 +1,70 @@
+{
+  "block_height": 894200,
+  "timestamp": "2026-05-03T07:42:58.824110Z",
+  "transactions": [
+    {
+      "txid": "b55f60d3a78ab68885432988d38b25603172d20f20986aeb872ce5571a0e415c",
+      "block_height": 894200,
+      "timestamp": "2025-04-27T17:04:27Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1psdq09yypn60g2py470fhtdegt0tu625qgm3ndcz9j9gqp2yduevsnxclu6",
+          "amount": 3495120944,
+          "amount_dog": 34951.20944,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pq39ccyqalnmkv6cqrvuz0hst5f8c6cgagwatnwaggcys4amlhn7styqsrq",
+          "amount": 3495120944,
+          "amount_dog": 34951.20944,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 34951.20944,
+      "total_dog_out": 34951.20944,
+      "total_dog_moved": 34951.20944,
+      "net_transfer": 34951.20944,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 17955
+    },
+    {
+      "txid": "f0cf529a045ee86c767a170d665512a96b349192dee6b40b3ba77a6168b8879f",
+      "block_height": 894200,
+      "timestamp": "2025-04-27T17:04:27Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pdddhjnwchqn8339nhhrv4la36tsd40z6qes47uaj4lq9gjqlsw2q86qplq",
+          "amount": 68218460000,
+          "amount_dog": 682184.6,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pdddhjnwchqn8339nhhrv4la36tsd40z6qes47uaj4lq9gjqlsw2q86qplq",
+          "amount": 68218460000,
+          "amount_dog": 682184.6,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 682184.6,
+      "total_dog_out": 682184.6,
+      "total_dog_moved": 682184.6,
+      "net_transfer": 0.0,
+      "change_amount": 682184.6,
+      "has_change": true,
+      "fee_sats": 2024
+    }
+  ]
+}

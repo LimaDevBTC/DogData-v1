@@ -1,0 +1,70 @@
+{
+  "block_height": 896692,
+  "timestamp": "2026-05-03T08:08:33.781983Z",
+  "transactions": [
+    {
+      "txid": "0dce92f31cdb8ddfacd0cacddc5856249d328fa8f34a3668aa49c9990ddd19ca",
+      "block_height": 896692,
+      "timestamp": "2025-05-14T16:02:46Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1p40r6drh6q7cfy8tjtstaggfkt4rc0737nx9r6jky36n0zg7w4f7sq52328",
+          "amount": 988673331,
+          "amount_dog": 9886.73331,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pq032x0u2vvzkdnexgrz2n4rrvzt4zfn6lu6wgc66v5dfc96qj9fs53fdev",
+          "amount": 988673331,
+          "amount_dog": 9886.73331,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 9886.73331,
+      "total_dog_out": 9886.73331,
+      "total_dog_moved": 9886.73331,
+      "net_transfer": 9886.73331,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 2709
+    },
+    {
+      "txid": "dba7dd8bd2e6b69a7112340009d41c1ba3912d7c1a1a7db8e43808641c8fb4c5",
+      "block_height": 896692,
+      "timestamp": "2025-05-14T16:02:46Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pws6pvj75rcsc2eglpp9k570prnjh40nfpyahlyumk8y8smjayvasyhns5c",
+          "amount": 3666020000,
+          "amount_dog": 36660.2,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pws6pvj75rcsc2eglpp9k570prnjh40nfpyahlyumk8y8smjayvasyhns5c",
+          "amount": 3666020000,
+          "amount_dog": 36660.2,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 36660.2,
+      "total_dog_out": 36660.2,
+      "total_dog_moved": 36660.2,
+      "net_transfer": 0.0,
+      "change_amount": 36660.2,
+      "has_change": true,
+      "fee_sats": 1927
+    }
+  ]
+}

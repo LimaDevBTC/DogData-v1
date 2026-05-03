@@ -1,0 +1,70 @@
+{
+  "block_height": 898265,
+  "timestamp": "2026-05-03T08:25:26.230171Z",
+  "transactions": [
+    {
+      "txid": "f945a2fa836c409767081b94af8b7776d07e672a011094843bb8cbf073d2dbc3",
+      "block_height": 898265,
+      "timestamp": "2025-05-25T07:19:05Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pws6pvj75rcsc2eglpp9k570prnjh40nfpyahlyumk8y8smjayvasyhns5c",
+          "amount": 3666020000,
+          "amount_dog": 36660.2,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pws6pvj75rcsc2eglpp9k570prnjh40nfpyahlyumk8y8smjayvasyhns5c",
+          "amount": 3666020000,
+          "amount_dog": 36660.2,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 36660.2,
+      "total_dog_out": 36660.2,
+      "total_dog_moved": 36660.2,
+      "net_transfer": 0.0,
+      "change_amount": 36660.2,
+      "has_change": true,
+      "fee_sats": 536
+    },
+    {
+      "txid": "786f6d60ded78341cb0f9734e824a14739488ffa2cc7eb5665f00b2691891ad8",
+      "block_height": 898265,
+      "timestamp": "2025-05-25T07:19:05Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pe65zw6mq2yg3z3vf0rat8r94fypgyc2ysjpqyumuqluve5pmpxhs9njl46",
+          "amount": 179758784,
+          "amount_dog": 1797.58784,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pm7tzvrdtex6s3yut627f0a2uczzl4u7xvkd66xcfdaf86khlf66skjxzex",
+          "amount": 179758784,
+          "amount_dog": 1797.58784,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 1797.58784,
+      "total_dog_out": 1797.58784,
+      "total_dog_moved": 1797.58784,
+      "net_transfer": 1797.58784,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 919
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "block_height": 894435,
+  "timestamp": "2026-05-03T07:45:10.937339Z",
+  "transactions": [
+    {
+      "txid": "de50a10822f9078b8ce79b1467e65c47320b1d94129c1f5ca73af70d84b65bec",
+      "block_height": 894435,
+      "timestamp": "2025-04-29T07:48:50Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "1MZwuAte7spJLFAyoLmcHn13LwDXu8mNxz",
+          "amount": 61946346,
+          "amount_dog": 619.46346,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "1G47mSr3oANXMafVrR8UC4pzV7FEAzo3r9",
+          "amount": 61946346,
+          "amount_dog": 619.46346,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 619.46346,
+      "total_dog_out": 619.46346,
+      "total_dog_moved": 619.46346,
+      "net_transfer": 619.46346,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 80387
+    },
+    {
+      "txid": "e36ef61d3c1692d762107803aa8a29c74256fea97e8ad2cbb96f36a08cf7eb3d",
+      "block_height": 894435,
+      "timestamp": "2025-04-29T07:48:50Z",
+      "type": "consolidation",
+      "senders": [
+        {
+          "address": "17Q7txMdmiUzQ3zPbm7q4YUfak34qJcp8z",
+          "amount": 6002272883,
+          "amount_dog": 60022.72883,
+          "has_dog": true
+        },
+        {
+          "address": "195HdoQ7iQ3mCgpuiGNDDDtVBFDL6ZLN4w",
+          "amount": 756141472,
+          "amount_dog": 7561.41472,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "1G47mSr3oANXMafVrR8UC4pzV7FEAzo3r9",
+          "amount": 6758414355,
+          "amount_dog": 67584.14355,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 2,
+      "receiver_count": 1,
+      "total_dog_in": 67584.14355,
+      "total_dog_out": 67584.14355,
+      "total_dog_moved": 67584.14355,
+      "net_transfer": 67584.14355,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 80385
+    }
+  ]
+}

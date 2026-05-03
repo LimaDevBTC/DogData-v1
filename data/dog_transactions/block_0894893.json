@@ -1,0 +1,70 @@
+{
+  "block_height": 894893,
+  "timestamp": "2026-05-03T07:50:33.059230Z",
+  "transactions": [
+    {
+      "txid": "d9c7d096ce8837428c5722ec42e7fcdc37434af75476681e46c2be5ecb2449a1",
+      "block_height": 894893,
+      "timestamp": "2025-05-02T12:54:55Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1qqz623jyqdsh2w5y5kdmzk2ws6mzr2mt2etv5gx",
+          "amount": 269638181,
+          "amount_dog": 2696.38181,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1qqz623jyqdsh2w5y5kdmzk2ws6mzr2mt2etv5gx",
+          "amount": 269638181,
+          "amount_dog": 2696.38181,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 2696.38181,
+      "total_dog_out": 2696.38181,
+      "total_dog_moved": 2696.38181,
+      "net_transfer": 0.0,
+      "change_amount": 2696.38181,
+      "has_change": true,
+      "fee_sats": 1388
+    },
+    {
+      "txid": "79ca1e9f2109ef3327d01d2cac7aed4303db8f3e928801659928f8b4786dc733",
+      "block_height": 894893,
+      "timestamp": "2025-05-02T12:54:55Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1p2cxsvn70ruewmcndktw7xvmu9hjw32mc2ycgn24mjrsuysx8y99qd09z7m",
+          "amount": 330903332,
+          "amount_dog": 3309.03332,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pezjmz3cspgy745x47gvf52ad9n5tqewzrcyuwescew4qsd0x4ahs92du34",
+          "amount": 330903332,
+          "amount_dog": 3309.03332,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 3309.03332,
+      "total_dog_out": 3309.03332,
+      "total_dog_moved": 3309.03332,
+      "net_transfer": 3309.03332,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 254
+    }
+  ]
+}

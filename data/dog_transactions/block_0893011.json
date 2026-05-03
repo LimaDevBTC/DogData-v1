@@ -1,0 +1,70 @@
+{
+  "block_height": 893011,
+  "timestamp": "2026-05-03T07:31:10.635768Z",
+  "transactions": [
+    {
+      "txid": "3f86f9b876694a20a2ebfcba8dfaec93f2ea8089c58f4d204fe60c570ef56c13",
+      "block_height": 893011,
+      "timestamp": "2025-04-18T18:23:35Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1qr35hws365juz5rtlsjtvmulu97957kqvr3zpw3",
+          "amount": 1235965535,
+          "amount_dog": 12359.65535,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1qr35hws365juz5rtlsjtvmulu97957kqvr3zpw3",
+          "amount": 1235965535,
+          "amount_dog": 12359.65535,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 12359.65535,
+      "total_dog_out": 12359.65535,
+      "total_dog_moved": 12359.65535,
+      "net_transfer": 0.0,
+      "change_amount": 12359.65535,
+      "has_change": true,
+      "fee_sats": 2000
+    },
+    {
+      "txid": "3cd193a1e6a8ec16b951184cc2c6cfa6c36c91ccf265fab5d6d1f2b4d80c3c97",
+      "block_height": 893011,
+      "timestamp": "2025-04-18T18:23:35Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pud2j5tpy5s3c5u6y7e2lqn8tp5208q0mmxjtjqncmzp9wyj5gssswnz8nk",
+          "amount": 2115853444,
+          "amount_dog": 21158.53444,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pctd5r5c76st9k87ujk04kxfgp6wsjvv3zuxkdtje78z6hazuqx7sn9h9ru",
+          "amount": 2115853444,
+          "amount_dog": 21158.53444,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 21158.53444,
+      "total_dog_out": 21158.53444,
+      "total_dog_moved": 21158.53444,
+      "net_transfer": 21158.53444,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 2066
+    }
+  ]
+}

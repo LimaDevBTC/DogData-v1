@@ -1,0 +1,70 @@
+{
+  "block_height": 897619,
+  "timestamp": "2026-05-03T08:18:14.528150Z",
+  "transactions": [
+    {
+      "txid": "2976f131c1191f2e1563be0e37facc1075ff8b3893de0b7a06004edd47a1a281",
+      "block_height": 897619,
+      "timestamp": "2025-05-20T23:44:24Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pdddhjnwchqn8339nhhrv4la36tsd40z6qes47uaj4lq9gjqlsw2q86qplq",
+          "amount": 149798989,
+          "amount_dog": 1497.98989,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1qemwhma26ds9msxndf0seg4h0vfwwjvwu35mnla",
+          "amount": 149798989,
+          "amount_dog": 1497.98989,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 1497.98989,
+      "total_dog_out": 1497.98989,
+      "total_dog_moved": 1497.98989,
+      "net_transfer": 1497.98989,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 2311
+    },
+    {
+      "txid": "cdc7a74d7caf4d27fed64cc15cab28f7eb08c69970769af10a44559e48e5b526",
+      "block_height": 897619,
+      "timestamp": "2025-05-20T23:44:24Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pptmllm7aw62mrsg34kz2fxumerqzxcgr9l2le64qratm6trfwsaq4m5dwn",
+          "amount": 494336666,
+          "amount_dog": 4943.36666,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pptmllm7aw62mrsg34kz2fxumerqzxcgr9l2le64qratm6trfwsaq4m5dwn",
+          "amount": 494336666,
+          "amount_dog": 4943.36666,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 4943.36666,
+      "total_dog_out": 4943.36666,
+      "total_dog_moved": 4943.36666,
+      "net_transfer": 0.0,
+      "change_amount": 4943.36666,
+      "has_change": true,
+      "fee_sats": 550
+    }
+  ]
+}

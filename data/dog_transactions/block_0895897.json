@@ -1,0 +1,70 @@
+{
+  "block_height": 895897,
+  "timestamp": "2026-05-03T08:00:17.479088Z",
+  "transactions": [
+    {
+      "txid": "db27a21c98ce6db41571c1c6e73d96c06caae0fe96458f02b9fdd4ec235b2e4d",
+      "block_height": 895897,
+      "timestamp": "2025-05-09T01:10:57Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1qqz623jyqdsh2w5y5kdmzk2ws6mzr2mt2etv5gx",
+          "amount": 1226853726,
+          "amount_dog": 12268.53726,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1qqz623jyqdsh2w5y5kdmzk2ws6mzr2mt2etv5gx",
+          "amount": 1226853726,
+          "amount_dog": 12268.53726,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 12268.53726,
+      "total_dog_out": 12268.53726,
+      "total_dog_moved": 12268.53726,
+      "net_transfer": 0.0,
+      "change_amount": 12268.53726,
+      "has_change": true,
+      "fee_sats": 1123
+    },
+    {
+      "txid": "c71ba0ca1e0f21ae624522a4b4372af7075a50acb54e861f0034b6efe00aa9c5",
+      "block_height": 895897,
+      "timestamp": "2025-05-09T01:10:57Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1p4spwvtxr2suwjzpfn9vl0pytzwn2r03fhaxal6uh0yna4ysradyqvcz6vu",
+          "amount": 8605951968,
+          "amount_dog": 86059.51968,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pfef74mecstwjpv4zxzelj35ukxgv3qsvs39k8j0h9j8zljaaewlsa2ff49",
+          "amount": 8605951968,
+          "amount_dog": 86059.51968,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 86059.51968,
+      "total_dog_out": 86059.51968,
+      "total_dog_moved": 86059.51968,
+      "net_transfer": 86059.51968,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 1542
+    }
+  ]
+}
