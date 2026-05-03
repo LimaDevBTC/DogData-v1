@@ -1,0 +1,70 @@
+{
+  "block_height": 849909,
+  "timestamp": "2026-05-02T23:48:18.580619Z",
+  "transactions": [
+    {
+      "txid": "3cfbf657d8bbe477ad45257a46e34eb801cf08de5f342abc35e755c35e6542ce",
+      "block_height": 849909,
+      "timestamp": "2024-06-29T04:33:43Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1p7qs59rknlequ4799gtfcucr575y8renm386cudh5g9a3tg7p0nzq0s5nuy",
+          "amount": 21037383624,
+          "amount_dog": 210373.83624,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pn073t9cf5ryxn8fpmzwxesckqv7smce600m0g47lpzfuyhk3ttlqf0vgr9",
+          "amount": 21037383624,
+          "amount_dog": 210373.83624,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 210373.83624,
+      "total_dog_out": 210373.83624,
+      "total_dog_moved": 210373.83624,
+      "net_transfer": 210373.83624,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 3190
+    },
+    {
+      "txid": "a3ad9e5fe19cc4b828ba337702cae935b8709c468252bf4618f827b9e90a33f1",
+      "block_height": 849909,
+      "timestamp": "2024-06-29T04:33:43Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1q3mh6l8ld9ll288ea9rrwgpxa2ylu6zd2c4dg53",
+          "amount": 269638181,
+          "amount_dog": 2696.38181,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1q3mh6l8ld9ll288ea9rrwgpxa2ylu6zd2c4dg53",
+          "amount": 269638181,
+          "amount_dog": 2696.38181,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 2696.38181,
+      "total_dog_out": 2696.38181,
+      "total_dog_moved": 2696.38181,
+      "net_transfer": 0.0,
+      "change_amount": 2696.38181,
+      "has_change": true,
+      "fee_sats": 1857
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "block_height": 850452,
+  "timestamp": "2026-05-02T23:54:08.453199Z",
+  "transactions": [
+    {
+      "txid": "ab60c920c7c597aa3496d1ecac64bd3e16c1823469f07e54e685918a25605980",
+      "block_height": 850452,
+      "timestamp": "2024-07-03T00:22:36Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pn0m3jhg92k9pd0dzvdxj7l9p2xmh5jx3925d0g2780uhe6umfqlq8g6ky4",
+          "amount": 45272585,
+          "amount_dog": 452.72585,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pdqkx9pzukj0jcs2jm2qwlgck5s408anpx87nvrx6s0zdenur238qqlma5c",
+          "amount": 45272585,
+          "amount_dog": 452.72585,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 452.72585,
+      "total_dog_out": 452.72585,
+      "total_dog_moved": 452.72585,
+      "net_transfer": 452.72585,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 17687
+    },
+    {
+      "txid": "83114258aebc947a573759e75c9775a8c6a0d190df1d31080fda4a817a7caf8d",
+      "block_height": 850452,
+      "timestamp": "2024-07-03T00:22:36Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1p796qqvlwulyurxjsm4j8z8xc39rsn8vtvzunczdg0xq9c9r2yaaqgzl6g6",
+          "amount": 2966020000,
+          "amount_dog": 29660.2,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1p796qqvlwulyurxjsm4j8z8xc39rsn8vtvzunczdg0xq9c9r2yaaqgzl6g6",
+          "amount": 2966020000,
+          "amount_dog": 29660.2,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 29660.2,
+      "total_dog_out": 29660.2,
+      "total_dog_moved": 29660.2,
+      "net_transfer": 0.0,
+      "change_amount": 29660.2,
+      "has_change": true,
+      "fee_sats": 12175
+    }
+  ]
+}

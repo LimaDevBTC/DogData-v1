@@ -1,0 +1,70 @@
+{
+  "block_height": 850680,
+  "timestamp": "2026-05-02T23:56:46.376545Z",
+  "transactions": [
+    {
+      "txid": "e8df117e0d7ec5181c9acc623cbf7476f75d7a138d4864d1cc2681b0924a701e",
+      "block_height": 850680,
+      "timestamp": "2024-07-04T14:41:25Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1p7ze7099whqnhs0txhh8pyjxu23ruvkhjjtazw8j6gry5rgpu9yrqtmtqru",
+          "amount": 8898060000,
+          "amount_dog": 88980.6,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1p6lc8trhl4rcu79zp3mcvche6pac3m8j4dhfrmp7rfmx3cd0rl9rq5us4kv",
+          "amount": 8898060000,
+          "amount_dog": 88980.6,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 88980.6,
+      "total_dog_out": 88980.6,
+      "total_dog_moved": 88980.6,
+      "net_transfer": 88980.6,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 3540
+    },
+    {
+      "txid": "83ab0750d19c6f5a9d67ce23d4836d430905f2b51bdd8345a9054663c840192d",
+      "block_height": 850680,
+      "timestamp": "2024-07-04T14:41:25Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pl96wgvt2w6gp98ruuqkhfwnehcstc0kruag5dwgezset9zw6g8hsh22u3k",
+          "amount": 62611941,
+          "amount_dog": 626.11941,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pl96wgvt2w6gp98ruuqkhfwnehcstc0kruag5dwgezset9zw6g8hsh22u3k",
+          "amount": 62611941,
+          "amount_dog": 626.11941,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 626.11941,
+      "total_dog_out": 626.11941,
+      "total_dog_moved": 626.11941,
+      "net_transfer": 0.0,
+      "change_amount": 626.11941,
+      "has_change": true,
+      "fee_sats": 920494
+    }
+  ]
+}

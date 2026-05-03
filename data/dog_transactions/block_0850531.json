@@ -1,0 +1,70 @@
+{
+  "block_height": 850531,
+  "timestamp": "2026-05-02T23:55:03.409081Z",
+  "transactions": [
+    {
+      "txid": "f066e35f8e14d72e16b7dd726758b52a318a23dfb5bafec26805dec8fe7edbf6",
+      "block_height": 850531,
+      "timestamp": "2024-07-03T12:30:15Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pdd8h6pgkayhenfe9f5g9zxq4hmsgfz085h4tuuywcqa0quclhlpsfvq8we",
+          "amount": 67409547,
+          "amount_dog": 674.09547,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pdd8h6pgkayhenfe9f5g9zxq4hmsgfz085h4tuuywcqa0quclhlpsfvq8we",
+          "amount": 67409547,
+          "amount_dog": 674.09547,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 674.09547,
+      "total_dog_out": 674.09547,
+      "total_dog_moved": 674.09547,
+      "net_transfer": 0.0,
+      "change_amount": 674.09547,
+      "has_change": true,
+      "fee_sats": 4712
+    },
+    {
+      "txid": "d8661b24ab8fa442b937580e64316a427415f42438e9957f3cefecc7ddcfa684",
+      "block_height": 850531,
+      "timestamp": "2024-07-03T12:30:15Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1qrz8j7thjsq4sa4aa0k2kuw8n65gjrnl85w9twgwedh49uvtzuzgqn3t2yn",
+          "amount": 296602000,
+          "amount_dog": 2966.02,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1qy8yqeekwayrfftmx5amm8d8cpmz743qt9z63pkx9hhu8lxaxfytqduanxl",
+          "amount": 296602000,
+          "amount_dog": 2966.02,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 2966.02,
+      "total_dog_out": 2966.02,
+      "total_dog_moved": 2966.02,
+      "net_transfer": 2966.02,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 110409
+    }
+  ]
+}

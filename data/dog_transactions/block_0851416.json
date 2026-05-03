@@ -1,0 +1,70 @@
+{
+  "block_height": 851416,
+  "timestamp": "2026-05-03T00:05:08.420112Z",
+  "transactions": [
+    {
+      "txid": "6bc792e83afc69c231d5ef6934261d287e21ad18780fcee919d626a8a307374c",
+      "block_height": 851416,
+      "timestamp": "2024-07-09T14:12:54Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pnleaeukge5cfuhwuutt440m44fzkqk65p7dfhgyc4a7eqqdsaw0srk63gx",
+          "amount": 24512561,
+          "amount_dog": 245.12561,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pd3dyglmgq9s3x5th6qlstv8dz3ecxzenkfcfr809uunqdmpuhk3qmx5qtk",
+          "amount": 24512561,
+          "amount_dog": 245.12561,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 245.12561,
+      "total_dog_out": 245.12561,
+      "total_dog_moved": 245.12561,
+      "net_transfer": 245.12561,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 2384
+    },
+    {
+      "txid": "8e00d8ba443a2ff8d48eb1b7e6276c0196de511462681b0b7a5e8134af75ebe2",
+      "block_height": 851416,
+      "timestamp": "2024-07-09T14:12:54Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1ppd09afhjt4uelc8shxu5qqct6tc84e2nxdwj4f77ew8k6p6kcg5s47cwrg",
+          "amount": 1000000000,
+          "amount_dog": 10000.0,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1ppd09afhjt4uelc8shxu5qqct6tc84e2nxdwj4f77ew8k6p6kcg5s47cwrg",
+          "amount": 1000000000,
+          "amount_dog": 10000.0,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 10000.0,
+      "total_dog_out": 10000.0,
+      "total_dog_moved": 10000.0,
+      "net_transfer": 0.0,
+      "change_amount": 10000.0,
+      "has_change": true,
+      "fee_sats": 1760
+    }
+  ]
+}

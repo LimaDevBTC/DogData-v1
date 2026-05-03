@@ -1,0 +1,70 @@
+{
+  "block_height": 847824,
+  "timestamp": "2026-05-02T23:23:29.348542Z",
+  "transactions": [
+    {
+      "txid": "232ebb7a413d4ede409d54db93e4f185361632891202199a3dfcb51ec6b05b40",
+      "block_height": 847824,
+      "timestamp": "2024-06-13T23:33:12Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pprrhjz9nlsxkqvdlucaqmkcalpjyg485n2yd60rah8prjhahq4nqavaagz",
+          "amount": 47456320000,
+          "amount_dog": 474563.2,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pprrhjz9nlsxkqvdlucaqmkcalpjyg485n2yd60rah8prjhahq4nqavaagz",
+          "amount": 47456320000,
+          "amount_dog": 474563.2,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 474563.2,
+      "total_dog_out": 474563.2,
+      "total_dog_moved": 474563.2,
+      "net_transfer": 0.0,
+      "change_amount": 474563.2,
+      "has_change": true,
+      "fee_sats": 12012
+    },
+    {
+      "txid": "e8682e279e4fee3976c12e420f9807acc4a9d901fbfb8ac3578455505e6c72a6",
+      "block_height": 847824,
+      "timestamp": "2024-06-13T23:33:12Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1p7weh00m69snkq2wut0glawly5p7yxm9nnr783y2s6d2a63q70qlsxesa5k",
+          "amount": 5602555,
+          "amount_dog": 56.02555,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pxqtp0ej7m3tzy95zmtgjhx5722yydux9v2f9xa4efsfa6l5vhlnsclle3k",
+          "amount": 5602555,
+          "amount_dog": 56.02555,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 56.02555,
+      "total_dog_out": 56.02555,
+      "total_dog_moved": 56.02555,
+      "net_transfer": 56.02555,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 8344
+    }
+  ]
+}

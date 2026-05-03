@@ -1,0 +1,70 @@
+{
+  "block_height": 847304,
+  "timestamp": "2026-05-02T23:17:27.882305Z",
+  "transactions": [
+    {
+      "txid": "debc4d96f383b0de9375d163734b2dc99dfbff038059ab3b66f7e98171568895",
+      "block_height": 847304,
+      "timestamp": "2024-06-10T04:41:28Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "3KZkzc5WZp9CDUYAg3CAzRgsE7AKGb8iLc",
+          "amount": 6430155765,
+          "amount_dog": 64301.55765,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1p55hxxacm72pj56jsvg7gjut4u60kke4s2ks4dz9g2f7z5rnkuttq4n5p76",
+          "amount": 6430155765,
+          "amount_dog": 64301.55765,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 64301.55765,
+      "total_dog_out": 64301.55765,
+      "total_dog_moved": 64301.55765,
+      "net_transfer": 64301.55765,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 29295
+    },
+    {
+      "txid": "533696dacb56262670c9ea5b11012521c576f3ed815d265700d12c7bcea12506",
+      "block_height": 847304,
+      "timestamp": "2024-06-10T04:41:28Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pc3es9lldqh4awseaaa3j3e3u9dtg3hy4az6vzjpx04kzjfd9yejqra9swv",
+          "amount": 238991393,
+          "amount_dog": 2389.91393,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pc3es9lldqh4awseaaa3j3e3u9dtg3hy4az6vzjpx04kzjfd9yejqra9swv",
+          "amount": 238991393,
+          "amount_dog": 2389.91393,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 2389.91393,
+      "total_dog_out": 2389.91393,
+      "total_dog_moved": 2389.91393,
+      "net_transfer": 0.0,
+      "change_amount": 2389.91393,
+      "has_change": true,
+      "fee_sats": 19516
+    }
+  ]
+}

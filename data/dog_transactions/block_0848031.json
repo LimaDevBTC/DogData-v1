@@ -1,0 +1,70 @@
+{
+  "block_height": 848031,
+  "timestamp": "2026-05-02T23:25:41.715859Z",
+  "transactions": [
+    {
+      "txid": "cd30ca6ee9e6860aeb95a39cb0bf596011fec4a22e0102849b83289240cfc221",
+      "block_height": 848031,
+      "timestamp": "2024-06-15T12:31:08Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pdh3mg2l562wtn9a3n9l04938zkg0ldtq9rra24d7r6yv0rl6famq0thd2x",
+          "amount": 2966020000,
+          "amount_dog": 29660.2,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pdpdj8kqkutq9v3f66zx55sdpenhk9xefjl290rl8us7q6esh0sus3r5n8a",
+          "amount": 2966020000,
+          "amount_dog": 29660.2,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 29660.2,
+      "total_dog_out": 29660.2,
+      "total_dog_moved": 29660.2,
+      "net_transfer": 29660.2,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 17297
+    },
+    {
+      "txid": "c79be00c58a049c25e49213f97ab154b6fd4dba1a6a896b54cead98d25d58bcc",
+      "block_height": 848031,
+      "timestamp": "2024-06-15T12:31:08Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1ptuc3l07hdvj0llfeqrw62xzg6xzwmp9jvakdtpvtlmjn3kf8rhes3vjtkp",
+          "amount": 811142960,
+          "amount_dog": 8111.4296,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1ptuc3l07hdvj0llfeqrw62xzg6xzwmp9jvakdtpvtlmjn3kf8rhes3vjtkp",
+          "amount": 811142960,
+          "amount_dog": 8111.4296,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 8111.4296,
+      "total_dog_out": 8111.4296,
+      "total_dog_moved": 8111.4296,
+      "net_transfer": 0.0,
+      "change_amount": 8111.4296,
+      "has_change": true,
+      "fee_sats": 89465
+    }
+  ]
+}

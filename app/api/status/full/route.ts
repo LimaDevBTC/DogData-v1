@@ -185,21 +185,28 @@ export async function GET() {
     })
   }
 
-  // 2. Load 90 days of history in one shot, group by component in memory.
+  // 2. Load 90 days of history, paginating around PostgREST's `max-rows` cap
+  //    (1000 by default in Supabase). Without this, we'd silently see only
+  //    the most recent ~1k rows — ~8h of data when traffic is high — and the
+  //    90-day uptime bar would be mostly grey/empty for everything.
   type HistoryRow = { component: string; status: Status; checked_at: string; latency_ms: number | null; error_message: string | null; metadata: any }
   const since90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
   const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
 
   let history: HistoryRow[] = []
   if (supabaseReachable) {
-    const { data, error } = await supabase
-      .from('system_health_log')
-      .select('component, status, checked_at, latency_ms, error_message, metadata')
-      .gte('checked_at', since90)
-      .order('checked_at', { ascending: false })
-      .limit(50000)
-    if (!error && data) {
-      history = data as HistoryRow[]
+    const PAGE_SIZE = 1000
+    const HARD_CAP = 100_000 // safety stop; today's table is ~7k rows / 90d
+    for (let from = 0; from < HARD_CAP; from += PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from('system_health_log')
+        .select('component, status, checked_at, latency_ms, error_message, metadata')
+        .gte('checked_at', since90)
+        .order('checked_at', { ascending: false })
+        .range(from, from + PAGE_SIZE - 1)
+      if (error || !data) break
+      history.push(...(data as HistoryRow[]))
+      if (data.length < PAGE_SIZE) break
     }
   }
 
@@ -252,8 +259,9 @@ export async function GET() {
         // Hourly refresh cycle: cron starts ~minute 20–35 of each hour, then
         // GitHub push + Vercel deploy adds ~5–10 min before prod sees the new
         // timestamp. Worst-case age right before the next refresh lands is
-        // ~75 min; add buffer for cron lag and deploy variance.
-        status: ageMin === null ? 'unknown' : ageMin <= 95 ? 'ok' : ageMin <= 180 ? 'degraded' : 'down',
+        // ~75 min; allow up to 2h before flagging to absorb cron lag, deploy
+        // variance, and the occasional skipped cycle.
+        status: ageMin === null ? 'unknown' : ageMin <= 120 ? 'ok' : ageMin <= 240 ? 'degraded' : 'down',
       }
     } else {
       freshness['data:holders'] = { last_update_at: null, metadata: null, status: 'down', error: `HTTP ${res.status}` }
@@ -318,6 +326,24 @@ export async function GET() {
   } else {
     freshness['data:stacks-history'] = { last_update_at: null, metadata: null, status: 'unknown', error: 'supabase unreachable' }
   }
+
+  // Persist freshness probes too, so these components accumulate daily history
+  // in `system_health_log` like crons and live-checks do. Without this, their
+  // 90-day uptime bar stays 100% `unknown` (grey) because nothing ever writes
+  // a row for them. Skip `unknown` — recordHealth only accepts ok/degraded/down.
+  await Promise.all(
+    Object.entries(freshness).map(([component, obs]) => {
+      if (obs.status === 'unknown') return Promise.resolve()
+      const componentType: 'infra' | 'data_source' = component.startsWith('infra:') ? 'infra' : 'data_source'
+      return recordHealth({
+        component,
+        component_type: componentType,
+        status: obs.status as 'ok' | 'degraded' | 'down',
+        error_message: obs.error,
+        metadata: obs.metadata ?? undefined,
+      })
+    })
+  )
 
   // 4. Build per-component status using catalog + history + live + freshness.
   const days90 = lastNDays(90)
@@ -395,6 +421,13 @@ export async function GET() {
       day: d,
       status: rollupDailyStatus(dailyMap.get(d) || []),
     }))
+    // Override today's bucket with the live status. The pessimistic rollup is
+    // right for closed days (Statuspage-style: any down → red day) but wrong
+    // for the in-progress day, where a transient failure earlier would keep
+    // the rightmost bar red even after recovery. Match the row's dot/label.
+    if (daily.length > 0 && current.status !== 'unknown') {
+      daily[daily.length - 1].status = current.status
+    }
 
     return {
       id: entry.id,

@@ -1,0 +1,70 @@
+{
+  "block_height": 846536,
+  "timestamp": "2026-05-02T23:09:46.749367Z",
+  "transactions": [
+    {
+      "txid": "8c869768c2202831fc5eae6f420aa304438ce591042911c1e7d909a06dc54466",
+      "block_height": 846536,
+      "timestamp": "2024-06-04T20:10:02Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pqw0x52uuh5cf2vczfc8fasns8gc9ky8m62mph4j8za5hw7h75lqq0d0568",
+          "amount": 17129531,
+          "amount_dog": 171.29531,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1paztl2u9n0h3c58daf2xuhrny0u5ct0suyten5xt4z62l2nrahcqqeylnej",
+          "amount": 17129531,
+          "amount_dog": 171.29531,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 171.29531,
+      "total_dog_out": 171.29531,
+      "total_dog_moved": 171.29531,
+      "net_transfer": 171.29531,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 8947
+    },
+    {
+      "txid": "0407354b42679f1643267020722fbd08cd95fde8899f682e8873ff521fbfdd68",
+      "block_height": 846536,
+      "timestamp": "2024-06-04T20:10:02Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pzmatyfprfmezjupp9nc29chetpxnverd7l7ajqsm5vh5g2zrh5ksnf6q07",
+          "amount": 2966020000,
+          "amount_dog": 29660.2,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pzmatyfprfmezjupp9nc29chetpxnverd7l7ajqsm5vh5g2zrh5ksnf6q07",
+          "amount": 2966020000,
+          "amount_dog": 29660.2,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 29660.2,
+      "total_dog_out": 29660.2,
+      "total_dog_moved": 29660.2,
+      "net_transfer": 0.0,
+      "change_amount": 29660.2,
+      "has_change": true,
+      "fee_sats": 5325
+    }
+  ]
+}

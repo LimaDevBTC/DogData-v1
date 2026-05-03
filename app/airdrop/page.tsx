@@ -700,15 +700,7 @@ export default function AirdropPage() {
 
       {/* Behavior Lists */}
       <Card variant="glass">
-        <CardHeader>
-          <CardTitle className="text-snow text-xl font-display">
-            Behavioral Lists
-          </CardTitle>
-          <p className="text-dusty text-sm mt-2">
-            Complete lists of recipients by behavioral pattern
-          </p>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           {/* Distribution: header + bar + legend */}
           {(() => {
             const tierCount = (key: TierKey) => forensicStats?.by_pattern[key] || 0
