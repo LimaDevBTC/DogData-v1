@@ -1,24 +1,20 @@
 #!/usr/bin/env python3
 """
-For lost-relaxed diamond paws (spent_txo_count == 0), fetch the date of their
-most recent on-chain tx using Esplora /address/{addr}/txs.
+For lost-relaxed diamond paws (spent_txo_count == 0), fetch when each UTXO
+was funded using Esplora /address/{addr}/utxo.
 
-The endpoint can return huge JSON (10-20MB for taproot addrs with many inscriptions).
-We only need the FIRST tx's status, so we stream the response and stop reading once
-we've matched the first "block_height":N,"block_time":N pair (the first tx is always
-the most recent on this endpoint).
+For these wallets, ALL funded txos are unspent (none ever spent), so /utxo
+gives the complete reception history. Responses are 5-30KB (vs 5-20MB for /txs).
 
 Output: data/diamond_paws_analysis/last_tx.jsonl
-  {"address": ..., "last_block_height": N, "last_block_time": N}
-or {"address": ..., "ok": false, "error": ...}
+  {"address": ..., "n_utxos": N, "first_block_height": A, "first_block_time": B,
+   "last_block_height": X, "last_block_time": Y}
 
 Resumable.
 """
 import csv
 import json
 import random
-import re
-import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -33,16 +29,10 @@ OUTPUT_JSONL = ANALYSIS_DIR / "last_tx.jsonl"
 ERRORS_JSONL = ANALYSIS_DIR / "last_tx_errors.jsonl"
 
 ENDPOINTS = ["https://blockstream.info/api", "https://mempool.space/api"]
-CONCURRENCY = 2
-TIMEOUT = 45
-BASE_SLEEP = 0.30
-MAX_BYTES = 256 * 1024  # 256KB max read per address — first tx always in first ~5KB
+CONCURRENCY = 4
+TIMEOUT = 30
+BASE_SLEEP = 0.15
 MAX_429_BACKOFF = 180
-
-# Two regexes, field-order agnostic. First match = first tx (Esplora orders most-recent first).
-# block_height / block_time only appear inside the status object in Esplora responses.
-HEIGHT_RE = re.compile(rb'"block_height":(\d+)')
-TIME_RE = re.compile(rb'"block_time":(\d+)')
 
 session = requests.Session()
 session.headers.update({"User-Agent": "dogdata-research/1.0"})
@@ -79,61 +69,63 @@ def mark_banned(ep, seconds):
 
 
 def fetch(addr: str) -> dict:
-    last_status = None
     last_err = None
+    last_status = None
     attempts = 0
     while attempts < 5:
         ep = pick_endpoint()
         wait = endpoint_state[ep]["banned_until"] - time.time()
         if wait > 0:
             time.sleep(min(wait, 30))
-        url = f"{ep}/address/{addr}/txs"
+        url = f"{ep}/address/{addr}/utxo"
         try:
-            with session.get(url, timeout=TIMEOUT, stream=True) as r:
-                last_status = r.status_code
-                if r.status_code == 429:
-                    ra = r.headers.get("Retry-After")
-                    backoff = int(ra) if (ra and ra.isdigit()) else min(MAX_429_BACKOFF, 30 * (attempts + 1))
-                    mark_banned(ep, backoff)
-                    attempts += 1
-                    continue
-                if r.status_code in (502, 503, 504):
-                    time.sleep(2 ** attempts + random.random())
-                    attempts += 1
-                    continue
-                if r.status_code != 200:
-                    return {"address": addr, "ok": False, "error": f"HTTP {r.status_code}", "endpoint": ep}
+            r = session.get(url, timeout=TIMEOUT)
+            last_status = r.status_code
+            if r.status_code == 429:
+                ra = r.headers.get("Retry-After")
+                backoff = int(ra) if (ra and ra.isdigit()) else min(MAX_429_BACKOFF, 30 * (attempts + 1))
+                mark_banned(ep, backoff)
+                attempts += 1
+                continue
+            if r.status_code in (502, 503, 504):
+                time.sleep(2 ** attempts + random.random())
+                attempts += 1
+                continue
+            if r.status_code != 200:
+                return {"address": addr, "ok": False, "error": f"HTTP {r.status_code}", "endpoint": ep}
 
-                # Stream + match
-                buf = bytearray()
-                for chunk in r.iter_content(chunk_size=8192):
-                    if not chunk:
-                        continue
-                    buf.extend(chunk)
-                    h = HEIGHT_RE.search(buf)
-                    t = TIME_RE.search(buf)
-                    if h and t:
-                        return {
-                            "address": addr,
-                            "ok": True,
-                            "last_block_height": int(h.group(1)),
-                            "last_block_time": int(t.group(1)),
-                            "endpoint": ep,
-                        }
-                    if len(buf) >= MAX_BYTES:
-                        break
-                # Couldn't match — check if empty or unconfirmed-only
-                text = bytes(buf).decode("utf-8", errors="replace")
-                if text.strip().startswith("[]"):
-                    return {"address": addr, "ok": True, "last_block_height": None, "last_block_time": None, "endpoint": ep}
-                # Some addrs may have only unconfirmed txs ("confirmed":false, no block_*)
-                if b'"confirmed":false' in buf and not HEIGHT_RE.search(buf):
-                    return {"address": addr, "ok": True, "last_block_height": None, "last_block_time": None, "note": "unconfirmed_only", "endpoint": ep}
-                return {"address": addr, "ok": False, "error": f"no status match in {len(buf)}B", "endpoint": ep}
+            utxos = r.json()
+            if not utxos:
+                return {
+                    "address": addr, "ok": True, "n_utxos": 0,
+                    "first_block_height": None, "first_block_time": None,
+                    "last_block_height": None, "last_block_time": None,
+                    "endpoint": ep,
+                }
+            confirmed = [u for u in utxos if u.get("status", {}).get("confirmed") and u["status"].get("block_time")]
+            if not confirmed:
+                return {
+                    "address": addr, "ok": True, "n_utxos": len(utxos),
+                    "first_block_height": None, "first_block_time": None,
+                    "last_block_height": None, "last_block_time": None,
+                    "note": "all_unconfirmed", "endpoint": ep,
+                }
+            latest = max(confirmed, key=lambda u: u["status"]["block_time"])
+            oldest = min(confirmed, key=lambda u: u["status"]["block_time"])
+            return {
+                "address": addr, "ok": True, "n_utxos": len(utxos),
+                "first_block_height": oldest["status"]["block_height"],
+                "first_block_time": oldest["status"]["block_time"],
+                "last_block_height": latest["status"]["block_height"],
+                "last_block_time": latest["status"]["block_time"],
+                "endpoint": ep,
+            }
         except requests.RequestException as e:
             last_err = type(e).__name__ + ": " + str(e)[:120]
             time.sleep(2 ** attempts + random.random())
             attempts += 1
+        except ValueError as e:
+            return {"address": addr, "ok": False, "error": f"bad_json: {e}", "endpoint": ep}
     return {"address": addr, "ok": False, "error": last_err or f"HTTP {last_status}"}
 
 
@@ -156,7 +148,7 @@ def main():
     n_err = 0
 
     def worker(addr):
-        time.sleep(BASE_SLEEP + random.random() * 0.2)
+        time.sleep(BASE_SLEEP + random.random() * 0.15)
         return fetch(addr)
 
     with ThreadPoolExecutor(max_workers=CONCURRENCY) as ex:
@@ -166,14 +158,21 @@ def main():
             n_done += 1
             with write_lock:
                 if res["ok"]:
-                    line = {"address": res["address"], "last_block_height": res["last_block_height"], "last_block_time": res["last_block_time"]}
+                    line = {
+                        "address": res["address"],
+                        "n_utxos": res["n_utxos"],
+                        "first_block_height": res["first_block_height"],
+                        "first_block_time": res["first_block_time"],
+                        "last_block_height": res["last_block_height"],
+                        "last_block_time": res["last_block_time"],
+                    }
                     out_fh.write(json.dumps(line) + "\n")
                     out_fh.flush()
                 else:
                     n_err += 1
                     err_fh.write(json.dumps(res) + "\n")
                     err_fh.flush()
-            if n_done % 100 == 0:
+            if n_done % 200 == 0:
                 elapsed = time.time() - start
                 rate = n_done / max(1, elapsed)
                 eta = (len(rows) - n_done) / max(0.1, rate) / 60
