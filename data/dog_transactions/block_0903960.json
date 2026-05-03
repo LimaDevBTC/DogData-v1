@@ -1,0 +1,70 @@
+{
+  "block_height": 903960,
+  "timestamp": "2026-05-03T09:22:26.149963Z",
+  "transactions": [
+    {
+      "txid": "519dadc23bc74018f2534fa439a1a8494ccde07babafb2598b406732c04e919f",
+      "block_height": 903960,
+      "timestamp": "2025-07-04T11:52:50Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1qmp2esgkm9pekdnrsyl2acxlmklshxtay5urud0cu86exwe3l07sq57s763",
+          "amount": 5492629,
+          "amount_dog": 54.92629,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1p4ufcnnmksfr5j7gtjap3q4mm93m0dn5e7vf88t74u0ull0nlk23sf2f7vs",
+          "amount": 5492629,
+          "amount_dog": 54.92629,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 54.92629,
+      "total_dog_out": 54.92629,
+      "total_dog_moved": 54.92629,
+      "net_transfer": 54.92629,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 1800
+    },
+    {
+      "txid": "337e42efe52a5f9cb5841c26d37e4ba1905fb7b7c6fb04f7a6bbb211c09be491",
+      "block_height": 903960,
+      "timestamp": "2025-07-04T11:52:50Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pe0r5lxrgy26gcjqpaadpetwyfvnl0537dxwcy3xrj82aaltfsq4qtgz649",
+          "amount": 10030569,
+          "amount_dog": 100.30569,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pe0r5lxrgy26gcjqpaadpetwyfvnl0537dxwcy3xrj82aaltfsq4qtgz649",
+          "amount": 10030569,
+          "amount_dog": 100.30569,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 100.30569,
+      "total_dog_out": 100.30569,
+      "total_dog_moved": 100.30569,
+      "net_transfer": 0.0,
+      "change_amount": 100.30569,
+      "has_change": true,
+      "fee_sats": 2010
+    }
+  ]
+}

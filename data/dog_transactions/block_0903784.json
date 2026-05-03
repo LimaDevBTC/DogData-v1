@@ -1,0 +1,70 @@
+{
+  "block_height": 903784,
+  "timestamp": "2026-05-03T09:20:47.862407Z",
+  "transactions": [
+    {
+      "txid": "0e6be5b558ced9b31042d7e415e5554d78cb8e5e19937f2aa054f33db602b834",
+      "block_height": 903784,
+      "timestamp": "2025-07-03T06:34:54Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1p2hcscszh0wzzz3qrxh3fqrf5y4uvrq5e4hz6zy04kd3v7hnhhlestecan0",
+          "amount": 3554693332,
+          "amount_dog": 35546.93332,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1qe546a4vgutl9kjhpl88whynldzwvex4dt4uu5g",
+          "amount": 3554693332,
+          "amount_dog": 35546.93332,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 35546.93332,
+      "total_dog_out": 35546.93332,
+      "total_dog_moved": 35546.93332,
+      "net_transfer": 35546.93332,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 1395
+    },
+    {
+      "txid": "2478fa36bf22c7edd29a16533ef972a948dbcbc60eb09003d2a29e5cac78f719",
+      "block_height": 903784,
+      "timestamp": "2025-07-03T06:34:54Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1quhruqrghgcca950rvhtrg7cpd7u8k6svpzgzmrjy8xyukacl5lkq0r8l2d",
+          "amount": 20584073,
+          "amount_dog": 205.84073,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1quhruqrghgcca950rvhtrg7cpd7u8k6svpzgzmrjy8xyukacl5lkq0r8l2d",
+          "amount": 20584073,
+          "amount_dog": 205.84073,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 205.84073,
+      "total_dog_out": 205.84073,
+      "total_dog_moved": 205.84073,
+      "net_transfer": 0.0,
+      "change_amount": 205.84073,
+      "has_change": true,
+      "fee_sats": 508
+    }
+  ]
+}

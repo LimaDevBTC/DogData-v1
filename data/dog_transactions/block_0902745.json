@@ -1,0 +1,70 @@
+{
+  "block_height": 902745,
+  "timestamp": "2026-05-03T09:10:03.332035Z",
+  "transactions": [
+    {
+      "txid": "218d1083a19c51fa143e0b49687c7fc0ba383965ac4f17888e21dc821a68a352",
+      "block_height": 902745,
+      "timestamp": "2025-06-26T03:48:05Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pwamqyzaeplv7a74hhwzz6qfwfep7sddcevp3sflu0a7cxa4f7aeqta6drn",
+          "amount": 845377236,
+          "amount_dog": 8453.77236,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pwamqyzaeplv7a74hhwzz6qfwfep7sddcevp3sflu0a7cxa4f7aeqta6drn",
+          "amount": 845377236,
+          "amount_dog": 8453.77236,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 8453.77236,
+      "total_dog_out": 8453.77236,
+      "total_dog_moved": 8453.77236,
+      "net_transfer": 0.0,
+      "change_amount": 8453.77236,
+      "has_change": true,
+      "fee_sats": 10374
+    },
+    {
+      "txid": "0f32e43b8a6cb560b44157bffb82e2b951864bd1d384fa08ff153fbe2067b17d",
+      "block_height": 902745,
+      "timestamp": "2025-06-26T03:48:05Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1ppa6mkw6f8wzpmv04qm8wsglzcf4hnz9rnxfmaqsqzx6du72cgm8s09lz8s",
+          "amount": 269638181,
+          "amount_dog": 2696.38181,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1p8ekqa3nehwka30vkxyaq5tcgje5uxcapfkxu49svcrevwurxdk2sysxv58",
+          "amount": 269638181,
+          "amount_dog": 2696.38181,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 2696.38181,
+      "total_dog_out": 2696.38181,
+      "total_dog_moved": 2696.38181,
+      "net_transfer": 2696.38181,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 241
+    }
+  ]
+}

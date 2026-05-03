@@ -1,0 +1,134 @@
+{
+  "block_height": 898720,
+  "timestamp": "2026-05-03T08:29:50.494383Z",
+  "transactions": [
+    {
+      "txid": "1d46a303d329eb0e32d4260fcd8c7aa65df3a63709a89542fba0b313529977f0",
+      "block_height": 898720,
+      "timestamp": "2025-05-28T09:47:25Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1qdq6flpqvx3g4gxgf85e7sq9w6s4h07rkwwm5v5",
+          "amount": 288373333,
+          "amount_dog": 2883.73333,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pyt545749wpcn2mktra9m4u4w7mxhq5r944zg7xk6rp23lanwn3lszsqacv",
+          "amount": 96124445,
+          "amount_dog": 961.24445,
+          "has_dog": true,
+          "is_change": false
+        },
+        {
+          "address": "bc1pyt545749wpcn2mktra9m4u4w7mxhq5r944zg7xk6rp23lanwn3lszsqacv",
+          "amount": 96124444,
+          "amount_dog": 961.24444,
+          "has_dog": true,
+          "is_change": false
+        },
+        {
+          "address": "bc1qdq6flpqvx3g4gxgf85e7sq9w6s4h07rkwwm5v5",
+          "amount": 96124444,
+          "amount_dog": 961.24444,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 3,
+      "total_dog_in": 2883.73333,
+      "total_dog_out": 2883.73333,
+      "total_dog_moved": 2883.73333,
+      "net_transfer": 1922.48889,
+      "change_amount": 961.24444,
+      "has_change": true,
+      "fee_sats": 831
+    },
+    {
+      "txid": "596a9183f8fbd547a920b4691c420fe23a4ff6b47607824379b2c701d27db463",
+      "block_height": 898720,
+      "timestamp": "2025-05-28T09:47:25Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1p44v80g0jsj6tlmx565wpdzqvza4mrn27jlq4ky0cf45gpgnszd2s2kglrk",
+          "amount": 158155432,
+          "amount_dog": 1581.55432,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1p44v80g0jsj6tlmx565wpdzqvza4mrn27jlq4ky0cf45gpgnszd2s2kglrk",
+          "amount": 158155432,
+          "amount_dog": 1581.55432,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 1581.55432,
+      "total_dog_out": 1581.55432,
+      "total_dog_moved": 1581.55432,
+      "net_transfer": 0.0,
+      "change_amount": 1581.55432,
+      "has_change": true,
+      "fee_sats": 1951
+    },
+    {
+      "txid": "5fe1e8a711528b36802f891f0d0efc1ab3bd6a3c0381f98fdcc6d88adb6ae9f6",
+      "block_height": 898720,
+      "timestamp": "2025-05-28T09:47:25Z",
+      "type": "consolidation",
+      "senders": [
+        {
+          "address": "bc1p8qy48f3lqgvftk7lsdmvymd9zevghfasqkk84v6f4jjqxu83fr8q97jtlv",
+          "amount": 3000000000,
+          "amount_dog": 30000.0,
+          "has_dog": true
+        },
+        {
+          "address": "bc1pgdw67aye46r2neqm9f62qrakafe4nqvnry8svevvt0v8d0jp95fq4qmz3k",
+          "amount": 95454545,
+          "amount_dog": 954.54545,
+          "has_dog": true
+        },
+        {
+          "address": "bc1py7h826epe0tlwlyjknnm0rz0mn39rqav35tqj4y406m5svlxu2zse2pt76",
+          "amount": 3505296362,
+          "amount_dog": 35052.96362,
+          "has_dog": true
+        },
+        {
+          "address": "bc1pm7tzvrdtex6s3yut627f0a2uczzl4u7xvkd66xcfdaf86khlf66skjxzex",
+          "amount": 5932040000,
+          "amount_dog": 59320.4,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pccsh6fs0d2xl7n2ts2w6h2r8va9cggetyq896f26yr8k973hth5sa5me5h",
+          "amount": 12532790907,
+          "amount_dog": 125327.90907,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 4,
+      "receiver_count": 1,
+      "total_dog_in": 125327.90907,
+      "total_dog_out": 125327.90907,
+      "total_dog_moved": 125327.90907,
+      "net_transfer": 125327.90907,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 2091
+    }
+  ]
+}
