@@ -1,0 +1,70 @@
+{
+  "block_height": 855202,
+  "timestamp": "2026-05-03T00:48:43.407742Z",
+  "transactions": [
+    {
+      "txid": "f43240e7ce4d7c35f3f70d676d29568896b4b87ba7f8c6232f38d09aaf719116",
+      "block_height": 855202,
+      "timestamp": "2024-08-03T09:36:48Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pdmqxvundskf5m83wptrku8d77c30qaef4hzrldhevmjf0vff5gps7y8ef0",
+          "amount": 2795197587,
+          "amount_dog": 27951.97587,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pgj9s6xexlstd84t8s7tedek4cl8zsr3mgu54kwxqweh2zjckxgjswv53l9",
+          "amount": 2795197587,
+          "amount_dog": 27951.97587,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 27951.97587,
+      "total_dog_out": 27951.97587,
+      "total_dog_moved": 27951.97587,
+      "net_transfer": 27951.97587,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 3951
+    },
+    {
+      "txid": "aa2ad5c31a4173f7edd10e06b1275d15fa5e63f6f4a7ade7272c5d7b729a4ab9",
+      "block_height": 855202,
+      "timestamp": "2024-08-03T09:36:48Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1qmscmeqqxqz7vkfscfs8pvl98gkdkcr8e0egkhm",
+          "amount": 5982754808,
+          "amount_dog": 59827.54808,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1qmscmeqqxqz7vkfscfs8pvl98gkdkcr8e0egkhm",
+          "amount": 5982754808,
+          "amount_dog": 59827.54808,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 59827.54808,
+      "total_dog_out": 59827.54808,
+      "total_dog_moved": 59827.54808,
+      "net_transfer": 0.0,
+      "change_amount": 59827.54808,
+      "has_change": true,
+      "fee_sats": 1674
+    }
+  ]
+}

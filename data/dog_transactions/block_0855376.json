@@ -1,0 +1,70 @@
+{
+  "block_height": 855376,
+  "timestamp": "2026-05-03T00:50:41.500126Z",
+  "transactions": [
+    {
+      "txid": "04b24750f8726c5aabddbcf4bc70c47736d2fe79c8076d4279f99ff2186dd7f7",
+      "block_height": 855376,
+      "timestamp": "2024-08-04T17:40:26Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1qmscmeqqxqz7vkfscfs8pvl98gkdkcr8e0egkhm",
+          "amount": 5982754808,
+          "amount_dog": 59827.54808,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1qmscmeqqxqz7vkfscfs8pvl98gkdkcr8e0egkhm",
+          "amount": 5982754808,
+          "amount_dog": 59827.54808,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 59827.54808,
+      "total_dog_out": 59827.54808,
+      "total_dog_moved": 59827.54808,
+      "net_transfer": 0.0,
+      "change_amount": 59827.54808,
+      "has_change": true,
+      "fee_sats": 1674
+    },
+    {
+      "txid": "cf7e58c79d26e87153f945efb31c7ad52a2d55c4ae94a660f0e272998f933a77",
+      "block_height": 855376,
+      "timestamp": "2024-08-04T17:40:26Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1p0hy8z8ecax9l6hfcat04zac4e25j9rrc8agc97xja2cz0g0l3x8splla7j",
+          "amount": 26265410911,
+          "amount_dog": 262654.10911,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pfmnra22al3u0yrwknglu8jxnc3hg7jru2jxnh53ykdqk06jvakjqkqg9np",
+          "amount": 26265410911,
+          "amount_dog": 262654.10911,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 262654.10911,
+      "total_dog_out": 262654.10911,
+      "total_dog_moved": 262654.10911,
+      "net_transfer": 262654.10911,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 4630
+    }
+  ]
+}
