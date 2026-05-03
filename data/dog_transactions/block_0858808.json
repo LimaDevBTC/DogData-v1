@@ -1,0 +1,70 @@
+{
+  "block_height": 858808,
+  "timestamp": "2026-05-03T01:28:55.392255Z",
+  "transactions": [
+    {
+      "txid": "385112e17b64c25f6d1691a8ddeace880c86478f159c1f0ed68177d5a474078a",
+      "block_height": 858808,
+      "timestamp": "2024-08-28T13:29:00Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1petsf68cmyau09an3m7gdvdyduqz235sphjde4lwhcgp8vue0m7fqykxd7y",
+          "amount": 5932040000,
+          "amount_dog": 59320.4,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1p7vx97wn8rns3tk7vsh3jltg6mhd66h8r68tjg5l7e73hw2qdclsqxw0kt4",
+          "amount": 5932040000,
+          "amount_dog": 59320.4,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 59320.4,
+      "total_dog_out": 59320.4,
+      "total_dog_moved": 59320.4,
+      "net_transfer": 59320.4,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 1548
+    },
+    {
+      "txid": "39e51da21759f646a3244897521a7c6fc0e00b09c610b2aa2ad3f836b8c80186",
+      "block_height": 858808,
+      "timestamp": "2024-08-28T13:29:00Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pmsadnhg4wrmu3xwjzuu6ty2ddrenusym3h63933txltgn68w8wuqs3ewz2",
+          "amount": 36844609000,
+          "amount_dog": 368446.09,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pmsadnhg4wrmu3xwjzuu6ty2ddrenusym3h63933txltgn68w8wuqs3ewz2",
+          "amount": 36844609000,
+          "amount_dog": 368446.09,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 368446.09,
+      "total_dog_out": 368446.09,
+      "total_dog_moved": 368446.09,
+      "net_transfer": 0.0,
+      "change_amount": 368446.09,
+      "has_change": true,
+      "fee_sats": 812
+    }
+  ]
+}

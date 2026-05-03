@@ -1,1 +1,114 @@
-{"block_height":860436,"timestamp":"2024-09-08T08:08:43Z","transactions":[{"txid":"e45180840792191c696217a118fd5551f6f9ab616142e7113ae0ecfeb4da66cf","block_height":860436,"timestamp":"2024-09-08T08:08:43Z","type":"transfer","senders":[{"address":"bc1qz58ewqg6mur8sdyghj7tczgj8u8sgsefh6apeq","amount":889806,"amount_dog":8.89806,"has_dog":true}],"receivers":[{"address":"bc1pstfyrhd44dv92l42ukk6zae8uca7erm7qly3vrvrk0xqcuppvr7s6kua8z","amount":889806,"amount_dog":8.89806,"has_dog":true,"is_change":false}],"sender_count":1,"receiver_count":1,"total_dog_in":8.89806,"total_dog_out":8.89806,"total_dog_moved":8.89806,"net_transfer":8.89806,"change_amount":0,"has_change":false,"fee_sats":1659}]}
+{
+  "block_height": 860436,
+  "timestamp": "2026-05-03T01:45:04.309161Z",
+  "transactions": [
+    {
+      "txid": "4d43ad2a40b4c8168c807c2e753041a1ba47b3281ed9bb34bc01b6c4a81a1541",
+      "block_height": 860436,
+      "timestamp": "2024-09-08T08:08:43Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "1G47mSr3oANXMafVrR8UC4pzV7FEAzo3r9",
+          "amount": 1717591056,
+          "amount_dog": 17175.91056,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1qkv7596kf48kgqf2nj04udwh7en46pmtqsft0rz",
+          "amount": 1717591056,
+          "amount_dog": 17175.91056,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 17175.91056,
+      "total_dog_out": 17175.91056,
+      "total_dog_moved": 17175.91056,
+      "net_transfer": 17175.91056,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 1224
+    },
+    {
+      "txid": "32ef1107c7767d9102a32a0fb1bdfe9e101260dc5254589364892d64f99e4af8",
+      "block_height": 860436,
+      "timestamp": "2024-09-08T08:08:43Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pjx3e3du0tyhwg060nhx9nl2ahqwp4ac2f0jadh4jccrvrwj35neqe6a68j",
+          "amount": 2966020000,
+          "amount_dog": 29660.2,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pjx3e3du0tyhwg060nhx9nl2ahqwp4ac2f0jadh4jccrvrwj35neqe6a68j",
+          "amount": 2966020000,
+          "amount_dog": 29660.2,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 29660.2,
+      "total_dog_out": 29660.2,
+      "total_dog_moved": 29660.2,
+      "net_transfer": 0.0,
+      "change_amount": 29660.2,
+      "has_change": true,
+      "fee_sats": 1059
+    },
+    {
+      "txid": "e45180840792191c696217a118fd5551f6f9ab616142e7113ae0ecfeb4da66cf",
+      "block_height": 860436,
+      "timestamp": "2024-09-08T08:08:43Z",
+      "type": "consolidation",
+      "senders": [
+        {
+          "address": "bc1psczkw2e9jvnxc82pdw22508lyvk027ezfwdmpktvad8ml9stukdstkta46",
+          "amount": 269638181,
+          "amount_dog": 2696.38181,
+          "has_dog": true
+        },
+        {
+          "address": "bc1pgrt5jff587sj5nrax0rvmnlq4lkk8462t7mk3pkrszxser5kh3cqhftmpz",
+          "amount": 25476970,
+          "amount_dog": 254.7697,
+          "has_dog": true
+        },
+        {
+          "address": "bc1qz58ewqg6mur8sdyghj7tczgj8u8sgsefh6apeq",
+          "amount": 44490300000,
+          "amount_dog": 444903.0,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pstfyrhd44dv92l42ukk6zae8uca7erm7qly3vrvrk0xqcuppvr7s6kua8z",
+          "amount": 44785415151,
+          "amount_dog": 447854.15151,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 3,
+      "receiver_count": 1,
+      "total_dog_in": 447854.15151,
+      "total_dog_out": 447854.15151,
+      "total_dog_moved": 447854.15151,
+      "net_transfer": 447854.15151,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 1659
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "block_height": 864122,
+  "timestamp": "2026-05-03T02:26:45.195277Z",
+  "transactions": [
+    {
+      "txid": "dc3cd8ea7c459c6755b7697d0500254c03beb78b0b62a34ffd73f895b2cd47ea",
+      "block_height": 864122,
+      "timestamp": "2024-10-04T13:12:21Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1ph568mq37cgz9x88zp63xyw2f3z845cvhg3emrmy0fnul0zhn726q09w9rv",
+          "amount": 185865,
+          "amount_dog": 1.85865,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1p3cfa55x6gxw0l90wurzflkyhhwy54nyxm43dp87vz77rq8la86kqe09rjk",
+          "amount": 185865,
+          "amount_dog": 1.85865,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 1.85865,
+      "total_dog_out": 1.85865,
+      "total_dog_moved": 1.85865,
+      "net_transfer": 1.85865,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 1764
+    },
+    {
+      "txid": "37b5153de202bab21082cc5beafebf7a0f03dabb0df0fc71c23ce4f838136fbc",
+      "block_height": 864122,
+      "timestamp": "2024-10-04T13:12:21Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pafes2f9k5wl0x3qw05hq3vme9jqpzp5xmhvfnkuxpkc5uhry6lrsmuze72",
+          "amount": 269638181,
+          "amount_dog": 2696.38181,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pafes2f9k5wl0x3qw05hq3vme9jqpzp5xmhvfnkuxpkc5uhry6lrsmuze72",
+          "amount": 269638181,
+          "amount_dog": 2696.38181,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 2696.38181,
+      "total_dog_out": 2696.38181,
+      "total_dog_moved": 2696.38181,
+      "net_transfer": 0.0,
+      "change_amount": 2696.38181,
+      "has_change": true,
+      "fee_sats": 1192
+    }
+  ]
+}

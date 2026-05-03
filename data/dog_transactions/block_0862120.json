@@ -1,0 +1,70 @@
+{
+  "block_height": 862120,
+  "timestamp": "2026-05-03T02:02:41.636219Z",
+  "transactions": [
+    {
+      "txid": "fb93f1186fa75e4619aa8345b5edbd72b74d39a9b921b4438da3539e47248559",
+      "block_height": 862120,
+      "timestamp": "2024-09-20T12:58:19Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1qmscmeqqxqz7vkfscfs8pvl98gkdkcr8e0egkhm",
+          "amount": 53390250955,
+          "amount_dog": 533902.50955,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1qmscmeqqxqz7vkfscfs8pvl98gkdkcr8e0egkhm",
+          "amount": 53390250955,
+          "amount_dog": 533902.50955,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 533902.50955,
+      "total_dog_out": 533902.50955,
+      "total_dog_moved": 533902.50955,
+      "net_transfer": 0.0,
+      "change_amount": 533902.50955,
+      "has_change": true,
+      "fee_sats": 1674
+    },
+    {
+      "txid": "6ad6c95266594ea93416260c403d64efe2c635307e6668ac4759425448947d53",
+      "block_height": 862120,
+      "timestamp": "2024-09-20T12:58:19Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pud2j5tpy5s3c5u6y7e2lqn8tp5208q0mmxjtjqncmzp9wyj5gssswnz8nk",
+          "amount": 595599234,
+          "amount_dog": 5955.99234,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pk9pt7xtkpzhvn7arktv6q77389l7x84djq5x9865uv85a47x4ucsqju3aj",
+          "amount": 595599234,
+          "amount_dog": 5955.99234,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 5955.99234,
+      "total_dog_out": 5955.99234,
+      "total_dog_moved": 5955.99234,
+      "net_transfer": 5955.99234,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 3343
+    }
+  ]
+}
