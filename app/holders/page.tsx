@@ -258,13 +258,13 @@ export default function HoldersPage() {
         throw new Error(`Stats error: ${response.status}`)
       }
       const stats = await response.json()
-      setTotalSupply(typeof stats.totalSupply === 'number' ? stats.totalSupply : null)
-      setCirculatingSupply(typeof stats.circulatingSupply === 'number' ? stats.circulatingSupply : null)
-      if (stats.metadata?.lastUpdated) {
+      setTotalSupply(typeof stats.total_supply === 'number' ? stats.total_supply : null)
+      setCirculatingSupply(typeof stats.circulating_supply === 'number' ? stats.circulating_supply : null)
+      if (stats.last_updated) {
         setHoldersMetadata(prev => ({
-          divisibility: stats.metadata.divisibility ?? prev?.divisibility ?? 0,
-          updatedAt: stats.metadata.lastUpdated,
-          source: stats.metadata.source ?? prev?.source ?? 'xverse'
+          divisibility: stats.divisibility ?? prev?.divisibility ?? 0,
+          updatedAt: stats.last_updated,
+          source: stats.source ?? prev?.source ?? 'xverse'
         }))
       }
     } catch (error) {

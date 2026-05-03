@@ -102,7 +102,6 @@ export async function GET() {
     const lastUpdated = data.timestamp || new Date().toISOString();
 
     return NextResponse.json({
-      // ─── canonical snake_case (documented at /api/openapi.json) ──
       total_holders: totalHolders,
       total_utxos: data.total_utxos || 0,
       total_supply: DOG_TOTAL_SUPPLY,
@@ -112,20 +111,8 @@ export async function GET() {
       top10_holders: top10Holders,
       rune_id: DOG_RUNE_ID,
       divisibility: DOG_DIVISIBILITY,
+      source: 'local',
       last_updated: lastUpdated,
-
-      // ─── legacy camelCase preserved for existing UI consumers ────
-      totalHolders,
-      totalSupply: DOG_TOTAL_SUPPLY,
-      circulatingSupply: circulating,
-      totalUtxos: data.total_utxos || 0,
-      top10Holders,
-      metadata: {
-        runeId: DOG_RUNE_ID,
-        divisibility: DOG_DIVISIBILITY,
-        source: 'local',
-        lastUpdated,
-      },
     }, {
       headers: {
         'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',

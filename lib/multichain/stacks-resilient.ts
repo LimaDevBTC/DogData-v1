@@ -1,14 +1,15 @@
 /**
  * Resilient Stacks data layer.
  *
- * Three-tier strategy:
- *   1. Memory cache  (in-process, 5 min TTL — instant)
- *   2. Redis / Upstash (shared across instances, 1 h TTL — fast)
- *   3. Tenero API → Hiro API fallback (origin fetch — slow)
+ * Primary (Tenero) and fallback (Hiro) data are cached under SEPARATE keys
+ * with different TTLs, so a transient Tenero failure does not contaminate
+ * the primary cache with degraded fallback values (Hiro lacks price/volume).
  *
- * Every successful origin fetch writes back to both Redis and memory.
- * If Tenero is down, Hiro provides the same data (minus pricing).
- * If both origins are down, Redis serves stale-but-valid data for up to 1 h.
+ *   - Primary cache: 5 min memory / 15 min Redis
+ *   - Fallback cache: 30 s memory / 60 s Redis (short — primary retried fast)
+ *
+ * Read order: memory primary → primary origin → memory fallback →
+ *   fallback origin → Redis primary (stale) → Redis fallback (stale).
  */
 
 import { memoryCache } from '@/lib/cache'
@@ -39,9 +40,12 @@ import {
 // Config
 // ---------------------------------------------------------------------------
 
-const MEMORY_TTL = 5 * 60 * 1000     // 5 min
-const REDIS_TTL_SEC = 15 * 60         // 15 min — stale-while-revalidate window
+const MEMORY_TTL_PRIMARY = 5 * 60 * 1000     // 5 min — fresh primary
+const MEMORY_TTL_FALLBACK = 30 * 1000        // 30 s — short so primary is retried quickly
+const REDIS_TTL_PRIMARY_SEC = 15 * 60        // 15 min — stale-while-revalidate
+const REDIS_TTL_FALLBACK_SEC = 60            // 1 min
 const REDIS_PREFIX = 'stacks:'
+const FALLBACK_SUFFIX = ':fb'
 
 // ---------------------------------------------------------------------------
 // Redis helpers (fail-open — never crash on Redis errors)
@@ -56,9 +60,9 @@ async function redisGet<T>(key: string): Promise<T | null> {
   }
 }
 
-async function redisSet<T>(key: string, data: T): Promise<void> {
+async function redisSet<T>(key: string, data: T, ttlSec: number): Promise<void> {
   try {
-    await redisClient.set(`${REDIS_PREFIX}${key}`, JSON.stringify(data), { ex: REDIS_TTL_SEC })
+    await redisClient.set(`${REDIS_PREFIX}${key}`, JSON.stringify(data), { ex: ttlSec })
   } catch {
     // silent — Redis is best-effort
   }
@@ -73,36 +77,49 @@ async function resilientFetch<T>(
   primaryFn: () => Promise<T>,
   fallbackFn: () => Promise<T>,
 ): Promise<T> {
-  // 1. Memory cache
-  const mem = memoryCache.get<T>(cacheKey)
-  if (mem) return mem
+  const fallbackKey = `${cacheKey}${FALLBACK_SUFFIX}`
+
+  // 1. Memory cache (primary) — fresh primary data short-circuits everything
+  const memPrimary = memoryCache.get<T>(cacheKey)
+  if (memPrimary) return memPrimary
 
   // 2. Try primary origin (Tenero)
   try {
     const data = await primaryFn()
-    memoryCache.set(cacheKey, data, MEMORY_TTL)
-    redisSet(cacheKey, data) // fire-and-forget
+    memoryCache.set(cacheKey, data, MEMORY_TTL_PRIMARY)
+    redisSet(cacheKey, data, REDIS_TTL_PRIMARY_SEC) // fire-and-forget
     return data
   } catch (primaryErr) {
     console.warn(`[stacks-resilient] Primary (Tenero) failed for ${cacheKey}:`, (primaryErr as Error).message)
   }
 
-  // 3. Try fallback origin (Hiro)
+  // 3. Memory cache (fallback) — short-lived buffer to avoid hammering Hiro
+  //    while Tenero is down. Short TTL (30 s) means primary recovers quickly.
+  const memFallback = memoryCache.get<T>(fallbackKey)
+  if (memFallback) return memFallback
+
+  // 4. Try fallback origin (Hiro) — cached under :fb suffix, never under primary key
   try {
     const data = await fallbackFn()
-    memoryCache.set(cacheKey, data, MEMORY_TTL)
-    redisSet(cacheKey, data)
+    memoryCache.set(fallbackKey, data, MEMORY_TTL_FALLBACK)
+    redisSet(fallbackKey, data, REDIS_TTL_FALLBACK_SEC)
     return data
   } catch (fallbackErr) {
     console.warn(`[stacks-resilient] Fallback (Hiro) failed for ${cacheKey}:`, (fallbackErr as Error).message)
   }
 
-  // 4. Last resort — Redis stale cache
-  const redisData = await redisGet<T>(cacheKey)
-  if (redisData) {
-    console.warn(`[stacks-resilient] Serving stale Redis cache for ${cacheKey}`)
-    memoryCache.set(cacheKey, redisData, 60_000) // short memory TTL for stale
-    return redisData
+  // 5. Last resort — Redis stale cache (prefer primary, then fallback)
+  const redisPrimary = await redisGet<T>(cacheKey)
+  if (redisPrimary) {
+    console.warn(`[stacks-resilient] Serving stale Redis primary for ${cacheKey}`)
+    memoryCache.set(cacheKey, redisPrimary, 60_000)
+    return redisPrimary
+  }
+  const redisFallback = await redisGet<T>(fallbackKey)
+  if (redisFallback) {
+    console.warn(`[stacks-resilient] Serving stale Redis fallback for ${cacheKey}`)
+    memoryCache.set(fallbackKey, redisFallback, 60_000)
+    return redisFallback
   }
 
   throw new Error(`[stacks-resilient] All data sources failed for ${cacheKey}`)

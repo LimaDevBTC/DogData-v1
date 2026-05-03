@@ -58,6 +58,7 @@ const CATALOG: CatalogEntry[] = [
   // and outbound notification endpoints (X/Twitter) are intentionally omitted.
   { id: 'external:mempool', name: 'Mempool.space', category: 'external_api', description: 'Bitcoin network state — block heights, hashrate, fees, mempool size.', tier: 'high' },
   { id: 'external:tenero', name: 'Tenero (Stacks)', category: 'external_api', description: 'Primary holder + price source for Stacks DOG.', tier: 'high' },
+  { id: 'external:tenero:holder_stats', name: 'Tenero — holder_stats', category: 'external_api', description: 'Tenero holder cohort breakdown endpoint. Has been flaky (HTTP 500) — tracked separately to confirm whether the failure is persistent.', tier: 'low' },
 
   // Data sources (freshness observed from underlying caches/tables)
   { id: 'data:transactions', name: 'Transactions Feed', category: 'data_source', description: 'Latest 500 DOG transactions cached in Redis.' },

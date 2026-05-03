@@ -207,8 +207,8 @@ export default function OverviewPage() {
         let finalTotalHolders = FALLBACK_TOTAL_HOLDERS
         if (totalHoldersFromLocal !== null) {
           finalTotalHolders = totalHoldersFromLocal
-        } else if (statsData.totalHolders && statsData.totalHolders > 0) {
-          finalTotalHolders = statsData.totalHolders
+        } else if (statsData.total_holders && statsData.total_holders > 0) {
+          finalTotalHolders = statsData.total_holders
         }
 
         setStats({
@@ -216,8 +216,8 @@ export default function OverviewPage() {
           totalSupply: runeData.totalSupply,
           marketCap: calculatedMarketCap,
           price: currentPrice,
-          lastUpdated: statsData.lastUpdated || new Date().toISOString(),
-          totalTransactions: statsData.totalUtxos || 0,
+          lastUpdated: statsData.last_updated || new Date().toISOString(),
+          totalTransactions: statsData.total_utxos || 0,
           activeAddresses: finalTotalHolders,
           networkHashRate: 450000000000000000
         })

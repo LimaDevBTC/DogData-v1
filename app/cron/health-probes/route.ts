@@ -28,6 +28,13 @@ const PROBES: Array<{ component: string; url: string }> = [
     component: 'external:tenero',
     url: `https://api.tenero.io/v1/stacks/tokens/${DOG_TOKENS.stacks.address}`,
   },
+  {
+    // Tracked separately — has been intermittently returning HTTP 500
+    // while the rest of Tenero stays healthy. Knowing whether this
+    // sub-endpoint is persistently failing is what guides outreach to Tenero.
+    component: 'external:tenero:holder_stats',
+    url: `https://api.tenero.io/v1/stacks/tokens/${DOG_TOKENS.stacks.address}/holder_stats`,
+  },
 ]
 
 export async function GET() {

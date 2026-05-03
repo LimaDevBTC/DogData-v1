@@ -27,6 +27,13 @@ export async function GET() {
       statistics: data.statistics || {},
       timestamp,
       staleness_hours,
+      field_definitions: {
+        still_holding: 'Current state: wallet has any non-zero DOG balance now. Partitions total_analyzed with sold_everything (still_holding + sold_everything = total_analyzed).',
+        sold_everything: 'Current state: wallet has zero DOG balance now. Partitions total_analyzed with still_holding.',
+        accumulated: 'Current state: wallet now holds more DOG than it received in airdrops (bought additional supply).',
+        dumping: 'Behavioral label, NOT a current state. Sum of by_pattern.paper_hands + panic_seller + early_exit. A wallet labeled "dumping" may still appear in still_holding if it retained a small balance, so dumping > still_holding is expected and not a contradiction.',
+        accumulator_patterns: 'List of by_pattern keys whose count rolls up into the accumulated total.',
+      },
     }, {
       headers: {
         'Cache-Control': 'no-store, max-age=0',
