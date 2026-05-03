@@ -1,0 +1,224 @@
+{
+  "generated_at": "2026-05-03T14:39:19.544944Z",
+  "data_source": {
+    "diamond_paws_csv": "data/diamond_paws_analysis/diamond_paws.csv",
+    "chain_stats_jsonl": "data/diamond_paws_analysis/chain_stats.jsonl",
+    "external_api": "https://blockstream.info/api"
+  },
+  "constants": {
+    "dog_total_supply": 100000000000,
+    "diamond_paws_definition": "current_balance == airdrop_amount, retention 100%",
+    "criteria": {
+      "relaxed": "spent_txo_count == 0 (never sent any UTXO from this address)",
+      "strict": "spent_txo_count == 0 AND (funded_txo_count - receive_count) <= 2 AND mempool_tx_count == 0",
+      "active": "spent_txo_count > 0 (has spent at least one UTXO from this address)",
+      "note": "The diamond-paws label is DOG-specific (the DOG-bearing UTXO is untouched). 'Active' diamond paws have spent OTHER UTXOs (BTC dust, other runes) \u2014 keys are accessible, wallet is not lost."
+    }
+  },
+  "totals": {
+    "diamond_paws_with_stats": 19878,
+    "diamond_paws_missing_stats": 0,
+    "total_airdrop_dog": 20510028300.0,
+    "pct_of_supply": 20.5100283
+  },
+  "lost_relaxed": {
+    "count": 6035,
+    "pct_of_diamond_paws": 30.360197202937922,
+    "dog_locked": 5739248700.0,
+    "pct_of_diamond_paws_dog": 27.9826464208243,
+    "pct_of_supply": 5.7392487
+  },
+  "lost_strict": {
+    "count": 2,
+    "pct_of_diamond_paws": 0.01006137438374082,
+    "dog_locked": 1779612.0,
+    "pct_of_diamond_paws_dog": 0.008676789587852495,
+    "pct_of_supply": 0.0017796119999999999
+  },
+  "active_after_airdrop": {
+    "count": 13843,
+    "pct_of_diamond_paws": 69.63980279706207,
+    "dog_held": 14770779600.0,
+    "spent_txo_buckets": {
+      "100+": 1939,
+      "21-100": 3758,
+      "6-20": 3410,
+      "2-5": 2771,
+      "1": 1965
+    },
+    "note": "Surprising \u2014 these wallets sent something but their DOG balance equals the airdrop. Either round-trip or the diamond_paws label needs re-examination."
+  },
+  "funded_after_airdrop_but_unspent": {
+    "count": 6035,
+    "dog_in_these_wallets": 5739248700.0,
+    "interpretation": "Received additional deposits (dust attacks, later airdrops, etc.) but never spent. Still 'lost' under relaxed criterion.",
+    "extra_deposits_distribution": {
+      "1_to_2": {
+        "wallets": 2,
+        "dog": 1779612.0
+      },
+      "3_to_5": {
+        "wallets": 660,
+        "dog": 591720990.0
+      },
+      "6_to_20": {
+        "wallets": 4102,
+        "dog": 3878664354.0
+      },
+      "21_to_100": {
+        "wallets": 1156,
+        "dog": 1159417218.0
+      },
+      "100_plus": {
+        "wallets": 115,
+        "dog": 107666526.0
+      }
+    }
+  },
+  "address_type_breakdown": {
+    "lost_relaxed": {
+      "p2tr": 5641,
+      "p2pkh": 68,
+      "p2sh": 54,
+      "p2wpkh/p2wsh": 272
+    },
+    "active": {
+      "p2tr": 11395,
+      "p2sh": 342,
+      "p2wpkh/p2wsh": 1950,
+      "p2pkh": 156
+    }
+  },
+  "top_20_lost_wallets_by_dog": [
+    {
+      "address": "bc1p2nj2teu3znnx7pukqre6n5ryjrcsv3hr74334gezgwencrwylupsa55j8k",
+      "dog": 16016508.0,
+      "funded_txos": 50,
+      "tx_count": 34
+    },
+    {
+      "address": "bc1plsg4xz2jvknf87x0a9tn9rys4u6xpwgh95tglnxd444pn8s0cv2sga0try",
+      "dog": 10677672.0,
+      "funded_txos": 108,
+      "tx_count": 100
+    },
+    {
+      "address": "bc1ppxm2y58nh22ykjlelvwmvewakr2j47nq9qk5hja4z3g2063d6d3q77xkcu",
+      "dog": 9787866.0,
+      "funded_txos": 94,
+      "tx_count": 70
+    },
+    {
+      "address": "bc1phjx6m8qdrmyx5gpjzhhgntgfd92t89pxuhl3uqwvu36zf7xygrrsnswpp0",
+      "dog": 8898060.0,
+      "funded_txos": 28,
+      "tx_count": 19
+    },
+    {
+      "address": "bc1p0rm0ktlh7l0w23jdc086vksz7thpqqkawklyuf75z58kfwufu8sqd3e4up",
+      "dog": 7118448.0,
+      "funded_txos": 86,
+      "tx_count": 66
+    },
+    {
+      "address": "bc1pkrntdfdsne8pzktru90vmjgpr83deak0kpfte7ppmdmahy637n6q6cc758",
+      "dog": 7118448.0,
+      "funded_txos": 52,
+      "tx_count": 36
+    },
+    {
+      "address": "bc1ptcv6ar7zulxemt57hvvudgx09ywn9r6qflxkk2tq2apweftvgj3s485rrm",
+      "dog": 7118448.0,
+      "funded_txos": 51,
+      "tx_count": 34
+    },
+    {
+      "address": "bc1p04jdwdmz7mffaam3qp64d6hyye34vda4qk6xhx7eprp3y4nvsa9qd0y476",
+      "dog": 6228642.0,
+      "funded_txos": 31,
+      "tx_count": 23
+    },
+    {
+      "address": "bc1pp7aq2cnwck75lylwah44ad3nsru3ng42hw4kc7tp72ha6r06metqysp8gy",
+      "dog": 6228642.0,
+      "funded_txos": 22,
+      "tx_count": 22
+    },
+    {
+      "address": "bc1p7v75kzj8pmwjqj38s93lk6mjsqheq4hv44t58qd68r99dv4sx7pqen72s2",
+      "dog": 5338836.0,
+      "funded_txos": 21,
+      "tx_count": 16
+    },
+    {
+      "address": "bc1pgc8wvl6fstydsu4ql5qn750900wstq36qfmxgzjla57hr63v73hq5ym3pf",
+      "dog": 5338836.0,
+      "funded_txos": 25,
+      "tx_count": 20
+    },
+    {
+      "address": "bc1pjgh0yfux269twk3fwflyfcvdncrq8jggz0gfhn94uptp0qsk4zgslx7xp2",
+      "dog": 5338836.0,
+      "funded_txos": 25,
+      "tx_count": 20
+    },
+    {
+      "address": "bc1pjgsspl9f9e0gw95tmqxlv6dmt0nvm7vdcarnm4ml8s92h0f20v3sm2u5uj",
+      "dog": 5338836.0,
+      "funded_txos": 19,
+      "tx_count": 14
+    },
+    {
+      "address": "bc1pkv87mwrfrvy5stvl9xgvtmwrx758l6hzsg25smlfhevee6kumxzs5ssc8e",
+      "dog": 5338836.0,
+      "funded_txos": 26,
+      "tx_count": 18
+    },
+    {
+      "address": "bc1pwx8s086wfwplnx5979q0le33k2qjxdquzzgxz5zmtk3l8uqflzyq56esjl",
+      "dog": 5338836.0,
+      "funded_txos": 40,
+      "tx_count": 39
+    },
+    {
+      "address": "bc1pxjqycxfqassx8ssz8qnnv3eawtadjyfadm2jd85kpae9p2u856qsfnrvar",
+      "dog": 5338836.0,
+      "funded_txos": 38,
+      "tx_count": 37
+    },
+    {
+      "address": "bc1pwxf5wzvxwjx5kc4f7yu25uy4hh4q2wvd40gxp9gmcup6mw7ek86swn3rvu",
+      "dog": 4449030.0,
+      "funded_txos": 76,
+      "tx_count": 76
+    },
+    {
+      "address": "bc1ppnzq3fz2y79mjxan7txk9qmld2nlpj3fz0x208wd0f692uvvwzlspdvs7v",
+      "dog": 3559224.0,
+      "funded_txos": 162,
+      "tx_count": 110
+    },
+    {
+      "address": "bc1pt340xyumpkxd68h50m0yp783qw8q7dzq28quq0664sgdx3vlrnuskhdvz6",
+      "dog": 3559224.0,
+      "funded_txos": 16,
+      "tx_count": 16
+    },
+    {
+      "address": "bc1pvzhwn3eue28hr88lm84wh3gse4fx9ap4gu2ucklf5t5vz8pv3j6qqjxs6e",
+      "dog": 3559224.0,
+      "funded_txos": 31,
+      "tx_count": 25
+    }
+  ],
+  "top_20_strictly_lost_wallets_by_dog": [
+    {
+      "address": "bc1p4ptdljlr0659yrx25e29mr9r4ukv9rnw35sscdnp3qze3487ys5s5nmgj8",
+      "dog": 889806.0
+    },
+    {
+      "address": "bc1p7x4gtm5xh7hhal5ptlxuyax4d8lyk8w7u80kusgfkryejhj8czdsezza5n",
+      "dog": 889806.0
+    }
+  ]
+}

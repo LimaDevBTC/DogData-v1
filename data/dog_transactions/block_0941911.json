@@ -1,68 +1,36 @@
 {
   "block_height": 941911,
-  "timestamp": "2026-03-23T20:15:32.091375Z",
+  "timestamp": "2026-05-03T14:40:15.479262Z",
   "transactions": [
-    {
-      "txid": "5a648e42c48405d5ea994ac30493acefbd70ac08b983ea16a6b0e6bc464a4e59",
-      "block_height": 941911,
-      "timestamp": "2026-03-23T20:14:41Z",
-      "type": "transfer",
-      "senders": [
-        {
-          "address": "bc1prl5g5x4fm94zum5tf6km2e0zn4nqfrgvu6zamjhrraxpeep0zshs6ctrr8",
-          "amount": 16343810000,
-          "amount_dog": 163438.1,
-          "has_dog": true
-        }
-      ],
-      "receivers": [
-        {
-          "address": "bc1pdtn0uaj8ggnc5cj63tan76z4pjd3mdlmcz465wczpn4dpy82sv3qr85hn7",
-          "amount": 16343810000,
-          "amount_dog": 163438.1,
-          "has_dog": true,
-          "is_change": false
-        }
-      ],
-      "sender_count": 1,
-      "receiver_count": 1,
-      "total_dog_in": 163438.1,
-      "total_dog_out": 163438.1,
-      "total_dog_moved": 163438.1,
-      "net_transfer": 163438.1,
-      "change_amount": 0,
-      "has_change": false,
-      "fee_sats": 1175
-    },
     {
       "txid": "3a7ca87930700772ccd0071011d46619bdc2bbc52a4a699996196c52ec0c52d1",
       "block_height": 941911,
       "timestamp": "2026-03-23T20:14:41Z",
-      "type": "transfer",
+      "type": "self_transfer",
       "senders": [
         {
           "address": "bc1p6ys2ervatu00766eeqfmverzegg9fkprn3xjn0ppn70h53qu5vus3yzl0x",
-          "amount": 270622528769,
-          "amount_dog": 2706225.28769,
+          "amount": 102168017587,
+          "amount_dog": 1021680.17587,
           "has_dog": true
         }
       ],
       "receivers": [
         {
           "address": "bc1p6ys2ervatu00766eeqfmverzegg9fkprn3xjn0ppn70h53qu5vus3yzl0x",
-          "amount": 270622528769,
-          "amount_dog": 2706225.28769,
+          "amount": 102168017587,
+          "amount_dog": 1021680.17587,
           "has_dog": true,
           "is_change": true
         }
       ],
       "sender_count": 1,
       "receiver_count": 1,
-      "total_dog_in": 2706225.28769,
-      "total_dog_out": 2706225.28769,
-      "total_dog_moved": 2706225.28769,
+      "total_dog_in": 1021680.17587,
+      "total_dog_out": 1021680.17587,
+      "total_dog_moved": 1021680.17587,
       "net_transfer": 0.0,
-      "change_amount": 2706225.28769,
+      "change_amount": 1021680.17587,
       "has_change": true,
       "fee_sats": 453
     },
@@ -74,42 +42,28 @@
       "senders": [
         {
           "address": "bc1plwfxw9j2s2wvgghl4t56urph6fz8epdjpkwrxrk7zj9c6f4nfscqegd8na",
-          "amount": 88980600000,
-          "amount_dog": 889806.0,
+          "amount": 2966020000,
+          "amount_dog": 29660.2,
           "has_dog": true
         }
       ],
       "receivers": [
         {
           "address": "bc1pud2j5tpy5s3c5u6y7e2lqn8tp5208q0mmxjtjqncmzp9wyj5gssswnz8nk",
-          "amount": 22200000000,
-          "amount_dog": 222000.0,
+          "amount": 2966020000,
+          "amount_dog": 29660.2,
           "has_dog": true,
           "is_change": false
-        },
-        {
-          "address": "bc1pwper8wpfssxl4pd5grudsvcwxc8pecerxm46flmupj9n8l675rtsehu659",
-          "amount": 57800000000,
-          "amount_dog": 578000.0,
-          "has_dog": true,
-          "is_change": false
-        },
-        {
-          "address": "bc1plwfxw9j2s2wvgghl4t56urph6fz8epdjpkwrxrk7zj9c6f4nfscqegd8na",
-          "amount": 8980600000,
-          "amount_dog": 89806.0,
-          "has_dog": true,
-          "is_change": true
         }
       ],
       "sender_count": 1,
-      "receiver_count": 3,
-      "total_dog_in": 889806.0,
-      "total_dog_out": 889806.0,
-      "total_dog_moved": 889806.0,
-      "net_transfer": 800000.0,
-      "change_amount": 89806.0,
-      "has_change": true,
+      "receiver_count": 1,
+      "total_dog_in": 29660.2,
+      "total_dog_out": 29660.2,
+      "total_dog_moved": 29660.2,
+      "net_transfer": 29660.2,
+      "change_amount": 0,
+      "has_change": false,
       "fee_sats": 749
     }
   ]

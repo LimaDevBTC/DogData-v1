@@ -94,9 +94,10 @@ def main():
     #         (no mempool activity)
     # ACTIVE: sent at least one tx OR received non-airdrop deposits
     relaxed = [e for e in enriched if e["spent_txo_count"] == 0]
+    # Practical strict: never spent + ≤2 extra deposits (allowing for incidental dust)
     strict = [
         e for e in relaxed
-        if e["funded_txo_count"] == e["receive_count"]
+        if (e["funded_txo_count"] - e["receive_count"]) <= 2
         and e["mempool_tx_count"] == 0
     ]
     active = [e for e in enriched if e["spent_txo_count"] > 0]
@@ -126,6 +127,25 @@ def main():
     funded_extra = [e for e in relaxed if e["funded_txo_count"] > e["receive_count"]]
     sum_dog_funded_extra = sum(e["airdrop_dog"] for e in funded_extra)
 
+    # Distribution of "extra" deposits among lost-relaxed wallets
+    def bucket_extras(diff):
+        if diff == 0: return "0_only_airdrop"
+        if diff <= 2: return "1_to_2"
+        if diff <= 5: return "3_to_5"
+        if diff <= 20: return "6_to_20"
+        if diff <= 100: return "21_to_100"
+        return "100_plus"
+
+    extras_count = Counter()
+    extras_dog = Counter()
+    # Need diamond_paws data for receive_count
+    dp_lookup = {a: dp[a]["receive_count"] for a in dp}
+    for e in relaxed:
+        diff = e["funded_txo_count"] - e["receive_count"]
+        b = bucket_extras(diff)
+        extras_count[b] += 1
+        extras_dog[b] += e["airdrop_dog"]
+
     # Address type breakdown
     by_type_lost = Counter()
     by_type_active = Counter()
@@ -147,9 +167,10 @@ def main():
             "dog_total_supply": DOG_TOTAL_SUPPLY,
             "diamond_paws_definition": "current_balance == airdrop_amount, retention 100%",
             "criteria": {
-                "relaxed": "spent_txo_count == 0 (never sent any UTXO)",
-                "strict": "spent_txo_count == 0 AND funded_txo_count == receive_count AND mempool_tx_count == 0",
-                "active": "spent_txo_count > 0 (has spent something)",
+                "relaxed": "spent_txo_count == 0 (never sent any UTXO from this address)",
+                "strict": "spent_txo_count == 0 AND (funded_txo_count - receive_count) <= 2 AND mempool_tx_count == 0",
+                "active": "spent_txo_count > 0 (has spent at least one UTXO from this address)",
+                "note": "The diamond-paws label is DOG-specific (the DOG-bearing UTXO is untouched). 'Active' diamond paws have spent OTHER UTXOs (BTC dust, other runes) — keys are accessible, wallet is not lost.",
             },
         },
         "totals": {
@@ -183,6 +204,11 @@ def main():
             "count": len(funded_extra),
             "dog_in_these_wallets": sum_dog_funded_extra,
             "interpretation": "Received additional deposits (dust attacks, later airdrops, etc.) but never spent. Still 'lost' under relaxed criterion.",
+            "extra_deposits_distribution": {
+                bucket: {"wallets": extras_count[bucket], "dog": extras_dog[bucket]}
+                for bucket in ["0_only_airdrop", "1_to_2", "3_to_5", "6_to_20", "21_to_100", "100_plus"]
+                if bucket in extras_count
+            },
         },
         "address_type_breakdown": {
             "lost_relaxed": dict(by_type_lost),
@@ -241,10 +267,12 @@ def main():
     lines.append(f"  DOG these hold:     {sum_dog_active:,.0f}")
     lines.append(f"  Spent-tx buckets:   {dict(spent_buckets)}")
     lines.append("")
-    lines.append("─── EXTRA DEPOSITS (received later but never spent) ──────────────────")
-    lines.append(f"  wallets:            {len(funded_extra):,}")
-    lines.append(f"  DOG in these:       {sum_dog_funded_extra:,.0f}")
-    lines.append(f"  (still classified as 'lost relaxed' — passive receives don't prove key access)")
+    lines.append("─── EXTRA DEPOSITS DISTRIBUTION (lost-relaxed) ───────────────────────")
+    lines.append("  Every lost wallet received SOMETHING beyond the airdrop (dust/drops),")
+    lines.append("  but never spent — so passive receives don't prove key access.")
+    for b in ["0_only_airdrop", "1_to_2", "3_to_5", "6_to_20", "21_to_100", "100_plus"]:
+        if b in extras_count:
+            lines.append(f"  {b:18s}  wallets={extras_count[b]:>5,}  DOG={extras_dog[b]:>15,.0f}")
     lines.append("")
     lines.append("─── BY ADDRESS TYPE (lost relaxed vs active) ─────────────────────────")
     for t in ["p2tr", "p2wpkh/p2wsh", "p2sh", "p2pkh"]:
