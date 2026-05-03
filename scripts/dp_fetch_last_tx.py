@@ -28,10 +28,10 @@ INPUT_CSV = ANALYSIS_DIR / "lost_addresses_relaxed.csv"
 OUTPUT_JSONL = ANALYSIS_DIR / "last_tx.jsonl"
 ERRORS_JSONL = ANALYSIS_DIR / "last_tx_errors.jsonl"
 
-ENDPOINTS = ["https://blockstream.info/api", "https://mempool.space/api"]
-CONCURRENCY = 4
+ENDPOINTS = ["https://blockstream.info/api"]
+CONCURRENCY = 2
 TIMEOUT = 30
-BASE_SLEEP = 0.15
+BASE_SLEEP = 0.30
 MAX_429_BACKOFF = 180
 
 session = requests.Session()

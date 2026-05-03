@@ -1,0 +1,118 @@
+{
+  "generated_at": "2026-05-03T21:17:15.333554+00:00",
+  "as_of": "2026-05-03T00:00:00+00:00",
+  "inputs": {
+    "lost_relaxed_total": 6035,
+    "with_last_tx_data": 5540,
+    "too_many_history_active": 9,
+    "missing": 486,
+    "coverage_pct": 91.946975973488
+  },
+  "by_recency_bucket": {
+    "wallets": {
+      "91-180 days": 114,
+      "181-365 days": 730,
+      "1-2 years": 4677,
+      "[active: too many txs]": 9,
+      "31-90 days": 6,
+      "\u226430 days": 12,
+      "> 2 years": 1
+    },
+    "dog_locked": {
+      "91-180 days": 197536932.0,
+      "181-365 days": 900483672.0,
+      "1-2 years": 4182978006.0,
+      "[active: too many txs]": 8898060.0,
+      "31-90 days": 5338836.0,
+      "\u226430 days": 10677672.0,
+      "> 2 years": 889806.0
+    }
+  },
+  "truly_dormant_2y_plus": {
+    "definition": "Lost-relaxed wallets whose most recent UTXO was funded > 2 years ago, i.e. nothing received since around airdrop time. Strongest evidence of abandonment.",
+    "wallets": 1,
+    "dog_locked": 889806.0,
+    "pct_of_supply": 0.0008898059999999999,
+    "pct_of_diamond_paws_dog": 0.004338394793926247
+  },
+  "only_airdrop_window": {
+    "definition": "Lost-relaxed wallets where ALL UTXOs were funded between block 840000 and 841500 (roughly the airdrop distribution window in April 2024).",
+    "wallets": 0,
+    "dog_locked": 0
+  },
+  "by_address_type": {
+    "p2tr": {
+      "wallets_per_bucket": {
+        "91-180 days": 106,
+        "181-365 days": 722,
+        "1-2 years": 4579,
+        "[active: too many txs]": 3,
+        "31-90 days": 6,
+        "\u226430 days": 10,
+        "> 2 years": 1
+      },
+      "dog_per_bucket": {
+        "91-180 days": 190418484.0,
+        "181-365 days": 893365224.0,
+        "1-2 years": 4095777018.0,
+        "[active: too many txs]": 3559224.0,
+        "31-90 days": 5338836.0,
+        "\u226430 days": 8898060.0,
+        "> 2 years": 889806.0
+      }
+    },
+    "p2pkh": {
+      "wallets_per_bucket": {
+        "[active: too many txs]": 4,
+        "1-2 years": 53,
+        "\u226430 days": 2,
+        "181-365 days": 3,
+        "91-180 days": 6
+      },
+      "dog_per_bucket": {
+        "[active: too many txs]": 3559224.0,
+        "1-2 years": 47159718.0,
+        "\u226430 days": 1779612.0,
+        "181-365 days": 2669418.0,
+        "91-180 days": 5338836.0
+      }
+    },
+    "p2sh": {
+      "wallets_per_bucket": {
+        "1-2 years": 45,
+        "181-365 days": 5,
+        "91-180 days": 2,
+        "[active: too many txs]": 2
+      },
+      "dog_per_bucket": {
+        "1-2 years": 40041270.0,
+        "181-365 days": 4449030.0,
+        "91-180 days": 1779612.0,
+        "[active: too many txs]": 1779612.0
+      }
+    }
+  },
+  "last_funded_by_yearmonth_top": {
+    "2024-10": 3778,
+    "2024-12": 374,
+    "2025-08": 366,
+    "2024-11": 311,
+    "2025-10": 157,
+    "2025-06": 146,
+    "2026-01": 104,
+    "2025-04": 83,
+    "2025-01": 61,
+    "2025-02": 53,
+    "2025-09": 42,
+    "2025-03": 17,
+    "2025-05": 11,
+    "2025-11": 11,
+    "2026-04": 9,
+    "2026-03": 5,
+    "2025-07": 4,
+    "2025-12": 3,
+    "2026-05": 3,
+    "2024-04": 1,
+    "2026-02": 1
+  }
+}

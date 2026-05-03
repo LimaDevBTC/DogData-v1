@@ -1,0 +1,63 @@
+======================================================================
+DIAMOND PAWS LOST WALLETS — RECENCY OF LAST DEPOSIT
+======================================================================
+Coverage: 5540 with date + 9 known-active (HTTP 400) = 91.9% of 6035 lost-relaxed wallets
+Missing data: 486 wallets (432,445,716 DOG)
+
+─── DISTRIBUTION BY LAST DEPOSIT AGE ─────────────────────────────────
+  bucket                         wallets        DOG locked   % of lost
+  ≤30 days                            12        10,677,672        0.2%
+  31-90 days                           6         5,338,836        0.1%
+  91-180 days                        114       197,536,932        3.7%
+  181-365 days                       730       900,483,672       17.0%
+  1-2 years                        4,677     4,182,978,006       78.8%
+  > 2 years                            1           889,806        0.0%
+  [active: too many txs]               9         8,898,060        0.2%
+
+─── TRULY DORMANT (last funded > 2y ago) ─────────────────────────────
+  wallets:         1
+  DOG locked:      889,806
+  % of supply:     0.001%
+  % of diamond paws: 0.00%
+
+─── ALL UTXOs INSIDE AIRDROP WINDOW (block 840k-841.5k, apr 2024) ────
+  wallets:         0
+  DOG locked:      0
+  → received only the airdrop, never any later drops; strongest 'lost' signal
+
+─── BY ADDRESS TYPE × BUCKET ─────────────────────────────────────────
+  p2tr:
+    ≤30 days                         10
+    31-90 days                        6
+    91-180 days                     106
+    181-365 days                    722
+    1-2 years                     4,579
+    > 2 years                         1
+    [active: too many txs]            3
+  p2sh:
+    91-180 days                       2
+    181-365 days                      5
+    1-2 years                        45
+    [active: too many txs]            2
+  p2pkh:
+    ≤30 days                          2
+    91-180 days                       6
+    181-365 days                      3
+    1-2 years                        53
+    [active: too many txs]            4
+
+─── TOP 12 (year-month) WHEN LAST FUNDED ────────────────────────────
+  2024-10  →  3,778 wallets      3,361,687,068 DOG
+  2024-12  →    374 wallets        333,677,250 DOG
+  2025-08  →    366 wallets        442,233,582 DOG
+  2024-11  →    311 wallets        297,195,204 DOG
+  2025-10  →    157 wallets        144,148,572 DOG
+  2025-06  →    146 wallets        253,594,710 DOG
+  2026-01  →    104 wallets        187,749,066 DOG
+  2025-04  →     83 wallets         73,853,898 DOG
+  2025-01  →     61 wallets         54,278,166 DOG
+  2025-02  →     53 wallets         47,159,718 DOG
+  2025-09  →     42 wallets         43,600,494 DOG
+  2025-03  →     17 wallets         15,126,702 DOG
+
+======================================================================
