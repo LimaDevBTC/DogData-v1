@@ -1,1 +1,45 @@
-{"block_height":909615,"timestamp":"2025-08-11T21:18:47Z","transactions":[{"txid":"400991ac87f240d421d189b6aaabcb17e3846ef2b339da76459f669435527ac0","block_height":909615,"timestamp":"2025-08-11T21:18:47Z","type":"transfer","senders":[{"address":"bc1p9wydkfnvkgn04ey4tfa3vwh5fqngtxky4gztgddms9e83lj5dfasuwzd4e","amount":889806,"amount_dog":8.89806,"has_dog":true}],"receivers":[{"address":"bc1pteg89cf4cggh8zpdxur6gqnc6jy68n5amn8z0eajtyra06nhramqr5jegz","amount":889806,"amount_dog":8.89806,"has_dog":true,"is_change":false}],"sender_count":1,"receiver_count":1,"total_dog_in":8.89806,"total_dog_out":8.89806,"total_dog_moved":8.89806,"net_transfer":8.89806,"change_amount":0,"has_change":false,"fee_sats":515}]}
+{
+  "block_height": 909615,
+  "timestamp": "2026-05-03T10:14:25.475826Z",
+  "transactions": [
+    {
+      "txid": "400991ac87f240d421d189b6aaabcb17e3846ef2b339da76459f669435527ac0",
+      "block_height": 909615,
+      "timestamp": "2025-08-11T21:18:47Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1p9wydkfnvkgn04ey4tfa3vwh5fqngtxky4gztgddms9e83lj5dfasuwzd4e",
+          "amount": 11180997837,
+          "amount_dog": 111809.97837,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pteg89cf4cggh8zpdxur6gqnc6jy68n5amn8z0eajtyra06nhramqr5jegz",
+          "amount": 10000000000,
+          "amount_dog": 100000.0,
+          "has_dog": true,
+          "is_change": false
+        },
+        {
+          "address": "bc1p9wydkfnvkgn04ey4tfa3vwh5fqngtxky4gztgddms9e83lj5dfasuwzd4e",
+          "amount": 1180997837,
+          "amount_dog": 11809.97837,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 2,
+      "total_dog_in": 111809.97837,
+      "total_dog_out": 111809.97837,
+      "total_dog_moved": 111809.97837,
+      "net_transfer": 100000.0,
+      "change_amount": 11809.97837,
+      "has_change": true,
+      "fee_sats": 515
+    }
+  ]
+}

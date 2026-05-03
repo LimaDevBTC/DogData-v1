@@ -1,0 +1,70 @@
+{
+  "block_height": 910535,
+  "timestamp": "2026-05-03T10:22:36.424166Z",
+  "transactions": [
+    {
+      "txid": "aabbb526167280b09d4e3fff900983d061e7260b546d2b9414f51e291713b268",
+      "block_height": 910535,
+      "timestamp": "2025-08-18T01:51:04Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1ptk5d6fvmr3lg9vrnsux9fttze69usxnl5wq34ua9qw4y7ceqvqfqwqxwv5",
+          "amount": 2966020000,
+          "amount_dog": 29660.2,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pe9qk6sgfyzdupfgt6faypwzlhhzsqv9aef3kyfk4e8ulguvmdgsqa6jw7s",
+          "amount": 2966020000,
+          "amount_dog": 29660.2,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 29660.2,
+      "total_dog_out": 29660.2,
+      "total_dog_moved": 29660.2,
+      "net_transfer": 29660.2,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 2360
+    },
+    {
+      "txid": "a32467c481500167a42b04e1ad4522c64fa1da44626ed6c4ad66f0fecd78e65b",
+      "block_height": 910535,
+      "timestamp": "2025-08-18T01:51:04Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1p96utmwdngv3xwdn90d7wg4tyqke70fs6js8ajgqkk89zn08z8d5q8xzchd",
+          "amount": 44939696,
+          "amount_dog": 449.39696,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1p96utmwdngv3xwdn90d7wg4tyqke70fs6js8ajgqkk89zn08z8d5q8xzchd",
+          "amount": 44939696,
+          "amount_dog": 449.39696,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 449.39696,
+      "total_dog_out": 449.39696,
+      "total_dog_moved": 449.39696,
+      "net_transfer": 0.0,
+      "change_amount": 449.39696,
+      "has_change": true,
+      "fee_sats": 1450
+    }
+  ]
+}

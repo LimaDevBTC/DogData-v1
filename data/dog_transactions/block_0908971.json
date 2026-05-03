@@ -1,0 +1,70 @@
+{
+  "block_height": 908971,
+  "timestamp": "2026-05-03T10:07:43.059334Z",
+  "transactions": [
+    {
+      "txid": "47347b057d4c26095d8697a6f0963b4b9fc692b666e3d97a467ee2aa41cae03c",
+      "block_height": 908971,
+      "timestamp": "2025-08-07T05:20:52Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1qm34lsc65zpw79lxes69zkqmk6ee3ewf0j77s3h",
+          "amount": 53927636,
+          "amount_dog": 539.27636,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "3NkYYcjBa7dapCHANqdxEqRxsPCFMsBKEs",
+          "amount": 53927636,
+          "amount_dog": 539.27636,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 539.27636,
+      "total_dog_out": 539.27636,
+      "total_dog_moved": 539.27636,
+      "net_transfer": 539.27636,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 4692
+    },
+    {
+      "txid": "09d02f618cbdcdd2651860dd86cddc8945662ac5d171c0a90fc58071acc9596c",
+      "block_height": 908971,
+      "timestamp": "2025-08-07T05:20:52Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pt65exley6pv6uqws7xr3ku7u922tween0nfyz257rnl5300cjnrsjp9er6",
+          "amount": 4624160493,
+          "amount_dog": 46241.60493,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pt65exley6pv6uqws7xr3ku7u922tween0nfyz257rnl5300cjnrsjp9er6",
+          "amount": 4624160493,
+          "amount_dog": 46241.60493,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 46241.60493,
+      "total_dog_out": 46241.60493,
+      "total_dog_moved": 46241.60493,
+      "net_transfer": 0.0,
+      "change_amount": 46241.60493,
+      "has_change": true,
+      "fee_sats": 2022
+    }
+  ]
+}

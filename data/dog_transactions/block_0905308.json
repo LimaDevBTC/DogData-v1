@@ -1,0 +1,70 @@
+{
+  "block_height": 905308,
+  "timestamp": "2026-05-03T09:35:01.776389Z",
+  "transactions": [
+    {
+      "txid": "ef72285d2897e2f795f2e188636f9399f044bcb2fdbdacd379a62837881a8c6a",
+      "block_height": 905308,
+      "timestamp": "2025-07-13T02:24:50Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1q6z8z329g5pyht8gh673h438fj9wm6d30zvg6k9",
+          "amount": 367584152,
+          "amount_dog": 3675.84152,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1q6z8z329g5pyht8gh673h438fj9wm6d30zvg6k9",
+          "amount": 367584152,
+          "amount_dog": 3675.84152,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 3675.84152,
+      "total_dog_out": 3675.84152,
+      "total_dog_moved": 3675.84152,
+      "net_transfer": 0.0,
+      "change_amount": 3675.84152,
+      "has_change": true,
+      "fee_sats": 783
+    },
+    {
+      "txid": "6562a15e5fc4865dd91538182b4ea73a588bdf22ceeebf120b38710577f09f33",
+      "block_height": 905308,
+      "timestamp": "2025-07-13T02:24:50Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pdpfhtpna86dz9weefk94udjsmr8yxk9ltfwgk68a7yj7uwrhgdss0zevfp",
+          "amount": 845231983,
+          "amount_dog": 8452.31983,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1p9n47huqlrz3xffpxgzs4f94xzcnwwme06wsnujv4ah082lrj357qz79xun",
+          "amount": 845231983,
+          "amount_dog": 8452.31983,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 8452.31983,
+      "total_dog_out": 8452.31983,
+      "total_dog_moved": 8452.31983,
+      "net_transfer": 8452.31983,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 835
+    }
+  ]
+}

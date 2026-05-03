@@ -1,0 +1,70 @@
+{
+  "block_height": 904774,
+  "timestamp": "2026-05-03T09:29:56.687805Z",
+  "transactions": [
+    {
+      "txid": "16dc2274401eec77dc355fce840892edb9b6113d53cc4a0c0f2a17080d71da98",
+      "block_height": 904774,
+      "timestamp": "2025-07-09T15:20:37Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pwdy4pn6uw3qj6u49ke0wca9zx095392nrll30d8lj9js5c7tj6cql55qaj",
+          "amount": 14510,
+          "amount_dog": 0.1451,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pn7wrejnfvf6fkh9sjyvgpa38t2v9jcp927ly9kky0fhcy8w5hlysy960f6",
+          "amount": 14510,
+          "amount_dog": 0.1451,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 0.1451,
+      "total_dog_out": 0.1451,
+      "total_dog_moved": 0.1451,
+      "net_transfer": 0.1451,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 6010
+    },
+    {
+      "txid": "52ece9e72cdb076cd17a042f83a201d1b8736e8966733e8642766d12322d5b3e",
+      "block_height": 904774,
+      "timestamp": "2025-07-09T15:20:37Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pe0r5lxrgy26gcjqpaadpetwyfvnl0537dxwcy3xrj82aaltfsq4qtgz649",
+          "amount": 1948016667,
+          "amount_dog": 19480.16667,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pe0r5lxrgy26gcjqpaadpetwyfvnl0537dxwcy3xrj82aaltfsq4qtgz649",
+          "amount": 1948016667,
+          "amount_dog": 19480.16667,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 19480.16667,
+      "total_dog_out": 19480.16667,
+      "total_dog_moved": 19480.16667,
+      "net_transfer": 0.0,
+      "change_amount": 19480.16667,
+      "has_change": true,
+      "fee_sats": 1340
+    }
+  ]
+}

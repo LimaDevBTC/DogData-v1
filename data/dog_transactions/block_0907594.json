@@ -1,0 +1,70 @@
+{
+  "block_height": 907594,
+  "timestamp": "2026-05-03T09:55:25.763222Z",
+  "transactions": [
+    {
+      "txid": "bfca13a77e245319b1d6951799bc9ac34f0999504b93d09ddecf4946fce76f68",
+      "block_height": 907594,
+      "timestamp": "2025-07-28T17:23:49Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "3MZxRfH86TjwMPfaaAjorTkLrxpsFJPKwk",
+          "amount": 269638181,
+          "amount_dog": 2696.38181,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pa8f5ryjzfxynsnj3xpzwduf7278jfnnnjjsdmwf3ddq0rpn0kyqsm545zt",
+          "amount": 269638181,
+          "amount_dog": 2696.38181,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 2696.38181,
+      "total_dog_out": 2696.38181,
+      "total_dog_moved": 2696.38181,
+      "net_transfer": 2696.38181,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 885
+    },
+    {
+      "txid": "f2cbec119a886079c4d109b3a423670f4e7c72afe89f59d94b1be80a3697758e",
+      "block_height": 907594,
+      "timestamp": "2025-07-28T17:23:49Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pt65exley6pv6uqws7xr3ku7u922tween0nfyz257rnl5300cjnrsjp9er6",
+          "amount": 24061521173,
+          "amount_dog": 240615.21173,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pt65exley6pv6uqws7xr3ku7u922tween0nfyz257rnl5300cjnrsjp9er6",
+          "amount": 24061521173,
+          "amount_dog": 240615.21173,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 240615.21173,
+      "total_dog_out": 240615.21173,
+      "total_dog_moved": 240615.21173,
+      "net_transfer": 0.0,
+      "change_amount": 240615.21173,
+      "has_change": true,
+      "fee_sats": 5520
+    }
+  ]
+}

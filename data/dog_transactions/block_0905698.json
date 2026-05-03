@@ -1,0 +1,70 @@
+{
+  "block_height": 905698,
+  "timestamp": "2026-05-03T09:38:25.276169Z",
+  "transactions": [
+    {
+      "txid": "cd60543d4bf3393d587d654fec8daa60e3b44243889aee06e324a26db9bb1d52",
+      "block_height": 905698,
+      "timestamp": "2025-07-15T15:18:24Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1qr35hws365juz5rtlsjtvmulu97957kqvr3zpw3",
+          "amount": 1087540666,
+          "amount_dog": 10875.40666,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1qr35hws365juz5rtlsjtvmulu97957kqvr3zpw3",
+          "amount": 1087540666,
+          "amount_dog": 10875.40666,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 10875.40666,
+      "total_dog_out": 10875.40666,
+      "total_dog_moved": 10875.40666,
+      "net_transfer": 0.0,
+      "change_amount": 10875.40666,
+      "has_change": true,
+      "fee_sats": 2000
+    },
+    {
+      "txid": "4fd37a5890cf6d93ef0e163920005496fe10303e3e1ae20436c3a36dd694d7b8",
+      "block_height": 905698,
+      "timestamp": "2025-07-15T15:18:24Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1p3vjmxstxlzzamsy92d0z60k683xd83dgvav8807jz9ls2vqrprcqwy4yj5",
+          "amount": 1111111111,
+          "amount_dog": 11111.11111,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1prqpwzqqcfzlrtjz3at5kuz4zevqsmvxc5xjuzvg58y48leu67x0q0kvy85",
+          "amount": 1111111111,
+          "amount_dog": 11111.11111,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 11111.11111,
+      "total_dog_out": 11111.11111,
+      "total_dog_moved": 11111.11111,
+      "net_transfer": 11111.11111,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 1263
+    }
+  ]
+}
