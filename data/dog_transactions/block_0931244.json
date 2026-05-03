@@ -1,0 +1,70 @@
+{
+  "block_height": 931244,
+  "timestamp": "2026-05-03T13:16:36.463724Z",
+  "transactions": [
+    {
+      "txid": "fc82384ccb4cef0485061b1db455fcb60e028f62dba9d74e1e6c1575be086634",
+      "block_height": 931244,
+      "timestamp": "2026-01-07T08:04:59Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1p52673nrtsed5n5nal7cm02u6pg63p0e6u4nm2fhm90xd8r4w3ass090zzy",
+          "amount": 9493066782,
+          "amount_dog": 94930.66782,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1p50n9sksy5gwe6fgrxxsqfcp6ndsfjhykjqef64m8067hfadd9efqrhpp9k",
+          "amount": 9493066782,
+          "amount_dog": 94930.66782,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 94930.66782,
+      "total_dog_out": 94930.66782,
+      "total_dog_moved": 94930.66782,
+      "net_transfer": 94930.66782,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 828
+    },
+    {
+      "txid": "f41f2651dc58f0213c8f6346600e9a67d092fff88ee348cb62d1a815aedc2982",
+      "block_height": 931244,
+      "timestamp": "2026-01-07T08:04:59Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1qcz3px6cau6659aldkwc9340xg0wrwak879shhx",
+          "amount": 11550683267,
+          "amount_dog": 115506.83267,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1qcz3px6cau6659aldkwc9340xg0wrwak879shhx",
+          "amount": 11550683267,
+          "amount_dog": 115506.83267,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 115506.83267,
+      "total_dog_out": 115506.83267,
+      "total_dog_moved": 115506.83267,
+      "net_transfer": 0.0,
+      "change_amount": 115506.83267,
+      "has_change": true,
+      "fee_sats": 1000
+    }
+  ]
+}

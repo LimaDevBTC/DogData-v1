@@ -1,0 +1,70 @@
+{
+  "block_height": 931179,
+  "timestamp": "2026-05-03T13:15:58.198101Z",
+  "transactions": [
+    {
+      "txid": "2fae52ab4554ec32d0854e6a227141f77c13dbfb201ca41234b74b2c0fef760c",
+      "block_height": 931179,
+      "timestamp": "2026-01-06T20:27:10Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1qyndtnvyqetrrljcvh3kee67m9v93k9zlmakmnvya4t09femkuwfsnn2nj9",
+          "amount": 1027109360,
+          "amount_dog": 10271.0936,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1qyjktvspegzjheul4nxw6rp28ue4ln87gspha05zvv07xskje6hzs6p6w6m",
+          "amount": 1027109360,
+          "amount_dog": 10271.0936,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 10271.0936,
+      "total_dog_out": 10271.0936,
+      "total_dog_moved": 10271.0936,
+      "net_transfer": 10271.0936,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 31787
+    },
+    {
+      "txid": "f78169b36b6793ceaafbd91f93f44dfcbc9ec6c6f1d7e27503dd066389d5cbea",
+      "block_height": 931179,
+      "timestamp": "2026-01-06T20:27:10Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1qcz3px6cau6659aldkwc9340xg0wrwak879shhx",
+          "amount": 11550683267,
+          "amount_dog": 115506.83267,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1qcz3px6cau6659aldkwc9340xg0wrwak879shhx",
+          "amount": 11550683267,
+          "amount_dog": 115506.83267,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 115506.83267,
+      "total_dog_out": 115506.83267,
+      "total_dog_moved": 115506.83267,
+      "net_transfer": 0.0,
+      "change_amount": 115506.83267,
+      "has_change": true,
+      "fee_sats": 1245
+    }
+  ]
+}

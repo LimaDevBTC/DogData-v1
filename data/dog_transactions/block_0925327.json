@@ -1,1 +1,45 @@
-{"block_height":925327,"timestamp":"2025-11-26T21:47:12Z","transactions":[{"txid":"1dcc344986111903971fb1ccfc0353b38d0c3285b0f64a09e8a104dfd21a95b6","block_height":925327,"timestamp":"2025-11-26T21:47:12Z","type":"self_transfer","senders":[{"address":"bc1pud2j5tpy5s3c5u6y7e2lqn8tp5208q0mmxjtjqncmzp9wyj5gssswnz8nk","amount":889806,"amount_dog":8.89806,"has_dog":true}],"receivers":[{"address":"bc1pud2j5tpy5s3c5u6y7e2lqn8tp5208q0mmxjtjqncmzp9wyj5gssswnz8nk","amount":889806,"amount_dog":8.89806,"has_dog":true,"is_change":true}],"sender_count":1,"receiver_count":1,"total_dog_in":8.89806,"total_dog_out":8.89806,"total_dog_moved":8.89806,"net_transfer":0.0,"change_amount":8.89806,"has_change":true,"fee_sats":701}]}
+{
+  "block_height": 925327,
+  "timestamp": "2026-05-03T12:29:25.061467Z",
+  "transactions": [
+    {
+      "txid": "1dcc344986111903971fb1ccfc0353b38d0c3285b0f64a09e8a104dfd21a95b6",
+      "block_height": 925327,
+      "timestamp": "2025-11-26T21:47:12Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pud2j5tpy5s3c5u6y7e2lqn8tp5208q0mmxjtjqncmzp9wyj5gssswnz8nk",
+          "amount": 2038774463,
+          "amount_dog": 20387.74463,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pud2j5tpy5s3c5u6y7e2lqn8tp5208q0mmxjtjqncmzp9wyj5gssswnz8nk",
+          "amount": 911481646,
+          "amount_dog": 9114.81646,
+          "has_dog": true,
+          "is_change": true
+        },
+        {
+          "address": "bc1pwper8wpfssxl4pd5grudsvcwxc8pecerxm46flmupj9n8l675rtsehu659",
+          "amount": 1127292817,
+          "amount_dog": 11272.92817,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 2,
+      "total_dog_in": 20387.74463,
+      "total_dog_out": 20387.74463,
+      "total_dog_moved": 20387.74463,
+      "net_transfer": 11272.92817,
+      "change_amount": 9114.81646,
+      "has_change": true,
+      "fee_sats": 701
+    }
+  ]
+}

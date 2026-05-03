@@ -1,1 +1,45 @@
-{"block_height":928783,"timestamp":"2025-12-21T02:23:41Z","transactions":[{"txid":"4e9db942b42c06ed596f95256d4b1d00753e9c726e949f71eaa59ee13bb839af","block_height":928783,"timestamp":"2025-12-21T02:23:41Z","type":"transfer","senders":[{"address":"bc1p97vqxafh682e3xfk4mjuewp8gs9dt9w72rnvn6a6rurr899u8kvsceeaup","amount":1779612,"amount_dog":17.79612,"has_dog":true}],"receivers":[{"address":"bc1p7c0ve7vcu0z3n4ff59vusg87jfnvjmvkjaywjj9cpgzydmc74a8s6mf8vv","amount":1779612,"amount_dog":17.79612,"has_dog":true,"is_change":false}],"sender_count":1,"receiver_count":1,"total_dog_in":17.79612,"total_dog_out":17.79612,"total_dog_moved":17.79612,"net_transfer":17.79612,"change_amount":0,"has_change":false,"fee_sats":277}]}
+{
+  "block_height": 928783,
+  "timestamp": "2026-05-03T12:56:02.467184Z",
+  "transactions": [
+    {
+      "txid": "4e9db942b42c06ed596f95256d4b1d00753e9c726e949f71eaa59ee13bb839af",
+      "block_height": 928783,
+      "timestamp": "2025-12-21T02:23:41Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1p97vqxafh682e3xfk4mjuewp8gs9dt9w72rnvn6a6rurr899u8kvsceeaup",
+          "amount": 8170075017,
+          "amount_dog": 81700.75017,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1p7c0ve7vcu0z3n4ff59vusg87jfnvjmvkjaywjj9cpgzydmc74a8s6mf8vv",
+          "amount": 200000000,
+          "amount_dog": 2000.0,
+          "has_dog": true,
+          "is_change": false
+        },
+        {
+          "address": "bc1p97vqxafh682e3xfk4mjuewp8gs9dt9w72rnvn6a6rurr899u8kvsceeaup",
+          "amount": 7970075017,
+          "amount_dog": 79700.75017,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 2,
+      "total_dog_in": 81700.75017,
+      "total_dog_out": 81700.75017,
+      "total_dog_moved": 81700.75017,
+      "net_transfer": 2000.0,
+      "change_amount": 79700.75017,
+      "has_change": true,
+      "fee_sats": 277
+    }
+  ]
+}
