@@ -1,0 +1,70 @@
+{
+  "block_height": 919362,
+  "timestamp": "2026-05-03T11:40:00.069316Z",
+  "transactions": [
+    {
+      "txid": "76ba30b096a9ee4a232ba409c05547b286a4c554b3575888d20e48b2c326e439",
+      "block_height": 919362,
+      "timestamp": "2025-10-16T16:35:24Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pud2j5tpy5s3c5u6y7e2lqn8tp5208q0mmxjtjqncmzp9wyj5gssswnz8nk",
+          "amount": 2323842566,
+          "amount_dog": 23238.42566,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pud2j5tpy5s3c5u6y7e2lqn8tp5208q0mmxjtjqncmzp9wyj5gssswnz8nk",
+          "amount": 2323842566,
+          "amount_dog": 23238.42566,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 23238.42566,
+      "total_dog_out": 23238.42566,
+      "total_dog_moved": 23238.42566,
+      "net_transfer": 0.0,
+      "change_amount": 23238.42566,
+      "has_change": true,
+      "fee_sats": 873
+    },
+    {
+      "txid": "c61f9edd5fc1e0faf33ea27a85a39fcb8f050f619497823f9713620cd33c531c",
+      "block_height": 919362,
+      "timestamp": "2025-10-16T16:35:24Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1p3kd4l3t2e92gtcytsf27p0znm7g3x93nngtzupynzhh2tpq84d2qtal2ly",
+          "amount": 127025640,
+          "amount_dog": 1270.2564,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1q876ucehac4q398agyvydeay0mfwsyvkrkzwl93",
+          "amount": 127025640,
+          "amount_dog": 1270.2564,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 1270.2564,
+      "total_dog_out": 1270.2564,
+      "total_dog_moved": 1270.2564,
+      "net_transfer": 1270.2564,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 639
+    }
+  ]
+}

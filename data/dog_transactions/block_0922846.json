@@ -1,0 +1,70 @@
+{
+  "block_height": 922846,
+  "timestamp": "2026-05-03T12:08:12.960842Z",
+  "transactions": [
+    {
+      "txid": "8b8a8122c2e4ac73132326697ad97ed5c683755d760f9da9ea1948a04b08ef65",
+      "block_height": 922846,
+      "timestamp": "2025-11-09T09:00:48Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pjfmafwmq9ycr2eh54dq74tq0x6f2962uzemsyeh4qtahskjfhz9sw7tdwh",
+          "amount": 2966020000,
+          "amount_dog": 29660.2,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pud2j5tpy5s3c5u6y7e2lqn8tp5208q0mmxjtjqncmzp9wyj5gssswnz8nk",
+          "amount": 2966020000,
+          "amount_dog": 29660.2,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 29660.2,
+      "total_dog_out": 29660.2,
+      "total_dog_moved": 29660.2,
+      "net_transfer": 29660.2,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 424
+    },
+    {
+      "txid": "d969a2e132dba19d44120315f542457d575c85452e879d80cf6920a2217130d4",
+      "block_height": 922846,
+      "timestamp": "2025-11-09T09:00:48Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pt65exley6pv6uqws7xr3ku7u922tween0nfyz257rnl5300cjnrsjp9er6",
+          "amount": 427602486,
+          "amount_dog": 4276.02486,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pt65exley6pv6uqws7xr3ku7u922tween0nfyz257rnl5300cjnrsjp9er6",
+          "amount": 427602486,
+          "amount_dog": 4276.02486,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 4276.02486,
+      "total_dog_out": 4276.02486,
+      "total_dog_moved": 4276.02486,
+      "net_transfer": 0.0,
+      "change_amount": 4276.02486,
+      "has_change": true,
+      "fee_sats": 822
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "block_height": 924926,
+  "timestamp": "2026-05-03T12:26:16.936584Z",
+  "transactions": [
+    {
+      "txid": "715029ee470ccfeb03c07563948fac9d1c42aeea3c096dfa2938afcb43dfa212",
+      "block_height": 924926,
+      "timestamp": "2025-11-24T01:32:30Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1qr4dl5wa7kl8yu792dceg9z5knl2gkn220lk7a9",
+          "amount": 371260088,
+          "amount_dog": 3712.60088,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1qr4dl5wa7kl8yu792dceg9z5knl2gkn220lk7a9",
+          "amount": 371260088,
+          "amount_dog": 3712.60088,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 3712.60088,
+      "total_dog_out": 3712.60088,
+      "total_dog_moved": 3712.60088,
+      "net_transfer": 0.0,
+      "change_amount": 3712.60088,
+      "has_change": true,
+      "fee_sats": 5805
+    },
+    {
+      "txid": "1e800a44c0baf5b4e6c4c39de3878c419a0b412ff6635692e65419ac1170d0da",
+      "block_height": 924926,
+      "timestamp": "2025-11-24T01:32:30Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pdwc9ldmj0gkt2zssqs4mmdn222hmpwhv37npts39uws7p308kekq8zndxq",
+          "amount": 49382394596,
+          "amount_dog": 493823.94596,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1p4grjy75x53ywzqvwy52cnvt07a9e2mvrf4l2pa5fs3c3f3q7h84q6lkq44",
+          "amount": 49382394596,
+          "amount_dog": 493823.94596,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 493823.94596,
+      "total_dog_out": 493823.94596,
+      "total_dog_moved": 493823.94596,
+      "net_transfer": 493823.94596,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 560
+    }
+  ]
+}
