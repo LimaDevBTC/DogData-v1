@@ -1,0 +1,70 @@
+{
+  "block_height": 886368,
+  "timestamp": "2026-05-03T06:27:38.361918Z",
+  "transactions": [
+    {
+      "txid": "7abe6d45e8e1eda3ec10cf1093f004994c5e1fab922b3979d0ef8435f9323dbb",
+      "block_height": 886368,
+      "timestamp": "2025-03-05T03:52:15Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pt65exley6pv6uqws7xr3ku7u922tween0nfyz257rnl5300cjnrsjp9er6",
+          "amount": 35309760,
+          "amount_dog": 353.0976,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pms0m94ch28yc27euz7539gen9qsdpdn8fn20l8hpe98lf730rsaqlr0dja",
+          "amount": 35309760,
+          "amount_dog": 353.0976,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 353.0976,
+      "total_dog_out": 353.0976,
+      "total_dog_moved": 353.0976,
+      "net_transfer": 353.0976,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 2804
+    },
+    {
+      "txid": "4b0315930edb9aab9ff49caacec2660592efb6b019f0d896244050f1de6b15af",
+      "block_height": 886368,
+      "timestamp": "2025-03-05T03:52:15Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pdddhjnwchqn8339nhhrv4la36tsd40z6qes47uaj4lq9gjqlsw2q86qplq",
+          "amount": 2004974563,
+          "amount_dog": 20049.74563,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pdddhjnwchqn8339nhhrv4la36tsd40z6qes47uaj4lq9gjqlsw2q86qplq",
+          "amount": 2004974563,
+          "amount_dog": 20049.74563,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 20049.74563,
+      "total_dog_out": 20049.74563,
+      "total_dog_moved": 20049.74563,
+      "net_transfer": 0.0,
+      "change_amount": 20049.74563,
+      "has_change": true,
+      "fee_sats": 2022
+    }
+  ]
+}

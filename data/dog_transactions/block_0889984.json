@@ -1,0 +1,70 @@
+{
+  "block_height": 889984,
+  "timestamp": "2026-05-03T07:02:56.649207Z",
+  "transactions": [
+    {
+      "txid": "45e4cf03451c125b74a4d919dac0cf627a1d56189bd3871f7090ff3d202a9c34",
+      "block_height": 889984,
+      "timestamp": "2025-03-29T15:00:53Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pywu7gkexg3dy7e0v3gchlflt4m99gaxyz74aztwf688cj0ne8saqfe2km8",
+          "amount": 215710545,
+          "amount_dog": 2157.10545,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pd3rpc7pmnkree95lxq6jf4wpt3f2m56pzdxtl2q206xan736df7qznskzh",
+          "amount": 215710545,
+          "amount_dog": 2157.10545,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 2157.10545,
+      "total_dog_out": 2157.10545,
+      "total_dog_moved": 2157.10545,
+      "net_transfer": 2157.10545,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 834
+    },
+    {
+      "txid": "1c71c3a13d64bfd2f0d84d49434ccf763e992ffcc38fe6e9865e5418df718ba2",
+      "block_height": 889984,
+      "timestamp": "2025-03-29T15:00:53Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pws6pvj75rcsc2eglpp9k570prnjh40nfpyahlyumk8y8smjayvasyhns5c",
+          "amount": 3666020000,
+          "amount_dog": 36660.2,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pws6pvj75rcsc2eglpp9k570prnjh40nfpyahlyumk8y8smjayvasyhns5c",
+          "amount": 3666020000,
+          "amount_dog": 36660.2,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 36660.2,
+      "total_dog_out": 36660.2,
+      "total_dog_moved": 36660.2,
+      "net_transfer": 0.0,
+      "change_amount": 36660.2,
+      "has_change": true,
+      "fee_sats": 537
+    }
+  ]
+}

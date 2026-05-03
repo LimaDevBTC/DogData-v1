@@ -1,0 +1,70 @@
+{
+  "block_height": 890236,
+  "timestamp": "2026-05-03T07:04:57.770758Z",
+  "transactions": [
+    {
+      "txid": "5c96a2718623d4a3d12533684f30d6f8573cbbbec9d5c306dd4c82b29f6c3caf",
+      "block_height": 890236,
+      "timestamp": "2025-03-31T10:08:54Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1ql26z8vf29ufamvs8mhjndk93sdegsk03clpuh8",
+          "amount": 8421093664,
+          "amount_dog": 84210.93664,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1ql26z8vf29ufamvs8mhjndk93sdegsk03clpuh8",
+          "amount": 8421093664,
+          "amount_dog": 84210.93664,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 84210.93664,
+      "total_dog_out": 84210.93664,
+      "total_dog_moved": 84210.93664,
+      "net_transfer": 0.0,
+      "change_amount": 84210.93664,
+      "has_change": true,
+      "fee_sats": 3000
+    },
+    {
+      "txid": "9d6fbb1aeac8c495704350fc499894808d08524c00999ebb51013665e654d53f",
+      "block_height": 890236,
+      "timestamp": "2025-03-31T10:08:54Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pxrnn2dhsheke3m96ufm6x6zyrgj8wt7hkdnhvthrx0zr3mjdnt5qnlvnnj",
+          "amount": 1000975006,
+          "amount_dog": 10009.75006,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pk0qs5ml4lqrmdu5yra47xrestcfp6re9g8vp9and46fk0v2pncdqaa3utc",
+          "amount": 1000975006,
+          "amount_dog": 10009.75006,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 10009.75006,
+      "total_dog_out": 10009.75006,
+      "total_dog_moved": 10009.75006,
+      "net_transfer": 10009.75006,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 1509
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "block_height": 888342,
+  "timestamp": "2026-05-03T06:46:48.488882Z",
+  "transactions": [
+    {
+      "txid": "af3ae007993e6f665de5e6ff34979966c06d407e0b560268acd0dbeecc500c49",
+      "block_height": 888342,
+      "timestamp": "2025-03-18T14:53:50Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pqhrxhuxjvpcwar7xu5zf3yv3692zyv3gpr0wxy4ze0smejzvxz2spextru",
+          "amount": 245125619,
+          "amount_dog": 2451.25619,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pqhrxhuxjvpcwar7xu5zf3yv3692zyv3gpr0wxy4ze0smejzvxz2spextru",
+          "amount": 245125619,
+          "amount_dog": 2451.25619,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 2451.25619,
+      "total_dog_out": 2451.25619,
+      "total_dog_moved": 2451.25619,
+      "net_transfer": 0.0,
+      "change_amount": 2451.25619,
+      "has_change": true,
+      "fee_sats": 2113
+    },
+    {
+      "txid": "2f199c38b42aef9af36618fa128515e8979f80d2ba743a947e26feb7b5d0bdb7",
+      "block_height": 888342,
+      "timestamp": "2025-03-18T14:53:50Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pt65exley6pv6uqws7xr3ku7u922tween0nfyz257rnl5300cjnrsjp9er6",
+          "amount": 582032583,
+          "amount_dog": 5820.32583,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1qh8dtp5fmyngvupw22hvyey350uy68p8lvcdsku",
+          "amount": 582032583,
+          "amount_dog": 5820.32583,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 5820.32583,
+      "total_dog_out": 5820.32583,
+      "total_dog_moved": 5820.32583,
+      "net_transfer": 5820.32583,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 1128
+    }
+  ]
+}

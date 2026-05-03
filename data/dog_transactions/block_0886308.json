@@ -1,0 +1,70 @@
+{
+  "block_height": 886308,
+  "timestamp": "2026-05-03T06:27:02.182929Z",
+  "transactions": [
+    {
+      "txid": "2b1f34a89b42b46cd22e8669b81adeed90110161e6a403ce1dca86456ab8b2d5",
+      "block_height": 886308,
+      "timestamp": "2025-03-04T17:51:28Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1qxwwk7lskluhpnqa40jja8fheqrag43jnnzsw63",
+          "amount": 219705184,
+          "amount_dog": 2197.05184,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1qt282w4uwq27wdtq8862spqgpggace8e0dr4ad9",
+          "amount": 219705184,
+          "amount_dog": 2197.05184,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 2197.05184,
+      "total_dog_out": 2197.05184,
+      "total_dog_moved": 2197.05184,
+      "net_transfer": 2197.05184,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 4558
+    },
+    {
+      "txid": "3817895fe835c743acb3109b89035d4690e6146640115cb0feb5f0823e4a93e2",
+      "block_height": 886308,
+      "timestamp": "2025-03-04T17:51:28Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pt65exley6pv6uqws7xr3ku7u922tween0nfyz257rnl5300cjnrsjp9er6",
+          "amount": 25204852474,
+          "amount_dog": 252048.52474,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pt65exley6pv6uqws7xr3ku7u922tween0nfyz257rnl5300cjnrsjp9er6",
+          "amount": 25204852474,
+          "amount_dog": 252048.52474,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 252048.52474,
+      "total_dog_out": 252048.52474,
+      "total_dog_moved": 252048.52474,
+      "net_transfer": 0.0,
+      "change_amount": 252048.52474,
+      "has_change": true,
+      "fee_sats": 2207
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "block_height": 891645,
+  "timestamp": "2026-05-03T07:18:16.245850Z",
+  "transactions": [
+    {
+      "txid": "4646bbcc5c365dbc6ea676f5680ec926485d992b10b65a6a3eee7df6c36d14da",
+      "block_height": 891645,
+      "timestamp": "2025-04-09T13:40:41Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pj8za2pkr8e3wzjjc5mm2pzewcgfqaspuqt5pt35yvjunr5z60ggsrd30pz",
+          "amount": 843371135,
+          "amount_dog": 8433.71135,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1p9km4jqgl3mpqmuauwcnjudk2fgdsc7zt3hffxgtll00w0fyduess39z3qm",
+          "amount": 843371135,
+          "amount_dog": 8433.71135,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 8433.71135,
+      "total_dog_out": 8433.71135,
+      "total_dog_moved": 8433.71135,
+      "net_transfer": 8433.71135,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 633
+    },
+    {
+      "txid": "c0b88af48c4fa93c58b7f2ff70b97fd607aebd47ea6a2498902fb77414df7b97",
+      "block_height": 891645,
+      "timestamp": "2025-04-09T13:40:41Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pws6pvj75rcsc2eglpp9k570prnjh40nfpyahlyumk8y8smjayvasyhns5c",
+          "amount": 3666020000,
+          "amount_dog": 36660.2,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pws6pvj75rcsc2eglpp9k570prnjh40nfpyahlyumk8y8smjayvasyhns5c",
+          "amount": 3666020000,
+          "amount_dog": 36660.2,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 36660.2,
+      "total_dog_out": 36660.2,
+      "total_dog_moved": 36660.2,
+      "net_transfer": 0.0,
+      "change_amount": 36660.2,
+      "has_change": true,
+      "fee_sats": 256
+    }
+  ]
+}

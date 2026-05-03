@@ -1,0 +1,70 @@
+{
+  "block_height": 887370,
+  "timestamp": "2026-05-03T06:37:21.557095Z",
+  "transactions": [
+    {
+      "txid": "baf761c9518ecf770dca1cc8e5921c4820927d58eafc7b6fdbf3b1289bfe2d0a",
+      "block_height": 887370,
+      "timestamp": "2025-03-11T22:03:05Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pmsadnhg4wrmu3xwjzuu6ty2ddrenusym3h63933txltgn68w8wuqs3ewz2",
+          "amount": 51112144829,
+          "amount_dog": 511121.44829,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pmsadnhg4wrmu3xwjzuu6ty2ddrenusym3h63933txltgn68w8wuqs3ewz2",
+          "amount": 51112144829,
+          "amount_dog": 511121.44829,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 511121.44829,
+      "total_dog_out": 511121.44829,
+      "total_dog_moved": 511121.44829,
+      "net_transfer": 0.0,
+      "change_amount": 511121.44829,
+      "has_change": true,
+      "fee_sats": 2856
+    },
+    {
+      "txid": "dc0dc4154b6bb05b0e69513b2dc96e85d6d908441109567364910e9fcc451240",
+      "block_height": 887370,
+      "timestamp": "2025-03-11T22:03:05Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1p50n9sksy5gwe6fgrxxsqfcp6ndsfjhykjqef64m8067hfadd9efqrhpp9k",
+          "amount": 5932040000,
+          "amount_dog": 59320.4,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1qc55ct0nez5ltduucsdk4gamr0704fszg2eq5ec",
+          "amount": 5932040000,
+          "amount_dog": 59320.4,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 59320.4,
+      "total_dog_out": 59320.4,
+      "total_dog_moved": 59320.4,
+      "net_transfer": 59320.4,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 2240
+    }
+  ]
+}

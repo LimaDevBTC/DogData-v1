@@ -1,0 +1,70 @@
+{
+  "block_height": 888841,
+  "timestamp": "2026-05-03T06:51:35.019999Z",
+  "transactions": [
+    {
+      "txid": "738a8b47446dff355cc1cd0d5bdb7c459b785254932015c09a3267386c7db899",
+      "block_height": 888841,
+      "timestamp": "2025-03-22T01:30:11Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pucfkgg0upqslnj39dkr72qx7u0xuf66rc0zfhga6nmqnqs827v6sqnd5me",
+          "amount": 41251789,
+          "amount_dog": 412.51789,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pucfkgg0upqslnj39dkr72qx7u0xuf66rc0zfhga6nmqnqs827v6sqnd5me",
+          "amount": 41251789,
+          "amount_dog": 412.51789,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 412.51789,
+      "total_dog_out": 412.51789,
+      "total_dog_moved": 412.51789,
+      "net_transfer": 0.0,
+      "change_amount": 412.51789,
+      "has_change": true,
+      "fee_sats": 1857
+    },
+    {
+      "txid": "164db81c707e496b932ba32c0bc75a9a7336503806186232d2b4e013ca35bf94",
+      "block_height": 888841,
+      "timestamp": "2025-03-22T01:30:11Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pwvyce9k5efnc8fhtt53vlzljlmaa8haa00g0u8qpzalm2fccqwgs8j6e4a",
+          "amount": 177961200,
+          "amount_dog": 1779.612,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1prn2gatadgv54mf55dezp6vvn8e6uhtkra60zy7tqlg77g2wqeprsutl6ry",
+          "amount": 177961200,
+          "amount_dog": 1779.612,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 1779.612,
+      "total_dog_out": 1779.612,
+      "total_dog_moved": 1779.612,
+      "net_transfer": 1779.612,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 254
+    }
+  ]
+}

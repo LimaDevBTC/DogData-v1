@@ -1,0 +1,84 @@
+{
+  "block_height": 886960,
+  "timestamp": "2026-05-03T06:33:27.330943Z",
+  "transactions": [
+    {
+      "txid": "7b9df0c65e9086241e20825118ee25eb669aed228257457bd9482f398c11ccb2",
+      "block_height": 886960,
+      "timestamp": "2025-03-09T03:57:31Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1qm34lsc65zpw79lxes69zkqmk6ee3ewf0j77s3h",
+          "amount": 269638181,
+          "amount_dog": 2696.38181,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "3P5EUXLPJwvGBWivCANdyuHHEzHGM6FMeR",
+          "amount": 269638181,
+          "amount_dog": 2696.38181,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 2696.38181,
+      "total_dog_out": 2696.38181,
+      "total_dog_moved": 2696.38181,
+      "net_transfer": 2696.38181,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 4090
+    },
+    {
+      "txid": "41da5909f552f406d10029505b3405308b5b1adf0a439fb7a9116ae88b89e649",
+      "block_height": 886960,
+      "timestamp": "2025-03-09T03:57:31Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1p0hynwdu3l6s4edw25phq3gajexhrtjm0vfagvhv42nnkgtn0hzjspp9lef",
+          "amount": 7978654549,
+          "amount_dog": 79786.54549,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1p0hynwdu3l6s4edw25phq3gajexhrtjm0vfagvhv42nnkgtn0hzjspp9lef",
+          "amount": 2659551517,
+          "amount_dog": 26595.51517,
+          "has_dog": true,
+          "is_change": true
+        },
+        {
+          "address": "bc1p0hynwdu3l6s4edw25phq3gajexhrtjm0vfagvhv42nnkgtn0hzjspp9lef",
+          "amount": 2659551516,
+          "amount_dog": 26595.51516,
+          "has_dog": true,
+          "is_change": true
+        },
+        {
+          "address": "bc1qpxmjpssf5djqddvdp6js80st8nq0eq2ml4yaln",
+          "amount": 2659551516,
+          "amount_dog": 26595.51516,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 3,
+      "total_dog_in": 79786.54549,
+      "total_dog_out": 79786.54549,
+      "total_dog_moved": 79786.54549,
+      "net_transfer": 26595.51516,
+      "change_amount": 53191.03033,
+      "has_change": true,
+      "fee_sats": 554
+    }
+  ]
+}

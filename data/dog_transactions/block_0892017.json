@@ -1,0 +1,70 @@
+{
+  "block_height": 892017,
+  "timestamp": "2026-05-03T07:21:33.441730Z",
+  "transactions": [
+    {
+      "txid": "dafdfae94535cbbcfeaf6aa85c2fe061a94391a5a2a4e30b162597842200cd21",
+      "block_height": 892017,
+      "timestamp": "2025-04-12T02:56:45Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pvvhjj58zsk6aw0z3fccx46k3gjvg3aj4cn2wm3qh296d93gydyks6d0qgf",
+          "amount": 329557777,
+          "amount_dog": 3295.57777,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1ptfreh2dplsxnyycn4twtvqsq5y9fe3c0kwv6jvmrvvmdxzwa586sfeeavg",
+          "amount": 329557777,
+          "amount_dog": 3295.57777,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 3295.57777,
+      "total_dog_out": 3295.57777,
+      "total_dog_moved": 3295.57777,
+      "net_transfer": 3295.57777,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 241
+    },
+    {
+      "txid": "93bdeb5604e89a164b911d819f471192665191796e0717832d39cc4ff38f5764",
+      "block_height": 892017,
+      "timestamp": "2025-04-12T02:56:45Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1qmscmeqqxqz7vkfscfs8pvl98gkdkcr8e0egkhm",
+          "amount": 35594701346,
+          "amount_dog": 355947.01346,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1qmscmeqqxqz7vkfscfs8pvl98gkdkcr8e0egkhm",
+          "amount": 35594701346,
+          "amount_dog": 355947.01346,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 355947.01346,
+      "total_dog_out": 355947.01346,
+      "total_dog_moved": 355947.01346,
+      "net_transfer": 0.0,
+      "change_amount": 355947.01346,
+      "has_change": true,
+      "fee_sats": 2076
+    }
+  ]
+}
