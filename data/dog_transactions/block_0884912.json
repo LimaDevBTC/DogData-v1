@@ -1,0 +1,70 @@
+{
+  "block_height": 884912,
+  "timestamp": "2026-05-03T06:12:05.180209Z",
+  "transactions": [
+    {
+      "txid": "8f5be4c8ac44731f7125521b11723bca5db1f907ad9c2a20dbad942c58a1e997",
+      "block_height": 884912,
+      "timestamp": "2025-02-22T23:37:18Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1qr35hws365juz5rtlsjtvmulu97957kqvr3zpw3",
+          "amount": 539376362,
+          "amount_dog": 5393.76362,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1qr35hws365juz5rtlsjtvmulu97957kqvr3zpw3",
+          "amount": 539376362,
+          "amount_dog": 5393.76362,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 5393.76362,
+      "total_dog_out": 5393.76362,
+      "total_dog_moved": 5393.76362,
+      "net_transfer": 0.0,
+      "change_amount": 5393.76362,
+      "has_change": true,
+      "fee_sats": 3149
+    },
+    {
+      "txid": "b72d01777fd1145622aa96df5e2a17c0561d2ff9e010321035beaa51caf3c91c",
+      "block_height": 884912,
+      "timestamp": "2025-02-22T23:37:18Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pkuu0qa5m9tkdkxp8e2fyvvr708rdtgnxn4pra8lzpk3c2uf9gvgqjruxh4",
+          "amount": 158118528,
+          "amount_dog": 1581.18528,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1py7h826epe0tlwlyjknnm0rz0mn39rqav35tqj4y406m5svlxu2zse2pt76",
+          "amount": 158118528,
+          "amount_dog": 1581.18528,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 1581.18528,
+      "total_dog_out": 1581.18528,
+      "total_dog_moved": 1581.18528,
+      "net_transfer": 1581.18528,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 5544
+    }
+  ]
+}

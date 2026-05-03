@@ -1,0 +1,70 @@
+{
+  "block_height": 883025,
+  "timestamp": "2026-05-03T05:52:38.601344Z",
+  "transactions": [
+    {
+      "txid": "06de821fcf0e12a45f6f4bac73e63c88ff2014cd66aec6bd119c46e6813ed062",
+      "block_height": 883025,
+      "timestamp": "2025-02-09T12:31:06Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1p96gcv2yylsv4t9z7g6zaseyzqwvxlemx2xgphgcqgsu7f27v6kaslwpfxz",
+          "amount": 1458024,
+          "amount_dog": 14.58024,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1ple6qt4rffvgaey66zvy02337jajd8pttjehfgtxxxvdydgvpx6wsv0d4wa",
+          "amount": 1458024,
+          "amount_dog": 14.58024,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 14.58024,
+      "total_dog_out": 14.58024,
+      "total_dog_moved": 14.58024,
+      "net_transfer": 14.58024,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 240
+    },
+    {
+      "txid": "b884a91e743152b90107f1320318f7a5c859392b994caf8c22222aedb4992316",
+      "block_height": 883025,
+      "timestamp": "2025-02-09T12:31:06Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1p7dqewv52zsfatltqf7x9tgdsp4azplm082k3n9a7spsddzvr09gslqzfrh",
+          "amount": 269638181,
+          "amount_dog": 2696.38181,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1p7dqewv52zsfatltqf7x9tgdsp4azplm082k3n9a7spsddzvr09gslqzfrh",
+          "amount": 269638181,
+          "amount_dog": 2696.38181,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 2696.38181,
+      "total_dog_out": 2696.38181,
+      "total_dog_moved": 2696.38181,
+      "net_transfer": 0.0,
+      "change_amount": 2696.38181,
+      "has_change": true,
+      "fee_sats": 1770
+    }
+  ]
+}
