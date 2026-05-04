@@ -553,7 +553,17 @@ def main():
     except Exception as e:
         log(f"⚠️ Análise forense error (non-fatal): {e}")
 
-    # 6.5 "Possible Lost DOG" — auto-incremental, depends on the forensic output above.
+    # 7. Commit e push (sempre tenta) — feito ANTES dos steps lentos pra
+    #    publicar holders+forensic+airdrop on-time (~HH:26).
+    log("")
+    if git_commit_and_push():
+        success_count += 1
+        total_steps = 5
+
+    # 8. "Possible Lost DOG" — auto-incremental, ~6 min via scantxoutset local.
+    #    Roda DEPOIS do git push pra não atrasar a publicação dos dados horários.
+    #    O output entra no commit da próxima hora (lost cohort muda muito devagar,
+    #    ~2 wallets/h no máximo, então 1h de defasagem é irrelevante).
     log("")
     log("💎 Atualizando análise de Possible Lost DOG (diamond paws)…")
     try:
@@ -580,13 +590,7 @@ def main():
     except Exception as e:
         log(f"⚠️ Lost DOG error (non-fatal): {e}")
 
-    # 7. Commit e push (sempre tenta)
-    log("")
-    if git_commit_and_push():
-        success_count += 1
-        total_steps = 5
-    
-    # 7. Coletar métricas históricas para Supabase
+    # 9. Coletar métricas históricas para Supabase
     log("")
     log("📊 Coletando métricas históricas para Supabase...")
     try:
