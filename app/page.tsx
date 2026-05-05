@@ -110,10 +110,9 @@ export default function OverviewPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [statsResponse, holdersResponse, runeResponse, marketsResponse] = await Promise.allSettled([
+        const [statsResponse, holdersResponse, marketsResponse] = await Promise.allSettled([
           fetch('/api/dog-rune/stats', { next: { revalidate: 300 } }),
           fetch('/api/dog-rune/holders?page=1&limit=1', { next: { revalidate: 300 } }),
-          fetch('/api/dog-rune/data', { next: { revalidate: 300 } }),
           fetch('/api/markets', { next: { revalidate: 300 } })
         ])
 
@@ -130,9 +129,14 @@ export default function OverviewPage() {
           } catch (e) { console.warn('Failed to parse holders:', e) }
         }
 
-        let runeData: any = { totalSupply: 0, circulatingSupply: 0 }
-        if (runeResponse.status === 'fulfilled' && runeResponse.value.ok) {
-          try { runeData = await runeResponse.value.json() } catch (e) { console.warn('Failed to parse rune data:', e) }
+        const runeData: any = {
+          totalSupply: statsData.total_supply ?? 0,
+          circulatingSupply: statsData.circulating_supply ?? 0,
+          burned: statsData.burned ?? 0,
+          burnedPercentage: statsData.burned_pct ?? 0,
+          runeId: statsData.rune_id,
+          lastUpdated: statsData.last_updated,
+          source: statsData.source,
         }
 
         if (marketsResponse.status === 'fulfilled' && marketsResponse.value.ok) {

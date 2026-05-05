@@ -54,6 +54,7 @@ interface RedisTransaction {
   txid: string
   block_height: number
   timestamp: string | number
+  type?: string
   total_dog_moved: number
   net_transfer?: number
   fee_sats?: number
@@ -169,9 +170,13 @@ function processRedisData(transactions: RedisTransaction[]): { buckets: HeatmapB
     const h = tx.block_height
     if (!h || h < startBlock || h > tipBlock) continue
 
+    // Self-transfers (UTXO consolidation / change-only) move no DOG —
+    // skip entirely so volume, whale flags, and tx counts reflect real movement.
+    if (tx.type === 'self_transfer') continue
+
     const idx = Math.min(TOTAL_CELLS - 1, Math.floor((h - startBlock) / bpc))
     const b = grid[idx]
-    const vol = tx.total_dog_moved || 0
+    const vol = typeof tx.net_transfer === 'number' ? tx.net_transfer : (tx.total_dog_moved || 0)
     const fee = tx.fee_sats || 0
 
     b.txCount++
@@ -302,9 +307,17 @@ export function TransactionHeatmap() {
     setDrillLoading(true)
     try {
       if (timeframe === '1d' && rawTransactions.length > 0) {
-        const matched = rawTransactions.filter(tx =>
-          tx.block_height >= bucket.startBlock && tx.block_height < bucket.endBlock
-        ).sort((a, b) => (b.total_dog_moved || 0) - (a.total_dog_moved || 0))
+        const matched = rawTransactions
+          .filter(tx =>
+            tx.block_height >= bucket.startBlock &&
+            tx.block_height < bucket.endBlock &&
+            tx.type !== 'self_transfer'
+          )
+          .sort((a, b) => {
+            const aVol = typeof a.net_transfer === 'number' ? a.net_transfer : (a.total_dog_moved || 0)
+            const bVol = typeof b.net_transfer === 'number' ? b.net_transfer : (b.total_dog_moved || 0)
+            return bVol - aVol
+          })
 
         setDrillTxs(matched.map(tx => ({
           txid: tx.txid,
@@ -312,7 +325,7 @@ export function TransactionHeatmap() {
           timestamp: typeof tx.timestamp === 'number'
             ? new Date(tx.timestamp < 1e12 ? tx.timestamp * 1000 : tx.timestamp).toISOString()
             : String(tx.timestamp),
-          type: 'transfer',
+          type: tx.type || 'transfer',
           total_dog_moved: tx.total_dog_moved || 0,
           net_transfer: tx.net_transfer || 0,
           fee_sats: tx.fee_sats || null,
@@ -679,10 +692,15 @@ export function TransactionHeatmap() {
                       }
                     </button>
 
-                    {/* Dados */}
-                    <span className={`font-bold ml-1 ${Number(tx.total_dog_moved) >= 1_000_000 ? 'text-text-accent' : 'text-text-primary'}`}>
-                      {fmtVolume(Number(tx.total_dog_moved))} DOG
-                    </span>
+                    {/* Dados — usar net_transfer (DOG real movido, exclui change/self) */}
+                    {(() => {
+                      const realMoved = typeof tx.net_transfer === 'number' ? tx.net_transfer : (tx.total_dog_moved || 0)
+                      return (
+                        <span className={`font-bold ml-1 ${realMoved >= 1_000_000 ? 'text-text-accent' : 'text-text-primary'}`}>
+                          {fmtVolume(realMoved)} DOG
+                        </span>
+                      )
+                    })()}
                     <span className="text-text-tertiary text-[10px]">
                       {fmtBlock(tx.block_height)}
                     </span>
