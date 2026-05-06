@@ -130,10 +130,14 @@ export async function GET(request: Request) {
     }
 
     // Query — buscar dados brutos
+    // Ordenar DESC: o PostgREST tem um cap implícito de ~1000 linhas; com ASC,
+    // 90d/all retornavam apenas as 1000 linhas mais antigas, fazendo o gráfico
+    // "parar" semanas atrás. Com DESC pegamos as últimas 1000 (presente) e
+    // revertemos antes do downsample, que assume ordenação ascendente.
     let query = supabase
       .from('dog_metrics_history')
       .select(selectColumns)
-      .order('recorded_at', { ascending: true })
+      .order('recorded_at', { ascending: false })
 
     if (cutoffDate) {
       query = query.gte('recorded_at', cutoffDate.toISOString())
@@ -156,15 +160,19 @@ export async function GET(request: Request) {
       )
     }
 
+    // Reverter para ordem ascendente — downsample agrupa por bucket e ordena
+    // depois, mas usamos os dados brutos para extrair last_updated.
+    const ascending = (data || []).slice().reverse()
+
     // Downsample: agrupar em buckets temporais
-    const downsampled = downsample(data || [], range)
+    const downsampled = downsample(ascending, range)
 
     const result = {
       history: downsampled,
       total_points: downsampled.length,
-      raw_points: data?.length || 0,
+      raw_points: ascending.length,
       range,
-      last_updated: data && data.length > 0 ? (data[data.length - 1] as any).recorded_at : null
+      last_updated: ascending.length > 0 ? (ascending[ascending.length - 1] as any).recorded_at : null
     }
 
     // Atualizar cache
