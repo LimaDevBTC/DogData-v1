@@ -1,21 +1,46 @@
 import { NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
+import { getLatestMetricsSnapshot } from '@/lib/metrics-snapshot'
 
-export const revalidate = 0 // Sempre revalidar (sem cache)
+export const revalidate = 60
+
+const TOTAL_SUPPLY = 100_000_000_000
 
 export async function GET() {
+  // 1) Source of truth: Supabase (atualiza :35 de cada hora, sem deploy lag)
   try {
-    // Ler dados de holders do JSON
+    const snap = await getLatestMetricsSnapshot()
+    if (snap) {
+      // Supabase só guarda os percentuais; reconstroi os absolutos a partir do
+      // total supply para preservar o contrato anterior do endpoint.
+      const supplyInProfit = (snap.supply_in_profit_pct / 100) * TOTAL_SUPPLY
+      const supplyInLoss = (snap.supply_in_loss_pct / 100) * TOTAL_SUPPLY
+
+      return NextResponse.json({
+        supply_in_profit: supplyInProfit,
+        supply_in_loss: supplyInLoss,
+        supply_in_profit_pct: snap.supply_in_profit_pct,
+        supply_in_loss_pct: snap.supply_in_loss_pct,
+        current_price: snap.current_price,
+        last_updated: snap.recorded_at,
+        source: 'supabase',
+      }, {
+        headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' }
+      })
+    }
+  } catch (e) {
+    console.error('[supply-profit-loss] Supabase fetch failed, falling back to file:', e)
+  }
+
+  // 2) Fallback: bundled file (deploy-stale).
+  try {
     const dataPath = path.join(process.cwd(), 'public', 'data', 'dog_holders.json')
-    
     if (!fs.existsSync(dataPath)) {
       return NextResponse.json({ error: 'Holders data not found' }, { status: 404 })
     }
-
     const holdersData = JSON.parse(fs.readFileSync(dataPath, 'utf-8'))
     const utxoAgeStats = holdersData.utxo_age_stats
-    
     if (!utxoAgeStats) {
       return NextResponse.json(
         { error: 'UTXO age stats not available. Please run update_holders_and_fees.py script.' },
@@ -23,34 +48,24 @@ export async function GET() {
       )
     }
 
-    const supplyInProfit = utxoAgeStats.supply_in_profit
-    const supplyInLoss = utxoAgeStats.supply_in_loss
-    const supplyInProfitPct = utxoAgeStats.supply_in_profit_pct
-    const supplyInLossPct = utxoAgeStats.supply_in_loss_pct
-    const currentPrice = utxoAgeStats.current_price
-
-    if (supplyInProfit === undefined || supplyInLoss === undefined) {
+    const { supply_in_profit, supply_in_loss, supply_in_profit_pct, supply_in_loss_pct, current_price } = utxoAgeStats
+    if (supply_in_profit === undefined || supply_in_loss === undefined) {
       return NextResponse.json(
         { error: 'Supply in Profit/Loss metrics not calculated yet. Please run update_holders_and_fees.py script.' },
         { status: 503 }
       )
     }
 
-    const result = {
-      supply_in_profit: supplyInProfit,
-      supply_in_loss: supplyInLoss,
-      supply_in_profit_pct: supplyInProfitPct,
-      supply_in_loss_pct: supplyInLossPct,
-      current_price: currentPrice,
-      last_updated: holdersData.timestamp || new Date().toISOString()
-    }
-
-    return NextResponse.json(result, {
-      headers: {
-        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      }
+    return NextResponse.json({
+      supply_in_profit,
+      supply_in_loss,
+      supply_in_profit_pct,
+      supply_in_loss_pct,
+      current_price,
+      last_updated: holdersData.timestamp || new Date().toISOString(),
+      source: 'file',
+    }, {
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300', 'X-Source': 'file' }
     })
   } catch (error: any) {
     console.error('Error fetching Supply in Profit/Loss metrics:', error)
@@ -60,8 +75,3 @@ export async function GET() {
     )
   }
 }
-
-
-
-
-
