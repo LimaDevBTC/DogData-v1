@@ -1,171 +1,77 @@
-import { NextResponse } from 'next/server';
+/**
+ * Despite the name (legacy), this endpoint no longer hits the Unisat API.
+ *
+ * Now serves a single tx lookup from our own Supabase `dog_transactions`
+ * table. Same response shape, no external dependency, no timeouts.
+ *
+ * Frontend caller: app/transactions/page.tsx searchTransaction()
+ */
 
-const UNISAT_API_TOKEN = process.env.UNISAT_API_TOKEN;
+import { NextResponse } from 'next/server'
+import { supabase } from '@/lib/supabase'
+
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
+function parseJson(v: any): any[] {
+  if (Array.isArray(v)) return v
+  if (!v) return []
+  try { return JSON.parse(v) } catch { return [] }
+}
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const txid = searchParams.get('txid');
+  const { searchParams } = new URL(request.url)
+  const txid = (searchParams.get('txid') || '').trim().toLowerCase()
 
-  if (!txid) {
+  if (!txid || !/^[0-9a-f]{64}$/.test(txid)) {
     return NextResponse.json(
-      { error: 'TXID is required' },
+      { error: 'Valid TXID required (64-char hex)' },
       { status: 400 }
-    );
-  }
-
-  if (!UNISAT_API_TOKEN) {
-    console.error('❌ UNISAT_API_TOKEN não configurado.');
-    return NextResponse.json(
-      { error: 'Unisat API token not configured' },
-      { status: 500 }
-    );
+    )
   }
 
   try {
-    console.log(`🔍 Buscando TX ${txid} na Unisat...`);
+    const { data, error } = await supabase
+      .from('dog_transactions')
+      .select('txid, block_height, timestamp, type, total_dog_moved, net_transfer, change_amount, has_change, fee_sats, sender_count, receiver_count, senders, receivers')
+      .eq('txid', txid)
+      .maybeSingle()
 
-    // Buscar eventos relacionados a este TXID
-    const response = await fetch(
-      `https://open-api.unisat.io/v1/indexer/runes/event?rune=DOG%E2%80%A2GO%E2%80%A2TO%E2%80%A2THE%E2%80%A2MOON&start=0&limit=100`,
-      {
-        headers: {
-          Authorization: `Bearer ${UNISAT_API_TOKEN}`,
-          'User-Agent': 'DogData Explorer/1.0'
-        }
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Unisat API error: ${response.status}`);
+    if (error) {
+      console.error('[search-tx] Supabase error:', error)
+      return NextResponse.json({ error: 'Lookup failed', details: error.message }, { status: 500 })
     }
 
-    const data = await response.json();
-
-    if (data.code !== 0) {
-      throw new Error(`Unisat API error: ${data.msg}`);
+    if (!data) {
+      return NextResponse.json({ error: 'Transaction not found', txid }, { status: 404 })
     }
 
-    const events = data.data.detail;
-    const DOG_RUNE_ID = '840000:3'; // ID da runa DOG
-
-    // VALIDAÇÃO CRÍTICA: Filtrar apenas eventos que realmente são de DOG (runeId = 840000:3)
-    // E que pertencem a este TXID
-    const txEvents = events.filter((e: any) => {
-      const isCorrectTx = e.txid === txid;
-      const isDog = (e.runeId || '') === DOG_RUNE_ID;
-      
-      if (isCorrectTx && !isDog && e.runeId) {
-        console.warn(`⚠️ [SEARCH-TX] Evento ignorado - não é DOG: runeId=${e.runeId}, rune=${e.rune || 'N/A'}, txid=${txid.substring(0, 8)}...`);
-      }
-      
-      return isCorrectTx && isDog;
-    });
-
-    if (txEvents.length === 0) {
-      return NextResponse.json(
-        { error: 'Transaction not found' },
-        { status: 404 }
-      );
-    }
-
-    // Processar eventos em uma transação
-    const sends = txEvents.filter((e: any) => e.event === 'send');
-    const receives = txEvents.filter((e: any) => e.event === 'receive');
-
-    const blockHeight = txEvents[0].blockHeight;
-    const timestamp = txEvents[0].timestamp;
-
-    // Processar senders
-    const senders = [];
-    let totalDogIn = 0;
-    const senderAddresses = new Set();
-
-    for (const send of sends) {
-      const address = send.address;
-      senderAddresses.add(address);
-      const amount = parseInt(send.amount);
-      const amountDog = amount / 100000;
-      totalDogIn += amountDog;
-
-      senders.push({
-        address,
-        amount,
-        amount_dog: amountDog,
-        has_dog: true
-      });
-    }
-
-    // Processar receivers
-    const receivers = [];
-    let totalDogOut = 0;
-    let totalToSelf = 0;
-
-    for (const receive of receives) {
-      const address = receive.address;
-      const amount = parseInt(receive.amount);
-      const amountDog = amount / 100000;
-      totalDogOut += amountDog;
-
-      const isChange = senderAddresses.has(address);
-      if (isChange) {
-        totalToSelf += amountDog;
-      }
-
-      receivers.push({
-        address,
-        amount,
-        amount_dog: amountDog,
-        has_dog: true,
-        is_change: isChange
-      });
-    }
-
-    // Calcular net transfer
-    const netTransfer = totalDogOut - totalToSelf;
-
-    // Determinar tipo
-    let txType = 'transfer';
-    if (senders.length === 0) {
-      txType = 'receive_only';
-    } else if (receivers.length === 0) {
-      txType = 'burn';
-    } else if (netTransfer < 0.00001) {
-      if (senders.length > receivers.length) {
-        txType = 'consolidation';
-      } else {
-        txType = 'split';
-      }
-    } else if (senders.length > 1 && receivers.length === 1) {
-      txType = 'consolidation';
-    }
-
-    const transaction = {
-      txid,
-      block_height: blockHeight,
-      timestamp,
-      type: txType,
-      senders,
-      receivers,
-      sender_count: senders.length,
-      receiver_count: receivers.length,
-      total_dog_in: Math.round(totalDogIn * 100000) / 100000,
-      total_dog_out: Math.round(totalDogOut * 100000) / 100000,
-      total_dog_moved: Math.round(totalDogOut * 100000) / 100000,
-      net_transfer: Math.round(netTransfer * 100000) / 100000,
-      change_amount: Math.round(totalToSelf * 100000) / 100000,
-      has_change: totalToSelf > 0
-    };
-
-    console.log(`✅ TX encontrada: bloco ${blockHeight}`);
-
-    return NextResponse.json(transaction);
-
-  } catch (error: any) {
-    console.error('Error searching transaction:', error);
+    const row: any = data
+    return NextResponse.json({
+      txid: row.txid,
+      block_height: row.block_height,
+      timestamp: row.timestamp,
+      type: row.type || 'transfer',
+      senders: parseJson(row.senders),
+      receivers: parseJson(row.receivers),
+      total_dog_moved: row.total_dog_moved ?? 0,
+      total_dog_in: row.total_dog_moved ?? 0,
+      total_dog_out: row.total_dog_moved ?? 0,
+      net_transfer: row.net_transfer ?? row.total_dog_moved ?? 0,
+      change_amount: row.change_amount ?? 0,
+      has_change: row.has_change ?? false,
+      sender_count: row.sender_count ?? 0,
+      receiver_count: row.receiver_count ?? 0,
+      fee_sats: row.fee_sats ?? null,
+      source: 'supabase',
+    }, {
+      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' }
+    })
+  } catch (err: any) {
+    console.error('[search-tx] unexpected error:', err)
     return NextResponse.json(
-      { error: 'Failed to search transaction', details: error.message },
+      { error: 'Lookup failed', details: err.message || String(err) },
       { status: 500 }
-    );
+    )
   }
 }
-

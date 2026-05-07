@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs/promises';
 import path from 'path';
+import { getLiveSnapshot } from '@/lib/snapshot-redis';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 const DOG_RUNE_ID = '840000:3';
 const DOG_DIVISIBILITY = 5;
-const DOG_TOTAL_SUPPLY = 100_000_000_000; // 100 billion DOG
+const DOG_TOTAL_SUPPLY = 100_000_000_000;
 
 interface LocalHoldersData {
   timestamp: string;
@@ -35,55 +36,65 @@ async function loadLocalHolders(): Promise<LocalHoldersData | null> {
       const raw = await fs.readFile(filePath, 'utf-8');
       return JSON.parse(raw) as LocalHoldersData;
     } catch {
-      // try next path
+      // try next
     }
   }
 
-  // Fallback: fetch via HTTP (Vercel/production)
+  // Last-resort: HTTP fallback (Vercel runtime)
   try {
     let baseUrl: string;
-    if (process.env.NEXT_PUBLIC_APP_URL) {
-      baseUrl = process.env.NEXT_PUBLIC_APP_URL;
-    } else if (process.env.VERCEL_URL) {
-      baseUrl = `https://${process.env.VERCEL_URL}`;
-    } else {
-      baseUrl = 'http://localhost:3000';
-    }
-
+    if (process.env.NEXT_PUBLIC_APP_URL) baseUrl = process.env.NEXT_PUBLIC_APP_URL;
+    else if (process.env.VERCEL_URL) baseUrl = `https://${process.env.VERCEL_URL}`;
+    else baseUrl = 'http://localhost:3000';
     baseUrl = baseUrl.replace(/\/$/, '');
-    const url = `${baseUrl}/data/dog_holders_by_address.json`;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-    const response = await fetch(url, {
+    const response = await fetch(`${baseUrl}/data/dog_holders_by_address.json`, {
       headers: { 'Accept': 'application/json' },
       next: { revalidate: 0 },
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
-
-    if (response.ok) {
-      const contentType = response.headers.get('content-type');
-      if (contentType?.includes('application/json')) {
-        return await response.json() as LocalHoldersData;
-      }
+    if (response.ok && response.headers.get('content-type')?.includes('application/json')) {
+      return await response.json() as LocalHoldersData;
     }
   } catch {
     // fall through
   }
-
   return null;
 }
 
 export async function GET() {
+  // 1) Source of truth: Upstash live snapshot — pre-computed top10 + agregados
+  try {
+    const snap = await getLiveSnapshot();
+    if (snap && snap.top10_holders) {
+      return NextResponse.json({
+        total_holders: snap.total_holders,
+        total_utxos: snap.total_utxos,
+        total_supply: DOG_TOTAL_SUPPLY,
+        circulating_supply: snap.circulating_supply,
+        burned: snap.burned,
+        burned_pct: snap.burned_pct,
+        top10_holders: snap.top10_holders,
+        rune_id: DOG_RUNE_ID,
+        divisibility: DOG_DIVISIBILITY,
+        source: 'redis',
+        last_updated: snap.timestamp,
+      }, {
+        headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' },
+      });
+    }
+  } catch (e) {
+    console.error('[dog-rune/stats] Redis fetch failed, falling back to file:', e);
+  }
+
+  // 2) Fallback: bundled file
   try {
     const data = await loadLocalHolders();
-
     if (!data || !Array.isArray(data.holders)) {
-      return NextResponse.json({
-        error: 'Stats data not available — scanner data not found',
-      }, { status: 503 });
+      return NextResponse.json({ error: 'Stats data not available — scanner data not found' }, { status: 503 });
     }
 
     const totalHolders = data.total_holders || data.holders.length;
@@ -99,7 +110,6 @@ export async function GET() {
     const circulating = Math.round(circulatingSupply * 100) / 100;
     const burned = Math.max(0, DOG_TOTAL_SUPPLY - circulating);
     const burned_pct = parseFloat(((burned / DOG_TOTAL_SUPPLY) * 100).toFixed(4));
-    const lastUpdated = data.timestamp || new Date().toISOString();
 
     return NextResponse.json({
       total_holders: totalHolders,
@@ -111,18 +121,13 @@ export async function GET() {
       top10_holders: top10Holders,
       rune_id: DOG_RUNE_ID,
       divisibility: DOG_DIVISIBILITY,
-      source: 'local',
-      last_updated: lastUpdated,
+      source: 'file',
+      last_updated: data.timestamp || new Date().toISOString(),
     }, {
-      headers: {
-        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
-      },
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300', 'X-Source': 'file' },
     });
   } catch (error) {
-    console.error('❌ Error loading DOG stats:', error);
-    return NextResponse.json(
-      { error: 'Failed to load stats' },
-      { status: 500 }
-    );
+    console.error('Error loading DOG stats:', error);
+    return NextResponse.json({ error: 'Failed to load stats' }, { status: 500 });
   }
 }

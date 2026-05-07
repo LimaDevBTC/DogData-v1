@@ -1,66 +1,75 @@
 import { NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
+import { getLiveSnapshot } from '@/lib/snapshot-redis'
 
-export const revalidate = 0 // Sempre revalidar (sem cache)
+export const revalidate = 0
 
-export async function GET() {
-  try {
-    
-    // Ler dados de holders do JSON
-    const dataPath = path.join(process.cwd(), 'public', 'data', 'dog_holders.json')
-    
-    if (!fs.existsSync(dataPath)) {
-      return NextResponse.json({ error: 'Holders data not found' }, { status: 404 })
-    }
+const TOTAL_SUPPLY = 100_000_000_000
 
-    const holdersData = JSON.parse(fs.readFileSync(dataPath, 'utf-8'))
-    
-    const totalUtxos = holdersData.total_utxos || 0
-    const totalSupply = 100_000_000_000 // 100 bilhões
-    const avgUtxoSize = totalUtxos > 0 ? totalSupply / totalUtxos : 0
+interface DistEntry { range: string; count: number; supply: number; percentage: number }
 
-    // SEMPRE usar distribuição calculada por UTXO individual (método correto)
-    // O método fallback (agrupar por holder) estava causando contagem incorreta
-    let distribution = []
-    
-    const sizeDist = holdersData.utxo_age_stats?.size_distribution
-    if (!sizeDist || typeof sizeDist !== 'object') {
-      console.error('[UTXO API] ❌ size_distribution não encontrado ou inválido!')
-      return NextResponse.json(
-        { error: 'UTXO size distribution data not available. Please run update_holders_and_fees.py script.' },
-        { status: 503 }
-      )
-    }
-    
-    // Usar distribuição exata calculada por UTXO individual
-    console.log('[UTXO API] ✅ Usando método CORRETO: size_distribution por UTXO individual')
-    distribution = Object.entries(sizeDist).map(([range, data]: [string, any]) => {
-      if (!data || typeof data !== 'object' || typeof data.count !== 'number') {
-        console.error(`[UTXO API] ⚠️ Dados inválidos para range ${range}:`, data)
-        return null
-      }
+function buildDistribution(sizeDist: Record<string, any>): DistEntry[] {
+  return Object.entries(sizeDist)
+    .map(([range, data]) => {
+      if (!data || typeof data !== 'object' || typeof data.count !== 'number') return null
       return {
         range,
         count: data.count,
-        supply: data.supply / 100000, // Converter de amount para DOG
-        percentage: data.percentage
+        supply: data.supply / 100000, // amount → DOG
+        percentage: data.percentage,
       }
-    }).filter((item): item is NonNullable<typeof item> => item !== null)
+    })
+    .filter((x): x is DistEntry => x !== null)
+}
 
-    const result = {
+export async function GET() {
+  // 1) Source of truth: Upstash live snapshot (atualiza :35 de cada hora, sem deploy)
+  try {
+    const snap = await getLiveSnapshot()
+    const sizeDist = snap?.utxo_age_stats?.size_distribution
+    if (snap && sizeDist) {
+      const totalUtxos = snap.total_utxos
+      const avgUtxoSize = totalUtxos > 0 ? TOTAL_SUPPLY / totalUtxos : 0
+      return NextResponse.json({
+        total_utxos: totalUtxos,
+        avg_utxo_size: avgUtxoSize,
+        utxo_distribution: buildDistribution(sizeDist),
+        last_updated: snap.timestamp,
+        source: 'redis',
+      }, {
+        headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' }
+      })
+    }
+  } catch (e) {
+    console.error('[metrics/utxo] Redis fetch failed, falling back to file:', e)
+  }
+
+  // 2) Fallback: bundled file
+  try {
+    const dataPath = path.join(process.cwd(), 'public', 'data', 'dog_holders.json')
+    if (!fs.existsSync(dataPath)) {
+      return NextResponse.json({ error: 'Holders data not found' }, { status: 404 })
+    }
+    const holdersData = JSON.parse(fs.readFileSync(dataPath, 'utf-8'))
+    const sizeDist = holdersData.utxo_age_stats?.size_distribution
+    if (!sizeDist || typeof sizeDist !== 'object') {
+      console.error('[UTXO API] size_distribution missing in file')
+      return NextResponse.json(
+        { error: 'UTXO size distribution data not available. Please run update_holders_and_fees.py.' },
+        { status: 503 }
+      )
+    }
+    const totalUtxos = holdersData.total_utxos || 0
+    const avgUtxoSize = totalUtxos > 0 ? TOTAL_SUPPLY / totalUtxos : 0
+    return NextResponse.json({
       total_utxos: totalUtxos,
       avg_utxo_size: avgUtxoSize,
-      utxo_distribution: distribution,
-      last_updated: holdersData.timestamp || new Date().toISOString()
-    }
-
-    return NextResponse.json(result, {
-      headers: {
-        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      }
+      utxo_distribution: buildDistribution(sizeDist),
+      last_updated: holdersData.timestamp || new Date().toISOString(),
+      source: 'file',
+    }, {
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate', 'X-Source': 'file' }
     })
   } catch (error: any) {
     console.error('Error fetching UTXO metrics:', error)
@@ -70,4 +79,3 @@ export async function GET() {
     )
   }
 }
-
