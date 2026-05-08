@@ -1,0 +1,70 @@
+{
+  "block_height": 948495,
+  "timestamp": "2026-05-08T18:38:08.439076Z",
+  "transactions": [
+    {
+      "txid": "766f415b0979380ff6890a326c6fafaafae4e2d90a9fdcd13370ed3a4aa03401",
+      "block_height": 948495,
+      "timestamp": "2026-05-08T18:37:22Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1qm34lsc65zpw79lxes69zkqmk6ee3ewf0j77s3h",
+          "amount": 10154868547,
+          "amount_dog": 101548.68547,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1qm7a3huff7k2x96d5qa4kqtraupe2usxkr3m5um",
+          "amount": 10154868547,
+          "amount_dog": 101548.68547,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 101548.68547,
+      "total_dog_out": 101548.68547,
+      "total_dog_moved": 101548.68547,
+      "net_transfer": 101548.68547,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 3740
+    },
+    {
+      "txid": "114c6442ba1a00c51d8b1ea54f279fc761bd1ad115c896e5e50e8f2e416b1c81",
+      "block_height": 948495,
+      "timestamp": "2026-05-08T18:37:22Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1puzjm79ztjpvfax9x4zp0xvu0hl3j73vc6av8r6g6tmzmqeussd5qh3rvy6",
+          "amount": 161530989,
+          "amount_dog": 1615.30989,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1puzjm79ztjpvfax9x4zp0xvu0hl3j73vc6av8r6g6tmzmqeussd5qh3rvy6",
+          "amount": 161530989,
+          "amount_dog": 1615.30989,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 1615.30989,
+      "total_dog_out": 1615.30989,
+      "total_dog_moved": 1615.30989,
+      "net_transfer": 0.0,
+      "change_amount": 1615.30989,
+      "has_change": true,
+      "fee_sats": 2306
+    }
+  ]
+}
