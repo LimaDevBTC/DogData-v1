@@ -2,11 +2,11 @@
   "openapi": "3.0.3",
   "info": {
     "title": "DOG DATA API",
-    "description": "Comprehensive on-chain analytics API for DOG (Bitcoin Rune 840000:3). Provides real-time holder data, transaction analytics, UTXO metrics, forensic behavioral analysis, airdrop tracking, market data from 20+ exchanges, and Bitcoin network stats. Designed for AI agents and programmatic access.",
-    "version": "1.0.0",
+    "description": "Comprehensive on-chain analytics API for DOG•GO•TO•THE•MOON (Bitcoin Rune 840000:3). Real-time holder data, transactions, UTXO metrics, forensic behavioral analysis, airdrop tracking, multi-exchange pricing (4 CEXes + 6 DEXes), and cross-chain coverage on Stacks and Solana. Designed for AI agents and programmatic access.",
+    "version": "1.1.0",
     "contact": {
       "name": "DOG DATA",
-      "url": "https://dogdata.xyz"
+      "url": "https://www.dogdata.xyz"
     },
     "license": {
       "name": "Proprietary"
@@ -14,3325 +14,703 @@
   },
   "servers": [
     {
-      "url": "https://api.dogdata.xyz/v1",
-      "description": "Production API (v1 prefix)"
+      "url": "https://www.dogdata.xyz/api",
+      "description": "Production"
     },
     {
-      "url": "https://www.dogdata.xyz/api",
-      "description": "Production (legacy, direct routes)"
+      "url": "http://localhost:3000/api",
+      "description": "Local development"
     }
   ],
   "security": [],
   "tags": [
-    {
-      "name": "Stats",
-      "description": "General DOG token statistics"
-    },
-    {
-      "name": "Holders",
-      "description": "DOG holder data, rankings, and address lookups"
-    },
-    {
-      "name": "Transactions",
-      "description": "Transaction history, heatmaps, and search"
-    },
-    {
-      "name": "Price",
-      "description": "Real-time price data from exchanges"
-    },
-    {
-      "name": "Metrics",
-      "description": "On-chain metrics: UTXO, concentration, realized cap, supply"
-    },
-    {
-      "name": "Forensic",
-      "description": "Behavioral forensic analysis of holder patterns"
-    },
-    {
-      "name": "Airdrop",
-      "description": "Airdrop distribution and retention analytics"
-    },
-    {
-      "name": "Bitcoin",
-      "description": "Bitcoin network data: blocks, fees, hashrate, mempool"
-    },
-    {
-      "name": "Markets",
-      "description": "Multi-exchange market tickers and aggregated market data"
-    },
-    {
-      "name": "Agent",
-      "description": "AI agent discovery and capabilities"
-    },
-    {
-      "name": "System",
-      "description": "Health checks, status, and OpenAPI spec"
-    },
-    {
-      "name": "Events",
-      "description": "Server-Sent Events for real-time updates"
-    },
-    {
-      "name": "Whale Alerts",
-      "description": "Large DOG transfers with context, severity, and tweet-ready format"
-    },
-    {
-      "name": "Multichain",
-      "description": "Cross-chain DOG data on Stacks and Solana \u2014 holders, transactions, and aggregated stats"
-    },
-    {
-      "name": "Stacks",
-      "description": "Stacks-specific DOG data with historical metrics and trend analysis"
-    }
+    { "name": "Agent", "description": "AI agent discovery and capabilities" },
+    { "name": "Holders", "description": "DOG holder data, rankings, and address-level lookups" },
+    { "name": "Address", "description": "Per-address data: balances, transactions, behavioral profile" },
+    { "name": "Transactions", "description": "Bitcoin L1 DOG transactions — feeds, search, heatmaps" },
+    { "name": "Stats", "description": "Aggregated DOG token statistics" },
+    { "name": "Price", "description": "Real-time DOG price from 10 exchanges (4 CEX + 2 BTC-L2 DEX + 4 Solana DEX)" },
+    { "name": "Markets", "description": "Aggregated multi-exchange market data" },
+    { "name": "Metrics", "description": "On-chain metrics: UTXO distribution, concentration, realized cap, supply profit/loss" },
+    { "name": "Forensic", "description": "Behavioral forensic analysis of holder patterns and Diamond Score" },
+    { "name": "Airdrop", "description": "Airdrop distribution, retention, and \"lost DOG\" analysis" },
+    { "name": "Multichain", "description": "Cross-chain DOG data on Stacks and Solana" },
+    { "name": "Stacks", "description": "Stacks-specific DOG metrics with hourly historical snapshots" },
+    { "name": "Bitcoin", "description": "Bitcoin network: blocks, hashrate, mempool, fees" },
+    { "name": "Whale Alerts", "description": "Large DOG transfers with severity, context, and tweet-ready format" },
+    { "name": "Events", "description": "Server-Sent Events for real-time updates" },
+    { "name": "System", "description": "Health, status, OpenAPI spec, root index" },
+    { "name": "Auth", "description": "API key generation and verification" }
   ],
   "components": {
     "securitySchemes": {
       "BearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "bearerFormat": "JWT",
-        "description": "Optional bearer token for authenticated access and higher rate limits"
+        "description": "Optional. Add `Authorization: Bearer <api_key>` for higher rate limits (free=100/h, pro=5000/h, enterprise=50000/h). Public tier (no key) = 100/h."
+      }
+    },
+    "parameters": {
+      "Page": {
+        "name": "page",
+        "in": "query",
+        "description": "Page number (1-indexed)",
+        "required": false,
+        "schema": { "type": "integer", "minimum": 1, "default": 1 }
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "description": "Items per page",
+        "required": false,
+        "schema": { "type": "integer", "minimum": 1, "default": 50 }
+      },
+      "ChainFilter": {
+        "name": "chain",
+        "in": "query",
+        "description": "Filter by chain. Omit for all chains.",
+        "required": false,
+        "schema": { "type": "string", "enum": ["stacks", "solana", "bitcoin"] }
       }
     },
     "schemas": {
       "Pagination": {
         "type": "object",
         "properties": {
-          "total": {
-            "type": "integer",
-            "description": "Total number of records"
-          },
-          "page": {
-            "type": "integer",
-            "description": "Current page number"
-          },
-          "limit": {
-            "type": "integer",
-            "description": "Records per page"
-          },
-          "total_pages": {
-            "type": "integer",
-            "description": "Total number of pages"
-          },
-          "has_next": {
-            "type": "boolean",
-            "description": "Whether a next page exists"
-          },
-          "has_prev": {
-            "type": "boolean",
-            "description": "Whether a previous page exists"
-          }
+          "page": { "type": "integer", "minimum": 1 },
+          "limit": { "type": "integer", "minimum": 1 },
+          "total": { "type": "integer", "minimum": 0 },
+          "total_pages": { "type": "integer", "minimum": 0 },
+          "has_more": { "type": "boolean" }
         },
-        "required": [
-          "total",
-          "page",
-          "limit",
-          "total_pages",
-          "has_next",
-          "has_prev"
-        ]
+        "required": ["page", "limit", "total", "total_pages", "has_more"]
       },
-      "Metadata": {
+      "PaginatedEnvelope": {
         "type": "object",
+        "description": "Canonical pagination envelope. Specific endpoints add legacy fields alongside `data` for backwards compatibility.",
         "properties": {
-          "source": {
-            "type": "string",
-            "enum": [
-              "dogdata.xyz"
-            ]
-          },
-          "version": {
-            "type": "string",
-            "example": "1.0.0"
-          },
-          "timestamp": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "cached": {
-            "type": "boolean"
-          },
-          "cache_age_seconds": {
-            "type": "number",
-            "description": "Seconds since data was last fetched"
-          },
-          "data_freshness": {
-            "type": "string",
-            "enum": [
-              "real-time",
-              "hourly",
-              "daily"
-            ]
-          },
-          "block_height": {
-            "type": "integer",
-            "description": "Bitcoin block height at time of data"
-          }
+          "data": { "type": "array", "items": {} },
+          "pagination": { "$ref": "#/components/schemas/Pagination" },
+          "last_updated": { "type": "string", "format": "date-time", "nullable": true }
         },
-        "required": [
-          "source",
-          "version",
-          "timestamp",
-          "cached",
-          "data_freshness"
-        ]
+        "required": ["data", "pagination"]
       },
       "Error": {
         "type": "object",
         "properties": {
-          "error": {
-            "type": "object",
-            "properties": {
-              "code": {
-                "type": "string"
-              },
-              "message": {
-                "type": "string"
-              },
-              "status": {
-                "type": "integer"
-              },
-              "retry_after": {
-                "type": "integer",
-                "description": "Seconds to wait before retrying (rate limit)"
-              },
-              "docs_url": {
-                "type": "string",
-                "format": "uri"
-              }
-            },
-            "required": [
-              "code",
-              "message",
-              "status"
-            ]
-          }
+          "error": { "type": "string" },
+          "message": { "type": "string" }
+        },
+        "required": ["error"]
+      },
+      "NormalizedPrice": {
+        "type": "object",
+        "description": "Canonical price response across all exchanges. Legacy fields (e.g. `change24h`, `lastPrice`, `priceSats`) are also emitted alongside for backwards compatibility.",
+        "properties": {
+          "exchange": { "type": "string", "example": "kraken" },
+          "type": { "type": "string", "enum": ["cex", "dex", "aggregator"] },
+          "chain": { "type": "string", "enum": ["bitcoin-l1", "stacks", "solana"], "nullable": true },
+          "pair": { "type": "string", "example": "DOG/USD" },
+          "price_usd": { "type": "number", "nullable": true },
+          "price_btc": { "type": "number", "nullable": true },
+          "price_sats": { "type": "number", "nullable": true },
+          "change_24h_pct": { "type": "number", "nullable": true },
+          "volume_24h_usd": { "type": "number", "nullable": true },
+          "high_24h": { "type": "number", "nullable": true },
+          "low_24h": { "type": "number", "nullable": true },
+          "liquidity_usd": { "type": "number", "nullable": true },
+          "fetched_at": { "type": "string", "format": "date-time" },
+          "cached": { "type": "boolean" },
+          "stale": { "type": "boolean" }
         }
       },
       "Holder": {
         "type": "object",
         "properties": {
-          "rank": {
-            "type": "integer"
-          },
-          "address": {
-            "type": "string"
-          },
-          "total_amount": {
-            "type": "number",
-            "description": "Raw rune amount"
-          },
-          "total_dog": {
-            "type": "number",
-            "description": "Human-readable DOG amount (divided by 10^5)"
-          },
-          "utxo_count": {
-            "type": "integer"
-          }
-        },
-        "required": [
-          "rank",
-          "address",
-          "total_amount",
-          "total_dog"
-        ]
-      },
-      "HolderDetail": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/Holder"
-          },
-          {
-            "type": "object",
-            "properties": {
-              "holder_rank": {
-                "type": "integer",
-                "nullable": true
-              },
-              "percentage_of_supply": {
-                "type": "number"
-              },
-              "first_seen": {
-                "type": "string",
-                "format": "date-time"
-              },
-              "last_active": {
-                "type": "string",
-                "format": "date-time"
-              }
-            }
-          }
-        ]
-      },
-      "Transaction": {
-        "type": "object",
-        "properties": {
-          "txid": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string"
-          },
-          "block_height": {
-            "type": "integer"
-          },
-          "timestamp": {
-            "type": "string"
-          },
-          "senders": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "address": {
-                  "type": "string"
-                },
-                "amount": {
-                  "type": "number"
-                }
-              }
-            }
-          },
-          "receivers": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "address": {
-                  "type": "string"
-                },
-                "amount": {
-                  "type": "number"
-                }
-              }
-            }
-          },
-          "total_dog_moved": {
-            "type": "number"
-          },
-          "net_transfer": {
-            "type": "number"
-          },
-          "fee_sats": {
-            "type": "integer"
-          }
-        },
-        "required": [
-          "txid",
-          "block_height",
-          "timestamp",
-          "total_dog_moved"
-        ]
-      },
-      "HeatmapBucket": {
-        "type": "object",
-        "properties": {
-          "index": {
-            "type": "integer"
-          },
-          "row": {
-            "type": "integer"
-          },
-          "col": {
-            "type": "integer"
-          },
-          "value": {
-            "type": "number"
-          },
-          "txCount": {
-            "type": "integer"
-          },
-          "volume": {
-            "type": "number"
-          },
-          "avgFee": {
-            "type": "number",
-            "nullable": true
-          },
-          "whaleVolume": {
-            "type": "number"
-          },
-          "hasWhale": {
-            "type": "boolean"
-          },
-          "retailVolume": {
-            "type": "number"
-          },
-          "mediumVolume": {
-            "type": "number"
-          },
-          "largeVolume": {
-            "type": "number"
-          },
-          "netFlow": {
-            "type": "number"
-          },
-          "label": {
-            "type": "string"
-          },
-          "startTime": {
-            "type": "string"
-          }
+          "rank": { "type": "integer" },
+          "address": { "type": "string" },
+          "total_dog": { "type": "number" },
+          "total_amount": { "type": "number", "description": "Same as total_dog (legacy alias)" },
+          "utxo_count": { "type": "integer" }
         }
-      },
-      "Price": {
-        "type": "object",
-        "properties": {
-          "price_usd": {
-            "type": "number"
-          },
-          "change_24h": {
-            "type": "number"
-          },
-          "volume_24h": {
-            "type": "number"
-          },
-          "high_24h": {
-            "type": "number"
-          },
-          "low_24h": {
-            "type": "number"
-          },
-          "source": {
-            "type": "string"
-          },
-          "timestamp": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "price_usd",
-          "change_24h",
-          "volume_24h",
-          "high_24h",
-          "low_24h",
-          "source",
-          "timestamp"
-        ]
-      },
-      "ExchangePrice": {
-        "type": "object",
-        "properties": {
-          "exchange": {
-            "type": "string"
-          },
-          "pair": {
-            "type": "string"
-          },
-          "price": {
-            "type": "number"
-          },
-          "volume_usd": {
-            "type": "number"
-          },
-          "spread": {
-            "type": "number"
-          },
-          "trust_score": {
-            "type": "string",
-            "enum": [
-              "green",
-              "yellow",
-              "red"
-            ]
-          },
-          "trade_url": {
-            "type": "string",
-            "format": "uri"
-          }
-        }
-      },
-      "UtxoDistribution": {
-        "type": "object",
-        "properties": {
-          "range": {
-            "type": "string",
-            "example": "1-1000"
-          },
-          "count": {
-            "type": "integer"
-          },
-          "supply": {
-            "type": "number"
-          },
-          "percentage": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "range",
-          "count",
-          "supply",
-          "percentage"
-        ]
-      },
-      "Concentration": {
-        "type": "object",
-        "properties": {
-          "gini_coefficient": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 1
-          },
-          "top10_supply_pct": {
-            "type": "number"
-          },
-          "top100_supply_pct": {
-            "type": "number"
-          },
-          "top1000_supply_pct": {
-            "type": "number"
-          },
-          "total_holders": {
-            "type": "integer"
-          },
-          "total_supply": {
-            "type": "number"
-          },
-          "last_updated": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "gini_coefficient",
-          "top10_supply_pct",
-          "top100_supply_pct",
-          "top1000_supply_pct",
-          "total_holders",
-          "total_supply",
-          "last_updated"
-        ]
-      },
-      "RealizedCap": {
-        "type": "object",
-        "properties": {
-          "realized_cap": {
-            "type": "number"
-          },
-          "market_cap": {
-            "type": "number"
-          },
-          "mvrv_ratio": {
-            "type": "number"
-          },
-          "current_price": {
-            "type": "number"
-          },
-          "last_updated": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "realized_cap",
-          "market_cap",
-          "mvrv_ratio",
-          "current_price",
-          "last_updated"
-        ]
       },
       "ForensicProfile": {
         "type": "object",
         "properties": {
-          "address": {
-            "type": "string"
-          },
-          "behavior_pattern": {
-            "type": "string"
-          },
-          "receive_count": {
-            "type": "integer"
-          },
-          "send_count": {
-            "type": "integer"
-          },
-          "airdrop_amount": {
-            "type": "number"
-          },
-          "current_balance": {
-            "type": "number"
-          },
-          "retention_pct": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 100
-          },
-          "diamond_score": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 100
-          },
-          "first_activity": {
-            "type": "string"
-          },
-          "last_activity": {
-            "type": "string"
-          },
-          "total_received": {
-            "type": "number"
-          },
-          "total_sent": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "address",
-          "behavior_pattern",
-          "receive_count",
-          "airdrop_amount"
-        ]
-      },
-      "AirdropRecipient": {
-        "type": "object",
-        "properties": {
-          "address": {
-            "type": "string"
-          },
-          "amount": {
-            "type": "number"
-          },
-          "category": {
-            "type": "string"
-          },
-          "claimed": {
-            "type": "boolean"
-          },
-          "retained_pct": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 100
-          }
-        },
-        "required": [
-          "address",
-          "amount"
-        ]
-      },
-      "AirdropSummary": {
-        "type": "object",
-        "properties": {
-          "total_recipients": {
-            "type": "integer"
-          },
-          "total_amount": {
-            "type": "number"
-          },
-          "retention_rate": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 100
-          },
-          "avg_amount": {
-            "type": "number"
-          },
-          "median_amount": {
-            "type": "number"
-          },
-          "category_breakdown": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "category": {
-                  "type": "string"
-                },
-                "count": {
-                  "type": "integer"
-                },
-                "total_amount": {
-                  "type": "number"
-                },
-                "percentage": {
-                  "type": "number"
-                }
-              }
-            }
-          },
-          "timestamp": {
-            "type": "string"
-          }
+          "address": { "type": "string" },
+          "airdrop_rank": { "type": "integer", "nullable": true },
+          "airdrop_amount": { "type": "number" },
+          "current_rank": { "type": "integer", "nullable": true },
+          "current_balance": { "type": "number", "nullable": true },
+          "rank_change": { "type": "integer", "nullable": true },
+          "rank_status": { "type": "string", "enum": ["in_ranking", "out_of_ranking", "never_ranked"], "nullable": true },
+          "retention_rate": { "type": "number", "nullable": true },
+          "diamond_score": { "type": "number", "nullable": true },
+          "behavior_pattern": { "type": "string", "nullable": true },
+          "behavior_category": { "type": "string", "nullable": true },
+          "behavior_detail": { "type": "string", "nullable": true },
+          "insights": { "type": "array", "items": { "type": "string" } },
+          "is_dumping": { "type": "boolean", "nullable": true },
+          "first_receive_block": { "type": "integer", "nullable": true },
+          "first_receive_time": { "type": "string", "nullable": true }
         }
       },
-      "MarketTicker": {
+      "ForensicSummary": {
         "type": "object",
         "properties": {
-          "market": {
-            "type": "string"
-          },
-          "pair": {
-            "type": "string"
-          },
-          "price": {
-            "type": "number"
-          },
-          "volumeUsd": {
-            "type": "number"
-          },
-          "volume": {
-            "type": "number"
-          },
-          "spread": {
-            "type": "number"
-          },
-          "trustScore": {
-            "type": "string",
-            "enum": [
-              "green",
-              "yellow",
-              "red"
-            ]
-          },
-          "tradeUrl": {
-            "type": "string",
-            "format": "uri"
-          }
-        },
-        "required": [
-          "market",
-          "pair",
-          "price",
-          "volumeUsd",
-          "volume",
-          "spread",
-          "trustScore",
-          "tradeUrl"
-        ]
-      },
-      "MarketData": {
-        "type": "object",
-        "properties": {
-          "price": {
-            "type": "number"
-          },
-          "totalVolume": {
-            "type": "number"
-          },
-          "marketCap": {
-            "type": "number"
-          },
-          "priceChange24h": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "price",
-          "totalVolume",
-          "marketCap",
-          "priceChange24h"
-        ]
-      },
-      "BitcoinNetwork": {
-        "type": "object",
-        "properties": {
-          "difficultyAdjustment": {
+          "statistics": {
             "type": "object",
             "properties": {
-              "progressPercent": {
-                "type": "number"
-              },
-              "difficultyChange": {
-                "type": "number"
-              },
-              "estimatedRetargetDate": {
-                "type": "number"
-              },
-              "remainingBlocks": {
-                "type": "integer"
-              },
-              "remainingTime": {
-                "type": "number"
-              },
-              "nextRetargetHeight": {
-                "type": "integer"
-              }
-            }
-          },
-          "hashrate": {
-            "type": "object",
-            "properties": {
-              "hashrates": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "timestamp": {
-                      "type": "number"
-                    },
-                    "avgHashrate": {
-                      "type": "number"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "mempool": {
-            "type": "object",
-            "properties": {
-              "count": {
-                "type": "integer"
-              },
-              "vsize": {
-                "type": "number"
-              },
-              "total_fee": {
-                "type": "number"
-              },
-              "fee_histogram": {
-                "type": "array",
-                "items": {
-                  "type": "array",
-                  "items": {
-                    "type": "number"
-                  },
-                  "minItems": 2,
-                  "maxItems": 2
-                }
-              }
-            }
-          },
-          "fees": {
-            "type": "object",
-            "properties": {
-              "fastestFee": {
-                "type": "number"
-              },
-              "halfHourFee": {
-                "type": "number"
-              },
-              "hourFee": {
-                "type": "number"
-              },
-              "economyFee": {
-                "type": "number"
-              },
-              "minimumFee": {
-                "type": "number"
-              }
-            }
-          },
-          "blocks": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "id": {
-                  "type": "string"
-                },
-                "height": {
-                  "type": "integer"
-                },
-                "timestamp": {
-                  "type": "number"
-                },
-                "tx_count": {
-                  "type": "integer"
-                },
-                "size": {
-                  "type": "integer"
-                },
-                "weight": {
-                  "type": "integer"
-                },
-                "difficulty": {
-                  "type": "number"
-                }
-              }
-            }
-          },
-          "pools": {
-            "type": "object",
-            "properties": {
-              "pools": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "poolId": {
-                      "type": "integer"
-                    },
-                    "name": {
-                      "type": "string"
-                    },
-                    "blockCount": {
-                      "type": "integer"
-                    },
-                    "rank": {
-                      "type": "integer"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "price": {
-            "type": "object",
-            "properties": {
-              "bitcoin": {
+              "total_analyzed": { "type": "integer" },
+              "still_holding": { "type": "integer" },
+              "sold_everything": { "type": "integer" },
+              "accumulated": { "type": "integer" },
+              "dumping": { "type": "integer" },
+              "diamond_hands": { "type": "integer" },
+              "retention_rate": { "type": "number" },
+              "by_pattern": {
                 "type": "object",
-                "properties": {
-                  "usd": {
-                    "type": "number"
-                  },
-                  "usd_24h_change": {
-                    "type": "number"
-                  }
-                }
+                "additionalProperties": { "type": "integer" }
               }
             }
+          },
+          "timestamp": { "type": "string", "format": "date-time", "nullable": true },
+          "staleness_hours": { "type": "integer", "nullable": true },
+          "field_definitions": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
           }
         }
       },
-      "MetricsHistoryPoint": {
+      "Capabilities": {
         "type": "object",
         "properties": {
-          "recorded_at": {
-            "type": "string"
-          },
-          "total_utxos": {
-            "type": "number"
-          },
-          "total_holders": {
-            "type": "number"
-          },
-          "gini_coefficient": {
-            "type": "number"
-          },
-          "top10_supply_pct": {
-            "type": "number"
-          },
-          "top100_supply_pct": {
-            "type": "number"
-          },
-          "top1000_supply_pct": {
-            "type": "number"
-          },
-          "avg_age_days": {
-            "type": "number"
-          },
-          "median_age_days": {
-            "type": "number"
-          },
-          "sth_percentage": {
-            "type": "number"
-          },
-          "lth_percentage": {
-            "type": "number"
-          },
-          "realized_cap": {
-            "type": "number"
-          },
-          "market_cap": {
-            "type": "number"
-          },
-          "mvrv_ratio": {
-            "type": "number"
-          },
-          "supply_in_profit_pct": {
-            "type": "number"
-          },
-          "supply_in_loss_pct": {
-            "type": "number"
-          },
-          "current_price": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "recorded_at"
-        ]
-      },
-      "HodlWave": {
-        "type": "object",
-        "properties": {
-          "range": {
-            "type": "string",
-            "example": "0-30 days"
-          },
-          "supply": {
-            "type": "number"
-          },
-          "percentage": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "range",
-          "supply",
-          "percentage"
-        ]
-      },
-      "AgentCapabilities": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "version": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "endpoints": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "path": {
-                  "type": "string"
-                },
-                "method": {
-                  "type": "string"
-                },
-                "description": {
-                  "type": "string"
-                },
-                "parameters": {
-                  "type": "object"
-                }
-              }
-            }
-          },
-          "rate_limits": {
-            "type": "object"
-          },
-          "auth": {
-            "type": "object"
-          }
-        }
-      }
-    },
-    "parameters": {
-      "PageParam": {
-        "name": "page",
-        "in": "query",
-        "schema": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 1
-        },
-        "description": "Page number for pagination"
-      },
-      "LimitParam": {
-        "name": "limit",
-        "in": "query",
-        "schema": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 100,
-          "default": 25
-        },
-        "description": "Number of records per page"
-      }
-    },
-    "responses": {
-      "BadRequest": {
-        "description": "Invalid request parameters",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/Error"
-            },
-            "example": {
-              "error": {
-                "code": "BAD_REQUEST",
-                "message": "Invalid page parameter",
-                "status": 400
-              }
-            }
-          }
-        }
-      },
-      "Unauthorized": {
-        "description": "Authentication required or invalid token",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/Error"
-            },
-            "example": {
-              "error": {
-                "code": "UNAUTHORIZED",
-                "message": "Invalid or expired token",
-                "status": 401
-              }
-            }
-          }
-        }
-      },
-      "RateLimited": {
-        "description": "Rate limit exceeded",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/Error"
-            },
-            "example": {
-              "error": {
-                "code": "RATE_LIMITED",
-                "message": "Too many requests",
-                "status": 429,
-                "retry_after": 60
-              }
-            }
-          }
-        }
-      },
-      "ServerError": {
-        "description": "Internal server error",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/Error"
-            },
-            "example": {
-              "error": {
-                "code": "INTERNAL_ERROR",
-                "message": "An unexpected error occurred",
-                "status": 500
-              }
-            }
-          }
+          "service": { "type": "string", "example": "DOG DATA" },
+          "version": { "type": "string" },
+          "description": { "type": "string" },
+          "protocols": { "type": "object" },
+          "datasets": { "type": "object" },
+          "data_quality": { "type": "object" },
+          "rate_limits": { "type": "object" },
+          "links": { "type": "object" }
         }
       }
     }
   },
   "paths": {
-    "/v1/stats": {
+    "/": {
       "get": {
-        "operationId": "getStats",
-        "tags": [
-          "Stats"
-        ],
-        "summary": "Get DOG token overview statistics",
-        "description": "Returns total holders, circulating supply, total supply, top 10 holders, and metadata. Falls back to local data if upstream API is unavailable.",
+        "tags": ["System"],
+        "summary": "API root index",
+        "description": "Lightweight index of high-level endpoints and version info.",
         "responses": {
           "200": {
-            "description": "DOG token statistics",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "totalHolders": {
-                          "type": "integer"
-                        },
-                        "totalSupply": {
-                          "type": "number"
-                        },
-                        "circulatingSupply": {
-                          "type": "number"
-                        },
-                        "top10Holders": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/Holder"
-                          }
-                        }
-                      }
-                    },
-                    "metadata": {
-                      "$ref": "#/components/schemas/Metadata"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
+            "description": "Root listing",
+            "content": { "application/json": { "schema": { "type": "object" } } }
           }
         }
       }
     },
-    "/v1/holders": {
+    "/health": {
       "get": {
-        "operationId": "getHolders",
-        "tags": [
-          "Holders"
-        ],
-        "summary": "List DOG holders with pagination",
-        "description": "Returns a paginated list of DOG holders sorted by rank. Data sourced from the local block scanner (dogdata.xyz).",
+        "tags": ["System"],
+        "summary": "Health check",
+        "responses": {
+          "200": { "description": "Service healthy", "content": { "application/json": { "schema": { "type": "object", "properties": { "status": { "type": "string" }, "timestamp": { "type": "string", "format": "date-time" } } } } } }
+        }
+      }
+    },
+    "/status": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Public status snapshot",
+        "description": "Aggregated component status with 30/90-day uptime; powers the public /status page.",
+        "responses": { "200": { "description": "Status payload", "content": { "application/json": { "schema": { "type": "object" } } } } }
+      }
+    },
+    "/status/full": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Detailed status",
+        "description": "Full per-component breakdown of crons, infra, external APIs and data sources.",
+        "responses": { "200": { "description": "Detailed status payload", "content": { "application/json": { "schema": { "type": "object" } } } } }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "tags": ["System"],
+        "summary": "OpenAPI 3.0 specification",
+        "responses": { "200": { "description": "OpenAPI document", "content": { "application/json": { "schema": { "type": "object" } } } } }
+      }
+    },
+    "/agent/capabilities": {
+      "get": {
+        "tags": ["Agent"],
+        "summary": "Agent-discoverable capabilities manifest",
+        "description": "Single endpoint describing every dataset, protocol (REST, MCP, SSE), rate limits and data sources. Recommended starting point for AI agents.",
+        "responses": {
+          "200": {
+            "description": "Capabilities manifest",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Capabilities" } } }
+          }
+        }
+      }
+    },
+    "/dog-rune/stats": {
+      "get": {
+        "tags": ["Stats"],
+        "summary": "Aggregated DOG token statistics",
+        "description": "Top-level token stats: total holders, supply, distribution, last-scan timestamp.",
+        "responses": { "200": { "description": "Stats payload", "content": { "application/json": { "schema": { "type": "object" } } } } }
+      }
+    },
+    "/dog-rune/holders": {
+      "get": {
+        "tags": ["Holders"],
+        "summary": "Paginated DOG holder list",
+        "description": "Returns ranked holders. Supports paged retrieval, address lookup, and an internal `snapshot=refresh` mode used by the hourly cron.",
         "parameters": [
-          {
-            "$ref": "#/components/parameters/PageParam"
-          },
-          {
-            "$ref": "#/components/parameters/LimitParam"
-          }
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/Limit" },
+          { "name": "address", "in": "query", "schema": { "type": "string" }, "description": "Lookup a specific address (returns rank and balance)" },
+          { "name": "snapshot", "in": "query", "schema": { "type": "string", "enum": ["refresh"] }, "description": "Internal: trigger a fresh snapshot persist (called by cron)" }
         ],
         "responses": {
           "200": {
-            "description": "Paginated list of holders",
+            "description": "Paginated holder list",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/Holder"
-                      }
-                    },
-                    "metadata": {
-                      "$ref": "#/components/schemas/Metadata"
-                    },
-                    "pagination": {
-                      "$ref": "#/components/schemas/Pagination"
-                    }
-                  }
+                  "allOf": [
+                    { "$ref": "#/components/schemas/PaginatedEnvelope" },
+                    { "type": "object", "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/Holder" } }, "metadata": { "type": "object" } } }
+                  ]
                 }
               }
             }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
           }
         }
       }
     },
-    "/v1/holders/{address}": {
+    "/dog-rune/transactions-kv": {
       "get": {
-        "operationId": "getHolderByAddress",
-        "tags": [
-          "Holders"
-        ],
-        "summary": "Look up a specific holder by address",
-        "description": "Returns detailed holder information including rank and balance for a given Bitcoin address.",
+        "tags": ["Transactions"],
+        "summary": "Recent DOG transactions (KV-backed feed)",
+        "description": "Real-time transaction feed (~30s freshness) populated by the indexer cron. Use `?summary=true` for a metadata-only view.",
         "parameters": [
-          {
-            "name": "address",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "Bitcoin address to look up"
-          }
+          { "name": "summary", "in": "query", "schema": { "type": "string" }, "description": "If set, returns summary metadata only" }
         ],
-        "responses": {
-          "200": {
-            "description": "Holder details",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/HolderDetail"
-                    },
-                    "metadata": {
-                      "$ref": "#/components/schemas/Metadata"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "404": {
-            "description": "Address not found in holder list",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
+        "responses": { "200": { "description": "Transaction feed", "content": { "application/json": { "schema": { "type": "object" } } } } }
       }
     },
-    "/v1/holders/snapshot": {
+    "/dog-rune/transactions-unisat": {
       "get": {
-        "operationId": "getHolderSnapshot",
-        "tags": [
-          "Holders"
-        ],
-        "summary": "Get top 500 holders snapshot",
-        "description": "Returns a snapshot of the top 500 DOG holders with timestamp. Useful for periodic comparisons.",
-        "responses": {
-          "200": {
-            "description": "Holder snapshot",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "timestamp": {
-                          "type": "string"
-                        },
-                        "total_holders": {
-                          "type": "integer"
-                        },
-                        "snapshot_size": {
-                          "type": "integer"
-                        },
-                        "holders": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/Holder"
-                          }
-                        }
-                      }
-                    },
-                    "metadata": {
-                      "$ref": "#/components/schemas/Metadata"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
-      }
-    },
-    "/v1/transactions": {
-      "get": {
-        "operationId": "getTransactions",
-        "tags": [
-          "Transactions"
-        ],
-        "summary": "Get DOG rune transactions",
-        "description": "Returns DOG rune transactions from Upstash KV cache or local JSON fallback. Supports summary-only mode.",
+        "tags": ["Transactions"],
+        "summary": "Recent DOG transactions via Unisat fallback",
         "parameters": [
-          {
-            "name": "summary",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "true",
-                "1",
-                "summary"
-              ]
-            },
-            "description": "If set, returns only transaction count and metadata (no full tx list)"
-          }
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "minimum": 0, "default": 0 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "default": 20 } }
         ],
-        "responses": {
-          "200": {
-            "description": "Transaction list or summary",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "transactions": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/Transaction"
-                          }
-                        },
-                        "total_transactions": {
-                          "type": "integer"
-                        },
-                        "last_block": {
-                          "type": "integer"
-                        },
-                        "last_updated": {
-                          "type": "string",
-                          "nullable": true
-                        }
-                      }
-                    },
-                    "metadata": {
-                      "$ref": "#/components/schemas/Metadata"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
+        "responses": { "200": { "description": "Transaction list" } }
       }
     },
-    "/v1/transactions/{txid}": {
+    "/dog-rune/heatmap": {
       "get": {
-        "operationId": "getTransactionByTxid",
-        "tags": [
-          "Transactions"
-        ],
-        "summary": "Search for a specific transaction by txid",
-        "description": "Returns details for a specific DOG rune transaction by its Bitcoin txid.",
+        "tags": ["Transactions"],
+        "summary": "Transaction heatmap by hour",
         "parameters": [
-          {
-            "name": "txid",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "Bitcoin transaction ID"
-          }
+          { "name": "timeframe", "in": "query", "schema": { "type": "string", "enum": ["24h", "7d", "30d"], "default": "7d" } },
+          { "name": "drill", "in": "query", "schema": { "type": "integer" }, "description": "Drill into a specific bucket index" }
         ],
-        "responses": {
-          "200": {
-            "description": "Transaction details",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Transaction"
-                    },
-                    "metadata": {
-                      "$ref": "#/components/schemas/Metadata"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Transaction not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
+        "responses": { "200": { "description": "Heatmap grid", "content": { "application/json": { "schema": { "type": "object" } } } } }
       }
     },
-    "/v1/transactions/heatmap": {
+    "/dog-rune/events-count": {
       "get": {
-        "operationId": "getTransactionHeatmap",
-        "tags": [
-          "Transactions"
-        ],
-        "summary": "Get transaction activity heatmap",
-        "description": "Returns bucketed transaction data for heatmap visualization. Supports multiple timeframes and data layers (volume, count, fee, whale, retail). Includes drill-down into individual buckets.",
+        "tags": ["Transactions"],
+        "summary": "Total indexed event count",
+        "responses": { "200": { "description": "Event count", "content": { "application/json": { "schema": { "type": "object", "properties": { "total": { "type": "integer" } } } } } } }
+      }
+    },
+    "/dog-rune/search-tx": {
+      "get": {
+        "tags": ["Transactions"],
+        "summary": "Search a single DOG transaction by txid",
         "parameters": [
-          {
-            "name": "timeframe",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "1d",
-                "7d",
-                "30d",
-                "1y"
-              ],
-              "default": "1d"
-            },
-            "description": "Time range for the heatmap grid"
-          },
-          {
-            "name": "layer",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "volume",
-                "count",
-                "fee",
-                "whale",
-                "retail"
-              ],
-              "default": "volume"
-            },
-            "description": "Data layer to visualize"
-          },
-          {
-            "name": "drill",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            },
-            "description": "Bucket index to drill down into (returns individual transactions for that bucket)"
-          }
+          { "name": "txid", "in": "query", "required": true, "schema": { "type": "string" } }
         ],
         "responses": {
-          "200": {
-            "description": "Heatmap bucket data",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "buckets": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/HeatmapBucket"
-                          }
-                        },
-                        "meta": {
-                          "type": "object",
-                          "properties": {
-                            "timeframe": {
-                              "type": "string"
-                            },
-                            "layer": {
-                              "type": "string"
-                            },
-                            "gridConfig": {
-                              "type": "object",
-                              "properties": {
-                                "rows": {
-                                  "type": "integer"
-                                },
-                                "cols": {
-                                  "type": "integer"
-                                },
-                                "rowLabel": {
-                                  "type": "string"
-                                },
-                                "colLabel": {
-                                  "type": "string"
-                                }
-                              }
-                            },
-                            "totalTx": {
-                              "type": "integer"
-                            },
-                            "totalVolume": {
-                              "type": "number"
-                            },
-                            "peakBucket": {
-                              "type": "object",
-                              "properties": {
-                                "index": {
-                                  "type": "integer"
-                                },
-                                "value": {
-                                  "type": "number"
-                                },
-                                "label": {
-                                  "type": "string"
-                                }
-                              }
-                            },
-                            "whaleCount": {
-                              "type": "integer"
-                            },
-                            "activeSlots": {
-                              "type": "integer"
-                            }
-                          }
-                        }
-                      }
-                    },
-                    "metadata": {
-                      "$ref": "#/components/schemas/Metadata"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
+          "200": { "description": "Transaction details" },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
         }
       }
     },
-    "/v1/price": {
+    "/tx/bitcoin/{txid}": {
       "get": {
-        "operationId": "getPrice",
-        "tags": [
-          "Price"
-        ],
-        "summary": "Get current DOG price from Kraken",
-        "description": "Returns the current DOG/USD price from Kraken exchange with 24h change, high, low, and volume. Falls back to CoinGecko if Kraken is unavailable.",
-        "responses": {
-          "200": {
-            "description": "Current DOG price",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Price"
-                    },
-                    "metadata": {
-                      "$ref": "#/components/schemas/Metadata"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
-      }
-    },
-    "/v1/price/all": {
-      "get": {
-        "operationId": "getAllPrices",
-        "tags": [
-          "Price"
-        ],
-        "summary": "Get DOG price from all tracked exchanges",
-        "description": "Returns DOG price data from all tracked exchanges (Kraken, MEXC, Gate, Bitget, Bitflow, Dogswap) and Solana DEXes (Orca, Raydium, Meteora, Jupiter) for cross-exchange comparison.",
-        "responses": {
-          "200": {
-            "description": "Multi-exchange price data",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "prices": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/ExchangePrice"
-                          }
-                        },
-                        "average_price_usd": {
-                          "type": "number"
-                        },
-                        "total_volume_usd": {
-                          "type": "number"
-                        },
-                        "exchanges_reporting": {
-                          "type": "integer"
-                        }
-                      }
-                    },
-                    "metadata": {
-                      "$ref": "#/components/schemas/Metadata"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
-      }
-    },
-    "/v1/price/{exchange}": {
-      "get": {
-        "operationId": "getPriceByExchange",
-        "tags": [
-          "Price"
-        ],
-        "summary": "Get DOG price from a specific exchange",
-        "description": "Returns DOG price from a specific exchange. Supported CEXes: kraken, mexc, gateio, bitget, bitflow, dogswap. Solana DEXes: orca, raydium, meteora, jupiter.",
+        "tags": ["Transactions"],
+        "summary": "Bitcoin L1 transaction details by txid",
         "parameters": [
-          {
-            "name": "exchange",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "kraken",
-                "mexc",
-                "gateio",
-                "bitget",
-                "bitflow",
-                "dogswap",
-                "orca",
-                "raydium",
-                "meteora",
-                "jupiter"
-              ]
-            },
-            "description": "Exchange identifier"
-          }
+          { "name": "txid", "in": "path", "required": true, "schema": { "type": "string" } }
         ],
         "responses": {
-          "200": {
-            "description": "Exchange-specific price data",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Price"
-                    },
-                    "metadata": {
-                      "$ref": "#/components/schemas/Metadata"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
+          "200": { "description": "Transaction with senders, receivers, fee, block height" },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
         }
       }
     },
-    "/v1/metrics": {
+    "/address/bitcoin/{address}": {
       "get": {
-        "operationId": "getMetrics",
-        "tags": [
-          "Metrics"
-        ],
-        "summary": "Get aggregated on-chain metrics",
-        "description": "Returns aggregated on-chain metrics including UTXO distribution, holder concentration, realized cap, and UTXO age data.",
-        "responses": {
-          "200": {
-            "description": "Aggregated on-chain metrics",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "utxo": {
-                          "type": "object",
-                          "properties": {
-                            "total_utxos": {
-                              "type": "integer"
-                            },
-                            "avg_utxo_size": {
-                              "type": "number"
-                            },
-                            "utxo_distribution": {
-                              "type": "array",
-                              "items": {
-                                "$ref": "#/components/schemas/UtxoDistribution"
-                              }
-                            },
-                            "last_updated": {
-                              "type": "string"
-                            }
-                          }
-                        },
-                        "concentration": {
-                          "$ref": "#/components/schemas/Concentration"
-                        },
-                        "realized_cap": {
-                          "$ref": "#/components/schemas/RealizedCap"
-                        }
-                      }
-                    },
-                    "metadata": {
-                      "$ref": "#/components/schemas/Metadata"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
-      }
-    },
-    "/v1/metrics/history": {
-      "get": {
-        "operationId": "getMetricsHistory",
-        "tags": [
-          "Metrics"
-        ],
-        "summary": "Get historical metrics time-series",
-        "description": "Returns time-series data for all on-chain metrics. Supports multiple time ranges and optional metric filtering. Data is downsampled to appropriate bucket sizes per range.",
+        "tags": ["Address"],
+        "summary": "Address profile (Bitcoin L1)",
+        "description": "Holder profile with balance, rank, UTXO count, forensic profile (if available), and recent transactions. Use `limit`/`offset`/`direction` to paginate transactions.",
         "parameters": [
-          {
-            "name": "range",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "24h",
-                "7d",
-                "30d",
-                "90d",
-                "all"
-              ],
-              "default": "30d"
-            },
-            "description": "Time range for historical data"
-          },
-          {
-            "name": "metrics",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "description": "Comma-separated list of metric names to include (e.g., 'gini_coefficient,total_holders')"
-          }
+          { "name": "address", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 500, "default": 50 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "minimum": 0, "default": 0 } },
+          { "name": "direction", "in": "query", "schema": { "type": "string", "enum": ["in", "out"] } }
         ],
-        "responses": {
-          "200": {
-            "description": "Historical metrics time-series",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "history": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/MetricsHistoryPoint"
-                          }
-                        },
-                        "total_points": {
-                          "type": "integer"
-                        },
-                        "raw_points": {
-                          "type": "integer"
-                        },
-                        "range": {
-                          "type": "string"
-                        },
-                        "last_updated": {
-                          "type": "string",
-                          "nullable": true
-                        }
-                      }
-                    },
-                    "metadata": {
-                      "$ref": "#/components/schemas/Metadata"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
+        "responses": { "200": { "description": "Address profile" } }
       }
     },
-    "/v1/metrics/utxo": {
+    "/address/{address}/transactions": {
       "get": {
-        "operationId": "getUtxoMetrics",
-        "tags": [
-          "Metrics"
-        ],
-        "summary": "Get UTXO size distribution",
-        "description": "Returns UTXO count, average size, and size distribution buckets calculated from individual UTXOs.",
-        "responses": {
-          "200": {
-            "description": "UTXO size distribution data",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "total_utxos": {
-                          "type": "integer"
-                        },
-                        "avg_utxo_size": {
-                          "type": "number"
-                        },
-                        "utxo_distribution": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/UtxoDistribution"
-                          }
-                        },
-                        "last_updated": {
-                          "type": "string"
-                        }
-                      }
-                    },
-                    "metadata": {
-                      "$ref": "#/components/schemas/Metadata"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
-      }
-    },
-    "/v1/metrics/utxo-age": {
-      "get": {
-        "operationId": "getUtxoAge",
-        "tags": [
-          "Metrics"
-        ],
-        "summary": "Get UTXO age distribution (HODL Waves)",
-        "description": "Returns UTXO age distribution data including HODL waves, average/median age, and short-term vs long-term holder percentages.",
-        "responses": {
-          "200": {
-            "description": "UTXO age distribution and HODL waves",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "total_utxos": {
-                          "type": "integer"
-                        },
-                        "total_supply": {
-                          "type": "number"
-                        },
-                        "avg_age_days": {
-                          "type": "number"
-                        },
-                        "median_age_days": {
-                          "type": "number"
-                        },
-                        "sth_percentage": {
-                          "type": "number"
-                        },
-                        "lth_percentage": {
-                          "type": "number"
-                        },
-                        "hodl_waves": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/HodlWave"
-                          }
-                        },
-                        "last_updated": {
-                          "type": "string"
-                        }
-                      }
-                    },
-                    "metadata": {
-                      "$ref": "#/components/schemas/Metadata"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
-      }
-    },
-    "/v1/metrics/concentration": {
-      "get": {
-        "operationId": "getConcentration",
-        "tags": [
-          "Metrics"
-        ],
-        "summary": "Get holder concentration metrics",
-        "description": "Returns Gini coefficient and percentage of supply held by top 10, 100, and 1000 holders.",
-        "responses": {
-          "200": {
-            "description": "Holder concentration data",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/Concentration"
-                    },
-                    "metadata": {
-                      "$ref": "#/components/schemas/Metadata"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
-      }
-    },
-    "/v1/metrics/realized-cap": {
-      "get": {
-        "operationId": "getRealizedCap",
-        "tags": [
-          "Metrics"
-        ],
-        "summary": "Get realized capitalization metrics",
-        "description": "Returns realized cap, market cap, MVRV ratio, and current price. Realized cap values each UTXO at the price when it was last moved.",
-        "responses": {
-          "200": {
-            "description": "Realized cap metrics",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/RealizedCap"
-                    },
-                    "metadata": {
-                      "$ref": "#/components/schemas/Metadata"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
-      }
-    },
-    "/v1/metrics/supply": {
-      "get": {
-        "operationId": "getSupplyProfitLoss",
-        "tags": [
-          "Metrics"
-        ],
-        "summary": "Get supply in profit/loss",
-        "description": "Returns the percentage of DOG supply currently in profit vs loss based on the price when each UTXO was created.",
-        "responses": {
-          "200": {
-            "description": "Supply profit/loss data",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "supply_in_profit_pct": {
-                          "type": "number"
-                        },
-                        "supply_in_loss_pct": {
-                          "type": "number"
-                        },
-                        "current_price": {
-                          "type": "number"
-                        },
-                        "last_updated": {
-                          "type": "string"
-                        }
-                      }
-                    },
-                    "metadata": {
-                      "$ref": "#/components/schemas/Metadata"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
-      }
-    },
-    "/v1/forensic/profiles": {
-      "get": {
-        "operationId": "getForensicProfiles",
-        "tags": [
-          "Forensic"
-        ],
-        "summary": "List forensic behavioral profiles",
-        "description": "Returns paginated forensic profiles with behavior classification. Supports filtering by behavior pattern.",
+        "tags": ["Address"],
+        "summary": "Paginated transaction history for an address",
+        "description": "Convenience endpoint that proxies to /address/bitcoin/{address} and returns the canonical pagination envelope.",
         "parameters": [
-          {
-            "$ref": "#/components/parameters/PageParam"
-          },
-          {
-            "$ref": "#/components/parameters/LimitParam"
-          },
-          {
-            "name": "pattern",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "description": "Filter by behavior pattern (e.g., 'diamond_hands', 'active_trader', 'paper_hands')"
-          }
+          { "name": "address", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 500, "default": 50 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "minimum": 0, "default": 0 } },
+          { "name": "direction", "in": "query", "schema": { "type": "string", "enum": ["in", "out"] } }
         ],
+        "responses": { "200": { "description": "Paginated transaction list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PaginatedEnvelope" } } } } }
+      }
+    },
+    "/forensic/summary": {
+      "get": {
+        "tags": ["Forensic"],
+        "summary": "Forensic behavioral summary (canonical retention metrics)",
+        "description": "Canonical source for `still_holding`, `sold_everything`, `retention_rate`, `accumulated`. Includes `staleness_hours` and `field_definitions` for each metric.",
         "responses": {
           "200": {
-            "description": "Paginated list of forensic profiles",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/ForensicProfile"
-                      }
-                    },
-                    "metadata": {
-                      "$ref": "#/components/schemas/Metadata"
-                    },
-                    "pagination": {
-                      "$ref": "#/components/schemas/Pagination"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
+            "description": "Forensic summary",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ForensicSummary" } } }
           }
         }
       }
     },
-    "/v1/forensic/summary": {
+    "/forensic/profiles": {
       "get": {
-        "operationId": "getForensicSummary",
-        "tags": [
-          "Forensic"
-        ],
-        "summary": "Get forensic analysis summary statistics",
-        "description": "Returns aggregate statistics from the behavioral forensic analysis: category breakdown, diamond score averages, and pattern distribution.",
-        "responses": {
-          "200": {
-            "description": "Forensic summary statistics",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "total_profiles": {
-                          "type": "integer"
-                        },
-                        "categories": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "pattern": {
-                                "type": "string"
-                              },
-                              "count": {
-                                "type": "integer"
-                              },
-                              "percentage": {
-                                "type": "number"
-                              },
-                              "avg_retention": {
-                                "type": "number"
-                              }
-                            }
-                          }
-                        },
-                        "statistics": {
-                          "type": "object"
-                        },
-                        "timestamp": {
-                          "type": "string"
-                        }
-                      }
-                    },
-                    "metadata": {
-                      "$ref": "#/components/schemas/Metadata"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
-      }
-    },
-    "/v1/forensic/{address}": {
-      "get": {
-        "operationId": "getForensicProfileByAddress",
-        "tags": [
-          "Forensic"
-        ],
-        "summary": "Get forensic profile for a specific address",
-        "description": "Returns the behavioral forensic profile for a specific Bitcoin address including behavior pattern, diamond score, and transaction metrics.",
+        "tags": ["Forensic"],
+        "summary": "Paginated forensic profiles",
+        "description": "Returns 75k+ airdrop-recipient profiles with Diamond Score, behavioral pattern, retention. Sorted by receive_count desc, then airdrop_amount desc.",
         "parameters": [
-          {
-            "name": "address",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "Bitcoin address"
-          }
+          { "$ref": "#/components/parameters/Page" },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 200, "default": 50 } },
+          { "name": "pattern", "in": "query", "schema": { "type": "string" }, "description": "Filter by behavior pattern (e.g. paper_hands, dog_legend, ordinal_believer). Use 'all' or omit for everyone." }
         ],
         "responses": {
           "200": {
-            "description": "Forensic profile for the address",
+            "description": "Paginated profiles",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/ForensicProfile"
-                    },
-                    "metadata": {
-                      "$ref": "#/components/schemas/Metadata"
-                    }
-                  }
+                  "allOf": [
+                    { "$ref": "#/components/schemas/PaginatedEnvelope" },
+                    { "type": "object", "properties": { "data": { "type": "array", "items": { "$ref": "#/components/schemas/ForensicProfile" } } } }
+                  ]
                 }
               }
             }
-          },
-          "404": {
-            "description": "Address not found in forensic data",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
           }
         }
       }
     },
-    "/v1/airdrop/summary": {
+    "/forensic/profile": {
       "get": {
-        "operationId": "getAirdropSummary",
-        "tags": [
-          "Airdrop"
-        ],
-        "summary": "Get airdrop distribution summary",
-        "description": "Returns aggregate airdrop analytics including total recipients, retention rate, and category breakdown.",
-        "responses": {
-          "200": {
-            "description": "Airdrop summary",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/AirdropSummary"
-                    },
-                    "metadata": {
-                      "$ref": "#/components/schemas/Metadata"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
-      }
-    },
-    "/v1/airdrop/recipients": {
-      "get": {
-        "operationId": "getAirdropRecipients",
-        "tags": [
-          "Airdrop"
-        ],
-        "summary": "List airdrop recipients",
-        "description": "Returns the list of all airdrop recipients with amounts and retention data.",
-        "responses": {
-          "200": {
-            "description": "Airdrop recipients list",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "recipients": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/AirdropRecipient"
-                          }
-                        },
-                        "total": {
-                          "type": "integer"
-                        },
-                        "timestamp": {
-                          "type": "string"
-                        }
-                      }
-                    },
-                    "metadata": {
-                      "$ref": "#/components/schemas/Metadata"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
-      }
-    },
-    "/v1/bitcoin": {
-      "get": {
-        "operationId": "getBitcoinNetwork",
-        "tags": [
-          "Bitcoin"
-        ],
-        "summary": "Get Bitcoin network status",
-        "description": "Returns comprehensive Bitcoin network data: difficulty adjustment, hashrate (7d), mempool stats, fee estimates, recent blocks, mining pools, and BTC price. Data sourced from mempool.space and CoinGecko.",
-        "responses": {
-          "200": {
-            "description": "Bitcoin network data",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/BitcoinNetwork"
-                    },
-                    "metadata": {
-                      "$ref": "#/components/schemas/Metadata"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
-      }
-    },
-    "/v1/markets": {
-      "get": {
-        "operationId": "getMarkets",
-        "tags": [
-          "Markets"
-        ],
-        "summary": "Get DOG market data from all exchanges",
-        "description": "Returns DOG market tickers from 20+ exchanges (CoinGecko aggregated) plus Bitflow DEX. Includes aggregated market data (price, volume, market cap, 24h change). Data refreshes every 60 seconds.",
-        "responses": {
-          "200": {
-            "description": "Multi-exchange market data",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "tickers": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/MarketTicker"
-                          }
-                        },
-                        "marketData": {
-                          "$ref": "#/components/schemas/MarketData"
-                        },
-                        "timestamp": {
-                          "type": "number"
-                        }
-                      }
-                    },
-                    "metadata": {
-                      "$ref": "#/components/schemas/Metadata"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
-      }
-    },
-    "/v1/multichain/holders": {
-      "get": {
-        "operationId": "getMultichainHolders",
-        "tags": [
-          "Multichain"
-        ],
-        "summary": "Get DOG holders on Stacks and/or Solana",
-        "description": "Returns top holders of bridged DOG tokens on Stacks (via Tenero) and Solana (via Helius). Includes balances, USD values, holder stats, and concentration percentages. Omit `chain` to get both chains.",
+        "tags": ["Forensic"],
+        "summary": "Forensic profile lookup by address",
         "parameters": [
-          {
-            "name": "chain",
-            "in": "query",
-            "description": "Filter by blockchain: stacks or solana. Omit for both.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "stacks",
-                "solana"
-              ]
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "description": "Number of top holders to return (default 20)",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 20
-            }
-          }
+          { "name": "address", "in": "query", "required": true, "schema": { "type": "string" } }
         ],
         "responses": {
-          "200": {
-            "description": "Multi-chain holder data with stats and concentration metrics",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "stacks": {
-                      "type": "object",
-                      "description": "Stacks holders, stats, and concentration data"
-                    },
-                    "solana": {
-                      "type": "object",
-                      "description": "Solana holders with USD-enriched balances"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
+          "200": { "description": "Profile", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ForensicProfile" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
         }
       }
     },
-    "/v1/multichain/transactions": {
+    "/airdrop/summary": {
       "get": {
-        "operationId": "getMultichainTransactions",
-        "tags": [
-          "Multichain"
-        ],
-        "summary": "Get DOG transactions on Stacks and/or Solana",
-        "description": "Returns recent DOG token transactions (transfers and swaps) on Stacks (via Tenero) and Solana (via Helius Enhanced API). Omit `chain` to get both chains. Gracefully degrades if one chain is unavailable.",
+        "tags": ["Airdrop"],
+        "summary": "Airdrop summary (retention metrics from forensic source of truth)",
+        "description": "Combines distribution figures from airdrop_analytics with canonical retention metrics from /forensic/summary. Includes `accumulator_breakdown`, `last_updated`, `staleness_hours`.",
+        "responses": { "200": { "description": "Airdrop summary", "content": { "application/json": { "schema": { "type": "object" } } } } }
+      }
+    },
+    "/airdrop/recipients": {
+      "get": {
+        "tags": ["Airdrop"],
+        "summary": "Airdrop recipients list",
+        "description": "Returns airdrop recipients with amount, status, and rank. Without pagination params returns the full list (legacy mode); with `page` or `limit` returns the canonical pagination envelope.",
         "parameters": [
-          {
-            "name": "chain",
-            "in": "query",
-            "description": "Filter by blockchain: stacks or solana. Omit for both.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "stacks",
-                "solana"
-              ]
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "description": "Number of transactions to return (default 30)",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 30
-            }
-          }
+          { "$ref": "#/components/parameters/Page" },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 1000, "default": 100 } }
         ],
-        "responses": {
-          "200": {
-            "description": "Multi-chain transaction feeds",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "stacks": {
-                      "type": "object",
-                      "description": "Stacks transactions (trades + transfers)"
-                    },
-                    "solana": {
-                      "type": "object",
-                      "description": "Solana DOG token transfers and swaps"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
+        "responses": { "200": { "description": "Recipient list", "content": { "application/json": { "schema": { "type": "object" } } } } }
       }
     },
-    "/v1/multichain/stats": {
+    "/airdrop/lost": {
       "get": {
-        "operationId": "getMultichainStats",
-        "tags": [
-          "Multichain"
-        ],
-        "summary": "Aggregated DOG stats across Stacks and Solana",
-        "description": "Returns aggregated statistics for DOG tokens across Stacks and Solana \u2014 total holders, market cap, 24h volume, and circulating supply per chain. Uses Tenero (Stacks) and Birdeye (Solana) as data sources.",
-        "responses": {
-          "200": {
-            "description": "Aggregated multi-chain statistics",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "total_holders": {
-                      "type": "integer",
-                      "description": "Combined holder count across chains"
-                    },
-                    "total_market_cap_usd": {
-                      "type": "number",
-                      "description": "Combined market cap in USD"
-                    },
-                    "total_volume_24h_usd": {
-                      "type": "number",
-                      "description": "Combined 24h volume in USD"
-                    },
-                    "total_supply_all_chains": {
-                      "type": "number",
-                      "description": "Total circulating supply across chains"
-                    },
-                    "chains": {
-                      "type": "array",
-                      "description": "Per-chain token info",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "chain": {
-                            "type": "string"
-                          },
-                          "holder_count": {
-                            "type": "integer"
-                          },
-                          "market_cap_usd": {
-                            "type": "number"
-                          },
-                          "volume_24h_usd": {
-                            "type": "number"
-                          },
-                          "price_usd": {
-                            "type": "number"
-                          }
-                        }
-                      }
-                    },
-                    "last_updated": {
-                      "type": "string",
-                      "format": "date-time"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
+        "tags": ["Airdrop"],
+        "summary": "Lost DOG aggregate analysis",
+        "description": "Diamond-paws lost DOG estimate — wallets that received airdrop and never sent (presumed lost or extreme HODL). See also `/airdrop/lost/wallets` for the per-wallet list.",
+        "responses": { "200": { "description": "Lost analysis summary", "content": { "application/json": { "schema": { "type": "object" } } } } }
       }
     },
-    "/v1/stacks/history": {
+    "/airdrop/lost/wallets": {
       "get": {
-        "operationId": "getStacksHistory",
-        "tags": [
-          "Stacks"
-        ],
-        "summary": "Historical Stacks DOG metrics (hourly snapshots)",
-        "description": "Returns time-series data of Stacks DOG metrics from Supabase. Captures holder count, price, market cap, volume, concentration (top 10/25/50%), whale wallets, and active/fresh holder counts. Snapshots are taken hourly via Vercel cron.",
+        "tags": ["Airdrop"],
+        "summary": "Lost-DOG wallets (paginated)",
         "parameters": [
-          {
-            "name": "days",
-            "in": "query",
-            "description": "Lookback window in days (default 30, max 365)",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 30,
-              "maximum": 365
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "description": "Max rows to return (default 720)",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 720,
-              "maximum": 5000
-            }
-          },
-          {
-            "name": "latest",
-            "in": "query",
-            "description": "Set to 'true' for only the most recent snapshot",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "true"
-              ]
-            }
-          }
+          { "$ref": "#/components/parameters/Page" },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 200, "default": 50 } },
+          { "name": "addr_type", "in": "query", "schema": { "type": "string" }, "description": "Optional address-type filter (e.g. taproot, segwit)" }
         ],
-        "responses": {
-          "200": {
-            "description": "Historical metrics snapshots",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "ok": {
-                      "type": "boolean"
-                    },
-                    "snapshots": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "snapshot_at": {
-                            "type": "string",
-                            "format": "date-time"
-                          },
-                          "holder_count": {
-                            "type": "integer"
-                          },
-                          "price_usd": {
-                            "type": "number"
-                          },
-                          "market_cap_usd": {
-                            "type": "number"
-                          },
-                          "volume_24h_usd": {
-                            "type": "number"
-                          },
-                          "liquidity_usd": {
-                            "type": "number",
-                            "nullable": true
-                          },
-                          "circulating_supply": {
-                            "type": "number"
-                          },
-                          "top_10_pct": {
-                            "type": "number"
-                          },
-                          "top_25_pct": {
-                            "type": "number"
-                          },
-                          "top_50_pct": {
-                            "type": "number"
-                          },
-                          "whale_wallets": {
-                            "type": "integer"
-                          },
-                          "active_1w": {
-                            "type": "integer"
-                          },
-                          "fresh_1w": {
-                            "type": "integer"
-                          }
-                        }
-                      }
-                    },
-                    "count": {
-                      "type": "integer"
-                    },
-                    "range": {
-                      "type": "object",
-                      "properties": {
-                        "from": {
-                          "type": "string",
-                          "format": "date-time"
-                        },
-                        "to": {
-                          "type": "string",
-                          "format": "date-time"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          },
-          "500": {
-            "$ref": "#/components/responses/ServerError"
-          }
-        }
+        "responses": { "200": { "description": "Paginated wallets" } }
       }
     },
-    "/v1/agent/capabilities": {
+    "/price/kraken": {
       "get": {
-        "operationId": "getAgentCapabilities",
-        "tags": [
-          "Agent"
-        ],
-        "summary": "Discover API capabilities for AI agents",
-        "description": "Returns a machine-readable description of all available endpoints, their parameters, rate limits, and authentication requirements. Designed for AI agent auto-discovery.",
-        "responses": {
-          "200": {
-            "description": "API capabilities descriptor",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentCapabilities"
-                }
-              }
-            }
-          }
-        }
+        "tags": ["Price"],
+        "summary": "DOG price — Kraken (CEX, DOG/USD)",
+        "responses": { "200": { "description": "Normalized price", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NormalizedPrice" } } } } }
       }
     },
-    "/v1/openapi.json": {
+    "/price/gateio": {
+      "get": { "tags": ["Price"], "summary": "DOG price — Gate.io (CEX, DOG/USDT)", "responses": { "200": { "description": "Normalized price", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NormalizedPrice" } } } } } }
+    },
+    "/price/mexc": {
+      "get": { "tags": ["Price"], "summary": "DOG price — MEXC (CEX, DOG/USDT)", "responses": { "200": { "description": "Normalized price", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NormalizedPrice" } } } } } }
+    },
+    "/price/bitget": {
+      "get": { "tags": ["Price"], "summary": "DOG price — Bitget (CEX, DOG/USDT)", "responses": { "200": { "description": "Normalized price", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NormalizedPrice" } } } } } }
+    },
+    "/price/bitflow": {
+      "get": { "tags": ["Price"], "summary": "DOG price — Bitflow (Stacks AMM, DOG/sBTC)", "responses": { "200": { "description": "Normalized price", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NormalizedPrice" } } } } } }
+    },
+    "/price/dogswap": {
+      "get": { "tags": ["Price"], "summary": "DOG price — Dogswap (Bitcoin L1 AMM, DOG/BTC)", "responses": { "200": { "description": "Normalized price", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NormalizedPrice" } } } } } }
+    },
+    "/price/orca": {
+      "get": { "tags": ["Price"], "summary": "DOG price — Orca (Solana DEX, DOG/SOL)", "responses": { "200": { "description": "Normalized price", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NormalizedPrice" } } } } } }
+    },
+    "/price/raydium": {
+      "get": { "tags": ["Price"], "summary": "DOG price — Raydium (Solana DEX, DOG/USDC)", "responses": { "200": { "description": "Normalized price", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NormalizedPrice" } } } } } }
+    },
+    "/price/meteora": {
+      "get": { "tags": ["Price"], "summary": "DOG price — Meteora (Solana DEX, DOG/SOL)", "responses": { "200": { "description": "Normalized price", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NormalizedPrice" } } } } } }
+    },
+    "/price/jupiter": {
+      "get": { "tags": ["Price"], "summary": "DOG price — Jupiter (Solana aggregator, DOG/USD)", "responses": { "200": { "description": "Normalized price", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NormalizedPrice" } } } } } }
+    },
+    "/markets": {
       "get": {
-        "operationId": "getOpenApiSpec",
-        "tags": [
-          "System"
-        ],
-        "summary": "Get OpenAPI 3.0 specification",
-        "description": "Returns the complete OpenAPI 3.0.3 specification for this API.",
-        "responses": {
-          "200": {
-            "description": "OpenAPI specification",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          }
-        }
+        "tags": ["Markets"],
+        "summary": "Aggregated multi-exchange market data",
+        "responses": { "200": { "description": "Aggregated market payload", "content": { "application/json": { "schema": { "type": "object" } } } } }
       }
     },
-    "/v1/events": {
+    "/metrics/utxo": {
+      "get": { "tags": ["Metrics"], "summary": "UTXO distribution snapshot", "responses": { "200": { "description": "UTXO buckets and supply per bucket" } } }
+    },
+    "/metrics/utxo-age": {
+      "get": { "tags": ["Metrics"], "summary": "UTXO age stats (LTH/STH split, MVRV, realized cap)", "responses": { "200": { "description": "Age-cohort metrics" } } }
+    },
+    "/metrics/utxo-count-history": {
       "get": {
-        "operationId": "getEvents",
-        "tags": [
-          "Events"
-        ],
-        "summary": "Subscribe to real-time events (SSE)",
-        "description": "Server-Sent Events stream for real-time DOG transaction and price updates. Connect with EventSource API. Events include new transactions, price changes, and whale alerts.",
-        "responses": {
-          "200": {
-            "description": "SSE event stream",
-            "content": {
-              "text/event-stream": {
-                "schema": {
-                  "type": "string",
-                  "description": "Server-Sent Events stream. Each event has format: event: <type>\\ndata: <json>\\n\\n"
-                }
-              }
-            }
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
-          }
-        }
+        "tags": ["Metrics"],
+        "summary": "Time-series of total UTXO count",
+        "parameters": [{ "name": "range", "in": "query", "schema": { "type": "string", "default": "30d" } }],
+        "responses": { "200": { "description": "Time-series" } }
       }
     },
-    "/v1/health": {
+    "/metrics/holder-concentration": {
+      "get": { "tags": ["Metrics"], "summary": "Holder concentration (top 10 / 25 / 50 / 100 percentages)", "responses": { "200": { "description": "Concentration breakdown" } } }
+    },
+    "/metrics/realized-cap": {
+      "get": { "tags": ["Metrics"], "summary": "Realized capitalization", "responses": { "200": { "description": "Realized cap, market cap, MVRV ratio" } } }
+    },
+    "/metrics/supply-profit-loss": {
+      "get": { "tags": ["Metrics"], "summary": "Supply in profit vs loss", "responses": { "200": { "description": "Profit/loss breakdown" } } }
+    },
+    "/metrics/tx-breakdown": {
       "get": {
-        "operationId": "getHealth",
-        "tags": [
-          "System"
-        ],
-        "summary": "Health check endpoint",
-        "description": "Returns API health status. Returns 200 if the service is operational.",
-        "responses": {
-          "200": {
-            "description": "Service is healthy",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "ok"
-                      ]
-                    },
-                    "timestamp": {
-                      "type": "string",
-                      "format": "date-time"
-                    },
-                    "uptime": {
-                      "type": "number"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service is unhealthy",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
+        "tags": ["Metrics"],
+        "summary": "Transaction breakdown by type",
+        "parameters": [{ "name": "range", "in": "query", "schema": { "type": "string", "default": "30d" } }],
+        "responses": { "200": { "description": "Tx-type breakdown over range" } }
       }
     },
-    "/v1/whale-alerts": {
+    "/metrics/history": {
       "get": {
-        "operationId": "getWhaleAlerts",
-        "tags": [
-          "Whale Alerts"
-        ],
-        "summary": "Get large DOG transfers across Bitcoin, Stacks, and Solana",
-        "description": "Returns DOG transactions above the specified threshold across all supported chains (Bitcoin L1, Stacks, Solana). Includes severity classification, USD value, sender/receiver analysis, contextual interpretation, explorer links, and pre-formatted tweet text. Default threshold: 1M DOG. Filter by chain or get alerts from all chains at once.",
+        "tags": ["Metrics"],
+        "summary": "Historical aggregated metrics",
         "parameters": [
-          {
-            "name": "chain",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "bitcoin",
-                "stacks",
-                "solana"
-              ]
-            },
-            "description": "Filter by blockchain. Omit for all chains."
-          },
-          {
-            "name": "threshold",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 1000000
-            },
-            "description": "Minimum DOG amount to trigger alert (default: 1,000,000)"
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 50,
-              "maximum": 200
-            },
-            "description": "Maximum number of alerts to return"
-          },
-          {
-            "name": "format",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "full",
-                "tweet",
-                "compact"
-              ],
-              "default": "full"
-            },
-            "description": "Response format: full (all fields), tweet (tweet text only), compact (summary)"
-          }
+          { "name": "range", "in": "query", "schema": { "type": "string", "default": "30d" } },
+          { "name": "metrics", "in": "query", "schema": { "type": "string" }, "description": "Comma-separated list of metrics to include (e.g. holders,retention,concentration)" }
+        ],
+        "responses": { "200": { "description": "Time-series payload" } }
+      }
+    },
+    "/multichain/holders": {
+      "get": {
+        "tags": ["Multichain"],
+        "summary": "Cross-chain holders (Stacks via Tenero, Solana via Helius)",
+        "parameters": [
+          { "$ref": "#/components/parameters/ChainFilter" },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": { "200": { "description": "Per-chain holder list" } }
+      }
+    },
+    "/multichain/transactions": {
+      "get": {
+        "tags": ["Multichain"],
+        "summary": "Cross-chain recent transactions",
+        "parameters": [
+          { "$ref": "#/components/parameters/ChainFilter" },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 30 } }
+        ],
+        "responses": { "200": { "description": "Per-chain transactions" } }
+      }
+    },
+    "/multichain/stats": {
+      "get": {
+        "tags": ["Multichain"],
+        "summary": "Cross-chain aggregated stats",
+        "description": "Aggregated stats across Stacks and Solana. `last_updated` at top level is the *oldest* per-chain timestamp (worst-case freshness).",
+        "responses": { "200": { "description": "Aggregated stats" } }
+      }
+    },
+    "/stacks/history": {
+      "get": {
+        "tags": ["Stacks"],
+        "summary": "Stacks DOG metrics — hourly historical snapshots",
+        "description": "Persisted to Supabase. Use `latest=true` for the freshest snapshot only.",
+        "parameters": [
+          { "name": "days", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 365, "default": 30 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 5000, "default": 720 } },
+          { "name": "latest", "in": "query", "schema": { "type": "string", "enum": ["true", "false"] } }
+        ],
+        "responses": { "200": { "description": "History rows" } }
+      }
+    },
+    "/stacks/snapshot": {
+      "get": {
+        "tags": ["Stacks"],
+        "summary": "Take a Stacks snapshot (cron-protected)",
+        "description": "Triggers a fresh hourly snapshot of Stacks DOG metrics into Supabase. Called by Vercel Cron.",
+        "responses": { "200": { "description": "Snapshot persisted" } }
+      },
+      "post": {
+        "tags": ["Stacks"],
+        "summary": "Take a Stacks snapshot (POST variant)",
+        "responses": { "200": { "description": "Snapshot persisted" } }
+      }
+    },
+    "/bitcoin": {
+      "get": {
+        "tags": ["Bitcoin"],
+        "summary": "Bitcoin network status",
+        "description": "Live block height, hashrate, mempool, and fee tiers from the local full node.",
+        "responses": { "200": { "description": "Network status" } }
+      }
+    },
+    "/whale-alerts": {
+      "get": {
+        "tags": ["Whale Alerts"],
+        "summary": "Recent large DOG transfers",
+        "parameters": [
+          { "name": "threshold", "in": "query", "schema": { "type": "integer", "default": 1000000 }, "description": "Min DOG amount to qualify as a whale alert" },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 200, "default": 50 } },
+          { "name": "format", "in": "query", "schema": { "type": "string", "enum": ["full", "tweet", "compact"], "default": "full" } },
+          { "name": "chain", "in": "query", "schema": { "type": "string", "enum": ["bitcoin", "stacks", "solana"] } }
+        ],
+        "responses": { "200": { "description": "Whale alerts list" } }
+      }
+    },
+    "/events": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "Server-Sent Events stream",
+        "description": "SSE feed for `new_transaction`, `price_update`, `whale_alert`, `new_block`. Filter by `events=` (comma-separated). Use `whale_threshold` to tune whale alerts.",
+        "parameters": [
+          { "name": "events", "in": "query", "schema": { "type": "string" }, "description": "Comma-separated event names" },
+          { "name": "whale_threshold", "in": "query", "schema": { "type": "integer", "default": 1000000 } }
         ],
         "responses": {
           "200": {
-            "description": "Whale alerts",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "service": {
-                      "type": "string"
-                    },
-                    "threshold": {
-                      "type": "string"
-                    },
-                    "dog_price_usd": {
-                      "type": "number"
-                    },
-                    "total_alerts": {
-                      "type": "integer"
-                    },
-                    "alerts_by_chain": {
-                      "type": "object",
-                      "description": "Alert count per chain"
-                    },
-                    "alerts": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "chain": {
-                            "type": "string",
-                            "enum": [
-                              "bitcoin",
-                              "stacks",
-                              "solana"
-                            ]
-                          },
-                          "txid": {
-                            "type": "string"
-                          },
-                          "total_dog_moved": {
-                            "type": "number"
-                          },
-                          "total_dog_formatted": {
-                            "type": "string"
-                          },
-                          "usd_value": {
-                            "type": "string"
-                          },
-                          "severity": {
-                            "type": "string",
-                            "enum": [
-                              "MEGA",
-                              "HIGH",
-                              "MEDIUM",
-                              "ALERT"
-                            ]
-                          },
-                          "classification": {
-                            "type": "string"
-                          },
-                          "context": {
-                            "type": "string"
-                          },
-                          "tweet": {
-                            "type": "string"
-                          },
-                          "explorer_url": {
-                            "type": "string",
-                            "description": "Chain-native explorer URL"
-                          },
-                          "dogdata_url": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "429": {
-            "$ref": "#/components/responses/RateLimited"
+            "description": "SSE stream",
+            "content": { "text/event-stream": { "schema": { "type": "string" } } }
           }
         }
       }
     },
-    "/v1/status": {
-      "get": {
-        "operationId": "getStatus",
-        "tags": [
-          "System"
-        ],
-        "summary": "Detailed system status",
-        "description": "Returns detailed status of all subsystems: database connectivity, cache health, external API availability, and data freshness.",
-        "responses": {
-          "200": {
-            "description": "System status",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "string"
-                    },
-                    "services": {
-                      "type": "object",
-                      "properties": {
-                        "supabase": {
-                          "type": "string",
-                          "enum": [
-                            "up",
-                            "down",
-                            "degraded"
-                          ]
-                        },
-                        "upstash": {
-                          "type": "string",
-                          "enum": [
-                            "up",
-                            "down",
-                            "degraded"
-                          ]
-                        },
-                        "coingecko": {
-                          "type": "string",
-                          "enum": [
-                            "up",
-                            "down",
-                            "degraded"
-                          ]
-                        },
-                        "kraken": {
-                          "type": "string",
-                          "enum": [
-                            "up",
-                            "down",
-                            "degraded"
-                          ]
-                        },
-                        "mempool": {
-                          "type": "string",
-                          "enum": [
-                            "up",
-                            "down",
-                            "degraded"
-                          ]
-                        }
-                      }
-                    },
-                    "data_freshness": {
-                      "type": "object",
-                      "properties": {
-                        "holders": {
-                          "type": "string"
-                        },
-                        "transactions": {
-                          "type": "string"
-                        },
-                        "price": {
-                          "type": "string"
-                        },
-                        "metrics": {
-                          "type": "string"
-                        }
-                      }
-                    },
-                    "timestamp": {
-                      "type": "string",
-                      "format": "date-time"
-                    }
-                  }
+    "/keys/generate": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Generate a new API key",
+        "description": "Issues an API key tied to a tier. Internal/admin use.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tier": { "type": "string", "enum": ["free", "pro", "enterprise"] },
+                  "name": { "type": "string" }
                 }
               }
             }
           }
+        },
+        "responses": { "200": { "description": "API key created" } }
+      }
+    },
+    "/keys/verify": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Verify an API key",
+        "description": "Checks the API key in the Authorization header and returns its tier.",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Key info" },
+          "401": { "description": "Invalid or missing key", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
         }
       }
     },
-    "/v1/status/full": {
+    "/update-transactions": {
       "get": {
-        "operationId": "getStatusFull",
-        "tags": [
-          "System"
+        "tags": ["System"],
+        "summary": "Internal cron: refresh transaction KV cache",
+        "description": "Called by Vercel Cron every 3 minutes. Requires the `secret` query param.",
+        "parameters": [
+          { "name": "secret", "in": "query", "required": true, "schema": { "type": "string" } }
         ],
-        "summary": "Aggregated system health (Status Page)",
-        "description": "Powers the public /status page. Aggregates 90 days of passive observations from system_health_log (Supabase) plus live infra checks (Redis, Supabase pings) and data-freshness probes. Returns per-component status, latency, last-checked timestamp, 30/90-day uptime percentage and per-day rollups for the last 90 days. Cached 30s at the edge.",
         "responses": {
-          "200": {
-            "description": "Aggregated system status",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "overall": {
-                      "type": "object",
-                      "properties": {
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "operational",
-                            "degraded",
-                            "major_outage"
-                          ]
-                        },
-                        "components_total": {
-                          "type": "integer"
-                        },
-                        "components_operational": {
-                          "type": "integer"
-                        },
-                        "components_degraded": {
-                          "type": "integer"
-                        },
-                        "components_down": {
-                          "type": "integer"
-                        },
-                        "components_unknown": {
-                          "type": "integer"
-                        }
-                      }
-                    },
-                    "generated_at": {
-                      "type": "string",
-                      "format": "date-time"
-                    },
-                    "components": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "example": "cron:update-transactions"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "category": {
-                            "type": "string",
-                            "enum": [
-                              "cron",
-                              "infra",
-                              "external_api",
-                              "data_source"
-                            ]
-                          },
-                          "tier": {
-                            "type": "string",
-                            "enum": [
-                              "critical",
-                              "high",
-                              "medium",
-                              "low"
-                            ],
-                            "nullable": true
-                          },
-                          "description": {
-                            "type": "string"
-                          },
-                          "current": {
-                            "type": "object",
-                            "properties": {
-                              "status": {
-                                "type": "string",
-                                "enum": [
-                                  "ok",
-                                  "degraded",
-                                  "down",
-                                  "unknown"
-                                ]
-                              },
-                              "latency_ms": {
-                                "type": "integer",
-                                "nullable": true
-                              },
-                              "last_checked_at": {
-                                "type": "string",
-                                "format": "date-time",
-                                "nullable": true
-                              },
-                              "error": {
-                                "type": "string",
-                                "nullable": true
-                              }
-                            }
-                          },
-                          "uptime": {
-                            "type": "object",
-                            "properties": {
-                              "days_30": {
-                                "type": "number",
-                                "nullable": true,
-                                "description": "Uptime % over last 30 days"
-                              },
-                              "days_90": {
-                                "type": "number",
-                                "nullable": true,
-                                "description": "Uptime % over last 90 days"
-                              },
-                              "daily": {
-                                "type": "array",
-                                "items": {
-                                  "type": "object",
-                                  "properties": {
-                                    "day": {
-                                      "type": "string",
-                                      "format": "date"
-                                    },
-                                    "status": {
-                                      "type": "string",
-                                      "enum": [
-                                        "ok",
-                                        "degraded",
-                                        "down",
-                                        "unknown"
-                                      ]
-                                    }
-                                  }
-                                }
-                              }
-                            }
-                          },
-                          "metadata": {
-                            "type": "object",
-                            "nullable": true,
-                            "additionalProperties": true
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
+          "200": { "description": "Refresh result" },
+          "401": { "description": "Bad secret" }
         }
+      }
+    },
+    "/cron/whale-poster": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Internal cron: post whale alerts",
+        "parameters": [
+          { "name": "secret", "in": "query", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Posted whale alerts" } }
       }
     }
   }
