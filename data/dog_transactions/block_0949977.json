@@ -1,0 +1,70 @@
+{
+  "block_height": 949977,
+  "timestamp": "2026-05-18T19:14:06.241997Z",
+  "transactions": [
+    {
+      "txid": "3bf5aa9fdce99f6d3b38bc9c6ebfe8ff010f559441562afe9d451341482731ee",
+      "block_height": 949977,
+      "timestamp": "2026-05-18T19:13:40Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1p6ys2ervatu00766eeqfmverzegg9fkprn3xjn0ppn70h53qu5vus3yzl0x",
+          "amount": 270622528769,
+          "amount_dog": 2706225.28769,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1p6ys2ervatu00766eeqfmverzegg9fkprn3xjn0ppn70h53qu5vus3yzl0x",
+          "amount": 270622528769,
+          "amount_dog": 2706225.28769,
+          "has_dog": true,
+          "is_change": true
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 2706225.28769,
+      "total_dog_out": 2706225.28769,
+      "total_dog_moved": 2706225.28769,
+      "net_transfer": 0.0,
+      "change_amount": 2706225.28769,
+      "has_change": true,
+      "fee_sats": 501
+    },
+    {
+      "txid": "b01b702fbeed001321d656ad71a5d74b9b0a76461093b0eebf9fc0cb70087d2e",
+      "block_height": 949977,
+      "timestamp": "2026-05-18T19:13:40Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1q6xthu3rkxwp88p9adxxf3uqrfmc2xd7ammeu8h",
+          "amount": 118949910,
+          "amount_dog": 1189.4991,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1qmcdp5999hswqmdpkzk93kf788xj8sn5g7qj3gp",
+          "amount": 118949910,
+          "amount_dog": 1189.4991,
+          "has_dog": true,
+          "is_change": false
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 1189.4991,
+      "total_dog_out": 1189.4991,
+      "total_dog_moved": 1189.4991,
+      "net_transfer": 1189.4991,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 11390
+    }
+  ]
+}
