@@ -184,63 +184,43 @@ export async function GET() {
       }
     }
 
-    // Adicionar Bitflow manualmente (sempre presente)
-    // Usar sBTC/DOG como pool padrão (tem liquidez)
+    // Bitflow: CoinGecko's DOG tickers payload already includes the Bitflow pool
+    // (sBTC base / pontis-bridge-DOG target). The earlier filter drops it because
+    // its target isn't USDT/USD/EUR/BRL, so we extract it directly here.
     try {
-      const bitflowRes = await fetch('https://bitflow-sdk-api-gateway-7owjsmt8.uc.gateway.dev/ticker', {
-        cache: 'no-store',
-        signal: AbortSignal.timeout(API_TIMEOUT)
-      })
-      
-      if (bitflowRes.ok) {
-        const bitflowData = await bitflowRes.json()
-        
-        // Buscar pool sBTC/DOG (pool padrão com liquidez)
-        const dogTicker = bitflowData.find((t: any) => 
-          t.ticker_id?.toUpperCase().includes('SBTC') && t.ticker_id?.toUpperCase().includes('DOG')
-        )
-        
-        if (dogTicker && parseFloat(dogTicker.last_price) > 0) {
-          // Buscar preço do BTC
-          const btcRes = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd', {
-            cache: 'no-store',
-            signal: AbortSignal.timeout(API_TIMEOUT)
-          })
-          const btcData = await btcRes.json()
-          const btcPrice = btcData.bitcoin?.usd || 0
-          
-          if (btcPrice > 0) {
-            const btcDogRate = parseFloat(dogTicker.last_price) || 0
-            const dogUsdPrice = btcPrice / btcDogRate
-            const volumeDog = parseFloat(dogTicker.target_volume) || 0
-            const volumeUsd = volumeDog * dogUsdPrice
-            
-            const bitflowTicker = {
-              market: 'Bitflow',
-              pair: 'DOG/sBTC',
-              price: dogUsdPrice,
-              volumeUsd: volumeUsd,
-              volume: volumeDog,
-              spread: parseFloat(dogTicker.bid_ask_spread_percentage) || 0.50,
-              trustScore: 'green',
-              tradeUrl: 'https://btflw.link/brl'
-            }
-            
-            // Adicionar Bitflow no topo
-            tickers.unshift(bitflowTicker)
-            console.log('✅ Bitflow (sBTC/DOG) added to markets:', { 
-              price: dogUsdPrice.toFixed(8), 
-              volumeDog: volumeDog.toFixed(2), 
-              volumeUsd: volumeUsd.toFixed(2),
-              liquidity: parseFloat(dogTicker.liquidity_in_usd || 0).toFixed(2)
-            })
-          }
-        } else {
-          console.warn('⚠️ sBTC/DOG pool not found or has no liquidity on Bitflow')
+      const cgBitflow = (data.tickers as any[]).find(
+        (t) => t?.market?.identifier === 'bitflow' && parseFloat(t?.converted_last?.usd) > 0
+      )
+
+      if (cgBitflow) {
+        const price = parseFloat(cgBitflow.converted_last.usd)
+        const last = parseFloat(cgBitflow.last) || 0 // DOG per sBTC
+        const volumeBaseSbtc = parseFloat(cgBitflow.volume) || 0
+        const volumeUsd = parseFloat(cgBitflow?.converted_volume?.usd) || 0
+        const volumeDog = last > 0 ? volumeBaseSbtc * last : 0
+
+        const bitflowTicker = {
+          market: 'Bitflow',
+          pair: 'DOG/sBTC',
+          price,
+          volumeUsd,
+          volume: volumeDog,
+          spread: cgBitflow.bid_ask_spread_percentage != null ? parseFloat(cgBitflow.bid_ask_spread_percentage) : null,
+          trustScore: 'green',
+          tradeUrl: cgBitflow.trade_url || 'https://btflw.link/brl'
         }
+
+        tickers.unshift(bitflowTicker)
+        console.log('✅ Bitflow added to markets via CoinGecko:', {
+          price: price.toFixed(8),
+          volumeUsd: volumeUsd.toFixed(2),
+          volumeDog: volumeDog.toFixed(0)
+        })
+      } else {
+        console.warn('⚠️ No active Bitflow ticker in CoinGecko response')
       }
     } catch (error) {
-      console.warn('⚠️ Failed to fetch Bitflow for markets, using cache value')
+      console.warn('⚠️ Failed to extract Bitflow ticker from CoinGecko:', error)
     }
 
     // Buscar as 4 Solana DEXs via DexScreener — retorna preço + volume por DEX num único request
