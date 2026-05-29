@@ -37,7 +37,8 @@ const SOLANA_DEX_CONFIG: Record<string, { market: string; tradeUrl: string }> = 
   raydium:  { market: 'Raydium',  tradeUrl: `https://raydium.io/swap/?inputMint=sol&outputMint=${DOG_MINT}` },
 }
 
-// Cache persistente - NUNCA expira, só atualiza quando consegue dados novos
+// Cache persistente em memória — populado apenas com dados reais buscados do CoinGecko.
+// Na primeira requisição (cache vazio), retornamos 503 se o upstream falhar.
 let cachedData: {
   tickers: any[]
   marketData: {
@@ -48,44 +49,7 @@ let cachedData: {
   }
   timestamp: number
   lastSuccessfulFetch: number
-} | null = {
-  // Cache inicial com CEX + Bitflow (Solana DEXs são buscadas dinamicamente)
-  tickers: [
-    // Bitflow DEX (sempre no topo)
-    { market: 'Bitflow', pair: 'DOG/sBTC', price: 0.00176, volumeUsd: 50, volume: 28000, spread: 0.50, trustScore: 'green', tradeUrl: 'https://btflw.link/brl' },
-    // Solana DEXs — preenchidos dinamicamente pelo DexScreener na primeira busca real
-    // CEX — green trust score
-    { market: 'BingX',    pair: 'DOG/USDT', price: 0.00163, volumeUsd: 76000,  volume: 46000000,  spread: 0.06, trustScore: 'green',  tradeUrl: 'https://bingx.com/en-us/spot/DOGUSDT' },
-    { market: 'BitKan',   pair: 'DOG/USDT', price: 0.00158, volumeUsd: 43000,  volume: 27000000,  spread: 0.28, trustScore: 'green',  tradeUrl: 'https://www.bitkan.com/trade/dog-usdt' },
-    { market: 'Bitget',   pair: 'DOG/USDT', price: 0.00163, volumeUsd: 401000, volume: 245000000, spread: 0.24, trustScore: 'green',  tradeUrl: 'https://www.bitget.com/spot/DOGUSDT' },
-    { market: 'CoinEx',   pair: 'DOG/USDT', price: 0.00159, volumeUsd: 55000,  volume: 34000000,  spread: 0.38, trustScore: 'green',  tradeUrl: 'https://www.coinex.com/exchange/dog-usdt' },
-    { market: 'DigiFinex',pair: 'DOG/USDT', price: 0.00163, volumeUsd: 281000, volume: 172000000, spread: 0.30, trustScore: 'green',  tradeUrl: 'https://www.digifinex.com/en-ww/trade/USDT/DOG' },
-    { market: 'Gate',     pair: 'DOG/USDT', price: 0.00163, volumeUsd: 538000, volume: 329700000, spread: 0.13, trustScore: 'green',  tradeUrl: 'https://www.gate.com/trade/DOG_USDT' },
-    { market: 'Hotcoin',  pair: 'DOG/USDT', price: 0.00162, volumeUsd: 484000, volume: 298000000, spread: 0.26, trustScore: 'green',  tradeUrl: 'https://www.hotcoin.com/currencyExchange/dog_usdt' },
-    { market: 'Kraken',   pair: 'DOG/USD',  price: 0.00164, volumeUsd: 214000, volume: 130000000, spread: 0.61, trustScore: 'green',  tradeUrl: 'https://pro.kraken.com/app/trade/DOG-USD' },
-    { market: 'Kraken',   pair: 'DOG/EUR',  price: 0.00135, volumeUsd: 45000,  volume: 29000000,  spread: 0.74, trustScore: 'green',  tradeUrl: 'https://pro.kraken.com/app/trade/DOG-EUR' },
-    { market: 'MEXC',     pair: 'DOG/USDT', price: 0.00163, volumeUsd: 443000, volume: 271000000, spread: 0.55, trustScore: 'green',  tradeUrl: 'https://www.mexc.com/exchange/DOG_USDT' },
-    { market: 'Ourbit',   pair: 'DOG/USDT', price: 0.00163, volumeUsd: 75000,  volume: 45000000,  spread: 0.18, trustScore: 'green',  tradeUrl: 'https://www.ourbit.com/exchange/DOG_USDT' },
-    { market: 'Tapbit',   pair: 'DOG/USDT', price: 0.00159, volumeUsd: 60000,  volume: 37000000,  spread: 1.21, trustScore: 'green',  tradeUrl: 'https://www.tapbit.com/trade/dog-usdt' },
-    { market: 'WEEX',     pair: 'DOG/USDT', price: 0.00160, volumeUsd: 36000,  volume: 22000000,  spread: 0.50, trustScore: 'green',  tradeUrl: 'https://www.weex.com/trade/dog_usdt' },
-    { market: 'XT.COM',   pair: 'DOG/USDT', price: 0.00162, volumeUsd: 133000, volume: 82000000,  spread: 0.37, trustScore: 'green',  tradeUrl: 'https://www.xt.com/en/trade/dog_usdt' },
-    // CEX — yellow trust score
-    { market: 'BitMart',        pair: 'DOG/USDT', price: 0.00161, volumeUsd: 29000, volume: 18000000, spread: 1.74, trustScore: 'yellow', tradeUrl: 'https://www.bitmart.com/trade/dog-usdt' },
-    { market: 'Bitrue',         pair: 'DOG/USDT', price: 0.00160, volumeUsd: 25000, volume: 15000000, spread: 0.85, trustScore: 'yellow', tradeUrl: 'https://www.bitrue.com/trade/dog_usdt' },
-    { market: 'CoinW',          pair: 'DOG/USDT', price: 0.00162, volumeUsd: 22000, volume: 13000000, spread: 2.02, trustScore: 'yellow', tradeUrl: 'https://www.coinw.com/trade/dog-usdt' },
-    { market: 'Hibt',           pair: 'DOG/USDT', price: 0.00158, volumeUsd: 33000, volume: 20000000, spread: 0.45, trustScore: 'yellow', tradeUrl: 'https://www.hibt.com/trade/dog_usdt' },
-    { market: 'Mercado Bitcoin', pair: 'DOG/BRL', price: 0.00850, volumeUsd: 12000, volume: 7000000,  spread: 1.50, trustScore: 'yellow', tradeUrl: 'https://www.mercadobitcoin.com.br/trade/dog-brl' },
-    { market: 'NovaDAX',        pair: 'DOG/BRL',  price: 0.00852, volumeUsd: 15000, volume: 9000000,  spread: 1.17, trustScore: 'yellow', tradeUrl: 'https://www.novadax.com.br/trade/dog-brl' },
-  ],
-  marketData: {
-    price: 0.00163,
-    totalVolume: 3890000,
-    marketCap: 162360000,
-    priceChange24h: 0
-  },
-  timestamp: Date.now(),
-  lastSuccessfulFetch: Date.now() - 600000 // 10 min atrás
-}
+} | null = null
 
 const REFRESH_INTERVAL = 60000 // 60 segundos
 const API_TIMEOUT = 10000 // 10 segundos
@@ -165,23 +129,21 @@ export async function GET() {
       }
     )
 
-    let marketData = cachedData?.marketData || {
-      price: 0.00163,
-      totalVolume: 3890000,
-      marketCap: 162360000,
-      priceChange24h: 0
-    }
+    let marketData = cachedData?.marketData
 
     if (marketResponse.ok) {
       const marketJson = await marketResponse.json()
       const md: MarketData = marketJson.market_data
-      
+
       marketData = {
         price: md.current_price.usd,
         totalVolume: md.total_volume.usd,
         marketCap: md.market_cap.usd,
         priceChange24h: md.price_change_percentage_24h || 0
       }
+    } else if (!marketData) {
+      // Sem cache anterior e a chamada de market data falhou — propaga para o catch externo (503).
+      throw new Error(`CoinGecko market_data error: ${marketResponse.status}`)
     }
 
     // Bitflow: CoinGecko's DOG tickers payload already includes the Bitflow pool
