@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-31T08:29:30.623776+00:00",
+  "generated_at": "2026-05-31T09:29:36.599336+00:00",
   "data_source": {
     "forensic_behavioral_analysis": "data/forensic_behavioral_analysis.json",
     "chain_stats_jsonl": "data/diamond_paws_analysis/chain_stats.jsonl",
@@ -22,11 +22,11 @@
     "pct_of_supply": 20.388124878
   },
   "lost_relaxed": {
-    "count": 6020,
-    "pct_of_diamond_paws": 30.460962404493248,
-    "dog_locked": 5725901610.0,
-    "pct_of_diamond_paws_dog": 28.084493518963033,
-    "pct_of_supply": 5.725901609999999
+    "count": 6019,
+    "pct_of_diamond_paws": 30.455902443960937,
+    "dog_locked": 5725011804.0,
+    "pct_of_diamond_paws_dog": 28.080129184305854,
+    "pct_of_supply": 5.725011804
   },
   "lost_strict": {
     "count": 2,
@@ -36,21 +36,21 @@
     "pct_of_supply": 0.0017796119999999999
   },
   "active_after_airdrop": {
-    "count": 13743,
-    "pct_of_diamond_paws": 69.53903759550676,
-    "dog_held": 14662223268.0,
+    "count": 13744,
+    "pct_of_diamond_paws": 69.54409755603906,
+    "dog_held": 14663113074.0,
     "spent_txo_buckets": {
       "100+": 1917,
       "21-100": 3730,
       "6-20": 3377,
       "2-5": 2761,
-      "1": 1958
+      "1": 1959
     },
     "note": "These wallets sent something (BTC, other runes\u2026) but their DOG balance equals the airdrop amount \u2014 they're alive HODLers, not lost."
   },
   "funded_after_airdrop_but_unspent": {
-    "count": 6020,
-    "dog_in_these_wallets": 5725901610.0,
+    "count": 6019,
+    "dog_in_these_wallets": 5725011804.0,
     "interpretation": "Received passive deposits (dust attacks, later airdrops, etc.) but never spent. Still 'lost relaxed' \u2014 incoming proves nothing about key control.",
     "extra_deposits_distribution": {
       "1_to_2": {
@@ -58,8 +58,8 @@
         "dog": 1779612.0
       },
       "3_to_5": {
-        "wallets": 659,
-        "dog": 590831184.0
+        "wallets": 658,
+        "dog": 589941378.0
       },
       "6_to_20": {
         "wallets": 4092,
@@ -80,12 +80,12 @@
       "p2tr": 5628,
       "p2pkh": 68,
       "p2sh": 53,
-      "p2wpkh/p2wsh": 271
+      "p2wpkh/p2wsh": 270
     },
     "active": {
       "p2tr": 11299,
       "p2sh": 343,
-      "p2wpkh/p2wsh": 1945,
+      "p2wpkh/p2wsh": 1946,
       "p2pkh": 156
     }
   },
