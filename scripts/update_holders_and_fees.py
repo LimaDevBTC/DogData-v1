@@ -14,6 +14,7 @@ Ou com variáveis de ambiente:
 
 import subprocess
 import json
+import csv
 import sys
 import os
 import time
@@ -54,6 +55,159 @@ SCRIPT_DIR = Path(__file__).parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 DATA_DIR = PROJECT_ROOT / 'data'
 PUBLIC_DATA_DIR = PROJECT_ROOT / 'public' / 'data'
+
+# Breakdown LTH/STH por carteira (mesmo critério da métrica agregada).
+STH_LTH_THRESHOLD_DAYS = 155  # < 155 dias = STH, >= 155 dias = LTH
+DOG_DIVISOR = 100000          # 1 DOG = 100.000 unidades base
+
+
+def write_holders_by_age(utxo_ages):
+    """Agrega `utxo_ages` por endereço e escreve o breakdown LTH/STH por carteira.
+
+    Espera uma lista de dicts contendo ao menos 'address', 'amount' e 'age_days'.
+    Reaproveita o mesmo cálculo de idade que o scan já faz (sem segundo scan).
+    Gera data/holders_by_age.{csv,json} + data/holders_by_age_meta.json — formato
+    consumido por /api/metrics/holders-by-age e pelo export standalone.
+    """
+    agg = defaultdict(lambda: {
+        'total_amount': 0, 'lth_amount': 0, 'sth_amount': 0,
+        'utxo_count': 0, 'lth_utxos': 0, 'sth_utxos': 0,
+        'age_amount_product': 0.0, 'oldest_age': None, 'newest_age': None,
+    })
+
+    for u in utxo_ages:
+        address = u.get('address')
+        if not address:
+            continue
+        amount = u['amount']
+        age_days = u['age_days']
+        a = agg[address]
+        a['total_amount'] += amount
+        a['utxo_count'] += 1
+        a['age_amount_product'] += age_days * amount
+        if a['oldest_age'] is None or age_days > a['oldest_age']:
+            a['oldest_age'] = age_days
+        if a['newest_age'] is None or age_days < a['newest_age']:
+            a['newest_age'] = age_days
+        if age_days >= STH_LTH_THRESHOLD_DAYS:
+            a['lth_amount'] += amount
+            a['lth_utxos'] += 1
+        else:
+            a['sth_amount'] += amount
+            a['sth_utxos'] += 1
+
+    if not agg:
+        print("⚠️ Nenhuma carteira com idade calculável para holders_by_age; pulando.")
+        return
+
+    holders = []
+    for address, a in agg.items():
+        total_amount = a['total_amount']
+        holders.append({
+            'address': address,
+            'total_dog': round(total_amount / DOG_DIVISOR, 5),
+            'lth_dog': round(a['lth_amount'] / DOG_DIVISOR, 5),
+            'sth_dog': round(a['sth_amount'] / DOG_DIVISOR, 5),
+            'lth_pct': round(a['lth_amount'] / total_amount * 100, 4) if total_amount else 0,
+            'sth_pct': round(a['sth_amount'] / total_amount * 100, 4) if total_amount else 0,
+            'utxo_count': a['utxo_count'],
+            'lth_utxos': a['lth_utxos'],
+            'sth_utxos': a['sth_utxos'],
+            'weighted_avg_age_days': round(a['age_amount_product'] / total_amount, 2) if total_amount else 0,
+            'oldest_age_days': round(a['oldest_age'], 2) if a['oldest_age'] is not None else 0,
+            'newest_age_days': round(a['newest_age'], 2) if a['newest_age'] is not None else 0,
+        })
+
+    holders.sort(key=lambda h: h['total_dog'], reverse=True)
+    for rank, h in enumerate(holders, start=1):
+        h['rank'] = rank
+
+    fieldnames = [
+        'rank', 'address', 'total_dog', 'lth_dog', 'sth_dog',
+        'lth_pct', 'sth_pct', 'utxo_count', 'lth_utxos', 'sth_utxos',
+        'weighted_avg_age_days', 'oldest_age_days', 'newest_age_days',
+    ]
+
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    csv_path = DATA_DIR / 'holders_by_age.csv'
+    with open(csv_path, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for h in holders:
+            writer.writerow({k: h[k] for k in fieldnames})
+
+    total_dog = sum(h['total_dog'] for h in holders)
+    lth_dog = sum(h['lth_dog'] for h in holders)
+    sth_dog = sum(h['sth_dog'] for h in holders)
+    lth_dominant = sum(1 for h in holders if h['lth_pct'] >= 50)
+
+    meta = {
+        'generated_at': utc_now_iso(),
+        'threshold_days': STH_LTH_THRESHOLD_DAYS,
+        'definition': 'STH: UTXO age < 155d | LTH: UTXO age >= 155d (mesmo critério da métrica publicada)',
+        'dominance_rule': 'Carteira LTH-dominante se >=50% do saldo está em UTXOs >=155d; senão STH-dominante',
+        'total_holders': len(holders),
+        'lth_dominant_wallets': lth_dominant,
+        'sth_dominant_wallets': len(holders) - lth_dominant,
+        'total_dog': round(total_dog, 5),
+        'lth_dog': round(lth_dog, 5),
+        'sth_dog': round(sth_dog, 5),
+        'lth_pct': round(lth_dog / total_dog * 100, 4) if total_dog else 0,
+        'sth_pct': round(sth_dog / total_dog * 100, 4) if total_dog else 0,
+        'reconciliation_note': 'Soma lth_dog + sth_dog por carteira == total_dog. '
+                               'Compare lth_pct/sth_pct com utxo_age_stats do feed agregado.',
+    }
+
+    with open(DATA_DIR / 'holders_by_age.json', 'w') as f:
+        json.dump({'meta': meta, 'holders': holders}, f, indent=2)
+    with open(DATA_DIR / 'holders_by_age_meta.json', 'w') as f:
+        json.dump(meta, f, indent=2)
+
+    print(f"💾 holders_by_age: {len(holders):,} carteiras → CSV/JSON/meta em data/")
+    print(f"   LTH {meta['lth_pct']:.2f}% / STH {meta['sth_pct']:.2f}% "
+          f"({lth_dominant:,} LTH-dom, {len(holders) - lth_dominant:,} STH-dom)")
+
+
+def write_utxos_by_address(utxo_ages):
+    """Agrupa cada UTXO de DOG por endereço e escreve data/dog_utxos_by_address.json.
+
+    Espera dicts com 'address', 'txid', 'vout', 'amount', 'age_days', 'creation_timestamp'.
+    Formato: { address: [ {txid, vout, dog, age_days, ts, lth}, ... ] } — cada lista
+    ordenada do UTXO mais antigo para o mais novo. Consumido por
+    /api/address/bitcoin/[address]/utxos para o breakdown UTXO-a-UTXO no explorer.
+    """
+    by_address = defaultdict(list)
+    for u in utxo_ages:
+        address = u.get('address')
+        txid = u.get('txid')
+        if not address or not txid:
+            continue
+        age_days = u['age_days']
+        by_address[address].append({
+            'txid': txid,
+            'vout': u['vout'],
+            'dog': round(u['amount'] / DOG_DIVISOR, 5),
+            'age_days': round(age_days, 2),
+            'ts': u.get('creation_timestamp'),
+            'lth': age_days >= STH_LTH_THRESHOLD_DAYS,
+        })
+
+    if not by_address:
+        print("⚠️ Nenhum UTXO por endereço para gravar; pulando dog_utxos_by_address.")
+        return
+
+    # Ordena cada carteira do mais antigo para o mais novo (default do card no explorer).
+    for utxos in by_address.values():
+        utxos.sort(key=lambda x: x['age_days'], reverse=True)
+
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    out_path = DATA_DIR / 'dog_utxos_by_address.json'
+    with open(out_path, 'w') as f:
+        json.dump(by_address, f, separators=(',', ':'))
+
+    total_utxos = sum(len(v) for v in by_address.values())
+    print(f"💾 dog_utxos_by_address: {total_utxos:,} UTXOs em {len(by_address):,} carteiras → {out_path.name}")
+
 
 def get_address_from_utxo(txid, output):
     """Obtém o endereço de um UTXO específico
@@ -242,6 +396,9 @@ def update_holders():
             utxo_ages.append({
                 'age_days': age_days,
                 'amount': utxo['amount'],
+                'address': utxo['address'],  # retido p/ breakdown LTH/STH por carteira
+                'txid': utxo['txid'],        # retido p/ breakdown UTXO-a-UTXO por endereço
+                'vout': utxo['vout'],
                 'creation_timestamp': block_timestamp,
                 'price_at_creation': price_at_creation
             })
@@ -316,7 +473,21 @@ def update_holders():
         print(f"   LTH (>= 155 dias): {utxo_age_stats['lth_percentage']:.2f}% ({utxo_age_stats['lth_supply'] / 100000:,.0f} DOG)")
         if age_errors > 0:
             print(f"   ⚠️ {age_errors} UTXOs não puderam ter idade calculada")
-        
+
+        # Breakdown LTH/STH por carteira (byproduct do scan — sem segundo scan do ord).
+        # Blindado: uma falha aqui NÃO deve abortar a atualização de holders/fees/métricas.
+        print("\n📋 Gerando breakdown LTH/STH por carteira...")
+        try:
+            write_holders_by_age(utxo_ages)
+        except Exception as e:
+            print(f"⚠️ Falha ao gerar holders_by_age (ignorado, não-crítico): {e}")
+
+        # Breakdown UTXO-a-UTXO por endereço (mesmo byproduct, p/ o card do explorer).
+        try:
+            write_utxos_by_address(utxo_ages)
+        except Exception as e:
+            print(f"⚠️ Falha ao gerar dog_utxos_by_address (ignorado, não-crítico): {e}")
+
         # Calcular Realized Cap e Supply in Profit/Loss
         if current_price and price_history:
             print("\n💰 Calculando Realized Cap e Supply in Profit/Loss...")

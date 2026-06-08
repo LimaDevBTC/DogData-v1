@@ -1,62 +1,48 @@
 #!/usr/bin/env python3
 """
-Exporta o breakdown LTH/STH por carteira (Long Term Holders vs Short Term Holders).
+Exporta o breakdown LTH/STH por carteira (Long Term Holders vs Short Term Holders),
+como SNAPSHOT avulso sob demanda.
 
-Diferença para update_holders_and_fees.py:
-  - Aquele script publica apenas o AGREGADO (sth_supply / lth_supply do supply total).
-  - Este script preserva o endereço de cada UTXO e agrega por carteira, produzindo,
-    para CADA holder, quanto do saldo é "moeda velha" (>=155 dias = LTH) e quanto é
-    "moeda nova" (<155 dias = STH).
+Em produção, esse breakdown já é gerado de hora em hora como byproduct do
+update_holders_and_fees.py (ver write_holders_by_age lá). Este script é só para
+gerar um snapshot manual fora do ciclo (ex.: pedido pontual de um researcher).
+Ele reutiliza EXATAMENTE a mesma função de escrita — formato idêntico, sem divergência.
 
 Definição (idêntica à métrica publicada):
   - STH: UTXO com idade  < 155 dias
   - LTH: UTXO com idade >= 155 dias
-  A soma do breakdown de todas as carteiras reconcilia com o agregado publicado
-  (mesmo threshold, mesmo conjunto de UTXOs com idade calculável).
 
-Saídas (em data/):
-  - holders_by_age.csv       -> lista completa, abre direto no Excel/Sheets
-  - holders_by_age.json      -> mesma lista para agentes / API
-  - holders_by_age_meta.json -> snapshot + totais + check de reconciliação
+Saídas (em data/): holders_by_age.csv | holders_by_age.json | holders_by_age_meta.json
 
 IMPORTANTE (lock do redb):
-  Usa `ord balances`, que precisa de acesso exclusivo ao índice redb.
-  NÃO rode enquanto dog_block_scanner, os extractors de airdrop ou
-  update_holders_and_fees.py estiverem rodando.
+  Usa `ord balances`. NÃO rode enquanto dog_block_scanner, os extractors de airdrop
+  ou update_holders_and_fees.py estiverem rodando.
 
 Uso:
     python3 export_holders_by_age.py
 """
 
-import csv
 import json
 import subprocess
 import time
-from collections import defaultdict
 from pathlib import Path
 
-# Reutiliza os helpers e constantes do script de produção (sem efeitos colaterais:
-# main() é guardado por __name__ == "__main__").
+# Reutiliza helpers e a função de escrita do script de produção (fonte única do formato).
 from update_holders_and_fees import (
     ORD_BINARY,
     ORD_DATA_DIR,
-    DATA_DIR,
     get_address_from_utxo,
     get_utxo_age_and_timestamp,
-    utc_now_iso,
+    write_holders_by_age,
+    write_utxos_by_address,
 )
-
-# Mesma definição da métrica publicada.
-STH_LTH_THRESHOLD_DAYS = 155
-# 1 DOG = 100.000 unidades base (consistente com update_holders_and_fees.py).
-DOG_DIVISOR = 100000
 
 
 def extract_dog_utxos():
     """Roda `ord balances` e retorna o dict de UTXOs de DOG.
 
-    Replica a lógica de parada/retomada do ord server de update_holders_and_fees.py
-    para respeitar o lock single-writer do redb.
+    Replica a parada/retomada do ord server de update_holders_and_fees.py para
+    respeitar o lock single-writer do redb.
     """
     ord_dir = Path(ORD_BINARY).parent.parent.parent  # .../ord
     if not ord_dir.exists():
@@ -105,21 +91,11 @@ def extract_dog_utxos():
     return dog_runes
 
 
-def build_breakdown(dog_runes):
-    """Agrega por endereço o breakdown LTH/STH a partir dos UTXOs de DOG."""
-    # Acumuladores por endereço.
-    agg = defaultdict(lambda: {
-        'total_amount': 0,
-        'lth_amount': 0,
-        'sth_amount': 0,
-        'utxo_count': 0,
-        'lth_utxos': 0,
-        'sth_utxos': 0,
-        'age_amount_product': 0.0,  # sum(age_days * amount) -> idade média ponderada
-        'oldest_age': None,
-        'newest_age': None,
-    })
-
+def collect_utxo_ages(dog_runes):
+    """Para cada UTXO de DOG, resolve endereço + idade. Retorna a lista no formato
+    que write_holders_by_age / write_utxos_by_address esperam
+    ({'address', 'amount', 'age_days', 'txid', 'vout', 'creation_timestamp'})."""
+    utxo_ages = []
     block_cache = {}
     total = len(dog_runes)
     processed = 0
@@ -146,133 +122,35 @@ def build_breakdown(dog_runes):
         if not age_result:
             no_age += 1
             continue
-        age_days = age_result[0]
 
-        a = agg[address]
-        a['total_amount'] += amount
-        a['utxo_count'] += 1
-        a['age_amount_product'] += age_days * amount
-        if a['oldest_age'] is None or age_days > a['oldest_age']:
-            a['oldest_age'] = age_days
-        if a['newest_age'] is None or age_days < a['newest_age']:
-            a['newest_age'] = age_days
-        if age_days >= STH_LTH_THRESHOLD_DAYS:
-            a['lth_amount'] += amount
-            a['lth_utxos'] += 1
-        else:
-            a['sth_amount'] += amount
-            a['sth_utxos'] += 1
+        utxo_ages.append({
+            'address': address,
+            'amount': amount,
+            'age_days': age_result[0],
+            'txid': txid,
+            'vout': output_int,
+            'creation_timestamp': age_result[1],
+        })
 
         processed += 1
         if processed % 1000 == 0:
             print(f"⏳ {processed}/{total} (sem endereço: {no_address}, sem idade: {no_age})...")
         if processed % 100 == 0:
-            time.sleep(0.01)  # não sobrecarregar o node
+            time.sleep(0.01)
 
-    print(f"✅ Processados {processed} UTXOs em {len(agg)} carteiras "
-          f"(sem endereço: {no_address}, sem idade: {no_age})")
-
-    # Montar lista final por carteira.
-    holders = []
-    for address, a in agg.items():
-        total_amount = a['total_amount']
-        total_dog = total_amount / DOG_DIVISOR
-        lth_dog = a['lth_amount'] / DOG_DIVISOR
-        sth_dog = a['sth_amount'] / DOG_DIVISOR
-        holders.append({
-            'address': address,
-            'total_dog': round(total_dog, 5),
-            'lth_dog': round(lth_dog, 5),
-            'sth_dog': round(sth_dog, 5),
-            'lth_pct': round(a['lth_amount'] / total_amount * 100, 4) if total_amount else 0,
-            'sth_pct': round(a['sth_amount'] / total_amount * 100, 4) if total_amount else 0,
-            'utxo_count': a['utxo_count'],
-            'lth_utxos': a['lth_utxos'],
-            'sth_utxos': a['sth_utxos'],
-            'weighted_avg_age_days': round(a['age_amount_product'] / total_amount, 2) if total_amount else 0,
-            'oldest_age_days': round(a['oldest_age'], 2) if a['oldest_age'] is not None else 0,
-            'newest_age_days': round(a['newest_age'], 2) if a['newest_age'] is not None else 0,
-        })
-
-    holders.sort(key=lambda h: h['total_dog'], reverse=True)
-    for rank, h in enumerate(holders, start=1):
-        h['rank'] = rank
-
-    stats = {
-        'no_address': no_address,
-        'no_age': no_age,
-        'processed_utxos': processed,
-    }
-    return holders, stats
-
-
-def write_outputs(holders, stats):
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-
-    fieldnames = [
-        'rank', 'address', 'total_dog', 'lth_dog', 'sth_dog',
-        'lth_pct', 'sth_pct', 'utxo_count', 'lth_utxos', 'sth_utxos',
-        'weighted_avg_age_days', 'oldest_age_days', 'newest_age_days',
-    ]
-
-    csv_path = DATA_DIR / 'holders_by_age.csv'
-    with open(csv_path, 'w', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        for h in holders:
-            writer.writerow({k: h[k] for k in fieldnames})
-    print(f"💾 CSV: {csv_path}")
-
-    # Totais e reconciliação.
-    total_dog = sum(h['total_dog'] for h in holders)
-    lth_dog = sum(h['lth_dog'] for h in holders)
-    sth_dog = sum(h['sth_dog'] for h in holders)
-
-    meta = {
-        'generated_at': utc_now_iso(),
-        'threshold_days': STH_LTH_THRESHOLD_DAYS,
-        'definition': 'STH: UTXO age < 155d | LTH: UTXO age >= 155d (mesmo critério da métrica publicada)',
-        'total_holders': len(holders),
-        'processed_utxos': stats['processed_utxos'],
-        'utxos_without_address': stats['no_address'],
-        'utxos_without_age': stats['no_age'],
-        'total_dog': round(total_dog, 5),
-        'lth_dog': round(lth_dog, 5),
-        'sth_dog': round(sth_dog, 5),
-        'lth_pct': round(lth_dog / total_dog * 100, 4) if total_dog else 0,
-        'sth_pct': round(sth_dog / total_dog * 100, 4) if total_dog else 0,
-        'reconciliation_note': 'Soma lth_dog + sth_dog por carteira == total_dog. '
-                               'Compare lth_pct/sth_pct com utxo_age_stats do feed agregado.',
-    }
-
-    json_path = DATA_DIR / 'holders_by_age.json'
-    with open(json_path, 'w') as f:
-        json.dump({'meta': meta, 'holders': holders}, f, indent=2)
-    print(f"💾 JSON: {json_path}")
-
-    meta_path = DATA_DIR / 'holders_by_age_meta.json'
-    with open(meta_path, 'w') as f:
-        json.dump(meta, f, indent=2)
-    print(f"💾 META: {meta_path}")
-
-    print("\n" + "=" * 60)
-    print("📊 RESUMO")
-    print("=" * 60)
-    print(f"Holders:        {meta['total_holders']:,}")
-    print(f"Total DOG:      {meta['total_dog']:,.0f}")
-    print(f"LTH (>=155d):   {meta['lth_pct']:.2f}%  ({meta['lth_dog']:,.0f} DOG)")
-    print(f"STH (<155d):    {meta['sth_pct']:.2f}%  ({meta['sth_dog']:,.0f} DOG)")
-    print("=" * 60)
+    print(f"✅ {processed} UTXOs resolvidos (sem endereço: {no_address}, sem idade: {no_age})")
+    return utxo_ages
 
 
 def main():
     print("=" * 60)
-    print("🐕 EXPORT LTH/STH POR CARTEIRA")
+    print("🐕 EXPORT LTH/STH POR CARTEIRA (snapshot manual)")
     print("=" * 60)
     dog_runes = extract_dog_utxos()
     print(f"📊 {len(dog_runes)} UTXOs com DOG")
-    holders, stats = build_breakdown(dog_runes)
-    write_outputs(holders, stats)
+    utxo_ages = collect_utxo_ages(dog_runes)
+    write_holders_by_age(utxo_ages)
+    write_utxos_by_address(utxo_ages)
 
 
 if __name__ == "__main__":

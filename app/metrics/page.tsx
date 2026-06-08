@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Link from "next/link"
 import { Layout } from "@/components/layout"
 import { LoadingScreen } from "@/components/loading-screen"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,7 +14,8 @@ import {
   Users,
   Coins,
   PieChart,
-  Zap
+  Zap,
+  ArrowRight
 } from "lucide-react"
 import { HistoricalChartsSection } from "@/components/metrics/historical-charts"
 import { TxBreakdown } from "@/components/metrics/tx-breakdown"
@@ -443,9 +445,18 @@ export default function MetricsPage() {
             <div className="max-w-7xl mx-auto space-y-6">
               <Card variant="glass" className="border-accent-primary/10">
                 <CardHeader>
-                  <CardTitle className="text-text-accent text-xl font-display">
-                    STH vs LTH Supply Distribution
-                  </CardTitle>
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <CardTitle className="text-text-accent text-xl font-display">
+                      STH vs LTH Supply Distribution
+                    </CardTitle>
+                    <Link
+                      href="/metrics/holders-by-age"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-accent-primary/30 hover:border-accent-primary/60 text-text-accent text-xs font-mono transition-all"
+                    >
+                      View wallet list
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
@@ -495,10 +506,14 @@ export default function MetricsPage() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 md:gap-6">
-                      <div className="p-4 bg-bg-elevated/50 border border-border-subtle rounded-lg">
+                      <Link
+                        href="/metrics/holders-by-age?filter=sth"
+                        className="group p-4 bg-bg-elevated/50 border border-border-subtle rounded-lg hover:border-accent-positive/40 transition-all"
+                      >
                         <div className="flex items-center gap-3 mb-3">
                           <div className="w-4 h-4 rounded-sm" style={{ background: 'linear-gradient(135deg, #2ECC71, #27AE60)' }} />
                           <h3 className="text-text-primary font-mono font-semibold text-sm">Short-Term Holders</h3>
+                          <ArrowRight className="w-3.5 h-3.5 text-text-tertiary ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>
                         <div className="space-y-1">
                           <div className="text-2xl font-bold text-accent-positive font-mono">
@@ -511,12 +526,16 @@ export default function MetricsPage() {
                             UTXOs &lt; 155 days old
                           </div>
                         </div>
-                      </div>
+                      </Link>
 
-                      <div className="p-4 bg-bg-elevated/50 border border-border-subtle rounded-lg">
+                      <Link
+                        href="/metrics/holders-by-age?filter=lth"
+                        className="group p-4 bg-bg-elevated/50 border border-border-subtle rounded-lg hover:border-accent-primary/40 transition-all"
+                      >
                         <div className="flex items-center gap-3 mb-3">
                           <div className="w-4 h-4 rounded-sm" style={{ background: 'linear-gradient(135deg, #F7931A, #E8820E)' }} />
                           <h3 className="text-text-primary font-mono font-semibold text-sm">Long-Term Holders</h3>
+                          <ArrowRight className="w-3.5 h-3.5 text-text-tertiary ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>
                         <div className="space-y-1">
                           <div className="text-2xl font-bold text-text-accent font-mono">
@@ -529,11 +548,11 @@ export default function MetricsPage() {
                             UTXOs &ge; 155 days old
                           </div>
                         </div>
-                      </div>
+                      </Link>
                     </div>
                   </div>
                   <p className="text-center text-text-tertiary text-xs font-mono mt-4">
-                    Complete data from {(utxoAgeStats.total_utxos || 0).toLocaleString()} tracked UTXOs (100% of supply)
+                    Complete data from {(utxoAgeStats.total_utxos || 0).toLocaleString()} tracked UTXOs (100% of supply) · click a cohort to browse wallets
                   </p>
                 </CardContent>
               </Card>

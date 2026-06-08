@@ -272,6 +272,195 @@ function TxRow({ tx }: { tx: TxEntry }) {
   )
 }
 
+// ─── UTXO breakdown card ─────────────────────────────────────────────────────
+
+interface UtxoRow {
+  txid: string; vout: number; dog: number
+  age_days: number; ts: number | null; lth: boolean; pct: number
+}
+interface UtxoResponse {
+  address: string; total: number; total_dog: number
+  lth_utxos: number; sth_utxos: number
+  page: number; limit: number; total_pages: number
+  sort: string; utxos: UtxoRow[]
+}
+
+function fmtAge(days: number): string {
+  if (days >= 365) return (days / 365).toFixed(1) + 'y'
+  if (days >= 1) return Math.round(days) + 'd'
+  return '<1d'
+}
+
+function fmtTs(ts: number | null): string {
+  if (!ts) return '—'
+  try { return new Date(ts * 1000).toISOString().split('T')[0] } catch { return '—' }
+}
+
+const UTXO_SORTS: { key: string; label: string }[] = [
+  { key: 'age_desc', label: 'Oldest' },
+  { key: 'age_asc', label: 'Newest' },
+  { key: 'dog_desc', label: 'Largest' },
+]
+
+const UTXO_PAGE_SIZE = 25
+
+function UtxoCard({ address }: { address: string }) {
+  const [data, setData] = useState<UtxoResponse | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
+  const [page, setPage] = useState(1)
+  const [sort, setSort] = useState('age_desc')
+
+  useEffect(() => { setPage(1) }, [sort])
+
+  useEffect(() => {
+    setLoading(true)
+    const url = `/api/address/bitcoin/${encodeURIComponent(address)}/utxos?page=${page}&limit=${UTXO_PAGE_SIZE}&sort=${sort}`
+    fetch(url)
+      .then(r => {
+        if (r.status === 404) { setNotFound(true); return null }
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
+      .then(d => { if (d) setData(d); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [address, page, sort])
+
+  // UTXO snapshot not generated yet (or address has none) — hide the card silently.
+  if (notFound) return null
+  if (!loading && data && data.total === 0) return null
+
+  return (
+    <Card variant="glass" className="border-white/[0.04]">
+      <CardHeader>
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <CardTitle className="flex items-center gap-2 text-base text-lava">
+            <Layers className="w-4 h-4" />
+            DOG UTXOs
+            {data && (
+              <span className="text-dusty/40 font-mono text-sm font-normal">
+                ({data.total.toLocaleString()})
+              </span>
+            )}
+          </CardTitle>
+
+          <div className="flex items-center gap-3 flex-wrap">
+            {data && (
+              <span className="text-xs font-mono text-dusty/50">
+                <span className="text-amber-400">{data.lth_utxos.toLocaleString()} LTH</span>
+                {' · '}
+                <span className="text-emerald-400">{data.sth_utxos.toLocaleString()} STH</span>
+              </span>
+            )}
+            <div className="flex items-center gap-1 glass border border-white/[0.04] rounded-lg p-1">
+              {UTXO_SORTS.map(s => (
+                <button
+                  key={s.key}
+                  onClick={() => setSort(s.key)}
+                  className={`px-2.5 py-1 text-xs font-mono rounded-md transition-all duration-200 ${
+                    sort === s.key
+                      ? 'bg-lava/10 text-lava border border-lava/20'
+                      : 'text-dusty/50 hover:text-snow border border-transparent'
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent>
+        <div className="overflow-x-auto relative">
+          {loading && (
+            <div className="absolute inset-0 bg-void/40 backdrop-blur-sm z-10 flex items-center justify-center">
+              <span className="text-dusty/60 text-xs font-mono">Loading…</span>
+            </div>
+          )}
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-white/[0.04] text-left">
+                <th className="pb-2 pl-4 pr-2 text-xs font-mono text-dusty/40 uppercase tracking-wider font-normal">UTXO</th>
+                <th className="pb-2 px-2 text-xs font-mono text-dusty/40 uppercase tracking-wider font-normal text-right">DOG</th>
+                <th className="pb-2 px-2 text-xs font-mono text-dusty/40 uppercase tracking-wider font-normal text-right hidden sm:table-cell">% wallet</th>
+                <th className="pb-2 px-2 text-xs font-mono text-dusty/40 uppercase tracking-wider font-normal text-right">Age</th>
+                <th className="pb-2 px-2 text-xs font-mono text-dusty/40 uppercase tracking-wider font-normal hidden md:table-cell">Date</th>
+                <th className="pb-2 pl-2 pr-4 text-xs font-mono text-dusty/40 uppercase tracking-wider font-normal text-right">Cohort</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data?.utxos.map(u => (
+                <tr key={`${u.txid}:${u.vout}`} className="border-b border-white/[0.03] hover:bg-lava/[0.02] transition-colors duration-150">
+                  <td className="py-2.5 pl-4 pr-2 font-mono text-xs">
+                    <a
+                      href={`/tx/bitcoin/${u.txid}`}
+                      className="text-dusty/50 hover:text-lava transition-colors duration-150"
+                      title={`${u.txid}:${u.vout}`}
+                    >
+                      {u.txid.slice(0, 10)}…:{u.vout}
+                    </a>
+                  </td>
+                  <td className="py-2.5 px-2 font-mono text-xs font-semibold text-snow/80 text-right whitespace-nowrap">
+                    {fmt(u.dog)}
+                  </td>
+                  <td className="py-2.5 px-2 font-mono text-xs text-dusty/50 text-right hidden sm:table-cell">
+                    {u.pct.toFixed(u.pct < 0.01 ? 4 : 2)}%
+                  </td>
+                  <td className="py-2.5 px-2 font-mono text-xs text-dusty/60 text-right whitespace-nowrap">
+                    {fmtAge(u.age_days)}
+                  </td>
+                  <td className="py-2.5 px-2 font-mono text-xs text-dusty/40 hidden md:table-cell whitespace-nowrap">
+                    {fmtTs(u.ts)}
+                  </td>
+                  <td className="py-2.5 pl-2 pr-4 text-right">
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-mono border ${
+                      u.lth
+                        ? 'text-amber-400 bg-amber-400/10 border-amber-400/20'
+                        : 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'
+                    }`}>
+                      {u.lth ? 'LTH' : 'STH'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-3 pt-3 border-t border-white/[0.03] flex items-start gap-2 text-xs font-mono text-dusty/30">
+          <Clock className="w-3 h-3 flex-shrink-0 mt-0.5" />
+          <span>Coin age = time since each UTXO was created (last moved). LTH ≥155d · STH &lt;155d.</span>
+        </div>
+
+        {data && data.total_pages > 1 && (
+          <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/[0.04]">
+            <span className="text-xs font-mono text-dusty/40">
+              Page {data.page} of {data.total_pages}
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1 || loading}
+                className="p-1.5 rounded-lg border border-white/[0.06] text-dusty/40 hover:text-snow hover:border-lava/20 disabled:opacity-25 transition-all duration-200"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setPage(p => Math.min(data.total_pages, p + 1))}
+                disabled={page >= data.total_pages || loading}
+                className="p-1.5 rounded-lg border border-white/[0.06] text-dusty/40 hover:text-snow hover:border-lava/20 disabled:opacity-25 transition-all duration-200"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 // ─── Page ───────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 25
@@ -441,6 +630,9 @@ export default function AddressPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* ── DOG UTXO breakdown ── */}
+        {data.holder && <UtxoCard address={address} />}
 
         {/* ── Transaction history ── */}
         {data.tx_count > 0 && (
