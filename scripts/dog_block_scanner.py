@@ -63,6 +63,14 @@ REDIS_KEY = 'dog:transactions'
 SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
 SUPABASE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '') or os.environ.get('SUPABASE_ANON_KEY', '')
 
+# F1-T2: when EMIT_EVENTS=1, persist UTXO create/spend events to the JSONL log
+# (utxo_events foundation). Off by default → normal runs are byte-for-byte
+# unchanged. The writer module is imported lazily only when the flag is set.
+EMIT_EVENTS = os.environ.get('EMIT_EVENTS', '') == '1'
+_events = None
+if EMIT_EVENTS:
+    import utxo_events_writer as _events
+
 DOG_RUNE_NAME = 'DOG•GO•TO•THE•MOON'
 DOG_RUNE_ID = '840000:3'
 DOG_DIVISIBILITY = 5
@@ -484,7 +492,8 @@ def process_dog_tx(tx, dog_inputs, utxo_set):
             'amount': amount,
             'amount_dog': round(amount / DOG_FACTOR, DOG_DIVISIBILITY),
             'has_dog': True,
-            'is_change': is_change
+            'is_change': is_change,
+            'vout': vout_idx  # retido p/ utxo_events (mapeia receiver→outpoint)
         })
 
         # Track new UTXO
@@ -1031,6 +1040,8 @@ def process_pending_blocks(utxo_set, state, single_block=None):
             all_txs = []
             for tx_data, new_utxos, spent_outpoints in results:
                 all_txs.append(tx_data)
+                if EMIT_EVENTS:
+                    _events.record_tx(tx_data, spent_outpoints)
                 # Update UTXO set
                 for op in spent_outpoints:
                     utxo_set.pop(op, None)

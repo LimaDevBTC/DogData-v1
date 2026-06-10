@@ -271,11 +271,44 @@ def update_holders_values(solana_holders, stacks_holders):
         log(f"❌ Erro ao atualizar arquivos: {e}")
         return False
 
+def run_price_history_script():
+    """Estende o histórico de preços (Gate.io) até hoje — incremental.
+
+    Roda ANTES do holders porque update_holders_and_fees.py usa price_history
+    para o cost basis (realized cap / MVRV / supply-in-profit). Sem isso, o
+    histórico defasa e o cost basis dos UTXOs recentes fica errado.
+    """
+    try:
+        log("💰 Atualizando histórico de preços (price_history)...")
+        script_path = SCRIPT_DIR / 'build_price_history.py'
+        if not script_path.exists():
+            log(f"❌ Script não encontrado: {script_path}")
+            return False
+        result = subprocess.run(
+            [sys.executable, str(script_path)],
+            cwd=str(PROJECT_ROOT),
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+        if result.returncode == 0:
+            log("✅ price_history atualizado")
+            return True
+        log(f"❌ Erro ao atualizar price_history: {result.stderr}")
+        return False
+    except subprocess.TimeoutExpired:
+        log("❌ build_price_history excedeu o timeout")
+        return False
+    except Exception as e:
+        log(f"❌ Erro ao atualizar price_history: {e}")
+        return False
+
+
 def run_holders_script():
     """Executa o script de atualização de holders, fees e UTXOs"""
     try:
         log("🚀 Executando script de holders, fees e UTXOs...")
-        
+
         script_path = SCRIPT_DIR / 'update_holders_and_fees.py'
         
         if not script_path.exists():
@@ -462,8 +495,15 @@ def main():
     log("="*80)
     
     success_count = 0
-    total_steps = 4
-    
+    total_steps = 5
+
+    # 0. Atualizar histórico de preços (antes do holders — cost basis depende dele)
+    log("")
+    if run_price_history_script():
+        success_count += 1
+    else:
+        log("⚠️ Continuando mesmo com falha no price_history...")
+
     # 1. Executar script de holders, fees e UTXOs
     log("")
     if run_holders_script():
@@ -558,7 +598,7 @@ def main():
     log("")
     if git_commit_and_push():
         success_count += 1
-        total_steps = 5
+        total_steps = 6
 
     # 8. "Possible Lost DOG" — auto-incremental, ~6 min via scantxoutset local.
     #    Roda DEPOIS do git push pra não atrasar a publicação dos dados horários.

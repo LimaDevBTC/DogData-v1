@@ -75,6 +75,12 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / 'scripts'))
 import dog_block_scanner as scanner  # noqa: E402
 
+# F1-T2: emit UTXO create/spend events when EMIT_EVENTS=1 (off by default).
+EMIT_EVENTS = os.environ.get('EMIT_EVENTS', '') == '1'
+events = None
+if EMIT_EVENTS:
+    import utxo_events_writer as events  # noqa: E402
+
 DATA_DIR = PROJECT_ROOT / 'data'
 REPLAY_STATE_FILE = DATA_DIR / 'replay_state.json'
 # Isolated UTXO snapshot for the replay. Keeps the live `dog_utxo_set.json`
@@ -165,12 +171,20 @@ def replay(from_block=None, to_block=None):
 
     # rebuild or resume utxo_set (always from REPLAY_UTXO_FILE — never the
     # production dog_utxo_set.json, which the live data pipeline depends on)
-    if last_done == ETCH_BLOCK or not REPLAY_UTXO_FILE.exists():
+    from_genesis = last_done == ETCH_BLOCK or not REPLAY_UTXO_FILE.exists()
+    if from_genesis:
         utxo_set = init_seed()
         log(f'seeded utxo_set with genesis: {ETCH_TXID[:16]}…:{ETCH_VOUT} = {ETCH_PREMINE_ATOMIC:,} atomic ({ETCH_PREMINE_ATOMIC/scanner.DOG_FACTOR:,.0f} DOG)')
     else:
         utxo_set = json.loads(REPLAY_UTXO_FILE.read_text())
         log(f'resumed from block {last_done}; replay utxo_set has {len(utxo_set):,} entries')
+
+    if EMIT_EVENTS:
+        # Fresh log when replaying from genesis (complete, not appended to a
+        # partial); append when resuming a run.
+        log_path = events.open_log(truncate=from_genesis)
+        log(f'EMIT_EVENTS on → writing utxo_events to {log_path.name} '
+            f'(truncate={from_genesis})')
 
     log(f'replaying blocks {start} → {end}  ({end - start + 1:,} blocks)')
 
@@ -183,6 +197,8 @@ def replay(from_block=None, to_block=None):
             all_txs = []
             for tx_data, new_utxos, spent_outpoints in results:
                 all_txs.append(tx_data)
+                if EMIT_EVENTS:
+                    events.record_tx(tx_data, spent_outpoints)
                 for op in spent_outpoints:
                     utxo_set.pop(op, None)
                 utxo_set.update(new_utxos)
@@ -205,6 +221,8 @@ def replay(from_block=None, to_block=None):
             state['tx_count'] = txs_total
             REPLAY_UTXO_FILE.write_text(json.dumps(utxo_set))
             save_replay_state(state)
+            if EMIT_EVENTS:
+                events.flush()
 
             elapsed = time.time() - started
             blocks_done = height - start + 1
@@ -220,6 +238,12 @@ def replay(from_block=None, to_block=None):
     state['tx_count'] = txs_total
     save_replay_state(state)
     REPLAY_UTXO_FILE.write_text(json.dumps(utxo_set))
+
+    if EMIT_EVENTS:
+        events.close()
+        st = events.stats()
+        log(f'utxo_events log written: {st["creates"]:,} creates, {st["spends"]:,} spends '
+            f'({st["no_vout"]} skipped no-vout)')
 
     elapsed = time.time() - started
     log(f'done in {elapsed/60:.1f}min — {txs_total:,} dog txs, {len(utxo_set):,} utxos')
