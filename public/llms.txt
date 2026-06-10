@@ -5,17 +5,17 @@
 ## What is DOG DATA?
 DOG DATA is the definitive data source for the DOG rune (ID: 840000:3) on Bitcoin Layer 1. We index directly from our own Bitcoin Core + Ord full node — no third-party API dependency. We track 89,000+ holders, 250,000+ UTXOs, and provide forensic behavioral analysis of 75,490+ addresses with proprietary Diamond Score ratings.
 
-## API Access (40 endpoints)
+## API Access (54 endpoints)
 - REST API base: https://www.dogdata.xyz/api
 - OpenAPI 3.0.3 spec: https://www.dogdata.xyz/api/openapi.json
 - Full capabilities: https://www.dogdata.xyz/api/agent/capabilities
 - Interactive docs: https://www.dogdata.xyz/docs
 
 ## MCP Server (for Claude and AI agents)
-- Install: npx @dogdata/mcp-server
-- HTTP endpoint: https://www.dogdata.xyz/mcp
-- 16 tools, 8 resources, 4 prompts
-- Transports: stdio (Claude Desktop) + Streamable HTTP (remote agents)
+- Remote endpoint (Streamable HTTP): https://www.dogdata.xyz/mcp
+- Claude Desktop / stdio clients: npx mcp-remote https://www.dogdata.xyz/mcp
+- 17 tools, 8 resources, 4 prompts
+- Transports: Streamable HTTP (remote agents) + stdio via the mcp-remote bridge
 
 ## SSE Real-time Events
 - Endpoint: https://www.dogdata.xyz/api/events

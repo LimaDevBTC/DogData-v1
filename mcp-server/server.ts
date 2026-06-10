@@ -42,7 +42,7 @@ export function createServer(): McpServer {
       "and market metrics for AI agents.",
   });
 
-  // Register 16 tools
+  // Register 17 tools
   registerHolderTools(server);       // get_dog_holders, search_holder
   registerTransactionTools(server);  // get_recent_transactions, search_transaction
   registerPriceTools(server);        // get_dog_price, get_multi_exchange_prices, get_solana_dex_prices

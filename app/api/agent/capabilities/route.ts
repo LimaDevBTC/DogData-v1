@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { MCP_TOOL_COUNT, MCP_RESOURCE_COUNT, MCP_PROMPT_COUNT } from '@/lib/api-metadata';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,11 +48,12 @@ export async function GET() {
         docs: "https://www.dogdata.xyz/docs"
       },
       mcp: {
-        npm_package: "@dogdata/mcp-server",
         http_endpoint: "https://www.dogdata.xyz/mcp",
-        transport: ["stdio", "streamable-http"],
-        tools_count: 16,
-        resources_count: 8
+        client_connect: "npx mcp-remote https://www.dogdata.xyz/mcp",
+        transport: ["streamable-http", "stdio (via mcp-remote bridge)"],
+        tools_count: MCP_TOOL_COUNT,
+        resources_count: MCP_RESOURCE_COUNT,
+        prompts_count: MCP_PROMPT_COUNT
       },
       sse: {
         endpoint: "https://www.dogdata.xyz/api/events",
@@ -169,7 +171,7 @@ export async function GET() {
       website: "https://www.dogdata.xyz",
       api_docs: "https://www.dogdata.xyz/docs",
       github: "https://github.com/dogdata",
-      mcp_npm: "https://www.npmjs.com/package/@dogdata/mcp-server"
+      mcp_endpoint: "https://www.dogdata.xyz/mcp"
     }
   };
 

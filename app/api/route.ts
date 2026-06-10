@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { API_ENDPOINT_COUNT, MCP_TOOL_COUNT, MCP_RESOURCE_COUNT, MCP_PROMPT_COUNT } from '@/lib/api-metadata';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 60;
@@ -124,15 +125,16 @@ export async function GET() {
       rest: {
         base_url: `${baseUrl}/api`,
         openapi_spec: `${baseUrl}/api/openapi.json`,
-        total_endpoints: 40,
+        total_endpoints: API_ENDPOINT_COUNT,
       },
       mcp: {
         description: 'Model Context Protocol for AI agents (Claude, etc.)',
         http_endpoint: `${baseUrl}/mcp`,
-        npm_package: '@dogdata/mcp-server',
-        tools: 15,
-        resources: 8,
-        prompts: 4,
+        transport: ['streamable-http', 'stdio (via mcp-remote bridge)'],
+        client_connect: `npx mcp-remote ${baseUrl}/mcp`,
+        tools: MCP_TOOL_COUNT,
+        resources: MCP_RESOURCE_COUNT,
+        prompts: MCP_PROMPT_COUNT,
       },
       sse: {
         endpoint: `${baseUrl}/api/events`,
