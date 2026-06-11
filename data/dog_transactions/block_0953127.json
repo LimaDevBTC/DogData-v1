@@ -1,83 +1,39 @@
 {
   "block_height": 953127,
-  "timestamp": "2026-06-10T16:47:32.575510Z",
+  "timestamp": "2026-06-11T16:08:04.421817Z",
   "transactions": [
     {
       "txid": "196c4ff91dac0b7609873d03a0afab5370a2e975254a1d46467cd0fdcb7d9a6d",
       "block_height": 953127,
       "timestamp": "2026-06-10T16:47:07Z",
-      "type": "consolidation",
+      "type": "transfer",
       "senders": [
         {
           "address": "bc1pgrlzlqf5efrepdywq74lc3d5ampr854a82cny0gtz26znv9g4pgq0dpc8f",
-          "amount": 168309719000,
-          "amount_dog": 1683097.19,
-          "has_dog": true
-        },
-        {
-          "address": "bc1pffkeknvh5rytf3mnhe39qa408xtg5txt7t9u8ketjq3u079y4epsafu8aj",
-          "amount": 27788138385,
-          "amount_dog": 277881.38385,
+          "amount": 11172675737,
+          "amount_dog": 111726.75737,
           "has_dog": true
         }
       ],
       "receivers": [
         {
           "address": "bc1p3r737mzuqe3gzy4c66g3s0ywkmay7m9u44jvx323nlqrd97lkwas902a3s",
-          "amount": 190624286900,
-          "amount_dog": 1906242.869,
+          "amount": 11172675737,
+          "amount_dog": 111726.75737,
           "has_dog": true,
-          "is_change": false
-        },
-        {
-          "address": "bc1pc7zkzqav4slp2xz5wvalrxp06sg8uwgw3qfxppu448jsp85c42cszypzgh",
-          "amount": 5473570485,
-          "amount_dog": 54735.70485,
-          "has_dog": true,
-          "is_change": true
-        }
-      ],
-      "sender_count": 2,
-      "receiver_count": 2,
-      "total_dog_in": 1960978.57385,
-      "total_dog_out": 1960978.57385,
-      "total_dog_moved": 1960978.57385,
-      "net_transfer": 1906242.869,
-      "change_amount": 54735.70485,
-      "has_change": true,
-      "fee_sats": 1010
-    },
-    {
-      "txid": "e44c0d3d5ed4717b7e120b37737e5c759a543a09b93a2da60b6ad7fa08ce386b",
-      "block_height": 953127,
-      "timestamp": "2026-06-10T16:47:07Z",
-      "type": "self_transfer",
-      "senders": [
-        {
-          "address": "bc1qvue5yu6tdv5dvveycczca8txj5lx7w30jyl9t4nmtlumeeyfw5hq7aanmk",
-          "amount": 2100000000,
-          "amount_dog": 21000.0,
-          "has_dog": true
-        }
-      ],
-      "receivers": [
-        {
-          "address": "bc1qvue5yu6tdv5dvveycczca8txj5lx7w30jyl9t4nmtlumeeyfw5hq7aanmk",
-          "amount": 2100000000,
-          "amount_dog": 21000.0,
-          "has_dog": true,
-          "is_change": true
+          "is_change": false,
+          "vout": 2
         }
       ],
       "sender_count": 1,
       "receiver_count": 1,
-      "total_dog_in": 21000.0,
-      "total_dog_out": 21000.0,
-      "total_dog_moved": 21000.0,
-      "net_transfer": 0.0,
-      "change_amount": 21000.0,
-      "has_change": true,
-      "fee_sats": 798
+      "total_dog_in": 111726.75737,
+      "total_dog_out": 111726.75737,
+      "total_dog_moved": 111726.75737,
+      "net_transfer": 111726.75737,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 1010
     }
   ]
 }

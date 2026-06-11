@@ -1,45 +1,39 @@
 {
   "block_height": 948422,
-  "timestamp": "2026-05-08T06:37:28.908345Z",
+  "timestamp": "2026-06-11T15:27:53.608785Z",
   "transactions": [
     {
-      "txid": "554490e31cfed6f0115f9a95f5187719e477d68739c6781f2033cbb0e2e3b26d",
+      "txid": "d8c4359556a1b8d968c94cbaa59b2b06413a5362e06542330b508926f48dbaef",
       "block_height": 948422,
       "timestamp": "2026-05-08T06:37:16Z",
-      "type": "transfer",
+      "type": "self_transfer",
       "senders": [
         {
-          "address": "bc1pdyw5p5qwf33m0fj3y3lfgvmamxy0hv5vj70pgj9hzwmp9c99606stnft9l",
-          "amount": 1029752057634,
-          "amount_dog": 10297520.57634,
+          "address": "1GrwDkr33gT6LuumniYjKEGjTLhsL5kmqC",
+          "amount": 89879393,
+          "amount_dog": 898.79393,
           "has_dog": true
         }
       ],
       "receivers": [
         {
-          "address": "bc1prdyzwdg0rcdgf9cg0a4zyx0cq3mdr3n6mcym95f3eg4dexfvnsjq200ly4",
-          "amount": 325513510000,
-          "amount_dog": 3255135.1,
+          "address": "1GrwDkr33gT6LuumniYjKEGjTLhsL5kmqC",
+          "amount": 89879393,
+          "amount_dog": 898.79393,
           "has_dog": true,
-          "is_change": false
-        },
-        {
-          "address": "bc1p2mc39mg9ye206zhw45mykxaupsdj9434hrnddpvvu239e22autgq3quucn",
-          "amount": 704238547634,
-          "amount_dog": 7042385.47634,
-          "has_dog": true,
-          "is_change": true
+          "is_change": true,
+          "vout": 0
         }
       ],
       "sender_count": 1,
-      "receiver_count": 2,
-      "total_dog_in": 10297520.57634,
-      "total_dog_out": 10297520.57634,
-      "total_dog_moved": 10297520.57634,
-      "net_transfer": 3255135.1,
-      "change_amount": 7042385.47634,
+      "receiver_count": 1,
+      "total_dog_in": 898.79393,
+      "total_dog_out": 898.79393,
+      "total_dog_moved": 898.79393,
+      "net_transfer": 0.0,
+      "change_amount": 898.79393,
       "has_change": true,
-      "fee_sats": 837
+      "fee_sats": 66880
     }
   ]
 }

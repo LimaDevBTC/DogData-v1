@@ -1,45 +1,39 @@
 {
   "block_height": 947972,
-  "timestamp": "2026-05-05T05:11:36.504243Z",
+  "timestamp": "2026-06-11T15:23:25.005977Z",
   "transactions": [
     {
-      "txid": "204be55d87e1b83c0a5ff550d439aca437f5bef0aa26bbb428b80aedcc05703c",
+      "txid": "584fce8b01c9460f22484df155df0bb7a0d480694edc7ce5c17a725e5e9b38ff",
       "block_height": 947972,
       "timestamp": "2026-05-05T05:10:59Z",
       "type": "transfer",
       "senders": [
         {
-          "address": "bc1pwgz88af090p73zeld46994zgdvj6jv8hctdhuh5rv7kvjqekwa3sk4j6pj",
-          "amount": 102588983693,
-          "amount_dog": 1025889.83693,
+          "address": "bc1qfzmeu0kes3w76tmng4rkk22sczc4xdjjy8t6ys",
+          "amount": 666666666,
+          "amount_dog": 6666.66666,
           "has_dog": true
         }
       ],
       "receivers": [
         {
-          "address": "bc1pud2j5tpy5s3c5u6y7e2lqn8tp5208q0mmxjtjqncmzp9wyj5gssswnz8nk",
-          "amount": 50000000000,
-          "amount_dog": 500000.0,
+          "address": "3E8pKsA8ez1wETLtcUwfW81GHzk5nNADMN",
+          "amount": 666666666,
+          "amount_dog": 6666.66666,
           "has_dog": true,
-          "is_change": false
-        },
-        {
-          "address": "bc1pwgz88af090p73zeld46994zgdvj6jv8hctdhuh5rv7kvjqekwa3sk4j6pj",
-          "amount": 52588983693,
-          "amount_dog": 525889.83693,
-          "has_dog": true,
-          "is_change": true
+          "is_change": false,
+          "vout": 0
         }
       ],
       "sender_count": 1,
-      "receiver_count": 2,
-      "total_dog_in": 1025889.83693,
-      "total_dog_out": 1025889.83693,
-      "total_dog_moved": 1025889.83693,
-      "net_transfer": 500000.0,
-      "change_amount": 525889.83693,
-      "has_change": true,
-      "fee_sats": 1591
+      "receiver_count": 1,
+      "total_dog_in": 6666.66666,
+      "total_dog_out": 6666.66666,
+      "total_dog_moved": 6666.66666,
+      "net_transfer": 6666.66666,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 3032
     }
   ]
 }

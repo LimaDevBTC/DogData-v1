@@ -1,45 +1,39 @@
 {
   "block_height": 949538,
-  "timestamp": "2026-05-15T16:59:08.575755Z",
+  "timestamp": "2026-06-11T15:38:19.157032Z",
   "transactions": [
     {
-      "txid": "7bfd0ccf35c794988df597b46737acbd89e14e078239382a8a5b62ce9f2b117f",
+      "txid": "f9c993d256c12e0856a7c7ff6a45d41780d715b8b8451d4483a459474aaeb737",
       "block_height": 949538,
       "timestamp": "2026-05-15T16:58:27Z",
       "type": "transfer",
       "senders": [
         {
-          "address": "bc1p50yzhmdhaj2px3v0t8vw47y54u8fw7z7jfzt6pgytmzfvkqg98ts9sk573",
-          "amount": 524389648085,
-          "amount_dog": 5243896.48085,
+          "address": "bc1qzgh5g6cza74rwm7uch3m0fk4aaa7d6qmjhlr2t",
+          "amount": 494336666,
+          "amount_dog": 4943.36666,
           "has_dog": true
         }
       ],
       "receivers": [
         {
-          "address": "bc1p88trjq8w5wtqf98akg8wv786el9p5a23ue97dapf87ywwpzawrfs54r749",
-          "amount": 1000000000,
-          "amount_dog": 10000.0,
+          "address": "bc1q0f4v97qucy0075e4rzpa7cynhyc6quc929tc3w",
+          "amount": 494336666,
+          "amount_dog": 4943.36666,
           "has_dog": true,
-          "is_change": false
-        },
-        {
-          "address": "bc1pqz578se84h62g9e794zrhrcxfe9z2y7yh4qhfqf8278xyhnslpcscc9wlv",
-          "amount": 523389648085,
-          "amount_dog": 5233896.48085,
-          "has_dog": true,
-          "is_change": true
+          "is_change": false,
+          "vout": 0
         }
       ],
       "sender_count": 1,
-      "receiver_count": 2,
-      "total_dog_in": 5243896.48085,
-      "total_dog_out": 5243896.48085,
-      "total_dog_moved": 5243896.48085,
-      "net_transfer": 10000.0,
-      "change_amount": 5233896.48085,
-      "has_change": true,
-      "fee_sats": 1112
+      "receiver_count": 1,
+      "total_dog_in": 4943.36666,
+      "total_dog_out": 4943.36666,
+      "total_dog_moved": 4943.36666,
+      "net_transfer": 4943.36666,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 8211
     }
   ]
 }

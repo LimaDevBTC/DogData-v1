@@ -1,45 +1,39 @@
 {
   "block_height": 948335,
-  "timestamp": "2026-05-07T16:16:47.655276Z",
+  "timestamp": "2026-06-11T15:26:45.581274Z",
   "transactions": [
     {
-      "txid": "a255c78d767958261d01fda0e77fe4612c19e022d5dfeaae522d18d289570b2a",
+      "txid": "be3d7cb000006d8a88d1edbea4e5bd8ecc201444ac25befedb2b0968cab425cc",
       "block_height": 948335,
       "timestamp": "2026-05-07T16:16:40Z",
       "type": "transfer",
       "senders": [
         {
-          "address": "bc1pud2j5tpy5s3c5u6y7e2lqn8tp5208q0mmxjtjqncmzp9wyj5gssswnz8nk",
-          "amount": 150376486168,
-          "amount_dog": 1503764.86168,
+          "address": "bc1quk6sxfnsfkytvkyns0zjsza4peywfxc80dseqf",
+          "amount": 118640800,
+          "amount_dog": 1186.408,
           "has_dog": true
         }
       ],
       "receivers": [
         {
-          "address": "bc1pud2j5tpy5s3c5u6y7e2lqn8tp5208q0mmxjtjqncmzp9wyj5gssswnz8nk",
-          "amount": 145376458253,
-          "amount_dog": 1453764.58253,
+          "address": "bc1q63ly30wz8v8qrh8qxnn07cgd5770asvs8gv4r0",
+          "amount": 118640800,
+          "amount_dog": 1186.408,
           "has_dog": true,
-          "is_change": true
-        },
-        {
-          "address": "bc1p4tfu9hm5tc4mazznvetk0y0y965ghc4wnkldh08z6ksmrr6xwsesy9zeqj",
-          "amount": 5000027915,
-          "amount_dog": 50000.27915,
-          "has_dog": true,
-          "is_change": false
+          "is_change": false,
+          "vout": 0
         }
       ],
       "sender_count": 1,
-      "receiver_count": 2,
-      "total_dog_in": 1503764.86168,
-      "total_dog_out": 1503764.86168,
-      "total_dog_moved": 1503764.86168,
-      "net_transfer": 50000.27915,
-      "change_amount": 1453764.58253,
-      "has_change": true,
-      "fee_sats": 389
+      "receiver_count": 1,
+      "total_dog_in": 1186.408,
+      "total_dog_out": 1186.408,
+      "total_dog_moved": 1186.408,
+      "net_transfer": 1186.408,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 150400
     }
   ]
 }

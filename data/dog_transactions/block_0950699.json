@@ -1,0 +1,72 @@
+{
+  "block_height": 950699,
+  "timestamp": "2026-06-11T15:47:29.785724Z",
+  "transactions": [
+    {
+      "txid": "e0a2a02140e849203284b53df437794fc09f97a5377ca34e48b05141344b9dcc",
+      "block_height": 950699,
+      "timestamp": "2026-05-23T18:05:40Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "1FWQiwK27EnGXb6BiBMRLJvunJQZZPMcGd",
+          "amount": 494336666,
+          "amount_dog": 4943.36666,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "1FWQiwK27EnGXb6BiBMRLJvunJQZZPMcGd",
+          "amount": 494336666,
+          "amount_dog": 4943.36666,
+          "has_dog": true,
+          "is_change": true,
+          "vout": 0
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 4943.36666,
+      "total_dog_out": 4943.36666,
+      "total_dog_moved": 4943.36666,
+      "net_transfer": 0.0,
+      "change_amount": 4943.36666,
+      "has_change": true,
+      "fee_sats": 14880
+    },
+    {
+      "txid": "37db26cd32d5d5ce43640dc9bf821f33b52ff9f7601f98877b3209badc66dd13",
+      "block_height": 950699,
+      "timestamp": "2026-05-23T18:05:40Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1pzac9qs5yfu35gc2w9sllew43h4unuuwv4xdy48g7q2dq4qfp00eq9q0j5w",
+          "amount": 15132755,
+          "amount_dog": 151.32755,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1psu72h2wv4jr5rmatcvutshhy552s475tu7zfgkz7etcxm9439e8q32g94w",
+          "amount": 15132755,
+          "amount_dog": 151.32755,
+          "has_dog": true,
+          "is_change": false,
+          "vout": 0
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 151.32755,
+      "total_dog_out": 151.32755,
+      "total_dog_moved": 151.32755,
+      "net_transfer": 151.32755,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 65
+    }
+  ]
+}

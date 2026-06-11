@@ -1,45 +1,39 @@
 {
   "block_height": 951521,
-  "timestamp": "2026-05-29T05:21:43.387540Z",
+  "timestamp": "2026-06-11T15:53:58.343434Z",
   "transactions": [
     {
-      "txid": "0e6f47573299e365b45c5042ce97a477ddee6abb0ae7f758db9356bf857c5dc1",
+      "txid": "27182f71f695634e46f5d50eb1dc8e016a70b51f6a6a51bb6d0b322b50eed3b7",
       "block_height": 951521,
       "timestamp": "2026-05-29T05:21:03Z",
       "type": "transfer",
       "senders": [
         {
-          "address": "bc1p50n9sksy5gwe6fgrxxsqfcp6ndsfjhykjqef64m8067hfadd9efqrhpp9k",
-          "amount": 568065758318,
-          "amount_dog": 5680657.58318,
+          "address": "1CC7chi8YS83Z9FVnEz81LZVvVo7GDn5mz",
+          "amount": 85385424,
+          "amount_dog": 853.85424,
           "has_dog": true
         }
       ],
       "receivers": [
         {
-          "address": "bc1prdyzwdg0rcdgf9cg0a4zyx0cq3mdr3n6mcym95f3eg4dexfvnsjq200ly4",
-          "amount": 399247496924,
-          "amount_dog": 3992474.96924,
+          "address": "1GrwDkr33gT6LuumniYjKEGjTLhsL5kmqC",
+          "amount": 85385424,
+          "amount_dog": 853.85424,
           "has_dog": true,
-          "is_change": false
-        },
-        {
-          "address": "bc1p50n9sksy5gwe6fgrxxsqfcp6ndsfjhykjqef64m8067hfadd9efqrhpp9k",
-          "amount": 168818261394,
-          "amount_dog": 1688182.61394,
-          "has_dog": true,
-          "is_change": true
+          "is_change": false,
+          "vout": 0
         }
       ],
       "sender_count": 1,
-      "receiver_count": 2,
-      "total_dog_in": 5680657.58318,
-      "total_dog_out": 5680657.58318,
-      "total_dog_moved": 5680657.58318,
-      "net_transfer": 3992474.96924,
-      "change_amount": 1688182.61394,
-      "has_change": true,
-      "fee_sats": 1191
+      "receiver_count": 1,
+      "total_dog_in": 853.85424,
+      "total_dog_out": 853.85424,
+      "total_dog_moved": 853.85424,
+      "net_transfer": 853.85424,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 115010
     }
   ]
 }

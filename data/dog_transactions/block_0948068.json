@@ -1,39 +1,7 @@
 {
   "block_height": 948068,
-  "timestamp": "2026-05-05T19:07:55.491333Z",
+  "timestamp": "2026-06-11T15:24:23.555509Z",
   "transactions": [
-    {
-      "txid": "85d9f41149072a517f73c4b290e42ef1e88a4b544f7df46e5dbb8aef76150aa6",
-      "block_height": 948068,
-      "timestamp": "2026-05-05T19:07:05Z",
-      "type": "transfer",
-      "senders": [
-        {
-          "address": "37oSBxju8GhdKvy9nsYaKS27hYRtvVJkBT",
-          "amount": 4200000000,
-          "amount_dog": 42000.0,
-          "has_dog": true
-        }
-      ],
-      "receivers": [
-        {
-          "address": "bc1qd6ag8aee0cnrqy96mm7umyucex7r5zj8xquxvt",
-          "amount": 4200000000,
-          "amount_dog": 42000.0,
-          "has_dog": true,
-          "is_change": false
-        }
-      ],
-      "sender_count": 1,
-      "receiver_count": 1,
-      "total_dog_in": 42000.0,
-      "total_dog_out": 42000.0,
-      "total_dog_moved": 42000.0,
-      "net_transfer": 42000.0,
-      "change_amount": 0,
-      "has_change": false,
-      "fee_sats": 1064
-    },
     {
       "txid": "6c916ceb77227b1c5d5bff83e6bf5bbeba5ec55cdbfb6fa73d3161a782b108e3",
       "block_height": 948068,
@@ -42,8 +10,8 @@
       "senders": [
         {
           "address": "bc1ppha6v337y5u37p0jptchvs99egxeg9w8q4mlzs4yzsr60zc7fmdsjgvjfk",
-          "amount": 10000000000,
-          "amount_dog": 100000.0,
+          "amount": 2956020000,
+          "amount_dog": 29560.2,
           "has_dog": true
         }
       ],
@@ -53,23 +21,25 @@
           "amount": 2635991000,
           "amount_dog": 26359.91,
           "has_dog": true,
-          "is_change": false
+          "is_change": false,
+          "vout": 2
         },
         {
           "address": "bc1pspxlwwx4rxpa807mdj4wagv05cc78vacftxalpaj5cwfjwcmm3cse3kptc",
-          "amount": 7364009000,
-          "amount_dog": 73640.09,
+          "amount": 320029000,
+          "amount_dog": 3200.29,
           "has_dog": true,
-          "is_change": true
+          "is_change": true,
+          "vout": 1
         }
       ],
       "sender_count": 1,
       "receiver_count": 2,
-      "total_dog_in": 100000.0,
-      "total_dog_out": 100000.0,
-      "total_dog_moved": 100000.0,
+      "total_dog_in": 29560.2,
+      "total_dog_out": 29560.2,
+      "total_dog_moved": 29560.2,
       "net_transfer": 26359.91,
-      "change_amount": 73640.09,
+      "change_amount": 3200.29,
       "has_change": true,
       "fee_sats": 973
     },
@@ -92,7 +62,8 @@
           "amount": 11500071000,
           "amount_dog": 115000.71,
           "has_dog": true,
-          "is_change": false
+          "is_change": false,
+          "vout": 1
         }
       ],
       "sender_count": 1,
@@ -113,8 +84,8 @@
       "senders": [
         {
           "address": "bc1pud2j5tpy5s3c5u6y7e2lqn8tp5208q0mmxjtjqncmzp9wyj5gssswnz8nk",
-          "amount": 87221043180,
-          "amount_dog": 872210.4318,
+          "amount": 1206463180,
+          "amount_dog": 12064.6318,
           "has_dog": true
         }
       ],
@@ -124,23 +95,25 @@
           "amount": 526469777,
           "amount_dog": 5264.69777,
           "has_dog": true,
-          "is_change": false
+          "is_change": false,
+          "vout": 1
         },
         {
           "address": "bc1pud2j5tpy5s3c5u6y7e2lqn8tp5208q0mmxjtjqncmzp9wyj5gssswnz8nk",
-          "amount": 86694573403,
-          "amount_dog": 866945.73403,
+          "amount": 679993403,
+          "amount_dog": 6799.93403,
           "has_dog": true,
-          "is_change": true
+          "is_change": true,
+          "vout": 0
         }
       ],
       "sender_count": 1,
       "receiver_count": 2,
-      "total_dog_in": 872210.4318,
-      "total_dog_out": 872210.4318,
-      "total_dog_moved": 872210.4318,
+      "total_dog_in": 12064.6318,
+      "total_dog_out": 12064.6318,
+      "total_dog_moved": 12064.6318,
       "net_transfer": 5264.69777,
-      "change_amount": 866945.73403,
+      "change_amount": 6799.93403,
       "has_change": true,
       "fee_sats": 641
     }

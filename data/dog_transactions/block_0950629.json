@@ -1,56 +1,38 @@
 {
   "block_height": 950629,
-  "timestamp": "2026-05-23T05:54:52.222865Z",
+  "timestamp": "2026-06-11T15:46:58.926104Z",
   "transactions": [
     {
       "txid": "60a03176db0eed9d539bd8c052d67c8fbc841ad47c71bb6b3ceb9460b4c72937",
       "block_height": 950629,
       "timestamp": "2026-05-23T05:54:33Z",
-      "type": "consolidation",
+      "type": "transfer",
       "senders": [
         {
-          "address": "bc1qwm0weajur583ejfhmxy529yrqaplaauas60mc4",
-          "amount": 88964510000,
-          "amount_dog": 889645.1,
-          "has_dog": true
-        },
-        {
-          "address": "bc1q9py9cgw7zhlve396782gk6t8pztkv8twf86mey",
-          "amount": 20000000000,
-          "amount_dog": 200000.0,
-          "has_dog": true
-        },
-        {
           "address": "bc1q9wdnapw2twxvytvrpwvejhqv6jlevxavu56a56",
-          "amount": 20000000000,
-          "amount_dog": 200000.0,
+          "amount": 843108850,
+          "amount_dog": 8431.0885,
           "has_dog": true
         }
       ],
       "receivers": [
         {
           "address": "bc1p7vec8q5583l3tcutasy00h8ukqumu2sjqrz02mlajnt95slp73nqemn000",
-          "amount": 58117100000,
-          "amount_dog": 581171.0,
+          "amount": 843108850,
+          "amount_dog": 8431.0885,
           "has_dog": true,
-          "is_change": false
-        },
-        {
-          "address": "bc1qyqrf53hf0n7f0py5shxnarrm4k0d5ze9qy97d8",
-          "amount": 70847410000,
-          "amount_dog": 708474.1,
-          "has_dog": true,
-          "is_change": true
+          "is_change": false,
+          "vout": 2
         }
       ],
-      "sender_count": 3,
-      "receiver_count": 2,
-      "total_dog_in": 1289645.1,
-      "total_dog_out": 1289645.1,
-      "total_dog_moved": 1289645.1,
-      "net_transfer": 581171.0,
-      "change_amount": 708474.1,
-      "has_change": true,
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 8431.0885,
+      "total_dog_out": 8431.0885,
+      "total_dog_moved": 8431.0885,
+      "net_transfer": 8431.0885,
+      "change_amount": 0,
+      "has_change": false,
       "fee_sats": 412
     }
   ]

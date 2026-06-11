@@ -1,6 +1,6 @@
 {
   "block_height": 904990,
-  "timestamp": "2026-05-03T09:31:58.511209Z",
+  "timestamp": "2026-06-11T09:14:17.077105Z",
   "transactions": [
     {
       "txid": "b35ab701e246edcee058b9ef05e43d02afe927cf0774767afdac7bbf2718b407",
@@ -21,14 +21,16 @@
           "amount": 7571000,
           "amount_dog": 75.71,
           "has_dog": true,
-          "is_change": true
+          "is_change": true,
+          "vout": 1
         },
         {
           "address": "bc1qt3my3tf8ryw64ep2c52v3vs2qp0vxqd7a3wu2g",
           "amount": 7571000,
           "amount_dog": 75.71,
           "has_dog": true,
-          "is_change": false
+          "is_change": false,
+          "vout": 2
         }
       ],
       "sender_count": 1,
@@ -60,7 +62,8 @@
           "amount": 80000000,
           "amount_dog": 800.0,
           "has_dog": true,
-          "is_change": false
+          "is_change": false,
+          "vout": 0
         }
       ],
       "sender_count": 1,

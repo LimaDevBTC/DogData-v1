@@ -64,6 +64,21 @@ def main():
           f'→ {"✅ clean" if orphan_spends == 0 else "⚠️ DATA GAP"}')
     print(f'live supply: {live_supply:,.2f} DOG')
 
+    # ── Internal check: event-log live set vs the replay's own utxo_set ──────
+    # Both come from the same replay, so they must match EXACTLY. A mismatch
+    # means the event emission diverged from the utxo_set update (a bug).
+    replay_path = DATA / 'replay_utxo_set.json'
+    if replay_path.exists():
+        rep = json.load(open(replay_path))  # {outpoint: amount_raw}
+        rep_set = set(rep.keys())
+        live_set = set(live.keys())
+        miss = rep_set - live_set   # in replay set, missing from event log
+        extra = live_set - rep_set  # in event log, not in replay set
+        print('\n════════ INTERNAL: event log vs replay_utxo_set.json ════════')
+        print(f'replay utxos: {len(rep_set):,} | event-log live: {len(live_set):,}')
+        print(f'missing from event log: {len(miss):,} | extra in event log: {len(extra):,}'
+              f'  → {"✅ EXACT MATCH" if not miss and not extra else "❌ MISMATCH (emission bug)"}')
+
     # ── Reconcile vs production live UTXO set ────────────────────────────────
     prod_path = DATA / 'dog_utxo_set.json'
     if prod_path.exists():

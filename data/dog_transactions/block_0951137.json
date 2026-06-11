@@ -1,0 +1,72 @@
+{
+  "block_height": 951137,
+  "timestamp": "2026-06-11T15:50:45.037137Z",
+  "transactions": [
+    {
+      "txid": "88df4b9e894e61308615b88e26e839efed619304218638a7b5353b7f12bdef41",
+      "block_height": 951137,
+      "timestamp": "2026-05-26T15:09:44Z",
+      "type": "self_transfer",
+      "senders": [
+        {
+          "address": "bc1pqhrxhuxjvpcwar7xu5zf3yv3692zyv3gpr0wxy4ze0smejzvxz2spextru",
+          "amount": 593204000,
+          "amount_dog": 5932.04,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "bc1pqhrxhuxjvpcwar7xu5zf3yv3692zyv3gpr0wxy4ze0smejzvxz2spextru",
+          "amount": 593204000,
+          "amount_dog": 5932.04,
+          "has_dog": true,
+          "is_change": true,
+          "vout": 0
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 5932.04,
+      "total_dog_out": 5932.04,
+      "total_dog_moved": 5932.04,
+      "net_transfer": 0.0,
+      "change_amount": 5932.04,
+      "has_change": true,
+      "fee_sats": 1147
+    },
+    {
+      "txid": "565a470fb61dcf2608b8909001f0aeb491551b6d2840893ec41a5dc382bceff1",
+      "block_height": 951137,
+      "timestamp": "2026-05-26T15:09:44Z",
+      "type": "transfer",
+      "senders": [
+        {
+          "address": "bc1ql027wcawtewznkd3n9vr7kfezwsxree3d8l5mu",
+          "amount": 269638181,
+          "amount_dog": 2696.38181,
+          "has_dog": true
+        }
+      ],
+      "receivers": [
+        {
+          "address": "3BwWcJ6i8tCDXEpHLiue1cVofNaQWcmEWz",
+          "amount": 269638181,
+          "amount_dog": 2696.38181,
+          "has_dog": true,
+          "is_change": false,
+          "vout": 0
+        }
+      ],
+      "sender_count": 1,
+      "receiver_count": 1,
+      "total_dog_in": 2696.38181,
+      "total_dog_out": 2696.38181,
+      "total_dog_moved": 2696.38181,
+      "net_transfer": 2696.38181,
+      "change_amount": 0,
+      "has_change": false,
+      "fee_sats": 170
+    }
+  ]
+}

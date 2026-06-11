@@ -1,6 +1,6 @@
 {
   "block_height": 948274,
-  "timestamp": "2026-05-07T06:08:37.587344Z",
+  "timestamp": "2026-06-11T15:26:06.993924Z",
   "transactions": [
     {
       "txid": "b5b7241a9f3ddbbd2145ad1a375f340aab73613e3556ae84b7a7701a2897c7f5",
@@ -10,61 +10,30 @@
       "senders": [
         {
           "address": "bc1p6ys2ervatu00766eeqfmverzegg9fkprn3xjn0ppn70h53qu5vus3yzl0x",
-          "amount": 270622528769,
-          "amount_dog": 2706225.28769,
+          "amount": 102168017587,
+          "amount_dog": 1021680.17587,
           "has_dog": true
         }
       ],
       "receivers": [
         {
           "address": "bc1p6ys2ervatu00766eeqfmverzegg9fkprn3xjn0ppn70h53qu5vus3yzl0x",
-          "amount": 270622528769,
-          "amount_dog": 2706225.28769,
+          "amount": 102168017587,
+          "amount_dog": 1021680.17587,
           "has_dog": true,
-          "is_change": true
+          "is_change": true,
+          "vout": 0
         }
       ],
       "sender_count": 1,
       "receiver_count": 1,
-      "total_dog_in": 2706225.28769,
-      "total_dog_out": 2706225.28769,
-      "total_dog_moved": 2706225.28769,
+      "total_dog_in": 1021680.17587,
+      "total_dog_out": 1021680.17587,
+      "total_dog_moved": 1021680.17587,
       "net_transfer": 0.0,
-      "change_amount": 2706225.28769,
+      "change_amount": 1021680.17587,
       "has_change": true,
       "fee_sats": 528
-    },
-    {
-      "txid": "79db864a12d36a7d3971708d52bcb8fa4e7bd91f74eaee91eaf910c5ff7e3051",
-      "block_height": 948274,
-      "timestamp": "2026-05-07T06:08:09Z",
-      "type": "transfer",
-      "senders": [
-        {
-          "address": "bc1q9xd8j3ef6ncxdqd2y09d9zrs0hlyml3u8jvx7v",
-          "amount": 155647300,
-          "amount_dog": 1556.473,
-          "has_dog": true
-        }
-      ],
-      "receivers": [
-        {
-          "address": "bc1qwnlrnxk6lhcesw93e0wppcn8txayhsn8ek6df3",
-          "amount": 155647300,
-          "amount_dog": 1556.473,
-          "has_dog": true,
-          "is_change": false
-        }
-      ],
-      "sender_count": 1,
-      "receiver_count": 1,
-      "total_dog_in": 1556.473,
-      "total_dog_out": 1556.473,
-      "total_dog_moved": 1556.473,
-      "net_transfer": 1556.473,
-      "change_amount": 0,
-      "has_change": false,
-      "fee_sats": 9902
     }
   ]
 }

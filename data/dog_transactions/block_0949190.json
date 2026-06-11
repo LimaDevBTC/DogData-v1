@@ -1,46 +1,7 @@
 {
   "block_height": 949190,
-  "timestamp": "2026-05-13T08:51:49.377824Z",
+  "timestamp": "2026-06-11T15:35:01.594073Z",
   "transactions": [
-    {
-      "txid": "dd6a313933be657e4eadfa8f094f6b210eefe1e30bb5fea134808c7b7fc12674",
-      "block_height": 949190,
-      "timestamp": "2026-05-13T08:51:47Z",
-      "type": "transfer",
-      "senders": [
-        {
-          "address": "bc1qj7dam98j6ktjcp320qu77y2vrylv49c2k2hkmu",
-          "amount": 296625887000,
-          "amount_dog": 2966258.87,
-          "has_dog": true
-        }
-      ],
-      "receivers": [
-        {
-          "address": "bc1phmdhyffq54wz3rhad7n8l6qdlvlhe43qacuqgsxk2rs6m8xd8efsr2432u",
-          "amount": 1000000000,
-          "amount_dog": 10000.0,
-          "has_dog": true,
-          "is_change": false
-        },
-        {
-          "address": "bc1qj7dam98j6ktjcp320qu77y2vrylv49c2k2hkmu",
-          "amount": 295625887000,
-          "amount_dog": 2956258.87,
-          "has_dog": true,
-          "is_change": true
-        }
-      ],
-      "sender_count": 1,
-      "receiver_count": 2,
-      "total_dog_in": 2966258.87,
-      "total_dog_out": 2966258.87,
-      "total_dog_moved": 2966258.87,
-      "net_transfer": 10000.0,
-      "change_amount": 2956258.87,
-      "has_change": true,
-      "fee_sats": 8000
-    },
     {
       "txid": "1d3978d4ced349da27a0289765c23d6a6f121ea62428e1266194703af730f31d",
       "block_height": 949190,
@@ -60,7 +21,8 @@
           "amount": 80600000,
           "amount_dog": 806.0,
           "has_dog": true,
-          "is_change": true
+          "is_change": true,
+          "vout": 0
         }
       ],
       "sender_count": 1,
@@ -92,7 +54,8 @@
           "amount": 1000000,
           "amount_dog": 10.0,
           "has_dog": true,
-          "is_change": false
+          "is_change": false,
+          "vout": 0
         }
       ],
       "sender_count": 1,
@@ -124,7 +87,8 @@
           "amount": 1000000,
           "amount_dog": 10.0,
           "has_dog": true,
-          "is_change": false
+          "is_change": false,
+          "vout": 0
         }
       ],
       "sender_count": 1,
