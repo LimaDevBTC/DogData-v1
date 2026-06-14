@@ -1,9 +1,22 @@
 import { memoryCache } from '@/lib/cache'
 import { ChainHolder, ChainTransaction, ChainTransfer, DOG_TOKENS } from './types'
+import fs from 'fs'
+import path from 'path'
 
 const TOKEN_MINT = DOG_TOKENS.solana.address
 const DECIMALS = DOG_TOKENS.solana.decimals
 const CACHE_TTL = 5 * 60 * 1000 // 5 min
+
+// Standard Solana JSON-RPC methods (getTokenSupply, getTokenLargestAccounts,
+// getAccountInfo) work on ANY RPC node — they are not Helius-specific. Default to a
+// free public endpoint so Solana holder data keeps working even when the Helius plan
+// is over quota. Override with SOLANA_RPC_URL. Helius (HELIUS_API_KEY) is only needed
+// for DAS-only features (full holder count) and the Enhanced transactions API.
+const PUBLIC_RPC_URL = process.env.SOLANA_RPC_URL || 'https://solana-rpc.publicnode.com'
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
 
 function getApiKey(): string {
   const key = process.env.HELIUS_API_KEY
@@ -11,7 +24,7 @@ function getApiKey(): string {
   return key
 }
 
-function rpcUrl(): string {
+function heliusRpcUrl(): string {
   return `https://mainnet.helius-rpc.com/?api-key=${getApiKey()}`
 }
 
@@ -19,16 +32,55 @@ function enhancedUrl(): string {
   return `https://api-mainnet.helius-rpc.com`
 }
 
-async function rpcCall<T>(method: string, params: any): Promise<T> {
-  const resp = await fetch(rpcUrl(), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-  })
-  if (!resp.ok) throw new Error(`Helius RPC ${method}: ${resp.status}`)
-  const json = await resp.json()
-  if (json.error) throw new Error(`Helius RPC ${method}: ${json.error.message}`)
-  return json.result as T
+// Standard JSON-RPC call. Defaults to the public RPC; pass `url` for Helius-only (DAS)
+// methods. Retries transient rate-limit / empty-body / network failures with backoff —
+// public nodes throttle bursts (HTTP 429 / JSON-RPC -32005). Hard RPC errors (e.g.
+// Helius -32429 "max usage reached") fail fast so callers can fall back immediately.
+async function rpcCall<T>(method: string, params: any, url: string = PUBLIC_RPC_URL): Promise<T> {
+  let lastErr: Error = new Error(`RPC ${method}: failed`)
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt > 0) await sleep(200 * attempt)
+    let retryable = false
+    try {
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+      })
+      if (resp.status === 429) { retryable = true; throw new Error(`RPC ${method}: HTTP 429`) }
+      if (!resp.ok) throw new Error(`RPC ${method}: HTTP ${resp.status}`)
+      const text = await resp.text()
+      if (!text) { retryable = true; throw new Error(`RPC ${method}: empty body`) }
+      const json = JSON.parse(text)
+      if (json.error) {
+        if (json.error.code === -32005) retryable = true // public-node rate limit
+        throw new Error(`RPC ${method}: ${json.error.message}`)
+      }
+      return json.result as T
+    } catch (e: any) {
+      lastErr = e instanceof Error ? e : new Error(String(e))
+      // Retry rate-limits, empty bodies, network errors (TypeError from fetch) and
+      // partial-body parse errors; rethrow genuine RPC errors immediately.
+      const transient = retryable || e instanceof TypeError || /Unexpected (token|end)/i.test(lastErr.message)
+      if (!transient) throw lastErr
+    }
+  }
+  throw lastErr
+}
+
+// Run an async fn over items with bounded concurrency — public RPC nodes reject
+// large parallel bursts, so owner resolution is throttled instead of Promise.all'd.
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length)
+  let next = 0
+  async function worker() {
+    while (next < items.length) {
+      const i = next++
+      results[i] = await fn(items[i], i)
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
+  return results
 }
 
 // === Supply ===
@@ -90,9 +142,10 @@ export async function getSolanaHolders(limit = 20): Promise<{
   holders: ChainHolder[]
   total_count: number
   bridgeSupply: number
+  circulatingOnChain: number
 }> {
   const cacheKey = `helius:holders:${limit}`
-  const cached = memoryCache.get<{ holders: ChainHolder[]; total_count: number; bridgeSupply: number }>(cacheKey)
+  const cached = memoryCache.get<{ holders: ChainHolder[]; total_count: number; bridgeSupply: number; circulatingOnChain: number }>(cacheKey)
   if (cached) return cached
 
   const totalSupply = await getSolanaSupply()
@@ -115,8 +168,8 @@ export async function getSolanaHolders(limit = 20): Promise<{
   const holdersToProcess = isBridge ? accounts.slice(1) : accounts
   const holdersSlice = holdersToProcess.slice(0, limit)
 
-  // Resolve owners in parallel (batched)
-  const owners = await Promise.all(holdersSlice.map(a => resolveOwner(a.address)))
+  // Resolve owners with bounded concurrency (public RPC throttles parallel bursts)
+  const owners = await mapLimit(holdersSlice, 3, a => resolveOwner(a.address))
 
   const holders: ChainHolder[] = holdersSlice.map((a, i) => {
     const balance = parseFloat(a.uiAmountString)
@@ -133,7 +186,14 @@ export async function getSolanaHolders(limit = 20): Promise<{
 
   const holderCount = await getSolanaHolderCount()
 
-  const res = { holders, total_count: holderCount, bridgeSupply }
+  const res = {
+    holders,
+    total_count: holderCount,
+    bridgeSupply,
+    // Circulating on Solana = full SPL supply minus the bridge/treasury account.
+    // Computed from the live RPC supply so it never depends on Birdeye (over-quota).
+    circulatingOnChain: circulatingOnSolana > 0 ? circulatingOnSolana : 0,
+  }
   memoryCache.set(cacheKey, res, CACHE_TTL)
   return res
 }
@@ -142,40 +202,65 @@ export async function getSolanaHolders(limit = 20): Promise<{
 // Helius DAS does not return a global total — we paginate until a partial page is found.
 // Result is cached for 30 min to avoid hammering the API on every stats request.
 
-const HOLDER_COUNT_TTL = 30 * 60 * 1000 // 30 min
+const HOLDER_COUNT_TTL = 30 * 60 * 1000 // 30 min — fresh count from Helius DAS
+const FALLBACK_COUNT_TTL = 10 * 60 * 1000 // 10 min — short so Helius is retried sooner
 const PAGE_SIZE = 1000
+
+// Last-known holder count from data/external_holders.json — fallback for when the live
+// source (Helius DAS) is unavailable (no key / over quota). Returns 0 if unreadable.
+function readExternalHolderCount(chain: 'solana' | 'stacks'): number {
+  try {
+    const filePath = path.join(process.cwd(), 'data', 'external_holders.json')
+    const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'))
+    const n = data?.[chain]?.holders
+    return typeof n === 'number' && n > 0 ? n : 0
+  } catch {
+    return 0
+  }
+}
 
 export async function getSolanaHolderCount(): Promise<number> {
   const cacheKey = 'helius:holder_count'
   const cached = memoryCache.get<number>(cacheKey)
   if (cached !== null) return cached
 
-  try {
-    let page = 1
-    let total = 0
+  // Primary: Helius DAS getTokenAccounts (paginated) — the only API that returns the
+  // true on-chain holder count. Requires a Helius key with available quota.
+  if (process.env.HELIUS_API_KEY) {
+    try {
+      let page = 1
+      let total = 0
 
-    while (true) {
-      const result = await rpcCall<{ token_accounts: any[] }>(
-        'getTokenAccounts',
-        { mint: TOKEN_MINT, page, limit: PAGE_SIZE }
-      )
-      const accounts = result.token_accounts ?? []
-      total += accounts.length
+      while (true) {
+        const result = await rpcCall<{ token_accounts: any[] }>(
+          'getTokenAccounts',
+          { mint: TOKEN_MINT, page, limit: PAGE_SIZE },
+          heliusRpcUrl()
+        )
+        const accounts = result.token_accounts ?? []
+        total += accounts.length
 
-      if (accounts.length < PAGE_SIZE) break // last page
-      page++
+        if (accounts.length < PAGE_SIZE) break // last page
+        page++
 
-      // Safety cap — stop after 50 pages (50k holders) to avoid infinite loops
-      if (page > 50) break
+        // Safety cap — stop after 50 pages (50k holders) to avoid infinite loops
+        if (page > 50) break
+      }
+
+      if (total > 0) {
+        memoryCache.set(cacheKey, total, HOLDER_COUNT_TTL)
+        return total
+      }
+    } catch {
+      // fall through to the offline fallback below
     }
-
-    if (total > 0) {
-      memoryCache.set(cacheKey, total, HOLDER_COUNT_TTL)
-    }
-    return total
-  } catch {
-    return 0
   }
+
+  // Fallback: last-known count from data/external_holders.json (cached briefly so the
+  // live Helius count is picked up again as soon as quota recovers).
+  const fallback = readExternalHolderCount('solana')
+  if (fallback > 0) memoryCache.set(cacheKey, fallback, FALLBACK_COUNT_TTL)
+  return fallback
 }
 
 // === Transactions (Enhanced API) ===

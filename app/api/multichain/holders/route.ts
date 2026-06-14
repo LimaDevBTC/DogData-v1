@@ -5,11 +5,23 @@ import {
   getStacksHolderPercentagesResilient as getStacksHolderPercentages,
 } from '@/lib/multichain/stacks-resilient'
 import { getSolanaHolders } from '@/lib/multichain/helius'
-import { getSolanaTokenInfo } from '@/lib/multichain/birdeye'
-import type { Chain } from '@/lib/multichain/types'
+import { getSolanaTokenInfo as getSolanaTokenInfoBirdeye } from '@/lib/multichain/birdeye'
+import { getSolanaTokenInfoFromDexScreener } from '@/lib/multichain/dexscreener'
+import type { Chain, ChainTokenInfo } from '@/lib/multichain/types'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
+
+// Solana token info for price/volume enrichment. DexScreener is primary (free, no
+// limits); Birdeye is the fallback (and may itself be over quota).
+async function getSolanaInfo(): Promise<ChainTokenInfo> {
+  try {
+    return await getSolanaTokenInfoFromDexScreener()
+  } catch (err) {
+    console.warn('DexScreener failed, falling back to Birdeye:', (err as Error).message)
+    return await getSolanaTokenInfoBirdeye()
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -34,7 +46,7 @@ export async function GET(request: NextRequest) {
     if (!chain || chain === 'solana') {
       const [heliusData, tokenInfo] = await Promise.allSettled([
         getSolanaHolders(limit),
-        getSolanaTokenInfo(),
+        getSolanaInfo(),
       ])
 
       const holders = heliusData.status === 'fulfilled' ? heliusData.value : null
@@ -47,15 +59,19 @@ export async function GET(request: NextRequest) {
         balance_usd: price > 0 ? h.balance * price : null,
       }))
 
+      // Holder count: prefer the Helius/fallback count from getSolanaHolders; Birdeye's
+      // count is only used if that is unavailable (and Birdeye itself may be over quota).
+      const holderCount = holders?.total_count || info?.holder_count || 0
+
       response.solana = {
         holders: enrichedHolders,
-        total_count: info?.holder_count ?? 0,
+        total_count: holderCount,
         bridgeSupply: holders?.bridgeSupply ?? 0,
-        circulatingOnChain: holders?.bridgeSupply
-          ? (info?.total_supply || 0) - holders.bridgeSupply
-          : null,
+        // Circulating supply on Solana from the live RPC (full supply − bridge),
+        // not Birdeye's total_supply which is 0 / over-quota.
+        circulatingOnChain: holders?.circulatingOnChain ?? null,
         stats: {
-          holder_count: info?.holder_count ?? 0,
+          holder_count: holderCount,
           volume_24h_usd: info?.volume_24h_usd ?? 0,
         },
       }
