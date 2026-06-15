@@ -5,7 +5,8 @@ import path from 'path'
 
 const TOKEN_MINT = DOG_TOKENS.solana.address
 const DECIMALS = DOG_TOKENS.solana.decimals
-const CACHE_TTL = 5 * 60 * 1000 // 5 min
+const CACHE_TTL = 5 * 60 * 1000      // 5 min — for free/public-RPC calls (no quota cost)
+const HELIUS_TX_TTL = 6 * 60 * 60 * 1000 // 6 h — Enhanced API is quota-limited; ≤4 calls/day
 
 // Standard Solana JSON-RPC methods (getTokenSupply, getTokenLargestAccounts,
 // getAccountInfo) work on ANY RPC node — they are not Helius-specific. Default to a
@@ -202,8 +203,11 @@ export async function getSolanaHolders(limit = 20): Promise<{
 // Helius DAS does not return a global total — we paginate until a partial page is found.
 // Result is cached for 30 min to avoid hammering the API on every stats request.
 
-const HOLDER_COUNT_TTL = 30 * 60 * 1000 // 30 min — fresh count from Helius DAS
-const FALLBACK_COUNT_TTL = 10 * 60 * 1000 // 10 min — short so Helius is retried sooner
+// Budget: ≤30 Helius calls/day → ≤1000/month.
+// getTokenAccounts paginates at 1000/page; ~11300 holders = 12 pages = 12 calls/invocation.
+// One refresh per 24 h = 12 calls/day for the count.
+const HOLDER_COUNT_TTL = 24 * 60 * 60 * 1000 // 24 h — 12 calls/day for holder count
+const FALLBACK_COUNT_TTL = 2 * 60 * 60 * 1000 // 2 h — retry live Helius sooner when fallback
 const PAGE_SIZE = 1000
 
 // Last-known holder count from data/external_holders.json — fallback for when the live
@@ -379,6 +383,6 @@ export async function getSolanaTransactions(limit = 30): Promise<{
   }
 
   const result = { transactions, total_count: transactions.length }
-  memoryCache.set(cacheKey, result, CACHE_TTL)
+  memoryCache.set(cacheKey, result, HELIUS_TX_TTL) // 6h — quota-limited Enhanced API
   return result
 }

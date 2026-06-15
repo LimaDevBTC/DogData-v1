@@ -22,6 +22,7 @@ import { PriceCards } from "@/components/ui/price-cards"
 import { TransactionHeatmap } from "@/components/ui/transaction-heatmap"
 import { MultiChainStats } from "@/components/ui/multichain-stats"
 import dogStatsFallback from '@/data/dog_stats_fallback.json'
+import externalHoldersFallback from '@/data/external_holders.json'
 import dynamic from 'next/dynamic'
 
 const TradingViewWidget = dynamic(() => import('@/components/ui/trading-view-widget'), {
@@ -101,7 +102,12 @@ export default function OverviewPage() {
   const [krakenChange, setKrakenChange] = useState<number>(0)
   const [volume24h, setVolume24h] = useState<number>(0)
   const [metrics24h, setMetrics24h] = useState<Transactions24hMetrics | null>(null)
-  const [chainHolders, setChainHolders] = useState<{ solana: number; stacks: number }>({ solana: 0, stacks: 0 })
+  // Seed with external_holders.json so SOL/STX always show a number on first render,
+  // even before the async multichain fetch resolves or if it fails entirely.
+  const [chainHolders, setChainHolders] = useState<{ solana: number; stacks: number }>({
+    solana: externalHoldersFallback.solana.holders,
+    stacks: externalHoldersFallback.stacks.holders,
+  })
   const [loading, setLoading] = useState(true)
 
   const FALLBACK_TOTAL_HOLDERS = (dogStatsFallback as any)?.totalHolders ?? 0
