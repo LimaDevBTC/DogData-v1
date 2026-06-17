@@ -50,6 +50,8 @@ export interface ChartSeries {
   /** dashed line */
   dashed?: boolean
   format?: ValueFormatter
+  /** recharts stackId for stacked areas/bars */
+  stackId?: string
 }
 
 export interface ChartBand {
@@ -94,6 +96,8 @@ export interface OnChainChartProps {
   className?: string
   /** loading skeleton */
   loading?: boolean
+  /** show survivorship coverage note when visible data has < 90% supply coverage */
+  showCoverage?: boolean
 }
 
 const PRICE_COLOR = '#878787'
@@ -200,6 +204,7 @@ export function OnChainChart({
   height = 320,
   className,
   loading = false,
+  showCoverage = false,
 }: OnChainChartProps) {
   const [range, setRange] = useState<TimeRange>(defaultRange)
   // price axis log/linear toggle — the signature Glassnode control
@@ -213,9 +218,10 @@ export function OnChainChart({
       const out: Record<string, any> = { __x: row[xKey] }
       for (const s of series) out[s.key] = row[s.key]
       if (hasPrice) out.__price = row[priceKey]
+      if (showCoverage && row.coverage_pct != null) out.__coverage = row.coverage_pct
       return out
     })
-  }, [data, xKey, range, series, hasPrice, priceKey])
+  }, [data, xKey, range, series, hasPrice, priceKey, showCoverage])
 
   const latest = chartData[chartData.length - 1]
   const first = chartData[0]
@@ -226,6 +232,15 @@ export function OnChainChart({
     typeof latestVal === 'number' && typeof firstVal === 'number' && firstVal !== 0
       ? ((latestVal - firstVal) / Math.abs(firstVal)) * 100
       : null
+
+  const minCoverage = useMemo(() => {
+    if (!showCoverage) return null
+    let min = 100
+    for (const r of chartData) {
+      if (r.__coverage != null && r.__coverage < min) min = r.__coverage
+    }
+    return min < 100 ? min : null
+  }, [chartData, showCoverage])
 
   const leftFmt = leftAxis?.format ?? primary.format ?? fmt.number
   const priceFmt = rightAxis?.format ?? fmt.usdPrice
@@ -321,7 +336,7 @@ export function OnChainChart({
             >
               <defs>
                 {series
-                  .filter((s) => (s.type ?? 'line') === 'area')
+                  .filter((s) => (s.type ?? 'line') === 'area' && !s.stackId)
                   .map((s) => (
                     <linearGradient
                       key={s.key}
@@ -420,10 +435,12 @@ export function OnChainChart({
                       {...common}
                       type="monotone"
                       stroke={s.color}
-                      strokeWidth={s.strokeWidth ?? 2}
-                      fill={`url(#fill-${s.key})`}
+                      strokeWidth={s.stackId ? 0.5 : (s.strokeWidth ?? 2)}
+                      fill={s.stackId ? s.color : `url(#fill-${s.key})`}
+                      fillOpacity={s.stackId ? 0.85 : 1}
+                      stackId={s.stackId}
                       dot={false}
-                      activeDot={{ r: 4, fill: '#000', stroke: s.color, strokeWidth: 2 }}
+                      activeDot={s.stackId ? false : { r: 4, fill: '#000', stroke: s.color, strokeWidth: 2 }}
                     />
                   )
                 }
@@ -464,16 +481,23 @@ export function OnChainChart({
       </div>
 
       {/* Footer */}
-      <div className="mt-3 flex items-center justify-between font-mono text-[10px] text-text-tertiary">
-        <span>{source}</span>
-        {latest?.__x && (
-          <span>
-            updated {new Date(latest.__x).toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-            })}
-          </span>
+      <div className="mt-3 space-y-1">
+        <div className="flex items-center justify-between font-mono text-[10px] text-text-tertiary">
+          <span>{source}</span>
+          {latest?.__x && (
+            <span>
+              updated {new Date(latest.__x).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              })}
+            </span>
+          )}
+        </div>
+        {minCoverage != null && minCoverage < 90 && (
+          <div className="font-mono text-[10px]" style={{ color: '#B45309' }}>
+            ⚠ Earliest data in view: {minCoverage.toFixed(0)}% supply coverage (surviving cohort)
+          </div>
         )}
       </div>
     </Card>

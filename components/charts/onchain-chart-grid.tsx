@@ -33,9 +33,18 @@ export function OnChainChartGrid() {
         const bJson = bRes.ok ? await bRes.json() : { daily: [] }
         const aJson = aRes.ok ? await aRes.json() : { history: [] }
 
+        const HODL_RAW = [
+          'hodl_wave_lt1d', 'hodl_wave_1_7d', 'hodl_wave_7_30d', 'hodl_wave_30_90d',
+          'hodl_wave_90_155d', 'hodl_wave_155d_1y', 'hodl_wave_1_2y', 'hodl_wave_gt2y',
+        ]
         const byDate = new Map<string, Row>()
         for (const r of bJson.daily || []) {
-          byDate.set(r.date, { ...r, date: r.date })
+          const row: Row = { ...r, date: r.date }
+          // Derive percentage-of-supply for HODL wave stacked chart
+          if (r.supply) {
+            for (const k of HODL_RAW) row[k + '_pct'] = (r[k] ?? 0) / r.supply * 100
+          }
+          byDate.set(r.date, row)
         }
         // merge forward-only metrics in by day (last write per day wins)
         for (const r of aJson.history || []) {
@@ -93,6 +102,7 @@ export function OnChainChartGrid() {
                 bands={m.bands}
                 leftAxis={m.leftAxis}
                 showPrice={m.showPrice}
+                showCoverage={m.showCoverage}
                 defaultRange={m.defaultRange ?? '1Y'}
                 loading={loading}
               />
