@@ -96,6 +96,18 @@ interface DogRuneData {
   source: string
 }
 
+interface C2TreasuryData {
+  treasuryDog: number
+  goalDog: number
+  progressPct: number
+  costBasisUsd: number
+  priceUsd: number
+  treasuryValueUsd: number
+  unrealizedPnlUsd: number
+  unrealizedPnlPct: number
+  timestamp: number
+}
+
 export default function OverviewPage() {
   const [stats, setStats] = useState<DogStats | null>(null)
   const [runeData, setRuneData] = useState<DogRuneData | null>(null)
@@ -109,6 +121,7 @@ export default function OverviewPage() {
     stacks: externalHoldersFallback.stacks.holders,
   })
   const [loading, setLoading] = useState(true)
+  const [c2Treasury, setC2Treasury] = useState<C2TreasuryData | null>(null)
 
   const FALLBACK_TOTAL_HOLDERS = (dogStatsFallback as any)?.totalHolders ?? 0
   const FALLBACK_ACTIVE_ADDRESSES = (dogStatsFallback as any)?.activeAddresses ?? FALLBACK_TOTAL_HOLDERS
@@ -323,6 +336,13 @@ export default function OverviewPage() {
       .catch(err => console.warn('Error fetching multichain stats:', err))
   }, [])
 
+  useEffect(() => {
+    fetch('/api/c2-treasury')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data && !data.error) setC2Treasury(data) })
+      .catch(err => console.warn('C2 treasury fetch failed:', err))
+  }, [])
+
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat('en-US', {
       notation: 'compact',
@@ -362,11 +382,11 @@ export default function OverviewPage() {
     return 0.00163
   }, [stats?.price, runeData])
 
-  const C2_TREASURY_DOG = 1_000_000_000
-  const C2_TREASURY_TARGET = 1_000_000_000
-  const c2TreasuryUSD = dogPrice * C2_TREASURY_DOG
-  const c2TreasuryUSDFormatted = dogPrice > 0 ? formatCurrency(c2TreasuryUSD) : '$0.00'
-  const c2TreasuryProgress = Math.min(C2_TREASURY_DOG / C2_TREASURY_TARGET, 1)
+  const c2TreasuryDog = c2Treasury?.treasuryDog ?? 1_000_000_000
+  const c2TreasuryGoal = c2Treasury?.goalDog ?? 1_500_000_000
+  const c2TreasuryUSD = c2Treasury?.treasuryValueUsd ?? (dogPrice * c2TreasuryDog)
+  const c2TreasuryUSDFormatted = formatCurrency(c2TreasuryUSD)
+  const c2TreasuryProgress = Math.min(c2TreasuryDog / c2TreasuryGoal, 1)
   const cardBaseClass = "stagger-item md:min-h-[190px] min-h-0 h-full"
 
   if (loading) {
@@ -538,7 +558,7 @@ export default function OverviewPage() {
               <CardContent>
                 <div className="space-y-3">
                   <div className="text-sm md:text-2xl font-bold font-mono text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-blue-200 to-blue-400 tracking-tight">
-                    {C2_TREASURY_DOG.toLocaleString('en-US')} DOG
+                    {c2TreasuryDog.toLocaleString('en-US')} DOG
                   </div>
                   <div className="text-[10px] md:text-sm text-snow/50 font-mono tabular-nums">
                     ≈ {c2TreasuryUSDFormatted} USD
@@ -552,7 +572,7 @@ export default function OverviewPage() {
                     </div>
                     <div className="flex items-center justify-between text-[9px] md:text-[10px] uppercase tracking-wider text-blue-200/40 font-mono">
                       <span>Progress</span>
-                      <span className="tabular-nums">{(c2TreasuryProgress * 100).toFixed(1)}% of 1B</span>
+                      <span className="tabular-nums">{(c2TreasuryProgress * 100).toFixed(1)}% of 1.5B</span>
                     </div>
                   </div>
                 </div>

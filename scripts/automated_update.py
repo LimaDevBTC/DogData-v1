@@ -304,6 +304,40 @@ def run_price_history_script():
         return False
 
 
+def run_surviving_cohort_script():
+    """Reconstrói a história da coorte sobrevivente (Option B) a partir do
+    set verdadeiro atual (dog_utxos_by_address.json) + price_history.
+
+    Roda DEPOIS do holders (que gera dog_utxos_by_address.json). Offline e
+    rápido (~1min). Publica em data/ e public/data/surviving_cohort_history.json,
+    consumido pelo /charts.
+    """
+    try:
+        log("📈 Reconstruindo história da coorte sobrevivente (charts)...")
+        script_path = SCRIPT_DIR / 'build_surviving_cohort_history.py'
+        if not script_path.exists():
+            log(f"❌ Script não encontrado: {script_path}")
+            return False
+        result = subprocess.run(
+            [sys.executable, str(script_path)],
+            cwd=str(PROJECT_ROOT),
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+        if result.returncode == 0:
+            log("✅ surviving_cohort_history atualizado")
+            return True
+        log(f"❌ Erro no surviving_cohort: {result.stderr[-500:]}")
+        return False
+    except subprocess.TimeoutExpired:
+        log("❌ build_surviving_cohort excedeu o timeout")
+        return False
+    except Exception as e:
+        log(f"❌ Erro no surviving_cohort: {e}")
+        return False
+
+
 def run_holders_script():
     """Executa o script de atualização de holders, fees e UTXOs"""
     try:
@@ -510,6 +544,10 @@ def main():
         success_count += 1
     else:
         log("⚠️ Continuando mesmo com falha no script de holders...")
+
+    # 1b. Reconstruir história da coorte sobrevivente p/ os charts (depende do holders)
+    log("")
+    run_surviving_cohort_script()
     
     # 2. Extrair holders da Solana (apenas external_holders.json)
     log("")
