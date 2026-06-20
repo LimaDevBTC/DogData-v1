@@ -15,7 +15,6 @@ import {
   TrendingUp,
   Globe,
   Search,
-  LineChart,
 } from "lucide-react"
 
 type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain' | 'explorer' | 'status'
@@ -149,14 +148,6 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
               }`} />
               <span className="relative whitespace-nowrap">Explorer</span>
             </a>
-            {/* Charts — external route */}
-            <a
-              href="/charts"
-              className="relative flex items-center justify-center px-3 py-1.5 text-[11px] font-mono font-medium tracking-wide transition-all duration-300 flex-shrink-0 rounded-lg group text-[#6B6B78] hover:text-snow/90"
-            >
-              <LineChart className="relative w-3.5 h-3.5 mr-1.5 flex-shrink-0 transition-colors duration-300 text-[#4A4A52] group-hover:text-[#6B6B78]" />
-              <span className="relative whitespace-nowrap">Charts</span>
-            </a>
           </nav>
 
           {/* Right side */}
@@ -244,13 +235,6 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
             >
               <Search className="w-4 h-4 flex-shrink-0" />
               Explorer
-            </a>
-            <a
-              href="/charts"
-              className="w-full flex items-center gap-3 px-3 py-2.5 font-mono text-sm tracking-wide transition-all duration-200 rounded-lg text-[#6B6B78] hover:text-snow hover:bg-white/[0.03]"
-            >
-              <LineChart className="w-4 h-4 flex-shrink-0" />
-              Charts
             </a>
             <button
               onClick={() => handleNavClick('donate')}

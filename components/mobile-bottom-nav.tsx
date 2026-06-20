@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { BarChart3, CreditCard, Users, Zap, LayoutGrid, X, Sparkles, Network, Heart, TrendingUp, Globe, LineChart } from "lucide-react"
+import { BarChart3, CreditCard, Users, Zap, LayoutGrid, X, Sparkles, Network, Heart, TrendingUp, Globe } from "lucide-react"
 
 type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain' | 'explorer'
 
@@ -80,13 +80,6 @@ export default function MobileBottomNav({ currentPage, setCurrentPage }: MobileB
                   </button>
                 )
               })}
-              <a
-                href="/charts"
-                className="flex flex-col items-center justify-center py-4 px-3 min-h-[68px] active:scale-95 transition-all duration-150 bg-[#0A0A0C]/60 text-[#6B6B78] hover:text-snow"
-              >
-                <LineChart className="w-5 h-5 mb-1.5" />
-                <span className="text-[10px] font-mono uppercase tracking-wider font-medium">Charts</span>
-              </a>
             </div>
           </div>
         </>
