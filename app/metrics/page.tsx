@@ -17,18 +17,14 @@ import {
   Zap,
   ArrowRight
 } from "lucide-react"
-import { HistoricalChartsSection } from "@/components/metrics/historical-charts"
 import { TxBreakdown } from "@/components/metrics/tx-breakdown"
+import { OnChainChartGrid } from "@/components/charts/onchain-chart-grid"
 import {
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  BarChart,
-  Bar,
-  AreaChart,
-  Area,
   Treemap
 } from "recharts"
 
@@ -335,108 +331,6 @@ export default function MetricsPage() {
           </Card>
         </div>
 
-        {/* ═══ HODL Waves ═══ */}
-        {utxoAgeStats && utxoAgeStats.hodl_waves.length > 0 && (
-          <>
-            <SectionDivider title="HODL Waves" icon={BarChart3} />
-            <Card variant="glass" className="max-w-7xl mx-auto border-accent-primary/10">
-              <CardHeader>
-                <CardTitle className="text-text-accent text-xl font-display">
-                  Supply Distribution by UTXO Age
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={utxoAgeStats.hodl_waves.map((wave, idx) => ({
-                        range: wave.range,
-                        percentage: wave.percentage,
-                        supply: wave.supply,
-                        fill: hodlColors[idx % hodlColors.length]
-                      }))}
-                      margin={{ top: 10, right: 30, left: 0, bottom: 60 }}
-                    >
-                      <defs>
-                        {hodlColors.map((color, i) => (
-                          <linearGradient key={i} id={`hodlGrad${i}`} x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor={color} stopOpacity={0.9}/>
-                            <stop offset="100%" stopColor={color} stopOpacity={0.4}/>
-                          </linearGradient>
-                        ))}
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1A1A1A" opacity={0.5} />
-                      <XAxis
-                        dataKey="range"
-                        stroke="#3A3A3A"
-                        style={{ fontSize: '11px', fontFamily: 'var(--font-mono), monospace' }}
-                        angle={-45}
-                        textAnchor="end"
-                        height={80}
-                        tick={{ fill: '#666666' }}
-                      />
-                      <YAxis
-                        stroke="#3A3A3A"
-                        style={{ fontSize: '12px', fontFamily: 'var(--font-mono), monospace' }}
-                        tickFormatter={(value) => `${value.toFixed(1)}%`}
-                        tick={{ fill: '#666666' }}
-                      />
-                      <Tooltip
-                        content={({ active, payload, label }) => {
-                          if (!active || !payload?.length) return null
-                          const data = payload[0].payload
-                          return (
-                            <div className="bg-black/95 border border-accent-primary/30 rounded-md px-4 py-3 shadow-bitcoin">
-                              <p className="text-text-accent font-mono text-xs font-semibold mb-1">
-                                Age: {label}
-                              </p>
-                              <p className="text-text-primary font-mono text-sm">
-                                {data.percentage.toFixed(2)}% &bull; {formatDOG(data.supply)}
-                              </p>
-                            </div>
-                          )
-                        }}
-                      />
-                      <Bar
-                        dataKey="percentage"
-                        radius={[4, 4, 0, 0]}
-                        activeBar={false}
-                      >
-                        {utxoAgeStats.hodl_waves.map((_, idx) => (
-                          <rect key={idx} fill={`url(#hodlGrad${idx % hodlColors.length})`} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-                {/* Legend */}
-                <div className="mt-6">
-                  <h3 className="text-text-accent font-mono text-sm uppercase tracking-wide mb-3">Legend</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {utxoAgeStats.hodl_waves.map((wave, idx) => (
-                      <div key={idx} className="flex items-center gap-3 p-3 bg-bg-elevated/50 border border-border-subtle rounded-lg hover:border-accent-primary/30 transition-all">
-                        <div
-                          className="w-4 h-4 flex-shrink-0 rounded-sm"
-                          style={{ backgroundColor: hodlColors[idx % hodlColors.length] }}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="text-text-primary font-mono text-sm font-medium truncate">{wave.range}</div>
-                          <div className="text-text-accent font-mono text-xs font-bold">
-                            {wave.percentage.toFixed(2)}%
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <p className="text-center text-text-tertiary text-xs font-mono mt-4">
-                  Average age: {utxoAgeStats.avg_age_days.toFixed(1)} days &bull;
-                  Median age: {utxoAgeStats.median_age_days.toFixed(1)} days
-                </p>
-              </CardContent>
-            </Card>
-          </>
-        )}
 
         {/* ═══ STH vs LTH Supply ═══ */}
         {utxoAgeStats && (
@@ -560,110 +454,6 @@ export default function MetricsPage() {
           </>
         )}
 
-        {/* ═══ Holder Concentration — Bar Chart (was 3-point area = straight lines) ═══ */}
-        {holderConcentration && (
-          <>
-            <SectionDivider title="Holder Concentration" icon={Users} />
-            <div className="max-w-7xl mx-auto space-y-6">
-              <Card variant="glass" className="border-accent-primary/10">
-                <CardHeader>
-                  <CardTitle className="text-text-accent text-xl font-display">
-                    Supply Distribution by Top Holders
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    <div className="h-80 w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                          data={[
-                            { name: 'Top 10', value: holderConcentration.top10_supply_pct, fill: '#F7931A' },
-                            { name: 'Top 100', value: holderConcentration.top100_supply_pct, fill: '#E8820E' },
-                            { name: 'Top 1000', value: holderConcentration.top1000_supply_pct, fill: '#C45E00' },
-                            { name: 'Others', value: Math.max(0, 100 - holderConcentration.top1000_supply_pct), fill: '#3A3A3A' }
-                          ]}
-                          margin={{ top: 10, right: 30, left: 0, bottom: 10 }}
-                        >
-                          <defs>
-                            <linearGradient id="barGrad1" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#F7931A" stopOpacity={1}/>
-                              <stop offset="100%" stopColor="#F7931A" stopOpacity={0.5}/>
-                            </linearGradient>
-                            <linearGradient id="barGrad2" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#E8820E" stopOpacity={1}/>
-                              <stop offset="100%" stopColor="#E8820E" stopOpacity={0.5}/>
-                            </linearGradient>
-                            <linearGradient id="barGrad3" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#C45E00" stopOpacity={1}/>
-                              <stop offset="100%" stopColor="#C45E00" stopOpacity={0.5}/>
-                            </linearGradient>
-                            <linearGradient id="barGrad4" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#3A3A3A" stopOpacity={0.6}/>
-                              <stop offset="100%" stopColor="#3A3A3A" stopOpacity={0.2}/>
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#1A1A1A" opacity={0.5} />
-                          <XAxis
-                            dataKey="name"
-                            stroke="#3A3A3A"
-                            style={{ fontSize: '12px', fontFamily: 'var(--font-mono), monospace' }}
-                            tick={{ fill: '#666666' }}
-                          />
-                          <YAxis
-                            stroke="#3A3A3A"
-                            style={{ fontSize: '12px', fontFamily: 'var(--font-mono), monospace' }}
-                            tickFormatter={(value) => `${value.toFixed(0)}%`}
-                            tick={{ fill: '#666666' }}
-                          />
-                          <Tooltip
-                            content={({ active, payload }) => {
-                              if (!active || !payload?.length) return null
-                              const d = payload[0].payload
-                              return (
-                                <div className="bg-black/95 border border-accent-primary/30 rounded-md px-4 py-3 shadow-bitcoin">
-                                  <p className="text-text-accent font-mono text-xs font-semibold mb-1">{d.name}</p>
-                                  <p className="text-text-primary font-mono text-sm font-bold">{d.value.toFixed(2)}%</p>
-                                </div>
-                              )
-                            }}
-                          />
-                          <Bar dataKey="value" radius={[6, 6, 0, 0]} activeBar={false}>
-                            {[0,1,2,3].map(i => (
-                              <rect key={i} fill={`url(#barGrad${i+1})`} />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {[
-                        { label: 'Top 10', value: holderConcentration.top10_supply_pct, color: '#F7931A' },
-                        { label: 'Top 100', value: holderConcentration.top100_supply_pct, color: '#E8820E' },
-                        { label: 'Top 1000', value: holderConcentration.top1000_supply_pct, color: '#C45E00' },
-                      ].map((item) => (
-                        <div key={item.label} className="p-4 bg-bg-elevated/50 border border-border-subtle rounded-lg">
-                          <div className="flex items-center gap-3 mb-3">
-                            <div className="w-4 h-4 rounded-sm" style={{ backgroundColor: item.color }} />
-                            <h3 className="text-text-primary font-mono font-semibold text-sm">{item.label}</h3>
-                          </div>
-                          <div className="space-y-1">
-                            <div className="text-2xl font-bold text-text-accent font-mono">
-                              {item.value.toFixed(2)}%
-                            </div>
-                            <div className="text-text-tertiary font-mono text-xs">
-                              of total supply
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </>
-        )}
 
         {/* ═══ UTXO Distribution by Size ═══ */}
         {utxoMetrics && utxoMetrics.utxo_distribution.length > 0 && (
@@ -979,8 +769,9 @@ export default function MetricsPage() {
           </>
         )}
 
-        {/* ═══ Historical Trends ═══ */}
-        <HistoricalChartsSection />
+        {/* ═══ Historical Charts ═══ */}
+        <SectionDivider title="Historical Charts" icon={TrendingUp} />
+        <OnChainChartGrid />
       </div>
     </Layout>
   )
