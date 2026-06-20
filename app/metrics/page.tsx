@@ -179,9 +179,6 @@ export default function MetricsPage() {
     return <LoadingScreen message="Loading on-chain metrics..." />
   }
 
-  // HODL waves orange palette
-  const hodlColors = ['#F7931A', '#E8820E', '#FF6B00', '#C45E00', '#FF8C3A', '#D47214', '#B35400']
-
   return (
     <Layout currentPage="metrics" setCurrentPage={() => {}}>
       <div className="min-h-screen pt-1 pb-2 md:py-2 space-y-6 md:space-y-8 px-4 md:px-6">
