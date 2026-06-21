@@ -548,6 +548,30 @@ def main():
     # 1b. Reconstruir história da coorte sobrevivente p/ os charts (depende do holders)
     log("")
     run_surviving_cohort_script()
+
+    # 1c. Acumular snapshot diário de métricas A (concentration, holders, UTXOs)
+    log("")
+    log("📊 Acumulando snapshot diário de métricas (concentration/activity)...")
+    try:
+        snap_script = SCRIPT_DIR / 'append_metrics_snapshot.py'
+        if snap_script.exists():
+            snap_result = subprocess.run(
+                [sys.executable, str(snap_script)],
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                text=True,
+                timeout=120
+            )
+            if snap_result.returncode == 0:
+                log("✅ metrics_a_history.json atualizado")
+                for line in snap_result.stdout.strip().split('\n'):
+                    log(f"   {line}")
+            else:
+                log(f"⚠️ append_metrics_snapshot falhou: {snap_result.stderr[:200]}")
+        else:
+            log(f"⚠️ Script não encontrado: {snap_script}")
+    except Exception as e:
+        log(f"⚠️ append_metrics_snapshot error (non-fatal): {e}")
     
     # 2. Extrair holders da Solana (apenas external_holders.json)
     log("")

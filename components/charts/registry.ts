@@ -267,6 +267,7 @@ export const METRICS: MetricDef[] = [
     description:
       'Wealth inequality across holders, 0 (perfectly equal) to 1 (one holder owns everything). Tracks whether supply is concentrating or distributing.',
     series: [{ key: 'gini_coefficient', label: 'Gini', color: C.violet, format: fmt.ratio }],
+    defaultRange: '1M',
     leftAxis: { domain: [0, 1], format: fmt.ratio },
   },
   {
@@ -280,6 +281,7 @@ export const METRICS: MetricDef[] = [
       { key: 'top100_supply_pct', label: 'Top 100', color: C.amber, format: fmt.percent },
       { key: 'top1000_supply_pct', label: 'Top 1000', color: C.positive, format: fmt.percent },
     ],
+    defaultRange: '1M',
     leftAxis: { format: fmt.percent },
   },
 
@@ -291,6 +293,7 @@ export const METRICS: MetricDef[] = [
     description:
       'Count of distinct addresses holding a non-zero DOG balance. Organic growth in holders is a core adoption signal.',
     series: [{ key: 'total_holders', label: 'Holders', color: C.primary, type: 'area', format: fmt.integer }],
+    defaultRange: '1M',
     leftAxis: { format: fmt.number },
   },
   {
@@ -300,6 +303,7 @@ export const METRICS: MetricDef[] = [
     description:
       'Number of unspent DOG outputs. Reflects fragmentation of holdings and on-chain activity intensity.',
     series: [{ key: 'total_utxos', label: 'UTXOs', color: C.data, type: 'area', format: fmt.integer }],
+    defaultRange: '6M',
     leftAxis: { format: fmt.number },
   },
 ]

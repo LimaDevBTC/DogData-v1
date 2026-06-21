@@ -23,7 +23,7 @@ function getBucketMs(range: string): number {
     case '7d':  return 4 * 3600 * 1000       // 4 horas
     case '30d': return 24 * 3600 * 1000      // 1 dia
     case '90d': return 3 * 24 * 3600 * 1000  // 3 dias
-    case 'all': return 30 * 24 * 3600 * 1000 // ~1 mês
+    case 'all': return 24 * 3600 * 1000      // 1 dia (máx resolução útil)
     default:    return 24 * 3600 * 1000
   }
 }
@@ -143,7 +143,7 @@ export async function GET(request: Request) {
       query = query.gte('recorded_at', cutoffDate.toISOString())
     }
 
-    query = query.limit(2200)
+    query = query.limit(range === 'all' ? 9000 : 2200)
 
     const { data, error } = await query
 
