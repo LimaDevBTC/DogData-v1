@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { API_ENDPOINT_COUNT } from '@/lib/api-metadata';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +30,7 @@ export async function GET() {
 
   // API endpoints available
   status.endpoints = {
-    total: 35,
+    total: API_ENDPOINT_COUNT,
     categories: ['holders', 'transactions', 'price', 'metrics', 'forensic', 'airdrop', 'bitcoin', 'markets', 'events', 'agent', 'keys']
   };
 

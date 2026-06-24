@@ -71,7 +71,7 @@ export default function DocsClient() {
           <div>
             <span className="text-neutral-500">MCP Server:</span>{' '}
             <code className="text-[#F7931A] bg-neutral-900 px-1.5 py-0.5 rounded text-xs">
-              npx @dogdata/mcp-server
+              npx mcp-remote https://www.dogdata.xyz/mcp
             </code>
           </div>
           <div>

@@ -8,7 +8,8 @@
   },
   "mcp": {
     "url": "https://www.dogdata.xyz/mcp",
-    "npm": "@dogdata/mcp-server"
+    "transport": "streamable-http",
+    "client_bridge": "npx mcp-remote https://www.dogdata.xyz/mcp"
   },
   "auth": {
     "type": "bearer",
