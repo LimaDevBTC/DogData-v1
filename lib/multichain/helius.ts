@@ -47,6 +47,7 @@ async function rpcCall<T>(method: string, params: any, url: string = PUBLIC_RPC_
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+        signal: AbortSignal.timeout(10_000), // 10s per call — prevents hangs on Helius pagination
       })
       if (resp.status === 429) { retryable = true; throw new Error(`RPC ${method}: HTTP 429`) }
       if (!resp.ok) throw new Error(`RPC ${method}: HTTP ${resp.status}`)
@@ -62,7 +63,8 @@ async function rpcCall<T>(method: string, params: any, url: string = PUBLIC_RPC_
       lastErr = e instanceof Error ? e : new Error(String(e))
       // Retry rate-limits, empty bodies, network errors (TypeError from fetch) and
       // partial-body parse errors; rethrow genuine RPC errors immediately.
-      const transient = retryable || e instanceof TypeError || /Unexpected (token|end)/i.test(lastErr.message)
+      const isAbort = e?.name === 'AbortError' || e?.name === 'TimeoutError'
+      const transient = retryable || isAbort || e instanceof TypeError || /Unexpected (token|end)/i.test(lastErr.message)
       if (!transient) throw lastErr
     }
   }
@@ -255,14 +257,15 @@ export async function getSolanaHolderCount(): Promise<number> {
         memoryCache.set(cacheKey, total, HOLDER_COUNT_TTL)
         return total
       }
-    } catch {
-      // fall through to the offline fallback below
+    } catch (err) {
+      console.error('[helius] getSolanaHolderCount failed, using fallback:', (err as Error).message)
     }
   }
 
   // Fallback: last-known count from data/external_holders.json (cached briefly so the
   // live Helius count is picked up again as soon as quota recovers).
   const fallback = readExternalHolderCount('solana')
+  console.warn(`[helius] holder count fallback → ${fallback} (external_holders.json)`)
   if (fallback > 0) memoryCache.set(cacheKey, fallback, FALLBACK_COUNT_TTL)
   return fallback
 }
