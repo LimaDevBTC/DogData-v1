@@ -24,7 +24,7 @@ export async function GET(_req: NextRequest) {
     // Fetch all txs that involve the donation wallet
     const { data, error } = await supabase
       .from('dog_transactions')
-      .select('txid, block_height, timestamp, total_dog_moved, senders, receivers')
+      .select('txid, block_height, timestamp, total_dog_moved, senders, receivers, addresses')
       .contains('addresses', [DONATION_WALLET])
       .order('block_height', { ascending: false })
       .limit(5000)
@@ -58,11 +58,34 @@ export async function GET(_req: NextRequest) {
 
       // Identify donors: any sender that is NOT the donation wallet itself
       const allSenders = parseJsonArr(row.senders)
-      const donorAddresses = allSenders
+      let donorAddresses = allSenders
         .map((s: any) => (s.address as string | undefined)?.toLowerCase())
         .filter((a): a is string => !!a && a !== wallet)
 
-      if (donorAddresses.length === 0) continue
+      // Fallback 1: indexer occasionally leaves `senders` empty even though
+      // a real counterparty exists (e.g. unresolved input). Use any other
+      // receiver on the same tx (typically a change output) as the donor.
+      if (donorAddresses.length === 0) {
+        const otherReceivers = allReceivers
+          .map((r: any) => (r.address as string | undefined)?.toLowerCase())
+          .filter((a): a is string => !!a && a !== wallet)
+        donorAddresses = Array.from(new Set(otherReceivers))
+      }
+
+      // Fallback 2: any other address tied to the tx at all.
+      if (donorAddresses.length === 0) {
+        const allAddrs = parseJsonArr(row.addresses)
+          .map((a: any) => (typeof a === 'string' ? a : a?.address)?.toLowerCase())
+          .filter((a): a is string => !!a && a !== wallet)
+        donorAddresses = Array.from(new Set(allAddrs))
+      }
+
+      // Last resort: no resolvable counterparty at all — still surface the
+      // donation (per requirement that every tx sent to the wallet appears
+      // in the ranking) under a shared "Anonymous" bucket.
+      if (donorAddresses.length === 0) {
+        donorAddresses = ['anonymous']
+      }
 
       const perDonor = amount / donorAddresses.length
 

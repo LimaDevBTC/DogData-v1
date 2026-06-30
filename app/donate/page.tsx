@@ -114,6 +114,7 @@ function formatDog(n: number): string {
 }
 
 function shortAddr(addr: string): string {
+  if (addr === "anonymous") return "Anonymous Donor"
   return addr.slice(0, 8) + "…" + addr.slice(-6)
 }
 
