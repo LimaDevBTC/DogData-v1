@@ -396,15 +396,15 @@ export default function DonatePage() {
             <div className="text-center space-y-3">
               <div className="inline-flex items-center gap-2 text-yellow-400 font-mono text-xs uppercase tracking-widest">
                 <Trophy className="w-3.5 h-3.5" />
-                Hall of Fame
+                Hall of Sats
               </div>
               <h2 className="font-display font-bold text-2xl md:text-3xl text-snow">
-                Your Support Lives On the Chain
+                Your Contribution Is Permanent
               </h2>
               <p className="font-mono text-sm text-dusty max-w-lg mx-auto leading-relaxed">
-                Every DOG donation is indexed and displayed here — permanently. Your wallet
-                appears in front of every visitor who opens DOG DATA. That's{" "}
-                <span className="text-snow/80">91,000+ holders</span> seeing your name.
+                Every DOG donation is indexed and displayed here — immutably, on Bitcoin L1.
+                Your wallet is visible to every DOG DATA visitor.{" "}
+                <span className="text-snow/80">That's 91K+ holders seeing you support this.</span>
               </p>
             </div>
 
