@@ -21,7 +21,7 @@ function parseJsonArr(val: string | any[] | null | undefined): any[] {
 
 export async function GET(_req: NextRequest) {
   try {
-    // Fetch all txs involving the donation wallet
+    // Fetch all txs that involve the donation wallet
     const { data, error } = await supabase
       .from('dog_transactions')
       .select('txid, block_height, timestamp, total_dog_moved, senders, receivers')
@@ -34,47 +34,49 @@ export async function GET(_req: NextRequest) {
     const rows = data ?? []
     const wallet = DONATION_WALLET.toLowerCase()
 
-    // Aggregate donations by sender address
     const donorMap = new Map<string, { total: number; txCount: number; lastTx: string }>()
     let totalReceived = 0
 
     for (const row of rows) {
-      const receivers = parseJsonArr(row.receivers).filter(
-        (r: any) => r.has_dog !== false && r.amount_dog > 0 && !r.is_change
-      )
-      const isReceiver = receivers.some(
+      // Search ALL receivers with no filtering — the indexer sometimes omits
+      // has_dog/is_change flags; we just need to find our wallet in the list.
+      const allReceivers = parseJsonArr(row.receivers)
+      const walletEntry = allReceivers.find(
         (r: any) => r.address?.toLowerCase() === wallet
       )
-      if (!isReceiver) continue
+      if (!walletEntry) continue
 
-      const walletReceiver = receivers.find((r: any) => r.address?.toLowerCase() === wallet)
-      const amount: number = walletReceiver?.amount_dog ?? 0
+      // Accept whatever amount field is populated
+      const amount: number =
+        walletEntry.amount_dog ??
+        walletEntry.dog_amount ??
+        walletEntry.total_dog ??
+        0
       if (amount <= 0) continue
 
       totalReceived += amount
 
-      const senders = parseJsonArr(row.senders).filter(
-        (s: any) => s.has_dog !== false && s.amount_dog > 0
-      )
-      // Credit each sender proportionally; if only one sender, full amount
-      const donorAddresses = senders
-        .map((s: any) => s.address as string)
-        .filter((a) => a && a.toLowerCase() !== wallet)
+      // Identify donors: any sender that is NOT the donation wallet itself
+      const allSenders = parseJsonArr(row.senders)
+      const donorAddresses = allSenders
+        .map((s: any) => (s.address as string | undefined)?.toLowerCase())
+        .filter((a): a is string => !!a && a !== wallet)
 
-      const perDonor = donorAddresses.length > 0 ? amount / donorAddresses.length : amount
+      if (donorAddresses.length === 0) continue
+
+      const perDonor = amount / donorAddresses.length
 
       for (const addr of donorAddresses) {
-        const key = addr.toLowerCase()
-        const existing = donorMap.get(key) ?? { total: 0, txCount: 0, lastTx: '' }
-        existing.total += perDonor
-        existing.txCount += 1
-        if (!existing.lastTx || row.timestamp > existing.lastTx) existing.lastTx = row.timestamp
-        donorMap.set(key, existing)
+        const rec = donorMap.get(addr) ?? { total: 0, txCount: 0, lastTx: '' }
+        rec.total += perDonor
+        rec.txCount += 1
+        if (!rec.lastTx || row.timestamp > rec.lastTx) rec.lastTx = row.timestamp
+        donorMap.set(addr, rec)
       }
     }
 
     const leaderboard = Array.from(donorMap.entries())
-      .map(([address, data]) => ({ address, ...data }))
+      .map(([address, d]) => ({ address, ...d }))
       .sort((a, b) => b.total - a.total)
       .map((entry, i) => ({ rank: i + 1, ...entry }))
 
@@ -88,9 +90,7 @@ export async function GET(_req: NextRequest) {
         leaderboard,
         last_updated: new Date().toISOString(),
       },
-      {
-        headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=60' },
-      }
+      { headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=60' } }
     )
   } catch (err: any) {
     console.error('[donate/leaderboard] error:', err)
