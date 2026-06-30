@@ -21,72 +21,81 @@ interface Building {
 }
 
 // Front layer — main skyline (SVG viewBox 1440 × 480, ground at y=480)
+// Heights are deliberately jagged — no staircase, real city variation
 const FRONT: Building[] = [
-  { x: 0,    w: 28, h: 40  },
-  { x: 32,   w: 24, h: 58  },
-  { x: 60,   w: 32, h: 46  },
-  { x: 96,   w: 26, h: 72  },
-  { x: 126,  w: 38, h: 62  },
-  { x: 168,  w: 30, h: 95  },
-  { x: 202,  w: 40, h: 128 },
-  { x: 246,  w: 34, h: 155 },
-  { x: 284,  w: 46, h: 178 },
-  { x: 334,  w: 38, h: 204 },
-  { x: 376,  w: 50, h: 232 },
-  { x: 430,  w: 42, h: 258 },
-  { x: 476,  w: 48, h: 282 },
-  { x: 528,  w: 54, h: 308 },
-  { x: 586,  w: 46, h: 332 },
-  { x: 636,  w: 52, h: 355 },
-  { x: 692,  w: 60, h: 382, glow: true },
-  { x: 756,  w: 72, h: 425, glow: true }, // tallest — Moon District center
-  { x: 832,  w: 62, h: 405, glow: true },
-  { x: 898,  w: 56, h: 370, glow: true },
-  { x: 958,  w: 52, h: 338 },
-  { x: 1014, w: 46, h: 310 },
-  { x: 1064, w: 50, h: 285 },
-  { x: 1118, w: 42, h: 258 },
-  { x: 1164, w: 46, h: 232 },
-  { x: 1214, w: 38, h: 205 },
-  { x: 1256, w: 50, h: 178 },
-  { x: 1310, w: 36, h: 150 },
-  { x: 1350, w: 42, h: 118 },
-  { x: 1396, w: 30, h: 88  },
-  { x: 1430, w: 18, h: 60  },
+  // Far left — low rise interspersed with thin spikes
+  { x: 0,    w: 45, h: 62  },
+  { x: 50,   w: 22, h: 122 }, // thin spike
+  { x: 78,   w: 55, h: 76  }, // wide, drops
+  // street gap
+  { x: 146,  w: 18, h: 168 }, // tall thin
+  { x: 170,  w: 42, h: 92  }, // drops back
+  { x: 218,  w: 28, h: 138 }, // mid spike
+  // street gap
+  { x: 254,  w: 16, h: 228 }, // very thin, very tall
+  { x: 276,  w: 50, h: 105 }, // wide, low
+  // Mid-left — big height swings
+  { x: 332,  w: 24, h: 268 }, // tower
+  { x: 362,  w: 58, h: 148 }, // wide block, drops
+  // street gap
+  { x: 426,  w: 20, h: 298 }, // spike up
+  { x: 452,  w: 44, h: 172 }, // drops
+  { x: 502,  w: 34, h: 322 }, // spike up
+  { x: 542,  w: 52, h: 198 }, // drops
+  // Pre-Moon District transition
+  { x: 600,  w: 26, h: 348 },
+  { x: 632,  w: 18, h: 272 }, // dips slightly
+  // Moon District — 4 glow towers at center
+  { x: 656,  w: 70, h: 388, glow: true },
+  { x: 732,  w: 82, h: 425, glow: true }, // tallest — Moon District center
+  { x: 820,  w: 66, h: 402, glow: true },
+  { x: 892,  w: 24, h: 325, glow: true }, // thin glow spire
+  // Right side — mirror chaos, not mirror staircase
+  { x: 922,  w: 46, h: 192 }, // drops hard
+  { x: 974,  w: 20, h: 286 }, // spike
+  { x: 1000, w: 54, h: 158 }, // wide, drops
+  { x: 1060, w: 22, h: 245 }, // spike
+  { x: 1088, w: 44, h: 132 }, // drops
+  // street gap
+  { x: 1138, w: 18, h: 195 }, // thin spike
+  { x: 1162, w: 48, h: 112 }, // drops
+  { x: 1216, w: 20, h: 178 }, // spike
+  { x: 1242, w: 52, h: 88  }, // wide, low
+  // Far right
+  { x: 1300, w: 22, h: 145 }, // thin tower
+  { x: 1328, w: 54, h: 68  }, // squat wide
+  // street gap
+  { x: 1388, w: 20, h: 108 },
+  { x: 1414, w: 26, h: 62  },
 ]
 
-// Back layer — distant buildings (drawn first, parallax slower)
+// Back layer — distant buildings, also jagged for depth
 const BACK: Building[] = [
-  { x: 15,   w: 20, h: 28  },
-  { x: 46,   w: 24, h: 38  },
-  { x: 78,   w: 18, h: 32  },
-  { x: 108,  w: 28, h: 52  },
-  { x: 148,  w: 22, h: 44  },
-  { x: 184,  w: 30, h: 72  },
-  { x: 220,  w: 36, h: 98  },
-  { x: 264,  w: 26, h: 120 },
-  { x: 298,  w: 38, h: 145 },
-  { x: 348,  w: 30, h: 168 },
-  { x: 402,  w: 36, h: 195 },
-  { x: 458,  w: 28, h: 218 },
-  { x: 510,  w: 42, h: 244 },
-  { x: 566,  w: 34, h: 270 },
-  { x: 618,  w: 40, h: 295 },
-  { x: 672,  w: 48, h: 330 },
-  { x: 740,  w: 62, h: 385 },
-  { x: 818,  w: 55, h: 366 },
-  { x: 880,  w: 46, h: 340 },
-  { x: 940,  w: 40, h: 312 },
-  { x: 1000, w: 36, h: 282 },
-  { x: 1048, w: 38, h: 254 },
-  { x: 1102, w: 30, h: 226 },
-  { x: 1146, w: 36, h: 200 },
-  { x: 1198, w: 28, h: 174 },
-  { x: 1242, w: 34, h: 148 },
-  { x: 1290, w: 26, h: 120 },
-  { x: 1330, w: 32, h: 90  },
-  { x: 1374, w: 24, h: 65  },
-  { x: 1408, w: 18, h: 42  },
+  { x: 20,   w: 24, h: 42  },
+  { x: 60,   w: 34, h: 92  },
+  { x: 140,  w: 22, h: 132 },
+  { x: 196,  w: 32, h: 68  },
+  { x: 232,  w: 38, h: 108 },
+  { x: 278,  w: 18, h: 178 },
+  { x: 344,  w: 48, h: 112 },
+  { x: 436,  w: 26, h: 228 },
+  { x: 510,  w: 40, h: 252 },
+  { x: 608,  w: 22, h: 272 },
+  { x: 644,  w: 14, h: 208 },
+  { x: 670,  w: 62, h: 348 },
+  { x: 746,  w: 68, h: 392 },
+  { x: 830,  w: 56, h: 365 },
+  { x: 906,  w: 20, h: 282 },
+  { x: 944,  w: 38, h: 152 },
+  { x: 1014, w: 46, h: 225 },
+  { x: 1078, w: 34, h: 108 },
+  { x: 1104, w: 22, h: 165 },
+  { x: 1152, w: 42, h: 85  },
+  { x: 1222, w: 24, h: 148 },
+  { x: 1252, w: 40, h: 68  },
+  { x: 1314, w: 18, h: 115 },
+  { x: 1358, w: 36, h: 52  },
+  { x: 1404, w: 20, h: 78  },
 ]
 
 // Deterministic lit windows — Moon District buildings only (no Math.random)
@@ -311,9 +320,9 @@ function CitySkyline() {
         </g>
       ))}
 
-      {/* Spire on tallest building (x=756, h=425, center≈792) */}
-      <line x1={792} y1={55} x2={792} y2={7} stroke="#f7931a" strokeWidth="2.5" opacity="0.90"/>
-      <circle cx={792} cy={5} r={4} fill="#f7931a" opacity="0.92"/>
+      {/* Spire on tallest building (x=732, w=82, center≈773) */}
+      <line x1={773} y1={55} x2={773} y2={7} stroke="#f7931a" strokeWidth="2.5" opacity="0.90"/>
+      <circle cx={773} cy={5} r={4} fill="#f7931a" opacity="0.92"/>
 
       {/* Blinking rooftop lights */}
       {glowBuildings.map((b, i) => (
