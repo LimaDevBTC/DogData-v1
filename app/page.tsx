@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Layout } from "@/components/layout"
 import { LoadingScreen } from "@/components/loading-screen"
@@ -109,6 +110,7 @@ interface C2TreasuryData {
 }
 
 export default function OverviewPage() {
+  const router = useRouter()
   const [stats, setStats] = useState<DogStats | null>(null)
   const [runeData, setRuneData] = useState<DogRuneData | null>(null)
   const [krakenChange, setKrakenChange] = useState<number>(0)
@@ -125,6 +127,13 @@ export default function OverviewPage() {
 
   const FALLBACK_TOTAL_HOLDERS = (dogStatsFallback as any)?.totalHolders ?? 0
   const FALLBACK_ACTIVE_ADDRESSES = (dogStatsFallback as any)?.activeAddresses ?? FALLBACK_TOTAL_HOLDERS
+
+  // Redirect to donate page at the start of every new browser session
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !sessionStorage.getItem('dogdata-session')) {
+      router.replace('/donate')
+    }
+  }, [router])
 
   useEffect(() => {
     const fetchData = async () => {
