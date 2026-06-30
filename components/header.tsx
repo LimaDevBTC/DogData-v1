@@ -13,17 +13,16 @@ import {
   Menu,
   X,
   TrendingUp,
-  Globe,
   Search,
+  Building2,
 } from "lucide-react"
 
-type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain' | 'explorer' | 'status'
+type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain' | 'explorer' | 'status' | 'city'
 
 const navigation = [
   { name: 'Overview', page: 'overview' as PageType, icon: BarChart3 },
   { name: 'Transactions', page: 'transactions' as PageType, icon: CreditCard },
   { name: 'Holders', page: 'holders' as PageType, icon: Users },
-  { name: 'Cross-Chain', page: 'multichain' as PageType, icon: Globe },
   { name: 'On-Chain Metrics', page: 'metrics' as PageType, icon: Zap },
   { name: 'Markets', page: 'markets' as PageType, icon: TrendingUp },
   { name: 'Airdrop Analysis', page: 'airdrop' as PageType, icon: Sparkles },
@@ -148,6 +147,21 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
               }`} />
               <span className="relative whitespace-nowrap">Explorer</span>
             </a>
+            {/* DogCity — coming soon */}
+            <a
+              href="/city"
+              className={`relative flex items-center justify-center px-3 py-1.5 text-[11px] font-mono font-medium tracking-wide transition-all duration-300 flex-shrink-0 rounded-lg group ${
+                currentPage === 'city'
+                  ? 'text-lava bg-lava/[0.06] border border-lava/[0.15]'
+                  : 'text-[#6B6B78] hover:text-snow/90'
+              }`}
+            >
+              <Building2 className={`relative w-3.5 h-3.5 mr-1.5 flex-shrink-0 transition-colors duration-300 ${
+                currentPage === 'city' ? 'text-lava' : 'text-[#4A4A52] group-hover:text-[#6B6B78]'
+              }`} />
+              <span className="relative whitespace-nowrap">DogCity</span>
+              <span className="ml-1.5 px-1 py-px text-[7px] font-bold bg-lava/[0.12] text-lava/70 border border-lava/[0.18] rounded tracking-widest leading-none">SOON</span>
+            </a>
           </nav>
 
           {/* Right side */}
@@ -235,6 +249,18 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
             >
               <Search className="w-4 h-4 flex-shrink-0" />
               Explorer
+            </a>
+            <a
+              href="/city"
+              className={`w-full flex items-center gap-3 px-3 py-2.5 font-mono text-sm tracking-wide transition-all duration-200 rounded-lg ${
+                currentPage === 'city'
+                  ? 'text-lava bg-lava/[0.08]'
+                  : 'text-[#6B6B78] hover:text-snow hover:bg-white/[0.03]'
+              }`}
+            >
+              <Building2 className="w-4 h-4 flex-shrink-0" />
+              DogCity
+              <span className="ml-auto px-1.5 py-px text-[8px] font-bold bg-lava/[0.12] text-lava/70 border border-lava/[0.18] rounded tracking-widest">SOON</span>
             </a>
             <button
               onClick={() => handleNavClick('donate')}

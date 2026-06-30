@@ -5,29 +5,27 @@ import Header from "./header"
 import Footer from "./footer"
 import { C2BlockchainBanner } from "./c2-blockchain-banner"
 
-type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain' | 'explorer' | 'status'
+type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain' | 'explorer' | 'status' | 'city'
 
 interface LayoutProps {
   children: React.ReactNode
   currentPage: PageType
   setCurrentPage: (page: PageType) => void
+  fullBleed?: boolean
 }
 
-export function Layout({ children, currentPage }: LayoutProps) {
+export function Layout({ children, currentPage, fullBleed }: LayoutProps) {
   const router = useRouter()
   const pathname = usePathname()
 
   const handleSetCurrentPage = (page: PageType) => {
-    // Salvar no localStorage
     if (typeof window !== 'undefined') {
       localStorage.setItem('dogdata-current-page', page)
     }
-    // Navegar para a rota
-    // Overview vai para a home (/) ao invés de /overview
     if (page === 'overview') {
       router.push('/')
     } else {
-    router.push(`/${page}`)
+      router.push(`/${page}`)
     }
   }
 
@@ -41,17 +39,21 @@ export function Layout({ children, currentPage }: LayoutProps) {
 
       {/* Main Content */}
       <main className="relative pt-14 md:pt-16 flex-1">
-        <div className="container-fluid transition-opacity duration-200 ease-out opacity-100">
-          {/* C2 Blockchain Partner Banner */}
-          <C2BlockchainBanner />
-
-          {children}
-        </div>
+        {fullBleed ? (
+          <div className="transition-opacity duration-200 ease-out opacity-100">
+            <C2BlockchainBanner />
+            {children}
+          </div>
+        ) : (
+          <div className="container-fluid transition-opacity duration-200 ease-out opacity-100">
+            <C2BlockchainBanner />
+            {children}
+          </div>
+        )}
       </main>
 
       {/* Footer */}
       <Footer currentPage={currentPage} setCurrentPage={handleSetCurrentPage} />
-
     </div>
   )
 }

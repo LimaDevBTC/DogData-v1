@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Search, Download, Copy, ExternalLink, ChevronLeft, ChevronRight, Wifi, WifiOff, MoreHorizontal, Users, Filter, Ticket, Sparkles, BarChart3 } from "lucide-react"
+import { Search, Download, Copy, ExternalLink, ChevronLeft, ChevronRight, Wifi, WifiOff, MoreHorizontal, Users, Filter, Ticket, Sparkles, BarChart3, Globe } from "lucide-react"
 import { SectionDivider } from "@/components/ui/section-divider"
 import { AddressBadge } from "@/components/address-badge"
 import { HoldersDistributionChart } from "@/components/holders/holders-distribution-chart"
@@ -99,6 +99,10 @@ export default function HoldersPage() {
   const [bitcoinHolders, setBitcoinHolders] = useState<number>(0)
   const [solanaHolders, setSolanaHolders] = useState<number>(0)
   const [stacksHolders, setStacksHolders] = useState<number>(0)
+  const [crossChainHolders, setCrossChainHolders] = useState<any>(null)
+  const [crossChainHoldersLoading, setCrossChainHoldersLoading] = useState(false)
+  const [activeChainTab, setActiveChainTab] = useState<'solana' | 'stacks'>('solana')
+  const [copiedCrossChain, setCopiedCrossChain] = useState<string | null>(null)
   const eventSourceRef = useRef<EventSource | null>(null)
 
   const formatNumber = (num: number) => {
@@ -107,6 +111,30 @@ export default function HoldersPage() {
       maximumFractionDigits: 5
     }).format(num);
   };
+
+  const shortAddr = (addr: string | null | undefined): string => {
+    if (!addr) return '—'
+    if (addr.length <= 16) return addr
+    return `${addr.slice(0, 8)}...${addr.slice(-6)}`
+  }
+
+  const formatDOGCompact = (amount: number): string => {
+    if (amount >= 1e9) return `${(amount / 1e9).toFixed(2)}B`
+    if (amount >= 1e6) return `${(amount / 1e6).toFixed(2)}M`
+    if (amount >= 1e3) return `${(amount / 1e3).toFixed(1)}K`
+    return amount.toFixed(2)
+  }
+
+  const formatUSDCompact = (n: number): string => {
+    if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}B`
+    if (n >= 1e6) return `$${(n / 1e6).toFixed(2)}M`
+    if (n >= 1e3) return `$${(n / 1e3).toFixed(1)}K`
+    if (n > 0) return `$${n.toFixed(2)}`
+    return '$0'
+  }
+
+  const DOG_TOTAL_SUPPLY = 100_000_000_000
+  const pctOfTotal = (balance: number): string => ((balance / DOG_TOTAL_SUPPLY) * 100).toFixed(6)
 
   const resolvedLastUpdate = lastUpdate ?? holdersMetadata?.updatedAt ?? null
 
@@ -354,6 +382,21 @@ export default function HoldersPage() {
     }
   }
 
+  const fetchCrossChainHolders = async () => {
+    setCrossChainHoldersLoading(true)
+    try {
+      const response = await fetch('/api/multichain/holders?limit=25')
+      if (response.ok) {
+        const data = await response.json()
+        setCrossChainHolders(data)
+      }
+    } catch (err) {
+      console.warn('Error fetching cross-chain holders:', err)
+    } finally {
+      setCrossChainHoldersLoading(false)
+    }
+  }
+
   const fetchMultichainStats = async () => {
     try {
       const response = await fetch('/api/multichain/stats', { cache: 'no-store' })
@@ -468,6 +511,10 @@ export default function HoldersPage() {
       setLoadingChart(false)
     }
   }
+
+  useEffect(() => {
+    fetchCrossChainHolders()
+  }, [])
 
   // Carregar dados do gráfico apenas se não foram carregados junto com a lista
   useEffect(() => {
@@ -1502,6 +1549,165 @@ export default function HoldersPage() {
               </div>
             </div>
           </div>
+
+      {/* Cross-Chain Holders */}
+      <SectionDivider title="Cross-Chain Holders" icon={Globe} />
+
+      <div className="flex items-center gap-1">
+        {(['solana', 'stacks'] as const).map(chain => (
+          <button
+            key={chain}
+            onClick={() => setActiveChainTab(chain)}
+            className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono font-medium rounded-lg transition-all duration-200 ${
+              activeChainTab === chain
+                ? 'bg-lava/10 text-lava border border-lava/20'
+                : 'text-dusty/60 hover:text-snow/80 border border-transparent'
+            }`}
+          >
+            <Image
+              src={chain === 'solana' ? 'https://assets.coingecko.com/coins/images/4128/small/solana.png' : '/STX .png'}
+              alt={chain === 'solana' ? 'Solana' : 'Stacks'}
+              width={14} height={14} className="opacity-80"
+            />
+            {chain === 'solana' ? 'Solana' : 'Stacks'}
+          </button>
+        ))}
+      </div>
+
+      {crossChainHoldersLoading ? (
+        <div className="flex justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-lava"></div>
+        </div>
+      ) : crossChainHolders ? (
+        <>
+          {activeChainTab === 'solana' && crossChainHolders.solana && (
+            <Card variant="glass" className="border border-purple-500/[0.15] bg-gradient-to-br from-purple-950/20 to-transparent">
+              <CardHeader className="pb-2">
+                <CardTitle variant="mono" className="text-sm text-dusty flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Image src="https://assets.coingecko.com/coins/images/4128/small/solana.png" alt="Solana" width={20} height={20} className="opacity-80" />
+                    Solana — Top Holders
+                  </div>
+                  <span className="text-xs text-dusty/40">{crossChainHolders.solana.total_count?.toLocaleString()} total</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {crossChainHolders.solana.holders?.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs font-mono">
+                      <thead>
+                        <tr className="text-dusty/40 uppercase tracking-wider text-[9px]">
+                          <th className="text-left py-1.5 pr-2">#</th>
+                          <th className="text-left py-1.5">Address</th>
+                          <th className="text-right py-1.5">Balance</th>
+                          <th className="text-right py-1.5">% Bridged</th>
+                          <th className="text-right py-1.5">% Total Supply</th>
+                          <th className="text-right py-1.5 hidden md:table-cell">USD Value</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {crossChainHolders.solana.holders.map((h: any) => (
+                          <tr key={h.address} className="border-t border-snow/[0.03] hover:bg-snow/[0.02]">
+                            <td className="py-1.5 pr-2 text-dusty/40">{h.rank}</td>
+                            <td className="py-1.5">
+                              <div className="flex items-center gap-1.5">
+                                <a href={`https://solscan.io/account/${h.address}`} target="_blank" rel="noopener noreferrer" className="text-purple-400/80 hover:text-purple-300 transition-colors">
+                                  {shortAddr(h.address)}
+                                </a>
+                                <button
+                                  onClick={() => { navigator.clipboard.writeText(h.address); setCopiedCrossChain(h.address); setTimeout(() => setCopiedCrossChain(null), 2000) }}
+                                  className="p-0.5 hover:text-snow/80 text-dusty/30 transition-colors"
+                                  title="Copy address"
+                                >
+                                  {copiedCrossChain === h.address ? <span className="text-green-400 text-[10px]">✓</span> : <Copy className="w-2.5 h-2.5" />}
+                                </button>
+                                <a href={`https://solscan.io/account/${h.address}`} target="_blank" rel="noopener noreferrer" className="p-0.5 hover:text-purple-400 text-dusty/30 transition-colors" title="View on Solscan">
+                                  <ExternalLink className="w-2.5 h-2.5" />
+                                </a>
+                              </div>
+                            </td>
+                            <td className="py-1.5 text-right text-snow/80">{formatDOGCompact(h.balance)} DOG</td>
+                            <td className="py-1.5 text-right text-dusty/60">{h.percentage_of_supply?.toFixed(2)}%</td>
+                            <td className="py-1.5 text-right text-snow/40">{pctOfTotal(h.balance)}%</td>
+                            <td className="py-1.5 text-right text-dusty/50 hidden md:table-cell">{h.balance_usd ? formatUSDCompact(h.balance_usd) : '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-xs text-dusty/50 font-mono py-4">No data available</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {activeChainTab === 'stacks' && crossChainHolders.stacks && crossChainHolders.stacks.holders?.length > 0 && (
+            <Card variant="glass" className="border border-orange-500/[0.15] bg-gradient-to-br from-orange-950/20 to-transparent">
+              <CardHeader className="pb-2">
+                <CardTitle variant="mono" className="text-sm text-dusty flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Image src="/STX .png" alt="Stacks" width={20} height={20} className="opacity-80" />
+                    Stacks — Top Holders
+                  </div>
+                  <span className="text-xs text-dusty/40">{crossChainHolders.stacks.total_count} total</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {crossChainHolders.stacks.concentration && (
+                  <div className="flex gap-4 mb-3 text-[10px] font-mono text-dusty/50">
+                    <span>Top 10: <span className="text-snow/70">{crossChainHolders.stacks.concentration.top_10}%</span></span>
+                    <span>Top 25: <span className="text-snow/70">{crossChainHolders.stacks.concentration.top_25}%</span></span>
+                  </div>
+                )}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs font-mono">
+                    <thead>
+                      <tr className="text-dusty/40 uppercase tracking-wider text-[9px]">
+                        <th className="text-left py-1.5 pr-2">#</th>
+                        <th className="text-left py-1.5">Address</th>
+                        <th className="text-right py-1.5">Balance</th>
+                        <th className="text-right py-1.5">% Bridged</th>
+                        <th className="text-right py-1.5">% Total Supply</th>
+                        <th className="text-right py-1.5 hidden md:table-cell">USD Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {crossChainHolders.stacks.holders.map((h: any) => (
+                        <tr key={h.address} className="border-t border-snow/[0.03] hover:bg-snow/[0.02]">
+                          <td className="py-1.5 pr-2 text-dusty/40">{h.rank}</td>
+                          <td className="py-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <a href={`https://explorer.hiro.so/address/${h.address}`} target="_blank" rel="noopener noreferrer" className="text-orange-400/80 hover:text-orange-300 transition-colors">
+                                {shortAddr(h.address)}
+                              </a>
+                              <button
+                                onClick={() => { navigator.clipboard.writeText(h.address); setCopiedCrossChain(h.address); setTimeout(() => setCopiedCrossChain(null), 2000) }}
+                                className="p-0.5 hover:text-snow/80 text-dusty/30 transition-colors"
+                                title="Copy address"
+                              >
+                                {copiedCrossChain === h.address ? <span className="text-green-400 text-[10px]">✓</span> : <Copy className="w-2.5 h-2.5" />}
+                              </button>
+                              <a href={`https://explorer.hiro.so/address/${h.address}`} target="_blank" rel="noopener noreferrer" className="p-0.5 hover:text-orange-400 text-dusty/30 transition-colors" title="View on Explorer">
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            </div>
+                          </td>
+                          <td className="py-1.5 text-right text-snow/80">{formatDOGCompact(h.balance)} DOG</td>
+                          <td className="py-1.5 text-right text-dusty/60">{h.percentage_of_supply?.toFixed(2)}%</td>
+                          <td className="py-1.5 text-right text-snow/40">{pctOfTotal(h.balance)}%</td>
+                          <td className="py-1.5 text-right text-dusty/50 hidden md:table-cell">{h.balance_usd ? formatUSDCompact(h.balance_usd) : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      ) : null}
+
       </div>
     </Layout>
   )

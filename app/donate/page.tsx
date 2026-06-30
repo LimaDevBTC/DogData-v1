@@ -147,7 +147,18 @@ export default function DonatePage() {
       .catch(() => {})
       .finally(() => setLbLoading(false))
 
-    // Holder counts — same sources as the overview page
+    // Holder counts — Redis-backed fallback first (fast), then live sources
+    // /api/holders-fallback reads the snapshot Redis key + the multichain fallback
+    // key written by /api/multichain/stats, so it stays current without a deploy.
+    fetch('/api/holders-fallback')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d && (d.btc > 0 || d.solana > 0 || d.stacks > 0)) {
+          setHolders({ btc: d.btc, solana: d.solana, stacks: d.stacks })
+        }
+      })
+      .catch(() => {})
+
     Promise.allSettled([
       fetch('/api/dog-rune/holders?page=1&limit=1').then(r => r.ok ? r.json() : null),
       fetch('/api/multichain/stats').then(r => r.ok ? r.json() : null),
@@ -330,7 +341,99 @@ export default function DonatePage() {
         </section>
 
         {/* ════════════════════════════════════════════════════════════
-            SECTION 3 — PLATFORM STATS BAR
+            SECTION 3 — HALL OF SATS
+        ════════════════════════════════════════════════════════════ */}
+        <section className="px-4 py-10 md:py-14 border-b border-snow/[0.04]">
+          <div className="max-w-3xl mx-auto space-y-8">
+
+            {/* Header */}
+            <div className="text-center space-y-3">
+              <div className="inline-flex items-center gap-2 text-yellow-400 font-mono text-xs uppercase tracking-widest">
+                <Trophy className="w-3.5 h-3.5" />
+                Hall of Sats
+              </div>
+              <h2 className="font-display font-bold text-2xl md:text-3xl text-snow">
+                Your Contribution Is Permanent
+              </h2>
+              <p className="font-mono text-sm text-dusty max-w-lg mx-auto leading-relaxed">
+                Every DOG donation is indexed and displayed here — immutably, on Bitcoin L1.
+                Your wallet is visible to every DOG DATA visitor.{" "}
+                <span className="text-snow/80">That's {(holders.btc + holders.solana + holders.stacks).toLocaleString('en-US')}+ holders seeing your support.</span>
+              </p>
+            </div>
+
+            {/* Leaderboard */}
+            <Card variant="glass" className="border-snow/[0.05] overflow-hidden">
+              <div className="flex items-center gap-2 px-5 py-3 border-b border-snow/[0.05]">
+                <Medal className="w-4 h-4 text-lava" />
+                <span className="font-display font-semibold text-snow text-sm">DOG Donors Ranking</span>
+              </div>
+
+              {lbLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="w-6 h-6 animate-spin text-dusty" />
+                </div>
+              ) : !lb || lb.leaderboard.length === 0 ? (
+                <div className="text-center py-16 space-y-3">
+                  <Trophy className="w-10 h-10 text-dusty/20 mx-auto" />
+                  <p className="text-snow/70 font-display font-semibold text-base">
+                    The Hall of Sats is empty.
+                  </p>
+                  <p className="text-dusty font-mono text-xs max-w-xs mx-auto leading-relaxed">
+                    Be the first. Your wallet claims the #1 spot permanently — visible to every one of the {(holders.btc + holders.solana + holders.stacks).toLocaleString('en-US')}+ DOG holders who visits.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Column labels */}
+                  <div className="grid grid-cols-[2.5rem_1fr_auto_auto] gap-2 px-5 py-2 text-[10px] font-mono text-dusty/50 uppercase tracking-wider border-b border-snow/[0.04]">
+                    <span>#</span>
+                    <span>Wallet</span>
+                    <span className="text-right">DOG</span>
+                    <span className="text-right pr-1">Txs</span>
+                  </div>
+
+                  {/* Rows */}
+                  <div className="divide-y divide-snow/[0.03]">
+                    {lb.leaderboard.slice(0, 50).map((entry) => {
+                      const isTop3   = entry.rank <= 3
+                      const color    = isTop3 ? MEDAL_COLOR[entry.rank - 1] : "text-dusty/60"
+                      const rowBg    = isTop3 ? MEDAL_BG[entry.rank - 1]    : ""
+                      return (
+                        <div
+                          key={entry.address}
+                          className={`grid grid-cols-[2.5rem_1fr_auto_auto] gap-2 items-center px-5 py-3 hover:bg-snow/[0.02] transition-colors ${rowBg}`}
+                        >
+                          <span className={`font-bold font-mono text-sm ${color}`}>
+                            {isTop3 ? MEDAL_ICON[entry.rank - 1] : `#${entry.rank}`}
+                          </span>
+                          <span className="font-mono text-xs text-snow/70 truncate" title={entry.address}>
+                            {shortAddr(entry.address)}
+                          </span>
+                          <span className={`text-right font-mono text-xs font-bold ${isTop3 ? color : "text-snow/55"}`}>
+                            {formatDog(entry.total)}
+                          </span>
+                          <span className="text-right font-mono text-xs text-dusty/50 pr-1">
+                            {entry.txCount}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {lb.leaderboard.length > 50 && (
+                    <p className="text-center text-xs text-dusty font-mono py-3 border-t border-snow/[0.04]">
+                      Showing top 50 of {lb.leaderboard.length} donors
+                    </p>
+                  )}
+                </>
+              )}
+            </Card>
+          </div>
+        </section>
+
+        {/* ════════════════════════════════════════════════════════════
+            SECTION 4 — PLATFORM STATS BAR
         ════════════════════════════════════════════════════════════ */}
         <section className="border-b border-snow/[0.04] bg-snow/[0.01] px-4 py-4 md:py-5">
           <div className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-0 md:divide-x md:divide-snow/[0.06]">
@@ -462,99 +565,7 @@ export default function DonatePage() {
         </section>
 
         {/* ════════════════════════════════════════════════════════════
-            SECTION 6 — HALL OF SATS
-        ════════════════════════════════════════════════════════════ */}
-        <section className="px-4 py-10 md:py-14 border-t border-snow/[0.04]">
-          <div className="max-w-3xl mx-auto space-y-8">
-
-            {/* Header */}
-            <div className="text-center space-y-3">
-              <div className="inline-flex items-center gap-2 text-yellow-400 font-mono text-xs uppercase tracking-widest">
-                <Trophy className="w-3.5 h-3.5" />
-                Hall of Sats
-              </div>
-              <h2 className="font-display font-bold text-2xl md:text-3xl text-snow">
-                Your Contribution Is Permanent
-              </h2>
-              <p className="font-mono text-sm text-dusty max-w-lg mx-auto leading-relaxed">
-                Every DOG donation is indexed and displayed here — immutably, on Bitcoin L1.
-                Your wallet is visible to every DOG DATA visitor.{" "}
-                <span className="text-snow/80">That's {(holders.btc + holders.solana + holders.stacks).toLocaleString('en-US')}+ holders seeing your support.</span>
-              </p>
-            </div>
-
-            {/* Leaderboard */}
-            <Card variant="glass" className="border-snow/[0.05] overflow-hidden">
-              <div className="flex items-center gap-2 px-5 py-3 border-b border-snow/[0.05]">
-                <Medal className="w-4 h-4 text-lava" />
-                <span className="font-display font-semibold text-snow text-sm">DOG Donors Ranking</span>
-              </div>
-
-              {lbLoading ? (
-                <div className="flex items-center justify-center py-16">
-                  <Loader2 className="w-6 h-6 animate-spin text-dusty" />
-                </div>
-              ) : !lb || lb.leaderboard.length === 0 ? (
-                <div className="text-center py-16 space-y-3">
-                  <Trophy className="w-10 h-10 text-dusty/20 mx-auto" />
-                  <p className="text-snow/70 font-display font-semibold text-base">
-                    The Hall of Sats is empty.
-                  </p>
-                  <p className="text-dusty font-mono text-xs max-w-xs mx-auto leading-relaxed">
-                    Be the first. Your wallet claims the #1 spot permanently — visible to every one of the {(holders.btc + holders.solana + holders.stacks).toLocaleString('en-US')}+ DOG holders who visits.
-                  </p>
-                </div>
-              ) : (
-                <>
-                  {/* Column labels */}
-                  <div className="grid grid-cols-[2.5rem_1fr_auto_auto] gap-2 px-5 py-2 text-[10px] font-mono text-dusty/50 uppercase tracking-wider border-b border-snow/[0.04]">
-                    <span>#</span>
-                    <span>Wallet</span>
-                    <span className="text-right">DOG</span>
-                    <span className="text-right pr-1">Txs</span>
-                  </div>
-
-                  {/* Rows */}
-                  <div className="divide-y divide-snow/[0.03]">
-                    {lb.leaderboard.slice(0, 50).map((entry) => {
-                      const isTop3   = entry.rank <= 3
-                      const color    = isTop3 ? MEDAL_COLOR[entry.rank - 1] : "text-dusty/60"
-                      const rowBg    = isTop3 ? MEDAL_BG[entry.rank - 1]    : ""
-                      return (
-                        <div
-                          key={entry.address}
-                          className={`grid grid-cols-[2.5rem_1fr_auto_auto] gap-2 items-center px-5 py-3 hover:bg-snow/[0.02] transition-colors ${rowBg}`}
-                        >
-                          <span className={`font-bold font-mono text-sm ${color}`}>
-                            {isTop3 ? MEDAL_ICON[entry.rank - 1] : `#${entry.rank}`}
-                          </span>
-                          <span className="font-mono text-xs text-snow/70 truncate" title={entry.address}>
-                            {shortAddr(entry.address)}
-                          </span>
-                          <span className={`text-right font-mono text-xs font-bold ${isTop3 ? color : "text-snow/55"}`}>
-                            {formatDog(entry.total)}
-                          </span>
-                          <span className="text-right font-mono text-xs text-dusty/50 pr-1">
-                            {entry.txCount}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-
-                  {lb.leaderboard.length > 50 && (
-                    <p className="text-center text-xs text-dusty font-mono py-3 border-t border-snow/[0.04]">
-                      Showing top 50 of {lb.leaderboard.length} donors
-                    </p>
-                  )}
-                </>
-              )}
-            </Card>
-          </div>
-        </section>
-
-        {/* ════════════════════════════════════════════════════════════
-            SECTION 7 — ENTER APP
+            SECTION 6 — ENTER APP
         ════════════════════════════════════════════════════════════ */}
         <section className="px-4 py-10 md:py-14 border-t border-snow/[0.04]">
           <div className="max-w-md mx-auto text-center space-y-4">

@@ -22,6 +22,7 @@ import {
 import Link from "next/link"
 import { AddressBadge } from "@/components/address-badge"
 import { InfoTooltip } from "@/components/ui/info-tooltip"
+import { RunestoneEasterEgg } from "@/components/runestone-easter-egg"
 import { useDogPrice, fmtUsdCompact, fmtUsdFull } from "@/lib/use-dog-price"
 import {
   TIERS,
@@ -138,6 +139,7 @@ export default function AirdropPage() {
   const [isUpdating, setIsUpdating] = useState(false)
   const [initialLoad, setInitialLoad] = useState(true)
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null)
+  const [runestoneOpen, setRunestoneOpen] = useState(false)
 
   const ITEMS_PER_PAGE = 50
 
@@ -464,15 +466,20 @@ export default function AirdropPage() {
       <div className="text-center space-y-2 md:space-y-4 px-4">
         <div className="hero-glow">
           <div className="flex items-center justify-center gap-2 md:gap-4">
-            <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-lava/[0.07] border border-lava/[0.1] flex items-center justify-center">
+            <button
+              onClick={() => setRunestoneOpen(true)}
+              className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-lava/[0.07] border border-lava/[0.1] flex items-center justify-center hover:bg-lava/[0.14] hover:border-lava/[0.25] hover:scale-110 transition-all duration-200 cursor-pointer group"
+              title="The Runestone — click to learn more"
+              aria-label="Open Runestone codex"
+            >
               <Image
                 src="/Runestone.png"
                 alt="Runestone"
                 width={28}
                 height={28}
-                className="object-contain md:w-[36px] md:h-[36px]"
+                className="object-contain md:w-[36px] md:h-[36px] group-hover:drop-shadow-[0_0_8px_rgba(245,110,15,0.7)] transition-all duration-200"
               />
-            </div>
+            </button>
             <h1 className="text-2xl md:text-4xl font-bold gradient-text-hero whitespace-nowrap">
               Airdrop Analysis
             </h1>
@@ -1238,6 +1245,8 @@ export default function AirdropPage() {
         </CardContent>
       </Card>
       </div>
+
+      <RunestoneEasterEgg isOpen={runestoneOpen} onClose={() => setRunestoneOpen(false)} />
     </Layout>
   )
 }

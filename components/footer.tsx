@@ -11,7 +11,7 @@ import {
   Gift
 } from "lucide-react"
 
-type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain' | 'explorer' | 'status'
+type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain' | 'explorer' | 'status' | 'city'
 
 interface FooterProps {
   currentPage?: PageType
@@ -114,6 +114,22 @@ export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
                   </button>
                 </li>
               ))}
+              <li>
+                <a
+                  href="/city"
+                  className={`w-full text-left transition-all duration-200 flex items-center group py-1.5 px-2 rounded-lg ${
+                    currentPage === 'city'
+                      ? 'text-lava bg-lava/[0.06]'
+                      : 'text-dusty hover:text-snow/80 hover:bg-white/[0.02]'
+                  }`}
+                >
+                  <div className={`w-1 h-1 rounded-full mr-3 transition-all duration-200 ${
+                    currentPage === 'city' ? 'bg-lava' : 'bg-dusty/30 group-hover:bg-lava/50'
+                  }`} />
+                  <span className="font-mono text-xs font-medium tracking-wide">DOGCITY</span>
+                  <span className="ml-2 px-1 py-px text-[7px] font-bold bg-lava/[0.10] text-lava/60 border border-lava/[0.15] rounded tracking-widest leading-none">SOON</span>
+                </a>
+              </li>
             </ul>
           </div>
 

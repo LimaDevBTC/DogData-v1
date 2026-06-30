@@ -4,6 +4,9 @@ import { getSolanaTokenInfo as getSolanaTokenInfoBirdeye } from '@/lib/multichai
 import { getSolanaHolderCount } from '@/lib/multichain/helius'
 import { getStacksTokenInfoResilient as getStacksTokenInfo } from '@/lib/multichain/stacks-resilient'
 import type { MultiChainStats, ChainTokenInfo } from '@/lib/multichain/types'
+import { redisClient } from '@/lib/upstash'
+
+const MULTICHAIN_FALLBACK_KEY = 'holders:fallback:multichain'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -76,6 +79,18 @@ export async function GET() {
           )
         : new Date().toISOString(),
       last_updated_note: "Timestamp of the least-recently-updated chain. Check per-chain last_updated for individual freshness.",
+    }
+
+    // Persist fresh holder counts to Redis so /api/holders-fallback stays current.
+    // Fire-and-forget — never block the response.
+    const solanaCount = chains.find(c => c.chain === 'solana')?.holder_count ?? 0
+    const stacksCount = chains.find(c => c.chain === 'stacks')?.holder_count ?? 0
+    if (solanaCount > 0 || stacksCount > 0) {
+      redisClient.set(
+        MULTICHAIN_FALLBACK_KEY,
+        JSON.stringify({ solana: solanaCount, stacks: stacksCount, updated_at: new Date().toISOString() }),
+        { ex: 7 * 24 * 3600 }, // keep for 7 days
+      ).catch(err => console.warn('[multichain/stats] Redis fallback save failed:', err))
     }
 
     return NextResponse.json(stats, {
