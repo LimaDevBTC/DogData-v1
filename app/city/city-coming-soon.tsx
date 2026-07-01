@@ -20,82 +20,86 @@ interface Building {
   glow?: boolean
 }
 
-// Front layer — main skyline (SVG viewBox 1440 × 480, ground at y=480)
-// Heights are deliberately jagged — no staircase, real city variation
+// Front layer — organic city profile, Manhattan philosophy:
+// thin spires next to squat blocks, NO gradual arcs, glow cluster breaks its own pattern
 const FRONT: Building[] = [
-  // Far left — low rise interspersed with thin spikes
-  { x: 0,    w: 45, h: 62  },
-  { x: 50,   w: 22, h: 122 }, // thin spike
-  { x: 78,   w: 55, h: 76  }, // wide, drops
-  // street gap
-  { x: 146,  w: 18, h: 168 }, // tall thin
-  { x: 170,  w: 42, h: 92  }, // drops back
-  { x: 218,  w: 28, h: 138 }, // mid spike
-  // street gap
-  { x: 254,  w: 16, h: 228 }, // very thin, very tall
-  { x: 276,  w: 50, h: 105 }, // wide, low
-  // Mid-left — big height swings
-  { x: 332,  w: 24, h: 268 }, // tower
-  { x: 362,  w: 58, h: 148 }, // wide block, drops
-  // street gap
-  { x: 426,  w: 20, h: 298 }, // spike up
-  { x: 452,  w: 44, h: 172 }, // drops
-  { x: 502,  w: 34, h: 322 }, // spike up
-  { x: 542,  w: 52, h: 198 }, // drops
-  // Pre-Moon District transition
-  { x: 600,  w: 26, h: 348 },
-  { x: 632,  w: 18, h: 272 }, // dips slightly
-  // Moon District — 4 glow towers at center
-  { x: 656,  w: 70, h: 388, glow: true },
-  { x: 732,  w: 82, h: 425, glow: true }, // tallest — Moon District center
-  { x: 820,  w: 66, h: 402, glow: true },
-  { x: 892,  w: 24, h: 325, glow: true }, // thin glow spire
-  // Right side — mirror chaos, not mirror staircase
-  { x: 922,  w: 46, h: 192 }, // drops hard
-  { x: 974,  w: 20, h: 286 }, // spike
-  { x: 1000, w: 54, h: 158 }, // wide, drops
-  { x: 1060, w: 22, h: 245 }, // spike
-  { x: 1088, w: 44, h: 132 }, // drops
-  // street gap
-  { x: 1138, w: 18, h: 195 }, // thin spike
-  { x: 1162, w: 48, h: 112 }, // drops
-  { x: 1216, w: 20, h: 178 }, // spike
-  { x: 1242, w: 52, h: 88  }, // wide, low
-  // Far right
-  { x: 1300, w: 22, h: 145 }, // thin tower
-  { x: 1328, w: 54, h: 68  }, // squat wide
-  // street gap
-  { x: 1388, w: 20, h: 108 },
-  { x: 1414, w: 26, h: 62  },
+  // Far left — low blocks punctuated by thin spires
+  { x: 0,    w: 42, h: 52  },
+  { x: 48,   w: 14, h: 188 }, // thin spike!
+  { x: 68,   w: 55, h: 70  }, // wide block drops
+  { x: 130,  w: 16, h: 222 }, // thin tower shoots up
+  { x: 152,  w: 46, h: 88  }, // drops
+  { x: 205,  w: 18, h: 152 }, // mid spike
+  { x: 230,  w: 52, h: 60  }, // wide, very low
+  { x: 290,  w: 14, h: 245 }, // very thin, very tall
+  { x: 310,  w: 56, h: 105 }, // wide block drops hard
+  // Mid-left — irregular, building energy toward center
+  { x: 374,  w: 18, h: 272 }, // spike
+  { x: 400,  w: 54, h: 128 }, // wide medium
+  { x: 462,  w: 14, h: 295 }, // dramatic thin spike
+  { x: 482,  w: 46, h: 155 }, // drops
+  { x: 536,  w: 22, h: 278 }, // spike
+  { x: 566,  w: 16, h: 195 }, // dips
+  { x: 590,  w: 50, h: 248 }, // builds up
+  { x: 648,  w: 16, h: 172 }, // thin connector, drops before Moon District
+  // MOON DISTRICT — the key: NO arc, dramatic height breaks
+  { x: 670,  w: 44, h: 362, glow: true }, // left Moon tower — tall
+  { x: 722,  w: 76, h: 425, glow: true }, // THE TOWER — dominant, alone at top
+  { x: 806,  w: 26, h: 218, glow: true }, // thin + MUCH shorter — shatters the arc
+  { x: 840,  w: 50, h: 172 },             // regular block drops (non-glow)
+  { x: 898,  w: 38, h: 322, glow: true }, // "Chrysler" — rises back, far from main
+  // Right side — mirrored energy, NOT mirrored heights
+  { x: 944,  w: 52, h: 140 }, // drops after Chrysler
+  { x: 1004, w: 14, h: 282 }, // thin spike
+  { x: 1024, w: 48, h: 115 }, // wide drops
+  { x: 1080, w: 18, h: 252 }, // spike
+  { x: 1106, w: 54, h: 88  }, // wide, very low
+  { x: 1168, w: 14, h: 218 }, // thin spike
+  { x: 1188, w: 46, h: 132 }, // medium
+  { x: 1242, w: 16, h: 192 }, // spike
+  { x: 1266, w: 52, h: 72  }, // wide, low
+  { x: 1326, w: 18, h: 155 }, // spike
+  { x: 1352, w: 50, h: 65  }, // wide, very low
+  { x: 1410, w: 14, h: 128 }, // thin spike
+  { x: 1430, w: 14, h: 58  }, // edge
 ]
 
-// Back layer — distant buildings, also jagged for depth
+// Back layer — also organic, thin spires dominate
 const BACK: Building[] = [
-  { x: 20,   w: 24, h: 42  },
-  { x: 60,   w: 34, h: 92  },
-  { x: 140,  w: 22, h: 132 },
-  { x: 196,  w: 32, h: 68  },
-  { x: 232,  w: 38, h: 108 },
-  { x: 278,  w: 18, h: 178 },
-  { x: 344,  w: 48, h: 112 },
-  { x: 436,  w: 26, h: 228 },
-  { x: 510,  w: 40, h: 252 },
-  { x: 608,  w: 22, h: 272 },
-  { x: 644,  w: 14, h: 208 },
-  { x: 670,  w: 62, h: 348 },
-  { x: 746,  w: 68, h: 392 },
-  { x: 830,  w: 56, h: 365 },
-  { x: 906,  w: 20, h: 282 },
-  { x: 944,  w: 38, h: 152 },
-  { x: 1014, w: 46, h: 225 },
-  { x: 1078, w: 34, h: 108 },
-  { x: 1104, w: 22, h: 165 },
-  { x: 1152, w: 42, h: 85  },
-  { x: 1222, w: 24, h: 148 },
-  { x: 1252, w: 40, h: 68  },
-  { x: 1314, w: 18, h: 115 },
-  { x: 1358, w: 36, h: 52  },
-  { x: 1404, w: 20, h: 78  },
+  { x: 22,   w: 28, h: 38  },
+  { x: 58,   w: 12, h: 122 }, // spike
+  { x: 80,   w: 44, h: 55  },
+  { x: 144,  w: 12, h: 158 }, // spike
+  { x: 168,  w: 36, h: 70  },
+  { x: 220,  w: 14, h: 115 }, // spike
+  { x: 248,  w: 46, h: 46  }, // very low block
+  { x: 312,  w: 12, h: 182 }, // spike
+  { x: 334,  w: 52, h: 88  },
+  { x: 404,  w: 12, h: 218 }, // spike
+  { x: 428,  w: 40, h: 115 },
+  { x: 484,  w: 12, h: 268 }, // tall spike
+  { x: 508,  w: 48, h: 145 },
+  { x: 568,  w: 18, h: 212 },
+  { x: 600,  w: 12, h: 162 },
+  { x: 626,  w: 44, h: 312 },
+  { x: 686,  w: 60, h: 378 }, // behind main cluster
+  { x: 760,  w: 20, h: 258 },
+  { x: 796,  w: 56, h: 348 },
+  { x: 868,  w: 12, h: 278 }, // spike
+  { x: 894,  w: 40, h: 140 },
+  { x: 950,  w: 12, h: 232 }, // spike
+  { x: 974,  w: 44, h: 108 },
+  { x: 1028, w: 12, h: 192 }, // spike
+  { x: 1054, w: 38, h: 78  },
+  { x: 1106, w: 12, h: 162 }, // spike
+  { x: 1132, w: 42, h: 98  },
+  { x: 1188, w: 14, h: 142 }, // spike
+  { x: 1218, w: 36, h: 62  },
+  { x: 1272, w: 12, h: 118 }, // spike
+  { x: 1300, w: 44, h: 52  },
+  { x: 1360, w: 12, h: 95  }, // spike
+  { x: 1390, w: 36, h: 42  },
+  { x: 1432, w: 12, h: 68  },
 ]
 
 // Deterministic lit windows — Moon District buildings only (no Math.random)
@@ -105,18 +109,43 @@ const MOON_WINDOWS: WinDot[] = (() => {
   let seed = 54321
   const r = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff }
   for (const b of FRONT.filter(bld => bld.glow)) {
-    const colW = 12, rowH = 15, ww = 7, wh = 8
-    const cols = Math.max(1, Math.floor((b.w - 6) / colW))
+    const colW = 10, rowH = 12, ww = 5, wh = 6
+    const cols = Math.max(1, Math.floor((b.w - 4) / colW))
     const rows = Math.max(1, Math.floor((b.h - 10) / rowH))
     const padX = (b.w - cols * colW) / 2
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
-        if (r() > 0.52) continue
+        if (r() > 0.58) continue
         wins.push({
           x: b.x + padX + col * colW + (colW - ww) / 2,
           y: (480 - b.h) + 5 + row * rowH + (rowH - wh) / 2,
           w: ww, h: wh,
-          bright: r() > 0.62,
+          bright: r() > 0.50,
+        })
+      }
+    }
+  }
+  return wins
+})()
+
+// Dim cool-toned windows for non-glow buildings
+const REGULAR_WINDOWS: WinDot[] = (() => {
+  const wins: WinDot[] = []
+  let seed = 77331
+  const r = () => { seed = (seed * 1664525 + 1013904223) & 0x7fffffff; return seed / 0x7fffffff }
+  for (const b of FRONT.filter(bld => !bld.glow && bld.h > 80)) {
+    const colW = 13, rowH = 15, ww = 4, wh = 5
+    const cols = Math.max(1, Math.floor((b.w - 4) / colW))
+    const rows = Math.max(1, Math.floor((b.h - 8) / rowH))
+    const padX = (b.w - cols * colW) / 2
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        if (r() > 0.22) continue
+        wins.push({
+          x: b.x + padX + col * colW + (colW - ww) / 2,
+          y: (480 - b.h) + 4 + row * rowH + (rowH - wh) / 2,
+          w: ww, h: wh,
+          bright: r() > 0.82,
         })
       }
     }
@@ -236,116 +265,297 @@ function CursorGlow() {
   )
 }
 
-// ─── City skyline SVG ────────────────────────────────────────────────────────
+// ─── Architectural setback profiles (indexed by building x) ──────────────────
+const GY_CITY = 480
 
-function CitySkyline() {
-  const GY = 480
-  const glowBuildings = FRONT.filter(b => b.glow)
+const SETBACKS: Record<number, Array<{ fromH: number; inset: number }>> = {
+  670: [{ fromH: 168, inset: 8 }],
+  722: [{ fromH: 178, inset: 12 }, { fromH: 352, inset: 16 }],
+  806: [],
+  898: [{ fromH: 145, inset: 6 }],
+}
 
-  // Single silhouette path — one element traces the whole city outline
-  const silhouettePath = FRONT.reduce(
-    (acc, b) => {
-      const rx = Math.min(b.x + b.w, 1440)
-      return acc + ` L ${b.x} ${GY} L ${b.x} ${GY - b.h} L ${rx} ${GY - b.h} L ${rx} ${GY}`
-    },
-    `M 0 ${GY}`
-  ) + ` L 1440 ${GY} Z`
+function mkSetbackPath2D(
+  b: Building,
+  scX: (x: number) => number,
+  scY: (y: number) => number,
+): Path2D {
+  const steps = (SETBACKS[b.x] ?? []).slice().sort((a, v) => a.fromH - v.fromH)
+  const p = new Path2D()
+  let lx = b.x, rx = b.x + b.w
+  const ys: number[] = []
+  const lxArr: number[] = [lx]
+  const rxArr: number[] = [rx]
+  p.moveTo(scX(lx), scY(GY_CITY))
+  for (const s of steps) {
+    const sy = GY_CITY - s.fromH
+    ys.push(sy)
+    p.lineTo(scX(lx), scY(sy))
+    p.lineTo(scX(lx + s.inset), scY(sy))
+    lx += s.inset; rx -= s.inset
+    lxArr.push(lx); rxArr.push(rx)
+  }
+  p.lineTo(scX(lx), scY(GY_CITY - b.h))
+  p.lineTo(scX(rx), scY(GY_CITY - b.h))
+  for (let i = steps.length - 1; i >= 0; i--) {
+    p.lineTo(scX(rxArr[i + 1]), scY(ys[i]))
+    p.lineTo(scX(rxArr[i]), scY(ys[i]))
+  }
+  p.lineTo(scX(rxArr[0]), scY(GY_CITY))
+  p.closePath()
+  return p
+}
+
+// ─── Canvas city — animated, WebGL-quality rendering ─────────────────────────
+
+function CityCanvas() {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const rafRef    = useRef(0)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d', { alpha: true })
+    if (!ctx) return
+
+    // ── mutable animation state (no React re-renders) ──
+    const glowB = FRONT.filter(b => b.glow)
+    let W = 0, H = 0, dpr = 1, cachedW = -1
+
+    const rain = Array.from({ length: 220 }, () => ({
+      x: Math.random(), y: Math.random(),
+      speed: 0.30 + Math.random() * 0.22,
+      len:   0.009 + Math.random() * 0.015,
+      a:     0.05  + Math.random() * 0.10,
+    }))
+
+    const allWin = [...REGULAR_WINDOWS, ...MOON_WINDOWS]
+    const winLit    = allWin.map(() => Math.random() > 0.25)
+    const winBright = allWin.map(() => 0.4 + Math.random() * 0.6)
+    const winNext   = allWin.map(() => Math.random() * 6)
+
+    let glowPaths: Path2D[] = []
+    let time = 0
+
+    const resize = () => {
+      dpr = Math.min(window.devicePixelRatio ?? 1, 2)
+      const r = canvas.getBoundingClientRect()
+      W = r.width; H = r.height
+      canvas.width  = W * dpr
+      canvas.height = H * dpr
+      cachedW = -1
+    }
+    resize()
+    window.addEventListener('resize', resize)
+
+    let last = 0
+    const frame = (now: number) => {
+      const dt = Math.min((now - last) / 1000, 0.05)
+      last = now; time += dt
+
+      ctx.save()
+      ctx.scale(dpr, dpr)
+
+      // coordinate helpers: city space (1440×480) → canvas
+      const cs = W / 1440
+      const yo = H - GY_CITY * cs   // city top in canvas y
+      const GYc = H                  // ground in canvas y
+      const scX = (x: number) => x * cs
+      const scY = (y: number) => yo + y * cs
+
+      // rebuild Path2D cache on resize
+      if (cachedW !== W) {
+        glowPaths = glowB.map(b => mkSetbackPath2D(b, scX, scY))
+        cachedW = W
+      }
+
+      // ── SKY ──
+      const skyG = ctx.createLinearGradient(0, 0, 0, H)
+      skyG.addColorStop(0,    '#010309')
+      skyG.addColorStop(0.55, '#020508')
+      skyG.addColorStop(1,    '#060d18')
+      ctx.fillStyle = skyG
+      ctx.fillRect(0, 0, W, H)
+
+      // ── STARS ──
+      for (const s of STARS) {
+        const flk = 0.55 + 0.45 * Math.sin(time * (0.3 + s.delay * 0.07) + s.x * 8.1)
+        ctx.globalAlpha = s.opacity * flk
+        ctx.fillStyle = '#ffffff'
+        ctx.beginPath()
+        ctx.arc(s.x / 100 * W, (s.y / 100) * H * 0.72, s.size * 0.65, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      ctx.globalAlpha = 1
+
+      // ── CITY BLOOM ──
+      const bloomG = ctx.createRadialGradient(W * 0.54, GYc, 0, W * 0.54, GYc, W * 0.52)
+      bloomG.addColorStop(0,    'rgba(247,147,26,0.30)')
+      bloomG.addColorStop(0.38, 'rgba(180,95,12,0.10)')
+      bloomG.addColorStop(1,    'rgba(0,0,0,0)')
+      ctx.fillStyle = bloomG
+      ctx.fillRect(0, H * 0.25, W, H * 0.75)
+
+      // ── BACK BUILDINGS (depth layer) ──
+      ctx.fillStyle = '#0d1422'
+      for (const b of BACK)
+        ctx.fillRect(scX(b.x), scY(GY_CITY - b.h), scX(b.w), scX(b.h))
+
+      // ── DEPTH HAZE ──
+      const hazeG = ctx.createLinearGradient(0, scY(250), 0, GYc)
+      hazeG.addColorStop(0, 'rgba(5,9,18,0)')
+      hazeG.addColorStop(1, 'rgba(5,9,18,0.50)')
+      ctx.fillStyle = hazeG
+      ctx.fillRect(0, scY(250), W, GYc - scY(250))
+
+      // ── REGULAR BUILDINGS ──
+      ctx.fillStyle = '#07090e'
+      for (const b of FRONT)
+        if (!b.glow) ctx.fillRect(scX(b.x), scY(GY_CITY - b.h), scX(b.w), scX(b.h))
+
+      // ── ROOFTOP CAPS (subtle sky-reflection edge) ──
+      ctx.fillStyle = 'rgba(130,158,235,0.09)'
+      for (const b of FRONT)
+        if (!b.glow && b.h > 100)
+          ctx.fillRect(scX(b.x), scY(GY_CITY - b.h), scX(b.w), Math.max(1, cs))
+
+      // ── REGULAR WINDOWS — cool blue, individual flicker ──
+      for (let i = 0; i < REGULAR_WINDOWS.length; i++) {
+        winNext[i] -= dt
+        if (winNext[i] <= 0) {
+          winLit[i]    = Math.random() > 0.15
+          winBright[i] = 0.35 + Math.random() * 0.65
+          winNext[i]   = 1.5  + Math.random() * 10
+        }
+        if (!winLit[i]) continue
+        const w = REGULAR_WINDOWS[i]
+        ctx.globalAlpha = winBright[i] * (w.bright ? 0.30 : 0.15)
+        ctx.fillStyle = '#8faaee'
+        ctx.fillRect(scX(w.x), scY(w.y), scX(w.w), scX(w.h))
+      }
+      ctx.globalAlpha = 1
+
+      // ── MOON DISTRICT — wide ambient glow pass ──
+      ctx.save()
+      ctx.shadowColor = 'rgba(247,147,26,0.70)'
+      ctx.shadowBlur  = 55 * cs
+      ctx.fillStyle   = 'rgba(14,18,32,0.01)'
+      for (const p of glowPaths) ctx.fill(p)
+      ctx.restore()
+
+      // ── MOON DISTRICT — buildings with tight crisp glow ──
+      ctx.save()
+      ctx.shadowColor = 'rgba(247,147,26,1)'
+      ctx.shadowBlur  = 14 * cs
+      ctx.fillStyle   = '#0d1220'
+      for (const p of glowPaths) ctx.fill(p)
+      ctx.restore()
+
+      // ── MOON DISTRICT WINDOWS — orange, individual flicker ──
+      const rn = REGULAR_WINDOWS.length
+      for (let i = 0; i < MOON_WINDOWS.length; i++) {
+        const wi = rn + i
+        winNext[wi] -= dt
+        if (winNext[wi] <= 0) {
+          winLit[wi]    = Math.random() > 0.05
+          winBright[wi] = 0.55 + Math.random() * 0.45
+          winNext[wi]   = 0.3  + Math.random() * 7
+        }
+        if (!winLit[wi]) continue
+        const w = MOON_WINDOWS[i]
+        ctx.globalAlpha = winBright[wi] * (w.bright ? 0.94 : 0.55)
+        ctx.fillStyle = w.bright ? '#f7931a' : '#c97a18'
+        ctx.fillRect(scX(w.x), scY(w.y), scX(w.w), scX(w.h))
+      }
+      ctx.globalAlpha = 1
+
+      // ── TOP STRIPES + RIM LIGHTS ──
+      for (const b of glowB) {
+        const steps = (SETBACKS[b.x] ?? []).slice().sort((a, v) => a.fromH - v.fromH)
+        let lx = b.x, rw = b.w
+        for (const s of steps) { lx += s.inset; rw -= s.inset * 2 }
+        // top stripe at narrowest section
+        ctx.fillStyle = 'rgba(247,147,26,0.90)'
+        ctx.fillRect(scX(lx), scY(GY_CITY - b.h) - Math.max(1, cs), scX(rw), Math.max(2, 2 * cs))
+        // outer vertical rim lights
+        ctx.fillStyle = 'rgba(247,147,26,0.24)'
+        ctx.fillRect(scX(b.x), scY(GY_CITY - b.h), Math.max(2, 2 * cs), scX(b.h))
+        ctx.fillRect(scX(b.x + b.w) - Math.max(2, 2 * cs), scY(GY_CITY - b.h), Math.max(2, 2 * cs), scX(b.h))
+      }
+
+      // ── SETBACK CORNICE LINES ──
+      ctx.fillStyle = 'rgba(247,147,26,0.44)'
+      for (const b of glowB)
+        for (const s of (SETBACKS[b.x] ?? []))
+          ctx.fillRect(scX(b.x), scY(GY_CITY - s.fromH) - Math.max(1, cs * 0.8), scX(b.w), Math.max(1.5, 1.5 * cs))
+
+      // ── RAIN ──
+      ctx.save()
+      ctx.lineWidth = Math.max(0.5, 0.65 * cs)
+      for (const d of rain) {
+        ctx.globalAlpha = d.a
+        ctx.strokeStyle = '#6888a8'
+        ctx.beginPath()
+        ctx.moveTo(d.x * W,                    d.y * H)
+        ctx.lineTo(d.x * W - d.len * W * 0.055, d.y * H + d.len * H)
+        ctx.stroke()
+        d.y += d.speed * dt * 0.85
+        d.x -= d.speed * dt * 0.04
+        if (d.y > 1.06) { d.y = -0.04; d.x = Math.random() }
+        if (d.x < -0.04) d.x = 1.04
+      }
+      ctx.globalAlpha = 1
+      ctx.restore()
+
+      // ── SPIRE + BLINKING BEACON ──
+      {
+        const sx = scX(760), sy = scY(GY_CITY - 425) - 50 * cs
+        ctx.save()
+        ctx.shadowColor = '#f7931a'; ctx.shadowBlur = 10 * cs
+        ctx.strokeStyle = 'rgba(247,147,26,0.90)'; ctx.lineWidth = Math.max(1.5, 2 * cs)
+        ctx.beginPath(); ctx.moveTo(scX(760), scY(GY_CITY - 425)); ctx.lineTo(sx, sy); ctx.stroke()
+        ctx.globalAlpha = 0.5 + 0.5 * Math.sin(time * 3.8)
+        ctx.fillStyle = '#f7931a'
+        ctx.beginPath(); ctx.arc(sx, sy, 3.5 * cs, 0, Math.PI * 2); ctx.fill()
+        ctx.restore()
+      }
+
+      // ── HORIZON HEAT ──
+      const horizG = ctx.createLinearGradient(0, scY(430), 0, GYc)
+      horizG.addColorStop(0, 'rgba(247,147,26,0.30)')
+      horizG.addColorStop(1, 'rgba(0,0,0,0)')
+      ctx.fillStyle = horizG
+      ctx.fillRect(scX(120), scY(430), scX(1200), scX(50))
+
+      // Ground line
+      ctx.strokeStyle = 'rgba(247,147,26,0.25)'; ctx.lineWidth = Math.max(1, cs)
+      ctx.beginPath(); ctx.moveTo(0, GYc - Math.max(1, cs)); ctx.lineTo(W, GYc - Math.max(1, cs)); ctx.stroke()
+
+      // ── SKY TOP FADE ──
+      const fadeG = ctx.createLinearGradient(0, 0, 0, H * 0.30)
+      fadeG.addColorStop(0, 'rgba(1,2,6,0.96)')
+      fadeG.addColorStop(1, 'rgba(1,2,6,0)')
+      ctx.fillStyle = fadeG
+      ctx.fillRect(0, 0, W, H * 0.30)
+
+      ctx.restore()
+      rafRef.current = requestAnimationFrame(frame)
+    }
+
+    rafRef.current = requestAnimationFrame(frame)
+    return () => {
+      cancelAnimationFrame(rafRef.current)
+      window.removeEventListener('resize', resize)
+    }
+  }, [])
 
   return (
-    <svg
-      viewBox="0 0 1440 490"
-      preserveAspectRatio="xMidYMax slice"
-      className="w-full"
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 w-full h-full"
       style={{ display: 'block' }}
       aria-hidden="true"
-    >
-      <defs>
-        <radialGradient id="cityBloom" cx="54%" cy="100%" rx="52%" ry="68%">
-          <stop offset="0%"   stopColor="#f7931a" stopOpacity="0.34"/>
-          <stop offset="38%"  stopColor="#d07010" stopOpacity="0.13"/>
-          <stop offset="100%" stopColor="#000000" stopOpacity="0"/>
-        </radialGradient>
-        <radialGradient id="moonAmbient" cx="87%" cy="4%" rx="56%" ry="56%">
-          <stop offset="0%"   stopColor="#b8ccff" stopOpacity="0.06"/>
-          <stop offset="100%" stopColor="transparent" stopOpacity="0"/>
-        </radialGradient>
-        <linearGradient id="skyFade2" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"  stopColor="#030309" stopOpacity="1"/>
-          <stop offset="60%" stopColor="#030309" stopOpacity="0"/>
-        </linearGradient>
-        <linearGradient id="horizGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stopColor="#f7931a" stopOpacity="0.22"/>
-          <stop offset="100%" stopColor="transparent" stopOpacity="0"/>
-        </linearGradient>
-      </defs>
-
-      {/* Moonlight wash */}
-      <rect x="0" y="0" width="1440" height="480" fill="url(#moonAmbient)"/>
-
-      {/* City bloom — behind everything */}
-      <rect x="0" y="0" width="1440" height="480" fill="url(#cityBloom)"/>
-
-      {/* Back layer — faint distant buildings */}
-      <g opacity="0.10" fill="#1c2238">
-        {BACK.map((b, i) => (
-          <rect key={i} x={b.x} y={GY - b.h} width={b.w} height={b.h}/>
-        ))}
-      </g>
-
-      {/* ── MAIN SILHOUETTE ── single path, entire city outline */}
-      <path d={silhouettePath} fill="#07090f"/>
-
-      {/* Moon District — triple-layer bloom */}
-      <g style={{ filter: 'drop-shadow(0 0 10px rgba(247,147,26,1)) drop-shadow(0 0 28px rgba(247,147,26,0.65)) drop-shadow(0 0 65px rgba(247,147,26,0.28))' }}>
-        {glowBuildings.map((b, i) => (
-          <rect key={i} x={b.x} y={GY - b.h} width={b.w} height={b.h} fill="#0e1320"/>
-        ))}
-      </g>
-
-      {/* Lit windows — individual rects, deterministic positions */}
-      {MOON_WINDOWS.map((w, i) => (
-        <rect
-          key={i}
-          x={w.x} y={w.y} width={w.w} height={w.h} rx="0.5"
-          fill={w.bright ? 'rgba(247,147,26,0.92)' : 'rgba(200,125,35,0.50)'}
-        />
-      ))}
-
-      {/* Moon District: top stripe + rim lighting */}
-      {glowBuildings.map((b, i) => (
-        <g key={i}>
-          <rect x={b.x}             y={GY - b.h} width={b.w}   height={2.5} fill="rgba(247,147,26,0.88)"/>
-          <rect x={b.x}             y={GY - b.h} width={2.5}   height={b.h} fill="rgba(247,147,26,0.28)"/>
-          <rect x={b.x + b.w - 2.5} y={GY - b.h} width={2.5}   height={b.h} fill="rgba(247,147,26,0.20)"/>
-        </g>
-      ))}
-
-      {/* Spire on tallest building (x=732, w=82, center≈773) */}
-      <line x1={773} y1={55} x2={773} y2={7} stroke="#f7931a" strokeWidth="2.5" opacity="0.90"/>
-      <circle cx={773} cy={5} r={4} fill="#f7931a" opacity="0.92"/>
-
-      {/* Blinking rooftop lights */}
-      {glowBuildings.map((b, i) => (
-        <motion.circle
-          key={i}
-          cx={b.x + b.w / 2}
-          cy={GY - b.h - 7}
-          r={3.5}
-          fill="#f7931a"
-          animate={{ opacity: [0.95, 0.08, 0.95], scale: [1, 1.5, 1] }}
-          transition={{ repeat: Infinity, duration: 1.4 + i * 0.35, delay: i * 0.5, ease: 'easeInOut' }}
-        />
-      ))}
-
-      {/* Ground line */}
-      <line x1="0" y1={GY - 1} x2="1440" y2={GY - 1} stroke="rgba(247,147,26,0.20)" strokeWidth="1"/>
-
-      {/* Horizon heat strip */}
-      <rect x="180" y={GY - 38} width="1080" height="38" fill="url(#horizGrad)"/>
-
-      {/* Sky fade from top */}
-      <rect x="0" y="0" width="1440" height="180" fill="url(#skyFade2)"/>
-    </svg>
+    />
   )
 }
 
@@ -355,8 +565,6 @@ function HeroSection() {
   const heroRef = useRef<HTMLDivElement>(null)
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] })
 
-  const backY     = useTransform(scrollYProgress, [0, 1], ['0%', '30%'])
-  const frontY    = useTransform(scrollYProgress, [0, 1], ['0%', '15%'])
   const moonY     = useTransform(scrollYProgress, [0, 1], ['0%', '50%'])
   const titleY    = useTransform(scrollYProgress, [0, 0.75], ['0%', '-28%'])
   const titleO    = useTransform(scrollYProgress, [0, 0.55], [1, 0])
@@ -382,43 +590,36 @@ function HeroSection() {
         }}
       />
 
-      {/* Stars */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {STARS.map((star, i) => (
-          <motion.div
-            key={i}
-            className="absolute rounded-full bg-white"
-            style={{
-              left: `${star.x}%`,
-              top:  `${star.y}%`,
-              width:  star.size,
-              height: star.size,
-              opacity: star.opacity,
-            }}
-            animate={{ opacity: [star.opacity, star.opacity * 0.3, star.opacity] }}
-            transition={{
-              repeat: Infinity,
-              duration: 2.5 + star.delay,
-              delay: star.delay,
-              ease: 'easeInOut',
-            }}
-          />
-        ))}
-      </div>
-
       {/* Moon */}
       <motion.div
         className="absolute top-12 right-[8%] md:right-[12%] pointer-events-none"
         style={{ y: moonY }}
       >
+        {/* Atmospheric halo rings */}
+        <div className="absolute inset-0 rounded-full" style={{
+          transform: 'scale(3.2)',
+          background: 'radial-gradient(circle, rgba(255,230,170,0.04) 30%, transparent 70%)',
+        }}/>
+        <div className="absolute inset-0 rounded-full" style={{
+          transform: 'scale(2.0)',
+          background: 'radial-gradient(circle, rgba(255,235,185,0.08) 40%, transparent 70%)',
+        }}/>
+        <div className="absolute inset-0 rounded-full" style={{
+          transform: 'scale(1.35)',
+          background: 'radial-gradient(circle, rgba(255,245,215,0.13) 50%, transparent 70%)',
+        }}/>
+        {/* Moon sphere — 3-stop gradient with shadowed edge */}
         <div
-          className="w-28 h-28 md:w-40 md:h-40 rounded-full"
+          className="relative w-28 h-28 md:w-40 md:h-40 rounded-full"
           style={{
-            background: 'radial-gradient(circle at 35% 35%, rgba(255,255,240,0.95), rgba(220,220,200,0.7))',
+            background: 'radial-gradient(circle at 38% 36%, #f2f0e0 0%, #ddd8c0 48%, #b8b09a 100%)',
             boxShadow: `
-              0 0 40px rgba(255,240,200,0.25),
-              0 0 80px rgba(255,200,100,0.12),
-              0 0 160px rgba(247,147,26,0.08)
+              inset -6px -5px 18px rgba(0,0,0,0.32),
+              inset  3px  3px  8px rgba(255,255,255,0.08),
+              0 0 30px rgba(255,238,195,0.35),
+              0 0 70px rgba(255,215,140,0.20),
+              0 0 150px rgba(247,147,26,0.12),
+              0 0 280px rgba(247,147,26,0.07)
             `,
           }}
         />
@@ -518,29 +719,8 @@ function HeroSection() {
         </motion.a>
       </motion.div>
 
-      {/* Skyline — parallax layers */}
-      <div className="absolute bottom-0 left-0 right-0 pointer-events-none">
-        {/* Back layer */}
-        <motion.div className="absolute bottom-0 left-0 right-0" style={{ y: backY }}>
-          <svg
-            viewBox="0 0 1440 240"
-            preserveAspectRatio="xMidYMax slice"
-            className="w-full"
-            aria-hidden="true"
-          >
-            <g opacity="0.12" fill="#1a1e2e">
-              {BACK.filter(b => b.h < 240).map((b, i) => (
-                <rect key={i} x={b.x} y={240 - b.h * 0.55} width={b.w} height={b.h * 0.55} />
-              ))}
-            </g>
-          </svg>
-        </motion.div>
-
-        {/* Front layer */}
-        <motion.div className="absolute bottom-0 left-0 right-0" style={{ y: frontY }}>
-          <CitySkyline />
-        </motion.div>
-      </div>
+      {/* Canvas — full hero background: sky, stars, buildings, rain, glow */}
+      <CityCanvas />
 
       {/* Bottom fade into next section */}
       <div
