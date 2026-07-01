@@ -98,6 +98,8 @@ const config: Config = {
         'display': ['var(--font-display)', 'Syne', 'sans-serif'],
         'sans': ['var(--font-sans)', 'DM Sans', 'sans-serif'],
         'mono': ['var(--font-mono)', 'JetBrains Mono', 'Fira Code', 'Consolas', 'monospace'],
+        'heading': ['var(--font-heading)', 'Instrument Serif', 'serif'],
+        'body': ['var(--font-body)', 'Barlow', 'sans-serif'],
       },
       fontSize: {
         'xs': ['11px', { lineHeight: '1.4' }],

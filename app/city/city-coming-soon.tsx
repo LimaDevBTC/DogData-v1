@@ -1,748 +1,747 @@
 'use client'
 
-import { useRef, useEffect, useCallback } from 'react'
-import {
-  motion,
-  useScroll,
-  useTransform,
-  useSpring,
-  useMotionValue,
-  useInView,
-} from 'framer-motion'
-import { Building2, ShoppingBag, Globe, ExternalLink } from 'lucide-react'
+import { useRef, useEffect, useState, useCallback } from 'react'
+import { motion, useScroll, useTransform, type MotionValue } from 'framer-motion'
+import { Building2, MapPin, Coins, Globe, TrendingUp, Users, Zap, Star, Hash } from 'lucide-react'
 
-// ─── Star field data (deterministic LCG — no Math.random in render) ───────────
+// ─── FadingVideo ─────────────────────────────────────────────────────────────
 
-interface Star { x: number; y: number; size: number; opacity: number; delay: number }
+function FadingVideo({ src, scale }: { src: string; scale: MotionValue<number> }) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [ready, setReady] = useState(false)
 
-function makeStars(n: number): Star[] {
-  let s = 98765
-  const r = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff }
-  return Array.from({ length: n }, () => ({
-    x: r() * 96 + 2, y: r() * 60 + 1,
-    size: r() * 1.5 + 0.4,
-    opacity: r() * 0.5 + 0.15,
-    delay: r() * 5,
-  }))
+  useEffect(() => {
+    const v = videoRef.current
+    if (!v) return
+    v.playbackRate = 0.5
+    const start = () => {
+      v.play().catch(() => {})
+      setReady(true)
+    }
+    if (v.readyState >= 3) {
+      start()
+    } else {
+      v.addEventListener('canplay', start, { once: true })
+      return () => v.removeEventListener('canplay', start)
+    }
+  }, [])
+
+  return (
+    <motion.div className="absolute inset-0" style={{ scale }}>
+      <video
+        ref={videoRef}
+        src={src}
+        loop
+        muted
+        playsInline
+        className="w-full h-full object-cover"
+        style={{ opacity: ready ? 1 : 0, transition: 'opacity 1.8s ease' }}
+      />
+    </motion.div>
+  )
 }
-const STARS = makeStars(72)
 
-// ─── Static data ──────────────────────────────────────────────────────────────
+// ─── BlurText ─────────────────────────────────────────────────────────────────
+
+interface BlurTextProps {
+  text: string
+  className?: string
+  style?: React.CSSProperties
+  delay?: number
+  wordDelay?: number
+}
+
+function BlurText({ text, className, style, delay = 0, wordDelay = 70 }: BlurTextProps) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) { setVisible(true); obs.disconnect() }
+      },
+      { threshold: 0.05 }
+    )
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+
+  const words = text.split(' ')
+
+  return (
+    <div ref={ref} className={className} style={style} aria-label={text}>
+      {words.map((word, i) => (
+        <span
+          key={i}
+          style={{
+            display: 'inline-block',
+            marginRight: i < words.length - 1 ? '0.28em' : 0,
+            filter: visible ? 'blur(0px)' : 'blur(14px)',
+            opacity: visible ? 1 : 0,
+            transform: visible ? 'translateY(0)' : 'translateY(10px)',
+            transition: `filter 0.75s ease ${delay + i * wordDelay}ms, opacity 0.75s ease ${delay + i * wordDelay}ms, transform 0.7s ease ${delay + i * wordDelay}ms`,
+          }}
+        >
+          {word}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+// ─── RainCanvas ───────────────────────────────────────────────────────────────
+
+function RainCanvas() {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    let raf: number
+    type Drop = { x: number; y: number; speed: number; opacity: number; length: number }
+    let drops: Drop[] = []
+
+    const resize = () => {
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+      drops = Array.from({ length: 55 }, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        speed: 3.5 + Math.random() * 5,
+        opacity: 0.03 + Math.random() * 0.055,
+        length: 10 + Math.random() * 18,
+      }))
+    }
+
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      drops.forEach(d => {
+        ctx.beginPath()
+        ctx.strokeStyle = `rgba(255,255,255,${d.opacity})`
+        ctx.lineWidth = 0.5
+        ctx.moveTo(d.x, d.y)
+        ctx.lineTo(d.x - 0.8, d.y + d.length)
+        ctx.stroke()
+        d.y += d.speed
+        if (d.y > canvas.height + d.length) {
+          d.y = -d.length
+          d.x = Math.random() * canvas.width
+        }
+      })
+      raf = requestAnimationFrame(draw)
+    }
+
+    resize()
+    draw()
+    window.addEventListener('resize', resize)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', resize)
+    }
+  }, [])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 pointer-events-none"
+      style={{ zIndex: 3, mixBlendMode: 'screen' }}
+    />
+  )
+}
+
+// ─── Data ─────────────────────────────────────────────────────────────────────
 
 const DISTRICTS = [
-  { name: 'Moon District',   tier: 'Top 100',    color: '#f7931a', bg: 'rgba(247,147,26,0.08)',  border: 'rgba(247,147,26,0.25)', glow: 'rgba(247,147,26,0.18)',  desc: 'The elite. The whales. The heart of the city.' },
-  { name: 'Bitcoin Quarter', tier: 'Top 1,000',  color: '#6b8fff', bg: 'rgba(107,143,255,0.08)', border: 'rgba(107,143,255,0.22)', glow: 'rgba(107,143,255,0.14)', desc: 'Conviction builders. Established presence.' },
-  { name: 'Runes Avenue',    tier: 'Top 10,000', color: '#ff8c00', bg: 'rgba(255,140,0,0.08)',   border: 'rgba(255,140,0,0.22)',   glow: 'rgba(255,140,0,0.14)',   desc: 'Commercial heartbeat of DogCity.' },
-  { name: 'Suburbs',         tier: 'Top 86k',    color: '#2d9e5f', bg: 'rgba(45,158,95,0.08)',   border: 'rgba(45,158,95,0.22)',   glow: 'rgba(45,158,95,0.12)',   desc: 'Community. Growth. Daily life.' },
-  { name: 'Outer Ring',      tier: 'All holders', color: '#6b6b8a', bg: 'rgba(107,107,138,0.06)', border: 'rgba(107,107,138,0.18)', glow: 'rgba(107,107,138,0.10)', desc: 'Every citizen counts. Every wallet matters.' },
+  {
+    id: 'diamond',
+    name: 'Diamond District',
+    sub: 'Never sold. Never will.',
+    holders: '6,035',
+    colorFrom: 'rgba(103,232,249,0.12)',
+    dot: '#67E8F9',
+    icon: Star,
+  },
+  {
+    id: 'silver',
+    name: 'Silver District',
+    sub: 'Long-term conviction.',
+    holders: '18,240',
+    colorFrom: 'rgba(203,213,225,0.1)',
+    dot: '#CBD5E1',
+    icon: TrendingUp,
+  },
+  {
+    id: 'bronze',
+    name: 'Bronze District',
+    sub: 'Building position.',
+    holders: '31,800',
+    colorFrom: 'rgba(245,110,15,0.14)',
+    dot: '#F56E0F',
+    icon: Building2,
+  },
+  {
+    id: 'ordinal',
+    name: 'Ordinal District',
+    sub: 'Inscribed on Bitcoin. Twice native.',
+    holders: '4,280',
+    colorFrom: 'rgba(247,147,26,0.14)',
+    dot: '#F7931A',
+    icon: Hash,
+  },
+  {
+    id: 'airdrop',
+    name: 'Airdrop District',
+    sub: 'OG recipients. Proven loyalty.',
+    holders: '21,450',
+    colorFrom: 'rgba(196,181,253,0.12)',
+    dot: '#C4B5FD',
+    icon: Zap,
+  },
+  {
+    id: 'new',
+    name: 'New District',
+    sub: 'Growing the ecosystem.',
+    holders: '11,792',
+    colorFrom: 'rgba(74,222,128,0.1)',
+    dot: '#4ADE80',
+    icon: Users,
+  },
 ]
 
 const FEATURES = [
   {
     icon: Building2,
     title: 'Claim Your Building',
-    price: '10,000 DOG',
-    desc: 'Recognize your address. Link your X handle. Put your name on the map — permanently.',
-    color: '#f7931a',
-    glow: 'rgba(247,147,26,0.15)',
+    desc: 'Every $DOG holder has a building in DogCity. Stake 10,000 DOG to claim ownership and earn passive income from your district.',
+    tag: '10,000 DOG',
+    color: '#F56E0F',
   },
   {
-    icon: ShoppingBag,
-    title: 'Commercial License',
-    price: '50,000 DOG',
-    desc: 'Open your storefront in DogCity. Serve the global $DOG community — on-chain and in real life.',
-    color: '#6b8fff',
-    glow: 'rgba(107,143,255,0.12)',
+    icon: MapPin,
+    title: 'Register Your Business',
+    desc: 'Stake 50,000 DOG to register a commercial business in your building and unlock city-wide revenue sharing.',
+    tag: '50,000 DOG',
+    color: '#FB923C',
+  },
+  {
+    icon: Coins,
+    title: 'Earn from Foot Traffic',
+    desc: "Your building's district tier, size, and location determine daily earnings from DogCity's on-chain economic activity.",
+    tag: 'Daily Rewards',
+    color: '#FBBF24',
   },
   {
     icon: Globe,
-    title: 'Global Rewards Club',
-    price: 'Commercial holders',
-    desc: 'DOG holders in every city. Coffee shops, services, experiences — exclusively for the community.',
-    color: '#ff8c00',
-    glow: 'rgba(255,140,0,0.12)',
+    title: '3D On-Chain City',
+    desc: 'A living, breathing 3D city where every building represents a real wallet. All data is on-chain, all the time.',
+    tag: '89,317 Buildings',
+    color: '#67E8F9',
   },
 ]
 
-const STATS = [
-  { value: '86,317', label: 'CITIZENS'      },
-  { value: '5',      label: 'DISTRICTS'     },
-  { value: '1',      label: 'ON-CHAIN CITY' },
-  { value: '∞',      label: 'POSSIBILITIES' },
-]
-
-// ─── Animation variants ────────────────────────────────────────────────────────
-
-const fadeUp = {
-  hidden:  { opacity: 0, y: 40 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] as const } },
-}
-
-const stagger = {
-  hidden:  {},
-  visible: { transition: { staggerChildren: 0.1 } },
-}
-
-// ─── Reusable reveal wrapper ───────────────────────────────────────────────────
-
-function Reveal({ children, className, delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const inView = useInView(ref, { once: true, margin: '-8% 0px' })
-  return (
-    <motion.div
-      ref={ref}
-      className={className}
-      initial={{ opacity: 0, y: 36 }}
-      animate={inView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.7, delay, ease: [0.16, 1, 0.3, 1] }}
-    >
-      {children}
-    </motion.div>
-  )
-}
-
-// ─── Cursor glow (global) ─────────────────────────────────────────────────────
-
-function CursorGlow() {
-  const mx = useMotionValue(-400)
-  const my = useMotionValue(-400)
-  const sx = useSpring(mx, { stiffness: 80, damping: 28 })
-  const sy = useSpring(my, { stiffness: 80, damping: 28 })
-
-  useEffect(() => {
-    const fn = (e: MouseEvent) => { mx.set(e.clientX - 220); my.set(e.clientY - 220) }
-    window.addEventListener('mousemove', fn)
-    return () => window.removeEventListener('mousemove', fn)
-  }, [mx, my])
-
-  return (
-    <motion.div
-      className="fixed pointer-events-none z-[200] w-[440px] h-[440px] rounded-full"
-      style={{
-        x: sx, y: sy,
-        background: 'radial-gradient(circle, rgba(247,147,26,0.040) 0%, transparent 70%)',
-      }}
-    />
-  )
-}
-
-// ─── Star canvas ──────────────────────────────────────────────────────────────
-
-function StarCanvas({ className }: { className?: string }) {
-  const ref = useRef<HTMLCanvasElement>(null)
-  const raf = useRef(0)
-
-  useEffect(() => {
-    const canvas = ref.current; if (!canvas) return
-    const ctx = canvas.getContext('2d'); if (!ctx) return
-    let W = 0, H = 0, dpr = 1, time = 0, last = 0
-
-    const resize = () => {
-      dpr = Math.min(window.devicePixelRatio ?? 1, 2)
-      const r = canvas.getBoundingClientRect()
-      W = r.width; H = r.height
-      canvas.width = W * dpr; canvas.height = H * dpr
-    }
-    resize()
-    window.addEventListener('resize', resize)
-
-    const frame = (now: number) => {
-      const dt = Math.min((now - last) / 1000, 0.05); last = now; time += dt
-      ctx.save(); ctx.scale(dpr, dpr)
-      ctx.clearRect(0, 0, W, H)
-      for (const s of STARS) {
-        const flk = 0.55 + 0.45 * Math.sin(time * (0.3 + s.delay * 0.07) + s.x * 8.1)
-        ctx.globalAlpha = s.opacity * flk
-        ctx.fillStyle = '#ffffff'
-        ctx.beginPath()
-        ctx.arc(s.x / 100 * W, s.y / 100 * H, s.size * 0.6, 0, Math.PI * 2)
-        ctx.fill()
-      }
-      ctx.restore()
-      raf.current = requestAnimationFrame(frame)
-    }
-    raf.current = requestAnimationFrame(frame)
-    return () => { cancelAnimationFrame(raf.current); window.removeEventListener('resize', resize) }
-  }, [])
-
-  return <canvas ref={ref} className={className} aria-hidden="true" />
-}
-
-// ─── Rain canvas ──────────────────────────────────────────────────────────────
-
-function RainCanvas({ className, style }: { className?: string; style?: React.CSSProperties }) {
-  const ref = useRef<HTMLCanvasElement>(null)
-  const raf = useRef(0)
-
-  useEffect(() => {
-    const canvas = ref.current; if (!canvas) return
-    const ctx = canvas.getContext('2d'); if (!ctx) return
-
-    const rain = Array.from({ length: 160 }, () => ({
-      x: Math.random(),
-      y: Math.random() * 1.2 - 0.1,
-      speed: 0.24 + Math.random() * 0.22,
-      len: 0.007 + Math.random() * 0.013,
-      a: 0.035 + Math.random() * 0.075,
-    }))
-    let W = 0, H = 0, dpr = 1, last = 0
-
-    const resize = () => {
-      dpr = Math.min(window.devicePixelRatio ?? 1, 2)
-      const r = canvas.getBoundingClientRect()
-      W = r.width; H = r.height
-      canvas.width = W * dpr; canvas.height = H * dpr
-    }
-    resize()
-    window.addEventListener('resize', resize)
-
-    const frame = (now: number) => {
-      const dt = Math.min((now - last) / 1000, 0.05); last = now
-      ctx.save(); ctx.scale(dpr, dpr)
-      ctx.clearRect(0, 0, W, H)
-      ctx.lineWidth = 0.7
-      for (const d of rain) {
-        ctx.globalAlpha = d.a
-        ctx.strokeStyle = '#6888a8'
-        ctx.beginPath()
-        ctx.moveTo(d.x * W, d.y * H)
-        ctx.lineTo(d.x * W - d.len * W * 0.05, d.y * H + d.len * H)
-        ctx.stroke()
-        d.y += d.speed * dt * 0.9
-        d.x -= d.speed * dt * 0.035
-        if (d.y > 1.08) { d.y = -0.04; d.x = Math.random() }
-        if (d.x < -0.02) d.x = 1.02
-      }
-      ctx.restore()
-      raf.current = requestAnimationFrame(frame)
-    }
-    raf.current = requestAnimationFrame(frame)
-    return () => { cancelAnimationFrame(raf.current); window.removeEventListener('resize', resize) }
-  }, [])
-
-  return <canvas ref={ref} className={className} style={style} aria-hidden="true" />
-}
-
-// ─── Hero ─────────────────────────────────────────────────────────────────────
-
-function HeroSection() {
-  const heroRef        = useRef<HTMLDivElement>(null)
-  const imgContainerRef = useRef<HTMLDivElement>(null)
-  const imgRef         = useRef<HTMLVideoElement>(null)
-  const spotlightRef   = useRef<HTMLDivElement>(null)
-  const glowLineRef    = useRef<HTMLDivElement>(null)
-
-  const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] })
-  const titleY = useTransform(scrollYProgress, [0, 0.75], ['0%', '-28%'])
-  const titleO = useTransform(scrollYProgress, [0, 0.55], [1, 0])
-  const moonY  = useTransform(scrollYProgress, [0, 1], ['0%', '50%'])
-
-  // Mouse-driven parallax (no React state — pure MotionValue)
-  const mouseX = useMotionValue(0.5)
-  const mouseY = useMotionValue(0.5)
-  const springX = useSpring(mouseX, { stiffness: 45, damping: 28 })
-  const springY = useSpring(mouseY, { stiffness: 45, damping: 28 })
-  const imgX = useTransform(springX, [0, 1], [-22, 22])
-  const imgY = useTransform(springY, [0, 1], [-10, 10])
-
-  // All hover effects via direct DOM — zero React re-renders on mousemove
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = heroRef.current?.getBoundingClientRect()
-    if (rect) {
-      mouseX.set((e.clientX - rect.left) / rect.width)
-      mouseY.set((e.clientY - rect.top) / rect.height)
-    }
-    const imgRect = imgContainerRef.current?.getBoundingClientRect()
-    if (imgRect && spotlightRef.current) {
-      const x = e.clientX - imgRect.left
-      const y = e.clientY - imgRect.top
-      spotlightRef.current.style.background =
-        `radial-gradient(circle 400px at ${x}px ${y}px, rgba(247,147,26,0.28) 0%, rgba(247,147,26,0.07) 42%, transparent 70%)`
-    }
-  }, [mouseX, mouseY])
-
-  const handleMouseEnter = useCallback(() => {
-    if (imgRef.current) {
-      imgRef.current.style.transition = 'filter 0.55s ease'
-      imgRef.current.style.filter =
-        'brightness(1.14) drop-shadow(0 0 60px rgba(247,147,26,0.95)) drop-shadow(0 0 130px rgba(247,147,26,0.38))'
-    }
-    if (spotlightRef.current) spotlightRef.current.style.opacity = '1'
-    if (glowLineRef.current) glowLineRef.current.style.opacity = '1'
-  }, [])
-
-  const handleMouseLeave = useCallback(() => {
-    mouseX.set(0.5); mouseY.set(0.5)
-    if (imgRef.current) {
-      imgRef.current.style.transition = 'filter 0.7s ease'
-      imgRef.current.style.filter = 'brightness(0.92)'
-    }
-    if (spotlightRef.current) spotlightRef.current.style.opacity = '0'
-    if (glowLineRef.current) glowLineRef.current.style.opacity = '0'
-  }, [mouseX, mouseY])
-
-  const TITLE = 'DOGCITY'
-
-  return (
-    <section
-      ref={heroRef}
-      className="relative overflow-hidden bg-black"
-      style={{ minHeight: 'calc(100vh - 56px)' }}
-      onMouseMove={handleMouseMove}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      {/* Twinkling stars — upper sky area */}
-      <StarCanvas className="absolute inset-0 w-full h-full pointer-events-none z-0" />
-
-      {/* Subtle grid floor */}
-      <div
-        className="absolute inset-0 pointer-events-none z-0"
-        style={{
-          backgroundImage: `
-            linear-gradient(rgba(247,147,26,0.022) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(247,147,26,0.022) 1px, transparent 1px)
-          `,
-          backgroundSize: '56px 56px',
-          maskImage: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 45%)',
-        }}
-      />
-
-      {/* Moon */}
-      <motion.div
-        className="absolute top-12 right-[8%] md:right-[12%] pointer-events-none z-[1]"
-        style={{ y: moonY }}
-      >
-        <div className="absolute inset-0 rounded-full" style={{ transform: 'scale(3.2)', background: 'radial-gradient(circle, rgba(255,230,170,0.04) 30%, transparent 70%)' }} />
-        <div className="absolute inset-0 rounded-full" style={{ transform: 'scale(2.0)',  background: 'radial-gradient(circle, rgba(255,235,185,0.08) 40%, transparent 70%)' }} />
-        <div className="absolute inset-0 rounded-full" style={{ transform: 'scale(1.35)', background: 'radial-gradient(circle, rgba(255,245,215,0.13) 50%, transparent 70%)' }} />
-        <div
-          className="relative w-28 h-28 md:w-40 md:h-40 rounded-full"
-          style={{
-            background: 'radial-gradient(circle at 38% 36%, #f2f0e0 0%, #ddd8c0 48%, #b8b09a 100%)',
-            boxShadow: `
-              inset -6px -5px 18px rgba(0,0,0,0.32),
-              inset  3px  3px  8px rgba(255,255,255,0.08),
-              0 0 30px rgba(255,238,195,0.35),
-              0 0 70px rgba(255,215,140,0.20),
-              0 0 150px rgba(247,147,26,0.12),
-              0 0 280px rgba(247,147,26,0.07)
-            `,
-          }}
-        />
-      </motion.div>
-
-      {/* Text content — upper area, paddingBottom pushes it above the city image */}
-      <motion.div
-        className="relative z-10 flex flex-col items-center justify-center text-center px-6"
-        style={{ y: titleY, opacity: titleO, minHeight: 'calc(100vh - 56px)', paddingBottom: '58vh' }}
-      >
-        {/* Badge */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.85 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2, duration: 0.6 }}
-          className="mb-8 flex items-center gap-2 px-4 py-1.5 border rounded-full"
-          style={{ borderColor: 'rgba(247,147,26,0.25)', background: 'rgba(247,147,26,0.06)' }}
-        >
-          <motion.div
-            className="w-1.5 h-1.5 rounded-full bg-lava"
-            animate={{ opacity: [1, 0.3, 1] }}
-            transition={{ repeat: Infinity, duration: 1.6, ease: 'easeInOut' }}
-          />
-          <span className="font-mono text-[10px] tracking-[0.25em] font-semibold text-lava/80 uppercase">
-            Coming Soon
-          </span>
-        </motion.div>
-
-        {/* Title — letter-by-letter entrance */}
-        <h1
-          className="font-display font-black leading-none select-none"
-          style={{ fontSize: 'clamp(4rem, 14vw, 11rem)' }}
-          aria-label="DogCity"
-        >
-          {TITLE.split('').map((char, i) => (
-            <motion.span
-              key={i}
-              className="inline-block"
-              style={{
-                color: '#EDEDED',
-                textShadow: '0 0 80px rgba(247,147,26,0.22), 0 0 160px rgba(247,147,26,0.09)',
-              }}
-              initial={{ opacity: 0, y: 60, rotateX: -40 }}
-              animate={{ opacity: 1, y: 0, rotateX: 0 }}
-              transition={{ delay: 0.45 + i * 0.07, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-            >
-              {char}
-            </motion.span>
-          ))}
-        </h1>
-
-        {/* Subtitle */}
-        <motion.p
-          className="mt-5 md:mt-6 font-mono text-sm md:text-base tracking-widest max-w-lg"
-          style={{ color: 'rgba(237,237,237,0.44)' }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.1, duration: 0.8 }}
-        >
-          The first on-chain city of Bitcoin Runes.
-          <br className="hidden md:block" />
-          {' '}86,317 holders. 5 districts. One living city.
-        </motion.p>
-
-        {/* CTA */}
-        <motion.a
-          href="https://x.com/dogdatabtc"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-10 flex items-center gap-2.5 px-7 py-3 font-mono text-sm font-semibold tracking-wide rounded-xl transition-all duration-300"
-          style={{
-            background: 'linear-gradient(135deg, #f7931a, #e8820e)',
-            color: '#000',
-            boxShadow: '0 0 28px rgba(247,147,26,0.30)',
-          }}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.4, duration: 0.6 }}
-          whileHover={{ scale: 1.04, boxShadow: '0 0 52px rgba(247,147,26,0.48)' }}
-          whileTap={{ scale: 0.97 }}
-        >
-          <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-          </svg>
-          Follow @dogdatabtc
-          <ExternalLink className="w-3.5 h-3.5 opacity-70" />
-        </motion.a>
-      </motion.div>
-
-      {/* ── CITY SKYLINE VIDEO — bottom 58vh ─────────────────────────────────── */}
-      <div
-        ref={imgContainerRef}
-        className="absolute bottom-0 left-0 right-0 overflow-hidden"
-        style={{ height: '58vh', zIndex: 5 }}
-      >
-        {/* Parallax wrapper — scaled 1.08 so edges stay hidden during movement */}
-        <motion.div
-          className="absolute inset-0"
-          style={{ x: imgX, y: imgY, scale: 1.08 }}
-        >
-          {/* Higgsfield-generated cinematic video */}
-          <video
-            ref={imgRef}
-            src="/city-hero.mp4"
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="w-full h-full object-cover object-top select-none"
-            style={{ filter: 'brightness(0.92)', transition: 'filter 0.55s ease' }}
-          />
-
-          {/* Cursor spotlight — mix-blend-mode:screen turns white lines orange */}
-          <div
-            ref={spotlightRef}
-            className="absolute inset-0 pointer-events-none"
-            style={{ mixBlendMode: 'screen', opacity: 0, transition: 'opacity 0.3s ease' }}
-          />
-
-          {/* Ambient orange glow at horizon */}
-          <div
-            className="absolute inset-x-0 bottom-0 pointer-events-none"
-            style={{
-              height: '40%',
-              background: 'linear-gradient(to top, rgba(247,147,26,0.055) 0%, transparent 100%)',
-            }}
-          />
-        </motion.div>
-
-        {/* Orange glow line at the top edge of the image — appears on hover */}
-        <div
-          ref={glowLineRef}
-          className="absolute top-0 inset-x-0 pointer-events-none"
-          style={{
-            height: '1px',
-            background: 'linear-gradient(to right, transparent 0%, rgba(247,147,26,0.6) 20%, rgba(247,147,26,0.9) 50%, rgba(247,147,26,0.6) 80%, transparent 100%)',
-            boxShadow: '0 0 20px 4px rgba(247,147,26,0.35)',
-            opacity: 0,
-            transition: 'opacity 0.5s ease',
-            zIndex: 6,
-          }}
-        />
-
-        {/* Rain particles on top of the city */}
-        <RainCanvas className="absolute inset-0 w-full h-full pointer-events-none opacity-55" style={{ zIndex: 4 } as React.CSSProperties} />
-
-        {/* Scanlines for cinematic texture */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            zIndex: 5,
-            backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.06) 2px, rgba(0,0,0,0.06) 4px)',
-          }}
-        />
-
-        {/* Sky-to-image fade at the top */}
-        <div
-          className="absolute top-0 left-0 right-0 pointer-events-none"
-          style={{
-            height: '130px',
-            background: 'linear-gradient(to bottom, #000000 0%, rgba(0,0,0,0) 100%)',
-            zIndex: 7,
-          }}
-        />
-      </div>
-
-      {/* Section bottom fade */}
-      <div
-        className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none"
-        style={{ background: 'linear-gradient(to top, #030309, transparent)', zIndex: 10 }}
-      />
-    </section>
-  )
-}
-
-// ─── Stats ────────────────────────────────────────────────────────────────────
-
-function StatsSection() {
-  const ref = useRef<HTMLDivElement>(null)
-  const inView = useInView(ref, { once: true, margin: '-10% 0px' })
-
-  return (
-    <section className="py-20 md:py-28 px-6">
-      <div className="max-w-5xl mx-auto">
-        <Reveal className="text-center mb-14">
-          <p className="font-mono text-[10px] tracking-[0.3em] text-lava/60 uppercase mb-3">The Numbers</p>
-          <h2 className="font-display font-bold text-3xl md:text-5xl text-snow/90 tracking-tight">
-            86,317 Citizens.{' '}
-            <span style={{ color: '#f7931a' }}>One City.</span>
-          </h2>
-        </Reveal>
-
-        <motion.div
-          ref={ref}
-          className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6"
-          variants={stagger}
-          initial="hidden"
-          animate={inView ? 'visible' : 'hidden'}
-        >
-          {STATS.map((s, i) => (
-            <motion.div
-              key={i}
-              variants={fadeUp}
-              className="relative rounded-2xl p-6 md:p-8 text-center overflow-hidden"
-              style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}
-              whileHover={{
-                borderColor: 'rgba(247,147,26,0.25)',
-                background: 'rgba(247,147,26,0.04)',
-                scale: 1.02,
-                transition: { duration: 0.2 },
-              }}
-            >
-              <div className="font-display font-black text-4xl md:text-5xl mb-2" style={{ color: '#f7931a' }}>
-                {s.value}
-              </div>
-              <div className="font-mono text-[10px] tracking-[0.2em] text-snow/40 uppercase">{s.label}</div>
-            </motion.div>
-          ))}
-        </motion.div>
-      </div>
-    </section>
-  )
-}
-
-// ─── Districts ────────────────────────────────────────────────────────────────
-
-function DistrictsSection() {
-  const ref = useRef<HTMLDivElement>(null)
-  const inView = useInView(ref, { once: true, margin: '-8% 0px' })
-
-  return (
-    <section className="py-20 md:py-28 px-6">
-      <div className="max-w-6xl mx-auto">
-        <Reveal className="text-center mb-14">
-          <p className="font-mono text-[10px] tracking-[0.3em] text-lava/60 uppercase mb-3">Urban Planning</p>
-          <h2 className="font-display font-bold text-3xl md:text-5xl text-snow/90 tracking-tight">
-            5 Districts.{' '}
-            <span style={{ color: '#f7931a' }}>Every holder has a home.</span>
-          </h2>
-        </Reveal>
-
-        <motion.div
-          ref={ref}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4"
-          variants={stagger}
-          initial="hidden"
-          animate={inView ? 'visible' : 'hidden'}
-        >
-          {DISTRICTS.map((d, i) => (
-            <motion.div
-              key={i}
-              variants={fadeUp}
-              className="relative rounded-2xl p-5 overflow-hidden cursor-default"
-              style={{ background: d.bg, border: `1px solid ${d.border}` }}
-              whileHover={{
-                scale: 1.03,
-                background: d.bg.replace('0.08', '0.14').replace('0.06', '0.10'),
-                borderColor: d.color,
-                boxShadow: `0 0 32px ${d.glow ?? 'transparent'}`,
-                transition: { duration: 0.22 },
-              }}
-            >
-              <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-2xl" style={{ background: d.color }} />
-              <div className="font-mono text-[9px] tracking-[0.25em] uppercase font-bold mb-2 mt-1" style={{ color: d.color }}>
-                {d.tier}
-              </div>
-              <div className="font-display font-bold text-sm text-snow/90 mb-2 leading-tight">{d.name}</div>
-              <div className="font-mono text-[10px] text-snow/40 leading-relaxed">{d.desc}</div>
-            </motion.div>
-          ))}
-        </motion.div>
-      </div>
-    </section>
-  )
-}
-
-// ─── Features ─────────────────────────────────────────────────────────────────
-
-function FeaturesSection() {
-  const ref = useRef<HTMLDivElement>(null)
-  const inView = useInView(ref, { once: true, margin: '-8% 0px' })
-
-  return (
-    <section className="py-20 md:py-28 px-6">
-      <div className="max-w-5xl mx-auto">
-        <Reveal className="text-center mb-14">
-          <p className="font-mono text-[10px] tracking-[0.3em] text-lava/60 uppercase mb-3">What&apos;s Coming</p>
-          <h2 className="font-display font-bold text-3xl md:text-5xl text-snow/90 tracking-tight">
-            Own your place{' '}
-            <span style={{ color: '#f7931a' }}>in the city.</span>
-          </h2>
-        </Reveal>
-
-        <motion.div
-          ref={ref}
-          className="grid grid-cols-1 md:grid-cols-3 gap-5"
-          variants={stagger}
-          initial="hidden"
-          animate={inView ? 'visible' : 'hidden'}
-        >
-          {FEATURES.map((f, i) => {
-            const Icon = f.icon
-            return (
-              <motion.div
-                key={i}
-                variants={fadeUp}
-                className="relative rounded-2xl p-6 md:p-8 overflow-hidden group cursor-default"
-                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}
-                whileHover={{
-                  borderColor: f.color,
-                  boxShadow: `0 0 40px ${f.glow}`,
-                  background: 'rgba(255,255,255,0.03)',
-                  y: -4,
-                  transition: { duration: 0.22 },
-                }}
-              >
-                <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center mb-5"
-                  style={{ background: `${f.color}14`, border: `1px solid ${f.color}30` }}
-                >
-                  <Icon className="w-5 h-5" style={{ color: f.color }} />
-                </div>
-                <div className="font-mono text-[9px] tracking-[0.2em] uppercase font-bold mb-2" style={{ color: f.color }}>
-                  {f.price}
-                </div>
-                <h3 className="font-display font-bold text-lg text-snow/90 mb-3 leading-snug">{f.title}</h3>
-                <p className="font-mono text-[11px] text-snow/45 leading-relaxed">{f.desc}</p>
-                <motion.div
-                  className="absolute inset-0 pointer-events-none rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                  style={{ background: `linear-gradient(135deg, transparent 40%, ${f.color}08 100%)` }}
-                />
-              </motion.div>
-            )
-          })}
-        </motion.div>
-      </div>
-    </section>
-  )
-}
-
-// ─── CTA ──────────────────────────────────────────────────────────────────────
-
-function CTASection() {
-  return (
-    <section className="py-24 md:py-32 px-6 relative overflow-hidden">
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 100%, rgba(247,147,26,0.06), transparent)' }}
-      />
-      <Reveal className="relative z-10 max-w-2xl mx-auto text-center">
-        <div
-          className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-8 font-mono text-[10px] tracking-[0.25em] font-semibold uppercase"
-          style={{ background: 'rgba(247,147,26,0.06)', border: '1px solid rgba(247,147,26,0.22)', color: 'rgba(247,147,26,0.75)' }}
-        >
-          DOG DATA — The largest $DOG hub
-        </div>
-        <h2 className="font-display font-black text-3xl md:text-5xl text-snow/90 mb-5 tracking-tight leading-tight">
-          Be among the<br />
-          <span style={{ color: '#f7931a' }}>first citizens.</span>
-        </h2>
-        <p className="font-mono text-sm text-snow/40 mb-10 leading-relaxed">
-          Follow us on X for launch updates, early access, and the first look
-          at your building in DogCity.
-        </p>
-        <motion.a
-          href="https://x.com/dogdatabtc"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-3 px-8 py-3.5 font-mono text-sm font-bold tracking-wide rounded-xl"
-          style={{
-            background: 'linear-gradient(135deg, #f7931a, #e8820e)',
-            color: '#000',
-            boxShadow: '0 0 32px rgba(247,147,26,0.25)',
-          }}
-          whileHover={{ scale: 1.04, boxShadow: '0 0 56px rgba(247,147,26,0.42)' }}
-          whileTap={{ scale: 0.97 }}
-        >
-          <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-          </svg>
-          Follow @dogdatabtc
-        </motion.a>
-        <p className="mt-6 font-mono text-[10px] tracking-widest text-snow/25">
-          POWERED BY{' '}
-          <a href="/" className="text-lava/60 hover:text-lava transition-colors duration-200">
-            DOGDATA.XYZ
-          </a>
-        </p>
-      </Reveal>
-    </section>
-  )
-}
-
-// ─── Root export ──────────────────────────────────────────────────────────────
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function CityComingSoon() {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const spotlightRef = useRef<HTMLDivElement>(null)
+
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ['start start', 'end start'],
+  })
+  const videoScale = useTransform(scrollYProgress, [0, 1], [1, 1.2])
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    const el = spotlightRef.current
+    if (!el) return
+    const rect = containerRef.current?.getBoundingClientRect()
+    const x = e.clientX - (rect?.left ?? 0)
+    const y = e.clientY - (rect?.top ?? 0)
+    el.style.transform = `translate(${x - 320}px, ${y - 320}px)`
+  }, [])
+
   return (
-    <motion.div
-      className="relative bg-[#030309] overflow-x-hidden"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.4 }}
+    <div
+      ref={containerRef}
+      className="relative bg-void overflow-x-hidden"
+      onMouseMove={handleMouseMove}
     >
-      {/* Global scanlines */}
-      <div
-        className="fixed inset-0 pointer-events-none z-[150]"
-        style={{
-          backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.010) 3px, rgba(0,0,0,0.010) 4px)',
-        }}
-      />
-      <CursorGlow />
-      <HeroSection />
-      <StatsSection />
-      <DistrictsSection />
-      <FeaturesSection />
-      <CTASection />
-    </motion.div>
+      {/* ══════════════════════════════════════════════════════════════ HERO */}
+      <section className="relative h-screen min-h-[640px] flex items-center justify-center overflow-hidden">
+
+        <FadingVideo src="/city-hero.mp4" scale={videoScale} />
+
+        {/* Vignette */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ zIndex: 1, background: 'radial-gradient(ellipse 110% 100% at 50% 50%, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.78) 100%)' }}
+        />
+        {/* Bottom fade */}
+        <div
+          className="absolute inset-x-0 bottom-0 pointer-events-none"
+          style={{ zIndex: 2, height: '45%', background: 'linear-gradient(to top, #000 0%, transparent 100%)' }}
+        />
+        {/* Top fade */}
+        <div
+          className="absolute inset-x-0 top-0 pointer-events-none"
+          style={{ zIndex: 2, height: '20%', background: 'linear-gradient(to bottom, #000 0%, transparent 100%)' }}
+        />
+
+        <RainCanvas />
+
+        {/* Mouse spotlight */}
+        <div
+          ref={spotlightRef}
+          className="absolute pointer-events-none"
+          style={{
+            zIndex: 4,
+            width: 640,
+            height: 640,
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(245,110,15,0.05) 0%, transparent 65%)',
+            willChange: 'transform',
+          }}
+        />
+
+        {/* Content */}
+        <div className="relative z-[5] text-center px-6 max-w-5xl mx-auto w-full">
+
+          {/* Badge — design system style */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+            className="inline-flex items-center mb-10"
+          >
+            <div className="liquid-glass rounded-lg px-4 py-1.5 flex items-center gap-2.5 border border-lava/[0.18]">
+              <span className="w-1.5 h-1.5 rounded-full bg-lava animate-pulse-dot" />
+              <span className="font-mono text-[10px] text-lava/70 tracking-[0.22em] uppercase">
+                Coming Soon
+              </span>
+              <span className="w-px h-3 bg-white/10" />
+              <span className="font-mono text-[10px] text-lava tracking-[0.22em] uppercase font-bold">
+                DogCity
+              </span>
+            </div>
+          </motion.div>
+
+          {/* Main heading — Syne bold, design system style */}
+          <BlurText
+            text="Every Holder is a Building."
+            className="text-snow mb-6"
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: 'clamp(2.8rem, 8.5vw, 7.5rem)',
+              fontWeight: 800,
+              lineHeight: 1.0,
+              letterSpacing: '-0.02em',
+            }}
+            delay={150}
+            wordDelay={80}
+          />
+
+          {/* Sub — mono small, design system secondary color */}
+          <BlurText
+            text="89,317 $DOG holders. 6 districts. One living city on Bitcoin."
+            className="text-dusty mb-12 mx-auto font-mono"
+            style={{
+              fontSize: 'clamp(0.78rem, 1.8vw, 0.95rem)',
+              lineHeight: 1.7,
+              letterSpacing: '0.02em',
+              maxWidth: '36rem',
+            }}
+            delay={550}
+            wordDelay={35}
+          />
+
+          {/* Stat pills */}
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.0, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+            className="flex flex-wrap justify-center gap-2.5 mb-12"
+          >
+            {[
+              { value: '89,317', label: 'Holders' },
+              { value: '6', label: 'Districts' },
+              { value: '5.74%', label: 'Supply Locked' },
+            ].map(s => (
+              <div
+                key={s.label}
+                className="liquid-glass rounded-xl px-5 py-3 text-center border border-white/[0.06] min-w-[96px]"
+              >
+                <div className="font-display font-bold text-snow text-xl tracking-tight">
+                  {s.value}
+                </div>
+                <div className="font-mono text-[9px] text-dusty/60 mt-1 uppercase tracking-[0.18em]">
+                  {s.label}
+                </div>
+              </div>
+            ))}
+          </motion.div>
+
+          {/* CTA buttons — design system primary + ghost */}
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.3, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+            className="flex flex-wrap justify-center gap-3"
+          >
+            <a
+              href="https://x.com/dogdatabtc"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center gap-2.5 px-7 py-3 bg-gradient-to-r from-lava to-lava-dark text-snow font-mono font-medium text-xs tracking-wide rounded-xl transition-all duration-300 shadow-[0_0_20px_rgba(245,110,15,0.18)] hover:shadow-[0_0_36px_rgba(245,110,15,0.32)] hover:scale-[1.02]"
+            >
+              <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+              </svg>
+              Follow for Launch
+            </a>
+
+            <a
+              href="/"
+              className="group flex items-center gap-2 px-7 py-3 bg-white/[0.03] border border-white/[0.07] hover:bg-white/[0.05] hover:border-lava/[0.2] text-dusty hover:text-snow font-mono font-medium text-xs tracking-wide rounded-xl transition-all duration-300"
+            >
+              Explore DOG Data
+              <span className="text-dusty/40 group-hover:text-lava/70 transition-colors duration-200">↗</span>
+            </a>
+          </motion.div>
+        </div>
+
+        {/* Scroll indicator */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 2, duration: 1 }}
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[5]"
+        >
+          <motion.div
+            animate={{ y: [0, 7, 0] }}
+            transition={{ repeat: Infinity, duration: 2.2, ease: 'easeInOut' }}
+            className="w-5 h-8 liquid-glass border border-white/[0.06] rounded-full flex items-start justify-center pt-1.5"
+          >
+            <div className="w-0.5 h-2.5 bg-lava/50 rounded-full" />
+          </motion.div>
+        </motion.div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════ STATS */}
+      <section className="relative z-10 px-6 -mt-1 pb-1">
+        <div className="max-w-5xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 28 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
+            viewport={{ once: true, margin: '-80px' }}
+            className="liquid-glass-strong rounded-2xl overflow-hidden border border-white/[0.06]"
+          >
+            <div className="grid grid-cols-2 md:grid-cols-4">
+              {[
+                { value: '89,317', label: 'Total Holders', sub: 'Bitcoin Rune' },
+                { value: '5.74%', label: 'Supply Locked', sub: 'Diamond Paws' },
+                { value: '250K+', label: 'UTXOs Tracked', sub: 'Real-time' },
+                { value: '10K DOG', label: 'Building Claim', sub: 'To stake' },
+              ].map((stat, i) => (
+                <div
+                  key={i}
+                  className="px-6 md:px-8 py-7 text-center border-r border-b md:border-b-0 border-white/[0.05] last:border-r-0"
+                >
+                  <div className="font-display font-bold text-snow text-2xl md:text-3xl tracking-tight mb-1">
+                    {stat.value}
+                  </div>
+                  <div className="font-mono text-xs text-dusty/70 tracking-wide">
+                    {stat.label}
+                  </div>
+                  <div className="font-mono text-[9px] text-dusty/35 uppercase tracking-[0.15em] mt-0.5">
+                    {stat.sub}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════════ DISTRICTS */}
+      <section className="relative z-10 px-6 py-28 md:py-36">
+        <div className="max-w-5xl mx-auto">
+
+          {/* Section header */}
+          <div className="mb-14 text-center">
+            <motion.p
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true }}
+              className="font-mono text-[10px] text-lava tracking-[0.28em] uppercase mb-5"
+            >
+              6 Districts
+            </motion.p>
+            <BlurText
+              text="Find Your Place in the City."
+              className="text-snow"
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: 'clamp(1.9rem, 5vw, 4rem)',
+                fontWeight: 800,
+                letterSpacing: '-0.015em',
+                lineHeight: 1.05,
+              }}
+              delay={0}
+              wordDelay={85}
+            />
+            <BlurText
+              text="Every holder earns a district based on their $DOG position, age, and on-chain behavioral score."
+              className="text-dusty mt-5 mx-auto font-mono"
+              style={{ fontSize: '0.8rem', lineHeight: 1.75, letterSpacing: '0.01em', maxWidth: '38rem' }}
+              delay={280}
+              wordDelay={30}
+            />
+          </div>
+
+          {/* District grid — 3 col desktop */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {DISTRICTS.map((d, i) => {
+              const Icon = d.icon
+              return (
+                <motion.div
+                  key={d.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }}
+                  viewport={{ once: true, margin: '-50px' }}
+                  whileHover={{ y: -4, scale: 1.012 }}
+                  className="relative overflow-hidden rounded-xl cursor-pointer group"
+                  style={{ background: 'rgba(10,10,12,0.7)', border: `1px solid ${d.dot}18` }}
+                >
+                  {/* Hover glow background */}
+                  <div
+                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+                    style={{ background: `radial-gradient(ellipse 100% 60% at 50% 0%, ${d.colorFrom}, transparent)` }}
+                  />
+                  {/* Top accent line */}
+                  <div
+                    className="absolute top-0 inset-x-0 h-px opacity-50 group-hover:opacity-100 transition-opacity duration-300"
+                    style={{ background: `linear-gradient(90deg, transparent, ${d.dot}60, transparent)` }}
+                  />
+
+                  <div className="relative p-6">
+                    {/* Icon + status */}
+                    <div className="flex items-center justify-between mb-5">
+                      <div
+                        className="w-9 h-9 rounded-lg flex items-center justify-center"
+                        style={{ background: `${d.dot}12` }}
+                      >
+                        <Icon className="w-4 h-4" style={{ color: d.dot }} />
+                      </div>
+                      <div
+                        className="w-1.5 h-1.5 rounded-full"
+                        style={{ background: d.dot, boxShadow: `0 0 6px ${d.dot}` }}
+                      />
+                    </div>
+
+                    {/* Name */}
+                    <div
+                      className="font-display font-bold text-snow text-lg tracking-tight mb-1"
+                    >
+                      {d.name}
+                    </div>
+                    <div className="font-mono text-[11px] text-dusty/60 mb-5 tracking-wide leading-relaxed">
+                      {d.sub}
+                    </div>
+
+                    {/* Bottom row */}
+                    <div className="flex items-end justify-between">
+                      <div>
+                        <div
+                          className="font-mono font-bold text-xl tracking-tight"
+                          style={{ color: d.dot }}
+                        >
+                          {d.holders}
+                        </div>
+                        <div className="font-mono text-[9px] text-dusty/40 uppercase tracking-[0.15em] mt-0.5">
+                          Holders
+                        </div>
+                      </div>
+                      <div
+                        className="font-mono text-[9px] uppercase tracking-[0.12em] opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                        style={{ color: d.dot }}
+                      >
+                        Claim →
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════════ FEATURES */}
+      <section
+        className="relative z-10 px-6 py-20 md:py-28"
+        style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}
+      >
+        <div className="max-w-5xl mx-auto">
+
+          <div className="mb-14 text-center">
+            <motion.p
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true }}
+              className="font-mono text-[10px] text-lava tracking-[0.28em] uppercase mb-5"
+            >
+              How It Works
+            </motion.p>
+            <BlurText
+              text="Own Your City."
+              className="text-snow"
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: 'clamp(1.9rem, 5vw, 4rem)',
+                fontWeight: 800,
+                letterSpacing: '-0.015em',
+                lineHeight: 1.05,
+              }}
+              delay={0}
+              wordDelay={110}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {FEATURES.map((f, i) => {
+              const Icon = f.icon
+              return (
+                <motion.div
+                  key={f.title}
+                  initial={{ opacity: 0, y: 18 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }}
+                  viewport={{ once: true, margin: '-50px' }}
+                  className="rounded-xl p-7 group hover:bg-white/[0.02] transition-all duration-300"
+                  style={{ background: 'rgba(10,10,12,0.6)', border: '1px solid rgba(255,255,255,0.05)' }}
+                >
+                  <div
+                    className="w-10 h-10 rounded-lg flex items-center justify-center mb-6"
+                    style={{ background: `${f.color}12` }}
+                  >
+                    <Icon className="w-5 h-5" style={{ color: f.color }} />
+                  </div>
+
+                  <div className="font-display font-bold text-snow text-lg tracking-tight mb-3">
+                    {f.title}
+                  </div>
+
+                  <div className="font-mono text-[11px] text-dusty/60 leading-relaxed tracking-wide mb-6">
+                    {f.desc}
+                  </div>
+
+                  {/* Design-system tag */}
+                  <span
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono text-[9px] uppercase tracking-[0.15em] border transition-colors duration-300"
+                    style={{
+                      background: `${f.color}10`,
+                      color: f.color,
+                      borderColor: `${f.color}28`,
+                    }}
+                  >
+                    <span className="w-1 h-1 rounded-full" style={{ background: f.color }} />
+                    {f.tag}
+                  </span>
+                </motion.div>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════ CTA */}
+      <section className="relative z-10 px-6 py-32 md:py-44">
+        <div className="max-w-3xl mx-auto text-center">
+
+          <BlurText
+            text="The City Is Being Built."
+            className="text-snow mb-6"
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: 'clamp(2.4rem, 7vw, 5.5rem)',
+              fontWeight: 800,
+              letterSpacing: '-0.02em',
+              lineHeight: 0.97,
+            }}
+            delay={0}
+            wordDelay={100}
+          />
+
+          <BlurText
+            text="Follow @dogdatabtc on X to be first to claim your building when DogCity launches."
+            className="text-dusty mx-auto mb-14 font-mono"
+            style={{ fontSize: '0.8rem', lineHeight: 1.8, letterSpacing: '0.01em', maxWidth: '32rem' }}
+            delay={320}
+            wordDelay={28}
+          />
+
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.6 }}
+            viewport={{ once: true }}
+            className="flex flex-col sm:flex-row gap-3 justify-center"
+          >
+            <a
+              href="https://x.com/dogdatabtc"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center justify-center gap-2.5 px-8 py-3.5 bg-gradient-to-r from-lava to-lava-dark text-snow font-mono font-medium text-xs tracking-wide rounded-xl transition-all duration-300 shadow-[0_0_24px_rgba(245,110,15,0.18)] hover:shadow-[0_0_40px_rgba(245,110,15,0.32)] hover:scale-[1.02]"
+            >
+              <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+              </svg>
+              Follow on X
+            </a>
+            <a
+              href="/"
+              className="group flex items-center justify-center gap-2 px-8 py-3.5 bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.04] hover:border-lava/[0.2] text-dusty hover:text-snow font-mono font-medium text-xs tracking-wide rounded-xl transition-all duration-300"
+            >
+              Back to DOG DATA
+            </a>
+          </motion.div>
+
+          {/* Trust strip */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            transition={{ duration: 1.2, delay: 1 }}
+            viewport={{ once: true }}
+            className="mt-20 pt-8"
+            style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}
+          >
+            <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
+              {[
+                'Bitcoin L1 Native',
+                'Ord Protocol',
+                '89K+ Holders Verified',
+                'Real-time On-chain Data',
+              ].map(item => (
+                <div key={item} className="flex items-center gap-2">
+                  <div className="w-1 h-1 rounded-full bg-lava/40" />
+                  <span className="font-mono text-[9px] text-dusty/40 uppercase tracking-[0.18em]">
+                    {item}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        </div>
+      </section>
+    </div>
   )
 }

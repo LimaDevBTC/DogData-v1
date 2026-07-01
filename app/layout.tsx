@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { JetBrains_Mono, Syne, DM_Sans } from 'next/font/google'
+import { JetBrains_Mono, Syne, DM_Sans, Instrument_Serif, Barlow } from 'next/font/google'
 import './globals.css'
 import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
@@ -22,6 +22,21 @@ const dmSans = DM_Sans({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
   variable: '--font-sans',
+  display: 'swap',
+})
+
+const instrumentSerif = Instrument_Serif({
+  subsets: ['latin'],
+  weight: ['400'],
+  style: ['normal', 'italic'],
+  variable: '--font-heading',
+  display: 'swap',
+})
+
+const barlow = Barlow({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600'],
+  variable: '--font-body',
   display: 'swap',
 })
 
@@ -96,7 +111,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className={`${jetbrainsMono.variable} ${syne.variable} ${dmSans.variable} font-mono`}>
+      <body className={`${jetbrainsMono.variable} ${syne.variable} ${dmSans.variable} ${instrumentSerif.variable} ${barlow.variable} font-mono`}>
         <VerifiedAddressesProvider>
           <div className="min-h-screen bg-void">
             {children}
