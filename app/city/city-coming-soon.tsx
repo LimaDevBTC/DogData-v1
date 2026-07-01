@@ -228,7 +228,7 @@ function RainCanvas({ className, style }: { className?: string; style?: React.CS
 function HeroSection() {
   const heroRef        = useRef<HTMLDivElement>(null)
   const imgContainerRef = useRef<HTMLDivElement>(null)
-  const imgRef         = useRef<HTMLImageElement>(null)
+  const imgRef         = useRef<HTMLVideoElement>(null)
   const spotlightRef   = useRef<HTMLDivElement>(null)
   const glowLineRef    = useRef<HTMLDivElement>(null)
 
@@ -416,7 +416,7 @@ function HeroSection() {
         </motion.a>
       </motion.div>
 
-      {/* ── CITY SKYLINE IMAGE — bottom 58vh ─────────────────────────────────── */}
+      {/* ── CITY SKYLINE VIDEO — bottom 58vh ─────────────────────────────────── */}
       <div
         ref={imgContainerRef}
         className="absolute bottom-0 left-0 right-0 overflow-hidden"
@@ -427,14 +427,16 @@ function HeroSection() {
           className="absolute inset-0"
           style={{ x: imgX, y: imgY, scale: 1.08 }}
         >
-          {/* The skyline */}
-          <img
+          {/* Higgsfield-generated cinematic video */}
+          <video
             ref={imgRef}
-            src="/skyline.jpg"
-            alt="DogCity Skyline"
+            src="/city-hero.mp4"
+            autoPlay
+            loop
+            muted
+            playsInline
             className="w-full h-full object-cover object-top select-none"
             style={{ filter: 'brightness(0.92)', transition: 'filter 0.55s ease' }}
-            draggable={false}
           />
 
           {/* Cursor spotlight — mix-blend-mode:screen turns white lines orange */}
