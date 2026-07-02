@@ -3,7 +3,7 @@
 import { useRouter, usePathname } from "next/navigation"
 import Header from "./header"
 import Footer from "./footer"
-import { C2BlockchainBanner } from "./c2-blockchain-banner"
+import { BitflowBanner } from "./bitflow-banner"
 
 type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain' | 'explorer' | 'status' | 'city'
 
@@ -41,12 +41,12 @@ export function Layout({ children, currentPage, fullBleed }: LayoutProps) {
       <main className="relative pt-14 md:pt-16 flex-1">
         {fullBleed ? (
           <div className="transition-opacity duration-200 ease-out opacity-100">
-            <C2BlockchainBanner />
+            <BitflowBanner />
             {children}
           </div>
         ) : (
           <div className="container-fluid transition-opacity duration-200 ease-out opacity-100">
-            <C2BlockchainBanner />
+            <BitflowBanner />
             {children}
           </div>
         )}
