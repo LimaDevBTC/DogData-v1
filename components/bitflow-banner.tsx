@@ -3,11 +3,9 @@
 import { useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 import Image from 'next/image'
-import { ExternalLink } from 'lucide-react'
 
-// ← Troque esta URL quando a Bitflow confirmar o link final
 const BITFLOW_URL =
-  'https://bitflow.finance/?utm_source=dogdata&utm_medium=banner&utm_campaign=top_banner&utm_content=main'
+  'https://app.bitflow.finance/tokens/DOG?utm_source=dogdata.xyz&utm_medium=display&utm_campaign=dog_paid_banner&utm_content=banner_home'
 
 const ADVERTISER = 'bitflow'
 
@@ -82,52 +80,20 @@ export function BitflowBanner() {
       >
         <div className="relative w-full overflow-hidden bg-[#0A0A0C]/50 backdrop-blur-xl border border-white/[0.05] hover:border-orange-500/[0.2] transition-all duration-300 rounded-xl shadow-sm hover:shadow-[0_8px_32px_-8px_rgba(249,115,22,0.15)]">
 
-          {/* Badge */}
-          <div className="absolute top-2 right-2 md:top-3 md:right-3 z-10 flex items-center gap-1">
-            <span className="text-gray-400 text-[8px] md:text-[10px] font-mono font-medium uppercase tracking-wide">
-              Official Partner
-            </span>
-            <ExternalLink className="w-2 h-2 md:w-3 md:h-3 text-gray-400" />
-          </div>
-
           {/* Banner content */}
-          <div className="relative w-full h-[90px] flex items-center justify-center px-4 sm:px-6 md:px-8 lg:px-12">
-            <div className="flex items-center gap-3 sm:gap-4 md:gap-6 lg:gap-8 group-hover:scale-[1.02] transition-all duration-500 ease-out">
-
-              {/* Logo — troque pelo logo real da Bitflow quando tiver o arquivo */}
-              <div className="relative w-[50px] h-[50px] sm:w-[60px] sm:h-[60px] md:w-[70px] md:h-[70px] flex-shrink-0">
-                <Image
-                  src="/bitflow.png"
-                  alt="Bitflow"
-                  fill
-                  className="object-contain drop-shadow-lg"
-                  priority
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                />
-              </div>
-
-              {/* Text with gradient */}
-              <div className="flex items-center gap-2 sm:gap-3">
-                <h2
-                  className="text-sm sm:text-lg md:text-xl lg:text-2xl xl:text-3xl font-bold uppercase tracking-tight sm:tracking-normal md:tracking-wide whitespace-nowrap"
-                  style={{
-                    fontFamily: 'var(--font-dm-sans)',
-                    background: 'linear-gradient(90deg, #c2410c 0%, #f97316 50%, #fb923c 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text',
-                  }}
-                >
-                  BITFLOW
-                </h2>
-                <span className="hidden sm:block text-gray-400 text-xs sm:text-sm md:text-base font-mono whitespace-nowrap">
-                  — Bitcoin DeFi on Stacks
-                </span>
-              </div>
+          <div className="relative w-full h-[90px] flex items-center justify-center">
+            <div className="relative h-[60px] w-[200px] sm:h-[70px] sm:w-[240px] md:h-[80px] md:w-[280px] group-hover:scale-[1.03] transition-all duration-500 ease-out">
+              <Image
+                src="/bitflow.png"
+                alt="Bitflow"
+                fill
+                className="object-contain drop-shadow-lg"
+                priority
+              />
             </div>
 
             {/* Hover overlay */}
-            <div className="absolute inset-0 bg-orange-500/0 group-hover:bg-orange-500/5 transition-all duration-300 pointer-events-none" />
+            <div className="absolute inset-0 bg-white/0 group-hover:bg-white/[0.02] transition-all duration-300 pointer-events-none" />
           </div>
         </div>
       </a>
