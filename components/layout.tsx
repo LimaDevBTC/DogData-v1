@@ -41,7 +41,7 @@ export function Layout({ children, currentPage, fullBleed }: LayoutProps) {
       <main className="relative pt-14 md:pt-16 flex-1">
         {fullBleed ? (
           <div className="transition-opacity duration-200 ease-out opacity-100">
-            <div className="container-fluid">
+            <div className="max-w-[1400px] mx-auto px-4 md:px-8">
               <BitflowBanner noMargin />
             </div>
             {children}
