@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     })
   } catch (err: any) {
     console.error('[ads/track]', err?.message)
-    return NextResponse.json({ error: 'internal' }, { status: 500 })
+    return NextResponse.json({ error: 'internal', detail: err?.message }, { status: 500 })
   }
 }
 
