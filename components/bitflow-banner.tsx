@@ -31,7 +31,7 @@ async function trackEvent(event_type: 'impression' | 'click', page: string) {
   }
 }
 
-export function BitflowBanner() {
+export function BitflowBanner({ noMargin = false }: { noMargin?: boolean }) {
   const pathname = usePathname()
   const bannerRef = useRef<HTMLDivElement>(null)
   const impressionFiredRef = useRef(false)
@@ -70,7 +70,7 @@ export function BitflowBanner() {
   }
 
   return (
-    <div ref={bannerRef} className="w-full mb-6 md:mb-8">
+    <div ref={bannerRef} className={`w-full ${noMargin ? '' : 'mb-6 md:mb-8'}`}>
       <a
         href={BITFLOW_URL}
         target="_blank"

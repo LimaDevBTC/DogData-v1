@@ -42,7 +42,7 @@ export function Layout({ children, currentPage, fullBleed }: LayoutProps) {
         {fullBleed ? (
           <div className="transition-opacity duration-200 ease-out opacity-100">
             <div className="container-fluid">
-              <BitflowBanner />
+              <BitflowBanner noMargin />
             </div>
             {children}
           </div>
