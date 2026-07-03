@@ -55,8 +55,19 @@ estética AAA noturna, aberta no browser sem instalar nada.
   luzes de navegação cruzando o céu; 1 helicóptero circulando o downtown com
   **searchlight (SpotLight) varrendo** os prédios.
 - ✅ **Fase 2 (parcial) — Água AAA**: reflexo real via CubeCamera — cubemap da cidade
-  iluminada capturado 1× no load, alimentado no shader da água → **torres do
-  downtown refletidas no rio/lagos/oceano**.
+  iluminada capturado 1× no load (deferido para o frame 3, fora do caminho de load;
+  `?noreflect=1` pula), alimentado no shader da água → **torres do downtown refletidas
+  no rio/lagos/oceano**. *Verificar visualmente em GPU real (o headless por software
+  não renderiza a captura do cubemap em tempo viável).*
+- ✅ **Fase 3 — Cinematografia**: passe de pós-processamento após o bloom —
+  color grading **teal-and-orange** (sombras→teal, altas→âmbar, a paleta da cidade),
+  lift de saturação/contraste, **vignette** e **film grain** sutil. Tira o aspecto
+  "render cru de WebGL".
+
+> ⚠️ **Nota de ambiente**: screenshots headless deste projeto usam renderização por
+> software (sem GPU) e, na cena de ~22k instâncias + captura de cubemap, estouram a
+> RAM → OOM/SIGKILL. Verificação visual deve ser feita em navegador com GPU. O
+> type-check (`tsc`) é o gate automático usado aqui.
 
 Arquivos: `app/city/explore/city-3d.tsx` (cena), `app/city/explore/city-environment.ts`
 (kit de ambiente), `app/api/city/data/route.ts` (gerador de layout v2).
