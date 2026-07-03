@@ -39,14 +39,15 @@ export function Layout({ children, currentPage, fullBleed }: LayoutProps) {
 
       {/* Main Content */}
       <main className="relative pt-14 md:pt-16 flex-1">
+        <div className="container-fluid">
+          <BitflowBanner />
+        </div>
         {fullBleed ? (
           <div className="transition-opacity duration-200 ease-out opacity-100">
-            <BitflowBanner />
             {children}
           </div>
         ) : (
           <div className="container-fluid transition-opacity duration-200 ease-out opacity-100">
-            <BitflowBanner />
             {children}
           </div>
         )}
