@@ -538,15 +538,9 @@ export default function OverviewPage() {
           </Card>
 
           {/* C2 Blockchain Treasury */}
-          <a
-            href="https://www.c2dog.com"
-            target="_blank"
-            rel="noopener noreferrer sponsored"
-            className="block h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 rounded-xl"
-          >
             <Card
               variant="glass"
-              className={`${cardBaseClass} border border-blue-500/[0.12] bg-gradient-to-br from-blue-950/30 via-blue-900/10 to-transparent hover:border-blue-400/20 transition-all duration-300`}
+              className={`${cardBaseClass} border border-blue-500/[0.12] bg-gradient-to-br from-blue-950/30 via-blue-900/10 to-transparent`}
             >
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-2 flex-nowrap">
@@ -587,7 +581,6 @@ export default function OverviewPage() {
                 </div>
               </CardContent>
             </Card>
-          </a>
 
           {/* BTC Dominance 24h */}
           <Card variant="glass" className={cardBaseClass}>
