@@ -64,10 +64,24 @@ estética AAA noturna, aberta no browser sem instalar nada.
   lift de saturação/contraste, **vignette** e **film grain** sutil. Tira o aspecto
   "render cru de WebGL".
 
+- ✅ **Fase 8 (parcial) — Viralização**: **flythrough cinematográfico** (botão
+  "▶ Cinematic tour"). Câmera em spline Catmull-Rom com easing: orla → mergulho no
+  rio sob as pontes → espiral no downtown → revelação aérea (~36s). UI some no tour.
+  Opt-in, não afeta a cena padrão.
+- ✅ **Fixes de geometria (feedback do usuário)**: (1) árvores não ficam mais dentro
+  d'água (filtro por máscara lago/rio/oceano, mantém árvores elevadas de montanha);
+  (2) prédios recuados da costa — praia + via costeira (movida para inland) livres
+  (prédio mais a oeste agora em x≈-810 vs. costa -950); (3) **rio deságua no mar** —
+  bend para oeste no sul formando delta na foz (x -910 junto à costa); (4) pontes
+  cientes do ângulo de cruzamento — vão dimensionado por `1/sin(θ)`, rejeita
+  cruzamentos quase-paralelos (validado: 9 pontes, vãos 130–181u).
+
 > ⚠️ **Nota de ambiente**: screenshots headless deste projeto usam renderização por
 > software (sem GPU) e, na cena de ~22k instâncias + captura de cubemap, estouram a
-> RAM → OOM/SIGKILL. Verificação visual deve ser feita em navegador com GPU. O
-> type-check (`tsc`) é o gate automático usado aqui.
+> RAM → OOM/SIGKILL (isso mata o próprio processo do Claude Code). **Não rodar
+> screenshots headless.** Verificação visual = navegador com GPU do usuário. O
+> type-check (`tsc`) + validação da API por `curl`/node (processo leve) são os gates
+> automáticos seguros. Cuidado com múltiplas instâncias `next dev` zumbis comendo RAM.
 
 Arquivos: `app/city/explore/city-3d.tsx` (cena), `app/city/explore/city-environment.ts`
 (kit de ambiente), `app/api/city/data/route.ts` (gerador de layout v2).
