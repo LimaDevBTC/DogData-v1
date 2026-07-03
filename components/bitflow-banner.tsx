@@ -84,7 +84,7 @@ export function BitflowBanner() {
           <div className="relative w-full h-[90px] flex items-center justify-center">
             <div className="relative h-[60px] w-[200px] sm:h-[70px] sm:w-[240px] md:h-[80px] md:w-[280px] group-hover:scale-[1.03] transition-all duration-500 ease-out">
               <Image
-                src="/bitflow.png"
+                src="/Bitflow.png"
                 alt="Bitflow"
                 fill
                 className="object-contain drop-shadow-lg"
