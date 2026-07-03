@@ -39,8 +39,27 @@ estética AAA noturna, aberta no browser sem instalar nada.
   centerlines; borda plana dos patches de terreno dissolvida na cor do chão (fim do
   efeito "adesivo retangular" visto de cima)
 
+### Implementado nesta rodada (2026-07-03, sessão de implementação do plano)
+
+- ✅ **Fase 1 — Malha urbana orgânica (Tóquio)**: gerador `route.ts` reescrito como
+  grafo viário — fonte de verdade única. Contorno orgânico (elipse por ruído),
+  8 avenidas radiais curvas, 3 anéis viários deformados, 3 diagonais, via costeira,
+  2 marginais do rio. Grade local com **domain warping** (Manhattan-reto no centro →
+  orgânico curvo na periferia). Prédios rotacionados alinhados à quadra (idx 5).
+  Densidade e altura caem do centro. Pontes = arestas de via que cruzam o rio
+  (alinhamento por construção). API v2: `roads[]`, `bridges[]`, `outline[]`.
+  Renderer desenha ribbons de asfalto + glow de eixo + postes; tráfego segue as
+  polylines. Debug/marketing: `?view=top` (câmera cenital).
+- ✅ **Fase 4 (parcial) — Cidade viva**: rooftops instanciados (antenas nas torres,
+  caixas d'água, AC), luzes vermelhas de obstáculo nas mais altas; 2 aviões com
+  luzes de navegação cruzando o céu; 1 helicóptero circulando o downtown com
+  **searchlight (SpotLight) varrendo** os prédios.
+- ✅ **Fase 2 (parcial) — Água AAA**: reflexo real via CubeCamera — cubemap da cidade
+  iluminada capturado 1× no load, alimentado no shader da água → **torres do
+  downtown refletidas no rio/lagos/oceano**.
+
 Arquivos: `app/city/explore/city-3d.tsx` (cena), `app/city/explore/city-environment.ts`
-(kit de ambiente), `app/api/city/data/route.ts` (gerador de layout).
+(kit de ambiente), `app/api/city/data/route.ts` (gerador de layout v2).
 
 **Dependências pesquisadas:** nada a instalar — three r162 embarca tudo
 (GLTFLoader, postprocessing, RenderTarget). Opcional na Fase 3: `postprocessing`
