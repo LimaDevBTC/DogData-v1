@@ -1,9 +1,8 @@
 import type { Metadata, Viewport } from 'next'
 import { JetBrains_Mono, Syne, DM_Sans, Instrument_Serif, Barlow } from 'next/font/google'
 import './globals.css'
-import { Analytics } from "@vercel/analytics/next"
-import { SpeedInsights } from "@vercel/speed-insights/next"
 import { VerifiedAddressesProvider } from '@/contexts/VerifiedAddressesContext'
+import { AnalyticsTracker } from '@/components/analytics-tracker'
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
@@ -117,8 +116,7 @@ export default function RootLayout({
             {children}
           </div>
         </VerifiedAddressesProvider>
-        <Analytics />
-        <SpeedInsights />
+        <AnalyticsTracker />
       </body>
     </html>
   )
