@@ -8,6 +8,7 @@ import {
 import {
   Eye, Users, Layers, Globe, Monitor, Smartphone, Tablet,
   Zap, TrendingUp, RefreshCw, Activity, Chrome, Gauge,
+  MousePointer, Percent, Megaphone,
 } from 'lucide-react'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -31,6 +32,17 @@ interface Report {
   vitals_by_day: Record<string, number | string>[]
   vitals_by_device: Record<string, number | string>[]
   slowest_pages: Record<string, { page: string; p75: number }[]>
+}
+
+// ─── Ads types ───────────────────────────────────────────────────────────────
+
+interface AdsReport {
+  advertiser: string
+  period: { days: number; from: string; to: string }
+  summary: { impressions: number; clicks: number; ctr: string }
+  by_page: Record<string, { impressions: number; clicks: number }>
+  by_device: Record<string, { impressions: number; clicks: number }>
+  by_day: Record<string, { impressions: number; clicks: number }>
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -225,10 +237,12 @@ function Tab({ active, onClick, children }: { active: boolean; onClick: () => vo
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 export default function AnalyticsDashboard() {
-  const [data,    setData]    = useState<Report | null>(null)
-  const [days,    setDays]    = useState(30)
-  const [tab,     setTab]     = useState<'traffic' | 'speed'>('traffic')
-  const [loading, setLoading] = useState(true)
+  const [data,     setData]     = useState<Report | null>(null)
+  const [adsData,  setAdsData]  = useState<AdsReport | null>(null)
+  const [days,     setDays]     = useState(30)
+  const [tab,      setTab]      = useState<'traffic' | 'speed' | 'ads'>('traffic')
+  const [loading,  setLoading]  = useState(true)
+  const [adsLoading, setAdsLoading] = useState(false)
   const [lastRefresh, setLastRefresh] = useState(new Date())
 
   const load = useCallback((d: number) => {
@@ -239,11 +253,20 @@ export default function AnalyticsDashboard() {
       .catch(() => setLoading(false))
   }, [])
 
+  const loadAds = useCallback((d: number) => {
+    setAdsLoading(true)
+    fetch(`/api/ads/report?days=${d}`)
+      .then(r => r.json())
+      .then(r => { setAdsData(r); setAdsLoading(false) })
+      .catch(() => setAdsLoading(false))
+  }, [])
+
   useEffect(() => { load(days) }, [days, load])
+  useEffect(() => { if (tab === 'ads') loadAds(days) }, [tab, days, loadAds])
   useEffect(() => {
-    const t = setInterval(() => load(days), 60_000)
+    const t = setInterval(() => { load(days); if (tab === 'ads') loadAds(days) }, 60_000)
     return () => clearInterval(t)
-  }, [days, load])
+  }, [days, tab, load, loadAds])
 
   if (loading && !data) {
     return (
@@ -302,6 +325,7 @@ export default function AnalyticsDashboard() {
         <div className="flex border-b border-white/[0.06] mb-8">
           <Tab active={tab==='traffic'} onClick={()=>setTab('traffic')}>📊 Tráfego</Tab>
           <Tab active={tab==='speed'}   onClick={()=>setTab('speed')}>⚡ Velocidade</Tab>
+          <Tab active={tab==='ads'}     onClick={()=>setTab('ads')}>📣 Ads</Tab>
         </div>
 
         {/* ════════════════════════════════ TRAFFIC TAB ═════════════════════ */}
@@ -646,6 +670,142 @@ export default function AnalyticsDashboard() {
                 </table>
               </div>
             </Card>
+          </>
+        )}
+
+        {/* ══════════════════════════════ ADS TAB ══════════════════════════ */}
+        {tab === 'ads' && (
+          <>
+            {adsLoading && !adsData && (
+              <div className="flex items-center justify-center py-20">
+                <div className="text-orange-500 font-mono text-sm animate-pulse">Carregando dados de ads...</div>
+              </div>
+            )}
+            {adsData && (() => {
+              const dailyData = Object.entries(adsData.by_day)
+                .sort(([a],[b]) => a.localeCompare(b))
+                .map(([date, v]) => ({ date: date.slice(5), Impressões: v.impressions, Cliques: v.clicks }))
+
+              const pageData = Object.entries(adsData.by_page)
+                .filter(([p]) => p !== '/test')
+                .sort(([,a],[,b]) => (b.impressions+b.clicks)-(a.impressions+a.clicks))
+                .slice(0, 8)
+                .map(([page, v]) => ({
+                  page: fmtPage(page),
+                  Impressões: v.impressions,
+                  Cliques: v.clicks,
+                }))
+
+              const deviceData = Object.entries(adsData.by_device).map(([device, v], i) => ({
+                name: device === 'mobile' ? 'Mobile' : 'Desktop',
+                value: v.impressions + v.clicks,
+                impressions: v.impressions,
+                clicks: v.clicks,
+              }))
+
+              const pagesAlcancadas = Object.keys(adsData.by_page).filter(p => p !== '/test').length
+
+              return (
+                <>
+                  {/* Header Bitflow */}
+                  <div className="flex items-center gap-3 mb-8 p-4 rounded-xl border border-orange-500/10 bg-orange-500/[0.03]">
+                    <img src="/Bitflow.png" alt="Bitflow" className="h-8 object-contain" />
+                    <div>
+                      <div className="text-sm font-mono font-bold text-white">Bitflow — Banner Performance</div>
+                      <div className="text-[11px] font-mono text-gray-600">
+                        {new Date(adsData.period.from).toLocaleDateString('pt-BR')} → {new Date(adsData.period.to).toLocaleDateString('pt-BR')}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Summary */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                    <StatCard icon={Eye}          label="Impressões"       value={fmtNum(adsData.summary.impressions)} color={C.orange} />
+                    <StatCard icon={MousePointer} label="Cliques"          value={fmtNum(adsData.summary.clicks)}      color={C.blue} />
+                    <StatCard icon={Percent}      label="CTR"              value={adsData.summary.ctr}                 color={C.purple} sub="Cliques / Impressões" />
+                    <StatCard icon={Megaphone}    label="Páginas alcançadas" value={pagesAlcancadas}                  color={C.green} sub="com ≥1 impressão" />
+                  </div>
+
+                  {/* Daily */}
+                  <Card className="mb-8">
+                    <SectionTitle>Impressões e Cliques por Dia</SectionTitle>
+                    {dailyData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={220}>
+                        <AreaChart data={dailyData}>
+                          <defs>
+                            <linearGradient id="ads-imp" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%"  stopColor={C.orange} stopOpacity={0.25} />
+                              <stop offset="95%" stopColor={C.orange} stopOpacity={0} />
+                            </linearGradient>
+                            <linearGradient id="ads-clk" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%"  stopColor={C.blue} stopOpacity={0.25} />
+                              <stop offset="95%" stopColor={C.blue} stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#ffffff06" />
+                          <XAxis dataKey="date" tick={{fill:C.muted,fontSize:11,fontFamily:'monospace'}} axisLine={false} tickLine={false} />
+                          <YAxis tick={{fill:C.muted,fontSize:11,fontFamily:'monospace'}} axisLine={false} tickLine={false} />
+                          <Tooltip content={<CustomTooltip />} />
+                          <Legend wrapperStyle={{fontSize:11,fontFamily:'monospace',color:C.muted}} />
+                          <Area type="monotone" dataKey="Impressões" stroke={C.orange} fill="url(#ads-imp)" strokeWidth={2} dot={false} />
+                          <Area type="monotone" dataKey="Cliques"    stroke={C.blue}   fill="url(#ads-clk)" strokeWidth={2} dot={false} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-[220px] text-gray-700 font-mono text-sm">Sem dados ainda</div>
+                    )}
+                  </Card>
+
+                  {/* By page + By device */}
+                  <div className="grid md:grid-cols-3 gap-6 mb-8">
+                    <div className="md:col-span-2">
+                      <Card className="h-full">
+                        <SectionTitle>Impressões por Página</SectionTitle>
+                        <ResponsiveContainer width="100%" height={260}>
+                          <BarChart data={pageData} layout="vertical">
+                            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff06" horizontal={false} />
+                            <XAxis type="number" tick={{fill:C.muted,fontSize:10,fontFamily:'monospace'}} axisLine={false} tickLine={false} />
+                            <YAxis dataKey="page" type="category" tick={{fill:'#9ca3af',fontSize:10,fontFamily:'monospace'}} axisLine={false} tickLine={false} width={100} />
+                            <Tooltip content={<CustomTooltip />} />
+                            <Bar dataKey="Impressões" fill={C.orange} radius={[0,4,4,0]} />
+                            <Bar dataKey="Cliques"    fill={C.blue}   radius={[0,4,4,0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </Card>
+                    </div>
+                    <Card>
+                      <SectionTitle>Por Dispositivo</SectionTitle>
+                      <ResponsiveContainer width="100%" height={150}>
+                        <PieChart>
+                          <Pie data={deviceData} dataKey="value" cx="50%" cy="50%" innerRadius={42} outerRadius={62} paddingAngle={3}>
+                            {deviceData.map((_,i) => <Cell key={i} fill={[C.orange,C.blue][i]} />)}
+                          </Pie>
+                          <Tooltip content={<CustomTooltip />} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="space-y-3 mt-4">
+                        {deviceData.map((d,i) => {
+                          const Icon = d.name === 'Mobile' ? Smartphone : Monitor
+                          return (
+                            <div key={d.name} className="flex items-center justify-between text-xs font-mono">
+                              <div className="flex items-center gap-2">
+                                <Icon className="w-3.5 h-3.5" style={{color:[C.orange,C.blue][i]}} />
+                                <span className="text-gray-400">{d.name}</span>
+                              </div>
+                              <div>
+                                <span className="text-white">{d.impressions} imp</span>
+                                <span className="text-gray-600 mx-1">/</span>
+                                <span style={{color:C.blue}}>{d.clicks} cli</span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </Card>
+                  </div>
+                </>
+              )
+            })()}
           </>
         )}
 
