@@ -40,7 +40,9 @@ function loadBtc(): { holders: HolderInput[]; supply: number } {
 }
 
 async function loadExternal(chain: 'solana' | 'stacks'): Promise<{ holders: HolderInput[]; supply: number }> {
-  const url = `${API_BASE}/api/multichain/holders?chain=${chain}&limit=1000`
+  // Stacks (Tenero/Hiro) rejects large page sizes with a 500 → keep it modest.
+  const limit = chain === 'stacks' ? 200 : 1000
+  const url = `${API_BASE}/api/multichain/holders?chain=${chain}&limit=${limit}`
   const res = await fetch(url)
   if (!res.ok) throw new Error(`${chain} holders HTTP ${res.status}`)
   const json: any = await res.json()
