@@ -20,7 +20,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import * as dotenv from 'dotenv'
-import { backfillSnapshot, type HolderInput } from '../lib/city/registry'
+import { backfillSnapshot, backfillBtcOrganic, type HolderInput } from '../lib/city/registry'
 import type { ChainId } from '../lib/city/zones'
 
 dotenv.config({ path: path.join(__dirname, '..', '.env.local') })
@@ -71,7 +71,13 @@ async function main() {
   console.log('🏙️  CrossChainCity registry backfill')
   const btc = loadBtc()
   console.log(`  BTC snapshot: ${btc.holders.length} holders, supply≈${Math.round(btc.supply)}`)
-  await run('bitcoin', () => btc, btc.supply)
+  // BTC uses the ORGANIC road-aligned layout (frozen v3 city), not the spiral.
+  try {
+    const res = await backfillBtcOrganic(btc.holders, btc.supply)
+    console.log(`  bitcoin: minted ${res.minted} (overflow ${res.overflow}), skipped ${res.skipped}`)
+  } catch (err) {
+    console.warn(`  bitcoin: FAILED — ${(err as Error).message}`)
+  }
 
   if (!BTC_ONLY) {
     // Use the BTC max as the shared √-footprint normaliser across all three zones.

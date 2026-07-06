@@ -10,9 +10,24 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import {
-  CHAIN_TO_ZONE, assignDistrict, heightTier, footprintWidth, freshLot,
+  CHAIN_TO_ZONE, assignDistrict, heightTier, footprintWidth, mintLot, streetAddress,
   type ChainId, type ZoneId, type LotState,
 } from './zones'
+import { freezeWorld, frozenLayout } from './world'
+
+// Position resolver: BTC lots land on the ORGANIC road-aligned plots (frozen v3
+// layout), so the city keeps its Tokyo shape; SOL/STX islands use the phyllotaxis
+// spiral. Past a district's plot supply we spill to the spiral frontier.
+function positionFor(zone: ZoneId, district: number, index: number): { x: number; z: number; rot: number } {
+  if (zone === 'btc-core') {
+    const plots = frozenLayout().districtPlots[district]
+    if (plots && index < plots.length) {
+      const p = plots[index]
+      return { x: Math.round(p.x * 10) / 10, z: Math.round(p.z * 10) / 10, rot: Math.round(p.rot * 1000) / 1000 }
+    }
+  }
+  return mintLot(zone, district, index)
+}
 
 // ─── Client (service role — the registry writes) ───────────────────────────────
 let _client: SupabaseClient | null = null
@@ -146,11 +161,12 @@ export async function buildFreshLots(
     const start = await reserveIndices(zone, district, hs.length)
     hs.forEach((h, i) => {
       const idx = start + i
-      const lot = freshLot(zone, district, idx)
+      const pos = positionFor(zone, district, idx)
+      const addr = streetAddress(district, idx)
       rows.push({
         address: h.address, chain, zone, district,
-        lot_x: lot.x, lot_z: lot.z, rot: lot.rot,
-        street: lot.street, number: lot.number,
+        lot_x: pos.x, lot_z: pos.z, rot: pos.rot,
+        street: addr.street, number: addr.number,
         state: h.balance > 0 ? 'active' : 'ruin',
         last_balance: h.balance,
         height_tier: heightTier(h.balance),
@@ -333,6 +349,85 @@ export async function backfillSnapshot(
   const rows = await buildFreshLots(chain, fresh, supply)
   await upsertLots(rows)
   return { minted: rows.length, skipped }
+}
+
+// Directly set the mint cursors (used by the organic BTC backfill, which assigns
+// positions itself instead of going through reserveIndices).
+async function setCursors(zone: ZoneId, nextIdxByDistrict: number[]): Promise<void> {
+  const sb = registryClient()
+  const rows = nextIdxByDistrict.map((next_idx, district) => ({ zone, district, next_idx }))
+  const { error } = await sb.from('dogcity_cursors').upsert(rows, { onConflict: 'zone,district' })
+  if (error) throw new Error(`setCursors: ${error.message}`)
+}
+
+// BTC initial migration on the ORGANIC layout — reproduces the exact v3 city and
+// freezes it: each wealth district fills its own inner→outer plots first, and any
+// holder past that district's plot supply spills to the nearest free plot (by seed
+// proximity), so nobody is dropped and the Tokyo road-grid shape is preserved.
+export async function backfillBtcOrganic(
+  holders: HolderInput[],
+  supply: number,
+): Promise<{ minted: number; skipped: number; overflow: number }> {
+  const zone: ZoneId = 'btc-core'
+
+  // One-time, DETERMINISTIC migration: assign every positive-balance holder to an
+  // organic plot. Fully reproducible (fixed layout + stable sort), so re-running
+  // just re-writes the same positions/cursors via upsert — safe and idempotent.
+  const active = holders.filter(h => h.balance > 0)
+  const { layout } = freezeWorld(active.length)
+
+  // Bucket by wealth district, richest first (inner plots = taller/whales).
+  const byDistrict: { address: string; balance: number }[][] = Array.from({ length: 10 }, () => [])
+  for (const h of active) byDistrict[assignDistrict(h.balance, h.utxo_count ?? 0)].push({ address: h.address, balance: h.balance })
+  for (const b of byDistrict) b.sort((a, b) => b.balance - a.balance)
+
+  const rows: LotRow[] = []
+  const cursors = new Array(10).fill(0)
+  const freePlots: { x: number; z: number; rot: number }[] = []
+  const overflow: { address: string; balance: number; d: number }[] = []
+
+  const mkRow = (address: string, balance: number, d: number, p: { x: number; z: number; rot: number }, idx: number): LotRow => {
+    const addr = streetAddress(d, idx)
+    return {
+      address, chain: 'bitcoin', zone, district: d,
+      lot_x: Math.round(p.x * 10) / 10, lot_z: Math.round(p.z * 10) / 10, rot: Math.round(p.rot * 1000) / 1000,
+      street: addr.street, number: addr.number,
+      state: 'active', last_balance: balance,
+      height_tier: heightTier(balance), footprint: footprintWidth(balance, supply),
+    }
+  }
+
+  for (let d = 0; d < 10; d++) {
+    const plots = layout.districtPlots[d]
+    const hs = byDistrict[d]
+    const used = Math.min(plots.length, hs.length)
+    for (let i = 0; i < used; i++) rows.push(mkRow(hs[i].address, hs[i].balance, d, plots[i], i))
+    cursors[d] = used
+    for (let i = used; i < plots.length; i++) freePlots.push(plots[i])
+    for (let i = used; i < hs.length; i++) overflow.push({ address: hs[i].address, balance: hs[i].balance, d })
+  }
+
+  // Greedy nearest-free-plot for overflow holders (kept near their district seed).
+  if (overflow.length) {
+    const taken = new Uint8Array(freePlots.length)
+    for (const o of overflow) {
+      const [sx, sz] = layout.seeds[o.d]
+      let best = -1, bestD = Infinity
+      for (let i = 0; i < freePlots.length; i++) {
+        if (taken[i]) continue
+        const dd = (freePlots[i].x - sx) ** 2 + (freePlots[i].z - sz) ** 2
+        if (dd < bestD) { bestD = dd; best = i }
+      }
+      if (best < 0) break
+      taken[best] = 1
+      rows.push(mkRow(o.address, o.balance, o.d, freePlots[best], cursors[o.d]++))
+    }
+  }
+
+  await upsertLots(rows)
+  await setCursors(zone, cursors)
+  return { minted: rows.length, skipped: holders.length - active.length, overflow: overflow.length }
+  // (skipped = zero/negative-balance holders excluded from the city)
 }
 
 // Resolve a `to` address that has never been seen (a TX to a brand-new wallet):
