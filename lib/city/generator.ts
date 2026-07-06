@@ -16,18 +16,21 @@
 // same plots, which is exactly what "permanent lot" requires.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// ─── District definitions ─────────────────────────────────────────────────────
+// ─── District definitions — AGE COHORTS (center = oldest, edge = newest) ───────
+// The city is organised by holding age: the innermost ring is the oldest coins
+// (Genesis Core), fanning out to the freshest arrivals on the outskirts. Colours
+// rotate warm (old) → cool (new) so the age gradient reads at a glance from above.
 export const DISTRICTS = [
-  { id: 0, name: 'Satoshi District',     color: '#F7931A', tag: 'Diamond Paws'       },
-  { id: 1, name: 'Leonidas District',    color: '#C4B5FD', tag: 'OG Runestone'       },
-  { id: 2, name: 'Casey District',       color: '#67E8F9', tag: 'Ordinals + Runes'   },
-  { id: 3, name: 'Runes District',       color: '#FB923C', tag: 'Multi-Rune'         },
-  { id: 4, name: 'Sovereign District',   color: '#4ADE80', tag: 'Self-Custody'       },
-  { id: 5, name: 'Accumulator District', color: '#34D399', tag: 'Stack Growing'      },
-  { id: 6, name: 'HODLer District',      color: '#CBD5E1', tag: 'Long-Term'          },
-  { id: 7, name: 'Genesis District',     color: '#FCD34D', tag: 'Active Mid-Tier'    },
-  { id: 8, name: 'Newcomer District',    color: '#FDA4AF', tag: 'New Entrants'       },
-  { id: 9, name: 'Paper Hands',          color: '#6B7280', tag: 'Micro Holders'      },
+  { id: 0, name: 'Genesis Core',   color: '#FDE047', tag: 'Oldest coins'      },
+  { id: 1, name: 'Diamond Hands',  color: '#FBBF24', tag: 'Ancient HODLers'   },
+  { id: 2, name: 'Vanguard',       color: '#F7931A', tag: 'Early believers'   },
+  { id: 3, name: 'Veterans',       color: '#FB7185', tag: 'Long-term'         },
+  { id: 4, name: 'Seasoned',       color: '#E879F9', tag: 'Matured holdings'  },
+  { id: 5, name: 'Steady',         color: '#C4B5FD', tag: 'Mid-tenure'        },
+  { id: 6, name: 'Maturing',       color: '#A5B4FC', tag: 'Aging in'          },
+  { id: 7, name: 'Recent',         color: '#93C5FD', tag: 'Newer holdings'    },
+  { id: 8, name: 'Newcomers',      color: '#67E8F9', tag: 'Recent entrants'   },
+  { id: 9, name: 'Fresh Arrivals', color: '#6EE7B7', tag: 'Just arrived'      },
 ]
 
 // ─── World scale constants (base 1180 world, multiplied by WORLD_SCALE) ─────────
@@ -435,6 +438,25 @@ export function buildCityAt(rLand: number): CityLayout {
   }
   _cache.set(key, layout)
   return layout
+}
+
+// ─── Radial plot order (for the age-organised city) ────────────────────────────
+// All organic plots flattened and sorted by distance from the city centre. The
+// registry mints the OLDEST holder on plot 0 (dead centre) and fans outward by age,
+// so the whole road-aligned fabric is reused — just filled centre-out by tenure.
+export interface RadialPlot { x: number; z: number; rot: number; r: number }
+const _radialCache = new Map<number, RadialPlot[]>()
+export function radialPlots(layout: CityLayout): RadialPlot[] {
+  const key = Math.round(layout.rLand)
+  const hit = _radialCache.get(key)
+  if (hit) return hit
+  const all: RadialPlot[] = []
+  for (const plots of layout.districtPlots) {
+    for (const p of plots) all.push({ x: p.x, z: p.z, rot: p.rot, r: Math.hypot(p.x, p.z) })
+  }
+  all.sort((a, b) => a.r - b.r)
+  _radialCache.set(key, all)
+  return all
 }
 
 // Grow the land radius from N until every wallet fits, then return the layout AND

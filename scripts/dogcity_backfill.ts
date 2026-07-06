@@ -20,7 +20,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import * as dotenv from 'dotenv'
-import { backfillSnapshot, backfillBtcOrganic, type HolderInput } from '../lib/city/registry'
+import { backfillSnapshot, backfillBtcByAge, type HolderInput } from '../lib/city/registry'
 import type { ChainId } from '../lib/city/zones'
 
 dotenv.config({ path: path.join(__dirname, '..', '.env.local') })
@@ -29,11 +29,26 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') })
 const API_BASE = process.env.CITY_API_BASE || 'http://localhost:3000'
 const BTC_ONLY = process.argv.includes('--btc-only')
 
+// BTC holders WITH holding age (weighted UTXO age) so the city can be organised
+// centre-out by tenure. holders_by_age.json carries balance + age + utxo_count for
+// every holder; fall back to dog_holders.json (no age) if it's missing.
 function loadBtc(): { holders: HolderInput[]; supply: number } {
+  const agePath = path.join(__dirname, '..', 'data', 'holders_by_age.json')
+  if (fs.existsSync(agePath)) {
+    const raw = JSON.parse(fs.readFileSync(agePath, 'utf8'))
+    const holders: HolderInput[] = (raw.holders || []).map((h: any) => ({
+      address: h.address,
+      balance: h.total_dog,
+      utxo_count: h.utxo_count,
+      age: h.weighted_avg_age_days ?? h.oldest_age_days ?? 0,
+    }))
+    const supply = holders.reduce((m, h) => Math.max(m, h.balance), 1)
+    return { holders, supply }
+  }
   const p = path.join(__dirname, '..', 'data', 'dog_holders.json')
   const raw = JSON.parse(fs.readFileSync(p, 'utf8'))
   const holders: HolderInput[] = (raw.holders || []).map((h: any) => ({
-    address: h.address, balance: h.total_dog, utxo_count: h.utxo_count,
+    address: h.address, balance: h.total_dog, utxo_count: h.utxo_count, age: 0,
   }))
   const supply = holders.reduce((m, h) => Math.max(m, h.balance), 1)
   return { holders, supply }
@@ -71,10 +86,10 @@ async function main() {
   console.log('🏙️  CrossChainCity registry backfill')
   const btc = loadBtc()
   console.log(`  BTC snapshot: ${btc.holders.length} holders, supply≈${Math.round(btc.supply)}`)
-  // BTC uses the ORGANIC road-aligned layout (frozen v3 city), not the spiral.
+  // BTC: organic road-aligned layout, filled CENTRE-OUT by holding age.
   try {
-    const res = await backfillBtcOrganic(btc.holders, btc.supply)
-    console.log(`  bitcoin: minted ${res.minted} (overflow ${res.overflow}), skipped ${res.skipped}`)
+    const res = await backfillBtcByAge(btc.holders, btc.supply)
+    console.log(`  bitcoin: minted ${res.minted} (centre-out by age), skipped ${res.skipped}`)
   } catch (err) {
     console.warn(`  bitcoin: FAILED — ${(err as Error).message}`)
   }

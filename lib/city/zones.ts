@@ -25,17 +25,19 @@ export const CHAIN_TO_ZONE: Record<ChainId, ZoneId> = {
 
 // ─── Districts (shared across chains — a whale is a whale on any chain) ─────────
 export interface DistrictDef { id: number; name: string; color: string; tag: string }
+// Age cohorts (center = oldest). Kept in sync with generator.ts DISTRICTS; used here
+// only for the shareable street-address label (BLOCO E).
 export const DISTRICTS: DistrictDef[] = [
-  { id: 0, name: 'Satoshi District',     color: '#F7931A', tag: 'Diamond Paws'     },
-  { id: 1, name: 'Leonidas District',    color: '#C4B5FD', tag: 'OG Runestone'     },
-  { id: 2, name: 'Casey District',       color: '#67E8F9', tag: 'Ordinals + Runes' },
-  { id: 3, name: 'Runes District',       color: '#FB923C', tag: 'Multi-Rune'       },
-  { id: 4, name: 'Sovereign District',   color: '#4ADE80', tag: 'Self-Custody'     },
-  { id: 5, name: 'Accumulator District', color: '#34D399', tag: 'Stack Growing'    },
-  { id: 6, name: 'HODLer District',      color: '#CBD5E1', tag: 'Long-Term'        },
-  { id: 7, name: 'Genesis District',     color: '#FCD34D', tag: 'Active Mid-Tier'  },
-  { id: 8, name: 'Newcomer District',    color: '#FDA4AF', tag: 'New Entrants'     },
-  { id: 9, name: 'Paper Hands',          color: '#6B7280', tag: 'Micro Holders'    },
+  { id: 0, name: 'Genesis Core',   color: '#FDE047', tag: 'Oldest coins'     },
+  { id: 1, name: 'Diamond Hands',  color: '#FBBF24', tag: 'Ancient HODLers'  },
+  { id: 2, name: 'Vanguard',       color: '#F7931A', tag: 'Early believers'  },
+  { id: 3, name: 'Veterans',       color: '#FB7185', tag: 'Long-term'        },
+  { id: 4, name: 'Seasoned',       color: '#E879F9', tag: 'Matured holdings' },
+  { id: 5, name: 'Steady',         color: '#C4B5FD', tag: 'Mid-tenure'       },
+  { id: 6, name: 'Maturing',       color: '#A5B4FC', tag: 'Aging in'         },
+  { id: 7, name: 'Recent',         color: '#93C5FD', tag: 'Newer holdings'   },
+  { id: 8, name: 'Newcomers',      color: '#67E8F9', tag: 'Recent entrants'  },
+  { id: 9, name: 'Fresh Arrivals', color: '#6EE7B7', tag: 'Just arrived'     },
 ]
 
 // utxoCount is a Bitcoin-only activity signal; SOL/STX pass 0 → the inactive branch,
