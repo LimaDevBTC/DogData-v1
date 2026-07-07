@@ -13,28 +13,54 @@ import {
   CHAIN_TO_ZONE, assignDistrict, heightTier, footprintWidth, mintLot, streetAddress,
   type ChainId, type ZoneId, type LotState,
 } from './zones'
-import { freezeWorld, frozenLayout } from './world'
-import { radialPlots } from './generator'
+import { freezeWorld, frozenLayout, readFrozenWorld } from './world'
+import { ageOrderedPlots, type RadialPlot } from './generator'
 
 // Sentinel "district" used as the GLOBAL radial mint cursor for the BTC core (the
 // age model uses one centre-out ordering, not per-district counters).
 const BTC_RADIAL_CURSOR = 99
 
-// Age-band from a holder's global radial index (0 = oldest/centre … 9 = newest/edge).
+// Age-band from a holder's global age rank (0 = oldest/centre … 9 = newest/edge).
 function ageBand(index: number, total: number): number {
   return Math.min(9, Math.max(0, Math.floor((index / Math.max(total, 1)) * 10)))
 }
 
-// Position resolver: BTC lots land on the ORGANIC road-aligned plots ordered by
-// radius (centre-out by age), so the city keeps its Tokyo shape; SOL/STX islands
-// use the phyllotaxis spiral. Past the plot supply we spill to the spiral frontier.
+// The N backfill holders are STRIDED across all P age-ordered plots so the whole
+// organic outline fills (not just a central disc). Rank i (oldest=0) → this plot.
+function btcBackfillPlot(ordered: RadialPlot[], N: number, i: number): RadialPlot {
+  const P = ordered.length
+  return ordered[Math.min(P - 1, Math.floor((i * P) / Math.max(N, 1)))]
+}
+
+// The plots the stride skipped, ordered OUTER-first (highest age key) — the frontier
+// where future (newest) arrivals build. Cached per (rLand, N).
+let _growthCache: { rLand: number; N: number; list: RadialPlot[] } | null = null
+function btcGrowthPlots(ordered: RadialPlot[], N: number, rLand: number): RadialPlot[] {
+  if (_growthCache && _growthCache.rLand === rLand && _growthCache.N === N) return _growthCache.list
+  const P = ordered.length
+  const used = new Uint8Array(P)
+  for (let i = 0; i < N; i++) used[Math.min(P - 1, Math.floor((i * P) / Math.max(N, 1)))] = 1
+  const list: RadialPlot[] = []
+  for (let k = P - 1; k >= 0; k--) if (!used[k]) list.push(ordered[k])
+  _growthCache = { rLand, N, list }
+  return list
+}
+
+// Position resolver: BTC lots land on the ORGANIC road-aligned plots (age-ordered,
+// strided to fill the whole outline); SOL/STX islands use the phyllotaxis spiral.
 function positionFor(zone: ZoneId, district: number, index: number): { x: number; z: number; rot: number } {
   if (zone === 'btc-core') {
-    const rp = radialPlots(frozenLayout())
-    if (index < rp.length) {
-      const p = rp[index]
-      return { x: Math.round(p.x * 10) / 10, z: Math.round(p.z * 10) / 10, rot: Math.round(p.rot * 1000) / 1000 }
+    const layout = frozenLayout()
+    const ordered = ageOrderedPlots(layout)
+    const N = readFrozenWorld()?.n ?? ordered.length
+    // index < N → a backfill slot; index ≥ N → the (index-N)-th growth arrival.
+    let p: RadialPlot | undefined
+    if (index < N) p = btcBackfillPlot(ordered, N, index)
+    else {
+      const growth = btcGrowthPlots(ordered, N, layout.rLand)
+      p = growth[index - N]
     }
+    if (p) return { x: Math.round(p.x * 10) / 10, z: Math.round(p.z * 10) / 10, rot: Math.round(p.rot * 1000) / 1000 }
   }
   return mintLot(zone, district, index)
 }
@@ -51,6 +77,8 @@ export function registryClient(): SupabaseClient {
 }
 
 // ─── Row shape ─────────────────────────────────────────────────────────────────
+export type LotKind = 'build' | 'open'
+
 export interface LotRow {
   address: string
   chain: ChainId
@@ -65,13 +93,34 @@ export interface LotRow {
   last_balance: number
   height_tier: number
   footprint: number
+  kind: LotKind          // 'build' (≥10k DOG) | 'open' (1-10k green space)
+  utxo_count: number     // drives form: few = tower, many = condo
+  age_score: number      // centrality metric: age (days) of oldest ≥10k UTXO
+  prestige: number       // 1-5 stars (profile only)
 }
+
+const LOT_COLS = 'address,chain,zone,district,lot_x,lot_z,rot,street,number,state,last_balance,height_tier,footprint,kind,utxo_count,age_score,prestige'
 
 export interface HolderInput {
   address: string
   balance: number       // DOG balance
-  utxo_count?: number    // Bitcoin activity signal (optional)
-  age?: number           // holding age in days (weighted UTXO age) — drives BTC placement
+  utxo_count?: number    // number of UTXOs (Bitcoin) — drives form + activity
+  age?: number           // age_score in days (oldest ≥10k UTXO) — drives BTC placement
+  lth_pct?: number       // % of balance in long-term (≥155d) UTXOs — for prestige
+}
+
+// Occupancy bands (reorganizecity.md · BLOCO 3.1).
+const DUST_MAX = 1        // < 1 DOG → dropped entirely (no lot)
+const BUILD_MIN = 10_000  // ≥ 10k DOG → a building; 1..<10k → open green space
+function lotKind(balance: number): LotKind { return balance >= BUILD_MIN ? 'build' : 'open' }
+
+// Prestige stars (1-5): tenure (age) + accumulation (balance) + conviction (LTH%).
+function prestigeStars(ageDays: number, balance: number, lthPct: number): number {
+  const ageNorm = Math.min(1, Math.max(0, ageDays / 730))            // ~2y cap
+  const balNorm = Math.min(1, Math.max(0, Math.log10(Math.max(balance, 1)) / 10)) // up to 10B
+  const lthNorm = Math.min(1, Math.max(0, lthPct / 100))
+  const raw = 0.5 * ageNorm + 0.2 * balNorm + 0.3 * lthNorm
+  return 1 + Math.round(raw * 4)
 }
 
 export type CityEvent = 'construct' | 'implode' | 'resize' | 'rebuild'
@@ -100,7 +149,7 @@ export async function getAllLots(force = false): Promise<LotRow[]> {
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await sb
       .from('dogcity_lots')
-      .select('address,chain,zone,district,lot_x,lot_z,rot,street,number,state,last_balance,height_tier,footprint')
+      .select(LOT_COLS)
       .order('address', { ascending: true })
       .range(from, from + PAGE - 1)
     if (error) throw new Error(`getAllLots: ${error.message}`)
@@ -133,7 +182,7 @@ export async function resolveAddresses(addresses: string[]): Promise<Map<string,
     const chunk = uniq.slice(i, i + 300)
     const { data, error } = await sb
       .from('dogcity_lots')
-      .select('address,chain,zone,district,lot_x,lot_z,rot,street,number,state,last_balance,height_tier,footprint')
+      .select(LOT_COLS)
       .in('address', chunk)
     if (error) throw new Error(`resolveAddresses: ${error.message}`)
     for (const r of (data as LotRow[] | null) ?? []) out.set(r.address, r)
@@ -153,10 +202,32 @@ async function reserveIndices(zone: ZoneId, district: number, n: number): Promis
   return (data as number) ?? 0
 }
 
+export type FreshHolder = HolderInput & { district: number }
+
+function mkLotRow(
+  h: FreshHolder, chain: ChainId, zone: ZoneId, district: number,
+  pos: { x: number; z: number; rot: number }, idx: number, supply: number,
+): LotRow {
+  const addr = streetAddress(district, idx)
+  return {
+    address: h.address, chain, zone, district,
+    lot_x: pos.x, lot_z: pos.z, rot: pos.rot,
+    street: addr.street, number: addr.number,
+    state: h.balance > 0 ? 'active' : 'ruin',
+    last_balance: h.balance,
+    height_tier: heightTier(h.balance),
+    footprint: footprintWidth(h.balance, supply),
+    kind: lotKind(h.balance),
+    utxo_count: h.utxo_count ?? 1,
+    age_score: h.age ?? 0,
+    prestige: prestigeStars(h.age ?? 0, h.balance, h.lth_pct ?? 0),
+  }
+}
+
 // Build a LotRow for a brand-new address (does not write it — caller batches).
 export async function buildFreshLots(
   chain: ChainId,
-  newHolders: { address: string; balance: number; district: number }[],
+  newHolders: FreshHolder[],
   supply: number,
 ): Promise<LotRow[]> {
   const zone = CHAIN_TO_ZONE[chain]
@@ -168,43 +239,23 @@ export async function buildFreshLots(
     const start = await reserveIndices(zone, BTC_RADIAL_CURSOR, newHolders.length)
     newHolders.forEach((h, i) => {
       const idx = start + i
-      const pos = positionFor(zone, 9, idx)
-      const addr = streetAddress(9, idx)
-      rows.push({
-        address: h.address, chain, zone, district: 9,
-        lot_x: pos.x, lot_z: pos.z, rot: pos.rot,
-        street: addr.street, number: addr.number,
-        state: h.balance > 0 ? 'active' : 'ruin',
-        last_balance: h.balance,
-        height_tier: heightTier(h.balance),
-        footprint: footprintWidth(h.balance, supply),
-      })
+      rows.push(mkLotRow(h, chain, zone, 9, positionFor(zone, 9, idx), idx, supply))
     })
     return rows
   }
 
   // SOL/STX islands: per-district phyllotaxis spiral.
-  const byDistrict = new Map<number, { address: string; balance: number }[]>()
+  const byDistrict = new Map<number, FreshHolder[]>()
   for (const h of newHolders) {
     const arr = byDistrict.get(h.district) ?? []
-    arr.push({ address: h.address, balance: h.balance })
+    arr.push(h)
     byDistrict.set(h.district, arr)
   }
   for (const [district, hs] of Array.from(byDistrict.entries())) {
     const start = await reserveIndices(zone, district, hs.length)
     hs.forEach((h, i) => {
       const idx = start + i
-      const pos = positionFor(zone, district, idx)
-      const addr = streetAddress(district, idx)
-      rows.push({
-        address: h.address, chain, zone, district,
-        lot_x: pos.x, lot_z: pos.z, rot: pos.rot,
-        street: addr.street, number: addr.number,
-        state: h.balance > 0 ? 'active' : 'ruin',
-        last_balance: h.balance,
-        height_tier: heightTier(h.balance),
-        footprint: footprintWidth(h.balance, supply),
-      })
+      rows.push(mkLotRow(h, chain, zone, district, positionFor(zone, district, idx), idx, supply))
     })
   }
   return rows
@@ -264,7 +315,7 @@ export async function recentEvents(sinceId: number, limit = 500): Promise<{ even
 // ═══════════════════════════════════════════════════════════════════════════════
 export interface DiffResult {
   events: EventRow[]
-  freshInputs: { address: string; balance: number; district: number }[]
+  freshInputs: FreshHolder[]
   updates: LotRow[]   // existing lots whose state/balance/size changed
 }
 
@@ -291,7 +342,7 @@ export function diffSnapshot(
     const district = assignDistrict(bal, h.utxo_count ?? 0)
     const prev = existingByAddr.get(h.address)
     if (!prev) {
-      if (bal > 0) freshInputs.push({ address: h.address, balance: bal, district })
+      if (bal >= DUST_MAX) freshInputs.push({ address: h.address, balance: bal, district, utxo_count: h.utxo_count, age: h.age, lth_pct: h.lth_pct })
       continue
     }
     const ht = heightTier(bal)
@@ -372,12 +423,12 @@ export async function backfillSnapshot(
 ): Promise<{ minted: number; skipped: number }> {
   const zone = CHAIN_TO_ZONE[chain]
   const existing = new Set((await getAllLots(true)).filter(r => r.zone === zone).map(r => r.address))
-  const fresh: { address: string; balance: number; district: number }[] = []
+  const fresh: FreshHolder[] = []
   let skipped = 0
   for (const h of snapshot) {
     if (existing.has(h.address)) { skipped++; continue }
-    if (h.balance <= 0) { skipped++; continue }
-    fresh.push({ address: h.address, balance: h.balance, district: assignDistrict(h.balance, h.utxo_count ?? 0) })
+    if (h.balance < DUST_MAX) { skipped++; continue }
+    fresh.push({ ...h, district: assignDistrict(h.balance, h.utxo_count ?? 0) })
   }
   const rows = await buildFreshLots(chain, fresh, supply)
   await upsertLots(rows)
@@ -402,16 +453,17 @@ export async function backfillBtcByAge(
   supply: number,
 ): Promise<{ minted: number; skipped: number }> {
   const zone: ZoneId = 'btc-core'
-  const active = holders.filter(h => h.balance > 0)
+  // BLOCO 3.1 occupancy: drop dust (<1 DOG). 1-10k → open green space, ≥10k → build.
+  const active = holders.filter(h => h.balance >= DUST_MAX)
   const { layout } = freezeWorld(active.length)
-  const rp = radialPlots(layout)   // all plots, innermost → outermost
+  const ordered = ageOrderedPlots(layout)   // all plots, age-ordered (noisy radius)
 
-  // Oldest first (weighted UTXO age, desc). Stable so re-runs reproduce positions.
+  // Oldest first (age of oldest ≥10k UTXO, desc). Stable so re-runs reproduce positions.
   active.sort((a, b) => (b.age ?? 0) - (a.age ?? 0))
   const N = active.length
 
   const rows: LotRow[] = active.map((h, i) => {
-    const p = rp[Math.min(i, rp.length - 1)]
+    const p = btcBackfillPlot(ordered, N, i)   // strided across the full extent
     const d = ageBand(i, N)
     const addr = streetAddress(d, i)
     return {
@@ -420,6 +472,10 @@ export async function backfillBtcByAge(
       street: addr.street, number: addr.number,
       state: 'active', last_balance: h.balance,
       height_tier: heightTier(h.balance), footprint: footprintWidth(h.balance, supply),
+      kind: lotKind(h.balance),
+      utxo_count: h.utxo_count ?? 1,
+      age_score: h.age ?? 0,
+      prestige: prestigeStars(h.age ?? 0, h.balance, h.lth_pct ?? 0),
     }
   })
 
@@ -435,7 +491,7 @@ export async function ensureLot(chain: ChainId, address: string, balance: number
   const found = existing.get(address)
   if (found) return found
   const district = assignDistrict(balance, 0)
-  const [row] = await buildFreshLots(chain, [{ address, balance, district }], supply)
+  const [row] = await buildFreshLots(chain, [{ address, balance, district, utxo_count: 1 }], supply)
   await upsertLots([row])
   await insertEvents([{
     address: row.address, zone: row.zone, district: row.district, event: 'construct',

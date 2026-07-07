@@ -38,6 +38,15 @@ const R_BASE       = 1180
 const GRID_SPACING = 12.5
 const USABLE_FRAC  = 0.24
 
+// ─── Satoshi Plaza (reorganizecity.md · BLOCO 1) ───────────────────────────────
+// A project-owned commercial square at the dead centre (0,0). No wallet lot is ever
+// placed inside PLAZA.radius — the oldest holders ring AROUND it. Fixed absolute
+// size (a landmark), independent of how big the city grows.
+export const PLAZA = {
+  radius: 300,   // reserved central circle (no wallet lots inside)
+  half:   170,   // half side-length of the square plaza
+}
+
 const SEEDS_BASE: [number, number][] = [
   [   0,    0], [  90,   65], [ 178,    0], [  90, -110], [-178,  110],
   [ -67, -200], [-578,  245], [ 578,  200], [ 245, -710], [-290, -688],
@@ -333,6 +342,7 @@ function generatePlots(segs: Seg[], parks: Park[]): { districtPlots: Plot[][]; t
       if (!inLand(px, pz)) continue
       if (px < OCEAN_START_X + 138 * s) continue
       if (isInLake(px, pz) || isInRiver(px, pz)) continue
+      if (px * px + pz * pz < PLAZA.radius * PLAZA.radius) continue   // reserve the central plaza
 
       let inPark = false
       for (let pk = 0; pk < parks.length; pk++) {
@@ -440,19 +450,36 @@ export function buildCityAt(rLand: number): CityLayout {
   return layout
 }
 
-// ─── Radial plot order (for the age-organised city) ────────────────────────────
-// All organic plots flattened and sorted by distance from the city centre. The
-// registry mints the OLDEST holder on plot 0 (dead centre) and fans outward by age,
-// so the whole road-aligned fabric is reused — just filled centre-out by tenure.
+// ─── Age-ordered plot list (for the age-organised city) ─────────────────────────
+// All organic plots flattened and sorted by an AGE KEY = distance-from-centre with a
+// large low-frequency noise wobble added. The noise is the whole point: a STRICT
+// radius sort makes perfect concentric rings (a disc), which fights the organic city
+// shape. With the wobble the age gradient still trends centre→edge (old→new) but the
+// bands meander like real neighbourhoods, and the registry then STRIDES across the
+// full list so buildings fill the entire irregular outline, not just a central disc.
 export interface RadialPlot { x: number; z: number; rot: number; r: number }
 const _radialCache = new Map<number, RadialPlot[]>()
-export function radialPlots(layout: CityLayout): RadialPlot[] {
+// Wobble amplitude as a fraction of the land radius. Higher = looser/more organic age
+// bands (less circular); lower = crisper rings. 0.32 keeps a readable gradient that
+// still follows the city's organic form.
+const AGE_NOISE_AMP = 0.32
+export function ageOrderedPlots(layout: CityLayout): RadialPlot[] {
   const key = Math.round(layout.rLand)
   const hit = _radialCache.get(key)
   if (hit) return hit
+  const amp = AGE_NOISE_AMP * layout.rLand
   const all: RadialPlot[] = []
   for (const plots of layout.districtPlots) {
-    for (const p of plots) all.push({ x: p.x, z: p.z, rot: p.rot, r: Math.hypot(p.x, p.z) })
+    for (const p of plots) {
+      const rr = Math.hypot(p.x, p.z)
+      // Wobble RAMPS UP with radius: the core stays crisply "oldest" (little noise),
+      // while the outskirts get loose, organic age bands (lots of noise). This gives
+      // both a clear old centre AND a non-circular, city-shaped gradient outward.
+      const ampR = amp * smoothstep(0.08 * layout.rLand, 0.85 * layout.rLand, rr)
+      const wobble = (fbm(p.x * 0.0016 + 21, p.z * 0.0016 + 21) - 0.5) * 2 * ampR
+      // `r` holds the AGE KEY (noisy radius) used for ordering, not the true radius.
+      all.push({ x: p.x, z: p.z, rot: p.rot, r: rr + wobble })
+    }
   }
   all.sort((a, b) => a.r - b.r)
   _radialCache.set(key, all)
@@ -469,4 +496,60 @@ export function buildCity(n: number): CityLayout {
     rLand *= 1.12
   }
   return buildCityAt(rLand)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Satoshi Plaza geometry (BLOCO 1) — the project-owned centre. A square with the
+// DOG-sign Space-Needle tower dead centre, one big anchor at each side-centre (~50%
+// of the side) and two flanking shops per side. All fixed in absolute world coords.
+// ═══════════════════════════════════════════════════════════════════════════════
+export interface PlazaBuilding { name: string; x: number; z: number; w: number; d: number; face: number }
+export interface PlazaLayout {
+  center: [number, number]
+  radius: number
+  half: number
+  tower: { x: number; z: number; base: number; height: number }
+  anchors: PlazaBuilding[]
+  shops: PlazaBuilding[]
+}
+
+export function plazaLayout(): PlazaLayout {
+  const H = PLAZA.half
+  const anchorW = H * 1.0     // ~50% of the 2H side
+  const anchorD = 70
+  const shopW = H * 0.42, shopD = 52
+  const shopOff = H * 0.66    // distance of each flanking shop from the side centre
+
+  // face = yaw so the building looks toward the plaza centre (0,0).
+  const faceCenter = (x: number, z: number) => Math.atan2(-x, -z)
+
+  // The four sides (project anchors, in the doc's order).
+  const sides: { name: string; x: number; z: number; tx: number; tz: number }[] = [
+    { name: 'BitFlow',     x: 0,  z: H,  tx: 1, tz: 0 },  // north
+    { name: 'DogShopping', x: H,  z: 0,  tx: 0, tz: 1 },  // east
+    { name: 'BuildSpace',  x: 0,  z: -H, tx: 1, tz: 0 },  // south
+    { name: 'Kray',        x: -H, z: 0,  tx: 0, tz: 1 },  // west
+  ]
+
+  const anchors: PlazaBuilding[] = sides.map(s => ({
+    name: s.name, x: s.x, z: s.z, w: anchorW, d: anchorD, face: faceCenter(s.x, s.z),
+  }))
+
+  const shops: PlazaBuilding[] = []
+  for (const s of sides) {
+    for (const sign of [-1, 1]) {
+      const x = s.x + s.tx * shopOff * sign
+      const z = s.z + s.tz * shopOff * sign
+      shops.push({ name: `${s.name} Shop`, x, z, w: shopW, d: shopD, face: faceCenter(s.x, s.z) })
+    }
+  }
+
+  return {
+    center: [0, 0],
+    radius: PLAZA.radius,
+    half: H,
+    tower: { x: 0, z: 0, base: 30, height: 460 },
+    anchors,
+    shops,
+  }
 }

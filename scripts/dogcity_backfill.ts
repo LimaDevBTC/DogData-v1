@@ -29,26 +29,43 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') })
 const API_BASE = process.env.CITY_API_BASE || 'http://localhost:3000'
 const BTC_ONLY = process.argv.includes('--btc-only')
 
-// BTC holders WITH holding age (weighted UTXO age) so the city can be organised
-// centre-out by tenure. holders_by_age.json carries balance + age + utxo_count for
-// every holder; fall back to dog_holders.json (no age) if it's missing.
-function loadBtc(): { holders: HolderInput[]; supply: number } {
-  const agePath = path.join(__dirname, '..', 'data', 'holders_by_age.json')
-  if (fs.existsSync(agePath)) {
-    const raw = JSON.parse(fs.readFileSync(agePath, 'utf8'))
-    const holders: HolderInput[] = (raw.holders || []).map((h: any) => ({
-      address: h.address,
-      balance: h.total_dog,
-      utxo_count: h.utxo_count,
-      age: h.weighted_avg_age_days ?? h.oldest_age_days ?? 0,
-    }))
-    const supply = holders.reduce((m, h) => Math.max(m, h.balance), 1)
-    return { holders, supply }
+// Centrality metric (reorganizecity.md · BLOCO 2): the AGE of the wallet's oldest
+// UTXO ≥ 10.000 DOG (its oldest substantial holding — ignores dust). Fallback: the
+// wallet's single oldest UTXO. Computed from dog_utxos_by_address.json (age_days per
+// UTXO). Returns a map address → age_score(days).
+const BUILD_MIN = 10_000
+function loadAgeScores(): Map<string, number> {
+  const p = path.join(__dirname, '..', 'data', 'dog_utxos_by_address.json')
+  const scores = new Map<string, number>()
+  if (!fs.existsSync(p)) return scores
+  const raw = JSON.parse(fs.readFileSync(p, 'utf8')) as Record<string, { dog: number; age_days: number }[]>
+  for (const [address, utxos] of Object.entries(raw)) {
+    let bigOldest = -1, anyOldest = -1
+    for (const u of utxos) {
+      if (u.age_days > anyOldest) anyOldest = u.age_days
+      if (u.dog >= BUILD_MIN && u.age_days > bigOldest) bigOldest = u.age_days
+    }
+    scores.set(address, bigOldest >= 0 ? bigOldest : Math.max(anyOldest, 0))
   }
-  const p = path.join(__dirname, '..', 'data', 'dog_holders.json')
-  const raw = JSON.parse(fs.readFileSync(p, 'utf8'))
+  return scores
+}
+
+// BTC holders with age_score (oldest ≥10k UTXO), utxo_count and LTH%. holders_by_age
+// carries balance/utxo/LTH; the UTXO file supplies the precise age metric.
+function loadBtc(): { holders: HolderInput[]; supply: number } {
+  const ages = loadAgeScores()
+  const agePath = path.join(__dirname, '..', 'data', 'holders_by_age.json')
+  const src = fs.existsSync(agePath)
+    ? path.join(__dirname, '..', 'data', 'holders_by_age.json')
+    : path.join(__dirname, '..', 'data', 'dog_holders.json')
+  const raw = JSON.parse(fs.readFileSync(src, 'utf8'))
   const holders: HolderInput[] = (raw.holders || []).map((h: any) => ({
-    address: h.address, balance: h.total_dog, utxo_count: h.utxo_count, age: 0,
+    address: h.address,
+    balance: h.total_dog,
+    utxo_count: h.utxo_count,
+    // Prefer the precise oldest-≥10k-UTXO age; fall back to weighted avg / oldest.
+    age: ages.get(h.address) ?? h.weighted_avg_age_days ?? h.oldest_age_days ?? 0,
+    lth_pct: h.lth_pct ?? 0,
   }))
   const supply = holders.reduce((m, h) => Math.max(m, h.balance), 1)
   return { holders, supply }
