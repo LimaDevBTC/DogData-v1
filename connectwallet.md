@@ -64,7 +64,7 @@ primário** + **provider injetado direto** como fallback por wallet.
 | **Xverse** | `sats-connect` nativo | `window.XverseProviders.BitcoinProvider` | `signMessage` → **BIP-322** (taproot) / ECDSA (payment) | ✅ nativo |
 | **Leather** | `sats-connect` (WBIP) | `window.LeatherProvider.request(...)` | `signMessage` | ✅ (Ordinals/BRC-20/Runes) |
 | **OKX Wallet** | `sats-connect` (providerId) | `window.okxwallet.bitcoin` | `signMessage(msg,'ecdsa')` | ✅ (BRC20/Atomicals/Runes) |
-| **Kray Wallet** | ❌ não usa sats-connect | `window.krayWallet` (provider próprio) | `signMessage` → **Schnorr BIP-340** (só taproot) | ✅ `getRunes()`; pagamento → §Aberto |
+| **Kray Wallet** | ❌ não usa sats-connect | `window.krayWallet` (provider próprio) | `signMessage` → **Schnorr BIP-340** (só taproot) | ✅ pagamento via **PSBT de parceiro** (servidor monta, Kray assina) — custo 50k DOG p/ Kray |
 
 ### API essencial por wallet (verificada nos docs)
 
@@ -123,12 +123,17 @@ const { signature } = await window.krayWallet.signMessageWithConfirmation(messag
 // getInscriptions() · getBalance() (sats) · getActiveNetwork() ('mainnet' | 'kray-l2')
 ```
 
-> ⚠️ **Kray difere das outras em 3 pontos que impactam o backend:**
+> ⚠️ **Kray difere das outras em 2 pontos que impactam o backend:**
 > (1) assina **Schnorr BIP-340 cru** (64 bytes) sobre `SHA-256(msg)` — **não** BIP-322 nem
 > ECDSA → precisa de **caminho de verificação próprio** (ver Bloco A.6);
-> (2) só expõe **endereço taproot** (ok — é onde os DOG ficam);
-> (3) os docs **não mostram `signPsbt`/transfer de Runes** → como pagar 10k DOG com a Kray
-> é **item em aberto** (§Aberto). Tem `sendPayment` de Lightning, mas o pagamento é em DOG.
+> (2) só expõe **endereço taproot** (ok — é onde os DOG ficam).
+>
+> ✅ **Pagamento em DOG confirmado pelo dev da Kray (Tom, 2026-07-07):** o `signPsbt`/PSBT de
+> pagamento **não é público**, mas é liberado no **arranjo de parceiro**. Fluxo: o nosso site
+> **monta a "regra" (o PSBT com o edict de DOG → treasury)**, o usuário clica, a **Kray gera a
+> cobrança e assina o PSBT** — mesmo padrão "servidor monta, wallet assina" das outras. **Custo:
+> 50k DOG p/ a Kray** habilitar (decisão de negócio — §Aberto). Falta o **nome exato do método/
+> endpoint** de assinatura da PSBT no provider de parceiro (pedir ao Tom).
 
 > **Nota BIP-322:** ao assinar com endereço **taproot (p2tr)** — onde os DOG normalmente
 > ficam — a assinatura segue **BIP-322**. É experimental; verificar server-side com o
@@ -200,21 +205,42 @@ rate-limit por IP/endereço.
 **Objetivo:** com o endereço provado (Bloco A), pagar **10k DOG** e personalizar o imóvel.
 
 1. **Pré-requisito:** endereço verificado **e** dono de um lote (`dogcity_lots`).
-2. **Ordem de pagamento (DOG = Runes):** o servidor **monta o PSBT** da transferência de
-   `10.000 DOG` do endereço do usuário → **treasury**, e a wallet **assina+transmite**:
-   - via `sats-connect` (`signPsbt` / método de runes) ou `sendTransfer` (Leather) /
-     `signPsbt` (OKX). **Padrão robusto e cross-wallet: servidor monta o edict de Runes no
-     PSBT, wallet só assina** (a montagem de edict de Runes varia menos que os atalhos de
-     UI de cada wallet).
-3. **Confirmação on-chain (fonte da verdade):** **não** liberar o registro no callback da
-   wallet. `POST /api/wallet/pay-callback` grava `txid` como **pending**; um verificador
-   (worker/cron) confere via mempool/indexer que a TX **paga ≥10k DOG à treasury** e
-   confirma → `status='registered'`.
-4. **Personalização liberada:** nome do prédio, **handle do X**, avatar, link, bio, cor/skin.
+2. **PSBT montada SÓ no backend (regra de ouro — ver §Segurança da PSBT):** `POST
+   /api/wallet/register/psbt` monta a PSBT do edict de `10.000 DOG` (endereço do usuário →
+   **treasury**) **no servidor**, guarda os **outputs esperados** (treasury, valor, edict) numa
+   sessão server-side, e devolve **só a PSBT pronta**. O cliente **nunca** constrói nem edita a
+   PSBT — só a repassa pra wallet.
+3. **Wallet assina (não transmite):** a wallet só **assina** a PSBT (`signPsbt` sats-connect/OKX,
+   `sendTransfer` Leather, PSBT de parceiro na Kray) e devolve **a PSBT assinada** pro backend.
+4. **Backend revalida ANTES de transmitir:** `POST /api/wallet/register/callback` recebe a PSBT
+   assinada → o servidor **compara output por output** com o que gravou no passo 2 (treasury,
+   valor, edict de DOG, sem outputs/inputs extras) → **rejeita se qualquer parâmetro mudou** →
+   **finaliza e transmite o próprio backend** (não o cliente). Marca `txid` como **pending**.
+5. **Confirmação on-chain (fonte da verdade):** um verificador (worker/cron) confere via
+   mempool/indexer que a TX **pagou ≥10k DOG à treasury** e confirma → `status='registered'`.
+   **Nunca** liberar o registro só no callback da wallet.
+6. **Personalização liberada:** nome do prédio, **handle do X**, avatar, link, bio, cor/skin.
    - **X handle:** verificar posse (OAuth do X **ou** tweet/bio com o nonce). Já existe
      `twitter-api-v2` no `package.json` — reusar.
-5. **Efeito na cidade:** o prédio ganha **letreiro/placa** com o nome; painel de TX passa a
+7. **Efeito na cidade:** o prédio ganha **letreiro/placa** com o nome; painel de TX passa a
    mostrar "**HODL Ave 4471 (@fulano)**" em vez do endereço cru.
+
+### §Segurança da PSBT (lição do dev da Kray — Tom foi hackeado por isso, 2026-07-07)
+
+> **Nunca deixe a PSBT ser construída ou editável no navegador.** Se a PSBT fica "aberta" no
+> client, um atacante ou extensão maliciosa **troca os parâmetros** — endereço da treasury,
+> valor, pubkey, o edict de DOG — e o pagamento vai para a carteira dele. Regras inegociáveis
+> (valem p/ **todas** as wallets, não só a Kray):
+>
+> 1. **Construção só no backend.** O cliente nunca monta nem altera a PSBT; recebe pronta e só
+>    repassa pra wallet assinar.
+> 2. **Guardar os outputs esperados no servidor** (treasury, valor, edict) no momento em que monta.
+> 3. **Revalidar a PSBT assinada no backend** output-por-output contra o esperado; **rejeitar**
+>    qualquer divergência (output trocado, valor alterado, output extra, mudança de rede).
+> 4. **O backend finaliza e transmite** — não o cliente (senão dá pra trocar a tx assinada).
+> 5. **Confirmação on-chain** do edict exato → treasury exata é a **rede de segurança final**
+>    (mesmo com tudo acima, é a verdade última; um pagamento adulterado não bate e não registra).
+> 6. Idem para o **aluguel de anúncio** (Bloco C) e o **upgrade Comercial** — mesmo fluxo de PSBT.
 
 ---
 
@@ -352,6 +378,9 @@ espera porque exige wallets de outras redes.
 
 - **BIP-322 é experimental** — não auditado. Usar `bip322-js`, cobrir com testes de vetores
   conhecidos por tipo de endereço (p2tr, p2wpkh, p2sh). Tratar Ledger (p2wpkh usa BIP-322).
+- **PSBT nunca aberta no navegador** (ver **§Segurança da PSBT**) — construir só no backend,
+  revalidar a assinada output-por-output, backend transmite. Lição direta do dev da Kray (Tom
+  perdeu fundos com PSBT editável no client). Vale p/ registro, comercial e anúncio.
 - **Confiar no on-chain, nunca na wallet** — o callback de pagamento é só um "aviso"; a
   verdade é a TX confirmada pagando ≥ valor à treasury. Evita spoof de "paguei".
 - **Runes edict cross-wallet** — a montagem do PSBT de transferência de DOG precisa ser
@@ -368,14 +397,15 @@ espera porque exige wallets de outras redes.
 
 ## ABERTO — precisa de definição do dono
 
-1. **Kray Wallet — pagamento de DOG:** conexão + prova de posse **resolvidas**
-   (`window.krayWallet`, `requestAccounts`/`getAccounts`/`getPublicKey`/`signMessage` Schnorr —
-   docs em kray.space/developers). **O que falta:** os docs **não expõem `signPsbt` nem um
-   método de transferência de Runes** — sem isso, não dá pra cobrar os 10k/50k DOG pela Kray.
-   Preciso confirmar com a Kray se existe (a) `signPsbt`, (b) um `sendRunes`/`transfer`, ou
-   (c) se por ora a Kray fica **"conecta e prova, mas paga por outra wallet"**. Até resolver,
-   o adapter `kray.ts` entrega **connect + verify**, e o passo de pagamento fica desabilitado
-   só para ela.
+1. **Kray Wallet — pagamento de DOG: RESOLVIDO (via parceiro), 2 pendências:**
+   conexão + prova de posse já funcionam (`window.krayWallet`, Schnorr). O dev da Kray (Tom)
+   confirmou o pagamento em DOG pelo **arranjo de parceiro**: nosso site monta o PSBT (edict de
+   DOG → treasury), a Kray gera a cobrança e **assina a PSBT** — mesmo padrão das outras. Falta:
+   - **(i) Custo:** os 50k DOG **provavelmente serão dispensados** (dono alinhando com o Tom, 2026-07-07). A confirmar, mas fora do caminho crítico.
+   - **(ii) Spec técnica — ÚNICO bloqueio real, AGUARDANDO Tom:** o **método/endpoint exato** de
+     assinatura da PSBT no provider de parceiro + onboarding (chave/allowlist). Assim que chegar,
+     fecha o `kray.ts`.
+   Enquanto (ii) não chega, `kray.ts` entrega **connect + verify** e o pagamento fica off só p/ ela.
 2. **Preços:** Comercial = 50k DOG? Aluguel de anúncio = mensal? Qual **split** dono/projeto?
 3. **Registro Comum:** taxa única ou assinatura? Caduca ao zerar o saldo?
 4. **Endereço pagador:** obriga ser o **mesmo** endereço do lote, ou qualquer da carteira?
