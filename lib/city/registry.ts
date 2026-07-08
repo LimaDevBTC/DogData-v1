@@ -451,7 +451,7 @@ async function setBtcRadialCursor(nextIdx: number): Promise<void> {
 export async function backfillBtcByAge(
   holders: HolderInput[],
   supply: number,
-): Promise<{ minted: number; skipped: number }> {
+): Promise<{ minted: number; skipped: number; deleted: number }> {
   const zone: ZoneId = 'btc-core'
   // BLOCO 3.1 occupancy: drop dust (<1 DOG). 1-10k → open green space, ≥10k → build.
   const active = holders.filter(h => h.balance >= DUST_MAX)
@@ -481,7 +481,27 @@ export async function backfillBtcByAge(
 
   await upsertLots(rows)
   await setBtcRadialCursor(N)   // next arrival lands on plot N (the frontier)
-  return { minted: rows.length, skipped: holders.length - N }
+
+  // Clean up STALE lots: addresses left over from earlier backfills that aren't in
+  // the current snapshot. Their old positions (e.g. from the first spiral backfill,
+  // whose district-0 centre was at 0,0) can land inside the now-larger plaza. As a
+  // one-time migration, the registry should mirror the current snapshot exactly.
+  const sb = registryClient()
+  const minted = new Set(rows.map(r => r.address))
+  const existingAddrs: string[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data } = await sb.from('dogcity_lots').select('address').eq('zone', 'btc-core').range(from, from + PAGE - 1)
+    if (!data || data.length === 0) break
+    existingAddrs.push(...(data as { address: string }[]).map(d => d.address))
+    if (data.length < PAGE) break
+  }
+  const stale = existingAddrs.filter(a => !minted.has(a))
+  for (let i = 0; i < stale.length; i += 200) {
+    const { error } = await sb.from('dogcity_lots').delete().in('address', stale.slice(i, i + 200))
+    if (error) throw new Error(`backfill cleanup: ${error.message}`)
+  }
+  invalidateCityCache()
+  return { minted: rows.length, skipped: holders.length - N, deleted: stale.length }
 }
 
 // Resolve a `to` address that has never been seen (a TX to a brand-new wallet):

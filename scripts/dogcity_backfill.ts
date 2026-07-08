@@ -106,7 +106,7 @@ async function main() {
   // BTC: organic road-aligned layout, filled CENTRE-OUT by holding age.
   try {
     const res = await backfillBtcByAge(btc.holders, btc.supply)
-    console.log(`  bitcoin: minted ${res.minted} (centre-out by age), skipped ${res.skipped}`)
+    console.log(`  bitcoin: minted ${res.minted} (centre-out by age), skipped ${res.skipped}, deleted stale ${res.deleted}`)
   } catch (err) {
     console.warn(`  bitcoin: FAILED — ${(err as Error).message}`)
   }
