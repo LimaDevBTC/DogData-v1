@@ -10,7 +10,9 @@
 > **Origem (2026-07-07):** conversa de design com o dono. "Conectar carteira → verificar
 > propriedade → registro comum ou comercial → alugar espaço publicitário."
 >
-> ⚠️ **Nada de código ainda.** Este é o plano canônico do ciclo de wallet-connect.
+> **Status (2026-07-07):** Bloco A **Increment 1 IMPLEMENTADO** — camada de conexão client-side
+> das 4 wallets + botão no header (substituiu o Donate) + modal. Falta o Increment 2 (prova de
+> posse: nonce + verify server-side). Detalhe no fim (§Status de implementação).
 
 ---
 
@@ -495,6 +497,46 @@ espera porque exige wallets de outras redes.
   ruína no `crosschaincity.md`) — proposta: registro **congela** e mostra "à venda/expirado".
 - **Herdadas (sagradas):** QA visual em GPU real via Playwright MCP; cuidado com `next dev`
   zumbi; gates `tsc` + validação por curl/node.
+
+---
+
+## §Status de implementação
+
+**Bloco A — Increment 1 (conexão client-side) — FEITO 2026-07-07** (tsc limpo; dev server 200;
+header renderiza SSR-safe em /status, /explorer, /donate):
+- `sats-connect@4.2.1` instalado. Connectors: `lib/wallet/connectors/satsconnect.ts`
+  (Xverse/Leather/OKX via `getProviders()`+`request`, casa provider por nome/id — sem hardcode
+  frágil) e `lib/wallet/connectors/kray.ts` (`window.krayWallet`). Interface comum em
+  `lib/wallet/types.ts`; fábrica em `lib/wallet/index.ts` (`getConnector`/`isWalletInstalled`).
+- `contexts/WalletContext.tsx` (estado global, persiste conta no localStorage p/ exibição) +
+  `components/wallet/wallet-connect-modal.tsx` (lista 4 wallets, detecta instaladas, connect) +
+  `components/wallet/wallet-button.tsx` (header: "Connect Wallet" → conectado mostra endereço +
+  menu copiar/desconectar; `variant="mobile"`).
+- Ligado: `WalletProvider` no `app/layout.tsx`; **botão substituiu o Donate** no `components/header.tsx`
+  (desktop + menu mobile). Página `/donate` intacta (mover o link p/ local especial depois).
+- `signMessage` já está nos connectors (BIP-322 nas 3, Schnorr na Kray) — pronto p/ o Increment 2.
+
+**Bloco A — Increment 2 (prova de posse server-side) — FEITO 2026-07-07** (tsc limpo; loop
+fim-a-fim testado com assinatura BIP-322 real via curl):
+- Deps: `bip322-js@3` + `bitcoinjs-message` + `bitcoinjs-lib` + `@noble/curves@2` + `@noble/hashes`.
+  Imports v2: `@noble/curves/secp256k1.js`, `@noble/hashes/sha2.js`.
+- `lib/wallet/message.ts` — mensagem-desafio canônica (compartilhada). `lib/wallet/verify.ts` —
+  `verifyOwnership` (BIP-322 → `Verifier.verifySignature`; ECDSA → `bitcoinjs-message`; Kray Schnorr
+  → `@noble/curves` + amarra pubkey↔endereço via `Address.convertPubKeyIntoAddress`, **fail-closed**).
+- Rotas (Node runtime): `POST /api/wallet/nonce` (nonce único em Upstash `redisClient`, TTL 300s),
+  `POST /api/wallet/verify` (verifica → **queima o nonce** → sessão `wsess:{sid}` + cookie httpOnly
+  `dg_wallet`), `GET/DELETE /api/wallet/session`.
+- `WalletContext` ganhou `verified`+`prove()` (auto-prova após connect; restaura sessão via API).
+  Botão mostra selo **posse verificada/não** + ação "Provar posse".
+- **Testes que passaram:** nonce 200 → verify válido 200 (+cookie) → replay do nonce **400** →
+  assinatura errada p/ novo nonce **401**. BIP-322: aceita válida, rejeita adulterada.
+- **PENDÊNCIA Kray:** o esquema exato de hashing/tweak do Schnorr da Kray **precisa de validação com
+  uma assinatura REAL** (o dono tem Kray — testar no browser). Hoje o verificador é fail-closed
+  (tenta `sha256(msg)` e `hash256(msg)`); se a Kray usar outro esquema, ajustar `lib/wallet/verify.ts`.
+
+**Bloco A — Increment 3 (integrar com a cidade/claim) — PRÓXIMO:**
+- Ligar o endereço verificado a `dogcity_lots` (lotes reivindicáveis) → `GET /api/wallet/claimable`.
+- Reconciliar com o embrião existente (`verified_addresses.json` + `VerifiedAddressesContext`).
 
 ---
 
