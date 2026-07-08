@@ -269,23 +269,23 @@ const DISTRICTS = [
 const FEATURES = [
   {
     icon: Building2,
-    title: 'Verify Your Building',
-    desc: 'Every $DOG wallet has a building in DogCity. Hold 10,000 DOG in self-custody, sign a message with your wallet — your parcel is registered to your address. No transfers, no lock-ups.',
+    title: 'Claim Your Building',
+    desc: 'Every $DOG wallet already has a building in DogCity — your place is your on-chain history, not money. A Personal License (10,000 DOG to the City Construction Fund) lets you personalize it at the Grand Opening.',
     tag: '10,000 DOG',
     color: '#F56E0F',
   },
   {
     icon: MapPin,
     title: 'Register Your Block',
-    desc: 'Hold 50,000 DOG in your verified wallet to register a commercial address. Your block earns from every transaction in your district — passively, on-chain.',
+    desc: 'A one-time Commercial License (50,000 DOG donated to the City Construction Fund) registers a commercial address and unlocks ad space on your building\'s facade — visibility, not yield.',
     tag: '50,000 DOG',
     color: '#FB923C',
   },
   {
     icon: Coins,
-    title: 'Earn from Activity',
-    desc: "Your building's district tier, holder score, and location determine daily income from DogCity's economic layer. Diamond Paws earn more. Sovereign holders earn more.",
-    tag: 'Passive Rewards',
+    title: 'Make It Yours',
+    desc: "Personalize your building and wallet profile. Commercial addresses get ad space on the facade and building editing. A license is a one-time purchase of utility and visibility — never an investment.",
+    tag: 'License Perks',
     color: '#FCD34D',
   },
   {
@@ -755,6 +755,44 @@ export default function CityComingSoon() {
               Every holding is auditable on Bitcoin's immutable ledger.
             </p>
           </motion.div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════ CONSTRUCTION FUND */}
+      <section
+        className="relative z-10 px-6 py-16 md:py-24"
+        style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}
+      >
+        <div className="max-w-4xl mx-auto">
+          <motion.a
+            href="/donate"
+            initial={{ opacity: 0, y: 18 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className="group block liquid-glass-strong rounded-2xl border border-lava/[0.18] px-8 py-9 md:px-10 md:py-10 hover:border-lava/[0.32] transition-all duration-300"
+          >
+            <div className="flex flex-col md:flex-row md:items-center gap-6 md:gap-8">
+              <div className="flex-1">
+                <p className="font-mono text-[10px] text-lava tracking-[0.28em] uppercase mb-3">
+                  City Construction Fund
+                </p>
+                <p className="font-display font-bold text-snow text-2xl md:text-3xl tracking-tight leading-tight mb-3">
+                  The city can't be bought. It can be built.
+                </p>
+                <p className="font-mono text-[11px] text-dusty/65 leading-relaxed max-w-lg">
+                  10M DOG opens the city — all of it, at once. Donate any amount; at 10,000 DOG your
+                  Personal License unlocks automatically. The first 1,000 are Founders, carved into the monument.
+                </p>
+              </div>
+              <div className="shrink-0">
+                <span className="inline-flex items-center gap-2.5 px-7 py-3.5 bg-gradient-to-r from-lava to-lava-dark text-snow font-mono font-medium text-xs tracking-wide rounded-xl transition-all duration-300 shadow-[0_0_20px_rgba(245,110,15,0.18)] group-hover:shadow-[0_0_36px_rgba(245,110,15,0.32)] group-hover:scale-[1.02]">
+                  Claim your Founder License
+                  <span className="text-snow/70">↗</span>
+                </span>
+              </div>
+            </div>
+          </motion.a>
         </div>
       </section>
 

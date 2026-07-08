@@ -7,6 +7,13 @@ export const runtime = 'nodejs'
 const DONATION_WALLET = 'bc1pxk7aw9ug55jkkz02z7ayhlkxxq92ya0ctegcwm5j8jumgaavjlkqdylk2p'
 const DOG_GOAL = 10_000_000
 
+// SalesCity license ladder — a wallet's *accumulated* DOG donated unlocks tiers.
+// The donation address is the product: no checkout, no second SKU.
+const PERSONAL_LICENSE = 10_000
+const COMMERCIAL_LICENSE = 50_000
+const PATRON_TIER = 500_000
+const FOUNDER_SLOTS = 1_000 // 1,000 × 10,000 DOG = the 10M goal — scarcity == goal.
+
 const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY!,
@@ -17,6 +24,12 @@ function parseJsonArr(val: string | any[] | null | undefined): any[] {
   if (!val) return []
   if (Array.isArray(val)) return val
   try { return JSON.parse(val) } catch { return [] }
+}
+
+function licenseFor(total: number): 'commercial' | 'personal' | 'citizen' {
+  if (total >= COMMERCIAL_LICENSE) return 'commercial'
+  if (total >= PERSONAL_LICENSE) return 'personal'
+  return 'citizen'
 }
 
 export async function GET(_req: NextRequest) {
@@ -36,6 +49,11 @@ export async function GET(_req: NextRequest) {
 
     const donorMap = new Map<string, { total: number; txCount: number; lastTx: string }>()
     let totalReceived = 0
+
+    // Every individual donation event — used for the live feed and to compute
+    // founder_seq (the order in which each wallet's cumulative crossed 10k).
+    type DonationEvent = { address: string; amount: number; timestamp: string; txid: string; block_height: number }
+    const events: DonationEvent[] = []
 
     for (const row of rows) {
       // Search ALL receivers with no filtering — the indexer sometimes omits
@@ -95,13 +113,70 @@ export async function GET(_req: NextRequest) {
         rec.txCount += 1
         if (!rec.lastTx || row.timestamp > rec.lastTx) rec.lastTx = row.timestamp
         donorMap.set(addr, rec)
+
+        events.push({
+          address: addr,
+          amount: perDonor,
+          timestamp: row.timestamp,
+          txid: row.txid,
+          block_height: row.block_height,
+        })
       }
     }
 
     const leaderboard = Array.from(donorMap.entries())
-      .map(([address, d]) => ({ address, ...d }))
+      .map(([address, d]) => ({ address, ...d, license: licenseFor(d.total) }))
       .sort((a, b) => b.total - a.total)
       .map((entry, i) => ({ rank: i + 1, ...entry }))
+
+    // ── Founders (Founder Edition) ─────────────────────────────────────────────
+    // The first FOUNDER_SLOTS wallets to reach the Personal License (accumulated
+    // ≥ 10k DOG) are Founders, ranked by *arrival* — the moment their cumulative
+    // crossed the line, not by volume. Replay events oldest → newest per wallet.
+    const chronological = [...events].sort((a, b) => {
+      if (a.timestamp && b.timestamp && a.timestamp !== b.timestamp)
+        return a.timestamp < b.timestamp ? -1 : 1
+      return a.block_height - b.block_height
+    })
+    const runningTotal = new Map<string, number>()
+    const crossings: { address: string; crossedAt: string; block_height: number }[] = []
+    for (const ev of chronological) {
+      if (ev.address === 'anonymous') continue
+      const prev = runningTotal.get(ev.address) ?? 0
+      const next = prev + ev.amount
+      runningTotal.set(ev.address, next)
+      if (prev < PERSONAL_LICENSE && next >= PERSONAL_LICENSE) {
+        crossings.push({ address: ev.address, crossedAt: ev.timestamp, block_height: ev.block_height })
+      }
+    }
+    const founders = crossings
+      .map((c) => ({
+        founder_seq: 0,
+        address: c.address,
+        crossed_at: c.crossedAt,
+        total: donorMap.get(c.address)?.total ?? 0,
+        license: licenseFor(donorMap.get(c.address)?.total ?? 0),
+      }))
+      .map((f, i) => ({ ...f, founder_seq: i + 1 }))
+
+    const foundersCount = founders.length
+    const founderSlotsRemaining = Math.max(0, FOUNDER_SLOTS - foundersCount)
+
+    // ── Live feed — most recent donations (newest first) ───────────────────────
+    const recent = [...events]
+      .filter((e) => e.address !== 'anonymous')
+      .sort((a, b) => {
+        if (a.timestamp && b.timestamp && a.timestamp !== b.timestamp)
+          return a.timestamp < b.timestamp ? 1 : -1
+        return b.block_height - a.block_height
+      })
+      .slice(0, 20)
+      .map((e) => ({
+        address: e.address,
+        amount: e.amount,
+        timestamp: e.timestamp,
+        txid: e.txid,
+      }))
 
     return NextResponse.json(
       {
@@ -111,6 +186,17 @@ export async function GET(_req: NextRequest) {
         progress_pct: Math.min((totalReceived / DOG_GOAL) * 100, 100),
         donor_count: leaderboard.length,
         leaderboard,
+        // SalesCity additions
+        tiers: {
+          personal: PERSONAL_LICENSE,
+          commercial: COMMERCIAL_LICENSE,
+          patron: PATRON_TIER,
+        },
+        founder_slots: FOUNDER_SLOTS,
+        founders_count: foundersCount,
+        founder_slots_remaining: founderSlotsRemaining,
+        founders,
+        recent,
         last_updated: new Date().toISOString(),
       },
       { headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=60' } }
