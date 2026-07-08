@@ -64,7 +64,7 @@ primário** + **provider injetado direto** como fallback por wallet.
 | **Xverse** | `sats-connect` nativo | `window.XverseProviders.BitcoinProvider` | `signMessage` → **BIP-322** (taproot) / ECDSA (payment) | ✅ nativo |
 | **Leather** | `sats-connect` (WBIP) | `window.LeatherProvider.request(...)` | `signMessage` | ✅ (Ordinals/BRC-20/Runes) |
 | **OKX Wallet** | `sats-connect` (providerId) | `window.okxwallet.bitcoin` | `signMessage(msg,'ecdsa')` | ✅ (BRC20/Atomicals/Runes) |
-| **Kray Wallet** | ❌ não usa sats-connect | `window.krayWallet` (provider próprio) | `signMessage` → **Schnorr BIP-340** (só taproot) | ✅ pagamento via **PSBT de parceiro** (servidor monta, Kray assina) — custo 50k DOG p/ Kray |
+| **Kray Wallet** | ❌ não usa sats-connect | `window.krayWallet` (provider próprio) | `signMessage` → **Schnorr BIP-340** (só taproot) | **Fase 1 (L1):** connect+prova + pagamento por **match on-chain** (ideal: pedir `sendRunes` c/ popup). **Fase 2:** transfer na **L2**. Nível aberto, sem custo |
 
 ### API essencial por wallet (verificada nos docs)
 
@@ -123,17 +123,36 @@ const { signature } = await window.krayWallet.signMessageWithConfirmation(messag
 // getInscriptions() · getBalance() (sats) · getActiveNetwork() ('mainnet' | 'kray-l2')
 ```
 
-> ⚠️ **Kray difere das outras em 2 pontos que impactam o backend:**
+> ⚠️ **Kray difere das outras em 3 pontos que impactam o backend:**
 > (1) assina **Schnorr BIP-340 cru** (64 bytes) sobre `SHA-256(msg)` — **não** BIP-322 nem
 > ECDSA → precisa de **caminho de verificação próprio** (ver Bloco A.6);
-> (2) só expõe **endereço taproot** (ok — é onde os DOG ficam).
+> (2) só expõe **endereço taproot** (ok — é onde os DOG de L1 e a conta L2 vivem);
+> (3) **o pagamento é na L2 da KRAY, não em Runes na L1** → é um **trilho de settlement
+> separado** dos outros 3 (ver Bloco B, "dois trilhos").
 >
-> ✅ **Pagamento em DOG confirmado pelo dev da Kray (Tom, 2026-07-07):** o `signPsbt`/PSBT de
-> pagamento **não é público**, mas é liberado no **arranjo de parceiro**. Fluxo: o nosso site
-> **monta a "regra" (o PSBT com o edict de DOG → treasury)**, o usuário clica, a **Kray gera a
-> cobrança e assina o PSBT** — mesmo padrão "servidor monta, wallet assina" das outras. **Custo:
-> 50k DOG p/ a Kray** habilitar (decisão de negócio — §Aberto). Falta o **nome exato do método/
-> endpoint** de assinatura da PSBT no provider de parceiro (pedir ao Tom).
+> ✅ **Pagamento confirmado pelo dev da Kray (Tom, 2026-07-07) — nível ABERTO, sem PSBT/partner
+> (ele desaconselha PSBT: "é onde mora o risco"), sem custo.** Fluxo L2:
+> ```ts
+> const KRAY = "https://kray.space";
+> const DIV = { KRAY:0, DOG:5, RADIOLA:2, DSC:0 };            // DOG tem divisibilidade 5
+> const toRaw = (h, t) => Math.round(h * 10 ** (DIV[t] ?? 0)); // 10.000 DOG → 1_000_000_000
+>
+> // nonce da conta L2
+> const nonce = (await fetch(`${KRAY}/l2/account/${buyer}`).then(r=>r.json())).nonce ?? 0;
+> const pubkey = (await w.getPublicKey()).publicKey ?? await w.getPublicKey();
+>
+> // mensagem EXATA que o backend da Kray verifica:
+> const message = `${buyer}:${treasuryL2}:${amountRaw}:${nonce}:transfer:DOG`;
+> const { signature } = await w.signMessageWithConfirmation(message);
+>
+> await fetch(`${KRAY}/l2/transaction/send`, { method:"POST",
+>   headers:{ "Content-Type":"application/json" },
+>   body: JSON.stringify({ from_account:buyer, to_account:treasuryL2, amount:amountRaw,
+>     token_symbol:"DOG", tx_type:"transfer", nonce, signature, pubkey }) });
+> // → { tx_hash }
+> ```
+> **Bônus (L2):** `POST /api/l2/nfts/collection/create` + `POST /api/l2/nfts/mint` permitem
+> **mintar o "deed" do imóvel como NFT na L2** (oportunidade — ver Bloco C/Extra).
 
 > **Nota BIP-322:** ao assinar com endereço **taproot (p2tr)** — onde os DOG normalmente
 > ficam — a assinatura segue **BIP-322**. É experimental; verificar server-side com o
@@ -152,7 +171,7 @@ lib/wallet/connectors/                     ← 1 adapter por wallet, mesma inter
   ├─ satsconnect.ts  (Xverse + Leather + OKX via sats-connect getProviders/request)
   ├─ okx.ts          (fallback window.okxwallet.bitcoin)
   ├─ leather.ts      (fallback window.LeatherProvider)
-  └─ kray.ts         (window.krayWallet — connect/verify prontos; pagamento §Aberto)
+  └─ kray.ts         (window.krayWallet — connect/verify + transfer L2 via endpoints kray.space)
         │
 contexts/WalletContext.tsx                 ← estado global: conectado? addresses, provider
         │
@@ -204,28 +223,72 @@ rate-limit por IP/endereço.
 
 **Objetivo:** com o endereço provado (Bloco A), pagar **10k DOG** e personalizar o imóvel.
 
+> **ESCOPO POR FASE (decisão do dono, 2026-07-07): FASE 1 = L1 em TODAS as wallets.**
+> A L2 da Kray e o **DOG multi-ledger** (ex.: **DOG SIP-10 da Stacks** via Xverse) ficam pra
+> **Fase 2**. North star: uma carteira paga em qualquer ledger de DOG que ela tiver.
+>
+> **FASE 1 — pagamento em DOG Runes na L1 (todas as wallets):** valores em **RAW** (DOG
+> divisibilidade 5: `10.000 DOG = 1_000_000_000`, `50.000 = 5_000_000_000`). Duas UX conforme a wallet:
+> - **Xverse / Leather / OKX → PSBT:** backend monta o edict, wallet assina, backend transmite,
+>   confirma no **mempool/indexer BTC** (passos 2–5 abaixo). *Caminho principal.*
+> - **Kray → "envio manual + match on-chain":** o nível aberto da Kray **não expõe `signPsbt`**
+>   (pagar Runes L1 via PSBT = partner, que o Tom desaconselha). Então: conecta + prova posse em
+>   L1, o backend mostra **"envie 10k DOG do endereço `<provado>` → `<treasury>`"**, o usuário
+>   envia **pela UI da própria Kray**, e o backend **casa a TX L1** (remetente = endereço provado,
+>   destino = treasury, valor ≥ alvo). Sem PSBT/partner (passo 2K abaixo). *Confirmar com o Tom
+>   que a Kray envia Runes de L1 pela UI dela — §Aberto.*
+> - **`match on-chain` serve como fallback universal** (qualquer wallet que não assine PSBT).
+>
+> **FASE 2 (depois):** L2 da Kray (`/l2/transaction/send`, mensagem assinada — já speccado) +
+> DOG SIP-10 Stacks (Xverse `stx_*`). Mesma lógica de registro, só muda o ledger/settlement.
+
 1. **Pré-requisito:** endereço verificado **e** dono de um lote (`dogcity_lots`).
+
+**Caminho A — PSBT (Xverse/Leather/OKX), L1:**
+
 2. **PSBT montada SÓ no backend (regra de ouro — ver §Segurança da PSBT):** `POST
    /api/wallet/register/psbt` monta a PSBT do edict de `10.000 DOG` (endereço do usuário →
    **treasury**) **no servidor**, guarda os **outputs esperados** (treasury, valor, edict) numa
    sessão server-side, e devolve **só a PSBT pronta**. O cliente **nunca** constrói nem edita a
    PSBT — só a repassa pra wallet.
 3. **Wallet assina (não transmite):** a wallet só **assina** a PSBT (`signPsbt` sats-connect/OKX,
-   `sendTransfer` Leather, PSBT de parceiro na Kray) e devolve **a PSBT assinada** pro backend.
+   `sendTransfer` Leather) e devolve **a PSBT assinada** pro backend.
 4. **Backend revalida ANTES de transmitir:** `POST /api/wallet/register/callback` recebe a PSBT
    assinada → o servidor **compara output por output** com o que gravou no passo 2 (treasury,
    valor, edict de DOG, sem outputs/inputs extras) → **rejeita se qualquer parâmetro mudou** →
    **finaliza e transmite o próprio backend** (não o cliente). Marca `txid` como **pending**.
 5. **Confirmação on-chain (fonte da verdade):** um verificador (worker/cron) confere via
-   mempool/indexer que a TX **pagou ≥10k DOG à treasury** e confirma → `status='registered'`.
+   mempool/indexer que a TX **pagou ≥10k DOG à treasury L1** e confirma → `status='registered'`.
    **Nunca** liberar o registro só no callback da wallet.
+
+**Caminho B — Kray na L1. Preferência: popup nativo; fallback: envio manual + match.**
+
+- **B-ideal (PEDIR AO TOM — popup igual às outras):** um método L1 de **alto nível** no provider
+  público, ex. **`krayWallet.sendRunes({ rune:"DOG", to, amount })`** (ou `transfer` L1), onde **a
+  própria wallet monta a tx**, mostra o **popup**, o usuário aprova, e a wallet **assina+transmite**.
+  É o padrão do `sendTransfer` (Leather/OKX). **Mais seguro que expor PSBT crua** e resolve a
+  objeção do Tom ("PSBT aberta no navegador") — **nada editável fica no cliente**, a construção é
+  dentro da extensão. Backend só confere on-chain depois. **É o ask certo** (não pedir `signPsbt`).
+- **B-fallback (funciona HOJE, sem depender do Tom):**
+  - 2K. backend fixa `{treasury, amountRaw}` e mostra **"envie 10k DOG do endereço `<provado>` →
+    `<treasury>`"** (QR/copiar); o usuário envia **pela UI da própria Kray** (Runes L1 — confirmado
+    2026-07-07). Nada de PSBT no cliente; cliente não escolhe destino/valor.
+  - 3K. **backend casa a TX L1** (remetente = endereço provado, destino = treasury, valor ≥ alvo) →
+    `status='registered'`. Vincula pelo endereço provado (Bloco A). **Nunca** confiar no cliente.
+  - Trocar por B-ideal é só um swap de UI quando/se o Tom liberar o `sendRunes`.
+
+> **Fase 2 (fora do escopo agora) — Kray L2:** trocar o Caminho B por um **transfer L2**: nonce em
+> `GET /l2/account/{buyer}` → assina `{buyer}:{treasuryL2}:{amountRaw}:{nonce}:transfer:DOG` →
+> `POST /l2/transaction/send` → `tx_hash`, confirmado na L2 (endpoint de leitura a pedir ao Tom).
+> Já está speccado; só não entra na Fase 1 (L1-only).
+
 6. **Personalização liberada:** nome do prédio, **handle do X**, avatar, link, bio, cor/skin.
    - **X handle:** verificar posse (OAuth do X **ou** tweet/bio com o nonce). Já existe
      `twitter-api-v2` no `package.json` — reusar.
 7. **Efeito na cidade:** o prédio ganha **letreiro/placa** com o nome; painel de TX passa a
    mostrar "**HODL Ave 4471 (@fulano)**" em vez do endereço cru.
 
-### §Segurança da PSBT (lição do dev da Kray — Tom foi hackeado por isso, 2026-07-07)
+### §Segurança do pagamento (lição do dev da Kray — Tom foi hackeado por isso, 2026-07-07)
 
 > **Nunca deixe a PSBT ser construída ou editável no navegador.** Se a PSBT fica "aberta" no
 > client, um atacante ou extensão maliciosa **troca os parâmetros** — endereço da treasury,
@@ -241,6 +304,41 @@ rate-limit por IP/endereço.
 > 5. **Confirmação on-chain** do edict exato → treasury exata é a **rede de segurança final**
 >    (mesmo com tudo acima, é a verdade última; um pagamento adulterado não bate e não registra).
 > 6. Idem para o **aluguel de anúncio** (Bloco C) e o **upgrade Comercial** — mesmo fluxo de PSBT.
+>
+> **Trilho L2 (Kray) — mesma doutrina, sem PSBT:** o Tom **desaconselha PSBT** ("é onde mora o
+> risco") e manda usar só o nível aberto. As regras equivalentes: a **chave privada nunca sai da
+> extensão** (nosso site nunca pede senha, só assinatura via popup); o **`treasuryL2` e o
+> `amountRaw` são fixados pelo nosso backend**, nunca escolhidos pelo cliente; o backend
+> **verifica a assinatura E confere o pagamento na L2** antes de liberar; **nunca confiar no
+> cliente**; **valores sempre em RAW**.
+
+### §Modelo de ameaça — as 3 wallets de PSBT (Xverse/Leather/OKX) são vulneráveis a troca de parâmetro?
+
+**Não como o setup que queimou o Tom** — nelas a assinatura é **isolada dentro da extensão**: a
+chave nunca sai, e a extensão mostra destino/valor num **popup próprio confiável** que o script da
+*página* não reescreve. Mas segurança de verdade depende de construir certo:
+
+| Vetor | Como o atacante age | Defesa (obrigatória no plano) |
+|---|---|---|
+| **Troca de output antes de assinar** | malware/extensão troca o destino na PSBT antes de chegar na wallet | **montar no backend** + usuário confere destino no popup |
+| **SIGHASH permissivo** | `NONE/SINGLE/ANYONECANPAY` deixa alterar outputs **depois** de assinado | **forçar `SIGHASH_ALL`** → assinatura **tranca** todos os outputs |
+| **Confiar no "paguei" do cliente** | client-side reporta pagamento falso | só **confirmação on-chain** libera o registro |
+| **Cliente transmite tx trocada** | cliente troca a tx assinada antes de transmitir | **backend revalida a assinada + transmite ele mesmo** |
+
+**Garantia do nosso lado:** com essas 4, nem um navegador comprometido faz o backend registrar sem
+um pagamento real, `SIGHASH_ALL`, na treasury certa.
+
+**Risco residual inerente (vale p/ QUALQUER wallet self-custody, incl. Kray):** se o navegador do
+usuário estiver comprometido e ele **aprovar cego** um popup adulterado, ele pode redirecionar **o
+próprio pagamento** (a tx é válida, o malware transmite direto). Isso **não** dá pra resolver só no
+backend — a defesa é o **popup confiável da extensão** + a gente **exibir a treasury em destaque**
+pro usuário comparar. Não é um furo das 3 wallets; é a natureza de assinar self-custody.
+
+**Nota de implementação — 2 estilos p/ as 3:** (a) **`signPsbt`** (nós montamos, `SIGHASH_ALL`,
+revalidamos, transmitimos) — controle máximo; (b) **`sendTransfer`/`runes_transfer`** (passamos
+`{destino,valor}`, a wallet monta+transmite) — mais simples e sem risco de SIGHASH errado, mas aí a
+verdade é **só a confirmação on-chain** (não há PSBT nossa pra revalidar antes). Ambos ok porque o
+on-chain é a fonte final; escolher por wallet conforme o método mais estável de cada uma.
 
 ---
 
@@ -267,13 +365,15 @@ rate-limit por IP/endereço.
 ## BLOCO D — Multichain (BTC + Solana + Stacks)
 
 A DogCity é multichain (`crosschaincity.md`), mas as **4 wallets deste plano são Bitcoin**.
-Decisão de escopo:
+Decisão de escopo (dono, 2026-07-07):
 
-- **Fase 1 (este ciclo):** claim/registro **só para lotes BTC** (onde as 4 wallets provam
-  posse nativamente). Xverse/Leather já expõem endereços **Stacks** — Stacks pode entrar
-  com `stx_signMessage` **numa fase 2**.
-- **Solana:** exigiria wallet Solana (Phantom/Solflare) — **fora do escopo agora**; o lote
-  SOL aparece na cidade mas o botão "reivindicar" fica **"em breve"**.
+- **Fase 1 (este ciclo) — L1 em TODAS as 4 wallets:** claim/registro **só para lotes BTC**, pago
+  em **DOG Runes na L1** (ver Bloco B — PSBT nas 3, envio-manual+match na Kray). É o foco agora.
+- **Fase 2 — multi-ledger de DOG (a visão do dono):** o mesmo DOG em outros ledgers, escolhido
+  pela wallet: **DOG SIP-10 da Stacks** via Xverse/Leather (`stx_*`) e **DOG na L2 da KRAY**
+  (transfer L2 já speccado). Uma carteira paga no ledger de DOG que ela tiver.
+- **Solana:** exigiria wallet Solana (Phantom/Solflare) — **fora do escopo**; o lote SOL aparece
+  na cidade mas o botão "reivindicar" fica **"em breve"**.
 
 ---
 
@@ -327,8 +427,11 @@ ad_rentals ( id uuid PK, slot_id uuid, advertiser_address text,
 - **`bitcoinjs-message`** + **`bitcoinjs-lib`** — verificar ECDSA e montar PSBT de Runes.
 - **`@noble/curves`** — verificar a assinatura **Schnorr BIP-340** crua da Kray.
 - (opcional) **`@leather.io/rpc`** — tipos do LeatherProvider.
+- **Kray L2:** **sem npm novo** — só `fetch` aos endpoints públicos `kray.space` (`/l2/account`,
+  `/l2/transaction/send`, `/api/l2/nfts/*`). Unidades **RAW** (DOG divisibilidade 5).
 - **Reuso:** `twitter-api-v2` (verificar X handle), Supabase, Upstash/KV (nonce), `zod`.
-- **Indexer de Runes** para confirmar pagamento (ord/API já em uso no projeto — `ord/`, `mcp-server`, `api`).
+- **Indexer de Runes** para confirmar pagamento **L1** (ord/API já em uso — `ord/`, `mcp-server`, `api`);
+  **confirmação L2** = leitura da própria L2 da KRAY (endpoint a confirmar com o Tom).
 
 ---
 
@@ -397,19 +500,22 @@ espera porque exige wallets de outras redes.
 
 ## ABERTO — precisa de definição do dono
 
-1. **Kray Wallet — pagamento de DOG: RESOLVIDO (via parceiro), 2 pendências:**
-   conexão + prova de posse já funcionam (`window.krayWallet`, Schnorr). O dev da Kray (Tom)
-   confirmou o pagamento em DOG pelo **arranjo de parceiro**: nosso site monta o PSBT (edict de
-   DOG → treasury), a Kray gera a cobrança e **assina a PSBT** — mesmo padrão das outras. Falta:
-   - **(i) Custo:** os 50k DOG **provavelmente serão dispensados** (dono alinhando com o Tom, 2026-07-07). A confirmar, mas fora do caminho crítico.
-   - **(ii) Spec técnica — ÚNICO bloqueio real, AGUARDANDO Tom:** o **método/endpoint exato** de
-     assinatura da PSBT no provider de parceiro + onboarding (chave/allowlist). Assim que chegar,
-     fecha o `kray.ts`.
-   Enquanto (ii) não chega, `kray.ts` entrega **connect + verify** e o pagamento fica off só p/ ela.
-2. **Preços:** Comercial = 50k DOG? Aluguel de anúncio = mensal? Qual **split** dono/projeto?
-3. **Registro Comum:** taxa única ou assinatura? Caduca ao zerar o saldo?
-4. **Endereço pagador:** obriga ser o **mesmo** endereço do lote, ou qualquer da carteira?
-5. **Treasury:** endereço(s) de recebimento de DOG (comum vs comercial vs anúncios).
+1. **Kray na Fase 1 (L1) — RESOLVIDO, com 1 upgrade opcional de UX.** Conexão + prova + pagamento
+   por **envio manual + match on-chain** já fecham a Fase 1 sem depender de ninguém.
+   **Pedido ao Tom (nice-to-have, não bloqueia):** expor um método L1 público de alto nível
+   **`sendRunes`/`transfer`** (wallet monta + **popup** + usuário aprova + wallet transmite), pra
+   Kray ficar **idêntica às outras** na UX. Frisar que é o `sendTransfer` da Leather/OKX e que é
+   **mais seguro que PSBT crua** (nada editável no navegador — endereça a preocupação dele). Se
+   liberar, troca-se só a UI do Caminho B; se não, o fallback segue valendo.
+2. **Kray na Fase 2 (L2, depois) — já speccado, 1 pendência:** pagamento vira transfer L2
+   (`/l2/transaction/send`); falta só o **endpoint de leitura** pra o backend confirmar o
+   `tx_hash` na `treasuryL2` + decidir **bridge L1→L2** vs exigir saldo L2. Opcional: **deed como
+   NFT na L2** (`/api/l2/nfts/*`).
+3. **Preços:** Comercial = 50k DOG? Aluguel de anúncio = mensal? Qual **split** dono/projeto?
+4. **Registro Comum:** taxa única ou assinatura? Caduca ao zerar o saldo?
+5. **Endereço pagador:** no envio-manual+match, o pagamento **precisa sair do endereço provado**
+   (é o que amarra o claim). Confirmar que essa restrição é aceitável (proposta: sim).
+6. **Treasury:** endereço(s) L1 de recebimento de DOG (comum vs comercial vs anúncios).
 
 ---
 

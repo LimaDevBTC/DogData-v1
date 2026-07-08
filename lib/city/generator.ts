@@ -43,8 +43,8 @@ const USABLE_FRAC  = 0.24
 // placed inside PLAZA.radius — the oldest holders ring AROUND it. Fixed absolute
 // size (a landmark), independent of how big the city grows.
 export const PLAZA = {
-  radius: 300,   // reserved central circle (no wallet lots inside)
-  half:   170,   // half side-length of the square plaza
+  radius: 820,   // reserved central circle (no wallet lots inside) — 3× wider plaza
+  half:   510,   // half side-length of the square plaza (3× the original)
 }
 
 const SEEDS_BASE: [number, number][] = [
@@ -116,10 +116,13 @@ function smoothstep(a: number, b: number, x: number): number {
 }
 function riverX(z: number): number {
   const s = WORLD_SCALE
-  const base = 350 * s + 120 * s * Math.sin(z * (0.0033 / s) + 0.8) + 62 * s * Math.sin(z * (0.0074 / s) + 2.1)
-  const t = smoothstep(820 * s, 1240 * s, z)
+  const t = smoothstep(820 * s, 1240 * s, z)   // delta blend near the south edge
+  // The meander FADES as the river nears its mouth so the delta approaches the sea
+  // in a clean straight run (no wrong-way hook) instead of wiggling into the coast.
+  const meander = (120 * s * Math.sin(z * (0.0033 / s) + 0.8) + 62 * s * Math.sin(z * (0.0074 / s) + 2.1)) * (1 - t)
+  const spine = 350 * s + meander
   const mouth = OCEAN_START_X + 40 * s
-  return base * (1 - t) + mouth * t
+  return spine * (1 - t) + mouth * t
 }
 function isInLake(x: number, z: number): boolean {
   return LAKES.some(([lx, lz, r]) => (x - lx) ** 2 + (z - lz) ** 2 < r * r)
@@ -513,17 +516,19 @@ export interface PlazaLayout {
   shops: PlazaBuilding[]
 }
 
+// Anchor / shop footprints are ABSOLUTE (kept the size they were at the 1× plaza),
+// so a bigger plaza just gets MORE small shops filling the longer sides — the anchor
+// no longer dominates.
+const ANCHOR_W = 175, ANCHOR_D = 82
+const SHOP_W = 74, SHOP_D = 58
+
 export function plazaLayout(): PlazaLayout {
   const H = PLAZA.half
-  const anchorW = H * 1.0     // ~50% of the 2H side
-  const anchorD = 70
-  const shopW = H * 0.42, shopD = 52
-  const shopOff = H * 0.66    // distance of each flanking shop from the side centre
 
   // face = yaw so the building looks toward the plaza centre (0,0).
   const faceCenter = (x: number, z: number) => Math.atan2(-x, -z)
 
-  // The four sides (project anchors, in the doc's order).
+  // The four sides (project anchors, in the doc's order). tx/tz = along-side tangent.
   const sides: { name: string; x: number; z: number; tx: number; tz: number }[] = [
     { name: 'BitFlow',     x: 0,  z: H,  tx: 1, tz: 0 },  // north
     { name: 'DogShopping', x: H,  z: 0,  tx: 0, tz: 1 },  // east
@@ -532,15 +537,24 @@ export function plazaLayout(): PlazaLayout {
   ]
 
   const anchors: PlazaBuilding[] = sides.map(s => ({
-    name: s.name, x: s.x, z: s.z, w: anchorW, d: anchorD, face: faceCenter(s.x, s.z),
+    name: s.name, x: s.x, z: s.z, w: ANCHOR_W, d: ANCHOR_D, face: faceCenter(s.x, s.z),
   }))
 
+  // Fill each side with small shops flanking the anchor out toward the corners.
   const shops: PlazaBuilding[] = []
+  const first = ANCHOR_W / 2 + 34 + SHOP_W / 2    // clear of the anchor
+  const step  = SHOP_W + 26
+  const maxOff = H - SHOP_W / 2 - 20              // stop before the corner
   for (const s of sides) {
-    for (const sign of [-1, 1]) {
-      const x = s.x + s.tx * shopOff * sign
-      const z = s.z + s.tz * shopOff * sign
-      shops.push({ name: `${s.name} Shop`, x, z, w: shopW, d: shopD, face: faceCenter(s.x, s.z) })
+    for (let off = first; off <= maxOff; off += step) {
+      for (const sign of [-1, 1]) {
+        shops.push({
+          name: `${s.name} Shop`,
+          x: s.x + s.tx * off * sign,
+          z: s.z + s.tz * off * sign,
+          w: SHOP_W, d: SHOP_D, face: faceCenter(s.x, s.z),
+        })
+      }
     }
   }
 
@@ -548,7 +562,7 @@ export function plazaLayout(): PlazaLayout {
     center: [0, 0],
     radius: PLAZA.radius,
     half: H,
-    tower: { x: 0, z: 0, base: 30, height: 460 },
+    tower: { x: 0, z: 0, base: 34, height: 500 },
     anchors,
     shops,
   }
