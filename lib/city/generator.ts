@@ -121,7 +121,9 @@ function riverX(z: number): number {
   // in a clean straight run (no wrong-way hook) instead of wiggling into the coast.
   const meander = (120 * s * Math.sin(z * (0.0033 / s) + 0.8) + 62 * s * Math.sin(z * (0.0074 / s) + 2.1)) * (1 - t)
   const spine = 350 * s + meander
-  const mouth = OCEAN_START_X + 40 * s
+  // Mouth sits WEST of the coast (out in the ocean) so the delta flows INTO the sea
+  // instead of dead-ending on the beach.
+  const mouth = OCEAN_START_X - 260 * s
   return spine * (1 - t) + mouth * t
 }
 function isInLake(x: number, z: number): boolean {
