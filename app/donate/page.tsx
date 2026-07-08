@@ -417,13 +417,13 @@ export default function DonatePage() {
                 <Crown className="w-4 h-4" />
                 Claim your Founder License
               </button>
-              <a
-                href="/city/explore"
+              <button
+                onClick={enterApp}
                 className="group flex items-center justify-center gap-2 px-8 py-3.5 bg-white/[0.03] border border-white/[0.07] hover:bg-white/[0.05] hover:border-lava/[0.2] text-dusty hover:text-snow font-mono font-medium text-xs tracking-wide rounded-xl transition-all duration-300"
               >
-                Explore the city
+                Enter DOG DATA
                 <span className="text-dusty/40 group-hover:text-lava/70 transition-colors">↗</span>
-              </a>
+              </button>
             </motion.div>
           </div>
         </section>
@@ -447,7 +447,7 @@ export default function DonatePage() {
               delay={260} wordDelay={18}
             />
 
-            {/* Paste-address → fly to your building */}
+            {/* Paste-address → read-only personal progress (no city navigation) */}
             <div className="mt-9 max-w-md mx-auto">
               <div className="flex items-center gap-2 liquid-glass rounded-xl border border-white/[0.07] p-1.5 focus-within:border-lava/30 transition-colors">
                 <Search className="w-4 h-4 text-dusty/50 ml-2 shrink-0" />
