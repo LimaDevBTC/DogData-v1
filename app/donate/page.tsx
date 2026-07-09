@@ -12,8 +12,19 @@ import {
   Sparkles, Search, ExternalLink, Radio,
 } from "lucide-react"
 import Image from "next/image"
+import dynamic from "next/dynamic"
 import dogStatsFallback from '@/data/dog_stats_fallback.json'
 import externalHoldersFallback from '@/data/external_holders.json'
+
+// The real Satoshi Plaza landmark (live Three.js), ssr:false — uses WebGL/canvas.
+const FoundersTower = dynamic(() => import("./founders-tower"), {
+  ssr: false,
+  loading: () => (
+    <div className="absolute inset-0 flex items-end justify-center pb-4">
+      <div className="w-2 h-20 md:h-28 rounded-t-full opacity-40" style={{ background: "linear-gradient(to top, #D45D0D, #FFAD42)" }} />
+    </div>
+  ),
+})
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -667,16 +678,12 @@ export default function DonatePage() {
 
             {/* Founder Edition + monument preview */}
             <div className="mt-10 grid md:grid-cols-[1fr_1.1fr] gap-6 items-center liquid-glass-strong rounded-2xl border border-white/[0.06] p-7 md:p-9">
-              {/* Stylized monument preview */}
-              <div className="relative h-48 md:h-56 rounded-xl overflow-hidden flex items-end justify-center" style={{ background: "radial-gradient(ellipse 80% 90% at 50% 100%, rgba(245,110,15,0.14), transparent 70%)" }}>
-                <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(10,10,12,0.9), transparent)" }} />
-                <div className="relative flex flex-col items-center pb-4">
-                  <div className="w-2 h-20 md:h-28 rounded-t-full" style={{ background: "linear-gradient(to top, #D45D0D, #FFAD42)", boxShadow: "0 0 30px rgba(245,110,15,0.5)" }} />
-                  <div className="w-16 h-3 rounded-sm bg-lava/40 mt-0.5" />
-                  <div className="w-24 h-2 rounded-sm bg-snow/10 mt-1" />
-                  <div className="absolute -top-2 w-3 h-3 rounded-full bg-yellow-300 animate-breathe" style={{ boxShadow: "0 0 20px rgba(253,224,71,0.8)" }} />
-                </div>
-                <span className="absolute top-3 left-3 font-mono text-[9px] text-dusty/50 uppercase tracking-[0.16em]">Founders' Monument · Satoshi Plaza</span>
+              {/* The real Satoshi Plaza tower — live 3D, same as /city/explore */}
+              <div className="relative h-48 md:h-56 rounded-xl overflow-hidden" style={{ background: "radial-gradient(ellipse 80% 90% at 50% 100%, rgba(245,110,15,0.14), transparent 70%)" }}>
+                <FoundersTower />
+                {/* ground fade so the spire feels rooted in the card */}
+                <div className="absolute inset-x-0 bottom-0 h-1/3 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(10,10,12,0.9), transparent)" }} />
+                <span className="absolute top-3 left-3 font-mono text-[9px] text-dusty/50 uppercase tracking-[0.16em] pointer-events-none">Founders' Monument · Satoshi Plaza</span>
               </div>
 
               <div>
