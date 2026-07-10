@@ -747,12 +747,18 @@ export default function DonatePage() {
 
             {/* Founder Edition + monument preview */}
             <div className="mt-10 grid md:grid-cols-[1fr_1.1fr] gap-6 items-center liquid-glass-strong rounded-2xl border border-white/[0.06] p-7 md:p-9">
-              {/* The real Satoshi Plaza tower — live 3D, same as /city/explore */}
-              <div className="relative h-48 md:h-56 rounded-xl overflow-hidden" style={{ background: "radial-gradient(ellipse 80% 90% at 50% 100%, rgba(245,110,15,0.14), transparent 70%)" }}>
-                <FoundersTower />
-                {/* ground fade so the spire feels rooted in the card + carries the caption */}
-                <div className="absolute inset-x-0 bottom-0 h-1/3 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(10,10,12,0.95), transparent)" }} />
-                <span className="absolute bottom-3 left-3 z-10 font-mono text-[9px] text-dusty/80 uppercase tracking-[0.16em] pointer-events-none px-2 py-1 rounded-md" style={{ background: "rgba(6,6,8,0.62)", backdropFilter: "blur(5px)", WebkitBackdropFilter: "blur(5px)", border: "1px solid rgba(255,255,255,0.06)" }}>Founders' Monument · Satoshi Plaza</span>
+              {/* The real Satoshi Plaza tower — live 3D, same as /city/explore.
+                  Caption sits ABOVE the tower (centered); the tower renders in the
+                  row below it — the two never overlap. */}
+              <div className="relative h-48 md:h-56 rounded-xl overflow-hidden flex flex-col" style={{ background: "radial-gradient(ellipse 80% 90% at 50% 100%, rgba(245,110,15,0.14), transparent 70%)" }}>
+                <div className="shrink-0 pt-4 pb-2 text-center">
+                  <span className="font-mono text-[9px] text-dusty/70 uppercase tracking-[0.18em]">Founders' Monument · Satoshi Plaza</span>
+                </div>
+                <div className="relative flex-1 min-h-0">
+                  <FoundersTower />
+                  {/* ground fade so the spire feels rooted in the card */}
+                  <div className="absolute inset-x-0 bottom-0 h-1/4 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(10,10,12,0.9), transparent)" }} />
+                </div>
               </div>
 
               <div>
