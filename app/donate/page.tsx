@@ -15,6 +15,7 @@ import {
 import Image from "next/image"
 import dynamic from "next/dynamic"
 import PlotMap from "./plot-map"
+import CityMapHero from "./city-map-hero"
 import dogStatsFallback from '@/data/dog_stats_fallback.json'
 import externalHoldersFallback from '@/data/external_holders.json'
 
@@ -382,70 +383,6 @@ function SpotlightCard({ children, className = "", style, tilt = true }: {
   )
 }
 
-// ── MarqueeStrip (outline-type ticker — pauses on hover / reduced motion) ─────
-
-const MARQUEE_ITEMS = [
-  "Fund the construction",
-  "Mint on Bitcoin L1",
-  "Every donor is a Founder",
-  "Only network fees",
-  "Placement can't be bought",
-  "10,000,000 DOG opens the city",
-]
-
-function MarqueeStrip() {
-  const row = (key: string) => (
-    <div key={key} className="flex items-center shrink-0">
-      {MARQUEE_ITEMS.map((m, i) => (
-        <span key={m} className="flex items-center shrink-0">
-          <span
-            className="font-display font-extrabold whitespace-nowrap px-7"
-            style={
-              i % 2 === 0
-                ? { fontSize: "clamp(1.6rem, 3.4vw, 2.6rem)", letterSpacing: "-0.01em", color: "transparent", WebkitTextStroke: "1px rgba(245,110,15,0.4)" }
-                : { fontSize: "clamp(1.6rem, 3.4vw, 2.6rem)", letterSpacing: "-0.01em", color: "rgba(245,110,15,0.22)" }
-            }
-          >
-            {m}
-          </span>
-          <span className="w-1.5 h-1.5 rotate-45 shrink-0" style={{ background: "rgba(245,110,15,0.35)" }} />
-        </span>
-      ))}
-    </div>
-  )
-  return (
-    <div className="relative overflow-hidden py-5 border-y border-white/[0.04] bg-snow/[0.01]" aria-hidden>
-      <div className="marquee-track">{row("a")}{row("b")}</div>
-      <div className="absolute inset-y-0 left-0 w-24 pointer-events-none" style={{ background: "linear-gradient(90deg, #000, transparent)" }} />
-      <div className="absolute inset-y-0 right-0 w-24 pointer-events-none" style={{ background: "linear-gradient(270deg, #000, transparent)" }} />
-    </div>
-  )
-}
-
-// ── Hero video background ─────────────────────────────────────────────────────
-
-function HeroVideo() {
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const [ready, setReady] = useState(false)
-  useEffect(() => {
-    const v = videoRef.current
-    if (!v) return
-    v.playbackRate = 0.5
-    const start = () => { v.play().catch(() => {}); setReady(true) }
-    if (v.readyState >= 3) start()
-    else { v.addEventListener("canplay", start, { once: true }); return () => v.removeEventListener("canplay", start) }
-  }, [])
-  return (
-    <video
-      ref={videoRef}
-      src="/city-hero.mp4"
-      loop muted playsInline
-      className="absolute inset-0 w-full h-full object-cover"
-      style={{ opacity: ready ? 1 : 0, transition: "opacity 1.8s ease" }}
-    />
-  )
-}
-
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DonatePage() {
@@ -564,14 +501,13 @@ export default function DonatePage() {
         {/* ════════════════════════════════════════════════════════════
             SECTION 1 — HERO (video, "The city can't be bought")
         ════════════════════════════════════════════════════════════ */}
-        <section ref={heroRef} className="relative min-h-[88vh] flex flex-col items-center justify-center text-center px-4 py-20 overflow-hidden">
+        <section ref={heroRef} className="relative min-h-[88vh] flex flex-col items-center justify-center text-center px-4 py-20 overflow-hidden bg-black">
           <motion.div className="absolute inset-0" style={{ scale: videoScale, y: videoY }}>
-            <HeroVideo />
+            <CityMapHero />
           </motion.div>
-          {/* Overlays for legibility */}
-          <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 110% 100% at 50% 45%, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.82) 100%)" }} />
-          <div className="absolute inset-x-0 bottom-0 h-2/5 pointer-events-none" style={{ background: "linear-gradient(to top, #000 0%, transparent 100%)" }} />
-          <div className="absolute inset-x-0 top-0 h-1/5 pointer-events-none" style={{ background: "linear-gradient(to bottom, #000 0%, transparent 100%)" }} />
+          {/* soft vignette — the map is already dark, this just seats the edges */}
+          <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 105% 95% at 50% 48%, transparent 0%, rgba(0,0,0,0.55) 100%)" }} />
+          <div className="absolute inset-x-0 bottom-0 h-1/4 pointer-events-none" style={{ background: "linear-gradient(to top, #000 0%, transparent 100%)" }} />
 
           <motion.div className="relative z-10 w-full max-w-4xl mx-auto" style={{ y: heroContentY, opacity: heroFade }}>
             {/* Live badge */}
@@ -591,16 +527,22 @@ export default function DonatePage() {
 
             <BlurText
               text="Every $DOG wallet already has a plot — earned by history, not money. At 10M DOG the city opens and every building is minted as an Ordinal on Bitcoin L1. Fund the construction. Found the city."
-              className="text-dusty mb-10 mx-auto font-mono"
-              style={{ fontSize: "clamp(0.8rem, 1.8vw, 0.95rem)", lineHeight: 1.7, letterSpacing: "0.01em", maxWidth: "40rem" }}
+              className="text-snow/75 mb-10 mx-auto font-mono"
+              style={{ fontSize: "clamp(0.8rem, 1.8vw, 0.95rem)", lineHeight: 1.7, letterSpacing: "0.01em", maxWidth: "40rem", textShadow: "0 1px 14px rgba(0,0,0,0.9)" }}
               delay={520} wordDelay={22}
             />
 
-            {/* Construction Fund + compact bar — the only number that matters */}
+            {/* Construction Fund + compact bar — solid panel, same certificate
+                language as the Plot Deed (no glass over the busy map) */}
             <motion.div
               initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 1.0, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-              className="max-w-md mx-auto liquid-glass-strong rounded-2xl border border-white/[0.07] p-5 mb-8"
+              className="max-w-md mx-auto rounded-2xl p-5 mb-8"
+              style={{
+                background: "linear-gradient(180deg, rgba(13,13,17,0.94), rgba(7,7,9,0.97))",
+                border: "1px solid rgba(255,255,255,0.09)",
+                boxShadow: "0 0 44px rgba(245,110,15,0.09), inset 0 1px 0 rgba(255,255,255,0.05)",
+              }}
             >
               <div className="flex items-baseline justify-between mb-3">
                 <span className="font-mono text-[10px] text-dusty/60 uppercase tracking-[0.18em]">Construction Fund</span>
@@ -646,9 +588,6 @@ export default function DonatePage() {
             </motion.div>
           </motion.div>
         </section>
-
-        {/* ── Ticker — the campaign in six lines, always moving ── */}
-        <MarqueeStrip />
 
         {/* ════════════════════════════════════════════════════════════
             SECTION 2 — YOUR WALLET IS ALREADY THERE
@@ -1080,14 +1019,6 @@ export default function DonatePage() {
             >
               <FoundersTower />
             </motion.div>
-
-            {/* Patrons' Walk — the golden ring of plaques encircling the monument */}
-            <div className="absolute left-1/2 bottom-[6%] -translate-x-1/2 pointer-events-none" style={{ perspective: "1100px" }}>
-              <div className="patron-ring w-[290px] h-[290px] md:w-[430px] md:h-[430px]" />
-            </div>
-            <div className="absolute left-1/2 bottom-[4%] -translate-x-1/2 pointer-events-none" style={{ perspective: "1100px" }}>
-              <div className="patron-ring-outer w-[370px] h-[370px] md:w-[560px] md:h-[560px]" />
-            </div>
 
             {/* caption */}
             <div className="absolute top-6 inset-x-0 text-center z-10 pointer-events-none">

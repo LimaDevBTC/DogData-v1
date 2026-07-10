@@ -59,6 +59,41 @@ export default function FoundersTower() {
     group.position.y = 0        // sit its own base on the scene floor
     scene.add(group)
 
+    // ── Patrons' Walk — a real ring of gold plaques on the plaza floor, part of
+    // the scene (correct perspective as the camera orbits, unlike a CSS overlay).
+    const walkMat = new THREE.MeshBasicMaterial({
+      color: 0xFCD34D, transparent: true, opacity: 0.3, side: THREE.DoubleSide,
+      depthWrite: false,
+    })
+    const walk = new THREE.Mesh(new THREE.RingGeometry(148, 155, 128), walkMat)
+    walk.rotation.x = -Math.PI / 2
+    walk.position.y = 1.0
+    scene.add(walk)
+
+    // individual plaques — small gold studs seated on the ring
+    const plaqueMat = new THREE.MeshBasicMaterial({ color: 0xFCD34D, transparent: true, opacity: 0.75 })
+    const plaqueGeo = new THREE.BoxGeometry(7, 0.8, 4.5)
+    const plaques = new THREE.Group()
+    const PLAQUE_COUNT = 28
+    for (let i = 0; i < PLAQUE_COUNT; i++) {
+      const a = (i / PLAQUE_COUNT) * Math.PI * 2
+      const p = new THREE.Mesh(plaqueGeo, plaqueMat)
+      p.position.set(Math.cos(a) * 151.5, 1.4, Math.sin(a) * 151.5)
+      p.rotation.y = -a + Math.PI / 2
+      plaques.add(p)
+    }
+    scene.add(plaques)
+
+    // soft warm pool of light under the ring so it reads as lit stone
+    const walkGlowMat = new THREE.MeshBasicMaterial({
+      color: 0xF7931A, transparent: true, opacity: 0.05, side: THREE.DoubleSide,
+      depthWrite: false,
+    })
+    const walkGlow = new THREE.Mesh(new THREE.CircleGeometry(210, 96), walkGlowMat)
+    walkGlow.rotation.x = -Math.PI / 2
+    walkGlow.position.y = 0.4
+    scene.add(walkGlow)
+
     // ── Render loop with visibility gating ────────────────────────────────────
     let raf = 0
     let visible = true
@@ -70,6 +105,7 @@ export default function FoundersTower() {
       if (!visible) return
       const t = clock.getElapsedTime()
       animate(t)
+      walkMat.opacity = 0.26 + 0.1 * Math.sin(t * 1.4)   // slow breath on the Walk
       theta += 0.0016
       camera.position.set(Math.sin(theta) * DIST, CENTER_Y + 40, Math.cos(theta) * DIST)
       camera.lookAt(0, CENTER_Y, 0)
