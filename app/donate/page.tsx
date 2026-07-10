@@ -864,16 +864,6 @@ export default function DonatePage() {
                         <div key={m} className="absolute top-0 bottom-0 w-px bg-white/10" style={{ left: `${m}%` }} />
                       ))}
                     </div>
-                    {/* glowing tip that rides the bar */}
-                    <div
-                      className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full"
-                      style={{
-                        left: `calc(${progressWidth}% - 5px)`,
-                        background: "#FFAD42",
-                        boxShadow: "0 0 14px 5px rgba(255,173,66,0.45)",
-                        transition: "left 1800ms ease-out",
-                      }}
-                    />
                   </div>
                   <div className="flex items-center justify-between text-sm font-mono">
                     <div>
