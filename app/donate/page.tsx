@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import Image from "next/image"
 import dynamic from "next/dynamic"
+import PlotMap from "./plot-map"
 import dogStatsFallback from '@/data/dog_stats_fallback.json'
 import externalHoldersFallback from '@/data/external_holders.json'
 
@@ -153,6 +154,16 @@ interface RecentEntry {
   txid: string
 }
 
+interface PlotData {
+  found: boolean
+  address?: string
+  rank?: number
+  total_dog?: number
+  total_holders?: number
+  district?: { id: number; name: string; color: string; tag: string }
+  pin?: { nx: number; nz: number }
+}
+
 interface LeaderboardData {
   goal: number
   total_received: number
@@ -273,6 +284,7 @@ export default function DonatePage() {
   const [registerTab, setRegisterTab] = useState<"founders" | "builders">("founders")
   const [lookup, setLookup] = useState("")
   const [lookupAddr, setLookupAddr] = useState<string | null>(null)
+  const [plot, setPlot] = useState<PlotData | null>(null)
 
   useEffect(() => {
     // Leaderboard + founders + live feed (single endpoint)
@@ -332,6 +344,18 @@ export default function DonatePage() {
     const a = lookupAddr.toLowerCase()
     return lb.founders.find((f) => f.address.toLowerCase() === a) ?? null
   }, [lookupAddr, lb])
+
+  // Resolve the pasted address to its DogCity plot (district + map pin). Works
+  // for ANY $DOG holder, donor or not — the plot is on-chain history, not money.
+  useEffect(() => {
+    if (!lookupAddr) { setPlot(null); return }
+    let alive = true
+    fetch(`/api/city/plot?address=${encodeURIComponent(lookupAddr)}`)
+      .then((r) => r.json())
+      .then((d: PlotData) => { if (alive) setPlot(d) })
+      .catch(() => { if (alive) setPlot(null) })
+    return () => { alive = false }
+  }, [lookupAddr])
 
   const copyAddress = async (address: string, key: string) => {
     try {
@@ -478,6 +502,51 @@ export default function DonatePage() {
                   Find me
                 </Button>
               </div>
+
+              {/* Plot Deed — where this wallet's land sits in DogCity (any holder) */}
+              {lookupAddr && plot?.found && plot.district && plot.pin && (
+                <div className="mt-4 text-left liquid-glass rounded-xl border border-white/[0.06] overflow-hidden">
+                  <div className="h-px" style={{ background: `linear-gradient(90deg, transparent, ${plot.district.color}, transparent)`, opacity: 0.55 }} />
+                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.05]">
+                    <span className="flex items-center gap-2 font-mono text-[9px] tracking-[0.22em] uppercase text-dusty">
+                      <span className="w-2 h-2 rounded-full" style={{ background: plot.district.color, boxShadow: `0 0 8px ${plot.district.color}` }} />
+                      Plot Deed · DogCity
+                    </span>
+                    <span className="font-mono text-[10px] text-dusty tabular-nums">Lot #{plot.rank?.toLocaleString("en-US")}</span>
+                  </div>
+                  <div className="flex items-center gap-4 p-4">
+                    <PlotMap districtId={plot.district.id} color={plot.district.color} nx={plot.pin.nx} nz={plot.pin.nz} size={128} />
+                    <div className="flex flex-col justify-center gap-2.5 min-w-0">
+                      <div>
+                        <div className="font-display font-bold text-lg leading-tight" style={{ color: plot.district.color }}>{plot.district.name}</div>
+                        <div className="font-mono text-[10px] text-dusty">{plot.district.tag} · district {plot.district.id} of 10</div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-5 gap-y-2">
+                        <div>
+                          <div className="font-mono text-[8.5px] tracking-widest uppercase text-dusty/70">$DOG held</div>
+                          <div className="font-mono text-xs text-snow tabular-nums">{formatDog(plot.total_dog ?? 0)}</div>
+                        </div>
+                        <div>
+                          <div className="font-mono text-[8.5px] tracking-widest uppercase text-dusty/70">City rank</div>
+                          <div className="font-mono text-xs text-snow tabular-nums">#{plot.rank?.toLocaleString("en-US")}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="px-4 py-2.5 border-t border-white/[0.05] font-mono text-[11px] text-dusty" style={{ background: `linear-gradient(180deg, transparent, ${plot.district.color}0a)` }}>
+                    This plot is already yours — assigned by on-chain history, not money.
+                  </div>
+                </div>
+              )}
+
+              {/* Address holds no DOG → no plot in the city */}
+              {lookupAddr && plot && plot.found === false && (
+                <div className="mt-4 text-left liquid-glass rounded-xl border border-white/[0.06] p-4">
+                  <p className="font-mono text-[11px] text-dusty leading-relaxed">
+                    This address doesn't hold $DOG yet, so it has no plot in DogCity. Every holder gets one automatically — it's your on-chain history, not a purchase.
+                  </p>
+                </div>
+              )}
 
               {/* Personal progress result */}
               {lookupAddr && lb && (
@@ -681,9 +750,9 @@ export default function DonatePage() {
               {/* The real Satoshi Plaza tower — live 3D, same as /city/explore */}
               <div className="relative h-48 md:h-56 rounded-xl overflow-hidden" style={{ background: "radial-gradient(ellipse 80% 90% at 50% 100%, rgba(245,110,15,0.14), transparent 70%)" }}>
                 <FoundersTower />
-                {/* ground fade so the spire feels rooted in the card */}
-                <div className="absolute inset-x-0 bottom-0 h-1/3 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(10,10,12,0.9), transparent)" }} />
-                <span className="absolute top-3 left-3 font-mono text-[9px] text-dusty/50 uppercase tracking-[0.16em] pointer-events-none">Founders' Monument · Satoshi Plaza</span>
+                {/* ground fade so the spire feels rooted in the card + carries the caption */}
+                <div className="absolute inset-x-0 bottom-0 h-1/3 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(10,10,12,0.95), transparent)" }} />
+                <span className="absolute bottom-3 left-3 z-10 font-mono text-[9px] text-dusty/80 uppercase tracking-[0.16em] pointer-events-none px-2 py-1 rounded-md" style={{ background: "rgba(6,6,8,0.62)", backdropFilter: "blur(5px)", WebkitBackdropFilter: "blur(5px)", border: "1px solid rgba(255,255,255,0.06)" }}>Founders' Monument · Satoshi Plaza</span>
               </div>
 
               <div>
