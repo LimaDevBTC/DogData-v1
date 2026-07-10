@@ -596,13 +596,16 @@ export default function DonatePage() {
           <div className="max-w-4xl mx-auto text-center">
             <p className="font-mono text-[10px] text-lava tracking-[0.28em] uppercase mb-5">Your address is merit, not money</p>
             <BlurText
-              text={`${totalHolders.toLocaleString("en-US")} wallets. Yours is one of them.`}
+              text="You already live in DogCity. You just haven't seen it yet."
               className="text-snow"
               style={{ fontFamily: "var(--font-display)", fontSize: "clamp(1.8rem, 4.5vw, 3.4rem)", fontWeight: 800, letterSpacing: "-0.015em", lineHeight: 1.05 }}
               delay={0} wordDelay={70}
             />
+            <p className="font-mono text-[11px] text-dusty/60 mt-4 tracking-wide">
+              {totalHolders.toLocaleString("en-US")} wallets already have a plot. Yours is one of them.
+            </p>
             <BlurText
-              text="Your place in the city is assigned by on-chain history — when you received DOG, how long you've held, what you've built. That can't be bought. Founders don't get a better location; they get their names on the city itself."
+              text="Genesis Core. Diamond Hands. Fresh Arrivals. Ten districts, assigned by on-chain history — when you first held DOG, how long you kept it, what you built. That can't be bought. Paste your address below and find out where you stand."
               className="text-dusty mt-5 mx-auto font-mono"
               style={{ fontSize: "0.8rem", lineHeight: 1.8, letterSpacing: "0.01em", maxWidth: "42rem" }}
               delay={260} wordDelay={18}
@@ -616,7 +619,7 @@ export default function DonatePage() {
                   value={lookup}
                   onChange={(e) => setLookup(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") setLookupAddr(lookup.trim()) }}
-                  placeholder="Paste your $DOG address…"
+                  placeholder="Paste your $DOG address to find your district…"
                   spellCheck={false}
                   className="flex-1 bg-transparent outline-none font-mono text-xs text-snow/80 placeholder:text-dusty/40 min-w-0"
                 />
@@ -625,7 +628,7 @@ export default function DonatePage() {
                   onClick={() => setLookupAddr(lookup.trim())}
                   className="rounded-lg bg-lava/15 hover:bg-lava/25 border border-lava/25 text-lava font-mono text-xs shrink-0"
                 >
-                  Find me
+                  Reveal my plot
                 </Button>
               </div>
 

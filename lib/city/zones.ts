@@ -80,23 +80,9 @@ function hash1(n: number): number {
 const GOLDEN = Math.PI * (3 - Math.sqrt(5))  // 137.5° — phyllotaxis angle
 const LOT_PITCH = 14                          // world units between neighbouring lots
 
-// BTC district centres — mirror the v3 SEEDS so the district ARRANGEMENT stays
-// familiar even though every building position is now a stored fact.
-const BTC_DISTRICT_CENTERS: [number, number][] = [
-  [   0,    0],  // 0 Satoshi
-  [  90,   65],  // 1 Leonidas
-  [ 178,    0],  // 2 Casey
-  [  90, -110],  // 3 Runes
-  [-178,  110],  // 4 Sovereign
-  [ -67, -200],  // 5 Accumulator
-  [-578,  245],  // 6 HODLer
-  [ 578,  200],  // 7 Genesis
-  [ 245, -710],  // 8 Newcomer
-  [-290, -688],  // 9 Paper Hands
-]
-
-// SOL / STX islands live far across the water (BTC land radius is ≈14·√N_btc ≈4k).
-// Each island fans its 10 districts out on a small ring around the island centre.
+// SOL / STX islands live far across the water. Each island fans its 10 districts out
+// on a small ring around the island centre — population there is far smaller than
+// BTC-core, so the ring-fan model has never hit the overlap problem BTC-core did.
 export const ZONE_CENTERS: Record<ZoneId, [number, number]> = {
   'btc-core': [0, 0],
   'solana':   [0, 7200],       // island to the far north
@@ -105,10 +91,8 @@ export const ZONE_CENTERS: Record<ZoneId, [number, number]> = {
 
 const ISLAND_DISTRICT_RING = 420   // radius of the district fan on SOL/STX islands
 
-function districtCenter(zone: ZoneId, district: number): [number, number] {
-  if (zone === 'btc-core') return BTC_DISTRICT_CENTERS[district]
+function islandDistrictCenter(zone: ZoneId, district: number): [number, number] {
   const [cx, cz] = ZONE_CENTERS[zone]
-  // District 0 (richest) sits at the island centre; 1-9 fan around it.
   if (district === 0) return [cx, cz]
   const ang = (district / 10) * Math.PI * 2 + (zone === 'solana' ? 0.4 : 1.7)
   return [cx + Math.cos(ang) * ISLAND_DISTRICT_RING, cz + Math.sin(ang) * ISLAND_DISTRICT_RING]
@@ -116,19 +100,68 @@ function districtCenter(zone: ZoneId, district: number): [number, number] {
 
 export interface MintedLot { x: number; z: number; rot: number }
 
+function round1(n: number): number { return Math.round(n * 10) / 10 }
+function round3(n: number): number { return Math.round(n * 1000) / 1000 }
+
+// ─── BTC-core geometry (foundation-safe) ────────────────────────────────────────
+// The original model gave every district its OWN spiral centre a few hundred units
+// apart, trusting that real populations would stay small enough the spirals never
+// reached each other. That held for the slowly-growing live city, but the single-
+// shot founding snapshot lands ~84k wallets across 10 districts AT ONCE — a real
+// district's phyllotaxis radius (≈1,357 units at ~9,400 lots) exceeds the distance
+// between EVERY pair of the old district centres, so distant lots from different
+// districts landed on top of each other (found by scripts/foundation_generator.ts's
+// collision check, masterplan.md §2/§8).
+//
+// Fix: districts 1-9 each own an EXCLUSIVE angular wedge radiating from the plaza —
+// a hard wall no lot's angle can cross, so two districts cannot collide at ANY
+// population size, not just the ones we happened to test. District 0 (Genesis Core /
+// the ring-0 "Satoshi Visionary" seats) is tiny and fixed (≈85 wallets + a civic-core
+// index buffer) so it keeps the old small full-circle spiral, safely inside the
+// radius where the wedges begin.
+const RING0_MAX_RADIUS = 400   // generous bound for district-0's civic-core + ring-0 indices
+const WEDGE_START_RADIUS = 460 // districts 1-9 begin comfortably past ring 0
+const WEDGE_COUNT = 9          // districts 1..9 tile the full circle
+const WEDGE_WIDTH = (Math.PI * 2) / WEDGE_COUNT
+const KRONECKER = 0.6180339887498949 // golden-ratio conjugate — low-discrepancy fill of an interval, no banding
+
+function btcCoreLot(district: number, index: number): MintedLot {
+  if (district === 0) {
+    // Ring 0 — small, population-bounded, so the classic full-circle phyllotaxis
+    // (safe well under RING0_MAX_RADIUS) is fine here.
+    const r = LOT_PITCH * Math.sqrt(index + 0.5)
+    const theta = index * GOLDEN
+    const x = Math.cos(theta) * r
+    const z = Math.sin(theta) * r
+    const rot = (hash1(index * 1.7) - 0.5) * Math.min(0.55, r / 2600)
+    return { x: round1(x), z: round1(z), rot: round3(rot) }
+  }
+  const wedgeIndex = district - 1 // 0..8
+  const wedgeStart = wedgeIndex * WEDGE_WIDTH
+  const r = WEDGE_START_RADIUS + LOT_PITCH * Math.sqrt(index + 0.5)
+  // Kronecker/Weyl sequence: frac(index·φ) fills [0,1) quasi-uniformly (no clumping,
+  // no periodic banding) — scaled to the wedge width, theta is PROVABLY confined to
+  // [wedgeStart, wedgeStart + WEDGE_WIDTH) for every index, so it can never drift
+  // into a neighbouring district's slice no matter how deep the district grows.
+  const frac = (index * KRONECKER + district * 0.113) % 1
+  const theta = wedgeStart + frac * WEDGE_WIDTH
+  const x = Math.cos(theta) * r
+  const z = Math.sin(theta) * r
+  const rot = (hash1(index * 1.7 + district * 53) - 0.5) * Math.min(0.55, r / 2600)
+  return { x: round1(x), z: round1(z), rot: round3(rot) }
+}
+
 // The heart of BLOCO A: lot `index` in (zone, district) → a permanent position.
-// Phyllotaxis around the district centre: r = pitch·√(index) grows monotonically,
-// so higher indices are always further out (append-only) and never collide with a
-// lower one. Fully deterministic → the same index always yields the same lot.
+// Fully deterministic → the same (zone, district, index) always yields the same lot.
 export function mintLot(zone: ZoneId, district: number, index: number): MintedLot {
-  const [cx, cz] = districtCenter(zone, district)
+  if (zone === 'btc-core') return btcCoreLot(district, index)
+  const [cx, cz] = islandDistrictCenter(zone, district)
   const r = LOT_PITCH * Math.sqrt(index + 0.5)
   const theta = index * GOLDEN + district * 1.31
   const x = cx + Math.cos(theta) * r
   const z = cz + Math.sin(theta) * r
-  // Small coherent block tilt that grows outward, matching the v3 aesthetic.
   const rot = (hash1(index * 1.7 + district * 53) - 0.5) * Math.min(0.55, r / 2600)
-  return { x: Math.round(x * 10) / 10, z: Math.round(z * 10) / 10, rot: Math.round(rot * 1000) / 1000 }
+  return { x: round1(x), z: round1(z), rot: round3(rot) }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

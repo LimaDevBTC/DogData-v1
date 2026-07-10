@@ -10,9 +10,11 @@
 > **Origem:** conversas de design com o dono, 2026-07-10. Todas as decisões de fundação
 > marcadas 🔒 foram travadas pelo dono nessa data.
 >
-> ⚠️ **Plano — nada de novo implementado ainda.** O registry (`lib/city/registry.ts` +
-> `lib/city/zones.ts`) já implementa boa parte; o trabalho é promovê-lo a lei da fundação
-> com os ajustes do §2.
+> ✅ **§2 IMPLEMENTADO (dry-run) em 2026-07-10:** `scripts/foundation_generator.ts` roda
+> as fórmulas deste doc contra as 86.252 carteiras reais (zero escrita em Supabase, zero
+> chamada a ord/bitcoin-cli, zero gasto). Achou e **corrigiu** um bug estrutural real na
+> geometria herdada do crosschaincity — ver §2.1. §§3–6 (snapshot, deed/mint, cívico,
+> reserva) seguem apenas como plano; nada de dinheiro/inscription foi implementado.
 
 ---
 
@@ -77,10 +79,29 @@ fundação — não são reproduzíveis).
 | state | à espera / em pé / ruína / reconstrução (banda do §1) |
 | prestige atual | Mesma fórmula de estrelas, com dados vivos |
 
-**Fonte de dados:** `dog_utxos_by_address.json` (valor + idade por UTXO) já existe; o
-gerador da fundação troca `age_days` por block heights lidos do estado da chain em N.
-**Unificação:** o `/api/plot` do /donate (hoje por saldo) passa a ler o registry — uma
-fonte de verdade só.
+**Fonte de dados:** `dog_utxos_by_address.json` já tem `ts` (timestamp absoluto do bloco
+de confirmação) em 100% dos UTXOs — usado como `position_score` direto, sem precisar
+patch no scanner Python (dias-relativos-ao-export foi descartado; `ts` é imutável).
+**Unificação pendente:** o `/api/plot` do /donate (hoje por saldo) ainda precisa passar
+a ler o registry — uma fonte de verdade só (não feito nesta rodada).
+
+### §2.1 — Correção de geometria (2026-07-10, implementada)
+
+O dry-run achou 4 colisões reais entre lotes de distritos vizinhos. Causa: o modelo
+antigo (`BTC_DISTRICT_CENTERS` em `zones.ts`) dava a cada distrito seu próprio centro de
+espiral a 109–1.261 unidades de distância dos vizinhos — mas o raio da espiral de UM
+distrito sozinho, na população real da fundação (~9.395 lotes/distrito), chega a 1.357
+unidades. Ou seja: **toda** espiral se sobrepunha à do vizinho nos anéis externos. Bug
+estrutural do modelo pensado pra cidade crescendo aos poucos, não pra ~84 mil carteiras
+aterrissando de uma vez.
+
+**Correção 🔒 (implementada em `lib/city/zones.ts`):** distritos 1–9 passam a ter **cunha
+angular exclusiva** (40° cada, sequência de Kronecker/Weyl pra preencher sem faixas) —
+uma parede matemática que nenhum lote pode atravessar, **para qualquer população**, não
+só as testadas. Distrito 0 (ring 0 / Genesis Core) continua com a espiral pequena
+antiga, população fixa e minúscula (~85 + buffer cívico), com raio máximo bem abaixo de
+onde as cunhas começam. Resultado: **0 colisões em 84.639 lotes**, geometria
+comprovadamente segura por construção, não por sorte de espaçamento.
 
 ---
 
@@ -124,6 +145,52 @@ fundo 75% ──── fundo = 10M (bloco B) ──── snapshot (N = B + 1008
 - **Infra:** ord wallet do projeto (custódia do Charter) + gestão de taxas. ⚠️ O ord CLI
   disputa o lock redb com `dog_scanner` — jobs de inscription rodam em **janelas
   exclusivas agendadas** (ver ord.service).
+
+### §4.1 — Customização: ferramentas internas de edição 🔒
+
+Terceira camada do modelo de dados do prédio, ao lado do que já existia (§0.4):
+
+| Camada | Fonte | Onde mora | Muda quando |
+|---|---|---|---|
+| **Congelada** | História on-chain no bloco N | Deed (Ordinal) | Nunca |
+| **Derivada** | Saldo DOG vivo | Oráculo (renderer) | A cada mudança de saldo |
+| **Customização** 🆕 | Escolha do dono | Off-chain, mutável, ligada ao `lot_id` | Quando o dono quiser |
+
+**Regra de ouro:** customização é **cosmética, nunca estrutural** — não pode furar o
+envelope físico que a camada derivada já define (`building_class`/`height_tier` cap a
+altura; `lot_area` cap a pegada). Ninguém edita para além do que o saldo autoriza.
+Nada de customização é inscrito no Bitcoin — não precisa de consenso trustless porque
+não afeta posição, propriedade ou escassez, só aparência. O deed continua verificável
+contra o registry público exatamente como descrito em §0.5.
+
+**Trilha por tier** 🔒 (owner, 2026-07-10 — "users vão poder usar ferramentas de edição
+internas... patrons podem personalizar"):
+
+- **Personal License (10k+) — Kit Básico:** modelo-base do catálogo (restrito pela
+  tipologia congelada — torre/casa/condomínio), paleta de cor/material, estilo de
+  telhado, add-ons decorativos limitados (varanda, antena, jardim). Escala de graça
+  para as ~86k carteiras — nada aqui é gerado sob demanda.
+- **Commercial License (50k+) — Kit Estendido:** tudo do Personal + edição livre de
+  modelo/altura/cor dentro do envelope, espaço de anúncio na fachada, texto de
+  sinalização/endereço comercial (decisão já travada em 2026-07-09, reafirmada aqui).
+- **Patron (500k+) — "Personalizar" (camada elevada):** tudo do Commercial + modo
+  avançado do MESMO editor interno, sem as restrições combinatórias dos tiers abaixo
+  (silhueta customizada, empilhamento livre de add-ons, cor em hex livre). Para pedidos
+  verdadeiramente únicos, mantém-se a fila manual de modelagem (brief/imagem → humano)
+  como caminho opcional — não obrigatório, já que o modo avançado do editor cobre a
+  maioria dos casos sem depender de fila.
+- **Licença ≠ saldo vivo:** a licença (paga uma vez) dá acesso PERMANENTE às
+  ferramentas do tier, mesmo que o lote esteja `waiting` (ainda não construiu). O dono
+  pode desenhar o prédio ANTES de cruzar 20k — no momento em que constrói, a
+  customização já escolhida aparece de cara. "Projete enquanto espera."
+- **Autenticação:** só a carteira dona do lote edita (assinatura BIP-322 via
+  `connectwallet.md` Bloco A, já implementado) — consistente com o princípio soulbound
+  do §0.2: a customização é tão intransferível quanto o prédio.
+
+**Fora de escopo nesta rodada:** a UI do editor 3D em si (`/city/explore`), o schema
+JSON completo de customização e o catálogo de peças/add-ons por tipologia — são um
+projeto de engenharia à parte (pipeline de assets + UX), a ser desenhado quando a
+sequência §8 chegar nesse ponto.
 
 ---
 
@@ -235,12 +302,16 @@ ilhas; observatório usa a montanha existente; Founders Pool preservado.
 ## §8 — Sequência de execução
 
 1. ✅ Este documento (constituição aprovada).
-2. **Gerador da fundação:** promover `registry.ts`/`zones.ts` a lei — trocar `age_days`
-   por block heights, 10k→20k no position_score, congelar tipologia, subtrair terra
-   cívica + Reserva antes dos lotes, anel 0 Visionary. **Dry-run com as ~86k carteiras**
-   → mapa completo + estatísticas de validação (colisões, densidade, distribuição).
+2. ✅ **Gerador da fundação (dry-run):** `scripts/foundation_generator.ts` — `ts` como
+   position_score (20k), tipologia congelada, terra cívica + Reserva subtraídas antes
+   dos lotes, anel 0 provisório. **Rodado contra as 86.252 carteiras reais** → achou e
+   corrigiu bug de colisão geométrica (§2.1); 0 colisões no resultado final. Pendente
+   ainda dentro deste passo: join do anel 0 com o cohort real "Satoshi Visionary"
+   (hoje é proxy pelos 85 position_score mais antigos).
 3. Topografia + âncoras cívicas P1 no 3D (`/city/explore`).
 4. Schema final do deed + pipeline de mint (Modelo B) + janelas do ord.
+4.1. **Editor de customização (§4.1):** schema JSON + catálogo de peças por tipologia +
+   UI do editor em `/city/explore` — projeto de engenharia à parte, ainda não iniciado.
 5. Ajustar copy da landing (10k = licença+deed; 20k = prédio) e unificar `/api/plot`.
 6. Publicação do plano + Fase 1 da campanha → aguardar 10M → §3.
 
@@ -251,5 +322,8 @@ ilhas; observatório usa a montanha existente; Founders Pool preservado.
 🔒 2026-07-10, dono: soulbound à carteira (registry=lei) · posição congela no snapshot ·
 banda 20/10/20 c/ ruína punitiva · lotes <20k à espera na periferia · snapshot B+1008 ·
 auditoria mínima 432 blocos · Charter pai de todos os deeds (Modelo B) · 20k como metro
-único de posição · idade em block height · tipologia congelada · programa cívico §5 ·
-Reserva Urbana §6.
+único de posição · idade em block height (`ts`, implementado) · tipologia congelada ·
+programa cívico §5 · Reserva Urbana §6 · geometria de distrito em cunha angular exclusiva
+(§2.1, implementada, substitui espiral por centro) · customização por ferramentas
+internas de edição, Personal/Commercial no kit paramétrico, Patron com modo avançado
+elevado (§4.1).

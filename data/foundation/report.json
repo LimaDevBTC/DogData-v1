@@ -1,0 +1,106 @@
+{
+  "generated_at": "2026-07-10T21:02:14.829Z",
+  "dry_run": true,
+  "note": "No Supabase writes, no ord/bitcoin-cli calls, no spending. See masterplan.md §2/§5/§6.",
+  "caveats": [
+    "ring0_visionary is a PROVISIONAL proxy (85 earliest position_score) — the real \"Satoshi Visionary\" cohort (airdrop + 100x+ accumulation) needs a join against the behavioral-cohort dataset, not wired here.",
+    "position_score uses per-UTXO `ts` (block confirmation timestamp) as the reproducible ordering key — equivalent to the block-height requirement in masterplan.md §2 (both are immutable; ts is already present in dog_utxos_by_address.json, no scanner patch needed).",
+    "Civic core (200 slots) and Reserva Urbana (25 parcels) are RESERVED INDEX COUNTS, not yet a spatially-designed 3D footprint — masterplan §5/§7 still need the real civic building placement before this generator becomes final.",
+    "supply normaliser for lot_area is the largest single holder balance (matches the already-shipped, visually-validated footprintWidth), not the token total supply."
+  ],
+  "input": {
+    "holders_total": 86252,
+    "dust_dropped": 1613,
+    "eligible": 84639
+  },
+  "position": {
+    "ge20k_wallets": 52457,
+    "fallback_periphery_wallets": 32182,
+    "ge20k_pct": 62
+  },
+  "districts": [
+    {
+      "id": 0,
+      "name": "Genesis Core",
+      "lots": 85,
+      "standing": 85
+    },
+    {
+      "id": 1,
+      "name": "Diamond Hands",
+      "lots": 9395,
+      "standing": 9395
+    },
+    {
+      "id": 2,
+      "name": "Vanguard",
+      "lots": 9395,
+      "standing": 9395
+    },
+    {
+      "id": 3,
+      "name": "Veterans",
+      "lots": 9395,
+      "standing": 9395
+    },
+    {
+      "id": 4,
+      "name": "Seasoned",
+      "lots": 9395,
+      "standing": 9395
+    },
+    {
+      "id": 5,
+      "name": "Steady",
+      "lots": 9395,
+      "standing": 9395
+    },
+    {
+      "id": 6,
+      "name": "Maturing",
+      "lots": 9395,
+      "standing": 5600
+    },
+    {
+      "id": 7,
+      "name": "Recent",
+      "lots": 9395,
+      "standing": 73
+    },
+    {
+      "id": 8,
+      "name": "Newcomers",
+      "lots": 9395,
+      "standing": 252
+    },
+    {
+      "id": 9,
+      "name": "Fresh Arrivals",
+      "lots": 9394,
+      "standing": 400
+    }
+  ],
+  "lifecycle": {
+    "standing": 53385,
+    "waiting": 31254,
+    "standing_pct": 63.1
+  },
+  "typology": {
+    "tower": 71083,
+    "condo": 2756,
+    "house": 10800
+  },
+  "area": {
+    "total_lot_area": 6850935,
+    "avg_lot_area": 80.94
+  },
+  "reserved": {
+    "civic_core_slots": 200,
+    "dogdata_reserve_parcels": 25
+  },
+  "validation": {
+    "total_lots": 84639,
+    "position_collisions": 0,
+    "collision_free": true
+  }
+}
