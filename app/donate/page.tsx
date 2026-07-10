@@ -350,7 +350,7 @@ export default function DonatePage() {
   useEffect(() => {
     if (!lookupAddr) { setPlot(null); return }
     let alive = true
-    fetch(`/api/city/plot?address=${encodeURIComponent(lookupAddr)}`)
+    fetch(`/api/plot?address=${encodeURIComponent(lookupAddr)}`)
       .then((r) => r.json())
       .then((d: PlotData) => { if (alive) setPlot(d) })
       .catch(() => { if (alive) setPlot(null) })

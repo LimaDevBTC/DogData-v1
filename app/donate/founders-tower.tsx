@@ -11,7 +11,9 @@
 // ═══════════════════════════════════════════════════════════════════════════
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
-import { buildCentralTower } from '../city/explore/central-tower'
+// Local copy of the Satoshi Plaza tower so the landing page builds in production
+// without the WIP city (app/city/explore/ is gitignored, not deployed to Vercel).
+import { buildCentralTower } from './central-tower'
 
 export default function FoundersTower() {
   const mountRef = useRef<HTMLDivElement>(null)
