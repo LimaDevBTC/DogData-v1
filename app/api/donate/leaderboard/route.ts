@@ -12,7 +12,6 @@ const DOG_GOAL = 10_000_000
 const PERSONAL_LICENSE = 10_000
 const COMMERCIAL_LICENSE = 50_000
 const PATRON_TIER = 500_000
-const FOUNDER_SLOTS = 1_000 // 1,000 × 10,000 DOG = the 10M goal — scarcity == goal.
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -129,25 +128,22 @@ export async function GET(_req: NextRequest) {
       .sort((a, b) => b.total - a.total)
       .map((entry, i) => ({ rank: i + 1, ...entry }))
 
-    // ── Founders (Founder Edition) ─────────────────────────────────────────────
-    // The first FOUNDER_SLOTS wallets to reach the Personal License (accumulated
-    // ≥ 10k DOG) are Founders, ranked by *arrival* — the moment their cumulative
-    // crossed the line, not by volume. Replay events oldest → newest per wallet.
+    // ── Founders ───────────────────────────────────────────────────────────────
+    // Everyone who donates before the 10M goal is a Founder — any amount, ranked
+    // by *arrival* (the wallet's first donation). No slot cap: the register only
+    // closes when the fund reaches the goal. Replay events oldest → newest.
     const chronological = [...events].sort((a, b) => {
       if (a.timestamp && b.timestamp && a.timestamp !== b.timestamp)
         return a.timestamp < b.timestamp ? -1 : 1
       return a.block_height - b.block_height
     })
-    const runningTotal = new Map<string, number>()
+    const seenDonors = new Set<string>()
     const crossings: { address: string; crossedAt: string; block_height: number }[] = []
     for (const ev of chronological) {
       if (ev.address === 'anonymous') continue
-      const prev = runningTotal.get(ev.address) ?? 0
-      const next = prev + ev.amount
-      runningTotal.set(ev.address, next)
-      if (prev < PERSONAL_LICENSE && next >= PERSONAL_LICENSE) {
-        crossings.push({ address: ev.address, crossedAt: ev.timestamp, block_height: ev.block_height })
-      }
+      if (seenDonors.has(ev.address)) continue
+      seenDonors.add(ev.address)
+      crossings.push({ address: ev.address, crossedAt: ev.timestamp, block_height: ev.block_height })
     }
     const founders = crossings
       .map((c) => ({
@@ -160,7 +156,6 @@ export async function GET(_req: NextRequest) {
       .map((f, i) => ({ ...f, founder_seq: i + 1 }))
 
     const foundersCount = founders.length
-    const founderSlotsRemaining = Math.max(0, FOUNDER_SLOTS - foundersCount)
 
     // ── Live feed — most recent donations (newest first) ───────────────────────
     const recent = [...events]
@@ -192,9 +187,7 @@ export async function GET(_req: NextRequest) {
           commercial: COMMERCIAL_LICENSE,
           patron: PATRON_TIER,
         },
-        founder_slots: FOUNDER_SLOTS,
         founders_count: foundersCount,
-        founder_slots_remaining: founderSlotsRemaining,
         founders,
         recent,
         last_updated: new Date().toISOString(),

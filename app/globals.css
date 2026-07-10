@@ -1123,3 +1123,89 @@ main {
 .holder-concentration-chart .recharts-bar-rectangle:hover {
   opacity: 0.85;
 }
+
+/* ── /donate landing — premium effects ──────────────────────────────────────── */
+
+/* Outline-text marquee strip */
+@keyframes marquee-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee-scroll 36s linear infinite;
+}
+.marquee-track:hover { animation-play-state: paused; }
+
+/* Cursor-tracking spotlight on cards (set --mx/--my from JS) */
+.spotlight-card { position: relative; }
+.spotlight-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(
+    260px circle at var(--mx, 50%) var(--my, 50%),
+    rgba(245, 110, 15, 0.13),
+    transparent 65%
+  );
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  z-index: 1;
+}
+.spotlight-card:hover::after { opacity: 1; }
+
+/* Patrons' Walk — glowing ring laid flat on the ground around the monument */
+@keyframes patron-ring-pulse {
+  0%, 100% { opacity: 0.55; box-shadow: 0 0 24px rgba(252, 211, 77, 0.25), inset 0 0 24px rgba(252, 211, 77, 0.12); }
+  50%      { opacity: 0.95; box-shadow: 0 0 44px rgba(252, 211, 77, 0.45), inset 0 0 36px rgba(252, 211, 77, 0.22); }
+}
+.patron-ring {
+  border-radius: 50%;
+  border: 1.5px solid rgba(252, 211, 77, 0.65);
+  transform: rotateX(75deg);
+  animation: patron-ring-pulse 4s ease-in-out infinite;
+}
+.patron-ring-outer {
+  border-radius: 50%;
+  border: 1px dashed rgba(252, 211, 77, 0.22);
+  transform: rotateX(75deg);
+}
+
+/* One-shot holographic sheen sweep (Plot Deed reveal) */
+@keyframes deed-sheen {
+  0%        { transform: translateX(-130%) skewX(-18deg); }
+  70%, 100% { transform: translateX(240%) skewX(-18deg); }
+}
+.deed-sheen {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 45%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.07), transparent);
+  animation: deed-sheen 1.8s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both;
+  pointer-events: none;
+}
+
+/* Registry scan while the plot lookup is in flight */
+@keyframes registry-scan {
+  0%   { top: -10%; opacity: 0; }
+  15%  { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { top: 105%; opacity: 0; }
+}
+.registry-scan {
+  position: absolute;
+  left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(245, 110, 15, 0.7), transparent);
+  box-shadow: 0 0 14px rgba(245, 110, 15, 0.5);
+  animation: registry-scan 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track { animation: none; }
+  .patron-ring { animation: none; opacity: 0.7; }
+  .deed-sheen { animation: none; opacity: 0; }
+}

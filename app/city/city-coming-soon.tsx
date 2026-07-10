@@ -781,13 +781,14 @@ export default function CityComingSoon() {
                   The city can't be bought. It can be built.
                 </p>
                 <p className="font-mono text-[11px] text-dusty/65 leading-relaxed max-w-lg">
-                  10M DOG opens the city — all of it, at once. Donate any amount; at 10,000 DOG your
-                  Personal License unlocks automatically. The first 1,000 are Founders, carved into the monument.
+                  10M DOG opens the city — and the mint: every building inscribed as an Ordinal on Bitcoin L1,
+                  for nothing but network fees. Donate any amount and your name is carved into the Founders'
+                  Monument; at 10,000 DOG your license to mint unlocks automatically.
                 </p>
               </div>
               <div className="shrink-0">
                 <span className="inline-flex items-center gap-2.5 px-7 py-3.5 bg-gradient-to-r from-lava to-lava-dark text-snow font-mono font-medium text-xs tracking-wide rounded-xl transition-all duration-300 shadow-[0_0_20px_rgba(245,110,15,0.18)] group-hover:shadow-[0_0_36px_rgba(245,110,15,0.32)] group-hover:scale-[1.02]">
-                  Claim your Founder License
+                  Become a Founder
                   <span className="text-snow/70">↗</span>
                 </span>
               </div>

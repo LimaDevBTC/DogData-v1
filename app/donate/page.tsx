@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { motion } from "framer-motion"
+import { motion, useScroll, useTransform } from "framer-motion"
 import { Layout } from "@/components/layout"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -10,6 +10,7 @@ import {
   Copy, Check, ArrowRight, ShieldCheck,
   Trophy, Loader2, Crown, Building2, Store, Gem,
   Sparkles, Search, ExternalLink, Radio,
+  Bitcoin, Zap, Ruler, MapPin,
 } from "lucide-react"
 import Image from "next/image"
 import dynamic from "next/dynamic"
@@ -32,7 +33,6 @@ const FoundersTower = dynamic(() => import("./founders-tower"), {
 const DONATION_GOAL = 10_000_000
 const PERSONAL_LICENSE = 10_000
 const COMMERCIAL_LICENSE = 50_000
-const FOUNDER_SLOTS = 1_000
 const DONATION_WALLET = "bc1pxk7aw9ug55jkkz02z7ayhlkxxq92ya0ctegcwm5j8jumgaavjlkqdylk2p"
 
 const FALLBACK_HOLDERS = {
@@ -73,16 +73,17 @@ const DONATIONS = [
 ]
 
 // The single-rail ladder: donate any amount → accumulate → licenses unlock.
+// Every donor is a Founder (name on the monument); licenses gate the mint.
 const LADDER = [
   {
     key: "citizen",
     icon: Sparkles,
     color: "#CBD5E1",
-    name: "Citizen",
+    name: "Founder",
     threshold: "Any amount",
     perks: [
-      "Your name in the Founders Register",
-      "Adds to the 10M inauguration goal",
+      "Your name engraved on the Founders' Monument",
+      "Counts toward the 10M Grand Opening",
       "Personal progress bar toward your license",
     ],
   },
@@ -94,9 +95,9 @@ const LADDER = [
     threshold: "10,000 DOG",
     usd: "~$6",
     perks: [
+      "Mint your building at the Grand Opening — pay only BTC network fees",
       "One-time, permanent, tied to your wallet",
       "Customize your wallet profile modal",
-      "Personalize your building at the Grand Opening",
     ],
     featured: true,
   },
@@ -122,9 +123,37 @@ const LADDER = [
     usd: "~$300",
     perks: [
       "Everything in Commercial",
-      "Individual plaque on the Patrons' Walk",
-      "Encircling the Founders' Monument",
+      "Fully bespoke building — designed for you within the city's guidelines",
+      "Individual plaque on the Patrons' Walk, encircling the Founders' Monument",
     ],
+  },
+]
+
+// The Grand Opening mint — buildings are Ordinal inscriptions on Bitcoin L1.
+const MINT_FACTS = [
+  {
+    icon: Bitcoin,
+    color: "#F7931A",
+    title: "Minted on Bitcoin L1",
+    body: "Your building is an Ordinal inscription — a permanent on-chain deed that lives in your wallet, not in a database.",
+  },
+  {
+    icon: Zap,
+    color: "#FFAD42",
+    title: "Only network fees",
+    body: "Your license (in DOG) funds the city. The mint itself has zero markup — you pay only the Bitcoin network fee.",
+  },
+  {
+    icon: Ruler,
+    color: "#F56E0F",
+    title: "Sized by your balance",
+    body: "Building height and plot size scale with your DOG balance. Skyscraper or cottage — the chain decides.",
+  },
+  {
+    icon: MapPin,
+    color: "#FB923C",
+    title: "Placed by your history",
+    body: "Your district is set by the age of your oldest UTXO above 20,000 DOG. Old paws live downtown.",
   },
 ]
 
@@ -170,9 +199,7 @@ interface LeaderboardData {
   progress_pct: number
   donor_count: number
   leaderboard: DonorEntry[]
-  founder_slots: number
   founders_count: number
-  founder_slots_remaining: number
   founders: FounderEntry[]
   recent: RecentEntry[]
 }
@@ -246,6 +273,155 @@ function BlurText({ text, className, style, delay = 0, wordDelay = 60 }: {
   )
 }
 
+// ── WordReveal (masked line-rise for display headlines — hero-grade) ──────────
+
+function WordReveal({ text, className, style, delay = 0, stagger = 65 }: {
+  text: string; className?: string; style?: React.CSSProperties; delay?: number; stagger?: number
+}) {
+  const words = text.split(" ")
+  return (
+    <h1 className={className} style={style} aria-label={text}>
+      {words.map((word, i) => (
+        <span
+          key={i}
+          style={{
+            display: "inline-block",
+            overflow: "hidden",
+            verticalAlign: "bottom",
+            paddingBottom: "0.12em",
+            marginBottom: "-0.12em",
+            marginRight: i < words.length - 1 ? "0.26em" : 0,
+          }}
+        >
+          <motion.span
+            style={{ display: "inline-block", willChange: "transform" }}
+            initial={{ y: "115%", rotate: 4 }}
+            animate={{ y: "0%", rotate: 0 }}
+            transition={{ duration: 0.95, delay: (delay + i * stagger) / 1000, ease: [0.16, 1, 0.3, 1] }}
+          >
+            {word}
+          </motion.span>
+        </span>
+      ))}
+    </h1>
+  )
+}
+
+// ── CountUp (eased tabular counter, fires once when scrolled into view) ───────
+
+function CountUp({ value, format, className, style, duration = 1500 }: {
+  value: number; format?: (n: number) => string; className?: string; style?: React.CSSProperties; duration?: number
+}) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const [armed, setArmed] = useState(false)
+  const [display, setDisplay] = useState(0)
+  const fmt = format ?? ((n: number) => Math.round(n).toLocaleString("en-US"))
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const obs = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { setArmed(true); obs.disconnect() }
+    }, { threshold: 0.4 })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (!armed) return
+    let raf = 0
+    const start = performance.now()
+    const from = 0
+    const tick = (now: number) => {
+      const p = Math.min((now - start) / duration, 1)
+      const eased = p === 1 ? 1 : 1 - Math.pow(2, -10 * p) // easeOutExpo
+      setDisplay(from + (value - from) * eased)
+      if (p < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [armed, value, duration])
+
+  return <span ref={ref} className={className} style={style}>{fmt(display)}</span>
+}
+
+// ── SpotlightCard (cursor spotlight + gentle 3D tilt) ─────────────────────────
+
+function SpotlightCard({ children, className = "", style, tilt = true }: {
+  children: React.ReactNode; className?: string; style?: React.CSSProperties; tilt?: boolean
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const onMove = (e: React.MouseEvent) => {
+    const el = ref.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const x = e.clientX - r.left
+    const y = e.clientY - r.top
+    el.style.setProperty("--mx", `${x}px`)
+    el.style.setProperty("--my", `${y}px`)
+    if (tilt) {
+      const rx = (y / r.height - 0.5) * -4.5
+      const ry = (x / r.width - 0.5) * 4.5
+      el.style.transform = `perspective(900px) rotateX(${rx}deg) rotateY(${ry}deg)`
+    }
+  }
+  const onLeave = () => {
+    const el = ref.current
+    if (el) el.style.transform = "perspective(900px) rotateX(0deg) rotateY(0deg)"
+  }
+  return (
+    <div
+      ref={ref}
+      onMouseMove={onMove}
+      onMouseLeave={onLeave}
+      className={`spotlight-card ${className}`}
+      style={{ ...style, transition: "transform 0.4s cubic-bezier(0.16,1,0.3,1), border-color 0.3s ease, box-shadow 0.3s ease" }}
+    >
+      {children}
+    </div>
+  )
+}
+
+// ── MarqueeStrip (outline-type ticker — pauses on hover / reduced motion) ─────
+
+const MARQUEE_ITEMS = [
+  "Fund the construction",
+  "Mint on Bitcoin L1",
+  "Every donor is a Founder",
+  "Only network fees",
+  "Placement can't be bought",
+  "10,000,000 DOG opens the city",
+]
+
+function MarqueeStrip() {
+  const row = (key: string) => (
+    <div key={key} className="flex items-center shrink-0">
+      {MARQUEE_ITEMS.map((m, i) => (
+        <span key={m} className="flex items-center shrink-0">
+          <span
+            className="font-display font-extrabold whitespace-nowrap px-7"
+            style={
+              i % 2 === 0
+                ? { fontSize: "clamp(1.6rem, 3.4vw, 2.6rem)", letterSpacing: "-0.01em", color: "transparent", WebkitTextStroke: "1px rgba(245,110,15,0.4)" }
+                : { fontSize: "clamp(1.6rem, 3.4vw, 2.6rem)", letterSpacing: "-0.01em", color: "rgba(245,110,15,0.22)" }
+            }
+          >
+            {m}
+          </span>
+          <span className="w-1.5 h-1.5 rotate-45 shrink-0" style={{ background: "rgba(245,110,15,0.35)" }} />
+        </span>
+      ))}
+    </div>
+  )
+  return (
+    <div className="relative overflow-hidden py-5 border-y border-white/[0.04] bg-snow/[0.01]" aria-hidden>
+      <div className="marquee-track">{row("a")}{row("b")}</div>
+      <div className="absolute inset-y-0 left-0 w-24 pointer-events-none" style={{ background: "linear-gradient(90deg, #000, transparent)" }} />
+      <div className="absolute inset-y-0 right-0 w-24 pointer-events-none" style={{ background: "linear-gradient(270deg, #000, transparent)" }} />
+    </div>
+  )
+}
+
 // ── Hero video background ─────────────────────────────────────────────────────
 
 function HeroVideo() {
@@ -275,6 +451,14 @@ function HeroVideo() {
 export default function DonatePage() {
   const router    = useRouter()
   const donateRef = useRef<HTMLDivElement>(null)
+  const heroRef   = useRef<HTMLElement>(null)
+
+  // Hero scroll parallax — the video sinks and swells as the page takes over.
+  const { scrollYProgress: heroProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] })
+  const videoScale  = useTransform(heroProgress, [0, 1], [1, 1.18])
+  const videoY      = useTransform(heroProgress, [0, 1], ["0%", "14%"])
+  const heroContentY = useTransform(heroProgress, [0, 1], ["0%", "-18%"])
+  const heroFade    = useTransform(heroProgress, [0, 0.75], [1, 0])
 
   const [copied,      setCopied]      = useState<string | null>(null)
   const [lb,          setLb]          = useState<LeaderboardData | null>(null)
@@ -349,6 +533,7 @@ export default function DonatePage() {
   // for ANY $DOG holder, donor or not — the plot is on-chain history, not money.
   useEffect(() => {
     if (!lookupAddr) { setPlot(null); return }
+    setPlot(null) // re-arm the surveying state on every new lookup
     let alive = true
     fetch(`/api/plot?address=${encodeURIComponent(lookupAddr)}`)
       .then((r) => r.json())
@@ -372,9 +557,6 @@ export default function DonatePage() {
     router.push("/")
   }
 
-  const slotsRemaining = lb ? lb.founder_slots_remaining : FOUNDER_SLOTS
-  const foundersCount  = lb ? lb.founders_count : 0
-
   return (
     <Layout currentPage="donate" setCurrentPage={() => {}}>
       <div className="flex flex-col bg-void">
@@ -382,14 +564,16 @@ export default function DonatePage() {
         {/* ════════════════════════════════════════════════════════════
             SECTION 1 — HERO (video, "The city can't be bought")
         ════════════════════════════════════════════════════════════ */}
-        <section className="relative min-h-[88vh] flex flex-col items-center justify-center text-center px-4 py-20 overflow-hidden">
-          <HeroVideo />
+        <section ref={heroRef} className="relative min-h-[88vh] flex flex-col items-center justify-center text-center px-4 py-20 overflow-hidden">
+          <motion.div className="absolute inset-0" style={{ scale: videoScale, y: videoY }}>
+            <HeroVideo />
+          </motion.div>
           {/* Overlays for legibility */}
           <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 110% 100% at 50% 45%, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.82) 100%)" }} />
           <div className="absolute inset-x-0 bottom-0 h-2/5 pointer-events-none" style={{ background: "linear-gradient(to top, #000 0%, transparent 100%)" }} />
           <div className="absolute inset-x-0 top-0 h-1/5 pointer-events-none" style={{ background: "linear-gradient(to bottom, #000 0%, transparent 100%)" }} />
 
-          <div className="relative z-10 w-full max-w-4xl mx-auto">
+          <motion.div className="relative z-10 w-full max-w-4xl mx-auto" style={{ y: heroContentY, opacity: heroFade }}>
             {/* Live badge */}
             <div className="mb-8 inline-flex items-center gap-2.5 liquid-glass rounded-lg px-4 py-1.5 border border-lava/[0.18]">
               <span className="w-1.5 h-1.5 rounded-full bg-lava animate-pulse-dot" />
@@ -398,44 +582,44 @@ export default function DonatePage() {
               <span className="font-mono text-[10px] text-dusty/60 tracking-[0.22em] uppercase">Live</span>
             </div>
 
-            <BlurText
+            <WordReveal
               text="The city can't be bought. It can be built."
               className="text-snow mb-6"
               style={{ fontFamily: "var(--font-display)", fontSize: "clamp(2.4rem, 7vw, 5.5rem)", fontWeight: 800, lineHeight: 1.02, letterSpacing: "-0.02em" }}
-              delay={120} wordDelay={70}
+              delay={120} stagger={70}
             />
 
             <BlurText
-              text="Every $DOG wallet already has an address — earned by history, not money. Now we're building the city around it. Fund the construction. Found the city."
+              text="Every $DOG wallet already has a plot — earned by history, not money. At 10M DOG the city opens and every building is minted as an Ordinal on Bitcoin L1. Fund the construction. Found the city."
               className="text-dusty mb-10 mx-auto font-mono"
               style={{ fontSize: "clamp(0.8rem, 1.8vw, 0.95rem)", lineHeight: 1.7, letterSpacing: "0.01em", maxWidth: "40rem" }}
               delay={520} wordDelay={22}
             />
 
-            {/* Founder counter + compact bar */}
+            {/* Construction Fund + compact bar — the only number that matters */}
             <motion.div
               initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 1.0, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
               className="max-w-md mx-auto liquid-glass-strong rounded-2xl border border-white/[0.07] p-5 mb-8"
             >
               <div className="flex items-baseline justify-between mb-3">
-                <span className="font-mono text-[10px] text-dusty/60 uppercase tracking-[0.18em]">Founder Licenses left</span>
+                <span className="font-mono text-[10px] text-dusty/60 uppercase tracking-[0.18em]">Construction Fund</span>
                 <span className="font-display font-bold text-2xl gradient-text tabular-nums">
-                  {lbLoading ? "—" : slotsRemaining.toLocaleString("en-US")}
+                  {lbLoading || !lb ? "—" : <><CountUp value={lb.total_received} format={formatDog} /> / 10M</>}
                 </span>
               </div>
               <div className="relative w-full h-2 rounded-full bg-snow/[0.06] overflow-hidden border border-white/[0.05]">
                 <div
                   className="h-full rounded-full transition-all duration-[1600ms] ease-out"
                   style={{
-                    width: `${(foundersCount / FOUNDER_SLOTS) * 100}%`,
+                    width: `${progressWidth}%`,
                     background: "linear-gradient(90deg, #D45D0D 0%, #F56E0F 50%, #FFAD42 100%)",
                     boxShadow: "0 0 14px rgba(245,110,15,0.4)",
                   }}
                 />
               </div>
               <p className="mt-3 font-mono text-[10px] text-dusty/50 leading-relaxed">
-                1,000 exist. When they're gone, the city opens. {foundersCount} claimed.
+                At 10,000,000 DOG the mint opens. Everyone who funds it before that is a Founder{lb ? ` — ${lb.founders_count} so far.` : "."}
               </p>
             </motion.div>
 
@@ -450,7 +634,7 @@ export default function DonatePage() {
                 className="group flex items-center justify-center gap-2.5 px-8 py-3.5 bg-gradient-to-r from-lava to-lava-dark text-snow font-mono font-medium text-xs tracking-wide rounded-xl transition-all duration-300 shadow-[0_0_24px_rgba(245,110,15,0.2)] hover:shadow-[0_0_40px_rgba(245,110,15,0.34)] hover:scale-[1.02]"
               >
                 <Crown className="w-4 h-4" />
-                Claim your Founder License
+                Become a Founder
               </button>
               <button
                 onClick={enterApp}
@@ -460,8 +644,11 @@ export default function DonatePage() {
                 <span className="text-dusty/40 group-hover:text-lava/70 transition-colors">↗</span>
               </button>
             </motion.div>
-          </div>
+          </motion.div>
         </section>
+
+        {/* ── Ticker — the campaign in six lines, always moving ── */}
+        <MarqueeStrip />
 
         {/* ════════════════════════════════════════════════════════════
             SECTION 2 — YOUR WALLET IS ALREADY THERE
@@ -483,7 +670,7 @@ export default function DonatePage() {
             />
 
             {/* Paste-address → read-only personal progress (no city navigation) */}
-            <div className="mt-9 max-w-md mx-auto">
+            <div className="mt-9 max-w-lg mx-auto">
               <div className="flex items-center gap-2 liquid-glass rounded-xl border border-white/[0.07] p-1.5 focus-within:border-lava/30 transition-colors">
                 <Search className="w-4 h-4 text-dusty/50 ml-2 shrink-0" />
                 <input
@@ -503,40 +690,79 @@ export default function DonatePage() {
                 </Button>
               </div>
 
-              {/* Plot Deed — where this wallet's land sits in DogCity (any holder) */}
+              {/* Surveying state — while the registry resolves the address */}
+              {lookupAddr && !plot && (
+                <div className="mt-4 relative overflow-hidden text-left liquid-glass rounded-xl border border-white/[0.06] p-5">
+                  <div className="registry-scan" />
+                  <p className="font-mono text-[11px] text-dusty animate-pulse tracking-wide">Surveying the land registry…</p>
+                </div>
+              )}
+
+              {/* Plot Deed — where this wallet's land sits in DogCity (any holder).
+                  Styled as a land-registry certificate: corner ticks, one-shot
+                  sheen sweep, district-colour theming, and the mint tie-in. */}
               {lookupAddr && plot?.found && plot.district && plot.pin && (
-                <div className="mt-4 text-left liquid-glass rounded-xl border border-white/[0.06] overflow-hidden">
-                  <div className="h-px" style={{ background: `linear-gradient(90deg, transparent, ${plot.district.color}, transparent)`, opacity: 0.55 }} />
-                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.05]">
-                    <span className="flex items-center gap-2 font-mono text-[9px] tracking-[0.22em] uppercase text-dusty">
-                      <span className="w-2 h-2 rounded-full" style={{ background: plot.district.color, boxShadow: `0 0 8px ${plot.district.color}` }} />
-                      Plot Deed · DogCity
+                <motion.div
+                  key={lookupAddr}
+                  initial={{ opacity: 0, y: 24, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                  className="mt-4 text-left relative overflow-hidden rounded-2xl"
+                  style={{
+                    background: "linear-gradient(180deg, rgba(14,14,18,0.92), rgba(8,8,10,0.96))",
+                    border: `1px solid ${plot.district.color}38`,
+                    boxShadow: `0 0 44px ${plot.district.color}16, inset 0 1px 0 rgba(255,255,255,0.05)`,
+                  }}
+                >
+                  <div className="deed-sheen" />
+                  {/* certificate corner ticks */}
+                  <span className="absolute top-2 left-2 w-3 h-3 border-t border-l pointer-events-none" style={{ borderColor: `${plot.district.color}66` }} />
+                  <span className="absolute top-2 right-2 w-3 h-3 border-t border-r pointer-events-none" style={{ borderColor: `${plot.district.color}66` }} />
+                  <span className="absolute bottom-2 left-2 w-3 h-3 border-b border-l pointer-events-none" style={{ borderColor: `${plot.district.color}66` }} />
+                  <span className="absolute bottom-2 right-2 w-3 h-3 border-b border-r pointer-events-none" style={{ borderColor: `${plot.district.color}66` }} />
+
+                  <div className="h-px" style={{ background: `linear-gradient(90deg, transparent, ${plot.district.color}, transparent)`, opacity: 0.6 }} />
+                  <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.05]">
+                    <span className="flex items-center gap-2 font-mono text-[9px] tracking-[0.24em] uppercase text-dusty">
+                      <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: plot.district.color, boxShadow: `0 0 8px ${plot.district.color}` }} />
+                      DogCity Land Registry · Plot Deed
                     </span>
-                    <span className="font-mono text-[10px] text-dusty tabular-nums">Lot #{plot.rank?.toLocaleString("en-US")}</span>
+                    <span className="font-mono text-[10px] font-bold tabular-nums" style={{ color: plot.district.color }}>
+                      LOT #{plot.rank?.toLocaleString("en-US")}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-4 p-4">
-                    <PlotMap districtId={plot.district.id} color={plot.district.color} nx={plot.pin.nx} nz={plot.pin.nz} size={128} />
-                    <div className="flex flex-col justify-center gap-2.5 min-w-0">
+
+                  <div className="flex flex-col sm:flex-row items-center gap-5 p-5">
+                    <div className="relative shrink-0">
+                      <PlotMap districtId={plot.district.id} color={plot.district.color} nx={plot.pin.nx} nz={plot.pin.nz} size={168} />
+                    </div>
+                    <div className="flex flex-col justify-center gap-3.5 min-w-0 w-full">
                       <div>
-                        <div className="font-display font-bold text-lg leading-tight" style={{ color: plot.district.color }}>{plot.district.name}</div>
-                        <div className="font-mono text-[10px] text-dusty">{plot.district.tag} · district {plot.district.id} of 10</div>
+                        <div className="font-display font-bold text-2xl leading-tight" style={{ color: plot.district.color }}>{plot.district.name}</div>
+                        <div className="font-mono text-[10px] text-dusty mt-0.5">{plot.district.tag} · district {plot.district.id} of 10 · Satoshi Plaza at centre</div>
                       </div>
-                      <div className="grid grid-cols-2 gap-x-5 gap-y-2">
+                      <div className="grid grid-cols-3 gap-x-4 gap-y-2">
                         <div>
                           <div className="font-mono text-[8.5px] tracking-widest uppercase text-dusty/70">$DOG held</div>
-                          <div className="font-mono text-xs text-snow tabular-nums">{formatDog(plot.total_dog ?? 0)}</div>
+                          <div className="font-mono text-sm text-snow tabular-nums font-bold">{formatDog(plot.total_dog ?? 0)}</div>
                         </div>
                         <div>
                           <div className="font-mono text-[8.5px] tracking-widest uppercase text-dusty/70">City rank</div>
-                          <div className="font-mono text-xs text-snow tabular-nums">#{plot.rank?.toLocaleString("en-US")}</div>
+                          <div className="font-mono text-sm text-snow tabular-nums font-bold">#{plot.rank?.toLocaleString("en-US")}</div>
+                        </div>
+                        <div>
+                          <div className="font-mono text-[8.5px] tracking-widest uppercase text-dusty/70">Status</div>
+                          <div className="font-mono text-sm font-bold" style={{ color: plot.district.color }}>Reserved</div>
                         </div>
                       </div>
                     </div>
                   </div>
-                  <div className="px-4 py-2.5 border-t border-white/[0.05] font-mono text-[11px] text-dusty" style={{ background: `linear-gradient(180deg, transparent, ${plot.district.color}0a)` }}>
-                    This plot is already yours — assigned by on-chain history, not money.
+
+                  <div className="px-5 py-3 border-t border-white/[0.05] font-mono text-[11px] text-dusty leading-relaxed" style={{ background: `linear-gradient(180deg, transparent, ${plot.district.color}0a)` }}>
+                    This plot is already yours — assigned by on-chain history, not money.{" "}
+                    <span className="text-snow/70">At the Grand Opening, this is where you mint your building.</span>
                   </div>
-                </div>
+                </motion.div>
               )}
 
               {/* Address holds no DOG → no plot in the city */}
@@ -555,15 +781,18 @@ export default function DonatePage() {
                     <>
                       <div className="flex items-center justify-between mb-2">
                         <span className="font-mono text-xs text-snow/70">{shortAddr(myEntry.address)}</span>
-                        {myFounder ? (
-                          <span className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 rounded-full bg-yellow-400/10 text-yellow-400 border border-yellow-400/25">
-                            <Crown className="w-3 h-3" /> Founder #{myFounder.founder_seq}
-                          </span>
-                        ) : myEntry.license !== "citizen" ? (
-                          <span className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-lava/10 text-lava border border-lava/25 capitalize">
-                            {myEntry.license} License
-                          </span>
-                        ) : null}
+                        <span className="flex items-center gap-1.5">
+                          {myFounder && (
+                            <span className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 rounded-full bg-yellow-400/10 text-yellow-400 border border-yellow-400/25">
+                              <Crown className="w-3 h-3" /> Founder #{myFounder.founder_seq}
+                            </span>
+                          )}
+                          {myEntry.license !== "citizen" && (
+                            <span className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-lava/10 text-lava border border-lava/25 capitalize">
+                              {myEntry.license} License
+                            </span>
+                          )}
+                        </span>
                       </div>
                       {myEntry.license === "citizen" ? (
                         <>
@@ -601,6 +830,66 @@ export default function DonatePage() {
         </section>
 
         {/* ════════════════════════════════════════════════════════════
+            SECTION 2.5 — THE MINT (buildings are Ordinals on Bitcoin L1)
+        ════════════════════════════════════════════════════════════ */}
+        <section className="relative z-10 px-4 py-16 md:py-24 border-t border-white/[0.04]">
+          <div className="max-w-5xl mx-auto">
+            <div className="text-center mb-12">
+              <p className="font-mono text-[10px] text-lava tracking-[0.28em] uppercase mb-5">The Grand Opening Mint</p>
+              <BlurText
+                text="Your building will be a Bitcoin Ordinal."
+                className="text-snow"
+                style={{ fontFamily: "var(--font-display)", fontSize: "clamp(1.7rem, 4vw, 3rem)", fontWeight: 800, letterSpacing: "-0.015em", lineHeight: 1.06 }}
+                delay={0} wordDelay={60}
+              />
+              <BlurText
+                text="The land is already surveyed — every plot mapped, every wallet assigned. Paste your address above and see yours. When the fund reaches 10M DOG, the mint opens: you inscribe your building on Bitcoin L1, into your own wallet. The city takes nothing from the mint."
+                className="text-dusty mt-4 mx-auto font-mono"
+                style={{ fontSize: "0.78rem", lineHeight: 1.8, letterSpacing: "0.01em", maxWidth: "40rem" }}
+                delay={220} wordDelay={16}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              {MINT_FACTS.map((f, i) => {
+                const Icon = f.icon
+                return (
+                  <motion.div
+                    key={f.title}
+                    initial={{ opacity: 0, y: 18 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.55, delay: i * 0.07, ease: [0.16, 1, 0.3, 1] }}
+                    viewport={{ once: true, margin: "-40px" }}
+                  >
+                    <SpotlightCard
+                      className="relative overflow-hidden rounded-2xl p-5 h-full"
+                      style={{ background: "rgba(10,10,12,0.7)", border: "1px solid rgba(255,255,255,0.05)" }}
+                    >
+                      <span
+                        className="absolute top-3 right-4 font-display font-extrabold text-5xl leading-none select-none pointer-events-none"
+                        style={{ color: "transparent", WebkitTextStroke: `1px ${f.color}22` }}
+                      >
+                        0{i + 1}
+                      </span>
+                      <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-4" style={{ background: `${f.color}14` }}>
+                        <Icon style={{ color: f.color, width: 18, height: 18 }} />
+                      </div>
+                      <div className="font-display font-bold text-snow text-base tracking-tight mb-2">{f.title}</div>
+                      <p className="font-mono text-[10px] text-dusty/60 leading-relaxed">{f.body}</p>
+                    </SpotlightCard>
+                  </motion.div>
+                )
+              })}
+            </div>
+
+            <p className="text-center font-mono text-[11px] text-dusty/45 mt-8 max-w-2xl mx-auto leading-relaxed">
+              Two rails, one building: the license is paid in DOG and funds the city — the mint is paid in nothing
+              but Bitcoin network fees. Your deed lives on the same chain as your DOG.
+            </p>
+          </div>
+        </section>
+
+        {/* ════════════════════════════════════════════════════════════
             SECTION 3 — THE INAUGURATION BAR (10M countdown + live feed)
         ════════════════════════════════════════════════════════════ */}
         <section className="relative z-10 px-4 py-14 md:py-20 border-t border-white/[0.04] bg-snow/[0.01]">
@@ -613,35 +902,51 @@ export default function DonatePage() {
                 10M DOG opens the city.<br /><span className="text-snow/55">All of it, at once.</span>
               </h2>
               <p className="font-mono text-xs text-dusty mb-6 leading-relaxed">
-                No stretch goals. No feature drips. When the City Construction Fund reaches 10,000,000 DOG, the whole city opens in one Grand Inauguration.
+                No stretch goals. No feature drips. No founder quotas. When the City Construction Fund reaches 10,000,000 DOG, the whole city opens in one Grand Inauguration — and the building mint goes live.
               </p>
 
               {lbLoading ? (
                 <div className="flex items-center py-6"><Loader2 className="w-5 h-5 animate-spin text-dusty" /></div>
               ) : lb ? (
                 <div className="space-y-3">
-                  <div className="relative w-full h-5 rounded-full bg-snow/[0.05] overflow-hidden border border-white/[0.06]">
+                  <div className="relative w-full h-5 rounded-full bg-snow/[0.05] border border-white/[0.06]">
+                    <div className="absolute inset-0 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-[1800ms] ease-out"
+                        style={{
+                          width: `${progressWidth}%`,
+                          background: "linear-gradient(90deg, #D45D0D 0%, #F56E0F 40%, #FFAD42 100%)",
+                          boxShadow: "0 0 16px rgba(245,110,15,0.35)",
+                        }}
+                      />
+                      <div className="absolute inset-0 rounded-full animate-shimmer opacity-40" style={{ width: `${progressWidth}%` }} />
+                      {/* milestone ticks */}
+                      {[25, 50, 75].map((m) => (
+                        <div key={m} className="absolute top-0 bottom-0 w-px bg-white/10" style={{ left: `${m}%` }} />
+                      ))}
+                    </div>
+                    {/* glowing tip that rides the bar */}
                     <div
-                      className="h-full rounded-full transition-all duration-[1800ms] ease-out"
+                      className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full"
                       style={{
-                        width: `${progressWidth}%`,
-                        background: "linear-gradient(90deg, #D45D0D 0%, #F56E0F 40%, #FFAD42 100%)",
-                        boxShadow: "0 0 16px rgba(245,110,15,0.35)",
+                        left: `calc(${progressWidth}% - 5px)`,
+                        background: "#FFAD42",
+                        boxShadow: "0 0 14px 5px rgba(255,173,66,0.45)",
+                        transition: "left 1800ms ease-out",
                       }}
                     />
-                    <div className="absolute inset-0 rounded-full animate-shimmer opacity-40" style={{ width: `${progressWidth}%` }} />
                   </div>
                   <div className="flex items-center justify-between text-sm font-mono">
                     <div>
-                      <div className="text-lava font-bold">{formatDog(lb.total_received)} DOG</div>
+                      <div className="text-lava font-bold"><CountUp value={lb.total_received} format={formatDog} /> DOG</div>
                       <div className="text-dusty text-xs">raised of 10M</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-snow/70 font-bold text-lg">{lb.progress_pct.toFixed(2)}%</div>
-                      <div className="text-dusty text-xs">{lb.donor_count} builders</div>
+                      <div className="text-snow/70 font-bold text-lg"><CountUp value={lb.progress_pct} format={(n) => n.toFixed(2)} />%</div>
+                      <div className="text-dusty text-xs"><CountUp value={lb.donor_count} /> builders</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-snow/50 font-bold">{formatDog(DONATION_GOAL - lb.total_received)} DOG</div>
+                      <div className="text-snow/50 font-bold"><CountUp value={DONATION_GOAL - lb.total_received} format={formatDog} /> DOG</div>
                       <div className="text-dusty text-xs">to opening</div>
                     </div>
                   </div>
@@ -682,7 +987,7 @@ export default function DonatePage() {
         </section>
 
         {/* ════════════════════════════════════════════════════════════
-            SECTION 4 — THE LADDER (single rail + Founder Edition)
+            SECTION 4 — THE LADDER (single rail + Founders' Monument)
         ════════════════════════════════════════════════════════════ */}
         <section className="relative z-10 px-4 py-16 md:py-24 border-t border-white/[0.04]">
           <div className="max-w-5xl mx-auto">
@@ -695,7 +1000,7 @@ export default function DonatePage() {
                 delay={0} wordDelay={60}
               />
               <BlurText
-                text="Toward the city — and toward your own license. Donate any amount; at 10,000 DOG your Personal License unlocks automatically. At 50,000, Commercial. No checkout, no second address."
+                text="Toward the city — and toward your own license. Donate any amount; at 10,000 DOG your Personal License unlocks automatically: your right to mint your building at the Grand Opening. At 50,000, Commercial. No checkout, no second address."
                 className="text-dusty mt-4 mx-auto font-mono"
                 style={{ fontSize: "0.78rem", lineHeight: 1.8, letterSpacing: "0.01em", maxWidth: "38rem" }}
                 delay={220} wordDelay={16}
@@ -712,81 +1017,120 @@ export default function DonatePage() {
                     whileInView={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.55, delay: i * 0.07, ease: [0.16, 1, 0.3, 1] }}
                     viewport={{ once: true, margin: "-40px" }}
-                    className="relative overflow-hidden rounded-2xl p-5 flex flex-col"
-                    style={{
-                      background: "rgba(10,10,12,0.7)",
-                      border: t.featured ? `1px solid ${t.color}45` : "1px solid rgba(255,255,255,0.05)",
-                      boxShadow: t.featured ? `0 0 28px ${t.color}18` : "none",
-                    }}
+                    className="h-full"
                   >
-                    {t.featured && (
-                      <span className="absolute top-3 right-3 font-mono text-[8px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full bg-lava/15 text-lava border border-lava/25">
-                        Founder Edition
-                      </span>
-                    )}
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-4" style={{ background: `${t.color}14` }}>
-                      <Icon className="w-4.5 h-4.5" style={{ color: t.color, width: 18, height: 18 }} />
-                    </div>
-                    <div className="font-display font-bold text-snow text-base tracking-tight">{t.name}</div>
-                    <div className="flex items-baseline gap-1.5 mt-1 mb-4">
-                      <span className="font-mono font-bold text-sm" style={{ color: t.color }}>{t.threshold}</span>
-                      {t.usd && <span className="font-mono text-[10px] text-dusty/45">{t.usd} · once</span>}
-                    </div>
-                    <ul className="space-y-2 mt-auto">
-                      {t.perks.map((p) => (
-                        <li key={p} className="flex items-start gap-2 font-mono text-[10px] text-dusty/60 leading-relaxed">
-                          <span className="mt-1 w-1 h-1 rounded-full shrink-0" style={{ background: t.color }} />
-                          {p}
-                        </li>
-                      ))}
-                    </ul>
+                    <SpotlightCard
+                      className="relative overflow-hidden rounded-2xl p-5 flex flex-col h-full"
+                      style={{
+                        background: "rgba(10,10,12,0.7)",
+                        border: t.featured ? `1px solid ${t.color}45` : "1px solid rgba(255,255,255,0.05)",
+                        boxShadow: t.featured ? `0 0 28px ${t.color}18` : "none",
+                      }}
+                    >
+                      {t.featured && (
+                        <span className="absolute top-3 right-3 font-mono text-[8px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full bg-lava/15 text-lava border border-lava/25">
+                          Unlocks the Mint
+                        </span>
+                      )}
+                      <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-4" style={{ background: `${t.color}14` }}>
+                        <Icon className="w-4.5 h-4.5" style={{ color: t.color, width: 18, height: 18 }} />
+                      </div>
+                      <div className="font-display font-bold text-snow text-base tracking-tight">{t.name}</div>
+                      <div className="flex items-baseline gap-1.5 mt-1 mb-4">
+                        <span className="font-mono font-bold text-sm" style={{ color: t.color }}>{t.threshold}</span>
+                        {t.usd && <span className="font-mono text-[10px] text-dusty/45">{t.usd} · once</span>}
+                      </div>
+                      <ul className="space-y-2 mt-auto">
+                        {t.perks.map((p) => (
+                          <li key={p} className="flex items-start gap-2 font-mono text-[10px] text-dusty/60 leading-relaxed">
+                            <span className="mt-1 w-1 h-1 rounded-full shrink-0" style={{ background: t.color }} />
+                            {p}
+                          </li>
+                        ))}
+                      </ul>
+                    </SpotlightCard>
                   </motion.div>
                 )
               })}
             </div>
 
-            {/* Founder Edition + monument preview */}
-            <div className="mt-10 grid md:grid-cols-[1fr_1.1fr] gap-6 items-center liquid-glass-strong rounded-2xl border border-white/[0.06] p-7 md:p-9">
-              {/* The real Satoshi Plaza tower — live 3D, same as /city/explore.
-                  Caption sits ABOVE the tower (centered); the tower renders in the
-                  row below it — the two never overlap. */}
-              <div className="relative h-48 md:h-56 rounded-xl overflow-hidden flex flex-col" style={{ background: "radial-gradient(ellipse 80% 90% at 50% 100%, rgba(245,110,15,0.14), transparent 70%)" }}>
-                <div className="shrink-0 pt-4 pb-2 text-center">
-                  <span className="font-mono text-[9px] text-dusty/70 uppercase tracking-[0.18em]">Founders' Monument · Satoshi Plaza</span>
-                </div>
-                <div className="relative flex-1 min-h-0">
-                  <FoundersTower />
-                  {/* ground fade so the spire feels rooted in the card */}
-                  <div className="absolute inset-x-0 bottom-0 h-1/4 pointer-events-none" style={{ background: "linear-gradient(to top, rgba(10,10,12,0.9), transparent)" }} />
-                </div>
-              </div>
-
-              <div>
-                <div className="inline-flex items-center gap-2 font-mono text-[10px] text-yellow-400 uppercase tracking-[0.2em] mb-3">
-                  <Crown className="w-3.5 h-3.5" /> Founder Edition — first 1,000
-                </div>
-                <h3 className="font-display font-bold text-snow text-xl md:text-2xl leading-tight mb-3">
-                  1,000 founders × 10,000 DOG = the whole goal.
-                </h3>
-                <p className="font-mono text-[11px] text-dusty/70 leading-relaxed mb-4">
-                  The first 1,000 wallets to reach the Personal License are Founders — ranked by arrival, not price.
-                  Their addresses are carved into the Founders' Monument at Satoshi Plaza, a golden beacon crowns
-                  their building on the skyline, and a Founder badge marks their profile. Scarcity and the goal are
-                  the same number.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {["Monument engraving", "Golden beacon", "Founder badge", "Early activation"].map((p) => (
-                    <span key={p} className="font-mono text-[9px] px-2.5 py-1 rounded-full bg-yellow-400/[0.07] text-yellow-400/80 border border-yellow-400/20">{p}</span>
-                  ))}
-                </div>
-              </div>
-            </div>
-
             <p className="text-center font-mono text-[11px] text-dusty/45 mt-8 max-w-2xl mx-auto leading-relaxed">
               Only DOG counts toward licenses and Founder status. BTC and STX are welcome as general support —
-              the city belongs to the DOG. Licenses are one-time purchases of utility, not investments, and nothing
-              a license buys changes your position in the city.
+              the city belongs to the DOG. Licenses are one-time purchases of utility, not investments; the building
+              mint costs only the Bitcoin network fee, and nothing a license buys changes your position in the city.
             </p>
+          </div>
+        </section>
+
+        {/* ════════════════════════════════════════════════════════════
+            SECTION 4.5 — THE MONUMENT (full-bleed Satoshi Plaza stage)
+        ════════════════════════════════════════════════════════════ */}
+        <section className="relative z-10 border-t border-white/[0.04] overflow-hidden bg-black">
+          <div className="relative h-[80vh] min-h-[600px] max-h-[880px]">
+            {/* stage glow */}
+            <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse 75% 65% at 50% 100%, rgba(245,110,15,0.13), transparent 70%)" }} />
+
+            {/* the real Satoshi Plaza tower — live 3D, full stage */}
+            <motion.div
+              className="absolute inset-0"
+              initial={{ opacity: 0, scale: 0.94 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
+              viewport={{ once: true, margin: "-100px" }}
+            >
+              <FoundersTower />
+            </motion.div>
+
+            {/* Patrons' Walk — the golden ring of plaques encircling the monument */}
+            <div className="absolute left-1/2 bottom-[6%] -translate-x-1/2 pointer-events-none" style={{ perspective: "1100px" }}>
+              <div className="patron-ring w-[290px] h-[290px] md:w-[430px] md:h-[430px]" />
+            </div>
+            <div className="absolute left-1/2 bottom-[4%] -translate-x-1/2 pointer-events-none" style={{ perspective: "1100px" }}>
+              <div className="patron-ring-outer w-[370px] h-[370px] md:w-[560px] md:h-[560px]" />
+            </div>
+
+            {/* caption */}
+            <div className="absolute top-6 inset-x-0 text-center z-10 pointer-events-none">
+              <span className="font-mono text-[9px] text-dusty/70 uppercase tracking-[0.26em]">Founders' Monument · Satoshi Plaza · live render</span>
+            </div>
+
+            {/* legibility gradients */}
+            <div className="absolute inset-x-0 bottom-0 h-2/5 pointer-events-none" style={{ background: "linear-gradient(to top, #000 4%, transparent)" }} />
+            <div className="absolute inset-y-0 left-0 w-full md:w-[58%] pointer-events-none" style={{ background: "linear-gradient(90deg, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.5) 55%, transparent 100%)" }} />
+
+            {/* copy — bottom sheet on mobile, left panel on desktop */}
+            <div className="absolute inset-0 z-10 flex items-end md:items-center pointer-events-none">
+              <div className="w-full max-w-6xl mx-auto px-6 md:px-10 pb-10 md:pb-0">
+                <motion.div
+                  className="max-w-md pointer-events-auto"
+                  initial={{ opacity: 0, y: 26 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.9, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                  viewport={{ once: true, margin: "-80px" }}
+                >
+                  <div className="inline-flex items-center gap-2 font-mono text-[10px] text-yellow-400 uppercase tracking-[0.2em] mb-4">
+                    <Crown className="w-3.5 h-3.5" /> The Founders' Monument
+                  </div>
+                  <h3 className="font-display font-bold text-snow text-2xl md:text-4xl leading-tight mb-4" style={{ letterSpacing: "-0.015em" }}>
+                    Every wallet that builds the city is carved into it.
+                  </h3>
+                  <p className="font-mono text-[11px] text-dusty/75 leading-relaxed mb-3">
+                    Everyone who donates before the fund reaches 10,000,000 DOG is a Founder — any amount,
+                    ranked by arrival, not by price. Your address is engraved on the monument, a Founder
+                    badge marks your profile, and the register closes forever the moment the goal is hit.
+                  </p>
+                  <p className="font-mono text-[11px] leading-relaxed mb-5" style={{ color: "rgba(252,211,77,0.85)" }}>
+                    Patrons get their own star: an individual plaque on the Patrons' Walk — the golden
+                    ring encircling the monument.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {["Monument engraving", "Founder badge", "Ranked by arrival", "Patrons' Walk plaques", "Closes at 10M"].map((p) => (
+                      <span key={p} className="font-mono text-[9px] px-2.5 py-1 rounded-full bg-yellow-400/[0.07] text-yellow-400/80 border border-yellow-400/20">{p}</span>
+                    ))}
+                  </div>
+                </motion.div>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -807,7 +1151,7 @@ export default function DonatePage() {
                 <Card
                   key={d.key}
                   variant="glass"
-                  className={`stagger-item transition-all ${d.featured ? "border-lava/30 shadow-[0_0_30px_rgba(245,110,15,0.08)]" : "border-snow/[0.05]"}`}
+                  className={`stagger-item group transition-all duration-300 hover:-translate-y-1.5 ${d.featured ? "border-lava/30 shadow-[0_0_30px_rgba(245,110,15,0.08)] hover:shadow-[0_0_44px_rgba(245,110,15,0.16)]" : "border-snow/[0.05] hover:border-lava/[0.18]"}`}
                 >
                   <CardContent className="p-5 md:p-6 flex flex-col items-center gap-4">
                     <div className="flex items-center gap-2 w-full">
@@ -821,7 +1165,7 @@ export default function DonatePage() {
                       )}
                     </div>
 
-                    <Image src={d.qr} alt={`QR ${d.title}`} width={200} height={200} className="w-[180px] h-[180px] md:w-[200px] md:h-[200px] object-contain rounded-lg" />
+                    <Image src={d.qr} alt={`QR ${d.title}`} width={200} height={200} className="w-[180px] h-[180px] md:w-[200px] md:h-[200px] object-contain rounded-lg transition-transform duration-500 group-hover:scale-[1.03]" />
 
                     <div className="w-full px-3 py-2 rounded-lg bg-snow/[0.03] border border-snow/[0.07]">
                       <p className="font-mono text-[10px] break-all text-snow/70 text-center leading-relaxed select-all">{d.address}</p>
@@ -868,7 +1212,7 @@ export default function DonatePage() {
 
             {/* Tabs */}
             <div className="flex items-center justify-center gap-2">
-              {([["founders", "Founders", `by arrival · 1–${FOUNDER_SLOTS}`], ["builders", "Top Builders", "by volume"]] as const).map(([key, label, sub]) => (
+              {([["founders", "Founders", "by arrival"], ["builders", "Top Builders", "by volume"]] as const).map(([key, label, sub]) => (
                 <button
                   key={key}
                   onClick={() => setRegisterTab(key)}
@@ -894,7 +1238,7 @@ export default function DonatePage() {
                     <Crown className="w-10 h-10 text-yellow-400/25 mx-auto" />
                     <p className="text-snow/70 font-display font-semibold text-base">No Founders yet.</p>
                     <p className="text-dusty font-mono text-xs max-w-xs mx-auto leading-relaxed">
-                      Be Founder #1. The first wallet to reach 10,000 DOG donated claims the first spot on the monument — forever.
+                      Be Founder #1. The first donation — any amount — claims the first name on the monument, forever.
                     </p>
                   </div>
                 ) : (
@@ -914,7 +1258,7 @@ export default function DonatePage() {
                       ))}
                     </div>
                     <p className="text-center text-[11px] text-dusty font-mono py-3 border-t border-snow/[0.04]">
-                      {lb.founders_count} of {FOUNDER_SLOTS} Founder Licenses claimed · {lb.founder_slots_remaining} remaining
+                      {lb.founders_count} Founders — every one engraved at Satoshi Plaza · register closes at 10M DOG
                     </p>
                   </>
                 )
