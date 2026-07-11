@@ -36,15 +36,24 @@ export async function GET(req: NextRequest) {
   since.setDate(since.getDate() - days)
   const sinceIso = since.toISOString()
 
-  const { data, error } = await supabase
-    .from('page_events')
-    .select('*')
-    .gte('created_at', sinceIso)
-    .order('created_at', { ascending: true })
+  // PostgREST caps a single request at its configured max-rows (default 1000),
+  // so we page through with .range() until a page comes back short.
+  const PAGE_SIZE = 1000
+  const rows: any[] = []
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from('page_events')
+      .select('*')
+      .gte('created_at', sinceIso)
+      .order('created_at', { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  const rows       = data ?? []
+    rows.push(...(data ?? []))
+    if (!data || data.length < PAGE_SIZE) break
+  }
+
   const pageviews  = rows.filter(r => r.event_type === 'pageview')
   const vitals     = rows.filter(r => r.event_type === 'vital' && r.vital_name && r.vital_value != null)
 
