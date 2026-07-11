@@ -399,7 +399,11 @@ export default function OverviewPage() {
   const cardBaseClass = "stagger-item md:min-h-[190px] min-h-0 h-full"
 
   if (loading) {
-    return <LoadingScreen message="Loading DOG data..." />
+    return (
+      <Layout currentPage="overview" setCurrentPage={() => {}}>
+        <LoadingScreen message="Loading DOG data..." />
+      </Layout>
+    )
   }
 
   return (
