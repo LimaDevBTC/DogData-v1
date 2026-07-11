@@ -13,19 +13,27 @@ export async function GET(req: NextRequest) {
   since.setDate(since.getDate() - days)
   const sinceIso = since.toISOString()
 
-  const { data, error } = await supabase
-    .from('ad_events')
-    .select('event_type, page, device_type, created_at')
-    .eq('advertiser', advertiser)
-    .gte('created_at', sinceIso)
-    .order('created_at', { ascending: true })
+  // PostgREST caps a single request at its configured max-rows (default 1000),
+  // so we page through with .range() until a page comes back short.
+  const PAGE_SIZE = 1000
+  const rows: { event_type: string; page: string; device_type: string | null; created_at: string }[] = []
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from('ad_events')
+      .select('event_type, page, device_type, created_at')
+      .eq('advertiser', advertiser)
+      .gte('created_at', sinceIso)
+      .order('created_at', { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1)
 
-  if (error) {
-    console.error('[ads/report]', error.message)
-    return NextResponse.json({ error: 'db error' }, { status: 500 })
+    if (error) {
+      console.error('[ads/report]', error.message)
+      return NextResponse.json({ error: 'db error' }, { status: 500 })
+    }
+
+    rows.push(...(data ?? []))
+    if (!data || data.length < PAGE_SIZE) break
   }
-
-  const rows = data ?? []
 
   // — Totals —
   const impressions = rows.filter(r => r.event_type === 'impression').length
