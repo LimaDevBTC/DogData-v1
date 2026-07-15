@@ -50,7 +50,7 @@ export async function GET() {
         npm_package: "@dogdata/mcp-server",
         http_endpoint: "https://www.dogdata.xyz/mcp",
         transport: ["stdio", "streamable-http"],
-        tools_count: 16,
+        tools_count: 17,
         resources_count: 8
       },
       sse: {

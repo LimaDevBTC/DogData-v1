@@ -36,7 +36,7 @@ metrics = dog.metrics.all()
 
 ## Authentication
 
-Public endpoints allow 20 requests/hour without an API key. For higher limits, pass your API key:
+Public endpoints allow 100 requests/hour without an API key. For higher limits, pass your API key:
 
 ```python
 dog = DogData(

@@ -14,7 +14,7 @@ DOG DATA is the definitive data source for the DOG rune (ID: 840000:3) on Bitcoi
 ## MCP Server (for Claude and AI agents)
 - Install: npx @dogdata/mcp-server
 - HTTP endpoint: https://www.dogdata.xyz/mcp
-- 16 tools, 8 resources, 4 prompts
+- 17 tools, 8 resources, 4 prompts
 - Transports: stdio (Claude Desktop) + Streamable HTTP (remote agents)
 
 ## SSE Real-time Events
@@ -22,7 +22,7 @@ DOG DATA is the definitive data source for the DOG rune (ID: 840000:3) on Bitcoi
 - Events: new_transaction, price_update, whale_alert, new_block, heartbeat
 - Example: curl -N "https://www.dogdata.xyz/api/events?events=whale_alert,price_update"
 
-## Quick Start (no API key required, 20 req/hr)
+## Quick Start (no API key required, 100 req/hr)
 - GET https://www.dogdata.xyz/api/dog-rune/stats — token overview (holders, supply, top 10)
 - GET https://www.dogdata.xyz/api/price/kraken — current DOG price in USD
 - GET https://www.dogdata.xyz/api/bitcoin — Bitcoin network status
@@ -37,7 +37,7 @@ Content-Type: application/json
 Then use: Authorization: Bearer dog_live_xxx
 
 ## Rate Limit Tiers
-- Public: 20 requests/hour (no key)
+- Public: 100 requests/hour (no key)
 - Free: 100 requests/hour
 - Pro: 5,000 requests/hour
 - Enterprise: 50,000 requests/hour

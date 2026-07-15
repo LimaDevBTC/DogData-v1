@@ -130,7 +130,7 @@ export async function GET() {
         description: 'Model Context Protocol for AI agents (Claude, etc.)',
         http_endpoint: `${baseUrl}/mcp`,
         npm_package: '@dogdata/mcp-server',
-        tools: 15,
+        tools: 17,
         resources: 8,
         prompts: 4,
       },
@@ -144,7 +144,7 @@ export async function GET() {
       type: 'Bearer token',
       header: 'Authorization: Bearer dog_live_xxx',
       tiers: {
-        public: { requests_per_hour: 20, description: 'No API key required' },
+        public: { requests_per_hour: 100, description: 'No API key required' },
         free: { requests_per_hour: 100, description: 'Free API key' },
         pro: { requests_per_hour: 5000, description: 'Production agents' },
         enterprise: { requests_per_hour: 50000, description: 'High-volume agents' },

@@ -1,14 +1,22 @@
 # 📚 Documentação DOG DATA
 
+**Para visão geral do projeto, API pública e integração com agentes de IA, comece pelo [README.md principal](../README.md).** Este índice cobre a documentação interna mais específica.
+
 ## 📖 Índice
+
+### API & Integração com Agentes
+
+- **[../README.md](../README.md)** ⭐ — visão geral, setup, API REST, MCP, SDKs — **LEIA PRIMEIRO**
+- **[agenticdogdataserver.md](agenticdogdataserver.md)** — plano e status da infraestrutura agêntica (MCP server, OpenAPI, gateway de auth/rate-limit, discovery, SDKs)
+- **[../mcp-server/README.md](../mcp-server/README.md)** — referência do MCP server local (stdio)
+- **[../sdk/typescript/README.md](../sdk/typescript/README.md)** / **[../sdk/python/README.md](../sdk/python/README.md)** — uso dos SDKs
 
 ### Documentação Principal
 
-1. **[PROJETO_COMPLETO.md](PROJETO_COMPLETO.md)** ⭐
+1. **[PROJETO_COMPLETO.md](PROJETO_COMPLETO.md)**
    - Visão geral completa do projeto
    - Estrutura, scripts, APIs
    - Guia de uso e setup
-   - **LEIA PRIMEIRO**
 
 2. **[ON_CHAIN_METRICS_PLAN.md](ON_CHAIN_METRICS_PLAN.md)**
    - Plano completo da página de métricas
@@ -16,7 +24,7 @@
    - Roadmap de implementação
 
 3. **[ANALISE_COMPLETA_DADOS_EXIBIDOS.md](ANALISE_COMPLETA_DADOS_EXIBIDOS.md)**
-   - Análise detalhada de todas as 6 abas
+   - Análise detalhada de todas as abas
    - Dados exibidos em cada página
    - Fontes de dados e APIs
 
