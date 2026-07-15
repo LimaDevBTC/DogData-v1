@@ -65,7 +65,7 @@ export const LUNAR_SITES: Record<ZoneId, LunarSite> = {
     'btc-core', 'Mare Tranquillitatis',
     0.674, 23.473,
     { kind: 'equirect', centerLatDeg: 0.674, centerLonDeg: 23.473 },
-    3000, 2,
+    3500, 2,
     {
       kind: 'equirect-tile',
       url: 'https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/sldem2015/tiles/float_img/SLDEM2015_512_00N_30N_000_045_FLOAT.IMG',
@@ -77,7 +77,7 @@ export const LUNAR_SITES: Record<ZoneId, LunarSite> = {
     'solana', 'Shackleton',
     -89.9, 129.2,
     { kind: 'polar-south', centerLatDeg: -90, centerLonDeg: 0 },
-    1500, 10,
+    1500, 15,
     {
       kind: 'polar-tile',
       url: 'https://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/FLOAT_IMG/LDEM_875S_5M_FLOAT.IMG',
@@ -89,7 +89,7 @@ export const LUNAR_SITES: Record<ZoneId, LunarSite> = {
     'stacks', 'Peary',
     88.63, 33,
     { kind: 'polar-north', centerLatDeg: 90, centerLonDeg: 0 },
-    1500, 10,
+    1500, 15,
     {
       kind: 'polar-tile',
       url: 'https://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/FLOAT_IMG/LDEM_875N_5M_FLOAT.IMG',
