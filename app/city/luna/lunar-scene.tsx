@@ -6,18 +6,27 @@
 // Real-scale lunar globe (R = 1,737,400 m) built from NASA's global LOLA elevation
 // grid + the LROC color mosaic (CGI Moon Kit), with the three high-res city sites
 // (Mare Tranquillitatis / Shackleton / Peary) embedded at their TRUE selenographic
-// coordinates — the city is no longer floating in space. One real sun computed from
-// the live subsolar point lights the whole globe (real terminator) and doubles as
-// the per-site shadow caster.
+// coordinates. One real sun computed from the live subsolar point lights the whole
+// globe (real terminator); "daylight" mode force-lights the focused site because a
+// real site spends two weeks a month in lunar night.
 //
-// Raw Three.js (not @react-three/fiber — this repo's r3f build crashes against its
-// installed React at runtime; see city-3d.tsx which set this precedent).
+// Terrain stitching (reviewed adversarially — the naive version had the coarse
+// globe facets slicing through the polar city):
+//   • globe vertices within ~30 km of a site are SUNK by a per-site depth derived
+//     from that site's real relief, so no coarse facet can rise into city terrain;
+//   • each site gets an APRON: a square annulus of real global-DEM terrain from the
+//     patch edge out to ~30 km whose outer band reproduces the globe mesh's own
+//     triangulated surface EXACTLY (same vertex grid, same diagonal split), making
+//     the outer seam watertight by construction;
+//   • the patch keeps a deep skirt covering the patch↔apron step (site data is
+//     5–59 m/px, the apron is 3.75 km/px — they legitimately disagree locally).
+// The Moon's horizon is only ~2.5 km away at ground level, so the sunk-globe dish
+// is never visible from the city; from orbit it is sub-pixel shading.
 //
+// Raw Three.js (not @react-three/fiber — broken against this repo's React).
 // World frame: P(lat, lon) = R·(cosφ·cosλ, sinφ, −cosφ·sinλ)  →  +Y = north pole.
-// Precision: the globe mesh lives at planet magnitude (float32 rounding ~0.1 m is
-// fine for km-res data), but each SITE group is anchored at its sphere position
-// with vertex/instance coordinates RELATIVE to that anchor — the CPU computes
-// modelView in float64, so close-up geometry never sees planet-scale rounding.
+// Precision: site groups are anchored at their sphere position with vertex/instance
+// coordinates RELATIVE to the anchor (CPU computes modelView in float64).
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { useEffect, useRef, useState } from 'react'
@@ -36,19 +45,18 @@ const ZONE_LABEL: Record<ZoneId, { name: string; color: string }> = {
   stacks: { name: 'Stacks — Peary', color: '#5546FF' },
 }
 
-// Site patches were fetched out to PAD × siteRadius (fetch_terrain.ts) — the outer
-// band [BLEND_START..1] of that square is blended onto the coarse globe surface so
-// the high-res patch lands seamlessly on the sphere.
-const PATCH_PAD = 1.15
-const BLEND_START = 0.82
-const SKIRT_DROP = 400        // m — perimeter wall hiding any residual crack
-const GLOBE_SINK = 150        // m — globe depressed under patch interiors (kills poke-through)
+const N_LON = 1024, N_LAT = 512          // globe mesh resolution
+const APRON_HALF = 30_000                 // m — apron outer half-extent
+const APRON_STEP = 640                    // m — apron grid step
+const APRON_GLOBE_BLEND = 23_000          // m — where the apron starts conforming to the globe mesh
+const SINK_RAMP_END = 32_000              // m — sink fades to zero here
 
 const DEG2RAD = Math.PI / 180
 
-function unitFromLatLon(latDeg: number, lonDeg: number): THREE.Vector3 {
+function unitFromLatLon(latDeg: number, lonDeg: number, out?: THREE.Vector3): THREE.Vector3 {
   const phi = latDeg * DEG2RAD, lam = lonDeg * DEG2RAD
-  return new THREE.Vector3(Math.cos(phi) * Math.cos(lam), Math.sin(phi), -Math.cos(phi) * Math.sin(lam))
+  const v = out ?? new THREE.Vector3()
+  return v.set(Math.cos(phi) * Math.cos(lam), Math.sin(phi), -Math.cos(phi) * Math.sin(lam))
 }
 
 function smoothstep(a: number, b: number, x: number): number {
@@ -56,22 +64,65 @@ function smoothstep(a: number, b: number, x: number): number {
   return t * t * (3 - 2 * t)
 }
 
-// ─── Data loading ─────────────────────────────────────────────────────────────
+// Emit grid triangles with OUTWARD-facing winding. The local x,z → lat/lon mapping
+// flips handedness between hemispheres/projections (a south-polar grid comes out
+// mirror-imaged), so the winding is decided from the actual geometry: the central
+// quad's face normal is dotted against the outward radial — negative means flip.
+// Getting this wrong = the whole mesh backface-culls into an invisible hole.
+function emitGridIndices(
+  positions: Float32Array, n: number, anchor: THREE.Vector3,
+  push: (a: number, b: number, c: number) => void,
+): void {
+  const c0 = Math.floor(n / 2) - 1
+  const k00 = (c0 * n + c0) * 3, k10 = (c0 * n + c0 + 1) * 3, k01 = ((c0 + 1) * n + c0) * 3
+  const e1 = new THREE.Vector3(positions[k10] - positions[k00], positions[k10 + 1] - positions[k00 + 1], positions[k10 + 2] - positions[k00 + 2])
+  const e2 = new THREE.Vector3(positions[k01] - positions[k00], positions[k01 + 1] - positions[k00 + 1], positions[k01 + 2] - positions[k00 + 2])
+  const outward = new THREE.Vector3(positions[k00] + anchor.x, positions[k00 + 1] + anchor.y, positions[k00 + 2] + anchor.z).normalize()
+  const flip = e2.cross(e1).dot(outward) < 0
+  for (let j = 0; j < n - 1; j++) {
+    for (let i = 0; i < n - 1; i++) {
+      const a = j * n + i, b = a + 1, c = a + n, d = c + 1
+      if (flip) { push(a, b, c); push(b, d, c) }
+      else { push(a, c, b); push(b, c, d) }
+    }
+  }
+}
+
+// Interpolate a regular grid the way its TRIANGLE MESH renders it (diagonal b–c on
+// every quad, matching the index pattern (a,c,b)(b,c,d) used by both the globe and
+// the patches). Bilinear would diverge from the rendered surface by ~¼ of the
+// quad's diagonal curvature — hundreds of meters on coarse polar terrain.
+// (The flipped winding emitted by emitGridIndices keeps the SAME b–c diagonal, so
+// this interpolation stays exact for both orientations.)
+function meshInterp(get: (i: number, j: number) => number, nI: number, nJ: number, fi: number, fj: number): number {
+  const ci = Math.min(nI - 2, Math.max(0, Math.floor(fi)))
+  const cj = Math.min(nJ - 2, Math.max(0, Math.floor(fj)))
+  const u = Math.min(1, Math.max(0, fi - ci))
+  const v = Math.min(1, Math.max(0, fj - cj))
+  const A = get(ci, cj), B = get(ci + 1, cj), C = get(ci, cj + 1), D = get(ci + 1, cj + 1)
+  if (u + v <= 1) return A + u * (B - A) + v * (C - A)
+  return D + (1 - u) * (C - D) + (1 - v) * (B - D)
+}
+
+// ─── Data ─────────────────────────────────────────────────────────────────────
 interface SiteMeta {
   cols: number; rows: number; cellSizeM: number
   siteRadiusM: number
   siteCenterLatDeg: number; siteCenterLonDeg: number
   centerElevationM: number
+  minRelM: number; maxRelM: number
 }
 interface LunarLot {
   xM: number; zM: number; elevationM: number
   district: number; heightTier: number; footprint: number
 }
-interface SiteData { meta: SiteMeta; heights: Float32Array; lots: LunarLot[] }
+interface WideData { meta: SiteMeta; heights: Float32Array }
+interface SiteData { meta: SiteMeta; heights: Float32Array; lots: LunarLot[]; wide: WideData | null }
 interface GlobeData {
   grid: GlobalGrid
   colorTex: THREE.Texture
   lonOffsetDeg: number
+  albedo: { data: Uint8ClampedArray; w: number; h: number } | null
 }
 
 async function loadSite(zone: ZoneId): Promise<SiteData | null> {
@@ -81,7 +132,21 @@ async function loadSite(zone: ZoneId): Promise<SiteData | null> {
       fetch(`/lunar/${zone}-heightmap.f32`).then(r => { if (!r.ok) throw new Error('no heightmap bin'); return r.arrayBuffer() }),
       fetch(`/lunar/${zone}-lots.json`).then(r => r.ok ? r.json() : []),
     ])
-    return { meta, heights: new Float32Array(buf), lots }
+    if (buf.byteLength !== meta.cols * meta.rows * 4) {
+      throw new Error(`heightmap size mismatch: ${buf.byteLength} B for ${meta.cols}x${meta.rows}`)
+    }
+    // Optional wide backdrop (polar sites) — absence is fine, presence must be sane.
+    let wide: WideData | null = null
+    try {
+      const [wMeta, wBuf] = await Promise.all([
+        fetch(`/lunar/${zone}-wide-heightmap.json`).then(r => { if (!r.ok) throw new Error('none'); return r.json() }),
+        fetch(`/lunar/${zone}-wide-heightmap.f32`).then(r => { if (!r.ok) throw new Error('none'); return r.arrayBuffer() }),
+      ])
+      if (wBuf.byteLength === wMeta.cols * wMeta.rows * 4) {
+        wide = { meta: wMeta, heights: new Float32Array(wBuf) }
+      }
+    } catch { /* no wide product for this site */ }
+    return { meta, heights: new Float32Array(buf), lots, wide }
   } catch (err) {
     console.warn(`[luna] ${zone}: ${(err as Error).message}`)
     return null
@@ -94,46 +159,123 @@ async function loadGlobe(): Promise<GlobeData> {
     fetch('/lunar/globe-height.i16').then(r => { if (!r.ok) throw new Error('no globe-height bin'); return r.arrayBuffer() }),
     fetch('/lunar/globe-color.json').then(r => { if (!r.ok) throw new Error('no globe-color meta'); return r.json() }),
   ])
+  if (hBuf.byteLength !== hMeta.cols * hMeta.rows * 2) {
+    throw new Error(`globe-height size mismatch: ${hBuf.byteLength} B for ${hMeta.cols}x${hMeta.rows}`)
+  }
   const grid: GlobalGrid = { cols: hMeta.cols, rows: hMeta.rows, data: new Int16Array(hBuf) }
-  const colorTex = await new THREE.TextureLoader().loadAsync('/lunar/globe-color.jpg')
+  let colorTex: THREE.Texture
+  try {
+    colorTex = await new THREE.TextureLoader().loadAsync('/lunar/globe-color.jpg')
+  } catch {
+    throw new Error('globe-color.jpg failed to load')
+  }
   colorTex.colorSpace = THREE.SRGBColorSpace
   colorTex.anisotropy = 8
-  return { grid, colorTex, lonOffsetDeg: cMeta.lonOffsetDeg ?? 0 }
+
+  // CPU-readable albedo (downsampled) so patch/apron vertex colors can match the
+  // photographic mosaic — otherwise the grey patches sit in a visible color island.
+  let albedo: GlobeData['albedo'] = null
+  try {
+    const img = colorTex.image as HTMLImageElement
+    const aw = 2048, ah = 1024
+    const cv = document.createElement('canvas')
+    cv.width = aw; cv.height = ah
+    const ctx = cv.getContext('2d', { willReadFrequently: true })!
+    ctx.drawImage(img, 0, 0, aw, ah)
+    albedo = { data: ctx.getImageData(0, 0, aw, ah).data, w: aw, h: ah }
+  } catch { /* albedo sampling optional — patches fall back to neutral grey */ }
+
+  return { grid, colorTex, lonOffsetDeg: cMeta.lonOffsetDeg ?? 0, albedo }
 }
 
-// ─── Globe mesh ───────────────────────────────────────────────────────────────
-// Custom lat/lon grid sphere displaced by the real global DEM. UVs are laid out so
-// u=0 falls exactly on the color texture's left edge (lonOffsetDeg, self-tested at
-// build time), which also puts the mesh's duplicated seam column on the texture
-// seam — no wrap-filtering artifacts.
-function buildGlobe(globe: GlobeData, sites: Partial<Record<ZoneId, SiteData>>): THREE.Mesh {
-  const N_LON = 1024, N_LAT = 512
-  const vertsPerRow = N_LON + 1
-  const positions = new Float32Array((N_LAT + 1) * vertsPerRow * 3)
-  const uvs = new Float32Array((N_LAT + 1) * vertsPerRow * 2)
+function sampleAlbedo(globe: GlobeData, latDeg: number, lonDeg: number): { r: number; g: number; b: number } {
+  if (!globe.albedo) return { r: 0.55, g: 0.53, b: 0.51 }
+  const { data, w, h } = globe.albedo
+  // albedo canvas columns follow the IMAGE, whose left edge is lonOffsetDeg
+  const lon = (((lonDeg - globe.lonOffsetDeg) % 360) + 360) % 360
+  const x = Math.min(w - 1, Math.max(0, Math.round((lon / 360) * w)))
+  const y = Math.min(h - 1, Math.max(0, Math.round(((90 - latDeg) / 180) * h)))
+  const k = (y * w + x) * 4
+  return { r: data[k] / 255, g: data[k + 1] / 255, b: data[k + 2] / 255 }
+}
 
-  // Precompute site anchors for the under-patch depression.
-  const sinkSites = ZONES.filter(z => sites[z]).map(z => {
+// ─── Sink field + globe vertex radii (shared by globe mesh AND aprons) ─────────
+interface SinkSite { dir: THREE.Vector3; s0: number }
+
+function makeSinkSites(sites: Partial<Record<ZoneId, SiteData>>): SinkSite[] {
+  // Sites WITH a wide backdrop don't sink the globe — their polar cap is simply
+  // cut out of the globe mesh and replaced by real medium-res terrain.
+  return ZONES.filter(z => sites[z] && !sites[z]!.wide).map(z => {
     const m = sites[z]!.meta
-    return { dir: unitFromLatLon(m.siteCenterLatDeg, m.siteCenterLonDeg), radiusM: m.siteRadiusM }
+    // Depth scales with the site's real relief: enough that a coarse facet
+    // interpolated across the sunk zone can never rise into the patch terrain.
+    const s0 = (m.maxRelM - m.minRelM) * 1.2 + 300
+    return { dir: unitFromLatLon(m.siteCenterLatDeg, m.siteCenterLonDeg), s0 }
   })
+}
 
+function sinkAt(px: number, py: number, pz: number, sinkSites: SinkSite[]): number {
+  let sink = 0
+  for (const s of sinkSites) {
+    const dot = Math.min(1, Math.max(-1, px * s.dir.x + py * s.dir.y + pz * s.dir.z))
+    const distM = Math.acos(dot) * R_MOON
+    if (distM < SINK_RAMP_END) sink += s.s0 * (1 - smoothstep(SINK_RAMP_END * 0.55, SINK_RAMP_END, distM))
+  }
+  return sink
+}
+
+// The globe mesh's vertex radii, precomputed once: real DEM sample − sink, with the
+// pole rows unified to ONE radius each (per-longitude radii on a zero-area direction
+// fan produce vertical blade artifacts exactly where the polar cities live).
+interface GlobeRadii { radii: Float32Array; lonOffsetDeg: number }
+
+function buildGlobeRadii(globe: GlobeData, sinkSites: SinkSite[]): GlobeRadii {
+  const vpr = N_LON + 1
+  const radii = new Float32Array((N_LAT + 1) * vpr)
   const p = new THREE.Vector3()
   for (let j = 0; j <= N_LAT; j++) {
     const lat = 90 - (j / N_LAT) * 180
     for (let i = 0; i <= N_LON; i++) {
       const lon = globe.lonOffsetDeg + (i / N_LON) * 360
-      let radius = R_MOON + sampleGlobalHeight(globe.grid, lat, lon)
-      p.copy(unitFromLatLon(lat, lon))
-      // Depress the globe under each site patch so the high-res terrain always
-      // renders on top; the patch's blended edge + skirt covers the transition.
-      for (const s of sinkSites) {
-        const angDistM = Math.acos(Math.min(1, Math.max(-1,
-          p.x * s.dir.x + p.y * s.dir.y + p.z * s.dir.z))) * R_MOON
-        const dNorm = angDistM / (s.radiusM * PATCH_PAD)
-        if (dNorm < 1.15) radius -= GLOBE_SINK * (1 - smoothstep(1.0, 1.15, dNorm))
-      }
-      const k = j * vertsPerRow + i
+      unitFromLatLon(lat, lon, p)
+      radii[j * vpr + i] = R_MOON + sampleGlobalHeight(globe.grid, lat, lon) - sinkAt(p.x, p.y, p.z, sinkSites)
+    }
+  }
+  for (const j of [0, N_LAT]) {
+    let sum = 0
+    for (let i = 0; i <= N_LON; i++) sum += radii[j * vpr + i]
+    const avg = sum / (N_LON + 1)
+    for (let i = 0; i <= N_LON; i++) radii[j * vpr + i] = avg
+  }
+  return { radii, lonOffsetDeg: globe.lonOffsetDeg }
+}
+
+// The RENDERED globe surface at (lat,lon) — exact triangle interpolation over the
+// vertex radii, so apron outer edges merge into the globe with zero crack.
+function globeMeshRadius(gr: GlobeRadii, latDeg: number, lonDeg: number): number {
+  const vpr = N_LON + 1
+  const fi = ((((lonDeg - gr.lonOffsetDeg) % 360) + 360) % 360) / 360 * N_LON
+  const fj = ((90 - latDeg) / 180) * N_LAT
+  return meshInterp((i, j) => gr.radii[j * vpr + i], vpr, N_LAT + 1, fi, fj)
+}
+
+// ─── Globe mesh ───────────────────────────────────────────────────────────────
+// `cutCaps` removes the quad rows poleward of ±CAP_LAT — the wide polar patches
+// take over there (the 16ppd equirect grid is meaningless that close to a pole).
+const CAP_LAT = 87.6
+
+function buildGlobe(globe: GlobeData, gr: GlobeRadii, cutCaps: { north: boolean; south: boolean }): THREE.Mesh {
+  const vpr = N_LON + 1
+  const positions = new Float32Array((N_LAT + 1) * vpr * 3)
+  const uvs = new Float32Array((N_LAT + 1) * vpr * 2)
+  const p = new THREE.Vector3()
+  for (let j = 0; j <= N_LAT; j++) {
+    const lat = 90 - (j / N_LAT) * 180
+    for (let i = 0; i <= N_LON; i++) {
+      const lon = globe.lonOffsetDeg + (i / N_LON) * 360
+      unitFromLatLon(lat, lon, p)
+      const radius = gr.radii[j * vpr + i]
+      const k = j * vpr + i
       positions[k * 3] = p.x * radius
       positions[k * 3 + 1] = p.y * radius
       positions[k * 3 + 2] = p.z * radius
@@ -142,21 +284,23 @@ function buildGlobe(globe: GlobeData, sites: Partial<Record<ZoneId, SiteData>>):
     }
   }
 
-  const indices = new Uint32Array(N_LAT * N_LON * 6)
-  let ii = 0
+  const indices: number[] = []
   for (let j = 0; j < N_LAT; j++) {
+    const latTop = 90 - (j / N_LAT) * 180
+    const latBot = 90 - ((j + 1) / N_LAT) * 180
+    if (cutCaps.north && latBot > CAP_LAT) continue
+    if (cutCaps.south && latTop < -CAP_LAT) continue
     for (let i = 0; i < N_LON; i++) {
-      const a = j * vertsPerRow + i, b = a + 1
-      const c = a + vertsPerRow, d = c + 1
-      indices[ii++] = a; indices[ii++] = c; indices[ii++] = b
-      indices[ii++] = b; indices[ii++] = c; indices[ii++] = d
+      const a = j * vpr + i, b = a + 1
+      const c = a + vpr, d = c + 1
+      indices.push(a, c, b, b, c, d)
     }
   }
 
   const geo = new THREE.BufferGeometry()
   geo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
   geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2))
-  geo.setIndex(new THREE.BufferAttribute(indices, 1))
+  geo.setIndex(indices)
   geo.computeVertexNormals()
 
   // Bump map from the same real DEM — fine lighting detail beyond the mesh res.
@@ -178,9 +322,8 @@ function buildGlobe(globe: GlobeData, sites: Partial<Record<ZoneId, SiteData>>):
   ctx.putImageData(img, 0, 0)
   const bumpTex = new THREE.CanvasTexture(bumpCanvas)
   bumpTex.wrapS = THREE.RepeatWrapping
-  // bump canvas row 0 = north (+90) and is indexed by TRUE lon 0..360; the mesh UV
-  // u=0 sits at lonOffsetDeg — shift the bump texture by the same offset.
-  bumpTex.offset.x = ((globe.lonOffsetDeg % 360) + 360) % 360 / 360
+  // bump canvas is indexed by TRUE lon 0..360; mesh UV u=0 sits at lonOffsetDeg
+  bumpTex.offset.x = (((globe.lonOffsetDeg % 360) + 360) % 360) / 360
   bumpTex.anisotropy = 4
 
   const mat = new THREE.MeshStandardMaterial({
@@ -195,13 +338,142 @@ function buildGlobe(globe: GlobeData, sites: Partial<Record<ZoneId, SiteData>>):
   return mesh
 }
 
-// ─── Site patch on the sphere ─────────────────────────────────────────────────
-// Rebuilds the site heightmap as sphere-space geometry: every grid vertex goes
-// site-local (x,z) → true (lat,lon) → sphere position at its REAL radius, with the
-// outer band blended down onto the coarse globe surface and a perimeter skirt.
-// All positions are relative to `anchor` (returned) for float precision.
+// ─── Apron — real global-DEM terrain ring bridging patch ↔ globe ──────────────
+// Square annulus from the patch square out to APRON_HALF. Inside the patch square
+// it drops a flat plug well below the patch (never visible); its outer band blends
+// pure global data into the EXACT rendered globe surface.
+function buildApron(
+  meta: SiteMeta, zone: ZoneId, globe: GlobeData, gr: GlobeRadii, anchor: THREE.Vector3,
+): THREE.Mesh {
+  const siteDef = LUNAR_SITES[zone]
+  const gridHalf = (meta.cols - 1) / 2
+  const patchHalf = gridHalf * meta.cellSizeM
+  const n = Math.floor((APRON_HALF * 2) / APRON_STEP) + 1
+  const half = ((n - 1) * APRON_STEP) / 2
+
+  const positions = new Float32Array(n * n * 3)
+  const colors = new Float32Array(n * n * 3)
+  const pos = new THREE.Vector3()
+  const plugRadius = R_MOON + meta.centerElevationM + meta.minRelM - 300
+
+  for (let j = 0; j < n; j++) {
+    const z = j * APRON_STEP - half
+    for (let i = 0; i < n; i++) {
+      const x = i * APRON_STEP - half
+      const { latDeg, lonDeg } = siteLocalToLatLon(siteDef, x, z)
+      const d = Math.max(Math.abs(x), Math.abs(z))
+      let radius: number
+      if (d <= patchHalf) {
+        radius = plugRadius   // flat plug tucked under the high-res patch
+      } else {
+        const dataR = R_MOON + sampleGlobalHeight(globe.grid, latDeg, lonDeg)
+        const t = smoothstep(APRON_GLOBE_BLEND, half, Math.hypot(x, z))
+        radius = dataR * (1 - t) + globeMeshRadius(gr, latDeg, lonDeg) * t
+      }
+      unitFromLatLon(latDeg, lonDeg, pos).multiplyScalar(radius).sub(anchor)
+      const k = j * n + i
+      positions[k * 3] = pos.x; positions[k * 3 + 1] = pos.y; positions[k * 3 + 2] = pos.z
+      const alb = sampleAlbedo(globe, latDeg, lonDeg)
+      colors[k * 3] = alb.r; colors[k * 3 + 1] = alb.g; colors[k * 3 + 2] = alb.b
+    }
+  }
+
+  const indices = new Uint32Array((n - 1) * (n - 1) * 6)
+  let ii = 0
+  emitGridIndices(positions, n, anchor, (a, b, c) => { indices[ii++] = a; indices[ii++] = b; indices[ii++] = c })
+
+  const geo = new THREE.BufferGeometry()
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+  geo.setIndex(new THREE.BufferAttribute(indices, 1))
+  geo.computeVertexNormals()
+
+  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+    vertexColors: true, roughness: 0.96, metalness: 0,
+  }))
+  mesh.receiveShadow = true
+  return mesh
+}
+
+// ─── Wide polar backdrop — the rendered polar cap ──────────────────────────────
+// Medium-res (~320 m) REAL terrain out to ±80 km around a polar site, replacing the
+// cut-out globe cap. Outer band blends onto the globe mesh surface exactly; under
+// the detail patch it drops a hidden plug. Heights are relative to the wide
+// product's own centre elevation (its own meta), same site-local frame.
+interface WideBuilt {
+  mesh: THREE.Mesh
+  finalRadii: Float32Array   // n×n ABSOLUTE radius of every rendered wide vertex
+  n: number
+  cellSizeM: number
+}
+
+function buildWidePatch(
+  wide: WideData, detailMeta: SiteMeta, zone: ZoneId, globe: GlobeData, gr: GlobeRadii, anchor: THREE.Vector3,
+): WideBuilt {
+  const siteDef = LUNAR_SITES[zone]
+  const m = wide.meta
+  const n = m.cols
+  const gridHalf = (n - 1) / 2
+  const detailHalf = ((detailMeta.cols - 1) / 2) * detailMeta.cellSizeM
+  const half = gridHalf * m.cellSizeM
+  const blendStart = half * 0.86   // outer 14% conforms to the globe mesh
+
+  const plugRadius = R_MOON + detailMeta.centerElevationM + detailMeta.minRelM - 250
+
+  const positions = new Float32Array(n * n * 3)
+  const colors = new Float32Array(n * n * 3)
+  const finalRadii = new Float32Array(n * n)
+  const pos = new THREE.Vector3()
+  for (let j = 0; j < n; j++) {
+    const z = (j - gridHalf) * m.cellSizeM
+    for (let i = 0; i < n; i++) {
+      const x = (i - gridHalf) * m.cellSizeM
+      const { latDeg, lonDeg } = siteLocalToLatLon(siteDef, x, z)
+      const d = Math.max(Math.abs(x), Math.abs(z))
+      const r = Math.hypot(x, z)
+      const dataR0 = R_MOON + m.centerElevationM + wide.heights[j * n + i]
+      const t = smoothstep(blendStart, half, r)
+      let radius = t > 0 ? dataR0 * (1 - t) + globeMeshRadius(gr, latDeg, lonDeg) * t : dataR0
+      // Under the detail patch, dive to a hidden plug. The dive must COMPLETE well
+      // inside the patch: the patch's edge blend interpolates wide vertices up to
+      // one cell inside the boundary — any dived vertex there drags the patch edge
+      // down into a visible trench (seen as a bright wall + shadow line on one side).
+      if (d < detailHalf * 0.78) {
+        const w = smoothstep(detailHalf * 0.45, detailHalf * 0.78, d)
+        radius = plugRadius * (1 - w) + radius * w
+      }
+      // The square's CORNERS extend past the blend disc and would sit exactly ON the
+      // globe surface (same function) → coplanar z-fighting. Tuck them just under.
+      radius -= 15 * smoothstep(half * 0.985, half * 1.03, r)
+      finalRadii[j * n + i] = radius
+      unitFromLatLon(latDeg, lonDeg, pos).multiplyScalar(radius).sub(anchor)
+      const k = j * n + i
+      positions[k * 3] = pos.x; positions[k * 3 + 1] = pos.y; positions[k * 3 + 2] = pos.z
+      const alb = sampleAlbedo(globe, latDeg, lonDeg)
+      colors[k * 3] = alb.r; colors[k * 3 + 1] = alb.g; colors[k * 3 + 2] = alb.b
+    }
+  }
+
+  const indices = new Uint32Array((n - 1) * (n - 1) * 6)
+  let ii = 0
+  emitGridIndices(positions, n, anchor, (a, b, c) => { indices[ii++] = a; indices[ii++] = b; indices[ii++] = c })
+
+  const geo = new THREE.BufferGeometry()
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+  geo.setIndex(new THREE.BufferAttribute(indices, 1))
+  geo.computeVertexNormals()
+
+  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+    vertexColors: true, roughness: 0.96, metalness: 0,
+  }))
+  mesh.receiveShadow = true
+  return { mesh, finalRadii, n, cellSizeM: m.cellSizeM }
+}
+
+// ─── Site patch + lots + beacon ───────────────────────────────────────────────
 function buildSitePatch(
-  site: SiteData, zone: ZoneId, globe: GlobeData,
+  site: SiteData, zone: ZoneId, globe: GlobeData, gr: GlobeRadii,
 ): { group: THREE.Group; anchor: THREE.Vector3 } {
   const { meta, heights } = site
   const siteDef = LUNAR_SITES[zone]
@@ -215,7 +487,6 @@ function buildSitePatch(
   const stride = meta.cols > 400 ? 2 : 1
   const n = Math.floor((meta.cols - 1) / stride) + 1
   const gridHalf = (meta.cols - 1) / 2
-  const halfExtent = gridHalf * meta.cellSizeM   // = PATCH_PAD × siteRadius (from fetch)
 
   let minRel = Infinity, maxRel = -Infinity
   for (let k = 0; k < heights.length; k++) {
@@ -225,6 +496,30 @@ function buildSitePatch(
   }
   const relSpan = Math.max(1, maxRel - minRel)
 
+  // Base albedo tone for the whole patch (site is ~2 texture pixels wide — one
+  // sample at the centre is the right granularity) modulated by local relief.
+  const baseAlb = sampleAlbedo(globe, meta.siteCenterLatDeg, meta.siteCenterLonDeg)
+
+  // Wide backdrop FIRST — the patch's outer ~10% band blends onto the wide mesh's
+  // FINAL rendered surface (post plug-dive, post globe-blend; meshInterp = exact
+  // triangle interpolation), so the 5 m ↔ 320 m boundary is watertight instead of
+  // reading as a raised tile edge. Lots are clipped at siteRadius = halfExtent/1.15
+  // (≈ e 0.87) — never inside the blend band.
+  const halfExtent = gridHalf * meta.cellSizeM
+  const wideBuilt = site.wide ? buildWidePatch(site.wide, meta, zone, globe, gr, anchor) : null
+  const sampleWideRel = (x: number, z: number): number | null => {
+    if (!wideBuilt) return null
+    const wHalf = (wideBuilt.n - 1) / 2
+    const fi = x / wideBuilt.cellSizeM + wHalf
+    const fj = z / wideBuilt.cellSizeM + wHalf
+    if (fi < 0 || fj < 0 || fi > wideBuilt.n - 1 || fj > wideBuilt.n - 1) return null
+    const radius = meshInterp((i, j) => wideBuilt.finalRadii[j * wideBuilt.n + i], wideBuilt.n, wideBuilt.n, fi, fj)
+    return radius - (R_MOON + meta.centerElevationM)   // re-based to the DETAIL centre
+  }
+
+  // Decimated rel-height grid, kept for lot placement (lots must sit on the
+  // RENDERED mesh, not the full-res data the mesh no longer shows).
+  const relGrid = new Float32Array(n * n)
   const positions = new Float32Array(n * n * 3)
   const colors = new Float32Array(n * n * 3)
   const pos = new THREE.Vector3()
@@ -234,30 +529,35 @@ function buildSitePatch(
     for (let i = 0; i < n; i++) {
       const gx = Math.min(meta.cols - 1, i * stride)
       const x = (gx - gridHalf) * meta.cellSizeM
-      const rel = heights[gz * meta.cols + gx]
+      let rel = heights[gz * meta.cols + gx]
+      const e = Math.max(Math.abs(x), Math.abs(z)) / halfExtent
+      const t = smoothstep(0.9, 1.0, e)
+      if (t > 0) {
+        const wideRel = sampleWideRel(x, z)
+        if (wideRel != null) rel = rel * (1 - t) + wideRel * t
+      }
+      relGrid[j * n + i] = rel
       const { latDeg, lonDeg } = siteLocalToLatLon(siteDef, x, z)
-
-      const e = Math.max(Math.abs(x), Math.abs(z)) / halfExtent   // 0 centre → 1 outer edge
-      const t = smoothstep(BLEND_START, 1.0, e)
-      const trueR = R_MOON + meta.centerElevationM + rel
-      const globeR = R_MOON + sampleGlobalHeight(globe.grid, latDeg, lonDeg)
-      const radius = trueR * (1 - t) + globeR * t
-
-      pos.copy(unitFromLatLon(latDeg, lonDeg)).multiplyScalar(radius).sub(anchor)
+      const radius = R_MOON + meta.centerElevationM + rel
+      unitFromLatLon(latDeg, lonDeg, pos).multiplyScalar(radius).sub(anchor)
       const k = j * n + i
       positions[k * 3] = pos.x; positions[k * 3 + 1] = pos.y; positions[k * 3 + 2] = pos.z
-      const shade = 0.11 + ((rel - minRel) / relSpan) * 0.15
-      colors[k * 3] = shade; colors[k * 3 + 1] = shade * 0.97; colors[k * 3 + 2] = shade * 0.93
+      const shade = 0.72 + ((rel - minRel) / relSpan) * 0.55
+      colors[k * 3] = baseAlb.r * shade
+      colors[k * 3 + 1] = baseAlb.g * shade
+      colors[k * 3 + 2] = baseAlb.b * shade
     }
   }
 
-  // Grid triangles + perimeter skirt (outer ring duplicated, pushed toward the
-  // moon's centre by SKIRT_DROP) — covers any residual crack against the globe.
+  // Perimeter skirt: covers the step onto the surrounding coarse data. With a wide
+  // backdrop (same-instrument 40 m data) the step is small; against the 3.75 km
+  // global grid it scales with the site's real relief.
+  const skirtDrop = site.wide ? 500 : (meta.maxRelM - meta.minRelM) * 0.9 + 400
   const perimeter: number[] = []
-  for (let i = 0; i < n; i++) perimeter.push(i)                                // top row →
-  for (let j = 1; j < n; j++) perimeter.push(j * n + (n - 1))                  // right col ↓
-  for (let i = n - 2; i >= 0; i--) perimeter.push((n - 1) * n + i)             // bottom row ←
-  for (let j = n - 2; j >= 1; j--) perimeter.push(j * n)                       // left col ↑
+  for (let i = 0; i < n; i++) perimeter.push(i)
+  for (let j = 1; j < n; j++) perimeter.push(j * n + (n - 1))
+  for (let i = n - 2; i >= 0; i--) perimeter.push((n - 1) * n + i)
+  for (let j = n - 2; j >= 1; j--) perimeter.push(j * n)
 
   const skirtBase = n * n
   const allPositions = new Float32Array((n * n + perimeter.length) * 3)
@@ -267,25 +567,21 @@ function buildSitePatch(
   perimeter.forEach((src, s) => {
     const k = skirtBase + s
     radialDir.set(positions[src * 3] + anchor.x, positions[src * 3 + 1] + anchor.y, positions[src * 3 + 2] + anchor.z).normalize()
-    allPositions[k * 3] = positions[src * 3] - radialDir.x * SKIRT_DROP
-    allPositions[k * 3 + 1] = positions[src * 3 + 1] - radialDir.y * SKIRT_DROP
-    allPositions[k * 3 + 2] = positions[src * 3 + 2] - radialDir.z * SKIRT_DROP
-    allColors[k * 3] = colors[src * 3] * 0.6
-    allColors[k * 3 + 1] = colors[src * 3 + 1] * 0.6
-    allColors[k * 3 + 2] = colors[src * 3 + 2] * 0.6
+    allPositions[k * 3] = positions[src * 3] - radialDir.x * skirtDrop
+    allPositions[k * 3 + 1] = positions[src * 3 + 1] - radialDir.y * skirtDrop
+    allPositions[k * 3 + 2] = positions[src * 3 + 2] - radialDir.z * skirtDrop
+    allColors[k * 3] = colors[src * 3] * 0.85
+    allColors[k * 3 + 1] = colors[src * 3 + 1] * 0.85
+    allColors[k * 3 + 2] = colors[src * 3 + 2] * 0.85
   })
 
   const indices: number[] = []
-  for (let j = 0; j < n - 1; j++) {
-    for (let i = 0; i < n - 1; i++) {
-      const a = j * n + i, b = a + 1, c = a + n, d = c + 1
-      indices.push(a, c, b, b, c, d)
-    }
-  }
+  emitGridIndices(positions, n, anchor, (a, b, c) => indices.push(a, b, c))
   const P = perimeter.length
   for (let s = 0; s < P; s++) {
     const a = perimeter[s], b = perimeter[(s + 1) % P]
     const a2 = skirtBase + s, b2 = skirtBase + ((s + 1) % P)
+    // skirt walls stay DoubleSide via the patch material — winding uncritical
     indices.push(a, b, a2, b, b2, a2)
   }
 
@@ -302,7 +598,16 @@ function buildSitePatch(
   mesh.castShadow = true
   group.add(mesh)
 
-  // ── Lots — instanced blocks standing radially on the real surface ───────────
+  // Terrain bridge to the globe: wide real polar cap when available (built above,
+  // before the patch grid, so the patch edge could blend onto its final surface),
+  // else the global-DEM apron ring.
+  if (wideBuilt) group.add(wideBuilt.mesh)
+  else group.add(buildApron(meta, zone, globe, gr, anchor))
+
+  // ── Lots — instanced blocks standing radially on the RENDERED surface ───────
+  // Base height sampled from the decimated mesh grid with the same triangle
+  // interpolation the GPU rasterizes — the stored full-res elevation can differ
+  // from the decimated mesh by ± meters (enough to sink a small marker).
   if (site.lots.length > 0) {
     const boxGeo = new THREE.BoxGeometry(1, 1, 1)
     const markMat = new THREE.MeshStandardMaterial({ roughness: 0.7, metalness: 0.05 })
@@ -317,14 +622,12 @@ function buildSitePatch(
     site.lots.forEach((lot, li) => {
       const h = 2 + lot.heightTier * 5
       const footprint = Math.max(1, lot.footprint * 0.5)
+      const fi = (lot.xM / meta.cellSizeM + gridHalf) / stride
+      const fj = (lot.zM / meta.cellSizeM + gridHalf) / stride
+      const relMesh = meshInterp((i, j) => relGrid[j * n + i], n, n, fi, fj)
       const { latDeg, lonDeg } = siteLocalToLatLon(siteDef, lot.xM, lot.zM)
-      // Same edge blend as the terrain so outer-ring lots sit on the blended surface.
-      const e = Math.max(Math.abs(lot.xM), Math.abs(lot.zM)) / halfExtent
-      const t = smoothstep(BLEND_START, 1.0, e)
-      const trueR = R_MOON + meta.centerElevationM + lot.elevationM
-      const globeR = R_MOON + sampleGlobalHeight(globe.grid, latDeg, lonDeg)
-      const baseR = trueR * (1 - t) + globeR * t
-      radial.copy(unitFromLatLon(latDeg, lonDeg))
+      const baseR = R_MOON + meta.centerElevationM + relMesh
+      unitFromLatLon(latDeg, lonDeg, radial)
       q.setFromUnitVectors(up, radial)
       dummy.position.copy(radial).multiplyScalar(baseR + h / 2).sub(anchor)
       dummy.quaternion.copy(q)
@@ -339,8 +642,7 @@ function buildSitePatch(
     group.add(inst)
   }
 
-  // Orbital beacon so the city is findable from space (fades out up close is
-  // overkill for phase 1.5 — a small constant marker reads fine at all ranges).
+  // Orbital beacon so the city is findable from space.
   const beaconCanvas = document.createElement('canvas')
   beaconCanvas.width = beaconCanvas.height = 64
   const bctx = beaconCanvas.getContext('2d')!
@@ -368,7 +670,6 @@ function buildStars(): THREE.Points {
   const pos = new Float32Array(count * 3)
   const R = 2.4e7
   for (let i = 0; i < count; i++) {
-    // uniform on the full sphere — on a globe there is no "down" to skip
     const u = Math.random() * 2 - 1
     const theta = Math.random() * Math.PI * 2
     const s = Math.sqrt(1 - u * u)
@@ -396,9 +697,7 @@ export default function LunarScene() {
 
   useEffect(() => {
     let cancelled = false
-    let renderer: THREE.WebGLRenderer | null = null
-    let raf = 0
-    let controls: any = null
+    let cleanupFn: (() => void) | null = null
 
     ;(async () => {
       let globe: GlobeData
@@ -416,45 +715,72 @@ export default function LunarScene() {
       const summary: Partial<Record<ZoneId, { lots: number }>> = {}
       for (const z of ZONES) if (sites[z]) summary[z] = { lots: sites[z]!.lots.length }
       setLoadedZones(summary)
-      setLoading(false)
 
       const mount = mountRef.current
-      if (!mount) return
+      if (!mount) { setLoading(false); return }
       const W = mount.clientWidth, H = mount.clientHeight
 
       const scene = new THREE.Scene()
       scene.background = new THREE.Color(0x000000)
 
-      // Log depth buffer: camera ranges from ~50 m over the city to ~4 moon radii.
+      // Log depth: camera ranges from ~50 m over the city to ~4 moon radii.
       const camera = new THREE.PerspectiveCamera(50, W / H, 1, 6e7)
 
-      renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true })
+      const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true })
       renderer.setSize(W, H)
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
       renderer.shadowMap.enabled = true
       renderer.shadowMap.type = THREE.PCFSoftShadowMap
+      // Static scene: render the (1M-triangle) shadow casters once per sun/focus
+      // change, not every frame.
+      renderer.shadowMap.autoUpdate = false
       renderer.toneMapping = THREE.ACESFilmicToneMapping
       renderer.toneMappingExposure = 1.05
       mount.appendChild(renderer.domElement)
 
+      let raf = 0
+      let controls: any = null
+      // Registered NOW (before any await): unmount at any later point disposes
+      // everything. Held in a closure var, not on the DOM node — React nulls the
+      // ref before effect cleanup runs, so a ref-stored cleanup never fires.
+      cleanupFn = () => {
+        cancelAnimationFrame(raf)
+        controls?.dispose?.()
+        scene.traverse(obj => {
+          const m = obj as THREE.Mesh
+          if (m.geometry) m.geometry.dispose()
+          const mats = Array.isArray(m.material) ? m.material : m.material ? [m.material] : []
+          for (const mat of mats) {
+            for (const key of ['map', 'bumpMap'] as const) {
+              const tex = (mat as any)[key]
+              if (tex?.dispose) tex.dispose()
+            }
+            mat.dispose()
+          }
+        })
+        renderer.dispose()
+        if (renderer.domElement.parentElement === mount) mount.removeChild(renderer.domElement)
+      }
+
       scene.add(buildStars())
-      scene.add(buildGlobe(globe, sites))
+      const sinkSites = makeSinkSites(sites)
+      const gr = buildGlobeRadii(globe, sinkSites)
+      const cutCaps = {
+        north: ZONES.some(z => sites[z]?.wide && sites[z]!.meta.siteCenterLatDeg > 85),
+        south: ZONES.some(z => sites[z]?.wide && sites[z]!.meta.siteCenterLatDeg < -85),
+      }
+      scene.add(buildGlobe(globe, gr, cutCaps))
 
       const anchors: Partial<Record<ZoneId, THREE.Vector3>> = {}
       for (const zone of ZONES) {
         const data = sites[zone]
         if (!data) continue
-        const { group, anchor } = buildSitePatch(data, zone, globe)
+        const { group, anchor } = buildSitePatch(data, zone, globe, gr)
         anchors[zone] = anchor
         scene.add(group)
       }
 
       // ── One real sun for the whole Moon — live subsolar point ────────────────
-      // The 29.53-day lunar day is REAL here: a site can genuinely be in its
-      // 2-week night (Mare Tranquillitatis was, the day this shipped). Two modes:
-      //   real     — sun where it actually is right now
-      //   daylight — sun forced ~40° over the focused site so the city is
-      //              always explorable (view mode, clearly labelled in the UI)
       const subsolar = subsolarPoint(new Date())
       const realSunDir = unitFromLatLon(subsolar.latDeg, subsolar.lonDeg)
       const sun = new THREE.DirectionalLight(0xfff4e0, 2.4)
@@ -463,9 +789,8 @@ export default function LunarScene() {
       scene.add(sun)
       scene.add(sun.target)
 
-      // Earthshine — the Earth really does light the nearside's night (a full Earth
-      // is dozens of times brighter than a full Moon). Aimed from the true
-      // sub-Earth point, cool blue-grey, subtle but enough to read terrain at night.
+      // Earthshine — the Earth genuinely lights the nearside's night. Aimed from
+      // the true sub-Earth point, cool blue-grey, enough to read terrain at night.
       const subEarth = subEarthPoint(new Date())
       const earthDir = unitFromLatLon(subEarth.latDeg, subEarth.lonDeg)
       const earthshine = new THREE.DirectionalLight(0x9db4d8, 0.22)
@@ -474,116 +799,115 @@ export default function LunarScene() {
       scene.add(new THREE.AmbientLight(0x30343e, 0.07))
 
       let sunMode: 'real' | 'daylight' = 'daylight'
-      let focusedAnchor: THREE.Vector3 | null = null
+      let focused: ZoneId | 'orbit' = 'btc-core'
 
-      // Shadow frustum follows the focused site (a planet-wide shadow map would
-      // have km-sized texels — useless for a city). Also re-aims the sun per mode.
       const updateSun = () => {
-        const anchor = focusedAnchor ?? anchors['btc-core'] ?? new THREE.Vector3(R_MOON, 0, 0)
-        let dir = realSunDir
+        const anchor = (focused !== 'orbit' && anchors[focused]) || null
+        let dir = realSunDir.clone()
         if (sunMode === 'daylight') {
-          const up = anchor.clone().normalize()
-          const east = new THREE.Vector3(0, 1, 0).cross(up).normalize()
-          if (east.lengthSq() < 1e-6) east.set(1, 0, 0)
-          // ~40° elevation from the local east — warm raking light, long shadows
-          dir = up.clone().multiplyScalar(Math.sin(40 * DEG2RAD))
-            .addScaledVector(east, Math.cos(40 * DEG2RAD)).normalize()
+          if (anchor) {
+            const up = anchor.clone().normalize()
+            const east = new THREE.Vector3(0, 1, 0).cross(up).normalize()
+            if (east.lengthSq() < 1e-6) east.set(1, 0, 0)
+            // ~40° elevation from the local east — raking light, long shadows
+            dir = up.clone().multiplyScalar(Math.sin(40 * DEG2RAD))
+              .addScaledVector(east, Math.cos(40 * DEG2RAD)).normalize()
+          } else {
+            // orbit view: light the hemisphere the camera is looking at
+            dir = camera.position.clone().normalize()
+            if (dir.lengthSq() < 1e-6) dir.set(1, 0, 0)
+          }
         }
-        sun.target.position.copy(anchor)
-        sun.position.copy(anchor).addScaledVector(dir, 40_000)
+        const shadowAnchor = anchor ?? new THREE.Vector3()
+        sun.target.position.copy(shadowAnchor)
+        sun.position.copy(shadowAnchor).addScaledVector(dir, anchor ? 40_000 : R_MOON * 4)
         const span = 6000
         sun.shadow.camera.left = -span; sun.shadow.camera.right = span
         sun.shadow.camera.top = span; sun.shadow.camera.bottom = -span
         sun.shadow.camera.near = 10
-        sun.shadow.camera.far = 90_000
+        sun.shadow.camera.far = anchor ? 90_000 : R_MOON * 8
         sun.shadow.bias = -0.0004
         sun.shadow.camera.updateProjectionMatrix()
-      }
-      const focusShadow = (anchor: THREE.Vector3) => {
-        focusedAnchor = anchor
-        updateSun()
+        renderer.shadowMap.needsUpdate = true
       }
       sunApiRef.current = (m) => { sunMode = m; updateSun() }
 
-      // ── Controls + fly-to ────────────────────────────────────────────────────
       try {
         const { OrbitControls } = await import('three/examples/jsm/controls/OrbitControls.js')
-        if (cancelled) return
-        controls = new OrbitControls(camera, renderer.domElement)
-        controls.enableDamping = true
-        controls.dampingFactor = 0.08
-        controls.minDistance = 40
-        controls.maxDistance = 1.6e7
-        controls.zoomSpeed = 1.4
+        if (!cancelled) {
+          controls = new OrbitControls(camera, renderer.domElement)
+          controls.enableDamping = true
+          controls.dampingFactor = 0.08
+          controls.minDistance = 40
+          controls.maxDistance = 1.6e7
+          controls.zoomSpeed = 1.4
+        }
       } catch { /* static camera still renders */ }
+      if (cancelled) { cleanupFn(); cleanupFn = null; return }
 
       const flyTo = (target: ZoneId | 'orbit') => {
-        if (target === 'orbit') {
+        if (target === 'orbit' || !anchors[target as ZoneId]) {
+          focused = 'orbit'
           camera.up.set(0, 1, 0)
           const dir = anchors['btc-core']?.clone().normalize() ?? new THREE.Vector3(1, 0.2, 0).normalize()
           camera.position.copy(dir).multiplyScalar(R_MOON * 3.1).add(new THREE.Vector3(0, R_MOON * 0.4, 0))
           controls?.target.set(0, 0, 0)
           camera.lookAt(0, 0, 0)
           controls?.update()
+          updateSun()
           return
         }
-        const anchor = anchors[target]
-        if (!anchor) return
+        const anchor = anchors[target as ZoneId]!
+        focused = target as ZoneId
         const up = anchor.clone().normalize()
-        // On a sphere "up" is radial — without this the view arrives rolled sideways
-        // (OrbitControls orbits around camera.up).
+        // On a sphere "up" is radial — without this the view arrives rolled
+        // sideways (OrbitControls orbits around camera.up).
         camera.up.copy(up)
         const east = new THREE.Vector3(0, 1, 0).cross(up).normalize()
         if (east.lengthSq() < 1e-6) east.set(1, 0, 0) // exactly at a pole
-        const pos = anchor.clone().addScaledVector(up, 2600).addScaledVector(east, 4200)
-        camera.position.copy(pos)
+        camera.position.copy(anchor).addScaledVector(up, 2600).addScaledVector(east, 4200)
         controls?.target.copy(anchor)
         camera.lookAt(anchor)
         controls?.update()
-        focusShadow(anchor)
+        updateSun()
       }
       flyToRef.current = flyTo
-      flyTo('btc-core')
+      // btc-core may have failed to load — fall back to any loaded site, else orbit.
+      flyTo(ZONES.find(z => anchors[z]) ?? 'orbit')
       // debug handle for headless verification (harmless in prod)
       ;(window as any).__luna = { camera, get controls() { return controls }, anchors, flyTo }
 
       const onResize = () => {
-        if (!mount || !renderer) return
         const w = mount.clientWidth, h = mount.clientHeight
         camera.aspect = w / h
         camera.updateProjectionMatrix()
         renderer.setSize(w, h)
       }
       window.addEventListener('resize', onResize)
+      const prevCleanup = cleanupFn
+      cleanupFn = () => { window.removeEventListener('resize', onResize); prevCleanup() }
 
+      let firstFrame = true
       const animate = () => {
         raf = requestAnimationFrame(animate)
         controls?.update()
-        renderer!.render(scene, camera)
+        renderer.render(scene, camera)
+        if (firstFrame) { firstFrame = false; setLoading(false) }   // loader stays up through the heavy build
       }
       animate()
-
-      ;(mount as any).__cleanup = () => {
-        window.removeEventListener('resize', onResize)
-        cancelAnimationFrame(raf)
-        controls?.dispose?.()
-        renderer?.dispose()
-        if (renderer?.domElement.parentElement === mount) mount.removeChild(renderer.domElement)
-      }
     })()
 
     return () => {
       cancelled = true
-      cancelAnimationFrame(raf)
-      const cleanup = (mountRef.current as any)?.__cleanup
-      if (cleanup) cleanup()
+      cleanupFn?.()
+      cleanupFn = null
     }
   }, [])
 
   return (
     <div className="w-full h-screen bg-black relative overflow-hidden">
-      {loading && (
-        <div className="absolute inset-0 flex items-center justify-center z-10">
+      {loading && !error && (
+        <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
           <p className="font-mono text-xs text-white/60 tracking-[0.25em] uppercase">Loading the Moon…</p>
         </div>
       )}

@@ -47,6 +47,10 @@ export interface LunarSite {
   siteRadiusM: number
   slopeLimitDeg: number
   dem: DemSource
+  // Optional second, WIDE backdrop product (polar sites): medium-res terrain out to
+  // wideHalfExtentM that becomes the rendered polar cap — the global 16ppd grid is
+  // useless that close to a pole, and the mismatch dwarfs any seam-hiding trick.
+  wide?: { dem: DemSource; halfExtentM: number; outCellM: number }
 }
 
 function makeSite(
@@ -55,9 +59,10 @@ function makeSite(
   projection: ProjectionOrigin,
   siteRadiusM: number, slopeLimitDeg: number,
   dem: DemSource,
+  wide?: LunarSite['wide'],
 ): LunarSite {
   const siteOffset = latLonToLocal(projection, siteCenterLatDeg, siteCenterLonDeg)
-  return { zone, name, siteCenterLatDeg, siteCenterLonDeg, projection, siteOffset, siteRadiusM, slopeLimitDeg, dem }
+  return { zone, name, siteCenterLatDeg, siteCenterLonDeg, projection, siteOffset, siteRadiusM, slopeLimitDeg, dem, wide }
 }
 
 export const LUNAR_SITES: Record<ZoneId, LunarSite> = {
@@ -84,6 +89,15 @@ export const LUNAR_SITES: Record<ZoneId, LunarSite> = {
       cols: 30336, rows: 30336, recordBytes: 121344,
       scaleM: 5, pixelOffset: 15167.5,
     },
+    {
+      dem: {
+        kind: 'polar-tile',
+        url: 'https://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/FLOAT_IMG/LDEM_85S_40M_FLOAT.IMG',
+        cols: 7584, rows: 7584, recordBytes: 30336,
+        scaleM: 40, pixelOffset: 3791.5,
+      },
+      halfExtentM: 80_000, outCellM: 320,
+    },
   ),
   stacks: makeSite(
     'stacks', 'Peary',
@@ -95,6 +109,15 @@ export const LUNAR_SITES: Record<ZoneId, LunarSite> = {
       url: 'https://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/FLOAT_IMG/LDEM_875N_5M_FLOAT.IMG',
       cols: 30336, rows: 30336, recordBytes: 121344,
       scaleM: 5, pixelOffset: 15167.5,
+    },
+    {
+      dem: {
+        kind: 'polar-tile',
+        url: 'https://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/FLOAT_IMG/LDEM_85N_40M_FLOAT.IMG',
+        cols: 7584, rows: 7584, recordBytes: 30336,
+        scaleM: 40, pixelOffset: 3791.5,
+      },
+      halfExtentM: 80_000, outCellM: 320,
     },
   ),
 }
