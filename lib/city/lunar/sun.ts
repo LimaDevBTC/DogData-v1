@@ -60,6 +60,13 @@ export function subsolarPoint(date: Date): { latDeg: number; lonDeg: number } {
   return toSelenographic(moonToSun, frame)
 }
 
+// The point on the Moon directly under the EARTH (sub-Earth point) — where earthshine
+// comes from. astronomy-engine's Libration() returns exactly this as (elat, elon).
+export function subEarthPoint(date: Date): { latDeg: number; lonDeg: number } {
+  const lib = Astronomy.Libration(date)
+  return { latDeg: lib.elat, lonDeg: lib.elon }
+}
+
 // Sun elevation/azimuth as seen from a given selenographic site, given the current
 // subsolar point — standard spherical-astronomy sun-position formula (same shape as
 // the terrestrial sun-elevation-from-subsolar-point calc, just on the Moon).
