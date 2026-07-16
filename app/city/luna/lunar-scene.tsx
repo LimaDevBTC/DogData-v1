@@ -32,7 +32,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { DISTRICTS, type ZoneId } from '@/lib/city/zones'
-import { LUNAR_SITES, siteLocalToLatLon } from '@/lib/city/lunar/sites'
+import { LUNAR_SITES, siteLocalToLatLon, latLonToSiteLocal } from '@/lib/city/lunar/sites'
 import { R_MOON } from '@/lib/city/lunar/projection'
 import { sampleGlobalHeight, type GlobalGrid } from '@/lib/city/lunar/grid'
 import { subsolarPoint, subEarthPoint } from '@/lib/city/lunar/sun'
@@ -342,9 +342,16 @@ function buildGlobe(globe: GlobeData, gr: GlobeRadii, cutCaps: { north: boolean;
 // Square annulus from the patch square out to APRON_HALF. Inside the patch square
 // it drops a flat plug well below the patch (never visible); its outer band blends
 // pure global data into the EXACT rendered globe surface.
+interface ApronBuilt {
+  mesh: THREE.Mesh
+  finalRadii: Float32Array   // n×n ABSOLUTE radius of every rendered apron vertex
+  n: number
+  cellSizeM: number
+}
+
 function buildApron(
   meta: SiteMeta, zone: ZoneId, globe: GlobeData, gr: GlobeRadii, anchor: THREE.Vector3,
-): THREE.Mesh {
+): ApronBuilt {
   const siteDef = LUNAR_SITES[zone]
   const gridHalf = (meta.cols - 1) / 2
   const patchHalf = gridHalf * meta.cellSizeM
@@ -353,6 +360,7 @@ function buildApron(
 
   const positions = new Float32Array(n * n * 3)
   const colors = new Float32Array(n * n * 3)
+  const finalRadii = new Float32Array(n * n)
   const pos = new THREE.Vector3()
   const plugRadius = R_MOON + meta.centerElevationM + meta.minRelM - 300
 
@@ -370,6 +378,7 @@ function buildApron(
         const t = smoothstep(APRON_GLOBE_BLEND, half, Math.hypot(x, z))
         radius = dataR * (1 - t) + globeMeshRadius(gr, latDeg, lonDeg) * t
       }
+      finalRadii[j * n + i] = radius
       unitFromLatLon(latDeg, lonDeg, pos).multiplyScalar(radius).sub(anchor)
       const k = j * n + i
       positions[k * 3] = pos.x; positions[k * 3 + 1] = pos.y; positions[k * 3 + 2] = pos.z
@@ -392,7 +401,7 @@ function buildApron(
     vertexColors: true, roughness: 0.96, metalness: 0,
   }))
   mesh.receiveShadow = true
-  return mesh
+  return { mesh, finalRadii, n, cellSizeM: APRON_STEP }
 }
 
 // ─── Wide polar backdrop — the rendered polar cap ──────────────────────────────
@@ -474,7 +483,7 @@ function buildWidePatch(
 // ─── Site patch + lots + beacon ───────────────────────────────────────────────
 function buildSitePatch(
   site: SiteData, zone: ZoneId, globe: GlobeData, gr: GlobeRadii,
-): { group: THREE.Group; anchor: THREE.Vector3 } {
+): { group: THREE.Group; anchor: THREE.Vector3; surfaceRadiusAt: (latDeg: number, lonDeg: number) => number | null } {
   const { meta, heights } = site
   const siteDef = LUNAR_SITES[zone]
   const anchor = unitFromLatLon(meta.siteCenterLatDeg, meta.siteCenterLonDeg)
@@ -601,8 +610,32 @@ function buildSitePatch(
   // Terrain bridge to the globe: wide real polar cap when available (built above,
   // before the patch grid, so the patch edge could blend onto its final surface),
   // else the global-DEM apron ring.
+  const apronBuilt = wideBuilt ? null : buildApron(meta, zone, globe, gr, anchor)
   if (wideBuilt) group.add(wideBuilt.mesh)
-  else group.add(buildApron(meta, zone, globe, gr, anchor))
+  else if (apronBuilt) group.add(apronBuilt.mesh)
+
+  // Rendered-surface sampler for THIS site (detail patch > wide/apron), used by the
+  // camera's ground collision and the cursor-zoom ray-march. Returns null outside
+  // this site's terrain coverage.
+  const surfaceRadiusAt = (latDeg: number, lonDeg: number): number | null => {
+    const { x, z } = latLonToSiteLocal(siteDef, latDeg, lonDeg)
+    if (Math.abs(x) <= halfExtent && Math.abs(z) <= halfExtent) {
+      const fi = (x / meta.cellSizeM + gridHalf) / stride
+      const fj = (z / meta.cellSizeM + gridHalf) / stride
+      const rel = meshInterp((i, j) => relGrid[j * n + i], n, n, fi, fj)
+      return R_MOON + meta.centerElevationM + rel
+    }
+    const ring = wideBuilt ?? apronBuilt
+    if (ring) {
+      const rHalf = (ring.n - 1) / 2
+      const fi = x / ring.cellSizeM + rHalf
+      const fj = z / ring.cellSizeM + rHalf
+      if (fi >= 0 && fj >= 0 && fi <= ring.n - 1 && fj <= ring.n - 1) {
+        return meshInterp((i, j) => ring.finalRadii[j * ring.n + i], ring.n, ring.n, fi, fj)
+      }
+    }
+    return null
+  }
 
   // ── Lots — instanced blocks standing radially on the RENDERED surface ───────
   // Base height sampled from the decimated mesh grid with the same triangle
@@ -661,7 +694,7 @@ function buildSitePatch(
   beacon.position.copy(anchor).normalize().multiplyScalar(30_000)
   group.add(beacon)
 
-  return { group, anchor }
+  return { group, anchor, surfaceRadiusAt }
 }
 
 // ─── Stars ────────────────────────────────────────────────────────────────────
@@ -772,12 +805,61 @@ export default function LunarScene() {
       scene.add(buildGlobe(globe, gr, cutCaps))
 
       const anchors: Partial<Record<ZoneId, THREE.Vector3>> = {}
+      const siteSamplers: ((latDeg: number, lonDeg: number) => number | null)[] = []
       for (const zone of ZONES) {
         const data = sites[zone]
         if (!data) continue
-        const { group, anchor } = buildSitePatch(data, zone, globe, gr)
+        const { group, anchor, surfaceRadiusAt } = buildSitePatch(data, zone, globe, gr)
         anchors[zone] = anchor
+        siteSamplers.push(surfaceRadiusAt)
         scene.add(group)
+      }
+
+      // Rendered surface radius under any (lat,lon): site terrain wins over the
+      // (possibly sunk / cap-cut) globe. Drives ground collision + cursor zoom.
+      const RAD2DEG = 180 / Math.PI
+      const surfaceRadiusAt = (latDeg: number, lonDeg: number): number => {
+        let r = globeMeshRadius(gr, latDeg, lonDeg)
+        for (const s of siteSamplers) {
+          const v = s(latDeg, lonDeg)
+          if (v != null && v > r) r = v
+        }
+        return r
+      }
+      const altitudeOf = (p: THREE.Vector3): number => {
+        const r = p.length()
+        const latDeg = Math.asin(Math.min(1, Math.max(-1, p.y / r))) * RAD2DEG
+        const lonDeg = Math.atan2(-p.z, p.x) * RAD2DEG
+        return r - surfaceRadiusAt(latDeg, lonDeg)
+      }
+
+      // Cheap analytic ray-march against the surface field (raycasting the actual
+      // 1M-triangle meshes per wheel tick would stall the main thread).
+      const raycastSurface = (origin: THREE.Vector3, dir: THREE.Vector3): THREE.Vector3 | null => {
+        const p = new THREE.Vector3()
+        let t = 0
+        let prevAlt = altitudeOf(origin)
+        if (prevAlt <= 0) return origin.clone()
+        const maxT = origin.length() + R_MOON * 3
+        for (let i = 0; i < 500 && t < maxT; i++) {
+          const step = Math.max(20, prevAlt * 0.5)
+          t += step
+          p.copy(origin).addScaledVector(dir, t)
+          const alt = altitudeOf(p)
+          if (alt <= 0) {
+            let lo = t - step, hi = t
+            for (let k = 0; k < 24; k++) {
+              const mid = (lo + hi) / 2
+              p.copy(origin).addScaledVector(dir, mid)
+              if (altitudeOf(p) > 0) lo = mid; else hi = mid
+            }
+            return p.copy(origin).addScaledVector(dir, (lo + hi) / 2)
+          }
+          // receding from the moon and already high → the ray missed
+          if (alt > prevAlt && alt > R_MOON * 0.5 && p.dot(dir) > 0) return null
+          prevAlt = alt
+        }
+        return null
       }
 
       // ── One real sun for the whole Moon — live subsolar point ────────────────
@@ -832,23 +914,81 @@ export default function LunarScene() {
       }
       sunApiRef.current = (m) => { sunMode = m; updateSun() }
 
+      let OrbitControlsClass: any = null
       try {
-        const { OrbitControls } = await import('three/examples/jsm/controls/OrbitControls.js')
-        if (!cancelled) {
-          controls = new OrbitControls(camera, renderer.domElement)
-          controls.enableDamping = true
-          controls.dampingFactor = 0.08
-          controls.minDistance = 40
-          controls.maxDistance = 1.6e7
-          controls.zoomSpeed = 1.4
-        }
+        ({ OrbitControls: OrbitControlsClass } = await import('three/examples/jsm/controls/OrbitControls.js'))
       } catch { /* static camera still renders */ }
       if (cancelled) { cleanupFn(); cleanupFn = null; return }
+
+      // OrbitControls captures camera.up ONCE at construction (its orbit-axis quat
+      // lives in the update() closure) — on a globe the up-vector changes with every
+      // site, so the controls are recreated whenever flyTo re-orients the camera.
+      const makeControls = () => {
+        if (!OrbitControlsClass) return
+        const prevTarget = controls?.target.clone()
+        controls?.dispose()
+        controls = new OrbitControlsClass(camera, renderer.domElement)
+        controls.enableDamping = true
+        controls.dampingFactor = 0.08
+        // Zoom is NOT OrbitControls' (it dollies toward the target — from orbit
+        // that's the moon's CENTER, so it tunnels straight through the surface and
+        // the 6 km city is flown past in two ticks). The custom wheel handler
+        // below dollies toward the terrain point under the cursor instead.
+        controls.enableZoom = false
+        controls.minDistance = 1
+        controls.maxDistance = 1.6e7
+        if (prevTarget) controls.target.copy(prevTarget)
+      }
+      makeControls()
+
+      // ── Cursor-anchored dolly (the city-3d.tsx trick, on a sphere) ───────────
+      // Zoom-in moves the camera toward the surface point under the cursor and
+      // drags the orbit pivot along; zoom-out backs away from the pivot. Never
+      // tunnels: approach is clamped and a per-frame ground collision (below)
+      // catches every other path (rotate/pan/damping).
+      const _ndc = new THREE.Vector2()
+      const _raycaster = new THREE.Raycaster()
+      const onWheel = (e: WheelEvent) => {
+        e.preventDefault()
+        e.stopImmediatePropagation()
+        if (!controls) return
+        const rect = renderer.domElement.getBoundingClientRect()
+        _ndc.set(
+          ((e.clientX - rect.left) / rect.width) * 2 - 1,
+          -((e.clientY - rect.top) / rect.height) * 2 + 1,
+        )
+        const factor = Math.exp(Math.max(-240, Math.min(240, e.deltaY)) * 0.0016)
+        if (factor < 1) {
+          _raycaster.setFromCamera(_ndc, camera)
+          const hit = raycastSurface(_raycaster.ray.origin, _raycaster.ray.direction)
+          if (hit) {
+            const offset = camera.position.clone().sub(hit)
+            const newLen = Math.max(offset.length() * factor, 25)
+            camera.position.copy(hit).addScaledVector(offset.normalize(), newLen)
+            controls.target.lerp(hit, 1 - factor)
+          } else {
+            camera.position.sub(controls.target).multiplyScalar(factor).add(controls.target)
+          }
+        } else {
+          const offset = camera.position.clone().sub(controls.target)
+          const newLen = Math.min(offset.length() * factor, 1.5e7)
+          camera.position.copy(controls.target).addScaledVector(offset.normalize(), newLen)
+        }
+      }
+      renderer.domElement.addEventListener('wheel', onWheel, { passive: false, capture: true })
+      {
+        const prevCleanupW = cleanupFn
+        cleanupFn = () => {
+          renderer.domElement.removeEventListener('wheel', onWheel, { capture: true } as any)
+          prevCleanupW?.()
+        }
+      }
 
       const flyTo = (target: ZoneId | 'orbit') => {
         if (target === 'orbit' || !anchors[target as ZoneId]) {
           focused = 'orbit'
           camera.up.set(0, 1, 0)
+          makeControls()   // orbit axis = camera.up, captured at construction
           const dir = anchors['btc-core']?.clone().normalize() ?? new THREE.Vector3(1, 0.2, 0).normalize()
           camera.position.copy(dir).multiplyScalar(R_MOON * 3.1).add(new THREE.Vector3(0, R_MOON * 0.4, 0))
           controls?.target.set(0, 0, 0)
@@ -861,8 +1001,10 @@ export default function LunarScene() {
         focused = target as ZoneId
         const up = anchor.clone().normalize()
         // On a sphere "up" is radial — without this the view arrives rolled
-        // sideways (OrbitControls orbits around camera.up).
+        // sideways. OrbitControls captures the up-vector at CONSTRUCTION, so the
+        // controls are rebuilt here (not just camera.up mutated).
         camera.up.copy(up)
+        makeControls()
         const east = new THREE.Vector3(0, 1, 0).cross(up).normalize()
         if (east.lengthSq() < 1e-6) east.set(1, 0, 0) // exactly at a pole
         camera.position.copy(anchor).addScaledVector(up, 2600).addScaledVector(east, 4200)
@@ -891,6 +1033,13 @@ export default function LunarScene() {
       const animate = () => {
         raf = requestAnimationFrame(animate)
         controls?.update()
+        // Ground collision — rotation/pan/damping must never carry the camera
+        // through the terrain (the moon is 580× wider than the city; one careless
+        // gesture at orbit scale would otherwise sail straight through it).
+        {
+          const alt = altitudeOf(camera.position)
+          if (alt < 15) camera.position.multiplyScalar((camera.position.length() + (15 - alt)) / camera.position.length())
+        }
         renderer.render(scene, camera)
         if (firstFrame) { firstFrame = false; setLoading(false) }   // loader stays up through the heavy build
       }
