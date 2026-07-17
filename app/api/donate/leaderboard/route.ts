@@ -55,6 +55,19 @@ export async function GET(_req: NextRequest) {
     const events: DonationEvent[] = []
 
     for (const row of rows) {
+      // Skip any tx where the donation wallet SPENDS DOG (a withdrawal or
+      // self-move). This total is "funds donated", never the live wallet
+      // balance — withdrawing DOG must not lower it, must not re-count a
+      // change output back to the wallet as a new donation, and must not
+      // surface the withdrawal destination as a "donor" via the fallbacks
+      // below. Genuine donations are always external → wallet, so the wallet
+      // never appears among the senders of a real donation.
+      const allSenders = parseJsonArr(row.senders)
+      const walletIsSender = allSenders.some(
+        (s: any) => (s.address as string | undefined)?.toLowerCase() === wallet
+      )
+      if (walletIsSender) continue
+
       // Search ALL receivers with no filtering — the indexer sometimes omits
       // has_dog/is_change flags; we just need to find our wallet in the list.
       const allReceivers = parseJsonArr(row.receivers)
@@ -74,7 +87,7 @@ export async function GET(_req: NextRequest) {
       totalReceived += amount
 
       // Identify donors: any sender that is NOT the donation wallet itself
-      const allSenders = parseJsonArr(row.senders)
+      // (allSenders was parsed above for the withdrawal guard)
       let donorAddresses = allSenders
         .map((s: any) => (s.address as string | undefined)?.toLowerCase())
         .filter((a): a is string => !!a && a !== wallet)
