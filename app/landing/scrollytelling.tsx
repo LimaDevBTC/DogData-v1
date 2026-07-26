@@ -17,11 +17,13 @@ import { ArrowDown, ArrowRight } from "lucide-react"
 import { PHASES, formatDog } from "./dogcity-data"
 
 const FRAME_COUNT = 180
+const FRAME_START = 14      // open on the drawn survey grid, matching the poster
 const SEQ_VERSION = "1"
 const frameUrl = (i: number) => `/landing/seq/f_${String(i + 1).padStart(4, "0")}.webp?v=${SEQ_VERSION}`
 
-// phase boundaries aligned with the animation timeline (frame/180)
-const PHASE_BREAKS = [0, 30 / 180, 60 / 180, 95 / 180, 140 / 180]
+// phase boundaries aligned with the animation timeline, in scrub progress
+const frameToProgress = (f: number) => (f - FRAME_START) / (FRAME_COUNT - 1 - FRAME_START)
+const PHASE_BREAKS = [0, frameToProgress(30), frameToProgress(60), frameToProgress(95), frameToProgress(140)]
 
 const N = PHASES.length
 
@@ -58,7 +60,7 @@ export default function Scrollytelling({
   const draw = useCallback(() => {
     const cv = canvasRef.current
     if (!cv) return
-    const target = Math.round(progressRef.current * (FRAME_COUNT - 1))
+    const target = FRAME_START + Math.round(progressRef.current * (FRAME_COUNT - 1 - FRAME_START))
     let best = -1
     for (let d = 0; d < FRAME_COUNT; d++) {
       if (target - d >= 0 && loadedRef.current[target - d]) { best = target - d; break }
@@ -89,9 +91,9 @@ export default function Scrollytelling({
     if (reduce) return
     let cancelled = false
     const tiers: number[] = []
-    for (let i = 0; i < FRAME_COUNT; i += 12) tiers.push(i)
-    for (let i = 0; i < FRAME_COUNT; i += 4) if (i % 12 !== 0) tiers.push(i)
-    for (let i = 0; i < FRAME_COUNT; i++) if (i % 4 !== 0) tiers.push(i)
+    for (let i = FRAME_START; i < FRAME_COUNT; i += 12) tiers.push(i)
+    for (let i = FRAME_START; i < FRAME_COUNT; i += 4) if ((i - FRAME_START) % 12 !== 0) tiers.push(i)
+    for (let i = FRAME_START; i < FRAME_COUNT; i++) if ((i - FRAME_START) % 4 !== 0) tiers.push(i)
 
     let cursor = 0
     const CONCURRENCY = 6
@@ -102,7 +104,7 @@ export default function Scrollytelling({
       img.onload = () => {
         loadedRef.current[i] = true
         imagesRef.current[i] = img
-        const target = Math.round(progressRef.current * (FRAME_COUNT - 1))
+        const target = FRAME_START + Math.round(progressRef.current * (FRAME_COUNT - 1 - FRAME_START))
         if (Math.abs(i - target) < 14 || !canvasReady) requestAnimationFrame(draw)
         next()
       }
@@ -225,9 +227,10 @@ export default function Scrollytelling({
           </div>
         </div>
 
-        {/* hero copy — opening only */}
+        {/* hero copy — opening only; centred in the area visible on first paint
+            (header + sponsor banner sit above the fold at scroll 0) */}
         <div
-          className="absolute inset-0 flex items-center"
+          className="absolute inset-x-0 top-0 flex items-center h-[calc(100vh-230px)] md:h-[calc(100vh-270px)]"
           style={{ opacity: heroCopyOpacity, pointerEvents: heroCopyOpacity < 0.3 ? "none" : undefined }}
         >
           <div className="max-w-6xl mx-auto w-full px-6 md:px-10">
