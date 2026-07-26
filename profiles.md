@@ -239,9 +239,24 @@ no /donate em produção, em menos de 2 minutos de fluxo de usuário.
 
 ## §7 — Riscos e pontos em aberto
 
-1. **App OAuth do X**: confirmar que o app das credenciais `X_CLIENT_ID/SECRET`
-   tem callback URL configurável pro domínio de produção e acesso ao endpoint
-   `users/me` no tier atual da API do X. Testar cedo — é o maior risco externo.
+1. **App OAuth do X** — VERIFICADO em 2026-07-25, resultado parcial:
+   - ✅ `GET /2/users/me` funciona via OAuth 1.0a (@dogdatabtc, pfp incluída,
+     rate limit 75/15min) — o app TEM acesso ao endpoint exato que o fluxo usa.
+   - ✅ `X_CLIENT_ID` tem o formato real de client OAuth2 do X (sufixo `:1:ci`).
+   - ❌ `X_BEARER_TOKEN` está morto (401) — regenerar no portal se quisermos o
+     fallback de tweet/bio-nonce; não bloqueia o caminho OAuth2.
+   - ❓ Callbacks registrados e status do client OAuth2 NÃO são verificáveis de
+     fora: o X só valida client_id/redirect_uri DEPOIS do login (testado no
+     browser: client_id falso e real mostram o mesmo gate de login).
+   - **AÇÃO DO DONO (5 min, precisa do login X):** developer.x.com → app DogData
+     → User authentication settings → conferir/ativar OAuth 2.0 (Web App,
+     confidential) e cadastrar os callbacks
+     `https://dogdata.xyz/api/profile/x/callback` e
+     `http://localhost:3000/api/profile/x/callback`; se ativar OAuth2 gerar novo
+     Client ID/Secret, atualizar `.env.local` + env do Vercel. Aproveitar e
+     conferir o TIER do app no dashboard: se for Free, o teto mensal de reads
+     pode limitar quantas verificações/mês fazemos (mitigação: cachear pfp no
+     nosso Storage — já previsto — e/ou subir pra Basic).
 2. **Kray Schnorr** ainda não validado com assinatura real (herdado do connectwallet).
 3. **Doações multi-sender/'anonymous'**: seguem sem identidade até o doador
    verificar a carteira — comportamento correto, sem workaround.
