@@ -17,7 +17,7 @@ import { ArrowDown, ArrowRight } from "lucide-react"
 import { PHASES, formatDog } from "./dogcity-data"
 
 const FRAME_COUNT = 180
-const FRAME_START = 14      // open on the drawn survey grid, matching the poster
+const FRAME_START = 22      // open on the fully-drawn survey grid, matching the poster
 const SEQ_VERSION = "1"
 const frameUrl = (i: number) => `/landing/seq/f_${String(i + 1).padStart(4, "0")}.webp?v=${SEQ_VERSION}`
 
@@ -74,15 +74,20 @@ export default function Scrollytelling({
     if (drawnRef.current === best && cv.dataset.size === `${cv.width}x${cv.height}`) return
     drawnRef.current = best
     cv.dataset.size = `${cv.width}x${cv.height}`
-    // object-cover draw; on wide viewports bias the vertical crop downward —
-    // the action (plaza, avenue, spaceport) lives centre-bottom of the frames,
-    // the top is empty terrain
+    // wide viewports: CONTAIN — the whole diorama fits the height, side space
+    // melts into the black studio vignette (nothing is ever cropped).
+    // narrow/portrait viewports: COVER centred on the plaza.
     const cw = cv.width, ch = cv.height
     const ir = img.width / img.height, cr = cw / ch
-    let sx = 0, sy = 0, sw = img.width, sh = img.height
-    if (ir > cr) { sw = img.height * cr; sx = (img.width - sw) / 2 }
-    else { sh = img.width / cr; sy = (img.height - sh) * 0.68 }
-    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, cw, ch)
+    ctx.clearRect(0, 0, cw, ch)
+    if (cr > ir) {
+      const dw = ch * ir
+      ctx.drawImage(img, 0, 0, img.width, img.height, (cw - dw) / 2, 0, dw, ch)
+    } else {
+      const sh = img.width / cr
+      const sy = (img.height - sh) * 0.5
+      ctx.drawImage(img, 0, sy, img.width, sh, 0, 0, cw, ch)
+    }
     setCanvasReady(true)
   }, [])
 
@@ -136,9 +141,12 @@ export default function Scrollytelling({
     const onResize = () => {
       const cv = canvasRef.current
       if (cv) {
+        // size the buffer from the canvas's real box — innerWidth includes the
+        // scrollbar and would skew the contain centering
+        const rect = cv.getBoundingClientRect()
         const dpr = Math.min(window.devicePixelRatio || 1, 2)
-        cv.width = Math.round(window.innerWidth * dpr)
-        cv.height = Math.round(window.innerHeight * dpr)
+        cv.width = Math.max(2, Math.round(rect.width * dpr))
+        cv.height = Math.max(2, Math.round(rect.height * dpr))
         drawnRef.current = -1
       }
       onScroll()
@@ -203,7 +211,7 @@ export default function Scrollytelling({
       <div className="sticky top-0 h-screen overflow-hidden bg-void">
         {/* poster until the sequence streams in */}
         <div className="absolute inset-0" style={{ opacity: canvasReady ? 0 : 1, transition: "opacity 0.5s" }}>
-          <Image src={PHASES[0].image} alt={PHASES[0].alt} fill priority sizes="100vw" className="object-cover" />
+          <Image src={PHASES[0].image} alt={PHASES[0].alt} fill priority sizes="100vw" className="object-cover md:object-contain" />
         </div>
         {/* the construction time-lapse, scrubbed by scroll */}
         <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" aria-hidden />
@@ -212,18 +220,21 @@ export default function Scrollytelling({
         <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-void/80 to-transparent pointer-events-none" />
         <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-void/85 to-transparent pointer-events-none" />
 
-        {/* masterplan badge — this is the vision, not current state */}
-        <div className="absolute top-20 left-4 md:left-8 font-mono text-[10px] tracking-[0.3em] text-snow/70 border border-white/15 bg-void/50 backdrop-blur-sm px-3 py-1.5">
-          MASTERPLAN · FOUNDING ERA
-        </div>
-
-        {/* phase indicator + progress line */}
-        <div className="absolute top-20 right-4 md:right-8 text-right">
-          <div className="font-mono text-[11px] text-snow/85 tabular-nums">
-            {String(current.number).padStart(2, "0")} / {String(N).padStart(2, "0")} · {current.shortTitle}
-          </div>
-          <div className="mt-2 h-px w-28 md:w-40 bg-white/15 ml-auto overflow-hidden">
-            <div className="h-full bg-lava origin-left" style={{ transform: `scaleX(${progress.toFixed(3)})` }} />
+        {/* top chrome: badge + phase indicator — inside a centred container so
+            the 100vw breakout / scrollbar can never clip them */}
+        <div className="absolute top-20 inset-x-0 pointer-events-none">
+          <div className="max-w-[1800px] mx-auto px-4 md:px-10 flex items-start justify-between">
+            <div className="font-mono text-[10px] tracking-[0.3em] text-snow/70 border border-white/15 bg-void/50 backdrop-blur-sm px-3 py-1.5">
+              MASTERPLAN · FOUNDING ERA
+            </div>
+            <div className="text-right">
+              <div className="font-mono text-[11px] text-snow/85 tabular-nums">
+                {String(current.number).padStart(2, "0")} / {String(N).padStart(2, "0")} · {current.shortTitle}
+              </div>
+              <div className="mt-2 h-px w-28 md:w-40 bg-white/15 ml-auto overflow-hidden">
+                <div className="h-full bg-lava origin-left" style={{ transform: `scaleX(${progress.toFixed(3)})` }} />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -265,35 +276,39 @@ export default function Scrollytelling({
                 {raised !== null && <span className="text-snow/80">{formatDog(raised)} DOG raised</span>}
                 {founders !== null && <span className="text-snow/80">{founders.toLocaleString()} founders</span>}
               </div>
+              <div
+                style={{ opacity: hintOpacity }}
+                className="mt-8 flex items-center gap-8 font-mono text-[10px] tracking-[0.2em] text-dusty"
+              >
+                <span>SCROLL TO BUILD DOGCITY</span>
+                <span className="inline-flex items-center gap-1.5">
+                  CONTINUE TO SURVEY <ArrowDown className="w-3 h-3" />
+                </span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* scroll hints — opening only */}
-        <div style={{ opacity: hintOpacity }} className="absolute bottom-6 inset-x-0 pointer-events-none">
-          <div className="max-w-6xl mx-auto px-6 md:px-10 flex justify-between font-mono text-[10px] tracking-[0.2em] text-dusty">
-            <span>SCROLL TO BUILD DOGCITY</span>
-            <span className="inline-flex items-center gap-1.5">
-              CONTINUE TO SURVEY <ArrowDown className="w-3 h-3" />
-            </span>
-          </div>
-        </div>
-
-        {/* phase caption panel — desktop right, mobile bottom */}
+        {/* phase caption panel — desktop right, mobile bottom; anchored inside
+            the centred container so it can never clip at the edges */}
         {phase > 0 && (
           <div
             key={phase}
-            className="absolute bottom-14 inset-x-4 md:inset-x-auto md:right-8 md:bottom-24 md:w-[340px] border border-white/10 bg-void/70 backdrop-blur-md p-5 animate-[fadeSlideIn_0.45s_ease-out]"
+            className="absolute bottom-24 md:bottom-32 inset-x-0 pointer-events-none"
           >
+            <div className="max-w-[1800px] mx-auto px-4 md:px-10 flex md:justify-end">
+              <div className="pointer-events-auto w-full md:w-[340px] border border-white/10 bg-void/70 backdrop-blur-md p-5 animate-[fadeSlideIn_0.45s_ease-out]">
             <div className="font-mono text-[10px] tracking-[0.25em] text-lava">
               {String(current.number).padStart(2, "0")} — {current.title.toUpperCase()}
             </div>
             <p className="mt-2 text-[13px] text-mist leading-relaxed">{current.caption}</p>
-            {current.metric && (
-              <div className="mt-3 pt-3 border-t border-white/10 font-mono text-[11px] text-snow/80 tabular-nums">
-                {current.metric}
+                {current.metric && (
+                  <div className="mt-3 pt-3 border-t border-white/10 font-mono text-[11px] text-snow/80 tabular-nums">
+                    {current.metric}
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         )}
         <style jsx>{`

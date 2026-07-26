@@ -13,6 +13,7 @@ import { useEffect, useRef, useState } from "react"
 export default function RunestoneViewer() {
   const mountRef = useRef<HTMLDivElement>(null)
   const startedRef = useRef(false)
+  const zoomRef = useRef<((factor: number) => void) | null>(null)
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle")
 
   useEffect(() => {
@@ -35,6 +36,7 @@ export default function RunestoneViewer() {
       const THREE = await import("three")
       const { GLTFLoader } = await import("three/examples/jsm/loaders/GLTFLoader.js")
       const { OrbitControls } = await import("three/examples/jsm/controls/OrbitControls.js")
+      const { RoomEnvironment } = await import("three/examples/jsm/environments/RoomEnvironment.js")
       if (disposed || !mount) return
 
       const scene = new THREE.Scene()
@@ -45,29 +47,51 @@ export default function RunestoneViewer() {
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
       renderer.setSize(mount.clientWidth, mount.clientHeight)
       renderer.toneMapping = THREE.ACESFilmicToneMapping
-      renderer.toneMappingExposure = 1.15
+      renderer.toneMappingExposure = 1.6
       mount.appendChild(renderer.domElement)
 
-      const key = new THREE.DirectionalLight(0xffb066, 2.4)
+      // a black crystal lives on reflections — studio environment map first
+      const pmrem = new THREE.PMREMGenerator(renderer)
+      scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+
+      const key = new THREE.DirectionalLight(0xffb066, 3.6)
       key.position.set(3, 4, 2)
       scene.add(key)
-      const rim = new THREE.DirectionalLight(0x9fb4d0, 1.2)
+      const rim = new THREE.DirectionalLight(0xbcd0ec, 2.2)
       rim.position.set(-4, 2.5, -3)
       scene.add(rim)
-      const under = new THREE.PointLight(0xf56e0f, 0.6, 10, 2)
+      const rim2 = new THREE.DirectionalLight(0xffffff, 1.4)
+      rim2.position.set(1.5, -1, -3.5)
+      scene.add(rim2)
+      const under = new THREE.PointLight(0xf56e0f, 1.2, 12, 2)
       under.position.set(0, -1.6, 0.6)
       scene.add(under)
-      scene.add(new THREE.AmbientLight(0x33363c, 0.7))
+      scene.add(new THREE.AmbientLight(0x3c4048, 1.1))
+
+      // block wheel-zoom BEFORE OrbitControls registers its wheel listener —
+      // pinch zoom stays enabled, the page scroll is never trapped
+      renderer.domElement.addEventListener("wheel", (e) => e.stopImmediatePropagation(), { passive: true })
 
       const controls = new OrbitControls(camera, renderer.domElement)
       controls.enableDamping = true
       controls.dampingFactor = 0.06
       controls.enablePan = false
-      controls.enableZoom = false          // never trap the page scroll
+      controls.enableZoom = true           // pinch on touch; wheel blocked above
+      controls.minDistance = 1.6
+      controls.maxDistance = 7
       controls.minPolarAngle = Math.PI * 0.22
       controls.maxPolarAngle = Math.PI * 0.62
       controls.autoRotate = !window.matchMedia("(prefers-reduced-motion: reduce)").matches
       controls.autoRotateSpeed = 0.8
+
+      // button-driven dolly for explicit zoom in/out
+      zoomRef.current = (factor: number) => {
+        const dir = camera.position.clone().sub(controls.target)
+        const len = Math.min(7, Math.max(1.6, dir.length() * factor))
+        dir.setLength(len)
+        camera.position.copy(controls.target).add(dir)
+        controls.update()
+      }
 
       new GLTFLoader().load(
         "/runestone3d.gltf",
@@ -142,9 +166,27 @@ export default function RunestoneViewer() {
         </div>
       )}
       {status === "ready" && (
-        <div className="absolute bottom-3 inset-x-0 text-center font-mono text-[10px] tracking-[0.2em] text-dusty pointer-events-none">
-          DRAG TO ROTATE
-        </div>
+        <>
+          <div className="absolute bottom-3 inset-x-0 text-center font-mono text-[10px] tracking-[0.2em] text-dusty pointer-events-none">
+            DRAG TO ROTATE · PINCH OR USE ± TO ZOOM
+          </div>
+          <div className="absolute top-3 right-3 flex flex-col gap-1.5">
+            <button
+              onClick={() => zoomRef.current?.(0.8)}
+              aria-label="Zoom in"
+              className="w-9 h-9 grid place-items-center font-mono text-base text-snow border border-white/20 bg-void/60 hover:border-lava/60 hover:text-lava transition-colors"
+            >
+              +
+            </button>
+            <button
+              onClick={() => zoomRef.current?.(1.25)}
+              aria-label="Zoom out"
+              className="w-9 h-9 grid place-items-center font-mono text-base text-snow border border-white/20 bg-void/60 hover:border-lava/60 hover:text-lava transition-colors"
+            >
+              −
+            </button>
+          </div>
+        </>
       )}
     </div>
   )
