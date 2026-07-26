@@ -18,11 +18,12 @@ import { PHASES, PHASE_ANNOTATIONS, formatDog } from "./dogcity-data"
 
 const FRAME_COUNT = 180
 const FRAME_START = 22      // open on the fully-drawn survey grid, matching the poster
+const FRAME_END = 150       // the city is complete here; the late rocket landing happens off-frame
 const SEQ_VERSION = "1"
 const TOP_BIAS = 0.85       // wide viewports fill the width; vertical overflow crops 85% from the empty top
 const frameUrl = (i: number) => `/landing/seq/f_${String(i + 1).padStart(4, "0")}.webp?v=${SEQ_VERSION}`
 
-const frameToProgress = (f: number) => (f - FRAME_START) / (FRAME_COUNT - 1 - FRAME_START)
+const frameToProgress = (f: number) => (f - FRAME_START) / (FRAME_END - FRAME_START)
 const PHASE_BREAKS = [0, frameToProgress(30), frameToProgress(60), frameToProgress(95), frameToProgress(140)]
 
 const N = PHASES.length
@@ -93,11 +94,11 @@ export default function Scrollytelling({
   const draw = useCallback(() => {
     const cv = canvasRef.current
     if (!cv) return
-    const target = FRAME_START + Math.round(progressRef.current * (FRAME_COUNT - 1 - FRAME_START))
+    const target = FRAME_START + Math.round(progressRef.current * (FRAME_END - FRAME_START))
     let best = -1
     for (let d = 0; d < FRAME_COUNT; d++) {
       if (target - d >= FRAME_START && loadedRef.current[target - d]) { best = target - d; break }
-      if (target + d < FRAME_COUNT && loadedRef.current[target + d]) { best = target + d; break }
+      if (target + d <= FRAME_END && loadedRef.current[target + d]) { best = target + d; break }
     }
     if (best < 0) return
     const img = imagesRef.current[best]
@@ -138,9 +139,9 @@ export default function Scrollytelling({
     if (reduce) return
     let cancelled = false
     const tiers: number[] = []
-    for (let i = FRAME_START; i < FRAME_COUNT; i += 12) tiers.push(i)
-    for (let i = FRAME_START; i < FRAME_COUNT; i += 4) if ((i - FRAME_START) % 12 !== 0) tiers.push(i)
-    for (let i = FRAME_START; i < FRAME_COUNT; i++) if ((i - FRAME_START) % 4 !== 0) tiers.push(i)
+    for (let i = FRAME_START; i <= FRAME_END; i += 12) tiers.push(i)
+    for (let i = FRAME_START; i <= FRAME_END; i += 4) if ((i - FRAME_START) % 12 !== 0) tiers.push(i)
+    for (let i = FRAME_START; i <= FRAME_END; i++) if ((i - FRAME_START) % 4 !== 0) tiers.push(i)
 
     let cursor = 0
     const CONCURRENCY = 6
@@ -151,7 +152,7 @@ export default function Scrollytelling({
       img.onload = () => {
         loadedRef.current[i] = true
         imagesRef.current[i] = img
-        const target = FRAME_START + Math.round(progressRef.current * (FRAME_COUNT - 1 - FRAME_START))
+        const target = FRAME_START + Math.round(progressRef.current * (FRAME_END - FRAME_START))
         if (Math.abs(i - target) < 14 || !canvasReady) requestAnimationFrame(draw)
         next()
       }
@@ -282,21 +283,28 @@ export default function Scrollytelling({
           </div>
         </div>
 
-        {/* the Runestone — permanent natural landmark marker (official artifact) */}
-        {box && (() => {
+        {/* the Runestone — natural landmark marker (official artifact); enters
+            from phase 3 on, clear of the header zone and the survey cards */}
+        {box && progress > 0.30 && (() => {
           const rx = (box.dX + 0.8647 * box.dW) * box.k
           const ryRaw = (box.dY + 0.0798 * box.dH) * box.k
-          const ry = Math.max(128, Math.min(box.cssH - 60, ryRaw))
+          const ry = Math.max(290, Math.min(box.cssH - 60, ryRaw))
           return (
-            <div className="absolute" style={{ left: rx, top: ry }}>
+            <div className="absolute animate-[annIn_0.5s_ease-out]" style={{ left: rx, top: ry }}>
+              <span
+                className="absolute -translate-x-1/2 block w-32 h-32 rounded-full pointer-events-none"
+                style={{ bottom: -14, background: "radial-gradient(circle, rgba(245,110,15,0.22), transparent 65%)" }}
+                aria-hidden
+              />
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/landing/runestone-sprite.webp"
-                alt=""
-                className="absolute bottom-0 -translate-x-1/2 h-20 md:h-28 w-auto drop-shadow-[0_0_18px_rgba(245,110,15,0.25)]"
+                alt="The Runestone monolith"
+                className="absolute bottom-0 -translate-x-1/2 h-28 md:h-40 w-auto"
+                style={{ filter: "brightness(1.15) drop-shadow(0 0 14px rgba(245,110,15,0.5))" }}
               />
               <span
-                className="absolute -translate-x-1/2 top-0 block w-10 h-1.5 rounded-[100%] bg-black/60 blur-[2px]"
+                className="absolute -translate-x-1/2 top-0 block w-12 h-1.5 rounded-[100%] bg-black/70 blur-[2px]"
                 aria-hidden
               />
               <div className="absolute top-3 -translate-x-1/2 border border-white/12 bg-void/75 backdrop-blur-sm px-2.5 py-1.5">
@@ -391,7 +399,7 @@ export default function Scrollytelling({
   return (
     <>
       {/* in-flow spacer owns the scroll range; the portal paints over it */}
-      <div ref={spacerRef} aria-label="DogCity construction phases" className="relative bg-void" style={{ height: "620vh" }}>
+      <div ref={spacerRef} aria-label="DogCity construction phases" className="relative bg-void" style={{ height: "500vh" }}>
         <div className="sr-only">
           {PHASES.map((p) => <p key={p.id}>{p.screenReaderSummary}</p>)}
         </div>
