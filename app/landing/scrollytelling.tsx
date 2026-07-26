@@ -14,7 +14,14 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import { ArrowDown, ArrowRight } from "lucide-react"
-import { PHASES, formatDog } from "./dogcity-data"
+import { PHASES, PHASE_ANNOTATIONS, formatDog } from "./dogcity-data"
+
+// mapping from frame-space (u,v) to CSS px inside the canvas, set by draw()
+interface DrawBox {
+  dX: number; dY: number; dW: number; dH: number
+  sX: number; sY: number; sW: number; sH: number
+  iw: number; ih: number; k: number; cssW: number; cssH: number
+}
 
 const FRAME_COUNT = 180
 const FRAME_START = 22      // open on the fully-drawn survey grid, matching the poster
@@ -51,6 +58,8 @@ export default function Scrollytelling({
   const [reduce, setReduce] = useState(false)
   const [staticPhase, setStaticPhase] = useState(0)
   const [canvasReady, setCanvasReady] = useState(false)
+  const [box, setBox] = useState<DrawBox | null>(null)
+  const boxKeyRef = useRef("")
 
   useEffect(() => {
     setReduce(window.matchMedia("(prefers-reduced-motion: reduce)").matches)
@@ -80,14 +89,20 @@ export default function Scrollytelling({
     const cw = cv.width, ch = cv.height
     const ir = img.width / img.height, cr = cw / ch
     ctx.clearRect(0, 0, cw, ch)
+    let b: DrawBox
+    const k = (cv.getBoundingClientRect().width || cw) / cw
     if (cr > ir) {
       const dw = ch * ir
       ctx.drawImage(img, 0, 0, img.width, img.height, (cw - dw) / 2, 0, dw, ch)
+      b = { dX: (cw - dw) / 2, dY: 0, dW: dw, dH: ch, sX: 0, sY: 0, sW: img.width, sH: img.height, iw: img.width, ih: img.height, k, cssW: cw * k, cssH: ch * k }
     } else {
       const sh = img.width / cr
       const sy = (img.height - sh) * 0.5
       ctx.drawImage(img, 0, sy, img.width, sh, 0, 0, cw, ch)
+      b = { dX: 0, dY: 0, dW: cw, dH: ch, sX: 0, sY: sy, sW: img.width, sH: sh, iw: img.width, ih: img.height, k, cssW: cw * k, cssH: ch * k }
     }
+    const bk = `${Math.round(b.dX)}|${Math.round(b.dW)}|${Math.round(b.sY)}|${Math.round(b.cssW)}|${Math.round(b.cssH)}`
+    if (bk !== boxKeyRef.current) { boxKeyRef.current = bk; setBox(b) }
     setCanvasReady(true)
   }, [])
 
@@ -154,9 +169,12 @@ export default function Scrollytelling({
     onResize()
     window.addEventListener("scroll", onScroll, { passive: true })
     window.addEventListener("resize", onResize)
+    const ro = new ResizeObserver(onResize)
+    if (canvasRef.current) ro.observe(canvasRef.current)
     return () => {
       window.removeEventListener("scroll", onScroll)
       window.removeEventListener("resize", onResize)
+      ro.disconnect()
       cancelAnimationFrame(raf)
     }
   }, [reduce, draw])
@@ -289,31 +307,47 @@ export default function Scrollytelling({
           </div>
         </div>
 
-        {/* phase caption panel — desktop right, mobile bottom; anchored inside
-            the centred container so it can never clip at the edges */}
-        {phase > 0 && (
-          <div
-            key={phase}
-            className="absolute bottom-24 md:bottom-32 inset-x-0 pointer-events-none"
-          >
-            <div className="max-w-[1800px] mx-auto px-4 md:px-10 flex md:justify-end">
-              <div className="pointer-events-auto w-full md:w-[340px] border border-white/10 bg-void/70 backdrop-blur-md p-5 animate-[fadeSlideIn_0.45s_ease-out]">
-            <div className="font-mono text-[10px] tracking-[0.25em] text-lava">
-              {String(current.number).padStart(2, "0")} — {current.title.toUpperCase()}
-            </div>
-            <p className="mt-2 text-[13px] text-mist leading-relaxed">{current.caption}</p>
-                {current.metric && (
-                  <div className="mt-3 pt-3 border-t border-white/10 font-mono text-[11px] text-snow/80 tabular-nums">
-                    {current.metric}
-                  </div>
+        {/* anchored annotations — cards live ON the elements they explain */}
+        {box && PHASE_ANNOTATIONS[phase]?.map((a) => {
+          const x = (a.u * box.iw - box.sX) / box.sW
+          const y = (a.v * box.ih - box.sY) / box.sH
+          if (x < 0.02 || x > 0.98 || y < 0.02 || y > 0.98) return null
+          const cx = (box.dX + x * box.dW) * box.k
+          const cy = (box.dY + y * box.dH) * box.k
+          const flipY = cy < 150
+          const shiftX = cx < box.cssW * 0.16 ? "0%" : cx > box.cssW * 0.84 ? "-100%" : "-50%"
+          return (
+            <div
+              key={`${phase}-${a.id}`}
+              className={`absolute pointer-events-none animate-[annIn_0.5s_ease-out] ${a.primary ? "" : "hidden md:block"}`}
+              style={{ left: cx, top: cy }}
+            >
+              <span
+                className="absolute block w-2 h-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-lava"
+                style={{ boxShadow: "0 0 10px rgba(245,110,15,0.9)" }}
+              />
+              <span
+                className="absolute left-0 w-px h-8 -translate-x-1/2 bg-gradient-to-t from-lava/70 to-lava/10"
+                style={flipY ? { top: 5, transform: "translateX(-50%) scaleY(-1)" } : { bottom: 5 }}
+              />
+              <div
+                className="absolute border border-white/12 bg-void/75 backdrop-blur-sm px-2.5 py-1.5"
+                style={{
+                  [flipY ? "top" : "bottom"]: 40,
+                  transform: `translateX(${shiftX})`,
+                } as React.CSSProperties}
+              >
+                <div className="font-mono text-[10px] tracking-[0.18em] text-snow whitespace-nowrap">{a.title}</div>
+                {a.text && (
+                  <p className="mt-1 text-[11px] text-mist leading-snug w-[220px]">{a.text}</p>
                 )}
               </div>
             </div>
-          </div>
-        )}
+          )
+        })}
         <style jsx>{`
-          @keyframes fadeSlideIn {
-            from { opacity: 0; transform: translateY(14px); }
+          @keyframes annIn {
+            from { opacity: 0; transform: translateY(6px); }
             to { opacity: 1; transform: translateY(0); }
           }
         `}</style>
