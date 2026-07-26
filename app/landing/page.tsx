@@ -7,7 +7,7 @@
 // All dynamic numbers come from /api/donate/leaderboard and /api/plot.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import Image from "next/image"
 import {
   ArrowRight, Copy, Check, Search, Loader2, ShieldCheck,
@@ -101,31 +101,12 @@ export default function LandingPage() {
     return () => window.removeEventListener("scroll", onScroll)
   }, [])
 
-  // measured full-bleed: span exactly the visible client width, pixel-exact on
-  // both edges regardless of scrollbar/zoom (vw math is unreliable for this)
-  const wrapRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const el = wrapRef.current
-    if (!el) return
-    const apply = () => {
-      el.style.marginLeft = "0px"
-      el.style.width = document.documentElement.clientWidth + "px"
-      const left = el.getBoundingClientRect().left
-      el.style.marginLeft = `${-left}px`
-    }
-    apply()
-    window.addEventListener("resize", apply)
-    const ro = new ResizeObserver(apply)
-    ro.observe(document.documentElement)
-    return () => {
-      window.removeEventListener("resize", apply)
-      ro.disconnect()
-    }
-  }, [])
+  // (the scrollytelling stage escapes all Layout containers via a body portal —
+  // no width measurement needed here)
 
   return (
     <Layout currentPage="donate" setCurrentPage={() => {}}>
-      <div ref={wrapRef} data-dogcity-landing className="bg-void text-snow">
+      <div data-dogcity-landing className="bg-void text-snow">
 
         <Scrollytelling raised={raised} founders={lb?.founders_count ?? null} />
 

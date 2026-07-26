@@ -3,36 +3,35 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // DogCity scrollytelling — a 180-frame construction time-lapse of the same
 // lunar site (locked camera, Blender master scene), scrubbed by scroll on a
-// full-viewport canvas. Buildings rise from the regolith, cranes turn, the
-// rocket lands and lifts off — continuous video feel, no image swaps.
-// Frames load progressively (every 12th → every 4th → all) and the nearest
-// loaded frame is drawn, so the scrub sharpens as the sequence streams in.
-// Reduced-motion gets discrete phase stills; screen readers get a text
-// walkthrough of every phase.
+// full-viewport canvas rendered through a PORTAL to document.body. The portal
+// escapes every Layout container/padding/overflow, so the stage spans the true
+// viewport edge-to-edge by construction — no width math, no side bars, ever.
+// An in-flow spacer owns the scroll range; the portal paints over it.
+// Annotations are anchored to real city elements via camera-projected (u,v).
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useCallback, useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import Image from "next/image"
-import { ArrowDown, ArrowRight } from "lucide-react"
+import { ArrowDown } from "lucide-react"
 import { PHASES, PHASE_ANNOTATIONS, formatDog } from "./dogcity-data"
 
-// mapping from frame-space (u,v) to CSS px inside the canvas, set by draw()
+const FRAME_COUNT = 180
+const FRAME_START = 22      // open on the fully-drawn survey grid, matching the poster
+const SEQ_VERSION = "1"
+const TOP_BIAS = 0.85       // wide viewports fill the width; vertical overflow crops 85% from the empty top
+const frameUrl = (i: number) => `/landing/seq/f_${String(i + 1).padStart(4, "0")}.webp?v=${SEQ_VERSION}`
+
+const frameToProgress = (f: number) => (f - FRAME_START) / (FRAME_COUNT - 1 - FRAME_START)
+const PHASE_BREAKS = [0, frameToProgress(30), frameToProgress(60), frameToProgress(95), frameToProgress(140)]
+
+const N = PHASES.length
+
 interface DrawBox {
   dX: number; dY: number; dW: number; dH: number
   sX: number; sY: number; sW: number; sH: number
   iw: number; ih: number; k: number; cssW: number; cssH: number
 }
-
-const FRAME_COUNT = 180
-const FRAME_START = 22      // open on the fully-drawn survey grid, matching the poster
-const SEQ_VERSION = "1"
-const frameUrl = (i: number) => `/landing/seq/f_${String(i + 1).padStart(4, "0")}.webp?v=${SEQ_VERSION}`
-
-// phase boundaries aligned with the animation timeline, in scrub progress
-const frameToProgress = (f: number) => (f - FRAME_START) / (FRAME_COUNT - 1 - FRAME_START)
-const PHASE_BREAKS = [0, frameToProgress(30), frameToProgress(60), frameToProgress(95), frameToProgress(140)]
-
-const N = PHASES.length
 
 function clamp01(x: number): number {
   return Math.max(0, Math.min(1, x))
@@ -47,23 +46,48 @@ function phaseAt(progress: number): number {
 export default function Scrollytelling({
   raised, founders,
 }: { raised: number | null; founders: number | null }) {
-  const sectionRef = useRef<HTMLDivElement>(null)
+  const spacerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const imagesRef = useRef<(HTMLImageElement | null)[]>([])
   const loadedRef = useRef<boolean[]>([])
   const progressRef = useRef(0)
   const drawnRef = useRef(-1)
+  const boxKeyRef = useRef("")
 
+  const [mounted, setMounted] = useState(false)
+  const [overlay, setOverlay] = useState<{ top: number; height: number } | null>(null)
   const [progress, setProgress] = useState(0)
   const [reduce, setReduce] = useState(false)
   const [staticPhase, setStaticPhase] = useState(0)
   const [canvasReady, setCanvasReady] = useState(false)
   const [box, setBox] = useState<DrawBox | null>(null)
-  const boxKeyRef = useRef("")
 
   useEffect(() => {
+    setMounted(true)
     setReduce(window.matchMedia("(prefers-reduced-motion: reduce)").matches)
   }, [])
+
+  // keep the body-level portal glued to the in-flow spacer
+  useEffect(() => {
+    if (reduce || !mounted) return
+    const upd = () => {
+      const s = spacerRef.current
+      if (!s) return
+      const r = s.getBoundingClientRect()
+      const top = Math.round(r.top + window.scrollY)
+      const height = Math.round(r.height)
+      setOverlay((o) => (o && o.top === top && o.height === height ? o : { top, height }))
+    }
+    upd()
+    window.addEventListener("resize", upd)
+    const ro = new ResizeObserver(upd)
+    ro.observe(document.body)
+    if (spacerRef.current) ro.observe(spacerRef.current)
+    return () => {
+      window.removeEventListener("resize", upd)
+      ro.disconnect()
+    }
+  }, [reduce, mounted])
 
   // ── draw the nearest loaded frame for the current progress ───────────────
   const draw = useCallback(() => {
@@ -72,7 +96,7 @@ export default function Scrollytelling({
     const target = FRAME_START + Math.round(progressRef.current * (FRAME_COUNT - 1 - FRAME_START))
     let best = -1
     for (let d = 0; d < FRAME_COUNT; d++) {
-      if (target - d >= 0 && loadedRef.current[target - d]) { best = target - d; break }
+      if (target - d >= FRAME_START && loadedRef.current[target - d]) { best = target - d; break }
       if (target + d < FRAME_COUNT && loadedRef.current[target + d]) { best = target + d; break }
     }
     if (best < 0) return
@@ -83,19 +107,22 @@ export default function Scrollytelling({
     if (drawnRef.current === best && cv.dataset.size === `${cv.width}x${cv.height}`) return
     drawnRef.current = best
     cv.dataset.size = `${cv.width}x${cv.height}`
-    // wide viewports: CONTAIN — the whole diorama fits the height, side space
-    // melts into the black studio vignette (nothing is ever cropped).
-    // narrow/portrait viewports: COVER centred on the plaza.
+
     const cw = cv.width, ch = cv.height
     const ir = img.width / img.height, cr = cw / ch
+    const k = (cv.getBoundingClientRect().width || cw) / cw
     ctx.clearRect(0, 0, cw, ch)
     let b: DrawBox
-    const k = (cv.getBoundingClientRect().width || cw) / cw
     if (cr > ir) {
-      const dw = ch * ir
-      ctx.drawImage(img, 0, 0, img.width, img.height, (cw - dw) / 2, 0, dw, ch)
-      b = { dX: (cw - dw) / 2, dY: 0, dW: dw, dH: ch, sX: 0, sY: 0, sW: img.width, sH: img.height, iw: img.width, ih: img.height, k, cssW: cw * k, cssH: ch * k }
+      // wide: fill the full width (zero side bars); vertical overflow crops
+      // mostly from the empty terrain at the top
+      const dW = cw
+      const dH = cw / ir
+      const dY = -(dH - ch) * TOP_BIAS
+      ctx.drawImage(img, 0, 0, img.width, img.height, 0, dY, dW, dH)
+      b = { dX: 0, dY, dW, dH, sX: 0, sY: 0, sW: img.width, sH: img.height, iw: img.width, ih: img.height, k, cssW: cw * k, cssH: ch * k }
     } else {
+      // narrow: cover centred on the plaza
       const sh = img.width / cr
       const sy = (img.height - sh) * 0.5
       ctx.drawImage(img, 0, sy, img.width, sh, 0, 0, cw, ch)
@@ -136,14 +163,14 @@ export default function Scrollytelling({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reduce])
 
-  // ── scroll → progress (hand-rolled: rAF + rect) ──────────────────────────
+  // ── scroll → progress (hand-rolled: rAF + rect of the in-flow spacer) ────
   useEffect(() => {
-    if (reduce) return
+    if (reduce || !mounted) return
     let raf = 0
     const onScroll = () => {
       cancelAnimationFrame(raf)
       raf = requestAnimationFrame(() => {
-        const el = sectionRef.current
+        const el = spacerRef.current
         if (!el) return
         const rect = el.getBoundingClientRect()
         const total = rect.height - window.innerHeight
@@ -156,8 +183,6 @@ export default function Scrollytelling({
     const onResize = () => {
       const cv = canvasRef.current
       if (cv) {
-        // size the buffer from the canvas's real box — innerWidth includes the
-        // scrollbar and would skew the contain centering
         const rect = cv.getBoundingClientRect()
         const dpr = Math.min(window.devicePixelRatio || 1, 2)
         cv.width = Math.max(2, Math.round(rect.width * dpr))
@@ -177,7 +202,7 @@ export default function Scrollytelling({
       ro.disconnect()
       cancelAnimationFrame(raf)
     }
-  }, [reduce, draw])
+  }, [reduce, mounted, draw, overlay])
 
   const phase = reduce ? staticPhase : phaseAt(progress)
   const current = PHASES[phase]
@@ -219,48 +244,72 @@ export default function Scrollytelling({
     )
   }
 
-  return (
-    <section ref={sectionRef} aria-label="DogCity construction phases" className="relative" style={{ height: "620vh" }}>
-      {/* screen-reader walkthrough of every phase */}
-      <div className="sr-only">
-        {PHASES.map((p) => <p key={p.id}>{p.screenReaderSummary}</p>)}
-      </div>
-
+  const stage = overlay && (
+    <section
+      aria-hidden
+      className="pointer-events-none"
+      style={{ position: "absolute", top: overlay.top, height: overlay.height, left: 0, width: "100%", zIndex: 5 }}
+    >
       <div className="sticky top-0 h-screen overflow-hidden bg-void">
         {/* poster until the sequence streams in */}
         <div className="absolute inset-0" style={{ opacity: canvasReady ? 0 : 1, transition: "opacity 0.5s" }}>
-          <Image src={PHASES[0].image} alt={PHASES[0].alt} fill priority sizes="100vw" className="object-cover md:object-contain" />
+          <Image src={PHASES[0].image} alt="" fill priority sizes="100vw" className="object-cover md:object-contain" />
         </div>
         {/* the construction time-lapse, scrubbed by scroll */}
-        <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" aria-hidden />
+        <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
 
         {/* readability gradients */}
-        <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-void/80 to-transparent pointer-events-none" />
-        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-void/85 to-transparent pointer-events-none" />
+        <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-void/80 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-void/85 to-transparent" />
 
-        {/* top chrome: badge + phase indicator — inside a centred container so
-            the 100vw breakout / scrollbar can never clip them */}
-        <div className="absolute top-20 inset-x-0 pointer-events-none">
-          <div className="max-w-[1800px] mx-auto px-4 md:px-10 flex items-start justify-between">
-            <div className="font-mono text-[10px] tracking-[0.3em] text-snow/70 border border-white/15 bg-void/50 backdrop-blur-sm px-3 py-1.5">
-              MASTERPLAN · FOUNDING ERA
-            </div>
-            <div className="text-right">
-              <div className="font-mono text-[11px] text-snow/85 tabular-nums">
-                {String(current.number).padStart(2, "0")} / {String(N).padStart(2, "0")} · {current.shortTitle}
+        {/* top chrome: badge + phase indicator stacked top-left — the top-right
+            corner belongs to the Runestone */}
+        <div className="absolute top-20 inset-x-0">
+          <div className="max-w-[1800px] mx-auto px-4 md:px-10">
+            <div className="inline-block">
+              <div className="font-mono text-[10px] tracking-[0.3em] text-snow/70 border border-white/15 bg-void/50 backdrop-blur-sm px-3 py-1.5">
+                MASTERPLAN · FOUNDING ERA
               </div>
-              <div className="mt-2 h-px w-28 md:w-40 bg-white/15 ml-auto overflow-hidden">
-                <div className="h-full bg-lava origin-left" style={{ transform: `scaleX(${progress.toFixed(3)})` }} />
+              <div className="mt-2 flex items-center gap-3">
+                <div className="h-px w-24 md:w-32 bg-white/15 overflow-hidden">
+                  <div className="h-full bg-lava origin-left" style={{ transform: `scaleX(${progress.toFixed(3)})` }} />
+                </div>
+                <div className="font-mono text-[10px] text-snow/80 tabular-nums">
+                  {String(current.number).padStart(2, "0")} / {String(N).padStart(2, "0")} · {current.shortTitle}
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* hero copy — opening only; centred in the area visible on first paint
-            (header + sponsor banner sit above the fold at scroll 0) */}
+        {/* the Runestone — permanent natural landmark marker (official artifact) */}
+        {box && (() => {
+          const rx = (box.dX + 0.8647 * box.dW) * box.k
+          const ryRaw = (box.dY + 0.0798 * box.dH) * box.k
+          const ry = Math.max(128, Math.min(box.cssH - 60, ryRaw))
+          return (
+            <div className="absolute" style={{ left: rx, top: ry }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/landing/runestone-sprite.webp"
+                alt=""
+                className="absolute bottom-0 -translate-x-1/2 h-20 md:h-28 w-auto drop-shadow-[0_0_18px_rgba(245,110,15,0.25)]"
+              />
+              <span
+                className="absolute -translate-x-1/2 top-0 block w-10 h-1.5 rounded-[100%] bg-black/60 blur-[2px]"
+                aria-hidden
+              />
+              <div className="absolute top-3 -translate-x-1/2 border border-white/12 bg-void/75 backdrop-blur-sm px-2.5 py-1.5">
+                <div className="font-mono text-[10px] tracking-[0.18em] text-snow whitespace-nowrap">RUNESTONE NATURAL PARK</div>
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* hero copy — opening only; no CTAs, the scroll IS the journey */}
         <div
           className="absolute inset-x-0 top-0 flex items-center h-[calc(100vh-230px)] md:h-[calc(100vh-270px)]"
-          style={{ opacity: heroCopyOpacity, pointerEvents: heroCopyOpacity < 0.3 ? "none" : undefined }}
+          style={{ opacity: heroCopyOpacity }}
         >
           <div className="max-w-6xl mx-auto w-full px-6 md:px-10">
             <div className="max-w-2xl">
@@ -275,20 +324,6 @@ export default function Scrollytelling({
                 terrain. Participating wallets can become properties, placed by DOG
                 history and connected to Bitcoin.
               </p>
-              <div className="mt-7 flex flex-wrap items-center gap-3">
-                <a
-                  href="#build"
-                  className="inline-flex items-center gap-2 px-6 py-3 font-mono text-sm font-bold text-void bg-lava hover:bg-lava-light transition-colors"
-                >
-                  Build DogCity <ArrowRight className="w-4 h-4" />
-                </a>
-                <a
-                  href="#how"
-                  className="inline-flex items-center gap-2 px-6 py-3 font-mono text-sm text-snow border border-white/20 hover:border-white/45 transition-colors"
-                >
-                  See How It Works
-                </a>
-              </div>
               <div className="mt-6 font-mono text-[11px] text-dusty flex flex-wrap gap-x-6 gap-y-1">
                 <span>Construction is already underway.</span>
                 {raised !== null && <span className="text-snow/80">{formatDog(raised)} DOG raised</span>}
@@ -308,35 +343,39 @@ export default function Scrollytelling({
         </div>
 
         {/* anchored annotations — cards live ON the elements they explain */}
-        {box && PHASE_ANNOTATIONS[phase]?.map((a) => {
+        {box && progress > 0.13 && PHASE_ANNOTATIONS[phase]?.map((a) => {
           const x = (a.u * box.iw - box.sX) / box.sW
           const y = (a.v * box.ih - box.sY) / box.sH
-          if (x < 0.02 || x > 0.98 || y < 0.02 || y > 0.98) return null
+          if (x < 0.02 || x > 0.98 || y < -0.02 || y > 0.98) return null
           const cx = (box.dX + x * box.dW) * box.k
           const cy = (box.dY + y * box.dH) * box.k
-          const flipY = cy < 150
+          if (cy < 8 || cy > box.cssH - 8) return null
+          let side = a.side ?? "top"
+          if (side === "top" && cy < 150) side = "bottom"
+          if (side === "bottom" && cy > box.cssH - 150) side = "top"
+          const stem =
+            side === "top"    ? { className: "absolute left-0 w-px h-8 -translate-x-1/2 bg-gradient-to-t from-lava/70 to-lava/10", style: { bottom: 5 } }
+            : side === "bottom" ? { className: "absolute left-0 w-px h-8 -translate-x-1/2 bg-gradient-to-b from-lava/70 to-lava/10", style: { top: 5 } }
+            : side === "left"  ? { className: "absolute top-0 h-px w-8 -translate-y-1/2 bg-gradient-to-l from-lava/70 to-lava/10", style: { right: 5 } }
+            :                    { className: "absolute top-0 h-px w-8 -translate-y-1/2 bg-gradient-to-r from-lava/70 to-lava/10", style: { left: 5 } }
           const shiftX = cx < box.cssW * 0.16 ? "0%" : cx > box.cssW * 0.84 ? "-100%" : "-50%"
+          const card: React.CSSProperties =
+            side === "top"    ? { bottom: 40, transform: `translateX(${shiftX})` }
+            : side === "bottom" ? { top: 40, transform: `translateX(${shiftX})` }
+            : side === "left"  ? { right: 40, top: 0, transform: "translateY(-50%)" }
+            :                    { left: 40, top: 0, transform: "translateY(-50%)" }
           return (
             <div
               key={`${phase}-${a.id}`}
-              className={`absolute pointer-events-none animate-[annIn_0.5s_ease-out] ${a.primary ? "" : "hidden md:block"}`}
+              className={`absolute animate-[annIn_0.5s_ease-out] ${a.primary ? "" : "hidden md:block"}`}
               style={{ left: cx, top: cy }}
             >
               <span
                 className="absolute block w-2 h-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-lava"
                 style={{ boxShadow: "0 0 10px rgba(245,110,15,0.9)" }}
               />
-              <span
-                className="absolute left-0 w-px h-8 -translate-x-1/2 bg-gradient-to-t from-lava/70 to-lava/10"
-                style={flipY ? { top: 5, transform: "translateX(-50%) scaleY(-1)" } : { bottom: 5 }}
-              />
-              <div
-                className="absolute border border-white/12 bg-void/75 backdrop-blur-sm px-2.5 py-1.5"
-                style={{
-                  [flipY ? "top" : "bottom"]: 40,
-                  transform: `translateX(${shiftX})`,
-                } as React.CSSProperties}
-              >
+              <span className={stem.className} style={stem.style as React.CSSProperties} />
+              <div className="absolute border border-white/12 bg-void/75 backdrop-blur-sm px-2.5 py-1.5" style={card}>
                 <div className="font-mono text-[10px] tracking-[0.18em] text-snow whitespace-nowrap">{a.title}</div>
                 {a.text && (
                   <p className="mt-1 text-[11px] text-mist leading-snug w-[220px]">{a.text}</p>
@@ -345,13 +384,25 @@ export default function Scrollytelling({
             </div>
           )
         })}
-        <style jsx>{`
-          @keyframes annIn {
-            from { opacity: 0; transform: translateY(6px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-        `}</style>
       </div>
     </section>
+  )
+
+  return (
+    <>
+      {/* in-flow spacer owns the scroll range; the portal paints over it */}
+      <div ref={spacerRef} aria-label="DogCity construction phases" className="relative bg-void" style={{ height: "620vh" }}>
+        <div className="sr-only">
+          {PHASES.map((p) => <p key={p.id}>{p.screenReaderSummary}</p>)}
+        </div>
+      </div>
+      {mounted && stage && createPortal(stage, document.body)}
+      <style jsx global>{`
+        @keyframes annIn {
+          from { opacity: 0; transform: translateY(6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+    </>
   )
 }

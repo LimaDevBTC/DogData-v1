@@ -121,13 +121,13 @@ export interface PhaseAnnotation {
   title: string
   text?: string
   primary?: boolean
+  side?: "top" | "bottom" | "left" | "right"
 }
 
 export const PHASE_ANNOTATIONS: PhaseAnnotation[][] = [
   [ // 01 · terrain
     { id: "plaza", u: 0.4781, v: 0.4699, title: "FUTURE CENTRAL PLAZA", primary: true,
       text: "Roads, lots and buildings will rise over mapped lunar terrain — a real place on the Moon." },
-    { id: "runestone", u: 0.8647, v: 0.0798, title: "RUNESTONE · NATURAL LANDMARK" },
   ],
   [ // 02 · survey
     { id: "lots", u: 0.8611, v: 0.3049, title: "97,673 LOTS DEMARCATED", primary: true,
@@ -141,19 +141,18 @@ export const PHASE_ANNOTATIONS: PhaseAnnotation[][] = [
     { id: "firstprops", u: 0.2528, v: 0.5857, title: "FIRST COMMUNITY PROPERTIES" },
   ],
   [ // 04 · first district
-    { id: "tower", u: 0.4771, v: 0.3624, title: "CENTRAL TOWER", primary: true,
+    { id: "tower", u: 0.4771, v: 0.3624, title: "CENTRAL TOWER", primary: true, side: "top",
       text: "Wallet history decides location — the landmark towers anchor the first district." },
-    { id: "bitflow", u: 0.4017, v: 0.3554, title: "BITFLOW HQ · LOT #1" },
-    { id: "kray", u: 0.5567, v: 0.3671, title: "KRAY TOWER · LOT #2" },
-    { id: "ring", u: 0.5746, v: 0.5356, title: "COMMERCIAL RING · RESERVED" },
+    { id: "bitflow", u: 0.4017, v: 0.3554, title: "BITFLOW HQ · LOT #1", side: "left" },
+    { id: "kray", u: 0.5567, v: 0.3671, title: "KRAY TOWER · LOT #2", side: "right" },
+    { id: "ring", u: 0.5746, v: 0.5356, title: "COMMERCIAL RING · RESERVED", side: "bottom" },
   ],
   [ // 05 · active city
-    { id: "stadium", u: 0.6841, v: 0.8159, title: "FOOTBALL STADIUM", primary: true,
+    { id: "stadium", u: 0.6841, v: 0.8159, title: "FOOTBALL STADIUM", primary: true, side: "top",
       text: "A living city — stadiums, parks, the monorail loop and the spaceport serve every district." },
-    { id: "monorail", u: 0.8005, v: 0.6491, title: "MONORAIL LOOP" },
-    { id: "runestone", u: 0.8647, v: 0.0798, title: "RUNESTONE PARK" },
-    { id: "pawpark", u: 0.0561, v: 0.8097, title: "PAW PARK" },
-    { id: "craterpark", u: 0.7375, v: 0.1267, title: "CRATER PARK" },
+    { id: "monorail", u: 0.8005, v: 0.6491, title: "MONORAIL LOOP", side: "right" },
+    { id: "pawpark", u: 0.0561, v: 0.8097, title: "PAW PARK", side: "right" },
+    { id: "craterpark", u: 0.7375, v: 0.1267, title: "CRATER PARK", side: "bottom" },
   ],
 ]
 
