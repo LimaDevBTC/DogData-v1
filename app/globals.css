@@ -706,6 +706,17 @@ main {
   overflow-x: hidden;
 }
 
+/* DogCity landing: sticky scrollytelling needs main NOT to be a scroll
+   container — overflow-x:hidden breaks position:sticky for descendants.
+   clip gives the same visual containment without creating one. */
+main:has([data-dogcity-landing]) {
+  overflow-x: clip;
+}
+
+body:has([data-dogcity-landing]) {
+  overflow-x: clip;
+}
+
 /* Sharp buttons - no border radius */
 .btn-sharp {
   border-radius: 0 !important;
