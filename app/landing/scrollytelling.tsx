@@ -72,12 +72,14 @@ export default function Scrollytelling({
     if (drawnRef.current === best && cv.dataset.size === `${cv.width}x${cv.height}`) return
     drawnRef.current = best
     cv.dataset.size = `${cv.width}x${cv.height}`
-    // object-cover draw
+    // object-cover draw; on wide viewports bias the vertical crop downward —
+    // the action (plaza, avenue, spaceport) lives centre-bottom of the frames,
+    // the top is empty terrain
     const cw = cv.width, ch = cv.height
     const ir = img.width / img.height, cr = cw / ch
     let sx = 0, sy = 0, sw = img.width, sh = img.height
     if (ir > cr) { sw = img.height * cr; sx = (img.width - sw) / 2 }
-    else { sh = img.width / cr; sy = (img.height - sh) / 2 }
+    else { sh = img.width / cr; sy = (img.height - sh) * 0.68 }
     ctx.drawImage(img, sx, sy, sw, sh, 0, 0, cw, ch)
     setCanvasReady(true)
   }, [])

@@ -11,11 +11,21 @@ import { useEffect, useState } from "react"
 import Image from "next/image"
 import {
   ArrowRight, Copy, Check, Search, Loader2, ShieldCheck,
-  Bitcoin, MapPin, Radio, Sparkles,
+  Bitcoin, MapPin, Radio,
 } from "lucide-react"
+import dynamic from "next/dynamic"
 import { Layout } from "@/components/layout"
 import PlotMap from "../donate/plot-map"
 import Scrollytelling from "./scrollytelling"
+
+const RunestoneViewer = dynamic(() => import("./runestone-viewer"), {
+  ssr: false,
+  loading: () => (
+    <div className="absolute inset-0 flex items-center justify-center">
+      <div className="font-mono text-[11px] tracking-[0.25em] text-dusty animate-pulse">SUMMONING RUNESTONE…</div>
+    </div>
+  ),
+})
 import {
   DONATION_GOAL, DONATION_METHODS, FEATURES, LOT_SEGMENTATION,
   LUNAR_SITE, PHASES, TIERS, WALLET_STEPS, formatDog, shortAddr,
@@ -93,7 +103,7 @@ export default function LandingPage() {
 
   return (
     <Layout currentPage="donate" setCurrentPage={() => {}}>
-      <div data-dogcity-landing className="bg-void text-snow -mt-14 md:-mt-16 w-screen ml-[calc(50%-50vw)]">
+      <div data-dogcity-landing className="bg-void text-snow w-screen ml-[calc(50%-50vw)]">
 
         <Scrollytelling raised={raised} founders={lb?.founders_count ?? null} />
 
@@ -436,21 +446,23 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ── RUNESTONE NATURAL PARK ─────────────────────────────────────── */}
+        {/* ── RUNESTONE NATURAL PARK — interactive 3D monolith ───────────── */}
         <section className="border-t border-white/5">
           <div className="max-w-6xl mx-auto px-6 md:px-10 py-20 md:py-28">
-            <div className="max-w-2xl mx-auto text-center">
-              <div className="mx-auto w-10 h-16 relative mb-8" aria-hidden>
-                <div className="absolute inset-x-2 bottom-0 top-2 bg-[#101014] border border-white/15 -skew-x-3" />
-                <Sparkles className="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-4 text-snow/70" />
+            <div className="grid md:grid-cols-2 gap-10 items-center">
+              <div>
+                <SectionHead
+                  eyebrow="RUNESTONE NATURAL PARK"
+                  title="Beyond the skyline."
+                  sub="Far northeast of the city, the black Runestone monolith stands half-embedded in preserved terrain — a natural and cultural landmark connected to DogCity by a single scenic road, and protected from dense development. Forever outside the urban core."
+                />
+                <p className="mt-6 font-mono text-[11px] text-dusty leading-relaxed">
+                  The monolith below is the official Runestone artifact — take it for a spin.
+                </p>
               </div>
-              <div className="font-mono text-[11px] tracking-[0.3em] text-lava">RUNESTONE NATURAL PARK</div>
-              <h2 className="font-display font-bold text-3xl md:text-4xl text-snow mt-3">Beyond the skyline.</h2>
-              <p className="text-sm text-mist mt-4 leading-relaxed">
-                Far northeast of the city, the black Runestone monolith stands half-embedded in preserved
-                terrain — a natural and cultural landmark connected to DogCity by a single scenic road,
-                and protected from dense development. Forever outside the urban core.
-              </p>
+              <div className="relative aspect-square max-h-[560px] border border-white/10 bg-gradient-to-b from-white/[0.02] to-transparent">
+                <RunestoneViewer />
+              </div>
             </div>
           </div>
         </section>
