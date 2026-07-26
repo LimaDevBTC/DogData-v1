@@ -17,7 +17,8 @@ import { ArrowDown, ArrowRight } from "lucide-react"
 import { PHASES, formatDog } from "./dogcity-data"
 
 const FRAME_COUNT = 180
-const frameUrl = (i: number) => `/landing/seq/f_${String(i + 1).padStart(4, "0")}.webp`
+const SEQ_VERSION = "1"
+const frameUrl = (i: number) => `/landing/seq/f_${String(i + 1).padStart(4, "0")}.webp?v=${SEQ_VERSION}`
 
 // phase boundaries aligned with the animation timeline (frame/180)
 const PHASE_BREAKS = [0, 30 / 180, 60 / 180, 95 / 180, 140 / 180]
