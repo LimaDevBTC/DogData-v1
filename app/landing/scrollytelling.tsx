@@ -262,18 +262,18 @@ export default function Scrollytelling({
 
         {/* readability gradients */}
         <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-void/80 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-void/85 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-void/[0.85] to-transparent" />
 
         {/* top chrome: badge + phase indicator stacked top-left — the top-right
             corner belongs to the Runestone */}
         <div className="absolute top-20 inset-x-0">
           <div className="max-w-[1800px] mx-auto px-4 md:px-10">
             <div className="inline-block">
-              <div className="font-mono text-[10px] tracking-[0.3em] text-snow/70 border border-white/15 bg-void/50 backdrop-blur-sm px-3 py-1.5">
+              <div className="font-mono text-[10px] tracking-[0.3em] text-snow/70 border border-white/[0.15] bg-void/50 backdrop-blur-sm px-3 py-1.5">
                 MASTERPLAN · FOUNDING ERA
               </div>
               <div className="mt-2 flex items-center gap-3">
-                <div className="h-px w-24 md:w-32 bg-white/15 overflow-hidden">
+                <div className="h-px w-24 md:w-32 bg-white/[0.15] overflow-hidden">
                   <div className="h-full bg-lava origin-left" style={{ transform: `scaleX(${progress.toFixed(3)})` }} />
                 </div>
                 <div className="font-mono text-[10px] text-snow/80 tabular-nums">
@@ -319,7 +319,7 @@ export default function Scrollytelling({
                 className="absolute -translate-x-1/2 top-0 block w-12 h-1.5 rounded-[100%] bg-black/70 blur-[2px]"
                 aria-hidden
               />
-              <div className="absolute top-3 -translate-x-1/2 border border-white/12 bg-void/75 backdrop-blur-sm px-2.5 py-1.5">
+              <div className="absolute top-3 -translate-x-1/2 border border-white/[0.12] bg-void/75 backdrop-blur-sm px-2.5 py-1.5">
                 <div className="font-mono text-[10px] tracking-[0.18em] text-snow whitespace-nowrap">RUNESTONE NATURAL PARK</div>
               </div>
             </div>
@@ -395,7 +395,7 @@ export default function Scrollytelling({
                 style={{ boxShadow: "0 0 10px rgba(245,110,15,0.9)" }}
               />
               <span className={stem.className} style={stem.style as React.CSSProperties} />
-              <div className="absolute border border-white/12 bg-void/75 backdrop-blur-sm px-2.5 py-1.5" style={card}>
+              <div className="absolute border border-white/[0.12] bg-void/75 backdrop-blur-sm px-2.5 py-1.5" style={card}>
                 <div className="font-mono text-[10px] tracking-[0.18em] text-snow whitespace-nowrap">{a.title}</div>
                 {a.text && (
                   <p className="mt-1 text-[11px] text-mist leading-snug w-[220px]">{a.text}</p>

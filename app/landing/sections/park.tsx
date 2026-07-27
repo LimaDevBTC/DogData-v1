@@ -1,0 +1,293 @@
+"use client"
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DogCity landing — RUNESTONE NATURAL PARK. The folio's protected-lands sheet.
+//
+// This is the slow sheet, and the one section whose memorable thing is an
+// ABSENCE. Everything here is tuned to make the page go quiet: the entrance
+// envelope is roughly doubled (≈2.6s against the span's 1.9s), nothing loops,
+// nothing hovers except the two gallery captions, and there is no rAF loop and
+// no canvas anywhere in this file.
+//
+// Three mechanisms, in order:
+//
+//   1. THE DESCENT — the full-bleed plate settles from scale 1.06 → 1.00 while
+//      its image drifts on useParallax(60). The parallax ref is deliberately on
+//      the STATIC frame and the motion value is applied to an inner wrapper:
+//      useScroll measures with getBoundingClientRect, so pointing it at a
+//      transformed element feeds that element's own transform back into its
+//      progress. The wrapper is inset ±72px so ±60px of drift can never expose
+//      an edge, and the reserved aspect-[16/9] max-h-[76vh] box never changes
+//      size after layout — the hero's body-portal geometry depends on that.
+//
+//   2. THE PLAQUE — `leave no footprints.` is lifted out of its inline <span>
+//      onto its own display line between two struck rules, and the three prose
+//      beats sit at 0 / 0.45 / 0.9 so the gaps are long enough to be felt. Every
+//      word and every mark of the original copy is preserved, including the
+//      terminal period that now closes the promoted line.
+//
+//   3. THE SHUTTER — the 2-up gallery wipes down through an animated
+//      `clip-path: inset()`. One CSS property, no mosaic, no duotone pass:
+//      restraint beats spectacle here, and these plates are already
+//      near-monochrome lunar imagery so a duotone would be invisible labour.
+//
+// The RunestoneViewer is a LIVE OBJECT, not a plate — no registration corners,
+// no glow behind it, no motion on its container, dynamic(ssr:false) with the
+// same in-world loading string. The one change from the previous markup is that
+// its `bg-gradient-to-b from-white/[0.02]` fill is gone: the renderer is
+// `alpha: true` and that fill fought the transparent render.
+//
+// Tailwind note: this project's opacity scale is the stock one (multiples of
+// 5). A white border at 8% written as a bare modifier does NOT compile — it
+// falls through to preflight's #D1D5DB and paints a light-grey hairline on a
+// black page. Hence HAIR / HAIR_SOFT / GRIDLINE from ../motion wherever a
+// hairline is drawn, and bracket syntax for anything sub-5%.
+// ═══════════════════════════════════════════════════════════════════════════
+
+import Image from "next/image"
+import dynamic from "next/dynamic"
+import { motion, useReducedMotion } from "framer-motion"
+import {
+  EASE, HAIR, HAIR_SOFT, GRIDLINE,
+  Reveal, Stagger, StaggerItem, SplitLine, Scramble, DrawRule,
+  useOnce, useParallax,
+} from "../motion"
+
+const RunestoneViewer = dynamic(() => import("../runestone-viewer"), {
+  ssr: false,
+  loading: () => (
+    <div className="absolute inset-0 flex items-center justify-center">
+      <div className="font-mono text-[11px] tracking-[0.25em] text-dusty animate-pulse">SUMMONING RUNESTONE…</div>
+    </div>
+  ),
+})
+
+// ── the registration corner — team SKYLINE's shared mark ───────────────────
+// Four L-ticks struck INSIDE a plate's hairline before its contents ink in.
+// Small, dim, and still after entrance. If it glows it is a HUD bracket and
+// it is wrong. Duplicated per file on purpose: motion.tsx is frozen.
+function Corners({ accent, delay = 0 }: { accent?: string; delay?: number }) {
+  const reduce = useReducedMotion()
+  const { ref, inView } = useOnce("-5% 0px")
+  const show = reduce || inView
+  const C = [
+    { box: "top-0 left-0",      h: "top-0 left-0",     v: "top-0 left-0",     ox: "left",  oy: "top" },
+    { box: "top-0 right-0",     h: "top-0 right-0",    v: "top-0 right-0",    ox: "right", oy: "top" },
+    { box: "bottom-0 right-0",  h: "bottom-0 right-0", v: "bottom-0 right-0", ox: "right", oy: "bottom" },
+    { box: "bottom-0 left-0",   h: "bottom-0 left-0",  v: "bottom-0 left-0",  ox: "left",  oy: "bottom" },
+  ]
+  const paint = (i: number) => (i === 0 && accent ? accent : "rgba(240,240,242,0.22)")
+  return (
+    <span ref={ref as never} aria-hidden className="absolute inset-0 pointer-events-none">
+      {C.map((c, i) => (
+        <span key={c.box} className={`absolute ${c.box}`} style={{ width: 10, height: 10 }}>
+          <motion.span
+            className={`absolute ${c.h} h-px w-full`}
+            style={{ background: paint(i), transformOrigin: c.ox }}
+            initial={reduce ? false : { scaleX: 0 }}
+            animate={show ? { scaleX: 1 } : undefined}
+            transition={{ duration: 0.35, delay: delay + i * 0.04, ease: EASE }}
+          />
+          <motion.span
+            className={`absolute ${c.v} w-px h-full`}
+            style={{ background: paint(i), transformOrigin: c.oy }}
+            initial={reduce ? false : { scaleY: 0 }}
+            animate={show ? { scaleY: 1 } : undefined}
+            transition={{ duration: 0.35, delay: delay + i * 0.04, ease: EASE }}
+          />
+        </span>
+      ))}
+    </span>
+  )
+}
+
+// ── content constants (copy preserved verbatim from page.tsx:452-534) ──────
+interface ParkPlate {
+  src: string
+  label: string
+  alt: string
+}
+
+const GALLERY: ParkPlate[] = [
+  {
+    src: "/landing/park-finger.webp",
+    label: "THE FINGER · 31 M FROM THE STONE",
+    alt: "View from the boardwalk's finger platform looking up at the monolith",
+  },
+  {
+    src: "/landing/park-wide.webp",
+    label: "ARRIVAL · THE BASIN FROM THE RIM",
+    alt: "Wide view of the park from the southwest rim, the boardwalk descending into the basin",
+  },
+]
+
+const PARK_FACTS: ReadonlyArray<readonly [string, string]> = [
+  ["MONOLITH", "45 m visible · ⅓ buried"],
+  ["PRESERVED CORE", "48 m radius · no access"],
+  ["STONE FIELD", "7 erratics · 2 families"],
+  ["PARK AREA", "22 hectares"],
+]
+
+// ═══ the shutter ═══════════════════════════════════════════════════════════
+// A ticked plate whose image wipes down through clip-path. The corners strike
+// first (frame before contents), the shutter runs, the caption plate settles
+// last. Two figures, 0.12s apart. The caption is the section's only hover.
+function GalleryFigure({ plate, index }: { plate: ParkPlate; index: number }) {
+  const reduce = useReducedMotion()
+  const { ref, inView } = useOnce("-8% 0px")
+  const show = reduce || inView
+  const base = index * 0.12
+
+  return (
+    <figure ref={ref as never} className={`group relative aspect-[16/10] border ${HAIR} overflow-hidden`}>
+      <motion.div
+        className="absolute inset-0"
+        initial={reduce ? false : { clipPath: "inset(0% 0% 100% 0%)" }}
+        animate={show ? { clipPath: "inset(0% 0% 0% 0%)" } : undefined}
+        transition={{ duration: 1.1, delay: base + 0.15, ease: EASE }}
+      >
+        <Image src={plate.src} alt={plate.alt} fill sizes="(min-width: 768px) 50vw, 100vw" className="object-cover" />
+      </motion.div>
+
+      <Corners delay={base} />
+
+      <motion.figcaption
+        className="absolute bottom-3 left-3 font-mono text-[9px] tracking-[0.2em] text-snow/75 group-hover:text-snow bg-void/60 px-2 py-1 transition-colors"
+        initial={reduce ? false : { opacity: 0 }}
+        animate={show ? { opacity: 1 } : undefined}
+        transition={{ duration: 0.6, delay: base + 0.65, ease: EASE }}
+      >
+        {plate.label}
+      </motion.figcaption>
+    </figure>
+  )
+}
+
+export default function Section({}) {
+  const reduce = useReducedMotion()
+  const plate = useParallax(60)
+  const { ref: settleGate, inView: settleIn } = useOnce("-5% 0px")
+  const settled = reduce || settleIn
+
+  return (
+    <section className={`border-t ${HAIR_SOFT}`}>
+
+      {/* ── the descent — full-bleed cinematic plate ───────────────────────── */}
+      {/* the reserved box is exactly the previous one: any change to its height
+          after layout re-measures document.body and re-registers the hero's
+          scroll listeners */}
+      <div ref={plate.ref} className="relative w-full aspect-[16/9] max-h-[76vh] overflow-hidden">
+        <motion.div className="absolute inset-x-0" style={{ y: plate.y, top: -72, bottom: -72 }}>
+          <motion.div
+            ref={settleGate as never}
+            className="absolute inset-0 will-change-transform"
+            initial={reduce ? false : { scale: 1.06 }}
+            animate={settled ? { scale: 1 } : undefined}
+            transition={{ duration: 1.6, ease: EASE }}
+          >
+            <Image
+              src="/landing/park-hero.webp"
+              alt="Runestone Natural Park at lunar morning: the 45-metre monolith casting a 230-metre shadow across a preserved impact basin, ringed by an elevated boardwalk lit in amber"
+              fill
+              sizes="100vw"
+              className="object-cover"
+            />
+          </motion.div>
+        </motion.div>
+
+        <div aria-hidden className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-void via-void/40 to-transparent" />
+        <div aria-hidden className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-void via-void/60 to-transparent" />
+
+        {/* the section head, at plate scale — same grammar as every other sheet
+            in the folio (scramble · struck rule · masked headline), only the
+            headline size is the plate's own */}
+        <div className="absolute inset-0 flex items-end">
+          <div className="max-w-6xl mx-auto w-full px-6 md:px-10 pb-10">
+            <Scramble text="RUNESTONE NATURAL PARK" className="block font-mono text-[11px] tracking-[0.3em] text-lava" />
+            <DrawRule className="mt-3 w-14" delay={0.06} duration={0.9} />
+            <h2 className="font-display font-bold text-3xl md:text-5xl text-snow mt-4 max-w-2xl leading-tight">
+              <SplitLine text="Beyond the skyline." delay={0.12} step={0.055} className="pb-[0.12em]" />
+            </h2>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto px-6 md:px-10 py-16 md:py-24">
+        <div className="grid md:grid-cols-2 gap-12 items-start">
+
+          {/* ── the plaque ─────────────────────────────────────────────────── */}
+          <div>
+            <Reveal delay={0} y={14}>
+              <p className="text-lg md:text-xl leading-[1.55] text-snow">
+                Far northeast of the city, a 45-metre monolith of black crystal stands a third
+                buried in a preserved impact basin — thrown here, with its smaller siblings, by
+                the strike that dug the ground it rests in.
+              </p>
+            </Reveal>
+
+            {/* the park's single rule, engraved: promoted off the line it used to
+                sit inside, between two struck rules. Every word is preserved. */}
+            <Reveal delay={0.45} y={14} className="mt-9">
+              <p className="text-sm text-mist leading-relaxed">
+                The park is built around a single rule:
+              </p>
+            </Reveal>
+            <DrawRule className="mt-5 w-full" color="bg-white/20" delay={0.52} duration={1.1} />
+            <div className="py-5">
+              <span className="block font-display text-2xl text-snow">
+                <SplitLine text="leave no footprints." delay={0.62} step={0.07} className="pb-[0.12em]" />
+              </span>
+            </div>
+            <DrawRule className="w-full" color="bg-white/20" delay={0.72} duration={1.1} />
+
+            <Reveal delay={0.9} y={14} className="mt-7">
+              <p className="text-sm text-mist leading-relaxed">
+                Lunar prints last for millions of years, so visitors never touch the regolith —
+                an elevated boardwalk rings the site and one narrow finger reaches to 31 metres
+                and stops. The inner 48 metres are never entered, and never lit.
+              </p>
+            </Reveal>
+
+            <Stagger
+              as="dl"
+              step={0.09}
+              delay={1.24}
+              className={`mt-8 grid grid-cols-2 gap-px ${GRIDLINE} border ${HAIR} font-mono`}
+            >
+              {PARK_FACTS.map(([k, v]) => (
+                <StaggerItem key={k} className="bg-void p-4">
+                  <dt className="text-[9px] tracking-[0.25em] text-dusty">{k}</dt>
+                  <dd className="text-[12px] text-snow mt-1 tabular-nums">{v}</dd>
+                </StaggerItem>
+              ))}
+            </Stagger>
+
+            <Reveal delay={1.7} y={10} className="mt-4">
+              <p className="font-mono text-[10px] text-dusty leading-relaxed">
+                Connected to DogCity by a single scenic road. Protected from dense development,
+                forever outside the urban core.
+              </p>
+            </Reveal>
+          </div>
+
+          {/* ── the artifact — a live object, not a plate. Untouched. ───────── */}
+          <div>
+            <div className={`relative aspect-square max-h-[520px] border ${HAIR}`}>
+              <RunestoneViewer />
+            </div>
+            <p className="mt-3 font-mono text-[10px] text-dusty">
+              The official Runestone artifact — drag to rotate, ± to zoom.
+            </p>
+          </div>
+        </div>
+
+        {/* ── the 2-up gallery — shutters wiping down ─────────────────────── */}
+        <div className="mt-14 grid md:grid-cols-2 gap-4">
+          {GALLERY.map((p, i) => (
+            <GalleryFigure key={p.src} plate={p} index={i} />
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
