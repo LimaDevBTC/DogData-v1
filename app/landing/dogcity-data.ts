@@ -133,7 +133,6 @@ export const PHASE_ANNOTATIONS: PhaseAnnotation[][] = [
     { id: "lots", u: 0.8611, v: 0.3049, title: "97,673 LOTS DEMARCATED", primary: true,
       text: "Every eligible wallet receives a lot — segmented across BTC, SOL and STX holders." },
     { id: "plaza", u: 0.4781, v: 0.4699, title: "CENTRAL PLAZA · STAKED" },
-    { id: "craterpark", u: 0.7375, v: 0.1267, title: "CRATER PARK · PRESERVE" },
   ],
   [ // 03 · foundations
     { id: "plaza", u: 0.4781, v: 0.4699, title: "FOUNDATIONS & CRANES", primary: true,
