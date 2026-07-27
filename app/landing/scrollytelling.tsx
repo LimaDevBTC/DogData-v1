@@ -15,6 +15,7 @@ import { createPortal } from "react-dom"
 import Image from "next/image"
 import { ArrowDown } from "lucide-react"
 import { PHASES, PHASE_ANNOTATIONS, formatDog } from "./dogcity-data"
+import { RUNESTONE_SPRITE } from "./runestone-sprite-b64"
 
 const FRAME_COUNT = 180
 const FRAME_START = 22      // open on the fully-drawn survey grid, matching the poster
@@ -288,7 +289,7 @@ export default function Scrollytelling({
         {box && progress > 0.30 && (() => {
           const rx = (box.dX + 0.8647 * box.dW) * box.k
           const ryRaw = (box.dY + 0.0798 * box.dH) * box.k
-          const ry = Math.max(290, Math.min(box.cssH - 60, ryRaw))
+          const ry = Math.max(190, Math.min(box.cssH - 60, ryRaw))
           return (
             <div className="absolute animate-[annIn_0.5s_ease-out]" style={{ left: rx, top: ry }}>
               <span
@@ -298,7 +299,7 @@ export default function Scrollytelling({
               />
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/landing/runestone-sprite.webp?v=3"
+                src={RUNESTONE_SPRITE}
                 alt="The Runestone monolith"
                 className="absolute bottom-0 -translate-x-1/2 h-28 md:h-40 w-auto"
                 style={{ filter: "brightness(1.15) drop-shadow(0 0 14px rgba(245,110,15,0.5))" }}
