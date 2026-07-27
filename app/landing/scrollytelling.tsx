@@ -289,7 +289,9 @@ export default function Scrollytelling({
         {box && progress > 0.30 && (() => {
           const rx = (box.dX + 0.8647 * box.dW) * box.k
           const ryRaw = (box.dY + 0.0798 * box.dH) * box.k
-          const ry = Math.max(190, Math.min(box.cssH - 60, ryRaw))
+          // the park sits at the very top of the frame — keep the marker just
+          // clear of the fixed header instead of dragging it down over a district
+          const ry = Math.max(178, Math.min(box.cssH - 60, ryRaw))
           return (
             <div className="absolute animate-[annIn_0.5s_ease-out]" style={{ left: rx, top: ry }}>
               <span
@@ -297,12 +299,21 @@ export default function Scrollytelling({
                 style={{ bottom: -14, background: "radial-gradient(circle, rgba(245,110,15,0.22), transparent 65%)" }}
                 aria-hidden
               />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={RUNESTONE_SPRITE}
-                alt="The Runestone monolith"
-                className="absolute bottom-0 -translate-x-1/2 h-28 md:h-40 w-auto"
-                style={{ filter: "brightness(1.15) drop-shadow(0 0 14px rgba(245,110,15,0.5))" }}
+              {/* the monolith itself — painted as a background so it shares the
+                  glow's proven render path (an <img> with w-auto inside a
+                  zero-width abs container can collapse to zero width) */}
+              <div
+                role="img"
+                aria-label="The Runestone monolith"
+                className="absolute bottom-0 -translate-x-1/2 w-[54px] h-[100px] md:w-[72px] md:h-[136px]"
+                style={{
+                  zIndex: 2,
+                  backgroundImage: `url("${RUNESTONE_SPRITE}")`,
+                  backgroundSize: "contain",
+                  backgroundPosition: "bottom center",
+                  backgroundRepeat: "no-repeat",
+                  filter: "drop-shadow(0 0 16px rgba(245,110,15,0.55))",
+                }}
               />
               <span
                 className="absolute -translate-x-1/2 top-0 block w-12 h-1.5 rounded-[100%] bg-black/70 blur-[2px]"
