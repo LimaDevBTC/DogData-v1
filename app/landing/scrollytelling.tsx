@@ -119,7 +119,7 @@ export default function Scrollytelling({
       // mostly from the empty terrain at the top
       const dW = cw
       const dH = cw / ir
-      const dY = -(dH - ch) * TOP_BIAS
+      const dY = Math.min(0, -(dH - ch) * TOP_BIAS + 50 / (k || 1))
       ctx.drawImage(img, 0, 0, img.width, img.height, 0, dY, dW, dH)
       b = { dX: 0, dY, dW, dH, sX: 0, sY: 0, sW: img.width, sH: img.height, iw: img.width, ih: img.height, k, cssW: cw * k, cssH: ch * k }
     } else {
@@ -298,7 +298,7 @@ export default function Scrollytelling({
               />
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/landing/runestone-sprite.webp"
+                src="/landing/runestone-sprite.webp?v=3"
                 alt="The Runestone monolith"
                 className="absolute bottom-0 -translate-x-1/2 h-28 md:h-40 w-auto"
                 style={{ filter: "brightness(1.15) drop-shadow(0 0 14px rgba(245,110,15,0.5))" }}
