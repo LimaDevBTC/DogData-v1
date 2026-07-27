@@ -13,6 +13,12 @@
 > **Status (2026-07-07):** Bloco A **Increment 1 IMPLEMENTADO** — camada de conexão client-side
 > das 4 wallets + botão no header (substituiu o Donate) + modal. Falta o Increment 2 (prova de
 > posse: nonce + verify server-side). Detalhe no fim (§Status de implementação).
+>
+> **Atualização (2026-07-27):** decisão do dono — **Leather removida** do suporte (deixa de ser
+> 4 wallets, agora são 3: Kray, Xverse, OKX) e **Kray Wallet vira a primeira sugestão** no modal
+> (era a última). Modal e botão do header agora renderizam o **logo real** de cada carteira
+> (`public/wallets/{kray.jpg,xverse.png,okx.png}`) em vez do badge letra+cor. Ver `profiles.md`
+> para o desdobramento de identidade (X handle + pfp) que consome essa mesma camada de conexão.
 
 ---
 
@@ -20,7 +26,7 @@
 
 | Tema | Decisão |
 |---|---|
-| **Carteiras suportadas** | **Xverse**, **Leather**, **OKX Wallet** (via `sats-connect`) e **Kray Wallet** (provider próprio `window.krayWallet`). |
+| **Carteiras suportadas** | **Kray Wallet** (provider próprio `window.krayWallet`, 1ª sugestão), **Xverse** e **OKX Wallet** (via `sats-connect`). ~~Leather~~ removida 2026-07-27. |
 | **O que se prova** | Controle de um **endereço Bitcoin** via assinatura de mensagem (não custódia nossa, não pedimos seed/PK). |
 | **Elo com a cidade** | Endereço provado → casa com `dogcity_lots.address` (registro do `crosschaincity.md`) → aquele **prédio** vira "reivindicável". |
 | **Registro Comum** | **10.000 DOG**. Libera: nome do prédio, **handle do X**, avatar, links, bio curta. |

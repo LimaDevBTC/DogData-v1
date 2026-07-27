@@ -295,8 +295,8 @@ export default function Scrollytelling({
           return (
             <div className="absolute animate-[annIn_0.5s_ease-out]" style={{ left: rx, top: ry }}>
               <span
-                className="absolute -translate-x-1/2 block w-32 h-32 rounded-full pointer-events-none"
-                style={{ bottom: -14, background: "radial-gradient(circle, rgba(245,110,15,0.22), transparent 65%)" }}
+                className="absolute -translate-x-1/2 block w-24 h-24 rounded-full pointer-events-none"
+                style={{ bottom: -10, background: "radial-gradient(circle, rgba(245,110,15,0.10), transparent 68%)" }}
                 aria-hidden
               />
               {/* the monolith itself — painted as a background so it shares the
@@ -312,7 +312,7 @@ export default function Scrollytelling({
                   backgroundSize: "contain",
                   backgroundPosition: "bottom center",
                   backgroundRepeat: "no-repeat",
-                  filter: "drop-shadow(0 0 16px rgba(245,110,15,0.55))",
+                  filter: "drop-shadow(0 3px 8px rgba(0,0,0,0.75))",
                 }}
               />
               <span

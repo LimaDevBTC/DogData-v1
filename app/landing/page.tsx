@@ -449,23 +449,86 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ── RUNESTONE NATURAL PARK — interactive 3D monolith ───────────── */}
+        {/* ── RUNESTONE NATURAL PARK ─────────────────────────────────────── */}
         <section className="border-t border-white/5">
-          <div className="max-w-6xl mx-auto px-6 md:px-10 py-20 md:py-28">
-            <div className="grid md:grid-cols-2 gap-10 items-center">
+          {/* the park itself — full-bleed cinematic plate */}
+          <div className="relative w-full aspect-[16/9] max-h-[76vh] overflow-hidden">
+            <Image
+              src="/landing/park-hero.webp"
+              alt="Runestone Natural Park at lunar morning: the 45-metre monolith casting a 230-metre shadow across a preserved impact basin, ringed by an elevated boardwalk lit in amber"
+              fill
+              sizes="100vw"
+              className="object-cover"
+            />
+            <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-void via-void/40 to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-void via-void/60 to-transparent" />
+            <div className="absolute inset-0 flex items-end">
+              <div className="max-w-6xl mx-auto w-full px-6 md:px-10 pb-10">
+                <div className="font-mono text-[11px] tracking-[0.3em] text-lava">RUNESTONE NATURAL PARK</div>
+                <h2 className="font-display font-bold text-3xl md:text-5xl text-snow mt-3 max-w-2xl leading-tight">
+                  Beyond the skyline.
+                </h2>
+              </div>
+            </div>
+          </div>
+
+          <div className="max-w-6xl mx-auto px-6 md:px-10 py-16 md:py-24">
+            <div className="grid md:grid-cols-2 gap-12 items-start">
               <div>
-                <SectionHead
-                  eyebrow="RUNESTONE NATURAL PARK"
-                  title="Beyond the skyline."
-                  sub="Far northeast of the city, the black Runestone monolith stands half-embedded in preserved terrain — a natural and cultural landmark connected to DogCity by a single scenic road, and protected from dense development. Forever outside the urban core."
-                />
-                <p className="mt-6 font-mono text-[11px] text-dusty leading-relaxed">
-                  The monolith below is the official Runestone artifact — take it for a spin.
+                <p className="text-sm text-mist leading-relaxed">
+                  Far northeast of the city, a 45-metre monolith of black crystal stands a third
+                  buried in a preserved impact basin — thrown here, with its smaller siblings, by
+                  the strike that dug the ground it rests in.
+                </p>
+                <p className="text-sm text-mist leading-relaxed mt-4">
+                  The park is built around a single rule: <span className="text-snow">leave no
+                  footprints</span>. Lunar prints last for millions of years, so visitors never
+                  touch the regolith — an elevated boardwalk rings the site and one narrow finger
+                  reaches to 31 metres and stops. The inner 48 metres are never entered, and never lit.
+                </p>
+                <dl className="mt-8 grid grid-cols-2 gap-px bg-white/8 border border-white/8 font-mono">
+                  {[
+                    ["MONOLITH", "45 m visible · ⅓ buried"],
+                    ["PRESERVED CORE", "48 m radius · no access"],
+                    ["STONE FIELD", "7 erratics · 2 families"],
+                    ["PARK AREA", "22 hectares"],
+                  ].map(([k, v]) => (
+                    <div key={k} className="bg-void p-4">
+                      <dt className="text-[9px] tracking-[0.25em] text-dusty">{k}</dt>
+                      <dd className="text-[12px] text-snow mt-1">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+                <p className="mt-4 font-mono text-[10px] text-dusty leading-relaxed">
+                  Connected to DogCity by a single scenic road. Protected from dense development,
+                  forever outside the urban core.
                 </p>
               </div>
-              <div className="relative aspect-square max-h-[560px] border border-white/10 bg-gradient-to-b from-white/[0.02] to-transparent">
-                <RunestoneViewer />
+
+              <div>
+                <div className="relative aspect-square max-h-[520px] border border-white/10 bg-gradient-to-b from-white/[0.02] to-transparent">
+                  <RunestoneViewer />
+                </div>
+                <p className="mt-3 font-mono text-[10px] text-dusty">
+                  The official Runestone artifact — drag to rotate, ± to zoom.
+                </p>
               </div>
+            </div>
+
+            <div className="mt-14 grid md:grid-cols-2 gap-4">
+              {[
+                { src: "/landing/park-finger.webp", label: "THE FINGER · 31 M FROM THE STONE",
+                  alt: "View from the boardwalk's finger platform looking up at the monolith" },
+                { src: "/landing/park-wide.webp", label: "ARRIVAL · THE BASIN FROM THE RIM",
+                  alt: "Wide view of the park from the southwest rim, the boardwalk descending into the basin" },
+              ].map((im) => (
+                <figure key={im.src} className="relative aspect-[16/10] border border-white/10 overflow-hidden">
+                  <Image src={im.src} alt={im.alt} fill sizes="(min-width: 768px) 50vw, 100vw" className="object-cover" />
+                  <figcaption className="absolute bottom-3 left-3 font-mono text-[9px] tracking-[0.2em] text-snow/75 bg-void/60 px-2 py-1">
+                    {im.label}
+                  </figcaption>
+                </figure>
+              ))}
             </div>
           </div>
         </section>
