@@ -50,6 +50,35 @@ export default function LandingPage() {
     }
   }, [])
 
+  // ── this page must always open at progress 0 ─────────────────────────────
+  // The hero is a 500vh scroll narrative: the city builds itself as you scroll.
+  // The document is ~19,000px tall, and the browser's default
+  // `history.scrollRestoration = "auto"` will happily drop a returning visitor
+  // — on reload, on back, or when a phone restores a backgrounded tab — several
+  // thousand pixels in. That lands them past the hero entirely, in the middle
+  // of the second section, having never seen the thing the page is built around.
+  // Landing anywhere but the top is always wrong here, so restoration is taken
+  // over for this page and handed back on unmount.
+  //
+  // An explicit #anchor is honoured: arriving at /dogcity#build is a deliberate
+  // request for that section, not a restored position.
+  useEffect(() => {
+    const prev = typeof history !== "undefined" ? history.scrollRestoration : undefined
+    try {
+      if (prev !== undefined) history.scrollRestoration = "manual"
+    } catch {
+      // some browsers disallow it; the reset below still runs
+    }
+    if (!window.location.hash) window.scrollTo(0, 0)
+    return () => {
+      try {
+        if (prev !== undefined) history.scrollRestoration = prev
+      } catch {
+        /* nothing to restore to */
+      }
+    }
+  }, [])
+
   // ── the persistent Build CTA ─────────────────────────────────────────────
   // Two bugs in the previous version, both from the audit: it was gated on a
   // magic `scrollY > 700` that fires *inside* the 500vh hero (which deliberately
