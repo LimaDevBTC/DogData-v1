@@ -36,6 +36,20 @@ export default function LandingPage() {
       .catch(() => {})
   }, [])
 
+  // Close the loop on the root's once-per-session redirect (app/page.tsx).
+  // The root bounces a new session here and then checks this key to decide
+  // whether to bounce again. /donate used to set it; now that the root points
+  // at this page instead, this page has to, or the overview dashboard at "/"
+  // becomes permanently unreachable — every visit would bounce back here.
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("dogdata-session", "1")
+    } catch {
+      // private-mode / storage-disabled: the redirect simply repeats, which is
+      // the old behaviour and is harmless
+    }
+  }, [])
+
   // ── the persistent Build CTA ─────────────────────────────────────────────
   // Two bugs in the previous version, both from the audit: it was gated on a
   // magic `scrollY > 700` that fires *inside* the 500vh hero (which deliberately
