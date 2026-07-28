@@ -23,6 +23,9 @@ const FRAME_END = 150       // the city is complete here; the late rocket landin
 const SEQ_VERSION = "1"
 const TOP_BIAS = 0.85       // wide viewports fill the width; vertical overflow crops 85% from the empty top
 const PLAZA_U = 0.478       // the Central Plaza in frame space — what a phone should be centred on
+// NOTE: /landing/ here is the PUBLIC ASSET folder (public/landing/seq/, 180 webp
+// frames), not a route. The route moved to /dogcity; these files did not, because
+// renaming them would rewrite 180 paths and ~22MB of history for no gain.
 const frameUrl = (i: number) => `/landing/seq/f_${String(i + 1).padStart(4, "0")}.webp?v=${SEQ_VERSION}`
 
 const frameToProgress = (f: number) => (f - FRAME_START) / (FRAME_END - FRAME_START)

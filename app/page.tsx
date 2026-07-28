@@ -128,13 +128,12 @@ export default function OverviewPage() {
   const FALLBACK_TOTAL_HOLDERS = (dogStatsFallback as any)?.totalHolders ?? 0
   const FALLBACK_ACTIVE_ADDRESSES = (dogStatsFallback as any)?.activeAddresses ?? FALLBACK_TOTAL_HOLDERS
 
-  // First screen of every new browser session: the DogCity landing.
-  // This used to point at /donate. The scrollytelling landing at /landing is now
-  // the official entry; /donate keeps serving the previous page for anyone who
-  // goes there directly or follows an existing link.
+  // First screen of every new browser session: the DogCity landing at /dogcity.
+  // /donate keeps serving the previous page for anyone who goes there directly
+  // or follows an existing link.
   useEffect(() => {
     if (typeof window !== 'undefined' && !sessionStorage.getItem('dogdata-session')) {
-      router.replace('/landing')
+      router.replace('/dogcity')
     }
   }, [router])
 
