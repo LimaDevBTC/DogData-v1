@@ -156,7 +156,9 @@ export default function RunestoneViewer() {
   }, [])
 
   return (
-    <div className="relative w-full h-full min-h-[420px]">
+    // no min-height: the parent plate owns the box. A floor here overflowed
+    // that plate on phones, where the plate is ~248px tall.
+    <div className="relative w-full h-full">
       <div ref={mountRef} className="absolute inset-0" aria-label="Interactive 3D model of the Runestone monolith" role="img" />
       {status !== "ready" && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">

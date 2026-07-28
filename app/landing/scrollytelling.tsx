@@ -22,6 +22,7 @@ const FRAME_START = 22      // open on the fully-drawn survey grid, matching the
 const FRAME_END = 150       // the city is complete here; the late rocket landing happens off-frame
 const SEQ_VERSION = "1"
 const TOP_BIAS = 0.85       // wide viewports fill the width; vertical overflow crops 85% from the empty top
+const PLAZA_U = 0.478       // the Central Plaza in frame space — what a phone should be centred on
 const frameUrl = (i: number) => `/landing/seq/f_${String(i + 1).padStart(4, "0")}.webp?v=${SEQ_VERSION}`
 
 const frameToProgress = (f: number) => (f - FRAME_START) / (FRAME_END - FRAME_START)
@@ -124,11 +125,28 @@ export default function Scrollytelling({
       ctx.drawImage(img, 0, 0, img.width, img.height, 0, dY, dW, dH)
       b = { dX: 0, dY, dW, dH, sX: 0, sY: 0, sW: img.width, sH: img.height, iw: img.width, ih: img.height, k, cssW: cw * k, cssH: ch * k }
     } else {
-      // narrow: cover centred on the plaza
-      const sh = img.width / cr
-      const sy = (img.height - sh) * 0.5
-      ctx.drawImage(img, 0, sy, img.width, sh, 0, 0, cw, ch)
-      b = { dX: 0, dY: 0, dW: cw, dH: ch, sX: 0, sY: sy, sW: img.width, sH: sh, iw: img.width, ih: img.height, k, cssW: cw * k, cssH: ch * k }
+      // narrow: cover, centred on the plaza.
+      //
+      // This used to crop a SOURCE rect (sh = img.width / cr). On a phone that
+      // asks for a source taller than the frame itself — 390x844 against a
+      // 16:9 plate wants ~4156px of a 1080px image — so the browser could only
+      // paint the sliver that exists and the rest of the canvas stayed empty.
+      // That is the black letterbox: the city shrank into a band instead of
+      // filling the screen.
+      //
+      // Scaling a DESTINATION rect instead can never ask for pixels that are
+      // not there. In this branch cw/ch <= iw/ih, so matching the height always
+      // overflows the width — it covers by construction. Drawing the whole
+      // image also keeps the annotation projection honest: the un-projection at
+      // the bottom of this file assumes sX/sY = 0 and sW/sH = the full image,
+      // which the wide branch already relied on.
+      const dH = ch
+      const dW = img.width * (ch / img.height)
+      // hold the plaza (u≈0.478) in the middle of the phone screen, but never
+      // slide so far that an edge of the plate is exposed
+      const dX = Math.max(Math.min(cw / 2 - PLAZA_U * dW, 0), cw - dW)
+      ctx.drawImage(img, 0, 0, img.width, img.height, dX, 0, dW, dH)
+      b = { dX, dY: 0, dW, dH, sX: 0, sY: 0, sW: img.width, sH: img.height, iw: img.width, ih: img.height, k, cssW: cw * k, cssH: ch * k }
     }
     const bk = `${Math.round(b.dX)}|${Math.round(b.dW)}|${Math.round(b.sY)}|${Math.round(b.cssW)}|${Math.round(b.cssH)}`
     if (bk !== boxKeyRef.current) { boxKeyRef.current = bk; setBox(b) }
@@ -292,6 +310,12 @@ export default function Scrollytelling({
           // the park sits at the very top of the frame — keep the marker just
           // clear of the fixed header instead of dragging it down over a district
           const ry = Math.max(178, Math.min(box.cssH - 60, ryRaw))
+          // Same screen-space guard as the annotations: the park sits far right
+          // in the frame, so on a phone's hard horizontal crop it can land past
+          // the viewport. A marker for something you cannot see is worse than
+          // no marker — the park gets its own full section further down.
+          const half = 72
+          if (rx < half || rx > box.cssW - half) return null
           return (
             <div className="absolute animate-[annIn_0.5s_ease-out]" style={{ left: rx, top: ry }}>
               <span
@@ -320,7 +344,7 @@ export default function Scrollytelling({
                 aria-hidden
               />
               <div className="absolute top-3 -translate-x-1/2 border border-white/[0.12] bg-void/75 backdrop-blur-sm px-2.5 py-1.5">
-                <div className="font-mono text-[10px] tracking-[0.18em] text-snow whitespace-nowrap">RUNESTONE NATURAL PARK</div>
+                <div className="font-mono text-[10px] tracking-[0.18em] text-snow whitespace-normal md:whitespace-nowrap max-w-[60vw] md:max-w-none">RUNESTONE NATURAL PARK</div>
               </div>
             </div>
           )
@@ -336,7 +360,7 @@ export default function Scrollytelling({
               <div className="font-mono text-[11px] tracking-[0.3em] text-lava mb-4">
                 DOGCITY · FOUNDING ERA
               </div>
-              <h1 className="font-display font-bold text-4xl md:text-6xl leading-[1.05] text-snow">
+              <h1 className="font-display font-bold text-[30px] sm:text-4xl md:text-6xl leading-[1.05] text-snow">
                 Turn your DOG wallet into part of the Moon.
               </h1>
               <p className="mt-5 text-sm md:text-base text-mist leading-relaxed max-w-xl">
@@ -351,7 +375,9 @@ export default function Scrollytelling({
               </div>
               <div
                 style={{ opacity: hintOpacity }}
-                className="mt-8 flex items-center gap-8 font-mono text-[10px] tracking-[0.2em] text-dusty"
+                // wraps rather than clipping: the row is ~386px of tracked mono
+                // against ~248px of usable width at 320
+                className="mt-8 flex flex-wrap items-center gap-x-8 gap-y-2 font-mono text-[10px] tracking-[0.2em] text-dusty"
               >
                 <span>SCROLL TO BUILD DOGCITY</span>
                 <span className="inline-flex items-center gap-1.5">
@@ -370,6 +396,13 @@ export default function Scrollytelling({
           const cx = (box.dX + x * box.dW) * box.k
           const cy = (box.dY + y * box.dH) * box.k
           if (cy < 8 || cy > box.cssH - 8) return null
+          // Screen-space horizontal guard. The frame-space test above only knows
+          // where a label sits in the IMAGE; on a phone the plate is cropped hard
+          // horizontally (a 16:9 frame is ~1500px wide inside a 390px viewport),
+          // so a label at u=0.86 lands at cx≈770 — off-screen, or sliced by the
+          // right edge. Drop anything whose anchor is not actually on screen,
+          // exactly as the vertical guard above already does.
+          if (cx < 8 || cx > box.cssW - 8) return null
           let side = a.side ?? "top"
           if (side === "top" && cy < 150) side = "bottom"
           if (side === "bottom" && cy > box.cssH - 150) side = "top"
@@ -395,10 +428,18 @@ export default function Scrollytelling({
                 style={{ boxShadow: "0 0 10px rgba(245,110,15,0.9)" }}
               />
               <span className={stem.className} style={stem.style as React.CSSProperties} />
-              <div className="absolute border border-white/[0.12] bg-void/75 backdrop-blur-sm px-2.5 py-1.5" style={card}>
-                <div className="font-mono text-[10px] tracking-[0.18em] text-snow whitespace-nowrap">{a.title}</div>
+              {/* the card is allowed to wrap and to shrink below 220px on a
+                  phone; nowrap + a fixed width is what sliced "RUNESTONE
+                  NATURAL PARK" in half at the right edge */}
+              <div
+                className="absolute border border-white/[0.12] bg-void/75 backdrop-blur-sm px-2.5 py-1.5 max-w-[70vw] md:max-w-none"
+                style={card}
+              >
+                <div className="font-mono text-[10px] tracking-[0.18em] text-snow whitespace-normal md:whitespace-nowrap">
+                  {a.title}
+                </div>
                 {a.text && (
-                  <p className="mt-1 text-[11px] text-mist leading-snug w-[220px]">{a.text}</p>
+                  <p className="mt-1 text-[11px] text-mist leading-snug w-[min(220px,68vw)] md:w-[220px]">{a.text}</p>
                 )}
               </div>
             </div>

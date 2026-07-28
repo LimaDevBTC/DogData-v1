@@ -61,12 +61,23 @@ export default function LandingPage() {
     return () => io.disconnect()
   }, [])
 
+  // Phones get a full-width bottom bar, not a floating pill. As a pill it sat
+  // on top of section content — on a real phone it covered the Stacks donation
+  // address outright, which is a usability bug, not a cosmetic one. A bar owns
+  // its own strip of screen instead of hovering over someone else's, is a much
+  // bigger tap target, and the page reserves matching bottom padding below so
+  // nothing is ever permanently hidden behind it. From md up the original
+  // floating pill is unchanged.
   const cta = (
     <a
       href="#build"
       aria-hidden={!showCta}
       tabIndex={showCta ? 0 : -1}
-      className={`fixed bottom-5 right-5 z-[100] inline-flex items-center gap-2 px-5 py-3 font-mono text-[12px] font-bold text-void bg-lava hover:bg-lava-light shadow-[0_0_30px_rgba(245,110,15,0.35)] transition-all duration-500 ${
+      className={`fixed z-[100] font-mono font-bold text-void bg-lava hover:bg-lava-light transition-all duration-500
+        inset-x-0 bottom-0 flex items-center justify-center min-h-[56px] px-5 text-[13px]
+        border-t border-lava-light/40 shadow-[0_-6px_24px_rgba(0,0,0,0.55)]
+        md:inset-x-auto md:bottom-5 md:right-5 md:min-h-0 md:inline-flex md:gap-2 md:py-3
+        md:text-[12px] md:border-0 md:shadow-[0_0_30px_rgba(245,110,15,0.35)] ${
         showCta ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3 pointer-events-none"
       }`}
     >
@@ -76,7 +87,9 @@ export default function LandingPage() {
 
   return (
     <Layout currentPage="donate" setCurrentPage={() => {}}>
-      <div data-dogcity-landing className="bg-void text-snow">
+      {/* pb-14 reserves the 56px the mobile CTA bar occupies, so the end of the
+          page can never sit underneath it */}
+      <div data-dogcity-landing className="bg-void text-snow pb-14 md:pb-0">
         <Scrollytelling raised={lb?.total_received ?? null} founders={lb?.founders_count ?? null} />
 
         {/* sentinel: everything past this point is allowed to show page chrome */}

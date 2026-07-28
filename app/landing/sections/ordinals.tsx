@@ -374,7 +374,7 @@ export default function Section({}) {
 
         {/* ── the signature: arrives last, on purpose ───────────────────────── */}
         <Reveal delay={0.86} y={10} className="mt-6">
-          <p className="font-mono text-[10px] text-dusty leading-relaxed max-w-2xl">
+          <p className="font-mono text-[11px] sm:text-[10px] text-dusty leading-relaxed max-w-2xl">
             You always control your own wallet. Bitcoin network fees and confirmation times depend on network
             conditions. No seed phrase is ever requested — by anyone, ever.
           </p>

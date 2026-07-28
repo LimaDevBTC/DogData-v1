@@ -464,11 +464,15 @@ export default function Section({}) {
               >
                 {/* header block — fixed height so a 4-line no-match sentence
                     can never push the body down */}
-                <div className="h-[120px] md:h-[100px] shrink-0 overflow-hidden">
+                <div className="min-h-[120px] md:h-[100px] shrink-0 overflow-hidden">
                   <div className="flex items-start justify-between gap-3">
                     <div className="font-mono text-[9px] tracking-[0.25em] text-dusty">REGISTRY RETURN</div>
+                    {/* wraps below sm: the ribbon is 240px of tracked mono and
+                        its host is 160px at 320w, so "SPECIMEN · NOT A
+                        REGISTRATION" was sliced mid-word on every phone —
+                        the one label on this plate that must stay unambiguous */}
                     <span
-                      className="font-mono text-[9px] tracking-[0.25em] whitespace-nowrap border px-2 py-1"
+                      className="font-mono text-[9px] tracking-[0.25em] whitespace-normal sm:whitespace-nowrap border px-2 py-1"
                       style={{ color: found ? headColor : "#6B6B78", borderColor: plateInk }}
                     >
                       {ribbon}
@@ -550,7 +554,7 @@ export default function Section({}) {
 
             {/* footer row — static, so no state can ever change the height */}
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-              <p className="font-mono text-[10px] text-dusty leading-relaxed">
+              <p className="font-mono text-[11px] sm:text-[10px] text-dusty leading-relaxed">
                 Read-only lookup. No seed phrase is ever requested — by anyone, ever.
               </p>
               <a

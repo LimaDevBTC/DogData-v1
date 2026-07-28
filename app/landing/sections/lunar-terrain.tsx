@@ -181,9 +181,18 @@ function ContourField() {
     let done = reduce
 
     const build = () => {
-      cx = w * 0.74
-      cy = h * 0.42
-      const maxR = Math.max(w, h) * 0.56
+      // Size from the CONSTRAINING edge, not the larger one. `Math.max(w,h)`
+      // gave a 174px radius inside a 310x199 cell on a phone: the field spilled
+      // 93px past the right edge and only 2 of the 7 rings closed. The other
+      // five terminated on the cell border, and `overflow-hidden` rendered
+      // those terminations as straight vertical lines flush with the edges —
+      // which is exactly the "bare rectangular box" that was reported. On a
+      // wide desktop cell the old maths happened to look right, so it shipped.
+      // The 0.6 below is the ellipse's vertical squash factor.
+      const narrow = w < 420
+      cx = w * (narrow ? 0.6 : 0.74)
+      cy = h * (narrow ? 0.5 : 0.42)
+      const maxR = Math.min(w * (1 - (narrow ? 0.6 : 0.74)), (h * 0.5) / 0.6) * 0.92
       contours = []
       for (let i = 0; i < RINGS; i++) {
         const harm: Harmonic[] = []
@@ -326,7 +335,9 @@ export default function Section({}) {
                   <div className="relative">
                     <dt className="text-[9px] tracking-[0.25em] text-dusty">COORDINATES</dt>
                     <dd
-                      className="mt-2 flex items-baseline gap-2 md:gap-3 text-3xl md:text-4xl text-snow tabular-nums leading-none"
+                      // wraps instead of clipping: the full readout is ~276px and
+                      // the cell is ~206px on a phone, which sliced the "°E"
+                      className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1 md:gap-x-3 text-2xl sm:text-3xl md:text-4xl text-snow tabular-nums leading-none"
                       aria-label={coords}
                     >
                       <Figure value={LUNAR_SITE.latDeg} hemisphere="&deg;N" delay={0.7} />

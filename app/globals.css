@@ -1154,7 +1154,12 @@ body:has([data-dogcity-landing]) {
   transition: opacity 0.4s ease;
   z-index: 1;
 }
-.spotlight-card:hover::after { opacity: 1; }
+/* Pointer devices only. On a touchscreen :hover latches after a tap, so the
+   spotlight would stay lit — stuck at the card's centre, since there is no
+   cursor feeding --mx/--my — until something else is tapped. */
+@media (hover: hover) and (pointer: fine) {
+  .spotlight-card:hover::after { opacity: 1; }
+}
 
 /* One-shot holographic sheen sweep (Plot Deed reveal) */
 @keyframes deed-sheen {

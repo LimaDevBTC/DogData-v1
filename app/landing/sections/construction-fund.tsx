@@ -471,9 +471,20 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
         <div className="mt-10 grid md:grid-cols-[1fr_320px] gap-10">
           <div>
             {/* ── LIVE TICKER ───────────────────────────────────────────── */}
-            <Reveal delay={0.4} y={10} blur={false}>
-              <LedStrip text={tickerText} />
-            </Reveal>
+            {/* Pointer/tablet up only. At 320px the two fixed 40px fade masks
+                eat a third of the strip, leaving a 162px window — nine glyphs
+                of a 102-character message, on a loop that takes 71 seconds to
+                complete a pass. Nobody assembles a sentence from that. Every
+                number it carries (raised · % · builders · founders · goal) is
+                rendered statically a few pixels below, so hiding it on phones
+                loses no information and takes this span's only rAF loop with
+                it: the IntersectionObserver reports a display:none element as
+                not intersecting, so the loop never starts. */}
+            <div className="hidden sm:block">
+              <Reveal delay={0.4} y={10} blur={false}>
+                <LedStrip text={tickerText} />
+              </Reveal>
+            </div>
 
             {/* ── THE SURVEY RAIL ───────────────────────────────────────── */}
             <div ref={railGate} className="mt-6">
@@ -567,7 +578,9 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
             <Stagger
               step={0.075}
               delay={0.45}
-              className={`grid grid-cols-3 gap-px ${GRIDLINE} border ${HAIR} mt-8`}
+              // three across needs ~50px per cell at 320px, and "10.00M" in
+              // 32px Syne is ~119px — it was clipped. Stack below sm.
+              className={`grid grid-cols-1 sm:grid-cols-3 gap-px ${GRIDLINE} border ${HAIR} mt-8`}
             >
               {[
                 { label: "Builders", value: lb?.donor_count ?? null, fmt: false },
@@ -580,7 +593,7 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
                     <div className="font-mono text-[10px] tracking-[0.2em] text-dusty">
                       {s.label.toUpperCase()}
                     </div>
-                    <div className="font-display font-bold text-2xl text-snow mt-1 tabular-nums">
+                    <div className="font-display font-bold text-xl sm:text-2xl text-snow mt-1 tabular-nums">
                       <SteadyCounter
                         value={s.value}
                         ghost={s.value === null ? "—" : format(s.value)}
@@ -602,10 +615,18 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
                     <div
                       ref={featured ? spotlight.ref : undefined}
                       onPointerMove={featured ? spotlight.onPointerMove : undefined}
+                      // Stacks below sm. Side by side, the fixed furniture —
+                      // 48px padding + 28px logo + 32px of gaps + an 86px COPY
+                      // button — eats 194 of the 242px available at 320w,
+                      // leaving 48px for the address. `break-all` then shattered
+                      // it into ~4 characters per line, 9 lines tall. Users
+                      // verify an address by its first and last characters; at
+                      // that width it is unverifiable and looks broken enough to
+                      // cost trust in a real payment address.
                       className={
                         featured
-                          ? "spotlight-card relative border border-lava/40 bg-lava/[0.04] p-6 flex items-start gap-4 shadow-[inset_0_0_60px_rgba(245,110,15,0.06)]"
-                          : `relative border ${HAIR} p-4 flex items-start gap-4`
+                          ? "spotlight-card relative border border-lava/40 bg-lava/[0.04] p-4 sm:p-6 flex flex-col sm:flex-row items-start gap-3 sm:gap-4 shadow-[inset_0_0_60px_rgba(245,110,15,0.06)]"
+                          : `relative border ${HAIR} p-4 flex flex-col sm:flex-row items-start gap-3 sm:gap-4`
                       }
                     >
                       <Image
@@ -636,7 +657,9 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
                       <button
                         onClick={() => copy(m.key, m.address)}
                         aria-label={`Copy ${m.title} address`}
-                        className={`relative z-10 shrink-0 inline-flex items-center px-3 py-2 font-mono text-[11px] border transition-colors ${
+                        // full width when stacked, and min-h-[44px] to clear the
+                        // 44px touch-target floor (it measured 86x35 before)
+                        className={`relative z-10 shrink-0 w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center sm:justify-start px-3 py-2 font-mono text-[11px] border transition-colors ${
                           isCopied
                             ? "border-lava text-lava"
                             : "border-white/20 text-snow hover:border-lava/60 hover:text-lava"
@@ -656,7 +679,7 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
                 )
               })}
               <Reveal delay={0.24} y={10}>
-                <p className="font-mono text-[10px] text-dusty leading-relaxed pt-1">
+                <p className="font-mono text-[11px] sm:text-[10px] text-dusty leading-relaxed pt-1">
                   Send from the wallet you want registered — the sending address becomes your identity in DogCity.
                   No seed phrase is ever requested.
                 </p>

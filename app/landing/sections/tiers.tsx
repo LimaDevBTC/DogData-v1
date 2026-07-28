@@ -212,14 +212,15 @@ function Deed({ t, index, count }: { t: Tier; index: number; count: number }) {
           </ul>
 
           {t.note && (
-            <p className={`mt-4 pt-3 border-t ${HAIR} font-mono text-[10px] text-dusty leading-relaxed`}>
+            <p className={`mt-4 pt-3 border-t ${HAIR} font-mono text-[11px] sm:text-[10px] text-dusty leading-relaxed`}>
               {t.note}
             </p>
           )}
 
           <a
             href="#build"
-            className={`mt-5 inline-flex justify-center items-center gap-2 px-4 py-2.5 font-mono text-[12px] font-bold transition-colors ${
+            // min-h-[44px]: these measured 192x40, under the 44px touch floor
+            className={`mt-5 inline-flex justify-center items-center gap-2 px-4 py-2.5 min-h-[44px] font-mono text-[12px] font-bold transition-colors ${
               t.featured
                 ? "text-void bg-lava hover:bg-lava-light"
                 : "text-snow border border-white/20 hover:border-white/[0.45]"

@@ -229,10 +229,16 @@ function SurveyPlate() {
     }
   }, [tick])
 
-  // hard-stop the loop if the plate leaves the viewport mid-hover
+  // Hard-stop the loop if the plate leaves the viewport mid-hover.
+  //
+  // Only on pointer devices. On a phone the veil is opened once, by the
+  // one-shot iris below, and that tween never runs again (`irised`). Resetting
+  // presence to 0 here would slam the veil shut the first time the plate
+  // scrolled away and leave the aerial plate permanently 90% black on every
+  // phone, for the rest of the session — the section's whole payload, gone.
   useEffect(() => {
     const el = frameRef.current
-    if (!el) return
+    if (!el || !fine) return
     const io = new IntersectionObserver(([e]) => {
       if (!e.isIntersecting) {
         wanted.current = 0
@@ -246,7 +252,7 @@ function SurveyPlate() {
       io.disconnect()
       if (raf.current) cancelAnimationFrame(raf.current)
     }
-  }, [paint])
+  }, [paint, fine])
 
   // coarse pointer: the veil irises open once, from the centre, on first entry
   const { ref: gateRef, inView } = useOnce("-10% 0px")

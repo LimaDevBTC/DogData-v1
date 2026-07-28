@@ -272,7 +272,13 @@ export default function Section({}) {
 
           {/* ── the artifact — a live object, not a plate. Untouched. ───────── */}
           <div>
-            <div className={`relative aspect-square max-h-[520px] border ${HAIR}`}>
+            {/* An explicit height below lg, because the viewer inside carries a
+                min-h-[420px] of its own: against an aspect-square parent that
+                is only ~248px tall on a phone, the WebGL canvas overflowed its
+                own plate by ~172px. Heights are fixed per breakpoint so the box
+                never resizes after layout — the hero's body-portal geometry is
+                measured off document.body. */}
+            <div className={`relative h-[320px] sm:h-[420px] lg:h-auto lg:aspect-square max-h-[520px] border ${HAIR}`}>
               <RunestoneViewer />
             </div>
             <p className="mt-3 font-mono text-[10px] text-dusty">
