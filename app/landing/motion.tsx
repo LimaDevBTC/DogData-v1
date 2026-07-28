@@ -24,7 +24,7 @@ import {
   type ReactNode, type CSSProperties, type ElementType,
 } from "react"
 import {
-  motion, animate, useInView, useReducedMotion, useScroll, useTransform,
+  motion, animate, useInView, useReducedMotion,
   useMotionValue, useMotionValueEvent, type MotionValue,
 } from "framer-motion"
 
@@ -295,17 +295,74 @@ export function DrawRule({
 // ═══ Parallax ══════════════════════════════════════════════════════════════
 // Scroll-linked drift for imagery. `distance` is in px across the element's
 // full pass through the viewport; keep it small (24–80) or it reads as a gimmick.
+//
+// Deliberately NOT built on framer-motion's `useScroll({ target })`. Two
+// reasons, both learned the hard way in this repo:
+//   1. `useScroll({ target })` has frozen silently on this page before — it
+//      resolves its target against a scroll container, and this page's hero
+//      lives in a body-level portal with `overflow-x: clip` overrides, so the
+//      container it finds is not always the one that scrolls.
+//   2. The audit's perf rule: N independent `useScroll` instances each measure
+//      and tick on their own. There are already three window scroll listeners
+//      on this page and only one is rAF-coalesced.
+// So every consumer shares ONE rAF-coalesced listener, registered on the first
+// subscriber and torn down with the last, using the same
+// getBoundingClientRect maths the hero's scrubber uses.
+type ParallaxSub = { el: HTMLElement; distance: number; mv: MotionValue<number> }
+
+const subs = new Set<ParallaxSub>()
+let raf = 0
+let listening = false
+
+function measure() {
+  raf = 0
+  const vh = window.innerHeight || 1
+  subs.forEach((s) => {
+    const r = s.el.getBoundingClientRect()
+    // 0 when the element's top touches the viewport bottom,
+    // 1 when its bottom leaves the viewport top
+    const p = Math.max(0, Math.min(1, (vh - r.top) / (vh + r.height)))
+    s.mv.set(s.distance * (1 - 2 * p))
+  })
+}
+
+function schedule() {
+  if (!raf) raf = requestAnimationFrame(measure)
+}
+
+function subscribe(sub: ParallaxSub) {
+  subs.add(sub)
+  if (!listening) {
+    listening = true
+    window.addEventListener("scroll", schedule, { passive: true })
+    window.addEventListener("resize", schedule)
+  }
+  schedule()
+  return () => {
+    subs.delete(sub)
+    if (subs.size === 0 && listening) {
+      listening = false
+      window.removeEventListener("scroll", schedule)
+      window.removeEventListener("resize", schedule)
+      if (raf) { cancelAnimationFrame(raf); raf = 0 }
+    }
+  }
+}
+
 export function useParallax(distance = 48): {
   ref: React.RefObject<HTMLDivElement>
   y: MotionValue<number>
 } {
   const ref = useRef<HTMLDivElement>(null)
   const reduce = useReducedMotion()
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start end", "end start"],
-  })
-  const y = useTransform(scrollYProgress, [0, 1], reduce ? [0, 0] : [distance, -distance])
+  const y = useMotionValue(0)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el || reduce) return          // reduced motion: the value stays pinned at 0
+    return subscribe({ el, distance, mv: y })
+  }, [distance, reduce, y])
+
   return { ref, y }
 }
 

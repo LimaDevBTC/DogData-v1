@@ -222,7 +222,7 @@ function Deed({ t, index, count }: { t: Tier; index: number; count: number }) {
             className={`mt-5 inline-flex justify-center items-center gap-2 px-4 py-2.5 font-mono text-[12px] font-bold transition-colors ${
               t.featured
                 ? "text-void bg-lava hover:bg-lava-light"
-                : "text-snow border border-white/20 hover:border-white/45"
+                : "text-snow border border-white/20 hover:border-white/[0.45]"
             }`}
           >
             {t.cta}

@@ -326,10 +326,10 @@ export default function Section({}) {
         >
           {LEDGER.map((col) => {
             const Icon = col.Icon
+            // flex-col, not grid: the header keeps its natural height in both
+            // columns (so the two labels stay on one line) and the <ul> takes
+            // the slack, so no gridline-coloured void is ever left over
             return (
-              {/* flex-col, not grid: the header keeps its natural height in both
-                  columns (so the two labels stay on one line) and the <ul> takes
-                  the slack, so no gridline-coloured void is ever left over */}
               <StaggerItem key={col.key} className={`relative flex flex-col gap-px ${GRIDLINE}`}>
                 <Corners accent={col.color} delay={0.62} />
 
