@@ -57,10 +57,18 @@ function makePadTexture(doc: Document): HTMLCanvasElement {
 
   ctx.fillStyle = "#000000"
   ctx.fillRect(0, 0, S, S)
+  // The ramp reaches pure black at 0.66 of the radius, not at the rim. A ground
+  // plane seen from 17° above the horizon compresses its whole outer third into
+  // a few pixels, so a fade that is still mid-grey at 0.9 does not read as a
+  // fade — it reads as a hard elliptical edge cutting across the frame, which
+  // is precisely what the first version did. Ending the ramp early costs pad
+  // that was never legible anyway and buys a horizon that genuinely dissolves.
   const g = ctx.createRadialGradient(C, C, 0, C, C, C)
-  g.addColorStop(0, "#191c21")
-  g.addColorStop(0.42, "#101318")
-  g.addColorStop(0.72, "#05060a")
+  g.addColorStop(0, "#1a1d22")
+  g.addColorStop(0.22, "#14171c")
+  g.addColorStop(0.40, "#0b0d11")
+  g.addColorStop(0.56, "#040508")
+  g.addColorStop(0.66, "#000000")
   g.addColorStop(1, "#000000")
   ctx.fillStyle = g
   ctx.beginPath(); ctx.arc(C, C, C, 0, Math.PI * 2); ctx.fill()
@@ -68,7 +76,7 @@ function makePadTexture(doc: Document): HTMLCanvasElement {
   // concentric set-out rings
   ctx.lineWidth = 1.4
   ctx.strokeStyle = "rgba(240,240,242,0.09)"
-  for (const r of [0.10, 0.18, 0.26, 0.34, 0.42]) {
+  for (const r of [0.08, 0.15, 0.22, 0.30, 0.38]) {
     ctx.beginPath(); ctx.arc(C, C, C * r, 0, Math.PI * 2); ctx.stroke()
   }
   // radial ticks, every 15°, stopping short of the middle
@@ -77,8 +85,8 @@ function makePadTexture(doc: Document): HTMLCanvasElement {
   for (let i = 0; i < 24; i++) {
     const a = (i / 24) * Math.PI * 2
     ctx.beginPath()
-    ctx.moveTo(C + Math.cos(a) * C * 0.11, C + Math.sin(a) * C * 0.11)
-    ctx.lineTo(C + Math.cos(a) * C * 0.46, C + Math.sin(a) * C * 0.46)
+    ctx.moveTo(C + Math.cos(a) * C * 0.09, C + Math.sin(a) * C * 0.09)
+    ctx.lineTo(C + Math.cos(a) * C * 0.41, C + Math.sin(a) * C * 0.41)
     ctx.stroke()
   }
 
@@ -102,8 +110,14 @@ function makePadTexture(doc: Document): HTMLCanvasElement {
 interface Built {
   holder: THREE_NS.Group
   animate: (t: number) => void
-  /** camera position + target that frame this tower at aspect 1 */
-  fit: { center: THREE_NS.Vector3; radius: number }
+  /**
+   * What the camera has to cover, measured off the model rather than typed in:
+   * the vertical half-extent around `targetY` and the horizontal half-extent.
+   * Two numbers instead of one radius because these are 4:1 towers — a single
+   * bounding radius fits the diagonal and leaves the building tiny in a 16:9
+   * plate, and fitting the height alone clips the crown on a narrow viewport.
+   */
+  fit: { targetY: number; halfV: number; halfH: number }
 }
 
 export default function TowerViewer({ partner }: { partner: PartnerKey }) {
@@ -247,7 +261,11 @@ export default function TowerViewer({ partner }: { partner: PartnerKey }) {
         } else {
           const t = buildBitflowTower(lot0, { detail: true })
           holder.add(t.group)
-          t.setDaylight(0)                   // black page — the tower is at night
+          // Not 0. Full night drives the rooftop mark's emissive to ~2.1, and
+          // ACES takes saturated salamander that hot straight to yellow-white —
+          // the brand mark stops being the brand colour. Half-night keeps the
+          // glow reading as glow while the orange stays orange.
+          t.setDaylight(0.45)
           animate = t.animate
         }
 
@@ -263,11 +281,20 @@ export default function TowerViewer({ partner }: { partner: PartnerKey }) {
         scene.add(holder)
         box.setFromObject(holder)
         box.getSize(sizeV)
-        const center = box.getCenter(new THREE.Vector3())
-        // frame on the mass, not the bounding sphere: these are 4:1 towers and a
-        // sphere fit would leave them tiny in a 16:9 plate
-        const radius = Math.max(sizeV.y * 0.52, sizeV.x * 0.62, sizeV.z * 0.62)
-        const entry: Built = { holder, animate, fit: { center, radius } }
+        // Kray's crown is a Draco GLB that lands a beat after this measurement,
+        // and BitFlow's rooftop mark floats ±1.6 — so the measured top is not
+        // the final top. HEADROOM covers both without a second measure pass.
+        const HEADROOM = 1.10
+        const targetY = (box.min.y + box.max.y) * 0.5 * 0.92
+        const entry: Built = {
+          holder,
+          animate,
+          fit: {
+            targetY,
+            halfV: Math.max(box.max.y - targetY, targetY - box.min.y) * HEADROOM,
+            halfH: Math.max(sizeV.x, sizeV.z) * 0.5 * 1.18,
+          },
+        }
         built.set(k, entry)
         return entry
       }
@@ -280,21 +307,30 @@ export default function TowerViewer({ partner }: { partner: PartnerKey }) {
       let tweenT = 1                          // 1 = settled
       let distFor = 0
 
-      const distanceFor = (radius: number) => {
+      // the distance at which BOTH extents clear their own field of view — the
+      // binding one wins, so a wide plate stands off for height and a narrow
+      // one stands off for width
+      const distanceFor = (fit: Built["fit"]) => {
         const vFov = (camera.fov * Math.PI) / 180
         const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect)
-        return (radius / Math.sin(Math.min(vFov, hFov) / 2)) * 1.08
+        return Math.max(fit.halfV / Math.tan(vFov / 2), fit.halfH / Math.tan(hFov / 2))
       }
 
       const aimAt = (b: Built, instant: boolean) => {
-        distFor = distanceFor(b.fit.radius)
-        tgtTo.set(0, b.fit.center.y * 0.92, 0)
-        // three-quarter view, slightly above the midpoint — the standard
-        // presentation angle for a tower elevation
-        const dir = new THREE.Vector3(0.62, 0.30, 0.72).normalize()
+        distFor = distanceFor(b.fit)
+        tgtTo.set(0, b.fit.targetY, 0)
+        // Three-quarter view, slightly ABOVE the midpoint. Dropping the camera
+        // under it looks more dramatic and is wrong: both towers wear a flat
+        // rooftop mark (BitFlow's pixel wave, Kray's inscribed icon), and seen
+        // from below those resolve into their own bottom faces — the mark stops
+        // being a mark and becomes a stack of bars.
+        const dir = new THREE.Vector3(0.62, 0.31, 0.72).normalize()
         camTo.copy(tgtTo).addScaledVector(dir, distFor)
-        controls.minDistance = distFor * 0.42
-        controls.maxDistance = distFor * 1.9
+        // the near clamp is a legibility guard, not a physical one: these
+        // façades are canvas textures tuned for a whole-building view, and
+        // close enough to count the pixels they stop reading as glass
+        controls.minDistance = distFor * 0.58
+        controls.maxDistance = distFor * 1.8
         if (instant) {
           camera.position.copy(camTo)
           controls.target.copy(tgtTo)
@@ -373,7 +409,7 @@ export default function TowerViewer({ partner }: { partner: PartnerKey }) {
         if (current) {
           const b = built.get(current)
           if (b) {
-            const want = distanceFor(b.fit.radius)
+            const want = distanceFor(b.fit)
             controls.minDistance = want * 0.42
             controls.maxDistance = want * 1.9
             if (Math.abs(want - distFor) > 1) {
@@ -441,7 +477,11 @@ export default function TowerViewer({ partner }: { partner: PartnerKey }) {
             <div className="text-[9px] tracking-[0.22em] text-lava mt-0.5">{p.lot}</div>
           </div>
 
-          <div className="absolute bottom-3 inset-x-0 text-center font-mono text-[10px] tracking-[0.2em] text-dusty pointer-events-none">
+          {/* On a 390px plate this sits exactly on top of the lot readout above.
+              The same instruction is already in the caption under the plate, so
+              the phone drops the in-canvas copy rather than stacking two lines
+              of mono over each other. */}
+          <div className="hidden sm:block absolute bottom-3 inset-x-0 text-center font-mono text-[10px] tracking-[0.2em] text-dusty pointer-events-none">
             DRAG TO ORBIT
           </div>
 

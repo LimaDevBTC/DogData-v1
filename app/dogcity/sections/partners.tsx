@@ -127,7 +127,7 @@ function Dossier({
   const reduce = useReducedMotion()
 
   return (
-    <StaggerItem className={`relative border ${active ? HAIR_STRONG : HAIR} bg-void transition-colors duration-500`}>
+    <StaggerItem className={`relative h-full border ${active ? HAIR_STRONG : HAIR} bg-void transition-colors duration-500`}>
       {/* the rule that slides between the two cards — the only thing on this
           sheet that moves on its own, and it only moves when you ask it to */}
       {active && (
@@ -139,7 +139,11 @@ function Dossier({
       )}
       <Corners accent={active ? partner.accent : undefined} delay={index * 0.08} />
 
-      <div className={`p-5 md:p-6 transition-opacity duration-500 ${active ? "opacity-100" : "opacity-70"}`}>
+      {/* flex column + mt-auto on the table: the two blurbs are different
+          lengths, and without this the spec tables and the control rows sit at
+          different heights on cards that are otherwise the same size, which
+          reads as a misprint on a page built out of ruled grids */}
+      <div className={`h-full flex flex-col p-5 md:p-6 transition-opacity duration-500 ${active ? "opacity-100" : "opacity-70"}`}>
         {/* head — mark, then designation */}
         <div className="flex items-start justify-between gap-4">
           <div className={`relative ${partner.logoClass} w-[150px]`}>
@@ -165,14 +169,19 @@ function Dossier({
 
         {/* the spec table — same four rows on both cards, so the two dossiers
             read as one comparison rather than two brochures */}
-        <dl className={`mt-6 grid grid-cols-2 gap-px ${GRIDLINE} border ${HAIR} font-mono`}>
-          {partner.specs.map(([k, v]) => (
-            <div key={k} className="bg-void p-3">
-              <dt className="text-[9px] tracking-[0.25em] text-dusty">{k}</dt>
-              <dd className="text-[11px] text-snow mt-1 leading-snug">{v}</dd>
-            </div>
-          ))}
-        </dl>
+        {/* the spacer carries mt-auto, not the <dl> — padding on the <dl>
+            itself would sit inside its border and open a gap around the gap-px
+            grid it wraps */}
+        <div className="mt-auto pt-6">
+          <dl className={`grid grid-cols-2 gap-px ${GRIDLINE} border ${HAIR} font-mono`}>
+            {partner.specs.map(([k, v]) => (
+              <div key={k} className="bg-void p-3">
+                <dt className="text-[9px] tracking-[0.25em] text-dusty">{k}</dt>
+                <dd className="text-[11px] text-snow mt-1 leading-snug">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
 
         {/* controls — select is a button, the partner's site is a link. Never
             one nested in the other. */}
@@ -215,7 +224,11 @@ export default function Section() {
 
         {/* ── the plate — one canvas, one anchor at a time ─────────────────── */}
         <Reveal delay={0.2} y={20} className="mt-10 md:mt-12">
-          <div className={`relative aspect-[4/3] sm:aspect-[16/10] md:aspect-[16/9] border ${HAIR} overflow-hidden`}>
+          {/* Portrait on phones. Both anchors are roughly 4:1 towers, and a
+              landscape plate on a 390px screen spends its width on empty plaza
+              and leaves the building 200px tall. The viewer fits to whichever
+              extent binds, so a taller box simply gets a taller building. */}
+          <div className={`relative aspect-[4/5] sm:aspect-[16/10] md:aspect-[16/9] border ${HAIR} overflow-hidden`}>
             <TowerViewer partner={active} />
             <Corners accent="rgba(245,110,15,0.85)" delay={0.1} />
           </div>

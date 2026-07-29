@@ -62,11 +62,15 @@ const texCache = new Map<string, THREE.CanvasTexture>()
 function glassTex(cols: number, rows: number, bright: number, calm: boolean): THREE.CanvasTexture {
   const key = `g${cols}x${rows}x${bright}${calm ? 'c' : ''}`
   const hit = texCache.get(key); if (hit) return hit
-  const S = 512
+  // close range doubles the bay count, so it doubles the canvas too — otherwise
+  // a storey is ~3 px tall and the mullion/slab lines eat the glass entirely
+  const S = calm ? 1024 : 512
   const cv = document.createElement('canvas'); cv.width = S; cv.height = S
   const ctx = cv.getContext('2d')!
   ctx.fillStyle = '#070809'; ctx.fillRect(0, 0, S, S)
   const cw = S / cols, ch = S / rows
+  // insets scale with the cell so dense grids keep visible glass
+  const ix = Math.max(0.7, cw * 0.14), iy = Math.max(1.0, ch * 0.18)
   // ── density is the whole difference between the two modes ──────────────────
   // At city distance a volume is 30 px tall and the façade's only job is to say
   // BITFLOW in brand colour from across the plaza, so ~2 cells in 3 are lit at
@@ -95,14 +99,15 @@ function glassTex(cols: number, rows: number, bright: number, calm: boolean): TH
         } else col = sea ? '#00d1ac' : '#f78116'
       } else col = calm ? '#090d13' : '#0c1016'
       ctx.fillStyle = col
-      ctx.fillRect(c * cw + 1.5, r * ch + 2.5, cw - 3, ch - 5)
+      ctx.fillRect(c * cw + ix, r * ch + iy, cw - ix * 2, ch - iy * 2)
     }
   }
   // dark floor slabs (strong horizontal rhythm) + thin mullions
+  const slabW = Math.max(1.6, ch * 0.16), mullW = Math.max(0.8, cw * 0.09)
   ctx.fillStyle = '#050607'
-  for (let r = 0; r <= rows; r++) ctx.fillRect(0, r * ch - 1.5, S, 3)
+  for (let r = 0; r <= rows; r++) ctx.fillRect(0, r * ch - slabW / 2, S, slabW)
   ctx.fillStyle = '#1a1e24'
-  for (let c = 0; c <= cols; c++) ctx.fillRect(c * cw - 0.7, 0, 1.4, S)
+  for (let c = 0; c <= cols; c++) ctx.fillRect(c * cw - mullW / 2, 0, mullW, S)
   const tex = new THREE.CanvasTexture(cv); tex.anisotropy = 8
   tex.colorSpace = THREE.SRGBColorSpace   // used as diffuse map + emissiveMap
   texCache.set(key, tex); return tex
@@ -110,18 +115,22 @@ function glassTex(cols: number, rows: number, bright: number, calm: boolean): TH
 
 // ── Pixel-dither perforated panel — near-black with a sparse scatter of glowing
 // orange (and a whisper of sea-green) pixels, the brand's dither motif. ───────
-function ditherTex(cols: number, rows: number): THREE.CanvasTexture {
-  const key = `d${cols}x${rows}`
+function ditherTex(cols: number, rows: number, calm: boolean): THREE.CanvasTexture {
+  const key = `d${cols}x${rows}${calm ? 'c' : ''}`
   const hit = texCache.get(key); if (hit) return hit
-  const S = 512
+  const S = calm ? 1024 : 512
   const cv = document.createElement('canvas'); cv.width = S; cv.height = S
   const ctx = cv.getContext('2d')!
   ctx.fillStyle = '#08090b'; ctx.fillRect(0, 0, S, S)
   const cw = S / cols, ch = S / rows
+  // the perforation is already sparse; close range only thins it further, so a
+  // dither panel reads as a dark perforated skin with light behind it rather
+  // than as confetti stuck to a box
+  const density = calm ? 0.15 : 0.26
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const k = rnd(c * 2 + 1, r * 3 + 1)
-      if (k > 0.26) continue
+      if (k > density) continue
       const bright = 0.45 + rnd(r + 9, c + 4) * 0.55
       const sea = rnd(c + 6, r + 8) < 0.34   // healthy mix of sea-green with orange
       const rr = Math.round((sea ? 0 : 247) * bright)
@@ -193,7 +202,7 @@ export function buildBitflowTower(
   const facadeMat = (type: 'glass' | 'dither', cols: number, rows: number, bright: number) => {
     const key = `${type}${cols}x${rows}x${bright}${detail ? 'c' : ''}`
     const hit = glassMatCache.get(key); if (hit) return hit
-    const tex = type === 'glass' ? glassTex(cols, rows, bright, detail) : ditherTex(cols, rows)
+    const tex = type === 'glass' ? glassTex(cols, rows, bright, detail) : ditherTex(cols, rows, detail)
     // Same texture as BOTH a diffuse map and the emissive map: daylight lights the
     // diffuse colours so orange reads as the true #F78116 salamander (like the 3D
     // icon), while the emissive only makes them GLOW after dark. Matte + low metal
@@ -211,8 +220,15 @@ export function buildBitflowTower(
   // right on wide and narrow faces alike). Returns the mesh. ─────────────────
   const litMats: THREE.MeshStandardMaterial[] = []
   const addVol = (type: 'glass' | 'dither', cx: number, cz: number, w: number, h: number, d: number, yBase: number, bright = 0) => {
-    const cols = Math.max(2, Math.round(w / 8)), dcols = Math.max(2, Math.round(d / 8))
-    const rows = Math.max(3, Math.round(h / 7))
+    // Bay size is the other half of the city-vs-showcase problem. One cell per
+    // 8 units of façade is right when the whole volume is 30 px tall; put the
+    // camera two heights away and each "window" becomes a ten-metre square of
+    // flat colour, which is why the first pass read as Minecraft. Close range
+    // roughly halves the bay, so a storey is a storey and the mullion grid is
+    // fine enough to be a curtain wall rather than a pattern.
+    const bay = detail ? 4.2 : 8, storey = detail ? 3.6 : 7
+    const cols = Math.max(2, Math.round(w / bay)), dcols = Math.max(2, Math.round(d / bay))
+    const rows = Math.max(3, Math.round(h / storey))
     const front = facadeMat(type, cols, rows, bright)
     const side = facadeMat(type, dcols, rows, bright)
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), [side, side, capMat, capMat, front, front])

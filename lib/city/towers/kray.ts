@@ -286,10 +286,21 @@ export function buildKrayTower(
   canopy.position.set(0, 0.055 * H, HZ * prof(0.03) + 6)
   canopy.rotation.x = 0.07
   group.add(canopy)
-  const canopy2 = new THREE.Mesh(new THREE.BoxGeometry(HX * 1.05, 1.3, 9), edgeMat)
+  // The lower canopy is a silver slab. Across the plaza that is a highlight
+  // catching the light; at showcase range a fully bright plank hanging off the
+  // entrance is the weakest thing on the building, so close range gives it a
+  // dark soffit and keeps the silver for a nosing bar along its leading edge —
+  // which is how the highlight actually happens on a real canopy.
+  const canopy2 = new THREE.Mesh(new THREE.BoxGeometry(HX * 1.05, 1.3, 9), detail ? darkMat : edgeMat)
   canopy2.position.set(0, 0.038 * H, HZ * prof(0.03) + 9.5)
   canopy2.rotation.x = 0.09
   group.add(canopy2)
+  if (detail) {
+    const nosing = new THREE.Mesh(new THREE.BoxGeometry(HX * 1.05, 0.5, 0.9), edgeMat)
+    nosing.position.set(0, 0.038 * H - 0.5, HZ * prof(0.03) + 13.9)
+    nosing.rotation.x = 0.09
+    group.add(nosing)
+  }
 
   // ── Close-range pass (landing showcase only) ────────────────────────────────
   // At plaza distance the lobby is four pixels of warm glass and none of this
@@ -326,6 +337,15 @@ export function buildKrayTower(
       darkMat,
     )
     group.add(lip)
+
+    // a kerb around the plinth. Without it the landscaped pad is a hard-edged
+    // dark ellipse on a dark plaza and reads as the building's own shadow; a
+    // lit rim turns the same shape into ground the tower is standing on.
+    const kerb = new THREE.Mesh(new THREE.TorusGeometry(1, 0.014, 6, 64), edgeMat)
+    kerb.rotation.x = Math.PI / 2
+    kerb.scale.set(HX * 1.7, HZ * 2.1, 1)
+    kerb.position.y = 2.3
+    group.add(kerb)
   }
 
   // ── "Kray Space" sign — on the dark penthouse band, over a backing plate so
@@ -434,8 +454,13 @@ export function buildKrayTower(
   // ── Animation (cheap, zero per-frame allocations) ───────────────────────────
   const animate = (t: number) => {
     if (iconLoaded) {
-      // 3D icon crowns the tower — steady 360° spin with a gentle float
-      iconPivot.rotation.y = t * 0.5
+      // The inscribed icon is close to flat, so a full 360° spin spends part of
+      // every revolution edge-on — a gold sliver instead of the Kray mark. From
+      // across the plaza that is a glint and it is fine. In the showcase, where
+      // this mark is the point of the whole plate and a visitor may only watch
+      // for a couple of seconds, close range trades the spin for a ±54° sweep:
+      // still alive, never side-on.
+      iconPivot.rotation.y = detail ? Math.sin(t * 0.22) * 0.95 : t * 0.5
       iconPivot.position.y = logoBaseY + Math.sin(t * 0.8) * 1.4
     } else {
       // flat triangle holds the crown until the GLB lands
