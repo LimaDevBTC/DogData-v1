@@ -22,6 +22,7 @@ import Tiers from "./sections/tiers"
 import Ordinals from "./sections/ordinals"
 import LunarTerrain from "./sections/lunar-terrain"
 import Masterplan from "./sections/masterplan"
+import Partners from "./sections/partners"
 import Park from "./sections/park"
 import FinalCta from "./sections/final-cta"
 import type { LeaderboardData } from "./types"
@@ -145,6 +146,10 @@ export default function LandingPage() {
         <Ordinals />
         <LunarTerrain />
         <Masterplan />
+        {/* the plaza is introduced by the masterplan above; its two named
+            anchors follow immediately, before the page leaves the city for the
+            park ("Beyond the skyline.") */}
+        <Partners />
         <Park />
         <FinalCta />
       </div>
