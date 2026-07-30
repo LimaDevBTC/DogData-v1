@@ -7,13 +7,25 @@
 // in the masterplan for the projects DogCity is built with. This sheet is where
 // the page says who they are, and it says it with the buildings themselves.
 //
-// THE MECHANISM — the dossier IS the selector.
-// One WebGL plate shows one anchor at a time. There is no tab strip floating
-// over the render, because a tab strip would be a second control saying the
-// same thing as the two cards underneath it. Instead each partner's dossier
-// carries the control that summons its building, and a single lava rule slides
-// between the two cards (framer `layoutId`) so the connection between "this
-// card" and "that tower" is drawn, not implied.
+// THE MECHANISM — a tab strip on the plate, and the dossier as a second selector.
+// One WebGL plate shows one anchor at a time.
+//
+// The first version of this had NO tab strip, on the reasoning that it would be
+// "a second control saying the same thing as the two cards underneath it". That
+// reasoning was wrong, and the owner found it the hard way: they looked at the
+// live page and reported that the Kray tower "não está em produção, só tem o
+// card dela" — it wasn't built. It was built, and it rendered perfectly; it just
+// defaults to second place. When your eye is on the plate, the cards are BELOW
+// the plate, outside the frame, so nothing on screen says a second building
+// exists. One plate showing one tower reads as a finished picture of the only
+// tower there is.
+//
+// So: a tab strip, top-left of the plate, naming both anchors. It costs nothing
+// (no extra canvas, no extra fetch — the asset is still lazy per selection) and
+// it is the one thing that makes "there are two of these" true at a glance. The
+// dossiers keep their own selector too, and a single lava rule still slides
+// between the two cards (framer `layoutId`) so the connection between "this card"
+// and "that tower" stays drawn rather than implied.
 //
 // WHY A LIVE MODEL AND NOT A RENDER.
 // Both towers already exist as procedural builders — the same code the city
@@ -109,6 +121,61 @@ function Corners({ accent, delay = 0 }: { accent?: string; delay?: number }) {
         </span>
       ))}
     </span>
+  )
+}
+
+// ═══ the plate tabs ════════════════════════════════════════════════════════
+// The fix for the failure described in the header: name both anchors ON the
+// plate so a visitor who never scrolls to the dossiers still knows there are
+// two buildings here and that this one is a choice, not the whole story.
+//
+// A real tablist, not two styled divs: it announces "tab 1 of 2" to a screen
+// reader, which is exactly the fact that was missing visually. Sits top-LEFT
+// because the viewer owns top-right (its own ± zoom buttons) and bottom-left
+// (the lot readout).
+function PlateTabs({
+  active, onSelect,
+}: {
+  active: PartnerKey
+  onSelect: (k: PartnerKey) => void
+}) {
+  const reduce = useReducedMotion()
+  return (
+    <div
+      role="tablist"
+      aria-label="Choose which anchor building to show"
+      className="absolute top-3 left-3 z-30 flex items-start gap-2"
+    >
+      {PARTNERS.map((p) => {
+        const on = p.key === active
+        // Each tab gets its own dark chip. Without one they sit directly on the
+        // render, and at 390px the second label landed on top of BitFlow's
+        // orange rooftop mark and became unreadable — a control you cannot read
+        // is the bug this whole component exists to fix.
+        return (
+          <button
+            key={p.key}
+            role="tab"
+            aria-selected={on}
+            onClick={() => onSelect(p.key)}
+            className={`relative font-mono text-[10px] tracking-[0.22em] px-2 pt-1.5 pb-2 bg-void/75 transition-colors ${
+              on ? "text-lava" : "text-dusty hover:text-snow"
+            }`}
+          >
+            {/* the phone gets the one-word name; there is no room for both */}
+            <span className="sm:hidden">{p.name.split(" ")[0].toUpperCase()}</span>
+            <span className="hidden sm:inline">{p.building.toUpperCase()}</span>
+            {on && (
+              <motion.span
+                layoutId={reduce ? undefined : "partner-tab-rule"}
+                className="absolute inset-x-0 bottom-0 h-px bg-lava"
+                transition={{ duration: 0.4, ease: EASE }}
+              />
+            )}
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
@@ -230,6 +297,7 @@ export default function Section() {
               extent binds, so a taller box simply gets a taller building. */}
           <div className={`relative aspect-[4/5] sm:aspect-[16/10] md:aspect-[16/9] border ${HAIR} overflow-hidden`}>
             <TowerViewer partner={active} />
+            <PlateTabs active={active} onSelect={setActive} />
             <Corners accent="rgba(245,110,15,0.85)" delay={0.1} />
           </div>
         </Reveal>
