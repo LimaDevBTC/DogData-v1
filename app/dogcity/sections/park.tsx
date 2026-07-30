@@ -130,11 +130,11 @@ const GALLERY: ParkPlate[] = [
 
 const PARK_FACTS: ReadonlyArray<readonly [string, string]> = [
   ["THE GREAT RUNESTONE", "500 m visible · summit 714 m"],
-  ["THE RANGE", "8 giants · 4.8 km chain"],
-  ["STONE CENSUS", "400+ marked stones · 0.15—500 m"],
-  ["PRESERVED CORE", "400 m radius · never entered"],
+  ["THE RANGE", "8 crystal blooms · 4.8 km chain"],
+  ["STONE CENSUS", "500+ marked stones · 0.15—500 m"],
+  ["ACCESS", "public · every stone, open ground"],
   ["PARK AREA", "~1,400 hectares"],
-  ["ELEVATED TRAILS", "11 km · leave no footprints"],
+  ["TRAILS", "11 km of walkway · roam free"],
 ]
 
 // ═══ the shutter ═══════════════════════════════════════════════════════════
@@ -248,23 +248,23 @@ export default function Section({}) {
                 sit inside, between two struck rules. Every word is preserved. */}
             <Reveal delay={0.45} y={14} className="mt-9">
               <p className="text-sm text-mist leading-relaxed">
-                The park is built around a single rule:
+                The park is built on a single promise:
               </p>
             </Reveal>
             <DrawRule className="mt-5 w-full" color="bg-white/20" delay={0.52} duration={1.1} />
             <div className="py-5">
               <span className="block font-display text-2xl text-snow">
-                <SplitLine text="leave no footprints." delay={0.62} step={0.07} className="pb-[0.12em]" />
+                <SplitLine text="every stone is public ground." delay={0.62} step={0.07} className="pb-[0.12em]" />
               </span>
             </div>
             <DrawRule className="w-full" color="bg-white/20" delay={0.72} duration={1.1} />
 
             <Reveal delay={0.9} y={14} className="mt-7">
               <p className="text-sm text-mist leading-relaxed">
-                Lunar prints last for millions of years, so visitors never touch the regolith —
-                eleven kilometres of elevated walkway thread the valley and ring the Great
-                Runestone at a distance; one last step reaches 430 metres and stops. The inner
-                400 metres are never entered, and never lit.
+                At one-sixth gravity you can walk the whole basin — and you should. Footprints
+                last a million years here; the park invites you to add yours. Eleven kilometres
+                of walkway carry you to the far ridges, and everything between them is open
+                ground, from the valley floor to the foot of the Great Runestone.
               </p>
             </Reveal>
 

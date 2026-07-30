@@ -48,6 +48,42 @@ const PLAZA_SLAB = 4
 // Camera tween length when switching partners, in seconds.
 const TWEEN = 0.9
 
+// ── the framing decision, in one number ────────────────────────────────────
+// The fraction of the binding field of view the subject's measured extent is
+// given when the plate opens. Everything else about the fit is measurement;
+// this is the only judgement, so it is one named constant rather than a margin
+// multiplier hidden inside each extent. Because it is applied to whichever
+// extent binds, it means the same thing on the 16/9 desktop plate and on the
+// 4/5 phone plate — which is why the two-extent fit below still has to exist.
+//
+// It used to be two ad-hoc margins, 1.14 and 1.15, i.e. a fill of ~0.87 — and
+// since a site's ground runs TOWARD the camera and perspective magnifies it,
+// that put roughly 95% of the plate's height under ink on every site: the plate
+// opened at its own zoom limit, the building touching the frame on all four
+// sides, which is the complaint this constant answers.
+//
+// 0.72 measures out at 80–82% of plate height under ink on all three sites at
+// both plate shapes — screenshotted and sampled, not derived, because the ink
+// is what a visitor sees and it is never the same number as the constant.
+const SUBJECT_FILL = 0.72
+
+// Bloom paints OUTSIDE the geometry, and the fit is computed from geometry. The
+// Kray crown symbol stands alone against the sky, so its halo — not its mesh —
+// is the topmost thing in the frame, and it was being sliced by the top of the
+// plate even when the mesh fitted. This is that halo's headroom, kept separate
+// from SUBJECT_FILL because it is a property of the render, not a taste call:
+// retuning lib/city/bloom.ts is what would change it.
+const BLOOM_HEADROOM = 1.06
+
+// The zoom clamp, as multiples of the opening distance. NEAR is a legibility
+// guard, not a physical one: these façades are canvas textures tuned for a
+// whole-building view and stop reading as glass close enough to count their
+// pixels. It is set so the CLOSEST the visitor can get is roughly where the
+// plate used to open — pulling the opening framing back must not also pull the
+// near limit back, or the change would cost reach instead of buying room.
+const NEAR_FACTOR = 0.50
+const FAR_FACTOR = 1.8
+
 // ── the lot pad ────────────────────────────────────────────────────────────
 // One textured disc carrying the ground, the set-out grid and the lot outline,
 // baked once and shared by both partners.
@@ -314,16 +350,13 @@ export default function TowerViewer({ partner }: { partner: SiteKey }) {
         })
         ;(tall.isEmpty() ? box : tall).getSize(sizeV)
         const targetY = (botY + topY) * 0.5 * 0.92
+        // Both extents are MEASUREMENTS — what has to be inside the frame, plus
+        // the halo the top one wears. How much of the plate they are then given
+        // is SUBJECT_FILL's job, applied once in distanceFor().
         return {
           targetY,
-          // 1.06 -> 1.14. The fit is computed from GEOMETRY, but bloom paints
-          // outside it: the Kray crown symbol sits alone against the sky, so its
-          // halo is the widest thing in the frame and was being sliced by the top
-          // of the plate even though the mesh itself fitted. Margin, not a bigger
-          // model, is the fix — the halo is a render property and would come back
-          // the moment anyone retuned the bloom.
-          halfV: Math.max(topY - targetY, targetY - botY) * 1.14,
-          halfH: Math.max(sizeV.x, sizeV.z) * 0.5 * 1.15,
+          halfV: Math.max(topY - targetY, targetY - botY) * BLOOM_HEADROOM,
+          halfH: Math.max(sizeV.x, sizeV.z) * 0.5,
         }
       }
 
@@ -413,9 +446,11 @@ export default function TowerViewer({ partner }: { partner: SiteKey }) {
         box.getSize(sizeV)
         // The procedural Kray's crown is a Draco GLB that lands a beat after this
         // measurement, and BitFlow's rooftop mark floats ±1.6 — so the measured
-        // top is not the final top. HEADROOM covers both without a second pass.
-        // (The GLB path uses fitFor() instead: it has real ground to exclude.)
-        const HEADROOM = 1.10
+        // top is not the final top. UNMEASURED covers both without a second pass.
+        // It is a measurement pad, not a framing margin: the framing is
+        // SUBJECT_FILL, the same as for the GLB path, which uses fitFor()
+        // instead because it has real ground to exclude.
+        const UNMEASURED = 1.10
         const targetY = (box.min.y + box.max.y) * 0.5 * 0.92
         return {
           holder,
@@ -423,8 +458,8 @@ export default function TowerViewer({ partner }: { partner: SiteKey }) {
           isGlb: false,
           fit: {
             targetY,
-            halfV: Math.max(box.max.y - targetY, targetY - box.min.y) * HEADROOM,
-            halfH: Math.max(sizeV.x, sizeV.z) * 0.5 * 1.18,
+            halfV: Math.max(box.max.y - targetY, targetY - box.min.y) * UNMEASURED * BLOOM_HEADROOM,
+            halfH: Math.max(sizeV.x, sizeV.z) * 0.5 * UNMEASURED,
           },
         }
       }
@@ -462,13 +497,24 @@ export default function TowerViewer({ partner }: { partner: SiteKey }) {
       let tweenT = 1                          // 1 = settled
       let distFor = 0
 
-      // the distance at which BOTH extents clear their own field of view — the
-      // binding one wins, so a wide plate stands off for height and a narrow
-      // one stands off for width
+      // The distance at which BOTH extents sit inside SUBJECT_FILL of their own
+      // field of view — the binding one wins, so a wide plate stands off for
+      // height and a narrow one stands off for width. Dividing by the fill inside
+      // the same expression is what makes one constant mean the same thing on
+      // both axes: the subject covers that fraction of whichever axis binds.
       const distanceFor = (fit: Built["fit"]) => {
         const vFov = (camera.fov * Math.PI) / 180
         const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect)
-        return Math.max(fit.halfV / Math.tan(vFov / 2), fit.halfH / Math.tan(hFov / 2))
+        return Math.max(
+          fit.halfV / (Math.tan(vFov / 2) * SUBJECT_FILL),
+          fit.halfH / (Math.tan(hFov / 2) * SUBJECT_FILL),
+        )
+      }
+
+      // one clamp, so the fit path and the resize path cannot drift apart
+      const clampZoom = (d: number) => {
+        controls.minDistance = d * NEAR_FACTOR
+        controls.maxDistance = d * FAR_FACTOR
       }
 
       const aimAt = (b: Built, instant: boolean) => {
@@ -481,11 +527,7 @@ export default function TowerViewer({ partner }: { partner: SiteKey }) {
         // being a mark and becomes a stack of bars.
         const dir = new THREE.Vector3(0.62, 0.31, 0.72).normalize()
         camTo.copy(tgtTo).addScaledVector(dir, distFor)
-        // the near clamp is a legibility guard, not a physical one: these
-        // façades are canvas textures tuned for a whole-building view, and
-        // close enough to count the pixels they stop reading as glass
-        controls.minDistance = distFor * 0.58
-        controls.maxDistance = distFor * 1.8
+        clampZoom(distFor)
         if (instant) {
           camera.position.copy(camTo)
           controls.target.copy(tgtTo)
@@ -601,8 +643,7 @@ export default function TowerViewer({ partner }: { partner: SiteKey }) {
           const b = built.get(current)
           if (b) {
             const want = distanceFor(b.fit)
-            controls.minDistance = want * 0.42
-            controls.maxDistance = want * 1.9
+            clampZoom(want)
             if (Math.abs(want - distFor) > 1) {
               const dir = camera.position.clone().sub(controls.target).setLength(want)
               camera.position.copy(controls.target).add(dir)
