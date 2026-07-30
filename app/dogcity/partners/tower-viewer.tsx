@@ -21,6 +21,12 @@
 // House rules this file obeys, all of them learned in this repo:
 //   · raw Three.js, never react-three-fiber (it crashes against our React)
 //   · WebGL boots on an IntersectionObserver 400px out and hard-stops offscreen
+//   · lit surfaces bloom, through lib/city/bloom.ts — the halo bleeding off every
+//     window, LED line and sign is the dominant quality of the owner's own
+//     references, and without post-processing a lit surface stops dead at its own
+//     geometry. That module owns the threshold, the tone-mapping order and the
+//     numbers behind both; it is shared with the local workbench so the harness
+//     and the landing page cannot drift apart.
 //   · wheel is swallowed BEFORE OrbitControls registers, so page scroll is
 //     never trapped; pinch-zoom and the ± buttons survive
 //   · zero per-frame allocation, one rAF, one renderer
@@ -175,6 +181,9 @@ export default function TowerViewer({ partner }: { partner: SiteKey }) {
       const { DRACOLoader } = await import("three/examples/jsm/loaders/DRACOLoader.js")
       const { buildKrayTower } = await import("@/lib/city/towers/kray")
       const { buildBitflowTower } = await import("@/lib/city/towers/bitflow")
+      // the postprocessing jsm modules load inside this one, so they stay out of
+      // the initial bundle exactly like everything else above
+      const { createBloomRig, bloomTuningFor } = await import("@/lib/city/bloom")
       if (disposed || !mount) return
 
       // The sites ship Draco-compressed (KHR_draco_mesh_compression), so the
@@ -518,6 +527,19 @@ export default function TowerViewer({ partner }: { partner: SiteKey }) {
         controls.update()
       }
 
+      // ── selective bloom ─────────────────────────────────────────────────────
+      // The composer replaces renderer.render() from here on. Note what it is NOT
+      // gated on: prefers-reduced-motion. That flag is about movement, and it
+      // already turns off autoRotate above — a halo does not move, and answering
+      // "I prefer less motion" with a flatter, cheaper-looking building would be
+      // reading the media query as "reduced quality". Bloom stays on for everyone.
+      const bloomRig = await createBloomRig(
+        THREE, renderer, scene, camera,
+        mount.clientWidth, mount.clientHeight,
+        bloomTuningFor(window.innerWidth),
+      )
+      if (disposed) { bloomRig.dispose(); return }
+
       // ── loop ────────────────────────────────────────────────────────────────
       const clock = new THREE.Clock()
       let raf = 0
@@ -537,7 +559,7 @@ export default function TowerViewer({ partner }: { partner: SiteKey }) {
 
         if (current) built.get(current)?.animate(t)
         controls.update()
-        renderer.render(scene, camera)
+        bloomRig.render()
         raf = requestAnimationFrame(loop)
       }
       loop()
@@ -554,6 +576,11 @@ export default function TowerViewer({ partner }: { partner: SiteKey }) {
         camera.aspect = mount.clientWidth / mount.clientHeight
         camera.updateProjectionMatrix()
         renderer.setSize(mount.clientWidth, mount.clientHeight)
+        // The composer owns four full-size render targets plus an 11-target mip
+        // chain, none of which follow renderer.setSize(). A composer that misses
+        // this renders the old buffer stretched over the new canvas — which is
+        // what an orientation change looks like when this line is forgotten.
+        bloomRig.setSize(mount.clientWidth, mount.clientHeight)
         // the fit is aspect-dependent: a phone in portrait needs to stand back
         if (current) {
           const b = built.get(current)
@@ -580,6 +607,10 @@ export default function TowerViewer({ partner }: { partner: SiteKey }) {
         zoomRef.current = null
         controls.dispose()
         pmrem.dispose()
+        // the composer's two ping-pong targets AND the bloom's own eleven. This
+        // viewer mounts and unmounts as the visitor scrolls the section past, so
+        // skipping this leaks thirteen render targets per pass.
+        bloomRig.dispose()
         dracoLoader.dispose()          // frees the decoder worker pool
         scene.traverse((o) => {
           const mesh = o as THREE_NS.Mesh

@@ -106,26 +106,35 @@ interface ParkPlate {
   src: string
   label: string
   alt: string
+  wide?: boolean
 }
 
 const GALLERY: ParkPlate[] = [
   {
-    src: "/landing/park-finger.webp",
-    label: "THE MARK · FROM THE RING WALK",
-    alt: "View from the ring boardwalk looking up at the monolith's white rune mark",
+    src: "/landing/park-wide.webp",
+    label: "THE VALE · THREE SCALES OF ONE STONE",
+    alt: "From the valley-floor trail: three rune-marked crystal giants stacked in depth, amber walkways threading the dark valley below",
   },
   {
-    src: "/landing/park-wide.webp",
-    label: "ARRIVAL · THE BASIN FROM THE RIM",
-    alt: "Wide view of the park from the southwest rim, the boardwalk descending into the basin",
+    src: "/landing/park-finger.webp",
+    label: "THE MARK · A HUNDRED-METRE GLYPH",
+    alt: "From The Last Step: the Great Runestone's white rune mark, a hundred metres tall, glowing on the black crystal face",
+  },
+  {
+    src: "/landing/park-temple.webp",
+    label: "THE UNMARKED WAY · DO NOT LOOK FOR IT",
+    alt: "Through a gate of two standing runestones: a hidden sunken garden of raked regolith, crystal islands and a black-glass pool, descending to a dark tiered podium",
+    wide: true,
   },
 ]
 
 const PARK_FACTS: ReadonlyArray<readonly [string, string]> = [
-  ["MONOLITH", "45 m visible · ⅓ buried"],
-  ["PRESERVED CORE", "48 m radius · no access"],
-  ["STONE FIELD", "7 erratics · 2 families"],
-  ["PARK AREA", "22 hectares"],
+  ["THE GREAT RUNESTONE", "500 m visible · summit 714 m"],
+  ["THE RANGE", "8 giants · 4.8 km chain"],
+  ["STONE CENSUS", "400+ marked stones · 0.15—500 m"],
+  ["PRESERVED CORE", "400 m radius · never entered"],
+  ["PARK AREA", "~1,400 hectares"],
+  ["ELEVATED TRAILS", "11 km · leave no footprints"],
 ]
 
 // ═══ the shutter ═══════════════════════════════════════════════════════════
@@ -139,14 +148,23 @@ function GalleryFigure({ plate, index }: { plate: ParkPlate; index: number }) {
   const base = index * 0.12
 
   return (
-    <figure ref={ref as never} className={`group relative aspect-[16/10] border ${HAIR} overflow-hidden`}>
+    <figure
+      ref={ref as never}
+      className={`group relative border ${HAIR} overflow-hidden ${plate.wide ? "aspect-[21/9] md:col-span-2" : "aspect-[16/10]"}`}
+    >
       <motion.div
         className="absolute inset-0"
         initial={reduce ? false : { clipPath: "inset(0% 0% 100% 0%)" }}
         animate={show ? { clipPath: "inset(0% 0% 0% 0%)" } : undefined}
         transition={{ duration: 1.1, delay: base + 0.15, ease: EASE }}
       >
-        <Image src={plate.src} alt={plate.alt} fill sizes="(min-width: 768px) 50vw, 100vw" className="object-cover" />
+        <Image
+          src={plate.src}
+          alt={plate.alt}
+          fill
+          sizes={plate.wide ? "100vw" : "(min-width: 768px) 50vw, 100vw"}
+          className="object-cover"
+        />
       </motion.div>
 
       <Corners delay={base} />
@@ -187,7 +205,7 @@ export default function Section({}) {
           >
             <Image
               src="/landing/park-hero.webp"
-              alt="Runestone Natural Park at lunar morning: the 45-metre monolith casting a 230-metre shadow across a preserved impact basin, ringed by an elevated boardwalk lit in amber"
+              alt="Runestone National Park at lunar morning: the 500-metre Great Runestone and its range of black-crystal giants rising beyond the Gate, white rune marks glowing, an amber road descending toward the valley"
               fill
               sizes="100vw"
               className="object-cover"
@@ -219,9 +237,10 @@ export default function Section({}) {
           <div>
             <Reveal delay={0} y={14}>
               <p className="text-lg md:text-xl leading-[1.55] text-snow">
-                Far northeast of the city, a 45-metre monolith of black crystal stands a third
-                buried in a preserved impact basin — thrown here, with its smaller siblings, by
-                the strike that dug the ground it rests in.
+                Far northeast of the city, a mountain range of black crystal stands on a single
+                descent line — hundreds of stones, from ones that fit in a glove to the
+                500-metre Great Runestone, all leaning the same way, all carrying the same
+                white mark. One colossal stone broke apart falling, and wrote the whole park.
               </p>
             </Reveal>
 
@@ -243,8 +262,9 @@ export default function Section({}) {
             <Reveal delay={0.9} y={14} className="mt-7">
               <p className="text-sm text-mist leading-relaxed">
                 Lunar prints last for millions of years, so visitors never touch the regolith —
-                an elevated boardwalk rings the site and one narrow finger reaches to 31 metres
-                and stops. The inner 48 metres are never entered, and never lit.
+                eleven kilometres of elevated walkway thread the valley and ring the Great
+                Runestone at a distance; one last step reaches 430 metres and stops. The inner
+                400 metres are never entered, and never lit.
               </p>
             </Reveal>
 
