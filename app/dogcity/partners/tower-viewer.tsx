@@ -345,9 +345,18 @@ export default function TowerViewer({ partner }: { partner: SiteKey }) {
         const iconY = icon?.position.y ?? 0
         const jetY = jet?.scale.y ?? 1
         return (t: number) => {
-          // the owner's ruling: the Kray symbol keeps spinning above the roof
+          // The owner's ruling: the Kray symbol keeps turning above the roof.
+          //
+          // A ±54° SWEEP, not a 360° spin. The inscribed symbol is close to flat,
+          // so a full revolution spends part of every turn edge-on and the mark
+          // becomes a bare white sliver — which is exactly what shipped, and what
+          // a production screenshot caught. `lib/city/towers/kray.ts` already
+          // solved this for the procedural path; the fix simply never reached
+          // this animator when the GLB path was written. Slowing the spin does
+          // not help: the fraction of time spent edge-on is the same at any
+          // speed. Only bounding the yaw fixes it.
           if (icon) {
-            icon.rotation.y = t * 0.5
+            icon.rotation.y = Math.sin(t * 0.22) * 0.95
             icon.position.y = iconY + Math.sin(t * 0.8) * 1.4
           }
           if (jet) jet.scale.y = jetY * (0.88 + 0.12 * Math.sin(t * 1.4))
