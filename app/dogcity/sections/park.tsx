@@ -111,8 +111,8 @@ interface ParkPlate {
 const GALLERY: ParkPlate[] = [
   {
     src: "/landing/park-finger.webp",
-    label: "THE FINGER · 31 M FROM THE STONE",
-    alt: "View from the boardwalk's finger platform looking up at the monolith",
+    label: "THE MARK · FROM THE RING WALK",
+    alt: "View from the ring boardwalk looking up at the monolith's white rune mark",
   },
   {
     src: "/landing/park-wide.webp",

@@ -126,3 +126,6 @@ data/dog_transactions/
 # Forensic daily snapshots — large files (~42MB each), local-only archive
 # Kept on disk but not tracked in git to avoid repo bloat + SIGBUS under memory pressure
 data/snapshots/
+
+# Blender pipeline test artefacts — proof-of-round-trip assets, not shipped
+public/city/_*.glb

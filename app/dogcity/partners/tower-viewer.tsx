@@ -3,13 +3,20 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // INSTITUTIONAL PARTNERS — the anchor-lot viewer.
 //
-// One WebGL canvas showing one anchor building at a time, presented the way an
-// architecture office presents a tower: a single subject on its lot, a studio
-// rig, a real cast shadow, and a set-out grid under it. The buildings are NOT
-// re-modelled for the web — they are the exact same builders the city renders
-// (lib/city/towers/*), called with `detail: true` for the close-range pass.
-// That is the whole point of the section: what you orbit here is what stands on
-// Satoshi Plaza.
+// One WebGL canvas showing one site at a time, presented the way an architecture
+// office presents a building: a single subject on its own ground, a studio rig
+// and a real cast shadow.
+//
+// What loads is a Blender-modelled, Draco-compressed GLB of the WHOLE SITE —
+// building plus its planned garden, paving, kerbs, street and cars (blender/
+// build_*.py, briefed by blender/SPEC-anchor-buildings.md). The procedural
+// builders in lib/city/towers/* are still here, but their job changed: they are
+// the city's LOD and this viewer's FALLBACK. If a GLB fails to fetch or decode,
+// the plate shows a procedural tower rather than nothing.
+//
+// Two levels of detail for two distances is deliberate, not duplication: at city
+// range a tower is thirty pixels and a procedural mesh is right; at showcase
+// range you can read the mullions, and only modelled geometry survives that.
 //
 // House rules this file obeys, all of them learned in this repo:
 //   · raw Three.js, never react-three-fiber (it crashes against our React)
@@ -26,7 +33,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import type * as THREE_NS from "three"
-import { PARTNERS, type PartnerKey } from "./partners-data"
+import { SITES, type SiteKey } from "./partners-data"
 
 // The tower builders place their group at y = 4 (the plaza slab top in the
 // city). Here the pad IS the ground, so each holder is pushed down by that.
@@ -118,17 +125,23 @@ interface Built {
    * plate, and fitting the height alone clips the crown on a narrow viewport.
    */
   fit: { targetY: number; halfV: number; halfH: number }
+  /** true when this came from a Blender GLB rather than the procedural fallback */
+  isGlb: boolean
 }
 
-export default function TowerViewer({ partner }: { partner: PartnerKey }) {
+// Which asset, poster and readout belong to each site lives in SITES
+// (./partners-data) so the landing section, this viewer and the local workbench
+// all read one table instead of three copies of the same strings.
+
+export default function TowerViewer({ partner }: { partner: SiteKey }) {
   const mountRef = useRef<HTMLDivElement>(null)
   const startedRef = useRef(false)
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle")
 
   // imperative handles the React tree pokes at after boot
-  const selectRef = useRef<((k: PartnerKey) => void) | null>(null)
+  const selectRef = useRef<((k: SiteKey) => void) | null>(null)
   const zoomRef = useRef<((factor: number) => void) | null>(null)
-  const pendingRef = useRef<PartnerKey>(partner)
+  const pendingRef = useRef<SiteKey>(partner)
 
   useEffect(() => {
     pendingRef.current = partner
@@ -158,9 +171,18 @@ export default function TowerViewer({ partner }: { partner: PartnerKey }) {
       const THREE = await import("three")
       const { OrbitControls } = await import("three/examples/jsm/controls/OrbitControls.js")
       const { RoomEnvironment } = await import("three/examples/jsm/environments/RoomEnvironment.js")
+      const { GLTFLoader } = await import("three/examples/jsm/loaders/GLTFLoader.js")
+      const { DRACOLoader } = await import("three/examples/jsm/loaders/DRACOLoader.js")
       const { buildKrayTower } = await import("@/lib/city/towers/kray")
       const { buildBitflowTower } = await import("@/lib/city/towers/bitflow")
       if (disposed || !mount) return
+
+      // The sites ship Draco-compressed (KHR_draco_mesh_compression), so the
+      // loader needs a decoder — served locally from /public/draco, never a CDN.
+      const dracoLoader = new DRACOLoader()
+      dracoLoader.setDecoderPath("/draco/")
+      const gltfLoader = new GLTFLoader()
+      gltfLoader.setDRACOLoader(dracoLoader)
 
       // shadows are the single biggest cost here and the single biggest gain in
       // "is this an architectural render or a toy". Desktop pays for it; phones
@@ -241,15 +263,107 @@ export default function TowerViewer({ partner }: { partner: PartnerKey }) {
       controls.autoRotate = !window.matchMedia("(prefers-reduced-motion: reduce)").matches
       controls.autoRotateSpeed = 0.55
 
-      // ── lazy build + cache ──────────────────────────────────────────────────
-      const built = new Map<PartnerKey, Built>()
+      // ── lazy load + cache ───────────────────────────────────────────────────
+      const built = new Map<SiteKey, Built>()
+      const inflight = new Map<SiteKey, Promise<Built>>()
       const box = new THREE.Box3()
+      const mbox = new THREE.Box3()
       const sizeV = new THREE.Vector3()
 
-      const build = (k: PartnerKey): Built => {
-        const hit = built.get(k)
-        if (hit) return hit
+      const tameEnv = (root: THREE_NS.Object3D) => {
+        // tame the studio environment per-material (see the PMREM note above)
+        root.traverse((o) => {
+          const m = (o as THREE_NS.Mesh).material
+          const list = Array.isArray(m) ? m : m ? [m] : []
+          for (const mat of list) {
+            if ("envMapIntensity" in mat) (mat as THREE_NS.MeshStandardMaterial).envMapIntensity = 0.35
+          }
+        })
+      }
 
+      // ── framing a SITE, not a tower ──────────────────────────────────────────
+      // A GLB here is a whole block: the building plus its gardens, paving, kerbs,
+      // street and cars. Kray's site is 315 wide against a 379-tall building, so
+      // fitting the full bounding box parks the camera out in the next block and
+      // leaves the tower a thumbnail in the middle of a car park.
+      //
+      // The building is the part that is TALL. So the horizontal extent is measured
+      // only from geometry reaching above a third of the site's height — the
+      // gardens are flat and drop out of that measurement by construction, with no
+      // per-building constant to hand-tune and nothing to re-tune if a modeller
+      // widens a forecourt later.
+      const fitFor = (root: THREE_NS.Object3D): Built["fit"] => {
+        box.setFromObject(root)
+        const botY = box.min.y, topY = box.max.y
+        const cut = botY + (topY - botY) * 0.34
+        const tall = new THREE.Box3()
+        root.traverse((o) => {
+          const m = o as THREE_NS.Mesh
+          if (!m.isMesh) return
+          mbox.setFromObject(m)
+          if (mbox.max.y > cut) tall.union(mbox)
+        })
+        ;(tall.isEmpty() ? box : tall).getSize(sizeV)
+        const targetY = (botY + topY) * 0.5 * 0.92
+        return {
+          targetY,
+          halfV: Math.max(topY - targetY, targetY - botY) * 1.06,
+          halfH: Math.max(sizeV.x, sizeV.z) * 0.5 * 1.15,
+        }
+      }
+
+      // ── the named-node contract ─────────────────────────────────────────────
+      // glTF carries no animation here by design. Anything that has to move after
+      // export was authored as a separate single-material node with its origin at
+      // its own centre, and the viewer drives it. A missing node is not an error —
+      // a site simply has fewer moving parts — so every lookup is optional.
+      const glbAnimator = (root: THREE_NS.Object3D): ((t: number) => void) => {
+        const icon = root.getObjectByName("KRAY_CROWN_ICON")
+        const jet = root.getObjectByName("WATER_JET") ?? root.getObjectByName("WATER_JET_RING")
+        // BitFlow's LED trim, core strip and portal are each one merged mesh whose
+        // geometry is spread over the whole tower, so they must NEVER be
+        // transformed — only their emissive level moves. Authored base is ~0.55 and
+        // saturated salamander goes pale cream past ~0.9 under ACES, so the pulse
+        // is a small multiplier around whatever the asset shipped with.
+        const pulses: { m: THREE_NS.MeshStandardMaterial; base: number; rate: number }[] = []
+        for (const [name, rate] of [
+          ["BITFLOW_LED_TRIM", 1.4], ["BITFLOW_CORE_STRIP", 1.1], ["BITFLOW_PORTAL_GLOW", 0.9],
+        ] as const) {
+          const o = root.getObjectByName(name) as THREE_NS.Mesh | undefined
+          const m = o?.material as THREE_NS.MeshStandardMaterial | undefined
+          if (m && "emissiveIntensity" in m) pulses.push({ m, base: m.emissiveIntensity, rate })
+        }
+        const iconY = icon?.position.y ?? 0
+        const jetY = jet?.scale.y ?? 1
+        return (t: number) => {
+          // the owner's ruling: the Kray symbol keeps spinning above the roof
+          if (icon) {
+            icon.rotation.y = t * 0.5
+            icon.position.y = iconY + Math.sin(t * 0.8) * 1.4
+          }
+          if (jet) jet.scale.y = jetY * (0.88 + 0.12 * Math.sin(t * 1.4))
+          for (const p of pulses) p.m.emissiveIntensity = p.base * (0.88 + 0.12 * Math.sin(t * p.rate))
+        }
+      }
+
+      const loadGlb = async (k: SiteKey): Promise<Built> => {
+        const gltf = await new Promise<{ scene: THREE_NS.Group }>((res, rej) => {
+          gltfLoader.load(SITES[k].glb, res as never, undefined, rej)
+        })
+        const holder = gltf.scene
+        tameEnv(holder)
+        holder.traverse((o) => {
+          const m = o as THREE_NS.Mesh
+          if (!m.isMesh) return
+          m.castShadow = wantShadows
+          m.receiveShadow = wantShadows
+        })
+        scene.add(holder)
+        return { holder, animate: glbAnimator(holder), fit: fitFor(holder), isGlb: true }
+      }
+
+      const buildProcedural = (k: SiteKey): Built => {
+        if (k === "needle") throw new Error("the Needle has no procedural fallback")
         const holder = new THREE.Group()
         holder.position.y = -PLAZA_SLAB      // building base lands on the pad
         const lot0 = { x: 0, z: 0, w: 175, d: 82, face: 0 }
@@ -269,34 +383,51 @@ export default function TowerViewer({ partner }: { partner: PartnerKey }) {
           animate = t.animate
         }
 
-        // tame the studio environment per-material (see the PMREM note above)
-        holder.traverse((o) => {
-          const m = (o as THREE_NS.Mesh).material
-          const list = Array.isArray(m) ? m : m ? [m] : []
-          for (const mat of list) {
-            if ("envMapIntensity" in mat) (mat as THREE_NS.MeshStandardMaterial).envMapIntensity = 0.35
-          }
-        })
-
+        tameEnv(holder)
         scene.add(holder)
         box.setFromObject(holder)
         box.getSize(sizeV)
-        // Kray's crown is a Draco GLB that lands a beat after this measurement,
-        // and BitFlow's rooftop mark floats ±1.6 — so the measured top is not
-        // the final top. HEADROOM covers both without a second measure pass.
+        // The procedural Kray's crown is a Draco GLB that lands a beat after this
+        // measurement, and BitFlow's rooftop mark floats ±1.6 — so the measured
+        // top is not the final top. HEADROOM covers both without a second pass.
+        // (The GLB path uses fitFor() instead: it has real ground to exclude.)
         const HEADROOM = 1.10
         const targetY = (box.min.y + box.max.y) * 0.5 * 0.92
-        const entry: Built = {
+        return {
           holder,
           animate,
+          isGlb: false,
           fit: {
             targetY,
             halfV: Math.max(box.max.y - targetY, targetY - box.min.y) * HEADROOM,
             halfH: Math.max(sizeV.x, sizeV.z) * 0.5 * 1.18,
           },
         }
-        built.set(k, entry)
-        return entry
+      }
+
+      // ── one resolver, GLB first ─────────────────────────────────────────────
+      // The Blender site is the intent; the procedural builder is the safety net.
+      // A failed fetch, a corrupt asset, a browser without the Draco decoder — any
+      // of them lands on a tower rather than on an empty plate, and says so once
+      // in the console rather than once per frame.
+      const get = (k: SiteKey): Promise<Built> => {
+        const hit = built.get(k)
+        if (hit) return Promise.resolve(hit)
+        let p = inflight.get(k)
+        if (!p) {
+          p = loadGlb(k)
+            .catch((err) => {
+              if (!SITES[k].fallback) throw err   // the Needle: its poster is the fallback
+              console.warn(
+                `[partners] ${SITES[k].glb} did not load — falling back to the procedural builder.`,
+                err,
+              )
+              return buildProcedural(k)
+            })
+            .then((b) => { built.set(k, b); inflight.delete(k); return b })
+          inflight.set(k, p)
+        }
+        return p
       }
 
       // ── camera fitting + tween ──────────────────────────────────────────────
@@ -343,23 +474,41 @@ export default function TowerViewer({ partner }: { partner: PartnerKey }) {
         controls.update()
       }
 
-      let current: PartnerKey | null = null
-      const select = (k: PartnerKey) => {
-        const b = build(k)
-        built.forEach((v, vk) => { v.holder.visible = vk === k })
-        box.setFromObject(b.holder)
-        box.getSize(sizeV)
-        // Anything drawn at canvas radius C·f lands at world radius f·scale, and
-        // the lot square is printed at f = 0.20 — so scale = 3.2 × footprint
-        // puts the outline at 1.28 × the building's own half-width, a surveyed
-        // margin rather than a line jammed against the façade.
-        pad.scale.setScalar(Math.max(sizeV.x, sizeV.z) * 3.2)
-        aimAt(b, current === null)
+      let current: SiteKey | null = null
+      let firstAim = true
+      const select = (k: SiteKey) => {
+        // `current` is set BEFORE the await so the render loop animates the right
+        // asset the instant it arrives, and so a fast double-click that lands two
+        // selects cannot let the slower load win and show the wrong building.
         current = k
+        if (!built.has(k)) setStatus("loading")
+        get(k).then((b) => {
+          if (disposed || current !== k) return
+          built.forEach((v, vk) => { v.holder.visible = vk === k })
+          // The Blender sites bring their own ground — plaza, paving, kerbs, kerb
+          // planting, street. Printing the set-out disc under one of them would be
+          // a survey drawing lying on top of finished landscape. So the pad now
+          // belongs to the procedural fallback, which has no ground of its own.
+          pad.visible = !b.isGlb
+          if (!b.isGlb) {
+            box.setFromObject(b.holder)
+            box.getSize(sizeV)
+            // Anything drawn at canvas radius C·f lands at world radius f·scale,
+            // and the lot square is printed at f = 0.20 — so scale = 3.2 ×
+            // footprint puts the outline at 1.28 × the building's own half-width,
+            // a surveyed margin rather than a line jammed against the façade.
+            pad.scale.setScalar(Math.max(sizeV.x, sizeV.z) * 3.2)
+          }
+          aimAt(b, firstAim)
+          firstAim = false
+          setStatus("ready")
+        }).catch(() => {
+          // only reachable for a site with no procedural fallback
+          if (!disposed && current === k) setStatus("error")
+        })
       }
       selectRef.current = select
       select(pendingRef.current)
-      setStatus("ready")
 
       zoomRef.current = (factor: number) => {
         const dir = camera.position.clone().sub(controls.target)
@@ -431,12 +580,23 @@ export default function TowerViewer({ partner }: { partner: PartnerKey }) {
         zoomRef.current = null
         controls.dispose()
         pmrem.dispose()
+        dracoLoader.dispose()          // frees the decoder worker pool
         scene.traverse((o) => {
           const mesh = o as THREE_NS.Mesh
           mesh.geometry?.dispose?.()
           const m = mesh.material
           const list = Array.isArray(m) ? m : m ? [m] : []
-          for (const mat of list) mat.dispose()
+          for (const mat of list) {
+            // GLB materials own packed textures; a material dispose does not free
+            // them, and this viewer can mount, unmount and remount as the visitor
+            // scrolls the section past. Walk the maps explicitly.
+            const anyMat = mat as unknown as Record<string, { isTexture?: boolean; dispose?: () => void }>
+            for (const slot of ["map", "emissiveMap", "normalMap", "roughnessMap", "metalnessMap", "aoMap", "alphaMap"]) {
+              const tex = anyMat[slot]
+              if (tex?.isTexture) tex.dispose?.()
+            }
+            mat.dispose()
+          }
         })
         renderer.dispose()
         if (renderer.domElement.parentElement === mount) mount.removeChild(renderer.domElement)
@@ -450,7 +610,7 @@ export default function TowerViewer({ partner }: { partner: PartnerKey }) {
     }
   }, [])
 
-  const p = PARTNERS.find((x) => x.key === partner)!
+  const site = SITES[partner]
 
   return (
     <div className="relative w-full h-full">
@@ -458,12 +618,31 @@ export default function TowerViewer({ partner }: { partner: PartnerKey }) {
         ref={mountRef}
         className="absolute inset-0"
         role="img"
-        aria-label={`Interactive 3D model of ${p.building}, ${p.name}'s anchor building on Satoshi Plaza`}
+        aria-label={site.aria}
+      />
+
+      {/* ── the poster frame ────────────────────────────────────────────────────
+          A site GLB is ~0.7 MB and decodes through a Draco worker, so on a slow
+          connection the plate would sit empty for a beat with nothing but a line
+          of mono in the middle of it. The poster is that building's own Cycles
+          render, so the plate shows the right building from the first paint and
+          the WebGL canvas simply resolves on top of it. It fades rather than
+          cutting, because a hard swap between two slightly different framings
+          reads as a glitch. Not `next/image`: this is a decorative frame that
+          must be in flight during the same beat as the GLB, and it is never the
+          largest contentful paint of the page. */}
+      <img
+        src={site.poster}
+        alt=""
+        aria-hidden
+        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 pointer-events-none ${
+          status === "ready" ? "opacity-0" : "opacity-100"
+        }`}
       />
 
       {status !== "ready" && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="font-mono text-[11px] tracking-[0.25em] text-dusty animate-pulse">
+          <div className="font-mono text-[11px] tracking-[0.25em] text-snow/70 animate-pulse bg-void/60 px-3 py-1.5">
             {status === "error" ? "MODEL UNAVAILABLE" : "RAISING THE ANCHOR…"}
           </div>
         </div>
@@ -473,8 +652,8 @@ export default function TowerViewer({ partner }: { partner: PartnerKey }) {
         <>
           {/* the surveyor's readout — which building, which lot */}
           <div className="absolute bottom-3 left-3 pointer-events-none font-mono leading-tight">
-            <div className="text-[10px] tracking-[0.22em] text-snow/80">{p.building.toUpperCase()}</div>
-            <div className="text-[9px] tracking-[0.22em] text-lava mt-0.5">{p.lot}</div>
+            <div className="text-[10px] tracking-[0.22em] text-snow/80">{site.label}</div>
+            <div className="text-[9px] tracking-[0.22em] text-lava mt-0.5">{site.sub}</div>
           </div>
 
           {/* On a 390px plate this sits exactly on top of the lot readout above.

@@ -12,6 +12,61 @@
 
 export type PartnerKey = "bitflow" | "kray"
 
+/**
+ * Everything the 3D viewer can show. The two partners are anchors on the plaza
+ * ring; `needle` is the project's own landmark at its centre, which is why it is
+ * a site but never a Partner — it has no dossier, no external link and no lot
+ * number, because DogCity does not lease a lot from itself.
+ */
+export type SiteKey = PartnerKey | "needle"
+
+export interface Site {
+  /** Blender-built, Draco-compressed. Lazily fetched, one at a time. */
+  glb: string
+  /** that site's own Cycles render, shown until the GLB resolves */
+  poster: string
+  /** in-canvas readout, line 1 */
+  label: string
+  /** in-canvas readout, line 2 — lava */
+  sub: string
+  /** screen-reader description of the canvas */
+  aria: string
+  /**
+   * Whether a procedural builder exists in tracked `lib/city/towers/` to fall
+   * back to when the GLB fails. The Needle's builder lives in the gitignored
+   * city directory, so it has none — its poster is the fallback. Being explicit
+   * here beats discovering it from a failed dynamic import at runtime.
+   */
+  fallback: boolean
+}
+
+export const SITES: Record<SiteKey, Site> = {
+  bitflow: {
+    glb: "/city/bitflow-hq.glb",
+    poster: "/city/bitflow-hq-poster.jpg",
+    label: "BITFLOW HQ",
+    sub: "LOT #1 · PLAZA NORTH",
+    aria: "Interactive 3D model of BitFlow HQ and its landscaped corner site, Bitflow's anchor building on Satoshi Plaza",
+    fallback: true,
+  },
+  kray: {
+    glb: "/city/kray-tower.glb",
+    poster: "/city/kray-tower-poster.jpg",
+    label: "KRAY TOWER",
+    sub: "LOT #2 · PLAZA WEST",
+    aria: "Interactive 3D model of Kray Tower and its landscaped forecourt, Kray Space's anchor building on Satoshi Plaza",
+    fallback: true,
+  },
+  needle: {
+    glb: "/city/central-tower.glb",
+    poster: "/city/central-tower-poster.jpg",
+    label: "THE NEEDLE",
+    sub: "SATOSHI PLAZA · CENTRE",
+    aria: "Interactive 3D model of the Needle, DogCity's central tower, standing in Satoshi Plaza with its water feature, garden quadrants and the four anchor lots",
+    fallback: false,
+  },
+}
+
 export interface Partner {
   key: PartnerKey
   /** the organisation */

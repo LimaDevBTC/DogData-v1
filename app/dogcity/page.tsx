@@ -22,6 +22,7 @@ import Tiers from "./sections/tiers"
 import Ordinals from "./sections/ordinals"
 import LunarTerrain from "./sections/lunar-terrain"
 import Masterplan from "./sections/masterplan"
+import Needle from "./sections/needle"
 import Partners from "./sections/partners"
 import Park from "./sections/park"
 import FinalCta from "./sections/final-cta"
@@ -146,9 +147,12 @@ export default function LandingPage() {
         <Ordinals />
         <LunarTerrain />
         <Masterplan />
-        {/* the plaza is introduced by the masterplan above; its two named
-            anchors follow immediately, before the page leaves the city for the
-            park ("Beyond the skyline.") */}
+        {/* The masterplan above ends on the whole site; these two sheets zoom
+            into Satoshi Plaza and out again. The Needle first, because it is the
+            centre everything else is measured from and the only building the
+            project owns — then the two leased anchor lots that ring it, before
+            the page leaves the city for the park ("Beyond the skyline."). */}
+        <Needle />
         <Partners />
         <Park />
         <FinalCta />
