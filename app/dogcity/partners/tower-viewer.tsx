@@ -316,7 +316,13 @@ export default function TowerViewer({ partner }: { partner: SiteKey }) {
         const targetY = (botY + topY) * 0.5 * 0.92
         return {
           targetY,
-          halfV: Math.max(topY - targetY, targetY - botY) * 1.06,
+          // 1.06 -> 1.14. The fit is computed from GEOMETRY, but bloom paints
+          // outside it: the Kray crown symbol sits alone against the sky, so its
+          // halo is the widest thing in the frame and was being sliced by the top
+          // of the plate even though the mesh itself fitted. Margin, not a bigger
+          // model, is the fix — the halo is a render property and would come back
+          // the moment anyone retuned the bloom.
+          halfV: Math.max(topY - targetY, targetY - botY) * 1.14,
           halfH: Math.max(sizeV.x, sizeV.z) * 0.5 * 1.15,
         }
       }
