@@ -131,10 +131,22 @@ const GALLERY: ParkPlate[] = [
 const PARK_FACTS: ReadonlyArray<readonly [string, string]> = [
   ["THE GREAT RUNESTONE", "500 m visible · summit 714 m"],
   ["THE RANGE", "8 crystal blooms · 4.8 km chain"],
-  ["STONE CENSUS", "500+ marked stones · 0.15—500 m"],
+  ["STONE CENSUS", "506 marked stones · 0.15—500 m"],
   ["ACCESS", "public · every stone, open ground"],
   ["PARK AREA", "~1,400 hectares"],
   ["TRAILS", "11 km of walkway · roam free"],
+]
+
+// the register of named places — the tour below walks most of them
+const GAZETTEER: ReadonlyArray<readonly [string, string]> = [
+  ["THE GATE", "the range detonates into view"],
+  ["LONGSHADOW PLAZA", "wheels end here"],
+  ["VALE OF THE MARK", "a valley that ends at a stone"],
+  ["VALLEY OF HANDS", "120 stones at your own scale"],
+  ["FIRST GROUND", "regolith untouched since the fall"],
+  ["THE LAST STEP", "49° of sky"],
+  ["THE UMBRA CROSSING", "~160 m of walkable night"],
+  ["KAGE-NO-NIWA", "do not look for it"],
 ]
 
 // ═══ the shutter ═══════════════════════════════════════════════════════════
@@ -282,10 +294,27 @@ export default function Section({}) {
               ))}
             </Stagger>
 
+            <Stagger
+              as="dl"
+              step={0.06}
+              delay={1.5}
+              className={`mt-4 grid grid-cols-2 gap-px ${GRIDLINE} border ${HAIR} font-mono`}
+            >
+              {GAZETTEER.map(([k, v]) => (
+                <StaggerItem key={k} className="bg-void p-3">
+                  <dt className="text-[9px] tracking-[0.25em] text-dusty">{k}</dt>
+                  <dd className="text-[11px] text-snow mt-1">{v}</dd>
+                </StaggerItem>
+              ))}
+            </Stagger>
+
             <Reveal delay={1.7} y={10} className="mt-4">
               <p className="font-mono text-[10px] text-dusty leading-relaxed">
                 Connected to DogCity by a single scenic road. Protected from dense development,
                 forever outside the urban core.
+              </p>
+              <p className="mt-3 font-mono text-[10px] tracking-[0.2em] text-dusty">
+                SCROLL TO WALK THE PARK ↓
               </p>
             </Reveal>
           </div>
