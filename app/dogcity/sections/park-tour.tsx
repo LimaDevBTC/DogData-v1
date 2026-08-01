@@ -13,27 +13,29 @@ import { useState } from "react"
 import Image from "next/image"
 import FrameScrub from "../frame-scrub"
 
-const FRAME_COUNT = 150
-const PARKSEQ_VERSION = "1"
+const FRAME_COUNT = 214
+const PARKSEQ_VERSION = "2"
 const frameUrl = (i: number) => `/landing/parkseq/f_${String(i + 1).padStart(4, "0")}.webp?v=${PARKSEQ_VERSION}`
 
-// waypoint breaks mapped to the render's beat frames (frame/149)
-const BREAKS = [0, 0.13, 0.33, 0.38, 0.52, 0.67, 0.92]
+// waypoint breaks mapped to the render's beat frames (frame index / 213)
+const BREAKS = [0, 0.094, 0.239, 0.272, 0.376, 0.437, 0.587, 0.709, 0.878]
 const WAYPOINTS = [
   { id: "road", title: "THE APPROACH", caption: "The road arrives buried in a rille — the park shows you nothing until it means to." },
   { id: "gate", title: "THE GATE", caption: "The road crests the notch and the range detonates into view." },
   { id: "plaza", title: "LONGSHADOW PLAZA", caption: "Wheels end here. Everything beyond is on foot." },
-  { id: "vale", title: "VALE OF THE MARK", caption: "A valley that ends at a stone — three glyph-lit crystals stacked in depth." },
+  { id: "vale", title: "VALE OF THE MARK", caption: "A valley that ends at a stone — glyph-lit crystals stacked in depth." },
   { id: "hands", title: "VALLEY OF HANDS", caption: "120 stones at your own scale, every one carrying the mark." },
   { id: "laststep", title: "THE LAST STEP", caption: "The walkway's terminus. The Monarch fills forty-nine degrees of sky." },
-  { id: "ground", title: "EVERY STONE IS PUBLIC GROUND", caption: "Walk off the deck. Footprints last a million years here — add yours. Somewhere east, an unmarked way." },
+  { id: "ground", title: "EVERY STONE IS PUBLIC GROUND", caption: "Walk off the deck. Footprints last a million years here — add yours." },
+  { id: "unmarked", title: "THE UNMARKED WAY", caption: "An unlit spur leaves the ring on no map, and passes between two leaning giants." },
+  { id: "temple", title: "THE LEONIDAS TEMPLE", caption: "Down the notch stair: a raked sea of regolith, a pool of black glass, and eight embers in a bowl of shadow." },
 ] as const
 
 const STILLS = [
-  { src: "/landing/park-hero.webp", title: "THE GATE", caption: "The range from the Threshold — the arrival detonation.", alt: "The Great Runestone and its range beyond the Gate" },
+  { src: "/landing/park-hero.webp", title: "THE RANGE", caption: "The whole chain from the south-east, the ring trail curving below.", alt: "The full chain of black-crystal outcrops across the lunar plain" },
   { src: "/landing/park-wide.webp", title: "VALE OF THE MARK", caption: "Three glyph-lit crystals stacked in depth over the valley trail.", alt: "The terminated valley with three rune-marked crystal outcrops" },
   { src: "/landing/park-finger.webp", title: "THE LAST STEP", caption: "The hundred-metre glyph from the walkway's end.", alt: "The white rune mark on the black crystal face of the Great Runestone" },
-  { src: "/landing/park-temple.webp", title: "THE UNMARKED WAY", caption: "Do not look for it.", alt: "A hidden sunken garden behind a gate of standing runestones" },
+  { src: "/landing/park-temple.webp", title: "THE LEONIDAS TEMPLE", caption: "At the end of the unmarked way: a raked garden in a bowl of shadow.", alt: "A sunken garden of raked regolith with crystal islands, a black-glass pool and stone lanterns, seen from the temple podium" },
 ] as const
 
 function waypointAt(progress: number): number {
@@ -81,7 +83,7 @@ export default function ParkTour() {
       <FrameScrub
         frameUrl={frameUrl}
         frameCount={FRAME_COUNT}
-        spacerVh={460}
+        spacerVh={650}
         topBias={0.8}
         focusU={0.5}
         lazy

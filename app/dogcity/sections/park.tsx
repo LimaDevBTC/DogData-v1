@@ -122,16 +122,16 @@ const GALLERY: ParkPlate[] = [
   },
   {
     src: "/landing/park-temple.webp",
-    label: "THE UNMARKED WAY · DO NOT LOOK FOR IT",
-    alt: "Through a gate of two standing runestones: a hidden sunken garden of raked regolith, crystal islands and a black-glass pool, descending to a dark tiered podium",
+    label: "THE LEONIDAS TEMPLE · AT THE END OF THE UNMARKED WAY",
+    alt: "From the temple podium: a sunken garden of raked regolith with crystal islands, a black-glass pool, stepping stones and stone lanterns, held inside a crater rim with one notch cut through it",
     wide: true,
   },
 ]
 
 const PARK_FACTS: ReadonlyArray<readonly [string, string]> = [
   ["THE GREAT RUNESTONE", "500 m visible · summit 714 m"],
-  ["THE RANGE", "8 crystal blooms · 4.8 km chain"],
-  ["STONE CENSUS", "506 marked stones · 0.15—500 m"],
+  ["THE RANGE", "crystal blooms · 4.8 km chain"],
+  ["STONE CENSUS", "546 marked stones · 0.15—500 m"],
   ["ACCESS", "public · every stone, open ground"],
   ["PARK AREA", "~1,400 hectares"],
   ["TRAILS", "11 km of walkway · roam free"],
@@ -146,7 +146,7 @@ const GAZETTEER: ReadonlyArray<readonly [string, string]> = [
   ["FIRST GROUND", "regolith untouched since the fall"],
   ["THE LAST STEP", "49° of sky"],
   ["THE UMBRA CROSSING", "~160 m of walkable night"],
-  ["KAGE-NO-NIWA", "do not look for it"],
+  ["LEONIDAS TEMPLE", "the park keeps one secret"],
 ]
 
 // ═══ the shutter ═══════════════════════════════════════════════════════════
@@ -217,7 +217,7 @@ export default function Section({}) {
           >
             <Image
               src="/landing/park-hero.webp"
-              alt="Runestone National Park at lunar morning: the 500-metre Great Runestone and its range of black-crystal giants rising beyond the Gate, white rune marks glowing, an amber road descending toward the valley"
+              alt="Runestone National Park from the south-east: the whole chain of black-crystal outcrops standing across kilometres of lunar plain, the Great Runestone at its centre, the amber ring trail curving through the foreground"
               fill
               sizes="100vw"
               className="object-cover"
@@ -233,7 +233,7 @@ export default function Section({}) {
             headline size is the plate's own */}
         <div className="absolute inset-0 flex items-end">
           <div className="max-w-6xl mx-auto w-full px-6 md:px-10 pb-10">
-            <Scramble text="RUNESTONE NATURAL PARK" className="block font-mono text-[11px] tracking-[0.3em] text-lava" />
+            <Scramble text="RUNESTONE NATIONAL PARK" className="block font-mono text-[11px] tracking-[0.3em] text-lava" />
             <DrawRule className="mt-3 w-14" delay={0.06} duration={0.9} />
             <h2 className="font-display font-bold text-3xl md:text-5xl text-snow mt-4 max-w-2xl leading-tight">
               <SplitLine text="Beyond the skyline." delay={0.12} step={0.055} className="pb-[0.12em]" />
@@ -311,7 +311,8 @@ export default function Section({}) {
             <Reveal delay={1.7} y={10} className="mt-4">
               <p className="font-mono text-[10px] text-dusty leading-relaxed">
                 Connected to DogCity by a single scenic road. Protected from dense development,
-                forever outside the urban core.
+                forever outside the urban core. One path is on no map: it leaves the ring
+                unmarked, passes between two leaning giants, and ends at the Leonidas Temple.
               </p>
               <p className="mt-3 font-mono text-[10px] tracking-[0.2em] text-dusty">
                 SCROLL TO WALK THE PARK ↓
