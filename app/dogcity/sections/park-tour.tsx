@@ -1,12 +1,17 @@
 "use client"
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PARK TOUR — "The Long Walk In". A 150-frame scroll-scrubbed camera journey
-// through Runestone National Park: road/rille → the Gate detonation → the Vale
-// → Valley of Hands → The Last Step look-up → the Longshadow skyline. One
-// unbroken dolly rendered from runestone-park-v2.blend (render_tour_v2.py).
-// Scrubbing is delegated to FrameScrub (a deliberate port of the hero's
-// mechanics); this file owns the waypoints, chrome and reduced-motion path.
+// PARK TOUR — "The Long Walk In". A 214-frame scroll-scrubbed camera journey
+// through Runestone Ordinal Park: road/rille → the Gate detonation → the Vale
+// → Valley of Hands → The Last Step look-up → the ring → the Unmarked Way →
+// down into the Leonidas Temple. One unbroken dolly rendered from
+// runestone-park-v2.blend (render_tour_v2.py). Scrubbing is delegated to
+// FrameScrub (a deliberate port of the hero's mechanics); this file owns the
+// waypoints, chrome and reduced-motion path.
+//
+// FRAME_COUNT and public/landing/parkseq/ MUST ship together. Raising the count
+// before the frames land leaves the scrub holding the last file it can fetch —
+// the tail waypoints freeze on one image and read as a broken tour.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useState } from "react"
@@ -48,13 +53,13 @@ export default function ParkTour() {
   const [still, setStill] = useState(0)
 
   const reducedMotion = (
-    <section aria-label="Runestone National Park tour" className="relative bg-void">
+    <section aria-label="Runestone Ordinal Park tour" className="relative bg-void">
       <div className="relative w-full aspect-[16/10] max-h-[80vh]">
         <Image src={STILLS[still].src} alt={STILLS[still].alt} fill sizes="100vw" className="object-cover" />
       </div>
       <div className="max-w-3xl mx-auto px-6 py-8">
         <div className="font-mono text-[11px] tracking-[0.25em] text-lava mb-2">
-          RUNESTONE NATIONAL PARK · THE WALK
+          RUNESTONE ORDINAL PARK · THE WALK
         </div>
         <h2 className="font-display font-bold text-2xl text-snow">{STILLS[still].title}</h2>
         <p className="text-sm text-mist mt-2 leading-relaxed">{STILLS[still].caption}</p>
@@ -89,7 +94,7 @@ export default function ParkTour() {
         lazy
         concurrency={4}
         poster={{ src: "/landing/park-hero.webp", alt: "" }}
-        ariaLabel="Runestone National Park virtual tour"
+        ariaLabel="Runestone Ordinal Park virtual tour"
         srSummaries={WAYPOINTS.map((w) => `${w.title}: ${w.caption}`)}
         reducedMotion={reducedMotion}
         overlay={({ progress }) => {
@@ -101,7 +106,7 @@ export default function ParkTour() {
                 <div className="max-w-[1800px] mx-auto px-4 md:px-10">
                   <div className="inline-block">
                     <div className="font-mono text-[10px] tracking-[0.3em] text-snow/70 border border-white/[0.15] bg-void/50 backdrop-blur-sm px-3 py-1.5">
-                      RUNESTONE NATIONAL PARK · THE WALK
+                      RUNESTONE ORDINAL PARK · THE WALK
                     </div>
                     <div className="mt-2 flex items-center gap-3">
                       <div className="h-px w-24 md:w-32 bg-white/[0.15] overflow-hidden">

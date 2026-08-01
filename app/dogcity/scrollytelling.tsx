@@ -347,7 +347,7 @@ export default function Scrollytelling({
                 aria-hidden
               />
               <div className="absolute top-3 -translate-x-1/2 border border-white/[0.12] bg-void/75 backdrop-blur-sm px-2.5 py-1.5">
-                <div className="font-mono text-[10px] tracking-[0.18em] text-snow whitespace-normal md:whitespace-nowrap max-w-[60vw] md:max-w-none">RUNESTONE NATURAL PARK</div>
+                <div className="font-mono text-[10px] tracking-[0.18em] text-snow whitespace-normal md:whitespace-nowrap max-w-[60vw] md:max-w-none">RUNESTONE ORDINAL PARK</div>
               </div>
             </div>
           )
@@ -433,7 +433,7 @@ export default function Scrollytelling({
               <span className={stem.className} style={stem.style as React.CSSProperties} />
               {/* the card is allowed to wrap and to shrink below 220px on a
                   phone; nowrap + a fixed width is what sliced "RUNESTONE
-                  NATURAL PARK" in half at the right edge */}
+                  ORDINAL PARK" in half at the right edge */}
               <div
                 className="absolute border border-white/[0.12] bg-void/75 backdrop-blur-sm px-2.5 py-1.5 max-w-[70vw] md:max-w-none"
                 style={card}

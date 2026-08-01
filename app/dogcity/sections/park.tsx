@@ -1,7 +1,7 @@
 "use client"
 
 // ═══════════════════════════════════════════════════════════════════════════
-// DogCity landing — RUNESTONE NATURAL PARK. The folio's protected-lands sheet.
+// DogCity landing — RUNESTONE ORDINAL PARK. The folio's protected-lands sheet.
 //
 // This is the slow sheet, and the one section whose memorable thing is an
 // ABSENCE. Everything here is tuned to make the page go quiet: the entrance
@@ -218,7 +218,7 @@ export default function Section({}) {
           >
             <Image
               src="/landing/park-hero.webp"
-              alt="Runestone National Park from the south-east: the whole chain of black-crystal outcrops standing across kilometres of lunar plain, the Great Runestone at its centre, the amber ring trail curving through the foreground"
+              alt="Runestone Ordinal Park from the south-east: the whole chain of black-crystal outcrops standing across kilometres of lunar plain, the Great Runestone at its centre, the amber ring trail curving through the foreground"
               fill
               sizes="100vw"
               className="object-cover"
@@ -234,7 +234,7 @@ export default function Section({}) {
             headline size is the plate's own */}
         <div className="absolute inset-0 flex items-end">
           <div className="max-w-6xl mx-auto w-full px-6 md:px-10 pb-10">
-            <Scramble text="RUNESTONE NATIONAL PARK" className="block font-mono text-[11px] tracking-[0.3em] text-lava" />
+            <Scramble text="RUNESTONE ORDINAL PARK" className="block font-mono text-[11px] tracking-[0.3em] text-lava" />
             <DrawRule className="mt-3 w-14" delay={0.06} duration={0.9} />
             <h2 className="font-display font-bold text-3xl md:text-5xl text-snow mt-4 max-w-2xl leading-tight">
               <SplitLine text="Beyond the skyline." delay={0.12} step={0.055} className="pb-[0.12em]" />
