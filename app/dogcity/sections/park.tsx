@@ -131,7 +131,8 @@ const GALLERY: ParkPlate[] = [
 const PARK_FACTS: ReadonlyArray<readonly [string, string]> = [
   ["THE GREAT RUNESTONE", "500 m visible · summit 714 m"],
   ["THE RANGE", "crystal blooms · 4.8 km chain"],
-  ["STONE CENSUS", "546 marked stones · 0.15—500 m"],
+  ["STONE CENSUS", "112,383 — one per Runestone"],
+  ["EVERY STONE", "belongs to a wallet · 78,588 owners"],
   ["ACCESS", "public · every stone, open ground"],
   ["PARK AREA", "~1,400 hectares"],
   ["TRAILS", "11 km of walkway · roam free"],
@@ -250,9 +251,17 @@ export default function Section({}) {
             <Reveal delay={0} y={14}>
               <p className="text-lg md:text-xl leading-[1.55] text-snow">
                 Far northeast of the city, a mountain range of black crystal stands on a single
-                descent line — hundreds of stones, from ones that fit in a glove to the
-                500-metre Great Runestone, all leaning the same way, all carrying the same
-                white mark. One colossal stone broke apart falling, and wrote the whole park.
+                descent line — from stones that fit in a glove to the 500-metre Great Runestone,
+                all leaning the same way, all carrying the same white mark. One colossal stone
+                broke apart falling, and wrote the whole park.
+              </p>
+            </Reveal>
+
+            <Reveal delay={0.22} y={14} className="mt-5">
+              <p className="text-sm text-mist leading-relaxed">
+                There are 112,383 stones here — exactly the number of Runestones held when DOG
+                was dropped. Every one is spoken for: the earliest recipients hold the tallest
+                stones, and no wallet takes a second until all 78,588 have their first.
               </p>
             </Reveal>
 
