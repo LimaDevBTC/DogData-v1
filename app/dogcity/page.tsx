@@ -25,6 +25,7 @@ import Masterplan from "./sections/masterplan"
 import Needle from "./sections/needle"
 import Partners from "./sections/partners"
 import Park from "./sections/park"
+import ParkTour from "./sections/park-tour"
 import FinalCta from "./sections/final-cta"
 import type { LeaderboardData } from "./types"
 
@@ -155,6 +156,7 @@ export default function LandingPage() {
         <Needle />
         <Partners />
         <Park />
+        <ParkTour />
         <FinalCta />
       </div>
       {mounted && createPortal(cta, document.body)}
