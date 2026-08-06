@@ -128,7 +128,9 @@ export async function GET(request: Request) {
     }
 
     const supabaseUrl = process.env.SUPABASE_URL
-    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY
+    // Service role first: this route only reads, but migration 004 turns RLS on
+    // and leaves the anon role with no policy at all. See lib/supabase.ts.
+    const supabaseAnonKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
     if (!supabaseUrl || !supabaseAnonKey) {
       return NextResponse.json(
         { error: 'Supabase not configured' },

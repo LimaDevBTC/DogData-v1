@@ -340,6 +340,103 @@ sobraram e a barra de 90 dias mostra 14. Não há perda de dado: o rollup tem os
 | S8 | **Não ligar o mint em `resolveAddresses` nem `ensureLot`** até S7 existir | regra | vigente |
 | S9 | `.limit(10000)` trunca em silêncio endereços com mais de 10.000 transações, e o saldo reconciliado sai errado para eles | execução | precisa de DDL |
 
+## 8. ⚠️ Segurança: a chave anônima podia apagar o explorer
+
+Levantado a partir dos alertas do painel Advisors, e medido, não deduzido.
+
+### O que foi testado
+
+Com a **chave anônima** e mais nada, usando filtro `id=eq.-1` que não casa com
+nenhuma linha, portanto zero linhas afetadas em qualquer cenário:
+
+```
+DELETE /rest/v1/dog_transactions   ->  HTTP 204
+PATCH  /rest/v1/dog_transactions   ->  HTTP 204
+PATCH  /rest/v1/page_events        ->  HTTP 204
+```
+
+Nove tabelas aceitam escrita anônima: `dog_transactions`, `page_events`,
+`ad_events`, `dog_metrics_history`, `stacks_metrics_history`, `tx_class_block`,
+`tx_class_daily`, `dogcity_events`, `dogcity_cursors`.
+
+Ou seja, quem tiver a chave anônima apaga as **469.234 linhas** que são a fonte
+de verdade do explorer, num comando.
+
+Três tabelas já estavam protegidas e serviram de controle: `dogcity_lots`,
+`system_health_log` e `system_health_daily` devolvem zero linhas para a anon.
+
+### O que reduz a urgência
+
+- A chave anônima é **só de servidor**. Sem prefixo `NEXT_PUBLIC_`, e nenhum
+  componente cliente cria client Supabase, então ela não vai para o navegador.
+- `.env` e `.env.local` **não estão versionados** e o `.gitignore` cobre. A
+  busca no HEAD não encontrou a chave.
+
+⚠️ Ressalva honesta: a varredura do histórico completo de commits estourou o
+tempo. Confirmei o HEAD, não todos os commits antigos.
+
+### O que aumenta
+
+Chave anônima é feita para ser publicável, e basta um vazamento para a perda ser
+total e imediata. `mcp-server/index.ts` documenta `SUPABASE_ANON_KEY` como
+variável aceita, e esse servidor roda fora daqui.
+
+### Um achado lateral: `api_keys` não existe
+
+`middleware/auth.ts` e `app/api/keys/generate` consultam `public.api_keys`, e a
+tabela **não existe** (`PGRST205`, inclusive para a service role). A
+autenticação por chave de API está quebrada. Não é buraco de segurança, porque
+não há o que roubar, mas é uma funcionalidade morta que se anuncia viva.
+
+### A correção, e a ordem importa
+
+Nada no app precisa de acesso anônimo: tudo roda em rota de servidor, e a
+service role ignora RLS. Então a postura correta é a mais simples, **RLS ligado
+e zero policies**, deixando o papel anon sem nada.
+
+**Passo 1, já feito em código.** `lib/supabase.ts` passou a usar
+`SERVICE_ROLE || ANON` em vez de só anon. Ele é importado por oito rotas, e
+várias **escrevem** (`analytics/track`, `ads/track`), o que era exatamente o
+motivo de a anon precisar de escrita. As duas rotas de métricas que usavam só a
+anon foram junto.
+
+Confirmado que nada mais depende da anon: os scripts Python
+(`dog_block_scanner.py`, `tx_class_writer.py`) já preferem a service role, e o
+`mcp-server` não fala com o Supabase, só menciona a variável num comentário.
+
+**Passo 2, `004_rls_lockdown.sql`.** Só depois que o passo 1 estiver implantado.
+Rodar antes derruba o rastreamento na hora.
+
+### O que aconteceu de fato ao aplicar, e a lição
+
+**A 004 entrou antes do deploy do passo 1.** Eu escrevi o aviso no cabeçalho mas
+não conferi se o commit tinha saído. Resultado imediato em produção:
+
+```
+/api/analytics/report  ->  pageviews: 0     com 16.378 linhas na tabela
+/api/ads/report        ->  impressions: 0   com  3.782 linhas na tabela
+```
+
+É a segunda vez nesta auditoria que o mesmo erro de sequenciamento aparece: a
+poda do log de saúde também rodou antes do código que lê o rollup. **Escrever a
+pré-condição no cabeçalho não é conferir a pré-condição.** A 005 passou a trazer
+o comando de verificação junto, não só o aviso.
+
+### Resultado da 004, medido
+
+Nove das doze fecharam. Três não: `dog_transactions`, `tx_class_block` e
+`tx_class_daily` já tinham **policies permissivas criadas fora deste
+repositório**, dormentes enquanto o RLS estava desligado, que acordaram junto
+com ele.
+
+Teste usado, que não grava nada em nenhum desfecho: inserir com a chave anon uma
+linha que já existe. `42501` significa que o RLS barrou; `23505` significa que a
+escrita passou e só a chave duplicada impediu.
+
+**Passo 3, `005_drop_permissive_policies.sql`.** Dropa essas policies por
+varredura, porque os nomes não estão versionados em lugar nenhum. Mesma
+pré-condição de deploy, agora com o comando de conferência no cabeçalho.
+
 ### ⚠️ O bloqueio de DDL
 
 A partir daqui quase tudo que sobra (S5, S7, S9) precisa de `CREATE`, `ALTER` ou
