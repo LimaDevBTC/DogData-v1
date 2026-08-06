@@ -37,8 +37,14 @@ export async function GET(
   }
 
   try {
+    // No `cache: 'no-store'` here, deliberately. The upstream route serves
+    // `s-maxage=300` and each call costs a 10.000-row read of `senders` and
+    // `receivers` out of Supabase, which on a busy address is megabytes of
+    // egress. Opting out of the cache made every page of every pagination walk
+    // pay that again — the same mistake the status page was making, where an
+    // internal `no-store` quietly defeated the cache in front of the most
+    // expensive query in the project.
     const upstream = await fetch(upstreamUrl.toString(), {
-      cache: 'no-store',
       headers: { Accept: 'application/json' },
     });
 

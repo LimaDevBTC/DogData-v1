@@ -89,24 +89,119 @@ diária consegue usar.
 **Ainda não mexi nisto**, porque é uma decisão sobre fidelidade de observação e
 não uma correção óbvia. Ver §7.
 
-## 4. ⚠️ O DogCity parou em 10 de julho
+## 4. ⚠️ Existem dois mapas de lotes, e eles discordam
 
-`dogcity_lots` (84.830 linhas), `dogcity_events` e `dogcity_cursors` não recebem
-escrita desde **2026-07-10 21:29**, há 27 dias.
+**Correção de uma conclusão errada minha.** Eu li "sem escrita há 27 dias" e
+escrevi que o DogCity estava abandonado. Está errado: `dogcity_lots` é um
+**registro de alocação permanente**, e ficar parado é o comportamento correto
+de um registro permanente, não um defeito. Lote não muda, esse é o ponto dele.
 
-- Não existe cron do DogCity no `vercel.json`. Os cinco registrados são
-  `update-transactions`, `dog-rune/holders`, `stacks/snapshot`, `whale-poster`
-  e `health-probes`.
-- `lib/city/registry.ts` é importado por **ele mesmo e pelo script de backfill,
-  e por mais nada em `app/`**. É código morto em produção.
+O problema real é outro, e é bem mais sério.
 
-Ou seja: a cidade multichain viva foi construída, o backfill rodou uma vez, e a
-ligação nunca foi feita. São ~62 MB de dados congelados servindo nada, e a
-cidade que está no ar mostra o mundo de 10 de julho para sempre.
+### Os dois mapas
 
-**Decisão do fundador**, e são só duas: ligar o cron horário que faltou, ou
-derrubar as três tabelas. Manter como está é o único caminho que não faz
-sentido.
+| | `dogcity_lots` (Supabase) | `data/foundation/lots.json` |
+|---|---|---|
+| gerado por | `scripts/dogcity_backfill.ts` | `scripts/foundation_generator.ts` |
+| data | 2026-07-10 21:29 | 2026-07-10 18:02 |
+| entradas | 84.830 (BTC + SOL + STX) | 84.639 (só BTC elegível) |
+| ordenação | `age_days`, que **recalcula** a cada exportação | `ts` do bloco, **imutável** |
+| núcleo cívico | não reserva | 200 slots reservados antes das carteiras |
+| Reserva Urbana | não existe | 25 parcelas |
+| Ring 0 Satoshi | não existe | 85 assentos |
+
+### A comparação, em dez carteiras amostradas
+
+```
+distrito       json | supabase      x                    rua
+               3    | 1             -242   |  1298.6     Runes Blvd / OG Row
+               6    | 9             -817.1 |  3927.3     HODLer Ave / Micro Ave
+               1    | 0             681.5  | -190        Leonidas Blvd / HODL Ave
+```
+
+**Zero de dez idênticos.** Os `height_tier` batem, porque derivam do saldo e as
+duas fórmulas são a mesma. Distrito, coordenada e rua divergem em todas. E um
+endereço presente no `lots.json` nem existe na tabela.
+
+São duas cidades diferentes para as mesmas carteiras.
+
+### Por que isso importa muito mais do que 62 MB
+
+O `masterplan.md` é a constituição do mint, e a promessa central dele é que a
+**posição do lote codifica procedência**, ordenada por idade de UTXO, e que o
+lote é **permanente**. Se o mint resolver o lote pela tabela de hoje, cada
+holder é congelado num mapa que:
+
+- usa `age_days`, que muda conforme a data da exportação, e portanto não é
+  reproduzível;
+- não reserva o núcleo cívico, então uma carteira pode ter recebido um lote que
+  o masterplan destina a prédio institucional;
+- não tem Ring 0.
+
+E permanência é uma via de mão única: **só dá para errar uma vez.**
+
+### O que ainda falta antes de qualquer mint
+
+O próprio `report.json` do gerador declara `dry_run: true` e lista o que não
+está pronto. Duas coisas bloqueiam de verdade:
+
+1. **Ring 0 é um proxy provisório** (os 85 `position_score` mais antigos). A
+   coorte real, airdrop mais acumulação de 100x, exige um join com o conjunto
+   comportamental que não está ligado no script.
+2. **Núcleo cívico e Reserva Urbana são contagens de índice reservadas**, não
+   uma implantação 3D com posição real.
+
+Ou seja: **nenhum dos dois mapas está pronto para mintar contra.**
+
+### A lógica recomendada
+
+1. **Não derrubar nada.** Os 62 MB são irrelevantes e a tabela é o único
+   registro de alocação que existe.
+2. **Tratar `dogcity_lots` como registro de renderização**, que é o que ele de
+   fato alimenta hoje. A cidade 3D pode continuar lendo dele.
+3. **Não ligar o mint nele.** Nem `resolveAddresses`, nem `ensureLot`. Hoje
+   nada em `app/` chama essas funções, e isso é sorte, não desenho: chamar
+   `ensureLot` no fluxo de mint congelaria a pessoa no mapa superado.
+4. **Fechar as duas ressalvas** do `report.json` e só então escrever a fundação
+   **uma vez** numa tabela de gênese separada, que passa a ser a fonte do mint.
+   Separada de propósito: o mapa de renderização pode ser regerado à vontade, o
+   de gênese nunca mais pode mudar.
+
+## 4b. `dog_transactions`: por que eu recomendo NÃO normalizar agora
+
+A normalização (tabela de endereços com chave inteira, trocando strings de 42 a
+62 bytes por `int4` em `senders`, `receivers` e `addresses`) economizaria algo
+como 300 a 400 MB e encolheria muito o índice GIN.
+
+**Mas a premissa mudou.** A auditoria começou porque o uso estourou, e a causa
+foi identificada e corrigida: era **egress**, não bytes em disco. Com o log de
+saúde podado e o laço da página de status fechado, o banco tem cerca de 1 GB
+num plano que inclui 8 GB. Não existe pressão de armazenamento.
+
+Contra isso, o custo da normalização é alto: é reescrever a tabela que serve o
+explorer inteiro (busca por endereço, por txid, heatmap), com migração de dados,
+janela de inconsistência e um índice GIN novo para validar. Risco alto,
+benefício que hoje não compra nada.
+
+**Recomendação: adiar.** Reabrir quando o banco passar de uns 4 GB, ou quando a
+busca por endereço ficar lenta o suficiente para incomodar. Nenhuma das duas
+está perto.
+
+O que **de fato** valia a pena naquela rota era egress outra vez, e já foi
+feito: `app/api/address/[address]/transactions` fazia `cache: 'no-store'` no
+fetch interno para a rota pesada, anulando o `s-maxage=300` dela. Cada página de
+cada caminhada de paginação repagava uma leitura de 10.000 linhas com `senders`
+e `receivers`. É literalmente o mesmo erro da página de status, no mesmo
+repositório, em dois lugares diferentes.
+
+### ⚠️ E fica registrada uma aresta da mesma família
+
+`app/api/address/bitcoin/[address]` usa `.limit(10000)` e depois fatia em
+JavaScript. Um endereço com mais de 10.000 transações DOG é **truncado em
+silêncio**, e o saldo reconciliado sai errado para ele, porque `indexedNet`
+soma só o que veio. É o terceiro corte silencioso encontrado nesta auditoria,
+depois do `HARD_CAP = 100_000` e do teto de 1.000 do PostgREST. Não corrigi
+porque a correção certa é agregar no banco, e isso precisa de DDL.
 
 ## 5. `dog_transactions`, a maior tabela
 
@@ -175,15 +270,91 @@ Efeito esperado no egress da página de status:
 | agora, sem a migração | até 10 | 10.000 | ~24, independente de abas |
 | depois da migração | 2 | ~2.500 | ~24 |
 
+## 6b. Executado em 06/08, e o que a execução revelou
+
+A migração foi aplicada e o rollup rodou. Números reais:
+
+| | antes | depois |
+|---|---|---|
+| `system_health_log` | 332.351 linhas | **54.073** |
+| linhas removidas | | 278.279 |
+| `system_health_daily` | não existia | 1.120 baldes, 15 componentes |
+| leitura da barra de 90 dias | 309.069 linhas | **1.025** |
+
+Verificação antes de podar, alinhada por dia sobre exatamente o recorte que
+seria apagado: **275.001 linhas brutas antigas contra 275.001 no rollup.**
+Bateu exato, e só por isso a poda foi executada.
+
+Fica registrado que comparar `sum(total)` do rollup contra `count(*)` do log
+bruto **nunca fecha em zero**: o log recebe cerca de 3 escritas por minuto, então
+sobra sempre a diferença do que entrou depois do rollup. O teste certo é o
+recorte antigo, não o total.
+
+### ⚠️ Duas coisas que a execução descobriu
+
+**1. PostgREST não pagina RPC.** `health_daily(90)` devolve 1.025 baldes, e pelo
+PostgREST vinham 1.000: o teto `max-rows` corta calado, e `Range` **não** é
+honrado em POST de função (pedir 1000-1999 devolve as mesmas 1.000 primeiras,
+verificado). Eu tinha trocado um corte silencioso de 100.000 por outro de 1.000.
+Corrigido lendo a **tabela** `system_health_daily` com Range paginado, onde a
+paginação funciona (1000 + 25 = 1025), com quebra por página curta para que o
+bug não volte quando o catálogo de componentes crescer.
+
+**2. A página de status estava quebrada desde 28 de julho.** A cobertura por
+componente entrega isso sozinha:
+
+```
+cron:*  e  external:*     91 dias   ate 2026-08-06
+data:*  e  infra:*        48 dias   ate 2026-07-28
+```
+
+Os seis que pararam são exatamente os que `/api/status/full` escreve
+(`infra:redis`, `infra:supabase`, `infra:dog-scanner`, `data:transactions`,
+`data:holders`, `data:stacks-history`). Os que os crons escrevem seguiram
+normais. A rota deixou de completar quando a tabela passou do que dava para
+paginar dentro do tempo da função. Depois da poda ela voltou a responder em
+2,1s, o que confirma o diagnóstico: era volume, não lógica.
+
+Ou seja, aquele `HARD_CAP = 100_000` mal calibrado não custava só egress. Ele
+derrubou metade da observabilidade por nove dias, sem alarme, porque o
+componente que deveria avisar era um dos que pararam de ser gravados.
+
+### Regressão temporária, assumida
+
+A poda rodou **antes** de o código que lê o rollup estar implantado, o que é a
+ordem errada. Enquanto o deploy não sai, a produção lê os 14 dias de bruto que
+sobraram e a barra de 90 dias mostra 14. Não há perda de dado: o rollup tem os
+91 dias. Resolve no próximo commit do bot.
+
 ## 7. O que ficou em aberto
 
-| # | Pendência | Tipo |
-|---|---|---|
-| S1 | **Rodar a migração 003**, na ordem do cabeçalho, com `vacuum full` no fim | execução |
-| S2 | **Decidir o DogCity**: ligar o cron horário ou derrubar as três tabelas | fundador |
-| S3 | **Limitar a escrita por requisição de usuário** em `mempool` e `tenero` | fundador |
-| S4 | **Paginar** o `.limit(10000)` da busca por endereço | execução |
-| S5 | **Normalizar endereços** em `dog_transactions` com chave inteira | execução |
+| # | Pendência | Tipo | Estado |
+|---|---|---|---|
+| S1 | Migração 003, backfill, poda e `vacuum full` | execução | **feito em 06/08** |
+| S2 | ~~Decidir o DogCity~~ | | **substituída por S6 e S7**, ver §4 |
+| S3 | **Limitar a escrita por requisição de usuário** em `mempool` e `tenero` | fundador | aberto |
+| S4 | ~~Paginar a busca por endereço~~ | execução | **cache corrigido**, ver §4b |
+| S5 | **Normalizar endereços** em `dog_transactions` | execução | **adiado por recomendação**, ver §4b |
+| S6 | **Fechar as duas ressalvas** do `report.json`: coorte real do Ring 0 e implantação 3D do núcleo cívico | fundador | bloqueia o mint |
+| S7 | **Tabela de gênese separada**, escrita uma vez a partir da fundação final | execução | depende de S6 |
+| S8 | **Não ligar o mint em `resolveAddresses` nem `ensureLot`** até S7 existir | regra | vigente |
+| S9 | `.limit(10000)` trunca em silêncio endereços com mais de 10.000 transações, e o saldo reconciliado sai errado para eles | execução | precisa de DDL |
+
+### ⚠️ O bloqueio de DDL
+
+A partir daqui quase tudo que sobra (S5, S7, S9) precisa de `CREATE`, `ALTER` ou
+função nova. Pelo PostgREST, com a service role, dá para **ler, escrever e
+chamar função existente**, mas **não** para criar nada. E o SQL Editor no
+celular é hostil o suficiente para ter apagado 450 linhas num toque acidental.
+
+O caminho que resolve isso de uma vez é um **Personal Access Token** do Supabase
+(Dashboard, ícone da conta, Access Tokens, Generate). Com ele a API de
+gerenciamento aceita SQL arbitrário e o SQL Editor deixa de ser necessário para
+sempre.
+
+Ressalva honesta: um PAT dá acesso administrativo à conta inteira, bem mais que
+a service role. Ele é revogável na mesma tela, então o desenho seguro é gerar,
+usar para a migração, revogar, e gerar de novo quando precisar.
 
 ### Sobre S3, que é o que tem trade-off
 

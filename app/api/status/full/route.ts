@@ -224,39 +224,66 @@ export async function GET() {
     }
   }
 
-  if (supabaseReachable) {
-    const [dailyRes, latestRes] = await Promise.all([
-      supabase.rpc('health_daily', { p_days: 90 }),
-      supabase.rpc('health_latest'),
-    ])
+  const PAGE_SIZE = 1000
 
-    if (dailyRes.error || latestRes.error) {
-      // Migration 003 has not been applied yet. Fall back to the raw read so
-      // the page keeps working, but capped an order of magnitude lower than
-      // before: enough to keep the recent part of the bar honest, not enough
-      // to bleed egress while the migration waits.
-      const PAGE_SIZE = 1000
-      const FALLBACK_CAP = 10_000
-      for (let from = 0; from < FALLBACK_CAP; from += PAGE_SIZE) {
-        const { data, error } = await supabase
-          .from('system_health_log')
-          .select('component, status, checked_at, latency_ms, error_message, metadata')
-          .gte('checked_at', since90)
-          .order('checked_at', { ascending: false })
-          .range(from, from + PAGE_SIZE - 1)
-        if (error || !data) break
-        ingestRaw(data as HistoryRow[])
-        if (data.length < PAGE_SIZE) break
-      }
-    } else {
-      for (const row of (latestRes.data as HistoryRow[] | null) ?? []) {
-        latestByComponent.set(row.component, row)
-      }
-      for (const row of (dailyRes.data as DailyRow[] | null) ?? []) {
+  // Reads the rollup written by migration 003. Returns false when it is not
+  // there yet, so the caller can fall back to the raw log.
+  //
+  // The daily buckets come from the TABLE, not from the `health_daily` RPC,
+  // and that is deliberate. PostgREST caps every response at `max-rows` (1000
+  // on Supabase) and truncates silently, and it does NOT honour Range on an
+  // RPC POST: asking a set-returning function for rows 1000-1999 just returns
+  // the first 1000 again (verified against this project). On a table Range
+  // works. With 15 components across 91 days the window is already 1.025
+  // buckets, so reading through the RPC quietly dropped the oldest quarter of
+  // the bar — the same silent-truncation bug as the old HARD_CAP, an order of
+  // magnitude smaller. The short-page break below is what makes it impossible
+  // to reintroduce as the component catalog grows.
+  const readRollup = async (): Promise<boolean> => {
+    const latestRes = await supabase.rpc('health_latest')
+    if (latestRes.error) return false
+
+    const since90Day = dayKey(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000))
+    for (let from = 0; from < 20_000; from += PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from('system_health_daily')
+        .select('component, day, total, ok_count, degraded_count, down_count')
+        .gte('day', since90Day)
+        .range(from, from + PAGE_SIZE - 1)
+      if (error) return false
+      const page = (data as DailyRow[] | null) ?? []
+      for (const row of page) {
         let byDay = dailyByComponent.get(row.component)
         if (!byDay) { byDay = new Map(); dailyByComponent.set(row.component, byDay) }
         byDay.set(row.day, row)
       }
+      if (page.length < PAGE_SIZE) break
+    }
+
+    for (const row of (latestRes.data as HistoryRow[] | null) ?? []) {
+      latestByComponent.set(row.component, row)
+    }
+    return true
+  }
+
+  if (supabaseReachable && !(await readRollup())) {
+    // Migration 003 has not been applied yet. Fall back to the raw read so the
+    // page keeps working, but capped an order of magnitude lower than before:
+    // enough to keep the recent part of the bar honest, not enough to bleed
+    // egress while the migration waits.
+    dailyByComponent.clear()
+    latestByComponent.clear()
+    const FALLBACK_CAP = 10_000
+    for (let from = 0; from < FALLBACK_CAP; from += PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from('system_health_log')
+        .select('component, status, checked_at, latency_ms, error_message, metadata')
+        .gte('checked_at', since90)
+        .order('checked_at', { ascending: false })
+        .range(from, from + PAGE_SIZE - 1)
+      if (error || !data) break
+      ingestRaw(data as HistoryRow[])
+      if (data.length < PAGE_SIZE) break
     }
   }
 

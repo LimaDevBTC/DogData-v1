@@ -205,8 +205,17 @@ GRANT EXECUTE ON FUNCTION health_maintain(int,int) TO service_role;
 --
 -- 4. Confira que a leitura da barra ficou barata:
 --
---       select count(*) from health_daily(90);   -- espera ~2.500, nao 309.069
---       select count(*) from health_latest();    -- espera ~28
+--       select count(*) from health_daily(90);   -- deu 1.025, contra 309.069
+--       select count(*) from health_latest();    -- deu 15
+--
+--    ⚠️ health_daily existe para conferencia no SQL Editor, e NAO e o caminho
+--    que a aplicacao usa. Pelo PostgREST toda resposta e cortada em max-rows
+--    (1000 na Supabase) silenciosamente, e Range NAO e honrado em POST de RPC:
+--    pedir as linhas 1000-1999 de uma funcao devolve as mesmas 1000 primeiras.
+--    Verificado neste projeto. Com 1.025 baldes a RPC perdia o pedaco mais
+--    antigo da barra, o mesmo bug do HARD_CAP antigo, so que menor.
+--    Por isso a rota lê a TABELA system_health_daily com Range paginado, onde
+--    a paginacao funciona de verdade (1000 + 25 = 1025).
 --
 -- 5. A manutencao continua sozinha: /cron/health-probes chama health_maintain()
 --    a cada 10 minutos.
