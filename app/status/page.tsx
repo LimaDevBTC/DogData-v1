@@ -260,10 +260,15 @@ export default function StatusPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchStatus = async (silent = false) => {
+  // `force` bypasses the CDN cache and is meant for the refresh button only.
+  // The background poll and the first paint go through the cache on purpose:
+  // the endpoint aggregates 90 days of health history, and every origin hit
+  // also writes fresh observations, so an uncached poll made views feed the
+  // very table the next view had to read.
+  const fetchStatus = async (silent = false, force = false) => {
     if (!silent) setRefreshing(true)
     try {
-      const res = await fetch("/api/status/full", { cache: "no-store" })
+      const res = await fetch("/api/status/full", force ? { cache: "no-store" } : undefined)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const payload = (await res.json()) as StatusResponse
       setData(payload)
@@ -278,7 +283,11 @@ export default function StatusPage() {
 
   useEffect(() => {
     fetchStatus()
-    const id = setInterval(() => fetchStatus(true), 30_000)
+    // 120s against a 150s CDN window, so the poll normally lands on a cache
+    // hit. A status page that refreshes twice a minute is not less useful than
+    // one that refreshes four times, and the health probes behind it only run
+    // every 10 minutes anyway, so a 30s poll was reading the same numbers.
+    const id = setInterval(() => fetchStatus(true), 120_000)
     return () => clearInterval(id)
   }, [])
 
@@ -341,7 +350,7 @@ export default function StatusPage() {
                 </div>
               </div>
               <button
-                onClick={() => fetchStatus()}
+                onClick={() => fetchStatus(false, true)}
                 disabled={refreshing}
                 title="Refresh now"
                 aria-label="Refresh now"

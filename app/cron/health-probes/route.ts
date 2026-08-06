@@ -10,6 +10,7 @@
  */
 
 import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 import { probedFetch } from '@/lib/health-logger'
 import { DOG_TOKENS } from '@/lib/multichain/types'
 
@@ -56,5 +57,28 @@ export async function GET() {
     r.status === 'fulfilled' ? r.value : { error: String(r.reason) },
   )
 
-  return NextResponse.json({ ok: true, probes })
+  // Roll yesterday and today into `system_health_daily`, then prune raw rows
+  // past the retention window (migration 003). Piggybacking on this cron
+  // instead of adding a sixth one: it already runs every 10 minutes, and both
+  // operations are idempotent, so a missed tick costs nothing.
+  //
+  // `system_health_log` had no retention at all and had reached 332.210 rows.
+  // The 90-day uptime bar is what forced keeping everything, and it no longer
+  // does: the bar reads the rollup, so the raw log only has to survive long
+  // enough to investigate a recent incident.
+  let maintenance: unknown = null
+  try {
+    const url = process.env.SUPABASE_URL
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (url && key) {
+      const { data, error } = await createClient(url, key).rpc('health_maintain')
+      // Before migration 003 is applied this is a missing-function error, which
+      // is expected and must not fail the probe run.
+      maintenance = error ? { skipped: error.message } : data
+    }
+  } catch (e: any) {
+    maintenance = { skipped: e?.message || 'maintenance failed' }
+  }
+
+  return NextResponse.json({ ok: true, probes, maintenance })
 }

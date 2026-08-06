@@ -126,12 +126,9 @@ function lastNDays(n: number): string[] {
   return days
 }
 
-function rollupDailyStatus(statuses: Status[]): Status {
-  if (!statuses.length) return 'unknown'
-  if (statuses.includes('down')) return 'down'
-  if (statuses.includes('degraded')) return 'degraded'
-  return 'ok'
-}
+// The pessimistic daily rollup (any `down` paints the day red, then any
+// `degraded`, otherwise green) now runs inline over the aggregated counts in
+// the handler, since the raw per-row statuses no longer leave Postgres.
 
 // ─── Main handler ────────────────────────────────────────────────────────────
 
@@ -186,35 +183,81 @@ export async function GET() {
     })
   }
 
-  // 2. Load 90 days of history, paginating around PostgREST's `max-rows` cap
-  //    (1000 by default in Supabase). Without this, we'd silently see only
-  //    the most recent ~1k rows — ~8h of data when traffic is high — and the
-  //    90-day uptime bar would be mostly grey/empty for everything.
+  // 2. Load 90 days of history — as aggregates, never as raw rows.
+  //
+  //    This block used to paginate raw rows 1.000 at a time up to a 100.000
+  //    hard cap, under the comment "today's table is ~7k rows / 90d". Measured
+  //    on 2026-08-06, `system_health_log` grows 4.070 rows/day, so 90 days is
+  //    ~366.000 rows: the estimate was off by 50x, and it silently truncated
+  //    the bar at the cap. Worse, the page re-polls every 30s while the cache
+  //    was s-maxage=30, so nearly every poll missed and one open tab was worth
+  //    something on the order of 1,8 GB/hour of Supabase egress.
+  //
+  //    None of those rows ever reached the client. They collapsed into four
+  //    numbers per component: latest state, 30d uptime, 90d uptime, and one
+  //    bucket per day. All of that aggregates server-side for free, which is
+  //    what `health_daily` and `health_latest` do (migration 003). Same output,
+  //    two queries and ~1.100 rows instead of a hundred queries and 100.000.
+  type DailyRow = { component: string; day: string; total: number; ok_count: number; degraded_count: number; down_count: number }
   type HistoryRow = { component: string; status: Status; checked_at: string; latency_ms: number | null; error_message: string | null; metadata: any }
   const since90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
-  const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  const since30Day = dayKey(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
 
-  let history: HistoryRow[] = []
-  if (supabaseReachable) {
-    const PAGE_SIZE = 1000
-    const HARD_CAP = 100_000 // safety stop; today's table is ~7k rows / 90d
-    for (let from = 0; from < HARD_CAP; from += PAGE_SIZE) {
-      const { data, error } = await supabase
-        .from('system_health_log')
-        .select('component, status, checked_at, latency_ms, error_message, metadata')
-        .gte('checked_at', since90)
-        .order('checked_at', { ascending: false })
-        .range(from, from + PAGE_SIZE - 1)
-      if (error || !data) break
-      history.push(...(data as HistoryRow[]))
-      if (data.length < PAGE_SIZE) break
+  const dailyByComponent = new Map<string, Map<string, DailyRow>>()
+  const latestByComponent = new Map<string, HistoryRow>()
+
+  // Folds raw rows into the same two shapes the RPCs return. Only used by the
+  // fallback below, but it also documents exactly what the SQL is computing.
+  const ingestRaw = (rows: HistoryRow[]) => {
+    for (const row of rows) {
+      // Rows arrive newest-first, so the first one seen per component is latest.
+      if (!latestByComponent.has(row.component)) latestByComponent.set(row.component, row)
+      let byDay = dailyByComponent.get(row.component)
+      if (!byDay) { byDay = new Map(); dailyByComponent.set(row.component, byDay) }
+      const dk = dayKey(new Date(row.checked_at))
+      const bucket = byDay.get(dk) ?? { component: row.component, day: dk, total: 0, ok_count: 0, degraded_count: 0, down_count: 0 }
+      bucket.total++
+      if (row.status === 'ok') bucket.ok_count++
+      else if (row.status === 'degraded') bucket.degraded_count++
+      else if (row.status === 'down') bucket.down_count++
+      byDay.set(dk, bucket)
     }
   }
 
-  const byComponent = new Map<string, HistoryRow[]>()
-  for (const row of history) {
-    if (!byComponent.has(row.component)) byComponent.set(row.component, [])
-    byComponent.get(row.component)!.push(row)
+  if (supabaseReachable) {
+    const [dailyRes, latestRes] = await Promise.all([
+      supabase.rpc('health_daily', { p_days: 90 }),
+      supabase.rpc('health_latest'),
+    ])
+
+    if (dailyRes.error || latestRes.error) {
+      // Migration 003 has not been applied yet. Fall back to the raw read so
+      // the page keeps working, but capped an order of magnitude lower than
+      // before: enough to keep the recent part of the bar honest, not enough
+      // to bleed egress while the migration waits.
+      const PAGE_SIZE = 1000
+      const FALLBACK_CAP = 10_000
+      for (let from = 0; from < FALLBACK_CAP; from += PAGE_SIZE) {
+        const { data, error } = await supabase
+          .from('system_health_log')
+          .select('component, status, checked_at, latency_ms, error_message, metadata')
+          .gte('checked_at', since90)
+          .order('checked_at', { ascending: false })
+          .range(from, from + PAGE_SIZE - 1)
+        if (error || !data) break
+        ingestRaw(data as HistoryRow[])
+        if (data.length < PAGE_SIZE) break
+      }
+    } else {
+      for (const row of (latestRes.data as HistoryRow[] | null) ?? []) {
+        latestByComponent.set(row.component, row)
+      }
+      for (const row of (dailyRes.data as DailyRow[] | null) ?? []) {
+        let byDay = dailyByComponent.get(row.component)
+        if (!byDay) { byDay = new Map(); dailyByComponent.set(row.component, byDay) }
+        byDay.set(row.day, row)
+      }
+    }
   }
 
   // 3. Data-source freshness probes.
@@ -349,7 +392,8 @@ export async function GET() {
   // 4. Build per-component status using catalog + history + live + freshness.
   const days90 = lastNDays(90)
   const components: ComponentStatus[] = CATALOG.map((entry) => {
-    const rows = byComponent.get(entry.id) || []
+    const latestRow = latestByComponent.get(entry.id) ?? null
+    const dailyAgg = dailyByComponent.get(entry.id) ?? new Map<string, DailyRow>()
 
     // Determine current status
     let current: ComponentStatus['current']
@@ -373,8 +417,8 @@ export async function GET() {
         error: f.error ?? null,
       }
       metadata = f.metadata
-    } else if (rows.length > 0) {
-      const latest = rows[0]
+    } else if (latestRow) {
+      const latest = latestRow
       let status: Status = latest.status
       // For crons, factor in staleness vs expected interval (e.g., last successful run too long ago).
       if (entry.category === 'cron' && entry.expected_interval_minutes) {
@@ -394,34 +438,40 @@ export async function GET() {
       current = { status: 'unknown', latency_ms: null, last_checked_at: null, error: null }
     }
 
-    // Uptime aggregations from history
+    // Uptime aggregations. Same arithmetic as before, now over day buckets
+    // instead of individual rows. The 30-day window is compared by day key
+    // rather than by exact timestamp: both sides are UTC ISO dates, so the
+    // comparison is a plain lexical one and the boundary day is counted whole.
     let uptime30: number | null = null
     let uptime90: number | null = null
-    const dailyMap = new Map<string, Status[]>()
 
-    if (rows.length > 0) {
+    if (dailyAgg.size > 0) {
       let ok30 = 0, total30 = 0, ok90 = 0, total90 = 0
-      for (const row of rows) {
-        const ts = new Date(row.checked_at).getTime()
-        if (ts >= new Date(since30).getTime()) {
-          total30++
-          if (row.status === 'ok') ok30++
+      // forEach, not for..of: this tsconfig targets a level where iterating a
+      // Map iterator needs --downlevelIteration.
+      dailyAgg.forEach((bucket) => {
+        total90 += bucket.total
+        ok90 += bucket.ok_count
+        if (bucket.day >= since30Day) {
+          total30 += bucket.total
+          ok30 += bucket.ok_count
         }
-        total90++
-        if (row.status === 'ok') ok90++
-
-        const dk = dayKey(new Date(row.checked_at))
-        if (!dailyMap.has(dk)) dailyMap.set(dk, [])
-        dailyMap.get(dk)!.push(row.status)
-      }
+      })
       uptime30 = total30 > 0 ? Number(((ok30 / total30) * 100).toFixed(2)) : null
       uptime90 = total90 > 0 ? Number(((ok90 / total90) * 100).toFixed(2)) : null
     }
 
-    const daily: DailyBucket[] = days90.map((d) => ({
-      day: d,
-      status: rollupDailyStatus(dailyMap.get(d) || []),
-    }))
+    // Statuspage-style pessimistic rollup, preserved exactly: any `down` in the
+    // day paints it red, then any `degraded`, otherwise green. An empty day is
+    // grey. This used to run over an array of statuses; over counts it is the
+    // same rule expressed on the aggregate.
+    const daily: DailyBucket[] = days90.map((d) => {
+      const bucket = dailyAgg.get(d)
+      if (!bucket || bucket.total === 0) return { day: d, status: 'unknown' as Status }
+      if (bucket.down_count > 0) return { day: d, status: 'down' as Status }
+      if (bucket.degraded_count > 0) return { day: d, status: 'degraded' as Status }
+      return { day: d, status: 'ok' as Status }
+    })
     // Override today's bucket with the live status. The pessimistic rollup is
     // right for closed days (Statuspage-style: any down → red day) but wrong
     // for the in-progress day, where a transient failure earlier would keep
@@ -483,7 +533,12 @@ export async function GET() {
 
   return NextResponse.json(response, {
     headers: {
-      'Cache-Control': 's-maxage=30, stale-while-revalidate=60',
+      // Was s-maxage=30 against a client that re-polls every 30s, so the cache
+      // expired exactly when the next poll arrived and almost every poll became
+      // an origin hit. Each origin hit also WRITES observations, so views fed
+      // the very table the next view had to read. 150s stays comfortably above
+      // the 120s poll, which makes the common case a cache hit.
+      'Cache-Control': 's-maxage=150, stale-while-revalidate=300',
       'Access-Control-Allow-Origin': '*',
     },
   })
