@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-15T15:32:10.912352+00:00",
+  "generated_at": "2026-08-16T07:29:27.370058+00:00",
   "data_source": {
     "forensic_behavioral_analysis": "data/forensic_behavioral_analysis.json",
     "chain_stats_jsonl": "data/diamond_paws_analysis/chain_stats.jsonl",
@@ -16,35 +16,35 @@
     }
   },
   "totals": {
-    "diamond_paws_with_stats": 19570,
+    "diamond_paws_with_stats": 19456,
     "diamond_paws_missing_stats": 0,
-    "total_airdrop_dog": 20194147170.0,
-    "pct_of_supply": 20.19414717
+    "total_airdrop_dog": 20092709286.0,
+    "pct_of_supply": 20.092709285999998
   },
   "lost_relaxed": {
     "count": 5921,
-    "pct_of_diamond_paws": 30.255493101686255,
+    "pct_of_diamond_paws": 30.43277138157895,
     "dog_locked": 5636031204.0,
-    "pct_of_diamond_paws_dog": 27.909231108173604,
+    "pct_of_diamond_paws_dog": 28.050130640804216,
     "pct_of_supply": 5.636031204
   },
   "lost_strict": {
     "count": 2,
-    "pct_of_diamond_paws": 0.010219724067450179,
+    "pct_of_diamond_paws": 0.010279605263157894,
     "dog_locked": 1779612.0,
-    "pct_of_diamond_paws_dog": 0.008812513769552766,
+    "pct_of_diamond_paws_dog": 0.008857003675656526,
     "pct_of_supply": 0.0017796119999999999
   },
   "active_after_airdrop": {
-    "count": 13649,
-    "pct_of_diamond_paws": 69.74450689831374,
-    "dog_held": 14558115966.0,
+    "count": 13535,
+    "pct_of_diamond_paws": 69.56722861842105,
+    "dog_held": 14456678082.0,
     "spent_txo_buckets": {
-      "100+": 1874,
+      "100+": 1873,
       "21-100": 3683,
-      "6-20": 3345,
-      "2-5": 2737,
-      "1": 2010
+      "6-20": 3321,
+      "2-5": 2711,
+      "1": 1947
     },
     "note": "These wallets sent something (BTC, other runes\u2026) but their DOG balance equals the airdrop amount \u2014 they're alive HODLers, not lost."
   },
@@ -83,7 +83,7 @@
       "p2wpkh/p2wsh": 262
     },
     "active": {
-      "p2tr": 11223,
+      "p2tr": 11109,
       "p2sh": 336,
       "p2wpkh/p2wsh": 1933,
       "p2pkh": 157
