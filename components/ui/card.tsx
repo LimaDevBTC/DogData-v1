@@ -7,18 +7,26 @@ const Card = React.forwardRef<
     variant?: 'default' | 'glass' | 'elevated'
   }
 >(({ className, variant = 'default', ...props }, ref) => {
+  // Uma superficie so: placa quadrada, um fio de cabelo, fundo opaco.
+  // `glass` virou apelido de `default` de proposito: as 109 chamadas espalhadas
+  // pelo site continuam compilando e simplesmente deixam de ser vidro, entao a
+  // linguagem muda sem editar pagina nenhuma. Fora daqui: raio, desfoque,
+  // sombra interna e o `card-glow`, que rodava uma animacao de 6s em loop em
+  // cada um dos 114 cards.
   const variants = {
-    default: "bg-bg-surface/60 border border-border-subtle rounded-xl",
-    glass: "bg-bg-surface/50 backdrop-blur-xl border border-border-subtle rounded-xl shadow-[inset_0_1px_0_0_rgba(255,255,255,0.02)]",
-    elevated: "bg-bg-surface/70 backdrop-blur-xl border border-border shadow-xl rounded-xl shadow-[inset_0_1px_0_0_rgba(255,255,255,0.03)]"
+    default: "bg-white/[0.02] border border-white/10",
+    glass: "bg-white/[0.02] border border-white/10",
+    elevated: "bg-white/[0.03] border border-white/20"
   }
 
   return (
     <div
       ref={ref}
       className={cn(
-        "p-3 md:p-6 overflow-hidden transition-all duration-300 ease-out card-glow",
-        "hover:bg-bg-elevated/70 hover:border-border hover:shadow-[0_8px_32px_-8px_rgba(0,0,0,0.5),inset_0_1px_0_0_rgba(255,255,255,0.04)]",
+        // o espacamento fica como estava: esta fase troca a linguagem da
+        // superficie, nao a densidade das paginas
+        "p-3 md:p-6 overflow-hidden transition-colors duration-300 ease-out",
+        "hover:border-white/25",
         variants[variant],
         className
       )}
@@ -47,7 +55,7 @@ const CardTitle = React.forwardRef<
   }
 >(({ className, variant = 'default', ...props }, ref) => {
   const variants = {
-    default: "text-text-accent font-display font-semibold text-base md:text-lg",
+    default: "text-snow font-display font-semibold text-base md:text-lg",
     gradient: "gradient-text font-display font-bold text-lg md:text-xl",
     mono: "text-text-primary font-mono font-semibold text-xs md:text-lg"
   }
@@ -68,7 +76,7 @@ const CardDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <p
     ref={ref}
-    className={cn("text-text-secondary text-xs md:text-sm font-mono", className)}
+    className={cn("text-mist text-xs md:text-sm font-mono", className)}
     {...props}
   />
 ))

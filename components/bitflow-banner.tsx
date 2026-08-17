@@ -78,7 +78,7 @@ export function BitflowBanner({ noMargin = false }: { noMargin?: boolean }) {
         className="block w-full group cursor-pointer"
         onClick={handleClick}
       >
-        <div className="relative w-full overflow-hidden bg-[#0A0A0C]/50 backdrop-blur-xl border border-white/[0.05] hover:border-orange-500/[0.2] transition-all duration-300 rounded-xl shadow-sm hover:shadow-[0_8px_32px_-8px_rgba(249,115,22,0.15)]">
+        <div className="relative w-full overflow-hidden bg-white/[0.02] border border-white/10 hover:border-white/25 transition-colors duration-300">
 
           {/* Banner content */}
           <div className="relative w-full h-[90px] flex items-center justify-center">

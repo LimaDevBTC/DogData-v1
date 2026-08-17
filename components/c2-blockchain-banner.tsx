@@ -12,7 +12,7 @@ export function C2BlockchainBanner() {
         rel="noopener noreferrer sponsored"
         className="block w-full group cursor-pointer"
       >
-        <div className="relative w-full overflow-hidden bg-[#0A0A0C]/50 backdrop-blur-xl border border-white/[0.05] hover:border-blue-500/[0.12] transition-all duration-300 rounded-xl shadow-sm hover:shadow-[0_8px_32px_-8px_rgba(59,130,246,0.1)]">
+        <div className="relative w-full overflow-hidden bg-white/[0.02] border border-white/10 hover:border-white/25 transition-colors duration-300">
           {/* Badge "Official Partner" - Menor em mobile */}
           <div className="absolute top-2 right-2 md:top-3 md:right-3 z-10 flex items-center gap-1">
             <span className="text-gray-400 text-[8px] md:text-[10px] font-mono font-medium uppercase tracking-wide">

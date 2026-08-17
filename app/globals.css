@@ -159,9 +159,13 @@ body::before {
   -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 30%, black 40%, transparent 100%);
 }
 
-/* Noise Texture Overlay */
+/* Camada de ruido, desligada.
+   Ela ficava em z-index 9998, ou seja, por cima de praticamente tudo, e era
+   parte do que dava o ar empoeirado que as paginas novas nao tem. O bloco fica
+   aqui, com display none, para ser facil de ressuscitar em pagina de vitrine. */
 body::after {
   content: '';
+  display: none;
   position: fixed;
   inset: 0;
   z-index: 9998;
@@ -179,7 +183,14 @@ body > * {
 }
 
 /* Aurora Ambient Light */
+/* Aurora ambiente, desligada.
+   Duas camadas com deriva infinita de 25s e 30s rodavam em TODA pagina, porque
+   components/layout.tsx injeta esta div no site inteiro. Aquele arquivo esta
+   congelado com skip-worktree e edicao nele nao chega em producao, entao o
+   desligamento acontece aqui. Para reativar numa pagina de vitrine, basta
+   trocar `display: none` por `display: block` num escopo mais especifico. */
 .aurora-bg {
+  display: none;
   position: fixed;
   top: 0;
   left: 0;
@@ -335,16 +346,16 @@ header::before {
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: #050505; }
 ::-webkit-scrollbar-thumb { background: #222222; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #F7931A; }
+::-webkit-scrollbar-thumb:hover { background: #F56E0F; }
 
 /* Text Selection */
-::selection { background: rgba(247,147,26,0.2); color: #F0F4F8; }
+::selection { background: rgba(245,110,15,0.22); color: #F0F0F2; }
 
 /* Global Focus Ring */
 *:focus-visible {
-  outline: 2px solid rgba(247,147,26,0.5);
+  outline: 2px solid rgba(245, 110, 15, 0.6);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 0;
 }
 
 /* === ANIMATIONS === */
