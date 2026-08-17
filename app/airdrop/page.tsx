@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Image from "next/image"
 import { Layout } from "@/components/layout"
+import { RunestoneGate } from "@/components/runestone-gate"
 import { LoadingScreen } from "@/components/loading-screen"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -464,23 +464,7 @@ export default function AirdropPage() {
       <div className="text-center space-y-2 md:space-y-4 px-4">
         <div className="hero-glow">
           <div className="flex items-center justify-center gap-2 md:gap-4">
-            {/* shrink-0 e obrigatorio: sem ele o h1 ao lado pede mais largura do que
-                a linha tem e o flex esmaga a pedra ate 2px, o que deixava a entrada
-                da secao invisivel e inclicavel no celular */}
-            <Link
-              href="/runestone"
-              className="w-10 h-10 md:w-12 md:h-12 shrink-0 rounded-xl bg-lava/[0.07] border border-lava/[0.1] flex items-center justify-center hover:bg-lava/[0.14] hover:border-lava/[0.25] hover:scale-110 transition-all duration-200 cursor-pointer group"
-              title="The Runestone: open the dossier"
-              aria-label="Open the Runestone dossier"
-            >
-              <Image
-                src="/Runestone.png"
-                alt="Runestone"
-                width={28}
-                height={28}
-                className="object-contain md:w-[36px] md:h-[36px] group-hover:drop-shadow-[0_0_8px_rgba(245,110,15,0.7)] transition-all duration-200"
-              />
-            </Link>
+            <RunestoneGate />
             <h1 className="text-2xl md:text-4xl font-bold gradient-text-hero md:whitespace-nowrap">
               Airdrop Analysis
             </h1>
