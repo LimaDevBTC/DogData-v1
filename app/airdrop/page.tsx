@@ -22,7 +22,6 @@ import {
 import Link from "next/link"
 import { AddressBadge } from "@/components/address-badge"
 import { InfoTooltip } from "@/components/ui/info-tooltip"
-import { RunestoneEasterEgg } from "@/components/runestone-easter-egg"
 import { useDogPrice, fmtUsdCompact, fmtUsdFull } from "@/lib/use-dog-price"
 import {
   TIERS,
@@ -139,7 +138,6 @@ export default function AirdropPage() {
   const [isUpdating, setIsUpdating] = useState(false)
   const [initialLoad, setInitialLoad] = useState(true)
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null)
-  const [runestoneOpen, setRunestoneOpen] = useState(false)
 
   const ITEMS_PER_PAGE = 50
 
@@ -466,11 +464,14 @@ export default function AirdropPage() {
       <div className="text-center space-y-2 md:space-y-4 px-4">
         <div className="hero-glow">
           <div className="flex items-center justify-center gap-2 md:gap-4">
-            <button
-              onClick={() => setRunestoneOpen(true)}
-              className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-lava/[0.07] border border-lava/[0.1] flex items-center justify-center hover:bg-lava/[0.14] hover:border-lava/[0.25] hover:scale-110 transition-all duration-200 cursor-pointer group"
-              title="The Runestone — click to learn more"
-              aria-label="Open Runestone codex"
+            {/* shrink-0 e obrigatorio: sem ele o h1 ao lado pede mais largura do que
+                a linha tem e o flex esmaga a pedra ate 2px, o que deixava a entrada
+                da secao invisivel e inclicavel no celular */}
+            <Link
+              href="/runestone"
+              className="w-10 h-10 md:w-12 md:h-12 shrink-0 rounded-xl bg-lava/[0.07] border border-lava/[0.1] flex items-center justify-center hover:bg-lava/[0.14] hover:border-lava/[0.25] hover:scale-110 transition-all duration-200 cursor-pointer group"
+              title="The Runestone: open the dossier"
+              aria-label="Open the Runestone dossier"
             >
               <Image
                 src="/Runestone.png"
@@ -479,8 +480,8 @@ export default function AirdropPage() {
                 height={28}
                 className="object-contain md:w-[36px] md:h-[36px] group-hover:drop-shadow-[0_0_8px_rgba(245,110,15,0.7)] transition-all duration-200"
               />
-            </button>
-            <h1 className="text-2xl md:text-4xl font-bold gradient-text-hero whitespace-nowrap">
+            </Link>
+            <h1 className="text-2xl md:text-4xl font-bold gradient-text-hero md:whitespace-nowrap">
               Airdrop Analysis
             </h1>
           </div>
@@ -589,7 +590,7 @@ export default function AirdropPage() {
               )}
             </div>
             <p className="text-dusty text-sm font-mono mt-2">
-              {forensicStats?.accumulator_rate?.toFixed(1) ?? '—'}% — bought more since airdrop
+              {forensicStats?.accumulator_rate?.toFixed(1) ?? '—'}%: bought more since airdrop
             </p>
           </CardContent>
         </Card>
@@ -721,7 +722,7 @@ export default function AirdropPage() {
                 </div>
                 <div className="mt-4 pt-4 border-t border-white/[0.05]">
                   <p className="text-dusty/80 text-xs md:text-sm font-mono leading-relaxed">
-                    Wallets in the {formatNumber(lostStats.diamond_paws_total)} Diamond Paws cohort that never sent any transaction since the airdrop —
+                    Wallets in the {formatNumber(lostStats.diamond_paws_total)} Diamond Paws cohort that never sent any transaction since the airdrop,
                     not in DOG, BTC, or any other asset. {lostStats.lost.pct_of_diamond_paws.toFixed(1)}% of diamond paws fall in this group.
                     Likely throwaway addresses created for inscription/rare-sat hunting in 2024 and forgotten.
                   </p>
@@ -908,7 +909,7 @@ export default function AirdropPage() {
                         key={tier.key}
                         onClick={() => handleListChange(tier.key)}
                         style={{ width: `${p}%` }}
-                        title={`${tier.label} — ${formatNumber(count)} (${fmtPct(p)}%) · ${tier.threshold}`}
+                        title={`${tier.label}: ${formatNumber(count)} (${fmtPct(p)}%) · ${tier.threshold}`}
                         className={`${tier.barColor} transition-all hover:brightness-125 hover:z-10 ${
                           isActive ? 'ring-2 ring-snow ring-inset' : 'opacity-90 hover:opacity-100'
                         }`}
@@ -1246,7 +1247,6 @@ export default function AirdropPage() {
       </Card>
       </div>
 
-      <RunestoneEasterEgg isOpen={runestoneOpen} onClose={() => setRunestoneOpen(false)} />
     </Layout>
   )
 }

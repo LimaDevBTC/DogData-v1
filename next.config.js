@@ -13,6 +13,18 @@ const nextConfig = {
         './data/dog_holders_by_address.json',
         './data/forensic_behavioral_analysis.json',
       ],
+      // dynamic fs.readFile paths are not traced automatically, and the
+      // Runestone dossier route is read at request time
+      '/api/runestone/dossier': [
+        './data/runestone_dossier.json',
+      ],
+      '/api/runestone/holders': [
+        './data/runestone_holders_today.json',
+        './data/forensic_behavioral_analysis.json',
+      ],
+      '/api/runestone/stats': [
+        './data/runestone_dossier.json',
+      ],
     },
     outputFileTracingExcludes: {
       '*': [
