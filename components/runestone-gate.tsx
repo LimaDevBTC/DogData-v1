@@ -96,15 +96,19 @@ export function RunestoneGate({ className = "" }: { className?: string }) {
           transition-opacity duration-300 opacity-40 group-hover:opacity-90"
       />
 
-      {/* rótulo só no hover e no foco de teclado, para não estragar o segredo */}
+      {/* O rótulo só no hover e no foco, para não estragar o segredo.
+          Ele mora à direita da pedra e alinhado com a base dela, que é a faixa
+          vazia entre o título e o subtítulo: embaixo da pedra ele batia em cima
+          do subtítulo. Some abaixo de md porque ali não existe hover e a linha
+          é estreita demais para ele caber. */}
       <span
-        className="pointer-events-none absolute top-full mt-2 whitespace-nowrap
-          font-mono text-[9px] md:text-[10px] uppercase tracking-[0.22em] text-lava
-          opacity-0 translate-y-1 transition-all duration-200
-          group-hover:opacity-100 group-hover:translate-y-0
-          group-focus-visible:opacity-100 group-focus-visible:translate-y-0"
+        className="pointer-events-none hidden md:block absolute left-full bottom-2 ml-4
+          whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.22em] text-lava
+          opacity-0 -translate-x-1 transition-all duration-200
+          group-hover:opacity-100 group-hover:translate-x-0
+          group-focus-visible:opacity-100 group-focus-visible:translate-x-0"
       >
-        ᚠ open the dossier ᚠ
+        ᚠ open the dossier
       </span>
 
       <span className="sr-only">The Runestone: open the dossier</span>

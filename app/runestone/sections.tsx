@@ -13,10 +13,11 @@ import {
   Bar, BarChart, CartesianGrid, ComposedChart, Line, ResponsiveContainer,
   Tooltip, XAxis, YAxis,
 } from "recharts"
-import { ExternalLink } from "lucide-react"
+import Link from "next/link"
+import { Check, Copy, ExternalLink } from "lucide-react"
 import {
   AXIS_TICK, CAT, GRID, HAIR, HAIR_SOFT, Legend, Plate, PlateHead,
-  PlotGrid, RankRows, SectionHead, ShareBar, StatTile,
+  PlotGrid, RankRows, STATUS, SectionHead, ShareBar, StatTile,
 } from "@/app/analytics/dashboard/ui"
 import type { Dossier, HolderRow } from "./types"
 
@@ -163,19 +164,45 @@ export function Fact({ k, v, sub }: { k: string; v: ReactNode; sub?: string }) {
   )
 }
 
+// O endereço leva para a nossa própria página de carteira, não para fora: a
+// análise do endereço mora aqui. O mempool fica como ícone separado, que é o
+// mesmo arranjo de /airdrop/lost e /metrics/holders-by-age.
 function Addr({ a, note }: { a: string; note?: string }) {
+  const [copied, setCopied] = useState(false)
   return (
-    <a
-      href={`https://mempool.space/address/${a}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex items-center gap-1.5 font-mono text-[11px] text-mist hover:text-lava transition-colors"
-      title={a}
-    >
-      {shortAddr(a)}
-      {note && <span className="text-dusty/60">{note}</span>}
-      <ExternalLink className="w-2.5 h-2.5 shrink-0" />
-    </a>
+    <span className="inline-flex items-center gap-1.5 min-w-0">
+      <Link
+        href={`/address/bitcoin/${a}`}
+        className="font-mono text-[11px] text-mist hover:text-lava transition-colors truncate"
+        title={a}
+      >
+        {shortAddr(a)}
+      </Link>
+      {note && <span className="font-mono text-[10px] text-dusty/60 shrink-0">{note}</span>}
+      <button
+        type="button"
+        aria-label={`Copy address ${a}`}
+        onClick={() => {
+          navigator.clipboard?.writeText(a)
+          setCopied(true)
+          window.setTimeout(() => setCopied(false), 1400)
+        }}
+        className="shrink-0 text-dusty hover:text-snow transition-colors"
+      >
+        {copied
+          ? <Check className="w-2.5 h-2.5" style={{ color: STATUS.good }} />
+          : <Copy className="w-2.5 h-2.5" />}
+      </button>
+      <a
+        href={`https://mempool.space/address/${a}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`Open ${a} on mempool.space`}
+        className="shrink-0 text-dusty hover:text-lava transition-colors"
+      >
+        <ExternalLink className="w-2.5 h-2.5" />
+      </a>
+    </span>
   )
 }
 
