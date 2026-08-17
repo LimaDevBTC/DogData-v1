@@ -1,15 +1,15 @@
 {
-  "generated_at": "2026-08-17T18:25:07.149Z",
+  "generated_at": "2026-08-17T19:25:45.920Z",
   "threshold_days": 155,
   "definition": "STH: UTXO age < 155d | LTH: UTXO age >= 155d (mesmo crit\u00e9rio da m\u00e9trica publicada)",
   "dominance_rule": "Carteira LTH-dominante se >=50% do saldo est\u00e1 em UTXOs >=155d; sen\u00e3o STH-dominante",
-  "total_holders": 85895,
+  "total_holders": 85896,
   "lth_dominant_wallets": 83226,
-  "sth_dominant_wallets": 2669,
+  "sth_dominant_wallets": 2670,
   "total_dog": 99975593202.33,
-  "lth_dog": 74248020155.1753,
-  "sth_dog": 25727573047.15471,
-  "lth_pct": 74.2661,
-  "sth_pct": 25.7339,
+  "lth_dog": 74244243107.6832,
+  "sth_dog": 25731350094.6468,
+  "lth_pct": 74.2624,
+  "sth_pct": 25.7376,
   "reconciliation_note": "Soma lth_dog + sth_dog por carteira == total_dog. Compare lth_pct/sth_pct com utxo_age_stats do feed agregado."
 }
