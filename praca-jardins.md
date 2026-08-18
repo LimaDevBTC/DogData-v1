@@ -83,6 +83,18 @@ Blender entra quando uma peça pedir mais do que a geometria procedural dá
   saibro, placas da Teoria Ordinal e da Runestone, oliveiras). §3 feito com
   dados vivos (13 fundadores, 48 vagas, linha de luz a 24,7 %). §4 feito
   (cinco espécies). Menu Places: whitepaper, genesis, satoshi, paw, ordinal,
-  founders. Próximo: refinar a figura de Satoshi (Blender se o bronze
-  procedural não convencer), luz noturna dos jardins, e o que o fundador
-  apontar nas capturas.
+  founders.
+- 2026-08-18 (noite), as duas estátuas (`statues.ts`), brief com referências:
+  **Satoshi à maneira de Lugano** (Valentina Picozzi): a figura sentada de capuz
+  com o laptop definida como SDF e cortada em ~50 lâminas de aço sagitais por
+  marching squares (de frente quase some, de lado aparece inteira), 10,8 m no
+  plinto do espelho NW, sentada rente ao plinto; substituiu o bronze procedural.
+  **Leonidas**, fundador do DOG: capa negra em pregas, capuz ogival, caveira
+  amarela esculpida no Blender (`blender/build_leonidas_skull.py`: primitivas
+  fundidas por remesh voxel + booleanos das órbitas/nariz/boca + dentes →
+  `public/city/leonidas-skull.glb`, 220 KB) com olhos vermelhos acesos, 11 m
+  num plinto de granito atrás da Pata de Diamante, olhando o deck; placa
+  "LEONIDAS · founder of DOG•GO•TO•THE•MOON". Places: satoshi, leonidas
+  (+ `?view=satoshiclose|satoshisideclose|leonidasclose`). Hiper-realismo de
+  verdade na caveira pede um scan/escultura manual: o que há é escultura
+  estilizada boa a 10 m; a capa ainda merece pregas melhores (Blender).
