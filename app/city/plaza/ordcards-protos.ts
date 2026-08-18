@@ -285,35 +285,19 @@ function buildChalet(front: THREE.Texture, back: THREE.Texture): Proto {
     inner.position.z = -0.6
     outer.castShadow = true
     outer.receiveShadow = true
-    // a carta pivota no chão: base em z = sign·half, topo no ápice
+    // A carta pivota no chão: base em z = sign·half, topo no ápice, em z = 0.
+    // ⚠️ AS DUAS TOMBAM PARA O CENTRO. Com a ordem YXZ, um pitch negativo leva o
+    // topo para +z na carta virada para −z (a do norte, yaw π) e para −z na carta
+    // virada para +z (a do sul, yaw 0): as duas se encontram na cumeeira. A
+    // primeira versão dava sinais opostos e as duas caíam para o mesmo lado, que
+    // foi o que o fundador viu ("na mesma direção").
     g.position.set(0, 1.4 + apex / 2, sign * half / 2)
-    g.rotation.set(sign * lean, sign > 0 ? 0 : Math.PI, 0, 'YXZ')
+    g.rotation.set(-lean, sign > 0 ? 0 : Math.PI, 0, 'YXZ')
     return g
   }
   group.add(mk(front, -1), mk(back, 1))
-  // a cumeeira: uma viga clara onde as duas cartas se encontram
-  const ridge = new THREE.Mesh(new THREE.BoxGeometry(W + 4, 2.4, 2.4), new THREE.MeshStandardMaterial({ color: 0xe8e2d6, roughness: 0.4, metalness: 0.3 }))
-  ridge.position.set(0, 1.4 + apex + 0.6, 0)
-  group.add(ridge)
-  // as empenas: dois triângulos de vidro escuro com a luz de dentro
-  const gable = new THREE.Shape()
-  gable.moveTo(-half, 0); gable.lineTo(half, 0); gable.lineTo(0, apex); gable.closePath()
-  const gableGeo = new THREE.ShapeGeometry(gable)
-  const glass = new THREE.MeshPhysicalMaterial({ color: 0x0b1018, roughness: 0.15, metalness: 0.1, transmission: 0.55, thickness: 2, transparent: true, opacity: 0.85, side: THREE.DoubleSide, emissive: 0xffa040, emissiveIntensity: 0.06 })
-  for (const sx of [-1, 1]) {
-    const gm = new THREE.Mesh(gableGeo, glass)
-    gm.rotation.y = sx * Math.PI / 2
-    gm.position.set(sx * (W / 2 - 1.5), 1.4, 0)
-    group.add(gm)
-    // esquadrias: linhas verticais na empena
-    for (let k = -3; k <= 3; k++) {
-      const x = k * (half / 4)
-      const hh = apex * (1 - Math.abs(x) / half)
-      const mullion = new THREE.Mesh(new THREE.BoxGeometry(0.9, hh, 0.9), new THREE.MeshStandardMaterial({ color: 0x2a2a30, metalness: 0.7, roughness: 0.4 }))
-      mullion.position.set(sx * (W / 2 - 1.5), 1.4 + hh / 2, x)
-      group.add(mullion)
-    }
-  }
+  // Sem cumeeira e sem empenas: duas cartas encostadas e mais nada, como num
+  // castelo de cartas. Os lados ficam abertos e a luz de dentro sai por eles.
   // o piso interno acende: um plano quente sob o chalé, e luzes de dentro
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(W - 6, half * 2 - 6), new THREE.MeshBasicMaterial({ color: WARM, transparent: true, opacity: 0.35, toneMapped: false }))
   floor.rotation.x = -Math.PI / 2
@@ -341,7 +325,7 @@ function buildChalet(front: THREE.Texture, back: THREE.Texture): Proto {
   return {
     group,
     update(t) { glyph.rotation.y = t * 0.3; for (const l of lights) l.intensity = 2.6 * (0.9 + 0.1 * Math.sin(t * 1.1 + l.position.x)) },
-    dispose() { geo.dispose(); gableGeo.dispose(); glass.dispose(); innerMat.dispose(); group.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh && m.geometry !== geo && m.geometry !== gableGeo) { m.geometry?.dispose(); (m.material as THREE.Material)?.dispose?.() } }) },
+    dispose() { geo.dispose(); innerMat.dispose(); group.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh && m.geometry !== geo) { m.geometry?.dispose(); (m.material as THREE.Material)?.dispose?.() } }) },
   }
 }
 
