@@ -213,22 +213,30 @@ export function buildSatoshiLugano(opts: { pitch?: number; thick?: number; grid?
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// LEONIDAS: capa negra em pregas, capuz, a caveira amarela de olhos vermelhos
+// LEONIDAS: capa negra em pregas, capuz justo à cabeça, e a caveira REAL
+// (CC0 "Human Skull" de CDmir, OpenGameArt, convertida por
+// blender/convert_skull_oga.py em public/city/leonidas-skull.glb: 4,5 mil tris,
+// albedo×AO 1K, normal 1K, rugosidade; 0,22 m de altura, origem no centro,
+// rosto para +z), tingida de amarelo, com os olhos vermelhos acesos no fundo das
+// órbitas. Proporções humanas: 2,3 m de altura, cabeça de 22 cm, capuz que a
+// abraça (o primeiro capuz era três vezes maior que a caveira).
 // ═══════════════════════════════════════════════════════════════════════════════
-/** capa: superfície de revolução com pregas (raio modulado no ângulo), do chão ao pescoço */
+const HEAD_Y = 2.02 // centro da caveira
+/** capa: superfície de revolução com pregas (raio modulado no ângulo), do chão aos ombros/pescoço */
 function capeGeometry(): THREE.BufferGeometry {
-  const RINGS = 40, SEG = 72
+  const RINGS = 44, SEG = 80
   const pos: number[] = [], idx: number[] = [], uv: number[] = []
-  const H = 1.9 // altura da capa (do chão ao pescoço)
+  const H = 1.88 // do chão ao pescoço
   for (let j = 0; j <= RINGS; j++) {
     const t = j / RINGS, y = t * H
-    // raio: largo na base, fecha nos ombros; ombros marcados em t≈0.85
-    const base = 0.6 * (1 - t) + 0.21 * t + (t > 0.8 ? Math.sin((t - 0.8) / 0.2 * Math.PI) * 0.045 : 0)
+    // largo na base, afina; ombros marcados em t≈0.9 (y≈1,7)
+    const shoulders = t > 0.82 ? Math.sin(((t - 0.82) / 0.18) * Math.PI) * 0.06 : 0
+    const base = 0.52 * (1 - t) + 0.1 * t + shoulders + 0.12 * Math.sin(t * Math.PI) * (1 - t)
     for (let i = 0; i <= SEG; i++) {
       const a = (i / SEG) * Math.PI * 2
-      // pregas: mais fundas embaixo, somem no ombro; a frente (a = π/2, +z) tem uma abertura marcada
-      const fold = 0.06 * (1 - t) * Math.sin(a * 11 + t * 2.0) + 0.02 * (1 - t) * Math.sin(a * 23)
-      const front = Math.exp(-Math.pow((a - Math.PI / 2) / 0.28, 2)) * (1 - t) * 0.05
+      // pregas fundas embaixo, somem no ombro; a frente (+z, a = π/2) tem a abertura da capa
+      const fold = (0.055 * Math.sin(a * 9 + t * 1.6) + 0.02 * Math.sin(a * 21 + 1.3)) * Math.pow(1 - t, 0.8)
+      const front = Math.exp(-Math.pow((a - Math.PI / 2) / 0.22, 2)) * (1 - t) * 0.045
       const r = base + fold - front
       pos.push(Math.cos(a) * r, y, Math.sin(a) * r)
       uv.push(i / SEG, t)
@@ -245,23 +253,25 @@ function capeGeometry(): THREE.BufferGeometry {
   g.computeVertexNormals()
   return g
 }
-/** capuz: casca de revolução ABERTA na frente num arco ogival (largo no pescoço,
- *  fechando até um pico atrás do alto da cabeça), inclinada sobre o rosto */
+/** capuz: casca de revolução aberta na frente num arco ogival, justa à cabeça:
+ *  nasce nos ombros (r 0,3), abraça o crânio (r 0,15) e fecha num pico atrás */
 function hoodGeometry(): THREE.BufferGeometry {
-  const RINGS = 28, SEG = 56
+  const RINGS = 32, SEG = 56
   const pos: number[] = [], idx: number[] = []
+  const Y0 = 1.7, Y1 = 2.36
   for (let j = 0; j <= RINGS; j++) {
     const t = j / RINGS
-    const r = 0.25 * Math.sin(Math.min(1, t * 1.15) * Math.PI * 0.5 + 0.35) + 0.04
-    const y = 1.84 + t * 0.6
-    const zLean = -0.05 * t + 0.03
-    // meia-abertura: 54° no pescoço, fecha no pico
-    const half = 0.95 * Math.pow(1 - t, 0.6) + 0.02
+    const y = Y0 + (Y1 - Y0) * t
+    // raio: 0,3 nos ombros → 0,155 na altura do rosto (t≈0.5) → 0 no pico
+    const r = t < 0.5 ? 0.3 - (0.3 - 0.155) * Math.sin((t / 0.5) * Math.PI * 0.5) : 0.155 * Math.cos(((t - 0.5) / 0.5) * Math.PI * 0.5) + 0.02 * (1 - t)
+    // o pico cai um pouco para trás; a borda da frente avança sobre o rosto no meio
+    const zc = -0.09 * Math.max(0, t - 0.5) * 2 + 0.03
+    // meia-abertura: 1,05 rad nos ombros, 0,8 no rosto, fecha no pico
+    const half = t < 0.55 ? 1.05 - 0.25 * (t / 0.55) : 0.8 * Math.pow(1 - (t - 0.55) / 0.45, 0.7) + 0.02
     const a0 = Math.PI / 2 + half, a1 = Math.PI / 2 + Math.PI * 2 - half
     for (let i = 0; i <= SEG; i++) {
       const a = a0 + (i / SEG) * (a1 - a0)
-      const rr = r * (1 - 0.15 * Math.pow(t, 3))
-      pos.push(Math.cos(a) * rr, y, Math.sin(a) * rr + zLean)
+      pos.push(Math.cos(a) * r, y, Math.sin(a) * r + zc)
     }
   }
   for (let j = 0; j < RINGS; j++) for (let i = 0; i < SEG; i++) {
@@ -274,112 +284,61 @@ function hoodGeometry(): THREE.BufferGeometry {
   g.computeVertexNormals()
   return g
 }
-/** a caveira: crânio, arcos zigomáticos, maxilar, órbitas fundas, cavidade nasal, dentes; SDF → malha por marching cubes seria mais; aqui, primitivas afinadas */
-function buildSkull(mat: THREE.Material, dark: THREE.Material): THREE.Group {
-  const g = new THREE.Group()
-  const cranium = new THREE.Mesh(new THREE.SphereGeometry(0.115, 32, 24), mat)
-  cranium.scale.set(0.92, 1.0, 1.06)
-  cranium.position.set(0, 0.03, -0.01)
-  g.add(cranium)
-  // a testa e as têmporas: um pouco mais quadradas
-  const brow = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.05, 0.16), mat)
-  brow.position.set(0, 0.0, 0.03)
-  g.add(brow)
-  // maçãs do rosto
-  for (const s of [-1, 1]) {
-    const cheek = new THREE.Mesh(new THREE.SphereGeometry(0.035, 16, 12), mat)
-    cheek.scale.set(1.2, 0.8, 1)
-    cheek.position.set(s * 0.083, -0.045, 0.06)
-    g.add(cheek)
-    // órbitas: cavidades escuras, com o olho vermelho lá no fundo
-    const socket = new THREE.Mesh(new THREE.SphereGeometry(0.036, 20, 16), dark)
-    socket.scale.set(1.15, 1, 0.6)
-    socket.position.set(s * 0.048, -0.01, 0.092)
-    g.add(socket)
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.011, 12, 10), new THREE.MeshBasicMaterial({ color: 0xff2a1a, toneMapped: false }))
-    eye.position.set(s * 0.046, -0.012, 0.09)
-    eye.name = 'LEONIDAS_EYE'
-    g.add(eye)
-  }
-  // a cavidade nasal: um triângulo escuro invertido
-  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.045, 3), dark)
-  nose.rotation.set(0, Math.PI, Math.PI)
-  nose.position.set(0, -0.06, 0.104)
-  g.add(nose)
-  // maxilar superior e mandíbula
-  const upper = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.045, 0.09), mat)
-  upper.position.set(0, -0.095, 0.05)
-  g.add(upper)
-  const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.04, 0.085), mat)
-  jaw.position.set(0, -0.135, 0.045)
-  g.add(jaw)
-  // dentes: uma fila em cima, uma embaixo, e o vão escuro entre elas
-  const gap = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.012, 0.02), dark)
-  gap.position.set(0, -0.117, 0.092)
-  g.add(gap)
-  const toothGeo = new THREE.BoxGeometry(0.011, 0.016, 0.01)
-  for (let i = 0; i < 7; i++) {
-    const x = (i - 3) * 0.0135
-    const t1 = new THREE.Mesh(toothGeo, mat); t1.position.set(x, -0.108, 0.094); g.add(t1)
-    const t2 = new THREE.Mesh(toothGeo, mat); t2.position.set(x, -0.126, 0.092); g.add(t2)
-  }
-  return g
-}
 
-export function buildLeonidas(opts: { skullGeo?: THREE.BufferGeometry } = {}): Statue {
+/** `skull`: a cena do leonidas-skull.glb (será clonada; materiais tingidos). */
+export function buildLeonidas(skull: THREE.Object3D): Statue {
   const group = new THREE.Group()
   const disposables: { dispose: () => void }[] = []
   const track = <T extends { dispose: () => void }>(o: T): T => { disposables.push(o); return o }
   const cloth = track(new THREE.MeshStandardMaterial({ color: 0x0b0b0e, roughness: 0.95, metalness: 0.05, side: THREE.DoubleSide }))
-  const clothIn = track(new THREE.MeshStandardMaterial({ color: 0x050507, roughness: 1, side: THREE.DoubleSide }))
-  const bone = track(new THREE.MeshStandardMaterial({ color: 0xe8b62b, roughness: 0.48, metalness: 0.15, emissive: 0x3a2a05, emissiveIntensity: 0.35 }))
+  const clothIn = track(new THREE.MeshStandardMaterial({ color: 0x030304, roughness: 1, side: THREE.DoubleSide }))
   const dark = track(new THREE.MeshStandardMaterial({ color: 0x050405, roughness: 1 }))
   const cape = new THREE.Mesh(track(capeGeometry()), cloth)
   cape.castShadow = cape.receiveShadow = true
   group.add(cape)
-  // ombros e o pescoço: um torso por baixo da capa, para a silhueta ter peito
-  const chest = new THREE.Mesh(track(new THREE.CapsuleGeometry(0.17, 0.3, 6, 16)), cloth)
-  chest.position.set(0, 1.56, 0.02)
-  chest.scale.set(1.1, 1, 0.8)
+  // o peito sob a capa e o pescoço
+  const chest = new THREE.Mesh(track(new THREE.CapsuleGeometry(0.16, 0.34, 6, 16)), cloth)
+  chest.position.set(0, 1.5, 0.02)
+  chest.scale.set(1.25, 1, 0.8)
   group.add(chest)
-  const neck = new THREE.Mesh(track(new THREE.CylinderGeometry(0.06, 0.08, 0.16, 12)), dark)
-  neck.position.set(0, 1.9, 0.02)
+  const neck = new THREE.Mesh(track(new THREE.CylinderGeometry(0.055, 0.075, 0.2, 12)), dark)
+  neck.position.set(0, 1.84, 0.02)
   group.add(neck)
   const hood = new THREE.Mesh(track(hoodGeometry()), cloth)
   hood.castShadow = true
   group.add(hood)
   const hoodIn = new THREE.Mesh(track(hoodGeometry()), clothIn)
-  hoodIn.scale.set(0.97, 0.99, 0.97)
+  hoodIn.scale.set(0.985, 0.995, 0.985)
   hoodIn.position.y = 0.006
   group.add(hoodIn)
-  // a caveira: a esculpida no Blender (public/city/leonidas-skull.glb, de
-  // build_leonidas_skull.py: crânio, arcadas, órbitas, nariz, maxila, dentes)
-  // quando carregou; senão a de primitivas
-  let skull: THREE.Object3D
-  if (opts.skullGeo) {
-    const m = new THREE.Mesh(opts.skullGeo, bone)
+  // a caveira: clona a cena, tinge de amarelo, liga sombras
+  const sk = skull.clone(true)
+  sk.traverse((o) => {
+    const m = o as THREE.Mesh
+    if (!m.isMesh) return
+    const src = m.material as THREE.MeshStandardMaterial
+    const mat = src.clone()
+    mat.color.setRGB(1.0, 0.86, 0.22) // o amarelo do Leonidas sobre o osso
+    mat.emissive = new THREE.Color(0x4a3408)
+    mat.emissiveIntensity = 0.5
+    mat.roughness = 0.6
+    mat.metalness = 0.05
+    if (mat.normalScale) mat.normalScale.set(0.9, 0.9)
+    m.material = track(mat)
     m.castShadow = true
-    skull = new THREE.Group()
-    skull.add(m)
-    for (const s of [-1, 1]) {
-      const eye = new THREE.Mesh(track(new THREE.SphereGeometry(0.014, 12, 10)), track(new THREE.MeshBasicMaterial({ color: 0xff2a1a, toneMapped: false })))
-      eye.position.set(s * 0.036, -0.012, 0.075)
-      skull.add(eye)
-    }
-    skull.scale.setScalar(1.55)
-  } else {
-    skull = buildSkull(bone, dark)
-    skull.scale.setScalar(1.15)
-  }
-  skull.position.set(0, 2.1, 0.09)
-  skull.rotation.x = 0.06 // levemente baixa
-  group.add(skull)
-  // as mãos ficam dentro da capa, como na referência: só a caveira aparece
-  // as luzes dos olhos: vermelhas, curtas
+    m.receiveShadow = true
+  })
+  sk.position.set(0, HEAD_Y, 0.03)
+  sk.rotation.x = 0.05
+  group.add(sk)
+  // os olhos: duas brasas no fundo das órbitas
   for (const s of [-1, 1]) {
-    const l = new THREE.PointLight(0xff2a1a, 0.7, 2.5, 2)
-    l.position.set(s * 0.05, 2.05, 0.15)
+    const eye = new THREE.Mesh(track(new THREE.SphereGeometry(0.011, 12, 10)), track(new THREE.MeshBasicMaterial({ color: 0xff2612, toneMapped: false })))
+    eye.position.set(s * 0.033, HEAD_Y + 0.014, 0.03 + 0.058)
+    group.add(eye)
+    const l = new THREE.PointLight(0xff2a1a, 0.6, 1.6, 2)
+    l.position.set(s * 0.04, HEAD_Y + 0.02, 0.15)
     group.add(l)
   }
-  return { group, height: 2.4, dispose() { for (const d of disposables) d.dispose() } }
+  return { group, height: 2.36, dispose() { for (const d of disposables) d.dispose() } }
 }
