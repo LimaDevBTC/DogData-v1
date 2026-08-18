@@ -21,7 +21,6 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { loadTerrain } from './terrain'
 import { createOrbitLayer, PAD_MAIN } from './orbit-layer'
-import { buildCastle, type Castle } from './castle'
 import { startFeed, type DogTx, type Snapshot } from './feed'
 
 // ── framing ────────────────────────────────────────────────────────────────────
@@ -161,7 +160,6 @@ export default function PlazaScene() {
     const pulses: { m: THREE.MeshStandardMaterial; base: number; rate: number; phase: number }[] = []
     const sways: { o: THREE.Object3D; y0: number; amp: number }[] = []
     const jets: { o: THREE.Object3D; y0: number }[] = []
-    let castle: Castle | null = null
     let heightAt: (x: number, z: number) => number = () => 0
 
     const loadGlb = (url: string) =>
@@ -233,20 +231,10 @@ export default function PlazaScene() {
         // the main pad sits on the terrain: keep the constant honest
         PAD_MAIN.y = heightAt(PAD_MAIN.x, PAD_MAIN.z) + 1
 
-        // The Castle of Cards, south of the deck, gate to the plaza (D2). Its cards
-        // are the Genesis-address inscriptions, composed once into an atlas.
-        setHud((h) => ({ ...h, loading: 'Dealing the cards…' }))
-        const texLoader = new THREE.TextureLoader()
-        const loadTex = (url: string) =>
-          new Promise<THREE.Texture>((res, rej) => texLoader.load(url, (t) => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; res(t) }, undefined, rej))
-        const [atlas, back] = await Promise.all([loadTex('/city/castle/cards.jpg'), loadTex('/city/castle/back.png')])
-        if (disposed) return
-        castle = buildCastle({ atlas, back })
-        // 1.5×: cards of 12 m, a keep of ~250 m; a fairy-tale castle that holds
-        // its own against a 379 m tower without pretending to be one.
-        castle.group.position.set(0, 0, 700)
-        castle.group.scale.setScalar(1.5)
-        scene.add(castle.group)
+        // The OrdCards building goes south of the deck, on the monumental axis
+        // (praca-central.md §2). The card castle was tried and dropped by the
+        // founder on 2026-08-18; the site is reserved and empty until the next
+        // idea lands.
         setHud((h) => ({ ...h, loading: null }))
       } catch (err) {
         console.error('[plaza]', err)
@@ -377,7 +365,6 @@ export default function PlazaScene() {
       for (const p of pulses) p.m.emissiveIntensity = p.base * (0.8 + 0.25 * Math.sin(t * p.rate + p.phase))
       for (const s of sways) { s.o.rotation.y = Math.sin(t * 0.22) * 0.95; s.o.position.y = s.y0 + Math.sin(t * 0.8) * s.amp }
       for (const j of jets) j.o.scale.y = j.y0 * (0.88 + 0.12 * Math.sin(t * 1.4))
-      castle?.update(t)
       earth.rotation.y = t * 0.004
       const cl = earth.getObjectByName('Clouds'); if (cl) cl.rotation.y = t * 0.0025
       renderer.render(scene, camera)
@@ -409,7 +396,6 @@ export default function PlazaScene() {
       renderer.domElement.removeEventListener('wheel', wake)
       controls.dispose()
       orbit.dispose()
-      castle?.dispose()
       draco.dispose()
       pmrem.dispose()
       scene.traverse((o) => {
