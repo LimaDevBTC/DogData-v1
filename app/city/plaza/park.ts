@@ -15,14 +15,13 @@
 //                              faíscam, e o glifo que emite (mais forte quanto
 //                              menor a pedra, para ler em qualquer escala)
 //
-// Onde fica: não havia posição registrada em documento nenhum (o parque foi
-// desenhado no próprio quadro). A proposta implementada, a confirmar com o
-// fundador: **no fim do eixo monumental, ao sul, com o centro a 9,2 km** (0, 9200),
-// atrás do spaceport, fora da malha do sítio (para não brigar com o relevo de
-// Tranquillitatis) e assentado sobre o anel do horizonte, girado 225° para que a
-// chegada (o Portão, o vale que abre para o sudoeste no quadro do parque) olhe para
-// a praça. Do enquadramento de abertura a cordilheira fecha o eixo no horizonte:
-// deck, Chalé, spaceport, montanhas de cristal. `?view=park` leva até lá.
+// Onde fica: em `park-site.ts` (a posição da cena da landing, nordeste da praça,
+// rumo 43°, a 5,2 km para o construído do parque ficar fora do platô). O parque
+// tem chão próprio: dentro de PARK_CORE o terreno é o do .blend sobre um datum
+// plano (o chão real sob o Monarca), e de PARK_CORE a PARK_HALF ele funde no
+// regolito real (`baseAt`, sem a cova); o regolito, por sua vez, abre uma cova
+// sob o parque (terrain.ts) para nunca vazar pelo fundo do vale. A malha é um
+// disco: os cantos do quadrado colapsam no raio PARK_HALF.
 //
 // Quadro: o Blender é Z-up e o parque foi modelado com y = norte; o glTF já vem
 // convertido (x, z, −y); o heightmap e o censo vêm crus e são convertidos aqui.
@@ -30,10 +29,9 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { regolithColor } from './terrain'
+import { PARK_CENTER, PARK_ROT_Y, PARK_HALF, PARK_CORE } from './park-site'
 
-export const PARK_CENTER = new THREE.Vector3(0, 0, 9200)
-export const PARK_ROT_Y = (5 * Math.PI) / 4
-const PARK_HALF = 3600
+export { PARK_CENTER, PARK_ROT_Y }
 
 export interface Park {
   group: THREE.Group
@@ -70,7 +68,7 @@ const B2T = new THREE.Matrix4().set(
 )
 const T2B = B2T.clone().invert()
 
-export async function loadPark(opts: { horizonAt: (x: number, z: number) => number; gltf?: GLTFLoader }): Promise<Park> {
+export async function loadPark(opts: { baseAt: (x: number, z: number) => number; meanHeight: number; gltf?: GLTFLoader }): Promise<Park> {
   const [meta, hbuf, stones, sbuf] = await Promise.all([
     fetch('/city/park/heightmap.json').then((r) => r.json() as Promise<HeightMeta>),
     fetch('/city/park/heightmap.f32').then((r) => r.arrayBuffer()),
@@ -93,14 +91,13 @@ export async function loadPark(opts: { horizonAt: (x: number, z: number) => numb
 
   const group = new THREE.Group()
   group.name = 'RunestonePark'
-  group.position.copy(PARK_CENTER)
   group.rotation.y = PARK_ROT_Y
   const disposables: { dispose: () => void }[] = []
   const track = <T extends { dispose: () => void }>(o: T): T => { disposables.push(o); return o }
 
-  // ── o datum: o parque assenta sobre o anel do horizonte, 2 m acima dele ────
-  // O anel cai com a distância à praça, então cada vértice soma o anel local; a
-  // borda do parque (r > 3200) funde para o anel puro.
+  // ── o datum: o chão real sob o Monarca; o núcleo do parque é plano sobre ele ──
+  // e a borda (PARK_CORE → PARK_HALF) funde no regolito real. Tudo local ao grupo,
+  // cujo y é o datum.
   const heights = new Float32Array(hbuf)
   const { cols, rows, cellSizeM: cell } = meta
   const parkH = (bx: number, by: number): number => {
@@ -112,16 +109,18 @@ export async function loadPark(opts: { horizonAt: (x: number, z: number) => numb
   }
   const local = new THREE.Vector3()
   const worldOf = (lx: number, lz: number) => local.set(lx, 0, lz).applyAxisAngle(new THREE.Vector3(0, 1, 0), PARK_ROT_Y).add(PARK_CENTER)
-  const baseAt = (lx: number, lz: number) => { const w = worldOf(lx, lz); return opts.horizonAt(w.x, w.z) }
-  const center0 = opts.horizonAt(PARK_CENTER.x, PARK_CENTER.z)
+  const center0 = opts.baseAt(PARK_CENTER.x, PARK_CENTER.z)
+  group.position.set(PARK_CENTER.x, center0, PARK_CENTER.z)
+  const ringLocal = (lx: number, lz: number) => { const w = worldOf(lx, lz); return opts.baseAt(w.x, w.z) - center0 }
+  const coreK = (lx: number, lz: number) => {
+    const r = Math.hypot(lx, lz)
+    const k = r < PARK_CORE ? 1 : r > PARK_HALF ? 0 : 1 - (r - PARK_CORE) / (PARK_HALF - PARK_CORE)
+    return k * k * (3 - 2 * k)
+  }
   /** altura LOCAL (relativa ao grupo) do chão do parque em (lx, lz), quadro three local */
   const groundLocal = (lx: number, lz: number): number => {
-    const bx = lx, by = -lz
-    const r = Math.hypot(lx, lz)
-    const k = r < 3100 ? 1 : r > PARK_HALF ? 0 : 1 - (r - 3100) / (PARK_HALF - 3100)
-    const kk = k * k * (3 - 2 * k)
-    const ring = baseAt(lx, lz) - center0
-    return ring + 1.5 + parkH(bx, by) * kk
+    const kk = coreK(lx, lz)
+    return ringLocal(lx, lz) * (1 - kk) + parkH(lx, -lz) * kk + 1.5
   }
 
   // ── terreno ───────────────────────────────────────────────────────────────
@@ -133,11 +132,16 @@ export async function loadPark(opts: { horizonAt: (x: number, z: number) => numb
   // a MESMA cor do chão da praça: o parque é o mesmo regolito, só com relevo
   const tint = new THREE.Color()
   for (let k = 0; k < pos.count; k++) {
-    const lx = pos.getX(k), lz = pos.getZ(k)
+    let lx = pos.getX(k), lz = pos.getZ(k)
+    // disco: os cantos do quadrado colapsam no raio PARK_HALF
+    const rr = Math.hypot(lx, lz)
+    if (rr > PARK_HALF) { lx *= PARK_HALF / rr; lz *= PARK_HALF / rr; pos.setX(k, lx); pos.setZ(k, lz) }
     const y = groundLocal(lx, lz)
     pos.setY(k, y)
     const w = worldOf(lx, lz)
-    regolithColor(w.x, w.z, parkH(lx, -lz), Math.hypot(w.x, w.z), tint)
+    // relevo na MESMA régua do regolito (altura de mundo menos a média do sítio),
+    // senão o disco do parque aparece mais claro que a planície em volta
+    regolithColor(w.x, w.z, y + center0 - opts.meanHeight, Math.hypot(w.x, w.z), tint)
     col[k * 3] = tint.r; col[k * 3 + 1] = tint.g; col[k * 3 + 2] = tint.b
   }
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3))

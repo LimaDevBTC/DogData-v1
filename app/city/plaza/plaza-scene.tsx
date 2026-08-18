@@ -42,11 +42,13 @@ function homeFor(aspect: number): { pos: THREE.Vector3; target: THREE.Vector3 } 
   if (view === 'castle' || view === 'south' || view === 'chalet') return { pos: new THREE.Vector3(-560, 300, 1260), target: new THREE.Vector3(0, 110, 620) }
   if (view === 'north') return { pos: new THREE.Vector3(520, 300, -1240), target: new THREE.Vector3(0, 90, -620) }
   if (view === 'top') return { pos: new THREE.Vector3(60, 2600, 900), target: new THREE.Vector3(0, 0, 100) }
-  if (view === 'parkclose') return { pos: new THREE.Vector3(PARK_CENTER.x - 420, 260, PARK_CENTER.z - 1250), target: new THREE.Vector3(PARK_CENTER.x + 40, 220, PARK_CENTER.z + 60) }
+  // the park's own hero, "The Gate Reveal": from the Gate crest, south-west of the
+  // Monarch, looking up the Vale of the Mark (park frame (−2210, −1748) → three (−2210, +1748))
+  if (view === 'parkclose') return { pos: new THREE.Vector3(PARK_CENTER.x - 1250, 40, PARK_CENTER.z + 1050), target: new THREE.Vector3(PARK_CENTER.x, 150, PARK_CENTER.z) }
   if (view === 'padclose') return { pos: new THREE.Vector3(PAD_MAIN.x + 40, PAD_MAIN.y + 40, PAD_MAIN.z - 150), target: new THREE.Vector3(PAD_MAIN.x - 20, PAD_MAIN.y + 24, PAD_MAIN.z + 20) }
   if (view === 'pad') return { pos: new THREE.Vector3(PAD_MAIN.x + 150, 90, PAD_MAIN.z + 190), target: new THREE.Vector3(PAD_MAIN.x - 60, 40, PAD_MAIN.z + 60) }
-  if (view === 'far') return { pos: new THREE.Vector3(1200, 2600, 12500), target: new THREE.Vector3(0, 0, 2000) }
-  if (view === 'park') return { pos: new THREE.Vector3(PARK_CENTER.x - 1800, 900, PARK_CENTER.z - 4200), target: new THREE.Vector3(PARK_CENTER.x, 80, PARK_CENTER.z) }
+  if (view === 'far') return { pos: new THREE.Vector3(-2600, 2800, 4200), target: new THREE.Vector3(1800, 0, -1900) }
+  if (view === 'park') return { pos: new THREE.Vector3(PARK_CENTER.x - 2210, 30, PARK_CENTER.z + 1748), target: new THREE.Vector3(PARK_CENTER.x, 120, PARK_CENTER.z) }
   if (view === 'spaceport') return { pos: new THREE.Vector3(600, 380, 3700), target: new THREE.Vector3(-140, 60, 3090) }
   if (aspect >= 1) return { pos: HOME_POS.clone(), target: HOME_TARGET.clone() }
   return { pos: new THREE.Vector3(430, 760, -1300), target: new THREE.Vector3(0, 40, 420) }
@@ -298,10 +300,10 @@ export default function PlazaScene() {
         scene.add(precinct.group)
         setHud((h) => ({ ...h, loading: null }))
 
-        // The Runestone park, 9 km to the south-east (D10), loads after the plaza
-        // is up: it is a horizon until someone flies there, and 1.5 MB of park
-        // should never delay the first frame of the deck.
-        loadPark({ horizonAt: terrain.horizonAt, gltf })
+        // The Runestone park, 5.2 km to the north-east (D10, the landing's
+        // position), loads after the plaza is up: it is a horizon until someone
+        // flies there, and 2 MB of park should never delay the first frame.
+        loadPark({ baseAt: terrain.baseAt, meanHeight: terrain.meanHeight, gltf })
           .then((p) => { if (disposed) { p.dispose(); return } park = p; scene.add(p.group) })
           .catch((err) => console.warn('[plaza] park did not load', err))
         setHud((h) => ({ ...h, loading: null }))

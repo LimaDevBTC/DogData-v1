@@ -211,7 +211,10 @@ Depois de ver os quatro protótipos: **"Chalé com certeza"**, e um brief maior:
   variantes, os 111.374 pontos do censo, templo/estrada/pavilhão; **centro a 9,2 km
   ao sul, no fim do eixo monumental, atrás do spaceport**, girado para a chegada
   olhar a praça; a cordilheira fecha o horizonte no enquadramento de abertura e
-  `?view=park` leva até lá. Posição a confirmar com o fundador.
+  `?view=park` leva até lá. **Corrigido no mesmo dia:** a posição já existia, na
+  cena da landing (nordeste, rumo 43°); o parque foi movido para lá, a 5,2 km
+  (`park-site.ts`), com o núcleo sobre um datum plano, o disco fundindo no
+  regolito real na borda e uma cova no regolito por baixo para o vale nunca vazar.
 
 **Geometria decidida para o precinto (implementação):** deck (r 300) no centro com a
 Needle; cinturão de jardim de 320 a 440; **bulevar anelar** em r ≈ 450 ligando as
@@ -266,4 +269,4 @@ do Elon Musk mas escrito '$DOG'"; "dar sequência às melhorias do parque Runest
 |---|---|---|
 | P4 | Painel na Lunar Spire ou placa própria no spaceport? | design, decide na cena |
 | P5 | Quais cartas do Gênesis entram no castelo: o pool inteiro do adversário da carreira ou uma seleção curada? | fundador, sem pressa |
-| P6 | Posição do Parque Runestone: 9,2 km ao sul, no eixo, atrás do spaceport (implementado). Confirmar ou mover. | fundador |
+| ~~P6~~ | Posição do parque: o fundador lembrou que já existia. É a da cena da landing (`dogcity-landing.blend`: Runestone em (2300, 2460), nordeste, rumo 43°). Movido em 2026-08-18 para o rumo 43° a 5,2 km (a distância mínima para o Portão e a estrada ficarem fora do platô); `park-site.ts`. | feito |

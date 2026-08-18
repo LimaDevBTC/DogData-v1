@@ -14,6 +14,7 @@
 // Blender, a conversão do exportador glTF. Sem névoa: o que escurece é a luz e um
 // escurecimento suave com a distância, o mesmo para todas as malhas.
 import * as THREE from 'three'
+import { PARK_CENTER, PARK_CORE, PARK_HALF, PARK_PIT } from './park-site'
 
 export interface TerrainMeta {
   cols: number
@@ -31,6 +32,10 @@ export interface Terrain {
   heightAt: (x: number, z: number) => number
   /** Igual a heightAt; nome mantido para quem chamava o anel do horizonte. */
   horizonAt: (x: number, z: number) => number
+  /** O chão SEM a cova do parque: o parque funde a borda dele neste valor. */
+  baseAt: (x: number, z: number) => number
+  /** altura média do sítio: a régua do relevo em `regolithColor` */
+  meanHeight: number
   halfExtent: number
 }
 
@@ -114,7 +119,21 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array): Terrain 
     const fade = Math.exp(-(dOut / 2200) * (dOut / 2200))
     return hb * fade + mean * (1 - fade) - drop(d)
   }
-  const heightAt = (x: number, z: number): number => (Math.max(Math.abs(x), Math.abs(z)) <= halfExtent ? siteAt(x, z) : skirtAt(x, z))
+  const baseAt = (x: number, z: number): number => (Math.max(Math.abs(x), Math.abs(z)) <= halfExtent ? siteAt(x, z) : skirtAt(x, z))
+  // A cova do parque: sob o Parque Runestone o regolito desce até (datum − PARK_PIT),
+  // onde datum é o chão sob o Monarca, com a mesma rampa (PARK_CORE → PARK_HALF)
+  // que o parque usa para fundir na borda. O parque tem chão próprio (vale a −61,
+  // cordilheira a +240 sobre o datum); sem a cova o regolito de Tranquillitatis
+  // vazava pelo fundo do vale onde o relevo real é mais alto que o datum.
+  const parkDatum = baseAt(PARK_CENTER.x, PARK_CENTER.z)
+  const heightAt = (x: number, z: number): number => {
+    const b = baseAt(x, z)
+    const r = Math.hypot(x - PARK_CENTER.x, z - PARK_CENTER.z)
+    if (r >= PARK_HALF) return b
+    const k = r <= PARK_CORE ? 1 : 1 - (r - PARK_CORE) / (PARK_HALF - PARK_CORE)
+    const kk = k * k * (3 - 2 * k)
+    return b - kk * Math.max(0, b - (parkDatum - PARK_PIT))
+  }
 
   // ── a malha única: grade do sítio + anéis da saia soldados na borda ────────
   const positions: number[] = []
@@ -131,7 +150,7 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array): Terrain 
   for (let j = 0; j < n; j++) {
     for (let i = 0; i < n; i++) {
       const x = (i - half) * cell, z = (j - half) * cell
-      const y = siteAt(x, z)
+      const y = heightAt(x, z)
       push(x, y, z, y - mean)
     }
   }
@@ -159,7 +178,7 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array): Terrain 
       const pi = perimeter[k]
       const bx = positions[pi * 3], bz = positions[pi * 3 + 2]
       const x = bx * s, z = bz * s
-      const y = skirtAt(x, z)
+      const y = heightAt(x, z)
       ring.push(push(x, y, z, y - mean))
     }
     for (let k = 0; k < P; k++) {
@@ -197,7 +216,7 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array): Terrain 
 
   const group = new THREE.Group()
   group.add(mesh)
-  return { group, heightAt, horizonAt: heightAt, halfExtent }
+  return { group, heightAt, horizonAt: heightAt, baseAt, meanHeight: mean, halfExtent }
 }
 
 function flipWinding(geo: THREE.BufferGeometry) {
