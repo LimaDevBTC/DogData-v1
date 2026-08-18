@@ -170,8 +170,6 @@ function satoshiSDF(p: V3): number {
   d = smin(d, sdEllipsoid(p, [0, 0.36, -0.06], [0.28, 0.2, 0.24]), 0.05)
   d = Math.min(d, sdBox(p, [0, 0.545, 0.36], [0.21, 0.012, 0.15], 0.006))
   d = Math.min(d, sdBox(p, [0, 0.72, 0.53], [0.21, 0.165, 0.01], 0.006, 0.28))
-  // nada abaixo do plinto
-  d = Math.max(d, -p[1])
   return d
 }
 
@@ -187,7 +185,9 @@ export function buildSatoshiLugano(opts: { pitch?: number; thick?: number; grid?
   const geos: THREE.BufferGeometry[] = []
   const X0 = -0.5, X1 = 0.5
   for (let x = X0; x <= X1 + 1e-6; x += pitch) {
-    const loops = contours((u, v) => satoshiSDF([x, v, u]), -0.34, 0.62, 0.0, 1.5, h)
+    // a figura desce 0,14 m e o plinto corta o que sobra: sentada de verdade,
+    // sem vão entre o assento e a pedra
+    const loops = contours((u, v) => Math.max(satoshiSDF([x, v + 0.14, u]), -v), -0.34, 0.62, 0.0, 1.5, h)
     if (!loops.length) continue
     const shapes = shapesFrom(loops)
     if (!shapes.length) continue
