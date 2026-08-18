@@ -21,13 +21,27 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { loadTerrain } from './terrain'
 import { createOrbitLayer, PAD_MAIN } from './orbit-layer'
+import { buildCastle, type Castle } from './castle'
 import { startFeed, type DogTx, type Snapshot } from './feed'
 
 // ── framing ────────────────────────────────────────────────────────────────────
 // The default view is the landing hero, from the north-east, high enough that the
 // orbit ring sweeps through the frame and the spaceport reads at the horizon.
-const HOME_POS = new THREE.Vector3(1150, 640, -1420)
-const HOME_TARGET = new THREE.Vector3(0, 140, 300)
+// From the north-north-east, down the monumental axis: deck in front, the towers
+// framing it, the Castle of Cards beyond the deck, the spaceport at the horizon
+// behind the castle, and the Earth in the south-western sky.
+const HOME_POS = new THREE.Vector3(560, 640, -1480)
+const HOME_TARGET = new THREE.Vector3(0, 100, 480)
+// A phone in portrait sees a narrow slice: pull in closer and look a little
+// lower so the deck and the towers fill the width instead of floating mid-frame.
+function homeFor(aspect: number): { pos: THREE.Vector3; target: THREE.Vector3 } {
+  // ?view=castle | spaceport: bookmarks for the two other set pieces
+  const view = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : null
+  if (view === 'castle') return { pos: new THREE.Vector3(-380, 230, 1180), target: new THREE.Vector3(0, 90, 700) }
+  if (view === 'spaceport') return { pos: new THREE.Vector3(600, 380, 3700), target: new THREE.Vector3(-140, 60, 3090) }
+  if (aspect >= 1) return { pos: HOME_POS.clone(), target: HOME_TARGET.clone() }
+  return { pos: new THREE.Vector3(430, 760, -1300), target: new THREE.Vector3(0, 40, 420) }
+}
 
 const fmtInt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
 const fmtDog = (n: number) =>
@@ -55,7 +69,8 @@ export default function PlazaScene() {
     orbit: 0, parked: 0, picked: null, followed: null, followNote: null,
   })
   const [followInput, setFollowInput] = useState('')
-  const [boardOpen, setBoardOpen] = useState(true)
+  // Phones start with the board folded to its one-line summary; the scene is the point.
+  const [boardOpen, setBoardOpen] = useState(() => typeof window === 'undefined' || window.innerWidth >= 640)
 
   useEffect(() => {
     const mount = mountRef.current
@@ -76,10 +91,11 @@ export default function PlazaScene() {
     const scene = new THREE.Scene()
     scene.background = new THREE.Color(0x000000)
     const camera = new THREE.PerspectiveCamera(42, mount.clientWidth / mount.clientHeight, 2, 200000)
-    camera.position.copy(HOME_POS)
+    const home = homeFor(camera.aspect)
+    camera.position.copy(home.pos)
 
     const controls = new OrbitControls(camera, renderer.domElement)
-    controls.target.copy(HOME_TARGET)
+    controls.target.copy(home.target)
     controls.enableDamping = true
     controls.dampingFactor = 0.06
     controls.minDistance = 260
@@ -102,10 +118,10 @@ export default function PlazaScene() {
     sun.shadow.camera.near = 500
     sun.shadow.camera.far = 7000
     const sc = sun.shadow.camera as THREE.OrthographicCamera
-    sc.left = -900; sc.right = 900; sc.top = 900; sc.bottom = -900
+    sc.left = -1000; sc.right = 1000; sc.top = 1000; sc.bottom = -1000
     sun.shadow.bias = -0.0006
     sun.shadow.normalBias = 1.2
-    sun.target.position.set(0, 0, 200)
+    sun.target.position.set(0, 0, 320)
     scene.add(sun, sun.target)
     scene.add(new THREE.HemisphereLight(0x2a3448, 0x0e0d0c, 0.28))
     const earthshine = new THREE.DirectionalLight(0x8fb0ff, 0.25)
@@ -126,9 +142,11 @@ export default function PlazaScene() {
     // ── sky: stars and the Earth ─────────────────────────────────────────────
     scene.add(buildStars())
     // The Earth hangs where the home camera looks: over the plaza, a hand above
-    // the horizon, so the first frame has the Needle against the blue.
+    // the horizon, so the first frame has the Needle against the blue. Real
+    // textures (the three.js planet set, NASA-derived), lit by the same sun, so
+    // it shows a phase like it does from Tranquility Base.
     const earth = buildEarth()
-    earth.position.set(-21000, 6200, 30000)
+    earth.position.set(-21000, 6800, 30000)
     scene.add(earth)
 
     // ── layers ──────────────────────────────────────────────────────────────
@@ -143,6 +161,7 @@ export default function PlazaScene() {
     const pulses: { m: THREE.MeshStandardMaterial; base: number; rate: number; phase: number }[] = []
     const sways: { o: THREE.Object3D; y0: number; amp: number }[] = []
     const jets: { o: THREE.Object3D; y0: number }[] = []
+    let castle: Castle | null = null
     let heightAt: (x: number, z: number) => number = () => 0
 
     const loadGlb = (url: string) =>
@@ -213,6 +232,21 @@ export default function PlazaScene() {
         }
         // the main pad sits on the terrain: keep the constant honest
         PAD_MAIN.y = heightAt(PAD_MAIN.x, PAD_MAIN.z) + 1
+
+        // The Castle of Cards, south of the deck, gate to the plaza (D2). Its cards
+        // are the Genesis-address inscriptions, composed once into an atlas.
+        setHud((h) => ({ ...h, loading: 'Dealing the cards…' }))
+        const texLoader = new THREE.TextureLoader()
+        const loadTex = (url: string) =>
+          new Promise<THREE.Texture>((res, rej) => texLoader.load(url, (t) => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; res(t) }, undefined, rej))
+        const [atlas, back] = await Promise.all([loadTex('/city/castle/cards.jpg'), loadTex('/city/castle/back.png')])
+        if (disposed) return
+        castle = buildCastle({ atlas, back })
+        // 1.5×: cards of 12 m, a keep of ~250 m; a fairy-tale castle that holds
+        // its own against a 379 m tower without pretending to be one.
+        castle.group.position.set(0, 0, 700)
+        castle.group.scale.setScalar(1.5)
+        scene.add(castle.group)
         setHud((h) => ({ ...h, loading: null }))
       } catch (err) {
         console.error('[plaza]', err)
@@ -322,8 +356,9 @@ export default function PlazaScene() {
         }))
       },
       home() {
-        controls.target.copy(HOME_TARGET)
-        camera.position.copy(HOME_POS)
+        const h = homeFor(camera.aspect)
+        controls.target.copy(h.target)
+        camera.position.copy(h.pos)
         controls.update()
       },
     }
@@ -342,7 +377,9 @@ export default function PlazaScene() {
       for (const p of pulses) p.m.emissiveIntensity = p.base * (0.8 + 0.25 * Math.sin(t * p.rate + p.phase))
       for (const s of sways) { s.o.rotation.y = Math.sin(t * 0.22) * 0.95; s.o.position.y = s.y0 + Math.sin(t * 0.8) * s.amp }
       for (const j of jets) j.o.scale.y = j.y0 * (0.88 + 0.12 * Math.sin(t * 1.4))
+      castle?.update(t)
       earth.rotation.y = t * 0.004
+      const cl = earth.getObjectByName('Clouds'); if (cl) cl.rotation.y = t * 0.0025
       renderer.render(scene, camera)
       // the counters on the board follow the scene, twice a second
       if ((hudTick++ & 31) === 0) {
@@ -372,6 +409,7 @@ export default function PlazaScene() {
       renderer.domElement.removeEventListener('wheel', wake)
       controls.dispose()
       orbit.dispose()
+      castle?.dispose()
       draco.dispose()
       pmrem.dispose()
       scene.traverse((o) => {
@@ -403,7 +441,7 @@ export default function PlazaScene() {
   }
 
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-black text-white select-none">
+    <div className="relative h-[100dvh] w-full overflow-hidden bg-black text-white select-none">
       <div ref={mountRef} className="absolute inset-0" />
 
       {/* ── title, and the way back: the landing is the front door, the site is home */}
@@ -413,20 +451,24 @@ export default function PlazaScene() {
           <span className="mx-2 text-white/25">·</span>
           <a href="/" className="hover:text-white">DOG DATA</a>
         </p>
-        <h1 className="mt-1 font-mono text-lg font-semibold tracking-tight text-white sm:text-xl">Satoshi Plaza</h1>
+        <h1 className="mt-1 font-mono text-base font-semibold tracking-tight text-white sm:text-xl">Satoshi Plaza</h1>
         <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.2em] text-white/40">Mare Tranquillitatis · the Moon</p>
       </div>
 
-      {/* ── the board ─────────────────────────────────────────────────────── */}
-      <div className="absolute right-4 top-4 w-[min(92vw,20rem)] sm:right-6 sm:top-6">
+      {/* ── the board: under the title on phones, top-right on desktop ─────── */}
+      <div className="absolute left-4 right-4 top-[5.6rem] sm:left-auto sm:right-6 sm:top-6 sm:w-[20rem]">
         <div className="border border-white/10 bg-black/85">
           <button
             type="button"
             onClick={() => setBoardOpen((v) => !v)}
-            className="flex w-full items-center justify-between px-3 py-2 font-mono text-[10px] uppercase tracking-[0.25em] text-white/70"
+            className="flex w-full items-center justify-between gap-3 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.25em] text-white/70"
           >
-            <span>Mission board{typeof window !== 'undefined' && window.location.search.includes('demo=1') ? ' · demo' : ''}</span>
-            <span className="flex items-center gap-2">
+            <span className="truncate">
+              {boardOpen
+                ? `Mission board${typeof window !== 'undefined' && window.location.search.includes('demo=1') ? ' · demo' : ''}`
+                : `${hud.orbit} in orbit · ${fmtDog(s?.dog_pending_amount ?? 0)} DOG`}
+            </span>
+            <span className="flex shrink-0 items-center gap-2">
               <span className={`inline-block size-1.5 rounded-full ${live ? 'bg-[#10B981]' : 'bg-[#F59E0B]'}`} />
               <span className="text-white/45">{live ? 'live' : hud.stale != null ? `${hud.stale}s ago` : 'connecting'}</span>
               <span className="text-white/40">{boardOpen ? '−' : '+'}</span>
@@ -464,8 +506,12 @@ export default function PlazaScene() {
         </div>
       </div>
 
-      {/* ── follow your DOG ───────────────────────────────────────────────── */}
-      <div className="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 sm:right-auto sm:w-[26rem]">
+      {/* ── follow your DOG. On a phone only one bottom card is up at a time: the
+             picked ship takes the slot while it is open. ───────────────────── */}
+      <div
+        className={`absolute left-4 right-4 sm:left-6 sm:right-auto sm:w-[26rem] ${hud.picked ? 'hidden sm:block' : ''}`}
+        style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
+      >
         <form onSubmit={submitFollow} className="border border-white/10 bg-black/85 p-3">
           <label className="block font-mono text-[10px] uppercase tracking-[0.25em] text-white/60">Follow your DOG</label>
           <div className="mt-2 flex gap-2">
@@ -481,7 +527,7 @@ export default function PlazaScene() {
             </button>
           </div>
           {hud.followNote && <p className="mt-2 font-mono text-[10px] leading-relaxed text-white/60">{hud.followNote}</p>}
-          <p className="mt-2 font-mono text-[10px] leading-relaxed text-white/35">
+          <p className="mt-2 hidden font-mono text-[10px] leading-relaxed text-white/35 sm:block">
             Every ship is a DOG transaction our node sees in the mempool. Fee sets the altitude, amount sets the size, the block is the landing window.
           </p>
         </form>
@@ -489,7 +535,7 @@ export default function PlazaScene() {
 
       {/* ── picked ship ───────────────────────────────────────────────────── */}
       {hud.picked && (
-        <div className="absolute bottom-4 right-4 w-[min(92vw,22rem)] sm:bottom-6 sm:right-6">
+        <div className="absolute left-4 right-4 sm:left-auto sm:right-6 sm:w-[22rem]" style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))' }}>
           <div className="border border-white/10 bg-black/85 p-3 font-mono text-[11px]">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -568,6 +614,44 @@ function buildStars(): THREE.Points {
 }
 
 function buildEarth(): THREE.Group {
+  const g = new THREE.Group()
+  g.name = 'Earth'
+  const R = 1300 // ~4° across from 37 km: twice the real angle, on purpose; it is the postcard
+  const loader = new THREE.TextureLoader()
+  const tex = (url: string, srgb = true) => {
+    const t = loader.load(url)
+    if (srgb) t.colorSpace = THREE.SRGBColorSpace
+    t.anisotropy = 4
+    return t
+  }
+  const globe = new THREE.Mesh(
+    new THREE.SphereGeometry(R, 64, 48),
+    new THREE.MeshPhongMaterial({
+      map: tex('/city/earth/earth_atmos_2048.jpg'),
+      specularMap: tex('/city/earth/earth_specular_2048.jpg', false),
+      normalMap: tex('/city/earth/earth_normal_2048.jpg', false),
+      normalScale: new THREE.Vector2(0.6, 0.6),
+      specular: new THREE.Color(0x333333),
+      shininess: 18,
+    }),
+  )
+  g.add(globe)
+  const clouds = new THREE.Mesh(
+    new THREE.SphereGeometry(R * 1.012, 64, 48),
+    new THREE.MeshLambertMaterial({ map: tex('/city/earth/earth_clouds_1024.png'), transparent: true, opacity: 0.9, depthWrite: false }),
+  )
+  clouds.name = 'Clouds'
+  g.add(clouds)
+  const rim = new THREE.Mesh(
+    new THREE.SphereGeometry(R * 1.05, 48, 32),
+    new THREE.MeshBasicMaterial({ color: 0x4f8dff, transparent: true, opacity: 0.14, blending: THREE.AdditiveBlending, side: THREE.BackSide, depthWrite: false }),
+  )
+  g.add(rim)
+  g.rotation.z = 0.41 // axial tilt, for the look of it
+  return g
+}
+
+function buildEarthDrawn(): THREE.Group {
   // A drawn Earth, deliberately quiet: deep ocean, muted land, thin cloud, a faint
   // blue rim. From the Moon it spans about two degrees; a 640 m ball 37 km away
   // reads the same. Seeded so it looks the same on every visit.

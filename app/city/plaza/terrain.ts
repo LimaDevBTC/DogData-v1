@@ -58,17 +58,17 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array): Terrain 
     const u = fi - i, v = fj - j
     return H(i, j) * (1 - u) * (1 - v) + H(i + 1, j) * u * (1 - v) + H(i, j + 1) * (1 - u) * v + H(i + 1, j + 1) * u * v
   }
-  // O platô da praça: dentro de 560 m o chão é plano no nível 0 (o deck, as duas
-  // torres e o anel comercial foram desenhados sobre um plano), e daí até 900 m
+  // O platô da praça: dentro de 780 m o chão é plano no nível 0 (o deck, as duas
+  // torres, o anel e o castelo foram desenhados sobre um plano), e daí até 1100 m
   // ele volta suavemente ao relevo real. O mar de Tranquillitatis varia poucos
   // metros aqui (a Kray cairia a -6, a BitFlow a +3), então ninguém nota o platô e
   // nenhuma laje fica flutuando.
   const heightAt = (x: number, z: number): number => {
     const raw = rawAt(x, z)
     const r = Math.hypot(x, z)
-    if (r >= 900) return raw
-    if (r <= 560) return 0
-    const t = (r - 560) / 340
+    if (r >= 1100) return raw
+    if (r <= 780) return 0
+    const t = (r - 780) / 320
     const k = t * t * (3 - 2 * t)
     return raw * k
   }
