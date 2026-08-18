@@ -223,7 +223,7 @@ function capeGeometry(): THREE.BufferGeometry {
   for (let j = 0; j <= RINGS; j++) {
     const t = j / RINGS, y = t * H
     // raio: largo na base, fecha nos ombros; ombros marcados em t≈0.85
-    const base = 0.62 * (1 - t) + 0.26 * t + (t > 0.78 ? Math.sin((t - 0.78) / 0.22 * Math.PI) * 0.09 : 0)
+    const base = 0.6 * (1 - t) + 0.21 * t + (t > 0.8 ? Math.sin((t - 0.8) / 0.2 * Math.PI) * 0.045 : 0)
     for (let i = 0; i <= SEG; i++) {
       const a = (i / SEG) * Math.PI * 2
       // pregas: mais fundas embaixo, somem no ombro; a frente (a = π/2, +z) tem uma abertura marcada
@@ -338,9 +338,9 @@ export function buildLeonidas(): Statue {
   cape.castShadow = cape.receiveShadow = true
   group.add(cape)
   // ombros e o pescoço: um torso por baixo da capa, para a silhueta ter peito
-  const chest = new THREE.Mesh(track(new THREE.CapsuleGeometry(0.19, 0.3, 6, 16)), cloth)
-  chest.position.set(0, 1.58, 0.02)
-  chest.scale.set(1.15, 1, 0.85)
+  const chest = new THREE.Mesh(track(new THREE.CapsuleGeometry(0.17, 0.3, 6, 16)), cloth)
+  chest.position.set(0, 1.56, 0.02)
+  chest.scale.set(1.1, 1, 0.8)
   group.add(chest)
   const neck = new THREE.Mesh(track(new THREE.CylinderGeometry(0.06, 0.08, 0.16, 12)), dark)
   neck.position.set(0, 1.9, 0.02)
