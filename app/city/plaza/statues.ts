@@ -222,13 +222,16 @@ export function buildSatoshiLugano(opts: { pitch?: number; thick?: number; grid?
 // abraça (o primeiro capuz era três vezes maior que a caveira).
 // ═══════════════════════════════════════════════════════════════════════════════
 /** LEONIDAS: o corpo vem do Blender (`blender/build_leonidas_body.py` →
- *  `public/city/leonidas-body.glb`): manto longo, mantilha de ombros, capuz e aba
- *  frontal DRAPEJADOS POR SIMULAÇÃO DE PANO sobre um manequim (pregas de física,
- *  não desenhadas), traje escuro por baixo, cinto de ouro escuro com a fivela e o
- *  núcleo acesos. A caveira real (leonidas-skull.glb) entra no lugar da cabeça,
- *  no centro (0, 1.66, −0.02), rosto para +z. Materiais reatribuídos aqui pelo
- *  nome (M_Cloth, M_Suit, M_Trim, M_Glow). Escala real: 2,0 m; quem coloca escala. */
-const HEAD_Y = 1.66
+ *  `public/city/leonidas-body.glb`): o corpo REAL do "Human Base Meshes Bundle"
+ *  da Blender Studio (CC0, GEO-body_male_realistic, sem a cabeça: mãos, braços,
+ *  pernas de anatomia de verdade), e por cima o manto longo, a mantilha de ombros
+ *  e o capuz DRAPEJADOS POR SIMULAÇÃO DE PANO sobre ele (pregas de física, não
+ *  desenhadas), botas, cinto de ouro escuro com a fivela e o núcleo acesos. A
+ *  caveira real (leonidas-skull.glb) entra no lugar da cabeça, centro
+ *  (0, 1.566, 0.095), rosto para +z. Materiais reatribuídos pelo nome (M_Cloth,
+ *  M_Suit, M_Trim, M_Glow). Escala real: 1,7 m + capuz; quem coloca escala. */
+const HEAD_Y = 1.566
+const HEAD_Z = 0.095
 export function buildLeonidas(skull: THREE.Object3D, body: THREE.Object3D): Statue {
   const group = new THREE.Group()
   const disposables: { dispose: () => void }[] = []
@@ -265,24 +268,24 @@ export function buildLeonidas(skull: THREE.Object3D, body: THREE.Object3D): Stat
     m.castShadow = true
     m.receiveShadow = true
   })
-  sk.position.set(0, HEAD_Y, -0.02)
+  sk.position.set(0, HEAD_Y, HEAD_Z)
   sk.rotation.x = 0.06 // levemente baixa, sob o capuz
   group.add(sk)
   // os olhos: duas brasas no fundo das órbitas
   for (const s of [-1, 1]) {
     const eye = new THREE.Mesh(track(new THREE.SphereGeometry(0.011, 12, 10)), track(new THREE.MeshBasicMaterial({ color: 0xff2612, toneMapped: false })))
-    eye.position.set(s * 0.033, HEAD_Y + 0.014, -0.02 + 0.058)
+    eye.position.set(s * 0.033, HEAD_Y + 0.014, HEAD_Z + 0.058)
     group.add(eye)
     const l = new THREE.PointLight(0xff2a1a, 0.6, 1.4, 2)
-    l.position.set(s * 0.04, HEAD_Y + 0.02, 0.1)
+    l.position.set(s * 0.04, HEAD_Y + 0.02, HEAD_Z + 0.12)
     group.add(l)
   }
   const core = new THREE.PointLight(0xF7931A, 0.35, 1.2, 2)
-  core.position.set(0, 1.34, 0.22)
+  core.position.set(0, 1.3, 0.24)
   group.add(core)
   // uma luz quente e fraca sob o capuz: a caveira amarela lê na sombra
-  const face = new THREE.PointLight(0xffd27a, 0.45, 0.9, 2)
-  face.position.set(0, HEAD_Y - 0.06, 0.16)
+  const face = new THREE.PointLight(0xffd27a, 1.1, 1.1, 2)
+  face.position.set(0, HEAD_Y - 0.04, HEAD_Z + 0.2)
   group.add(face)
   return { group, height: 2.05, dispose() { for (const d of disposables) d.dispose() } }
 }

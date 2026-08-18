@@ -386,7 +386,7 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
     if (skullScene && bodyScene) {
       const leo = buildLeonidas(skullScene, bodyScene)
       disposables.push(leo)
-      leo.group.scale.setScalar(5.3) // 10,8 m
+      leo.group.scale.setScalar(5.6) // ~11,5 m com o capuz
       leo.group.position.y = 2.2
       g.add(leo.group)
     } else {
