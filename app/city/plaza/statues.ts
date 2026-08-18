@@ -229,15 +229,27 @@ function capeGeometry(): THREE.BufferGeometry {
   const H = 1.88 // do chão ao pescoço
   for (let j = 0; j <= RINGS; j++) {
     const t = j / RINGS, y = t * H
-    // largo na base, afina; ombros marcados em t≈0.9 (y≈1,7)
-    const shoulders = t > 0.82 ? Math.sin(((t - 0.82) / 0.18) * Math.PI) * 0.06 : 0
-    const base = 0.52 * (1 - t) + 0.1 * t + shoulders + 0.12 * Math.sin(t * Math.PI) * (1 - t)
+    // a silhueta de um corpo alto sob a capa: bainha larga, cintura, peito,
+    // ombros marcados, pescoço (pontos-chave em t → raio, interpolados)
+    const K: [number, number][] = [[0, 0.44], [0.3, 0.33], [0.55, 0.3], [0.78, 0.31], [0.88, 0.335], [0.94, 0.24], [1, 0.1]]
+    let base = K[K.length - 1][1]
+    for (let k = 0; k < K.length - 1; k++) {
+      if (t >= K[k][0] && t <= K[k + 1][0]) {
+        const u = (t - K[k][0]) / (K[k + 1][0] - K[k][0])
+        const uu = u * u * (3 - 2 * u)
+        base = K[k][1] + (K[k + 1][1] - K[k][1]) * uu
+        break
+      }
+    }
     for (let i = 0; i <= SEG; i++) {
       const a = (i / SEG) * Math.PI * 2
-      // pregas fundas embaixo, somem no ombro; a frente (+z, a = π/2) tem a abertura da capa
-      const fold = (0.055 * Math.sin(a * 9 + t * 1.6) + 0.02 * Math.sin(a * 21 + 1.3)) * Math.pow(1 - t, 0.8)
-      const front = Math.exp(-Math.pow((a - Math.PI / 2) / 0.22, 2)) * (1 - t) * 0.045
-      const r = base + fold - front
+      // pregas fundas embaixo, somem no ombro; a frente (+z, a = π/2) tem a abertura da capa;
+      // os braços insinuados dos lados (a = 0 e π), da cintura ao ombro
+      const fold = (0.045 * Math.sin(a * 9 + t * 1.6) + 0.018 * Math.sin(a * 21 + 1.3)) * Math.pow(1 - t, 0.9)
+      const front = Math.exp(-Math.pow((a - Math.PI / 2) / 0.22, 2)) * (1 - t) * 0.04
+      const armWin = t > 0.3 && t < 0.88 ? Math.sin(((t - 0.3) / 0.58) * Math.PI) : 0
+      const arms = 0.05 * armWin * (Math.exp(-Math.pow(a / 0.5, 2)) + Math.exp(-Math.pow((a - Math.PI) / 0.5, 2)) + Math.exp(-Math.pow((a - 2 * Math.PI) / 0.5, 2)))
+      const r = base + fold - front + arms
       pos.push(Math.cos(a) * r, y, Math.sin(a) * r)
       uv.push(i / SEG, t)
     }
@@ -297,9 +309,9 @@ export function buildLeonidas(skull: THREE.Object3D): Statue {
   cape.castShadow = cape.receiveShadow = true
   group.add(cape)
   // o peito sob a capa e o pescoço
-  const chest = new THREE.Mesh(track(new THREE.CapsuleGeometry(0.16, 0.34, 6, 16)), cloth)
+  const chest = new THREE.Mesh(track(new THREE.CapsuleGeometry(0.15, 0.36, 6, 16)), cloth)
   chest.position.set(0, 1.5, 0.02)
-  chest.scale.set(1.25, 1, 0.8)
+  chest.scale.set(1.3, 1, 0.8)
   group.add(chest)
   const neck = new THREE.Mesh(track(new THREE.CylinderGeometry(0.055, 0.075, 0.2, 12)), dark)
   neck.position.set(0, 1.84, 0.02)

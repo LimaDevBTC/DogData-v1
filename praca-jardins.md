@@ -95,6 +95,14 @@ Blender entra quando uma peça pedir mais do que a geometria procedural dá
   `public/city/leonidas-skull.glb`, 220 KB) com olhos vermelhos acesos, 11 m
   num plinto de granito atrás da Pata de Diamante, olhando o deck; placa
   "LEONIDAS · founder of DOG•GO•TO•THE•MOON". Places: satoshi, leonidas
-  (+ `?view=satoshiclose|satoshisideclose|leonidasclose`). Hiper-realismo de
-  verdade na caveira pede um scan/escultura manual: o que há é escultura
-  estilizada boa a 10 m; a capa ainda merece pregas melhores (Blender).
+  (+ `?view=satoshiclose|satoshisideclose|leonidasclose`).
+- 2026-08-18 (noite, 2): o fundador pediu a caveira PERFEITA e apontou o capuz
+  três vezes maior que a cabeça. **Caveira real**: o modelo CC0 "Human Skull" de
+  CDmir (OpenGameArt, 4,5 mil tris, albedo + normal + AO + rugosidade 2K),
+  convertido por `blender/convert_skull_oga.py` (albedo×AO 1K, normal 1K,
+  rugosidade 512, WEBP) em `public/city/leonidas-skull.glb` (142 KB), 0,22 m,
+  tingido de amarelo Leonidas, olhos vermelhos no fundo das órbitas. Leonidas
+  refeito em **proporção humana**: 2,3 m, capuz nascendo nos ombros e abraçando
+  o crânio (ogiva sobre o rosto), capa com silhueta de corpo (ombros, braços
+  insinuados, cintura, bainha) e pregas. Escala 4,6 no plinto: 10,9 m. A caveira
+  esculpida no Blender (`build_leonidas_skull.py`) ficou como reserva.
