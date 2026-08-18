@@ -17,6 +17,10 @@
 // Paleta: verdes escuros de gramado e sebe, pedra escura nos passeios, água
 // branca, luz quente. O laranja DOG fica na arquitetura.
 import * as THREE from 'three'
+import {
+  isReserved, WHITEPAPER_CYPRESSES, SATOSHI_CYPRESSES, SATOSHI_BENCHES, ORDINAL_OLIVES, PAW_BLOSSOMS,
+  POOL_R,
+} from './garden-plan'
 
 export const R_DECK = 300
 export const R_GARDEN_IN = 332
@@ -71,10 +75,26 @@ function inRing(x: number, z: number): boolean {
   const r = Math.hypot(x, z)
   return Math.abs(r - R_RING) < RING_W / 2 + 6
 }
-/** Está no sítio de uma âncora (o retângulo do lote)? */
+/** Está no sítio de uma âncora (o retângulo do lote)? Os quatro, o norte incluído. */
 function inAnchorSite(x: number, z: number): boolean {
   const half = 175
   return (Math.abs(Math.abs(x) - R_ANCHOR) < half && Math.abs(z) < half) || (Math.abs(Math.abs(z) - R_ANCHOR) < half && Math.abs(x) < half)
+}
+/** Só os três lotes construídos: BitFlow (oeste), Kray (leste), Chalé (sul). */
+function inBuiltAnchorSite(x: number, z: number): boolean {
+  const half = 175
+  return (Math.abs(Math.abs(x) - R_ANCHOR) < half && Math.abs(z) < half) || (Math.abs(z - R_ANCHOR) < half && Math.abs(x) < half)
+}
+const SITE_HALF = 175
+const WALK_W = 8
+/** A calçada do lote: um anel retangular de passeio em volta de cada âncora construída. */
+function inSiteWalk(x: number, z: number): boolean {
+  for (const [cx, cz] of [[-R_ANCHOR, 0], [R_ANCHOR, 0], [0, R_ANCHOR]] as const) {
+    const dx = Math.abs(x - cx), dz = Math.abs(z - cz)
+    const outer = SITE_HALF + 4 + WALK_W, inner = SITE_HALF + 4
+    if (dx < outer && dz < outer && !(dx < inner && dz < inner)) return true
+  }
+  return false
 }
 
 export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number }): Precinct {
@@ -167,7 +187,8 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   {
     // RingGeometry mede o ângulo a partir de +x no plano da geometria; depois de
     // rotation.x = −π/2 o plano (x, y) vira (x, −z), então theta = atan2(−z, x)
-    const free = (theta: number) => { const x = Math.cos(theta) * R_PROM, z = -Math.sin(theta) * R_PROM; return !inAnchorSite(x, z) && Math.hypot(x, z + R_ANCHOR) >= 128 }
+    // o norte não tem lote (é a Grande Fonte): o passeio-anel passa por trás dela
+    const free = (theta: number) => { const x = Math.cos(theta) * R_PROM, z = -Math.sin(theta) * R_PROM; return !inBuiltAnchorSite(x, z) && Math.hypot(x, z + R_ANCHOR) >= 128 }
     const n = 720
     let start: number | null = null
     for (let i = 0; i <= n; i++) {
@@ -176,6 +197,51 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
       if (ok && start == null) start = th
       if (!ok && start != null) { if (th - start > 0.05) promenadeArc(start, th); start = null }
     }
+  }
+
+  // ── as calçadas dos lotes: um anel retangular de passeio em volta de cada âncora ──
+  // construída, onde o bulevar cardeal, o passeio-anel e as alamedas CHEGAM. Antes
+  // o passeio-anel morria na cerca do lote e o bulevar parava no gramado: as "ruas
+  // sem sentido" que o fundador viu.
+  const kerbLine = (x0: number, z0: number, x1: number, z1: number, y = 0.42) => {
+    const len = Math.hypot(x1 - x0, z1 - z0)
+    const k = new THREE.Mesh(track(new THREE.PlaneGeometry(0.6, len)), kerbMat)
+    k.rotation.x = -Math.PI / 2
+    k.rotation.z = -Math.atan2(x1 - x0, z1 - z0)
+    k.position.set((x0 + x1) / 2, y, (z0 + z1) / 2)
+    group.add(k)
+  }
+  for (const [cx, cz] of [[-R_ANCHOR, 0], [R_ANCHOR, 0], [0, R_ANCHOR]] as const) {
+    const inner = SITE_HALF + 4, outer = inner + WALK_W
+    // quatro lados: retângulos finos
+    for (const [dx, dz, w, d] of [
+      [0, -(inner + WALK_W / 2), 2 * outer, WALK_W], [0, inner + WALK_W / 2, 2 * outer, WALK_W],
+      [-(inner + WALK_W / 2), 0, WALK_W, 2 * inner], [inner + WALK_W / 2, 0, WALK_W, 2 * inner],
+    ] as const) {
+      const p = new THREE.Mesh(track(new THREE.PlaneGeometry(w, d)), paveMat)
+      p.rotation.x = -Math.PI / 2
+      p.position.set(cx + dx, 0.36, cz + dz)
+      p.receiveShadow = true
+      group.add(p)
+    }
+    for (const h of [inner, outer]) {
+      kerbLine(cx - h, cz - h, cx + h, cz - h); kerbLine(cx + h, cz - h, cx + h, cz + h)
+      kerbLine(cx + h, cz + h, cx - h, cz + h); kerbLine(cx - h, cz + h, cx - h, cz - h)
+    }
+  }
+  // e o passeio em volta de cada espelho d'água, onde as alamedas param e retomam
+  for (let i = 0; i < 4; i++) {
+    const a = Math.PI / 4 + (i * Math.PI) / 2
+    const cx = Math.cos(a) * 560, cz = Math.sin(a) * 560
+    const p = new THREE.Mesh(track(new THREE.RingGeometry(POOL_R + 2, POOL_R + 8, 96)), paveMat)
+    p.rotation.x = -Math.PI / 2
+    p.position.set(cx, 0.35, cz)
+    p.receiveShadow = true
+    group.add(p)
+    const k = new THREE.Mesh(track(new THREE.RingGeometry(POOL_R + 7.7, POOL_R + 8.3, 96)), kerbMat)
+    k.rotation.x = -Math.PI / 2
+    k.position.set(cx, 0.42, cz)
+    group.add(k)
   }
 
   // ── postes: esferas de luz fria em hastes finas, ao longo dos bulevares ────
@@ -249,6 +315,7 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
     const pts = new THREE.Points(geo, pm)
     pts.position.set(cx, y + 0.3, cz)
     pts.userData.seed = seed
+    pts.userData.noCenter = i === 2 // NW: a figura de Satoshi está no meio; só o anel de jatos
     pts.frustumCulled = false
     group.add(pts)
     jets.push(pts)
@@ -304,6 +371,8 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
     if (Math.abs(r - 745) < 6 + 5) return false // o passeio-anel
     // as alamedas diagonais: distância ao eixo diagonal mais próximo
     if (r > R_RING && Math.min(Math.abs(x - z), Math.abs(x + z)) / Math.SQRT2 < 7 + 5) return false
+    if (inSiteWalk(x, z)) return false
+    if (isReserved(x, z, 3)) return false // os monumentos e as placas (garden-plan.ts)
     return true
   }
   const sample = (n: number, rMin: number, rMax: number, tries = 40): [number, number][] => {
@@ -422,24 +491,94 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   trunks.instanceMatrix.needsUpdate = fronds.instanceMatrix.needsUpdate = true
   group.add(trunks, fronds)
 
-  // ── árvores de copa redonda: nos setores, entre os arcos de sebe ─────────
-  const trees = sample(140, 480, 900)
+  // ── árvores: cinco espécies, nada em fila igual (praca-jardins.md §4) ─────
+  // copa redonda e pinheiro-manso semeados nos setores, com a mistura mudando por
+  // quadrante; cipreste italiano nas naves (White Paper, Satoshi), oliveira
+  // prateada no Jardim Ordinal, flor branca na Pata de Diamante. Cada espécie é
+  // um InstancedMesh (tronco + copa), escala e giro semeados.
+  type Kind = 'round' | 'pine' | 'olive' | 'blossom' | 'cypress'
+  const kindAt = (x: number, z: number): Kind => {
+    const u = rnd()
+    if (x > 0 && z < 0) return u < 0.42 ? 'pine' : 'round'          // NE: pinheiros na nave do White Paper
+    if (x < 0 && z < 0) return u < 0.3 ? 'pine' : 'round'           // NW
+    if (x < 0 && z > 0) return u < 0.5 ? 'olive' : u < 0.7 ? 'pine' : 'round' // SW: o jardim antigo
+    return u < 0.32 ? 'blossom' : u < 0.5 ? 'pine' : 'round'         // SE: o único que floresce
+  }
+  const planted: { kind: Kind; x: number; z: number }[] = sample(150, 480, 900).map(([x, z]) => ({ kind: kindAt(x, z), x, z }))
+  for (const [x, z] of WHITEPAPER_CYPRESSES) planted.push({ kind: 'cypress', x, z })
+  for (const [x, z] of SATOSHI_CYPRESSES) planted.push({ kind: 'cypress', x, z })
+  for (const [x, z] of ORDINAL_OLIVES) planted.push({ kind: 'olive', x, z })
+  for (const [x, z] of PAW_BLOSSOMS) planted.push({ kind: 'blossom', x, z })
+
   const treeTrunkGeo = track(new THREE.CylinderGeometry(0.5, 0.9, 1, 7))
   const canopyGeo = track(new THREE.SphereGeometry(1, 12, 9))
-  const canopyMat = track(new THREE.MeshStandardMaterial({ color: LEAF, roughness: 0.9 }))
-  const tTrunks = new THREE.InstancedMesh(treeTrunkGeo, trunkMat, trees.length)
-  const canopies = new THREE.InstancedMesh(canopyGeo, canopyMat, trees.length)
-  trees.forEach(([x, z], i) => {
-    const h = 6 + rnd() * 5, cr = 4 + rnd() * 3.5
-    const y = yAt(x, z)
-    o.position.set(x, y + h / 2, z); o.rotation.set(0, 0, 0); o.scale.set(1, h, 1); o.updateMatrix()
-    tTrunks.setMatrixAt(i, o.matrix)
-    o.position.set(x, y + h + cr * 0.75, z); o.scale.set(cr, cr * 0.85, cr); o.updateMatrix()
-    canopies.setMatrixAt(i, o.matrix)
-  })
-  tTrunks.castShadow = canopies.castShadow = true
-  tTrunks.instanceMatrix.needsUpdate = canopies.instanceMatrix.needsUpdate = true
-  group.add(tTrunks, canopies)
+  const cypressGeo = track((() => {
+    const pts = [[0, 0], [0.55, 0.04], [0.92, 0.22], [1, 0.42], [0.86, 0.66], [0.5, 0.88], [0.12, 0.98], [0, 1]].map(([r, y]) => new THREE.Vector2(r, y))
+    return new THREE.LatheGeometry(pts, 9)
+  })())
+  const mats: Record<Kind, THREE.MeshStandardMaterial> = {
+    round: track(new THREE.MeshStandardMaterial({ color: LEAF, roughness: 0.9 })),
+    pine: track(new THREE.MeshStandardMaterial({ color: 0x24462c, roughness: 0.92 })),
+    olive: track(new THREE.MeshStandardMaterial({ color: 0x77846a, roughness: 1 })),
+    blossom: track(new THREE.MeshStandardMaterial({ color: 0xe4dcd8, roughness: 0.85 })),
+    cypress: track(new THREE.MeshStandardMaterial({ color: 0x1b3320, roughness: 0.95 })),
+  }
+  const byKind = (k: Kind) => planted.filter((p) => p.kind === k)
+  const tTrunks = new THREE.InstancedMesh(treeTrunkGeo, trunkMat, planted.length)
+  let ti = 0
+  const trunkAt = (x: number, z: number, h: number, w = 1) => {
+    o.position.set(x, yAt(x, z) + h / 2, z); o.rotation.set(0, rnd() * 6.28, (rnd() - 0.5) * 0.05); o.scale.set(w, h, w); o.updateMatrix()
+    tTrunks.setMatrixAt(ti++, o.matrix)
+  }
+  for (const k of ['round', 'pine', 'olive', 'blossom'] as Kind[]) {
+    const list = byKind(k)
+    const canopies = new THREE.InstancedMesh(canopyGeo, mats[k], Math.max(1, list.length))
+    list.forEach((p, i) => {
+      const y = yAt(p.x, p.z)
+      if (k === 'round') {
+        const h = 5.5 + rnd() * 5.5, cr = 3.6 + rnd() * 3.8
+        trunkAt(p.x, p.z, h)
+        o.position.set(p.x, y + h + cr * 0.72, p.z); o.rotation.set(0, rnd() * 6.28, 0); o.scale.set(cr * (0.9 + rnd() * 0.2), cr * (0.8 + rnd() * 0.15), cr * (0.9 + rnd() * 0.2)); o.updateMatrix()
+      } else if (k === 'pine') {
+        const h = 8 + rnd() * 4, cr = 6 + rnd() * 3.5
+        trunkAt(p.x, p.z, h, 1.2)
+        o.position.set(p.x, y + h + 1.2, p.z); o.rotation.set(0, rnd() * 6.28, (rnd() - 0.5) * 0.12); o.scale.set(cr, 2.2 + rnd() * 0.8, cr * (0.85 + rnd() * 0.3)); o.updateMatrix()
+      } else if (k === 'olive') {
+        const h = 3.2 + rnd() * 1.6, cr = 3.6 + rnd() * 1.8
+        trunkAt(p.x, p.z, h, 1.5)
+        o.position.set(p.x, y + h + cr * 0.6, p.z); o.rotation.set(0, rnd() * 6.28, (rnd() - 0.5) * 0.25); o.scale.set(cr * (0.85 + rnd() * 0.3), cr * 0.75, cr * (0.85 + rnd() * 0.3)); o.updateMatrix()
+      } else {
+        const h = 4 + rnd() * 1.6, cr = 3.8 + rnd() * 1.6
+        trunkAt(p.x, p.z, h)
+        o.position.set(p.x, y + h + cr * 0.7, p.z); o.rotation.set(0, rnd() * 6.28, 0); o.scale.set(cr, cr * 0.9, cr * (0.9 + rnd() * 0.2)); o.updateMatrix()
+      }
+      canopies.setMatrixAt(i, o.matrix)
+    })
+    canopies.count = list.length
+    canopies.castShadow = canopies.receiveShadow = true
+    canopies.instanceMatrix.needsUpdate = true
+    canopies.name = `Trees_${k}`
+    group.add(canopies)
+  }
+  {
+    const list = byKind('cypress')
+    const cyp = new THREE.InstancedMesh(cypressGeo, mats.cypress, Math.max(1, list.length))
+    list.forEach((p, i) => {
+      const h = 15 + rnd() * 7, r = 1.5 + rnd() * 0.5
+      trunkAt(p.x, p.z, 1.2, 0.8)
+      o.position.set(p.x, yAt(p.x, p.z) + 0.6, p.z); o.rotation.set(0, rnd() * 6.28, (rnd() - 0.5) * 0.03); o.scale.set(r, h, r); o.updateMatrix()
+      cyp.setMatrixAt(i, o.matrix)
+    })
+    cyp.count = list.length
+    cyp.castShadow = cyp.receiveShadow = true
+    cyp.instanceMatrix.needsUpdate = true
+    cyp.name = 'Trees_cypress'
+    group.add(cyp)
+  }
+  tTrunks.count = ti
+  tTrunks.castShadow = true
+  tTrunks.instanceMatrix.needsUpdate = true
+  group.add(tTrunks)
 
   // ── topiaria: esferas aparadas nas esquinas dos parterres e ao longo do anel ──
   const topi: [number, number][] = []
@@ -470,6 +609,17 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   }
   benches.instanceMatrix.needsUpdate = true
   group.add(benches)
+  // os dois bancos de pedra de frente para o Espelho de Satoshi
+  {
+    const sb = new THREE.InstancedMesh(track(new THREE.BoxGeometry(5, 0.55, 1.2)), benchMat, SATOSHI_BENCHES.length)
+    SATOSHI_BENCHES.forEach(([x, z], i) => {
+      o.position.set(x, yAt(x, z) + 0.6, z); o.rotation.set(0, -Math.atan2(z, x) + Math.PI / 2, 0); o.scale.setScalar(1); o.updateMatrix()
+      sb.setMatrixAt(i, o.matrix)
+    })
+    sb.instanceMatrix.needsUpdate = true
+    sb.castShadow = true
+    group.add(sb)
+  }
 
   // ── luz de jardim: uplights quentes na base das palmeiras das alamedas ───
   const glowTex = makeGlowTexture()
@@ -502,9 +652,10 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
       const seed = j.userData.seed as Float32Array
       const pa = j.geometry.attributes.position as THREE.BufferAttribute
       const n = pa.count
+      const noCenter = j.userData.noCenter === true
       for (let k = 0; k < n; k++) {
         const u = (t * 0.55 + seed[k * 2]) % 1
-        const ring = k % 5 === 0 ? 0 : 1
+        const ring = !noCenter && k % 5 === 0 ? 0 : 1
         const ang = seed[k * 2 + 1] * Math.PI * 2
         const rr = ring === 0 ? 1.5 * u * 6 : 26 + u * 10
         const h = ring === 0 ? 46 * Math.sin(u * Math.PI) : 16 * Math.sin(u * Math.PI)

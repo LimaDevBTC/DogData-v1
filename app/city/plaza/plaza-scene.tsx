@@ -25,6 +25,9 @@ import { startFeed, type DogTx, type Snapshot } from './feed'
 import { buildChalet, type Chalet } from './chalet'
 import { buildPrecinct, ANCHORS, type Precinct } from './precinct'
 import { loadPark, PARK_CENTER, type Park } from './park'
+import { buildMonuments, type Monuments } from './monuments'
+import { onDiagonal, GENESIS_POS, SATOSHI_POOL, PAW_PALM, ORDINAL_CENTER } from './garden-plan'
+import { buildFoundersWalk, type FoundersWalk, type FoundersData } from './founders-walk'
 
 // ── framing ────────────────────────────────────────────────────────────────────
 // The default view is the landing hero, from the north-east, high enough that the
@@ -43,6 +46,11 @@ export const PLACES: ReadonlyArray<{ key: string; label: string; hint: string }>
   { key: 'home', label: 'Satoshi Plaza', hint: 'the whole precinct' },
   { key: 'deck', label: 'The deck', hint: 'the Needle, up close' },
   { key: 'founders', label: "Founders' Walk", hint: 'the donors, north boulevard' },
+  { key: 'whitepaper', label: 'Whitepaper Garden', hint: 'nine pages, north-east' },
+  { key: 'genesis', label: 'The Genesis Block', hint: 'end of the whitepaper walk' },
+  { key: 'satoshi', label: "Satoshi's Mirror", hint: 'north-west pool' },
+  { key: 'paw', label: 'The Diamond Paw', hint: '$DOG, south-east' },
+  { key: 'ordinal', label: 'Ordinal Garden', hint: 'runestones, south-west' },
   { key: 'chalet', label: 'OrdCards Chalet', hint: 'south anchor' },
   { key: 'kray', label: 'Kray Tower', hint: 'east anchor' },
   { key: 'bitflow', label: 'BitFlow HQ', hint: 'west anchor' },
@@ -58,6 +66,11 @@ function viewFor(name: string | null, aspect: number): View {
       return { pos: new THREE.Vector3(160, 120, -140), target: new THREE.Vector3(0, 10, -520) }
     case 'deck':
       return { pos: new THREE.Vector3(-260, 120, 380), target: new THREE.Vector3(0, 60, 0) }
+    case 'whitepaper': { const [x, z] = onDiagonal('NE', 598, 4); const [tx, tz] = onDiagonal('NE', 690); return { pos: new THREE.Vector3(x, 7, z), target: new THREE.Vector3(tx, 4, tz) } }
+    case 'genesis': { const [x, z] = onDiagonal('NE', 838, 9); return { pos: new THREE.Vector3(x, 6, z), target: new THREE.Vector3(GENESIS_POS[0], 4.5, GENESIS_POS[1]) } }
+    case 'satoshi': { const [x, z] = onDiagonal('NW', 492, 3); return { pos: new THREE.Vector3(x, 6, z), target: new THREE.Vector3(SATOSHI_POOL[0], 9, SATOSHI_POOL[1]) } }
+    case 'paw': { const [x, z] = onDiagonal('SE', 430, -30); return { pos: new THREE.Vector3(x, 95, z), target: new THREE.Vector3(PAW_PALM[0], 0, PAW_PALM[1]) } }
+    case 'ordinal': { const [x, z] = onDiagonal('SW', 590, 30); return { pos: new THREE.Vector3(x, 14, z), target: new THREE.Vector3(ORDINAL_CENTER[0], 7, ORDINAL_CENTER[1]) } }
     case 'kray':
       return { pos: new THREE.Vector3(300, 140, 420), target: new THREE.Vector3(620, 90, 0) }
     case 'bitflow':
@@ -242,6 +255,8 @@ export default function PlazaScene() {
     let chalet: Chalet | null = null
     let precinct: Precinct | null = null
     let park: Park | null = null
+    let monuments: Monuments | null = null
+    let founders: FoundersWalk | null = null
     const spinners: THREE.Object3D[] = []
     let heightAt: (x: number, z: number) => number = () => 0
 
@@ -340,6 +355,21 @@ export default function PlazaScene() {
         precinct = buildPrecinct({ heightAt })
         scene.add(precinct.group)
         setHud((h) => ({ ...h, loading: null }))
+
+        // Os monumentos (White Paper, Gênese, Satoshi, Pata, Jardim Ordinal) e a
+        // Calçada dos Fundadores entram logo depois do jardim: texturas e o
+        // leaderboard chegam pela rede, e nenhum deles segura o primeiro quadro.
+        buildMonuments({ heightAt, gltf })
+          .then((m) => { if (disposed) { m.dispose(); return } monuments = m; scene.add(m.group) })
+          .catch((err) => console.warn('[plaza] monuments did not load', err))
+        fetch('/api/donate/leaderboard')
+          .then((r) => (r.ok ? (r.json() as Promise<FoundersData>) : null))
+          .catch(() => null)
+          .then((data) => {
+            if (disposed) return
+            founders = buildFoundersWalk({ heightAt, data })
+            scene.add(founders.group)
+          })
 
         // The Runestone park, 5.2 km to the north-east (D10, the landing's
         // position), loads after the plaza is up: it is a horizon until someone
@@ -535,6 +565,8 @@ export default function PlazaScene() {
       for (const j of jets) j.o.scale.y = j.y0 * (0.88 + 0.12 * Math.sin(t * 1.4))
       chalet?.update(t)
       precinct?.update(t)
+      monuments?.update(t)
+      founders?.update(t)
       park?.update(t, renderer.domElement.clientHeight / 2)
       for (const sp of spinners) sp.rotation.y = t * 0.12
       earth.rotation.y = t * 0.004
@@ -571,6 +603,8 @@ export default function PlazaScene() {
       chalet?.dispose()
       precinct?.dispose()
       park?.dispose()
+      monuments?.dispose()
+      founders?.dispose()
       draco.dispose()
       pmrem.dispose()
       scene.traverse((o) => {

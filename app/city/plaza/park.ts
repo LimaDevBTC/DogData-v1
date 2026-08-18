@@ -42,7 +42,7 @@ export interface Park {
 /** A receita por tier (materiais M_T8..M_T2 do .blend), na ordem das variantes do
  *  crystals.glb: metálico, rugosidade, tinta escura das faces, força da emissão da
  *  marca. Os "b" são as pedras foscas. */
-const TIERS: { metal: number; rough: number; dark: [number, number, number]; emit: number }[] = [
+export const TIERS: { metal: number; rough: number; dark: [number, number, number]; emit: number }[] = [
   { metal: 0.35, rough: 0.10, dark: [0.065, 0.065, 0.075], emit: 0.35 }, // M_T8, o Monarca
   { metal: 0.35, rough: 0.10, dark: [0.065, 0.065, 0.075], emit: 0.60 }, // M_T7, os Maiores
   { metal: 0.35, rough: 0.11, dark: [0.09, 0.09, 0.105], emit: 0.85 },   // M_T6, os Picos
@@ -68,6 +68,54 @@ const B2T = new THREE.Matrix4().set(
 )
 const T2B = B2T.clone().invert()
 
+/** O material de UMA pedra: a receita da marca branca em shader (ver o bloco das
+ *  pedras marcadas em loadPark). Exportado para o Jardim Ordinal da praça usar as
+ *  mesmas pedras com a mesma pele. */
+export function crystalMaterialFor(tier: (typeof TIERS)[number], bcTex: THREE.Texture, nmTex: THREE.Texture): THREE.MeshStandardMaterial {
+  const m = new THREE.MeshStandardMaterial({
+    map: bcTex, normalMap: nmTex, normalScale: new THREE.Vector2(1, 1),
+    metalness: tier.metal, roughness: tier.rough, envMapIntensity: 1.1,
+  })
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.uDark = { value: new THREE.Color(tier.dark[0], tier.dark[1], tier.dark[2]) }
+    sh.uniforms.uMark = { value: MARK }
+    sh.uniforms.uEmit = { value: tier.emit }
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform vec3 uDark; uniform vec3 uMark; uniform float uEmit; float crystalLum = 0.0;')
+      .replace('#include <map_fragment>', `
+        #ifdef USE_MAP
+          vec4 sampledDiffuseColor = texture2D( map, vMapUv );
+          crystalLum = dot(sampledDiffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+          float crystalMk = floor(clamp((crystalLum - 0.42) / 0.30, 0.0, 1.0) * 4.0 + 0.5) / 4.0;
+          diffuseColor.rgb *= mix(sampledDiffuseColor.rgb * uDark, uMark, crystalMk);
+        #endif`)
+      .replace('#include <emissivemap_fragment>', `
+        #include <emissivemap_fragment>
+        {
+          // rampa suave, não em degraus: de longe os mips fundem o traço branco
+          // do glifo com o preto em volta e a luminância cai para 0,1..0,3; com
+          // a rampa em degraus (0,5..0,8) o glifo simplesmente sumia a 1 km, e o
+          // fundador viu o parque sem marca nenhuma no celular. Assim ele vira
+          // um brilho proporcional, como um bloom, e continua lendo de longe.
+          float crystalMe = smoothstep(0.06, 0.55, crystalLum);
+          totalEmissiveRadiance += uMark * uEmit * 1.4 * crystalMe;
+        }`)
+  }
+  return m
+}
+
+/** As duas texturas da pedra (as do runestone3d.gltf), prontas para glTF (flipY off). */
+export function loadCrystalTextures(): Promise<[THREE.Texture, THREE.Texture]> {
+  const texLoader = new THREE.TextureLoader()
+  const loadTex = (url: string, srgb: boolean) => new Promise<THREE.Texture>((res, rej) => texLoader.load(url, (t) => {
+    t.flipY = false // UVs de glTF: origem no canto superior esquerdo
+    if (srgb) t.colorSpace = THREE.SRGBColorSpace
+    t.anisotropy = 4
+    res(t)
+  }, undefined, rej))
+  return Promise.all([loadTex('/city/park/crystal-basecolor.webp', true), loadTex('/city/park/crystal-normal.webp', false)])
+}
+
 export async function loadPark(opts: { baseAt: (x: number, z: number) => number; meanHeight: number; gltf?: GLTFLoader }): Promise<Park> {
   const [meta, hbuf, stones, sbuf] = await Promise.all([
     fetch('/city/park/heightmap.json').then((r) => r.json() as Promise<HeightMeta>),
@@ -77,16 +125,9 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
   ])
   const gltf = opts.gltf ?? (() => { const d = new DRACOLoader(); d.setDecoderPath('/draco/'); const g = new GLTFLoader(); g.setDRACOLoader(d); return g })()
   const loadGlb = (url: string) => new Promise<THREE.Group>((res, rej) => gltf.load(url, (g) => res(g.scene), undefined, rej))
-  const texLoader = new THREE.TextureLoader()
-  const loadTex = (url: string, srgb: boolean) => new Promise<THREE.Texture>((res, rej) => texLoader.load(url, (t) => {
-    t.flipY = false // UVs de glTF: origem no canto superior esquerdo
-    if (srgb) t.colorSpace = THREE.SRGBColorSpace
-    t.anisotropy = 4
-    res(t)
-  }, undefined, rej))
-  const [crystals, temple, trails, bcTex, nmTex] = await Promise.all([
+  const [crystals, temple, trails, [bcTex, nmTex]] = await Promise.all([
     loadGlb('/city/park/crystals.glb'), loadGlb('/city/park/temple.glb'), loadGlb('/city/park/trails.glb'),
-    loadTex('/city/park/crystal-basecolor.webp', true), loadTex('/city/park/crystal-normal.webp', false),
+    loadCrystalTextures(),
   ])
 
   const group = new THREE.Group()
@@ -157,38 +198,7 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
   // a cor vira mix(textura × tinta, marca) por uma rampa em degraus (0,42..0,72), e
   // a emissão da marca é outra rampa (0,5..0,8) vezes a força do tier. Metálico
   // 0,35 e rugosidade 0,1: as faces são espelhos negros que faíscam ao sol.
-  const crystalMats: THREE.MeshStandardMaterial[] = TIERS.map((tier) => {
-    const m = track(new THREE.MeshStandardMaterial({
-      map: bcTex, normalMap: nmTex, normalScale: new THREE.Vector2(1, 1),
-      metalness: tier.metal, roughness: tier.rough, envMapIntensity: 1.1,
-    }))
-    m.onBeforeCompile = (sh) => {
-      sh.uniforms.uDark = { value: new THREE.Color(tier.dark[0], tier.dark[1], tier.dark[2]) }
-      sh.uniforms.uMark = { value: MARK }
-      sh.uniforms.uEmit = { value: tier.emit }
-      sh.fragmentShader = sh.fragmentShader
-        .replace('#include <common>', '#include <common>\nuniform vec3 uDark; uniform vec3 uMark; uniform float uEmit; float crystalLum = 0.0;')
-        .replace('#include <map_fragment>', `
-          #ifdef USE_MAP
-            vec4 sampledDiffuseColor = texture2D( map, vMapUv );
-            crystalLum = dot(sampledDiffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
-            float crystalMk = floor(clamp((crystalLum - 0.42) / 0.30, 0.0, 1.0) * 4.0 + 0.5) / 4.0;
-            diffuseColor.rgb *= mix(sampledDiffuseColor.rgb * uDark, uMark, crystalMk);
-          #endif`)
-        .replace('#include <emissivemap_fragment>', `
-          #include <emissivemap_fragment>
-          {
-            // rampa suave, não em degraus: de longe os mips fundem o traço branco
-            // do glifo com o preto em volta e a luminância cai para 0,1..0,3; com
-            // a rampa em degraus (0,5..0,8) o glifo simplesmente sumia a 1 km, e o
-            // fundador viu o parque sem marca nenhuma no celular. Assim ele vira
-            // um brilho proporcional, como um bloom, e continua lendo de longe.
-            float crystalMe = smoothstep(0.06, 0.55, crystalLum);
-            totalEmissiveRadiance += uMark * uEmit * 1.4 * crystalMe;
-          }`)
-    }
-    return m
-  })
+  const crystalMats: THREE.MeshStandardMaterial[] = TIERS.map((tier) => track(crystalMaterialFor(tier, bcTex, nmTex)))
   const variantGeo: THREE.BufferGeometry[] = []
   crystals.traverse((o) => {
     const m = o as THREE.Mesh
