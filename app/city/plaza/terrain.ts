@@ -24,6 +24,9 @@ export interface Terrain {
   group: THREE.Group
   /** Altura do terreno (já exagerada) em (x, z); fora da malha devolve a borda. */
   heightAt: (x: number, z: number) => number
+  /** Altura do anel do horizonte em (x, z), fora da malha: é sobre ele que o parque
+   *  Runestone assenta a 9 km. Dentro da malha devolve heightAt. */
+  horizonAt: (x: number, z: number) => number
   halfExtent: number
 }
 
@@ -134,9 +137,16 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array): Terrain 
   const ringMesh = new THREE.Mesh(ring, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 }))
   ringMesh.name = 'Horizon'
 
+  const horizonAt = (x: number, z: number): number => {
+    const r = Math.hypot(x, z)
+    if (r <= halfExtent) return heightAt(x, z)
+    const t = Math.min(1, (r - halfExtent) / 20000)
+    return edgeAvg - t * 90 - t * t * 260
+  }
+
   const group = new THREE.Group()
   group.add(mesh, ringMesh)
-  return { group, heightAt, halfExtent }
+  return { group, heightAt, horizonAt, halfExtent }
 }
 
 function fract(v: number) {

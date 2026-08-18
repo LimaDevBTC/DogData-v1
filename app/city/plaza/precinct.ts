@@ -2,15 +2,20 @@
 // D7 e D8). Um círculo central (o deck, r 300), um cinturão de jardim, um bulevar
 // anelar em r 450 ligando as quatro portas, quatro bulevares radiais nos eixos
 // cardeais, e as âncoras em r 620: BitFlow a oeste, Kray a leste, o Chalé ao sul, e
-// ao norte, enquanto a quarta âncora não existe, a Árvore-Mãe e o jardim.
+// ao norte, enquanto a quarta âncora não existe, a grande fonte e o jardim.
 //
-// O jardim é lunar e vivo do jeito que o fundador pediu ("lembra Avatar? aquela
-// flora estonteante"): tamareiras de luz, cogumelos-lanterna, musgo que brilha,
-// esporos flutuando, espelhos d'água com fontes. Tudo instanciado e semeado por
-// um gerador determinístico, para a praça ser a mesma em toda visita.
+// O jardim é clássico, do jeito que o fundador pediu depois de ver (e recusar) a
+// versão bioluminescente ("muito colorido"): "um imenso jardim com o que tem de
+// mais belo na Terra mesmo, sem inventar muita moda, como os jardins dos cassinos
+// e palácios". Gramados e parterres com sebes aparadas, alamedas de palmeiras e
+// árvores de copa, topiaria nas esquinas, espelhos d'água com fontes brancas,
+// bancos e postes de luz quente: o mesmo vocabulário que os sítios da Kray e da
+// BitFlow já trazem (lib_dogcity: palm, street_tree, hedge_block, water_basin,
+// lamp), agora contínuo entre elas. Tudo instanciado e semeado por um gerador
+// determinístico, para a praça ser a mesma em toda visita.
 //
-// Paleta: a arquitetura é quente (laranja DOG); a flora é fria (ciano, violeta,
-// magenta), para o jardim emoldurar as torres em vez de competir com elas.
+// Paleta: verdes escuros de gramado e sebe, pedra escura nos passeios, água
+// branca, luz quente. O laranja DOG fica na arquitetura.
 import * as THREE from 'three'
 
 export const R_DECK = 300
@@ -28,11 +33,14 @@ export const ANCHORS = {
   north: { pos: new THREE.Vector3(0, 0, -R_ANCHOR), rotY: Math.PI },      // jardim, por enquanto
 } as const
 
-const CYAN = new THREE.Color('#4FE3E8')
-const VIOLET = new THREE.Color('#9B6BFF')
-const MAGENTA = new THREE.Color('#FF5CC8')
-const ICE = new THREE.Color('#DDEBFF')
+const ICE = new THREE.Color('#F2EAD6')      // luz de poste, branco quente
 const WARM = new THREE.Color('#FFB35C')
+const LAWN = new THREE.Color('#183121')
+const HEDGE = new THREE.Color('#1a3a1f')
+const LEAF = new THREE.Color('#2f6b3a')
+const LEAF_TIP = new THREE.Color('#6fae63')
+const TRUNK = new THREE.Color('#3a2c22')
+const WATER_JET = new THREE.Color('#e9f3ff')
 
 function mulberry(seed: number) {
   let a = seed >>> 0
@@ -152,7 +160,7 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
 
   // ── espelhos d'água com fontes, nas diagonais entre as âncoras ───────────
   const poolMat = track(new THREE.MeshStandardMaterial({ color: 0x08111c, roughness: 0.05, metalness: 0.7, emissive: 0x0a1a2c, emissiveIntensity: 0.5, envMapIntensity: 1.6 }))
-  const poolRimMat = track(new THREE.MeshBasicMaterial({ color: CYAN, toneMapped: false, transparent: true, opacity: 0.7 }))
+  const poolRimMat = track(new THREE.MeshBasicMaterial({ color: ICE, toneMapped: false, transparent: true, opacity: 0.7 }))
   const jets: THREE.Points[] = []
   const jetTex = makeDotTexture()
   for (let i = 0; i < 4; i++) {
@@ -175,7 +183,7 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
     for (let k = 0; k < NJ; k++) { seed[k * 2] = rnd(); seed[k * 2 + 1] = rnd() }
     const geo = new THREE.BufferGeometry()
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
-    const pm = track(new THREE.PointsMaterial({ map: jetTex, color: 0xcfe9ff, size: 2.4, sizeAttenuation: true, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending }))
+    const pm = track(new THREE.PointsMaterial({ map: jetTex, color: WATER_JET, size: 2.4, sizeAttenuation: true, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending }))
     const pts = new THREE.Points(geo, pm)
     pts.position.set(cx, y + 0.3, cz)
     pts.userData.seed = seed
@@ -185,20 +193,30 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
     track(geo)
   }
 
-  // ── a flora ───────────────────────────────────────────────────────────────
+  // ── o gramado: o cinturão e os setores são relva, e a relva é o fundo do jardim ──
+  const lawnMat = track(new THREE.MeshStandardMaterial({ color: LAWN, roughness: 0.95, metalness: 0 }))
+  const lawnIn = new THREE.Mesh(track(new THREE.RingGeometry(R_GARDEN_IN - 4, R_RING - RING_W / 2 + 2, 192)), lawnMat)
+  lawnIn.rotation.x = -Math.PI / 2
+  lawnIn.position.y = 0.2
+  lawnIn.receiveShadow = true
+  group.add(lawnIn)
+  const lawnOut = new THREE.Mesh(track(new THREE.RingGeometry(R_RING + RING_W / 2 - 2, 900, 256)), lawnMat)
+  lawnOut.rotation.x = -Math.PI / 2
+  lawnOut.position.y = 0.2
+  lawnOut.receiveShadow = true
+  group.add(lawnOut)
+
   // onde pode nascer: cinturão 332..440 (fora dos radiais e do anel), e setores
-  // 480..900 fora dos sítios das âncoras e dos bulevares
+  // 480..900 fora dos sítios das âncoras, dos bulevares e dos espelhos d'água
   const canGrow = (x: number, z: number) => {
     const r = Math.hypot(x, z)
-    if (r < R_GARDEN_IN || r > 920) return false
+    if (r < R_GARDEN_IN || r > 900) return false
     if (inRing(x, z) || inRadialBoulevard(x, z) || inAnchorSite(x, z)) return false
-    // os espelhos d'água
     for (let i = 0; i < 4; i++) {
       const a = Math.PI / 4 + (i * Math.PI) / 2
-      if (Math.hypot(x - Math.cos(a) * 560, z - Math.sin(a) * 560) < 56) return false
+      if (Math.hypot(x - Math.cos(a) * 560, z - Math.sin(a) * 560) < 62) return false
     }
-    // a árvore-mãe ao norte pede espaço
-    if (Math.hypot(x, z + R_ANCHOR) < 90) return false
+    if (Math.hypot(x, z + R_ANCHOR) < 120) return false // a grande fonte do norte
     return true
   }
   const sample = (n: number, rMin: number, rMax: number, tries = 40): [number, number][] => {
@@ -214,168 +232,184 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
     return out
   }
 
-  // tamareiras de luz: tronco + coroa de folhas arqueadas com gradiente emissivo
-  const trees = [...sample(150, R_GARDEN_IN, 440), ...sample(210, 470, 920)]
-  // fileiras nos bulevares radiais e no anel: a alameda
-  for (let i = 0; i < 4; i++) {
-    const a = (i * Math.PI) / 2
-    for (let k = 0; k < 9; k++) {
-      const r = R_GARDEN_IN + 14 + k * 17
-      for (const s of [-1, 1]) {
-        const off = s * (BOULEVARD_W / 2 + 12)
-        trees.push([Math.sin(a) * r + Math.cos(a) * off, Math.cos(a) * r - Math.sin(a) * off])
+  // ── sebes aparadas: parterres em arcos concêntricos e linhas radiais ──────
+  const hedgeGeo = track(new THREE.BoxGeometry(1, 1, 1))
+  const hedgeMat = track(new THREE.MeshStandardMaterial({ color: HEDGE, roughness: 0.9 }))
+  const hedges: THREE.Matrix4[] = []
+  const hedgeArc = (r: number, a0: number, a1: number, h = 1.6, w = 1.4) => {
+    const len = r * (a1 - a0)
+    const n = Math.max(1, Math.round(len / 3))
+    for (let i = 0; i < n; i++) {
+      const a = a0 + ((i + 0.5) / n) * (a1 - a0)
+      const x = Math.cos(a) * r, z = Math.sin(a) * r
+      o.position.set(x, yAt(x, z) + h / 2, z); o.rotation.set(0, -a, 0); o.scale.set(3.1, h, w); o.updateMatrix()
+      hedges.push(o.matrix.clone())
+    }
+  }
+  const hedgeLine = (x0: number, z0: number, x1: number, z1: number, h = 1.6, w = 1.4) => {
+    const len = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.round(len / 3))
+    const yaw = Math.atan2(x1 - x0, z1 - z0)
+    for (let i = 0; i < n; i++) {
+      const t = (i + 0.5) / n
+      const x = x0 + (x1 - x0) * t, z = z0 + (z1 - z0) * t
+      o.position.set(x, yAt(x, z) + h / 2, z); o.rotation.set(0, yaw, 0); o.scale.set(w, h, 3.1); o.updateMatrix()
+      hedges.push(o.matrix.clone())
+    }
+  }
+  const gap = (r: number) => (BOULEVARD_W / 2 + 10) / r // meio-ângulo do bulevar radial em r
+  // cinturão interno: dois arcos por quadrante, com sebes radiais nas pontas
+  for (let q = 0; q < 4; q++) {
+    const a0 = q * Math.PI / 2, a1 = a0 + Math.PI / 2
+    for (const r of [R_GARDEN_IN + 14, R_GARDEN_IN + 62]) hedgeArc(r, a0 + gap(r), a1 - gap(r))
+    for (const a of [a0 + gap(R_GARDEN_IN + 14), a1 - gap(R_GARDEN_IN + 14)]) {
+      hedgeLine(Math.cos(a) * (R_GARDEN_IN + 14), Math.sin(a) * (R_GARDEN_IN + 14), Math.cos(a) * (R_GARDEN_IN + 62), Math.sin(a) * (R_GARDEN_IN + 62))
+    }
+    // as sebes que emolduram o bulevar radial e o anel
+    const ea = a0 + gap(R_GARDEN_IN + 8) - 0.012, eb = a1 - gap(R_GARDEN_IN + 8) + 0.012
+    hedgeLine(Math.cos(ea) * (R_GARDEN_IN + 4), Math.sin(ea) * (R_GARDEN_IN + 4), Math.cos(ea + 0.001) * (R_RING - RING_W / 2 - 4), Math.sin(ea + 0.001) * (R_RING - RING_W / 2 - 4), 1.2, 1.2)
+    hedgeLine(Math.cos(eb) * (R_GARDEN_IN + 4), Math.sin(eb) * (R_GARDEN_IN + 4), Math.cos(eb) * (R_RING - RING_W / 2 - 4), Math.sin(eb) * (R_RING - RING_W / 2 - 4), 1.2, 1.2)
+  }
+  // setores externos: três arcos por quadrante, interrompidos nos sítios e nos espelhos
+  for (let q = 0; q < 4; q++) {
+    const a0 = q * Math.PI / 2, a1 = a0 + Math.PI / 2
+    for (const r of [500, 560, 620, 690, 760, 830]) {
+      const g = gap(r) + 0.02
+      // divide o arco em trechos que não atravessam sítio, espelho ou fonte
+      const n = 60
+      let start: number | null = null
+      for (let i = 0; i <= n; i++) {
+        const a = a0 + g + ((a1 - a0 - 2 * g) * i) / n
+        const x = Math.cos(a) * r, z = Math.sin(a) * r
+        const ok = i < n && canGrow(x, z)
+        if (ok && start == null) start = a
+        if (!ok && start != null) { if (a - start > 0.03) hedgeArc(r, start, a); start = null }
       }
     }
   }
-  const trunkGeo = track(new THREE.CylinderGeometry(0.55, 1.4, 1, 7))
-  const trunkMat = track(new THREE.MeshStandardMaterial({ color: 0x1b1d24, roughness: 0.7, metalness: 0.2 }))
+  const hedgeMesh = new THREE.InstancedMesh(hedgeGeo, hedgeMat, hedges.length)
+  hedges.forEach((m, i) => hedgeMesh.setMatrixAt(i, m))
+  hedgeMesh.instanceMatrix.needsUpdate = true
+  hedgeMesh.castShadow = hedgeMesh.receiveShadow = true
+  group.add(hedgeMesh)
+
+  // ── palmeiras: alamedas nos bulevares e no anel, e bosques nos setores ────
+  const palms: [number, number][] = [...sample(70, R_GARDEN_IN + 20, 430), ...sample(150, 480, 900)]
+  for (let i = 0; i < 4; i++) {
+    const a = (i * Math.PI) / 2
+    for (let k = 0; k < 8; k++) {
+      const r = R_GARDEN_IN + 16 + k * 16
+      for (const sx of [-1, 1]) {
+        const off = sx * (BOULEVARD_W / 2 + 7)
+        palms.push([Math.sin(a) * r + Math.cos(a) * off, Math.cos(a) * r - Math.sin(a) * off])
+      }
+    }
+  }
+  for (let k = 0; k < 72; k++) {
+    const a = (k / 72) * Math.PI * 2
+    if (Math.abs(Math.sin(2 * a)) < 0.14) continue // deixa as portas dos bulevares livres
+    for (const sr of [-1, 1]) {
+      const r = R_RING + sr * (RING_W / 2 + 9)
+      palms.push([Math.cos(a) * r, Math.sin(a) * r])
+    }
+  }
+  const trunkGeo = track(new THREE.CylinderGeometry(0.42, 0.7, 1, 8))
+  const trunkMat = track(new THREE.MeshStandardMaterial({ color: TRUNK, roughness: 0.85 }))
   const frondGeo = track(makeFrondGeometry())
-  const frondMat = track(new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, transparent: true, opacity: 0.92, toneMapped: false, depthWrite: false, blending: THREE.AdditiveBlending }))
-  const FRONDS = 8
-  const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, trees.length)
-  const fronds = new THREE.InstancedMesh(frondGeo, frondMat, trees.length * FRONDS)
-  const treeMeta: { x: number; z: number; h: number; hue: number }[] = []
-  trees.forEach(([x, z], i) => {
-    const h = 16 + rnd() * 18
+  const frondMat = track(new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 0.8, metalness: 0 }))
+  const FRONDS = 9
+  const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, palms.length)
+  const fronds = new THREE.InstancedMesh(frondGeo, frondMat, palms.length * FRONDS)
+  palms.forEach(([x, z], i) => {
+    const h = 11 + rnd() * 9
     const y = yAt(x, z)
-    o.position.set(x, y + h / 2, z); o.rotation.set(0, rnd() * 6.28, 0); o.scale.set(1, h, 1); o.updateMatrix()
+    o.position.set(x, y + h / 2, z); o.rotation.set(0, rnd() * 6.28, (rnd() - 0.5) * 0.06); o.scale.set(1, h, 1); o.updateMatrix()
     trunks.setMatrixAt(i, o.matrix)
-    const hue = rnd()
-    treeMeta.push({ x, z, h, hue })
     for (let f = 0; f < FRONDS; f++) {
-      const a = (f / FRONDS) * Math.PI * 2 + rnd() * 0.3
-      const len = h * (0.55 + rnd() * 0.25)
-      o.position.set(x, y + h, z)
-      o.rotation.set(0, a, 0)
-      o.scale.set(len, len, len)
-      o.updateMatrix()
+      const a = (f / FRONDS) * Math.PI * 2 + rnd() * 0.35
+      const len = h * (0.42 + rnd() * 0.16)
+      o.position.set(x, y + h, z); o.rotation.set(0, a, 0); o.scale.set(len, len, len); o.updateMatrix()
       fronds.setMatrixAt(i * FRONDS + f, o.matrix)
     }
   })
-  trunks.castShadow = true
-  trunks.instanceMatrix.needsUpdate = true
-  fronds.instanceMatrix.needsUpdate = true
+  trunks.castShadow = fronds.castShadow = true
+  trunks.instanceMatrix.needsUpdate = fronds.instanceMatrix.needsUpdate = true
   group.add(trunks, fronds)
-  // a cor por árvore: ciano, violeta ou magenta, com um brilho na base da coroa
-  const frondColors = new Float32Array(trees.length * FRONDS * 3)
-  treeMeta.forEach((m, i) => {
-    const c = m.hue < 0.5 ? CYAN : m.hue < 0.82 ? VIOLET : MAGENTA
-    for (let f = 0; f < FRONDS; f++) {
-      const k = (i * FRONDS + f) * 3
-      frondColors[k] = c.r; frondColors[k + 1] = c.g; frondColors[k + 2] = c.b
-    }
-  })
-  frondGeo.setAttribute('aTint', new THREE.InstancedBufferAttribute(frondColors, 3))
-  frondMat.onBeforeCompile = (sh) => {
-    sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute vec3 aTint;\nvarying vec3 vTint;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvTint = aTint;')
-    sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vTint;')
-      .replace('vec4 diffuseColor = vec4( diffuse, opacity );', 'vec4 diffuseColor = vec4( diffuse * vTint, opacity );')
-  }
-  frondMat.customProgramCacheKey = () => 'frond-tint'
-  // o halo da coroa
-  const haloTex = makeGlowTexture()
-  const haloGeo = track(new THREE.BufferGeometry())
-  const haloPos = new Float32Array(trees.length * 3)
-  const haloCol = new Float32Array(trees.length * 3)
-  treeMeta.forEach((m, i) => {
-    haloPos[i * 3] = m.x; haloPos[i * 3 + 1] = yAt(m.x, m.z) + m.h * 1.05; haloPos[i * 3 + 2] = m.z
-    const c = m.hue < 0.5 ? CYAN : m.hue < 0.82 ? VIOLET : MAGENTA
-    haloCol[i * 3] = c.r; haloCol[i * 3 + 1] = c.g; haloCol[i * 3 + 2] = c.b
-  })
-  haloGeo.setAttribute('position', new THREE.BufferAttribute(haloPos, 3))
-  haloGeo.setAttribute('color', new THREE.BufferAttribute(haloCol, 3))
-  const halos = new THREE.Points(haloGeo, track(new THREE.PointsMaterial({ map: haloTex, vertexColors: true, size: 30, sizeAttenuation: true, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending })))
-  halos.frustumCulled = false
-  group.add(halos)
 
-  // cogumelos-lanterna: chapéu com a face de baixo acesa
-  const shrooms = [...sample(90, R_GARDEN_IN, 440), ...sample(160, 470, 920)]
-  const capGeo = track(new THREE.SphereGeometry(1, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2))
-  const stemGeo = track(new THREE.CylinderGeometry(0.28, 0.42, 1, 7))
-  const capMat = track(new THREE.MeshStandardMaterial({ color: 0x1c1a26, roughness: 0.4, metalness: 0.1, emissive: VIOLET, emissiveIntensity: 0.25 }))
-  const gillMat = track(new THREE.MeshBasicMaterial({ color: MAGENTA, toneMapped: false, transparent: true, opacity: 0.85, side: THREE.BackSide }))
-  const caps = new THREE.InstancedMesh(capGeo, capMat, shrooms.length)
-  const gills = new THREE.InstancedMesh(capGeo, gillMat, shrooms.length)
-  const stems = new THREE.InstancedMesh(stemGeo, track(new THREE.MeshStandardMaterial({ color: 0x2a2836, roughness: 0.6 })), shrooms.length)
-  shrooms.forEach(([x, z], i) => {
-    const s = 3.5 + rnd() * 7
+  // ── árvores de copa redonda: nos setores, entre os arcos de sebe ─────────
+  const trees = sample(140, 480, 900)
+  const treeTrunkGeo = track(new THREE.CylinderGeometry(0.5, 0.9, 1, 7))
+  const canopyGeo = track(new THREE.SphereGeometry(1, 12, 9))
+  const canopyMat = track(new THREE.MeshStandardMaterial({ color: LEAF, roughness: 0.9 }))
+  const tTrunks = new THREE.InstancedMesh(treeTrunkGeo, trunkMat, trees.length)
+  const canopies = new THREE.InstancedMesh(canopyGeo, canopyMat, trees.length)
+  trees.forEach(([x, z], i) => {
+    const h = 6 + rnd() * 5, cr = 4 + rnd() * 3.5
     const y = yAt(x, z)
-    o.position.set(x, y + s * 0.9, z); o.rotation.set(0, rnd() * 6, 0); o.scale.set(s, s * 0.55, s); o.updateMatrix()
-    caps.setMatrixAt(i, o.matrix)
-    o.scale.set(s * 0.98, s * 0.53, s * 0.98); o.updateMatrix()
-    gills.setMatrixAt(i, o.matrix)
-    o.position.set(x, y + s * 0.45, z); o.scale.set(s * 0.32, s * 0.9, s * 0.32); o.updateMatrix()
-    stems.setMatrixAt(i, o.matrix)
+    o.position.set(x, y + h / 2, z); o.rotation.set(0, 0, 0); o.scale.set(1, h, 1); o.updateMatrix()
+    tTrunks.setMatrixAt(i, o.matrix)
+    o.position.set(x, y + h + cr * 0.75, z); o.scale.set(cr, cr * 0.85, cr); o.updateMatrix()
+    canopies.setMatrixAt(i, o.matrix)
   })
-  caps.castShadow = true
-  caps.instanceMatrix.needsUpdate = gills.instanceMatrix.needsUpdate = stems.instanceMatrix.needsUpdate = true
-  group.add(caps, gills, stems)
+  tTrunks.castShadow = canopies.castShadow = true
+  tTrunks.instanceMatrix.needsUpdate = canopies.instanceMatrix.needsUpdate = true
+  group.add(tTrunks, canopies)
 
-  // musgo que brilha: discos de luz no chão
-  const moss = [...sample(260, R_GARDEN_IN, 440), ...sample(520, 470, 920)]
-  const mossGeo = track(new THREE.CircleGeometry(1, 12))
-  const mossMat = track(new THREE.MeshBasicMaterial({ color: CYAN, toneMapped: false, transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending }))
-  const mossMesh = new THREE.InstancedMesh(mossGeo, mossMat, moss.length)
-  moss.forEach(([x, z], i) => {
-    const s = 2 + rnd() * 7
-    o.position.set(x, yAt(x, z) + 0.15, z); o.rotation.set(-Math.PI / 2, 0, rnd() * 6); o.scale.set(s, s * (0.6 + rnd() * 0.5), 1); o.updateMatrix()
-    mossMesh.setMatrixAt(i, o.matrix)
-  })
-  mossMesh.instanceMatrix.needsUpdate = true
-  group.add(mossMesh)
-
-  // esporos: pontos que flutuam devagar sobre os jardins
-  const NS = 2600
-  const sporePos = new Float32Array(NS * 3)
-  const sporeSeed = new Float32Array(NS * 3)
-  const sporeSpots = [...sample(NS / 3, R_GARDEN_IN, 440, 12), ...sample((NS * 2) / 3, 470, 920, 12)]
-  for (let i = 0; i < NS; i++) {
-    const [x, z] = sporeSpots[i % sporeSpots.length]
-    sporeSeed[i * 3] = x + (rnd() - 0.5) * 30
-    sporeSeed[i * 3 + 1] = yAt(x, z) + 2 + rnd() * 26
-    sporeSeed[i * 3 + 2] = z + (rnd() - 0.5) * 30
+  // ── topiaria: esferas aparadas nas esquinas dos parterres e ao longo do anel ──
+  const topi: [number, number][] = []
+  for (let k = 0; k < 48; k++) {
+    const a = (k / 48) * Math.PI * 2 + Math.PI / 48
+    if (Math.abs(Math.sin(2 * a)) < 0.16) continue
+    topi.push([Math.cos(a) * (R_GARDEN_IN + 38), Math.sin(a) * (R_GARDEN_IN + 38)])
   }
-  const sporeGeo = track(new THREE.BufferGeometry())
-  sporeGeo.setAttribute('position', new THREE.BufferAttribute(sporePos, 3))
-  const spores = new THREE.Points(sporeGeo, track(new THREE.PointsMaterial({ map: haloTex, color: 0xbfe8ff, size: 4.2, sizeAttenuation: true, transparent: true, opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending })))
-  spores.frustumCulled = false
-  group.add(spores)
+  const topiMesh = new THREE.InstancedMesh(canopyGeo, track(new THREE.MeshStandardMaterial({ color: HEDGE, roughness: 0.9 })), topi.length)
+  topi.forEach(([x, z], i) => {
+    const r = 1.6 + rnd() * 0.6
+    o.position.set(x, yAt(x, z) + r, z); o.rotation.set(0, 0, 0); o.scale.setScalar(r); o.updateMatrix()
+    topiMesh.setMatrixAt(i, o.matrix)
+  })
+  topiMesh.castShadow = true
+  topiMesh.instanceMatrix.needsUpdate = true
+  group.add(topiMesh)
 
-  // ── a Árvore-Mãe, no ponto norte, enquanto a quarta âncora não existe ─────
-  const mother = buildMotherTree(rnd, track)
-  const my = yAt(0, -R_ANCHOR)
-  mother.group.position.set(0, my, -R_ANCHOR)
-  group.add(mother.group)
-  // seu próprio pódio de luz
-  const mPlinth = new THREE.Mesh(track(new THREE.CylinderGeometry(96, 98, 1.2, 96)), track(new THREE.MeshStandardMaterial({ color: 0x14151a, roughness: 0.8 })))
-  mPlinth.position.set(0, my + 0.6, -R_ANCHOR)
-  mPlinth.receiveShadow = true
-  group.add(mPlinth)
-  const mRing = new THREE.Mesh(track(new THREE.RingGeometry(95, 96, 128)), track(new THREE.MeshBasicMaterial({ color: ICE, toneMapped: false, side: THREE.DoubleSide, transparent: true, opacity: 0.8 })))
-  mRing.rotation.x = -Math.PI / 2
-  mRing.position.set(0, my + 1.25, -R_ANCHOR)
-  group.add(mRing)
+  // ── bancos ao longo do anel, olhando para dentro ─────────────────────────
+  const benchGeo = track(new THREE.BoxGeometry(4.2, 0.5, 1))
+  const benchMat = track(new THREE.MeshStandardMaterial({ color: 0x2b2a2f, roughness: 0.6, metalness: 0.3 }))
+  const benches = new THREE.InstancedMesh(benchGeo, benchMat, 40)
+  for (let k = 0; k < 40; k++) {
+    const a = (k / 40) * Math.PI * 2 + Math.PI / 40
+    const r = R_RING - RING_W / 2 + 3
+    o.position.set(Math.cos(a) * r, yAt(Math.cos(a) * r, Math.sin(a) * r) + 0.6, Math.sin(a) * r); o.rotation.set(0, -a, 0); o.scale.setScalar(1); o.updateMatrix()
+    benches.setMatrixAt(k, o.matrix)
+  }
+  benches.instanceMatrix.needsUpdate = true
+  group.add(benches)
 
-  // luzes: poucas e grandes; a flora é emissiva por si
+  // ── luz de jardim: uplights quentes na base das palmeiras das alamedas ───
+  const glowTex = makeGlowTexture()
+  const upPos = new Float32Array(palms.length * 3)
+  palms.forEach(([x, z], i) => { upPos[i * 3] = x; upPos[i * 3 + 1] = yAt(x, z) + 1.2; upPos[i * 3 + 2] = z })
+  const upGeo = track(new THREE.BufferGeometry())
+  upGeo.setAttribute('position', new THREE.BufferAttribute(upPos, 3))
+  const uplights = new THREE.Points(upGeo, track(new THREE.PointsMaterial({ map: glowTex, color: 0xffd9a8, size: 9, sizeAttenuation: true, transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending })))
+  uplights.frustumCulled = false
+  group.add(uplights)
+
+  // ── a grande fonte do norte, no lugar da quarta âncora ───────────────────
+  const fountain = buildGrandFountain(rnd, track, jetTex)
+  const fy = yAt(0, -R_ANCHOR)
+  fountain.group.position.set(0, fy, -R_ANCHOR)
+  group.add(fountain.group)
+
+  // luzes: poucas e quentes
   const lights: THREE.PointLight[] = []
-  for (const [x, z, c] of [[0, -R_ANCHOR, 0xbfe6ff], [396, -396, 0x6fe0e8], [-396, -396, 0x9b6bff], [396, 396, 0xff7ad0], [-396, 396, 0x6fe0e8]] as const) {
-    const l = new THREE.PointLight(c, 1.4, 320, 1.6)
-    l.position.set(x, yAt(x, z) + 30, z)
+  for (const [x, z] of [[0, -R_ANCHOR], [396, -396], [-396, -396], [396, 396], [-396, 396]] as const) {
+    const l = new THREE.PointLight(0xffe0b8, 1.1, 300, 1.6)
+    l.position.set(x, yAt(x, z) + 26, z)
     group.add(l)
     lights.push(l)
   }
 
   const update = (t: number) => {
-    // esporos: deriva lenta em três eixos
-    const p = sporeGeo.attributes.position as THREE.BufferAttribute
-    for (let i = 0; i < NS; i++) {
-      const sx = sporeSeed[i * 3], sy = sporeSeed[i * 3 + 1], sz = sporeSeed[i * 3 + 2]
-      p.setXYZ(i, sx + Math.sin(t * 0.13 + i) * 4, sy + Math.sin(t * 0.21 + i * 0.7) * 3, sz + Math.cos(t * 0.11 + i * 1.3) * 4)
-    }
-    p.needsUpdate = true
     // fontes: cada partícula sobe e cai numa parábola, com fase própria
     for (const j of jets) {
       const seed = j.userData.seed as Float32Array
@@ -391,15 +425,14 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
       }
       pa.needsUpdate = true
     }
-    mother.update(t)
-    frondMat.opacity = 0.86 + 0.06 * Math.sin(t * 0.7)
-    for (const l of lights) l.intensity = 1.4 * (0.9 + 0.1 * Math.sin(t * 0.9 + l.position.x))
+    fountain.update(t)
+    for (const l of lights) l.intensity = 1.1 * (0.92 + 0.08 * Math.sin(t * 0.9 + l.position.x))
   }
 
   return {
     group,
     update,
-    dispose() { for (const d of disposables) d.dispose(); jetTex.dispose(); haloTex.dispose(); mother.dispose() },
+    dispose() { for (const d of disposables) d.dispose(); jetTex.dispose(); glowTex.dispose(); fountain.dispose() },
   }
 }
 
@@ -418,8 +451,8 @@ function makeFrondGeometry(): THREE.BufferGeometry {
     const y = 0.35 * Math.sin(u * Math.PI * 0.85) - u * u * 0.55
     const w = w0 * (1 - u * 0.7)
     pos.push(x, y, -w, x, y, w)
-    const b = 1 - u * 0.75
-    col.push(b, b, b, b, b, b)
+    const c = LEAF.clone().lerp(LEAF_TIP, u)
+    col.push(c.r, c.g, c.b, c.r, c.g, c.b)
     if (i < SEG) { const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2) }
   }
   const g = new THREE.BufferGeometry()
@@ -455,82 +488,89 @@ function makeDotTexture(): THREE.Texture {
   return new THREE.CanvasTexture(c)
 }
 
-/** A Árvore-Mãe: um tronco largo, uma copa larga e milhares de fios de luz caindo
- *  dela, como um salgueiro aceso. É o marco do ponto norte até a âncora chegar. */
-function buildMotherTree(rnd: () => number, track: <T extends { dispose: () => void }>(o: T) => T) {
+/** A grande fonte do norte: uma bacia larga com um jato central alto e um anel de
+ *  jatos, coroada por um anel de palmeiras; o marco de palácio no ponto cardeal
+ *  cuja âncora ainda não existe. */
+function buildGrandFountain(rnd: () => number, track: <T extends { dispose: () => void }>(o: T) => T, jetTex: THREE.Texture) {
   const group = new THREE.Group()
-  group.name = 'MotherTree'
-  const H = 150
-  // tronco: uma lofted cylinder com base alargada
-  const trunk = new THREE.Mesh(track(new THREE.CylinderGeometry(9, 26, H * 0.62, 12, 1)), track(new THREE.MeshStandardMaterial({ color: 0x1a1720, roughness: 0.6, metalness: 0.2, emissive: 0x2a2140, emissiveIntensity: 0.4 })))
-  trunk.position.y = H * 0.31
-  trunk.castShadow = true
-  group.add(trunk)
-  // raízes: oito arcos baixos
-  for (let i = 0; i < 8; i++) {
-    const a = (i / 8) * Math.PI * 2
-    const r = new THREE.Mesh(track(new THREE.CylinderGeometry(3, 6, 60, 8)), trunk.material as THREE.Material)
-    r.position.set(Math.cos(a) * 34, 12, Math.sin(a) * 34)
-    r.rotation.set(Math.cos(a) * 0.9, 0, -Math.sin(a) * 0.9)
-    r.rotation.z = -Math.sin(a) * 0.95
-    r.rotation.x = Math.cos(a) * 0.95
-    group.add(r)
+  group.name = 'GrandFountain'
+  const R = 70
+  const basin = new THREE.Mesh(track(new THREE.CylinderGeometry(R, R + 1.5, 2.2, 96)), track(new THREE.MeshStandardMaterial({ color: 0x1b1a1e, roughness: 0.6, metalness: 0.2 })))
+  basin.position.y = 1.1
+  basin.receiveShadow = true
+  group.add(basin)
+  const water = new THREE.Mesh(track(new THREE.CircleGeometry(R - 2, 96)), track(new THREE.MeshStandardMaterial({ color: 0x0a1626, roughness: 0.05, metalness: 0.7, emissive: 0x0b1a2c, emissiveIntensity: 0.4, envMapIntensity: 1.6 })))
+  water.rotation.x = -Math.PI / 2
+  water.position.y = 2.0
+  group.add(water)
+  const rim = new THREE.Mesh(track(new THREE.RingGeometry(R - 0.8, R, 128)), track(new THREE.MeshBasicMaterial({ color: ICE, toneMapped: false, transparent: true, opacity: 0.8, side: THREE.DoubleSide })))
+  rim.rotation.x = -Math.PI / 2
+  rim.position.y = 2.25
+  group.add(rim)
+  // taça central em dois níveis
+  for (const [r, y] of [[16, 8], [9, 15]] as const) {
+    const cup = new THREE.Mesh(track(new THREE.CylinderGeometry(r, r * 0.55, 1.6, 48)), basin.material as THREE.Material)
+    cup.position.y = y
+    group.add(cup)
+    const stem = new THREE.Mesh(track(new THREE.CylinderGeometry(2.2, 2.8, y - 2, 12)), basin.material as THREE.Material)
+    stem.position.y = (y - 2) / 2 + 2
+    group.add(stem)
   }
-  // copa: um disco largo de onde os fios caem
-  const crownY = H * 0.62
-  const crown = new THREE.Mesh(track(new THREE.SphereGeometry(58, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.42)), track(new THREE.MeshStandardMaterial({ color: 0x1b1a2e, roughness: 0.5, emissive: 0x3a2f6a, emissiveIntensity: 0.5, side: THREE.DoubleSide })))
-  crown.position.y = crownY
-  group.add(crown)
-  // os fios: linhas verticais com brilho decrescente, penduradas da borda da copa
-  const NW = 1400
-  const pos = new Float32Array(NW * 2 * 3)
-  const col = new Float32Array(NW * 2 * 3)
-  const seeds = new Float32Array(NW)
-  for (let i = 0; i < NW; i++) {
-    const a = rnd() * Math.PI * 2
-    const rr = 12 + Math.sqrt(rnd()) * 56
-    const x = Math.cos(a) * rr, z = Math.sin(a) * rr
-    const top = crownY + 4 - (rr / 58) * 26
-    const len = 30 + rnd() * (top - 12)
-    pos.set([x, top, z, x, top - len, z], i * 6)
-    const c = rnd() < 0.7 ? ICE : rnd() < 0.5 ? CYAN : VIOLET
-    col.set([c.r, c.g, c.b, c.r * 0.15, c.g * 0.15, c.b * 0.15], i * 6)
-    seeds[i] = rnd()
+  // jatos: um central alto, um anel médio, um anel baixo na borda
+  const NJ = 1600
+  const pos = new Float32Array(NJ * 3)
+  const seed = new Float32Array(NJ * 2)
+  for (let k = 0; k < NJ; k++) { seed[k * 2] = rnd(); seed[k * 2 + 1] = rnd() }
+  const geo = track(new THREE.BufferGeometry())
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
+  const pts = new THREE.Points(geo, track(new THREE.PointsMaterial({ map: jetTex, color: WATER_JET, size: 2.6, sizeAttenuation: true, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending })))
+  pts.frustumCulled = false
+  pts.position.y = 2
+  group.add(pts)
+  // anel de palmeiras em volta, no gramado
+  const trunkGeo = track(new THREE.CylinderGeometry(0.42, 0.7, 1, 8))
+  const trunkMat = track(new THREE.MeshStandardMaterial({ color: TRUNK, roughness: 0.85 }))
+  const frondGeo = track(makeFrondGeometry())
+  const frondMat = track(new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 0.8 }))
+  const NPALM = 20, FR = 9
+  const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, NPALM)
+  const fronds = new THREE.InstancedMesh(frondGeo, frondMat, NPALM * FR)
+  const o = new THREE.Object3D()
+  for (let i = 0; i < NPALM; i++) {
+    const a = (i / NPALM) * Math.PI * 2
+    if (Math.abs(Math.sin(a)) < 0.12 && Math.cos(a) > 0) continue // a boca do bulevar
+    const x = Math.cos(a) * (R + 22), z = Math.sin(a) * (R + 22)
+    const h = 15 + rnd() * 5
+    o.position.set(x, h / 2, z); o.rotation.set(0, rnd() * 6, 0); o.scale.set(1, h, 1); o.updateMatrix()
+    trunks.setMatrixAt(i, o.matrix)
+    for (let f = 0; f < FR; f++) {
+      const fa = (f / FR) * Math.PI * 2 + rnd() * 0.3
+      const len = h * 0.5
+      o.position.set(x, h, z); o.rotation.set(0, fa, 0); o.scale.set(len, len, len); o.updateMatrix()
+      fronds.setMatrixAt(i * FR + f, o.matrix)
+    }
   }
-  const wg = track(new THREE.BufferGeometry())
-  wg.setAttribute('position', new THREE.BufferAttribute(pos, 3))
-  wg.setAttribute('color', new THREE.BufferAttribute(col, 3))
-  const wires = new THREE.LineSegments(wg, track(new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false })))
-  wires.frustumCulled = false
-  group.add(wires)
-  // partículas subindo pelo tronco (sementes de luz)
-  const NP = 500
-  const pp = new Float32Array(NP * 3)
-  const ps = new Float32Array(NP * 2)
-  for (let i = 0; i < NP; i++) { ps[i * 2] = rnd(); ps[i * 2 + 1] = rnd() }
-  const pg = track(new THREE.BufferGeometry())
-  pg.setAttribute('position', new THREE.BufferAttribute(pp, 3))
-  const glowTex = makeGlowTexture()
-  const seedsPts = new THREE.Points(pg, track(new THREE.PointsMaterial({ map: glowTex, color: 0xdff4ff, size: 5, sizeAttenuation: true, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending })))
-  seedsPts.frustumCulled = false
-  group.add(seedsPts)
-  const light = new THREE.PointLight(0xcfe6ff, 2.2, 420, 1.4)
-  light.position.y = crownY - 10
+  trunks.instanceMatrix.needsUpdate = fronds.instanceMatrix.needsUpdate = true
+  trunks.castShadow = fronds.castShadow = true
+  group.add(trunks, fronds)
+  const light = new THREE.PointLight(0xffe4c0, 2.0, 360, 1.4)
+  light.position.y = 24
   group.add(light)
   return {
     group,
     update(t: number) {
-      const a = pg.attributes.position as THREE.BufferAttribute
-      for (let i = 0; i < NP; i++) {
-        const u = (t * 0.06 + ps[i * 2]) % 1
-        const ang = ps[i * 2 + 1] * Math.PI * 2 + t * 0.2
-        const rr = 12 + (1 - u) * 50
-        a.setXYZ(i, Math.cos(ang) * rr * (0.4 + 0.6 * u), 6 + u * (crownY + 30), Math.sin(ang) * rr * (0.4 + 0.6 * u))
+      const a = geo.attributes.position as THREE.BufferAttribute
+      for (let k = 0; k < NJ; k++) {
+        const u = (t * 0.5 + seed[k * 2]) % 1
+        const kind = k % 8 === 0 ? 0 : k % 8 < 4 ? 1 : 2
+        const ang = seed[k * 2 + 1] * Math.PI * 2
+        const rr = kind === 0 ? u * 5 : kind === 1 ? 16 + u * 14 : R - 6 - u * 10
+        const h = kind === 0 ? 62 * Math.sin(u * Math.PI) : kind === 1 ? 24 * Math.sin(u * Math.PI) : 10 * Math.sin(u * Math.PI)
+        a.setXYZ(k, Math.cos(ang) * rr, (kind === 0 ? 16 : kind === 1 ? 8 : 0) + h, Math.sin(ang) * rr)
       }
       a.needsUpdate = true
-      light.intensity = 2.2 * (0.9 + 0.1 * Math.sin(t * 0.8))
-      ;(wires.material as THREE.LineBasicMaterial).opacity = 0.65 + 0.12 * Math.sin(t * 0.5)
+      light.intensity = 2.0 * (0.92 + 0.08 * Math.sin(t * 0.8))
     },
-    dispose() { glowTex.dispose() },
+    dispose() {},
   }
 }

@@ -24,6 +24,7 @@ import { createOrbitLayer, PAD_MAIN } from './orbit-layer'
 import { startFeed, type DogTx, type Snapshot } from './feed'
 import { buildChalet, type Chalet } from './chalet'
 import { buildPrecinct, ANCHORS, type Precinct } from './precinct'
+import { loadPark, PARK_CENTER, type Park } from './park'
 
 // ── framing ────────────────────────────────────────────────────────────────────
 // The default view is the landing hero, from the north-east, high enough that the
@@ -41,6 +42,7 @@ function homeFor(aspect: number): { pos: THREE.Vector3; target: THREE.Vector3 } 
   if (view === 'castle' || view === 'south' || view === 'chalet') return { pos: new THREE.Vector3(-560, 300, 1260), target: new THREE.Vector3(0, 110, 620) }
   if (view === 'north') return { pos: new THREE.Vector3(520, 300, -1240), target: new THREE.Vector3(0, 90, -620) }
   if (view === 'top') return { pos: new THREE.Vector3(60, 2600, 900), target: new THREE.Vector3(0, 0, 100) }
+  if (view === 'park') return { pos: new THREE.Vector3(PARK_CENTER.x - 1800, 900, PARK_CENTER.z - 4200), target: new THREE.Vector3(PARK_CENTER.x, 80, PARK_CENTER.z) }
   if (view === 'spaceport') return { pos: new THREE.Vector3(600, 380, 3700), target: new THREE.Vector3(-140, 60, 3090) }
   if (aspect >= 1) return { pos: HOME_POS.clone(), target: HOME_TARGET.clone() }
   return { pos: new THREE.Vector3(430, 760, -1300), target: new THREE.Vector3(0, 40, 420) }
@@ -102,7 +104,7 @@ export default function PlazaScene() {
     controls.enableDamping = true
     controls.dampingFactor = 0.06
     controls.minDistance = 260
-    controls.maxDistance = 9000
+    controls.maxDistance = 16000
     controls.maxPolarAngle = Math.PI / 2 - 0.04 // never under the ground
     controls.autoRotate = true
     controls.autoRotateSpeed = 0.18
@@ -166,6 +168,7 @@ export default function PlazaScene() {
     const jets: { o: THREE.Object3D; y0: number }[] = []
     let chalet: Chalet | null = null
     let precinct: Precinct | null = null
+    let park: Park | null = null
     const spinners: THREE.Object3D[] = []
     let heightAt: (x: number, z: number) => number = () => 0
 
@@ -262,6 +265,14 @@ export default function PlazaScene() {
         setHud((h) => ({ ...h, loading: 'Planting the garden…' }))
         precinct = buildPrecinct({ heightAt })
         scene.add(precinct.group)
+        setHud((h) => ({ ...h, loading: null }))
+
+        // The Runestone park, 9 km to the south-east (D10), loads after the plaza
+        // is up: it is a horizon until someone flies there, and 1.5 MB of park
+        // should never delay the first frame of the deck.
+        loadPark({ horizonAt: terrain.horizonAt, gltf })
+          .then((p) => { if (disposed) { p.dispose(); return } park = p; scene.add(p.group) })
+          .catch((err) => console.warn('[plaza] park did not load', err))
         setHud((h) => ({ ...h, loading: null }))
       } catch (err) {
         console.error('[plaza]', err)
@@ -394,6 +405,7 @@ export default function PlazaScene() {
       for (const j of jets) j.o.scale.y = j.y0 * (0.88 + 0.12 * Math.sin(t * 1.4))
       chalet?.update(t)
       precinct?.update(t)
+      park?.update(t)
       for (const sp of spinners) sp.rotation.y = t * 0.12
       earth.rotation.y = t * 0.004
       const cl = earth.getObjectByName('Clouds'); if (cl) cl.rotation.y = t * 0.0025
@@ -428,6 +440,7 @@ export default function PlazaScene() {
       orbit.dispose()
       chalet?.dispose()
       precinct?.dispose()
+      park?.dispose()
       draco.dispose()
       pmrem.dispose()
       scene.traverse((o) => {

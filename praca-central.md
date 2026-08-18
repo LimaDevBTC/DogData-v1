@@ -195,14 +195,23 @@ Depois de ver os quatro protótipos: **"Chalé com certeza"**, e um brief maior:
   por jardins, bulevares, fontes, tamareiras (lunares). "Hoje parece um monte de
   coisas soltas." A Kray está de costas para a praça: corrigir. O quarto ponto
   cardeal, cuja âncora ainda não existe, vira **jardim** por enquanto.
-- **D8, o jardim lunar:** "lembra Avatar? aquela flora estonteante": jardim
-  bioluminescente, flora alienígena, caprichado.
+- **D8, o jardim:** primeiro "lembra Avatar? aquela flora estonteante"; construído
+  bioluminescente e **recusado no mesmo dia** ("não curti, muito colorido"). Nova
+  redação: **"um imenso jardim com o que tem de mais belo na Terra mesmo, sem
+  inventar muita moda, como os jardins dos cassinos e palácios"**, contínuo entre
+  os jardins que a Kray e a BitFlow já têm. Feito: gramados e parterres com sebes
+  em arcos concêntricos, alamedas de palmeiras nos bulevares e no anel, árvores
+  de copa, topiaria, bancos, uplights quentes, quatro espelhos d'água com fontes
+  brancas nas diagonais, e uma **grande fonte de palácio** no ponto norte.
 - **D9:** o letreiro da Needle (o anel "MOON • DOG…") **gira**.
 - **D10:** o **Parque Runestone entra em tempo real, na posição correta**. Não há
   posição registrada em documento nenhum (o parque foi desenhado no próprio
-  quadro, 7,2 km de lado); a proposta é pô-lo no horizonte a sudeste da praça,
-  atrás do spaceport, onde a cordilheira de 500 m e os cristais aparecem do
-  enquadramento de abertura. Confirmar com o fundador.
+  quadro, 7,2 km de lado). Feito (`blender/export_park.py` → `public/city/park/`,
+  `app/city/plaza/park.ts`): terreno, 1.009 cristais instanciados em dez
+  variantes, os 111.374 pontos do censo, templo/estrada/pavilhão; **centro a 9,2 km
+  ao sul, no fim do eixo monumental, atrás do spaceport**, girado para a chegada
+  olhar a praça; a cordilheira fecha o horizonte no enquadramento de abertura e
+  `?view=park` leva até lá. Posição a confirmar com o fundador.
 
 **Geometria decidida para o precinto (implementação):** deck (r 300) no centro com a
 Needle; cinturão de jardim de 320 a 440; **bulevar anelar** em r ≈ 450 ligando as
