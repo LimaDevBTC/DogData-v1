@@ -437,7 +437,7 @@ export default function PlazaScene() {
       for (const j of jets) j.o.scale.y = j.y0 * (0.88 + 0.12 * Math.sin(t * 1.4))
       chalet?.update(t)
       precinct?.update(t)
-      park?.update(t)
+      park?.update(t, renderer.domElement.clientHeight / 2)
       for (const sp of spinners) sp.rotation.y = t * 0.12
       earth.rotation.y = t * 0.004
       const cl = earth.getObjectByName('Clouds'); if (cl) cl.rotation.y = t * 0.0025

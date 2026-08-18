@@ -6,6 +6,14 @@
 //   /city/park/scatter.bin     os 111.374 pontos do censo (uma pedra por Runestone
 //                              do airdrop), int16 em quartos de metro
 //   /city/park/temple.glb      o templo Leonidas, a estrada, o pavilhão, os painéis
+//   /city/park/trails.glb      as trilhas W1-W5: decks, narizes de âmbar, fáscias,
+//                              pilares, marcos, lanternas e os visitantes
+//   /city/park/crystal-basecolor.webp + crystal-normal.webp
+//                              as texturas do runestone3d.gltf (a mesma pedra da
+//                              /airdrop), de onde sai a RECEITA DA MARCA BRANCA do
+//                              .blend: pedra negra de obsidiana, arestas que
+//                              faíscam, e o glifo que emite (mais forte quanto
+//                              menor a pedra, para ler em qualquer escala)
 //
 // Onde fica: não havia posição registrada em documento nenhum (o parque foi
 // desenhado no próprio quadro). A proposta implementada, a confirmar com o
@@ -29,9 +37,27 @@ const PARK_HALF = 3600
 
 export interface Park {
   group: THREE.Group
-  update: (t: number) => void
+  update: (t: number, halfHeightPx: number) => void
   dispose: () => void
 }
+
+/** A receita por tier (materiais M_T8..M_T2 do .blend), na ordem das variantes do
+ *  crystals.glb: metálico, rugosidade, tinta escura das faces, força da emissão da
+ *  marca. Os "b" são as pedras foscas. */
+const TIERS: { metal: number; rough: number; dark: [number, number, number]; emit: number }[] = [
+  { metal: 0.35, rough: 0.10, dark: [0.065, 0.065, 0.075], emit: 0.35 }, // M_T8, o Monarca
+  { metal: 0.35, rough: 0.10, dark: [0.065, 0.065, 0.075], emit: 0.60 }, // M_T7, os Maiores
+  { metal: 0.35, rough: 0.11, dark: [0.09, 0.09, 0.105], emit: 0.85 },   // M_T6, os Picos
+  { metal: 0.05, rough: 0.62, dark: [0.24, 0.23, 0.22], emit: 0.85 },    // M_T6b
+  { metal: 0.35, rough: 0.11, dark: [0.09, 0.09, 0.105], emit: 1.10 },   // M_T5, as Grandes
+  { metal: 0.05, rough: 0.62, dark: [0.24, 0.23, 0.22], emit: 1.10 },    // M_T5b
+  { metal: 0.30, rough: 0.13, dark: [0.20, 0.20, 0.22], emit: 1.40 },    // M_T4, as Médias
+  { metal: 0.05, rough: 0.62, dark: [0.30, 0.29, 0.28], emit: 1.40 },    // M_T4b
+  { metal: 0.32, rough: 0.11, dark: [0.20, 0.20, 0.22], emit: 2.20 },    // M_T3, escala humana
+  { metal: 0.32, rough: 0.11, dark: [0.20, 0.20, 0.22], emit: 2.20 },    // M_T2, as de palma
+]
+const TIER_BY_NAME: Record<string, number> = { M_T8: 0, M_T7: 1, M_T6: 2, M_T6b: 3, M_T5: 4, M_T5b: 5, M_T4: 6, M_T4b: 7, M_T3: 8, M_T2: 9 }
+const MARK = new THREE.Color(0.93, 0.91, 0.86)
 
 interface HeightMeta { cols: number; rows: number; cellSizeM: number; minX: number; minY: number; maxX: number; maxY: number; minZ: number; maxZ: number }
 
@@ -53,7 +79,17 @@ export async function loadPark(opts: { horizonAt: (x: number, z: number) => numb
   ])
   const gltf = opts.gltf ?? (() => { const d = new DRACOLoader(); d.setDecoderPath('/draco/'); const g = new GLTFLoader(); g.setDRACOLoader(d); return g })()
   const loadGlb = (url: string) => new Promise<THREE.Group>((res, rej) => gltf.load(url, (g) => res(g.scene), undefined, rej))
-  const [crystals, temple] = await Promise.all([loadGlb('/city/park/crystals.glb'), loadGlb('/city/park/temple.glb')])
+  const texLoader = new THREE.TextureLoader()
+  const loadTex = (url: string, srgb: boolean) => new Promise<THREE.Texture>((res, rej) => texLoader.load(url, (t) => {
+    t.flipY = false // UVs de glTF: origem no canto superior esquerdo
+    if (srgb) t.colorSpace = THREE.SRGBColorSpace
+    t.anisotropy = 4
+    res(t)
+  }, undefined, rej))
+  const [crystals, temple, trails, bcTex, nmTex] = await Promise.all([
+    loadGlb('/city/park/crystals.glb'), loadGlb('/city/park/temple.glb'), loadGlb('/city/park/trails.glb'),
+    loadTex('/city/park/crystal-basecolor.webp', true), loadTex('/city/park/crystal-normal.webp', false),
+  ])
 
   const group = new THREE.Group()
   group.name = 'RunestonePark'
@@ -112,37 +148,38 @@ export async function loadPark(opts: { horizonAt: (x: number, z: number) => numb
   group.add(terrain)
 
   // ── as pedras marcadas: cristais instanciados por variante ────────────────
-  // Cristal: facetas (flatShading), aço-gelo claro com reflexo do ambiente, e no
-  // shader um brilho de borda (Fresnel) azul-frio mais um véu que clareia para a
-  // ponta, o que dá a leitura de pedra translúcida sem o custo de transmission
-  // (que renderiza a cena duas vezes e mataria o celular).
-  const crystalMat = track(new THREE.MeshPhysicalMaterial({
-    color: 0xd7deec, roughness: 0.2, metalness: 0.04, envMapIntensity: 1.25,
-    clearcoat: 0.5, clearcoatRoughness: 0.25,
-    emissive: 0x0b1630, emissiveIntensity: 0.4, flatShading: true,
-  }))
-  crystalMat.onBeforeCompile = (sh) => {
-    sh.uniforms.uTime = { value: 0 }
-    crystalMat.userData.shader = sh
-    sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying float vCrystalH;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvCrystalH = position.y;')
-    sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying float vCrystalH;\nuniform float uTime;')
-      .replace(
-        '#include <emissivemap_fragment>',
-        `#include <emissivemap_fragment>
-        {
-          vec3 vd = normalize(vViewPosition);
-          float rim = pow(1.0 - clamp(dot(vd, normal), 0.0, 1.0), 2.6);
-          // a malha do cristal vai de y = -2.96 (base) a -0.19 (ponta) no local
-          float tip = smoothstep(-2.9, -0.3, vCrystalH);
-          float breath = 0.85 + 0.15 * sin(uTime * 0.7 + vCrystalH * 1.7);
-          totalEmissiveRadiance += vec3(0.42, 0.56, 0.95) * rim * 0.55 * breath;
-          totalEmissiveRadiance += vec3(0.62, 0.70, 0.90) * tip * 0.10;
-        }`,
-      )
-  }
+  // A receita da marca branca, do .blend, em shader: a luminância da textura de
+  // cor separa a pedra (preta, tingida por tier) das arestas e do glifo (claros);
+  // a cor vira mix(textura × tinta, marca) por uma rampa em degraus (0,42..0,72), e
+  // a emissão da marca é outra rampa (0,5..0,8) vezes a força do tier. Metálico
+  // 0,35 e rugosidade 0,1: as faces são espelhos negros que faíscam ao sol.
+  const crystalMats: THREE.MeshStandardMaterial[] = TIERS.map((tier) => {
+    const m = track(new THREE.MeshStandardMaterial({
+      map: bcTex, normalMap: nmTex, normalScale: new THREE.Vector2(1, 1),
+      metalness: tier.metal, roughness: tier.rough, envMapIntensity: 1.1,
+    }))
+    m.onBeforeCompile = (sh) => {
+      sh.uniforms.uDark = { value: new THREE.Color(tier.dark[0], tier.dark[1], tier.dark[2]) }
+      sh.uniforms.uMark = { value: MARK }
+      sh.uniforms.uEmit = { value: tier.emit }
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform vec3 uDark; uniform vec3 uMark; uniform float uEmit; float crystalLum = 0.0;')
+        .replace('#include <map_fragment>', `
+          #ifdef USE_MAP
+            vec4 sampledDiffuseColor = texture2D( map, vMapUv );
+            crystalLum = dot(sampledDiffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+            float crystalMk = floor(clamp((crystalLum - 0.42) / 0.30, 0.0, 1.0) * 4.0 + 0.5) / 4.0;
+            diffuseColor.rgb *= mix(sampledDiffuseColor.rgb * uDark, uMark, crystalMk);
+          #endif`)
+        .replace('#include <emissivemap_fragment>', `
+          #include <emissivemap_fragment>
+          {
+            float crystalMe = floor(clamp((crystalLum - 0.5) / 0.3, 0.0, 1.0) * 4.0 + 0.5) / 4.0;
+            totalEmissiveRadiance += uMark * uEmit * crystalMe;
+          }`)
+    }
+    return m
+  })
   const variantGeo: THREE.BufferGeometry[] = []
   crystals.traverse((o) => {
     const m = o as THREE.Mesh
@@ -170,19 +207,9 @@ export async function loadPark(opts: { horizonAt: (x: number, z: number) => numb
   for (const [v, list] of Array.from(byVariant.entries())) {
     const g = variantGeo[v]
     if (!g) continue
-    const im = new THREE.InstancedMesh(g, crystalMat, list.length)
+    const im = new THREE.InstancedMesh(g, crystalMats[Math.min(v, crystalMats.length - 1)], list.length)
     list.forEach((m, i) => im.setMatrixAt(i, m))
     im.instanceMatrix.needsUpdate = true
-    // tons: do branco-gelo ao azul-lilás pálido, decidido pela posição (estável)
-    const ic = new THREE.Color()
-    list.forEach((m, i) => {
-      const px = m.elements[12], pz = m.elements[14]
-      const h = 0.5 + 0.5 * Math.sin(px * 0.013 + pz * 0.021)
-      ic.setRGB(0.90 + 0.10 * (1 - h), 0.93 + 0.05 * (1 - h), 0.98 + 0.02 * h)
-      if (h > 0.8) ic.setRGB(0.93, 0.90, 1.0) // um lilás raro
-      im.setColorAt(i, ic)
-    })
-    if (im.instanceColor) im.instanceColor.needsUpdate = true
     im.castShadow = true
     im.receiveShadow = true
     im.name = `Crystals_${v}`
@@ -202,45 +229,75 @@ export async function loadPark(opts: { horizonAt: (x: number, z: number) => numb
   }
   const sgeo = track(new THREE.BufferGeometry())
   sgeo.setAttribute('position', new THREE.BufferAttribute(spos, 3))
-  const scatter = new THREE.Points(sgeo, track(new THREE.PointsMaterial({ color: 0x9fb4d8, size: 1.5, sizeAttenuation: true, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending })))
+  // pontos que somem quando o tamanho projetado cai abaixo de um pixel (de longe
+  // 111 mil pontos de 1 px viravam chuvisco; de perto são o cascalho de Runestones)
+  const scatterMat = track(new THREE.ShaderMaterial({
+    uniforms: { uHalfH: { value: 450 }, uColor: { value: new THREE.Color(0x9fb4d8) }, uOpacity: { value: 0.6 } },
+    vertexShader: `
+      uniform float uHalfH;
+      varying float vA;
+      void main() {
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        float ps = 1.6 * uHalfH / max(1.0, -mv.z);
+        vA = clamp((ps - 0.5) / 1.6, 0.0, 1.0);
+        gl_PointSize = clamp(ps, 1.0, 5.0);
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `
+      uniform vec3 uColor; uniform float uOpacity;
+      varying float vA;
+      void main() {
+        float d = length(gl_PointCoord - 0.5);
+        if (d > 0.5 || vA <= 0.001) discard;
+        gl_FragColor = vec4(uColor, uOpacity * vA * (1.0 - d * 1.6));
+      }`,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  }))
+  const scatter = new THREE.Points(sgeo, scatterMat)
   scatter.name = 'Census'
+  scatter.frustumCulled = false
   group.add(scatter)
 
   // ── o templo e o construído ───────────────────────────────────────────────
-  temple.traverse((o) => {
+  const built = new THREE.Group()
+  built.add(temple, trails)
+  built.traverse((o) => {
     const m = o as THREE.Mesh
     if (!m.isMesh) return
     m.castShadow = true
     m.receiveShadow = true
     const mat = m.material as THREE.MeshStandardMaterial
-    if (mat && 'roughness' in mat) { mat.roughness = Math.max(0.35, mat.roughness); if ('envMapIntensity' in mat) mat.envMapIntensity = 0.3 }
+    if (!mat) return
+    const tier = TIER_BY_NAME[mat.name]
+    if (tier !== undefined) { m.material = crystalMats[tier]; return } // torii, lintel: runestones
+    if ('roughness' in mat) { mat.roughness = Math.max(0.35, mat.roughness); if ('envMapIntensity' in mat) mat.envMapIntensity = 0.3 }
+    if (mat.emissive && mat.emissiveIntensity > 0 && (mat.emissive.r > 0.5)) { mat.toneMapped = false; mat.emissiveIntensity = Math.min(mat.emissiveIntensity, 1.6) }
   })
   // cada peça desce ao datum pelo anel LOCAL dela: o anel do horizonte inclina
   // 0,6° ao longo do parque, e um deslocamento único enterraria a estrada numa
   // ponta e a deixaria no ar na outra
   const bb = new THREE.Box3()
   const c = new THREE.Vector3()
-  temple.traverse((o) => {
+  built.traverse((o) => {
     const m = o as THREE.Mesh
     if (!m.isMesh) return
     bb.setFromObject(m)
     bb.getCenter(c)
     m.position.y += groundLocal(c.x, c.z) - parkH(c.x, -c.z)
   })
-  group.add(temple)
+  group.add(built)
 
   // uma luz fria e baixa no templo, e o cristal-monarca com um halo
-  const templeLight = new THREE.PointLight(0xdfe8ff, 1.2, 900, 1.3)
+  const templeLight = new THREE.PointLight(0xffa04d, 1.0, 700, 1.4) // âmbar: a lei do parque, nada frio aceso
   templeLight.position.set(1290, groundLocal(1290, -430) + 40, -430)
   group.add(templeLight)
 
   return {
     group,
-    update(t) {
-      crystalMat.emissiveIntensity = 0.4 + 0.08 * Math.sin(t * 0.6)
-      const sh = crystalMat.userData.shader as { uniforms: { uTime: { value: number } } } | undefined
-      if (sh) sh.uniforms.uTime.value = t
+    update(t, halfHeightPx) {
+      scatterMat.uniforms.uHalfH.value = halfHeightPx
+      void t
     },
-    dispose() { for (const d of disposables) d.dispose(); crystals.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) m.geometry?.dispose() }) },
+    dispose() { for (const d of disposables) d.dispose(); bcTex.dispose(); nmTex.dispose(); crystals.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) m.geometry?.dispose() }) },
   }
 }
