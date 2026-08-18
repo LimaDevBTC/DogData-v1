@@ -21,6 +21,7 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+import { regolithColor } from './terrain'
 
 export const PARK_CENTER = new THREE.Vector3(0, 0, 9200)
 export const PARK_ROT_Y = (5 * Math.PI) / 4
@@ -84,7 +85,7 @@ export async function loadPark(opts: { horizonAt: (x: number, z: number) => numb
     const k = r < 3100 ? 1 : r > PARK_HALF ? 0 : 1 - (r - 3100) / (PARK_HALF - 3100)
     const kk = k * k * (3 - 2 * k)
     const ring = baseAt(lx, lz) - center0
-    return ring + 2 + parkH(bx, by) * kk
+    return ring + 1.5 + parkH(bx, by) * kk
   }
 
   // ── terreno ───────────────────────────────────────────────────────────────
@@ -93,17 +94,15 @@ export async function loadPark(opts: { horizonAt: (x: number, z: number) => numb
   geo.rotateX(-Math.PI / 2)
   const pos = geo.attributes.position as THREE.BufferAttribute
   const col = new Float32Array(pos.count * 3)
-  // mais escuro que o regolito do sítio: a esta distância o anel do horizonte já
-  // escureceu, e um parque claro leria como uma mesa iluminada no meio da noite
-  const base = new THREE.Color('#2a2724')
-  const range = Math.max(1, meta.maxZ - meta.minZ)
+  // a MESMA cor do chão da praça: o parque é o mesmo regolito, só com relevo
+  const tint = new THREE.Color()
   for (let k = 0; k < pos.count; k++) {
     const lx = pos.getX(k), lz = pos.getZ(k)
     const y = groundLocal(lx, lz)
     pos.setY(k, y)
-    const rel = (parkH(lx, -lz) - meta.minZ) / range
-    const sh = 0.55 + rel * 0.75
-    col[k * 3] = base.r * sh; col[k * 3 + 1] = base.g * sh; col[k * 3 + 2] = base.b * sh
+    const w = worldOf(lx, lz)
+    regolithColor(w.x, w.z, parkH(lx, -lz), Math.hypot(w.x, w.z), tint)
+    col[k * 3] = tint.r; col[k * 3 + 1] = tint.g; col[k * 3 + 2] = tint.b
   }
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3))
   geo.computeVertexNormals()

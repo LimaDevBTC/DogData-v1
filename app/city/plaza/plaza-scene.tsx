@@ -42,6 +42,7 @@ function homeFor(aspect: number): { pos: THREE.Vector3; target: THREE.Vector3 } 
   if (view === 'castle' || view === 'south' || view === 'chalet') return { pos: new THREE.Vector3(-560, 300, 1260), target: new THREE.Vector3(0, 110, 620) }
   if (view === 'north') return { pos: new THREE.Vector3(520, 300, -1240), target: new THREE.Vector3(0, 90, -620) }
   if (view === 'top') return { pos: new THREE.Vector3(60, 2600, 900), target: new THREE.Vector3(0, 0, 100) }
+  if (view === 'far') return { pos: new THREE.Vector3(1200, 2600, 12500), target: new THREE.Vector3(0, 0, 2000) }
   if (view === 'park') return { pos: new THREE.Vector3(PARK_CENTER.x - 1800, 900, PARK_CENTER.z - 4200), target: new THREE.Vector3(PARK_CENTER.x, 80, PARK_CENTER.z) }
   if (view === 'spaceport') return { pos: new THREE.Vector3(600, 380, 3700), target: new THREE.Vector3(-140, 60, 3090) }
   if (aspect >= 1) return { pos: HOME_POS.clone(), target: HOME_TARGET.clone() }
@@ -83,7 +84,9 @@ export default function PlazaScene() {
     let disposed = false
 
     // ── renderer ────────────────────────────────────────────────────────────
-    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
+    // Log depth: a cena vai do deck (2 m) ao parque (9 km) e ao horizonte (60 km);
+    // sem ele, duas superfícies quase coplanares a 9 km brigam no z-buffer.
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', logarithmicDepthBuffer: true })
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     renderer.setSize(mount.clientWidth, mount.clientHeight)
     renderer.outputColorSpace = THREE.SRGBColorSpace
