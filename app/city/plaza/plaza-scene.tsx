@@ -26,7 +26,7 @@ import { buildChalet, type Chalet } from './chalet'
 import { buildPrecinct, ANCHORS, type Precinct } from './precinct'
 import { loadPark, PARK_CENTER, type Park } from './park'
 import { buildMonuments, type Monuments } from './monuments'
-import { onDiagonal, GENESIS_POS, SATOSHI_POOL, PAW_PALM, ORDINAL_CENTER } from './garden-plan'
+import { onDiagonal, GENESIS_POS, SATOSHI_POOL, PAW_PALM, ORDINAL_CENTER, LEONIDAS_POS } from './garden-plan'
 import { buildFoundersWalk, type FoundersWalk, type FoundersData } from './founders-walk'
 
 // ── framing ────────────────────────────────────────────────────────────────────
@@ -50,6 +50,7 @@ export const PLACES: ReadonlyArray<{ key: string; label: string; hint: string }>
   { key: 'genesis', label: 'The Genesis Block', hint: 'end of the whitepaper walk' },
   { key: 'satoshi', label: "Satoshi's Mirror", hint: 'north-west pool' },
   { key: 'paw', label: 'The Diamond Paw', hint: '$DOG, south-east' },
+  { key: 'leonidas', label: 'Leonidas', hint: 'founder of DOG, behind the paw' },
   { key: 'ordinal', label: 'Ordinal Garden', hint: 'runestones, south-west' },
   { key: 'chalet', label: 'OrdCards Chalet', hint: 'south anchor' },
   { key: 'kray', label: 'Kray Tower', hint: 'east anchor' },
@@ -72,6 +73,8 @@ function viewFor(name: string | null, aspect: number): View {
     case 'genesis': { const [x, z] = onDiagonal('NE', 838, 9); return { pos: new THREE.Vector3(x, 6, z), target: new THREE.Vector3(GENESIS_POS[0], 4.5, GENESIS_POS[1]) } }
     case 'satoshi': { const [x, z] = onDiagonal('NW', 492, 3); return { pos: new THREE.Vector3(x, 6, z), target: new THREE.Vector3(SATOSHI_POOL[0], 9, SATOSHI_POOL[1]) } }
     case 'paw': { const [x, z] = onDiagonal('SE', 430, -30); return { pos: new THREE.Vector3(x, 95, z), target: new THREE.Vector3(PAW_PALM[0], 0, PAW_PALM[1]) } }
+    case 'leonidas': { const [x, z] = onDiagonal('SE', 700, 5); return { pos: new THREE.Vector3(x, 4, z), target: new THREE.Vector3(LEONIDAS_POS[0], 8, LEONIDAS_POS[1]) } }
+    case 'satoshiside': { const [x, z] = onDiagonal('NW', 560, 62); return { pos: new THREE.Vector3(x, 8, z), target: new THREE.Vector3(SATOSHI_POOL[0], 6, SATOSHI_POOL[1]) } }
     case 'ordinal': { const [x, z] = onDiagonal('SW', 606, 6); return { pos: new THREE.Vector3(x, 5.5, z), target: new THREE.Vector3(ORDINAL_CENTER[0], 6, ORDINAL_CENTER[1]) } }
     case 'kray':
       return { pos: new THREE.Vector3(300, 140, 420), target: new THREE.Vector3(620, 90, 0) }

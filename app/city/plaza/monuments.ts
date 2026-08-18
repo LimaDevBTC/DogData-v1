@@ -17,10 +17,11 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import {
-  STELAE, GENESIS_POS, SATOSHI_POOL, PAW_PALM, PAW_TOES, PAW_TOE_R, PAW_PLAQUE,
+  STELAE, GENESIS_POS, SATOSHI_POOL, PAW_PALM, PAW_TOES, PAW_TOE_R, PAW_PLAQUE, LEONIDAS_POS, LEONIDAS_PLINTH_R,
   ORDINAL_CENTER, ORDINAL_RING_R, ORDINAL_STONES, ORDINAL_PLAQUES, QUADRANT_ANGLE, POOL_R,
 } from './garden-plan'
 import { TIERS, crystalMaterialFor, loadCrystalTextures } from './park'
+import { buildSatoshiLugano, buildLeonidas } from './statues'
 
 const WARM = new THREE.Color('#FFB35C')
 
@@ -282,45 +283,22 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
     // a figura olha para o deck: para dentro, ao longo da diagonal
     g.rotation.y = Math.atan2(-sx, -sz)
     // plinto no meio da água: baixo, largo, latão na aresta
-    const plinth = new THREE.Mesh(track(new THREE.CylinderGeometry(6.4, 7, 1.4, 48)), graniteMat)
+    const plinth = new THREE.Mesh(track(new THREE.CylinderGeometry(9, 9.6, 1.4, 48)), graniteMat)
     plinth.position.y = 0.95
     plinth.castShadow = plinth.receiveShadow = true
     g.add(plinth)
-    const rim = new THREE.Mesh(track(new THREE.TorusGeometry(6.45, 0.08, 8, 96)), brassMat)
+    const rim = new THREE.Mesh(track(new THREE.TorusGeometry(9.05, 0.08, 8, 96)), brassMat)
     rim.rotation.x = Math.PI / 2
     rim.position.y = 1.66
     g.add(rim)
-    // o corpo de capuz: uma revolução; ombros, peito, e o capuz que fecha na ponta
-    const H = 11
-    const profile = [
-      [0, 0], [2.6, 0], [2.7, 0.06], [2.55, 0.25], [2.35, 0.42], [2.2, 0.55], [2.05, 0.66], // o manto cai até o chão e afunila
-      [1.75, 0.72], [1.55, 0.755], [1.35, 0.775], // ombros
-      [1.2, 0.79], [1.28, 0.83], [1.32, 0.88], [1.15, 0.94], [0.7, 0.985], [0, 1], // o capuz
-    ].map(([r, y]) => new THREE.Vector2(r, y * H))
-    const bodyGeo = track(new THREE.LatheGeometry(profile, 40))
-    const body = new THREE.Mesh(bodyGeo, bronzeMat)
-    body.position.y = 1.65
-    body.castShadow = body.receiveShadow = true
-    g.add(body)
-    // as mangas: dois braços cruzados sob o peito, como quem espera
-    const armGeo = track(new THREE.CapsuleGeometry(0.42, 2.4, 6, 12))
-    for (const sgn of [-1, 1]) {
-      const arm = new THREE.Mesh(armGeo, bronzeMat)
-      arm.position.set(sgn * 0.7, 1.65 + H * 0.58, 1.55)
-      arm.rotation.set(0, 0, sgn * 1.25)
-      arm.castShadow = true
-      g.add(arm)
-    }
-    // o rosto: um espelho oval no fundo do capuz. Não há feições: quem olha se vê.
-    const face = new THREE.Mesh(track(new THREE.SphereGeometry(1, 32, 24)), mirrorMat)
-    face.scale.set(0.95, 1.25, 0.32)
-    face.position.set(0, 1.65 + H * 0.87, 1.06)
-    g.add(face)
-    // a sombra do capuz em volta do espelho: um anel de bronze escuro
-    const hoodRim = new THREE.Mesh(track(new THREE.TorusGeometry(1.12, 0.14, 10, 40)), track(new THREE.MeshStandardMaterial({ color: 0x120c08, roughness: 0.6, metalness: 0.8 })))
-    hoodRim.scale.set(1, 1.28, 1)
-    hoodRim.position.set(0, 1.65 + H * 0.87, 1.02)
-    g.add(hoodRim)
+    // A figura, à maneira de Lugano (statues.ts): sentada de capuz com o laptop,
+    // em lâminas de aço sagitais. De frente, para quem chega do deck pela
+    // alameda, quase some; de lado aparece inteira. Escala 5: 7 m sentada.
+    const satoshi = buildSatoshiLugano()
+    disposables.push(satoshi)
+    satoshi.group.scale.setScalar(7.5) // 10,8 m sentada, do plinto à ponta do capuz
+    satoshi.group.position.y = 1.65
+    g.add(satoshi.group)
     // a inscrição no plinto, do lado do deck
     const insc = new THREE.Mesh(track(new THREE.PlaneGeometry(6, 1.0)), track(new THREE.MeshBasicMaterial({
       map: track(textTexture({ w: 1024, h: 170, bg: '#121317', lines: [
@@ -328,7 +306,7 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
         { text: 'the face is a mirror · look, and you are here', size: 30, color: '#a89b80', y: 126 },
       ] })), toneMapped: false,
     })))
-    insc.position.set(0, 0.95, 6.9)
+    insc.position.set(0, 0.95, 9.5)
     g.add(insc)
     group.add(g)
     // luz: dois focos frontais rasantes de fora da água, e um halo frio no espelho
@@ -382,6 +360,55 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
     p.position.set(qx, yAt(qx, qz), qz)
     p.rotation.y = faceAxisYaw(QUADRANT_ANGLE.SE, 12)
     group.add(p)
+  }
+
+  // ═══ SE · Leonidas, o fundador do DOG ═════════════════════════════════════
+  // No eixo da diagonal, atrás dos dedos da pata, olhando para o deck por cima
+  // da pata: quem chega do Anel vê a pata e, ao fundo, a figura de capa negra e
+  // caveira amarela. Plinto de granito, passeio em volta (a alameda contorna).
+  {
+    const [lx, lz] = LEONIDAS_POS
+    const ly = yAt(lx, lz)
+    const g = new THREE.Group()
+    g.position.set(lx, ly, lz)
+    g.rotation.y = Math.atan2(-lx, -lz) // +z local → o deck
+    const plinth = new THREE.Mesh(track(new THREE.CylinderGeometry(LEONIDAS_PLINTH_R * 0.62, LEONIDAS_PLINTH_R * 0.7, 2.2, 48)), graniteMat)
+    plinth.position.y = 1.1
+    plinth.castShadow = plinth.receiveShadow = true
+    g.add(plinth)
+    const step = new THREE.Mesh(track(new THREE.CylinderGeometry(LEONIDAS_PLINTH_R, LEONIDAS_PLINTH_R + 0.4, 0.5, 48)), graniteMat)
+    step.position.y = 0.25
+    step.receiveShadow = true
+    g.add(step)
+    const leo = buildLeonidas()
+    disposables.push(leo)
+    leo.group.scale.setScalar(4.6) // 11 m
+    leo.group.position.y = 2.2
+    g.add(leo.group)
+    // a inscrição no plinto, do lado do deck
+    const insc = new THREE.Mesh(track(new THREE.PlaneGeometry(7, 1.2)), track(new THREE.MeshBasicMaterial({
+      map: track(textTexture({ w: 1024, h: 176, bg: '#121317', lines: [
+        { text: 'LEONIDAS', size: 66, font: '700', color: '#e8b62b', y: 64, letterSpacing: 14 },
+        { text: 'founder of DOG • GO • TO • THE • MOON', size: 30, color: '#c9bfae', y: 130 },
+      ] })), toneMapped: false,
+    })))
+    insc.position.set(0, 1.25, LEONIDAS_PLINTH_R * 0.66)
+    g.add(insc)
+    group.add(g)
+    // o passeio em volta do plinto, onde a alameda contorna
+    const walk = new THREE.Mesh(track(new THREE.RingGeometry(LEONIDAS_PLINTH_R + 0.5, LEONIDAS_PLINTH_R + 7, 64)), track(new THREE.MeshStandardMaterial({ color: 0x17181d, roughness: 0.75, metalness: 0.15 })))
+    walk.rotation.x = -Math.PI / 2
+    walk.position.set(lx, ly + 0.35, lz)
+    walk.receiveShadow = true
+    group.add(walk)
+    // dois focos rasantes vindos da frente, quentes: a caveira acende
+    const ax = -lx / Math.hypot(lx, lz), az = -lz / Math.hypot(lx, lz)
+    for (const sgn of [-1, 1]) {
+      const px = -az * sgn, pz = ax * sgn
+      const fx = lx + ax * 12 + px * 7, fz = lz + az * 12 + pz * 7
+      uplight(fx, fz, 0.9)
+      addLight(fx, ly + 3, fz, 3.0, 60, 0xfff0dc)
+    }
   }
 
   // ═══ SW · O Jardim Ordinal ════════════════════════════════════════════════

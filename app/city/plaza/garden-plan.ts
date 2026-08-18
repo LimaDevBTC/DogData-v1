@@ -77,6 +77,9 @@ export const PAW_TOES: [number, number][] = (() => {
   return ([[-0.66, 80], [-0.23, 92], [0.23, 92], [0.66, 80]] as const).map(([da, r]) => [cx + Math.cos(a0 + da) * r, cz + Math.sin(a0 + da) * r] as [number, number])
 })()
 export const PAW_PLAQUE = onDiagonal('SE', 498, 12)
+/** Leonidas, o fundador do DOG: no eixo da diagonal, atrás dos dedos da pata, de frente para o deck */
+export const LEONIDAS_POS = onDiagonal('SE', 730)
+export const LEONIDAS_PLINTH_R = 8
 /** árvores de flor branca em arco atrás dos dedos, dos dois lados da alameda */
 export const PAW_BLOSSOMS: [number, number][] = (() => {
   const [cx, cz] = PAW_PALM
@@ -124,6 +127,7 @@ export const RESERVED: [number, number, number][] = [
   ...SATOSHI_BENCHES.map(([x, z]) => [x, z, 5] as [number, number, number]),
   ...PAW_TOES.map(([x, z]) => [x, z, PAW_TOE_R + 8] as [number, number, number]),
   [PAW_PLAQUE[0], PAW_PLAQUE[1], 6],
+  [LEONIDAS_POS[0], LEONIDAS_POS[1], LEONIDAS_PLINTH_R + 10],
   ...PAW_BLOSSOMS.map(([x, z]) => [x, z, 5] as [number, number, number]),
   [ORDINAL_CENTER[0], ORDINAL_CENTER[1], ORDINAL_RING_R + 14],
   ...ORDINAL_PLAQUES.map(([x, z]) => [x, z, 5] as [number, number, number]),
