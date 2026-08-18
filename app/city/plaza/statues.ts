@@ -232,7 +232,10 @@ export function buildSatoshiLugano(opts: { pitch?: number; thick?: number; grid?
  *  M_Suit, M_Trim, M_Glow). Escala real: 1,7 m + capuz; quem coloca escala. */
 const HEAD_Y = 1.566
 const HEAD_Z = 0.095
-export function buildLeonidas(skull: THREE.Object3D, body: THREE.Object3D): Statue {
+export function buildLeonidas(skull: THREE.Object3D, body: THREE.Object3D, worldScale = 1): Statue {
+  // as luzes: `distance` e `intensity` do PointLight são em unidades de MUNDO,
+  // não escalam com o grupo; quem coloca a estátua passa a escala
+  const S = worldScale
   const group = new THREE.Group()
   const disposables: { dispose: () => void }[] = []
   const track = <T extends { dispose: () => void }>(o: T): T => { disposables.push(o); return o }
@@ -276,15 +279,15 @@ export function buildLeonidas(skull: THREE.Object3D, body: THREE.Object3D): Stat
     const eye = new THREE.Mesh(track(new THREE.SphereGeometry(0.011, 12, 10)), track(new THREE.MeshBasicMaterial({ color: 0xff2612, toneMapped: false })))
     eye.position.set(s * 0.033, HEAD_Y + 0.014, HEAD_Z + 0.058)
     group.add(eye)
-    const l = new THREE.PointLight(0xff2a1a, 0.6, 1.4, 2)
+    const l = new THREE.PointLight(0xff2a1a, 0.12 * S * S, 0.9 * S, 2)
     l.position.set(s * 0.04, HEAD_Y + 0.02, HEAD_Z + 0.12)
     group.add(l)
   }
-  const core = new THREE.PointLight(0xF7931A, 0.35, 1.2, 2)
+  const core = new THREE.PointLight(0xF7931A, 0.08 * S * S, 1.2 * S, 2)
   core.position.set(0, 1.3, 0.24)
   group.add(core)
-  // uma luz quente e fraca sob o capuz: a caveira amarela lê na sombra
-  const face = new THREE.PointLight(0xffd27a, 1.1, 1.1, 2)
+  // uma luz quente sob o capuz: a caveira amarela lê na sombra
+  const face = new THREE.PointLight(0xffd27a, 0.16 * S * S, 1.4 * S, 2)
   face.position.set(0, HEAD_Y - 0.04, HEAD_Z + 0.2)
   group.add(face)
   return { group, height: 2.05, dispose() { for (const d of disposables) d.dispose() } }

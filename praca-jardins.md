@@ -127,3 +127,12 @@ Blender entra quando uma peça pedir mais do que a geometria procedural dá
   (tecido com sheen, traje escuro, cinto de ouro escuro, fivela e núcleo
   acesos), a caveira real no lugar da cabeça, brasas vermelhas e uma luz quente
   fraca sob o capuz. A armadura de primitivas saiu.
+- 2026-08-18 (noite, 5): "não parece uma caveira, os membros parecem cilindros,
+  precisamos de um modelo real pro Blender". Modelo real encontrado e usado: o
+  **Human Base Meshes Bundle da Blender Studio** (CC0, download.blender.org):
+  `GEO-body_male_realistic` (10,5 mil vértices, mãos e pés de verdade), sem a
+  cabeça; o pano é simulado sobre ELE (colisão), com um crânio de colisão no
+  lugar da cabeça para o capuz assentar; botas; luzes da estátua agora escalam
+  com o grupo (distance/intensity são de mundo: antes valiam 1 m e não
+  iluminavam nada). O bundle traz também `Skull - Realistic` (11,7 mil vértices,
+  sem textura) como alternativa à caveira texturizada do OpenGameArt.
