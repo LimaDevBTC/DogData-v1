@@ -223,9 +223,47 @@ lugar da quarta âncora; jardim lunar preenchendo os quatro setores até r ≈ 9
 depois regolito. Fora: a massa do anel comercial e o monotrilho da cena da
 landing (o "solto").
 
+## 4.3 Polimento AAA+, 2026-08-18 (tarde): foguete, jardim, parque, chalé
+
+Brief do fundador depois de ver de cima: "veja como de cima o raio do parque está
+estranho, parece faltando pedaços"; "agora é evoluir tudo pro nível dos prédios
+AAA+, até o próprio foguete, hoje é uma pílula, precisa ser estilo igual ao SpaceX
+do Elon Musk mas escrito '$DOG'"; "dar sequência às melhorias do parque Runestone".
+
+- **Foguete (`orbit-layer.ts`):** perfil Starship por revolução (9 m de diâmetro
+  para 50 de altura), flaps trapezoidais, três motores, pintura em canvas: aço,
+  chapas, escudo térmico preto em meia circunferência centrado na barriga (u = 0;
+  em voo olha o chão, no pouso olha o sul), **"$DOG" em laranja ao longo do eixo
+  nos dois lados** (o aspecto ao longo do eixo corrigido por 0,224, senão vira
+  faixa), "DOGCITY" na base, anel laranja na saia. Voa de nariz, vira para a
+  vertical no último trecho e **pousa e fica em pé**; a emissão segue a pintura,
+  então o "$DOG" lê na sombra. `?view=pad` e `?view=padclose` mostram o pátio.
+- **Jardim (`precinct.ts`, `terrain.ts`):** borda em **r = 900** com passeio
+  perimetral, muralha baixa de pedra com capa, linha de meio-fio de luz e 96
+  postes; o platô do terreno vai plano até 960 (mistura até 1300); **quatro
+  alamedas diagonais** do anel à muralha passando pelos espelhos d'água e um
+  **passeio-anel em r 745** interrompido nos sítios das âncoras: de cima o jardim
+  agora é o desenho de um parterre de palácio.
+- **Parque Runestone (`park.ts`):** as pedras eram gesso branco; a landing (os 150
+  quadros da tour) mostra **obsidiana negra com a marca branca acesa e arestas que
+  faíscam**. Recuperada a receita do .blend (materiais M_T8..M_T2): as duas
+  texturas do runestone3d.gltf (`crystal-basecolor.webp` + `crystal-normal.webp`),
+  a luminância separa pedra, aresta e glifo, a marca emite mais forte quanto menor
+  a pedra (0,35 no Monarca, 2,2 nas de palma). Exportadas as **trilhas** que o
+  primeiro export pulou (`blender/export_park_trails.py` → `trails.glb`, 0,6 MB:
+  decks W1-W5, narizes de âmbar, fáscias, pilares, marcos, lanternas, visitantes;
+  o corrimão de 248 mil vértices fica de fora). O censo de 111 mil pontos ganhou um
+  shader que os apaga abaixo de um pixel projetado (de longe era chuvisco).
+  **A caixa de sombra do sol agora segue o alvo da câmera** (encaixada em texel,
+  cresce com a distância) e o parque a 9 km tem sombras reais.
+- **Chalé (`chalet.ts`):** lajes escuras com fita de luz quente na borda e
+  guarda-corpo de vidro, caibros de aço por dentro das duas águas, escadaria
+  monumental em três terraços de pedra até o pórtico, do lado da praça.
+
 ## 5. Em aberto
 
 | # | Pergunta | Quem |
 |---|---|---|
 | P4 | Painel na Lunar Spire ou placa própria no spaceport? | design, decide na cena |
 | P5 | Quais cartas do Gênesis entram no castelo: o pool inteiro do adversário da carreira ou uma seleção curada? | fundador, sem pressa |
+| P6 | Posição do Parque Runestone: 9,2 km ao sul, no eixo, atrás do spaceport (implementado). Confirmar ou mover. | fundador |
