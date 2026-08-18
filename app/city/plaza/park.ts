@@ -178,8 +178,13 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
         .replace('#include <emissivemap_fragment>', `
           #include <emissivemap_fragment>
           {
-            float crystalMe = floor(clamp((crystalLum - 0.5) / 0.3, 0.0, 1.0) * 4.0 + 0.5) / 4.0;
-            totalEmissiveRadiance += uMark * uEmit * crystalMe;
+            // rampa suave, não em degraus: de longe os mips fundem o traço branco
+            // do glifo com o preto em volta e a luminância cai para 0,1..0,3; com
+            // a rampa em degraus (0,5..0,8) o glifo simplesmente sumia a 1 km, e o
+            // fundador viu o parque sem marca nenhuma no celular. Assim ele vira
+            // um brilho proporcional, como um bloom, e continua lendo de longe.
+            float crystalMe = smoothstep(0.06, 0.55, crystalLum);
+            totalEmissiveRadiance += uMark * uEmit * 1.4 * crystalMe;
           }`)
     }
     return m

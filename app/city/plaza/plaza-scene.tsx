@@ -36,22 +36,55 @@ const HOME_POS = new THREE.Vector3(560, 640, -1480)
 const HOME_TARGET = new THREE.Vector3(0, 100, 480)
 // A phone in portrait sees a narrow slice: pull in closer and look a little
 // lower so the deck and the towers fill the width instead of floating mid-frame.
-function homeFor(aspect: number): { pos: THREE.Vector3; target: THREE.Vector3 } {
-  // ?view=castle | spaceport: bookmarks for the two other set pieces
-  const view = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : null
-  if (view === 'castle' || view === 'south' || view === 'chalet') return { pos: new THREE.Vector3(-560, 300, 1260), target: new THREE.Vector3(0, 110, 620) }
-  if (view === 'north') return { pos: new THREE.Vector3(520, 300, -1240), target: new THREE.Vector3(0, 90, -620) }
-  if (view === 'top') return { pos: new THREE.Vector3(60, 2600, 900), target: new THREE.Vector3(0, 0, 100) }
-  // the park's own hero, "The Gate Reveal": from the Gate crest, south-west of the
-  // Monarch, looking up the Vale of the Mark (park frame (−2210, −1748) → three (−2210, +1748))
-  if (view === 'parkclose') return { pos: new THREE.Vector3(PARK_CENTER.x - 1250, 40, PARK_CENTER.z + 1050), target: new THREE.Vector3(PARK_CENTER.x, 150, PARK_CENTER.z) }
-  if (view === 'padclose') return { pos: new THREE.Vector3(PAD_MAIN.x + 40, PAD_MAIN.y + 40, PAD_MAIN.z - 150), target: new THREE.Vector3(PAD_MAIN.x - 20, PAD_MAIN.y + 24, PAD_MAIN.z + 20) }
-  if (view === 'pad') return { pos: new THREE.Vector3(PAD_MAIN.x + 150, 90, PAD_MAIN.z + 190), target: new THREE.Vector3(PAD_MAIN.x - 60, 40, PAD_MAIN.z + 60) }
-  if (view === 'far') return { pos: new THREE.Vector3(-2600, 2800, 4200), target: new THREE.Vector3(1800, 0, -1900) }
-  if (view === 'park') return { pos: new THREE.Vector3(PARK_CENTER.x - 2210, 30, PARK_CENTER.z + 1748), target: new THREE.Vector3(PARK_CENTER.x, 120, PARK_CENTER.z) }
-  if (view === 'spaceport') return { pos: new THREE.Vector3(600, 380, 3700), target: new THREE.Vector3(-140, 60, 3090) }
+type View = { pos: THREE.Vector3; target: THREE.Vector3 }
+/** Os lugares: cada um é um enquadramento (câmera, alvo). O menu "Places" voa
+ *  para eles e `?view=<nome>` abre neles. */
+export const PLACES: ReadonlyArray<{ key: string; label: string; hint: string }> = [
+  { key: 'home', label: 'Satoshi Plaza', hint: 'the whole precinct' },
+  { key: 'deck', label: 'The deck', hint: 'the Needle, up close' },
+  { key: 'founders', label: "Founders' Walk", hint: 'the donors, north boulevard' },
+  { key: 'chalet', label: 'OrdCards Chalet', hint: 'south anchor' },
+  { key: 'kray', label: 'Kray Tower', hint: 'east anchor' },
+  { key: 'bitflow', label: 'BitFlow HQ', hint: 'west anchor' },
+  { key: 'pad', label: 'Spaceport', hint: 'where the ships land' },
+  { key: 'park', label: 'Runestone Park', hint: 'the Gate, 5 km north-east' },
+  { key: 'top', label: 'From above', hint: 'the plan' },
+]
+function viewFor(name: string | null, aspect: number): View {
+  switch (name) {
+    case 'castle': case 'south': case 'chalet':
+      return { pos: new THREE.Vector3(-560, 300, 1260), target: new THREE.Vector3(0, 110, 620) }
+    case 'north': case 'founders':
+      return { pos: new THREE.Vector3(160, 120, -140), target: new THREE.Vector3(0, 10, -520) }
+    case 'deck':
+      return { pos: new THREE.Vector3(-260, 120, 380), target: new THREE.Vector3(0, 60, 0) }
+    case 'kray':
+      return { pos: new THREE.Vector3(300, 140, 420), target: new THREE.Vector3(620, 90, 0) }
+    case 'bitflow':
+      return { pos: new THREE.Vector3(-300, 140, 420), target: new THREE.Vector3(-620, 90, 0) }
+    case 'top':
+      return { pos: new THREE.Vector3(60, 2600, 900), target: new THREE.Vector3(0, 0, 100) }
+    // the park's own hero, "The Gate Reveal": from the Gate crest, south-west of the
+    // Monarch, looking up the Vale of the Mark (park frame (−2210, −1748) → three (−2210, +1748))
+    case 'parkclose':
+      return { pos: new THREE.Vector3(PARK_CENTER.x - 1250, 40, PARK_CENTER.z + 1050), target: new THREE.Vector3(PARK_CENTER.x, 150, PARK_CENTER.z) }
+    case 'padclose':
+      return { pos: new THREE.Vector3(PAD_MAIN.x + 40, PAD_MAIN.y + 40, PAD_MAIN.z - 150), target: new THREE.Vector3(PAD_MAIN.x - 20, PAD_MAIN.y + 24, PAD_MAIN.z + 20) }
+    case 'pad':
+      return { pos: new THREE.Vector3(PAD_MAIN.x + 150, 90, PAD_MAIN.z + 190), target: new THREE.Vector3(PAD_MAIN.x - 60, 40, PAD_MAIN.z + 60) }
+    case 'far':
+      return { pos: new THREE.Vector3(-2600, 2800, 4200), target: new THREE.Vector3(1800, 0, -1900) }
+    case 'park':
+      return { pos: new THREE.Vector3(PARK_CENTER.x - 2210, 30, PARK_CENTER.z + 1748), target: new THREE.Vector3(PARK_CENTER.x, 120, PARK_CENTER.z) }
+    case 'spaceport':
+      return { pos: new THREE.Vector3(600, 380, 3700), target: new THREE.Vector3(-140, 60, 3090) }
+  }
   if (aspect >= 1) return { pos: HOME_POS.clone(), target: HOME_TARGET.clone() }
   return { pos: new THREE.Vector3(430, 760, -1300), target: new THREE.Vector3(0, 40, 420) }
+}
+function homeFor(aspect: number): View {
+  const view = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : null
+  return viewFor(view, aspect)
 }
 
 const fmtInt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
@@ -74,12 +107,13 @@ interface HudState {
 
 export default function PlazaScene() {
   const mountRef = useRef<HTMLDivElement>(null)
-  const apiRef = useRef<{ follow: (txid: string) => Promise<void>; home: () => void } | null>(null)
+  const apiRef = useRef<{ follow: (txid: string) => Promise<void>; home: () => void; flyTo: (name: string) => void } | null>(null)
   const [hud, setHud] = useState<HudState>({
     loading: 'Loading the plaza…', error: null, snapshot: null, stale: null,
     orbit: 0, parked: 0, picked: null, followed: null, followNote: null,
   })
   const [followInput, setFollowInput] = useState('')
+  const [placesOpen, setPlacesOpen] = useState(false)
   // Phones start with the board folded to its one-line summary; the scene is the point.
   const [boardOpen, setBoardOpen] = useState(() => typeof window === 'undefined' || window.innerWidth >= 640)
   // ?plate=1: só a cena, sem HUD (para fotografar as chapas da landing)
@@ -105,16 +139,20 @@ export default function PlazaScene() {
 
     const scene = new THREE.Scene()
     scene.background = new THREE.Color(0x000000)
-    const camera = new THREE.PerspectiveCamera(42, mount.clientWidth / mount.clientHeight, 2, 200000)
+    const camera = new THREE.PerspectiveCamera(42, mount.clientWidth / mount.clientHeight, 0.5, 200000)
     const home = homeFor(camera.aspect)
     camera.position.copy(home.pos)
 
+    let groundAt: (x: number, z: number) => number = () => 0
     const controls = new OrbitControls(camera, renderer.domElement)
     controls.target.copy(home.target)
     controls.enableDamping = true
     controls.dampingFactor = 0.06
-    controls.minDistance = 260
+    // até 3 m do alvo: uma estátua, uma placa, um glifo têm de caber na tela
+    // (era 260, e por isso nada pequeno se aproximava); o chão é respeitado no loop
+    controls.minDistance = 3
     controls.maxDistance = 16000
+    controls.zoomSpeed = 1.1
     controls.maxPolarAngle = Math.PI / 2 - 0.04 // never under the ground
     controls.autoRotate = true
     controls.autoRotateSpeed = 0.18
@@ -216,6 +254,7 @@ export default function PlazaScene() {
         const terrain = await loadTerrain()
         if (disposed) return
         heightAt = terrain.heightAt
+        groundAt = terrain.heightAt
         scene.add(terrain.group)
 
         setHud((h) => ({ ...h, loading: 'Raising the plaza…' }))
@@ -379,6 +418,8 @@ export default function PlazaScene() {
     const ndc = new THREE.Vector2()
     let downAt = 0
     let downXY = [0, 0]
+    let lastTapAt = 0
+    let lastTapXY = [0, 0]
     const onDown = (e: PointerEvent) => { downAt = performance.now(); downXY = [e.clientX, e.clientY] }
     const onUp = (e: PointerEvent) => {
       if (performance.now() - downAt > 350) return
@@ -386,13 +427,48 @@ export default function PlazaScene() {
       const r = renderer.domElement.getBoundingClientRect()
       ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
       ray.setFromCamera(ndc, camera)
+      const now = performance.now()
+      const isDouble = now - lastTapAt < 380 && Math.hypot(e.clientX - lastTapXY[0], e.clientY - lastTapXY[1]) < 24
+      lastTapAt = now; lastTapXY = [e.clientX, e.clientY]
+      if (isDouble) {
+        // o que houver sob o dedo: malhas só (pontos e sprites não contam)
+        ray.params.Points = { threshold: 0 }
+        const hits = ray.intersectObjects(scene.children, true).filter((h) => (h.object as THREE.Mesh).isMesh && !(h.object as THREE.Sprite).isSprite)
+        if (hits.length) focusAt(hits[0].point)
+        return
+      }
       const tx = orbit.pick(ray)
       setHud((h) => ({ ...h, picked: tx }))
     }
     renderer.domElement.addEventListener('pointerdown', onDown)
     renderer.domElement.addEventListener('pointerup', onUp)
 
+    // ── voar: um tween curto de (câmera, alvo) para (câmera, alvo) ─────────
+    const fly = { on: false, t0: 0, dur: 1.2, p0: new THREE.Vector3(), t0v: new THREE.Vector3(), p1: new THREE.Vector3(), t1: new THREE.Vector3() }
+    const flyTo = (v: View, dur = 1.4) => {
+      fly.p0.copy(camera.position); fly.t0v.copy(controls.target)
+      fly.p1.copy(v.pos); fly.t1.copy(v.target)
+      fly.t0 = performance.now(); fly.dur = dur; fly.on = true
+      controls.autoRotate = false
+      lastInteraction = performance.now()
+    }
+    // duplo toque em qualquer coisa: o alvo vai até o ponto tocado e a câmera
+    // chega perto, mantendo a direção; é assim que se chega a uma placa, a uma
+    // estátua, ao parque
+    const focusAt = (hit: THREE.Vector3) => {
+      const dir = camera.position.clone().sub(hit)
+      const dist = dir.length()
+      const nd = THREE.MathUtils.clamp(dist * 0.32, 14, 420)
+      dir.normalize()
+      if (dir.y < 0.12) dir.y = 0.12 // nunca rasteiro demais ao chegar
+      dir.normalize()
+      const pos = hit.clone().addScaledVector(dir, nd)
+      pos.y = Math.max(pos.y, groundAt(pos.x, pos.z) + 3)
+      flyTo({ pos, target: hit.clone() }, 1.1)
+    }
+
     apiRef.current = {
+      flyTo(name) { flyTo(viewFor(name, camera.aspect)) },
       async follow(txid) {
         const inScene = orbit.follow(txid)
         if (inScene) {
@@ -416,12 +492,7 @@ export default function PlazaScene() {
                 : 'In orbit.',
         }))
       },
-      home() {
-        const h = homeFor(camera.aspect)
-        controls.target.copy(h.target)
-        camera.position.copy(h.pos)
-        controls.update()
-      },
+      home() { flyTo(homeFor(camera.aspect)) },
     }
     // ?tx=<txid>: chegou pela landing (ou por um link) já seguindo uma nave
     {
@@ -442,7 +513,21 @@ export default function PlazaScene() {
       const dt = Math.min(0.1, clock.getDelta())
       const t = clock.elapsedTime
       if (!controls.autoRotate && performance.now() - lastInteraction > 25_000) controls.autoRotate = true
+      if (fly.on) {
+        const u = Math.min(1, (performance.now() - fly.t0) / (fly.dur * 1000))
+        const k = u * u * (3 - 2 * u)
+        camera.position.lerpVectors(fly.p0, fly.p1, k)
+        controls.target.lerpVectors(fly.t0v, fly.t1, k)
+        if (u >= 1) fly.on = false
+      }
       controls.update()
+      // o chão: a câmera nunca entra no regolito nem no deck (1,7 m = olhos de pé)
+      {
+        const gy = groundAt(camera.position.x, camera.position.z) + 1.7
+        if (camera.position.y < gy) camera.position.y = gy
+        const ty = groundAt(controls.target.x, controls.target.z) + 0.3
+        if (controls.target.y < ty) controls.target.y = ty
+      }
       followShadow()
       orbit.update(t, dt, fees)
       for (const p of pulses) p.m.emissiveIntensity = p.base * (0.8 + 0.25 * Math.sin(t * p.rate + p.phase))
@@ -530,6 +615,35 @@ export default function PlazaScene() {
         </p>
         <h1 className="mt-1 font-mono text-base font-semibold tracking-tight text-white sm:text-xl">Satoshi Plaza</h1>
         <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.2em] text-white/40">Mare Tranquillitatis · the Moon</p>
+        {/* ── places: voar até um lugar; duplo toque na cena aproxima de qualquer coisa ── */}
+        <div className="relative mt-2">
+          <button
+            type="button"
+            onClick={() => setPlacesOpen((v) => !v)}
+            className="border border-white/15 bg-black/70 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-white/70 hover:border-white/40 hover:text-white"
+          >
+            Places {placesOpen ? '−' : '+'}
+          </button>
+          {placesOpen && (
+            <ul className="absolute left-0 top-full z-10 mt-1 w-[16rem] border border-white/10 bg-black/90 py-1">
+              {PLACES.map((pl) => (
+                <li key={pl.key}>
+                  <button
+                    type="button"
+                    onClick={() => { apiRef.current?.flyTo(pl.key); setPlacesOpen(false) }}
+                    className="flex w-full items-baseline justify-between gap-3 px-3 py-1.5 text-left font-mono text-[11px] text-white/85 hover:bg-white/10"
+                  >
+                    <span>{pl.label}</span>
+                    <span className="text-[9px] uppercase tracking-[0.15em] text-white/35">{pl.hint}</span>
+                  </button>
+                </li>
+              ))}
+              <li className="px-3 pb-1 pt-2 font-mono text-[9px] leading-relaxed text-white/35">
+                Double-tap anything in the scene to approach it. Pinch or scroll to get within a few metres.
+              </li>
+            </ul>
+          )}
+        </div>
       </div>
 
       {/* ── the board: under the title on phones, top-right on desktop ─────── */}
@@ -606,6 +720,7 @@ export default function PlazaScene() {
           {hud.followNote && <p className="mt-2 font-mono text-[10px] leading-relaxed text-white/60">{hud.followNote}</p>}
           <p className="mt-2 hidden font-mono text-[10px] leading-relaxed text-white/35 sm:block">
             Every ship is a DOG transaction our node sees in the mempool. Fee sets the altitude, amount sets the size, the block is the landing window.
+            Double-tap anything to approach it.
           </p>
         </form>
       </div>
