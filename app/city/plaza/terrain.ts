@@ -79,15 +79,15 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array): Terrain 
     const u = fi - i, v = fj - j
     return H(i, j) * (1 - u) * (1 - v) + H(i + 1, j) * u * (1 - v) + H(i, j + 1) * (1 - u) * v + H(i + 1, j + 1) * u * v
   }
-  // O platô da praça: dentro de 780 m o chão é plano no nível 0 (o deck, as
-  // âncoras e o jardim foram desenhados sobre um plano), e daí até 1100 m ele
-  // volta suavemente ao relevo real. O mar varia poucos metros aqui.
+  // O platô da praça: dentro de 960 m o chão é plano no nível 0 (o deck, as
+  // âncoras e o jardim inteiro, até a muralha em 900, foram desenhados sobre um
+  // plano), e daí até 1300 m ele volta suavemente ao relevo real.
   const siteAt = (x: number, z: number): number => {
     const raw = rawAt(x, z)
     const r = Math.hypot(x, z)
-    if (r >= 1100) return raw
-    if (r <= 780) return 0
-    const t = (r - 780) / 320
+    if (r >= 1300) return raw
+    if (r <= 960) return 0
+    const t = (r - 960) / 340
     const k = t * t * (3 - 2 * t)
     return raw * k
   }

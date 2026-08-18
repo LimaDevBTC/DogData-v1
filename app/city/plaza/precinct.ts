@@ -24,6 +24,7 @@ export const R_RING = 452
 export const RING_W = 34
 export const R_ANCHOR = 620
 export const BOULEVARD_W = 42
+export const R_EDGE = 900
 
 /** Onde cada âncora fica e para onde olha (rotação em y). Frentes voltadas para o centro. */
 export const ANCHORS = {
@@ -120,8 +121,65 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
     group.add(g)
   }
 
+  // ── o desenho do parterre: alamedas diagonais e o passeio-anel externo ────
+  // Visto de cima, um jardim de palácio é um desenho: além dos quatro bulevares
+  // cardeais, quatro alamedas nas diagonais (do anel à muralha, passando pelos
+  // espelhos d'água) e um passeio circular em r 745 costurando os setores entre
+  // as âncoras. Pedra escura com o meio-fio de luz, como o resto.
+  const ALLEE_W = 14
+  const allee = (a: number, r0: number, r1: number) => {
+    const len = r1 - r0, mid = (r0 + r1) / 2
+    const g = new THREE.Group()
+    const p = new THREE.Mesh(track(new THREE.PlaneGeometry(ALLEE_W, len)), paveMat)
+    p.rotation.x = -Math.PI / 2
+    p.receiveShadow = true
+    g.add(p)
+    for (const sx of [-1, 1]) {
+      const k = new THREE.Mesh(track(new THREE.PlaneGeometry(0.6, len)), kerbMat)
+      k.rotation.x = -Math.PI / 2
+      k.position.set(sx * (ALLEE_W / 2), 0.07, 0)
+      g.add(k)
+    }
+    g.position.set(Math.sin(a) * mid, 0.36, Math.cos(a) * mid)
+    g.rotation.y = a
+    group.add(g)
+  }
+  for (let i = 0; i < 4; i++) {
+    const a = Math.PI / 4 + (i * Math.PI) / 2
+    allee(a, R_RING + RING_W / 2 - 2, 560 - 52) // do anel ao espelho d'água
+    allee(a, 560 + 52, R_EDGE - 6)              // do espelho à muralha
+  }
+  const R_PROM = 745, PROM_W = 12
+  const promenadeArc = (a0: number, a1: number) => {
+    const seg = Math.max(8, Math.round(((a1 - a0) * R_PROM) / 6))
+    const p = new THREE.Mesh(track(new THREE.RingGeometry(R_PROM - PROM_W / 2, R_PROM + PROM_W / 2, seg, 1, a0, a1 - a0)), paveMat)
+    p.rotation.x = -Math.PI / 2
+    p.position.y = 0.35
+    p.receiveShadow = true
+    group.add(p)
+    for (const rr of [R_PROM - PROM_W / 2, R_PROM + PROM_W / 2]) {
+      const k = new THREE.Mesh(track(new THREE.RingGeometry(rr - 0.3, rr + 0.3, seg, 1, a0, a1 - a0)), kerbMat)
+      k.rotation.x = -Math.PI / 2
+      k.position.y = 0.42
+      group.add(k)
+    }
+  }
+  {
+    // RingGeometry mede o ângulo a partir de +x no plano da geometria; depois de
+    // rotation.x = −π/2 o plano (x, y) vira (x, −z), então theta = atan2(−z, x)
+    const free = (theta: number) => { const x = Math.cos(theta) * R_PROM, z = -Math.sin(theta) * R_PROM; return !inAnchorSite(x, z) && Math.hypot(x, z + R_ANCHOR) >= 128 }
+    const n = 720
+    let start: number | null = null
+    for (let i = 0; i <= n; i++) {
+      const th = (i / n) * Math.PI * 2
+      const ok = i < n && free(th)
+      if (ok && start == null) start = th
+      if (!ok && start != null) { if (th - start > 0.05) promenadeArc(start, th); start = null }
+    }
+  }
+
   // ── postes: esferas de luz fria em hastes finas, ao longo dos bulevares ────
-  const lampCount = 4 * 12 * 2 + 64
+  const lampCount = 4 * 12 * 2 + 64 + 96
   const poleGeo = track(new THREE.CylinderGeometry(0.22, 0.3, 9, 6))
   const bulbGeo = track(new THREE.SphereGeometry(0.9, 10, 8))
   const poleMat = track(new THREE.MeshStandardMaterial({ color: 0x23242b, metalness: 0.7, roughness: 0.4 }))
@@ -153,6 +211,10 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
     const a = (k / 64) * Math.PI * 2
     const r = R_RING + (k % 2 === 0 ? -1 : 1) * (RING_W / 2 + 2.5)
     lamp(Math.cos(a) * r, Math.sin(a) * r)
+  }
+  for (let k = 0; k < 96; k++) {
+    const a = (k / 96) * Math.PI * 2 + Math.PI / 96
+    lamp(Math.cos(a) * (R_EDGE + 3), Math.sin(a) * (R_EDGE + 3))
   }
   poles.count = bulbs.count = li
   poles.instanceMatrix.needsUpdate = bulbs.instanceMatrix.needsUpdate = true
@@ -200,11 +262,33 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   lawnIn.position.y = 0.2
   lawnIn.receiveShadow = true
   group.add(lawnIn)
-  const lawnOut = new THREE.Mesh(track(new THREE.RingGeometry(R_RING + RING_W / 2 - 2, 900, 256)), lawnMat)
+  const lawnOut = new THREE.Mesh(track(new THREE.RingGeometry(R_RING + RING_W / 2 - 2, R_EDGE - 6, 256)), lawnMat)
   lawnOut.rotation.x = -Math.PI / 2
   lawnOut.position.y = 0.2
   lawnOut.receiveShadow = true
   group.add(lawnOut)
+  // ── a borda do jardim: passeio perimetral, muralha baixa de pedra e postes ──
+  // Um jardim de palácio termina numa linha desenhada, não desmancha no regolito.
+  const edgePath = new THREE.Mesh(track(new THREE.RingGeometry(R_EDGE - 7, R_EDGE + 8, 256)), paveMat)
+  edgePath.rotation.x = -Math.PI / 2
+  edgePath.position.y = 0.34
+  edgePath.receiveShadow = true
+  group.add(edgePath)
+  const wall = new THREE.Mesh(
+    track(new THREE.CylinderGeometry(R_EDGE + 9.4, R_EDGE + 9.4, 1.6, 256, 1, true)),
+    track(new THREE.MeshStandardMaterial({ color: 0x1c1c21, roughness: 0.8, metalness: 0.15, side: THREE.DoubleSide })),
+  )
+  wall.position.y = 0.8
+  wall.castShadow = wall.receiveShadow = true
+  group.add(wall)
+  const wallCap = new THREE.Mesh(track(new THREE.RingGeometry(R_EDGE + 8.4, R_EDGE + 10.4, 256)), track(new THREE.MeshStandardMaterial({ color: 0x2a2a30, roughness: 0.6, metalness: 0.2 })))
+  wallCap.rotation.x = -Math.PI / 2
+  wallCap.position.y = 1.62
+  group.add(wallCap)
+  const edgeLine = new THREE.Mesh(track(new THREE.RingGeometry(R_EDGE - 7.4, R_EDGE - 6.6, 256)), kerbMat)
+  edgeLine.rotation.x = -Math.PI / 2
+  edgeLine.position.y = 0.42
+  group.add(edgeLine)
 
   // onde pode nascer: cinturão 332..440 (fora dos radiais e do anel), e setores
   // 480..900 fora dos sítios das âncoras, dos bulevares e dos espelhos d'água
@@ -217,6 +301,9 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
       if (Math.hypot(x - Math.cos(a) * 560, z - Math.sin(a) * 560) < 62) return false
     }
     if (Math.hypot(x, z + R_ANCHOR) < 120) return false // a grande fonte do norte
+    if (Math.abs(r - 745) < 6 + 5) return false // o passeio-anel
+    // as alamedas diagonais: distância ao eixo diagonal mais próximo
+    if (r > R_RING && Math.min(Math.abs(x - z), Math.abs(x + z)) / Math.SQRT2 < 7 + 5) return false
     return true
   }
   const sample = (n: number, rMin: number, rMax: number, tries = 40): [number, number][] => {

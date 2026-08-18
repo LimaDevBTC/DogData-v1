@@ -42,6 +42,8 @@ function homeFor(aspect: number): { pos: THREE.Vector3; target: THREE.Vector3 } 
   if (view === 'castle' || view === 'south' || view === 'chalet') return { pos: new THREE.Vector3(-560, 300, 1260), target: new THREE.Vector3(0, 110, 620) }
   if (view === 'north') return { pos: new THREE.Vector3(520, 300, -1240), target: new THREE.Vector3(0, 90, -620) }
   if (view === 'top') return { pos: new THREE.Vector3(60, 2600, 900), target: new THREE.Vector3(0, 0, 100) }
+  if (view === 'padclose') return { pos: new THREE.Vector3(PAD_MAIN.x + 40, PAD_MAIN.y + 40, PAD_MAIN.z - 150), target: new THREE.Vector3(PAD_MAIN.x - 20, PAD_MAIN.y + 24, PAD_MAIN.z + 20) }
+  if (view === 'pad') return { pos: new THREE.Vector3(PAD_MAIN.x + 150, 90, PAD_MAIN.z + 190), target: new THREE.Vector3(PAD_MAIN.x - 60, 40, PAD_MAIN.z + 60) }
   if (view === 'far') return { pos: new THREE.Vector3(1200, 2600, 12500), target: new THREE.Vector3(0, 0, 2000) }
   if (view === 'park') return { pos: new THREE.Vector3(PARK_CENTER.x - 1800, 900, PARK_CENTER.z - 4200), target: new THREE.Vector3(PARK_CENTER.x, 80, PARK_CENTER.z) }
   if (view === 'spaceport') return { pos: new THREE.Vector3(600, 380, 3700), target: new THREE.Vector3(-140, 60, 3090) }
