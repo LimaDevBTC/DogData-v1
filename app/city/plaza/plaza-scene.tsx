@@ -22,6 +22,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { loadTerrain } from './terrain'
 import { createOrbitLayer, PAD_MAIN } from './orbit-layer'
 import { startFeed, type DogTx, type Snapshot } from './feed'
+import { buildProto, type Proto, type ProtoKind } from './ordcards-protos'
 
 // ── framing ────────────────────────────────────────────────────────────────────
 // The default view is the landing hero, from the north-east, high enough that the
@@ -36,7 +37,7 @@ const HOME_TARGET = new THREE.Vector3(0, 100, 480)
 function homeFor(aspect: number): { pos: THREE.Vector3; target: THREE.Vector3 } {
   // ?view=castle | spaceport: bookmarks for the two other set pieces
   const view = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : null
-  if (view === 'castle') return { pos: new THREE.Vector3(-380, 230, 1180), target: new THREE.Vector3(0, 90, 700) }
+  if (view === 'castle' || view === 'south') return { pos: new THREE.Vector3(-520, 260, 1320), target: new THREE.Vector3(0, 110, 700) }
   if (view === 'spaceport') return { pos: new THREE.Vector3(600, 380, 3700), target: new THREE.Vector3(-140, 60, 3090) }
   if (aspect >= 1) return { pos: HOME_POS.clone(), target: HOME_TARGET.clone() }
   return { pos: new THREE.Vector3(430, 760, -1300), target: new THREE.Vector3(0, 40, 420) }
@@ -160,6 +161,7 @@ export default function PlazaScene() {
     const pulses: { m: THREE.MeshStandardMaterial; base: number; rate: number; phase: number }[] = []
     const sways: { o: THREE.Object3D; y0: number; amp: number }[] = []
     const jets: { o: THREE.Object3D; y0: number }[] = []
+    let proto: Proto | null = null
     let heightAt: (x: number, z: number) => number = () => 0
 
     const loadGlb = (url: string) =>
@@ -233,8 +235,20 @@ export default function PlazaScene() {
 
         // The OrdCards building goes south of the deck, on the monumental axis
         // (praca-central.md §2). The card castle was tried and dropped by the
-        // founder on 2026-08-18; the site is reserved and empty until the next
-        // idea lands.
+        // founder on 2026-08-18; the site is reserved. Three prototypes can be
+        // summoned with ?proto=hand|tally|shuffle while the choice is made.
+        const protoKind = new URLSearchParams(window.location.search).get('proto') as ProtoKind | null
+        if (protoKind === 'hand' || protoKind === 'tally' || protoKind === 'shuffle') {
+          setHud((h) => ({ ...h, loading: 'Dealing the cards…' }))
+          const texLoader = new THREE.TextureLoader()
+          const loadTex = (url: string) =>
+            new Promise<THREE.Texture>((res, rej) => texLoader.load(url, (t) => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; res(t) }, undefined, rej))
+          const [atlas, back] = await Promise.all([loadTex('/city/cards/cards.jpg'), loadTex('/city/cards/back.png')])
+          if (disposed) return
+          proto = buildProto(protoKind, atlas, back)
+          proto.group.position.set(0, 0, 700)
+          scene.add(proto.group)
+        }
         setHud((h) => ({ ...h, loading: null }))
       } catch (err) {
         console.error('[plaza]', err)
@@ -365,6 +379,7 @@ export default function PlazaScene() {
       for (const p of pulses) p.m.emissiveIntensity = p.base * (0.8 + 0.25 * Math.sin(t * p.rate + p.phase))
       for (const s of sways) { s.o.rotation.y = Math.sin(t * 0.22) * 0.95; s.o.position.y = s.y0 + Math.sin(t * 0.8) * s.amp }
       for (const j of jets) j.o.scale.y = j.y0 * (0.88 + 0.12 * Math.sin(t * 1.4))
+      proto?.update(t)
       earth.rotation.y = t * 0.004
       const cl = earth.getObjectByName('Clouds'); if (cl) cl.rotation.y = t * 0.0025
       renderer.render(scene, camera)
@@ -396,6 +411,7 @@ export default function PlazaScene() {
       renderer.domElement.removeEventListener('wheel', wake)
       controls.dispose()
       orbit.dispose()
+      proto?.dispose()
       draco.dispose()
       pmrem.dispose()
       scene.traverse((o) => {
