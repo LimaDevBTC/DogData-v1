@@ -66,15 +66,30 @@ export function buildChalet(front: THREE.Texture, back: THREE.Texture): Chalet {
   mullions.instanceMatrix.needsUpdate = true
   group.add(mullions)
   // pisos por dentro do pódio (dois) e mezaninos dentro do A (três), quentes
-  const floorMat = track(new THREE.MeshStandardMaterial({ color: 0x1a1a1f, roughness: 0.6, metalness: 0.2, emissive: WARM, emissiveIntensity: 0.12 }))
-  const lightFloorMat = track(new THREE.MeshBasicMaterial({ color: WARM, toneMapped: false, transparent: true, opacity: 0.28, depthWrite: false }))
+  // lajes escuras com fita de luz quente na borda e guarda-corpo de vidro: o
+  // interior lê como arquitetura, não como prateleiras (a primeira versão tinha
+  // pranchas cor de compensado, vistas do bulevar)
+  const floorMat = track(new THREE.MeshStandardMaterial({ color: 0x141418, roughness: 0.55, metalness: 0.25 }))
+  const stripMat = track(new THREE.MeshBasicMaterial({ color: WARM, toneMapped: false }))
+  const railMat = track(new THREE.MeshPhysicalMaterial({ color: 0x9fb4c8, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.22, envMapIntensity: 1.4, side: THREE.DoubleSide, depthWrite: false }))
   const floorAt = (y: number, w: number, d: number, lit = true) => {
     const f = new THREE.Mesh(track(new THREE.BoxGeometry(w, 1.2, d)), floorMat)
     f.position.y = y
     f.receiveShadow = true
     group.add(f)
     if (lit) {
-      const l = new THREE.Mesh(track(new THREE.PlaneGeometry(w - 2, d - 2)), lightFloorMat)
+      // fita de luz nas duas bordas abertas (as faces do "A" a ±x) e guarda-corpo
+      for (const sx of [-1, 1]) {
+        const strip = new THREE.Mesh(track(new THREE.BoxGeometry(0.5, 0.25, d - 1)), stripMat)
+        strip.position.set(sx * (w / 2 - 0.4), y + 0.72, 0)
+        group.add(strip)
+        const rail = new THREE.Mesh(track(new THREE.PlaneGeometry(d - 1.5, 2.6)), railMat)
+        rail.rotation.y = Math.PI / 2
+        rail.position.set(sx * (w / 2 - 0.9), y + 0.6 + 1.3, 0)
+        group.add(rail)
+      }
+      // uma luz suave sob a laje: o interior brilha quente
+      const l = new THREE.Mesh(track(new THREE.PlaneGeometry(w - 4, d - 4)), track(new THREE.MeshBasicMaterial({ color: WARM, toneMapped: false, transparent: true, opacity: 0.08, depthWrite: false })))
       l.rotation.x = -Math.PI / 2
       l.position.y = y + 0.7
       group.add(l)
@@ -118,6 +133,44 @@ export function buildChalet(front: THREE.Texture, back: THREE.Texture): Chalet {
     return g
   }
   group.add(mk(front, -1), mk(back, 1))
+  // ── a estrutura por dentro do "A": caibros de aço a cada 12 m, nas duas águas ──
+  const rafterMat = track(new THREE.MeshStandardMaterial({ color: 0x2b2c33, metalness: 0.8, roughness: 0.35 }))
+  const rafterLen = H - 6
+  const rafterGeo = track(new THREE.BoxGeometry(1.1, rafterLen, 1.4))
+  const nR = Math.floor((W - 12) / 12)
+  const rafters = new THREE.InstancedMesh(rafterGeo, rafterMat, nR * 2)
+  let ri = 0
+  for (const sign of [-1, 1]) {
+    for (let i = 0; i < nR; i++) {
+      const x = -W / 2 + 6 + i * 12 + 6
+      // paralelo à carta, 1,6 m para dentro dela
+      o.position.set(x, cardBase + apex / 2, sign * half / 2 - sign * (CARD_T / 2 + 1.6) * Math.cos(lean))
+      o.rotation.set(-lean, sign > 0 ? 0 : Math.PI, 0, 'YXZ')
+      o.updateMatrix()
+      rafters.setMatrixAt(ri++, o.matrix)
+    }
+  }
+  rafters.count = ri
+  rafters.instanceMatrix.needsUpdate = true
+  rafters.castShadow = true
+  group.add(rafters)
+
+  // ── a escadaria monumental, do lado da praça: três terraços de pedra escura ──
+  // com o degrau iluminado, do gramado ao pórtico
+  const stairMat = track(new THREE.MeshStandardMaterial({ color: 0x17181d, roughness: 0.7, metalness: 0.15 }))
+  const nosingMat = track(new THREE.MeshBasicMaterial({ color: WARM, toneMapped: false, transparent: true, opacity: 0.55 }))
+  const stairW = W * 0.62
+  for (let k = 0; k < 3; k++) {
+    const depth = 30 - k * 8, hgt = 3.2
+    const zc = -baseD / 2 - 6 - depth / 2 - (2 - k) * 0 // encostados no pódio, o mais largo embaixo
+    const tier = new THREE.Mesh(track(new THREE.BoxGeometry(stairW - k * 14, hgt, depth)), stairMat)
+    tier.position.set(0, hgt / 2 + k * hgt, zc)
+    tier.receiveShadow = tier.castShadow = true
+    group.add(tier)
+    const nosing = new THREE.Mesh(track(new THREE.BoxGeometry(stairW - k * 14, 0.2, 0.5)), nosingMat)
+    nosing.position.set(0, hgt + k * hgt + 0.1, zc - depth / 2 + 0.3)
+    group.add(nosing)
+  }
 
   // ── luz ──────────────────────────────────────────────────────────────────
   const lights: THREE.PointLight[] = []
@@ -150,7 +203,7 @@ export function buildChalet(front: THREE.Texture, back: THREE.Texture): Chalet {
   }
   // portal de entrada: um pórtico baixo com o glifo
   const portal = new THREE.Mesh(track(new THREE.BoxGeometry(34, 12, 4)), track(new THREE.MeshStandardMaterial({ color: 0x0f0f13, roughness: 0.4, metalness: 0.6, emissive: WARM, emissiveIntensity: 0.15 })))
-  portal.position.set(0, 7.4, -baseD / 2 - 6)
+  portal.position.set(0, 9.6 + 6.5, -baseD / 2 - 6)
   group.add(portal)
 
   // ── a marca girando sobre o ápice ────────────────────────────────────────
