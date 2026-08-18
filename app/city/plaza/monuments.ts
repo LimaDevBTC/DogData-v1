@@ -184,7 +184,9 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
     group.add(g)
     const fx = x + (-s.side * px) * 4, fz = z + (-s.side * pz) * 4
     uplight(fx, fz)
-    addLight(fx, y + 1.2, fz, 1.6, 40, 0xfff0dc)
+    // luzes de verdade só a cada três estelas: cada PointLight custa em TODOS os
+    // materiais da cena, e as páginas já emitem
+    if (i % 3 === 0) addLight(fx, y + 1.6, fz, 1.6, 70, 0xfff0dc)
   })
   // a placa de abertura da nave, à entrada (r 615), lado direito
   {
@@ -337,7 +339,6 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
       addLight(lx, sy + 2, lz, 3.2, 120, 0xfff0dc)
       uplight(lx, lz, 0.9)
     }
-    addLight(sx + ax * 3, sy + 1.65 + H * 0.9, sz + az * 3, 1.2, 30, 0xdfe8ff)
   }
 
   // ═══ SE · A Pata de Diamante ══════════════════════════════════════════════
@@ -365,8 +366,8 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
       const w = new THREE.Mesh(toeGeo, waterMat); w.rotation.x = -Math.PI / 2; w.position.set(tx, y + 0.25, tz); w.receiveShadow = true; group.add(w)
       const r = new THREE.Mesh(toeRimGeo, warmRimMat); r.rotation.x = -Math.PI / 2; r.position.set(tx, y + 0.32, tz); group.add(r)
       const wk = new THREE.Mesh(toeWalkGeo, walkMat); wk.rotation.x = -Math.PI / 2; wk.position.set(tx, y + 0.34, tz); wk.receiveShadow = true; group.add(wk)
-      addLight(tx, y + 1.5, tz, 1.4, 60, WARM)
     }
+    addLight(px + Math.cos(QUADRANT_ANGLE.SE) * 70, yAt(px, pz) + 6, pz + Math.sin(QUADRANT_ANGLE.SE) * 70, 2.2, 110, WARM) // uma luz para os quatro dedos
     // a borda quente da palma também (a dos outros espelhos é branca): a pata é uma só
     const palmRim = new THREE.Mesh(track(new THREE.RingGeometry(POOL_R - 0.6, POOL_R + 0.6, 96)), warmRimMat)
     palmRim.rotation.x = -Math.PI / 2

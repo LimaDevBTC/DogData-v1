@@ -133,7 +133,7 @@ export function buildFoundersWalk(opts: { heightAt: (x: number, z: number) => nu
   }
   // luz quente rasante nas placas ocupadas: uma por placa era demais; um foco a cada quatro
   const lights: THREE.PointLight[] = []
-  for (let i = 0; i < lightPos.length; i += 4) {
+  for (let i = 0; i < Math.min(lightPos.length, 8); i += 4) {
     const l = new THREE.PointLight(WARM, 1.6, 30, 1.8)
     l.position.copy(lightPos[i]).add(new THREE.Vector3(0, 2.2, 0))
     group.add(l)

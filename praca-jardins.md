@@ -73,4 +73,16 @@ Blender entra quando uma peça pedir mais do que a geometria procedural dá
 
 ## 7. Estado
 
-- 2026-08-18: §5 feito. §1..§4 em obra nesta sessão (ver commits "city/gardens").
+- 2026-08-18: §5 feito (navegação). §1 feito (calçadas dos lotes, passeio em
+  volta dos espelhos, passeio-anel atrás da Fonte, sebes tangentes ao arco).
+  §2 feito em primeira versão, tudo procedural: nove estelas com as páginas
+  reais, placa de abertura, Bloco Gênese (4 faces gravadas), Espelho de Satoshi
+  (figura de bronze com rosto-espelho no plinto, dois arcos de ciprestes, dois
+  bancos, sem jato central), Pata de Diamante (quatro dedos, marca $DOG sob a
+  palma, placa), Jardim Ordinal (círculo de 12 runestones + a central, chão de
+  saibro, placas da Teoria Ordinal e da Runestone, oliveiras). §3 feito com
+  dados vivos (13 fundadores, 48 vagas, linha de luz a 24,7 %). §4 feito
+  (cinco espécies). Menu Places: whitepaper, genesis, satoshi, paw, ordinal,
+  founders. Próximo: refinar a figura de Satoshi (Blender se o bronze
+  procedural não convencer), luz noturna dos jardins, e o que o fundador
+  apontar nas capturas.
