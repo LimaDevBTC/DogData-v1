@@ -165,9 +165,19 @@ as da cena `dogcity-landing.blend` (lá as torres são massa bege de blockout); 
 os três GLBs de `public/city/`, os mesmos que a seção de parceiros do `/dogcity`
 mostra. Foi o que entrou.
 
+**Fluxo ajustado e no ar (2026-08-18, ~02:00, commit `826de024ab`), a pedido do
+fundador ("a landing continua recebendo no site e mandando para city; por enquanto
+ajuste só o fluxo"):** a raiz segue mandando toda sessão nova para a landing
+`/dogcity`; o CTA primário do fim da landing virou **"Enter the city" → `/city`**
+(Build DogCity passou a secundário, Find Your Lot ficou); **`/city` deixou de
+redirecionar e É a praça** (`app/city/page.tsx` → `app/city/plaza/`), com links de
+volta para a landing e para o site no canto. Conferido em produção:
+`www.dogdata.xyz/city` responde a praça, `/api/mempool/dog` responde com o dado do
+watcher da casa (idade 7 s), `/dogcity` mostra "Enter the city".
+
 **Próximos passos:** o Castelo de Cartas do Satoshi (fase 3, Blender), o Parque
 Runestone em tempo real, jardins no lugar do anel comercial, câmera de pouso,
-mobile, e então tirar `app/city/plaza/` do gitignore e apontar `/city` para lá.
+mobile, e a landing ajustada depois (conteúdo, não fluxo).
 
 ## 5. Em aberto
 
