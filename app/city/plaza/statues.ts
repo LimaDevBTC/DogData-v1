@@ -326,7 +326,7 @@ function buildSkull(mat: THREE.Material, dark: THREE.Material): THREE.Group {
   return g
 }
 
-export function buildLeonidas(): Statue {
+export function buildLeonidas(opts: { skullGeo?: THREE.BufferGeometry } = {}): Statue {
   const group = new THREE.Group()
   const disposables: { dispose: () => void }[] = []
   const track = <T extends { dispose: () => void }>(o: T): T => { disposables.push(o); return o }
@@ -352,26 +352,29 @@ export function buildLeonidas(): Statue {
   hoodIn.scale.set(0.97, 0.99, 0.97)
   hoodIn.position.y = 0.006
   group.add(hoodIn)
-  const skull = buildSkull(bone, dark)
-  skull.scale.setScalar(1.15)
-  skull.position.set(0, 2.1, 0.07)
+  // a caveira: a esculpida no Blender (public/city/leonidas-skull.glb, de
+  // build_leonidas_skull.py: crânio, arcadas, órbitas, nariz, maxila, dentes)
+  // quando carregou; senão a de primitivas
+  let skull: THREE.Object3D
+  if (opts.skullGeo) {
+    const m = new THREE.Mesh(opts.skullGeo, bone)
+    m.castShadow = true
+    skull = new THREE.Group()
+    skull.add(m)
+    for (const s of [-1, 1]) {
+      const eye = new THREE.Mesh(track(new THREE.SphereGeometry(0.014, 12, 10)), track(new THREE.MeshBasicMaterial({ color: 0xff2a1a, toneMapped: false })))
+      eye.position.set(s * 0.036, -0.012, 0.075)
+      skull.add(eye)
+    }
+    skull.scale.setScalar(1.55)
+  } else {
+    skull = buildSkull(bone, dark)
+    skull.scale.setScalar(1.15)
+  }
+  skull.position.set(0, 2.1, 0.09)
   skull.rotation.x = 0.06 // levemente baixa
   group.add(skull)
-  // as mãos: ossos amarelos saindo das mangas, ao lado do corpo
-  for (const s of [-1, 1]) {
-    const sleeve = new THREE.Mesh(track(new THREE.CylinderGeometry(0.075, 0.11, 0.6, 12)), cloth)
-    sleeve.position.set(s * 0.36, 1.25, 0.06)
-    sleeve.rotation.z = -s * 0.12
-    group.add(sleeve)
-    const hand = new THREE.Mesh(track(new THREE.BoxGeometry(0.06, 0.12, 0.035)), bone)
-    hand.position.set(s * 0.395, 0.9, 0.08)
-    group.add(hand)
-    for (let f = 0; f < 4; f++) {
-      const fg = new THREE.Mesh(track(new THREE.CapsuleGeometry(0.008, 0.06, 3, 6)), bone)
-      fg.position.set(s * (0.372 + f * 0.015), 0.81, 0.085)
-      group.add(fg)
-    }
-  }
+  // as mãos ficam dentro da capa, como na referência: só a caveira aparece
   // as luzes dos olhos: vermelhas, curtas
   for (const s of [-1, 1]) {
     const l = new THREE.PointLight(0xff2a1a, 0.7, 2.5, 2)

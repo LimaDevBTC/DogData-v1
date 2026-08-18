@@ -380,7 +380,11 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
     step.position.y = 0.25
     step.receiveShadow = true
     g.add(step)
-    const leo = buildLeonidas()
+    const skullGeo = await new Promise<THREE.BufferGeometry | undefined>((res) => {
+      const gl = opts.gltf ?? new GLTFLoader()
+      gl.load('/city/leonidas-skull.glb', (g) => { let geo: THREE.BufferGeometry | undefined; g.scene.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh && !geo) geo = m.geometry }); res(geo) }, undefined, () => res(undefined))
+    })
+    const leo = buildLeonidas({ skullGeo })
     disposables.push(leo)
     leo.group.scale.setScalar(4.6) // 11 m
     leo.group.position.y = 2.2
