@@ -8,6 +8,11 @@
 //            relação à de baixo, uma torre torcida de 300 m; o supply da coleção.
 //   shuffle  A Fonte do Embaralhar: cartas subindo numa hélice e descendo noutra,
 //            um embaralhar eterno em câmera lenta sobre um pavilhão.
+//   chalet   O Chalé: duas cartas colossais encostadas em "A", e as cartas são a
+//            carta OFICIAL do OrdCards com a logo do projeto como arte, capturada
+//            do componente real (public/city/cards/logo-front.png e logo-back.png:
+//            frente com forças, elemento, habilidade e DNA; verso com QR code e
+//            DNA). A frente olha para a praça, o verso para o spaceport.
 //
 // As cartas são as do endereço Gênesis (public/city/cards/cards.jpg, 6×4) e o
 // verso é a marca. Mesma técnica do castelo: duas InstancedMesh (frentes e versos)
@@ -19,7 +24,7 @@ const COLS = 6, ROWS = 4
 const WARM = new THREE.Color('#FFB35C')
 const ORANGE = new THREE.Color('#F7931A')
 
-export type ProtoKind = 'hand' | 'tally' | 'shuffle'
+export type ProtoKind = 'hand' | 'tally' | 'shuffle' | 'chalet'
 
 export interface Proto {
   group: THREE.Group
@@ -258,8 +263,91 @@ function buildShuffle(atlas: THREE.Texture, back: THREE.Texture): Proto {
   }
 }
 
-export function buildProto(kind: ProtoKind, atlas: THREE.Texture, back: THREE.Texture): Proto {
+// ── 4. O Chalé ───────────────────────────────────────────────────────────────
+function buildChalet(front: THREE.Texture, back: THREE.Texture): Proto {
+  const group = new THREE.Group()
+  group.name = 'Proto:Chalet'
+  const W = 168, H = W * CARD_RATIO // 235 m de carta
+  const lean = 0.5 // 28,6° da vertical: telhado íngreme de chalé
+  const apex = H * Math.cos(lean)
+  const half = H * Math.sin(lean)
+  const cardMat = (map: THREE.Texture) =>
+    new THREE.MeshStandardMaterial({ map, roughness: 0.42, metalness: 0.06, emissive: 0xffffff, emissiveMap: map, emissiveIntensity: 0.55 })
+  const innerMat = new THREE.MeshStandardMaterial({ color: 0x0c0c10, roughness: 0.6, metalness: 0.2, side: THREE.FrontSide })
+  const geo = new THREE.PlaneGeometry(W, H)
+  const mk = (map: THREE.Texture, sign: number) => {
+    // sign −1: carta norte (frente para a praça, −z); +1: carta sul (verso para o spaceport)
+    const outer = new THREE.Mesh(geo, cardMat(map))
+    const inner = new THREE.Mesh(geo, innerMat)
+    const g = new THREE.Group()
+    g.add(outer, inner)
+    inner.rotation.y = Math.PI
+    inner.position.z = -0.6
+    outer.castShadow = true
+    outer.receiveShadow = true
+    // a carta pivota no chão: base em z = sign·half, topo no ápice
+    g.position.set(0, 1.4 + apex / 2, sign * half / 2)
+    g.rotation.set(sign * lean, sign > 0 ? 0 : Math.PI, 0, 'YXZ')
+    return g
+  }
+  group.add(mk(front, -1), mk(back, 1))
+  // a cumeeira: uma viga clara onde as duas cartas se encontram
+  const ridge = new THREE.Mesh(new THREE.BoxGeometry(W + 4, 2.4, 2.4), new THREE.MeshStandardMaterial({ color: 0xe8e2d6, roughness: 0.4, metalness: 0.3 }))
+  ridge.position.set(0, 1.4 + apex + 0.6, 0)
+  group.add(ridge)
+  // as empenas: dois triângulos de vidro escuro com a luz de dentro
+  const gable = new THREE.Shape()
+  gable.moveTo(-half, 0); gable.lineTo(half, 0); gable.lineTo(0, apex); gable.closePath()
+  const gableGeo = new THREE.ShapeGeometry(gable)
+  const glass = new THREE.MeshPhysicalMaterial({ color: 0x0b1018, roughness: 0.15, metalness: 0.1, transmission: 0.55, thickness: 2, transparent: true, opacity: 0.85, side: THREE.DoubleSide, emissive: 0xffa040, emissiveIntensity: 0.06 })
+  for (const sx of [-1, 1]) {
+    const gm = new THREE.Mesh(gableGeo, glass)
+    gm.rotation.y = sx * Math.PI / 2
+    gm.position.set(sx * (W / 2 - 1.5), 1.4, 0)
+    group.add(gm)
+    // esquadrias: linhas verticais na empena
+    for (let k = -3; k <= 3; k++) {
+      const x = k * (half / 4)
+      const hh = apex * (1 - Math.abs(x) / half)
+      const mullion = new THREE.Mesh(new THREE.BoxGeometry(0.9, hh, 0.9), new THREE.MeshStandardMaterial({ color: 0x2a2a30, metalness: 0.7, roughness: 0.4 }))
+      mullion.position.set(sx * (W / 2 - 1.5), 1.4 + hh / 2, x)
+      group.add(mullion)
+    }
+  }
+  // o piso interno acende: um plano quente sob o chalé, e luzes de dentro
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W - 6, half * 2 - 6), new THREE.MeshBasicMaterial({ color: WARM, transparent: true, opacity: 0.35, toneMapped: false }))
+  floor.rotation.x = -Math.PI / 2
+  floor.position.y = 1.6
+  group.add(floor)
+  const lights: THREE.PointLight[] = []
+  for (const x of [-W * 0.3, 0, W * 0.3]) {
+    const l = new THREE.PointLight(WARM, 2.6, 380, 1.3)
+    l.position.set(x, apex * 0.35, 0)
+    group.add(l); lights.push(l)
+  }
+  // luz de fora nas faces, para a carta ler mesmo de longe
+  for (const [x, z] of [[-W * 0.35, -half - 90], [W * 0.35, -half - 90], [-W * 0.35, half + 90], [W * 0.35, half + 90]]) {
+    const l = new THREE.PointLight(0xffffff, 1.4, 420, 1.2)
+    l.position.set(x, 40, z)
+    group.add(l)
+  }
+  plinth(group, Math.max(W, half * 2) * 0.72)
+  // a marca no ápice, girando devagar
+  const glyph = new THREE.Group()
+  glyph.add(new THREE.Mesh(new THREE.TorusGeometry(10, 1.2, 8, 48), new THREE.MeshBasicMaterial({ color: ORANGE, toneMapped: false })))
+  glyph.add(new THREE.Mesh(new THREE.SphereGeometry(4, 24, 16), new THREE.MeshBasicMaterial({ color: ORANGE, toneMapped: false })))
+  glyph.position.set(0, 1.4 + apex + 30, 0)
+  group.add(glyph)
+  return {
+    group,
+    update(t) { glyph.rotation.y = t * 0.3; for (const l of lights) l.intensity = 2.6 * (0.9 + 0.1 * Math.sin(t * 1.1 + l.position.x)) },
+    dispose() { geo.dispose(); gableGeo.dispose(); glass.dispose(); innerMat.dispose(); group.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh && m.geometry !== geo && m.geometry !== gableGeo) { m.geometry?.dispose(); (m.material as THREE.Material)?.dispose?.() } }) },
+  }
+}
+
+export function buildProto(kind: ProtoKind, atlas: THREE.Texture, back: THREE.Texture, logo?: { front: THREE.Texture; back: THREE.Texture }): Proto {
   if (kind === 'hand') return buildHand(atlas, back)
   if (kind === 'tally') return buildTally(atlas, back)
+  if (kind === 'chalet' && logo) return buildChalet(logo.front, logo.back)
   return buildShuffle(atlas, back)
 }

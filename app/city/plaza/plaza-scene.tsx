@@ -238,14 +238,17 @@ export default function PlazaScene() {
         // founder on 2026-08-18; the site is reserved. Three prototypes can be
         // summoned with ?proto=hand|tally|shuffle while the choice is made.
         const protoKind = new URLSearchParams(window.location.search).get('proto') as ProtoKind | null
-        if (protoKind === 'hand' || protoKind === 'tally' || protoKind === 'shuffle') {
+        if (protoKind === 'hand' || protoKind === 'tally' || protoKind === 'shuffle' || protoKind === 'chalet') {
           setHud((h) => ({ ...h, loading: 'Dealing the cards…' }))
           const texLoader = new THREE.TextureLoader()
           const loadTex = (url: string) =>
-            new Promise<THREE.Texture>((res, rej) => texLoader.load(url, (t) => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; res(t) }, undefined, rej))
-          const [atlas, back] = await Promise.all([loadTex('/city/cards/cards.jpg'), loadTex('/city/cards/back.png')])
+            new Promise<THREE.Texture>((res, rej) => texLoader.load(url, (t) => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; res(t) }, undefined, rej))
+          const [atlas, back, lf, lb] = await Promise.all([
+            loadTex('/city/cards/cards.jpg'), loadTex('/city/cards/back.png'),
+            loadTex('/city/cards/logo-front.png'), loadTex('/city/cards/logo-back.png'),
+          ])
           if (disposed) return
-          proto = buildProto(protoKind, atlas, back)
+          proto = buildProto(protoKind, atlas, back, { front: lf, back: lb })
           proto.group.position.set(0, 0, 700)
           scene.add(proto.group)
         }
