@@ -117,3 +117,13 @@ Blender entra quando uma peça pedir mais do que a geometria procedural dá
   DOG. A capa agora cai só das ombreiras pelas costas (aberta na frente) e o capuz
   continua sobre a caveira real. Se o fundador comprar/licenciar um modelo de
   armadura, encaixa no mesmo lugar.
+- 2026-08-18 (noite, 4): "a capa e a armadura tá muito ruim, compare; precisamos
+  de um modelo 3D de base". Como não há modelo licenciável que se baixe, o
+  corpo passou a ser FEITO NO BLENDER POR FÍSICA: `blender/build_leonidas_body.py`
+  monta um manequim de colisão e drapeja por **simulação de pano** o manto longo
+  (aberto na frente), a mantilha de ombros, o capuz e a aba frontal (70 quadros,
+  auto-colisão), aplica, engrossa e exporta `public/city/leonidas-body.glb`
+  (135 KB). Pregas reais como na referência. Em three: materiais por nome
+  (tecido com sheen, traje escuro, cinto de ouro escuro, fivela e núcleo
+  acesos), a caveira real no lugar da cabeça, brasas vermelhas e uma luz quente
+  fraca sob o capuz. A armadura de primitivas saiu.

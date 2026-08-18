@@ -380,18 +380,17 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
     step.position.y = 0.25
     step.receiveShadow = true
     g.add(step)
-    const skullScene = await new Promise<THREE.Object3D | null>((res) => {
-      const gl = opts.gltf ?? new GLTFLoader()
-      gl.load('/city/leonidas-skull.glb', (gg) => res(gg.scene), undefined, () => res(null))
-    })
-    if (skullScene) {
-      const leo = buildLeonidas(skullScene)
+    const gl = opts.gltf ?? new GLTFLoader()
+    const loadScene = (url: string) => new Promise<THREE.Object3D | null>((res) => gl.load(url, (gg) => res(gg.scene), undefined, () => res(null)))
+    const [skullScene, bodyScene] = await Promise.all([loadScene('/city/leonidas-skull.glb'), loadScene('/city/leonidas-body.glb')])
+    if (skullScene && bodyScene) {
+      const leo = buildLeonidas(skullScene, bodyScene)
       disposables.push(leo)
-      leo.group.scale.setScalar(4.6) // 10,9 m
+      leo.group.scale.setScalar(5.3) // 10,8 m
       leo.group.position.y = 2.2
       g.add(leo.group)
     } else {
-      console.warn('[plaza] leonidas skull did not load')
+      console.warn('[plaza] leonidas did not load')
     }
     // a inscrição no plinto, do lado do deck
     const insc = new THREE.Mesh(track(new THREE.PlaneGeometry(7, 1.2)), track(new THREE.MeshBasicMaterial({
