@@ -398,7 +398,9 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
     for (let i = 0; i < n; i++) {
       const a = a0 + ((i + 0.5) / n) * (a1 - a0)
       const x = Math.cos(a) * r, z = Math.sin(a) * r
-      o.position.set(x, yAt(x, z) + h / 2, z); o.rotation.set(0, -a, 0); o.scale.set(3.1, h, w); o.updateMatrix()
+      // o comprimento da caixa (x local) na TANGENTE do arco: rotation.y = −a + π/2
+      // (com −a ela ficava radial e a sebe virava uma linha tracejada de lajes)
+      o.position.set(x, yAt(x, z) + h / 2, z); o.rotation.set(0, -a + Math.PI / 2, 0); o.scale.set(3.4, h, w); o.updateMatrix()
       hedges.push(o.matrix.clone())
     }
   }

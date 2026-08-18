@@ -351,6 +351,8 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
       ] })), toneMapped: false, transparent: true, opacity: 0.85,
     })))
     mark.rotation.x = -Math.PI / 2
+    // o topo do texto para fora, para quem chega do deck ler certo (Euler XYZ: Rz primeiro)
+    mark.rotation.z = Math.atan2(-Math.cos(QUADRANT_ANGLE.SE), -Math.sin(QUADRANT_ANGLE.SE))
     mark.position.set(px, yAt(px, pz) + 0.27, pz)
     group.add(mark)
     // os quatro dedos: espelhos menores, água preta, borda de luz quente
@@ -392,17 +394,27 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
     track(bcTex); track(nmTex)
     const geos: THREE.BufferGeometry[] = []
     crystals.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) { const idx = Number((o.name.match(/CRYSTAL_(\d+)/) || [])[1]); if (!Number.isNaN(idx)) geos[idx] = m.geometry } })
-    // a malha da pedra vai de y −2,96 (base) a −0,19 (ponta) no local; escala s → altura 2,77 s
+    // A malha do crystals.glb vem de PONTA PARA BAIXO: y de −2,96 (a ponta) a
+    // −0,19 (a base), medido em runtime. No parque as matrizes do Blender trazem
+    // o giro que a endireita; aqui a pedra é virada de propósito (π em torno de x,
+    // antes do giro em y) e a base, que passa a ficar em +0,19·s, assenta no chão.
+    const FLIP = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI)
+    const upright = (yaw: number) => new THREE.Quaternion().setFromEuler(new THREE.Euler(0, yaw, 0)).multiply(FLIP)
+    const baseAfterFlip = (g: THREE.BufferGeometry) => { g.computeBoundingBox(); return -g.boundingBox!.max.y } // 0,19
     const stoneMat = track(crystalMaterialFor(TIERS[6], bcTex, nmTex)) // T4: pedras médias, marca a 1,4
     const bigMat = track(crystalMaterialFor(TIERS[4], bcTex, nmTex))   // T5 para a do centro
-    const ring = new THREE.InstancedMesh(geos[6] ?? geos[0], stoneMat, ORDINAL_STONES)
+    const ringGeo = geos[6] ?? geos[0]
+    const ringBase = baseAfterFlip(ringGeo)
+    const ring = new THREE.InstancedMesh(ringGeo, stoneMat, ORDINAL_STONES)
     const o = new THREE.Object3D()
     for (let i = 0; i < ORDINAL_STONES; i++) {
       const a = (i / ORDINAL_STONES) * Math.PI * 2
       const x = cx + Math.cos(a) * ORDINAL_RING_R, z = cz + Math.sin(a) * ORDINAL_RING_R
       const s = 2.2 + ((i * 7) % 5) * 0.28 // 6..9 m
-      o.position.set(x, yAt(x, z) + 2.96 * s, z) // a origem é a ponta: sobe a altura toda
-      o.rotation.set(0, -a + Math.PI / 2 + 0.2, 0) // a marca (u=0,5, +y do modelo…) vira para o centro
+      // enterrada 28 %, como no parque: a pedra afunila nas duas pontas e, só
+      // encostada, parecia flutuar
+      o.position.set(x, yAt(x, z) - ringBase * s + 0.2 - 0.78 * s, z)
+      o.quaternion.copy(upright(-a + Math.PI / 2 + 0.2))
       o.scale.setScalar(s)
       o.updateMatrix()
       ring.setMatrixAt(i, o.matrix)
@@ -410,11 +422,12 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
     ring.instanceMatrix.needsUpdate = true
     ring.castShadow = ring.receiveShadow = true
     group.add(ring)
-    const big = new THREE.Mesh(geos[4] ?? geos[0], bigMat)
+    const bigGeo = geos[4] ?? geos[0]
+    const big = new THREE.Mesh(bigGeo, bigMat)
     const S = 5.2 // 14 m
-    big.position.set(cx, yAt(cx, cz) + 2.96 * S, cz)
+    big.position.set(cx, yAt(cx, cz) - baseAfterFlip(bigGeo) * S + 0.2 - 0.78 * S, cz)
     // a marca da pedra central olha para o Chalé (o sul)
-    big.rotation.y = Math.atan2(0 - cx, 620 - cz)
+    big.quaternion.copy(upright(Math.atan2(0 - cx, 620 - cz)))
     big.scale.setScalar(S)
     big.castShadow = big.receiveShadow = true
     group.add(big)

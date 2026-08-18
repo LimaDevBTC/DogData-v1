@@ -62,8 +62,10 @@ function viewFor(name: string | null, aspect: number): View {
   switch (name) {
     case 'castle': case 'south': case 'chalet':
       return { pos: new THREE.Vector3(-560, 300, 1260), target: new THREE.Vector3(0, 110, 620) }
-    case 'north': case 'founders':
+    case 'north':
       return { pos: new THREE.Vector3(160, 120, -140), target: new THREE.Vector3(0, 10, -520) }
+    case 'founders': // a pé, no início da calçada, olhando para a Fonte
+      return { pos: new THREE.Vector3(9, 5.5, -334), target: new THREE.Vector3(0, 1.5, -420) }
     case 'deck':
       return { pos: new THREE.Vector3(-260, 120, 380), target: new THREE.Vector3(0, 60, 0) }
     case 'whitepaper': { const [x, z] = onDiagonal('NE', 598, 4); const [tx, tz] = onDiagonal('NE', 690); return { pos: new THREE.Vector3(x, 7, z), target: new THREE.Vector3(tx, 4, tz) } }
