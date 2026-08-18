@@ -286,8 +286,12 @@ export default function Scrollytelling({
         <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-void/[0.85] to-transparent" />
 
         {/* top chrome: badge + phase indicator stacked top-left — the top-right
-            corner belongs to the Runestone */}
-        <div className="absolute top-20 inset-x-0">
+            corner belongs to the Runestone. It fades IN as the hero copy fades
+            out: at progress 0 the two shared the same corner (with the partner
+            banner above, the stage starts low enough that "01 / 05 · Terrain"
+            printed straight over the "DOGCITY · FOUNDING ERA" eyebrow), and the
+            badge says nothing the eyebrow does not. */}
+        <div className="absolute top-20 inset-x-0" style={{ opacity: 1 - heroCopyOpacity }}>
           <div className="max-w-[1800px] mx-auto px-4 md:px-10">
             <div className="inline-block">
               <div className="font-mono text-[10px] tracking-[0.3em] text-snow/70 border border-white/[0.15] bg-void/50 backdrop-blur-sm px-3 py-1.5">
@@ -373,6 +377,7 @@ export default function Scrollytelling({
               </p>
               <div className="mt-6 font-mono text-[11px] text-dusty flex flex-wrap gap-x-6 gap-y-1">
                 <span>Construction is already underway.</span>
+                <a href="/city" className="text-lava hover:text-lava-light transition-colors">Satoshi Plaza is open · enter →</a>
                 {raised !== null && <span className="text-snow/80">{formatDog(raised)} DOG raised</span>}
                 {founders !== null && <span className="text-snow/80">{founders.toLocaleString()} founders</span>}
               </div>

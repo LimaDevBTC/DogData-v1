@@ -326,6 +326,12 @@ export default function Section({}) {
               <p className="mt-3 font-mono text-[10px] tracking-[0.2em] text-dusty">
                 SCROLL TO WALK THE PARK ↓
               </p>
+              <a
+                href="/city?view=park"
+                className="mt-2 inline-block font-mono text-[10px] tracking-[0.2em] text-lava hover:text-lava-light transition-colors"
+              >
+                OR STAND AT THE GATE, LIVE ↗
+              </a>
             </Reveal>
           </div>
 

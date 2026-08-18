@@ -245,7 +245,7 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
     for (let k = 0; k < NJ; k++) { seed[k * 2] = rnd(); seed[k * 2 + 1] = rnd() }
     const geo = new THREE.BufferGeometry()
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
-    const pm = track(new THREE.PointsMaterial({ map: jetTex, color: WATER_JET, size: 2.4, sizeAttenuation: true, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending }))
+    const pm = track(new THREE.PointsMaterial({ map: jetTex, color: WATER_JET, size: 1.7, sizeAttenuation: true, transparent: true, opacity: 0.62, depthWrite: false, blending: THREE.AdditiveBlending }))
     const pts = new THREE.Points(geo, pm)
     pts.position.set(cx, y + 0.3, cz)
     pts.userData.seed = seed

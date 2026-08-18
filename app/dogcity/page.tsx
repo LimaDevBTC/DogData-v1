@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { Layout } from "@/components/layout"
 import Scrollytelling from "./scrollytelling"
+import PlazaLive from "./sections/plaza-live"
 import ConstructionFund from "./sections/construction-fund"
 import PlotDeed from "./sections/plot-deed"
 import HowItWorks from "./sections/how-it-works"
@@ -141,6 +142,10 @@ export default function LandingPage() {
         {/* sentinel: everything past this point is allowed to show page chrome */}
         <div ref={afterHero} aria-hidden className="h-px w-full" />
 
+        {/* The news sheet first: since 2026-08-18 the plaza the hero just built
+            is open at /city with the DOG mempool in orbit above it. Say so
+            before asking for anything. */}
+        <PlazaLive />
         <ConstructionFund lb={lb} />
         <PlotDeed />
         <HowItWorks />

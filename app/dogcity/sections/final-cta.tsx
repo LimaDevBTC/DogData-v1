@@ -258,8 +258,8 @@ export default function Section({}) {
 
         <Reveal delay={0.34} y={14}>
           <p className="text-sm text-mist mt-4 max-w-xl mx-auto leading-relaxed">
-            The terrain is real. The first properties are registered. The Central Event Plaza is planned.
-            The next foundation can begin with you.
+            The terrain is real. The first properties are registered. Satoshi Plaza is open, with the
+            DOG mempool in orbit above it. The next foundation can begin with you.
           </p>
         </Reveal>
 

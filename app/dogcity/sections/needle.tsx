@@ -158,12 +158,18 @@ export default function Section() {
               </p>
             </Reveal>
 
-            <Reveal delay={0.85} y={10} className="mt-5">
+            <Reveal delay={0.85} y={10} className="mt-5 flex flex-col gap-2">
               <a
                 href="#partners"
                 className="font-mono text-[10px] tracking-[0.22em] text-lava hover:text-lava-light transition-colors"
               >
                 TWO OF THEM ARE BUILT ↓
+              </a>
+              <a
+                href="/city"
+                className="font-mono text-[10px] tracking-[0.22em] text-lava hover:text-lava-light transition-colors"
+              >
+                STAND ON THE DECK, LIVE ↗
               </a>
             </Reveal>
 

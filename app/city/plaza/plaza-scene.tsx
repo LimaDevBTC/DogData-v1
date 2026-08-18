@@ -82,6 +82,8 @@ export default function PlazaScene() {
   const [followInput, setFollowInput] = useState('')
   // Phones start with the board folded to its one-line summary; the scene is the point.
   const [boardOpen, setBoardOpen] = useState(() => typeof window === 'undefined' || window.innerWidth >= 640)
+  // ?plate=1: só a cena, sem HUD (para fotografar as chapas da landing)
+  const [plate] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('plate') === '1')
 
   useEffect(() => {
     const mount = mountRef.current
@@ -421,6 +423,15 @@ export default function PlazaScene() {
         controls.update()
       },
     }
+    // ?tx=<txid>: chegou pela landing (ou por um link) já seguindo uma nave
+    {
+      const txParam = (new URLSearchParams(window.location.search).get('tx') || '').trim().toLowerCase()
+      if (/^[0-9a-f]{64}$/.test(txParam)) {
+        setFollowInput(txParam)
+        // depois do primeiro feed: o orbit precisa das naves para achar a dela
+        setTimeout(() => { void apiRef.current?.follow(txParam) }, 2500)
+      }
+    }
 
     // ── loop ────────────────────────────────────────────────────────────────
     const clock = new THREE.Clock()
@@ -509,6 +520,7 @@ export default function PlazaScene() {
     <div className="relative h-[100dvh] w-full overflow-hidden bg-black text-white select-none">
       <div ref={mountRef} className="absolute inset-0" />
 
+      {!plate && <>
       {/* ── title, and the way back: the landing is the front door, the site is home */}
       <div className="absolute left-4 top-4 sm:left-6 sm:top-6">
         <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/50">
@@ -636,6 +648,7 @@ export default function PlazaScene() {
           </p>
         </div>
       )}
+      </>}
     </div>
   )
 }

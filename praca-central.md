@@ -263,6 +263,27 @@ do Elon Musk mas escrito '$DOG'"; "dar sequência às melhorias do parque Runest
   guarda-corpo de vidro, caibros de aço por dentro das duas águas, escadaria
   monumental em três terraços de pedra até o pórtico, do lado da praça.
 
+## 4.4 A landing conta a novidade, 2026-08-18 (fim da tarde)
+
+Pedido do fundador: "ajustar a landing page: falar sobre a mempool visível que
+temos agora, prévia da DogCity no ar, polimento final".
+
+- **Nova folha logo abaixo do hero, `app/dogcity/sections/plaza-live.tsx`**
+  ("SATOSHI PLAZA · OPEN NOW"): as chapas da praça viva (fotografadas do próprio
+  /city com `?plate=1`, sem HUD: praça, pátio com as Starships, parque, Chalé,
+  em `public/landing/plaza/`), o **mission board ao vivo** lendo
+  `/api/mempool/dog` a cada 20 s (em órbita, último pouso, taxas, mempool
+  inteira; LIVE vira SYNCING se o feed parar 2 min), o botão "Enter Satoshi
+  Plaza" e "Fly to the park" (`/city?view=park`), e a nota de prévia (o que está
+  aberto, o que abre por fase).
+- Hero: a linha mono ganha "Satoshi Plaza is open · enter →"; o crachá de fase
+  do hero agora só aparece quando a copy do hero some (os dois se sobrepunham
+  na primeira pintura, com o banner de parceiro em cima).
+- CTA final: "Satoshi Plaza is open, with the DOG mempool in orbit above it".
+  Needle: "STAND ON THE DECK, LIVE ↗". Parque: "OR STAND AT THE GATE, LIVE ↗".
+- `/city` ganhou imagem de OG (`public/city/og-plaza.jpg`) e `?tx=<txid>` para
+  chegar já seguindo uma nave.
+
 ## 5. Em aberto
 
 | # | Pergunta | Quem |
