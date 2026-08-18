@@ -18,7 +18,9 @@
 //     `clip-path: inset()` iris that opens outward and downward from the
 //     vanishing point over 1.8s, then holds forever.
 //
-//  2. THE PRIMARY CTA decrypts. OriginKit's `encrypt-button` mechanism: on
+//  2. THE PRIMARY CTA decrypts. Since 2026-08-18 it leads to /city, the plaza
+//     on the Moon (praca-central.md D3): the landing is the front door and the
+//     city is where it sends you. Building (donation) is the secondary. OriginKit's `encrypt-button` mechanism: on
 //     pointer-enter the label is overwritten with hex junk (the address
 //     alphabet) and resolves back left-to-right at 60 steps/sec for
 //     `letters × 4` steps. Two ports were mandatory. (a) The source is a
@@ -225,7 +227,7 @@ function useDecryptLabel(label: string) {
   return { out, start, stop }
 }
 
-const PRIMARY_LABEL = "Build DogCity"
+const PRIMARY_LABEL = "Enter the city"
 
 export default function Section({}) {
   const primary = useMagnetic<HTMLAnchorElement>()
@@ -266,7 +268,7 @@ export default function Section({}) {
             {/* primary — the mechanism lives inside a real anchor; the accessible
                 name is the sr-only copy and is never the scrambled text */}
             <a
-              href="#build"
+              href="/city"
               ref={primary.ref}
               onPointerMove={primary.onPointerMove}
               onPointerEnter={decrypt.start}
@@ -293,7 +295,7 @@ export default function Section({}) {
             {/* secondary — the magnetic lean, no scramble. One decrypt on the
                 page's last screen, or it stops being an instrument tell. */}
             <a
-              href="#deed"
+              href="#build"
               ref={secondary.ref}
               onPointerMove={secondary.onPointerMove}
               onPointerLeave={secondary.onPointerLeave}
@@ -302,6 +304,12 @@ export default function Section({}) {
                 ...secondary.style,
                 transition: `transform 0.45s ${EASE_CSS}, border-color 0.25s ease`,
               }}
+            >
+              Build DogCity
+            </a>
+            <a
+              href="#deed"
+              className="inline-flex items-center gap-2 px-7 py-3.5 font-mono text-sm text-snow border border-white/20 hover:border-white/[0.45]"
             >
               Find Your Lot
             </a>

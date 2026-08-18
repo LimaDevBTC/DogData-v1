@@ -1,0 +1,29 @@
+[Unit]
+# O watcher da mempool do DOG: a órbita da praça (praca-central.md §4, fase 1).
+# Le a mempool do nosso no a cada 5 s, decodifica runestone sem o ord, cruza as
+# entradas com o UTXO set do dog-scanner, e escreve dog_mempool + mempool_snapshot
+# no Supabase (DOGDATA). Depende so do bitcoind, nunca do ord.service.
+#
+# Instalar (uma vez, com sudo):
+#   sudo cp scripts/dog-mempool.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now dog-mempool.service
+#   journalctl -u dog-mempool.service -f
+Description=DOG mempool watcher - a orbita da praca
+After=bitcoind.service dog-scanner.service
+Wants=bitcoind.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/bitmax/Projects/bitcoin-fullstack/DogData-v1/scripts/dog_mempool_watcher.py
+Restart=always
+RestartSec=10
+User=bitmax
+WorkingDirectory=/home/bitmax/Projects/bitcoin-fullstack/DogData-v1
+Environment=PYTHONUNBUFFERED=1
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dog-mempool
+
+[Install]
+WantedBy=multi-user.target

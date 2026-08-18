@@ -1,20 +1,21 @@
-import { redirect } from 'next/navigation'
+import type { Metadata } from 'next'
+import PlazaClient from './plaza/plaza-client'
 
-// /city has given way to /dogcity.
+// /city IS the plaza now (praca-central.md, D3): Satoshi Plaza on real Mare
+// Tranquillitatis terrain, with the DOG mempool in orbit above it. The landing at
+// /dogcity stays the front door of the site (the root sends every new session
+// there) and sends people here; the shared header's DogCity item, which points at
+// /city, lands on the plaza directly.
 //
-// This route used to serve the first DogCity page (the "coming soon" teaser).
-// The landing lives at /dogcity now, so anything still pointing here — most
-// importantly the DogCity item in the shared header, which cannot be edited
-// from this repo because components/header.tsx is held back with
-// `git update-index --skip-worktree` — lands on the current page instead of
-// the first version.
-//
-// Deliberately a temporary (307) redirect rather than a permanent (308): a 308
-// is cached hard by browsers and would be painful to walk back if /city is ever
-// wanted for something else. Nothing about this needs to be permanent to work.
-//
-// Note this only affects /city itself. The local-only WIP routes underneath it
-// (/city/explore, /city/luna — both gitignored) keep resolving normally.
+// The route used to 307-redirect to /dogcity while the city was not public. That
+// redirect was deliberately temporary so this day would not have to fight a
+// browser cache.
+export const metadata: Metadata = {
+  title: 'Satoshi Plaza — DogCity on the Moon',
+  description:
+    'The central plaza of DogCity on real lunar terrain, with the DOG mempool alive above it: every pending transaction is a ship in orbit, every block is a landing.',
+}
+
 export default function CityPage() {
-  redirect('/dogcity')
+  return <PlazaClient />
 }
