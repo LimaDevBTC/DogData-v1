@@ -102,7 +102,7 @@ Stacks nesta abertura.
 | # | Decisão |
 |---|---|
 | D1 | **Órbita e pouso** é a metáfora da mempool ("com certeza") |
-| D2 | O prédio do OrdCards é o **Castelo de Cartas do Satoshi**; a Arena não vai |
+| D2 | O prédio do OrdCards era o **Castelo de Cartas do Satoshi**; a Arena não vai. **Revogado em 2026-08-18 (~02:00)**: o castelo foi construído (cartas do Gênesis num atlas, InstancedMesh, torres de "A", coruchéus, ponte levadiça), o fundador viu e desistiu: "vamos pensar em outra coisa pro OrdCards". O sítio ao sul do deck fica reservado |
 | D3 | **`/city` passa a ser a praça**, e vai ao ar assim que estiver pronta |
 | D4 | **Retirar tudo em volta**: prédios de carteira, distritos Solana e Stacks, lotes. Só a praça |
 | D5 | **O Parque Runestone fica** ("gigantesco, pronto"): a abertura pública é a praça + o parque |
