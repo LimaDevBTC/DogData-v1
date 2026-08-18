@@ -42,6 +42,7 @@ function homeFor(aspect: number): { pos: THREE.Vector3; target: THREE.Vector3 } 
   if (view === 'castle' || view === 'south' || view === 'chalet') return { pos: new THREE.Vector3(-560, 300, 1260), target: new THREE.Vector3(0, 110, 620) }
   if (view === 'north') return { pos: new THREE.Vector3(520, 300, -1240), target: new THREE.Vector3(0, 90, -620) }
   if (view === 'top') return { pos: new THREE.Vector3(60, 2600, 900), target: new THREE.Vector3(0, 0, 100) }
+  if (view === 'parkclose') return { pos: new THREE.Vector3(PARK_CENTER.x - 420, 260, PARK_CENTER.z - 1250), target: new THREE.Vector3(PARK_CENTER.x + 40, 220, PARK_CENTER.z + 60) }
   if (view === 'padclose') return { pos: new THREE.Vector3(PAD_MAIN.x + 40, PAD_MAIN.y + 40, PAD_MAIN.z - 150), target: new THREE.Vector3(PAD_MAIN.x - 20, PAD_MAIN.y + 24, PAD_MAIN.z + 20) }
   if (view === 'pad') return { pos: new THREE.Vector3(PAD_MAIN.x + 150, 90, PAD_MAIN.z + 190), target: new THREE.Vector3(PAD_MAIN.x - 60, 40, PAD_MAIN.z + 60) }
   if (view === 'far') return { pos: new THREE.Vector3(1200, 2600, 12500), target: new THREE.Vector3(0, 0, 2000) }
@@ -133,6 +134,31 @@ export default function PlazaScene() {
     sun.shadow.normalBias = 1.2
     sun.target.position.set(0, 0, 320)
     scene.add(sun, sun.target)
+    // A caixa de sombra segue o alvo da câmera (encaixada em texels da luz para
+    // não tremer) e cresce com a distância: sombras na praça E no parque, a 9 km,
+    // com um mapa só. Sem isto o parque era plano: as pedras não assentavam.
+    const SUN_DIR = sun.position.clone().normalize()
+    const SUN_DIST = sun.position.length()
+    const lightRot = new THREE.Matrix4().lookAt(SUN_DIR, new THREE.Vector3(), new THREE.Vector3(0, 1, 0))
+    const lightRotInv = lightRot.clone().invert()
+    const shadowAnchor = new THREE.Vector3()
+    let shadowHalf = 1000
+    const followShadow = () => {
+      const dist = camera.position.distanceTo(controls.target)
+      const half = dist < 1500 ? 1000 : dist < 3500 ? 1800 : 3200
+      if (half !== shadowHalf) {
+        shadowHalf = half
+        sc.left = -half; sc.right = half; sc.top = half; sc.bottom = -half
+        sc.updateProjectionMatrix()
+      }
+      const texel = (2 * half) / sun.shadow.mapSize.x
+      shadowAnchor.copy(controls.target).applyMatrix4(lightRotInv)
+      shadowAnchor.x = Math.round(shadowAnchor.x / texel) * texel
+      shadowAnchor.y = Math.round(shadowAnchor.y / texel) * texel
+      shadowAnchor.applyMatrix4(lightRot)
+      sun.target.position.copy(shadowAnchor)
+      sun.position.copy(shadowAnchor).addScaledVector(SUN_DIR, SUN_DIST)
+    }
     scene.add(new THREE.HemisphereLight(0x2a3448, 0x0e0d0c, 0.28))
     const earthshine = new THREE.DirectionalLight(0x8fb0ff, 0.25)
     earthshine.position.set(1200, 2600, 900)
@@ -404,6 +430,7 @@ export default function PlazaScene() {
       const t = clock.elapsedTime
       if (!controls.autoRotate && performance.now() - lastInteraction > 25_000) controls.autoRotate = true
       controls.update()
+      followShadow()
       orbit.update(t, dt, fees)
       for (const p of pulses) p.m.emissiveIntensity = p.base * (0.8 + 0.25 * Math.sin(t * p.rate + p.phase))
       for (const s of sways) { s.o.rotation.y = Math.sin(t * 0.22) * 0.95; s.o.position.y = s.y0 + Math.sin(t * 0.8) * s.amp }

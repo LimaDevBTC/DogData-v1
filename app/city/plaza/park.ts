@@ -112,9 +112,37 @@ export async function loadPark(opts: { horizonAt: (x: number, z: number) => numb
   group.add(terrain)
 
   // ── as pedras marcadas: cristais instanciados por variante ────────────────
-  const crystalMat = track(new THREE.MeshStandardMaterial({
-    color: 0xaebad0, roughness: 0.36, metalness: 0.08, emissive: 0x16223a, emissiveIntensity: 0.32, flatShading: true,
+  // Cristal: facetas (flatShading), aço-gelo claro com reflexo do ambiente, e no
+  // shader um brilho de borda (Fresnel) azul-frio mais um véu que clareia para a
+  // ponta, o que dá a leitura de pedra translúcida sem o custo de transmission
+  // (que renderiza a cena duas vezes e mataria o celular).
+  const crystalMat = track(new THREE.MeshPhysicalMaterial({
+    color: 0xd7deec, roughness: 0.2, metalness: 0.04, envMapIntensity: 1.25,
+    clearcoat: 0.5, clearcoatRoughness: 0.25,
+    emissive: 0x0b1630, emissiveIntensity: 0.4, flatShading: true,
   }))
+  crystalMat.onBeforeCompile = (sh) => {
+    sh.uniforms.uTime = { value: 0 }
+    crystalMat.userData.shader = sh
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying float vCrystalH;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvCrystalH = position.y;')
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying float vCrystalH;\nuniform float uTime;')
+      .replace(
+        '#include <emissivemap_fragment>',
+        `#include <emissivemap_fragment>
+        {
+          vec3 vd = normalize(vViewPosition);
+          float rim = pow(1.0 - clamp(dot(vd, normal), 0.0, 1.0), 2.6);
+          // a malha do cristal vai de y = -2.96 (base) a -0.19 (ponta) no local
+          float tip = smoothstep(-2.9, -0.3, vCrystalH);
+          float breath = 0.85 + 0.15 * sin(uTime * 0.7 + vCrystalH * 1.7);
+          totalEmissiveRadiance += vec3(0.42, 0.56, 0.95) * rim * 0.55 * breath;
+          totalEmissiveRadiance += vec3(0.62, 0.70, 0.90) * tip * 0.10;
+        }`,
+      )
+  }
   const variantGeo: THREE.BufferGeometry[] = []
   crystals.traverse((o) => {
     const m = o as THREE.Mesh
@@ -145,6 +173,16 @@ export async function loadPark(opts: { horizonAt: (x: number, z: number) => numb
     const im = new THREE.InstancedMesh(g, crystalMat, list.length)
     list.forEach((m, i) => im.setMatrixAt(i, m))
     im.instanceMatrix.needsUpdate = true
+    // tons: do branco-gelo ao azul-lilás pálido, decidido pela posição (estável)
+    const ic = new THREE.Color()
+    list.forEach((m, i) => {
+      const px = m.elements[12], pz = m.elements[14]
+      const h = 0.5 + 0.5 * Math.sin(px * 0.013 + pz * 0.021)
+      ic.setRGB(0.90 + 0.10 * (1 - h), 0.93 + 0.05 * (1 - h), 0.98 + 0.02 * h)
+      if (h > 0.8) ic.setRGB(0.93, 0.90, 1.0) // um lilás raro
+      im.setColorAt(i, ic)
+    })
+    if (im.instanceColor) im.instanceColor.needsUpdate = true
     im.castShadow = true
     im.receiveShadow = true
     im.name = `Crystals_${v}`
@@ -164,7 +202,7 @@ export async function loadPark(opts: { horizonAt: (x: number, z: number) => numb
   }
   const sgeo = track(new THREE.BufferGeometry())
   sgeo.setAttribute('position', new THREE.BufferAttribute(spos, 3))
-  const scatter = new THREE.Points(sgeo, track(new THREE.PointsMaterial({ color: 0xb8c4da, size: 1.8, sizeAttenuation: true, transparent: true, opacity: 0.4, depthWrite: false })))
+  const scatter = new THREE.Points(sgeo, track(new THREE.PointsMaterial({ color: 0x9fb4d8, size: 1.5, sizeAttenuation: true, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending })))
   scatter.name = 'Census'
   group.add(scatter)
 
@@ -198,7 +236,11 @@ export async function loadPark(opts: { horizonAt: (x: number, z: number) => numb
 
   return {
     group,
-    update(t) { crystalMat.emissiveIntensity = 0.4 + 0.08 * Math.sin(t * 0.6) },
+    update(t) {
+      crystalMat.emissiveIntensity = 0.4 + 0.08 * Math.sin(t * 0.6)
+      const sh = crystalMat.userData.shader as { uniforms: { uTime: { value: number } } } | undefined
+      if (sh) sh.uniforms.uTime.value = t
+    },
     dispose() { for (const d of disposables) d.dispose(); crystals.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) m.geometry?.dispose() }) },
   }
 }
