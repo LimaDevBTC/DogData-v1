@@ -106,3 +106,14 @@ Blender entra quando uma peça pedir mais do que a geometria procedural dá
   o crânio (ogiva sobre o rosto), capa com silhueta de corpo (ombros, braços
   insinuados, cintura, bainha) e pregas. Escala 4,6 no plinto: 10,9 m. A caveira
   esculpida no Blender (`build_leonidas_skull.py`) ficou como reserva.
+- 2026-08-18 (noite, 3): "a roupa continua horrível; ele usa capa, mas não é um
+  fantasma, por baixo usa tipo uma armadura, algo como o Homem de Ferro". Sem
+  modelo do Homem de Ferro (marca da Marvel; nada de uso comercial) e sem
+  armadura de qualidade com licença limpa que se baixe sem login, a armadura foi
+  CONSTRUÍDA, original, no espírito: peitoral curvo com o núcleo laranja aceso e
+  frisos em V, ombreiras, braços com manoplas cônicas e luz, mãos fechadas,
+  abdômen em três placas, cinturão de ouro escuro com fivela acesa, coxas,
+  joelheiras, canelas, botas de sola dourada; metal escuro + ouro escuro + laranja
+  DOG. A capa agora cai só das ombreiras pelas costas (aberta na frente) e o capuz
+  continua sobre a caveira real. Se o fundador comprar/licenciar um modelo de
+  armadura, encaixa no mesmo lugar.
