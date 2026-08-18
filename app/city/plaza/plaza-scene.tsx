@@ -22,7 +22,8 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { loadTerrain } from './terrain'
 import { createOrbitLayer, PAD_MAIN } from './orbit-layer'
 import { startFeed, type DogTx, type Snapshot } from './feed'
-import { buildProto, type Proto, type ProtoKind } from './ordcards-protos'
+import { buildChalet, type Chalet } from './chalet'
+import { buildPrecinct, ANCHORS, type Precinct } from './precinct'
 
 // ── framing ────────────────────────────────────────────────────────────────────
 // The default view is the landing hero, from the north-east, high enough that the
@@ -37,7 +38,9 @@ const HOME_TARGET = new THREE.Vector3(0, 100, 480)
 function homeFor(aspect: number): { pos: THREE.Vector3; target: THREE.Vector3 } {
   // ?view=castle | spaceport: bookmarks for the two other set pieces
   const view = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : null
-  if (view === 'castle' || view === 'south') return { pos: new THREE.Vector3(-520, 260, 1320), target: new THREE.Vector3(0, 110, 700) }
+  if (view === 'castle' || view === 'south' || view === 'chalet') return { pos: new THREE.Vector3(-560, 300, 1260), target: new THREE.Vector3(0, 110, 620) }
+  if (view === 'north') return { pos: new THREE.Vector3(520, 300, -1240), target: new THREE.Vector3(0, 90, -620) }
+  if (view === 'top') return { pos: new THREE.Vector3(60, 2600, 900), target: new THREE.Vector3(0, 0, 100) }
   if (view === 'spaceport') return { pos: new THREE.Vector3(600, 380, 3700), target: new THREE.Vector3(-140, 60, 3090) }
   if (aspect >= 1) return { pos: HOME_POS.clone(), target: HOME_TARGET.clone() }
   return { pos: new THREE.Vector3(430, 760, -1300), target: new THREE.Vector3(0, 40, 420) }
@@ -161,7 +164,9 @@ export default function PlazaScene() {
     const pulses: { m: THREE.MeshStandardMaterial; base: number; rate: number; phase: number }[] = []
     const sways: { o: THREE.Object3D; y0: number; amp: number }[] = []
     const jets: { o: THREE.Object3D; y0: number }[] = []
-    let proto: Proto | null = null
+    let chalet: Chalet | null = null
+    let precinct: Precinct | null = null
+    const spinners: THREE.Object3D[] = []
     let heightAt: (x: number, z: number) => number = () => 0
 
     const loadGlb = (url: string) =>
@@ -189,22 +194,24 @@ export default function PlazaScene() {
           loadGlb('/city/kray-tower.glb'),
         ])
         if (disposed) return
+        // The Needle's own site slab would double the deck; the tower stands on the
+        // deck alone. BitFlow and Kray keep their whole sites (gardens, kerbs, cars):
+        // out at the anchor radius there is nothing for them to collide with.
         const stripSite = (root: THREE.Object3D) => {
           const gone: THREE.Object3D[] = []
-          root.traverse((o) => {
-            if (/^(SITE_|PROP_)|_Site$/i.test(o.name)) gone.push(o) // Site_Basin stays: it is the fountain
-          })
+          root.traverse((o) => { if (/^(SITE_|PROP_)|_Site$/i.test(o.name)) gone.push(o) })
           for (const o of gone) o.parent?.remove(o)
         }
-        for (const t of [needle, bitflow, kray]) stripSite(t)
-        // Landing composition, in three's frame (x east, z south): the Needle on the
-        // deck at the centre, BitFlow west-north-west, Kray east-north-east; both
-        // signs turned to the plaza.
+        stripSite(needle)
+        // The precinct (praca-central.md §4.2, D7): the Needle at the centre of the
+        // deck; four anchors on a ring at R_ANCHOR, one per cardinal point, every
+        // front turned to the centre. In each tower GLB the signed façade faces +z,
+        // so "face the plaza" is a rotation about y: west anchor +90°, east −90°.
         needle.position.set(0, 39.9, 0)
-        bitflow.position.set(-372, 0, -121)
-        bitflow.rotation.y = -Math.PI / 2
-        kray.position.set(380, 0, -110)
-        kray.rotation.y = Math.PI / 2
+        bitflow.position.copy(ANCHORS.west.pos)
+        bitflow.rotation.y = ANCHORS.west.rotY
+        kray.position.copy(ANCHORS.east.pos)
+        kray.rotation.y = ANCHORS.east.rotY
         for (const root of [plaza, spaceport, needle, bitflow, kray]) {
           tameEnv(root)
           root.traverse((o) => {
@@ -230,28 +237,31 @@ export default function PlazaScene() {
           const o = root.getObjectByName(name)
           if (o) jets.push({ o, y0: o.scale.y })
         }
+        // D9: the Needle's sign ring ("MOON • DOG…") turns, slowly, like a real one
+        for (const name of ['NEEDLE_LED_BAND', 'NEEDLE_LED_DOTS']) {
+          const o = needle.getObjectByName(name)
+          if (o) spinners.push(o)
+        }
         // the main pad sits on the terrain: keep the constant honest
         PAD_MAIN.y = heightAt(PAD_MAIN.x, PAD_MAIN.z) + 1
 
-        // The OrdCards building goes south of the deck, on the monumental axis
-        // (praca-central.md §2). The card castle was tried and dropped by the
-        // founder on 2026-08-18; the site is reserved. Three prototypes can be
-        // summoned with ?proto=hand|tally|shuffle while the choice is made.
-        const protoKind = new URLSearchParams(window.location.search).get('proto') as ProtoKind | null
-        if (protoKind === 'hand' || protoKind === 'tally' || protoKind === 'shuffle' || protoKind === 'chalet') {
-          setHud((h) => ({ ...h, loading: 'Dealing the cards…' }))
-          const texLoader = new THREE.TextureLoader()
-          const loadTex = (url: string) =>
-            new Promise<THREE.Texture>((res, rej) => texLoader.load(url, (t) => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; res(t) }, undefined, rej))
-          const [atlas, back, lf, lb] = await Promise.all([
-            loadTex('/city/cards/cards.jpg'), loadTex('/city/cards/back.png'),
-            loadTex('/city/cards/logo-front.png'), loadTex('/city/cards/logo-back.png'),
-          ])
-          if (disposed) return
-          proto = buildProto(protoKind, atlas, back, { front: lf, back: lb })
-          proto.group.position.set(0, 0, 700)
-          scene.add(proto.group)
-        }
+        // The OrdCards Chalet at the south anchor (D2, nova redação), the front of
+        // the official logo card up the monumental stair, the QR to the spaceport.
+        setHud((h) => ({ ...h, loading: 'Raising the Chalet…' }))
+        const texLoader = new THREE.TextureLoader()
+        const loadTex = (url: string) =>
+          new Promise<THREE.Texture>((res, rej) => texLoader.load(url, (t) => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; res(t) }, undefined, rej))
+        const [lf, lb] = await Promise.all([loadTex('/city/cards/logo-front.png'), loadTex('/city/cards/logo-back.png')])
+        if (disposed) return
+        chalet = buildChalet(lf, lb)
+        chalet.group.position.copy(ANCHORS.south.pos)
+        chalet.group.rotation.y = ANCHORS.south.rotY
+        scene.add(chalet.group)
+
+        // The precinct: boulevards, the ring, the lunar garden, the Mother Tree (D7, D8).
+        setHud((h) => ({ ...h, loading: 'Planting the garden…' }))
+        precinct = buildPrecinct({ heightAt })
+        scene.add(precinct.group)
         setHud((h) => ({ ...h, loading: null }))
       } catch (err) {
         console.error('[plaza]', err)
@@ -382,7 +392,9 @@ export default function PlazaScene() {
       for (const p of pulses) p.m.emissiveIntensity = p.base * (0.8 + 0.25 * Math.sin(t * p.rate + p.phase))
       for (const s of sways) { s.o.rotation.y = Math.sin(t * 0.22) * 0.95; s.o.position.y = s.y0 + Math.sin(t * 0.8) * s.amp }
       for (const j of jets) j.o.scale.y = j.y0 * (0.88 + 0.12 * Math.sin(t * 1.4))
-      proto?.update(t)
+      chalet?.update(t)
+      precinct?.update(t)
+      for (const sp of spinners) sp.rotation.y = t * 0.12
       earth.rotation.y = t * 0.004
       const cl = earth.getObjectByName('Clouds'); if (cl) cl.rotation.y = t * 0.0025
       renderer.render(scene, camera)
@@ -414,7 +426,8 @@ export default function PlazaScene() {
       renderer.domElement.removeEventListener('wheel', wake)
       controls.dispose()
       orbit.dispose()
-      proto?.dispose()
+      chalet?.dispose()
+      precinct?.dispose()
       draco.dispose()
       pmrem.dispose()
       scene.traverse((o) => {

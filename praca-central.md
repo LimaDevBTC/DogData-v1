@@ -179,6 +179,41 @@ watcher da casa (idade 7 s), `/dogcity` mostra "Enter the city".
 Runestone em tempo real, jardins no lugar do anel comercial, câmera de pouso,
 mobile, e a landing ajustada depois (conteúdo, não fluxo).
 
+## 4.2 Revisão do fundador, 2026-08-18 (~02:40): o precinto
+
+Depois de ver os quatro protótipos: **"Chalé com certeza"**, e um brief maior:
+
+- **D2 (nova redação):** o prédio do OrdCards é o **Chalé**: duas cartas colossais
+  em "A", e as cartas são a carta oficial do OrdCards da inscrição da logo
+  (72d5cde4…i0, N° 127.106.002), frente com forças/DNA para a praça, verso com QR/DNA
+  para o spaceport. Elevar a "6 estrelas, uma verdadeira maravilha arquitetônica
+  criada sobre a ideia do chalé com aquela carta em específico": vidro, piso, luz
+  perfeita, no nível dos outros três.
+- **D7, o precinto:** a praça é um **círculo central**; em volta, **outro círculo com
+  quatro prédios grandes, praticamente do mesmo tamanho, um em cada ponto
+  cardeal**; tudo organizado, planejado, com paisagismo e acabamento AAA+, ligado
+  por jardins, bulevares, fontes, tamareiras (lunares). "Hoje parece um monte de
+  coisas soltas." A Kray está de costas para a praça: corrigir. O quarto ponto
+  cardeal, cuja âncora ainda não existe, vira **jardim** por enquanto.
+- **D8, o jardim lunar:** "lembra Avatar? aquela flora estonteante": jardim
+  bioluminescente, flora alienígena, caprichado.
+- **D9:** o letreiro da Needle (o anel "MOON • DOG…") **gira**.
+- **D10:** o **Parque Runestone entra em tempo real, na posição correta**. Não há
+  posição registrada em documento nenhum (o parque foi desenhado no próprio
+  quadro, 7,2 km de lado); a proposta é pô-lo no horizonte a sudeste da praça,
+  atrás do spaceport, onde a cordilheira de 500 m e os cristais aparecem do
+  enquadramento de abertura. Confirmar com o fundador.
+
+**Geometria decidida para o precinto (implementação):** deck (r 300) no centro com a
+Needle; cinturão de jardim de 320 a 440; **bulevar anelar** em r ≈ 450 ligando as
+quatro portas; **quatro bulevares radiais** nos eixos cardeais, do deck às âncoras;
+âncoras em **r = 620**: **BitFlow a oeste (de frente para leste), Kray a leste (de
+frente para oeste, corrigida), Chalé ao sul (frente para o norte, no fim da
+escadaria monumental), Norte = jardim com uma Árvore-Mãe** bioluminescente no
+lugar da quarta âncora; jardim lunar preenchendo os quatro setores até r ≈ 900,
+depois regolito. Fora: a massa do anel comercial e o monotrilho da cena da
+landing (o "solto").
+
 ## 5. Em aberto
 
 | # | Pergunta | Quem |
