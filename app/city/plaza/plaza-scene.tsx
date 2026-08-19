@@ -185,6 +185,18 @@ export default function PlazaScene() {
         }
         return rows.sort((a, b) => b.tris - a.tris)
       }
+      ;(window as unknown as { __plazaMeshes?: (groupName: string) => unknown }).__plazaMeshes = (groupName: string) => {
+        const rows: { name: string; tris: number; inst: number }[] = []
+        const g = scene.children.find((c) => c.name === groupName)
+        g?.traverse((o) => {
+          const m = o as THREE.Mesh & { isInstancedMesh?: boolean; count?: number }
+          if (!m.isMesh) return
+          const geo = m.geometry
+          const n = geo.index ? geo.index.count / 3 : (geo.attributes.position?.count ?? 0) / 3
+          rows.push({ name: o.name || o.type, tris: Math.round(n * (m.isInstancedMesh ? (m.count ?? 1) : 1)), inst: m.isInstancedMesh ? (m.count ?? 0) : 1 })
+        })
+        return rows.sort((a, b) => b.tris - a.tris).slice(0, 25)
+      }
     }
 
     const scene = new THREE.Scene()

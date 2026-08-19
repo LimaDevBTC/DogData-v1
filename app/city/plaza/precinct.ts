@@ -251,7 +251,7 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   // ── postes: esferas de luz fria em hastes finas, ao longo dos bulevares ────
   const lampCount = 4 * 12 * 2 + 64 + 96
   const poleGeo = track(new THREE.CylinderGeometry(0.22, 0.3, 9, 6))
-  const bulbGeo = track(new THREE.SphereGeometry(0.9, 10, 8))
+  const bulbGeo = track(new THREE.SphereGeometry(0.9, 7, 5)) // 256 lâmpadas: 60 tris cada bastam
   const poleMat = track(new THREE.MeshStandardMaterial({ color: 0x23242b, metalness: 0.7, roughness: 0.4 }))
   const bulbMat = track(new THREE.MeshBasicMaterial({ color: ICE, toneMapped: false }))
   const poles = new THREE.InstancedMesh(poleGeo, poleMat, lampCount)
@@ -399,23 +399,23 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   const hedges: THREE.Matrix4[] = []
   const hedgeArc = (r: number, a0: number, a1: number, h = 1.6, w = 1.4) => {
     const len = r * (a1 - a0)
-    const n = Math.max(1, Math.round(len / 3))
+    const n = Math.max(1, Math.round(len / 5.5)) // caixas de 6 m: metade das instâncias
     for (let i = 0; i < n; i++) {
       const a = a0 + ((i + 0.5) / n) * (a1 - a0)
       const x = Math.cos(a) * r, z = Math.sin(a) * r
       // o comprimento da caixa (x local) na TANGENTE do arco: rotation.y = −a + π/2
       // (com −a ela ficava radial e a sebe virava uma linha tracejada de lajes)
-      o.position.set(x, yAt(x, z) + h / 2, z); o.rotation.set(0, -a + Math.PI / 2, 0); o.scale.set(3.4, h, w); o.updateMatrix()
+      o.position.set(x, yAt(x, z) + h / 2, z); o.rotation.set(0, -a + Math.PI / 2, 0); o.scale.set(6.0, h, w); o.updateMatrix()
       hedges.push(o.matrix.clone())
     }
   }
   const hedgeLine = (x0: number, z0: number, x1: number, z1: number, h = 1.6, w = 1.4) => {
-    const len = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.round(len / 3))
+    const len = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.round(len / 5.5))
     const yaw = Math.atan2(x1 - x0, z1 - z0)
     for (let i = 0; i < n; i++) {
       const t = (i + 0.5) / n
       const x = x0 + (x1 - x0) * t, z = z0 + (z1 - z0) * t
-      o.position.set(x, yAt(x, z) + h / 2, z); o.rotation.set(0, yaw, 0); o.scale.set(w, h, 3.1); o.updateMatrix()
+      o.position.set(x, yAt(x, z) + h / 2, z); o.rotation.set(0, yaw, 0); o.scale.set(w, h, Math.min(6.0, len / n + 0.4)); o.updateMatrix()
       hedges.push(o.matrix.clone())
     }
   }
