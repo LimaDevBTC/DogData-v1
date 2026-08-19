@@ -31,6 +31,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { regolithColor } from './terrain'
 import { PARK_CENTER, PARK_ROT_Y, PARK_HALF, PARK_CORE } from './park-site'
 import { mergeStaticByMaterial, type PerfProfile, type DistanceCuller } from './perf'
+import { SF, loadSf, dressSf } from './sf-assets'
 
 export { PARK_CENTER, PARK_ROT_Y }
 
@@ -359,6 +360,40 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
     bb.getCenter(c)
     m.position.y += groundLocal(c.x, c.z) - parkH(c.x, -c.z)
   })
+  // ── o SALÃO do Templo Leonidas, sobre o pódio ────────────────────────────
+  // O masterplan do parque (RUNESTONE-PARK-V2-MASTERPLAN.md) reservou "20 socket
+  // plinths on T-3 (future hall grid)": o pódio de três tiers foi construído para
+  // receber um salão que nunca existiu. É esse o lugar do templo japonês que o
+  // fundador trouxe do Sketchfab (carolinefangel, CC-BY-4.0). A medida sai do
+  // próprio pódio, antes da fusão por material (que apaga os nomes dos nós).
+  const podiumBox = (() => {
+    let node: THREE.Object3D | null = null
+    built.traverse((o) => { if (!node && /^Podium/i.test(o.name)) node = o })
+    if (!node) { console.warn('[plaza] Podium node não encontrado no temple.glb'); return null }
+    built.updateMatrixWorld(true)
+    return new THREE.Box3().setFromObject(node)
+  })()
+  if (podiumBox) {
+    const hall = await loadSf(opts.gltf ?? new GLTFLoader(), SF.templeHall)
+    if (hall) {
+      const c = podiumBox.getCenter(new THREE.Vector3())
+      dressSf(hall, { envMapIntensity: 0.5, roughness: 0.8 })
+      hall.scale.setScalar(1.55) // 20 m → 31 m de frente, na medida do pódio (45×30)
+      hall.position.set(c.x, podiumBox.max.y - 0.2, c.z)
+      // o eixo do precinto do templo: az 251,6° no quadro do parque → o salão
+      // olha para o Monarca, como o pódio
+      hall.rotation.y = THREE.MathUtils.degToRad(251.6 - 180)
+      built.add(hall)
+      hall.updateMatrixWorld(true)
+      console.log('[plaza] TEMPLE hall at', JSON.stringify(hall.getWorldPosition(new THREE.Vector3())), 'podium', JSON.stringify(podiumBox))
+      // duas luzes quentes sob os beirais, para o telhado ler à noite
+      for (const s of [-1, 1]) {
+        const l = new THREE.PointLight(0xffb96a, 4, 60, 1.6)
+        l.position.set(c.x + s * 12, podiumBox.max.y + 6, c.z + 10)
+        built.add(l)
+      }
+    }
+  }
   mergeStaticByMaterial(built, /^$/) // 138 malhas → ~20
   group.add(built)
   // as trilhas e o templo só de perto do parque (153 mil triângulos de passarela)

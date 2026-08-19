@@ -19,7 +19,9 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import {
   STELAE, GENESIS_POS, SATOSHI_POOL, PAW_PALM, PAW_TOES, PAW_TOE_R, PAW_PLAQUE, LEONIDAS_POS, LEONIDAS_PLINTH_R,
   ORDINAL_CENTER, ORDINAL_RING_R, ORDINAL_STONES, ORDINAL_PLAQUES, QUADRANT_ANGLE, POOL_R,
+  BUST_POS, HERO_PALMS,
 } from './garden-plan'
+import { SF, loadSf, dressSf, firstGeometry } from './sf-assets'
 import { TIERS, crystalMaterialFor, loadCrystalTextures } from './park'
 import { buildSatoshiLugano, buildLeonidas } from './statues'
 import type { PerfProfile, DistanceCuller } from './perf'
@@ -503,6 +505,70 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
       foot: 'RUNESTONE ORDINAL PARK · 5 KM NORTH-EAST',
     }, track)
     q2.position.set(p2[0], yAt(p2[0], p2[1]), p2[1]); q2.rotation.y = faceAxisYaw(a, -12); group.add(q2); cullText(q2, p2[0], p2[1])
+  }
+
+  // ═══ Sketchfab: o busto do Satoshi e as palmeiras de perto ════════════════
+  // (créditos em sf-assets.ts; CC-BY exige nome do autor, e ele está no menu Places)
+  {
+    const gl = opts.gltf ?? new GLTFLoader()
+    const [bust, palm] = await Promise.all([loadSf(gl, SF.bust), loadSf(gl, SF.palm)])
+    if (bust) {
+      // o busto de bronze na entrada da alameda do Espelho: quem vem do deck o
+      // encontra antes da figura que some na água. Dois Satoshis: o que se vê e
+      // o que desaparece.
+      const [bx, bz] = BUST_POS
+      const by = yAt(bx, bz)
+      const g = new THREE.Group()
+      g.position.set(bx, by, bz)
+      g.rotation.y = faceAxisYaw(QUADRANT_ANGLE.NW, 17)
+      const plinth = new THREE.Mesh(track(new THREE.CylinderGeometry(3.1, 3.4, 1.5, 40)), graniteMat)
+      plinth.position.y = 0.75
+      plinth.castShadow = plinth.receiveShadow = true
+      g.add(plinth)
+      const rim = new THREE.Mesh(track(new THREE.TorusGeometry(3.15, 0.06, 8, 64)), brassMat)
+      rim.rotation.x = Math.PI / 2
+      rim.position.y = 1.52
+      g.add(rim)
+      dressSf(bust, { envMapIntensity: 1.6 })
+      bust.scale.setScalar(1.35)
+      bust.position.y = 1.5
+      g.add(bust)
+      const insc = new THREE.Mesh(track(new THREE.PlaneGeometry(4.4, 0.9)), track(new THREE.MeshBasicMaterial({
+        map: track(textTexture({ w: 1024, h: 200, bg: '#121317', lines: [
+          { text: 'SATOSHI NAKAMOTO', size: 54, font: '700', color: '#f2ead6', y: 66, letterSpacing: 10 },
+          { text: 'no face, no name, no key that anyone can turn', size: 28, color: '#a89b80', y: 138 },
+        ] })), toneMapped: false,
+      })))
+      insc.position.set(0, 0.85, 3.2)
+      g.add(insc)
+      group.add(g)
+      uplight(bx + 4, bz + 2, 0.8)
+      addLight(bx + 4, by + 3, bz + 2, 2.2, 50, 0xfff0dc)
+      cullText(insc, bx, bz)
+    }
+    if (palm) {
+      // as palmeiras dos portões: o modelo real instanciado (2,2 mil tris cada,
+      // 16 delas), só de perto; as procedurais continuam preenchendo o resto
+      const f = firstGeometry(palm)
+      if (f) {
+        const im = new THREE.InstancedMesh(track(f.geo), f.mat, HERO_PALMS.length)
+        const o = new THREE.Object3D()
+        HERO_PALMS.forEach(([x, z], i) => {
+          const k = 0.85 + ((i * 37) % 7) * 0.06
+          o.position.set(x, yAt(x, z), z)
+          o.rotation.set(0, ((i * 61) % 360) * (Math.PI / 180), 0)
+          o.scale.setScalar(k)
+          o.updateMatrix()
+          im.setMatrixAt(i, o.matrix)
+        })
+        im.instanceMatrix.needsUpdate = true
+        im.castShadow = im.receiveShadow = true
+        im.name = 'HeroPalms'
+        dressSf(im, { envMapIntensity: 0.9 })
+        group.add(im)
+        opts.culler?.add(im, (opts.profile?.smallCull ?? 2600) * 1.2)
+      }
+    }
   }
 
   return {

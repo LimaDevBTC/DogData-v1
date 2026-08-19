@@ -26,9 +26,11 @@ import { buildChalet, type Chalet } from './chalet'
 import { buildPrecinct, ANCHORS, type Precinct } from './precinct'
 import { loadPark, PARK_CENTER, type Park } from './park'
 import { buildMonuments, type Monuments } from './monuments'
-import { onDiagonal, GENESIS_POS, SATOSHI_POOL, PAW_PALM, ORDINAL_CENTER, LEONIDAS_POS } from './garden-plan'
+import { onDiagonal, GENESIS_POS, SATOSHI_POOL, PAW_PALM, ORDINAL_CENTER, LEONIDAS_POS, BUST_POS } from './garden-plan'
+import { PARK_ROT_Y } from './park-site'
 import { buildFoundersWalk, type FoundersWalk, type FoundersData } from './founders-walk'
 import { detectTier, profileFor, parseQuality, FrameGovernor, DistanceCuller, mergeStaticByMaterial } from './perf'
+import { SF_CREDITS, SF, loadSf, dressSf } from './sf-assets'
 
 // ── framing ────────────────────────────────────────────────────────────────────
 // The default view is the landing hero, from the north-east, high enough that the
@@ -50,6 +52,8 @@ export const PLACES: ReadonlyArray<{ key: string; label: string; hint: string }>
   { key: 'whitepaper', label: 'Whitepaper Garden', hint: 'nine pages, north-east' },
   { key: 'genesis', label: 'The Genesis Block', hint: 'end of the whitepaper walk' },
   { key: 'satoshi', label: "Satoshi's Mirror", hint: 'north-west pool' },
+  { key: 'bust', label: 'The Bronze Satoshi', hint: 'gate of the mirror garden' },
+  { key: 'temple', label: 'Leonidas Temple', hint: 'the hall, in the park' },
   { key: 'paw', label: 'The Diamond Paw', hint: '$DOG, south-east' },
   { key: 'leonidas', label: 'Leonidas', hint: 'founder of DOG, behind the paw' },
   { key: 'ordinal', label: 'Ordinal Garden', hint: 'runestones, south-west' },
@@ -76,6 +80,14 @@ function viewFor(name: string | null, aspect: number): View {
     case 'paw': { const [x, z] = onDiagonal('SE', 430, -30); return { pos: new THREE.Vector3(x, 95, z), target: new THREE.Vector3(PAW_PALM[0], 0, PAW_PALM[1]) } }
     case 'leonidas': { const [x, z] = onDiagonal('SE', 700, 5); return { pos: new THREE.Vector3(x, 4, z), target: new THREE.Vector3(LEONIDAS_POS[0], 8, LEONIDAS_POS[1]) } }
     case 'satoshiside': { const [x, z] = onDiagonal('NW', 560, 62); return { pos: new THREE.Vector3(x, 8, z), target: new THREE.Vector3(SATOSHI_POOL[0], 6, SATOSHI_POOL[1]) } }
+    case 'bust': { const [x, z] = onDiagonal('NW', 462, 8); return { pos: new THREE.Vector3(x, 4.5, z), target: new THREE.Vector3(BUST_POS[0], 4, BUST_POS[1]) } }
+    case 'temple': {
+      // o precinto do templo no parque: P0 = (1290, 430) no quadro do parque
+      const lx = 1290, lz = -430
+      const c = new THREE.Vector3(lx, 0, lz).applyAxisAngle(new THREE.Vector3(0, 1, 0), PARK_ROT_Y).add(PARK_CENTER)
+      const eye = new THREE.Vector3(lx - 150, 0, lz + 120).applyAxisAngle(new THREE.Vector3(0, 1, 0), PARK_ROT_Y).add(PARK_CENTER)
+      return { pos: new THREE.Vector3(eye.x, 40, eye.z), target: new THREE.Vector3(c.x, 20, c.z) }
+    }
     case 'satoshiclose': { const [x, z] = onDiagonal('NW', 536, 1); return { pos: new THREE.Vector3(x, 5, z), target: new THREE.Vector3(SATOSHI_POOL[0], 6.5, SATOSHI_POOL[1]) } }
     case 'satoshisideclose': { const [x, z] = onDiagonal('NW', 560, 26); return { pos: new THREE.Vector3(x, 6, z), target: new THREE.Vector3(SATOSHI_POOL[0], 6, SATOSHI_POOL[1]) } }
     case 'leonidasclose': { const [x, z] = onDiagonal('SE', 714, 4); return { pos: new THREE.Vector3(x, 5, z), target: new THREE.Vector3(LEONIDAS_POS[0], 9, LEONIDAS_POS[1]) } }
@@ -414,6 +426,18 @@ export default function PlazaScene() {
         }
         // the main pad sits on the terrain: keep the constant honest
         PAD_MAIN.y = heightAt(PAD_MAIN.x, PAD_MAIN.z) + 1
+        // um foguete aposentado no pad de trás do spaceport (V2 Rocket, Diccbudd,
+        // CC-BY-4.0): a silhueta que faltava no pátio; sem placa, é cenário
+        void loadSf(gltf, SF.rocket).then((r) => {
+          if (!r || disposed) return
+          dressSf(r, { envMapIntensity: 1.2, roughness: 0.55 })
+          const x = -380, z = 3300 // SP_Pad0
+          r.position.set(x, heightAt(x, z) + 0.4, z)
+          r.rotation.y = Math.PI * 0.15
+          r.scale.setScalar(1.6)
+          scene.add(r)
+          culler.add(r, 6000, new THREE.Vector3(x, 0, z))
+        })
 
         // The OrdCards Chalet at the south anchor (D2, nova redação), the front of
         // the official logo card up the monumental stair, the QR to the spaceport.
@@ -785,7 +809,9 @@ export default function PlazaScene() {
                 ))}
               </li>
               <li className="px-3 pb-1 pt-1 font-mono text-[8px] leading-relaxed text-white/25">
-                3D credits: Black Spider Warrior Character by iRahulRajput (Sketchfab, CC BY 4.0), Human Skull by CDmir (OpenGameArt, CC0), Human Base Meshes by Blender Studio (CC0), planet textures by three.js.
+                3D credits: {SF_CREDITS.map((c, i) => (
+                  <span key={c.title}>{i > 0 && ' · '}{c.title} by {c.author} ({c.license})</span>
+                ))} · planet textures by three.js.
               </li>
             </ul>
           )}

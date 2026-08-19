@@ -110,6 +110,24 @@ export const ORDINAL_OLIVES: [number, number][] = (() => {
   return out
 })()
 
+// ── O busto do Satoshi (Sketchfab, "Mystery in Bronze"): no portão noroeste, ao
+// lado da alameda que leva ao Espelho, de frente para quem passa ──────────────
+export const BUST_POS = onDiagonal('NW', 476, 17)
+/** palmeiras "de perto" (o modelo real): quatro em cada portão do Anel */
+export const HERO_PALMS: [number, number][] = (() => {
+  const out: [number, number][] = []
+  for (let i = 0; i < 4; i++) {
+    const a = (i * Math.PI) / 2
+    for (const r of [452 - 34, 452 + 34]) {
+      for (const s of [-1, 1]) {
+        const off = s * 31
+        out.push([Math.sin(a) * r + Math.cos(a) * off, Math.cos(a) * r - Math.sin(a) * off])
+      }
+    }
+  }
+  return out
+})()
+
 // ── Calçada dos Fundadores: o bulevar norte, do deck à Grande Fonte ─────────
 export const FOUNDERS_R0 = 346 // primeira placa (r)
 export const FOUNDERS_R1 = 512 // última
@@ -132,6 +150,8 @@ export const RESERVED: [number, number, number][] = [
   [ORDINAL_CENTER[0], ORDINAL_CENTER[1], ORDINAL_RING_R + 14],
   ...ORDINAL_PLAQUES.map(([x, z]) => [x, z, 5] as [number, number, number]),
   ...ORDINAL_OLIVES.map(([x, z]) => [x, z, 5] as [number, number, number]),
+  [BUST_POS[0], BUST_POS[1], 7],
+  ...HERO_PALMS.map(([x, z]) => [x, z, 6] as [number, number, number]),
 ]
 export function isReserved(x: number, z: number, margin = 0): boolean {
   for (const [cx, cz, r] of RESERVED) if (Math.hypot(x - cx, z - cz) < r + margin) return true
