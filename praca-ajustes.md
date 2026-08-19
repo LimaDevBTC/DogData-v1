@@ -15,7 +15,7 @@ provisório.
 | # | Tarefa | Estado | Notas |
 |---|---|---|---|
 | 1 | Escrever **BITFLOW** na face de trás do prédio | **feito** | letreiro em canvas na face −z, mesma altura do da frente |
-| 2 | **Padronizar o exterior** da BitFlow e da Kray: têm formas e elementos que não conversam com o entorno | aberto | levantar o que destoa antes de mexer |
+| 2 | **Padronizar o exterior** da BitFlow e da Kray | **levantamento feito, decisão do fundador** | os carros saíram na origem (estavam FUNDIDOS nas malhas dos lotes, fora do alcance do filtro por nome — item 13 só tinha pego os nós soltos). O resto do que destoa está listado abaixo, com proposta; são escolhas de gosto e eu não mexo sem o sim |
 | 3 | **Retirar os pináculos brancos pontiagudos** em volta das placas dos fundadores | **feito** | eram o WATER_JET_RING da Needle (raio 81, 30 m); removido, e a animação junto |
 | 4 | **Tour virtual inicial** ao entrar na cidade | **feito** | 10 paradas, 4,2 s de voo e 6,4 s de parada cada, com legenda embaixo e botão Skip; roda uma vez por sessão (nunca com `?view=`, `?plate=1` ou movimento reduzido) e qualquer gesto encerra. Botão "Tour" no HUD repete |
 | 5 | **Revisar todas as placas**: algumas têm informação cortada | **feito (1ª rodada)** | auditoria automática mediu 15 textos: 4 de risco alto corrigidos (título do White Paper, "PAGE n OF 9", as duas linhas do Círculo dos Fundadores) |
@@ -33,6 +33,25 @@ provisório.
 
 Primeiro o que é subtração e correção (3, 13, 11, 5), depois o que é peça nova
 (1, 2, 9, 14, 10), depois o que é página e narrativa (6, 8, 4, 12, 7).
+
+## Item 2: o que destoa nos dois lotes (levantamento de 2026-08-19)
+
+Os dois lotes falam a língua de **quarteirão de cidade** (rua, meio-fio, carros,
+pedestres, calçada retangular) dentro de um **jardim de palácio** radial. É isso
+que não conversa. Peça por peça:
+
+| Onde | O que destoa | Proposta |
+|---|---|---|
+| Kray e BitFlow | ~18 carros e ~30 pedestres fundidos nas malhas dos lotes | **feito**: carros fora, na origem (`build_kray_tower.py`, `build_bitflow_hq.py`). Pedestres ficam por enquanto: dão escala ao pé da torre |
+| Kray | palmeira própria (escura, densa, 40+ no lote) ao lado da tamareira da praça: duas espécies encostadas | trocar as do lote pela mesma tamareira da praça, e rarear |
+| Kray | chafariz de pluma branca, vocabulário só dele | manter a bacia, trocar o jato pela fonte da praça (temos `fountain-grand`, `fountain-basin`) |
+| Kray | caixa de tela dourada a oeste do lote | identificar no script e decidir: ou vira pérgola do jardim, ou sai |
+| Kray e BitFlow | o lote é um retângulo com meio-fio girado para a rua, sobre parterres radiais | chanfrar o canto e alinhar a testada ao anel, ou deixar o jardim invadir a esquina |
+| BitFlow | tapete de piso cinza que corta o verde em diagonal | mesmo material do Anel, ou grama até o pódio |
+| BitFlow | árvores redondas próprias na entrada | mesmas espécies reais da praça (bordo, mediterrânea) |
+
+Nada disso é caro; é tudo escolha de gosto, e o custo de errar é ter que reassar
+as duas torres de novo. Por isso vai para o fundador antes de ir para o Blender.
 
 ## Armadilhas medidas nesta frente (para não repetir)
 
