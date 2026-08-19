@@ -39,6 +39,9 @@ export const SF_CREDITS: readonly Credit[] = [
   { title: 'Obelisk', author: 'Ankledot', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/obelisk-0b4dc3d42d1b4ceb8a19a0001a427864' },
   { title: 'Armillary Sphere', author: 'ChloeRobynSmith', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/armillary-sphere-22e92fc349eb4f8f9091d9d081d57177' },
   { title: 'Stylized Stone Pedestal', author: 'Asgart', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/stylized-stone-pedestal-lowpoly-game-asset-f97ed585d9ef4b7589c873a686fe6531' },
+  { title: 'Doric Order Columns', author: 'Oneironauticus', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/doric-order-columns-asset-pack-e27b5b5c101c480dbf1a9781ae289155' },
+  { title: 'Torch Pillar', author: 'roroer', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/torch-pillar-a550cc6cea434f9a9f2d47148add0fdf' },
+  { title: 'Medieval Brazier', author: 'Sky_Hunter', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/medieval-brazier-cff29e533e3a4298a5d112cf7bb2558c' },
   { title: 'Human Skull', author: 'CDmir (OpenGameArt)', license: 'CC0', url: 'https://opengameart.org/content/human-skull-0' },
   { title: 'Human Base Meshes', author: 'Blender Studio', license: 'CC0', url: 'https://www.blender.org/download/demo/asset-bundles/' },
 ]

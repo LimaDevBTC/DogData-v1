@@ -129,10 +129,12 @@ export function buildFoundersWalk(opts: { heightAt: (x: number, z: number) => nu
     const v0 = 1 - (row + 1) / ROWS, v1 = 1 - row / ROWS
     // a placa na face EXTERNA do muro, à altura dos olhos
     const ca = Math.cos(a), sa = Math.sin(a)
-    const px = x + ca * (WALL_T / 2 + 0.06), pz = z + sa * (WALL_T / 2 + 0.06)
+    const px = x + ca * (WALL_T / 2 + 0.14), pz = z + sa * (WALL_T / 2 + 0.14)
     const py = Y + 1.72
+    // du cresce para a DIREITA de quem lê de fora: a tangente é (+sa, −ca).
+    // Com (−sa, +ca) o texto sai espelhado (foi assim na primeira tentativa).
     const P = (du: number, dv: number): [number, number, number] => [
-      px + (-sa) * du * (PW / 2), py + dv * (PH / 2), pz + ca * du * (PW / 2),
+      px + sa * du * (PW / 2), py + dv * (PH / 2), pz + (-ca) * du * (PW / 2),
     ]
     const base = positions.length / 3
     const c1 = P(-1, -1), c2 = P(1, -1), c3 = P(1, 1), c4 = P(-1, 1)
@@ -156,9 +158,7 @@ export function buildFoundersWalk(opts: { heightAt: (x: number, z: number) => nu
   plaqueGeo.setIndex(indices)
   // metal puro fica PRETO na face que não pega o sol (a Lua não tem céu para
   // refletir): a gravação emite, e por isso lê de noite e contra a sombra
-  const plaqueMat = track(new THREE.MeshStandardMaterial({ map: atlasTex, roughness: 0.42, metalness: 0.45, envMapIntensity: 1.1, emissive: 0xffffff, emissiveMap: atlasTex, emissiveIntensity: 0.85 }))
-  plaqueGeo.computeBoundingBox()
-  console.log('[plaza] founders plaque bbox', JSON.stringify(plaqueGeo.boundingBox), 'quads', N, 'PW', PW)
+  const plaqueMat = track(new THREE.MeshStandardMaterial({ map: atlasTex, roughness: 0.42, metalness: 0.45, envMapIntensity: 1.1, emissive: 0xffffff, emissiveMap: atlasTex, emissiveIntensity: 0.85, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }))
   const plaqueMesh = new THREE.Mesh(plaqueGeo, plaqueMat)
   plaqueMesh.castShadow = plaqueMesh.receiveShadow = true
   group.add(plaqueMesh)

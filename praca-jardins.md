@@ -139,6 +139,42 @@ Pedidos do fundador, feitos:
   última etapa termina (incluindo `compileAsync`). Medido no headless: o portão
   abre em ~26 s com a rede local.
 
+## 6.5 A reforma do deck central, 2026-08-19
+
+O fundador: "a praça central está completamente confusa: anfiteatro com um
+obelisco no meio, torres que parecem árvores artificiais, espelhos d'água
+genéricos; e o que a gente adicionou só aumentou a confusão".
+
+**Primeiro a subtração.** O deck vinha da cena da landing carregado de coisa que
+não conta a história do projeto. Saíram do `plaza.glb`, na carga: as sete
+**supertrees**, o **anfiteatro** inteiro (seis fileiras, palco e anel), a
+**passarela aérea** com os pilares, os três **espelhos d'água** de enfeite, os
+canteiros e a colunata de cones brancos. Ficou o que significa: o pódio e o anel
+de pedra, as quatro escadarias, e o **inlay do Bitcoin** no piso, agora aceso em
+laranja.
+
+**Depois a devolução do sentido**, com peças de verdade (todas CC-BY, creditadas):
+28 **colunas dóricas** de 14 m na borda do deck, oito **pilares com fogo** no
+topo das quatro escadarias, quatro **braseiros** em volta do inlay, e os dois
+caixas de BTC na chegada norte. O obelisco, a esfera armilar e as taças de
+Versalhes SAÍRAM do deck (eram parte da confusão) e foram para o jardim.
+
+**O muro dos fundadores.** As placas deitadas no chão não davam para ler, e os
+atris de 1,5 m viravam pontos numa praça de 600 m: a resposta foi arquitetura.
+Agora é um **muro contínuo de 3,2 m** em volta do pé da torre (raio 66, entre o
+tambor da Needle e o anel de água), com coroa de latão e uma placa gravada por
+fundador na face externa, à altura dos olhos, com o endereço, o total em DOG e a
+data; as vazias dizem "this plaque is waiting for you". O anel de luz do fundo
+corre por fora. Três armadilhas medidas no caminho: os trechos do muro precisam
+girar −a−π/2 (com −a viram uma engrenagem), a gravação precisa EMITIR (metal puro
+fica preto na face sem sol, porque a Lua não tem céu para refletir) e o eixo
+horizontal da placa é (+sen a, −cos a), senão o texto sai espelhado.
+
+**Bug achado na conferência:** o instanciador de adereços só usava a PRIMEIRA
+malha do modelo, e o exportador glTF quebra a malha em uma por material: as
+palmeiras iam sem folhas e as colunas sem capitel. Agora cada parte vira um
+InstancedMesh com a mesma lista de posições.
+
 ## 7. Estado
 
 - 2026-08-18: §5 feito (navegação). §1 feito (calçadas dos lotes, passeio em
