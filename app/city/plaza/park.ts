@@ -276,8 +276,9 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
     group.add(im)
     crystalMeshes.push(im)
   }
+  const CL = opts.profile?.crystalLod ?? [1, 0.35, 0.15, 0.08]
   const lodCrystals = (dist: number) => {
-    const frac = dist < 2500 ? 1 : dist < 5000 ? 0.3 : dist < 9000 ? 0.15 : 0.08
+    const frac = dist < 2500 ? CL[0] : dist < 5000 ? CL[1] : dist < 9000 ? CL[2] : CL[3]
     for (const im of crystalMeshes) {
       const n = Math.max(1, Math.ceil((im.userData.total as number) * frac))
       if (im.count !== n) im.count = n

@@ -28,7 +28,7 @@ import { loadPark, PARK_CENTER, type Park } from './park'
 import { buildMonuments, type Monuments } from './monuments'
 import { onDiagonal, GENESIS_POS, SATOSHI_POOL, PAW_PALM, ORDINAL_CENTER, LEONIDAS_POS } from './garden-plan'
 import { buildFoundersWalk, type FoundersWalk, type FoundersData } from './founders-walk'
-import { detectTier, profileFor, applyQualityOverride, DynamicResolution, DistanceCuller, mergeStaticByMaterial } from './perf'
+import { detectTier, profileFor, parseQuality, FrameGovernor, DistanceCuller, mergeStaticByMaterial } from './perf'
 
 // ── framing ────────────────────────────────────────────────────────────────────
 // The default view is the landing hero, from the north-east, high enough that the
@@ -137,6 +137,7 @@ export default function PlazaScene() {
   })
   const [followInput, setFollowInput] = useState('')
   const [placesOpen, setPlacesOpen] = useState(false)
+  const [qualityNow] = useState(() => (typeof window !== 'undefined' ? parseQuality(new URLSearchParams(window.location.search).get('quality')) : 'balanced'))
   // Phones start with the board folded to its one-line summary; the scene is the point.
   const [boardOpen, setBoardOpen] = useState(() => typeof window === 'undefined' || window.innerWidth >= 640)
   // ?plate=1: só a cena, sem HUD (para fotografar as chapas da landing)
@@ -151,9 +152,10 @@ export default function PlazaScene() {
     // Log depth: a cena vai do deck (2 m) ao parque (9 km) e ao horizonte (60 km);
     // sem ele, duas superfícies quase coplanares a 9 km brigam no z-buffer.
     // perf.ts: nível por aparelho, resolução dinâmica, culling por distância
-    const profile = applyQualityOverride(profileFor(detectTier()), new URLSearchParams(window.location.search).get('quality'))
+    const quality = parseQuality(new URLSearchParams(window.location.search).get('quality'))
+    const profile = profileFor(detectTier(), quality)
     const renderer = new THREE.WebGLRenderer({ antialias: profile.antialias, powerPreference: 'high-performance', logarithmicDepthBuffer: true })
-    const dynRes = new DynamicResolution(renderer, profile.maxPixelRatio, profile.minPixelRatio)
+    const governor = new FrameGovernor(renderer, profile)
     renderer.setSize(mount.clientWidth, mount.clientHeight)
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -363,7 +365,7 @@ export default function PlazaScene() {
         const lodOf = (full: THREE.Object3D, low: THREE.Object3D | null) => {
           const lod = new THREE.LOD()
           lod.addLevel(full, 0)
-          if (low) { mergeStaticByMaterial(low, /^$/); lod.addLevel(low, LOD_DIST) }
+          if (low) { mergeStaticByMaterial(low, /^$/); lod.addLevel(low, LOD_DIST, 0.08) } // histerese: sem pisca na fronteira
           return lod
         }
         const needleLod = lodOf(needle, needleLod1)
@@ -626,7 +628,7 @@ export default function PlazaScene() {
       const dt = Math.min(0.1, clock.getDelta())
       const t = clock.elapsedTime
       const nowMs = performance.now()
-      dynRes.sample(nowMs - lastFrameAt, nowMs)
+      governor.sample(nowMs - lastFrameAt, nowMs)
       lastFrameAt = nowMs
       culler.update(camera.position)
       if (!controls.autoRotate && performance.now() - lastInteraction > 25_000) controls.autoRotate = true
@@ -658,15 +660,16 @@ export default function PlazaScene() {
       for (const sp of spinners) sp.rotation.y = t * 0.12
       earth.rotation.y = t * 0.004
       const cl = earth.getObjectByName('Clouds'); if (cl) cl.rotation.y = t * 0.0025
-      // no celular o mapa de sombra atualiza quadro sim, quadro não (metade do custo de sombra)
-      if (profile.tier === 'mobile') { renderer.shadowMap.autoUpdate = false; if ((statsTick & 1) === 0) renderer.shadowMap.needsUpdate = true }
+      // o governador decide se o mapa de sombra atualiza a cada quadro ou a cada dois
+      renderer.shadowMap.autoUpdate = false
+      if (statsTick % governor.shadowEvery === 0) renderer.shadowMap.needsUpdate = true
       renderer.render(scene, camera)
       statsTick++
       if (wantStats && (statsTick & 15) === 0) {
         const info = renderer.info
         const w = window as unknown as { __plazaStats?: unknown }
-        w.__plazaStats = { fps: Math.round(1000 / Math.max(1, nowMs - lastFrameAt + dt * 1000)), calls: info.render.calls, triangles: info.render.triangles, points: info.render.points, lines: info.render.lines, programs: info.programs?.length ?? 0, textures: info.memory.textures, geometries: info.memory.geometries, dpr: dynRes.current, tier: profile.tier }
-        setHud((h) => ({ ...h, stats: `${profile.tier} · dpr ${dynRes.current.toFixed(2)} · ${info.render.calls} calls · ${(info.render.triangles / 1e6).toFixed(2)}M tris · ${Math.round(1000 / Math.max(1, dt * 1000))} fps` }))
+        w.__plazaStats = { fps: Math.round(1000 / Math.max(1, nowMs - lastFrameAt + dt * 1000)), calls: info.render.calls, triangles: info.render.triangles, points: info.render.points, lines: info.render.lines, programs: info.programs?.length ?? 0, textures: info.memory.textures, geometries: info.memory.geometries, dpr: governor.pixelRatio, tier: profile.tier, quality: profile.quality, shadowEvery: governor.shadowEvery }
+        setHud((h) => ({ ...h, stats: `${profile.tier} · ${profile.quality} · dpr ${governor.pixelRatio.toFixed(2)} · shadow/${governor.shadowEvery} · ${info.render.calls} calls · ${(info.render.triangles / 1e6).toFixed(2)}M tris · ${Math.round(1000 / Math.max(1, dt * 1000))} fps` }))
       }
       // the counters on the board follow the scene, twice a second
       if ((hudTick++ & 31) === 0) {
@@ -771,6 +774,15 @@ export default function PlazaScene() {
               ))}
               <li className="px-3 pb-1 pt-2 font-mono text-[9px] leading-relaxed text-white/35">
                 Double-tap anything in the scene to approach it. Pinch or scroll to get within a few metres.
+              </li>
+              <li className="px-3 pb-1 pt-2 font-mono text-[9px] tracking-[0.15em] text-white/45">
+                QUALITY:{' '}
+                {(['high', 'balanced', 'low'] as const).map((q, i) => (
+                  <span key={q}>
+                    {i > 0 && <span className="text-white/25"> · </span>}
+                    <a href={`/city?quality=${q}`} className={q === qualityNow ? 'text-[#F7931A]' : 'hover:text-white'}>{q.toUpperCase()}</a>
+                  </span>
+                ))}
               </li>
               <li className="px-3 pb-1 pt-1 font-mono text-[8px] leading-relaxed text-white/25">
                 3D credits: Black Spider Warrior Character by iRahulRajput (Sketchfab, CC BY 4.0), Human Skull by CDmir (OpenGameArt, CC0), Human Base Meshes by Blender Studio (CC0), planet textures by three.js.

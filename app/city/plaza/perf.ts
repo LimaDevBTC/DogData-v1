@@ -19,17 +19,20 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 export type Tier = 'mobile' | 'desktop'
+export type Quality = 'high' | 'balanced' | 'low'
 
 export interface PerfProfile {
   tier: Tier
+  quality: Quality
+  /** teto e piso da resolução dinâmica (DPR); o piso é alto de propósito: DPR é o
+   *  ÚLTIMO recurso, não o primeiro (o fundador viu a praça virar pixel art) */
   maxPixelRatio: number
-  /** a resolução dinâmica nunca desce abaixo disto */
   minPixelRatio: number
   antialias: boolean
-  /** distância a partir da qual as torres trocam para o LOD1 decimado */
-  lodDistance: number
   shadowMapSize: number
   softShadows: boolean
+  /** 1 = mapa de sombra a cada quadro; 2 = quadro sim, quadro não (o governador sobe isto antes de baixar o DPR) */
+  shadowUpdateEvery: 1 | 2
   censusPoints: boolean
   jetParticles: number
   /** distância (m) a partir da qual o miúdo do jardim some */
@@ -38,6 +41,10 @@ export interface PerfProfile {
   textCull: number
   /** distância do CENTRO DO PARQUE a partir da qual as trilhas/templo/censo somem */
   parkDetailCull: number
+  /** distância a partir da qual as torres trocam para o LOD1 decimado */
+  lodDistance: number
+  /** frações de cristais do parque por faixa de distância (perto, médio, longe, horizonte) */
+  crystalLod: [number, number, number, number]
 }
 
 export function detectTier(): Tier {
@@ -49,53 +56,84 @@ export function detectTier(): Tier {
   return 'desktop'
 }
 
-export function profileFor(tier: Tier): PerfProfile {
-  // O meio-termo (fundador, 2026-08-18): a primeira versão do celular baixava a
-  // resolução até 0,7 e sem antialiasing virava pixel art; ficou rápido e feio.
-  // Agora o celular renderiza até 2× (não os 3× nativos), nunca abaixo de 1×,
-  // com MSAA (barato nas GPUs de celular, que são tile-based) e sombra 1024.
-  return tier === 'mobile'
-    ? { tier, maxPixelRatio: 2, minPixelRatio: 1, antialias: true, shadowMapSize: 1024, softShadows: false, censusPoints: false, jetParticles: 500, smallCull: 1800, textCull: 900, parkDetailCull: 2800, lodDistance: 2300 }
-    : { tier, maxPixelRatio: 2, minPixelRatio: 1, antialias: true, shadowMapSize: 2048, softShadows: true, censusPoints: true, jetParticles: 900, smallCull: 2600, textCull: 1300, parkDetailCull: 3000, lodDistance: 2300 }
-}
-/** ?quality=high|balanced|low sobrepõe o tier (para o fundador testar no celular) */
-export function applyQualityOverride(p: PerfProfile, q: string | null): PerfProfile {
-  if (q === 'high') return { ...p, maxPixelRatio: Math.min(3, window.devicePixelRatio || 2), minPixelRatio: 1.5, shadowMapSize: 2048, softShadows: true, censusPoints: true, jetParticles: 900, smallCull: 2600, textCull: 1300, lodDistance: 2600 }
-  if (q === 'low') return { ...p, maxPixelRatio: 1.25, minPixelRatio: 0.85, antialias: false, shadowMapSize: 1024, softShadows: false, censusPoints: false, jetParticles: 300, smallCull: 1200, textCull: 600, lodDistance: 1200 }
-  return p
+export function parseQuality(q: string | null | undefined): Quality {
+  return q === 'high' || q === 'low' ? q : 'balanced'
 }
 
-/** Resolução dinâmica: chama `sample(dtMs)` por quadro; ajusta o DPR do renderer
- *  a cada ~2 s dentro de [0,7, max]. */
-export class DynamicResolution {
+/** Os três níveis (praca-central.md §4.5, Quality Pass): BALANCED é o padrão,
+ *  bonito e fluido; HIGH é o modo cinematográfico; LOW é para máquina fraca.
+ *  As otimizações estruturais (batching, instâncias, culling, LOD, atlas) valem
+ *  nos três; o que muda é o quanto cada uma aperta. */
+export function profileFor(tier: Tier, quality: Quality = 'balanced'): PerfProfile {
+  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
+  const mobile = tier === 'mobile'
+  if (quality === 'high') {
+    return {
+      tier, quality, maxPixelRatio: Math.min(dpr, 3), minPixelRatio: 1.5, antialias: true,
+      shadowMapSize: 2048, softShadows: true, shadowUpdateEvery: 1,
+      censusPoints: true, jetParticles: 900, smallCull: 3400, textCull: 1700, parkDetailCull: 3800, lodDistance: 4800,
+      crystalLod: [1, 0.6, 0.3, 0.15],
+    }
+  }
+  if (quality === 'low') {
+    return {
+      tier, quality, maxPixelRatio: 1.25, minPixelRatio: 0.9, antialias: true,
+      shadowMapSize: 1024, softShadows: false, shadowUpdateEvery: 2,
+      censusPoints: false, jetParticles: 300, smallCull: 1200, textCull: 600, parkDetailCull: 2200, lodDistance: 1300,
+      crystalLod: [0.6, 0.2, 0.1, 0.05],
+    }
+  }
+  // balanced
+  return mobile
+    ? {
+      tier, quality, maxPixelRatio: 2, minPixelRatio: 1.25, antialias: true,
+      shadowMapSize: 2048, softShadows: false, shadowUpdateEvery: 1,
+      censusPoints: false, jetParticles: 600, smallCull: 2200, textCull: 1000, parkDetailCull: 2800, lodDistance: 2600,
+      crystalLod: [1, 0.3, 0.15, 0.08],
+    }
+    : {
+      tier, quality, maxPixelRatio: 2, minPixelRatio: 1.25, antialias: true,
+      shadowMapSize: 2048, softShadows: true, shadowUpdateEvery: 1,
+      censusPoints: true, jetParticles: 900, smallCull: 2600, textCull: 1300, parkDetailCull: 3000, lodDistance: 3200,
+      crystalLod: [1, 0.35, 0.15, 0.08],
+    }
+}
+
+/** O governador de quadro: mede o tempo de cada quadro (fora dos primeiros 8 s de
+ *  carga) e, quando fica claramente abaixo de 30 fps por 2,5 s, degrada NA ORDEM
+ *  em que menos se percebe: 1) mapa de sombra a cada dois quadros; 2) DPR em
+ *  passos de 10 % até o piso do perfil. Quando sobra, volta na ordem inversa. */
+export class FrameGovernor {
   private acc = 0
   private n = 0
   private since = 0
-  private dpr: number
   private readonly born: number
-  constructor(private renderer: THREE.WebGLRenderer, private max: number, private min = 1, private onChange?: (dpr: number) => void) {
-    this.dpr = Math.min(window.devicePixelRatio || 1, max)
+  private dpr: number
+  shadowEvery: 1 | 2
+  constructor(private renderer: THREE.WebGLRenderer, private profile: PerfProfile, private onChange?: (dpr: number, shadowEvery: number) => void) {
+    this.dpr = Math.min(window.devicePixelRatio || 1, profile.maxPixelRatio)
+    this.shadowEvery = profile.shadowUpdateEvery
     renderer.setPixelRatio(this.dpr)
     this.born = performance.now()
   }
-  get current() { return this.dpr }
+  get pixelRatio() { return this.dpr }
   sample(dtMs: number, now: number) {
-    // os primeiros 8 s são carga e compilação: não contam
     if (now - this.born < 8000) return
     this.acc += dtMs; this.n++
     if (this.since === 0) this.since = now
     if (now - this.since < 2500 || this.n < 30) return
     const avg = this.acc / this.n
     this.acc = 0; this.n = 0; this.since = now
-    let next = this.dpr
-    // só desce se estiver claramente abaixo de 30 fps; sobe devagar quando sobra
-    if (avg > 36) next = Math.max(this.min, this.dpr * 0.88)
-    else if (avg < 20) next = Math.min(this.max, Math.min(window.devicePixelRatio || 1, this.dpr * 1.08))
-    if (Math.abs(next - this.dpr) > 0.02) {
-      this.dpr = next
-      this.renderer.setPixelRatio(next)
-      this.onChange?.(next)
+    let changed = false
+    if (avg > 36) {
+      if (this.shadowEvery === 1) { this.shadowEvery = 2; changed = true }
+      else if (this.dpr > this.profile.minPixelRatio + 0.01) { this.dpr = Math.max(this.profile.minPixelRatio, this.dpr * 0.9); this.renderer.setPixelRatio(this.dpr); changed = true }
+    } else if (avg < 20) {
+      const cap = Math.min(this.profile.maxPixelRatio, window.devicePixelRatio || 1)
+      if (this.dpr < cap - 0.01) { this.dpr = Math.min(cap, this.dpr * 1.08); this.renderer.setPixelRatio(this.dpr); changed = true }
+      else if (this.shadowEvery === 2 && this.profile.shadowUpdateEvery === 1) { this.shadowEvery = 1; changed = true }
     }
+    if (changed) this.onChange?.(this.dpr, this.shadowEvery)
   }
 }
 

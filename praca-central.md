@@ -306,9 +306,36 @@ Medido no headless (swiftshader, vista de casa): chamadas de desenho 694 → 404
 (desktop) com as torres inteiras. O fps de verdade só no aparelho: abrir
 `/city?stats=1` no celular e ler a linha laranja.
 
-Próximos, se ainda pesar: LOD1 também para o Chalé/Satoshi, impostores
-(billboards) para as árvores longe, um único mapa de sombra em cascata menor no
-celular, e a alternativa sem `logarithmicDepthBuffer` no celular (custa early-Z).
+**Quality Pass, 2026-08-19 (madrugada).** O fundador viu no celular: "a
+velocidade melhorou absurdamente, mas a qualidade piorou" (a resolução dinâmica
+tinha descido a 0,7 sem MSAA: pixel art) e escreveu o brief: manter as
+otimizações estruturais, recuperar a qualidade PERCEBIDA; DPR é o último
+recurso, não o primeiro; sombras seletivas de volta; LOD das torres mais tarde;
+três modos. Feito em `perf.ts`:
+
+| Modo | Como abrir | Render (DPR) | Sombras | LOD torres | Censo | Miúdo some a |
+|---|---|---|---|---|---|---|
+| **BALANCED** (padrão) | `/city` | até 2×, piso 1,25 | 2048, suave no desktop, dura no celular, todo quadro | 3,2 km desktop / 2,6 km celular | desktop | 2,6 / 2,2 km |
+| **HIGH** (cinematográfico) | `/city?quality=high` | até 3×, piso 1,5 | 2048 suave, todo quadro | 4,8 km | sim | 3,4 km |
+| **LOW** (máquina fraca) | `/city?quality=low` | até 1,25, piso 0,9 | 1024 dura, quadro sim/não | 1,3 km | não | 1,2 km |
+
+- MSAA ligado nos três (é barato nas GPUs de celular, tile-based).
+- `FrameGovernor` substitui a resolução dinâmica: ignora os 8 s de carga; abaixo
+  de 30 fps por 2,5 s degrada NA ORDEM em que menos se vê: primeiro o mapa de
+  sombra a cada dois quadros, só depois o DPR em passos de 10 % até o piso do
+  modo; quando sobra, volta na ordem inversa. O piso alto é o que impede a
+  praça de virar pixel art de novo.
+- Sombras seletivas: torres (inclusive LOD1), Chalé, monumentos, estátuas,
+  árvores grandes e palmeiras (tronco) projetam; sebes, folhas, bancos,
+  postes, placas não.
+- LOD das torres com histerese (0,08) para não piscar na fronteira; a vista de
+  casa (1,6 km) tem as torres inteiras em BALANCED e HIGH.
+- O seletor QUALITY: HIGH · BALANCED · LOW está no rodapé do menu Places, e
+  `?stats=1` mostra `tier · modo · dpr · shadow/1|2 · calls · tris · fps`.
+
+Próximos, se ainda pesar em LOW: LOD1 também para o Chalé/Satoshi, impostores
+(billboards) para as árvores longe, e a alternativa sem `logarithmicDepthBuffer`
+no celular (custa early-Z).
 
 ## 5. Em aberto
 
