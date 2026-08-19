@@ -28,7 +28,7 @@ import { loadPark, PARK_CENTER, type Park } from './park'
 import { buildMonuments, type Monuments } from './monuments'
 import { onDiagonal, GENESIS_POS, SATOSHI_POOL, PAW_PALM, ORDINAL_CENTER, LEONIDAS_POS, BUST_POS } from './garden-plan'
 import { TEMPLE_WORLD } from './park-site'
-import { CAVE_YAW } from './leonidas-cave'
+import { CAVE_YAW, CAVE_LAYER } from './leonidas-cave'
 import { buildFoundersWalk, type FoundersWalk, type FoundersData } from './founders-walk'
 import { detectTier, profileFor, parseQuality, FrameGovernor, DistanceCuller, mergeStaticByMaterial } from './perf'
 import { SF_CREDITS, SF, loadSf, dressSf } from './sf-assets'
@@ -104,6 +104,11 @@ function viewFor(name: string | null, aspect: number): View {
       const t = TEMPLE_WORLD.clone()
       const d = new THREE.Vector3(-Math.sin(CAVE_YAW), 0, -Math.cos(CAVE_YAW))
       return { pos: t.clone().addScaledVector(d, 120).setY(t.y + 30), target: new THREE.Vector3(t.x - 12, t.y + 8, t.z) }
+    }
+    case 'templepath': { // conferência: o caminho secreto, do pódio até a boca
+      const t = TEMPLE_WORLD.clone()
+      const d = new THREE.Vector3(0.932, 0, -0.362) // rumo do pódio do precinto
+      return { pos: t.clone().addScaledVector(d, 300).setY(t.y + 80), target: new THREE.Vector3(t.x + 60, t.y, t.z - 24) }
     }
     case 'templein': { // dentro: o salão preto no fundo da câmara
       const t = TEMPLE_WORLD.lengthSq() > 1 ? TEMPLE_WORLD.clone() : new THREE.Vector3(PARK_CENTER.x + 335, -100, PARK_CENTER.z - 59)
@@ -274,6 +279,7 @@ export default function PlazaScene() {
     }
     scene.background = new THREE.Color(0x000000)
     const camera = new THREE.PerspectiveCamera(42, mount.clientWidth / mount.clientHeight, 0.5, 200000)
+    camera.layers.enable(CAVE_LAYER) // a caverna do Leonidas vive fora do sol
     const home = homeFor(camera.aspect)
     camera.position.copy(home.pos)
 

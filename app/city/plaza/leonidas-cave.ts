@@ -27,6 +27,12 @@ import type { PerfProfile, DistanceCuller } from './perf'
 export const CAVE_LOCAL = { x: 335, z: -59 }
 /** giro do grupo: +X local sai pela boca, morro abaixo (azimute 80°) */
 export const CAVE_YAW = THREE.MathUtils.degToRad(10)
+/** A CAMADA DA CAVERNA. O sol da praça é uma direcional sem oclusão: ele
+ *  atravessa a rocha e acende o piso da câmara como se não houvesse teto (medido:
+ *  o interior lia cinza-médio). Piso e salão vão para esta camada, que o sol e o
+ *  hemisférico NÃO enxergam — só as brasas daqui de dentro. A câmera precisa
+ *  habilitá-la (`camera.layers.enable(CAVE_LAYER)` em plaza-scene). */
+export const CAVE_LAYER = 3
 
 const ORANGE = 0xf7931a
 const EMBER = 0xff8a2b
@@ -97,8 +103,13 @@ export async function buildLeonidasCave(opts: {
     if (!m.isMesh) return
     m.receiveShadow = true
     const mat = m.material as THREE.MeshStandardMaterial
-    if (mat?.name === 'CaveFloor') mat.color = new THREE.Color(0x050506)
-    else if (mat?.name === 'CaveRock') mat.color = new THREE.Color(0x0c0c10)
+    if (mat?.name === 'CaveFloor') { mat.color = new THREE.Color(0x101014); m.layers.set(CAVE_LAYER) }
+    else if (mat?.name === 'CaveRock') {
+      // 0x060608 e não 0x0c: a garganta é uma face virada PARA O SOL, e com
+      // albedo médio ela lia cinza-claro dentro de uma caverna. Aqui o basalto
+      // fica quase preto, e quem acende o interior é a brasa.
+      mat.color = new THREE.Color(0x060608)
+    }
   })
   group.add(rock)
 
@@ -106,6 +117,7 @@ export async function buildLeonidasCave(opts: {
   const emissives: THREE.Material[] = []
   if (hall) {
     blacken(hall)
+    hall.traverse((o) => o.layers.set(CAVE_LAYER)) // só as brasas iluminam o salão
     dressSf(hall, { envMapIntensity: 0.2, castShadow: true })
     const box = new THREE.Box3().setFromObject(hall)
     const size = box.getSize(new THREE.Vector3())
@@ -126,10 +138,14 @@ export async function buildLeonidasCave(opts: {
     hall.position.set(-22 * S - wc.x, -wb.min.y, -wc.z)
 
     // a cumeeira em brasa: o único traço aceso do prédio, no eixo do telhado
-    const ridgeMat = track(new THREE.MeshStandardMaterial({ color: 0x1a1207, emissive: ORANGE, emissiveIntensity: 1.6, roughness: 0.5, toneMapped: false }))
+    const ridgeMat = track(new THREE.MeshStandardMaterial({ color: 0x1a1207, emissive: ORANGE, emissiveIntensity: 1.1, roughness: 0.5, toneMapped: false }))
+    // a cumeeira é emissiva: fica na camada 0 para não depender de luz nenhuma
     emissives.push(ridgeMat)
-    const ridge = new THREE.Mesh(track(new THREE.BoxGeometry((wb.max.z - wb.min.z) * 0.86, 0.3, 0.3)), ridgeMat)
-    ridge.position.set(-22 * S, (wb.max.y - wb.min.y) * 0.99, 0)
+    // a cumeeira corre no eixo LONGO do salão (z depois do giro), não no eixo da
+    // boca: assim ela lê como cumeeira e não como uma barra atravessada
+    const ridge = new THREE.Mesh(track(new THREE.BoxGeometry(0.28, 0.28, (wb.max.z - wb.min.z) * 0.82)), ridgeMat)
+    ridge.position.set(-22 * S, (wb.max.y - wb.min.y) * 0.955, 0)
+    ridge.layers.set(0)
     group.add(ridge)
   }
 
@@ -139,7 +155,7 @@ export async function buildLeonidasCave(opts: {
   // caverna. Saiu. O que fica é pedra preta e brasa rasteira.
   {
     const black = track(new THREE.MeshStandardMaterial({ color: 0x0b0b0e, roughness: 0.85, metalness: 0.15 }))
-    const glow = track(new THREE.MeshStandardMaterial({ color: 0x120c04, emissive: ORANGE, emissiveIntensity: 0.75, roughness: 0.5 }))
+    const glow = track(new THREE.MeshStandardMaterial({ color: 0x120c04, emissive: ORANGE, emissiveIntensity: 0.5, roughness: 0.5 }))
     emissives.push(glow)
     const mono = track(new THREE.CylinderGeometry(0.85, 1.5, 12.5, 6))
     for (const s of [-1, 1]) {
@@ -154,7 +170,7 @@ export async function buildLeonidasCave(opts: {
     sill.position.set(5.5 * S, 0.1, 0)
     group.add(sill)
     // as lanternas da garganta: brasa nas paredes, sem custo de luz
-    const lampGeo = track(new THREE.SphereGeometry(0.26, 10, 8))
+    const lampGeo = track(new THREE.SphereGeometry(0.2, 10, 8))
     for (let i = 0; i < 6; i++) {
       const side = i % 2 === 0 ? -1 : 1
       const lamp = new THREE.Mesh(lampGeo, glow)
@@ -187,11 +203,12 @@ export async function buildLeonidasCave(opts: {
   const lights: THREE.PointLight[] = []
   const addLight = (x: number, y: number, z: number, inten: number, dist: number) => {
     const l = new THREE.PointLight(EMBER, inten, dist, 1.7)
+    l.layers.enable(CAVE_LAYER) // acende os dois: a rocha (camada 0) e o interior
     l.position.set(x, y, z)
     group.add(l)
     lights.push(l)
   }
-  addLight(-16 * S, 9, 0, 95, 95)   // dentro, lavando o salão
+  addLight(-16 * S, 9, 0, 120, 95)   // dentro, lavando o salão
   addLight(-2 * S, 7, 0, 55, 60)     // a garganta
   addLight(9 * S, 5, 0, 30, 48)      // o derrame na soleira, o que se vê de longe
 
@@ -205,7 +222,8 @@ export async function buildLeonidasCave(opts: {
   // leve e funde no terreno no aro — por dentro do morro ele fica enterrado, que
   // é como uma sacada de rocha se comporta.
   const apron = (() => {
-    const RINGS = 18, SECT = 48, R = 34 * S
+    const RINGS = 18, SECT = 40, R = 34 * S
+    const HALF = Math.PI * 0.62 // leque: o disco inteiro entrava pela câmara adentro
     const cx = CAVE_LOCAL.x, cz = CAVE_LOCAL.z
     const floorY = opts.groundLocal(cx, cz)
     const pos: number[] = [], idx: number[] = []
@@ -213,7 +231,7 @@ export async function buildLeonidasCave(opts: {
     for (let i = 0; i <= RINGS; i++) {
       const r = (i / RINGS) * R
       for (let j = 0; j <= SECT; j++) {
-        const a = (j / SECT) * Math.PI * 2
+        const a = CAVE_YAW * -1 + (j / SECT - 0.5) * 2 * HALF
         const px = cx + Math.cos(a) * r, pz = cz + Math.sin(a) * r
         const terr = opts.groundLocal(px, pz)
         const ledge = floorY - 0.1 - Math.max(0, r - 17) * 0.2 + Math.sin(a * 3 + r * 0.2) * 0.35 * smooth(8, 24, r)
@@ -270,14 +288,31 @@ export async function buildLeonidasCave(opts: {
       o.updateMatrix()
       mats.push(o.matrix.clone())
     }
-    const geo = track(new THREE.BoxGeometry(1.7, 0.26, 1.15))
-    const mat = track(new THREE.MeshStandardMaterial({ color: 0x24242a, roughness: 0.85, metalness: 0.1 }))
+    // as lajes: mais claras que a rocha, senão o caminho não se acha nem de
+    // perto (medido na chapa: a 300 m ele sumia por completo no regolito)
+    const geo = track(new THREE.BoxGeometry(2.2, 0.3, 1.5))
+    const mat = track(new THREE.MeshStandardMaterial({ color: 0x3a3a42, roughness: 0.85, metalness: 0.1 }))
     const im = new THREE.InstancedMesh(geo, mat, mats.length)
     mats.forEach((m, i) => im.setMatrixAt(i, m))
     im.instanceMatrix.needsUpdate = true
     im.receiveShadow = true
     im.name = 'SecretPath'
-    return im
+    // as marcas: a cada dez lajes uma brasa baixa, do tamanho de um mojão. É o
+    // que transforma "sumido" em "secreto": quem procura, segue.
+    const markGeo = track(new THREE.ConeGeometry(0.34, 1.15, 6))
+    const markMat = track(new THREE.MeshStandardMaterial({ color: 0x120c04, emissive: ORANGE, emissiveIntensity: 0.55, roughness: 0.6 }))
+    const marks = mats.filter((_, i) => i % 10 === 4)
+    const mim = new THREE.InstancedMesh(markGeo, markMat, marks.length)
+    marks.forEach((m, i) => {
+      const p = new THREE.Vector3().setFromMatrixPosition(m)
+      mim.setMatrixAt(i, new THREE.Matrix4().makeTranslation(p.x + 2.2, p.y + 0.5, p.z + 1.4))
+    })
+    mim.instanceMatrix.needsUpdate = true
+    mim.name = 'SecretPathMarks'
+    const g = new THREE.Group()
+    g.name = 'SecretPath'
+    g.add(im, mim)
+    return g
   })()
 
   const holder = new THREE.Group()

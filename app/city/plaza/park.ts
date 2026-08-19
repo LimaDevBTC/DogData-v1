@@ -30,7 +30,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { regolithColor } from './terrain'
 import { PARK_CENTER, PARK_ROT_Y, PARK_HALF, PARK_CORE, TEMPLE_WORLD } from './park-site'
-import { buildLeonidasCave, CAVE_LOCAL } from './leonidas-cave'
+import { buildLeonidasCave, CAVE_LOCAL, CAVE_YAW } from './leonidas-cave'
 import { mergeStaticByMaterial, type PerfProfile, type DistanceCuller } from './perf'
 import { SF, loadSf, dressSf } from './sf-assets'
 
@@ -167,18 +167,25 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
     return ringLocal(lx, lz) * (1 - kk) + parkH(lx, -lz) * kk + 1.5
   }
   // ── o corte da caverna do Leonidas ────────────────────────────────────────
-  // O flanco faz uma corcova de 3 m bem na frente da boca (medido: o terreno na
-  // soleira está 2,8 m ACIMA do piso da câmara). Aqui o pátio é escavado: dentro
-  // de 20 m o chão nunca passa da soleira, e até 46 m volta ao natural. Todo o
-  // parque lê esta função — terreno, trilhas, o terraço e o caminho secreto —
-  // então ninguém discorda de ninguém.
+  // O maciço da caverna tem 44 m de profundidade e o flanco sobe 19°: sem corte,
+  // a encosta entrava pela câmara e aparecia lá dentro como um piso cinza
+  // subindo (foi o que se viu na primeira montagem). Aqui o sítio inteiro é
+  // escavado no nível da soleira: até 30 m do EIXO da caverna o chão nunca passa
+  // dela, e até 62 m volta ao natural. Terreno, terraço, trilhas e caminho
+  // secreto leem esta mesma função, então ninguém discorda de ninguém.
   const CAVE_FLOOR = groundRaw(CAVE_LOCAL.x, CAVE_LOCAL.z) - 0.15
+  const AX = Math.cos(CAVE_YAW), AZ = -Math.sin(CAVE_YAW)
+  const A0X = CAVE_LOCAL.x + AX * 22, A0Z = CAVE_LOCAL.z + AZ * 22   // à frente da boca
+  const A1X = CAVE_LOCAL.x - AX * 52, A1Z = CAVE_LOCAL.z - AZ * 52   // o fundo da câmara
+  const axisLen2 = (A1X - A0X) ** 2 + (A1Z - A0Z) ** 2
   const groundLocal = (lx: number, lz: number): number => {
     const h = groundRaw(lx, lz)
-    const r = Math.hypot(lx - CAVE_LOCAL.x, lz - CAVE_LOCAL.z)
-    if (r > 46 || h <= CAVE_FLOOR) return h
-    const t = THREE.MathUtils.clamp((46 - r) / 26, 0, 1)
-    return h + (CAVE_FLOOR - h) * (t * t * (3 - 2 * t))
+    if (h <= CAVE_FLOOR) return h
+    const t = THREE.MathUtils.clamp(((lx - A0X) * (A1X - A0X) + (lz - A0Z) * (A1Z - A0Z)) / axisLen2, 0, 1)
+    const d = Math.hypot(lx - (A0X + (A1X - A0X) * t), lz - (A0Z + (A1Z - A0Z) * t))
+    if (d > 62) return h
+    const k = THREE.MathUtils.clamp((62 - d) / 32, 0, 1)
+    return h + (CAVE_FLOOR - h) * (k * k * (3 - 2 * k))
   }
 
   // ── terreno ───────────────────────────────────────────────────────────────
