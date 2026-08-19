@@ -324,7 +324,7 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
     const pts = new THREE.Points(geo, pm)
     pts.position.set(cx, y + 0.3, cz)
     pts.userData.seed = seed
-    pts.userData.noCenter = i === 2 // NW: a figura de Satoshi está no meio; só o anel de jatos
+    // (o NW voltou a ter jato central quando a figura em lâminas saiu, 2026-08-19)
     pts.frustumCulled = false
     group.add(pts)
     jets.push(pts)
@@ -461,23 +461,28 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   cull(hedgeMesh)
 
   // ── palmeiras: alamedas nos bulevares e no anel, e bosques nos setores ────
+  // as palmeiras dos SETORES continuam procedurais (ninguém chega perto); as das
+  // alamedas e do anel viraram tamareiras de verdade (props-table.ts) quando
+  // `realTrees` está ligado
   const palms: [number, number][] = [...sample(70, R_GARDEN_IN + 20, 430), ...sample(150, 480, 900)]
-  for (let i = 0; i < 4; i++) {
-    const a = (i * Math.PI) / 2
-    for (let k = 0; k < 8; k++) {
-      const r = R_GARDEN_IN + 16 + k * 16
-      for (const sx of [-1, 1]) {
-        const off = sx * (BOULEVARD_W / 2 + 7)
-        palms.push([Math.sin(a) * r + Math.cos(a) * off, Math.cos(a) * r - Math.sin(a) * off])
+  if (!REAL) {
+    for (let i = 0; i < 4; i++) {
+      const a = (i * Math.PI) / 2
+      for (let k = 0; k < 8; k++) {
+        const r = R_GARDEN_IN + 16 + k * 16
+        for (const sx of [-1, 1]) {
+          const off = sx * (BOULEVARD_W / 2 + 7)
+          palms.push([Math.sin(a) * r + Math.cos(a) * off, Math.cos(a) * r - Math.sin(a) * off])
+        }
       }
     }
-  }
-  for (let k = 0; k < 72; k++) {
-    const a = (k / 72) * Math.PI * 2
-    if (Math.abs(Math.sin(2 * a)) < 0.14) continue // deixa as portas dos bulevares livres
-    for (const sr of [-1, 1]) {
-      const r = R_RING + sr * (RING_W / 2 + 9)
-      palms.push([Math.cos(a) * r, Math.sin(a) * r])
+    for (let k = 0; k < 72; k++) {
+      const a = (k / 72) * Math.PI * 2
+      if (Math.abs(Math.sin(2 * a)) < 0.14) continue // deixa as portas dos bulevares livres
+      for (const sr of [-1, 1]) {
+        const r = R_RING + sr * (RING_W / 2 + 9)
+        palms.push([Math.cos(a) * r, Math.sin(a) * r])
+      }
     }
   }
   const trunkGeo = track(new THREE.CylinderGeometry(0.42, 0.7, 1, 8))

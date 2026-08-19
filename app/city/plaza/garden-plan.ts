@@ -113,6 +113,35 @@ export const ORDINAL_OLIVES: [number, number][] = (() => {
 // ── O busto do Satoshi (Sketchfab, "Mystery in Bronze"): no portão noroeste, ao
 // lado da alameda que leva ao Espelho, de frente para quem passa ──────────────
 export const BUST_POS = onDiagonal('NW', 476, 17)
+/** as palmeiras das ALAMEDAS dos quatro bulevares (as procedurais saem daqui
+ *  quando os modelos reais entram: `realTrees`) */
+export const BOULEVARD_PALMS: [number, number][] = (() => {
+  const out: [number, number][] = []
+  for (let i = 0; i < 4; i++) {
+    const a = (i * Math.PI) / 2
+    for (let k = 0; k < 8; k++) {
+      const r = 332 + 16 + k * 16
+      for (const sx of [-1, 1]) {
+        const off = sx * (42 / 2 + 7)
+        out.push([Math.sin(a) * r + Math.cos(a) * off, Math.cos(a) * r - Math.sin(a) * off])
+      }
+    }
+  }
+  return out
+})()
+/** palmeiras altas nas quatro portas do deck */
+export const DECK_GATE_PALMS: [number, number][] = (() => {
+  const out: [number, number][] = []
+  for (let i = 0; i < 4; i++) {
+    const a = (i * Math.PI) / 2
+    for (const sx of [-1, 1]) {
+      const off = sx * 30
+      const r = 316
+      out.push([Math.sin(a) * r + Math.cos(a) * off, Math.cos(a) * r - Math.sin(a) * off])
+    }
+  }
+  return out
+})()
 /** palmeiras "de perto" (o modelo real): quatro em cada portão do Anel */
 export const HERO_PALMS: [number, number][] = (() => {
   const out: [number, number][] = []
@@ -128,13 +157,22 @@ export const HERO_PALMS: [number, number][] = (() => {
   return out
 })()
 
-// ── Calçada dos Fundadores: o bulevar norte, do deck à Grande Fonte ─────────
-export const FOUNDERS_R0 = 346 // primeira placa (r)
-export const FOUNDERS_R1 = 512 // última
-export const FOUNDERS_SLOTS_PER_SIDE = 24
-export const FOUNDERS_SIDE = 15 // do eixo do bulevar (largura 42) até o centro da placa
-export const FOUNDERS_LINE_R0 = 332
-export const FOUNDERS_LINE_R1 = 520
+// ── O Círculo dos Fundadores: no PÉ DA TORRE, sobre o deck ─────────────────
+// Estava no bulevar norte, que um dia vai levar à quarta âncora (decisão do
+// fundador, 2026-08-19: "a placa dos doadores devia ser na base da torre"). O
+// deck é a laje do plaza.glb: PlazaPodium termina em y 39,3 e o piso onde a
+// Needle assenta está em 39,9, medido no GLB.
+export const DECK_Y = 39.95
+// Medido no central-tower.glb: NEEDLE_PLINTH é um tambor de raio 56 que vai de
+// y 47,9 a 57,9 (a torre assenta em 39,9), e WATER_JET_RING tem raio 81,3. O
+// círculo das placas vive ENTRE os dois, no piso do deck, andável.
+export const FOUNDERS_RINGS: { r: number; n: number }[] = [
+  { r: 62, n: 20 },
+  { r: 71, n: 28 },
+]
+export const FOUNDERS_SLOTS = FOUNDERS_RINGS.reduce((a, b) => a + b.n, 0)
+/** o anel de luz do fundo: fecha conforme a arrecadação; quando fechar, a cidade abre */
+export const FOUNDERS_RING_R = 77
 
 /** Onde NÃO se planta: círculos (x, z, r) reservados aos monumentos e placas. */
 export const RESERVED: [number, number, number][] = [
@@ -152,6 +190,7 @@ export const RESERVED: [number, number, number][] = [
   ...ORDINAL_OLIVES.map(([x, z]) => [x, z, 5] as [number, number, number]),
   [BUST_POS[0], BUST_POS[1], 7],
   ...HERO_PALMS.map(([x, z]) => [x, z, 6] as [number, number, number]),
+  ...BOULEVARD_PALMS.map(([x, z]) => [x, z, 5] as [number, number, number]),
 ]
 export function isReserved(x: number, z: number, margin = 0): boolean {
   for (const [cx, cz, r] of RESERVED) if (Math.hypot(x - cx, z - cz) < r + margin) return true

@@ -10,7 +10,7 @@
 import type { PropSpec } from './props'
 import {
   onDiagonal, WHITEPAPER_CYPRESSES, SATOSHI_CYPRESSES, ORDINAL_OLIVES, PAW_BLOSSOMS,
-  QUADRANT_ANGLE, poolCenter,
+  QUADRANT_ANGLE, poolCenter, BOULEVARD_PALMS, DECK_GATE_PALMS, HERO_PALMS, DECK_Y,
 } from './garden-plan'
 import { R_ANCHOR } from './precinct'
 import { PAD_MAIN } from './orbit-layer'
@@ -39,6 +39,19 @@ const BENCH_RING = ring(24, 452 - 34 / 2 + 3, 7.5)
 /** as urnas: nas esquinas dos parterres, entre as portas dos bulevares */
 const URNS = ring(16, 332 + 38, 11.25).filter(([x, z]) => Math.abs(Math.sin(2 * Math.atan2(z, x))) > 0.2)
 
+// ── o DECK central (revisão de 2026-08-19: "todos os seus elementos são
+// genéricos"). O deck é a laje da praça, em y = DECK_Y; tudo aqui é `lift`
+// relativo ao terreno, então cada peça leva `deckLift` para subir do chão do
+// regolito (y 0) até a laje. ────────────────────────────────────────────────
+const deckLift = DECK_Y
+/** os quatro eixos do deck, a `r` do centro */
+const deckAxis = (r: number): [number, number][] => [[0, -r], [r, 0], [0, r], [-r, 0]]
+/** as diagonais do deck */
+const deckDiag = (r: number): [number, number][] => {
+  const k = r / Math.SQRT2
+  return [[k, -k], [k, k], [-k, k], [-k, -k]]
+}
+
 export const PROPS: readonly PropSpec[] = [
   // ── árvores: as espécies com papel (as de copa redonda e os pinheiros seguem
   // procedurais nos setores, que é onde ninguém chega perto) ──────────────────
@@ -53,6 +66,36 @@ export const PROPS: readonly PropSpec[] = [
   {
     file: 'tree-blossom', why: 'a Pata de Diamante é o único jardim que floresce',
     at: PAW_BLOSSOMS, jitter: 0.18, cull: 1500,
+  },
+  // ── palmeiras de verdade: as antigas "murchas" saíram (fundador, 2026-08-19) ──
+  {
+    file: 'palm-date', why: 'as alamedas dos quatro bulevares e os portões do Anel: tamareira cheia e ereta',
+    at: [...BOULEVARD_PALMS, ...HERO_PALMS], jitter: 0.12, cull: 1500,
+  },
+  {
+    file: 'palm-tall', why: 'oito palmeiras altas nas quatro portas do deck, para marcar a subida',
+    at: DECK_GATE_PALMS, jitter: 0.08, cull: 1700,
+  },
+  // ── o deck central: o que era genérico ganha peças de verdade ──────────────
+  {
+    file: 'obelisk', why: 'quatro obeliscos nos eixos do deck: o ritmo que faltava em volta da torre',
+    at: deckAxis(132), yaw: 'center', scale: 1.7, lift: deckLift, cull: 2600,
+  },
+  {
+    file: 'armillary', why: 'a esfera armilar sobre pedestal: o céu medido, no eixo sul do deck',
+    at: [[0, 104]], yaw: 'center', lift: deckLift + 1.8, scale: 3.4, cull: 2200,
+  },
+  {
+    file: 'pedestal', why: 'a base da esfera armilar',
+    at: [[0, 104]], lift: deckLift, scale: 1.5, cull: 2200,
+  },
+  {
+    file: 'deck-colonnade', why: 'as duas taças de Versalhes nos eixos leste e oeste do deck',
+    at: [[104, 0], [-104, 0]], yaw: 'center', scale: 0.62, lift: deckLift, cull: 2000,
+  },
+  {
+    file: 'btc-atm', why: 'o caixa eletrônico de BTC na entrada norte do deck: a praça também serve',
+    at: [[-16, -150], [16, -150]], yaw: 'center', lift: deckLift, cull: 1200, castShadow: false,
   },
   // ── água ────────────────────────────────────────────────────────────────────
   {

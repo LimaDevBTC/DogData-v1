@@ -98,6 +98,28 @@ trás do spaceport, sem placa (a história do V2 não merece um monumento).
 Ficou de fora: **Fur Tree** (CC-BY-SA), guardado em `blender/assets-sketchfab/`
 com o nome marcado.
 
+## 6.3 Revisão do deck e das placas, 2026-08-19
+
+Pedidos do fundador, feitos:
+- **Coqueiros murchos fora**: as palmeiras das alamedas dos bulevares e dos
+  portões do Anel viraram a **tamareira** de evolveduk (2,6 mil tris, 80
+  instâncias) e as quatro portas do deck ganharam a **palmeira alta** de Next
+  Spring. As procedurais ficam só nos setores, onde ninguém chega perto.
+- **Caixa eletrônico de BTC** (Rescue3D) na entrada norte do deck, aos pares.
+- **O deck central**, que era genérico: quatro **obeliscos** nos eixos, a
+  **esfera armilar** sobre pedestal ao sul, duas **taças de Versalhes** a leste e
+  a oeste. (Reprovados na curadoria: um gazebo de tijolo vermelho e um
+  "pavilhão" que era maquete de terreno.)
+- **As placas dos fundadores mudaram de lugar**: saíram do bulevar norte (que um
+  dia leva à quarta âncora) e viraram o **Círculo dos Fundadores** no pé da
+  torre, sobre o deck: dois anéis de placas (20 + 28) entre o tambor da Needle
+  (raio 56) e o anel de água (raio 81), com o **anel de luz do fundo** em volta,
+  que fecha conforme a arrecadação. Medidas tiradas do `central-tower.glb`.
+- **A estátua vazada do Satoshi saiu** do espelho d'água (decisão do fundador):
+  fica só o **busto de bronze**, agora **sem os blocos brancos atrás** (a malha
+  `Icosphere` foi descartada na conversão). Sem figura, o plinto do espelho
+  saiu junto e o quarto espelho voltou a ter jato central.
+
 ## 7. Estado
 
 - 2026-08-18: §5 feito (navegação). §1 feito (calçadas dos lotes, passeio em

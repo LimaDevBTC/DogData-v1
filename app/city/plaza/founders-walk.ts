@@ -1,16 +1,19 @@
-// A Calçada dos Fundadores (praca-jardins.md §3): o bulevar norte, do deck à
-// Grande Fonte, é a calçada de quem já pagou a cidade.
+// O CÍRCULO DOS FUNDADORES (praca-jardins.md §3, movido em 2026-08-19): no PÉ DA
+// TORRE, sobre o deck, e não mais no bulevar norte (que um dia leva à quarta
+// âncora, e a placa de quem pagou a cidade não pode ficar no caminho de um lote
+// futuro).
 //
-//   uma placa de latão por fundador, na ordem de chegada (founder_seq de
-//   /api/donate/leaderboard), com o endereço gravado, o total em DOG e a data;
-//   depois das ocupadas, placas escuras vazias à espera (o que falta lê-se no chão);
-//   e a LINHA DE LUZ no eixo do bulevar, que acende do Anel para a Fonte na
-//   proporção do fundo: quando chegar na Fonte (10M DOG), a cidade abre.
+//   dois anéis de placas de latão em volta da Needle, na ordem de chegada
+//   (founder_seq de /api/donate/leaderboard), com o endereço gravado, o total em
+//   DOG e a data; depois das ocupadas, placas escuras à espera;
+//   e o ANEL DE LUZ em volta delas, que fecha na proporção do fundo: quando o
+//   círculo fechar (10M DOG), a cidade abre.
 //
 // Nada inventado: os dados chegam vivos da API; a placa de quem doou hoje está
-// aqui na próxima visita.
+// aqui na próxima visita. Uma malha só para as 48 placas (atlas de textura) e
+// duas instâncias para as molduras.
 import * as THREE from 'three'
-import { FOUNDERS_R0, FOUNDERS_R1, FOUNDERS_SLOTS_PER_SIDE, FOUNDERS_SIDE, FOUNDERS_LINE_R0, FOUNDERS_LINE_R1 } from './garden-plan'
+import { DECK_Y, FOUNDERS_RINGS, FOUNDERS_SLOTS, FOUNDERS_RING_R } from './garden-plan'
 import type { PerfProfile, DistanceCuller } from './perf'
 
 export interface Founder {
@@ -41,13 +44,12 @@ const fmtDate = (iso: string) => {
   return `${d.getUTCDate()} ${M[d.getUTCMonth()]} ${d.getUTCFullYear()}`
 }
 
-function plaqueTexture(f: Founder | null, slot: number): THREE.CanvasTexture {
+function plaqueTile(f: Founder | null, slot: number): HTMLCanvasElement {
   const W = 512, H = 352
   const c = document.createElement('canvas')
   c.width = W; c.height = H
   const ctx = c.getContext('2d')!
   if (f) {
-    // latão escovado: gradiente quente com veios finos
     const g = ctx.createLinearGradient(0, 0, W, H)
     g.addColorStop(0, '#b8924e'); g.addColorStop(0.5, '#d4ad66'); g.addColorStop(1, '#a98443')
     ctx.fillStyle = g
@@ -85,62 +87,53 @@ function plaqueTexture(f: Founder | null, slot: number): THREE.CanvasTexture {
     ctx.font = '500 22px "JetBrains Mono", ui-monospace, monospace'
     ctx.fillText('THIS PLAQUE IS WAITING FOR YOU', W / 2, 220)
   }
-  const tex = new THREE.CanvasTexture(c)
-  tex.colorSpace = THREE.SRGBColorSpace
-  tex.anisotropy = 8
-  return tex
+  return c
 }
 
 export function buildFoundersWalk(opts: { heightAt: (x: number, z: number) => number; data: FoundersData | null; profile?: PerfProfile; culler?: DistanceCuller }): FoundersWalk {
   const group = new THREE.Group()
-  group.name = 'FoundersWalk'
-  const plaques = new THREE.Group()
-  group.add(plaques)
-  opts.culler?.add(plaques, (opts.profile?.textCull ?? 1300) * 1.3, new THREE.Vector3(0, 0, -(FOUNDERS_R0 + FOUNDERS_R1) / 2))
+  group.name = 'FoundersCircle'
   const disposables: { dispose: () => void }[] = []
   const track = <T extends { dispose: () => void }>(o: T): T => { disposables.push(o); return o }
-  const yAt = opts.heightAt
   const founders = [...(opts.data?.founders ?? [])].sort((a, b) => a.founder_seq - b.founder_seq)
   const progress = THREE.MathUtils.clamp((opts.data?.progress_pct ?? 0) / 100, 0, 1)
+  const Y = DECK_Y
 
-  // ── as placas: no chão do bulevar norte, dos dois lados, alternando ────────
-  // Uma chamada de desenho para as 48 placas (atlas 8×6 numa textura só, malha
-  // fundida com o UV de cada placa) e duas para as molduras (instanciadas: latão
-  // nas ocupadas, escura nas vazias). Antes eram 96 malhas e 48 texturas.
-  const PW = 3.6, PD = 2.5
-  const total = FOUNDERS_SLOTS_PER_SIDE * 2
-  const step = (FOUNDERS_R1 - FOUNDERS_R0) / (FOUNDERS_SLOTS_PER_SIDE - 1)
+  // ── as placas: no piso do deck, em dois anéis, o texto lendo de fora ──────
+  const PW = 3.4, PD = 2.4
   const COLS = 8, ROWS = 6, TW = 512, TH = 352
   const atlas = document.createElement('canvas')
   atlas.width = COLS * TW; atlas.height = ROWS * TH
   const actx = atlas.getContext('2d')!
   const positions: number[] = [], uvs: number[] = [], indices: number[] = []
-  const lightPos: THREE.Vector3[] = []
   const frameMats: THREE.Matrix4[][] = [[], []] // 0 = latão (ocupada), 1 = escura (vazia)
   const tmpO = new THREE.Object3D()
-  for (let k = 0; k < total; k++) {
-    const side = k % 2 === 0 ? -1 : 1 // esquerda, direita, esquerda…
-    const idx = Math.floor(k / 2)
-    const r = FOUNDERS_R0 + idx * step
-    const x = side * FOUNDERS_SIDE, z = -r // o norte é −z
-    const y = yAt(x, z)
-    const f = founders[k] ?? null
-    // a arte da placa entra no atlas
-    const tile = plaqueTexture(f, k + 1)
-    const col = k % COLS, row = Math.floor(k / COLS)
-    actx.drawImage(tile.image as HTMLCanvasElement, col * TW, row * TH)
-    tile.dispose()
-    // o quad da placa, no chão, com o topo do texto para o norte (−z)
-    const u0 = col / COLS, u1 = (col + 1) / COLS
-    const v0 = 1 - (row + 1) / ROWS, v1 = 1 - row / ROWS
-    const base = positions.length / 3
-    const yy = y + 0.49
-    positions.push(x - PW / 2, yy, z + PD / 2, x + PW / 2, yy, z + PD / 2, x + PW / 2, yy, z - PD / 2, x - PW / 2, yy, z - PD / 2)
-    uvs.push(u0, v0, u1, v0, u1, v1, u0, v1)
-    indices.push(base, base + 1, base + 2, base, base + 2, base + 3)
-    tmpO.position.set(x, y + 0.42, z); tmpO.rotation.set(0, 0, 0); tmpO.scale.setScalar(1); tmpO.updateMatrix()
-    frameMats[f ? 0 : 1].push(tmpO.matrix.clone())
-    if (f) lightPos.push(new THREE.Vector3(x, y + 0.5, z))
+  const lightPos: THREE.Vector3[] = []
+  let k = 0
+  for (const { r, n } of FOUNDERS_RINGS) {
+    for (let i = 0; i < n; i++, k++) {
+      const a = (i / n) * Math.PI * 2 + (r < 66 ? Math.PI / n : 0)
+      const x = Math.cos(a) * r, z = Math.sin(a) * r
+      const f = founders[k] ?? null
+      const col = k % COLS, row = Math.floor(k / COLS)
+      actx.drawImage(plaqueTile(f, k + 1), col * TW, row * TH)
+      // o quad, deitado, com o topo do texto apontando para FORA do centro
+      const u0 = col / COLS, u1 = (col + 1) / COLS
+      const v0 = 1 - (row + 1) / ROWS, v1 = 1 - row / ROWS
+      const base = positions.length / 3
+      const ca = Math.cos(a), sa = Math.sin(a)
+      const P = (du: number, dv: number): [number, number] => [
+        x + (-sa) * du * (PW / 2) + ca * dv * (PD / 2),
+        z + ca * du * (PW / 2) + sa * dv * (PD / 2),
+      ]
+      const c1 = P(-1, 1), c2 = P(1, 1), c3 = P(1, -1), c4 = P(-1, -1)
+      positions.push(c1[0], Y + 0.06, c1[1], c2[0], Y + 0.06, c2[1], c3[0], Y + 0.06, c3[1], c4[0], Y + 0.06, c4[1])
+      uvs.push(u0, v0, u1, v0, u1, v1, u0, v1)
+      indices.push(base, base + 1, base + 2, base, base + 2, base + 3)
+      tmpO.position.set(x, Y, z); tmpO.rotation.set(0, -a, 0); tmpO.scale.setScalar(1); tmpO.updateMatrix()
+      frameMats[f ? 0 : 1].push(tmpO.matrix.clone())
+      if (f) lightPos.push(new THREE.Vector3(x, Y, z))
+    }
   }
   const atlasTex = track(new THREE.CanvasTexture(atlas))
   atlasTex.colorSpace = THREE.SRGBColorSpace
@@ -150,11 +143,11 @@ export function buildFoundersWalk(opts: { heightAt: (x: number, z: number) => nu
   plaqueGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
   plaqueGeo.setIndex(indices)
   plaqueGeo.computeVertexNormals()
-  const plaqueMat = track(new THREE.MeshStandardMaterial({ map: atlasTex, roughness: 0.4, metalness: 0.7, envMapIntensity: 1.1, emissive: 0xffffff, emissiveMap: atlasTex, emissiveIntensity: 0.14 }))
+  const plaqueMat = track(new THREE.MeshStandardMaterial({ map: atlasTex, roughness: 0.4, metalness: 0.7, envMapIntensity: 1.1, emissive: 0xffffff, emissiveMap: atlasTex, emissiveIntensity: 0.16 }))
   const plaqueMesh = new THREE.Mesh(plaqueGeo, plaqueMat)
   plaqueMesh.receiveShadow = true
-  plaques.add(plaqueMesh)
-  const frameGeo = track(new THREE.BoxGeometry(PW + 0.3, 0.12, PD + 0.3))
+  group.add(plaqueMesh)
+  const frameGeo = track(new THREE.BoxGeometry(PW + 0.28, 0.1, PD + 0.28))
   const brass = track(new THREE.MeshStandardMaterial({ color: 0xc9a25a, roughness: 0.3, metalness: 0.95, envMapIntensity: 1.2 }))
   const frameMat = track(new THREE.MeshStandardMaterial({ color: 0x1a1a1f, roughness: 0.6, metalness: 0.4 }))
   for (const [i, mat] of [[0, brass], [1, frameMat]] as const) {
@@ -163,73 +156,77 @@ export function buildFoundersWalk(opts: { heightAt: (x: number, z: number) => nu
     frameMats[i].forEach((m, j) => im.setMatrixAt(j, m))
     im.instanceMatrix.needsUpdate = true
     im.receiveShadow = true
-    plaques.add(im)
-  }
-  // luz quente rasante nas placas ocupadas: uma
-  const lights: THREE.PointLight[] = []
-  for (let i = 0; i < Math.min(lightPos.length, 4); i += 4) {
-    const l = new THREE.PointLight(WARM, 1.6, 30, 1.8)
-    l.position.copy(lightPos[i]).add(new THREE.Vector3(0, 2.2, 0))
-    group.add(l)
-    lights.push(l)
+    group.add(im)
   }
 
-  // ── a linha de luz do fundo: acende do Anel para a Fonte na proporção do fundo ──
-  const len = FOUNDERS_LINE_R1 - FOUNDERS_LINE_R0
-  const litLen = Math.max(0.5, len * progress)
-  const y0 = yAt(0, -FOUNDERS_LINE_R0)
+  // ── o anel do fundo: fecha na proporção arrecadada ────────────────────────
+  const R = FOUNDERS_RING_R
   const litMat = track(new THREE.MeshBasicMaterial({ color: WARM, toneMapped: false }))
   const dimMat = track(new THREE.MeshBasicMaterial({ color: 0x3a2e1c, toneMapped: false }))
-  const lit = new THREE.Mesh(track(new THREE.PlaneGeometry(0.9, litLen)), litMat)
+  const a0 = -Math.PI / 2 // começa ao norte
+  const litLen = Math.max(0.02, progress * Math.PI * 2)
+  const lit = new THREE.Mesh(track(new THREE.RingGeometry(R - 0.6, R + 0.6, 128, 1, a0, litLen)), litMat)
   lit.rotation.x = -Math.PI / 2
-  lit.position.set(0, y0 + 0.44, -(FOUNDERS_LINE_R0 + litLen / 2))
+  lit.position.y = Y + 0.05
   group.add(lit)
-  const dim = new THREE.Mesh(track(new THREE.PlaneGeometry(0.9, len - litLen)), dimMat)
+  const dim = new THREE.Mesh(track(new THREE.RingGeometry(R - 0.45, R + 0.45, 128, 1, a0 + litLen, Math.PI * 2 - litLen)), dimMat)
   dim.rotation.x = -Math.PI / 2
-  dim.position.set(0, y0 + 0.44, -(FOUNDERS_LINE_R0 + litLen + (len - litLen) / 2))
+  dim.position.y = Y + 0.05
   group.add(dim)
-  // a cabeça da linha: um marco de latão com o número
-  const head = new THREE.Mesh(track(new THREE.CylinderGeometry(0.9, 1.1, 0.5, 24)), brass)
-  head.position.set(0, y0 + 0.25, -(FOUNDERS_LINE_R0 + litLen))
+  const headA = a0 + litLen
+  const hx = Math.cos(headA) * R, hz = Math.sin(headA) * R
+  const head = new THREE.Mesh(track(new THREE.CylinderGeometry(0.8, 1.0, 0.5, 24)), brass)
+  head.position.set(hx, Y + 0.25, hz)
   group.add(head)
-  const headTex = track((() => {
-    const c = document.createElement('canvas'); c.width = 512; c.height = 128
-    const ctx = c.getContext('2d')!
+
+  const sign = (w: number, h: number, draw: (ctx: CanvasRenderingContext2D) => void) => {
+    const c = document.createElement('canvas'); c.width = w; c.height = h
+    draw(c.getContext('2d')!)
+    const t = track(new THREE.CanvasTexture(c)); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8
+    return track(new THREE.MeshBasicMaterial({ map: t, toneMapped: false, transparent: true }))
+  }
+  const d = opts.data
+  const headSign = new THREE.Mesh(track(new THREE.PlaneGeometry(9, 2.25)), sign(512, 128, (ctx) => {
     ctx.fillStyle = '#121317'; ctx.fillRect(0, 0, 512, 128)
-    ctx.fillStyle = '#F7931A'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-    ctx.font = '700 44px "JetBrains Mono", ui-monospace, monospace'
-    const d = opts.data
-    ctx.fillText(d ? `${fmtDog(d.total_received)} OF ${fmtDog(d.goal)} DOG · ${d.progress_pct.toFixed(1)}%` : 'THE FUND', 256, 46)
-    ctx.fillStyle = '#c9bfae'; ctx.font = '500 24px "JetBrains Mono", ui-monospace, monospace'
-    ctx.fillText('WHEN THE LIGHT REACHES THE FOUNTAIN, THE CITY OPENS', 256, 96)
-    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t
-  })())
-  const headSign = new THREE.Mesh(track(new THREE.PlaneGeometry(6, 1.5)), track(new THREE.MeshBasicMaterial({ map: headTex, toneMapped: false })))
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+    ctx.fillStyle = '#F7931A'; ctx.font = '700 42px "JetBrains Mono", ui-monospace, monospace'
+    ctx.fillText(d ? `${fmtDog(d.total_received)} / ${fmtDog(d.goal)} DOG` : 'THE FUND', 256, 44)
+    ctx.fillStyle = '#c9bfae'; ctx.font = '500 22px "JetBrains Mono", ui-monospace, monospace'
+    ctx.fillText(d ? `${d.progress_pct.toFixed(1)}% · WHEN THE RING CLOSES, THE CITY OPENS` : 'WHEN THE RING CLOSES, THE CITY OPENS', 256, 92)
+  }))
   headSign.rotation.x = -Math.PI / 2
-  headSign.position.set(0, y0 + 0.5, -(FOUNDERS_LINE_R0 + litLen) + 2.2)
+  headSign.rotation.z = -headA + Math.PI / 2
+  headSign.position.set(Math.cos(headA) * (R + 3.4), Y + 0.06, Math.sin(headA) * (R + 3.4))
   group.add(headSign)
-  // a placa de entrada, junto ao deck: o que é esta calçada
-  const gateTex = track((() => {
-    const c = document.createElement('canvas'); c.width = 1024; c.height = 256
-    const ctx = c.getContext('2d')!
+
+  const gate = new THREE.Mesh(track(new THREE.PlaneGeometry(12, 3)), sign(1024, 256, (ctx) => {
     ctx.fillStyle = '#121317'; ctx.fillRect(0, 0, 1024, 256)
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
     ctx.fillStyle = '#f2ead6'; ctx.font = '700 54px "JetBrains Mono", ui-monospace, monospace'
-    ctx.fillText("FOUNDERS' WALK", 512, 70)
+    ctx.fillText("THE FOUNDERS' CIRCLE", 512, 70)
     ctx.fillStyle = '#c9bfae'; ctx.font = '500 26px "JetBrains Mono", ui-monospace, monospace'
     ctx.fillText('every wallet that paid for this city, in the order it arrived', 512, 140)
     ctx.fillStyle = '#F7931A'
-    ctx.fillText(`${founders.length} founders · ${total - founders.length} plaques waiting`, 512, 196)
-    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t
-  })())
-  const gate = new THREE.Mesh(track(new THREE.PlaneGeometry(10, 2.5)), track(new THREE.MeshBasicMaterial({ map: gateTex, toneMapped: false })))
+    ctx.fillText(`${founders.length} founders · ${FOUNDERS_SLOTS - founders.length} plaques waiting`, 512, 196)
+  }))
   gate.rotation.x = -Math.PI / 2
-  gate.position.set(0, y0 + 0.5, -(FOUNDERS_LINE_R0 + 8))
+  gate.position.set(0, Y + 0.06, -(R + 22))
   group.add(gate)
+
+  // luz quente rasante sobre as placas ocupadas (duas, não uma por placa)
+  const lights: THREE.PointLight[] = []
+  for (let i = 0; i < Math.min(lightPos.length, 2); i++) {
+    const l = new THREE.PointLight(WARM, 2.4, 40, 1.8)
+    l.position.copy(lightPos[Math.min(lightPos.length - 1, i * Math.floor(lightPos.length / 2))]).add(new THREE.Vector3(0, 3, 0))
+    group.add(l)
+    lights.push(l)
+  }
+  opts.culler?.add(group, (opts.profile?.textCull ?? 1300) * 1.6, new THREE.Vector3(0, 0, 0))
+  void opts.heightAt
 
   return {
     group,
-    update(t) { for (const l of lights) l.intensity = 1.6 * (0.9 + 0.1 * Math.sin(t * 1.1 + l.position.z * 0.05)) },
-    dispose() { for (const d of disposables) d.dispose() },
+    update(t) { for (const l of lights) l.intensity = 2.4 * (0.9 + 0.1 * Math.sin(t * 1.1 + l.position.x * 0.05)) },
+    dispose() { for (const d2 of disposables) d2.dispose() },
   }
 }

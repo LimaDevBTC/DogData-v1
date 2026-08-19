@@ -32,6 +32,13 @@ export const SF_CREDITS: readonly Credit[] = [
   { title: 'Rusty airbase fuel tank', author: 'LuddePudde', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/rusty-airbase-fuel-tank-5ac257aee23e47e0a0f91a4e07a40692' },
   { title: 'Old Scifi satellite dish', author: 'CGKnuenz', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/old-scifi-satellite-dish-f01a91e9773e4622b25c4d27903e85c6' },
   { title: 'Coconut Palm', author: 'evolveduk', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/coconut-palm-26e787f2ff2e4c0fb004c3b0210805a3' },
+  { title: 'Date Palm', author: 'evolveduk', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/date-palm-11acf710e6c149daa8d6fb8cdc5d087f' },
+  { title: 'Realistic Palm Tree Free', author: 'Next Spring', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/realistic-palm-tree-free-39052ea764c945858449e699318efa53' },
+  { title: 'Bitcoin ATM', author: 'Rescue3D Assets', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/bitcoin-atm-dd33f6140ebe44e3a572cb5856586863' },
+  { title: 'Vasque Versailles', author: 'maxime.montegnies', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/vasque-versailles-bosquet-de-la-colonnade-71b5f187c1b8421b8447127a566025fa' },
+  { title: 'Obelisk', author: 'Ankledot', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/obelisk-0b4dc3d42d1b4ceb8a19a0001a427864' },
+  { title: 'Armillary Sphere', author: 'ChloeRobynSmith', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/armillary-sphere-22e92fc349eb4f8f9091d9d081d57177' },
+  { title: 'Stylized Stone Pedestal', author: 'Asgart', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/stylized-stone-pedestal-lowpoly-game-asset-f97ed585d9ef4b7589c873a686fe6531' },
   { title: 'Human Skull', author: 'CDmir (OpenGameArt)', license: 'CC0', url: 'https://opengameart.org/content/human-skull-0' },
   { title: 'Human Base Meshes', author: 'Blender Studio', license: 'CC0', url: 'https://www.blender.org/download/demo/asset-bundles/' },
 ]

@@ -23,7 +23,7 @@ import {
 } from './garden-plan'
 import { SF, loadSf, dressSf, firstGeometry } from './sf-assets'
 import { TIERS, crystalMaterialFor, loadCrystalTextures } from './park'
-import { buildSatoshiLugano, buildLeonidas } from './statues'
+import { buildLeonidas } from './statues'
 import type { PerfProfile, DistanceCuller } from './perf'
 
 const WARM = new THREE.Color('#FFB35C')
@@ -289,23 +289,10 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
     g.position.set(sx, sy, sz)
     // a figura olha para o deck: para dentro, ao longo da diagonal
     g.rotation.y = Math.atan2(-sx, -sz)
-    // plinto no meio da água: baixo, largo, latão na aresta
-    const plinth = new THREE.Mesh(track(new THREE.CylinderGeometry(9, 9.6, 1.4, 48)), graniteMat)
-    plinth.position.y = 0.95
-    plinth.castShadow = plinth.receiveShadow = true
-    g.add(plinth)
-    const rim = new THREE.Mesh(track(new THREE.TorusGeometry(9.05, 0.08, 8, 96)), brassMat)
-    rim.rotation.x = Math.PI / 2
-    rim.position.y = 1.66
-    g.add(rim)
-    // A figura, à maneira de Lugano (statues.ts): sentada de capuz com o laptop,
-    // em lâminas de aço sagitais. De frente, para quem chega do deck pela
-    // alameda, quase some; de lado aparece inteira. Escala 5: 7 m sentada.
-    const satoshi = await buildSatoshiLugano({ grid: opts.profile?.tier === 'mobile' ? 0.016 : 0.011 })
-    disposables.push(satoshi)
-    satoshi.group.scale.setScalar(7.5) // 10,8 m sentada, do plinto à ponta do capuz
-    satoshi.group.position.y = 1.65
-    g.add(satoshi.group)
+    // A figura em lâminas saiu por decisão do fundador (2026-08-19): fica só o
+    // busto de bronze, no portão. Sem figura, o plinto perdia a razão e saiu
+    // junto: o quarto espelho passa a ser água e jato, como os outros, e a
+    // inscrição vira uma laje baixa na borda, do lado do deck.
     // a inscrição no plinto, do lado do deck
     const insc = new THREE.Mesh(track(new THREE.PlaneGeometry(6, 1.0)), track(new THREE.MeshBasicMaterial({
       map: track(textTexture({ w: 1024, h: 170, bg: '#121317', lines: [
@@ -313,7 +300,8 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
         { text: 'the face is a mirror · look, and you are here', size: 30, color: '#a89b80', y: 126 },
       ] })), toneMapped: false,
     })))
-    insc.position.set(0, 0.95, 9.5)
+    insc.rotation.x = -Math.PI / 2 // deitada no passeio da borda
+    insc.position.set(0, 0.42, POOL_R + 5)
     g.add(insc)
     group.add(g)
     // luz: dois focos frontais rasantes de fora da água, e um halo frio no espelho
@@ -511,7 +499,7 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
   // (créditos em sf-assets.ts; CC-BY exige nome do autor, e ele está no menu Places)
   {
     const gl = opts.gltf ?? new GLTFLoader()
-    const [bust, palm] = await Promise.all([loadSf(gl, SF.bust), loadSf(gl, SF.palm)])
+    const [bust, palm] = await Promise.all([loadSf(gl, SF.bust), Promise.resolve(null)])
     if (bust) {
       // o busto de bronze na entrada da alameda do Espelho: quem vem do deck o
       // encontra antes da figura que some na água. Dois Satoshis: o que se vê e
@@ -547,29 +535,7 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
       addLight(bx + 4, by + 3, bz + 2, 2.2, 50, 0xfff0dc)
       cullText(insc, bx, bz)
     }
-    if (palm) {
-      // as palmeiras dos portões: o modelo real instanciado (2,2 mil tris cada,
-      // 16 delas), só de perto; as procedurais continuam preenchendo o resto
-      const f = firstGeometry(palm)
-      if (f) {
-        const im = new THREE.InstancedMesh(track(f.geo), f.mat, HERO_PALMS.length)
-        const o = new THREE.Object3D()
-        HERO_PALMS.forEach(([x, z], i) => {
-          const k = 0.85 + ((i * 37) % 7) * 0.06
-          o.position.set(x, yAt(x, z), z)
-          o.rotation.set(0, ((i * 61) % 360) * (Math.PI / 180), 0)
-          o.scale.setScalar(k)
-          o.updateMatrix()
-          im.setMatrixAt(i, o.matrix)
-        })
-        im.instanceMatrix.needsUpdate = true
-        im.castShadow = im.receiveShadow = true
-        im.name = 'HeroPalms'
-        dressSf(im, { envMapIntensity: 0.9 })
-        group.add(im)
-        opts.culler?.add(im, (opts.profile?.smallCull ?? 2600) * 1.2)
-      }
-    }
+    void palm // as palmeiras passaram para props-table.ts (tamareira de verdade)
   }
 
   return {

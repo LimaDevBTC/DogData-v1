@@ -50,7 +50,7 @@ type View = { pos: THREE.Vector3; target: THREE.Vector3 }
 export const PLACES: ReadonlyArray<{ key: string; label: string; hint: string }> = [
   { key: 'home', label: 'Satoshi Plaza', hint: 'the whole precinct' },
   { key: 'deck', label: 'The deck', hint: 'the Needle, up close' },
-  { key: 'founders', label: "Founders' Walk", hint: 'the donors, north boulevard' },
+  { key: 'founders', label: "Founders' Circle", hint: 'the donors, at the tower foot' },
   { key: 'whitepaper', label: 'Whitepaper Garden', hint: 'nine pages, north-east' },
   { key: 'genesis', label: 'The Genesis Block', hint: 'end of the whitepaper walk' },
   { key: 'satoshi', label: "Satoshi's Mirror", hint: 'north-west pool' },
@@ -72,8 +72,8 @@ function viewFor(name: string | null, aspect: number): View {
       return { pos: new THREE.Vector3(-560, 300, 1260), target: new THREE.Vector3(0, 110, 620) }
     case 'north':
       return { pos: new THREE.Vector3(160, 120, -140), target: new THREE.Vector3(0, 10, -520) }
-    case 'founders': // a pé, no início da calçada, olhando para a Fonte
-      return { pos: new THREE.Vector3(9, 5.5, -334), target: new THREE.Vector3(0, 1.5, -420) }
+    case 'founders': // sobre o deck, olhando o círculo no pé da torre
+      return { pos: new THREE.Vector3(0, 96, 176), target: new THREE.Vector3(0, 44, 20) }
     case 'deck':
       return { pos: new THREE.Vector3(-260, 120, 380), target: new THREE.Vector3(0, 60, 0) }
     case 'whitepaper': { const [x, z] = onDiagonal('NE', 598, 4); const [tx, tz] = onDiagonal('NE', 690); return { pos: new THREE.Vector3(x, 7, z), target: new THREE.Vector3(tx, 4, tz) } }
