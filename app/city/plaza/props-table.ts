@@ -116,6 +116,23 @@ export const PROPS: readonly PropSpec[] = [
     file: 'deck-colonnade', why: 'as duas taças de Versalhes nas portas leste e oeste do jardim',
     at: [[520, 0], [-520, 0]], yaw: 'center', scale: 0.62, cull: 1600,
   },
+  // ── as árvores emblemáticas (item 11): poucas, boas, com silhueta própria ──
+  // Das seis que o garimpo trouxe, três não eram árvore inteira (dois scans de
+  // tronco sem copa e uma cerejeira pela metade) e foram recusadas na folha de
+  // contato. Ficaram as três que se sustentam de perto.
+  {
+    file: 'tree-maple', why: 'bordos japoneses ao longo da alameda do Jardim Ordinal: a única cor quente do jardim',
+    at: [...alongAllee('SW', [560, 600, 640, 680], 26), ...alongAllee('SW', [560, 600, 640, 680], -26)],
+    jitter: 0.12, cull: 1400,
+  },
+  {
+    file: 'tree-medit', why: 'a árvore de copa do cinturão interno, no lugar das copas procedurais de perto',
+    at: ring(20, 392, 9), jitter: 0.16, cull: 1600,
+  },
+  {
+    file: 'tree-gnarled', why: 'três árvores antigas, retorcidas, junto à Grande Fonte do norte: as mais velhas da praça',
+    at: [[-58, -556], [64, -572], [-14, -604]], jitter: 0.1, cull: 1600,
+  },
   // ── água ────────────────────────────────────────────────────────────────────
   {
     file: 'fountain-grand', why: 'a Grande Fonte do norte, no lugar da quarta âncora: escultura no eixo',

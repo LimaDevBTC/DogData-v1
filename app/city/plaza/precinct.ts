@@ -464,7 +464,9 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   // as palmeiras dos SETORES continuam procedurais (ninguém chega perto); as das
   // alamedas e do anel viraram tamareiras de verdade (props-table.ts) quando
   // `realTrees` está ligado
-  const palms: [number, number][] = [...sample(70, R_GARDEN_IN + 20, 430), ...sample(150, 480, 900)]
+  const palms: [number, number][] = REAL
+    ? [...sample(60, 620, 900)]  // só o fundo distante; o resto é tamareira de verdade
+    : [...sample(70, R_GARDEN_IN + 20, 430), ...sample(150, 480, 900)]
   if (!REAL) {
     for (let i = 0; i < 4; i++) {
       const a = (i * Math.PI) / 2
@@ -521,7 +523,10 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
     if (x < 0 && z > 0) return u < 0.5 ? 'olive' : u < 0.7 ? 'pine' : 'round' // SW: o jardim antigo
     return u < 0.32 ? 'blossom' : u < 0.5 ? 'pine' : 'round'         // SE: o único que floresce
   }
-  const planted: { kind: Kind; x: number; z: number }[] = sample(150, 480, 900).map(([x, z]) => ({ kind: kindAt(x, z), x, z }))
+  // com as árvores de verdade nos lugares que se vê (props-table.ts), o gerador
+  // procedural passa a ser só o fundo distante: 150 → 48 (item 11 do fundador,
+  // "menos árvores, muito mais detalhadas")
+  const planted: { kind: Kind; x: number; z: number }[] = sample(REAL ? 48 : 150, 560, 900).map(([x, z]) => ({ kind: kindAt(x, z), x, z }))
   if (!REAL) {
     for (const [x, z] of WHITEPAPER_CYPRESSES) planted.push({ kind: 'cypress', x, z })
     for (const [x, z] of SATOSHI_CYPRESSES) planted.push({ kind: 'cypress', x, z })

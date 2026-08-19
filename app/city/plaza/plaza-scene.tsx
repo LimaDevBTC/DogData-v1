@@ -32,6 +32,7 @@ import { buildFoundersWalk, type FoundersWalk, type FoundersData } from './found
 import { detectTier, profileFor, parseQuality, FrameGovernor, DistanceCuller, mergeStaticByMaterial } from './perf'
 import { SF_CREDITS, SF, loadSf, dressSf } from './sf-assets'
 import { buildProps, type Props } from './props'
+import { buildDscGallery, DSC_CENTER, type DscGallery } from './dsc-gallery'
 import { PROPS } from './props-table'
 
 // ── framing ────────────────────────────────────────────────────────────────────
@@ -59,6 +60,7 @@ export const PLACES: ReadonlyArray<{ key: string; label: string; hint: string }>
   { key: 'paw', label: 'The Diamond Paw', hint: '$DOG, south-east' },
   { key: 'leonidas', label: 'Leonidas', hint: 'founder of DOG, behind the paw' },
   { key: 'ordinal', label: 'Ordinal Garden', hint: 'runestones, south-west' },
+  { key: 'dsc', label: 'Dog Social Club', hint: 'the collection, beside Kray' },
   { key: 'chalet', label: 'OrdCards Chalet', hint: 'south anchor' },
   { key: 'kray', label: 'Kray Tower', hint: 'east anchor' },
   { key: 'bitflow', label: 'BitFlow HQ', hint: 'west anchor' },
@@ -93,6 +95,11 @@ function viewFor(name: string | null, aspect: number): View {
     case 'satoshiclose': { const [x, z] = onDiagonal('NW', 536, 1); return { pos: new THREE.Vector3(x, 5, z), target: new THREE.Vector3(SATOSHI_POOL[0], 6.5, SATOSHI_POOL[1]) } }
     case 'satoshisideclose': { const [x, z] = onDiagonal('NW', 560, 26); return { pos: new THREE.Vector3(x, 6, z), target: new THREE.Vector3(SATOSHI_POOL[0], 6, SATOSHI_POOL[1]) } }
     case 'leonidasclose': { const [x, z] = onDiagonal('SE', 714, 4); return { pos: new THREE.Vector3(x, 5, z), target: new THREE.Vector3(LEONIDAS_POS[0], 9, LEONIDAS_POS[1]) } }
+    case 'dsc': {
+      const d = DSC_CENTER
+      const f = Math.atan2(-d.x, -d.z)
+      return { pos: new THREE.Vector3(d.x + Math.sin(f) * 58, 20, d.z + Math.cos(f) * 58), target: new THREE.Vector3(d.x, 11, d.z) }
+    }
     case 'ordinal': { const [x, z] = onDiagonal('SW', 606, 6); return { pos: new THREE.Vector3(x, 5.5, z), target: new THREE.Vector3(ORDINAL_CENTER[0], 6, ORDINAL_CENTER[1]) } }
     case 'kray':
       return { pos: new THREE.Vector3(300, 140, 420), target: new THREE.Vector3(620, 90, 0) }
@@ -346,6 +353,7 @@ export default function PlazaScene() {
     let park: Park | null = null
     let monuments: Monuments | null = null
     let props: Props | null = null
+    let dsc: DscGallery | null = null
     let founders: FoundersWalk | null = null
     const spinners: THREE.Object3D[] = []
     let heightAt: (x: number, z: number) => number = () => 0
@@ -574,6 +582,11 @@ export default function PlazaScene() {
             .catch((err) => console.warn('[plaza] props', err))
             .finally(() => stepDone('props'))
           : Promise.resolve(stepDone('props'))
+        // a galeria do Dog Social Club (item 10): a coleção inteira num muro do
+        // jardim ao lado da Kray; entra junto com os adereços
+        const pDsc = buildDscGallery({ heightAt, profile, culler })
+          .then((g) => { if (!g || disposed) { g?.dispose(); return } dsc = g; scene.add(g.group) })
+          .catch((err) => console.warn('[plaza] dsc', err))
         const pFounders = fetch('/api/donate/leaderboard')
           .then((r) => (r.ok ? (r.json() as Promise<FoundersData>) : null))
           .catch(() => null)
@@ -594,7 +607,7 @@ export default function PlazaScene() {
 
         // o portão só abre depois de TUDO montado e dos shaders compilados: o
         // usuário não pega mais uma praça que não responde ao dedo
-        await Promise.all([pMonuments, pProps, pFounders, pPark])
+        await Promise.all([pMonuments, pProps, pFounders, pPark, pDsc])
         if (disposed) return
         try { await renderer.compileAsync(scene, camera) } catch { /* sem compile paralelo */ }
         stepDone('shaders')
@@ -798,6 +811,7 @@ export default function PlazaScene() {
       precinct?.update(t)
       monuments?.update(t)
       founders?.update(t)
+      dsc?.update(t)
       park?.update(t, renderer.domElement.clientHeight / 2, camera.position)
       for (const sp of spinners) sp.rotation.y = t * 0.12
       earth.rotation.y = t * 0.004
@@ -846,6 +860,7 @@ export default function PlazaScene() {
       park?.dispose()
       monuments?.dispose()
       props?.dispose()
+      dsc?.dispose()
       founders?.dispose()
       draco.dispose()
       pmrem.dispose()
