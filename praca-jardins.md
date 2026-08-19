@@ -204,8 +204,15 @@ painel e continua valendo a regra da praça.)
 
 `search` e `info` funcionam sem token (API pública) e já filtram por licença:
 CC0 e CC-BY, uma chamada para cada (a API devolve 400 se as duas licenças vierem
-juntas). `get` precisa do token, que o script lê de `DogData-v1/.env.local`
+juntas). `get` precisa do token (guardado em `DogData-v1/.env.local`, gitignored, desde
+2026-08-19), que o script lê de `DogData-v1/.env.local`
 (gitignored) ou do ambiente, baixa o glTF, chama
 `blender/convert_one_asset.py` (origem no chão, metros, texturas 512 WEBP,
 Draco) e imprime a **linha de crédito pronta** para `sf-assets.ts`. Recusa
 licença fora da regra a menos que se force com `--i-know-the-licence`.
+
+**Orçamento de triângulos**: `--max-tris` (padrão 20.000) decima por colapso de
+arestas no Blender antes de exportar. Testado de ponta a ponta em 19/08: o
+"Moon Rover" (141.458 faces, CC-BY) saiu em 14.000 tris e 246 KB, e o templo
+japonês (13,1 MB no Sketchfab) em 559 KB. Sem isso, metade do que há de bom lá
+não cabe na praça.
