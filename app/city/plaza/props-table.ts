@@ -103,8 +103,8 @@ export const PROPS: readonly PropSpec[] = [
     at: [[0, -R_ANCHOR]], yaw: 'center', scale: 2.6, lift: 2.2, cull: 4000, envMapIntensity: 1.3,
   },
   {
-    file: 'fountain-basin', why: 'um chafariz no meio de cada um dos quatro espelhos d\'água',
-    at: [poolCenter('NE'), poolCenter('SE'), poolCenter('SW')], yaw: 'center', scale: 2.4, lift: 0.3, cull: 2200,
+    file: 'fountain-basin', why: 'um chafariz no meio dos espelhos do norte e do oeste (o do DOG fica livre: a marca é o assunto)',
+    at: [poolCenter('NE'), poolCenter('SW'), poolCenter('NW')], yaw: 'center', scale: 2.4, lift: 0.3, cull: 2200,
   },
   {
     file: 'garden-urn', why: 'urnas nas esquinas dos parterres, o vocabulário do jardim de palácio',

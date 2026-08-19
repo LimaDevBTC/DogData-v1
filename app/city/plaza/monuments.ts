@@ -317,18 +317,93 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
   // ═══ SE · A Pata de Diamante ══════════════════════════════════════════════
   {
     const [px, pz] = PAW_PALM
-    // a marca do DOG no fundo da palma: um disco de latão com o glifo, sob a água
-    const mark = new THREE.Mesh(track(new THREE.CircleGeometry(14, 64)), track(new THREE.MeshBasicMaterial({
-      map: track(textTexture({ w: 512, h: 512, bg: '#0a1017', lines: [
-        { text: '$DOG', size: 150, font: '700', color: '#F7931A', y: 236, letterSpacing: 6 },
-        { text: 'DOG • GO • TO • THE • MOON', size: 34, color: '#c9bfae', y: 350, letterSpacing: 4 },
-      ] })), toneMapped: false, transparent: true, opacity: 0.85,
+    // ── A MARCA DO DOG no fundo da palma ────────────────────────────────────
+    // Refeita em 2026-08-19: a primeira versão punha o nome numa linha reta que
+    // o disco cortava (a textura era quadrada, o disco é redondo) e o chafariz
+    // ficava em cima dela. Agora: emblema grande no centro, o nome CURVADO no
+    // anel (cada letra girada no seu ângulo, que é como se escreve num círculo),
+    // aro de latão, e o chafariz saiu deste espelho.
+    const markTex = track((() => {
+      const S = 1024
+      const c = document.createElement('canvas')
+      c.width = S; c.height = S
+      const ctx = c.getContext('2d')!
+      const R = S / 2
+      // fundo: só dentro do círculo (fora fica transparente e não aparece borda)
+      ctx.beginPath(); ctx.arc(R, R, R - 2, 0, Math.PI * 2); ctx.closePath()
+      const g = ctx.createRadialGradient(R, R, 10, R, R, R)
+      g.addColorStop(0, '#101b26'); g.addColorStop(0.72, '#0a1017'); g.addColorStop(1, '#070b10')
+      ctx.fillStyle = g; ctx.fill()
+      // aros de latão
+      const ring = (rr: number, w: number, col: string) => {
+        ctx.beginPath(); ctx.arc(R, R, rr, 0, Math.PI * 2)
+        ctx.strokeStyle = col; ctx.lineWidth = w; ctx.stroke()
+      }
+      ring(R - 12, 10, '#c9902a')
+      ring(R - 30, 3, 'rgba(201,144,42,0.55)')
+      ring(R * 0.52, 3, 'rgba(201,144,42,0.4)')
+      // o nome, curvado no anel: metade em cima (da esquerda para a direita) e a
+      // outra metade embaixo, invertida, para ler dos dois lados do espelho
+      const curved = (text: string, radius: number, centerAngle: number, size: number, flip: boolean) => {
+        ctx.save()
+        ctx.translate(R, R)
+        ctx.font = `700 ${size}px "JetBrains Mono", "DM Sans", system-ui, sans-serif`
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+        ctx.fillStyle = '#e9dfc6'
+        const chars = [...text]
+        const widths = chars.map((ch) => ctx.measureText(ch).width + size * 0.28)
+        const total = widths.reduce((a, b) => a + b, 0)
+        let ang = centerAngle - (flip ? -1 : 1) * (total / radius) / 2
+        for (let i = 0; i < chars.length; i++) {
+          const step = widths[i] / radius
+          const a = ang + (flip ? -1 : 1) * step / 2
+          ctx.save()
+          ctx.rotate(a)
+          ctx.translate(0, flip ? radius : -radius)
+          if (flip) ctx.rotate(Math.PI)
+          ctx.fillText(chars[i], 0, 0)
+          ctx.restore()
+          ang += (flip ? -1 : 1) * step
+        }
+        ctx.restore()
+      }
+      curved('DOG • GO • TO • THE • MOON', R - 62, 0, 46, false)
+      curved('RUNE 840000:3 · APRIL 2024', R - 62, Math.PI, 40, true)
+      // o emblema: $DOG grande, com sombra quente
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+      ctx.shadowColor = 'rgba(247,147,26,0.55)'; ctx.shadowBlur = 40
+      ctx.fillStyle = '#F7931A'
+      ctx.font = '700 210px "JetBrains Mono", "DM Sans", system-ui, sans-serif'
+      ctx.fillText('$DOG', R, R - 18)
+      ctx.shadowBlur = 0
+      ctx.fillStyle = '#c9bfae'
+      ctx.font = '500 44px "JetBrains Mono", system-ui, sans-serif'
+      ctx.fillText('THE DIAMOND PAW', R, R + 96)
+      const t = new THREE.CanvasTexture(c)
+      t.colorSpace = THREE.SRGBColorSpace
+      t.anisotropy = 8
+      return t
+    })())
+    const MARK_R = 30 // era 14: o emblema agora ocupa a palma inteira
+    const mark = new THREE.Mesh(track(new THREE.CircleGeometry(MARK_R, 96)), track(new THREE.MeshStandardMaterial({
+      map: markTex, transparent: true, roughness: 0.25, metalness: 0.5, envMapIntensity: 1.2,
+      emissive: 0xffffff, emissiveMap: markTex, emissiveIntensity: 0.5,
     })))
     mark.rotation.x = -Math.PI / 2
     // o topo do texto para fora, para quem chega do deck ler certo (Euler XYZ: Rz primeiro)
     mark.rotation.z = Math.atan2(-Math.cos(QUADRANT_ANGLE.SE), -Math.sin(QUADRANT_ANGLE.SE))
     mark.position.set(px, yAt(px, pz) + 0.27, pz)
     group.add(mark)
+    // aro de latão em relevo em volta do emblema, para ele não boiar no preto
+    const markRing = new THREE.Mesh(track(new THREE.TorusGeometry(MARK_R + 0.6, 0.35, 8, 96)), brassMat)
+    markRing.rotation.x = Math.PI / 2
+    markRing.position.set(px, yAt(px, pz) + 0.3, pz)
+    group.add(markRing)
+    // dois focos rasantes sobre o emblema: de noite, a marca acende a água
+    for (const sgn of [-1, 1]) {
+      const a = QUADRANT_ANGLE.SE + sgn * 1.15
+      addLight(px + Math.cos(a) * (POOL_R - 6), yAt(px, pz) + 5, pz + Math.sin(a) * (POOL_R - 6), 2.6, 90, 0xffd9a0)
+    }
     // os quatro dedos: espelhos menores, água preta, borda de luz quente
     const toeGeo = track(new THREE.CircleGeometry(PAW_TOE_R, 48))
     const toeRimGeo = track(new THREE.RingGeometry(PAW_TOE_R - 0.5, PAW_TOE_R + 0.5, 64))
