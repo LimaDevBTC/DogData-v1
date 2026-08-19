@@ -16,6 +16,7 @@
 //
 // Este módulo é o (1), (2) e a régua do (4). O resto está nos módulos das peças.
 import * as THREE from 'three'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 export type Tier = 'mobile' | 'desktop'
 
@@ -46,7 +47,7 @@ export function detectTier(): Tier {
 export function profileFor(tier: Tier): PerfProfile {
   return tier === 'mobile'
     ? { tier, maxPixelRatio: 1.5, shadowMapSize: 1024, softShadows: false, censusPoints: false, jetParticles: 400, smallCull: 1400, textCull: 700, parkDetailCull: 2600 }
-    : { tier, maxPixelRatio: 2, shadowMapSize: 2048, softShadows: true, censusPoints: true, jetParticles: 900, smallCull: 2600, textCull: 1300, parkDetailCull: 4200 }
+    : { tier, maxPixelRatio: 2, shadowMapSize: 2048, softShadows: true, censusPoints: true, jetParticles: 900, smallCull: 2600, textCull: 1300, parkDetailCull: 3000 }
 }
 
 /** Resolução dinâmica: chama `sample(dtMs)` por quadro; ajusta o DPR do renderer
@@ -91,4 +92,54 @@ export class DistanceCuller {
       if (it.o.visible !== on) it.o.visible = on
     }
   }
+}
+
+/** Funde, por material, as malhas ESTÁTICAS de uma hierarquia (um GLB): 50 chamadas
+ *  de desenho viram 8. `keep` casa com os nomes que não podem fundir (nós
+ *  animados: giram, sobem, escalam) e nada abaixo deles é tocado. As matrizes de
+ *  mundo entram na geometria; as originais são removidas. */
+export function mergeStaticByMaterial(root: THREE.Object3D, keep: RegExp): { before: number; after: number } {
+  root.updateMatrixWorld(true)
+  const skip = new Set<THREE.Object3D>()
+  root.traverse((o) => { if (keep.test(o.name)) o.traverse((c) => skip.add(c)) })
+  const groups = new Map<string, { mat: THREE.Material; meshes: THREE.Mesh[] }>()
+  let before = 0
+  root.traverse((o) => {
+    const m = o as THREE.Mesh & { isInstancedMesh?: boolean; isSkinnedMesh?: boolean }
+    if (!m.isMesh || m.isInstancedMesh || m.isSkinnedMesh || skip.has(o)) return
+    if (Array.isArray(m.material)) return
+    before++
+    const key = (m.material as THREE.Material).uuid
+    const g = groups.get(key) ?? { mat: m.material as THREE.Material, meshes: [] }
+    g.meshes.push(m)
+    groups.set(key, g)
+  })
+  const inv = new THREE.Matrix4().copy(root.matrixWorld).invert()
+  let after = 0
+  for (const { mat, meshes } of Array.from(groups.values())) {
+    if (meshes.length < 2) { after += meshes.length; continue }
+    const parts: THREE.BufferGeometry[] = []
+    const hasUv = meshes.some((m: THREE.Mesh) => !!m.geometry.attributes.uv)
+    for (const m of meshes) {
+      const g = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone()
+      for (const a of Object.keys(g.attributes)) if (a !== 'position' && a !== 'normal' && a !== 'uv') g.deleteAttribute(a)
+      if (!g.attributes.normal) g.computeVertexNormals()
+      if (hasUv && !g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2))
+      if (!hasUv && g.attributes.uv) g.deleteAttribute('uv')
+      // no quadro do root: mundo → local do root
+      g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld))
+      parts.push(g)
+    }
+    const merged = mergeGeometries(parts, false)
+    for (const g of parts) g.dispose()
+    if (!merged) { after += meshes.length; continue }
+    for (const m of meshes) m.removeFromParent()
+    const mesh = new THREE.Mesh(merged, mat)
+    mesh.castShadow = true
+    mesh.receiveShadow = true
+    mesh.name = `merged:${mat.name || mat.uuid.slice(0, 6)}`
+    root.add(mesh)
+    after++
+  }
+  return { before, after }
 }

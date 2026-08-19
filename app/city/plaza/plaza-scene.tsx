@@ -28,7 +28,7 @@ import { loadPark, PARK_CENTER, type Park } from './park'
 import { buildMonuments, type Monuments } from './monuments'
 import { onDiagonal, GENESIS_POS, SATOSHI_POOL, PAW_PALM, ORDINAL_CENTER, LEONIDAS_POS } from './garden-plan'
 import { buildFoundersWalk, type FoundersWalk, type FoundersData } from './founders-walk'
-import { detectTier, profileFor, DynamicResolution, DistanceCuller } from './perf'
+import { detectTier, profileFor, DynamicResolution, DistanceCuller, mergeStaticByMaterial } from './perf'
 
 // ── framing ────────────────────────────────────────────────────────────────────
 // The default view is the landing hero, from the north-east, high enough that the
@@ -163,6 +163,29 @@ export default function PlazaScene() {
     mount.appendChild(renderer.domElement)
     const culler = new DistanceCuller()
     const wantStats = new URLSearchParams(window.location.search).get('stats') === '1'
+    if (wantStats) {
+      // ?stats=1: window.__plazaDump() → custo por grupo de topo (malhas, triângulos, instâncias)
+      ;(window as unknown as { __plazaDump?: () => unknown }).__plazaDump = () => {
+        const rows: { name: string; meshes: number; tris: number; points: number; lights: number; visible: boolean }[] = []
+        for (const child of scene.children) {
+          let meshes = 0, tris = 0, points = 0, lights = 0
+          child.traverse((o) => {
+            const m = o as THREE.Mesh & { isInstancedMesh?: boolean; count?: number; isPoints?: boolean; isLight?: boolean }
+            if (!o.visible) return
+            if (m.isLight) lights++
+            if (m.isPoints) { const g = (m as unknown as THREE.Points).geometry; points += g.attributes.position?.count ?? 0 }
+            if (m.isMesh) {
+              meshes++
+              const g = m.geometry
+              const n = g.index ? g.index.count / 3 : (g.attributes.position?.count ?? 0) / 3
+              tris += n * (m.isInstancedMesh ? (m.count ?? 1) : 1)
+            }
+          })
+          rows.push({ name: child.name || child.type, meshes, tris: Math.round(tris), points, lights, visible: child.visible })
+        }
+        return rows.sort((a, b) => b.tris - a.tris)
+      }
+    }
 
     const scene = new THREE.Scene()
     scene.background = new THREE.Color(0x000000)
@@ -313,12 +336,33 @@ export default function PlazaScene() {
         // deck; four anchors on a ring at R_ANCHOR, one per cardinal point, every
         // front turned to the centre. In each tower GLB the signed façade faces +z,
         // so "face the plaza" is a rotation about y: west anchor +90°, east −90°.
-        needle.position.set(0, 39.9, 0)
-        bitflow.position.copy(ANCHORS.west.pos)
-        bitflow.rotation.y = ANCHORS.west.rotY
-        kray.position.copy(ANCHORS.east.pos)
-        kray.rotation.y = ANCHORS.east.rotY
-        for (const root of [plaza, spaceport, needle, bitflow, kray]) {
+        // LOD: cada torre é um THREE.LOD com o GLB inteiro até 1,3 km e a versão
+        // decimada (blender/make_tower_lods.py, ~18 % dos triângulos) além disso;
+        // o three troca sozinho pela distância da câmera. Os nós animados vivem no
+        // nível 0 e continuam animados mesmo escondidos.
+        const [needleLod1, bitflowLod1, krayLod1] = await Promise.all([
+          loadGlb('/city/central-tower-lod1.glb').catch(() => null),
+          loadGlb('/city/bitflow-hq-lod1.glb').catch(() => null),
+          loadGlb('/city/kray-tower-lod1.glb').catch(() => null),
+        ])
+        if (disposed) return
+        if (needleLod1) stripSite(needleLod1)
+        const LOD_DIST = profile.tier === 'mobile' ? 1400 : 2300 // a vista de casa (1,6 km) fica inteira no desktop
+        const lodOf = (full: THREE.Object3D, low: THREE.Object3D | null) => {
+          const lod = new THREE.LOD()
+          lod.addLevel(full, 0)
+          if (low) { mergeStaticByMaterial(low, /^$/); lod.addLevel(low, LOD_DIST) }
+          return lod
+        }
+        const needleLod = lodOf(needle, needleLod1)
+        needleLod.position.set(0, 39.9, 0)
+        const bitflowLod = lodOf(bitflow, bitflowLod1)
+        bitflowLod.position.copy(ANCHORS.west.pos)
+        bitflowLod.rotation.y = ANCHORS.west.rotY
+        const krayLod = lodOf(kray, krayLod1)
+        krayLod.position.copy(ANCHORS.east.pos)
+        krayLod.rotation.y = ANCHORS.east.rotY
+        for (const root of [plaza, spaceport, needleLod, bitflowLod, krayLod]) {
           tameEnv(root)
           root.traverse((o) => {
             const m = o as THREE.Mesh
@@ -348,6 +392,12 @@ export default function PlazaScene() {
           const o = needle.getObjectByName(name)
           if (o) spinners.push(o)
         }
+        // perf: cada GLB vira poucas malhas (uma por material); os nós animados ficam de fora
+        const KEEP = /^(KRAY_CROWN_ICON|BITFLOW_ROOF_MARK|WATER_JET|WATER_JET_RING|NEEDLE_LED_BAND|NEEDLE_LED_DOTS)$/
+        for (const [root, label] of [[plaza, 'plaza'], [spaceport, 'spaceport'], [needle, 'needle'], [bitflow, 'bitflow'], [kray, 'kray']] as const) {
+          const r = mergeStaticByMaterial(root, KEEP)
+          if (wantStats) console.log(`[plaza] merged ${label}: ${r.before} → ${r.after} meshes`)
+        }
         // the main pad sits on the terrain: keep the constant honest
         PAD_MAIN.y = heightAt(PAD_MAIN.x, PAD_MAIN.z) + 1
 
@@ -368,6 +418,11 @@ export default function PlazaScene() {
         setHud((h) => ({ ...h, loading: 'Planting the garden…' }))
         precinct = buildPrecinct({ heightAt, profile, culler })
         scene.add(precinct.group)
+        // compila os shaders agora, com o aviso de carga na tela, e não no primeiro
+        // arrasto do dedo (eram ~60 programas: segundos de travada no celular)
+        setHud((h) => ({ ...h, loading: 'Lighting the plaza…' }))
+        try { await renderer.compileAsync(scene, camera) } catch { /* driver sem compile paralelo: compila no primeiro quadro */ }
+        if (disposed) return
         setHud((h) => ({ ...h, loading: null }))
 
         // Os monumentos (White Paper, Gênese, Satoshi, Pata, Jardim Ordinal) e a
@@ -587,12 +642,15 @@ export default function PlazaScene() {
       precinct?.update(t)
       monuments?.update(t)
       founders?.update(t)
-      park?.update(t, renderer.domElement.clientHeight / 2)
+      park?.update(t, renderer.domElement.clientHeight / 2, camera.position)
       for (const sp of spinners) sp.rotation.y = t * 0.12
       earth.rotation.y = t * 0.004
       const cl = earth.getObjectByName('Clouds'); if (cl) cl.rotation.y = t * 0.0025
+      // no celular o mapa de sombra atualiza quadro sim, quadro não (metade do custo de sombra)
+      if (profile.tier === 'mobile') { renderer.shadowMap.autoUpdate = false; if ((statsTick & 1) === 0) renderer.shadowMap.needsUpdate = true }
       renderer.render(scene, camera)
-      if (wantStats && (statsTick++ & 15) === 0) {
+      statsTick++
+      if (wantStats && (statsTick & 15) === 0) {
         const info = renderer.info
         const w = window as unknown as { __plazaStats?: unknown }
         w.__plazaStats = { fps: Math.round(1000 / Math.max(1, nowMs - lastFrameAt + dt * 1000)), calls: info.render.calls, triangles: info.render.triangles, points: info.render.points, lines: info.render.lines, programs: info.programs?.length ?? 0, textures: info.memory.textures, geometries: info.memory.geometries, dpr: dynRes.current, tier: profile.tier }

@@ -30,13 +30,13 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { regolithColor } from './terrain'
 import { PARK_CENTER, PARK_ROT_Y, PARK_HALF, PARK_CORE } from './park-site'
-import type { PerfProfile, DistanceCuller } from './perf'
+import { mergeStaticByMaterial, type PerfProfile, type DistanceCuller } from './perf'
 
 export { PARK_CENTER, PARK_ROT_Y }
 
 export interface Park {
   group: THREE.Group
-  update: (t: number, halfHeightPx: number) => void
+  update: (t: number, halfHeightPx: number, camPos: THREE.Vector3) => void
   dispose: () => void
 }
 
@@ -188,10 +188,40 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3))
   geo.computeVertexNormals()
-  const terrain = new THREE.Mesh(geo, track(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 })))
+  const terrainMat = track(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 }))
+  const terrain = new THREE.Mesh(geo, terrainMat)
   terrain.receiveShadow = true
   terrain.name = 'ParkTerrain'
   group.add(terrain)
+  // a versão grossa do mesmo chão (60×60) para quando o parque é horizonte
+  const NC = 60
+  const geoC = track(new THREE.PlaneGeometry(2 * PARK_HALF, 2 * PARK_HALF, NC, NC))
+  geoC.rotateX(-Math.PI / 2)
+  {
+    const pc = geoC.attributes.position as THREE.BufferAttribute
+    const cc = new Float32Array(pc.count * 3)
+    for (let k = 0; k < pc.count; k++) {
+      let lx = pc.getX(k), lz = pc.getZ(k)
+      const rr = Math.hypot(lx, lz)
+      if (rr > PARK_HALF) { lx *= PARK_HALF / rr; lz *= PARK_HALF / rr; pc.setX(k, lx); pc.setZ(k, lz) }
+      const y = groundLocal(lx, lz)
+      pc.setY(k, y)
+      const w = worldOf(lx, lz)
+      regolithColor(w.x, w.z, y + center0 - opts.meanHeight, Math.hypot(w.x, w.z), tint)
+      cc[k * 3] = tint.r; cc[k * 3 + 1] = tint.g; cc[k * 3 + 2] = tint.b
+    }
+    geoC.setAttribute('color', new THREE.BufferAttribute(cc, 3))
+    geoC.computeVertexNormals()
+  }
+  const terrainCoarse = new THREE.Mesh(geoC, terrainMat)
+  terrainCoarse.receiveShadow = true
+  terrainCoarse.name = 'ParkTerrainCoarse'
+  terrainCoarse.visible = false
+  group.add(terrainCoarse)
+  const lodTerrain = (dist: number) => {
+    const fine = dist < 4500
+    if (terrain.visible !== fine) { terrain.visible = fine; terrainCoarse.visible = !fine }
+  }
 
   // ── as pedras marcadas: cristais instanciados por variante ────────────────
   // A receita da marca branca, do .blend, em shader: a luminância da textura de
@@ -224,16 +254,34 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
     list.push(Mt)
     byVariant.set(v, list)
   }
+  // LOD por contagem: cada variante é um InstancedMesh com as instâncias ordenadas
+  // da MAIOR para a menor; de longe só as maiores são desenhadas (`count`), e a
+  // silhueta da cordilheira não muda porque as grandes é que a fazem. De perto,
+  // todas. É o LOD dos jogos, sem malhas extras: 485 mil triângulos viram ~100 mil
+  // vistos da praça.
+  const scaleOf = (m: THREE.Matrix4) => Math.hypot(m.elements[0], m.elements[1], m.elements[2])
+  const crystalMeshes: THREE.InstancedMesh[] = []
   for (const [v, list] of Array.from(byVariant.entries())) {
     const g = variantGeo[v]
     if (!g) continue
+    list.sort((a, b) => scaleOf(b) - scaleOf(a))
     const im = new THREE.InstancedMesh(g, crystalMats[Math.min(v, crystalMats.length - 1)], list.length)
     list.forEach((m, i) => im.setMatrixAt(i, m))
     im.instanceMatrix.needsUpdate = true
     im.castShadow = true
     im.receiveShadow = true
     im.name = `Crystals_${v}`
+    im.userData.total = list.length
+    im.frustumCulled = false // as instâncias cobrem 7 km; a esfera da geometria mentiria
     group.add(im)
+    crystalMeshes.push(im)
+  }
+  const lodCrystals = (dist: number) => {
+    const frac = dist < 2500 ? 1 : dist < 5000 ? 0.3 : dist < 9000 ? 0.15 : 0.08
+    for (const im of crystalMeshes) {
+      const n = Math.max(1, Math.ceil((im.userData.total as number) * frac))
+      if (im.count !== n) im.count = n
+    }
   }
 
   // ── o censo: 111 mil pontos, uma pedra por Runestone ─────────────────────
@@ -309,6 +357,7 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
     bb.getCenter(c)
     m.position.y += groundLocal(c.x, c.z) - parkH(c.x, -c.z)
   })
+  mergeStaticByMaterial(built, /^$/) // 138 malhas → ~20
   group.add(built)
   // as trilhas e o templo só de perto do parque (153 mil triângulos de passarela)
   opts.culler?.add(built, opts.profile?.parkDetailCull ?? 4200, PARK_CENTER)
@@ -320,8 +369,11 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
 
   return {
     group,
-    update(t, halfHeightPx) {
+    update(t, halfHeightPx, camPos) {
       scatterMat.uniforms.uHalfH.value = halfHeightPx
+      const dist = camPos.distanceTo(PARK_CENTER)
+      lodCrystals(dist)
+      lodTerrain(dist)
       void t
     },
     dispose() { for (const d of disposables) d.dispose(); bcTex.dispose(); nmTex.dispose(); crystals.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) m.geometry?.dispose() }) },

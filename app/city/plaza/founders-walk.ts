@@ -104,14 +104,20 @@ export function buildFoundersWalk(opts: { heightAt: (x: number, z: number) => nu
   const progress = THREE.MathUtils.clamp((opts.data?.progress_pct ?? 0) / 100, 0, 1)
 
   // ── as placas: no chão do bulevar norte, dos dois lados, alternando ────────
+  // Uma chamada de desenho para as 48 placas (atlas 8×6 numa textura só, malha
+  // fundida com o UV de cada placa) e duas para as molduras (instanciadas: latão
+  // nas ocupadas, escura nas vazias). Antes eram 96 malhas e 48 texturas.
   const PW = 3.6, PD = 2.5
-  const plaqueGeo = track(new THREE.PlaneGeometry(PW, PD))
-  const frameGeo = track(new THREE.BoxGeometry(PW + 0.3, 0.12, PD + 0.3))
-  const frameMat = track(new THREE.MeshStandardMaterial({ color: 0x1a1a1f, roughness: 0.6, metalness: 0.4 }))
-  const brass = track(new THREE.MeshStandardMaterial({ color: 0xc9a25a, roughness: 0.3, metalness: 0.95, envMapIntensity: 1.2 }))
   const total = FOUNDERS_SLOTS_PER_SIDE * 2
   const step = (FOUNDERS_R1 - FOUNDERS_R0) / (FOUNDERS_SLOTS_PER_SIDE - 1)
+  const COLS = 8, ROWS = 6, TW = 512, TH = 352
+  const atlas = document.createElement('canvas')
+  atlas.width = COLS * TW; atlas.height = ROWS * TH
+  const actx = atlas.getContext('2d')!
+  const positions: number[] = [], uvs: number[] = [], indices: number[] = []
   const lightPos: THREE.Vector3[] = []
+  const frameMats: THREE.Matrix4[][] = [[], []] // 0 = latão (ocupada), 1 = escura (vazia)
+  const tmpO = new THREE.Object3D()
   for (let k = 0; k < total; k++) {
     const side = k % 2 === 0 ? -1 : 1 // esquerda, direita, esquerda…
     const idx = Math.floor(k / 2)
@@ -119,23 +125,47 @@ export function buildFoundersWalk(opts: { heightAt: (x: number, z: number) => nu
     const x = side * FOUNDERS_SIDE, z = -r // o norte é −z
     const y = yAt(x, z)
     const f = founders[k] ?? null
-    const tex = track(plaqueTexture(f, k + 1))
-    const mat = track(new THREE.MeshStandardMaterial({
-      map: tex, roughness: f ? 0.32 : 0.7, metalness: f ? 0.9 : 0.3, envMapIntensity: f ? 1.3 : 0.4,
-      emissive: f ? 0xffffff : 0x000000, emissiveMap: f ? tex : null, emissiveIntensity: f ? 0.18 : 0,
-    }))
-    const frame = new THREE.Mesh(frameGeo, f ? brass : frameMat)
-    frame.position.set(x, y + 0.42, z)
-    frame.receiveShadow = true
-    plaques.add(frame)
-    const p = new THREE.Mesh(plaqueGeo, mat)
-    p.rotation.x = -Math.PI / 2
-    p.rotation.z = 0 // o texto lê para quem caminha do deck para a fonte (olhando para −z): a base do texto fica ao sul
-    p.position.set(x, y + 0.49, z)
-    plaques.add(p)
+    // a arte da placa entra no atlas
+    const tile = plaqueTexture(f, k + 1)
+    const col = k % COLS, row = Math.floor(k / COLS)
+    actx.drawImage(tile.image as HTMLCanvasElement, col * TW, row * TH)
+    tile.dispose()
+    // o quad da placa, no chão, com o topo do texto para o norte (−z)
+    const u0 = col / COLS, u1 = (col + 1) / COLS
+    const v0 = 1 - (row + 1) / ROWS, v1 = 1 - row / ROWS
+    const base = positions.length / 3
+    const yy = y + 0.49
+    positions.push(x - PW / 2, yy, z + PD / 2, x + PW / 2, yy, z + PD / 2, x + PW / 2, yy, z - PD / 2, x - PW / 2, yy, z - PD / 2)
+    uvs.push(u0, v0, u1, v0, u1, v1, u0, v1)
+    indices.push(base, base + 1, base + 2, base, base + 2, base + 3)
+    tmpO.position.set(x, y + 0.42, z); tmpO.rotation.set(0, 0, 0); tmpO.scale.setScalar(1); tmpO.updateMatrix()
+    frameMats[f ? 0 : 1].push(tmpO.matrix.clone())
     if (f) lightPos.push(new THREE.Vector3(x, y + 0.5, z))
   }
-  // luz quente rasante nas placas ocupadas: uma por placa era demais; um foco a cada quatro
+  const atlasTex = track(new THREE.CanvasTexture(atlas))
+  atlasTex.colorSpace = THREE.SRGBColorSpace
+  atlasTex.anisotropy = 8
+  const plaqueGeo = track(new THREE.BufferGeometry())
+  plaqueGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+  plaqueGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
+  plaqueGeo.setIndex(indices)
+  plaqueGeo.computeVertexNormals()
+  const plaqueMat = track(new THREE.MeshStandardMaterial({ map: atlasTex, roughness: 0.4, metalness: 0.7, envMapIntensity: 1.1, emissive: 0xffffff, emissiveMap: atlasTex, emissiveIntensity: 0.14 }))
+  const plaqueMesh = new THREE.Mesh(plaqueGeo, plaqueMat)
+  plaqueMesh.receiveShadow = true
+  plaques.add(plaqueMesh)
+  const frameGeo = track(new THREE.BoxGeometry(PW + 0.3, 0.12, PD + 0.3))
+  const brass = track(new THREE.MeshStandardMaterial({ color: 0xc9a25a, roughness: 0.3, metalness: 0.95, envMapIntensity: 1.2 }))
+  const frameMat = track(new THREE.MeshStandardMaterial({ color: 0x1a1a1f, roughness: 0.6, metalness: 0.4 }))
+  for (const [i, mat] of [[0, brass], [1, frameMat]] as const) {
+    if (!frameMats[i].length) continue
+    const im = new THREE.InstancedMesh(frameGeo, mat, frameMats[i].length)
+    frameMats[i].forEach((m, j) => im.setMatrixAt(j, m))
+    im.instanceMatrix.needsUpdate = true
+    im.receiveShadow = true
+    plaques.add(im)
+  }
+  // luz quente rasante nas placas ocupadas: uma
   const lights: THREE.PointLight[] = []
   for (let i = 0; i < Math.min(lightPos.length, 4); i += 4) {
     const l = new THREE.PointLight(WARM, 1.6, 30, 1.8)

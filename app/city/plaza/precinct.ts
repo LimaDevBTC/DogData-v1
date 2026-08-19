@@ -22,6 +22,7 @@ import {
   POOL_R,
 } from './garden-plan'
 import type { PerfProfile, DistanceCuller } from './perf'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 export const R_DECK = 300
 export const R_GARDEN_IN = 332
@@ -677,6 +678,37 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
     fountain.update(t)
     for (const l of lights) l.intensity = 1.1 * (0.92 + 0.08 * Math.sin(t * 0.9 + l.position.x))
   }
+
+  // ── funde o pavimento, os meios-fios e os gramados: uma malha por material ──
+  // Eram ~90 malhas planas (anéis, radiais, alamedas, passeios, calçadas dos lotes);
+  // viram três chamadas de desenho. As geometrias originais são descartadas.
+  group.updateMatrixWorld(true)
+  const mergeByMaterial = (mat: THREE.Material, name: string) => {
+    const parts: THREE.BufferGeometry[] = []
+    const dead: THREE.Mesh[] = []
+    group.traverse((o) => {
+      const m = o as THREE.Mesh & { isInstancedMesh?: boolean }
+      if (!m.isMesh || m.isInstancedMesh || m.material !== mat) return
+      const g = m.geometry.clone()
+      // sem uv e sem tangentes: só posição e normal, para todas fundirem
+      for (const a of Object.keys(g.attributes)) if (a !== 'position' && a !== 'normal') g.deleteAttribute(a)
+      g.applyMatrix4(m.matrixWorld)
+      parts.push(g)
+      dead.push(m)
+    })
+    if (parts.length < 2) { for (const g of parts) g.dispose(); return }
+    const merged = mergeGeometries(parts, false)
+    for (const g of parts) g.dispose()
+    if (!merged) return
+    for (const m of dead) m.removeFromParent()
+    const mesh = new THREE.Mesh(track(merged), mat)
+    mesh.receiveShadow = true
+    mesh.name = name
+    group.add(mesh)
+  }
+  mergeByMaterial(paveMat, 'Paving')
+  mergeByMaterial(kerbMat, 'Kerbs')
+  mergeByMaterial(lawnMat, 'Lawns')
 
   return {
     group,
