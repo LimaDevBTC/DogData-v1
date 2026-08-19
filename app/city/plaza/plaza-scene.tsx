@@ -98,6 +98,8 @@ function viewFor(name: string | null, aspect: number): View {
       return { pos: new THREE.Vector3(300, 140, 420), target: new THREE.Vector3(620, 90, 0) }
     case 'bitflow':
       return { pos: new THREE.Vector3(-300, 140, 420), target: new THREE.Vector3(-620, 90, 0) }
+    case 'bitflowback': // a face de trás, onde entrou a assinatura
+      return { pos: new THREE.Vector3(-980, 320, -180), target: new THREE.Vector3(-620, 300, 0) }
     case 'top':
       return { pos: new THREE.Vector3(60, 2600, 900), target: new THREE.Vector3(0, 0, 100) }
     // the park's own hero, "The Gate Reveal": from the Gate crest, south-west of the
@@ -393,6 +395,15 @@ export default function PlazaScene() {
           return gone.length
         }
         stripByName(needle, /^(SITE_|PROP_)|_Site$/i)
+        // item 3 da lista: os "pináculos brancos pontiagudos" em volta das placas
+        // dos fundadores são o anel de jatos d'água da Needle (WATER_JET_RING,
+        // raio 81, 30 m de altura). Saem: o Círculo dos Fundadores é o assunto ali.
+        stripByName(needle, /^WATER_JET_RING$/)
+        // item 13 da lista: fora os carros. O levantamento achou SITE_TRAFFIC nos
+        // sítios das torres e as pistas de táxi do spaceport; a rua do anel
+        // (PlazaRingRoad) e a estrada do parque ficam, que são via, não veículo.
+        for (const root of [bitflow, kray]) stripByName(root, /^(SITE_TRAFFIC|.*_Car\d*|.*Vehicle.*)$/i)
+        stripByName(spaceport, /^SP_Taxi\d+$/)
         // ── A REFORMA DO DECK (fundador, 2026-08-19: "completamente confusa,
         // elementos genéricos, árvores artificiais, anfiteatro") ──────────────
         // O deck vem da cena da landing com muita coisa que não conta a história
@@ -469,7 +480,7 @@ export default function PlazaScene() {
           const o = root.getObjectByName(name)
           if (o) sways.push({ o, y0: o.position.y, amp })
         }
-        for (const [root, name] of [[kray, 'WATER_JET'], [needle, 'WATER_JET_RING']] as const) {
+        for (const [root, name] of [[kray, 'WATER_JET']] as const) {
           const o = root.getObjectByName(name)
           if (o) jets.push({ o, y0: o.scale.y })
         }
@@ -478,8 +489,34 @@ export default function PlazaScene() {
           const o = needle.getObjectByName(name)
           if (o) spinners.push(o)
         }
+        // ── item 1 da lista: BITFLOW também na face de TRÁS ──────────────────
+        // O GLB só assina a fachada da praça (BITFLOW_SIGN_CROWN em z +40,3, no
+        // topo). Quem vem do jardim norte ou do parque vê a torre sem nome. A
+        // face de trás ganha a mesma assinatura, espelhada, feita em canvas.
+        {
+          const c = document.createElement('canvas')
+          c.width = 1024; c.height = 224
+          const ctx = c.getContext('2d')!
+          ctx.clearRect(0, 0, 1024, 224)
+          ctx.fillStyle = '#F7931A'
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+          ctx.font = '700 150px "JetBrains Mono", "DM Sans", system-ui, sans-serif'
+          ctx.fillText('BITFLOW', 512, 118)
+          const tex = new THREE.CanvasTexture(c)
+          tex.colorSpace = THREE.SRGBColorSpace
+          tex.anisotropy = 8
+          const sign = new THREE.Mesh(
+            new THREE.PlaneGeometry(104, 22.75),
+            new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false }),
+          )
+          sign.position.set(10, 311, -44.6) // a mesma altura do letreiro da frente, na face oposta
+          sign.rotation.y = Math.PI
+          sign.name = 'BITFLOW_SIGN_BACK'
+          bitflow.add(sign)
+        }
+
         // perf: cada GLB vira poucas malhas (uma por material); os nós animados ficam de fora
-        const KEEP = /^(KRAY_CROWN_ICON|BITFLOW_ROOF_MARK|WATER_JET|WATER_JET_RING|NEEDLE_LED_BAND|NEEDLE_LED_DOTS)$/
+        const KEEP = /^(KRAY_CROWN_ICON|BITFLOW_ROOF_MARK|WATER_JET|NEEDLE_LED_BAND|NEEDLE_LED_DOTS|BITFLOW_SIGN_BACK)$/
         for (const [root, label] of [[plaza, 'plaza'], [spaceport, 'spaceport'], [needle, 'needle'], [bitflow, 'bitflow'], [kray, 'kray']] as const) {
           const r = mergeStaticByMaterial(root, KEEP)
           if (wantStats) console.log(`[plaza] merged ${label}: ${r.before} → ${r.after} meshes`)

@@ -201,8 +201,9 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
     const r = 612, side = -13
     const x = Math.cos(aNE) * r + px * side, z = Math.sin(aNE) * r + pz * side
     const p = makePlaque({
-      title: 'BITCOIN: A PEER-TO-PEER ELECTRONIC CASH SYSTEM',
-      body: 'Satoshi Nakamoto, 31 October 2008. Nine pages, published to a cryptography mailing list. Every page is engraved along this walk, in order. At the end, the first block.',
+      title: 'BITCOIN', // o título completo não cabe na chapa: vai no corpo
+      body: 'A Peer-to-Peer Electronic Cash System. ' +
+        'Satoshi Nakamoto, 31 October 2008. Nine pages, published to a cryptography mailing list. Every page is engraved along this walk, in order. At the end, the first block.',
       foot: 'THE WHITEPAPER GARDEN',
       w: 5.2,
     }, track)

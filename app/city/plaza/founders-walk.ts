@@ -217,7 +217,10 @@ export function buildFoundersWalk(opts: { heightAt: (x: number, z: number) => nu
     ctx.fillStyle = '#F7931A'; ctx.font = '700 42px "JetBrains Mono", ui-monospace, monospace'
     ctx.fillText(d ? `${fmtDog(d.total_received)} / ${fmtDog(d.goal)} DOG` : 'THE FUND', 256, 44)
     ctx.fillStyle = '#c9bfae'; ctx.font = '500 22px "JetBrains Mono", ui-monospace, monospace'
-    ctx.fillText(d ? `${d.progress_pct.toFixed(1)}% · WHEN THE RING CLOSES, THE CITY OPENS` : 'WHEN THE RING CLOSES, THE CITY OPENS', 256, 92)
+    // duas linhas: a frase inteira não cabe em 512 px (auditoria de placas, item 5)
+    ctx.fillText(d ? `${d.progress_pct.toFixed(1)}% RAISED` : 'THE FUND', 256, 82)
+    ctx.font = '500 20px "JetBrains Mono", ui-monospace, monospace'
+    ctx.fillText('WHEN THE RING CLOSES, THE CITY OPENS', 256, 110)
   }))
   headSign.rotation.x = -Math.PI / 2
   headSign.rotation.z = -headA + Math.PI / 2
@@ -230,9 +233,12 @@ export function buildFoundersWalk(opts: { heightAt: (x: number, z: number) => nu
     ctx.fillStyle = '#f2ead6'; ctx.font = '700 54px "JetBrains Mono", ui-monospace, monospace'
     ctx.fillText("THE FOUNDERS' CIRCLE", 512, 70)
     ctx.fillStyle = '#c9bfae'; ctx.font = '500 26px "JetBrains Mono", ui-monospace, monospace'
-    ctx.fillText('every wallet that paid for this city, in the order it arrived', 512, 140)
+    ctx.font = '500 24px "JetBrains Mono", ui-monospace, monospace'
+    ctx.fillText('every wallet that paid for this city,', 512, 128)
+    ctx.fillText('in the order it arrived', 512, 158)
     ctx.fillStyle = '#F7931A'
-    ctx.fillText(`${founders.length} founders · ${FOUNDERS_SLOTS - founders.length} plaques waiting`, 512, 196)
+    ctx.font = '500 26px "JetBrains Mono", ui-monospace, monospace'
+    ctx.fillText(`${founders.length} founders · ${FOUNDERS_SLOTS - founders.length} plaques waiting`, 512, 204)
   }))
   gate.rotation.x = -Math.PI / 2
   gate.position.set(0, Y + 0.06, -(R + 22))
