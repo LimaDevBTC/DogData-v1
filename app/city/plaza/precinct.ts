@@ -99,7 +99,11 @@ function inSiteWalk(x: number, z: number): boolean {
   return false
 }
 
-export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number; profile?: PerfProfile; culler?: DistanceCuller }): Precinct {
+export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number; profile?: PerfProfile; culler?: DistanceCuller; realTrees?: boolean }): Precinct {
+  // `realTrees`: cipreste, oliveira, flor branca e os bancos passaram a ser
+  // modelos de verdade (props-table.ts). O gerador procedural continua fazendo
+  // as copas redondas e os pinheiros dos setores, que ninguém vê de perto.
+  const REAL = opts.realTrees ?? false
   const SMALL = opts.profile?.smallCull ?? 2600
   const cull = (o: THREE.Object3D, d = SMALL) => opts.culler?.add(o, d)
   const group = new THREE.Group()
@@ -513,10 +517,12 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
     return u < 0.32 ? 'blossom' : u < 0.5 ? 'pine' : 'round'         // SE: o único que floresce
   }
   const planted: { kind: Kind; x: number; z: number }[] = sample(150, 480, 900).map(([x, z]) => ({ kind: kindAt(x, z), x, z }))
-  for (const [x, z] of WHITEPAPER_CYPRESSES) planted.push({ kind: 'cypress', x, z })
-  for (const [x, z] of SATOSHI_CYPRESSES) planted.push({ kind: 'cypress', x, z })
-  for (const [x, z] of ORDINAL_OLIVES) planted.push({ kind: 'olive', x, z })
-  for (const [x, z] of PAW_BLOSSOMS) planted.push({ kind: 'blossom', x, z })
+  if (!REAL) {
+    for (const [x, z] of WHITEPAPER_CYPRESSES) planted.push({ kind: 'cypress', x, z })
+    for (const [x, z] of SATOSHI_CYPRESSES) planted.push({ kind: 'cypress', x, z })
+    for (const [x, z] of ORDINAL_OLIVES) planted.push({ kind: 'olive', x, z })
+    for (const [x, z] of PAW_BLOSSOMS) planted.push({ kind: 'blossom', x, z })
+  }
 
   const treeTrunkGeo = track(new THREE.CylinderGeometry(0.5, 0.9, 1, 7))
   const canopyGeo = track(new THREE.SphereGeometry(1, 12, 9))
@@ -608,8 +614,8 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   // ── bancos ao longo do anel, olhando para dentro ─────────────────────────
   const benchGeo = track(new THREE.BoxGeometry(4.2, 0.5, 1))
   const benchMat = track(new THREE.MeshStandardMaterial({ color: 0x2b2a2f, roughness: 0.6, metalness: 0.3 }))
-  const benches = new THREE.InstancedMesh(benchGeo, benchMat, 40)
-  for (let k = 0; k < 40; k++) {
+  const benches = new THREE.InstancedMesh(benchGeo, benchMat, REAL ? 0 : 40)
+  for (let k = 0; k < (REAL ? 0 : 40); k++) {
     const a = (k / 40) * Math.PI * 2 + Math.PI / 40
     const r = R_RING - RING_W / 2 + 3
     o.position.set(Math.cos(a) * r, yAt(Math.cos(a) * r, Math.sin(a) * r) + 0.6, Math.sin(a) * r); o.rotation.set(0, -a, 0); o.scale.setScalar(1); o.updateMatrix()

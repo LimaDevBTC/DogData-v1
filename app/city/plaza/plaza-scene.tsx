@@ -455,7 +455,7 @@ export default function PlazaScene() {
 
         // The precinct: boulevards, the ring, the lunar garden, the Mother Tree (D7, D8).
         setHud((h) => ({ ...h, loading: 'Planting the garden…' }))
-        precinct = buildPrecinct({ heightAt, profile, culler })
+        precinct = buildPrecinct({ heightAt, profile, culler, realTrees: PROPS.length > 0 })
         scene.add(precinct.group)
         // compila os shaders agora, com o aviso de carga na tela, e não no primeiro
         // arrasto do dedo (eram ~60 programas: segundos de travada no celular)
