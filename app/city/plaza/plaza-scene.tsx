@@ -28,6 +28,7 @@ import { loadPark, PARK_CENTER, type Park } from './park'
 import { buildMonuments, type Monuments } from './monuments'
 import { onDiagonal, GENESIS_POS, SATOSHI_POOL, PAW_PALM, ORDINAL_CENTER, LEONIDAS_POS, BUST_POS } from './garden-plan'
 import { TEMPLE_WORLD } from './park-site'
+import { CAVE_YAW } from './leonidas-cave'
 import { buildFoundersWalk, type FoundersWalk, type FoundersData } from './founders-walk'
 import { detectTier, profileFor, parseQuality, FrameGovernor, DistanceCuller, mergeStaticByMaterial } from './perf'
 import { SF_CREDITS, SF, loadSf, dressSf } from './sf-assets'
@@ -56,7 +57,7 @@ export const PLACES: ReadonlyArray<{ key: string; label: string; hint: string }>
   { key: 'genesis', label: 'The Genesis Block', hint: 'end of the whitepaper walk' },
   { key: 'satoshi', label: "Satoshi's Mirror", hint: 'north-west pool' },
   { key: 'bust', label: 'The Bronze Satoshi', hint: 'gate of the mirror garden' },
-  { key: 'temple', label: 'Leonidas Temple', hint: 'the hall, in the park' },
+  { key: 'temple', label: 'Leonidas Temple', hint: 'hidden in the massif' },
   { key: 'paw', label: 'The Diamond Paw', hint: '$DOG, south-east' },
   { key: 'leonidas', label: 'Leonidas', hint: 'founder of DOG, behind the paw' },
   { key: 'ordinal', label: 'Ordinal Garden', hint: 'runestones, south-west' },
@@ -88,9 +89,26 @@ function viewFor(name: string | null, aspect: number): View {
     case 'satoshiside': { const [x, z] = onDiagonal('NW', 560, 62); return { pos: new THREE.Vector3(x, 8, z), target: new THREE.Vector3(SATOSHI_POOL[0], 6, SATOSHI_POOL[1]) } }
     case 'bust': { const [x, z] = onDiagonal('NW', 462, 8); return { pos: new THREE.Vector3(x, 4.5, z), target: new THREE.Vector3(BUST_POS[0], 4, BUST_POS[1]) } }
     case 'temple': {
-      // o salão sobre o pódio; a altura vem do parque quando ele carrega
-      const t = TEMPLE_WORLD.lengthSq() > 1 ? TEMPLE_WORLD.clone() : new THREE.Vector3(PARK_CENTER.x + 1290, -100, PARK_CENTER.z - 430)
-      return { pos: new THREE.Vector3(t.x - 62, t.y + 26, t.z + 52), target: new THREE.Vector3(t.x, t.y + 8, t.z) }
+      // a BOCA da caverna (o salão está lá dentro); a altura vem do parque
+      // quando ele carrega. A câmera fica no eixo da boca, do lado de fora.
+      const t = TEMPLE_WORLD.lengthSq() > 1 ? TEMPLE_WORLD.clone() : new THREE.Vector3(PARK_CENTER.x + 335, -100, PARK_CENTER.z - 59)
+      const d = new THREE.Vector3(Math.cos(CAVE_YAW), 0, -Math.sin(CAVE_YAW))
+      return { pos: t.clone().addScaledVector(d, 52).setY(t.y + 13), target: new THREE.Vector3(t.x, t.y + 7, t.z) }
+    }
+    case 'templewide': { // conferência: a caverna inteira, de fora e de cima
+      const t = TEMPLE_WORLD.clone()
+      const d = new THREE.Vector3(Math.cos(CAVE_YAW), 0, -Math.sin(CAVE_YAW))
+      return { pos: t.clone().addScaledVector(d, 190).setY(t.y + 92), target: new THREE.Vector3(t.x - 20, t.y + 6, t.z) }
+    }
+    case 'templeside': { // conferência: o perfil, para ver o pé no chão
+      const t = TEMPLE_WORLD.clone()
+      const d = new THREE.Vector3(-Math.sin(CAVE_YAW), 0, -Math.cos(CAVE_YAW))
+      return { pos: t.clone().addScaledVector(d, 120).setY(t.y + 30), target: new THREE.Vector3(t.x - 12, t.y + 8, t.z) }
+    }
+    case 'templein': { // dentro: o salão preto no fundo da câmara
+      const t = TEMPLE_WORLD.lengthSq() > 1 ? TEMPLE_WORLD.clone() : new THREE.Vector3(PARK_CENTER.x + 335, -100, PARK_CENTER.z - 59)
+      const d = new THREE.Vector3(Math.cos(CAVE_YAW), 0, -Math.sin(CAVE_YAW))
+      return { pos: t.clone().addScaledVector(d, 6).setY(t.y + 5), target: t.clone().addScaledVector(d, -22).setY(t.y + 7) }
     }
     case 'satoshiclose': { const [x, z] = onDiagonal('NW', 536, 1); return { pos: new THREE.Vector3(x, 5, z), target: new THREE.Vector3(SATOSHI_POOL[0], 6.5, SATOSHI_POOL[1]) } }
     case 'satoshisideclose': { const [x, z] = onDiagonal('NW', 560, 26); return { pos: new THREE.Vector3(x, 6, z), target: new THREE.Vector3(SATOSHI_POOL[0], 6, SATOSHI_POOL[1]) } }
@@ -246,6 +264,14 @@ export default function PlazaScene() {
     }
 
     const scene = new THREE.Scene()
+    // ?stats=1: a cena inteira na janela, para medir peça por fora (foi assim que
+    // se achou o pé da caverna fora do chão). Declarado aqui, DEPOIS da cena
+    // existir: no bloco de stats lá em cima ele caía na zona morta do const.
+    if (wantStats) {
+      const w = window as unknown as { __plazaScene?: THREE.Scene; __plazaTHREE?: typeof THREE }
+      w.__plazaScene = scene
+      w.__plazaTHREE = THREE
+    }
     scene.background = new THREE.Color(0x000000)
     const camera = new THREE.PerspectiveCamera(42, mount.clientWidth / mount.clientHeight, 0.5, 200000)
     const home = homeFor(camera.aspect)
@@ -769,8 +795,20 @@ export default function PlazaScene() {
       }
     }
 
-    // o portão: quando tudo terminou, os controles ligam
-    readyRef.current = () => { controls.enabled = true }
+    // o portão: quando tudo terminou, os controles ligam. E a vista se refaz:
+    // as vistas do parque (o templo na caverna) dependem de TEMPLE_WORLD, que só
+    // existe depois que o parque carrega — pedidas na abertura, elas caíam na
+    // estimativa e a câmera parava 86 m abaixo do chão.
+    readyRef.current = () => {
+      controls.enabled = true
+      const want = new URLSearchParams(window.location.search).get('view')
+      if (want && /^temple/.test(want)) {
+        const v = viewFor(want, camera.aspect)
+        camera.position.copy(v.pos)
+        controls.target.copy(v.target)
+        controls.update()
+      }
+    }
 
     // ── loop ────────────────────────────────────────────────────────────────
     const clock = new THREE.Clock()

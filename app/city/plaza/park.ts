@@ -30,6 +30,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { regolithColor } from './terrain'
 import { PARK_CENTER, PARK_ROT_Y, PARK_HALF, PARK_CORE, TEMPLE_WORLD } from './park-site'
+import { buildLeonidasCave, CAVE_LOCAL } from './leonidas-cave'
 import { mergeStaticByMaterial, type PerfProfile, type DistanceCuller } from './perf'
 import { SF, loadSf, dressSf } from './sf-assets'
 
@@ -161,9 +162,23 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
     return k * k * (3 - 2 * k)
   }
   /** altura LOCAL (relativa ao grupo) do chão do parque em (lx, lz), quadro three local */
-  const groundLocal = (lx: number, lz: number): number => {
+  const groundRaw = (lx: number, lz: number): number => {
     const kk = coreK(lx, lz)
     return ringLocal(lx, lz) * (1 - kk) + parkH(lx, -lz) * kk + 1.5
+  }
+  // ── o corte da caverna do Leonidas ────────────────────────────────────────
+  // O flanco faz uma corcova de 3 m bem na frente da boca (medido: o terreno na
+  // soleira está 2,8 m ACIMA do piso da câmara). Aqui o pátio é escavado: dentro
+  // de 20 m o chão nunca passa da soleira, e até 46 m volta ao natural. Todo o
+  // parque lê esta função — terreno, trilhas, o terraço e o caminho secreto —
+  // então ninguém discorda de ninguém.
+  const CAVE_FLOOR = groundRaw(CAVE_LOCAL.x, CAVE_LOCAL.z) - 0.15
+  const groundLocal = (lx: number, lz: number): number => {
+    const h = groundRaw(lx, lz)
+    const r = Math.hypot(lx - CAVE_LOCAL.x, lz - CAVE_LOCAL.z)
+    if (r > 46 || h <= CAVE_FLOOR) return h
+    const t = THREE.MathUtils.clamp((46 - r) / 26, 0, 1)
+    return h + (CAVE_FLOOR - h) * (t * t * (3 - 2 * t))
   }
 
   // ── terreno ───────────────────────────────────────────────────────────────
@@ -360,12 +375,12 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
     bb.getCenter(c)
     m.position.y += groundLocal(c.x, c.z) - parkH(c.x, -c.z)
   })
-  // ── o SALÃO do Templo Leonidas, sobre o pódio ────────────────────────────
-  // O masterplan do parque (RUNESTONE-PARK-V2-MASTERPLAN.md) reservou "20 socket
-  // plinths on T-3 (future hall grid)": o pódio de três tiers foi construído para
-  // receber um salão que nunca existiu. É esse o lugar do templo japonês que o
-  // fundador trouxe do Sketchfab (carolinefangel, CC-BY-4.0). A medida sai do
-  // próprio pódio, antes da fusão por material (que apaga os nomes dos nós).
+  // ── o Templo Leonidas saiu do pódio e entrou na CAVERNA ──────────────────
+  // O pódio de três tiers (que o masterplan do parque deixou pronto para um
+  // salão que nunca existiu) fica como está: uma plataforma vazia, na trilha.
+  // O salão foi para dentro da rocha, entre as monarcas — item 14 da lista do
+  // fundador. O que ficou aqui é só a MEDIDA do pódio, que é de onde o caminho
+  // secreto sai.
   const podiumBox = (() => {
     let node: THREE.Object3D | null = null
     built.traverse((o) => { if (!node && /^Podium/i.test(o.name)) node = o })
@@ -373,31 +388,22 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
     built.updateMatrixWorld(true)
     return new THREE.Box3().setFromObject(node)
   })()
-  if (podiumBox) {
-    const hall = await loadSf(opts.gltf ?? new GLTFLoader(), SF.templeHall)
-    if (hall) {
-      const c = podiumBox.getCenter(new THREE.Vector3())
-      dressSf(hall, { envMapIntensity: 0.5, roughness: 0.8 })
-      hall.scale.setScalar(1.55) // 20 m → 31 m de frente, na medida do pódio (45×30)
-      hall.position.set(c.x, podiumBox.max.y - 0.2, c.z)
-      // o eixo do precinto do templo: az 251,6° no quadro do parque → o salão
-      // olha para o Monarca, como o pódio
-      hall.rotation.y = THREE.MathUtils.degToRad(251.6 - 180)
-      built.add(hall)
-      // a posição de mundo, para o menu Places poder voar até aqui
-      TEMPLE_WORLD.set(c.x, podiumBox.max.y, c.z).applyAxisAngle(new THREE.Vector3(0, 1, 0), PARK_ROT_Y).add(new THREE.Vector3(PARK_CENTER.x, center0, PARK_CENTER.z))
-      // duas luzes quentes sob os beirais, para o telhado ler à noite
-      for (const s of [-1, 1]) {
-        const l = new THREE.PointLight(0xffb96a, 4, 60, 1.6)
-        l.position.set(c.x + s * 12, podiumBox.max.y + 6, c.z + 10)
-        built.add(l)
-      }
-    }
-  }
   mergeStaticByMaterial(built, /^$/) // 138 malhas → ~20
   group.add(built)
   // as trilhas e o templo só de perto do parque (153 mil triângulos de passarela)
   opts.culler?.add(built, opts.profile?.parkDetailCull ?? 4200, PARK_CENTER)
+
+  // ── a caverna do Leonidas, e o caminho secreto que leva a ela ────────────
+  const podC = podiumBox ? podiumBox.getCenter(new THREE.Vector3()) : new THREE.Vector3(1290, 0, -430)
+  const cave = await buildLeonidasCave({
+    gltf, groundLocal, pathFrom: { x: podC.x, z: podC.z }, parkCenter: PARK_CENTER,
+    profile: opts.profile, culler: opts.culler,
+  })
+  if (cave) {
+    group.add(cave.group)
+    TEMPLE_WORLD.copy(cave.mouthLocal).applyAxisAngle(new THREE.Vector3(0, 1, 0), PARK_ROT_Y)
+      .add(new THREE.Vector3(PARK_CENTER.x, center0, PARK_CENTER.z))
+  }
 
   // uma luz fria e baixa no templo, e o cristal-monarca com um halo
   const templeLight = new THREE.PointLight(0xffa04d, 1.0, 700, 1.4) // âmbar: a lei do parque, nada frio aceso
@@ -411,8 +417,8 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
       const dist = camPos.distanceTo(PARK_CENTER)
       lodCrystals(dist)
       lodTerrain(dist)
-      void t
+      cave?.update(t)
     },
-    dispose() { for (const d of disposables) d.dispose(); bcTex.dispose(); nmTex.dispose(); crystals.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) m.geometry?.dispose() }) },
+    dispose() { cave?.dispose(); for (const d of disposables) d.dispose(); bcTex.dispose(); nmTex.dispose(); crystals.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) m.geometry?.dispose() }) },
   }
 }
