@@ -42,6 +42,9 @@ export const SF_CREDITS: readonly Credit[] = [
   { title: 'Doric Order Columns', author: 'Oneironauticus', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/doric-order-columns-asset-pack-e27b5b5c101c480dbf1a9781ae289155' },
   { title: 'Torch Pillar', author: 'roroer', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/torch-pillar-a550cc6cea434f9a9f2d47148add0fdf' },
   { title: 'Medieval Brazier', author: 'Sky_Hunter', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/medieval-brazier-cff29e533e3a4298a5d112cf7bb2558c' },
+  { title: 'The Ancient Gnarled Tree', author: 'iGauravRajput', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/the-ancient-gnarled-tree-3d-model-free-c3513bb3daeb4ebfba8954367fb85a14' },
+  { title: 'Japanese Maple Tree', author: 'OliverMatheGames', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/japanese-maple-tree-b6eb627413ed40fdb8b0a1e1c9038fa9' },
+  { title: 'High Quality Tree 3/6', author: 'EFX', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/high-quality-tree-36-53623598e75844b696abf2b94566afa5' },
   { title: 'Human Skull', author: 'CDmir (OpenGameArt)', license: 'CC0', url: 'https://opengameart.org/content/human-skull-0' },
   { title: 'Human Base Meshes', author: 'Blender Studio', license: 'CC0', url: 'https://www.blender.org/download/demo/asset-bundles/' },
 ]
