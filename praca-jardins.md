@@ -71,6 +71,33 @@ Diamante. 7. Jardim Ordinal. Cada passo commitado e fotografado de perto.
 Blender entra quando uma peça pedir mais do que a geometria procedural dá
 (a figura de Satoshi, se o bronze procedural não convencer).
 
+## 6.1 Modelos de fora (Sketchfab), 2026-08-19
+
+O fundador achou o Sketchfab e o conector para o Blender. A regra que passa a
+valer para tudo que vier de lá:
+
+1. **Licença primeiro.** CC0 e **CC-BY** entram (CC-BY exige crédito: autor,
+   título e licença ficam em `app/city/plaza/sf-assets.ts`, que alimenta o
+   rodapé do menu Places). **CC-BY-SA fica fora**: share-alike obriga a
+   licenciar o derivado (a cena inteira) nos mesmos termos. "NoDerivatives" e
+   "NonCommercial" também não entram, porque a praça é comercial e a gente
+   altera os modelos.
+2. **Passa pelo conversor**: `blender/convert_sketchfab_assets.py` põe a origem
+   no chão, orienta, escala em metros, junta as malhas (a hierarquia de vazios
+   do Sketchfab tem de ser solta com CLEAR_KEEP_TRANSFORM antes de juntar, senão
+   a copa da palmeira desaba na origem), encolhe as texturas para 512 e exporta
+   WEBP + Draco em `public/city/sf/`.
+3. **Cada peça tem lugar e sentido** (a regra da praça): nada entra por ser bonito.
+
+Entraram: **Mystery in Bronze** (dialobic) como o busto do Satoshi no portão
+noroeste; **Japanese Lowpoly temple** (carolinefangel) como o SALÃO do Templo
+Leonidas, sobre o pódio que o masterplan do parque reservou e nunca construiu;
+**Coconut tree** (Rafael Benites de Souza) como as 16 palmeiras de perto nos
+portões do Anel; **V2 Rocket** (Diccbudd) como um foguete aposentado no pad de
+trás do spaceport, sem placa (a história do V2 não merece um monumento).
+Ficou de fora: **Fur Tree** (CC-BY-SA), guardado em `blender/assets-sketchfab/`
+com o nome marcado.
+
 ## 7. Estado
 
 - 2026-08-18: §5 feito (navegação). §1 feito (calçadas dos lotes, passeio em
