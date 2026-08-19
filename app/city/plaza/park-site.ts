@@ -23,3 +23,8 @@ export const PARK_HALF = 3600
 export const PARK_CORE = 3100
 /** quanto o regolito desce sob o parque, abaixo do datum, para nunca vazar pelo vale (fundo −61) */
 export const PARK_PIT = 80
+
+/** Onde o salão do Templo Leonidas ficou, em MUNDO. O parque preenche quando
+ *  carrega (a altura só se sabe depois do datum); as vistas leem daqui. Enquanto
+ *  for (0,0,0) o marcador do menu cai numa estimativa. */
+export const TEMPLE_WORLD = new THREE.Vector3()

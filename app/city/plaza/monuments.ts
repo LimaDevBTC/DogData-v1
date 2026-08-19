@@ -520,7 +520,7 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
       const by = yAt(bx, bz)
       const g = new THREE.Group()
       g.position.set(bx, by, bz)
-      g.rotation.y = faceAxisYaw(QUADRANT_ANGLE.NW, 17)
+      g.rotation.y = Math.atan2(-bx, -bz) // o rosto (e a placa) para o centro da praça
       const plinth = new THREE.Mesh(track(new THREE.CylinderGeometry(3.1, 3.4, 1.5, 40)), graniteMat)
       plinth.position.y = 0.75
       plinth.castShadow = plinth.receiveShadow = true
@@ -529,7 +529,7 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
       rim.rotation.x = Math.PI / 2
       rim.position.y = 1.52
       g.add(rim)
-      dressSf(bust, { envMapIntensity: 1.6 })
+      dressSf(bust, { envMapIntensity: 0.85, roughness: 0.55 }) // bronze de museu, não troféu
       bust.scale.setScalar(1.35)
       bust.position.y = 1.5
       g.add(bust)
@@ -539,7 +539,8 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
           { text: 'no face, no name, no key that anyone can turn', size: 28, color: '#a89b80', y: 138 },
         ] })), toneMapped: false,
       })))
-      insc.position.set(0, 0.85, 3.2)
+      insc.position.set(0, 0.78, 3.42)
+      insc.rotation.x = -0.18
       g.add(insc)
       group.add(g)
       uplight(bx + 4, bz + 2, 0.8)

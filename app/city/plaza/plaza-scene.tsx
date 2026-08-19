@@ -27,7 +27,7 @@ import { buildPrecinct, ANCHORS, type Precinct } from './precinct'
 import { loadPark, PARK_CENTER, type Park } from './park'
 import { buildMonuments, type Monuments } from './monuments'
 import { onDiagonal, GENESIS_POS, SATOSHI_POOL, PAW_PALM, ORDINAL_CENTER, LEONIDAS_POS, BUST_POS } from './garden-plan'
-import { PARK_ROT_Y } from './park-site'
+import { TEMPLE_WORLD } from './park-site'
 import { buildFoundersWalk, type FoundersWalk, type FoundersData } from './founders-walk'
 import { detectTier, profileFor, parseQuality, FrameGovernor, DistanceCuller, mergeStaticByMaterial } from './perf'
 import { SF_CREDITS, SF, loadSf, dressSf } from './sf-assets'
@@ -82,11 +82,9 @@ function viewFor(name: string | null, aspect: number): View {
     case 'satoshiside': { const [x, z] = onDiagonal('NW', 560, 62); return { pos: new THREE.Vector3(x, 8, z), target: new THREE.Vector3(SATOSHI_POOL[0], 6, SATOSHI_POOL[1]) } }
     case 'bust': { const [x, z] = onDiagonal('NW', 462, 8); return { pos: new THREE.Vector3(x, 4.5, z), target: new THREE.Vector3(BUST_POS[0], 4, BUST_POS[1]) } }
     case 'temple': {
-      // o precinto do templo no parque: P0 = (1290, 430) no quadro do parque
-      const lx = 1290, lz = -430
-      const c = new THREE.Vector3(lx, 0, lz).applyAxisAngle(new THREE.Vector3(0, 1, 0), PARK_ROT_Y).add(PARK_CENTER)
-      const eye = new THREE.Vector3(lx - 150, 0, lz + 120).applyAxisAngle(new THREE.Vector3(0, 1, 0), PARK_ROT_Y).add(PARK_CENTER)
-      return { pos: new THREE.Vector3(eye.x, 40, eye.z), target: new THREE.Vector3(c.x, 20, c.z) }
+      // o salão sobre o pódio; a altura vem do parque quando ele carrega
+      const t = TEMPLE_WORLD.lengthSq() > 1 ? TEMPLE_WORLD.clone() : new THREE.Vector3(PARK_CENTER.x + 1290, -100, PARK_CENTER.z - 430)
+      return { pos: new THREE.Vector3(t.x - 62, t.y + 26, t.z + 52), target: new THREE.Vector3(t.x, t.y + 8, t.z) }
     }
     case 'satoshiclose': { const [x, z] = onDiagonal('NW', 536, 1); return { pos: new THREE.Vector3(x, 5, z), target: new THREE.Vector3(SATOSHI_POOL[0], 6.5, SATOSHI_POOL[1]) } }
     case 'satoshisideclose': { const [x, z] = onDiagonal('NW', 560, 26); return { pos: new THREE.Vector3(x, 6, z), target: new THREE.Vector3(SATOSHI_POOL[0], 6, SATOSHI_POOL[1]) } }
@@ -631,6 +629,7 @@ export default function PlazaScene() {
       },
       home() { flyTo(homeFor(camera.aspect)) },
     }
+    if (wantStats) (window as unknown as { __plazaFly?: (n: string) => void }).__plazaFly = (n: string) => apiRef.current?.flyTo(n)
     // ?tx=<txid>: chegou pela landing (ou por um link) já seguindo uma nave
     {
       const txParam = (new URLSearchParams(window.location.search).get('tx') || '').trim().toLowerCase()

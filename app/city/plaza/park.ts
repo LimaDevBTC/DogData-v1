@@ -29,7 +29,7 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { regolithColor } from './terrain'
-import { PARK_CENTER, PARK_ROT_Y, PARK_HALF, PARK_CORE } from './park-site'
+import { PARK_CENTER, PARK_ROT_Y, PARK_HALF, PARK_CORE, TEMPLE_WORLD } from './park-site'
 import { mergeStaticByMaterial, type PerfProfile, type DistanceCuller } from './perf'
 import { SF, loadSf, dressSf } from './sf-assets'
 
@@ -384,8 +384,8 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
       // olha para o Monarca, como o pódio
       hall.rotation.y = THREE.MathUtils.degToRad(251.6 - 180)
       built.add(hall)
-      hall.updateMatrixWorld(true)
-      console.log('[plaza] TEMPLE hall at', JSON.stringify(hall.getWorldPosition(new THREE.Vector3())), 'podium', JSON.stringify(podiumBox))
+      // a posição de mundo, para o menu Places poder voar até aqui
+      TEMPLE_WORLD.set(c.x, podiumBox.max.y, c.z).applyAxisAngle(new THREE.Vector3(0, 1, 0), PARK_ROT_Y).add(new THREE.Vector3(PARK_CENTER.x, center0, PARK_CENTER.z))
       // duas luzes quentes sob os beirais, para o telhado ler à noite
       for (const s of [-1, 1]) {
         const l = new THREE.PointLight(0xffb96a, 4, 60, 1.6)
