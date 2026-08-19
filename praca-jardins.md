@@ -180,3 +180,32 @@ com o nome marcado.
   talude do plinto, 0,14 m fora dele); e **os braços fecharam**: esqueleto
   mínimo no Blender (raiz + braço/antebraço de cada lado), pesos por
   proximidade, 18° para dentro nos ombros, pose aplicada na malha.
+
+## 6.2 Sketchfab direto, 2026-08-19
+
+Dois caminhos, os dois testados nesta máquina:
+
+**1. O plugin no Blender (a interface).** `github.com/sketchfab/blender-plugin`
+v1.7.3 (atualizado em 06/08/2026) instalado em
+`~/.config/blender/5.1/scripts/addons/sketchfab_plugin` e ATIVADO: no Blender
+5.1.2 ele registra `wm.sketchfab_login/search/download/export` e os painéis
+Sketchfab. Falta só o login, que é do fundador: Blender → barra lateral do
+viewport (tecla N) → aba **Sketchfab** → cola o **API token** de
+sketchfab.com/settings/password → Search → Download importa o modelo na cena.
+(O plugin só baixa modelos marcados como downloadable; a licença aparece no
+painel e continua valendo a regra da praça.)
+
+**2. A linha de comando (o que serve ao nosso fluxo).**
+`blender/sketchfab_fetch.py`, headless, sem interface:
+
+    python3 blender/sketchfab_fetch.py search "moon rover" --max 8
+    python3 blender/sketchfab_fetch.py info <uid|url>
+    python3 blender/sketchfab_fetch.py get <uid|url> --name rover --height 3
+
+`search` e `info` funcionam sem token (API pública) e já filtram por licença:
+CC0 e CC-BY, uma chamada para cada (a API devolve 400 se as duas licenças vierem
+juntas). `get` precisa do token, que o script lê de `DogData-v1/.env.local`
+(gitignored) ou do ambiente, baixa o glTF, chama
+`blender/convert_one_asset.py` (origem no chão, metros, texturas 512 WEBP,
+Draco) e imprime a **linha de crédito pronta** para `sf-assets.ts`. Recusa
+licença fora da regra a menos que se force com `--i-know-the-licence`.
