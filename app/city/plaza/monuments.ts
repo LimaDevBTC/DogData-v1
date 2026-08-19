@@ -400,7 +400,10 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
         { text: 'founder of DOG • GO • TO • THE • MOON', size: 30, color: '#c9bfae', y: 130 },
       ] })), toneMapped: false,
     })))
-    insc.position.set(0, 1.25, LEONIDAS_PLINTH_R * 0.66)
+    // o plinto afunila (0,7R embaixo, 0,62R em cima): a placa acompanha o
+    // talude, 0,12 m fora dele, senão a pedra corta o texto de baixo
+    insc.position.set(0, 1.25, LEONIDAS_PLINTH_R * 0.66 + 0.14)
+    insc.rotation.x = -Math.atan((0.7 - 0.62) * LEONIDAS_PLINTH_R / 2.2)
     g.add(insc)
     group.add(g)
     // o passeio em volta do plinto, onde a alameda contorna

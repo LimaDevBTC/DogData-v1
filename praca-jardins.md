@@ -147,3 +147,9 @@ Blender entra quando uma peça pedir mais do que a geometria procedural dá
   peito** onde estava a aranha, luzes escaladas. 11,5 m no plinto. É a versão
   que bate com a referência do fundador. O corpo do bundle CC0 e a simulação de
   pano ficam como caminho alternativo (`build_leonidas_body.py`).
+- 2026-08-18 (noite, 7): três pedidos do fundador, feitos: a aranha saiu POR
+  COMPLETO da textura (máscara dilatada do vermelho preenchida com o preto do
+  traje desfocado); a legenda do plinto não corta mais (a placa acompanha o
+  talude do plinto, 0,14 m fora dele); e **os braços fecharam**: esqueleto
+  mínimo no Blender (raiz + braço/antebraço de cada lado), pesos por
+  proximidade, 18° para dentro nos ombros, pose aplicada na malha.
