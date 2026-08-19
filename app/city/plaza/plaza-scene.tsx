@@ -28,7 +28,7 @@ import { loadPark, PARK_CENTER, type Park } from './park'
 import { buildMonuments, type Monuments } from './monuments'
 import { onDiagonal, GENESIS_POS, SATOSHI_POOL, PAW_PALM, ORDINAL_CENTER, LEONIDAS_POS } from './garden-plan'
 import { buildFoundersWalk, type FoundersWalk, type FoundersData } from './founders-walk'
-import { detectTier, profileFor, DynamicResolution, DistanceCuller, mergeStaticByMaterial } from './perf'
+import { detectTier, profileFor, applyQualityOverride, DynamicResolution, DistanceCuller, mergeStaticByMaterial } from './perf'
 
 // ── framing ────────────────────────────────────────────────────────────────────
 // The default view is the landing hero, from the north-east, high enough that the
@@ -151,9 +151,9 @@ export default function PlazaScene() {
     // Log depth: a cena vai do deck (2 m) ao parque (9 km) e ao horizonte (60 km);
     // sem ele, duas superfícies quase coplanares a 9 km brigam no z-buffer.
     // perf.ts: nível por aparelho, resolução dinâmica, culling por distância
-    const profile = profileFor(detectTier())
-    const renderer = new THREE.WebGLRenderer({ antialias: profile.tier === 'desktop', powerPreference: 'high-performance', logarithmicDepthBuffer: true })
-    const dynRes = new DynamicResolution(renderer, profile.maxPixelRatio)
+    const profile = applyQualityOverride(profileFor(detectTier()), new URLSearchParams(window.location.search).get('quality'))
+    const renderer = new THREE.WebGLRenderer({ antialias: profile.antialias, powerPreference: 'high-performance', logarithmicDepthBuffer: true })
+    const dynRes = new DynamicResolution(renderer, profile.maxPixelRatio, profile.minPixelRatio)
     renderer.setSize(mount.clientWidth, mount.clientHeight)
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -359,7 +359,7 @@ export default function PlazaScene() {
         ])
         if (disposed) return
         if (needleLod1) stripSite(needleLod1)
-        const LOD_DIST = profile.tier === 'mobile' ? 1400 : 2300 // a vista de casa (1,6 km) fica inteira no desktop
+        const LOD_DIST = profile.lodDistance // a vista de casa (1,6 km) fica com as torres inteiras
         const lodOf = (full: THREE.Object3D, low: THREE.Object3D | null) => {
           const lod = new THREE.LOD()
           lod.addLevel(full, 0)

@@ -23,6 +23,11 @@ export type Tier = 'mobile' | 'desktop'
 export interface PerfProfile {
   tier: Tier
   maxPixelRatio: number
+  /** a resolução dinâmica nunca desce abaixo disto */
+  minPixelRatio: number
+  antialias: boolean
+  /** distância a partir da qual as torres trocam para o LOD1 decimado */
+  lodDistance: number
   shadowMapSize: number
   softShadows: boolean
   censusPoints: boolean
@@ -45,9 +50,19 @@ export function detectTier(): Tier {
 }
 
 export function profileFor(tier: Tier): PerfProfile {
+  // O meio-termo (fundador, 2026-08-18): a primeira versão do celular baixava a
+  // resolução até 0,7 e sem antialiasing virava pixel art; ficou rápido e feio.
+  // Agora o celular renderiza até 2× (não os 3× nativos), nunca abaixo de 1×,
+  // com MSAA (barato nas GPUs de celular, que são tile-based) e sombra 1024.
   return tier === 'mobile'
-    ? { tier, maxPixelRatio: 1.5, shadowMapSize: 1024, softShadows: false, censusPoints: false, jetParticles: 400, smallCull: 1400, textCull: 700, parkDetailCull: 2600 }
-    : { tier, maxPixelRatio: 2, shadowMapSize: 2048, softShadows: true, censusPoints: true, jetParticles: 900, smallCull: 2600, textCull: 1300, parkDetailCull: 3000 }
+    ? { tier, maxPixelRatio: 2, minPixelRatio: 1, antialias: true, shadowMapSize: 1024, softShadows: false, censusPoints: false, jetParticles: 500, smallCull: 1800, textCull: 900, parkDetailCull: 2800, lodDistance: 2300 }
+    : { tier, maxPixelRatio: 2, minPixelRatio: 1, antialias: true, shadowMapSize: 2048, softShadows: true, censusPoints: true, jetParticles: 900, smallCull: 2600, textCull: 1300, parkDetailCull: 3000, lodDistance: 2300 }
+}
+/** ?quality=high|balanced|low sobrepõe o tier (para o fundador testar no celular) */
+export function applyQualityOverride(p: PerfProfile, q: string | null): PerfProfile {
+  if (q === 'high') return { ...p, maxPixelRatio: Math.min(3, window.devicePixelRatio || 2), minPixelRatio: 1.5, shadowMapSize: 2048, softShadows: true, censusPoints: true, jetParticles: 900, smallCull: 2600, textCull: 1300, lodDistance: 2600 }
+  if (q === 'low') return { ...p, maxPixelRatio: 1.25, minPixelRatio: 0.85, antialias: false, shadowMapSize: 1024, softShadows: false, censusPoints: false, jetParticles: 300, smallCull: 1200, textCull: 600, lodDistance: 1200 }
+  return p
 }
 
 /** Resolução dinâmica: chama `sample(dtMs)` por quadro; ajusta o DPR do renderer
@@ -57,20 +72,25 @@ export class DynamicResolution {
   private n = 0
   private since = 0
   private dpr: number
-  constructor(private renderer: THREE.WebGLRenderer, private max: number, private onChange?: (dpr: number) => void) {
+  private readonly born: number
+  constructor(private renderer: THREE.WebGLRenderer, private max: number, private min = 1, private onChange?: (dpr: number) => void) {
     this.dpr = Math.min(window.devicePixelRatio || 1, max)
     renderer.setPixelRatio(this.dpr)
+    this.born = performance.now()
   }
   get current() { return this.dpr }
   sample(dtMs: number, now: number) {
+    // os primeiros 8 s são carga e compilação: não contam
+    if (now - this.born < 8000) return
     this.acc += dtMs; this.n++
     if (this.since === 0) this.since = now
-    if (now - this.since < 2000 || this.n < 20) return
+    if (now - this.since < 2500 || this.n < 30) return
     const avg = this.acc / this.n
     this.acc = 0; this.n = 0; this.since = now
     let next = this.dpr
-    if (avg > 26) next = Math.max(0.7, this.dpr * 0.85)
-    else if (avg < 14) next = Math.min(this.max, Math.min(window.devicePixelRatio || 1, this.dpr * 1.1))
+    // só desce se estiver claramente abaixo de 30 fps; sobe devagar quando sobra
+    if (avg > 36) next = Math.max(this.min, this.dpr * 0.88)
+    else if (avg < 20) next = Math.min(this.max, Math.min(window.devicePixelRatio || 1, this.dpr * 1.08))
     if (Math.abs(next - this.dpr) > 0.02) {
       this.dpr = next
       this.renderer.setPixelRatio(next)
