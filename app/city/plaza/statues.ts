@@ -221,35 +221,31 @@ export function buildSatoshiLugano(opts: { pitch?: number; thick?: number; grid?
 // órbitas. Proporções humanas: 2,3 m de altura, cabeça de 22 cm, capuz que a
 // abraça (o primeiro capuz era três vezes maior que a caveira).
 // ═══════════════════════════════════════════════════════════════════════════════
-/** LEONIDAS: o corpo vem do Blender (`blender/build_leonidas_body.py` →
- *  `public/city/leonidas-body.glb`): o corpo REAL do "Human Base Meshes Bundle"
- *  da Blender Studio (CC0, GEO-body_male_realistic, sem a cabeça: mãos, braços,
- *  pernas de anatomia de verdade), e por cima o manto longo, a mantilha de ombros
- *  e o capuz DRAPEJADOS POR SIMULAÇÃO DE PANO sobre ele (pregas de física, não
- *  desenhadas), botas, cinto de ouro escuro com a fivela e o núcleo acesos. A
- *  caveira real (leonidas-skull.glb) entra no lugar da cabeça, centro
- *  (0, 1.566, 0.095), rosto para +z. Materiais reatribuídos pelo nome (M_Cloth,
- *  M_Suit, M_Trim, M_Glow). Escala real: 1,7 m + capuz; quem coloca escala. */
-const HEAD_Y = 1.566
-const HEAD_Z = 0.095
+/** LEONIDAS, v7: o corpo é o "Black Spider Warrior Character" de iRahulRajput
+ *  (Sketchfab, CC-BY 4.0), que o fundador trouxe: capuz, traje tático, tabardo,
+ *  luvas, botas, 18,7 mil tris, textura 4K. `blender/build_leonidas_spider.py`
+ *  tira a MÁSCARA de dentro do capuz (a caveira real entra no lugar), apaga o
+ *  vermelho da textura (a aranha do peito e os olhos), reduz a textura a 2K WEBP
+ *  e exporta public/city/leonidas-body.glb (altura normalizada 1,0; olha para
+ *  +z; centro da cabeça (0, 0.905, 0.038)). Aqui entram a caveira amarela, as
+ *  brasas dos olhos e o emblema ₿ no peito. Crédito: CC-BY exige o nome. */
+const HEAD = new THREE.Vector3(0, 0.905, 0.038)
+const SKULL_SCALE = 0.54 // 0,22 m de caveira num homem de altura 1,0 (≈1,85 m)
 export function buildLeonidas(skull: THREE.Object3D, body: THREE.Object3D, worldScale = 1): Statue {
-  // as luzes: `distance` e `intensity` do PointLight são em unidades de MUNDO,
-  // não escalam com o grupo; quem coloca a estátua passa a escala
-  const S = worldScale
+  const S = worldScale // luzes: distance/intensity são de MUNDO, não escalam com o grupo
   const group = new THREE.Group()
   const disposables: { dispose: () => void }[] = []
   const track = <T extends { dispose: () => void }>(o: T): T => { disposables.push(o); return o }
-  const cloth = track(new THREE.MeshPhysicalMaterial({ color: 0x0a0a0d, roughness: 1, metalness: 0, sheen: 0.7, sheenColor: new THREE.Color(0x30303a), sheenRoughness: 0.8, side: THREE.DoubleSide }))
-  const suit = track(new THREE.MeshStandardMaterial({ color: 0x0e0e12, roughness: 0.5, metalness: 0.4 }))
-  const trim = track(new THREE.MeshStandardMaterial({ color: 0xc9902a, roughness: 0.3, metalness: 0.95, envMapIntensity: 1.6 }))
-  const glow = track(new THREE.MeshBasicMaterial({ color: 0xF7931A, toneMapped: false }))
-  const byName: Record<string, THREE.Material> = { M_Cloth: cloth, M_Suit: suit, M_Trim: trim, M_Glow: glow }
   const b = body.clone(true)
   b.traverse((o) => {
     const m = o as THREE.Mesh
     if (!m.isMesh) return
-    const name = (m.material as THREE.Material)?.name ?? ''
-    m.material = byName[name] ?? suit
+    const src = m.material as THREE.MeshStandardMaterial
+    const mat = src.clone()
+    mat.metalness = 0.35
+    mat.roughness = 0.62
+    mat.envMapIntensity = 1.2
+    m.material = track(mat)
     m.castShadow = true
     m.receiveShadow = true
   })
@@ -261,7 +257,7 @@ export function buildLeonidas(skull: THREE.Object3D, body: THREE.Object3D, world
     if (!m.isMesh) return
     const src = m.material as THREE.MeshStandardMaterial
     const mat = src.clone()
-    mat.color.setRGB(1.0, 0.86, 0.22) // o amarelo do Leonidas sobre o osso
+    mat.color.setRGB(1.0, 0.86, 0.22)
     mat.emissive = new THREE.Color(0x4a3408)
     mat.emissiveIntensity = 0.5
     mat.roughness = 0.6
@@ -271,24 +267,39 @@ export function buildLeonidas(skull: THREE.Object3D, body: THREE.Object3D, world
     m.castShadow = true
     m.receiveShadow = true
   })
-  sk.position.set(0, HEAD_Y, HEAD_Z)
-  sk.rotation.x = 0.06 // levemente baixa, sob o capuz
+  sk.position.copy(HEAD)
+  sk.scale.setScalar(SKULL_SCALE)
+  sk.rotation.x = 0.05
   group.add(sk)
   // os olhos: duas brasas no fundo das órbitas
   for (const s of [-1, 1]) {
-    const eye = new THREE.Mesh(track(new THREE.SphereGeometry(0.011, 12, 10)), track(new THREE.MeshBasicMaterial({ color: 0xff2612, toneMapped: false })))
-    eye.position.set(s * 0.033, HEAD_Y + 0.014, HEAD_Z + 0.058)
+    const eye = new THREE.Mesh(track(new THREE.SphereGeometry(0.011 * SKULL_SCALE, 12, 10)), track(new THREE.MeshBasicMaterial({ color: 0xff2612, toneMapped: false })))
+    eye.position.set(HEAD.x + s * 0.033 * SKULL_SCALE, HEAD.y + 0.014 * SKULL_SCALE, HEAD.z + 0.058 * SKULL_SCALE)
     group.add(eye)
-    const l = new THREE.PointLight(0xff2a1a, 0.12 * S * S, 0.9 * S, 2)
-    l.position.set(s * 0.04, HEAD_Y + 0.02, HEAD_Z + 0.12)
+    const l = new THREE.PointLight(0xff2a1a, 0.05 * S * S, 0.5 * S, 2)
+    l.position.set(HEAD.x + s * 0.02, HEAD.y + 0.01, HEAD.z + 0.07)
     group.add(l)
   }
-  const core = new THREE.PointLight(0xF7931A, 0.08 * S * S, 1.2 * S, 2)
-  core.position.set(0, 1.3, 0.24)
-  group.add(core)
   // uma luz quente sob o capuz: a caveira amarela lê na sombra
-  const face = new THREE.PointLight(0xffd27a, 0.16 * S * S, 1.4 * S, 2)
-  face.position.set(0, HEAD_Y - 0.04, HEAD_Z + 0.2)
+  const face = new THREE.PointLight(0xffd27a, 0.06 * S * S, 0.7 * S, 2)
+  face.position.set(HEAD.x, HEAD.y - 0.02, HEAD.z + 0.1)
   group.add(face)
-  return { group, height: 2.05, dispose() { for (const d of disposables) d.dispose() } }
+  // o emblema ₿ no peito, onde estava a aranha: laranja, aceso, sobre o traje
+  const c = document.createElement('canvas'); c.width = 512; c.height = 512
+  const ctx = c.getContext('2d')!
+  ctx.clearRect(0, 0, 512, 512)
+  ctx.strokeStyle = '#F7931A'; ctx.lineWidth = 14
+  ctx.beginPath(); ctx.arc(256, 256, 226, 0, Math.PI * 2); ctx.stroke()
+  ctx.fillStyle = '#F7931A'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+  ctx.font = '700 330px "DM Sans", "Inter", system-ui, sans-serif'
+  ctx.fillText('₿', 262, 268)
+  const tex = track(new THREE.CanvasTexture(c)); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8
+  const emblem = new THREE.Mesh(track(new THREE.CircleGeometry(0.048, 48)), track(new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false, depthWrite: false })))
+  emblem.position.set(0, 0.712, 0.106)
+  emblem.rotation.x = -0.12 // acompanha o peito, que se inclina para trás no alto
+  group.add(emblem)
+  const core = new THREE.PointLight(0xF7931A, 0.05 * S * S, 0.8 * S, 2)
+  core.position.set(0, 0.712, 0.16)
+  group.add(core)
+  return { group, height: 1.0, dispose() { for (const d of disposables) d.dispose() } }
 }

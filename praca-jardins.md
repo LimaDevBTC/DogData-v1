@@ -136,3 +136,14 @@ Blender entra quando uma peça pedir mais do que a geometria procedural dá
   com o grupo (distance/intensity são de mundo: antes valiam 1 m e não
   iluminavam nada). O bundle traz também `Skull - Realistic` (11,7 mil vértices,
   sem textura) como alternativa à caveira texturizada do OpenGameArt.
+- 2026-08-18 (noite, 6): **o fundador trouxe o modelo certo**: "Black Spider
+  Warrior Character" de iRahulRajput (Sketchfab, **CC-BY 4.0**, crédito no menu
+  Places e aqui): capuz, traje tático, tabardo, luvas, botas, 18,7 mil tris,
+  textura 4K. `blender/build_leonidas_spider.py` tira a máscara de dentro do
+  capuz, apaga o vermelho da textura (a aranha do peito e os olhos), reduz a
+  textura a 2K WEBP e exporta `leonidas-body.glb` (406 KB). Em three
+  (`statues.ts`): a caveira real amarela no lugar do rosto (escala 0,54 do
+  homem normalizado a 1,0), brasas vermelhas nos olhos, **emblema ₿ laranja no
+  peito** onde estava a aranha, luzes escaladas. 11,5 m no plinto. É a versão
+  que bate com a referência do fundador. O corpo do bundle CC0 e a simulação de
+  pano ficam como caminho alternativo (`build_leonidas_body.py`).

@@ -683,6 +683,9 @@ export default function PlazaScene() {
               <li className="px-3 pb-1 pt-2 font-mono text-[9px] leading-relaxed text-white/35">
                 Double-tap anything in the scene to approach it. Pinch or scroll to get within a few metres.
               </li>
+              <li className="px-3 pb-1 pt-1 font-mono text-[8px] leading-relaxed text-white/25">
+                3D credits: Black Spider Warrior Character by iRahulRajput (Sketchfab, CC BY 4.0), Human Skull by CDmir (OpenGameArt, CC0), Human Base Meshes by Blender Studio (CC0), planet textures by three.js.
+              </li>
             </ul>
           )}
         </div>
