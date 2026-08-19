@@ -121,9 +121,12 @@ const GALLERY: ParkPlate[] = [
     alt: "From The Last Step: the Great Runestone's white rune mark, a hundred metres tall, glowing on the black crystal face",
   },
   {
-    src: "/landing/park-temple.webp",
-    label: "THE LEONIDAS TEMPLE · AT THE END OF THE UNMARKED WAY",
-    alt: "From the temple podium: a sunken garden of raked regolith with crystal islands, a black-glass pool, stepping stones and stone lanterns, held inside a crater rim with one notch cut through it",
+    // 2026-08-19: o templo saiu do pódio e entrou na caverna (praca-ajustes.md
+    // item 14). A chapa antiga mostrava o jardim rebaixado que já não é o lugar
+    // dele; esta é a boca da caverna, capturada da cena viva.
+    src: "/landing/plaza/plaza-temple.webp",
+    label: "THE LEONIDAS TEMPLE · HIDDEN AMONG THE MONARCH STONES",
+    alt: "The arched mouth of the Leonidas cave in a black basalt buttress, boulders screening the entrance, the black temple burning orange inside",
     wide: true,
   },
 ]

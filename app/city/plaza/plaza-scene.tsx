@@ -69,6 +69,25 @@ export const PLACES: ReadonlyArray<{ key: string; label: string; hint: string }>
   { key: 'park', label: 'Runestone Park', hint: 'the Gate, 5 km north-east' },
   { key: 'top', label: 'From above', hint: 'the plan' },
 ]
+/** A VISITA GUIADA (praca-ajustes.md item 4). Na primeira vez que alguém entra
+ *  na cidade, a câmera faz o percurso sozinha e conta o que é cada coisa; um
+ *  toque, uma tecla ou o botão "Skip" devolvem o controle na hora. A trilha usa
+ *  as mesmas vistas do menu Places, então nunca desencontra da cena. */
+export const TOUR: ReadonlyArray<{ key: string; text: string }> = [
+  { key: 'home', text: 'Satoshi Plaza, on Mare Tranquillitatis. Everything here is built on real lunar terrain.' },
+  { key: 'deck', text: 'The Needle at the centre. Every address in the city is measured from this tower.' },
+  { key: 'founders', text: "The Founders' Circle at the tower foot: one plaque for every wallet that funded the city." },
+  { key: 'paw', text: 'The Diamond Paw: $DOG written into the ground, thirty metres across.' },
+  { key: 'leonidas', text: 'Leonidas, founder of DOG, in bronze and black — with the bitcoin mark on his chest.' },
+  { key: 'dsc', text: 'Beside Kray Tower, the Dog Social Club: the whole collection, in the order the chain wrote it.' },
+  { key: 'pad', text: 'The spaceport. Every DOG transaction our node sees flies overhead and lands here on its block.' },
+  { key: 'park', text: 'Runestone Park, five kilometres north-east: the ordinal range, in black crystal.' },
+  { key: 'temple', text: 'And, hidden among the monarch stones, a temple nobody was meant to find.' },
+  { key: 'home', text: 'The city is yours to walk. Double-tap anything to get close.' },
+]
+const TOUR_FLY_S = 4.2
+const TOUR_HOLD_MS = 6400
+
 function viewFor(name: string | null, aspect: number): View {
   switch (name) {
     case 'castle': case 'south': case 'chalet':
@@ -194,13 +213,37 @@ const BOOT_TOTAL = BOOT_STEPS.reduce((a, b) => a + b.weight, 0)
 
 export default function PlazaScene() {
   const mountRef = useRef<HTMLDivElement>(null)
-  const apiRef = useRef<{ follow: (txid: string) => Promise<void>; home: () => void; flyTo: (name: string) => void } | null>(null)
+  const apiRef = useRef<{
+    follow: (txid: string) => Promise<void>
+    home: () => void
+    flyTo: (name: string) => void
+    startTour: () => void
+    stopTour: () => void
+  } | null>(null)
   const [hud, setHud] = useState<HudState>({
     loading: 'Loading the plaza…', error: null, snapshot: null, stale: null,
     orbit: 0, parked: 0, picked: null, followed: null, followNote: null,
   })
   const [followInput, setFollowInput] = useState('')
   const [placesOpen, setPlacesOpen] = useState(false)
+  // ── O CHAMADO DA OBRA (praca-ajustes.md item 8) ──────────────────────────
+  // A praça é a vitrine do que o dinheiro constrói, e até agora ela não pedia
+  // nada: quem entrava não tinha como financiar o próximo quarteirão sem sair da
+  // cidade e procurar. O mesmo número do /api/donate/leaderboard que a landing
+  // mostra aparece aqui, e o botão leva direto à seção de construção.
+  const [fund, setFund] = useState<{ raised: number; goal: number; pct: number; donors: number } | null>(null)
+  const [tour, setTour] = useState<{ i: number; text: string } | null>(null)
+  useEffect(() => {
+    let alive = true
+    fetch('/api/donate/leaderboard')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!alive || !j) return
+        setFund({ raised: j.total_received ?? 0, goal: j.goal ?? 10_000_000, pct: j.progress_pct ?? 0, donors: j.donor_count ?? 0 })
+      })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [])
   const [boot, setBoot] = useState<{ done: BootKey[]; label: string; ready: boolean; failed: boolean }>({ done: [], label: BOOT_STEPS[0].label, ready: false, failed: false })
   const readyRef = useRef<(() => void) | null>(null)
   useEffect(() => { if (boot.ready) readyRef.current?.() }, [boot.ready])
@@ -763,6 +806,39 @@ export default function PlazaScene() {
       flyTo({ pos, target: hit.clone() }, 1.1)
     }
 
+    // ── a visita guiada ────────────────────────────────────────────────────
+    // Um passo é: voar 4,2 s até a próxima vista e segurar até completar 6,4 s.
+    // Enquanto ela roda os controles ficam desligados, mas QUALQUER gesto a
+    // encerra — ninguém fica preso num filme.
+    let tourTimer: ReturnType<typeof setTimeout> | null = null
+    let tourStep = -1
+    const stopTour = () => {
+      if (tourTimer) clearTimeout(tourTimer)
+      tourTimer = null
+      tourStep = -1
+      setTour(null)
+      controls.enabled = true
+      controls.autoRotate = false
+    }
+    const nextTourStep = () => {
+      tourStep += 1
+      if (tourStep >= TOUR.length) { stopTour(); return }
+      const st = TOUR[tourStep]
+      flyTo(viewFor(st.key, camera.aspect), TOUR_FLY_S)
+      setTour({ i: tourStep, text: st.text })
+      tourTimer = setTimeout(nextTourStep, TOUR_HOLD_MS)
+    }
+    const startTour = () => {
+      if (tourTimer) clearTimeout(tourTimer)
+      tourStep = -1
+      controls.enabled = false
+      nextTourStep()
+    }
+    const cancelTourOnInput = () => { if (tourTimer) stopTour() }
+    renderer.domElement.addEventListener('pointerdown', cancelTourOnInput)
+    renderer.domElement.addEventListener('wheel', cancelTourOnInput, { passive: true })
+    window.addEventListener('keydown', cancelTourOnInput)
+
     apiRef.current = {
       flyTo(name) { flyTo(viewFor(name, camera.aspect)) },
       async follow(txid) {
@@ -789,6 +865,8 @@ export default function PlazaScene() {
         }))
       },
       home() { flyTo(homeFor(camera.aspect)) },
+      startTour,
+      stopTour,
     }
     if (wantStats) (window as unknown as { __plazaFly?: (n: string) => void }).__plazaFly = (n: string) => apiRef.current?.flyTo(n)
     // ?tx=<txid>: chegou pela landing (ou por um link) já seguindo uma nave
@@ -808,6 +886,16 @@ export default function PlazaScene() {
     readyRef.current = () => {
       controls.enabled = true
       const want = new URLSearchParams(window.location.search).get('view')
+      // a visita guiada abre a cidade para quem chega pela primeira vez na
+      // sessão — nunca quando alguém pediu uma vista, uma chapa ou pediu menos
+      // movimento no sistema
+      const wantsMotion = !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+      let seen = true
+      try { seen = sessionStorage.getItem('plaza-tour-v1') === '1' } catch { seen = true }
+      if (!want && !plate && wantsMotion && !seen) {
+        try { sessionStorage.setItem('plaza-tour-v1', '1') } catch { /* modo privado: roda de novo, sem dano */ }
+        setTimeout(() => apiRef.current?.startTour(), 700)
+      }
       if (want && /^temple/.test(want)) {
         const v = viewFor(want, camera.aspect)
         camera.position.copy(v.pos)
@@ -992,6 +1080,13 @@ export default function PlazaScene() {
           >
             Places {placesOpen ? '−' : '+'}
           </button>
+          <button
+            type="button"
+            onClick={() => (tour ? apiRef.current?.stopTour() : apiRef.current?.startTour())}
+            className="ml-2 border border-white/15 bg-black/70 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-white/70 hover:border-white/40 hover:text-white"
+          >
+            {tour ? 'Stop tour' : 'Tour'}
+          </button>
           {placesOpen && (
             <ul className="absolute left-0 top-full z-10 mt-1 w-[16rem] border border-white/10 bg-black/90 py-1">
               {PLACES.map((pl) => (
@@ -1026,6 +1121,25 @@ export default function PlazaScene() {
             </ul>
           )}
         </div>
+        {/* o chamado da obra: só no desktop, onde há coluna livre; no telefone o
+            mesmo destino está no link "DogCity" acima, e o board ocupa o alto */}
+        {fund && (
+          <a
+            href="/dogcity#build"
+            className="mt-2 hidden w-[16rem] border border-[#F7931A]/40 bg-black/70 px-3 py-2 hover:border-[#F7931A] sm:block"
+          >
+            <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-[#F7931A]">Build DogCity</p>
+            <div className="mt-1.5 h-[3px] w-full overflow-hidden bg-white/10">
+              <div className="h-full bg-[#F7931A]" style={{ width: `${Math.min(100, Math.round(fund.pct))}%` }} />
+            </div>
+            <p className="mt-1.5 font-mono text-[10px] text-white/60">
+              {fmtDog(fund.raised)} of {fmtDog(fund.goal)} DOG · {fund.donors} builder{fund.donors === 1 ? '' : 's'}
+            </p>
+            <p className="mt-0.5 font-mono text-[9px] leading-relaxed text-white/35">
+              The grand opening at 10M DOG opens the city to holder mints. Fund a block →
+            </p>
+          </a>
+        )}
       </div>
 
       {/* ── the board: under the title on phones, top-right on desktop ─────── */}
@@ -1079,10 +1193,40 @@ export default function PlazaScene() {
         </div>
       </div>
 
+      {/* ── a legenda da visita guiada (item 4) ───────────────────────────── */}
+      {tour && (
+        <div
+          className="pointer-events-none absolute inset-x-4 z-20 sm:inset-x-0 sm:mx-auto sm:w-[38rem]"
+          style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+        >
+          <div className="pointer-events-auto border border-white/10 bg-black/85 px-4 py-3">
+            <div className="flex items-baseline justify-between gap-4">
+              <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-[#F7931A]">
+                The city, in {TOUR.length} stops · {tour.i + 1}/{TOUR.length}
+              </p>
+              <button
+                type="button"
+                onClick={() => apiRef.current?.stopTour()}
+                className="font-mono text-[10px] uppercase tracking-[0.25em] text-white/50 hover:text-white"
+              >
+                Skip
+              </button>
+            </div>
+            <p className="mt-2 font-mono text-[12px] leading-relaxed text-white/85">{tour.text}</p>
+            <div className="mt-2 h-px w-full bg-white/10">
+              <div
+                className="h-full bg-[#F7931A]/70 transition-[width] duration-500"
+                style={{ width: `${Math.round(((tour.i + 1) / TOUR.length) * 100)}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── follow your DOG. On a phone only one bottom card is up at a time: the
              picked ship takes the slot while it is open. ───────────────────── */}
       <div
-        className={`absolute left-4 right-4 sm:left-6 sm:right-auto sm:w-[26rem] ${hud.picked ? 'hidden sm:block' : ''}`}
+        className={`absolute left-4 right-4 sm:left-6 sm:right-auto sm:w-[26rem] ${hud.picked || tour ? 'hidden sm:block' : ''} ${tour ? 'sm:hidden' : ''}`}
         style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
       >
         <form onSubmit={submitFollow} className="border border-white/10 bg-black/85 p-3">

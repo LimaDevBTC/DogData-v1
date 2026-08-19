@@ -1,9 +1,14 @@
 "use client"
 
 // ═══════════════════════════════════════════════════════════════════════════
-// DogCity landing — cinematic scrollytelling of the lunar masterplan.
+// DogCity landing — the folio of the lunar city.
 // Built to take over /donate once approved: same shell, same live fund API,
 // same Plot Deed lookup, plus the five-phase construction narrative.
+//
+// 2026-08-19 (praca-ajustes.md itens 6, 7 e 12): o herói de 500vh que rolava 180
+// quadros do Blender SAIU. Aqueles quadros mostram a cidade antes da reforma da
+// praça, e a cidade de verdade já abriu em /city — o fundador pediu para tirar.
+// No lugar: a faixa viva da mempool grudada no topo e uma chapa da praça real.
 //
 // This file is now a conductor, not a canvas. Each movement below the hero
 // lives in ./sections/* so the page can be reasoned about one beat at a time;
@@ -14,7 +19,8 @@
 import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { Layout } from "@/components/layout"
-import Scrollytelling from "./scrollytelling"
+import MempoolBand from "./sections/mempool-band"
+import HeroLive from "./sections/hero-live"
 import PlazaLive from "./sections/plaza-live"
 import ConstructionFund from "./sections/construction-fund"
 import PlotDeed from "./sections/plot-deed"
@@ -54,15 +60,13 @@ export default function LandingPage() {
     }
   }, [])
 
-  // ── this page must always open at progress 0 ─────────────────────────────
-  // The hero is a 500vh scroll narrative: the city builds itself as you scroll.
-  // The document is ~19,000px tall, and the browser's default
+  // ── this page must always open at the top ────────────────────────────────
+  // The document is several screens tall, and the browser's default
   // `history.scrollRestoration = "auto"` will happily drop a returning visitor
   // — on reload, on back, or when a phone restores a backgrounded tab — several
-  // thousand pixels in. That lands them past the hero entirely, in the middle
-  // of the second section, having never seen the thing the page is built around.
-  // Landing anywhere but the top is always wrong here, so restoration is taken
-  // over for this page and handed back on unmount.
+  // thousand pixels in, past the hero entirely. Landing anywhere but the top is
+  // always wrong here, so restoration is taken over for this page and handed
+  // back on unmount.
   //
   // An explicit #anchor is honoured: arriving at /dogcity#build is a deliberate
   // request for that section, not a restored position.
@@ -84,13 +88,10 @@ export default function LandingPage() {
   }, [])
 
   // ── the persistent Build CTA ─────────────────────────────────────────────
-  // Two bugs in the previous version, both from the audit: it was gated on a
-  // magic `scrollY > 700` that fires *inside* the 500vh hero (which deliberately
-  // wants no CTAs, and does not exist at all under reduced motion), and it lived
-  // inside the app's z-index:1 stacking context while the hero stage is portaled
-  // to <body> at z:5 — so it was painted underneath the hero and invisible.
-  // Now: an IntersectionObserver on a sentinel placed after the hero decides
-  // when it is allowed, and it portals to <body> above every layer but the grain.
+  // An IntersectionObserver on a sentinel placed after the hero decides when the
+  // CTA is allowed, and it portals to <body> above every layer but the grain.
+  // (It used to be gated on a magic `scrollY > 700`, which fired inside the old
+  // 500vh hero, and it lived under the hero's stacking context, invisible.)
   const afterHero = useRef<HTMLDivElement>(null)
   const [mounted, setMounted] = useState(false)
   const [showCta, setShowCta] = useState(false)
@@ -137,7 +138,8 @@ export default function LandingPage() {
       {/* pb-14 reserves the 56px the mobile CTA bar occupies, so the end of the
           page can never sit underneath it */}
       <div data-dogcity-landing className="bg-void text-snow pb-14 md:pb-0">
-        <Scrollytelling raised={lb?.total_received ?? null} founders={lb?.founders_count ?? null} />
+        <MempoolBand />
+        <HeroLive />
 
         {/* sentinel: everything past this point is allowed to show page chrome */}
         <div ref={afterHero} aria-hidden className="h-px w-full" />

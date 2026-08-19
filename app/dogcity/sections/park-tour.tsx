@@ -40,7 +40,7 @@ const STILLS = [
   { src: "/landing/park-hero.webp", title: "THE RANGE", caption: "The whole chain from the south-east, the ring trail curving below.", alt: "The full chain of black-crystal outcrops across the lunar plain" },
   { src: "/landing/park-wide.webp", title: "VALE OF THE MARK", caption: "Three glyph-lit crystals stacked in depth over the valley trail.", alt: "The terminated valley with three rune-marked crystal outcrops" },
   { src: "/landing/park-finger.webp", title: "THE LAST STEP", caption: "The hundred-metre glyph from the walkway's end.", alt: "The white rune mark on the black crystal face of the Great Runestone" },
-  { src: "/landing/park-temple.webp", title: "THE LEONIDAS TEMPLE", caption: "At the end of the unmarked way: a raked garden in a bowl of shadow.", alt: "A sunken garden of raked regolith with crystal islands, a black-glass pool and stone lanterns, seen from the temple podium" },
+  { src: "/landing/plaza/plaza-temple.webp", title: "THE LEONIDAS TEMPLE", caption: "Hidden in a cave among the monarch stones, at the end of a path of scattered slabs.", alt: "The arched mouth of the Leonidas cave, boulders screening it, the black temple burning orange inside" },
 ] as const
 
 function waypointAt(progress: number): number {

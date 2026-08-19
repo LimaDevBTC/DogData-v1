@@ -142,14 +142,14 @@ const PLATES = [
     label: "SATOSHI PLAZA · LIVE",
   },
   {
-    src: "/landing/plaza/plaza-pad.webp",
-    alt: "Starship-style DOG ships standing on the spaceport apron after landing, $DOG written along their steel bodies, Runestone Ordinal Park on the horizon",
-    label: "THE SPACEPORT · LANDED",
+    src: "/landing/plaza/plaza-dsc.webp",
+    alt: "The Dog Social Club gallery beside Kray Tower: the whole collection hung on a curved black wall under the club shield",
+    label: "DOG SOCIAL CLUB · ALL OF IT",
   },
   {
-    src: "/landing/plaza/plaza-park.webp",
-    alt: "Runestone Ordinal Park from the Gate crest: black crystal runestones with white glyphs standing across the lunar plain, the Great Runestone at the centre",
-    label: "RUNESTONE PARK · IN THE CITY",
+    src: "/landing/plaza/plaza-leonidas.webp",
+    alt: "The Leonidas statue: a yellow skull under a black hood, cape falling to the plinth, the bitcoin mark on his chest",
+    label: "LEONIDAS · FOUNDER OF DOG",
   },
   {
     src: "/landing/plaza/plaza-chalet.webp",
