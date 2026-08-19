@@ -236,7 +236,7 @@ export async function buildSatoshiLugano(opts: { pitch?: number; thick?: number;
  *  brasas dos olhos e o emblema ₿ no peito. Crédito: CC-BY exige o nome. */
 const HEAD = new THREE.Vector3(0, 0.905, 0.038)
 const SKULL_SCALE = 0.54 // 0,22 m de caveira num homem de altura 1,0 (≈1,85 m)
-export function buildLeonidas(skull: THREE.Object3D, body: THREE.Object3D, worldScale = 1): Statue {
+export function buildLeonidas(skull: THREE.Object3D, body: THREE.Object3D, worldScale = 1, cape?: THREE.Object3D | null): Statue {
   const S = worldScale // luzes: distance/intensity são de MUNDO, não escalam com o grupo
   const group = new THREE.Group()
   const disposables: { dispose: () => void }[] = []
@@ -255,6 +255,24 @@ export function buildLeonidas(skull: THREE.Object3D, body: THREE.Object3D, world
     m.receiveShadow = true
   })
   group.add(b)
+  // ── a capa (praca-ajustes.md item 9) ─────────────────────────────────────
+  // O modelo do Sketchfab não tem capa, e o Leonidas do fundador é "uma caveira
+  // amarela COM CAPA, alto, imponente". `blender/build_leonidas_cape.py` desenha
+  // a queda do manto no mesmo quadro do corpo (altura 1,0), então aqui é só
+  // somar: pano preto, fosco, que come os pés e alarga a silhueta.
+  if (cape) {
+    const cp = cape.clone(true)
+    cp.traverse((o) => {
+      const m = o as THREE.Mesh
+      if (!m.isMesh) return
+      m.material = track(new THREE.MeshStandardMaterial({
+        color: 0x0a0a0d, roughness: 0.88, metalness: 0.04, envMapIntensity: 0.7, side: THREE.DoubleSide,
+      }))
+      m.castShadow = true
+      m.receiveShadow = true
+    })
+    group.add(cp)
+  }
   // a caveira: clona a cena, tinge de amarelo, liga sombras
   const sk = skull.clone(true)
   sk.traverse((o) => {

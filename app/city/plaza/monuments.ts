@@ -457,10 +457,12 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
     g.add(step)
     const gl = opts.gltf ?? new GLTFLoader()
     const loadScene = (url: string) => new Promise<THREE.Object3D | null>((res) => gl.load(url, (gg) => res(gg.scene), undefined, () => res(null)))
-    const [skullScene, bodyScene] = await Promise.all([loadScene('/city/leonidas-skull.glb'), loadScene('/city/leonidas-body.glb')])
+    const [skullScene, bodyScene, capeScene] = await Promise.all([
+      loadScene('/city/leonidas-skull.glb'), loadScene('/city/leonidas-body.glb'), loadScene('/city/leonidas-cape.glb'),
+    ])
     if (skullScene && bodyScene) {
       const LEO_SCALE = 11.5 // o modelo tem altura 1,0: 11,5 m
-      const leo = buildLeonidas(skullScene, bodyScene, LEO_SCALE)
+      const leo = buildLeonidas(skullScene, bodyScene, LEO_SCALE, capeScene)
       disposables.push(leo)
       leo.group.scale.setScalar(LEO_SCALE)
       leo.group.position.y = 2.2

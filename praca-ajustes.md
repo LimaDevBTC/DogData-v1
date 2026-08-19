@@ -22,7 +22,7 @@ provisório.
 | 6 | **"Live mempool" no topo da página** | aberto | faixa fixa com o feed que já existe |
 | 7 | **Tirar o vídeo com scroll da home** (modelos antigos, ultrapassado) | aberto | o hero de 180 quadros da landing |
 | 8 | **CTA de doação dentro da cidade** | aberto | ligado ao Círculo dos Fundadores |
-| 9 | **Capa na estátua do Leonidas** | aberto | o modelo do Sketchfab não tem capa |
+| 9 | **Capa na estátua do Leonidas** | **feito** | `blender/build_leonidas_cape.py`: manto preto que sai da linha dos ombros, abre na frente (o emblema ₿ continua à vista), arrasta para trás e cobre os pés. Duas rodadas de pano SIMULADO saíram rasgadas em tiras ou duras como tábua; o que entrou foi a queda desenhada, com pregas que crescem para baixo |
 | 10 | **Mais ordinals no parque** + a coleção **Dog Social Club** completa perto da torre Kray | **feito (galeria)** | do PFP 88866326 cheguei ao pai 8a18494d…i0 (a logo do clube) e aos 306 filhos: muro curvo de 34×9 quadros no jardim ao lado da Kray, com o escudo e a placa. Falta, se o fundador quiser, espalhar ordinals soltos pelo parque |
 | 11 | **Padronizar o nível das árvores** | **em curso** | 3 das 6 do garimpo entraram (bordo japonês, mediterrânea, árvore antiga retorcida); **3 recusadas na folha de contato**: dois scans eram só tronco sem copa e a cerejeira de fotogrametria é meia árvore. As procedurais caíram de 150+220 para 48+60, e só no fundo distante |
 | 12 | **Atualizar a landing** com fotos novas e criar o **post inicial** | aberto | as chapas atuais são de antes da reforma |
