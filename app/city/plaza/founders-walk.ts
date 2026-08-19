@@ -99,65 +99,90 @@ export function buildFoundersWalk(opts: { heightAt: (x: number, z: number) => nu
   const progress = THREE.MathUtils.clamp((opts.data?.progress_pct ?? 0) / 100, 0, 1)
   const Y = DECK_Y
 
-  // ── as placas: no piso do deck, em dois anéis, o texto lendo de fora ──────
-  const PW = 3.4, PD = 2.4
+  // ── O MURO DOS FUNDADORES: um anel de pedra em volta da torre ────────────
+  // As placas deitadas não davam para ler, e os atris de 1,5 m viravam pontos:
+  // a praça tem 600 m de diâmetro, então o que é humano some. A resposta é
+  // ARQUITETURA: um muro contínuo de 3,2 m em volta do pé da torre, com uma
+  // faixa de bronze na altura dos olhos; de longe é um anel escuro com um risco
+  // de latão, de perto cada trecho é a placa de um fundador.
+  const N = FOUNDERS_SLOTS
+  const R0 = FOUNDERS_RINGS[0].r
+  const WALL_H = 3.2, WALL_T = 1.6
+  const seg = (Math.PI * 2) / N
+  const PW = R0 * seg * 0.82        // a largura útil da placa no arco
+  const PH = 2.0
   const COLS = 8, ROWS = 6, TW = 512, TH = 352
   const atlas = document.createElement('canvas')
   atlas.width = COLS * TW; atlas.height = ROWS * TH
   const actx = atlas.getContext('2d')!
-  const positions: number[] = [], uvs: number[] = [], indices: number[] = []
-  const frameMats: THREE.Matrix4[][] = [[], []] // 0 = latão (ocupada), 1 = escura (vazia)
+  const positions: number[] = [], uvs: number[] = [], indices: number[] = [], normals: number[] = []
+  const wallMats: THREE.Matrix4[][] = [[], []] // 0 = ocupado (bronze), 1 = vazio (pedra)
   const tmpO = new THREE.Object3D()
   const lightPos: THREE.Vector3[] = []
-  let k = 0
-  for (const { r, n } of FOUNDERS_RINGS) {
-    for (let i = 0; i < n; i++, k++) {
-      const a = (i / n) * Math.PI * 2 + (r < 66 ? Math.PI / n : 0)
-      const x = Math.cos(a) * r, z = Math.sin(a) * r
-      const f = founders[k] ?? null
-      const col = k % COLS, row = Math.floor(k / COLS)
-      actx.drawImage(plaqueTile(f, k + 1), col * TW, row * TH)
-      // o quad, deitado, com o topo do texto apontando para FORA do centro
-      const u0 = col / COLS, u1 = (col + 1) / COLS
-      const v0 = 1 - (row + 1) / ROWS, v1 = 1 - row / ROWS
-      const base = positions.length / 3
-      const ca = Math.cos(a), sa = Math.sin(a)
-      const P = (du: number, dv: number): [number, number] => [
-        x + (-sa) * du * (PW / 2) + ca * dv * (PD / 2),
-        z + ca * du * (PW / 2) + sa * dv * (PD / 2),
-      ]
-      const c1 = P(-1, 1), c2 = P(1, 1), c3 = P(1, -1), c4 = P(-1, -1)
-      positions.push(c1[0], Y + 0.06, c1[1], c2[0], Y + 0.06, c2[1], c3[0], Y + 0.06, c3[1], c4[0], Y + 0.06, c4[1])
-      uvs.push(u0, v0, u1, v0, u1, v1, u0, v1)
-      indices.push(base, base + 1, base + 2, base, base + 2, base + 3)
-      tmpO.position.set(x, Y, z); tmpO.rotation.set(0, -a, 0); tmpO.scale.setScalar(1); tmpO.updateMatrix()
-      frameMats[f ? 0 : 1].push(tmpO.matrix.clone())
-      if (f) lightPos.push(new THREE.Vector3(x, Y, z))
-    }
+  for (let k = 0; k < N; k++) {
+    const a = (k / N) * Math.PI * 2 - Math.PI / 2 // começa ao norte, sentido horário
+    const x = Math.cos(a) * R0, z = Math.sin(a) * R0
+    const f = founders[k] ?? null
+    const col = k % COLS, row = Math.floor(k / COLS)
+    actx.drawImage(plaqueTile(f, k + 1), col * TW, row * TH)
+    const u0 = col / COLS, u1 = (col + 1) / COLS
+    const v0 = 1 - (row + 1) / ROWS, v1 = 1 - row / ROWS
+    // a placa na face EXTERNA do muro, à altura dos olhos
+    const ca = Math.cos(a), sa = Math.sin(a)
+    const px = x + ca * (WALL_T / 2 + 0.06), pz = z + sa * (WALL_T / 2 + 0.06)
+    const py = Y + 1.72
+    const P = (du: number, dv: number): [number, number, number] => [
+      px + (-sa) * du * (PW / 2), py + dv * (PH / 2), pz + ca * du * (PW / 2),
+    ]
+    const base = positions.length / 3
+    const c1 = P(-1, -1), c2 = P(1, -1), c3 = P(1, 1), c4 = P(-1, 1)
+    positions.push(...c1, ...c2, ...c3, ...c4)
+    for (let i = 0; i < 4; i++) normals.push(ca, 0, sa)
+    uvs.push(u0, v0, u1, v0, u1, v1, u0, v1)
+    indices.push(base, base + 1, base + 2, base, base + 2, base + 3)
+    // o comprimento da caixa (x local) na TANGENTE: rotation.y = −a − π/2
+    // (com −a os trechos ficam radiais e o muro vira uma engrenagem)
+    tmpO.position.set(x, Y + WALL_H / 2, z); tmpO.rotation.set(0, -a - Math.PI / 2, 0); tmpO.scale.setScalar(1); tmpO.updateMatrix()
+    wallMats[f ? 0 : 1].push(tmpO.matrix.clone())
+    if (f) lightPos.push(new THREE.Vector3(x, Y, z))
   }
   const atlasTex = track(new THREE.CanvasTexture(atlas))
   atlasTex.colorSpace = THREE.SRGBColorSpace
   atlasTex.anisotropy = 8
   const plaqueGeo = track(new THREE.BufferGeometry())
   plaqueGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+  plaqueGeo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3))
   plaqueGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
   plaqueGeo.setIndex(indices)
-  plaqueGeo.computeVertexNormals()
-  const plaqueMat = track(new THREE.MeshStandardMaterial({ map: atlasTex, roughness: 0.4, metalness: 0.7, envMapIntensity: 1.1, emissive: 0xffffff, emissiveMap: atlasTex, emissiveIntensity: 0.16 }))
+  // metal puro fica PRETO na face que não pega o sol (a Lua não tem céu para
+  // refletir): a gravação emite, e por isso lê de noite e contra a sombra
+  const plaqueMat = track(new THREE.MeshStandardMaterial({ map: atlasTex, roughness: 0.42, metalness: 0.45, envMapIntensity: 1.1, emissive: 0xffffff, emissiveMap: atlasTex, emissiveIntensity: 0.85 }))
+  plaqueGeo.computeBoundingBox()
+  console.log('[plaza] founders plaque bbox', JSON.stringify(plaqueGeo.boundingBox), 'quads', N, 'PW', PW)
   const plaqueMesh = new THREE.Mesh(plaqueGeo, plaqueMat)
-  plaqueMesh.receiveShadow = true
+  plaqueMesh.castShadow = plaqueMesh.receiveShadow = true
   group.add(plaqueMesh)
-  const frameGeo = track(new THREE.BoxGeometry(PW + 0.28, 0.1, PD + 0.28))
+  // o muro: um trecho por fundador, curvo por aproximação (a corda de 8,6 m
+  // numa circunferência de 414 m não se distingue de um arco)
   const brass = track(new THREE.MeshStandardMaterial({ color: 0xc9a25a, roughness: 0.3, metalness: 0.95, envMapIntensity: 1.2 }))
-  const frameMat = track(new THREE.MeshStandardMaterial({ color: 0x1a1a1f, roughness: 0.6, metalness: 0.4 }))
-  for (const [i, mat] of [[0, brass], [1, frameMat]] as const) {
-    if (!frameMats[i].length) continue
-    const im = new THREE.InstancedMesh(frameGeo, mat, frameMats[i].length)
-    frameMats[i].forEach((m, j) => im.setMatrixAt(j, m))
+  const stone = track(new THREE.MeshStandardMaterial({ color: 0x17181d, roughness: 0.72, metalness: 0.18 }))
+  const wallGeo = track(new THREE.BoxGeometry(R0 * seg + 0.4, WALL_H, WALL_T))
+  for (const [i, mat] of [[0, stone], [1, stone]] as const) {
+    if (!wallMats[i].length) continue
+    const im = new THREE.InstancedMesh(wallGeo, mat, wallMats[i].length)
+    wallMats[i].forEach((m, j) => im.setMatrixAt(j, m))
     im.instanceMatrix.needsUpdate = true
-    im.receiveShadow = true
+    im.castShadow = im.receiveShadow = true
     group.add(im)
   }
+  // a coroa de latão no topo do muro, contínua: é ela que se vê de longe
+  const crown = new THREE.Mesh(track(new THREE.CylinderGeometry(R0 + WALL_T / 2, R0 + WALL_T / 2, 0.22, 128, 1, true)), brass)
+  crown.position.set(0, Y + WALL_H + 0.11, 0)
+  crown.castShadow = true
+  group.add(crown)
+  const crownIn = new THREE.Mesh(track(new THREE.CylinderGeometry(R0 - WALL_T / 2, R0 - WALL_T / 2, 0.22, 128, 1, true)), brass)
+  crownIn.position.set(0, Y + WALL_H + 0.11, 0)
+  group.add(crownIn)
 
   // ── o anel do fundo: fecha na proporção arrecadada ────────────────────────
   const R = FOUNDERS_RING_R
@@ -216,7 +241,7 @@ export function buildFoundersWalk(opts: { heightAt: (x: number, z: number) => nu
   // luz quente rasante sobre as placas ocupadas (duas, não uma por placa)
   const lights: THREE.PointLight[] = []
   for (let i = 0; i < Math.min(lightPos.length, 2); i++) {
-    const l = new THREE.PointLight(WARM, 2.4, 40, 1.8)
+    const l = new THREE.PointLight(WARM, 6, 60, 1.6)
     l.position.copy(lightPos[Math.min(lightPos.length - 1, i * Math.floor(lightPos.length / 2))]).add(new THREE.Vector3(0, 3, 0))
     group.add(l)
     lights.push(l)

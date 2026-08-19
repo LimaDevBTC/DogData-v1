@@ -72,8 +72,8 @@ function viewFor(name: string | null, aspect: number): View {
       return { pos: new THREE.Vector3(-560, 300, 1260), target: new THREE.Vector3(0, 110, 620) }
     case 'north':
       return { pos: new THREE.Vector3(160, 120, -140), target: new THREE.Vector3(0, 10, -520) }
-    case 'founders': // sobre o deck, olhando o círculo no pé da torre
-      return { pos: new THREE.Vector3(0, 96, 176), target: new THREE.Vector3(0, 44, 20) }
+    case 'founders': // de pé no deck, diante do muro dos fundadores
+      return { pos: new THREE.Vector3(4, 42.2, 82), target: new THREE.Vector3(0, 41.7, 68) }
     case 'deck':
       return { pos: new THREE.Vector3(-260, 120, 380), target: new THREE.Vector3(0, 60, 0) }
     case 'whitepaper': { const [x, z] = onDiagonal('NE', 598, 4); const [tx, tz] = onDiagonal('NE', 690); return { pos: new THREE.Vector3(x, 7, z), target: new THREE.Vector3(tx, 4, tz) } }
@@ -384,12 +384,38 @@ export default function PlazaScene() {
         // The Needle's own site slab would double the deck; the tower stands on the
         // deck alone. BitFlow and Kray keep their whole sites (gardens, kerbs, cars):
         // out at the anchor radius there is nothing for them to collide with.
-        const stripSite = (root: THREE.Object3D) => {
+        const stripByName = (root: THREE.Object3D, re: RegExp) => {
           const gone: THREE.Object3D[] = []
-          root.traverse((o) => { if (/^(SITE_|PROP_)|_Site$/i.test(o.name)) gone.push(o) })
+          root.traverse((o) => { if (re.test(o.name)) gone.push(o) })
           for (const o of gone) o.parent?.remove(o)
+          return gone.length
         }
-        stripSite(needle)
+        stripByName(needle, /^(SITE_|PROP_)|_Site$/i)
+        // ── A REFORMA DO DECK (fundador, 2026-08-19: "completamente confusa,
+        // elementos genéricos, árvores artificiais, anfiteatro") ──────────────
+        // O deck vem da cena da landing com muita coisa que não conta a história
+        // do projeto: sete supertrees, um anfiteatro com palco, uma passarela
+        // aérea, três espelhos d'água de enfeite e canteiros. Tudo isso sai. O
+        // que FICA é o que significa: o podium e o anel de pedra, as quatro
+        // escadarias de acesso, a colunata da borda e o INLAY DO BITCOIN no piso.
+        // (a colunata que vinha no GLB era um anel de cones brancos finos; sai
+        // também, e no lugar entram colunas dóricas de verdade, em props-table)
+        const stripped = stripByName(plaza, /^(PZ_Tree|PZ_Amp|PZ_Stage|PZ_Skywalk|PZ_Pool|PZ_Flora|PZ_GlowStems|PZ_Planters|PZ_Colonnade)/)
+        if (wantStats) console.log('[plaza] deck: removidas', stripped, 'peças genéricas')
+        // o INLAY DO BITCOIN no piso do deck era um desenho apagado: acende, em
+        // laranja, e passa a ser o centro visual do deck limpo
+        {
+          const inlay = plaza.getObjectByName('PZ_BtcInlay') as THREE.Mesh | undefined
+          const m = inlay?.material as THREE.MeshStandardMaterial | undefined
+          if (m) {
+            m.color.set(0xF7931A)
+            m.emissive = new THREE.Color(0xF7931A)
+            m.emissiveIntensity = 0.85
+            m.metalness = 0.6
+            m.roughness = 0.35
+            m.toneMapped = false
+          }
+        }
         // The precinct (praca-central.md §4.2, D7): the Needle at the centre of the
         // deck; four anchors on a ring at R_ANCHOR, one per cardinal point, every
         // front turned to the centre. In each tower GLB the signed façade faces +z,
@@ -404,7 +430,7 @@ export default function PlazaScene() {
           loadGlb('/city/kray-tower-lod1.glb').catch(() => null),
         ])
         if (disposed) return
-        if (needleLod1) stripSite(needleLod1)
+        if (needleLod1) stripByName(needleLod1, /^(SITE_|PROP_)|_Site$/i)
         const LOD_DIST = profile.lodDistance // a vista de casa (1,6 km) fica com as torres inteiras
         const lodOf = (full: THREE.Object3D, low: THREE.Object3D | null) => {
           const lod = new THREE.LOD()

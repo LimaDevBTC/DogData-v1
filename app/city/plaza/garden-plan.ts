@@ -167,8 +167,7 @@ export const DECK_Y = 39.95
 // y 47,9 a 57,9 (a torre assenta em 39,9), e WATER_JET_RING tem raio 81,3. O
 // círculo das placas vive ENTRE os dois, no piso do deck, andável.
 export const FOUNDERS_RINGS: { r: number; n: number }[] = [
-  { r: 62, n: 20 },
-  { r: 71, n: 28 },
+  { r: 66, n: 48 }, // o muro: 48 trechos de 8,6 m, um por fundador
 ]
 export const FOUNDERS_SLOTS = FOUNDERS_RINGS.reduce((a, b) => a + b.n, 0)
 /** o anel de luz do fundo: fecha conforme a arrecadação; quando fechar, a cidade abre */

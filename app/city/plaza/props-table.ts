@@ -76,26 +76,45 @@ export const PROPS: readonly PropSpec[] = [
     file: 'palm-tall', why: 'oito palmeiras altas nas quatro portas do deck, para marcar a subida',
     at: DECK_GATE_PALMS, jitter: 0.08, cull: 1700,
   },
-  // ── o deck central: o que era genérico ganha peças de verdade ──────────────
+  // ── o deck central, DEPOIS DA LIMPEZA (2026-08-19) ─────────────────────────
+  // O deck ficou com o que significa: podium, escadarias, colunata e o inlay do
+  // Bitcoin no piso. Os obeliscos, a esfera armilar e as taças de Versalhes
+  // saíram daqui (aumentavam a confusão que o fundador apontou) e foram para o
+  // jardim, onde o vocabulário é esse. No deck fica só o que serve a quem chega:
   {
-    file: 'obelisk', why: 'quatro obeliscos nos eixos do deck: o ritmo que faltava em volta da torre',
-    at: deckAxis(132), yaw: 'center', scale: 1.7, lift: deckLift, cull: 2600,
+    file: 'column-doric', why: 'a colunata do deck: 36 colunas dóricas na borda, no lugar dos cones brancos do GLB',
+    at: ring(28, 250, 6.4), lift: deckLift, jitter: 0.03, cull: 3200,
   },
   {
-    file: 'armillary', why: 'a esfera armilar sobre pedestal: o céu medido, no eixo sul do deck',
-    at: [[0, 104]], yaw: 'center', lift: deckLift + 1.8, scale: 3.4, cull: 2200,
+    file: 'torch-pillar', why: 'oito pilares com fogo, aos pares no topo das quatro escadarias',
+    at: [
+      ...alongBoulevard(0, [286], -22), ...alongBoulevard(0, [286], 22),
+      ...alongBoulevard(90, [286], -22), ...alongBoulevard(90, [286], 22),
+      ...alongBoulevard(180, [286], -22), ...alongBoulevard(180, [286], 22),
+      ...alongBoulevard(270, [286], -22), ...alongBoulevard(270, [286], 22),
+    ],
+    yaw: 'center', scale: 3.4, lift: deckLift, cull: 3000,
+  },
+  {
+    file: 'brazier', why: 'quatro braseiros em volta do inlay do Bitcoin, no piso do deck',
+    at: deckDiag(150), yaw: 'center', scale: 3.2, lift: deckLift, cull: 2200,
+  },
+  {
+    file: 'btc-atm', why: 'dois caixas de BTC no topo da escadaria norte, onde se chega ao deck',
+    at: [[-14, -196], [14, -196]], yaw: 'center', lift: deckLift, cull: 1200, castShadow: false,
+  },
+  // ── as peças que saíram do deck, agora no jardim ──────────────────────────
+  {
+    file: 'armillary', why: 'a esfera armilar no eixo do jardim norte, antes da Grande Fonte',
+    at: [[0, -520]], yaw: 'center', scale: 3.0, lift: 1.5, cull: 1600,
   },
   {
     file: 'pedestal', why: 'a base da esfera armilar',
-    at: [[0, 104]], lift: deckLift, scale: 1.5, cull: 2200,
+    at: [[0, -520]], scale: 1.5, cull: 1600,
   },
   {
-    file: 'deck-colonnade', why: 'as duas taças de Versalhes nos eixos leste e oeste do deck',
-    at: [[104, 0], [-104, 0]], yaw: 'center', scale: 0.62, lift: deckLift, cull: 2000,
-  },
-  {
-    file: 'btc-atm', why: 'o caixa eletrônico de BTC na entrada norte do deck: a praça também serve',
-    at: [[-16, -150], [16, -150]], yaw: 'center', lift: deckLift, cull: 1200, castShadow: false,
+    file: 'deck-colonnade', why: 'as duas taças de Versalhes nas portas leste e oeste do jardim',
+    at: [[520, 0], [-520, 0]], yaw: 'center', scale: 0.62, cull: 1600,
   },
   // ── água ────────────────────────────────────────────────────────────────────
   {
