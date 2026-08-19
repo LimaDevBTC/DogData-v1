@@ -31,6 +31,8 @@ import { TEMPLE_WORLD } from './park-site'
 import { buildFoundersWalk, type FoundersWalk, type FoundersData } from './founders-walk'
 import { detectTier, profileFor, parseQuality, FrameGovernor, DistanceCuller, mergeStaticByMaterial } from './perf'
 import { SF_CREDITS, SF, loadSf, dressSf } from './sf-assets'
+import { buildProps, type Props } from './props'
+import { PROPS } from './props-table'
 
 // ── framing ────────────────────────────────────────────────────────────────────
 // The default view is the landing hero, from the north-east, high enough that the
@@ -317,6 +319,7 @@ export default function PlazaScene() {
     let precinct: Precinct | null = null
     let park: Park | null = null
     let monuments: Monuments | null = null
+    let props: Props | null = null
     let founders: FoundersWalk | null = null
     const spinners: THREE.Object3D[] = []
     let heightAt: (x: number, z: number) => number = () => 0
@@ -467,6 +470,13 @@ export default function PlazaScene() {
         buildMonuments({ heightAt, gltf, profile, culler })
           .then((m) => { if (disposed) { m.dispose(); return } monuments = m; scene.add(m.group); return renderer.compileAsync(scene, camera).catch(() => undefined) })
           .catch((err) => console.warn('[plaza] monuments did not load', err))
+        // os adereços de fora (props-table.ts): entram depois do jardim, e cada um
+        // só existe se o arquivo existir (a praça nunca quebra por um adereço)
+        if (PROPS.length) {
+          buildProps({ specs: PROPS, heightAt, gltf, profile, culler })
+            .then((p) => { if (disposed) { p.dispose(); return } props = p; scene.add(p.group); return renderer.compileAsync(scene, camera).catch(() => undefined) })
+            .catch((err) => console.warn('[plaza] props', err))
+        }
         fetch('/api/donate/leaderboard')
           .then((r) => (r.ok ? (r.json() as Promise<FoundersData>) : null))
           .catch(() => null)
@@ -726,6 +736,7 @@ export default function PlazaScene() {
       precinct?.dispose()
       park?.dispose()
       monuments?.dispose()
+      props?.dispose()
       founders?.dispose()
       draco.dispose()
       pmrem.dispose()
