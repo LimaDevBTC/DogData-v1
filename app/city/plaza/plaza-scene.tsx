@@ -140,6 +140,24 @@ interface HudState {
   stats?: string
 }
 
+/** O PORTÃO DE ENTRADA (fundador, 2026-08-19: "o certo seria carregar tudo e só
+ *  depois entregar a página"). A cena só é entregue quando cada etapa termina;
+ *  até lá a tela de carga cobre tudo e os controles ficam desligados. Os pesos
+ *  são o tempo relativo de cada etapa, medido aqui: o parque e as torres pesam. */
+const BOOT_STEPS = [
+  { key: 'terrain', label: 'Reading Mare Tranquillitatis', weight: 8 },
+  { key: 'towers', label: 'Raising the plaza and the towers', weight: 26 },
+  { key: 'chalet', label: 'Raising the OrdCards Chalet', weight: 6 },
+  { key: 'garden', label: 'Planting the garden', weight: 10 },
+  { key: 'monuments', label: 'Setting the monuments', weight: 12 },
+  { key: 'props', label: 'Placing the fountains and the palms', weight: 12 },
+  { key: 'founders', label: "Engraving the founders' plaques", weight: 4 },
+  { key: 'park', label: 'Growing Runestone Park', weight: 16 },
+  { key: 'shaders', label: 'Lighting the plaza', weight: 6 },
+] as const
+type BootKey = (typeof BOOT_STEPS)[number]['key']
+const BOOT_TOTAL = BOOT_STEPS.reduce((a, b) => a + b.weight, 0)
+
 export default function PlazaScene() {
   const mountRef = useRef<HTMLDivElement>(null)
   const apiRef = useRef<{ follow: (txid: string) => Promise<void>; home: () => void; flyTo: (name: string) => void } | null>(null)
@@ -149,6 +167,9 @@ export default function PlazaScene() {
   })
   const [followInput, setFollowInput] = useState('')
   const [placesOpen, setPlacesOpen] = useState(false)
+  const [boot, setBoot] = useState<{ done: BootKey[]; label: string; ready: boolean; failed: boolean }>({ done: [], label: BOOT_STEPS[0].label, ready: false, failed: false })
+  const readyRef = useRef<(() => void) | null>(null)
+  useEffect(() => { if (boot.ready) readyRef.current?.() }, [boot.ready])
   const [qualityNow] = useState(() => (typeof window !== 'undefined' ? parseQuality(new URLSearchParams(window.location.search).get('quality')) : 'balanced'))
   // Phones start with the board folded to its one-line summary; the scene is the point.
   const [boardOpen, setBoardOpen] = useState(() => typeof window === 'undefined' || window.innerWidth >= 640)
@@ -232,6 +253,7 @@ export default function PlazaScene() {
     controls.maxPolarAngle = Math.PI / 2 - 0.04 // never under the ground
     controls.autoRotate = true
     controls.autoRotateSpeed = 0.18
+    controls.enabled = false // só depois que o portão abrir (ver `boot.ready`)
     controls.update()
     let lastInteraction = 0
     const wake = () => { lastInteraction = performance.now(); controls.autoRotate = false }
@@ -327,16 +349,25 @@ export default function PlazaScene() {
     const loadGlb = (url: string) =>
       new Promise<THREE.Group>((res, rej) => gltf.load(url, (g) => res(g.scene), undefined, rej))
 
+    // marca uma etapa como pronta; quando todas terminam, o portão abre
+    const stepDone = (key: BootKey) => {
+      if (disposed) return
+      setBoot((b) => {
+        if (b.done.includes(key)) return b
+        const done = [...b.done, key]
+        const next = BOOT_STEPS.find((st) => !done.includes(st.key))
+        return { ...b, done, label: next?.label ?? 'Ready', ready: done.length >= BOOT_STEPS.length }
+      })
+    }
     const boot = async () => {
       try {
-        setHud((h) => ({ ...h, loading: 'Reading Mare Tranquillitatis…' }))
         const terrain = await loadTerrain()
         if (disposed) return
         heightAt = terrain.heightAt
         groundAt = terrain.heightAt
         scene.add(terrain.group)
+        stepDone('terrain')
 
-        setHud((h) => ({ ...h, loading: 'Raising the plaza…' }))
         // The deck (podium, gardens, supertrees, amphitheatre, pools, colonnade,
         // monorail) comes from the landing .blend; the three towers are the
         // landing-grade GLBs the /dogcity partners section shows (D6). Each tower
@@ -442,7 +473,7 @@ export default function PlazaScene() {
 
         // The OrdCards Chalet at the south anchor (D2, nova redação), the front of
         // the official logo card up the monumental stair, the QR to the spaceport.
-        setHud((h) => ({ ...h, loading: 'Raising the Chalet…' }))
+        stepDone('towers')
         const texLoader = new THREE.TextureLoader()
         const loadTex = (url: string) =>
           new Promise<THREE.Texture>((res, rej) => texLoader.load(url, (t) => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; res(t) }, undefined, rej))
@@ -454,30 +485,31 @@ export default function PlazaScene() {
         scene.add(chalet.group)
 
         // The precinct: boulevards, the ring, the lunar garden, the Mother Tree (D7, D8).
-        setHud((h) => ({ ...h, loading: 'Planting the garden…' }))
+        stepDone('chalet')
         precinct = buildPrecinct({ heightAt, profile, culler, realTrees: PROPS.length > 0 })
         scene.add(precinct.group)
         // compila os shaders agora, com o aviso de carga na tela, e não no primeiro
         // arrasto do dedo (eram ~60 programas: segundos de travada no celular)
-        setHud((h) => ({ ...h, loading: 'Lighting the plaza…' }))
+        stepDone('garden')
         try { await renderer.compileAsync(scene, camera) } catch { /* driver sem compile paralelo: compila no primeiro quadro */ }
         if (disposed) return
-        setHud((h) => ({ ...h, loading: null }))
 
         // Os monumentos (White Paper, Gênese, Satoshi, Pata, Jardim Ordinal) e a
         // Calçada dos Fundadores entram logo depois do jardim: texturas e o
         // leaderboard chegam pela rede, e nenhum deles segura o primeiro quadro.
-        buildMonuments({ heightAt, gltf, profile, culler })
-          .then((m) => { if (disposed) { m.dispose(); return } monuments = m; scene.add(m.group); return renderer.compileAsync(scene, camera).catch(() => undefined) })
+        const pMonuments = buildMonuments({ heightAt, gltf, profile, culler })
+          .then((m) => { if (disposed) { m.dispose(); return } monuments = m; scene.add(m.group) })
           .catch((err) => console.warn('[plaza] monuments did not load', err))
+          .finally(() => stepDone('monuments'))
         // os adereços de fora (props-table.ts): entram depois do jardim, e cada um
         // só existe se o arquivo existir (a praça nunca quebra por um adereço)
-        if (PROPS.length) {
-          buildProps({ specs: PROPS, heightAt, gltf, profile, culler })
-            .then((p) => { if (disposed) { p.dispose(); return } props = p; scene.add(p.group); return renderer.compileAsync(scene, camera).catch(() => undefined) })
+        const pProps = PROPS.length
+          ? buildProps({ specs: PROPS, heightAt, gltf, profile, culler })
+            .then((p) => { if (disposed) { p.dispose(); return } props = p; scene.add(p.group) })
             .catch((err) => console.warn('[plaza] props', err))
-        }
-        fetch('/api/donate/leaderboard')
+            .finally(() => stepDone('props'))
+          : Promise.resolve(stepDone('props'))
+        const pFounders = fetch('/api/donate/leaderboard')
           .then((r) => (r.ok ? (r.json() as Promise<FoundersData>) : null))
           .catch(() => null)
           .then((data) => {
@@ -485,16 +517,25 @@ export default function PlazaScene() {
             founders = buildFoundersWalk({ heightAt, data, profile, culler })
             scene.add(founders.group)
           })
+          .finally(() => stepDone('founders'))
 
         // The Runestone park, 5.2 km to the north-east (D10, the landing's
         // position), loads after the plaza is up: it is a horizon until someone
         // flies there, and 2 MB of park should never delay the first frame.
-        loadPark({ baseAt: terrain.baseAt, meanHeight: terrain.meanHeight, gltf, profile, culler })
-          .then((p) => { if (disposed) { p.dispose(); return } park = p; scene.add(p.group); return renderer.compileAsync(scene, camera).catch(() => undefined) })
+        const pPark = loadPark({ baseAt: terrain.baseAt, meanHeight: terrain.meanHeight, gltf, profile, culler })
+          .then((p) => { if (disposed) { p.dispose(); return } park = p; scene.add(p.group) })
           .catch((err) => console.warn('[plaza] park did not load', err))
-        setHud((h) => ({ ...h, loading: null }))
+          .finally(() => stepDone('park'))
+
+        // o portão só abre depois de TUDO montado e dos shaders compilados: o
+        // usuário não pega mais uma praça que não responde ao dedo
+        await Promise.all([pMonuments, pProps, pFounders, pPark])
+        if (disposed) return
+        try { await renderer.compileAsync(scene, camera) } catch { /* sem compile paralelo */ }
+        stepDone('shaders')
       } catch (err) {
         console.error('[plaza]', err)
+        setBoot((b) => ({ ...b, failed: true, label: 'The plaza did not load' }))
         setHud((h) => ({ ...h, loading: null, error: 'The plaza did not load. Refresh to try again.' }))
       }
     }
@@ -650,6 +691,9 @@ export default function PlazaScene() {
       }
     }
 
+    // o portão: quando tudo terminou, os controles ligam
+    readyRef.current = () => { controls.enabled = true }
+
     // ── loop ────────────────────────────────────────────────────────────────
     const clock = new THREE.Clock()
     let raf = 0
@@ -756,6 +800,7 @@ export default function PlazaScene() {
   const s = hud.snapshot
   const tipAge = minutesAgo(s?.tip_time ?? null)
   const lastDogAge = minutesAgo(s?.last_dog_block_time ?? null)
+  const bootPct = Math.min(99.5, (BOOT_STEPS.filter((st) => boot.done.includes(st.key)).reduce((a, b) => a + b.weight, 0) / BOOT_TOTAL) * 100)
   const live = hud.stale != null && hud.stale < 40 && !hud.error
 
   const submitFollow = (e: React.FormEvent) => {
@@ -770,7 +815,38 @@ export default function PlazaScene() {
 
   return (
     <div className="relative h-[100dvh] w-full overflow-hidden bg-black text-white select-none">
-      <div ref={mountRef} className="absolute inset-0" />
+      <div
+        ref={mountRef}
+        className="absolute inset-0 transition-opacity duration-700"
+        style={{ opacity: boot.ready ? 1 : 0, pointerEvents: boot.ready ? 'auto' : 'none' }}
+      />
+
+      {/* ── o portão: a praça só é entregue montada ────────────────────────── */}
+      {!boot.ready && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-black px-8 text-center">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/40">DogCity · the Moon</p>
+            <h1 className="mt-2 font-mono text-xl font-semibold tracking-tight text-white sm:text-2xl">Satoshi Plaza</h1>
+          </div>
+          <div className="w-full max-w-sm">
+            <div className="h-[3px] w-full overflow-hidden bg-white/10">
+              <div
+                className="h-full bg-[#F7931A] transition-[width] duration-500 ease-out"
+                style={{ width: `${Math.round(bootPct)}%` }}
+              />
+            </div>
+            <div className="mt-3 flex items-baseline justify-between font-mono text-[10px] uppercase tracking-[0.25em] text-white/50">
+              <span>{boot.failed ? 'Failed. Refresh to try again.' : `${boot.label}…`}</span>
+              <span className="tabular-nums text-white/35">{Math.round(bootPct)}%</span>
+            </div>
+          </div>
+          <p className="max-w-xs font-mono text-[10px] leading-relaxed text-white/25">
+            The whole plaza loads before it opens: terrain, towers, gardens, monuments and the park.
+          </p>
+        </div>
+      )}
+
+      {boot.ready && <>
 
       {!plate && <>
       {/* ── title, and the way back: the landing is the front door, the site is home */}
@@ -937,14 +1013,15 @@ export default function PlazaScene() {
         </div>
       )}
 
-      {/* ── loading / error ───────────────────────────────────────────────── */}
-      {(hud.loading || hud.error) && (
+      {/* ── erro depois de aberto (feed, por exemplo) ──────────────────────── */}
+      {hud.error && (
         <div className="pointer-events-none absolute inset-x-0 top-1/2 flex -translate-y-1/2 justify-center">
           <p className="border border-white/10 bg-black/85 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.25em] text-white/70">
-            {hud.loading ?? hud.error}
+            {hud.error}
           </p>
         </div>
       )}
+      </>}
       </>}
     </div>
   )

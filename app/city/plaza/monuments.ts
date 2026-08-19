@@ -350,9 +350,12 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
         ctx.font = `700 ${size}px "JetBrains Mono", "DM Sans", system-ui, sans-serif`
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
         ctx.fillStyle = '#e9dfc6'
-        const chars = [...text]
+        // no arco de baixo os glifos saem na ordem inversa (o percurso é
+        // anti-horário): inverte a string para o texto ler da esquerda para a direita
+        const chars = flip ? text.split('').reverse() : text.split('')
         const widths = chars.map((ch) => ctx.measureText(ch).width + size * 0.28)
         const total = widths.reduce((a, b) => a + b, 0)
+        // `flip`: o texto vai no arco de BAIXO, lido de fora (letra girada 180°)
         let ang = centerAngle - (flip ? -1 : 1) * (total / radius) / 2
         for (let i = 0; i < chars.length; i++) {
           const step = widths[i] / radius
@@ -367,8 +370,8 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
         }
         ctx.restore()
       }
-      curved('DOG • GO • TO • THE • MOON', R - 62, 0, 46, false)
-      curved('RUNE 840000:3 · APRIL 2024', R - 62, Math.PI, 40, true)
+      curved('DOG • GO • TO • THE • MOON', R - 62, 0, 46, false)   // arco de cima
+      curved('RUNE 840000:3 · APRIL 2024', R - 62, 0, 40, true)     // arco de baixo
       // o emblema: $DOG grande, com sombra quente
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
       ctx.shadowColor = 'rgba(247,147,26,0.55)'; ctx.shadowBlur = 40

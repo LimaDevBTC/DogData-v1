@@ -120,6 +120,25 @@ Pedidos do fundador, feitos:
   `Icosphere` foi descartada na conversão). Sem figura, o plinto do espelho
   saiu junto e o quarto espelho voltou a ter jato central.
 
+## 6.4 O espelho do DOG e o portão de entrada, 2026-08-19
+
+- **A marca do DOG refeita.** O chafariz saiu do espelho da Pata (ele tapava a
+  marca) e o emblema deixou de ser texto reto numa textura quadrada, que o disco
+  redondo cortava. Agora: disco de 30 m com fundo em degradê, dois aros de latão
+  (mais um em relevo, em torus), **$DOG** grande no centro com sombra quente,
+  "THE DIAMOND PAW" abaixo, e o nome CURVADO nos arcos: "DOG • GO • TO • THE •
+  MOON" em cima e "RUNE 840000:3 · APRIL 2024" embaixo (letra a letra, girada no
+  seu ângulo; no arco de baixo a string entra invertida, senão sai espelhada).
+  Dois focos rasantes acendem a marca à noite. Os chafarizes ficam nos espelhos
+  do norte, oeste e noroeste.
+- **O portão de entrada.** A praça era entregue antes de estar montada e o
+  usuário mexia sem resposta. Agora `plaza-scene.tsx` tem `BOOT_STEPS` com peso
+  por etapa (terreno, torres, chalé, jardim, monumentos, adereços, fundadores,
+  parque, shaders); a tela de carga cobre tudo com barra de progresso e o nome
+  da etapa, os controles ficam DESLIGADOS e a cena aparece por fade só quando a
+  última etapa termina (incluindo `compileAsync`). Medido no headless: o portão
+  abre em ~26 s com a rede local.
+
 ## 7. Estado
 
 - 2026-08-18: §5 feito (navegação). §1 feito (calçadas dos lotes, passeio em
