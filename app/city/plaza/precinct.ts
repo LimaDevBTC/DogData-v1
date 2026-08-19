@@ -64,6 +64,11 @@ export interface Precinct {
   group: THREE.Group
   update: (t: number) => void
   dispose: () => void
+  /** Com `realTrees`, os pontos semeados dos setores saem daqui como MODELOS a
+   *  plantar (props.ts os instancia). O gerador procedural de árvore e palmeira
+   *  fica desligado: o fundador quer "nenhuma árvore simples, sai tudo que é
+   *  genérico", e a copa-esfera sobre cilindro era exatamente isso. */
+  treeSpots: { file: string; at: [number, number][] }[]
 }
 
 /** Está dentro de algum bulevar radial? (faixa de largura BOULEVARD_W nos eixos) */
@@ -464,8 +469,14 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   // as palmeiras dos SETORES continuam procedurais (ninguém chega perto); as das
   // alamedas e do anel viraram tamareiras de verdade (props-table.ts) quando
   // `realTrees` está ligado
+  // No modo REAL a palmeira procedural (tronco de cilindro e nove fitas) saiu
+  // por inteiro: as do fundo distante apareciam de perto na volta da Kray e eram
+  // justamente as "murchas" que o fundador mandou tirar. O que sobra são as
+  // tamareiras de verdade — as da tabela e as semeadas aqui, devolvidas em
+  // `treeSpots`.
+  const farPalms: [number, number][] = REAL ? sample(38, 620, 900) : []
   const palms: [number, number][] = REAL
-    ? [...sample(60, 620, 900)]  // só o fundo distante; o resto é tamareira de verdade
+    ? []
     : [...sample(70, R_GARDEN_IN + 20, 430), ...sample(150, 480, 900)]
   if (!REAL) {
     for (let i = 0; i < 4; i++) {
@@ -526,7 +537,28 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   // com as árvores de verdade nos lugares que se vê (props-table.ts), o gerador
   // procedural passa a ser só o fundo distante: 150 → 48 (item 11 do fundador,
   // "menos árvores, muito mais detalhadas")
-  const planted: { kind: Kind; x: number; z: number }[] = sample(REAL ? 48 : 150, 560, 900).map(([x, z]) => ({ kind: kindAt(x, z), x, z }))
+  const planted: { kind: Kind; x: number; z: number }[] = REAL
+    ? []
+    : sample(150, 560, 900).map(([x, z]) => ({ kind: kindAt(x, z), x, z }))
+  // ── as árvores dos setores, agora de verdade ──────────────────────────────
+  // Mesma semeadura de antes (mesmo sorteio, mesmas zonas proibidas), mas cada
+  // ponto vira um MODELO por quadrante: mediterrânea e bordo no norte, oliveira
+  // e mediterrânea no sudoeste, cerejeira e bordo no sudeste. Menos árvores,
+  // todas detalhadas — o item 11 da lista.
+  const treeSpots: { file: string; at: [number, number][] }[] = []
+  if (REAL) {
+    const byFile: Record<string, [number, number][]> = {}
+    const put = (file: string, p: [number, number]) => { (byFile[file] ??= []).push(p) }
+    for (const [x, z] of sample(44, 560, 900)) {
+      const u = rnd()
+      if (x > 0 && z < 0) put(u < 0.45 ? 'tree-maple' : 'tree-medit', [x, z])        // NE, a nave do White Paper
+      else if (x < 0 && z < 0) put(u < 0.35 ? 'tree-cypress' : 'tree-medit', [x, z]) // NW
+      else if (x < 0 && z > 0) put(u < 0.5 ? 'tree-olive' : 'tree-medit', [x, z])    // SW, o jardim antigo
+      else put(u < 0.4 ? 'tree-blossom' : 'tree-maple', [x, z])                      // SE, o que floresce
+    }
+    for (const [file, at] of Object.entries(byFile)) treeSpots.push({ file, at })
+    if (farPalms.length) treeSpots.push({ file: 'palm-date', at: farPalms })
+  }
   if (!REAL) {
     for (const [x, z] of WHITEPAPER_CYPRESSES) planted.push({ kind: 'cypress', x, z })
     for (const [x, z] of SATOSHI_CYPRESSES) planted.push({ kind: 'cypress', x, z })
@@ -729,6 +761,7 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   return {
     group,
     update,
+    treeSpots,
     dispose() { for (const d of disposables) d.dispose(); jetTex.dispose(); glowTex.dispose(); fountain.dispose() },
   }
 }

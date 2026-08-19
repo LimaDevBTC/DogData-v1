@@ -651,8 +651,19 @@ export default function PlazaScene() {
           .finally(() => stepDone('monuments'))
         // os adereços de fora (props-table.ts): entram depois do jardim, e cada um
         // só existe se o arquivo existir (a praça nunca quebra por um adereço)
-        const pProps = PROPS.length
-          ? buildProps({ specs: PROPS, heightAt, gltf, profile, culler })
+        // as árvores semeadas dos setores vêm do precinto como MODELOS (item 11:
+        // a copa-esfera procedural saiu), então a lista de adereços é a tabela
+        // mais o que o jardim semeou
+        const sectorSpecs = (precinct?.treeSpots ?? []).map((t) => ({
+          file: t.file,
+          why: 'árvore semeada dos setores (precinct.ts): modelo real no lugar da copa procedural',
+          at: t.at,
+          jitter: 0.22,
+          cull: profile.smallCull * 1.4,
+        }))
+        const allProps = [...PROPS, ...sectorSpecs]
+        const pProps = allProps.length
+          ? buildProps({ specs: allProps, heightAt, gltf, profile, culler })
             .then((p) => { if (disposed) { p.dispose(); return } props = p; scene.add(p.group) })
             .catch((err) => console.warn('[plaza] props', err))
             .finally(() => stepDone('props'))
