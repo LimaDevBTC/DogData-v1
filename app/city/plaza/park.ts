@@ -289,6 +289,7 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
   const n = s16.length / 4
   const spos = new Float32Array(n * 3)
   for (let i = 0; i < n; i++) {
+    if (i % 24000 === 23999) await new Promise<void>((r) => setTimeout(r, 0)) // respira: 111 mil pontos sem travar o quadro
     const bx = s16[i * 4] / 4, by = s16[i * 4 + 1] / 4, bz = s16[i * 4 + 2] / 4
     const lx = bx, lz = -by
     spos[i * 3] = lx

@@ -179,12 +179,17 @@ export interface Statue {
   dispose: () => void
 }
 
-/** A figura em lâminas: `pitch` metros entre lâminas, `thick` de espessura. */
-export function buildSatoshiLugano(opts: { pitch?: number; thick?: number; grid?: number } = {}): Statue {
+/** A figura em lâminas: `pitch` metros entre lâminas, `thick` de espessura.
+ *  Assíncrona: as lâminas são calculadas em lotes com um respiro entre eles
+ *  (marching squares de ~50 lâminas é meio segundo de CPU num celular; sem o
+ *  respiro, a praça travava enquanto o monumento nascia). */
+export async function buildSatoshiLugano(opts: { pitch?: number; thick?: number; grid?: number } = {}): Promise<Statue> {
   const pitch = opts.pitch ?? 0.02, thick = opts.thick ?? 0.006, h = opts.grid ?? 0.011
   const geos: THREE.BufferGeometry[] = []
   const X0 = -0.5, X1 = 0.5
+  let batch = 0
   for (let x = X0; x <= X1 + 1e-6; x += pitch) {
+    if (++batch % 6 === 0) await new Promise<void>((r) => setTimeout(r, 0))
     // a figura desce 0,14 m e o plinto corta o que sobra: sentada de verdade,
     // sem vão entre o assento e a pedra
     const loops = contours((u, v) => Math.max(satoshiSDF([x, v + 0.14, u]), -v), -0.34, 0.62, 0.0, 1.5, h)

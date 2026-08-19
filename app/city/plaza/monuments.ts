@@ -299,7 +299,7 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
     // A figura, à maneira de Lugano (statues.ts): sentada de capuz com o laptop,
     // em lâminas de aço sagitais. De frente, para quem chega do deck pela
     // alameda, quase some; de lado aparece inteira. Escala 5: 7 m sentada.
-    const satoshi = buildSatoshiLugano()
+    const satoshi = await buildSatoshiLugano({ grid: opts.profile?.tier === 'mobile' ? 0.016 : 0.011 })
     disposables.push(satoshi)
     satoshi.group.scale.setScalar(7.5) // 10,8 m sentada, do plinto à ponta do capuz
     satoshi.group.position.y = 1.65

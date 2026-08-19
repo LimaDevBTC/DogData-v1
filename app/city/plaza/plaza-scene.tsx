@@ -441,7 +441,7 @@ export default function PlazaScene() {
         // Calçada dos Fundadores entram logo depois do jardim: texturas e o
         // leaderboard chegam pela rede, e nenhum deles segura o primeiro quadro.
         buildMonuments({ heightAt, gltf, profile, culler })
-          .then((m) => { if (disposed) { m.dispose(); return } monuments = m; scene.add(m.group) })
+          .then((m) => { if (disposed) { m.dispose(); return } monuments = m; scene.add(m.group); return renderer.compileAsync(scene, camera).catch(() => undefined) })
           .catch((err) => console.warn('[plaza] monuments did not load', err))
         fetch('/api/donate/leaderboard')
           .then((r) => (r.ok ? (r.json() as Promise<FoundersData>) : null))
@@ -456,7 +456,7 @@ export default function PlazaScene() {
         // position), loads after the plaza is up: it is a horizon until someone
         // flies there, and 2 MB of park should never delay the first frame.
         loadPark({ baseAt: terrain.baseAt, meanHeight: terrain.meanHeight, gltf, profile, culler })
-          .then((p) => { if (disposed) { p.dispose(); return } park = p; scene.add(p.group) })
+          .then((p) => { if (disposed) { p.dispose(); return } park = p; scene.add(p.group); return renderer.compileAsync(scene, camera).catch(() => undefined) })
           .catch((err) => console.warn('[plaza] park did not load', err))
         setHud((h) => ({ ...h, loading: null }))
       } catch (err) {
