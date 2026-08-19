@@ -284,6 +284,32 @@ temos agora, prévia da DogCity no ar, polimento final".
 - `/city` ganhou imagem de OG (`public/city/og-plaza.jpg`) e `?tx=<txid>` para
   chegar já seguindo uma nave.
 
+## 4.5 Desempenho, 2026-08-18 (noite): "tá muito pesado, a imagem trava"
+
+O que os jogos pesados fazem e o que entrou (`app/city/plaza/perf.ts` + peças):
+
+| Técnica (jogos) | Aqui |
+|---|---|
+| Níveis de qualidade por aparelho | `detectTier()`: celular = DPR ≤ 1,5, sombra 1024 sem PCF suave, sem MSAA, sem os 111 mil pontos do censo, metade das partículas, sombra a cada 2 quadros; desktop = tudo |
+| Resolução dinâmica (consoles) | `DynamicResolution`: mede o quadro; > 26 ms baixa o DPR (mín. 0,7), < 14 ms sobe até o teto |
+| Orçamento de luzes | PointLights de ~30 para 11 (cada uma custa em TODOS os fragmentos); o resto virou emissão/uplights pintados |
+| LOD (níveis de detalhe) | torres: GLB inteiro até 1,3 km (celular) / 2,3 km (desktop), depois `*-lod1.glb` decimado a 18 % (`blender/make_tower_lods.py`); parque: cristais ordenados por tamanho e `count` por distância (485 mil tris → ~100 mil vistos da praça), terreno grosso 60×60 além de 4,5 km |
+| Culling por distância | `DistanceCuller`: sebes, postes, bancos, placas, painéis de texto e uplights somem longe; trilhas/templo/censo do parque só a < 3 km (desktop) / 2,6 km |
+| Sombras só de quem é grande | sebes, folhas de palmeira, bancos, postes, placas não projetam |
+| Batching / instâncias | pavimento+meios-fios+gramados fundidos (3 malhas), GLBs fundidos por material (`mergeStaticByMaterial`, 50 → ~8 malhas por torre), 48 placas dos fundadores num atlas (1 malha) + molduras instanciadas, sebes com caixas de 6 m (metade), lâmpadas mais leves |
+| Compilação de shaders fora do quadro | `renderer.compileAsync` na carga (com o aviso na tela) e depois de monumentos/parque; ~60 programas não travam mais o primeiro toque |
+| Trabalho pesado em lotes | lâminas do Satoshi e censo do parque construídos com respiros (`setTimeout 0`) |
+| Instrumentação | `?stats=1`: linha no HUD (tier · dpr · calls · tris · fps) e `window.__plazaDump()/__plazaMeshes(grupo)` |
+
+Medido no headless (swiftshader, vista de casa): chamadas de desenho 694 → 404
+(desktop), 389 → 250 (celular); triângulos por quadro incl. sombra ~0,95 M → ~0,8 M
+(desktop) com as torres inteiras. O fps de verdade só no aparelho: abrir
+`/city?stats=1` no celular e ler a linha laranja.
+
+Próximos, se ainda pesar: LOD1 também para o Chalé/Satoshi, impostores
+(billboards) para as árvores longe, um único mapa de sombra em cascata menor no
+celular, e a alternativa sem `logarithmicDepthBuffer` no celular (custa early-Z).
+
 ## 5. Em aberto
 
 | # | Pergunta | Quem |
