@@ -22,6 +22,7 @@ import {
 } from './garden-plan'
 import { TIERS, crystalMaterialFor, loadCrystalTextures } from './park'
 import { buildSatoshiLugano, buildLeonidas } from './statues'
+import type { PerfProfile, DistanceCuller } from './perf'
 
 const WARM = new THREE.Color('#FFB35C')
 
@@ -106,9 +107,11 @@ function makePlaque(opts: { title: string; body: string; foot?: string; w?: numb
   return g
 }
 
-export async function buildMonuments(opts: { heightAt: (x: number, z: number) => number; gltf?: GLTFLoader; envMap?: THREE.Texture | null }): Promise<Monuments> {
+export async function buildMonuments(opts: { heightAt: (x: number, z: number) => number; gltf?: GLTFLoader; envMap?: THREE.Texture | null; profile?: PerfProfile; culler?: DistanceCuller }): Promise<Monuments> {
   const group = new THREE.Group()
   group.name = 'Monuments'
+  const TEXT_CULL = opts.profile?.textCull ?? 1300
+  const cullText = (o: THREE.Object3D, x: number, z: number) => opts.culler?.add(o, TEXT_CULL, new THREE.Vector3(x, 0, z))
   const disposables: { dispose: () => void }[] = []
   const track = <T extends { dispose: () => void }>(o: T): T => { disposables.push(o); return o }
   const yAt = opts.heightAt
@@ -187,7 +190,8 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
     uplight(fx, fz)
     // luzes de verdade só a cada três estelas: cada PointLight custa em TODOS os
     // materiais da cena, e as páginas já emitem
-    if (i % 3 === 0) addLight(fx, y + 1.6, fz, 1.6, 70, 0xfff0dc)
+    if (i === 4) addLight(fx, y + 2, fz, 2.2, 140, 0xfff0dc) // uma luz para a nave inteira
+    cullText(num, x, z)
   })
   // a placa de abertura da nave, à entrada (r 615), lado direito
   {
@@ -203,6 +207,7 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
     p.position.set(x, yAt(x, z), z)
     p.rotation.y = faceAxisYaw(aNE, side)
     group.add(p)
+    cullText(p, x, z)
   }
 
   // ═══ NE · O Bloco Gênese ══════════════════════════════════════════════════
@@ -314,7 +319,7 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
     for (const sgn of [-1, 1]) {
       const px = -az * sgn, pz = ax * sgn
       const lx = sx + ax * (POOL_R + 6) + px * 12, lz = sz + az * (POOL_R + 6) + pz * 12
-      addLight(lx, sy + 2, lz, 3.2, 120, 0xfff0dc)
+      if (sgn > 0) addLight(lx - px * 12, sy + 2, lz - pz * 12, 3.6, 130, 0xfff0dc) // uma luz, no eixo
       uplight(lx, lz, 0.9)
     }
   }
@@ -360,6 +365,7 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
     p.position.set(qx, yAt(qx, qz), qz)
     p.rotation.y = faceAxisYaw(QUADRANT_ANGLE.SE, 12)
     group.add(p)
+    cullText(p, qx, qz)
   }
 
   // ═══ SE · Leonidas, o fundador do DOG ═════════════════════════════════════
@@ -418,8 +424,9 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
       const px = -az * sgn, pz = ax * sgn
       const fx = lx + ax * 12 + px * 7, fz = lz + az * 12 + pz * 7
       uplight(fx, fz, 0.9)
-      addLight(fx, ly + 3, fz, 3.0, 60, 0xfff0dc)
     }
+    addLight(lx + ax * 12, ly + 4, lz + az * 12, 3.4, 70, 0xfff0dc) // uma luz frontal
+    cullText(insc, lx, lz)
   }
 
   // ═══ SW · O Jardim Ordinal ════════════════════════════════════════════════
@@ -480,7 +487,7 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
     kerb.rotation.x = -Math.PI / 2
     kerb.position.set(cx, yAt(cx, cz) + 0.36, cz)
     group.add(kerb)
-    addLight(cx, yAt(cx, cz) + 8, cz, 1.6, 90, 0xdfe8ff)
+    // sem luz própria: as marcas das pedras já emitem
     // as duas placas na alameda: a Teoria Ordinal e a Runestone
     const [p1, p2] = ORDINAL_PLAQUES
     const a = QUADRANT_ANGLE.SW
@@ -489,13 +496,13 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
       body: 'Every satoshi has a number, given by the order in which it was mined. An inscription writes on one of them, and the number carries the writing forever. Bitcoin learned to remember. 2022.',
       foot: 'THE ORDINAL GARDEN',
     }, track)
-    q1.position.set(p1[0], yAt(p1[0], p1[1]), p1[1]); q1.rotation.y = faceAxisYaw(a, 12); group.add(q1)
+    q1.position.set(p1[0], yAt(p1[0], p1[1]), p1[1]); q1.rotation.y = faceAxisYaw(a, 12); group.add(q1); cullText(q1, p1[0], p1[1])
     const q2 = makePlaque({
       title: 'THE RUNESTONE',
       body: 'One stone inscribed to 112,383 wallets, the largest airdrop of its kind. Months later, DOG • GO • TO • THE • MOON fell on the same wallets. The stones in this circle are the same stone that stands 500 metres tall in the park.',
       foot: 'RUNESTONE ORDINAL PARK · 5 KM NORTH-EAST',
     }, track)
-    q2.position.set(p2[0], yAt(p2[0], p2[1]), p2[1]); q2.rotation.y = faceAxisYaw(a, -12); group.add(q2)
+    q2.position.set(p2[0], yAt(p2[0], p2[1]), p2[1]); q2.rotation.y = faceAxisYaw(a, -12); group.add(q2); cullText(q2, p2[0], p2[1])
   }
 
   return {

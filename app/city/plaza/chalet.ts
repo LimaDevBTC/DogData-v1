@@ -180,12 +180,11 @@ export function buildChalet(front: THREE.Texture, back: THREE.Texture): Chalet {
     group.add(l)
     lights.push(l)
   }
-  addLight(-W * 0.28, cardBase + apex * 0.3, 0, 2.2)
-  addLight(W * 0.28, cardBase + apex * 0.3, 0, 2.2)
-  addLight(0, cardBase + apex * 0.6, 0, 1.6)
+  // três luzes (eram oito): o interior do A e um foco frontal; as faces das
+  // cartas já são emissivas e leem de longe sem foco
+  addLight(0, cardBase + apex * 0.35, 0, 2.6, WARM, 420)
   addLight(0, 1.4 + BASE_H * 0.5, 0, 1.4)
-  // focos brancos de fora, para as faces lerem de longe
-  for (const [x, z] of [[-W * 0.35, -half - 100], [W * 0.35, -half - 100], [-W * 0.35, half + 100], [W * 0.35, half + 100]]) addLight(x, 36, z, 1.5, 0xfff4e6, 460)
+  addLight(0, 36, -half - 100, 1.6, 0xfff4e6, 460)
 
   // ── a porta e o passeio para o bulevar sul (norte do chalé) ──────────────
   const walkMat = track(new THREE.MeshStandardMaterial({ color: 0x17181d, roughness: 0.75, metalness: 0.15 }))

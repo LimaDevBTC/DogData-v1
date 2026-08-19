@@ -276,9 +276,6 @@ export function buildLeonidas(skull: THREE.Object3D, body: THREE.Object3D, world
     const eye = new THREE.Mesh(track(new THREE.SphereGeometry(0.011 * SKULL_SCALE, 12, 10)), track(new THREE.MeshBasicMaterial({ color: 0xff2612, toneMapped: false })))
     eye.position.set(HEAD.x + s * 0.033 * SKULL_SCALE, HEAD.y + 0.014 * SKULL_SCALE, HEAD.z + 0.058 * SKULL_SCALE)
     group.add(eye)
-    const l = new THREE.PointLight(0xff2a1a, 0.05 * S * S, 0.5 * S, 2)
-    l.position.set(HEAD.x + s * 0.02, HEAD.y + 0.01, HEAD.z + 0.07)
-    group.add(l)
   }
   // uma luz quente sob o capuz: a caveira amarela lê na sombra
   const face = new THREE.PointLight(0xffd27a, 0.06 * S * S, 0.7 * S, 2)
@@ -298,8 +295,5 @@ export function buildLeonidas(skull: THREE.Object3D, body: THREE.Object3D, world
   emblem.position.set(0, 0.712, 0.106)
   emblem.rotation.x = -0.12 // acompanha o peito, que se inclina para trás no alto
   group.add(emblem)
-  const core = new THREE.PointLight(0xF7931A, 0.05 * S * S, 0.8 * S, 2)
-  core.position.set(0, 0.712, 0.16)
-  group.add(core)
   return { group, height: 1.0, dispose() { for (const d of disposables) d.dispose() } }
 }

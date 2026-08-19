@@ -11,6 +11,7 @@
 // aqui na próxima visita.
 import * as THREE from 'three'
 import { FOUNDERS_R0, FOUNDERS_R1, FOUNDERS_SLOTS_PER_SIDE, FOUNDERS_SIDE, FOUNDERS_LINE_R0, FOUNDERS_LINE_R1 } from './garden-plan'
+import type { PerfProfile, DistanceCuller } from './perf'
 
 export interface Founder {
   founder_seq: number
@@ -90,9 +91,12 @@ function plaqueTexture(f: Founder | null, slot: number): THREE.CanvasTexture {
   return tex
 }
 
-export function buildFoundersWalk(opts: { heightAt: (x: number, z: number) => number; data: FoundersData | null }): FoundersWalk {
+export function buildFoundersWalk(opts: { heightAt: (x: number, z: number) => number; data: FoundersData | null; profile?: PerfProfile; culler?: DistanceCuller }): FoundersWalk {
   const group = new THREE.Group()
   group.name = 'FoundersWalk'
+  const plaques = new THREE.Group()
+  group.add(plaques)
+  opts.culler?.add(plaques, (opts.profile?.textCull ?? 1300) * 1.3, new THREE.Vector3(0, 0, -(FOUNDERS_R0 + FOUNDERS_R1) / 2))
   const disposables: { dispose: () => void }[] = []
   const track = <T extends { dispose: () => void }>(o: T): T => { disposables.push(o); return o }
   const yAt = opts.heightAt
@@ -123,17 +127,17 @@ export function buildFoundersWalk(opts: { heightAt: (x: number, z: number) => nu
     const frame = new THREE.Mesh(frameGeo, f ? brass : frameMat)
     frame.position.set(x, y + 0.42, z)
     frame.receiveShadow = true
-    group.add(frame)
+    plaques.add(frame)
     const p = new THREE.Mesh(plaqueGeo, mat)
     p.rotation.x = -Math.PI / 2
     p.rotation.z = 0 // o texto lê para quem caminha do deck para a fonte (olhando para −z): a base do texto fica ao sul
     p.position.set(x, y + 0.49, z)
-    group.add(p)
+    plaques.add(p)
     if (f) lightPos.push(new THREE.Vector3(x, y + 0.5, z))
   }
   // luz quente rasante nas placas ocupadas: uma por placa era demais; um foco a cada quatro
   const lights: THREE.PointLight[] = []
-  for (let i = 0; i < Math.min(lightPos.length, 8); i += 4) {
+  for (let i = 0; i < Math.min(lightPos.length, 4); i += 4) {
     const l = new THREE.PointLight(WARM, 1.6, 30, 1.8)
     l.position.copy(lightPos[i]).add(new THREE.Vector3(0, 2.2, 0))
     group.add(l)

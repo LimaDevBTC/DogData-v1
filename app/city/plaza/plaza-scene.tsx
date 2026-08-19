@@ -28,6 +28,7 @@ import { loadPark, PARK_CENTER, type Park } from './park'
 import { buildMonuments, type Monuments } from './monuments'
 import { onDiagonal, GENESIS_POS, SATOSHI_POOL, PAW_PALM, ORDINAL_CENTER, LEONIDAS_POS } from './garden-plan'
 import { buildFoundersWalk, type FoundersWalk, type FoundersData } from './founders-walk'
+import { detectTier, profileFor, DynamicResolution, DistanceCuller } from './perf'
 
 // ── framing ────────────────────────────────────────────────────────────────────
 // The default view is the landing hero, from the north-east, high enough that the
@@ -124,6 +125,7 @@ interface HudState {
   picked: DogTx | null
   followed: DogTx | null
   followNote: string | null
+  stats?: string
 }
 
 export default function PlazaScene() {
@@ -148,15 +150,19 @@ export default function PlazaScene() {
     // ── renderer ────────────────────────────────────────────────────────────
     // Log depth: a cena vai do deck (2 m) ao parque (9 km) e ao horizonte (60 km);
     // sem ele, duas superfícies quase coplanares a 9 km brigam no z-buffer.
-    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', logarithmicDepthBuffer: true })
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    // perf.ts: nível por aparelho, resolução dinâmica, culling por distância
+    const profile = profileFor(detectTier())
+    const renderer = new THREE.WebGLRenderer({ antialias: profile.tier === 'desktop', powerPreference: 'high-performance', logarithmicDepthBuffer: true })
+    const dynRes = new DynamicResolution(renderer, profile.maxPixelRatio)
     renderer.setSize(mount.clientWidth, mount.clientHeight)
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
     renderer.toneMappingExposure = 1.05
     renderer.shadowMap.enabled = true
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    renderer.shadowMap.type = profile.softShadows ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap
     mount.appendChild(renderer.domElement)
+    const culler = new DistanceCuller()
+    const wantStats = new URLSearchParams(window.location.search).get('stats') === '1'
 
     const scene = new THREE.Scene()
     scene.background = new THREE.Color(0x000000)
@@ -188,7 +194,7 @@ export default function PlazaScene() {
     const sun = new THREE.DirectionalLight(0xfff1dc, 2.6)
     sun.position.set(-2600, 1500, -1900)
     sun.castShadow = true
-    sun.shadow.mapSize.set(2048, 2048)
+    sun.shadow.mapSize.set(profile.shadowMapSize, profile.shadowMapSize)
     sun.shadow.camera.near = 500
     sun.shadow.camera.far = 7000
     const sc = sun.shadow.camera as THREE.OrthographicCamera
@@ -360,14 +366,14 @@ export default function PlazaScene() {
 
         // The precinct: boulevards, the ring, the lunar garden, the Mother Tree (D7, D8).
         setHud((h) => ({ ...h, loading: 'Planting the garden…' }))
-        precinct = buildPrecinct({ heightAt })
+        precinct = buildPrecinct({ heightAt, profile, culler })
         scene.add(precinct.group)
         setHud((h) => ({ ...h, loading: null }))
 
         // Os monumentos (White Paper, Gênese, Satoshi, Pata, Jardim Ordinal) e a
         // Calçada dos Fundadores entram logo depois do jardim: texturas e o
         // leaderboard chegam pela rede, e nenhum deles segura o primeiro quadro.
-        buildMonuments({ heightAt, gltf })
+        buildMonuments({ heightAt, gltf, profile, culler })
           .then((m) => { if (disposed) { m.dispose(); return } monuments = m; scene.add(m.group) })
           .catch((err) => console.warn('[plaza] monuments did not load', err))
         fetch('/api/donate/leaderboard')
@@ -375,14 +381,14 @@ export default function PlazaScene() {
           .catch(() => null)
           .then((data) => {
             if (disposed) return
-            founders = buildFoundersWalk({ heightAt, data })
+            founders = buildFoundersWalk({ heightAt, data, profile, culler })
             scene.add(founders.group)
           })
 
         // The Runestone park, 5.2 km to the north-east (D10, the landing's
         // position), loads after the plaza is up: it is a horizon until someone
         // flies there, and 2 MB of park should never delay the first frame.
-        loadPark({ baseAt: terrain.baseAt, meanHeight: terrain.meanHeight, gltf })
+        loadPark({ baseAt: terrain.baseAt, meanHeight: terrain.meanHeight, gltf, profile, culler })
           .then((p) => { if (disposed) { p.dispose(); return } park = p; scene.add(p.group) })
           .catch((err) => console.warn('[plaza] park did not load', err))
         setHud((h) => ({ ...h, loading: null }))
@@ -546,10 +552,16 @@ export default function PlazaScene() {
     const clock = new THREE.Clock()
     let raf = 0
     let hudTick = 0
+    let lastFrameAt = performance.now()
+    let statsTick = 0
     const animate = () => {
       raf = requestAnimationFrame(animate)
       const dt = Math.min(0.1, clock.getDelta())
       const t = clock.elapsedTime
+      const nowMs = performance.now()
+      dynRes.sample(nowMs - lastFrameAt, nowMs)
+      lastFrameAt = nowMs
+      culler.update(camera.position)
       if (!controls.autoRotate && performance.now() - lastInteraction > 25_000) controls.autoRotate = true
       if (fly.on) {
         const u = Math.min(1, (performance.now() - fly.t0) / (fly.dur * 1000))
@@ -580,6 +592,12 @@ export default function PlazaScene() {
       earth.rotation.y = t * 0.004
       const cl = earth.getObjectByName('Clouds'); if (cl) cl.rotation.y = t * 0.0025
       renderer.render(scene, camera)
+      if (wantStats && (statsTick++ & 15) === 0) {
+        const info = renderer.info
+        const w = window as unknown as { __plazaStats?: unknown }
+        w.__plazaStats = { fps: Math.round(1000 / Math.max(1, nowMs - lastFrameAt + dt * 1000)), calls: info.render.calls, triangles: info.render.triangles, points: info.render.points, lines: info.render.lines, programs: info.programs?.length ?? 0, textures: info.memory.textures, geometries: info.memory.geometries, dpr: dynRes.current, tier: profile.tier }
+        setHud((h) => ({ ...h, stats: `${profile.tier} · dpr ${dynRes.current.toFixed(2)} · ${info.render.calls} calls · ${(info.render.triangles / 1e6).toFixed(2)}M tris · ${Math.round(1000 / Math.max(1, dt * 1000))} fps` }))
+      }
       // the counters on the board follow the scene, twice a second
       if ((hudTick++ & 31) === 0) {
         const c = orbit.count()
@@ -657,6 +675,7 @@ export default function PlazaScene() {
         </p>
         <h1 className="mt-1 font-mono text-base font-semibold tracking-tight text-white sm:text-xl">Satoshi Plaza</h1>
         <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.2em] text-white/40">Mare Tranquillitatis · the Moon</p>
+        {hud.stats && <p className="mt-0.5 font-mono text-[10px] text-[#F7931A]/80">{hud.stats}</p>}
         {/* ── places: voar até um lugar; duplo toque na cena aproxima de qualquer coisa ── */}
         <div className="relative mt-2">
           <button

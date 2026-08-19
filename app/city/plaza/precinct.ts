@@ -21,6 +21,7 @@ import {
   isReserved, WHITEPAPER_CYPRESSES, SATOSHI_CYPRESSES, SATOSHI_BENCHES, ORDINAL_OLIVES, PAW_BLOSSOMS,
   POOL_R,
 } from './garden-plan'
+import type { PerfProfile, DistanceCuller } from './perf'
 
 export const R_DECK = 300
 export const R_GARDEN_IN = 332
@@ -97,7 +98,9 @@ function inSiteWalk(x: number, z: number): boolean {
   return false
 }
 
-export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number }): Precinct {
+export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number; profile?: PerfProfile; culler?: DistanceCuller }): Precinct {
+  const SMALL = opts.profile?.smallCull ?? 2600
+  const cull = (o: THREE.Object3D, d = SMALL) => opts.culler?.add(o, d)
   const group = new THREE.Group()
   group.name = 'Precinct'
   const rnd = mulberry(840000)
@@ -285,6 +288,7 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   poles.count = bulbs.count = li
   poles.instanceMatrix.needsUpdate = bulbs.instanceMatrix.needsUpdate = true
   group.add(poles, bulbs)
+  cull(poles); cull(bulbs, SMALL * 1.4)
 
   // ── espelhos d'água com fontes, nas diagonais entre as âncoras ───────────
   const poolMat = track(new THREE.MeshStandardMaterial({ color: 0x08111c, roughness: 0.05, metalness: 0.7, emissive: 0x0a1a2c, emissiveIntensity: 0.5, envMapIntensity: 1.6 }))
@@ -305,7 +309,7 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
     rim.position.set(cx, y + 0.32, cz)
     group.add(rim)
     // a fonte: um jato central e um anel de jatos menores
-    const NJ = 900
+    const NJ = opts.profile?.jetParticles ?? 900
     const pos = new Float32Array(NJ * 3)
     const seed = new Float32Array(NJ * 2)
     for (let k = 0; k < NJ; k++) { seed[k * 2] = rnd(); seed[k * 2 + 1] = rnd() }
@@ -447,8 +451,9 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   const hedgeMesh = new THREE.InstancedMesh(hedgeGeo, hedgeMat, hedges.length)
   hedges.forEach((m, i) => hedgeMesh.setMatrixAt(i, m))
   hedgeMesh.instanceMatrix.needsUpdate = true
-  hedgeMesh.castShadow = hedgeMesh.receiveShadow = true
+  hedgeMesh.receiveShadow = true // não projeta: milhares de caixinhas no mapa de sombra por nada
   group.add(hedgeMesh)
+  cull(hedgeMesh)
 
   // ── palmeiras: alamedas nos bulevares e no anel, e bosques nos setores ────
   const palms: [number, number][] = [...sample(70, R_GARDEN_IN + 20, 430), ...sample(150, 480, 900)]
@@ -489,7 +494,7 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
       fronds.setMatrixAt(i * FRONDS + f, o.matrix)
     }
   })
-  trunks.castShadow = fronds.castShadow = true
+  trunks.castShadow = true // as folhas não: 2.700 fitas no mapa de sombra
   trunks.instanceMatrix.needsUpdate = fronds.instanceMatrix.needsUpdate = true
   group.add(trunks, fronds)
 
@@ -595,9 +600,9 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
     o.position.set(x, yAt(x, z) + r, z); o.rotation.set(0, 0, 0); o.scale.setScalar(r); o.updateMatrix()
     topiMesh.setMatrixAt(i, o.matrix)
   })
-  topiMesh.castShadow = true
   topiMesh.instanceMatrix.needsUpdate = true
   group.add(topiMesh)
+  cull(topiMesh)
 
   // ── bancos ao longo do anel, olhando para dentro ─────────────────────────
   const benchGeo = track(new THREE.BoxGeometry(4.2, 0.5, 1))
@@ -611,6 +616,7 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   }
   benches.instanceMatrix.needsUpdate = true
   group.add(benches)
+  cull(benches, SMALL * 0.7)
   // os dois bancos de pedra de frente para o Espelho de Satoshi
   {
     const sb = new THREE.InstancedMesh(track(new THREE.BoxGeometry(5, 0.55, 1.2)), benchMat, SATOSHI_BENCHES.length)
@@ -619,8 +625,8 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
       sb.setMatrixAt(i, o.matrix)
     })
     sb.instanceMatrix.needsUpdate = true
-    sb.castShadow = true
     group.add(sb)
+    cull(sb, SMALL * 0.7)
   }
 
   // ── luz de jardim: uplights quentes na base das palmeiras das alamedas ───
@@ -632,6 +638,7 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   const uplights = new THREE.Points(upGeo, track(new THREE.PointsMaterial({ map: glowTex, color: 0xffd9a8, size: 9, sizeAttenuation: true, transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending })))
   uplights.frustumCulled = false
   group.add(uplights)
+  cull(uplights, SMALL)
 
   // ── a grande fonte do norte, no lugar da quarta âncora ───────────────────
   const fountain = buildGrandFountain(rnd, track, jetTex)
@@ -640,8 +647,10 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   group.add(fountain.group)
 
   // luzes: poucas e quentes
+  // luzes: uma só, na Grande Fonte (cada PointLight custa em todos os fragmentos
+  // da cena; os jardins são iluminados pelos monumentos e pelas fitas emissivas)
   const lights: THREE.PointLight[] = []
-  for (const [x, z] of [[0, -R_ANCHOR], [396, -396], [-396, -396], [396, 396], [-396, 396]] as const) {
+  for (const [x, z] of [[0, -R_ANCHOR]] as const) {
     const l = new THREE.PointLight(0xffe0b8, 1.1, 300, 1.6)
     l.position.set(x, yAt(x, z) + 26, z)
     group.add(l)

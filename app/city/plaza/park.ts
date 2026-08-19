@@ -30,6 +30,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { regolithColor } from './terrain'
 import { PARK_CENTER, PARK_ROT_Y, PARK_HALF, PARK_CORE } from './park-site'
+import type { PerfProfile, DistanceCuller } from './perf'
 
 export { PARK_CENTER, PARK_ROT_Y }
 
@@ -116,7 +117,7 @@ export function loadCrystalTextures(): Promise<[THREE.Texture, THREE.Texture]> {
   return Promise.all([loadTex('/city/park/crystal-basecolor.webp', true), loadTex('/city/park/crystal-normal.webp', false)])
 }
 
-export async function loadPark(opts: { baseAt: (x: number, z: number) => number; meanHeight: number; gltf?: GLTFLoader }): Promise<Park> {
+export async function loadPark(opts: { baseAt: (x: number, z: number) => number; meanHeight: number; gltf?: GLTFLoader; profile?: PerfProfile; culler?: DistanceCuller }): Promise<Park> {
   const [meta, hbuf, stones, sbuf] = await Promise.all([
     fetch('/city/park/heightmap.json').then((r) => r.json() as Promise<HeightMeta>),
     fetch('/city/park/heightmap.f32').then((r) => r.arrayBuffer()),
@@ -275,7 +276,11 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
   const scatter = new THREE.Points(sgeo, scatterMat)
   scatter.name = 'Census'
   scatter.frustumCulled = false
-  group.add(scatter)
+  // no celular o censo não entra (111 mil pontos por quadro); no desktop, só de perto
+  if (opts.profile?.censusPoints !== false) {
+    group.add(scatter)
+    opts.culler?.add(scatter, opts.profile?.parkDetailCull ?? 4200, PARK_CENTER)
+  }
 
   // ── o templo e o construído ───────────────────────────────────────────────
   const built = new THREE.Group()
@@ -305,6 +310,8 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
     m.position.y += groundLocal(c.x, c.z) - parkH(c.x, -c.z)
   })
   group.add(built)
+  // as trilhas e o templo só de perto do parque (153 mil triângulos de passarela)
+  opts.culler?.add(built, opts.profile?.parkDetailCull ?? 4200, PARK_CENTER)
 
   // uma luz fria e baixa no templo, e o cristal-monarca com um halo
   const templeLight = new THREE.PointLight(0xffa04d, 1.0, 700, 1.4) // âmbar: a lei do parque, nada frio aceso
