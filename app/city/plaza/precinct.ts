@@ -298,6 +298,31 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   poles.count = bulbs.count = li
   poles.instanceMatrix.needsUpdate = bulbs.instanceMatrix.needsUpdate = true
   group.add(poles, bulbs)
+  // ── A POÇA DE LUZ DE CADA POSTE ──────────────────────────────────────────
+  // 256 lâmpadas acesas e nenhuma marca no chão: de noite a praça lia como um
+  // campo escuro com pontinhos brancos flutuando (fundador, 2026-08-19, "tá bem
+  // escuro"). Uma nuvem de sprites aditivos no pé de cada poste é o que faz a
+  // luz artificial existir para quem olha, e custa UM desenho, não 256 luzes.
+  const lampPools = (() => {
+    const pos = new Float32Array(li * 3)
+    const m = new THREE.Matrix4(); const v = new THREE.Vector3()
+    for (let i = 0; i < li; i++) {
+      poles.getMatrixAt(i, m)
+      v.setFromMatrixPosition(m)
+      pos[i * 3] = v.x; pos[i * 3 + 1] = v.y - 4.3 + 0.25; pos[i * 3 + 2] = v.z
+    }
+    const g = track(new THREE.BufferGeometry())
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3))
+    const pts = new THREE.Points(g, track(new THREE.PointsMaterial({
+      map: makeGlowTexture(), color: 0xdfe8ff, size: 17, sizeAttenuation: true,
+      transparent: true, opacity: 0.3, depthWrite: false, blending: THREE.AdditiveBlending,
+    })))
+    pts.frustumCulled = false
+    pts.name = 'LampPools'
+    return pts
+  })()
+  group.add(lampPools)
+  cull(lampPools, SMALL)
   cull(poles); cull(bulbs, SMALL * 1.4)
 
   // ── espelhos d'água com fontes, nas diagonais entre as âncoras ───────────
@@ -679,12 +704,18 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   }
 
   // ── luz de jardim: uplights quentes na base das palmeiras das alamedas ───
+  // No modo REAL o array procedural está vazio, então os uplights seguem as
+  // árvores DE VERDADE (as semeadas nos setores e as tamareiras do fundo). Sem
+  // isto, tirar a palmeira procedural apagou de uma vez toda a luz de jardim.
+  const glowSpots: [number, number][] = palms.length
+    ? palms
+    : treeSpots.flatMap((t) => t.at)
   const glowTex = makeGlowTexture()
-  const upPos = new Float32Array(palms.length * 3)
-  palms.forEach(([x, z], i) => { upPos[i * 3] = x; upPos[i * 3 + 1] = yAt(x, z) + 1.2; upPos[i * 3 + 2] = z })
+  const upPos = new Float32Array(glowSpots.length * 3)
+  glowSpots.forEach(([x, z], i) => { upPos[i * 3] = x; upPos[i * 3 + 1] = yAt(x, z) + 1.2; upPos[i * 3 + 2] = z })
   const upGeo = track(new THREE.BufferGeometry())
   upGeo.setAttribute('position', new THREE.BufferAttribute(upPos, 3))
-  const uplights = new THREE.Points(upGeo, track(new THREE.PointsMaterial({ map: glowTex, color: 0xffd9a8, size: 9, sizeAttenuation: true, transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending })))
+  const uplights = new THREE.Points(upGeo, track(new THREE.PointsMaterial({ map: glowTex, color: 0xffd9a8, size: 12, sizeAttenuation: true, transparent: true, opacity: 0.42, depthWrite: false, blending: THREE.AdditiveBlending })))
   uplights.frustumCulled = false
   group.add(uplights)
   cull(uplights, SMALL)

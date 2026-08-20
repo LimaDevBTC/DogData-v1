@@ -289,7 +289,7 @@ export default function PlazaScene() {
     renderer.setSize(mount.clientWidth, mount.clientHeight)
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.05
+    renderer.toneMappingExposure = 1.12 // a praça é noturna: um passo de exposição a mais para o que não está no sol
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = profile.softShadows ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap
     mount.appendChild(renderer.domElement)
@@ -405,8 +405,15 @@ export default function PlazaScene() {
       sun.target.position.copy(shadowAnchor)
       sun.position.copy(shadowAnchor).addScaledVector(SUN_DIR, SUN_DIST)
     }
-    scene.add(new THREE.HemisphereLight(0x2a3448, 0x0e0d0c, 0.28))
-    const earthshine = new THREE.DirectionalLight(0x8fb0ff, 0.25)
+    // ── a noite tem que SER vista ────────────────────────────────────────────
+    // 2026-08-19, fundador: "precisamos melhorar a iluminação para o período
+    // noturno, tá bem escuro". O preenchimento subiu (hemisférico 0,28 → 0,50,
+    // brilho-da-Terra 0,25 → 0,40) e ganhou um tom mais quente no chão: a praça
+    // continua noturna, mas o que está fora do facho do sol deixa de ser preto.
+    // O resto do ganho é luz ARTIFICIAL, não ambiente: poça no pé de cada poste e
+    // uplight nas árvores (precinct.ts), que é o que faz a cidade parecer acesa.
+    scene.add(new THREE.HemisphereLight(0x3a4664, 0x1a1712, 0.5))
+    const earthshine = new THREE.DirectionalLight(0x8fb0ff, 0.4)
     earthshine.position.set(1200, 2600, 900)
     scene.add(earthshine)
 

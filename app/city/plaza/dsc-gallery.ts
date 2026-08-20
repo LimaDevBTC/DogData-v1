@@ -130,8 +130,13 @@ export async function buildDscGallery(opts: {
     shield.position.set(0, H + 4.6, -1.2)
     shield.rotation.y = Math.PI // a face impressa olha para fora do arco, como os quadros
     group.add(shield)
-    const mast = new THREE.Mesh(track(new THREE.CylinderGeometry(0.22, 0.3, 5, 12)), stone)
-    mast.position.set(0, H + 1.6, -1.2)
+    // O MASTRO FICA ATRÁS DO ESCUDO. Antes ele nascia no mesmo z e subia 5 m:
+    // atravessava a face impressa de baixo até quase o meio e cortava a logo ao
+    // meio (fundador, 2026-08-19). Agora ele só vence o vão entre a coroa do muro
+    // e a barra de baixo do escudo, e fica meio metro para trás dela.
+    const gap = 4.6 - 3.5 // do topo do muro à barra de baixo do escudo
+    const mast = new THREE.Mesh(track(new THREE.CylinderGeometry(0.26, 0.34, gap + 0.9, 12)), stone)
+    mast.position.set(0, H + gap / 2 + 0.2, -0.62)
     group.add(mast)
   }
 
