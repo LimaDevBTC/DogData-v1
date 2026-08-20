@@ -112,7 +112,7 @@ function viewFor(name: string | null, aspect: number): View {
       // quando ele carrega. A câmera fica no eixo da boca, do lado de fora.
       const t = TEMPLE_WORLD.lengthSq() > 1 ? TEMPLE_WORLD.clone() : new THREE.Vector3(PARK_CENTER.x + 335, -100, PARK_CENTER.z - 59)
       const d = new THREE.Vector3(Math.cos(CAVE_YAW), 0, -Math.sin(CAVE_YAW))
-      return { pos: t.clone().addScaledVector(d, 52).setY(t.y + 13), target: new THREE.Vector3(t.x, t.y + 7, t.z) }
+      return { pos: t.clone().addScaledVector(d, 96).setY(t.y + 26), target: new THREE.Vector3(t.x, t.y + 11, t.z) }
     }
     case 'templewide': { // conferência: a caverna inteira, de fora e de cima
       const t = TEMPLE_WORLD.clone()
@@ -132,7 +132,7 @@ function viewFor(name: string | null, aspect: number): View {
     case 'templein': { // dentro: o salão preto no fundo da câmara
       const t = TEMPLE_WORLD.lengthSq() > 1 ? TEMPLE_WORLD.clone() : new THREE.Vector3(PARK_CENTER.x + 335, -100, PARK_CENTER.z - 59)
       const d = new THREE.Vector3(Math.cos(CAVE_YAW), 0, -Math.sin(CAVE_YAW))
-      return { pos: t.clone().addScaledVector(d, 6).setY(t.y + 5), target: t.clone().addScaledVector(d, -22).setY(t.y + 7) }
+      return { pos: t.clone().addScaledVector(d, 8).setY(t.y + 7), target: t.clone().addScaledVector(d, -34).setY(t.y + 10) }
     }
     case 'satoshiclose': { const [x, z] = onDiagonal('NW', 536, 1); return { pos: new THREE.Vector3(x, 5, z), target: new THREE.Vector3(SATOSHI_POOL[0], 6.5, SATOSHI_POOL[1]) } }
     case 'satoshisideclose': { const [x, z] = onDiagonal('NW', 560, 26); return { pos: new THREE.Vector3(x, 6, z), target: new THREE.Vector3(SATOSHI_POOL[0], 6, SATOSHI_POOL[1]) } }
@@ -574,28 +574,29 @@ export default function PlazaScene() {
         }
         // ── item 1 da lista: BITFLOW também na face de TRÁS ──────────────────
         // O GLB só assina a fachada da praça (BITFLOW_SIGN_CROWN em z +40,3, no
-        // topo). Quem vem do jardim norte ou do parque vê a torre sem nome. A
-        // face de trás ganha a mesma assinatura, espelhada, feita em canvas.
+        // topo). Quem vem do jardim norte ou do parque via a torre sem nome.
+        //
+        // 2026-08-19, fundador: "na parte de trás o agente só escreveu BITFLOW,
+        // não usou a logo, tem que ser a LOGO OFICIAL". Então a face de trás
+        // deixou de ser texto desenhado em canvas e passou a ser a marca de
+        // verdade: `public/city/bitflow-logo.webp` é o lockup oficial (o bicho de
+        // pixel laranja mais a palavra) tirado de `public/Bitflow.png`, com o
+        // branco do fundo vazado para alfa. Proporção 1662x273 preservada.
         {
-          const c = document.createElement('canvas')
-          c.width = 1024; c.height = 224
-          const ctx = c.getContext('2d')!
-          ctx.clearRect(0, 0, 1024, 224)
-          ctx.fillStyle = '#F7931A'
-          ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-          ctx.font = '700 150px "JetBrains Mono", "DM Sans", system-ui, sans-serif'
-          ctx.fillText('BITFLOW', 512, 118)
-          const tex = new THREE.CanvasTexture(c)
-          tex.colorSpace = THREE.SRGBColorSpace
-          tex.anisotropy = 8
-          const sign = new THREE.Mesh(
-            new THREE.PlaneGeometry(104, 22.75),
-            new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false }),
+          const logo = await new Promise<THREE.Texture | null>((res) =>
+            new THREE.TextureLoader().load('/city/bitflow-logo.webp', (t) => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; res(t) }, undefined, () => res(null)),
           )
-          sign.position.set(10, 311, -44.6) // a mesma altura do letreiro da frente, na face oposta
-          sign.rotation.y = Math.PI
-          sign.name = 'BITFLOW_SIGN_BACK'
-          bitflow.add(sign)
+          if (logo) {
+            const W = 104, H = W * (273 / 1662)
+            const sign = new THREE.Mesh(
+              new THREE.PlaneGeometry(W, H),
+              new THREE.MeshBasicMaterial({ map: logo, transparent: true, toneMapped: false }),
+            )
+            sign.position.set(10, 311, -44.6) // a mesma altura do letreiro da frente, na face oposta
+            sign.rotation.y = Math.PI
+            sign.name = 'BITFLOW_SIGN_BACK'
+            bitflow.add(sign)
+          }
         }
 
         // perf: cada GLB vira poucas malhas (uma por material); os nós animados ficam de fora

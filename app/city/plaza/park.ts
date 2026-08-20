@@ -170,21 +170,21 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
   // O maciço da caverna tem 44 m de profundidade e o flanco sobe 19°: sem corte,
   // a encosta entrava pela câmara e aparecia lá dentro como um piso cinza
   // subindo (foi o que se viu na primeira montagem). Aqui o sítio inteiro é
-  // escavado no nível da soleira: até 30 m do EIXO da caverna o chão nunca passa
-  // dela, e até 62 m volta ao natural. Terreno, terraço, trilhas e caminho
+  // escavado no nível da soleira: até 46 m do EIXO da caverna o chão nunca passa
+  // dela, e até 92 m volta ao natural (a caverna cresceu para 117 m em 2026-08-19). Terreno, terraço, trilhas e caminho
   // secreto leem esta mesma função, então ninguém discorda de ninguém.
   const CAVE_FLOOR = groundRaw(CAVE_LOCAL.x, CAVE_LOCAL.z) - 0.15
   const AX = Math.cos(CAVE_YAW), AZ = -Math.sin(CAVE_YAW)
-  const A0X = CAVE_LOCAL.x + AX * 22, A0Z = CAVE_LOCAL.z + AZ * 22   // à frente da boca
-  const A1X = CAVE_LOCAL.x - AX * 52, A1Z = CAVE_LOCAL.z - AZ * 52   // o fundo da câmara
+  const A0X = CAVE_LOCAL.x + AX * 30, A0Z = CAVE_LOCAL.z + AZ * 30   // à frente da boca
+  const A1X = CAVE_LOCAL.x - AX * 78, A1Z = CAVE_LOCAL.z - AZ * 78   // o fundo da câmara
   const axisLen2 = (A1X - A0X) ** 2 + (A1Z - A0Z) ** 2
   const groundLocal = (lx: number, lz: number): number => {
     const h = groundRaw(lx, lz)
     if (h <= CAVE_FLOOR) return h
     const t = THREE.MathUtils.clamp(((lx - A0X) * (A1X - A0X) + (lz - A0Z) * (A1Z - A0Z)) / axisLen2, 0, 1)
     const d = Math.hypot(lx - (A0X + (A1X - A0X) * t), lz - (A0Z + (A1Z - A0Z) * t))
-    if (d > 62) return h
-    const k = THREE.MathUtils.clamp((62 - d) / 32, 0, 1)
+    if (d > 92) return h
+    const k = THREE.MathUtils.clamp((92 - d) / 46, 0, 1)
     return h + (CAVE_FLOOR - h) * (k * k * (3 - 2 * k))
   }
 
@@ -271,8 +271,11 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
     const Mt = new THREE.Matrix4().multiplyMatrices(B2T, M).multiply(T2B)
     // e desce ao datum: soma o anel local (a matriz traz o z do parque)
     const p = new THREE.Vector3().setFromMatrixPosition(Mt)
-    const lift = groundLocal(p.x, p.z) - parkH(p.x, -p.z)
-    Mt.elements[13] += lift
+    // A pedra que cai DENTRO da caverna do Leonidas sai da lista. Com o maciço a
+    // 117 m (2026-08-19), um dos cristais vizinhos passou a atravessar a parede
+    // da câmara e a furar o teto: por dentro via-se a lasca branca e a luz de
+    // fora. O escudo é o raio da massa mais folga.
+    if (Math.hypot(p.x - CAVE_LOCAL.x, p.z - CAVE_LOCAL.z) < 78) continue
     const list = byVariant.get(v) ?? []
     list.push(Mt)
     byVariant.set(v, list)

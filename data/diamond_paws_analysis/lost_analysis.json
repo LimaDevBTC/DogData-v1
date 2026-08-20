@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-19T22:06:27.341696+00:00",
+  "generated_at": "2026-08-19T23:56:11.665163+00:00",
   "data_source": {
     "forensic_behavioral_analysis": "data/forensic_behavioral_analysis.json",
     "chain_stats_jsonl": "data/diamond_paws_analysis/chain_stats.jsonl",
@@ -22,11 +22,11 @@
     "pct_of_supply": 20.082031614
   },
   "lost_relaxed": {
-    "count": 5918,
-    "pct_of_diamond_paws": 30.43612425426867,
-    "dog_locked": 5633361786.0,
-    "pct_of_diamond_paws_dog": 28.051752403739645,
-    "pct_of_supply": 5.633361786
+    "count": 5917,
+    "pct_of_diamond_paws": 30.430981279572105,
+    "dog_locked": 5632471980.0,
+    "pct_of_diamond_paws_dog": 28.047321547255084,
+    "pct_of_supply": 5.63247198
   },
   "lost_strict": {
     "count": 2,
@@ -36,21 +36,21 @@
     "pct_of_supply": 0.0017796119999999999
   },
   "active_after_airdrop": {
-    "count": 13526,
-    "pct_of_diamond_paws": 69.56387574573132,
-    "dog_held": 14448669828.0,
+    "count": 13527,
+    "pct_of_diamond_paws": 69.5690187204279,
+    "dog_held": 14449559634.0,
     "spent_txo_buckets": {
       "100+": 1873,
       "21-100": 3678,
       "6-20": 3321,
       "2-5": 2708,
-      "1": 1946
+      "1": 1947
     },
     "note": "These wallets sent something (BTC, other runes\u2026) but their DOG balance equals the airdrop amount \u2014 they're alive HODLers, not lost."
   },
   "funded_after_airdrop_but_unspent": {
-    "count": 5918,
-    "dog_in_these_wallets": 5633361786.0,
+    "count": 5917,
+    "dog_in_these_wallets": 5632471980.0,
     "interpretation": "Received passive deposits (dust attacks, later airdrops, etc.) but never spent. Still 'lost relaxed' \u2014 incoming proves nothing about key control.",
     "extra_deposits_distribution": {
       "1_to_2": {
@@ -62,8 +62,8 @@
         "dog": 586382154.0
       },
       "6_to_20": {
-        "wallets": 4026,
-        "dog": 3811039098.0
+        "wallets": 4025,
+        "dog": 3810149292.0
       },
       "21_to_100": {
         "wallets": 1123,
@@ -77,13 +77,13 @@
   },
   "address_type_breakdown": {
     "lost_relaxed": {
-      "p2tr": 5538,
+      "p2tr": 5537,
       "p2pkh": 67,
       "p2sh": 51,
       "p2wpkh/p2wsh": 262
     },
     "active": {
-      "p2tr": 11103,
+      "p2tr": 11104,
       "p2sh": 333,
       "p2wpkh/p2wsh": 1933,
       "p2pkh": 157

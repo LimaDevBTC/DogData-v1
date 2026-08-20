@@ -37,8 +37,10 @@ export const CAVE_LAYER = 3
 const ORANGE = 0xf7931a
 const EMBER = 0xff8a2b
 /** a mesma escala que `build_leonidas_cave.py` aplicou na rocha: a boca fica na
- *  origem e todo o resto (câmara, portal, terraço) cresce com ela */
-const S = 1.35
+ *  origem e todo o resto (câmara, portal, terraço) cresce com ela. Subiu de 1,35
+ *  para 2,0 em 2026-08-19 a pedido do fundador ("a caverna está muito pequena"):
+ *  maciço de 117 m, câmara de 64 x 53 x 45 m, boca de 19 m de vão. */
+const S = 2.0
 
 export interface LeonidasCave {
   group: THREE.Group
@@ -121,9 +123,9 @@ export async function buildLeonidasCave(opts: {
     dressSf(hall, { envMapIntensity: 0.2, castShadow: true })
     const box = new THREE.Box3().setFromObject(hall)
     const size = box.getSize(new THREE.Vector3())
-    // a câmara tem 43 x 36 x 31 m: o salão quase a preenche (27 m de frente),
-    // que é o que faz a caverna ser um TEMPLO e não um buraco com uma casinha
-    const k = Math.min(27 / Math.max(size.x, size.z), 21 / Math.max(0.001, size.y))
+    // a câmara tem 64 x 53 x 45 m e o salão fica em 30 m de frente: sobra nave
+    // em volta dele, que é o que faz a caverna ser uma CAVERNA e não uma caixa
+    const k = Math.min(30 / Math.max(size.x, size.z), 24 / Math.max(0.001, size.y))
     hall.scale.setScalar(k)
     // a frente do modelo olha para −z; girar −90° põe a frente na boca (+x)
     hall.rotation.y = -Math.PI / 2
@@ -138,13 +140,15 @@ export async function buildLeonidasCave(opts: {
     hall.position.set(-22 * S - wc.x, -wb.min.y, -wc.z)
 
     // a cumeeira em brasa: o único traço aceso do prédio, no eixo do telhado
-    const ridgeMat = track(new THREE.MeshStandardMaterial({ color: 0x1a1207, emissive: ORANGE, emissiveIntensity: 1.1, roughness: 0.5, toneMapped: false }))
+    // fio de brasa, não tubo de luz: com 0,82 do comprimento e intensidade alta
+    // ele lia como uma barra fluorescente pairando sobre o telhado
+    const ridgeMat = track(new THREE.MeshStandardMaterial({ color: 0x1a1207, emissive: ORANGE, emissiveIntensity: 0.55, roughness: 0.5 }))
     // a cumeeira é emissiva: fica na camada 0 para não depender de luz nenhuma
     emissives.push(ridgeMat)
     // a cumeeira corre no eixo LONGO do salão (z depois do giro), não no eixo da
     // boca: assim ela lê como cumeeira e não como uma barra atravessada
-    const ridge = new THREE.Mesh(track(new THREE.BoxGeometry(0.28, 0.28, (wb.max.z - wb.min.z) * 0.82)), ridgeMat)
-    ridge.position.set(-22 * S, (wb.max.y - wb.min.y) * 0.955, 0)
+    const ridge = new THREE.Mesh(track(new THREE.BoxGeometry(0.22, 0.22, (wb.max.z - wb.min.z) * 0.46)), ridgeMat)
+    ridge.position.set(-22 * S, (wb.max.y - wb.min.y) * 0.9, 0)
     ridge.layers.set(0)
     group.add(ridge)
   }
@@ -157,16 +161,16 @@ export async function buildLeonidasCave(opts: {
     const black = track(new THREE.MeshStandardMaterial({ color: 0x0b0b0e, roughness: 0.85, metalness: 0.15 }))
     const glow = track(new THREE.MeshStandardMaterial({ color: 0x120c04, emissive: ORANGE, emissiveIntensity: 0.5, roughness: 0.5 }))
     emissives.push(glow)
-    const mono = track(new THREE.CylinderGeometry(0.85, 1.5, 12.5, 6))
+    const mono = track(new THREE.CylinderGeometry(1.2, 2.1, 18, 6))
     for (const s of [-1, 1]) {
       const p = new THREE.Mesh(mono, black)
-      p.position.set(5.5 * S, 6.2, s * 6.4)
+      p.position.set(5.5 * S, 9, s * 9.4)
       p.rotation.y = s * 0.3
       p.castShadow = true
       group.add(p)
     }
     // o fio de brasa da soleira: uma linha no chão, atravessando a boca
-    const sill = new THREE.Mesh(track(new THREE.BoxGeometry(0.42, 0.14, 12.4)), track(new THREE.MeshStandardMaterial({ color: 0x120c04, emissive: ORANGE, emissiveIntensity: 0.4, roughness: 0.6 })))
+    const sill = new THREE.Mesh(track(new THREE.BoxGeometry(0.5, 0.16, 18.5)), track(new THREE.MeshStandardMaterial({ color: 0x120c04, emissive: ORANGE, emissiveIntensity: 0.4, roughness: 0.6 })))
     sill.position.set(5.5 * S, 0.1, 0)
     group.add(sill)
     // as lanternas da garganta: brasa nas paredes, sem custo de luz
@@ -174,7 +178,7 @@ export async function buildLeonidasCave(opts: {
     for (let i = 0; i < 6; i++) {
       const side = i % 2 === 0 ? -1 : 1
       const lamp = new THREE.Mesh(lampGeo, glow)
-      lamp.position.set((2.5 - i * 2.6) * S, 5.6 - (i % 3) * 0.35, side * 6.0)
+      lamp.position.set((2.5 - i * 2.6) * S, 7.5 - (i % 3) * 0.5, side * 8.6)
       group.add(lamp)
     }
   }
@@ -185,15 +189,15 @@ export async function buildLeonidasCave(opts: {
     if (brazier) {
       dressSf(brazier, { envMapIntensity: 0.3, roughness: 0.8 })
       const b = new THREE.Box3().setFromObject(brazier)
-      const k = 2.6 / Math.max(0.001, b.getSize(new THREE.Vector3()).y) // 2,6 m de altura
+      const k = 3.6 / Math.max(0.001, b.getSize(new THREE.Vector3()).y) // 3,6 m de altura
       for (const s of [-1, 1]) {
         const g = brazier.clone(true)
         g.scale.setScalar(k)
-        g.position.set(9.5 * S, -b.min.y * k, s * 9.2)
+        g.position.set(9.5 * S, -b.min.y * k, s * 13)
         g.rotation.y = s * 0.4
         group.add(g)
         const fire = new THREE.Mesh(track(new THREE.SphereGeometry(0.55, 10, 8)), track(new THREE.MeshBasicMaterial({ color: 0xffa23a })))
-        fire.position.set(9.5 * S, (b.max.y - b.min.y) * k * 0.98, s * 9.2)
+        fire.position.set(9.5 * S, (b.max.y - b.min.y) * k * 0.98, s * 13)
         group.add(fire)
       }
     }
@@ -208,9 +212,9 @@ export async function buildLeonidasCave(opts: {
     group.add(l)
     lights.push(l)
   }
-  addLight(-16 * S, 9, 0, 120, 95)   // dentro, lavando o salão
-  addLight(-2 * S, 7, 0, 55, 60)     // a garganta
-  addLight(9 * S, 5, 0, 30, 48)      // o derrame na soleira, o que se vê de longe
+  addLight(-16 * S, 13, 0, 320, 190)   // dentro, lavando o salão
+  addLight(-2 * S, 10, 0, 140, 120)     // a garganta
+  addLight(9 * S, 7, 0, 70, 95)      // o derrame na soleira, o que se vê de longe
 
   group.position.set(CAVE_LOCAL.x, opts.groundLocal(CAVE_LOCAL.x, CAVE_LOCAL.z), CAVE_LOCAL.z)
   group.rotation.y = CAVE_YAW
@@ -234,7 +238,7 @@ export async function buildLeonidasCave(opts: {
         const a = CAVE_YAW * -1 + (j / SECT - 0.5) * 2 * HALF
         const px = cx + Math.cos(a) * r, pz = cz + Math.sin(a) * r
         const terr = opts.groundLocal(px, pz)
-        const ledge = floorY - 0.1 - Math.max(0, r - 17) * 0.2 + Math.sin(a * 3 + r * 0.2) * 0.35 * smooth(8, 24, r)
+        const ledge = floorY - 0.1 - Math.max(0, r - 24) * 0.2 + Math.sin(a * 3 + r * 0.2) * 0.35 * smooth(8, 24, r)
         const y = THREE.MathUtils.lerp(Math.max(ledge, terr), terr, smooth(R - 12, R, r))
         pos.push(px, y, pz)
       }
@@ -262,7 +266,7 @@ export async function buildLeonidasCave(opts: {
   // ── o caminho secreto: lajes do pódio até a boca, rareando no fim ────────
   const path = (() => {
     const A = new THREE.Vector2(opts.pathFrom.x, opts.pathFrom.z)
-    const B = new THREE.Vector2(CAVE_LOCAL.x + 20 * Math.cos(CAVE_YAW), CAVE_LOCAL.z - 20 * Math.sin(CAVE_YAW))
+    const B = new THREE.Vector2(CAVE_LOCAL.x + 28 * Math.cos(CAVE_YAW), CAVE_LOCAL.z - 28 * Math.sin(CAVE_YAW))
     const mid = A.clone().lerp(B, 0.5)
     const perp = new THREE.Vector2(-(B.y - A.y), B.x - A.x).normalize()
     // a curva desvia 150 m para o norte: o caminho contorna o esporão, não sobe reto
@@ -329,9 +333,9 @@ export async function buildLeonidasCave(opts: {
     update(t) {
       // brasa: a luz respira, o material não (o material é o que lê de longe)
       const f = 0.9 + 0.1 * Math.sin(t * 1.7) + 0.05 * Math.sin(t * 4.3)
-      lights[0].intensity = 90 * f
-      lights[1].intensity = 45 * (0.92 + 0.08 * Math.sin(t * 2.6 + 1))
-      lights[2].intensity = 26 * (0.9 + 0.1 * Math.sin(t * 3.1 + 2))
+      lights[0].intensity = 320 * f
+      lights[1].intensity = 140 * (0.92 + 0.08 * Math.sin(t * 2.6 + 1))
+      lights[2].intensity = 70 * (0.9 + 0.1 * Math.sin(t * 3.1 + 2))
       for (const m of emissives) (m as THREE.MeshStandardMaterial).emissiveIntensity = 1.35 * (0.94 + 0.06 * Math.sin(t * 2.2))
     },
     dispose() { for (const d of disposables) d.dispose() },
