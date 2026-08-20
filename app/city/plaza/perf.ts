@@ -144,6 +144,14 @@ export class DistanceCuller {
   add(o: THREE.Object3D, maxDist: number, center?: THREE.Vector3) {
     this.items.push({ o, center: center ?? new THREE.Vector3(), maxDist })
   }
+  /** Liga TUDO por um instante. O `compileAsync` do three só compila o que está
+   *  visível, e a visita guiada voa justamente por peças que o culling esconde
+   *  (parque, caverna, spaceport): sem isto, cada parada compilava shader em
+   *  pleno voo e a câmera engasgava. Usar só no boot, antes do portão abrir, e
+   *  chamar `update()` logo depois. */
+  revealAll() {
+    for (const it of this.items) it.o.visible = true
+  }
   update(cam: THREE.Vector3) {
     for (const it of this.items) {
       const on = cam.distanceTo(it.center) < it.maxDist

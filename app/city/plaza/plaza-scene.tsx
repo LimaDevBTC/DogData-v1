@@ -78,9 +78,9 @@ export const TOUR: ReadonlyArray<{ key: string; text: string }> = [
   { key: 'deck', text: 'The Needle at the centre. Every address in the city is measured from this tower.' },
   { key: 'founders', text: "The Founders' Circle at the tower foot: one plaque for every wallet that funded the city." },
   { key: 'paw', text: 'The Diamond Paw: $DOG written into the ground, thirty metres across.' },
-  { key: 'leonidas', text: 'Leonidas, founder of DOG, in bronze and black — with the bitcoin mark on his chest.' },
+  { key: 'leonidas', text: 'Leonidas, founder of DOG: a yellow skull under a black hood, with the bitcoin mark on his chest.' },
   { key: 'dsc', text: 'Beside Kray Tower, the Dog Social Club: the whole collection, in the order the chain wrote it.' },
-  { key: 'pad', text: 'The spaceport. Every DOG transaction our node sees flies overhead and lands here on its block.' },
+  { key: 'padtour', text: 'The spaceport: the strongback, the tank farm, the dishes. When a block lands, the ships come down on this apron.' },
   { key: 'park', text: 'Runestone Park, five kilometres north-east: the ordinal range, in black crystal.' },
   { key: 'temple', text: 'And, hidden among the monarch stones, a temple nobody was meant to find.' },
   { key: 'home', text: 'The city is yours to walk. Double-tap anything to get close.' },
@@ -159,6 +159,26 @@ function viewFor(name: string | null, aspect: number): View {
       return { pos: new THREE.Vector3(PAD_MAIN.x + 40, PAD_MAIN.y + 40, PAD_MAIN.z - 150), target: new THREE.Vector3(PAD_MAIN.x - 20, PAD_MAIN.y + 24, PAD_MAIN.z + 20) }
     case 'pad':
       return { pos: new THREE.Vector3(PAD_MAIN.x + 150, 90, PAD_MAIN.z + 190), target: new THREE.Vector3(PAD_MAIN.x - 60, 40, PAD_MAIN.z + 60) }
+    case 'padtour': {
+      // A parada do tour NÃO pode depender de haver nave pousada: em noite quieta
+      // o pátio está vazio e a câmera ficava olhando para o nada (fundador,
+      // 2026-08-19). Esta vista mira o que está sempre lá — o pórtico de
+      // lançamento a (PAD_MAIN.x+120, PAD_MAIN.z−40) — com as antenas à direita.
+      // De perto e de BAIXO: a 300 m e 96 m de altura, metade do quadro era
+      // regolito vazio e o pórtico virava um risco. Aqui a câmera fica na altura
+      // de um prédio pequeno e olha PARA CIMA, então a torre ocupa o quadro e o
+      // chão vazio some.
+      // Entre as DUAS torres: o pórtico escuro com o foguete (spaceport.glb) e o
+      // strongback branco (props). Câmera baixa e olhando para cima, senão o
+      // quadro é metade regolito e as torres viram riscos.
+      // De TRÁS do pátio, olhando para a praça: as duas torres (o pórtico com o
+      // foguete e o strongback branco) ficam no meio do quadro e a silhueta da
+      // cidade fecha o fundo a 3 km. Assim a parada tem o que mostrar mesmo na
+      // noite mais quieta, sem nave nenhuma pousada.
+      // e olhando um pouco PARA CIMA (alvo acima da câmera): mirando para baixo,
+      // 55% do quadro era chão vazio.
+      return { pos: new THREE.Vector3(PAD_MAIN.x + 40, 58, PAD_MAIN.z + 215), target: new THREE.Vector3(PAD_MAIN.x + 10, 92, PAD_MAIN.z - 60) }
+    }
     case 'far':
       return { pos: new THREE.Vector3(-2600, 2800, 4200), target: new THREE.Vector3(1800, 0, -1900) }
     case 'park':
@@ -232,7 +252,7 @@ export default function PlazaScene() {
   // cidade e procurar. O mesmo número do /api/donate/leaderboard que a landing
   // mostra aparece aqui, e o botão leva direto à seção de construção.
   const [fund, setFund] = useState<{ raised: number; goal: number; pct: number; donors: number } | null>(null)
-  const [tour, setTour] = useState<{ i: number; text: string } | null>(null)
+  const [tour, setTour] = useState<{ i: number; text: string; n: number } | null>(null)
   useEffect(() => {
     let alive = true
     fetch('/api/donate/leaderboard')
@@ -696,7 +716,12 @@ export default function PlazaScene() {
         // usuário não pega mais uma praça que não responde ao dedo
         await Promise.all([pMonuments, pProps, pFounders, pPark, pDsc])
         if (disposed) return
+        // tudo VISÍVEL para compilar: o compile do three ignora o que está
+        // invisível, e a visita guiada passa exatamente pelo que o culling
+        // esconde. Compilar com tudo ligado tira o engasgo de cada parada.
+        culler.revealAll()
         try { await renderer.compileAsync(scene, camera) } catch { /* sem compile paralelo */ }
+        culler.update(camera.position)
         stepDone('shaders')
       } catch (err) {
         console.error('[plaza]', err)
@@ -824,25 +849,36 @@ export default function PlazaScene() {
     // encerra — ninguém fica preso num filme.
     let tourTimer: ReturnType<typeof setTimeout> | null = null
     let tourStep = -1
+    let tourRunning = false
+    let shadowDirty = false
     const stopTour = () => {
       if (tourTimer) clearTimeout(tourTimer)
       tourTimer = null
       tourStep = -1
+      tourRunning = false
+      shadowDirty = true // o mapa de sombra ficou congelado durante os voos
       setTour(null)
       controls.enabled = true
       controls.autoRotate = false
     }
+    // no celular a visita não sai da praça: as duas paradas a 5 km (parque e
+    // caverna) dobram o que está desenhado e é onde o aparelho engasga
+    const route = profile.tier === 'mobile' ? TOUR.filter((st) => st.key !== 'park' && !st.key.startsWith('temple')) : TOUR
     const nextTourStep = () => {
       tourStep += 1
-      if (tourStep >= TOUR.length) { stopTour(); return }
-      const st = TOUR[tourStep]
-      flyTo(viewFor(st.key, camera.aspect), TOUR_FLY_S)
-      setTour({ i: tourStep, text: st.text })
-      tourTimer = setTimeout(nextTourStep, TOUR_HOLD_MS)
+      if (tourStep >= route.length) { stopTour(); return }
+      const st = route[tourStep]
+      // as paradas longe (parque, caverna) ganham voo mais longo: a mesma
+      // distância no mesmo tempo é o que fazia a câmera parecer arrancada
+      const far = st.key === 'park' || st.key.startsWith('temple')
+      flyTo(viewFor(st.key, camera.aspect), far ? TOUR_FLY_S * 1.6 : TOUR_FLY_S)
+      setTour({ i: tourStep, text: st.text, n: route.length })
+      tourTimer = setTimeout(nextTourStep, far ? TOUR_HOLD_MS + 2200 : TOUR_HOLD_MS)
     }
     const startTour = () => {
       if (tourTimer) clearTimeout(tourTimer)
       tourStep = -1
+      tourRunning = true
       controls.enabled = false
       nextTourStep()
     }
@@ -936,7 +972,7 @@ export default function PlazaScene() {
         const k = u * u * (3 - 2 * u)
         camera.position.lerpVectors(fly.p0, fly.p1, k)
         controls.target.lerpVectors(fly.t0v, fly.t1, k)
-        if (u >= 1) fly.on = false
+        if (u >= 1) { fly.on = false; shadowDirty = true }
       }
       controls.update()
       // o chão: a câmera nunca entra no regolito nem no deck (1,7 m = olhos de pé)
@@ -946,7 +982,9 @@ export default function PlazaScene() {
         const ty = groundAt(controls.target.x, controls.target.z) + 0.3
         if (controls.target.y < ty) controls.target.y = ty
       }
-      followShadow()
+      // em voo da visita guiada a sombra está congelada: refazer o enquadramento
+      // do mapa a cada quadro seria trabalho jogado fora
+      if (!(fly.on && tourRunning)) followShadow()
       orbit.update(t, dt, fees)
       for (const p of pulses) p.m.emissiveIntensity = p.base * (0.8 + 0.25 * Math.sin(t * p.rate + p.phase))
       for (const s of sways) { s.o.rotation.y = Math.sin(t * 0.22) * 0.95; s.o.position.y = s.y0 + Math.sin(t * 0.8) * s.amp }
@@ -960,9 +998,14 @@ export default function PlazaScene() {
       for (const sp of spinners) sp.rotation.y = t * 0.12
       earth.rotation.y = t * 0.004
       const cl = earth.getObjectByName('Clouds'); if (cl) cl.rotation.y = t * 0.0025
-      // o governador decide se o mapa de sombra atualiza a cada quadro ou a cada dois
+      // o governador decide se o mapa de sombra atualiza a cada quadro ou a cada
+      // dois. EM VOO da visita guiada ele congela: refazer a sombra do sol a cada
+      // quadro enquanto a câmera atravessa 5 km era metade do engasgo que o
+      // fundador viu. Ao pousar, uma atualização só.
       renderer.shadowMap.autoUpdate = false
-      if (statsTick % governor.shadowEvery === 0) renderer.shadowMap.needsUpdate = true
+      if (fly.on && tourRunning) renderer.shadowMap.needsUpdate = false
+      else if (shadowDirty) { renderer.shadowMap.needsUpdate = true; shadowDirty = false }
+      else if (statsTick % governor.shadowEvery === 0) renderer.shadowMap.needsUpdate = true
       renderer.render(scene, camera)
       statsTick++
       if (wantStats && (statsTick & 15) === 0) {
@@ -1214,7 +1257,7 @@ export default function PlazaScene() {
           <div className="pointer-events-auto border border-white/10 bg-black/85 px-4 py-3">
             <div className="flex items-baseline justify-between gap-4">
               <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-[#F7931A]">
-                The city, in {TOUR.length} stops · {tour.i + 1}/{TOUR.length}
+                The city, in {tour.n} stops · {tour.i + 1}/{tour.n}
               </p>
               <button
                 type="button"
@@ -1228,7 +1271,7 @@ export default function PlazaScene() {
             <div className="mt-2 h-px w-full bg-white/10">
               <div
                 className="h-full bg-[#F7931A]/70 transition-[width] duration-500"
-                style={{ width: `${Math.round(((tour.i + 1) / TOUR.length) * 100)}%` }}
+                style={{ width: `${Math.round(((tour.i + 1) / tour.n) * 100)}%` }}
               />
             </div>
           </div>
