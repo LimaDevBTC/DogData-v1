@@ -49,9 +49,19 @@ function textTexture(spec: TextSpec): THREE.CanvasTexture {
   ctx.fillRect(0, 0, W, H)
   for (const l of spec.lines) {
     ctx.fillStyle = l.color ?? '#e9e4d8'
-    ctx.font = `${l.font ?? '500'} ${l.size}px "JetBrains Mono", "DM Mono", ui-monospace, monospace`
+    const setFont = (px: number) => {
+      ctx.font = `${l.font ?? '500'} ${px}px "JetBrains Mono", "DM Mono", ui-monospace, monospace`
+    }
+    setFont(l.size)
     ctx.textAlign = l.align ?? 'center'
     ctx.textBaseline = 'middle'
+    // ⚠️ O TEXTO ENCOLHE ANTES DE SER CORTADO, e isto é a auditoria de placas do
+    // item 5 virada regra. Uma linha que não cabe não some pela borda: a fonte
+    // desce até caber em 92% da largura. O piso de 60% existe para não trocar um
+    // defeito visível por um ilegível.
+    const room = W * 0.92
+    const raw = ctx.measureText(l.text).width + (l.letterSpacing ? l.letterSpacing * (l.text.length - 1) : 0)
+    if (raw > room) setFont(Math.max(l.size * 0.6, l.size * (room / raw)))
     const x = l.x ?? (l.align === 'left' ? W * 0.06 : W / 2)
     if (l.letterSpacing) {
       // espaçamento manual (letterSpacing do canvas ainda não é universal)
@@ -474,8 +484,11 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
     // a inscrição no plinto, do lado do deck
     const insc = new THREE.Mesh(track(new THREE.PlaneGeometry(7, 1.2)), track(new THREE.MeshBasicMaterial({
       map: track(textTexture({ w: 1024, h: 176, bg: '#121317', lines: [
-        { text: 'LEONIDAS', size: 66, font: '700', color: '#e8b62b', y: 64, letterSpacing: 14 },
-        { text: 'founder of DOG • GO • TO • THE • MOON', size: 30, color: '#c9bfae', y: 130 },
+        // O nome e o título que o fundador escreveu, 2026-08-21. Era "founder of
+        // DOG", que dizia menos do que a pessoa fez: a Runestone veio antes.
+        { text: 'LEONIDAS', size: 66, font: '700', color: '#e8b62b', y: 58, letterSpacing: 14 },
+        { text: 'creator of Runestone', size: 30, color: '#c9bfae', y: 112 },
+        { text: 'and $DOG • GO • TO • THE • MOON', size: 30, color: '#c9bfae', y: 150 },
       ] })), toneMapped: false,
     })))
     // o plinto afunila (0,7R embaixo, 0,62R em cima): a placa acompanha o
