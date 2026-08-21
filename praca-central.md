@@ -185,8 +185,11 @@ Depois de ver os quatro protótipos: **"Chalé com certeza"**, e um brief maior:
 
 - **D2 (nova redação):** o prédio do OrdCards é o **Chalé**: duas cartas colossais
   em "A", e as cartas são a carta oficial do OrdCards da inscrição da logo
-  (72d5cde4…i0, N° 127.106.002), frente com forças/DNA para a praça, verso com QR/DNA
-  para o spaceport. Elevar a "6 estrelas, uma verdadeira maravilha arquitetônica
+  (72d5cde4…i0, N° 127.106.002). **As duas águas são a FRENTE da carta** desde
+  2026-08-21: era frente para a praça e verso com QR para o spaceport, mas a maior
+  parte das aproximações caía no lado do verso e o prédio se apresentava pela cara
+  que não diz o que ele é ("a maioria das pessoas está vendo só as costas da
+  carta"). Elevar a "6 estrelas, uma verdadeira maravilha arquitetônica
   criada sobre a ideia do chalé com aquela carta em específico": vidro, piso, luz
   perfeita, no nível dos outros três.
 - **D7, o precinto:** a praça é um **círculo central**; em volta, **outro círculo com

@@ -2,10 +2,21 @@
 //
 // Duas cartas colossais encostadas em "A", e as cartas são a carta OFICIAL do
 // OrdCards da inscrição da logo (72d5cde4…i0, N° 127.106.002), fotografadas do
-// componente real: a frente (forças, elemento, habilidade, DNA) olha para a praça
-// pela escadaria monumental; o verso (QR "verify on-chain", DNA) olha para o
-// spaceport. As cartas repousam sobre um pódio de vidro habitado, os lados do "A"
-// ficam abertos com mezaninos por dentro, as arestas das cartas são de luz, e um
+// componente real.
+//
+// ⚠️ AS DUAS ÁGUAS SÃO A FRENTE DA CARTA (fundador, 2026-08-21: "a maioria das
+// pessoas está vendo só as costas da carta, façamos o chalé com duas faces
+// frontais, não teremos as costas visíveis").
+//
+// A versão anterior era honesta com o objeto e ruim para quem chegava: frente
+// para a praça, verso com o QR para o spaceport. Só que a praça tem quatro
+// bulevares e o spaceport fica no eixo sul, então a maior parte das
+// aproximações caía no lado do verso, e o prédio se apresentava pela cara que
+// não diz o que ele é. Uma carta tem um lado que fala; um chalé feito de cartas
+// deve falar dos dois lados.
+//
+// As cartas repousam sobre um pódio de vidro habitado, os lados do "A" ficam
+// abertos com mezaninos por dentro, as arestas das cartas são de luz, e um
 // passeio liga a porta ao fim do bulevar sul.
 import * as THREE from 'three'
 
@@ -21,7 +32,7 @@ export interface Chalet {
   dispose: () => void
 }
 
-export function buildChalet(front: THREE.Texture, back: THREE.Texture): Chalet {
+export function buildChalet(front: THREE.Texture): Chalet {
   const group = new THREE.Group()
   group.name = 'OrdCardsChalet'
   const disposables: { dispose: () => void }[] = []
@@ -132,7 +143,9 @@ export function buildChalet(front: THREE.Texture, back: THREE.Texture): Chalet {
     g.rotation.set(-lean, sign > 0 ? 0 : Math.PI, 0, 'YXZ')
     return g
   }
-  group.add(mk(front, -1), mk(back, 1))
+  // a MESMA face nas duas águas: quem sobe pela escadaria e quem vem do
+  // spaceport veem a carta, não o verso dela
+  group.add(mk(front, -1), mk(front, 1))
   // ── a estrutura por dentro do "A": caibros de aço a cada 12 m, nas duas águas ──
   const rafterMat = track(new THREE.MeshStandardMaterial({ color: 0x2b2c33, metalness: 0.8, roughness: 0.35 }))
   const rafterLen = H - 6

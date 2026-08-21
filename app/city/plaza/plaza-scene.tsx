@@ -92,6 +92,8 @@ function viewFor(name: string | null, aspect: number): View {
   switch (name) {
     case 'castle': case 'south': case 'chalet':
       return { pos: new THREE.Vector3(-560, 300, 1260), target: new THREE.Vector3(0, 110, 620) }
+    case 'chaletback': // conferência: a água que olha para o spaceport
+      return { pos: new THREE.Vector3(420, 300, 1560), target: new THREE.Vector3(0, 150, 660) }
     case 'north':
       return { pos: new THREE.Vector3(160, 120, -140), target: new THREE.Vector3(0, 10, -520) }
     case 'founders': // de pé no deck, diante do muro: o lado NORTE é onde estão
@@ -647,15 +649,18 @@ export default function PlazaScene() {
           culler.add(r, 6000, new THREE.Vector3(x, 0, z))
         })
 
-        // The OrdCards Chalet at the south anchor (D2, nova redação), the front of
-        // the official logo card up the monumental stair, the QR to the spaceport.
+        // The OrdCards Chalet at the south anchor (D2, nova redação): both slopes
+        // of the "A" carry the FRONT of the official logo card, since 2026-08-21.
+        // The back, with its QR, is no longer on the building: most approaches
+        // landed on that side and the piece introduced itself with the face that
+        // says nothing about what it is.
         stepDone('towers')
         const texLoader = new THREE.TextureLoader()
         const loadTex = (url: string) =>
           new Promise<THREE.Texture>((res, rej) => texLoader.load(url, (t) => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; res(t) }, undefined, rej))
-        const [lf, lb] = await Promise.all([loadTex('/city/cards/logo-front.png'), loadTex('/city/cards/logo-back.png')])
+        const lf = await loadTex('/city/cards/logo-front.png')
         if (disposed) return
-        chalet = buildChalet(lf, lb)
+        chalet = buildChalet(lf)
         chalet.group.position.copy(ANCHORS.south.pos)
         chalet.group.rotation.y = ANCHORS.south.rotY
         scene.add(chalet.group)
