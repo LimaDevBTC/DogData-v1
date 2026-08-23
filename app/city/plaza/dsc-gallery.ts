@@ -13,6 +13,7 @@
 // instanciados: duas chamadas de desenho para a coleção inteira.
 import * as THREE from 'three'
 import type { PerfProfile, DistanceCuller } from './perf'
+import { makeGroundPool, type PoolDisc } from './light-pool'
 
 export interface DscGallery {
   group: THREE.Group
@@ -56,6 +57,7 @@ export async function buildDscGallery(opts: {
 
   const positions: number[] = [], uvs: number[] = [], indices: number[] = [], normals: number[] = []
   const wallM: THREE.Matrix4[] = []
+  const pools: PoolDisc[] = []
   const o = new THREE.Object3D()
   const a0 = -((COLS - 1) / 2) * step
   for (let k = 0; k < meta.count; k++) {
@@ -85,6 +87,9 @@ export async function buildDscGallery(opts: {
       o.scale.setScalar(1)
       o.updateMatrix()
       wallM.push(o.matrix.clone())
+      // uma poça a cada quatro colunas, no piso diante do muro: é ela que faz a
+      // curva inteira parecer lavada de luz, e não só o trecho que a luz alcança
+      if (col % 4 === 0) pools.push({ at: [cx + nx * 1.1, 0.42, cz + nz * 1.1], r: (TILE + GAP) * 2 })
     }
   }
   const geo = track(new THREE.BufferGeometry())
@@ -92,9 +97,13 @@ export async function buildDscGallery(opts: {
   geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3))
   geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
   geo.setIndex(indices)
+  // ⚠️ A EMISSÃO DOS QUADROS SUBIU UM TERÇO porque uma das duas luzes que
+  // lavavam o muro saiu. Ela é o que segura as pontas do arco, onde a luz que
+  // ficou (no eixo) já não chega: quem devolver 0,45 aqui apaga as bordas da
+  // coleção no `?hour=earthlight`.
   const tileMat = track(new THREE.MeshStandardMaterial({
     map: tex, roughness: 0.55, metalness: 0.1, envMapIntensity: 0.8,
-    emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.45, side: THREE.DoubleSide,
+    emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.45 * (4 / 3), side: THREE.DoubleSide,
   }))
   const tiles = new THREE.Mesh(geo, tileMat)
   tiles.name = 'DSC_Tiles'
@@ -166,18 +175,35 @@ export async function buildDscGallery(opts: {
   // FACE aponta o +z local para o centro da praça; os quadros olham para −z
   // local, então o muro leva mais π para mostrar a coleção a quem chega
   group.rotation.y = FACE + Math.PI
+  // ── luz: UMA, no eixo do arco ─────────────────────────────────────────────
+  //
+  // Eram duas, a ±22 m do eixo. Ficou a do meio, com a mesma intensidade que
+  // elas tinham.
+  //
+  // ⚠️ ESTA É UMA DAS POUCAS PointLight QUE SOBRARAM NA PRAÇA, e o motivo é que
+  // aqui existe uma PAREDE: 58 m de arco em pedra 0x141419, com relevo de coluna
+  // a coluna e um escudo saliente no eixo. Luz de verdade é o que faz a curva
+  // curvar; sem ela o muro vira um decalque plano de 306 selos, e a coleção
+  // deixa de parecer construída. Nas pontas, onde ela não chega, quem trabalha
+  // são a emissão dos quadros e as poças no piso.
   const lights: THREE.PointLight[] = []
-  for (const s of [-1, 1]) {
+  {
     const l = new THREE.PointLight(WARM, 12, 90, 1.6)
-    l.position.set(s * 22, H * 0.7, -14)
+    l.position.set(0, H * 0.7, -14)
     group.add(l)
     lights.push(l)
   }
+  const pool = track(makeGroundPool(pools, { name: 'DscPools' }))
+  group.add(pool.object)
+  const poolBase = pool.material.opacity
   opts.culler?.add(group, (opts.profile?.smallCull ?? 2600) * 1.6, DSC_CENTER)
 
   return {
     group,
-    update(t) { for (const l of lights) l.intensity = 12 * (0.92 + 0.08 * Math.sin(t * 0.9 + l.position.x)) },
+    update(t) {
+      for (const l of lights) l.intensity = 12 * (0.92 + 0.08 * Math.sin(t * 0.9 + l.position.x))
+      pool.material.opacity = poolBase * (0.92 + 0.08 * Math.sin(t * 0.9))
+    },
     dispose() { for (const d of disposables) d.dispose() },
   }
 }

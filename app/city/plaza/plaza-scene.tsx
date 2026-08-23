@@ -18,7 +18,6 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { loadTerrain } from './terrain'
 import { createOrbitLayer, PAD_MAIN } from './orbit-layer'
 import { startFeed, type DogTx, type Snapshot } from './feed'
@@ -26,6 +25,7 @@ import { buildChalet, type Chalet } from './chalet'
 import { buildPrecinct, ANCHORS, type Precinct } from './precinct'
 import { loadPark, PARK_CENTER, type Park } from './park'
 import { buildMonuments, type Monuments } from './monuments'
+import { buildLunarEnvironment, LUNAR_ENV_INTENSITY } from './lunar-env'
 import { onDiagonal, DECK_Y, GENESIS_POS, SATOSHI_POOL, PAW_PALM, ORDINAL_CENTER, LEONIDAS_POS, BUST_POS } from './garden-plan'
 import { TEMPLE_WORLD } from './park-site'
 import { CAVE_YAW, CAVE_LAYER } from './leonidas-cave'
@@ -440,14 +440,14 @@ export default function PlazaScene() {
     const HOURS: Record<string, Hour> = {
       // O PADRÃO: sol alto o bastante para acender a esplanada (sen 44° = 0,69,
       // uma vez e meia o que a cena tinha) e ainda dar sombra com direção.
-      day: { el: 44, sun: 3.6, sunColor: 0xfff6e8, hemi: 0.32, earth: 0.15, exposure: 1.06 },
+      day: { el: 44, sun: 5.4, sunColor: 0xfff6e8, hemi: 0.34, earth: 0.15, exposure: 1.06 },
       // A dramática: sombra longa atravessando a praça e torres em contraluz. O
       // chão fica mais escuro, e isso aqui é escolha, não defeito.
-      morning: { el: 16, sun: 3.3, sunColor: 0xfff0d2, hemi: 0.26, earth: 0.18, exposure: 1.12 },
+      morning: { el: 16, sun: 5.0, sunColor: 0xfff0d2, hemi: 0.28, earth: 0.18, exposure: 1.12 },
       // A noite assumida: sem sol, a Terra manda. Ela é grande (2 graus) e fica
       // parada no céu, então a sombra dela é macia e a luz é azul. O que acende a
       // cidade é a luz artificial dela mesma.
-      earthlight: { el: -8, sun: 0.0, sunColor: 0xfff1dc, hemi: 0.5, earth: 0.75, exposure: 1.16 },
+      earthlight: { el: -8, sun: 0.0, sunColor: 0xfff1dc, hemi: 0.62, earth: 1.05, exposure: 1.16 },
     }
     const hourKey = new URLSearchParams(window.location.search).get('hour') ?? 'day'
     const H = HOURS[hourKey] ?? HOURS.day
@@ -508,13 +508,26 @@ export default function PlazaScene() {
     scene.add(earthshine)
 
     // dark studio reflections for the glass towers, per-material tamed below
-    const pmrem = new THREE.PMREMGenerator(renderer)
-    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+    // ⚠️ O AMBIENTE ERA UM ESTÚDIO FOTOGRÁFICO, e numa lua sem atmosfera isso é
+    // errado por dentro e caro por fora. `RoomEnvironment` é uma caixa branca com
+    // luminárias: todo metal da cena refletia um estúdio (foi o que fez o selo de
+    // latão do Marco sair branco), e o projeto compensava forçando 0,32 de
+    // envMapIntensity em cada material carregado, o que apagava junto o quique do
+    // regolito, que é a única coisa que a Lua tem de verdade.
+    //
+    // `lunar-env.ts` monta o que existe: preto acima do horizonte, regolito
+    // abaixo, e o disco da Terra no lugar dele. Medido na construção: mediana de
+    // 23 ms para 10 ms, e o pior caso de 164 ms para 15 ms, porque o `fromScene`
+    // desenha uma cena seis vezes e obriga o driver a compilar o shader de
+    // MeshStandardMaterial antes de qualquer coisa da praça existir.
+    //
+    // A chamada mora AQUI, depois da Terra, para o ambiente e o disco olharem na
+    // mesma direção: se um dia o sítio mudar de latitude, os dois mudam juntos.
     const tameEnv = (root: THREE.Object3D) => {
       root.traverse((o) => {
         const m = (o as THREE.Mesh).material
         const list = Array.isArray(m) ? m : m ? [m] : []
-        for (const mat of list) if ('envMapIntensity' in mat) (mat as THREE.MeshStandardMaterial).envMapIntensity = 0.32
+        for (const mat of list) if ('envMapIntensity' in mat) (mat as THREE.MeshStandardMaterial).envMapIntensity = LUNAR_ENV_INTENSITY
       })
     }
 
@@ -560,6 +573,9 @@ export default function PlazaScene() {
     earth.position.copy(EARTH_DIR).multiplyScalar(EARTH_DIST)
     scene.add(earth)
     earthshine.position.copy(EARTH_DIR).multiplyScalar(6000)
+
+    const lunarEnv = buildLunarEnvironment(renderer, { earthDir: EARTH_DIR, sunDir: SUN_DIR })
+    scene.environment = lunarEnv
 
     // ── layers ──────────────────────────────────────────────────────────────
     const orbit = createOrbitLayer()
@@ -1378,7 +1394,7 @@ export default function PlazaScene() {
       dsc?.dispose()
       founders?.dispose()
       draco.dispose()
-      pmrem.dispose()
+      lunarEnv.dispose()
       scene.traverse((o) => {
         const m = o as THREE.Mesh
         if (m.isMesh) {

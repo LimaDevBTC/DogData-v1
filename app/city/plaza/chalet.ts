@@ -19,6 +19,7 @@
 // abertos com mezaninos por dentro, as arestas das cartas são de luz, e um
 // passeio liga a porta ao fim do bulevar sul.
 import * as THREE from 'three'
+import { makeGlowTexture, makeGroundPool, makeHalo, POOL_SPREAD, type PoolDisc } from './light-pool'
 
 const CARD_RATIO = 88 / 63
 const WARM = new THREE.Color('#FFB35C')
@@ -37,6 +38,12 @@ export function buildChalet(front: THREE.Texture): Chalet {
   group.name = 'OrdCardsChalet'
   const disposables: { dispose: () => void }[] = []
   const track = <T extends { dispose: () => void }>(o: T): T => { disposables.push(o); return o }
+  const glowTex = track(makeGlowTexture())
+  const pools: PoolDisc[] = []
+  /** ⚠️ A POÇA LARGA VALE METADE DA LUMINÁRIA (0,3 nas poças dos postes do
+   *  precinct → 0,15 aqui), pelo mesmo motivo dos monumentos: ela cobre dezenas
+   *  de metros e no brilho cheio vira mancha branca em cima do piso desenhado. */
+  const WASH_GAIN = 0.15
 
   const W = 172, H = W * CARD_RATIO // 240 m de carta
   const lean = 0.5 // 28,6° da vertical
@@ -83,7 +90,10 @@ export function buildChalet(front: THREE.Texture): Chalet {
   const floorMat = track(new THREE.MeshStandardMaterial({ color: 0x141418, roughness: 0.55, metalness: 0.25 }))
   const stripMat = track(new THREE.MeshBasicMaterial({ color: WARM, toneMapped: false }))
   const railMat = track(new THREE.MeshPhysicalMaterial({ color: 0x9fb4c8, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.22, envMapIntensity: 1.4, side: THREE.DoubleSide, depthWrite: false }))
-  const floorAt = (y: number, w: number, d: number, lit = true) => {
+  // `glow` é a opacidade do brilho pintado por baixo da laje. O pódio pede o
+  // dobro do resto porque foi ELE que perdeu a luz própria (ver o bloco de luz
+  // mais abaixo); os mezaninos do "A" continuam com a luz de verdade em cima.
+  const floorAt = (y: number, w: number, d: number, lit = true, glow = 0.08) => {
     const f = new THREE.Mesh(track(new THREE.BoxGeometry(w, 1.2, d)), floorMat)
     f.position.y = y
     f.receiveShadow = true
@@ -100,14 +110,14 @@ export function buildChalet(front: THREE.Texture): Chalet {
         group.add(rail)
       }
       // uma luz suave sob a laje: o interior brilha quente
-      const l = new THREE.Mesh(track(new THREE.PlaneGeometry(w - 4, d - 4)), track(new THREE.MeshBasicMaterial({ color: WARM, toneMapped: false, transparent: true, opacity: 0.08, depthWrite: false })))
+      const l = new THREE.Mesh(track(new THREE.PlaneGeometry(w - 4, d - 4)), track(new THREE.MeshBasicMaterial({ color: WARM, toneMapped: false, transparent: true, opacity: glow, depthWrite: false })))
       l.rotation.x = -Math.PI / 2
       l.position.y = y + 0.7
       group.add(l)
     }
   }
-  floorAt(1.4 + 0.6, baseW - 2, baseD - 2)
-  floorAt(1.4 + BASE_H / 2, baseW - 4, baseD - 4)
+  floorAt(1.4 + 0.6, baseW - 2, baseD - 2, true, 0.16)
+  floorAt(1.4 + BASE_H / 2, baseW - 4, baseD - 4, true, 0.16)
   const cardBase = 1.4 + BASE_H // as cartas nascem no topo do pódio
   for (const k of [0.16, 0.34, 0.52]) {
     const y = cardBase + apex * k
@@ -183,9 +193,30 @@ export function buildChalet(front: THREE.Texture): Chalet {
     const nosing = new THREE.Mesh(track(new THREE.BoxGeometry(stairW - k * 14, 0.2, 0.5)), nosingMat)
     nosing.position.set(0, hgt + k * hgt + 0.1, zc - depth / 2 + 0.3)
     group.add(nosing)
+    // o nariz do degrau já acende; a poça é a marca dele no piso do patamar. O
+    // raio é a meia profundidade do degrau (a poça preenche o patamar de frente
+    // a fundo) e são três ao longo da largura, em terços, porque o degrau tem
+    // 100 m de boca e uma poça só no meio deixaria as pontas apagadas.
+    for (const sx of [-1, 0, 1]) pools.push({ at: [sx * (stairW - k * 14) / 3, hgt + k * hgt + 0.12, zc], r: depth / 2, gain: WASH_GAIN })
+    // e, no chão diante da escadaria, a poça de quem chega pelo passeio
+    if (k === 0) pools.push({ at: [0, 0.42, zc - depth], r: depth / 2, gain: WASH_GAIN })
   }
 
   // ── luz ──────────────────────────────────────────────────────────────────
+  //
+  // Eram quatro PointLight (e antes disso, oito). Ficou UMA.
+  //
+  // ⚠️ A QUE FICA É A DE DENTRO DO "A", e ela não é halo. O miolo do chalé é
+  // laje escura, caibro de aço e o VERSO das cartas (`innerMat`, sem nenhuma
+  // emissão): sem fonte lá dentro o prédio vira uma casca oca atrás de arestas
+  // acesas, e o vão de 240 m, que é o assunto da peça, some. Poça não ilumina
+  // geometria, então não existe troca possível para esta.
+  //
+  // As outras três eram halo em cima de coisa que já brilha sozinha: a do pódio
+  // (as fitas das lajes, os guarda-corpos e o brilho sob a laje são emissivos),
+  // a frontal a 100 m da fachada (a face da carta é emissiva) e o farol do ápice
+  // (o glifo é MeshBasic, ele já está aceso por definição). Viraram poça no piso
+  // da aproximação e um halo de sprite no farol.
   const lights: THREE.PointLight[] = []
   const addLight = (x: number, y: number, z: number, i: number, c: THREE.Color | number = WARM, dist = 380) => {
     const l = new THREE.PointLight(c, i, dist, 1.35)
@@ -193,11 +224,13 @@ export function buildChalet(front: THREE.Texture): Chalet {
     group.add(l)
     lights.push(l)
   }
-  // três luzes (eram oito): o interior do A e um foco frontal; as faces das
-  // cartas já são emissivas e leem de longe sem foco
   addLight(0, cardBase + apex * 0.35, 0, 2.6, WARM, 420)
-  addLight(0, 1.4 + BASE_H * 0.5, 0, 1.4)
-  addLight(0, 36, -half - 100, 1.6, 0xfff4e6, 460)
+  // ⚠️ A POÇA DO PÓDIO TEM O DOBRO DO RAIO DO PLINTO DE PROPÓSITO, e o miolo
+  // dela fica escondido embaixo do plinto: luz não atravessa prédio. O que
+  // aparece é só a saia, do pé do plinto para fora, que é exatamente o halo que
+  // um volume aceso deixa no chão em volta. Quem cortar o raio para `plinthR`
+  // some com a poça inteira, porque aí ela cabe embaixo da pedra.
+  pools.push({ at: [0, 0.42, 0], r: plinthR * 2, gain: WASH_GAIN })
 
   // ── a porta e o passeio para o bulevar sul (norte do chalé) ──────────────
   const walkMat = track(new THREE.MeshStandardMaterial({ color: 0x17181d, roughness: 0.75, metalness: 0.15 }))
@@ -213,6 +246,10 @@ export function buildChalet(front: THREE.Texture): Chalet {
     ln.position.set(sx * 15, 0.42, -plinthR - 60)
     group.add(ln)
   }
+  // três poças ao longo do passeio, no lugar do foco frontal que ficava a 100 m
+  // da fachada: raio igual à meia largura do passeio, espaçadas por um quarto do
+  // comprimento dele
+  for (const s of [-1, 0, 1]) pools.push({ at: [0, 0.44, -plinthR - 60 + s * (150 / 4)], r: 30 / 2, gain: WASH_GAIN })
   // portal de entrada: um pórtico baixo com o glifo
   const portal = new THREE.Mesh(track(new THREE.BoxGeometry(34, 12, 4)), track(new THREE.MeshStandardMaterial({ color: 0x0f0f13, roughness: 0.4, metalness: 0.6, emissive: WARM, emissiveIntensity: 0.15 })))
   portal.position.set(0, 9.6 + 6.5, -baseD / 2 - 6)
@@ -224,9 +261,17 @@ export function buildChalet(front: THREE.Texture): Chalet {
   glyph.add(new THREE.Mesh(track(new THREE.SphereGeometry(4, 24, 16)), track(new THREE.MeshBasicMaterial({ color: ORANGE, toneMapped: false }))))
   glyph.position.set(0, cardBase + apex + 30, 0)
   group.add(glyph)
-  const beacon = new THREE.PointLight(ORANGE, 0.8, 200, 1.5)
-  beacon.position.copy(glyph.position)
-  group.add(beacon)
+  // o farol do ápice: um halo de sprite preso ao próprio glifo, que sobe e desce
+  // com ele. O diâmetro sai da esfera do glifo pela proporção dos postes do
+  // precinct (lâmpada de 1,8 m, poça de 17): esfera de 8 m, halo de 75.
+  const beacon = track(makeHalo([[0, 0, 0]], { color: ORANGE, size: 4 * 2 * POOL_SPREAD, texture: glowTex, name: 'ChaletBeacon' }))
+  glyph.add(beacon.object)
+  const beaconBase = beacon.material.opacity
+
+  // todas as poças do chalé numa malha só
+  const pool = track(makeGroundPool(pools, { texture: glowTex, name: 'ChaletPools' }))
+  group.add(pool.object)
+  const poolBase = pool.material.opacity
 
   return {
     group,
@@ -235,6 +280,10 @@ export function buildChalet(front: THREE.Texture): Chalet {
       glyph.rotation.y = t * 0.3
       glyph.position.y = cardBase + apex + 30 + Math.sin(t * 0.8) * 2
       for (const l of lights) l.intensity = (l.userData.base ??= l.intensity) * (0.92 + 0.08 * Math.sin(t * 1.1 + l.position.x * 0.02))
+      // a poça e o farol respiram na mesma cadência que as luzes faziam: sem
+      // isso o chalé fica aceso mas parado, e é o movimento que o deixa vivo
+      pool.material.opacity = poolBase * (0.92 + 0.08 * Math.sin(t * 1.1))
+      beacon.material.opacity = beaconBase * (0.92 + 0.08 * Math.sin(t * 0.8))
     },
     dispose() { for (const d of disposables) d.dispose() },
   }

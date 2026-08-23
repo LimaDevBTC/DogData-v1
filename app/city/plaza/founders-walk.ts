@@ -15,6 +15,7 @@
 import * as THREE from 'three'
 import { DECK_Y, FOUNDERS_RINGS, FOUNDERS_SLOTS, FOUNDERS_RING_R } from './garden-plan'
 import type { PerfProfile, DistanceCuller } from './perf'
+import { makeGroundPool, type PoolDisc } from './light-pool'
 
 export interface Founder {
   founder_seq: number
@@ -158,7 +159,11 @@ export function buildFoundersWalk(opts: { heightAt: (x: number, z: number) => nu
   plaqueGeo.setIndex(indices)
   // metal puro fica PRETO na face que não pega o sol (a Lua não tem céu para
   // refletir): a gravação emite, e por isso lê de noite e contra a sombra
-  const plaqueMat = track(new THREE.MeshStandardMaterial({ map: atlasTex, roughness: 0.42, metalness: 0.45, envMapIntensity: 1.1, emissive: 0xffffff, emissiveMap: atlasTex, emissiveIntensity: 0.85, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }))
+  // ⚠️ A GRAVAÇÃO SUBIU DE 0,85 PARA UM TERÇO A MAIS, e é porque as duas luzes
+  // rasantes que lambiam o muro saíram (ver o bloco de luz no fim do arquivo).
+  // A emissão passou a ser a única fonte da placa: quem baixar isto de volta
+  // apaga o muro inteiro no `?hour=earthlight`, que é quando ele importa.
+  const plaqueMat = track(new THREE.MeshStandardMaterial({ map: atlasTex, roughness: 0.42, metalness: 0.45, envMapIntensity: 1.1, emissive: 0xffffff, emissiveMap: atlasTex, emissiveIntensity: 0.85 * (4 / 3), side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }))
   const plaqueMesh = new THREE.Mesh(plaqueGeo, plaqueMat)
   plaqueMesh.castShadow = plaqueMesh.receiveShadow = true
   group.add(plaqueMesh)
@@ -244,20 +249,36 @@ export function buildFoundersWalk(opts: { heightAt: (x: number, z: number) => nu
   gate.position.set(0, Y + 0.06, -(R + 22))
   group.add(gate)
 
-  // luz quente rasante sobre as placas ocupadas (duas, não uma por placa)
-  const lights: THREE.PointLight[] = []
-  for (let i = 0; i < Math.min(lightPos.length, 2); i++) {
-    const l = new THREE.PointLight(WARM, 6, 60, 1.6)
-    l.position.copy(lightPos[Math.min(lightPos.length - 1, i * Math.floor(lightPos.length / 2))]).add(new THREE.Vector3(0, 3, 0))
-    group.add(l)
-    lights.push(l)
-  }
+  // ── luz: NENHUMA PointLight, e é o certo aqui ────────────────────────────
+  //
+  // Eram duas, rasantes, sorteadas entre as placas ocupadas: cada uma custava em
+  // todos os fragmentos das ~500 malhas iluminadas da praça para lamber dois
+  // trechos de latão de 8,6 m. E o latão já emitia (a gravação tem `emissiveMap`,
+  // justamente para ler sem sol).
+  //
+  // ⚠️ A POÇA MARCA SÓ AS PLACAS OCUPADAS, e isso é a narrativa do muro, não um
+  // detalhe: o círculo acende conforme os fundadores chegam, e quando fechar, a
+  // cidade abre. Quem espalhar poça pelos 48 trechos entrega o final antes.
+  // meia corda do trecho: as poças de dois fundadores vizinhos se encostam. E o
+  // centro fica meio raio à frente da face externa do muro, senão a poça nasce
+  // debaixo da pedra e vaza para o lado de dentro do círculo.
+  const POOL_R0 = (R0 * seg) / 2
+  const OUT = 1 + (WALL_T / 2 + POOL_R0 / 2) / R0
+  const pools: PoolDisc[] = lightPos.map((p) => ({
+    at: [p.x * OUT, Y + 0.06, p.z * OUT] as [number, number, number],
+    r: POOL_R0,
+  }))
+  const pool = pools.length ? track(makeGroundPool(pools, { name: 'FoundersPools' })) : null
+  if (pool) group.add(pool.object)
+  const poolBase = pool?.material.opacity ?? 0
   opts.culler?.add(group, (opts.profile?.textCull ?? 1300) * 1.6, new THREE.Vector3(0, 0, 0))
   void opts.heightAt
 
   return {
     group,
-    update(t) { for (const l of lights) l.intensity = 2.4 * (0.9 + 0.1 * Math.sin(t * 1.1 + l.position.x * 0.05)) },
+    // a poça respira na cadência que as luzes faziam: aceso e parado lê como
+    // textura, aceso e respirando lê como instalação
+    update(t) { if (pool) pool.material.opacity = poolBase * (0.9 + 0.1 * Math.sin(t * 1.1)) },
     dispose() { for (const d2 of disposables) d2.dispose() },
   }
 }

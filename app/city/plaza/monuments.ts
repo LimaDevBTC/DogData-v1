@@ -25,6 +25,7 @@ import { SF, loadSf, dressSf, firstGeometry } from './sf-assets'
 import { TIERS, crystalMaterialFor, loadCrystalTextures } from './park'
 import { buildLeonidas } from './statues'
 import type { PerfProfile, DistanceCuller } from './perf'
+import { makeGlowTexture, makeGroundPool, POOL_SPREAD, type PoolDisc } from './light-pool'
 
 const WARM = new THREE.Color('#FFB35C')
 
@@ -141,6 +142,28 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
   const warmRimMat = track(new THREE.MeshBasicMaterial({ color: WARM, toneMapped: false }))
   const upMat = track(new THREE.MeshBasicMaterial({ color: WARM, toneMapped: false, transparent: true, opacity: 0.55 }))
 
+  // ── COMO OS MONUMENTOS ACENDEM (censo de luzes, 2026-08-23) ───────────────
+  //
+  // Eram nove PointLight só aqui dentro, e o three avalia cada uma em cada
+  // fragmento das ~500 malhas iluminadas da cena: o custo é malhas × luzes. Oito
+  // delas pintavam halo em cima de peça que JÁ EMITE (as páginas do white paper,
+  // as faces do Bloco Gênese, a marca do DOG, as bordas quentes dos espelhos).
+  // Essas viraram emissão um pouco mais forte mais poça de luz no piso, que é um
+  // desenho e não uma luz.
+  //
+  // ⚠️ SOBROU UMA, A FRONTAL DO LEONIDAS, e ela não é decoração: ver o bloco SE.
+  const glowTex = track(makeGlowTexture())
+  const pools: PoolDisc[] = []
+  /** ⚠️ A POÇA LARGA VALE METADE DA LUMINÁRIA (0,3 nos postes do precinct → 0,15
+   *  aqui). Ela cobre dezenas de metros: no mesmo brilho vira uma mancha branca
+   *  que apaga o desenho do piso e o reflexo dos espelhos d'água. */
+  const WASH_GAIN = 0.15
+  /** ⚠️ QUEM PERDEU A LUZ GANHA EMISSÃO, UM TERÇO A MAIS, e não mais que isso.
+   *  A emissão é o que sobra de fonte na peça, mas a gravação clara (as páginas,
+   *  as faces do Bloco) já chega perto do branco com o sol de `?hour=day`:
+   *  dobrar apaga o texto. Se a praça ainda parecer escura, suba a POÇA antes. */
+  const LIT = 4 / 3
+
   const addLight = (x: number, y: number, z: number, i: number, dist = 90, c: THREE.Color | number = WARM) => {
     const l = new THREE.PointLight(c, i, dist, 1.6)
     l.position.set(x, y, z)
@@ -148,12 +171,20 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
     lights.push(l)
     return l
   }
-  /** um foco no chão: disco quente que lê como um uplight aceso */
+  /** a luminária acesa (o disco emissivo, que é o que o olho lê como fonte) mais
+   *  a poça que ela desenha no piso, que é o que faz o monumento parecer aceso */
   const uplight = (x: number, z: number, r = 0.55) => {
     const m = new THREE.Mesh(track(new THREE.CircleGeometry(r, 12)), upMat)
     m.rotation.x = -Math.PI / 2
     m.position.set(x, yAt(x, z) + 0.45, z)
     group.add(m)
+    pools.push({ at: [x, yAt(x, z) + 0.42, z], r: r * POOL_SPREAD })
+  }
+  /** a poça larga que fica no lugar de uma luz que saiu. O raio é o da PEÇA que
+   *  ela acendia (todos vêm de garden-plan ou da geometria logo ao lado), nunca
+   *  o alcance da PointLight antiga: alcance pinta disco maior que o monumento. */
+  const wash = (x: number, z: number, r: number, c?: THREE.ColorRepresentation) => {
+    pools.push({ at: [x, yAt(x, z) + 0.42, z], r, gain: WASH_GAIN, color: c })
   }
 
   // ═══ NE · O Jardim do White Paper ═════════════════════════════════════════
@@ -185,12 +216,12 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
     g.add(stone)
     const pageMat = track(new THREE.MeshStandardMaterial({
       color: 0x0d0d10, roughness: 0.6, metalness: 0.1,
-      map: pages[i], emissive: 0xfff2dc, emissiveMap: pages[i], emissiveIntensity: 0.9, transparent: false,
+      map: pages[i], emissive: 0xfff2dc, emissiveMap: pages[i], emissiveIntensity: 0.9 * LIT, transparent: false,
     }))
     const page = new THREE.Mesh(pageGeo, pageMat)
     page.position.set(0, 0.5 + STELA_H / 2 + 0.1, STELA_T / 2 + 0.02)
     g.add(page)
-    pulses.push({ m: pageMat, base: 0.9 })
+    pulses.push({ m: pageMat, base: 0.9 * LIT })
     // o número da página, pequeno, no plinto; e o foco no chão
     const num = new THREE.Mesh(track(new THREE.PlaneGeometry(1.4, 0.36)), track(new THREE.MeshBasicMaterial({
       map: track(textTexture({ w: 256, h: 64, bg: '#121317', lines: [{ text: `PAGE ${s.page} OF 9`, size: 30, color: '#a89b80', y: 34, letterSpacing: 4 }] })), toneMapped: false,
@@ -200,9 +231,9 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
     group.add(g)
     const fx = x + (-s.side * px) * 4, fz = z + (-s.side * pz) * 4
     uplight(fx, fz)
-    // luzes de verdade só a cada três estelas: cada PointLight custa em TODOS os
-    // materiais da cena, e as páginas já emitem
-    if (i === 4) addLight(fx, y + 2, fz, 2.2, 140, 0xfff0dc) // uma luz para a nave inteira
+    // a nave era acesa por uma PointLight de 140 m no meio dela; agora cada
+    // estela se acende sozinha: a página emite mais e o plinto tem a sua poça
+    wash(fx, fz, STELA_W + 1.2, 0xfff0dc) // a largura do plinto é a do rastro no piso
     cullText(num, x, z)
   })
   // a placa de abertura da nave, à entrada (r 615), lado direito
@@ -271,20 +302,20 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
     const faceGeo = track(new THREE.PlaneGeometry(S * 0.9, S * 0.9 * 0.5))
     faces.forEach((spec, i) => {
       const tex = track(textTexture({ w: 1024, h: 512, bg: '#050507', lines: spec.lines }))
-      const m = track(new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.6, roughness: 0.15, metalness: 0.2 }))
+      const m = track(new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.6 * LIT, roughness: 0.15, metalness: 0.2 }))
       const f = new THREE.Mesh(faceGeo, m)
       const a = (i * Math.PI) / 2
       f.position.set(Math.sin(a) * (S / 2 + 0.02), cube.position.y, Math.cos(a) * (S / 2 + 0.02))
       f.rotation.y = a
       g.add(f)
-      pulses.push({ m, base: 0.6 })
+      pulses.push({ m, base: 0.6 * LIT })
     })
     group.add(g)
     for (let k = 0; k < 4; k++) {
       const a = Math.PI / 4 + (k * Math.PI) / 2
       uplight(gx + Math.cos(a) * 6.2, gz + Math.sin(a) * 6.2, 0.7)
     }
-    addLight(gx, gy + 3, gz, 2.4, 60, 0xfff0dc)
+    wash(gx, gz, 8.1, 0xfff0dc) // 8,1 é o raio do anel de luz que já cerca o Bloco
     // a linha de luz que segue a alameda até o bloco: a última é a que importa
     const line = new THREE.Mesh(track(new THREE.RingGeometry(7.6, 8.1, 64)), warmRimMat)
     line.rotation.x = -Math.PI / 2
@@ -315,14 +346,17 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
     insc.position.set(0, 0.42, POOL_R + 5)
     g.add(insc)
     group.add(g)
-    // luz: dois focos frontais rasantes de fora da água, e um halo frio no espelho
+    // luz: dois focos rasantes no passeio do lado do deck, e a poça entre eles.
+    // A PointLight que ficava no eixo saiu porque, desde que a figura de lâminas
+    // foi embora, não há geometria nenhuma ali para ela modelar: é água preta,
+    // uma laje de inscrição e o passeio.
     const ax = -sx / Math.hypot(sx, sz), az = -sz / Math.hypot(sx, sz) // direção para o deck
     for (const sgn of [-1, 1]) {
       const px = -az * sgn, pz = ax * sgn
       const lx = sx + ax * (POOL_R + 6) + px * 12, lz = sz + az * (POOL_R + 6) + pz * 12
-      if (sgn > 0) addLight(lx - px * 12, sy + 2, lz - pz * 12, 3.6, 130, 0xfff0dc) // uma luz, no eixo
       uplight(lx, lz, 0.9)
     }
+    wash(sx + ax * (POOL_R + 6), sz + az * (POOL_R + 6), 12, 0xfff0dc) // 12 m: o vão entre os dois focos
   }
 
   // ═══ SE · A Pata de Diamante ══════════════════════════════════════════════
@@ -401,7 +435,7 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
     const MARK_R = 30 // era 14: o emblema agora ocupa a palma inteira
     const mark = new THREE.Mesh(track(new THREE.CircleGeometry(MARK_R, 96)), track(new THREE.MeshStandardMaterial({
       map: markTex, transparent: true, roughness: 0.25, metalness: 0.5, envMapIntensity: 1.2,
-      emissive: 0xffffff, emissiveMap: markTex, emissiveIntensity: 0.5,
+      emissive: 0xffffff, emissiveMap: markTex, emissiveIntensity: 0.5 * LIT,
     })))
     mark.rotation.x = -Math.PI / 2
     // o topo do texto para fora, para quem chega do deck ler certo (Euler XYZ: Rz primeiro)
@@ -413,11 +447,10 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
     markRing.rotation.x = Math.PI / 2
     markRing.position.set(px, yAt(px, pz) + 0.3, pz)
     group.add(markRing)
-    // dois focos rasantes sobre o emblema: de noite, a marca acende a água
-    for (const sgn of [-1, 1]) {
-      const a = QUADRANT_ANGLE.SE + sgn * 1.15
-      addLight(px + Math.cos(a) * (POOL_R - 6), yAt(px, pz) + 5, pz + Math.sin(a) * (POOL_R - 6), 2.6, 90, 0xffd9a0)
-    }
+    // de noite, a marca acende a água. Eram dois focos rasantes de fora do
+    // espelho; agora é a própria gravação que emite, com a poça no tamanho exato
+    // do emblema, que é o desenho que a luz fazia na água.
+    wash(px, pz, MARK_R, 0xffd9a0)
     // os quatro dedos: espelhos menores, água preta, borda de luz quente
     const toeGeo = track(new THREE.CircleGeometry(PAW_TOE_R, 48))
     const toeRimGeo = track(new THREE.RingGeometry(PAW_TOE_R - 0.5, PAW_TOE_R + 0.5, 64))
@@ -428,8 +461,10 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
       const w = new THREE.Mesh(toeGeo, waterMat); w.rotation.x = -Math.PI / 2; w.position.set(tx, y + 0.25, tz); w.receiveShadow = true; group.add(w)
       const r = new THREE.Mesh(toeRimGeo, warmRimMat); r.rotation.x = -Math.PI / 2; r.position.set(tx, y + 0.32, tz); group.add(r)
       const wk = new THREE.Mesh(toeWalkGeo, walkMat); wk.rotation.x = -Math.PI / 2; wk.position.set(tx, y + 0.34, tz); wk.receiveShadow = true; group.add(wk)
+      // uma poça por dedo no lugar da luz única que cobria os quatro: o raio é o
+      // do passeio em volta do espelho, e a borda quente do dedo já é emissiva
+      wash(tx, tz, PAW_TOE_R + 4.5)
     }
-    addLight(px + Math.cos(QUADRANT_ANGLE.SE) * 70, yAt(px, pz) + 6, pz + Math.sin(QUADRANT_ANGLE.SE) * 70, 2.2, 110, WARM) // uma luz para os quatro dedos
     // a borda quente da palma também (a dos outros espelhos é branca): a pata é uma só
     const palmRim = new THREE.Mesh(track(new THREE.RingGeometry(POOL_R - 0.6, POOL_R + 0.6, 96)), warmRimMat)
     palmRim.rotation.x = -Math.PI / 2
@@ -510,7 +545,12 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
       const fx = lx + ax * 12 + px * 7, fz = lz + az * 12 + pz * 7
       uplight(fx, fz, 0.9)
     }
-    addLight(lx + ax * 12, ly + 4, lz + az * 12, 3.4, 70, 0xfff0dc) // uma luz frontal
+    // ⚠️ A ÚNICA PointLight QUE SOBROU NOS MONUMENTOS, e ela fica. O Leonidas
+    // tem 11,5 m de figura escura sobre um plinto de granito, e é a peça da
+    // praça que mais depende de MODELADO: sem uma fonte fora dela a silhueta
+    // fecha em preto e a caveira amarela flutua sozinha no escuro. Poça não
+    // resolve isso, poça é tinta no chão e não dá volume a nada.
+    addLight(lx + ax * 12, ly + 4, lz + az * 12, 3.4, 70, 0xfff0dc)
     cullText(insc, lx, lz)
   }
 
@@ -626,18 +666,29 @@ export async function buildMonuments(opts: { heightAt: (x: number, z: number) =>
       insc.rotation.x = -0.18
       g.add(insc)
       group.add(g)
+      // o foco no passeio e a poça no plinto: a luz que havia aqui era um halo
+      // de 50 m de alcance em volta de um busto de pouco mais de 3 m
       uplight(bx + 4, bz + 2, 0.8)
-      addLight(bx + 4, by + 3, bz + 2, 2.2, 50, 0xfff0dc)
+      wash(bx, bz, 3.4, 0xfff0dc) // 3,4 é o raio do plinto
       cullText(insc, bx, bz)
     }
     void palm // as palmeiras passaram para props-table.ts (tamareira de verdade)
   }
+
+  // as poças dos quatro jardins numa malha só: uma chamada de desenho para tudo
+  // o que substituiu as oito luzes
+  const pool = track(makeGroundPool(pools, { texture: glowTex, name: 'MonumentPools' }))
+  group.add(pool.object)
+  const poolBase = pool.material.opacity
 
   return {
     group,
     update(t) {
       for (const p of pulses) p.m.emissiveIntensity = p.base * (0.9 + 0.1 * Math.sin(t * 0.7))
       for (const l of lights) l.intensity = (l.userData.base ??= l.intensity) * (0.94 + 0.06 * Math.sin(t * 1.3 + l.position.x * 0.03))
+      // a poça respira na mesma cadência que as luzes faziam: sem isso a praça
+      // fica acesa mas parada, e é o movimento que faz parecer instalação viva
+      pool.material.opacity = poolBase * (0.94 + 0.06 * Math.sin(t * 1.3))
     },
     dispose() { for (const d of disposables) d.dispose() },
   }

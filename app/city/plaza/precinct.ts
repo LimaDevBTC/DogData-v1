@@ -22,6 +22,7 @@ import {
   POOL_R,
 } from './garden-plan'
 import type { PerfProfile, DistanceCuller } from './perf'
+import { makeGlowTexture } from './light-pool'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 export const R_DECK = 300
@@ -796,16 +797,18 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   fountain.group.position.set(0, fy, -R_ANCHOR)
   group.add(fountain.group)
 
-  // luzes: poucas e quentes
-  // luzes: uma só, na Grande Fonte (cada PointLight custa em todos os fragmentos
-  // da cena; os jardins são iluminados pelos monumentos e pelas fitas emissivas)
+  // ⚠️ A GRANDE FONTE TINHA DUAS LUZES A METROS UMA DA OUTRA, e agora tem uma.
+  //
+  // Havia esta, pendurada em (0, y+26, -R_ANCHOR), e outra DENTRO de
+  // `buildGrandFountain`, em y 24, acendendo a mesma peça a poucos metros de
+  // distância. Duas PointLight custam o dobro em todo fragmento iluminado da
+  // cena inteira, não só ali: o preço é malhas vezes luzes. A de dentro ficou,
+  // porque ela já pulsa com a água e mora no objeto que ela acende, e recebeu a
+  // intensidade das duas somada.
+  //
+  // Os jardins continuam sendo acesos pelos monumentos e pelas poças de luz
+  // (light-pool.ts), que é o que faz a cidade parecer acesa sem cobrar por pixel.
   const lights: THREE.PointLight[] = []
-  for (const [x, z] of [[0, -R_ANCHOR]] as const) {
-    const l = new THREE.PointLight(0xffe0b8, 1.1, 300, 1.6)
-    l.position.set(x, yAt(x, z) + 26, z)
-    group.add(l)
-    lights.push(l)
-  }
 
   const update = (t: number) => {
     // fontes: cada partícula sobe e cai numa parábola, com fase própria
@@ -894,18 +897,6 @@ function makeFrondGeometry(): THREE.BufferGeometry {
   return g
 }
 
-function makeGlowTexture(): THREE.Texture {
-  const c = document.createElement('canvas')
-  c.width = c.height = 64
-  const ctx = c.getContext('2d')!
-  const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32)
-  g.addColorStop(0, 'rgba(255,255,255,1)')
-  g.addColorStop(0.35, 'rgba(255,255,255,0.35)')
-  g.addColorStop(1, 'rgba(255,255,255,0)')
-  ctx.fillStyle = g
-  ctx.fillRect(0, 0, 64, 64)
-  return new THREE.CanvasTexture(c)
-}
 function makeDotTexture(): THREE.Texture {
   const c = document.createElement('canvas')
   c.width = c.height = 32
@@ -984,7 +975,9 @@ function buildGrandFountain(rnd: () => number, track: <T extends { dispose: () =
   trunks.instanceMatrix.needsUpdate = fronds.instanceMatrix.needsUpdate = true
   trunks.castShadow = fronds.castShadow = true
   group.add(trunks, fronds)
-  const light = new THREE.PointLight(0xffe4c0, 2.0, 360, 1.4)
+  // 2,0 mais os 1,1 da luz externa que foi retirada: a fonte continua com a
+  // mesma presença de luz, com metade do custo.
+  const light = new THREE.PointLight(0xffe4c0, 3.1, 380, 1.4)
   light.position.y = 24
   group.add(light)
   return {
