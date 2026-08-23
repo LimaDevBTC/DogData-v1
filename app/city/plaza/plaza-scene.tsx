@@ -344,6 +344,10 @@ export default function PlazaScene() {
     }
     scene.background = new THREE.Color(0x000000)
     const camera = new THREE.PerspectiveCamera(42, mount.clientWidth / mount.clientHeight, 0.5, 200000)
+    // A câmera não vive no grafo da cena, então um raycast de depuração não a
+    // encontrava: com `?stats=1` ela fica à mão, que é como se pergunta "o que é
+    // esse pixel ali" sem adivinhar coordenada de mundo.
+    if (wantStats) (window as unknown as { __plazaCamera?: THREE.Camera }).__plazaCamera = camera
     camera.layers.enable(CAVE_LAYER) // a caverna do Leonidas vive fora do sol
     const home = homeFor(camera.aspect)
     camera.position.copy(home.pos)
@@ -515,6 +519,97 @@ export default function PlazaScene() {
         // sítios das torres e as pistas de táxi do spaceport; a rua do anel
         // (PlazaRingRoad) e a estrada do parque ficam, que são via, não veículo.
         for (const root of [bitflow, kray]) stripByName(root, /^(SITE_TRAFFIC|.*_Car\d*|.*Vehicle.*)$/i)
+        // ── OS SÍTIOS DA KRAY E DA BITFLOW PASSAM A FALAR COM A PRAÇA ──────────
+        //
+        // O fundador, 2026-08-23: "precisamos atacar o entorno da torre da Kray e
+        // do QG da BitFlow, eles ainda não estão conversando com o entorno.
+        // Asfalto diferente, jardins diferentes."
+        //
+        // ⚠️ A CAUSA NÃO É COR, É PROCEDÊNCIA. Cada GLB traz um QUARTEIRÃO DE
+        // CIDADE inteiro: duas ruas com faixa pintada, meio-fio, calçada,
+        // canteiros e a paleta da cena de origem, que era uma cidade na Terra.
+        // Largado no meio de um jardim clássico lunar, esse lote vira um
+        // retângulo preto com ruas que não levam a lugar nenhum, e é exatamente
+        // isso que se vê de cima.
+        //
+        // Consertar no Blender seria reconstruir os dois prédios. Não é preciso:
+        // os materiais do lote vêm com nome (`site_asphalt`, `site_kerb`,
+        // `veg_leaf`…), então dá para reger o lote inteiro pelo NOME DO MATERIAL,
+        // aqui, com a paleta do precinto ao lado.
+        //
+        // O que sai: as RUAS e a pintura de faixa. Não há carro na praça (item 13
+        // desta mesma lista tirou todos), e uma pista com faixa central no meio de
+        // um jardim é o resto mais visível do quarteirão antigo.
+        // O que fica, repintado: o chão vira gramado do precinto, o passeio e o
+        // meio-fio viram a pedra escura da praça, e a vegetação recebe os mesmos
+        // verdes das sebes e copas do jardim.
+        // ⚠️ A REPINTURA PRECISA ALCANÇAR TAMBÉM O LOD DE LONGE, e por isso ela
+        // vira função aqui em cima: cada torre é um THREE.LOD com o GLB inteiro
+        // perto e uma versão decimada longe. Repintar só o de perto faz a praça
+        // trocar de paleta quando a câmera recua, e o quarteirão antigo volta.
+        let reconcileSite: (root: THREE.Object3D | null) => void = () => {}
+        {
+          // A paleta é a do precinct.ts, copiada aqui de propósito com o nome
+          // dito: se um dia o jardim mudar de verde, este bloco é o segundo lugar
+          // a mudar, e o comentário é o aviso.
+          const PAVE = 0x17181d      // paveMat do precinto
+          const KERB = 0x2a2a30      // a mureta do anel
+          const LAWN_C = 0x183121    // LAWN
+          const HEDGE_C = 0x1a3a1f   // HEDGE
+          const LEAF_C = 0x2f6b3a    // LEAF
+          const TRUNK_C = 0x3a2c22   // TRUNK
+          /** Some sem apagar geometria: material invisível. As primitivas do GLB
+           *  vêm agrupadas por material dentro de uma malha só, então remover o
+           *  nó levaria junto o que fica. */
+          const hide = (m: THREE.MeshStandardMaterial) => {
+            m.transparent = true
+            m.opacity = 0
+            m.depthWrite = false
+            m.colorWrite = false
+          }
+          const repaint: Record<string, (m: THREE.MeshStandardMaterial) => void> = {
+            site_asphalt: hide,
+            road_paint: hide,
+            site_paint: hide,
+            road_mark: hide,
+            // ⚠️ AS POÇAS DE LUZ DE RUA VÃO JUNTO COM A RUA. `spill_warm*` são
+            // decalques de chão pintados para cair sobre ASFALTO escuro, onde
+            // liam como o brilho dos postes molhando a pista. Sobre o gramado do
+            // jardim viram três manchas cinzentas boiando na grama, e foi isso
+            // que apareceu na chapa da BitFlow. A praça tem os postes dela.
+            spill_warm: hide,
+            spill_warm_2: hide,
+            spill_warm_3: hide,
+            site_ground: (m) => { m.color.setHex(LAWN_C); m.roughness = 0.95; m.metalness = 0 },
+            site_pave: (m) => { m.color.setHex(PAVE); m.roughness = 0.75; m.metalness = 0.15 },
+            site_pave_band: (m) => { m.color.setHex(0x23242b); m.roughness = 0.7; m.metalness = 0.2 },
+            site_stone: (m) => { m.color.setHex(PAVE); m.roughness = 0.8; m.metalness = 0.1 },
+            site_kerb: (m) => { m.color.setHex(KERB); m.roughness = 0.6; m.metalness = 0.2 },
+            veg_hedge: (m) => { m.color.setHex(HEDGE_C); m.roughness = 0.9; m.metalness = 0 },
+            veg_bed: (m) => { m.color.setHex(0x241d17); m.roughness = 1; m.metalness = 0 },
+            veg_leaf: (m) => { m.color.setHex(LEAF_C); m.roughness = 0.9; m.metalness = 0 },
+            veg_leaf_lit: (m) => { m.color.setHex(0x3d8148); m.roughness = 0.9 },
+            veg_leaf_mid: (m) => { m.color.setHex(0x35743f); m.roughness = 0.9 },
+            veg_frond: (m) => { m.color.setHex(LEAF_C); m.roughness = 0.9; m.metalness = 0 },
+            veg_trunk: (m) => { m.color.setHex(TRUNK_C); m.roughness = 0.85; m.metalness = 0 },
+          }
+          let touched = 0
+          reconcileSite = (root: THREE.Object3D | null) => {
+            if (!root) return
+            root.traverse((o) => {
+              const mesh = o as THREE.Mesh
+              if (!mesh.isMesh) return
+              const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+              for (const mat of mats) {
+                const fn = repaint[(mat?.name ?? '') as string]
+                if (fn) { fn(mat as THREE.MeshStandardMaterial); touched++ }
+              }
+            })
+          }
+          reconcileSite(bitflow)
+          reconcileSite(kray)
+          if (wantStats) console.log('[plaza] sítios das âncoras: ', touched, 'materiais reconciliados com a praça')
+        }
         stripByName(spaceport, /^SP_Taxi\d+$/)
         // ── A REFORMA DO DECK (fundador, 2026-08-19: "completamente confusa,
         // elementos genéricos, árvores artificiais, anfiteatro") ──────────────
@@ -556,6 +651,9 @@ export default function PlazaScene() {
         ])
         if (disposed) return
         if (needleLod1) stripByName(needleLod1, /^(SITE_|PROP_)|_Site$/i)
+        // o mesmo acordo com a praça, na versão de longe das duas âncoras
+        reconcileSite(bitflowLod1)
+        reconcileSite(krayLod1)
         const LOD_DIST = profile.lodDistance // a vista de casa (1,6 km) fica com as torres inteiras
         const lodOf = (full: THREE.Object3D, low: THREE.Object3D | null) => {
           const lod = new THREE.LOD()
