@@ -296,7 +296,9 @@ export default function PlazaScene() {
     renderer.setSize(mount.clientWidth, mount.clientHeight)
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.12 // a praça é noturna: um passo de exposição a mais para o que não está no sol
+    // a exposição passou a ser propriedade da HORA (ver HOURS, mais abaixo); este
+    // valor é só o de partida até a hora ser escolhida
+    renderer.toneMappingExposure = 1.12
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = profile.softShadows ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap
     mount.appendChild(renderer.domElement)
@@ -379,12 +381,20 @@ export default function PlazaScene() {
     // veria. E isso é justamente o que faz um corpo celeste parecer satélite. O
     // mesmo trava as naves da mempool, que voam em cima.
     //
-    // O comentário antigo dizia "never under the ground", e o chão já é defendido
-    // no laço (a câmera é empurrada para terreno + 1,7 m). Destravar aqui sozinho
-    // não resolve: com o alvo preso perto do chão, o OrbitControls não tem para
-    // onde levar a câmera. O conserto de verdade é o alvo SUBIR quando se arrasta
-    // para cima, que é uma mudança de rig e está proposta, não feita.
-    controls.maxPolarAngle = Math.PI / 2 - 0.04
+    // O CONSERTO, em duas partes que só funcionam juntas:
+    //
+    //   (a) aqui, deixar o ângulo passar de π/2, que é a câmera descer abaixo do
+    //       alvo, que é como se olha para cima;
+    //   (b) no laço, quando o chão empurrar a câmera para cima, SUBIR O ALVO na
+    //       mesma medida. Os dois pontos sobem juntos, então a direção do olhar
+    //       não muda: o que muda é o rig inteiro deslizar para fora do regolito.
+    //
+    // Sem (b), (a) sozinho não faz nada: com o alvo preso no chão o OrbitControls
+    // não tem para onde levar a câmera, e foi o que eu medi antes de escrever
+    // isto. O par (câmera, alvo) corrigido é ponto fixo do `update()`, porque o
+    // deslocamento entre eles não muda, então não existe deriva.
+    const LOOK_UP = 0.85 // 49 graus de céu, o bastante para a Terra e as naves
+    controls.maxPolarAngle = Math.PI / 2 + LOOK_UP
     controls.autoRotate = true
     controls.autoRotateSpeed = 0.18
     controls.enabled = false // só depois que o portão abrir (ver `boot.ready`)
@@ -394,10 +404,61 @@ export default function PlazaScene() {
     renderer.domElement.addEventListener('pointerdown', wake)
     renderer.domElement.addEventListener('wheel', wake, { passive: true })
 
-    // ── light: one sun, low, from the north-west; earthshine as fill ─────────
-    // The Moon has no sky, so the fill is weak and blue-grey (Earth is up there).
-    const sun = new THREE.DirectionalLight(0xfff1dc, 2.6)
-    sun.position.set(-2600, 1500, -1900)
+    // ── AS TRÊS HORAS DA PRAÇA ───────────────────────────────────────────────
+    //
+    // O fundador, 2026-08-23: "a maior parte do tempo me parece tudo muito
+    // escuro". Já tinha havido uma rodada de subir preenchimento (19/08) e ela
+    // não resolveu, porque o problema não era falta de luz. Medido nesta data,
+    // numa chapa da praça: regolito ao sol 30% de luminância, gramado 24%,
+    // asfalto 24%, TORRES 6,7%, céu 0%. O ponto mais claro do quadro inteiro era
+    // 73%. Uma imagem sem nenhum realce lê como escura mesmo sem nada estar
+    // preto, e subir ambiente só transforma preto em cinza sujo.
+    //
+    // O que faltava era ESCOLHER A HORA. O dia lunar tem 29,5 dias terrestres,
+    // quase 15 de sol e 15 de noite, e o sol anda meio grau por hora: o que na
+    // Terra é uma hora dourada, lá dura um dia inteiro. Então não existe "a"
+    // iluminação da praça, existem horas, e cada uma é uma direção de arte.
+    //
+    // ⚠️ SÃO TRÊS ESTADOS FIXOS, NÃO UM CICLO ANIMADO. Ciclo contínuo obriga a
+    // reassar o mapa de sombra o tempo todo, e o congelamento da sombra é metade
+    // do desempenho desta cena.
+    //
+    // ⚠️ E O AZIMUTE DO SOL NÃO MUDA ENTRE AS HORAS. Ele foi escolhido a olho
+    // para a composição da vista inicial (torres recortadas, sombra atravessando
+    // o deck); o que muda é a ALTURA, que é o que decide comprimento de sombra e
+    // quanto do regolito acende.
+    const SUN_AZ = 306 // noroeste, como já era
+    type Hour = { el: number; sun: number; sunColor: number; hemi: number; earth: number; exposure: number }
+    // ⚠️ SOL RASO NÃO É CENA CLARA, e eu errei isto na primeira tentativa. Num
+    // plano que olha para BAIXO, o assunto é o chão, e o que o chão recebe é
+    // proporcional ao SENO da elevação: a 10 graus são 0,17 do que ele receberia
+    // de pino, contra 0,42 dos 25 graus que a cena tinha. A primeira versão
+    // desta tabela punha a manhã a 10 graus como padrão e deixou a praça mais
+    // escura do que estava, medido em chapa. Foto de Apollo é clara porque o
+    // assunto é vertical e o sol vem por trás da câmera; aqui o assunto é uma
+    // esplanada vista de cima.
+    const HOURS: Record<string, Hour> = {
+      // O PADRÃO: sol alto o bastante para acender a esplanada (sen 44° = 0,69,
+      // uma vez e meia o que a cena tinha) e ainda dar sombra com direção.
+      day: { el: 44, sun: 3.6, sunColor: 0xfff6e8, hemi: 0.32, earth: 0.15, exposure: 1.06 },
+      // A dramática: sombra longa atravessando a praça e torres em contraluz. O
+      // chão fica mais escuro, e isso aqui é escolha, não defeito.
+      morning: { el: 16, sun: 3.3, sunColor: 0xfff0d2, hemi: 0.26, earth: 0.18, exposure: 1.12 },
+      // A noite assumida: sem sol, a Terra manda. Ela é grande (2 graus) e fica
+      // parada no céu, então a sombra dela é macia e a luz é azul. O que acende a
+      // cidade é a luz artificial dela mesma.
+      earthlight: { el: -8, sun: 0.0, sunColor: 0xfff1dc, hemi: 0.5, earth: 0.75, exposure: 1.16 },
+    }
+    const hourKey = new URLSearchParams(window.location.search).get('hour') ?? 'day'
+    const H = HOURS[hourKey] ?? HOURS.day
+    renderer.toneMappingExposure = H.exposure
+
+    const sunPos = (el: number, dist: number) => {
+      const a = THREE.MathUtils.degToRad(SUN_AZ), e = THREE.MathUtils.degToRad(el)
+      return new THREE.Vector3(Math.sin(a) * Math.cos(e), Math.sin(e), -Math.cos(a) * Math.cos(e)).multiplyScalar(dist)
+    }
+    const sun = new THREE.DirectionalLight(H.sunColor, H.sun)
+    sun.position.copy(sunPos(H.el, 3600))
     sun.castShadow = true
     sun.shadow.mapSize.set(profile.shadowMapSize, profile.shadowMapSize)
     sun.shadow.camera.near = 500
@@ -433,16 +494,17 @@ export default function PlazaScene() {
       sun.target.position.copy(shadowAnchor)
       sun.position.copy(shadowAnchor).addScaledVector(SUN_DIR, SUN_DIST)
     }
-    // ── a noite tem que SER vista ────────────────────────────────────────────
-    // 2026-08-19, fundador: "precisamos melhorar a iluminação para o período
-    // noturno, tá bem escuro". O preenchimento subiu (hemisférico 0,28 → 0,50,
-    // brilho-da-Terra 0,25 → 0,40) e ganhou um tom mais quente no chão: a praça
-    // continua noturna, mas o que está fora do facho do sol deixa de ser preto.
-    // O resto do ganho é luz ARTIFICIAL, não ambiente: poça no pé de cada poste e
-    // uplight nas árvores (precinct.ts), que é o que faz a cidade parecer acesa.
-    scene.add(new THREE.HemisphereLight(0x3a4664, 0x1a1712, 0.5))
-    const earthshine = new THREE.DirectionalLight(0x8fb0ff, 0.4)
-    earthshine.position.set(1200, 2600, 900)
+    // ⚠️ O PREENCHIMENTO É FRACO DE DIA E FORTE DE NOITE, ao contrário do que a
+    // intuição terrestre pede. Aqui não há céu: com o sol de pé, o único
+    // preenchimento é o quique do regolito, que é pouco, e é ele que dá a sombra
+    // dura das fotos de Apollo. Deixar o hemisférico alto de dia mata justamente
+    // o contraste que estamos buscando. De noite ele inverte: a Terra é a fonte,
+    // e ela é grande o suficiente para ser quase um difusor.
+    scene.add(new THREE.HemisphereLight(0x3a4664, 0x1a1712, H.hemi))
+    // O brilho da Terra vem DA TERRA, e não de um ponto qualquer do céu: mesma
+    // direção que o disco (EARTH_DIR, logo abaixo), para a luz e o objeto
+    // concordarem.
+    const earthshine = new THREE.DirectionalLight(0x8fb0ff, H.earth)
     scene.add(earthshine)
 
     // dark studio reflections for the glass towers, per-material tamed below
@@ -497,6 +559,7 @@ export default function PlazaScene() {
     const EARTH_DIST = 37000
     earth.position.copy(EARTH_DIR).multiplyScalar(EARTH_DIST)
     scene.add(earth)
+    earthshine.position.copy(EARTH_DIR).multiplyScalar(6000)
 
     // ── layers ──────────────────────────────────────────────────────────────
     const orbit = createOrbitLayer()
@@ -603,6 +666,7 @@ export default function PlazaScene() {
         // perto e uma versão decimada longe. Repintar só o de perto faz a praça
         // trocar de paleta quando a câmera recua, e o quarteirão antigo volta.
         let reconcileSite: (root: THREE.Object3D | null) => void = () => {}
+        let liftMassing: (root: THREE.Object3D | null) => void = () => {}
         {
           // A paleta é a do precinct.ts, copiada aqui de propósito com o nome
           // dito: se um dia o jardim mudar de verde, este bloco é o segundo lugar
@@ -669,6 +733,35 @@ export default function PlazaScene() {
           reconcileSite(bitflow)
           reconcileSite(kray)
           if (wantStats) console.log('[plaza] sítios das âncoras: ', touched, 'materiais reconciliados com a praça')
+
+          // ⚠️ A ARQUITETURA ESTAVA PINTADA DE PRETO, e é ela o assunto.
+          //
+          // Medido em 2026-08-23: o chão da praça está em 24 a 30% de luminância,
+          // que é meio-tom, e as TORRES em 6,7%. O `massing` da BitFlow é #0b0e0b,
+          // 4% de cinza. Nenhuma quantidade de luz salva um material que absorve
+          // tudo: o sol bate e não volta nada, e a cidade lê como silhueta.
+          //
+          // Aqui a massa das três sobe para perto do dobro. Não é clarear a cena,
+          // é dar ao sol alguma coisa em que bater. O vidro, os perfis e as faixas
+          // de LED ficam como estão: eles já são o desenho.
+          const LIFT: Record<string, number> = {
+            massing: 2.1, massing_lip: 2.0, slab: 1.9, slab_edge: 1.6, mullion: 1.5,
+          }
+          liftMassing = (root: THREE.Object3D | null) => {
+            root?.traverse((o) => {
+              const mesh = o as THREE.Mesh
+              if (!mesh.isMesh) return
+              const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+              for (const mat of mats) {
+                const k = LIFT[(mat?.name ?? '') as string]
+                if (!k) continue
+                const m = mat as THREE.MeshStandardMaterial
+                // multiplica sem estourar: o teto é 22% de cinza, ainda escuro
+                m.color.setRGB(Math.min(0.22, m.color.r * k), Math.min(0.22, m.color.g * k), Math.min(0.22, m.color.b * k))
+              }
+            })
+          }
+          for (const root of [bitflow, kray, needle]) liftMassing(root)
         }
         stripByName(spaceport, /^SP_Taxi\d+$/)
         // ── A REFORMA DO DECK (fundador, 2026-08-19: "completamente confusa,
@@ -762,6 +855,7 @@ export default function PlazaScene() {
         // o mesmo acordo com a praça, na versão de longe das duas âncoras
         reconcileSite(bitflowLod1)
         reconcileSite(krayLod1)
+        for (const root of [bitflowLod1, krayLod1, needleLod1]) liftMassing(root)
         const LOD_DIST = profile.lodDistance // a vista de casa (1,6 km) fica com as torres inteiras
         const lodOf = (full: THREE.Object3D, low: THREE.Object3D | null) => {
           const lod = new THREE.LOD()
@@ -1196,7 +1290,15 @@ export default function PlazaScene() {
       // o chão: a câmera nunca entra no regolito nem no deck (1,7 m = olhos de pé)
       {
         const gy = groundAt(camera.position.x, camera.position.z) + 1.7
-        if (camera.position.y < gy) camera.position.y = gy
+        if (camera.position.y < gy) {
+          // ⚠️ O ALVO SOBE JUNTO, e é isso que faz olhar para cima funcionar.
+          // Empurrar só a câmera devolvia a vista para baixo no quadro seguinte
+          // (a câmera voltava a ficar ACIMA do alvo). Subindo os dois pela mesma
+          // medida, a direção do olhar fica intacta e o rig apenas sai do chão.
+          const lift = gy - camera.position.y
+          camera.position.y = gy
+          controls.target.y += lift
+        }
         const ty = groundAt(controls.target.x, controls.target.z) + 0.3
         if (controls.target.y < ty) controls.target.y = ty
       }
