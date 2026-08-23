@@ -154,6 +154,76 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
     group.add(g)
   }
 
+  // ── O PÁTIO EM LEQUE DAS DUAS TORRES ─────────────────────────────────────
+  //
+  // O fundador, 2026-08-23: "queremos pátio em leque". O problema que ele
+  // resolve: o lote de cada âncora é um QUADRADO de 350 m alinhado aos eixos
+  // cartesianos, largado num desenho inteiramente RADIAL (deck circular, anel em
+  // r 452, bulevares saindo do centro). Repintar a paleta tirou o retângulo
+  // preto do jardim, mas a gramática continuava sendo outra: a praça gira, o
+  // lote não.
+  //
+  // O leque é um setor de coroa circular: nasce colado ao anel, abre no ângulo
+  // da torre e vai até depois dela, de modo que a TORRE FICA DE PÉ DENTRO DO
+  // PÁTIO em vez de ao lado de um. Por construção ele é concêntrico com tudo o
+  // mais, então não existe alinhamento para errar.
+  //
+  // Só as duas TORRES ganham leque. O Chalé ao sul é uma casa de 30 m: um pátio
+  // de 320 m de boca na frente dele seria um aeroporto com uma cabana no meio.
+  const FAN_IN = R_RING + RING_W / 2 + 4      // encosta no anel, sem cobri-lo
+  const FAN_OUT = 700                          // passa da torre (fachada em ~580)
+  const FAN_HALF = THREE.MathUtils.degToRad(15)
+  {
+    // theta do RingGeometry conta a partir de +x e cresce para -z depois do
+    // tombo de -90° em x. Kray fica em +x (theta 0), BitFlow em -x (theta π).
+    for (const centre of [0, Math.PI]) {
+      const g = new THREE.Group()
+      g.name = 'AnchorForecourt'
+      const floor = new THREE.Mesh(
+        track(new THREE.RingGeometry(FAN_IN, FAN_OUT, 96, 1, centre - FAN_HALF, FAN_HALF * 2)),
+        paveMat,
+      )
+      floor.rotation.x = -Math.PI / 2
+      floor.position.y = 0.34
+      floor.receiveShadow = true
+      g.add(floor)
+
+      // ⚠️ AS FAIXAS SÃO O QUE FAZ O PÁTIO TER ESCALA. Um leque liso de 230 m de
+      // fundo é uma mancha; três arcos de pedra clara dizem a distância que se
+      // tem para andar, que é como uma esplanada de verdade se lê.
+      for (const t of [0.28, 0.56, 0.84]) {
+        const r = FAN_IN + (FAN_OUT - FAN_IN) * t
+        const band = new THREE.Mesh(
+          track(new THREE.RingGeometry(r - 1.1, r + 1.1, 96, 1, centre - FAN_HALF, FAN_HALF * 2)),
+          track(new THREE.MeshStandardMaterial({ color: 0x23242b, roughness: 0.7, metalness: 0.2 })),
+        )
+        band.rotation.x = -Math.PI / 2
+        band.position.y = 0.36
+        g.add(band)
+      }
+
+      // o meio-fio de luz: os dois lados retos e a boca externa, o mesmo
+      // vocabulário do anel e dos bulevares
+      for (const side of [-1, 1]) {
+        const a = centre + side * FAN_HALF
+        const len = FAN_OUT - FAN_IN
+        const k = new THREE.Mesh(track(new THREE.PlaneGeometry(0.7, len)), kerbMat)
+        k.rotation.x = -Math.PI / 2
+        k.position.set(Math.cos(a) * (FAN_IN + len / 2), 0.42, -Math.sin(a) * (FAN_IN + len / 2))
+        k.rotation.z = -a
+        g.add(k)
+      }
+      const mouth = new THREE.Mesh(
+        track(new THREE.RingGeometry(FAN_OUT - 0.35, FAN_OUT + 0.35, 96, 1, centre - FAN_HALF, FAN_HALF * 2)),
+        kerbMat,
+      )
+      mouth.rotation.x = -Math.PI / 2
+      mouth.position.y = 0.42
+      g.add(mouth)
+      group.add(g)
+    }
+  }
+
   // ── o desenho do parterre: alamedas diagonais e o passeio-anel externo ────
   // Visto de cima, um jardim de palácio é um desenho: além dos quatro bulevares
   // cardeais, quatro alamedas nas diagonais (do anel à muralha, passando pelos

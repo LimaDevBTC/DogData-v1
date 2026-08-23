@@ -26,7 +26,7 @@ import { buildChalet, type Chalet } from './chalet'
 import { buildPrecinct, ANCHORS, type Precinct } from './precinct'
 import { loadPark, PARK_CENTER, type Park } from './park'
 import { buildMonuments, type Monuments } from './monuments'
-import { onDiagonal, GENESIS_POS, SATOSHI_POOL, PAW_PALM, ORDINAL_CENTER, LEONIDAS_POS, BUST_POS } from './garden-plan'
+import { onDiagonal, DECK_Y, GENESIS_POS, SATOSHI_POOL, PAW_PALM, ORDINAL_CENTER, LEONIDAS_POS, BUST_POS } from './garden-plan'
 import { TEMPLE_WORLD } from './park-site'
 import { CAVE_YAW, CAVE_LAYER } from './leonidas-cave'
 import { buildFoundersWalk, type FoundersWalk, type FoundersData } from './founders-walk'
@@ -52,6 +52,7 @@ type View = { pos: THREE.Vector3; target: THREE.Vector3 }
 export const PLACES: ReadonlyArray<{ key: string; label: string; hint: string }> = [
   { key: 'home', label: 'Satoshi Plaza', hint: 'the whole precinct' },
   { key: 'deck', label: 'The deck', hint: 'the Needle, up close' },
+  { key: 'mark', label: 'The Bitcoin Mark', hint: 'the seal on the deck, north axis' },
   { key: 'founders', label: "Founders' Circle", hint: 'the donors, at the tower foot' },
   { key: 'whitepaper', label: 'Whitepaper Garden', hint: 'nine pages, north-east' },
   { key: 'genesis', label: 'The Genesis Block', hint: 'end of the whitepaper walk' },
@@ -102,6 +103,10 @@ function viewFor(name: string | null, aspect: number): View {
       return { pos: new THREE.Vector3(6, 42.3, -84), target: new THREE.Vector3(0, 41.7, -67) }
     case 'deck':
       return { pos: new THREE.Vector3(-260, 120, 380), target: new THREE.Vector3(0, 60, 0) }
+    // De pé no eixo norte, um pouco além do marco, olhando para ele com a Needle
+    // subindo atrás: é o enquadramento para o qual a peça foi desenhada.
+    case 'mark':
+      return { pos: new THREE.Vector3(0, 40 + 16, -228), target: new THREE.Vector3(0, 40 + 12, -150) }
     case 'whitepaper': { const [x, z] = onDiagonal('NE', 598, 4); const [tx, tz] = onDiagonal('NE', 690); return { pos: new THREE.Vector3(x, 7, z), target: new THREE.Vector3(tx, 4, tz) } }
     case 'genesis': { const [x, z] = onDiagonal('NE', 838, 9); return { pos: new THREE.Vector3(x, 6, z), target: new THREE.Vector3(GENESIS_POS[0], 4.5, GENESIS_POS[1]) } }
     case 'satoshi': { const [x, z] = onDiagonal('NW', 492, 3); return { pos: new THREE.Vector3(x, 6, z), target: new THREE.Vector3(SATOSHI_POOL[0], 9, SATOSHI_POOL[1]) } }
@@ -493,12 +498,13 @@ export default function PlazaScene() {
         // landing-grade GLBs the /dogcity partners section shows (D6). Each tower
         // GLB ships with its own site slab; on the plaza those slabs would fight
         // the deck, so only the buildings are kept.
-        const [plaza, spaceport, needle, bitflow, kray] = await Promise.all([
+        const [plaza, spaceport, needle, bitflow, kray, btcMark] = await Promise.all([
           loadGlb('/city/plaza.glb'),
           loadGlb('/city/spaceport.glb'),
           loadGlb('/city/central-tower.glb'),
           loadGlb('/city/bitflow-hq.glb'),
           loadGlb('/city/kray-tower.glb'),
+          loadGlb('/city/btc-mark.glb').catch(() => null),
         ])
         if (disposed) return
         // The Needle's own site slab would double the deck; the tower stands on the
@@ -581,8 +587,13 @@ export default function PlazaScene() {
             spill_warm_2: hide,
             spill_warm_3: hide,
             site_ground: (m) => { m.color.setHex(LAWN_C); m.roughness = 0.95; m.metalness = 0 },
-            site_pave: (m) => { m.color.setHex(PAVE); m.roughness = 0.75; m.metalness = 0.15 },
-            site_pave_band: (m) => { m.color.setHex(0x23242b); m.roughness = 0.7; m.metalness = 0.2 },
+            // ⚠️ A CALÇADA RETANGULAR DO LOTE SAI INTEIRA, e não é repintura: é
+            // o leque do precinto que passa a pavimentar as duas âncoras
+            // (precinct.ts, "PÁTIO EM LEQUE"). Manter as duas seria um quadrado
+            // de pedra por baixo de um setor de pedra, com duas bordas brigando
+            // onde deveria haver uma.
+            site_pave: hide,
+            site_pave_band: hide,
             site_stone: (m) => { m.color.setHex(PAVE); m.roughness = 0.8; m.metalness = 0.1 },
             site_kerb: (m) => { m.color.setHex(KERB); m.roughness = 0.6; m.metalness = 0.2 },
             veg_hedge: (m) => { m.color.setHex(HEDGE_C); m.roughness = 0.9; m.metalness = 0 },
@@ -622,18 +633,66 @@ export default function PlazaScene() {
         // também, e no lugar entram colunas dóricas de verdade, em props-table)
         const stripped = stripByName(plaza, /^(PZ_Tree|PZ_Amp|PZ_Stage|PZ_Skywalk|PZ_Pool|PZ_Flora|PZ_GlowStems|PZ_Planters|PZ_Colonnade)/)
         if (wantStats) console.log('[plaza] deck: removidas', stripped, 'peças genéricas')
-        // o INLAY DO BITCOIN no piso do deck era um desenho apagado: acende, em
-        // laranja, e passa a ser o centro visual do deck limpo
-        {
-          const inlay = plaza.getObjectByName('PZ_BtcInlay') as THREE.Mesh | undefined
-          const m = inlay?.material as THREE.MeshStandardMaterial | undefined
-          if (m) {
-            m.color.set(0xF7931A)
-            m.emissive = new THREE.Color(0xF7931A)
-            m.emissiveIntensity = 0.85
-            m.metalness = 0.6
-            m.roughness = 0.35
-            m.toneMapped = false
+        // ⚠️ O DECALQUE ANTIGO SAI, E O MARCO ENTRA NO LUGAR DELE.
+        //
+        // `PZ_BtcInlay` era um ₿ chapado de 26 x 53 m, sem espessura e sem borda,
+        // largado a 40 graus do eixo no quadrante nordeste (x 126, z -108), com o
+        // material `M_StreetGlow` pintado de laranja aqui na carga. O fundador:
+        // "um símbolo do Bitcoin genérico". Era mesmo.
+        //
+        // No lugar entra `btc-mark.glb` (blender/build_btc_mark.py): selo de latão
+        // de 46 m embutido na laje, anel gravado, canal de luz, quatro entalhes
+        // cardeais, a data do gênese, e o ₿ em bronze escuro de 21 m subindo dele,
+        // inclinado nos 14 graus da marca.
+        //
+        // ⚠️ E ELE VAI PARA O EIXO NORTE, r 150. As quatro escadarias do deck estão
+        // nos eixos: quem sobe pelo norte encontra o marco de frente com a Needle
+        // atrás, que é o enquadramento que a praça já oferecia e ninguém usava. Na
+        // diagonal, onde o decalque estava, não se chega de frente nunca.
+        stripByName(plaza, /^PZ_BtcInlay$/)
+        const MARK_R = 150
+        if (btcMark) {
+          btcMark.name = 'BtcMark'
+          btcMark.position.set(0, DECK_Y, -MARK_R)
+          // ⚠️ MEIA VOLTA, E ISSO CONSERTOU O QUE PARECIA SER MATERIAL. No Blender
+          // o glifo foi levantado olhando para -Y, e o `export_yup` manda -Y do
+          // Blender para +Z do glTF: na praça ele nascia de COSTAS para a
+          // escadaria norte. Pior, o contorno de luz, que mora atrás do glifo,
+          // passava a ficar na FRENTE dele e cobria a peça inteira com uma chapa
+          // quente. Eu tinha atribuído isso a metal reflexivo e mexido em luz
+          // duas vezes antes de olhar a orientação.
+          btcMark.rotation.y = Math.PI
+          // ⚠️ O SELO SAIU BRANCO ATÉ ESTA LINHA EXISTIR, e a causa não era luz:
+          // a cena usa um `RoomEnvironment` de estúdio como ambiente, e METAL SEM
+          // DIFUSA É SÓ REFLEXO. Com envMapIntensity cheio, latão e bronze viram
+          // espelhos de um estúdio branco. Todo GLB da praça passa pelo `tameEnv`
+          // por isso; o marco tinha nascido fora dele. Diminuir refletor não
+          // resolvia nada, e foi o que eu tentei antes de medir.
+          tameEnv(btcMark)
+          btcMark.traverse((o) => {
+            const mesh = o as THREE.Mesh
+            if (!mesh.isMesh) return
+            mesh.castShadow = true
+            mesh.receiveShadow = true
+          })
+          scene.add(btcMark)
+          culler.add(btcMark, 3200)
+
+          // ⚠️ MONUMENTO SE ILUMINA, NÃO SE ACENDE. A primeira tentativa foi uma
+          // lâmina emissiva atrás do glifo e saiu como logotipo de apresentação.
+          // O que faz um bronze escuro existir de noite são dois refletores
+          // rasantes, que é como qualquer praça de verdade resolve isso.
+          for (const sx of [-1, 1]) {
+            // ⚠️ 260 CANDELAS ERAM CEM VEZES A PRAÇA. O sol da cena é 2,6, o hemisférico
+            // 0,5: dois refletores fortes lavaram o selo inteiro de branco. Aqui o
+            // refletor só precisa separar o bronze do céu, não iluminar o deck.
+            const spot = new THREE.SpotLight(0xffc98a, 46, 210, Math.PI / 9, 0.62, 2)
+            spot.position.set(sx * 26, DECK_Y + 7, -MARK_R + 30)
+            spot.target.position.set(0, DECK_Y + 11, -MARK_R)
+            spot.castShadow = false
+            scene.add(spot)
+            scene.add(spot.target)
+            culler.add(spot, 2600)
           }
         }
         // The precinct (praca-central.md §4.2, D7): the Needle at the centre of the
