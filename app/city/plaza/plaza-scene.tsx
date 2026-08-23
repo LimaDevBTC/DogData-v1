@@ -367,7 +367,24 @@ export default function PlazaScene() {
     controls.minDistance = 3
     controls.maxDistance = 16000
     controls.zoomSpeed = 1.1
-    controls.maxPolarAngle = Math.PI / 2 - 0.04 // never under the ground
+    // ⚠️ ESTA LINHA É O MOTIVO DE NINGUÉM VER O CÉU, e ela merece o aviso.
+    //
+    // No OrbitControls o ângulo polar π/2 é a câmera na altura do alvo, olhando na
+    // horizontal. Passar disso é a câmera descer ABAIXO do alvo, que é como se
+    // olha para cima. Travado em π/2, o rig não olha acima do horizonte NUNCA:
+    // sobra só a metade de cima do quadro, uns 21 graus de céu.
+    //
+    // Consequência medida (2026-08-23): a Terra estava pendurada a 10° de
+    // elevação, coladinha no horizonte, porque era a única altura em que alguém a
+    // veria. E isso é justamente o que faz um corpo celeste parecer satélite. O
+    // mesmo trava as naves da mempool, que voam em cima.
+    //
+    // O comentário antigo dizia "never under the ground", e o chão já é defendido
+    // no laço (a câmera é empurrada para terreno + 1,7 m). Destravar aqui sozinho
+    // não resolve: com o alvo preso perto do chão, o OrbitControls não tem para
+    // onde levar a câmera. O conserto de verdade é o alvo SUBIR quando se arrasta
+    // para cima, que é uma mudança de rig e está proposta, não feita.
+    controls.maxPolarAngle = Math.PI / 2 - 0.04
     controls.autoRotate = true
     controls.autoRotateSpeed = 0.18
     controls.enabled = false // só depois que o portão abrir (ver `boot.ready`)
@@ -441,12 +458,44 @@ export default function PlazaScene() {
 
     // ── sky: stars and the Earth ─────────────────────────────────────────────
     scene.add(buildStars())
-    // The Earth hangs where the home camera looks: over the plaza, a hand above
-    // the horizon, so the first frame has the Needle against the blue. Real
-    // textures (the three.js planet set, NASA-derived), lit by the same sun, so
-    // it shows a phase like it does from Tranquility Base.
+    // ⚠️ A TERRA É CÉU, NÃO É OBJETO DA CENA, e é essa distinção que conserta o
+    // que o fundador viu: "hoje a terra parece um satélite da lua".
+    //
+    // Ela estava pendurada em (-21000, 6800, 30000), um ponto do MUNDO a 37 km.
+    // Medido: andar mil metros na praça a deslocava 1,54° contra as estrelas, que
+    // é 38% do próprio diâmetro dela. Um corpo a 384 mil km não faz isso. Fazer
+    // isso é o que define, para o olho, um satélite em órbita baixa: ele desliza,
+    // muda de tamanho e passa por trás das torres enquanto você caminha.
+    //
+    // A correção profissional é a de sempre para corpo celeste: PRENDER NA CÂMERA.
+    // A posição passa a ser a da câmera mais uma direção fixa, então a paralaxe é
+    // exatamente zero e o tamanho na tela nunca muda. Continua sendo uma esfera
+    // iluminada pelo mesmo sol (a fase é de verdade), só que agora mora no céu.
+    //
+    // ⚠️ E ELA SOBE PARA ONDE ELA ESTÁ. A Lua é travada por maré: a Terra não
+    // nasce nem se põe, fica PARADA num ponto do céu, e QUAL ponto depende de
+    // onde a cidade está. A 10 graus, onde ela estava, a leitura é de "luar
+    // nascendo", que é outra coisa.
+    //
+    // ⚠️ E A ALTURA DELA ESCOLHE O SÍTIO, não o contrário. A distância angular
+    // até o zênite é a distância até o ponto sub-terrestre (0°, 0°):
+    //
+    //   Tranquillitatis sul   (8,5° N, 31° E)  →  58° de elevação
+    //   Tranquillitatis norte (25° N, 40° E)   →  44° de elevação
+    //
+    // Fica a norte, a 44°: mais alto que isso e a Terra só existe para quem olha
+    // para cima de propósito; mais baixo, e ela vira lua nascendo. Continua sendo
+    // Mare Tranquillitatis (o mar vai até uns 30° N), e o azimute sai da mesma
+    // conta: 243°, a sudoeste, na direção do ponto sub-terrestre.
     const earth = buildEarth()
-    earth.position.set(-21000, 6800, 30000)
+    const EARTH_AZ = 243, EARTH_EL = 44
+    const EARTH_DIR = new THREE.Vector3(
+      Math.sin(THREE.MathUtils.degToRad(EARTH_AZ)) * Math.cos(THREE.MathUtils.degToRad(EARTH_EL)),
+      Math.sin(THREE.MathUtils.degToRad(EARTH_EL)),
+      -Math.cos(THREE.MathUtils.degToRad(EARTH_AZ)) * Math.cos(THREE.MathUtils.degToRad(EARTH_EL)),
+    ).normalize()
+    const EARTH_DIST = 37000
+    earth.position.copy(EARTH_DIR).multiplyScalar(EARTH_DIST)
     scene.add(earth)
 
     // ── layers ──────────────────────────────────────────────────────────────
@@ -1165,8 +1214,16 @@ export default function PlazaScene() {
       dsc?.update(t)
       park?.update(t, renderer.domElement.clientHeight / 2, camera.position)
       for (const sp of spinners) sp.rotation.y = t * 0.12
-      earth.rotation.y = t * 0.004
-      const cl = earth.getObjectByName('Clouds'); if (cl) cl.rotation.y = t * 0.0025
+      // ⚠️ SEM PARALAXE: a Terra anda junto com a câmera, então a direção dela no
+      // céu é sempre a mesma e o tamanho na tela nunca muda.
+      earth.position.copy(camera.position).addScaledVector(EARTH_DIR, EARTH_DIST)
+      // ⚠️ E ELA PARA DE RODAR NA CARA DE QUEM OLHA. Estava dando uma volta a cada
+      // 26 minutos: dá para VER girando, e o que gira à vista é coisa perto. A
+      // Terra leva 24 horas. Isto aqui é uma volta a cada 12 horas de relógio,
+      // vinte vezes o real: imperceptível numa visita, e o bastante para as
+      // nuvens não parecerem pintadas em quem deixa a aba aberta.
+      earth.rotation.y = t * 0.00015
+      const cl = earth.getObjectByName('Clouds'); if (cl) cl.rotation.y = t * 0.00019
       // o governador decide se o mapa de sombra atualiza a cada quadro ou a cada
       // dois. EM VOO da visita guiada ele congela: refazer a sombra do sol a cada
       // quadro enquanto a câmera atravessa 5 km era metade do engasgo que o
@@ -1560,7 +1617,12 @@ function buildStars(): THREE.Points {
 function buildEarth(): THREE.Group {
   const g = new THREE.Group()
   g.name = 'Earth'
-  const R = 1300 // ~4° across from 37 km: twice the real angle, on purpose; it is the postcard
+  // ⚠️ O TAMANHO É LICENÇA POÉTICA MEDIDA, e não um número solto. Da Lua a Terra
+  // tem 1,9°. Estava com 4,0°, mais que o dobro, e tamanho de lua cheia somado à
+  // paralaxe era metade do efeito "satélite". Agora são 2,6°: ainda maior que a
+  // verdade, porque a Terra é o assunto do céu daqui, mas dentro da ordem de
+  // grandeza de um corpo distante.
+  const R = 840 // 2,6° a 37 km
   const loader = new THREE.TextureLoader()
   const tex = (url: string, srgb = true) => {
     const t = loader.load(url)
@@ -1586,9 +1648,13 @@ function buildEarth(): THREE.Group {
   )
   clouds.name = 'Clouds'
   g.add(clouds)
+  // ⚠️ A ATMOSFERA É FINA, e a nossa estava com 5% do raio: 320 km de ar, que lê
+  // como bola de neblina. A camada real tem uns 100 km sobre 6.371 de raio, 1,6%.
+  // Fina e um pouco mais forte desenha um FIO azul no limbo, que é o que se vê
+  // nas fotos de verdade.
   const rim = new THREE.Mesh(
-    new THREE.SphereGeometry(R * 1.05, 48, 32),
-    new THREE.MeshBasicMaterial({ color: 0x4f8dff, transparent: true, opacity: 0.14, blending: THREE.AdditiveBlending, side: THREE.BackSide, depthWrite: false }),
+    new THREE.SphereGeometry(R * 1.016, 48, 32),
+    new THREE.MeshBasicMaterial({ color: 0x6fa4ff, transparent: true, opacity: 0.30, blending: THREE.AdditiveBlending, side: THREE.BackSide, depthWrite: false }),
   )
   g.add(rim)
   g.rotation.z = 0.41 // axial tilt, for the look of it
