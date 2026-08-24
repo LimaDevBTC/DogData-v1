@@ -24,6 +24,8 @@ interface VerifiedAddress {
   verified_at: string
   description?: string
   source?: 'verified' | 'onchain'
+  claim?: 'verified' | 'named' | 'classified'
+  kind?: string | null
   role?: string | null
   evidence?: string | null
   evidence_note?: string | null
@@ -80,6 +82,8 @@ export function VerifiedAddressesProvider({ children }: { children: ReactNode })
             twitter: id.twitter || undefined,
             verified_at: '',
             source: id.source,
+            claim: id.claim,
+            kind: id.kind ?? null,
             role: id.role ?? null,
             evidence: id.evidence ?? null,
             evidence_note: id.evidence_note ?? null,

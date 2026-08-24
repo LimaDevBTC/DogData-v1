@@ -1,5 +1,6 @@
 import fs from 'fs/promises'
 import path from 'path'
+import { type ClaimLevel, displayName } from './taxonomy'
 
 /**
  * Quem é o dono de um endereço, respondido em UM lugar só.
@@ -30,7 +31,17 @@ export type IdentitySource = 'verified' | 'onchain'
 
 export interface Identity {
   address: string
+  /** o que a tela escreve: o nome próprio, ou a classe quando não há nome */
   name: string
+  /**
+   * ⚠️ O NÍVEL DA AFIRMAÇÃO, e a tela PRECISA dos três separados:
+   *   verified   o dono disse, pagou a taxa e mandou o arquivo
+   *   named      a gente concluiu QUEM é
+   *   classified a gente concluiu O QUE faz, e não sabe de quem é
+   * Passar o terceiro como se fosse o primeiro é onde um explorer perde a
+   * autoridade que levou anos para juntar. Ver lib/dog/taxonomy.ts.
+   */
+  claim: ClaimLevel
   logo: string | null
   /** exchange · marketplace · bridge · pool · project · whale */
   kind: string | null
@@ -129,8 +140,12 @@ async function onchain(): Promise<Map<string, Identity>> {
         for (const r of (await res.json()) as any[]) {
           map.set(r.address, {
             address: r.address,
-            name: r.entity,
-            logo: ENTITY_LOGOS[r.entity] ?? null,
+            // ⚠️ sem nome próprio a tela escreve a CLASSE, e nunca um chute. Uma
+            // carteira que aparece em 18% das transferências é um mercado; dizer
+            // "mercado" é verdade, dizer "UniSat" é invenção.
+            name: displayName(r.entity, r.kind),
+            claim: r.entity ? 'named' : 'classified',
+            logo: r.entity ? ENTITY_LOGOS[r.entity] ?? null : null,
             kind: r.kind ?? null,
             role: r.role ?? null,
             source: 'onchain',
@@ -172,6 +187,7 @@ export async function resolveIdentities(addresses: Array<string | null | undefin
       ? {
           address,
           name: ver.name!,
+          claim: 'verified' as const,
           logo: ver.logo ?? ENTITY_LOGOS[ver.name!] ?? null,
           kind: nosso?.kind ?? null,
           role: nosso?.role ?? null,
