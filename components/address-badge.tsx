@@ -84,7 +84,7 @@ export function AddressBadge({ address, size = 'md', showName = true }: AddressB
           </div>
         )}
         {showName && verified.name && (
-          <span className={`${textSize} font-medium ${nosso ? 'text-dusty/70' : 'text-snow/80'}`} title={porque}>
+          <span className={`${textSize} whitespace-nowrap font-medium ${nosso ? 'text-dusty/70' : 'text-snow/80'}`} title={porque}>
             {verified.name}
             {nosso && verified.role && <span className="text-dusty/40"> · {verified.role}</span>}
           </span>

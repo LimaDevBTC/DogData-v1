@@ -1284,7 +1284,10 @@ export default function HoldersPage() {
                   >
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
-                        <Badge className="bg-lava/20 text-lava-light border-lava/40 font-mono text-[10px] uppercase tracking-wide">
+                        {/* ⚠️ `shrink-0` E `whitespace-nowrap`: sem eles o nome da
+                            entidade, que entrou nesta linha agora, rouba largura
+                            do selo e "Rank #1" quebra em duas linhas. */}
+                        <Badge className="shrink-0 whitespace-nowrap bg-lava/20 text-lava-light border-lava/40 font-mono text-[10px] uppercase tracking-wide">
                           Rank #{holder.rank.toLocaleString('en-US')}
                         </Badge>
                         <code 
@@ -1303,7 +1306,12 @@ export default function HoldersPage() {
                             {holder.address}
                           </a>
                         </code>
-                        <AddressBadge address={holder.address} size="sm" showName={false} />
+                        {/* ⚠️ COM NOME. Só o logo transforma a identidade num
+                            enigma de 16px: um ponto roxo não diz "Kraken · hot",
+                            e a linha tem espaço de sobra entre o endereço e o
+                            saldo. Era também a única tela onde a identidade
+                            aparecia sem dizer de onde veio. */}
+                        <AddressBadge address={holder.address} size="sm" />
                         <Button
                           size="sm"
                           variant="ghost"
