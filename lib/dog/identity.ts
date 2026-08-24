@@ -50,22 +50,32 @@ export interface Identity {
  * apontar para um arquivo que não foi implantado. A chave é o nome da entidade
  * como ele está em `dog_labels.entity`.
  */
+// ⚠️ DE ONDE VIERAM OS ARQUIVOS, para ninguém precisar adivinhar depois: CoinEx,
+// UniSat, OKX e Pionex saíram do CDN de imagens da CoinGecko (o campo `image` de
+// /api/v3/exchanges/<id>), normalizados aqui para 256x256 com o fundo externo
+// vazado. Kraken, Bitget, Gate.io, MEXC, Merlin e DotSwap já estavam no
+// repositório. O mascote do DogSwap é recorte do logotipo que já tínhamos.
+//
+// ⚠️ A OKX É A EXCEÇÃO E FICA COM O FUNDO BRANCO. A marca dela é preta: vazar o
+// fundo a torna invisível no nosso tema escuro, que é o contrário do que um logo
+// serve para fazer.
+//
 // ⚠️ SÓ ARQUIVO QUADRADO ENTRA AQUI. O selo desenha o logo num quadrado de 12px:
 // um logotipo horizontal (o `Kraken.png` é 163x82, o `dogswap_logo.png` é 4:1)
 // vira um risco ilegível. Onde só existia o logotipo deitado, o ícone quadrado
 // foi recortado do próprio arquivo e gravado ao lado.
 const ENTITY_LOGOS: Record<string, string> = {
   Kraken: '/krakencolor.png',       // e não Kraken.png, que é o logotipo deitado
+  CoinEx: '/coinex-icon.png',
   Bitget: '/Bitget-icon.png',
   'Gate.io': '/Gate-icon.png',
   MEXC: '/Mexc-icon.png',
+  UniSat: '/unisat-icon.png',
+  OKX: '/okx-icon.png',
+  Pionex: '/pionex-icon.png',
   'Merlin Chain': '/Merlin-icon.png',
   DotSwap: '/DotSwap.webp',
-  DogSwap: '/dogswap-icon.png',     // mascote recortado do logotipo
-  Pionex: '/pionex-icon.png',       // glifo recortado; a fonte tem 26px, serve a 12
-  // ⚠️ COINEX NÃO TEM ARQUIVO. Fica sem logo, e o selo cai no ícone genérico com
-  // o nome ao lado, que é o comportamento correto: nome errado é pior que nome
-  // sem logo, e logo inventado é pior que os dois.
+  DogSwap: '/dogswap-icon.png',     // mascote recortado do próprio logotipo
 }
 
 interface VerifiedEntry {
