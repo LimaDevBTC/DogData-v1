@@ -710,7 +710,19 @@ interface TransactionsMetrics {
 }
 
 // Função para buscar eventos da Unisat
-async function fetchUnisatEvents(limit = 600): Promise<UnisatEvent[]> {
+// ⚠️ 500 É O TETO, E 600 DEVOLVE ZERO EM SILÊNCIO.
+// Medido contra a API em 2026-08-24: `limit=500` traz 500 eventos, `limit=600`
+// traz uma lista VAZIA com `code: 0`, ou seja, sucesso aparente e nenhum dado. O
+// padrão daqui era 600. Esta função não é chamada por ninguém hoje, então não
+// causou perda, mas quem a chamasse acharia que não há evento nenhum, que é
+// exatamente a classe de defeito que apagou o remetente de 23% do histórico.
+const UNISAT_EVENT_LIMIT_MAX = 500;
+
+async function fetchUnisatEvents(limit = UNISAT_EVENT_LIMIT_MAX): Promise<UnisatEvent[]> {
+  if (limit > UNISAT_EVENT_LIMIT_MAX) {
+    console.warn(`[UNISAT] limit ${limit} acima do teto: usando ${UNISAT_EVENT_LIMIT_MAX}`);
+    limit = UNISAT_EVENT_LIMIT_MAX;
+  }
   const params = new URLSearchParams({
     rune: RUNE_NAME,
     start: '0',
