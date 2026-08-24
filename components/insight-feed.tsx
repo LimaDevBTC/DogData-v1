@@ -44,8 +44,12 @@ const ESTILO: Record<Insight["kind"], { Icon: typeof Coins; cor: string }> = {
   holders: { Icon: Coins, cor: "text-cyan-400" },
 }
 
-/** Para onde a chamada da home leva. Um lugar só, para não haver dois. */
-export const FEED_COMPLETO = "/metrics#feed"
+/** Para onde a chamada da home leva. Um lugar só, para não haver dois.
+ *
+ * ⚠️ TRANSAÇÕES, E A ESCOLHA TEM MOTIVO. É ali que a manchete vira ação: quem lê
+ * "a mesa mandou 90M para a Kraken" tem a lista de transações na mesma tela para
+ * conferir. Notícia e prova a dois centímetros uma da outra. */
+export const FEED_COMPLETO = "/transactions#feed"
 
 export default function InsightFeed({
   /** quantas linhas desenhar. A home mostra a chamada, a página inteira mostra tudo. */

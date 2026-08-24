@@ -50,9 +50,11 @@ import {
   Truck,
   Upload,
   Users,
-  Zap
+  Zap,
+  Newspaper
 } from "lucide-react"
 import { AddressBadge } from "@/components/address-badge"
+import InsightFeed from "@/components/insight-feed"
 import { Globe } from "lucide-react"
 
 interface Sender {
@@ -1985,6 +1987,22 @@ export default function TransactionsPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* ═══ O feed inteiro ═══ */}
+        {/* ⚠️ COLADO NA LISTA, DE PROPÓSITO. Esta é a página onde a manchete vira
+            ação: quem lê "a trading desk sent 90M DOG into Kraken" tem a lista de
+            transações logo abaixo para conferir. Notícia e prova na mesma tela é
+            a única razão de o feed morar aqui e não em on-chain. A âncora #feed é
+            o destino do clique na home; mudá-la de nome exige trocar a constante
+            FEED_COMPLETO junto. */}
+        <div id="feed" className="scroll-mt-24">
+          <SectionDivider title="What the chain did today" icon={Newspaper} />
+          <InsightFeed />
+          <p className="mt-2 px-1 font-mono text-[10px] leading-relaxed text-dusty/50">
+            Every line is a query against our own index, with the number that supports it.
+            Exchange outflow appears with the same weight as inflow, including when it is bad news.
+          </p>
+        </div>
 
         <SectionDivider title="Recent Transactions" icon={Activity} />
 
