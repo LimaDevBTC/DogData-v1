@@ -52,80 +52,79 @@ export interface KindSpec {
 export const KINDS: Record<WalletKind, KindSpec> = {
   exchange: {
     label: 'Exchange',
-    definition: 'Corretora centralizada: guarda saldo de clientes e liquida fora da cadeia.',
+    definition: 'Centralised exchange: holds customer balances and settles off-chain.',
     signature:
-      'muitos depositantes distintos varridos para poucas carteiras quentes, saques para muitos destinos distintos, e remanejo interno constante entre carteiras da própria casa.',
-    notThis:
-      'não é `desk`: a mesa MANDA para corretora, não RECEBE depósito de estranhos.',
+      'many distinct depositors swept into a few hot wallets, withdrawals to many distinct destinations, and constant internal shuffling between its own wallets.',
+    notThis: 'Not a desk: a desk sends to exchanges, it does not take deposits from strangers.',
     group: 'infrastructure',
     tone: 'lava',
   },
   marketplace: {
     label: 'Marketplace',
-    definition: 'Livro de ofertas de runes ou ordinals: casa duas pontas e cobra taxa.',
+    definition: 'Order-book venue for runes or ordinals: matches two sides and takes a fee.',
     signature:
-      'aparece numa fatia grande de TODAS as transferências do ativo, contrapartes que voltam, e transações pequenas e uniformes (uma execução tem 1 a 2 entradas e 2 a 3 saídas).',
+      'appears in a large share of every transfer of the asset, counterparties come back, and fills are small and uniform (1 to 2 inputs, 2 to 3 outputs).',
     notThis:
-      'não é `swap_pool`: o pool guarda estoque e o saldo é o ponto; o mercado casa dois usuários e em geral não fica com o ativo.',
+      'Not a swap pool: a pool holds inventory and the balance is the point; a venue matches two users and mostly does not keep the asset.',
     group: 'infrastructure',
     tone: 'cyan',
   },
   swap_pool: {
     label: 'Swap pool',
-    definition: 'Pool automatizado: negocia contra o próprio estoque.',
+    definition: 'Automated pool: trades against its own inventory.',
     signature:
-      'saldo alto e permanente, fluxo nos dois sentidos com muitas contrapartes, e o saldo é o instrumento e não um resto.',
-    notThis: 'não é `marketplace`: ali o estoque é dos usuários, aqui é do pool.',
+      'a high standing balance, two-way flow with many counterparties, and the balance is the instrument rather than a leftover.',
+    notThis: 'Not a marketplace: there the inventory belongs to users, here it belongs to the pool.',
     group: 'infrastructure',
     tone: 'cyan',
   },
   bridge: {
     label: 'Bridge',
-    definition: 'Leva o ativo para outra cadeia, travando deste lado.',
-    signature: 'recebe de um lado e não devolve pelo mesmo caminho; saldo sobe em degraus e raramente desce.',
-    notThis: 'não é `treasury`: a ponte tem o outro lado emitido, a tesouraria só guarda.',
+    definition: 'Moves the asset to another chain, locking it on this side.',
+    signature: 'receives on one side and does not return by the same path; the balance climbs in steps and rarely falls.',
+    notThis: 'Not a treasury: a bridge has a minted counterpart elsewhere, a treasury only holds.',
     group: 'infrastructure',
     tone: 'cyan',
   },
   desk: {
     label: 'Trading desk',
-    definition: 'Mesa de OTC ou formador de mercado: gira estoque próprio entre praças.',
+    definition: 'OTC desk or market maker: cycles its own inventory between venues.',
     signature:
-      'volume alto nos dois sentidos COM corretoras, poucas contrapartes de varejo, e o estoque circula em vez de acumular.',
+      'high two-way volume with exchanges, few retail counterparties, and inventory that turns over instead of piling up.',
     notThis:
-      'não é coorte de tamanho: uma carteira grande que só acumula é um holder grande, e isso o explorer já diz por outro caminho.',
+      'Not a size cohort: a large wallet that only accumulates is a large holder, which the explorer already says another way.',
     group: 'actor',
     tone: 'amber',
   },
   treasury: {
     label: 'Treasury',
-    definition: 'Reserva de um projeto, declarada ou de movimentação rara e anunciada.',
-    signature: 'saldo grande parado por longos períodos, movimentos esparsos e grandes.',
-    notThis: 'não é `project`: a tesouraria guarda, a operacional gasta.',
+    definition: 'A project reserve, either declared or moved rarely and with notice.',
+    signature: 'a large balance sitting still for long stretches, with sparse, large moves.',
+    notThis: 'Not a project wallet: a treasury holds, an operating wallet spends.',
     group: 'actor',
     tone: 'lava',
   },
   distributor: {
     label: 'Distributor',
-    definition: 'Paga muita gente: airdrop, recompensa, folha.',
-    signature: 'um para muitos, repetidamente, com poucas fontes de entrada.',
-    notThis: 'não é `exchange`: saque de corretora vem acompanhado de depósito de estranhos, aqui não há depósito.',
+    definition: 'Pays many people: airdrops, rewards, payroll.',
+    signature: 'one to many, repeatedly, with few incoming sources.',
+    notThis: 'Not an exchange: exchange withdrawals come alongside deposits from strangers, and here there are no deposits.',
     group: 'actor',
     tone: 'dusty',
   },
   project: {
     label: 'Project wallet',
-    definition: 'Carteira operacional de um projeto: doações, despesas, contratos.',
-    signature: 'divulgada pelo próprio projeto, ou ligada a um endereço já provado do projeto.',
-    notThis: 'não é `treasury`: esta gasta, aquela guarda.',
+    definition: 'A project operating wallet: donations, expenses, contracts.',
+    signature: 'published by the project itself, or linked to an address already proven to belong to it.',
+    notThis: 'Not a treasury: this one spends, that one holds.',
     group: 'actor',
     tone: 'lava',
   },
   burn: {
     label: 'Burn',
-    definition: 'Destino comprovadamente inaproveitável: o ativo sai de circulação.',
-    signature: 'saída sem chave possível, ou OP_RETURN apontado por edict.',
-    notThis: 'não é "carteira perdida": perda é suposição, queima é demonstrável.',
+    definition: 'A provably unspendable destination: the asset leaves circulation.',
+    signature: 'an output with no possible key, or an OP_RETURN pointed at by an edict.',
+    notThis: 'Not a lost wallet: loss is an assumption, a burn is demonstrable.',
     group: 'special',
     tone: 'dusty',
   },
@@ -140,18 +139,18 @@ export type WalletRole =
   | 'pool' | 'router' | 'escrow' | 'settlement' | 'lock' | 'mint'
 
 export const ROLES: Record<WalletRole, string> = {
-  hot: 'Carteira quente: paga saques e recebe a varredura dos depósitos.',
-  cold: 'Reserva fria: assinatura manual, movimento raro.',
-  treasury: 'Alimenta a carteira quente e não fala com o público.',
-  deposit: 'Recebe depósito de cliente e é varrida em seguida.',
-  withdrawal: 'Paga saques; costuma ter um abastecedor de gás separado.',
-  fee: 'Recolhe a taxa da casa.',
-  pool: 'Guarda o estoque que negocia.',
-  router: 'Encaminha a ordem para o pool, sem guardar estoque.',
-  escrow: 'Segura o ativo entre a oferta e a execução.',
-  settlement: 'Liquida a execução entre as duas pontas.',
-  lock: 'Trava deste lado o que foi emitido do outro.',
-  mint: 'Emite deste lado o que foi travado do outro.',
+  hot: 'Hot wallet: pays withdrawals and receives the deposit sweep.',
+  cold: 'Cold reserve: manual signing, rare movement.',
+  treasury: 'Feeds the hot wallet and never faces the public.',
+  deposit: 'Takes a customer deposit and is swept right after.',
+  withdrawal: 'Pays withdrawals; usually has a separate gas funder.',
+  fee: 'Collects the venue fee.',
+  pool: 'Holds the inventory it trades.',
+  router: 'Routes the order to the pool without holding inventory.',
+  escrow: 'Holds the asset between listing and fill.',
+  settlement: 'Settles the fill between the two sides.',
+  lock: 'Locks on this side what was minted on the other.',
+  mint: 'Mints on this side what was locked on the other.',
 }
 
 /**
@@ -165,22 +164,22 @@ export type Evidence =
 export const EVIDENCE: Record<Evidence, { label: string; detail: string; proves: 'who' | 'what' }> = {
   own_flow: {
     label: 'our own transactions',
-    detail: 'mandamos ou recebemos desta carteira e temos a tx. Testemunha com recibo.',
+    detail: 'we sent to or received from this wallet and we have the transaction. A witness with a receipt.',
     proves: 'who',
   },
   first_party: {
     label: 'published by the entity',
-    detail: 'a própria entidade divulgou o endereço.',
+    detail: 'the entity published the address itself.',
     proves: 'who',
   },
   co_flow: {
     label: 'exclusive flow with a proven address',
-    detail: 'fluxo exclusivo e numa direção só com um endereço já provado.',
+    detail: 'exclusive, one-way flow with an address already proven.',
     proves: 'who',
   },
   topology: {
     label: 'input co-spend clustering',
-    detail: 'co-gasto de entradas. Prova o DONO ser o mesmo, não QUEM é o dono.',
+    detail: 'input co-spend. Proves the owner is the same, not who the owner is.',
     proves: 'who',
   },
   // ⚠️ ESTE GRAU PROVA OUTRA COISA, e por isso ele existe. Os quatro de cima
@@ -192,12 +191,12 @@ export const EVIDENCE: Record<Evidence, { label: string; detail: string; proves:
   // passar.
   flow_pattern: {
     label: 'flow pattern over time',
-    detail: 'desenho do fluxo: fatia das transferências, contrapartes que voltam, giro contra saldo. Prova a FUNÇÃO, não a identidade.',
+    detail: 'the shape of the flow: share of transfers, returning counterparties, turnover against balance. Proves function, not identity.',
     proves: 'what',
   },
   third_party: {
     label: 'reported elsewhere',
-    detail: 'veio de fora. Orienta, nunca publica sozinho.',
+    detail: 'came from outside. It guides, it never publishes on its own.',
     proves: 'who',
   },
 }

@@ -6,6 +6,12 @@
 -- é uma afirmação sobre o mundo real, e afirmação errada aqui vira manchete errada
 -- lá na frente.
 --
+-- ⚠️ A JUSTIFICATIVA VAI PARA A TELA, e por isso ela é escrita em inglês, como o
+-- resto do site. O painel "Why we say this" na página do endereço mostra esta
+-- coluna inteira: é ela que torna o rótulo auditável, e é o que separa a gente de
+-- quem escreve "Kraken" ao lado de um endereço sem mostrar a conta. O raciocínio
+-- em português mora nos comentários e nos commits, que são para nós.
+--
 -- ⚠️ TODO RÓTULO CARREGA O GRAU DA PROVA, e é essa coluna que separa a gente de um
 -- palpite bem escrito. Em ordem decrescente de confiança:
 --
@@ -49,13 +55,13 @@ ALTER TABLE dog_labels ENABLE ROW LEVEL SECURITY;
 
 INSERT INTO dog_labels (address, entity, role, kind, evidence, evidence_note, internal) VALUES
   ('bc1plzs2lltvv29k603w5m0aqma5e8w0n3pc77dt89l5w9hurmdfgd0swdhspn', 'Kraken', 'hot', 'exchange', 'own_flow',
-   'Varre os depositos do fundador: 7 depositos dele, 7 varreduras, mesma janela de 17/07 a 19/08/2026. 2.457 contrapartes distintas.', false),
+   'Sweeps the founder''s own deposits: 7 deposits from him, 7 sweeps, same window of 17/07 to 19/08/2026. 2,457 distinct counterparties.', false),
   ('bc1pap56p2rgmqgk4rc0vxpkldszhgldx49cfs3zer8e2k7q9q6x079scfa8nx', 'Kraken', 'treasury', 'exchange', 'co_flow',
-   'Alimenta a carteira quente: 169 transferencias, 10,78 bilhoes de DOG, uma direcao so, de 25/06 a 24/08/2026. Cluster de co-gasto com 1.696 enderecos.', false),
+   'Feeds the hot wallet: 169 transfers, 10.78B DOG, one direction only, from 25/06 to 24/08/2026. Co-spend cluster with 1,696 addresses.', false),
   ('bc1pwxdpn5c9weqctt8yx3kpxmyv0ej6dvgcssp3hzdg7c5t7n468mxq9zt477', 'Kraken', 'withdrawal', 'exchange', 'own_flow',
-   'Pagou um saque do fundador (tx 89c88705...), com abastecedor de gas separado, que e o padrao de corretora com runes.', false),
+   'Paid a withdrawal to the founder (tx 89c88705...), with a separate gas funder, which is the standard pattern for an exchange handling runes.', false),
   ('bc1qmscmeqqxqz7vkfscfs8pvl98gkdkcr8e0egkhm', 'CoinEx', 'deposit', 'exchange', 'first_party',
-   'Endereco divulgado pela propria corretora. 3.568 transacoes, 673 contrapartes desde 03/07/2024.', false),
+   'Address published by the exchange itself. 3,568 transactions, 673 distinct counterparties since 03/07/2024.', false),
   ('bc1pf57ydds0ldxyrhq9s2p4ecnxe4hr0taxvgjpza3tjlyrpukt0fnqxwd6xs', 'Kraken', 'deposit', 'exchange', 'own_flow',
    'Endereco de deposito pessoal do fundador. INTERNO: publicar isto ao lado da carteira de doacoes revela quando e quanto ele vendeu.', true)
 ON CONFLICT (address) DO NOTHING;

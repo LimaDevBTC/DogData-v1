@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { EntityTag, type Identity } from "@/components/entity-tag"
+import { EvidencePanel } from "@/components/evidence-panel"
 import { useParams, useRouter } from "next/navigation"
 import {
   Copy, Check, ExternalLink, Search, ArrowDownLeft, ArrowUpRight,
@@ -810,6 +811,11 @@ function AddressHeader({
           {labels.map(l => <LabelBadge key={l.id} label={l} />)}
         </div>
       )}
+
+      {/* A PROVA, aberta. E isto que separa uma fonte de um palpite com
+          tipografia bonita: a conclusao vem com a conta junto, e com o limite
+          dela dito na cara. */}
+      {entity && <EvidencePanel entity={entity} />}
     </div>
   )
 }
