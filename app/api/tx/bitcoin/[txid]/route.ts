@@ -199,7 +199,78 @@ export async function GET(
 
     const rawTx = txQuery.data
     if (!rawTx) {
-      return NextResponse.json({ error: 'Transaction not found', txid }, { status: 404 })
+      // ⚠️ NÃO ESTAR NO HISTÓRICO NÃO É NÃO EXISTIR. A praça manda gente para cá:
+      // cada foguete em órbita é uma transação de DOG que o NOSSO nó viu na
+      // mempool, e o número dela é clicável. Até esta linha existir, quem clicava
+      // caía num "transaction not found" para uma transação que a gente estava
+      // literalmente desenhando na tela um segundo antes.
+      //
+      // `dog_mempool` é a tabela do watcher (scripts/dog_mempool_watcher.py), que
+      // já acompanha o ciclo pending → confirmed → dropped. Aqui ela vira a
+      // resposta quando o histórico ainda não tem a transação.
+      const pend = await supabase
+        .from('dog_mempool')
+        .select('txid, status, first_seen, dog_in, dog_out, fee_sats, vsize, fee_rate, n_in, n_out, rbf, senders, receivers, block_height, confirmed_at, dropped_at')
+        .eq('txid', txid)
+        .maybeSingle()
+
+      const m = pend.data
+      if (!m) {
+        return NextResponse.json({ error: 'Transaction not found', txid }, { status: 404 })
+      }
+
+      // ⚠️ O QUE A MEMPOOL SABE É MENOS DO QUE O HISTÓRICO SABE, e a resposta diz
+      // isso em vez de fingir. Não há `vout` por saída nem valor em sats por
+      // entrada: o watcher guarda endereço e DOG, que é o que a órbita precisa.
+      // Os campos ausentes vão nulos, e a tela trata nulo como "ainda não".
+      const mempoolReceivers = Array.isArray(m.receivers) ? m.receivers : parseJsonArr(m.receivers)
+      const inputs = (m.senders || []).map((address: string, i: number) => ({
+        position: i,
+        address,
+        sats: 0,
+        script_type: null,
+        amount_dog: 0,
+        holder_rank: holders.get(String(address).toLowerCase())?.rank ?? null,
+        label: null,
+        is_known: holders.has(String(address).toLowerCase()),
+      }))
+      const outputs = mempoolReceivers.map((r: any, i: number) => ({
+        position: i,
+        address: r.address ?? null,
+        sats: 0,
+        script_type: null,
+        amount_dog: Number(r.dog ?? r.amount_dog ?? 0),
+        holder_rank: holders.get(String(r.address).toLowerCase())?.rank ?? null,
+        label: null,
+        is_known: holders.has(String(r.address).toLowerCase()),
+      }))
+
+      return NextResponse.json({
+        txid,
+        // ⚠️ `status` É O CAMPO NOVO, e a tela pinta por ele. `pending` é a órbita,
+        // e é ele que vira amarelo.
+        status: m.status,
+        block_height: m.block_height ?? null,
+        timestamp: m.confirmed_at || m.first_seen,
+        first_seen: m.first_seen,
+        type: 'transfer',
+        size: null,
+        vsize: m.vsize ?? null,
+        weight: null,
+        fee_sats: Number(m.fee_sats ?? 0),
+        fee_rate: m.fee_rate != null ? Number(m.fee_rate) : null,
+        confirmations: 0,
+        total_dog_moved: Number(m.dog_out ?? m.dog_in ?? 0),
+        rbf: m.rbf ?? null,
+        inputs,
+        outputs,
+        classification: 'normal',
+      }, {
+        // ⚠️ SEM CACHE: uma transação pendente muda de estado a qualquer bloco, e
+        // servir dez minutos de cache aqui é mostrar "em órbita" para algo que já
+        // pousou. O caminho confirmado, logo abaixo, continua com cache longo.
+        headers: { 'Cache-Control': 'no-store' },
+      })
     }
 
     // ── DOG attribution maps (address → dog amount) ─────────────────────────
@@ -331,6 +402,7 @@ export async function GET(
 
     return NextResponse.json({
       txid: rawTx.txid,
+      status: 'confirmed',
       block_height: rawTx.block_height,
       timestamp: rawTx.timestamp,
       type: rawTx.type || 'transfer',

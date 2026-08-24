@@ -26,7 +26,7 @@ const LABEL_ICONS: Record<string, { Icon: LucideIcon; color: string }> = {
   top10:        { Icon: Award,         color: 'text-yellow-300' },
   top100:       { Icon: Star,          color: 'text-yellow-400' },
   diamond_paws: { Icon: Shield,        color: 'text-blue-300' },
-  dog_legend:   { Icon: Award,         color: 'text-amber-400' },
+  dog_legend:   { Icon: Award,         color: 'text-amber' }, // escala não existe neste tema
   hodl_hero:    { Icon: Shield,        color: 'text-purple-400' },
   airdrop_og:   { Icon: Star,          color: 'text-lava' },
   accumulator:  { Icon: TrendingUp,    color: 'text-green-400' },
@@ -51,7 +51,13 @@ interface IO {
 
 interface TxData {
   txid: string
-  block_height: number
+  /** ⚠️ `pending` é transação ainda em órbita, vista pelo nosso nó na mempool e
+   *  ainda sem bloco. A praça linka para cá a partir de cada foguete, então esta
+   *  página precisa saber existir antes da confirmação. */
+  status?: 'pending' | 'confirmed' | 'dropped'
+  first_seen?: string
+  rbf?: boolean | null
+  block_height: number | null
   timestamp: string
   type: string
   size: number | null
@@ -344,7 +350,28 @@ export default function TxPage() {
               <classBadge.Icon className="w-3 h-3 flex-shrink-0" />
               {classBadge.label}
             </span>
-            {data.confirmations !== null && (
+            {/* ⚠️ `amber` AQUI É COR CHAPADA, NÃO ESCALA. O tema deste projeto
+                define `amber: '#FFAD42'` como valor único, então `amber-300` e
+                `amber-400/10` não compilam e o crachá saía cinza, sem o amarelo
+                que é justamente o recado. Vale para qualquer cor do tema.
+
+                AMARELO É "EM ÓRBITA", e o estado tem que ser lido de longe.
+                Antes desta página aceitar `pending`, quem clicava num foguete da
+                praça caía em "transaction not found" para uma transação que a
+                gente estava desenhando na tela. */}
+            {data.status === 'pending' && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-md border bg-amber/10 border-amber/30 text-amber">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber animate-pulse" aria-hidden />
+                In the mempool
+              </span>
+            )}
+            {data.status === 'dropped' && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-md border bg-red-400/10 border-red-400/30 text-red-300">
+                <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+                Dropped from the mempool
+              </span>
+            )}
+            {data.status !== 'pending' && data.status !== 'dropped' && data.confirmations !== null && (
               <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-md border bg-green-500/10 border-green-500/20 text-green-400">
                 <CheckCircle2 className="w-3 h-3 flex-shrink-0" />
                 {data.confirmations.toLocaleString()} confirmation{data.confirmations !== 1 ? 's' : ''}
@@ -365,7 +392,16 @@ export default function TxPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Card variant="glass" className="border-white/[0.04]">
             <CardContent className="pt-4 pb-4 space-y-3">
-              <MetaRow label="Block" value={data.block_height.toLocaleString()} />
+              {/* sem bloco ainda: dizer o que se sabe, que é desde quando ela
+                  está esperando, em vez de um traço mudo */}
+              <MetaRow
+                label="Block"
+                value={
+                  data.block_height != null
+                    ? data.block_height.toLocaleString()
+                    : <span className="text-amber">waiting for a block</span>
+                }
+              />
               <MetaRow
                 label="Type"
                 value={
