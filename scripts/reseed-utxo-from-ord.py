@@ -7,11 +7,18 @@ saída errada por meses. O conserto no código impede que aconteça de novo, mas
 desfaz o conjunto de UTXOs que já foi montado errado: a partir dele, todo saldo
 de holder sai torto.
 
-Medido em 24/08/2026, comparando com o ord:
+Medido em 24/08/2026, comparando com o ord, outpoint a outpoint:
 
-    22,22% do supply atribuído ao endereço errado
-    a carteira quente da Kraken aparecia com 12,67B quando tem 23,35B
-    o então #3 aparecia com 2,91B quando tem 0,69B
+    529 fantasmas · 665 ausentes · 153 divergentes
+
+⚠️ CORREÇÃO (24/08 à noite). A primeira versão deste cabeçalho, e a mensagem do
+commit que o trouxe, diziam que a Kraken quente tinha 23,35B "de verdade" e que
+22% do supply estava no endereço errado. CONFERIDO E DESMENTIDO contra duas
+fontes independentes: `scantxoutset` no nosso nó (416 UTXOs vivos do endereço) e
+o ordinals.com, que mostra 12.688.597.883,97 DOG, batendo DÍGITO A DÍGITO com o
+conjunto pós-reseed. Os 23,35B saíram de uma atribuição de endereço ad-hoc que
+nunca entrou no repositório. O reparo em si continua válido: é ele que faz o
+nosso conjunto conferir com o ordinals.com.
 
 ⚠️ E O ORD É A REFERÊNCIA CERTA PARA SEMEAR. Ele é a implementação de referência
 do protocolo de runes, escrita por outra gente, indexando do mesmo nó. Não é uma
