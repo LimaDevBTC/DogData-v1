@@ -3,6 +3,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import { createClient } from '@supabase/supabase-js'
 import { netTransfer } from '@/lib/dog/net-transfer'
+import { resolveIdentities } from '@/lib/dog/identity'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -172,6 +173,17 @@ async function fetchMempool<T>(url: string): Promise<T> {
 
 // ─── Handler ─────────────────────────────────────────────────────────────────
 
+/** Cola a identidade em cada entrada e saída, num pedido só.
+ *
+ * ⚠️ EM LOTE, NÃO UMA POR UMA. Uma transação de consolidação tem dezenas de
+ * entradas; resolver endereço por endereço multiplicaria a ida ao banco pelo
+ * número de linhas da tela, para um dado que é enfeite. */
+async function anexarIdentidade(...listas: Array<Array<{ address: string | null; entity?: unknown }>>) {
+  const todos = listas.flat()
+  const ids = await resolveIdentities(todos.map((x) => x.address))
+  for (const io of todos) io.entity = (io.address && ids.get(io.address)) || null
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ txid: string }> }
@@ -252,6 +264,11 @@ export async function GET(
         is_change: remetentes.has(r.address),
         is_known: holders.has(String(r.address).toLowerCase()),
       }))
+
+      // ⚠️ IDENTIDADE TAMBÉM NA PENDENTE. Uma transação não deixa de envolver a
+      // Bitget porque ainda não pousou, e o explorer que só nomeia depois do
+      // bloco dá a impressão de que a informação apareceu com a confirmação.
+      await anexarIdentidade(inputs, outputs)
 
       return NextResponse.json({
         txid,
@@ -399,6 +416,11 @@ export async function GET(
       const tip = typeof tipHeightRes === 'number' ? tipHeightRes : parseInt(String(tipHeightRes), 10)
       if (!isNaN(tip)) confirmations = Math.max(0, tip - rawTx.block_height + 1)
     }
+
+    // ⚠️ QUEM É O DONO, resolvido num pedido só para a transação inteira. Antes
+    // isto simplesmente não existia no explorer: a carteira que a página de
+    // holders mostra como Bitget aparecia aqui como um endereço qualquer.
+    await anexarIdentidade(inputs, outputs)
 
     // ── Classification (uses DOG senders/receivers) ─────────────────────────
     const classification = classifyTx(

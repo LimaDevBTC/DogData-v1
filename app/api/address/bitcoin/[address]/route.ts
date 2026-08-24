@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { resolveIdentity } from '@/lib/dog/identity'
 import fs from 'fs/promises'
 import path from 'path'
 import { createClient } from '@supabase/supabase-js'
@@ -364,6 +365,10 @@ export async function GET(
       holder: holderPayload,
       forensic: forensicPayload,
       labels: computeLabels(holder, forensic),
+      // ⚠️ QUEM É O DONO. A página de holders já mostrava isto pelo
+      // `verified_addresses.json` no cliente; aqui não existia, então a mesma
+      // carteira era "Bitget" numa tela e um endereço anônimo na outra.
+      entity: await resolveIdentity(address),
       transactions: pagedTxs,
       tx_count: totalTxs,
       stats: computeStats(transactions),

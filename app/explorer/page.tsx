@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
+import { EntityTag, type Identity } from "@/components/entity-tag"
 import { useRouter } from "next/navigation"
 import { Search, Wallet, Hash, ExternalLink, Users, Database, Layers } from "lucide-react"
 import { Layout } from "@/components/layout"
@@ -14,18 +15,47 @@ function isValidTxid(s: string): boolean {
   return /^[0-9a-fA-F]{64}$/.test(s)
 }
 
-const TOP_HOLDERS = [
-  { rank: 1, address: "bc1pk8g4rztfkxs2q9c40g6keeknjw6aadx3kzu4suzlll0remfw7xxs5x9ctv", dog: "3.42B" },
-  { rank: 2, address: "bc1p50n9sksy5gwe6fgrxxsqfcp6ndsfjhykjqef64m8067hfadd9efqrhpp9k", dog: "3.42B" },
-  { rank: 3, address: "3G7gSaxPY7BhbEASd2pnZY5cg7uEQMQvd8", dog: "2.19B" },
-  { rank: 4, address: "bc1qj7dam98j6ktjcp320qu77y2vrylv49c2k2hkmu", dog: "2.15B" },
-  { rank: 5, address: "bc1p8d8kexdxatnfejdvd9dq7uky4m9wjxl59r3dnqg7nqq9gaxz2jxq6ntach", dog: "1.88B" },
-]
+interface TopHolder { rank: number; address: string; dog: string; entity?: Identity | null }
+
+function fmtDog(n: number): string {
+  return n >= 1e9 ? `${(n / 1e9).toFixed(2)}B` : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n.toLocaleString()
+}
 
 export default function ExplorerPage() {
   const router = useRouter()
   const [query, setQuery] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [topHolders, setTopHolders] = useState<TopHolder[]>([])
+
+  // A LISTA ERA FIXA NO CODIGO E ESTAVA VELHA: dizia 3,42B no primeiro colocado
+  // quando o primeiro colocado ja tinha 12,68B, e mostrava endereco pelado onde
+  // a pagina de holders mostra nome e logo. Agora ela vem do indice e passa pela
+  // mesma resolucao de identidade que o resto do explorer.
+  useEffect(() => {
+    let vivo = true
+    ;(async () => {
+      try {
+        const r = await fetch("/api/dog-rune/holders?limit=5")
+        if (!r.ok) return
+        const d = await r.json()
+        const lista: TopHolder[] = (d.holders || []).slice(0, 5).map((h: any) => ({
+          rank: h.rank,
+          address: h.address,
+          dog: fmtDog(Number(h.total_dog || 0)),
+        }))
+        if (!vivo || lista.length === 0) return
+        setTopHolders(lista)
+        const ids = await fetch(`/api/identity?addresses=${lista.map(h => h.address).join(",")}`)
+          .then(x => (x.ok ? x.json() : null))
+          .catch(() => null)
+        if (!vivo || !ids) return
+        setTopHolders(lista.map(h => ({ ...h, entity: ids.identities?.[h.address] ?? null })))
+      } catch {
+        // a busca e o essencial desta pagina: a lista falhar nao pode derruba-la
+      }
+    })()
+    return () => { vivo = false }
+  }, [])
 
   const handleSearch = useCallback(() => {
     const q = query.trim()
@@ -118,7 +148,7 @@ export default function ExplorerPage() {
           </div>
 
           <div className="space-y-2">
-            {TOP_HOLDERS.map(h => (
+            {topHolders.map(h => (
               <a
                 key={h.address}
                 href={`/address/bitcoin/${h.address}`}
@@ -127,8 +157,11 @@ export default function ExplorerPage() {
                 <span className="w-8 text-right font-mono text-xs text-dusty/40 flex-shrink-0">
                   #{h.rank}
                 </span>
-                <span className="flex-1 font-mono text-xs text-dusty/70 group-hover:text-snow/80 truncate transition-colors duration-200">
-                  {h.address}
+                <span className="flex min-w-0 flex-1 items-center gap-2">
+                  {h.entity && <EntityTag identity={h.entity} className="flex-shrink-0" />}
+                  <span className="font-mono text-xs text-dusty/70 group-hover:text-snow/80 truncate transition-colors duration-200">
+                    {h.address}
+                  </span>
                 </span>
                 <span className="font-mono text-xs font-semibold text-lava flex-shrink-0">
                   {h.dog} DOG

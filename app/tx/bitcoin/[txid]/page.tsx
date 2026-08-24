@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { EntityTag, type Identity } from "@/components/entity-tag"
 import { useParams, useRouter } from "next/navigation"
 import {
   Copy, Check, Search, ArrowLeft, Activity, Zap,
@@ -47,6 +48,8 @@ interface IO {
   holder_rank: number | null
   label: AddressLabel | null
   is_known: boolean
+  /** quem e o dono, quando a gente sabe. Ver lib/dog/identity.ts */
+  entity: Identity | null
 }
 
 interface TxData {
@@ -242,6 +245,10 @@ function IORow({ io, side }: { io: IO; side: 'in' | 'out' }) {
             <span className="font-mono text-xs text-dusty/40 italic">unparseable script</span>
           )}
           {io.address && <CopyBtn text={io.address} size="xs" />}
+          {/* A IDENTIDADE FICA COLADA NO ENDERECO, e nao la embaixo com os
+              rotulos de coorte. "De quem e isto" e a primeira pergunta de quem
+              abre uma transacao; "e uma baleia" e a segunda. */}
+          {io.entity && <EntityTag identity={io.entity} className="mt-0.5 flex-shrink-0" />}
         </div>
 
         {/* BTC amount */}

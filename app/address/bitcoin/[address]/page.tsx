@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { EntityTag, type Identity } from "@/components/entity-tag"
 import { useParams, useRouter } from "next/navigation"
 import {
   Copy, Check, ExternalLink, Search, ArrowDownLeft, ArrowUpRight,
@@ -62,6 +63,8 @@ interface AddressData {
     diamond_score: number; is_dumping: boolean; insights: string[]
   } | null
   labels: AddressLabel[]
+  /** quem e o dono, quando a gente sabe. Ver lib/dog/identity.ts */
+  entity: Identity | null
   transactions: TxEntry[]
   tx_count: number
   stats: {
@@ -541,7 +544,7 @@ export default function AddressPage() {
         <BackButton />
 
         {/* ── Address header + labels ── */}
-        <AddressHeader address={address} mempoolLink={mempoolLink} labels={data.labels} />
+        <AddressHeader address={address} mempoolLink={mempoolLink} labels={data.labels} entity={data.entity} />
 
         {/* ── Stats grid ── */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
@@ -758,10 +761,30 @@ function BackButton() {
 }
 
 function AddressHeader({
-  address, mempoolLink, labels
-}: { address: string; mempoolLink: string; labels: AddressLabel[] }) {
+  address, mempoolLink, labels, entity
+}: { address: string; mempoolLink: string; labels: AddressLabel[]; entity?: Identity | null }) {
   return (
     <div className="space-y-3">
+      {/* A IDENTIDADE VEM ANTES DO ENDERECO, em cima de tudo. Quem abre a pagina
+          de uma carteira quer saber de quem ela e; o endereco em si e so o
+          identificador. A pagina de holders ja dava essa resposta e esta aqui
+          nao dava, que foi o defeito apontado. */}
+      {entity && (
+        <div className="flex items-center gap-2">
+          <EntityTag identity={entity} />
+          {entity.website && (
+            <a
+              href={entity.website}
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              className="font-mono text-[10px] text-dusty/40 underline-offset-2 hover:text-lava hover:underline"
+            >
+              {entity.website.replace(/^https?:\/\//, '')}
+            </a>
+          )}
+        </div>
+      )}
+
       {/* Address row */}
       <div className="flex items-start gap-2 flex-wrap">
         <code className="font-mono text-xs text-snow/60 break-all flex-1 leading-relaxed">
