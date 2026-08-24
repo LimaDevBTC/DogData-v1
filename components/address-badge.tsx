@@ -21,13 +21,18 @@ export function AddressBadge({ address, size = 'md', showName = true }: AddressB
   // Lookup direto usando o contexto
   const verified = getVerified(address);
   
-  // Debug temporário
-  if (address.toLowerCase().includes('bc1pz66497g7mj8cq0ncj2hjjfxcxuzv44yxnlach5puypf39ghejmaq20zgne')) {
-    console.log('🔍 [AddressBadge] Buscando endereço:', address, 'Verificado:', verified)
-  }
-  
   // Early return se não verificado
   if (!verified) return null;
+
+  // ⚠️ A PROCEDÊNCIA MUDA O QUE O SELO AFIRMA. Verificada é a entidade falando de
+  // si mesma, com taxa paga e arquivo enviado. `onchain` é dedução nossa a partir
+  // do fluxo. As duas são úteis; passar a segunda como se fosse a primeira é onde
+  // um explorer perde a autoridade. O nome sai mais discreto e o title conta a
+  // prova, igual ao `EntityTag` do explorer.
+  const nosso = verified.source === 'onchain';
+  const porque = nosso
+    ? `Labelled by DogData${verified.evidence_note ? `\n${verified.evidence_note}` : ''}`
+    : `Verified by the owner`;
 
   const sizeClasses = {
     sm: 'w-4 h-4',
@@ -64,7 +69,7 @@ export function AddressBadge({ address, size = 'md', showName = true }: AddressB
         {verified.logo && (
           <div 
             className={`relative ${iconSize} rounded-full overflow-hidden bg-snow/10 cursor-pointer transition-transform hover:scale-110 flex items-center justify-center shrink-0`}
-            title={verified.name || 'Verified'}
+            title={porque}
           >
             <div className="w-full h-full flex items-center justify-center p-[2px]">
               <Image
@@ -79,8 +84,9 @@ export function AddressBadge({ address, size = 'md', showName = true }: AddressB
           </div>
         )}
         {showName && verified.name && (
-          <span className={`${textSize} font-medium text-snow/80`}>
+          <span className={`${textSize} font-medium ${nosso ? 'text-dusty/70' : 'text-snow/80'}`} title={porque}>
             {verified.name}
+            {nosso && verified.role && <span className="text-dusty/40"> · {verified.role}</span>}
           </span>
         )}
       </div>

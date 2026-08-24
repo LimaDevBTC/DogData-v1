@@ -186,6 +186,20 @@ export async function resolveIdentities(addresses: Array<string | null | undefin
   return out
 }
 
+/**
+ * Todas as identidades que a casa conhece, num mapa só.
+ *
+ * ⚠️ EXISTE PARA A TELA NÃO PERGUNTAR LINHA A LINHA. A página de holders desenha
+ * milhares de endereços; resolver um por um seria uma ida ao servidor por linha,
+ * para um dado que cabe inteiro numa resposta. Mesma precedência da resolução
+ * pontual: nome e logo da verificada, papel e prova da nossa.
+ */
+export async function allIdentities(): Promise<Map<string, Identity>> {
+  const [v, o] = await Promise.all([verified(), onchain()])
+  const todos = new Set([...Array.from(v.keys()), ...Array.from(o.keys())])
+  return resolveIdentities(Array.from(todos))
+}
+
 /** Uma só, para quando a página cuida de um endereço. */
 export async function resolveIdentity(address: string | null | undefined): Promise<Identity | null> {
   if (!address) return null

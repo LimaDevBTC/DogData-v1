@@ -2,6 +2,18 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 
+/**
+ * ⚠️ ESTE CONTEXTO PASSOU A LER A FONTE ÚNICA, `/api/identity`, e não mais o
+ * `verified_addresses.json` cru. Antes existiam três fontes de identidade sem
+ * conversa entre si e a mesma carteira era "Bitget" numa tela e um endereço
+ * anônimo na outra. Depois de unificar o explorer, o desencontro virou o
+ * contrário: a Kraken, que é o MAIOR holder de DOG, aparecia com nome no
+ * explorer e anônima na página de holders. Uma fonte só resolve os dois lados.
+ *
+ * ⚠️ E `source` VIAJA JUNTO. "A Bitget disse que este endereço é dela", com taxa
+ * paga, não é a mesma afirmação que "a gente concluiu pelo fluxo". O selo precisa
+ * do campo para não passar uma pela outra.
+ */
 interface VerifiedAddress {
   type: 'official' | 'community'
   name?: string
@@ -11,6 +23,10 @@ interface VerifiedAddress {
   twitter_name?: string
   verified_at: string
   description?: string
+  source?: 'verified' | 'onchain'
+  role?: string | null
+  evidence?: string | null
+  evidence_note?: string | null
 }
 
 interface VerifiedAddressesData {
@@ -44,19 +60,33 @@ export function VerifiedAddressesProvider({ children }: { children: ReactNode })
   useEffect(() => {
     let cancelled = false;
     
-    // Carregar JSON apenas UMA vez para toda a aplicação
-    fetch('/data/verified_addresses.json', {
-      signal: AbortSignal.timeout(5000) // 5s timeout
+    // Uma ida só, para a aplicação inteira, à fonte que já juntou as duas origens
+    fetch('/api/identity', {
+      signal: AbortSignal.timeout(6000)
     })
       .then(res => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })
-      .then(jsonData => {
+      .then(json => {
         if (cancelled) return;
-        setData(jsonData)
+        const verified: Record<string, VerifiedAddress> = {}
+        for (const [address, id] of Object.entries((json?.identities || {}) as Record<string, any>)) {
+          verified[address] = {
+            type: 'official',
+            name: id.name,
+            logo: id.logo || undefined,
+            website: id.website || undefined,
+            twitter: id.twitter || undefined,
+            verified_at: '',
+            source: id.source,
+            role: id.role ?? null,
+            evidence: id.evidence ?? null,
+            evidence_note: id.evidence_note ?? null,
+          }
+        }
+        setData({ config: { donation_address: '', verification_fee: 0, update_fee: 0 }, verified, pending_claims: {} })
         setLoading(false)
-        console.log('✅ Verified addresses loaded:', Object.keys(jsonData.verified || {}).length, 'addresses')
       })
       .catch(error => {
         if (cancelled) return;
@@ -94,12 +124,7 @@ export function VerifiedAddressesProvider({ children }: { children: ReactNode })
     const verifiedKey = Object.keys(data.verified).find(
       key => key.toLowerCase() === addressLower
     )
-    const result = verifiedKey ? data.verified[verifiedKey] : null
-    // Debug temporário para Dog of Bitcoin
-    if (addressLower.includes('bc1pz66497g7mj8cq0ncj2hjjfxcxuzv44yxnlach5puypf39ghejmaq20zgne')) {
-      console.log('🔍 [getVerified] Endereço:', address, 'Lower:', addressLower, 'Key encontrada:', verifiedKey, 'Resultado:', result)
-    }
-    return result
+    return verifiedKey ? data.verified[verifiedKey] : null
   }
 
   return (
