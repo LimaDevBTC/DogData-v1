@@ -72,6 +72,11 @@ interface Receiver {
 
 interface Transaction {
   txid: string;
+  /** ⚠️ EM ÓRBITA: transação que o nosso nó viu na mempool e que ainda não tem
+   *  bloco. A praça desenha cada uma como um foguete, e o link de lá cai nesta
+   *  lista: se ela não aparecer aqui, o usuário procura uma transação que a
+   *  gente está mostrando voando e não acha. */
+  pending?: boolean;
   block_height: number;
   timestamp: string | number;  // Unix timestamp (number) ou ISO string
   type?: string;
@@ -484,6 +489,8 @@ export default function TransactionsPage() {
 
   // Cross-chain tabs
   type ChainTab = 'bitcoin' | 'solana' | 'stacks' | 'all'
+  // as pendentes vêm da mesma rota que alimenta a órbita da praça
+  const [pendingTxs, setPendingTxs] = useState<Transaction[]>([])
   const [activeChain, setActiveChain] = useState<ChainTab>('bitcoin')
   const [crossChainTxs, setCrossChainTxs] = useState<any[]>([])
   const [crossChainLoading, setCrossChainLoading] = useState(false)
@@ -556,6 +563,46 @@ export default function TransactionsPage() {
   const isRefreshingRef = useRef(false)
   const lastBlockRef = useRef<number>(0)
  
+  /** As transações ainda em órbita, da mesma rota que alimenta a praça.
+   *
+   *  ⚠️ ELAS NÃO ENTRAM NO `transactions`, ficam numa lista à parte e são
+   *  desenhadas ANTES. Misturar as duas obrigaria a reordenar por altura de
+   *  bloco, e pendente não tem bloco: ela iria parar no fim da lista, que é o
+   *  lugar onde ninguém olha justamente o que acabou de acontecer.
+   *
+   *  ⚠️ E ELA SOME SOZINHA QUANDO CONFIRMA. O watcher move a linha de `pending`
+   *  para `confirmed`, a rota deixa de devolvê-la aqui, e o histórico passa a
+   *  trazê-la com bloco. Sem essa dupla, a mesma transação apareceria duas vezes
+   *  por alguns segundos, uma amarela e uma normal. */
+  const fetchPending = useCallback(async () => {
+    try {
+      const res = await fetch('/api/mempool/dog', { cache: 'no-store' })
+      if (!res.ok) return
+      const data = await res.json()
+      const rows = Array.isArray(data?.pending) ? data.pending : []
+      setPendingTxs(rows.map((m: any): Transaction => ({
+        txid: m.txid,
+        pending: true,
+        block_height: 0,
+        timestamp: m.first_seen,
+        type: 'transfer',
+        senders: (m.senders || []).map((address: string) => ({ address, input: '' })),
+        receivers: (Array.isArray(m.receivers) ? m.receivers : []).map((r: any, vout: number) => ({
+          address: r.address,
+          vout,
+          amount: 0,
+          amount_dog: Number(r.dog ?? r.amount_dog ?? 0),
+        })),
+        total_dog_moved: Number(m.dog_out ?? m.dog_in ?? 0),
+        sender_count: Number(m.n_in ?? (m.senders || []).length),
+        receiver_count: Number(m.n_out ?? 0),
+        fee_sats: Number(m.fee_sats ?? 0),
+      })))
+    } catch {
+      // a lista confirmada é o essencial: falhar aqui não pode derrubar a página
+    }
+  }, [])
+
   const fetchTransactionsFromCache = useCallback(async (silent = false) => {
     if (isRefreshingRef.current) {
       if (silent) {
@@ -795,12 +842,13 @@ export default function TransactionsPage() {
   }, [])
 
   const loadInitialTransactions = useCallback(async () => {
-    await fetchTransactionsFromCache(false)
-  }, [fetchTransactionsFromCache])
+    await Promise.all([fetchTransactionsFromCache(false), fetchPending()])
+  }, [fetchTransactionsFromCache, fetchPending])
 
   const handleManualRefresh = useCallback(() => {
     fetchTransactionsFromCache(true)
-  }, [fetchTransactionsFromCache])
+    fetchPending()
+  }, [fetchTransactionsFromCache, fetchPending])
 
   const toggleAutoRefresh = useCallback(() => {
     setAutoRefresh(prev => !prev)
@@ -829,17 +877,22 @@ export default function TransactionsPage() {
 
     console.log('⏱️ Auto refresh ativado (3 minutos)')
     fetchTransactionsFromCache(true)
+    // ⚠️ A ÓRBITA ANDA MAIS RÁPIDO QUE O HISTÓRICO. A lista confirmada muda a
+    // cada bloco (dez minutos); a mempool muda a cada segundo. As duas no mesmo
+    // ciclo deixariam o amarelo velho na tela.
+    const pendingTimer = setInterval(() => { fetchPending() }, 15_000)
     refreshIntervalRef.current = setInterval(() => {
       fetchTransactionsFromCache(true)
     }, 180000)
 
     return () => {
+      clearInterval(pendingTimer)
       if (refreshIntervalRef.current) {
         clearInterval(refreshIntervalRef.current)
         refreshIntervalRef.current = null
       }
     }
-  }, [autoRefresh, fetchTransactionsFromCache, loading])
+  }, [autoRefresh, fetchTransactionsFromCache, fetchPending, loading])
 
   // Carregar mais transações antigas da Unisat API
   const loadMoreTransactions = useCallback(async () => {
@@ -1971,7 +2024,12 @@ export default function TransactionsPage() {
                     </tr>
                   </thead>
                   <tbody className="border-spacing-0">
-                    {transactions.map((tx, index) => {
+                    {/* ⚠️ AS PENDENTES VÊM ANTES, e é a única ordem que funciona:
+                        elas não têm bloco, então ordenar por altura as jogaria
+                        para o fim da lista, que é onde ninguém procura o que
+                        acabou de acontecer. A duplicata é evitada na fonte: o
+                        watcher tira a linha de `pending` quando ela confirma. */}
+                    {[...pendingTxs, ...transactions].map((tx, index) => {
                       // Pegar primeiro sender (principal) e primeiro receiver
                       const mainSender = tx.senders[0]
                       const mainReceiver = tx.receivers[0]
@@ -1981,14 +2039,26 @@ export default function TransactionsPage() {
                         <Fragment key={tx.txid}>
                         <tr
                           className={`table-row transition-colors ${
-                            isSelected ? 'bg-blue-500/10 border-y border-blue-500/20' : 'hover:bg-blue-500/5'
+                            tx.pending
+                              ? 'bg-amber/[0.06] hover:bg-amber/10'
+                              : isSelected ? 'bg-blue-500/10 border-y border-blue-500/20' : 'hover:bg-blue-500/5'
                           }`}
                         >
-                          {/* Block Height */}
+                          {/* Block Height, ou o aviso de que ainda não há um */}
                           <td className="py-2 px-1">
-                            <span className="text-cyan-400 font-mono text-xs">
-                              {tx.block_height.toLocaleString()}
-                            </span>
+                            {tx.pending ? (
+                              // ⚠️ `amber` NESTE TEMA É COR CHAPADA, NÃO ESCALA:
+                              // `amber-300` não compila e a linha sai cinza, sem
+                              // o recado. Ver tailwind.config.ts.
+                              <span className="inline-flex items-center gap-1.5 text-amber font-mono text-[11px]">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber animate-pulse" aria-hidden />
+                                mempool
+                              </span>
+                            ) : (
+                              <span className="text-cyan-400 font-mono text-xs">
+                                {tx.block_height.toLocaleString()}
+                              </span>
+                            )}
                           </td>
 
                           {/* FROM (Sender) - Compacto */}
