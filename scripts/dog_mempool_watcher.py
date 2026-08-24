@@ -454,7 +454,12 @@ class Supa:
         if self.dry:
             return []
         req = urllib.request.Request(
-            f"{self.url}/rest/v1/dog_mempool?status=eq.pending&select=txid,dog_in,first_seen,receivers&limit=2000",
+            # ⚠️ `senders` PRECISA VIR JUNTO: sem ele o `liquido()` não sabe separar
+            # troco de pagamento e cai no bruto, e aí a correção do painel valeria
+            # só para as transações vistas depois do restart. Defeito que só
+            # apareceria em reinício, que é quando ninguém está olhando.
+            f"{self.url}/rest/v1/dog_mempool?status=eq.pending"
+            f"&select=txid,dog_in,first_seen,senders,receivers&limit=2000",
             headers={"apikey": self.key, "Authorization": f"Bearer {self.key}"},
         )
         try:
@@ -548,6 +553,30 @@ class Watcher:
             "n_out": len(tx.get("vout", [])),
         }
         return row, dog_inputs, alloc
+
+    @staticmethod
+    def liquido(row) -> Decimal:
+        """Quanto DOG mudou de mão nesta linha, troco descontado.
+
+        ⚠️ `dog_in` É O UTXO INTEIRO GASTO, NÃO A TRANSFERÊNCIA. Rune mora num
+        UTXO: mandar 10 mil de um UTXO de 600 mil gasta os 600 mil, entrega 10 mil
+        e devolve 590 mil para quem mandou. Somar `dog_in` no painel anuncia uma
+        doação sessenta vezes maior do que a que aconteceu, e foi exatamente isso
+        que o fundador viu em 24/08/2026.
+
+        A regra é a mesma que o `update-transactions` usa nas confirmadas desde
+        sempre, e agora também vive em lib/dog/net-transfer.ts para as telas: só
+        conta a saída cujo endereço NÃO está entre os remetentes.
+
+        ⚠️ SEM REMETENTE RESOLVIDO, o bruto é a melhor leitura que existe: não há
+        como separar troco de pagamento sem saber de quem partiu."""
+        de = set(row.get("senders") or [])
+        saidas = row.get("receivers") or []
+        bruto = sum(Decimal(str(r.get("dog") or 0)) for r in saidas)
+        if not de:
+            return bruto
+        troco = sum(Decimal(str(r.get("dog") or 0)) for r in saidas if r.get("address") in de)
+        return max(bruto - troco, Decimal(0))
 
     def senders_of(self, dog_inputs):
         """Endereço de cada entrada de DOG, via gettxout (funciona enquanto não confirma)."""
@@ -677,10 +706,10 @@ class Watcher:
             self.supa.upsert_rows(unseen)
             amount = Decimal(0)
             for t in landed:
-                amount += Decimal(self.pending[t].get("dog_in") or 0)
+                amount += self.liquido(self.pending[t])
                 self.pending.pop(t, None)
             for row in unseen:
-                amount += Decimal(row["dog_in"])
+                amount += self.liquido(row)
             n = len(landed) + len(unseen)
             # As saídas pendentes das que pousaram agora são UTXOs de verdade. O scanner
             # as põe no set no próximo giro dele (30 s); até lá, e por uma folga, elas
@@ -705,7 +734,7 @@ class Watcher:
             fr = (e or {}).get("feerate")
             return str(round(max(1.0, fr * 1e8 / 1000), 2)) if fr else None
         hdr = self.rpc.call("getblockheader", tip["bestblockhash"])
-        pend_amount = sum(Decimal(r.get("dog_in") or 0) for r in self.pending.values())
+        pend_amount = sum(self.liquido(r) for r in self.pending.values())
         row = {
             "id": 1,
             "updated_at": now_iso(),

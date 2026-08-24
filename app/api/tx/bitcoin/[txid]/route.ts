@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs/promises'
 import path from 'path'
 import { createClient } from '@supabase/supabase-js'
+import { movedDog } from '@/lib/dog/net-transfer'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -260,7 +261,10 @@ export async function GET(
         fee_sats: Number(m.fee_sats ?? 0),
         fee_rate: m.fee_rate != null ? Number(m.fee_rate) : null,
         confirmations: 0,
-        total_dog_moved: Number(m.dog_out ?? m.dog_in ?? 0),
+        // ⚠️ O MESMO NÚMERO QUE A CONFIRMADA MOSTRA. `dog_transactions.total_dog_moved`
+        // já é líquido de troco desde sempre; a linha da mempool mostrava o bruto,
+        // e a mesma transação mudava de valor ao pousar. Agora não muda.
+        total_dog_moved: movedDog(m.senders, m.receivers),
         rbf: m.rbf ?? null,
         inputs,
         outputs,

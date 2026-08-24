@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { movedDog } from '@/lib/dog/net-transfer'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -71,7 +72,7 @@ export async function GET() {
         .gte('timestamp', desde)
         .order('total_dog_moved', { ascending: false })
         .limit(400),
-      supabase.from('dog_mempool').select('txid, dog_out, receivers, first_seen').eq('status', 'pending'),
+      supabase.from('dog_mempool').select('txid, dog_out, senders, receivers, first_seen').eq('status', 'pending'),
     ])
 
     const rotulo = new Map<string, { entity: string; role: string | null }>()
@@ -152,7 +153,9 @@ export async function GET() {
     // ── o que está em órbita agora ──────────────────────────────────────────
     const pend = mempoolRes.data || []
     if (pend.length > 0) {
-      const emVoo = pend.reduce((n, m) => n + Number(m.dog_out || 0), 0)
+      // ⚠️ líquido de troco: somar `dog_out` conta o UTXO inteiro que foi gasto,
+      // e a manchete anunciava dez vezes mais DOG em voo do que estava em voo.
+      const emVoo = pend.reduce((n, m) => n + movedDog(arr(m.senders), arr(m.receivers)), 0)
       out.push({
         id: 'mempool-now', kind: 'mempool', at: new Date().toISOString(), source: 'our node',
         headline: `${pend.length} DOG transaction${pend.length === 1 ? '' : 's'} waiting for a block, carrying ${fmt(emVoo)} DOG`,

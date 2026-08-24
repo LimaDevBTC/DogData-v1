@@ -243,10 +243,12 @@ export function createOrbitLayer(): OrbitLayer {
   let followedId: string | null = null
 
   const makeShip = (tx: DogTx): Ship => {
-    const size = sizeFor(tx.dog_in)
+    // ⚠️ O TAMANHO SEGUE O QUE MUDOU DE MÃO, não o UTXO gasto. Uma consolidação
+    // de 600 mil que só se junta a si mesma não merece o foguete de uma baleia.
+    const size = sizeFor(tx.dog_net)
     const g = new THREE.Group()
     g.name = `ship:${tx.txid}`
-    const hot = tx.dog_in >= 10_000_000
+    const hot = tx.dog_net >= 10_000_000
     // o modelo mede 1 de comprimento em +z, cauda em z = 0; escala pelo tamanho
     const model = new THREE.Group()
     const body = new THREE.Mesh(rocketGeo, steelMat(hot))
@@ -342,7 +344,7 @@ export function createOrbitLayer(): OrbitLayer {
       ;(s.glow.material as THREE.SpriteMaterial).color.set(0xffffff)
       s.glow.scale.setScalar(s.size * 3.4)
     } else {
-      const hot = s.tx.dog_in >= 10_000_000
+      const hot = s.tx.dog_net >= 10_000_000
       m.emissive.copy(hot ? DOG_HOT : FOLLOW_WHITE)
       m.emissiveIntensity = hot ? 0.3 : 0.14
       ;(s.glow.material as THREE.SpriteMaterial).color.set(0xffffff)

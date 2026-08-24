@@ -17,6 +17,7 @@
 
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { netTransfer } from '@/lib/dog/net-transfer'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -50,14 +51,25 @@ type Row = {
 }
 
 // numeric chega como string do PostgREST; a cena quer número.
+//
+// ⚠️ E AQUI SAI O NÚMERO QUE VAI PARA A TELA. `dog_in` é o UTXO inteiro que foi
+// gasto, não o que mudou de mão: mandar 10 mil de um UTXO de 600 mil gasta os
+// 600 mil e devolve 590 mil de troco. Quem lê "600.000 DOG" no foguete lê uma
+// doação sessenta vezes maior do que a que aconteceu. `dog_net` é o que
+// aconteceu, e é ele que as telas usam.
 function shape(r: Row) {
+  const receivers = (r.receivers || []).map((x) => ({ address: x.address, dog: Number(x.dog) }))
+  const fluxo = netTransfer(r.senders, receivers)
   return {
     ...r,
     dog_in: Number(r.dog_in),
     dog_out: Number(r.dog_out),
     dog_burn: Number(r.dog_burn),
+    dog_net: fluxo.net,
+    dog_change: fluxo.change,
+    flow_kind: fluxo.kind,
     fee_rate: r.fee_rate == null ? null : Number(r.fee_rate),
-    receivers: (r.receivers || []).map((x) => ({ address: x.address, dog: Number(x.dog) })),
+    receivers,
   }
 }
 
@@ -86,6 +98,12 @@ export async function GET(request: Request) {
     ])
     for (const r of [pending, landed, dropped, snap]) if (r.error) throw r.error
 
+    const pendentes = ((pending.data || []) as unknown as Row[]).map(shape)
+    // ⚠️ O TOTAL EM VOO TAMBÉM ERA BRUTO. O watcher soma `dog_out` de todas as
+    // pendentes para o `dog_pending_amount`, e aí a barra da praça anunciava a
+    // soma dos UTXOs gastos como se fosse DOG viajando. Recalculado aqui a partir
+    // das mesmas linhas que a cena recebe, para os dois números baterem.
+    const emVooLiquido = pendentes.reduce((n, t) => n + t.dog_net, 0)
     const s = snap.data as Record<string, unknown> | null
     const snapshot = s
       ? {
@@ -100,7 +118,10 @@ export async function GET(request: Request) {
           tip_hash: s.tip_hash,
           tip_time: s.tip_time,
           dog_pending: s.dog_pending,
-          dog_pending_amount: Number(s.dog_pending_amount ?? 0),
+          // recalculado a partir das mesmas linhas que a cena recebe, para o
+          // número da barra bater com os foguetes que estão no céu mesmo quando o
+          // watcher está um giro atrás
+          dog_pending_amount: emVooLiquido,
           last_dog_block: s.last_dog_block,
           last_dog_block_time: s.last_dog_block_time,
           last_dog_block_count: s.last_dog_block_count,
@@ -110,7 +131,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json(
       {
-        pending: ((pending.data || []) as unknown as Row[]).map(shape),
+        pending: pendentes,
         landed: ((landed.data || []) as unknown as Row[]).map(shape),
         dropped: ((dropped.data || []) as unknown as Row[]).map(shape),
         snapshot,

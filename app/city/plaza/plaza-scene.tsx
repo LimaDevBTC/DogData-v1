@@ -20,7 +20,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { loadTerrain } from './terrain'
 import { createOrbitLayer, PAD_MAIN } from './orbit-layer'
-import { startFeed, isDonation, type DogTx, type Snapshot } from './feed'
+import { startFeed, isDonation, type DogTx, type Snapshot, donationDog } from './feed'
 import { buildChalet, type Chalet } from './chalet'
 import { buildPrecinct, ANCHORS, type Precinct } from './precinct'
 import { loadPark, PARK_CENTER, type Park } from './park'
@@ -1073,7 +1073,8 @@ export default function PlazaScene() {
         return {
           txid: id, status: 'pending', first_seen: new Date().toISOString(), seen_pending: true,
           block_height: null, block_time: null, confirmed_at: null, dropped_at: null,
-          dog_in: dog, dog_out: dog, dog_burn: 0, explicit_edict: n % 2 === 0, cenotaph: false,
+          dog_in: dog, dog_out: dog, dog_burn: 0, dog_net: dog, dog_change: 0, flow_kind: 'transfer' as const,
+          explicit_edict: n % 2 === 0, cenotaph: false,
           senders: ['bc1pdemo' + id.slice(0, 20)], receivers: [{ address: 'bc1qdemo' + id.slice(20, 40), dog }],
           fee_sats: 300 + Math.round(Math.random() * 3000), vsize: 250, fee_rate: Number((1 + Math.random() * 6).toFixed(2)),
           n_in: 1, n_out: 2, rbf: true,
@@ -1659,7 +1660,29 @@ export default function PlazaScene() {
                 <p className="text-[10px] uppercase tracking-[0.25em] text-white/50">
                   {hud.picked.status === 'pending' ? 'In orbit' : hud.picked.status === 'confirmed' ? 'Landed' : 'Left orbit'}
                 </p>
-                <p className="mt-1 text-white">{fmtDog(hud.picked.dog_in)} DOG</p>
+                {/* ⚠️ O NÚMERO GRANDE É O QUE MUDOU DE MÃO. Antes aqui aparecia
+                    `dog_in`, o UTXO inteiro gasto, e uma doação de 10 mil saída
+                    de um UTXO de 600 mil era anunciada como 600 mil. Quando há
+                    troco, ele vai embaixo, dito com todas as letras, porque
+                    esconder a diferença é o que criava o engano. */}
+                <p className="mt-1 text-white">
+                  {fmtDog(hud.picked.flow_kind === 'self' ? hud.picked.dog_in : hud.picked.dog_net)} DOG
+                </p>
+                {hud.picked.flow_kind === 'self' && (
+                  <p className="mt-0.5 text-[10px] uppercase tracking-[0.18em] text-white/40">
+                    back to the same wallet
+                  </p>
+                )}
+                {hud.picked.flow_kind === 'transfer' && hud.picked.dog_change > 0 && (
+                  <p className="mt-0.5 text-[10px] text-white/40">
+                    + {fmtDog(hud.picked.dog_change)} change back to the sender
+                  </p>
+                )}
+                {hud.picked.flow_kind === 'unknown' && (
+                  <p className="mt-0.5 text-[10px] uppercase tracking-[0.18em] text-white/40">
+                    sender not resolved yet
+                  </p>
+                )}
                 {/* ⚠️ A COR PRECISA SER DITA EM ALGUM LUGAR, senão ela é enigma.
                     O rastro vermelho na órbita marca dinheiro entrando na
                     cidade; aqui a caixa confirma, com a mesma cor, para quem
@@ -1668,7 +1691,7 @@ export default function PlazaScene() {
                 {isDonation(hud.picked) && (
                   <p className="mt-1 flex items-center gap-1.5 text-[10px] uppercase tracking-[0.18em]" style={{ color: '#FF3B30' }}>
                     <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: '#FF3B30' }} aria-hidden />
-                    Funding DogCity
+                    Funding DogCity · {fmtDog(donationDog(hud.picked))} DOG
                   </p>
                 )}
               </div>

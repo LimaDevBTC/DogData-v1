@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback, Fragment } from "react"
+import { movedDog } from "@/lib/dog/net-transfer"
 import { useSearchParams } from "next/navigation"
 import Image from "next/image"
 import { Layout } from "@/components/layout"
@@ -593,7 +594,8 @@ export default function TransactionsPage() {
           amount: 0,
           amount_dog: Number(r.dog ?? r.amount_dog ?? 0),
         })),
-        total_dog_moved: Number(m.dog_out ?? m.dog_in ?? 0),
+        // líquido de troco, para a linha não mudar de valor quando a tx pousar
+        total_dog_moved: movedDog(m.senders, m.receivers),
         sender_count: Number(m.n_in ?? (m.senders || []).length),
         receiver_count: Number(m.n_out ?? 0),
         fee_sats: Number(m.fee_sats ?? 0),

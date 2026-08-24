@@ -20,6 +20,15 @@ import { DONATION_WALLET } from '../../dogcity/dogcity-data'
 export const isDonation = (tx: { receivers: Array<{ address: string }> }): boolean =>
   tx.receivers.some((r) => r.address === DONATION_WALLET)
 
+/** Quanto DOG chegou de fato na carteira da cidade nesta transação.
+ *
+ * ⚠️ NÃO É O TAMANHO DA TRANSAÇÃO, e essa foi a confusão que o fundador apontou:
+ * uma doação saiu de um UTXO de 600 mil, 10 mil chegaram aqui e 590 mil voltaram
+ * para o doador. Quem lê "600.000" lê uma doação sessenta vezes maior. A única
+ * leitura honesta é a soma do que foi para o endereço da cidade, e é essa. */
+export const donationDog = (tx: { receivers: Array<{ address: string; dog: number }> }): number =>
+  tx.receivers.reduce((n, r) => (r.address === DONATION_WALLET ? n + Number(r.dog || 0) : n), 0)
+
 export interface DogTx {
   txid: string
   status: 'pending' | 'confirmed' | 'dropped'
@@ -29,9 +38,16 @@ export interface DogTx {
   block_time: string | null
   confirmed_at: string | null
   dropped_at: string | null
+  /** o UTXO inteiro que foi gasto. Quase nunca é o que você quer mostrar. */
   dog_in: number
   dog_out: number
   dog_burn: number
+  /** ⚠️ O QUE MUDOU DE MÃO, troco descontado. É este que vai para a tela. */
+  dog_net: number
+  /** o que voltou para quem mandou */
+  dog_change: number
+  /** transfer · self (só juntou os próprios UTXOs) · unknown (sem remetente) */
+  flow_kind: 'transfer' | 'self' | 'unknown'
   explicit_edict: boolean
   cenotaph: boolean
   senders: string[]
