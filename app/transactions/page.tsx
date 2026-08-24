@@ -2093,11 +2093,12 @@ export default function TransactionsPage() {
                               ) : (
                                 <code className="text-cyan-400 text-xs">—</code>
                               )}
-                              <AddressBadge 
-                                address={mainSender?.address || ''} 
-                                size="sm" 
-                                showName={false} 
-                              />
+                              {/* ⚠️ COM NOME. Só o ícone transforma a identidade
+                                  num enigma: um predinho de 16px não diz
+                                  "Marketplace", e é justamente nas linhas de
+                                  mercado que saber disso muda a leitura da
+                                  transação. A tabela já rola na horizontal. */}
+                              <AddressBadge address={mainSender?.address || ''} size="sm" />
                               {mainSender && (
                                 <Button
                                   size="sm"
@@ -2136,11 +2137,7 @@ export default function TransactionsPage() {
                               ) : (
                                 <code className="text-green-400 text-xs">—</code>
                               )}
-                              <AddressBadge 
-                                address={mainReceiver?.address || ''} 
-                                size="sm" 
-                                showName={false} 
-                              />
+                              <AddressBadge address={mainReceiver?.address || ''} size="sm" />
                               {mainReceiver && renderRankBadge(
                                 mainReceiver.address, 
                                 null, 
@@ -2190,7 +2187,10 @@ export default function TransactionsPage() {
                           </td>
 
                           {/* Time - Compacto */}
-                          <td className="py-2 px-2">
+                          {/* ⚠️ `whitespace-nowrap`: o nome da entidade entrou na
+                              coluna From e apertou o resto, e a data passou a
+                              quebrar em duas linhas no meio da vírgula. */}
+                          <td className="py-2 px-2 whitespace-nowrap">
                             <span className="text-dusty font-mono text-xs">
                               {formatTime(tx.timestamp)}
                             </span>

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { Award } from 'lucide-react';
+import { Award, Landmark } from 'lucide-react';
 import { useVerifiedAddresses } from '@/contexts/VerifiedAddressesContext';
 import { KINDS, type WalletKind } from '@/lib/dog/taxonomy';
 
@@ -55,15 +55,23 @@ export function AddressBadge({ address, size = 'md', showName = true }: AddressB
   const iconSize = sizeClasses[size];
   const textSize = textSizeClasses[size];
 
-  // Exchange oficial com logo
-  if (verified.type === 'official' && verified.logo) {
-    if (imageError) {
+  // ⚠️ SEM LOGO TAMBÉM DESENHA, e isto era um defeito de verdade. A condição
+  // exigia `verified.logo` para renderizar qualquer coisa, então as carteiras
+  // rotuladas por CLASSE — que por definição não têm logo, porque não sabemos de
+  // quem são — caíam nas duas condições seguintes e o componente devolvia null.
+  // A tela ficava exatamente como antes de existir o rótulo: o trabalho todo
+  // parava no último centímetro.
+  if (verified.type === 'official' && (verified.logo ? !imageError : true)) {
+    if (!verified.logo) {
       return (
-        <div className="inline-flex items-center gap-1.5">
-          <Award className={`${iconSize} text-lava`} />
+        <div className="inline-flex items-center gap-1.5" title={porque}>
+          {classe
+            ? <Landmark className={`${iconSize} text-dusty/45`} />
+            : <Award className={`${iconSize} text-lava`} />}
           {showName && verified.name && (
-            <span className={`${textSize} font-medium text-snow/80`}>
+            <span className={`${textSize} whitespace-nowrap font-medium ${classe ? 'italic text-dusty/55' : 'text-dusty/70'}`}>
               {verified.name}
+              {verified.role && <span className="text-dusty/40"> · {verified.role}</span>}
             </span>
           )}
         </div>

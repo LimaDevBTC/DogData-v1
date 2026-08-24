@@ -159,14 +159,58 @@ export const ROLES: Record<WalletRole, string> = {
  * vocabulário porque é a mesma decisão: o que a casa está afirmando, e com quanta
  * força.
  */
-export type Evidence = 'own_flow' | 'first_party' | 'co_flow' | 'topology' | 'third_party'
+export type Evidence =
+  | 'own_flow' | 'first_party' | 'co_flow' | 'topology' | 'flow_pattern' | 'third_party'
 
-export const EVIDENCE: Record<Evidence, { label: string; detail: string }> = {
-  own_flow: { label: 'our own transactions', detail: 'mandamos ou recebemos desta carteira e temos a tx. Testemunha com recibo.' },
-  first_party: { label: 'published by the entity', detail: 'a própria entidade divulgou o endereço.' },
-  co_flow: { label: 'exclusive flow with a proven address', detail: 'fluxo exclusivo e numa direção só com um endereço já provado.' },
-  topology: { label: 'input co-spend clustering', detail: 'co-gasto de entradas. Prova o DONO ser o mesmo, não QUEM é o dono.' },
-  third_party: { label: 'reported elsewhere', detail: 'veio de fora. Orienta, nunca publica sozinho.' },
+export const EVIDENCE: Record<Evidence, { label: string; detail: string; proves: 'who' | 'what' }> = {
+  own_flow: {
+    label: 'our own transactions',
+    detail: 'mandamos ou recebemos desta carteira e temos a tx. Testemunha com recibo.',
+    proves: 'who',
+  },
+  first_party: {
+    label: 'published by the entity',
+    detail: 'a própria entidade divulgou o endereço.',
+    proves: 'who',
+  },
+  co_flow: {
+    label: 'exclusive flow with a proven address',
+    detail: 'fluxo exclusivo e numa direção só com um endereço já provado.',
+    proves: 'who',
+  },
+  topology: {
+    label: 'input co-spend clustering',
+    detail: 'co-gasto de entradas. Prova o DONO ser o mesmo, não QUEM é o dono.',
+    proves: 'who',
+  },
+  // ⚠️ ESTE GRAU PROVA OUTRA COISA, e por isso ele existe. Os quatro de cima
+  // respondem QUEM é o dono. Este responde O QUE a carteira faz: a fatia de
+  // todas as transferências em que ela aparece, as contrapartes que voltam, o
+  // giro contra o saldo parado. Carimbar isso de `topology` seria descrever mal a
+  // nossa própria prova, porque topologia é co-gasto de entradas e não tem nada a
+  // ver com desenho de fluxo. O sistema todo existe para não deixar essa confusão
+  // passar.
+  flow_pattern: {
+    label: 'flow pattern over time',
+    detail: 'desenho do fluxo: fatia das transferências, contrapartes que voltam, giro contra saldo. Prova a FUNÇÃO, não a identidade.',
+    proves: 'what',
+  },
+  third_party: {
+    label: 'reported elsewhere',
+    detail: 'veio de fora. Orienta, nunca publica sozinho.',
+    proves: 'who',
+  },
+}
+
+/**
+ * ⚠️ A REGRA QUE LIGA OS DOIS: um rótulo com NOME PRÓPRIO precisa de prova que
+ * responda QUEM (`proves: 'who'`). `flow_pattern` sozinho nunca sustenta um nome,
+ * por mais convincente que o desenho seja: saber que uma carteira é um mercado
+ * não diz de quem ela é.
+ */
+export function evidenceSupportsName(evidence: string | null | undefined): boolean {
+  const e = EVIDENCE[(evidence || '') as Evidence]
+  return !!e && e.proves === 'who'
 }
 
 /**
