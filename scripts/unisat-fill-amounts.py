@@ -23,6 +23,19 @@ TRÊS ARMADILHAS MEDIDAS NESSA API, e as três estão tratadas aqui:
      caminho é o filtro por BLOCO, que responde bem.
   3. SEM `User-Agent` O CLOUDFLARE BLOQUEIA com 403 e `error code: 1010`. O
      urllib do Python manda `Python-urllib/3.x`, que está na lista negra.
+  4. O LIMITE DE TAXA TAMBÉM VEM COMO 403, mas com `code: -2006` no corpo, e é
+     por hora, não por segundo: recuar 15 segundos não adianta nada. Esta é a
+     armadilha que efetivamente MORDEU, em 24/08/2026. A versão anterior tratava
+     403 como algo a insistir, desistia depois de cinco tentativas, devolvia
+     lista vazia e AVANÇAVA O CURSOR. Bloco recusado ficou indistinguível de
+     bloco vazio, e 1.079 blocos passaram sem gravar um evento sequer, com o
+     progresso subindo na tela o tempo todo. É o mesmo defeito que nos custou 23%
+     do histórico da outra vez, com outra roupa.
+
+⚠️ A REGRA QUE SAIU DISSO, e ela vale para qualquer coletor daqui em diante:
+CURSOR SÓ ANDA SOBRE RESPOSTA, NUNCA SOBRE SILÊNCIO. Se a fonte recusou, o
+programa PARA e diz onde parou. Parar é barato; buraco no histórico não é, porque
+ninguém descobre no dia, descobre meses depois, quando alguém pergunta.
 
 Ritmo medido: 2,6 pedidos por segundo em série, sem erro. Com concorrência de 4
 já aparecem 403. São 23.359 blocos, então umas duas horas e meia. Não há pressa:
@@ -60,23 +73,37 @@ H_SB = {"apikey": KEY, "Authorization": f"Bearer {KEY}"}
 H_UNI = {"Authorization": f"Bearer {TOKEN}", "User-Agent": "DogData Explorer/1.0"}
 
 
-def pegar(url: str, headers: dict, tentativas: int = 5):
+class Recusado(Exception):
+    """A fonte não respondeu. NÃO é o mesmo que ela ter respondido "nada"."""
+
+
+def pegar(url: str, headers: dict, tentativas: int = 6):
+    """Devolve o JSON, ou levanta `Recusado`.
+
+    ⚠️ NUNCA DEVOLVE None. Ver armadilha 4: o valor de retorno que quer dizer
+    "não consegui" acaba lido como "não tem nada lá", e a diferença entre as duas
+    é um buraco no histórico."""
     for n in range(tentativas):
         try:
             with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=40) as res:
                 return json.load(res)
         except urllib.error.HTTPError as e:
-            # 403 aqui é limite de taxa, não credencial: recuar e insistir
+            corpo = b""
+            try:
+                corpo = e.read()
+            except Exception:
+                pass
+            # -2006 é cota da hora, não rajada do segundo: recuo curto não resolve
+            cota = b"-2006" in corpo or b"exceeds rate limit" in corpo
             if e.code in (403, 429) and n < tentativas - 1:
-                time.sleep(2 ** n)
+                time.sleep(60 * (n + 1) if cota else 2 ** n)
                 continue
+            raise Recusado(f"HTTP {e.code} {corpo[:120]!r}")
+        except Exception as exc:
             if n == tentativas - 1:
-                return None
-        except Exception:
-            if n == tentativas - 1:
-                return None
+                raise Recusado(f"{type(exc).__name__}: {exc}")
             time.sleep(1 + n)
-    return None
+    raise Recusado("tentativas esgotadas")
 
 
 def alturas_pendentes() -> list[int]:
@@ -88,7 +115,7 @@ def alturas_pendentes() -> list[int]:
             f"{SB}/rest/v1/dog_tx_senders_rebuilt?select=txid&dog_attribution=eq.ambiguous"
             f"&order=txid.asc&txid=gt.{cursor}&limit=1000", H_SB)
         if not page:
-            break
+            break  # lista vazia de verdade: acabou a paginação
         ids = [r["txid"] for r in page]
         # a altura vem da tabela principal, em blocos de mil ids
         for i in range(0, len(ids), 200):
@@ -107,11 +134,10 @@ def eventos_do_bloco(h: int) -> list[dict]:
     """Todos os eventos de DOG num bloco, paginando dentro dele se precisar."""
     fora, start = [], 0
     while True:
+        # se a UniSat recusar, a exceção sobe e o laço principal PARA. Ver armadilha 4.
         d = pegar(
             f"https://open-api.unisat.io/v1/indexer/runes/event?rune={RUNE}"
             f"&start={start}&limit={LIMITE}&height={h}", H_UNI)
-        if not d:
-            return fora
         det = (d.get("data") or {}).get("detail") or []
         fora += det
         if len(det) < LIMITE:
@@ -134,7 +160,16 @@ def main() -> None:
     total_ev = 0
     with open(SAIDA, "a", encoding="utf8", buffering=1) as fh:
         for i, h in enumerate(alturas, 1):
-            for e in eventos_do_bloco(h):
+            try:
+                eventos = eventos_do_bloco(h)
+            except Recusado as exc:
+                # ⚠️ PARAR, NÃO PULAR. O cursor fica no último bloco GRAVADO, então
+                # é só rodar de novo quando a cota virar.
+                print(f"\n  a UniSat recusou no bloco {h}: {exc}")
+                print(f"  parando aqui. cursor em {feito if i == 1 else alturas[i - 2]}, "
+                      f"faltam {len(alturas) - i + 1} blocos. rode de novo quando a cota virar.")
+                break
+            for e in eventos:
                 fh.write(json.dumps(e) + "\n")
                 total_ev += 1
             # ⚠️ o cursor só avança DEPOIS de gravar, senão uma queda pula o bloco
