@@ -369,6 +369,29 @@ def allocate_dog_outputs(tx, dog_input_total, decoded_runestone):
     edicts = parse_runestone_dog_edicts(decoded_runestone)
     remainder_outputs = set()
 
+    def _pointer():
+        """A saída para onde o resto vai, quando o runestone diz uma.
+
+        ⚠️ ISTO PRECISA VALER NOS DOIS RAMOS, e não valer no segundo foi o defeito
+        que apagou boa parte do grafo histórico. O `pointer` era lido só dentro do
+        `if edicts:`. Uma transferência comum NÃO TEM EDICT: ela manda o saldo
+        inteiro para a saída apontada pelo pointer, que é o caso mais frequente do
+        protocolo. Sem ler o pointer ali, o DOG ia para a primeira saída
+        não-OP_RETURN, quase sempre a errada."""
+        if not (decoded_runestone and decoded_runestone.get('runestone')):
+            return None
+        rs = decoded_runestone['runestone']
+        if isinstance(rs, dict) and 'Runestone' in rs:
+            rs = rs['Runestone']
+        p = rs.get('pointer')
+        if p is None or p >= num_outputs:
+            return None
+        # ⚠️ pointer para OP_RETURN não é destino: seria queima, e o protocolo
+        # trata isso como cenotáfio, não como entrega.
+        if (tx['vout'][p].get('scriptPubKey', {}) or {}).get('type') == 'nulldata':
+            return None
+        return p
+
     num_outputs = len(tx.get('vout', []))
     # Non-OP_RETURN output indices, in order. Used for split-to-all and
     # default-output fallback.
@@ -387,22 +410,44 @@ def allocate_dog_outputs(tx, dog_input_total, decoded_runestone):
                 break
 
             if output_idx == num_outputs:
-                # Split-to-all marker. amount=0 means "split everything
-                # remaining"; otherwise split exactly `amount`.
-                amount_to_split = (
-                    remaining if amount == 0 else min(amount, remaining)
-                )
-                if non_opreturn_outs and amount_to_split > 0:
+                # ⚠️ O MARCADOR DE DIVISÃO TEM DOIS SENTIDOS, E ELES SÃO OPOSTOS.
+                # O protocolo de runes diz:
+                #
+                #   amount == 0  → divide o saldo restante IGUALMENTE entre as
+                #                  saídas não-OP_RETURN, e o resto da divisão vai
+                #                  uma unidade por saída, começando da primeira.
+                #   amount != 0  → entrega `amount` A CADA saída não-OP_RETURN,
+                #                  uma de cada vez, ATÉ O SALDO ACABAR.
+                #
+                # A versão anterior tratava os dois casos como "divide `amount`
+                # entre todas", que é o contrário do segundo. Medido contra o ord
+                # em 24/08/2026 numa transação de 8 saídas com edict (saída 8,
+                # 200.000 DOG): o ord entrega 200.000 na saída 3, 200.000 na 4,
+                # 200.000 na 5 e 643,75 na 6, onde o saldo acaba. Nós
+                # entregávamos 200.000 divididos por 7, numa saída só.
+                #
+                # Este é o padrão de distribuição em lote (airdrop, split de
+                # coleção), então o erro não é raro: ele acerta justamente as
+                # transações que criam muitos UTXOs de uma vez, e cada saída que
+                # não entra no conjunto apaga toda a descendência dela.
+                if non_opreturn_outs and remaining > 0:
                     n = len(non_opreturn_outs)
-                    per = amount_to_split // n
-                    leftover = amount_to_split - per * n
-                    if per > 0:
+                    if amount == 0:
+                        per = remaining // n
+                        resto = remaining - per * n
+                        for i, idx in enumerate(non_opreturn_outs):
+                            parte = per + (1 if i < resto else 0)
+                            if parte > 0:
+                                allocation[idx] = allocation.get(idx, 0) + parte
+                                allocated += parte
+                    else:
                         for idx in non_opreturn_outs:
-                            allocation[idx] = allocation.get(idx, 0) + per
-                    if leftover > 0:
-                        first = non_opreturn_outs[0]
-                        allocation[first] = allocation.get(first, 0) + leftover
-                    allocated += amount_to_split
+                            sobra = dog_input_total - allocated
+                            if sobra <= 0:
+                                break
+                            parte = min(amount, sobra)
+                            allocation[idx] = allocation.get(idx, 0) + parte
+                            allocated += parte
             elif output_idx < num_outputs:
                 amt = remaining if amount == 0 else min(amount, remaining)
                 if amt > 0:
@@ -414,13 +459,8 @@ def allocate_dog_outputs(tx, dog_input_total, decoded_runestone):
         # Unallocated remainder → pointer (if valid) or first non-OP_RETURN.
         remainder = dog_input_total - allocated
         if remainder > 0:
-            pointer = None
-            if decoded_runestone and decoded_runestone.get('runestone'):
-                rs = decoded_runestone['runestone']
-                if isinstance(rs, dict) and 'Runestone' in rs:
-                    rs = rs['Runestone']
-                pointer = rs.get('pointer')
-            if pointer is not None and pointer < num_outputs:
+            pointer = _pointer()
+            if pointer is not None:
                 allocation[pointer] = allocation.get(pointer, 0) + remainder
                 remainder_outputs.add(pointer)
             elif non_opreturn_outs:
@@ -431,9 +471,28 @@ def allocate_dog_outputs(tx, dog_input_total, decoded_runestone):
 
         return allocation, remainder_outputs
 
-    # No runestone or no DOG edicts: all DOG goes to first non-OP_RETURN output.
-    # With no edicts, we cannot distinguish change from transfer by runestone
-    # alone — fall back to address matching in process_dog_tx.
+    # ⚠️ SEM EDICT, O DESTINO É O POINTER, e só depois a primeira saída
+    # não-OP_RETURN. Aqui morava o defeito que apagou boa parte do grafo
+    # histórico: esta linha entregava tudo para `non_opreturn_outs[0]` sempre,
+    # ignorando o pointer, porque ele só era lido no ramo de cima.
+    #
+    # Uma transferência COMUM não tem edict: ela grava o pointer e manda o saldo
+    # inteiro para lá. Isto não é um canto raro do protocolo, é o caminho
+    # principal dele. Medido contra o `ord` em 24/08/2026: 18 das 22 divergências
+    # de saída eram exatamente este caso, todas com `pointer = 2` e nenhum edict,
+    # e nós entregando na saída 1.
+    #
+    # ⚠️ E O ESTRAGO NÃO PARA NA TRANSAÇÃO. A saída certa nunca entra no conjunto
+    # de UTXOs, então toda transação que a gastar depois fica invisível, e as
+    # dela também. Uma entrega errada apaga uma subárvore inteira do grafo, que é
+    # por que 0,28% de outpoints errados viram dezenas de por cento de transações
+    # ausentes.
+    #
+    # Com edicts, `change` sai do runestone; sem edicts, continua saindo do
+    # casamento de endereços em process_dog_tx.
+    destino = _pointer()
+    if destino is not None:
+        return {destino: dog_input_total}, remainder_outputs
     if non_opreturn_outs:
         return {non_opreturn_outs[0]: dog_input_total}, remainder_outputs
 

@@ -195,16 +195,27 @@ def allocate_dog(tx: dict, dog_in_raw: int, rs):
             if remaining <= 0:
                 break
             if output_idx == n_out:
-                to_split = remaining if amount == 0 else min(amount, remaining)
-                if non_opret and to_split > 0:
+                # ⚠️ O MARCADOR DE DIVISÃO TEM DOIS SENTIDOS OPOSTOS, e esta cópia
+                # tinha o mesmo erro do scanner. `amount == 0` divide o saldo
+                # igualmente; `amount != 0` entrega `amount` A CADA saída, uma de
+                # cada vez, até o saldo acabar. Conferido contra o ord.
+                if non_opret and remaining > 0:
                     n = len(non_opret)
-                    per, left = divmod(to_split, n)
-                    if per > 0:
+                    if amount == 0:
+                        per, resto = divmod(remaining, n)
+                        for i, idx in enumerate(non_opret):
+                            parte = per + (1 if i < resto else 0)
+                            if parte > 0:
+                                alloc[idx] = alloc.get(idx, 0) + parte
+                                allocated += parte
+                    else:
                         for idx in non_opret:
-                            alloc[idx] = alloc.get(idx, 0) + per
-                    if left > 0:
-                        alloc[non_opret[0]] = alloc.get(non_opret[0], 0) + left
-                    allocated += to_split
+                            sobra = dog_in_raw - allocated
+                            if sobra <= 0:
+                                break
+                            parte = min(amount, sobra)
+                            alloc[idx] = alloc.get(idx, 0) + parte
+                            allocated += parte
             elif output_idx < n_out:
                 amt = remaining if amount == 0 else min(amount, remaining)
                 if amt > 0:
