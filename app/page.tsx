@@ -421,7 +421,10 @@ export default function OverviewPage() {
             Quem volta ao site todo dia volta pelo segundo, e enterrar a notícia
             abaixo de um título e um preço é transformar banca de jornal em
             outdoor. Se não houver item, a faixa não se desenha. */}
-        <InsightFeed />
+        {/* ⚠️ NA HOME É CHAMADA, NÃO MATÉRIA. Oito linhas empurravam o herói e o
+            preço para baixo da dobra, e uma banca não põe o jornal inteiro na
+            calçada. Três manchetes, o resto atrás de um clique. */}
+        <InsightFeed limite={3} chamada />
 
         {/* === HERO SECTION === */}
         <div className="animate-fade-in px-4 mt-4 md:mt-10 mb-2 md:mb-4">

@@ -15,9 +15,11 @@ import {
   Coins,
   PieChart,
   Zap,
-  ArrowRight
+  ArrowRight,
+  Newspaper
 } from "lucide-react"
 import { TxBreakdown } from "@/components/metrics/tx-breakdown"
+import InsightFeed from "@/components/insight-feed"
 import { OnChainChartGrid } from "@/components/charts/onchain-chart-grid"
 import {
   XAxis,
@@ -198,6 +200,23 @@ export default function MetricsPage() {
                 </span>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* ═══ O feed inteiro ═══ */}
+        {/* ⚠️ A MATÉRIA MORA AQUI, e a chamada mora na home. Esta página é o lugar
+            natural: quem entra em on-chain já veio atrás do que a cadeia fez, e o
+            header está apertado demais para ganhar um item novo. A âncora #feed é
+            o destino do clique na home, então ela não pode mudar de nome sem
+            trocar a constante FEED_COMPLETO junto. */}
+        <div id="feed" className="scroll-mt-24">
+          <SectionDivider title="What the chain did today" icon={Newspaper} />
+          <div className="max-w-7xl mx-auto">
+            <InsightFeed />
+            <p className="mt-2 px-1 font-mono text-[10px] leading-relaxed text-dusty/50">
+              Every line is a query against our own index, with the number that supports it.
+              Exchange outflow appears with the same weight as inflow, including when it is bad news.
+            </p>
           </div>
         </div>
 
