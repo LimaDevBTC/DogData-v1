@@ -25,6 +25,7 @@ import { MultiChainStats } from "@/components/ui/multichain-stats"
 import dogStatsFallback from '@/data/dog_stats_fallback.json'
 import externalHoldersFallback from '@/data/external_holders.json'
 import dynamic from 'next/dynamic'
+import InsightFeed from "@/components/insight-feed"
 
 const TradingViewWidget = dynamic(() => import('@/components/ui/trading-view-widget'), {
   ssr: false,
@@ -414,6 +415,13 @@ export default function OverviewPage() {
       <div className="aurora-bg" />
 
       <div className="min-h-screen pt-1 pb-2 md:py-2 space-y-3 md:space-y-4 relative z-10">
+
+        {/* ⚠️ O FEED VEM ANTES DE TUDO, INCLUSIVE DO HERÓI, e é uma escolha
+            editorial. O herói diz o que a moeda É; o feed diz o que ela FEZ hoje.
+            Quem volta ao site todo dia volta pelo segundo, e enterrar a notícia
+            abaixo de um título e um preço é transformar banca de jornal em
+            outdoor. Se não houver item, a faixa não se desenha. */}
+        <InsightFeed />
 
         {/* === HERO SECTION === */}
         <div className="animate-fade-in px-4 mt-4 md:mt-10 mb-2 md:mb-4">
