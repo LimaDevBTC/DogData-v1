@@ -20,7 +20,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { loadTerrain } from './terrain'
 import { createOrbitLayer, PAD_MAIN } from './orbit-layer'
-import { startFeed, type DogTx, type Snapshot } from './feed'
+import { startFeed, isDonation, type DogTx, type Snapshot } from './feed'
 import { buildChalet, type Chalet } from './chalet'
 import { buildPrecinct, ANCHORS, type Precinct } from './precinct'
 import { loadPark, PARK_CENTER, type Park } from './park'
@@ -1660,6 +1660,17 @@ export default function PlazaScene() {
                   {hud.picked.status === 'pending' ? 'In orbit' : hud.picked.status === 'confirmed' ? 'Landed' : 'Left orbit'}
                 </p>
                 <p className="mt-1 text-white">{fmtDog(hud.picked.dog_in)} DOG</p>
+                {/* ⚠️ A COR PRECISA SER DITA EM ALGUM LUGAR, senão ela é enigma.
+                    O rastro vermelho na órbita marca dinheiro entrando na
+                    cidade; aqui a caixa confirma, com a mesma cor, para quem
+                    clicou não ficar adivinhando por que aquele foguete é
+                    diferente dos outros. */}
+                {isDonation(hud.picked) && (
+                  <p className="mt-1 flex items-center gap-1.5 text-[10px] uppercase tracking-[0.18em]" style={{ color: '#FF3B30' }}>
+                    <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: '#FF3B30' }} aria-hidden />
+                    Funding DogCity
+                  </p>
+                )}
               </div>
               <button type="button" onClick={() => setHud((h) => ({ ...h, picked: null }))} className="text-white/40 hover:text-white">
                 ×

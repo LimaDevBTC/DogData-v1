@@ -14,7 +14,7 @@
 //   • a nave que o visitante está seguindo ganha halo branco e maior.
 //   • nada aqui decide estado. Entrar, pousar e cair chegam prontos do feed.
 import * as THREE from 'three'
-import type { DogTx } from './feed'
+import { isDonation, type DogTx } from './feed'
 
 export const ORBIT_CENTER = new THREE.Vector3(0, 0, 0)
 /** O pad principal do spaceport, no quadro three (x, y, z) = (-140, ~77, 3090). */
@@ -32,6 +32,12 @@ const PAD_SPOTS: THREE.Vector3[] = [
 ]
 
 const DOG_ORANGE = new THREE.Color('#F7931A')
+// ⚠️ CAUDA VERMELHA É DOAÇÃO PARA A CIDADE (fundador, 2026-08-24). Vermelho
+// porque é a única cor forte que a praça ainda não usa: laranja é o DOG, o verde
+// está reservado para estado e o roxo foi banido por colidir com o azul. Quem
+// olha a órbita e vê um rastro vermelho sabe, sem legenda, que alguém acabou de
+// bancar um pedaço da cidade.
+const DONATION_RED = new THREE.Color('#FF3B30')
 const DOG_HOT = new THREE.Color('#FFB35C')
 const FOLLOW_WHITE = new THREE.Color('#FFFFFF')
 /** Nariz para cima: leva o +z do modelo ao +y do mundo. */
@@ -275,11 +281,12 @@ export function createOrbitLayer(): OrbitLayer {
     const trailPts = Array.from({ length: 24 }, () => new THREE.Vector3())
     const trailGeo = new THREE.BufferGeometry().setFromPoints(trailPts)
     const trailCol = new Float32Array(24 * 3)
+    const tint = isDonation(tx) ? DONATION_RED : DOG_ORANGE
     for (let i = 0; i < 24; i++) {
       const a = 1 - i / 24
-      trailCol[i * 3] = DOG_ORANGE.r * a
-      trailCol[i * 3 + 1] = DOG_ORANGE.g * a
-      trailCol[i * 3 + 2] = DOG_ORANGE.b * a
+      trailCol[i * 3] = tint.r * a
+      trailCol[i * 3 + 1] = tint.g * a
+      trailCol[i * 3 + 2] = tint.b * a
     }
     trailGeo.setAttribute('color', new THREE.BufferAttribute(trailCol, 3))
     const trail = new THREE.Line(

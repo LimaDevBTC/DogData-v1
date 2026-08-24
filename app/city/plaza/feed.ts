@@ -6,6 +6,20 @@
 // já com o carimbo de idade (`stale_seconds`): se o watcher morrer, o painel diz
 // "há N s" em vez de fingir que a órbita está viva.
 
+import { DONATION_WALLET } from '../../dogcity/dogcity-data'
+
+/** ⚠️ ESTA TRANSAÇÃO PAGA A CIDADE?
+ *
+ *  O endereço vem de `dogcity-data.ts`, que já é a fonte da landing e da página
+ *  de doação. Uma quarta cópia dele espalhada pelo código é como um endereço de
+ *  destino muda em três lugares e continua errado no quarto.
+ *
+ *  Só o RECEBEDOR conta: a carteira de doações também gasta (o fundador vende
+ *  para pagar a obra, e isso é público), e uma saída dela não é uma doação
+ *  chegando. Foguete com cauda vermelha é dinheiro ENTRANDO. */
+export const isDonation = (tx: { receivers: Array<{ address: string }> }): boolean =>
+  tx.receivers.some((r) => r.address === DONATION_WALLET)
+
 export interface DogTx {
   txid: string
   status: 'pending' | 'confirmed' | 'dropped'
