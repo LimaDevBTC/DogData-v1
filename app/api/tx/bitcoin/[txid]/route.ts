@@ -235,6 +235,11 @@ export async function GET(
         label: null,
         is_known: holders.has(String(address).toLowerCase()),
       }))
+      // ⚠️ AQUI A ORDEM NÃO MUDA, MAS O TROCO SE IDENTIFICA. Numa lista de saídas
+      // a posição é o vout, então reordenar seria mentir sobre a transação. O que
+      // faltava era a etiqueta: a página já desenha "change" quando o campo vem
+      // preenchido, e o caminho confirmado já preenchia. Só a mempool não.
+      const remetentes = new Set<string>(m.senders || [])
       const outputs = mempoolReceivers.map((r: any, i: number) => ({
         position: i,
         address: r.address ?? null,
@@ -243,6 +248,7 @@ export async function GET(
         amount_dog: Number(r.dog ?? r.amount_dog ?? 0),
         holder_rank: holders.get(String(r.address).toLowerCase())?.rank ?? null,
         label: null,
+        is_change: remetentes.has(r.address),
         is_known: holders.has(String(r.address).toLowerCase()),
       }))
 

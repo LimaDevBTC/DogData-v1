@@ -72,3 +72,22 @@ export function netTransfer(senders: SenderLike[] | null | undefined, receivers:
 export function movedDog(senders: SenderLike[] | null | undefined, receivers: ReceiverLike[] | null | undefined): number {
   return netTransfer(senders, receivers).net
 }
+
+/**
+ * Os destinatários na ordem em que interessam: quem recebeu primeiro, troco depois.
+ *
+ * ⚠️ O TROCO COSTUMA SER A SAÍDA DE ÍNDICE ZERO, e uma tabela que mostra o
+ * primeiro destinatário acaba mostrando o próprio remetente na coluna "To". A
+ * linha então parece uma transferência de alguém para si mesmo quando na verdade
+ * houve um pagamento. Ordenar resolve sem esconder nada: o troco continua na
+ * lista, só deixa de ser o rosto da transação.
+ */
+export function orderReceivers<T extends ReceiverLike>(senders: SenderLike[] | null | undefined, receivers: T[]): T[] {
+  const de = new Set(
+    (senders || [])
+      .map((s) => (typeof s === 'string' ? s : s?.address || ''))
+      .filter(Boolean),
+  )
+  const troco = (r: T) => (de.has(r.address || '') ? 1 : 0)
+  return [...receivers].sort((a, b) => troco(a) - troco(b) || num(b.dog ?? b.amount_dog) - num(a.dog ?? a.amount_dog))
+}

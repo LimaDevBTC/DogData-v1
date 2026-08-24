@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback, Fragment } from "react"
-import { movedDog } from "@/lib/dog/net-transfer"
+import { movedDog, orderReceivers } from "@/lib/dog/net-transfer"
 import { useSearchParams } from "next/navigation"
 import Image from "next/image"
 import { Layout } from "@/components/layout"
@@ -588,7 +588,10 @@ export default function TransactionsPage() {
         timestamp: m.first_seen,
         type: 'transfer',
         senders: (m.senders || []).map((address: string) => ({ address, input: '' })),
-        receivers: (Array.isArray(m.receivers) ? m.receivers : []).map((r: any, vout: number) => ({
+        // ⚠️ TROCO POR ÚLTIMO. A saída de troco costuma ser a de índice zero, e a
+        // tabela mostra o primeiro destinatário: sem ordenar, a coluna "To" exibia
+        // o próprio remetente e a linha parecia uma transferência para si mesmo.
+        receivers: orderReceivers(m.senders, Array.isArray(m.receivers) ? m.receivers : []).map((r: any, vout: number) => ({
           address: r.address,
           vout,
           amount: 0,
