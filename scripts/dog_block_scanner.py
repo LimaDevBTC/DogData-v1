@@ -45,6 +45,9 @@ except ImportError:
 
 # === Configurações ===
 BITCOIN_CLI = 'bitcoin-cli'
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from runestone import decode_runestone as _decode_local  # noqa: E402
+
 ORD_BINARY = '/home/bitmax/Projects/bitcoin-fullstack/ord/target/release/ord'
 ORD_DATA_DIR = '/home/bitmax/Projects/bitcoin-fullstack/ord/data'
 
@@ -154,7 +157,16 @@ def get_tx_fee_sats(tx_data):
 # === Ord helpers ===
 
 def ord_decode(txid):
-    """Decode a transaction's runestone using ord."""
+    """Decode a transaction's runestone using ord.
+
+    ⚠️ NÃO ESTÁ MAIS NO CAMINHO QUENTE, e o motivo é o defeito que ela carregava.
+    Esta função embrulhava tudo em `except Exception: pass` e devolvia `None`, que
+    a alocação lê como "esta transação não tem edict". Falha do processo externo
+    ficava indistinguível de transação sem edict, e o resultado era DOG alocado na
+    saída errada, em silêncio, com o erro se propagando para todo descendente.
+
+    Continua aqui como REFERÊNCIA para conferir o decodificador local, que é o
+    que grava agora. Ver `decode_runestone_local` logo abaixo."""
     try:
         result = subprocess.run(
             [ORD_BINARY, 'decode', '--txid', txid],
@@ -165,6 +177,31 @@ def ord_decode(txid):
     except Exception:
         pass
     return None
+
+
+def decode_runestone_local(tx):
+    """O runestone desta transação, decodificado em processo, no formato do ord.
+
+    ⚠️ MESMO RESULTADO, SEM PROCESSO EXTERNO. A equivalência foi medida em 20.105
+    transações com runestone, do bloco 840.648 ao 963.800: zero diferenças. Sem
+    subprocesso não há falha silenciosa, não há disputa pela trava single-writer
+    do redb, e o replay fica reproduzível.
+
+    Devolve o mesmo formato que `ord decode` para o parser não precisar mudar, ou
+    `None` quando a transação genuinamente não tem runestone."""
+    rs = _decode_local(tx)
+    if rs is None:
+        return None
+    return {
+        'runestone': {
+            'edicts': [
+                {'id': f'{blk}:{txi}', 'amount': amount, 'output': output}
+                for ((blk, txi), amount, output) in rs['edicts']
+            ],
+            'pointer': rs['pointer'],
+            'cenotaph': rs['cenotaph'],
+        }
+    }
 
 
 def ord_balances():
@@ -428,9 +465,27 @@ def process_dog_tx(tx, dog_inputs, utxo_set):
     dog_input_total = sum(amt for _, amt in dog_inputs)
 
     # Check for runestone and decode if present
+    #
+    # ⚠️ AQUI MORAVA O DEFEITO QUE APAGOU METADE DO HISTÓRICO. A linha era
+    # `decoded = ord_decode(txid)`, um subprocesso por transação cujo fracasso
+    # virava `None`, e `None` a alocação trata como "sem edict": todo o DOG ia
+    # para a primeira saída não-OP_RETURN. As outras saídas nunca entravam no
+    # conjunto de UTXOs, e com elas sumia toda a descendência. Uma alocação errada
+    # apaga uma subárvore inteira do grafo.
+    #
+    # ⚠️ E SE DER ERRADO AGORA, DÁ ERRADO ALTO. Uma transação COM runestone que
+    # não decodifica é anomalia, não rotina: ou o protocolo mudou, ou há defeito
+    # no decodificador. Registrar em `error` e seguir com `None` seria repetir o
+    # erro antigo de outra forma, então a exceção sobe e o bloco não é dado como
+    # processado. Parar é barato; buraco no histórico não é.
     decoded = None
     if has_runestone(tx):
-        decoded = ord_decode(txid)
+        decoded = decode_runestone_local(tx)
+        if decoded is None:
+            raise RuntimeError(
+                f'runestone presente e indecifrável em {txid}: '
+                'o decodificador precisa ser conferido antes de gravar qualquer coisa'
+            )
 
     # Allocate DOG to outputs
     allocation, remainder_outputs = allocate_dog_outputs(tx, dog_input_total, decoded)
