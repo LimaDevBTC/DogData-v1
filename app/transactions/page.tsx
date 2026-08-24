@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback, Fragment } from "react"
-import { movedDog, orderReceivers } from "@/lib/dog/net-transfer"
+import { netTransfer, orderReceivers } from "@/lib/dog/net-transfer"
 import { useSearchParams } from "next/navigation"
 import Image from "next/image"
 import { Layout } from "@/components/layout"
@@ -597,8 +597,21 @@ export default function TransactionsPage() {
           amount: 0,
           amount_dog: Number(r.dog ?? r.amount_dog ?? 0),
         })),
-        // líquido de troco, para a linha não mudar de valor quando a tx pousar
-        total_dog_moved: movedDog(m.senders, m.receivers),
+        // ⚠️ OS TRÊS CAMPOS, COM O MESMO SENTIDO QUE ELES TÊM NAS CONFIRMADAS.
+        // `total_dog_moved` é BRUTO na tabela `dog_transactions` e `net_transfer`
+        // é o líquido; a lista desenha `net_transfer` e cai no bruto quando ele
+        // falta. Encher só o `total_dog_moved` com o líquido acertava a tela por
+        // acidente e deixava o campo com dois sentidos diferentes conforme a
+        // linha, que é o tipo de dívida que morde meses depois.
+        ...(() => {
+          const f = netTransfer(m.senders, m.receivers)
+          return {
+            total_dog_moved: f.gross,
+            net_transfer: f.net,
+            change_amount: f.change,
+            has_change: f.change > 0,
+          }
+        })(),
         sender_count: Number(m.n_in ?? (m.senders || []).length),
         receiver_count: Number(m.n_out ?? 0),
         fee_sats: Number(m.fee_sats ?? 0),

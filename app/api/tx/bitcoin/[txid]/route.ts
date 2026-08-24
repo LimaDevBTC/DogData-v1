@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs/promises'
 import path from 'path'
 import { createClient } from '@supabase/supabase-js'
-import { movedDog } from '@/lib/dog/net-transfer'
+import { netTransfer } from '@/lib/dog/net-transfer'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -240,6 +240,7 @@ export async function GET(
       // faltava era a etiqueta: a página já desenha "change" quando o campo vem
       // preenchido, e o caminho confirmado já preenchia. Só a mempool não.
       const remetentes = new Set<string>(m.senders || [])
+      const fluxo = netTransfer(m.senders, mempoolReceivers)
       const outputs = mempoolReceivers.map((r: any, i: number) => ({
         position: i,
         address: r.address ?? null,
@@ -267,10 +268,14 @@ export async function GET(
         fee_sats: Number(m.fee_sats ?? 0),
         fee_rate: m.fee_rate != null ? Number(m.fee_rate) : null,
         confirmations: 0,
-        // ⚠️ O MESMO NÚMERO QUE A CONFIRMADA MOSTRA. `dog_transactions.total_dog_moved`
-        // já é líquido de troco desde sempre; a linha da mempool mostrava o bruto,
-        // e a mesma transação mudava de valor ao pousar. Agora não muda.
-        total_dog_moved: movedDog(m.senders, m.receivers),
+        // ⚠️ MESMO CONTRATO DA CONFIRMADA: `total_dog_moved` é o bruto e
+        // `net_transfer` é o que mudou de mão. Assim a transação não muda de
+        // valor ao pousar, e nenhum dos dois campos muda de sentido conforme a
+        // linha ser da mempool ou do histórico.
+        total_dog_moved: fluxo.gross,
+        net_transfer: fluxo.net,
+        change_amount: fluxo.change,
+        has_change: fluxo.change > 0,
         rbf: m.rbf ?? null,
         inputs,
         outputs,
