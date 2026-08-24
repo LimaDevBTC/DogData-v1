@@ -95,7 +95,13 @@ def bitcoin_cli(*args, timeout=15):
 
 
 def get_raw_tx(txid):
-    return json.loads(bitcoin_cli('getrawtransaction', txid, '1'))
+    # ⚠️ VERBOSIDADE 2, E NÃO 1, e essa diferença de um caractere custou 23% do
+    # histórico. Com `1` a transação vem sem os prevouts, e foi por isso que a
+    # primeira versão deste script gravou 111.799 linhas com `senders: []`: ele
+    # tinha o nó na mão e não perguntou quem tinha mandado. Com `2` cada entrada
+    # já vem com endereço e valor, numa chamada só, porque o txindex está ligado.
+    # Reparado em 2026-08-24 por scripts/rebuild-backfill-senders.py.
+    return json.loads(bitcoin_cli('getrawtransaction', txid, '2'))
 
 
 def get_block_header(blockhash):
@@ -188,7 +194,34 @@ def reconstruct_tx(txid, dog_outputs_for_txid):
         })
         total_dog_atomic += amount_atomic
 
-    addresses = sorted({r['address'] for r in receivers if r['address'] != 'unknown'})
+    # ⚠️ OS REMETENTES SAEM DOS PREVOUTS, e valor só onde ele é sabido.
+    # Uma única entrada de 546 sats é o UTXO de rune e o resto é gás: ali o total
+    # da transação é dela. Havendo mais de uma candidata, o endereço entra com
+    # `attribution: pending` e valor nulo. Nulo é "não sei"; zero seria afirmar
+    # que a pessoa não mandou DOG, e isso seria mentira.
+    entradas = []
+    for vin in tx.get('vin', []):
+        prev = vin.get('prevout') or {}
+        addr = (prev.get('scriptPubKey') or {}).get('address')
+        if addr:
+            entradas.append((addr, round(float(prev.get('value', 0)) * 1e8)))
+    poeira = [a for a, v in entradas if v == 546]
+    direto = len(poeira) == 1
+    senders = []
+    for addr in sorted({a for a, _ in entradas}):
+        carrega = direto and addr == poeira[0]
+        senders.append({
+            'address': addr,
+            'amount': total_dog_atomic if carrega else None,
+            'amount_dog': round(total_dog_atomic / DOG_FACTOR, DOG_DIVISIBILITY) if carrega else None,
+            'has_dog': carrega if direto else None,
+            'attribution': 'direct' if direto else 'pending',
+        })
+
+    addresses = sorted(
+        {r['address'] for r in receivers if r['address'] != 'unknown'}
+        | {s['address'] for s in senders}
+    )
 
     return {
         'txid': txid,
@@ -200,9 +233,9 @@ def reconstruct_tx(txid, dog_outputs_for_txid):
         'change_amount': 0,
         'has_change': False,
         'fee_sats': None,
-        'sender_count': 0,
+        'sender_count': len(senders),
         'receiver_count': len(receivers),
-        'senders': json.dumps([]),
+        'senders': json.dumps(senders),
         'receivers': json.dumps(receivers),
         'addresses': addresses,
     }
