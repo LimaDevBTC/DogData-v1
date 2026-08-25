@@ -85,7 +85,9 @@ export default function WarScene() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, orc.dpr))
     renderer.setSize(el.clientWidth, el.clientHeight)
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.18
+    // ⚠️ 1.18 lia bonito na chapa e ESCURO na tela dos outros (fundador,
+    // 25/08): exposição e luzes sobem juntas pra batalha ler de primeira
+    renderer.toneMappingExposure = 1.42
     el.appendChild(renderer.domElement)
 
     const controls = new OrbitControls(camera, renderer.domElement)
@@ -129,10 +131,10 @@ export default function WarScene() {
       return bacia + borda + rugosidade
     }
 
-    const sol = new THREE.DirectionalLight(0xffd9ae, 2.6)
+    const sol = new THREE.DirectionalLight(0xffd9ae, 3.1)
     sol.position.set(60, 38, 120)
     scene.add(sol)
-    scene.add(new THREE.HemisphereLight(0x34344a, 0x120c08, 1.15))
+    scene.add(new THREE.HemisphereLight(0x3c3c55, 0x1a120b, 1.55))
     const brasa = new THREE.DirectionalLight(0x9c3a28, 0.9)
     brasa.position.set(140, 26, -60)
     scene.add(brasa)
@@ -284,7 +286,7 @@ export default function WarScene() {
       const pos = g.attributes.position
       for (let i = 0; i < pos.count; i++) pos.setY(i, altura(pos.getX(i), pos.getZ(i)))
       g.computeVertexNormals()
-      scene.add(new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0x1d1712, roughness: 1 })))
+      scene.add(new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0x27201a, roughness: 1 })))
     }
 
     // ── o motor da batalha ──────────────────────────────────────────────────
@@ -468,6 +470,12 @@ export default function WarScene() {
       )}
 
       <div className="absolute top-4 left-5 font-mono text-[10px] tracking-[0.22em] uppercase text-white/45 select-none">
+        {/* a porta de saída: quem chega pelo link direto precisa conseguir voltar */}
+        <div className="pointer-events-auto mb-1.5">
+          <a href="/city" className="text-white/55 hover:text-white">← Satoshi Plaza</a>
+          <span className="mx-2 text-white/25">·</span>
+          <a href="/" className="text-white/55 hover:text-white">DOG DATA</a>
+        </div>
         <span className={`inline-block w-1.5 h-1.5 rounded-full mr-2 align-middle ${vivoAgora ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`} />
         Kraken {vivoAgora ? 'live' : hud.status}
         <div className="mt-1 text-white/30 hidden sm:block">War Crater · 3 km SW of Central Plaza</div>

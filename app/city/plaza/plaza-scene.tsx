@@ -679,6 +679,21 @@ export default function PlazaScene() {
           campo.group.scale.setScalar(ESCALA_GUERRA)
           scene.add(campo.group)
           culler.add(campo.group, 3600, new THREE.Vector3(WAR_POS.x, 0, WAR_POS.z))
+          // ⚠️ O FAROL: uma coluna de luz laranja de 600 m sobre a cratera,
+          // visível do horizonte da praça. É o "tem algo ali" que faz alguém
+          // atravessar 3 km; o parque tem a silhueta da cordilheira, a guerra
+          // tem isto. Aditiva, sem luz real, custo de um cilindro.
+          {
+            const farol = new THREE.Mesh(
+              new THREE.CylinderGeometry(2.2, 5.5, 620, 10, 1, true),
+              new THREE.MeshBasicMaterial({
+                color: 0xff9540, transparent: true, opacity: 0.32,
+                blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+              }),
+            )
+            farol.position.set(WAR_POS.x, terrain.heightAt(WAR_POS.x, WAR_POS.z) + 310, WAR_POS.z)
+            scene.add(farol)
+          }
         }
 
         // The deck (podium, gardens, supertrees, amphitheatre, pools, colonnade,
@@ -1397,14 +1412,16 @@ export default function PlazaScene() {
       // em fade de 1,1 km até 600 m, escrito DIRETO no DOM (zero re-render).
       if (campo) {
         const dWar = camera.position.distanceTo(WAR_POS)
-        const quer = dWar < 1400
+        const quer = dWar < 2600
         if (quer !== campoVivo) {
           campoVivo = quer
           campo.setLive(quer)
         }
         if (dWar < 3600) campo.update(nowMs)
         if (warHudRef.current) {
-          const k = Math.min(1, Math.max(0, (1100 - dWar) / 500))
+          // ⚠️ raio generoso: o ponto bom de assistir no celular fica LONGE
+          // (retrato pede recuo) e a 1,1 km o preço já tinha sumido da tela
+          const k = Math.min(1, Math.max(0, (2300 - dWar) / 800))
           warHudRef.current.style.opacity = k.toFixed(2)
           if (k > 0 && (hudTick & 31) === 1) {
             const h = campo.hud()
@@ -1590,6 +1607,15 @@ export default function PlazaScene() {
             className="ml-2 border border-white/15 bg-black/70 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-white/70 hover:border-white/40 hover:text-white"
           >
             {tour ? 'Stop tour' : 'Tour'}
+          </button>
+          {/* a guerra ganha botão próprio: ninguém deveria precisar do menu
+              pra ACHAR uma batalha (fundador não achou, 25/08) */}
+          <button
+            type="button"
+            onClick={() => apiRef.current?.flyTo('war')}
+            className="ml-2 border border-[#F7931A]/50 bg-black/70 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-[#F7931A]/90 hover:border-[#F7931A] hover:text-[#F7931A]"
+          >
+            War
           </button>
           {/* no celular o follow mora aqui em cima, com os irmãos */}
           <button

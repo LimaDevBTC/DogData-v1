@@ -290,14 +290,14 @@ export function createBattlefield(
     vence: 'buy' | 'sell'
   }
   const duelos: Duelo[] = []
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 10; i++) {
     const cao = new THREE.Mesh(geoShiba, matCaes)
     const urso = new THREE.Mesh(geoUrso, matUrsos)
     cao.visible = urso.visible = false
     semRaycast(cao)
     semRaycast(urso)
     group.add(cao, urso)
-    duelos.push({ cao, urso, fase: 'espera', t0: performance.now() + 1200 + i * 1700 + hash(i, 3) * 2200, z: 0, vence: 'buy' })
+    duelos.push({ cao, urso, fase: 'espera', t0: performance.now() + 600 + i * 900 + hash(i, 3) * 1400, z: 0, vence: 'buy' })
   }
   const X_DUELO = FRENTE + 15
 
@@ -869,6 +869,8 @@ export function createBattlefield(
   // ── o pulso ─────────────────────────────────────────────────────────────
   let ultimoBook = 0
   let ultimoUpdate = 0
+  let ultimaEscaramuca = 0
+  let proxArtilharia = 0
   const passo = new THREE.Vector3()
   const zEixo = new THREE.Vector3(0, 0, 1)
 
@@ -991,6 +993,27 @@ export function createBattlefield(
       if (f >= 1) tombos.splice(i, 1)
     }
 
+    // ── ESCARAMUÇA CONSTANTE: a referência (bitcoin-warfront) nunca para de
+    // atirar porque BTC tem dezenas de trades por segundo. DOG não tem, então
+    // as linhas trocam fogo de fuzilaria por conta própria (qty 0: não conta
+    // baixa no placar nem letreiro, é o rugido de fundo da guerra), e a
+    // CADÊNCIA acompanha a pressão: mais compra, mais fogo do lado dos cães.
+    if (mid > 0) {
+      if (agora - ultimaEscaramuca > 190 + hash(Math.floor(agora) % 577, 3) * 260) {
+        ultimaEscaramuca = agora
+        const press = matCostura.uniforms.pressao.value
+        const lado: 'buy' | 'sell' = hash(Math.floor(agora) % 691, 9) < press ? 'buy' : 'sell'
+        const z = (hash(Math.floor(agora) % 1213, 5) - 0.5) * 100
+        atira(lado, 0, 0.5 + hash(Math.floor(agora) % 331, 7) * 1.3, z, Math.floor(agora))
+      }
+      // artilharia pesada ocasional, de qualquer um dos lados
+      if (agora > proxArtilharia) {
+        proxArtilharia = agora + 2200 + hash(Math.floor(agora) % 449, 11) * 3800
+        const lado = hash(Math.floor(agora) % 863, 13) < matCostura.uniforms.pressao.value ? 'buy' : 'sell'
+        atira(lado, 0, 3.5 + hash(Math.floor(agora) % 149, 17) * 3.5, (hash(Math.floor(agora) % 1069, 19) - 0.5) * 105, Math.floor(agora))
+      }
+    }
+
     // salva de baleia: os tiros agendados saem na hora deles
     for (let i = salva.length - 1; i >= 0; i--) {
       if (salva[i].at <= agora) {
@@ -1053,7 +1076,7 @@ export function createBattlefield(
         if (f >= 1) {
           d.cao.visible = d.urso.visible = false
           d.fase = 'espera'
-          d.t0 = agora + 1600 + hash(Math.floor(agora) % 71, 3) * 4200
+          d.t0 = agora + 700 + hash(Math.floor(agora) % 71, 3) * 2400
         }
       }
     }
