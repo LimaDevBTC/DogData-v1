@@ -80,6 +80,7 @@ export function createBattlefield(
   const semRaycast = (m: THREE.Object3D) => {
     ;(m as any).raycast = () => {}
   }
+  let matBrasas: THREE.ShaderMaterial | null = null
 
   // ── a costura: energia viva, um draw call ───────────────────────────────
   // ⚠️ os chunks de logdepth são no-op fora da praça (guardados por ifdef),
@@ -224,13 +225,163 @@ export function createBattlefield(
   ursos.geometry = geoUrso.clone()
   caes.geometry.setAttribute('aFase', new THREE.InstancedBufferAttribute(faseCaes, 1))
   ursos.geometry.setAttribute('aFase', new THREE.InstancedBufferAttribute(faseUrsos, 1))
+  // a praça faz raycast recursivo e o frustum de instância mente; nos dois
+  // palcos é mais barato e mais seguro desligar ambos
+  for (const m of [caes, ursos]) {
+    semRaycast(m)
+    m.frustumCulled = false
+  }
   group.add(caes, ursos)
+
+  // ── MARCHA: o book define ALVOS e as tropas ANDAM até eles ───────────────
+  // ⚠️ É AQUI QUE A CENA DEIXA DE SER ENFADONHA SEM INVENTAR DADO. O book de
+  // DOG/USD muda o tempo todo (o preço anda, os níveis engordam e magram), e
+  // antes cada mudança era um teleporte silencioso das fileiras. Agora é uma
+  // MARCHA: cada soldado caminha até o posto novo com bob de passada. Preço
+  // subindo = o exército inteiro dos cães avançando de verdade.
+  interface Exercito {
+    mesh: THREE.InstancedMesh
+    fase: Float32Array
+    alvo: Float32Array
+    cur: Float32Array
+    rot: Float32Array
+    esc: Float32Array
+    n: number
+    primeira: boolean
+  }
+  const fazExercito = (mesh: THREE.InstancedMesh, fase: Float32Array): Exercito => {
+    const rot = new Float32Array(orc.cap)
+    const esc = new Float32Array(orc.cap)
+    for (let i = 0; i < orc.cap; i++) {
+      rot[i] = (hash(i, 71) - 0.5) * 0.35
+      esc[i] = 0.9 + hash(i, 73) * 0.25
+    }
+    return {
+      mesh, fase, rot, esc,
+      alvo: new Float32Array(orc.cap * 3),
+      cur: new Float32Array(orc.cap * 3),
+      n: 0, primeira: true,
+    }
+  }
+  const exCaes = fazExercito(caes, faseCaes)
+  const exUrsos = fazExercito(ursos, faseUrsos)
 
   const detritoCaes = new THREE.InstancedMesh(geoShiba, matCaes, orc.detritos)
   const detritoUrsos = new THREE.InstancedMesh(geoUrso, matUrsos, orc.detritos)
   detritoCaes.count = 0
   detritoUrsos.count = 0
+  for (const m of [detritoCaes, detritoUrsos]) {
+    semRaycast(m)
+    m.frustumCulled = false
+  }
   group.add(detritoCaes, detritoUrsos)
+
+  // ── DUELOS DE VANGUARDA: o teatro que nunca para ─────────────────────────
+  // ⚠️ DOG/USD tem poucos trades por minuto, e batalha parada é batalha chata.
+  // Os duelos são encenação declarada: pares correm da própria linha, se
+  // chocam na costura e um cai; MAS o vencedor pende pro lado que tem PRESSÃO
+  // real de compra/venda, então até o teatro conta a verdade do mercado.
+  interface Duelo {
+    cao: THREE.Mesh
+    urso: THREE.Mesh
+    fase: 'espera' | 'corre' | 'choque' | 'retirada'
+    t0: number
+    z: number
+    vence: 'buy' | 'sell'
+  }
+  const duelos: Duelo[] = []
+  for (let i = 0; i < 6; i++) {
+    const cao = new THREE.Mesh(geoShiba, matCaes)
+    const urso = new THREE.Mesh(geoUrso, matUrsos)
+    cao.visible = urso.visible = false
+    semRaycast(cao)
+    semRaycast(urso)
+    group.add(cao, urso)
+    duelos.push({ cao, urso, fase: 'espera', t0: performance.now() + 1200 + i * 1700 + hash(i, 3) * 2200, z: 0, vence: 'buy' })
+  }
+  const X_DUELO = FRENTE + 15
+
+  // ── brasas subindo da costura: a frente é uma ferida quente ──────────────
+  const N_BRASA = 130
+  {
+    const pos = new Float32Array(N_BRASA * 3)
+    const fase = new Float32Array(N_BRASA)
+    for (let i = 0; i < N_BRASA; i++) {
+      pos.set([(hash(i, 1) - 0.5) * 4.5, 0, (hash(i, 2) - 0.5) * 122], i * 3)
+      fase[i] = hash(i, 5)
+    }
+    const g = new THREE.BufferGeometry()
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3))
+    g.setAttribute('fase', new THREE.BufferAttribute(fase, 1))
+    const mat = new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      uniforms: { time: { value: 0 }, cor: { value: new THREE.Color(0xffa050) } },
+      vertexShader: `
+        #include <common>
+        #include <logdepthbuf_pars_vertex>
+        attribute float fase; uniform float time; varying float vA;
+        void main(){
+          vec3 p = position;
+          float h = mod(time * (0.7 + fase) + fase * 7.0, 7.0);
+          p.y = h;
+          p.x += sin(time * 1.3 + fase * 20.0) * 0.5;
+          vA = (1.0 - h / 7.0) * (0.35 + 0.65 * fase);
+          vec4 mv = modelViewMatrix * vec4(p, 1.0);
+          gl_PointSize = 16.0 / -mv.z * (60.0);
+          gl_PointSize = clamp(gl_PointSize, 1.0, 5.0);
+          gl_Position = projectionMatrix * mv;
+          #include <logdepthbuf_vertex>
+        }`,
+      fragmentShader: `
+        #include <common>
+        #include <logdepthbuf_pars_fragment>
+        uniform vec3 cor; varying float vA;
+        void main(){
+          #include <logdepthbuf_fragment>
+          float d = distance(gl_PointCoord, vec2(0.5));
+          gl_FragColor = vec4(cor, smoothstep(0.5, 0.0, d) * vA * 0.7);
+        }`,
+    })
+    const brasas = new THREE.Points(g, mat)
+    brasas.frustumCulled = false
+    group.add(brasas)
+    matBrasas = mat
+  }
+
+  // ── letreiro de dano: o trade vira número flutuando no impacto ───────────
+  const POOL_TEXTO = 10
+  const textos = Array.from({ length: POOL_TEXTO }, () => {
+    const cv = document.createElement('canvas')
+    cv.width = 256
+    cv.height = 72
+    const tx = new THREE.CanvasTexture(cv)
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tx, transparent: true, depthWrite: false, opacity: 0 }))
+    sp.scale.set(13, 3.7, 1)
+    sp.visible = false
+    group.add(sp)
+    return { sp, cv, tx }
+  })
+  let cursorTexto = 0
+  const fmtQtd = (n: number) =>
+    n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(0)}K` : n.toFixed(0)
+  const mostraDano = (p: THREE.Vector3, qty: number, lado: 'buy' | 'sell') => {
+    const t = textos[cursorTexto]
+    cursorTexto = (cursorTexto + 1) % POOL_TEXTO
+    const cx = t.cv.getContext('2d')!
+    cx.clearRect(0, 0, 256, 72)
+    cx.font = '700 40px ui-monospace, monospace'
+    cx.textAlign = 'center'
+    cx.fillStyle = lado === 'buy' ? 'rgba(255,180,92,0.95)' : 'rgba(255,96,72,0.95)'
+    cx.fillText(`${lado === 'buy' ? '+' : '-'}${fmtQtd(qty)} DOG`, 128, 50)
+    t.tx.needsUpdate = true
+    t.sp.position.copy(p).setY(p.y + 3.2)
+    t.sp.visible = true
+    ;(t.sp.material as THREE.SpriteMaterial).opacity = 1
+    t.sp.userData.t0 = performance.now()
+  }
+
+  // ── salva de baleia: trade grande vira bombardeio, não bola única ────────
+  const salva: Array<{ at: number; lado: 'buy' | 'sell'; qty: number; forca: number; z: number }> = []
   const curCaes = { v: 0 }
   const curUrsos = { v: 0 }
   interface Tombo {
@@ -328,7 +479,7 @@ export function createBattlefield(
   matRastroVenda.color.setHex(0xff5940)
 
   const POOL_TIROS = orc.maxOndas * 2
-  interface Tiro { i: number; t0: number; dur: number; forca: number; lado: 'buy' | 'sell' }
+  interface Tiro { i: number; t0: number; dur: number; forca: number; lado: 'buy' | 'sell'; qty: number }
   const poolTiros: THREE.Mesh[] = []
   const poolRastros: THREE.Mesh[] = []
   for (let i = 0; i < POOL_TIROS; i++) {
@@ -539,7 +690,7 @@ export function createBattlefield(
     return s * Math.min(Math.abs(d) + FRENTE, CAMPO_X + 14)
   }
 
-  const montaExercito = (mesh: THREE.InstancedMesh, niveis: BookLevel[], lado: 1 | -1, qMediana: number) => {
+  const montaExercito = (ex: Exercito, niveis: BookLevel[], lado: 1 | -1, qMediana: number) => {
     let i = 0
     for (let li = 0; li < niveis.length && i < orc.cap; li++) {
       const nv = niveis[li]
@@ -552,18 +703,59 @@ export function createBattlefield(
         const jz = (hash(li * 17 + u, 13) - 0.5) * 0.9
         const px = x0 + lado * (fila * 1.5 + jx)
         const pz = (col - 5.5) * 1.45 + (fila % 2) * 0.7 + jz
-        vp.set(px, altura(px, pz) + 0.05, pz)
-        const esc = 0.9 + hash(li, u) * 0.25
-        vs.set(esc, esc, esc)
-        eu.set(0, (hash(u, li) - 0.5) * 0.35, 0)
-        q.setFromEuler(eu)
-        m4.compose(vp, q, vs)
-        mesh.setMatrixAt(i, m4)
+        ex.alvo[i * 3] = px
+        ex.alvo[i * 3 + 1] = altura(px, pz) + 0.05
+        ex.alvo[i * 3 + 2] = pz
         i++
       }
     }
-    mesh.count = i
-    mesh.instanceMatrix.needsUpdate = true
+    ex.n = i
+    ex.mesh.count = i
+    if (ex.primeira) {
+      // na primeira formação ninguém atravessa o mapa: as tropas nascem em posto
+      ex.primeira = false
+      ex.cur.set(ex.alvo.subarray(0, i * 3))
+      for (let k = 0; k < i; k++) {
+        vp.set(ex.cur[k * 3], ex.cur[k * 3 + 1], ex.cur[k * 3 + 2])
+        vs.setScalar(ex.esc[k])
+        eu.set(0, ex.rot[k], 0)
+        q.setFromEuler(eu)
+        m4.compose(vp, q, vs)
+        ex.mesh.setMatrixAt(k, m4)
+      }
+      ex.mesh.instanceMatrix.needsUpdate = true
+    }
+  }
+
+  const marcha = (ex: Exercito, dt: number, agora: number) => {
+    let mexeu = false
+    for (let i = 0; i < ex.n; i++) {
+      const ix = i * 3
+      const dx = ex.alvo[ix] - ex.cur[ix]
+      const dz = ex.alvo[ix + 2] - ex.cur[ix + 2]
+      const d = Math.hypot(dx, dz)
+      const dy = ex.alvo[ix + 1] - ex.cur[ix + 1]
+      if (d < 0.04 && Math.abs(dy) < 0.02) continue
+      if (d >= 0.04) {
+        const passo = Math.min(d, 7 * dt)
+        ex.cur[ix] += (dx / d) * passo
+        ex.cur[ix + 2] += (dz / d) * passo
+      } else {
+        ex.cur[ix] = ex.alvo[ix]
+        ex.cur[ix + 2] = ex.alvo[ix + 2]
+      }
+      ex.cur[ix + 1] += dy * Math.min(1, 5 * dt)
+      // bob de passada só em quem está andando: a passada vende a marcha
+      const bob = d >= 0.04 ? Math.abs(Math.sin(agora * 0.012 + ex.fase[i] * 6.283)) * 0.12 : 0
+      vp.set(ex.cur[ix], ex.cur[ix + 1] + bob, ex.cur[ix + 2])
+      vs.setScalar(ex.esc[i])
+      eu.set(0, ex.rot[i], 0)
+      q.setFromEuler(eu)
+      m4.compose(vp, q, vs)
+      ex.mesh.setMatrixAt(i, m4)
+      mexeu = true
+    }
+    if (mexeu) ex.mesh.instanceMatrix.needsUpdate = true
   }
 
   const aplicaBook = () => {
@@ -578,8 +770,8 @@ export function createBattlefield(
     spanSuave = spanSuave === 0 ? alcance : spanSuave * 0.92 + alcance * 0.08
     const todas = [...bids, ...asks].map((l) => l.qty).sort((a, b) => a - b)
     const qMediana = todas[Math.floor(todas.length / 2)] || 1
-    montaExercito(caes, bids, -1, qMediana)
-    montaExercito(ursos, asks, 1, qMediana)
+    montaExercito(exCaes, bids, -1, qMediana)
+    montaExercito(exUrsos, asks, 1, qMediana)
 
     if (low24 > 0 && mid > 0) {
       obLow.visible = obHigh.visible = true
@@ -601,26 +793,46 @@ export function createBattlefield(
 
   // ── trades viram disparos ───────────────────────────────────────────────
   const LIMIAR_BALEIA = 16
-  const dispara = (t: WarTrade) => {
-    const forca = Math.min(40, Math.max(0.4, emaQty > 0 ? t.qty / emaQty : 1))
-    const zAlvo = (hash(t.at % 997, t.qty) - 0.5) * 90
-    const lado = t.side === 'buy' ? 1 : -1
+  const atira = (lado0: 'buy' | 'sell', qty: number, forca: number, zAlvo: number, sem: number) => {
+    const lado = lado0 === 'buy' ? 1 : -1
     const i = cursorTiro
     cursorTiro = (cursorTiro + 1) % POOL_TIROS
     const mesh = poolTiros[i]
     const rastro = poolRastros[i]
-    mesh.material = t.side === 'buy' ? matTiroCompra : matTiroVenda
-    rastro.material = t.side === 'buy' ? matRastroCompra : matRastroVenda
+    mesh.material = lado0 === 'buy' ? matTiroCompra : matTiroVenda
+    rastro.material = lado0 === 'buy' ? matRastroCompra : matRastroVenda
     mesh.visible = rastro.visible = true
     mesh.scale.setScalar(0.22 * Math.sqrt(forca) + 0.12)
-    mesh.userData.de.set(-lado * (14 + hash(t.at % 31, 3) * 30), 1.2, zAlvo + (hash(t.at % 13, 5) - 0.5) * 30)
-    mesh.userData.para.set(lado * (FRENTE + hash(t.at % 7, 11) * 6), 0.8, zAlvo)
+    mesh.userData.de.set(-lado * (14 + hash(sem % 31, 3) * 30), 1.2, zAlvo + (hash(sem % 13, 5) - 0.5) * 30)
+    mesh.userData.para.set(lado * (FRENTE + hash(sem % 7, 11) * 6), 0.8, zAlvo)
     mesh.userData.prev.copy(mesh.userData.de)
-    tiros.push({ i, t0: performance.now(), dur: 750 + 350 * Math.min(3, forca / 8), forca, lado: t.side })
+    tiros.push({ i, t0: performance.now(), dur: 750 + 350 * Math.min(3, forca / 8), forca, lado: lado0, qty })
+  }
+
+  const dispara = (t: WarTrade) => {
+    const forca = Math.min(40, Math.max(0.4, emaQty > 0 ? t.qty / emaQty : 1))
+    const zAlvo = (hash(t.at % 997, t.qty) - 0.5) * 90
+    // ⚠️ BALEIA É BOMBARDEIO, não bola única: trade grande vira salva de tiros
+    // espaçados no tempo, e a tela conta a história do tamanho dele
+    if (forca >= 8) {
+      const k = Math.min(9, 2 + Math.round(forca / 5))
+      for (let s = 0; s < k; s++) {
+        salva.push({
+          at: performance.now() + s * (110 + hash(s, t.at % 89) * 130),
+          lado: t.side,
+          qty: t.qty / k,
+          forca: Math.max(2, (forca / k) * 1.8),
+          z: zAlvo + (hash(s, 17) - 0.5) * 26,
+        })
+      }
+    } else {
+      atira(t.side, t.qty, forca, zAlvo, t.at)
+    }
     if (forca > LIMIAR_BALEIA && onWhale) onWhale(t.side, forca)
   }
 
-  const impacto = (p: THREE.Vector3, forca: number, lado: 'buy' | 'sell') => {
+  const impacto = (p: THREE.Vector3, forca: number, lado: 'buy' | 'sell', qty: number) => {
+    if (qty > 0) mostraDano(p, qty, lado)
     const cor = lado === 'buy' ? 0xffa64d : 0xff5238
     const mesh = poolOndas[cursorOnda]
     cursorOnda = (cursorOnda + 1) % poolOndas.length
@@ -656,10 +868,13 @@ export function createBattlefield(
 
   // ── o pulso ─────────────────────────────────────────────────────────────
   let ultimoBook = 0
+  let ultimoUpdate = 0
   const passo = new THREE.Vector3()
   const zEixo = new THREE.Vector3(0, 0, 1)
 
   const update = (agora: number) => {
+    const dt = ultimoUpdate > 0 ? Math.min(0.05, (agora - ultimoUpdate) / 1000) : 0.016
+    ultimoUpdate = agora
     if (bookSujo && agora - ultimoBook > 250) {
       bookSujo = false
       ultimoBook = agora
@@ -679,7 +894,7 @@ export function createBattlefield(
       const rastro = poolRastros[t.i]
       const f = (agora - t.t0) / t.dur
       if (f >= 1) {
-        impacto(mesh.userData.para, t.forca, t.lado)
+        impacto(mesh.userData.para, t.forca, t.lado, t.qty)
         mesh.visible = rastro.visible = false
         tiros.splice(i, 1)
         continue
@@ -776,9 +991,89 @@ export function createBattlefield(
       if (f >= 1) tombos.splice(i, 1)
     }
 
+    // salva de baleia: os tiros agendados saem na hora deles
+    for (let i = salva.length - 1; i >= 0; i--) {
+      if (salva[i].at <= agora) {
+        const s = salva[i]
+        atira(s.lado, s.qty, s.forca, s.z, Math.floor(s.at))
+        salva.splice(i, 1)
+      }
+    }
+
+    // a marcha dos exércitos: o movimento que o book comanda
+    marcha(exCaes, dt, agora)
+    marcha(exUrsos, dt, agora)
+
+    // duelos de vanguarda
+    for (const d of duelos) {
+      const idade = agora - d.t0
+      if (d.fase === 'espera') {
+        if (agora >= d.t0) {
+          d.z = (hash(Math.floor(agora) % 977, d.t0 % 131) - 0.5) * 108
+          d.fase = 'corre'
+          d.t0 = agora
+          d.cao.visible = d.urso.visible = true
+          d.cao.rotation.set(0, 0, 0)
+          d.urso.rotation.set(0, 0, 0)
+        }
+      } else if (d.fase === 'corre') {
+        const f = Math.min(1, idade / 1500)
+        const xc = -X_DUELO + (X_DUELO - 1.7) * f
+        const xu = X_DUELO - (X_DUELO - 1.7) * f
+        const galope = Math.abs(Math.sin(f * 26 + d.z)) * 0.3
+        d.cao.position.set(xc, altura(xc, d.z) + galope, d.z)
+        d.urso.position.set(xu, altura(xu, d.z) + galope * 0.8, d.z)
+        if (f >= 1) {
+          d.fase = 'choque'
+          d.t0 = agora
+          // ⚠️ o teatro conta a verdade: quem tem PRESSÃO real ganha mais
+          d.vence = hash(Math.floor(agora) % 883, 7) < matCostura.uniforms.pressao.value ? 'buy' : 'sell'
+          vp.set(0, altura(0, d.z) + 0.6, d.z)
+          emitFaiscas(vp, 4)
+          emitPoeira(vp, 3)
+        }
+      } else if (d.fase === 'choque') {
+        const f = Math.min(1, idade / 420)
+        const perdedor = d.vence === 'buy' ? d.urso : d.cao
+        const ganhador = d.vence === 'buy' ? d.cao : d.urso
+        perdedor.rotation.x = (d.vence === 'buy' ? -1 : 1) * (Math.PI / 2) * f * f
+        ganhador.position.y = altura(ganhador.position.x, d.z) + Math.abs(Math.sin(f * Math.PI * 2)) * 0.5
+        if (f >= 1) {
+          d.fase = 'retirada'
+          d.t0 = agora
+        }
+      } else {
+        const f = Math.min(1, idade / 1300)
+        const ganhador = d.vence === 'buy' ? d.cao : d.urso
+        const perdedor = d.vence === 'buy' ? d.urso : d.cao
+        const volta = d.vence === 'buy' ? -1 : 1
+        const gx = volta * (1.7 + (X_DUELO - 1.7) * f)
+        ganhador.position.set(gx, altura(gx, d.z) + Math.abs(Math.sin(f * 22)) * 0.28, d.z)
+        perdedor.position.y -= 0.9 * dt
+        if (f >= 1) {
+          d.cao.visible = d.urso.visible = false
+          d.fase = 'espera'
+          d.t0 = agora + 1600 + hash(Math.floor(agora) % 71, 3) * 4200
+        }
+      }
+    }
+
+    // letreiros de dano sobem e somem
+    for (const t of textos) {
+      if (!t.sp.visible) continue
+      const f = (agora - t.sp.userData.t0) / 1250
+      if (f >= 1) {
+        t.sp.visible = false
+        continue
+      }
+      t.sp.position.y += 3.4 * dt
+      ;(t.sp.material as THREE.SpriteMaterial).opacity = f < 0.15 ? f / 0.15 : 1 - (f - 0.15) / 0.85
+    }
+
     const seg = agora * 0.001
     if (shaderCaes) shaderCaes.uniforms.uTime.value = seg
     if (shaderUrsos) shaderUrsos.uniforms.uTime.value = seg
+    if (matBrasas) matBrasas.uniforms.time.value = seg
     matNev.uniforms.time.value = seg
     matCostura.uniforms.time.value = seg
     const total = compra + venda

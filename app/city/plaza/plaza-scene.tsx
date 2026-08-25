@@ -1553,7 +1553,7 @@ export default function PlazaScene() {
       {/* no celular a cápsula sobe acima da linha do botão Follow tx e encolhe */}
       <div
         ref={warHudRef}
-        className="pointer-events-none absolute inset-x-0 flex justify-center transition-opacity duration-300 bottom-[calc(4.4rem+env(safe-area-inset-bottom))] sm:bottom-[calc(1.25rem+env(safe-area-inset-bottom))]"
+        className="pointer-events-none absolute inset-x-0 flex justify-center transition-opacity duration-300 bottom-[calc(1.25rem+env(safe-area-inset-bottom))]"
         style={{ opacity: 0 }}
       >
         <div className="border border-white/10 bg-black/85 px-3 py-2 text-center font-mono sm:px-4 sm:py-2.5">
@@ -1590,6 +1590,14 @@ export default function PlazaScene() {
             className="ml-2 border border-white/15 bg-black/70 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-white/70 hover:border-white/40 hover:text-white"
           >
             {tour ? 'Stop tour' : 'Tour'}
+          </button>
+          {/* no celular o follow mora aqui em cima, com os irmãos */}
+          <button
+            type="button"
+            onClick={() => setFollowOpen((v) => !v)}
+            className="ml-2 border border-white/15 bg-black/70 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-white/70 hover:border-white/40 hover:text-white sm:hidden"
+          >
+            Follow tx
           </button>
           {placesOpen && (
             <ul className="absolute left-0 top-full z-10 mt-1 w-[16rem] border border-white/10 bg-black/90 py-1">
@@ -1731,17 +1739,6 @@ export default function PlazaScene() {
 
       {/* ── follow your DOG. On a phone only one bottom card is up at a time: the
              picked ship takes the slot while it is open. ───────────────────── */}
-      {/* botão compacto no celular; o formulário abre por cima quando tocado */}
-      {!followOpen && !hud.picked && !tour && (
-        <button
-          type="button"
-          onClick={() => setFollowOpen(true)}
-          className="absolute left-16 border border-white/15 bg-black/85 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.22em] text-white/70 sm:hidden"
-          style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
-        >
-          Follow tx
-        </button>
-      )}
       <div
         className={`absolute left-4 right-4 sm:left-6 sm:right-auto sm:w-[26rem] ${followOpen ? '' : 'hidden'} sm:block ${hud.picked || tour ? 'hidden sm:block' : ''} ${tour ? 'sm:hidden' : ''}`}
         style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
