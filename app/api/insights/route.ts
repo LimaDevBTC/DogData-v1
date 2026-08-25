@@ -40,6 +40,8 @@ interface Insight {
   at: string
   /** de onde saiu, dito na cara: nome do rótulo ou "índice" */
   source: string
+  /** magnitude em DOG: é ela que ordena o feed, não a direção */
+  dog?: number
 }
 
 const DONATION_WALLET = 'bc1pxk7aw9ug55jkkz02z7ayhlkxxq92ya0ctegcwm5j8jumgaavjlkqdylk2p'
@@ -154,18 +156,32 @@ export async function GET() {
         else if (liquido < 0) saiu.set(entity, (saiu.get(entity) || 0) - liquido)
       }
     }
-    for (const [entity, dog] of Array.from(entrou.entries())) {
+    // ⚠️ ENTRADA E SAÍDA COMPETEM PELO MESMO ESPAÇO. A versão anterior empurrava
+    // todas as entradas antes de todas as saídas, e com cinco corretoras
+    // nomeadas o visor ficava vermelho por CONSTRUÇÃO: 1,26M entrando na CoinEx
+    // ocupava vaga acima de qualquer saque grande. A regra editorial da casa é
+    // "as duas direções com o mesmo peso", e o peso que não mente é a
+    // MAGNITUDE: a direção vira seta e cor na tela, nunca precedência.
+    //
+    // ⚠️ E COM PISO DE RELEVÂNCIA RELATIVO AO LÍDER DO DIA: fluxo de corretora
+    // menor que 2% do maior fluxo do dia não é manchete, é ruído ocupando vaga.
+    // O piso é relativo de propósito: num dia parado, 2M lidera e 100K ainda
+    // entra; num dia de 183M, a mixaria sai da frente.
+    const fluxos: Array<{ entity: string; dog: number; dir: 'in' | 'out' }> = [
+      ...Array.from(entrou.entries()).map(([entity, dog]) => ({ entity, dog, dir: 'in' as const })),
+      ...Array.from(saiu.entries()).map(([entity, dog]) => ({ entity, dog, dir: 'out' as const })),
+    ]
+    const lider = Math.max(0, ...fluxos.map((f) => f.dog))
+    for (const f of fluxos) {
+      if (f.dog < lider * 0.02) continue
       out.push({
-        id: `in-${entity}`, kind: 'exchange_in', at: new Date().toISOString(), source: entity,
-        headline: `${fmt(dog)} DOG moved into ${entity} in the last 24 hours`,
-        value: `${fmt(dog)} DOG`,
-      })
-    }
-    for (const [entity, dog] of Array.from(saiu.entries())) {
-      out.push({
-        id: `out-${entity}`, kind: 'exchange_out', at: new Date().toISOString(), source: entity,
-        headline: `${fmt(dog)} DOG left ${entity} in the last 24 hours`,
-        value: `${fmt(dog)} DOG`,
+        id: `${f.dir}-${f.entity}`,
+        kind: f.dir === 'in' ? 'exchange_in' : 'exchange_out',
+        at: new Date().toISOString(), source: f.entity, dog: f.dog,
+        headline: f.dir === 'in'
+          ? `${fmt(f.dog)} DOG moved into ${f.entity} in the last 24 hours`
+          : `${fmt(f.dog)} DOG left ${f.entity} in the last 24 hours`,
+        value: `${fmt(f.dog)} DOG`,
       })
     }
 
@@ -176,7 +192,7 @@ export async function GET() {
     // sai agregada, que é o que a prova sustenta.
     if (mercado > 0) {
       out.push({
-        id: 'marketplace-24h', kind: 'whale', at: new Date().toISOString(), source: 'our index',
+        id: 'marketplace-24h', kind: 'whale', at: new Date().toISOString(), source: 'our index', dog: mercado,
         headline: `${fmt(mercado)} DOG changed hands on marketplaces in the last 24 hours`,
         value: `${fmt(mercado)} DOG`,
       })
@@ -186,7 +202,7 @@ export async function GET() {
     if (mesaMandou > 0) {
       const destino = Array.from(mesaPara.entries()).sort((a, b) => b[1] - a[1])[0]
       out.push({
-        id: 'desk-24h', kind: 'exchange_in', at: new Date().toISOString(), source: 'our index',
+        id: 'desk-24h', kind: 'exchange_in', at: new Date().toISOString(), source: 'our index', dog: mesaMandou,
         // ⚠️ A FRASE MUDA COM O NÚMERO. Quando a mesa mandou tudo para um lugar
         // só, "moveu 90M, 90M deles para a Kraken" é a mesma coisa dita duas
         // vezes, e frase redundante lê como erro mesmo quando está certa.
@@ -204,6 +220,7 @@ export async function GET() {
     if (maior && Number(maior.total_dog_moved) > 0) {
       out.push({
         id: `big-${maior.txid}`, kind: 'whale', at: maior.timestamp, source: 'our index',
+        dog: Number(maior.total_dog_moved),
         headline: `Largest transfer of the day: ${fmt(Number(maior.total_dog_moved))} DOG`,
         value: `${fmt(Number(maior.total_dog_moved))} DOG`,
         href: `/tx/bitcoin/${maior.txid}`,
@@ -223,7 +240,7 @@ export async function GET() {
     }
     if (doado > 0) {
       out.push({
-        id: 'donation-24h', kind: 'donation', at: new Date().toISOString(), source: 'our index',
+        id: 'donation-24h', kind: 'donation', at: new Date().toISOString(), source: 'our index', dog: doado,
         headline: `${fmt(doado)} DOG went into DogCity in the last 24 hours`,
         value: `${fmt(doado)} DOG`,
         href: ultimaDoacao ? `/tx/bitcoin/${ultimaDoacao}` : '/dogcity',
@@ -237,13 +254,17 @@ export async function GET() {
       // e a manchete anunciava dez vezes mais DOG em voo do que estava em voo.
       const emVoo = pend.reduce((n, m) => n + movedDog(arr(m.senders), arr(m.receivers)), 0)
       out.push({
-        id: 'mempool-now', kind: 'mempool', at: new Date().toISOString(), source: 'our node',
+        id: 'mempool-now', kind: 'mempool', at: new Date().toISOString(), source: 'our node', dog: emVoo,
         headline: `${pend.length} DOG transaction${pend.length === 1 ? '' : 's'} waiting for a block, carrying ${fmt(emVoo)} DOG`,
         value: `${pend.length} tx`,
         href: '/transactions',
       })
     }
 
+    // ⚠️ A ORDEM FINAL É UMA SÓ: magnitude de DOG, decrescente, tudo competindo.
+    // Nenhuma seção tem assento cativo; num dia de saque grande o verde lidera
+    // porque foi o que a cadeia fez, e é isso que a regra editorial pede.
+    out.sort((a, b) => (b.dog ?? 0) - (a.dog ?? 0))
     return NextResponse.json(
       { insights: out.slice(0, 8), generated_at: new Date().toISOString() },
       // ⚠️ curto de propósito: um feed que diz "nas últimas 24 horas" servido de
