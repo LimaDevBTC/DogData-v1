@@ -1481,7 +1481,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               warPressaoRef.current.style.width = `${(tot > 0 ? (h.compra / tot) * 100 : 50).toFixed(1)}%`
             }
             if (warBaixasRef.current) {
-              warBaixasRef.current.textContent = `bears ${fmtQtd(h.ursosCaidos)} · dogs ${fmtQtd(h.caesCaidos)} fallen`
+              warBaixasRef.current.textContent = `bought ${fmtQtd(h.ursosCaidos)} · sold ${fmtQtd(h.caesCaidos)} DOG`
             }
             if (warBidsRef.current) warBidsRef.current.textContent = `BIDS ${fmtQtd(h.bidsDog)}`
             if (warAsksRef.current) warAsksRef.current.textContent = `ASKS ${fmtQtd(h.asksDog)}`
@@ -1631,7 +1631,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           <div className="mx-auto mt-1.5 h-1 w-44 overflow-hidden rounded-full bg-white/10 sm:w-56">
             <div ref={warPressaoRef} className="h-full bg-gradient-to-r from-[#f7931a] to-[#c96a12]" style={{ width: '50%' }} />
           </div>
-          <div ref={warBaixasRef} className="mt-1 text-[8px] uppercase tracking-[0.18em] text-white/35 tabular-nums sm:text-[9px]">bears 0 · dogs 0 fallen</div>
+          <div ref={warBaixasRef} className="mt-1 text-[8px] uppercase tracking-[0.18em] text-white/35 tabular-nums sm:text-[9px]">bought 0 · sold 0 DOG</div>
           <div className="mt-1 flex items-center justify-center gap-1.5 text-[8px] uppercase tracking-[0.18em] tabular-nums sm:text-[9px]">
             <span ref={warBidsRef} className="text-[#f7931a]/90">BIDS 0</span>
             <span className="text-white/25">·</span>

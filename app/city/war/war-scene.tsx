@@ -568,8 +568,8 @@ export default function WarScene() {
 
       <div className="absolute bottom-7 left-1/2 -translate-x-1/2 w-60 sm:w-72 select-none pointer-events-none">
         <div className="flex justify-between font-mono text-[10px] tracking-[0.18em] uppercase mb-1">
-          <span className="text-[#f7931a]/85 tabular-nums">Dogs {fmtDog(hud.compra)}</span>
-          <span className="text-red-400/75 tabular-nums">{fmtDog(hud.venda)} Bears</span>
+          <span className="text-[#f7931a]/85 tabular-nums">Bought {fmtDog(hud.compra)}</span>
+          <span className="text-red-400/75 tabular-nums">{fmtDog(hud.venda)} Sold</span>
         </div>
         <div className="h-1 rounded-full overflow-hidden bg-white/10">
           <div className="h-full bg-gradient-to-r from-[#f7931a] to-[#c96a12]" style={{ width: `${fracaoCompra * 100}%` }} />
@@ -577,8 +577,9 @@ export default function WarScene() {
       </div>
 
       <div className="absolute bottom-20 sm:bottom-7 right-4 sm:right-5 text-right font-mono text-[10px] tracking-[0.18em] uppercase text-white/40 select-none">
-        <div>Bears fallen <span className="text-white/75 tabular-nums">{fmtDog(hud.ursosCaidos)}</span></div>
-        <div>Dogs fallen <span className="text-white/75 tabular-nums">{fmtDog(hud.caesCaidos)}</span></div>
+        <div className="text-white/30">Recent trades, DOG</div>
+        <div>Bought <span className="text-[#f7931a]/85 tabular-nums">{fmtDog(hud.ursosCaidos)}</span></div>
+        <div>Sold <span className="text-red-400/75 tabular-nums">{fmtDog(hud.caesCaidos)}</span></div>
       </div>
 
       <div className="absolute bottom-7 left-5 font-mono text-[10px] tracking-[0.18em] uppercase text-white/25 select-none hidden md:block">
