@@ -93,7 +93,7 @@ export function WalletButton({ variant = 'desktop' }: { variant?: 'desktop' | 'm
         title="Connect your Bitcoin wallet"
       >
         <Wallet className="w-3.5 h-3.5 mr-1.5 group-hover:scale-110 transition-transform duration-300" />
-        <span className="font-semibold">Connect Wallet</span>
+        <span className="font-semibold">Connect</span>
       </button>
     )
   }

@@ -21,12 +21,12 @@ type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'market
 
 const navigation = [
   { name: 'Overview', page: 'overview' as PageType, icon: BarChart3 },
-  { name: 'Transactions', page: 'transactions' as PageType, icon: CreditCard },
+  { name: 'Txs', page: 'transactions' as PageType, icon: CreditCard },
   { name: 'Holders', page: 'holders' as PageType, icon: Users },
-  { name: 'On-Chain Metrics', page: 'metrics' as PageType, icon: Zap },
+  { name: 'Metrics', page: 'metrics' as PageType, icon: Zap },
   { name: 'Markets', page: 'markets' as PageType, icon: TrendingUp },
-  { name: 'Airdrop Analysis', page: 'airdrop' as PageType, icon: Sparkles },
-  { name: 'Bitcoin Network', page: 'bitcoin-network' as PageType, icon: Network },
+  { name: 'Airdrop', page: 'airdrop' as PageType, icon: Sparkles },
+  { name: 'Network', page: 'bitcoin-network' as PageType, icon: Network },
 ]
 
 interface HeaderProps {
@@ -117,7 +117,7 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
                 <button
                   key={item.name}
                   onClick={() => setCurrentPage(item.page)}
-                  className={`relative flex items-center justify-center px-3 py-1.5 text-[11px] font-mono font-medium tracking-wide transition-all duration-300 flex-shrink-0 rounded-lg group ${
+                  className={`relative flex items-center justify-center px-2.5 py-1.5 text-[11px] font-mono font-medium tracking-wide transition-all duration-300 flex-shrink-0 rounded-lg group ${
                     isActive
                       ? 'text-lava'
                       : 'text-[#6B6B78] hover:text-snow/90'
@@ -136,7 +136,7 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
             {/* Explorer — external route */}
             <a
               href="/explorer"
-              className={`relative flex items-center justify-center px-3 py-1.5 text-[11px] font-mono font-medium tracking-wide transition-all duration-300 flex-shrink-0 rounded-lg group ${
+              className={`relative flex items-center justify-center px-2.5 py-1.5 text-[11px] font-mono font-medium tracking-wide transition-all duration-300 flex-shrink-0 rounded-lg group ${
                 currentPage === 'explorer'
                   ? 'text-lava bg-lava/[0.06] border border-lava/[0.15]'
                   : 'text-[#6B6B78] hover:text-snow/90'
@@ -150,7 +150,7 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
             {/* DogCity — coming soon */}
             <a
               href="/city"
-              className={`relative flex items-center justify-center px-3 py-1.5 text-[11px] font-mono font-medium tracking-wide transition-all duration-300 flex-shrink-0 rounded-lg group ${
+              className={`relative flex items-center justify-center px-2.5 py-1.5 text-[11px] font-mono font-medium tracking-wide transition-all duration-300 flex-shrink-0 rounded-lg group ${
                 currentPage === 'city'
                   ? 'text-lava bg-lava/[0.06] border border-lava/[0.15]'
                   : 'text-[#6B6B78] hover:text-snow/90'
@@ -160,7 +160,7 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
                 currentPage === 'city' ? 'text-lava' : 'text-[#4A4A52] group-hover:text-[#6B6B78]'
               }`} />
               <span className="relative whitespace-nowrap">DogCity</span>
-              <span className="ml-1.5 px-1 py-px text-[7px] font-bold bg-lava/[0.12] text-lava/70 border border-lava/[0.18] rounded tracking-widest leading-none">SOON</span>
+              <span className="ml-1.5 px-1 py-px text-[7px] font-bold bg-emerald-500/[0.12] text-emerald-400/80 border border-emerald-500/[0.2] rounded tracking-widest leading-none">LIVE</span>
             </a>
           </nav>
 
@@ -179,7 +179,9 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
                 <div className="absolute inset-0 bg-green-400 rounded-full"></div>
                 <div className="absolute inset-0 bg-green-400 rounded-full animate-ping opacity-40"></div>
               </div>
-              <span className="text-green-400/90 group-hover:text-green-400 text-[10px] md:text-[11px] font-mono font-semibold tracking-wider transition-colors">STATUS</span>
+              {/* abaixo de xl o selo vira só a bolinha: o texto era o que
+                  empurrava o canto direito pra fora da tela em 1280 */}
+              <span className="hidden min-[1400px]:inline text-green-400/90 group-hover:text-green-400 text-[11px] font-mono font-semibold tracking-wider transition-colors">STATUS</span>
             </a>
 
             {/* Refresh */}
