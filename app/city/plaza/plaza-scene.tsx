@@ -627,6 +627,7 @@ export default function PlazaScene() {
     const spinners: THREE.Object3D[] = []
     let campo: Battlefield | null = null
     let campoVivo = false
+    let emblemaGuerra: THREE.Group | null = null
     let heightAt: (x: number, z: number) => number = () => 0
 
     const loadGlb = (url: string) =>
@@ -702,6 +703,28 @@ export default function PlazaScene() {
             )
             farol.position.set(fx, terrain.heightAt(fx, fz) + 280, fz)
             scene.add(farol)
+
+            // ⚠️ O SÍMBOLO DA BATALHA (fundador, 25/08): espadas cruzadas em
+            // voxel girando no topo do farol, para o horizonte dizer O QUE há
+            // ali, não só que há algo. Basic + aditivo, sem luz nova.
+            const matEmblema = new THREE.MeshBasicMaterial({
+              color: 0xffb066, transparent: true, opacity: 0.9,
+              blending: THREE.AdditiveBlending, depthWrite: false,
+            })
+            // escala de horizonte: a 3 km, espada de 60 m e um cisco; 130 m le
+            const emblema = new THREE.Group()
+            for (const lado of [-1, 1]) {
+              const lamina = new THREE.Mesh(new THREE.BoxGeometry(13, 130, 13), matEmblema)
+              lamina.rotation.z = lado * (Math.PI / 4)
+              const guarda = new THREE.Mesh(new THREE.BoxGeometry(40, 9, 9), matEmblema)
+              guarda.rotation.z = lado * (Math.PI / 4)
+              guarda.position.set(lado * 24, -24, 0)
+              emblema.add(lamina, guarda)
+            }
+            emblema.position.set(fx, terrain.heightAt(fx, fz) + 640, fz)
+            emblema.traverse((o) => { (o as any).raycast = () => {} })
+            scene.add(emblema)
+            emblemaGuerra = emblema
           }
         }
 
@@ -1421,6 +1444,7 @@ export default function PlazaScene() {
           campo.setLive(quer)
         }
         if (dWar < 3600) campo.update(nowMs)
+        if (emblemaGuerra) emblemaGuerra.rotation.y = nowMs * 0.0006
         if (warHudRef.current) {
           // ⚠️ raio generoso: o ponto bom de assistir no celular fica LONGE
           // (retrato pede recuo) e a 1,1 km o preço já tinha sumido da tela
