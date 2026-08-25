@@ -266,6 +266,10 @@ export default function PlazaScene() {
     orbit: 0, parked: 0, picked: null, followed: null, followNote: null,
   })
   const [followInput, setFollowInput] = useState('')
+  // ⚠️ no celular o formulário de follow NÃO mora na tela: vira um botão que
+  // abre sob demanda, senão ele cobre o HUD da guerra e tudo que estiver
+  // embaixo (fundador, 25/08). No desktop segue fixo como sempre foi.
+  const [followOpen, setFollowOpen] = useState(false)
   const [placesOpen, setPlacesOpen] = useState(false)
   // o HUD da guerra é imperativo: o laço 3D escreve opacidade e números direto
   // nestes nós conforme a distância até a cratera, sem passar pelo React
@@ -1546,18 +1550,19 @@ export default function PlazaScene() {
 
       {!plate && <>
       {/* ── o modo jogo: invisível até a câmera chegar perto da cratera ── */}
+      {/* no celular a cápsula sobe acima da linha do botão Follow tx e encolhe */}
       <div
         ref={warHudRef}
-        className="pointer-events-none absolute inset-x-0 flex justify-center transition-opacity duration-300"
-        style={{ opacity: 0, bottom: 'calc(1.25rem + env(safe-area-inset-bottom))' }}
+        className="pointer-events-none absolute inset-x-0 flex justify-center transition-opacity duration-300 bottom-[calc(4.4rem+env(safe-area-inset-bottom))] sm:bottom-[calc(1.25rem+env(safe-area-inset-bottom))]"
+        style={{ opacity: 0 }}
       >
-        <div className="border border-white/10 bg-black/85 px-4 py-2.5 text-center font-mono">
-          <div className="text-[9px] uppercase tracking-[0.3em] text-white/40">The Price War · DOG / USD · Kraken live</div>
-          <div ref={warPrecoRef} className="mt-1 text-xl tracking-tight text-white/95 tabular-nums">$-</div>
-          <div className="mx-auto mt-1.5 h-1 w-56 overflow-hidden rounded-full bg-white/10">
+        <div className="border border-white/10 bg-black/85 px-3 py-2 text-center font-mono sm:px-4 sm:py-2.5">
+          <div className="text-[8px] uppercase tracking-[0.24em] text-white/40 sm:text-[9px] sm:tracking-[0.3em]">The Price War · DOG / USD · Kraken live</div>
+          <div ref={warPrecoRef} className="mt-1 text-lg tracking-tight text-white/95 tabular-nums sm:text-xl">$-</div>
+          <div className="mx-auto mt-1.5 h-1 w-44 overflow-hidden rounded-full bg-white/10 sm:w-56">
             <div ref={warPressaoRef} className="h-full bg-gradient-to-r from-[#f7931a] to-[#c96a12]" style={{ width: '50%' }} />
           </div>
-          <div ref={warBaixasRef} className="mt-1 text-[9px] uppercase tracking-[0.18em] text-white/35 tabular-nums">bears 0 · dogs 0 fallen</div>
+          <div ref={warBaixasRef} className="mt-1 text-[8px] uppercase tracking-[0.18em] text-white/35 tabular-nums sm:text-[9px]">bears 0 · dogs 0 fallen</div>
         </div>
       </div>
       {/* ── title, and the way back: the landing is the front door, the site is home */}
@@ -1641,8 +1646,10 @@ export default function PlazaScene() {
         )}
       </div>
 
-      {/* ── the board: under the title on phones, top-right on desktop ─────── */}
-      <div className="absolute left-4 right-4 top-[5.6rem] sm:left-auto sm:right-6 sm:top-6 sm:w-[20rem]">
+      {/* ── the board: under the title on phones, top-right on desktop ──────
+          ⚠️ no celular o bloco de título (marca + h1 + subtítulo + botões)
+          desce até ~9rem; a 5.6rem a barra cobria PLACES e TOUR */}
+      <div className="absolute left-4 right-4 top-[9.4rem] sm:left-auto sm:right-6 sm:top-6 sm:w-[20rem]">
         <div className="border border-white/10 bg-black/85">
           <button
             type="button"
@@ -1724,12 +1731,33 @@ export default function PlazaScene() {
 
       {/* ── follow your DOG. On a phone only one bottom card is up at a time: the
              picked ship takes the slot while it is open. ───────────────────── */}
+      {/* botão compacto no celular; o formulário abre por cima quando tocado */}
+      {!followOpen && !hud.picked && !tour && (
+        <button
+          type="button"
+          onClick={() => setFollowOpen(true)}
+          className="absolute left-16 border border-white/15 bg-black/85 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.22em] text-white/70 sm:hidden"
+          style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
+        >
+          Follow tx
+        </button>
+      )}
       <div
-        className={`absolute left-4 right-4 sm:left-6 sm:right-auto sm:w-[26rem] ${hud.picked || tour ? 'hidden sm:block' : ''} ${tour ? 'sm:hidden' : ''}`}
+        className={`absolute left-4 right-4 sm:left-6 sm:right-auto sm:w-[26rem] ${followOpen ? '' : 'hidden'} sm:block ${hud.picked || tour ? 'hidden sm:block' : ''} ${tour ? 'sm:hidden' : ''}`}
         style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
       >
         <form onSubmit={submitFollow} className="border border-white/10 bg-black/85 p-3">
-          <label className="block font-mono text-[10px] uppercase tracking-[0.25em] text-white/60">Follow your DOG</label>
+          <div className="flex items-center justify-between">
+            <label className="block font-mono text-[10px] uppercase tracking-[0.25em] text-white/60">Follow your DOG</label>
+            <button
+              type="button"
+              onClick={() => setFollowOpen(false)}
+              aria-label="Close"
+              className="px-1 font-mono text-[12px] leading-none text-white/45 sm:hidden"
+            >
+              ✕
+            </button>
+          </div>
           <div className="mt-2 flex gap-2">
             <input
               value={followInput}
