@@ -280,6 +280,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
   const [placesOpen, setPlacesOpen] = useState(false)
   // painel de chat da praça: mesmo estado abre o botão do HUD e o overlay/painel em city-chat.tsx
   const [chatOpen, setChatOpen] = useState(false)
+  const [liteUi] = useState(() => lite || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('lite') === '1'))
   // o HUD da guerra é imperativo: o laço 3D escreve opacidade e números direto
   // nestes nós conforme a distância até a cratera, sem passar pelo React
   const warHudRef = useRef<HTMLDivElement>(null)
@@ -1651,14 +1652,17 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             {tour ? 'Stop tour' : 'Tour'}
           </button>
           {/* a guerra ganha botão próprio: ninguém deveria precisar do menu
-              pra ACHAR uma batalha (fundador não achou, 25/08) */}
-          <button
-            type="button"
-            onClick={() => apiRef.current?.flyTo('war')}
-            className="ml-2 border border-[#F7931A]/50 bg-black/70 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-[#F7931A]/90 hover:border-[#F7931A] hover:text-[#F7931A]"
-          >
-            War
-          </button>
+              pra ACHAR uma batalha (fundador não achou, 25/08). No lite o
+              campo não existe, então o botão também não. */}
+          {!liteUi && (
+            <button
+              type="button"
+              onClick={() => apiRef.current?.flyTo('war')}
+              className="ml-2 border border-[#F7931A]/50 bg-black/70 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-[#F7931A]/90 hover:border-[#F7931A] hover:text-[#F7931A]"
+            >
+              War
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setChatOpen((v) => !v)}
