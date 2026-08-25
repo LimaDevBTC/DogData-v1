@@ -198,8 +198,8 @@ function viewFor(name: string | null, aspect: number): View {
     }
     case 'war':
       // chegando do lado da praça (NE da cratera), baixo o bastante pros
-      // exércitos encherem o quadro e a frente cruzar em diagonal
-      return { pos: new THREE.Vector3(WAR_POS.x + 215, 78, WAR_POS.z - 225), target: new THREE.Vector3(WAR_POS.x - 30, 8, WAR_POS.z + 30) }
+      // exércitos (em escala de monumento) encherem o quadro em diagonal
+      return { pos: new THREE.Vector3(WAR_POS.x + 460, 175, WAR_POS.z - 480), target: new THREE.Vector3(WAR_POS.x - 60, 25, WAR_POS.z + 60) }
     case 'far':
       return { pos: new THREE.Vector3(-2600, 2800, 4200), target: new THREE.Vector3(1800, 0, -1900) }
     case 'park':
@@ -659,14 +659,20 @@ export default function PlazaScene() {
           const rotY = (5 * Math.PI) / 4
           const cosR = Math.cos(rotY)
           const sinR = Math.sin(rotY)
+          // ⚠️ LICENÇA POÉTICA MEDIDA, como a Terra de 2,6° no céu: em escala 1:1
+          // um soldado de 1,4 m a 400 m é um pontinho contra o regolito claro.
+          // A batalha é monumento: 2,6x deixa o campo com meio quilômetro e os
+          // obeliscos com 23 m, legíveis da chegada sem mudar o motor.
+          const ESCALA_GUERRA = 2.6
           const alturaLocal = (x: number, z: number) => {
-            const wx = WAR_POS.x + x * cosR + z * sinR
-            const wz = WAR_POS.z - x * sinR + z * cosR
-            return terrain.heightAt(wx, wz)
+            const wx = WAR_POS.x + (x * cosR + z * sinR) * ESCALA_GUERRA
+            const wz = WAR_POS.z + (-x * sinR + z * cosR) * ESCALA_GUERRA
+            return terrain.heightAt(wx, wz) / ESCALA_GUERRA
           }
           campo = createBattlefield(alturaLocal, orcCampo, undefined, { luzesAmbiente: false })
           campo.group.position.set(WAR_POS.x, 0, WAR_POS.z)
           campo.group.rotation.y = rotY
+          campo.group.scale.setScalar(ESCALA_GUERRA)
           scene.add(campo.group)
           culler.add(campo.group, 3600, new THREE.Vector3(WAR_POS.x, 0, WAR_POS.z))
         }
