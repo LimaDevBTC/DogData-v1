@@ -19,9 +19,10 @@ import Link from "next/link"
 import { ArrowRight, ArrowDown } from "lucide-react"
 
 const STILLS = [
-  { src: "/landing/plaza/plaza-paw.webp", label: "THE DIAMOND PAW", alt: "$DOG written in a mirror pool thirty metres across, at the centre of a paw of dark water" },
-  { src: "/landing/plaza/plaza-temple.webp", label: "THE HIDDEN TEMPLE", alt: "The mouth of the Leonidas cave glowing among the monarch runestones" },
-  { src: "/landing/plaza/plaza-dsc.webp", label: "DOG SOCIAL CLUB", alt: "The Dog Social Club wall beside Kray Tower, the whole collection hung on curved stone" },
+  { src: "/landing/plaza/plaza-war.webp", href: "/city/war", label: "THE PRICE WAR", alt: "The war crater at night: Shiba soldiers and bears clash on the live Kraken order book, a fire column rising at the front line" },
+  { src: "/landing/plaza/plaza-paw.webp", href: "/city", label: "THE DIAMOND PAW", alt: "$DOG written in a mirror pool thirty metres across, at the centre of a paw of dark water" },
+  { src: "/landing/plaza/plaza-temple.webp", href: "/city", label: "THE HIDDEN TEMPLE", alt: "The mouth of the Leonidas cave glowing among the monarch runestones" },
+  { src: "/landing/plaza/plaza-dsc.webp", href: "/city", label: "DOG SOCIAL CLUB", alt: "The Dog Social Club wall beside Kray Tower, the whole collection hung on curved stone" },
 ] as const
 
 export default function HeroLive() {
@@ -43,29 +44,33 @@ export default function HeroLive() {
       <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-void via-void/70 to-void/10" />
       <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-void/85 via-void/20 to-transparent" />
 
-      {/* ⚠️ NO CELULAR NÃO HÁ ALTURA MÍNIMA: min-h + items-end deixavam um céu
-          vazio acima do texto e empurravam os CTAs pra fora da primeira dobra
-          (o fundador fotografou). O conteúdo flui logo abaixo da faixa da
-          órbita; no desktop a encenação de 86vh ancorada no pé continua. */}
-      <div className="relative md:min-h-[86vh] flex items-end">
-        <div className="w-full max-w-6xl mx-auto px-6 md:px-10 pt-8 pb-10 md:pt-24 md:pb-20">
+      {/* ⚠️ SEM ALTURA CEGA EM NENHUM TAMANHO: min-h de 86vh + items-end
+          empurravam os CTAs pra fora da dobra também no DESKTOP (fundador
+          notou), porque o herói não desconta o header, o banner e a faixa da
+          órbita que moram acima dele (~21rem). O min-h do desktop passa a ser
+          o viewport MENOS esse teto, e os paddings encolhem: o pé do herói
+          cai na dobra, com os CTAs dentro dela. */}
+      <div className="relative md:min-h-[calc(100svh-21rem)] flex items-end">
+        <div className="w-full max-w-6xl mx-auto px-6 md:px-10 pt-8 pb-10 md:pt-10 md:pb-12">
           <p className="font-mono text-[11px] tracking-[0.3em] text-lava">DOGCITY · ON THE MOON</p>
-          <h1 className="font-display font-bold text-snow mt-3 md:mt-4 leading-[1.02] text-4xl md:text-7xl max-w-3xl">
+          <h1 className="font-display font-bold text-snow mt-3 md:mt-4 leading-[1.02] text-4xl md:text-6xl max-w-4xl">
             The city is open.
             <span className="block text-mist">The mempool flies over it.</span>
           </h1>
           {/* na primeira dobra do celular o parágrafo é curto; a versão longa
               com a geografia completa é de sm pra cima */}
           <p className="sm:hidden text-sm text-mist mt-4 max-w-xl leading-relaxed">
-            Satoshi Plaza stands on real Mare Tranquillitatis terrain. Every DOG transaction our
-            node sees becomes a ship overhead: the fee sets the altitude, the block is the landing.
+            Satoshi Plaza stands on real lunar terrain. Every DOG transaction becomes a ship
+            overhead, and in the war crater the live order book is fought as a battle: dogs
+            against bears, mortars and all.
           </p>
-          <p className="hidden sm:block text-sm md:text-base text-mist mt-5 max-w-xl leading-relaxed">
+          <p className="hidden sm:block text-sm md:text-base text-mist mt-5 max-w-xl md:max-w-2xl leading-relaxed">
             Satoshi Plaza stands on real Mare Tranquillitatis terrain: the Needle at the centre,
-            Kray Tower and BitFlow HQ on the ring, the OrdCards Chalet to the south, the founders&apos;
-            circle at the tower foot, and Runestone Park five kilometres north-east. Every DOG
-            transaction our node sees becomes a ship overhead: the fee sets the altitude, and the
-            block is the landing.
+            Kray Tower and BitFlow HQ on the ring, and Runestone Park to the north-east. Every DOG
+            transaction our node sees becomes a ship overhead: the fee sets the altitude, the
+            block is the landing. And in the war crater to the south-west, the live Kraken order
+            book is fought as a battle: Shiba soldiers against bears, artillery on every trade,
+            the front line crawling across the day&apos;s price range.
           </p>
 
           <div className="flex flex-wrap items-center gap-3 mt-6 md:mt-8">
@@ -88,10 +93,10 @@ export default function HeroLive() {
           </div>
 
           {/* três chapas menores: a cidade tem mais do que a praça */}
-          <div className="grid grid-cols-3 gap-2 md:gap-3 mt-8 md:mt-10 max-w-2xl">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-3 mt-8 max-w-3xl">
             {STILLS.map((s) => (
-              <Link key={s.src} href="/city" className="group relative aspect-[16/10] overflow-hidden border border-white/10">
-                <Image src={s.src} alt={s.alt} fill sizes="(min-width: 768px) 220px, 33vw" className="object-cover transition-transform duration-700 group-hover:scale-105" />
+              <Link key={s.src} href={s.href} className="group relative aspect-[16/10] overflow-hidden border border-white/10">
+                <Image src={s.src} alt={s.alt} fill sizes="(min-width: 768px) 190px, 50vw" className="object-cover transition-transform duration-700 group-hover:scale-105" />
                 <span className="absolute inset-x-0 bottom-0 bg-void/80 px-2 py-1 font-mono text-[8px] md:text-[9px] tracking-[0.2em] text-mist">
                   {s.label}
                 </span>
