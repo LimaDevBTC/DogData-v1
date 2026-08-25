@@ -257,7 +257,9 @@ const BOOT_STEPS = [
 type BootKey = (typeof BOOT_STEPS)[number]['key']
 const BOOT_TOTAL = BOOT_STEPS.reduce((a, b) => a + b.weight, 0)
 
-export default function PlazaScene() {
+// lite: navegador embutido de carteira no celular (memória curtíssima). A cena
+// nasce na qualidade mínima, DPR 1 e sem o campo de batalha; ?lite=1 força.
+export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
   const mountRef = useRef<HTMLDivElement>(null)
   const apiRef = useRef<{
     follow: (txid: string) => Promise<void>
@@ -320,8 +322,15 @@ export default function PlazaScene() {
     // Log depth: a cena vai do deck (2 m) ao parque (9 km) e ao horizonte (60 km);
     // sem ele, duas superfícies quase coplanares a 9 km brigam no z-buffer.
     // perf.ts: nível por aparelho, resolução dinâmica, culling por distância
-    const quality = parseQuality(new URLSearchParams(window.location.search).get('quality'))
-    const profile = profileFor(detectTier(), quality)
+    const buscaLite = new URLSearchParams(window.location.search).get('lite') === '1'
+    const emLite = lite || buscaLite
+    const quality = emLite ? 'low' : parseQuality(new URLSearchParams(window.location.search).get('quality'))
+    const profile = profileFor(emLite ? 'mobile' : detectTier(), quality)
+    if (emLite) {
+      // framebuffer é o maior consumidor de memória num aparelho 3x
+      profile.maxPixelRatio = 1
+      profile.minPixelRatio = 0.75
+    }
     const renderer = new THREE.WebGLRenderer({ antialias: profile.antialias, powerPreference: 'high-performance', logarithmicDepthBuffer: true })
     const governor = new FrameGovernor(renderer, profile)
     renderer.setSize(mount.clientWidth, mount.clientHeight)
@@ -660,7 +669,10 @@ export default function PlazaScene() {
         // PointLight depois do boot e o three recompila a cena inteira no
         // primeiro frame. luzesAmbiente: false porque o orçamento global de
         // luzes da praça está no limite; maxLuzes fica em 1-2 impactos.
-        {
+        // ⚠️ No modo lite (navegador embutido de carteira) o campo NÃO nasce:
+        // WebView de carteira mata a aba por memória, e a batalha é o maior
+        // sistema vivo da cena. Quem quiser a guerra abre no navegador.
+        if (!emLite) {
           const orcCampo = profile.quality === 'high'
             ? { cap: 4200, niveis: 40, maxOndas: 16, maxLuzes: 2, detritos: 500, poeiraMax: 700, faiscaMax: 200 }
             : profile.quality === 'balanced'
