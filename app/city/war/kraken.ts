@@ -110,10 +110,15 @@ export function connectKraken(opts: {
     }
   }
 
-  abre()
+  // ⚠️ o primeiro connect espera 200ms de propósito: o StrictMode do React em
+  // dev monta-desmonta-monta o efeito em milissegundos, e dois WebSockets
+  // seguidos contra a Kraken fazem o segundo entrar em recuo de reconexão.
+  // O timer morre na limpeza do primeiro mount e só o mount real abre socket.
+  const timer = setTimeout(abre, 200)
   return {
     stop: () => {
       dead = true
+      clearTimeout(timer)
       try {
         ws?.close()
       } catch {}

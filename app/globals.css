@@ -1205,3 +1205,8 @@ body:has([data-dogcity-landing]) {
 @media (prefers-reduced-motion: reduce) {
   .deed-sheen { animation: none; opacity: 0; }
 }
+
+/* A Cratera da Guerra: o clarão de baleia é um véu radial de 1.4s, CSS puro,
+   zero passe extra de render. A cor vem inline do lado que disparou. */
+@keyframes baleia { 0% { opacity: 0 } 14% { opacity: 1 } 100% { opacity: 0 } }
+.animate-baleia { animation: baleia 1400ms ease-out forwards }

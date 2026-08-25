@@ -14,9 +14,12 @@ const BITCOIN_ORANGE = new THREE.Color('#f7931a')
 const SHIBA_TAN = new THREE.Color('#d69a55')
 const SHIBA_CREAM = new THREE.Color('#efe2c6')
 const SHIBA_EAR = new THREE.Color('#b57c3c')
-const BEAR_DARK = new THREE.Color('#4a2620')
-const BEAR_HEAD = new THREE.Color('#573129')
-const BEAR_MUZZLE = new THREE.Color('#6f453a')
+// ⚠️ a massa do urso precisa de cor tão alta quanto o laranja Bitcoin, senão o
+// lado vendedor vira breu contra o fundo #040305 assim que a cena encolhe pra
+// miniatura de card no X; a paleta foi calibrada pra thumbnail, não pro close
+const BEAR_DARK = new THREE.Color('#7a2436')
+const BEAR_HEAD = new THREE.Color('#8f2a3f')
+const BEAR_MUZZLE = new THREE.Color('#a8354a')
 
 function caixa(w: number, h: number, d: number, x: number, y: number, z: number, cor: THREE.Color) {
   const g = new THREE.BoxGeometry(w, h, d)
