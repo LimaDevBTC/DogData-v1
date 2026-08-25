@@ -198,8 +198,12 @@ function viewFor(name: string | null, aspect: number): View {
     }
     case 'war':
       // chegando do lado da praça (NE da cratera), baixo o bastante pros
-      // exércitos (em escala de monumento) encherem o quadro em diagonal
-      return { pos: new THREE.Vector3(WAR_POS.x + 460, 175, WAR_POS.z - 480), target: new THREE.Vector3(WAR_POS.x - 60, 25, WAR_POS.z + 60) }
+      // exércitos (em escala de monumento) encherem o quadro em diagonal;
+      // em pé (celular) a câmera chega MUITO mais perto, senão a fuzilaria,
+      // a poeira e a fumaça viram subpixel e a guerra parece parada
+      return aspect >= 1
+        ? { pos: new THREE.Vector3(WAR_POS.x + 460, 175, WAR_POS.z - 480), target: new THREE.Vector3(WAR_POS.x - 60, 25, WAR_POS.z + 60) }
+        : { pos: new THREE.Vector3(WAR_POS.x + 235, 92, WAR_POS.z - 245), target: new THREE.Vector3(WAR_POS.x - 30, 15, WAR_POS.z + 30) }
     case 'far':
       return { pos: new THREE.Vector3(-2600, 2800, 4200), target: new THREE.Vector3(1800, 0, -1900) }
     case 'park':
@@ -684,14 +688,19 @@ export default function PlazaScene() {
           // atravessar 3 km; o parque tem a silhueta da cordilheira, a guerra
           // tem isto. Aditiva, sem luz real, custo de um cilindro.
           {
+            // ⚠️ NA LATERAL, nunca no meio: no centro ele virava um mastro
+            // atravessando a batalha (fundador, 25/08). Fica na ponta NW da
+            // costura, fora do campo, como bandeira de sinalização.
+            const fx = WAR_POS.x - 148
+            const fz = WAR_POS.z - 148
             const farol = new THREE.Mesh(
-              new THREE.CylinderGeometry(2.2, 5.5, 620, 10, 1, true),
+              new THREE.CylinderGeometry(1.5, 4, 560, 10, 1, true),
               new THREE.MeshBasicMaterial({
-                color: 0xff9540, transparent: true, opacity: 0.32,
+                color: 0xff9540, transparent: true, opacity: 0.26,
                 blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
               }),
             )
-            farol.position.set(WAR_POS.x, terrain.heightAt(WAR_POS.x, WAR_POS.z) + 310, WAR_POS.z)
+            farol.position.set(fx, terrain.heightAt(fx, fz) + 280, fz)
             scene.add(farol)
           }
         }

@@ -526,6 +526,42 @@ export function createBattlefield(
     return sp
   })
   let flashCursor = 0
+  const clarao = (p: THREE.Vector3, base: number, cor: number) => {
+    const sp = flashPool[flashCursor]
+    flashCursor = (flashCursor + 1) % POOL_FLASH
+    ;(sp.material as THREE.SpriteMaterial).color.setHex(cor)
+    sp.position.copy(p)
+    sp.userData.base = base
+    sp.scale.setScalar(base)
+    ;(sp.material as THREE.SpriteMaterial).opacity = 1
+    sp.visible = true
+    sp.userData.t0 = performance.now()
+  }
+
+  // ── FUMAÇA: o efeito que LÊ DE LONGE. Faísca é 1 pixel a 600 m; uma pluma
+  // de fumaça de 8 m subindo por 4 segundos é o que faz a batalha parecer
+  // batalha da vista de chegada.
+  const POOL_FUMACA = 12
+  const fumacas = Array.from({ length: POOL_FUMACA }, () => {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: texDisco, transparent: true, depthWrite: false, opacity: 0, color: 0x8a7a68,
+    }))
+    sp.visible = false
+    group.add(sp)
+    return sp
+  })
+  let fumacaCursor = 0
+  const solta_fumaca = (p: THREE.Vector3, forca: number) => {
+    const sp = fumacas[fumacaCursor]
+    fumacaCursor = (fumacaCursor + 1) % POOL_FUMACA
+    sp.position.copy(p).setY(p.y + 1.5)
+    sp.userData.base = 2.5 + Math.sqrt(forca) * 1.6
+    sp.userData.t0 = performance.now()
+    sp.userData.jit = hash(Math.floor(p.z * 7), 3) - 0.5
+    sp.scale.setScalar(sp.userData.base)
+    ;(sp.material as THREE.SpriteMaterial).opacity = 0
+    sp.visible = true
+  }
 
   const poeiraPos = new Float32Array(orc.poeiraMax * 3)
   const poeiraVel = new Float32Array(orc.poeiraMax * 3)
@@ -535,7 +571,7 @@ export function createBattlefield(
   const geoPoeira = new THREE.BufferGeometry()
   geoPoeira.setAttribute('position', new THREE.BufferAttribute(poeiraPos, 3))
   const matPoeira = new THREE.PointsMaterial({
-    map: texDisco, color: 0xcabfa8, size: 1.6, transparent: true, opacity: 0.5, depthWrite: false, sizeAttenuation: true,
+    map: texDisco, color: 0xcabfa8, size: 2.4, transparent: true, opacity: 0.62, depthWrite: false, sizeAttenuation: true,
   })
   const poeiraPts = new THREE.Points(geoPoeira, matPoeira)
   poeiraPts.frustumCulled = false
@@ -807,6 +843,11 @@ export function createBattlefield(
     mesh.userData.para.set(lado * (FRENTE + hash(sem % 7, 11) * 6), 0.8, zAlvo)
     mesh.userData.prev.copy(mesh.userData.de)
     tiros.push({ i, t0: performance.now(), dur: 750 + 350 * Math.min(3, forca / 8), forca, lado: lado0, qty })
+    // artilharia anuncia o disparo: clarão de boca + baforada na origem
+    if (forca > 2) {
+      clarao(mesh.userData.de, 1.6 + Math.sqrt(forca), lado0 === 'buy' ? 0xffd9a0 : 0xffb09a)
+      solta_fumaca(mesh.userData.de, forca * 0.6)
+    }
   }
 
   const dispara = (t: WarTrade) => {
@@ -862,6 +903,7 @@ export function createBattlefield(
     emitPoeira(p, forca)
     emitFaiscas(p, forca)
     marcaCicatriz(p, forca)
+    if (forca > 2) solta_fumaca(p, forca)
     if (lado === 'buy') tomba(detritoUrsos, curUrsos, p, Math.min(14, 1 + Math.round(forca)))
     else tomba(detritoCaes, curCaes, p, Math.min(14, 1 + Math.round(forca)))
   }
@@ -1004,7 +1046,7 @@ export function createBattlefield(
         const press = matCostura.uniforms.pressao.value
         const lado: 'buy' | 'sell' = hash(Math.floor(agora) % 691, 9) < press ? 'buy' : 'sell'
         const z = (hash(Math.floor(agora) % 1213, 5) - 0.5) * 100
-        atira(lado, 0, 0.5 + hash(Math.floor(agora) % 331, 7) * 1.3, z, Math.floor(agora))
+        atira(lado, 0, 0.9 + hash(Math.floor(agora) % 331, 7) * 1.7, z, Math.floor(agora))
       }
       // artilharia pesada ocasional, de qualquer um dos lados
       if (agora > proxArtilharia) {
@@ -1079,6 +1121,20 @@ export function createBattlefield(
           d.t0 = agora + 700 + hash(Math.floor(agora) % 71, 3) * 2400
         }
       }
+    }
+
+    // fumaça: nasce, incha, sobe à deriva e some em ~4s
+    for (const sp of fumacas) {
+      if (!sp.visible) continue
+      const f = (agora - sp.userData.t0) / 4200
+      if (f >= 1) {
+        sp.visible = false
+        continue
+      }
+      sp.position.y += 1.4 * dt
+      sp.position.x += sp.userData.jit * 0.6 * dt
+      sp.scale.setScalar(sp.userData.base * (1 + f * 2.2))
+      ;(sp.material as THREE.SpriteMaterial).opacity = f < 0.12 ? (f / 0.12) * 0.55 : 0.55 * (1 - (f - 0.12) / 0.88)
     }
 
     // letreiros de dano sobem e somem
