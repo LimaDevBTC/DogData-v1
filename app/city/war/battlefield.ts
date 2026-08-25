@@ -85,6 +85,8 @@ export function createBattlefield(
     ;(m as any).raycast = () => {}
   }
   let matBrasas: THREE.ShaderMaterial | null = null
+  let costuraMesh: THREE.Mesh | null = null
+  let brasasPts: THREE.Points | null = null
 
   // ── a costura: energia viva, um draw call ───────────────────────────────
   // ⚠️ os chunks de logdepth são no-op fora da praça (guardados por ifdef),
@@ -130,12 +132,14 @@ export function createBattlefield(
     }
     const geo = mergeGeometries(partes, false)!
     partes.forEach((p) => p.dispose())
-    group.add(new THREE.Mesh(geo, matCostura))
+    costuraMesh = new THREE.Mesh(geo, matCostura)
+    group.add(costuraMesh)
   }
+  let luzFrente: THREE.PointLight | null = null
   if (luzesAmbiente) {
-    const brilhoFrente = new THREE.PointLight(0xffc98a, 12, 60, 1.6)
-    brilhoFrente.position.set(0, 4, 0)
-    group.add(brilhoFrente)
+    luzFrente = new THREE.PointLight(0xffc98a, 12, 60, 1.6)
+    luzFrente.position.set(0, 4, 0)
+    group.add(luzFrente)
   }
 
   // ── neblina rasteira colada na frente ───────────────────────────────────
@@ -350,6 +354,7 @@ export function createBattlefield(
     brasas.frustumCulled = false
     group.add(brasas)
     matBrasas = mat
+    brasasPts = brasas
   }
 
   // ── letreiro de dano: o trade vira número flutuando no impacto ───────────
@@ -820,8 +825,8 @@ export function createBattlefield(
     const mesh = poolBalas[i]
     mesh.material = lado === 'buy' ? matRastroCompra : matRastroVenda
     mesh.visible = true
-    mesh.userData.de.set(-s * (16 + hash(i, 5) * 8), 1.0, z)
-    mesh.userData.para.set(s * (FRENTE - 1), 1.0, z + (hash(i, 9) - 0.5) * 1.2)
+    mesh.userData.de.set(-s * (16 + hash(i, 5) * 8) + frenteX, 1.0, z)
+    mesh.userData.para.set(s * (FRENTE - 1) + frenteX, 1.0, z + (hash(i, 9) - 0.5) * 1.2)
     balas.push({ i, t0: agora, dur: 85 + hash(i, 2) * 35, lado, forca, ultima })
     clarao(mesh.userData.de, 0.6, lado === 'buy' ? 0xffd9a0 : 0xffb09a)
   }
@@ -874,8 +879,8 @@ export function createBattlefield(
   }
   const disparaMorteiro = (lado: 'buy' | 'sell', forca: number, z: number) => {
     const s = lado === 'buy' ? 1 : -1
-    const de = new THREE.Vector3(-s * (20 + hash(Math.floor(z * 3), 3) * 12), 1, z + (hash(Math.floor(z), 7) - 0.5) * 12)
-    const para = new THREE.Vector3(s * (FRENTE + 2 + hash(Math.floor(z), 13) * 8), 0.8, z)
+    const de = new THREE.Vector3(-s * (20 + hash(Math.floor(z * 3), 3) * 12) + frenteX, 1, z + (hash(Math.floor(z), 7) - 0.5) * 12)
+    const para = new THREE.Vector3(s * (FRENTE + 2 + hash(Math.floor(z), 13) * 8) + frenteX, 0.8, z)
     para.y = altura(para.x, para.z) + 0.4
     disparaPesado(lado, forca, de, para, 1500 + forca * 45)
     clarao(de, 1.8 + Math.sqrt(forca) * 0.8, lado === 'buy' ? 0xffd9a0 : 0xffb09a)
@@ -940,7 +945,7 @@ export function createBattlefield(
     clarao(bocaTanque, 3.4, t.lado === 'buy' ? 0xffd9a0 : 0xffb09a)
     solta_fumaca(bocaTanque, 5)
     const alvo = new THREE.Vector3(
-      t.sentido * (FRENTE + 8 + hash(Math.floor(agora) % 811, t.z) * 10),
+      t.sentido * (FRENTE + 8 + hash(Math.floor(agora) % 811, t.z) * 10) + frenteX,
       0,
       t.z + (hash(Math.floor(agora) % 433, t.z) - 0.5) * 14,
     )
@@ -962,7 +967,7 @@ export function createBattlefield(
   const atualizaTanques = (agora: number, dt: number) => {
     for (let i = tanques.length - 1; i >= 0; i--) {
       const t = tanques[i]
-      const xAlvo = t.estado === 'saindo' ? -t.sentido * X_TANQUE_RETAGUARDA : -t.sentido * X_TANQUE_COMBATE
+      const xAlvo = t.estado === 'saindo' ? -t.sentido * X_TANQUE_RETAGUARDA : -t.sentido * X_TANQUE_COMBATE + frenteX
       const dx = xAlvo - t.grupo.position.x
       const passoT = Math.sign(dx) * Math.min(Math.abs(dx), 9 * dt)
       t.grupo.position.x += passoT
@@ -1135,6 +1140,23 @@ export function createBattlefield(
     })
     .catch(() => {})
 
+  // ── A FRENTE VIVA: o preço dentro do range de 24h É a posição da linha ──
+  // ⚠️ ANTES A LINHA ERA FIXA EM x=0 e o mundo se recentrava em volta dela,
+  // então ninguém conquistava terreno e a guerra parecia estática (o fundador
+  // notou na hora). Agora o campo é o RANGE DE 24H: preço no low = frente
+  // encostada na retaguarda dos cães, preço no high = fundo do território dos
+  // ursos. A linha RASTEJA até o alvo (conquista lê como marcha, nunca
+  // teleporte) e deixa cicatrizes no terreno cedido.
+  let frenteX = 0
+  let cicatrizAcum = 0
+  const DESLOC_FRENTE = 34
+  const VEL_FRENTE = 1.3
+  const frenteAlvo = () => {
+    if (!(mid > 0) || !(high24 > low24)) return 0
+    const pos = Math.min(1, Math.max(0, (mid - low24) / (high24 - low24)))
+    return (pos - 0.5) * 2 * DESLOC_FRENTE
+  }
+
   // ── book vira fileiras ──────────────────────────────────────────────────
   const m4 = new THREE.Matrix4()
   const q = new THREE.Quaternion()
@@ -1146,7 +1168,8 @@ export function createBattlefield(
     if (!(mid > 0) || !(spanSuave > 0)) return 0
     const d = ((preco - mid) / spanSuave) * (CAMPO_X - FRENTE)
     const s = Math.sign(d)
-    return s * Math.min(Math.abs(d) + FRENTE, CAMPO_X + 14)
+    // o book inteiro acompanha a frente: os exércitos marcham junto da linha
+    return s * Math.min(Math.abs(d) + FRENTE, CAMPO_X + 14) + frenteX
   }
 
   const montaExercito = (ex: Exercito, niveis: BookLevel[], lado: 1 | -1, qMediana: number) => {
@@ -1263,8 +1286,8 @@ export function createBattlefield(
     rastro.material = lado0 === 'buy' ? matRastroCompra : matRastroVenda
     mesh.visible = rastro.visible = true
     mesh.scale.setScalar(0.22 * Math.sqrt(forca) + 0.12)
-    mesh.userData.de.set(-lado * (14 + hash(sem % 31, 3) * 30), 1.2, zAlvo + (hash(sem % 13, 5) - 0.5) * 30)
-    mesh.userData.para.set(lado * (FRENTE + hash(sem % 7, 11) * 6), 0.8, zAlvo)
+    mesh.userData.de.set(-lado * (14 + hash(sem % 31, 3) * 30) + frenteX, 1.2, zAlvo + (hash(sem % 13, 5) - 0.5) * 30)
+    mesh.userData.para.set(lado * (FRENTE + hash(sem % 7, 11) * 6) + frenteX, 0.8, zAlvo)
     mesh.userData.prev.copy(mesh.userData.de)
     tiros.push({ i, t0: performance.now(), dur: 750 + 350 * Math.min(3, forca / 8), forca, lado: lado0, qty })
     // artilharia anuncia o disparo: clarão de boca + baforada na origem
@@ -1353,6 +1376,34 @@ export function createBattlefield(
     const dt = ultimoUpdate > 0 ? Math.min(0.05, (agora - ultimoUpdate) / 1000) : 0.016
     ultimoUpdate = agora
     passoIntensidade(dt)
+
+    // ── a frente rasteja até onde o preço manda ──────────────────────────
+    {
+      const dF = frenteAlvo() - frenteX
+      if (Math.abs(dF) > 0.002) {
+        const passoF = Math.sign(dF) * Math.min(Math.abs(dF), VEL_FRENTE * dt)
+        frenteX += passoF
+        // o terreno cedido guarda a memória: cicatrizes na linha abandonada
+        cicatrizAcum += Math.abs(passoF)
+        if (cicatrizAcum > 1.6) {
+          cicatrizAcum = 0
+          vp.set(
+            frenteX - Math.sign(passoF) * (1 + hash(Math.floor(agora) % 257, 3) * 4),
+            0,
+            (hash(Math.floor(agora) % 641, 9) - 0.5) * 100,
+          )
+          vp.y = altura(vp.x, vp.z)
+          marcaCicatriz(vp, 0.5 + hash(Math.floor(agora) % 83, 5) * 1.2)
+        }
+        const dyF = altura(frenteX, 0) - altura(0, 0)
+        if (costuraMesh) costuraMesh.position.set(frenteX, dyF, 0)
+        neblina.position.x = frenteX
+        neblina.position.y = 0.55 + dyF
+        if (brasasPts) brasasPts.position.set(frenteX, dyF, 0)
+        if (luzFrente) luzFrente.position.x = frenteX
+        bookSujo = true
+      }
+    }
     if (bookSujo && agora - ultimoBook > 250) {
       bookSujo = false
       ultimoBook = agora
@@ -1706,8 +1757,8 @@ export function createBattlefield(
         }
       } else if (d.fase === 'corre') {
         const f = Math.min(1, idade / 1500)
-        const xc = -X_DUELO + (X_DUELO - 1.7) * f
-        const xu = X_DUELO - (X_DUELO - 1.7) * f
+        const xc = frenteX - X_DUELO + (X_DUELO - 1.7) * f
+        const xu = frenteX + X_DUELO - (X_DUELO - 1.7) * f
         const galope = Math.abs(Math.sin(f * 26 + d.z)) * 0.3
         d.cao.position.set(xc, altura(xc, d.z) + galope, d.z)
         d.urso.position.set(xu, altura(xu, d.z) + galope * 0.8, d.z)
@@ -1716,7 +1767,7 @@ export function createBattlefield(
           d.t0 = agora
           // ⚠️ o teatro conta a verdade: quem tem PRESSÃO real ganha mais
           d.vence = hash(Math.floor(agora) % 883, 7) < matCostura.uniforms.pressao.value ? 'buy' : 'sell'
-          vp.set(0, altura(0, d.z) + 0.6, d.z)
+          vp.set(frenteX, altura(frenteX, d.z) + 0.6, d.z)
           emitFaiscas(vp, 4)
           emitPoeira(vp, 3)
         }
@@ -1735,7 +1786,7 @@ export function createBattlefield(
         const ganhador = d.vence === 'buy' ? d.cao : d.urso
         const perdedor = d.vence === 'buy' ? d.urso : d.cao
         const volta = d.vence === 'buy' ? -1 : 1
-        const gx = volta * (1.7 + (X_DUELO - 1.7) * f)
+        const gx = frenteX + volta * (1.7 + (X_DUELO - 1.7) * f)
         ganhador.position.set(gx, altura(gx, d.z) + Math.abs(Math.sin(f * 22)) * 0.28, d.z)
         perdedor.position.y -= 0.9 * dt
         if (f >= 1) {
