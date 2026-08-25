@@ -88,6 +88,34 @@ def txids_no_banco(de: int, ate: int) -> set[str]:
     return fora
 
 
+def flush(lote: list) -> bool:
+    """Upsert que sobrevive a lote gordo.
+
+    ⚠️ A ERA DO AIRDROP TEM TRANSAÇÃO COM MILHARES DE RECEBEDORES, e 500 delas
+    num POST só estoura o statement timeout do Postgres (57014, mordeu no bloco
+    840.662 logo na primeira rodada). A resposta é dividir: falhou, corta o lote
+    ao meio e tenta as metades; chegou a UMA linha e ainda falha, retenta com
+    recuo e aí sim desiste, porque uma linha que não entra é defeito de verdade
+    e não de tamanho."""
+    if not lote:
+        return True
+    if sc.push_to_supabase(lote, addresses=True):
+        return True
+    if len(lote) == 1:
+        for n in range(3):
+            time.sleep(10 * (n + 1))
+            if sc.push_to_supabase(lote, addresses=True):
+                return True
+        return False
+    meio = len(lote) // 2
+    return flush(lote[:meio]) and flush(lote[meio:])
+
+
+def peso(tx: dict) -> int:
+    """1 por linha + o tamanho da transação em contrapartes: é o peso do POST."""
+    return 1 + (tx.get("sender_count", 0) + tx.get("receiver_count", 0)) // 50
+
+
 def salva_checkpoint(altura: int, utxo: dict) -> None:
     tmp = CARRY + ".tmp"
     with open(tmp, "w") as fh:
@@ -128,10 +156,15 @@ def main() -> None:
             utxo.update(novos)
         blocos += 1
 
-        if args.aplicar and len(lote) >= 500:
-            if not sc.push_to_supabase(lote, addresses=True):
-                print(f"  upsert falhou no bloco {h}; parando com checkpoint no bloco anterior", flush=True)
-                salva_checkpoint(h - 1, utxo)
+        # ⚠️ O GATILHO É PESO, NÃO CONTAGEM: 500 transações comuns cabem num POST,
+        # 500 da era do airdrop não. E FALHA NUNCA SALVA CHECKPOINT: o conjunto
+        # de UTXOs já avançou até h, então (h-1, conjunto@h) seria um par
+        # inconsistente que faria a retomada PULAR transações. Sai sem salvar e
+        # a retomada reemite desde o último par seguro; o upsert é idempotente.
+        if args.aplicar and sum(peso(t) for t in lote) >= 200:
+            if not flush(lote):
+                print(f"  upsert falhou de vez perto do bloco {h}; saindo SEM checkpoint, "
+                      "a retomada reemite do último seguro", flush=True)
                 sys.exit(1)
             lote = []
 
@@ -146,11 +179,10 @@ def main() -> None:
                     print(f"    janela {janela_ini}..{h} não conferida ({type(exc).__name__})", flush=True)
                 janela_ini, janela_txids = h + 1, set()
             if args.aplicar:
-                if lote:
-                    if not sc.push_to_supabase(lote, addresses=True):
-                        print(f"  upsert falhou no bloco {h}; checkpoint não avança", flush=True)
-                        sys.exit(1)
-                    lote = []
+                if not flush(lote):
+                    print(f"  upsert falhou de vez no bloco {h}; saindo SEM checkpoint", flush=True)
+                    sys.exit(1)
+                lote = []
                 salva_checkpoint(h, utxo)
             taxa = blocos / max(time.time() - t0, 1)
             eta = (teto - h) / max(taxa, 0.1) / 3600
@@ -158,7 +190,7 @@ def main() -> None:
             print(f"    {h} · {vistos} tx · {len(utxo)} utxos · {extra}{taxa:.1f} bl/s · ETA {eta:.1f}h", flush=True)
 
     if args.aplicar:
-        if lote and not sc.push_to_supabase(lote, addresses=True):
+        if not flush(lote):
             sys.exit(1)
         salva_checkpoint(teto, utxo)
     elif janela_txids:
