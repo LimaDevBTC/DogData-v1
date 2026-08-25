@@ -1470,6 +1470,13 @@ export function createBattlefield(
   let ultimaEscaramuca = 0
   let proxArtilharia = 0
   let proxCanhao = 0
+  // ⚠️ VIÉS PRO CENTRO: o retrato do celular enquadra um trecho estreito da
+  // frente; alvo uniforme em ±52 joga metade das bombas pra fora do quadro e
+  // o espectador móvel só vê tiro pequeno. 60% dos disparos caem no miolo.
+  const zAlvoGuerra = (a: number, b: number) => {
+    const z = (hash(a, b) - 0.5) * 105
+    return hash(a + 1, b + 3) < 0.6 ? z * 0.45 : z
+  }
   const passo = new THREE.Vector3()
   const zEixo = new THREE.Vector3(0, 0, 1)
 
@@ -1642,14 +1649,14 @@ export function createBattlefield(
       if (agora > proxArtilharia) {
         proxArtilharia = agora + (60000 / morteiroPorMin) * (0.55 + hash(Math.floor(agora) % 449, 11) * 0.9)
         const lado = hash(Math.floor(agora) % 863, 13) < press ? 'buy' : 'sell'
-        disparaMorteiro(lado, 4 + intensidade * 5, (hash(Math.floor(agora) % 1069, 19) - 0.5) * 105)
+        disparaMorteiro(lado, 4 + intensidade * 5, zAlvoGuerra(Math.floor(agora) % 1069, 19))
       }
       // canhões de teatro: um PAR de tiros parabólicos simultâneos de tempos em
       // tempos (qty 0: sem placar), pra sempre haver mais de uma arma na cena
       if (agora > proxCanhao) {
         proxCanhao = agora + (7500 - intensidade * 3500) + hash(Math.floor(agora) % 719, 17) * 4000
         const lado: 'buy' | 'sell' = hash(Math.floor(agora) % 523, 29) < press ? 'buy' : 'sell'
-        const zC = (hash(Math.floor(agora) % 1327, 31) - 0.5) * 95
+        const zC = zAlvoGuerra(Math.floor(agora) % 1327, 31)
         atira(lado, 0, 3 + hash(Math.floor(agora) % 271, 37) * 2.5, zC, Math.floor(agora) % 9973)
         atira(lado, 0, 2.5 + hash(Math.floor(agora) % 199, 41) * 2, zC + 14 + hash(Math.floor(agora) % 157, 43) * 18, Math.floor(agora) % 7919)
       }
@@ -1677,7 +1684,7 @@ export function createBattlefield(
         // que faz a ofensiva ler como ofensiva a qualquer distância
         if (agora > ofensiva.proxCasca) {
           ofensiva.proxCasca = agora + 380 + hash(Math.floor(agora) % 149, 7) * 180
-          disparaMorteiro(ofensiva.lado, 5 + intensidade * 3.5, (hash(Math.floor(agora) % 977, 11) - 0.5) * 95)
+          disparaMorteiro(ofensiva.lado, 5 + intensidade * 3.5, zAlvoGuerra(Math.floor(agora) % 977, 11))
         }
         if (idade > 3200) {
           ofensiva.fase = 'avanco'
