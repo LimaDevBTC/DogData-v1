@@ -1347,16 +1347,10 @@ export default function PlazaScene() {
     readyRef.current = () => {
       controls.enabled = true
       const want = new URLSearchParams(window.location.search).get('view')
-      // a visita guiada abre a cidade para quem chega pela primeira vez na
-      // sessão — nunca quando alguém pediu uma vista, uma chapa ou pediu menos
-      // movimento no sistema
-      const wantsMotion = !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-      let seen = true
-      try { seen = sessionStorage.getItem('plaza-tour-v1') === '1' } catch { seen = true }
-      if (!want && !plate && wantsMotion && !seen) {
-        try { sessionStorage.setItem('plaza-tour-v1', '1') } catch { /* modo privado: roda de novo, sem dano */ }
-        setTimeout(() => apiRef.current?.startTour(), 700)
-      }
+      // ⚠️ A VISITA GUIADA NUNCA DISPARA SOZINHA. Ela abria automaticamente na
+      // primeira visita da sessão e sequestrava a câmera de quem só queria
+      // andar (o fundador vetou: tour só se o usuário clicar em TOUR). O botão
+      // no topo é a única porta.
       if (want && /^temple/.test(want)) {
         const v = viewFor(want, camera.aspect)
         camera.position.copy(v.pos)
