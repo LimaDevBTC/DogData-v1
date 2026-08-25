@@ -112,7 +112,10 @@ def main() -> None:
     except Exception as e:
         print(f"  (sem arquivo de saldos: {e}) — o giro não entra na conta", flush=True)
 
-    ja = {r["address"]: r["entity"] for r in sb("dog_labels?select=address,entity")}
+    # rótulo sem nome existe (008): a tela do detector mostra a CLASSE entre
+    # colchetes em vez de imprimir None ao lado da seta
+    ja = {r["address"]: (r["entity"] or f"[{r['kind']}]")
+          for r in sb("dog_labels?select=address,entity,kind")}
     try:
         with open(os.path.join(WEB, "public", "data", "verified_addresses.json"), encoding="utf8") as fh:
             for a, v in (json.load(fh).get("verified") or {}).items():
