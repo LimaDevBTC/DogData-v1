@@ -45,6 +45,15 @@ export interface HudBatalha {
   caesCaidos: number
   compra: number
   venda: number
+  /** profundidade TOTAL do book (100 níveis da Kraken), em DOG e em USD:
+   *  é o tamanho real de cada exército, não só a encenação */
+  bidsDog: number
+  asksDog: number
+  bidsUsd: number
+  asksUsd: number
+  spread: number
+  /** fita: últimos trades reais, mais novo primeiro */
+  fita: Array<{ lado: 'buy' | 'sell'; qty: number; preco: number; t: number }>
 }
 
 export interface Battlefield {
@@ -1101,6 +1110,12 @@ export function createBattlefield(
   let low24 = 0
   let high24 = 0
   let open24 = 0
+  let bidsDog = 0
+  let asksDog = 0
+  let bidsUsd = 0
+  let asksUsd = 0
+  let spreadAtual = 0
+  const fita: HudBatalha['fita'] = []
   let feed: KrakenFeed | null = null
 
   const liga = () => {
@@ -1116,6 +1131,8 @@ export function createBattlefield(
         filaTrades.push(t)
         registraVolume(t)
         alimentaTrade(t.qty)
+        fita.unshift({ lado: t.side, qty: t.qty, preco: t.price, t: t.at })
+        if (fita.length > 8) fita.pop()
         emaQty = emaQty === 0 ? t.qty : emaQty * 0.97 + t.qty * 0.03
         if (t.side === 'buy') {
           ursosCaidos += t.qty
@@ -1329,6 +1346,13 @@ export function createBattlefield(
     if (!bids.length || !asks.length) return
     alimentaChurn(bids, asks)
     mid = (bids[0].price + asks[0].price) / 2
+    // profundidade TOTAL (o book inteiro, não só os níveis encenados): o
+    // tamanho real de cada exército em DOG e em dólar, mais o spread vivo
+    bidsDog = book.bids.reduce((s, l) => s + l.qty, 0)
+    asksDog = book.asks.reduce((s, l) => s + l.qty, 0)
+    bidsUsd = book.bids.reduce((s, l) => s + l.qty * l.price, 0)
+    asksUsd = book.asks.reduce((s, l) => s + l.qty * l.price, 0)
+    spreadAtual = book.asks[0].price - book.bids[0].price
     const alcance = Math.max(
       bids.length ? mid - bids[bids.length - 1].price : 0,
       asks.length ? asks[asks.length - 1].price - mid : 0,
@@ -1971,6 +1995,8 @@ export function createBattlefield(
     hud: () => ({
       preco: mid, low24, high24, open24, status,
       ursosCaidos, caesCaidos, compra, venda,
+      bidsDog, asksDog, bidsUsd, asksUsd, spread: spreadAtual,
+      fita: [...fita],
     }),
     dispose: () => {
       clearInterval(tickerTimer)

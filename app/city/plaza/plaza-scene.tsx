@@ -287,6 +287,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
   const warPrecoRef = useRef<HTMLDivElement>(null)
   const warPressaoRef = useRef<HTMLDivElement>(null)
   const warBaixasRef = useRef<HTMLDivElement>(null)
+  // linha extra compacta do book de verdade (bidsDog/asksDog), mesmo padrão imperativo
+  const warBidsRef = useRef<HTMLSpanElement>(null)
+  const warAsksRef = useRef<HTMLSpanElement>(null)
   // ── O CHAMADO DA OBRA (praca-ajustes.md item 8) ──────────────────────────
   // A praça é a vitrine do que o dinheiro constrói, e até agora ela não pedia
   // nada: quem entrava não tinha como financiar o próximo quarteirão sem sair da
@@ -1477,6 +1480,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             if (warBaixasRef.current) {
               warBaixasRef.current.textContent = `bears ${fmtQtd(h.ursosCaidos)} · dogs ${fmtQtd(h.caesCaidos)} fallen`
             }
+            if (warBidsRef.current) warBidsRef.current.textContent = `BIDS ${fmtQtd(h.bidsDog)}`
+            if (warAsksRef.current) warAsksRef.current.textContent = `ASKS ${fmtQtd(h.asksDog)}`
           }
         }
       }
@@ -1624,6 +1629,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             <div ref={warPressaoRef} className="h-full bg-gradient-to-r from-[#f7931a] to-[#c96a12]" style={{ width: '50%' }} />
           </div>
           <div ref={warBaixasRef} className="mt-1 text-[8px] uppercase tracking-[0.18em] text-white/35 tabular-nums sm:text-[9px]">bears 0 · dogs 0 fallen</div>
+          <div className="mt-1 flex items-center justify-center gap-1.5 text-[8px] uppercase tracking-[0.18em] tabular-nums sm:text-[9px]">
+            <span ref={warBidsRef} className="text-[#f7931a]/90">BIDS 0</span>
+            <span className="text-white/25">·</span>
+            <span ref={warAsksRef} className="text-red-400/85">ASKS 0</span>
+          </div>
         </div>
       </div>
       {/* ── title, and the way back: the landing is the front door, the site is home */}

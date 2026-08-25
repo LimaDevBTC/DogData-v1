@@ -19,6 +19,12 @@ import { createBattlefield, type OrcamentoBatalha } from './battlefield'
 const fmtDog = (n: number) =>
   n >= 1e9 ? `${(n / 1e9).toFixed(2)}B` : n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : n.toFixed(0)
 const fmtPreco = (p: number) => (p > 0 ? p.toFixed(6) : '-')
+// hora curta pra fita de trades: HH:MM:SS local, sem data (a fita só mostra os últimos segundos)
+const fmtHora = (t: number) => {
+  const d = new Date(t)
+  const p2 = (n: number) => n.toString().padStart(2, '0')
+  return `${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`
+}
 
 const hash = (a: number, b: number) => {
   const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453
@@ -62,12 +68,21 @@ interface Hud {
   caesCaidos: number
   compra: number
   venda: number
+  // camada de dados do book: profundidade total (bid wall / ask wall), spread
+  // e a fita de trades reais, tudo já pronto em battlefield.ts hud()
+  bidsDog: number
+  asksDog: number
+  bidsUsd: number
+  asksUsd: number
+  spread: number
+  fita: Array<{ lado: 'buy' | 'sell'; qty: number; preco: number; t: number }>
 }
 
 export default function WarScene() {
   const montagem = useRef<HTMLDivElement>(null)
   const [hud, setHud] = useState<Hud>({
     preco: 0, delta24: 0, status: 'connecting', ursosCaidos: 0, caesCaidos: 0, compra: 0, venda: 0,
+    bidsDog: 0, asksDog: 0, bidsUsd: 0, asksUsd: 0, spread: 0, fita: [],
   })
   const [baleia, setBaleia] = useState<{ lado: 'buy' | 'sell'; chave: number } | null>(null)
 
@@ -395,6 +410,12 @@ export default function WarScene() {
           caesCaidos: h.caesCaidos,
           compra: h.compra,
           venda: h.venda,
+          bidsDog: h.bidsDog,
+          asksDog: h.asksDog,
+          bidsUsd: h.bidsUsd,
+          asksUsd: h.asksUsd,
+          spread: h.spread,
+          fita: h.fita,
         })
       }
 
@@ -457,6 +478,9 @@ export default function WarScene() {
   const vivoAgora = hud.status === 'live'
   const total = hud.compra + hud.venda
   const fracaoCompra = total > 0 ? hud.compra / total : 0.5
+  // desequilíbrio do book de verdade (100 níveis da Kraken), não da encenação
+  const totalParede = hud.bidsDog + hud.asksDog
+  const fracaoBidParede = totalParede > 0 ? hud.bidsDog / totalParede : 0.5
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
@@ -489,6 +513,18 @@ export default function WarScene() {
       </div>
 
       <div className="absolute top-10 sm:top-4 inset-x-0 text-center select-none pointer-events-none">
+        {/* retrato: a fita colapsa pros últimos 3 numa linha, acima do preço */}
+        {hud.fita.length > 0 && (
+          <div className="mb-1 flex justify-center gap-2.5 font-mono text-[9px] tracking-[0.04em] tabular-nums sm:hidden">
+            {hud.fita.slice(0, 3).map((tr, i) => (
+              <span key={i} className="flex items-center gap-1">
+                <span className={tr.lado === 'buy' ? 'text-[#f7931a]' : 'text-red-400'}>{tr.lado === 'buy' ? '▲' : '▼'}</span>
+                <span className="text-white/70">{fmtDog(tr.qty)}</span>
+                <span className="text-white/35">${fmtPreco(tr.preco)}</span>
+              </span>
+            ))}
+          </div>
+        )}
         <div className="font-mono text-3xl md:text-4xl text-white/95 tabular-nums tracking-tight [text-shadow:0_1px_14px_rgba(0,0,0,0.7)]">
           ${fmtPreco(hud.preco)}
         </div>
@@ -501,7 +537,34 @@ export default function WarScene() {
             </span>
           )}
         </div>
+        {/* a camada de dados do book: parede de compra, spread, parede de venda */}
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 px-3 font-mono text-[9px] sm:text-[10px] tracking-[0.04em] tabular-nums">
+          <span className="text-[#f7931a]/90">BID WALL {fmtDog(hud.bidsDog)} DOG (${fmtDog(hud.bidsUsd)})</span>
+          <span className="text-white/25">·</span>
+          <span className="text-white/45">SPREAD {hud.spread > 0 ? hud.spread.toFixed(6) : '-'}</span>
+          <span className="text-white/25">·</span>
+          <span className="text-red-400/85">ASK WALL {fmtDog(hud.asksDog)} DOG (${fmtDog(hud.asksUsd)})</span>
+        </div>
+        <div className="mx-auto mt-1.5 flex h-[3px] w-56 sm:w-72 overflow-hidden rounded-full bg-white/10">
+          <div className="h-full bg-[#f7931a]" style={{ width: `${fracaoBidParede * 100}%` }} />
+          <div className="h-full bg-red-500/70" style={{ width: `${(1 - fracaoBidParede) * 100}%` }} />
+        </div>
       </div>
+
+      {/* fita de trades reais, desktop: canto direito, discreta, últimos 6 */}
+      {hud.fita.length > 0 && (
+        <div className="absolute right-4 sm:right-5 top-1/2 -translate-y-1/2 hidden sm:flex flex-col items-end gap-1 font-mono text-[10px] tracking-[0.04em] tabular-nums text-white/55 select-none pointer-events-none">
+          <div className="mb-0.5 text-[9px] uppercase tracking-[0.22em] text-white/25">Tape</div>
+          {hud.fita.slice(0, 6).map((tr, i) => (
+            <div key={i} className="flex items-center gap-1.5">
+              <span className="text-white/30">{fmtHora(tr.t)}</span>
+              <span className={tr.lado === 'buy' ? 'text-[#f7931a]' : 'text-red-400'}>{tr.lado === 'buy' ? '▲' : '▼'}</span>
+              <span className="text-white/75">{fmtDog(tr.qty)}</span>
+              <span className="text-white/40">${fmtPreco(tr.preco)}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="absolute bottom-7 left-1/2 -translate-x-1/2 w-60 sm:w-72 select-none pointer-events-none">
         <div className="flex justify-between font-mono text-[10px] tracking-[0.18em] uppercase mb-1">
