@@ -159,55 +159,46 @@ export default function WarScene() {
     })
     scene.add(new THREE.Mesh(new THREE.SphereGeometry(900, 32, 20), skyMat))
 
-    // a Terra pintada à mão, o selo de que isto é a Lua
-    const terraCv = document.createElement('canvas')
-    terraCv.width = terraCv.height = 256
-    {
-      const cx = terraCv.getContext('2d')!
-      const grd = cx.createRadialGradient(104, 96, 10, 128, 128, 108)
-      grd.addColorStop(0, '#6ea0e6')
-      grd.addColorStop(0.55, '#2c5aa0')
-      grd.addColorStop(1, '#12294f')
-      cx.fillStyle = grd
-      cx.beginPath()
-      cx.arc(128, 128, 108, 0, Math.PI * 2)
-      cx.fill()
-      cx.save()
-      cx.clip()
-      cx.fillStyle = 'rgba(74,120,64,0.6)'
-      for (let i = 0; i < 14; i++) {
-        const x = 40 + hash(i, 3) * 176
-        const y = 36 + hash(i, 9) * 180
-        cx.beginPath()
-        cx.ellipse(x, y, 14 + hash(i, 1) * 22, 9 + hash(i, 2) * 14, hash(i, 4) * 6, 0, Math.PI * 2)
-        cx.fill()
-      }
-      cx.fillStyle = 'rgba(255,255,255,0.28)'
-      for (let i = 0; i < 10; i++) {
-        const x = 30 + hash(i, 23) * 196
-        const y = 30 + hash(i, 31) * 196
-        cx.beginPath()
-        cx.ellipse(x, y, 20 + hash(i, 11) * 26, 5 + hash(i, 12) * 7, hash(i, 14) * 6, 0, Math.PI * 2)
-        cx.fill()
-      }
-      const noite = cx.createLinearGradient(0, 0, 256, 60)
-      noite.addColorStop(0.55, 'rgba(2,4,10,0)')
-      noite.addColorStop(1, 'rgba(2,4,10,0.9)')
-      cx.fillStyle = noite
-      cx.fillRect(0, 0, 256, 256)
-      cx.restore()
-      cx.strokeStyle = 'rgba(140,190,255,0.5)'
-      cx.lineWidth = 3
-      cx.beginPath()
-      cx.arc(128, 128, 109, 0, Math.PI * 2)
-      cx.stroke()
+    // a MESMA Terra da DogCity (texturas que a praça já usa, cacheadas entre
+    // páginas), aqui em escala de palco: um mundo, uma Terra
+    const loaderTex = new THREE.TextureLoader()
+    const texTerra = (url: string, srgb = true) => {
+      const t = loaderTex.load(url)
+      if (srgb) t.colorSpace = THREE.SRGBColorSpace
+      t.anisotropy = 4
+      return t
     }
-    const terra = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: new THREE.CanvasTexture(terraCv), transparent: true, fog: false, depthWrite: false,
-    }))
-    terra.scale.setScalar(72)
-    terra.position.set(252, 68, 26)
+    const terra = new THREE.Group()
+    {
+      const R = 64
+      const globo = new THREE.Mesh(
+        new THREE.SphereGeometry(R, 64, 48),
+        new THREE.MeshPhongMaterial({
+          map: texTerra('/city/earth/earth_atmos_2048.jpg'),
+          specularMap: texTerra('/city/earth/earth_specular_2048.jpg', false),
+          normalMap: texTerra('/city/earth/earth_normal_2048.jpg', false),
+          normalScale: new THREE.Vector2(0.6, 0.6),
+          specular: new THREE.Color(0x333333),
+          shininess: 18,
+        }),
+      )
+      terra.add(globo)
+      const nuvens = new THREE.Mesh(
+        new THREE.SphereGeometry(R * 1.012, 64, 48),
+        new THREE.MeshLambertMaterial({ map: texTerra('/city/earth/earth_clouds_1024.png'), transparent: true, opacity: 0.9, depthWrite: false }),
+      )
+      nuvens.name = 'Clouds'
+      terra.add(nuvens)
+      const fio = new THREE.Mesh(
+        new THREE.SphereGeometry(R * 1.016, 48, 32),
+        new THREE.MeshBasicMaterial({ color: 0x6fa4ff, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, side: THREE.BackSide, depthWrite: false }),
+      )
+      terra.add(fio)
+      terra.rotation.z = 0.41
+    }
+    terra.position.set(500, 150, 55)
     scene.add(terra)
+    const nuvensTerra = terra.getObjectByName('Clouds')
 
     // estrelas com cor e cintilação
     const nEstrelas = 2200
@@ -377,6 +368,7 @@ export default function WarScene() {
       const seg = agora * 0.001
       matEs.uniforms.time.value = seg
       matPo.uniforms.time.value = seg
+      if (nuvensTerra) nuvensTerra.rotation.y = seg * 0.008
 
       if (gradePass) {
         ndc.set(0, altura(0, 0), 0).project(camera)

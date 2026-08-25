@@ -61,21 +61,48 @@ const hash = (a: number, b: number) => {
 
 const fmtPreco = (p: number) => (p > 0 ? p.toFixed(6) : '-')
 
+export interface OpcoesBatalha {
+  /** falso no mundo da cidade: o orçamento global de PointLight de lá está no
+   *  limite, então a frente e os obeliscos ficam só com o emissivo */
+  luzesAmbiente?: boolean
+}
+
 export function createBattlefield(
   altura: (x: number, z: number) => number,
   orc: OrcamentoBatalha,
   onWhale?: (lado: 'buy' | 'sell', forca: number) => void,
+  opcoes: OpcoesBatalha = {},
 ): Battlefield {
+  const luzesAmbiente = opcoes.luzesAmbiente !== false
   const group = new THREE.Group()
+  // ⚠️ a praça faz raycast recursivo na cena inteira no duplo toque; instância
+  // testada uma a uma são milhares de interseções à toa
+  const semRaycast = (m: THREE.Object3D) => {
+    ;(m as any).raycast = () => {}
+  }
 
   // ── a costura: energia viva, um draw call ───────────────────────────────
+  // ⚠️ os chunks de logdepth são no-op fora da praça (guardados por ifdef),
+  // mas na praça o renderer usa logarithmicDepthBuffer e ShaderMaterial sem
+  // eles escreve profundidade errada (z-fighting contra o regolito)
   const matCostura = new THREE.ShaderMaterial({
     transparent: true,
     uniforms: { time: { value: 0 }, pressao: { value: 0.5 } },
-    vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    vertexShader: `
+      #include <common>
+      #include <logdepthbuf_pars_vertex>
+      varying vec2 vUv;
+      void main(){
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        #include <logdepthbuf_vertex>
+      }`,
     fragmentShader: `
+      #include <common>
+      #include <logdepthbuf_pars_fragment>
       uniform float time; uniform float pressao; varying vec2 vUv;
       void main(){
+        #include <logdepthbuf_fragment>
         float onda = sin(vUv.y * 40.0 - time * 6.0) * 0.5 + 0.5;
         float pulso = 0.6 + 0.4 * sin(time * 3.0);
         vec3 quente = vec3(1.0, 0.71, 0.36);
@@ -100,9 +127,11 @@ export function createBattlefield(
     partes.forEach((p) => p.dispose())
     group.add(new THREE.Mesh(geo, matCostura))
   }
-  const brilhoFrente = new THREE.PointLight(0xffc98a, 12, 60, 1.6)
-  brilhoFrente.position.set(0, 4, 0)
-  group.add(brilhoFrente)
+  if (luzesAmbiente) {
+    const brilhoFrente = new THREE.PointLight(0xffc98a, 12, 60, 1.6)
+    brilhoFrente.position.set(0, 4, 0)
+    group.add(brilhoFrente)
+  }
 
   // ── neblina rasteira colada na frente ───────────────────────────────────
   const gNev = new THREE.PlaneGeometry(26, 130, 1, 1)
@@ -110,12 +139,23 @@ export function createBattlefield(
   const matNev = new THREE.ShaderMaterial({
     transparent: true, depthWrite: false,
     uniforms: { time: { value: 0 }, cor: { value: new THREE.Color(0x3a2a20) } },
-    vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    vertexShader: `
+      #include <common>
+      #include <logdepthbuf_pars_vertex>
+      varying vec2 vUv;
+      void main(){
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        #include <logdepthbuf_vertex>
+      }`,
     fragmentShader: `
+      #include <common>
+      #include <logdepthbuf_pars_fragment>
       uniform float time; uniform vec3 cor; varying vec2 vUv;
       float hash2(vec2 p){ return fract(sin(dot(p, vec2(12.9, 78.2))) * 43758.5); }
       float fbm(vec2 p){ float v = 0.0; float a = 0.5; for (int i = 0; i < 4; i++){ v += a * hash2(floor(p)); p = p * 2.03 + time * 0.02; a *= 0.5; } return v; }
       void main(){
+        #include <logdepthbuf_fragment>
         float n = fbm(vUv * vec2(6.0, 14.0));
         float borda = smoothstep(0.0, 0.15, vUv.x) * smoothstep(1.0, 0.85, vUv.x);
         gl_FragColor = vec4(cor, n * 0.5 * borda);

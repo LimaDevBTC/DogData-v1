@@ -18,6 +18,7 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { createBattlefield, type Battlefield } from '../war/battlefield'
 import { loadTerrain } from './terrain'
 import { createOrbitLayer, PAD_MAIN } from './orbit-layer'
 import { startFeed, isDonation, type DogTx, type Snapshot, donationDog } from './feed'
@@ -49,6 +50,14 @@ const HOME_TARGET = new THREE.Vector3(0, 100, 480)
 type View = { pos: THREE.Vector3; target: THREE.Vector3 }
 /** Os lugares: cada um é um enquadramento (câmera, alvo). O menu "Places" voa
  *  para eles e `?view=<nome>` abre neles. */
+// ── A Cratera da Guerra: o book de DOG/USD como campo de batalha, 3 km a
+// sudoeste da praça. O motor é o de app/city/war/battlefield.ts; aqui ele é um
+// LUGAR do mundo: sem clique, o HUD do modo jogo revela por proximidade e o
+// feed da Kraken só liga quando alguém se aproxima.
+const WAR_POS = new THREE.Vector3(-2120, 0, 2120)
+const fmtQtd = (n: number) =>
+  n >= 1e9 ? `${(n / 1e9).toFixed(2)}B` : n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : n.toFixed(0)
+
 export const PLACES: ReadonlyArray<{ key: string; label: string; hint: string }> = [
   { key: 'home', label: 'Satoshi Plaza', hint: 'the whole precinct' },
   { key: 'deck', label: 'The deck', hint: 'the Needle, up close' },
@@ -68,6 +77,7 @@ export const PLACES: ReadonlyArray<{ key: string; label: string; hint: string }>
   { key: 'bitflow', label: 'BitFlow HQ', hint: 'west anchor' },
   { key: 'pad', label: 'Spaceport', hint: 'where the ships land' },
   { key: 'park', label: 'Runestone Park', hint: 'the Gate, 5 km north-east' },
+  { key: 'war', label: 'The Price War', hint: 'the crater, 3 km south-west' },
   { key: 'top', label: 'From above', hint: 'the plan' },
 ]
 /** A VISITA GUIADA (praca-ajustes.md item 4). Na primeira vez que alguém entra
@@ -186,6 +196,10 @@ function viewFor(name: string | null, aspect: number): View {
       // 55% do quadro era chão vazio.
       return { pos: new THREE.Vector3(PAD_MAIN.x + 40, 58, PAD_MAIN.z + 215), target: new THREE.Vector3(PAD_MAIN.x + 10, 92, PAD_MAIN.z - 60) }
     }
+    case 'war':
+      // chegando do lado da praça (NE da cratera), baixo o bastante pros
+      // exércitos encherem o quadro e a frente cruzar em diagonal
+      return { pos: new THREE.Vector3(WAR_POS.x + 215, 78, WAR_POS.z - 225), target: new THREE.Vector3(WAR_POS.x - 30, 8, WAR_POS.z + 30) }
     case 'far':
       return { pos: new THREE.Vector3(-2600, 2800, 4200), target: new THREE.Vector3(1800, 0, -1900) }
     case 'park':
@@ -253,6 +267,12 @@ export default function PlazaScene() {
   })
   const [followInput, setFollowInput] = useState('')
   const [placesOpen, setPlacesOpen] = useState(false)
+  // o HUD da guerra é imperativo: o laço 3D escreve opacidade e números direto
+  // nestes nós conforme a distância até a cratera, sem passar pelo React
+  const warHudRef = useRef<HTMLDivElement>(null)
+  const warPrecoRef = useRef<HTMLDivElement>(null)
+  const warPressaoRef = useRef<HTMLDivElement>(null)
+  const warBaixasRef = useRef<HTMLDivElement>(null)
   // ── O CHAMADO DA OBRA (praca-ajustes.md item 8) ──────────────────────────
   // A praça é a vitrine do que o dinheiro constrói, e até agora ela não pedia
   // nada: quem entrava não tinha como financiar o próximo quarteirão sem sair da
@@ -597,6 +617,8 @@ export default function PlazaScene() {
     let dsc: DscGallery | null = null
     let founders: FoundersWalk | null = null
     const spinners: THREE.Object3D[] = []
+    let campo: Battlefield | null = null
+    let campoVivo = false
     let heightAt: (x: number, z: number) => number = () => 0
 
     const loadGlb = (url: string) =>
@@ -620,6 +642,34 @@ export default function PlazaScene() {
         groundAt = terrain.heightAt
         scene.add(terrain.group)
         stepDone('terrain')
+
+        // ── a Cratera da Guerra nasce com o terreno, dormindo ────────────────
+        // ⚠️ ANTES do compileAsync, senão as luzes do campo mudam a contagem de
+        // PointLight depois do boot e o three recompila a cena inteira no
+        // primeiro frame. luzesAmbiente: false porque o orçamento global de
+        // luzes da praça está no limite; maxLuzes fica em 1-2 impactos.
+        {
+          const orcCampo = profile.quality === 'high'
+            ? { cap: 4200, niveis: 40, maxOndas: 16, maxLuzes: 2, detritos: 500, poeiraMax: 700, faiscaMax: 200 }
+            : profile.quality === 'balanced'
+              ? { cap: 2200, niveis: 28, maxOndas: 10, maxLuzes: 1, detritos: 300, poeiraMax: 450, faiscaMax: 120 }
+              : { cap: 900, niveis: 18, maxOndas: 6, maxLuzes: 1, detritos: 140, poeiraMax: 220, faiscaMax: 70 }
+          // rotação escolhida pra frente cruzar NW-SE: quem chega da praça vê os
+          // cães de frente e os ursos do outro lado
+          const rotY = (5 * Math.PI) / 4
+          const cosR = Math.cos(rotY)
+          const sinR = Math.sin(rotY)
+          const alturaLocal = (x: number, z: number) => {
+            const wx = WAR_POS.x + x * cosR + z * sinR
+            const wz = WAR_POS.z - x * sinR + z * cosR
+            return terrain.heightAt(wx, wz)
+          }
+          campo = createBattlefield(alturaLocal, orcCampo, undefined, { luzesAmbiente: false })
+          campo.group.position.set(WAR_POS.x, 0, WAR_POS.z)
+          campo.group.rotation.y = rotY
+          scene.add(campo.group)
+          culler.add(campo.group, 3600, new THREE.Vector3(WAR_POS.x, 0, WAR_POS.z))
+        }
 
         // The deck (podium, gardens, supertrees, amphitheatre, pools, colonnade,
         // monorail) comes from the landing .blend; the three towers are the
@@ -1332,6 +1382,33 @@ export default function PlazaScene() {
       founders?.update(t)
       dsc?.update(t)
       park?.update(t, renderer.domElement.clientHeight / 2, camera.position)
+      // ── a guerra acorda por proximidade e a interface muda de modo ────────
+      // O feed liga a 1,4 km e desliga ao se afastar; o HUD do modo jogo entra
+      // em fade de 1,1 km até 600 m, escrito DIRETO no DOM (zero re-render).
+      if (campo) {
+        const dWar = camera.position.distanceTo(WAR_POS)
+        const quer = dWar < 1400
+        if (quer !== campoVivo) {
+          campoVivo = quer
+          campo.setLive(quer)
+        }
+        if (dWar < 3600) campo.update(nowMs)
+        if (warHudRef.current) {
+          const k = Math.min(1, Math.max(0, (1100 - dWar) / 500))
+          warHudRef.current.style.opacity = k.toFixed(2)
+          if (k > 0 && (hudTick & 31) === 1) {
+            const h = campo.hud()
+            if (warPrecoRef.current) warPrecoRef.current.textContent = h.preco > 0 ? `$${h.preco.toFixed(6)}` : '$-'
+            if (warPressaoRef.current) {
+              const tot = h.compra + h.venda
+              warPressaoRef.current.style.width = `${(tot > 0 ? (h.compra / tot) * 100 : 50).toFixed(1)}%`
+            }
+            if (warBaixasRef.current) {
+              warBaixasRef.current.textContent = `bears ${fmtQtd(h.ursosCaidos)} · dogs ${fmtQtd(h.caesCaidos)} fallen`
+            }
+          }
+        }
+      }
       for (const sp of spinners) sp.rotation.y = t * 0.12
       // ⚠️ SEM PARALAXE: a Terra anda junto com a câmera, então a direção dela no
       // céu é sempre a mesma e o tamanho na tela nunca muda.
@@ -1394,6 +1471,7 @@ export default function PlazaScene() {
       props?.dispose()
       dsc?.dispose()
       founders?.dispose()
+      campo?.dispose()
       draco.dispose()
       lunarEnv.dispose()
       scene.traverse((o) => {
@@ -1461,6 +1539,21 @@ export default function PlazaScene() {
       {boot.ready && <>
 
       {!plate && <>
+      {/* ── o modo jogo: invisível até a câmera chegar perto da cratera ── */}
+      <div
+        ref={warHudRef}
+        className="pointer-events-none absolute inset-x-0 flex justify-center transition-opacity duration-300"
+        style={{ opacity: 0, bottom: 'calc(1.25rem + env(safe-area-inset-bottom))' }}
+      >
+        <div className="border border-white/10 bg-black/85 px-4 py-2.5 text-center font-mono">
+          <div className="text-[9px] uppercase tracking-[0.3em] text-white/40">The Price War · DOG / USD · Kraken live</div>
+          <div ref={warPrecoRef} className="mt-1 text-xl tracking-tight text-white/95 tabular-nums">$-</div>
+          <div className="mx-auto mt-1.5 h-1 w-56 overflow-hidden rounded-full bg-white/10">
+            <div ref={warPressaoRef} className="h-full bg-gradient-to-r from-[#f7931a] to-[#c96a12]" style={{ width: '50%' }} />
+          </div>
+          <div ref={warBaixasRef} className="mt-1 text-[9px] uppercase tracking-[0.18em] text-white/35 tabular-nums">bears 0 · dogs 0 fallen</div>
+        </div>
+      </div>
       {/* ── title, and the way back: the landing is the front door, the site is home */}
       <div className="absolute left-4 top-4 sm:left-6 sm:top-6">
         <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/50">
