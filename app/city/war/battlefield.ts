@@ -1129,16 +1129,22 @@ export function createBattlefield(
     })
   }
 
-  fetch('/api/war/ticker')
-    .then((r) => r.json())
-    .then((t) => {
-      if (t && t.low24) {
-        low24 = t.low24
-        high24 = t.high24
-        open24 = t.open
-      }
-    })
-    .catch(() => {})
+  // o range de 24h é vivo: preço furando o low/high de agora estica a régua,
+  // então o quadro se atualiza de tempos em tempos (o rebuild é no aplicaBook)
+  const buscaTicker = () => {
+    fetch('/api/war/ticker')
+      .then((r) => r.json())
+      .then((t) => {
+        if (t && t.low24) {
+          low24 = t.low24
+          high24 = t.high24
+          open24 = t.open
+        }
+      })
+      .catch(() => {})
+  }
+  buscaTicker()
+  const tickerTimer = setInterval(buscaTicker, 300000)
 
   // ── A FRENTE VIVA: o preço dentro do range de 24h É a posição da linha ──
   // ⚠️ ANTES A LINHA ERA FIXA EM x=0 e o mundo se recentrava em volta dela,
@@ -1151,10 +1157,85 @@ export function createBattlefield(
   let cicatrizAcum = 0
   const DESLOC_FRENTE = 34
   const VEL_FRENTE = 1.3
+  // a régua territorial: preço → x do TERRENO (não confundir com precoParaX,
+  // que espalha o book em volta da frente; esta aqui é fixa no chão)
+  const xDoPreco = (p: number) => {
+    const pos = Math.min(1, Math.max(0, (p - low24) / (high24 - low24)))
+    return (pos - 0.5) * 2 * DESLOC_FRENTE
+  }
   const frenteAlvo = () => {
     if (!(mid > 0) || !(high24 > low24)) return 0
-    const pos = Math.min(1, Math.max(0, (mid - low24) / (high24 - low24)))
-    return (pos - 0.5) * 2 * DESLOC_FRENTE
+    return xDoPreco(mid)
+  }
+
+  // ── A RÉGUA NO CHÃO: níveis de preço pintados no terreno ────────────────
+  // ⚠️ SEM MARCA FIXA NO CHÃO NÃO EXISTE SENSAÇÃO DE AVANÇO (o fundador
+  // cravou): a frente precisa CRUZAR alguma coisa para o olho medir a
+  // conquista. Linhas em degraus redondos de preço entre o low e o high de
+  // 24h, com o número de cada nível gravado no chão; a frente rasteja por
+  // cima delas e cada linha cruzada é território tomado.
+  const reguaGrupo = new THREE.Group()
+  group.add(reguaGrupo)
+  let reguaLow = 0
+  let reguaHigh = 0
+  const degrauRedondo = (span: number) => {
+    const bruto = span / 5
+    const mag = Math.pow(10, Math.floor(Math.log10(bruto)))
+    const m = bruto / mag
+    return (m >= 5 ? 5 : m >= 2 ? 2 : 1) * mag
+  }
+  const limpaRegua = () => {
+    for (const filho of [...reguaGrupo.children]) {
+      const mesh = filho as THREE.Mesh
+      mesh.geometry?.dispose()
+      const mat = mesh.material as THREE.Material | undefined
+      if (mat) {
+        const map = (mat as THREE.SpriteMaterial).map
+        if (map) map.dispose()
+        mat.dispose()
+      }
+      reguaGrupo.remove(filho)
+    }
+  }
+  const constroiRegua = () => {
+    limpaRegua()
+    reguaLow = low24
+    reguaHigh = high24
+    const passo = degrauRedondo(high24 - low24)
+    const precos: number[] = [low24]
+    for (let p = Math.ceil(low24 / passo) * passo; p < high24 - passo * 0.25; p += passo) {
+      if (p > low24 + passo * 0.25) precos.push(p)
+    }
+    precos.push(high24)
+    const partes: THREE.BufferGeometry[] = []
+    for (const p of precos) {
+      const x = xDoPreco(p)
+      const extremo = p === low24 || p === high24
+      for (let s = 0; s < 20; s++) {
+        const z0 = -62 + s * 6.2
+        const z1 = z0 + 6.2
+        const y0 = altura(x, z0) + 0.12
+        const y1 = altura(x, z1) + 0.12
+        const g = new THREE.BoxGeometry(extremo ? 0.7 : 0.4, 0.05, Math.hypot(6.2, y1 - y0))
+        g.rotateX(Math.atan2(y1 - y0, 6.2))
+        g.translate(x, (y0 + y1) / 2, (z0 + z1) / 2)
+        partes.push(g)
+      }
+      const et = etiqueta(fmtPreco(p))
+      et.scale.set(10, 1.9, 1)
+      ;(et.material as THREE.SpriteMaterial).opacity = 0.75
+      et.position.set(x, altura(x, 58) + 1.7, 58)
+      semRaycast(et)
+      reguaGrupo.add(et)
+    }
+    const geoRegua = mergeGeometries(partes, false)!
+    partes.forEach((g) => g.dispose())
+    const linhas = new THREE.Mesh(geoRegua, new THREE.MeshBasicMaterial({
+      color: 0xcabfa8, transparent: true, opacity: 0.3, depthWrite: false,
+    }))
+    semRaycast(linhas)
+    linhas.frustumCulled = false
+    reguaGrupo.add(linhas)
   }
 
   // ── book vira fileiras ──────────────────────────────────────────────────
@@ -1256,10 +1337,27 @@ export function createBattlefield(
     montaExercito(exCaes, bids, -1, qMediana)
     montaExercito(exUrsos, asks, 1, qMediana)
 
-    if (low24 > 0 && mid > 0) {
+    if (low24 > 0 && high24 > low24 && mid > 0) {
+      // régua e obeliscos vivem na MESMA escala territorial da frente: os
+      // obeliscos cravam as pontas do range e a régua os degraus entre eles
+      const mudou = reguaLow === 0
+        || Math.abs(low24 - reguaLow) / reguaLow > 0.005
+        || Math.abs(high24 - reguaHigh) / reguaHigh > 0.005
+      if (mudou) {
+        constroiRegua()
+        if (etLow) {
+          for (const sp of [etLow, etHigh!]) {
+            const m = sp.material as THREE.SpriteMaterial
+            m.map?.dispose()
+            m.dispose()
+            group.remove(sp)
+          }
+          etLow = etHigh = null
+        }
+      }
       obLow.visible = obHigh.visible = true
-      obLow.position.x = Math.max(-CAMPO_X - 10, Math.min(CAMPO_X + 10, precoParaX(low24)))
-      obHigh.position.x = Math.max(-CAMPO_X - 10, Math.min(CAMPO_X + 10, precoParaX(high24)))
+      obLow.position.x = xDoPreco(low24)
+      obHigh.position.x = xDoPreco(high24)
       obLow.position.z = -58
       obHigh.position.z = -58
       obLow.position.y = altura(obLow.position.x, -58) + 4.5
@@ -1850,6 +1948,7 @@ export function createBattlefield(
       ursosCaidos, caesCaidos, compra, venda,
     }),
     dispose: () => {
+      clearInterval(tickerTimer)
       if (feed) feed.stop()
       group.traverse((obj) => {
         const g = (obj as THREE.Mesh).geometry
