@@ -296,6 +296,13 @@ export default function WarScene() {
       setBaleia({ lado, chave: performance.now() })
       tremorT0 = performance.now()
       tremorForca = Math.min(1, forca / 40)
+    }, {
+      // morteiro e canhão de tanque sacodem a câmera de leve
+      onImpactoGrande: (forca) => {
+        if (performance.now() - tremorT0 < 300) return
+        tremorT0 = performance.now()
+        tremorForca = Math.min(0.5, forca / 30)
+      },
     })
     scene.add(campo.group)
     campo.setLive(true)
