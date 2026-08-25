@@ -697,9 +697,11 @@ export function createBattlefield(
     const sp = bolasFogo[bolaCursor]
     bolaCursor = (bolaCursor + 1) % POOL_BOLA
     sp.position.copy(p).setY(p.y + 0.6 + Math.sqrt(forca) * 0.3)
-    sp.userData.base = 2.2 + Math.sqrt(forca) * 2.6
+    // ⚠️ a fase BRILHANTE é o que o olho chama de explosão; curta demais e a
+    // guerra vira só fumaça (o fundador assistiu e só viu "tiros pequenos")
+    sp.userData.base = 2.6 + Math.sqrt(forca) * 3.2
     sp.userData.t0 = performance.now()
-    sp.userData.dur = 480 + forca * 40
+    sp.userData.dur = 650 + forca * 55
     const mat = sp.material as THREE.SpriteMaterial
     mat.blending = THREE.AdditiveBlending
     mat.color.setRGB(1, 1, 1)
@@ -889,7 +891,7 @@ export function createBattlefield(
 
   // ── OFENSIVA COORDENADA: barragem, avanço do exército inteiro, recuo ────
   type FaseOfensiva = 'barragem' | 'avanco' | 'recuo'
-  let ofensiva: { lado: 'buy' | 'sell'; fase: FaseOfensiva; t0: number; proxTiro: number } | null = null
+  let ofensiva: { lado: 'buy' | 'sell'; fase: FaseOfensiva; t0: number; proxTiro: number; proxCasca: number } | null = null
   let proxOfensiva = performance.now() + 9000
 
   // ── TANQUES: entram quando o VOLUME REAL sobe (régua relativa ao DOG) ───
@@ -1467,6 +1469,7 @@ export function createBattlefield(
   let ultimoUpdate = 0
   let ultimaEscaramuca = 0
   let proxArtilharia = 0
+  let proxCanhao = 0
   const passo = new THREE.Vector3()
   const zEixo = new THREE.Vector3(0, 0, 1)
 
@@ -1634,17 +1637,26 @@ export function createBattlefield(
         const lado: 'buy' | 'sell' = hash(Math.floor(agora) % 691, 9) < press ? 'buy' : 'sell'
         rajada(lado, (hash(Math.floor(agora) % 1213, 5) - 0.5) * 100, 0.9 + hash(Math.floor(agora) % 331, 7) * 1.7, agora)
       }
-      // morteiros pesados: ~5/min no piso, ~40/min no pico
-      const morteiroPorMin = 5 + 35 * Math.pow(intensidade, 1.8)
+      // morteiros pesados: sempre tem casca no ar (~28/min no piso, 48 no pico)
+      const morteiroPorMin = 16 + 32 * Math.pow(intensidade, 1.6)
       if (agora > proxArtilharia) {
         proxArtilharia = agora + (60000 / morteiroPorMin) * (0.55 + hash(Math.floor(agora) % 449, 11) * 0.9)
         const lado = hash(Math.floor(agora) % 863, 13) < press ? 'buy' : 'sell'
         disparaMorteiro(lado, 4 + intensidade * 5, (hash(Math.floor(agora) % 1069, 19) - 0.5) * 105)
       }
+      // canhões de teatro: um PAR de tiros parabólicos simultâneos de tempos em
+      // tempos (qty 0: sem placar), pra sempre haver mais de uma arma na cena
+      if (agora > proxCanhao) {
+        proxCanhao = agora + (7500 - intensidade * 3500) + hash(Math.floor(agora) % 719, 17) * 4000
+        const lado: 'buy' | 'sell' = hash(Math.floor(agora) % 523, 29) < press ? 'buy' : 'sell'
+        const zC = (hash(Math.floor(agora) % 1327, 31) - 0.5) * 95
+        atira(lado, 0, 3 + hash(Math.floor(agora) % 271, 37) * 2.5, zC, Math.floor(agora) % 9973)
+        atira(lado, 0, 2.5 + hash(Math.floor(agora) % 199, 41) * 2, zC + 14 + hash(Math.floor(agora) % 157, 43) * 18, Math.floor(agora) % 7919)
+      }
       // ofensiva coordenada: barragem + avanço do exército inteiro + recuo
       if (!ofensiva && agora > proxOfensiva) {
         const lado: 'buy' | 'sell' = hash(Math.floor(agora) % 941, 23) < press ? 'buy' : 'sell'
-        ofensiva = { lado, fase: 'barragem', t0: agora, proxTiro: agora }
+        ofensiva = { lado, fase: 'barragem', t0: agora, proxTiro: agora, proxCasca: agora }
       }
       // tanques: avaliação barata a cada 1.4s
       if (agora > proxAvaliacaoTanque) {
@@ -1660,6 +1672,12 @@ export function createBattlefield(
         if (agora > ofensiva.proxTiro) {
           ofensiva.proxTiro = agora + 160 + hash(Math.floor(agora) % 233, 3) * 100
           rajada(ofensiva.lado, (hash(Math.floor(agora) % 811, 5) - 0.5) * 100, 1.6, agora)
+        }
+        // a barragem é de CASCA, não só de bala: morteiros encadeados são o
+        // que faz a ofensiva ler como ofensiva a qualquer distância
+        if (agora > ofensiva.proxCasca) {
+          ofensiva.proxCasca = agora + 380 + hash(Math.floor(agora) % 149, 7) * 180
+          disparaMorteiro(ofensiva.lado, 5 + intensidade * 3.5, (hash(Math.floor(agora) % 977, 11) - 0.5) * 95)
         }
         if (idade > 3200) {
           ofensiva.fase = 'avanco'
@@ -1746,14 +1764,14 @@ export function createBattlefield(
         continue
       }
       const mat = sp.material as THREE.SpriteMaterial
-      if (f < 0.3) {
-        const k = f / 0.3
+      if (f < 0.42) {
+        const k = f / 0.42
         sp.scale.setScalar(sp.userData.base * (0.3 + k * 0.9))
         mat.blending = THREE.AdditiveBlending
         mat.color.setRGB(1, 1 - k * 0.35, 1 - k * 0.75)
         mat.opacity = 1
       } else {
-        const k = (f - 0.3) / 0.7
+        const k = (f - 0.42) / 0.58
         sp.scale.setScalar(sp.userData.base * (1.2 + k * 1.6))
         mat.blending = THREE.NormalBlending
         mat.color.setRGB(0.35 - k * 0.2, 0.28 - k * 0.15, 0.22 - k * 0.12)
