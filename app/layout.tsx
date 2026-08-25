@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { JetBrains_Mono, Syne, DM_Sans, Instrument_Serif, Barlow } from 'next/font/google'
 import './globals.css'
 import { VerifiedAddressesProvider } from '@/contexts/VerifiedAddressesContext'
+import { WalletProvider } from '@/contexts/WalletContext'
 import { AnalyticsTracker } from '@/components/analytics-tracker'
 
 const jetbrainsMono = JetBrains_Mono({
@@ -112,9 +113,11 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className={`${jetbrainsMono.variable} ${syne.variable} ${dmSans.variable} ${instrumentSerif.variable} ${barlow.variable} font-mono`}>
         <VerifiedAddressesProvider>
-          <div className="min-h-screen bg-void">
-            {children}
-          </div>
+          <WalletProvider>
+            <div className="min-h-screen bg-void">
+              {children}
+            </div>
+          </WalletProvider>
         </VerifiedAddressesProvider>
         <AnalyticsTracker />
       </body>

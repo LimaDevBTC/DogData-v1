@@ -10,14 +10,6 @@ app/city/luna/
 lib/city/lunar/
 scripts/lunar/
 
-# Connect Wallet — work in progress, not ready for production cron (connectwallet.md, Bloco A)
-# NOTE: the tracked files that import these (components/header.tsx, app/layout.tsx,
-# package.json, package-lock.json) are held back via `git update-index --skip-worktree`.
-lib/wallet/
-components/wallet/
-contexts/WalletContext.tsx
-app/api/wallet/
-
 # Dependencies
 node_modules/
 npm-debug.log*

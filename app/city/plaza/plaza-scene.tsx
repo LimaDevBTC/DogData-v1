@@ -36,6 +36,7 @@ import { SF_CREDITS, SF, loadSf, dressSf } from './sf-assets'
 import { buildProps, type Props } from './props'
 import { buildDscGallery, DSC_CENTER, type DscGallery } from './dsc-gallery'
 import { PROPS } from './props-table'
+import { CityChat } from '@/components/wallet/city-chat'
 
 // ── framing ────────────────────────────────────────────────────────────────────
 // The default view is the landing hero, from the north-east, high enough that the
@@ -275,6 +276,8 @@ export default function PlazaScene() {
   // embaixo (fundador, 25/08). No desktop segue fixo como sempre foi.
   const [followOpen, setFollowOpen] = useState(false)
   const [placesOpen, setPlacesOpen] = useState(false)
+  // painel de chat da praça: mesmo estado abre o botão do HUD e o overlay/painel em city-chat.tsx
+  const [chatOpen, setChatOpen] = useState(false)
   // o HUD da guerra é imperativo: o laço 3D escreve opacidade e números direto
   // nestes nós conforme a distância até a cratera, sem passar pelo React
   const warHudRef = useRef<HTMLDivElement>(null)
@@ -1644,6 +1647,13 @@ export default function PlazaScene() {
           >
             War
           </button>
+          <button
+            type="button"
+            onClick={() => setChatOpen((v) => !v)}
+            className="ml-2 border border-white/15 bg-black/70 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-white/70 hover:border-white/40 hover:text-white"
+          >
+            Chat
+          </button>
           {/* no celular o follow mora aqui em cima, com os irmãos */}
           <button
             type="button"
@@ -1710,7 +1720,7 @@ export default function PlazaScene() {
       {/* ── the board: under the title on phones, top-right on desktop ──────
           ⚠️ no celular o bloco de título (marca + h1 + subtítulo + botões)
           desce até ~9rem; a 5.6rem a barra cobria PLACES e TOUR */}
-      <div className="absolute left-4 right-4 top-[9.4rem] sm:left-auto sm:right-6 sm:top-6 sm:w-[20rem]">
+      <div className="absolute left-4 right-4 top-[9.4rem] sm:left-auto sm:right-6 sm:top-6 sm:flex sm:w-[20rem] sm:flex-col sm:gap-2">
         <div className="border border-white/10 bg-black/85">
           <button
             type="button"
@@ -1758,6 +1768,9 @@ export default function PlazaScene() {
             </dl>
           )}
         </div>
+        {/* ── chat: no desktop empilha aqui embaixo do board (mesmo container flex);
+            city-chat.tsx troca sozinho pra overlay fixo quase-tela-cheia abaixo do sm ── */}
+        <CityChat open={chatOpen} onClose={() => setChatOpen(false)} />
       </div>
 
       {/* ── a legenda da visita guiada (item 4) ───────────────────────────── */}

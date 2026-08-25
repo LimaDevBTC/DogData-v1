@@ -5,7 +5,6 @@ import {
   BarChart3,
   Users,
   RefreshCw,
-  Heart,
   CreditCard,
   Network,
   Sparkles,
@@ -16,6 +15,7 @@ import {
   Search,
   Building2,
 } from "lucide-react"
+import { WalletButton } from "@/components/wallet/wallet-button"
 
 type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain' | 'explorer' | 'status' | 'city'
 
@@ -166,15 +166,8 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
 
           {/* Right side */}
           <div className="flex items-center space-x-2 md:space-x-2.5 flex-shrink-0 ml-4">
-            {/* Donate */}
-            <button
-              onClick={() => setCurrentPage('donate')}
-              className="hidden lg:flex items-center px-4 py-1.5 bg-gradient-to-r from-lava to-lava-dark text-snow font-mono font-medium text-xs tracking-wide transition-all duration-300 shadow-[0_0_20px_rgba(245,110,15,0.15)] hover:shadow-[0_0_30px_rgba(245,110,15,0.25)] hover:scale-[1.02] group rounded-lg"
-              title="Support DOG Data"
-            >
-              <Heart className="w-3.5 h-3.5 mr-1.5 group-hover:scale-110 transition-transform duration-300" />
-              <span className="font-semibold">Donate</span>
-            </button>
+            {/* Connect Wallet (substituiu o Donate — connectwallet.md) */}
+            <WalletButton />
 
             {/* Status — clickable, shows live system health (links to /status page) */}
             <a
@@ -262,17 +255,9 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
               DogCity
               <span className="ml-auto px-1.5 py-px text-[8px] font-bold bg-lava/[0.12] text-lava/70 border border-lava/[0.18] rounded tracking-widest">SOON</span>
             </a>
-            <button
-              onClick={() => handleNavClick('donate')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 font-mono text-sm tracking-wide transition-all duration-200 rounded-lg ${
-                currentPage === 'donate'
-                  ? 'text-lava bg-lava/[0.08]'
-                  : 'text-[#6B6B78] hover:text-snow hover:bg-white/[0.03]'
-              }`}
-            >
-              <Heart className="w-4 h-4 flex-shrink-0" />
-              Donate
-            </button>
+            <div className="pt-1 mt-1 border-t border-white/[0.04]">
+              <WalletButton variant="mobile" />
+            </div>
           </nav>
         </div>
       )}
