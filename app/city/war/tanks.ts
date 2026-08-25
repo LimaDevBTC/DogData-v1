@@ -12,8 +12,8 @@ export interface CoresTanque {
 }
 
 export const CORES_TANQUE_DOG: CoresTanque = {
-  casco: new THREE.Color('#e8830a'),
-  cascoSombra: new THREE.Color('#9c5c14'),
+  casco: new THREE.Color('#e06207'),
+  cascoSombra: new THREE.Color('#8a480f'),
   detalhe: new THREE.Color('#efe2c6'),
   esteira: new THREE.Color('#2a1f14'),
 }

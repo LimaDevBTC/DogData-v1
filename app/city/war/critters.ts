@@ -10,10 +10,13 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
-const BITCOIN_ORANGE = new THREE.Color('#f7931a')
-const SHIBA_TAN = new THREE.Color('#d69a55')
+// ⚠️ o hex do casaco NÃO é o #f7931a da marca: sob sol quente + exposição 1.42
+// + ACES ele sai DOURADO na tela. O canal verde vai mais baixo aqui pra que o
+// tonemap devolva laranja de verdade; a marca continua #f7931a só no HUD 2D.
+const BITCOIN_ORANGE = new THREE.Color('#f0680b')
+const SHIBA_TAN = new THREE.Color('#c9722a')
 const SHIBA_CREAM = new THREE.Color('#efe2c6')
-const SHIBA_EAR = new THREE.Color('#b57c3c')
+const SHIBA_EAR = new THREE.Color('#a35d24')
 // ⚠️ a massa do urso precisa de cor tão alta quanto o laranja Bitcoin, senão o
 // lado vendedor vira breu contra o fundo #040305 assim que a cena encolhe pra
 // miniatura de card no X; a paleta foi calibrada pra thumbnail, não pro close
