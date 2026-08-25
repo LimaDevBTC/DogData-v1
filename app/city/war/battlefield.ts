@@ -275,7 +275,8 @@ export function createBattlefield(
     const rot = new Float32Array(orc.cap)
     const esc = new Float32Array(orc.cap)
     for (let i = 0; i < orc.cap; i++) {
-      rot[i] = (hash(i, 71) - 0.5) * 0.35
+      // postura solta: soldado de verdade não olha todo pro mesmo ponto
+      rot[i] = (hash(i, 71) - 0.5) * 0.9
       esc[i] = 0.9 + hash(i, 73) * 0.25
     }
     return {
@@ -1736,13 +1737,19 @@ export function createBattlefield(
       const nv = niveis[li]
       const x0 = precoParaX(nv.price)
       const unidades = Math.min(96, Math.max(1, Math.round(6 * Math.sqrt(nv.qty / qMediana))))
+      // ⚠️ NADA DE DESFILE (fundador, 25/08): a grade de 12 colunas com jitter
+      // mínimo lia como parada militar, fileiras 100% organizadas e estreitas.
+      // Agora cada nível vira ESQUADRÕES de ~5 espalhados pela frente inteira:
+      // o centro do esquadrão sorteia um z em toda a largura do campo (com
+      // leve viés pro miolo) e os soldados aglomeram em volta dele, cada um
+      // com posto próprio. Tudo por hash determinístico (li, u): o book pode
+      // atualizar que os postos não pulam, e a marcha continua suave.
       for (let u = 0; u < unidades && i < orc.cap; u++) {
-        const fila = Math.floor(u / 12)
-        const col = u % 12
-        const jx = (hash(li * 31 + u, 7) - 0.5) * 0.7
-        const jz = (hash(li * 17 + u, 13) - 0.5) * 0.9
-        const px = x0 + lado * (fila * 1.5 + jx)
-        const pz = (col - 5.5) * 1.45 + (fila % 2) * 0.7 + jz
+        const esq = Math.floor(u / 5)
+        const zc0 = (hash(li * 53 + esq, 29) - 0.5) * 104
+        const zc = zc0 * (0.55 + 0.45 * hash(li * 37 + esq, 31))
+        const px = x0 + lado * ((hash(li * 31 + u, 7) - 0.5) * 3.6 + hash(li * 41 + esq, 43) * 2.2)
+        const pz = zc + (hash(li * 17 + u, 13) - 0.5) * 4.2
         ex.alvo[i * 3] = px
         ex.alvo[i * 3 + 1] = altura(px, pz) + 0.05
         ex.alvo[i * 3 + 2] = pz
