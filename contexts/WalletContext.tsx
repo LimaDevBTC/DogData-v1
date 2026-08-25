@@ -33,7 +33,7 @@ async function requestProof(account: ConnectedAccount): Promise<void> {
     body: JSON.stringify({ address: addr }),
   })
   const ndata = await nres.json()
-  if (!nres.ok) throw new Error(ndata.error || 'Falha ao obter o desafio.')
+  if (!nres.ok) throw new Error(ndata.error || 'Could not fetch the sign-in challenge.')
 
   // 2) assina na carteira (BIP-322 nas 3, Schnorr na Kray)
   const signed = await getConnector(account.walletId).signMessage(addr, ndata.message)
@@ -51,7 +51,7 @@ async function requestProof(account: ConnectedAccount): Promise<void> {
     }),
   })
   const vdata = await vres.json()
-  if (!vres.ok) throw new Error(vdata.error || 'Verificação de posse falhou.')
+  if (!vres.ok) throw new Error(vdata.error || 'Ownership verification failed.')
 }
 
 export function WalletProvider({ children }: { children: ReactNode }) {
@@ -90,7 +90,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const closeModal = useCallback(() => setModalOpen(false), [])
 
   const prove = useCallback(async () => {
-    if (!account) throw new Error('Conecte a carteira primeiro.')
+    if (!account) throw new Error('Connect a wallet first.')
     setStatus('proving')
     setError(null)
     try {
@@ -99,7 +99,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setStatus('connected')
     } catch (e: any) {
       setStatus('connected')
-      setError(e?.message || 'Falha na prova de posse.')
+      setError(e?.message || 'Proof of ownership failed.')
       throw e
     }
   }, [account])
@@ -111,7 +111,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     try {
       const connector = getConnector(id)
       if (!connector.isInstalled()) {
-        throw new Error('Carteira não detectada. Instale a extensão e recarregue.')
+        throw new Error('Wallet not detected. Install the extension and reload.')
       }
       const acc = await connector.connect()
       setAccount(acc)
@@ -122,6 +122,19 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       }
       setModalOpen(false)
 
+      // A Kray abre popup próprio pra requestAccounts(); pedir uma assinatura
+      // logo em seguida, sem um novo gesto do usuário, empilha 2 popups no
+      // mesmo fluxo e a extensão recusa a sessão inteira (era a causa real
+      // do "conexão recusada pela Kray", que não vinha do requestAccounts em
+      // si, vinha do signMessage encadeado automaticamente por aqui). Fica
+      // conectado-mas-não-provado; quem quiser provar chama prove() depois,
+      // como ação separada. A assinatura Schnorr da Kray continua existindo
+      // em lib/wallet/connectors/kray.ts, só não dispara sozinha.
+      if (id === 'kray') {
+        setStatus('connected')
+        return
+      }
+
       // Prova de posse logo após conectar (padrão "sign-in with wallet").
       // Se o usuário recusar a assinatura, segue conectado-mas-não-verificado.
       setStatus('proving')
@@ -129,12 +142,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         await requestProof(acc)
         setVerified(true)
       } catch (e: any) {
-        setError(e?.message || 'Conectado, mas a posse não foi verificada.')
+        setError(e?.message || 'Connected, but ownership was not verified.')
       }
       setStatus('connected')
     } catch (e: any) {
       setStatus(account ? 'connected' : 'idle')
-      setError(e?.message || 'Falha ao conectar.')
+      setError(e?.message || 'Failed to connect.')
       throw e
     }
   }, [account])
