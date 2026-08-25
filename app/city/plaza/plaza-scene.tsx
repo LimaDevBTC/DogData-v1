@@ -199,12 +199,15 @@ function viewFor(name: string | null, aspect: number): View {
     }
     case 'war':
       // chegando do lado da praça (NE da cratera), baixo o bastante pros
-      // exércitos (em escala de monumento) encherem o quadro em diagonal;
-      // em pé (celular) a câmera chega MUITO mais perto, senão a fuzilaria,
-      // a poeira e a fumaça viram subpixel e a guerra parece parada
+      // exércitos (em escala de monumento) encherem o quadro em diagonal.
+      // ⚠️ EM PÉ (celular) a chegada rasteira punha a câmera no chão ATRÁS
+      // das costas dos cães, com meio ecrã de regolito e a batalha escondida
+      // (fundador fotografou): o retrato agora chega ALTO e recuado, vendo a
+      // costura de través com os dois exércitos e a régua no quadro; a escala
+      // de monumento (2,6x) mantém os efeitos legíveis mesmo desta altura.
       return aspect >= 1
         ? { pos: new THREE.Vector3(WAR_POS.x + 460, 175, WAR_POS.z - 480), target: new THREE.Vector3(WAR_POS.x - 60, 25, WAR_POS.z + 60) }
-        : { pos: new THREE.Vector3(WAR_POS.x + 235, 92, WAR_POS.z - 245), target: new THREE.Vector3(WAR_POS.x - 30, 15, WAR_POS.z + 30) }
+        : { pos: new THREE.Vector3(WAR_POS.x + 350, 235, WAR_POS.z - 370), target: new THREE.Vector3(WAR_POS.x - 40, 5, WAR_POS.z + 40) }
     case 'far':
       return { pos: new THREE.Vector3(-2600, 2800, 4200), target: new THREE.Vector3(1800, 0, -1900) }
     case 'park':
