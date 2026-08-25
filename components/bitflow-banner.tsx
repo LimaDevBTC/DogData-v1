@@ -70,7 +70,7 @@ export function BitflowBanner({ noMargin = false }: { noMargin?: boolean }) {
   }
 
   return (
-    <div ref={bannerRef} className={`w-full ${noMargin ? '' : 'mb-6 md:mb-8'}`}>
+    <div ref={bannerRef} className={`w-full ${noMargin ? '' : 'mb-4 md:mb-8'}`}>
       <a
         href={BITFLOW_URL}
         target="_blank"

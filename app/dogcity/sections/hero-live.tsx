@@ -43,14 +43,24 @@ export default function HeroLive() {
       <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-void via-void/70 to-void/10" />
       <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-void/85 via-void/20 to-transparent" />
 
-      <div className="relative min-h-[78vh] md:min-h-[86vh] flex items-end">
-        <div className="w-full max-w-6xl mx-auto px-6 md:px-10 pb-14 md:pb-20 pt-24">
+      {/* ⚠️ NO CELULAR NÃO HÁ ALTURA MÍNIMA: min-h + items-end deixavam um céu
+          vazio acima do texto e empurravam os CTAs pra fora da primeira dobra
+          (o fundador fotografou). O conteúdo flui logo abaixo da faixa da
+          órbita; no desktop a encenação de 86vh ancorada no pé continua. */}
+      <div className="relative md:min-h-[86vh] flex items-end">
+        <div className="w-full max-w-6xl mx-auto px-6 md:px-10 pt-8 pb-10 md:pt-24 md:pb-20">
           <p className="font-mono text-[11px] tracking-[0.3em] text-lava">DOGCITY · ON THE MOON</p>
-          <h1 className="font-display font-bold text-snow mt-4 leading-[1.02] text-[2.6rem] md:text-7xl max-w-3xl">
+          <h1 className="font-display font-bold text-snow mt-3 md:mt-4 leading-[1.02] text-4xl md:text-7xl max-w-3xl">
             The city is open.
             <span className="block text-mist">The mempool flies over it.</span>
           </h1>
-          <p className="text-sm md:text-base text-mist mt-5 max-w-xl leading-relaxed">
+          {/* na primeira dobra do celular o parágrafo é curto; a versão longa
+              com a geografia completa é de sm pra cima */}
+          <p className="sm:hidden text-sm text-mist mt-4 max-w-xl leading-relaxed">
+            Satoshi Plaza stands on real Mare Tranquillitatis terrain. Every DOG transaction our
+            node sees becomes a ship overhead: the fee sets the altitude, the block is the landing.
+          </p>
+          <p className="hidden sm:block text-sm md:text-base text-mist mt-5 max-w-xl leading-relaxed">
             Satoshi Plaza stands on real Mare Tranquillitatis terrain: the Needle at the centre,
             Kray Tower and BitFlow HQ on the ring, the OrdCards Chalet to the south, the founders&apos;
             circle at the tower foot, and Runestone Park five kilometres north-east. Every DOG
@@ -58,13 +68,13 @@ export default function HeroLive() {
             block is the landing.
           </p>
 
-          <div className="flex flex-wrap items-center gap-3 mt-8">
+          <div className="flex flex-wrap items-center gap-3 mt-6 md:mt-8">
             <Link
               href="/city"
               className="inline-flex items-center gap-2 font-mono text-[12px] font-bold tracking-[0.14em]
                          bg-lava hover:bg-lava-light text-void px-6 py-3.5 transition-colors"
             >
-              ENTER SATOSHI PLAZA
+              ENTER THE DOGCITY
               <ArrowRight className="w-4 h-4" />
             </Link>
             <a
@@ -78,7 +88,7 @@ export default function HeroLive() {
           </div>
 
           {/* três chapas menores: a cidade tem mais do que a praça */}
-          <div className="grid grid-cols-3 gap-2 md:gap-3 mt-10 max-w-2xl">
+          <div className="grid grid-cols-3 gap-2 md:gap-3 mt-8 md:mt-10 max-w-2xl">
             {STILLS.map((s) => (
               <Link key={s.src} href="/city" className="group relative aspect-[16/10] overflow-hidden border border-white/10">
                 <Image src={s.src} alt={s.alt} fill sizes="(min-width: 768px) 220px, 33vw" className="object-cover transition-transform duration-700 group-hover:scale-105" />
