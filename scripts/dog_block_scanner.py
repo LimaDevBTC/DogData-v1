@@ -674,6 +674,17 @@ def scan_block(height, utxo_set):
     block_hash = get_block_hash(height)
     block = get_block(block_hash, verbosity=2)
 
+    # ⚠️ ESTE CONJUNTO PRECISA SER ATUALIZADO DENTRO DO LOOP. Ele começou como
+    # retrato tirado no início do bloco, e retrato parado foi o defeito que
+    # apagou a subárvore inteira da distribuição do airdrop: no bloco 840.648 a
+    # tesouraria encadeou SETE transações de DOG dentro do MESMO bloco
+    # (5280c8fe → 260d66e8 → … → 01a5b58a), e com o retrato parado só a
+    # primeira era vista; as outras seis gastavam saídas que "não existiam
+    # ainda", e com elas sumia toda a descendência (medido: 26% das
+    # transferências explícitas de 840k a 934k fora do índice, todas
+    # descendentes de correntes intra-bloco). Cada transação processada
+    # precisa entrar aqui e no utxo_set na hora, para o irmão de bloco
+    # seguinte enxergar as saídas dela.
     dog_outpoints = set(utxo_set.keys())
     results = []
 
@@ -699,6 +710,15 @@ def scan_block(height, utxo_set):
             result = process_dog_tx(tx, dog_inputs, utxo_set)
             if result:
                 results.append(result)
+                # aplica os deltas JÁ, senão corrente pai→filho no mesmo
+                # bloco perde o filho; os chamadores reaplicam com
+                # pop(…, None) + update, que é idempotente de propósito
+                _, new_utxos, spent_outpoints = result
+                for op in spent_outpoints:
+                    dog_outpoints.discard(op)
+                    utxo_set.pop(op, None)
+                dog_outpoints.update(new_utxos)
+                utxo_set.update(new_utxos)
         except Exception as e:
             log.error(f'Error processing DOG tx {tx["txid"]}: {e}')
 
