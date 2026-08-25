@@ -58,26 +58,37 @@ export default function PlazaClient() {
             The full 3D city is too heavy for in-wallet browsers and can crash them.
             For the full experience, open this link in Safari or Chrome.
           </p>
+          {/* ⚠️ A DIVISÃO (fundador, 25/08): dentro da carteira não cabe tudo,
+              então a escolha é OU a cidade lite OU a batalha. O palco /war é
+              muito mais leve que a cidade (sem torres, sem parque, sem GLB) e
+              roda no tier baixo do próprio WebView. */}
           <div className="mt-5 flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => { setLite(true); setPorta('cena') }}
+              className="border border-[#F7931A]/60 px-4 py-2.5 font-mono text-[11px] uppercase tracking-[0.2em] text-[#F7931A]"
+            >
+              Enter the city, lite mode
+            </button>
+            <a
+              href="/city/war"
+              className="border border-[#F7931A]/60 px-4 py-2.5 text-center font-mono text-[11px] uppercase tracking-[0.2em] text-[#F7931A]"
+            >
+              Watch the price war
+            </a>
             <button
               type="button"
               onClick={() => {
                 navigator.clipboard?.writeText('https://www.dogdata.xyz/city').then(() => setCopiado(true)).catch(() => {})
               }}
-              className="border border-[#F7931A]/60 px-4 py-2.5 font-mono text-[11px] uppercase tracking-[0.2em] text-[#F7931A]"
+              className="border border-white/15 px-4 py-2.5 font-mono text-[11px] uppercase tracking-[0.2em] text-white/60"
             >
               {copiado ? 'Link copied' : 'Copy link for your browser'}
             </button>
-            <button
-              type="button"
-              onClick={() => { setLite(true); setPorta('cena') }}
-              className="border border-white/15 px-4 py-2.5 font-mono text-[11px] uppercase tracking-[0.2em] text-white/60"
-            >
-              Enter anyway, lite mode
-            </button>
           </div>
           <p className="mt-4 font-mono text-[10px] leading-relaxed text-white/35">
-            Lite mode lowers the resolution and skips the battle crater to fit in wallet memory.
+            Lite mode lowers the resolution and skips the battle crater. The price war page
+            carries only the battlefield, so it fits where the full city does not.
           </p>
         </div>
       </div>

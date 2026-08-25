@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { X, Loader2, ShieldCheck, ShieldAlert, Check, AtSign, Copy } from 'lucide-react'
 import { useWallet } from '@/contexts/WalletContext'
-import { handleProblem } from '@/lib/identity/handle'
+import { handleProblem, normalizeHandle } from '@/lib/identity/handle'
 
 interface ProfileState {
   loading: boolean
@@ -208,7 +208,11 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                   />
                   <button
                     onClick={handleSave}
-                    disabled={saving || !!localProblem || input.length === 0}
+                    // ⚠️ o input nasce preenchido com o handle atual, então sem
+                    // estas duas travas o Save ficava permanentemente ativo
+                    // (fundador notou): sem posse provada o servidor recusa com
+                    // 401, e input igual ao salvo não tem o que salvar
+                    disabled={saving || !verified || !!localProblem || input.length === 0 || normalizeHandle(input) === profile.handle}
                     className="px-3 py-1 bg-lava/[0.1] border border-lava/[0.2] text-lava text-[10px] font-mono font-semibold rounded-lg hover:bg-lava/[0.16] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 flex-shrink-0"
                   >
                     {saving && <Loader2 className="w-3 h-3 animate-spin" />}
