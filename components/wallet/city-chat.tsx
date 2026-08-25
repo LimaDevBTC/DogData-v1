@@ -1,6 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useWallet } from '@/contexts/WalletContext'
+import { WalletConnectModal } from '@/components/wallet/wallet-connect-modal'
+import { ProfileModal } from '@/components/wallet/profile-modal'
 
 // Contrato: GET /api/profile → {address, verified, handle}; POST /api/chat
 // {text} exige sessão verified + handle já criado (403 sem handle, 401 sem
@@ -20,6 +23,10 @@ export function CityChat({ open, onClose }: { open: boolean; onClose: () => void
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  // ⚠️ a cidade é tela cheia SEM o header global: o único caminho de
+  // onboarding aqui dentro é o próprio chat abrir os modais de carteira
+  const { account, openModal } = useWallet()
+  const [profileOpen, setProfileOpen] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
   // não rouba o scroll: só desce sozinho se o usuário já estava perto do fim
   const stickToBottomRef = useRef(true)
@@ -168,11 +175,29 @@ export function CityChat({ open, onClose }: { open: boolean; onClose: () => void
             </button>
           </div>
         ) : (
-          <p className="font-mono text-[10px] leading-relaxed text-white/40">
-            Connect your wallet and claim a handle to chat.
-          </p>
+          <button
+            type="button"
+            onClick={() => (account ? setProfileOpen(true) : openModal())}
+            className="w-full border border-white/15 px-2 py-1.5 text-left font-mono text-[10px] leading-relaxed text-white/60 transition-colors hover:border-[#F7931A]/60 hover:text-[#F7931A]"
+          >
+            {!account
+              ? 'Connect your wallet to chat'
+              : !profile.verified
+                ? 'Verify ownership to chat'
+                : 'Claim your handle to chat'}
+          </button>
         )}
       </div>
+
+      {/* os modais moram aqui porque a cena não renderiza o header global */}
+      <WalletConnectModal />
+      <ProfileModal
+        isOpen={profileOpen}
+        onClose={() => {
+          setProfileOpen(false)
+          void loadProfile()
+        }}
+      />
     </div>
   )
 }

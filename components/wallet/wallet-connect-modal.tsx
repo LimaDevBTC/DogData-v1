@@ -48,7 +48,7 @@ export function WalletConnectModal() {
       className="fixed inset-0 z-[100] flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="Conectar carteira"
+      aria-label="Connect wallet"
     >
       {/* Overlay */}
       <div
@@ -61,10 +61,10 @@ export function WalletConnectModal() {
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <div>
             <h2 className="font-display text-base font-bold text-snow tracking-wide">
-              Conectar carteira
+              Connect wallet
             </h2>
             <p className="text-[11px] font-mono text-[#6B6B78] mt-0.5">
-              Prove a posse do seu endereço
+              Prove ownership of your address
             </p>
           </div>
           <button
@@ -105,13 +105,13 @@ export function WalletConnectModal() {
                     )}
                   </div>
                   <span className="text-[10px] font-mono text-[#6B6B78]">
-                    {isInstalled ? 'Detectada' : 'Não instalada'}
+                    {isInstalled ? 'Detected' : 'Not installed'}
                   </span>
                 </div>
 
                 {isActive ? (
                   <span className="flex items-center gap-1 text-[11px] font-mono text-green-400">
-                    <Check className="w-3.5 h-3.5" /> Conectada
+                    <Check className="w-3.5 h-3.5" /> Connected
                   </span>
                 ) : isInstalled ? (
                   <button
@@ -120,7 +120,7 @@ export function WalletConnectModal() {
                     className="px-3 py-1.5 bg-lava/[0.1] border border-lava/[0.2] text-lava text-[11px] font-mono font-semibold rounded-lg hover:bg-lava/[0.16] transition-colors disabled:opacity-50 flex items-center gap-1.5"
                   >
                     {isConnecting && <Loader2 className="w-3 h-3 animate-spin" />}
-                    {isConnecting ? 'Conectando' : 'Conectar'}
+                    {isConnecting ? 'Connecting' : 'Connect'}
                   </button>
                 ) : (
                   <a
@@ -129,7 +129,7 @@ export function WalletConnectModal() {
                     rel="noopener noreferrer"
                     className="px-3 py-1.5 bg-white/[0.03] border border-white/[0.06] text-[#6B6B78] hover:text-snow text-[11px] font-mono rounded-lg transition-colors flex items-center gap-1"
                   >
-                    Instalar <ExternalLink className="w-3 h-3" />
+                    Install <ExternalLink className="w-3 h-3" />
                   </a>
                 )}
               </div>
@@ -145,8 +145,8 @@ export function WalletConnectModal() {
 
         <div className="px-5 py-3 border-t border-white/[0.05] bg-white/[0.01]">
           <p className="text-[10px] font-mono text-[#4A4A52] leading-relaxed">
-            A DOG DATA nunca pede sua seed ou chave privada. A assinatura acontece dentro da
-            extensão da carteira.
+            DOG DATA never asks for your seed or private key. Signing happens inside the
+            wallet extension.
           </p>
         </div>
       </div>
