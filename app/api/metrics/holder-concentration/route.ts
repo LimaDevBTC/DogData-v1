@@ -25,7 +25,11 @@ function calculateGini(holdings: number[]): number {
 let cachedFileResult: { data: any; timestamp: number } | null = null
 const CACHE_DURATION = 5 * 60 * 1000
 
-export const revalidate = 60
+// ⚠️ NUNCA pre-renderizar no build: com revalidate=60 o Next executava esta
+// rota DURANTE o next build lendo o banco; no incidente de IO de 26/08 isso
+// BLOQUEOU todo deploy (3 tentativas de 60s e o build morria). O cache fica
+// por conta dos headers de CDN que a resposta ja manda.
+export const dynamic = 'force-dynamic'
 
 const TOTAL_SUPPLY = 100_000_000_000
 

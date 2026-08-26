@@ -3,7 +3,11 @@ import fs from 'fs'
 import path from 'path'
 import { getLatestMetricsSnapshot } from '@/lib/metrics-snapshot'
 
-export const revalidate = 60
+// ⚠️ NUNCA pre-renderizar no build: com revalidate=60 o Next executava esta
+// rota DURANTE o next build lendo o banco; no incidente de IO de 26/08 isso
+// BLOQUEOU todo deploy (3 tentativas de 60s e o build morria). O cache fica
+// por conta dos headers de CDN que a resposta ja manda.
+export const dynamic = 'force-dynamic'
 
 export async function GET() {
   // 1) Source of truth: Supabase (atualiza :35 de cada hora, sem deploy lag)
