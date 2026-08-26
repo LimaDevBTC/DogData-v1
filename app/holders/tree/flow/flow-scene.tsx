@@ -709,8 +709,20 @@ export default function FlowScene({
       v.s = ns
       requestDraw()
     }
+    // endurecimento pro WebKit: iOS antigo ignora touch-action em canvas e
+    // rolava a pagina em vez de panar o sankey (fundador nao conseguiu
+    // interagir no iPhone); preventDefault na marra e inocuo no Chrome
+    const engole = (e: TouchEvent) => {
+      e.preventDefault()
+    }
     cvs.addEventListener('wheel', onWheel, { passive: false })
-    return () => cvs.removeEventListener('wheel', onWheel)
+    cvs.addEventListener('touchstart', engole, { passive: false })
+    cvs.addEventListener('touchmove', engole, { passive: false })
+    return () => {
+      cvs.removeEventListener('wheel', onWheel)
+      cvs.removeEventListener('touchstart', engole)
+      cvs.removeEventListener('touchmove', engole)
+    }
   }, [])
 
   useEffect(() => {
@@ -843,6 +855,17 @@ export default function FlowScene({
     const wasDrag = dragRef.current ? dragRef.current.moved : false
     delete pointersRef.current[id]
     if (pointerCount() < 2) pinchRef.current = null
+    if (pointerCount() === 1) {
+      // handoff pinch -> pan: sem re-semear, o dedo que sobra do pinch nao
+      // panava (dragRef tinha morrido quando o segundo dedo desceu)
+      for (const k in pointersRef.current) {
+        if (Object.prototype.hasOwnProperty.call(pointersRef.current, k)) {
+          const resto = pointersRef.current[k]
+          dragRef.current = { x: resto.x, y: resto.y, moved: true }
+        }
+      }
+      return
+    }
     const drag = dragRef.current
     dragRef.current = null
     if (!drag || wasDrag) return
@@ -887,11 +910,27 @@ export default function FlowScene({
     }
   }
 
+  // botoes de zoom sempre visiveis: mesmo que o gesto falhe em algum
+  // aparelho, o canvas continua navegavel e ANUNCIA que se move
+  function zoomCentro(factor: number) {
+    const v = viewRef.current
+    const ns = Math.max(0.4, Math.min(5, v.s * factor))
+    const sx = size.w / 2
+    const sy = size.h / 2
+    v.x = sx - ((sx - v.x) / v.s) * ns
+    v.y = sy - ((sy - v.y) / v.s) * ns
+    v.s = ns
+    requestDraw()
+  }
+
+  const btnCls =
+    'flex h-[34px] w-[34px] items-center justify-center border border-white/10 bg-[#0B0A11]/90 font-mono text-[12px] text-white/70 transition-colors hover:text-white'
+
   return (
     <div
       ref={wrapRef}
-      className="relative h-full w-full"
-      style={{ background: BG }}
+      className="relative h-full w-full select-none"
+      style={{ background: BG, WebkitUserSelect: 'none' }}
     >
       <canvas
         ref={canvasRef}
@@ -902,6 +941,25 @@ export default function FlowScene({
         onPointerCancel={onPointerUp}
         onPointerLeave={onPointerLeave}
       />
+      <div className="absolute bottom-3 right-3 z-10 flex flex-col">
+        <button type="button" aria-label="Zoom in" className={btnCls} onClick={() => zoomCentro(1.35)}>
+          +
+        </button>
+        <button type="button" aria-label="Zoom out" className={`${btnCls} border-t-0`} onClick={() => zoomCentro(1 / 1.35)}>
+          −
+        </button>
+        <button
+          type="button"
+          aria-label="Reset view"
+          className={`${btnCls} w-auto border-t-0 px-2 text-[9px] uppercase tracking-[0.15em]`}
+          onClick={() => {
+            viewRef.current = { x: 0, y: 0, s: 1 }
+            requestDraw()
+          }}
+        >
+          Fit
+        </button>
+      </div>
     </div>
   )
 }

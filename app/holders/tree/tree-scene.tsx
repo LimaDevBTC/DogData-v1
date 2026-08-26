@@ -134,7 +134,7 @@ export default function TreeScene() {
 
     const mobile = isMobile()
     const dprCap = mobile ? 1.5 : 2
-    const dustBudget = mobile ? 30000 : 60000
+    const dustBudget = mobile ? 15000 : 32000
     let disposed = false
 
     // ── palco ────────────────────────────────────────────────────────────────
@@ -142,7 +142,7 @@ export default function TreeScene() {
     scene.background = new THREE.Color(0x040305)
     scene.fog = new THREE.FogExp2(0x040305, 0.00075)
 
-    const camera = new THREE.PerspectiveCamera(55, el.clientWidth / el.clientHeight, 0.5, 6000)
+    const camera = new THREE.PerspectiveCamera(55, el.clientWidth / el.clientHeight, 0.5, 8200)
     camera.position.set(0, 320, 780)
 
     const renderer = new THREE.WebGLRenderer({ antialias: !mobile })
@@ -153,10 +153,11 @@ export default function TreeScene() {
     const controls = new OrbitControls(camera, renderer.domElement)
     controls.enableDamping = true
     controls.dampingFactor = 0.06
-    // ⚠️ piso de 60: mergulhar DENTRO da concha transformava as estrelas
-    // vizinhas em parede de luz desfocada; de 60 pra fora tudo lê como ponto
-    controls.minDistance = 60
-    controls.maxDistance = 2400
+    // ⚠️ era piso 60 por causa da parede de luz; com o fade da poeira por
+    // distancia e o passo maior das conchas, 16 deixa chegar NA estrela
+    // sem nevoa. O teto acompanha o universo esticado (passo 22 -> 34).
+    controls.minDistance = 16
+    controls.maxDistance = 3400
     controls.target.set(0, 0, 0)
     // rotacao ociosa lenta: para NA PRIMEIRA interacao e nao volta
     controls.autoRotate = true
@@ -228,10 +229,12 @@ export default function TreeScene() {
           vColor = color;
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
           float ps = size * (uScale / -mv.z);
-          // ⚠️ teto de 22px: sem ele, chegar perto da concha inflava cada
+          // ⚠️ teto de pixels: sem ele, chegar perto da concha inflava cada
           // estrela numa bola de dezenas de pixels e a soma aditiva virava
-          // névoa ilegível (chapa do fundador no celular)
-          gl_PointSize = clamp(ps, 1.5, 22.0);
+          // nevoa ilegivel (chapa do fundador no celular). 34 e o novo teto
+          // porque o piso da camera caiu de 60 pra 16: a estrela focada
+          // preenche de perto, as vizinhas continuam ponto.
+          gl_PointSize = clamp(ps, 1.5, 34.0);
           gl_Position = projectionMatrix * mv;
         }
       `,
@@ -409,7 +412,7 @@ export default function TreeScene() {
         map: crispDiscTexture(32),
         vertexColors: true,
         transparent: true,
-        opacity: 0.55,
+        opacity: 0.42,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
       })
@@ -443,14 +446,16 @@ export default function TreeScene() {
 
     // dolly de entrada suave: de longe ate o enquadre padrao
     const portrait = el.clientWidth < el.clientHeight
-    flyTo(0, portrait ? 260 : 190, portrait ? 560 : 430, 0, 0, 0, 2600)
+    flyTo(0, portrait ? 390 : 290, portrait ? 840 : 650, 0, 0, 0, 2600)
 
     const flyDir = new THREE.Vector3()
     const flyToNode = (x: number, y: number, z: number) => {
       flyDir.set(x, y, z)
       if (flyDir.lengthSq() < 1) flyDir.set(0, 0.3, 1)
       flyDir.normalize()
-      flyTo(x + flyDir.x * 58, y + 26, z + flyDir.z * 58, x, y, z, 1600)
+      // parada a 26 unidades (era 58): com o piso 16 e o fade da poeira,
+      // o voo termina com a estrela exata dominando o quadro
+      flyTo(x + flyDir.x * 26, y + 14, z + flyDir.z * 26, x, y, z, 1600)
     }
 
     // ── selecao: filhos em leque + linhagem + painel ─────────────────────────
@@ -708,6 +713,14 @@ export default function TreeScene() {
       }
       const pulse = 1 + Math.sin(now * 0.0012) * 0.05
       halo.scale.set(64 * pulse, 64 * pulse, 1)
+      // fade da poeira por distancia: de longe ela e a atmosfera (0.42), de
+      // perto sai da frente (0.06 a 70 unidades) pra estrela exata ficar
+      // limpa. So aritmetica, zero alocacao por frame.
+      if (dust) {
+        const dCam = camera.position.distanceTo(controls.target)
+        const k = Math.max(0, Math.min(1, (dCam - 70) / 150))
+        ;(dust.material as THREE.PointsMaterial).opacity = 0.06 + k * 0.36
+      }
       controls.update()
       renderer.render(scene, camera)
     }

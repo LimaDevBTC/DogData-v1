@@ -40,17 +40,32 @@ export default function StatsStrip({ stats }: { stats: FlowStats | null }) {
   ]
 
   return (
-    <div className="grid grid-cols-2 border-b border-white/10 md:grid-cols-4">
-      {tiles.map((t, i) => (
-        <div
-          key={t.label}
-          className={`px-4 py-2 sm:px-6 ${i % 2 === 1 ? 'border-l border-white/10' : ''} ${i > 0 ? 'md:border-l md:border-white/10' : ''} ${i >= 2 ? 'border-t border-white/10 md:border-t-0' : ''}`}
-        >
-          <div className="text-[9px] uppercase tracking-[0.2em] text-white/40">{t.label}</div>
-          <div className="mt-0.5 text-sm text-[#f7931a]">{t.value}</div>
-          <div className="text-[9px] text-white/35">{t.sub}</div>
-        </div>
-      ))}
-    </div>
+    <>
+      {/* celular: UMA linha rolavel; a grade 2x2 comia dois aneis de altura
+          e o canvas ficava com menos da metade do viewport */}
+      <div className="flex overflow-x-auto border-b border-white/10 md:hidden">
+        {tiles.map((t, i) => (
+          <div
+            key={t.label}
+            className={`flex shrink-0 items-baseline gap-1.5 px-3 py-1.5 ${i > 0 ? 'border-l border-white/10' : ''}`}
+          >
+            <span className="whitespace-nowrap text-[8px] uppercase tracking-[0.15em] text-white/40">{t.label}</span>
+            <span className="whitespace-nowrap text-[11px] text-[#f7931a]">{t.value}</span>
+          </div>
+        ))}
+      </div>
+      <div className="hidden border-b border-white/10 md:grid md:grid-cols-4">
+        {tiles.map((t, i) => (
+          <div
+            key={t.label}
+            className={`px-4 py-2 sm:px-6 ${i > 0 ? 'md:border-l md:border-white/10' : ''}`}
+          >
+            <div className="text-[9px] uppercase tracking-[0.2em] text-white/40">{t.label}</div>
+            <div className="mt-0.5 text-sm text-[#f7931a]">{t.value}</div>
+            <div className="text-[9px] text-white/35">{t.sub}</div>
+          </div>
+        ))}
+      </div>
+    </>
   )
 }

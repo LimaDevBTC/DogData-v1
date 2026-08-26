@@ -68,6 +68,9 @@ export default function FlowControls({
   const [results, setResults] = useState<SearchMatch[]>([])
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState(false)
+  // celular: filtros nascem recolhidos atras do botao Filters; a barra aberta
+  // comia tres linhas e o canvas ficava com menos da metade do viewport
+  const [openMobile, setOpenMobile] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Busca com debounce de 300ms; abaixo de 3 caracteres a rota nem aceita.
@@ -114,8 +117,9 @@ export default function FlowControls({
 
   return (
     <div className="flex flex-col gap-2 border-b border-white/10 px-4 py-2 sm:px-6 md:flex-row md:items-center md:gap-4">
-      {/* busca */}
-      <div className="relative w-full md:w-72">
+      {/* busca sempre visivel; no celular divide a linha com o botao Filters */}
+      <div className="flex items-center gap-2 md:contents">
+      <div className="relative min-w-0 flex-1 md:w-72 md:flex-none">
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -147,9 +151,25 @@ export default function FlowControls({
         )}
       </div>
 
-      {/* filtros do Flow: no modo ego nao agem e por isso nem aparecem */}
+      {/* alternador dos filtros, so no celular e so quando ha filtros */}
       {!hideFilters && (
-        <>
+        <button
+          type="button"
+          aria-expanded={openMobile}
+          onClick={() => setOpenMobile((v) => !v)}
+          className="shrink-0 border border-white/15 px-2.5 py-1.5 text-[10px] uppercase tracking-[0.15em] text-white/45 transition-colors hover:text-white/80 md:hidden"
+        >
+          Filters {openMobile ? '▴' : '▾'}
+        </button>
+      )}
+      </div>
+
+      {/* filtros do Flow: no modo ego nao agem e por isso nem aparecem; no
+          celular so existem com o alternador aberto */}
+      {!hideFilters && (
+        <div
+          className={`${openMobile ? 'flex' : 'hidden'} flex-col gap-2 md:flex md:flex-row md:items-center md:gap-4`}
+        >
           {/* chips de exibicao: esmaecer, nao remover */}
           <div className="flex items-center gap-2">
             <button onClick={onOnlyHolders} className={chipClass(onlyHolders)}>
@@ -203,7 +223,7 @@ export default function FlowControls({
               )}
             </select>
           </div>
-        </>
+        </div>
       )}
     </div>
   )

@@ -58,8 +58,10 @@ export function sanitizeNode(raw: Partial<TreeNode> & { w: string }): TreeNode {
 // fundo levaria a câmera pro nada. Linear até a geração 24 (97%+ do universo)
 // e compressão logarítmica dali em diante: fundo continua MAIS LONGE, mas em
 // escala visitável.
-export const SHELL_BASE = 26
-export const SHELL_STEP = 22
+// 2026-08-26: passo de 22 para 34 e base de 26 para 30 a pedido do fundador:
+// as conchas se afastam, as estrelas se separam e da pra navegar ate UMA.
+export const SHELL_BASE = 30
+export const SHELL_STEP = 34
 const SHELL_LINEAR_MAX = 24
 export const shellRadius = (depth: number) => {
   const d = Math.max(0, depth)
@@ -98,7 +100,7 @@ export interface Vec3Like {
 
 // Posicao padrao de um no do esqueleto: angulo por hash do endereco,
 // leve respiro radial (a concha nao vira um anel perfeito) e
-// espalhamento vertical de +-8 tambem por hash.
+// espalhamento vertical de +-12 tambem por hash.
 export function nodePosition(w: string, depth: number, out: Vec3Like): Vec3Like {
   if (depth <= 0) {
     out.x = 0
@@ -107,9 +109,9 @@ export function nodePosition(w: string, depth: number, out: Vec3Like): Vec3Like 
     return out
   }
   const theta = hash01(w, 1) * Math.PI * 2
-  const r = shellRadius(depth) + (hash01(w, 3) - 0.5) * 6
+  const r = shellRadius(depth) + (hash01(w, 3) - 0.5) * 9
   out.x = Math.cos(theta) * r
-  out.y = (hash01(w, 2) * 2 - 1) * 8
+  out.y = (hash01(w, 2) * 2 - 1) * 12
   out.z = Math.sin(theta) * r
   return out
 }
@@ -128,9 +130,9 @@ export function childFanPosition(
   const spread = Math.min(Math.PI * 0.9, 0.05 * Math.max(1, n) + 0.14)
   const t = n <= 1 ? 0 : i / (n - 1) - 0.5
   const theta = parentTheta + t * spread + (hash01(w, 4) - 0.5) * 0.02
-  const r = shellRadius(depth) + (hash01(w, 3) - 0.5) * 6
+  const r = shellRadius(depth) + (hash01(w, 3) - 0.5) * 9
   out.x = Math.cos(theta) * r
-  out.y = (hash01(w, 2) * 2 - 1) * 8
+  out.y = (hash01(w, 2) * 2 - 1) * 12
   out.z = Math.sin(theta) * r
   return out
 }

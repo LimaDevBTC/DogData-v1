@@ -97,6 +97,33 @@ export default function EgoScene({
   const downRef = useRef<{ x: number; y: number } | null>(null)
   const lastClickRef = useRef<{ id: string; t: number }>({ id: '', t: 0 })
 
+  // Canvas infinito, mesmo padrao do Flow: a view mora num ref porque muda a
+  // cada frame de gesto e nao pode re-renderizar React. x/y em px de tela,
+  // s = escala (clamp 0.35 a 6).
+  const viewRef = useRef({ x: 0, y: 0, s: 1 })
+  const pointersRef = useRef<Record<string, { x: number; y: number }>>({})
+  const pinchRef = useRef<{ d: number; s: number } | null>(null)
+  const dragRef = useRef<{ x: number; y: number; moved: boolean } | null>(null)
+
+  const S_MIN = 0.35
+  const S_MAX = 6
+
+  // zoom ancorado: o ponto de TELA (sx, sy) continua sobre o mesmo ponto do
+  // mundo depois da mudanca de escala
+  function zoomAt(sx: number, sy: number, factor: number) {
+    const v = viewRef.current
+    const ns = Math.max(S_MIN, Math.min(S_MAX, v.s * factor))
+    v.x = sx - ((sx - v.x) / v.s) * ns
+    v.y = sy - ((sy - v.y) / v.s) * ns
+    v.s = ns
+    requestDraw()
+  }
+
+  function resetView() {
+    viewRef.current = { x: 0, y: 0, s: 1 }
+    requestDraw()
+  }
+
   const layout = useMemo(() => {
     if (size.w < 10 || size.h < 10) return null
     return layoutEgo(data, { width: size.w, height: size.h }, mobile)
@@ -151,6 +178,12 @@ export default function EgoScene({
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.fillStyle = BG
     ctx.fillRect(0, 0, size.w, size.h)
+
+    // mundo sob pan/zoom: tudo ate os rotulos anda com a view; so o tooltip
+    // fica em espaco de tela (transform resetado la embaixo)
+    const v = viewRef.current
+    ctx.translate(v.x, v.y)
+    ctx.scale(v.s, v.s)
 
     // conectores tracejados centro -> bolha de resto, por baixo de tudo
     ctx.lineWidth = 1
@@ -337,7 +370,8 @@ export default function EgoScene({
       }
     }
 
-    // tooltip por cima de tudo
+    // tooltip por cima de tudo, em espaco de TELA (fora do pan/zoom)
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.globalAlpha = 1
     const tip = tipRef.current
     if (tip && tip.lines.length > 0) {
@@ -374,15 +408,22 @@ export default function EgoScene({
   drawRef.current = draw
 
   // ---- hit-test ----
+  // Recebe px/py em TELA e converte pro mundo da view; as folgas de dedo sao
+  // pensadas em px de tela, entao dividem pela escala pra valerem o mesmo
+  // tamanho fisico em qualquer zoom.
   function hitTest(px: number, py: number): Hover | null {
     const lay = layoutRef.current
     if (!lay) return null
-    // discos primeiro (estao por cima), com 3px de folga pro dedo
+    const v = viewRef.current
+    const wx = (px - v.x) / v.s
+    const wy = (py - v.y) / v.s
+    const slack = 3 / v.s
+    // discos primeiro (estao por cima), com folga pro dedo
     for (let i = lay.nodes.length - 1; i >= 0; i--) {
       const n = lay.nodes[i]
-      const dx = px - n.x
-      const dy = py - n.y
-      const tol = n.r + 3
+      const dx = wx - n.x
+      const dy = wy - n.y
+      const tol = n.r + slack
       if (dx * dx + dy * dy <= tol * tol) {
         return { kind: 'node', id: n.id, li: n.edgeIdx }
       }
@@ -392,12 +433,12 @@ export default function EgoScene({
     let bestD = Infinity
     for (let i = 0; i < lay.edges.length; i++) {
       const L = lay.edges[i]
-      const tol = Math.max(L.width / 2, 3) + 2
+      const tol = Math.max(L.width / 2, 3 / v.s) + 2 / v.s
       const tol2 = tol * tol
       const s = L.samples
       for (let j = 0; j < s.length; j += 2) {
-        const dx = px - s[j]
-        const dy = py - s[j + 1]
+        const dx = wx - s[j]
+        const dy = wy - s[j + 1]
         const d2 = dx * dx + dy * dy
         if (d2 <= tol2 && d2 < bestD) {
           bestD = d2
@@ -544,6 +585,40 @@ export default function EgoScene({
     }
   }, [])
 
+  // ego novo (re-centro em outra carteira): a view volta pro enquadramento
+  // padrao, senao o grafo novo nasce fora da tela no pan antigo
+  useEffect(() => {
+    viewRef.current = { x: 0, y: 0, s: 1 }
+    requestDraw()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data])
+
+  // wheel com passive false (senao o browser rola a pagina) e, no mesmo
+  // efeito, o endurecimento pro WebKit: iOS antigo ignora touch-action em
+  // canvas, entao touchstart/touchmove levam preventDefault na marra; no
+  // Chrome e inocuo porque o pointer events ja cuida de tudo.
+  useEffect(() => {
+    const cvs = canvasRef.current
+    if (!cvs) return
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const rect = cvs.getBoundingClientRect()
+      zoomAt(e.clientX - rect.left, e.clientY - rect.top, Math.pow(1.0015, -e.deltaY))
+    }
+    const engole = (e: TouchEvent) => {
+      e.preventDefault()
+    }
+    cvs.addEventListener('wheel', onWheel, { passive: false })
+    cvs.addEventListener('touchstart', engole, { passive: false })
+    cvs.addEventListener('touchmove', engole, { passive: false })
+    return () => {
+      cvs.removeEventListener('wheel', onWheel)
+      cvs.removeEventListener('touchstart', engole)
+      cvs.removeEventListener('touchmove', engole)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // ---- ponteiro ----
   function localPos(e: ReactPointerEvent<HTMLCanvasElement>): { x: number; y: number } {
     const cvs = canvasRef.current
@@ -552,12 +627,80 @@ export default function EgoScene({
     return { x: e.clientX - rect.left, y: e.clientY - rect.top }
   }
 
+  function pointerCount(): number {
+    let n = 0
+    for (const k in pointersRef.current) {
+      if (Object.prototype.hasOwnProperty.call(pointersRef.current, k)) n++
+    }
+    return n
+  }
+
   function onPointerDown(e: ReactPointerEvent<HTMLCanvasElement>) {
-    downRef.current = localPos(e)
+    const cvs = canvasRef.current
+    if (cvs) cvs.setPointerCapture(e.pointerId)
+    const p = localPos(e)
+    pointersRef.current[String(e.pointerId)] = p
+    downRef.current = p
+    if (pointerCount() === 2) {
+      // pinch: guarda distancia e escala iniciais; o pan de um dedo morre
+      const pts: { x: number; y: number }[] = []
+      for (const k in pointersRef.current) {
+        if (Object.prototype.hasOwnProperty.call(pointersRef.current, k)) {
+          pts.push(pointersRef.current[k])
+        }
+      }
+      const dx = pts[0].x - pts[1].x
+      const dy = pts[0].y - pts[1].y
+      pinchRef.current = { d: Math.sqrt(dx * dx + dy * dy) || 1, s: viewRef.current.s }
+      dragRef.current = null
+      downRef.current = null
+    } else {
+      dragRef.current = { x: p.x, y: p.y, moved: false }
+    }
   }
 
   function onPointerMove(e: ReactPointerEvent<HTMLCanvasElement>) {
     const p = localPos(e)
+    const id = String(e.pointerId)
+    const wasDown = pointersRef.current[id] !== undefined
+    if (wasDown) pointersRef.current[id] = p
+
+    if (pinchRef.current && pointerCount() === 2) {
+      const pts: { x: number; y: number }[] = []
+      for (const k in pointersRef.current) {
+        if (Object.prototype.hasOwnProperty.call(pointersRef.current, k)) {
+          pts.push(pointersRef.current[k])
+        }
+      }
+      const dx = pts[0].x - pts[1].x
+      const dy = pts[0].y - pts[1].y
+      const d = Math.sqrt(dx * dx + dy * dy) || 1
+      const mx = (pts[0].x + pts[1].x) / 2
+      const my = (pts[0].y + pts[1].y) / 2
+      const v = viewRef.current
+      const ns = Math.max(S_MIN, Math.min(S_MAX, pinchRef.current.s * (d / pinchRef.current.d)))
+      v.x = mx - ((mx - v.x) / v.s) * ns
+      v.y = my - ((my - v.y) / v.s) * ns
+      v.s = ns
+      requestDraw()
+      return
+    }
+
+    if (wasDown && dragRef.current) {
+      const drag = dragRef.current
+      const dx = p.x - drag.x
+      const dy = p.y - drag.y
+      if (drag.moved || Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+        drag.moved = true
+        viewRef.current.x += dx
+        viewRef.current.y += dy
+        drag.x = p.x
+        drag.y = p.y
+        requestDraw()
+      }
+      return
+    }
+
     const h = hitTest(p.x, p.y)
     const prev = hoverRef.current
     const changed =
@@ -579,11 +722,28 @@ export default function EgoScene({
   }
 
   function onPointerUp(e: ReactPointerEvent<HTMLCanvasElement>) {
+    const id = String(e.pointerId)
+    delete pointersRef.current[id]
+    if (pointerCount() < 2) pinchRef.current = null
+    if (pointerCount() === 1) {
+      // handoff pinch -> pan: o dedo que sobrou re-semeia o arrasto pra nao
+      // dar salto nem virar clique fantasma
+      for (const k in pointersRef.current) {
+        if (Object.prototype.hasOwnProperty.call(pointersRef.current, k)) {
+          const resto = pointersRef.current[k]
+          dragRef.current = { x: resto.x, y: resto.y, moved: true }
+        }
+      }
+      return
+    }
     const down = downRef.current
     downRef.current = null
+    const wasDrag = dragRef.current ? dragRef.current.moved : false
+    dragRef.current = null
+    if (!down || wasDrag) return
     const p = localPos(e)
     // arrasto (scroll acidental no touch) nao vira clique
-    if (down && (Math.abs(p.x - down.x) > 6 || Math.abs(p.y - down.y) > 6)) return
+    if (Math.abs(p.x - down.x) > 6 || Math.abs(p.y - down.y) > 6) return
 
     const h = hitTest(p.x, p.y)
     if (!h || h.kind !== 'node') return
@@ -617,6 +777,9 @@ export default function EgoScene({
 
   function onPointerLeave() {
     downRef.current = null
+    dragRef.current = null
+    pinchRef.current = null
+    pointersRef.current = {}
     if (hoverRef.current) {
       hoverRef.current = null
       tipRef.current = null
@@ -626,11 +789,20 @@ export default function EgoScene({
     }
   }
 
+  // botoes de zoom sempre visiveis: mesmo que o gesto falhe em algum
+  // aparelho, o canvas continua navegavel e ANUNCIA que se move
+  const btnCls =
+    'flex h-[34px] w-[34px] items-center justify-center border border-white/10 bg-[#0B0A11]/90 font-mono text-[12px] text-white/70 transition-colors hover:text-white'
+
+  function centerZoom(factor: number) {
+    zoomAt(size.w / 2, size.h / 2, factor)
+  }
+
   return (
     <div
       ref={wrapRef}
-      className="relative h-full w-full"
-      style={{ background: BG }}
+      className="relative h-full w-full select-none"
+      style={{ background: BG, WebkitUserSelect: 'none' }}
     >
       <canvas
         ref={canvasRef}
@@ -641,6 +813,22 @@ export default function EgoScene({
         onPointerCancel={onPointerLeave}
         onPointerLeave={onPointerLeave}
       />
+      <div className="absolute bottom-3 right-3 z-10 flex flex-col">
+        <button type="button" aria-label="Zoom in" className={btnCls} onClick={() => centerZoom(1.35)}>
+          +
+        </button>
+        <button type="button" aria-label="Zoom out" className={`${btnCls} border-t-0`} onClick={() => centerZoom(1 / 1.35)}>
+          −
+        </button>
+        <button
+          type="button"
+          aria-label="Reset view"
+          className={`${btnCls} w-auto border-t-0 px-2 text-[9px] uppercase tracking-[0.15em]`}
+          onClick={resetView}
+        >
+          Fit
+        </button>
+      </div>
     </div>
   )
 }
