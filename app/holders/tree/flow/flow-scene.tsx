@@ -253,7 +253,18 @@ export default function FlowScene({
     for (let i = 0; i < lay.links.length; i++) {
       const L = lay.links[i]
       const inChain = chain ? chain.links[i] === 1 : false
-      let linkAlpha = chain ? (inChain ? 0.9 : 0.11) : 0.5
+      // Refluxo fora da cadeia acesa SOME de vez em qualquer modo (nao so
+      // esmaece): com hover/selecao ativos a cortina azul atrapalha a
+      // leitura da cadeia. Sem cadeia, no mobile o refluxo e traco fino
+      // (1.5px vindo do layout) com opacidade fixa 0.3.
+      if (L.back && chain && !inChain) continue
+      let linkAlpha = chain
+        ? inChain
+          ? 0.9
+          : 0.11
+        : L.back && orientation === 'v'
+          ? 0.3
+          : 0.5
       // link com ponta esmaecida apaga junto (filtro de exibicao da casca)
       if (dimmedMap && (dimmedMap[L.link.s] === 1 || dimmedMap[L.link.t] === 1)) {
         linkAlpha *= 0.25
@@ -400,16 +411,19 @@ export default function FlowScene({
           ctx.fillText(lb.sub, lb.x, lb.y + 11)
         }
       } else {
-        // resto: "N WALLETS" + total em DOG
-        ctx.font = FONT
+        // resto: LINHA UNICA "N wallets · X DOG" com chip de fundo solido
+        // (senao o texto se mistura com as linhas de fluxo por tras);
+        // x/y aqui sao o canto superior esquerdo da caixa vinda do layout,
+        // fonte 9px no mobile e 10px no desktop.
+        ctx.font = orientation === 'v' ? FONT_SM : FONT
+        ctx.fillStyle = BG
+        ctx.fillRect(lb.x, lb.y, lb.w, lb.h)
+        ctx.strokeStyle = SPENT
+        ctx.lineWidth = 1
+        ctx.strokeRect(lb.x, lb.y, lb.w, lb.h)
         ctx.fillStyle = TEXT
         ctx.textAlign = 'left'
-        ctx.fillText(lb.text, lb.x, lb.y - 5)
-        if (lb.sub) {
-          ctx.font = FONT_SM
-          ctx.fillStyle = TEXT_DIM
-          ctx.fillText(lb.sub, lb.x, lb.y + 7)
-        }
+        ctx.fillText(lb.text, lb.x + 4, lb.y + lb.h / 2 + 0.5)
       }
     }
 
@@ -417,21 +431,51 @@ export default function FlowScene({
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.globalAlpha = 1
 
-    // regua fixa 10M / 1B / 10B: acompanha o zoom pra nunca mentir a escala
+    // regua fixa 10M / 1B / 10B: acompanha o zoom pra nunca mentir a escala.
+    // Fundo SOLIDO na area reservada pelo layout: nenhum no, rotulo ou link
+    // vaza por tras da regua (a colisao com a ultima faixa era isso).
+    const rbg = lay.ruler.bg
+    ctx.fillStyle = BG
+    ctx.fillRect(rbg.x, rbg.y, rbg.w, rbg.h)
+    ctx.globalAlpha = 0.6
+    ctx.strokeStyle = SPENT
+    ctx.lineWidth = 1
+    ctx.strokeRect(rbg.x + 0.5, rbg.y + 0.5, rbg.w - 1, rbg.h - 1)
+    ctx.globalAlpha = 1
     ctx.font = FONT_SM
     ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
-    let ry = lay.ruler.y
-    for (let i = 0; i < lay.ruler.bars.length; i++) {
-      const bar = lay.ruler.bars[i]
-      const px = Math.max(1, bar.px * view.s)
-      ctx.fillStyle = ORANGE
-      ctx.globalAlpha = 0.8
-      ctx.fillRect(lay.ruler.x, ry - px, 30, px)
-      ctx.globalAlpha = 1
-      ctx.fillStyle = TEXT_DIM
-      ctx.fillText(bar.text, lay.ruler.x + 36, ry - px / 2)
-      ry -= Math.max(px, 10) + 7
+    if (lay.ruler.compact) {
+      // mobile: regua compacta numa linha horizontal unica, barra vertical
+      // fininha + texto, tudo dentro do retangulo reservado
+      let rx = lay.ruler.x
+      const ry = lay.ruler.y
+      for (let i = 0; i < lay.ruler.bars.length; i++) {
+        const bar = lay.ruler.bars[i]
+        // clampa a largura pro zoom nao estourar o fundo reservado
+        const px = Math.max(2, Math.min(24, bar.px * view.s))
+        ctx.fillStyle = ORANGE
+        ctx.globalAlpha = 0.8
+        ctx.fillRect(rx, ry - 5, px, 10)
+        ctx.globalAlpha = 1
+        ctx.fillStyle = TEXT_DIM
+        ctx.fillText(bar.text, rx + px + 5, ry)
+        rx += px + 5 + ctx.measureText(bar.text).width + 10
+      }
+    } else {
+      let ry = lay.ruler.y
+      for (let i = 0; i < lay.ruler.bars.length; i++) {
+        const bar = lay.ruler.bars[i]
+        // clampa a altura pro zoom nao estourar o fundo reservado
+        const px = Math.max(1, Math.min(48, bar.px * view.s))
+        ctx.fillStyle = ORANGE
+        ctx.globalAlpha = 0.8
+        ctx.fillRect(lay.ruler.x, ry - px, 30, px)
+        ctx.globalAlpha = 1
+        ctx.fillStyle = TEXT_DIM
+        ctx.fillText(bar.text, lay.ruler.x + 36, ry - px / 2)
+        ry -= Math.max(px, 10) + 7
+      }
     }
 
     // selo de completude: dog_flows ainda em backfill
