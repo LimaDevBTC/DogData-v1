@@ -1,13 +1,15 @@
 'use client'
 
-// Casca da pagina: o Flow (sankey re-rooteavel) e o modo DEFAULT e carrega
-// direto; a galaxia 3D virou modo secundario e so baixa o chunk (Three
-// inteiro) quando o usuario ativa o toggle, via next/dynamic sem SSR.
+// Casca da pagina, agora com tres modos: FLOW (sankey re-rooteavel, default,
+// carrega direto), GRAPH (ego-grafo, ?view=ego&w= na URL) e GALAXY (visual
+// 3D, so client-state como sempre foi; o chunk do Three inteiro so baixa
+// quando o usuario ativa o toggle, via next/dynamic sem SSR).
 // tree-scene.tsx e galaxy.ts ficam intocados.
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import FlowPageClient from './flow-page-client'
+import EgoPageClient from './ego-page-client'
 
 const TreeScene = dynamic(() => import('./tree-scene'), {
   ssr: false,
@@ -18,10 +20,34 @@ const TreeScene = dynamic(() => import('./tree-scene'), {
   ),
 })
 
-type Mode = 'flow' | 'galaxy'
+type Mode = 'flow' | 'ego' | 'galaxy'
 
 export default function TreeClientWrapper() {
   const [mode, setMode] = useState<Mode>('flow')
+  // Centro pedido pelo "Open graph" do Flow; null = ego da tesouraria.
+  const [egoTarget, setEgoTarget] = useState<string | null>(null)
+
+  // boot: ?view=ego abre direto no GRAPH (deep link compartilhavel)
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search)
+    if (sp.get('view') === 'ego') setMode('ego')
+  }, [])
+
+  // voltar/avancar do navegador alterna flow<->ego pela URL; a galaxy nao e
+  // dirigida por URL e nao sai do lugar num popstate
+  useEffect(() => {
+    const onPop = () => {
+      const sp = new URLSearchParams(window.location.search)
+      setMode((m) => (m === 'galaxy' ? m : sp.get('view') === 'ego' ? 'ego' : 'flow'))
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+
+  function openGraphAt(w: string) {
+    setEgoTarget(w)
+    setMode('ego')
+  }
 
   if (mode === 'galaxy') {
     return (
@@ -43,6 +69,10 @@ export default function TreeClientWrapper() {
     )
   }
 
+  const segOn = 'bg-white/5 px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] text-[#f7931a]'
+  const segOff =
+    'px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] text-white/40 transition-colors hover:text-white'
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[#040305] font-mono text-white">
       <header className="flex items-start justify-between gap-4 border-b border-white/10 px-4 py-3 sm:px-6">
@@ -56,18 +86,34 @@ export default function TreeClientWrapper() {
           <h1 className="mt-0.5 text-base uppercase tracking-[0.3em] text-white/90 sm:text-lg">Holders Tree</h1>
         </div>
         <div className="flex items-center border border-white/10">
-          <span className="border-r border-white/10 bg-white/5 px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] text-[#f7931a]">
-            Flow
-          </span>
           <button
-            onClick={() => setMode('galaxy')}
-            className="px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] text-white/40 transition-colors hover:text-white"
+            onClick={() => setMode('flow')}
+            disabled={mode === 'flow'}
+            className={`border-r border-white/10 ${mode === 'flow' ? segOn : segOff}`}
           >
+            Flow
+          </button>
+          <button
+            onClick={() => {
+              // toggle direto (sem carteira escolhida): ego da tesouraria
+              setEgoTarget(null)
+              setMode('ego')
+            }}
+            disabled={mode === 'ego'}
+            className={`border-r border-white/10 ${mode === 'ego' ? segOn : segOff}`}
+          >
+            Graph
+          </button>
+          <button onClick={() => setMode('galaxy')} className={segOff}>
             Galaxy
           </button>
         </div>
       </header>
-      <FlowPageClient />
+      {mode === 'ego' ? (
+        <EgoPageClient initialW={egoTarget} />
+      ) : (
+        <FlowPageClient onOpenGraph={openGraphAt} />
+      )}
     </div>
   )
 }

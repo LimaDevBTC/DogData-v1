@@ -21,6 +21,11 @@ interface NodePanelProps {
   onReRoot: (w: string) => void
   /** Focar outra carteira (salto do caminho ou contraparte). */
   onFocus: (w: string) => void
+  /**
+   * Abrir o ego-grafo centrado nesta carteira (modo GRAPH). Presente so no
+   * Flow; no proprio ego o botao some em vez de virar no-op.
+   */
+  onOpenGraph?: (w: string) => void
 }
 
 // Cor do chip por categoria: exchange no azul frio, o resto no laranja de
@@ -77,6 +82,7 @@ export default function NodePanel({
   onClose,
   onReRoot,
   onFocus,
+  onOpenGraph,
 }: NodePanelProps) {
   const [addrCopied, setAddrCopied] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
@@ -248,12 +254,11 @@ export default function NodePanel({
           <button onClick={copyLink} className={btn}>
             {linkCopied ? 'Link copied' : 'Copy link'}
           </button>
-          <button
-            disabled
-            className="cursor-not-allowed border border-white/10 px-2 py-1.5 text-center text-[10px] uppercase tracking-[0.15em] text-white/25"
-          >
-            Trace from here (soon)
-          </button>
+          {onOpenGraph && (
+            <button onClick={() => onOpenGraph(w)} className={btn}>
+              Open graph
+            </button>
+          )}
         </div>
       </div>
     </aside>

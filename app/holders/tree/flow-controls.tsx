@@ -3,7 +3,8 @@
 // Barra de controles do Flow: busca por endereco (a rota /search ja existe),
 // chips de exibicao (esmaecem no cliente, nunca removem), janelas de
 // atividade (?active= da API) e o corte de fluxo minimo (?min=). No mobile
-// tudo empilha.
+// tudo empilha. O modo GRAPH reusa so a busca via hideFilters: os filtros
+// do Flow nao agem sobre o ego e ficariam mentindo se aparecessem.
 
 import { useEffect, useRef, useState } from 'react'
 import { fmtDog, truncAddr } from './flow/flow-layout'
@@ -17,14 +18,16 @@ interface SearchMatch {
 }
 
 interface FlowControlsProps {
-  onlyHolders: boolean
-  hideExchanges: boolean
-  active: ActiveWindow
-  min: number
-  onOnlyHolders: () => void
-  onHideExchanges: () => void
-  onActive: (a: ActiveWindow) => void
-  onMin: (n: number) => void
+  /** Modo ego: esconde os filtros do Flow, sobra so a busca. */
+  hideFilters?: boolean
+  onlyHolders?: boolean
+  hideExchanges?: boolean
+  active?: ActiveWindow
+  min?: number
+  onOnlyHolders?: () => void
+  onHideExchanges?: () => void
+  onActive?: (a: ActiveWindow) => void
+  onMin?: (n: number) => void
   /** Resultado escolhido na busca: foca (e re-roota se preciso) la em cima. */
   onPick: (w: string) => void
 }
@@ -50,10 +53,11 @@ function chipClass(on: boolean): string {
 }
 
 export default function FlowControls({
-  onlyHolders,
-  hideExchanges,
-  active,
-  min,
+  hideFilters = false,
+  onlyHolders = false,
+  hideExchanges = false,
+  active = 'all',
+  min = 0,
   onOnlyHolders,
   onHideExchanges,
   onActive,
@@ -143,59 +147,64 @@ export default function FlowControls({
         )}
       </div>
 
-      {/* chips de exibicao: esmaecer, nao remover */}
-      <div className="flex items-center gap-2">
-        <button onClick={onOnlyHolders} className={chipClass(onlyHolders)}>
-          Only holders
-        </button>
-        <button onClick={onHideExchanges} className={chipClass(hideExchanges)}>
-          Hide exchanges
-        </button>
-      </div>
-
-      {/* janela de atividade dos fluxos (?active=) */}
-      <div className="flex items-center gap-2">
-        <span className="text-[9px] uppercase tracking-[0.2em] text-white/40">Active lanes</span>
-        <div className="flex border border-white/15">
-          {ACTIVE_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => onActive(opt.value)}
-              className={
-                active === opt.value
-                  ? 'bg-white/5 px-2.5 py-1 text-[10px] uppercase tracking-[0.15em] text-[#f7931a]'
-                  : 'px-2.5 py-1 text-[10px] uppercase tracking-[0.15em] text-white/45 transition-colors hover:text-white/80'
-              }
-            >
-              {opt.label}
+      {/* filtros do Flow: no modo ego nao agem e por isso nem aparecem */}
+      {!hideFilters && (
+        <>
+          {/* chips de exibicao: esmaecer, nao remover */}
+          <div className="flex items-center gap-2">
+            <button onClick={onOnlyHolders} className={chipClass(onlyHolders)}>
+              Only holders
             </button>
-          ))}
-        </div>
-      </div>
+            <button onClick={onHideExchanges} className={chipClass(hideExchanges)}>
+              Hide exchanges
+            </button>
+          </div>
 
-      {/* corte de fluxo minimo (?min=) */}
-      <div className="flex items-center gap-2">
-        <label htmlFor="flow-min" className="text-[9px] uppercase tracking-[0.2em] text-white/40">
-          Ignore flows below
-        </label>
-        <select
-          id="flow-min"
-          value={String(min)}
-          onChange={(e) => onMin(Number(e.target.value))}
-          className="border border-white/15 bg-[#0B0A11] px-2 py-1 text-[10px] uppercase tracking-[0.15em] text-white/70 outline-none focus:border-[#f7931a]/60"
-        >
-          {MIN_OPTIONS.map((opt) => (
-            <option key={opt.value} value={String(opt.value)}>
-              {opt.label} DOG
-            </option>
-          ))}
-          {/* valor fora da lista (veio de uma URL editada a mao): vira opcao
-              visivel em vez de select em branco */}
-          {!MIN_OPTIONS.some((opt) => opt.value === min) && (
-            <option value={String(min)}>{fmtDog(min)} DOG</option>
-          )}
-        </select>
-      </div>
+          {/* janela de atividade dos fluxos (?active=) */}
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] uppercase tracking-[0.2em] text-white/40">Active lanes</span>
+            <div className="flex border border-white/15">
+              {ACTIVE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => onActive?.(opt.value)}
+                  className={
+                    active === opt.value
+                      ? 'bg-white/5 px-2.5 py-1 text-[10px] uppercase tracking-[0.15em] text-[#f7931a]'
+                      : 'px-2.5 py-1 text-[10px] uppercase tracking-[0.15em] text-white/45 transition-colors hover:text-white/80'
+                  }
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* corte de fluxo minimo (?min=) */}
+          <div className="flex items-center gap-2">
+            <label htmlFor="flow-min" className="text-[9px] uppercase tracking-[0.2em] text-white/40">
+              Ignore flows below
+            </label>
+            <select
+              id="flow-min"
+              value={String(min)}
+              onChange={(e) => onMin?.(Number(e.target.value))}
+              className="border border-white/15 bg-[#0B0A11] px-2 py-1 text-[10px] uppercase tracking-[0.15em] text-white/70 outline-none focus:border-[#f7931a]/60"
+            >
+              {MIN_OPTIONS.map((opt) => (
+                <option key={opt.value} value={String(opt.value)}>
+                  {opt.label} DOG
+                </option>
+              ))}
+              {/* valor fora da lista (veio de uma URL editada a mao): vira opcao
+                  visivel em vez de select em branco */}
+              {!MIN_OPTIONS.some((opt) => opt.value === min) && (
+                <option value={String(min)}>{fmtDog(min)} DOG</option>
+              )}
+            </select>
+          </div>
+        </>
+      )}
     </div>
   )
 }

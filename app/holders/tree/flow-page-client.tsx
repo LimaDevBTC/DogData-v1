@@ -32,7 +32,12 @@ interface Crumb {
 
 const TREASURY_CRUMB: Crumb = { w: DEFAULT_ROOT, name: 'TREASURY' }
 
-export default function FlowPageClient() {
+interface FlowPageClientProps {
+  /** "Open graph" do dossie: o wrapper troca pro modo GRAPH centrado em w. */
+  onOpenGraph: (w: string) => void
+}
+
+export default function FlowPageClient({ onOpenGraph }: FlowPageClientProps) {
   const router = useRouter()
 
   // Estado do painel, todo espelhavel na URL.
@@ -343,6 +348,7 @@ export default function FlowPageClient() {
           onClose={() => setFocus(null)}
           onReRoot={reRootTo}
           onFocus={(w) => setFocus(w)}
+          onOpenGraph={onOpenGraph}
         />
       </div>
     </div>
