@@ -144,7 +144,7 @@ export default function TreeScene() {
     scene.background = new THREE.Color(0x040305)
     scene.fog = new THREE.FogExp2(0x040305, 0.00075)
 
-    const camera = new THREE.PerspectiveCamera(55, el.clientWidth / el.clientHeight, 0.5, 8200)
+    const camera = new THREE.PerspectiveCamera(55, el.clientWidth / el.clientHeight, 0.5, 9800)
     camera.position.set(0, 320, 780)
 
     const renderer = new THREE.WebGLRenderer({ antialias: !mobile })
@@ -159,7 +159,7 @@ export default function TreeScene() {
     // distancia e o passo maior das conchas, 16 deixa chegar NA estrela
     // sem nevoa. O teto acompanha o universo esticado (passo 22 -> 34).
     controls.minDistance = 16
-    controls.maxDistance = 3400
+    controls.maxDistance = 4200
     controls.target.set(0, 0, 0)
     // rotacao ociosa lenta: para NA PRIMEIRA interacao e nao volta
     controls.autoRotate = true
@@ -366,6 +366,75 @@ export default function TreeScene() {
     let popClasse: Uint8Array | null = null
     let popOrdem: Uint32Array | null = null
     let popResolvendo = false
+    // ── o leque do airdrop: TODAS as arestas tesouraria -> geracao 1 ────────
+    // Pedido do fundador (26/08): a carteira do airdrop precisa MOSTRAR as
+    // ~80 mil arestas dela. Com as geracoes ESFERICAS o leque abre em 3D
+    // (dente-de-leao) em vez de empilhar num disco. Duas camadas, ambas na
+    // receita do linkMat (cor uniforme + opacity, que comprovadamente
+    // renderiza nesta cena; o caminho de vertexColors em LineBasicMaterial
+    // rendeu linhas brancas e cinco chapas estouradas):
+    //   veu: TODOS os fios, opacity minuscula (no miolo ha dezenas de fios
+    //        por pixel, o conjunto vira nevoa dourada);
+    //   raios: 1 a cada 67 fios, acesos, dando estrutura visivel de longe.
+    let burstVeu: THREE.LineSegments | null = null
+    let burstRaios: THREE.LineSegments | null = null
+    const buildAirdropBurst = () => {
+      if (burstVeu || !popPos || !popDepth) return
+      let n = 0
+      for (let i = 0; i < popDepth.length; i++) if (popDepth[i] === 1) n++
+      for (let i = 0; i < starCount; i++) if (nodeMeta[i] && nodeMeta[i].d === 1) n++
+      if (n === 0) return
+      const nRaios = Math.floor(n / 67) + 1
+      const posVeu = new Float32Array(n * 6)
+      const posRaios = new Float32Array(nRaios * 6)
+      let kV = 0
+      let kR = 0
+      const escreve = (x: number, y: number, z: number) => {
+        const oV = kV * 6
+        posVeu[oV + 3] = x
+        posVeu[oV + 4] = y
+        posVeu[oV + 5] = z
+        if (kV % 67 === 0 && kR < nRaios) {
+          const oR = kR * 6
+          posRaios[oR + 3] = x
+          posRaios[oR + 4] = y
+          posRaios[oR + 5] = z
+          kR++
+        }
+        kV++
+      }
+      for (let i = 0; i < popDepth.length; i++) {
+        if (popDepth[i] === 1) escreve(popPos[i * 3], popPos[i * 3 + 1], popPos[i * 3 + 2])
+      }
+      for (let i = 0; i < starCount; i++) {
+        if (nodeMeta[i] && nodeMeta[i].d === 1) escreve(posArr[i * 3], posArr[i * 3 + 1], posArr[i * 3 + 2])
+      }
+      const gV = new THREE.BufferGeometry()
+      gV.setAttribute('position', new THREE.BufferAttribute(posVeu, 3))
+      const mV = new THREE.LineBasicMaterial({
+        color: 0xf7931a,
+        transparent: true,
+        opacity: 0.015,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      })
+      burstVeu = new THREE.LineSegments(gV, mV)
+      burstVeu.frustumCulled = false
+      scene.add(burstVeu)
+      const gR = new THREE.BufferGeometry()
+      gR.setAttribute('position', new THREE.BufferAttribute(posRaios.subarray(0, kR * 6), 3))
+      const mR = new THREE.LineBasicMaterial({
+        color: 0xffb347,
+        transparent: true,
+        opacity: 0.3,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      })
+      burstRaios = new THREE.LineSegments(gR, mR)
+      burstRaios.frustumCulled = false
+      scene.add(burstRaios)
+    }
+
     let popFormato = 0
     const buildPopulation = (buf: ArrayBuffer) => {
       const dv = new DataView(buf)
@@ -443,6 +512,7 @@ export default function TreeScene() {
       popPoints = new THREE.Points(g, starMat)
       popPoints.frustumCulled = false
       scene.add(popPoints)
+      buildAirdropBurst()
     }
 
     // ── voo de camera (dolly de entrada e busca), sem alocacao no loop ───────
@@ -470,7 +540,7 @@ export default function TreeScene() {
 
     // dolly de entrada suave: de longe ate o enquadre padrao
     const portrait = el.clientWidth < el.clientHeight
-    flyTo(0, portrait ? 390 : 290, portrait ? 840 : 650, 0, 0, 0, 2600)
+    flyTo(0, portrait ? 490 : 365, portrait ? 1050 : 820, 0, 0, 0, 2600)
 
     const flyDir = new THREE.Vector3()
     const flyView = new THREE.Vector3()
@@ -561,6 +631,7 @@ export default function TreeScene() {
 
         // angulo do pai na propria concha; raiz usa angulo 0
         let pTheta = 0
+        let pPhi = Math.PI / 2
         let px = 0
         let py = 0
         let pz = 0
@@ -570,6 +641,8 @@ export default function TreeScene() {
           py = posArr[pIdx * 3 + 1]
           pz = posArr[pIdx * 3 + 2]
           pTheta = Math.atan2(pz, px)
+          const pR = Math.sqrt(px * px + py * py + pz * pz)
+          if (pR > 1) pPhi = Math.acos(Math.max(-1, Math.min(1, py / pR)))
         }
         let wrote = false
         for (let i = 0; i < children.length; i++) {
@@ -577,7 +650,7 @@ export default function TreeScene() {
           if (indexByWallet.has(child.w)) continue
           if (starCount >= MAX_NODES) break
           const depth = child.d > 0 ? child.d : parent.d + 1
-          childFanPosition(pTheta, i, children.length, depth, child.w, tmpV)
+          childFanPosition(pTheta, pPhi, i, children.length, depth, child.w, tmpV)
           const idx = writeStar(child, tmpV.x, tmpV.y, tmpV.z)
           addLink(px, py, pz, posArr[idx * 3], posArr[idx * 3 + 1], posArr[idx * 3 + 2])
           wrote = true
@@ -902,6 +975,14 @@ export default function TreeScene() {
       haloMat.dispose()
       ;(haloOuter.material as THREE.Material).dispose()
       if (popPoints) popPoints.geometry.dispose()
+      if (burstVeu) {
+        burstVeu.geometry.dispose()
+        ;(burstVeu.material as THREE.Material).dispose()
+      }
+      if (burstRaios) {
+        burstRaios.geometry.dispose()
+        ;(burstRaios.material as THREE.Material).dispose()
+      }
       starTex.dispose()
       sunTex.dispose()
       renderer.dispose()

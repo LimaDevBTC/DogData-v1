@@ -70,8 +70,8 @@ def hash01(s: str, salt: int) -> float:
     return (h & M32) / 4294967296.0
 
 
-SHELL_BASE = 30
-SHELL_STEP = 34
+SHELL_BASE = 48
+SHELL_STEP = 42
 SHELL_LINEAR_MAX = 24
 
 
@@ -83,9 +83,12 @@ def shell_radius(d: int) -> float:
 
 
 def node_position(w: str, d: int):
+    # ESFERICA, em paridade bit a bit com galaxy.ts (26/08)
     theta = hash01(w, 1) * math.pi * 2
+    phi = math.acos(1 - 2 * hash01(w, 2))
     r = shell_radius(d) + (hash01(w, 3) - 0.5) * 9
-    return (math.cos(theta) * r, (hash01(w, 2) * 2 - 1) * 12, math.sin(theta) * r)
+    sp = math.sin(phi)
+    return (sp * math.cos(theta) * r, math.cos(phi) * r, sp * math.sin(theta) * r)
 
 
 def byte_tamanho(holder: bool, balance: float) -> int:

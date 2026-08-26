@@ -60,8 +60,10 @@ export function sanitizeNode(raw: Partial<TreeNode> & { w: string }): TreeNode {
 // escala visitável.
 // 2026-08-26: passo de 22 para 34 e base de 26 para 30 a pedido do fundador:
 // as conchas se afastam, as estrelas se separam e da pra navegar ate UMA.
-export const SHELL_BASE = 30
-export const SHELL_STEP = 34
+// 26/08 v3: base 48 e passo 42 ("aumentar a distancia tambem ajuda",
+// fundador): G1 esferica em r=90 respira e o leque do airdrop abre.
+export const SHELL_BASE = 48
+export const SHELL_STEP = 42
 const SHELL_LINEAR_MAX = 24
 export const shellRadius = (depth: number) => {
   const d = Math.max(0, depth)
@@ -108,11 +110,19 @@ export function nodePosition(w: string, depth: number, out: Vec3Like): Vec3Like 
     out.z = 0
     return out
   }
+  // ESFERICA (pedido do fundador, 26/08): cada geracao e uma CASCA de
+  // esfera, nao um anel fino. Espalha a mesma populacao por 4*pi*r*r em
+  // vez de uma fita: o leque do airdrop deixa de empilhar num disco e as
+  // cascas vistas de fora ganham brilho de borda (os aneis viram
+  // circulos de silhueta). phi = acos(1 - 2h) e a distribuicao uniforme
+  // na esfera.
   const theta = hash01(w, 1) * Math.PI * 2
+  const phi = Math.acos(1 - 2 * hash01(w, 2))
   const r = shellRadius(depth) + (hash01(w, 3) - 0.5) * 9
-  out.x = Math.cos(theta) * r
-  out.y = (hash01(w, 2) * 2 - 1) * 12
-  out.z = Math.sin(theta) * r
+  const sp = Math.sin(phi)
+  out.x = sp * Math.cos(theta) * r
+  out.y = Math.cos(phi) * r
+  out.z = sp * Math.sin(theta) * r
   return out
 }
 
@@ -121,6 +131,7 @@ export function nodePosition(w: string, depth: number, out: Vec3Like): Vec3Like 
 // filho cai sempre no mesmo lugar do leque.
 export function childFanPosition(
   parentTheta: number,
+  parentPhi: number,
   i: number,
   n: number,
   depth: number,
@@ -130,10 +141,14 @@ export function childFanPosition(
   const spread = Math.min(Math.PI * 0.9, 0.05 * Math.max(1, n) + 0.14)
   const t = n <= 1 ? 0 : i / (n - 1) - 0.5
   const theta = parentTheta + t * spread + (hash01(w, 4) - 0.5) * 0.02
+  // calota em volta da direcao do pai: o leque abre em theta e respira
+  // em phi, preso longe dos polos pra nao degenerar
+  const phi = Math.min(Math.PI - 0.05, Math.max(0.05, parentPhi + (hash01(w, 2) - 0.5) * 0.5))
   const r = shellRadius(depth) + (hash01(w, 3) - 0.5) * 9
-  out.x = Math.cos(theta) * r
-  out.y = (hash01(w, 2) * 2 - 1) * 12
-  out.z = Math.sin(theta) * r
+  const sp = Math.sin(phi)
+  out.x = sp * Math.cos(theta) * r
+  out.y = Math.cos(phi) * r
+  out.z = sp * Math.sin(theta) * r
   return out
 }
 
