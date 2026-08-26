@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { Layout } from "@/components/layout"
 import { LoadingScreen } from "@/components/loading-screen"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -903,6 +904,30 @@ export default function HoldersPage() {
           </p>
         )}
       </div>
+
+      {/* Holders Tree: a genealogia viva, o cartão de entrada da galáxia.
+          É a peça de retenção da página (tráfego direto do CoinMarketCap):
+          banner escuro clicável no padrão plot-map, sem imagem externa */}
+      <Link href="/holders/tree" className="block group">
+        <Card variant="glass" className="border-lava/25 group-hover:border-lava/60 transition-all overflow-hidden relative">
+          <div className="absolute inset-0 pointer-events-none opacity-40 group-hover:opacity-60 transition-opacity"
+            style={{ background: 'radial-gradient(ellipse at 18% 50%, rgba(247,147,26,0.22), transparent 55%), radial-gradient(ellipse at 82% 50%, rgba(247,147,26,0.08), transparent 60%)' }} />
+          <CardContent className="relative py-6 md:py-8 flex flex-col md:flex-row md:items-center gap-4 md:gap-8">
+            <div className="flex-1">
+              <p className="text-lava text-xs font-mono uppercase tracking-[0.35em] mb-2">New · Interactive</p>
+              <h2 className="text-2xl md:text-3xl font-display uppercase tracking-[0.2em] text-bone mb-2">Holders Tree</h2>
+              <p className="text-dusty/80 font-mono text-sm max-w-2xl">
+                Every wallet that ever touched DOG, branching from the airdrop treasury,
+                transaction by transaction. Lit nodes still hold today. Built from our
+                full on-chain replay of 263,875 wallets.
+              </p>
+            </div>
+            <div className="shrink-0 font-mono text-sm text-lava border border-lava/40 rounded px-4 py-2 group-hover:bg-lava/10 transition-colors">
+              Explore the galaxy →
+            </div>
+          </CardContent>
+        </Card>
+      </Link>
 
       {/* Distribution Chart - Sempre mostrar, com loading ou dados */}
       <Card variant="glass" className="border-lava/[0.08] hover:border-lava/40 transition-all">
