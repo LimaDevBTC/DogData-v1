@@ -908,7 +908,7 @@ export default function HoldersPage() {
       {/* Holders Tree: a genealogia viva, o cartão de entrada da galáxia.
           É a peça de retenção da página (tráfego direto do CoinMarketCap):
           banner escuro clicável no padrão plot-map, sem imagem externa */}
-      <Link href="/holders/tree" className="block group">
+      <Link href="/galaxy" className="block group">
         <Card variant="glass" className="border-lava/25 group-hover:border-lava/60 transition-all overflow-hidden relative">
           <div className="absolute inset-0 pointer-events-none opacity-40 group-hover:opacity-60 transition-opacity"
             style={{ background: 'radial-gradient(ellipse at 18% 50%, rgba(247,147,26,0.22), transparent 55%), radial-gradient(ellipse at 82% 50%, rgba(247,147,26,0.08), transparent 60%)' }} />
