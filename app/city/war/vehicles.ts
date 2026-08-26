@@ -45,14 +45,18 @@ export const CORES_VEICULO_URSO: CoresVeiculo = {
 }
 
 // cores de espécie do cavaleiro montado (mesma família de critters.ts, mas
-// redeclaradas aqui porque o módulo não importa de fora)
+// redeclaradas aqui porque o módulo não importa de fora). O cavaleiro urso
+// trocou a paleta carmim antiga por pelo marrom de urso de verdade + camisa
+// vermelha (mesmos hex novos de critters.ts); o casaco do cavaleiro cão
+// continua #f0680b, não mudou.
 const CAO_CASACO = new THREE.Color('#f0680b')
 const CAO_PELE = new THREE.Color('#c9722a')
 const CAO_CREME = new THREE.Color('#efe2c6')
 const CAO_ORELHA = new THREE.Color('#a35d24')
-const URSO_ESCURO = new THREE.Color('#7a2436')
-const URSO_CABECA = new THREE.Color('#8f2a3f')
-const URSO_FOCINHO = new THREE.Color('#a8354a')
+const URSO_ESCURO = new THREE.Color('#8a5a36') // pelo marrom, sombra (pernas/braço/capa)
+const URSO_CABECA = new THREE.Color('#ac7043') // pelo marrom, tom médio (cabeça/orelhas)
+const URSO_FOCINHO = new THREE.Color('#d9a877') // focinho/garra, tan claro
+const URSO_CAMISA = new THREE.Color('#e6394a') // camisa vermelha no tronco
 
 // a montaria é "lunar": pelagem clara e fria evocando regolito, não o marrom
 // terrestre de cavalo comum, pra casar com o resto do mundo DogCity na Lua
@@ -165,7 +169,7 @@ export function buildCavaleiroGeometry(lado: 'dog' | 'bear', sentido: 1 | -1): T
     )
   } else {
     partes.push(
-      caixa(0.32, 0.38, 0.28, 0, 1.8, 0, URSO_ESCURO), // tronco (urso menor que o de infantaria)
+      caixa(0.32, 0.38, 0.28, 0, 1.8, 0, URSO_CAMISA), // tronco (camisa vermelha, urso menor que o de infantaria)
       caixa(0.13, 0.3, 0.12, 0, 1.48, 0.18, URSO_ESCURO), // perna
       caixa(0.13, 0.3, 0.12, 0, 1.48, -0.18, URSO_ESCURO),
       caixa(0.13, 0.1, 0.13, 0, 1.33, 0.18, URSO_FOCINHO), // bota/garra

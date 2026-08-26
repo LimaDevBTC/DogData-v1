@@ -208,6 +208,27 @@ function viewFor(name: string | null, aspect: number): View {
       return aspect >= 1
         ? { pos: new THREE.Vector3(WAR_POS.x + 460, 175, WAR_POS.z - 480), target: new THREE.Vector3(WAR_POS.x - 60, 25, WAR_POS.z + 60) }
         : { pos: new THREE.Vector3(WAR_POS.x + 350, 235, WAR_POS.z - 370), target: new THREE.Vector3(WAR_POS.x - 40, 5, WAR_POS.z + 40) }
+    case 'warentry':
+      // A CHEGADA (pedido do fundador): o usuário cai DIRETO sobre a batalha,
+      // vindo do sudoeste, com a skyline da cidade fechando o fundo a 3,7 km
+      // pra gerar curiosidade. Câmera baixa atrás da retaguarda dos ursos,
+      // olhando NE por cima da costura: batalha no primeiro plano, torres no
+      // horizonte. Sem fog na cena, a cidade lê até de longe.
+      // ⚠️ a 700 m a batalha virava linha de brasa no horizonte (metade do
+      // quadro era regolito); a 380 m ela enche o primeiro plano e a skyline
+      // ainda fecha o fundo por cima da costura
+      // o enquadramento é o MESMO diagonal provado da vista 'war', só que
+      // espelhado pro lado SW: a batalha enche o quadro em diagonal e a
+      // cidade fecha o fundo na direção do olhar
+      // ⚠️ câmera BAIXA de propósito: alta, 380 m de regolito vazio enchiam a
+      // metade de baixo do quadro; rasante, o chão comprime numa faixa fina e
+      // os exércitos recortam contra a skyline
+      // a mesma lição do padtour: alvo ACIMA da câmera, senão metade do
+      // quadro é chão vazio; rasante a 240 m, exércitos na faixa de baixo,
+      // farol e skyline por cima
+      return aspect >= 1
+        ? { pos: new THREE.Vector3(WAR_POS.x - 170, 26, WAR_POS.z + 170), target: new THREE.Vector3(WAR_POS.x + 70, 58, WAR_POS.z - 110) }
+        : { pos: new THREE.Vector3(WAR_POS.x - 230, 60, WAR_POS.z + 230), target: new THREE.Vector3(WAR_POS.x + 60, 80, WAR_POS.z - 90) }
     case 'far':
       return { pos: new THREE.Vector3(-2600, 2800, 4200), target: new THREE.Vector3(1800, 0, -1900) }
     case 'park':
@@ -404,8 +425,20 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     // esse pixel ali" sem adivinhar coordenada de mundo.
     if (wantStats) (window as unknown as { __plazaCamera?: THREE.Camera }).__plazaCamera = camera
     camera.layers.enable(CAVE_LAYER) // a caverna do Leonidas vive fora do sol
-    const home = homeFor(camera.aspect)
+    // ⚠️ A ENTRADA PADRÃO (sem ?view=) agora é SOBRE A BATALHA com a cidade ao
+    // fundo (decisão do fundador: entregar o user direto na guerra, take
+    // cinematográfico). Fora do lite apenas: no lite o campo nem nasce e a
+    // câmera estaria sobre uma cratera vazia. ?view= explícito continua manda.
+    const viewParam = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : null
+    const entradaGuerra = !viewParam && !emLite
+    const home = entradaGuerra ? viewFor('warentry', camera.aspect) : homeFor(camera.aspect)
     camera.position.copy(home.pos)
+    if (entradaGuerra) {
+      // o dolly de pouso parte recuado e mais alto; o flyTo pro frame-herói
+      // dispara lá embaixo, depois que ele existe
+      camera.position.sub(home.target).multiplyScalar(1.45).add(home.target)
+      camera.position.y += 210
+    }
 
     let groundAt: (x: number, z: number) => number = () => 0
     const controls = new OrbitControls(camera, renderer.domElement)
@@ -1287,6 +1320,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       controls.autoRotate = false
       lastInteraction = performance.now()
     }
+    // o pouso cinematográfico da entrada: desce devagar do recuo até o
+    // frame-herói da batalha (só quando a chegada é a guerra, ver lá em cima)
+    if (entradaGuerra) flyTo({ pos: home.pos.clone(), target: home.target.clone() }, 4.2)
     // duplo toque em qualquer coisa: o alvo vai até o ponto tocado e a câmera
     // chega perto, mantendo a direção; é assim que se chega a uma placa, a uma
     // estátua, ao parque
