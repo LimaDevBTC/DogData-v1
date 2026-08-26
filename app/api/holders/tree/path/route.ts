@@ -8,6 +8,7 @@ import {
   rowToNode,
   supabase,
   type No,
+  comPrazo,
 } from '../_shared'
 
 export const dynamic = 'force-dynamic'
@@ -21,6 +22,10 @@ const MAX_STEPS = 400
 // Sobe de pai em pai a partir de `addr` ate a raiz (parent NULL), devolvendo
 // o caminho da raiz ate `addr` inclusive.
 export async function GET(req: NextRequest) {
+  return comPrazo(() => handler(req))
+}
+
+async function handler(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const addr = searchParams.get('addr') ?? ''
 

@@ -8,6 +8,7 @@ import {
   rowToNode,
   supabase,
   type No,
+  comPrazo,
 } from '../_shared'
 import { retryOnce, toFlowLabel, type FlowLabel } from '../flow/_agg'
 
@@ -45,6 +46,10 @@ interface Counterparty {
 // O dossie de uma carteira: identidade, saldo, lugar na genealogia e o fluxo
 // total de entrada e saida com as 5 maiores contrapartes de cada lado.
 export async function GET(req: NextRequest) {
+  return comPrazo(() => handler(req))
+}
+
+async function handler(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const w = searchParams.get('w') ?? ''
 

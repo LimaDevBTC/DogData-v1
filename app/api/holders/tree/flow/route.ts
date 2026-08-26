@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ROOT_WALLET, TREE_CACHE_HEADERS, errorJson, isValidAddress } from '../_shared'
+import { ROOT_WALLET, TREE_CACHE_HEADERS, comPrazo, errorJson, isValidAddress } from '../_shared'
 import { buildFlow, type ActiveWindow } from './_agg'
 
 export const dynamic = 'force-dynamic'
@@ -14,6 +14,10 @@ const DEFAULT_MIN = 1_000_000
 // G0..G4+, links de dog_flows, nos de resto, stats dos 4 tiles e meta com o
 // selo complete/partial do backfill.
 export async function GET(req: NextRequest) {
+  return comPrazo(() => handler(req))
+}
+
+async function handler(req: NextRequest) {
   const { searchParams } = new URL(req.url)
 
   const rootParam = searchParams.get('root')

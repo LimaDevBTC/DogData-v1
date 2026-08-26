@@ -9,6 +9,7 @@ import {
   rowToNode,
   supabase,
   type No,
+  comPrazo,
 } from './_shared'
 
 export const dynamic = 'force-dynamic'
@@ -33,6 +34,10 @@ const GENS_MAX_DEPTH = 30
 // geracao. E o payload que desenha o primeiro quadro da arvore; o resto vem
 // sob demanda de /children, /path e /search.
 export async function GET() {
+  return comPrazo(() => handler())
+}
+
+async function handler() {
   try {
     const [root, nodes, gens] = await Promise.all([fetchRoot(), fetchNodeBudget(), fetchGens()])
 

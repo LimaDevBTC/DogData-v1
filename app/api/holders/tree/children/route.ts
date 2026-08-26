@@ -7,6 +7,7 @@ import {
   isValidAddress,
   rowToNode,
   supabase,
+  comPrazo,
 } from '../_shared'
 
 export const dynamic = 'force-dynamic'
@@ -21,6 +22,10 @@ const MAX_LIMIT = 1000
 // GET /api/holders/tree/children?addr=X&limit=400&offset=0
 // Filhos diretos de `addr` (parent = addr), por subtree_holders desc.
 export async function GET(req: NextRequest) {
+  return comPrazo(() => handler(req))
+}
+
+async function handler(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const addr = searchParams.get('addr') ?? ''
 

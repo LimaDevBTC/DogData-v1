@@ -8,6 +8,7 @@ import {
   isValidPrefix,
   rowToNode,
   supabase,
+  comPrazo,
 } from '../_shared'
 
 export const dynamic = 'force-dynamic'
@@ -19,6 +20,10 @@ const MATCH_LIMIT = 10
 // Ate 10 carteiras cujo endereco comeca com `q` (wallet ilike prefixo%),
 // por subtree_holders desc.
 export async function GET(req: NextRequest) {
+  return comPrazo(() => handler(req))
+}
+
+async function handler(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const q = searchParams.get('q') ?? ''
 

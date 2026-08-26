@@ -33,6 +33,40 @@ export const TREE_CACHE_HEADERS = {
   'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
 } as const
 
+// ⚠️ DISJUNTOR (incidente de 26/08): com o banco anemico de IO, cada rota
+// desta arvore pendurava por MINUTOS; o 500 nao era cacheado, entao todo
+// visitante redetonava as consultas (tempestade perpetua de timeouts no
+// Postgres) e as funcoes penduradas comiam a concorrencia da Vercel,
+// derrubando APIs sem nenhuma relacao (a batalha levou 503). Regra: rota de
+// arvore tem PRAZO. Estourou, devolve 503 rapido COM CACHE CURTO NA CDN,
+// que e o que mata o estouro de manada: os proximos 60s de visitantes
+// recebem o 503 da borda sem tocar no banco.
+export const TREE_BUDGET_MS = 7000
+export const TREE_FAIL_HEADERS = {
+  'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=60',
+} as const
+
+export function respostaIndisponivel(): NextResponse {
+  return NextResponse.json(
+    { error: 'data backend busy, retry shortly' },
+    { status: 503, headers: TREE_FAIL_HEADERS },
+  )
+}
+
+/** Corre o handler contra o prazo; estourou = 503 cacheavel imediato. */
+export async function comPrazo(fn: () => Promise<NextResponse>): Promise<NextResponse> {
+  let timer: ReturnType<typeof setTimeout> | null = null
+  const prazo = new Promise<NextResponse>((res) => {
+    timer = setTimeout(() => res(respostaIndisponivel()), TREE_BUDGET_MS)
+  })
+  try {
+    const r = await Promise.race([fn().catch(() => respostaIndisponivel()), prazo])
+    return r
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
 export interface No {
   w: string
   p: string | null
