@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
-export const revalidate = 0
 
 const C2_BASE = 'https://www.c2dog.com'
 const CACHE_TTL_MS = 10 * 60 * 1000 // 10 minutos

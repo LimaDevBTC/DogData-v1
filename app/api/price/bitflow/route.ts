@@ -38,7 +38,6 @@ function bitflowPayload(
 }
 
 export const dynamic = 'force-dynamic'
-export const revalidate = 0
 
 let cachedData: {
   price: number

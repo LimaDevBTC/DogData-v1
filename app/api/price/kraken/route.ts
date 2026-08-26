@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { buildPriceResponse } from '@/lib/price-normalizer'
 
 export const dynamic = 'force-dynamic'
-export const revalidate = 0
 
 // Cache persistente em memória
 let cachedData: {

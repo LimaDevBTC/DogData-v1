@@ -3,7 +3,11 @@ import fs from 'fs'
 import path from 'path'
 import { getLiveSnapshot } from '@/lib/snapshot-redis'
 
-export const revalidate = 60
+// rota de API nao pertence ao build (licao do incidente de IO de 26/08:
+// rotas com revalidate eram PRE-EXECUTADAS no next build lendo banco/rede e
+// com o banco anemico o build inteiro morria, bloqueando qualquer deploy);
+// o cache fica por conta dos headers de CDN da resposta
+export const dynamic = 'force-dynamic'
 
 function shapeResponse(utxoAgeStats: any, lastUpdated: string, source: 'redis' | 'file') {
   const totalUtxos = utxoAgeStats.total_utxos || utxoAgeStats.total_sample_utxos || 0

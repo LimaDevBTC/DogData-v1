@@ -4,7 +4,7 @@ import { getStacksTransactionsResilient } from '@/lib/multichain/stacks-resilien
 import { getSolanaTransactions } from '@/lib/multichain/helius';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+;
 
 const AVAILABLE_EVENT_TYPES = [
   'heartbeat',

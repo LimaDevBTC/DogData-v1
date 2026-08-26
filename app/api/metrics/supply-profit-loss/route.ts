@@ -3,7 +3,11 @@ import fs from 'fs'
 import path from 'path'
 import { getLatestMetricsSnapshot } from '@/lib/metrics-snapshot'
 
-export const revalidate = 60
+// rota de API nao pertence ao build (licao do incidente de IO de 26/08:
+// rotas com revalidate eram PRE-EXECUTADAS no next build lendo banco/rede e
+// com o banco anemico o build inteiro morria, bloqueando qualquer deploy);
+// o cache fica por conta dos headers de CDN da resposta
+export const dynamic = 'force-dynamic'
 
 const TOTAL_SUPPLY = 100_000_000_000
 

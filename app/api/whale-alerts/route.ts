@@ -5,7 +5,6 @@ import { getSolanaTransactions } from '@/lib/multichain/helius'
 import type { ChainTransaction } from '@/lib/multichain/types'
 
 export const dynamic = 'force-dynamic'
-export const revalidate = 0
 
 // ─── Types ────────────────────────────────────────────────────────
 

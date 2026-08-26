@@ -29,7 +29,6 @@ function jupiterPayload(
 }
 
 export const dynamic = 'force-dynamic'
-export const revalidate = 0
 
 const DOG_MINT = 'dog1viwbb2vWDpER5FrJ4YFG6gq6XuyFohUe9TXN65u'
 
