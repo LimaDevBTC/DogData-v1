@@ -7,6 +7,12 @@
 // a animacao do tracejado do link em hover/selecao.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+
+// depuracao temporaria do incidente "canvas em branco": remover depois
+if (typeof window !== 'undefined') {
+  const w = window as unknown as { __flowSceneCarregado?: number }
+  w.__flowSceneCarregado = (w.__flowSceneCarregado || 0) + 1
+}
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { FlowResponse, LabelCat } from './flow-types'
 import { layoutFlow, truncAddr, fmtDog, type FlowLayout } from './flow-layout'
@@ -21,6 +27,12 @@ export interface FlowSceneProps {
   onRestClick: (id: string) => void
   /** Duplo clique num no individual: perfil completo do endereco. */
   onAddressClick: (w: string) => void
+  /**
+   * Ids (carteira ou resto) esmaecidos pelos filtros de exibicao da casca.
+   * O no continua desenhado e clicavel, so apaga: filtro de exibicao nunca
+   * remove estrutura, senao o sankey mente.
+   */
+  dimmed?: Record<string, 1> | null
 }
 
 // Paleta plot-map: laranja de CENA nas barras e links do canvas; o laranja
@@ -84,6 +96,7 @@ export default function FlowScene({
   onNodeClick,
   onRestClick,
   onAddressClick,
+  dimmed,
 }: FlowSceneProps) {
   const wrapRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -108,6 +121,9 @@ export default function FlowScene({
   const lastClickRef = useRef<{ id: string; t: number }>({ id: '', t: 0 })
   const focusProp = useRef<string | null>(null)
   focusProp.current = focus
+  // Mapa de esmaecimento vem da casca; ref pro draw ler sem re-render.
+  const dimmedProp = useRef<Record<string, 1> | null>(null)
+  dimmedProp.current = dimmed ?? null
 
   const layout = useMemo(() => {
     if (size.w < 10 || size.h < 10) return null
@@ -185,8 +201,12 @@ export default function FlowScene({
   const drawRef = useRef<() => void>(() => {})
 
   function requestDraw() {
+    // depuracao temporaria: remover depois
+    const w = window as unknown as { __flowReq?: number; __flowRaf?: number }
+    w.__flowReq = (w.__flowReq || 0) + 1
     if (drawReqRef.current !== null) return
     drawReqRef.current = requestAnimationFrame(() => {
+      w.__flowRaf = (w.__flowRaf || 0) + 1
       drawReqRef.current = null
       drawRef.current()
     })
@@ -220,6 +240,8 @@ export default function FlowScene({
     const cvs = canvasRef.current
     const lay = layoutRef.current
     const g = graphRef.current
+    // depuracao temporaria do incidente "canvas em branco": remover depois
+    if (typeof window !== 'undefined') (window as unknown as { __flowDbg?: unknown }).__flowDbg = { temCvs: !!cvs, temLay: !!lay, temG: !!g, lay }
     if (!cvs || !lay || !g) return
     const ctx = cvs.getContext('2d')
     if (!ctx) return
@@ -228,6 +250,7 @@ export default function FlowScene({
     const hover = hoverRef.current
     const chain = hoverChainRef.current || focusChainRef.current
     const dashSet = dashSetRef.current
+    const dimmedMap = dimmedProp.current
     const hoverLi = hover && hover.kind === 'link' ? hover.li : -1
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
@@ -241,7 +264,12 @@ export default function FlowScene({
     for (let i = 0; i < lay.links.length; i++) {
       const L = lay.links[i]
       const inChain = chain ? chain.links[i] === 1 : false
-      ctx.globalAlpha = chain ? (inChain ? 0.9 : 0.11) : 0.5
+      let linkAlpha = chain ? (inChain ? 0.9 : 0.11) : 0.5
+      // link com ponta esmaecida apaga junto (filtro de exibicao da casca)
+      if (dimmedMap && (dimmedMap[L.link.s] === 1 || dimmedMap[L.link.t] === 1)) {
+        linkAlpha *= 0.25
+      }
+      ctx.globalAlpha = linkAlpha
       ctx.strokeStyle = LINK_COLORS[g.styles[i]]
       ctx.lineWidth = L.width
       if (i === hoverLi || dashSet[i] === 1) {
@@ -260,7 +288,8 @@ export default function FlowScene({
 
     for (let i = 0; i < lay.nodes.length; i++) {
       const ln = lay.nodes[i]
-      const dim = chain ? (chain.nodes[ln.id] === 1 ? 1 : 0.25) : 1
+      let dim = chain ? (chain.nodes[ln.id] === 1 ? 1 : 0.25) : 1
+      if (dimmedMap && dimmedMap[ln.id] === 1) dim *= 0.18
       if (ln.kind === 'ghost') {
         // ancora do re-root: barra apagada e tracejada, so referencia
         ctx.globalAlpha = 0.7 * dim
@@ -351,7 +380,8 @@ export default function FlowScene({
     // rotulos de no
     for (let i = 0; i < lay.labels.length; i++) {
       const lb = lay.labels[i]
-      const dim = chain ? (chain.nodes[lb.nodeId] === 1 ? 1 : 0.25) : 1
+      let dim = chain ? (chain.nodes[lb.nodeId] === 1 ? 1 : 0.25) : 1
+      if (dimmedMap && dimmedMap[lb.nodeId] === 1) dim *= 0.18
       ctx.globalAlpha = dim
       if (lb.kind === 'chip') {
         // chip de entidade: mono caps, fundo solido, cor por categoria
@@ -621,6 +651,12 @@ export default function FlowScene({
     if (needsDashAnim()) ensureAnim()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus])
+
+  // filtros de exibicao mudaram: so redesenha, nada de layout novo
+  useEffect(() => {
+    requestDraw()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dimmed])
 
   // wheel precisa de passive: false pra segurar o scroll da pagina
   useEffect(() => {

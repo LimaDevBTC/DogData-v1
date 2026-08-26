@@ -3,7 +3,7 @@ import TreeClientWrapper from './tree-client-wrapper'
 
 const TITLE = 'Holders Tree'
 const DESCRIPTION =
-  'Every wallet that ever touched DOG as a galaxy: generations orbit the airdrop treasury, lit stars still hold today.'
+  'Where the DOG airdrop went: a re-rootable flow map of every generation, from the treasury to exchanges and the wallets still holding today.'
 
 export const metadata: Metadata = {
   title: TITLE,
