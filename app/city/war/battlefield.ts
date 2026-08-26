@@ -22,9 +22,31 @@ import { connectKraken, type BookLevel, type WarTrade, type KrakenFeed } from '.
 import { shibaGeometry, bearGeometry } from './critters'
 import { buildTankGeometry, CORES_TANQUE_DOG, CORES_TANQUE_URSO } from './tanks'
 import { buildCanhaoGeometry, buildBombardeiroGeometry, BOCA_CANHAO_DIST } from './arsenal'
+import { createExplosionLibrary } from './explosions'
+import {
+  buildCavaleiroGeometry,
+  buildHelicopteroGeometry,
+  buildJipeGeometry,
+  ALTURA_ROTOR,
+  HELI_ROTOR_X,
+  HELI_ROTOR_Z,
+  HELI_CAUDA_X,
+  HELI_CAUDA_Y,
+  HELI_CAUDA_Z,
+  PONTA_ARMA_HELI,
+  JIPE_PIVO_ARMA_X,
+  JIPE_PIVO_ARMA_Y,
+  BOCA_ARMA_JIPE,
+} from './vehicles'
 
 export const CAMPO_X = 88
 export const FRENTE = 7
+
+// ⚠️ ASSINATURA POR ARMA: cada arma fala a linguagem visual dela (biblioteca
+// explosions.ts), nao mais a mesma bola branca pra tudo. 'baleia' cobre a
+// salva de trade grande (nao esta na enumeracao original do pedido, mas o
+// mapa de assinaturas exige um caso proprio pra ela: incendiaria != tiro).
+type Arma = 'fuzil' | 'tiro' | 'morteiro' | 'mlrs' | 'bomba' | 'tanque' | 'baleia'
 
 export interface OrcamentoBatalha {
   cap: number
@@ -105,6 +127,11 @@ export function createBattlefield(
   const semRaycast = (m: THREE.Object3D) => {
     ;(m as any).raycast = () => {}
   }
+  // ⚠️ biblioteca de assinaturas por arma: tier reduzido PROPRIO (2000, não
+  // 1200) porque o custo de partículas de impacto pesa mais que o resto da
+  // praça; instanciada cedo pra ficar disponível pra tudo que vem depois
+  // (impacto, baterias, tanques, MLRS, bombardeiro).
+  const lib = createExplosionLibrary({ group, semRaycast, low: orc.cap < 2000 })
   let matBrasas: THREE.ShaderMaterial | null = null
   let costuraMesh: THREE.Mesh | null = null
   let brasasPts: THREE.Points | null = null
@@ -416,33 +443,62 @@ export function createBattlefield(
 
   const curCaes = { v: 0 }
   const curUrsos = { v: 0 }
-  interface Tombo {
-    mesh: THREE.InstancedMesh
+  // ── CADÁVERES EM 3 FASES: arremesso (arco + tumble), repouso (rotação
+  // final variada, ~22s) e afundamento (desce e libera o slot). MESMO
+  // InstancedMesh de sempre, só a coreografia muda. Pool FIXO de
+  // orc.detritos entradas com cursor circular: zero alocação por baixa
+  // (o `para` antigo alocava Quaternion+Euler novos a cada tombamento; agora
+  // cada slot já nasce com o seu Quaternion e só é mutado via setFromEuler).
+  const qZero = new THREE.Quaternion()
+  const qTumble = new THREE.Quaternion()
+  const eScratchTombo = new THREE.Euler()
+  const EIXO_TOMBO = new THREE.Vector3(1, 0, 0)
+  const CAP_TOMBOS = orc.detritos
+  interface TomboSlot {
+    ativo: boolean
+    mesh: THREE.InstancedMesh | null
     idx: number
-    para: THREE.Quaternion
+    fase: 0 | 1 | 2
+    tFase: number
     x: number
     y: number
     z: number
     esc: number
-    t0: number
+    apice: number
+    paraFinal: THREE.Quaternion
   }
-  const tombos: Tombo[] = []
-  const qZero = new THREE.Quaternion()
+  const tombos: TomboSlot[] = Array.from({ length: CAP_TOMBOS }, () => ({
+    ativo: false, mesh: null, idx: 0, fase: 0 as 0 | 1 | 2, tFase: 0,
+    x: 0, y: 0, z: 0, esc: 1, apice: 1.6, paraFinal: new THREE.Quaternion(),
+  }))
+  let curTombo = 0
   const tomba = (mesh: THREE.InstancedMesh, cur: { v: number }, p: THREE.Vector3, n: number) => {
     for (let k = 0; k < n; k++) {
       const idx = (cur.v = (cur.v + 1) % orc.detritos)
       mesh.count = Math.max(mesh.count, idx + 1)
       const px = p.x + (hash(idx, 3) - 0.5) * 4
       const pz = p.z + (hash(idx, 7) - 0.5) * 4
-      tombos.push({
-        mesh, idx,
-        para: new THREE.Quaternion().setFromEuler(new THREE.Euler(
-          (Math.PI / 2) * (hash(idx, 1) > 0.5 ? 1 : -1), hash(idx, 2) * Math.PI, 0,
-        )),
-        x: px, y: altura(px, pz), z: pz,
-        esc: 0.8 + hash(idx, 9) * 0.3,
-        t0: performance.now(),
-      })
+      const slot = tombos[curTombo]
+      curTombo = (curTombo + 1) % CAP_TOMBOS
+      slot.ativo = true
+      slot.mesh = mesh
+      slot.idx = idx
+      slot.fase = 0
+      slot.tFase = performance.now()
+      slot.x = px
+      slot.y = altura(px, pz)
+      slot.z = pz
+      slot.esc = 0.8 + hash(idx, 9) * 0.3
+      // apice do arco: 1.2 a 2.4, por hash de idx
+      slot.apice = 1.2 + hash(idx, 33) * 1.2
+      // rotação de REPOUSO variada: nem todo mundo cai a exatos 90 graus,
+      // soma hash * 0.5 rad nos eixos X e Z
+      eScratchTombo.set(
+        (Math.PI / 2) * (hash(idx, 1) > 0.5 ? 1 : -1) + (hash(idx, 21) - 0.5) * 0.5,
+        hash(idx, 2) * Math.PI,
+        (hash(idx, 23) - 0.5) * 0.5,
+      )
+      slot.paraFinal.setFromEuler(eScratchTombo)
     }
   }
 
@@ -511,7 +567,7 @@ export function createBattlefield(
   matRastroVenda.color.setHex(0xff5940)
 
   const POOL_TIROS = orc.maxOndas * 2
-  interface Tiro { i: number; t0: number; dur: number; forca: number; lado: 'buy' | 'sell'; qty: number }
+  interface Tiro { i: number; t0: number; dur: number; forca: number; lado: 'buy' | 'sell'; qty: number; arma: Arma }
   const poolTiros: THREE.Mesh[] = []
   const poolRastros: THREE.Mesh[] = []
   for (let i = 0; i < POOL_TIROS; i++) {
@@ -810,7 +866,10 @@ export function createBattlefield(
     return m
   })
   let flashChaoCursor = 0
-  const flashDeTela = (p: THREE.Vector3, forca: number) => {
+  // ⚠️ `cor`: tinge pelo lado (antes era sempre o mesmo 0xffe6c2 fixo pra
+  // todo mundo); quem chama passa a força JÁ reduzida por arma, então esta
+  // função não decide mais sozinha quem merece flash grande
+  const flashDeTela = (p: THREE.Vector3, forca: number, cor: number) => {
     const m = flashesChao[flashChaoCursor]
     flashChaoCursor = (flashChaoCursor + 1) % POOL_FLASH_CHAO
     const raio = 6 + Math.sqrt(forca) * 5.5
@@ -818,6 +877,7 @@ export function createBattlefield(
     m.scale.set(raio, raio, 1)
     m.userData.t0 = performance.now()
     m.userData.baseOp = Math.min(1, 0.55 + forca * 0.05)
+    ;(m.material as THREE.MeshBasicMaterial).color.setHex(cor)
     ;(m.material as THREE.MeshBasicMaterial).opacity = m.userData.baseOp
     m.visible = true
   }
@@ -874,7 +934,9 @@ export function createBattlefield(
   const matRastroPVenda = matRastroPCompra.clone()
   matRastroPVenda.color.setHex(0xff7a5a)
   const POOL_PESADO = 10
-  interface Pesado { i: number; t0: number; dur: number; forca: number; lado: 'buy' | 'sell' }
+  // ⚠️ o mesmo pool de "casca pesada" serve DUAS armas (morteiro e canhão de
+  // tanque): `arma` viaja no struct pra impacto() saber qual assinatura tocar
+  interface Pesado { i: number; t0: number; dur: number; forca: number; lado: 'buy' | 'sell'; arma: Arma }
   const poolCascas: THREE.Mesh[] = []
   const poolRastrosP: THREE.Mesh[] = []
   for (let i = 0; i < POOL_PESADO; i++) {
@@ -894,7 +956,7 @@ export function createBattlefield(
   }
   let cursorPesado = 0
   const pesados: Pesado[] = []
-  const disparaPesado = (lado: 'buy' | 'sell', forca: number, de: THREE.Vector3, para: THREE.Vector3, dur: number) => {
+  const disparaPesado = (lado: 'buy' | 'sell', forca: number, de: THREE.Vector3, para: THREE.Vector3, dur: number, arma: Arma) => {
     const i = cursorPesado
     cursorPesado = (cursorPesado + 1) % POOL_PESADO
     const mesh = poolCascas[i]
@@ -906,7 +968,7 @@ export function createBattlefield(
     mesh.userData.de.copy(de)
     mesh.userData.para.copy(para)
     mesh.userData.prev.copy(de)
-    pesados.push({ i, t0: performance.now(), dur, forca, lado })
+    pesados.push({ i, t0: performance.now(), dur, forca, lado, arma })
   }
   // ⚠️ a boca do morteiro é a bateria mais próxima do z alvo (mata o tiro que
   // nasce do nada); sem bateria (não deveria acontecer, sempre há pelo menos
@@ -916,14 +978,14 @@ export function createBattlefield(
     const bateria = bateriaMaisProxima(lado, z)
     let de: THREE.Vector3
     if (bateria) {
-      dispararBateria(bateria, performance.now())
+      dispararBateria(bateria, performance.now(), forca)
       de = bocaDaBateria(bateria).clone()
     } else {
       de = new THREE.Vector3(-s * (20 + hash(Math.floor(z * 3), 3) * 12) + frenteX, 1, z + (hash(Math.floor(z), 7) - 0.5) * 12)
     }
     const para = new THREE.Vector3(s * (FRENTE + 2 + hash(Math.floor(z), 13) * 8) + frenteX, 0.8, z)
     para.y = altura(para.x, para.z) + 0.4
-    disparaPesado(lado, forca, de, para, 1500 + forca * 45)
+    disparaPesado(lado, forca, de, para, 1500 + forca * 45, 'morteiro')
     clarao(de, 1.8 + Math.sqrt(forca) * 0.8, lado === 'buy' ? 0xffd9a0 : 0xffb09a)
     solta_fumaca(de, forca * 0.5)
   }
@@ -973,25 +1035,27 @@ export function createBattlefield(
     return { grupo, casco, torreGrupo, lado, sentido, z, estado: 'entrando', proxTiro: performance.now() + 900, recuoT0: 0, mira: 0, proxPoeira: 0 }
   }
   const bocaTanque = new THREE.Vector3()
+  const direcaoBocaTanque = new THREE.Vector3()
   const dispararTanque = (t: Tanque, agora: number) => {
     t.recuoT0 = agora
-    const tipX0 = t.sentido * 2.3
-    const c = Math.cos(t.mira)
-    const sMira = Math.sin(t.mira)
-    bocaTanque.set(
-      t.grupo.position.x + t.torreGrupo.position.x + tipX0 * c,
-      t.grupo.position.y + t.torreGrupo.position.y + 0.16,
-      t.grupo.position.z + t.torreGrupo.position.z - tipX0 * sMira,
-    )
+    // boca do cano via matrixWorld, como a bateria faz: o mesh da torre já
+    // nasce com o cano deslocado sentido*2.3 no local space (tanks.ts), o
+    // pivô que gira é o torreGrupo (mira em Y), então o mundo sai de lá
+    t.torreGrupo.updateWorldMatrix(true, false)
+    bocaTanque.set(t.sentido * 2.3, 0.16, 0).applyMatrix4(t.torreGrupo.matrixWorld)
+    direcaoBocaTanque.set(t.sentido, 0, 0).transformDirection(t.torreGrupo.matrixWorld)
     clarao(bocaTanque, 3.4, t.lado === 'buy' ? 0xffd9a0 : 0xffb09a)
     solta_fumaca(bocaTanque, 5)
+    // clarão de boca de PERTO: cone na direção real do cano + anel de fumaça
+    // na boca, no MESMO frame em que a casca nasce dali
+    lib.claraoDeBoca(bocaTanque, direcaoBocaTanque, 9)
     const alvo = new THREE.Vector3(
       t.sentido * (FRENTE + 8 + hash(Math.floor(agora) % 811, t.z) * 10) + frenteX,
       0,
       t.z + (hash(Math.floor(agora) % 433, t.z) - 0.5) * 14,
     )
     alvo.y = altura(alvo.x, alvo.z) + 0.4
-    disparaPesado(t.lado, 9, bocaTanque, alvo, 950)
+    disparaPesado(t.lado, 9, bocaTanque, alvo, 950, 'tanque')
   }
   const esteiraPoeiraTanque = (t: Tanque, agora: number) => {
     if (agora < t.proxPoeira) return
@@ -1112,8 +1176,16 @@ export function createBattlefield(
       baterias.push(criaBateria(lado, Z_BATERIA[k], (hash(k, lIdx + 5) - 0.5) * 6))
     }
   }
-  const dispararBateria = (b: Bateria, agora: number) => {
+  // ⚠️ dispararBateria cobre OS DOIS chamadores que fazem um projétil nascer
+  // da boca de uma bateria: o morteiro (disparaMorteiro) e o canhão de
+  // teatro (proxCanhao); os dois passam `forca` agora, e os dois ganham o
+  // clarão de boca de perto de graça, no mesmo frame do disparo
+  const direcaoBateria = new THREE.Vector3()
+  const dispararBateria = (b: Bateria, agora: number, forca: number) => {
     b.recuoT0 = agora
+    const boca = bocaDaBateria(b)
+    direcaoBateria.set(b.sentido, 0, 0).transformDirection(b.canoGrupo.matrixWorld)
+    lib.claraoDeBoca(boca, direcaoBateria, forca)
   }
   const bateriaMaisProxima = (lado: 'buy' | 'sell', z: number): Bateria | null => {
     let melhor: Bateria | null = null
@@ -1218,15 +1290,11 @@ export function createBattlefield(
     foguetes.push({ i, t0: agora, dur: 560 + hash(i, 3) * 140, lado: r.lado, forca: r.forca })
     clarao(mesh.userData.de, 1.1, r.lado === 'buy' ? 0xffe6b0 : 0xffc2a8)
   }
+  // assinatura MLRS: agora vive dentro de impacto() (arma='mlrs' toca
+  // lib.clusterQuente, o mesmo estouro seco em rajada da referência), então
+  // o foguete ganha onda/poeira/cicatriz/cadáver igual a qualquer outro tiro
   const explodeCluster = (p: THREE.Vector3, forca: number, lado: 'buy' | 'sell') => {
-    const off = 0.7 + Math.sqrt(forca) * 0.15
-    vp.set(p.x - off, p.y, p.z)
-    explodeBola(vp, forca * 0.55, 0xffffff)
-    vp.set(p.x + off, p.y, p.z + off * 0.4)
-    explodeBola(vp, forca * 0.55, 0xffffff)
-    emitFaiscas(p, 3 + forca * 0.4)
-    marcaCicatriz(p, forca * 0.7)
-    if (forca > 3) solta_fumaca(p, forca * 0.4)
+    impacto(p, forca, lado, 0, 'mlrs')
   }
 
   // ── 3. BOMBARDEIRO: uma passagem por ofensiva, 5 bombas em fila ─────────
@@ -1729,6 +1797,80 @@ export function createBattlefield(
     reguaGrupo.add(linhas)
   }
 
+  // ── A CORTINA DE PREÇO: o gráfico recente erguido SOBRE a linha de frente ─
+  // Dado verdadeiro virando cenário (a crista da referência): amostra o mid a
+  // cada 2s, guarda ~2 min e ergue uma cortina aditiva ao longo da costura,
+  // topo = preço daquele instante mapeado no range de 24h, pé = a costura.
+  // Um mesh, 248 vértices, cor por vértice (brilho no topo, morre no pé).
+  // ⚠️ FITA, não véu: a 1ª versão ia do chão ao topo e virava um tubo branco
+  // estourado que escondia a costura; e mapear no range de 24h deixava a
+  // linha chapada (o mid quase não anda em minutos). Agora é uma fita fina
+  // pendurada na linha do preço, normalizada pelo min/max da PRÓPRIA janela
+  // recente (com piso de vão pra não amplificar ruído de tick).
+  const CORTINA_N = 62
+  const cortinaMids: number[] = []
+  let cortinaProx = 0
+  const cortinaGeo = new THREE.BufferGeometry()
+  {
+    const pos = new Float32Array(CORTINA_N * 2 * 3)
+    const cor = new Float32Array(CORTINA_N * 2 * 3)
+    const idx: number[] = []
+    for (let i = 0; i < CORTINA_N; i++) {
+      const z = -62 + (124 * i) / (CORTINA_N - 1)
+      pos.set([0, 4.4, z], i * 6)      // barra de baixo (yTopo - 1.1)
+      pos.set([0, 5.5, z], i * 6 + 3)  // topo (a linha do preço, y vivo)
+      cor.set([1 * 0.04, 0.8 * 0.04, 0.45 * 0.04], i * 6)
+      cor.set([1 * 0.5, 0.82 * 0.5, 0.5 * 0.5], i * 6 + 3)
+      if (i < CORTINA_N - 1) {
+        const a = i * 2
+        idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2)
+      }
+    }
+    cortinaGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
+    cortinaGeo.setAttribute('color', new THREE.BufferAttribute(cor, 3))
+    cortinaGeo.setIndex(idx)
+  }
+  const cortina = new THREE.Mesh(cortinaGeo, new THREE.MeshBasicMaterial({
+    vertexColors: true, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending,
+    depthWrite: false, side: THREE.DoubleSide,
+  }))
+  semRaycast(cortina)
+  cortina.frustumCulled = false
+  // sem preço a cortina seria uma faixa chapada flutuando; só aparece com dado
+  cortina.visible = false
+  group.add(cortina)
+  const passoCortina = (agora: number) => {
+    if (agora < cortinaProx || !(mid > 0) || !(high24 > low24)) return
+    cortina.visible = true
+    cortinaProx = agora + 2000
+    cortinaMids.push(mid)
+    if (cortinaMids.length > CORTINA_N) cortinaMids.shift()
+    // normaliza pelo min/max da janela, com piso de vão de 0,12% do mid
+    let mn = Infinity
+    let mx = -Infinity
+    for (const m of cortinaMids) {
+      if (m < mn) mn = m
+      if (m > mx) mx = m
+    }
+    const vaoMin = mid * 0.0012
+    if (mx - mn < vaoMin) {
+      const c = (mx + mn) / 2
+      mn = c - vaoMin / 2
+      mx = c + vaoMin / 2
+    }
+    const pos = cortinaGeo.attributes.position as THREE.BufferAttribute
+    for (let i = 0; i < CORTINA_N; i++) {
+      // mais novo na ponta +z; enquanto o histórico enche, repete o mais velho
+      const k = Math.max(0, cortinaMids.length - CORTINA_N + i)
+      const m = cortinaMids[Math.min(k, cortinaMids.length - 1)] ?? mid
+      const frac = Math.min(1, Math.max(0, (m - mn) / (mx - mn)))
+      const topo = 3.4 + frac * 8
+      pos.setY(i * 2 + 1, topo)
+      pos.setY(i * 2, topo - 1.1)
+    }
+    pos.needsUpdate = true
+  }
+
   // ── book vira fileiras ──────────────────────────────────────────────────
   const m4 = new THREE.Matrix4()
   const q = new THREE.Quaternion()
@@ -1896,7 +2038,9 @@ export function createBattlefield(
   // ⚠️ `origem`: canhão de teatro passa a boca da bateria mais próxima (mata o
   // tiro que nasce do nada); sem argumento mantém a fórmula de sempre (o tiro
   // de trade real, que representa pressão de mercado, não uma arma parada)
-  const atira = (lado0: 'buy' | 'sell', qty: number, forca: number, zAlvo: number, sem: number, origem?: THREE.Vector3) => {
+  // ⚠️ `arma` default 'tiro': cobre trade comum E canhão de teatro (os dois
+  // passam pelo mesmo pool `tiros`); a salva de baleia é quem passa 'baleia'
+  const atira = (lado0: 'buy' | 'sell', qty: number, forca: number, zAlvo: number, sem: number, origem?: THREE.Vector3, arma: Arma = 'tiro') => {
     const lado = lado0 === 'buy' ? 1 : -1
     const i = cursorTiro
     cursorTiro = (cursorTiro + 1) % POOL_TIROS
@@ -1910,7 +2054,7 @@ export function createBattlefield(
     else mesh.userData.de.set(-lado * (14 + hash(sem % 31, 3) * 30) + frenteX, 1.2, zAlvo + (hash(sem % 13, 5) - 0.5) * 30)
     mesh.userData.para.set(lado * (FRENTE + hash(sem % 7, 11) * 6) + frenteX, 0.8, zAlvo)
     mesh.userData.prev.copy(mesh.userData.de)
-    tiros.push({ i, t0: performance.now(), dur: 750 + 350 * Math.min(3, forca / 8), forca, lado: lado0, qty })
+    tiros.push({ i, t0: performance.now(), dur: 750 + 350 * Math.min(3, forca / 8), forca, lado: lado0, qty, arma })
     // artilharia anuncia o disparo: clarão de boca + baforada na origem
     if (forca > 2) {
       clarao(mesh.userData.de, 1.6 + Math.sqrt(forca), lado0 === 'buy' ? 0xffd9a0 : 0xffb09a)
@@ -1943,8 +2087,13 @@ export function createBattlefield(
     if (forca > LIMIAR_BALEIA && onWhale) onWhale(t.side, forca)
   }
 
-  const impacto = (p: THREE.Vector3, forca: number, lado: 'buy' | 'sell', qty: number) => {
-    if (qty > 0) mostraDano(p, qty, lado)
+  const impacto = (p: THREE.Vector3, forca: number, lado: 'buy' | 'sell', qty: number, arma: Arma) => {
+    if (qty > 0) {
+      mostraDano(p, qty, lado)
+      // caveirinha: marcador de BAIXA REAL. qty>0 só acontece em trade de
+      // verdade (a escaramuça/rugido de fundo sempre manda qty 0)
+      lib.caveira(p, lado)
+    }
     const cor = lado === 'buy' ? 0xffa64d : 0xff5238
     const mesh = poolOndas[cursorOnda]
     cursorOnda = (cursorOnda + 1) % poolOndas.length
@@ -1961,28 +2110,81 @@ export function createBattlefield(
     }
     ondas.push({ mesh, luz, t0: performance.now(), forca })
 
-    const sp = flashPool[flashCursor]
-    flashCursor = (flashCursor + 1) % POOL_FLASH
-    ;(sp.material as THREE.SpriteMaterial).color.setHex(lado === 'buy' ? 0xffe1b0 : 0xffb0a0)
-    sp.position.copy(p).setY(1.5)
-    sp.userData.base = 2.4 + Math.sqrt(forca) * 2
-    sp.scale.setScalar(sp.userData.base)
-    ;(sp.material as THREE.SpriteMaterial).opacity = 1
-    sp.visible = true
-    sp.userData.t0 = performance.now()
-
     emitPoeira(p, forca)
     emitFaiscas(p, forca)
     marcaCicatriz(p, forca)
-    if (forca > 0.5) {
-      explodeBola(p, forca)
-      flashDeTela(p, forca)
+
+    // ⚠️ A LINGUAGEM DA EXPLOSÃO: cada arma tem a SUA (biblioteca
+    // explosions.ts), não mais a mesma bola branca pra todas. O flash de
+    // impacto (flashPool aqui + flashDeTela) também deixou de ser gigante
+    // pra tudo: só bomba e força alta merecem flash grande agora, o resto
+    // reduz proporcionalmente e tinge pelo lado.
+    if (forca > 0.3) {
+      switch (arma) {
+        case 'fuzil': {
+          // nada de bola: só faíscas + poeira (já feito acima) + flash pequeno
+          const sp = flashPool[flashCursor]
+          flashCursor = (flashCursor + 1) % POOL_FLASH
+          ;(sp.material as THREE.SpriteMaterial).color.setHex(lado === 'buy' ? 0xffe1b0 : 0xffb0a0)
+          sp.position.copy(p).setY(1.3)
+          sp.userData.base = 1.1 + Math.sqrt(forca) * 0.7
+          sp.scale.setScalar(sp.userData.base)
+          ;(sp.material as THREE.SpriteMaterial).opacity = 1
+          sp.visible = true
+          sp.userData.t0 = performance.now()
+          break
+        }
+        case 'tiro': {
+          const sp = flashPool[flashCursor]
+          flashCursor = (flashCursor + 1) % POOL_FLASH
+          ;(sp.material as THREE.SpriteMaterial).color.setHex(lado === 'buy' ? 0xffe1b0 : 0xffb0a0)
+          sp.position.copy(p).setY(1.5)
+          sp.userData.base = (2.4 + Math.sqrt(forca) * 2) * 0.65
+          sp.scale.setScalar(sp.userData.base)
+          ;(sp.material as THREE.SpriteMaterial).opacity = 1
+          sp.visible = true
+          sp.userData.t0 = performance.now()
+          // tiro comum: a bola de sempre, mas tintada pelo lado (não mais o
+          // laranja fixo genérico) e com o flash de chão reduzido
+          explodeBola(p, forca, cor)
+          flashDeTela(p, forca * 0.55, cor)
+          break
+        }
+        case 'morteiro':
+          // obus levanta chão: sem bola de fogo
+          lib.fontanaDeTerra(p, forca)
+          break
+        case 'mlrs':
+          // rajada seca de 3 estouros brancos-quentes
+          lib.clusterQuente(p, forca)
+          break
+        case 'bomba':
+          // a única que pode ser gorda: flash grande de verdade
+          lib.bombaAerea(p, forca)
+          flashDeTela(p, forca, cor)
+          break
+        case 'tanque':
+          // fontana de terra + flash médio extra (a casca é mais pesada)
+          lib.fontanaDeTerra(p, forca)
+          flashDeTela(p, forca * 0.55, cor)
+          break
+        case 'baleia':
+          // salva de trade grande: chamas residuais contam a história
+          lib.incendiaria(p, forca)
+          break
+      }
     }
-    if (forca > 2) solta_fumaca(p, forca)
+
+    // fumaça genérica e coluna de fogo só sobram pro 'tiro': as outras armas
+    // já carregam a própria fumaça/coluna dentro da assinatura da lib, ou
+    // (morteiro/mlrs/tanque) são deliberadamente "sem bola de fogo"
+    if (forca > 2 && arma === 'tiro') solta_fumaca(p, forca)
     if (forca > 3) {
-      colunaDeFogo(p, forca)
-      emitDestrocos(p, forca)
       opcoes.onImpactoGrande?.(forca)
+      if (arma === 'tiro' || arma === 'baleia') {
+        colunaDeFogo(p, forca)
+        emitDestrocos(p, forca)
+      }
     }
     if (lado === 'buy') tomba(detritoUrsos, curUrsos, p, Math.min(14, 1 + Math.round(forca)))
     else tomba(detritoCaes, curCaes, p, Math.min(14, 1 + Math.round(forca)))
@@ -2003,6 +2205,390 @@ export function createBattlefield(
   }
   const passo = new THREE.Vector3()
   const zEixo = new THREE.Vector3(0, 0, 1)
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 7. VEÍCULOS (vehicles.ts): cavalaria, helicóptero de ataque e jipe de
+  // metralhadora. Mesma técnica de tanques/baterias acima: geometria única
+  // fundida por peça, material reaproveitado (matTanque, MeshStandardMaterial
+  // vertexColors, nenhum shader novo aqui), pools fixos criados na montagem
+  // e um único ponto de atualização por frame (passoVeiculos), chamado logo
+  // depois de atualizaBaterias no laço principal.
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // orçamento por tier (mesmo corte de orc.cap usado no resto do arquivo):
+  // alto ganha cavalaria cheia, helicóptero e 2 jipes por lado; médio ainda
+  // tem helicóptero mas só 1 jipe; fraco (mobile) fica sem helicóptero.
+  const tierAlto = orc.cap >= 4000
+  const tierMedio = orc.cap >= 2000
+
+  // fila de impactos atrasados: helicóptero e jipe agendam rajadas de
+  // 'fuzil' que caem alguns quadros no futuro (~90ms entre tiros da mesma
+  // rajada). Pool fixo de números, sem Vector3 por evento: a posição só vira
+  // THREE.Vector3 no instante do disparo, reaproveitando o `vp` de cima.
+  const CAP_IMPACTO_ATRASADO = 32
+  const impAt = new Float32Array(CAP_IMPACTO_ATRASADO)
+  const impX = new Float32Array(CAP_IMPACTO_ATRASADO)
+  const impZ = new Float32Array(CAP_IMPACTO_ATRASADO)
+  const impForca = new Float32Array(CAP_IMPACTO_ATRASADO)
+  const impLado = new Uint8Array(CAP_IMPACTO_ATRASADO) // 0 = buy, 1 = sell
+  const impArma: Arma[] = new Array(CAP_IMPACTO_ATRASADO).fill('fuzil')
+  const impAtiva = new Uint8Array(CAP_IMPACTO_ATRASADO)
+  let cursorImpAtrasado = 0
+  const agendaImpacto = (at: number, x: number, z: number, forca: number, lado: 'buy' | 'sell', arma: Arma) => {
+    const i = cursorImpAtrasado
+    cursorImpAtrasado = (cursorImpAtrasado + 1) % CAP_IMPACTO_ATRASADO
+    impAt[i] = at
+    impX[i] = x
+    impZ[i] = z
+    impForca[i] = forca
+    impLado[i] = lado === 'buy' ? 0 : 1
+    impArma[i] = arma
+    impAtiva[i] = 1
+  }
+
+  // ── 7a. CAVALARIA: um InstancedMesh por lado, pool do tamanho do maior
+  // grupo de carga possível no tier (8 alto, 5 médio, 3 fraco). Só uma carga
+  // fica ativa por vez (mesmo desenho da carga de esquadrão acima): parte da
+  // retaguarda, cruza até perto da costura, faz meia-volta larga e volta pra
+  // própria linha. 1 em cada 4 cargas termina com o cavaleiro da frente
+  // tombando bem na costura.
+  const capCavalaria = tierAlto ? 8 : tierMedio ? 5 : 3
+  const geoCavaloDog = buildCavaleiroGeometry('dog', 1)
+  const geoCavaloUrso = buildCavaleiroGeometry('bear', -1)
+  const cavCaes = new THREE.InstancedMesh(geoCavaloDog, matTanque, capCavalaria)
+  const cavUrsos = new THREE.InstancedMesh(geoCavaloUrso, matTanque, capCavalaria)
+  cavCaes.count = 0
+  cavUrsos.count = 0
+  for (const m of [cavCaes, cavUrsos]) {
+    semRaycast(m)
+    m.frustumCulled = false
+  }
+  group.add(cavCaes, cavUrsos)
+
+  type FaseCavalo = 0 | 1 | 2 | 3 | 4 // 0 indo, 1 virando, 2 voltando, 3 caindo, 4 concluído
+  interface Cavaleiro { x: number; z: number; fase: FaseCavalo; t0: number }
+  interface Cavalgada { lado: 'buy' | 'sell' | null; sentido: 1 | -1; n: number; temQueda: boolean; cavaleiros: Cavaleiro[] }
+  const cavalgada: Cavalgada = {
+    lado: null, sentido: 1, n: 0, temQueda: false,
+    cavaleiros: Array.from({ length: capCavalaria }, () => ({ x: 0, z: 0, fase: 4 as FaseCavalo, t0: 0 })),
+  }
+  const FOLGA_CAVALO = 2.6
+  const X_CAVALO_RETAGUARDA = FRENTE + 30
+  const VEL_CAVALO = 7 * 2.6 // ~2.6x a velocidade de marcha da infantaria (7/s)
+  const DUR_VIRADA_CAVALO = 700
+  let contadorCargas = 0
+  let proxCarga = performance.now() + 7000 + hash(3, 91) * 5000
+
+  const iniciaCargaCavalaria = (agora: number) => {
+    const press = matCostura.uniforms.pressao.value
+    const lado: 'buy' | 'sell' = hash(Math.floor(agora) % 947, 53) < press ? 'buy' : 'sell'
+    const sentido: 1 | -1 = lado === 'buy' ? 1 : -1
+    const n = Math.min(capCavalaria, 3 + Math.floor(hash(Math.floor(agora) % 733, 61) * 4))
+    contadorCargas++
+    cavalgada.lado = lado
+    cavalgada.sentido = sentido
+    cavalgada.n = n
+    cavalgada.temQueda = contadorCargas % 4 === 0
+    const zEvento = zAlvoGuerra(Math.floor(agora) % 1451, 67)
+    const mesh = lado === 'buy' ? cavCaes : cavUrsos
+    mesh.count = n
+    for (let i = 0; i < n; i++) {
+      const c = cavalgada.cavaleiros[i]
+      // espalhamento organico por hash, não uma grade linear
+      c.z = zEvento + (hash(contadorCargas * 17 + i, 71) - 0.5) * 26
+      c.x = frenteX - sentido * X_CAVALO_RETAGUARDA
+      c.fase = 0
+      c.t0 = agora + i * (60 + hash(i, contadorCargas) * 90) // partida em leque, não em bloco só
+    }
+  }
+
+  const atualizaCavalgada = (agora: number, dt: number) => {
+    if (cavalgada.lado === null) {
+      if (agora >= proxCarga) iniciaCargaCavalaria(agora)
+      return
+    }
+    const lado = cavalgada.lado
+    const sentido = cavalgada.sentido
+    const mesh = lado === 'buy' ? cavCaes : cavUrsos
+    const xSeam = frenteX - sentido * FOLGA_CAVALO
+    const xVolta = frenteX - sentido * X_CAVALO_RETAGUARDA
+    let algumAtivo = false
+    for (let i = 0; i < cavalgada.n; i++) {
+      const c = cavalgada.cavaleiros[i]
+      const ehFrente = cavalgada.temQueda && i === 0
+      const galope = agora * 0.02011 + i * 1.7
+      if (c.fase !== 4) algumAtivo = true
+      if (c.fase === 0) {
+        if (agora >= c.t0) {
+          const dx = xSeam - c.x
+          c.x += Math.sign(dx) * Math.min(Math.abs(dx), VEL_CAVALO * dt)
+        }
+        const swayZ = Math.sin(galope) * 0.16
+        const bobY = Math.abs(Math.sin(galope * 2)) * 0.14
+        eu.set(0, 0, swayZ)
+        q.setFromEuler(eu)
+        vp.set(c.x, altura(c.x, c.z) + bobY, c.z)
+        vs.setScalar(1)
+        m4.compose(vp, q, vs)
+        mesh.setMatrixAt(i, m4)
+        if (Math.abs(xSeam - c.x) < 0.35) {
+          if (ehFrente) {
+            c.fase = 3
+            c.t0 = agora
+            vp.set(c.x, altura(c.x, c.z) + 0.4, c.z)
+            const detrito = lado === 'buy' ? detritoCaes : detritoUrsos
+            const cursorDet = lado === 'buy' ? curCaes : curUrsos
+            tomba(detrito, cursorDet, vp, 1)
+            lib.fontanaDeTerra(vp, 5)
+          } else {
+            c.fase = 1
+            c.t0 = agora
+          }
+        }
+      } else if (c.fase === 1) {
+        // meia-volta larga: gira até PI ao mesmo tempo que a costura empurra
+        // o grupo pra fora do eixo Z, como um arco de verdade
+        const f = Math.min(1, (agora - c.t0) / DUR_VIRADA_CAVALO)
+        const rotY = f * Math.PI
+        const zVisual = c.z + Math.sin(f * Math.PI) * sentido * 3.2
+        const swayZ = Math.sin(galope) * 0.1
+        eu.set(0, rotY, swayZ)
+        q.setFromEuler(eu)
+        vp.set(c.x, altura(c.x, zVisual), zVisual)
+        vs.setScalar(1)
+        m4.compose(vp, q, vs)
+        mesh.setMatrixAt(i, m4)
+        if (f >= 1) {
+          c.fase = 2
+          c.t0 = agora
+        }
+      } else if (c.fase === 2) {
+        const dx = xVolta - c.x
+        c.x += Math.sign(dx) * Math.min(Math.abs(dx), VEL_CAVALO * dt)
+        const swayZ = Math.sin(galope) * 0.16
+        const bobY = Math.abs(Math.sin(galope * 2)) * 0.14
+        eu.set(0, Math.PI, swayZ)
+        q.setFromEuler(eu)
+        vp.set(c.x, altura(c.x, c.z) + bobY, c.z)
+        vs.setScalar(1)
+        m4.compose(vp, q, vs)
+        mesh.setMatrixAt(i, m4)
+        if (Math.abs(xVolta - c.x) < 0.4) c.fase = 4
+      } else if (c.fase === 3) {
+        // caindo: pitch pra frente + encolhe até sumir, mesma linguagem do
+        // tombo de infantaria (arremesso->repouso), só que mais curto
+        const f = Math.min(1, (agora - c.t0) / 900)
+        eu.set(f * (Math.PI / 2), 0, 0)
+        q.setFromEuler(eu)
+        vp.set(c.x, altura(c.x, c.z) + 0.05, c.z)
+        vs.setScalar(1 - f)
+        m4.compose(vp, q, vs)
+        mesh.setMatrixAt(i, m4)
+        if (f >= 1) c.fase = 4
+      }
+    }
+    mesh.instanceMatrix.needsUpdate = true
+    if (!algumAtivo) {
+      cavalgada.lado = null
+      mesh.count = 0
+      const intervalo = 26000 - intensidade * 12000 // 14 a 26s, mais curto com mais intensidade
+      proxCarga = agora + intervalo * (0.85 + hash(Math.floor(agora) % 599, 79) * 0.3)
+    }
+  }
+
+  // ── 7b. HELICÓPTERO DE ATAQUE: 1 por lado, só nos tiers alto e médio (um
+  // Group com 3 sub-meshes girando o tempo todo não cabe no tier fraco).
+  // Entra quando a intensidade cruza 0.62 (mesmo limiar de entrada dos
+  // tanques), sai abaixo de 0.4; enquanto ativo faz strafe ao longo da
+  // costura no x fixo do próprio lado, sempre frenteX + recuo.
+  const X_RECUO_HELI = 18
+  const HELI_Z_LIMITE = 46
+  const VEL_HELI = 9
+  interface Heli {
+    lado: 'buy' | 'sell'
+    sentido: 1 | -1
+    grupo: THREE.Group
+    corpo: THREE.Mesh
+    rotorGrupo: THREE.Group
+    rotorCaudaGrupo: THREE.Group
+    estado: 'fora' | 'entrando' | 'combate' | 'saindo'
+    t0: number
+    z: number
+    dirZ: 1 | -1
+    headingY: number
+    fase: number
+    altBase: number
+    proxRajada: number
+  }
+  const criaHeli = (lado: 'buy' | 'sell', semente: number): Heli => {
+    const sentido: 1 | -1 = lado === 'buy' ? 1 : -1
+    const geo = buildHelicopteroGeometry(lado === 'buy' ? 'dog' : 'bear')
+    const corpo = new THREE.Mesh(geo.corpo, matTanque)
+    const rotorMesh = new THREE.Mesh(geo.rotor, matTanque)
+    const rotorCaudaMesh = new THREE.Mesh(geo.rotorCauda, matTanque)
+    semRaycast(corpo)
+    semRaycast(rotorMesh)
+    semRaycast(rotorCaudaMesh)
+    corpo.frustumCulled = rotorMesh.frustumCulled = rotorCaudaMesh.frustumCulled = false
+    const rotorGrupo = new THREE.Group()
+    rotorGrupo.position.set(HELI_ROTOR_X, ALTURA_ROTOR, HELI_ROTOR_Z)
+    rotorGrupo.add(rotorMesh)
+    const rotorCaudaGrupo = new THREE.Group()
+    rotorCaudaGrupo.position.set(HELI_CAUDA_X, HELI_CAUDA_Y, HELI_CAUDA_Z)
+    rotorCaudaGrupo.add(rotorCaudaMesh)
+    const grupo = new THREE.Group()
+    grupo.add(corpo, rotorGrupo, rotorCaudaGrupo)
+    grupo.visible = false
+    group.add(grupo)
+    const dirZ: 1 | -1 = hash(semente, 131) < 0.5 ? 1 : -1
+    return {
+      lado, sentido, grupo, corpo, rotorGrupo, rotorCaudaGrupo,
+      estado: 'fora', t0: 0, z: 0, dirZ,
+      headingY: dirZ > 0 ? Math.PI / 2 : -Math.PI / 2,
+      fase: hash(semente, 137) * Math.PI * 2,
+      altBase: 15, proxRajada: 0,
+    }
+  }
+  const helis: Heli[] = tierMedio ? [criaHeli('buy', 1), criaHeli('sell', 2)] : []
+  const bocaHeli = new THREE.Vector3()
+  const direcaoHeli = new THREE.Vector3()
+
+  const atualizaHelicopteros = (agora: number, dt: number) => {
+    for (const h of helis) {
+      if (h.estado === 'fora') {
+        if (intensidade > 0.62) {
+          h.estado = 'entrando'
+          h.t0 = agora
+        } else continue
+      }
+      h.z += h.dirZ * VEL_HELI * dt
+      if (h.z > HELI_Z_LIMITE) { h.z = HELI_Z_LIMITE; h.dirZ = -1 }
+      else if (h.z < -HELI_Z_LIMITE) { h.z = -HELI_Z_LIMITE; h.dirZ = 1 }
+      // o heading persegue a direção do vaivém com atraso: o próprio atraso
+      // é a virada, e o quanto falta pra chegar É o banco (rotation.z)
+      const alvoHeading = h.dirZ > 0 ? Math.PI / 2 : -Math.PI / 2
+      h.headingY += (alvoHeading - h.headingY) * Math.min(1, dt * 3.2)
+      const x = frenteX - h.sentido * X_RECUO_HELI
+      let y = h.altBase + Math.sin(agora * 0.0009 + h.fase) * 2
+      if (h.estado === 'entrando') {
+        const f = Math.min(1, (agora - h.t0) / 1200)
+        y -= (1 - f) * 14
+        if (f >= 1) h.estado = 'combate'
+      } else if (h.estado === 'saindo') {
+        const f = Math.min(1, (agora - h.t0) / 1200)
+        y -= f * 14
+        if (f >= 1) {
+          h.estado = 'fora'
+          h.grupo.visible = false
+          continue
+        }
+      } else if (h.estado === 'combate' && intensidade < 0.4) {
+        h.estado = 'saindo'
+        h.t0 = agora
+      }
+      h.grupo.visible = true
+      h.grupo.position.set(x, y, h.z)
+      const banco = THREE.MathUtils.clamp((alvoHeading - h.headingY) * 0.7, -0.3, 0.3)
+      h.grupo.rotation.set(0, h.headingY, banco)
+      h.rotorGrupo.rotation.y += 28 * dt
+      h.rotorCaudaGrupo.rotation.x += 40 * dt
+      if (h.estado === 'combate' && agora > h.proxRajada) {
+        h.proxRajada = agora + 2500 + hash(Math.floor(agora) % 421, h.sentido + 3) * 2500
+        h.corpo.updateWorldMatrix(true, false)
+        bocaHeli.set(PONTA_ARMA_HELI, -0.28, 0).applyMatrix4(h.corpo.matrixWorld)
+        direcaoHeli.set(1, 0, 0).transformDirection(h.corpo.matrixWorld)
+        lib.claraoDeBoca(bocaHeli, direcaoHeli, 3)
+        const alvoX = frenteX + h.sentido * (FRENTE + 6 + hash(Math.floor(agora) % 331, h.z) * 10)
+        for (let k = 0; k < 3; k++) {
+          agendaImpacto(agora + k * 90, alvoX, h.z + (hash(k, h.z + agora) - 0.5) * 8, 1.4, h.lado, 'fuzil')
+        }
+      }
+    }
+  }
+
+  // ── 7c. JIPE DE METRALHADORA: patrulha atrás da própria linha, arma
+  // varrendo em Y (já aponta pro inimigo por construção, sentido embutido na
+  // geometria), rajada curta de tempos em tempos.
+  const N_JIPE = tierAlto ? 2 : 1
+  const X_RECUO_JIPE = 24
+  const JIPE_Z_LIMITE = 40
+  const VEL_JIPE = 4.5
+  interface Jipe {
+    lado: 'buy' | 'sell'
+    sentido: 1 | -1
+    grupo: THREE.Group
+    armaGrupo: THREE.Group
+    z: number
+    dirZ: 1 | -1
+    fase: number
+    proxRajada: number
+  }
+  const criaJipe = (lado: 'buy' | 'sell', idx: number): Jipe => {
+    const sentido: 1 | -1 = lado === 'buy' ? 1 : -1
+    const geo = buildJipeGeometry(lado === 'buy' ? 'dog' : 'bear', sentido)
+    const corpo = new THREE.Mesh(geo.corpo, matTanque)
+    const armaMesh = new THREE.Mesh(geo.arma, matTanque)
+    semRaycast(corpo)
+    semRaycast(armaMesh)
+    corpo.frustumCulled = armaMesh.frustumCulled = false
+    const armaGrupo = new THREE.Group()
+    armaGrupo.position.set(sentido * JIPE_PIVO_ARMA_X, JIPE_PIVO_ARMA_Y, 0)
+    armaGrupo.add(armaMesh)
+    const grupo = new THREE.Group()
+    grupo.add(corpo, armaGrupo)
+    group.add(grupo)
+    return {
+      lado, sentido, grupo, armaGrupo,
+      z: (idx - (N_JIPE - 1) / 2) * 22,
+      dirZ: idx % 2 === 0 ? 1 : -1,
+      fase: hash(idx, lado === 'buy' ? 7 : 11),
+      proxRajada: performance.now() + 1500 + hash(idx, lado === 'buy' ? 13 : 17) * 3500,
+    }
+  }
+  const jipes: Jipe[] = []
+  for (const lado of ['buy', 'sell'] as const) {
+    for (let k = 0; k < N_JIPE; k++) jipes.push(criaJipe(lado, k))
+  }
+  const bocaJipe = new THREE.Vector3()
+  const direcaoJipe = new THREE.Vector3()
+
+  const atualizaJipes = (agora: number, dt: number) => {
+    for (const j of jipes) {
+      j.z += j.dirZ * VEL_JIPE * dt
+      if (j.z > JIPE_Z_LIMITE) { j.z = JIPE_Z_LIMITE; j.dirZ = -1 }
+      else if (j.z < -JIPE_Z_LIMITE) { j.z = -JIPE_Z_LIMITE; j.dirZ = 1 }
+      const x = frenteX - j.sentido * X_RECUO_JIPE
+      const y = altura(x, j.z) + Math.abs(Math.sin(agora * 0.006 + j.fase * 10)) * 0.05
+      j.grupo.position.set(x, y, j.z)
+      j.armaGrupo.rotation.y = Math.sin(agora * 0.0007 + j.fase * 10) * 0.3
+      if (agora > j.proxRajada) {
+        j.proxRajada = agora + 4000 + hash(Math.floor(agora) % 277, j.z + j.sentido) * 4000
+        j.armaGrupo.updateWorldMatrix(true, false)
+        bocaJipe.set(j.sentido * BOCA_ARMA_JIPE, 0, 0).applyMatrix4(j.armaGrupo.matrixWorld)
+        direcaoJipe.set(j.sentido, 0, 0).transformDirection(j.armaGrupo.matrixWorld)
+        lib.claraoDeBoca(bocaJipe, direcaoJipe, 2)
+        const alvoX = frenteX + j.sentido * (FRENTE + 4 + hash(Math.floor(agora) % 191, j.z) * 8)
+        for (let k = 0; k < 2; k++) {
+          agendaImpacto(agora + k * 90, alvoX, j.z + (hash(k, j.z + agora) - 0.5) * 6, 1, j.lado, 'fuzil')
+        }
+      }
+    }
+  }
+
+  // ── 7d. um único ponto de atualização por frame pros três sistemas de
+  // vehicles.ts, mais o dreno da fila de impactos atrasados que os dois
+  // últimos agendam.
+  const passoVeiculos = (agora: number, dt: number) => {
+    atualizaCavalgada(agora, dt)
+    atualizaHelicopteros(agora, dt)
+    atualizaJipes(agora, dt)
+    for (let i = 0; i < CAP_IMPACTO_ATRASADO; i++) {
+      if (!impAtiva[i] || agora < impAt[i]) continue
+      impAtiva[i] = 0
+      vp.set(impX[i], altura(impX[i], impZ[i]), impZ[i])
+      impacto(vp, impForca[i], impLado[i] === 0 ? 'buy' : 'sell', 0, impArma[i])
+    }
+  }
 
   const update = (agora: number) => {
     const dt = ultimoUpdate > 0 ? Math.min(0.05, (agora - ultimoUpdate) / 1000) : 0.016
@@ -2033,9 +2619,11 @@ export function createBattlefield(
         neblina.position.y = 0.55 + dyF
         if (brasasPts) brasasPts.position.set(frenteX, dyF, 0)
         if (luzFrente) luzFrente.position.x = frenteX
+        cortina.position.set(frenteX, dyF, 0)
         bookSujo = true
       }
     }
+    passoCortina(agora)
     if (bookSujo && agora - ultimoBook > 250) {
       bookSujo = false
       ultimoBook = agora
@@ -2055,7 +2643,7 @@ export function createBattlefield(
       const rastro = poolRastros[t.i]
       const f = (agora - t.t0) / t.dur
       if (f >= 1) {
-        impacto(mesh.userData.para, t.forca, t.lado, t.qty)
+        impacto(mesh.userData.para, t.forca, t.lado, t.qty, t.arma)
         mesh.visible = rastro.visible = false
         tiros.splice(i, 1)
         continue
@@ -2140,16 +2728,51 @@ export function createBattlefield(
       ;(m.material as THREE.MeshBasicMaterial).opacity = 0.75 * (1 - f)
     }
 
-    for (let i = tombos.length - 1; i >= 0; i--) {
-      const t = tombos[i]
-      const f = Math.min(1, (agora - t.t0) / 380)
-      q.slerpQuaternions(qZero, t.para, f * f)
-      vs.setScalar(t.esc)
-      vp.set(t.x, t.y + 0.05 - 0.12 * f, t.z)
-      m4.compose(vp, q, vs)
-      t.mesh.setMatrixAt(t.idx, m4)
-      t.mesh.instanceMatrix.needsUpdate = true
-      if (f >= 1) tombos.splice(i, 1)
+    // ── CADÁVERES: 3 fases. ARREMESSO (sobe em arco + tumble, 550ms) →
+    // REPOUSO (rotação final variada, ~22s) → AFUNDAMENTO (desce e libera o
+    // slot, ~6s). MESMO InstancedMesh de sempre, pool fixo (cap=orc.detritos).
+    for (const t of tombos) {
+      if (!t.ativo || !t.mesh) continue
+      if (t.fase === 0) {
+        const f = Math.min(1, (agora - t.tFase) / 550)
+        const arco = t.apice * Math.sin(f * Math.PI)
+        vp.set(t.x, t.y + 0.05 + arco, t.z)
+        // gira ALÉM da queda: slerp até paraFinal + um giro extra que decai
+        // a zero exatamente em f=1 (o corpo sempre pousa na rotação certa)
+        q.slerpQuaternions(qZero, t.paraFinal, f * f)
+        const spinRestante = (1 - f) * Math.PI * 2.2 * (hash(t.idx, 31) > 0.5 ? 1 : -1)
+        qTumble.setFromAxisAngle(EIXO_TOMBO, spinRestante)
+        q.multiply(qTumble)
+        vs.setScalar(t.esc)
+        m4.compose(vp, q, vs)
+        t.mesh.setMatrixAt(t.idx, m4)
+        t.mesh.instanceMatrix.needsUpdate = true
+        if (f >= 1) {
+          t.fase = 1
+          t.tFase = agora
+          vp.set(t.x, t.y + 0.05, t.z)
+          emitPoeira(vp, 0.5)
+        }
+      } else if (t.fase === 1) {
+        vp.set(t.x, t.y + 0.05, t.z)
+        vs.setScalar(t.esc)
+        m4.compose(vp, t.paraFinal, vs)
+        t.mesh.setMatrixAt(t.idx, m4)
+        t.mesh.instanceMatrix.needsUpdate = true
+        if (agora - t.tFase > 22000) {
+          t.fase = 2
+          t.tFase = agora
+        }
+      } else {
+        const f = Math.min(1, (agora - t.tFase) / 6000)
+        vp.set(t.x, t.y + 0.05 - 0.4 * f, t.z)
+        vs.setScalar(t.esc)
+        m4.compose(vp, t.paraFinal, vs)
+        t.mesh.setMatrixAt(t.idx, m4)
+        t.mesh.instanceMatrix.needsUpdate = true
+        // libera a entrada; a instância continua no chão até o pool reciclar
+        if (f >= 1) t.ativo = false
+      }
     }
 
     // ── ESCARAMUÇA CONSTANTE: a referência (bitcoin-warfront) nunca para de
@@ -2187,12 +2810,14 @@ export function createBattlefield(
         // dela — só não repete o recuo se já estiver recuando
         const b1 = bateriaMaisProxima(lado, zC)
         const b2 = bateriaMaisProxima(lado, zC2)
-        if (b1) dispararBateria(b1, agora)
+        const forcaC1 = 3 + hash(Math.floor(agora) % 271, 37) * 2.5
+        const forcaC2 = 2.5 + hash(Math.floor(agora) % 199, 41) * 2
+        if (b1) dispararBateria(b1, agora, forcaC1)
         const o1 = b1 ? bocaDaBateria(b1).clone() : undefined
-        atira(lado, 0, 3 + hash(Math.floor(agora) % 271, 37) * 2.5, zC, Math.floor(agora) % 9973, o1)
-        if (b2) dispararBateria(b2, agora)
+        atira(lado, 0, forcaC1, zC, Math.floor(agora) % 9973, o1)
+        if (b2) dispararBateria(b2, agora, forcaC2)
         const o2 = b2 ? bocaDaBateria(b2).clone() : undefined
-        atira(lado, 0, 2.5 + hash(Math.floor(agora) % 199, 41) * 2, zC2, Math.floor(agora) % 7919, o2)
+        atira(lado, 0, forcaC2, zC2, Math.floor(agora) % 7919, o2)
       }
       // ofensiva coordenada: barragem + avanço do exército inteiro + recuo
       if (!ofensiva && agora > proxOfensiva) {
@@ -2246,6 +2871,7 @@ export function createBattlefield(
     atualizaBaterias(agora)
     atualizaBombardeiros(agora)
     atualizaBandeiras(agora)
+    passoVeiculos(agora, dt)
 
     // rajadas agendadas e balas retas em voo
     for (let i = filaRajada.length - 1; i >= 0; i--) {
@@ -2261,7 +2887,7 @@ export function createBattlefield(
       const f = (agora - b.t0) / b.dur
       if (f >= 1) {
         mesh.visible = false
-        if (b.ultima) impacto(mesh.userData.para, b.forca, b.lado, 0)
+        if (b.ultima) impacto(mesh.userData.para, b.forca, b.lado, 0, 'fuzil')
         else {
           emitFaiscas(mesh.userData.para, 0.6)
           marcaCicatriz(mesh.userData.para, 0.4)
@@ -2283,7 +2909,7 @@ export function createBattlefield(
       const f = (agora - mt.t0) / mt.dur
       if (f >= 1) {
         mesh.visible = rastro.visible = false
-        impacto(mesh.userData.para, mt.forca * 1.6, mt.lado, 0)
+        impacto(mesh.userData.para, mt.forca * 1.6, mt.lado, 0, mt.arma)
         marcaCicatriz(mesh.userData.para, mt.forca * 1.8)
         pesados.splice(i, 1)
         continue
@@ -2336,15 +2962,17 @@ export function createBattlefield(
       mesh.userData.prev.copy(mesh.position)
     }
 
-    // bombas do bombardeiro: caem depois de um curto atraso, coluna + flash
-    // largo (a assinatura da bomba, sem passar pelo impacto() genérico)
+    // bombas do bombardeiro: caem depois de um curto atraso, a assinatura da
+    // bomba (lib.bombaAerea, a única que pode ser gorda) + flash largo, sem
+    // passar pelo impacto() genérico (bomba não carrega lado, é queda de área)
     for (let i = filaBomba.length - 1; i >= 0; i--) {
       if (filaBomba[i].at <= agora) {
         const bm = filaBomba[i]
         const y = altura(bm.x, bm.z)
         vp.set(bm.x, y, bm.z)
-        colunaDeFogo(vp, 7 + intensidade * 3)
-        flashDeTela(vp, 7)
+        const forcaBomba = 7 + intensidade * 3
+        lib.bombaAerea(vp, forcaBomba)
+        flashDeTela(vp, forcaBomba, 0xffe6c2)
         marcaCicatriz(vp, 3.5)
         emitDestrocos(vp, 4)
         opcoes.onImpactoGrande?.(6)
@@ -2451,7 +3079,7 @@ export function createBattlefield(
     for (let i = salva.length - 1; i >= 0; i--) {
       if (salva[i].at <= agora) {
         const s = salva[i]
-        atira(s.lado, s.qty, s.forca, s.z, Math.floor(s.at))
+        atira(s.lado, s.qty, s.forca, s.z, Math.floor(s.at), undefined, 'baleia')
         salva.splice(i, 1)
       }
     }
@@ -2552,6 +3180,8 @@ export function createBattlefield(
     const total = compra + venda
     const alvoPress = total > 0 ? compra / total : 0.5
     matCostura.uniforms.pressao.value += (alvoPress - matCostura.uniforms.pressao.value) * 0.05
+
+    lib.update(agora, dt)
   }
 
   return {
@@ -2577,6 +3207,7 @@ export function createBattlefield(
     dispose: () => {
       clearInterval(tickerTimer)
       if (feed) feed.stop()
+      lib.dispose()
       group.traverse((obj) => {
         const g = (obj as THREE.Mesh).geometry
         if (g) g.dispose()
