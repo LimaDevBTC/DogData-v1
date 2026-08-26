@@ -313,10 +313,10 @@ export default function Section({}) {
   const tagline =
     found ? shortAddr(query?.addr ?? "")
       : status === "notfound"
-        ? "Address not found among eligible DOG holders — hold DOG in a self-custody wallet to receive a lot."
+        ? "Address not found among eligible DOG holders. Hold DOG in a self-custody wallet to receive a lot."
         : status === "error"
           ? "The registry did not respond. Run the query again."
-          : "The anatomy of a lot — the four values a registry return fills in."
+          : "The anatomy of a lot: the four values a registry return fills in."
 
   const dash = isSpecimen ? REDACT : "—"
 
@@ -390,7 +390,7 @@ export default function Section({}) {
           <Reveal delay={0.3} y={14}>
             <p className="text-sm text-mist mt-3 leading-relaxed">
               Every eligible DOG wallet holds one of the {LOT_SEGMENTATION.total.toLocaleString()} demarcated
-              lots. Paste your address to see your district — placement is derived from your on-chain history, live.
+              lots. Paste your address to see your district; placement is derived from your on-chain history, live.
             </p>
           </Reveal>
         </div>
@@ -557,7 +557,7 @@ export default function Section({}) {
             {/* footer row — static, so no state can ever change the height */}
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
               <p className="font-mono text-[11px] sm:text-[10px] text-dusty leading-relaxed">
-                Read-only lookup. No seed phrase is ever requested — by anyone, ever.
+                Read-only lookup. No seed phrase is ever requested, by anyone, ever.
               </p>
               <a
                 href="#build"

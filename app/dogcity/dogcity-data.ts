@@ -52,7 +52,7 @@ export const PHASES: DogCityPhase[] = [
     title: "Real Lunar Terrain",
     shortTitle: "Terrain",
     caption:
-      "DogCity begins with a real place on the Moon. Roads, lots and buildings are positioned over mapped lunar elevation data — not an invented landscape.",
+      "DogCity begins with a real place on the Moon. Roads, lots and buildings are positioned over mapped lunar elevation data, not an invented landscape.",
     screenReaderSummary:
       "Phase 1 of 5. Untouched lunar terrain at Mare Tranquillitatis with a faint orange survey grid, the site boundary ring and a circular marker where the Central Event Plaza will stand.",
     metric: "0.674°N · 23.473°E · Mare Tranquillitatis",
@@ -127,28 +127,28 @@ export interface PhaseAnnotation {
 export const PHASE_ANNOTATIONS: PhaseAnnotation[][] = [
   [ // 01 · terrain
     { id: "plaza", u: 0.4781, v: 0.4699, title: "FUTURE CENTRAL PLAZA", primary: true,
-      text: "Roads, lots and buildings will rise over mapped lunar terrain — a real place on the Moon." },
+      text: "Roads, lots and buildings will rise over mapped lunar terrain, a real place on the Moon." },
   ],
   [ // 02 · survey
     { id: "lots", u: 0.8611, v: 0.3049, title: "97,673 LOTS DEMARCATED", primary: true,
-      text: "Every eligible wallet receives a lot — segmented across BTC, SOL and STX holders." },
+      text: "Every eligible wallet receives a lot, segmented across BTC, SOL and STX holders." },
     { id: "plaza", u: 0.4781, v: 0.4699, title: "CENTRAL PLAZA · STAKED" },
   ],
   [ // 03 · foundations
     { id: "plaza", u: 0.4781, v: 0.4699, title: "FOUNDATIONS & CRANES", primary: true,
-      text: "The Founding Era begins — the plaza platform and the landmark tower foundations rise first." },
+      text: "The Founding Era begins: the plaza platform and the landmark tower foundations rise first." },
     { id: "firstprops", u: 0.2528, v: 0.5857, title: "FIRST COMMUNITY PROPERTIES" },
   ],
   [ // 04 · first district
     { id: "tower", u: 0.4771, v: 0.3624, title: "CENTRAL TOWER", primary: true, side: "top",
-      text: "Wallet history decides location — the landmark towers anchor the first district." },
+      text: "Wallet history decides location; the landmark towers anchor the first district." },
     { id: "bitflow", u: 0.4017, v: 0.3554, title: "BITFLOW HQ · LOT #1", side: "left" },
     { id: "kray", u: 0.5567, v: 0.3671, title: "KRAY TOWER · LOT #2", side: "right" },
     { id: "ring", u: 0.5746, v: 0.5356, title: "COMMERCIAL RING · RESERVED", side: "bottom" },
   ],
   [ // 05 · active city
     { id: "stadium", u: 0.6841, v: 0.8159, title: "FOOTBALL STADIUM", primary: true, side: "top",
-      text: "A living city — stadiums, parks, the monorail loop and the spaceport serve every district." },
+      text: "A living city: stadiums, parks, the monorail loop and the spaceport serve every district." },
     { id: "monorail", u: 0.8005, v: 0.6491, title: "MONORAIL LOOP", side: "right" },
     { id: "pawpark", u: 0.0561, v: 0.8097, title: "PAW PARK", side: "right" },
     { id: "craterpark", u: 0.7375, v: 0.1267, title: "CRATER PARK", side: "bottom" },
@@ -166,7 +166,7 @@ export const TIERS = [
       "Counts toward the 10M Grand Opening",
       "Personal progress bar toward your license",
     ],
-    note: "Contributions below 10,000 DOG do not include the right to mint a building. Founder recognition is permanent — the mint license starts at Personal.",
+    note: "Contributions below 10,000 DOG do not include the right to mint a building. Founder recognition is permanent; the mint license starts at Personal.",
     cta: "Become a Founder",
   },
   {
@@ -176,7 +176,7 @@ export const TIERS = [
     color: "#F56E0F",
     featured: true,
     perks: [
-      "Mint your building at the Grand Opening — pay only BTC network fees",
+      "Mint your building at the Grand Opening, paying only BTC network fees",
       "One-time, permanent, tied to your wallet",
       "Verified DogCity profile",
     ],
@@ -209,12 +209,12 @@ export const TIERS = [
 ]
 
 export const WALLET_STEPS = [
-  { n: "01", title: "DOG wallet", text: "Your wallet is the identity. No seed phrase, no signup — the address is enough." },
+  { n: "01", title: "DOG wallet", text: "Your wallet is the identity. No seed phrase, no signup: the address is enough." },
   { n: "02", title: "Balance & eligibility", text: "Your DOG balance sets the registration level a property can reach." },
-  { n: "03", title: "Oldest UTXO", text: "The age of your oldest eligible DOG UTXO influences district placement — older coins live closer to the core." },
+  { n: "03", title: "Oldest UTXO", text: "The age of your oldest eligible DOG UTXO influences district placement; older coins live closer to the core." },
   { n: "04", title: "District assignment", text: "The masterplan assigns your lot inside one of the districts, following real terrain." },
   { n: "05", title: "Lunar coordinates", text: "Every lot maps to true selenographic coordinates at Mare Tranquillitatis." },
-  { n: "06", title: "Bitcoin inscription", text: "At the Grand Opening, licensed properties can be minted as Ordinals on Bitcoin L1 — planned, not live yet." },
+  { n: "06", title: "Bitcoin inscription", text: "At the Grand Opening, licensed properties can be minted as Ordinals on Bitcoin L1 (planned, not live yet)." },
 ]
 
 export const DONATION_METHODS = [
@@ -225,7 +225,7 @@ export const DONATION_METHODS = [
     logo: "/DOG.png",
     qr: "/qrdog.jpeg",
     address: DONATION_WALLET,
-    note: "Bitcoin L1 Rune — counts toward your license",
+    note: "Bitcoin L1 Rune · counts toward your license",
     featured: true,
   },
   {
@@ -235,7 +235,7 @@ export const DONATION_METHODS = [
     logo: "/BTC.png",
     qr: "/qrbtc.jpeg",
     address: "bc1qkq43gqyr7gjzj0mxz0v7e0nzs3cm59g9jspc63",
-    note: "Native SegWit — general support",
+    note: "Native SegWit · general support",
   },
   {
     key: "stacks",
@@ -244,7 +244,7 @@ export const DONATION_METHODS = [
     logo: "/STX .png",
     qr: "/qrstx.jpeg",
     address: "SP18DX0ANJTAA3WWWA501QHR27J76KPGV9MQ0J01Y",
-    note: "Stacks L2 — general support",
+    note: "Stacks L2 · general support",
   },
 ]
 

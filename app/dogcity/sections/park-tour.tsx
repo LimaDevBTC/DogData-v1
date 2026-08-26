@@ -25,13 +25,13 @@ const frameUrl = (i: number) => `/landing/parkseq/f_${String(i + 1).padStart(4, 
 // waypoint breaks mapped to the render's beat frames (frame index / 213)
 const BREAKS = [0, 0.094, 0.239, 0.272, 0.376, 0.437, 0.587, 0.709, 0.878]
 const WAYPOINTS = [
-  { id: "road", title: "THE APPROACH", caption: "The road arrives buried in a rille — the park shows you nothing until it means to." },
+  { id: "road", title: "THE APPROACH", caption: "The road arrives buried in a rille; the park shows you nothing until it means to." },
   { id: "gate", title: "THE GATE", caption: "The road crests the notch and the range detonates into view." },
   { id: "plaza", title: "LONGSHADOW PLAZA", caption: "Wheels end here. Everything beyond is on foot." },
-  { id: "vale", title: "VALE OF THE MARK", caption: "A valley that ends at a stone — glyph-lit crystals stacked in depth." },
+  { id: "vale", title: "VALE OF THE MARK", caption: "A valley that ends at a stone: glyph-lit crystals stacked in depth." },
   { id: "hands", title: "VALLEY OF HANDS", caption: "120 stones at your own scale, every one carrying the mark." },
   { id: "laststep", title: "THE LAST STEP", caption: "The walkway's terminus. The Monarch fills forty-nine degrees of sky." },
-  { id: "ground", title: "EVERY STONE IS PUBLIC GROUND", caption: "Walk off the deck. Footprints last a million years here — add yours." },
+  { id: "ground", title: "EVERY STONE IS PUBLIC GROUND", caption: "Walk off the deck. Footprints last a million years here; add yours." },
   { id: "unmarked", title: "THE UNMARKED WAY", caption: "An unlit spur leaves the ring on no map, and passes between two leaning giants." },
   { id: "temple", title: "THE LEONIDAS TEMPLE", caption: "Down the notch stair: a raked sea of regolith, a pool of black glass, and eight embers in a bowl of shadow." },
 ] as const

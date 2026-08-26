@@ -243,7 +243,7 @@ export default function Section({}) {
         <SectionHead
           eyebrow="FOUNDING ERA REGISTRATIONS"
           title="Choose how you enter the Founding Era."
-          sub="These are not subscriptions — they are one-time founding property registrations. Your contribution funds construction and defines your participation level."
+          sub="These are not subscriptions; they are one-time founding property registrations. Your contribution funds construction and defines your participation level."
         />
 
         <Stagger className="mt-10 grid md:grid-cols-2 xl:grid-cols-4 gap-4" delay={0.62} step={0.075}>

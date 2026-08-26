@@ -284,7 +284,7 @@ export default function HowItWorks() {
           <Reveal delay={0.3} y={14}>
             <p className="text-sm text-mist mt-3 leading-relaxed">
               The wallet authenticates the participant. Balance sets the level, history sets the
-              place — and the representation is being designed for Bitcoin.
+              place, and the representation is being designed for Bitcoin.
             </p>
           </Reveal>
         </div>

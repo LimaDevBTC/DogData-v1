@@ -403,7 +403,7 @@ export default function Masterplan() {
         <SectionHead
           eyebrow="THE MASTERPLAN"
           title="The city follows the terrain."
-          sub="Eight organic districts radiate from the Central Event Plaza. Solana and Stacks holders build in satellite districts of the same city — one map, three chains."
+          sub="Eight organic districts radiate from the Central Event Plaza. Solana and Stacks holders build in satellite districts of the same city: one map, three chains."
         />
 
         <SurveyPlate />

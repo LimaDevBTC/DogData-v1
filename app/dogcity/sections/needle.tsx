@@ -115,7 +115,7 @@ export default function Section() {
           </h2>
           <Reveal delay={0.34} y={14}>
             <p className="text-sm text-mist mt-3 leading-relaxed">
-              At the centre of Satoshi Plaza stands the Needle — the one building DogCity owns.
+              At the centre of Satoshi Plaza stands the Needle, the one building DogCity owns.
               Its crown carries the <span className="text-snow">DOG · GO · TO · THE · MOON</span> band,
               and the four anchor lots ring its plaza.
             </p>
@@ -154,7 +154,7 @@ export default function Section() {
               <p className="text-sm text-mist leading-relaxed">
                 The plaza is drawn on a radial set-out: paving, water, garden quadrants and a ring
                 road. Four lots sit on that ring, outside the assignment that follows wallet
-                history — they are reserved in the masterplan.
+                history; they are reserved in the masterplan.
               </p>
             </Reveal>
 

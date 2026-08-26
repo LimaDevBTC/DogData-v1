@@ -273,7 +273,7 @@ const LEDGER: LedgerColumn[] = [
     Icon: ShieldCheck,
     datum: `STAGES ${pad2(LIVE_STAGES)} / ${pad2(PIPELINE.length)}`,
     rows: [
-      { id: "identity", text: "Wallet-based participation — your address is your identity" },
+      { id: "identity", text: "Wallet-based participation: your address is your identity" },
       { id: "fund", text: "Contribution registration on the live construction fund" },
       { id: "lookup", text: <>District &amp; lot lookup derived from real on-chain history</> },
       {
@@ -289,14 +289,14 @@ const LEDGER: LedgerColumn[] = [
   },
   {
     key: "planned",
-    label: "PLANNED — GRAND OPENING",
+    label: "PLANNED · GRAND OPENING",
     color: C_PLANNED,
     live: false,
     Icon: Bitcoin,
     datum: `STAGES ${pad2(PLANNED_STAGES)} / ${pad2(PIPELINE.length)}`,
     rows: [
       { id: "design", text: "Properties are being designed for representation through Bitcoin Ordinals" },
-      { id: "mint", text: "Licensed wallets mint their building — paying only BTC network fees" },
+      { id: "mint", text: "Licensed wallets mint their building, paying only BTC network fees" },
       { id: "records", text: "Bitcoin L1 records for minted properties" },
       { id: "inscriptions", text: INSCRIPTION_STATUS },
     ],
@@ -376,7 +376,7 @@ export default function Section({}) {
         <Reveal delay={0.86} y={10} className="mt-6">
           <p className="font-mono text-[11px] sm:text-[10px] text-dusty leading-relaxed max-w-2xl">
             You always control your own wallet. Bitcoin network fees and confirmation times depend on network
-            conditions. No seed phrase is ever requested — by anyone, ever.
+            conditions. No seed phrase is ever requested, by anyone, ever.
           </p>
         </Reveal>
       </div>

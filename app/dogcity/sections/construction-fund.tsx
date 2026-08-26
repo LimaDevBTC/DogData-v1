@@ -680,7 +680,7 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
               })}
               <Reveal delay={0.24} y={10}>
                 <p className="font-mono text-[11px] sm:text-[10px] text-dusty leading-relaxed pt-1">
-                  Send from the wallet you want registered — the sending address becomes your identity in DogCity.
+                  Send from the wallet you want registered; the sending address becomes your identity in DogCity.
                   No seed phrase is ever requested.
                 </p>
               </Reveal>

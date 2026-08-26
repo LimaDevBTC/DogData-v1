@@ -286,7 +286,7 @@ export default function Section() {
         <SectionHead
           eyebrow="INSTITUTIONAL PARTNERS"
           title="The anchors of Satoshi Plaza."
-          sub="Two lots on the plaza ring never enter the holder draw. They are named in the masterplan for the projects DogCity is built with — and both buildings are already standing in the city model. Orbit them."
+          sub="Two lots on the plaza ring never enter the holder draw. They are named in the masterplan for the projects DogCity is built with, and both buildings are already standing in the city model. Orbit them."
         />
 
         {/* ── the plate — one canvas, one anchor at a time ─────────────────── */}
@@ -304,7 +304,7 @@ export default function Section() {
 
         <Reveal delay={0.3} y={10}>
           <p className="mt-3 font-mono text-[10px] text-dusty leading-relaxed">
-            Rendered live from the same builders the city runs — not a still. Drag to orbit, pinch or use ± to zoom.
+            Rendered live from the same builders the city runs, not a still. Drag to orbit, pinch or use ± to zoom.
           </p>
         </Reveal>
 

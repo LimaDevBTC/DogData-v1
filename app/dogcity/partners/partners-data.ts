@@ -102,7 +102,7 @@ export const PARTNERS: readonly Partner[] = [
     href: "https://app.bitflow.finance/tokens/DOG",
     hrefLabel: "app.bitflow.finance",
     blurb:
-      "Bitcoin DeFi on Stacks. Bitflow runs the DOG/sBTC pool — the venue where DOG trades off Bitcoin L1 — and it is the pair pinned to the top of DogData's markets page.",
+      "Bitcoin DeFi on Stacks. Bitflow runs the DOG/sBTC pool, the venue where DOG trades off Bitcoin L1, and it is the pair pinned to the top of DogData's markets page.",
     accent: "rgba(247,129,22,0.85)",
     specs: [
       ["STRUCTURE", "9 stacked volumes"],
@@ -123,7 +123,7 @@ export const PARTNERS: readonly Partner[] = [
     href: "https://kray.space",
     hrefLabel: "kray.space",
     blurb:
-      "A Bitcoin layer 2 with its own wallet, runes settlement and an on-chain NFT stack. The tower carries Kray's mark at the crown as a 3D object inscribed on Bitcoin — not a texture of a logo, the inscription itself.",
+      "A Bitcoin layer 2 with its own wallet, runes settlement and an on-chain NFT stack. The tower carries Kray's mark at the crown as a 3D object inscribed on Bitcoin: not a texture of a logo, the inscription itself.",
     accent: "rgba(185,194,207,0.85)",
     specs: [
       ["STRUCTURE", "Flared monolith · 27 storeys"],
