@@ -147,7 +147,7 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
               }`} />
               <span className="relative whitespace-nowrap">Explorer</span>
             </a>
-            {/* DogCity — coming soon */}
+            {/* DogCity: a praca ao vivo em /city */}
             <a
               href="/city"
               className={`relative flex items-center justify-center px-2.5 py-1.5 text-[11px] font-mono font-medium tracking-wide transition-all duration-300 flex-shrink-0 rounded-lg group ${
@@ -255,7 +255,9 @@ export default function Header({ currentPage, setCurrentPage }: HeaderProps) {
             >
               <Building2 className="w-4 h-4 flex-shrink-0" />
               DogCity
-              <span className="ml-auto px-1.5 py-px text-[8px] font-bold bg-lava/[0.12] text-lava/70 border border-lava/[0.18] rounded tracking-widest">SOON</span>
+              {/* a cidade abriu em 18/08: o SOON tinha sobrado so aqui no
+                  menu movel, contradizendo o LIVE do desktop */}
+              <span className="ml-auto px-1.5 py-px text-[8px] font-bold bg-emerald-500/[0.12] text-emerald-400/80 border border-emerald-500/[0.2] rounded tracking-widest">LIVE</span>
             </a>
             <div className="pt-1 mt-1 border-t border-white/[0.04]">
               <WalletButton variant="mobile" />

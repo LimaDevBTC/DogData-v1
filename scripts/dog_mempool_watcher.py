@@ -391,6 +391,7 @@ class Watcher:
         self.tip = 0
         self.last_snapshot = 0.0
         self.last_prune = 0.0
+        self.last_reconcile = 0.0
         self.last_dog_block = None            # {'height','time','count','amount'}
         self._load_state()
 
@@ -410,9 +411,56 @@ class Watcher:
     def resume(self):
         """Depois de um restart, as pendentes do banco voltam a ser vigiadas."""
         for row in self.supa.pending_txids():
-            self.pending[row["txid"]] = {"txid": row["txid"], "dog_in": row.get("dog_in"), "first_seen": row.get("first_seen")}
+            # a linha INTEIRA, não só txid/dog_in: sem senders/receivers o
+            # liquido() cai no bruto e o painel infla (o proprio aviso em
+            # pending_txids ja dizia isso; aqui era onde se perdia)
+            self.pending[row["txid"]] = dict(row)
         if self.pending:
             log.info("retomando %d tx(s) pendente(s) do banco", len(self.pending))
+
+    def reconcile(self):
+        """Acerta as `pending` que o banco conhece e a memoria nao.
+
+        ⚠️ ORFAS DE FALHA DE ESCRITA: no incidente de IO de 26/08 o patch de
+        confirmed/dropped falhava no Supabase mas o pop da memoria acontecia
+        mesmo assim; 55 tx ficaram `pending` eternas no banco e o painel da
+        praca mostrou 58 foguetes em orbita o dia todo (fundador reportou).
+        A cada 10 min: o que o banco acha pendente e a memoria desconhece vai
+        ao no; confirmou vira confirmed com o bloco real, sumiu vira dropped,
+        ainda na mempool e readotada pela memoria."""
+        if time.time() - self.last_reconcile < 600:
+            return
+        self.last_reconcile = time.time()
+        orfas = [r for r in self.supa.pending_txids() if r["txid"] not in self.pending]
+        if not orfas:
+            return
+        txs = self.rpc.batch([("getrawtransaction", [r["txid"], True]) for r in orfas])
+        hdrs: dict[str, dict] = {}
+        confirmadas: dict[tuple, list] = {}
+        caidas = []
+        adotadas = 0
+        for r, tx in zip(orfas, txs):
+            txid = r["txid"]
+            if tx and tx.get("blockhash"):
+                bh = tx["blockhash"]
+                if bh not in hdrs:
+                    hdrs[bh] = self.rpc.call("getblockheader", bh)
+                chave = (hdrs[bh]["height"], ts_iso(hdrs[bh]["time"]))
+                confirmadas.setdefault(chave, []).append(txid)
+            elif tx is not None:
+                # segue na mempool sem a memoria saber: readota inteira
+                self.pending[txid] = dict(r)
+                adotadas += 1
+            else:
+                caidas.append(txid)
+        for (h, btime), txids in confirmadas.items():
+            self.supa.patch(txids, {"status": "confirmed", "block_height": h, "block_time": btime,
+                                    "confirmed_at": now_iso(), "updated_at": now_iso()})
+        if caidas:
+            self.supa.patch(caidas, {"status": "dropped", "dropped_at": now_iso(), "updated_at": now_iso()})
+        n_conf = sum(len(v) for v in confirmadas.values())
+        if n_conf or caidas or adotadas:
+            log.info("reconciliação: %d confirmadas, %d caíram, %d readotadas", n_conf, len(caidas), adotadas)
 
     # ── detecção ──
 
@@ -563,12 +611,35 @@ class Watcher:
             if len(new) > 2000:
                 log.info("  varredura inicial: %d/%d", min(i + 400, len(new)), len(new))
 
-        # sumiu da mempool e não pousou: caiu (RBF, expulsão, conflito)
+        # sumiu da mempool: ANTES de rotular, pergunta ao no. Uma tx some da
+        # mempool por dois motivos e so um e queda: pode ter sido MINERADA
+        # (entre dois polls, ou num bloco que o tip salvo ja cobria, caso do
+        # restart pos-incidente em que 55 confirmadas viraram "caiu"). Com
+        # blockhash vira confirmed com o bloco real; sem, ai sim caiu.
         if gone:
-            self.supa.patch(gone, {"status": "dropped", "dropped_at": now_iso(), "updated_at": now_iso()})
+            txs = self.rpc.batch([("getrawtransaction", [t, True]) for t in gone])
+            hdrs: dict[str, dict] = {}
+            confirmadas: dict[tuple, list] = {}
+            caidas = []
+            for t, tx in zip(gone, txs):
+                if tx and tx.get("blockhash"):
+                    bh = tx["blockhash"]
+                    if bh not in hdrs:
+                        hdrs[bh] = self.rpc.call("getblockheader", bh)
+                    confirmadas.setdefault((hdrs[bh]["height"], ts_iso(hdrs[bh]["time"])), []).append(t)
+                else:
+                    caidas.append(t)
+            for (h, btime), txids in confirmadas.items():
+                self.supa.patch(txids, {"status": "confirmed", "block_height": h, "block_time": btime,
+                                        "confirmed_at": now_iso(), "updated_at": now_iso()})
+                for t in txids:
+                    log.info("  pousou (fora do olhar)  %s  bloco %d", t[:12], h)
+            if caidas:
+                self.supa.patch(caidas, {"status": "dropped", "dropped_at": now_iso(), "updated_at": now_iso()})
+                for t in caidas:
+                    log.info("  caiu       %s", t[:12])
             for t in gone:
                 self.pending.pop(t, None)
-                log.info("  caiu       %s", t[:12])
         return found
 
     # ── o bloco ──
@@ -671,6 +742,7 @@ class Watcher:
         if new_block:
             self.scan_blocks(height)
         self.scan_mempool()
+        self.reconcile()
         self.snapshot(force=new_block)
         self.prune()
 
