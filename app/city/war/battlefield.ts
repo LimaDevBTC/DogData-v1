@@ -2449,7 +2449,9 @@ export function createBattlefield(
       altBase: 15, proxRajada: 0,
     }
   }
-  const helis: Heli[] = tierMedio ? [criaHeli('buy', 1), criaHeli('sell', 2)] : []
+  // 1 heli por lado em TODOS os tiers: são 2 Groups de ~3 meshes, custo
+  // irrisório perto do exército instanciado, e o fundador assiste pelo celular
+  const helis: Heli[] = [criaHeli('buy', 1), criaHeli('sell', 2)]
   const bocaHeli = new THREE.Vector3()
   const direcaoHeli = new THREE.Vector3()
 
