@@ -71,6 +71,24 @@ function discTexture(size: number, soft: number): THREE.CanvasTexture {
   return new THREE.CanvasTexture(c)
 }
 
+// ⚠️ disco NÍTIDO pras estrelas do esqueleto: o gradiente mole de ponta a
+// ponta virava bola de bokeh e as conchas somavam numa névoa branca (o
+// fundador fotografou); núcleo sólido, borda que morre rápido
+function crispDiscTexture(size: number): THREE.CanvasTexture {
+  const c = document.createElement('canvas')
+  c.width = c.height = size
+  const ctx = c.getContext('2d')!
+  const half = size / 2
+  const g = ctx.createRadialGradient(half, half, 0, half, half, half)
+  g.addColorStop(0, 'rgba(255,255,255,1)')
+  g.addColorStop(0.42, 'rgba(255,255,255,1)')
+  g.addColorStop(0.62, 'rgba(255,255,255,0.35)')
+  g.addColorStop(1, 'rgba(255,255,255,0)')
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, size, size)
+  return new THREE.CanvasTexture(c)
+}
+
 export default function TreeScene() {
   const mountRef = useRef<HTMLDivElement>(null)
   const apiRef = useRef<SceneApi | null>(null)
@@ -135,7 +153,9 @@ export default function TreeScene() {
     const controls = new OrbitControls(camera, renderer.domElement)
     controls.enableDamping = true
     controls.dampingFactor = 0.06
-    controls.minDistance = 30
+    // ⚠️ piso de 60: mergulhar DENTRO da concha transformava as estrelas
+    // vizinhas em parede de luz desfocada; de 60 pra fora tudo lê como ponto
+    controls.minDistance = 60
     controls.maxDistance = 2400
     controls.target.set(0, 0, 0)
     // rotacao ociosa lenta: para NA PRIMEIRA interacao e nao volta
@@ -179,7 +199,7 @@ export default function TreeScene() {
     scene.add(haloOuter)
 
     // ── esqueleto interativo: um unico THREE.Points com capacidade fixa ──────
-    const starTex = discTexture(64, 0.32)
+    const starTex = crispDiscTexture(64)
     const posArr = new Float32Array(MAX_NODES * 3)
     const colArr = new Float32Array(MAX_NODES * 3)
     const sizeArr = new Float32Array(MAX_NODES)
@@ -208,7 +228,10 @@ export default function TreeScene() {
           vColor = color;
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
           float ps = size * (uScale / -mv.z);
-          gl_PointSize = clamp(ps, 1.5, 64.0);
+          // ⚠️ teto de 22px: sem ele, chegar perto da concha inflava cada
+          // estrela numa bola de dezenas de pixels e a soma aditiva virava
+          // névoa ilegível (chapa do fundador no celular)
+          gl_PointSize = clamp(ps, 1.5, 22.0);
           gl_Position = projectionMatrix * mv;
         }
       `,
@@ -347,24 +370,30 @@ export default function TreeScene() {
       let k = 0
       for (const g of perGen) {
         const base = shellRadius(g.depth)
+        // ⚠️ concha DENSA fica GROSSA: espalhamento radial e vertical crescem
+        // com o log da população, senão 40 mil grãos da geração 1 se amontoam
+        // num anel fino e a soma aditiva vira parede de luz
+        const raial = 6 + Math.min(16, Math.log2(1 + g.count) * 1.6)
+        const vert = 5 + Math.min(14, Math.log2(1 + g.count) * 1.3)
         for (let i = 0; i < g.count; i++) {
           // semente = (geracao, indice do grao): deterministico entre reloads
           const seed = g.depth * 1000003 + i
           const theta = hashIdx(seed, 1) * Math.PI * 2
-          const r = base + (hashIdx(seed, 2) - 0.5) * 8
+          const r = base + (hashIdx(seed, 2) - 0.5) * raial
           dPos[k * 3] = Math.cos(theta) * r
-          dPos[k * 3 + 1] = (hashIdx(seed, 3) * 2 - 1) * 8.5
+          dPos[k * 3 + 1] = (hashIdx(seed, 3) * 2 - 1) * vert
           dPos[k * 3 + 2] = Math.sin(theta) * r
-          // fracao acesa segue a proporcao real holders/wallets da geracao
+          // fracao acesa segue a proporcao real holders/wallets da geracao;
+          // cores baixas de propósito: são MILHARES somando em aditivo
           const lit = hashIdx(seed, 4) < g.litRatio
           if (lit) {
-            dCol[k * 3] = 0.62
-            dCol[k * 3 + 1] = 0.35
-            dCol[k * 3 + 2] = 0.07
+            dCol[k * 3] = 0.38
+            dCol[k * 3 + 1] = 0.21
+            dCol[k * 3 + 2] = 0.045
           } else {
-            dCol[k * 3] = 0.2
-            dCol[k * 3 + 1] = 0.17
-            dCol[k * 3 + 2] = 0.15
+            dCol[k * 3] = 0.11
+            dCol[k * 3 + 1] = 0.095
+            dCol[k * 3 + 2] = 0.085
           }
           k++
         }
@@ -372,13 +401,15 @@ export default function TreeScene() {
       const dGeom = new THREE.BufferGeometry()
       dGeom.setAttribute('position', new THREE.BufferAttribute(dPos, 3))
       dGeom.setAttribute('color', new THREE.BufferAttribute(dCol, 3))
+      // poeira miúda e sem mapa mole: grão pequeno com disco nítido; o
+      // brilho do conjunto vem da densidade real, não do tamanho do grão
       const dMat = new THREE.PointsMaterial({
-        size: 2.1,
+        size: 1.15,
         sizeAttenuation: true,
-        map: starTex,
+        map: crispDiscTexture(32),
         vertexColors: true,
         transparent: true,
-        opacity: 0.85,
+        opacity: 0.55,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
       })
@@ -539,31 +570,46 @@ export default function TreeScene() {
       },
     }
 
-    // ── raycast por proximidade de tela ──────────────────────────────────────
+    // ── picking por PROJEÇÃO DE TELA, não por threshold de raio ─────────────
+    // ⚠️ O raycast de Points com threshold em unidades de MUNDO fazia só o
+    // sol (que é malha) ser clicável: a distância útil variava com o zoom e
+    // no celular nenhum toque acertava (o fundador reportou). Agora cada
+    // estrela do esqueleto é projetada pra tela e vence a mais próxima do
+    // ponteiro dentro do raio em PIXELS (maior no toque).
     const raycaster = new THREE.Raycaster()
-    raycaster.params.Points = { threshold: 3.2 }
     const mouseNdc = new THREE.Vector2()
+    const projV = new THREE.Vector3()
     let hoverIdx = -3 // -3 nada, -1 sol, >=0 estrela
     let downX = 0
     let downY = 0
 
-    const pickAt = (clientX: number, clientY: number): number => {
+    const pickAt = (clientX: number, clientY: number, raioPx: number): number => {
       const rect = renderer.domElement.getBoundingClientRect()
       mouseNdc.x = ((clientX - rect.left) / rect.width) * 2 - 1
       mouseNdc.y = -((clientY - rect.top) / rect.height) * 2 + 1
       raycaster.setFromCamera(mouseNdc, camera)
-      const sunHit = raycaster.intersectObject(sunMesh, false)
-      if (sunHit.length > 0) return -1
-      const hits = raycaster.intersectObject(stars, false)
-      for (const hit of hits) {
-        const idx = hit.index ?? -3
-        if (idx >= 0 && idx < starCount) return idx
+      if (raycaster.intersectObject(sunMesh, false).length > 0) return -1
+      const px = clientX - rect.left
+      const py = clientY - rect.top
+      let melhor = -3
+      let melhorD = raioPx * raioPx
+      for (let i = 0; i < starCount; i++) {
+        projV.set(posArr[i * 3], posArr[i * 3 + 1], posArr[i * 3 + 2])
+        projV.project(camera)
+        if (projV.z > 1) continue // atrás da câmera
+        const sx = (projV.x * 0.5 + 0.5) * rect.width
+        const sy = (-projV.y * 0.5 + 0.5) * rect.height
+        const d = (sx - px) * (sx - px) + (sy - py) * (sy - py)
+        if (d < melhorD) {
+          melhorD = d
+          melhor = i
+        }
       }
-      return -3
+      return melhor
     }
 
     const onPointerMove = (e: PointerEvent) => {
-      const idx = pickAt(e.clientX, e.clientY)
+      const idx = pickAt(e.clientX, e.clientY, 12)
       if (idx === hoverIdx && idx === -3) return
       hoverIdx = idx
       renderer.domElement.style.cursor = idx === -3 ? 'grab' : 'pointer'
@@ -600,8 +646,11 @@ export default function TreeScene() {
 
     const onPointerUp = (e: PointerEvent) => {
       // clique de verdade, nao o fim de um arrasto de orbita
-      if (Math.hypot(e.clientX - downX, e.clientY - downY) > 6) return
-      const idx = pickAt(e.clientX, e.clientY)
+      // ⚠️ no TOQUE o dedo sempre escorrega alguns pixels entre down e up:
+      // 6px matava todo tap no celular; a tolerância agora respeita o tipo
+      const toleranciaTap = e.pointerType === 'touch' ? 16 : 7
+      if (Math.hypot(e.clientX - downX, e.clientY - downY) > toleranciaTap) return
+      const idx = pickAt(e.clientX, e.clientY, e.pointerType === 'touch' ? 26 : 14)
       if (idx === -1 && rootNode) {
         selectNode(rootNode)
       } else if (idx >= 0) {

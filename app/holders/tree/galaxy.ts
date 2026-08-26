@@ -139,7 +139,9 @@ export function childFanPosition(
 // 10^10 DOG cobre o supply inteiro, entao a normalizacao e por 10.
 export function sizeFor(b: number, sb: number): number {
   const v = Math.log10(1 + Math.max(0, b) + Math.max(0, sb) * 0.15)
-  return 2 + Math.min(1, v / 10) * 7
+  // faixa 1.8 a 5.6 (era ate 9): com o teto de pixels no shader, o tamanho
+  // diferencia baleia de sardinha sem virar bola de bokeh
+  return 1.8 + Math.min(1, v / 10) * 3.8
 }
 
 // Paleta plot-map: holders na familia do laranja bitcoin #f7931a
