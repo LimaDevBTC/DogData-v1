@@ -23,14 +23,25 @@ const TreeScene = dynamic(() => import('./tree-scene'), {
 type Mode = 'flow' | 'ego' | 'galaxy'
 
 export default function TreeClientWrapper() {
-  const [mode, setMode] = useState<Mode>('flow')
+  // A GALAXIA e o modo padrao (decisao do fundador, 26/08): e a vitrine e a
+  // melhor primeira impressao. Flow e Graph continuam a um clique, e deep
+  // links de analise (?view=ego, ?root=, ?focus=...) ainda abrem direto no
+  // modo certo via o boot abaixo.
+  const [mode, setMode] = useState<Mode>('galaxy')
   // Centro pedido pelo "Open graph" do Flow; null = ego da tesouraria.
   const [egoTarget, setEgoTarget] = useState<string | null>(null)
 
-  // boot: ?view=ego abre direto no GRAPH (deep link compartilhavel)
+  // boot: ?view=ego abre no GRAPH; parametros do sankey abrem no FLOW (um
+  // link de analise compartilhado nao pode cair na vitrine)
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search)
-    if (sp.get('view') === 'ego') setMode('ego')
+    if (sp.get('view') === 'ego') {
+      setMode('ego')
+      return
+    }
+    if (['root', 'expand', 'min', 'active', 'focus'].some((k) => sp.has(k))) {
+      setMode('flow')
+    }
   }, [])
 
   // voltar/avancar do navegador alterna flow<->ego pela URL; a galaxy nao e
@@ -53,16 +64,27 @@ export default function TreeClientWrapper() {
     return (
       <div className="relative">
         <TreeScene />
-        {/* banner discreto do modo visual, com o caminho de volta pro Flow */}
+        {/* a galaxia agora e a porta de entrada: o banner oferece as DUAS
+            lentes de analise, nao so o caminho de volta */}
         <div className="fixed bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 border border-white/10 bg-[#0B0A11]/90 px-3 py-1.5 font-mono">
           <span className="whitespace-nowrap text-[10px] uppercase tracking-[0.2em] text-white/50">
-            Visual mode. For analysis, use Flow.
+            For analysis:
           </span>
           <button
             onClick={() => setMode('flow')}
             className="whitespace-nowrap text-[10px] uppercase tracking-[0.2em] text-[#f7931a] transition-colors hover:text-white"
           >
-            ← Flow
+            Flow
+          </button>
+          <span className="text-white/25">/</span>
+          <button
+            onClick={() => {
+              setEgoTarget(null)
+              setMode('ego')
+            }}
+            className="whitespace-nowrap text-[10px] uppercase tracking-[0.2em] text-[#f7931a] transition-colors hover:text-white"
+          >
+            Graph
           </button>
         </div>
       </div>
@@ -86,6 +108,9 @@ export default function TreeClientWrapper() {
           <h1 className="mt-0.5 text-base uppercase tracking-[0.3em] text-white/90 sm:text-lg">Holders Tree</h1>
         </div>
         <div className="flex items-center border border-white/10">
+          <button onClick={() => setMode('galaxy')} className={`border-r border-white/10 ${segOff}`}>
+            Galaxy
+          </button>
           <button
             onClick={() => setMode('flow')}
             disabled={mode === 'flow'}
@@ -100,12 +125,9 @@ export default function TreeClientWrapper() {
               setMode('ego')
             }}
             disabled={mode === 'ego'}
-            className={`border-r border-white/10 ${mode === 'ego' ? segOn : segOff}`}
+            className={mode === 'ego' ? segOn : segOff}
           >
             Graph
-          </button>
-          <button onClick={() => setMode('galaxy')} className={segOff}>
-            Galaxy
           </button>
         </div>
       </header>

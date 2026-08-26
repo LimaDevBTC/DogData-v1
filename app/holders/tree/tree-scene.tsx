@@ -911,7 +911,7 @@ export default function TreeScene() {
       {/* painel lateral do no selecionado */}
       {selected && (
         <div className="absolute top-0 right-0 h-full w-full sm:w-96 p-4 sm:p-6 pointer-events-none flex items-start sm:items-center">
-          <div className="pointer-events-auto w-full bg-[#0a0708]/90 border border-white/10 rounded-lg p-4 backdrop-blur-sm mt-36 sm:mt-0 sm:p-5">
+          <div className="pointer-events-auto w-full bg-[#0a0708]/90 border border-white/10 rounded-lg p-3 backdrop-blur-sm mt-36 sm:mt-0 sm:p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-[10px] tracking-[0.25em] uppercase text-white/40">
@@ -939,44 +939,44 @@ export default function TreeScene() {
               </button>
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-[10px]">
+            <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-[10px] sm:mt-4 sm:gap-y-3">
               <div>
                 <div className="tracking-[0.2em] uppercase text-white/40">DOG held</div>
-                <div className={`mt-0.5 text-sm ${selected.h ? 'text-[#f7931a]' : 'text-white/50'}`}>
+                <div className={`mt-0.5 text-[12px] sm:text-sm ${selected.h ? 'text-[#f7931a]' : 'text-white/50'}`}>
                   {fmtDog(selected.b)}
                 </div>
               </div>
               <div>
                 <div className="tracking-[0.2em] uppercase text-white/40">First block</div>
-                <div className="mt-0.5 text-sm text-white/80">{selected.fb > 0 ? fmtInt(selected.fb) : '...'}</div>
+                <div className="mt-0.5 text-[12px] text-white/80 sm:text-sm">{selected.fb > 0 ? fmtInt(selected.fb) : '...'}</div>
               </div>
               <div>
                 <div className="tracking-[0.2em] uppercase text-white/40">Subtree holders</div>
-                <div className="mt-0.5 text-sm text-white/80">{fmtInt(selected.sh)}</div>
+                <div className="mt-0.5 text-[12px] text-white/80 sm:text-sm">{fmtInt(selected.sh)}</div>
               </div>
               <div>
                 <div className="tracking-[0.2em] uppercase text-white/40">Subtree wallets</div>
-                <div className="mt-0.5 text-sm text-white/80">{fmtInt(selected.sw)}</div>
+                <div className="mt-0.5 text-[12px] text-white/80 sm:text-sm">{fmtInt(selected.sw)}</div>
               </div>
               <div>
                 <div className="tracking-[0.2em] uppercase text-white/40">Subtree DOG</div>
-                <div className="mt-0.5 text-sm text-white/80">{fmtDog(selected.sb)}</div>
+                <div className="mt-0.5 text-[12px] text-white/80 sm:text-sm">{fmtDog(selected.sb)}</div>
               </div>
               <div>
                 <div className="tracking-[0.2em] uppercase text-white/40">Direct children</div>
-                <div className="mt-0.5 text-sm text-white/80">{fmtInt(selected.c)}</div>
+                <div className="mt-0.5 text-[12px] text-white/80 sm:text-sm">{fmtInt(selected.c)}</div>
               </div>
             </div>
 
             {/* regra da casa: link de carteira fica em casa */}
             <a
               href={`/address/bitcoin/${selected.w}`}
-              className="mt-5 block w-full text-center text-[10px] tracking-[0.25em] uppercase border border-[#f7931a]/40 text-[#f7931a] rounded px-3 py-2 hover:bg-[#f7931a]/10 transition-colors"
+              className="mt-3 block w-full text-center text-[10px] tracking-[0.25em] uppercase border border-[#f7931a]/40 text-[#f7931a] rounded px-3 py-1.5 sm:mt-5 sm:py-2 hover:bg-[#f7931a]/10 transition-colors"
             >
               View address
             </a>
             {selected.c > 0 && (
-              <p className="mt-3 text-[10px] text-white/40 leading-relaxed">
+              <p className="mt-3 hidden text-[10px] text-white/40 leading-relaxed sm:block">
                 Children fan out on the next shell. The bright line traces this wallet back to the treasury.
               </p>
             )}
