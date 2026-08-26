@@ -49,6 +49,8 @@ interface TooltipState {
   balance: number
   subtreeHolders: number
   holder: boolean
+  /** Ponto da populacao: so endereco/geracao/estado; saldo vem no clique. */
+  minimal?: boolean
 }
 
 interface SceneApi {
@@ -100,6 +102,7 @@ export default function TreeScene() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<TreeNode[]>([])
   const [searching, setSearching] = useState(false)
+  const [popInfo, setPopInfo] = useState<{ drawn: number; total: number } | null>(null)
 
   // ── busca (input controlado no React, voo executado pela cena) ─────────────
   useEffect(() => {
@@ -134,7 +137,6 @@ export default function TreeScene() {
 
     const mobile = isMobile()
     const dprCap = mobile ? 1.5 : 2
-    const dustBudget = mobile ? 15000 : 32000
     let disposed = false
 
     // ── palco ────────────────────────────────────────────────────────────────
@@ -351,74 +353,64 @@ export default function TreeScene() {
       ;(linkGeom.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true
     }
 
-    // ── poeira das geracoes: densidade visual = dado real de gens[] ──────────
-    let dust: THREE.Points | null = null
-    const buildDust = (gens: GenStat[]) => {
-      const totalWallets = gens.reduce((acc, g) => acc + Math.max(0, g.wallets), 0)
-      if (totalWallets <= 0) return
-      const factor = Math.min(1, dustBudget / totalWallets)
-      let total = 0
-      const perGen: Array<{ depth: number; count: number; litRatio: number }> = []
-      for (const g of gens) {
-        if (g.depth <= 0) continue
-        const count = Math.round(Math.max(0, g.wallets) * factor)
-        if (count <= 0) continue
-        perGen.push({ depth: g.depth, count, litRatio: g.wallets > 0 ? g.holders / g.wallets : 0 })
-        total += count
+    // ── populacao: carteiras REAIS no lugar da poeira ────────────────────────
+    // Diretriz do fundador (26/08): nenhum ponto decorativo na galaxia. Cada
+    // grao aqui e uma carteira do historico, amostrada por geracao
+    // proporcionalmente a populacao real (a densidade visual continua sendo o
+    // dado, como era com a poeira) e CLICAVEL: o clique resolve o dossie
+    // completo via focusWallet. A amostra vem pronta do servidor
+    // (/api/holders/tree/population, gerada por export_galaxy_population.py).
+    let popPoints: THREE.Points | null = null
+    let popPos: Float32Array | null = null
+    let popAddr: string[] = []
+    let popDepth: Int32Array | null = null
+    let popHolder: Uint8Array | null = null
+    const buildPopulation = (rows: [string, number, number][]) => {
+      // carteira que ja esta no esqueleto nao entra duas vezes
+      const keep: [string, number, number][] = []
+      for (const r of rows) {
+        if (!indexByWallet.has(r[0])) keep.push(r)
       }
-      if (total <= 0) return
-
-      const dPos = new Float32Array(total * 3)
-      const dCol = new Float32Array(total * 3)
-      let k = 0
-      for (const g of perGen) {
-        const base = shellRadius(g.depth)
-        // ⚠️ concha DENSA fica GROSSA: espalhamento radial e vertical crescem
-        // com o log da população, senão 40 mil grãos da geração 1 se amontoam
-        // num anel fino e a soma aditiva vira parede de luz
-        const raial = 6 + Math.min(16, Math.log2(1 + g.count) * 1.6)
-        const vert = 5 + Math.min(14, Math.log2(1 + g.count) * 1.3)
-        for (let i = 0; i < g.count; i++) {
-          // semente = (geracao, indice do grao): deterministico entre reloads
-          const seed = g.depth * 1000003 + i
-          const theta = hashIdx(seed, 1) * Math.PI * 2
-          const r = base + (hashIdx(seed, 2) - 0.5) * raial
-          dPos[k * 3] = Math.cos(theta) * r
-          dPos[k * 3 + 1] = (hashIdx(seed, 3) * 2 - 1) * vert
-          dPos[k * 3 + 2] = Math.sin(theta) * r
-          // fracao acesa segue a proporcao real holders/wallets da geracao;
-          // cores baixas de propósito: são MILHARES somando em aditivo
-          const lit = hashIdx(seed, 4) < g.litRatio
-          if (lit) {
-            dCol[k * 3] = 0.38
-            dCol[k * 3 + 1] = 0.21
-            dCol[k * 3 + 2] = 0.045
-          } else {
-            dCol[k * 3] = 0.11
-            dCol[k * 3 + 1] = 0.095
-            dCol[k * 3 + 2] = 0.085
-          }
-          k++
+      const n = keep.length
+      if (n === 0) return
+      popPos = new Float32Array(n * 3)
+      const cols = new Float32Array(n * 3)
+      const sizes = new Float32Array(n)
+      popAddr = new Array(n)
+      popDepth = new Int32Array(n)
+      popHolder = new Uint8Array(n)
+      for (let i = 0; i < n; i++) {
+        const w = keep[i][0]
+        const d = keep[i][1]
+        const h = keep[i][2]
+        nodePosition(w, d, tmpV)
+        popPos[i * 3] = tmpV.x
+        popPos[i * 3 + 1] = tmpV.y
+        popPos[i * 3 + 2] = tmpV.z
+        popAddr[i] = w
+        popDepth[i] = d
+        popHolder[i] = h
+        if (h) {
+          cols[i * 3] = 0.5
+          cols[i * 3 + 1] = 0.28
+          cols[i * 3 + 2] = 0.06
+          sizes[i] = 1.5
+        } else {
+          cols[i * 3] = 0.15
+          cols[i * 3 + 1] = 0.125
+          cols[i * 3 + 2] = 0.11
+          sizes[i] = 1.2
         }
       }
-      const dGeom = new THREE.BufferGeometry()
-      dGeom.setAttribute('position', new THREE.BufferAttribute(dPos, 3))
-      dGeom.setAttribute('color', new THREE.BufferAttribute(dCol, 3))
-      // poeira miúda e sem mapa mole: grão pequeno com disco nítido; o
-      // brilho do conjunto vem da densidade real, não do tamanho do grão
-      const dMat = new THREE.PointsMaterial({
-        size: 1.15,
-        sizeAttenuation: true,
-        map: crispDiscTexture(32),
-        vertexColors: true,
-        transparent: true,
-        opacity: 0.42,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-      })
-      dust = new THREE.Points(dGeom, dMat)
-      dust.frustumCulled = false
-      scene.add(dust)
+      const g = new THREE.BufferGeometry()
+      g.setAttribute('position', new THREE.BufferAttribute(popPos, 3))
+      g.setAttribute('color', new THREE.BufferAttribute(cols, 3))
+      g.setAttribute('size', new THREE.BufferAttribute(sizes, 1))
+      // o MESMO shader das estrelas: o teto de gl_PointSize evita a parede
+      // de luz de perto que a poeira mole tinha
+      popPoints = new THREE.Points(g, starMat)
+      popPoints.frustumCulled = false
+      scene.add(popPoints)
     }
 
     // ── voo de camera (dolly de entrada e busca), sem alocacao no loop ───────
@@ -646,9 +638,61 @@ export default function TreeScene() {
       return melhor
     }
 
+    // populacao: mesmo picking por projecao de tela, com throttle no hover
+    // (24k projecoes por movimento de mouse pesam; 90ms ninguem percebe)
+    const pickPop = (clientX: number, clientY: number, raioPx: number): number => {
+      if (!popPos) return -1
+      const rect = renderer.domElement.getBoundingClientRect()
+      const px = clientX - rect.left
+      const py = clientY - rect.top
+      let melhor = -1
+      let melhorD = raioPx * raioPx
+      for (let i = 0; i < popAddr.length; i++) {
+        projV.set(popPos[i * 3], popPos[i * 3 + 1], popPos[i * 3 + 2])
+        projV.project(camera)
+        if (projV.z > 1) continue
+        const sx = (projV.x * 0.5 + 0.5) * rect.width
+        const sy = (-projV.y * 0.5 + 0.5) * rect.height
+        const d = (sx - px) * (sx - px) + (sy - py) * (sy - py)
+        if (d < melhorD) {
+          melhorD = d
+          melhor = i
+        }
+      }
+      return melhor
+    }
+    let hoverPop = -1
+    let hoverPopT = 0
+
     const onPointerMove = (e: PointerEvent) => {
       const idx = pickAt(e.clientX, e.clientY, 12)
-      if (idx === hoverIdx && idx === -3) return
+      if (idx === hoverIdx && idx === -3) {
+        // esqueleto nao acertou: tenta a populacao, com throttle
+        const agora = performance.now()
+        if (agora - hoverPopT < 90) return
+        hoverPopT = agora
+        const pi = pickPop(e.clientX, e.clientY, 10)
+        if (pi === hoverPop) return
+        hoverPop = pi
+        if (pi === -1) {
+          renderer.domElement.style.cursor = 'grab'
+          setTooltip(null)
+          return
+        }
+        renderer.domElement.style.cursor = 'pointer'
+        setTooltip({
+          x: e.clientX,
+          y: e.clientY,
+          addr: shortAddr(popAddr[pi]),
+          label: `Generation ${popDepth ? popDepth[pi] : '?'}`,
+          balance: 0,
+          subtreeHolders: 0,
+          holder: !!(popHolder && popHolder[pi]),
+          minimal: true,
+        })
+        return
+      }
+      hoverPop = -1
       hoverIdx = idx
       renderer.domElement.style.cursor = idx === -3 ? 'grab' : 'pointer'
       if (idx === -3) {
@@ -699,6 +743,11 @@ export default function TreeScene() {
       } else if (idx >= 0) {
         selectNode(nodeMeta[idx])
         flyToNode(posArr[idx * 3], posArr[idx * 3 + 1], posArr[idx * 3 + 2])
+      } else {
+        // ponto da populacao: e uma carteira real, o dossie completo vem do
+        // /path via focusWallet (que tambem voa e materializa os filhos)
+        const pi = pickPop(e.clientX, e.clientY, e.pointerType === 'touch' ? 22 : 12)
+        if (pi >= 0) void focusWallet(popAddr[pi])
       }
     }
 
@@ -718,7 +767,20 @@ export default function TreeScene() {
         for (const n of nodes) ensureNode(n)
         flushStars()
         const gens = data.gens || []
-        buildDust(gens)
+        // populacao real no lugar da poeira; sem ela a cena segue so com o
+        // esqueleto (a rota degrada pra lista vazia, nunca 500)
+        void (async () => {
+          try {
+            const resP = await fetch(`/api/holders/tree/population?n=${mobile ? 12000 : 24000}`)
+            if (!resP.ok || disposed) return
+            const pop = (await resP.json()) as { total: number; w: [string, number, number][] }
+            if (disposed || !Array.isArray(pop.w)) return
+            buildPopulation(pop.w)
+            setPopInfo({ drawn: pop.w.length, total: pop.total || 0 })
+          } catch {
+            /* esqueleto sozinho ainda e uma galaxia */
+          }
+        })()
         const wallets = gens.reduce((acc, g) => acc + Math.max(0, g.wallets), 0)
         const holders = gens.reduce((acc, g) => acc + Math.max(0, g.holders), 0)
         const generations = gens.reduce((acc, g) => Math.max(acc, g.depth), 0)
@@ -752,14 +814,6 @@ export default function TreeScene() {
       }
       const pulse = 1 + Math.sin(now * 0.0012) * 0.05
       halo.scale.set(64 * pulse, 64 * pulse, 1)
-      // fade da poeira por distancia: de longe ela e a atmosfera (0.42), de
-      // perto sai da frente (0.06 a 70 unidades) pra estrela exata ficar
-      // limpa. So aritmetica, zero alocacao por frame.
-      if (dust) {
-        const dCam = camera.position.distanceTo(controls.target)
-        const k = Math.max(0, Math.min(1, (dCam - 70) / 150))
-        ;(dust.material as THREE.PointsMaterial).opacity = 0.06 + k * 0.36
-      }
       controls.update()
       renderer.render(scene, camera)
     }
@@ -786,10 +840,7 @@ export default function TreeScene() {
       ;(sunMesh.material as THREE.Material).dispose()
       haloMat.dispose()
       ;(haloOuter.material as THREE.Material).dispose()
-      if (dust) {
-        dust.geometry.dispose()
-        ;(dust.material as THREE.Material).dispose()
-      }
+      if (popPoints) popPoints.geometry.dispose()
       starTex.dispose()
       sunTex.dispose()
       renderer.dispose()
@@ -853,6 +904,12 @@ export default function TreeScene() {
                 </div>
               </div>
             </div>
+            {popInfo && (
+              <p className="mt-2 max-w-md text-[9px] leading-relaxed text-white/35">
+                Every dot is a real wallet: {fmtInt(popInfo.drawn)} sampled plus the brightest
+                lineages, out of {fmtInt(popInfo.total)} mapped. Search reaches them all.
+              </p>
+            )}
             {hud.status === 'error' && (
               <p className="mt-2 text-[10px] text-white/40">Tree data is still being written. Refresh in a moment.</p>
             )}
@@ -901,10 +958,18 @@ export default function TreeScene() {
         >
           <div className="text-white/90">{tooltip.addr}</div>
           {tooltip.label && <div className="text-[#f7931a]">{tooltip.label}</div>}
-          <div className="text-white/50">
-            {tooltip.holder ? `${fmtDog(tooltip.balance)} DOG held` : 'fully spent'}
-          </div>
-          <div className="text-white/50">{fmtInt(tooltip.subtreeHolders)} holders in subtree</div>
+          {tooltip.minimal ? (
+            <div className="text-white/50">
+              {tooltip.holder ? 'still holding' : 'fully spent'} · click for details
+            </div>
+          ) : (
+            <>
+              <div className="text-white/50">
+                {tooltip.holder ? `${fmtDog(tooltip.balance)} DOG held` : 'fully spent'}
+              </div>
+              <div className="text-white/50">{fmtInt(tooltip.subtreeHolders)} holders in subtree</div>
+            </>
+          )}
         </div>
       )}
 

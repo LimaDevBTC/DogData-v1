@@ -129,6 +129,29 @@ def main():
         if n % 200 == 0:
             print(f'  {n}/{len(alvo)} sincronizadas', flush=True)
 
+    # a populacao da galaxia (amostra de carteiras reais que substituiu a
+    # poeira) guarda a flag holder no proprio arquivo; quem mudou de saldo
+    # nesta rodada atualiza a flag ali tambem, senao o ponto fica mentindo
+    # de cor ate o export diario
+    pop_path = BASE / 'data' / 'galaxy_population.json'
+    if mudou and pop_path.exists():
+        try:
+            pop = json.loads(pop_path.read_text())
+            tocou = 0
+            for linha_pop in pop.get('w', []):
+                if linha_pop[0] in mudou:
+                    flag = 1 if mudou[linha_pop[0]] > 0 else 0
+                    if linha_pop[2] != flag:
+                        linha_pop[2] = flag
+                        tocou += 1
+            if tocou:
+                tmp_pop = pop_path.with_suffix('.tmp')
+                tmp_pop.write_text(json.dumps(pop, separators=(',', ':')))
+                tmp_pop.rename(pop_path)
+                print(f'populacao da galaxia: {tocou} flags de holder atualizadas', flush=True)
+        except Exception as e:  # noqa: BLE001
+            print(f'populacao da galaxia: falhou ({e}), o export diario corrige', flush=True)
+
     # o instantaneo novo = a verdade local desta rodada; enderecos que o
     # banco conhecia entram tambem (para o proximo diff enxergar zeragens)
     prox = dict(locais)
