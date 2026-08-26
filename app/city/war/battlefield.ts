@@ -38,6 +38,13 @@ import {
   JIPE_PIVO_ARMA_Y,
   BOCA_ARMA_JIPE,
 } from './vehicles'
+import {
+  buildAntiAereaGeometry,
+  BOCA_AA_DIST,
+  buildNinhoGeometry,
+  BOCA_MG_DIST,
+  buildTrincheiraGeometry,
+} from './emplacements'
 
 export const CAMPO_X = 88
 export const FRENTE = 7
@@ -46,7 +53,9 @@ export const FRENTE = 7
 // explosions.ts), nao mais a mesma bola branca pra tudo. 'baleia' cobre a
 // salva de trade grande (nao esta na enumeracao original do pedido, mas o
 // mapa de assinaturas exige um caso proprio pra ela: incendiaria != tiro).
-type Arma = 'fuzil' | 'tiro' | 'morteiro' | 'mlrs' | 'bomba' | 'tanque' | 'baleia'
+// 'canhao' cobre o par de teatro (proxCanhao): mesmo pool de `tiros` do trade
+// comum, mas com clarao e rastro proprios (ver atira() e o laco de tiros).
+type Arma = 'fuzil' | 'tiro' | 'morteiro' | 'mlrs' | 'bomba' | 'tanque' | 'baleia' | 'canhao'
 
 export interface OrcamentoBatalha {
   cap: number
@@ -345,6 +354,10 @@ export function createBattlefield(
     t0: number
     z: number
     vence: 'buy' | 'sell'
+    // ⚠️ 1 em cada 3 ciclos deste duelo vira lança-chamas (ver o disparo em
+    // 'corre'->'choque'); ciclo conta as repetições, chamas é o resultado
+    ciclo: number
+    chamas: boolean
   }
   const duelos: Duelo[] = []
   for (let i = 0; i < 10; i++) {
@@ -354,7 +367,10 @@ export function createBattlefield(
     semRaycast(cao)
     semRaycast(urso)
     group.add(cao, urso)
-    duelos.push({ cao, urso, fase: 'espera', t0: performance.now() + 600 + i * 900 + hash(i, 3) * 1400, z: 0, vence: 'buy' })
+    duelos.push({
+      cao, urso, fase: 'espera', t0: performance.now() + 600 + i * 900 + hash(i, 3) * 1400, z: 0, vence: 'buy',
+      ciclo: i, chamas: false,
+    })
   }
   const X_DUELO = FRENTE + 15
 
@@ -896,7 +912,11 @@ export function createBattlefield(
   })
   let cursorBala = 0
   const balas: Bala[] = []
-  const filaRajada: Array<{ at: number; lado: 'buy' | 'sell'; z: number; forca: number; ultima: boolean }> = []
+  // ⚠️ origemX/origemZ opcionais: metade das rajadas de fundo passa a nascer
+  // na boca real de um ninho de metralhadora (ver dispararRajadaNinho na
+  // seção 7e), a outra metade continua saindo da infantaria pela fórmula de
+  // sempre. Sem os dois, disparaBala cai na fórmula antiga.
+  const filaRajada: Array<{ at: number; lado: 'buy' | 'sell'; z: number; forca: number; ultima: boolean; origemX?: number; origemZ?: number }> = []
   const rajada = (lado: 'buy' | 'sell', z: number, forca: number, agora: number) => {
     const n = 3 + Math.floor(hash(Math.floor(agora) % 401, z) * 4)
     for (let k = 0; k < n; k++) {
@@ -909,14 +929,18 @@ export function createBattlefield(
       })
     }
   }
-  const disparaBala = (lado: 'buy' | 'sell', z: number, forca: number, ultima: boolean, agora: number) => {
+  const disparaBala = (
+    lado: 'buy' | 'sell', z: number, forca: number, ultima: boolean, agora: number,
+    origemX?: number, origemZ?: number,
+  ) => {
     const s = lado === 'buy' ? 1 : -1
     const i = cursorBala
     cursorBala = (cursorBala + 1) % POOL_BALA
     const mesh = poolBalas[i]
     mesh.material = lado === 'buy' ? matRastroCompra : matRastroVenda
     mesh.visible = true
-    mesh.userData.de.set(-s * (16 + hash(i, 5) * 8) + frenteX, 1.0, z)
+    if (origemX !== undefined) mesh.userData.de.set(origemX, 1.0, origemZ ?? z)
+    else mesh.userData.de.set(-s * (16 + hash(i, 5) * 8) + frenteX, 1.0, z)
     mesh.userData.para.set(s * (FRENTE - 1) + frenteX, 1.0, z + (hash(i, 9) - 0.5) * 1.2)
     balas.push({ i, t0: agora, dur: 85 + hash(i, 2) * 35, lado, forca, ultima })
     clarao(mesh.userData.de, 0.6, lado === 'buy' ? 0xffd9a0 : 0xffb09a)
@@ -1129,7 +1153,7 @@ export function createBattlefield(
 
   // ═══════════════════════════════════════════════════════════════════════
   // ENCENAÇÃO PROFUNDA: seis sistemas aditivos que fecham o "tiro nasce do
-  // nada" e dão à batalha o nível de teatro do bitcoin-warfront — baterias
+  // nada" e dão à batalha o nível de teatro do bitcoin-warfront: baterias
   // visíveis, MLRS em salva, bombardeiro na ofensiva, cargas de esquadrão,
   // porta-bandeiras na linha, e assinatura visual por arma (via explodeBola).
   // ═══════════════════════════════════════════════════════════════════════
@@ -2055,9 +2079,12 @@ export function createBattlefield(
     mesh.userData.para.set(lado * (FRENTE + hash(sem % 7, 11) * 6) + frenteX, 0.8, zAlvo)
     mesh.userData.prev.copy(mesh.userData.de)
     tiros.push({ i, t0: performance.now(), dur: 750 + 350 * Math.min(3, forca / 8), forca, lado: lado0, qty, arma })
-    // artilharia anuncia o disparo: clarão de boca + baforada na origem
+    // artilharia anuncia o disparo: clarão de boca + baforada na origem.
+    // canhão de teatro ganha clarão 1.6x mais forte que o tiro comum: o
+    // fundador sentia falta justamente de ENXERGAR o par de canhões atirando
     if (forca > 2) {
-      clarao(mesh.userData.de, 1.6 + Math.sqrt(forca), lado0 === 'buy' ? 0xffd9a0 : 0xffb09a)
+      const forcaClarao = arma === 'canhao' ? 1.6 : 1
+      clarao(mesh.userData.de, (1.6 + Math.sqrt(forca)) * forcaClarao, lado0 === 'buy' ? 0xffd9a0 : 0xffb09a)
       solta_fumaca(mesh.userData.de, forca * 0.6)
     }
   }
@@ -2167,6 +2194,12 @@ export function createBattlefield(
           // fontana de terra + flash médio extra (a casca é mais pesada)
           lib.fontanaDeTerra(p, forca)
           flashDeTela(p, forca * 0.55, cor)
+          break
+        case 'canhao':
+          // assinatura própria do canhão de teatro: fontana de terra pequena
+          // (a casca é mais leve que a do tanque) + flash médio
+          lib.fontanaDeTerra(p, forca * 0.6)
+          flashDeTela(p, forca * 0.5, cor)
           break
         case 'baleia':
           // salva de trade grande: chamas residuais contam a história
@@ -2398,9 +2431,12 @@ export function createBattlefield(
 
   // ── 7b. HELICÓPTERO DE ATAQUE: 1 por lado, só nos tiers alto e médio (um
   // Group com 3 sub-meshes girando o tempo todo não cabe no tier fraco).
-  // Entra quando a intensidade cruza 0.62 (mesmo limiar de entrada dos
-  // tanques), sai abaixo de 0.4; enquanto ativo faz strafe ao longo da
-  // costura no x fixo do próprio lado, sempre frenteX + recuo.
+  // ⚠️ LIÇÃO DO FUNDADOR: arma que o espectador nunca vê não existe. O heli
+  // NUNCA sai do ar (não há mais 'fora'/'saindo' por limiar de intensidade,
+  // só a entrada suave de quando a cena monta); a intensidade deixou de
+  // decidir SE ele voa e passou a modular COMO ele voa (velocidade do
+  // strafe e cadência da rajada), presença permanente, comportamento
+  // variável.
   const X_RECUO_HELI = 18
   const HELI_Z_LIMITE = 46
   const VEL_HELI = 9
@@ -2411,7 +2447,7 @@ export function createBattlefield(
     corpo: THREE.Mesh
     rotorGrupo: THREE.Group
     rotorCaudaGrupo: THREE.Group
-    estado: 'fora' | 'entrando' | 'combate' | 'saindo'
+    estado: 'entrando' | 'combate'
     t0: number
     z: number
     dirZ: 1 | -1
@@ -2438,32 +2474,30 @@ export function createBattlefield(
     rotorCaudaGrupo.add(rotorCaudaMesh)
     const grupo = new THREE.Group()
     grupo.add(corpo, rotorGrupo, rotorCaudaGrupo)
-    grupo.visible = false
+    grupo.visible = true
     group.add(grupo)
     const dirZ: 1 | -1 = hash(semente, 131) < 0.5 ? 1 : -1
     return {
       lado, sentido, grupo, corpo, rotorGrupo, rotorCaudaGrupo,
-      estado: 'fora', t0: 0, z: 0, dirZ,
+      estado: 'entrando', t0: performance.now(), z: 0, dirZ,
       headingY: dirZ > 0 ? Math.PI / 2 : -Math.PI / 2,
       fase: hash(semente, 137) * Math.PI * 2,
       altBase: 15, proxRajada: 0,
     }
   }
-  // 1 heli por lado em TODOS os tiers: são 2 Groups de ~3 meshes, custo
-  // irrisório perto do exército instanciado, e o fundador assiste pelo celular
+  // 1 heli por lado em TODOS os tiers, decolando na montagem e NUNCA saindo:
+  // são 2 Groups de ~3 meshes, custo irrisório perto do exército instanciado,
+  // e o fundador assiste pelo celular
   const helis: Heli[] = [criaHeli('buy', 1), criaHeli('sell', 2)]
   const bocaHeli = new THREE.Vector3()
   const direcaoHeli = new THREE.Vector3()
 
   const atualizaHelicopteros = (agora: number, dt: number) => {
     for (const h of helis) {
-      if (h.estado === 'fora') {
-        if (intensidade > 0.62) {
-          h.estado = 'entrando'
-          h.t0 = agora
-        } else continue
-      }
-      h.z += h.dirZ * VEL_HELI * dt
+      // strafe 0.7x (calmaria) a 1.4x (pico): a intensidade nunca decide SE
+      // ele voa, só o RITMO do voo
+      const velHeli = VEL_HELI * (0.7 + 0.7 * intensidade)
+      h.z += h.dirZ * velHeli * dt
       if (h.z > HELI_Z_LIMITE) { h.z = HELI_Z_LIMITE; h.dirZ = -1 }
       else if (h.z < -HELI_Z_LIMITE) { h.z = -HELI_Z_LIMITE; h.dirZ = 1 }
       // o heading persegue a direção do vaivém com atraso: o próprio atraso
@@ -2476,26 +2510,17 @@ export function createBattlefield(
         const f = Math.min(1, (agora - h.t0) / 1200)
         y -= (1 - f) * 14
         if (f >= 1) h.estado = 'combate'
-      } else if (h.estado === 'saindo') {
-        const f = Math.min(1, (agora - h.t0) / 1200)
-        y -= f * 14
-        if (f >= 1) {
-          h.estado = 'fora'
-          h.grupo.visible = false
-          continue
-        }
-      } else if (h.estado === 'combate' && intensidade < 0.4) {
-        h.estado = 'saindo'
-        h.t0 = agora
       }
-      h.grupo.visible = true
       h.grupo.position.set(x, y, h.z)
       const banco = THREE.MathUtils.clamp((alvoHeading - h.headingY) * 0.7, -0.3, 0.3)
       h.grupo.rotation.set(0, h.headingY, banco)
       h.rotorGrupo.rotation.y += 28 * dt
       h.rotorCaudaGrupo.rotation.x += 40 * dt
       if (h.estado === 'combate' && agora > h.proxRajada) {
-        h.proxRajada = agora + 2500 + hash(Math.floor(agora) % 421, h.sentido + 3) * 2500
+        // rajada a cada 4-7s em calmaria, 1.5-3s no pico
+        const baseRajada = 4000 - intensidade * 2500
+        const janelaRajada = 3000 - intensidade * 1500
+        h.proxRajada = agora + baseRajada + hash(Math.floor(agora) % 421, h.sentido + 3) * janelaRajada
         h.corpo.updateWorldMatrix(true, false)
         bocaHeli.set(PONTA_ARMA_HELI, -0.28, 0).applyMatrix4(h.corpo.matrixWorld)
         direcaoHeli.set(1, 0, 0).transformDirection(h.corpo.matrixWorld)
@@ -2577,18 +2602,345 @@ export function createBattlefield(
     }
   }
 
-  // ── 7d. um único ponto de atualização por frame pros três sistemas de
-  // vehicles.ts, mais o dreno da fila de impactos atrasados que os dois
-  // últimos agendam.
+  // ═══════════════════════════════════════════════════════════════════════
+  // 7e. POSIÇÕES FIXAS (emplacements.ts): tanque de guarda, antiaérea+flak,
+  // ninho de metralhadora e trincheira. ⚠️ LIÇÃO DO FUNDADOR: o heli nunca
+  // aparecia, o tanque nunca aparecia, o canhão sumiu, tudo porque a
+  // presença deles dependia de um gatilho raro. Presença é PERMANENTE aqui;
+  // intensidade só modula CADÊNCIA e VELOCIDADE, nunca existência.
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // ── 7e-1. TANQUE DE GUARDA: 2 por lado (1 no tier fraco), diferente do
+  // surto de avaliaTanques (que entra/sai com o volume real): este nunca
+  // sai, só patrulha devagar atrás da própria linha e atira no próprio
+  // relógio. Reaproveita a geometria de tanks.ts e dispararTanque/
+  // esteiraPoeiraTanque, os mesmos que os tanques de surto já usam.
+  const X_TANQUE_GUARDA_RECUO = 14
+  const TANQUE_GUARDA_Z_LIMITE = 30
+  const VEL_TANQUE_GUARDA = 2
+  interface TanqueGuarda extends Tanque {
+    dirZ: 1 | -1
+  }
+  const criaTanqueGuarda = (lado: 'buy' | 'sell', z: number): TanqueGuarda => {
+    const sentido: 1 | -1 = lado === 'buy' ? 1 : -1
+    const geo = lado === 'buy' ? geoTanqueDog : geoTanqueUrso
+    const casco = new THREE.Mesh(geo.casco, matTanque)
+    const torreMesh = new THREE.Mesh(geo.torre, matTanque)
+    const torreGrupo = new THREE.Group()
+    torreGrupo.position.set(sentido * -0.3, 0.78, 0)
+    torreGrupo.add(torreMesh)
+    const grupo = new THREE.Group()
+    grupo.add(casco, torreGrupo)
+    semRaycast(casco)
+    semRaycast(torreMesh)
+    casco.frustumCulled = torreMesh.frustumCulled = false
+    const x = frenteX - sentido * X_TANQUE_GUARDA_RECUO
+    grupo.position.set(x, altura(x, z), z)
+    group.add(grupo)
+    return {
+      grupo, casco, torreGrupo, lado, sentido, z, estado: 'combate',
+      proxTiro: performance.now() + 2000 + hash(z, sentido) * 4000,
+      recuoT0: 0, mira: 0, proxPoeira: 0,
+      dirZ: hash(z, sentido + 9) < 0.5 ? 1 : -1,
+    }
+  }
+  const N_TANQUE_GUARDA = tierMedio ? 2 : 1
+  const Z_TANQUE_GUARDA = tierMedio ? [-18, 18] : [0]
+  const tanquesGuarda: TanqueGuarda[] = []
+  for (const lado of ['buy', 'sell'] as const) {
+    for (let k = 0; k < N_TANQUE_GUARDA; k++) tanquesGuarda.push(criaTanqueGuarda(lado, Z_TANQUE_GUARDA[k]))
+  }
+  const atualizaTanquesGuarda = (agora: number, dt: number) => {
+    for (const t of tanquesGuarda) {
+      t.z += t.dirZ * VEL_TANQUE_GUARDA * dt
+      if (t.z > TANQUE_GUARDA_Z_LIMITE) { t.z = TANQUE_GUARDA_Z_LIMITE; t.dirZ = -1 }
+      else if (t.z < -TANQUE_GUARDA_Z_LIMITE) { t.z = -TANQUE_GUARDA_Z_LIMITE; t.dirZ = 1 }
+      const x = frenteX - t.sentido * X_TANQUE_GUARDA_RECUO
+      t.grupo.position.set(x, altura(x, t.z) + Math.abs(Math.sin(agora * 0.006 + t.z)) * 0.03, t.z)
+      if (Math.abs(t.dirZ) * VEL_TANQUE_GUARDA * dt > 0.02) esteiraPoeiraTanque(t, agora)
+      t.mira += (Math.sin(agora * 0.0006 + t.z) * 0.15 - t.mira) * Math.min(1, dt * 1.2)
+      t.torreGrupo.rotation.y = t.mira
+      // mesmo recuo de canhão de atualizaTanques
+      if (t.recuoT0 > 0) {
+        const f = (agora - t.recuoT0) / 260
+        if (f >= 1) {
+          t.recuoT0 = 0
+          t.casco.position.x = 0
+        } else t.casco.position.x = -t.sentido * 0.45 * (1 - f) * (1 - f)
+      }
+      // canhão a cada 7-14s, mais rápido quanto maior a intensidade
+      if (agora > t.proxTiro) {
+        const centro = 14000 - intensidade * 7000
+        const jitter = (hash(Math.floor(agora) % 613, t.z) - 0.5) * 4000
+        t.proxTiro = agora + Math.max(7000, Math.min(14000, centro + jitter))
+        dispararTanque(t, agora)
+      }
+    }
+  }
+
+  // ── 7e-2. ANTIAÉREA + FLAK: 2 por lado (1 no tier fraco), ancorada como
+  // as baterias (mesmo frenteX - sentido*DIST_BATERIA, z distinto). Mira
+  // qualquer aeronave inimiga no ar (o heli agora está sempre no ar; o
+  // bombardeiro quando ativo) e solta flak que erra de propósito: teatro,
+  // não abate.
+  const geoAADog = buildAntiAereaGeometry('dog')
+  const geoAAUrso = buildAntiAereaGeometry('bear')
+  const CANO_AA_ALTURA = 0.87 // topo do pedestal em buildAntiAereaGeometry, onde o munhão de `cano` se apoia
+  interface AntiAerea {
+    grupo: THREE.Group
+    giroGrupo: THREE.Group
+    canoGrupo: THREE.Group
+    lado: 'buy' | 'sell'
+    sentido: 1 | -1
+    z: number
+    azAtual: number
+    elevAtual: number
+    proxRajada: number
+  }
+  const criaAntiAerea = (lado: 'buy' | 'sell', z: number): AntiAerea => {
+    const sentido: 1 | -1 = lado === 'buy' ? 1 : -1
+    const geo = lado === 'buy' ? geoAADog : geoAAUrso
+    const baseMesh = new THREE.Mesh(geo.base, matTanque)
+    const canoMesh = new THREE.Mesh(geo.cano, matTanque)
+    semRaycast(baseMesh)
+    semRaycast(canoMesh)
+    baseMesh.frustumCulled = canoMesh.frustumCulled = false
+    const canoGrupo = new THREE.Group()
+    canoGrupo.position.set(0, CANO_AA_ALTURA, 0)
+    canoGrupo.add(canoMesh)
+    const giroGrupo = new THREE.Group()
+    giroGrupo.add(canoGrupo)
+    const grupo = new THREE.Group()
+    grupo.add(baseMesh, giroGrupo)
+    group.add(grupo)
+    return {
+      grupo, giroGrupo, canoGrupo, lado, sentido, z,
+      azAtual: 0, elevAtual: 0,
+      proxRajada: performance.now() + 1500 + hash(z, sentido + 21) * 3000,
+    }
+  }
+  const N_AA = tierMedio ? 2 : 1
+  const Z_AA = tierMedio ? [-11, 11] : [5]
+  const antiAereas: AntiAerea[] = []
+  for (const lado of ['buy', 'sell'] as const) {
+    for (let k = 0; k < N_AA; k++) antiAereas.push(criaAntiAerea(lado, Z_AA[k]))
+  }
+  // pool próprio de tracers de flak: sobem da boca até PERTO da aeronave
+  // (o erro é proposital, nunca acerta) e estouram via lib.flak
+  const POOL_TRACER_AA = 12
+  interface TracerAA { i: number; t0: number; dur: number }
+  const poolTracersAA: THREE.Mesh[] = Array.from({ length: POOL_TRACER_AA }, () => {
+    const m = new THREE.Mesh(geoRastro, matRastroCompra)
+    m.visible = false
+    m.userData.de = new THREE.Vector3()
+    m.userData.para = new THREE.Vector3()
+    semRaycast(m)
+    group.add(m)
+    return m
+  })
+  let cursorTracerAA = 0
+  const tracersAA: TracerAA[] = []
+  const vAlvoAA = new THREE.Vector3()
+  const vBocaAA = new THREE.Vector3()
+  const anguloWrap = (a: number) => {
+    let r = a % (Math.PI * 2)
+    if (r > Math.PI) r -= Math.PI * 2
+    if (r < -Math.PI) r += Math.PI * 2
+    return r
+  }
+  const dispararFlak = (aa: AntiAerea, alvo: THREE.Vector3, agora: number) => {
+    aa.canoGrupo.updateWorldMatrix(true, false)
+    vBocaAA.set(BOCA_AA_DIST, 0, 0).applyMatrix4(aa.canoGrupo.matrixWorld)
+    clarao(vBocaAA, 1.2, aa.lado === 'buy' ? 0xffe1b0 : 0xffc2a8)
+    const n = 3 + Math.floor(hash(Math.floor(agora) % 331, aa.z) * 3)
+    for (let k = 0; k < n; k++) {
+      const ladoCano = k % 2 === 0 ? 0.24 : -0.24
+      vBocaAA.set(BOCA_AA_DIST, 0, ladoCano).applyMatrix4(aa.canoGrupo.matrixWorld)
+      const i = cursorTracerAA
+      cursorTracerAA = (cursorTracerAA + 1) % POOL_TRACER_AA
+      const m = poolTracersAA[i]
+      m.material = aa.lado === 'buy' ? matRastroCompra : matRastroVenda
+      m.visible = true
+      m.userData.de.copy(vBocaAA)
+      // erra por 2 a 6 unidades em direção aleatória: flak é teatro, nunca abate
+      const missMag = 2 + hash(k, agora % 211) * 4
+      const angA = hash(k + 3, agora % 97) * Math.PI * 2
+      const angB = (hash(k + 5, agora % 83) - 0.5) * Math.PI * 0.6
+      m.userData.para.set(
+        alvo.x + Math.cos(angA) * Math.cos(angB) * missMag,
+        alvo.y + Math.sin(angB) * missMag,
+        alvo.z + Math.sin(angA) * Math.cos(angB) * missMag,
+      )
+      tracersAA.push({ i, t0: agora, dur: 260 + hash(i, k) * 140 })
+    }
+  }
+  const atualizaAntiAereas = (agora: number, dt: number) => {
+    for (const aa of antiAereas) {
+      const bx = frenteX - aa.sentido * DIST_BATERIA
+      aa.grupo.position.set(bx, altura(bx, aa.z), aa.z)
+      const inimigoLado: 'buy' | 'sell' = aa.lado === 'buy' ? 'sell' : 'buy'
+      let alvoPos: THREE.Vector3 | null = null
+      const heliInimigo = helis.find((h) => h.lado === inimigoLado)
+      if (heliInimigo) alvoPos = heliInimigo.grupo.position
+      const bombInimigo = bombardeiros[inimigoLado]
+      if (!alvoPos && bombInimigo.ativo) alvoPos = bombInimigo.mesh.position
+      if (!alvoPos) continue
+      vAlvoAA.copy(alvoPos).sub(aa.grupo.position)
+      const azAlvo = Math.atan2(-vAlvoAA.z, vAlvoAA.x)
+      aa.azAtual += anguloWrap(azAlvo - aa.azAtual) * Math.min(1, dt * 2.2)
+      aa.giroGrupo.rotation.y = aa.azAtual
+      const horiz = Math.hypot(vAlvoAA.x, vAlvoAA.z)
+      const elevAlvo = Math.atan2(vAlvoAA.y, horiz)
+      aa.elevAtual += (elevAlvo - aa.elevAtual) * Math.min(1, dt * 2.2)
+      aa.canoGrupo.rotation.z = THREE.MathUtils.clamp(aa.elevAtual, -0.1, 1.3)
+      if (agora > aa.proxRajada) {
+        // cadência 3-6s por peça, mais rápida quanto maior a intensidade
+        const centro = 6000 - intensidade * 3000
+        const jitter = (hash(Math.floor(agora) % 449, aa.z) - 0.5) * 3000
+        aa.proxRajada = agora + Math.max(3000, Math.min(6000, centro + jitter))
+        dispararFlak(aa, alvoPos, agora)
+      }
+    }
+  }
+
+  // ── 7e-3. NINHO DE METRALHADORA: 3 por lado (2 no fraco), na linha do
+  // próprio lado perto da costura, seguindo frenteX igual às baterias. A
+  // arma varre em Y e, em ritmo de rajada, dispara a MESMA fuzilaria da
+  // escaramuça (rajada/disparaBala), só que com origem real na boca do
+  // ninho (ver dispararRajadaNinho e o gatilho de escaramuça em update()).
+  const geoNinhoDog = buildNinhoGeometry('dog', 1)
+  const geoNinhoUrso = buildNinhoGeometry('bear', -1)
+  interface NinhoMG {
+    grupo: THREE.Group
+    armaGrupo: THREE.Group
+    lado: 'buy' | 'sell'
+    sentido: 1 | -1
+    z: number
+    xOff: number
+    proxRajada: number
+  }
+  const criaNinhoMG = (lado: 'buy' | 'sell', idx: number): NinhoMG => {
+    const sentido: 1 | -1 = lado === 'buy' ? 1 : -1
+    const geo = lado === 'buy' ? geoNinhoDog : geoNinhoUrso
+    const baseMesh = new THREE.Mesh(geo.base, matTanque)
+    const armaMesh = new THREE.Mesh(geo.arma, matTanque)
+    semRaycast(baseMesh)
+    semRaycast(armaMesh)
+    baseMesh.frustumCulled = armaMesh.frustumCulled = false
+    // pedestal de buildNinhoGeometry: topo em y=0.3+0.3=0.6, onde o
+    // cabeçote de giro (pivô de `arma`) se apoia
+    const armaGrupo = new THREE.Group()
+    armaGrupo.position.set(sentido * 0.1, 0.6, 0)
+    armaGrupo.add(armaMesh)
+    const grupo = new THREE.Group()
+    grupo.add(baseMesh, armaGrupo)
+    group.add(grupo)
+    return {
+      grupo, armaGrupo, lado, sentido,
+      z: (hash(idx, sentido * 13 + 1) - 0.5) * 90,
+      xOff: 6 + hash(idx, sentido + 31) * 3,
+      proxRajada: performance.now() + 800 + hash(idx, sentido + 7) * 3200,
+    }
+  }
+  const N_NINHO = tierMedio ? 3 : 2
+  const ninhosMG: NinhoMG[] = []
+  for (const lado of ['buy', 'sell'] as const) {
+    for (let k = 0; k < N_NINHO; k++) ninhosMG.push(criaNinhoMG(lado, k))
+  }
+  const vBocaMG = new THREE.Vector3()
+  const dispararRajadaNinho = (n: NinhoMG, agora: number) => {
+    n.armaGrupo.updateWorldMatrix(true, false)
+    vBocaMG.set(n.sentido * BOCA_MG_DIST, 0, 0).applyMatrix4(n.armaGrupo.matrixWorld)
+    const nTiros = 3 + Math.floor(hash(Math.floor(agora) % 293, n.z) * 4)
+    for (let k = 0; k < nTiros; k++) {
+      filaRajada.push({
+        at: agora + k * (35 + hash(k, n.z + 1) * 20),
+        lado: n.lado,
+        z: n.z + (hash(k, 11) - 0.5) * 1.6,
+        forca: 0.9 + hash(Math.floor(agora) % 401, n.z) * 1.4,
+        ultima: k === nTiros - 1,
+        origemX: vBocaMG.x,
+        origemZ: vBocaMG.z,
+      })
+    }
+    clarao(vBocaMG, 0.7, n.lado === 'buy' ? 0xffd9a0 : 0xffb09a)
+  }
+  const atualizaNinhosMG = (agora: number) => {
+    for (const n of ninhosMG) {
+      const x = frenteX - n.sentido * n.xOff
+      n.grupo.position.set(x, altura(x, n.z), n.z)
+      n.armaGrupo.rotation.y = Math.sin(agora * 0.0009 + n.z) * 0.5
+      if (agora > n.proxRajada) {
+        n.proxRajada = agora + 2000 + hash(Math.floor(agora) % 337, n.z) * 2000
+        dispararRajadaNinho(n, agora)
+      }
+    }
+  }
+
+  // ── 7e-4. TRINCHEIRA: uma fileira por lado, o cenário clássico que
+  // faltava. InstancedMesh com ~10 segmentos (7 no fraco) cobrindo z de -45
+  // a +45, seguindo frenteX no mesmo passo lento das baterias.
+  const geoTrincheiraDog = buildTrincheiraGeometry(1)
+  const geoTrincheiraUrso = buildTrincheiraGeometry(-1)
+  const matTrincheira = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 })
+  const N_TRINCHEIRA = tierMedio ? 10 : 7
+  const X_TRINCHEIRA_RECUO = 11
+  const trincheiraCaes = new THREE.InstancedMesh(geoTrincheiraDog, matTrincheira, N_TRINCHEIRA)
+  const trincheiraUrsos = new THREE.InstancedMesh(geoTrincheiraUrso, matTrincheira, N_TRINCHEIRA)
+  trincheiraCaes.count = trincheiraUrsos.count = N_TRINCHEIRA
+  for (const m of [trincheiraCaes, trincheiraUrsos]) {
+    semRaycast(m)
+    m.frustumCulled = false
+  }
+  group.add(trincheiraCaes, trincheiraUrsos)
+  const atualizaTrincheiras = () => {
+    for (let ladoIdx = 0; ladoIdx < 2; ladoIdx++) {
+      const sentido: 1 | -1 = ladoIdx === 0 ? 1 : -1
+      const mesh = ladoIdx === 0 ? trincheiraCaes : trincheiraUrsos
+      const x = frenteX - sentido * X_TRINCHEIRA_RECUO
+      for (let i = 0; i < N_TRINCHEIRA; i++) {
+        const z = -45 + (90 / N_TRINCHEIRA) * (i + 0.5)
+        vp.set(x, altura(x, z), z)
+        vs.setScalar(1)
+        m4.compose(vp, qZero, vs)
+        mesh.setMatrixAt(i, m4)
+      }
+      mesh.instanceMatrix.needsUpdate = true
+    }
+  }
+
+  // ── 7d. um único ponto de atualização por frame pros sistemas de
+  // vehicles.ts e das posições fixas da 7e, mais o dreno das filas de
+  // impactos atrasados e de tracers de flak que eles agendam.
   const passoVeiculos = (agora: number, dt: number) => {
     atualizaCavalgada(agora, dt)
     atualizaHelicopteros(agora, dt)
     atualizaJipes(agora, dt)
+    atualizaTanquesGuarda(agora, dt)
+    atualizaAntiAereas(agora, dt)
+    atualizaNinhosMG(agora)
+    atualizaTrincheiras()
     for (let i = 0; i < CAP_IMPACTO_ATRASADO; i++) {
       if (!impAtiva[i] || agora < impAt[i]) continue
       impAtiva[i] = 0
       vp.set(impX[i], altura(impX[i], impZ[i]), impZ[i])
       impacto(vp, impForca[i], impLado[i] === 0 ? 'buy' : 'sell', 0, impArma[i])
+    }
+    // tracers de flak: sobem até perto da aeronave e estouram lá (nunca acertam)
+    for (let i = tracersAA.length - 1; i >= 0; i--) {
+      const tr = tracersAA[i]
+      const mesh = poolTracersAA[tr.i]
+      const f = (agora - tr.t0) / tr.dur
+      if (f >= 1) {
+        mesh.visible = false
+        lib.flak(mesh.userData.para, 2.4)
+        tracersAA.splice(i, 1)
+        continue
+      }
+      mesh.position.lerpVectors(mesh.userData.de, mesh.userData.para, f)
+      passo.subVectors(mesh.userData.para, mesh.userData.de)
+      if (passo.lengthSq() > 0.001) mesh.quaternion.setFromUnitVectors(zEixo, passo.normalize())
+      mesh.scale.set(0.1, 0.1, 2.0)
     }
   }
 
@@ -2656,7 +3008,10 @@ export function createBattlefield(
       const dist = passo.length()
       if (dist > 0.0005) rastro.quaternion.setFromUnitVectors(zEixo, passo.normalize())
       rastro.position.copy(mesh.position)
-      rastro.scale.set(mesh.scale.x * 0.55, mesh.scale.x * 0.55, Math.max(1.2, dist * 16 + t.forca * 0.35))
+      // rastro do canhão de teatro 1.5x mais grosso que o tiro comum: outro
+      // jeito de tornar o par visível de novo, não só o flash
+      const espessuraRastro = t.arma === 'canhao' ? 0.55 * 1.5 : 0.55
+      rastro.scale.set(mesh.scale.x * espessuraRastro, mesh.scale.x * espessuraRastro, Math.max(1.2, dist * 16 + t.forca * 0.35))
       mesh.userData.prev.copy(mesh.position)
     }
 
@@ -2791,7 +3146,16 @@ export function createBattlefield(
       if (agora - ultimaEscaramuca > (1000 / rajadaHz) * (0.7 + hash(Math.floor(agora) % 577, 3) * 0.6)) {
         ultimaEscaramuca = agora
         const lado: 'buy' | 'sell' = hash(Math.floor(agora) % 691, 9) < press ? 'buy' : 'sell'
-        rajada(lado, (hash(Math.floor(agora) % 1213, 5) - 0.5) * 100, 0.9 + hash(Math.floor(agora) % 331, 7) * 1.7, agora)
+        // ⚠️ metade das rajadas nasce de um ninho de metralhadora real
+        // (boca de verdade), a outra metade continua da infantaria pela
+        // fórmula antiga: os dois lêem como o mesmo rugido de fundo
+        const ninhosDoLado = ninhosMG.filter((n) => n.lado === lado)
+        if (ninhosDoLado.length && hash(Math.floor(agora) % 601, 41) < 0.5) {
+          const idxNinho = Math.floor(hash(Math.floor(agora) % 409, 43) * ninhosDoLado.length) % ninhosDoLado.length
+          dispararRajadaNinho(ninhosDoLado[idxNinho], agora)
+        } else {
+          rajada(lado, (hash(Math.floor(agora) % 1213, 5) - 0.5) * 100, 0.9 + hash(Math.floor(agora) % 331, 7) * 1.7, agora)
+        }
       }
       // morteiros pesados: sempre tem casca no ar (~28/min no piso, 48 no pico)
       const morteiroPorMin = 16 + 32 * Math.pow(intensidade, 1.6)
@@ -2801,25 +3165,30 @@ export function createBattlefield(
         disparaMorteiro(lado, 4 + intensidade * 5, zAlvoGuerra(Math.floor(agora) % 1069, 19))
       }
       // canhões de teatro: um PAR de tiros parabólicos simultâneos de tempos em
-      // tempos (qty 0: sem placar), pra sempre haver mais de uma arma na cena
+      // tempos (qty 0: sem placar), pra sempre haver mais de uma arma na cena.
+      // ⚠️ cadência subida pra 3.5-6.5s (era 7-11s): o fundador sentia falta
+      // deles, arma que ninguém vê não existe
       if (agora > proxCanhao) {
-        proxCanhao = agora + (7500 - intensidade * 3500) + hash(Math.floor(agora) % 719, 17) * 4000
+        const centroCanhao = 6500 - intensidade * 3500
+        const jitterCanhao = (hash(Math.floor(agora) % 719, 17) - 0.5) * 2000
+        proxCanhao = agora + Math.max(3500, Math.min(6500, centroCanhao + jitterCanhao))
         const lado: 'buy' | 'sell' = hash(Math.floor(agora) % 523, 29) < press ? 'buy' : 'sell'
         const zC = zAlvoGuerra(Math.floor(agora) % 1327, 31)
         const zC2 = zC + 14 + hash(Math.floor(agora) % 157, 43) * 18
         // ⚠️ os dois tiros saem da bateria mais próxima de cada z; se as duas
         // caírem na mesma bateria (alvos vizinhos), o segundo tiro ainda sai
-        // dela — só não repete o recuo se já estiver recuando
+        // dela, só não repete o recuo se já estiver recuando. arma 'canhao'
+        // (não o 'tiro' genérico) pra ganhar o clarão e o rastro próprios
         const b1 = bateriaMaisProxima(lado, zC)
         const b2 = bateriaMaisProxima(lado, zC2)
         const forcaC1 = 3 + hash(Math.floor(agora) % 271, 37) * 2.5
         const forcaC2 = 2.5 + hash(Math.floor(agora) % 199, 41) * 2
         if (b1) dispararBateria(b1, agora, forcaC1)
         const o1 = b1 ? bocaDaBateria(b1).clone() : undefined
-        atira(lado, 0, forcaC1, zC, Math.floor(agora) % 9973, o1)
+        atira(lado, 0, forcaC1, zC, Math.floor(agora) % 9973, o1, 'canhao')
         if (b2) dispararBateria(b2, agora, forcaC2)
         const o2 = b2 ? bocaDaBateria(b2).clone() : undefined
-        atira(lado, 0, forcaC2, zC2, Math.floor(agora) % 7919, o2)
+        atira(lado, 0, forcaC2, zC2, Math.floor(agora) % 7919, o2, 'canhao')
       }
       // ofensiva coordenada: barragem + avanço do exército inteiro + recuo
       if (!ofensiva && agora > proxOfensiva) {
@@ -2879,7 +3248,7 @@ export function createBattlefield(
     for (let i = filaRajada.length - 1; i >= 0; i--) {
       if (filaRajada[i].at <= agora) {
         const r = filaRajada[i]
-        disparaBala(r.lado, r.z, r.forca, r.ultima, agora)
+        disparaBala(r.lado, r.z, r.forca, r.ultima, agora, r.origemX, r.origemZ)
         filaRajada.splice(i, 1)
       }
     }
@@ -3101,6 +3470,8 @@ export function createBattlefield(
           d.z = (hash(Math.floor(agora) % 977, d.t0 % 131) - 0.5) * 108
           d.fase = 'corre'
           d.t0 = agora
+          d.ciclo++
+          d.chamas = d.ciclo % 3 === 0
           d.cao.visible = d.urso.visible = true
           d.cao.rotation.set(0, 0, 0)
           d.urso.rotation.set(0, 0, 0)
@@ -3120,6 +3491,15 @@ export function createBattlefield(
           vp.set(frenteX, altura(frenteX, d.z) + 0.6, d.z)
           emitFaiscas(vp, 4)
           emitPoeira(vp, 3)
+          // duelo de lança-chamas: o ganhador crava o jato na direção do
+          // rival, marca de queimado pequena no chão do alcance
+          if (d.chamas) {
+            const ganhadorMesh = d.vence === 'buy' ? d.cao : d.urso
+            const perdedorMesh = d.vence === 'buy' ? d.urso : d.cao
+            vs.subVectors(perdedorMesh.position, ganhadorMesh.position).normalize()
+            lib.jatoDeChamas(ganhadorMesh.position, vs, 6)
+            marcaCicatriz(perdedorMesh.position, 0.6)
+          }
         }
       } else if (d.fase === 'choque') {
         const f = Math.min(1, idade / 420)

@@ -51,6 +51,10 @@ export interface ExplosionLibrary {
   claraoDeBoca: (pos: THREE.Vector3, dir: THREE.Vector3, forca: number) => void
   /** caveirinha pixel-art que sobe e some: marcador de baixa */
   caveira: (p: THREE.Vector3, lado: LadoExplosao) => void
+  /** assinatura de LANCA-CHAMAS: rajada dirigida de ~700ms, linguas de fogo que nascem na boca e avancam ao longo de dir, do branco-amarelo perto da boca ao laranja escuro na ponta, com 1-2 chamas residuais curtas no chao do alcance final */
+  jatoDeChamas: (pos: THREE.Vector3, dir: THREE.Vector3, forca: number) => void
+  /** assinatura de FLAK: estouro antiaereo no ceu, flash pequeno laranja + nuvenzinha escura que incha e some em ~1.4s, sem anel de chao e sem terra */
+  flak: (p: THREE.Vector3, forca: number) => void
   /** anima todos os pools num unico passo; `agora` = performance.now() do chamador */
   update: (agora: number, dt: number) => void
   dispose: () => void
@@ -518,6 +522,46 @@ export function createExplosionLibrary(deps: DepsExplosoes): ExplosionLibrary {
   let curCaveira = 0
 
   // ═══════════════════════════════════════════════════════════════════════
+  // POOL: LINGUAS DE FOGO (jatoDeChamas, o lanca-chamas). Reaproveita a
+  // textura texChama (mesma da chama residual da incendiaria). Cada lingua
+  // nasce na boca com t0 no futuro (agora + atraso) pra escalonar a rajada
+  // inteira sem precisar de uma fila separada como a do cluster.
+  // ═══════════════════════════════════════════════════════════════════════
+  const CAP_JATO = t(12)
+  interface JatoInst {
+    sp: THREE.Sprite; t0: number; dur: number
+    ox: number; oy: number; oz: number
+    dx: number; dy: number; dz: number
+    lx: number; lz: number; alcance: number; base: number
+  }
+  const linguasJato: JatoInst[] = []
+  for (let i = 0; i < CAP_JATO; i++) {
+    const sp = add(new THREE.Sprite(new THREE.SpriteMaterial({
+      map: texChama, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0,
+    })))
+    linguasJato.push({
+      sp, t0: 0, dur: 280, ox: 0, oy: 0, oz: 0, dx: 1, dy: 0, dz: 0, lx: 0, lz: 0, alcance: 6, base: 1,
+    })
+  }
+  let curLingua = 0
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // POOL: NUVEM DE FLAK (estouro antiaereo no ceu). Reaproveita a textura
+  // texFumaca (mesma fumaca preta da incendiaria e da bomba aerea), so que
+  // aqui incha e some sozinha, sem chao, sem anel, sem terra.
+  // ═══════════════════════════════════════════════════════════════════════
+  const CAP_FLAK = t(10)
+  interface FlakInst { sp: THREE.Sprite; t0: number; dur: number; base: number }
+  const nuvensFlak: FlakInst[] = []
+  for (let i = 0; i < CAP_FLAK; i++) {
+    const sp = add(new THREE.Sprite(new THREE.SpriteMaterial({
+      map: texFumaca, transparent: true, depthWrite: false, opacity: 0,
+    })))
+    nuvensFlak.push({ sp, t0: 0, dur: 1400, base: 1.2 })
+  }
+  let curFlak = 0
+
+  // ═══════════════════════════════════════════════════════════════════════
   // FILA DO CLUSTER: 3 sub-estouros escalonados em 60ms, slots reciclados
   // (nunca um array que cresce, so ativa/desativa posicoes fixas)
   // ═══════════════════════════════════════════════════════════════════════
@@ -635,6 +679,72 @@ export function createExplosionLibrary(deps: DepsExplosoes): ExplosionLibrary {
     ;(c.sp.material as THREE.SpriteMaterial).color.setHex(lado === 'buy' ? 0xfff2e0 : 0xf0e6ea)
     ;(c.sp.material as THREE.SpriteMaterial).opacity = 1
     c.sp.visible = true
+  }
+
+  // 7) JATO DE CHAMAS: lanca-chamas. Rajada dirigida de ~700ms. As linguas
+  // nascem na boca e avancam ao longo de dir com leve espalhamento lateral
+  // e queda (a gravidade puxa a ponta pra baixo), do branco-amarelo perto
+  // da boca ao laranja escuro na ponta. Ao final deixa 1-2 chamas residuais
+  // curtas no chao, no alcance final (reaproveita dispararChama, a mesma
+  // brasa que a incendiaria usa).
+  const ALCANCE_JATO = 6
+  const NUM_LINGUAS_JATO = t(7)
+  const DUR_RAJADA_JATO = 700
+  const jatoDeChamas = (pos: THREE.Vector3, dir: THREE.Vector3, forca: number) => {
+    const f = Math.max(0.4, Math.sqrt(Math.max(0, forca)))
+    _dir.copy(dir)
+    if (_dir.lengthSq() < 1e-6) _dir.set(1, 0, 0)
+    else _dir.normalize()
+    const agora = performance.now()
+    const alcance = ALCANCE_JATO * (0.75 + f * 0.35)
+    // perpendicular horizontal a dir, so pro leve espalhamento lateral
+    const latx = -_dir.z
+    const latz = _dir.x
+    for (let k = 0; k < NUM_LINGUAS_JATO; k++) {
+      const j = linguasJato[curLingua]
+      curLingua = (curLingua + 1) % CAP_JATO
+      const atraso = (k / NUM_LINGUAS_JATO) * DUR_RAJADA_JATO * 0.7
+      const jit = hash(agora + k, pos.x + k) - 0.5
+      j.ox = pos.x
+      j.oy = pos.y
+      j.oz = pos.z
+      j.dx = _dir.x
+      j.dy = _dir.y
+      j.dz = _dir.z
+      j.lx = latx * jit * 1.1
+      j.lz = latz * jit * 1.1
+      j.alcance = alcance
+      j.base = 0.8 + hash(pos.z, agora + k) * 0.4
+      j.t0 = agora + atraso
+      j.dur = 240 + hash(pos.x, agora + k) * 140
+      j.sp.visible = true
+    }
+    // 1-2 chamas residuais curtas no chao, no alcance final da rajada
+    const px = pos.x + _dir.x * alcance
+    const pz = pos.z + _dir.z * alcance
+    const numResiduais = hash(pos.x, pos.z + forca) > 0.5 ? 2 : 1
+    for (let r = 0; r < numResiduais; r++) {
+      const ang = hash(px + r, pz) * Math.PI * 2
+      const rad = r * 0.5
+      dispararChama(px + Math.cos(ang) * rad, pos.y, pz + Math.sin(ang) * rad, 900 + hash(pz, px + r) * 500)
+    }
+  }
+
+  // 8) FLAK: estouro antiaereo no ceu. Flash pequeno laranja + uma
+  // nuvenzinha escura que incha rapido e depois so dissolve, em ~1.4s. Sem
+  // anel de chao e sem fragmentos de terra: o estouro e no ar, nao no chao.
+  const flak = (p: THREE.Vector3, forca: number) => {
+    const f = Math.max(0.3, Math.sqrt(Math.max(0, forca)))
+    dispararFlash(p.x, p.y, p.z, 0.6 + f * 0.25, 0xff8a30, 90)
+    const n = nuvensFlak[curFlak]
+    curFlak = (curFlak + 1) % CAP_FLAK
+    n.sp.position.set(p.x, p.y, p.z)
+    n.sp.scale.setScalar(0.4)
+    ;(n.sp.material as THREE.SpriteMaterial).opacity = 0
+    n.sp.visible = true
+    n.t0 = performance.now()
+    n.dur = 1300 + hash(p.x, p.z + forca) * 200
+    n.base = 1.1 + f * 0.5
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -781,6 +891,35 @@ export function createExplosionLibrary(deps: DepsExplosoes): ExplosionLibrary {
       mat.opacity = k < 0.7 ? 1 : Math.max(0, 1 - (k - 0.7) / 0.3)
     }
 
+    for (const j of linguasJato) {
+      if (!j.sp.visible) continue
+      if (agora < j.t0) continue
+      const k = (agora - j.t0) / j.dur
+      if (k >= 1) { j.sp.visible = false; continue }
+      const avanco = j.alcance * k
+      const queda = 1.6 * k * k
+      j.sp.position.set(
+        j.ox + j.dx * avanco + j.lx * k,
+        j.oy + j.dy * avanco - queda,
+        j.oz + j.dz * avanco + j.lz * k,
+      )
+      j.sp.scale.setScalar(Math.max(0.15, j.base * (1.1 - 0.5 * k)))
+      const mat = j.sp.material as THREE.SpriteMaterial
+      // do branco-amarelo perto da boca ao laranja escuro na ponta
+      mat.color.setRGB(1 - k * 0.35, 0.92 - k * 0.62, 0.76 - k * 0.74)
+      mat.opacity = k < 0.15 ? k / 0.15 : Math.max(0, 1 - (k - 0.15) / 0.85)
+    }
+
+    for (const n of nuvensFlak) {
+      if (!n.sp.visible) continue
+      const k = (agora - n.t0) / n.dur
+      if (k >= 1) { n.sp.visible = false; continue }
+      const incha = Math.min(1, k * 2.4)
+      n.sp.scale.setScalar(n.base * (0.35 + 0.65 * incha))
+      const mat = n.sp.material as THREE.SpriteMaterial
+      mat.opacity = k < 0.25 ? (k / 0.25) * 0.6 : 0.6 * Math.max(0, 1 - (k - 0.25) / 0.75)
+    }
+
     for (const slot of agendaCluster) {
       if (!slot.ativo || agora < slot.at) continue
       slot.ativo = false
@@ -809,5 +948,8 @@ export function createExplosionLibrary(deps: DepsExplosoes): ExplosionLibrary {
     texCaveira.dispose()
   }
 
-  return { fontanaDeTerra, incendiaria, clusterQuente, bombaAerea, claraoDeBoca, caveira, update, dispose }
+  return {
+    fontanaDeTerra, incendiaria, clusterQuente, bombaAerea, claraoDeBoca, caveira,
+    jatoDeChamas, flak, update, dispose,
+  }
 }
