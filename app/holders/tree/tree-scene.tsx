@@ -829,7 +829,7 @@ export default function TreeScene() {
             >
               ← Holders
             </a>
-            <h1 className="mt-1 text-lg sm:text-xl tracking-[0.3em] uppercase text-white/90">Holders Tree</h1>
+            <h1 className="mt-1 text-lg sm:text-xl tracking-[0.3em] uppercase text-white/90">$DOG Galaxy</h1>
             <p className="mt-1 max-w-md text-[11px] leading-relaxed text-white/50">
               Every wallet that ever touched DOG, branching from the airdrop treasury. Lit nodes still hold today.
             </p>

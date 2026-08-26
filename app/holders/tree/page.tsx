@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
 import TreeClientWrapper from './tree-client-wrapper'
 
-const TITLE = 'Holders Tree'
+const TITLE = '$DOG Galaxy'
 const DESCRIPTION =
-  'Where the DOG airdrop went: a re-rootable flow map of every generation, from the treasury to exchanges and the wallets still holding today.'
+  'The living galaxy of DOG: every wallet since the airdrop, branching from the treasury star by star, with Flow and Graph lenses for deep on-chain analysis.'
 
 export const metadata: Metadata = {
   title: TITLE,

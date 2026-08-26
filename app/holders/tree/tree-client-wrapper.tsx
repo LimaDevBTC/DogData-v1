@@ -105,7 +105,7 @@ export default function TreeClientWrapper() {
           >
             ← Holders
           </a>
-          <h1 className="mt-0.5 text-base uppercase tracking-[0.3em] text-white/90 sm:text-lg">Holders Tree</h1>
+          <h1 className="mt-0.5 text-base uppercase tracking-[0.3em] text-white/90 sm:text-lg">$DOG Galaxy</h1>
         </div>
         <div className="flex items-center border border-white/10">
           <button onClick={() => setMode('galaxy')} className={`border-r border-white/10 ${segOff}`}>

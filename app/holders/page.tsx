@@ -915,7 +915,7 @@ export default function HoldersPage() {
           <CardContent className="relative py-6 md:py-8 flex flex-col md:flex-row md:items-center gap-4 md:gap-8">
             <div className="flex-1">
               <p className="text-lava text-xs font-mono uppercase tracking-[0.35em] mb-2">New · Interactive</p>
-              <h2 className="text-2xl md:text-3xl font-display uppercase tracking-[0.2em] text-bone mb-2">Holders Tree</h2>
+              <h2 className="text-2xl md:text-3xl font-display uppercase tracking-[0.2em] text-bone mb-2">$DOG Galaxy</h2>
               <p className="text-dusty/80 font-mono text-sm max-w-2xl">
                 Every wallet that ever touched DOG, branching from the airdrop treasury,
                 transaction by transaction. Lit nodes still hold today. Built from our
