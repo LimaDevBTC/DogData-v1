@@ -21,6 +21,10 @@ interface HeatmapBucket {
   mediumVolume: number
   largeVolume: number
   netFlow: number
+  // Enriquecimento por bucket: maior tx individual e remetentes unicos.
+  // Vem null quando a fonte nao fornece (RPC antiga, timeframes longos).
+  peakTx: number | null
+  uniqueSenders: number | null
   label: string
   startBlock: number
   endBlock: number
@@ -32,6 +36,14 @@ interface HeatmapMeta {
   startBlock: number
   endBlock: number
   totalTx: number
+  // Honestidade da agregacao: quando o orcamento de paginacao do servidor estoura,
+  // truncated=true e os campos abaixo dizem o que os buckets realmente cobrem.
+  // totalTxSource: 'exact' (count completo), 'estimate' (planner), 'partial' (piso).
+  totalTxSource?: 'exact' | 'estimate' | 'partial'
+  aggregatedTx?: number
+  truncated?: boolean
+  coveredFromBlock?: number
+  coveredBlocks?: number
   totalVolume: number
   peakBucket: { index: number; value: number; label: string }
   whaleCount: number
@@ -87,11 +99,11 @@ const EMPTY_CELL_COLOR = 'rgb(8,8,8)'
 // Starts at a visible warm tone so even low-activity cells stand out
 function interpolateColor(ratio: number): string {
   const stops = [
-    [45, 32, 10],     // 0.00 — warm dark brown (visible floor)
-    [80, 55, 10],     // 0.25 — amber-brown
-    [140, 90, 10],    // 0.50 — medium orange
-    [200, 125, 15],   // 0.75 — strong orange
-    [247, 147, 26],   // 1.00 — peak bitcoin orange
+    [45, 32, 10],     // 0.00: warm dark brown (visible floor)
+    [80, 55, 10],     // 0.25: amber-brown
+    [140, 90, 10],    // 0.50: medium orange
+    [200, 125, 15],   // 0.75: strong orange
+    [247, 147, 26],   // 1.00: peak bitcoin orange
   ]
   const c = Math.max(0, Math.min(1, ratio))
   const seg = c * (stops.length - 1)
@@ -126,6 +138,7 @@ function processRedisData(transactions: RedisTransaction[]): { buckets: HeatmapB
         value: 0, txCount: 0, volume: 0, avgFee: null,
         whaleVolume: 0, hasWhale: false, retailVolume: 0,
         mediumVolume: 0, largeVolume: 0, netFlow: 0,
+        peakTx: null, uniqueSenders: null,
         label: '', startBlock: 0, endBlock: 0,
       })),
       meta: {
@@ -155,9 +168,10 @@ function processRedisData(transactions: RedisTransaction[]): { buckets: HeatmapB
       value: 0, txCount: 0, volume: 0, avgFee: null,
       whaleVolume: 0, hasWhale: false, retailVolume: 0,
       mediumVolume: 0, largeVolume: 0, netFlow: 0,
+      peakTx: null, uniqueSenders: null,
       label: blockEnd - blockStart === 1
         ? `Block ${fmtBlock(blockStart)}`
-        : `Blocks ${fmtBlock(blockStart)} – ${fmtBlock(blockEnd - 1)}`,
+        : `Blocks ${fmtBlock(blockStart)} → ${fmtBlock(blockEnd - 1)}`,
       startBlock: blockStart,
       endBlock: blockEnd,
     })
@@ -165,12 +179,15 @@ function processRedisData(transactions: RedisTransaction[]): { buckets: HeatmapB
 
   let totalTx = 0
   let totalVolume = 0
+  // Remetentes unicos por bucket: os enderecos ja vem no payload do Redis,
+  // contar aqui nao custa nenhuma consulta extra.
+  const senderSets = new Map<number, Set<string>>()
 
   for (const tx of transactions) {
     const h = tx.block_height
     if (!h || h < startBlock || h > tipBlock) continue
 
-    // Self-transfers (UTXO consolidation / change-only) move no DOG —
+    // Self-transfers (UTXO consolidation / change-only) move no DOG:
     // skip entirely so volume, whale flags, and tx counts reflect real movement.
     if (tx.type === 'self_transfer') continue
 
@@ -182,6 +199,15 @@ function processRedisData(transactions: RedisTransaction[]): { buckets: HeatmapB
     b.txCount++
     b.volume += vol
     b.netFlow += tx.net_transfer || 0
+    if (b.peakTx === null || vol > b.peakTx) b.peakTx = vol
+
+    if (Array.isArray(tx.senders) && tx.senders.length > 0) {
+      let set = senderSets.get(idx)
+      if (!set) { set = new Set(); senderSets.set(idx, set) }
+      for (const s of tx.senders) {
+        if (s && typeof s.address === 'string') set.add(s.address)
+      }
+    }
 
     if (vol >= 1_000_000) { b.whaleVolume += vol; b.hasWhale = true }
     else if (vol >= 100_000) b.largeVolume += vol
@@ -199,6 +225,10 @@ function processRedisData(transactions: RedisTransaction[]): { buckets: HeatmapB
   for (const b of grid) {
     b.value = b.volume
   }
+
+  senderSets.forEach((set, idx) => {
+    grid[idx].uniqueSenders = set.size
+  })
 
   const peak = grid.reduce((best, b) => b.value > best.value ? b : best, grid[0])
 
@@ -220,9 +250,9 @@ function processRedisData(transactions: RedisTransaction[]): { buckets: HeatmapB
 
 // ─── CSV Export ────────────────────────────────────────────────
 function exportCSV(buckets: HeatmapBucket[], timeframe: string) {
-  const header = 'start_block,end_block,tx_count,volume_dog,avg_fee_sats,has_whale,whale_volume,retail_volume,net_flow\n'
+  const header = 'start_block,end_block,tx_count,volume_dog,avg_fee_sats,has_whale,whale_volume,retail_volume,net_flow,peak_tx_dog,unique_senders\n'
   const rows = buckets.map(b =>
-    `${b.startBlock},${b.endBlock},${b.txCount},${b.volume},${b.avgFee ?? ''},${b.hasWhale},${b.whaleVolume},${b.retailVolume},${b.netFlow}`
+    `${b.startBlock},${b.endBlock},${b.txCount},${b.volume},${b.avgFee ?? ''},${b.hasWhale},${b.whaleVolume},${b.retailVolume},${b.netFlow},${b.peakTx ?? ''},${b.uniqueSenders ?? ''}`
   ).join('\n')
   const blob = new Blob([header + rows], { type: 'text/csv' })
   const url = URL.createObjectURL(blob)
@@ -352,7 +382,7 @@ export function TransactionHeatmap() {
   const handleMouseEnter = useCallback((bucket: HeatmapBucket) => setHovered(bucket), [])
   const handleMouseLeave = useCallback(() => setHovered(null), [])
 
-  // ─── Current block (tip) — pulse animation on latest cell ───
+  // ─── Current block (tip): pulse animation on latest cell ───
   const currentBucketIdx = useMemo(() => {
     if (buckets.length === 0 || !meta) return -1
     // Last non-empty bucket is the "current" one
@@ -402,7 +432,7 @@ export function TransactionHeatmap() {
     )
   }
 
-  // Compute cell height only — width is handled by flex layout (flex: 1)
+  // Compute cell height only; width is handled by flex layout (flex: 1)
   const availableForCells = containerWidth - (GRID_COLS - 1) * CELL_GAP
   const cellSize = containerWidth > 0
     ? Math.max(4, Math.min(MAX_CELL_SIZE, Math.floor(availableForCells / GRID_COLS)))
@@ -443,7 +473,24 @@ export function TransactionHeatmap() {
       <div className="flex flex-wrap items-center gap-x-6 gap-y-1 mb-5">
         <div className="flex items-baseline gap-1.5">
           <span className="font-mono text-[10px] text-text-tertiary uppercase tracking-wider">Txs</span>
-          <span className="font-mono text-sm font-bold text-text-primary">{(meta?.totalTx || 0).toLocaleString()}</span>
+          <span className="font-mono text-sm font-bold text-text-primary">
+            {meta?.truncated && meta?.totalTxSource === 'estimate' && '≈'}
+            {meta?.truncated && meta?.totalTxSource === 'partial' && '≥'}
+            {(meta?.totalTx || 0).toLocaleString()}
+          </span>
+          {/* Selo de honestidade: agregacao truncada pelo orcamento do servidor */}
+          {meta?.truncated && (
+            <span
+              className="font-mono text-[9px] uppercase tracking-wider text-text-accent border border-accent-primary/30 bg-accent-primary/10 rounded px-1 py-px cursor-help"
+              title={`${
+                meta.totalTxSource === 'exact' ? 'Exact total.'
+                : meta.totalTxSource === 'estimate' ? 'Approximate total.'
+                : 'Total is a floor.'
+              } Cells cover the most recent ${(meta.aggregatedTx || 0).toLocaleString()} txs, from block #${(meta.coveredFromBlock || meta.startBlock).toLocaleString()} onward. Older cells are not painted.`}
+            >
+              partial grid
+            </span>
+          )}
         </div>
         <div className="flex items-baseline gap-1.5">
           <span className="font-mono text-[10px] text-text-tertiary uppercase tracking-wider">Vol</span>
@@ -552,6 +599,21 @@ export function TransactionHeatmap() {
                             Avg fee: {bucket.avgFee.toLocaleString()} sats
                           </p>
                         )}
+                        {/* Enriquecimento: pico e remetentes unicos, quando a fonte fornece */}
+                        {(() => {
+                          const bits: string[] = []
+                          if (bucket.peakTx != null && bucket.peakTx > 0 && bucket.txCount > 1) {
+                            bits.push(`Peak ${fmtVolume(bucket.peakTx)} DOG`)
+                          }
+                          if (bucket.uniqueSenders != null && bucket.uniqueSenders > 0) {
+                            bits.push(`${bucket.uniqueSenders} sender${bucket.uniqueSenders !== 1 ? 's' : ''}`)
+                          }
+                          return bits.length > 0 ? (
+                            <p className="text-text-tertiary font-mono text-[10px] mt-0.5">
+                              {bits.join(' · ')}
+                            </p>
+                          ) : null
+                        })()}
                         {bucket.volume > 0 && (
                           <div className="flex gap-px mt-1 h-1.5 rounded-full overflow-hidden" style={{ width: 80 }}>
                             {bucket.retailVolume > 0 && <div className="bg-green-500/60" style={{ flex: bucket.retailVolume }} />}
@@ -625,7 +687,7 @@ export function TransactionHeatmap() {
             <div className="bg-bg-elevated/60 rounded px-2 py-1.5">
               <p className="font-mono text-[9px] text-text-tertiary uppercase">Avg Fee</p>
               <p className="font-mono text-sm font-bold text-text-primary">
-                {drillBucket.avgFee !== null ? `${Math.round(drillBucket.avgFee).toLocaleString()} sats` : '—'}
+                {drillBucket.avgFee !== null ? `${Math.round(drillBucket.avgFee).toLocaleString()} sats` : 'n/a'}
               </p>
             </div>
           </div>
@@ -692,7 +754,7 @@ export function TransactionHeatmap() {
                       }
                     </button>
 
-                    {/* Dados — usar net_transfer (DOG real movido, exclui change/self) */}
+                    {/* Dados: usar net_transfer (DOG real movido, exclui change/self) */}
                     {(() => {
                       const realMoved = typeof tx.net_transfer === 'number' ? tx.net_transfer : (tx.total_dog_moved || 0)
                       return (
