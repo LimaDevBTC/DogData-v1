@@ -173,7 +173,6 @@ export const TIERS = [
     key: "personal",
     name: "Personal Property",
     threshold: "10,000 DOG",
-    usd: "~$6",
     color: "#F56E0F",
     featured: true,
     perks: [
@@ -187,7 +186,6 @@ export const TIERS = [
     key: "commercial",
     name: "Commercial Property",
     threshold: "50,000 DOG",
-    usd: "~$30",
     color: "#FB923C",
     perks: [
       "Everything in Personal",
@@ -200,7 +198,6 @@ export const TIERS = [
     key: "patron",
     name: "Patron",
     threshold: "500,000 DOG",
-    usd: "~$300",
     color: "#FFAD42",
     perks: [
       "Patron title inside the DogCity ecosystem",

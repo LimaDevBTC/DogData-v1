@@ -108,8 +108,15 @@ export default function LandingPage() {
   useEffect(() => {
     const el = afterHero.current
     if (!el) return
+    // Num flick rápido (ou scroll suave) a entrada E a saída do sentinela
+    // chegam em LOTE num único callback; desestruturar [e] lia a entrada mais
+    // antiga e descartava o estado final, deixando o CTA apagado. O último
+    // registro do lote é sempre o estado mais novo.
     const io = new IntersectionObserver(
-      ([e]) => setShowCta(!e.isIntersecting && e.boundingClientRect.top < 0),
+      (entries) => {
+        const e = entries[entries.length - 1]
+        setShowCta(!e.isIntersecting && e.boundingClientRect.top < 0)
+      },
       { threshold: 0 },
     )
     io.observe(el)
@@ -123,16 +130,23 @@ export default function LandingPage() {
   // bigger tap target, and the page reserves matching bottom padding below so
   // nothing is ever permanently hidden behind it. From md up the original
   // floating pill is unchanged.
+  // ⚠️ PÍLULA, não barra colada no fundo: a barra full-bleed em bottom-0
+  // fazia o Safari do iPhone TINGIR a própria barra de navegação de laranja
+  // (o navegador herda a cor da página no rodapé) e o CTA parecia um paredão
+  // (fundador fotografou em 26/08). A pílula flutua RECUADA da borda, então o
+  // rodapé da página volta a ser escuro e o Safari fica escuro junto. O medo
+  // original de cobrir conteúdo já não existe: o pb-14 reservado lá embaixo
+  // garante que nada termina atrás dela.
   const cta = (
     <a
       href="#build"
       aria-hidden={!showCta}
       tabIndex={showCta ? 0 : -1}
       className={`fixed z-[100] font-mono font-bold text-void bg-lava hover:bg-lava-light transition-all duration-500
-        inset-x-0 bottom-0 flex items-center justify-center min-h-[56px] px-5 text-[13px]
-        border-t border-lava-light/40 shadow-[0_-6px_24px_rgba(0,0,0,0.55)]
-        md:inset-x-auto md:bottom-5 md:right-5 md:min-h-0 md:inline-flex md:gap-2 md:py-3
-        md:text-[12px] md:border-0 md:shadow-[0_0_30px_rgba(245,110,15,0.35)] ${
+        inset-x-4 bottom-3 flex items-center justify-center h-11 px-5 text-[13px] rounded
+        shadow-[0_4px_24px_rgba(0,0,0,0.6)]
+        md:inset-x-auto md:bottom-5 md:right-5 md:h-auto md:inline-flex md:gap-2 md:py-3
+        md:text-[12px] md:rounded-none md:shadow-[0_0_30px_rgba(245,110,15,0.35)] ${
         showCta ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3 pointer-events-none"
       }`}
     >
