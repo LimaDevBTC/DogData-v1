@@ -102,7 +102,7 @@ export default function TreeScene() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<TreeNode[]>([])
   const [searching, setSearching] = useState(false)
-  const [popInfo, setPopInfo] = useState<{ drawn: number; total: number } | null>(null)
+  const [popInfo, setPopInfo] = useState<{ drawn: number } | null>(null)
 
   // ── busca (input controlado no React, voo executado pela cena) ─────────────
   useEffect(() => {
@@ -353,53 +353,64 @@ export default function TreeScene() {
       ;(linkGeom.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true
     }
 
-    // ── populacao: carteiras REAIS no lugar da poeira ────────────────────────
-    // Diretriz do fundador (26/08): nenhum ponto decorativo na galaxia. Cada
-    // grao aqui e uma carteira do historico, amostrada por geracao
-    // proporcionalmente a populacao real (a densidade visual continua sendo o
-    // dado, como era com a poeira) e CLICAVEL: o clique resolve o dossie
-    // completo via focusWallet. A amostra vem pronta do servidor
-    // (/api/holders/tree/population, gerada por export_galaxy_population.py).
+    // ── populacao: TODAS as carteiras do historico, cada ponto real ──────────
+    // Diretriz do fundador (26/08, duas rodadas): nenhum ponto decorativo E
+    // nenhuma amostra: a galaxia desenha o universo inteiro. O payload e
+    // binario e sem enderecos (~2,3MB para 264k): posicoes int16 (x8),
+    // geracao uint16, classe uint8 e o indice de cada ponto na ordem
+    // canonica do banco; a identidade resolve no CLIQUE via /population/at.
+    // O esqueleto (top 3000) ja vem excluido do binario pelo export.
     let popPoints: THREE.Points | null = null
     let popPos: Float32Array | null = null
-    let popAddr: string[] = []
-    let popDepth: Int32Array | null = null
-    let popHolder: Uint8Array | null = null
-    const buildPopulation = (rows: [string, number, number][]) => {
-      // carteira que ja esta no esqueleto nao entra duas vezes
-      const keep: [string, number, number][] = []
-      for (const r of rows) {
-        if (!indexByWallet.has(r[0])) keep.push(r)
-      }
-      const n = keep.length
-      if (n === 0) return
+    let popDepth: Uint16Array | null = null
+    let popClasse: Uint8Array | null = null
+    let popOrdem: Uint32Array | null = null
+    let popResolvendo = false
+    const buildPopulation = (buf: ArrayBuffer) => {
+      const dv = new DataView(buf)
+      if (buf.byteLength < 8 || dv.getUint32(0, false) !== 0x44475831) return // 'DGX1'
+      const n = dv.getUint32(4, true)
+      const fimXyz = 8 + n * 6
+      const fimDep = fimXyz + n * 2
+      const fimCls = fimDep + n
+      const fimOrd = fimCls + n * 4
+      if (buf.byteLength < fimOrd) return
+      // slice realinha cada bloco em offset 0 (uint32 exige alinhamento 4)
+      const xyz = new Int16Array(buf.slice(8, fimXyz))
+      popDepth = new Uint16Array(buf.slice(fimXyz, fimDep))
+      popClasse = new Uint8Array(buf.slice(fimDep, fimCls))
+      popOrdem = new Uint32Array(buf.slice(fimCls, fimOrd))
       popPos = new Float32Array(n * 3)
       const cols = new Float32Array(n * 3)
       const sizes = new Float32Array(n)
-      popAddr = new Array(n)
-      popDepth = new Int32Array(n)
-      popHolder = new Uint8Array(n)
       for (let i = 0; i < n; i++) {
-        const w = keep[i][0]
-        const d = keep[i][1]
-        const h = keep[i][2]
-        nodePosition(w, d, tmpV)
-        popPos[i * 3] = tmpV.x
-        popPos[i * 3 + 1] = tmpV.y
-        popPos[i * 3 + 2] = tmpV.z
-        popAddr[i] = w
-        popDepth[i] = d
-        popHolder[i] = h
-        if (h) {
-          cols[i * 3] = 0.5
-          cols[i * 3 + 1] = 0.28
-          cols[i * 3 + 2] = 0.06
-          sizes[i] = 1.5
-        } else {
+        popPos[i * 3] = xyz[i * 3] / 8
+        popPos[i * 3 + 1] = xyz[i * 3 + 1] / 8
+        popPos[i * 3 + 2] = xyz[i * 3 + 2] / 8
+        const c = popClasse[i]
+        if (c === 0) {
+          // gastou tudo: brasa apagada
           cols[i * 3] = 0.15
           cols[i * 3 + 1] = 0.125
           cols[i * 3 + 2] = 0.11
           sizes[i] = 1.2
+        } else if (c === 1) {
+          cols[i * 3] = 0.5
+          cols[i * 3 + 1] = 0.28
+          cols[i * 3 + 2] = 0.06
+          sizes[i] = 1.5
+        } else if (c === 2) {
+          // 1M+ DOG: um ponto acima
+          cols[i * 3] = 0.62
+          cols[i * 3 + 1] = 0.36
+          cols[i * 3 + 2] = 0.08
+          sizes[i] = 2.1
+        } else {
+          // 100M+ DOG: baleia visivel de longe
+          cols[i * 3] = 0.72
+          cols[i * 3 + 1] = 0.44
+          cols[i * 3 + 2] = 0.1
+          sizes[i] = 2.9
         }
       }
       const g = new THREE.BufferGeometry()
@@ -641,13 +652,13 @@ export default function TreeScene() {
     // populacao: mesmo picking por projecao de tela, com throttle no hover
     // (24k projecoes por movimento de mouse pesam; 90ms ninguem percebe)
     const pickPop = (clientX: number, clientY: number, raioPx: number): number => {
-      if (!popPos) return -1
+      if (!popPos || !popOrdem) return -1
       const rect = renderer.domElement.getBoundingClientRect()
       const px = clientX - rect.left
       const py = clientY - rect.top
       let melhor = -1
       let melhorD = raioPx * raioPx
-      for (let i = 0; i < popAddr.length; i++) {
+      for (let i = 0; i < popOrdem.length; i++) {
         projV.set(popPos[i * 3], popPos[i * 3 + 1], popPos[i * 3 + 2])
         projV.project(camera)
         if (projV.z > 1) continue
@@ -680,14 +691,15 @@ export default function TreeScene() {
           return
         }
         renderer.domElement.style.cursor = 'pointer'
+        // sem endereco no payload: a identidade resolve no clique
         setTooltip({
           x: e.clientX,
           y: e.clientY,
-          addr: shortAddr(popAddr[pi]),
-          label: `Generation ${popDepth ? popDepth[pi] : '?'}`,
+          addr: `Generation ${popDepth ? popDepth[pi] : '?'} wallet`,
+          label: popClasse && popClasse[pi] >= 2 ? (popClasse[pi] === 3 ? '100M+ DOG' : '1M+ DOG') : undefined,
           balance: 0,
           subtreeHolders: 0,
-          holder: !!(popHolder && popHolder[pi]),
+          holder: !!(popClasse && popClasse[pi] > 0),
           minimal: true,
         })
         return
@@ -744,10 +756,25 @@ export default function TreeScene() {
         selectNode(nodeMeta[idx])
         flyToNode(posArr[idx * 3], posArr[idx * 3 + 1], posArr[idx * 3 + 2])
       } else {
-        // ponto da populacao: e uma carteira real, o dossie completo vem do
-        // /path via focusWallet (que tambem voa e materializa os filhos)
+        // ponto da populacao: carteira real sem endereco no payload; o
+        // indice canonico resolve a identidade em /population/at e dai o
+        // focusWallet cuida do dossie, do voo e dos filhos
         const pi = pickPop(e.clientX, e.clientY, e.pointerType === 'touch' ? 22 : 12)
-        if (pi >= 0) void focusWallet(popAddr[pi])
+        if (pi >= 0 && popOrdem && !popResolvendo) {
+          popResolvendo = true
+          void (async () => {
+            try {
+              const r = await fetch(`/api/holders/tree/population/at?i=${popOrdem![pi]}`)
+              if (!r.ok || disposed) return
+              const j = (await r.json()) as { w?: string }
+              if (j.w && !disposed) await focusWallet(j.w)
+            } catch {
+              /* resolvedor ocupado: o proximo clique tenta de novo */
+            } finally {
+              popResolvendo = false
+            }
+          })()
+        }
       }
     }
 
@@ -767,16 +794,16 @@ export default function TreeScene() {
         for (const n of nodes) ensureNode(n)
         flushStars()
         const gens = data.gens || []
-        // populacao real no lugar da poeira; sem ela a cena segue so com o
-        // esqueleto (a rota degrada pra lista vazia, nunca 500)
+        // populacao completa em binario; sem ela a cena segue so com o
+        // esqueleto (a rota degrada pra 204, nunca 500)
         void (async () => {
           try {
-            const resP = await fetch(`/api/holders/tree/population?n=${mobile ? 12000 : 24000}`)
-            if (!resP.ok || disposed) return
-            const pop = (await resP.json()) as { total: number; w: [string, number, number][] }
-            if (disposed || !Array.isArray(pop.w)) return
-            buildPopulation(pop.w)
-            setPopInfo({ drawn: pop.w.length, total: pop.total || 0 })
+            const resP = await fetch('/api/holders/tree/population')
+            if (!resP.ok || resP.status === 204 || disposed) return
+            const buf = await resP.arrayBuffer()
+            if (disposed) return
+            buildPopulation(buf)
+            if (popOrdem) setPopInfo({ drawn: popOrdem.length })
           } catch {
             /* esqueleto sozinho ainda e uma galaxia */
           }
@@ -906,8 +933,9 @@ export default function TreeScene() {
             </div>
             {popInfo && (
               <p className="mt-2 max-w-md text-[9px] leading-relaxed text-white/35">
-                Every dot is a real wallet: {fmtInt(popInfo.drawn)} sampled plus the brightest
-                lineages, out of {fmtInt(popInfo.total)} mapped. Search reaches them all.
+                Every dot is a real wallet and every wallet is in the sky:
+                {' '}{fmtInt(popInfo.drawn)} in the field plus the brightest lineages.
+                Click any dot to open it.
               </p>
             )}
             {hud.status === 'error' && (

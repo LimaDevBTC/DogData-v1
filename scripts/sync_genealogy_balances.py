@@ -129,26 +129,42 @@ def main():
         if n % 200 == 0:
             print(f'  {n}/{len(alvo)} sincronizadas', flush=True)
 
-    # a populacao da galaxia (amostra de carteiras reais que substituiu a
-    # poeira) guarda a flag holder no proprio arquivo; quem mudou de saldo
-    # nesta rodada atualiza a flag ali tambem, senao o ponto fica mentindo
-    # de cor ate o export diario
-    pop_path = BASE / 'data' / 'galaxy_population.json'
-    if mudou and pop_path.exists():
+    # a populacao da galaxia (binario com TODAS as carteiras) guarda a
+    # classe de cada ponto (0 gastou, 1 holder, 2 1M+, 3 100M+); quem mudou
+    # de saldo nesta rodada tem o byte remendado no proprio .bin, senao o
+    # ponto fica mentindo de cor ate o export diario. O indice local
+    # (endereco -> posicao no arquivo) vem do export; -1 = esta no
+    # esqueleto, fora do binario.
+    pop_bin = BASE / 'data' / 'galaxy_population.bin'
+    pop_idx = STATE_DIR / 'galaxy-addr-index.json'
+    if mudou and pop_bin.exists() and pop_idx.exists():
         try:
-            pop = json.loads(pop_path.read_text())
+            idx = json.loads(pop_idx.read_text())
+            raw = bytearray(pop_bin.read_bytes())
+            n_bin = int.from_bytes(raw[4:8], 'little')
+            base_classe = 8 + n_bin * 6 + n_bin * 2
             tocou = 0
-            for linha_pop in pop.get('w', []):
-                if linha_pop[0] in mudou:
-                    flag = 1 if mudou[linha_pop[0]] > 0 else 0
-                    if linha_pop[2] != flag:
-                        linha_pop[2] = flag
-                        tocou += 1
+            for a, b in mudou.items():
+                i = idx.get(a)
+                if i is None or i < 0 or i >= n_bin:
+                    continue
+                if b <= 0:
+                    classe = 0
+                elif b >= 100_000_000:
+                    classe = 3
+                elif b >= 1_000_000:
+                    classe = 2
+                else:
+                    classe = 1
+                pos = base_classe + i
+                if raw[pos] != classe:
+                    raw[pos] = classe
+                    tocou += 1
             if tocou:
-                tmp_pop = pop_path.with_suffix('.tmp')
-                tmp_pop.write_text(json.dumps(pop, separators=(',', ':')))
-                tmp_pop.rename(pop_path)
-                print(f'populacao da galaxia: {tocou} flags de holder atualizadas', flush=True)
+                tmp_pop = pop_bin.with_suffix('.tmp')
+                tmp_pop.write_bytes(bytes(raw))
+                tmp_pop.rename(pop_bin)
+                print(f'populacao da galaxia: {tocou} classes remendadas no binario', flush=True)
         except Exception as e:  # noqa: BLE001
             print(f'populacao da galaxia: falhou ({e}), o export diario corrige', flush=True)
 

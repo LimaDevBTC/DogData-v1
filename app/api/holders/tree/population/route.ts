@@ -1,51 +1,35 @@
 import { promises as fs } from 'fs'
 import path from 'path'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 
-// Populacao do $DOG Galaxy: amostra estratificada de carteiras REAIS que
-// substitui a poeira decorativa da cena (diretriz do fundador de 26/08:
-// todo ponto deve ser uma carteira do historico, clicavel). O arquivo e
-// gerado localmente por scripts/export_galaxy_population.py e embarca no
-// deploy; aqui so servimos um prefixo do tamanho pedido: a ordem do
-// arquivo e um embaralhamento deterministico, entao qualquer prefixo
-// preserva a estratificacao por geracao.
-// Sem banco nesta rota de proposito: zero risco pra instancia pequena.
+// Populacao COMPLETA do $DOG Galaxy: binario com TODAS as carteiras do
+// historico (menos as ~3000 do esqueleto, que a cena ja desenha como
+// estrelas). Formato (little-endian), escrito por
+// scripts/export_galaxy_population.py:
+//   4B magia 'DGX1' | uint32 count |
+//   int16 x,y,z * count (posicao * 8) |
+//   uint16 geracao * count | uint8 classe * count |
+//   uint32 indiceNaOrdemCompleta * count (para o clique resolver via /at)
+// Sem enderecos no payload de proposito: 264k enderecos passam de 16MB; a
+// identidade resolve no clique. Sem banco nesta rota: zero risco pra
+// instancia pequena.
 export const dynamic = 'force-dynamic'
 
-const CACHE = { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=3600' }
-
-interface PopulationFile {
-  total: number
-  sampled: number
-  generated_at: string
-  gens: Record<string, number>
-  w: [string, number, number][]
-}
-
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const raw = await fs.readFile(
-      path.join(process.cwd(), 'data', 'galaxy_population.json'),
-      'utf-8',
-    )
-    const file = JSON.parse(raw) as PopulationFile
-    const nRaw = Number(req.nextUrl.searchParams.get('n'))
-    const n = Number.isFinite(nRaw) && nRaw > 0 ? Math.min(file.w.length, Math.floor(nRaw)) : file.w.length
-    return NextResponse.json(
-      {
-        total: file.total,
-        sampled: n,
-        generated_at: file.generated_at,
-        w: n === file.w.length ? file.w : file.w.slice(0, n),
+    const buf = await fs.readFile(path.join(process.cwd(), 'data', 'galaxy_population.bin'))
+    return new NextResponse(new Uint8Array(buf), {
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=3600',
       },
-      { headers: CACHE },
-    )
+    })
   } catch {
-    // arquivo ausente (deploy antigo ou export nunca rodou): a cena segue
-    // so com o esqueleto, sem populacao; nunca 500
-    return NextResponse.json(
-      { total: 0, sampled: 0, generated_at: null, w: [] },
-      { status: 200, headers: CACHE },
-    )
+    // arquivo ausente (export nunca rodou neste deploy): a cena segue so
+    // com o esqueleto; 204 e o sinal de "sem populacao", nunca 500
+    return new NextResponse(null, {
+      status: 204,
+      headers: { 'Cache-Control': 'public, s-maxage=300' },
+    })
   }
 }
