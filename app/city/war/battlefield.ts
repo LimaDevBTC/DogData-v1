@@ -469,7 +469,10 @@ export function createBattlefield(
   const qTumble = new THREE.Quaternion()
   const eScratchTombo = new THREE.Euler()
   const EIXO_TOMBO = new THREE.Vector3(1, 0, 0)
-  const CAP_TOMBOS = orc.detritos
+  // ⚠️ O POOL SERVE OS DOIS EXÉRCITOS (cães E ursos, cada um com
+  // orc.detritos instâncias): com o tamanho de um só, vaga ativa era roubada
+  // no meio do voo e o corpo congelava no ar (o fundador viu a cambalhota)
+  const CAP_TOMBOS = orc.detritos * 2
   interface TomboSlot {
     ativo: boolean
     mesh: THREE.InstancedMesh | null
@@ -1366,7 +1369,9 @@ export function createBattlefield(
       }
       b.mesh.visible = true
       const z = b.z0 + (b.z1 - b.z0) * f
-      b.mesh.position.set(b.x, 40, z)
+      // cota mínima 40, mas nunca menos que 26 acima do relevo local (nas
+      // bordas do campo o terreno sobe e o avião em cota fixa entrava nele)
+      b.mesh.position.set(b.x, Math.max(40, altura(b.x, z) + 26), z)
       while (b.proximoIdx < BOMBAS_FRACOES.length && f >= BOMBAS_FRACOES[b.proximoIdx]) {
         const idx = b.proximoIdx++
         filaBomba.push({ at: agora + 550, x: b.x, z: b.z0 + (b.z1 - b.z0) * BOMBAS_FRACOES[idx] })
@@ -2505,6 +2510,11 @@ export function createBattlefield(
       const alvoHeading = h.dirZ > 0 ? Math.PI / 2 : -Math.PI / 2
       h.headingY += (alvoHeading - h.headingY) * Math.min(1, dt * 3.2)
       const x = frenteX - h.sentido * X_RECUO_HELI
+      // ⚠️ ALTITUDE RELATIVA AO TERRENO, nunca a y=0: com duna ou parede de
+      // cratera o voo em cota fixa ENTRAVA NO CHÃO (o fundador viu). Voo de
+      // contorno: o chão local + folga, suavizado pra não sacolejar no relevo
+      const chao = altura(x, h.z)
+      h.altBase += (Math.max(13, chao + 13) - h.altBase) * Math.min(1, dt * 2.2)
       let y = h.altBase + Math.sin(agora * 0.0009 + h.fase) * 2
       if (h.estado === 'entrando') {
         const f = Math.min(1, (agora - h.t0) / 1200)

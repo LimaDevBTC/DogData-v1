@@ -510,7 +510,7 @@ export function createExplosionLibrary(deps: DepsExplosoes): ExplosionLibrary {
   // POOL: CAVEIRA (marcador de baixa)
   // ═══════════════════════════════════════════════════════════════════════
   const CAP_CAVEIRA = t(12)
-  const CAVEIRA_BASE = 1.6
+  const CAVEIRA_BASE = 3.4
   interface CaveiraInst { sp: THREE.Sprite; t0: number; y0: number }
   const caveiras: CaveiraInst[] = []
   for (let i = 0; i < CAP_CAVEIRA; i++) {
@@ -882,9 +882,9 @@ export function createExplosionLibrary(deps: DepsExplosoes): ExplosionLibrary {
 
     for (const c of caveiras) {
       if (!c.sp.visible) continue
-      const k = (agora - c.t0) / 900
+      const k = (agora - c.t0) / 1300
       if (k >= 1) { c.sp.visible = false; continue }
-      c.sp.position.y = c.y0 + 2.5 * k
+      c.sp.position.y = c.y0 + 4.2 * k
       const esc = 1 + 0.4 * Math.min(1, k * 1.3)
       c.sp.scale.setScalar(CAVEIRA_BASE * esc)
       const mat = c.sp.material as THREE.SpriteMaterial
