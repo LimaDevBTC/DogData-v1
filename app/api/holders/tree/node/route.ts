@@ -9,7 +9,7 @@ import {
   supabase,
   type No,
 } from '../_shared'
-import { toFlowLabel, type FlowLabel } from '../flow/_agg'
+import { retryOnce, toFlowLabel, type FlowLabel } from '../flow/_agg'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -115,14 +115,18 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// retryOnce: o gateway do Supabase derruba chamadas avulsas nos picos de
+// escrita do backfill; uma repeticao curta segura o transitorio.
 async function fetchGenealogyOne(wallet: string): Promise<No | null> {
-  const { data, error } = await supabase
-    .from('dog_genealogy')
-    .select(NODE_SELECT)
-    .eq('wallet', wallet)
-    .maybeSingle()
-  if (error) throw new Error(error.message)
-  return data ? rowToNode(data as any) : null
+  return retryOnce(async () => {
+    const { data, error } = await supabase
+      .from('dog_genealogy')
+      .select(NODE_SELECT)
+      .eq('wallet', wallet)
+      .maybeSingle()
+    if (error) throw new Error(error.message)
+    return data ? rowToNode(data as any) : null
+  })
 }
 
 /**
@@ -164,15 +168,17 @@ async function fetchFlowSide(
   let offset = 0
   while (rows.length < FLOW_SUM_CAP) {
     const to = Math.min(offset + PAGE, FLOW_SUM_CAP) - 1
-    const { data, error } = await supabase
-      .from('dog_flows')
-      .select('src, dst, total_dog, tx_count')
-      .eq(matchCol, wallet)
-      .order('total_dog', { ascending: false })
-      .order(counterCol, { ascending: true })
-      .range(offset, to)
-    if (error) throw new Error(error.message)
-    const page = (data ?? []) as FlowRow[]
+    const page = await retryOnce(async () => {
+      const { data, error } = await supabase
+        .from('dog_flows')
+        .select('src, dst, total_dog, tx_count')
+        .eq(matchCol, wallet)
+        .order('total_dog', { ascending: false })
+        .order(counterCol, { ascending: true })
+        .range(offset, to)
+      if (error) throw new Error(error.message)
+      return (data ?? []) as FlowRow[]
+    })
     rows.push(...page)
     if (page.length < to - offset + 1) break
     offset += PAGE

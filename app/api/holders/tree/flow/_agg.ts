@@ -120,14 +120,18 @@ const TOTAL_SUPPLY = 100_000_000_000
 // meta.truncated_links (a contagem exata vem de graca no count do PostgREST).
 const LEVEL_ROW_CAP = 4000
 
-// Quantas carteiras de um nivel viram src do nivel seguinte. Expandir todas
-// seria uma consulta in.() por dezenas de milhares de enderecos; o topo por
-// entrada de DOG cobre o que o sankey consegue desenhar.
-const FRONTIER_CAP = 100
+// Quantas carteiras de um nivel viram src do nivel seguinte. Cada uma vira
+// UMA consulta indexada (ver fetchFlowsForSrc); 24 em lotes de 6 paralelos
+// cabem no orcamento de tempo da rota e cobrem com folga os 12 nos nomeados
+// que a coluna desenha.
+const FRONTIER_CAP = 24
 
-// Enderecos por consulta in.() em dog_flows. O filtro viaja na URL do
-// PostgREST; 50 enderecos (~3,2KB) ficam longe de qualquer limite de URL.
-const SRC_CHUNK = 50
+// Enderecos por consulta in.() nas CONTAGENS de dog_flows (so contagem, sem
+// order by). Para os DADOS o in.() nao serve: in.() + order by total_dog
+// global vira bitmap de todas as linhas dos srcs + sort, e basta um hub
+// (Kraken hot tem dezenas de milhares de pares) para estourar o statement
+// timeout (medido 2026-08-26). Dados vao um src por consulta.
+const SRC_CHUNK = 25
 
 // Join de metadados na genealogia: so o topo por DOG movimentado entra, em
 // blocos de 100 enderecos (~6,4KB de URL). Carteira fora do join nao tem
@@ -162,43 +166,60 @@ interface FlowRow {
 const FLOW_SELECT = 'src, dst, total_dog, tx_count, first_block, last_block'
 
 /**
- * Le ate `cap` linhas de dog_flows com src no bloco dado, do maior fluxo para
- * o menor, paginando em 1000 (max-rows do projeto). O `total` e a contagem
- * exata de linhas que casam com o filtro, mesmo alem do teto: e ela que
- * alimenta truncated_links e total_links_considered.
+ * Le ate `cap` linhas de dog_flows de UM src, do maior fluxo para o menor,
+ * paginando em 1000 (max-rows do projeto). Um src por consulta e a forma que
+ * o indice (src, total_dog DESC) atende como varredura pura com limite, sem
+ * no de sort; foi a unica forma que sobreviveu ao statement timeout sob a
+ * carga de escrita do backfill (medido 2026-08-26).
  *
  * Ordem secundaria por dst: total_dog empata (varios pares de mesmo valor) e
  * sem desempate a paginacao embaralha entre paginas, o que quebraria o
  * layout deterministico que a tela exige.
  */
-async function fetchFlowsFrom(
-  srcs: string[],
-  cutoff: number | null,
-  cap: number,
-): Promise<{ rows: FlowRow[]; total: number }> {
+async function fetchFlowsForSrc(src: string, cutoff: number | null, cap: number): Promise<FlowRow[]> {
   const PAGE = 1000
   const rows: FlowRow[] = []
-  let total = 0
   let offset = 0
   while (rows.length < cap) {
     const to = Math.min(offset + PAGE, cap) - 1
-    let q: any = supabase
-      .from('dog_flows')
-      .select(FLOW_SELECT, { count: 'exact' })
-      .in('src', srcs)
-    if (cutoff !== null) q = q.gte('last_block', cutoff)
-    const { data, error, count } = await q
-      .order('total_dog', { ascending: false })
-      .order('dst', { ascending: true })
-      .range(offset, to)
-    if (error) throw new Error(error.message)
-    if (typeof count === 'number') total = count
-    const page = (data ?? []) as FlowRow[]
+    const page = await retryOnce(async () => {
+      let q: any = supabase.from('dog_flows').select(FLOW_SELECT).eq('src', src)
+      if (cutoff !== null) q = q.gte('last_block', cutoff)
+      const { data, error } = await q
+        .order('total_dog', { ascending: false })
+        .order('dst', { ascending: true })
+        .range(offset, to)
+      if (error) throw new Error(error.message)
+      return (data ?? []) as FlowRow[]
+    })
     rows.push(...page)
     if (page.length < to - offset + 1) break
     offset += PAGE
   }
-  return { rows: rows.slice(0, cap), total }
+  return rows.slice(0, cap)
+}
+
+/**
+ * Quantos pares de dog_flows saem do conjunto de srcs, alem do que a janela
+ * leu: alimenta truncated_links e total_links_considered. Sem order by a
+ * contagem e so um bitmap, bem mais leve que os dados; ainda assim ela NUNCA
+ * derruba o nivel: exata, depois estimada (via headCount), e falhando as
+ * duas devolve `fallback` (o que foi de fato lido, o minimo honesto).
+ */
+async function countFlowsFrom(srcs: string[], cutoff: number | null, fallback: number): Promise<number> {
+  try {
+    const parts = await inBatches(chunk(srcs, SRC_CHUNK), (c) =>
+      headCount((mode, head) => {
+        let q: any = supabase.from('dog_flows').select('src', { count: mode, head }).in('src', c)
+        if (cutoff !== null) q = q.gte('last_block', cutoff)
+        return q.limit(1)
+      }),
+    )
+    const total = parts.reduce((a, b) => a + b, 0)
+    return Math.max(total, fallback)
+  } catch {
+    return fallback
+  }
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────────
@@ -220,6 +241,22 @@ async function inBatches<T, R>(items: T[], fn: (item: T) => Promise<R>): Promise
     out.push(...(await Promise.all(batch.map(fn))))
   }
   return out
+}
+
+/**
+ * Uma repeticao unica com pausa curta. O gateway do Supabase derruba chamadas
+ * avulsas nos picos de escrita do backfill ("upstream request timeout" ate em
+ * consulta indexada de uma linha, medido 2026-08-26); o pico dura segundos,
+ * entao repetir UMA vez resolve o transitorio, e mais que isso so estica a
+ * rota alem do orcamento de tempo dela.
+ */
+export async function retryOnce<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn()
+  } catch {
+    await new Promise((r) => setTimeout(r, 400))
+    return await fn()
+  }
 }
 
 /**
@@ -265,33 +302,62 @@ function round2(n: number): number {
 }
 
 async function fetchGenealogyOne(wallet: string): Promise<No | null> {
-  const { data, error } = await supabase
-    .from('dog_genealogy')
-    .select(NODE_SELECT)
-    .eq('wallet', wallet)
-    .maybeSingle()
-  if (error) throw new Error(error.message)
-  return data ? rowToNode(data as any) : null
+  return retryOnce(async () => {
+    const { data, error } = await supabase
+      .from('dog_genealogy')
+      .select(NODE_SELECT)
+      .eq('wallet', wallet)
+      .maybeSingle()
+    if (error) throw new Error(error.message)
+    return data ? rowToNode(data as any) : null
+  })
 }
 
-async function headCount(build: () => PromiseLike<{ count: number | null; error: { message: string } | null }>): Promise<number> {
-  const { count, error } = await build()
-  if (error) throw new Error(error.message)
-  return count ?? 0
+type CountMode = 'exact' | 'estimated'
+type CountResult = PromiseLike<{ count: number | null; error: { message: string } | null }>
+
+/**
+ * Contagem com recuo: exata primeiro e, se ela falhar, a estimada do
+ * planner. Sob a carga de escrita do backfill de dog_flows a exata sobre
+ * dezenas de milhares de linhas estoura o statement timeout (medido
+ * 2026-08-26, o PostgREST devolve 500 com mensagem vazia); a estimada e
+ * barata e segura os tiles ate a poeira baixar.
+ *
+ * A exata viaja como HEAD (padrao da casa); a estimada tem que ir como GET
+ * com limit(1), porque HEAD + count=estimated tambem trava no PostgREST
+ * (medido no mesmo dia: HEAD pendurou 25s, GET com limit respondeu em 0,4s).
+ */
+async function headCount(build: (mode: CountMode, head: boolean) => CountResult): Promise<number> {
+  let lastMessage = 'count failed'
+  for (const mode of ['exact', 'estimated'] as const) {
+    try {
+      return await retryOnce(async () => {
+        const { count, error } = await build(mode, mode === 'exact')
+        if (error) throw new Error(error.message || 'count failed')
+        if (typeof count !== 'number') throw new Error('no count in response')
+        return count
+      })
+    } catch (err: any) {
+      if (err?.message) lastMessage = err.message
+    }
+  }
+  throw new Error(lastMessage)
 }
 
 /** Bloco de corte para as janelas 90d/30d, a partir da ponta de dog_flows. */
 async function activeCutoffBlock(active: ActiveWindow): Promise<number | null> {
   if (active === 'all') return null
-  const { data, error } = await supabase
-    .from('dog_flows')
-    .select('last_block')
-    .order('last_block', { ascending: false })
-    .limit(1)
-  if (error) throw new Error(error.message)
-  const tip = data?.[0]?.last_block
-  if (typeof tip !== 'number') return null
-  return tip - (active === '90d' ? BLOCKS_90D : BLOCKS_30D)
+  return retryOnce(async () => {
+    const { data, error } = await supabase
+      .from('dog_flows')
+      .select('last_block')
+      .order('last_block', { ascending: false })
+      .limit(1)
+    if (error) throw new Error(error.message)
+    const tip = data?.[0]?.last_block
+    if (typeof tip !== 'number') return null
+    return tip - (active === '90d' ? BLOCKS_90D : BLOCKS_30D)
+  })
 }
 
 // ── stats ───────────────────────────────────────────────────────────────────
@@ -305,13 +371,17 @@ async function activeCutoffBlock(active: ActiveWindow): Promise<number | null> {
  */
 async function buildStats(root: No): Promise<FlowStats> {
   const [wallets, directChildren, exchangeDog] = await Promise.all([
-    headCount(() => supabase.from('dog_genealogy').select('wallet', { count: 'exact', head: true }) as any),
     headCount(
-      () =>
+      (mode, head) =>
+        supabase.from('dog_genealogy').select('wallet', { count: mode, head }).limit(1) as any,
+    ),
+    headCount(
+      (mode, head) =>
         supabase
           .from('dog_genealogy')
-          .select('wallet', { count: 'exact', head: true })
-          .eq('parent', root.w) as any,
+          .select('wallet', { count: mode, head })
+          .eq('parent', root.w)
+          .limit(1) as any,
     ),
     fetchExchangeDog(),
   ])
@@ -333,12 +403,15 @@ async function fetchExchangeDog(): Promise<number> {
   if (addrs.length === 0) return 0
   let sum = 0
   await inBatches(chunk(addrs, JOIN_CHUNK), async (c) => {
-    const { data, error } = await supabase
-      .from('dog_genealogy')
-      .select('wallet, balance_dog')
-      .in('wallet', c)
-    if (error) throw new Error(error.message)
-    for (const r of (data ?? []) as { balance_dog: number | string | null }[]) {
+    const rows = await retryOnce(async () => {
+      const { data, error } = await supabase
+        .from('dog_genealogy')
+        .select('wallet, balance_dog')
+        .in('wallet', c)
+      if (error) throw new Error(error.message)
+      return (data ?? []) as { balance_dog: number | string | null }[]
+    })
+    for (const r of rows) {
       sum += Number(r.balance_dog ?? 0)
     }
   })
@@ -375,12 +448,15 @@ export async function buildFlow(p: FlowParams): Promise<FlowResponse | null> {
     const srcs = frontier.slice(0, FRONTIER_CAP)
     if (srcs.length === 0) break
     const next: string[] = []
-    const chunks = chunk(srcs, SRC_CHUNK)
-    const perChunkCap = Math.max(1000, Math.floor(LEVEL_ROW_CAP / chunks.length))
-    const results = await inBatches(chunks, (c) => fetchFlowsFrom(c, cutoff, perChunkCap))
+    // O orcamento do nivel repartido entre os srcs: a raiz sozinha leva os
+    // 4000; uma fronteira cheia leva ~167 pares cada, que ja cobre com folga
+    // os 12 nos nomeados da coluna seguinte.
+    const perSrc = Math.min(LEVEL_ROW_CAP, Math.max(50, Math.ceil(LEVEL_ROW_CAP / srcs.length)))
+    const results = await inBatches(srcs, (s) => fetchFlowsForSrc(s, cutoff, perSrc))
+    const levelRows = results.reduce((a, r) => a + r.length, 0)
+    totalLinksConsidered += await countFlowsFrom(srcs, cutoff, levelRows)
     for (const r of results) {
-      totalLinksConsidered += r.total
-      for (const row of r.rows) {
+      for (const row of r) {
         rawRows.push(row)
         const dog = Number(row.total_dog ?? 0)
         outflow.set(row.src, (outflow.get(row.src) ?? 0) + dog)
@@ -406,14 +482,16 @@ export async function buildFlow(p: FlowParams): Promise<FlowResponse | null> {
   const toJoin = [p.root, ...discovered.slice(0, JOIN_CAP)]
   const joined = new Map<string, No>()
   await inBatches(chunk(toJoin, JOIN_CHUNK), async (c) => {
-    const nodes = await fetchNodesPaged(
-      (from, to) =>
-        supabase
-          .from('dog_genealogy')
-          .select(NODE_SELECT)
-          .in('wallet', c)
-          .range(from, to) as any,
-      c.length,
+    const nodes = await retryOnce(() =>
+      fetchNodesPaged(
+        (from, to) =>
+          supabase
+            .from('dog_genealogy')
+            .select(NODE_SELECT)
+            .in('wallet', c)
+            .range(from, to) as any,
+        c.length,
+      ),
     )
     for (const n of nodes) joined.set(n.w, n)
   })
@@ -690,31 +768,31 @@ function applyExactRest(restAgg: Map<string, RestNode>, g: number, kind: 'holder
  * planner (barata) e, falhando as duas, devolve null e o selo fica partial.
  */
 async function countRootFlows(root: string): Promise<number | null> {
-  for (const mode of ['exact', 'estimated'] as const) {
-    try {
-      const { count, error } = await supabase
-        .from('dog_flows')
-        .select('src', { count: mode, head: true })
-        .eq('src', root)
-      if (!error && typeof count === 'number') return count
-    } catch {
-      // proxima tentativa
-    }
+  try {
+    return await headCount(
+      (mode, head) =>
+        supabase
+          .from('dog_flows')
+          .select('src', { count: mode, head })
+          .eq('src', root)
+          .limit(1) as any,
+    )
+  } catch {
+    return null
   }
-  return null
 }
 
 /** Contagens exatas por coorte de depth (1..3 e 4+), total e holders. */
 async function fetchCohortCounts(): Promise<Map<number, { wallets: number; holders: number }>> {
   const gens = [1, 2, 3, 4]
   const rows = await inBatches(gens, async (g) => {
-    const base = () =>
+    const base = (mode: CountMode, head: boolean) =>
       g === 4
-        ? supabase.from('dog_genealogy').select('wallet', { count: 'exact', head: true }).gte('depth', 4)
-        : supabase.from('dog_genealogy').select('wallet', { count: 'exact', head: true }).eq('depth', g)
+        ? supabase.from('dog_genealogy').select('wallet', { count: mode, head }).gte('depth', 4)
+        : supabase.from('dog_genealogy').select('wallet', { count: mode, head }).eq('depth', g)
     const [wallets, holders] = await Promise.all([
-      headCount(() => base() as any),
-      headCount(() => base().eq('is_holder', true) as any),
+      headCount((mode, head) => base(mode, head).limit(1) as any),
+      headCount((mode, head) => base(mode, head).eq('is_holder', true).limit(1) as any),
     ])
     return [g, { wallets, holders }] as const
   })
