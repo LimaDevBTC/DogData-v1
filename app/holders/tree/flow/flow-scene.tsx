@@ -8,11 +8,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-// depuracao temporaria do incidente "canvas em branco": remover depois
-if (typeof window !== 'undefined') {
-  const w = window as unknown as { __flowSceneCarregado?: number }
-  w.__flowSceneCarregado = (w.__flowSceneCarregado || 0) + 1
-}
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { FlowResponse, LabelCat } from './flow-types'
 import { layoutFlow, truncAddr, fmtDog, type FlowLayout } from './flow-layout'
@@ -201,12 +196,8 @@ export default function FlowScene({
   const drawRef = useRef<() => void>(() => {})
 
   function requestDraw() {
-    // depuracao temporaria: remover depois
-    const w = window as unknown as { __flowReq?: number; __flowRaf?: number }
-    w.__flowReq = (w.__flowReq || 0) + 1
     if (drawReqRef.current !== null) return
     drawReqRef.current = requestAnimationFrame(() => {
-      w.__flowRaf = (w.__flowRaf || 0) + 1
       drawReqRef.current = null
       drawRef.current()
     })
@@ -240,8 +231,6 @@ export default function FlowScene({
     const cvs = canvasRef.current
     const lay = layoutRef.current
     const g = graphRef.current
-    // depuracao temporaria do incidente "canvas em branco": remover depois
-    if (typeof window !== 'undefined') (window as unknown as { __flowDbg?: unknown }).__flowDbg = { temCvs: !!cvs, temLay: !!lay, temG: !!g, lay }
     if (!cvs || !lay || !g) return
     const ctx = cvs.getContext('2d')
     if (!ctx) return
@@ -682,8 +671,19 @@ export default function FlowScene({
 
   useEffect(() => {
     return () => {
-      if (animRef.current !== null) cancelAnimationFrame(animRef.current)
-      if (drawReqRef.current !== null) cancelAnimationFrame(drawReqRef.current)
+      // ⚠️ ZERAR os refs junto do cancel: no StrictMode do dev os efeitos
+      // rodam efeito-limpeza-efeito com os MESMOS refs; cancelar sem zerar
+      // deixava o id morto em drawReqRef e todo requestDraw seguinte
+      // desistia achando que havia frame pendente: canvas em branco eterno
+      // (incidente de 26/08).
+      if (animRef.current !== null) {
+        cancelAnimationFrame(animRef.current)
+        animRef.current = null
+      }
+      if (drawReqRef.current !== null) {
+        cancelAnimationFrame(drawReqRef.current)
+        drawReqRef.current = null
+      }
     }
   }, [])
 
