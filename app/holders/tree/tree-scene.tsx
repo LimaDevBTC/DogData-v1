@@ -20,6 +20,7 @@ import {
   childFanPosition,
   shellRadius,
   sizeFor,
+  sizeFromBalance,
   colorFor,
   hashIdx,
   fmtDog,
@@ -239,10 +240,14 @@ export default function TreeScene() {
           float ps = size * (uScale / -mv.z);
           // ⚠️ teto de pixels: sem ele, chegar perto da concha inflava cada
           // estrela numa bola de dezenas de pixels e a soma aditiva virava
-          // nevoa ilegivel (chapa do fundador no celular). 34 e o novo teto
-          // porque o piso da camera caiu de 60 pra 16: a estrela focada
-          // preenche de perto, as vizinhas continuam ponto.
-          gl_PointSize = clamp(ps, 1.5, 34.0);
+          // nevoa ilegivel (chapa do fundador no celular). Com a ESCALA
+          // REAL (lei de potencia sobre o saldo) o teto sobe pra 150: e ele
+          // que deixa a tesouraria e a Kraken serem visivelmente enormes;
+          // 34 estava CORTANDO o topo da escala e achatando as baleias
+          // contra as sardinhas. O piso cai pra 0.8: sem isso as carteiras
+          // pequenas empatavam por baixo no zoom-out (foi o que o fundador
+          // viu: "todas as estrelas tem o mesmo tamanho").
+          gl_PointSize = clamp(ps, 0.8, 150.0);
           gl_Position = projectionMatrix * mv;
         }
       `,
@@ -491,19 +496,20 @@ export default function TreeScene() {
           cols[i * 3 + 2] = 0.11
           sizes[i] = 1.2
         } else if (popFormato === 2) {
-          // hierarquia continua: tamanho e brilho crescem com o log do
-          // saldo (byte 1..255 = log10(1+saldo)/10 quantizado no export).
-          // ⚠️ CURVA f^2.2, nao linear: 260k pontos somando em aditivo, se o
-          // holder mediano engordar o miolo vira parede branca (aconteceu na
-          // primeira tentativa); a base fica pequena e so o topo da escala
-          // cresce de verdade: 10k DOG ~1.7px, 1M ~2.5, 100M ~3.6, 10B ~5.2
-          const f = c / 255
-          const fc = Math.pow(f, 2.2)
-          const brilho = 0.85 + fc * 0.4
+          // ESCALA REAL: o byte guarda log10(1+saldo)/11; desfaz o log pra
+          // recuperar o saldo e aplica a MESMA curva do esqueleto
+          // (sizeFromBalance, lei de potencia normalizada pelo supply).
+          // Estrela de 2 mil DOG e visivelmente menor que uma de 2 milhoes,
+          // que e visivelmente menor que uma baleia: era o pedido.
+          const saldo = Math.pow(10, (c / 255) * 11) - 1
+          const s = sizeFromBalance(saldo)
+          sizes[i] = s
+          // brilho acompanha o tamanho de leve (as grandes ja dominam por
+          // area; empurrar cor tambem satura o miolo em aditivo)
+          const brilho = 0.85 + Math.min(1, s / 46) * 0.4
           cols[i * 3] = 0.5 * brilho
           cols[i * 3 + 1] = 0.28 * brilho
           cols[i * 3 + 2] = 0.06 * brilho
-          sizes[i] = 1.15 + fc * 4.0
         } else if (c === 1) {
           cols[i * 3] = 0.5
           cols[i * 3 + 1] = 0.28
@@ -828,11 +834,13 @@ export default function TreeScene() {
           label:
             popClasse && popClasse[pi] > 0
               ? popFormato === 2
-                ? popClasse[pi] >= 204
-                  ? '100M+ DOG'
-                  : popClasse[pi] >= 153
-                    ? '1M+ DOG'
-                    : undefined
+                ? popClasse[pi] >= 208
+                  ? '1B+ DOG'
+                  : popClasse[pi] >= 185
+                    ? '100M+ DOG'
+                    : popClasse[pi] >= 139
+                      ? '1M+ DOG'
+                      : undefined
                 : popClasse[pi] === 3
                   ? '100M+ DOG'
                   : popClasse[pi] === 2

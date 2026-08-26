@@ -149,11 +149,12 @@ def main():
                 i = idx.get(a)
                 if i is None or i < 0 or i >= n_bin:
                     continue
-                # mesma formula do export (DGX2): byte continuo de tamanho
+                # mesma formula do export (DGX2): byte de saldo em log,
+                # normalizado pelo supply (10^11, nunca 10^10: saturava)
                 if b <= 0:
                     classe = 0
                 else:
-                    classe = max(1, min(255, round(255 * min(1.0, math.log10(1 + b) / 10))))
+                    classe = max(1, min(255, round(255 * min(1.0, math.log10(1 + b) / 11))))
                 pos = base_classe + i
                 if raw[pos] != classe:
                     raw[pos] = classe

@@ -152,13 +152,31 @@ export function childFanPosition(
   return out
 }
 
-// Tamanho da estrela: log10(1 + saldo + subarvore*0.15) mapeado em 2..9.
-// 10^10 DOG cobre o supply inteiro, entao a normalizacao e por 10.
+// ESCALA REAL (fundador, 26/08: "vi uma carteira de 2 mil DOG do mesmo
+// tamanho de uma de 2 milhoes"). A escala log anterior comprimia tudo numa
+// faixa de 1.8 a 5.6 e AINDA saturava: 12B (Kraken) e 100B davam o mesmo
+// tamanho porque a normalizacao era por 10^10.
+//
+// Agora e lei de potencia sobre o saldo REAL, normalizada pelo supply
+// (10^11): size = SIZE_MIN + (v/1e11)^0.22 * SIZE_SPAN. Expoente 0.22
+// escolhido na mao: dramatico o bastante pra baleia saltar aos olhos
+// (Kraken ~16x uma carteira de 2k, tesouraria ~25x) sem que o resto do
+// ceu vire poeira invisivel. A tesouraria HOJE tem 0 DOG (distribuiu
+// tudo), entao a subarvore entra com peso: ela e grande por natureza,
+// como o fundador colocou, porque um dia foi por ela que passaram os
+// 100 bilhoes.
+export const SUPPLY_REF = 1e11
+export const SIZE_MIN = 0.9
+export const SIZE_SPAN = 45
+export const SIZE_EXP = 0.22
+
+export function sizeFromBalance(v: number): number {
+  if (!(v > 0)) return SIZE_MIN
+  return SIZE_MIN + Math.pow(Math.min(1, v / SUPPLY_REF), SIZE_EXP) * SIZE_SPAN
+}
+
 export function sizeFor(b: number, sb: number): number {
-  const v = Math.log10(1 + Math.max(0, b) + Math.max(0, sb) * 0.15)
-  // faixa 1.8 a 5.6 (era ate 9): com o teto de pixels no shader, o tamanho
-  // diferencia baleia de sardinha sem virar bola de bokeh
-  return 1.8 + Math.min(1, v / 10) * 3.8
+  return sizeFromBalance(Math.max(0, b) + Math.max(0, sb) * 0.15)
 }
 
 // Paleta plot-map: holders na familia do laranja bitcoin #f7931a

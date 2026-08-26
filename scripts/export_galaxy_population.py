@@ -92,14 +92,16 @@ def node_position(w: str, d: int):
 
 
 def byte_tamanho(holder: bool, balance: float) -> int:
-    """v3 (cereja do bolo, 26/08): tamanho CONTINUO por saldo em escala log.
-    0 = gastou tudo (cinza pequena padrao); 1..255 = log10(1+saldo)/10
-    quantizado (10^10 cobre o supply, mesma normalizacao do sizeFor do
-    esqueleto). Linear seria desastre: saldos cobrem 10 ordens de
-    grandeza e a maior baleia esmagaria todo o resto."""
+    """Byte de SALDO em escala log, normalizado pelo supply (10^11).
+
+    0 = gastou tudo (cinza pequena padrao); 1..255 = log10(1+saldo)/11
+    quantizado. ⚠️ era /10 e SATURAVA: a Kraken (12,69B) e a tesouraria
+    davam o mesmo byte 255 e apareciam do mesmo tamanho. O byte guarda o
+    saldo; a curva de TAMANHO mora no cliente (sizeFromBalance), entao
+    mudar a estetica nao exige reexportar."""
     if not holder or balance <= 0:
         return 0
-    return max(1, min(255, round(255 * min(1.0, math.log10(1 + balance) / 10))))
+    return max(1, min(255, round(255 * min(1.0, math.log10(1 + balance) / 11))))
 
 
 def esqueleto() -> set:
