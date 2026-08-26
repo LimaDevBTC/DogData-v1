@@ -366,9 +366,18 @@ export default function TreeScene() {
     let popClasse: Uint8Array | null = null
     let popOrdem: Uint32Array | null = null
     let popResolvendo = false
+    let popFormato = 0
     const buildPopulation = (buf: ArrayBuffer) => {
       const dv = new DataView(buf)
-      if (buf.byteLength < 8 || dv.getUint32(0, false) !== 0x44475831) return // 'DGX1'
+      if (buf.byteLength < 8) return
+      const magia = dv.getUint32(0, false)
+      // DGX1: byte de classe (0/1/2/3). DGX2: byte CONTINUO de tamanho em
+      // escala log (cereja do bolo do fundador: mais DOG, estrela maior).
+      // Os dois convivem porque a CDN pode servir o binario velho por ate
+      // uma hora depois do deploy.
+      if (magia === 0x44475831) popFormato = 1
+      else if (magia === 0x44475832) popFormato = 2
+      else return
       const n = dv.getUint32(4, true)
       const fimXyz = 8 + n * 6
       const fimDep = fimXyz + n * 2
@@ -389,24 +398,36 @@ export default function TreeScene() {
         popPos[i * 3 + 2] = xyz[i * 3 + 2] / 8
         const c = popClasse[i]
         if (c === 0) {
-          // gastou tudo: brasa apagada
+          // zero DOG: pequena padrao, cinza-brasa
           cols[i * 3] = 0.15
           cols[i * 3 + 1] = 0.125
           cols[i * 3 + 2] = 0.11
           sizes[i] = 1.2
+        } else if (popFormato === 2) {
+          // hierarquia continua: tamanho e brilho crescem com o log do
+          // saldo (byte 1..255 = log10(1+saldo)/10 quantizado no export).
+          // ⚠️ CURVA f^2.2, nao linear: 260k pontos somando em aditivo, se o
+          // holder mediano engordar o miolo vira parede branca (aconteceu na
+          // primeira tentativa); a base fica pequena e so o topo da escala
+          // cresce de verdade: 10k DOG ~1.7px, 1M ~2.5, 100M ~3.6, 10B ~5.2
+          const f = c / 255
+          const fc = Math.pow(f, 2.2)
+          const brilho = 0.85 + fc * 0.4
+          cols[i * 3] = 0.5 * brilho
+          cols[i * 3 + 1] = 0.28 * brilho
+          cols[i * 3 + 2] = 0.06 * brilho
+          sizes[i] = 1.15 + fc * 4.0
         } else if (c === 1) {
           cols[i * 3] = 0.5
           cols[i * 3 + 1] = 0.28
           cols[i * 3 + 2] = 0.06
           sizes[i] = 1.5
         } else if (c === 2) {
-          // 1M+ DOG: um ponto acima
           cols[i * 3] = 0.62
           cols[i * 3 + 1] = 0.36
           cols[i * 3 + 2] = 0.08
           sizes[i] = 2.1
         } else {
-          // 100M+ DOG: baleia visivel de longe
           cols[i * 3] = 0.72
           cols[i * 3 + 1] = 0.44
           cols[i * 3 + 2] = 0.1
@@ -696,7 +717,20 @@ export default function TreeScene() {
           x: e.clientX,
           y: e.clientY,
           addr: `Generation ${popDepth ? popDepth[pi] : '?'} wallet`,
-          label: popClasse && popClasse[pi] >= 2 ? (popClasse[pi] === 3 ? '100M+ DOG' : '1M+ DOG') : undefined,
+          label:
+            popClasse && popClasse[pi] > 0
+              ? popFormato === 2
+                ? popClasse[pi] >= 204
+                  ? '100M+ DOG'
+                  : popClasse[pi] >= 153
+                    ? '1M+ DOG'
+                    : undefined
+                : popClasse[pi] === 3
+                  ? '100M+ DOG'
+                  : popClasse[pi] === 2
+                    ? '1M+ DOG'
+                    : undefined
+              : undefined,
           balance: 0,
           subtreeHolders: 0,
           holder: !!(popClasse && popClasse[pi] > 0),

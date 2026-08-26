@@ -40,7 +40,7 @@ BASE = Path(__file__).resolve().parent.parent
 SAIDA_BIN = BASE / 'data' / 'galaxy_population.bin'
 STATE_DIR = Path.home() / '.local' / 'share' / 'dogdata'
 SAIDA_IDX = STATE_DIR / 'galaxy-addr-index.json'
-MAGIA = b'DGX1'
+MAGIA = b'DGX2'
 ESCALA = 8.0
 
 for linha in (BASE / '.env.local').read_text().splitlines():
@@ -88,14 +88,15 @@ def node_position(w: str, d: int):
     return (math.cos(theta) * r, (hash01(w, 2) * 2 - 1) * 12, math.sin(theta) * r)
 
 
-def classe_tamanho(holder: bool, balance: float) -> int:
-    if not holder:
+def byte_tamanho(holder: bool, balance: float) -> int:
+    """v3 (cereja do bolo, 26/08): tamanho CONTINUO por saldo em escala log.
+    0 = gastou tudo (cinza pequena padrao); 1..255 = log10(1+saldo)/10
+    quantizado (10^10 cobre o supply, mesma normalizacao do sizeFor do
+    esqueleto). Linear seria desastre: saldos cobrem 10 ordens de
+    grandeza e a maior baleia esmagaria todo o resto."""
+    if not holder or balance <= 0:
         return 0
-    if balance >= 100_000_000:
-        return 3
-    if balance >= 1_000_000:
-        return 2
-    return 1
+    return max(1, min(255, round(255 * min(1.0, math.log10(1 + balance) / 10))))
 
 
 def esqueleto() -> set:
@@ -157,7 +158,7 @@ def main():
             max(-32767, min(32767, round(z * ESCALA))),
         )
         depths += dep_pack.pack(min(65535, d))
-        classes.append(classe_tamanho(bool(r['is_holder']), float(r['balance_dog'] or 0)))
+        classes.append(byte_tamanho(bool(r['is_holder']), float(r['balance_dog'] or 0)))
         indice[w] = escritos
         escritos += 1
 

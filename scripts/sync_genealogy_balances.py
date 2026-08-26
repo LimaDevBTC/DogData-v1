@@ -23,6 +23,7 @@ Subarvores (subtree_*) ficam com o reconciliador diario
 Cron: 35 * * * * (depois do automated_update das :00, que leva ~25 min).
 """
 import json
+import math
 import os
 import sys
 import time
@@ -148,14 +149,11 @@ def main():
                 i = idx.get(a)
                 if i is None or i < 0 or i >= n_bin:
                     continue
+                # mesma formula do export (DGX2): byte continuo de tamanho
                 if b <= 0:
                     classe = 0
-                elif b >= 100_000_000:
-                    classe = 3
-                elif b >= 1_000_000:
-                    classe = 2
                 else:
-                    classe = 1
+                    classe = max(1, min(255, round(255 * min(1.0, math.log10(1 + b) / 10))))
                 pos = base_classe + i
                 if raw[pos] != classe:
                     raw[pos] = classe
