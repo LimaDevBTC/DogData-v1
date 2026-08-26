@@ -491,14 +491,41 @@ export function createBattlefield(
     x: 0, y: 0, z: 0, esc: 1, apice: 1.6, paraFinal: new THREE.Quaternion(),
   }))
   let curTombo = 0
+  // deita a instância do slot no chão na pose final: usada quando um slot
+  // ativo precisa ser liberado no meio da animação (jamais congelar no ar)
+  const assentaTombo = (s: TomboSlot) => {
+    if (!s.mesh) return
+    vp.set(s.x, s.y + 0.05, s.z)
+    vs.setScalar(s.esc)
+    m4.compose(vp, s.paraFinal, vs)
+    s.mesh.setMatrixAt(s.idx, m4)
+    s.mesh.instanceMatrix.needsUpdate = true
+    s.ativo = false
+  }
   const tomba = (mesh: THREE.InstancedMesh, cur: { v: number }, p: THREE.Vector3, n: number) => {
+    // ⚠️ DONO POR INSTÂNCIA: quando o cursor de instâncias dá a volta, um
+    // slot novo passava a animar o MESMO índice que um slot velho ainda
+    // ativo: dois escritores brigando pela matriz a cada frame (a "cambalhota
+    // aleatória" que o fundador viu). O mapa de dono derruba o escritor velho
+    let dono = mesh.userData.donoTombo as Int32Array | undefined
+    if (!dono) {
+      dono = new Int32Array(orc.detritos)
+      mesh.userData.donoTombo = dono
+    }
     for (let k = 0; k < n; k++) {
       const idx = (cur.v = (cur.v + 1) % orc.detritos)
       mesh.count = Math.max(mesh.count, idx + 1)
-      const px = p.x + (hash(idx, 3) - 0.5) * 4
-      const pz = p.z + (hash(idx, 7) - 0.5) * 4
+      const donoVelho = dono[idx] - 1
+      if (donoVelho >= 0 && tombos[donoVelho].ativo && tombos[donoVelho].mesh === mesh && tombos[donoVelho].idx === idx) {
+        tombos[donoVelho].ativo = false
+      }
+      const px = p.x + (hash(idx, 3) - 0.5) * 2.6
+      const pz = p.z + (hash(idx, 7) - 0.5) * 2.6
       const slot = tombos[curTombo]
+      dono[idx] = curTombo + 1
       curTombo = (curTombo + 1) % CAP_TOMBOS
+      // vaga roubada em pleno voo assenta a instância antiga no chão antes
+      if (slot.ativo) assentaTombo(slot)
       slot.ativo = true
       slot.mesh = mesh
       slot.idx = idx
@@ -508,8 +535,8 @@ export function createBattlefield(
       slot.y = altura(px, pz)
       slot.z = pz
       slot.esc = 0.8 + hash(idx, 9) * 0.3
-      // apice do arco: 1.2 a 2.4, por hash de idx
-      slot.apice = 1.2 + hash(idx, 33) * 1.2
+      // arco baixo de corpo arremessado (0.7 a 1.4), não pulo de ginasta
+      slot.apice = 0.7 + hash(idx, 33) * 0.7
       // rotação de REPOUSO variada: nem todo mundo cai a exatos 90 graus,
       // soma hash * 0.5 rad nos eixos X e Z
       eScratchTombo.set(
