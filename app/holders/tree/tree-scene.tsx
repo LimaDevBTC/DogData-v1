@@ -449,13 +449,46 @@ export default function TreeScene() {
     flyTo(0, portrait ? 390 : 290, portrait ? 840 : 650, 0, 0, 0, 2600)
 
     const flyDir = new THREE.Vector3()
+    const flyView = new THREE.Vector3()
+    const flyRight = new THREE.Vector3()
+    const flyUpS = new THREE.Vector3()
     const flyToNode = (x: number, y: number, z: number) => {
       flyDir.set(x, y, z)
       if (flyDir.lengthSq() < 1) flyDir.set(0, 0.3, 1)
       flyDir.normalize()
-      // parada a 26 unidades (era 58): com o piso 16 e o fade da poeira,
-      // o voo termina com a estrela exata dominando o quadro
-      flyTo(x + flyDir.x * 26, y + 14, z + flyDir.z * 26, x, y, z, 1600)
+      // parada a ~30 unidades (era 58): com o piso 16 e o fade da poeira,
+      // o voo termina com a estrela exata dominando o quadro.
+      // ⚠️ chegada DE CIMA (14 radial, 26 vertical), nao rasante: a rasante
+      // atravessava a concha dos filhos (raio +34) e as estrelas coladas na
+      // camera viravam parede de bokeh por cima da HUD inteira.
+      const px = x + flyDir.x * 14
+      const py = y + 26
+      const pz = z + flyDir.z * 14
+      // ⚠️ ANCORA FORA DO PAINEL: centrada, a estrela parava exatamente
+      // atras do painel de info (retrato: painel em cima; desktop: painel
+      // a direita) e o fundador via o banner tapando a propria estrela.
+      // Deslocar CAMERA E ALVO pelo mesmo vetor muda so onde a estrela cai
+      // no quadro, sem mudar distancia nem orientacao: retrato joga a
+      // estrela pra ~76% da altura (abaixo do painel), desktop pra ~40% da
+      // largura (a esquerda do painel lateral).
+      flyView.set(x - px, y - py, z - pz).normalize()
+      flyRight.set(-flyView.z, 0, flyView.x)
+      if (flyRight.lengthSq() < 1e-6) flyRight.set(1, 0, 0)
+      flyRight.normalize()
+      flyUpS.crossVectors(flyRight, flyView)
+      const aspect = el.clientWidth / Math.max(1, el.clientHeight)
+      // altura do mundo visivel na profundidade da estrela (fov 55)
+      const dCam = Math.sqrt(14 * 14 + 26 * 26)
+      const alturaMundo = 2 * dCam * Math.tan((55 * Math.PI) / 360)
+      const larguraMundo = alturaMundo * aspect
+      const fx = aspect < 1 ? 0.5 : 0.4
+      const fy = aspect < 1 ? 0.76 : 0.5
+      const kx = (0.5 - fx) * larguraMundo
+      const ky = (fy - 0.5) * alturaMundo
+      const ox = flyRight.x * kx + flyUpS.x * ky
+      const oy = flyRight.y * kx + flyUpS.y * ky
+      const oz = flyRight.z * kx + flyUpS.z * ky
+      flyTo(px + ox, py + oy, pz + oz, x + ox, y + oy, z + oz, 1600)
     }
 
     // ── selecao: filhos em leque + linhagem + painel ─────────────────────────
@@ -656,10 +689,16 @@ export default function TreeScene() {
       const toleranciaTap = e.pointerType === 'touch' ? 16 : 7
       if (Math.hypot(e.clientX - downX, e.clientY - downY) > toleranciaTap) return
       const idx = pickAt(e.clientX, e.clientY, e.pointerType === 'touch' ? 26 : 14)
+      // ⚠️ o clique tambem VOA (antes so a busca voava): sem o voo, o painel
+      // de info abria por cima da estrela parada no centro e o fundador via
+      // o banner tapando a propria carteira. O voo ancora a estrela fora da
+      // area do painel (ver flyToNode).
       if (idx === -1 && rootNode) {
         selectNode(rootNode)
+        flyToNode(0, 0, 0)
       } else if (idx >= 0) {
         selectNode(nodeMeta[idx])
+        flyToNode(posArr[idx * 3], posArr[idx * 3 + 1], posArr[idx * 3 + 2])
       }
     }
 
@@ -872,7 +911,7 @@ export default function TreeScene() {
       {/* painel lateral do no selecionado */}
       {selected && (
         <div className="absolute top-0 right-0 h-full w-full sm:w-96 p-4 sm:p-6 pointer-events-none flex items-start sm:items-center">
-          <div className="pointer-events-auto w-full bg-[#0a0708]/90 border border-white/10 rounded-lg p-5 backdrop-blur-sm mt-40 sm:mt-0">
+          <div className="pointer-events-auto w-full bg-[#0a0708]/90 border border-white/10 rounded-lg p-4 backdrop-blur-sm mt-36 sm:mt-0 sm:p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-[10px] tracking-[0.25em] uppercase text-white/40">
