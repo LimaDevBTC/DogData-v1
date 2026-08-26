@@ -638,13 +638,32 @@ export function createBattlefield(
   const geoTiro = new THREE.SphereGeometry(1, 10, 10)
   const geoOnda = new THREE.RingGeometry(0.8, 1, 40)
   geoOnda.rotateX(-Math.PI / 2)
-  const geoRastro = new THREE.BoxGeometry(0.12, 0.12, 1)
-  geoRastro.translate(0, 0, -0.5)
+  // ⚠️ CAUDA DE COMETA, não cotonete (o fundador cravou): a caixa uniforme
+  // esticada com ponta redonda lia como cotonete voando. O rastro agora é um
+  // CONE afilado com cor por vértice: brilho pleno na cabeça (z=0), morrendo
+  // a nada na cauda (z=-1). Com blending aditivo, o decaimento vira o fade.
+  const fazGeoCometa = (raio: number) => {
+    const g = new THREE.ConeGeometry(raio, 1, 7, 1, true)
+    g.rotateX(-Math.PI / 2)
+    g.translate(0, 0, -0.5)
+    const pos = g.attributes.position
+    const cores = new Float32Array(pos.count * 3)
+    for (let i = 0; i < pos.count; i++) {
+      const f = Math.pow(Math.max(0, 1 + pos.getZ(i)), 1.6)
+      cores[i * 3] = f
+      cores[i * 3 + 1] = f
+      cores[i * 3 + 2] = f
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(cores, 3))
+    return g
+  }
+  const geoRastro = fazGeoCometa(0.16)
 
-  const matTiroCompra = new THREE.MeshBasicMaterial({ color: 0xffb35c })
-  const matTiroVenda = new THREE.MeshBasicMaterial({ color: 0xff5940 })
+  const matTiroCompra = new THREE.MeshBasicMaterial({ color: 0xffd9a0 })
+  const matTiroVenda = new THREE.MeshBasicMaterial({ color: 0xff6a50 })
   const matRastroCompra = new THREE.MeshBasicMaterial({
-    color: 0xffb35c, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false,
+    color: 0xffb35c, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false,
+    vertexColors: true, side: THREE.DoubleSide,
   })
   const matRastroVenda = matRastroCompra.clone()
   matRastroVenda.color.setHex(0xff5940)
@@ -1026,15 +1045,15 @@ export function createBattlefield(
   const geoCasca = new THREE.SphereGeometry(1, 8, 8)
   const matCascaCompra = new THREE.MeshBasicMaterial({ color: 0x3a2a1c })
   const matCascaVenda = new THREE.MeshBasicMaterial({ color: 0x2a1a1c })
-  const geoRastroPesado = new THREE.BoxGeometry(0.22, 0.22, 1)
-  geoRastroPesado.translate(0, 0, -0.5)
-  // opacity 0.95 (era 0.7): o rastro pesado é a linha que o olho segue da
-  // boca até a formação atingida, brilho fraco quebrava a leitura
+  // cauda de cometa também no pesado (mesma cura do cotonete), um tico mais
+  // gorda que a do tiro comum; o decaimento por vértice faz o fade da cauda
+  const geoRastroPesado = fazGeoCometa(0.3)
   const matRastroPCompra = new THREE.MeshBasicMaterial({
-    color: 0xffcf8a, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false,
+    color: 0xffc27a, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false,
+    vertexColors: true, side: THREE.DoubleSide,
   })
   const matRastroPVenda = matRastroPCompra.clone()
-  matRastroPVenda.color.setHex(0xff7a5a)
+  matRastroPVenda.color.setHex(0xff6a4c)
   const POOL_PESADO = 10
   // ⚠️ o mesmo pool de "casca pesada" serve DUAS armas (morteiro e canhão de
   // tanque): `arma` viaja no struct pra impacto() saber qual assinatura tocar
@@ -1066,8 +1085,10 @@ export function createBattlefield(
     mesh.material = lado === 'buy' ? matCascaCompra : matCascaVenda
     rastro.material = lado === 'buy' ? matRastroPCompra : matRastroPVenda
     mesh.visible = rastro.visible = true
-    // 1.8x da escala antiga: a casca pesada tem que ser SEGUÍVEL a olho nu
-    mesh.scale.setScalar((0.5 + Math.sqrt(forca) * 0.16) * 1.8)
+    // 1.2x da escala antiga: seguível sem virar balão (a 1.8x a cabeça
+    // gorda + rastro uniforme liam como cotonete; a cauda de cometa é quem
+    // carrega a leitura agora)
+    mesh.scale.setScalar((0.5 + Math.sqrt(forca) * 0.16) * 1.2)
     mesh.userData.de.copy(de)
     mesh.userData.para.copy(para)
     mesh.userData.prev.copy(de)
@@ -1169,8 +1190,9 @@ export function createBattlefield(
       )
       vAlvoTeatro.y = altura(vAlvoTeatro.x, vAlvoTeatro.z) + 0.4
     }
-    // 950 * 1.35: voo mais lento, tiro de tanque acompanhável (missão do 25/08)
-    disparaPesado(t.lado, 9, bocaTanque, vAlvoTeatro, 950 * 1.35, 'tanque')
+    // tiro de tanque é TENSO: rápido e raso (o 1.35x lento com corcova lia
+    // como parábola de desenho animado); a cauda de cometa dá a leitura
+    disparaPesado(t.lado, 9, bocaTanque, vAlvoTeatro, 820, 'tanque')
   }
   const esteiraPoeiraTanque = (t: Tanque, agora: number) => {
     if (agora < t.proxPoeira) return
@@ -2265,17 +2287,21 @@ export function createBattlefield(
     rastro.material = lado0 === 'buy' ? matRastroCompra : matRastroVenda
     mesh.visible = rastro.visible = true
     const teatroPesado = arma === 'canhao' || arma === 'mlrs'
-    mesh.scale.setScalar((0.22 * Math.sqrt(forca) + 0.12) * (teatroPesado ? 1.8 : 1))
+    mesh.scale.setScalar((0.22 * Math.sqrt(forca) + 0.12) * (teatroPesado ? 1.25 : 1))
     if (origem) mesh.userData.de.copy(origem)
     else mesh.userData.de.set(-lado * (14 + hash(sem % 31, 3) * 30) + frenteX, 1.2, zAlvo + (hash(sem % 13, 5) - 0.5) * 30)
     if (alvo) mesh.userData.para.copy(alvo)
     else mesh.userData.para.set(lado * (FRENTE + hash(sem % 7, 11) * 6) + frenteX, 0.8, zAlvo)
     mesh.userData.prev.copy(mesh.userData.de)
     const durBase = 750 + 350 * Math.min(3, forca / 8)
+    // ⚠️ CANHÃO É ARMA DE TIRO RASO: o 1.35x lento + arco alto da rodada
+    // anterior lia como parábola de escola (o fundador viu "trajetória
+    // quadrática"). Canhão agora voa RÁPIDO e quase reto; quem faz arco alto
+    // é morteiro, que é a arma de lançar
     tiros.push({
-      i, t0: performance.now(), dur: teatroPesado ? durBase * 1.35 : durBase, forca, lado: lado0, qty, arma,
-      // origem no ar (boca do heli, y > 5): arco raso; chão: fórmula clássica
-      arco: mesh.userData.de.y > 5 ? 2.5 : 6 + Math.min(18, forca),
+      i, t0: performance.now(), dur: arma === 'canhao' ? durBase * 0.8 : teatroPesado ? durBase * 1.1 : durBase,
+      forca, lado: lado0, qty, arma,
+      arco: mesh.userData.de.y > 5 ? 2.5 : arma === 'canhao' ? 2.6 + Math.min(5, forca * 0.25) : 6 + Math.min(18, forca),
     })
     // artilharia anuncia o disparo: clarão de boca + baforada na origem.
     // canhão de teatro ganha clarão 1.6x mais forte que o tiro comum: o
@@ -3563,11 +3589,10 @@ export function createBattlefield(
       const dist = passo.length()
       if (dist > 0.0005) rastro.quaternion.setFromUnitVectors(zEixo, passo.normalize())
       rastro.position.copy(mesh.position)
-      // rastro do teatro pesado (canhão e foguete do heli) mais grosso que o
-      // tiro comum; a espessura final ainda multiplica mesh.scale.x, que já
-      // cresceu 1.8x no atira, então o conjunto fecha ~1.8x do antigo
-      const espessuraRastro = t.arma === 'canhao' || t.arma === 'mlrs' ? 0.55 * 1.5 : 0.55
-      rastro.scale.set(mesh.scale.x * espessuraRastro, mesh.scale.x * espessuraRastro, Math.max(1.2, dist * 16 + t.forca * 0.35))
+      // cauda de cometa: a cabeça fina, o comprimento é quem conta a
+      // velocidade (canhão rápido = cauda longa, que é a física certa)
+      const espessuraRastro = t.arma === 'canhao' || t.arma === 'mlrs' ? 0.75 : 0.55
+      rastro.scale.set(mesh.scale.x * espessuraRastro, mesh.scale.x * espessuraRastro, Math.max(1.6, dist * 19 + t.forca * 0.3))
       mesh.userData.prev.copy(mesh.position)
     }
 
@@ -3850,15 +3875,22 @@ export function createBattlefield(
         continue
       }
       mesh.position.lerpVectors(mesh.userData.de, mesh.userData.para, f)
-      const subida = f < 0.62 ? Math.sin((f / 0.62) * Math.PI * 0.5) : 1
-      const queda = f > 0.62 ? Math.pow(1 - (f - 0.62) / 0.38, 2) : 1
-      mesh.position.y = 1 + subida * queda * (14 + Math.min(16, mt.forca) * 1.2)
+      // ⚠️ CADA ARMA COM A SUA BALÍSTICA: tanque é tiro tenso e quase reto
+      // (a corcova de morteiro nele lia como parábola de desenho animado);
+      // morteiro segue lançando alto, que é a identidade dele
+      if (mt.arma === 'tanque') {
+        mesh.position.y += Math.sin(f * Math.PI) * 2.2
+      } else {
+        const subida = f < 0.62 ? Math.sin((f / 0.62) * Math.PI * 0.5) : 1
+        const queda = f > 0.62 ? Math.pow(1 - (f - 0.62) / 0.38, 2) : 1
+        mesh.position.y = 1 + subida * queda * (11 + Math.min(12, mt.forca))
+      }
       passo.subVectors(mesh.position, mesh.userData.prev)
       const distP = passo.length()
       if (distP > 0.0005) rastro.quaternion.setFromUnitVectors(zEixo, passo.normalize())
       rastro.position.copy(mesh.position)
-      // 1.8x da espessura antiga (0.9): a linha de voo do teatro pesado
-      rastro.scale.set(1.6, 1.6, Math.max(1.6, distP * 14))
+      // cauda de cometa: fina na cabeça, comprimento pela velocidade real
+      rastro.scale.set(1.0, 1.0, Math.max(2.2, distP * 18))
       mesh.userData.prev.copy(mesh.position)
     }
 
