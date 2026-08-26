@@ -60,10 +60,10 @@ export function sanitizeNode(raw: Partial<TreeNode> & { w: string }): TreeNode {
 // escala visitável.
 // 2026-08-26: passo de 22 para 34 e base de 26 para 30 a pedido do fundador:
 // as conchas se afastam, as estrelas se separam e da pra navegar ate UMA.
-// 26/08 v3: base 48 e passo 42 ("aumentar a distancia tambem ajuda",
-// fundador): G1 esferica em r=90 respira e o leque do airdrop abre.
-export const SHELL_BASE = 48
-export const SHELL_STEP = 42
+// 26/08 v4: base 70 e passo 50 (fundador pediu mais distancia e menos
+// densidade): G1 esferica em r=120, area 1.8x maior que a v3.
+export const SHELL_BASE = 70
+export const SHELL_STEP = 50
 const SHELL_LINEAR_MAX = 24
 export const shellRadius = (depth: number) => {
   const d = Math.max(0, depth)

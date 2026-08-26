@@ -70,8 +70,8 @@ def hash01(s: str, salt: int) -> float:
     return (h & M32) / 4294967296.0
 
 
-SHELL_BASE = 48
-SHELL_STEP = 42
+SHELL_BASE = 70
+SHELL_STEP = 50
 SHELL_LINEAR_MAX = 24
 
 

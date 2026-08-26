@@ -144,7 +144,7 @@ export default function TreeScene() {
     scene.background = new THREE.Color(0x040305)
     scene.fog = new THREE.FogExp2(0x040305, 0.00075)
 
-    const camera = new THREE.PerspectiveCamera(55, el.clientWidth / el.clientHeight, 0.5, 9800)
+    const camera = new THREE.PerspectiveCamera(55, el.clientWidth / el.clientHeight, 0.5, 12000)
     camera.position.set(0, 320, 780)
 
     const renderer = new THREE.WebGLRenderer({ antialias: !mobile })
@@ -159,7 +159,7 @@ export default function TreeScene() {
     // distancia e o passo maior das conchas, 16 deixa chegar NA estrela
     // sem nevoa. O teto acompanha o universo esticado (passo 22 -> 34).
     controls.minDistance = 16
-    controls.maxDistance = 4200
+    controls.maxDistance = 5200
     controls.target.set(0, 0, 0)
     // rotacao ociosa lenta: para NA PRIMEIRA interacao e nao volta
     controls.autoRotate = true
@@ -378,6 +378,16 @@ export default function TreeScene() {
     //   raios: 1 a cada 67 fios, acesos, dando estrutura visivel de longe.
     let burstVeu: THREE.LineSegments | null = null
     let burstRaios: THREE.LineSegments | null = null
+    // o leque e ESTADO DO CLIQUE (fundador, 26/08): padrao DESLIGADO; abre
+    // quando a tesouraria e selecionada e fecha quando a selecao muda,
+    // igual ao leque de filhos de qualquer outra carteira
+    let lequeDesejado = false
+    const atualizaLeque = (raiz: boolean) => {
+      lequeDesejado = raiz
+      if (raiz) buildAirdropBurst()
+      if (burstVeu) burstVeu.visible = raiz
+      if (burstRaios) burstRaios.visible = raiz
+    }
     const buildAirdropBurst = () => {
       if (burstVeu || !popPos || !popDepth) return
       let n = 0
@@ -433,6 +443,8 @@ export default function TreeScene() {
       burstRaios = new THREE.LineSegments(gR, mR)
       burstRaios.frustumCulled = false
       scene.add(burstRaios)
+      burstVeu.visible = lequeDesejado
+      burstRaios.visible = lequeDesejado
     }
 
     let popFormato = 0
@@ -512,7 +524,7 @@ export default function TreeScene() {
       popPoints = new THREE.Points(g, starMat)
       popPoints.frustumCulled = false
       scene.add(popPoints)
-      buildAirdropBurst()
+      if (lequeDesejado) buildAirdropBurst()
     }
 
     // ── voo de camera (dolly de entrada e busca), sem alocacao no loop ───────
@@ -540,7 +552,7 @@ export default function TreeScene() {
 
     // dolly de entrada suave: de longe ate o enquadre padrao
     const portrait = el.clientWidth < el.clientHeight
-    flyTo(0, portrait ? 490 : 365, portrait ? 1050 : 820, 0, 0, 0, 2600)
+    flyTo(0, portrait ? 620 : 460, portrait ? 1330 : 1050, 0, 0, 0, 2600)
 
     const flyDir = new THREE.Vector3()
     const flyView = new THREE.Vector3()
@@ -555,9 +567,15 @@ export default function TreeScene() {
       // ⚠️ chegada DE CIMA (14 radial, 26 vertical), nao rasante: a rasante
       // atravessava a concha dos filhos (raio +34) e as estrelas coladas na
       // camera viravam parede de bokeh por cima da HUD inteira.
-      const px = x + flyDir.x * 14
-      const py = y + 26
-      const pz = z + flyDir.z * 14
+      // a tesouraria e caso especial: parar a 30 do centro poe a camera
+      // DENTRO da esfera da G1 (r=120) e o leque vira parede de fogo; a
+      // parada dela e fora da casca, com o dente-de-leao inteiro no quadro
+      const raiz = x === 0 && y === 0 && z === 0
+      const radial = raiz ? 150 : 14
+      const alto = raiz ? 270 : 26
+      const px = x + flyDir.x * radial
+      const py = y + alto
+      const pz = z + flyDir.z * radial
       // ⚠️ ANCORA FORA DO PAINEL: centrada, a estrela parava exatamente
       // atras do painel de info (retrato: painel em cima; desktop: painel
       // a direita) e o fundador via o banner tapando a propria estrela.
@@ -572,7 +590,7 @@ export default function TreeScene() {
       flyUpS.crossVectors(flyRight, flyView)
       const aspect = el.clientWidth / Math.max(1, el.clientHeight)
       // altura do mundo visivel na profundidade da estrela (fov 55)
-      const dCam = Math.sqrt(14 * 14 + 26 * 26)
+      const dCam = Math.sqrt(radial * radial + alto * alto)
       const alturaMundo = 2 * dCam * Math.tan((55 * Math.PI) / 360)
       const larguraMundo = alturaMundo * aspect
       const fx = aspect < 1 ? 0.5 : 0.4
@@ -678,6 +696,7 @@ export default function TreeScene() {
     const selectNode = (node: TreeNode) => {
       setSelected(node)
       setCopied(false)
+      atualizaLeque(node.d <= 0)
       void materializeChildren(node)
       void fetchPathAndDraw(node.w)
     }
@@ -688,6 +707,7 @@ export default function TreeScene() {
       if (!target || disposed) return
       setSelected(target)
       setCopied(false)
+      atualizaLeque(target.d <= 0)
       void materializeChildren(target)
       const idx = indexByWallet.get(target.w)
       if (target.d <= 0 || idx === undefined) {
@@ -701,6 +721,7 @@ export default function TreeScene() {
       focusWallet: (addr: string) => void focusWallet(addr),
       clearSelection: () => {
         clearLineage()
+        atualizaLeque(false)
         setSelected(null)
       },
     }
