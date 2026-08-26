@@ -2152,6 +2152,12 @@ export function createBattlefield(
       // caveirinha: marcador de BAIXA REAL. qty>0 só acontece em trade de
       // verdade (a escaramuça/rugido de fundo sempre manda qty 0)
       lib.caveira(p, lado)
+    } else if (forca >= 2 && arma !== 'fuzil') {
+      // baixa de ENCENAÇÃO pesada (morteiro, tanque, canhão, mlrs, bomba)
+      // também merece a caveira: o abate tem que aparecer sempre que soldado
+      // tomba, senão o marcador some nos minutos quietos do DOG. O NÚMERO
+      // continua só no trade real (a camada de dados nunca inventa DOG)
+      lib.caveira(p, lado)
     }
     const cor = lado === 'buy' ? 0xffa64d : 0xff5238
     const mesh = poolOndas[cursorOnda]
@@ -2652,9 +2658,11 @@ export function createBattlefield(
   // sai, só patrulha devagar atrás da própria linha e atira no próprio
   // relógio. Reaproveita a geometria de tanks.ts e dispararTanque/
   // esteiraPoeiraTanque, os mesmos que os tanques de surto já usam.
-  const X_TANQUE_GUARDA_RECUO = 14
-  const TANQUE_GUARDA_Z_LIMITE = 30
-  const VEL_TANQUE_GUARDA = 2
+  // ⚠️ recuo 14 escondia o tanque DENTRO da massa de infantaria (o fundador
+  // não viu nenhum); a 9 ele patrulha a borda da terra de ninguém, visível
+  const X_TANQUE_GUARDA_RECUO = 9
+  const TANQUE_GUARDA_Z_LIMITE = 38
+  const VEL_TANQUE_GUARDA = 2.6
   interface TanqueGuarda extends Tanque {
     dirZ: 1 | -1
   }
@@ -3128,13 +3136,14 @@ export function createBattlefield(
     for (const t of tombos) {
       if (!t.ativo || !t.mesh) continue
       if (t.fase === 0) {
-        const f = Math.min(1, (agora - t.tFase) / 550)
+        const f = Math.min(1, (agora - t.tFase) / 480)
         const arco = t.apice * Math.sin(f * Math.PI)
         vp.set(t.x, t.y + 0.05 + arco, t.z)
         // gira ALÉM da queda: slerp até paraFinal + um giro extra que decai
-        // a zero exatamente em f=1 (o corpo sempre pousa na rotação certa)
+        // a zero exatamente em f=1 (o corpo sempre pousa na rotação certa).
+        // ⚠️ meia volta e só: 2.2π aqui lia como cambalhota de ginasta
         q.slerpQuaternions(qZero, t.paraFinal, f * f)
-        const spinRestante = (1 - f) * Math.PI * 2.2 * (hash(t.idx, 31) > 0.5 ? 1 : -1)
+        const spinRestante = (1 - f) * Math.PI * 0.85 * (hash(t.idx, 31) > 0.5 ? 1 : -1)
         qTumble.setFromAxisAngle(EIXO_TOMBO, spinRestante)
         q.multiply(qTumble)
         vs.setScalar(t.esc)
