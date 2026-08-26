@@ -144,7 +144,7 @@ export default function TreeScene() {
     scene.background = new THREE.Color(0x040305)
     scene.fog = new THREE.FogExp2(0x040305, 0.00075)
 
-    const camera = new THREE.PerspectiveCamera(55, el.clientWidth / el.clientHeight, 0.5, 12000)
+    const camera = new THREE.PerspectiveCamera(55, el.clientWidth / el.clientHeight, 0.5, 14000)
     camera.position.set(0, 320, 780)
 
     const renderer = new THREE.WebGLRenderer({ antialias: !mobile })
@@ -159,7 +159,13 @@ export default function TreeScene() {
     // distancia e o passo maior das conchas, 16 deixa chegar NA estrela
     // sem nevoa. O teto acompanha o universo esticado (passo 22 -> 34).
     controls.minDistance = 16
-    controls.maxDistance = 5200
+    controls.maxDistance = 6000
+    // ⚠️ NAVEGACAO LIVRE COM SELECAO (fundador, 26/08): sem isso o dolly so
+    // ia ATE a estrela selecionada (o alvo da orbita fica nela) e viajar
+    // pra uma conexao exigia pan; com zoomToCursor o zoom LEVA a camera na
+    // direcao do ponteiro/pinca, entao da pra apontar pra qualquer estrela
+    // conectada e ir ate ela, selecionado ou nao
+    controls.zoomToCursor = true
     controls.target.set(0, 0, 0)
     // rotacao ociosa lenta: para NA PRIMEIRA interacao e nao volta
     controls.autoRotate = true
@@ -550,9 +556,17 @@ export default function TreeScene() {
       controls.autoRotate = false
     }
 
+    // ⚠️ o dedo manda: qualquer interacao do usuario CANCELA o voo em
+    // andamento (o tween reimpunha camera e alvo por 1.6s e a navegacao
+    // parecia travada logo depois de clicar numa estrela)
+    const cancelaVoo = () => {
+      tween.active = false
+    }
+    controls.addEventListener('start', cancelaVoo)
+
     // dolly de entrada suave: de longe ate o enquadre padrao
     const portrait = el.clientWidth < el.clientHeight
-    flyTo(0, portrait ? 620 : 460, portrait ? 1330 : 1050, 0, 0, 0, 2600)
+    flyTo(0, portrait ? 720 : 540, portrait ? 1540 : 1220, 0, 0, 0, 2600)
 
     const flyDir = new THREE.Vector3()
     const flyView = new THREE.Vector3()
@@ -571,8 +585,8 @@ export default function TreeScene() {
       // DENTRO da esfera da G1 (r=120) e o leque vira parede de fogo; a
       // parada dela e fora da casca, com o dente-de-leao inteiro no quadro
       const raiz = x === 0 && y === 0 && z === 0
-      const radial = raiz ? 150 : 14
-      const alto = raiz ? 270 : 26
+      const radial = raiz ? 180 : 14
+      const alto = raiz ? 320 : 26
       const px = x + flyDir.x * radial
       const py = y + alto
       const pz = z + flyDir.z * radial
@@ -984,6 +998,7 @@ export default function TreeScene() {
       renderer.domElement.removeEventListener('pointerdown', onPointerDown)
       renderer.domElement.removeEventListener('pointerup', onPointerUp)
       controls.removeEventListener('start', stopIdleSpin)
+      controls.removeEventListener('start', cancelaVoo)
       controls.dispose()
       starGeom.dispose()
       starMat.dispose()
