@@ -21,6 +21,7 @@ export async function GET() {
         vwap24: Number(t.p?.[1]),
         volume24: Number(t.v?.[1]),
         open: Number(t.o),
+        trades24: Number(t.t?.[1]),
       },
       { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' } },
     )

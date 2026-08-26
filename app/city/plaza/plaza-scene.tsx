@@ -682,10 +682,10 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // sistema vivo da cena. Quem quiser a guerra abre no navegador.
         if (!emLite) {
           const orcCampo = profile.quality === 'high'
-            ? { cap: 4200, niveis: 40, maxOndas: 16, maxLuzes: 2, detritos: 500, poeiraMax: 700, faiscaMax: 200 }
+            ? { cap: 4200, niveis: 80, maxOndas: 16, maxLuzes: 2, detritos: 500, poeiraMax: 700, faiscaMax: 200 }
             : profile.quality === 'balanced'
-              ? { cap: 2200, niveis: 28, maxOndas: 10, maxLuzes: 1, detritos: 300, poeiraMax: 450, faiscaMax: 120 }
-              : { cap: 900, niveis: 18, maxOndas: 6, maxLuzes: 1, detritos: 140, poeiraMax: 220, faiscaMax: 70 }
+              ? { cap: 2200, niveis: 56, maxOndas: 10, maxLuzes: 1, detritos: 300, poeiraMax: 450, faiscaMax: 120 }
+              : { cap: 900, niveis: 36, maxOndas: 6, maxLuzes: 1, detritos: 140, poeiraMax: 220, faiscaMax: 70 }
           // rotação escolhida pra frente cruzar NW-SE: quem chega da praça vê os
           // cães de frente e os ursos do outro lado
           const rotY = (5 * Math.PI) / 4

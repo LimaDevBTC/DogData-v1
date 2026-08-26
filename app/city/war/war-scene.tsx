@@ -55,9 +55,9 @@ function detectaTier(): Tier {
 }
 
 const ORCAMENTO: Record<Tier, OrcamentoBatalha & { dpr: number; antialias: boolean; bloom: boolean; motas: number }> = {
-  low:  { dpr: 1.0, cap: 1000, niveis: 18, antialias: false, bloom: false, maxOndas: 6,  maxLuzes: 2, detritos: 160, poeiraMax: 240, faiscaMax: 80,  motas: 150 },
-  mid:  { dpr: 1.5, cap: 2200, niveis: 28, antialias: false, bloom: false, maxOndas: 10, maxLuzes: 3, detritos: 350, poeiraMax: 500, faiscaMax: 140, motas: 300 },
-  high: { dpr: 2.0, cap: 4200, niveis: 40, antialias: true,  bloom: true,  maxOndas: 20, maxLuzes: 6, detritos: 700, poeiraMax: 900, faiscaMax: 240, motas: 500 },
+  low:  { dpr: 1.0, cap: 1000, niveis: 36, antialias: false, bloom: false, maxOndas: 6,  maxLuzes: 2, detritos: 160, poeiraMax: 240, faiscaMax: 80,  motas: 150 },
+  mid:  { dpr: 1.5, cap: 2200, niveis: 56, antialias: false, bloom: false, maxOndas: 10, maxLuzes: 3, detritos: 350, poeiraMax: 500, faiscaMax: 140, motas: 300 },
+  high: { dpr: 2.0, cap: 4200, niveis: 80, antialias: true,  bloom: true,  maxOndas: 20, maxLuzes: 6, detritos: 700, poeiraMax: 900, faiscaMax: 240, motas: 500 },
 }
 
 interface Hud {
@@ -75,6 +75,12 @@ interface Hud {
   bidsUsd: number
   asksUsd: number
   spread: number
+  dogPorSoldado: number
+  niveisBook: number
+  niveisEncenados: number
+  vwap24: number
+  volume24: number
+  trades24: number
   fita: Array<{ lado: 'buy' | 'sell'; qty: number; preco: number; t: number }>
 }
 
@@ -82,7 +88,7 @@ export default function WarScene() {
   const montagem = useRef<HTMLDivElement>(null)
   const [hud, setHud] = useState<Hud>({
     preco: 0, delta24: 0, status: 'connecting', ursosCaidos: 0, caesCaidos: 0, compra: 0, venda: 0,
-    bidsDog: 0, asksDog: 0, bidsUsd: 0, asksUsd: 0, spread: 0, fita: [],
+    bidsDog: 0, asksDog: 0, bidsUsd: 0, asksUsd: 0, spread: 0, dogPorSoldado: 0, niveisBook: 0, niveisEncenados: 0, vwap24: 0, volume24: 0, trades24: 0, fita: [],
   })
   const [baleia, setBaleia] = useState<{ lado: 'buy' | 'sell'; chave: number } | null>(null)
 
@@ -415,6 +421,12 @@ export default function WarScene() {
           bidsUsd: h.bidsUsd,
           asksUsd: h.asksUsd,
           spread: h.spread,
+          dogPorSoldado: h.dogPorSoldado,
+          niveisBook: h.niveisBook,
+          niveisEncenados: h.niveisEncenados,
+          vwap24: h.vwap24,
+          volume24: h.volume24,
+          trades24: h.trades24,
           fita: h.fita,
         })
       }
@@ -548,6 +560,11 @@ export default function WarScene() {
         <div className="mx-auto mt-1.5 flex h-[3px] w-56 sm:w-72 overflow-hidden rounded-full bg-white/10">
           <div className="h-full bg-[#f7931a]" style={{ width: `${fracaoBidParede * 100}%` }} />
           <div className="h-full bg-red-500/70" style={{ width: `${(1 - fracaoBidParede) * 100}%` }} />
+        </div>
+        {/* a régua declarada: precisão visual auditável, não pirotecnia */}
+        <div className="mt-1.5 hidden font-mono text-[9px] uppercase tracking-[0.16em] text-white/35 sm:block">
+          {hud.volume24 > 0 && <>24h vol {fmtDog(hud.volume24)} DOG · vwap ${hud.vwap24 > 0 ? hud.vwap24.toFixed(6) : '-'} · {hud.trades24.toLocaleString()} trades · </>}
+          1 soldier = {hud.dogPorSoldado > 0 ? fmtDog(hud.dogPorSoldado) : '-'} DOG · staging {hud.niveisEncenados} of {hud.niveisBook} book levels
         </div>
       </div>
 

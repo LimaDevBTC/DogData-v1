@@ -53,6 +53,13 @@ export interface HudBatalha {
   bidsUsd: number
   asksUsd: number
   spread: number
+  /** régua absoluta da encenação e profundidade real recebida do feed */
+  dogPorSoldado: number
+  niveisBook: number
+  niveisEncenados: number
+  vwap24: number
+  volume24: number
+  trades24: number
   /** fita: últimos trades reais, mais novo primeiro */
   fita: Array<{ lado: 'buy' | 'sell'; qty: number; preco: number; t: number }>
 }
@@ -1535,6 +1542,9 @@ export function createBattlefield(
   let low24 = 0
   let high24 = 0
   let open24 = 0
+  let vwap24 = 0
+  let volume24 = 0
+  let trades24 = 0
   let bidsDog = 0
   let asksDog = 0
   let bidsUsd = 0
@@ -1547,7 +1557,7 @@ export function createBattlefield(
     if (feed) return
     status = 'connecting'
     feed = connectKraken({
-      depth: 100,
+      depth: 500,
       onBook: (bids, asks) => {
         book = { bids, asks }
         bookSujo = true
@@ -1583,6 +1593,9 @@ export function createBattlefield(
           low24 = t.low24
           high24 = t.high24
           open24 = t.open
+          vwap24 = t.vwap24 ?? 0
+          volume24 = t.volume24 ?? 0
+          trades24 = t.trades24 ?? 0
         }
       })
       .catch(() => {})
@@ -1731,12 +1744,21 @@ export function createBattlefield(
     return s * Math.min(Math.abs(d) + FRENTE, CAMPO_X + 14) + frenteX
   }
 
-  const montaExercito = (ex: Exercito, niveis: BookLevel[], lado: 1 | -1, qMediana: number) => {
+  // ⚠️ PRECISÃO VISUAL (fundador, 25/08): a escala antiga era 6·raiz(qty/mediana),
+  // que esmagava diferenças e mudava com o resto do book. A régua nova é UMA
+  // SÓ para os dois lados (exércitos sempre comparáveis entre si) e ADAPTATIVA:
+  // parte do piso do tier e sobe apenas o necessário para o MAIOR exército
+  // encenado caber no orçamento de instâncias (com 500 níveis o lado pesado
+  // estourava o teto e os dois lados ficavam iguais na marra). O valor vivo
+  // aparece na legenda do HUD: "1 soldier = X DOG".
+  const RATIO_PISO = orc.cap >= 4000 ? 25_000 : orc.cap >= 2000 ? 50_000 : 100_000
+  let dogPorSoldadoAtual = RATIO_PISO
+  const montaExercito = (ex: Exercito, niveis: BookLevel[], lado: 1 | -1) => {
     let i = 0
     for (let li = 0; li < niveis.length && i < orc.cap; li++) {
       const nv = niveis[li]
       const x0 = precoParaX(nv.price)
-      const unidades = Math.min(96, Math.max(1, Math.round(6 * Math.sqrt(nv.qty / qMediana))))
+      const unidades = Math.max(1, Math.round(nv.qty / dogPorSoldadoAtual))
       // ⚠️ NADA DE DESFILE (fundador, 25/08): a grade de 12 colunas com jitter
       // mínimo lia como parada militar, fileiras 100% organizadas e estreitas.
       // Agora cada nível vira ESQUADRÕES de ~5 espalhados pela frente inteira:
@@ -1816,17 +1838,23 @@ export function createBattlefield(
     bidsDog = book.bids.reduce((s, l) => s + l.qty, 0)
     asksDog = book.asks.reduce((s, l) => s + l.qty, 0)
     bidsUsd = book.bids.reduce((s, l) => s + l.qty * l.price, 0)
-    asksUsd = book.asks.reduce((s, l) => s + l.qty * l.price, 0)
+    // ⚠️ bids em dólar = USD de fato comprometido (qty×preço do nível); asks em
+    // dólar = o DOG à venda avaliado ao preço de MERCADO, senão asks profundos
+    // a preços de sonho inflam a muralha (US$48M numa moeda de US$140M de mcap)
+    asksUsd = asksDog * mid
     spreadAtual = book.asks[0].price - book.bids[0].price
     const alcance = Math.max(
       bids.length ? mid - bids[bids.length - 1].price : 0,
       asks.length ? asks[asks.length - 1].price - mid : 0,
     )
     spanSuave = spanSuave === 0 ? alcance : spanSuave * 0.92 + alcance * 0.08
-    const todas = [...bids, ...asks].map((l) => l.qty).sort((a, b) => a - b)
-    const qMediana = todas[Math.floor(todas.length / 2)] || 1
-    montaExercito(exCaes, bids, -1, qMediana)
-    montaExercito(exUrsos, asks, 1, qMediana)
+    // a régua se ajusta ANTES de montar: o maior lado encenado dita a escala
+    const somaB = bids.reduce((t, l) => t + l.qty, 0)
+    const somaA = asks.reduce((t, l) => t + l.qty, 0)
+    const maior = Math.max(somaB, somaA)
+    dogPorSoldadoAtual = Math.max(RATIO_PISO, Math.ceil(maior / (orc.cap * 0.92) / 5000) * 5000)
+    montaExercito(exCaes, bids, -1)
+    montaExercito(exUrsos, asks, 1)
 
     if (low24 > 0 && high24 > low24 && mid > 0) {
       // régua e obeliscos vivem na MESMA escala territorial da frente: os
@@ -2541,6 +2569,9 @@ export function createBattlefield(
       preco: mid, low24, high24, open24, status,
       ursosCaidos, caesCaidos, compra, venda,
       bidsDog, asksDog, bidsUsd, asksUsd, spread: spreadAtual,
+      dogPorSoldado: dogPorSoldadoAtual, niveisBook: book.bids.length + book.asks.length,
+      niveisEncenados: Math.min(orc.niveis, book.bids.length) + Math.min(orc.niveis, book.asks.length),
+      vwap24, volume24, trades24,
       fita: [...fita],
     }),
     dispose: () => {

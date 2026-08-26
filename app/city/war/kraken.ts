@@ -56,6 +56,14 @@ export function connectKraken(opts: {
     }
   }
 
+  // ⚠️ INTEGRIDADE SEM CRC: a Kraken manda checksum em cada mensagem de book,
+  // mas validar exige reconstruir a string decimal exata dela (regra frágil).
+  // A defesa pragmática tem duas pernas: um RESYNC periódico (reassina o book
+  // a cada 4 min, o snapshot novo substitui o estado inteiro e apaga qualquer
+  // deriva silenciosa) e um WATCHDOG (book vivo sem mensagem por 45s = socket
+  // doente, fecha e deixa a reconexão trazer snapshot fresco).
+  let ultimoBookMs = 0
+  let resyncTimer: ReturnType<typeof setInterval> | null = null
   const abre = () => {
     if (dead) return
     opts.onStatus('connecting')
@@ -63,8 +71,19 @@ export function connectKraken(opts: {
 
     ws.onopen = () => {
       tentativa = 0
+      ultimoBookMs = Date.now()
       ws?.send(JSON.stringify({ method: 'subscribe', params: { channel: 'book', symbol: [SYMBOL], depth } }))
       ws?.send(JSON.stringify({ method: 'subscribe', params: { channel: 'trade', symbol: [SYMBOL] } }))
+      if (resyncTimer) clearInterval(resyncTimer)
+      resyncTimer = setInterval(() => {
+        if (dead || !ws || ws.readyState !== WebSocket.OPEN) return
+        if (Date.now() - ultimoBookMs > 45_000) {
+          try { ws.close() } catch {}
+          return
+        }
+        ws.send(JSON.stringify({ method: 'unsubscribe', params: { channel: 'book', symbol: [SYMBOL], depth } }))
+        ws.send(JSON.stringify({ method: 'subscribe', params: { channel: 'book', symbol: [SYMBOL], depth } }))
+      }, 240_000)
     }
 
     ws.onmessage = (ev) => {
@@ -75,6 +94,7 @@ export function connectKraken(opts: {
         return
       }
       if (m.channel === 'book') {
+        ultimoBookMs = Date.now()
         for (const d of m.data || []) {
           if (m.type === 'snapshot') {
             bids.clear()
@@ -119,6 +139,7 @@ export function connectKraken(opts: {
     stop: () => {
       dead = true
       clearTimeout(timer)
+      if (resyncTimer) clearInterval(resyncTimer)
       try {
         ws?.close()
       } catch {}
