@@ -31,7 +31,29 @@ function licenseFor(total: number): 'commercial' | 'personal' | 'citizen' {
   return 'citizen'
 }
 
-export async function GET(_req: NextRequest) {
+// ⚠️ DISJUNTOR (incidente de IO de 26/08): esta rota mora no portão de carga
+// da praça e da landing; pendurada no banco anêmico ela travou a cidade nos
+// 90%. Prazo de 8s: estourou, 503 rápido com cache curto na CDN pra
+// segurar a manada, e o cliente segue sem o leaderboard.
+export async function GET(req: NextRequest) {
+  let timer: ReturnType<typeof setTimeout> | null = null
+  const prazo = new Promise<NextResponse>((res) => {
+    timer = setTimeout(() => res(NextResponse.json(
+      { error: 'data backend busy' },
+      { status: 503, headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=60' } },
+    )), 8000)
+  })
+  try {
+    return await Promise.race([handler(req).catch(() => NextResponse.json(
+      { error: 'leaderboard unavailable' },
+      { status: 503, headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=60' } },
+    )), prazo])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
+async function handler(_req: NextRequest) {
   try {
     // Fetch all txs that involve the donation wallet
     const { data, error } = await supabase

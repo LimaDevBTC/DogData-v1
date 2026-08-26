@@ -323,7 +323,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
   const [tour, setTour] = useState<{ i: number; text: string; n: number } | null>(null)
   useEffect(() => {
     let alive = true
-    fetch('/api/donate/leaderboard')
+    fetch('/api/donate/leaderboard', { signal: AbortSignal.timeout(10000) })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         if (!alive || !j) return
@@ -1189,7 +1189,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         const pDsc = buildDscGallery({ heightAt, profile, culler })
           .then((g) => { if (!g || disposed) { g?.dispose(); return } dsc = g; scene.add(g.group) })
           .catch((err) => console.warn('[plaza] dsc', err))
-        const pFounders = fetch('/api/donate/leaderboard')
+        // ⚠️ PRAZO OBRIGATÓRIO: este fetch mora DENTRO do portão de carga; no
+        // incidente de IO de 26/08 a rota pendurou no banco anêmico e a praça
+        // inteira ficou refém nos 90% ("Engraving the founders' plaques").
+        // Sem dado a Calçada nasce vazia e a cidade abre; placa não segura porta.
+        const pFounders = fetch('/api/donate/leaderboard', { signal: AbortSignal.timeout(10000) })
           .then((r) => (r.ok ? (r.json() as Promise<FoundersData>) : null))
           .catch(() => null)
           .then((data) => {
