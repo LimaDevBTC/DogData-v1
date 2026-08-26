@@ -714,11 +714,15 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // WebView de carteira mata a aba por memória, e a batalha é o maior
         // sistema vivo da cena. Quem quiser a guerra abre no navegador.
         if (!emLite) {
-          const orcCampo = profile.quality === 'high'
-            ? { cap: 4200, niveis: 80, maxOndas: 16, maxLuzes: 2, detritos: 500, poeiraMax: 700, faiscaMax: 200 }
-            : profile.quality === 'balanced'
-              ? { cap: 2200, niveis: 56, maxOndas: 10, maxLuzes: 1, detritos: 300, poeiraMax: 450, faiscaMax: 120 }
-              : { cap: 900, niveis: 36, maxOndas: 6, maxLuzes: 1, detritos: 140, poeiraMax: 220, faiscaMax: 70 }
+          // ⚠️ UMA BATALHA SÓ (fundador flagrou "duas versões"): o BALANCED
+          // padrão montava o campo pela metade (2200/56) e a cratera parecia
+          // uma batalha mais pobre que o palco solo /city/war. Agora que a
+          // CHEGADA é a batalha, balanced e high recebem o campo cheio, igual
+          // ao palco; só as luzes ficam em 2 (orçamento estrutural da cidade,
+          // ≤10 PointLights no total). O low continua enxuto: é o celular.
+          const orcCampo = profile.quality === 'low'
+            ? { cap: 900, niveis: 36, maxOndas: 6, maxLuzes: 1, detritos: 140, poeiraMax: 220, faiscaMax: 70 }
+            : { cap: 4200, niveis: 80, maxOndas: 20, maxLuzes: 2, detritos: 700, poeiraMax: 900, faiscaMax: 240 }
           // rotação escolhida pra frente cruzar NW-SE: quem chega da praça vê os
           // cães de frente e os ursos do outro lado
           const rotY = (5 * Math.PI) / 4
