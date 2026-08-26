@@ -40,9 +40,16 @@ export default function LandingPage() {
   const [lb, setLb] = useState<LeaderboardData | null>(null)
 
   useEffect(() => {
-    fetch("/api/donate/leaderboard")
-      .then((r) => r.json())
-      .then(setLb)
+    // ⚠️ r.ok E a forma são obrigatórios: no incidente de 26/08 a rota
+    // devolveu 503 com corpo { error }, o objeto passava pelo guard de null
+    // dos componentes e um .toLocaleString() de campo inexistente derrubava a
+    // árvore inteira (tela preta de client-side exception em produção).
+    // Sem dado a landing renderiza com os placeholders, nunca quebra.
+    fetch("/api/donate/leaderboard", { signal: AbortSignal.timeout(10000) })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (j && typeof j.total_received === "number") setLb(j)
+      })
       .catch(() => {})
   }, [])
 

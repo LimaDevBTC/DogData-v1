@@ -257,8 +257,10 @@ export default function Section({}) {
     let cancelled = false
     setLoading(true)
     setErrored(false)
-    fetch(`/api/plot?address=${encodeURIComponent(query.addr)}`)
-      .then((r) => r.json())
+    fetch(`/api/plot?address=${encodeURIComponent(query.addr)}`, { signal: AbortSignal.timeout(15000) })
+      // ⚠️ sem o r.ok, um 503 com corpo { error } entrava como PlotData e
+      // estourava componente rio abaixo (mesma tela preta do leaderboard)
+      .then((r) => { if (!r.ok) throw new Error(`status ${r.status}`); return r.json() })
       .then((d: PlotData) => { if (!cancelled) setPlot(d) })
       .catch(() => { if (!cancelled) { setPlot(null); setErrored(true) } })
       .finally(() => { if (!cancelled) setLoading(false) })
