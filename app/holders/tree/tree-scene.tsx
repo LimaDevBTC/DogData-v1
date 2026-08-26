@@ -54,9 +54,31 @@ interface TooltipState {
   minimal?: boolean
 }
 
+interface FlowPeer {
+  w: string
+  label?: { name: string; cat: string; source: string } | null
+  dog: number
+  txs: number
+}
+
+interface NodeDossier {
+  w: string
+  label?: { name: string; cat: string; source: string } | null
+  balance_dog: number
+  pct_supply: number
+  rank: number | null
+  is_holder: boolean
+  lth_sth: string | null
+  depth: number
+  first_block: number
+  cohort_tier: string | null
+  flows: { in_dog: number; out_dog: number; top_in: FlowPeer[]; top_out: FlowPeer[] }
+}
+
 interface SceneApi {
   focusWallet: (addr: string) => void
   clearSelection: () => void
+  clearTrails: () => void
 }
 
 // textura de disco radial via canvas: o "map" das estrelas e da poeira
@@ -104,6 +126,11 @@ export default function TreeScene() {
   const [results, setResults] = useState<TreeNode[]>([])
   const [searching, setSearching] = useState(false)
   const [popInfo, setPopInfo] = useState<{ drawn: number } | null>(null)
+  const [trilhas, setTrilhas] = useState(0)
+  // dossie rico da rota /node (o mesmo que o Flow usa): rank, % do supply,
+  // LTH/STH, coorte e as maiores contrapartes com rotulo
+  const [dossie, setDossie] = useState<NodeDossier | null>(null)
+  const [cardAberto, setCardAberto] = useState(false)
 
   // ── busca (input controlado no React, voo executado pela cena) ─────────────
   useEffect(() => {
@@ -361,6 +388,7 @@ export default function TreeScene() {
       linkArr[o + 5] = bz
       linkCount++
       linkGeom.setDrawRange(0, linkCount * 2)
+      if (linkCount % 25 === 0 || linkCount === 1) setTrilhas(linkCount)
       ;(linkGeom.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true
     }
 
@@ -389,6 +417,7 @@ export default function TreeScene() {
     //   raios: 1 a cada 67 fios, acesos, dando estrutura visivel de longe.
     let burstVeu: THREE.LineSegments | null = null
     let burstRaios: THREE.LineSegments | null = null
+    let burstDest: THREE.Points | null = null
     // o leque e ESTADO DO CLIQUE (fundador, 26/08): padrao DESLIGADO; abre
     // quando a tesouraria e selecionada e fecha quando a selecao muda,
     // igual ao leque de filhos de qualquer outra carteira
@@ -398,6 +427,7 @@ export default function TreeScene() {
       if (raiz) buildAirdropBurst()
       if (burstVeu) burstVeu.visible = raiz
       if (burstRaios) burstRaios.visible = raiz
+      if (burstDest) burstDest.visible = raiz
     }
     const buildAirdropBurst = () => {
       if (burstVeu || !popPos || !popDepth) return
@@ -454,8 +484,43 @@ export default function TreeScene() {
       burstRaios = new THREE.LineSegments(gR, mR)
       burstRaios.frustumCulled = false
       scene.add(burstRaios)
+      // ⚠️ DESTINOS EM DESTAQUE: o fundador clicou no airdrop e nao viu em
+      // QUAIS estrelas as arestas pousavam. Destacar as 80 mil nao resolve
+      // (virou uma bola branca solida na primeira tentativa): destaca as
+      // MAIORES, que sao as que o olho procura. Limiar byte >= 139
+      // (1M+ DOG na escala do export), anel claro por cima do ponto.
+      const idxDest: number[] = []
+      if (popClasse && popDepth) {
+        for (let i = 0; i < popDepth.length; i++) {
+          if (popDepth[i] === 1 && popClasse[i] >= 139) idxDest.push(i)
+        }
+      }
+      const nD = idxDest.length
+      const posDest = new Float32Array(nD * 3)
+      const colDest = new Float32Array(nD * 3)
+      const sizeDest = new Float32Array(nD)
+      for (let j = 0; j < nD; j++) {
+        const i = idxDest[j]
+        posDest[j * 3] = popPos[i * 3]
+        posDest[j * 3 + 1] = popPos[i * 3 + 1]
+        posDest[j * 3 + 2] = popPos[i * 3 + 2]
+        colDest[j * 3] = 0.85
+        colDest[j * 3 + 1] = 0.62
+        colDest[j * 3 + 2] = 0.28
+        // um degrau acima do tamanho real da carteira: destaca sem mentir
+        const saldo = Math.pow(10, (popClasse![i] / 255) * 11) - 1
+        sizeDest[j] = sizeFromBalance(saldo) * 1.35
+      }
+      const gD = new THREE.BufferGeometry()
+      gD.setAttribute('position', new THREE.BufferAttribute(posDest, 3))
+      gD.setAttribute('color', new THREE.BufferAttribute(colDest, 3))
+      gD.setAttribute('size', new THREE.BufferAttribute(sizeDest, 1))
+      burstDest = new THREE.Points(gD, starMat)
+      burstDest.frustumCulled = false
+      scene.add(burstDest)
       burstVeu.visible = lequeDesejado
       burstRaios.visible = lequeDesejado
+      burstDest.visible = lequeDesejado
     }
 
     let popFormato = 0
@@ -591,8 +656,11 @@ export default function TreeScene() {
       // DENTRO da esfera da G1 (r=120) e o leque vira parede de fogo; a
       // parada dela e fora da casca, com o dente-de-leao inteiro no quadro
       const raiz = x === 0 && y === 0 && z === 0
-      const radial = raiz ? 180 : 14
-      const alto = raiz ? 320 : 26
+      // a esfera da G1 tem raio ~143: a parada precisa ficar FORA dela com
+      // folga, senao o leque preenche a tela inteira e nao da pra ver onde
+      // as arestas pousam
+      const radial = raiz ? 300 : 14
+      const alto = raiz ? 480 : 26
       const px = x + flyDir.x * radial
       const py = y + alto
       const pz = z + flyDir.z * radial
@@ -743,6 +811,20 @@ export default function TreeScene() {
         clearLineage()
         atualizaLeque(false)
         setSelected(null)
+      },
+      // Clear de verdade: o desenho que o usuario foi acumulando clique a
+      // clique (arestas pai-filho de cada carteira aberta) e uma feature,
+      // mas precisava de vassoura (fundador 26/08). Zera as arestas, a
+      // linhagem, o leque e o conjunto de expandidos, entao os mesmos
+      // cliques voltam a materializar do zero.
+      clearTrails: () => {
+        linkCount = 0
+        linkGeom.setDrawRange(0, 0)
+        clearLineage()
+        atualizaLeque(false)
+        expanded.clear()
+        setSelected(null)
+        setTrilhas(0)
       },
     }
 
@@ -1027,6 +1109,7 @@ export default function TreeScene() {
         burstRaios.geometry.dispose()
         ;(burstRaios.material as THREE.Material).dispose()
       }
+      if (burstDest) burstDest.geometry.dispose()
       starTex.dispose()
       sunTex.dispose()
       renderer.dispose()
@@ -1035,6 +1118,28 @@ export default function TreeScene() {
     // roda uma unica vez: toda comunicacao posterior passa por apiRef
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // dossie completo da carteira selecionada: enriquece o card sem tocar na
+  // cena (a rota ja existe e e cacheada; falha nao quebra nada, o card
+  // continua com o que a cena ja sabe)
+  useEffect(() => {
+    const w = selected?.w
+    if (!w) {
+      setDossie(null)
+      return
+    }
+    let morto = false
+    setDossie(null)
+    fetch(`/api/holders/tree/node?w=${encodeURIComponent(w)}`, { signal: AbortSignal.timeout(9000) })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!morto && j && typeof j.balance_dog === 'number') setDossie(j as NodeDossier)
+      })
+      .catch(() => {})
+    return () => {
+      morto = true
+    }
+  }, [selected?.w])
 
   const copyAddress = async (addr: string) => {
     try {
@@ -1096,6 +1201,14 @@ export default function TreeScene() {
                 {' '}{fmtInt(popInfo.drawn)} in the field plus the brightest lineages.
                 Click any dot to open it.
               </p>
+            )}
+            {trilhas > 0 && (
+              <button
+                onClick={() => apiRef.current?.clearTrails()}
+                className="pointer-events-auto mt-3 border border-white/15 px-2.5 py-1 text-[9px] uppercase tracking-[0.2em] text-white/50 transition-colors hover:border-[#f7931a]/50 hover:text-[#f7931a]"
+              >
+                Clear trails
+              </button>
             )}
             {hud.status === 'error' && (
               <p className="mt-2 text-[10px] text-white/40">Tree data is still being written. Refresh in a moment.</p>
@@ -1163,7 +1276,7 @@ export default function TreeScene() {
       {/* painel lateral do no selecionado */}
       {selected && (
         <div className="absolute top-0 right-0 h-full w-full sm:w-96 p-4 sm:p-6 pointer-events-none flex items-start sm:items-center">
-          <div className="pointer-events-auto w-full bg-[#0a0708]/90 border border-white/10 rounded-lg p-3 backdrop-blur-sm mt-36 sm:mt-0 sm:p-5">
+          <div className="pointer-events-auto max-h-[62vh] w-full overflow-y-auto overscroll-contain bg-[#0a0708]/90 border border-white/10 rounded-lg p-3 backdrop-blur-sm mt-36 sm:mt-0 sm:max-h-[86vh] sm:p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-[10px] tracking-[0.25em] uppercase text-white/40">
@@ -1191,6 +1304,29 @@ export default function TreeScene() {
               </button>
             </div>
 
+            {/* linha de identidade: posicao no ranking e fatia do supply,
+                os dois numeros que dizem "quao grande e esta carteira" */}
+            {dossie && (dossie.rank !== null || dossie.pct_supply > 0) && (
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-[9px] uppercase tracking-[0.15em]">
+                {dossie.rank !== null && (
+                  <span className="border border-[#f7931a]/40 px-1.5 py-0.5 text-[#f7931a]">
+                    Rank #{fmtInt(dossie.rank)}
+                  </span>
+                )}
+                {dossie.pct_supply > 0 && (
+                  <span className="border border-white/15 px-1.5 py-0.5 text-white/60">
+                    {dossie.pct_supply < 0.01 ? '<0.01' : dossie.pct_supply.toFixed(2)}% of supply
+                  </span>
+                )}
+                {dossie.lth_sth && (
+                  <span className="border border-white/15 px-1.5 py-0.5 text-white/60">{dossie.lth_sth}</span>
+                )}
+                {dossie.cohort_tier && (
+                  <span className="border border-white/15 px-1.5 py-0.5 text-white/60">{dossie.cohort_tier}</span>
+                )}
+              </div>
+            )}
+
             <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-[10px] sm:mt-4 sm:gap-y-3">
               <div>
                 <div className="tracking-[0.2em] uppercase text-white/40">DOG held</div>
@@ -1199,31 +1335,95 @@ export default function TreeScene() {
                 </div>
               </div>
               <div>
-                <div className="tracking-[0.2em] uppercase text-white/40">First block</div>
-                <div className="mt-0.5 text-[12px] text-white/80 sm:text-sm">{selected.fb > 0 ? fmtInt(selected.fb) : '...'}</div>
+                <div className="tracking-[0.2em] uppercase text-white/40">Direct children</div>
+                <div className="mt-0.5 text-[12px] text-white/80 sm:text-sm">{fmtInt(selected.c)}</div>
               </div>
               <div>
                 <div className="tracking-[0.2em] uppercase text-white/40">Subtree holders</div>
                 <div className="mt-0.5 text-[12px] text-white/80 sm:text-sm">{fmtInt(selected.sh)}</div>
               </div>
               <div>
-                <div className="tracking-[0.2em] uppercase text-white/40">Subtree wallets</div>
-                <div className="mt-0.5 text-[12px] text-white/80 sm:text-sm">{fmtInt(selected.sw)}</div>
-              </div>
-              <div>
                 <div className="tracking-[0.2em] uppercase text-white/40">Subtree DOG</div>
                 <div className="mt-0.5 text-[12px] text-white/80 sm:text-sm">{fmtDog(selected.sb)}</div>
               </div>
-              <div>
-                <div className="tracking-[0.2em] uppercase text-white/40">Direct children</div>
-                <div className="mt-0.5 text-[12px] text-white/80 sm:text-sm">{fmtInt(selected.c)}</div>
-              </div>
             </div>
+
+            {/* ⚠️ o resto do dossie e SEMPRE visivel no desktop (ha espaco de
+                sobra) e fica atras do botao no celular, onde o card precisa
+                caber junto com a estrela (fundador 26/08) */}
+            <div className={`${cardAberto ? 'block' : 'hidden'} sm:block`}>
+              <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-[10px] sm:gap-y-3">
+                <div>
+                  <div className="tracking-[0.2em] uppercase text-white/40">Subtree wallets</div>
+                  <div className="mt-0.5 text-[12px] text-white/80 sm:text-sm">{fmtInt(selected.sw)}</div>
+                </div>
+                <div>
+                  <div className="tracking-[0.2em] uppercase text-white/40">First block</div>
+                  <div className="mt-0.5 text-[12px] text-white/80 sm:text-sm">
+                    {selected.fb > 0 ? fmtInt(selected.fb) : '...'}
+                  </div>
+                </div>
+                {dossie && (
+                  <>
+                    <div>
+                      <div className="tracking-[0.2em] uppercase text-white/40">Total received</div>
+                      <div className="mt-0.5 text-[12px] text-white/80 sm:text-sm">{fmtDog(dossie.flows.in_dog)}</div>
+                    </div>
+                    <div>
+                      <div className="tracking-[0.2em] uppercase text-white/40">Total sent</div>
+                      <div className="mt-0.5 text-[12px] text-white/80 sm:text-sm">{fmtDog(dossie.flows.out_dog)}</div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* as maiores contrapartes: cada uma leva a propria estrela */}
+              {dossie && (dossie.flows.top_in.length > 0 || dossie.flows.top_out.length > 0) && (
+                <div className="mt-4 space-y-3">
+                  {(
+                    [
+                      ['Received from', dossie.flows.top_in, '#E8660D'],
+                      ['Sent to', dossie.flows.top_out, '#4A90D9'],
+                    ] as [string, FlowPeer[], string][]
+                  ).map(([titulo, lista, cor]) =>
+                    lista.length === 0 ? null : (
+                      <div key={titulo}>
+                        <div className="text-[9px] uppercase tracking-[0.2em] text-white/40">{titulo}</div>
+                        <div className="mt-1 space-y-0.5">
+                          {lista.slice(0, 4).map((peer) => (
+                            <button
+                              key={peer.w}
+                              onClick={() => apiRef.current?.focusWallet(peer.w)}
+                              className="flex w-full items-center justify-between gap-2 py-0.5 text-left text-[10px] text-white/60 transition-colors hover:text-[#f7931a]"
+                            >
+                              <span className="truncate">
+                                {peer.label ? peer.label.name : shortAddr(peer.w)}
+                              </span>
+                              <span className="shrink-0 font-mono" style={{ color: cor }}>
+                                {fmtDog(peer.dog)}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ),
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* expandir: so no celular, so quando ha mais para ver */}
+            <button
+              onClick={() => setCardAberto((v) => !v)}
+              className="mt-3 w-full border border-white/10 py-1 text-[9px] uppercase tracking-[0.2em] text-white/45 transition-colors hover:text-white/80 sm:hidden"
+            >
+              {cardAberto ? 'Less' : 'More details'}
+            </button>
 
             {/* regra da casa: link de carteira fica em casa */}
             <a
               href={`/address/bitcoin/${selected.w}`}
-              className="mt-3 block w-full text-center text-[10px] tracking-[0.25em] uppercase border border-[#f7931a]/40 text-[#f7931a] rounded px-3 py-1.5 sm:mt-5 sm:py-2 hover:bg-[#f7931a]/10 transition-colors"
+              className="mt-3 block w-full text-center text-[10px] tracking-[0.25em] uppercase border border-[#f7931a]/40 text-[#f7931a] rounded px-3 py-1.5 sm:mt-4 sm:py-2 hover:bg-[#f7931a]/10 transition-colors"
             >
               View address
             </a>
