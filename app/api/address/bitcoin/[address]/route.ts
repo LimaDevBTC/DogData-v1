@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveIdentity } from '@/lib/dog/identity'
+import { netTransfer } from '@/lib/dog/net-transfer'
 import fs from 'fs/promises'
 import path from 'path'
 import { createClient } from '@supabase/supabase-js'
@@ -45,6 +46,12 @@ interface TxEntry {
   block_height: number
   timestamp: string
   direction: 'in' | 'out' | 'self'
+  /**
+   * O DELTA da carteira nesta transação, nunca o bruto que entrou nela.
+   * 'out': quanto saiu de fato (gasto menos troco) · 'in': quanto entrou ·
+   * 'self': o delta é zero e este campo traz o que a carteira remexeu entre os
+   * próprios UTXOs, para a linha não aparecer valendo nada.
+   */
   amount_dog: number
   counterparty: string | null
   counterparties: string[]
@@ -105,32 +112,82 @@ function parseJsonArr(val: string | any[] | null | undefined): any[] {
   try { return JSON.parse(val) } catch { return [] }
 }
 
+// ⚠️⚠️ O TROCO NÃO SAIU DA CARTEIRA. Esta função já publicou o contrário, e um
+// holder escreveu para o fundador dizendo que teve "a mini heart-attack" ao ver
+// 2.090.927 DOG saindo da carteira dele num dia em que ele tinha doado 50 mil.
+//
+// O QUE ACONTECIA: rune mora em UTXO. Para mandar 50 mil de um UTXO que tem
+// 2,09 milhões, você gasta o UTXO INTEIRO, manda 50 mil ao destino e os outros
+// 2,04 milhões voltam para você no ponteiro do runestone. A linha do banco
+// registrava isso corretamente (`senders` com 2,09 M, `receivers` com 50 mil ao
+// destino e 2,04 M de volta marcados `is_change`), mas aqui o troco era
+// FILTRADO FORA da lista de destinatários e o valor da linha saía do `senders`
+// cru. Resultado: a tela dizia "saiu 2,09 M" quando saíram 50 mil, e ainda
+// escondia a volta que explicaria o saldo.
+//
+// ESCALA MEDIDA no banco em 27/08: 452.034 das 1.007.234 transações indexadas
+// (44,9%) têm troco. Não era o caso de um usuário, era quase metade do extrato
+// do site.
+//
+// A REGRA, agora: o número da linha é o DELTA da carteira, gasto menos o que
+// voltou para ela. Quem só juntou os próprios UTXOs vira 'self', com seta neutra
+// e sem contraparte, em vez de uma seta vermelha de saída.
+//
+// ⚠️ O troco é reconhecido comparando ENDEREÇO com a lista de remetentes, e não
+// pela marca `is_change` (que existe e é confiável: numa amostra de 200 mil
+// linhas não há um só troco sem marca). Comparar endereço é o mesmo critério do
+// `lib/dog/net-transfer.ts`, funciona se a marca faltar num indexador futuro, e
+// mantém as duas telas respondendo a mesma coisa sobre a mesma transação.
+const DUST_DOG = 0.00001 // a menor unidade do DOG: 5 casas decimais
+
 function rowsToTxEntries(rows: SupabaseRow[], targetAddr: string): TxEntry[] {
   const target = targetAddr.toLowerCase()
   const entries: TxEntry[] = []
 
   for (const row of rows) {
     const senders = parseJsonArr(row.senders)
-      .filter((s: any) => s.has_dog !== false && s.amount_dog > 0)
+      .filter((s: any) => s.has_dog !== false && Number(s.amount_dog) > 0)
+    // ⚠️ o troco fica na lista de propósito: ele é justamente o que precisa ser
+    // descontado. Filtrá-lo aqui foi a origem do incidente.
     const receivers = parseJsonArr(row.receivers)
-      .filter((r: any) => r.has_dog !== false && r.amount_dog > 0 && !r.is_change)
+      .filter((r: any) => r.has_dog !== false && Number(r.amount_dog) > 0)
 
-    const isSender = senders.some((s: any) => s.address?.toLowerCase() === target)
-    const isReceiver = receivers.some((r: any) => r.address?.toLowerCase() === target)
-    if (!isSender && !isReceiver) continue
+    const enderecosQueMandaram = new Set(
+      senders.map((s: any) => s.address?.toLowerCase()).filter(Boolean),
+    )
+    const somaDe = (lista: any[], addr: string) =>
+      lista.reduce(
+        (t: number, x: any) => t + (x.address?.toLowerCase() === addr ? Number(x.amount_dog) || 0 : 0),
+        0,
+      )
 
+    const gastou = somaDe(senders, target)
+    const voltou = somaDe(receivers, target)
+    if (gastou <= 0 && voltou <= 0) continue
+
+    const delta = gastou - voltou
     const direction: 'in' | 'out' | 'self' =
-      isSender && isReceiver ? 'self' : isSender ? 'out' : 'in'
+      delta > DUST_DOG ? 'out' : delta < -DUST_DOG ? 'in' : 'self'
+    // no 'self' o delta é zero por definição; mostrar zero esconderia um evento
+    // que existiu, então a linha carrega o que foi remexido, com seta neutra
+    const amount_dog = direction === 'self' ? gastou : Math.abs(delta)
 
-    const amount_dog: number = isSender
-      ? (senders.find((s: any) => s.address?.toLowerCase() === target)?.amount_dog || 0)
-      : (receivers.find((r: any) => r.address?.toLowerCase() === target)?.amount_dog || 0)
-
+    // contraparte é quem RECEBEU SEM TER MANDADO. Sem esta regra o próprio
+    // endereço de troco de um terceiro aparecia como destinatário da carteira.
+    const destinatarios = receivers.filter(
+      (r: any) => !enderecosQueMandaram.has(r.address?.toLowerCase()),
+    )
     const otherAddrs = [
       ...senders.filter((s: any) => s.address?.toLowerCase() !== target).map((s: any) => s.address),
-      ...receivers.filter((r: any) => r.address?.toLowerCase() !== target).map((r: any) => r.address),
+      ...destinatarios.filter((r: any) => r.address?.toLowerCase() !== target).map((r: any) => r.address),
     ]
     const counterparties = Array.from(new Set(otherAddrs.filter(Boolean)))
+
+    // o "total movido" da linha também passa a ser líquido: era o bruto em
+    // 451.930 das 452.034 linhas com troco
+    const nt = netTransfer(senders, receivers)
+    const total_dog_moved =
+      senders.length || receivers.length ? nt.net : Number(row.total_dog_moved) || 0
 
     entries.push({
       txid: row.txid,
@@ -140,7 +197,7 @@ function rowsToTxEntries(rows: SupabaseRow[], targetAddr: string): TxEntry[] {
       amount_dog,
       counterparty: counterparties.length === 1 ? counterparties[0] : null,
       counterparties,
-      total_dog_moved: row.total_dog_moved || 0,
+      total_dog_moved,
       fee_sats: row.fee_sats || 0,
     })
   }

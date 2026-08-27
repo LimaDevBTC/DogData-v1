@@ -52,36 +52,42 @@ interface TxEntry {
   fee_sats: number
 }
 
+// ⚠️ MESMA REGRA DA ROTA `app/api/address/bitcoin/[address]`, e pelo mesmo
+// motivo: em 27/08 um holder viu 2.090.927 DOG "saindo" da carteira dele num dia
+// em que doou 50 mil, porque o troco era filtrado fora e o valor saía do
+// `senders` cru. Este script constrói o mesmo extrato por outro caminho; se ele
+// rodar com a conta velha, reintroduz o susto.
+// A regra: o número da linha é o DELTA do endereço, gasto menos o que voltou
+// para ELE. Quem só juntou os próprios UTXOs é 'self', não uma saída.
+const DUST_DOG = 0.00001
+
 function buildEntriesForTx(tx: BlockTx): Map<string, TxEntry> {
   const entries = new Map<string, TxEntry>()
 
   const senders = tx.senders.filter(s => s.has_dog !== false && s.amount_dog > 0)
-  const receivers = tx.receivers.filter(r => r.has_dog !== false && r.amount_dog > 0 && !r.is_change)
+  // ⚠️ o troco FICA na lista: é justamente o que precisa ser descontado
+  const receivers = tx.receivers.filter(r => r.has_dog !== false && r.amount_dog > 0)
 
   const senderAddrs = new Set(senders.map(s => s.address))
   const receiverAddrs = new Set(receivers.map(r => r.address))
   const allAddrs = Array.from(new Set([...Array.from(senderAddrs), ...Array.from(receiverAddrs)]))
 
+  const somaDe = (lista: Array<{ address: string; amount_dog: number }>, addr: string) =>
+    lista.reduce((t, x) => t + (x.address === addr ? Number(x.amount_dog) || 0 : 0), 0)
+
   for (const addr of allAddrs) {
-    const isSender = senderAddrs.has(addr)
-    const isReceiver = receiverAddrs.has(addr)
+    const gastou = somaDe(senders, addr)
+    const voltou = somaDe(receivers, addr)
+    const delta = gastou - voltou
 
-    let direction: 'in' | 'out' | 'self'
-    let amount_dog: number
+    const direction: 'in' | 'out' | 'self' =
+      delta > DUST_DOG ? 'out' : delta < -DUST_DOG ? 'in' : 'self'
+    const amount_dog = direction === 'self' ? gastou : Math.abs(delta)
 
-    if (isSender && isReceiver) {
-      direction = 'self'
-      amount_dog = senders.find(s => s.address === addr)?.amount_dog || 0
-    } else if (isSender) {
-      direction = 'out'
-      amount_dog = senders.find(s => s.address === addr)?.amount_dog || 0
-    } else {
-      direction = 'in'
-      amount_dog = receivers.find(r => r.address === addr)?.amount_dog || 0
-    }
-
+    // contraparte é quem recebeu SEM ter mandado
+    const destinatarios = receivers.filter(r => !senderAddrs.has(r.address))
     const otherSenders = senders.filter(s => s.address !== addr).map(s => s.address)
-    const otherReceivers = receivers.filter(r => r.address !== addr).map(r => r.address)
+    const otherReceivers = destinatarios.filter(r => r.address !== addr).map(r => r.address)
     const counterparties = Array.from(new Set([...otherSenders, ...otherReceivers]))
 
     entries.set(addr, {

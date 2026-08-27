@@ -206,7 +206,17 @@ async function paginatedAggregate(
         bucketMap.set(idx, b)
       }
 
-      const vol = Number(row.total_dog_moved) || 0
+      // ⚠️ VOLUME É LÍQUIDO, e já foi bruto. `total_dog_moved` guarda a soma de
+      // TODAS as saídas, troco incluído, e troco não é volume: quem manda 50 mil
+      // de um UTXO de 2 milhões gasta o UTXO inteiro e recebe o resto de volta.
+      // Medido no banco em 27/08: 452.034 das 1.007.234 transações têm troco,
+      // somando 2.227 bilhões de DOG que nunca mudaram de dono, e existe uma
+      // única transação de auto-envio que embaralha 100 bilhões (o supply
+      // inteiro) e sozinha dominava o balde dela.
+      // O resto do site (lista de transações, alertas de baleia, página da
+      // transação, mempool) já lia `net_transfer`; este mapa era o último a
+      // contradizer os outros sobre os mesmos blocos.
+      const vol = Number(row.net_transfer ?? row.total_dog_moved) || 0
       const fee = row.fee_sats || 0
 
       b.tx_count++

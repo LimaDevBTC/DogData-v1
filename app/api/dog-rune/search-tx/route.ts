@@ -54,9 +54,14 @@ export async function GET(request: Request) {
       type: row.type || 'transfer',
       senders: parseJson(row.senders),
       receivers: parseJson(row.receivers),
-      total_dog_moved: row.total_dog_moved ?? 0,
+      // ⚠️ `total_dog_moved` é o BRUTO da linha (todas as saídas, troco
+      // incluído). O que a tela chama de "movido" tem de ser o líquido, senão
+      // uma doação de 50 mil aparece como 2 milhões. `total_dog_in` continua
+      // bruto de propósito: é o que ENTROU na transação, e é assim que ele é
+      // lido no explorador.
+      total_dog_moved: row.net_transfer ?? row.total_dog_moved ?? 0,
       total_dog_in: row.total_dog_moved ?? 0,
-      total_dog_out: row.total_dog_moved ?? 0,
+      total_dog_out: row.net_transfer ?? row.total_dog_moved ?? 0,
       net_transfer: row.net_transfer ?? row.total_dog_moved ?? 0,
       change_amount: row.change_amount ?? 0,
       has_change: row.has_change ?? false,
