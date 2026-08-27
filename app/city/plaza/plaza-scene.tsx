@@ -59,6 +59,17 @@ const WAR_POS = new THREE.Vector3(-2120, 0, 2120)
 const fmtQtd = (n: number) =>
   n >= 1e9 ? `${(n / 1e9).toFixed(2)}B` : n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : n.toFixed(0)
 
+// hora curta da fita: HH:MM:SS local, sem data. A fita só mostra os últimos
+// segundos, então a data seria ruído numa linha de 10 px.
+const fmtHora = (t: number) => {
+  const d = new Date(t)
+  const p2 = (n: number) => n.toString().padStart(2, '0')
+  return `${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`
+}
+const fmtPreco = (p: number) => (p > 0 ? p.toFixed(6) : '-')
+// quantas linhas a fita desenha no desktop
+const FITA_LINHAS = 6
+
 export const PLACES: ReadonlyArray<{ key: string; label: string; hint: string }> = [
   { key: 'home', label: 'Satoshi Plaza', hint: 'the whole precinct' },
   { key: 'deck', label: 'The deck', hint: 'the Needle, up close' },
@@ -347,6 +358,16 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
   // linha extra compacta do book de verdade (bidsDog/asksDog), mesmo padrão imperativo
   const warBidsRef = useRef<HTMLSpanElement>(null)
   const warAsksRef = useRef<HTMLSpanElement>(null)
+  // ⚠️ A FITA DE TRADES REAIS. O motor sempre serviu `fita` no hud() e o palco
+  // solo sempre desenhou; a cidade nunca desenhou, e o fundador lembrava dela
+  // ("um campo onde ficavam aparecendo as ordens de preço"). Cada linha é uma
+  // negociação de verdade na Kraken, a mesma que vira tiro na batalha.
+  // As linhas nascem prontas no JSX e são atualizadas por textContent: a fita
+  // muda várias vezes por segundo e re-renderizar React nesse ritmo com a cena
+  // de 2,6M de triângulos rodando é desperdício.
+  const warFitaRef = useRef<HTMLDivElement>(null)
+  const warFitaLinhas = useRef<Array<HTMLDivElement | null>>([])
+  const warFitaMobileRef = useRef<HTMLDivElement>(null)
   // ── O CHAMADO DA OBRA (praca-ajustes.md item 8) ──────────────────────────
   // A praça é a vitrine do que o dinheiro constrói, e até agora ela não pedia
   // nada: quem entrava não tinha como financiar o próximo quarteirão sem sair da
@@ -1677,6 +1698,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           // (retrato pede recuo) e a 1,1 km o preço já tinha sumido da tela
           const k = Math.min(1, Math.max(0, (2300 - dWar) / 800))
           warHudRef.current.style.opacity = k.toFixed(2)
+          if (warFitaRef.current) warFitaRef.current.style.opacity = k.toFixed(2)
           if (k > 0 && (hudTick & 31) === 1) {
             const h = campo.hud()
             if (warPrecoRef.current) warPrecoRef.current.textContent = h.preco > 0 ? `$${h.preco.toFixed(6)}` : '$-'
@@ -1689,6 +1711,34 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             }
             if (warBidsRef.current) warBidsRef.current.textContent = `BIDS ${fmtQtd(h.bidsDog)}`
             if (warAsksRef.current) warAsksRef.current.textContent = `ASKS ${fmtQtd(h.asksDog)}`
+            // ── a fita ────────────────────────────────────────────────────
+            // ⚠️ A ORDEM DOS FILHOS DE CADA LINHA É CONTRATO com o JSX lá
+            // embaixo: hora, seta, quantidade, preço. Mexeu no JSX, mexe aqui.
+            {
+              const fita = h.fita || []
+              if (warFitaRef.current) warFitaRef.current.style.display = fita.length ? '' : 'none'
+              for (let i = 0; i < FITA_LINHAS; i++) {
+                const linha = warFitaLinhas.current[i]
+                if (!linha) continue
+                const tr = fita[i]
+                if (!tr) { linha.style.visibility = 'hidden'; continue }
+                linha.style.visibility = ''
+                const f = linha.children
+                if (f.length < 4) continue
+                f[0].textContent = fmtHora(tr.t)
+                f[1].textContent = tr.lado === 'buy' ? '▲' : '▼'
+                ;(f[1] as HTMLElement).style.color = tr.lado === 'buy' ? '#f7931a' : '#f87171'
+                f[2].textContent = fmtQtd(tr.qty)
+                f[3].textContent = `$${fmtPreco(tr.preco)}`
+              }
+              // no celular a fita colapsa nos três últimos, numa linha só, dentro
+              // do próprio cartão: coluna lateral em 390px come a tela
+              if (warFitaMobileRef.current) {
+                warFitaMobileRef.current.textContent = fita.length
+                  ? fita.slice(0, 3).map((tr) => `${tr.lado === 'buy' ? '▲' : '▼'} ${fmtQtd(tr.qty)}`).join('  ')
+                  : ''
+              }
+            }
           }
         }
       }
@@ -1862,6 +1912,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           <div className="mx-auto mt-1.5 h-1 w-44 overflow-hidden rounded-full bg-white/10 sm:w-56">
             <div ref={warPressaoRef} className="h-full bg-gradient-to-r from-[#f7931a] to-[#c96a12]" style={{ width: '50%' }} />
           </div>
+          {/* celular: a fita cabe em uma linha, dentro do cartão */}
+          <div
+            ref={warFitaMobileRef}
+            className="mt-1 font-mono text-[8px] tracking-[0.12em] tabular-nums text-white/45 [@media(min-width:640px)_and_(min-height:521px)]:hidden"
+          />
           <div ref={warBaixasRef} className="mt-1 text-[8px] uppercase tracking-[0.18em] text-white/35 tabular-nums sm:text-[9px]">bought 0 · sold 0 DOG</div>
           <div className="mt-1 flex items-center justify-center gap-1.5 text-[8px] uppercase tracking-[0.18em] tabular-nums sm:text-[9px]">
             <span ref={warBidsRef} className="text-[#f7931a]/90">BIDS 0</span>
@@ -1870,6 +1925,34 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           </div>
         </div>
       </div>
+      {/* ── A FITA DE TRADES REAIS, coluna à direita ────────────────────────
+             Cada linha é uma negociação que a Kraken serviu e que virou tiro na
+             batalha: é a ponte entre o mercado e a encenação, e sem ela a
+             batalha vira enfeite. Herda a opacidade do cartão de preço, que
+             some com a distância, porque as duas coisas falam do mesmo campo.
+             ⚠️ SÓ EM DESKTOP DE VERDADE (largura E altura), a mesma régua do
+             painel Follow tx: no celular deitado a coluna cobria a batalha. */}
+      <div
+        ref={warFitaRef}
+        className="pointer-events-none absolute right-4 top-1/2 hidden -translate-y-1/2 select-none flex-col items-end gap-1 font-mono text-[10px] tabular-nums tracking-[0.04em] text-white/55 transition-opacity duration-300 [@media(min-width:640px)_and_(min-height:521px)]:flex"
+        style={{ opacity: 0 }}
+      >
+        <div className="mb-0.5 text-[9px] uppercase tracking-[0.22em] text-white/25">Tape</div>
+        {Array.from({ length: FITA_LINHAS }, (_, i) => (
+          <div
+            key={i}
+            ref={(el) => { warFitaLinhas.current[i] = el }}
+            className="flex items-center gap-1.5"
+            style={{ visibility: 'hidden' }}
+          >
+            <span className="text-white/30" />
+            <span />
+            <span className="text-white/75" />
+            <span className="text-white/40" />
+          </div>
+        ))}
+      </div>
+
       {/* ── title, and the way back: the landing is the front door, the site is home */}
       <div className="absolute left-4 top-4 sm:left-6 sm:top-6">
         <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/50">
