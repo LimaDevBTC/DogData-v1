@@ -90,6 +90,10 @@ export interface HudBatalha {
   niveisEncenados: number
   vwap24: number
   volume24: number
+  /** quantos assaltos ja aconteceram desde que a batalha nasceu. Existe para
+   *  ser MEDIDO: ate 27/08 o assalto disparava uma vez por carregamento de
+   *  pagina e este numero ficava travado em 1. */
+  assaltos: number
   trades24: number
   /** fita: últimos trades reais, mais novo primeiro */
   fita: Array<{ lado: 'buy' | 'sell'; qty: number; preco: number; t: number }>
@@ -1189,8 +1193,13 @@ export function createBattlefield(
 
   // ── MORTEIRO PESADO: casca escura, arco alto, queda quase vertical ──────
   const geoCasca = new THREE.SphereGeometry(1, 8, 8)
-  const matCascaCompra = new THREE.MeshBasicMaterial({ color: 0x3a2a1c })
-  const matCascaVenda = new THREE.MeshBasicMaterial({ color: 0x2a1a1c })
+  // ⚠️ A CASCA NÃO É O ESPETÁCULO, o rastro é. Ela era quase preta (0x3a2a1c)
+  // num material sem luz, então sobre o regolito claro lia como BURACO redondo
+  // recortado no céu, e foi metade do "esteticamente feio" que o fundador
+  // apontou. Tom quente e escuro, não preto: continua sendo uma casca de ferro
+  // vista contra a luz, mas deixa de ser um furo na imagem.
+  const matCascaCompra = new THREE.MeshBasicMaterial({ color: 0x5b4634 })
+  const matCascaVenda = new THREE.MeshBasicMaterial({ color: 0x4d2f2c })
   // cauda de cometa também no pesado (mesma cura do cotonete), um tico mais
   // gorda que a do tiro comum; o decaimento por vértice faz o fade da cauda
   const geoRastroPesado = fazGeoCometa(0.3)
@@ -1234,10 +1243,13 @@ export function createBattlefield(
     // 1.2x da escala antiga: seguível sem virar balão (a 1.8x a cabeça
     // gorda + rastro uniforme liam como cotonete; a cauda de cometa é quem
     // carrega a leitura agora)
-    mesh.scale.setScalar((0.5 + Math.sqrt(forca) * 0.16) * 1.2)
+    // menor que antes (era 1.2x): com a fumaça marcando o arco, a leitura vem
+    // do traço e não do calibre da bola
+    mesh.scale.setScalar((0.5 + Math.sqrt(forca) * 0.16) * 0.85)
     mesh.userData.de.copy(de)
     mesh.userData.para.copy(para)
     mesh.userData.prev.copy(de)
+    mesh.userData.marca = -1 // baforadas do voo, ver o laço dos pesados
     pesados.push({ i, t0: performance.now(), dur, forca, lado, arma })
   }
   // ⚠️ a boca do morteiro é a bateria mais próxima do z alvo (mata o tiro que
@@ -3531,6 +3543,27 @@ export function createBattlefield(
   const FOLGA_DEGRAU = 0.05
   let ultimoAssaltoT = -Infinity
   let frenteAnterior = 0
+  // ⚠️⚠️ O TERCEIRO GATILHO CHEGOU A SER UM TEMPORIZADOR, E FOI RETIRADO NO
+  // MESMO DIA. A primeira versão disparava um assalto a cada 40 a 70 segundos
+  // com o lado escolhido pela pressão do book, para o clímax não depender de o
+  // mercado colaborar. O fundador leu a batalha logo depois e disse: "parece
+  // que tem muita coisa ali que não é baseado no movimento do preço, nem em
+  // compras e vendas de verdade. Tô achando muito teatro e pouca info de
+  // verdade". Ele tem razão, e a régua vale para o que eu mesmo acabara de
+  // escrever: um assalto que acontece porque o relógio bateu é uma mentira
+  // bonita, e o produto aqui é o mercado, não o roteiro.
+  //
+  // No lugar entrou AVANÇO ACUMULADO, que é dado: soma quanto a frente andou
+  // desde o último assalto e dispara quando o total passa do limiar, com o
+  // lado dado pelo sentido líquido do movimento. Numa hora agitada isso
+  // dispara muitas vezes; numa madrugada parada não dispara, e não disparar é
+  // a resposta certa, porque não houve conquista nenhuma para contar.
+  const AVANCO_PARA_ASSALTO = 3.5 // ≈ 5% do range de 24 h
+  let avancoAcum = 0
+  let avancoLiquido = 0
+  // quantos assaltos já rolaram: o número que prova, na sonda, que o sistema
+  // deixou de disparar uma vez por carregamento de página
+  let assaltosTotal = 0
   const VEL_FRENTE_ASSALTO = 3.2
   const X_ONDA_PARTIDA = 14
   const VEL_ONDA = 9
@@ -3559,6 +3592,10 @@ export function createBattlefield(
       soldados[idx].caiEm = 0.3 + hash(k, 5) * 0.5
     }
     assalto = { lado, sentido, fase: 'corrida', t0: agora, x0, proxCobertura: agora, proxFuzil: 0 }
+    assaltosTotal++
+    ultimoAssaltoT = agora
+    avancoAcum = 0
+    avancoLiquido = 0
   }
   const atualizaAssalto = (agora: number, dt: number) => {
     if (!assalto) return
@@ -3703,12 +3740,13 @@ export function createBattlefield(
       // sequência são o comportamento esperado quando o preço anda muito
       if (!assalto && mid > 0 && Math.abs(dF) > LIMIAR_ASSALTO) {
         iniciaAssalto(dF > 0 ? 'buy' : 'sell', agora)
-        ultimoAssaltoT = agora
       }
       const velFrente = assalto ? VEL_FRENTE_ASSALTO : VEL_FRENTE
       if (Math.abs(dF) > 0.002) {
         const passoF = Math.sign(dF) * Math.min(Math.abs(dF), velFrente * dt)
         frenteX += passoF
+        avancoAcum += Math.abs(passoF)
+        avancoLiquido += passoF
         // ── CONQUISTA: a frente cruzou uma marca da régua ─────────────────
         // A régua já desenha degraus de preço redondos no chão. Passar de um
         // deles é o momento em que o lado vencedor tomou terreno que dá para
@@ -3717,13 +3755,20 @@ export function createBattlefield(
         if (!assalto && mid > 0 && agora - ultimoAssaltoT > PISO_ENTRE_ASSALTOS) {
           const antes = frenteAnterior
           const depois = frenteX
-          for (let k = 0; k < degrausX.length; k++) {
+          // avanço acumulado: conquista lenta também é conquista
+          if (avancoAcum > AVANCO_PARA_ASSALTO) {
+            iniciaAssalto(avancoLiquido >= 0 ? 'buy' : 'sell', agora)
+          }
+          // ⚠️ `!assalto` de novo aqui: o avanço acumulado logo acima pode ter
+          // acabado de disparar, e sem esta guarda o cruzamento sobrescrevia o
+          // assalto recém-nascido no MESMO quadro, cortando a corrida na
+          // primeira fração de segundo
+          for (let k = 0; !assalto && k < degrausX.length; k++) {
             const dx = degrausX[k]
             const cruzouSubindo = antes < dx - FOLGA_DEGRAU && depois >= dx
             const cruzouDescendo = antes > dx + FOLGA_DEGRAU && depois <= dx
             if (cruzouSubindo || cruzouDescendo) {
               iniciaAssalto(cruzouSubindo ? 'buy' : 'sell', agora)
-              ultimoAssaltoT = agora
               break
             }
           }
@@ -4074,22 +4119,45 @@ export function createBattlefield(
         continue
       }
       mesh.position.lerpVectors(mesh.userData.de, mesh.userData.para, f)
-      // ⚠️ CADA ARMA COM A SUA BALÍSTICA: tanque é tiro tenso e quase reto
-      // (a corcova de morteiro nele lia como parábola de desenho animado);
-      // morteiro segue lançando alto, que é a identidade dele
+      // ⚠️⚠️ PARÁBOLA DE VERDADE, e por que a anterior não era.
+      //
+      // O fundador: "não fazem uma parábola perfeita, parecem totalmente
+      // programados". Ele leu certo. A curva antiga era um seno subindo até
+      // f=0,62 e uma quadrática caindo depois, com o y ESCRITO por cima em
+      // valor absoluto (`y = 1 + ...`): não é balística, é uma corcova
+      // desenhada à mão, assimétrica, que ignorava a altura da boca e a do
+      // alvo e sempre pousava em y=1, no ar quando o terreno subia.
+      //
+      // Agora é a parábola que a física dá: interpolação reta entre boca e
+      // alvo, mais 4·H·u·(1−u), que vale zero nas duas pontas e H no meio.
+      // Sai do cano na altura do cano, cai exatamente onde o impacto vai
+      // acontecer, e a subida espelha a descida, que é o que o olho reconhece
+      // como tiro de obus.
       if (mt.arma === 'tanque') {
         mesh.position.y += Math.sin(f * Math.PI) * 2.2
       } else {
-        const subida = f < 0.62 ? Math.sin((f / 0.62) * Math.PI * 0.5) : 1
-        const queda = f > 0.62 ? Math.pow(1 - (f - 0.62) / 0.38, 2) : 1
-        mesh.position.y = 1 + subida * queda * (11 + Math.min(12, mt.forca))
+        const H = 11 + Math.min(12, mt.forca)
+        mesh.position.y += 4 * H * f * (1 - f)
       }
       passo.subVectors(mesh.position, mesh.userData.prev)
       const distP = passo.length()
       if (distP > 0.0005) rastro.quaternion.setFromUnitVectors(zEixo, passo.normalize())
       rastro.position.copy(mesh.position)
-      // cauda de cometa: fina na cabeça, comprimento pela velocidade real
-      rastro.scale.set(1.0, 1.0, Math.max(2.2, distP * 18))
+      // ⚠️ O ALFINETE. A cauda era `distP * 18` sem teto: numa casca lenta e
+      // comprida isso dava uma haste rígida de quase 20 m atrás de uma bola
+      // escura, e o conjunto lia como alfinete espetado no céu. Cauda curta e
+      // com teto: quem marca a trajetória agora é a FUMAÇA deixada no caminho,
+      // que curva junto com o arco em vez de apontar para onde a casca ia.
+      rastro.scale.set(1.0, 1.0, Math.min(5.5, Math.max(1.6, distP * 7)))
+      // três baforadas ao longo do voo, do pool que já existe: é o traço que
+      // faz o espectador ler o arco depois que a casca já passou
+      if (mt.arma !== 'tanque') {
+        const marca = Math.floor(f * 4)
+        if (marca > (mesh.userData.marca ?? -1) && marca < 4) {
+          mesh.userData.marca = marca
+          solta_fumaca(mesh.position, 0.5 + mt.forca * 0.12)
+        }
+      }
       mesh.userData.prev.copy(mesh.position)
     }
 
@@ -4396,6 +4464,7 @@ export function createBattlefield(
       niveisEncenados: Math.min(orc.niveis, book.bids.length) + Math.min(orc.niveis, book.asks.length),
       vwap24, volume24, trades24,
       fita: [...fita],
+      assaltos: assaltosTotal,
     }),
     dispose: () => {
       clearInterval(tickerTimer)

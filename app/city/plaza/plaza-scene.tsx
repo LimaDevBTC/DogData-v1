@@ -897,6 +897,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 // ⚠️ o defeito do DATUM se enxerga AQUI: com o zero errado, as
                 // peças de Y fixo ficavam dezenas de metros abaixo do chão
                 chaoDaCratera: Math.round(terrain.heightAt(WAR_POS.x, WAR_POS.z)),
+                // o assalto e o maior sistema do motor: se este numero nao sobe,
+                // ele esta dormindo (era o que acontecia ate 27/08)
+                assaltos: campo!.hud().assaltos,
                 menorY: Math.round(menorY),
                 enterradas,
               }
