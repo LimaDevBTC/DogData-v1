@@ -163,6 +163,36 @@ export function createBattlefield(
   // então os sistemas novos usam esse limiar pra decidir a própria redução
   const low = orc.cap <= 1200
   const group = new THREE.Group()
+  // ═══════════════════════════════════════════════════════════════════════
+  // ⚠️⚠️ MUNDO NÃO É LOCAL, E ESTE MOTOR RODA EM DOIS ANFITRIÕES.
+  //
+  // O palco solo (app/city/war) põe este `group` na origem, sem rotação nem
+  // escala: ali mundo e local são a MESMA coisa e qualquer confusão entre os
+  // dois é invisível. A praça (app/city/plaza) põe o mesmo grupo a 3 km da
+  // origem, girado 225° e escalado 2,6x.
+  //
+  // Toda boca de arma daqui é calculada com `applyMatrix4(pivô.matrixWorld)`,
+  // o que dá um ponto em MUNDO. Esse ponto vira `mesh.userData.de` de um
+  // projétil e `mesh.position` de um clarão, e esses meshes são FILHOS deste
+  // grupo, ou seja leem LOCAL. No palco solo dava certo por acidente. Na
+  // cidade o ponto era transformado de novo pelo grupo e o tiro nascia a
+  // milhares de metros do campo: "os tiros de canhão estão sendo disparados
+  // do nada num ponto distante da batalha" (fundador, 27/08). O mesmo valia
+  // para TODOS os clarões de boca (bateria, tanque, helicóptero, jipe,
+  // antiaérea, metralhadora), que por isso nunca apareciam na cidade e faziam
+  // a batalha de lá parecer ter menos armas que a solo.
+  //
+  // REGRA: todo ponto e toda direção calculados por matrixWorld passam por
+  // `paraLocal`/`direcaoParaLocal` ANTES de virar posição de mesh ou origem
+  // de projétil. A matriz nasce identidade, então o palco solo não muda nada.
+  // ═══════════════════════════════════════════════════════════════════════
+  const _mInvGrupo = new THREE.Matrix4()
+  const atualizaBaseLocal = () => {
+    group.updateWorldMatrix(true, false)
+    _mInvGrupo.copy(group.matrixWorld).invert()
+  }
+  const paraLocal = (v: THREE.Vector3) => v.applyMatrix4(_mInvGrupo)
+  const direcaoParaLocal = (v: THREE.Vector3) => v.transformDirection(_mInvGrupo).normalize()
   // ⚠️ a praça faz raycast recursivo na cena inteira no duplo toque; instância
   // testada uma a uma são milhares de interseções à toa
   const semRaycast = (m: THREE.Object3D) => {
@@ -1266,8 +1296,8 @@ export function createBattlefield(
     // nasce com o cano deslocado sentido*2.3 no local space (tanks.ts), o
     // pivô que gira é o torreGrupo (mira em Y), então o mundo sai de lá
     t.torreGrupo.updateWorldMatrix(true, false)
-    bocaTanque.set(t.sentido * 2.3, 0.16, 0).applyMatrix4(t.torreGrupo.matrixWorld)
-    direcaoBocaTanque.set(t.sentido, 0, 0).transformDirection(t.torreGrupo.matrixWorld)
+    paraLocal(bocaTanque.set(t.sentido * 2.3, 0.16, 0).applyMatrix4(t.torreGrupo.matrixWorld))
+    direcaoParaLocal(direcaoBocaTanque.set(t.sentido, 0, 0).transformDirection(t.torreGrupo.matrixWorld))
     clarao(bocaTanque, 3.4, t.lado === 'buy' ? 0xffd9a0 : 0xffb09a)
     solta_fumaca(bocaTanque, 5)
     // clarão de boca de PERTO: cone na direção real do cano + anel de fumaça
@@ -1414,7 +1444,7 @@ export function createBattlefield(
   const dispararBateria = (b: Bateria, agora: number, forca: number) => {
     b.recuoT0 = agora
     const boca = bocaDaBateria(b)
-    direcaoBateria.set(b.sentido, 0, 0).transformDirection(b.canoGrupo.matrixWorld)
+    direcaoParaLocal(direcaoBateria.set(b.sentido, 0, 0).transformDirection(b.canoGrupo.matrixWorld))
     lib.claraoDeBoca(boca, direcaoBateria, forca)
   }
   const bateriaMaisProxima = (lado: 'buy' | 'sell', z: number): Bateria | null => {
@@ -1433,7 +1463,7 @@ export function createBattlefield(
   const bocaBateria = new THREE.Vector3()
   const bocaDaBateria = (b: Bateria): THREE.Vector3 => {
     b.canoGrupo.updateWorldMatrix(true, false)
-    bocaBateria.set(b.sentido * BOCA_CANHAO_DIST, 0, 0).applyMatrix4(b.canoGrupo.matrixWorld)
+    paraLocal(bocaBateria.set(b.sentido * BOCA_CANHAO_DIST, 0, 0).applyMatrix4(b.canoGrupo.matrixWorld))
     return bocaBateria
   }
   const atualizaBaterias = (agora: number) => {
@@ -2907,8 +2937,8 @@ export function createBattlefield(
           // clarão de boca no nariz + projétil do pool de tiros com origem
           // custom, arco raso (atira detecta origem no ar) e impacto 'mlrs'
           h.corpo.updateWorldMatrix(true, false)
-          bocaHeli.set(PONTA_ARMA_HELI, -0.28, 0).applyMatrix4(h.corpo.matrixWorld)
-          direcaoHeli.set(1, 0, 0).transformDirection(h.corpo.matrixWorld)
+          paraLocal(bocaHeli.set(PONTA_ARMA_HELI, -0.28, 0).applyMatrix4(h.corpo.matrixWorld))
+          direcaoParaLocal(direcaoHeli.set(1, 0, 0).transformDirection(h.corpo.matrixWorld))
           lib.claraoDeBoca(bocaHeli, direcaoHeli, 4)
           vAlvoTeatro.set(
             h.alvoAtaqueX + (hash(h.foguetesRestantes, Math.floor(agora) % 311) - 0.5) * 3,
@@ -2925,8 +2955,8 @@ export function createBattlefield(
           h.faseAtaque = 'rajada'
           h.tAtaque = agora
           h.corpo.updateWorldMatrix(true, false)
-          bocaHeli.set(PONTA_ARMA_HELI, -0.28, 0).applyMatrix4(h.corpo.matrixWorld)
-          direcaoHeli.set(1, 0, 0).transformDirection(h.corpo.matrixWorld)
+          paraLocal(bocaHeli.set(PONTA_ARMA_HELI, -0.28, 0).applyMatrix4(h.corpo.matrixWorld))
+          direcaoParaLocal(direcaoHeli.set(1, 0, 0).transformDirection(h.corpo.matrixWorld))
           // clarão pequeno só no primeiro tiro: pontua o início da rajada
           lib.claraoDeBoca(bocaHeli, direcaoHeli, 2)
           for (let k = 0; k < 6; k++) {
@@ -3024,8 +3054,8 @@ export function createBattlefield(
       if (agora > j.proxRajada) {
         j.proxRajada = agora + 4000 + hash(Math.floor(agora) % 277, j.z + j.sentido) * 4000
         j.armaGrupo.updateWorldMatrix(true, false)
-        bocaJipe.set(j.sentido * BOCA_ARMA_JIPE, 0, 0).applyMatrix4(j.armaGrupo.matrixWorld)
-        direcaoJipe.set(j.sentido, 0, 0).transformDirection(j.armaGrupo.matrixWorld)
+        paraLocal(bocaJipe.set(j.sentido * BOCA_ARMA_JIPE, 0, 0).applyMatrix4(j.armaGrupo.matrixWorld))
+        direcaoParaLocal(direcaoJipe.set(j.sentido, 0, 0).transformDirection(j.armaGrupo.matrixWorld))
         lib.claraoDeBoca(bocaJipe, direcaoJipe, 2)
         // a rajada do jipe cai num soldado real da amostra, não num x teórico
         const temAlvoJipe = alvoNoExercito(j.lado === 'buy' ? 'sell' : 'buy', vAlvoTeatro)
@@ -3188,12 +3218,12 @@ export function createBattlefield(
   }
   const dispararFlak = (aa: AntiAerea, alvo: THREE.Vector3, agora: number) => {
     aa.canoGrupo.updateWorldMatrix(true, false)
-    vBocaAA.set(BOCA_AA_DIST, 0, 0).applyMatrix4(aa.canoGrupo.matrixWorld)
+    paraLocal(vBocaAA.set(BOCA_AA_DIST, 0, 0).applyMatrix4(aa.canoGrupo.matrixWorld))
     clarao(vBocaAA, 1.2, aa.lado === 'buy' ? 0xffe1b0 : 0xffc2a8)
     const n = 3 + Math.floor(hash(Math.floor(agora) % 331, aa.z) * 3)
     for (let k = 0; k < n; k++) {
       const ladoCano = k % 2 === 0 ? 0.24 : -0.24
-      vBocaAA.set(BOCA_AA_DIST, 0, ladoCano).applyMatrix4(aa.canoGrupo.matrixWorld)
+      paraLocal(vBocaAA.set(BOCA_AA_DIST, 0, ladoCano).applyMatrix4(aa.canoGrupo.matrixWorld))
       const i = cursorTracerAA
       cursorTracerAA = (cursorTracerAA + 1) % POOL_TRACER_AA
       const m = poolTracersAA[i]
@@ -3302,7 +3332,7 @@ export function createBattlefield(
   const vBocaMG = new THREE.Vector3()
   const dispararRajadaNinho = (n: NinhoMG, agora: number) => {
     n.armaGrupo.updateWorldMatrix(true, false)
-    vBocaMG.set(n.sentido * BOCA_MG_DIST, 0, 0).applyMatrix4(n.armaGrupo.matrixWorld)
+    paraLocal(vBocaMG.set(n.sentido * BOCA_MG_DIST, 0, 0).applyMatrix4(n.armaGrupo.matrixWorld))
     const nTiros = 3 + Math.floor(hash(Math.floor(agora) % 293, n.z) * 4)
     // a rajada do ninho MIRA um soldado real: um sorteio por rajada, cada
     // bala com dispersão própria em volta dele; sem amostra, fórmula antiga
@@ -3614,6 +3644,9 @@ export function createBattlefield(
   const update = (agora: number) => {
     const dt = ultimoUpdate > 0 ? Math.min(0.05, (agora - ultimoUpdate) / 1000) : 0.016
     ultimoUpdate = agora
+    // a matriz do anfitrião pode ter mudado (a praça reposiciona o grupo em
+    // troca de qualidade); um invert por quadro paga por todas as bocas
+    atualizaBaseLocal()
     passoIntensidade(dt)
 
     // ── a frente rasteja até onde o preço manda ──────────────────────────

@@ -776,6 +776,33 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           campo.group.rotation.y = rotY
           campo.group.scale.setScalar(ESCALA_GUERRA)
           scene.add(campo.group)
+          // ?stats=1 → window.__plazaGuerra(): onde cada peça VIVA da batalha
+          // está, em metros do centro da cratera. Existe porque o defeito de
+          // 27/08 (tiro nascendo a milhares de metros, por confundir mundo com
+          // local) é invisível em chapa: clarão de boca dura 100 ms. Medir a
+          // distância é determinístico; olhar a foto é sorte.
+          if (wantStats) {
+            ;(window as unknown as { __plazaGuerra?: () => unknown }).__plazaGuerra = () => {
+              const centro = new THREE.Vector3(WAR_POS.x, 0, WAR_POS.z)
+              const v = new THREE.Vector3()
+              let vivos = 0
+              let longe = 0
+              let maior = 0
+              const fujoes: string[] = []
+              campo!.group.traverseVisible((o) => {
+                if (!(o as THREE.Mesh).isMesh) return
+                vivos++
+                o.getWorldPosition(v)
+                const d = Math.hypot(v.x - centro.x, v.z - centro.z)
+                if (d > maior) maior = d
+                if (d > 1200) {
+                  longe++
+                  if (fujoes.length < 6) fujoes.push(`${o.name || o.type} a ${Math.round(d)} m`)
+                }
+              })
+              return { meshesVisiveis: vivos, foraDoCampo: longe, maiorDistancia: Math.round(maior), fujoes }
+            }
+          }
           culler.add(campo.group, 3600, new THREE.Vector3(WAR_POS.x, 0, WAR_POS.z))
           // ⚠️ O FAROL: uma coluna de luz laranja de 600 m sobre a cratera,
           // visível do horizonte da praça. É o "tem algo ali" que faz alguém
