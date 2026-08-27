@@ -16,7 +16,8 @@ const moreNav = [
   { name: 'Markets', page: 'markets' as PageType, icon: TrendingUp },
   { name: 'Airdrop', page: 'airdrop' as PageType, icon: Sparkles },
   { name: 'Bitcoin', page: 'bitcoin-network' as PageType, icon: Network },
-  { name: 'Donate', page: 'donate' as PageType, icon: Heart },
+  // /donate aposentada em 27/08: o item leva pro fundo dentro da landing
+  { name: 'Donate', page: 'donate' as PageType, icon: Heart, href: '/dogcity#build' },
 ]
 
 interface MobileBottomNavProps {
@@ -28,9 +29,13 @@ export default function MobileBottomNav({ currentPage, setCurrentPage }: MobileB
   const [moreOpen, setMoreOpen] = useState(false)
   const isMoreActive = moreNav.some(item => item.page === currentPage)
 
-  const handleMoreItemClick = useCallback((page: PageType) => {
-    setCurrentPage(page)
+  // Itens com `href` saem do mapa page -> rota do Layout (que so sabe empurrar
+  // `/${page}`) e vao pro endereco literal, ancora inclusive. E o caso do
+  // Donate desde que /donate foi aposentada.
+  const handleMoreItemClick = useCallback((page: PageType, href?: string) => {
     setMoreOpen(false)
+    if (href) { window.location.href = href; return }
+    setCurrentPage(page)
   }, [setCurrentPage])
 
   // Close "More" when clicking outside
@@ -65,7 +70,7 @@ export default function MobileBottomNav({ currentPage, setCurrentPage }: MobileB
                 return (
                   <button
                     key={item.page}
-                    onClick={() => handleMoreItemClick(item.page)}
+                    onClick={() => handleMoreItemClick(item.page, (item as { href?: string }).href)}
                     className={`flex flex-col items-center justify-center py-4 px-3 min-h-[68px] active:scale-95 transition-all duration-150 ${
                       isActive
                         ? 'bg-lava/[0.08] text-lava'

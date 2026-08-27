@@ -27,6 +27,7 @@ import ConstructionFund from "./sections/construction-fund"
 import PlotDeed from "./sections/plot-deed"
 import HowItWorks from "./sections/how-it-works"
 import Tiers from "./sections/tiers"
+import FoundersRegister from "./sections/founders-register"
 import Ordinals from "./sections/ordinals"
 import LunarTerrain from "./sections/lunar-terrain"
 import Masterplan from "./sections/masterplan"
@@ -181,6 +182,7 @@ export default function LandingPage() {
         <PlotDeed />
         <HowItWorks />
         <Tiers />
+        <FoundersRegister lb={lb} />
         <Ordinals />
         <LunarTerrain />
         <Masterplan />

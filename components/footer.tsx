@@ -20,8 +20,10 @@ interface FooterProps {
 
 export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
   const currentYear = new Date().getFullYear()
+  // /donate foi aposentada em 27/08 (a landing /dogcity ja faz tudo o que ela
+  // fazia). O botao vai direto pro fundo de construcao la dentro.
   const handleDonate = () => {
-    setCurrentPage?.('donate')
+    window.location.href = '/dogcity#build'
   }
 
   return (

@@ -56,7 +56,7 @@ import {
   Counter, DrawRule, DUR, EASE, GRIDLINE, HAIR, HAIR_SOFT,
   Reveal, Scramble, SplitLine, Stagger, StaggerItem, useOnce, useSpotlight,
 } from "../motion"
-import { DONATION_GOAL, DONATION_METHODS, formatDog, shortAddr } from "../dogcity-data"
+import { DONATION_GOAL, DONATION_METHODS, DONATION_WALLET, formatDog, shortAddr } from "../dogcity-data"
 import type { LeaderboardData, RecentEntry } from "../types"
 
 // ── the rail's painted graduations ─────────────────────────────────────────
@@ -683,6 +683,45 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
                   Send from the wallet you want registered; the sending address becomes your identity in DogCity.
                   No seed phrase is ever requested.
                 </p>
+              </Reveal>
+
+              {/* ── DON'T TRUST. VERIFY. ────────────────────────────────────
+                  Herdado da /donate (landing antiga, aposentada em 27/08). O
+                  bloco existe porque pedir DOG sem oferecer o extrato e pedir
+                  fe. A tesouraria e publica: o visitante confere o saldo e cada
+                  entrada sem sair daqui.
+                  ⚠️ O destino primario e a NOSSA pagina de endereco. A versao
+                  velha mandava direto pro mempool.space e entregava a pessoa
+                  pra fora do site no momento de maior interesse; o mempool fica
+                  como segunda porta, em icone. */}
+              <Reveal delay={0.3} y={10}>
+                <div className={`mt-2 border ${HAIR} p-3`}>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-lava">
+                    Don&apos;t trust. Verify.
+                  </p>
+                  <p className="mt-2 font-mono text-[11px] leading-relaxed text-dusty">
+                    The treasury is one public address on Bitcoin. Every contribution above was read
+                    from the chain, and so is the total: check the ledger yourself before you send.
+                  </p>
+                  <div className="mt-2.5 flex items-baseline gap-3">
+                    <a
+                      href={`/address/bitcoin/${DONATION_WALLET}`}
+                      className="font-mono text-[11px] text-lava hover:text-lava-light"
+                    >
+                      Open the treasury &rarr;
+                    </a>
+                    <a
+                      href={`https://mempool.space/address/${DONATION_WALLET}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono text-[10px] text-dusty/60 hover:text-dusty"
+                      aria-label="Open the treasury on mempool.space"
+                      title="mempool.space"
+                    >
+                      mempool.space &#8599;
+                    </a>
+                  </div>
+                </div>
               </Reveal>
             </div>
           </div>

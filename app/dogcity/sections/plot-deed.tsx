@@ -55,7 +55,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { motion, useInView, useReducedMotion } from "framer-motion"
 import { ArrowRight, Loader2, Search } from "lucide-react"
-import PlotMap from "../../donate/plot-map"
+import PlotMap from "./plot-map"
 import { LOT_SEGMENTATION, LUNAR_SITE, formatDog, shortAddr } from "../dogcity-data"
 import {
   DUR, EASE, EASE_CSS, GRIDLINE, HAIR, HAIR_SOFT,
