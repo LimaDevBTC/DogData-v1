@@ -99,7 +99,7 @@ const PLATES = [
 // ── o quadro de leitura ────────────────────────────────────────────────────
 const statsDe = (v: { wallets: number; holders: number; directChildren: number } | null) => [
   { k: "WALLETS MAPPED", v: v ? v.wallets : GALAXY.wallets, sub: "every address DOG passed through" },
-  { k: "STILL HOLDING", v: v ? v.holders : GALAXY.holding, sub: "with a balance today" },
+  { k: "STILL HOLDING", v: v ? v.holders : GALAXY.holding, sub: "with a balance today, on Bitcoin" },
   { k: "DEEPEST CHAIN", v: 1663, sub: "hand to hand, wallet to wallet" },
   { k: "DIRECT CHILDREN", v: v ? v.directChildren : GALAXY.directChildren, sub: "first hop out of the airdrop" },
 ]

@@ -1009,6 +1009,11 @@ export default function HoldersPage() {
                   <div className="font-mono text-base md:text-xl text-lava">{(galaxia ? galaxia.holders : 85667).toLocaleString("en-US")}</div>
                   <div className="mt-1 font-mono text-[9px] md:text-[10px] uppercase tracking-[0.18em] text-dusty leading-tight">
                     Still holding
+                    {/* ⚠️ diga a REDE: a distribuicao logo abaixo publica o
+                        total das tres cadeias (Bitcoin, Solana, Stacks) e os
+                        dois numeros ficam na mesma dobra. A genealogia so
+                        existe em Bitcoin L1. */}
+                    <span className="block text-dusty/60">on Bitcoin</span>
                   </div>
                 </div>
                 <div>
