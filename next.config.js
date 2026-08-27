@@ -3,7 +3,17 @@ const nextConfig = {
   // Um segundo `next dev` (revisao visual, screenshot) nao pode disputar o
   // .next do servidor que ja esta rodando: com NEXT_DIST_DIR ele compila num
   // diretorio proprio. Sem a variavel, nada muda.
-  distDir: process.env.NEXT_DIST_DIR || '.next',
+  //
+  // ⚠️ SO NOME RELATIVO COMECANDO EM .next, e a regra existe por acidente
+  // medido: o Next resolve distDir SEMPRE contra a raiz do projeto, entao um
+  // caminho absoluto tipo /tmp/x/next-build vira tmp/x/next-build DENTRO do
+  // repositorio. Em 27/08 isso encheu tmp/ com 788 MB de cache do webpack, o
+  // bot de auto-commit engoliu tudo, e como o GitHub recusa arquivo acima de
+  // 100 MB o push do repositorio inteiro passou a ser rejeitado. Qualquer
+  // outro valor aqui e ignorado de proposito.
+  distDir: /^\.next[A-Za-z0-9._-]*$/.test(process.env.NEXT_DIST_DIR || '')
+    ? process.env.NEXT_DIST_DIR
+    : '.next',
   images: {
     unoptimized: true,
   },

@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import Image from 'next/image'
 import Link from 'next/link'
 import { Wallet, LogOut, User, ChevronDown, ShieldCheck, ShieldAlert, Loader2 } from 'lucide-react'
 import { useWallet } from '@/contexts/WalletContext'
@@ -10,6 +9,56 @@ import { WALLETS } from '@/lib/wallet'
 
 function truncate(addr: string) {
   return addr.length > 12 ? `${addr.slice(0, 5)}…${addr.slice(-4)}` : addr
+}
+
+interface Identity {
+  handle: string | null
+  avatar: string | null
+}
+
+/**
+ * A identidade lida uma vez por endereço e guardada no módulo: o `Layout` (e
+ * com ele este botão) remonta a cada navegação, e sem o cache a casca pediria
+ * o mesmo perfil ao servidor em toda página. O evento
+ * `dogdata:identity-changed`, disparado por /profile, é o que invalida.
+ */
+const identityCache = new Map<string, Identity>()
+
+function useIdentity(address: string | null): Identity | null {
+  const [identity, setIdentity] = useState<Identity | null>(
+    address ? identityCache.get(address) ?? null : null,
+  )
+
+  const load = useCallback((force = false) => {
+    if (!address) return
+    if (!force) {
+      const hit = identityCache.get(address)
+      if (hit) {
+        setIdentity(hit)
+        return
+      }
+    }
+    fetch(`/api/profile?address=${encodeURIComponent(address)}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const next: Identity = {
+          handle: d?.handle ?? null,
+          avatar: d?.avatar_inscription_id ?? null,
+        }
+        identityCache.set(address, next)
+        setIdentity(next)
+      })
+      .catch(() => {})
+  }, [address])
+
+  useEffect(() => {
+    load()
+    const onChange = () => load(true)
+    window.addEventListener('dogdata:identity-changed', onChange)
+    return () => window.removeEventListener('dogdata:identity-changed', onChange)
+  }, [load])
+
+  return identity
 }
 
 /**
@@ -24,6 +73,7 @@ function truncate(addr: string) {
  */
 export function WalletButton({ variant = 'desktop' }: { variant?: 'desktop' | 'mobile' }) {
   const { account, openModal, disconnect, verified, prove, status } = useWallet()
+  const identity = useIdentity(account?.ordinalsAddress ?? null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [coords, setCoords] = useState<{ top: number; right: number } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
@@ -98,6 +148,8 @@ export function WalletButton({ variant = 'desktop' }: { variant?: 'desktop' | 'm
 
   // ---------- Connected ----------
   const meta = WALLETS[account.walletId]
+  const label = identity?.handle ? `@${identity.handle}` : truncate(account.ordinalsAddress)
+  const face = identity?.avatar ? `/api/inscription/${identity.avatar}/content` : meta.logo
 
   if (variant === 'mobile') {
     return (
@@ -105,9 +157,11 @@ export function WalletButton({ variant = 'desktop' }: { variant?: 'desktop' | 'm
         <div className="space-y-0.5">
           <div className="w-full flex items-center gap-3 px-3 py-2.5 font-mono text-sm rounded-lg bg-white/[0.03]">
             <span className="relative w-5 h-5 rounded overflow-hidden flex-shrink-0">
-              <Image src={meta.logo} alt={meta.name} fill sizes="20px" className="object-cover" />
+              {/* eslint-disable-next-line @next/next/no-img-element -- a arte da
+                  inscrição é servida pela nossa rota de conteúdo */}
+              <img src={face} alt="" className="w-full h-full object-cover" style={{ imageRendering: 'pixelated' }} />
             </span>
-            <span className="text-snow flex-1">{truncate(account.ordinalsAddress)}</span>
+            <span className="text-snow flex-1 truncate">{label}</span>
             {verified ? (
               <ShieldCheck className="w-4 h-4 text-green-400" />
             ) : (
@@ -151,10 +205,11 @@ export function WalletButton({ variant = 'desktop' }: { variant?: 'desktop' | 'm
         title={account.ordinalsAddress}
       >
         <span className="relative w-4 h-4 rounded overflow-hidden flex-shrink-0">
-          <Image src={meta.logo} alt={meta.name} fill sizes="16px" className="object-cover" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={face} alt="" className="w-full h-full object-cover" style={{ imageRendering: 'pixelated' }} />
         </span>
-        <span className="font-mono text-xs text-snow font-medium">
-          {truncate(account.ordinalsAddress)}
+        <span className="font-mono text-xs text-snow font-medium max-w-[120px] truncate">
+          {label}
         </span>
         {proving ? (
           <Loader2 className="w-3 h-3 text-lava animate-spin" />
@@ -178,7 +233,7 @@ export function WalletButton({ variant = 'desktop' }: { variant?: 'desktop' | 'm
           <div className="px-3 py-2.5 border-b border-white/[0.06]">
             <p className="text-[10px] font-mono text-[#6B6B78]">{meta.name}</p>
             <p className="text-[11px] font-mono text-snow break-all">
-              {truncate(account.ordinalsAddress)}
+              {identity?.handle ? `@${identity.handle}` : truncate(account.ordinalsAddress)}
             </p>
             <p
               className={`mt-1 flex items-center gap-1 text-[10px] font-mono ${verified ? 'text-green-400' : 'text-amber-400/80'}`}

@@ -10,6 +10,7 @@ import {
   Users,
   Gift
 } from "lucide-react"
+import { useDonate } from "@/components/donate/donate-modal"
 
 type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain' | 'explorer' | 'status' | 'city' | 'profile'
 
@@ -21,10 +22,11 @@ interface FooterProps {
 export default function Footer({ currentPage, setCurrentPage }: FooterProps) {
   const currentYear = new Date().getFullYear()
   // /donate foi aposentada em 27/08 (a landing /dogcity ja faz tudo o que ela
-  // fazia). O botao vai direto pro fundo de construcao la dentro.
-  const handleDonate = () => {
-    window.location.href = '/dogcity#build'
-  }
+  // fazia), e desde 28/08 o botao nem navega: abre a janela que dispara a
+  // transacao pela carteira conectada, com o endereco e o QR logo abaixo pra
+  // quem prefere mandar a mao.
+  const { open: openDonate } = useDonate()
+  const handleDonate = () => openDonate({ asset: 'dog' })
 
   return (
     <footer className="border-t border-white/[0.04] mt-12 md:mt-20 relative pb-20 md:pb-0">

@@ -121,3 +121,14 @@ data/snapshots/
 
 # Blender pipeline test artefacts — proof-of-round-trip assets, not shipped
 public/city/_*.glb
+
+# Scratchpad de sessao de agente. O bot de auto-commit varre tudo que nao esta
+# ignorado, e em 27/08 ele engoliu 633 MB de cache do webpack que uma sessao
+# deixou em tmp/claude-1000/ — dois arquivos .pack de 163 MB e 276 MB. O GitHub
+# recusa qualquer arquivo acima de 100 MB, entao o push inteiro passa a ser
+# rejeitado e TODO trabalho commitado depois fica preso atras desse lixo.
+tmp/
+
+# Diretorios de build paralelos (NEXT_DIST_DIR, ver next.config.js): existem pra
+# uma sessao compilar sem derrubar o `next dev` que esta no ar.
+.next-*/

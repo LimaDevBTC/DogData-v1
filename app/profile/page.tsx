@@ -27,6 +27,7 @@ import {
 import { Layout } from "@/components/layout"
 import { Plate, PlateHead, PlotGrid, StatTile, CAT } from "@/app/analytics/dashboard/ui"
 import { useWallet } from "@/contexts/WalletContext"
+import { useDonate } from "@/components/donate/donate-modal"
 import { WALLETS } from "@/lib/wallet"
 import { handleProblem, normalizeHandle } from "@/lib/identity/handle"
 
@@ -328,7 +329,7 @@ function AvatarPicker({
 
           {!loading && !!items?.length && (
             <>
-              <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-8 gap-px bg-white/10 border border-white/10">
+              <div className="flex flex-wrap gap-px bg-white/10 border border-white/10 p-px">
                 {items.map((ins) => {
                   const active = ins.id === current
                   return (
@@ -337,7 +338,7 @@ function AvatarPicker({
                       onClick={() => choose(ins.id)}
                       disabled={busy !== null}
                       title={ins.number ? `Inscription ${n0(ins.number)}` : ins.id}
-                      className={`relative aspect-square bg-void group ${active ? "outline outline-1 outline-lava" : ""}`}
+                      className={`relative w-[82px] h-[82px] md:w-[92px] md:h-[92px] bg-void group ${active ? "outline outline-1 outline-lava outline-offset-[-1px]" : ""}`}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
@@ -380,6 +381,7 @@ const DIR_TONE = { in: "text-[#10B981]", out: "text-[#EF4444]", self: "text-dust
 
 export default function ProfilePage() {
   const { account, verified, status, prove, disconnect, openModal } = useWallet()
+  const { open: openDonate } = useDonate()
   const proving = status === "proving"
   const address = account?.ordinalsAddress ?? null
 
@@ -478,6 +480,7 @@ export default function ProfilePage() {
       }
       setSaved(true)
       loadProfile()
+      window.dispatchEvent(new CustomEvent("dogdata:identity-changed"))
     } catch {
       setSaveError("Could not save. Try again.")
     } finally {
@@ -495,6 +498,10 @@ export default function ProfilePage() {
       const data = await res.json().catch(() => ({}))
       if (!res.ok) return data?.error || "Could not save your picture."
       loadProfile()
+      // O botão do cabeçalho guarda a identidade em memória pra não repetir a
+      // chamada a cada navegação; sem este aviso ele mostraria a foto antiga
+      // até a próxima recarga.
+      window.dispatchEvent(new CustomEvent("dogdata:identity-changed"))
       return null
     } catch {
       return "Could not save your picture."
@@ -906,12 +913,20 @@ export default function ProfilePage() {
                       </span>
                     )}
                   </div>
-                  <Link
-                    href="/dogcity#build"
-                    className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-lava hover:underline"
-                  >
-                    Your plaque <ArrowUpRight className="w-3 h-3" />
-                  </Link>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      onClick={() => openDonate({ asset: "dog" })}
+                      className="inline-flex items-center gap-1.5 border border-lava/50 bg-lava/[0.08] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-lava hover:bg-lava/[0.16] transition-colors"
+                    >
+                      Add to it
+                    </button>
+                    <Link
+                      href="/dogcity#build"
+                      className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-dusty hover:text-lava transition-colors"
+                    >
+                      Your plaque <ArrowUpRight className="w-3 h-3" />
+                    </Link>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -919,12 +934,20 @@ export default function ProfilePage() {
                     This address has not donated to the build yet. Any amount before the goal makes
                     you a Founder, and the register records the order of arrival.
                   </p>
-                  <Link
-                    href="/dogcity#build"
-                    className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-lava hover:underline"
-                  >
-                    Read the ladder <ArrowUpRight className="w-3 h-3" />
-                  </Link>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      onClick={() => openDonate({ asset: "dog" })}
+                      className="inline-flex items-center gap-1.5 border border-lava/50 bg-lava/[0.08] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-lava hover:bg-lava/[0.16] transition-colors"
+                    >
+                      Donate now
+                    </button>
+                    <Link
+                      href="/dogcity#build"
+                      className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-dusty hover:text-lava transition-colors"
+                    >
+                      Read the ladder <ArrowUpRight className="w-3 h-3" />
+                    </Link>
+                  </div>
                 </div>
               )}
             </div>

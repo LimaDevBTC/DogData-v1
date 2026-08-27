@@ -3,6 +3,7 @@ import { JetBrains_Mono, Syne, DM_Sans, Instrument_Serif, Barlow } from 'next/fo
 import './globals.css'
 import { VerifiedAddressesProvider } from '@/contexts/VerifiedAddressesContext'
 import { WalletProvider } from '@/contexts/WalletContext'
+import { DonateProvider } from '@/components/donate/donate-modal'
 import { AnalyticsTracker } from '@/components/analytics-tracker'
 import { RouteMemory } from '@/components/route-memory'
 
@@ -115,9 +116,13 @@ export default function RootLayout({
       <body className={`${jetbrainsMono.variable} ${syne.variable} ${dmSans.variable} ${instrumentSerif.variable} ${barlow.variable} font-mono`}>
         <VerifiedAddressesProvider>
           <WalletProvider>
-            <div className="min-h-screen bg-void">
-              {children}
-            </div>
+            {/* A janela de doação mora na raiz porque o CTA está no rodapé, na
+                landing, no perfil e na praça: um provedor só, uma janela só. */}
+            <DonateProvider>
+              <div className="min-h-screen bg-void">
+                {children}
+              </div>
+            </DonateProvider>
           </WalletProvider>
         </VerifiedAddressesProvider>
         <AnalyticsTracker />

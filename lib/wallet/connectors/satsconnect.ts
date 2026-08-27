@@ -36,7 +36,7 @@ const LEGACY_PROVIDER_PATHS: Partial<Record<WalletId, string[]>> = {
 // exatamente o tipo de coisa que a Xverse responde com "Failed to get
 // selected account...". Por isso valida com isProviderInstalled antes de
 // confiar, e cai pro caminho legado clássico quando o anúncio ainda não existe.
-function findProviderId(id: WalletId, keywords: string[]): string | null {
+export function findProviderId(id: WalletId, keywords: string[]): string | null {
   if (typeof window === 'undefined') return null
   try {
     const providers = getProviders() as Array<{ id: string; name: string }>

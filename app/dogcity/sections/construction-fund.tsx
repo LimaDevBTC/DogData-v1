@@ -48,7 +48,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import Image from "next/image"
-import { Check, Copy } from "lucide-react"
+import { Check, Copy, Wallet } from "lucide-react"
+import { useDonate } from "@/components/donate/donate-modal"
 import {
   AnimatePresence, animate, motion, useMotionValue, useMotionValueEvent, useReducedMotion,
 } from "framer-motion"
@@ -410,6 +411,11 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
     return () => controls.stop()
   }, [inView, reduce, t])
 
+  // Desde 28/08 a doação também sai daqui: a carteira conectada assina e
+  // transmite sem a pessoa sair da página. O endereço e o COPY continuam
+  // porque nem toda carteira sabe transferir a pedido de um site.
+  const { open: openDonate } = useDonate()
+
   // ── copy interaction ─────────────────────────────────────────────────────
   const [copied, setCopied] = useState<string | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -613,6 +619,16 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
 
             {/* ── DONATION METHODS — the conversion point of the page ────── */}
             <div className="mt-10 space-y-3">
+              <Reveal y={12}>
+                <button
+                  onClick={() => openDonate({ asset: "dog" })}
+                  className="w-full min-h-[48px] inline-flex items-center justify-center gap-2 border border-lava/60 bg-lava/[0.12] px-4 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-lava transition-colors hover:bg-lava/[0.2]"
+                >
+                  <Wallet className="w-4 h-4" />
+                  Donate from your wallet
+                </button>
+              </Reveal>
+
               {DONATION_METHODS.map((m, i) => {
                 const isCopied = copied === m.key
                 const featured = Boolean(m.featured)
