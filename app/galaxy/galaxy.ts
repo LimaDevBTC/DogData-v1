@@ -199,6 +199,47 @@ export function colorFor(node: TreeNode, out: Float32Array, offset: number): voi
   }
 }
 
+// ── filtro de populacao (all / holders / spent) ──────────────────────────────
+// O criterio e SALDO HOJE, nada mais. Toda carteira da arvore recebeu DOG em
+// algum momento (e uma genealogia de transferencias), entao "spent" quer dizer
+// "recebeu e hoje esta em zero". A copy da HUD carrega o jargao "paper hands"
+// porque e o vocabulario do publico, mas a legenda tem que dizer o criterio
+// cru: intencao de quem vendeu NAO e observavel na cadeia e a galaxia e
+// ferramenta de analise, nao adivinhacao.
+export type StarFilter = 'all' | 'holders' | 'spent'
+
+/** Valor do uniform uFiltro no shader das estrelas. */
+export const filterUniform = (f: StarFilter): number => (f === 'holders' ? 1 : f === 'spent' ? 2 : 0)
+
+/** Uma carteira passa no filtro ativo? holder = tem saldo hoje. */
+export const passesFilter = (f: StarFilter, holder: boolean): boolean =>
+  f === 'all' ? true : f === 'holders' ? holder : !holder
+
+/** Rotulo curto do botao da HUD, em ingles. */
+export const FILTER_LABEL: Record<StarFilter, string> = {
+  all: 'All wallets',
+  holders: 'Holders',
+  spent: 'Paper hands',
+}
+
+/**
+ * Legenda VISIVEL do filtro ativo: o criterio medido, nunca o jargao.
+ * ⚠️ uma linha so em 390px de largura: mais que isso empurra os contadores
+ * para baixo do painel da carteira no iPhone.
+ */
+export const FILTER_NOTE: Record<StarFilter, string> = {
+  all: 'Every wallet DOG ever touched, holding or not.',
+  holders: 'Wallets holding DOG right now. The sun stays as the origin.',
+  spent: 'Received DOG, holds zero today. Not a claim about intent.',
+}
+
+/** A frase inteira, no title do botao (onde ha espaco). */
+export const FILTER_HINT: Record<StarFilter, string> = {
+  all: 'Every wallet that ever received DOG, whether it still holds any or not.',
+  holders: 'Only wallets with a DOG balance right now. The treasury sun stays visible as the origin of every shell.',
+  spent: 'Paper hands here means one measured thing: this wallet received DOG and holds zero today. Selling intent is not observable on-chain.',
+}
+
 // ── formatadores da HUD (copy em ingles) ─────────────────────────────────────
 export const fmtDog = (n: number): string =>
   n >= 1e9 ? `${(n / 1e9).toFixed(2)}B` : n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : n.toFixed(n >= 100 ? 0 : 2)

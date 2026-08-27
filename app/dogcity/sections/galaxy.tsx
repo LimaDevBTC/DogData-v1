@@ -87,8 +87,8 @@ const PLATES = [
   {
     src: "/landing/galaxy/galaxy-fan.webp",
     label: "ONE CLICK ON THE TREASURY",
-    caption: "80,850 airdrop edges light at once, drawn wallet by wallet.",
-    alt: "The same galaxy with the treasury selected: 80,850 edges fan out from the centre and light the core white hot",
+    caption: "80,855 airdrop edges light at once, drawn wallet by wallet.",
+    alt: "The same galaxy with the treasury selected: 80,855 edges fan out from the centre and light the core white hot",
   },
 ] as const
 

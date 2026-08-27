@@ -15,6 +15,12 @@ import {
   type TreeNode,
   type TreeResponse,
   type GenStat,
+  type StarFilter,
+  FILTER_LABEL,
+  FILTER_HINT,
+  FILTER_NOTE,
+  filterUniform,
+  passesFilter,
   sanitizeNode,
   nodePosition,
   childFanPosition,
@@ -79,6 +85,7 @@ interface SceneApi {
   focusWallet: (addr: string) => void
   clearSelection: () => void
   clearTrails: () => void
+  setFiltro: (f: StarFilter) => void
 }
 
 // textura de disco radial via canvas: o "map" das estrelas e da poeira
@@ -126,7 +133,15 @@ export default function TreeScene() {
   const [results, setResults] = useState<TreeNode[]>([])
   const [searching, setSearching] = useState(false)
   const [popInfo, setPopInfo] = useState<{ drawn: number } | null>(null)
+  // ⚠️ CENSO DO QUE ESTA NA TELA, e nao o agregado de gens[]: a rota capa a
+  // profundidade em 30 (GENS_MAX_DEPTH), entao somar gens[] perdia as 6.2 mil
+  // carteiras alem da geracao 30 que a cena JA desenha, e o contador ficava
+  // menor que a propria legenda logo abaixo dele.
+  const [censo, setCenso] = useState<{ total: number; holders: number; gastos: number; fundo: number } | null>(null)
   const [trilhas, setTrilhas] = useState(0)
+  // filtro do ceu: all / holders / spent. Vive no React porque a HUD conta
+  // e rotula por ele; a cena recebe o valor por apiRef e resolve no shader.
+  const [filtro, setFiltro] = useState<StarFilter>('all')
   // dossie rico da rota /node (o mesmo que o Flow usa): rank, % do supply,
   // LTH/STH, coorte e as maiores contrapartes com rotulo
   const [dossie, setDossie] = useState<NodeDossier | null>(null)
@@ -206,10 +221,8 @@ export default function TreeScene() {
 
     // ── o sol do airdrop (a tesouraria) ──────────────────────────────────────
     const sunTex = discTexture(128, 0.18)
-    const sunMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(7, 32, 24),
-      new THREE.MeshBasicMaterial({ color: 0xffb347 }),
-    )
+    const sunMat = new THREE.MeshBasicMaterial({ color: 0xffb347 })
+    const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(7, 32, 24), sunMat)
     scene.add(sunMesh)
     const haloMat = new THREE.SpriteMaterial({
       map: sunTex,
@@ -222,16 +235,15 @@ export default function TreeScene() {
     const halo = new THREE.Sprite(haloMat)
     halo.scale.set(64, 64, 1)
     scene.add(halo)
-    const haloOuter = new THREE.Sprite(
-      new THREE.SpriteMaterial({
-        map: sunTex,
-        color: 0x8a4a10,
-        transparent: true,
-        opacity: 0.5,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      }),
-    )
+    const haloOuterMat = new THREE.SpriteMaterial({
+      map: sunTex,
+      color: 0x8a4a10,
+      transparent: true,
+      opacity: 0.5,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    })
+    const haloOuter = new THREE.Sprite(haloOuterMat)
     haloOuter.scale.set(150, 150, 1)
     scene.add(haloOuter)
 
@@ -240,6 +252,13 @@ export default function TreeScene() {
     const posArr = new Float32Array(MAX_NODES * 3)
     const colArr = new Float32Array(MAX_NODES * 3)
     const sizeArr = new Float32Array(MAX_NODES)
+    // aFocus: 1 nos poucos indices da carteira selecionada (ela, a linhagem
+    // e os filhos dela). aKind: 1 holder, 0 saldo zero hoje, e o que o
+    // filtro da HUD le. Os dois sao o MESMO contrato nas tres geometrias que
+    // usam starMat (esqueleto, populacao e destinos do leque): se faltar em
+    // uma delas o atributo generico do WebGL entra como lixo.
+    const focusArr = new Float32Array(MAX_NODES)
+    const kindArr = new Float32Array(MAX_NODES)
     // posicoes vagas ficam longe do universo: raycast e frustum nunca as acham
     posArr.fill(1e7)
 
@@ -247,6 +266,8 @@ export default function TreeScene() {
     starGeom.setAttribute('position', new THREE.BufferAttribute(posArr, 3))
     starGeom.setAttribute('color', new THREE.BufferAttribute(colArr, 3))
     starGeom.setAttribute('size', new THREE.BufferAttribute(sizeArr, 1))
+    starGeom.setAttribute('aFocus', new THREE.BufferAttribute(focusArr, 1))
+    starGeom.setAttribute('aKind', new THREE.BufferAttribute(kindArr, 1))
     starGeom.setDrawRange(0, 0)
 
     // PointsMaterial nao tem tamanho por vertice, entao o shader reimplementa
@@ -256,15 +277,52 @@ export default function TreeScene() {
       uniforms: {
         uMap: { value: starTex },
         uScale: { value: 600 },
+        // ── FOCO NA SELECAO ────────────────────────────────────────────────
+        // uFoco e uma RAMPA 0..1 animada no loop (transicao curta, nunca
+        // liga-desliga) e uDim e o quanto o entorno recua. O que decide quem
+        // fica aceso e a attribute aFocus, escrita so nos poucos indices da
+        // carteira selecionada: ZERO laco de 260 mil pontos por clique e
+        // ZERO reconstrucao de buffer.
+        uFoco: { value: 0 },
+        uDim: { value: 0.35 },
+        // ── FILTRO ────────────────────────────────────────────────────────
+        // 0 all, 1 holders, 2 spent (saldo zero hoje). Esconder aqui evita
+        // reconstruir a geometria da populacao a cada troca de filtro.
+        uFiltro: { value: 0 },
       },
       vertexShader: /* glsl */ `
         attribute float size;
+        attribute float aFocus;
+        attribute float aKind;
         varying vec3 vColor;
+        varying float vAtten;
+        varying float vVis;
         uniform float uScale;
+        uniform float uFoco;
+        uniform float uDim;
+        uniform float uFiltro;
         void main() {
-          vColor = color;
+          // comparacao por faixa, nao por igualdade: float uniform em GLSL
+          // ES nao garante == exato
+          vVis = 1.0;
+          float zerados = 0.0;
+          if (uFiltro > 1.5) { vVis = aKind > 0.5 ? 0.0 : 1.0; zerados = 1.0; }
+          else if (uFiltro > 0.5) vVis = aKind > 0.5 ? 1.0 : 0.0;
+          // ⚠️ saldo zero e desenhado em brasa APAGADA de proposito, porque
+          // no ceu inteiro ele e o pano de fundo dos holders. Sozinho no
+          // quadro isso vira uma tela preta e o filtro parece quebrado (172
+          // mil carteiras invisiveis): quando ELE e o unico conteudo, ganha
+          // brilho e corpo. Ganho igual para todos, nenhuma ordem muda.
+          vColor = min(color * mix(1.0, 2.4, zerados), vec3(0.85));
+          float ganhoZerado = mix(1.0, 1.55, zerados);
+          // "perde UM POUCO o brilho" (fundador): o entorno recua ate uDim,
+          // nunca ate zero, entao o ceu continua legivel atras da selecao
+          float fora = (1.0 - aFocus) * uFoco;
+          vAtten = mix(1.0, uDim, fora);
+          // e a carteira em foco GANHA presenca, nao so fica igual
+          float ganho = 1.0 + 0.45 * aFocus * uFoco;
           vec4 mv = modelViewMatrix * vec4(position, 1.0);
-          float ps = size * (uScale / -mv.z);
+          float ps = size * ganho * ganhoZerado * mix(1.0, 0.9, fora) * (uScale / -mv.z);
           // ⚠️ teto de pixels: sem ele, chegar perto da concha inflava cada
           // estrela numa bola de dezenas de pixels e a soma aditiva virava
           // nevoa ilegivel (chapa do fundador no celular). Com a ESCALA
@@ -274,17 +332,25 @@ export default function TreeScene() {
           // contra as sardinhas. O piso cai pra 0.8: sem isso as carteiras
           // pequenas empatavam por baixo no zoom-out (foi o que o fundador
           // viu: "todas as estrelas tem o mesmo tamanho").
-          gl_PointSize = clamp(ps, 0.8, 150.0);
+          gl_PointSize = clamp(ps, 0.8, 150.0) * vVis;
           gl_Position = projectionMatrix * mv;
         }
       `,
       fragmentShader: /* glsl */ `
         uniform sampler2D uMap;
         varying vec3 vColor;
+        varying float vAtten;
+        varying float vVis;
         void main() {
+          // ⚠️ gl_PointSize = 0 ainda rasteriza 1 pixel em alguns drivers:
+          // o descarte aqui e que garante que o filtro some de verdade
+          if (vVis < 0.5) discard;
           vec4 tex = texture2D(uMap, gl_PointCoord);
           if (tex.a < 0.04) discard;
-          gl_FragColor = vec4(vColor * tex.a, tex.a);
+          // ⚠️ atenuacao SO na cor: o blending aditivo desta cena e
+          // SRC_ALPHA/ONE, entao multiplicar tambem o alpha elevaria a
+          // atenuacao ao quadrado e apagaria o entorno em vez de recuar
+          gl_FragColor = vec4(vColor * tex.a * vAtten, tex.a);
         }
       `,
       transparent: true,
@@ -318,6 +384,8 @@ export default function TreeScene() {
       posArr[i * 3 + 2] = z
       colorFor(n, colArr, i * 3)
       sizeArr[i] = sizeFor(n.b, n.sb)
+      kindArr[i] = n.h ? 1 : 0
+      focusArr[i] = 0
       nodeMeta[i] = n
       indexByWallet.set(n.w, i)
       starCount++
@@ -329,7 +397,36 @@ export default function TreeScene() {
       ;(starGeom.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true
       ;(starGeom.getAttribute('color') as THREE.BufferAttribute).needsUpdate = true
       ;(starGeom.getAttribute('size') as THREE.BufferAttribute).needsUpdate = true
+      ;(starGeom.getAttribute('aKind') as THREE.BufferAttribute).needsUpdate = true
     }
+
+    // ── foco: quem fica aceso quando ha carteira selecionada ─────────────────
+    // A lista focoIdx existe para APAGAR o foco anterior sem varrer os 8 mil
+    // slots: limpar e marcar custam o tamanho da linhagem, nao o do ceu.
+    const focoIdx: number[] = []
+    let focoAlvo = 0 // destino da rampa uFoco (0 sem selecao, 1 com selecao)
+    let focoRampa = 0
+    let focoRaiz = false // tesouraria selecionada: o sol nao recua
+    const flushFoco = () => {
+      ;(starGeom.getAttribute('aFocus') as THREE.BufferAttribute).needsUpdate = true
+    }
+    const limpaFoco = () => {
+      for (const i of focoIdx) focusArr[i] = 0
+      focoIdx.length = 0
+      flushFoco()
+    }
+    const marcaFoco = (i: number) => {
+      if (i < 0 || i >= MAX_NODES || focusArr[i] === 1) return
+      focusArr[i] = 1
+      focoIdx.push(i)
+    }
+
+    // ── filtro ativo, espelhado do React ────────────────────────────────────
+    // Guardado aqui tambem porque o picking (que roda fora do React) precisa
+    // dele: esconder no shader sem tirar do picking abriria o dossie de uma
+    // carteira invisivel.
+    let filtroAtivo: StarFilter = 'all'
+    const passaFiltro = (holder: boolean) => passesFilter(filtroAtivo, holder)
 
     // garante o no na cena; raiz vive no sol e devolve -1
     const ensureNode = (n: TreeNode): number => {
@@ -362,13 +459,15 @@ export default function TreeScene() {
 
     // ── linhas curtas pai-filho dos filhos materializados ────────────────────
     const linkArr = new Float32Array(MAX_LINK_SEGMENTS * 6)
+    const linkAttr = new THREE.BufferAttribute(linkArr, 3)
     const linkGeom = new THREE.BufferGeometry()
-    linkGeom.setAttribute('position', new THREE.BufferAttribute(linkArr, 3))
+    linkGeom.setAttribute('position', linkAttr)
     linkGeom.setDrawRange(0, 0)
+    const LINK_OP = 0.14
     const linkMat = new THREE.LineBasicMaterial({
       color: 0xf7931a,
       transparent: true,
-      opacity: 0.14,
+      opacity: LINK_OP,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     })
@@ -376,6 +475,26 @@ export default function TreeScene() {
     links.frustumCulled = false
     scene.add(links)
     let linkCount = 0
+
+    // ── as arestas DA CARTEIRA selecionada, no brilho cheio ──────────────────
+    // Segunda geometria que COMPARTILHA o mesmo BufferAttribute do desenho
+    // acumulado: nada e copiado, so o drawRange muda. Como as arestas de um
+    // pai nascem em bloco contiguo em materializeChildren, guardar [inicio,
+    // fim) por carteira basta para reacender exatamente as dela.
+    const linkFoco = new THREE.BufferGeometry()
+    linkFoco.setAttribute('position', linkAttr)
+    linkFoco.setDrawRange(0, 0)
+    const linkFocoMat = new THREE.LineBasicMaterial({
+      color: 0xffb347,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    })
+    const linksFoco = new THREE.LineSegments(linkFoco, linkFocoMat)
+    linksFoco.frustumCulled = false
+    scene.add(linksFoco)
+    const linkRange = new Map<string, [number, number]>()
 
     const addLink = (ax: number, ay: number, az: number, bx: number, by: number, bz: number) => {
       if (linkCount >= MAX_LINK_SEGMENTS) return
@@ -425,8 +544,18 @@ export default function TreeScene() {
     const atualizaLeque = (raiz: boolean) => {
       lequeDesejado = raiz
       if (raiz) buildAirdropBurst()
-      if (burstVeu) burstVeu.visible = raiz
-      if (burstRaios) burstRaios.visible = raiz
+      // ⚠️ veu e raios sao arestas para TODA a geracao 1 e nao passam pelo
+      // shader das estrelas: com um filtro ativo eles pousariam em estrelas
+      // escondidas e o ceu viraria uma mentira. So abrem no ceu inteiro. Os
+      // destinos em destaque usam starMat e o filtro cuida deles sozinho.
+      const linhas = raiz && filtroAtivo === 'all'
+      // as arestas acumuladas e as do foco terminam em estrelas que o filtro
+      // pode ter escondido: com filtro ativo elas somem junto, senao o ceu
+      // mostra linha pousando no vazio (mesma regra que o leque ja seguia)
+      links.visible = filtroAtivo === 'all'
+      linksFoco.visible = filtroAtivo === 'all'
+      if (burstVeu) burstVeu.visible = linhas
+      if (burstRaios) burstRaios.visible = linhas
       if (burstDest) burstDest.visible = raiz
     }
     const buildAirdropBurst = () => {
@@ -499,6 +628,11 @@ export default function TreeScene() {
       const posDest = new Float32Array(nD * 3)
       const colDest = new Float32Array(nD * 3)
       const sizeDest = new Float32Array(nD)
+      // os destinos SAO as arestas da tesouraria: quando a tesouraria esta
+      // selecionada eles ficam no foco cheio, nunca recuam com o entorno.
+      // aKind = 1 porque o corte de entrada ja e byte >= 139 (holder grande).
+      const focoDest = new Float32Array(nD).fill(1)
+      const kindDest = new Float32Array(nD).fill(1)
       for (let j = 0; j < nD; j++) {
         const i = idxDest[j]
         posDest[j * 3] = popPos[i * 3]
@@ -515,11 +649,13 @@ export default function TreeScene() {
       gD.setAttribute('position', new THREE.BufferAttribute(posDest, 3))
       gD.setAttribute('color', new THREE.BufferAttribute(colDest, 3))
       gD.setAttribute('size', new THREE.BufferAttribute(sizeDest, 1))
+      gD.setAttribute('aFocus', new THREE.BufferAttribute(focoDest, 1))
+      gD.setAttribute('aKind', new THREE.BufferAttribute(kindDest, 1))
       burstDest = new THREE.Points(gD, starMat)
       burstDest.frustumCulled = false
       scene.add(burstDest)
-      burstVeu.visible = lequeDesejado
-      burstRaios.visible = lequeDesejado
+      burstVeu.visible = lequeDesejado && filtroAtivo === 'all'
+      burstRaios.visible = lequeDesejado && filtroAtivo === 'all'
       burstDest.visible = lequeDesejado
     }
 
@@ -549,7 +685,14 @@ export default function TreeScene() {
       popPos = new Float32Array(n * 3)
       const cols = new Float32Array(n * 3)
       const sizes = new Float32Array(n)
+      // aKind da populacao sai direto do byte de SALDO: 0 = gastou tudo,
+      // qualquer coisa acima de 0 = ainda tem DOG. aFocus fica em zero para
+      // sempre: quando o usuario clica num ponto da populacao, /path
+      // materializa a carteira no ESQUELETO e e la que o foco acende.
+      const popKind = new Float32Array(n)
+      const popFocus = new Float32Array(n)
       for (let i = 0; i < n; i++) {
+        popKind[i] = popClasse[i] > 0 ? 1 : 0
         popPos[i * 3] = xyz[i * 3] / 8
         popPos[i * 3 + 1] = xyz[i * 3 + 1] / 8
         popPos[i * 3 + 2] = xyz[i * 3 + 2] / 8
@@ -596,6 +739,8 @@ export default function TreeScene() {
       g.setAttribute('position', new THREE.BufferAttribute(popPos, 3))
       g.setAttribute('color', new THREE.BufferAttribute(cols, 3))
       g.setAttribute('size', new THREE.BufferAttribute(sizes, 1))
+      g.setAttribute('aKind', new THREE.BufferAttribute(popKind, 1))
+      g.setAttribute('aFocus', new THREE.BufferAttribute(popFocus, 1))
       // o MESMO shader das estrelas: o teto de gl_PointSize evita a parede
       // de luz de perto que a poeira mole tinha
       popPoints = new THREE.Points(g, starMat)
@@ -692,8 +837,48 @@ export default function TreeScene() {
     }
 
     // ── selecao: filhos em leque + linhagem + painel ─────────────────────────
+    // Quem esta selecionado AGORA, do ponto de vista da cena. As respostas de
+    // /path e /children chegam fora de ordem quando o usuario clica rapido:
+    // sem esta guarda o foco de uma carteira acenderia sobre outra.
+    let selWallet: string | null = null
+    // indices do esqueleto que compoem o foco de cada carteira ja aberta,
+    // para reacender sem refazer as buscas quando ela volta a ser selecionada
+    const linhagemIdx = new Map<string, number[]>()
+    const filhosIdx = new Map<string, number[]>()
+
+    const aplicaLinkFoco = (w: string) => {
+      const r = linkRange.get(w)
+      // drawRange de LineSegments conta VERTICES: cada aresta tem dois
+      if (r && r[1] > r[0]) linkFoco.setDrawRange(r[0] * 2, (r[1] - r[0]) * 2)
+      else linkFoco.setDrawRange(0, 0)
+    }
+
+    // reescreve o conjunto em foco a partir do que a cena ja sabe da carteira
+    const pintaFoco = (w: string, depth: number) => {
+      limpaFoco()
+      focoRaiz = depth <= 0
+      focoAlvo = 1
+      const idx = indexByWallet.get(w)
+      if (idx !== undefined) marcaFoco(idx)
+      const lin = linhagemIdx.get(w)
+      if (lin) for (const k of lin) marcaFoco(k)
+      const kids = filhosIdx.get(w)
+      if (kids) for (const k of kids) marcaFoco(k)
+      aplicaLinkFoco(w)
+      flushFoco()
+    }
+
+    const apagaFoco = () => {
+      selWallet = null
+      focoAlvo = 0
+      focoRaiz = false
+      limpaFoco()
+      linkFoco.setDrawRange(0, 0)
+    }
+
     const setLineage = (pathNodes: TreeNode[]) => {
       let n = 0
+      const idxs: number[] = []
       // a raiz entra como origem mesmo se o path ja comecar nela
       if (pathNodes.length === 0 || pathNodes[0].d > 0) {
         pathArr[0] = 0
@@ -710,6 +895,7 @@ export default function TreeScene() {
         } else {
           const idx = ensureNode(node)
           if (idx < 0) continue
+          idxs.push(idx)
           pathArr[n * 3] = posArr[idx * 3]
           pathArr[n * 3 + 1] = posArr[idx * 3 + 1]
           pathArr[n * 3 + 2] = posArr[idx * 3 + 2]
@@ -719,6 +905,11 @@ export default function TreeScene() {
       flushStars()
       pathGeom.setDrawRange(0, n)
       ;(pathGeom.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true
+      const alvo = pathNodes.length > 0 ? pathNodes[pathNodes.length - 1] : null
+      if (alvo) {
+        linhagemIdx.set(alvo.w, idxs)
+        if (selWallet === alvo.w) pintaFoco(alvo.w, alvo.d)
+      }
     }
 
     const clearLineage = () => {
@@ -751,17 +942,33 @@ export default function TreeScene() {
           if (pR > 1) pPhi = Math.acos(Math.max(-1, Math.min(1, py / pR)))
         }
         let wrote = false
+        // bloco CONTIGUO de arestas deste pai: e o que permite reacender so
+        // as dele depois, mudando o drawRange da geometria irma
+        const linkIni = linkCount
+        const kids: number[] = []
         for (let i = 0; i < children.length; i++) {
           const child = children[i]
-          if (indexByWallet.has(child.w)) continue
+          // ja esta no ceu (veio no esqueleto ou de outro clique): nao ganha
+          // aresta nova, mas continua sendo filha e entra no foco
+          const jaTem = indexByWallet.get(child.w)
+          if (jaTem !== undefined) {
+            kids.push(jaTem)
+            continue
+          }
           if (starCount >= MAX_NODES) break
           const depth = child.d > 0 ? child.d : parent.d + 1
           childFanPosition(pTheta, pPhi, i, children.length, depth, child.w, tmpV)
           const idx = writeStar(child, tmpV.x, tmpV.y, tmpV.z)
           addLink(px, py, pz, posArr[idx * 3], posArr[idx * 3 + 1], posArr[idx * 3 + 2])
+          kids.push(idx)
           wrote = true
         }
         if (wrote) flushStars()
+        linkRange.set(parent.w, [linkIni, linkCount])
+        filhosIdx.set(parent.w, kids)
+        // os filhos chegaram depois do clique: se este pai ainda e a selecao,
+        // o foco reacende agora ja com as arestas dele
+        if (selWallet === parent.w) pintaFoco(parent.w, parent.d)
       } catch {
         // sem drama: a arvore ainda pode estar sendo escrita
       }
@@ -784,6 +991,8 @@ export default function TreeScene() {
     const selectNode = (node: TreeNode) => {
       setSelected(node)
       setCopied(false)
+      selWallet = node.w
+      pintaFoco(node.w, node.d)
       atualizaLeque(node.d <= 0)
       void materializeChildren(node)
       void fetchPathAndDraw(node.w)
@@ -791,10 +1000,21 @@ export default function TreeScene() {
 
     // busca: voa ate o no; se nao esta no esqueleto, materializa via /path
     const focusWallet = async (addr: string) => {
+      selWallet = addr
       const target = await fetchPathAndDraw(addr)
-      if (!target || disposed) return
+      // ⚠️ guarda de obsolescencia: clicar em A e logo depois em B, com a
+      // resposta de A chegando por ultimo, terminava com painel, foco e voo
+      // todos em A, a carteira que o usuario ja tinha abandonado.
+      if (!target || disposed || selWallet !== addr) return
+      // ⚠️ a busca e o painel de contrapartes chegam por endereco DIGITADO,
+      // nao por clique numa estrela: podem cair numa carteira que o filtro
+      // ativo esconde. Abrir o dossie de algo invisivel seria o mesmo bug
+      // que o picking evita, entao o ceu inteiro volta.
+      if (target.d > 0 && !passaFiltro(target.h)) setFiltro('all')
       setSelected(target)
       setCopied(false)
+      selWallet = target.w
+      pintaFoco(target.w, target.d)
       atualizaLeque(target.d <= 0)
       void materializeChildren(target)
       const idx = indexByWallet.get(target.w)
@@ -805,10 +1025,32 @@ export default function TreeScene() {
       }
     }
 
+    // troca de filtro: um uniform e nada mais. O ceu inteiro nao e
+    // reconstruido, e a selecao que sumiu do ceu tambem sai do painel (senao
+    // o card fica falando de uma carteira que o usuario nao ve mais).
+    const aplicaFiltro = (f: StarFilter) => {
+      filtroAtivo = f
+      starMat.uniforms.uFiltro.value = filterUniform(f)
+      hoverPop = -1
+      hoverIdx = -3
+      setTooltip(null)
+      atualizaLeque(lequeDesejado)
+      const atual = selWallet ? indexByWallet.get(selWallet) : undefined
+      const raizSelecionada = selWallet !== null && rootNode !== null && selWallet === rootNode.w
+      if (atual !== undefined && !passaFiltro(nodeMeta[atual].h) && !raizSelecionada) {
+        clearLineage()
+        apagaFoco()
+        atualizaLeque(false)
+        setSelected(null)
+      }
+    }
+
     apiRef.current = {
       focusWallet: (addr: string) => void focusWallet(addr),
+      setFiltro: aplicaFiltro,
       clearSelection: () => {
         clearLineage()
+        apagaFoco()
         atualizaLeque(false)
         setSelected(null)
       },
@@ -821,8 +1063,13 @@ export default function TreeScene() {
         linkCount = 0
         linkGeom.setDrawRange(0, 0)
         clearLineage()
+        apagaFoco()
         atualizaLeque(false)
         expanded.clear()
+        // os indices guardados apontavam para arestas que acabaram de sumir
+        linkRange.clear()
+        filhosIdx.clear()
+        linhagemIdx.clear()
         setSelected(null)
         setTrilhas(0)
       },
@@ -852,6 +1099,9 @@ export default function TreeScene() {
       let melhor = -3
       let melhorD = raioPx * raioPx
       for (let i = 0; i < starCount; i++) {
+        // ⚠️ o que o filtro escondeu NAO e clicavel nem passa no hover: sem
+        // isto o usuario clicaria no vazio e abriria uma carteira invisivel
+        if (kindArr[i] === 0 ? filtroAtivo === 'holders' : filtroAtivo === 'spent') continue
         projV.set(posArr[i * 3], posArr[i * 3 + 1], posArr[i * 3 + 2])
         projV.project(camera)
         if (projV.z > 1) continue // atrás da câmera
@@ -875,7 +1125,14 @@ export default function TreeScene() {
       const py = clientY - rect.top
       let melhor = -1
       let melhorD = raioPx * raioPx
+      const soHolder = filtroAtivo === 'holders'
+      const soZerado = filtroAtivo === 'spent'
       for (let i = 0; i < popOrdem.length; i++) {
+        // mesmo contrato do esqueleto: escondido no shader, fora do picking
+        if (popClasse) {
+          const temSaldo = popClasse[i] > 0
+          if (temSaldo ? soZerado : soHolder) continue
+        }
         projV.set(popPos[i * 3], popPos[i * 3 + 1], popPos[i * 3 + 2])
         projV.project(camera)
         if (projV.z > 1) continue
@@ -1036,6 +1293,25 @@ export default function TreeScene() {
             if (disposed) return
             buildPopulation(buf)
             if (popOrdem) setPopInfo({ drawn: popOrdem.length })
+            // censo real: populacao + esqueleto, contados uma vez na carga
+            if (popClasse && popDepth) {
+              let h = 0
+              let fundo = 0
+              for (let i = 0; i < popClasse.length; i++) {
+                if (popClasse[i] > 0) h++
+                if (popDepth[i] > fundo) fundo = popDepth[i]
+              }
+              let hEsq = 0
+              for (let i = 0; i < starCount; i++) {
+                if (nodeMeta[i]) {
+                  if (nodeMeta[i].h) hEsq++
+                  if (nodeMeta[i].d > fundo) fundo = nodeMeta[i].d
+                }
+              }
+              const total = popClasse.length + starCount
+              const holders = h + hEsq
+              setCenso({ total, holders, gastos: total - holders, fundo })
+            }
           } catch {
             /* esqueleto sozinho ainda e uma galaxia */
           }
@@ -1061,9 +1337,12 @@ export default function TreeScene() {
 
     // ── loop: zero alocacao por frame ────────────────────────────────────────
     let raf = 0
+    let ultimoT = performance.now()
     const animate = () => {
       raf = requestAnimationFrame(animate)
       const now = performance.now()
+      const dt = Math.min(0.05, (now - ultimoT) / 1000)
+      ultimoT = now
       if (tween.active) {
         const t = Math.min(1, (now - tween.t0) / tween.dur)
         const k = easeInOut(t)
@@ -1071,6 +1350,22 @@ export default function TreeScene() {
         controls.target.lerpVectors(tween.fromTgt, tween.toTgt, k)
         if (t >= 1) tween.active = false
       }
+      // ── rampa do foco (a transicao inteira, num punhado de uniforms) ─────
+      // ⚠️ NENHUM laco por ponto aqui: o que muda por frame sao quatro
+      // numeros. A constante de 0.3 s da o "acende suave" que o fundador
+      // pediu em vez de um liga-desliga.
+      focoRampa += (focoAlvo - focoRampa) * Math.min(1, dt / 0.3)
+      if (Math.abs(focoAlvo - focoRampa) < 0.002) focoRampa = focoAlvo
+      starMat.uniforms.uFoco.value = focoRampa
+      // o desenho acumulado recua e as arestas DA carteira acendem por cima
+      linkMat.opacity = LINK_OP * (1 - 0.7 * focoRampa)
+      linkFocoMat.opacity = 0.6 * focoRampa
+      pathMat.opacity = 0.5 + 0.45 * focoRampa
+      // o sol tambem faz parte do entorno, a nao ser que ELE seja a selecao
+      const solK = focoRaiz ? 1 : 1 - 0.6 * focoRampa
+      haloMat.opacity = 0.9 * solK
+      haloOuterMat.opacity = 0.5 * solK
+      sunMat.color.setRGB(solK, 0.702 * solK, 0.278 * solK)
       const pulse = 1 + Math.sin(now * 0.0012) * 0.05
       halo.scale.set(64 * pulse, 64 * pulse, 1)
       controls.update()
@@ -1083,6 +1378,7 @@ export default function TreeScene() {
       disposed = true
       apiRef.current = null
       cancelAnimationFrame(raf)
+      raf = 0
       window.removeEventListener('resize', onResize)
       renderer.domElement.removeEventListener('pointermove', onPointerMove)
       renderer.domElement.removeEventListener('pointerdown', onPointerDown)
@@ -1096,10 +1392,15 @@ export default function TreeScene() {
       pathMat.dispose()
       linkGeom.dispose()
       linkMat.dispose()
+      // ⚠️ linkFoco COMPARTILHA o BufferAttribute de linkGeom: descartar as
+      // duas geometrias e seguro (o cache de atributos do three e por
+      // atributo e a segunda remocao vira no-op), so nao pode faltar
+      linkFoco.dispose()
+      linkFocoMat.dispose()
       sunMesh.geometry.dispose()
-      ;(sunMesh.material as THREE.Material).dispose()
+      sunMat.dispose()
       haloMat.dispose()
-      ;(haloOuter.material as THREE.Material).dispose()
+      haloOuterMat.dispose()
       if (popPoints) popPoints.geometry.dispose()
       if (burstVeu) {
         burstVeu.geometry.dispose()
@@ -1141,6 +1442,21 @@ export default function TreeScene() {
     }
   }, [selected?.w])
 
+  // o filtro so existe de verdade dentro da cena; aqui ele so e empurrado.
+  // Declarado DEPOIS do efeito da cena de proposito: efeitos rodam na ordem
+  // de declaracao, entao apiRef.current ja esta preenchido quando este roda.
+  useEffect(() => {
+    apiRef.current?.setFiltro(filtro)
+  }, [filtro])
+
+  // contadores da HUD sob o filtro ativo: se o numero nao acompanhar o ceu,
+  // o filtro vira mentira na tela
+  const totalCena = censo ? censo.total : hud.wallets
+  const holdersCena = censo ? censo.holders : hud.holders
+  const gastaram = censo ? censo.gastos : Math.max(0, hud.wallets - hud.holders)
+  const mostrados = filtro === 'holders' ? holdersCena : filtro === 'spent' ? gastaram : totalCena
+  const holdersAcesos = filtro === 'spent' ? 0 : holdersCena
+
   const copyAddress = async (addr: string) => {
     try {
       await navigator.clipboard.writeText(addr)
@@ -1172,33 +1488,62 @@ export default function TreeScene() {
               ← Holders
             </a>
             <h1 className="mt-1 text-lg sm:text-xl tracking-[0.3em] uppercase text-white/90">$DOG Galaxy</h1>
-            <p className="mt-1 max-w-md text-[11px] leading-relaxed text-white/50">
-              Every wallet that ever touched DOG, branching from the airdrop treasury. Lit nodes still hold today.
-            </p>
-            <div className="mt-3 flex gap-6 text-[10px] tracking-[0.2em] uppercase">
+
+            {/* ⚠️ MOBILE PRIMEIRO: o painel da carteira selecionada comeca em
+                ~160px no iPhone e cobre tudo abaixo. Controle e contadores
+                sobem para ANTES da copy descritiva, senao o filtro fica
+                inalcancavel exatamente quando ha uma carteira aberta. */}
+            <div className="pointer-events-auto mt-2 inline-flex items-center border border-white/10">
+              {(['all', 'holders', 'spent'] as StarFilter[]).map((f, i) => (
+                <button
+                  key={f}
+                  onClick={() => setFiltro(f)}
+                  title={FILTER_HINT[f]}
+                  aria-pressed={filtro === f}
+                  className={`px-2.5 py-1.5 text-[9px] uppercase tracking-[0.18em] transition-colors ${
+                    i > 0 ? 'border-l border-white/10' : ''
+                  } ${filtro === f ? 'bg-white/5 text-[#f7931a]' : 'text-white/40 hover:text-white'}`}
+                >
+                  {FILTER_LABEL[f]}
+                </button>
+              ))}
+            </div>
+            {/* ⚠️ HONESTIDADE: "paper hands" e jargao do publico, nao um dado.
+                O criterio medido fica VISIVEL, nao so no title do botao. */}
+            <p className="mt-1.5 max-w-md text-[9px] leading-relaxed text-white/40">{FILTER_NOTE[filtro]}</p>
+
+            <div className="mt-2 flex gap-6 text-[10px] tracking-[0.2em] uppercase sm:mt-3">
               <div>
-                <div className="text-white/40">Total wallets</div>
+                <div className="text-white/40">{filtro === 'all' ? 'Total wallets' : 'Wallets shown'}</div>
                 <div className="mt-0.5 text-sm text-[#f7931a]">
-                  {hud.status === 'live' ? fmtInt(hud.wallets) : '...'}
+                  {hud.status === 'live' ? fmtInt(mostrados) : '...'}
                 </div>
               </div>
               <div>
                 <div className="text-white/40">Holders lit</div>
                 <div className="mt-0.5 text-sm text-[#f7931a]">
-                  {hud.status === 'live' ? fmtInt(hud.holders) : '...'}
+                  {hud.status === 'live' ? fmtInt(holdersAcesos) : '...'}
                 </div>
               </div>
               <div>
-                <div className="text-white/40">Generations</div>
+                {/* ⚠️ NAO publicar "Generations": gens[] vem capado em 30 pela
+                    rota (GENS_MAX_DEPTH), entao o numero seria sempre 30, um
+                    teto de implementacao vestido de fato. A corrente mais
+                    funda medida no proprio binario passa de 1.600. */}
+                <div className="text-white/40">Deepest chain</div>
                 <div className="mt-0.5 text-sm text-[#f7931a]">
-                  {hud.status === 'live' ? fmtInt(hud.generations) : '...'}
+                  {censo ? fmtInt(censo.fundo) : '...'}
                 </div>
               </div>
             </div>
-            {popInfo && (
+
+            <p className="mt-3 max-w-md text-[11px] leading-relaxed text-white/50">
+              Every wallet that ever touched DOG, branching from the airdrop treasury. Lit nodes still hold today.
+            </p>
+
+            {popInfo && filtro === 'all' && (
               <p className="mt-2 max-w-md text-[9px] leading-relaxed text-white/35">
-                Every dot is a real wallet and every wallet is in the sky:
-                {' '}{fmtInt(popInfo.drawn)} in the field plus the brightest lineages.
+                Every dot is a real wallet and every wallet is in the sky.
                 Click any dot to open it.
               </p>
             )}
@@ -1276,7 +1621,7 @@ export default function TreeScene() {
       {/* painel lateral do no selecionado */}
       {selected && (
         <div className="absolute top-0 right-0 h-full w-full sm:w-96 p-4 sm:p-6 pointer-events-none flex items-start sm:items-center">
-          <div className="pointer-events-auto max-h-[62vh] w-full overflow-y-auto overscroll-contain bg-[#0a0708]/90 border border-white/10 rounded-lg p-3 backdrop-blur-sm mt-36 sm:mt-0 sm:max-h-[86vh] sm:p-5">
+          <div className="pointer-events-auto max-h-[62vh] w-full overflow-y-auto overscroll-contain bg-[#0a0708]/90 border border-white/10 rounded-lg p-3 backdrop-blur-sm mt-40 sm:mt-0 sm:max-h-[86vh] sm:p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-[10px] tracking-[0.25em] uppercase text-white/40">

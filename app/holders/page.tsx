@@ -906,26 +906,111 @@ export default function HoldersPage() {
       </div>
 
       {/* Holders Tree: a genealogia viva, o cartão de entrada da galáxia.
-          É a peça de retenção da página (tráfego direto do CoinMarketCap):
-          banner escuro clicável no padrão plot-map, sem imagem externa */}
-      <Link href="/galaxy" className="block group">
-        <Card variant="glass" className="border-lava/25 group-hover:border-lava/60 transition-all overflow-hidden relative">
-          <div className="absolute inset-0 pointer-events-none opacity-40 group-hover:opacity-60 transition-opacity"
-            style={{ background: 'radial-gradient(ellipse at 18% 50%, rgba(247,147,26,0.22), transparent 55%), radial-gradient(ellipse at 82% 50%, rgba(247,147,26,0.08), transparent 60%)' }} />
-          <CardContent className="relative py-6 md:py-8 flex flex-col md:flex-row md:items-center gap-4 md:gap-8">
-            <div className="flex-1">
-              <p className="text-lava text-xs font-mono uppercase tracking-[0.35em] mb-2">New · Interactive</p>
-              <h2 className="text-2xl md:text-3xl font-display uppercase tracking-[0.2em] text-bone mb-2">$DOG Galaxy</h2>
-              <p className="text-dusty/80 font-mono text-sm max-w-2xl">
-                Every wallet that ever touched DOG, branching from the airdrop treasury,
-                transaction by transaction. Lit nodes still hold today. Built from our
-                full on-chain replay of 263,875 wallets.
+          É a peça de retenção da página (tráfego direto do CoinMarketCap), então
+          ela traz para dentro do site a linguagem da imagem social do produto:
+          véu escuro à esquerda, chapa da galáxia à direita.
+
+          A CHAPA é captura própria da cena real de /galaxy, sem HUD
+          (public/holders/galaxy-banner.webp, 1600x500, 87 KB). NÃO reusar
+          public/galaxy-og.jpg aqui: aquele tem título, números e URL queimados
+          no pixel e viraria print de card social dentro da página.
+
+          NÚMEROS medidos em 27/08/2026 no root de /api/holders/tree (sw/sh).
+          São estáticos de propósito: aquela rota devolve ~628 KB em ~2 s e,
+          depois do incidente de IO de 26/08, esta página não ganha fetch novo.
+          Carteiras só sobem, então o número envelhece para baixo; a linha mono
+          carrega a data do snapshot, como na landing.
+
+          ⚠️ NÃO escrever "30 generations": 30 é o TETO da rota, não um fato da
+          árvore. A profundidade real é 1.663, o mesmo número da landing. */}
+      <Link href="/galaxy" className="block group" aria-label="Open the $DOG Galaxy">
+        <Card
+          variant="glass"
+          className="relative p-0 md:p-0 border-lava/25 group-hover:border-lava/60 transition-colors"
+        >
+          {/* A chapa muda de papel com a largura: no celular é uma faixa de
+              144 px no topo (a galáxia continua do tamanho que dá para ler, e o
+              texto fica embaixo em fundo cheio, sem nada empurrado para fora);
+              a partir de md ela ocupa o cartão inteiro e o texto vive sobre o
+              véu, à esquerda, onde a chapa é preta. */}
+          <div className="absolute inset-x-0 top-0 h-36 md:bottom-0 md:h-auto">
+            {/* object-position 42%: a galáxia mora a 62% da chapa. Num cartão
+                largo e baixo (>= ~1100 px) o cover corta na vertical e a
+                porcentagem não muda nada, ela fica nos 62%. Num cartão mais
+                alto que 3,2:1 (tablet, faixa do celular) o cover corta na
+                HORIZONTAL, e valor baixo empurra a galáxia para a direita: aos
+                768 px ela sai de 62% para 74% e libera a coluna de texto, que
+                senão cairia por cima do disco aceso. */}
+            <Image
+              src="/holders/galaxy-banner.webp"
+              alt=""
+              fill
+              sizes="(min-width: 768px) 1200px, 100vw"
+              className="object-cover object-[42%_50%] transition-transform duration-[1400ms] group-hover:scale-[1.03]"
+            />
+            {/* véu vertical no celular: a faixa derrete no fundo do cartão */}
+            <div
+              className="absolute inset-0 md:hidden"
+              style={{
+                background:
+                  'linear-gradient(180deg, rgba(4,3,5,0.06) 0%, rgba(4,3,5,0.08) 55%, rgba(4,3,5,0.45) 80%, rgba(4,3,5,0.90) 94%, #040305 100%)',
+              }}
+            />
+            {/* véu horizontal no desktop: a coluna de texto ocupa até 58% e
+                termina antes de 65%, onde a galáxia começa a aparecer */}
+            <div
+              className="absolute inset-0 hidden md:block"
+              style={{
+                background:
+                  'linear-gradient(90deg, #040305 0%, rgba(4,3,5,0.97) 30%, rgba(4,3,5,0.82) 47%, rgba(4,3,5,0.45) 65%, rgba(4,3,5,0.12) 86%, rgba(4,3,5,0) 100%)',
+              }}
+            />
+          </div>
+
+          <div className="relative px-4 pb-5 pt-40 md:p-9">
+            <div className="md:max-w-[58%]">
+              <p className="text-lava text-[10px] md:text-xs font-mono uppercase tracking-[0.3em]">
+                Wallet genealogy · Interactive
               </p>
+              <h2 className="mt-2 text-2xl md:text-3xl font-display uppercase tracking-[0.2em] text-snow">
+                $DOG Galaxy
+              </h2>
+              <p className="mt-2 text-mist font-mono text-xs md:text-sm leading-relaxed">
+                Every wallet DOG ever touched, mapped from the airdrop treasury to today,
+                star by star. Lit stars still hold a balance.
+              </p>
+
+              <div className="mt-4 grid grid-cols-3 gap-3 md:gap-8 max-w-md">
+                <div>
+                  <div className="font-mono text-base md:text-xl text-lava">263,974</div>
+                  <div className="mt-1 font-mono text-[9px] md:text-[10px] uppercase tracking-[0.18em] text-dusty leading-tight">
+                    Wallets mapped
+                  </div>
+                </div>
+                <div>
+                  <div className="font-mono text-base md:text-xl text-lava">85,667</div>
+                  <div className="mt-1 font-mono text-[9px] md:text-[10px] uppercase tracking-[0.18em] text-dusty leading-tight">
+                    Still holding
+                  </div>
+                </div>
+                <div>
+                  <div className="font-mono text-base md:text-xl text-lava">1,663</div>
+                  <div className="mt-1 font-mono text-[9px] md:text-[10px] uppercase tracking-[0.18em] text-dusty leading-tight">
+                    Deepest chain
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
+                <span className="font-mono text-xs md:text-sm text-lava border border-lava/40 px-4 py-2 group-hover:border-lava/60 group-hover:bg-lava/10 transition-colors">
+                  Explore the galaxy →
+                </span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-dusty">
+                  Snapshot 27 Aug 2026
+                </span>
+              </div>
             </div>
-            <div className="shrink-0 font-mono text-sm text-lava border border-lava/40 rounded px-4 py-2 group-hover:bg-lava/10 transition-colors">
-              Explore the galaxy →
-            </div>
-          </CardContent>
+          </div>
         </Card>
       </Link>
 

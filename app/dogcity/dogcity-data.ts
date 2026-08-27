@@ -39,15 +39,15 @@ export const LOT_SEGMENTATION = {
 // envelhece PARA BAIXO e nunca vira mentira, e a linha mono da secao carrega a
 // data do snapshot.
 export const GALAXY = {
-  wallets: 263_919,       // root.subtree_wallets: todo endereco por onde DOG passou
-  holding: 85_760,        // root.subtree_holders: com saldo hoje
+  wallets: 263_974,       // root.subtree_wallets: todo endereco por onde DOG passou
+  holding: 85_667,        // root.subtree_holders: com saldo hoje
   // ⚠️ NAO publicar "30 geracoes": 30 e o TETO da rota (GENS_MAX_DEPTH), nao
   // um fato da arvore. A profundidade real vai a 1.663 e 6.255 carteiras estao
   // alem da 30. O numero honesto para a copy e quantas carteiras nasceram
   // DIRETO do airdrop, que e agregado real da raiz.
   generationsShown: 30,   // so para a cena, que desenha ate a casca 30
-  directChildren: 80_850, // root.children: primeiro salto do airdrop
-  snapshot: "26 Aug 2026",
+  directChildren: 80_855, // root.children: primeiro salto do airdrop
+  snapshot: "27 Aug 2026",
   // raiz da genealogia; usada para montar o deep link da lente Flow
   treasury: "bc1pry0ne0yf5pkgqsszmytmqkpzs4aflhr8tfptz9sydqrhxexgujcqqler2t",
 }
