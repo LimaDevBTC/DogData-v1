@@ -18,8 +18,14 @@ import Image from "next/image"
 import Link from "next/link"
 import { ArrowRight, ArrowDown } from "lucide-react"
 
+// ⚠️ A BATALHA DA VITRINE E A DA CIDADE (/city?view=war), nunca o palco solo
+// /city/war. O palco existe por um motivo especifico, decidido em 25/08:
+// dentro do navegador de carteira nao cabe a cidade inteira, entao a escolha
+// e OU a cidade lite OU a batalha sozinha, que roda onde a cidade nao roda.
+// Mandar quem esta no desktop pro palco tira a pessoa do mundo: ela ve a
+// guerra sem a cidade em volta, sem a chegada e sem para onde ir depois.
 const STILLS = [
-  { src: "/landing/plaza/plaza-war.webp", href: "/city/war", label: "THE PRICE WAR", alt: "The war crater at night: Shiba soldiers and bears clash on the live Kraken order book, a fire column rising at the front line" },
+  { src: "/landing/plaza/plaza-war.webp", href: "/city?view=war", label: "THE PRICE WAR", alt: "The war crater at night: Shiba soldiers and bears clash on the live Kraken order book, a fire column rising at the front line" },
   { src: "/landing/plaza/plaza-paw.webp", href: "/city", label: "THE DIAMOND PAW", alt: "$DOG written in a mirror pool thirty metres across, at the centre of a paw of dark water" },
   { src: "/landing/plaza/plaza-temple.webp", href: "/city", label: "THE HIDDEN TEMPLE", alt: "The mouth of the Leonidas cave glowing among the monarch runestones" },
   { src: "/landing/plaza/plaza-dsc.webp", href: "/city", label: "DOG SOCIAL CLUB", alt: "The Dog Social Club wall beside Kray Tower, the whole collection hung on curved stone" },
