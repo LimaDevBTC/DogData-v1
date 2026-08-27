@@ -2134,6 +2134,11 @@ export function createBattlefield(
       if (p > low24 + passo * 0.25) precos.push(p)
     }
     precos.push(high24)
+    // ⚠️ os degraus ficam guardados em X porque o EVENTO DE ASSALTO dispara ao
+    // cruzar um deles. Ver o bloco do assalto no update: a marca já está
+    // desenhada no chão, então "o exército passou daquela linha" é uma leitura
+    // que o espectador faz sozinho, sem legenda.
+    degrausX = precos.map(xDoPreco).sort((u, v) => u - v)
     const partes: THREE.BufferGeometry[] = []
     for (const p of precos) {
       const x = xDoPreco(p)
@@ -3508,7 +3513,24 @@ export function createBattlefield(
     proxFuzil: number
   }
   let assalto: Assalto | null = null
+  // ⚠️⚠️ POR QUE ESTE LIMIAR NÃO BASTAVA, e o assalto acontecia uma vez por
+  // carregamento de página. `dF` é a distância que FALTA a frente andar, e a
+  // frente persegue o alvo a cada quadro: assim que ela alcança, dF fica perto
+  // de zero e só volta a passar de 1,1 num salto de 1,6% do range de 24 h de
+  // uma vez só. Numa hora quieta isso não acontece, então a onda de 16 soldados
+  // correndo, os que tombam com caveira e a barragem de cobertura ficavam
+  // guardados depois do primeiro book. O limiar continua aqui porque ele é a
+  // leitura certa para SALTO; o que faltava era a leitura de CONQUISTA.
   const LIMIAR_ASSALTO = 1.1
+  // marcas da régua em x, preenchidas por constroiRegua
+  let degrausX: number[] = []
+  // ⚠️ dois freios, os dois necessários: o piso de tempo impede metralhar
+  // assalto quando o preço fica oscilando em cima de uma marca, e a folga
+  // impede que o mesmo cruzamento conte duas vezes por ruído de ponto flutuante
+  const PISO_ENTRE_ASSALTOS = 9000
+  const FOLGA_DEGRAU = 0.05
+  let ultimoAssaltoT = -Infinity
+  let frenteAnterior = 0
   const VEL_FRENTE_ASSALTO = 3.2
   const X_ONDA_PARTIDA = 14
   const VEL_ONDA = 9
@@ -3681,11 +3703,32 @@ export function createBattlefield(
       // sequência são o comportamento esperado quando o preço anda muito
       if (!assalto && mid > 0 && Math.abs(dF) > LIMIAR_ASSALTO) {
         iniciaAssalto(dF > 0 ? 'buy' : 'sell', agora)
+        ultimoAssaltoT = agora
       }
       const velFrente = assalto ? VEL_FRENTE_ASSALTO : VEL_FRENTE
       if (Math.abs(dF) > 0.002) {
         const passoF = Math.sign(dF) * Math.min(Math.abs(dF), velFrente * dt)
         frenteX += passoF
+        // ── CONQUISTA: a frente cruzou uma marca da régua ─────────────────
+        // A régua já desenha degraus de preço redondos no chão. Passar de um
+        // deles é o momento em que o lado vencedor tomou terreno que dá para
+        // apontar, e é aí que o assalto tem de acontecer. Sem isto o maior
+        // sistema do motor rodava uma vez e dormia.
+        if (!assalto && mid > 0 && agora - ultimoAssaltoT > PISO_ENTRE_ASSALTOS) {
+          const antes = frenteAnterior
+          const depois = frenteX
+          for (let k = 0; k < degrausX.length; k++) {
+            const dx = degrausX[k]
+            const cruzouSubindo = antes < dx - FOLGA_DEGRAU && depois >= dx
+            const cruzouDescendo = antes > dx + FOLGA_DEGRAU && depois <= dx
+            if (cruzouSubindo || cruzouDescendo) {
+              iniciaAssalto(cruzouSubindo ? 'buy' : 'sell', agora)
+              ultimoAssaltoT = agora
+              break
+            }
+          }
+        }
+        frenteAnterior = frenteX
         // o terreno cedido guarda a memória: cicatrizes na linha abandonada
         cicatrizAcum += Math.abs(passoF)
         if (cicatrizAcum > 1.6) {
