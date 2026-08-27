@@ -34,6 +34,7 @@ import Partners from "./sections/partners"
 import Park from "./sections/park"
 import ParkTour from "./sections/park-tour"
 import FinalCta from "./sections/final-cta"
+import { ResumePill } from "@/components/resume-pill"
 import type { LeaderboardData } from "./types"
 
 export default function LandingPage() {
@@ -188,6 +189,7 @@ export default function LandingPage() {
         <FinalCta />
       </div>
       {mounted && createPortal(cta, document.body)}
+      <ResumePill />
     </Layout>
   )
 }

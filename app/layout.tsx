@@ -4,6 +4,7 @@ import './globals.css'
 import { VerifiedAddressesProvider } from '@/contexts/VerifiedAddressesContext'
 import { WalletProvider } from '@/contexts/WalletContext'
 import { AnalyticsTracker } from '@/components/analytics-tracker'
+import { RouteMemory } from '@/components/route-memory'
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
@@ -120,6 +121,7 @@ export default function RootLayout({
           </WalletProvider>
         </VerifiedAddressesProvider>
         <AnalyticsTracker />
+        <RouteMemory />
       </body>
     </html>
   )
