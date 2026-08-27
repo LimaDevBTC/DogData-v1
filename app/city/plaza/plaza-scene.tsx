@@ -1444,6 +1444,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       const txParam = (new URLSearchParams(window.location.search).get('tx') || '').trim().toLowerCase()
       if (/^[0-9a-f]{64}$/.test(txParam)) {
         setFollowInput(txParam)
+        setFollowOpen(true) // a resposta do follow mora no painel: abre pra quem chegou pelo link
         // depois do primeiro feed: o orbit precisa das naves para achar a dela
         setTimeout(() => { void apiRef.current?.follow(txParam) }, 2500)
       }
@@ -1747,11 +1748,12 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           >
             Chat
           </button>
-          {/* no celular (em pé OU deitado) o follow mora aqui em cima */}
+          {/* follow mora aqui em cima em todo tamanho: o painel só abre no clique
+             (fundador: "em desktop ela também deve ficar dentro do botão") */}
           <button
             type="button"
             onClick={() => setFollowOpen((v) => !v)}
-            className="ml-2 border border-white/15 bg-black/70 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-white/70 hover:border-white/40 hover:text-white [@media(min-width:640px)_and_(min-height:521px)]:hidden"
+            className="ml-2 border border-white/15 bg-black/70 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-white/70 hover:border-white/40 hover:text-white"
           >
             Follow tx
           </button>
@@ -1896,13 +1898,14 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         </div>
       )}
 
-      {/* ── follow your DOG. On a phone only one bottom card is up at a time: the
+      {/* ── follow your DOG. Nasce FECHADO em todo tamanho e abre pelo botão do
+             topo. On a phone only one bottom card is up at a time: the
              picked ship takes the slot while it is open.
              ⚠️ CELULAR DEITADO: largura passa de 640 e o breakpoint sm acha que é
              desktop, mas a ALTURA é de telefone e o painel fixo engolia a tela
              (fundador fotografou). Desktop de verdade = largura E altura. ──── */}
       <div
-        className={`absolute left-4 right-4 sm:left-6 sm:right-auto sm:w-[26rem] ${followOpen ? '' : 'hidden'} [@media(min-width:640px)_and_(min-height:521px)]:block ${hud.picked || tour ? 'hidden [@media(min-width:640px)_and_(min-height:521px)]:block' : ''} ${tour ? 'sm:hidden' : ''}`}
+        className={`absolute left-4 right-4 sm:left-6 sm:right-auto sm:w-[26rem] ${!followOpen || tour ? 'hidden' : hud.picked ? 'hidden [@media(min-width:640px)_and_(min-height:521px)]:block' : ''}`}
         style={{ bottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
       >
         <form onSubmit={submitFollow} className="border border-white/10 bg-black/85 p-3">
@@ -1912,7 +1915,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               type="button"
               onClick={() => setFollowOpen(false)}
               aria-label="Close"
-              className="px-1 font-mono text-[12px] leading-none text-white/45 [@media(min-width:640px)_and_(min-height:521px)]:hidden"
+              className="px-1 font-mono text-[12px] leading-none text-white/45"
             >
               ✕
             </button>
