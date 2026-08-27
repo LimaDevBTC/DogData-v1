@@ -820,6 +820,10 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             luzesAmbiente: false,
             motas: motasCampo,
             brilhoInterno: true,
+            // ⚠️ sem isto a poeira, as brasas e as motas saem 2,6x menores que
+            // no palco solo, e o halo de cada explosão cobre 26 m num campo de
+            // 458 m: Points e PointLight não herdam a escala do grupo
+            escala: ESCALA_GUERRA,
             onImpactoGrande: (forca) => {
               // mesma janela do palco solo: um impacto por vez, senão a câmera
               // vibra sem parar numa barragem

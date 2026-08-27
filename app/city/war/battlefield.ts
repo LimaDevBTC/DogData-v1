@@ -138,6 +138,18 @@ export interface OpcoesBatalha {
   /** impacto pesado (morteiro, canhão de tanque): o anfitrião pode sacudir a
    *  câmera sem o motor conhecer câmera nenhuma */
   onImpactoGrande?: (forca: number) => void
+  /** ⚠️ A ESCALA DO GRUPO NO ANFITRIÃO (a praça usa 2,6; o palco solo, 1).
+   *  Malha e Sprite herdam a escala do grupo sozinhos. `THREE.Points` NÃO: o
+   *  tamanho do ponto sai em pixels de `gl_PointSize`, que ignora a matriz de
+   *  modelo e só divide pela profundidade. Como a cena escalada põe a câmera
+   *  proporcionalmente mais longe, todo ponto encolhe na mesma medida em que o
+   *  mundo cresce. PointLight tem o mesmo problema por outro caminho: `distance`
+   *  e `decay` são metros de MUNDO, então um alcance de 26 que cobria meio campo
+   *  no palco solo cobre um sexto dele num campo 2,6x maior.
+   *  Passar a escala aqui devolve poeira, brasas, motas e halo de luz ao tamanho
+   *  relativo que eles têm no palco solo. Não cria partícula nem luz nova: só
+   *  multiplica tamanho e alcance, que não entram na chave de programa do three. */
+  escala?: number
 }
 
 export function createBattlefield(
@@ -147,6 +159,11 @@ export function createBattlefield(
   opcoes: OpcoesBatalha = {},
 ): Battlefield {
   const luzesAmbiente = opcoes.luzesAmbiente !== false
+  // ver OpcoesBatalha.escala: 1 no palco solo, 2,6 na cidade
+  const esc = Math.max(0.001, opcoes.escala ?? 1)
+  // decay 1.6 a 1.8 nas luzes daqui: para manter o MESMO brilho a uma distância
+  // multiplicada por `esc`, a intensidade acompanha por potência do decaimento
+  const escLuz = Math.pow(esc, 1.8)
   // ⚠️ A CONTAGEM DE PointLight É CHAVE DE PROGRAMA no three (`numPointLights`
   // entra em getProgramCacheKey), então mudar quantas luzes a cena tem manda o
   // renderer recompilar TODO material iluminado. Por isso nada aqui liga luz
@@ -256,7 +273,7 @@ export function createBattlefield(
   }
   // a luz da frente EXISTE nos dois anfitriões; na cidade ela nasce apagada e
   // acende quando a câmera entra na cratera (troca de vaga, ver setLuzes)
-  const luzFrente = new THREE.PointLight(0xffc98a, 12, 60, 1.6)
+  const luzFrente = new THREE.PointLight(0xffc98a, 12 * escLuz, 60 * esc, 1.6)
   luzFrente.position.set(0, 4, 0)
   luzFrente.visible = luzesAmbiente
   group.add(luzFrente)
@@ -316,19 +333,25 @@ export function createBattlefield(
     gMo.setAttribute('fase', new THREE.BufferAttribute(faseMo, 1))
     matMotas = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-      uniforms: { time: { value: 0 }, cor: { value: new THREE.Color(0xd9b98a) } },
+      // uEscala declarado na CONSTRUÇÃO: uniforme não entra na chave de programa
+      // do three (só a contagem de luzes entra), então isto não recompila nada
+      uniforms: { time: { value: 0 }, cor: { value: new THREE.Color(0xd9b98a) }, uEscala: { value: esc } },
       // os chunks de logdepth são no-op no palco solo e obrigatórios na praça
       vertexShader: `
         #include <common>
         #include <logdepthbuf_pars_vertex>
-        attribute float fase; uniform float time; varying float vA;
+        attribute float fase; uniform float time; uniform float uEscala; varying float vA;
         void main(){
           vec3 p = position;
           p.x += sin(time * 0.15 + fase) * 3.0;
           p.y += sin(time * 0.3 + fase * 2.0) * 0.6 + 0.4;
           vA = 0.5 + 0.5 * sin(time * 0.6 + fase);
           vec4 mv = modelViewMatrix * vec4(p, 1.0);
-          gl_PointSize = 26.0 / -mv.z;
+          // ⚠️ O *60.0 NÃO É ENFEITE: sem ele isto dá 26/400 = 0,065 px a 400 m e
+          // a mota NUNCA aparece, em anfitrião nenhum (no palco solo, a 110 m,
+          // dá 0,24 px). A irmã logo abaixo, escrita pela mesma mão para as
+          // brasas, tem o fator; esta ficou sem. O clamp segue o padrão dela.
+          gl_PointSize = clamp(26.0 * uEscala * 60.0 / -mv.z, 1.0, 4.0 * uEscala);
           gl_Position = projectionMatrix * mv;
           #include <logdepthbuf_vertex>
         }`,
@@ -541,11 +564,11 @@ export function createBattlefield(
     g.setAttribute('fase', new THREE.BufferAttribute(fase, 1))
     const mat = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-      uniforms: { time: { value: 0 }, cor: { value: new THREE.Color(0xffa050) } },
+      uniforms: { time: { value: 0 }, cor: { value: new THREE.Color(0xffa050) }, uEscala: { value: esc } },
       vertexShader: `
         #include <common>
         #include <logdepthbuf_pars_vertex>
-        attribute float fase; uniform float time; varying float vA;
+        attribute float fase; uniform float time; uniform float uEscala; varying float vA;
         void main(){
           vec3 p = position;
           float h = mod(time * (0.7 + fase) + fase * 7.0, 7.0);
@@ -553,8 +576,8 @@ export function createBattlefield(
           p.x += sin(time * 1.3 + fase * 20.0) * 0.5;
           vA = (1.0 - h / 7.0) * (0.35 + 0.65 * fase);
           vec4 mv = modelViewMatrix * vec4(p, 1.0);
-          gl_PointSize = 16.0 / -mv.z * (60.0);
-          gl_PointSize = clamp(gl_PointSize, 1.0, 5.0);
+          gl_PointSize = 16.0 * uEscala / -mv.z * (60.0);
+          gl_PointSize = clamp(gl_PointSize, 1.0, 5.0 * uEscala);
           gl_Position = projectionMatrix * mv;
           #include <logdepthbuf_vertex>
         }`,
@@ -711,7 +734,7 @@ export function createBattlefield(
     const coroa = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.35, 1.75), matCoroa)
     coroa.position.y = 4.35
     o.add(coroa)
-    const luz = new THREE.PointLight(0xff9040, 14, 30, 1.8)
+    const luz = new THREE.PointLight(0xff9040, 14 * escLuz, 30 * esc, 1.8)
     luz.position.y = 5.4
     o.add(luz)
     o.visible = false
@@ -818,7 +841,7 @@ export function createBattlefield(
   })
   let cursorOnda = 0
   const poolLuzes: THREE.PointLight[] = Array.from({ length: orc.maxLuzes }, (_, i) => {
-    const l = new THREE.PointLight(0xffa64d, 0, 26, 1.8)
+    const l = new THREE.PointLight(0xffa64d, 0, 26 * esc, 1.8)
     l.visible = i < luzesAtivas
     group.add(l)
     return l
@@ -887,7 +910,7 @@ export function createBattlefield(
   const geoPoeira = new THREE.BufferGeometry()
   geoPoeira.setAttribute('position', new THREE.BufferAttribute(poeiraPos, 3))
   const matPoeira = new THREE.PointsMaterial({
-    map: texDisco, color: 0xcabfa8, size: 2.4, transparent: true, opacity: 0.62, depthWrite: false, sizeAttenuation: true,
+    map: texDisco, color: 0xcabfa8, size: 2.4 * esc, transparent: true, opacity: 0.62, depthWrite: false, sizeAttenuation: true,
   })
   const poeiraPts = new THREE.Points(geoPoeira, matPoeira)
   poeiraPts.frustumCulled = false
@@ -2489,7 +2512,7 @@ export function createBattlefield(
       cursorLuz = (cursorLuz + 1) % luzesAtivas
       luz.color.setHex(cor)
       luz.position.copy(p).setY(2.5)
-      luz.intensity = 30 * Math.min(6, forca)
+      luz.intensity = 30 * escLuz * Math.min(6, forca)
     }
     ondas.push({ mesh, luz, t0: performance.now(), forca })
 
@@ -3736,7 +3759,7 @@ export function createBattlefield(
       }
       o.mesh.scale.setScalar(1 + f * (3 + Math.sqrt(o.forca) * 2.2))
       ;(o.mesh.material as THREE.MeshBasicMaterial).opacity = 1 - f
-      if (o.luz) o.luz.intensity = 30 * Math.min(6, o.forca) * (1 - f)
+      if (o.luz) o.luz.intensity = 30 * escLuz * Math.min(6, o.forca) * (1 - f)
     }
 
     for (const sp of flashPool) {
