@@ -712,6 +712,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let founders: FoundersWalk | null = null
     const spinners: THREE.Object3D[] = []
     let campo: Battlefield | null = null
+    // tremor de impacto: o motor avisa, o anfitrião sacode. Ver onImpactoGrande.
+    let tremorT0 = -1
+    let tremorForca = 0
     let campoVivo = false
     let emblemaGuerra: THREE.Group | null = null
     let heightAt: (x: number, z: number) => number = () => 0
@@ -771,7 +774,36 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             const wz = WAR_POS.z + (-x * sinR + z * cosR) * ESCALA_GUERRA
             return terrain.heightAt(wx, wz) / ESCALA_GUERRA
           }
-          campo = createBattlefield(alturaLocal, orcCampo, undefined, { luzesAmbiente: false })
+          // ⚠️ AS OPÇÕES QUE O MOTOR CRIOU PARA A PRAÇA E A PRAÇA NUNCA LIGOU.
+          // Durante três conversas o fundador disse que a batalha da cidade tem
+          // menos coisa que a do palco solo. A chamada daqui pedia só
+          // `luzesAmbiente: false` e ignorava o resto da interface, que está
+          // escrita em battlefield.ts falando DESTE anfitrião:
+          //  · `motas`: o comentário do motor diz literalmente "a cidade pede as
+          //    do motor para as duas batalhas terem os MESMOS elementos". A
+          //    poeira suspensa é o que dá ar de campo de batalha em vez de
+          //    bonecos num tabuleiro limpo. O solo usa 500 no high.
+          //  · `brilhoInterno`: existe porque a praça NÃO pode manter uma cadeia
+          //    de composer. Sem bloom e sem esta opção, o clarão de impacto
+          //    nasce 1x e morre em 130 ms; com ela, 1,7x e 260 ms, e o halo lê
+          //    na cena. Era metade do "a explosão parece fraca".
+          //  · `onImpactoGrande`: morteiro e canhão de tanque sacodem a câmera.
+          //    O motor não conhece câmera nenhuma de propósito; quem sacode é o
+          //    anfitrião, e o solo já fazia isso desde sempre.
+          const motasCampo = profile.quality === 'low' ? 0 : profile.quality === 'high' ? 500 : 300
+          campo = createBattlefield(alturaLocal, orcCampo, undefined, {
+            luzesAmbiente: false,
+            motas: motasCampo,
+            brilhoInterno: true,
+            onImpactoGrande: (forca) => {
+              // mesma janela do palco solo: um impacto por vez, senão a câmera
+              // vibra sem parar numa barragem
+              const agoraT = performance.now()
+              if (agoraT - tremorT0 < 300) return
+              tremorT0 = agoraT
+              tremorForca = Math.min(0.5, forca / 30)
+            },
+          })
           campo.group.position.set(WAR_POS.x, 0, WAR_POS.z)
           campo.group.rotation.y = rotY
           campo.group.scale.setScalar(ESCALA_GUERRA)
@@ -1633,7 +1665,34 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       if (fly.on && tourRunning) renderer.shadowMap.needsUpdate = false
       else if (shadowDirty) { renderer.shadowMap.needsUpdate = true; shadowDirty = false }
       else if (statsTick % governor.shadowEvery === 0) renderer.shadowMap.needsUpdate = true
+      // ── TREMOR DE IMPACTO ────────────────────────────────────────────
+      // Deslocamento aplicado ao redor do render e desfeito logo depois: o
+      // OrbitControls nunca vê, então não briga com o damping nem acumula.
+      // ⚠️ A AMPLITUDE ACOMPANHA A DISTÂNCIA. No palco solo a câmera está a
+      // dezenas de metros e 0,55 basta; aqui ela pode assistir de 400 m, onde
+      // o mesmo número não move um pixel. Amplitude proporcional à distância
+      // mantém o abalo do MESMO tamanho na tela, e acima de 1,2 km não sacode
+      // nada: dali a batalha é uma brasa no horizonte e tremer a cidade
+      // inteira por causa dela seria ruído.
+      let sx = 0
+      let sy = 0
+      if (tremorT0 > 0) {
+        const ft = (performance.now() - tremorT0) / 700
+        if (ft >= 1) tremorT0 = -1
+        else {
+          const dist = camera.position.distanceTo(WAR_POS)
+          if (dist < 1200) {
+            const amp = 0.0016 * dist * tremorForca * (1 - ft)
+            sx = (Math.sin(nowMs * 0.06) * 0.5) * amp
+            sy = (Math.sin(nowMs * 0.083 + 1.7) * 0.5) * amp
+          }
+        }
+      }
+      camera.position.x += sx
+      camera.position.y += sy
       renderer.render(scene, camera)
+      camera.position.x -= sx
+      camera.position.y -= sy
       statsTick++
       if (wantStats && (statsTick & 15) === 0) {
         const info = renderer.info
