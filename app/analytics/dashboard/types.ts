@@ -13,6 +13,14 @@ export interface Resumo {
   visitantes: number
   sessoes: number
   pageviews: number
+  /**
+   * Quantas sessões da janela chegaram a ter identidade. É a base sobre a qual
+   * `visitantes`, `novos` e `recorrentes` foram calculados — e enquanto ela for
+   * pequena diante de `sessoes`, esses três números descrevem uma fatia do
+   * período, não o período. A interface usa isto para decidir sozinha se já tem
+   * base para liderar com visitante ou se ainda deve liderar com sessão.
+   */
+  sessoes_identificadas: number
   paginas_sessao: number | null
   sessoes_engajadas: number
   taxa_rejeicao: number | null
@@ -29,6 +37,7 @@ export interface ResumoAnterior {
   visitantes: number
   sessoes: number
   pageviews: number
+  sessoes_identificadas: number
   taxa_rejeicao: number | null
   duracao_media_s: number | null
 }
@@ -36,7 +45,8 @@ export interface ResumoAnterior {
 export interface DiaTrafego {
   dia: string
   sessoes: number
-  visitantes: number
+  /** null = nenhuma sessão daquele dia tinha identidade. NÃO é zero visitantes. */
+  visitantes: number | null
   pageviews: number
   duracao_s: number | null
   rejeicao: number | null
@@ -45,7 +55,8 @@ export interface DiaTrafego {
 export interface LinhaPais {
   pais: string
   sessoes: number
-  visitantes: number
+  /** null = sem identidade nesse recorte; ver DiaTrafego.visitantes. */
+  visitantes: number | null
   pageviews: number
   duracao_s: number | null
 }
@@ -53,7 +64,8 @@ export interface LinhaPais {
 export interface LinhaCanal {
   canal: string
   sessoes: number
-  visitantes: number
+  /** null = sem identidade nesse recorte; ver DiaTrafego.visitantes. */
+  visitantes: number | null
   engajamento: number | null
   duracao_s: number | null
 }

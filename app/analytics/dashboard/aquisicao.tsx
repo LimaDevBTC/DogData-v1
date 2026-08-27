@@ -71,7 +71,7 @@ export default function Aquisicao({ data }: { data: Trafego }) {
                 </span>,
                 fmtNum(c.sessoes),
                 fmtPct((c.sessoes / totalSessoes) * 100),
-                fmtNum(c.visitantes),
+                c.visitantes == null ? <span key="v" className="text-white/25">—</span> : fmtNum(c.visitantes),
                 fmtPct(c.engajamento),
                 fmtDuracao(c.duracao_s),
               ])}
@@ -140,7 +140,7 @@ export default function Aquisicao({ data }: { data: Trafego }) {
                 c.origem ?? "—",
                 c.meio ?? "—",
                 fmtNum(c.sessoes),
-                fmtNum(c.visitantes),
+                c.visitantes == null ? <span key="v" className="text-white/25">—</span> : fmtNum(c.visitantes),
               ])}
             />
           ) : (

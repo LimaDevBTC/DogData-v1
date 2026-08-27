@@ -105,6 +105,10 @@ export default function PainelAnalytics() {
   const estadoNota = nota == null ? "warn" : nota >= 90 ? "good" : nota >= 50 ? "warn" : "poor"
   const tendencia = t ? t.por_dia.slice(-14).map((d) => d.sessoes) : []
 
+  // Mesma regra da aba Visão geral, ver o comentário no herói abaixo.
+  const heroIdentidadeMadura =
+    !!t && t.resumo.sessoes > 0 && t.resumo.sessoes_identificadas / t.resumo.sessoes >= 0.5
+
   const heroi =
     aba === "velocidade" ? (
       <HeroFigure
@@ -130,17 +134,39 @@ export default function PainelAnalytics() {
         sub={`${ads.advertiser} · janela de ${ads.period.days} dias`}
       />
     ) : t ? (
-      <HeroFigure
-        label="Visitantes no período"
-        value={t.resumo.visitantes}
-        trend={tendencia}
-        accent={CAT[0]}
-        sub={
-          t.resumo.visitantes === 0
-            ? `${fmtNum(t.resumo.sessoes)} sessões · identificação de visitante começou em 27/08/2026`
-            : `${fmtNum(t.resumo.sessoes)} sessões · ${fmtDuracao(t.resumo.duracao_media_s)} de permanência média`
-        }
-      />
+      // ⚠️ O NÚMERO DE MANCHETE TEM QUE TER O HISTÓRICO INTEIRO.
+      // A primeira versão desta página destacava VISITANTES, que só existe
+      // desde 27/08/2026. Numa janela de 30 dias isso são 29 dias sem dado, e
+      // o painel abria anunciando "32" sobre 4.603 sessões reais — o fundador
+      // leu como "nossos dados foram excluídos". Nada tinha sido: 43 mil
+      // eventos e 55 dias continuavam no banco. Uma métrica recém-instrumentada
+      // em posição de manchete descreve o INSTRUMENTO, não o site.
+      //
+      // Então a escolha é por cobertura, e se conserta sozinha: enquanto a
+      // identidade não cobrir metade das sessões da janela, quem lidera é
+      // SESSÃO, contínua desde 04/07. Quando cobrir, visitante assume sem
+      // ninguém tocar em código.
+      heroIdentidadeMadura ? (
+        <HeroFigure
+          label="Visitantes no período"
+          value={t.resumo.visitantes}
+          trend={tendencia}
+          accent={CAT[0]}
+          sub={`${fmtNum(t.resumo.sessoes)} sessões · ${fmtDuracao(t.resumo.duracao_media_s)} de permanência média`}
+        />
+      ) : (
+        <HeroFigure
+          label="Sessões no período"
+          value={t.resumo.sessoes}
+          trend={tendencia}
+          accent={CAT[0]}
+          sub={
+            t.resumo.sessoes_identificadas === 0
+              ? `${fmtNum(t.resumo.pageviews)} páginas · identificação de visitante começou em 27/08/2026`
+              : `${fmtNum(t.resumo.pageviews)} páginas · ${fmtNum(t.resumo.visitantes)} visitantes identificados até agora`
+          }
+        />
+      )
     ) : null
 
   return (

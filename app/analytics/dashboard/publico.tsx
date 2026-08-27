@@ -91,7 +91,7 @@ export default function Publico({ data }: { data: Trafego }) {
                     <span className="text-white/25">{p.pais}</span>
                   </span>,
                   fmtNum(p.sessoes),
-                  fmtNum(p.visitantes),
+                  p.visitantes == null ? <span key="v" className="text-white/25">—</span> : fmtNum(p.visitantes),
                   fmtNum(p.pageviews),
                   fmtDuracao(p.duracao_s),
                 ])}

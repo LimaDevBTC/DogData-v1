@@ -58,11 +58,23 @@ export default function VisaoGeral({ data }: { data: Trafego }) {
     .sort((x, y) => y.value - x.value)
   const totalDisp = dispositivos.reduce((s, d) => s + d.value, 0) || 1
 
-  // A cobertura da medição de permanência. Enquanto a janela ainda pega os
-  // dias reconstruídos, este número é baixo e PRECISA estar visível junto da
-  // média — senão o painel apresenta como fato do mês o que veio de um punhado
-  // de sessões.
-  const cobertura = r.sessoes > 0 ? (r.sessoes_medidas / r.sessoes) * 100 : 0
+  // Cobertura das duas medições que começaram em 27/08. Enquanto a janela ainda
+  // pega os dias reconstruídos, esses números são baixos e PRECISAM estar
+  // visíveis junto da métrica — senão o painel apresenta como fato do mês o que
+  // veio de um punhado de sessões.
+  //
+  // ⚠️ Foi exatamente isso que deu errado na primeira versão desta aba: o
+  // número de destaque era VISITANTES, que só existe desde 27/08, e o fundador
+  // leu "32 visitas" como "nossos dados foram excluídos". Nada tinha sido
+  // excluído — 43 mil eventos e 55 dias continuavam lá. Uma métrica nova em
+  // posição de manchete descreve o instrumento, não o site.
+  const cobDuracao = r.sessoes > 0 ? (r.sessoes_medidas / r.sessoes) * 100 : 0
+  const cobIdentidade = r.sessoes > 0 ? (r.sessoes_identificadas / r.sessoes) * 100 : 0
+
+  // O painel decide sozinho o que é honesto destacar, e se conserta sozinho
+  // conforme a janela anda: enquanto a identidade cobrir menos de metade das
+  // sessões, quem lidera é SESSÃO, que tem histórico completo desde 04/07.
+  const identidadeMadura = cobIdentidade >= 50
 
   const novosPct = r.novos + r.recorrentes > 0
     ? (r.novos / (r.novos + r.recorrentes)) * 100
@@ -81,19 +93,32 @@ export default function VisaoGeral({ data }: { data: Trafego }) {
         <Reveal delay={0.4} y={16}>
           <PlotGrid className="mt-10 grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             <Metrica
-              label="Visitantes"
-              valor={fmtNum(r.visitantes)}
-              sub="pessoas distintas"
-              acento={CAT[0]}
-              delta={<Delta atual={r.visitantes} anterior={a.visitantes} />}
-              icone={Users}
-            />
-            <Metrica
               label="Sessões"
               valor={fmtNum(r.sessoes)}
-              sub={`${r.paginas_sessao ?? "—"} páginas por sessão`}
-              acento={CAT[1]}
+              sub={`${fmtNum(r.pageviews)} páginas · ${r.paginas_sessao ?? "—"} por sessão`}
+              acento={CAT[0]}
               delta={<Delta atual={r.sessoes} anterior={a.sessoes} />}
+            />
+            <Metrica
+              label="Visitantes"
+              valor={r.sessoes_identificadas === 0 ? "—" : fmtNum(r.visitantes)}
+              sub={
+                r.sessoes_identificadas === 0
+                  ? "identificação começou em 27/08/2026"
+                  : identidadeMadura
+                    ? "pessoas distintas"
+                    : `pessoas distintas em ${fmtNum(r.sessoes_identificadas)} de ${fmtNum(r.sessoes)} sessões (${cobIdentidade.toFixed(0)}%)`
+              }
+              acento={CAT[1]}
+              // Sem base comparável no período anterior o Delta já se cala
+              // sozinho; forçar uma variação aqui compararia duas eras de
+              // instrumento diferentes e inventaria uma queda que não houve.
+              delta={
+                a.sessoes_identificadas > 0
+                  ? <Delta atual={r.visitantes} anterior={a.visitantes} />
+                  : undefined
+              }
+              icone={Users}
             />
             <Metrica
               label="Permanência média"
@@ -101,7 +126,7 @@ export default function VisaoGeral({ data }: { data: Trafego }) {
               sub={
                 r.sessoes_medidas === 0
                   ? "ainda sem sessão medida na janela"
-                  : `mediana ${fmtDuracao(r.duracao_mediana_s)} · ${fmtNum(r.sessoes_medidas)} sessões medidas (${cobertura.toFixed(0)}%)`
+                  : `mediana ${fmtDuracao(r.duracao_mediana_s)} · ${fmtNum(r.sessoes_medidas)} de ${fmtNum(r.sessoes)} sessões (${cobDuracao.toFixed(0)}%)`
               }
               acento={CAT[2]}
               delta={<Delta atual={r.duracao_media_s} anterior={a.duracao_media_s} sufixo="s" />}
@@ -126,11 +151,15 @@ export default function VisaoGeral({ data }: { data: Trafego }) {
           </PlotGrid>
         </Reveal>
 
-        {r.sessoes_medidas < r.sessoes && (
-          <p className="font-mono text-[10px] text-dusty mt-4 leading-relaxed max-w-[70ch]">
-            Permanência e rolagem passaram a ser medidas em 27/08/2026. Sessões anteriores
-            foram reconstruídas do histórico — mantêm páginas, entrada e saída, mas não têm
-            tempo, e por isso ficam de fora das médias em vez de entrarem como zero.
+        {(r.sessoes_medidas < r.sessoes || r.sessoes_identificadas < r.sessoes) && (
+          <p className="font-mono text-[10px] text-dusty mt-4 leading-relaxed max-w-[74ch]">
+            <span className="text-mist">Nada foi perdido nesta janela.</span> Sessões, páginas,
+            países, origens e rejeição vêm da série inteira, desde 04/07/2026. O que começou em
+            27/08 foi o <span className="text-mist">instrumento novo</span>: identidade de
+            visitante, permanência e rolagem. Sessões anteriores foram reconstruídas do
+            histórico — mantêm páginas, entrada e saída, mas não têm tempo nem identidade, e por
+            isso ficam de fora dessas três médias em vez de entrarem como zero. A cobertura sobe
+            sozinha conforme a janela anda.
           </p>
         )}
       </section>
@@ -138,11 +167,13 @@ export default function VisaoGeral({ data }: { data: Trafego }) {
       {/* ── a série ─────────────────────────────────────────────────────── */}
       <Reveal y={18}>
         <ChartFrame
-          eyebrow="Visitantes, sessões e páginas por dia"
+          eyebrow="Sessões, páginas e visitantes por dia"
           icon={TrendingUp}
           table={{
-            head: ["Dia", "Visitantes", "Sessões", "Páginas"],
-            rows: data.por_dia.map((d) => [d.dia, d.visitantes, d.sessoes, d.pageviews]),
+            head: ["Dia", "Sessões", "Páginas", "Visitantes"],
+            rows: data.por_dia.map((d) => [
+              d.dia, d.sessoes, d.pageviews, d.visitantes ?? "não medido",
+            ]),
           }}
         >
           {serie.length > 1 ? (
@@ -164,8 +195,15 @@ export default function VisaoGeral({ data }: { data: Trafego }) {
                 <Area type="monotone" dataKey="Sessoes" stroke={CAT[1]} strokeWidth={2}
                   fill="transparent" dot={false}
                   activeDot={{ r: 4, fill: CAT[1], stroke: "#050505", strokeWidth: 2 }} />
+                {/* ⚠️ connectNulls FALSO e obrigatório aqui. Dia sem identidade
+                    devolve null (migração 024), e ligar os pontos por cima
+                    desenharia uma linha de visitantes atravessando 54 dias que
+                    ninguém mediu. Antes da 024 esses dias vinham como 0, e a
+                    curva rastejava no eixo por baixo de um volume de sessões
+                    saudável — foi assim que o painel passou a impressão de que
+                    os dados tinham sido apagados. */}
                 <Area type="monotone" dataKey="Visitantes" stroke={CAT[2]} strokeWidth={2}
-                  fill="transparent" dot={false}
+                  fill="transparent" dot={false} connectNulls={false}
                   activeDot={{ r: 4, fill: CAT[2], stroke: "#050505", strokeWidth: 2 }} />
               </AreaChart>
             </ResponsiveContainer>

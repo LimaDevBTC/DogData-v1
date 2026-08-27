@@ -1,5 +1,10 @@
 -- Migration 021: os relatorios, agregados no banco.
 --
+-- ⚠️ analytics_traffic FOI SUBSTITUIDA pela migracao 024 (cobertura de
+-- identidade: dia sem visitor_id devolve NULL em vez de 0, e o resumo ganhou
+-- sessoes_identificadas). Rodar esta 021 depois da 024 desfaz a correcao.
+-- analytics_behavior aqui continua valendo.
+--
 -- A rota /api/analytics/report puxava TODAS as linhas da janela pra memoria do
 -- Node, de mil em mil, e somava em JavaScript. Em 30 dias ja eram ~25 mil
 -- linhas por request, o painel refazia isso a cada 60s, e o custo crescia
