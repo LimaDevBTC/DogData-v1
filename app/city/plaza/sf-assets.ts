@@ -45,6 +45,8 @@ export const SF_CREDITS: readonly Credit[] = [
   { title: 'The Ancient Gnarled Tree', author: 'iGauravRajput', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/the-ancient-gnarled-tree-3d-model-free-c3513bb3daeb4ebfba8954367fb85a14' },
   { title: 'Japanese Maple Tree', author: 'OliverMatheGames', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/japanese-maple-tree-b6eb627413ed40fdb8b0a1e1c9038fa9' },
   { title: 'High Quality Tree 3/6', author: 'EFX', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/high-quality-tree-36-53623598e75844b696abf2b94566afa5' },
+  { title: 'Glowing Mushroom', author: 'Jakob_Forseth', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/glowing-mushroom-4d69b432b067413d9d7bac74f02155c0' },
+  { title: 'Stylized glowing mushrooms', author: 'RiZoRuS77', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/stylized-glowing-mushrooms-c041db2908ba4bf0a028af10436e1582' },
   { title: 'Human Skull', author: 'CDmir (OpenGameArt)', license: 'CC0', url: 'https://opengameart.org/content/human-skull-0' },
   { title: 'Human Base Meshes', author: 'Blender Studio', license: 'CC0', url: 'https://www.blender.org/download/demo/asset-bundles/' },
 ]
@@ -54,6 +56,11 @@ export const SF = {
   palm: '/city/sf/palm.glb',
   rocket: '/city/sf/v2-rocket.glb',
   templeHall: '/city/sf/temple-hall.glb',
+  // o jardim do pátio da caverna do Leonidas. Os dois foram escolhidos por
+  // trazerem TEXTURA EMISSIVA de fábrica: lá dentro não há sol, e a planta que
+  // não brilha sozinha some no preto.
+  shroomTall: '/city/sf/shroom-tall.glb',
+  shroomCluster: '/city/sf/shroom-cluster.glb',
 } as const
 
 /** Carrega um GLB e devolve a cena, ou null se faltar (a praça nunca quebra por

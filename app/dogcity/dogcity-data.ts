@@ -26,6 +26,32 @@ export const LOT_SEGMENTATION = {
   stx: 341,
 }
 
+// ── $DOG Galaxy (app/galaxy) ───────────────────────────────────────────────
+// Snapshot da genealogia lido do NO RAIZ (a tesouraria do airdrop) em
+// 2026-08-26 via /api/holders/tree?depth=0. Sao exatamente os campos que o
+// dossie da tesouraria mostra dentro do proprio produto, entao a landing e a
+// galaxia nunca discordam.
+//
+// POR QUE E ESTATICO, e nao um fetch: aquela rota devolve 628 KB em ~2 s
+// (ela carrega o recorte inteiro da arvore) e nao existe rota barata que
+// devolva so estes quatro campos. Depois do incidente de IO de 26/08 a landing
+// nao ganha rota nova de dado pesado. A arvore so cresce, entao o numero
+// envelhece PARA BAIXO e nunca vira mentira, e a linha mono da secao carrega a
+// data do snapshot.
+export const GALAXY = {
+  wallets: 263_919,       // root.subtree_wallets: todo endereco por onde DOG passou
+  holding: 85_760,        // root.subtree_holders: com saldo hoje
+  // ⚠️ NAO publicar "30 geracoes": 30 e o TETO da rota (GENS_MAX_DEPTH), nao
+  // um fato da arvore. A profundidade real vai a 1.663 e 6.255 carteiras estao
+  // alem da 30. O numero honesto para a copy e quantas carteiras nasceram
+  // DIRETO do airdrop, que e agregado real da raiz.
+  generationsShown: 30,   // so para a cena, que desenha ate a casca 30
+  directChildren: 80_850, // root.children: primeiro salto do airdrop
+  snapshot: "26 Aug 2026",
+  // raiz da genealogia; usada para montar o deep link da lente Flow
+  treasury: "bc1pry0ne0yf5pkgqsszmytmqkpzs4aflhr8tfptz9sydqrhxexgujcqqler2t",
+}
+
 export const FEATURES = {
   contributionsLive: true,      // the construction fund is live today
   plotLookupLive: true,         // wallet → district lookup is live today

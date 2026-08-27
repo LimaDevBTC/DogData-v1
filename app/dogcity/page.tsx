@@ -22,6 +22,7 @@ import { Layout } from "@/components/layout"
 import MempoolBand from "./sections/mempool-band"
 import HeroLive from "./sections/hero-live"
 import PlazaLive from "./sections/plaza-live"
+import Galaxy from "./sections/galaxy"
 import ConstructionFund from "./sections/construction-fund"
 import PlotDeed from "./sections/plot-deed"
 import HowItWorks from "./sections/how-it-works"
@@ -170,6 +171,12 @@ export default function LandingPage() {
             is open at /city with the DOG mempool in orbit above it. Say so
             before asking for anything. */}
         <PlazaLive />
+        {/* The other thing that is already open. The plaza sheet above says
+            "you can walk in today"; this one closes the pair before the page
+            asks for anything, and it is also the evidence under the whole
+            folio: the masterplan promises that wallet history decides a lot,
+            and the genealogy is where that history is mapped. */}
+        <Galaxy />
         <ConstructionFund lb={lb} />
         <PlotDeed />
         <HowItWorks />

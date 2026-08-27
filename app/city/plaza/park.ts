@@ -176,15 +176,20 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
   const CAVE_FLOOR = groundRaw(CAVE_LOCAL.x, CAVE_LOCAL.z) - 0.15
   const AX = Math.cos(CAVE_YAW), AZ = -Math.sin(CAVE_YAW)
   const A0X = CAVE_LOCAL.x + AX * 30, A0Z = CAVE_LOCAL.z + AZ * 30   // à frente da boca
-  const A1X = CAVE_LOCAL.x - AX * 78, A1Z = CAVE_LOCAL.z - AZ * 78   // o fundo da câmara
+  // ⚠️ 140, não 78: a caverna foi reformada em 26/08 e o fundo da câmara foi
+  // de 78 m para 141 m atrás da boca. Com o eixo curto, a encosta voltava a
+  // subir DENTRO do salão novo e aparecia como piso cinza no meio do pátio.
+  const A1X = CAVE_LOCAL.x - AX * 140, A1Z = CAVE_LOCAL.z - AZ * 140   // o fundo da câmara
   const axisLen2 = (A1X - A0X) ** 2 + (A1Z - A0Z) ** 2
   const groundLocal = (lx: number, lz: number): number => {
     const h = groundRaw(lx, lz)
     if (h <= CAVE_FLOOR) return h
     const t = THREE.MathUtils.clamp(((lx - A0X) * (A1X - A0X) + (lz - A0Z) * (A1Z - A0Z)) / axisLen2, 0, 1)
     const d = Math.hypot(lx - (A0X + (A1X - A0X) * t), lz - (A0Z + (A1Z - A0Z) * t))
-    if (d > 92) return h
-    const k = THREE.MathUtils.clamp((92 - d) / 46, 0, 1)
+    // raio de influência acompanha o salão novo (83,5 m de largura de piso):
+    // 120 cobre a câmara inteira mais folga de encosta
+    if (d > 120) return h
+    const k = THREE.MathUtils.clamp((120 - d) / 58, 0, 1)
     return h + (CAVE_FLOOR - h) * (k * k * (3 - 2 * k))
   }
 
@@ -275,7 +280,10 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
     // 117 m (2026-08-19), um dos cristais vizinhos passou a atravessar a parede
     // da câmara e a furar o teto: por dentro via-se a lasca branca e a luz de
     // fora. O escudo é o raio da massa mais folga.
-    if (Math.hypot(p.x - CAVE_LOCAL.x, p.z - CAVE_LOCAL.z) < 78) continue
+    // ⚠️ 150, não 78: com a reforma de 26/08 o maciço passou a 152 x 129 m
+    // (fundo a 141 m atrás da boca), e o escudo antigo deixava cristal nascer
+    // dentro da parede da câmara de novo.
+    if (Math.hypot(p.x - CAVE_LOCAL.x, p.z - CAVE_LOCAL.z) < 150) continue
     const list = byVariant.get(v) ?? []
     list.push(Mt)
     byVariant.set(v, list)
