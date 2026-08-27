@@ -769,10 +769,35 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           // A batalha é monumento: 2,6x deixa o campo com meio quilômetro e os
           // obeliscos com 23 m, legíveis da chegada sem mudar o motor.
           const ESCALA_GUERRA = 2.6
+          // ⚠️⚠️ O DATUM, E POR QUE METADE DO TEATRO DE FOGO NÃO EXISTIA AQUI.
+          //
+          // O motor escreve DUAS classes de altura. Os exércitos, veículos,
+          // baterias, cicatrizes e cadáveres perguntam `altura(x, z)`. Mas o
+          // tiro do trade, o rastro, o anel de choque, o clarão de impacto, a
+          // bola de fogo, a fumaça, os destroços, o número de dano, os
+          // traçantes, a largada do MLRS, a casca de morteiro em voo, a luz da
+          // frente e a neblina rasteira usam Y FIXO, tipo 1,2, porque no palco
+          // solo o chão da batalha está em y ≈ 0.
+          //
+          // Aqui não estava. `alturaLocal` devolvia a cota ABSOLUTA do terreno
+          // dividida pela escala: medido, entre 35 e 49 em local sobre a
+          // pegada do campo. Com o grupo em y=0, o chão ficava lá em cima e
+          // tudo que nasce em y≈1 aparecia uns 96 METROS DE MUNDO abaixo do
+          // regolito, que é opaco. Os bonecos apareciam, o fogo não. É
+          // exatamente a queixa do fundador: "armas que atiram e nada
+          // acontece", e a razão de a batalha da cidade parecer ter menos
+          // coisa que a do palco solo tendo as mesmas peças.
+          //
+          // O conserto é rebasear o zero, não somar piso dentro do motor: são
+          // mais de dez pontos com Y fixo espalhados por 4.300 linhas e um
+          // esquecido volta a enterrar o efeito. A conta fecha idêntica para
+          // quem já usava `altura`: antes mundo = 0 + 2,6·(h/2,6) = h; agora
+          // mundo = DATUM + 2,6·((h − DATUM)/2,6) = h. Ninguém se move.
+          const DATUM = terrain.heightAt(WAR_POS.x, WAR_POS.z)
           const alturaLocal = (x: number, z: number) => {
             const wx = WAR_POS.x + (x * cosR + z * sinR) * ESCALA_GUERRA
             const wz = WAR_POS.z + (-x * sinR + z * cosR) * ESCALA_GUERRA
-            return terrain.heightAt(wx, wz) / ESCALA_GUERRA
+            return (terrain.heightAt(wx, wz) - DATUM) / ESCALA_GUERRA
           }
           // ⚠️ AS OPÇÕES QUE O MOTOR CRIOU PARA A PRAÇA E A PRAÇA NUNCA LIGOU.
           // Durante três conversas o fundador disse que a batalha da cidade tem
@@ -804,7 +829,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               tremorForca = Math.min(0.5, forca / 30)
             },
           })
-          campo.group.position.set(WAR_POS.x, 0, WAR_POS.z)
+          campo.group.position.set(WAR_POS.x, DATUM, WAR_POS.z) // ver o comentário do DATUM
           campo.group.rotation.y = rotY
           campo.group.scale.setScalar(ESCALA_GUERRA)
           scene.add(campo.group)
@@ -820,6 +845,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               let vivos = 0
               let longe = 0
               let maior = 0
+              let menorY = Infinity
+              let enterradas = 0
+              const chao = terrain.heightAt(WAR_POS.x, WAR_POS.z)
               const fujoes: string[] = []
               campo!.group.traverseVisible((o) => {
                 if (!(o as THREE.Mesh).isMesh) return
@@ -827,12 +855,26 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 o.getWorldPosition(v)
                 const d = Math.hypot(v.x - centro.x, v.z - centro.z)
                 if (d > maior) maior = d
+                if (v.y < menorY) menorY = v.y
+                // 40 m abaixo do chão da cratera: fundo de cratera de verdade
+                // não chega perto disso, então é peça enterrada
+                if (v.y < chao - 40) enterradas++
                 if (d > 1200) {
                   longe++
                   if (fujoes.length < 6) fujoes.push(`${o.name || o.type} a ${Math.round(d)} m`)
                 }
               })
-              return { meshesVisiveis: vivos, foraDoCampo: longe, maiorDistancia: Math.round(maior), fujoes }
+              return {
+                meshesVisiveis: vivos,
+                foraDoCampo: longe,
+                maiorDistancia: Math.round(maior),
+                fujoes,
+                // ⚠️ o defeito do DATUM se enxerga AQUI: com o zero errado, as
+                // peças de Y fixo ficavam dezenas de metros abaixo do chão
+                chaoDaCratera: Math.round(terrain.heightAt(WAR_POS.x, WAR_POS.z)),
+                menorY: Math.round(menorY),
+                enterradas,
+              }
             }
           }
           culler.add(campo.group, 3600, new THREE.Vector3(WAR_POS.x, 0, WAR_POS.z))
