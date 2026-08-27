@@ -26,6 +26,8 @@ import dogStatsFallback from '@/data/dog_stats_fallback.json'
 import externalHoldersFallback from '@/data/external_holders.json'
 import dynamic from 'next/dynamic'
 import InsightFeed from "@/components/insight-feed"
+import { TreasuriesCard } from "@/components/ui/treasuries-card"
+import type { Treasury } from "@/lib/dog/treasuries"
 
 const TradingViewWidget = dynamic(() => import('@/components/ui/trading-view-widget'), {
   ssr: false,
@@ -98,17 +100,6 @@ interface DogRuneData {
   source: string
 }
 
-interface C2TreasuryData {
-  treasuryDog: number
-  goalDog: number
-  progressPct: number
-  costBasisUsd: number
-  priceUsd: number
-  treasuryValueUsd: number
-  unrealizedPnlUsd: number
-  unrealizedPnlPct: number
-  timestamp: number
-}
 
 export default function OverviewPage() {
   const router = useRouter()
@@ -124,7 +115,7 @@ export default function OverviewPage() {
     stacks: externalHoldersFallback.stacks.holders,
   })
   const [loading, setLoading] = useState(true)
-  const [c2Treasury, setC2Treasury] = useState<C2TreasuryData | null>(null)
+  const [treasuries, setTreasuries] = useState<Treasury[]>([])
 
   const FALLBACK_TOTAL_HOLDERS = (dogStatsFallback as any)?.totalHolders ?? 0
   const FALLBACK_ACTIVE_ADDRESSES = (dogStatsFallback as any)?.activeAddresses ?? FALLBACK_TOTAL_HOLDERS
@@ -349,10 +340,10 @@ export default function OverviewPage() {
   }, [])
 
   useEffect(() => {
-    fetch('/api/c2-treasury')
+    fetch('/api/treasuries')
       .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data && !data.error) setC2Treasury(data) })
-      .catch(err => console.warn('C2 treasury fetch failed:', err))
+      .then(data => { if (Array.isArray(data?.treasuries)) setTreasuries(data.treasuries) })
+      .catch(err => console.warn('Treasuries fetch failed:', err))
   }, [])
 
   const formatNumber = (num: number) => {
@@ -394,11 +385,6 @@ export default function OverviewPage() {
     return 0.00163
   }, [stats?.price, runeData])
 
-  const c2TreasuryDog = c2Treasury?.treasuryDog ?? 1_000_000_000
-  const c2TreasuryGoal = c2Treasury?.goalDog ?? 1_500_000_000
-  const c2TreasuryUSD = c2Treasury?.treasuryValueUsd ?? (dogPrice * c2TreasuryDog)
-  const c2TreasuryUSDFormatted = formatCurrency(c2TreasuryUSD)
-  const c2TreasuryProgress = Math.min(c2TreasuryDog / c2TreasuryGoal, 1)
   const cardBaseClass = "stagger-item md:min-h-[190px] min-h-0 h-full"
 
   if (loading) {
@@ -554,50 +540,19 @@ export default function OverviewPage() {
             </CardContent>
           </Card>
 
-          {/* C2 Blockchain Treasury */}
-            <Card
-              variant="glass"
-              className={`${cardBaseClass} border border-blue-500/[0.12] bg-gradient-to-br from-blue-950/30 via-blue-900/10 to-transparent`}
-            >
-              <CardHeader className="pb-2">
-                <div className="flex items-center gap-2 flex-nowrap">
-                  <div className="relative w-5 h-5 md:w-6 md:h-6 flex-shrink-0">
-                    <Image
-                      src="/C2.png"
-                      alt="C2 Blockchain logo"
-                      fill
-                      className="object-contain"
-                      sizes="24px"
-                    />
-                  </div>
-                  <CardTitle variant="mono" className="text-[10px] md:text-sm text-blue-200/60 uppercase tracking-wider whitespace-nowrap">
-                    C2 $DOG Treasury
-                  </CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="text-sm md:text-2xl font-bold font-mono text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-blue-200 to-blue-400 tracking-tight">
-                    {c2TreasuryDog.toLocaleString('en-US')} DOG
-                  </div>
-                  <div className="text-[10px] md:text-sm text-snow/50 font-mono tabular-nums">
-                    ≈ {c2TreasuryUSDFormatted} USD
-                  </div>
-                  <div className="space-y-1">
-                    <div className="h-1 md:h-1.5 w-full rounded-full bg-blue-900/30 overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-blue-400 via-blue-300 to-blue-500 transition-all duration-1000 ease-out"
-                        style={{ width: `${(c2TreasuryProgress * 100).toFixed(0)}%` }}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between text-[9px] md:text-[10px] uppercase tracking-wider text-blue-200/40 font-mono">
-                      <span>Progress</span>
-                      <span className="tabular-nums">{(c2TreasuryProgress * 100).toFixed(1)}% of 1.5B</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Treasuries: C2 Blockchain + Dog of Bitcoin.
+              ⚠️ ERA UM CARD SÓ DA C2 e a home publicava 1.000.000.000 DOG fixos
+              porque o raspador do painel deles tinha quebrado e o fallback era
+              um número redondo escrito à mão. Agora a quantia vem sempre de uma
+              leitura (ou da última que deu certo, marcada com a data), e o card
+              divide espaço com o tesouro do próprio projeto. Ver
+              lib/dog/treasuries.ts sobre por que as duas linhas levam etiquetas
+              de procedência diferentes. */}
+          <TreasuriesCard
+            treasuries={treasuries}
+            dogPrice={dogPrice}
+            className={cardBaseClass}
+          />
 
           {/* BTC Dominance 24h */}
           <Card variant="glass" className={cardBaseClass}>

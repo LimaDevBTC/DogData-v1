@@ -5,7 +5,7 @@ import Header from "./header"
 import Footer from "./footer"
 import { BitflowBanner } from "./bitflow-banner"
 
-type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain' | 'explorer' | 'status' | 'city'
+type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain' | 'explorer' | 'status' | 'city' | 'profile'
 
 interface LayoutProps {
   children: React.ReactNode

@@ -17,7 +17,7 @@ import {
 } from "lucide-react"
 import { WalletButton } from "@/components/wallet/wallet-button"
 
-type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain' | 'explorer' | 'status' | 'city'
+type PageType = 'overview' | 'holders' | 'airdrop' | 'bitcoin-network' | 'markets' | 'transactions' | 'metrics' | 'donate' | 'multichain' | 'explorer' | 'status' | 'city' | 'profile'
 
 const navigation = [
   { name: 'Overview', page: 'overview' as PageType, icon: BarChart3 },

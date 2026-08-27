@@ -23,27 +23,56 @@ async function getSession(req: NextRequest): Promise<WalletSession | null> {
   return session?.address ? session : null
 }
 
-// GET /api/profile → {address, verified, handle}. Sem sessao, verified false
-// e handle null (nao ha endereco pra consultar).
+// GET /api/profile            perfil da sessao atual
+// GET /api/profile?address=x   parte publica de qualquer endereco
+//
+// A resposta junta o que tres tabelas sabem daquele endereco: o handle
+// (dogcity_profiles), o lote na cidade (dogcity_lots) e quantas vezes ele ja
+// falou na praca (dogcity_chat). `verified` so e true para o endereco da
+// sessao: os outros campos sao publicos, a posse nao.
 export async function GET(req: NextRequest) {
   const session = await getSession(req)
-  if (!session) {
-    return NextResponse.json({ address: null, verified: false, handle: null })
+  const sessionAddress = session?.address?.toLowerCase() ?? null
+  const asked = req.nextUrl.searchParams.get('address')?.trim() ?? ''
+  const address = (asked || sessionAddress || '').toLowerCase()
+
+  if (!address) {
+    return NextResponse.json({
+      address: null, verified: false, handle: null, claimed_at: null,
+      lot: null, chat_count: 0, wallet_id: null,
+    })
   }
 
-  const address = session.address.toLowerCase()
-  const { data, error } = await supabase
-    .from('dogcity_profiles')
-    .select('handle')
-    .eq('address', address)
-    .maybeSingle()
+  const [profileRes, lotRes, chatRes] = await Promise.all([
+    supabase.from('dogcity_profiles').select('handle, created_at').eq('address', address).maybeSingle(),
+    // O registro da cidade grava o endereco como a carteira o escreve; os
+    // bech32 ja sao minusculos, mas um base58 nao e, entao pergunta pelas duas
+    // formas em vez de assumir.
+    supabase.from('dogcity_lots')
+      .select('street, number, zone, district, kind, prestige, height_tier, last_balance, utxo_count, age_score, state')
+      .in('address', Array.from(new Set([address, asked].filter(Boolean))))
+      .limit(1),
+    supabase.from('dogcity_chat').select('id', { count: 'exact', head: true }).eq('address', address),
+  ])
 
-  if (error) {
-    console.error('[api/profile GET]', error.message)
+  if (profileRes.error) {
+    console.error('[api/profile GET]', profileRes.error.message)
     return NextResponse.json({ error: 'internal' }, { status: 500 })
   }
+  // Lote e chat sao enfeite do perfil: se o registro da cidade estiver fora do
+  // ar a pagina ainda tem que abrir com a identidade, entao o erro vira null.
+  if (lotRes.error) console.error('[api/profile GET lot]', lotRes.error.message)
+  if (chatRes.error) console.error('[api/profile GET chat]', chatRes.error.message)
 
-  return NextResponse.json({ address, verified: true, handle: data?.handle ?? null })
+  return NextResponse.json({
+    address,
+    verified: !!sessionAddress && sessionAddress === address,
+    handle: profileRes.data?.handle ?? null,
+    claimed_at: profileRes.data?.created_at ?? null,
+    lot: lotRes.error ? null : lotRes.data?.[0] ?? null,
+    chat_count: chatRes.count ?? 0,
+    wallet_id: sessionAddress === address ? session?.walletId ?? null : null,
+  })
 }
 
 // POST /api/profile {handle} → cria o handle da carteira logada (upsert por

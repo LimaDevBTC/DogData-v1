@@ -3,10 +3,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import Image from 'next/image'
+import Link from 'next/link'
 import { Wallet, LogOut, User, ChevronDown, ShieldCheck, ShieldAlert, Loader2 } from 'lucide-react'
 import { useWallet } from '@/contexts/WalletContext'
 import { WALLETS } from '@/lib/wallet'
-import { ProfileModal } from '@/components/wallet/profile-modal'
 
 function truncate(addr: string) {
   return addr.length > 12 ? `${addr.slice(0, 5)}…${addr.slice(-4)}` : addr
@@ -15,7 +15,9 @@ function truncate(addr: string) {
 /**
  * Botão do header. Desconectado → "Connect Wallet". Conectado → endereço +
  * dropdown com 3 itens (Profile, Verify ownership se ainda não verificado,
- * Disconnect). Copiar endereço mudou pra dentro do ProfileModal.
+ * Disconnect). Profile leva pra página /profile: a identidade não cabia num
+ * modal, e um `fixed` filho do header (que tem backdrop-blur, logo é bloco de
+ * conteúdo) abria cortado por cima do banner. Copiar endereço vive lá.
  * `variant="mobile"` renderiza uma lista full-width p/ o menu hambúrguer
  * (já vive dentro de um drawer que abre/fecha sozinho, por isso não é
  * outro dropdown flutuante, só os mesmos 3 itens em linha).
@@ -23,7 +25,6 @@ function truncate(addr: string) {
 export function WalletButton({ variant = 'desktop' }: { variant?: 'desktop' | 'mobile' }) {
   const { account, openModal, disconnect, verified, prove, status } = useWallet()
   const [menuOpen, setMenuOpen] = useState(false)
-  const [profileOpen, setProfileOpen] = useState(false)
   const [coords, setCoords] = useState<{ top: number; right: number } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -68,10 +69,7 @@ export function WalletButton({ variant = 'desktop' }: { variant?: 'desktop' | 'm
     }
   }, [menuOpen])
 
-  const openProfile = useCallback(() => {
-    setProfileOpen(true)
-    setMenuOpen(false)
-  }, [])
+  const closeMenu = useCallback(() => setMenuOpen(false), [])
 
   // ---------- Disconnected ----------
   if (!account) {
@@ -116,13 +114,13 @@ export function WalletButton({ variant = 'desktop' }: { variant?: 'desktop' | 'm
               <ShieldAlert className="w-4 h-4 text-amber-400/80" />
             )}
           </div>
-          <button
-            onClick={openProfile}
+          <Link
+            href="/profile"
             className="w-full flex items-center gap-3 px-3 py-2.5 font-mono text-sm text-[#6B6B78] hover:text-snow hover:bg-white/[0.03] rounded-lg transition-colors"
           >
             <User className="w-4 h-4" />
             Profile
-          </button>
+          </Link>
           {!verified && (
             <button
               onClick={handleProve}
@@ -141,7 +139,6 @@ export function WalletButton({ variant = 'desktop' }: { variant?: 'desktop' | 'm
             Disconnect
           </button>
         </div>
-        <ProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} />
       </>
     )
   }
@@ -176,9 +173,9 @@ export function WalletButton({ variant = 'desktop' }: { variant?: 'desktop' | 'm
         <div
           ref={menuRef}
           style={{ position: 'fixed', top: coords.top, right: coords.right }}
-          className="z-[100] w-48 bg-void border border-white/[0.08] rounded-xl shadow-[0_16px_40px_-8px_rgba(0,0,0,0.6)] overflow-hidden animate-fade-in py-1"
+          className="z-[100] w-56 bg-[#050505] border border-white/15 rounded-lg shadow-[0_24px_60px_-12px_rgba(0,0,0,0.9)] overflow-hidden animate-fade-in py-1"
         >
-          <div className="px-3 py-2 border-b border-white/[0.05]">
+          <div className="px-3 py-2.5 border-b border-white/[0.06]">
             <p className="text-[10px] font-mono text-[#6B6B78]">{meta.name}</p>
             <p className="text-[11px] font-mono text-snow break-all">
               {truncate(account.ordinalsAddress)}
@@ -197,13 +194,14 @@ export function WalletButton({ variant = 'desktop' }: { variant?: 'desktop' | 'm
               )}
             </p>
           </div>
-          <button
-            onClick={openProfile}
-            className="w-full flex items-center gap-2 px-3 py-2 text-[12px] font-mono text-snow hover:bg-white/[0.04] transition-colors"
+          <Link
+            href="/profile"
+            onClick={closeMenu}
+            className="w-full flex items-center gap-2 px-3 py-2.5 text-[12px] font-mono text-snow hover:bg-white/[0.05] transition-colors"
           >
             <User className="w-3.5 h-3.5" />
             Profile
-          </button>
+          </Link>
           {!verified && (
             <button
               onClick={handleProve}
@@ -227,7 +225,6 @@ export function WalletButton({ variant = 'desktop' }: { variant?: 'desktop' | 'm
         </div>,
         document.body,
       )}
-      <ProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} />
     </div>
   )
 }

@@ -1,7 +1,9 @@
 "use client"
 
 import { useEffect, useState, useCallback } from 'react'
-import { X, Loader2, ShieldCheck, ShieldAlert, Check, AtSign, Copy } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import Link from 'next/link'
+import { X, Loader2, ShieldCheck, ShieldAlert, Check, AtSign, Copy, ArrowUpRight } from 'lucide-react'
 import { useWallet } from '@/contexts/WalletContext'
 import { handleProblem, normalizeHandle } from '@/lib/identity/handle'
 
@@ -16,8 +18,14 @@ interface ProfileModalProps {
 }
 
 /**
- * Modal de perfil: endereço, estado de verificação e editor de @handle.
- * Mesma casca visual do wallet-connect-modal (bg-void, border-white/[0.08]).
+ * Modal de perfil enxuto, para quem está DENTRO da cena 3D da praça e não pode
+ * navegar para fora sem perder o mundo carregado. A identidade completa mora
+ * em /profile; aqui só o que destranca a fala: posse provada e handle.
+ *
+ * ⚠️ PORTALADO NO BODY DE PROPÓSITO. `position: fixed` é resolvido contra o
+ * ancestral mais próximo que tenha transform/filter/backdrop-filter, e tanto o
+ * header (backdrop-blur) quanto o painel da praça criam esse bloco: sem o
+ * portal o modal abria cortado no topo, por cima do banner, meio transparente.
  */
 export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const { account, verified, prove, status } = useWallet()
@@ -102,9 +110,9 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     prove().catch(() => {})
   }, [prove])
 
-  if (!isOpen || !account) return null
+  if (!isOpen || !account || typeof document === 'undefined') return null
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center p-4"
       role="dialog"
@@ -234,7 +242,17 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
             )}
           </div>
         </div>
+
+        <div className="border-t border-white/[0.06] px-5 py-3">
+          <Link
+            href="/profile"
+            className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-lava hover:underline"
+          >
+            Open full profile <ArrowUpRight className="w-3 h-3" />
+          </Link>
+        </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

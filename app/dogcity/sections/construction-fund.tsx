@@ -57,6 +57,7 @@ import {
   Reveal, Scramble, SplitLine, Stagger, StaggerItem, useOnce, useSpotlight,
 } from "../motion"
 import { DONATION_GOAL, DONATION_METHODS, DONATION_WALLET, formatDog, shortAddr } from "../dogcity-data"
+import { track } from "@/lib/analytics/client"
 import type { LeaderboardData, RecentEntry } from "../types"
 
 // ── the rail's painted graduations ─────────────────────────────────────────
@@ -418,6 +419,11 @@ export default function Section({ lb }: { lb: LeaderboardData | null }) {
     setCopied(key)
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(() => setCopied(null), 1600)
+    // Último passo mensurável antes de uma doação: a partir daqui a pessoa sai
+    // do site e vai pra carteira, e o resto acontece na cadeia. É o que amarra
+    // o funil da /landing ao dinheiro que chega em bc1pxk7aw…, e por método —
+    // DOG conta pra licença, BTC e STX não.
+    track("donate_address_copied", { metodo: key })
   }
 
   const spotlight = useSpotlight<HTMLDivElement>()

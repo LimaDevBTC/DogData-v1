@@ -1,6 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
+import { sessionId, track, visitorId } from '@/lib/analytics/client'
 import type { ConnectedAccount, WalletId } from '@/lib/wallet/types'
 import { getConnector } from '@/lib/wallet'
 import { WalletConnectModal } from '@/components/wallet/wallet-connect-modal'
@@ -48,10 +49,19 @@ async function requestProof(account: ConnectedAccount): Promise<void> {
       protocol: signed.protocol,
       publicKey: signed.publicKey,
       walletId: account.walletId,
+      // A ponte entre o navegador e a cadeia. Vai JUNTO da prova de posse de
+      // propósito: o vínculo visitor_id ↔ endereço só pode ser gravado depois
+      // que a assinatura confere, senão qualquer um reivindicaria a carteira
+      // de qualquer um. É este par que permite, quando esse endereço doar 10k
+      // DOG, dizer de qual campanha aquele doador veio.
+      visitor_id: visitorId(),
+      session_id: sessionId(),
     }),
   })
   const vdata = await vres.json()
   if (!vres.ok) throw new Error(vdata.error || 'Ownership verification failed.')
+
+  track('wallet_connected', { carteira: account.walletId })
 }
 
 export function WalletProvider({ children }: { children: ReactNode }) {

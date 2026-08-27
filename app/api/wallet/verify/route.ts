@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { redisClient } from '@/lib/upstash'
+import { supabase } from '@/lib/supabase'
 import { verifyOwnership } from '@/lib/wallet/verify'
 import type { SignatureProtocol, WalletId } from '@/lib/wallet/types'
 
@@ -19,12 +20,14 @@ interface StoredNonce {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { address, signature, protocol, publicKey, walletId } = body as {
+    const { address, signature, protocol, publicKey, walletId, visitor_id, session_id } = body as {
       address: string
       signature: string
       protocol: SignatureProtocol
       publicKey?: string
       walletId?: WalletId
+      visitor_id?: string
+      session_id?: string
     }
     if (!address || !signature || !protocol) {
       return NextResponse.json({ error: 'campos obrigatórios faltando' }, { status: 400 })
@@ -56,6 +59,32 @@ export async function POST(req: NextRequest) {
       { address, walletId: walletId ?? null, verifiedAt },
       { ex: SESSION_TTL },
     )
+
+    // ── ponte analytics: navegador ↔ cadeia ────────────────────────────────
+    // Escrita SÓ aqui, depois da assinatura conferir. É o único lugar do site
+    // onde se sabe, com prova, que este navegador controla este endereço — e é
+    // isso que permite atribuir uma doação on-chain de 10k DOG à campanha que
+    // trouxe a pessoa. Sem prova o vínculo seria autodeclarado e a atribuição
+    // valeria nada.
+    //
+    // Falha aqui NUNCA derruba o login: a pessoa está entrando na cidade, e um
+    // registro de telemetria não pode ser o que a impede.
+    if (visitor_id) {
+      try {
+        await supabase.from('analytics_identity').upsert(
+          {
+            visitor_id: visitor_id.slice(0, 64),
+            address,
+            session_id: session_id?.slice(0, 64) ?? null,
+            wallet_id: walletId ?? null,
+            last_linked_at: new Date().toISOString(),
+          },
+          { onConflict: 'visitor_id,address', ignoreDuplicates: false },
+        )
+      } catch (e) {
+        console.error('[wallet/verify] vinculo analytics falhou:', (e as Error)?.message)
+      }
+    }
 
     const resp = NextResponse.json({ ok: true, address, verifiedAt })
     resp.cookies.set('dg_wallet', sid, {
