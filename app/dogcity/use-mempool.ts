@@ -10,6 +10,18 @@
 // Lê /api/mempool/dog, que serve o que o NOSSO nó vê: quantas transações de DOG
 // estão em órbita, quanto DOG elas carregam, e qual foi o último pouso. Se o
 // feed calar por dois minutos, quem consome mostra SYNCING, não LIVE.
+//
+// ⚠️ POR QUE ISTO É UM SINGLETON DE MÓDULO, e não um hook com useEffect por
+// consumidor. Até 27/08 a landing rodava DUAS enquetes de 20 s sem ninguém ter
+// notado: a MempoolBand importava daqui e plaza-live.tsx tinha uma CÓPIA COLADA
+// do hook (linhas 97-125 de lá). Com a hero nova são TRÊS consumidores na mesma
+// tela, e um hook por consumidor viraria três batidas de 20 s no mesmo endpoint.
+// Depois do incidente de IO de 26/08 isso não passa.
+//
+// Aqui existe um timer só, um Set de assinantes e um snapshot compartilhado. O
+// primeiro assinante liga o ciclo e o último a desmontar desliga. Quem monta
+// depois recebe o snapshot corrente NA HORA, sem esperar o próximo tick: é por
+// isso que a hero nasce com número em vez de "Reading the node." piscando.
 import { useEffect, useState } from "react"
 
 export interface MempoolSnapshot {
@@ -35,34 +47,71 @@ export interface MempoolFeed {
 export const MEMPOOL_POLL_MS = 20_000
 export const MEMPOOL_STALE_S = 120
 
-export function useMempoolFeed(): { feed: MempoolFeed | null; now: number } {
-  const [feed, setFeed] = useState<MempoolFeed | null>(null)
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    let alive = true
-    let timer: ReturnType<typeof setTimeout> | null = null
-    const tick = async () => {
-      try {
-        const r = await fetch("/api/mempool/dog", { cache: "no-store" })
-        if (r.ok) {
-          const j = (await r.json()) as MempoolFeed
-          if (alive) setFeed(j)
-        }
-      } catch {
-        // quem consome fica com a última leitura; a idade a leva para SYNCING
-      }
-      if (alive) {
-        setNow(Date.now())
-        timer = setTimeout(tick, MEMPOOL_POLL_MS)
-      }
+export interface MempoolState {
+  feed: MempoolFeed | null
+  now: number
+}
+
+// ── o estado compartilhado ─────────────────────────────────────────────────
+// `estado` é trocado por um objeto NOVO a cada tick de propósito: os assinantes
+// guardam a referência em useState e comparam por identidade, então mutar o
+// objeto no lugar não re-renderizaria ninguém.
+let estado: MempoolState = { feed: null, now: 0 }
+const assinantes = new Set<(s: MempoolState) => void>()
+let timer: ReturnType<typeof setTimeout> | null = null
+let rodando = false
+
+function publica(s: MempoolState) {
+  estado = s
+  // forEach e não for..of: o target do tsconfig deste projeto é anterior a
+  // es2015 e iterar Set exigiria downlevelIteration.
+  assinantes.forEach((fn) => fn(s))
+}
+
+async function tick() {
+  try {
+    const r = await fetch("/api/mempool/dog", { cache: "no-store" })
+    if (r.ok) {
+      const j = (await r.json()) as MempoolFeed
+      publica({ feed: j, now: Date.now() })
+    } else {
+      // mantém a última leitura; a idade a leva para SYNCING sozinha
+      publica({ feed: estado.feed, now: Date.now() })
     }
-    void tick()
+  } catch {
+    publica({ feed: estado.feed, now: Date.now() })
+  }
+  if (rodando) timer = setTimeout(() => void tick(), MEMPOOL_POLL_MS)
+}
+
+function liga() {
+  if (rodando) return
+  rodando = true
+  void tick()
+}
+
+function desliga() {
+  rodando = false
+  if (timer) clearTimeout(timer)
+  timer = null
+}
+
+export function useMempoolFeed(): MempoolState {
+  // primeiro quadro = o snapshot que já existe no módulo. Um consumidor que
+  // monta com a página já viva não passa por um estado vazio.
+  const [s, setS] = useState<MempoolState>(estado)
+  useEffect(() => {
+    assinantes.add(setS)
+    liga()
+    // se o ciclo já estava rodando, o valor corrente pode ser mais novo do que
+    // o capturado no useState inicial
+    setS(estado)
     return () => {
-      alive = false
-      if (timer) clearTimeout(timer)
+      assinantes.delete(setS)
+      if (assinantes.size === 0) desliga()
     }
   }, [])
-  return { feed, now }
+  return s
 }
 
 export function minutesAgo(iso: string | null | undefined, now: number): string {

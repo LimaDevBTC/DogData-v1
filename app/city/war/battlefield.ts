@@ -100,6 +100,14 @@ export interface Battlefield {
   update(agora: number): void
   setLive(on: boolean): void
   hud(): HudBatalha
+  /** Acende `n` das `orc.maxLuzes` luzes de impacto e, se `frente` vier, a luz
+   *  da frente. Devolve quantas PointLights o campo tem acesas DEPOIS da troca
+   *  (obeliscos incluídos), que é o número que o anfitrião precisa para fechar
+   *  a conta do orçamento global dele. Ver `luzesAcesas()` para a leitura. */
+  setLuzes(n: number, frente?: boolean): number
+  /** PointLights que o campo tem acesas AGORA: pool de impacto ligado + luz da
+   *  frente + os dois obeliscos (que só aparecem quando o book chega). */
+  luzesAcesas(): number
   dispose(): void
 }
 
@@ -111,9 +119,22 @@ const hash = (a: number, b: number) => {
 const fmtPreco = (p: number) => (p > 0 ? p.toFixed(6) : '-')
 
 export interface OpcoesBatalha {
-  /** falso no mundo da cidade: o orçamento global de PointLight de lá está no
-   *  limite, então a frente e os obeliscos ficam só com o emissivo */
+  /** ESTADO INICIAL da luz da frente. Falso no mundo da cidade, onde o
+   *  orçamento global de PointLight nasce no limite; o anfitrião acende depois
+   *  pelo `setLuzes()`, quando tiver de onde tirar a vaga. */
   luzesAmbiente?: boolean
+  /** quantas das `orc.maxLuzes` de impacto nascem ACESAS. Padrão: todas. A
+   *  praça nasce com 2 e sobe para 6 quando a câmera entra na cratera. */
+  luzesIniciais?: number
+  /** motas de poeira suspensas sobre a frente (o palco solo tem as dele, no
+   *  anfitrião; a cidade pede as do motor para as duas batalhas terem os
+   *  MESMOS elementos). 0 ou ausente = sem motas. */
+  motas?: number
+  /** ⚠️ BRILHO SEM PÓS-PROCESSAMENTO: quando o anfitrião não pode manter uma
+   *  cadeia de composer (a praça não pode, ver plaza-scene.tsx), o clarão de
+   *  impacto cresce e demora mais, para o halo ler na cena em vez de vir do
+   *  bloom. Falso onde existe bloom de verdade, senão empilha os dois. */
+  brilhoInterno?: boolean
   /** impacto pesado (morteiro, canhão de tanque): o anfitrião pode sacudir a
    *  câmera sem o motor conhecer câmera nenhuma */
   onImpactoGrande?: (forca: number) => void
@@ -126,6 +147,17 @@ export function createBattlefield(
   opcoes: OpcoesBatalha = {},
 ): Battlefield {
   const luzesAmbiente = opcoes.luzesAmbiente !== false
+  // ⚠️ A CONTAGEM DE PointLight É CHAVE DE PROGRAMA no three (`numPointLights`
+  // entra em getProgramCacheKey), então mudar quantas luzes a cena tem manda o
+  // renderer recompilar TODO material iluminado. Por isso nada aqui liga luz
+  // nova de surpresa: as luzes acima do orçamento nascem invisíveis (o three
+  // descarta objeto invisível antes de somar luz) e só acendem quando o
+  // anfitrião apaga uma das dele no MESMO quadro, pelo `setLuzes()`.
+  let luzesAtivas = Math.max(0, Math.min(orc.maxLuzes, opcoes.luzesIniciais ?? orc.maxLuzes))
+  // clarão de impacto: fator de tamanho e de duração quando o anfitrião não
+  // tem bloom (o halo tem de nascer na cena, ver OpcoesBatalha.brilhoInterno)
+  const halo = opcoes.brilhoInterno ? 1.7 : 1
+  const haloMs = opcoes.brilhoInterno ? 260 : 130
   // ⚠️ não existe campo de tier explícito aqui: orc.cap já discrimina os três
   // degraus nos dois anfitriões (1000/900 no low, 2200 no mid, 4200 no high),
   // então os sistemas novos usam esse limiar pra decidir a própria redução
@@ -192,12 +224,12 @@ export function createBattlefield(
     costuraMesh = new THREE.Mesh(geo, matCostura)
     group.add(costuraMesh)
   }
-  let luzFrente: THREE.PointLight | null = null
-  if (luzesAmbiente) {
-    luzFrente = new THREE.PointLight(0xffc98a, 12, 60, 1.6)
-    luzFrente.position.set(0, 4, 0)
-    group.add(luzFrente)
-  }
+  // a luz da frente EXISTE nos dois anfitriões; na cidade ela nasce apagada e
+  // acende quando a câmera entra na cratera (troca de vaga, ver setLuzes)
+  const luzFrente = new THREE.PointLight(0xffc98a, 12, 60, 1.6)
+  luzFrente.position.set(0, 4, 0)
+  luzFrente.visible = luzesAmbiente
+  group.add(luzFrente)
 
   // ── neblina rasteira colada na frente ───────────────────────────────────
   const gNev = new THREE.PlaneGeometry(26, 130, 1, 1)
@@ -230,6 +262,60 @@ export function createBattlefield(
   const neblina = new THREE.Mesh(gNev, matNev)
   neblina.position.set(0, 0.55, 0)
   group.add(neblina)
+
+  // ── motas de poeira suspensas sobre a frente ────────────────────────────
+  // ⚠️ ESTE SISTEMA É CÓPIA DELIBERADA do que o palco solo monta por fora
+  // (war-scene.tsx), e é assim de propósito: aqui ele vive DENTRO do grupo do
+  // campo, então acompanha posição, rotação e escala da batalha quando ela
+  // está enfiada no mundo da cidade. O palco solo continua com o dele, que é o
+  // mesmo quadro de coordenadas por acidente feliz (grupo na identidade); ligar
+  // os dois lá dobraria as motas. Um draw call, sem luz.
+  let matMotas: THREE.ShaderMaterial | null = null
+  if (opcoes.motas && opcoes.motas > 0) {
+    const n = opcoes.motas
+    const posMo = new Float32Array(n * 3)
+    const faseMo = new Float32Array(n)
+    for (let i = 0; i < n; i++) {
+      const z = (hash(i, 2) - 0.5) * 140
+      const x = (hash(i, 4) - 0.5) * 40 * (1 - Math.abs(z) / 90)
+      posMo.set([x, 0.4 + hash(i, 6) * 5, z], i * 3)
+      faseMo[i] = hash(i, 7) * Math.PI * 2
+    }
+    const gMo = new THREE.BufferGeometry()
+    gMo.setAttribute('position', new THREE.BufferAttribute(posMo, 3))
+    gMo.setAttribute('fase', new THREE.BufferAttribute(faseMo, 1))
+    matMotas = new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      uniforms: { time: { value: 0 }, cor: { value: new THREE.Color(0xd9b98a) } },
+      // os chunks de logdepth são no-op no palco solo e obrigatórios na praça
+      vertexShader: `
+        #include <common>
+        #include <logdepthbuf_pars_vertex>
+        attribute float fase; uniform float time; varying float vA;
+        void main(){
+          vec3 p = position;
+          p.x += sin(time * 0.15 + fase) * 3.0;
+          p.y += sin(time * 0.3 + fase * 2.0) * 0.6 + 0.4;
+          vA = 0.5 + 0.5 * sin(time * 0.6 + fase);
+          vec4 mv = modelViewMatrix * vec4(p, 1.0);
+          gl_PointSize = 26.0 / -mv.z;
+          gl_Position = projectionMatrix * mv;
+          #include <logdepthbuf_vertex>
+        }`,
+      fragmentShader: `
+        #include <common>
+        #include <logdepthbuf_pars_fragment>
+        uniform vec3 cor; varying float vA;
+        void main(){
+          #include <logdepthbuf_fragment>
+          float d = distance(gl_PointCoord, vec2(0.5));
+          gl_FragColor = vec4(cor, smoothstep(0.5, 0.0, d) * vA * 0.35);
+        }`,
+    })
+    const motas = new THREE.Points(gMo, matMotas)
+    semRaycast(motas)
+    group.add(motas)
+  }
 
   // ── exércitos: respiração na GPU + rim configurável pelo anfitrião ──────
   const matCaes = new THREE.MeshStandardMaterial({
@@ -701,13 +787,20 @@ export function createBattlefield(
     return m
   })
   let cursorOnda = 0
-  const poolLuzes: THREE.PointLight[] = Array.from({ length: orc.maxLuzes }, () => {
+  const poolLuzes: THREE.PointLight[] = Array.from({ length: orc.maxLuzes }, (_, i) => {
     const l = new THREE.PointLight(0xffa64d, 0, 26, 1.8)
+    l.visible = i < luzesAtivas
     group.add(l)
     return l
   })
   let cursorLuz = 0
   const ondas: Onda[] = []
+  // ⚠️ os obeliscos entram na conta: eles nascem invisíveis e só aparecem
+  // quando o book traz máxima e mínima de 24 h, e nesse instante somam DUAS
+  // PointLights à cena. Quem administra orçamento global tem de ler daqui, não
+  // supor um número fixo.
+  const luzesAcesas = () =>
+    luzesAtivas + (luzFrente.visible ? 1 : 0) + (obLow.visible ? 1 : 0) + (obHigh.visible ? 1 : 0)
 
   const POOL_FLASH = 24
   const flashPool = Array.from({ length: POOL_FLASH }, () => {
@@ -2358,9 +2451,12 @@ export function createBattlefield(
     mesh.visible = true
     mesh.position.copy(p).setY(0.25)
     let luz: THREE.PointLight | null = null
-    if (forca > 2 || cursorOnda % 3 === 0) {
+    // o cursor gira dentro das ACESAS, não do pool inteiro: as de cima podem
+    // estar apagadas por orçamento do anfitrião e um flash nelas seria perdido
+    if (luzesAtivas > 0 && (forca > 2 || cursorOnda % 3 === 0)) {
+      if (cursorLuz >= luzesAtivas) cursorLuz = 0
       luz = poolLuzes[cursorLuz]
-      cursorLuz = (cursorLuz + 1) % poolLuzes.length
+      cursorLuz = (cursorLuz + 1) % luzesAtivas
       luz.color.setHex(cor)
       luz.position.copy(p).setY(2.5)
       luz.intensity = 30 * Math.min(6, forca)
@@ -3551,7 +3647,7 @@ export function createBattlefield(
         neblina.position.x = frenteX
         neblina.position.y = 0.55 + dyF
         if (brasasPts) brasasPts.position.set(frenteX, dyF, 0)
-        if (luzFrente) luzFrente.position.x = frenteX
+        luzFrente.position.x = frenteX
         cortina.position.set(frenteX, dyF, 0)
         bookSujo = true
       }
@@ -3612,12 +3708,16 @@ export function createBattlefield(
 
     for (const sp of flashPool) {
       if (!sp.visible) continue
-      const k = (agora - sp.userData.t0) / 130
+      // `halo`/`haloMs` valem 1 e 130 no anfitrião com bloom; sem bloom o
+      // clarão cresce e demora, que é o halo nascendo na cena (ver
+      // OpcoesBatalha.brilhoInterno). O tamanho é reescrito aqui todo quadro,
+      // então basta multiplicar num lugar para valer nos três pontos de spawn.
+      const k = (agora - sp.userData.t0) / haloMs
       if (k >= 1) {
         sp.visible = false
         continue
       }
-      sp.scale.setScalar(sp.userData.base * (1 + k * 0.6))
+      sp.scale.setScalar(sp.userData.base * halo * (1 + k * 0.6))
       ;(sp.material as THREE.SpriteMaterial).opacity = 1 - k
     }
 
@@ -4173,6 +4273,21 @@ export function createBattlefield(
         feed = null
         status = 'down'
       }
+    },
+    luzesAcesas,
+    setLuzes: (n: number, frente?: boolean) => {
+      const alvo = Math.max(0, Math.min(poolLuzes.length, Math.round(n)))
+      for (let i = 0; i < poolLuzes.length; i++) {
+        const on = i < alvo
+        if (poolLuzes[i].visible === on) continue
+        poolLuzes[i].visible = on
+        // nunca reacende com o brilho da onda velha: a luz volta do zero
+        poolLuzes[i].intensity = 0
+      }
+      luzesAtivas = alvo
+      if (cursorLuz >= alvo) cursorLuz = 0
+      if (frente !== undefined) luzFrente.visible = frente
+      return luzesAcesas()
     },
     hud: () => ({
       preco: mid, low24, high24, open24, status,

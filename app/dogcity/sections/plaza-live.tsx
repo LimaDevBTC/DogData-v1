@@ -27,120 +27,32 @@
 // HAIR / HAIR_SOFT / GRIDLINE from ../motion.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { useEffect, useState } from "react"
 import Image from "next/image"
-import { motion, useReducedMotion } from "framer-motion"
 import { ArrowRight } from "lucide-react"
 import {
-  EASE, EASE_CSS, HAIR, HAIR_SOFT, GRIDLINE,
-  Counter, Reveal, Stagger, StaggerItem, SplitLine, Scramble, DrawRule,
-  useMagnetic, useOnce,
+  EASE_CSS, HAIR, HAIR_SOFT, GRIDLINE,
+  Counter, Reveal, Stagger, StaggerItem, DrawRule,
+  useMagnetic,
 } from "../motion"
+// ⚠️ A CÓPIA LOCAL DO useMempoolFeed MORREU AQUI (27/08). Ela vivia colada
+// logo abaixo destes imports e NÃO importava do módulo, então a landing rodava
+// DUAS enquetes de 20 s no mesmo endpoint sem ninguém ter notado. Com a hero
+// nova seriam três. ../use-mempool agora é um singleton de módulo: um timer só
+// para a página inteira, e quem monta depois recebe o snapshot corrente na hora.
+import { useMempoolFeed, minutesAgo, MEMPOOL_STALE_S } from "../use-mempool"
 import { formatDog } from "../dogcity-data"
 
-// ── the registration corner — team SKYLINE's shared mark ───────────────────
-// Duplicated per file on purpose: motion.tsx is frozen.
-function Corners({ accent, delay = 0 }: { accent?: string; delay?: number }) {
-  const reduce = useReducedMotion()
-  const { ref, inView } = useOnce("-5% 0px")
-  const show = reduce || inView
-  const C = [
-    { box: "top-0 left-0", h: "top-0 left-0", v: "top-0 left-0", ox: "left", oy: "top" },
-    { box: "top-0 right-0", h: "top-0 right-0", v: "top-0 right-0", ox: "right", oy: "top" },
-    { box: "bottom-0 right-0", h: "bottom-0 right-0", v: "bottom-0 right-0", ox: "right", oy: "bottom" },
-    { box: "bottom-0 left-0", h: "bottom-0 left-0", v: "bottom-0 left-0", ox: "left", oy: "bottom" },
-  ]
-  const paint = (i: number) => (i === 0 && accent ? accent : "rgba(240,240,242,0.22)")
-  return (
-    <span ref={ref as never} aria-hidden className="absolute inset-0 pointer-events-none z-20">
-      {C.map((c, i) => (
-        <span key={c.box} className={`absolute ${c.box}`} style={{ width: 10, height: 10 }}>
-          <motion.span
-            className={`absolute ${c.h} h-px w-full`}
-            style={{ background: paint(i), transformOrigin: c.ox }}
-            initial={reduce ? false : { scaleX: 0 }}
-            animate={show ? { scaleX: 1 } : undefined}
-            transition={{ duration: 0.35, delay: delay + i * 0.04, ease: EASE }}
-          />
-          <motion.span
-            className={`absolute ${c.v} w-px h-full`}
-            style={{ background: paint(i), transformOrigin: c.oy }}
-            initial={reduce ? false : { scaleY: 0 }}
-            animate={show ? { scaleY: 1 } : undefined}
-            transition={{ duration: 0.35, delay: delay + i * 0.04, ease: EASE }}
-          />
-        </span>
-      ))}
-    </span>
-  )
-}
-
-// ── the feed ───────────────────────────────────────────────────────────────
-interface Snapshot {
-  updated_at: string
-  tx_count: number
-  fee_fast: number | null
-  fee_slow: number | null
-  tip_height: number | null
-  dog_pending: number
-  dog_pending_amount: number
-  last_dog_block: number | null
-  last_dog_block_time: string | null
-  last_dog_block_count: number | null
-  last_dog_block_amount: number | null
-}
-interface Feed { snapshot: Snapshot | null; stale_seconds: number | null; landed?: unknown[] }
-
-const POLL_MS = 20_000
-const STALE_S = 120
-
-function useMempoolFeed(): { feed: Feed | null; now: number } {
-  const [feed, setFeed] = useState<Feed | null>(null)
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    let alive = true
-    let timer: ReturnType<typeof setTimeout> | null = null
-    const tick = async () => {
-      try {
-        const r = await fetch("/api/mempool/dog", { cache: "no-store" })
-        if (r.ok) {
-          const j = (await r.json()) as Feed
-          if (alive) setFeed(j)
-        }
-      } catch {
-        // the board keeps the last reading; the label falls to SYNCING by age
-      }
-      if (alive) {
-        setNow(Date.now())
-        timer = setTimeout(tick, POLL_MS)
-      }
-    }
-    void tick()
-    return () => {
-      alive = false
-      if (timer) clearTimeout(timer)
-    }
-  }, [])
-  return { feed, now }
-}
-
-function minutesAgo(iso: string | null | undefined, now: number): string {
-  if (!iso) return "—"
-  const m = Math.max(0, Math.round((now - new Date(iso).getTime()) / 60_000))
-  if (m < 1) return "just now"
-  if (m === 1) return "1 min ago"
-  if (m < 90) return `${m} min ago`
-  const h = Math.round(m / 60)
-  return `${h} h ago`
-}
-
 // ── the plates: stills of the live scene ───────────────────────────────────
+// ⚠️ A CHAPA GRANDE (plaza-home a 16:9) SAIU DAQUI em 27/08. Ela é agora a
+// janela da porta 01 da hero, e repetir a mesma imagem duas vezes na mesma
+// página é o amontoado que a reforma existe para matar. A prateleira de cinco
+// assume o lugar dela.
+//
+// Duas entradas são novas: THE DIAMOND PAW e THE HIDDEN TEMPLE. Elas vinham da
+// grade de quatro chapas da hero, onde apontavam para /city com um rótulo mono
+// de 8px e nenhum verbo. São LUGARES dentro de um produto, não produtos, e o
+// lugar delas é esta prateleira. Nada sumiu do site.
 const PLATES = [
-  {
-    src: "/landing/plaza/plaza-home.webp",
-    alt: "Satoshi Plaza on the Moon: the Needle at the centre of the deck, Kray Tower and BitFlow HQ on the ring, the OrdCards Chalet to the south, the palace garden, and DOG ships in orbit above",
-    label: "SATOSHI PLAZA · LIVE",
-  },
   {
     src: "/landing/plaza/plaza-dsc.webp",
     alt: "The Dog Social Club gallery beside Kray Tower: the whole collection hung on a curved black wall under the club shield",
@@ -156,6 +68,16 @@ const PLATES = [
     alt: "The OrdCards Chalet: two colossal official OrdCards leaning together in an A over a glass podium, with the Needle and Kray Tower behind",
     label: "THE ORDCARDS CHALET",
   },
+  {
+    src: "/landing/plaza/plaza-paw.webp",
+    alt: "$DOG written in a mirror pool thirty metres across, at the centre of a paw of dark water",
+    label: "THE DIAMOND PAW",
+  },
+  {
+    src: "/landing/plaza/plaza-temple.webp",
+    alt: "The mouth of the Leonidas cave glowing among the monarch runestones",
+    label: "THE HIDDEN TEMPLE",
+  },
 ] as const
 
 const PRIMARY_LABEL = "Enter Satoshi Plaza"
@@ -163,16 +85,24 @@ const PRIMARY_LABEL = "Enter Satoshi Plaza"
 export default function Section() {
   const { feed, now } = useMempoolFeed()
   const s = feed?.snapshot ?? null
-  const stale = !s || (feed?.stale_seconds ?? Infinity) > STALE_S
+  const stale = !s || (feed?.stale_seconds ?? Infinity) > MEMPOOL_STALE_S
   const primary = useMagnetic<HTMLAnchorElement>()
 
   return (
     <section id="plaza" className={`border-t ${HAIR_SOFT}`}>
       <div className="max-w-6xl mx-auto px-6 md:px-10 py-16 md:py-24">
 
+        {/* ⚠️ ESTA FOLHA FOI REBAIXADA em 27/08, e a demoção é de PROPÓSITO.
+            Com a porta 01 da hero abrindo a página, a sobrancelha "SATOSHI
+            PLAZA · OPEN NOW", o <h2> e os dois parágrafos daqui repetiam, 400px
+            depois, o mesmo assunto com quase as mesmas palavras (Needle, Kray,
+            BitFlow, o parque, a taxa virando altitude, o bloco virando pouso).
+            A seção não morre: ela muda de função, de segundo pitch da cidade
+            para PRATELEIRA DE LUGARES mais quadro de missão, que é o que ela
+            tem de único. Daí a sobrancelha nova. */}
         <div className="max-w-2xl">
           <div className="flex items-center gap-3">
-            <Scramble text="SATOSHI PLAZA · OPEN NOW" className="font-mono text-[11px] tracking-[0.3em] text-lava" />
+            <span className="font-mono text-[11px] tracking-[0.3em] text-lava">INSIDE THE CITY</span>
             <span className="inline-flex items-center gap-1.5 font-mono text-[9px] tracking-[0.25em] text-dusty">
               <span
                 aria-hidden
@@ -182,52 +112,17 @@ export default function Section() {
             </span>
           </div>
           <DrawRule className="mt-3 w-14" delay={0.06} duration={0.9} />
-          <h2 className="font-display font-bold text-3xl md:text-4xl text-snow mt-4 leading-tight">
-            <SplitLine text="The plaza is open. The mempool is in orbit." delay={0.12} step={0.055} className="pb-[0.12em]" />
-          </h2>
-          <Reveal delay={0.34} y={14}>
-            <p className="text-sm text-mist mt-3 leading-relaxed">
-              You can walk into DogCity today. Satoshi Plaza stands on the real Mare Tranquillitatis
-              terrain: the Needle at its centre, Kray Tower and BitFlow HQ on the ring, the OrdCards
-              Chalet to the south, a palace garden between them, the spaceport down the axis, and
-              Runestone Ordinal Park five kilometres to the north-east.
-            </p>
-          </Reveal>
-          <Reveal delay={0.44} y={14}>
-            <p className="text-sm text-mist mt-3 leading-relaxed">
-              Above it, the DOG mempool is alive. Every DOG transaction our node sees becomes a ship
-              in orbit: the fee sets the altitude, the amount sets the size, and the block is the
-              landing. Paste a transaction id in the plaza and follow your DOG down to the apron.
-            </p>
-          </Reveal>
         </div>
 
-        <div className="mt-10 md:mt-12 grid lg:grid-cols-[minmax(0,1fr)_320px] gap-6 lg:gap-8 items-start">
+        <div className="mt-8 md:mt-10 grid lg:grid-cols-[minmax(0,1fr)_320px] gap-6 lg:gap-8 items-start">
 
-          {/* ── the plates ─────────────────────────────────────────────────── */}
+          {/* ── a prateleira de lugares ────────────────────────────────────── */}
           <div>
-            <Reveal delay={0.2} y={20}>
-              <a href="/city" className={`group relative block aspect-[16/10] sm:aspect-[16/9] border ${HAIR} overflow-hidden bg-void`}>
-                <Image
-                  src={PLATES[0].src}
-                  alt={PLATES[0].alt}
-                  fill
-                  sizes="(min-width: 1024px) 800px, 100vw"
-                  className="object-cover transition-transform duration-[1400ms] group-hover:scale-[1.02]"
-                  style={{ transitionTimingFunction: EASE_CSS }}
-                  priority={false}
-                />
-                <Corners accent="rgba(245,110,15,0.85)" delay={0.1} />
-                <span className="absolute left-3 bottom-3 border border-white/[0.12] bg-void/75 backdrop-blur-sm px-2.5 py-1.5 font-mono text-[10px] tracking-[0.18em] text-snow">
-                  {PLATES[0].label}
-                </span>
-              </a>
-            </Reveal>
-            <Stagger step={0.08} delay={0.4} className="mt-3 grid grid-cols-3 gap-3">
-              {PLATES.slice(1).map((p) => (
+            <Stagger step={0.08} delay={0.2} className="grid grid-cols-3 lg:grid-cols-5 gap-3">
+              {PLATES.map((p) => (
                 <StaggerItem key={p.src}>
                   <div className={`relative aspect-[16/10] border ${HAIR} overflow-hidden bg-void`}>
-                    <Image src={p.src} alt={p.alt} fill sizes="(min-width: 1024px) 260px, 33vw" className="object-cover" />
+                    <Image src={p.src} alt={p.alt} fill sizes="(min-width: 1024px) 160px, 33vw" className="object-cover" />
                     <span className="absolute left-2 bottom-2 hidden sm:block font-mono text-[9px] tracking-[0.18em] text-snow/80 [text-shadow:0_1px_4px_rgba(0,0,0,0.9)]">
                       {p.label}
                     </span>
