@@ -47,7 +47,11 @@ export const GALAXY = {
   // DIRETO do airdrop, que e agregado real da raiz.
   generationsShown: 30,   // so para a cena, que desenha ate a casca 30
   directChildren: 80_855, // root.children: primeiro salto do airdrop
-  snapshot: "27 Aug 2026",
+  // ⚠️ NAO publique esta data como "snapshot": a galaxia e VIVA (vigia por
+  // bloco, sync de saldos de hora em hora) e as vitrines leem
+  // /api/holders/tree/summary. Isto aqui e so o PRIMEIRO QUADRO, o que a
+  // pagina mostra nos milissegundos antes da rota responder.
+  primeiroQuadro: "27 Aug 2026",
   // raiz da genealogia; usada para montar o deep link da lente Flow
   treasury: "bc1pry0ne0yf5pkgqsszmytmqkpzs4aflhr8tfptz9sydqrhxexgujcqqler2t",
 }

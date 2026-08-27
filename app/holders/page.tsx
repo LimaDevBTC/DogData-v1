@@ -63,7 +63,23 @@ interface HolderSearchResponse {
 }
 
 export default function HoldersPage() {
+  // resumo vivo do $DOG Galaxy para o banner (ver comentário no bloco dele)
+  const [galaxia, setGalaxia] = useState<{ wallets: number; holders: number; deepest: number } | null>(null)
   const [allHolders, setAllHolders] = useState<Holder[]>([])
+
+  // ⚠️ r.ok E forma checados: no incidente de 26/08 um corpo { error } de 503
+  // passou por guard de null e derrubou a árvore do React. Sem dado, o banner
+  // fica com o primeiro quadro estático e ninguém vê tela preta.
+  useEffect(() => {
+    fetch('/api/holders/tree/summary', { signal: AbortSignal.timeout(9000) })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (j && typeof j.wallets === 'number' && j.wallets > 0) {
+          setGalaxia({ wallets: j.wallets, holders: j.holders, deepest: j.deepest })
+        }
+      })
+      .catch(() => {})
+  }, [])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
@@ -915,14 +931,16 @@ export default function HoldersPage() {
           public/galaxy-og.jpg aqui: aquele tem título, números e URL queimados
           no pixel e viraria print de card social dentro da página.
 
-          NÚMEROS medidos em 27/08/2026 no root de /api/holders/tree (sw/sh).
-          São estáticos de propósito: aquela rota devolve ~628 KB em ~2 s e,
-          depois do incidente de IO de 26/08, esta página não ganha fetch novo.
-          Carteiras só sobem, então o número envelhece para baixo; a linha mono
-          carrega a data do snapshot, como na landing.
+          NÚMEROS VIVOS: vêm de /api/holders/tree/summary, que lê o nó raiz da
+          genealogia (duas leituras de índice, ~0,5 s, cache de 10 min na CDN).
+          A galáxia É viva, o vigia acrescenta carteira e aresta a cada bloco e
+          o sync de saldos roda de hora em hora, então congelar a copy fazia a
+          página envelhecer sozinha e ainda anunciava isso num selo de
+          "snapshot". Os valores abaixo são só o primeiro quadro enquanto a
+          rota responde, e a página nunca fica sem número.
 
           ⚠️ NÃO escrever "30 generations": 30 é o TETO da rota, não um fato da
-          árvore. A profundidade real é 1.663, o mesmo número da landing. */}
+          árvore. A profundidade real passa de 1.600. */}
       <Link href="/galaxy" className="block group" aria-label="Open the $DOG Galaxy">
         <Card
           variant="glass"
@@ -982,19 +1000,19 @@ export default function HoldersPage() {
 
               <div className="mt-4 grid grid-cols-3 gap-3 md:gap-8 max-w-md">
                 <div>
-                  <div className="font-mono text-base md:text-xl text-lava">263,974</div>
+                  <div className="font-mono text-base md:text-xl text-lava">{(galaxia ? galaxia.wallets : 263974).toLocaleString("en-US")}</div>
                   <div className="mt-1 font-mono text-[9px] md:text-[10px] uppercase tracking-[0.18em] text-dusty leading-tight">
                     Wallets mapped
                   </div>
                 </div>
                 <div>
-                  <div className="font-mono text-base md:text-xl text-lava">85,667</div>
+                  <div className="font-mono text-base md:text-xl text-lava">{(galaxia ? galaxia.holders : 85667).toLocaleString("en-US")}</div>
                   <div className="mt-1 font-mono text-[9px] md:text-[10px] uppercase tracking-[0.18em] text-dusty leading-tight">
                     Still holding
                   </div>
                 </div>
                 <div>
-                  <div className="font-mono text-base md:text-xl text-lava">1,663</div>
+                  <div className="font-mono text-base md:text-xl text-lava">{(galaxia ? galaxia.deepest : 1663).toLocaleString("en-US")}</div>
                   <div className="mt-1 font-mono text-[9px] md:text-[10px] uppercase tracking-[0.18em] text-dusty leading-tight">
                     Deepest chain
                   </div>
@@ -1006,7 +1024,7 @@ export default function HoldersPage() {
                   Explore the galaxy →
                 </span>
                 <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-dusty">
-                  Snapshot 27 Aug 2026
+                  Live, block by block
                 </span>
               </div>
             </div>

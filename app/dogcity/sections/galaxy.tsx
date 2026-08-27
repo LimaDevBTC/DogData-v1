@@ -18,7 +18,10 @@
 // canvas. O par conta a interacao principal do produto: o ceu parado e o mesmo
 // ceu um clique depois, com as 80.850 arestas do airdrop acesas.
 //
-// OS NUMEROS vem de GALAXY em ../dogcity-data (snapshot datado do no raiz).
+// OS NUMEROS sao VIVOS: /api/holders/tree/summary le o no raiz da genealogia
+// (duas leituras de indice, cache de 10 min na CDN). GALAXY em ../dogcity-data
+// e so o primeiro quadro enquanto a rota responde: a galaxia atualiza a cada
+// bloco e de hora em hora, entao numero congelado na vitrine envelhecia sozinho.
 // Nada de fetch aqui: a rota da arvore pesa 628 KB, e a landing nao ganha rota
 // nova de dado pesado depois do incidente de IO de 26/08.
 //
@@ -28,6 +31,7 @@
 // HAIR_SOFT e GRIDLINE vem de ../motion.
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { useEffect, useState } from "react"
 import Image from "next/image"
 import { motion, useReducedMotion } from "framer-motion"
 import { ArrowRight } from "lucide-react"
@@ -93,12 +97,12 @@ const PLATES = [
 ] as const
 
 // ── o quadro de leitura ────────────────────────────────────────────────────
-const STATS = [
-  { k: "WALLETS MAPPED", v: GALAXY.wallets, sub: "every address DOG passed through" },
-  { k: "STILL HOLDING", v: GALAXY.holding, sub: "with a balance today" },
+const statsDe = (v: { wallets: number; holders: number; directChildren: number } | null) => [
+  { k: "WALLETS MAPPED", v: v ? v.wallets : GALAXY.wallets, sub: "every address DOG passed through" },
+  { k: "STILL HOLDING", v: v ? v.holders : GALAXY.holding, sub: "with a balance today" },
   { k: "DEEPEST CHAIN", v: 1663, sub: "hand to hand, wallet to wallet" },
-  { k: "DIRECT CHILDREN", v: GALAXY.directChildren, sub: "first hop out of the airdrop" },
-] as const
+  { k: "DIRECT CHILDREN", v: v ? v.directChildren : GALAXY.directChildren, sub: "first hop out of the airdrop" },
+]
 
 // A galaxia e o modo padrao de /galaxy. As lentes de analise abrem por deep
 // link: qualquer parametro de sankey manda o wrapper para o Flow, e ?view=ego
@@ -108,6 +112,18 @@ const FLOW_HREF = `/galaxy?root=${GALAXY.treasury}`
 const GRAPH_HREF = "/galaxy?view=ego"
 
 export default function Section() {
+  // resumo vivo; sem ele a secao mostra o primeiro quadro e nunca fica vazia
+  const [vivo, setVivo] = useState<{ wallets: number; holders: number; directChildren: number } | null>(null)
+  useEffect(() => {
+    fetch("/api/holders/tree/summary", { signal: AbortSignal.timeout(9000) })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (j && typeof j.wallets === "number" && j.wallets > 0) {
+          setVivo({ wallets: j.wallets, holders: j.holders, directChildren: j.directChildren })
+        }
+      })
+      .catch(() => {})
+  }, [])
   const primary = useMagnetic<HTMLAnchorElement>()
 
   return (
@@ -181,7 +197,7 @@ export default function Section() {
             <span>ROOT: TREASURY</span>
           </div>
           <Stagger as="dl" step={0.09} delay={0.2} className={`grid grid-cols-2 md:grid-cols-4 gap-px ${GRIDLINE}`}>
-            {STATS.map((s) => (
+            {statsDe(vivo).map((s) => (
               <StaggerItem key={s.k} className="bg-void px-4 py-5 flex flex-col">
                 {/* No DOM o rotulo vem ANTES da cifra: dentro de um <dl> o HTML
                     pede dt antes de dd, e o leitor de tela le "wallets mapped,
@@ -227,8 +243,8 @@ export default function Section() {
 
         <Reveal delay={0.32} y={10} className="mt-5">
           <p className="font-mono text-[10px] text-dusty leading-relaxed">
-            Bitcoin L1 genealogy, snapshot {GALAXY.snapshot}. The tree grows with every block and the
-            galaxy always reads the live one. Runs in the browser, phone included.
+            Bitcoin L1 genealogy, live. The tree grows with every block, balances sync every hour,
+            and the galaxy always reads the current one. Runs in the browser, phone included.
           </p>
         </Reveal>
       </div>
