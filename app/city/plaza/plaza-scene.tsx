@@ -147,10 +147,29 @@ function viewFor(name: string | null, aspect: number): View {
       const d = new THREE.Vector3(0.932, 0, -0.362) // rumo do pódio do precinto
       return { pos: t.clone().addScaledVector(d, 300).setY(t.y + 80), target: new THREE.Vector3(t.x + 60, t.y, t.z - 24) }
     }
-    case 'templein': { // dentro: o salão preto no fundo da câmara
+    case 'templein': {
+      // ⚠️ DENTRO DO SALÃO, não no corredor. Na caverna velha a boca dava
+      // direto na câmara e 8 m para dentro já mostrava o templo. Depois da
+      // reforma de 26/08 há um corredor em S de ~45 m antes do salão, e esta
+      // vista mostrava só parede curva: era a queixa do fundador ("lá dentro
+      // não conseguimos visualizar o templo"). A câmera agora fica na boca do
+      // salão (44 m para dentro) e mira o templo, que está a 72 m.
       const t = TEMPLE_WORLD.lengthSq() > 1 ? TEMPLE_WORLD.clone() : new THREE.Vector3(PARK_CENTER.x + 335, -100, PARK_CENTER.z - 59)
       const d = new THREE.Vector3(Math.cos(CAVE_YAW), 0, -Math.sin(CAVE_YAW))
-      return { pos: t.clone().addScaledVector(d, 8).setY(t.y + 7), target: t.clone().addScaledVector(d, -34).setY(t.y + 10) }
+      return { pos: t.clone().addScaledVector(d, -44).setY(t.y + 13), target: t.clone().addScaledVector(d, -72).setY(t.y + 12) }
+    }
+    case 'templegarden': { // o pátio: o jardim de fungos em volta do templo
+      const t = TEMPLE_WORLD.lengthSq() > 1 ? TEMPLE_WORLD.clone() : new THREE.Vector3(PARK_CENTER.x + 335, -100, PARK_CENTER.z - 59)
+      const d = new THREE.Vector3(Math.cos(CAVE_YAW), 0, -Math.sin(CAVE_YAW))
+      const lado = new THREE.Vector3(-Math.sin(CAVE_YAW), 0, -Math.cos(CAVE_YAW))
+      // ⚠️ os números são conservadores de propósito: o salão vai de 26 a 118 m
+      // para dentro e tem 83,5 m de largura, mas com lado 30 e altura 24 a
+      // câmera encostava na parede e o quadro pegava a rocha acesa pelo sol
+      // de fora. 22 de lado e 15 de altura ficam com folga dentro do volume.
+      return {
+        pos: t.clone().addScaledVector(d, -96).addScaledVector(lado, 22).setY(t.y + 15),
+        target: t.clone().addScaledVector(d, -72).setY(t.y + 7),
+      }
     }
     case 'satoshiclose': { const [x, z] = onDiagonal('NW', 536, 1); return { pos: new THREE.Vector3(x, 5, z), target: new THREE.Vector3(SATOSHI_POOL[0], 6.5, SATOSHI_POOL[1]) } }
     case 'satoshisideclose': { const [x, z] = onDiagonal('NW', 560, 26); return { pos: new THREE.Vector3(x, 6, z), target: new THREE.Vector3(SATOSHI_POOL[0], 6, SATOSHI_POOL[1]) } }
