@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Um segundo `next dev` (revisao visual, screenshot) nao pode disputar o
+  // .next do servidor que ja esta rodando: com NEXT_DIST_DIR ele compila num
+  // diretorio proprio. Sem a variavel, nada muda.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   images: {
     unoptimized: true,
   },

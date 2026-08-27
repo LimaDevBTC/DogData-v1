@@ -39,12 +39,17 @@ export async function GET(req: NextRequest) {
   if (!address) {
     return NextResponse.json({
       address: null, verified: false, handle: null, claimed_at: null,
+      avatar_inscription_id: null, avatar_number: null,
       lot: null, chat_count: 0, wallet_id: null,
     })
   }
 
   const [profileRes, lotRes, chatRes] = await Promise.all([
-    supabase.from('dogcity_profiles').select('handle, created_at').eq('address', address).maybeSingle(),
+    supabase
+      .from('dogcity_profiles')
+      .select('handle, created_at, avatar_inscription_id, avatar_content_type, avatar_number')
+      .eq('address', address)
+      .maybeSingle(),
     // O registro da cidade grava o endereco como a carteira o escreve; os
     // bech32 ja sao minusculos, mas um base58 nao e, entao pergunta pelas duas
     // formas em vez de assumir.
@@ -69,6 +74,8 @@ export async function GET(req: NextRequest) {
     verified: !!sessionAddress && sessionAddress === address,
     handle: profileRes.data?.handle ?? null,
     claimed_at: profileRes.data?.created_at ?? null,
+    avatar_inscription_id: profileRes.data?.avatar_inscription_id ?? null,
+    avatar_number: profileRes.data?.avatar_number ?? null,
     lot: lotRes.error ? null : lotRes.data?.[0] ?? null,
     chat_count: chatRes.count ?? 0,
     wallet_id: sessionAddress === address ? session?.walletId ?? null : null,
@@ -80,19 +87,19 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await getSession(req)
   if (!session) {
-    return NextResponse.json({ error: 'sessão não verificada' }, { status: 401 })
+    return NextResponse.json({ error: 'Ownership not verified.' }, { status: 401 })
   }
 
   let body: { handle?: string }
   try {
     body = await req.json()
   } catch {
-    return NextResponse.json({ error: 'corpo inválido' }, { status: 422 })
+    return NextResponse.json({ error: 'Invalid body.' }, { status: 422 })
   }
 
   const validation = validateHandle(body.handle ?? '')
   if (!validation.ok || !validation.handle) {
-    return NextResponse.json({ error: validation.reason ?? 'handle inválido' }, { status: 422 })
+    return NextResponse.json({ error: validation.reason ?? 'invalid_handle' }, { status: 422 })
   }
 
   const address = session.address.toLowerCase()
@@ -113,7 +120,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'internal' }, { status: 500 })
   }
   if (taken) {
-    return NextResponse.json({ error: 'handle já em uso' }, { status: 409 })
+    return NextResponse.json({ error: 'taken' }, { status: 409 })
   }
 
   const { error: upsertError } = await supabase
@@ -123,7 +130,7 @@ export async function POST(req: NextRequest) {
   if (upsertError) {
     // 23505 = unique_violation: outra requisicao ganhou a corrida pelo mesmo handle.
     if (upsertError.code === '23505') {
-      return NextResponse.json({ error: 'handle já em uso' }, { status: 409 })
+      return NextResponse.json({ error: 'taken' }, { status: 409 })
     }
     console.error('[api/profile POST upsert]', upsertError.message)
     return NextResponse.json({ error: 'internal' }, { status: 500 })

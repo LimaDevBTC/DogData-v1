@@ -21,7 +21,7 @@ export interface VerifyResult {
 
 function hexToBytes(hex: string): Uint8Array {
   const clean = hex.startsWith('0x') ? hex.slice(2) : hex
-  if (clean.length % 2 !== 0) throw new Error('hex inválido')
+  if (clean.length % 2 !== 0) throw new Error('Malformed hex payload.')
   const out = new Uint8Array(clean.length / 2)
   for (let i = 0; i < out.length; i++) out[i] = parseInt(clean.substr(i * 2, 2), 16)
   return out
@@ -35,22 +35,22 @@ export function verifyOwnership(input: VerifyInput): VerifyResult {
     // Xverse / OKX → BIP-322 (taproot p2tr e também p2wpkh/p2sh).
     if (protocol === 'bip322') {
       const ok = Verifier.verifySignature(address, message, signature)
-      return ok ? { ok: true } : { ok: false, reason: 'Assinatura BIP-322 inválida.' }
+      return ok ? { ok: true } : { ok: false, reason: 'Invalid BIP-322 signature.' }
     }
 
     // Endereço de pagamento legado → ECDSA (Bitcoin message signing).
     if (protocol === 'ecdsa') {
       const ok = bitcoinMessage.verify(message, address, signature)
-      return ok ? { ok: true } : { ok: false, reason: 'Assinatura ECDSA inválida.' }
+      return ok ? { ok: true } : { ok: false, reason: 'Invalid ECDSA signature.' }
     }
 
     // Kray → Schnorr BIP-340 cru.
     // ⚠️ ESQUEMA A VALIDAR com uma assinatura REAL da Kray (hashing + tweak da chave).
     // Fail-closed: se nada casar, rejeita.
     if (protocol === 'bip340-schnorr') {
-      if (!publicKey) return { ok: false, reason: 'publicKey ausente (necessária p/ Kray).' }
+      if (!publicKey) return { ok: false, reason: 'Missing public key (Kray requires it).' }
       const pub = hexToBytes(publicKey)
-      if (pub.length !== 32) return { ok: false, reason: 'x-only pubkey deve ter 32 bytes.' }
+      if (pub.length !== 32) return { ok: false, reason: 'The x-only public key must be 32 bytes.' }
 
       // 1) Amarra pubkey ↔ endereço (senão um atacante assina com a própria chave e reivindica outro endereço).
       let derived: string | undefined
@@ -60,7 +60,7 @@ export function verifyOwnership(input: VerifyInput): VerifyResult {
         /* noop */
       }
       if (!derived || derived !== address) {
-        return { ok: false, reason: 'pubkey não corresponde ao endereço (Kray — validar derivação).' }
+        return { ok: false, reason: 'The public key does not match this address.' }
       }
 
       // 2) Verifica a assinatura Schnorr sobre o hash da mensagem (tenta variantes de hashing).
@@ -73,11 +73,11 @@ export function verifyOwnership(input: VerifyInput): VerifyResult {
           /* tenta a próxima variante */
         }
       }
-      return { ok: false, reason: 'Assinatura Schnorr inválida (Kray — validar hashing).' }
+      return { ok: false, reason: 'Invalid Schnorr signature.' }
     }
 
-    return { ok: false, reason: 'Protocolo de assinatura desconhecido.' }
+    return { ok: false, reason: 'Unknown signature protocol.' }
   } catch (e: any) {
-    return { ok: false, reason: e?.message || 'Erro na verificação.' }
+    return { ok: false, reason: e?.message || 'Verification failed.' }
   }
 }

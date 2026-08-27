@@ -1,0 +1,346 @@
+"use client"
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VISÃO GERAL — os números que sustentam decisão, com base de comparação.
+//
+// Três regras que governam esta aba:
+//
+// 1. TODO número de topo vem com a janela anterior de igual tamanho ao lado.
+//    "4.569 sessões" não diz se o mês foi bom; "4.569, +145% contra os 30 dias
+//    anteriores" diz. Sem base de comparação um painel é um relógio: informa,
+//    não orienta.
+//
+// 2. NÃO MEDIDO ≠ ZERO. Sessão reconstruída do histórico (antes de 27/08) tem
+//    engaged_ms NULL, e toda média de permanência filtra essas fora. O painel
+//    escreve sobre quantas sessões a média foi tirada em vez de deixar o
+//    fundador achar que 6.432 sessões sustentam um número que veio de 40.
+//
+// 3. O QUE FOI BARRADO APARECE. Robô descartado é mostrado com o motivo, não
+//    varrido pra debaixo do tapete: foi olhando tráfego não-filtrado que a
+//    Áustria passou agosto inteiro como terceiro país do site.
+// ═══════════════════════════════════════════════════════════════════════════
+
+import {
+  Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart,
+  ResponsiveContainer, Tooltip, XAxis, YAxis,
+} from "recharts"
+import { Clock, Radio, ShieldAlert, TrendingUp, UserPlus, Users } from "lucide-react"
+import { Reveal } from "@/app/dogcity/motion"
+import type { Trafego } from "./types"
+import {
+  AXIS_TICK, CAT, ChartFrame, ChartTooltip, Delta, EmptyPlot, GRID, HAIR, HAIR_SOFT,
+  Plate, PlateHead, PlotGrid, SectionHead, ShareBar, fmtDuracao, fmtNum, fmtPct,
+} from "./ui"
+
+export default function VisaoGeral({ data }: { data: Trafego }) {
+  const { resumo: r, anterior: a } = data
+
+  const serie = data.por_dia.map((d) => ({
+    ...d,
+    rotulo: d.dia.slice(5),
+    Sessoes: d.sessoes,
+    Visitantes: d.visitantes,
+    Pageviews: d.pageviews,
+  }))
+
+  const agora = data.agora.map((b) => ({
+    rotulo: b.minutos_atras === 0 ? "agora" : `-${b.minutos_atras}m`,
+    views: b.views,
+  }))
+  const aoVivo = data.agora.reduce((s, b) => s + b.views, 0)
+
+  const dispositivos = Object.entries(data.dispositivos)
+    .map(([nome, valor], i) => ({
+      label: nome.charAt(0).toUpperCase() + nome.slice(1),
+      value: valor,
+      color: CAT[Math.min(2, i)],
+    }))
+    .sort((x, y) => y.value - x.value)
+  const totalDisp = dispositivos.reduce((s, d) => s + d.value, 0) || 1
+
+  // A cobertura da medição de permanência. Enquanto a janela ainda pega os
+  // dias reconstruídos, este número é baixo e PRECISA estar visível junto da
+  // média — senão o painel apresenta como fato do mês o que veio de um punhado
+  // de sessões.
+  const cobertura = r.sessoes > 0 ? (r.sessoes_medidas / r.sessoes) * 100 : 0
+
+  const novosPct = r.novos + r.recorrentes > 0
+    ? (r.novos / (r.novos + r.recorrentes)) * 100
+    : null
+
+  return (
+    <div className="space-y-12 md:space-y-16">
+
+      {/* ── os cinco números ────────────────────────────────────────────── */}
+      <section>
+        <SectionHead
+          eyebrow="AUDIÊNCIA"
+          title="O que o site recebeu, contra o período anterior."
+          sub="Visitante é pessoa (identificador anônimo persistente); sessão é visita; nenhuma métrica abaixo é amostrada."
+        />
+        <Reveal delay={0.4} y={16}>
+          <PlotGrid className="mt-10 grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            <Metrica
+              label="Visitantes"
+              valor={fmtNum(r.visitantes)}
+              sub="pessoas distintas"
+              acento={CAT[0]}
+              delta={<Delta atual={r.visitantes} anterior={a.visitantes} />}
+              icone={Users}
+            />
+            <Metrica
+              label="Sessões"
+              valor={fmtNum(r.sessoes)}
+              sub={`${r.paginas_sessao ?? "—"} páginas por sessão`}
+              acento={CAT[1]}
+              delta={<Delta atual={r.sessoes} anterior={a.sessoes} />}
+            />
+            <Metrica
+              label="Permanência média"
+              valor={fmtDuracao(r.duracao_media_s)}
+              sub={
+                r.sessoes_medidas === 0
+                  ? "ainda sem sessão medida na janela"
+                  : `mediana ${fmtDuracao(r.duracao_mediana_s)} · ${fmtNum(r.sessoes_medidas)} sessões medidas (${cobertura.toFixed(0)}%)`
+              }
+              acento={CAT[2]}
+              delta={<Delta atual={r.duracao_media_s} anterior={a.duracao_media_s} sufixo="s" />}
+              icone={Clock}
+            />
+            <Metrica
+              label="Taxa de rejeição"
+              valor={fmtPct(r.taxa_rejeicao)}
+              sub="saiu sem ler nem navegar"
+              acento={CAT[1]}
+              // Rejeição que cai é melhora: sem `inverso` o painel pintaria de
+              // vermelho justamente o resultado que se quer.
+              delta={<Delta atual={r.taxa_rejeicao} anterior={a.taxa_rejeicao} inverso sufixo="%" />}
+            />
+            <Metrica
+              label="Novos"
+              valor={novosPct == null ? "—" : fmtPct(novosPct)}
+              sub={`${fmtNum(r.novos)} novos · ${fmtNum(r.recorrentes)} recorrentes`}
+              acento={CAT[0]}
+              icone={UserPlus}
+            />
+          </PlotGrid>
+        </Reveal>
+
+        {r.sessoes_medidas < r.sessoes && (
+          <p className="font-mono text-[10px] text-dusty mt-4 leading-relaxed max-w-[70ch]">
+            Permanência e rolagem passaram a ser medidas em 27/08/2026. Sessões anteriores
+            foram reconstruídas do histórico — mantêm páginas, entrada e saída, mas não têm
+            tempo, e por isso ficam de fora das médias em vez de entrarem como zero.
+          </p>
+        )}
+      </section>
+
+      {/* ── a série ─────────────────────────────────────────────────────── */}
+      <Reveal y={18}>
+        <ChartFrame
+          eyebrow="Visitantes, sessões e páginas por dia"
+          icon={TrendingUp}
+          table={{
+            head: ["Dia", "Visitantes", "Sessões", "Páginas"],
+            rows: data.por_dia.map((d) => [d.dia, d.visitantes, d.sessoes, d.pageviews]),
+          }}
+        >
+          {serie.length > 1 ? (
+            <ResponsiveContainer width="100%" height={266}>
+              <AreaChart data={serie} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="an-pv" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={CAT[0]} stopOpacity={0.2} />
+                    <stop offset="100%" stopColor={CAT[0]} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke={GRID} vertical={false} />
+                <XAxis dataKey="rotulo" tick={AXIS_TICK} axisLine={false} tickLine={false} minTickGap={24} />
+                <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={52} />
+                <Tooltip content={<ChartTooltip />} cursor={{ stroke: "#ffffff25", strokeWidth: 1 }} />
+                <Area type="monotone" dataKey="Pageviews" stroke={CAT[0]} strokeWidth={2}
+                  fill="url(#an-pv)" dot={false}
+                  activeDot={{ r: 4, fill: CAT[0], stroke: "#050505", strokeWidth: 2 }} />
+                <Area type="monotone" dataKey="Sessoes" stroke={CAT[1]} strokeWidth={2}
+                  fill="transparent" dot={false}
+                  activeDot={{ r: 4, fill: CAT[1], stroke: "#050505", strokeWidth: 2 }} />
+                <Area type="monotone" dataKey="Visitantes" stroke={CAT[2]} strokeWidth={2}
+                  fill="transparent" dot={false}
+                  activeDot={{ r: 4, fill: CAT[2], stroke: "#050505", strokeWidth: 2 }} />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <EmptyPlot height={266} />
+          )}
+        </ChartFrame>
+      </Reveal>
+
+      {/* ── permanência e rejeição por dia ──────────────────────────────── */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        <Reveal y={18}>
+          <ChartFrame
+            eyebrow="Permanência média por dia"
+            icon={Clock}
+            table={{
+              head: ["Dia", "Segundos"],
+              rows: data.por_dia.map((d) => [d.dia, d.duracao_s ?? "não medido"]),
+            }}
+          >
+            {/* connectNulls fica FALSO: os dias sem medição têm que aparecer
+                como buraco. Ligar os pontos por cima deles desenharia uma
+                linha contínua sobre um período que ninguém mediu. */}
+            {serie.some((d) => d.duracao_s != null) ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={serie} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                  <CartesianGrid stroke={GRID} vertical={false} />
+                  <XAxis dataKey="rotulo" tick={AXIS_TICK} axisLine={false} tickLine={false} minTickGap={24} />
+                  <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={52}
+                    tickFormatter={(v: number) => fmtDuracao(v)} />
+                  <Tooltip content={<ChartTooltip unit="s" />} cursor={{ stroke: "#ffffff25" }} />
+                  <Line type="monotone" dataKey="duracao_s" name="Permanência" stroke={CAT[2]}
+                    strokeWidth={2} dot={{ r: 2.5, fill: CAT[2] }} connectNulls={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyPlot height={200}>Medição começou em 27/08 — aguardando dias completos</EmptyPlot>
+            )}
+          </ChartFrame>
+        </Reveal>
+
+        <Reveal y={18} delay={0.08}>
+          <ChartFrame
+            eyebrow="Taxa de rejeição por dia"
+            table={{
+              head: ["Dia", "Rejeição %"],
+              rows: data.por_dia.map((d) => [d.dia, d.rejeicao ?? "—"]),
+            }}
+          >
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={serie} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                <CartesianGrid stroke={GRID} vertical={false} />
+                <XAxis dataKey="rotulo" tick={AXIS_TICK} axisLine={false} tickLine={false} minTickGap={24} />
+                <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} domain={[0, 100]} />
+                <Tooltip content={<ChartTooltip unit="%" />} cursor={{ stroke: "#ffffff25" }} />
+                <Line type="monotone" dataKey="rejeicao" name="Rejeição" stroke={CAT[1]}
+                  strokeWidth={2} dot={false} connectNulls={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartFrame>
+        </Reveal>
+      </div>
+
+      {/* ── agora, dispositivo, robôs ───────────────────────────────────── */}
+      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <Reveal y={18}>
+          <ChartFrame
+            eyebrow={`Últimos 30 minutos · ${fmtNum(aoVivo)} views`}
+            live
+            table={{ head: ["Janela", "Views"], rows: agora.map((b) => [b.rotulo, b.views]) }}
+          >
+            <ResponsiveContainer width="100%" height={172}>
+              <BarChart data={agora} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+                <CartesianGrid stroke={GRID} vertical={false} />
+                <XAxis dataKey="rotulo" tick={AXIS_TICK} axisLine={false} tickLine={false} />
+                <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} allowDecimals={false} />
+                <Tooltip content={<ChartTooltip />} cursor={{ fill: "#ffffff08" }} />
+                <Bar dataKey="views" name="Views" fill={CAT[0]} maxBarSize={24} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartFrame>
+        </Reveal>
+
+        <Reveal y={18} delay={0.08}>
+          <Plate className="h-full">
+            <PlateHead icon={Radio}>Dispositivo</PlateHead>
+            <ShareBar parts={dispositivos} total={totalDisp} />
+            <ul className="mt-5 space-y-3">
+              {dispositivos.map((d) => (
+                <li key={d.label} className={`flex items-center gap-2.5 pb-3 border-b ${HAIR_SOFT} last:border-0 last:pb-0`}>
+                  <span className="w-2 h-2 shrink-0" style={{ background: d.color }} />
+                  <span className="font-mono text-[11px] text-mist">{d.label}</span>
+                  <span className="ml-auto font-mono text-[11px] text-snow tabular-nums">
+                    {fmtNum(d.value)}
+                    <span className="text-dusty ml-1.5">{Math.round((d.value / totalDisp) * 100)}%</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Plate>
+        </Reveal>
+
+        <Reveal y={18} delay={0.16}>
+          <Plate className="h-full">
+            <PlateHead icon={ShieldAlert}>Tráfego descartado</PlateHead>
+            {data.robos.sessoes_robo === 0 ? (
+              <p className="font-mono text-[11px] text-dusty leading-relaxed">
+                Nenhuma sessão marcada como robô nesta janela.
+                <br />
+                <span className="text-white/25">
+                  A marcação depende do user-agent, que só passou a ser gravado em 27/08/2026.
+                  Tráfego anterior não pode ser reclassificado.
+                </span>
+              </p>
+            ) : (
+              <>
+                <div className="font-display font-bold text-[30px] text-snow tabular-nums leading-none">
+                  {fmtNum(data.robos.sessoes_robo)}
+                </div>
+                <p className="font-mono text-[10px] text-dusty mt-2">
+                  sessões fora de toda conta desta página
+                </p>
+                <ul className={`mt-5 space-y-2.5 border-t ${HAIR_SOFT} pt-4`}>
+                  {Object.entries(data.robos.por_motivo)
+                    .sort(([, x], [, y]) => y - x)
+                    .map(([motivo, n]) => (
+                      <li key={motivo} className="flex justify-between gap-3">
+                        <span className="font-mono text-[11px] text-mist">{motivo}</span>
+                        <span className="font-mono text-[11px] text-snow tabular-nums">{fmtNum(n)}</span>
+                      </li>
+                    ))}
+                </ul>
+              </>
+            )}
+          </Plate>
+        </Reveal>
+      </div>
+    </div>
+  )
+}
+
+// Bloco de métrica com variação. Não usa StatTile porque o valor aqui já vem
+// formatado como texto (duração, porcentagem) — o Counter do StatTile só
+// interpola número, e animar "2m 14s" exigiria devolver a string pra número
+// e de volta, o que é onde arredondamento vira mentira.
+function Metrica({
+  label, valor, sub, acento, delta, icone: Icone,
+}: {
+  label: string
+  valor: string
+  sub?: string
+  acento: string
+  delta?: React.ReactNode
+  icone?: React.ElementType
+}) {
+  return (
+    <div className="relative bg-void p-5 min-h-[132px] flex flex-col justify-between">
+      <div className="flex items-start justify-between gap-3">
+        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-dusty flex items-center gap-1.5">
+          {Icone && <Icone className="w-3 h-3" />}
+          {label}
+        </span>
+        <span className="w-1.5 h-1.5 shrink-0 mt-1" style={{ background: acento }} />
+      </div>
+      <div className="mt-4">
+        <div className="font-display font-bold text-[28px] leading-none text-snow tabular-nums">
+          {valor}
+        </div>
+        <div className="mt-2 min-h-[30px]">
+          {delta}
+          {sub && (
+            <div className="font-mono text-[10px] text-dusty leading-relaxed mt-0.5">{sub}</div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}

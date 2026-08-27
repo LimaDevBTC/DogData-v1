@@ -566,3 +566,225 @@ export function EmptyPlot({ height = 220, children = "Aguardando dados suficient
     </div>
   )
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GEOGRAFIA
+// ═══════════════════════════════════════════════════════════════════════════
+// A versão anterior tinha um mapa fixo de 20 emojis de bandeira. O site recebe
+// visita de 85 países, então 65 deles apareciam como 🌐 e o painel tratava a
+// Suíça e o Paquistão como "o resto do mundo".
+//
+// Não existe motivo pra manter lista: a bandeira de QUALQUER código ISO-3166
+// alfa-2 é o par de Regional Indicator Symbols correspondente às duas letras.
+// 'B','R' → U+1F1E7 U+1F1F7 → 🇧🇷. Uma conta, 250 países, zero manutenção.
+export function bandeira(iso: string): string {
+  if (!iso || iso.length !== 2 || !/^[A-Za-z]{2}$/.test(iso)) return "🏴"
+  const base = 0x1f1e6 // 🇦 — o indicador regional da letra A
+  return String.fromCodePoint(
+    ...iso.toUpperCase().split("").map((c) => base + c.charCodeAt(0) - 65),
+  )
+}
+
+// Nome por extenso, traduzido pelo próprio navegador. "AT" não diz nada a
+// ninguém; "Áustria" diz. Intl.DisplayNames existe em todo navegador que este
+// painel suporta, mas é embrulhado porque um código inválido lança.
+const nomeadorPais =
+  typeof Intl !== "undefined" && "DisplayNames" in Intl
+    ? new Intl.DisplayNames(["pt-BR"], { type: "region" })
+    : null
+
+export function nomePais(iso: string): string {
+  if (!iso || iso === "??") return "Desconhecido"
+  try {
+    return nomeadorPais?.of(iso.toUpperCase()) ?? iso
+  } catch {
+    return iso
+  }
+}
+
+const nomeadorIdioma =
+  typeof Intl !== "undefined" && "DisplayNames" in Intl
+    ? new Intl.DisplayNames(["pt-BR"], { type: "language" })
+    : null
+
+export function nomeIdioma(cod: string): string {
+  try {
+    return nomeadorIdioma?.of(cod) ?? cod
+  } catch {
+    return cod
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NÚMEROS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Duração legível. Segundo cru ("187 s") obriga quem lê a fazer a divisão de
+// cabeça toda vez, e é o número que mais se olha num painel de audiência.
+export function fmtDuracao(seg: number | null | undefined): string {
+  if (seg == null || !Number.isFinite(seg)) return "—"
+  const s = Math.round(seg)
+  if (s < 60) return `${s}s`
+  const m = Math.floor(s / 60)
+  const r = s % 60
+  if (m < 60) return r ? `${m}m ${r}s` : `${m}m`
+  const h = Math.floor(m / 60)
+  return `${h}h ${m % 60}m`
+}
+
+export const fmtPct = (n: number | null | undefined) =>
+  n == null || !Number.isFinite(n) ? "—" : `${Math.round(n * 10) / 10}%`
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Delta — a variação contra a janela anterior
+// ═══════════════════════════════════════════════════════════════════════════
+// Número sozinho não sustenta decisão: "1.200 sessões" não diz se o que foi
+// feito no período funcionou. Aqui vai o mesmo número na janela anterior de
+// igual tamanho.
+//
+// `inverso` existe porque em rejeição e tempo de carregamento CAIR é bom. Sem
+// esse parâmetro o painel pintaria de vermelho exatamente a melhora que o
+// trabalho produziu — a forma mais rápida de um dashboard ensinar a coisa
+// errada.
+//
+// A seta e o sinal viajam junto com a cor, nunca a cor sozinha: o verde e o
+// vermelho de STATUS são os únicos hues reservados da paleta e precisam
+// sobreviver a daltonismo e a impressão em cinza.
+export function Delta({
+  atual, anterior, inverso = false, sufixo = "",
+}: {
+  atual: number | null | undefined
+  anterior: number | null | undefined
+  inverso?: boolean
+  sufixo?: string
+}) {
+  if (atual == null || anterior == null || !Number.isFinite(atual) || !Number.isFinite(anterior)) {
+    return <span className="font-mono text-[10px] text-white/25">sem base de comparação</span>
+  }
+  if (anterior === 0) {
+    return (
+      <span className="font-mono text-[10px] text-white/25 tabular-nums">
+        novo · antes 0{sufixo}
+      </span>
+    )
+  }
+  const varPct = ((atual - anterior) / Math.abs(anterior)) * 100
+  // Meio ponto percentual é ruído, não movimento. Pintar isso de verde ou
+  // vermelho transforma flutuação normal em sinal e treina a ignorar a cor.
+  const parado = Math.abs(varPct) < 0.5
+  const bom = inverso ? varPct < 0 : varPct > 0
+  const cor = parado ? INK.muted : bom ? STATUS.good : STATUS.poor
+  const seta = parado ? "→" : varPct > 0 ? "↑" : "↓"
+  return (
+    <span
+      className="font-mono text-[10px] tabular-nums inline-flex items-center gap-1"
+      style={{ color: cor }}
+      title={`Janela anterior: ${fmtNum(Math.round(anterior * 10) / 10)}${sufixo}`}
+    >
+      <span aria-hidden>{seta}</span>
+      {parado ? "estável" : `${varPct > 0 ? "+" : ""}${varPct.toFixed(1)}%`}
+    </span>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Funil — as etapas e o que se perde entre elas
+// ═══════════════════════════════════════════════════════════════════════════
+// Barras proporcionais à PRIMEIRA etapa, não a cada anterior: é a queda
+// absoluta que interessa. E a perda entre degraus é escrita, não deduzida da
+// diferença de largura — quando a queda é de 99% as duas barras ficam
+// visualmente iguais a zero e a informação sumiria.
+export function Funil({
+  etapas, cor = CAT[0],
+}: {
+  etapas: { etapa: string; n: number }[]
+  cor?: string
+}) {
+  const topo = etapas[0]?.n || 1
+  return (
+    <ol className="space-y-0">
+      {etapas.map((e, i) => {
+        const anterior = i > 0 ? etapas[i - 1].n : null
+        const queda = anterior && anterior > 0 ? ((anterior - e.n) / anterior) * 100 : null
+        return (
+          <li key={e.etapa}>
+            {i > 0 && (
+              <div className="flex items-center gap-2 py-1.5 pl-1">
+                <span className="text-white/20 font-mono text-[10px]" aria-hidden>↓</span>
+                <span className="font-mono text-[10px] text-dusty tabular-nums">
+                  {queda == null ? "—" : `perde ${queda.toFixed(1)}%`}
+                </span>
+              </div>
+            )}
+            <div className={`border ${HAIR} p-3.5 relative overflow-hidden`}>
+              <div
+                className="absolute inset-y-0 left-0 pointer-events-none"
+                style={{ width: `${Math.max((e.n / topo) * 100, 0.5)}%`, background: `${cor}22` }}
+                aria-hidden
+              />
+              <div className="relative flex items-baseline justify-between gap-3">
+                <span className="font-mono text-[11px] text-mist">{e.etapa}</span>
+                <span className="font-display font-bold text-lg text-snow tabular-nums">
+                  {fmtNum(e.n)}
+                </span>
+              </div>
+            </div>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Tabela — quando a pergunta tem mais de duas colunas
+// ═══════════════════════════════════════════════════════════════════════════
+// "Top páginas por views" é uma lista; "esta página prende quem chega nela?"
+// precisa de views, tempo, rolagem e saída lado a lado, e nenhum gráfico lê
+// quatro grandezas de unidades diferentes melhor que uma tabela alinhada.
+//
+// O contêiner rola sozinho no eixo x: a regra da casa é que o corpo da página
+// nunca rola na horizontal.
+export function Tabela({
+  cabecalho, linhas, alinhar = [],
+}: {
+  cabecalho: string[]
+  linhas: ReactNode[][]
+  alinhar?: ("l" | "r")[]
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse min-w-[560px]">
+        <thead>
+          <tr className={`border-b ${HAIR}`}>
+            {cabecalho.map((h, i) => (
+              <th
+                key={h}
+                scope="col"
+                className={`py-2.5 px-3 font-mono text-[10px] uppercase tracking-[0.18em]
+                  text-dusty font-normal ${alinhar[i] === "r" ? "text-right" : "text-left"}`}
+              >
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {linhas.map((linha, i) => (
+            <tr key={i} className={`border-b ${HAIR_SOFT} last:border-0 hover:bg-white/[0.02]`}>
+              {linha.map((celula, j) => (
+                <td
+                  key={j}
+                  className={`py-2.5 px-3 font-mono text-[11px] text-mist tabular-nums
+                    ${alinhar[j] === "r" ? "text-right" : "text-left"}`}
+                >
+                  {celula}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}

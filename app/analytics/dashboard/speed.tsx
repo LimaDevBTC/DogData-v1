@@ -24,7 +24,7 @@ import {
 } from "recharts"
 import { Monitor, Smartphone, TimerReset } from "lucide-react"
 import { Reveal, Stagger, StaggerItem } from "@/app/dogcity/motion"
-import type { Report, VitalData } from "./types"
+import type { Vitais } from "./types"
 import {
   AXIS_TICK, ChartTooltip, EmptyPlot, GRID, HAIR_SOFT, Plate, PlateHead,
   SectionHead, STATUS, StatusChip, StatusMark, fmtNum, fmtPage, statusOf,
@@ -163,7 +163,63 @@ function VitalPlate({
   )
 }
 
-export default function Speed({ data }: { data: Report }) {
+// ── adaptador ──────────────────────────────────────────────────────────────
+// As agregações de vitals mudaram de lugar: saíram do TypeScript e foram pro
+// banco (migração 023), e lá saem em formato longo — uma linha por (dia,
+// métrica) — porque é assim que o SQL agrupa sem pivotar.
+//
+// O desenho desta aba estava certo e não tinha por que ser reescrito, então a
+// tradução acontece aqui, numa função só, em vez de espalhada por dez pontos
+// do JSX. O que muda é a fonte; a leitura continua a mesma.
+// Forma que o restante deste arquivo lê. Mora aqui e não em ./types porque
+// é interna à adaptação: nenhum outro arquivo fala esse dialeto.
+interface VitalData {
+  p75: number; avg: number; good_pct: number; needs_pct: number; poor_pct: number
+  rating: string; score: number; samples: number
+}
+
+function adaptar(v: Vitais) {
+  const web_vitals: Record<string, VitalData> = {}
+  for (const [nome, m] of Object.entries(v.metricas)) {
+    web_vitals[nome] = {
+      p75: m.p75, avg: m.media, samples: m.amostras, score: m.nota,
+      good_pct: m.pct_bom, needs_pct: m.pct_medio, poor_pct: m.pct_ruim,
+      // O vocabulário de estado do banco é pt; o de ./ui é o do Chrome.
+      rating: m.estado === "bom" ? "good" : m.estado === "medio" ? "needs-improvement" : "poor",
+    }
+  }
+
+  // Formato longo → largo. Um objeto por dia, uma chave por métrica.
+  const porDia = new Map<string, Record<string, number | string>>()
+  for (const r of v.por_dia) {
+    const linha = porDia.get(r.dia) ?? { date: r.dia }
+    linha[r.nome] = r.p75
+    porDia.set(r.dia, linha)
+  }
+
+  const porDisp = new Map<string, Record<string, number | string>>()
+  for (const r of v.por_dispositivo) {
+    const linha = porDisp.get(r.dispositivo) ?? { device: r.dispositivo }
+    linha[r.nome] = r.p75
+    porDisp.set(r.dispositivo, linha)
+  }
+
+  const slowest_pages: Record<string, { page: string; p75: number }[]> = {}
+  for (const g of v.paginas_lentas) {
+    slowest_pages[g.nome] = g.paginas.map((p) => ({ page: p.pagina, p75: p.p75 }))
+  }
+
+  return {
+    web_vitals,
+    performance_score: v.nota_geral,
+    vitals_by_day: Array.from(porDia.values()).sort((a, b) => String(a.date).localeCompare(String(b.date))),
+    vitals_by_device: Array.from(porDisp.values()),
+    slowest_pages,
+  }
+}
+
+export default function Speed({ data: bruto }: { data: Vitais }) {
+  const data = adaptar(bruto)
   const present = VITAL_ORDER.filter((n) => data.web_vitals[n])
 
   const seriesFor = (name: string) =>

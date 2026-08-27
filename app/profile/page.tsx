@@ -21,11 +21,11 @@ import Image from "next/image"
 import Link from "next/link"
 import {
   ArrowDownLeft, ArrowLeftRight, ArrowUpRight, AtSign, Building2, Check, Copy,
-  ExternalLink, Fingerprint, Loader2, LogOut, MessageSquare, ShieldAlert,
-  ShieldCheck, Trophy, Wallet,
+  ExternalLink, Fingerprint, Image as ImageIcon, Loader2, LogOut, MessageSquare,
+  ShieldAlert, ShieldCheck, Trophy, Wallet,
 } from "lucide-react"
 import { Layout } from "@/components/layout"
-import { Plate, PlateHead, PlotGrid, SectionHead, StatTile, CAT } from "@/app/analytics/dashboard/ui"
+import { Plate, PlateHead, PlotGrid, StatTile, CAT } from "@/app/analytics/dashboard/ui"
 import { useWallet } from "@/contexts/WalletContext"
 import { WALLETS } from "@/lib/wallet"
 import { handleProblem, normalizeHandle } from "@/lib/identity/handle"
@@ -51,9 +51,21 @@ interface ProfilePayload {
   verified: boolean
   handle: string | null
   claimed_at: string | null
+  avatar_inscription_id: string | null
+  avatar_number: number | null
   lot: Lot | null
   chat_count: number
 }
+
+interface OwnedInscription {
+  id: string
+  number: number
+  contentType: string | null
+}
+
+/** A arte de qualquer inscrição sai pelo nosso domínio, nunca por um gateway
+ *  público direto: ver app/api/inscription/[id]/content/route.ts. */
+const inscriptionArt = (id: string) => `/api/inscription/${id}/content`
 
 interface Tx {
   txid: string
@@ -123,6 +135,24 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
   )
 }
 
+/**
+ * Cabecalho de secao no dialeto do site, porem SEM as primitivas de entrada.
+ * O <SectionHead/> compartilhado revela no scroll a partir de um observador
+ * com margem negativa no topo: numa pagina de aplicativo, onde a pessoa chega
+ * pelo menu e nao rolando, o titulo simplesmente nunca aparece. Aqui o texto
+ * e texto.
+ */
+function Head({ eyebrow, title, sub }: { eyebrow: string; title: string; sub?: string }) {
+  return (
+    <div className="max-w-2xl">
+      <span className="font-mono text-[11px] tracking-[0.3em] text-lava uppercase">{eyebrow}</span>
+      <div className="mt-3 w-14 h-px bg-lava/70" />
+      <h2 className="font-display font-bold text-2xl md:text-3xl text-snow mt-4 leading-tight">{title}</h2>
+      {sub && <p className="text-[13px] text-mist mt-3 leading-relaxed">{sub}</p>}
+    </div>
+  )
+}
+
 // O selo de posse: sempre icone mais palavra mais cor, nunca so a cor.
 function VerifyChip({ verified }: { verified: boolean }) {
   const tone = verified ? "#10B981" : "#F59E0B"
@@ -140,9 +170,9 @@ function VerifyChip({ verified }: { verified: boolean }) {
 
 // A marca da carteira: o mesmo desenho do lote da cidade, uma grade de
 // levantamento com a inicial do handle carimbada por cima.
-function Sigil({ text, logo, alt }: { text: string; logo?: string; alt?: string }) {
+function Sigil({ text, art }: { text: string; art?: string | null }) {
   return (
-    <div className="relative w-20 h-20 md:w-[104px] md:h-[104px] shrink-0 border border-white/10 bg-void">
+    <div className="relative w-20 h-20 md:w-[104px] md:h-[104px] shrink-0 border border-white/10 bg-void overflow-hidden">
       <span
         aria-hidden
         className="absolute inset-0"
@@ -153,15 +183,193 @@ function Sigil({ text, logo, alt }: { text: string; logo?: string; alt?: string 
           backgroundSize: "8px 8px",
         }}
       />
-      <span className="absolute inset-0 flex items-center justify-center font-display font-bold text-2xl md:text-3xl text-snow uppercase">
-        {text}
-      </span>
-      {logo && (
-        <span className="absolute -bottom-px -right-px w-6 h-6 md:w-7 md:h-7 border border-white/10 bg-void overflow-hidden">
-          <Image src={logo} alt={alt ?? ""} fill sizes="28px" className="object-cover" />
+      {art ? (
+        // eslint-disable-next-line @next/next/no-img-element -- arte de inscrição
+        // é servida pela nossa rota de conteúdo, sem passar pelo otimizador
+        <img
+          src={art}
+          alt="Your ordinal"
+          className="absolute inset-0 w-full h-full object-cover"
+          // Quase toda arte de Ordinals é pixel art de 24 a 64 px: suavizar
+          // borra justamente o que a peça é.
+          style={{ imageRendering: "pixelated" }}
+        />
+      ) : (
+        <span className="absolute inset-0 flex items-center justify-center font-display font-bold text-2xl md:text-3xl text-snow uppercase">
+          {text}
         </span>
       )}
     </div>
+  )
+}
+
+/**
+ * Escolha de foto de perfil entre os ordinals da própria carteira.
+ *
+ * A grade só é buscada quando a pessoa pede: listar inscrição custa uma ida ao
+ * indexador por página e um metadado por peça, e a maioria das visitas ao
+ * perfil não vai trocar de foto.
+ */
+function AvatarPicker({
+  current, verified, onPick,
+}: {
+  current: string | null
+  verified: boolean
+  onPick: (id: string | null) => Promise<string | null>
+}) {
+  const [open, setOpen] = useState(false)
+  const [items, setItems] = useState<OwnedInscription[] | null>(null)
+  const [scanned, setScanned] = useState(0)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
+
+  const load = useCallback(() => {
+    setLoading(true)
+    setError(null)
+    fetch("/api/profile/inscriptions")
+      .then(async (r) => {
+        const j = await r.json().catch(() => ({}))
+        if (!r.ok) throw new Error(j?.error || "Could not read your inscriptions.")
+        return j
+      })
+      .then((j) => {
+        setItems(j.inscriptions ?? [])
+        setScanned(j.scanned ?? 0)
+      })
+      .catch((e) => setError(String(e.message || e)))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const choose = useCallback(async (id: string | null) => {
+    setBusy(id ?? "clear")
+    setError(null)
+    try {
+      const problem = await onPick(id)
+      if (problem) setError(problem)
+    } finally {
+      setBusy(null)
+    }
+  }, [onPick])
+
+  if (!verified) {
+    return (
+      <Plate>
+        <PlateHead icon={ImageIcon}>profile picture</PlateHead>
+        <p className="text-[12px] text-mist leading-relaxed max-w-xl">
+          Verify ownership to use one of your ordinals as your picture. We read the collection
+          your address holds, and only you can point at it.
+        </p>
+      </Plate>
+    )
+  }
+
+  return (
+    <Plate>
+      <PlateHead icon={ImageIcon} right={
+        current ? (
+          <button
+            onClick={() => choose(null)}
+            disabled={busy !== null}
+            className="font-mono text-[9px] uppercase tracking-[0.18em] text-dusty hover:text-[#EF4444] transition-colors disabled:opacity-40"
+          >
+            {busy === "clear" ? "Removing" : "Remove"}
+          </button>
+        ) : undefined
+      }>
+        profile picture
+      </PlateHead>
+
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="w-16 h-16 border border-white/10 bg-void overflow-hidden shrink-0">
+          {current ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={inscriptionArt(current)} alt="" className="w-full h-full object-cover"
+              style={{ imageRendering: "pixelated" }} />
+          ) : (
+            <span className="w-full h-full flex items-center justify-center font-mono text-[9px] text-dusty uppercase">
+              none
+            </span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[12px] text-mist leading-relaxed">
+            Any image ordinal held by this address can be your picture. It stays yours: point at a
+            different one whenever you like, and it follows the address if you ever sell the piece.
+          </p>
+          {!open && (
+            <button
+              onClick={() => { setOpen(true); if (!items) load() }}
+              className="mt-3 inline-flex items-center gap-2 border border-lava/50 bg-lava/[0.08] px-4 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-lava transition-colors hover:bg-lava/[0.16]"
+            >
+              <ImageIcon className="w-3.5 h-3.5" />
+              {current ? "Choose another ordinal" : "Choose from your ordinals"}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {open && (
+        <div className="mt-5 border-t border-white/[0.06] pt-5">
+          {loading && (
+            <p className="inline-flex items-center gap-2 font-mono text-[11px] text-dusty">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Reading your wallet…
+            </p>
+          )}
+          {error && <p className="font-mono text-[11px] text-[#EF4444]">{error}</p>}
+
+          {!loading && items && items.length === 0 && (
+            <p className="font-mono text-[11px] text-dusty">
+              {scanned > 0
+                ? `Nothing to show: the ${scanned} inscriptions read from this address are not images.`
+                : "This address holds no inscriptions yet."}
+            </p>
+          )}
+
+          {!loading && !!items?.length && (
+            <>
+              <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-8 gap-px bg-white/10 border border-white/10">
+                {items.map((ins) => {
+                  const active = ins.id === current
+                  return (
+                    <button
+                      key={ins.id}
+                      onClick={() => choose(ins.id)}
+                      disabled={busy !== null}
+                      title={ins.number ? `Inscription ${n0(ins.number)}` : ins.id}
+                      className={`relative aspect-square bg-void group ${active ? "outline outline-1 outline-lava" : ""}`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={inscriptionArt(ins.id)}
+                        alt=""
+                        loading="lazy"
+                        className="w-full h-full object-cover transition-opacity group-hover:opacity-80"
+                        style={{ imageRendering: "pixelated" }}
+                      />
+                      {busy === ins.id && (
+                        <span className="absolute inset-0 flex items-center justify-center bg-black/70">
+                          <Loader2 className="w-4 h-4 text-lava animate-spin" />
+                        </span>
+                      )}
+                      {active && (
+                        <span className="absolute bottom-0 right-0 bg-lava text-void px-1 font-mono text-[8px] uppercase tracking-wider">
+                          in use
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="mt-3 font-mono text-[10px] text-dusty">
+                {n0(items.length)} image {items.length === 1 ? "ordinal" : "ordinals"} from the{" "}
+                {n0(scanned)} inscriptions read on this address.
+              </p>
+            </>
+          )}
+        </div>
+      )}
+    </Plate>
   )
 }
 
@@ -277,6 +485,22 @@ export default function ProfilePage() {
     }
   }, [input, localProblem, loadProfile])
 
+  const setAvatar = useCallback(async (id: string | null): Promise<string | null> => {
+    try {
+      const res = await fetch("/api/profile/avatar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inscription_id: id }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) return data?.error || "Could not save your picture."
+      loadProfile()
+      return null
+    } catch {
+      return "Could not save your picture."
+    }
+  }, [loadProfile])
+
   const meta = account ? WALLETS[account.walletId] : null
   const monogram = useMemo(() => {
     if (profile?.handle) return profile.handle.slice(0, 2)
@@ -331,7 +555,7 @@ export default function ProfilePage() {
   // ── carteira conectada ───────────────────────────────────────────────────
   return (
     <Layout currentPage="profile" setCurrentPage={() => {}}>
-      <div className="px-3 md:px-6 py-4 md:py-8 max-w-[1200px] mx-auto space-y-10 md:space-y-16">
+      <div className="px-3 md:px-6 py-4 md:py-8 max-w-[1200px] mx-auto space-y-10 md:space-y-14">
 
         {/* ── cabecalho de identidade ──
             Texto puro: as primitivas de reveal do dialeto so disparam depois de
@@ -341,7 +565,10 @@ export default function ProfilePage() {
 
           <Plate corners accent="#F56E0F" pad="p-5 md:p-8">
             <div className="flex flex-col md:flex-row md:items-start gap-5 md:gap-7">
-              <Sigil text={monogram} logo={meta?.logo} alt={meta?.name} />
+              <Sigil
+                text={monogram}
+                art={profile?.avatar_inscription_id ? inscriptionArt(profile.avatar_inscription_id) : null}
+              />
 
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-3">
@@ -383,7 +610,14 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1.5 font-mono text-[10px] text-dusty">
-                  {meta && <span>{meta.name}</span>}
+                  {meta && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="relative w-3.5 h-3.5 overflow-hidden border border-white/10">
+                        <Image src={meta.logo} alt="" fill sizes="14px" className="object-cover" />
+                      </span>
+                      {meta.name}
+                    </span>
+                  )}
                   {profile?.claimed_at && <span>handle claimed {day(profile.claimed_at)}</span>}
                   {!!profile?.chat_count && (
                     <span className="inline-flex items-center gap-1.5">
@@ -419,7 +653,7 @@ export default function ProfilePage() {
 
         {/* ── posicao na cadeia ── */}
         <section className="space-y-5">
-          <SectionHead
+          <Head
             eyebrow="◆ on chain standing"
             title="What the chain says about this address"
             sub="Balance and rank come from our own UTXO scan of the DOG rune, not from a marketplace API."
@@ -519,9 +753,9 @@ export default function ProfilePage() {
 
         {/* ── identidade ── */}
         <section className="space-y-5">
-          <SectionHead
+          <Head
             eyebrow="◆ identity"
-            title="Claim your handle"
+            title={profile?.handle ? "Your handle" : "Claim your handle"}
             sub="One name per verified address. It signs your messages in the plaza and travels with your address across the site."
           />
 
@@ -593,11 +827,17 @@ export default function ProfilePage() {
               </div>
             )}
           </Plate>
+
+          <AvatarPicker
+            current={profile?.avatar_inscription_id ?? null}
+            verified={verified}
+            onPick={setAvatar}
+          />
         </section>
 
         {/* ── cidade e registro de fundadores ── */}
         <section className="space-y-5">
-          <SectionHead
+          <Head
             eyebrow="◆ dogcity"
             title="Your seat in the city"
             sub="Every wallet with DOG gets a plot on the lunar map. Donors get a plaque in the Founders Register."
@@ -694,7 +934,7 @@ export default function ProfilePage() {
         {/* ── historico ── */}
         {!!chain?.transactions?.length && (
           <section className="space-y-5">
-            <SectionHead
+            <Head
               eyebrow="◆ activity"
               title="Latest movements"
               sub="The most recent DOG transactions touching this address, straight from the indexed blocks."

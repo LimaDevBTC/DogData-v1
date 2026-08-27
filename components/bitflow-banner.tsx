@@ -69,8 +69,12 @@ export function BitflowBanner({ noMargin = false }: { noMargin?: boolean }) {
     trackEvent('click', pathname)
   }
 
+  // A margem de baixo encolhe no celular: 16px entre um anúncio e a hero é
+  // espaço morto numa dobra de 660px, e o banner já tem borda própria separando
+  // as duas coisas. A ALTURA do anúncio não foi tocada — é inventário pago e
+  // não é decisão de layout.
   return (
-    <div ref={bannerRef} className={`w-full ${noMargin ? '' : 'mb-4 md:mb-8'}`}>
+    <div ref={bannerRef} className={`w-full ${noMargin ? '' : 'mb-2 md:mb-8'}`}>
       <a
         href={BITFLOW_URL}
         target="_blank"

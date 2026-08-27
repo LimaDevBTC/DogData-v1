@@ -30,11 +30,14 @@
     }
   },
   "include": [
-    "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
+    ".next/dev/types/**/*.ts",
     ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
+    "/tmp/claude-1000/-home-bitmax-Projects-bitcoin-fullstack/cb9d3642-cc9b-439a-8f60-b1388201fafd/scratchpad/next-build/types/**/*.ts",
+    "/tmp/claude-1000/-home-bitmax-Projects-bitcoin-fullstack/cb9d3642-cc9b-439a-8f60-b1388201fafd/scratchpad/next-preview/types/**/*.ts",
+    "next-env.d.ts",
+    ".next-verify/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

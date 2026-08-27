@@ -1,78 +1,92 @@
 "use client"
 
 // ═══════════════════════════════════════════════════════════════════════════
-// DOG DATA — internal analytics dashboard (unlisted route).
+// DOG DATA — painel interno de analytics (rota não listada).
 //
-// This file is a conductor, not a canvas: it owns the shell, the one filter
-// row and the fetch loop; each tab lives in its own file, and the shared
-// surface + validated chart palette live in ./ui.
+// Este arquivo é o maestro, não a tela: ele é dono do casco, da ÚNICA linha de
+// filtro e do laço de busca. Cada aba mora no seu próprio arquivo, e a
+// superfície compartilhada com a paleta validada vive em ./ui.
 //
-// The filter row is deliberately ONE row above everything it scopes. Filters
-// inside a chart card let two plates disagree about the period they're showing
-// — the fastest way to make a dashboard lie.
+// A linha de filtro fica deliberadamente UMA e acima de tudo que ela governa.
+// Filtro dentro de card deixa duas placas discordarem sobre o período que
+// mostram — o jeito mais rápido de fazer um painel mentir.
 //
-// Refetch never flashes a skeleton. The loader appears only on first paint;
-// after that the previous render is held at reduced opacity so the layout
-// never jumps under someone reading it.
+// Rebusca nunca pisca esqueleto: o carregador aparece só na primeira pintura,
+// depois o render anterior fica em opacidade reduzida pra que o layout não
+// salte sob quem está lendo.
+//
+// UMA REQUISIÇÃO, QUATRO RELATÓRIOS. A rota chama quatro funções do banco em
+// paralelo e devolve os quatro juntos. Se uma falhar ela volta `null` e a aba
+// dela mostra o aviso — o painel perde uma aba, não a página.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useCallback, useEffect, useState } from "react"
-import { BarChart3, Megaphone, RefreshCw, Zap } from "lucide-react"
+import {
+  BarChart3, Coins, Compass, Megaphone, MousePointer2, RefreshCw, Users, Zap,
+} from "lucide-react"
 import { Reveal, Scramble } from "@/app/dogcity/motion"
 import Ads from "./ads"
+import Aquisicao from "./aquisicao"
+import Comportamento from "./comportamento"
+import Conversao from "./conversao"
+import Publico from "./publico"
 import Speed from "./speed"
-import Traffic from "./traffic"
-import type { AdsReport, Report } from "./types"
-import { CAT, HAIR, HAIR_SOFT, HeroFigure, STATUS, StatusChip, fmtNum } from "./ui"
+import VisaoGeral from "./visao-geral"
+import type { AdsReport, Relatorio } from "./types"
+import { CAT, HAIR, HAIR_SOFT, HeroFigure, STATUS, StatusChip, fmtDuracao, fmtNum } from "./ui"
 
-const RANGES = [7, 14, 30, 60, 90]
+const JANELAS = [7, 14, 30, 60, 90]
 
-const TABS = [
-  { key: "traffic", label: "Tráfego",    icon: BarChart3 },
-  { key: "speed",   label: "Velocidade", icon: Zap },
-  { key: "ads",     label: "Ads",        icon: Megaphone },
+const ABAS = [
+  { key: "geral",         label: "Visão geral",   icon: BarChart3 },
+  { key: "aquisicao",     label: "Aquisição",     icon: Compass },
+  { key: "comportamento", label: "Comportamento", icon: MousePointer2 },
+  { key: "publico",       label: "Público",       icon: Users },
+  { key: "conversao",     label: "Conversão",     icon: Coins },
+  { key: "velocidade",    label: "Velocidade",    icon: Zap },
+  { key: "ads",           label: "Ads",           icon: Megaphone },
 ] as const
 
-type TabKey = (typeof TABS)[number]["key"]
+type AbaKey = (typeof ABAS)[number]["key"]
 
-export default function AnalyticsDashboard() {
-  const [data, setData] = useState<Report | null>(null)
-  const [adsData, setAdsData] = useState<AdsReport | null>(null)
-  const [days, setDays] = useState(30)
-  const [tab, setTab] = useState<TabKey>("traffic")
-  const [loading, setLoading] = useState(true)
-  const [adsLoading, setAdsLoading] = useState(false)
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
+export default function PainelAnalytics() {
+  const [dados, setDados] = useState<Relatorio | null>(null)
+  const [ads, setAds] = useState<AdsReport | null>(null)
+  const [dias, setDias] = useState(30)
+  const [aba, setAba] = useState<AbaKey>("geral")
+  const [carregando, setCarregando] = useState(true)
+  const [carregandoAds, setCarregandoAds] = useState(false)
+  const [ultima, setUltima] = useState<Date | null>(null)
 
-  const load = useCallback((d: number) => {
-    setLoading(true)
+  const buscar = useCallback((d: number) => {
+    setCarregando(true)
     fetch(`/api/analytics/report?days=${d}`)
       .then((r) => r.json())
-      .then((r) => { setData(r); setLastRefresh(new Date()) })
+      .then((r: Relatorio) => { setDados(r); setUltima(new Date()) })
       .catch(() => {})
-      .finally(() => setLoading(false))
+      .finally(() => setCarregando(false))
   }, [])
 
-  const loadAds = useCallback((d: number) => {
-    setAdsLoading(true)
+  const buscarAds = useCallback((d: number) => {
+    setCarregandoAds(true)
     fetch(`/api/ads/report?days=${d}`)
       .then((r) => r.json())
-      .then(setAdsData)
+      .then(setAds)
       .catch(() => {})
-      .finally(() => setAdsLoading(false))
+      .finally(() => setCarregandoAds(false))
   }, [])
 
-  useEffect(() => { load(days) }, [days, load])
-  useEffect(() => { if (tab === "ads") loadAds(days) }, [tab, days, loadAds])
+  useEffect(() => { buscar(dias) }, [dias, buscar])
+  useEffect(() => { if (aba === "ads") buscarAds(dias) }, [aba, dias, buscarAds])
   useEffect(() => {
     const t = setInterval(() => {
-      load(days)
-      if (tab === "ads") loadAds(days)
+      buscar(dias)
+      if (aba === "ads") buscarAds(dias)
     }, 60_000)
     return () => clearInterval(t)
-  }, [days, tab, load, loadAds])
+  }, [dias, aba, buscar, buscarAds])
 
-  if (!data) {
+  if (!dados) {
     return (
       <main className="min-h-screen bg-void text-snow flex items-center justify-center px-6">
         <div className="text-center">
@@ -85,61 +99,76 @@ export default function AnalyticsDashboard() {
     )
   }
 
-  const daily = Object.entries(data.by_day).sort(([a], [b]) => a.localeCompare(b))
-  const trend = daily.slice(-14).map(([, v]) => v)
-  const score = data.performance_score
-  const scoreStatus = score == null ? "warn" : score >= 90 ? "good" : score >= 50 ? "warn" : "poor"
+  const t = dados.trafego
+  const v = dados.vitais
+  const nota = v?.nota_geral ?? null
+  const estadoNota = nota == null ? "warn" : nota >= 90 ? "good" : nota >= 50 ? "warn" : "poor"
+  const tendencia = t ? t.por_dia.slice(-14).map((d) => d.sessoes) : []
 
-  const hero =
-    tab === "traffic" ? (
+  const heroi =
+    aba === "velocidade" ? (
       <HeroFigure
-        label="Page views no período"
-        value={data.summary.pageviews}
-        trend={trend}
-        accent={CAT[0]}
-        sub={`janela de ${data.period.days} dias · ${daily.length} dias com registro`}
-      />
-    ) : tab === "speed" ? (
-      <HeroFigure
-        label="Performance score"
-        value={score}
+        label="Nota de performance"
+        value={nota}
         unit="/ 100"
-        accent={STATUS[scoreStatus]}
-        badge={score != null ? <StatusChip status={scoreStatus} /> : undefined}
+        accent={STATUS[estadoNota]}
+        badge={nota != null ? <StatusChip status={estadoNota} /> : undefined}
         sub="percentil 75 de visitas reais, ponderado entre as cinco Core Web Vitals"
       />
-    ) : adsData ? (
+    ) : aba === "conversao" && dados.funil ? (
+      <HeroFigure
+        label="Doadores com 10k+ DOG"
+        value={dados.funil.doacoes.cruzaram_10k}
+        accent={CAT[0]}
+        sub={`licença Personal destravada · janela de ${dados.funil.periodo.dias} dias`}
+      />
+    ) : aba === "ads" && ads ? (
       <HeroFigure
         label="Impressões de banner"
-        value={adsData.summary.impressions}
+        value={ads.summary.impressions}
         accent={CAT[0]}
-        sub={`${adsData.advertiser} · janela de ${adsData.period.days} dias`}
+        sub={`${ads.advertiser} · janela de ${ads.period.days} dias`}
+      />
+    ) : t ? (
+      <HeroFigure
+        label="Visitantes no período"
+        value={t.resumo.visitantes}
+        trend={tendencia}
+        accent={CAT[0]}
+        sub={
+          t.resumo.visitantes === 0
+            ? `${fmtNum(t.resumo.sessoes)} sessões · identificação de visitante começou em 27/08/2026`
+            : `${fmtNum(t.resumo.sessoes)} sessões · ${fmtDuracao(t.resumo.duracao_media_s)} de permanência média`
+        }
       />
     ) : null
 
   return (
     <main className="min-h-screen bg-void text-snow">
 
-      {/* ── shell head + the single filter row ─────────────────────────────── */}
       <header className={`sticky top-0 z-30 bg-void border-b ${HAIR_SOFT}`}>
         <div className="max-w-[1400px] mx-auto px-5 md:px-10">
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5 pt-7 pb-5">
             <div>
               <Scramble text="DOG DATA · TELEMETRIA INTERNA"
                 className="font-mono text-[10px] tracking-[0.3em] text-lava" />
-              {/* NOT a SplitLine: the shared reveal primitives gate on an
-                  IntersectionObserver with a -10% top margin, and a sticky
-                  header sits inside that dead band — the words would never be
-                  released. A title that animates on scroll-back is wrong here
-                  anyway; this one is pinned to the top of every view. */}
+              {/* NÃO é um SplitLine: as primitivas de reveal compartilhadas
+                  disparam num IntersectionObserver com margem de -10% no topo,
+                  e um cabeçalho sticky mora dentro dessa faixa morta — as
+                  palavras nunca seriam liberadas. */}
               <h1 className="font-display font-bold text-2xl md:text-[32px] text-snow mt-2.5 leading-none">
                 Site Dashboard
               </h1>
               <p className="font-mono text-[10px] text-dusty mt-2.5 tabular-nums">
-                {new Date(data.period.from).toLocaleDateString("pt-BR")} → {new Date(data.period.to).toLocaleDateString("pt-BR")}
-                {lastRefresh && (
+                {t && (
+                  <>
+                    {new Date(t.periodo.de).toLocaleDateString("pt-BR")} →{" "}
+                    {new Date(t.periodo.ate).toLocaleDateString("pt-BR")}
+                  </>
+                )}
+                {ultima && (
                   <span className="text-white/25 ml-3">
-                    · atualizado {lastRefresh.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                    · atualizado {ultima.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                   </span>
                 )}
               </p>
@@ -147,14 +176,14 @@ export default function AnalyticsDashboard() {
 
             <div className="flex items-center gap-2 flex-wrap">
               <div className={`flex border ${HAIR}`}>
-                {RANGES.map((d) => (
+                {JANELAS.map((d) => (
                   <button
                     key={d}
-                    onClick={() => setDays(d)}
-                    aria-pressed={days === d}
+                    onClick={() => setDias(d)}
+                    aria-pressed={dias === d}
                     className={`px-3.5 min-h-[40px] font-mono text-[11px] tabular-nums transition-colors
                       border-r ${HAIR} last:border-r-0 ${
-                      days === d
+                      dias === d
                         ? "bg-lava text-void font-bold"
                         : "text-dusty hover:text-snow hover:bg-white/[0.04]"
                     }`}
@@ -164,31 +193,30 @@ export default function AnalyticsDashboard() {
                 ))}
               </div>
               <button
-                onClick={() => { load(days); if (tab === "ads") loadAds(days) }}
+                onClick={() => { buscar(dias); if (aba === "ads") buscarAds(dias) }}
                 aria-label="Atualizar agora"
                 className={`grid place-items-center w-10 h-10 border ${HAIR} text-dusty
                   hover:text-snow hover:border-white/25 transition-colors`}
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${loading || adsLoading ? "animate-spin" : ""}`} />
+                <RefreshCw className={`w-3.5 h-3.5 ${carregando || carregandoAds ? "animate-spin" : ""}`} />
               </button>
             </div>
           </div>
 
-          {/* ── tabs ──────────────────────────────────────────────────────── */}
           <nav className="flex -mb-px overflow-x-auto">
-            {TABS.map(({ key, label, icon: Icon }) => (
+            {ABAS.map(({ key, label, icon: Icone }) => (
               <button
                 key={key}
-                onClick={() => setTab(key)}
-                aria-current={tab === key ? "page" : undefined}
+                onClick={() => setAba(key)}
+                aria-current={aba === key ? "page" : undefined}
                 className={`flex items-center gap-2 px-4 md:px-5 min-h-[46px] shrink-0
                   font-mono text-[11px] uppercase tracking-[0.2em] border-b-2 transition-colors ${
-                  tab === key
+                  aba === key
                     ? "text-lava border-lava"
                     : "text-dusty border-transparent hover:text-mist"
                 }`}
               >
-                <Icon className="w-3.5 h-3.5" />
+                <Icone className="w-3.5 h-3.5" />
                 {label}
               </button>
             ))}
@@ -196,19 +224,23 @@ export default function AnalyticsDashboard() {
         </div>
       </header>
 
-      {/* ── body ──────────────────────────────────────────────────────────── */}
       <div
         className={`max-w-[1400px] mx-auto px-5 md:px-10 py-10 md:py-14 transition-opacity duration-300 ${
-          loading || (tab === "ads" && adsLoading) ? "opacity-60" : "opacity-100"
+          carregando || (aba === "ads" && carregandoAds) ? "opacity-60" : "opacity-100"
         }`}
       >
-        {hero && <Reveal y={14} className="block mb-12 md:mb-16">{hero}</Reveal>}
+        {heroi && <Reveal y={14} className="block mb-12 md:mb-16">{heroi}</Reveal>}
 
-        {tab === "traffic" && <Traffic data={data} />}
-        {tab === "speed" && <Speed data={data} />}
-        {tab === "ads" && (
-          adsData
-            ? <Ads data={adsData} />
+        {aba === "geral"         && (t ? <VisaoGeral data={t} />    : <Indisponivel o="tráfego" />)}
+        {aba === "aquisicao"     && (t ? <Aquisicao data={t} />     : <Indisponivel o="tráfego" />)}
+        {aba === "comportamento" && (dados.comportamento
+          ? <Comportamento data={dados.comportamento} /> : <Indisponivel o="comportamento" />)}
+        {aba === "publico"       && (t ? <Publico data={t} />       : <Indisponivel o="público" />)}
+        {aba === "conversao"     && (dados.funil ? <Conversao data={dados.funil} /> : <Indisponivel o="conversão" />)}
+        {aba === "velocidade"    && (v ? <Speed data={v} />         : <Indisponivel o="velocidade" />)}
+        {aba === "ads" && (
+          ads
+            ? <Ads data={ads} />
             : (
               <div className="py-24 text-center">
                 <Scramble text="CARREGANDO DADOS DE ADS"
@@ -224,10 +256,27 @@ export default function AnalyticsDashboard() {
             dogdata.xyz
           </span>
           <span className="font-mono text-[10px] text-white/25">
-            auto-refresh 60s · rota não listada
+            auto-refresh 60s · rota não listada · esta rota não se mede
           </span>
         </div>
       </footer>
     </main>
+  )
+}
+
+// Uma função do banco que falhou custa esta aba, não a página. E o aviso diz
+// o que aconteceu em vez de mostrar um gráfico vazio, que seria lido como
+// "não houve tráfego".
+function Indisponivel({ o }: { o: string }) {
+  return (
+    <div className={`border ${HAIR} p-8 text-center`}>
+      <p className="font-mono text-[11px] text-dusty leading-relaxed">
+        O relatório de {o} não respondeu nesta consulta.
+        <br />
+        <span className="text-white/25">
+          As outras abas seguem com dados. Tente atualizar; se persistir, o banco está sob carga.
+        </span>
+      </p>
+    </div>
   )
 }

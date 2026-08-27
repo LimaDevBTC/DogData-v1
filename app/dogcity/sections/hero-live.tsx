@@ -309,6 +309,21 @@ export default function HeroLive() {
           .porta-janela { aspect-ratio: 2 / 1; }
           .porta-promessa, .porta-custo { display: none; }
         }
+        /* O MESMO modo compacto, do lado do celular. Num aparelho classe
+           iPhone SE sobram 553px de janela, e mesmo depois do aperto de 27/08 a
+           terceira tira comecava em 557 — quatro pixels abaixo da dobra, ou
+           seja invisivel por um triz. Isto aperta SO espacamento e corpo de
+           titulo, nunca conteudo: a sub-linha continua ali, porque "no wallet,
+           no signup" e a frase de conversao mais barata da pagina e some-la pra
+           ganhar pixel seria trocar a mensagem pelo enquadramento. Com o aperto
+           a tira passa a comecar em ~529 e aparece; nao cabe inteira, e nao tem
+           como caber sem encolher o banner pago, que nao e decisao de layout. */
+        @media (max-width: 1023px) and (max-height: 620px) {
+          .hero-caixa { padding-top: 0.5rem; }
+          .hero-titulo { font-size: 25px; margin-top: 0.5rem; }
+          .hero-sub { margin-top: 0.5rem; }
+          .hero-portas { margin-top: 0.625rem; }
+        }
         @media (prefers-reduced-motion: reduce) {
           .porta-fio { transform: scaleX(1); opacity: 0.3; }
           .porta-chapa, .porta-zoom { transition: none; }
@@ -319,7 +334,7 @@ export default function HeroLive() {
           hero era a única full bleed com tudo abaixo dela contido: a página
           começava torta, e só esse alinhamento já resolve metade da sensação de
           amontoado. */}
-      <div className="hero-caixa max-w-6xl mx-auto px-6 md:px-10 pt-6 md:pt-8 pb-8 md:pb-10">
+      <div className="hero-caixa max-w-6xl mx-auto px-6 md:px-10 pt-3.5 md:pt-8 pb-8 md:pb-10">
 
         {/* ── BANDA A: o masthead ──────────────────────────────────────────── */}
         <motion.div
@@ -331,18 +346,27 @@ export default function HeroLive() {
                 transition: { duration: 0.6, delay: 0.05, ease: EASE },
               })}
         >
-          <p className="font-mono text-[11px] tracking-[0.3em] text-lava">DOG DATA · ALL THREE ARE OPEN</p>
+          <p className="font-mono text-[10px] lg:text-[11px] tracking-[0.28em] lg:tracking-[0.3em] text-lava">
+            DOG DATA · ALL THREE ARE OPEN
+          </p>
           {/* fio estático: DrawRule gateia em viewport e aqui é zona morta */}
-          <span aria-hidden className="block h-px w-14 bg-lava mt-3" />
-          <h1 className="hero-titulo font-display font-bold text-snow mt-4 leading-[1.03] text-[34px] lg:text-[44px]">
+          <span aria-hidden className="block h-px w-14 bg-lava mt-2.5 lg:mt-3" />
+          <h1 className="hero-titulo font-display font-bold text-snow mt-3 lg:mt-4 leading-[1.03] text-[29px] lg:text-[44px]">
             A city, a war and a galaxy.
           </h1>
-          {/* uma sub-linha só, para todos os tamanhos: as três portas explicam o
-              que cada coisa é, e a hero não repete. O custo de entrada global é
-              verdade nas três (leitura pública) e é a frase de conversão mais
-              barata que a página tem. */}
-          <p className="text-[13px] md:text-[15px] text-mist mt-3.5 md:mt-4 max-w-2xl leading-relaxed">
-            Three live views of $DOG, all open right now. No wallet, no signup, nothing to install.
+          {/* A promessa é a mesma nos dois tamanhos, escrita em dois comprimentos.
+              ⚠️ NÃO unificar de volta numa string só: a longa quebra em TRÊS
+              linhas num iPhone (medido a 13px em 345px de caixa), e essas ~21px
+              são a diferença entre a terceira porta caber na dobra ou não. A
+              versão curta guarda as duas metades que fazem trabalho — "três
+              coisas vivas" e "não custa nada entrar"; o que sai é só o reforço.
+              As três portas logo abaixo explicam o que cada coisa é, então a
+              hero não repete nenhuma delas. */}
+          <p className="hero-sub text-[13px] md:text-[15px] text-mist mt-2.5 md:mt-4 max-w-2xl leading-relaxed">
+            <span className="lg:hidden">Three live views of $DOG. No wallet, no signup.</span>
+            <span className="hidden lg:inline">
+              Three live views of $DOG, all open right now. No wallet, no signup, nothing to install.
+            </span>
           </p>
         </motion.div>
 
@@ -352,7 +376,7 @@ export default function HeroLive() {
             dobra, que é o oposto exato do pedido. Em md (768) uma coluna de
             228px seria estreita demais para o bloco de texto; a grade só entra
             em lg (1024), onde cada coluna dá 356px. */}
-        <div className={`mt-5 lg:mt-6 grid lg:grid-cols-3 gap-px ${GRIDLINE} border ${HAIR}`}>
+        <div className={`hero-portas mt-4 lg:mt-6 grid lg:grid-cols-3 gap-px ${GRIDLINE} border ${HAIR}`}>
           {PORTAS.map((p, i) => {
             const m = medidores[p.idx]
             return (
@@ -370,7 +394,7 @@ export default function HeroLive() {
                 <Link
                   href={p.href}
                   aria-label={`${p.cta}: ${p.nome}, ${m.aria}`}
-                  className="group flex h-full flex-row items-center gap-3 p-3
+                  className="group flex h-full flex-row items-center gap-3 p-2.5
                              lg:flex-col lg:items-stretch lg:gap-0 lg:p-0
                              focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-lava"
                 >
@@ -380,7 +404,7 @@ export default function HeroLive() {
                       sobre fundo ocupado" sai de graça, sem véu nenhum. */}
                   <span
                     className={`porta-janela relative shrink-0 overflow-hidden bg-void border ${HAIR}
-                                w-[104px] h-[70px] sm:w-[150px] sm:h-[98px]
+                                w-[96px] h-[64px] sm:w-[150px] sm:h-[98px]
                                 lg:w-full lg:h-auto lg:aspect-[16/9] lg:border-0 lg:border-b`}
                   >
                     {/* dois transforms aninhados de propósito: o de
@@ -396,7 +420,7 @@ export default function HeroLive() {
                         alt={p.alt}
                         fill
                         priority={i === 0}
-                        sizes="(min-width: 1024px) 360px, (min-width: 640px) 150px, 104px"
+                        sizes="(min-width: 1024px) 360px, (min-width: 640px) 150px, 96px"
                         className="porta-chapa object-cover"
                         style={{ "--zl": p.zl, "--fl": p.fl, "--zs": p.zs, "--fs": p.fs } as CSSProperties}
                       />
@@ -411,11 +435,13 @@ export default function HeroLive() {
                     />
                   </span>
 
-                  {/* a coluna de texto. LARGURA MEDIDA no iPhone de 390: 390
-                      menos px-6 (48) menos a borda (2) menos p-3 dos dois lados
-                      (24) menos a imagem (104) e o gap (12) = 200px. A 11px em
-                      mono dá ~6,6px por caractere, ou seja 30 caracteres; as
-                      variantes sm do medidor e do custo têm no máximo 27. */}
+                  {/* a coluna de texto. LARGURA REMEDIDA no iPhone de 390 depois
+                      do aperto de 27/08: 390 menos px-6 (48) menos a borda (2)
+                      menos p-2.5 dos dois lados (20) menos a imagem (96) e o gap
+                      (12) = 212px, doze a MAIS que antes — a tira encolheu na
+                      altura e sobrou na largura. A 11px em mono dá ~6,6px por
+                      caractere, ou seja 32 caracteres; as variantes sm do medidor
+                      e do custo têm no máximo 27, então continuam numa linha. */}
                   <span className="min-w-0 flex-1 flex flex-col lg:w-full">
 
                     {/* (b) A LINHA DO NOME. Os três verbos são o coração da

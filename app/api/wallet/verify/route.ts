@@ -30,12 +30,12 @@ export async function POST(req: NextRequest) {
       session_id?: string
     }
     if (!address || !signature || !protocol) {
-      return NextResponse.json({ error: 'campos obrigatórios faltando' }, { status: 400 })
+      return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 })
     }
 
     const stored = (await redisClient.get(`wnonce:${address}`)) as StoredNonce | null
     if (!stored?.message) {
-      return NextResponse.json({ error: 'nonce expirado ou inexistente' }, { status: 400 })
+      return NextResponse.json({ error: 'This challenge expired. Start the signature again.' }, { status: 400 })
     }
 
     const result = verifyOwnership({
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       publicKey,
     })
     if (!result.ok) {
-      return NextResponse.json({ error: result.reason || 'assinatura inválida' }, { status: 401 })
+      return NextResponse.json({ error: result.reason || 'Invalid signature.' }, { status: 401 })
     }
 
     // Nonce é de uso único → queima.
@@ -96,6 +96,6 @@ export async function POST(req: NextRequest) {
     })
     return resp
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || 'erro' }, { status: 500 })
+    return NextResponse.json({ error: e?.message || 'Ownership verification failed.' }, { status: 500 })
   }
 }

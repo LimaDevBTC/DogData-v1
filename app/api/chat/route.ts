@@ -60,7 +60,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const session = await getSession(req)
   if (!session) {
-    return NextResponse.json({ error: 'sessão não verificada' }, { status: 401 })
+    return NextResponse.json({ error: 'Ownership not verified.' }, { status: 401 })
   }
 
   const address = session.address.toLowerCase()
@@ -76,19 +76,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'internal' }, { status: 500 })
   }
   if (!profile?.handle) {
-    return NextResponse.json({ error: 'crie um handle antes de falar na praça' }, { status: 403 })
+    return NextResponse.json({ error: 'Claim a handle before speaking in the plaza.' }, { status: 403 })
   }
 
   let body: { text?: string }
   try {
     body = await req.json()
   } catch {
-    return NextResponse.json({ error: 'corpo inválido' }, { status: 422 })
+    return NextResponse.json({ error: 'Invalid body.' }, { status: 422 })
   }
 
   const text = (body.text ?? '').trim()
   if (text.length < 1 || text.length > MAX_TEXT_LENGTH) {
-    return NextResponse.json({ error: 'texto inválido' }, { status: 422 })
+    return NextResponse.json({ error: 'Message must be 1 to 280 characters.' }, { status: 422 })
   }
 
   // Anti-abuso: 1 mensagem a cada 3s por endereco. SET ... NX EX faz a
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
   const rateKey = `chatlimit:${address}`
   const reserved = await redisClient.set(rateKey, '1', { ex: RATE_LIMIT_SECONDS, nx: true })
   if (reserved !== 'OK') {
-    return NextResponse.json({ error: 'devagar, espera alguns segundos' }, { status: 429 })
+    return NextResponse.json({ error: 'Slow down, try again in a moment.' }, { status: 429 })
   }
 
   const { data: inserted, error: insertError } = await supabase
