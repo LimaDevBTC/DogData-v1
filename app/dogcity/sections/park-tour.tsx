@@ -3,11 +3,11 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // PARK TOUR — "The Long Walk In". A 214-frame scroll-scrubbed camera journey
 // through Runestone Ordinal Park: road/rille → the Gate detonation → the Vale
-// → Valley of Hands → The Last Step look-up → the ring → the Unmarked Way →
-// down into the Leonidas Temple. One unbroken dolly rendered from
-// runestone-park-v2.blend (render_tour_v2.py). Scrubbing is delegated to
-// FrameScrub (a deliberate port of the hero's mechanics); this file owns the
-// waypoints, chrome and reduced-motion path.
+// → Valley of Hands → The Last Step look-up → the east ring → the flank climb →
+// the mouth in the rock → the corridor → the Leonidas Temple inside the cave.
+// One unbroken dolly rendered from runestone-park-v2.blend (render_tour_v2.py).
+// Scrubbing is delegated to FrameScrub (a deliberate port of the hero's
+// mechanics); this file owns the waypoints, chrome and reduced-motion path.
 //
 // FRAME_COUNT and public/landing/parkseq/ MUST ship together. Raising the count
 // before the frames land leaves the scrub holding the last file it can fetch —
@@ -18,12 +18,35 @@ import { useState } from "react"
 import Image from "next/image"
 import FrameScrub from "../frame-scrub"
 
+// ── as DUAS constantes que pertencem ao render, nao a esta pagina ───────────
+// FRAME_COUNT e BEAT_FRAMES saem de render_tour_v2.py (blender/) e so mudam
+// quando o tour e re-renderizado. Quem mexer aqui sem re-renderizar quebra o
+// casamento legenda/quadro em silencio: nada estoura, a legenda so passa a
+// descrever outra coisa. Se o render mudar, o numero de quadros vem de
+// `KEYS[-1][0] + 1` e as batidas vem dos comentarios de bloco (B7..B12) da
+// propria tabela KEYS.
 const FRAME_COUNT = 214
-const PARKSEQ_VERSION = "2"
+// v3: os quadros 136 a 214 foram refeitos em 27/08 (o tour deixou o templo
+// exposto e passou a terminar dentro da caverna). Sem subir a versao, a CDN e
+// o navegador continuam servindo a sequencia velha e o scrub mistura as duas.
+const PARKSEQ_VERSION = "3"
 const frameUrl = (i: number) => `/landing/parkseq/f_${String(i + 1).padStart(4, "0")}.webp?v=${PARKSEQ_VERSION}`
 
-// waypoint breaks mapped to the render's beat frames (frame index / 213)
-const BREAKS = [0, 0.094, 0.239, 0.272, 0.376, 0.437, 0.587, 0.709, 0.878]
+// Quadro em que cada legenda entra, LIDO na tabela KEYS do render:
+//   0 estrada · 20 o Portao · 51 a praca · 58 o Vale · 80 as Maos ·
+//   93 o Ultimo Degrau · 125 sair do deck · 137 o anel a leste (az 172) ·
+//   161 o banco do flanco leste · 188 a boca abre · 200 a soleira ·
+//   209 o salao abre (211 braseiros, 213 o templo).
+// Em fracao porque FrameScrub converte progresso em quadro com
+// round(progress * (FRAME_COUNT - 1)); dividir aqui pelo mesmo numero mantem
+// as batidas certas mesmo se o total de quadros for corrigido depois.
+const BEAT_FRAMES = [0, 20, 51, 58, 80, 93, 125, 137, 161, 188, 200, 209]
+const BREAKS = BEAT_FRAMES.map((f) => f / (FRAME_COUNT - 1))
+
+// A cauda (do 137 em diante) foi reescrita junto com o render: o templo NAO
+// esta mais exposto atras da cordilheira em (1200, 400). Ele esta dentro da
+// caverna em (335, 59), a 340 m do Monarca no azimute 80, e o tour termina la.
+// Nenhuma legenda pode voltar a prometer o precinto, as Sisters ou a escadaria.
 const WAYPOINTS = [
   { id: "road", title: "THE APPROACH", caption: "The road arrives buried in a rille; the park shows you nothing until it means to." },
   { id: "gate", title: "THE GATE", caption: "The road crests the notch and the range detonates into view." },
@@ -32,15 +55,24 @@ const WAYPOINTS = [
   { id: "hands", title: "VALLEY OF HANDS", caption: "120 stones at your own scale, every one carrying the mark." },
   { id: "laststep", title: "THE LAST STEP", caption: "The walkway's terminus. The Monarch fills forty-nine degrees of sky." },
   { id: "ground", title: "EVERY STONE IS PUBLIC GROUND", caption: "Walk off the deck. Footprints last a million years here; add yours." },
-  { id: "unmarked", title: "THE UNMARKED WAY", caption: "An unlit spur leaves the ring on no map, and passes between two leaning giants." },
-  { id: "temple", title: "THE LEONIDAS TEMPLE", caption: "Down the notch stair: a raked sea of regolith, a pool of black glass, and eight embers in a bowl of shadow." },
+  { id: "ring", title: "THE EAST RING", caption: "The ring carries on east and climbs a spur at twenty-eight degrees. The Monarch goes dark behind you; everything ahead is lit." },
+  { id: "flank", title: "THE EAST FLANK", caption: "The walk leaves the ring for a bench of level ground, 487 metres of it. A crystal bloom stands across the end and hides what comes next." },
+  { id: "mouth", title: "THE MOUTH", caption: "Round the bloom and up the ramp: seven metres of mouth under a slab of rock, cairns burning on the lip. Nothing on the ring points here." },
+  { id: "corridor", title: "THE CORRIDOR", caption: "Past the threshold the throat turns twice in fifty metres, and the plain goes out behind you." },
+  { id: "temple", title: "THE LEONIDAS TEMPLE", caption: "A hall ninety metres across opens in the dark: braziers, a garden of fungus, and the temple standing in the middle of it." },
 ] as const
 
+// Chapas do caminho de movimento reduzido. Sao as UNICAS quatro que ainda
+// existem no mundo novo; a antiga park-temple.webp (o templo ao ar livre) esta
+// fora de proposito e nao pode voltar. Falta uma chapa de DENTRO do salao, e
+// ate ela existir a lista fica em quatro: melhor uma chapa a menos do que uma
+// que promete um lugar que nao existe. Os quadros de parkseq/ nao servem: o
+// disco ainda guarda o encode antigo ate o render novo ser publicado.
 const STILLS = [
   { src: "/landing/park-hero.webp", title: "THE RANGE", caption: "The whole chain from the south-east, the ring trail curving below.", alt: "The full chain of black-crystal outcrops across the lunar plain" },
   { src: "/landing/park-wide.webp", title: "VALE OF THE MARK", caption: "Three glyph-lit crystals stacked in depth over the valley trail.", alt: "The terminated valley with three rune-marked crystal outcrops" },
   { src: "/landing/park-finger.webp", title: "THE LAST STEP", caption: "The hundred-metre glyph from the walkway's end.", alt: "The white rune mark on the black crystal face of the Great Runestone" },
-  { src: "/landing/plaza/plaza-temple.webp", title: "THE LEONIDAS TEMPLE", caption: "Hidden in a cave among the monarch stones, at the end of a path of scattered slabs.", alt: "The arched mouth of the Leonidas cave, boulders screening it, the black temple burning orange inside" },
+  { src: "/landing/plaza/plaza-temple.webp", title: "THE LEONIDAS TEMPLE", caption: "Screened by a crystal bloom on the east flank, 340 metres from the Great Runestone. The temple burns inside.", alt: "The arched mouth of the Leonidas cave, boulders screening it, the black temple burning orange inside" },
 ] as const
 
 function waypointAt(progress: number): number {

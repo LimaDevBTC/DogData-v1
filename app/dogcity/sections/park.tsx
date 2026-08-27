@@ -20,11 +20,11 @@
 //      an edge, and the reserved aspect-[16/9] max-h-[76vh] box never changes
 //      size after layout — the hero's body-portal geometry depends on that.
 //
-//   2. THE PLAQUE — `leave no footprints.` is lifted out of its inline <span>
-//      onto its own display line between two struck rules, and the three prose
-//      beats sit at 0 / 0.45 / 0.9 so the gaps are long enough to be felt. Every
-//      word and every mark of the original copy is preserved, including the
-//      terminal period that now closes the promoted line.
+//   2. THE PLAQUE. `every stone is public ground.` is lifted out of its inline
+//      <span> onto its own display line between two struck rules, and the three
+//      prose beats sit at 0 / 0.45 / 0.9 so the gaps are long enough to be felt.
+//      A linha promovida ERA `leave no footprints.`: o parque é de acesso
+//      público e essa frase está proibida na copy, não a traga de volta.
 //
 //   3. THE SHUTTER — the 2-up gallery wipes down through an animated
 //      `clip-path: inset()`. One CSS property, no mosaic, no duotone pass:
@@ -124,8 +124,11 @@ const GALLERY: ParkPlate[] = [
     // 2026-08-19: o templo saiu do pódio e entrou na caverna (praca-ajustes.md
     // item 14). A chapa antiga mostrava o jardim rebaixado que já não é o lugar
     // dele; esta é a boca da caverna, capturada da cena viva.
+    // 2026-08-27: o tour do parque também termina aqui dentro agora, então esta
+    // é a única chapa do templo que continua verdadeira. park-temple.webp, o
+    // precinto ao ar livre atrás da cordilheira, está fora de propósito.
     src: "/landing/plaza/plaza-temple.webp",
-    label: "THE LEONIDAS TEMPLE · HIDDEN AMONG THE MONARCH STONES",
+    label: "THE LEONIDAS TEMPLE · A MOUTH IN THE EAST FLANK",
     alt: "The arched mouth of the Leonidas cave in a black basalt buttress, boulders screening the entrance, the black temple burning orange inside",
     wide: true,
   },
@@ -323,8 +326,9 @@ export default function Section({}) {
             <Reveal delay={1.7} y={10} className="mt-4">
               <p className="font-mono text-[10px] text-dusty leading-relaxed">
                 Connected to DogCity by a single scenic road. Protected from dense development,
-                forever outside the urban core. One path is on no map: it leaves the ring
-                unmarked, passes between two leaning giants, and ends at the Leonidas Temple.
+                forever outside the urban core. One path is on no map: it leaves the ring on the
+                east flank, rounds a crystal bloom, and ends at a mouth in the rock with the
+                Leonidas Temple inside.
               </p>
               <p className="mt-3 font-mono text-[10px] tracking-[0.2em] text-dusty">
                 SCROLL TO WALK THE PARK ↓
