@@ -239,15 +239,29 @@ function viewFor(name: string | null, aspect: number): View {
       // o enquadramento é o MESMO diagonal provado da vista 'war', só que
       // espelhado pro lado SW: a batalha enche o quadro em diagonal e a
       // cidade fecha o fundo na direção do olhar
-      // ⚠️ câmera BAIXA de propósito: alta, 380 m de regolito vazio enchiam a
-      // metade de baixo do quadro; rasante, o chão comprime numa faixa fina e
-      // os exércitos recortam contra a skyline
-      // a mesma lição do padtour: alvo ACIMA da câmera, senão metade do
-      // quadro é chão vazio; rasante a 240 m, exércitos na faixa de baixo,
-      // farol e skyline por cima
+      // ⚠️ A CÂMERA RASANTE FOI DESFEITA EM 27/08, E O MOTIVO ESTÁ MEDIDO.
+      // O raciocínio antigo ("rasante, o chão comprime numa faixa fina") ignorava
+      // que 26 m é MENOS que um urso: o rig pousava atrás da retaguarda vermelha
+      // e um bicho a poucos metros tapava dois terços do quadro. Pior, aos 26 m
+      // declarados o rig ficava ABAIXO do terreno (o chão ali está em ~117), e o
+      // travamento do laço subia câmera E alvo em bloco, ou seja o número escrito
+      // aqui nem era o que ia pra tela.
+      // O enquadramento abaixo foi POSICIONADO À MÃO pelo fundador no navegador
+      // e lido por window.__plazaView() (?stats=1): 204 m de altura, alvo em 152,
+      // 396 m de distância. A direção do olhar é a mesma de antes (o alvo em
+      // x/z não mudou); o que mudou é que agora se vê a batalha inteira, a régua
+      // de preço no chão, os helicópteros e a skyline com a Needle ao fundo.
+      // O retrato foi posicionado do mesmo jeito, na janela estreitada: 186 m de
+      // altura, alvo em 141, 567 m de distância. Ele recua mais que o desktop de
+      // propósito, porque em retrato o quadro é alto e estreito e a batalha só
+      // fecha as duas linhas de frente de mais longe.
+      // ⚠️ OS DOIS ESTÃO ACIMA DO CHÃO (204 e 186 contra ~119 e ~181 de terreno
+      // mais 1,7): o travamento NÃO dispara e os valores valem como escritos.
+      // Mexer para baixo daqui devolve o urso na lente e, pior, volta a cair
+      // abaixo do terreno, onde o número escrito deixa de ser o que vai pra tela.
       return aspect >= 1
-        ? { pos: new THREE.Vector3(WAR_POS.x - 170, 26, WAR_POS.z + 170), target: new THREE.Vector3(WAR_POS.x + 70, 58, WAR_POS.z - 110) }
-        : { pos: new THREE.Vector3(WAR_POS.x - 230, 60, WAR_POS.z + 230), target: new THREE.Vector3(WAR_POS.x + 60, 80, WAR_POS.z - 90) }
+        ? { pos: new THREE.Vector3(WAR_POS.x - 202, 204, WAR_POS.z + 173), target: new THREE.Vector3(WAR_POS.x + 70, 152, WAR_POS.z - 110) }
+        : { pos: new THREE.Vector3(WAR_POS.x - 341, 186, WAR_POS.z + 308), target: new THREE.Vector3(WAR_POS.x + 60, 141, WAR_POS.z - 90) }
     case 'far':
       return { pos: new THREE.Vector3(-2600, 2800, 4200), target: new THREE.Vector3(1800, 0, -1900) }
     case 'park':
@@ -1439,6 +1453,27 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       stopTour,
     }
     if (wantStats) (window as unknown as { __plazaFly?: (n: string) => void }).__plazaFly = (n: string) => apiRef.current?.flyTo(n)
+    // ?stats=1 → window.__plazaView(): devolve o enquadramento ATUAL já escrito
+    // como a linha de viewFor(), inclusive em coordenadas relativas a WAR_POS.
+    // Existe porque enquadrar no olho e depois transcrever numero na mao e onde
+    // a intencao se perde: o fundador posiciona a camera arrastando, chama isto,
+    // e o que sai cola direto no switch de viewFor.
+    if (wantStats) {
+      const r = (n: number) => Math.round(n)
+      ;(window as unknown as { __plazaView?: () => unknown }).__plazaView = () => {
+        const p = camera.position, t = controls.target
+        return {
+          aspect: +camera.aspect.toFixed(3),
+          modo: camera.aspect >= 1 ? 'paisagem (aspect >= 1)' : 'retrato (aspect < 1)',
+          absoluto: `pos(${r(p.x)}, ${r(p.y)}, ${r(p.z)})  target(${r(t.x)}, ${r(t.y)}, ${r(t.z)})`,
+          relativoWarPos:
+            `{ pos: new THREE.Vector3(WAR_POS.x ${p.x - WAR_POS.x >= 0 ? '+' : '-'} ${Math.abs(r(p.x - WAR_POS.x))}, ${r(p.y)}, WAR_POS.z ${p.z - WAR_POS.z >= 0 ? '+' : '-'} ${Math.abs(r(p.z - WAR_POS.z))}), ` +
+            `target: new THREE.Vector3(WAR_POS.x ${t.x - WAR_POS.x >= 0 ? '+' : '-'} ${Math.abs(r(t.x - WAR_POS.x))}, ${r(t.y)}, WAR_POS.z ${t.z - WAR_POS.z >= 0 ? '+' : '-'} ${Math.abs(r(t.z - WAR_POS.z))}) }`,
+          alturaDaCamera: r(p.y),
+          distanciaAoAlvo: r(p.distanceTo(t)),
+        }
+      }
+    }
     // ?tx=<txid>: chegou pela landing (ou por um link) já seguindo uma nave
     {
       const txParam = (new URLSearchParams(window.location.search).get('tx') || '').trim().toLowerCase()
