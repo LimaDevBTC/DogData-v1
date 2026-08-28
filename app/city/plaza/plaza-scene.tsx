@@ -2084,7 +2084,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // (1,25rem + safe area), somando a altura dele mais uma folga: as duas
         // peças sobem e descem juntas em qualquer aparelho, com ou sem barra
         // de gestos, em vez de uma perseguir a outra.
-        className="pointer-events-none absolute bottom-[calc(4rem+env(safe-area-inset-bottom))] right-3 flex select-none flex-col items-end gap-0.5 font-mono text-[10px] tabular-nums tracking-[0.04em] text-white/70 transition-opacity duration-300 [@media(max-height:520px)]:bottom-auto [@media(max-height:520px)]:top-14 [@media(min-width:640px)_and_(min-height:521px)]:bottom-auto [@media(min-width:640px)_and_(min-height:521px)]:right-6 [@media(min-width:640px)_and_(min-height:521px)]:top-20 [@media(min-width:640px)_and_(min-height:521px)]:gap-1"
+        className="pointer-events-none absolute bottom-[calc(4rem+env(safe-area-inset-bottom))] right-3 flex select-none flex-col items-end gap-0.5 font-mono text-[10px] tabular-nums tracking-[0.04em] text-white/70 transition-opacity duration-300 [@media(max-height:520px)]:bottom-auto [@media(max-height:520px)]:top-14 [@media(min-width:640px)_and_(min-height:521px)]:right-6 [@media(min-width:640px)_and_(min-height:521px)]:gap-1"
         style={{ opacity: 0, ...VISOR }}
       >
         {Array.from({ length: FITA_LINHAS - 1 }, (_, i) => (
