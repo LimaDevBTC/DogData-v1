@@ -83,6 +83,15 @@ export default function VisaoGeral({ data }: { data: Trafego }) {
   // sessões, quem lidera é SESSÃO, que tem histórico completo desde 04/07.
   const identidadeMadura = cobIdentidade >= 50
 
+  // ⚠️ SESSÕES POR PESSOA SÓ PODE SAIR DA BASE COMPARÁVEL.
+  // `sessoes` conta a população inteira da janela; `visitantes` só existe
+  // dentro das sessões identificadas. Dividir um pelo outro compara duas
+  // populações e devolve um número sem significado — em 28/08 isso dava 5,6
+  // sessões por pessoa (717 ÷ 128) e o fundador estranhou, com razão. A razão
+  // verdadeira usa o mesmo denominador dos dois lados: 198 ÷ 128 = 1,55.
+  const sessoesPorPessoa =
+    r.visitantes > 0 ? r.sessoes_identificadas / r.visitantes : null
+
   const novosPct = r.novos + r.recorrentes > 0
     ? (r.novos / (r.novos + r.recorrentes)) * 100
     : null
@@ -113,8 +122,9 @@ export default function VisaoGeral({ data }: { data: Trafego }) {
                 r.sessoes_identificadas === 0
                   ? "identificação começou em 27/08/2026"
                   : identidadeMadura
-                    ? "pessoas distintas"
-                    : `pessoas distintas em ${fmtNum(r.sessoes_identificadas)} de ${fmtNum(r.sessoes)} sessões (${cobIdentidade.toFixed(0)}%)`
+                    ? `${sessoesPorPessoa?.toFixed(2) ?? "—"} sessões por pessoa`
+                    : `${sessoesPorPessoa?.toFixed(2) ?? "—"} sessões por pessoa · medido em ` +
+                      `${fmtNum(r.sessoes_identificadas)} de ${fmtNum(r.sessoes)} sessões (${cobIdentidade.toFixed(0)}%)`
               }
               acento={CAT[1]}
               // Sem base comparável no período anterior o Delta já se cala
@@ -167,6 +177,15 @@ export default function VisaoGeral({ data }: { data: Trafego }) {
             histórico — mantêm páginas, entrada e saída, mas não têm tempo nem identidade, e por
             isso ficam de fora dessas três médias em vez de entrarem como zero. A cobertura sobe
             sozinha conforme a janela anda.
+            {cobIdentidade < 100 && (
+              <>
+                {" "}
+                <span className="text-mist">Sessões e visitantes não se dividem entre si</span>{" "}
+                enquanto a cobertura não for 100%: sessões conta a janela inteira, visitantes só
+                conta dentro das sessões identificadas. A razão de sessões por pessoa ao lado já
+                usa o mesmo denominador dos dois lados.
+              </>
+            )}
           </p>
         )}
       </section>
