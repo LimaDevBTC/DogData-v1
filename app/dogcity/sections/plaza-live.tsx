@@ -136,32 +136,35 @@ export default function Section() {
           <div>
             <div className={`border ${HAIR} font-mono`}>
               <div className={`flex items-center justify-between px-4 py-2 border-b ${HAIR} text-[9px] tracking-[0.25em] text-dusty`}>
-                <span>MISSION BOARD</span>
+                {/* ⚠️ MESMA REGRA DA PRAÇA (fundador, 28/08): a ficção é da
+                    cena, o dado é dito no nome do mercado. "MISSION BOARD" e
+                    "IN ORBIT" não diziam a ninguém que isto é a mempool. */}
+                <span>DOG MEMPOOL · LIVE</span>
                 <span>{s?.tip_height ? `BLOCK ${s.tip_height.toLocaleString()}` : "—"}</span>
               </div>
               <Stagger as="dl" step={0.09} delay={0.3} className={`grid grid-cols-2 lg:grid-cols-1 gap-px ${GRIDLINE}`}>
                 <StaggerItem className="bg-void p-4">
-                  <dt className="text-[9px] tracking-[0.25em] text-dusty">IN ORBIT</dt>
+                  <dt className="text-[9px] tracking-[0.25em] text-dusty">UNCONFIRMED DOG</dt>
                   <dd className="text-[12px] text-snow mt-1 leading-snug">
                     {s && s.dog_pending === 0 ? (
                       <>
-                        clear sky
-                        <span className="block text-dusty">waiting for the next DOG transaction</span>
+                        none right now
+                        <span className="block text-dusty">no DOG transaction waiting in the mempool</span>
                       </>
                     ) : (
                       <>
-                        <Counter value={s ? s.dog_pending : null} className="text-lava" /> {s?.dog_pending === 1 ? "ship" : "ships"} ·{" "}
+                        <Counter value={s ? s.dog_pending : null} className="text-lava" /> {s?.dog_pending === 1 ? "tx" : "txs"} ·{" "}
                         <Counter value={s ? s.dog_pending_amount : null} format={formatDog} className="text-lava" /> DOG
                       </>
                     )}
                   </dd>
                 </StaggerItem>
                 <StaggerItem className="bg-void p-4">
-                  <dt className="text-[9px] tracking-[0.25em] text-dusty">LAST LANDING</dt>
+                  <dt className="text-[9px] tracking-[0.25em] text-dusty">LAST DOG CONFIRMED</dt>
                   <dd className="text-[12px] text-snow mt-1 leading-snug">
                     {s?.last_dog_block ? (
                       <>
-                        block {s.last_dog_block.toLocaleString()} · {s.last_dog_block_count ?? 0} {(s.last_dog_block_count ?? 0) === 1 ? "ship" : "ships"}
+                        block {s.last_dog_block.toLocaleString()} · {s.last_dog_block_count ?? 0} {(s.last_dog_block_count ?? 0) === 1 ? "tx" : "txs"}
                         <span className="block text-dusty">
                           {formatDog(s.last_dog_block_amount ?? 0)} DOG · {minutesAgo(s.last_dog_block_time, now)}
                         </span>
@@ -170,15 +173,15 @@ export default function Section() {
                   </dd>
                 </StaggerItem>
                 <StaggerItem className="bg-void p-4">
-                  <dt className="text-[9px] tracking-[0.25em] text-dusty">FUEL · SAT/VB</dt>
+                  <dt className="text-[9px] tracking-[0.25em] text-dusty">FEE RATE · SAT/VB</dt>
                   <dd className="text-[12px] text-snow mt-1 leading-snug">
-                    {s?.fee_fast != null ? `${s.fee_fast} fast · ${s.fee_slow ?? "—"} slow` : "—"}
+                    {s?.fee_fast != null ? `${s.fee_fast} high · ${s.fee_slow ?? "—"} low` : "—"}
                   </dd>
                 </StaggerItem>
                 <StaggerItem className="bg-void p-4">
-                  <dt className="text-[9px] tracking-[0.25em] text-dusty">WHOLE MEMPOOL</dt>
+                  <dt className="text-[9px] tracking-[0.25em] text-dusty">BITCOIN MEMPOOL</dt>
                   <dd className="text-[12px] text-snow mt-1 leading-snug">
-                    <Counter value={s ? s.tx_count : null} /> txs waiting
+                    <Counter value={s ? s.tx_count : null} /> txs pending
                   </dd>
                 </StaggerItem>
               </Stagger>

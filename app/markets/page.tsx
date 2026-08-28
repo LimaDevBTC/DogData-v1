@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { PageHeader } from '@/components/ui/page-header'
 import { Layout } from "@/components/layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { TrendingUp, TrendingDown, ExternalLink, RefreshCw, DollarSign, BarChart3, Activity } from "lucide-react"
@@ -142,21 +143,13 @@ export default function MarketsPage() {
     <Layout currentPage="markets" setCurrentPage={() => {}}>
       <div className="min-h-screen pt-1 pb-2 md:py-2 space-y-3 md:space-y-4">
         
-        {/* Hero Section */}
-        <div className="text-center space-y-1 md:space-y-2 animate-fade-in px-4">
-          <div className="hero-glow">
-            <div className="flex items-center justify-center space-x-4">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-lava/[0.07] border border-lava/[0.1] flex items-center justify-center">
-                <BarChart3 className="w-5 h-5 md:w-6 md:h-6 text-lava" />
-              </div>
-              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold font-display gradient-text-hero">
-                Markets
-              </h1>
-            </div>
-          </div>
-          <p className="text-dusty text-sm md:text-base font-mono">
-            Real-time market data from top exchanges
-          </p>
+        <div className="px-4 md:px-0">
+          <PageHeader
+            eyebrow="Order books · live"
+            title="Markets"
+            sub="Where DOG trades right now, across every venue that lists it, with the spread and depth behind each price."
+            icon={BarChart3}
+          />
         </div>
 
         {/* Market Overview Cards */}

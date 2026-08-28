@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { PageHeader } from '@/components/ui/page-header'
 import Link from "next/link"
 import { Layout } from "@/components/layout"
 import { LoadingScreen } from "@/components/loading-screen"
@@ -182,24 +183,17 @@ export default function MetricsPage() {
   return (
     <Layout currentPage="metrics" setCurrentPage={() => {}}>
       <div className="min-h-screen pt-1 pb-2 md:py-2 space-y-6 md:space-y-8 px-4 md:px-6">
-        {/* ═══ Hero ═══ */}
-        <div className="text-center space-y-1 md:space-y-2 animate-fade-in px-4 mt-8 md:mt-10">
-          <div className="hero-glow">
-            <div className="space-y-3 md:space-y-4 max-w-full overflow-hidden">
-              <h1 className="text-2xl md:text-4xl font-display font-bold tracking-tight">
-                <span className="font-mono tracking-wider block text-text-accent">
-                  <span className="inline-block">ON-CHAIN</span>
-                  <span className="inline-block ml-4 md:ml-6">METRICS</span>
-                </span>
-              </h1>
-              <div className="flex items-center justify-center">
-                <span className="text-text-accent font-mono text-xs md:text-sm opacity-70">
-                  UTXO-Based Indicators &bull; Node Exclusive Data
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* ── O CABEÇALHO ────────────────────────────────────────────────
+            O <h1> tinha `font-display`, mas com um <span className="font-mono">
+            DENTRO dele anulando a fonte — e "ON-CHAIN" e "METRICS" eram dois
+            spans separados por margem, o que fazia a palavra quebrar em lugar
+            arbitrário nas telas estreitas. Agora é um título só, em display. */}
+        <PageHeader
+          eyebrow="UTXO indicators · node exclusive"
+          title="On-chain Metrics"
+          sub="Cost basis, coin age and supply distribution computed from the UTXO set on our own node — numbers no public API exposes."
+          icon={Activity}
+        />
 
         {/* ═══ Transaction Breakdown (Runes vs Inscriptions vs OP_RETURN vs Financial) ═══ */}
         <SectionDivider title="Transaction Breakdown" icon={Activity} />

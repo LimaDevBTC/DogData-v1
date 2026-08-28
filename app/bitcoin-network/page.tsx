@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { PageHeader } from '@/components/ui/page-header'
 import { Layout } from "@/components/layout"
 import { LoadingScreen } from "@/components/loading-screen"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -69,28 +70,19 @@ export default function BitcoinNetworkPage() {
   return (
     <Layout currentPage="bitcoin-network" setCurrentPage={() => {}}>
       <div className="pt-2 pb-3 px-3 md:p-6 space-y-3 md:space-y-8">
-        {/* Header */}
-             <div className="text-center space-y-2 md:space-y-4 px-4">
-               <div className="hero-glow">
-                 <div className="flex items-center justify-center gap-3 md:gap-4">
-                   <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-lava/[0.07] border border-lava/[0.1] flex items-center justify-center">
-                     <Network className="w-5 h-5 md:w-6 md:h-6 text-lava" />
-                   </div>
-                   <h1 className="text-2xl md:text-4xl font-bold gradient-text-hero whitespace-nowrap">
-                     Bitcoin Network
-                   </h1>
-                   {updating && (
-                     <div className="ml-1 w-2 h-2 md:w-3 md:h-3 bg-lava rounded-full animate-pulse flex-shrink-0"></div>
-                   )}
-                 </div>
-               </div>
-               <p className="text-dusty font-mono text-sm md:text-lg">
-                 Real-time Bitcoin blockchain statistics and network health
-                 {updating && (
-                   <span className="ml-2 text-lava text-xs md:text-sm">* Updating...</span>
-                 )}
-               </p>
-             </div>
+        {/* ── O CABEÇALHO ────────────────────────────────────────────────
+             Era título centralizado em mono laranja (sem font-display) com
+             ícone em rounded-xl, e o estado "atualizando" aparecia DUAS vezes:
+             uma bolinha ao lado do título e um "* Updating..." colado no fim do
+             subtítulo, dentro da frase. Agora o estado é um dado com rótulo na
+             régua de metadados, onde ele pode ser lido sem interromper a leitura. */}
+        <PageHeader
+          eyebrow="Bitcoin network · live"
+          title="Bitcoin Network"
+          sub="Block height, hashrate, difficulty and mempool pressure, read from our own node rather than a third-party API."
+          icon={Network}
+          meta={[{ rotulo: 'Node', valor: updating ? 'syncing' : 'in sync', vivo: true }]}
+        />
 
       {/* Main Network Stats */}
       <NetworkStatsCards data={data} />

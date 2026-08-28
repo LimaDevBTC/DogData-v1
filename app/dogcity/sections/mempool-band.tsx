@@ -45,11 +45,14 @@ export default function MempoolBand() {
   // `at` é a partir de que largura a célula existe. Rótulo curto no celular e
   // longo no desktop pela mesma razão: o que economiza espaço é a palavra, não a
   // fonte.
+  // ⚠️ NOME DE MERCADO NO DADO (fundador, 28/08). "ORBIT", "IN FLIGHT" e
+  // "LANDED" eram bonitos e não diziam a ninguém que a faixa mostra a mempool:
+  // o foguete é da cena, aqui é transação, bloco e taxa.
   const cells: { k: string; kLong?: string; v: string; at: string }[] = [
-    { k: "ORBIT", kLong: "IN ORBIT", v: s ? `${s.dog_pending} tx` : "—", at: "inline-flex" },
-    { k: "IN FLIGHT", v: s ? `${formatDog(s.dog_pending_amount)} DOG` : "—", at: "inline-flex" },
-    { k: "LANDED", kLong: "LAST LANDING", v: s?.last_dog_block ? `#${s.last_dog_block} · ${minutesAgo(s.last_dog_block_time, now)}` : "—", at: "hidden md:inline-flex" },
-    { k: "MEMPOOL", v: s ? `${s.tx_count.toLocaleString("en-US")} tx` : "—", at: "hidden xl:inline-flex" },
+    { k: "UNCONF.", kLong: "UNCONFIRMED", v: s ? `${s.dog_pending} tx` : "—", at: "inline-flex" },
+    { k: "PENDING", kLong: "DOG PENDING", v: s ? `${formatDog(s.dog_pending_amount)} DOG` : "—", at: "inline-flex" },
+    { k: "LAST BLOCK", kLong: "LAST DOG BLOCK", v: s?.last_dog_block ? `#${s.last_dog_block} · ${minutesAgo(s.last_dog_block_time, now)}` : "—", at: "hidden md:inline-flex" },
+    { k: "BTC MEMPOOL", v: s ? `${s.tx_count.toLocaleString("en-US")} tx` : "—", at: "hidden xl:inline-flex" },
   ]
   // ⚠️ A TAXA DO PRÓXIMO BLOCO SAIU DA FAIXA, e a escolha é entre ela e o convite.
   // Medido: nem na tela de 1920 cabem cinco células mais o "watch it fly", porque

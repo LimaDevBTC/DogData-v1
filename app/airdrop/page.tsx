@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { PageHeader, ultimaAtualizacao } from '@/components/ui/page-header'
 import { Layout } from "@/components/layout"
 import { RunestoneGate } from "@/components/runestone-gate"
 import { LoadingScreen } from "@/components/loading-screen"
@@ -460,32 +461,23 @@ export default function AirdropPage() {
   return (
     <Layout currentPage="airdrop" setCurrentPage={() => {}}>
       <div className="pt-2 pb-3 px-3 md:p-6 space-y-3 md:space-y-6">
-        {/* Header */}
-      <div className="text-center space-y-2 md:space-y-4 px-4">
-        <div className="hero-glow">
-          <div className="flex items-center justify-center gap-2 md:gap-4">
-            <RunestoneGate />
-            <h1 className="text-2xl md:text-4xl font-bold gradient-text-hero md:whitespace-nowrap">
-              Airdrop Analysis
-            </h1>
-          </div>
-        </div>
-        <p className="text-dusty font-mono text-sm md:text-lg">
-          Independent audit of DOG•GO•TO•THE•MOON Airdrop - Rune 840000:3
-        </p>
-        {forensicMeta && (
-          <p className="text-dusty/70 font-mono text-sm">
-            Last update: {new Date(forensicMeta.timestamp).toLocaleString('en-US', {
-              year: 'numeric',
-              month: 'short',
-              day: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-              hour12: true
-            })}
-          </p>
-        )}
+        {/* ── O CABEÇALHO ──────────────────────────────────────────────
+            A pedra giratória continua, agora no slot `asset`: ela é arte
+            própria da página e ganha a posição à esquerda do bloco, como o
+            Runestone faz em /runestone. O hífen do subtítulo virou travessão
+            de dado (·) porque "Airdrop - Rune 840000:3" lia como frase cortada. */}
+      <div className="px-4 md:px-0">
+        <PageHeader
+          eyebrow="Independent audit · Rune 840000:3"
+          title="Airdrop Analysis"
+          sub="What actually happened to the DOG•GO•TO•THE•MOON airdrop, wallet by wallet: who sold, who never moved, and where the supply sits today."
+          asset={<RunestoneGate />}
+          meta={
+            forensicMeta
+              ? [{ rotulo: 'Updated', valor: ultimaAtualizacao(forensicMeta.timestamp) ?? '—' }]
+              : undefined
+          }
+        />
       </div>
 
       {/* Main Stats - Row 1: Overview */}

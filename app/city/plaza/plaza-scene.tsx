@@ -450,7 +450,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
   const [qualityNow] = useState(() => (typeof window !== 'undefined' ? parseQuality(new URLSearchParams(window.location.search).get('quality')) : 'balanced'))
   // Phones start with the board folded to its one-line summary; the scene is the
   // point. Deitado conta como phone: largura engana, a altura não.
-  const [boardOpen, setBoardOpen] = useState(() => typeof window === 'undefined' || (window.innerWidth >= 640 && window.innerHeight >= 521))
+  // ⚠️ NASCE FECHADO EM TODA TELA (fundador, 28/08). No desktop ele abria
+  // sozinho e seis linhas de número tapavam a praça antes de alguém pedir por
+  // elas. A pílula fechada já diz o essencial (quantas transações de DOG estão
+  // sem confirmar); o resto é um clique.
+  const [boardOpen, setBoardOpen] = useState(false)
   // ?plate=1: só a cena, sem HUD (para fotografar as chapas da landing)
   const [plate] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('plate') === '1')
 
@@ -1666,10 +1670,10 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           picked: tx,
           followNote:
             tx.status === 'confirmed'
-              ? `Landed in block ${fmtInt.format(tx.block_height ?? 0)}.`
+              ? `Confirmed in block ${fmtInt.format(tx.block_height ?? 0)}.`
               : tx.status === 'dropped'
                 ? 'It left the mempool without a block (replaced or evicted).'
-                : 'In orbit.',
+                : 'Still unconfirmed in the mempool.',
         }))
       },
       home() { flyTo(homeFor(camera.aspect)) },
@@ -2281,50 +2285,77 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             de dado que ninguém lê em cima de regolito, e quem abriu escolheu
             trocar cena por informação. */}
         <div className={boardOpen ? 'w-full border border-white/10 bg-black/85' : 'w-full'}>
+          {/* Fechado: uma pílula de uma linha, que diz O QUE É e o número que
+              importa. Aberto: a mesma linha vira cabeçalho do painel. */}
           <button
             type="button"
             onClick={() => setBoardOpen((v) => !v)}
+            aria-expanded={boardOpen}
             style={boardOpen ? undefined : VISOR}
-            className={`flex w-full flex-col items-end gap-0.5 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-white/75 ${boardOpen ? 'px-3 py-2' : ''}`}
+            className={`flex w-full items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] transition-colors ${
+              boardOpen
+                ? 'px-3 py-2 text-white/75'
+                : 'justify-end border border-white/10 bg-black/55 px-2.5 py-1.5 text-white/70 backdrop-blur-sm hover:border-white/25 hover:text-white'
+            }`}
           >
-            <span className="flex items-center gap-1.5">
-              <span className={`inline-block size-1.5 rounded-full ${live ? 'bg-[#10B981]' : 'bg-[#F59E0B]'}`} />
-              <span className="text-white/60">{live ? 'live' : hud.stale != null ? `${hud.stale}s ago` : 'connecting'}</span>
-              <span className="text-white/40">{boardOpen ? '−' : '+'}</span>
+            <span
+              className={`inline-block size-1.5 shrink-0 rounded-full ${live ? 'bg-[#10B981]' : 'bg-[#F59E0B]'}`}
+              title={live ? 'live from our node' : hud.stale != null ? `${hud.stale}s since the last update` : 'connecting'}
+            />
+            <span className="truncate">
+              DOG mempool
+              {typeof window !== 'undefined' && window.location.search.includes('demo=1') ? ' · demo' : ''}
             </span>
-            <span className="truncate text-white/70">
-              {boardOpen
-                ? `Mission board${typeof window !== 'undefined' && window.location.search.includes('demo=1') ? ' · demo' : ''}`
-                : `${hud.orbit} in orbit · ${fmtDog(s?.dog_pending_amount ?? 0)} DOG`}
-            </span>
+            {!boardOpen && (
+              <span className="shrink-0 text-white/45">
+                {fmtInt.format(s?.dog_pending ?? 0)} tx · {fmtDog(s?.dog_pending_amount ?? 0)} DOG
+              </span>
+            )}
+            <span className="shrink-0 text-white/35">{boardOpen ? '−' : '+'}</span>
           </button>
           {boardOpen && (
             <dl className="grid gap-2 border-t border-white/10 px-3 py-3 font-mono text-[11px]">
-              <Row k="In orbit" v={`${hud.orbit} ship${hud.orbit === 1 ? '' : 's'} · ${fmtDog(s?.dog_pending_amount ?? 0)} DOG`} strong />
+              {/* ⚠️ O DADO É DITO NO NOME DO MERCADO, e a ficção fica na cena.
+                  Antes as linhas liam "In orbit", "Next landing", "Fuel" e "On
+                  the apron": quem chegava não tinha como saber que estava
+                  olhando a mempool do DOG. O foguete continua sendo foguete no
+                  céu; aqui embaixo é transação, bloco, taxa e confirmação
+                  (fundador, 28/08). */}
+              <p className="-mt-1 mb-1 text-[10px] leading-relaxed text-white/40">
+                Live from our node. Each ship in the sky is one DOG transaction.
+              </p>
               <Row
-                k="Next landing"
+                k="Unconfirmed DOG txs"
+                v={`${fmtInt.format(s?.dog_pending ?? 0)} tx${(s?.dog_pending ?? 0) === 1 ? '' : 's'} · ${fmtDog(s?.dog_pending_amount ?? 0)} DOG`}
+                strong
+              />
+              <Row
+                k="Next block"
                 v={
                   <>
-                    any minute <span className="text-white/45">· ~10 min cadence</span>
+                    any minute <span className="text-white/45">· ~10 min average</span>
                     <br />
                     <span className="text-white/60">
-                      last block {s?.tip_height ? fmtInt.format(s.tip_height) : '…'}
+                      chain tip {s?.tip_height ? fmtInt.format(s.tip_height) : '…'}
                       {tipAge != null ? `, ${tipAge} min ago` : ''}
                     </span>
                   </>
                 }
               />
               <Row
-                k="Last DOG landing"
+                k="Last DOG confirmed"
                 v={
                   s?.last_dog_block
-                    ? `block ${fmtInt.format(s.last_dog_block)} · ${s.last_dog_block_count} ship${s.last_dog_block_count === 1 ? '' : 's'}${lastDogAge != null ? ` · ${lastDogAge} min ago` : ''}`
+                    ? `block ${fmtInt.format(s.last_dog_block)} · ${s.last_dog_block_count} tx${s.last_dog_block_count === 1 ? '' : 's'}${lastDogAge != null ? ` · ${lastDogAge} min ago` : ''}`
                     : 'waiting for the first block'
                 }
               />
-              <Row k="Fuel, sat/vB" v={s ? `${s.fee_fast ?? '…'} fast · ${s.fee_normal ?? '…'} · ${s.fee_slow ?? '…'} slow` : '…'} />
-              <Row k="Whole mempool" v={s ? `${fmtInt.format(s.tx_count)} txs waiting` : '…'} />
-              <Row k="On the apron" v={`${hud.parked} landed`} />
+              <Row
+                k="Fee rate, sat/vB"
+                v={s ? `${s.fee_fast ?? '…'} high · ${s.fee_normal ?? '…'} medium · ${s.fee_slow ?? '…'} low` : '…'}
+              />
+              <Row k="Bitcoin mempool" v={s ? `${fmtInt.format(s.tx_count)} txs pending` : '…'} />
+              <Row k="Confirmed, last 10 min" v={`${hud.parked} tx${hud.parked === 1 ? '' : 's'}`} />
             </dl>
           )}
         </div>
@@ -2412,7 +2443,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-[10px] uppercase tracking-[0.25em] text-white/50">
-                  {hud.picked.status === 'pending' ? 'In orbit' : hud.picked.status === 'confirmed' ? 'Landed' : 'Left orbit'}
+                  {hud.picked.status === 'pending'
+                    ? 'Unconfirmed'
+                    : hud.picked.status === 'confirmed'
+                      ? 'Confirmed'
+                      : 'Dropped from mempool'}
                 </p>
                 {/* ⚠️ O NÚMERO GRANDE É O QUE MUDOU DE MÃO. Antes aqui aparecia
                     `dog_in`, o UTXO inteiro gasto, e uma doação de 10 mil saída

@@ -53,6 +53,7 @@ export function PageHeader({
   title,
   sub,
   icon: Icone,
+  asset,
   meta,
   acoes,
   className = "",
@@ -61,6 +62,14 @@ export function PageHeader({
   title: ReactNode
   sub?: ReactNode
   icon?: ElementType
+  /**
+   * Peça própria no lugar do ícone: a pedra giratória da /airdrop, o Runestone
+   * da /runestone. Quando existe, ela vai à ESQUERDA do bloco inteiro, não
+   * dentro da linha da sobrancelha — uma peça de 64 px ali empurraria a
+   * sobrancelha para fora da tela. Prefira `icon` sempre que a página não tiver
+   * arte própria: duas páginas com peças diferentes já é variedade suficiente.
+   */
+  asset?: ReactNode
   meta?: MetaDado[]
   /** Botões ou links que pertencem à página, não ao conteúdo. */
   acoes?: ReactNode
@@ -69,7 +78,9 @@ export function PageHeader({
   return (
     <header className={`relative ${className}`}>
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
-        <div className="min-w-0">
+        <div className="flex items-start gap-4 md:gap-5 min-w-0">
+          {asset && <div className="shrink-0">{asset}</div>}
+          <div className="min-w-0">
 
           {/* ── a sobrancelha, com o ícone dentro dela ────────────────────
               O ícone vive NA LINHA da sobrancelha, não à esquerda do bloco
@@ -78,7 +89,7 @@ export function PageHeader({
               uma coluna estreita — que é onde a quebra feia nasce. Aqui ele
               custa uma linha de 26 px e devolve a largura inteira para o texto. */}
           <div className="flex items-center gap-2.5">
-            {Icone && (
+            {Icone && !asset && (
               <span
                 aria-hidden
                 className="grid place-items-center shrink-0 w-7 h-7 border border-lava/25 bg-lava/[0.06]"
@@ -107,6 +118,7 @@ export function PageHeader({
               {sub}
             </p>
           )}
+          </div>
         </div>
 
         {acoes && <div className="shrink-0 flex items-center gap-2">{acoes}</div>}

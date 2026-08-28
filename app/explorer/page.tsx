@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
+import { PageHeader } from '@/components/ui/page-header'
 import { EntityTag, type Identity } from "@/components/entity-tag"
 import { useRouter } from "next/navigation"
 import { Search, Wallet, Hash, ExternalLink, Users, Database, Layers } from "lucide-react"
@@ -80,20 +81,13 @@ export default function ExplorerPage() {
     <Layout currentPage="explorer" setCurrentPage={() => {}}>
       <div className="pt-4 pb-12 px-3 md:px-6 space-y-8 max-w-4xl mx-auto animate-fade-in">
 
-        {/* Hero */}
-        <div className="text-center space-y-4 hero-glow pt-6">
-          <div className="flex items-center justify-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-lava/[0.07] border border-lava/[0.12] flex items-center justify-center">
-              <Search className="w-6 h-6 text-lava" />
-            </div>
-            <h1 className="text-3xl md:text-4xl font-bold font-display gradient-text-hero tracking-tight">
-              DOG Explorer
-            </h1>
-          </div>
-          <p className="text-dusty font-mono text-sm md:text-base">
-            Search any $DOG holder address or transaction on Bitcoin L1
-          </p>
-        </div>
+        <PageHeader
+          eyebrow="Address & transaction lookup"
+          title="DOG Explorer"
+          sub="Paste any Bitcoin address or transaction id to see its DOG balance, history and place in the distribution."
+          icon={Search}
+          className="pt-6"
+        />
 
         {/* Search Bar */}
         <Card variant="glass" className="border-lava/[0.08]">

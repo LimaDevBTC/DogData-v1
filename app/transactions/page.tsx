@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback, Fragment } from "react"
+import { PageHeader } from '@/components/ui/page-header'
 import { netTransfer, orderReceivers } from "@/lib/dog/net-transfer"
 import { useSearchParams } from "next/navigation"
 import Image from "next/image"
@@ -1499,24 +1500,24 @@ export default function TransactionsPage() {
           </div>
         )}
 
-      {/* Header */}
-        <div className="text-center space-y-2 md:space-y-4 px-4">
-          <div className="hero-glow">
-            <div className="flex items-center justify-center gap-2 md:gap-4">
-              <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-lava/[0.07] border border-lava/[0.1] flex items-center justify-center">
-                <Activity className="w-5 h-5 md:w-6 md:h-6 text-lava" />
-              </div>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold gradient-text-hero whitespace-nowrap">
-                DOG Transactions
-              </h1>
-            </div>
-          </div>
-          <p className="text-dusty font-mono text-sm md:text-lg">
-            Real-time transaction tracking across all chains
-          </p>
+      {/* ── O CABEÇALHO ──────────────────────────────────────────────────
+          O `whitespace-nowrap` do título antigo era um remendo: ele impedia a
+          quebra de "DOG Transactions" mas ao custo de estourar a caixa em tela
+          estreita. O título agora quebra sozinho quando precisa, porque a
+          escala é responsiva de verdade em vez de travada.
+
+          As abas de rede saíram de dentro do bloco centralizado e passaram a
+          ser uma barra própria, alinhada à esquerda como todo o resto. */}
+        <div className="px-4 md:px-0">
+          <PageHeader
+            eyebrow="Transaction feed · live"
+            title="DOG Transactions"
+            sub="Every DOG movement as it lands, across Bitcoin, Solana and Stacks, straight from our node."
+            icon={Activity}
+          />
 
           {/* Chain Tabs */}
-          <div className="flex items-center justify-center gap-1 mt-3">
+          <div className="flex items-center gap-1 mt-6">
             {([
               { key: 'bitcoin' as ChainTab, label: 'Bitcoin', logo: CHAIN_EXPLORERS.bitcoin.logo },
               { key: 'solana' as ChainTab, label: 'Solana', logo: CHAIN_EXPLORERS.solana.logo },

@@ -214,28 +214,28 @@ export default function HeroLive() {
   // espécies de número, três espécies de objeto.
   const medidores = {
     "01": {
-      rotulo: "IN ORBIT NOW",
+      rotulo: "UNCONFIRMED DOG NOW",
       lg: !s ? (
         <span className="text-mist">Reading the node.</span>
       ) : s.dog_pending === 0 ? (
-        <span className="text-mist">Clear sky. Waiting for the next DOG transaction.</span>
+        <span className="text-mist">No DOG transaction waiting in the mempool.</span>
       ) : (
         <>
-          <span className="text-lava">{s.dog_pending}</span> {s.dog_pending === 1 ? "ship" : "ships"} ·{" "}
+          <span className="text-lava">{s.dog_pending}</span> {s.dog_pending === 1 ? "tx" : "txs"} ·{" "}
           <span className="text-lava">{formatDog(s.dog_pending_amount)}</span> DOG
         </>
       ),
       sm: !s ? (
         "Reading the node."
       ) : s.dog_pending === 0 ? (
-        "Clear sky, no DOG in orbit"
+        "No DOG waiting in the mempool"
       ) : (
         <>
-          <span className="text-lava">{s.dog_pending}</span> {s.dog_pending === 1 ? "ship" : "ships"} ·{" "}
+          <span className="text-lava">{s.dog_pending}</span> {s.dog_pending === 1 ? "tx" : "txs"} ·{" "}
           <span className="text-lava">{formatDog(s.dog_pending_amount)}</span> DOG
         </>
       ),
-      aria: s && s.dog_pending > 0 ? `${s.dog_pending} DOG transactions in orbit now` : "the DOG mempool, live",
+      aria: s && s.dog_pending > 0 ? `${s.dog_pending} unconfirmed DOG transactions right now` : "the DOG mempool, live",
     },
     "02": {
       rotulo: "THE FRONT LINE",
