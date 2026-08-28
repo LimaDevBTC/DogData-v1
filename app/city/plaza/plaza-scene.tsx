@@ -2074,6 +2074,14 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // do cartão de preço, e o cartão inteiro foi retirado; aqui ela sobe
         // para a calha da direita, acima da leitura de preço, com três linhas.
         // No desktop de verdade ela desce para o meio da tela com seis.
+        // ⚠️ NO DESKTOP ELA TAMBÉM MORA EMBAIXO, e isso não é gosto: ela estava
+        // em `top-20`, que é exatamente onde o Mission Board se abre sozinho em
+        // tela grande (24 a 271 px). Medido, o retângulo da fita (1244‑1416,
+        // 80‑221) cabia INTEIRO dentro da placa. Ou seja, a fita nunca foi
+        // vista no desktop, o mesmo defeito que o fundador pegou no celular.
+        // Como o rodapé é centralizado (561‑879), o vão da direita está livre
+        // até embaixo, e a fita passa a ter no computador a mesma relação com o
+        // rodapé que ele aprovou olhando no telefone.
         // ⚠️ TRÊS POSIÇÕES, uma por formato de tela, e a do meio existe porque
         // no telefone deitado (altura de 390) `bottom-8.5rem` joga a fita no
         // meio do campo de batalha: ali ela sobe para o alto, sob a linha da
