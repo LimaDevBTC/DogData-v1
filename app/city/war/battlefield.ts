@@ -94,6 +94,15 @@ export interface HudBatalha {
    *  ser MEDIDO: ate 27/08 o assalto disparava uma vez por carregamento de
    *  pagina e este numero ficava travado em 1. */
   assaltos: number
+  /** quantas vezes cada EVENTO DE MERCADO ja armou uma arma, por motivo.
+   *  E o que o painel de legenda publica: prova, em numero, que o que se ve
+   *  na tela veio da Kraken e nao de um temporizador. */
+  eventos: Record<string, number>
+  /** eventos esperando arma livre agora (fila do barramento) */
+  filaEventos: number
+  /** churn do book contra o normal recente: 1 = ritmo de sempre, 3 = fervendo.
+   *  E o que comanda a fuzilaria de fundo. */
+  churnRelativo: number
   trades24: number
   /** fita: últimos trades reais, mais novo primeiro */
   fita: Array<{ lado: 'buy' | 'sell'; qty: number; preco: number; t: number }>
@@ -1706,9 +1715,16 @@ export function createBattlefield(
   }
   const atualizaEsquadrao = (agora: number, dt: number) => {
     if (estadoEsquadrao.ativo === null) {
+      // ⚠️ CARGA DE ESQUADRÃO = SEQUÊNCIA: três trades seguidos do mesmo lado.
+      // Era o sistema mais fraco em dado de todo o motor (temporizador de 12 a
+      // 20 s, e do mercado só o lado). Três negócios encadeados é a menor
+      // unidade de "um lado está mandando" que o feed produz, e é isso que os
+      // 16 soldados correndo passam a representar.
       if (agora < estadoEsquadrao.prox) return
-      const press = matCostura.uniforms.pressao.value
-      const lado: 'buy' | 'sell' = hash(Math.floor(agora) % 853, 11) < press ? 'buy' : 'sell'
+      const evSeq = consomeEvento('sequencia')
+      if (!evSeq) return
+      contagemEventos['sequencia'] = (contagemEventos['sequencia'] ?? 0) + 1
+      const lado: 'buy' | 'sell' = evSeq.lado
       estadoEsquadrao.ativo = lado
       estadoEsquadrao.fase = 'corre'
       estadoEsquadrao.t0 = agora
@@ -1782,7 +1798,9 @@ export function createBattlefield(
         s.caiu = false
       }
       estadoEsquadrao.ativo = null
-      estadoEsquadrao.prox = agora + 12000 + hash(Math.floor(agora) % 431, estadoEsquadrao.z) * 8000
+      // ⚠️ isto virou INTERVALO MÍNIMO, não cadência: sem o evento de sequência
+      // a carga não acontece por mais que o relógio passe
+      estadoEsquadrao.prox = agora + 6000
     }
   }
 
@@ -1932,6 +1950,19 @@ export function createBattlefield(
   let baseTrades = 0.02
   let baseVolume = 40
   let baseChurn = 0.3
+  // ⚠️ A BASELINE PRECISA NASCER NO VALOR REAL, senão a razão churn/base começa
+  // em 176 e leva meia hora para descer. Isso não incomodava enquanto a
+  // baseline só alimentava a `intensidade` (que satura), mas passou a importar
+  // quando a FUZILARIA DE FUNDO virou função do churn: com a razão saturada, a
+  // batalha metralhava no talo por vários minutos toda vez que alguém abria a
+  // página, que é justamente o teatro que o fundador mandou tirar.
+  // ⚠️ NÃO BASTA SEMEAR NO PRIMEIRO PULSO: `taxaChurn` também nasce em 0,3 e
+  // leva alguns segundos para alcançar o churn de verdade, então semear cedo
+  // grava um valor falso e a razão volta a estourar. A base fica GRUDADA na
+  // taxa durante os primeiros 25 s (razão = 1, batalha no ritmo de sempre) e
+  // só depois começa a derivar sozinha, que é quando a taxa já é confiável.
+  let esperaBase = 25000
+  let baseSemeada = false
   let churnPendente = 0
   let prevBidQty = 0
   let prevAskQty = 0
@@ -1959,6 +1990,15 @@ export function createBattlefield(
     baseTrades += (taxaTrades - baseTrades) * aBase
     baseVolume += (taxaVolume - baseVolume) * aBase
     baseChurn += (taxaChurn - baseChurn) * aBase
+    if (!baseSemeada) {
+      esperaBase -= dt * 1000
+      if (esperaBase <= 0) baseSemeada = true
+      else {
+        baseChurn = taxaChurn
+        baseTrades = Math.max(baseTrades, taxaTrades)
+        baseVolume = Math.max(baseVolume, taxaVolume)
+      }
+    }
     const raz = (r: number, b: number) => (b > 1e-6 ? r / b : 1)
     const rTr = raz(taxaTrades, baseTrades)
     const rVol = raz(taxaVolume, baseVolume)
@@ -1974,6 +2014,59 @@ export function createBattlefield(
     const tauMov = alvo > intensidade ? TAU_SOBE : TAU_DESCE
     intensidade += (alvo - intensidade) * (1 - Math.exp(-dt / tauMov))
   }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // BARRAMENTO DE EVENTOS REAIS
+  //
+  // ⚠️ DOUTRINA, decidida com o fundador em 27/08 e que vale para TODA arma
+  // nova: nenhum sistema dispara por relógio. Um agente auditou as 4.486
+  // linhas deste arquivo e mediu que, num mercado calmo, de cada ~690
+  // disparos por minuto na tela 1 ou 2 vinham de um número da Kraken. 0,2%.
+  // O resto era temporizador com o mercado escolhendo, no máximo, o lado.
+  // A leitura do fundador: "tô achando muito teatro e pouca info de verdade".
+  //
+  // A regra agora: o mercado PRODUZ eventos, as armas CONSOMEM eventos. Se o
+  // DOG está parado, a batalha fica quieta, e ficar quieta é a informação.
+  // O que sobra de relógio é só o intervalo mínimo de cada arma, que não gera
+  // evento nenhum: serve para uma rajada de trades não virar cinquenta
+  // ofensivas empilhadas.
+  //
+  // ⚠️ A ESCARAMUÇA É A EXCEÇÃO, e é honesta: ela sai do CHURN do book, ou
+  // seja das ordens que entram e saem sem virar negócio. Isso acontece muitas
+  // vezes por segundo mesmo num dia parado, é dado real da Kraken, e é o que
+  // dá o rumor de fundo sem inventar nada.
+  // ═══════════════════════════════════════════════════════════════════════
+  type MotivoEvento =
+    | 'trade-medio'   // ≥ 2x a média: rajada dirigida
+    | 'trade-grande'  // ≥ 4x: morteiro pesado
+    | 'sequencia'     // 3 trades seguidos do mesmo lado: carga de esquadrão
+    | 'maré'          // 5 seguidos do mesmo lado: ofensiva coordenada
+    | 'parede'        // nível novo grande no book: par de canhões
+    | 'rompimento'    // preço passou da máxima ou mínima da sessão: bombardeiro
+    | 'spread'        // spread abriu muito: duelo de vanguarda
+  interface EventoMercado { motivo: MotivoEvento; lado: 'buy' | 'sell'; forca: number; at: number }
+  const eventos: EventoMercado[] = []
+  const emiteEvento = (motivo: MotivoEvento, lado: 'buy' | 'sell', forca: number) => {
+    // teto de fila: numa tempestade o que interessa é a mais recente, não a
+    // fila de trinta segundos atrás chegando atrasada na tela
+    if (eventos.length > 24) eventos.shift()
+    eventos.push({ motivo, lado, forca, at: performance.now() })
+  }
+  const consomeEvento = (motivo: MotivoEvento): EventoMercado | null => {
+    for (let i = 0; i < eventos.length; i++) {
+      if (eventos[i].motivo === motivo) return eventos.splice(i, 1)[0]
+    }
+    return null
+  }
+  // memória para reconhecer os eventos que não vêm prontos do feed
+  let ladoSeguido: 'buy' | 'sell' | null = null
+  let contaSeguidos = 0
+  let picoSessao = 0
+  let valeSessao = 0
+  let emaNivelTopo = 0
+  let emaSpread = 0
+  // contagem por motivo: é o que o painel de legenda publica para o curioso
+  const contagemEventos: Record<string, number> = {}
 
   // ── estado do mercado ───────────────────────────────────────────────────
   let book: { bids: BookLevel[]; asks: BookLevel[] } = { bids: [], asks: [] }
@@ -2017,6 +2110,37 @@ export function createBattlefield(
         fita.unshift({ lado: t.side, qty: t.qty, preco: t.price, t: t.at })
         if (fita.length > 8) fita.pop()
         emaQty = emaQty === 0 ? t.qty : emaQty * 0.97 + t.qty * 0.03
+        // ── o trade vira evento, e o tamanho dele escolhe a arma ─────────
+        {
+          const rel = emaQty > 0 ? t.qty / emaQty : 1
+          // ⚠️ MEDIDO ANTES DE CALIBRAR: com os limiares em 4x e 2x, a batalha
+          // ficou 90 segundos com ZERO eventos, porque o DOG faz cerca de 1,2
+          // trades por minuto e quase nenhum passa de duas vezes a média. Uma
+          // batalha honesta e morta não é o pedido: o pedido é que o que se vê
+          // corresponda ao que se negocia. Então TODO trade arma alguma coisa,
+          // e o TAMANHO escolhe qual, que é a leitura que o espectador faz
+          // sozinho depois de ler a legenda: tiro pequeno é negócio pequeno,
+          // casca no ar é negócio grande.
+          if (rel >= 4) emiteEvento('trade-grande', t.side, Math.min(20, rel))
+          else emiteEvento('trade-medio', t.side, Math.min(8, Math.max(1, rel)))
+          // sequência do mesmo lado: 2 é carga de esquadrão, 4 é maré (a
+          // ofensiva do exército inteiro). Um trade contrário zera a conta.
+          if (ladoSeguido === t.side) contaSeguidos++
+          else { ladoSeguido = t.side; contaSeguidos = 1 }
+          if (contaSeguidos === 2) emiteEvento('sequencia', t.side, 1 + Math.min(6, rel))
+          if (contaSeguidos >= 4) {
+            emiteEvento('maré', t.side, 2 + Math.min(8, rel))
+            contaSeguidos = 0
+          }
+          // rompimento: o preço passou do teto ou do piso desta sessão. Não
+          // usa low24/high24 porque aquilo vem do ticker REST a cada 300 s e
+          // chegaria tarde; aqui é o extremo que o próprio feed já viu.
+          if (t.price > 0) {
+            if (picoSessao === 0) { picoSessao = t.price; valeSessao = t.price }
+            else if (t.price > picoSessao * 1.0005) { picoSessao = t.price; emiteEvento('rompimento', 'buy', 6) }
+            else if (t.price < valeSessao * 0.9995) { valeSessao = t.price; emiteEvento('rompimento', 'sell', 6) }
+          }
+        }
         if (t.side === 'buy') {
           ursosCaidos += t.qty
           compra += t.qty
@@ -2381,6 +2505,35 @@ export function createBattlefield(
     // a preços de sonho inflam a muralha (US$48M numa moeda de US$140M de mcap)
     asksUsd = asksDog * mid
     spreadAtual = book.asks[0].price - book.bids[0].price
+    // ── eventos que só o BOOK produz ─────────────────────────────────────
+    // PAREDE: apareceu um nível muito maior que o normal deste book. É a
+    // ordem grande parada esperando, e é o que na batalha vira o par de
+    // canhões daquele lado. Comparado contra a média móvel do maior nível,
+    // então "grande" é grande PARA ESTE mercado, não um número fixo.
+    {
+      const topoBid = book.bids.reduce((m, l) => (l.qty > m ? l.qty : m), 0)
+      const topoAsk = book.asks.reduce((m, l) => (l.qty > m ? l.qty : m), 0)
+      const topo = Math.max(topoBid, topoAsk)
+      if (emaNivelTopo === 0) emaNivelTopo = topo
+      else {
+        if (topo > emaNivelTopo * 1.6) {
+          emiteEvento('parede', topoBid >= topoAsk ? 'buy' : 'sell', Math.min(10, topo / emaNivelTopo))
+        }
+        emaNivelTopo = emaNivelTopo * 0.98 + topo * 0.02
+      }
+      // SPREAD ABERTO: o book afinou, os dois lados recuaram. Na batalha isso
+      // vira duelo de vanguarda, que é justamente o momento em que ninguém
+      // tem massa para atacar e a briga fica individual.
+      if (spreadAtual > 0) {
+        if (emaSpread === 0) emaSpread = spreadAtual
+        else {
+          if (spreadAtual > emaSpread * 1.5) {
+            emiteEvento('spread', hash(Math.floor(spreadAtual * 1e8) % 331, 5) < 0.5 ? 'buy' : 'sell', 2)
+          }
+          emaSpread = emaSpread * 0.99 + spreadAtual * 0.01
+        }
+      }
+    }
     const alcance = Math.max(
       bids.length ? mid - bids[bids.length - 1].price : 0,
       asks.length ? asks[asks.length - 1].price - mid : 0,
@@ -2623,6 +2776,13 @@ export function createBattlefield(
   let ultimoBook = 0
   let ultimoUpdate = 0
   let ultimaEscaramuca = 0
+  // ⚠️ INTERVALO MÍNIMO NÃO É CADÊNCIA: não gera disparo nenhum, só impede que
+  // uma rajada de trades vire uma parede de cascas no mesmo segundo
+  let ultimoMorteiro = 0
+  let ultimoCanhao = 0
+  let ultimoEsquadraoEv = 0
+  let ultimoDueloEv = 0
+  let ultimoBombardeioEv = 0
   let proxArtilharia = 0
   let proxCanhao = 0
   // ⚠️ VIÉS PRO CENTRO: o retrato do celular enquadra um trecho estreito da
@@ -3967,8 +4127,16 @@ export function createBattlefield(
     // fixo. Piso cinematográfico em calmaria, tempestade quando o DOG acorda.
     if (mid > 0) {
       const press = matCostura.uniforms.pressao.value
-      // metralhadora em rajadas: ~2 rajadas/s no piso, ~6/s no pico
-      const rajadaHz = 1.4 + 4.6 * Math.pow(intensidade, 1.4)
+      // ⚠️ A ESCARAMUÇA SAI DO CHURN DO BOOK, não de um piso inventado. Churn
+      // é ordem entrando e saindo sem virar negócio: acontece muitas vezes por
+      // segundo mesmo num dia parado, é dado real da Kraken, e é o único rumor
+      // de fundo que a batalha tem direito de fazer sem trade nenhum.
+      // `taxaChurn / baseChurn` é o churn de agora contra o normal recente:
+      // 1 = book no ritmo de sempre, 3 = book fervendo.
+      const razaoChurn = baseChurn > 1e-6 ? taxaChurn / baseChurn : 1
+      // razão 1 = book no ritmo de sempre (~2,6 rajadas/s), 2 = fervendo (~4,8).
+      // Sem piso alto: book parado é batalha calada, que é a informação.
+      const rajadaHz = 0.4 + 2.2 * Math.min(2.0, razaoChurn)
       if (agora - ultimaEscaramuca > (1000 / rajadaHz) * (0.7 + hash(Math.floor(agora) % 577, 3) * 0.6)) {
         ultimaEscaramuca = agora
         const lado: 'buy' | 'sell' = hash(Math.floor(agora) % 691, 9) < press ? 'buy' : 'sell'
@@ -3983,23 +4151,38 @@ export function createBattlefield(
           rajada(lado, (hash(Math.floor(agora) % 1213, 5) - 0.5) * 100, 0.9 + hash(Math.floor(agora) % 331, 7) * 1.7, agora)
         }
       }
-      // morteiros pesados: sempre tem casca no ar. Cadência 0.8x da antiga:
-      // cada tiro agora é maior, mais lento e cai NA formação, vale mais cena
-      const morteiroPorMin = (16 + 32 * Math.pow(intensidade, 1.6)) * 0.8
-      if (agora > proxArtilharia) {
-        proxArtilharia = agora + (60000 / morteiroPorMin) * (0.55 + hash(Math.floor(agora) % 449, 11) * 0.9)
-        const lado = hash(Math.floor(agora) % 863, 13) < press ? 'buy' : 'sell'
-        disparaMorteiro(lado, 4 + intensidade * 5, zAlvoGuerra(Math.floor(agora) % 1069, 19))
+      // MORTEIRO PESADO = TRADE GRANDE (≥ 4x a média). Era um temporizador de
+      // ~20 tiros por minuto que existia porque "sempre tem casca no ar"; agora
+      // cada casca no ar é uma negociação de verdade acima de quatro vezes a
+      // média, e o tamanho do trade vira a força do impacto.
+      if (agora - ultimoMorteiro > 450) {
+        const ev = consomeEvento('trade-grande')
+        if (ev) {
+          ultimoMorteiro = agora
+          contagemEventos['trade-grande'] = (contagemEventos['trade-grande'] ?? 0) + 1
+          disparaMorteiro(ev.lado, 3 + Math.min(9, ev.forca), zAlvoGuerra(Math.floor(agora) % 1069, 19))
+        }
+      }
+      // RAJADA DIRIGIDA = TRADE MÉDIO (≥ 2x a média): fogo do lado de quem
+      // negociou, para o trade médio ter corpo sem virar morteiro
+      {
+        const ev = consomeEvento('trade-medio')
+        if (ev) {
+          contagemEventos['trade-medio'] = (contagemEventos['trade-medio'] ?? 0) + 1
+          rajada(ev.lado, (hash(Math.floor(agora) % 1213, 5) - 0.5) * 100, 1.2 + ev.forca * 0.35, agora)
+        }
       }
       // canhões de teatro: um PAR de tiros parabólicos simultâneos de tempos em
       // tempos (qty 0: sem placar), pra sempre haver mais de uma arma na cena.
       // ⚠️ cadência subida pra 3.5-6.5s (era 7-11s): o fundador sentia falta
       // deles, arma que ninguém vê não existe
-      if (agora > proxCanhao) {
-        const centroCanhao = 6500 - intensidade * 3500
-        const jitterCanhao = (hash(Math.floor(agora) % 719, 17) - 0.5) * 2000
-        proxCanhao = agora + Math.max(3500, Math.min(6500, centroCanhao + jitterCanhao))
-        const lado: 'buy' | 'sell' = hash(Math.floor(agora) % 523, 29) < press ? 'buy' : 'sell'
+      // PAR DE CANHÕES = PAREDE NO BOOK: apareceu uma ordem parada muito maior
+      // que o normal deste mercado. Era um temporizador de 3,5 a 6,5 s.
+      const evParede = agora - ultimoCanhao > 1800 ? consomeEvento('parede') : null
+      if (evParede) {
+        ultimoCanhao = agora
+        contagemEventos['parede'] = (contagemEventos['parede'] ?? 0) + 1
+        const lado: 'buy' | 'sell' = evParede.lado
         const inimigoCanhao: 'buy' | 'sell' = lado === 'buy' ? 'sell' : 'buy'
         // ⚠️ os dois tiros saem da bateria mais próxima de cada z; se as duas
         // caírem na mesma bateria (alvos vizinhos), o segundo tiro ainda sai
@@ -4023,10 +4206,27 @@ export function createBattlefield(
         const o2 = b2 ? bocaDaBateria(b2).clone() : undefined
         atira(lado, 0, forcaC2, zC2, Math.floor(agora) % 7919, o2, 'canhao', temA2 ? vAlvoTeatro : undefined)
       }
-      // ofensiva coordenada: barragem + avanço do exército inteiro + recuo
-      if (!ofensiva && agora > proxOfensiva) {
-        const lado: 'buy' | 'sell' = hash(Math.floor(agora) % 941, 23) < press ? 'buy' : 'sell'
-        ofensiva = { lado, fase: 'barragem', t0: agora, proxTiro: agora, proxCasca: agora }
+      // BOMBARDEIRO = ROMPIMENTO: o preço passou do teto ou do piso que esta
+      // sessão já viu. É o evento mais raro e mais alto do mercado, e ganha a
+      // arma mais alta do arsenal. Antes ele era um efeito colateral da
+      // ofensiva, que por sua vez era um temporizador.
+      if (agora - ultimoBombardeioEv > 12000) {
+        const ev = consomeEvento('rompimento')
+        if (ev) {
+          ultimoBombardeioEv = agora
+          contagemEventos['rompimento'] = (contagemEventos['rompimento'] ?? 0) + 1
+          dispararBombardeiro(ev.lado, agora)
+        }
+      }
+      // OFENSIVA COORDENADA = MARÉ: cinco trades seguidos do mesmo lado. Era
+      // um temporizador de 9 a 15 s. Agora o exército inteiro só avança quando
+      // um lado de fato encadeou negócios, que é o que "maré" quer dizer.
+      if (!ofensiva) {
+        const ev = consomeEvento('maré')
+        if (ev) {
+          contagemEventos['maré'] = (contagemEventos['maré'] ?? 0) + 1
+          ofensiva = { lado: ev.lado, fase: 'barragem', t0: agora, proxTiro: agora, proxCasca: agora }
+        }
       }
       // tanques: avaliação barata a cada 1.4s
       if (agora > proxAvaliacaoTanque) {
@@ -4330,7 +4530,17 @@ export function createBattlefield(
     for (const d of duelos) {
       const idade = agora - d.t0
       if (d.fase === 'espera') {
-        if (agora >= d.t0) {
+        // ⚠️ DUELO DE VANGUARDA = SPREAD ABERTO. A auditoria mediu os duelos
+        // produzindo 117 dos ~690 eventos por minuto, 17% de tudo que se mexe
+        // na tela, tirando do mercado apenas o bit de quem ganha. Agora eles
+        // acontecem quando o book AFINA, ou seja quando os dois lados recuam e
+        // o spread abre: é exatamente o momento em que ninguém tem massa para
+        // atacar e a briga vira individual. Um evento arma UM duelo.
+        if (agora >= d.t0 && agora - ultimoDueloEv > 900) {
+          const evSpread = consomeEvento('spread')
+          if (!evSpread) continue
+          ultimoDueloEv = agora
+          contagemEventos['spread'] = (contagemEventos['spread'] ?? 0) + 1
           d.z = (hash(Math.floor(agora) % 977, d.t0 % 131) - 0.5) * 108
           d.fase = 'corre'
           d.t0 = agora
@@ -4465,6 +4675,9 @@ export function createBattlefield(
       vwap24, volume24, trades24,
       fita: [...fita],
       assaltos: assaltosTotal,
+      eventos: { ...contagemEventos },
+      filaEventos: eventos.length,
+      churnRelativo: baseChurn > 1e-6 ? taxaChurn / baseChurn : 1,
     }),
     dispose: () => {
       clearInterval(tickerTimer)

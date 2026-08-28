@@ -19,6 +19,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { createBattlefield, type Battlefield } from '../war/battlefield'
+import WarLegend from './war-legend'
 import { loadTerrain } from './terrain'
 import { createOrbitLayer, PAD_MAIN } from './orbit-layer'
 import { startFeed, isDonation, type DogTx, type Snapshot, donationDog } from './feed'
@@ -368,6 +369,15 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
   const warFitaRef = useRef<HTMLDivElement>(null)
   const warFitaLinhas = useRef<Array<HTMLDivElement | null>>([])
   const warFitaMobileRef = useRef<HTMLDivElement>(null)
+  // ── LEGENDA DA BATALHA ────────────────────────────────────────────────
+  // ⚠️ O ESTADO SÓ É ESCRITO COM O PAINEL ABERTO. O HUD da guerra inteiro
+  // atualiza por textContent justamente para não re-renderizar React com a
+  // cena de 2,6M de triângulos rodando; a legenda é a exceção porque tem
+  // dezenas de campos e abre por escolha do usuário. Fechada, custa zero.
+  const [legendaAberta, setLegendaAberta] = useState(false)
+  const legendaAbertaRef = useRef(false)
+  const [legendaDados, setLegendaDados] = useState<Parameters<typeof WarLegend>[0]['dados']>(null)
+  useEffect(() => { legendaAbertaRef.current = legendaAberta }, [legendaAberta])
   // ── O CHAMADO DA OBRA (praca-ajustes.md item 8) ──────────────────────────
   // A praça é a vitrine do que o dinheiro constrói, e até agora ela não pedia
   // nada: quem entrava não tinha como financiar o próximo quarteirão sem sair da
@@ -900,6 +910,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 // o assalto e o maior sistema do motor: se este numero nao sobe,
                 // ele esta dormindo (era o que acontecia ate 27/08)
                 assaltos: campo!.hud().assaltos,
+                eventos: campo!.hud().eventos,
+                fila: campo!.hud().filaEventos,
+                churn: Number(campo!.hud().churnRelativo.toFixed(2)),
                 menorY: Math.round(menorY),
                 enterradas,
               }
@@ -1701,7 +1714,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           // (retrato pede recuo) e a 1,1 km o preço já tinha sumido da tela
           const k = Math.min(1, Math.max(0, (2300 - dWar) / 800))
           warHudRef.current.style.opacity = k.toFixed(2)
-          if (warFitaRef.current) warFitaRef.current.style.opacity = k.toFixed(2)
+          // ⚠️ a fita e a legenda dividem a MESMA calha da direita: com as duas
+          // abertas o painel ficava por cima dos trades e os dois liam sujo
+          if (warFitaRef.current) {
+            warFitaRef.current.style.opacity = legendaAbertaRef.current ? '0' : k.toFixed(2)
+          }
           if (k > 0 && (hudTick & 31) === 1) {
             const h = campo.hud()
             if (warPrecoRef.current) warPrecoRef.current.textContent = h.preco > 0 ? `$${h.preco.toFixed(6)}` : '$-'
@@ -1711,6 +1728,15 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             }
             if (warBaixasRef.current) {
               warBaixasRef.current.textContent = `bought ${fmtQtd(h.ursosCaidos)} · sold ${fmtQtd(h.caesCaidos)} DOG`
+            }
+            if (legendaAbertaRef.current) {
+              setLegendaDados({
+                dogPorSoldado: h.dogPorSoldado, niveisBook: h.niveisBook, niveisEncenados: h.niveisEncenados,
+                bidsDog: h.bidsDog, asksDog: h.asksDog, spread: h.spread,
+                vwap24: h.vwap24, volume24: h.volume24, trades24: h.trades24,
+                low24: h.low24, high24: h.high24, preco: h.preco, status: h.status,
+                churnRelativo: h.churnRelativo, assaltos: h.assaltos, eventos: h.eventos,
+              })
             }
             if (warBidsRef.current) warBidsRef.current.textContent = `BIDS ${fmtQtd(h.bidsDog)}`
             if (warAsksRef.current) warAsksRef.current.textContent = `ASKS ${fmtQtd(h.asksDog)}`
@@ -1926,8 +1952,21 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             <span className="text-white/25">·</span>
             <span ref={warAsksRef} className="text-red-400/85">ASKS 0</span>
           </div>
+          {/* ⚠️ `pointer-events-auto` obrigatório: o invólucro do HUD é
+              `pointer-events-none` para não roubar o arrasto da câmera, então
+              todo controle dentro dele precisa reativar o ponteiro no próprio
+              elemento, senão o clique atravessa e nada acontece. */}
+          <button
+            type="button"
+            onClick={() => setLegendaAberta(true)}
+            className="pointer-events-auto mt-2 border border-white/15 px-2 py-1 font-mono text-[8px] uppercase tracking-[0.2em] text-white/45 hover:border-[#f7931a]/60 hover:text-[#f7931a] sm:text-[9px]"
+          >
+            How to read this
+          </button>
         </div>
       </div>
+      <WarLegend aberto={legendaAberta} onFechar={() => setLegendaAberta(false)} dados={legendaDados} />
+
       {/* ── A FITA DE TRADES REAIS, coluna à direita ────────────────────────
              Cada linha é uma negociação que a Kraken serviu e que virou tiro na
              batalha: é a ponte entre o mercado e a encenação, e sem ela a
