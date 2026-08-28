@@ -162,3 +162,89 @@ O QUE SE REAPROVEITA E O QUE MORRE: reaproveito integralmente o terreno lunar e 
 - O terreno e permanente, o predio nao: saldo zera, o predio some e o lote fica vazio; saldo volta, o predio sobe de novo de graca, porque a licenca e da carteira.
 - Tipologia: Personal e padrao POR BAIRRO, Commercial e padrao por bairro com espaco de marca, Patron e personalizado.
 - Registro E o fundo. 10M e portao de mint, nao teto de arrecadacao. O loteamento existe independente do portao.
+
+---
+
+## Regra nova, 28/08: coleções parceiras compram POSIÇÃO, não entrada
+
+Decisão do fundador, textual: uma carteira que contenha um DOG Social Club, ou
+outra coleção de ordinals que ele escolher, **passa no filtro de idade**. Ela
+ainda precisa dos 20 mil DOG. O corte de entrada não muda; o que muda é onde ela
+constrói.
+
+Isso separa limpo os dois eixos da cidade:
+
+- **20.000 DOG é o portão.** Quem não tem, não lote.
+- **Idade do UTXO é a posição.** Mais antigo, mais perto da praça.
+- **Coleção parceira é um atalho de posição, nunca de entrada.**
+
+### Por que isso é coerente e não um favor
+
+O levantamento mediu que a idade sozinha NÃO consegue alocar o anel da frente:
+**38,88% das carteiras estão empatadas em apenas cinco blocos do dia 24/04/2024**,
+o platô do airdrop. São cerca de 20 mil carteiras disputando um anel que comporta
+6.647 lotes de 300 m². O critério de idade precisava de um segundo eixo de
+qualquer jeito. Coleção parceira é esse segundo eixo, e é um eixo que a casa
+controla e pode negociar.
+
+### O anel da frente, medido
+
+| anel | bruto | líquido (menos 17,4% de via) | lotes de 300 m² |
+|---|---|---|---|
+| r 960 a 1.300 m | 2,414 km² | 1,994 km² | 6.647 |
+| r 1.300 a 1.800 m | 4,869 km² | 4,022 km² | 13.407 |
+
+O loteamento não pode começar antes de r 960: o precinto da praça é permanente
+até r 910 e o platô achatado avança até 1.300 m com rampa.
+
+### O DSC cabe folgado, e já tem endereço
+
+A coleção tem **306 inscrições**, então no máximo 306 carteiras. A 300 m² por
+lote isso é **0,092 km², ou 3,8% do primeiro anel**. Em terra é troco; em posição
+é tudo.
+
+E ela já tem um lugar na cidade: a galeria do Dog Social Club está construída
+dentro da praça, em (596, −232), **raio 640 m, rumo 68,7°**. O condomínio natural
+é radialmente para fora da própria galeria, no mesmo rumo, começando em r 960.
+Medido, o rumo 69° tem **930 m livres** antes do disco do Parque Runestone, e um
+condomínio de 306 lotes ali é uma cunha de cerca de **17°**. Cabe.
+
+Isso dá um eixo urbano legível de graça: o muro da coleção dentro da praça, o
+portão na muralha, o condomínio lá fora. Quem entra na cidade lê a parceria sem
+ninguém explicar.
+
+### Reserva estratégica da casa
+
+O projeto precisa de estoque próprio de terreno premium para negociar. O anel da
+frente é o único bem genuinamente escasso da cidade, porque terra não é
+(lib/city/lunar/sites.ts:73 é um número só, e o tile da NASA de onde ele sai
+comporta 18.854 tabuleiros como o nosso).
+
+Proposta: reservar as **cunhas de portão**, onde as avenidas principais deixam a
+muralha. São os endereços mais visíveis do primeiro anel. O DSC fica com a de 69°.
+
+⚠️ Rumos NÃO disponíveis para reserva, por medição: 23° tem só 800 m livres e
+45° tem 650 m, os dois espremidos pelo Parque Runestone, cujo disco real é de
+3.600 m e come 6,31 km² do sítio (e não os 3,87 km² que este documento afirma em
+outro trecho). Livres de verdade, com 2.540 m: 90°, 135°, 180°, 225°, 270°, 315°.
+O 0° tem 2.230 m.
+
+### O que trava
+
+1. **Não sabemos quem detém cada DSC hoje.** Temos a coleção inteira enumerada
+   (`public/city/dsc-atlas.json`, 306 ids, pai `8a18494d…i0`), o que é a parte
+   difícil. Falta resolver o dono atual de cada inscrição. O método já foi usado
+   no Runestone: enumerar offline e resolver o endereço por `gettxout`. São 306
+   consultas.
+2. **Quantas dessas 306 também têm 20 mil DOG?** Sem isso não dá para dimensionar
+   o condomínio. É um cruzamento, não uma pesquisa.
+3. **Quantas coleções parceiras no total?** O tamanho da reserva sai daí.
+
+### Contradições deste documento que precisam ser resolvidas
+
+O levantamento de 28/08 achou que este arquivo contradiz decisões já tomadas:
+a Fase 2 inteira foi escrita para bairro por LINHAGEM genealógica, e as linhas
+26 e 147 REPROVAM a idade como critério, que é exatamente a regra travada pelo
+fundador. A linha 150 carrega uma armadilha invertida. Enquanto isso não for
+reconciliado, quem ler este plano para executar a Fase 2 vai construir a cidade
+errada.
