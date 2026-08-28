@@ -2538,14 +2538,22 @@ export function createBattlefield(
         // ⚠️ INCLINAÇÃO DO BOOK: o combustível que nunca acaba. Numa madrugada
         // sem um trade sequer (medido: quatro minutos secos em produção), as
         // ordens continuam entrando e saindo e a proporção entre os dois lados
-        // se mexe o tempo todo. Dois pontos percentuais de mudança em três
-        // segundos viram um duelo de vanguarda, que é a animação pequena que o
-        // fundador pediu para o mercado parado. Continua sendo dado, e NÃO se
-        // passa por negócio: como toda arma de book, dispara com qty 0 e não
-        // entra em placar, letreiro de dano nem fita.
+        // se mexe o tempo todo. Uma mudança nessa proporção vira duelo de
+        // vanguarda, a animação pequena para o mercado parado. Continua sendo
+        // dado, e NÃO se passa por negócio: como toda arma de book, dispara com
+        // qty 0 e não entra em placar, letreiro de dano nem fita.
+        //
+        // ⚠️ O LIMIAR FOI MEDIDO, DEPOIS DE TRÊS CHUTES ERRADOS. Amostrando o
+        // book real por 60 s, a proporção bids/(bids+asks) ficou entre 0,23198
+        // e 0,23314: a amplitude INTEIRA é 0,116 ponto percentual, e a variação
+        // típica de três em três segundos é cerca de 0,01 pp. O primeiro
+        // palpite foi 2 pp, dezessete vezes maior que a faixa toda, e por isso
+        // não disparava nunca. 0,015 pp é pouco acima do passo normal, o que dá
+        // alguns duelos por minuto. Em DOG isso são ~160 mil trocando de lado
+        // num book de 1,09 bilhão: ordem de verdade, não ruído de última casa.
         const totalBook = bidsDog + asksDog
         const inclina = totalBook > 0 ? bidsDog / totalBook : 0.5
-        if (amostraInclina > 0 && Math.abs(inclina - amostraInclina) > 0.02) {
+        if (amostraInclina > 0 && Math.abs(inclina - amostraInclina) > 0.00015) {
           emiteEvento('inclinacao', inclina > amostraInclina ? 'buy' : 'sell', 1.5)
         }
         amostraInclina = inclina

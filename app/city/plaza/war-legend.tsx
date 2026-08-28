@@ -132,7 +132,7 @@ const MAPA: Array<{ arma: string; cor?: string; leitura: string }> = [
   },
   {
     arma: 'Vanguard duel',
-    leitura: 'The spread widened and both sides pulled back from the touch.',
+    leitura: 'The spread widened, or the book tilted: one side of the depth grew against the other. This is the one that keeps running when nobody is trading at all.',
   },
   {
     arma: 'Bomber',
@@ -148,7 +148,7 @@ const MAPA: Array<{ arma: string; cor?: string; leitura: string }> = [
   },
 ]
 
-// as 7 chaves que o motor conta, na ordem em que fazem sentido para quem lê
+// as chaves que o motor conta, na ordem em que fazem sentido para quem lê
 const MOTIVOS: Array<{ chave: string; nome: string; arma: string }> = [
   { chave: 'trade-medio', nome: 'Ordinary trade', arma: 'aimed burst' },
   { chave: 'trade-grande', nome: 'Large trade', arma: 'mortar, MLRS, whale salvo' },
@@ -157,6 +157,9 @@ const MOTIVOS: Array<{ chave: string; nome: string; arma: string }> = [
   { chave: 'parede', nome: 'Book wall', arma: 'cannon pair' },
   { chave: 'rompimento', nome: 'Session break', arma: 'bomber' },
   { chave: 'spread', nome: 'Spread widened', arma: 'vanguard duel' },
+  // ⚠️ o único evento que não precisa de negócio nenhum: mede a proporção
+  // entre os dois lados do book mudando, e é o que dá vida a um mercado parado
+  { chave: 'inclinacao', nome: 'Book tilted', arma: 'vanguard duel' },
 ]
 
 // ── peças ──────────────────────────────────────────────────────────────────
