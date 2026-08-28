@@ -32,6 +32,22 @@ export function isImageType(contentType: string | null | undefined): boolean {
   return !!contentType && IMAGE_TYPES.test(contentType.split(';')[0].trim())
 }
 
+/**
+ * SVG é código disfarçado de imagem: dentro de um `<img>` nunca executa nada,
+ * mas aberto direto na barra de endereços vira um documento no nosso domínio.
+ * Esta é a regra que recusa esse segundo caso. `Sec-Fetch-Dest` é escrito pelo
+ * navegador, não pela página, então uma aba não consegue forjá-lo; quando ele
+ * não vem (cliente antigo, curl), o pedido não é uma navegação de navegador e
+ * o CSP com sandbox da resposta continua sendo a tranca.
+ */
+export function refuseSvgNavigation(
+  contentType: string | null | undefined,
+  secFetchDest: string | null | undefined,
+): boolean {
+  if (!contentType || !/svg/i.test(contentType)) return false
+  return !!secFetchDest && secFetchDest !== 'image'
+}
+
 /** Formato do id: <txid 64 hex>i<índice>. Validado antes de virar URL. */
 export const INSCRIPTION_ID = /^[0-9a-f]{64}i\d{1,5}$/i
 

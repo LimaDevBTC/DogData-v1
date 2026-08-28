@@ -17,6 +17,37 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+
+  // Cabeçalhos de segurança em todas as respostas. Nenhum deles muda o que a
+  // página faz; eles fecham portas que estavam abertas por omissão:
+  //   nosniff        impede que um conteúdo servido como imagem seja tratado
+  //                  como HTML pelo navegador (a rota de conteúdo de inscrição
+  //                  serve bytes de terceiro, então isto importa aqui)
+  //   SAMEORIGIN     ninguém pode embutir o site num iframe e sobrepor um
+  //                  botão falso de doação em cima do nosso (clickjacking)
+  //   Referrer       endereço de carteira na URL não vaza para terceiros
+  //   Permissions    câmera, microfone, localização e a API de pagamento ficam
+  //                  desligadas para qualquer script da página
+  // ⚠️ FALTA a Content-Security-Policy, que é a tranca de verdade contra
+  // script injetado trocar o endereço de destino. Ela não entra de graça: os
+  // widgets do TradingView e o Scalar do /docs injetam script na nossa página,
+  // e o Next usa script inline na hidratação. Ver o relatório de segurança.
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+          },
+        ],
+      },
+    ]
+  },
   experimental: {
     outputFileTracingIncludes: {
       '/api/address/bitcoin/[address]': [

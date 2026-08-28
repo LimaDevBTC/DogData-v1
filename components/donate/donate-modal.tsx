@@ -11,7 +11,7 @@ import {
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import {
-  ArrowUpRight, Check, Copy, ExternalLink, Loader2, Wallet, X,
+  ArrowUpRight, Check, Copy, ExternalLink, Loader2, ShieldAlert, ShieldCheck, Wallet, X,
 } from 'lucide-react'
 import { useWallet } from '@/contexts/WalletContext'
 import {
@@ -36,6 +36,15 @@ export function useDonate(): DonateContextValue {
 }
 
 type Asset = 'dog' | 'btc'
+
+/** O que o servidor viu na rede sobre a transação que a carteira transmitiu. */
+interface Verdict {
+  found: boolean
+  paysFund: boolean
+  fundAddress: string
+  valueToFund: number
+  confirmed: boolean
+}
 
 const LADDER = [
   { amount: 10_000, name: 'Personal', note: 'mint your building' },
@@ -126,6 +135,7 @@ function DonateModal({
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [showManual, setShowManual] = useState(false)
+  const [verdict, setVerdict] = useState<Verdict | null>(null)
 
   const address = asset === 'dog' ? DONATION_WALLET : BTC_METHOD?.address ?? DONATION_WALLET
 
@@ -135,6 +145,7 @@ function DonateModal({
     if (!isOpen) return
     setAmount(preset ? String(preset) : '')
     setTxid(null)
+    setVerdict(null)
     setError(null)
     setSending(false)
     setShowManual(false)
@@ -148,6 +159,40 @@ function DonateModal({
     readDogBalance(walletId).then((b) => { if (alive) setBalance(b) })
     return () => { alive = false }
   }, [isOpen, asset, support, walletId])
+
+  // ⚠️ A PÁGINA NÃO É A AUTORIDADE SOBRE O DESTINO. Quem monta o pedido é este
+  // navegador, e navegador é território do visitante: extensão hostil, devtools
+  // ou um script de terceiro comprometido podem trocar o endereço antes da
+  // carteira ver. Por isso, depois do broadcast, quem diz para onde o dinheiro
+  // foi é o servidor, lendo a transação na rede e comparando com a constante
+  // que vive no código do servidor. Se não bater, a tela grita.
+  useEffect(() => {
+    if (!txid) return
+    let alive = true
+    let attempt = 0
+    const check = () => {
+      fetch(`/api/donate/verify?txid=${txid}`)
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+        .then((v: Verdict) => {
+          if (!alive) return
+          setVerdict(v)
+          // A transação leva alguns segundos para aparecer na rede; três
+          // tentativas cobrem isso sem virar polling eterno.
+          if (!v.found && attempt < 3) {
+            attempt += 1
+            setTimeout(check, 4000)
+          }
+        })
+        .catch(() => {
+          if (alive && attempt < 3) {
+            attempt += 1
+            setTimeout(check, 4000)
+          }
+        })
+    }
+    check()
+    return () => { alive = false }
+  }, [txid])
 
   useEffect(() => {
     if (!isOpen) return
@@ -224,6 +269,41 @@ function DonateModal({
               <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-dusty">transaction</p>
               <p className="font-mono text-[11px] text-snow break-all mt-1">{txid}</p>
             </div>
+            {/* Onde o dinheiro foi de verdade, dito pelo servidor. */}
+            {verdict === null ? (
+              <p className="inline-flex items-center gap-2 font-mono text-[11px] text-dusty">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Checking on the network where this transaction actually went…
+              </p>
+            ) : !verdict.found ? (
+              <p className="font-mono text-[11px] text-dusty leading-relaxed">
+                Not visible on the network yet. That is normal in the first seconds; the
+                destination check below runs again on your next visit to this screen.
+              </p>
+            ) : verdict.paysFund ? (
+              <div className="border border-[#10B981]/40 bg-[#10B981]/[0.06] px-3 py-2.5">
+                <p className="inline-flex items-center gap-2 font-mono text-[11px] text-[#10B981]">
+                  <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                  Destination verified by our server, not by this page.
+                </p>
+                <p className="font-mono text-[10px] text-mist break-all mt-1.5">
+                  {verdict.fundAddress}
+                </p>
+              </div>
+            ) : (
+              <div className="border border-[#EF4444]/60 bg-[#EF4444]/[0.08] px-3 py-3">
+                <p className="inline-flex items-center gap-2 font-mono text-[11px] text-[#EF4444] font-bold">
+                  <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
+                  This transaction does NOT pay the construction fund.
+                </p>
+                <p className="text-[11px] text-mist leading-relaxed mt-2">
+                  The fund address is {verdict.fundAddress}, and this transaction pays somewhere
+                  else. Something on this device changed the destination: a browser extension, or
+                  a tampered page. Do not send again from here, and tell us on X @dogdatabtc.
+                </p>
+              </div>
+            )}
+
             <p className="text-[12px] text-mist leading-relaxed">
               The Founders Register reads confirmed blocks, so your plaque appears once the
               transaction confirms and our scanner sees it. Nothing else is needed from you.
@@ -372,6 +452,28 @@ function DonateModal({
               )}
             </div>
 
+            {/* O destino fica na cara, não escondido atrás de um "mostrar
+                endereço": é o único número que a pessoa pode conferir contra o
+                popup da carteira antes de aprovar. */}
+            <div className="border border-white/10 bg-white/[0.02] px-3 py-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-dusty">
+                  going to
+                </p>
+                <button
+                  onClick={copyAddress}
+                  className="inline-flex items-center gap-1 font-mono text-[10px] text-dusty hover:text-snow transition-colors"
+                >
+                  {copied ? <Check className="w-3 h-3 text-[#10B981]" /> : <Copy className="w-3 h-3" />}
+                  {copied ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+              <p className="font-mono text-[11px] text-snow break-all mt-1">{address}</p>
+              <p className="font-mono text-[10px] text-dusty mt-1.5 leading-relaxed">
+                Your wallet must show this same address. If it shows another one, reject it.
+              </p>
+            </div>
+
             {error && <p className="font-mono text-[11px] text-[#EF4444]">{error}</p>}
 
             {/* disparo */}
@@ -408,37 +510,26 @@ function DonateModal({
                   onClick={() => setShowManual((v) => !v)}
                   className="font-mono text-[10px] uppercase tracking-[0.18em] text-dusty hover:text-snow transition-colors"
                 >
-                  {showManual ? 'Hide the address' : 'Send from your wallet instead'}
+                  {showManual ? 'Hide the QR code' : 'Show the QR code'}
                 </button>
               )}
 
               {(showManual || support !== 'rpc') && (
-                <div className="mt-3 space-y-3">
-                  <div className="border border-white/10 bg-white/[0.02] px-3 py-2.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-dusty">
-                        {asset === 'dog' ? 'DOG address' : 'BTC address'}
-                      </p>
-                      <button
-                        onClick={copyAddress}
-                        className="inline-flex items-center gap-1 font-mono text-[10px] text-dusty hover:text-snow transition-colors"
-                      >
-                        {copied ? <Check className="w-3 h-3 text-[#10B981]" /> : <Copy className="w-3 h-3" />}
-                        {copied ? 'Copied' : 'Copy'}
-                      </button>
-                    </div>
-                    <p className="font-mono text-[11px] text-snow break-all mt-1">{address}</p>
-                  </div>
+                // O endereço já está inteiro no bloco "going to" acima, com o
+                // botão de copiar. Aqui embaixo fica só o que ele não resolve:
+                // o código para a câmera de quem vai mandar do celular.
+                <div className="mt-3 flex flex-col items-center gap-2">
                   {(asset === 'dog' ? DOG_METHOD?.qr : BTC_METHOD?.qr) && (
-                    <div className="flex justify-center">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={(asset === 'dog' ? DOG_METHOD?.qr : BTC_METHOD?.qr) as string}
-                        alt="Donation QR code"
-                        className="w-32 h-32 border border-white/10"
-                      />
-                    </div>
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={(asset === 'dog' ? DOG_METHOD?.qr : BTC_METHOD?.qr) as string}
+                      alt={`QR code for the ${asset === 'dog' ? 'DOG' : 'Bitcoin'} donation address`}
+                      className="w-32 h-32 border border-white/10"
+                    />
                   )}
+                  <p className="font-mono text-[10px] text-dusty text-center">
+                    Scan from your wallet. Confirm the address matches the one above.
+                  </p>
                 </div>
               )}
             </div>

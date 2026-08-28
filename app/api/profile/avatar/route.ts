@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { getWalletSession } from '@/lib/identity/session'
+import { tooFast } from '@/lib/identity/throttle'
 import {
   INSCRIPTION_ID, inscriptionMeta, inscriptionOwner, isImageType,
 } from '@/lib/ordinals/inscriptions'
@@ -23,6 +24,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Ownership not verified.' }, { status: 401 })
   }
   const address = session.address.toLowerCase()
+
+  if (await tooFast(`avatar:${address}`, 2)) {
+    return NextResponse.json({ error: 'Slow down, try again in a moment.' }, { status: 429 })
+  }
 
   let body: { inscription_id?: string | null }
   try {

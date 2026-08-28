@@ -2044,6 +2044,7 @@ export function createBattlefield(
     | 'parede'        // nível novo grande no book: par de canhões
     | 'rompimento'    // preço passou da máxima ou mínima da sessão: bombardeiro
     | 'spread'        // spread abriu muito: duelo de vanguarda
+    | 'inclinacao'    // o book pendeu para um lado: duelo pequeno
   interface EventoMercado { motivo: MotivoEvento; lado: 'buy' | 'sell'; forca: number; at: number }
   const eventos: EventoMercado[] = []
   const emiteEvento = (motivo: MotivoEvento, lado: 'buy' | 'sell', forca: number) => {
@@ -2065,6 +2066,11 @@ export function createBattlefield(
   let valeSessao = 0
   let emaNivelTopo = 0
   let emaSpread = 0
+  // amostra do book de 3 s atrás: é contra ela que parede e spread viram evento
+  let tAmostraBook = 0
+  let amostraTopo = 0
+  let amostraSpread = 0
+  let amostraInclina = 0
   // contagem por motivo: é o que o painel de legenda publica para o curioso
   const contagemEventos: Record<string, number> = {}
 
@@ -2137,8 +2143,8 @@ export function createBattlefield(
           // chegaria tarde; aqui é o extremo que o próprio feed já viu.
           if (t.price > 0) {
             if (picoSessao === 0) { picoSessao = t.price; valeSessao = t.price }
-            else if (t.price > picoSessao * 1.0005) { picoSessao = t.price; emiteEvento('rompimento', 'buy', 6) }
-            else if (t.price < valeSessao * 0.9995) { valeSessao = t.price; emiteEvento('rompimento', 'sell', 6) }
+            else if (t.price > picoSessao * 1.0015) { picoSessao = t.price; emiteEvento('rompimento', 'buy', 6) }
+            else if (t.price < valeSessao * 0.9985) { valeSessao = t.price; emiteEvento('rompimento', 'sell', 6) }
           }
         }
         if (t.side === 'buy') {
@@ -2514,12 +2520,59 @@ export function createBattlefield(
       const topoBid = book.bids.reduce((m, l) => (l.qty > m ? l.qty : m), 0)
       const topoAsk = book.asks.reduce((m, l) => (l.qty > m ? l.qty : m), 0)
       const topo = Math.max(topoBid, topoAsk)
+      // ⚠️⚠️ COMPARAR COM 3 SEGUNDOS ATRÁS, NÃO COM UMA MÉDIA. Duas tentativas
+      // falharam antes desta e as duas pelo mesmo motivo: o book chega várias
+      // vezes por segundo, então qualquer média móvel alcança o próprio valor
+      // e nada nunca fica acima dela. Pior, uma parede que SEMPRE esteve lá não
+      // é notícia: com média, ela some na referência; com amostra, ela também
+      // não dispara, que é o certo. O que vira evento é a parede CRESCER, e
+      // "crescer" só existe contra um instante anterior fixo.
+      const agoraBook = performance.now()
+      if (agoraBook - tAmostraBook > 3000) {
+        if (amostraTopo > 0 && topo > amostraTopo * 1.25) {
+          emiteEvento('parede', topoBid >= topoAsk ? 'buy' : 'sell', Math.min(10, topo / amostraTopo))
+        }
+        if (amostraSpread > 0 && spreadAtual > amostraSpread * 1.2) {
+          emiteEvento('spread', hash(Math.floor(spreadAtual * 1e8) % 331, 5) < 0.5 ? 'buy' : 'sell', 2)
+        }
+        // ⚠️ INCLINAÇÃO DO BOOK: o combustível que nunca acaba. Numa madrugada
+        // sem um trade sequer (medido: quatro minutos secos em produção), as
+        // ordens continuam entrando e saindo e a proporção entre os dois lados
+        // se mexe o tempo todo. Dois pontos percentuais de mudança em três
+        // segundos viram um duelo de vanguarda, que é a animação pequena que o
+        // fundador pediu para o mercado parado. Continua sendo dado, e NÃO se
+        // passa por negócio: como toda arma de book, dispara com qty 0 e não
+        // entra em placar, letreiro de dano nem fita.
+        const totalBook = bidsDog + asksDog
+        const inclina = totalBook > 0 ? bidsDog / totalBook : 0.5
+        if (amostraInclina > 0 && Math.abs(inclina - amostraInclina) > 0.02) {
+          emiteEvento('inclinacao', inclina > amostraInclina ? 'buy' : 'sell', 1.5)
+        }
+        amostraInclina = inclina
+        tAmostraBook = agoraBook
+        amostraTopo = topo
+        amostraSpread = spreadAtual
+      }
       if (emaNivelTopo === 0) emaNivelTopo = topo
       else {
-        if (topo > emaNivelTopo * 1.6) {
-          emiteEvento('parede', topoBid >= topoAsk ? 'buy' : 'sell', Math.min(10, topo / emaNivelTopo))
-        }
-        emaNivelTopo = emaNivelTopo * 0.98 + topo * 0.02
+        // ⚠️ 1,25 e NÃO 1,6: o livro de ofertas é o único combustível que não
+        // acaba. Numa madrugada de quatro minutos sem um trade sequer (medido
+        // em produção em 27/08), era só daqui que a batalha podia tirar
+        // movimento sem mentir. Continua 100% dado: a parede existe mesmo, só
+        // que "grande" passou a ser 25% acima do normal deste book em vez de
+        // 60%. Quem segura a vazão é o intervalo mínimo do canhão, não o
+        // limiar. ⚠️ E nada disto conta no placar: as armas de book disparam
+        // com qty 0, então não viram baixa, nem letreiro de dano, nem linha na
+        // fita. Regra do fundador: "nada que seja o mercado fazendo trade".
+        // (o gatilho por média saiu daqui: ver a nota da amostra de 3 s acima.
+        // A média continua sendo calculada porque a legenda publica o "normal")
+        // ⚠️ MÉDIA LENTA, e isto é o que fazia o evento nunca acontecer. Com
+        // 0,02 por atualização e um book que chega várias vezes por segundo, a
+        // média alcançava o próprio pico em cerca de um segundo: o topo nunca
+        // conseguia ficar 25% acima de uma referência que corria atrás dele.
+        // Com 0,002 a referência passa a ser o normal dos últimos minutos, que
+        // é o que a palavra "parede" quer dizer.
+        emaNivelTopo = emaNivelTopo * 0.998 + topo * 0.002
       }
       // SPREAD ABERTO: o book afinou, os dois lados recuaram. Na batalha isso
       // vira duelo de vanguarda, que é justamente o momento em que ninguém
@@ -2527,10 +2580,10 @@ export function createBattlefield(
       if (spreadAtual > 0) {
         if (emaSpread === 0) emaSpread = spreadAtual
         else {
-          if (spreadAtual > emaSpread * 1.5) {
-            emiteEvento('spread', hash(Math.floor(spreadAtual * 1e8) % 331, 5) < 0.5 ? 'buy' : 'sell', 2)
-          }
-          emaSpread = emaSpread * 0.99 + spreadAtual * 0.01
+          // 1,25 pelo mesmo motivo da parede: o duelo de vanguarda é a
+          // animação pequena que o mercado parado tem direito de mostrar
+          // (idem: o spread agora dispara pela amostra de 3 s)
+          emaSpread = emaSpread * 0.998 + spreadAtual * 0.002 // ver a nota da parede
         }
       }
     }
@@ -3699,7 +3752,11 @@ export function createBattlefield(
   // ⚠️ dois freios, os dois necessários: o piso de tempo impede metralhar
   // assalto quando o preço fica oscilando em cima de uma marca, e a folga
   // impede que o mesmo cruzamento conte duas vezes por ruído de ponto flutuante
-  const PISO_ENTRE_ASSALTOS = 9000
+  // ⚠️ 18 s e não 9: medido em mercado ativo, o assalto batia no piso e saía a
+  // cada nove segundos, ou seja quase sete por minuto. O maior sistema do
+  // motor virando rotina deixa de ser clímax. O gatilho continua sendo dado
+  // (avanço da frente); o que mudou é a distância mínima entre dois eventos.
+  const PISO_ENTRE_ASSALTOS = 18000
   const FOLGA_DEGRAU = 0.05
   let ultimoAssaltoT = -Infinity
   let frenteAnterior = 0
@@ -4134,9 +4191,12 @@ export function createBattlefield(
       // `taxaChurn / baseChurn` é o churn de agora contra o normal recente:
       // 1 = book no ritmo de sempre, 3 = book fervendo.
       const razaoChurn = baseChurn > 1e-6 ? taxaChurn / baseChurn : 1
-      // razão 1 = book no ritmo de sempre (~2,6 rajadas/s), 2 = fervendo (~4,8).
-      // Sem piso alto: book parado é batalha calada, que é a informação.
-      const rajadaHz = 0.4 + 2.2 * Math.min(2.0, razaoChurn)
+      // razão 1 = book no ritmo de sempre (~3,7 rajadas/s), 2,2 = fervendo
+      // (~7,3). O ganho subiu de 2,2 para 3,0 porque esta é a única arma com
+      // combustível permanente: o churn acontece mesmo sem negócio nenhum.
+      // Sem piso alto mesmo assim: book PARADO continua sendo batalha calada,
+      // porque aí não há nem ordem entrando.
+      const rajadaHz = 0.7 + 3.0 * Math.min(2.2, razaoChurn)
       if (agora - ultimaEscaramuca > (1000 / rajadaHz) * (0.7 + hash(Math.floor(agora) % 577, 3) * 0.6)) {
         ultimaEscaramuca = agora
         const lado: 'buy' | 'sell' = hash(Math.floor(agora) % 691, 9) < press ? 'buy' : 'sell'
@@ -4537,10 +4597,13 @@ export function createBattlefield(
         // o spread abre: é exatamente o momento em que ninguém tem massa para
         // atacar e a briga vira individual. Um evento arma UM duelo.
         if (agora >= d.t0 && agora - ultimoDueloEv > 900) {
-          const evSpread = consomeEvento('spread')
+          // o duelo atende aos DOIS eventos de book: spread abrindo (os dois
+          // lados recuaram) e inclinação (o book pendeu). O segundo é o que
+          // mantém a vanguarda viva quando não há negócio nenhum.
+          const evSpread = consomeEvento('spread') ?? consomeEvento('inclinacao')
           if (!evSpread) continue
           ultimoDueloEv = agora
-          contagemEventos['spread'] = (contagemEventos['spread'] ?? 0) + 1
+          contagemEventos[evSpread.motivo] = (contagemEventos[evSpread.motivo] ?? 0) + 1
           d.z = (hash(Math.floor(agora) % 977, d.t0 % 131) - 0.5) * 108
           d.fase = 'corre'
           d.t0 = agora

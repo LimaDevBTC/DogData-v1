@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { INSCRIPTION_ID, isImageType } from '@/lib/ordinals/inscriptions'
+import { INSCRIPTION_ID, isImageType, refuseSvgNavigation } from '@/lib/ordinals/inscriptions'
 
 export const runtime = 'nodejs'
 
@@ -28,7 +28,7 @@ const GATEWAYS = [
 const MAX_BYTES = 4 * 1024 * 1024
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id: raw } = await params
@@ -49,6 +49,20 @@ export async function GET(
       if (!isImageType(type)) {
         return NextResponse.json(
           { error: 'This inscription is not an image.' },
+          { status: 415 },
+        )
+      }
+
+      // ⚠️ SVG É CÓDIGO DISFARÇADO DE IMAGEM. Dentro de um <img> ele nunca
+      // executa nada, mas ABERTO DIRETO na barra de endereços vira um documento
+      // no nosso domínio, e um <script> lá dentro rodaria como se fosse nosso.
+      // Duas trancas independentes: o CSP com sandbox abaixo, que já mata o
+      // script, e esta, que recusa servir SVG quando o pedido não é o de uma
+      // imagem embutida. `Sec-Fetch-Dest` é mandado pelo navegador, não pela
+      // página, então não dá para forjar de dentro de uma aba.
+      if (refuseSvgNavigation(type, req.headers.get('sec-fetch-dest'))) {
+        return NextResponse.json(
+          { error: 'SVG inscriptions are only served as embedded images.' },
           { status: 415 },
         )
       }

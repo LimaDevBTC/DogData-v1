@@ -48,8 +48,17 @@ const ESTILO: Record<Insight["kind"], { Icon: typeof Coins; cor: string }> = {
  *
  * ⚠️ TRANSAÇÕES, E A ESCOLHA TEM MOTIVO. É ali que a manchete vira ação: quem lê
  * "a mesa mandou 90M para a Kraken" tem a lista de transações na mesma tela para
- * conferir. Notícia e prova a dois centímetros uma da outra. */
-export const FEED_COMPLETO = "/transactions#feed"
+ * conferir. Notícia e prova a dois centímetros uma da outra.
+ *
+ * ⚠️ E SEM `#feed`, DE PROPÓSITO. Enquanto o feed morava no pé da página de
+ * transações, a âncora era a única forma de o clique cumprir a promessa — e nem
+ * assim cumpria, porque a página monta o conteúdo depois e o navegador resolve o
+ * salto antes de o alvo existir. Agora o feed é a primeira coisa da página e
+ * cabe inteiro na tela sem rolar; manter a âncora só fazia o navegador rolar 300
+ * pixels, decapitar o título e entregar o leitor no meio de uma frase cortada. O
+ * `id="feed"` continua lá para links antigos, mas o caminho normal não precisa
+ * mais dele. */
+export const FEED_COMPLETO = "/transactions"
 
 export default function InsightFeed({
   /** quantas linhas desenhar. A home mostra a chamada, a página inteira mostra tudo. */

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getWalletSession } from '@/lib/identity/session'
+import { tooFast } from '@/lib/identity/throttle'
 import { inWaves, inscriptionMeta, isImageType, listInscriptions } from '@/lib/ordinals/inscriptions'
 
 export const runtime = 'nodejs'
@@ -21,6 +22,13 @@ export async function GET(req: NextRequest) {
   const session = await getWalletSession(req)
   if (!session) {
     return NextResponse.json({ error: 'Ownership not verified.' }, { status: 401 })
+  }
+
+  // Cada chamada aqui vira uma pergunta paga ao indexador da UniSat, então uma
+  // sessão não pode martelar a rota: sem freio, uma aba num laço queima a
+  // quota da casa inteira.
+  if (await tooFast(`inscr:${session.address}`, 3)) {
+    return NextResponse.json({ error: 'Slow down, try again in a moment.' }, { status: 429 })
   }
 
   const cursor = Math.max(0, Number(req.nextUrl.searchParams.get('cursor') ?? 0) || 0)

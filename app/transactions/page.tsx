@@ -1544,9 +1544,35 @@ export default function TransactionsPage() {
           </div>
         </div>
 
-        {/* Stats Cards - Bitcoin only */}
         {activeChain === 'bitcoin' && (
         <>
+        {/* ═══ O feed inteiro, ANTES DE QUALQUER NÚMERO ═══ */}
+        {/* ⚠️ ELE MOROU LÁ EMBAIXO, COLADO NA LISTA DE TRANSAÇÕES, e o argumento
+            era bom no papel: notícia e prova na mesma tela. Só que quem chega
+            aqui chega CLICANDO na chamada da home, que promete o feed completo,
+            e aterrissava num cabeçalho, quatro cartões de estatística e uma
+            busca antes de ver a primeira manchete. A âncora #feed não salvava:
+            a página monta o conteúdo depois, o alvo se move e o navegador
+            resolve o salto antes de o feed existir. Promessa que exige rolagem
+            para ser cumprida é promessa quebrada, então o feed vem primeiro e a
+            lista de transações continua a um rolar de distância, logo abaixo.
+
+            ⚠️ E CONTINUA DENTRO DA ABA BITCOIN. Toda manchete daqui sai do nosso
+            índice de Bitcoin ("from our own node"); desenhá-la sobre a aba de
+            Solana seria carimbar história de uma cadeia em cima de outra.
+
+            ⚠️ A ÂNCORA #feed É O DESTINO DO CLIQUE NA HOME; trocar o nome dela
+            exige trocar a constante FEED_COMPLETO junto (components/insight-feed.tsx). */}
+        <div id="feed" className="scroll-mt-24">
+          <SectionDivider title="What the chain did today" icon={Newspaper} />
+          <InsightFeed />
+          <p className="mt-2 px-1 font-mono text-[10px] leading-relaxed text-dusty/50">
+            Every line is a query against our own index, with the number that supports it.
+            Exchange outflow appears with the same weight as inflow, including when it is bad news.
+          </p>
+        </div>
+
+        {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-2 gap-3 md:gap-6">
           <Card variant="glass">
             <CardHeader className="pb-3">
@@ -1987,22 +2013,6 @@ export default function TransactionsPage() {
             )}
           </CardContent>
         </Card>
-
-        {/* ═══ O feed inteiro ═══ */}
-        {/* ⚠️ COLADO NA LISTA, DE PROPÓSITO. Esta é a página onde a manchete vira
-            ação: quem lê "a trading desk sent 90M DOG into Kraken" tem a lista de
-            transações logo abaixo para conferir. Notícia e prova na mesma tela é
-            a única razão de o feed morar aqui e não em on-chain. A âncora #feed é
-            o destino do clique na home; mudá-la de nome exige trocar a constante
-            FEED_COMPLETO junto. */}
-        <div id="feed" className="scroll-mt-24">
-          <SectionDivider title="What the chain did today" icon={Newspaper} />
-          <InsightFeed />
-          <p className="mt-2 px-1 font-mono text-[10px] leading-relaxed text-dusty/50">
-            Every line is a query against our own index, with the number that supports it.
-            Exchange outflow appears with the same weight as inflow, including when it is bad news.
-          </p>
-        </div>
 
         <SectionDivider title="Recent Transactions" icon={Activity} />
 
