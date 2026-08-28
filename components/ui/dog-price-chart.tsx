@@ -25,13 +25,20 @@ const LINHA = '#E8660D'
 const SOBE = '#10B981'
 const DESCE = '#EF4444'
 
-type Janela = '7D' | '30D' | '90D' | '1A' | 'TUDO'
-const JANELAS: { k: Janela; dias: number | null }[] = [
+// ⚠️ DUAS FONTES, UMA LINHA. As janelas curtas vêm de velas intradiárias
+// (/api/price/candles, Gate.io de 5 em 5 ou de 15 em 15 minutos) porque o
+// arquivo do disco é fechamento DIÁRIO: 24h nele seriam um ponto e 4h, nenhum.
+// Da semana para cima, o arquivo é melhor: já está no navegador, cobre desde
+// 25/04/2024 e não custa rede.
+type Janela = '4H' | '24H' | '7D' | '30D' | '90D' | '1Y' | 'ALL'
+const JANELAS: { k: Janela; dias: number | null; intra?: '4h' | '24h' }[] = [
+  { k: '4H', dias: null, intra: '4h' },
+  { k: '24H', dias: null, intra: '24h' },
   { k: '7D', dias: 7 },
   { k: '30D', dias: 30 },
   { k: '90D', dias: 90 },
-  { k: '1A', dias: 365 },
-  { k: 'TUDO', dias: null },
+  { k: '1Y', dias: 365 },
+  { k: 'ALL', dias: null },
 ]
 
 // A casa escreve preço de DOG com seis casas em todo lugar (praça, mercados,
@@ -46,10 +53,20 @@ const diaCurto = (iso: string) => {
     : d.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: '2-digit' })
 }
 
+/** Rótulo das janelas curtas: hora local, que é a pergunta de quem olha 4h. */
+const horaCurta = (iso: string) => {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
 export default function DogPriceChart() {
   const [historico, setHistorico] = useState<[string, number][] | null>(null)
   const [vivo, setVivo] = useState<{ price: number; change24h: number } | null>(null)
-  const [janela, setJanela] = useState<Janela>('30D')
+  const [janela, setJanela] = useState<Janela>('24H')
+  const [intra, setIntra] = useState<Record<string, { t: string; c: number }[]>>({})
+  const [carregandoIntra, setCarregandoIntra] = useState(false)
   const [erro, setErro] = useState(false)
 
   useEffect(() => {
@@ -77,8 +94,47 @@ export default function DogPriceChart() {
     }
   }, [])
 
+  // As velas são buscadas sob demanda e guardadas: trocar entre 4H e 24H duas
+  // vezes não repete a chamada.
+  useEffect(() => {
+    const alvo = JANELAS.find((j) => j.k === janela)?.intra
+    if (!alvo || intra[alvo]) return
+    setCarregandoIntra(true)
+    fetch(`/api/price/candles?range=${alvo}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((j) => {
+        if (Array.isArray(j?.points) && j.points.length > 1) {
+          setIntra((m) => ({ ...m, [alvo]: j.points }))
+        }
+      })
+      .catch(() => {})
+      .finally(() => setCarregandoIntra(false))
+  }, [janela, intra])
+
   const { pontos, delta, atual } = useMemo(() => {
-    if (!historico?.length) return { pontos: [] as ScrubPoint[], delta: null as number | null, atual: null as number | null }
+    const alvoIntra = JANELAS.find((j) => j.k === janela)?.intra
+    if (alvoIntra) {
+      const velas = intra[alvoIntra]
+      if (!velas?.length) {
+        return { pontos: [] as ScrubPoint[], delta: null as number | null, atual: vivo?.price ?? null }
+      }
+      const pts: ScrubPoint[] = velas.map((v, i) => ({
+        label: i === velas.length - 1 ? 'now' : horaCurta(v.t),
+        value: v.c,
+      }))
+      // o último ponto é o preço vivo dos 18 mercados, não o fechamento da
+      // última vela de UM mercado
+      if (vivo) pts[pts.length - 1] = { label: 'now', value: vivo.price }
+      const ini = pts[0].value
+      const fim = pts[pts.length - 1].value
+      return {
+        pontos: pts,
+        delta: ini > 0 ? ((fim - ini) / ini) * 100 : null,
+        atual: fim || null,
+      }
+    }
+
+    if (!historico?.length) return { pontos: [] as ScrubPoint[], delta: null as number | null, atual: vivo?.price ?? null }
     const dias = JANELAS.find((j) => j.k === janela)?.dias ?? null
     const fatia = dias ? historico.slice(-dias) : historico
     const serie: [string, number][] = [...fatia]
@@ -100,7 +156,7 @@ export default function DogPriceChart() {
       delta: primeiro > 0 ? ((ultimo - primeiro) / primeiro) * 100 : null,
       atual: ultimo || null,
     }
-  }, [historico, vivo, janela])
+  }, [historico, vivo, janela, intra])
 
   if (erro) {
     return (
@@ -148,10 +204,12 @@ export default function DogPriceChart() {
             height={150}
             format={preco}
             markExtremes
-            caption={`${pontos.length} pontos · toque e arraste para ler`}
+            caption={`${pontos.length} points · touch and drag to read`}
           />
         ) : (
-          <div className="h-[150px] animate-pulse bg-white/[0.03]" />
+          <div className="flex h-[150px] items-center justify-center bg-white/[0.02] font-mono text-[10px] text-dusty">
+            {carregandoIntra ? 'loading candles…' : ''}
+          </div>
         )}
       </div>
 
@@ -172,8 +230,9 @@ export default function DogPriceChart() {
       </div>
 
       <p className="mt-3 font-mono text-[9px] leading-relaxed text-dusty">
-        Daily close from Gate.io since 25/04/2024. The last point is the live average across the
-        18 markets we track.
+        {JANELAS.find((j) => j.k === janela)?.intra
+          ? 'Gate.io candles, 5 to 15 minutes apart. The last point is the live average across the 18 markets we track.'
+          : 'Daily close from Gate.io since 25/04/2024. The last point is the live average across the 18 markets we track.'}
       </p>
     </div>
   )

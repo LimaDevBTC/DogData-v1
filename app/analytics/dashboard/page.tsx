@@ -120,15 +120,14 @@ export default function PainelAnalytics() {
   // desenhava. Cada ponto agora leva a data por extenso e o segundo número do
   // dia, que é o que aparece quando o dedo para em cima dele.
   // ⚠️ O RÓTULO DIZ O DIA DA SEMANA, e não é enfeite: a pergunta que se faz a
-  // este gráfico é "o pico foi ontem?". "sex 23/08" responde de relance;
-  // "08/23/2026" obriga a contar nos dedos. Data em pt-BR porque o painel é
-  // interno e o resto dele está em pt-BR.
+  // este gráfico é "o pico foi ontem?". "Sun, 08/23" responde de relance;
+  // "08/23/2026" obriga a contar nos dedos. Idioma en-US como o resto do painel.
   const rotuloPonto = (inicio: string) => {
     const d = new Date(inicio)
     if (Number.isNaN(d.getTime())) return inicio
     return t?.granularidade === "hora"
-      ? d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
-      : d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" })
+      ? d.toLocaleString("en-US", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })
+      : d.toLocaleDateString("en-US", { weekday: "short", month: "2-digit", day: "2-digit" })
   }
   const tendencia = t
     ? t.serie.slice(-14).map((d) => ({

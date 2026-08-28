@@ -49,7 +49,9 @@ const SPACEPORT = { x: -140, z: 3090 }
 
 // ── urbanismo, números da pesquisa com fonte (ver fundacao.md) ─────────────
 const SOBRECARGA_VIARIA = 0.174   // quarteirão de 160 m com via de 16 m
-const TAMANHOS = [125, 200, 300, 450] as const
+const TAMANHOS = [125, 200, 300, 450, 600] as const
+const CARTEIRAS = 53001       // carteiras com >= 20.000 DOG, medido em 27/08
+const R_SITIO = 3500          // lib/city/lunar/sites.ts:73, o tabuleiro de hoje
 
 const FAIXAS = [
   { max: 2, cor: '#F7931A', nome: '≤ 2°' },
@@ -104,6 +106,19 @@ export default function PlanClient() {
   // o cenário escolhido decide a área útil e, com ela, a conta de lotes
   const areaUtil = res ? res.areaFaixa.slice(0, cenario + 1).reduce((a, b) => a + b, 0) : 0
   const areaLote = areaUtil * (1 - SOBRECARGA_VIARIA)
+  // ⚠️ "CABE OU NÃO CABE" É PERGUNTA FALSA, e o fundador matou ela: o tabuleiro
+  // de 3.500 m é UM NÚMERO em lib/city/lunar/sites.ts:73, e o tile da NASA de
+  // onde ele sai (SLDEM2015, 00N-30N, 000-045E) tem 910 por 1.364 km, ou seja
+  // 18.854 tabuleiros como o nosso. Terra não é o limite. Então a tabela deixou
+  // de dizer se cabe e passou a dizer QUAL RAIO cada tamanho de lote exige.
+  // O tamanho do lote vira decisão de como a cidade deve parecer, e o raio
+  // segue atrás.
+  const fracaoUtil = res && res.areaSitio > 0 ? areaUtil / res.areaSitio : 0
+  const raioPara = (lote: number): number => {
+    if (!fracaoUtil) return 0
+    const precisaKm2 = (CARTEIRAS * lote) / 1e6 / (1 - SOBRECARGA_VIARIA)
+    return Math.sqrt(precisaKm2 / fracaoUtil / Math.PI) * 1000
+  }
 
   return (
     <div className="min-h-[100dvh] bg-black px-4 py-6 text-white sm:px-8">
@@ -178,13 +193,16 @@ export default function PlanClient() {
                 <tr className="border-b border-white/10 text-[10px] uppercase tracking-[0.16em] text-white/40">
                   <th className="px-2 py-1.5 text-left font-normal">Lote</th>
                   <th className="px-2 py-1.5 text-right font-normal">Cabem</th>
-                  <th className="px-2 py-1.5 text-right font-normal">Dos 53.001</th>
+                  <th className="px-2 py-1.5 text-right font-normal">Raio p/ todos</th>
                 </tr>
               </thead>
               <tbody>
                 {TAMANHOS.map((t) => {
                   const cabem = res ? Math.floor((areaLote * 1e6) / t) : 0
-                  const pct = (cabem / 53001) * 100
+                  const raio = res ? raioPara(t) : 0
+                  // laranja: o tabuleiro de hoje já dá conta. branco: precisa crescer,
+                  // e o número diz de quanto, em metros de raio.
+                  const jaCabe = cabem >= CARTEIRAS
                   return (
                     <tr key={t} className="border-b border-white/[0.06] last:border-b-0">
                       <td className="px-2 py-1.5 tabular-nums text-white/70">{t} m²</td>
@@ -192,9 +210,9 @@ export default function PlanClient() {
                         {res ? cabem.toLocaleString('pt-BR') : '…'}
                       </td>
                       <td
-                        className={`px-2 py-1.5 text-right tabular-nums ${pct >= 100 ? 'text-[#F7931A]' : 'text-red-400'}`}
+                        className={`px-2 py-1.5 text-right tabular-nums ${jaCabe ? 'text-[#F7931A]' : 'text-white/70'}`}
                       >
-                        {res ? `${Math.min(999, pct).toFixed(0)}%` : '…'}
+                        {res ? (jaCabe ? `${(R_SITIO / 1000).toFixed(1)} km ✓` : `${(raio / 1000).toFixed(1)} km`) : '…'}
                       </td>
                     </tr>
                   )
@@ -202,8 +220,12 @@ export default function PlanClient() {
               </tbody>
             </table>
             <p className="mt-1.5 text-[10px] leading-relaxed text-white/35">
-              53.001 é o número medido de carteiras com 20.000 DOG ou mais em 27/08. Laranja quer dizer
-              que cabe; vermelho quer dizer que falta terra nesse tamanho de lote.
+              53.001 é o número medido de carteiras com 20.000 DOG ou mais em 27/08. A última coluna é o
+              raio que o sítio precisa ter para caber uma carteira em cada lote desse tamanho. Laranja com
+              ✓ quer dizer que o tabuleiro de hoje já dá conta. Terra não é o limite: o tabuleiro é um
+              número só (lib/city/lunar/sites.ts:73) e o tile da NASA de onde ele sai tem 910 por 1.364 km,
+              ou seja 18.854 tabuleiros como este. O tamanho do lote é escolha de como a cidade deve
+              parecer, não de quanto espaço sobrou.
             </p>
           </section>
 

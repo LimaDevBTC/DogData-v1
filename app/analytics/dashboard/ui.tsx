@@ -328,7 +328,7 @@ function MountCounter({
 // wanting proportional ones: the value COUNTS UP on enter, and proportional
 // digits reflow the box on every frame of the count.
 export function HeroFigure({
-  label, value, unit, sub, pontos, trendUnidade = "dias", badge, accent = CAT[0], format = fmtNum,
+  label, value, unit, sub, pontos, trendUnidade = "days", badge, accent = CAT[0], format = fmtNum,
 }: {
   label: string
   value: number | null
@@ -385,7 +385,7 @@ export function HeroFigure({
               points={pontos}
               color={accent}
               format={format}
-              caption={`últimos ${pontos.length} ${trendUnidade}`}
+              caption={`last ${pontos.length} ${trendUnidade}`}
             />
           </div>
         )}
