@@ -43,8 +43,29 @@ DECLIVE_MAX  = 4.0       # correção do júri: o tecido não cabe em 3 graus
 
 PLATO_R, PLATO_FUNDE = 960, 1300
 PARQUE_RUMO, PARQUE_DIST, PARQUE_DISCO = 43.0, 5200.0, 3600.0
-SPACEPORT = (-140.0, 3090.0, 845.0, 599.0)
-GUERRA    = (-2120.0, 2120.0, 760.0, 364.0)
+# ⚠️ O SPACEPORT SAIU DO SÍTIO em 28/08/2026 e por isso NÃO É MAIS MÁSCARA.
+# Ele estava em (-140, 3090), raio 3.093 m, e foi para o raio 4.400 porque
+# foguete não atravessa a abóbada (SPACEPORT_SHIFT em app/city/plaza/orbit-layer.ts).
+# Isso DEVOLVE 845 x 599 m, meio quilômetro quadrado, para dentro do loteamento.
+# Fica registrado aqui em vez de apagado, para ninguém "consertar" de volta.
+SPACEPORT_APOSENTADO = (-140.0, 3090.0, 845.0, 599.0)
+
+# O coliseu da batalha: elipse GIRADA, não retângulo. O plano diretor reservava
+# 760 x 364 alinhado aos eixos, e a peça de verdade é um hipódromo de meio-eixos
+# 372 x 217 girado 225 graus, igual ao campo (app/city/plaza/coliseu.ts). Aqui
+# ele entra com 40 m de folga de acesso em volta: 412 x 257.
+# ⚠️ O COLISEU NÃO ESTÁ CONSTRUÍDO, e a reserva existe justamente por isso: o
+# fundador congelou a obra e mandou guardar o lugar. Lote plantado aqui teria de
+# ser desfeito depois, e lote atribuído não se desfaz.
+COLISEU_CX, COLISEU_CZ = -2120.0, 2120.0
+COLISEU_A, COLISEU_B = 412.0, 257.0
+COLISEU_ROT = 5 * math.pi / 4
+
+# ⚠️ O LOTE PARA NA ABÓBADA, NÃO NA BORDA DO SÍTIO. A casca de colmeia fecha em
+# 3.500 e a saia desce ali até o chão. Lote além disso ficaria FORA da cidade
+# pressurizada. 3.480 deixa a
+# calçada de serviço no pé da saia.
+R_ABOBADA = 3480
 DSC_RUMO  = 68.7
 
 # ── relevo ─────────────────────────────────────────────────────────────────
@@ -87,12 +108,19 @@ PCX, PCZ = math.sin(prad)*PARQUE_DIST, -math.cos(prad)*PARQUE_DIST
 def rumo_de(x, z):
     return math.degrees(math.atan2(x, -z)) % 360
 
+def dentro_do_coliseu(x, z):
+    """A elipse do hipódromo, no quadro girado dele."""
+    dx, dz = x - COLISEU_CX, z - COLISEU_CZ
+    c, sn = math.cos(COLISEU_ROT), math.sin(COLISEU_ROT)
+    lx = dx*c - dz*sn
+    lz = dx*sn + dz*c
+    return (lx/COLISEU_A)**2 + (lz/COLISEU_B)**2 <= 1.0
+
 def livre(x, z):
     r = math.hypot(x, z)
-    if r < R_INICIO or r > R_SITIO: return False
+    if r < R_INICIO or r > R_ABOBADA: return False
     if math.hypot(x-PCX, z-PCZ) < PARQUE_DISCO: return False
-    for cx, cz, w, d in (SPACEPORT, GUERRA):
-        if abs(x-cx) < w/2 and abs(z-cz) < d/2: return False
+    if dentro_do_coliseu(x, z): return False
     # o bulevar de 34 m sobre cada costura de setor é via, não lote
     ru = rumo_de(x, z)
     for s in range(SETORES):
@@ -179,10 +207,21 @@ print(f'carteiras ordenadas: {N:,} | chaves distintas: {len({c[:3] for c in cart
       file=sys.stderr)
 
 # ── as camadas ─────────────────────────────────────────────────────────────
+# ⚠️ OS DADOS MORAM NO REPO, NÃO NUM SCRATCHPAD. A primeira versão lia de $S
+# com queda para /tmp, e os dois arquivos ficaram no scratchpad de uma sessão
+# que morreu: rodar o gerador de novo deu "genealogia ausente" e a cidade saiu
+# sem os 185 enclaves de família e sem o condomínio do DSC, calada. Reboot da
+# máquina teria levado a genealogia inteira. O $S continua valendo como
+# atalho de quem está iterando, mas o padrão é data/.
+def entrada(nome, legado):
+    aqui = p('data', nome)
+    if os.path.exists(aqui): return aqui
+    return os.path.join(os.environ.get('S', '/tmp'), legado)
+
 SCR = os.environ.get('S', '/tmp')
 familia_de, familias_grandes = {}, {}
 try:
-    g = json.load(open(f'{SCR}/genealogia_tudo.json'))
+    g = json.load(open(entrada('dogcity_genealogia.json', 'genealogia_tudo.json')))
     pai = dict(zip(g['w'], g['p'])); prof = dict(zip(g['w'], g['d']))
     def anc1(x):
         cur, gd = x, 0
@@ -211,7 +250,7 @@ except FileNotFoundError:
 
 dsc = set()
 try:
-    dd = json.load(open(f'{SCR}/dsc_donos.json'))
+    dd = json.load(open(entrada('dogcity_dsc_donos.json', 'dsc_donos.json')))
     dsc = {a for _, a in dd['pares'] if a and a in elig}
     print(f'carteiras DSC que passam no portão: {len(dsc)}', file=sys.stderr)
 except FileNotFoundError:

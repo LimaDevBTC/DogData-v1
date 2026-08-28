@@ -198,8 +198,14 @@ export function buildDome(o: DomeOpts): Dome {
   const normalEm = (x: number, z: number, out: THREE.Vector3) =>
     out.set(x, capY(Math.hypot(x, z)) - yc, z).normalize()
 
-  // A malha só vai até onde a célula inteira cabe; a saia fecha o resto.
-  const rMax = DOME_R - a
+  // ⚠️ A CASCA VAI ATÉ 3.500, NÃO ATÉ 3.500 MENOS UMA CÉLULA. A primeira versão
+  // parava uma célula antes para não ter hexágono pela metade, e isso custava
+  // caro no lugar errado: o loteamento tem de terminar onde a casca termina, e
+  // o anel de 3.458 a 3.500 é a faixa mais produtiva do sítio (foram cerca de
+  // 1.500 lotes, contra 52.991 carteiras que precisam de endereço). Como os
+  // vértices da fileira de fora já são aparados contra o círculo por `apara`,
+  // a borda sai limpa de qualquer jeito e a terra volta para a cidade.
+  const rMax = DOME_R
   // Almofada: quanto a célula estufa acima da calota. 0,18·a dá a leitura de
   // acolchoado sem virar bolha de plástico.
   const pillow = 0.12 * a
@@ -209,15 +215,26 @@ export function buildDome(o: DomeOpts): Dome {
 
   // ── a colmeia ──────────────────────────────────────────────────────────────
   // Rede triangular de topo chato: x = 1,5·a·q, z = √3·a·(r + q/2).
+  //
+  // ⚠️ A FAIXA DE `r` DEPENDE DE `q`, E ESSE FOI UM BURACO DE VERDADE. A rede é
+  // CISALHADA: o termo q/2 empurra a coluna inteira em z conforme ela se afasta
+  // do centro. Com uma faixa fixa de r (a primeira versão), as colunas extremas
+  // pediam índices fora dela e o disco saía com uma cunha vazia a leste e a
+  // oeste: 8.041 células geradas contra 8.196 que o disco pede, 1,9% de falta,
+  // e a olho lê como pedaço de colmeia faltando. Aqui a faixa é resolvida por
+  // coluna, a partir da corda do círculo naquele x.
   const passoQ = 1.5 * a
   const passoR = Math.sqrt(3) * a
   const nQ = Math.ceil(DOME_R / passoQ) + 2
-  const nR = Math.ceil(DOME_R / passoR) + 2
 
   const centros: { x: number; z: number }[] = []
   for (let q = -nQ; q <= nQ; q++) {
-    for (let r = -nR; r <= nR; r++) {
-      const x = passoQ * q
+    const x = passoQ * q
+    if (Math.abs(x) > rMax) continue
+    const meiaCorda = Math.sqrt(rMax * rMax - x * x)   // meia altura do disco neste x
+    const rLo = Math.ceil((-meiaCorda) / passoR - q / 2)
+    const rHi = Math.floor(meiaCorda / passoR - q / 2)
+    for (let r = rLo; r <= rHi; r++) {
       const z = passoR * (r + q / 2)
       if (Math.hypot(x, z) <= rMax) centros.push({ x, z })
     }
@@ -225,6 +242,13 @@ export function buildDome(o: DomeOpts): Dome {
 
   const CANTO: [number, number][] = []
   for (let k = 0; k < 6; k++) CANTO.push([Math.cos((k * Math.PI) / 3), Math.sin((k * Math.PI) / 3)])
+
+  /** puxa um ponto para dentro do disco quando ele passa da borda */
+  const apara = (x: number, z: number, ligado: boolean): [number, number] => {
+    if (!ligado) return [x, z]
+    const d = Math.hypot(x, z)
+    return d > rMax ? [(x * rMax) / d, (z * rMax) / d] : [x, z]
+  }
 
   // ── vidro: uma almofada por célula, tudo fundido numa malha só ────────────
   const vidros: THREE.BufferGeometry[] = []
@@ -241,8 +265,10 @@ export function buildDome(o: DomeOpts): Dome {
       const raio = a * t
       const alt = pillow * (1 - t * t)
       for (let k = 0; k < 6; k++) {
-        const x = c.x + CANTO[k][0] * raio
-        const z = c.z + CANTO[k][1] * raio
+        // ⚠️ APARA CONTRA O CÍRCULO no anel de fora. Sem isto a célula da borda
+        // entra inteira (o teste é do CENTRO) e o hexágono avança até 42 m além
+        // do anel da saia: a silhueta da abóbada fica serrilhada como serra.
+        const [x, z] = apara(c.x + CANTO[k][0] * raio, c.z + CANTO[k][1] * raio, anel === aneis)
         pos.push(x, capY(Math.hypot(x, z)) + alt, z)
       }
     }
@@ -290,8 +316,7 @@ export function buildDome(o: DomeOpts): Dome {
   const p0 = new THREE.Vector3(), p1 = new THREE.Vector3(), meio = new THREE.Vector3()
   const dir = new THREE.Vector3(), lado = new THREE.Vector3(), nrm = new THREE.Vector3()
   const canto = (cx: number, cz: number, k: number, out: THREE.Vector3) => {
-    const x = cx + CANTO[k][0] * a
-    const z = cz + CANTO[k][1] * a
+    const [x, z] = apara(cx + CANTO[k][0] * a, cz + CANTO[k][1] * a, true)
     return out.set(x, capY(Math.hypot(x, z)), z)
   }
   for (const c of centros) {

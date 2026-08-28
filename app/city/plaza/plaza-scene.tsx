@@ -37,6 +37,7 @@ import { SF_CREDITS, SF, loadSf, dressSf } from './sf-assets'
 import { buildProps, type Props } from './props'
 import { buildDscGallery, DSC_CENTER, type DscGallery } from './dsc-gallery'
 import { buildDome, type Dome } from './dome'
+import { buildColiseu, type Coliseu } from './coliseu'
 import { PROPS } from './props-table'
 import { CityChat } from '@/components/wallet/city-chat'
 
@@ -247,6 +248,9 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
     // colmeia como abóbada e não como véu no alto do quadro.
     case 'abobada':
       return { pos: new THREE.Vector3(0, 900, 3000), target: new THREE.Vector3(0, 620, 0) }
+    // o hipódromo visto do alto, do lado da praça: a forma e as duas bocas
+    case 'coliseu':
+      return { pos: new THREE.Vector3(-1380, 620 + dy, 2860), target: new THREE.Vector3(-2120, 40 + dy, 2120) }
     // a mesma casca vista de fora, do lado do parque: a silhueta e a saia
     case 'abobadafora':
       return { pos: new THREE.Vector3(4600, 1250, 4600), target: new THREE.Vector3(0, 380, 0) }
@@ -807,6 +811,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let park: Park | null = null
     let monuments: Monuments | null = null
     let domo: Dome | null = null
+    let coliseu: Coliseu | null = null
     let props: Props | null = null
     let dsc: DscGallery | null = null
     let founders: FoundersWalk | null = null
@@ -877,6 +882,41 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           } catch (err) {
             // a casca é experimento: ela nunca pode derrubar a praça que está no ar
             console.error('[abobada] não subiu', err)
+          }
+        }
+
+        // ── o coliseu da batalha, atrás de ?coliseu=1 ────────────────────────
+        // Fica DENTRO da abóbada de propósito: a cratera vai de 2.816 a 3.180 m
+        // de raio e a casca fecha em 3.458. É uma abóbada só cobrindo cidade e
+        // coliseu, decisão do fundador em 28/08.
+        if (qDomo.get('coliseu') === '1') {
+          try {
+            const num = (k: string, d: number) => {
+              const v = parseFloat(qDomo.get(k) || '')
+              return Number.isFinite(v) ? v : d
+            }
+            coliseu = buildColiseu({
+              centro: WAR_POS,
+              datum: chaoGuerra,
+              // ⚠️ O MESMO GIRO DO MOTOR. Está escrito de novo aqui porque o
+              // 5π/4 do campo vive dentro do bloco da batalha, que só nasce
+              // fora do modo lite; o coliseu não pode depender disso.
+              rotY: (5 * Math.PI) / 4,
+              heightAt: terrain.heightAt,
+              // A arena tem de conter o campo de 458 por 240 m com folga de
+              // pista, e o eixo longo puxa mais que o curto para a peça ler como
+              // circo e não como prato: 600 por 290 de arena livre.
+              arenaA: num('arena', 300),
+              arenaB: num('arenab', 145),
+              // 30 fileiras dão 60 m de altura sobre 744 m de comprimento, que é
+              // a proporção de estádio grande (Maracanã tem 317 por 32)
+              degraus: num('degraus', 30),
+            })
+            scene.add(coliseu.group)
+            culler.add(coliseu.group, 4200, new THREE.Vector3(WAR_POS.x, 0, WAR_POS.z))
+            console.log(`[coliseu] ${(coliseu.areaM2 / 1e4).toFixed(1)} ha, ${coliseu.lugares.toLocaleString('pt-BR')} lugares, ${coliseu.triangulos.toLocaleString('pt-BR')} triângulos`)
+          } catch (err) {
+            console.error('[coliseu] não subiu', err)
           }
         }
         stepDone('terrain')
@@ -1991,6 +2031,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       park?.dispose()
       monuments?.dispose()
       domo?.dispose()
+      coliseu?.dispose()
       props?.dispose()
       dsc?.dispose()
       founders?.dispose()
