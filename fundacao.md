@@ -339,3 +339,64 @@ O fundador apontou o que eu não tinha visto: **o mint custa 10.000 DOG.** Entã
 o detentor de DSC precisa de DOG naquela carteira de qualquer maneira, não só
 para passar no portão. A regra da mesma carteira deixa de precisar de defesa: ela
 descreve o que ia acontecer de todo jeito.
+
+---
+
+## 28/08, noite: a ordenação resolvida e a genealogia medida até o fim
+
+### 1. A ordenação está resolvida, e sem tocar no nó
+
+O plano diretor achou um defeito real no meu trabalho e eu confirmei por conta
+própria: **`oldest_age_days` não ordena a cidade.** 74,9% das carteiras elegíveis
+caem num valor repetido, e as três maiores pilhas (855,75 / 855,74 / 855,73 dias)
+somam 20.320 carteiras, 38,3% da cidade. As pranchas 2 e 3 ordenaram três quartos
+da cidade pelo endereço, que é aleatório.
+
+A chave que resolve está em `data/dog_utxos_by_address.json`, que já temos:
+
+**`(ts, txid, vout)` do UTXO mais antigo. Zero colisões em 52.996 carteiras.**
+
+E ela é melhor que o desempate por endereço por um motivo de segurança, não de
+gosto: o endereço é **grindável**, dá para gerar endereços até sair um que ordena
+cedo. O `txid` e o `vout` são escolhidos por quem ENVIA, nunca por quem recebe.
+Determinística, verificável com dado público, e impossível de fraudar.
+
+Isso responde as perguntas 2 e 3 do plano diretor sem liberar o índice do `ord`.
+
+### 2. A genealogia NÃO pode ser a regra principal, e o número é duro
+
+Eu propus que o bairro fosse a linhagem. O fundador aprovou. A medição mata a
+ideia na forma em que eu a vendi, e o registro fica aqui para ninguém tentar de
+novo sem olhar os números.
+
+**Entre as elegíveis, a árvore está estilhaçada:**
+- só **20,3%** têm um pai que também é elegível; as outras 42.123 têm o
+  financiador fora do jogo, porque ele vendeu
+- só 1.845 elegíveis são pai de outra elegível, e **1.405 dessas têm um filho só**
+- apenas 25 carteiras são hub de 20 filhos ou mais
+
+**Subindo pela árvore inteira, passando por quem vendeu, agrupando pelo ancestral
+de profundidade 1** (as 263.982 linhas da genealogia completa):
+- 32.763 famílias distintas
+- **30.049 delas têm exatamente uma carteira elegível.** 91,7% das famílias são
+  uma pessoa só. A mediana do tamanho de família é **1**
+- só **185 famílias têm 10 elegíveis ou mais**, e elas cobrem 15.810 carteiras,
+  **29,9% da cidade**
+- 9 famílias passam de 200; a maior tem **2.719** elegíveis
+
+**Veredito: 70% da cidade não tem família.** A maioria chegou sozinha, do airdrop
+ou de uma exchange. Linhagem não organiza a cidade porque na maior parte dela não
+existe linhagem.
+
+### 3. O que sobrevive, e é melhor do que o que eu propus
+
+A genealogia é péssima como regra geral e ótima como **camada**:
+
+- **Tecido**: o plano diretor (`plano-diretor.md`), com quarteirão, calçada,
+  verde e esporte, e o raio dado pela ordem de chegada `(ts, txid, vout)`.
+- **Enclaves de família**: as **185 famílias de 10 ou mais**, que são bairros de
+  verdade, com história e nome, cobrindo 29,9% da cidade.
+- **Condomínios de parceria**: o DSC no rumo 69° e as coleções seguintes.
+
+E isso conta a verdade sobre o DOG: quase todo mundo chegou sozinho, uma minoria
+chegou em família, e um punhado chegou por clube. A cidade mostra os três.
