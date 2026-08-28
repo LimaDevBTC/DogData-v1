@@ -368,7 +368,16 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
   // de 2,6M de triângulos rodando é desperdício.
   const warFitaRef = useRef<HTMLDivElement>(null)
   const warFitaLinhas = useRef<Array<HTMLDivElement | null>>([])
+  // ⚠️ NO CELULAR A FITA ERA UM SUSSURRO. A primeira versão colapsava os três
+  // últimos trades numa linha de 8px sem hora, sem preço e sem rótulo, e o
+  // fundador simplesmente não a viu ("em móbile não vi a fita de trades").
+  // Ele estava certo: aquilo não lia como fita, lia como enfeite entre o preço
+  // e a linha de comprado/vendido. Agora são TRÊS LINHAS de verdade, com a
+  // mesma gramática da coluna do desktop (hora, seta, quantidade, preço), em
+  // 10px, dentro do cartão.
   const warFitaMobileRef = useRef<HTMLDivElement>(null)
+  const warFitaMobLinhas = useRef<Array<HTMLDivElement | null>>([])
+  const FITA_LINHAS_MOB = 3
   // ── LEGENDA DA BATALHA ────────────────────────────────────────────────
   // ⚠️ O ESTADO SÓ É ESCRITO COM O PAINEL ABERTO. O HUD da guerra inteiro
   // atualiza por textContent justamente para não re-renderizar React com a
@@ -1770,9 +1779,22 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               // no celular a fita colapsa nos três últimos, numa linha só, dentro
               // do próprio cartão: coluna lateral em 390px come a tela
               if (warFitaMobileRef.current) {
-                warFitaMobileRef.current.textContent = fita.length
-                  ? fita.slice(0, 3).map((tr) => `${tr.lado === 'buy' ? '▲' : '▼'} ${fmtQtd(tr.qty)}`).join('  ')
-                  : ''
+                warFitaMobileRef.current.style.display = fita.length ? '' : 'none'
+              }
+              // mesma ordem de filhos da coluna: hora, seta, quantidade, preço
+              for (let i = 0; i < FITA_LINHAS_MOB; i++) {
+                const linha = warFitaMobLinhas.current[i]
+                if (!linha) continue
+                const tr = fita[i]
+                if (!tr) { linha.style.visibility = 'hidden'; continue }
+                linha.style.visibility = ''
+                const f = linha.children
+                if (f.length < 4) continue
+                f[0].textContent = fmtHora(tr.t)
+                f[1].textContent = tr.lado === 'buy' ? '▲' : '▼'
+                ;(f[1] as HTMLElement).style.color = tr.lado === 'buy' ? '#f7931a' : '#f87171'
+                f[2].textContent = fmtQtd(tr.qty)
+                f[3].textContent = `$${fmtPreco(tr.preco)}`
               }
             }
           }
@@ -1948,11 +1970,28 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           <div className="mx-auto mt-1.5 h-1 w-44 overflow-hidden rounded-full bg-white/10 sm:w-56">
             <div ref={warPressaoRef} className="h-full bg-gradient-to-r from-[#f7931a] to-[#c96a12]" style={{ width: '50%' }} />
           </div>
-          {/* celular: a fita cabe em uma linha, dentro do cartão */}
+          {/* ── celular: a FITA de verdade, dentro do cartão ────────────────
+                 Três negociações reais com hora, lado, quantidade e preço.
+                 Some no desktop, onde existe a coluna lateral com seis. */}
           <div
             ref={warFitaMobileRef}
-            className="mt-1 font-mono text-[8px] tracking-[0.12em] tabular-nums text-white/45 [@media(min-width:640px)_and_(min-height:521px)]:hidden"
-          />
+            className="mt-2 border-t border-white/10 pt-1.5 [@media(min-width:640px)_and_(min-height:521px)]:hidden"
+          >
+            <div className="mb-1 text-[8px] uppercase tracking-[0.22em] text-white/30">Tape</div>
+            {Array.from({ length: FITA_LINHAS_MOB }, (_, i) => (
+              <div
+                key={i}
+                ref={(el) => { warFitaMobLinhas.current[i] = el }}
+                className="flex items-center justify-center gap-1.5 font-mono text-[10px] tabular-nums leading-[1.5]"
+                style={{ visibility: 'hidden' }}
+              >
+                <span className="text-white/35" />
+                <span />
+                <span className="text-white/80" />
+                <span className="text-white/45" />
+              </div>
+            ))}
+          </div>
           <div ref={warBaixasRef} className="mt-1 text-[8px] uppercase tracking-[0.18em] text-white/35 tabular-nums sm:text-[9px]">bought 0 · sold 0 DOG</div>
           <div className="mt-1 flex items-center justify-center gap-1.5 text-[8px] uppercase tracking-[0.18em] tabular-nums sm:text-[9px]">
             <span ref={warBidsRef} className="text-[#f7931a]/90">BIDS 0</span>
