@@ -71,6 +71,26 @@ const fmtPreco = (p: number) => (p > 0 ? p.toFixed(6) : '-')
 // quantas linhas a fita desenha no desktop
 const FITA_LINHAS = 6
 
+// ═══════════════════════════════════════════════════════════════════════════
+// O VISOR. ⚠️ Regra nova de HUD, do fundador (27/08): "a fita de trade e tudo
+// mais deve estar direto na tela, otimizado pro user conseguir ver a batalha.
+// Da mesma forma que os dados são projetados no visor de um capacete de
+// piloto. Hoje estamos colocando dados e botões em excesso que atrapalham a
+// visão da batalha".
+//
+// Medido antes de mexer, em 390x844: 24,9% da tela era PLACA opaca, e o
+// cartão de preço sozinho ocupava 288x207 (18% da tela) bem em cima do campo
+// de batalha.
+//
+// A troca: nenhum dado mora dentro de caixa. O que garante leitura sobre o
+// regolito claro é HALO, não fundo: duas sombras, uma dura e curta para
+// recortar a letra e uma larga e suave para afastar o ruído atrás dela. Isso
+// custa zero pixel de área e deixa a cena inteira visível.
+// ═══════════════════════════════════════════════════════════════════════════
+const VISOR: React.CSSProperties = {
+  textShadow: '0 1px 3px rgba(0,0,0,0.95), 0 0 14px rgba(0,0,0,0.75)',
+}
+
 export const PLACES: ReadonlyArray<{ key: string; label: string; hint: string }> = [
   { key: 'home', label: 'Satoshi Plaza', hint: 'the whole precinct' },
   { key: 'deck', label: 'The deck', hint: 'the Needle, up close' },
@@ -375,9 +395,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
   // e a linha de comprado/vendido. Agora são TRÊS LINHAS de verdade, com a
   // mesma gramática da coluna do desktop (hora, seta, quantidade, preço), em
   // 10px, dentro do cartão.
-  const warFitaMobileRef = useRef<HTMLDivElement>(null)
-  const warFitaMobLinhas = useRef<Array<HTMLDivElement | null>>([])
-  const FITA_LINHAS_MOB = 3
+  const warBarraRef = useRef<HTMLDivElement>(null)
   // ── LEGENDA DA BATALHA ────────────────────────────────────────────────
   // ⚠️ O ESTADO SÓ É ESCRITO COM O PAINEL ABERTO. O HUD da guerra inteiro
   // atualiza por textContent justamente para não re-renderizar React com a
@@ -1735,6 +1753,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           if (warFitaRef.current) {
             warFitaRef.current.style.opacity = legendaAbertaRef.current ? '0' : k.toFixed(2)
           }
+          if (warBarraRef.current) warBarraRef.current.style.opacity = k.toFixed(2)
           if (k > 0 && (hudTick & 31) === 1) {
             const h = campo.hud()
             if (warPrecoRef.current) warPrecoRef.current.textContent = h.preco > 0 ? `$${h.preco.toFixed(6)}` : '$-'
@@ -1778,24 +1797,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               }
               // no celular a fita colapsa nos três últimos, numa linha só, dentro
               // do próprio cartão: coluna lateral em 390px come a tela
-              if (warFitaMobileRef.current) {
-                warFitaMobileRef.current.style.display = fita.length ? '' : 'none'
-              }
-              // mesma ordem de filhos da coluna: hora, seta, quantidade, preço
-              for (let i = 0; i < FITA_LINHAS_MOB; i++) {
-                const linha = warFitaMobLinhas.current[i]
-                if (!linha) continue
-                const tr = fita[i]
-                if (!tr) { linha.style.visibility = 'hidden'; continue }
-                linha.style.visibility = ''
-                const f = linha.children
-                if (f.length < 4) continue
-                f[0].textContent = fmtHora(tr.t)
-                f[1].textContent = tr.lado === 'buy' ? '▲' : '▼'
-                ;(f[1] as HTMLElement).style.color = tr.lado === 'buy' ? '#f7931a' : '#f87171'
-                f[2].textContent = fmtQtd(tr.qty)
-                f[3].textContent = `$${fmtPreco(tr.preco)}`
-              }
+
             }
           }
         }
@@ -1961,42 +1963,27 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       {/* no celular a cápsula sobe acima da linha do botão Follow tx e encolhe */}
       <div
         ref={warHudRef}
-        className="pointer-events-none absolute inset-x-0 flex justify-center transition-opacity duration-300 bottom-[calc(1.25rem+env(safe-area-inset-bottom))]"
+        // ⚠️ EM TELA BAIXA A LEITURA VAI PARA O CANTO. Num visor o centro
+        // inferior é o pior lugar que existe: é exatamente onde a ação
+        // acontece. Em retrato o campo fica acima da leitura e o centro
+        // funciona; no telefone deitado a batalha ocupa a faixa de baixo
+        // inteira e o preço caía em cima da tropa. Abaixo de 520 de altura a
+        // leitura encosta na esquerda e alinha à esquerda.
+        className="pointer-events-none absolute inset-x-0 flex justify-center transition-opacity duration-300 bottom-[calc(1.25rem+env(safe-area-inset-bottom))] [@media(max-height:520px)]:justify-start [@media(max-height:520px)]:pl-4"
         style={{ opacity: 0 }}
       >
-        <div className="border border-white/10 bg-black/85 px-3 py-2 text-center font-mono sm:px-4 sm:py-2.5">
-          <div className="text-[8px] uppercase tracking-[0.24em] text-white/40 sm:text-[9px] sm:tracking-[0.3em]">The Price War · DOG / USD · Kraken live</div>
-          <div ref={warPrecoRef} className="mt-1 text-lg tracking-tight text-white/95 tabular-nums sm:text-xl">$-</div>
-          <div className="mx-auto mt-1.5 h-1 w-44 overflow-hidden rounded-full bg-white/10 sm:w-56">
-            <div ref={warPressaoRef} className="h-full bg-gradient-to-r from-[#f7931a] to-[#c96a12]" style={{ width: '50%' }} />
-          </div>
-          {/* ── celular: a FITA de verdade, dentro do cartão ────────────────
-                 Três negociações reais com hora, lado, quantidade e preço.
-                 Some no desktop, onde existe a coluna lateral com seis. */}
-          <div
-            ref={warFitaMobileRef}
-            className="mt-2 border-t border-white/10 pt-1.5 [@media(min-width:640px)_and_(min-height:521px)]:hidden"
-          >
-            <div className="mb-1 text-[8px] uppercase tracking-[0.22em] text-white/30">Tape</div>
-            {Array.from({ length: FITA_LINHAS_MOB }, (_, i) => (
-              <div
-                key={i}
-                ref={(el) => { warFitaMobLinhas.current[i] = el }}
-                className="flex items-center justify-center gap-1.5 font-mono text-[10px] tabular-nums leading-[1.5]"
-                style={{ visibility: 'hidden' }}
-              >
-                <span className="text-white/35" />
-                <span />
-                <span className="text-white/80" />
-                <span className="text-white/45" />
-              </div>
-            ))}
-          </div>
-          <div ref={warBaixasRef} className="mt-1 text-[8px] uppercase tracking-[0.18em] text-white/35 tabular-nums sm:text-[9px]">bought 0 · sold 0 DOG</div>
-          <div className="mt-1 flex items-center justify-center gap-1.5 text-[8px] uppercase tracking-[0.18em] tabular-nums sm:text-[9px]">
-            <span ref={warBidsRef} className="text-[#f7931a]/90">BIDS 0</span>
-            <span className="text-white/25">·</span>
-            <span ref={warAsksRef} className="text-red-400/85">ASKS 0</span>
+        {/* ⚠️ SEM CAIXA. Era `border + bg-black/85` de 288x207 no celular, 18%
+            da tela, e ficava bem em cima do campo. Agora os números moram na
+            cena, recortados por halo (VISOR). A fita saiu daqui para a calha
+            da direita, onde ela já vivia no desktop. */}
+        <div className="text-center font-mono [@media(max-height:520px)]:text-left" style={VISOR}>
+          <div className="text-[8px] uppercase tracking-[0.24em] text-white/55 sm:text-[9px] sm:tracking-[0.3em]">The Price War · DOG / USD · Kraken live</div>
+          <div ref={warPrecoRef} className="mt-0.5 text-xl tracking-tight text-white tabular-nums sm:text-2xl">$-</div>
+          <div ref={warBaixasRef} className="mt-1 text-[9px] uppercase tracking-[0.18em] text-white/55 tabular-nums">bought 0 · sold 0 DOG</div>
+          <div className="mt-0.5 flex items-center justify-center gap-1.5 text-[9px] uppercase tracking-[0.18em] tabular-nums [@media(max-height:520px)]:justify-start">
+            <span ref={warBidsRef} className="text-[#f7931a]">BIDS 0</span>
+            <span className="text-white/35">·</span>
+            <span ref={warAsksRef} className="text-red-400">ASKS 0</span>
           </div>
           {/* ⚠️ `pointer-events-auto` obrigatório: o invólucro do HUD é
               `pointer-events-none` para não roubar o arrasto da câmera, então
@@ -2005,12 +1992,27 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           <button
             type="button"
             onClick={() => setLegendaAberta(true)}
-            className="pointer-events-auto mt-2 border border-white/15 px-2 py-1 font-mono text-[8px] uppercase tracking-[0.2em] text-white/45 hover:border-[#f7931a]/60 hover:text-[#f7931a] sm:text-[9px]"
+            style={VISOR}
+            className="pointer-events-auto mt-1.5 px-2 py-1.5 font-mono text-[9px] uppercase tracking-[0.2em] text-white/50 underline decoration-white/20 underline-offset-4 hover:text-[#f7931a]"
           >
             How to read this
           </button>
         </div>
       </div>
+      {/* ── A BARRA DE PRESSÃO, NA BORDA DA TELA ────────────────────────────
+             Saiu de dentro do cartão (onde era um traço de 44px de largura) e
+             foi para a beirada inferior, de ponta a ponta, 3px. É a leitura de
+             visor: quem está ganhando não é um número para ler, é a tela
+             inteira pendendo para um lado. Herda a mesma opacidade do resto do
+             HUD da guerra, então some junto quando a câmera se afasta. */}
+      <div
+        ref={warBarraRef}
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-white/10 transition-opacity duration-300"
+        style={{ opacity: 0 }}
+      >
+        <div ref={warPressaoRef} className="h-full bg-gradient-to-r from-[#f7931a] to-[#c96a12]" style={{ width: '50%' }} />
+      </div>
+
       <WarLegend aberto={legendaAberta} onFechar={() => setLegendaAberta(false)} dados={legendaDados} />
 
       {/* ── A FITA DE TRADES REAIS, coluna à direita ────────────────────────
@@ -2022,15 +2024,23 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
              painel Follow tx: no celular deitado a coluna cobria a batalha. */}
       <div
         ref={warFitaRef}
-        className="pointer-events-none absolute right-4 top-1/2 hidden -translate-y-1/2 select-none flex-col items-end gap-1 font-mono text-[10px] tabular-nums tracking-[0.04em] text-white/55 transition-opacity duration-300 [@media(min-width:640px)_and_(min-height:521px)]:flex"
-        style={{ opacity: 0 }}
+        // ⚠️ A FITA VIVE NA CENA EM TODO TAMANHO. No celular ela estava DENTRO
+        // do cartão de preço, e o cartão inteiro foi retirado; aqui ela sobe
+        // para a calha da direita, acima da leitura de preço, com três linhas.
+        // No desktop de verdade ela desce para o meio da tela com seis.
+        // ⚠️ TRÊS POSIÇÕES, uma por formato de tela, e a do meio existe porque
+        // no telefone deitado (altura de 390) `bottom-8.5rem` joga a fita no
+        // meio do campo de batalha: ali ela sobe para o alto, sob a linha da
+        // órbita, onde só há céu.
+        className="pointer-events-none absolute bottom-[8.5rem] right-3 flex select-none flex-col items-end gap-0.5 font-mono text-[10px] tabular-nums tracking-[0.04em] text-white/70 transition-opacity duration-300 [@media(max-height:520px)]:bottom-auto [@media(max-height:520px)]:top-14 [@media(min-width:640px)_and_(min-height:521px)]:bottom-auto [@media(min-width:640px)_and_(min-height:521px)]:right-6 [@media(min-width:640px)_and_(min-height:521px)]:top-20 [@media(min-width:640px)_and_(min-height:521px)]:gap-1"
+        style={{ opacity: 0, ...VISOR }}
       >
         <div className="mb-0.5 text-[9px] uppercase tracking-[0.22em] text-white/25">Tape</div>
         {Array.from({ length: FITA_LINHAS }, (_, i) => (
           <div
             key={i}
             ref={(el) => { warFitaLinhas.current[i] = el }}
-            className="flex items-center gap-1.5"
+            className={`items-center gap-1.5 ${i < 3 ? 'flex' : 'hidden [@media(min-width:640px)_and_(min-height:521px)]:flex'}`}
             style={{ visibility: 'hidden' }}
           >
             <span className="text-white/30" />
@@ -2056,14 +2066,16 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           <button
             type="button"
             onClick={() => setPlacesOpen((v) => !v)}
-            className="border border-white/15 bg-black/70 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-white/70 hover:border-white/40 hover:text-white"
+            style={VISOR}
+            className="px-1.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.25em] text-white/75 hover:text-white"
           >
             Places {placesOpen ? '−' : '+'}
           </button>
           <button
             type="button"
             onClick={() => (tour ? apiRef.current?.stopTour() : apiRef.current?.startTour())}
-            className="ml-2 border border-white/15 bg-black/70 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-white/70 hover:border-white/40 hover:text-white"
+            style={VISOR}
+            className="ml-3 px-1.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.25em] text-white/75 hover:text-white"
           >
             {tour ? 'Stop tour' : 'Tour'}
           </button>
@@ -2074,7 +2086,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             <button
               type="button"
               onClick={() => apiRef.current?.flyTo('war')}
-              className="ml-2 border border-[#F7931A]/50 bg-black/70 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-[#F7931A]/90 hover:border-[#F7931A] hover:text-[#F7931A]"
+              style={VISOR}
+              className="ml-3 px-1.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.25em] text-[#F7931A] hover:text-[#ffb257]"
             >
               War
             </button>
@@ -2082,7 +2095,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           <button
             type="button"
             onClick={() => setChatOpen((v) => !v)}
-            className="ml-2 border border-white/15 bg-black/70 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-white/70 hover:border-white/40 hover:text-white"
+            style={VISOR}
+            className="ml-3 px-1.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.25em] text-white/75 hover:text-white"
           >
             Chat
           </button>
@@ -2091,7 +2105,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           <button
             type="button"
             onClick={() => setFollowOpen((v) => !v)}
-            className="ml-2 border border-white/15 bg-black/70 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-white/70 hover:border-white/40 hover:text-white"
+            style={VISOR}
+            className="ml-3 px-1.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.25em] text-white/75 hover:text-white"
           >
             Follow tx
           </button>
@@ -2134,7 +2149,10 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         {fund && (
           <a
             href="/dogcity#build"
-            className="mt-2 hidden w-[16rem] border border-[#F7931A]/40 bg-black/70 px-3 py-2 hover:border-[#F7931A] sm:block"
+            // ⚠️ RÉGUA COMPOSTA, não `sm:`: no telefone DEITADO a largura passa
+            // de 640 e o cartão voltava a aparecer, com placa, comendo o canto
+            // esquerdo da batalha. Mesma lição do painel Follow tx.
+            className="mt-2 hidden w-[16rem] border border-[#F7931A]/40 bg-black/70 px-3 py-2 hover:border-[#F7931A] [@media(min-width:640px)_and_(min-height:521px)]:block"
           >
             <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-[#F7931A]">Build DogCity</p>
             <div className="mt-1.5 h-[3px] w-full overflow-hidden bg-white/10">
@@ -2154,11 +2172,16 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           ⚠️ no celular o bloco de título (marca + h1 + subtítulo + botões)
           desce até ~9rem; a 5.6rem a barra cobria PLACES e TOUR */}
       <div className="absolute left-4 right-4 top-[9.4rem] sm:left-auto sm:right-6 sm:top-6 sm:flex sm:w-[20rem] sm:flex-col sm:gap-2">
-        <div className="border border-white/10 bg-black/85">
+        {/* ⚠️ VISOR: fechado, o quadro é só uma LINHA sobre a cena, sem placa.
+            Aberto ele volta a ter fundo, e aí é de propósito: são doze linhas
+            de dado que ninguém lê em cima de regolito, e quem abriu escolheu
+            trocar cena por informação. */}
+        <div className={boardOpen ? 'border border-white/10 bg-black/85' : ''}>
           <button
             type="button"
             onClick={() => setBoardOpen((v) => !v)}
-            className="flex w-full items-center justify-between gap-3 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.25em] text-white/70"
+            style={boardOpen ? undefined : VISOR}
+            className="flex w-full items-center justify-between gap-3 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.25em] text-white/75"
           >
             <span className="truncate">
               {boardOpen
