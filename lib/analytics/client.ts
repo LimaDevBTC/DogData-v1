@@ -97,16 +97,42 @@ export function sessionId(): string | null {
 
 // ── contexto do cliente ────────────────────────────────────────────────────
 
+// ⚠️ Esta função é RESERVA, não a fonte da verdade. Quem classifica navegador é
+// `analytics_navegador()` no banco (migração 028), a partir do user-agent lido
+// no servidor. Dois motivos: o UA do servidor não pode ser forjado por JS, e —
+// o que mais pesa — uma regra em SQL consegue reclassificar o que já está
+// gravado quando ela melhora, coisa que uma regra vivendo só no bundle nunca
+// faz. Ela continua aqui para o caso de o header não chegar.
+//
+// A ordem espelha a do SQL de propósito, e a parte de app vem PRIMEIRO: o
+// navegador embutido do X manda `Mobile/23G71 Twitter for iPhone/12.20` no
+// iPhone (sem o token `Safari/`, o que caía em 'Other') e um UA com `Chrome/`
+// no Android. Medido em 28/08: eram 622 eventos, 10% do tráfego limpo, o maior
+// segmento único da audiência — escondido em dois baldes errados.
 export function detectarNavegador(): string {
   if (typeof navigator === 'undefined') return 'unknown'
   const ua = navigator.userAgent
-  if (ua.includes('Edg/')) return 'Edge'
-  if (ua.includes('OPR/') || ua.includes('Opera')) return 'Opera'
-  if (ua.includes('SamsungBrowser')) return 'Samsung Internet'
-  if (ua.includes('Firefox/')) return 'Firefox'
-  if (ua.includes('Chrome/')) return 'Chrome'
-  if (ua.includes('Safari/')) return 'Safari'
-  return 'Other'
+  // embutidos em app, antes dos normais
+  if (/Twitter for iPhone|TwitterAndroid/i.test(ua)) return 'X (app)'
+  if (/Instagram/i.test(ua)) return 'Instagram (app)'
+  if (/FBAN|FBAV|FB_IAB/i.test(ua)) return 'Facebook (app)'
+  if (/MicroMessenger/i.test(ua)) return 'WeChat (app)'
+  if (/TikTok|BytedanceWebview|musical_ly/i.test(ua)) return 'TikTok (app)'
+  if (/Snapchat/i.test(ua)) return 'Snapchat (app)'
+  if (/LinkedInApp/i.test(ua)) return 'LinkedIn (app)'
+  // navegadores
+  if (/Edg\/|EdgiOS|EdgA\//.test(ua)) return 'Edge'
+  if (/OPR\/|Opera|OPiOS/.test(ua)) return 'Opera'
+  if (/SamsungBrowser/.test(ua)) return 'Samsung Internet'
+  if (/Brave\//.test(ua)) return 'Brave'
+  // Chrome no iOS se anuncia CriOS e CARREGA `Safari/`: sem esta linha antes da
+  // do Safari, todo Chrome de iPhone era contado como Safari (454 eventos).
+  if (/CriOS/.test(ua)) return 'Chrome'
+  if (/FxiOS|Firefox\//.test(ua)) return 'Firefox'
+  if (/Chrome\//.test(ua)) return 'Chrome'
+  if (/Safari\//.test(ua)) return 'Safari'
+  if (/AppleWebKit/.test(ua) && /Mobile\//.test(ua)) return 'WebView'
+  return 'Outro'
 }
 
 export function detectarSO(): string {

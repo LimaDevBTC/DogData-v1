@@ -157,7 +157,23 @@ export default function Publico({ data }: { data: Trafego }) {
           <Reveal y={18}>
             <Plate className="h-full">
               <PlateHead icon={Monitor}>Navegador</PlateHead>
-              <RankRows rows={data.navegadores.map((n) => ({ label: n.navegador, value: n.sessoes }))} />
+              {/* "(app)" no rótulo não é enfeite: navegador embutido de app não
+                  tem extensão, tem storage restrito e o caminho até a carteira
+                  é outro. Separá-los do Chrome/Safari hospedeiro é o que torna
+                  essa lista acionável. */}
+              <RankRows
+                rows={data.navegadores.map((n) => ({
+                  label: n.navegador === "desconhecido" ? "não identificado" : n.navegador,
+                  value: n.sessoes,
+                }))}
+              />
+              {data.navegadores.some((n) => n.navegador === "desconhecido") && (
+                <p className="font-mono text-[10px] text-white/25 mt-4 leading-relaxed">
+                  &ldquo;Não identificado&rdquo; são sessões anteriores a 27/08/2026: o
+                  user-agent não era gravado, então o navegador delas não pode ser
+                  recalculado. Daquela data em diante a classificação é feita no servidor.
+                </p>
+              )}
             </Plate>
           </Reveal>
 
