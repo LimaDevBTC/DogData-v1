@@ -229,16 +229,55 @@ muralha. São os endereços mais visíveis do primeiro anel. O DSC fica com a de
 outro trecho). Livres de verdade, com 2.540 m: 90°, 135°, 180°, 225°, 270°, 315°.
 O 0° tem 2.230 m.
 
+### MEDIDO em 28/08: quem detém o DSC e quem passa no portão
+
+Resolvi as **306 inscrições, 306 de 306**, pelo indexador (`inscriptionOwner`,
+lib/ordinals/inscriptions.ts, via UniSat) e cruzei com o saldo de
+`data/dog_holders_by_address.json`.
+
+| | |
+|---|---|
+| carteiras distintas com DSC | **94** |
+| ... com qualquer DOG | 40 (42,6%) |
+| ... que passam nos 20.000 DOG **na mesma carteira** | **34 (36,2%)** |
+| mediana de saldo dos 34 | 1.808.373 DOG |
+| soma dos 34 | 140.144.065 DOG |
+| peças na mão de quem passa | 150 de 306 |
+
+A coleção é concentrada: **duas carteiras detêm 195 das 306 peças** (113 e 82).
+Por isso a unidade de terreno é a CARTEIRA, nunca a peça: uma carteira que passa,
+um lote. Se fosse por peça, dois endereços levariam 64% do condomínio.
+
+### Dimensionamento real: é bem menor do que parecia
+
+| cenário | lotes | área | cunha no anel da frente |
+|---|---|---|---|
+| só quem já passa hoje | 34 | 10.200 m² | **1,8°** |
+| a coleção inteira, se todos entrarem | 94 | 28.200 m² | **5,1°** |
+
+Recomendação: reservar para os **94**, não para os 34. Passar no portão custa
+20.000 × US$ 0,001309 = **US$ 26,18**. O portão é simbólico em dinheiro, então
+quase todo detentor que quiser o endereço premium vai simplesmente comprar.
+
+E é aí que a regra da mesma carteira deixa de ser restrição e vira motor: hoje
+**60 das 94 carteiras não têm DOG nenhum**. Cada uma delas ganhou um motivo
+concreto para ir ao mercado. A regra não exclui o colecionador, ela o converte
+em holder.
+
+Como a cunha é de 5°, e não de 17° como a conta inicial supunha, cabem muitas
+coleções parceiras no primeiro anel sem comprometer o loteamento por idade.
+
 ### O que trava
 
-1. **Não sabemos quem detém cada DSC hoje.** Temos a coleção inteira enumerada
-   (`public/city/dsc-atlas.json`, 306 ids, pai `8a18494d…i0`), o que é a parte
-   difícil. Falta resolver o dono atual de cada inscrição. O método já foi usado
-   no Runestone: enumerar offline e resolver o endereço por `gettxout`. São 306
-   consultas.
-2. **Quantas dessas 306 também têm 20 mil DOG?** Sem isso não dá para dimensionar
-   o condomínio. É um cruzamento, não uma pesquisa.
-3. **Quantas coleções parceiras no total?** O tamanho da reserva sai daí.
+1. ~~Quem detém cada DSC~~ RESOLVIDO em 28/08, ver acima: 94 carteiras, 34 passam.
+2. **Quantas coleções parceiras no total?** O tamanho da reserva sai daí. Com
+   5° por coleção do porte do DSC, o primeiro anel comporta dezenas.
+3. **MESMA CARTEIRA, decidido pelo fundador em 28/08 e sem apelação.** Eu propus
+   aceitar um par de carteiras assinadas (cofre de ordinal + carteira de giro),
+   já que `lib/wallet/verify.ts` faz essa prova por BIP-322 e o connect da cidade
+   usa isso em produção. O fundador vetou: "a carteira de ordinals é uma só, vai
+   ter que ser na mesma carteira". Fica registrado que a regra exclui hoje 60 das
+   94 carteiras da coleção, e que isso é intencional.
 
 ### Contradições deste documento que precisam ser resolvidas
 

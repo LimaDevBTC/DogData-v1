@@ -10,8 +10,11 @@
 //   histórico  public/data/dog_price_history.json — fechamento diário da
 //              Gate.io desde 25/04/2024, gerado por scripts/build_price_history.py.
 //              É estático, então a primeira pintura não espera rede nenhuma.
-//   ao vivo    /api/markets → marketData.price, a média dos 18 mercados que a
-//              casa já acompanha, mais a variação de 24h.
+//   ao vivo    a MESMA cascata do topo da home (app/page.tsx): Kraken primeiro,
+//              Gate.io depois, MEXC por último. O número grande do gráfico tem
+//              que ser o mesmo número grande do resto do site, senão a página
+//              mostra dois preços do mesmo ativo com dois valores.
+//   velas      /api/price/candles, que também pergunta à Kraken antes de todos.
 //
 // O último ponto da série é o preço VIVO, não o fechamento de ontem: um gráfico
 // de preço que abre mostrando o valor de ontem como se fosse agora é um erro
@@ -63,9 +66,10 @@ const horaCurta = (iso: string) => {
 
 export default function DogPriceChart() {
   const [historico, setHistorico] = useState<[string, number][] | null>(null)
-  const [vivo, setVivo] = useState<{ price: number; change24h: number } | null>(null)
+  const [vivo, setVivo] = useState<{ price: number; change24h: number; fonte: string } | null>(null)
   const [janela, setJanela] = useState<Janela>('24H')
   const [intra, setIntra] = useState<Record<string, { t: string; c: number }[]>>({})
+  const [fonteVelas, setFonteVelas] = useState<string | null>(null)
   const [carregandoIntra, setCarregandoIntra] = useState(false)
   const [erro, setErro] = useState(false)
 
@@ -82,13 +86,37 @@ export default function DogPriceChart() {
       })
       .catch(() => vivoAinda && setErro(true))
 
-    fetch('/api/markets')
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((j) => {
-        if (!vivoAinda || !j?.marketData?.price) return
-        setVivo({ price: j.marketData.price, change24h: j.marketData.priceChange24h ?? 0 })
-      })
-      .catch(() => {})
+    // ⚠️ MESMA ORDEM DA HOME: Kraken, Gate.io, MEXC. Não é gosto, é o preço
+    // que o topo da página já publica; duas fontes diferentes na mesma tela
+    // dariam dois preços para o mesmo ativo.
+    const pega = (u: string) =>
+      fetch(u, { signal: AbortSignal.timeout(6000) }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+    Promise.allSettled([pega('/api/price/kraken'), pega('/api/price/gateio'), pega('/api/price/mexc')]).then(
+      ([k, g, m]) => {
+        if (!vivoAinda) return
+        const kr = k.status === 'fulfilled' ? k.value : null
+        const ticker = kr?.result?.DOGUSD
+        if (ticker?.c?.[0]) {
+          const price = parseFloat(ticker.c[0])
+          const open = parseFloat(ticker.o)
+          if (price > 0) {
+            setVivo({
+              price,
+              change24h: open > 0 ? ((price - open) / open) * 100 : 0,
+              fonte: 'Kraken',
+            })
+            return
+          }
+        }
+        const ga = g.status === 'fulfilled' ? g.value : null
+        if (ga?.price > 0) {
+          setVivo({ price: ga.price, change24h: ga.change24h ?? 0, fonte: 'Gate.io' })
+          return
+        }
+        const mx = m.status === 'fulfilled' ? m.value : null
+        if (mx?.price > 0) setVivo({ price: mx.price, change24h: mx.change24h ?? 0, fonte: 'MEXC' })
+      },
+    )
     return () => {
       vivoAinda = false
     }
@@ -105,6 +133,7 @@ export default function DogPriceChart() {
       .then((j) => {
         if (Array.isArray(j?.points) && j.points.length > 1) {
           setIntra((m) => ({ ...m, [alvo]: j.points }))
+          if (j.source) setFonteVelas(j.source)
         }
       })
       .catch(() => {})
@@ -122,8 +151,8 @@ export default function DogPriceChart() {
         label: i === velas.length - 1 ? 'now' : horaCurta(v.t),
         value: v.c,
       }))
-      // o último ponto é o preço vivo dos 18 mercados, não o fechamento da
-      // última vela de UM mercado
+      // o último ponto é o preço vivo do topo do site, não o fechamento da
+      // última vela, que fecha só no fim do intervalo
       if (vivo) pts[pts.length - 1] = { label: 'now', value: vivo.price }
       const ini = pts[0].value
       const fim = pts[pts.length - 1].value
@@ -184,7 +213,7 @@ export default function DogPriceChart() {
               className="font-mono text-[11px] tabular-nums"
               style={{ color: vivo.change24h >= 0 ? SOBE : DESCE }}
             >
-              {pct(vivo.change24h)} <span className="text-dusty">24h</span>
+              {pct(vivo.change24h)} <span className="text-dusty">24h · {vivo.fonte}</span>
             </p>
           )}
           {delta != null && (
@@ -231,8 +260,9 @@ export default function DogPriceChart() {
 
       <p className="mt-3 font-mono text-[9px] leading-relaxed text-dusty">
         {JANELAS.find((j) => j.k === janela)?.intra
-          ? 'Gate.io candles, 5 to 15 minutes apart. The last point is the live average across the 18 markets we track.'
-          : 'Daily close from Gate.io since 25/04/2024. The last point is the live average across the 18 markets we track.'}
+          ? `${fonteVelas ?? 'Kraken'} candles, ${janela === '4H' ? '5' : '15'} minutes apart.`
+          : 'Daily close from Gate.io since 25/04/2024.'}{' '}
+        Live price from {vivo?.fonte ?? 'Kraken'}, the same source as the top of the site.
       </p>
     </div>
   )
