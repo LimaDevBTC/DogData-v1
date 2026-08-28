@@ -42,10 +42,17 @@ export interface ResumoAnterior {
   duracao_media_s: number | null
 }
 
-export interface DiaTrafego {
-  dia: string
+/**
+ * Um ponto da série temporal. O passo NÃO é fixo: janelas de até 2 dias vêm
+ * por hora, acima disso por dia — e `Trafego.granularidade` diz qual foi usada.
+ * Por isso o campo é `inicio` (timestamp do balde) e não `dia`: um objeto
+ * chamado "dia" carregando hora seria a mesma classe de mentira que este painel
+ * vem tirando de si mesmo a cada rodada.
+ */
+export interface PontoSerie {
+  inicio: string
   sessoes: number
-  /** null = nenhuma sessão daquele dia tinha identidade. NÃO é zero visitantes. */
+  /** null = nenhuma sessão daquele balde tinha identidade. NÃO é zero visitantes. */
   visitantes: number | null
   pageviews: number
   duracao_s: number | null
@@ -72,9 +79,11 @@ export interface LinhaCanal {
 
 export interface Trafego {
   periodo: Periodo
+  /** Passo da série: 'hora' em janelas de até 2 dias, 'dia' acima disso. */
+  granularidade: 'hora' | 'dia'
   resumo: Resumo
   anterior: ResumoAnterior
-  por_dia: DiaTrafego[]
+  serie: PontoSerie[]
   paises: LinhaPais[]
   cidades: { cidade: string; pais: string; sessoes: number }[]
   canais: LinhaCanal[]

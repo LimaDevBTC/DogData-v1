@@ -30,18 +30,25 @@ import type { Trafego } from "./types"
 import {
   AXIS_TICK, CAT, ChartFrame, ChartTooltip, Delta, EmptyPlot, GRID, HAIR, HAIR_SOFT,
   Plate, PlateHead, PlotGrid, SectionHead, ShareBar, fmtDuracao, fmtNum, fmtPct,
+  rotuloSerie, rotuloSerieLongo,
 } from "./ui"
 
 export default function VisaoGeral({ data }: { data: Trafego }) {
   const { resumo: r, anterior: a } = data
 
-  const serie = data.por_dia.map((d) => ({
+  const g = data.granularidade
+  const serie = data.serie.map((d) => ({
     ...d,
-    rotulo: d.dia.slice(5),
+    rotulo: rotuloSerie(d.inicio, g),
     Sessoes: d.sessoes,
     Visitantes: d.visitantes,
     Pageviews: d.pageviews,
   }))
+  // Numa janela de 24h o eixo tem 25 baldes; deixar todo rótulo caber viraria
+  // uma parede de texto. O minTickGap resolve no desktop, mas o passo do eixo
+  // precisa ser mais folgado na hora do que no dia.
+  const intervaloEixo = g === "hora" ? 3 : "preserveStartEnd"
+  const unidade = g === "hora" ? "por hora" : "por dia"
 
   const agora = data.agora.map((b) => ({
     rotulo: b.minutos_atras === 0 ? "agora" : `-${b.minutos_atras}m`,
@@ -167,12 +174,12 @@ export default function VisaoGeral({ data }: { data: Trafego }) {
       {/* ── a série ─────────────────────────────────────────────────────── */}
       <Reveal y={18}>
         <ChartFrame
-          eyebrow="Sessões, páginas e visitantes por dia"
+          eyebrow={`Sessões, páginas e visitantes ${unidade}`}
           icon={TrendingUp}
           table={{
-            head: ["Dia", "Sessões", "Páginas", "Visitantes"],
-            rows: data.por_dia.map((d) => [
-              d.dia, d.sessoes, d.pageviews, d.visitantes ?? "não medido",
+            head: [g === "hora" ? "Hora" : "Dia", "Sessões", "Páginas", "Visitantes"],
+            rows: data.serie.map((d) => [
+              rotuloSerieLongo(d.inicio, g), d.sessoes, d.pageviews, d.visitantes ?? "não medido",
             ]),
           }}
         >
@@ -186,7 +193,8 @@ export default function VisaoGeral({ data }: { data: Trafego }) {
                   </linearGradient>
                 </defs>
                 <CartesianGrid stroke={GRID} vertical={false} />
-                <XAxis dataKey="rotulo" tick={AXIS_TICK} axisLine={false} tickLine={false} minTickGap={24} />
+                <XAxis dataKey="rotulo" tick={AXIS_TICK} axisLine={false} tickLine={false}
+                  minTickGap={24} interval={intervaloEixo} />
                 <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={52} />
                 <Tooltip content={<ChartTooltip />} cursor={{ stroke: "#ffffff25", strokeWidth: 1 }} />
                 <Area type="monotone" dataKey="Pageviews" stroke={CAT[0]} strokeWidth={2}
@@ -217,11 +225,11 @@ export default function VisaoGeral({ data }: { data: Trafego }) {
       <div className="grid lg:grid-cols-2 gap-6">
         <Reveal y={18}>
           <ChartFrame
-            eyebrow="Permanência média por dia"
+            eyebrow={`Permanência média ${unidade}`}
             icon={Clock}
             table={{
-              head: ["Dia", "Segundos"],
-              rows: data.por_dia.map((d) => [d.dia, d.duracao_s ?? "não medido"]),
+              head: [g === "hora" ? "Hora" : "Dia", "Segundos"],
+              rows: data.serie.map((d) => [rotuloSerieLongo(d.inicio, g), d.duracao_s ?? "não medido"]),
             }}
           >
             {/* connectNulls fica FALSO: os dias sem medição têm que aparecer
@@ -231,7 +239,8 @@ export default function VisaoGeral({ data }: { data: Trafego }) {
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart data={serie} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
                   <CartesianGrid stroke={GRID} vertical={false} />
-                  <XAxis dataKey="rotulo" tick={AXIS_TICK} axisLine={false} tickLine={false} minTickGap={24} />
+                  <XAxis dataKey="rotulo" tick={AXIS_TICK} axisLine={false} tickLine={false}
+                  minTickGap={24} interval={intervaloEixo} />
                   <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={52}
                     tickFormatter={(v: number) => fmtDuracao(v)} />
                   <Tooltip content={<ChartTooltip unit="s" />} cursor={{ stroke: "#ffffff25" }} />
@@ -247,16 +256,17 @@ export default function VisaoGeral({ data }: { data: Trafego }) {
 
         <Reveal y={18} delay={0.08}>
           <ChartFrame
-            eyebrow="Taxa de rejeição por dia"
+            eyebrow={`Taxa de rejeição ${unidade}`}
             table={{
-              head: ["Dia", "Rejeição %"],
-              rows: data.por_dia.map((d) => [d.dia, d.rejeicao ?? "—"]),
+              head: [g === "hora" ? "Hora" : "Dia", "Rejeição %"],
+              rows: data.serie.map((d) => [rotuloSerieLongo(d.inicio, g), d.rejeicao ?? "—"]),
             }}
           >
             <ResponsiveContainer width="100%" height={200}>
               <LineChart data={serie} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
                 <CartesianGrid stroke={GRID} vertical={false} />
-                <XAxis dataKey="rotulo" tick={AXIS_TICK} axisLine={false} tickLine={false} minTickGap={24} />
+                <XAxis dataKey="rotulo" tick={AXIS_TICK} axisLine={false} tickLine={false}
+                  minTickGap={24} interval={intervaloEixo} />
                 <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} domain={[0, 100]} />
                 <Tooltip content={<ChartTooltip unit="%" />} cursor={{ stroke: "#ffffff25" }} />
                 <Line type="monotone" dataKey="rejeicao" name="Rejeição" stroke={CAT[1]}

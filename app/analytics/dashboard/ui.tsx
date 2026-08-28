@@ -316,13 +316,17 @@ function MountCounter({
 // wanting proportional ones: the value COUNTS UP on enter, and proportional
 // digits reflow the box on every frame of the count.
 export function HeroFigure({
-  label, value, unit, sub, trend, badge, accent = CAT[0], format = fmtNum,
+  label, value, unit, sub, trend, trendUnidade = "dias", badge, accent = CAT[0], format = fmtNum,
 }: {
   label: string
   value: number | null
   unit?: string
   sub?: string
   trend?: number[]
+  /** O que cada ponto da sparkline representa. A série do painel muda de passo
+   *  conforme a janela (24h vem por hora), e "últimos 14 dias" cravado embaixo
+   *  de 14 baldes horários é um rótulo que mente. */
+  trendUnidade?: string
   badge?: ReactNode
   accent?: string
   format?: (n: number) => string
@@ -360,7 +364,7 @@ export function HeroFigure({
           <div className="shrink-0">
             <Sparkline values={trend} color={accent} width={200} height={56} />
             <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/25 mt-2 text-right">
-              últimos {trend.length} dias
+              últimos {trend.length} {trendUnidade}
             </div>
           </div>
         )}
@@ -787,4 +791,32 @@ export function Tabela({
       </table>
     </div>
   )
+}
+
+// ── rótulo do eixo do tempo ────────────────────────────────────────────────
+// A série muda de passo conforme a janela (24h vem por hora, o resto por dia),
+// então o rótulo precisa mudar junto. Formatar hora como "08-27" repetiria a
+// mesma string 24 vezes no eixo; formatar dia como "14h" perderia a data.
+//
+// A conversão é para o fuso de QUEM LÊ, não UTC: o banco carimba em UTC, e um
+// pico às 22h de Brasília apareceria como 01h do dia seguinte se o eixo não
+// convertesse — o que faria a leitura "o post das 22h funcionou" ficar
+// impossível de fazer no gráfico.
+export function rotuloSerie(inicio: string, granularidade: "hora" | "dia"): string {
+  const d = new Date(inicio)
+  if (Number.isNaN(d.getTime())) return inicio
+  return granularidade === "hora"
+    ? d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+    : d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
+}
+
+// O mesmo instante por extenso, para a tabela alternativa do ChartFrame e para
+// o tooltip: ali cabe a data inteira e ela evita a ambiguidade de "14h de qual
+// dia" numa janela que atravessa a meia-noite.
+export function rotuloSerieLongo(inicio: string, granularidade: "hora" | "dia"): string {
+  const d = new Date(inicio)
+  if (Number.isNaN(d.getTime())) return inicio
+  return granularidade === "hora"
+    ? d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
+    : d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
 }

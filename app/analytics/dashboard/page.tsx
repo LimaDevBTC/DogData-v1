@@ -35,7 +35,19 @@ import VisaoGeral from "./visao-geral"
 import type { AdsReport, Relatorio } from "./types"
 import { CAT, HAIR, HAIR_SOFT, HeroFigure, STATUS, StatusChip, fmtDuracao, fmtNum } from "./ui"
 
-const JANELAS = [7, 14, 30, 60, 90]
+// Janelas em DIAS, com o rótulo separado do valor: 24h é `dias: 1`, e escrever
+// "1d" num botão que o fundador pediu como "últimas 24h" seria fazer a pessoa
+// traduzir a própria pergunta. Abaixo de 2 dias a série vem por hora (migração
+// 025) — sem isso um filtro de 24h desenharia dois pontos e não mostraria o
+// pico que justifica olhar 24h.
+const JANELAS = [
+  { dias: 1,  rotulo: "24h" },
+  { dias: 7,  rotulo: "7d" },
+  { dias: 14, rotulo: "14d" },
+  { dias: 30, rotulo: "30d" },
+  { dias: 60, rotulo: "60d" },
+  { dias: 90, rotulo: "90d" },
+] as const
 
 const ABAS = [
   { key: "geral",         label: "Visão geral",   icon: BarChart3 },
@@ -103,7 +115,7 @@ export default function PainelAnalytics() {
   const v = dados.vitais
   const nota = v?.nota_geral ?? null
   const estadoNota = nota == null ? "warn" : nota >= 90 ? "good" : nota >= 50 ? "warn" : "poor"
-  const tendencia = t ? t.por_dia.slice(-14).map((d) => d.sessoes) : []
+  const tendencia = t ? t.serie.slice(-14).map((d) => d.sessoes) : []
 
   // Mesma regra da aba Visão geral, ver o comentário no herói abaixo.
   const heroIdentidadeMadura =
@@ -151,6 +163,7 @@ export default function PainelAnalytics() {
           label="Visitantes no período"
           value={t.resumo.visitantes}
           trend={tendencia}
+          trendUnidade={t.granularidade === "hora" ? "horas" : "dias"}
           accent={CAT[0]}
           sub={`${fmtNum(t.resumo.sessoes)} sessões · ${fmtDuracao(t.resumo.duracao_media_s)} de permanência média`}
         />
@@ -159,6 +172,7 @@ export default function PainelAnalytics() {
           label="Sessões no período"
           value={t.resumo.sessoes}
           trend={tendencia}
+          trendUnidade={t.granularidade === "hora" ? "horas" : "dias"}
           accent={CAT[0]}
           sub={
             t.resumo.sessoes_identificadas === 0
@@ -186,10 +200,20 @@ export default function PainelAnalytics() {
                 Site Dashboard
               </h1>
               <p className="font-mono text-[10px] text-dusty mt-2.5 tabular-nums">
+                {/* Em 24h as duas pontas caem no mesmo dia ou em dias vizinhos,
+                    e só a data faria o cabeçalho dizer "27/08 → 28/08" sem
+                    informar nada. Janela curta mostra a hora. */}
                 {t && (
                   <>
-                    {new Date(t.periodo.de).toLocaleDateString("pt-BR")} →{" "}
-                    {new Date(t.periodo.ate).toLocaleDateString("pt-BR")}
+                    {new Date(t.periodo.de).toLocaleString("pt-BR",
+                      dias <= 2
+                        ? { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }
+                        : { day: "2-digit", month: "2-digit", year: "numeric" })}
+                    {" → "}
+                    {new Date(t.periodo.ate).toLocaleString("pt-BR",
+                      dias <= 2
+                        ? { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }
+                        : { day: "2-digit", month: "2-digit", year: "numeric" })}
                   </>
                 )}
                 {ultima && (
@@ -202,19 +226,19 @@ export default function PainelAnalytics() {
 
             <div className="flex items-center gap-2 flex-wrap">
               <div className={`flex border ${HAIR}`}>
-                {JANELAS.map((d) => (
+                {JANELAS.map((j) => (
                   <button
-                    key={d}
-                    onClick={() => setDias(d)}
-                    aria-pressed={dias === d}
+                    key={j.dias}
+                    onClick={() => setDias(j.dias)}
+                    aria-pressed={dias === j.dias}
                     className={`px-3.5 min-h-[40px] font-mono text-[11px] tabular-nums transition-colors
                       border-r ${HAIR} last:border-r-0 ${
-                      dias === d
+                      dias === j.dias
                         ? "bg-lava text-void font-bold"
                         : "text-dusty hover:text-snow hover:bg-white/[0.04]"
                     }`}
                   >
-                    {d}d
+                    {j.rotulo}
                   </button>
                 ))}
               </div>

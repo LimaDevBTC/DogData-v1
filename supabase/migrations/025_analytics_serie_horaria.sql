@@ -1,27 +1,24 @@
--- Migration 024: identidade AUSENTE deixa de se passar por identidade ZERO.
+-- Migration 025: janela de 24h, e a serie que ela exige.
 --
--- Sintoma (fundador, 27/08): "parece que os dados foram todos excluidos, temos
--- 32 visitas so". Nada foi excluido — 43.297 eventos e 6.560 sessoes desde
--- 04/07 continuavam intactos. O que aconteceu e que o numero de destaque do
--- painel virou VISITANTES, e visitor_id so existe desde 27/08. Das 55 semanas
--- de historico, 54 respondiam 0, e 0 em cima de um grafico le como "ninguem
--- veio" — exatamente a mesma classe de erro que a media de 9.132s de duracao
--- que este trabalho comecou consertando.
+-- Pedido do fundador: "preciso do filtro das ultimas 24h, so tem 7 dias". O
+-- p_days ja aceitava 1 — o que faltava era a SERIE. Uma janela de 24h agrupada
+-- por DIA devolve um ou dois pontos, e dois pontos nao sao uma curva: nao da
+-- pra ver o pico depois de um post, que e exatamente pra isso que se olha 24h.
 --
--- A regra e a mesma que ja valia pra engaged_ms, agora estendida a identidade:
--- NAO MEDIDO DEVOLVE NULL, NUNCA 0. Vale por dia, por pais e por canal.
+-- Entao a granularidade segue a janela: ate 2 dias agrupa por HORA, acima disso
+-- por dia. E o relatorio DIZ qual usou, no campo `granularidade`, pra interface
+-- formatar o eixo certo em vez de adivinhar pelo numero de pontos.
 --
--- E o resumo passa a carregar `sessoes_identificadas`, pra interface poder
--- decidir sozinha se ja tem base pra liderar com visitante ou se ainda deve
--- liderar com sessao (contínua desde 04/07). Assim o painel se conserta sozinho
--- conforme a janela anda, sem ninguem tocar em codigo.
+-- O campo mudou de nome junto: era `por_dia` com um campo `dia`, e passa a ser
+-- `serie` com `inicio` (timestamp do balde). Um objeto chamado "por_dia"
+-- carregando hora e a mesma classe de mentira que este painel vem tirando de si
+-- mesmo a cada rodada.
 --
--- ⚠️ Este arquivo e a versao completa de analytics_traffic e SUBSTITUI a da
--- migracao 021. Rodar 021 depois desta desfaz a correcao.
+-- O generate_series a esquerda continua nos dois ramos: hora sem visita precisa
+-- aparecer como zero, e nao sumir da curva. E o NULL de visitantes segue a
+-- regra da 024 — nao medido nunca vira 0.
 --
--- ⚠️ E esta, por sua vez, foi SUPERADA pela 025 (serie horaria em janelas de
--- ate 2 dias). A regra de NULL descrita aqui continua valendo e foi carregada
--- pra 025 inteira; o que mudou foi o formato da serie.
+-- ⚠️ Substitui analytics_traffic da migracao 024, que substituia a da 021.
 
 create or replace function public.analytics_traffic(p_days int default 30)
 returns jsonb language plpgsql stable security definer set search_path = public as $fn$
@@ -29,7 +26,9 @@ declare
   v_days    int := greatest(1, least(coalesce(p_days, 30), 365));
   v_ini     timestamptz := now() - make_interval(days => v_days);
   v_ini_ant timestamptz := now() - make_interval(days => v_days * 2);
-  v_resumo  jsonb; v_anterior jsonb; v_dia jsonb; v_pais jsonb; v_cidade jsonb;
+  -- Ate 2 dias, hora. E o ponto em que a serie diaria deixa de desenhar forma.
+  v_por_hora boolean := v_days <= 2;
+  v_resumo  jsonb; v_anterior jsonb; v_serie jsonb; v_pais jsonb; v_cidade jsonb;
   v_canal   jsonb; v_ref jsonb; v_camp jsonb; v_pag jsonb; v_disp jsonb;
   v_nav     jsonb; v_so jsonb; v_idioma jsonb; v_tela jsonb; v_agora jsonb;
   v_robo    jsonb;
@@ -62,21 +61,40 @@ begin
   ) into v_anterior from public.analytics_sessions s
   where s.started_at >= v_ini_ant and s.started_at < v_ini and s.is_bot = false;
 
-  -- Dia sem NENHUMA sessao identificada devolve NULL em visitantes, nao 0. Com
-  -- connectNulls={false} no grafico, a linha de visitantes simplesmente nao
+  -- Balde sem NENHUMA sessao identificada devolve NULL em visitantes, nao 0.
+  -- Com connectNulls={false} no grafico a linha de visitantes simplesmente nao
   -- existe onde nao houve medicao, em vez de rastejar no eixo zero por baixo de
   -- uma curva de sessoes saudavel.
-  select coalesce(jsonb_agg(x order by x.dia), '[]'::jsonb) into v_dia from (
-    select d::date as dia, count(s.session_id) as sessoes,
-      case when count(s.visitor_id) = 0 then null else count(distinct s.visitor_id) end as visitantes,
-      coalesce(sum(s.pageviews), 0) as pageviews,
-      round((avg(s.engaged_ms) filter (where s.engaged_ms is not null))::numeric / 1000.0, 1) as duracao_s,
-      round(100.0 * count(*) filter (where s.session_id is not null and not (s.pageviews >= 2 or coalesce(s.engaged_ms,0) >= 10000 or s.events >= 1)) / nullif(count(s.session_id), 0), 1) as rejeicao
-    from generate_series(v_ini::date, now()::date, '1 day') d
-    left join public.analytics_sessions s
-      on s.started_at >= d and s.started_at < d + interval '1 day' and s.is_bot = false
-    group by d
-  ) x;
+  --
+  -- Os dois ramos sao a MESMA agregacao com passo diferente. O generate_series
+  -- a esquerda esta nos dois: balde vazio precisa aparecer como zero e nao
+  -- sumir da curva, senao o grafico desenha linha continua por cima de um
+  -- buraco e mente sobre a forma.
+  if v_por_hora then
+    select coalesce(jsonb_agg(x order by x.inicio), '[]'::jsonb) into v_serie from (
+      select h as inicio, count(s.session_id) as sessoes,
+        case when count(s.visitor_id) = 0 then null else count(distinct s.visitor_id) end as visitantes,
+        coalesce(sum(s.pageviews), 0) as pageviews,
+        round((avg(s.engaged_ms) filter (where s.engaged_ms is not null))::numeric / 1000.0, 1) as duracao_s,
+        round(100.0 * count(*) filter (where s.session_id is not null and not (s.pageviews >= 2 or coalesce(s.engaged_ms,0) >= 10000 or s.events >= 1)) / nullif(count(s.session_id), 0), 1) as rejeicao
+      from generate_series(date_trunc('hour', v_ini), date_trunc('hour', now()), '1 hour') h
+      left join public.analytics_sessions s
+        on s.started_at >= h and s.started_at < h + interval '1 hour' and s.is_bot = false
+      group by h
+    ) x;
+  else
+    select coalesce(jsonb_agg(x order by x.inicio), '[]'::jsonb) into v_serie from (
+      select d as inicio, count(s.session_id) as sessoes,
+        case when count(s.visitor_id) = 0 then null else count(distinct s.visitor_id) end as visitantes,
+        coalesce(sum(s.pageviews), 0) as pageviews,
+        round((avg(s.engaged_ms) filter (where s.engaged_ms is not null))::numeric / 1000.0, 1) as duracao_s,
+        round(100.0 * count(*) filter (where s.session_id is not null and not (s.pageviews >= 2 or coalesce(s.engaged_ms,0) >= 10000 or s.events >= 1)) / nullif(count(s.session_id), 0), 1) as rejeicao
+      from generate_series(v_ini::date, now()::date, '1 day') d
+      left join public.analytics_sessions s
+        on s.started_at >= d and s.started_at < d + interval '1 day' and s.is_bot = false
+      group by d
+    ) x;
+  end if;
 
   select coalesce(jsonb_agg(x order by x.sessoes desc), '[]'::jsonb) into v_pais from (
     select coalesce(country,'??') as pais, count(*) as sessoes,
@@ -161,7 +179,8 @@ begin
 
   return jsonb_build_object(
     'periodo', jsonb_build_object('dias', v_days, 'de', v_ini, 'ate', now()),
-    'resumo', v_resumo, 'anterior', v_anterior, 'por_dia', v_dia,
+    'granularidade', case when v_por_hora then 'hora' else 'dia' end,
+    'resumo', v_resumo, 'anterior', v_anterior, 'serie', v_serie,
     'paises', v_pais, 'cidades', v_cidade, 'canais', v_canal, 'origens', v_ref,
     'campanhas', v_camp, 'paginas', v_pag, 'dispositivos', v_disp,
     'navegadores', v_nav, 'sistemas', v_so, 'idiomas', v_idioma, 'telas', v_tela,
@@ -172,4 +191,4 @@ $fn$;
 revoke all on function public.analytics_traffic(int) from public, anon, authenticated;
 
 comment on function public.analytics_traffic is
-  'Audiencia, aquisicao, geografia e tecnologia da janela, com a janela anterior de mesmo tamanho para comparacao. NAO MEDIDO DEVOLVE NULL, NUNCA 0: vale para duracao (engaged_ms) e para identidade (visitor_id), por dia, por pais e por canal. sessoes_identificadas e sessoes_medidas acompanham cada media para a interface saber sobre que base ela foi tirada.';
+  'Audiencia, aquisicao, geografia e tecnologia da janela, com a janela anterior de mesmo tamanho para comparacao. A serie muda de passo com a janela: ate 2 dias por hora, acima por dia, e o campo granularidade diz qual foi usada. NAO MEDIDO DEVOLVE NULL, NUNCA 0: vale para duracao (engaged_ms) e para identidade (visitor_id), por balde, por pais e por canal. sessoes_identificadas e sessoes_medidas acompanham cada media para a interface saber sobre que base ela foi tirada.';
