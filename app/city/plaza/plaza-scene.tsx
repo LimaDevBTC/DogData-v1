@@ -1792,7 +1792,10 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             {
               const fita = h.fita || []
               if (warFitaRef.current) warFitaRef.current.style.display = fita.length ? '' : 'none'
-              for (let i = 0; i < FITA_LINHAS; i++) {
+              // ⚠️ vai até FITA_LINHAS - 1: a última linha é espaçador e nunca
+              // recebe dado, senão o vão do rodapé some quando o mercado
+              // acorda, que é justamente quando a fita fica cheia
+              for (let i = 0; i < FITA_LINHAS - 1; i++) {
                 const linha = warFitaLinhas.current[i]
                 if (!linha) continue
                 const tr = fita[i]
@@ -2044,14 +2047,25 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // (1,25rem + safe area), somando a altura dele mais uma folga: as duas
         // peças sobem e descem juntas em qualquer aparelho, com ou sem barra
         // de gestos, em vez de uma perseguir a outra.
-        className="pointer-events-none absolute bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-3 flex select-none flex-col items-end gap-0.5 font-mono text-[10px] tabular-nums tracking-[0.04em] text-white/70 transition-opacity duration-300 [@media(max-height:520px)]:bottom-auto [@media(max-height:520px)]:top-14 [@media(min-width:640px)_and_(min-height:521px)]:bottom-auto [@media(min-width:640px)_and_(min-height:521px)]:right-6 [@media(min-width:640px)_and_(min-height:521px)]:top-20 [@media(min-width:640px)_and_(min-height:521px)]:gap-1"
+        className="pointer-events-none absolute bottom-[calc(4rem+env(safe-area-inset-bottom))] right-3 flex select-none flex-col items-end gap-0.5 font-mono text-[10px] tabular-nums tracking-[0.04em] text-white/70 transition-opacity duration-300 [@media(max-height:520px)]:bottom-auto [@media(max-height:520px)]:top-14 [@media(min-width:640px)_and_(min-height:521px)]:bottom-auto [@media(min-width:640px)_and_(min-height:521px)]:right-6 [@media(min-width:640px)_and_(min-height:521px)]:top-20 [@media(min-width:640px)_and_(min-height:521px)]:gap-1"
         style={{ opacity: 0, ...VISOR }}
       >
-        {Array.from({ length: FITA_LINHAS }, (_, i) => (
+        {Array.from({ length: FITA_LINHAS - 1 }, (_, i) => (
           <div
             key={i}
             ref={(el) => { warFitaLinhas.current[i] = el }}
-            className={`items-center gap-1.5 ${i < 3 ? 'flex' : 'hidden [@media(min-width:640px)_and_(min-height:521px)]:flex'}`}
+            // ⚠️ A PILHA ESMAECE PARA TRÁS, e a última linha não existe.
+            // Pedido do fundador: "quando tiver muitos trades, aplicar efeito
+            // fade na quarta e na quinta mais velhas; a sexta já não existe,
+            // serve de espaçamento, e embaixo o rodapé". As três primeiras
+            // ficam cheias, a quarta a 55%, a quinta a 30%, e a sexta é uma
+            // linha SEMPRE invisível: ela ocupa altura sem desenhar nada, e é
+            // ela que abre o vão até o rodapé. Espaço que vem da própria
+            // grade não descola quando o aparelho muda de barra de gestos,
+            // que foi o defeito da versão anterior.
+            // ⚠️ `opacity-[0.55]` e não `opacity-55`: a escala do Tailwind
+            // neste projeto é a padrão e 55 NÃO existe, cai fora silenciosa.
+            className={`items-center gap-1.5 flex ${i === 3 ? 'opacity-[0.55]' : ''} ${i === 4 ? 'opacity-[0.3]' : ''} ${i === 5 ? 'invisible' : ''}`}
             style={{ visibility: 'hidden' }}
           >
             <span className="text-white/30" />
@@ -2075,6 +2089,19 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         >
           How to read
         </button>
+        {/* ⚠️ A SEXTA LINHA, que nunca recebe dado: é ela que abre o vão até o
+            rodapé. Fica DEPOIS do botão de propósito, para a ordem de leitura
+            ser trades, legenda, respiro, preço. Espaço que vem da própria
+            grade não descola quando o aparelho troca a barra de gestos. */}
+        {/* ⚠️ ALTURA EXPLÍCITA: quatro spans vazios num flex dão linha de altura
+            ZERO, e o respiro simplesmente não existia (medido: legenda
+            terminando em 778 com o preço começando em 777, encostados). 1rem é
+            a altura de uma linha da fita. */}
+        <div
+          ref={(el) => { warFitaLinhas.current[FITA_LINHAS - 1] = el }}
+          aria-hidden
+          className="invisible h-4 w-px"
+        />
       </div>
 
       {/* ── title, and the way back: the landing is the front door, the site is home */}
