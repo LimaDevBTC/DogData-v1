@@ -62,6 +62,17 @@ const fmtQtd = (n: number) =>
 
 // hora curta da fita: HH:MM:SS local, sem data. A fita só mostra os últimos
 // segundos, então a data seria ruído numa linha de 10 px.
+// ⚠️ NÚMERO DE VISOR É CURTO. `fmtQtd` dá duas casas ("272.24M") e a linha
+// única do rodapé passava de 390px e quebrava em duas, que era justamente o
+// que se queria evitar. Acima de 100 milhões a segunda casa não muda decisão
+// nenhuma de quem está olhando uma batalha.
+const fmtQtdCurto = (n: number) =>
+  n >= 1e9 ? `${(n / 1e9).toFixed(1)}B`
+  : n >= 1e8 ? `${Math.round(n / 1e6)}M`
+  : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M`
+  : n >= 1e3 ? `${Math.round(n / 1e3)}K`
+  : n.toFixed(0)
+
 const fmtHora = (t: number) => {
   const d = new Date(t)
   const p2 = (n: number) => n.toString().padStart(2, '0')
@@ -1762,7 +1773,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               warPressaoRef.current.style.width = `${(tot > 0 ? (h.compra / tot) * 100 : 50).toFixed(1)}%`
             }
             if (warBaixasRef.current) {
-              warBaixasRef.current.textContent = `bought ${fmtQtd(h.ursosCaidos)} · sold ${fmtQtd(h.caesCaidos)} DOG`
+              warBaixasRef.current.textContent = `bought ${fmtQtdCurto(h.ursosCaidos)} · sold ${fmtQtdCurto(h.caesCaidos)}`
             }
             if (legendaAbertaRef.current) {
               setLegendaDados({
@@ -1773,8 +1784,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 churnRelativo: h.churnRelativo, assaltos: h.assaltos, eventos: h.eventos,
               })
             }
-            if (warBidsRef.current) warBidsRef.current.textContent = `BIDS ${fmtQtd(h.bidsDog)}`
-            if (warAsksRef.current) warAsksRef.current.textContent = `ASKS ${fmtQtd(h.asksDog)}`
+            if (warBidsRef.current) warBidsRef.current.textContent = `BIDS ${fmtQtdCurto(h.bidsDog)}`
+            if (warAsksRef.current) warAsksRef.current.textContent = `ASKS ${fmtQtdCurto(h.asksDog)}`
             // ── a fita ────────────────────────────────────────────────────
             // ⚠️ A ORDEM DOS FILHOS DE CADA LINHA É CONTRATO com o JSX lá
             // embaixo: hora, seta, quantidade, preço. Mexeu no JSX, mexe aqui.
@@ -1977,26 +1988,21 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             cena, recortados por halo (VISOR). A fita saiu daqui para a calha
             da direita, onde ela já vivia no desktop. */}
         <div className="text-center font-mono [@media(max-height:520px)]:text-left" style={VISOR}>
-          <div className="text-[8px] uppercase tracking-[0.24em] text-white/55 sm:text-[9px] sm:tracking-[0.3em]">The Price War · DOG / USD · Kraken live</div>
-          <div ref={warPrecoRef} className="mt-0.5 text-xl tracking-tight text-white tabular-nums sm:text-2xl">$-</div>
-          <div ref={warBaixasRef} className="mt-1 text-[9px] uppercase tracking-[0.18em] text-white/55 tabular-nums">bought 0 · sold 0 DOG</div>
-          <div className="mt-0.5 flex items-center justify-center gap-1.5 text-[9px] uppercase tracking-[0.18em] tabular-nums [@media(max-height:520px)]:justify-start">
+          {/* ⚠️ TRÊS LINHAS VIRARAM DUAS. Saiu o rótulo "The Price War · DOG /
+              USD · Kraken live" (fundador: "não deveria estar ali"): o preço em
+              dólar já se identifica sozinho, e "Kraken live" virava redundância
+              com o selo de vida que agora mora no topo direito. E as duas
+              linhas de baixo viraram uma só, porque comprado/vendido e a
+              profundidade dos dois lados são a MESMA leitura: quanto cada lado
+              tem e quanto cada lado fez. */}
+          <div ref={warPrecoRef} className="text-xl tracking-tight text-white tabular-nums sm:text-2xl">$-</div>
+          <div className="mt-0.5 flex items-center justify-center gap-x-1.5 whitespace-nowrap text-[9px] uppercase tracking-[0.14em] tabular-nums [@media(max-height:520px)]:justify-start">
+            <span ref={warBaixasRef} className="text-white/55">bought 0 · sold 0</span>
+            <span className="text-white/25">·</span>
             <span ref={warBidsRef} className="text-[#f7931a]">BIDS 0</span>
-            <span className="text-white/35">·</span>
+            <span className="text-white/25">·</span>
             <span ref={warAsksRef} className="text-red-400">ASKS 0</span>
           </div>
-          {/* ⚠️ `pointer-events-auto` obrigatório: o invólucro do HUD é
-              `pointer-events-none` para não roubar o arrasto da câmera, então
-              todo controle dentro dele precisa reativar o ponteiro no próprio
-              elemento, senão o clique atravessa e nada acontece. */}
-          <button
-            type="button"
-            onClick={() => setLegendaAberta(true)}
-            style={VISOR}
-            className="pointer-events-auto mt-1.5 px-2 py-1.5 font-mono text-[9px] uppercase tracking-[0.2em] text-white/50 underline decoration-white/20 underline-offset-4 hover:text-[#f7931a]"
-          >
-            How to read this
-          </button>
         </div>
       </div>
       {/* ── A BARRA DE PRESSÃO, NA BORDA DA TELA ────────────────────────────
@@ -2035,7 +2041,6 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         className="pointer-events-none absolute bottom-[8.5rem] right-3 flex select-none flex-col items-end gap-0.5 font-mono text-[10px] tabular-nums tracking-[0.04em] text-white/70 transition-opacity duration-300 [@media(max-height:520px)]:bottom-auto [@media(max-height:520px)]:top-14 [@media(min-width:640px)_and_(min-height:521px)]:bottom-auto [@media(min-width:640px)_and_(min-height:521px)]:right-6 [@media(min-width:640px)_and_(min-height:521px)]:top-20 [@media(min-width:640px)_and_(min-height:521px)]:gap-1"
         style={{ opacity: 0, ...VISOR }}
       >
-        <div className="mb-0.5 text-[9px] uppercase tracking-[0.22em] text-white/25">Tape</div>
         {Array.from({ length: FITA_LINHAS }, (_, i) => (
           <div
             key={i}
@@ -2049,6 +2054,21 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             <span className="text-white/40" />
           </div>
         ))}
+        {/* ⚠️ A LEGENDA MORA COLADA NA FITA, e demorei três posições para
+            chegar aqui. Na fileira de controles ela virava o sexto item e
+            estourava a linha em 390px. Embaixo do preço engordava o rodapé,
+            que era a queixa original. Solta no canto inferior direito ela
+            batia na linha de números, que é centrada e tem 317px numa tela de
+            390. Presa à fita ela acompanha a calha em qualquer formato, fica
+            ao lado do dado que explica, e some junto quando a câmera se
+            afasta da cratera, porque aí não há batalha para explicar. */}
+        <button
+          type="button"
+          onClick={() => setLegendaAberta(true)}
+          className="pointer-events-auto mt-1 px-1 py-1 font-mono text-[9px] uppercase tracking-[0.18em] text-white/40 hover:text-[#F7931A]"
+        >
+          How to read
+        </button>
       </div>
 
       {/* ── title, and the way back: the landing is the front door, the site is home */}
@@ -2110,6 +2130,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           >
             Follow tx
           </button>
+
           {placesOpen && (
             <ul className="absolute left-0 top-full z-10 mt-1 w-[16rem] border border-white/10 bg-black/90 py-1">
               {PLACES.map((pl) => (
@@ -2171,27 +2192,32 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       {/* ── the board: under the title on phones, top-right on desktop ──────
           ⚠️ no celular o bloco de título (marca + h1 + subtítulo + botões)
           desce até ~9rem; a 5.6rem a barra cobria PLACES e TOUR */}
-      <div className="absolute left-4 right-4 top-[9.4rem] sm:left-auto sm:right-6 sm:top-6 sm:flex sm:w-[20rem] sm:flex-col sm:gap-2">
+      {/* ⚠️ O ESTADO DA REDE MORA NO TOPO DIREITO, e não mais numa faixa larga
+          sob o título. Pedido do fundador: "jogue o live pro topo direito, suba
+          o in orbit". Fechado, são duas linhas alinhadas à direita: o selo de
+          vida em cima, a órbita embaixo. A faixa que atravessava a tela inteira
+          no celular sumiu, e com ela um corredor de 358px de HUD sobre a cena. */}
+      <div className="absolute right-4 top-4 flex w-[13.5rem] flex-col items-end gap-2 sm:right-6 sm:top-6 sm:w-[20rem]">
         {/* ⚠️ VISOR: fechado, o quadro é só uma LINHA sobre a cena, sem placa.
             Aberto ele volta a ter fundo, e aí é de propósito: são doze linhas
             de dado que ninguém lê em cima de regolito, e quem abriu escolheu
             trocar cena por informação. */}
-        <div className={boardOpen ? 'border border-white/10 bg-black/85' : ''}>
+        <div className={boardOpen ? 'w-full border border-white/10 bg-black/85' : 'w-full'}>
           <button
             type="button"
             onClick={() => setBoardOpen((v) => !v)}
             style={boardOpen ? undefined : VISOR}
-            className="flex w-full items-center justify-between gap-3 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.25em] text-white/75"
+            className={`flex w-full flex-col items-end gap-0.5 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-white/75 ${boardOpen ? 'px-3 py-2' : ''}`}
           >
-            <span className="truncate">
+            <span className="flex items-center gap-1.5">
+              <span className={`inline-block size-1.5 rounded-full ${live ? 'bg-[#10B981]' : 'bg-[#F59E0B]'}`} />
+              <span className="text-white/60">{live ? 'live' : hud.stale != null ? `${hud.stale}s ago` : 'connecting'}</span>
+              <span className="text-white/40">{boardOpen ? '−' : '+'}</span>
+            </span>
+            <span className="truncate text-white/70">
               {boardOpen
                 ? `Mission board${typeof window !== 'undefined' && window.location.search.includes('demo=1') ? ' · demo' : ''}`
                 : `${hud.orbit} in orbit · ${fmtDog(s?.dog_pending_amount ?? 0)} DOG`}
-            </span>
-            <span className="flex shrink-0 items-center gap-2">
-              <span className={`inline-block size-1.5 rounded-full ${live ? 'bg-[#10B981]' : 'bg-[#F59E0B]'}`} />
-              <span className="text-white/45">{live ? 'live' : hud.stale != null ? `${hud.stale}s ago` : 'connecting'}</span>
-              <span className="text-white/40">{boardOpen ? '−' : '+'}</span>
             </span>
           </button>
           {boardOpen && (
