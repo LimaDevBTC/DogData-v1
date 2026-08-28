@@ -36,6 +36,7 @@ import { detectTier, profileFor, parseQuality, FrameGovernor, DistanceCuller, me
 import { SF_CREDITS, SF, loadSf, dressSf } from './sf-assets'
 import { buildProps, type Props } from './props'
 import { buildDscGallery, DSC_CENTER, type DscGallery } from './dsc-gallery'
+import { buildDome, type Dome } from './dome'
 import { PROPS } from './props-table'
 import { CityChat } from '@/components/wallet/city-chat'
 
@@ -797,6 +798,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let precinct: Precinct | null = null
     let park: Park | null = null
     let monuments: Monuments | null = null
+    let domo: Dome | null = null
     let props: Props | null = null
     let dsc: DscGallery | null = null
     let founders: FoundersWalk | null = null
@@ -838,6 +840,31 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         heightAt = terrain.heightAt
         groundAt = terrain.heightAt
         scene.add(terrain.group)
+
+        // ── a abóbada de colmeia, por enquanto atrás de ?domo=1 ──────────────
+        // A /city está no ar; a casca só entra quando o fundador aprovar a
+        // forma. `?domo=1&celula=42&flecha=1200&nervura=0.9` varre as opções.
+        const qDomo = new URLSearchParams(window.location.search)
+        if (qDomo.get('domo') === '1') {
+          const num = (k: string, d: number) => {
+            const v = parseFloat(qDomo.get(k) || '')
+            return Number.isFinite(v) ? v : d
+          }
+          try {
+            domo = buildDome({
+              heightAt: terrain.heightAt,
+              cell: num('celula', 42),
+              crown: num('flecha', 1200),
+              rim: num('borda', 90),
+              rib: num('nervura', 0.9),
+            })
+            scene.add(domo.group)
+            console.log(`[abobada] ${domo.celulas.toLocaleString('pt-BR')} células, ${domo.triangulos.toLocaleString('pt-BR')} triângulos`)
+          } catch (err) {
+            // a casca é experimento: ela nunca pode derrubar a praça que está no ar
+            console.error('[abobada] não subiu', err)
+          }
+        }
         stepDone('terrain')
 
         // ── a Cratera da Guerra nasce com o terreno, dormindo ────────────────
@@ -1943,6 +1970,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       precinct?.dispose()
       park?.dispose()
       monuments?.dispose()
+      domo?.dispose()
       props?.dispose()
       dsc?.dispose()
       founders?.dispose()
