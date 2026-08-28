@@ -55,20 +55,20 @@ export default function Conversao({ data }: { data: TFunil }) {
 
       <section>
         <SectionHead
-          eyebrow="CONVERSÃO"
-          title="Da visita até a doação de 10k DOG."
-          sub="A licença Personal é destravada por 10.000 DOG acumulados na carteira da obra. A conversão acontece na cadeia, não no site."
+          eyebrow="CONVERSION"
+          title="From visit to the 10k DOG donation."
+          sub="The Personal licence is unlocked by 10,000 DOG accumulated in the construction wallet. Conversion happens on chain, not on the site."
         />
 
         <Reveal delay={0.4} y={16}>
           <PlotGrid className="mt-10 grid-cols-2 lg:grid-cols-4">
-            <Cartao label="Doadores" valor={fmtNum(d.doadores)} sub={`${fmtNum(d.doacoes)} doações`} acento={CAT[0]} />
-            <Cartao label="Cruzaram 10k" valor={fmtNum(d.cruzaram_10k)} sub="licença Personal ou acima" acento={CAT[1]} />
-            <Cartao label="Total recebido" valor={`${fmtDog(d.total_dog)} DOG`} sub={`ticket mediano ${fmtDog(d.ticket_mediano)}`} acento={CAT[2]} />
+            <Cartao label="Donors" valor={fmtNum(d.doadores)} sub={`${fmtNum(d.doacoes)} donations`} acento={CAT[0]} />
+            <Cartao label="Past 10k" valor={fmtNum(d.cruzaram_10k)} sub="Personal licence or above" acento={CAT[1]} />
+            <Cartao label="Total received" valor={`${fmtDog(d.total_dog)} DOG`} sub={`median ticket ${fmtDog(d.ticket_mediano)}`} acento={CAT[2]} />
             <Cartao
-              label="Tempo até doar"
+              label="Time to donate"
               valor={t.horas_mediana != null ? `${t.horas_mediana}h` : "—"}
-              sub={t.amostras > 0 ? `mediana de ${fmtNum(t.amostras)} doações rastreadas` : "sem doação rastreada ainda"}
+              sub={t.amostras > 0 ? `median of ${fmtNum(t.amostras)} tracked donations` : "no tracked donation yet"}
               acento={CAT[0]}
             />
           </PlotGrid>
@@ -78,18 +78,18 @@ export default function Conversao({ data }: { data: TFunil }) {
       <div className="grid lg:grid-cols-2 gap-6">
         <Reveal y={18}>
           <Plate className="h-full">
-            <PlateHead icon={GitBranch}>O funil</PlateHead>
+            <PlateHead icon={GitBranch}>The funnel</PlateHead>
             <div className="mt-4">
               <Funil etapas={data.etapas} />
             </div>
             {meioVazio && (
               <p className="font-mono text-[10px] text-dusty mt-5 leading-relaxed">
-                As duas etapas do meio estão em zero porque os eventos que as medem
-                (<span className="text-mist">donate_address_copied</span> e{" "}
-                <span className="text-mist">wallet_connected</span>) foram instrumentados em
-                27/08/2026. As doações abaixo delas são reais e vêm da cadeia — o funil
-                não está dizendo que ninguém passou, está dizendo que ninguém foi medido
-                passando. Preenche a partir daqui.
+                The two middle steps are at zero because the events that measure them
+                (<span className="text-mist">donate_address_copied</span> and{" "}
+                <span className="text-mist">wallet_connected</span>) were instrumented on
+                2026-08-27. The donations below them are real and come from the chain — the funnel
+                is not saying nobody passed, it is saying nobody was measured passing. It fills in
+                from here.
               </p>
             )}
           </Plate>
@@ -97,11 +97,11 @@ export default function Conversao({ data }: { data: TFunil }) {
 
         <Reveal y={18} delay={0.08}>
           <Plate className="h-full">
-            <PlateHead icon={Link2Off}>Atribuição do dinheiro</PlateHead>
+            <PlateHead icon={Link2Off}>Attribution of the money</PlateHead>
 
             <div className="mt-2">
               <div className="flex items-baseline justify-between gap-3">
-                <span className="font-mono text-[11px] text-mist">Atribuído a uma origem</span>
+                <span className="font-mono text-[11px] text-mist">Attributed to a source</span>
                 <span className="font-display font-bold text-lg text-snow tabular-nums">
                   {fmtPct(pctAtribuido)}
                 </span>
@@ -113,16 +113,16 @@ export default function Conversao({ data }: { data: TFunil }) {
             </div>
 
             <ul className={`mt-6 space-y-3 border-t ${HAIR} pt-5`}>
-              <Linha rotulo="DOG com origem conhecida" valor={`${fmtDog(at.dog_atribuido)} DOG`} />
-              <Linha rotulo="DOG sem atribuição" valor={`${fmtDog(at.dog_sem_atribuicao)} DOG`} esmaecido />
-              <Linha rotulo="Doações rastreadas" valor={fmtNum(at.atribuidas)} />
-              <Linha rotulo="Doações sem rastro" valor={fmtNum(at.sem_atribuicao)} esmaecido />
+              <Linha rotulo="DOG with known source" valor={`${fmtDog(at.dog_atribuido)} DOG`} />
+              <Linha rotulo="DOG unattributed" valor={`${fmtDog(at.dog_sem_atribuicao)} DOG`} esmaecido />
+              <Linha rotulo="Tracked donations" valor={fmtNum(at.atribuidas)} />
+              <Linha rotulo="Untracked donations" valor={fmtNum(at.sem_atribuicao)} esmaecido />
             </ul>
 
             <p className="font-mono text-[10px] text-dusty mt-5 leading-relaxed">
-              Uma doação só ganha origem quando aquele endereço conectou a carteira no site em
-              algum momento — a assinatura é a prova. Doador que nunca conectou aparece aqui
-              como sem atribuição em vez de sumir da conta.
+              A donation only gets a source when that address connected its wallet on the site at
+              some point — the signature is the proof. A donor who never connected shows up here as
+              unattributed instead of vanishing from the count.
             </p>
           </Plate>
         </Reveal>
@@ -130,18 +130,18 @@ export default function Conversao({ data }: { data: TFunil }) {
 
       <Reveal y={18}>
         <Plate>
-          <PlateHead icon={Coins}>Dinheiro por canal de origem</PlateHead>
+          <PlateHead icon={Coins}>Money by source channel</PlateHead>
           <p className="font-mono text-[10px] text-dusty mb-4 leading-relaxed max-w-[70ch]">
-            Canal do PRIMEIRO toque do doador, não do último. É ele que responde &ldquo;o que
-            trouxe essa pessoa&rdquo;; o último toque quase sempre é &ldquo;Direto&rdquo;, porque
-            quem volta pra doar digita o endereço.
+            Channel of the donor&apos;s FIRST touch, not the last. That is what answers &ldquo;what
+            brought this person&rdquo;; the last touch is almost always &ldquo;Direct&rdquo;, because
+            someone coming back to donate types the address.
           </p>
           <Tabela
-            cabecalho={["Canal", "Doadores", "DOG", "Share"]}
+            cabecalho={["Channel", "Donors", "DOG", "Share"]}
             alinhar={["l", "r", "r", "r"]}
             linhas={data.por_canal.map((c) => [
-              <span key="c" className={c.canal === "(nao atribuido)" ? "text-dusty" : "text-snow"}>
-                {c.canal === "(nao atribuido)" ? "sem atribuição" : c.canal}
+              <span key="c" className={c.canal === "(unattributed)" ? "text-dusty" : "text-snow"}>
+                {c.canal === "(unattributed)" ? "unattributed" : c.canal}
               </span>,
               fmtNum(c.doadores),
               fmtDog(c.dog),
@@ -156,14 +156,14 @@ export default function Conversao({ data }: { data: TFunil }) {
           <div className={`border ${HAIR} p-5`}>
             <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-dusty mb-2 flex items-center gap-2">
               <Timer className="w-3 h-3" />
-              Leitura
+              Reading
             </div>
             <p className="font-mono text-[11px] text-mist leading-relaxed max-w-[75ch]">
-              A mediana entre a primeira visita e a doação é de{" "}
+              The median between first visit and donation is{" "}
               <span className="text-snow">{t.horas_mediana}h</span>.{" "}
               {(t.horas_mediana ?? 0) < 2
-                ? "Decisão de impulso: o que importa é a primeira sessão convencer, e não há janela útil pra reengajamento."
-                : "Decisão de maturação: quem doa volta depois, então insistir com quem já veio tem retorno."}
+                ? "Impulse decision: what matters is the first session convincing, and there is no useful window for re-engagement."
+                : "Considered decision: donors come back later, so following up with people who already visited pays off."}
             </p>
           </div>
         </Reveal>

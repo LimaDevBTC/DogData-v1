@@ -35,9 +35,9 @@ export default function Publico({ data }: { data: Trafego }) {
       {/* ── geografia ───────────────────────────────────────────────────── */}
       <section>
         <SectionHead
-          eyebrow="GEOGRAFIA"
-          title={`${data.paises.length} países nesta janela.`}
-          sub="País vem do header da edge da Vercel, resolvido no servidor — o cliente não é consultado e não pode mentir sobre isso."
+          eyebrow="GEOGRAPHY"
+          title={`${data.paises.length} countries in this window.`}
+          sub="Country comes from the Vercel edge header, resolved on the server — the client is never asked and cannot lie about it."
         />
 
         <Reveal delay={0.4} y={16}>
@@ -65,12 +65,12 @@ export default function Publico({ data }: { data: Trafego }) {
                     {fmtNum(p.sessoes)}
                   </div>
                   <div className="font-mono text-[10px] text-dusty tabular-nums mt-0.5">
-                    {fmtPct((p.sessoes / totalSessoes) * 100)} das sessões
+                    {fmtPct((p.sessoes / totalSessoes) * 100)} of sessions
                   </div>
                   {/* Permanência por país separa "muita gente passou" de "muita
                       gente ficou" — é o corte que revela tráfego artificial. */}
                   <div className="font-mono text-[10px] text-white/25 tabular-nums mt-0.5">
-                    {p.duracao_s != null ? `${fmtDuracao(p.duracao_s)} em média` : "sem medição"}
+                    {p.duracao_s != null ? `${fmtDuracao(p.duracao_s)} on average` : "not measured"}
                   </div>
                 </div>
               </StaggerItem>
@@ -82,7 +82,7 @@ export default function Publico({ data }: { data: Trafego }) {
           <Reveal y={16} delay={0.1}>
             <div className={`mt-6 border ${HAIR}`}>
               <Tabela
-                cabecalho={["País", "Sessões", "Visitantes", "Páginas", "Permanência"]}
+                cabecalho={["Country", "Sessions", "Visitors", "Pageviews", "Time on site"]}
                 alinhar={["l", "r", "r", "r", "r"]}
                 linhas={resto.map((p) => [
                   <span key="p" className="flex items-center gap-2">
@@ -105,7 +105,7 @@ export default function Publico({ data }: { data: Trafego }) {
       <div className="grid lg:grid-cols-2 gap-6">
         <Reveal y={18}>
           <Plate className="h-full">
-            <PlateHead icon={MapPin}>Cidades</PlateHead>
+            <PlateHead icon={MapPin}>Cities</PlateHead>
             {data.cidades.length ? (
               <RankRows
                 numbered
@@ -116,10 +116,10 @@ export default function Publico({ data }: { data: Trafego }) {
               />
             ) : (
               <p className="font-mono text-[11px] text-dusty leading-relaxed py-6">
-                Ainda sem cidade nesta janela.
+                No city in this window yet.
                 <br />
                 <span className="text-white/25">
-                  A cidade vem do header da edge e só passou a ser gravada em 27/08/2026.
+                  City comes from the edge header and has only been stored since 2026-08-27.
                 </span>
               </p>
             )}
@@ -128,7 +128,7 @@ export default function Publico({ data }: { data: Trafego }) {
 
         <Reveal y={18} delay={0.08}>
           <Plate className="h-full">
-            <PlateHead icon={Languages}>Idioma do navegador</PlateHead>
+            <PlateHead icon={Languages}>Browser language</PlateHead>
             {data.idiomas.length ? (
               <RankRows
                 rows={data.idiomas.slice(0, 10).map((i) => ({
@@ -139,7 +139,7 @@ export default function Publico({ data }: { data: Trafego }) {
               />
             ) : (
               <p className="font-mono text-[11px] text-dusty py-6">
-                Gravado desde 27/08/2026.
+                Stored since 2026-08-27.
               </p>
             )}
           </Plate>
@@ -149,29 +149,29 @@ export default function Publico({ data }: { data: Trafego }) {
       {/* ── tecnologia ──────────────────────────────────────────────────── */}
       <section>
         <SectionHead
-          eyebrow="TECNOLOGIA"
-          title="Com o que estão abrindo o site."
-          sub="A largura de viewport é a que decide layout — não a resolução da tela, que ignora janela redimensionada e densidade de pixel."
+          eyebrow="TECHNOLOGY"
+          title="What they are opening the site with."
+          sub="Viewport width is what decides layout — not screen resolution, which ignores resized windows and pixel density."
         />
         <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6 mt-10">
           <Reveal y={18}>
             <Plate className="h-full">
-              <PlateHead icon={Monitor}>Navegador</PlateHead>
+              <PlateHead icon={Monitor}>Browser</PlateHead>
               {/* "(app)" no rótulo não é enfeite: navegador embutido de app não
                   tem extensão, tem storage restrito e o caminho até a carteira
                   é outro. Separá-los do Chrome/Safari hospedeiro é o que torna
                   essa lista acionável. */}
               <RankRows
                 rows={data.navegadores.map((n) => ({
-                  label: n.navegador === "desconhecido" ? "não identificado" : n.navegador,
+                  label: n.navegador === "desconhecido" ? "not identified" : n.navegador,
                   value: n.sessoes,
                 }))}
               />
               {data.navegadores.some((n) => n.navegador === "desconhecido") && (
                 <p className="font-mono text-[10px] text-white/25 mt-4 leading-relaxed">
-                  &ldquo;Não identificado&rdquo; são sessões anteriores a 27/08/2026: o
-                  user-agent não era gravado, então o navegador delas não pode ser
-                  recalculado. Daquela data em diante a classificação é feita no servidor.
+                  &ldquo;Not identified&rdquo; are sessions before 2026-08-27: the user-agent
+                  was not stored, so their browser cannot be recomputed. From that date on the
+                  classification is done on the server.
                 </p>
               )}
             </Plate>
@@ -179,7 +179,7 @@ export default function Publico({ data }: { data: Trafego }) {
 
           <Reveal y={18} delay={0.08}>
             <Plate className="h-full">
-              <PlateHead icon={Laptop}>Sistema</PlateHead>
+              <PlateHead icon={Laptop}>Operating system</PlateHead>
               {data.sistemas.length ? (
                 <RankRows
                   rows={data.sistemas.map((s) => ({ label: s.so, value: s.sessoes }))}
@@ -187,7 +187,7 @@ export default function Publico({ data }: { data: Trafego }) {
                 />
               ) : (
                 <p className="font-mono text-[11px] text-dusty py-6">
-                  Detecção de sistema ativa desde 27/08/2026.
+                  OS detection live since 2026-08-27.
                 </p>
               )}
             </Plate>
@@ -195,7 +195,7 @@ export default function Publico({ data }: { data: Trafego }) {
 
           <Reveal y={18} delay={0.16}>
             <Plate className="h-full">
-              <PlateHead icon={Globe2}>Largura de viewport</PlateHead>
+              <PlateHead icon={Globe2}>Viewport width</PlateHead>
               {data.telas.length ? (
                 <RankRows
                   rows={data.telas.map((t) => ({ label: `${t.faixa} px`, value: t.sessoes }))}
@@ -203,7 +203,7 @@ export default function Publico({ data }: { data: Trafego }) {
                 />
               ) : (
                 <p className="font-mono text-[11px] text-dusty py-6">
-                  Gravado desde 27/08/2026.
+                  Stored since 2026-08-27.
                 </p>
               )}
             </Plate>

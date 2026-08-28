@@ -46,20 +46,20 @@ export default function Comportamento({ data }: { data: TComportamento }) {
       {/* ── páginas ─────────────────────────────────────────────────────── */}
       <section>
         <SectionHead
-          eyebrow="PÁGINAS"
-          title="O que cada página faz com quem chega nela."
-          sub="Tempo mediano, rolagem alcançada e taxa de saída lado a lado. Views sozinho diz o que foi aberto, nunca o que funcionou."
+          eyebrow="PAGES"
+          title="What each page does with the people who land on it."
+          sub="Median time, scroll reached and exit rate side by side. Views alone says what was opened, never what worked."
         />
         <Reveal delay={0.4} y={16}>
           <div className={`mt-10 border ${HAIR}`}>
             <Tabela
-              cabecalho={["Página", "Views", "Pessoas", "Tempo mediano", "Rolagem", "Saída", "Amostras"]}
+              cabecalho={["Page", "Views", "People", "Median time", "Scroll", "Exit", "Samples"]}
               alinhar={["l", "r", "r", "r", "r", "r", "r"]}
               linhas={paginas.map((p) => [
                 <span key="p" className="text-snow">{fmtPage(p.pagina)}</span>,
                 fmtNum(p.views),
                 fmtNum(p.visitantes),
-                p.amostras_tempo > 0 ? fmtDuracao(p.tempo_mediano_s) : <span className="text-white/25">não medido</span>,
+                p.amostras_tempo > 0 ? fmtDuracao(p.tempo_mediano_s) : <span className="text-white/25">not measured</span>,
                 p.amostras_tempo > 0 ? `${p.rolagem_media}%` : <span className="text-white/25">—</span>,
                 <span
                   key="s"
@@ -76,9 +76,9 @@ export default function Comportamento({ data }: { data: TComportamento }) {
         </Reveal>
         {medidas.length === 0 && (
           <p className="font-mono text-[10px] text-dusty mt-4 leading-relaxed max-w-[70ch]">
-            Nenhuma página tem medição de tempo nesta janela. A permanência por página passou a
-            ser coletada em 27/08/2026 — antes disso o site mandava um pageview e não media mais
-            nada, e não há como reconstruir tempo que ninguém gravou.
+            No page has time measurement in this window. Per-page time started being collected on
+            2026-08-27 — before that the site sent a pageview and measured nothing else, and there
+            is no way to rebuild time nobody recorded.
           </p>
         )}
       </section>
@@ -87,9 +87,9 @@ export default function Comportamento({ data }: { data: TComportamento }) {
       <div className="grid lg:grid-cols-2 gap-6">
         <Reveal y={18}>
           <Plate className="h-full">
-            <PlateHead icon={DoorOpen}>Páginas de entrada</PlateHead>
+            <PlateHead icon={DoorOpen}>Landing pages</PlateHead>
             <p className="font-mono text-[10px] text-dusty mb-4 leading-relaxed">
-              Onde a visita começou, e quanto dessa gente saiu sem ir a lugar nenhum.
+              Where the visit started, and how many of those people left without going anywhere.
             </p>
             <ul className="space-y-3">
               {data.entradas.map((e) => {
@@ -129,10 +129,10 @@ export default function Comportamento({ data }: { data: TComportamento }) {
 
         <Reveal y={18} delay={0.08}>
           <Plate className="h-full">
-            <PlateHead icon={LogOut}>Páginas de saída</PlateHead>
+            <PlateHead icon={LogOut}>Exit pages</PlateHead>
             <p className="font-mono text-[10px] text-dusty mb-4 leading-relaxed">
-              A última página da visita. Nem toda saída é ruim — um fim de fluxo natural
-              também sai daqui.
+              The last page of the visit. Not every exit is bad — a natural end of flow leaves
+              from here too.
             </p>
             <RankRows
               rows={data.saidas.map((s) => ({ label: fmtPage(s.pagina), value: s.sessoes }))}
@@ -146,14 +146,14 @@ export default function Comportamento({ data }: { data: TComportamento }) {
         <Reveal y={16}>
           <div className={`border ${HAIR} p-5`} style={{ borderColor: `${STATUS.poor}40` }}>
             <div className="font-mono text-[10px] uppercase tracking-[0.22em] mb-3" style={{ color: STATUS.poor }}>
-              Portas que estão perdendo quase todo mundo
+              Doors losing almost everyone
             </div>
             <ul className="space-y-1.5">
               {entradasRuins.map((e) => (
                 <li key={e.pagina} className="font-mono text-[11px] text-mist tabular-nums">
                   <span className="text-snow">{fmtPage(e.pagina)}</span>
                   {" — "}
-                  {fmtNum(e.sessoes)} sessões entram, {fmtPct(e.rejeicao)} saem sem navegar
+                  {fmtNum(e.sessoes)} sessions enter, {fmtPct(e.rejeicao)} leave without navigating
                 </li>
               ))}
             </ul>
@@ -165,9 +165,9 @@ export default function Comportamento({ data }: { data: TComportamento }) {
       <div className="grid lg:grid-cols-2 gap-6">
         <Reveal y={18}>
           <Plate className="h-full">
-            <PlateHead icon={ArrowRight}>Caminhos mais percorridos</PlateHead>
+            <PlateHead icon={ArrowRight}>Most travelled paths</PlateHead>
             <p className="font-mono text-[10px] text-dusty mb-4 leading-relaxed">
-              Pares de navegação dentro da mesma sessão, do mais frequente ao menos.
+              Navigation pairs inside the same session, most frequent first.
             </p>
             <ul className="space-y-2.5">
               {data.caminhos.slice(0, 14).map((c, i) => (
@@ -189,10 +189,10 @@ export default function Comportamento({ data }: { data: TComportamento }) {
 
         <Reveal y={18} delay={0.08}>
           <Plate className="h-full">
-            <PlateHead icon={MousePointerClick}>Eventos</PlateHead>
+            <PlateHead icon={MousePointerClick}>Events</PlateHead>
             {data.eventos.length ? (
               <Tabela
-                cabecalho={["Evento", "Total", "Sessões", "Pessoas"]}
+                cabecalho={["Event", "Total", "Sessions", "People"]}
                 alinhar={["l", "r", "r", "r"]}
                 linhas={data.eventos.map((e) => [
                   <span key="e" className="text-snow">{e.evento}</span>,
@@ -204,13 +204,13 @@ export default function Comportamento({ data }: { data: TComportamento }) {
             ) : (
               <div className="py-6">
                 <p className="font-mono text-[11px] text-dusty leading-relaxed">
-                  Nenhum evento nomeado nesta janela.
+                  No named event in this window.
                 </p>
                 <p className="font-mono text-[10px] text-white/25 leading-relaxed mt-3">
-                  Instrumentados até agora: <span className="text-mist">donate_address_copied</span>{" "}
-                  (copiar endereço de doação, por método) e{" "}
-                  <span className="text-mist">wallet_connected</span> (carteira conectada com prova
-                  de posse). Qualquer componente pode marcar outros com{" "}
+                  Instrumented so far: <span className="text-mist">donate_address_copied</span>{" "}
+                  (copying the donation address, by method) and{" "}
+                  <span className="text-mist">wallet_connected</span> (wallet connected with proof
+                  of ownership). Any component can mark others with{" "}
                   <span className="text-mist">track(&apos;nome&apos;, {"{ ... }"})</span>.
                 </p>
               </div>
@@ -223,14 +223,14 @@ export default function Comportamento({ data }: { data: TComportamento }) {
       {medidas.length > 0 && (
         <Reveal y={18}>
           <Plate>
-            <PlateHead icon={Timer}>Mediano contra médio</PlateHead>
+            <PlateHead icon={Timer}>Median against mean</PlateHead>
             <p className="font-mono text-[10px] text-dusty mb-4 leading-relaxed max-w-[70ch]">
-              Quando o médio é muito maior que o mediano, a página tem duas audiências: a maioria
-              que passa rápido e uma minoria que fica muito. Vale ler as duas separadas em vez de
-              tratar a média como o comportamento comum.
+              When the mean is much larger than the median, the page has two audiences: the
+              majority who pass through fast and a minority who stay a long time. Read them apart
+              instead of treating the mean as the common behaviour.
             </p>
             <Tabela
-              cabecalho={["Página", "Mediano", "Médio", "Distorção", "Amostras"]}
+              cabecalho={["Page", "Median", "Mean", "Skew", "Samples"]}
               alinhar={["l", "r", "r", "r", "r"]}
               linhas={medidas.slice(0, 14).map((p) => {
                 const razao = p.tempo_mediano_s > 0 ? p.tempo_medio_s / p.tempo_mediano_s : null

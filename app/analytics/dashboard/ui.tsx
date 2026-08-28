@@ -65,7 +65,7 @@ export const statusOf = (rating: string): StatusKey =>
   rating === "good" ? "good" : rating === "needs-improvement" ? "warn" : "poor"
 
 const STATUS_ICON = { good: CheckCircle2, warn: AlertTriangle, poor: XCircle } as const
-export const STATUS_WORD = { good: "Bom", warn: "Melhorar", poor: "Ruim" } as const
+export const STATUS_WORD = { good: "Good", warn: "Improve", poor: "Poor" } as const
 
 // Status never travels as colour alone: the chip is icon + word + hue, always
 // all three, so it survives CVD, greyscale print and forced-colors.
@@ -91,7 +91,7 @@ export function StatusMark({ status }: { status: StatusKey }) {
 }
 
 // ── numbers ────────────────────────────────────────────────────────────────
-export const fmtNum = (n: number) => n.toLocaleString("pt-BR")
+export const fmtNum = (n: number) => n.toLocaleString("en-US")
 
 export const fmtCompact = (n: number) =>
   n >= 1_000_000 ? `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)}M`
@@ -557,7 +557,7 @@ export function RankRows({
 }
 
 // ── EmptyPlot ──────────────────────────────────────────────────────────────
-export function EmptyPlot({ height = 220, children = "Aguardando dados suficientes" }: {
+export function EmptyPlot({ height = 220, children = "Not enough data yet" }: {
   height?: number
   children?: ReactNode
 }) {
@@ -594,11 +594,11 @@ export function bandeira(iso: string): string {
 // painel suporta, mas é embrulhado porque um código inválido lança.
 const nomeadorPais =
   typeof Intl !== "undefined" && "DisplayNames" in Intl
-    ? new Intl.DisplayNames(["pt-BR"], { type: "region" })
+    ? new Intl.DisplayNames(["en"], { type: "region" })
     : null
 
 export function nomePais(iso: string): string {
-  if (!iso || iso === "??") return "Desconhecido"
+  if (!iso || iso === "??") return "Unknown"
   try {
     return nomeadorPais?.of(iso.toUpperCase()) ?? iso
   } catch {
@@ -608,7 +608,7 @@ export function nomePais(iso: string): string {
 
 const nomeadorIdioma =
   typeof Intl !== "undefined" && "DisplayNames" in Intl
-    ? new Intl.DisplayNames(["pt-BR"], { type: "language" })
+    ? new Intl.DisplayNames(["en"], { type: "language" })
     : null
 
 export function nomeIdioma(cod: string): string {
@@ -663,12 +663,12 @@ export function Delta({
   sufixo?: string
 }) {
   if (atual == null || anterior == null || !Number.isFinite(atual) || !Number.isFinite(anterior)) {
-    return <span className="font-mono text-[10px] text-white/25">sem base de comparação</span>
+    return <span className="font-mono text-[10px] text-white/25">no baseline</span>
   }
   if (anterior === 0) {
     return (
       <span className="font-mono text-[10px] text-white/25 tabular-nums">
-        novo · antes 0{sufixo}
+        new · was 0{sufixo}
       </span>
     )
   }
@@ -683,10 +683,10 @@ export function Delta({
     <span
       className="font-mono text-[10px] tabular-nums inline-flex items-center gap-1"
       style={{ color: cor }}
-      title={`Janela anterior: ${fmtNum(Math.round(anterior * 10) / 10)}${sufixo}`}
+      title={`Previous window: ${fmtNum(Math.round(anterior * 10) / 10)}${sufixo}`}
     >
       <span aria-hidden>{seta}</span>
-      {parado ? "estável" : `${varPct > 0 ? "+" : ""}${varPct.toFixed(1)}%`}
+      {parado ? "flat" : `${varPct > 0 ? "+" : ""}${varPct.toFixed(1)}%`}
     </span>
   )
 }
@@ -716,7 +716,7 @@ export function Funil({
               <div className="flex items-center gap-2 py-1.5 pl-1">
                 <span className="text-white/20 font-mono text-[10px]" aria-hidden>↓</span>
                 <span className="font-mono text-[10px] text-dusty tabular-nums">
-                  {queda == null ? "—" : `perde ${queda.toFixed(1)}%`}
+                  {queda == null ? "—" : `loses ${queda.toFixed(1)}%`}
                 </span>
               </div>
             )}
@@ -806,8 +806,8 @@ export function rotuloSerie(inicio: string, granularidade: "hora" | "dia"): stri
   const d = new Date(inicio)
   if (Number.isNaN(d.getTime())) return inicio
   return granularidade === "hora"
-    ? d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
-    : d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
+    ? d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })
+    : d.toLocaleDateString("en-US", { month: "2-digit", day: "2-digit" })
 }
 
 // O mesmo instante por extenso, para a tabela alternativa do ChartFrame e para
@@ -817,6 +817,6 @@ export function rotuloSerieLongo(inicio: string, granularidade: "hora" | "dia"):
   const d = new Date(inicio)
   if (Number.isNaN(d.getTime())) return inicio
   return granularidade === "hora"
-    ? d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
-    : d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
+    ? d.toLocaleString("en-US", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })
+    : d.toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" })
 }

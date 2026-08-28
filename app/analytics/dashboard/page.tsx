@@ -50,12 +50,12 @@ const JANELAS = [
 ] as const
 
 const ABAS = [
-  { key: "geral",         label: "Visão geral",   icon: BarChart3 },
-  { key: "aquisicao",     label: "Aquisição",     icon: Compass },
-  { key: "comportamento", label: "Comportamento", icon: MousePointer2 },
-  { key: "publico",       label: "Público",       icon: Users },
-  { key: "conversao",     label: "Conversão",     icon: Coins },
-  { key: "velocidade",    label: "Velocidade",    icon: Zap },
+  { key: "geral",         label: "Overview",     icon: BarChart3 },
+  { key: "aquisicao",     label: "Acquisition",  icon: Compass },
+  { key: "comportamento", label: "Behaviour",    icon: MousePointer2 },
+  { key: "publico",       label: "Audience",     icon: Users },
+  { key: "conversao",     label: "Conversion",   icon: Coins },
+  { key: "velocidade",    label: "Speed",        icon: Zap },
   { key: "ads",           label: "Ads",           icon: Megaphone },
 ] as const
 
@@ -102,7 +102,7 @@ export default function PainelAnalytics() {
     return (
       <main className="min-h-screen bg-void text-snow flex items-center justify-center px-6">
         <div className="text-center">
-          <Scramble text="CARREGANDO ANALYTICS" className="font-mono text-[11px] tracking-[0.3em] text-lava" />
+          <Scramble text="LOADING ANALYTICS" className="font-mono text-[11px] tracking-[0.3em] text-lava" />
           <div className="mt-4 h-px w-40 mx-auto bg-white/10">
             <div className="h-full w-1/3 bg-lava animate-pulse-slow" />
           </div>
@@ -124,26 +124,26 @@ export default function PainelAnalytics() {
   const heroi =
     aba === "velocidade" ? (
       <HeroFigure
-        label="Nota de performance"
+        label="Performance score"
         value={nota}
         unit="/ 100"
         accent={STATUS[estadoNota]}
         badge={nota != null ? <StatusChip status={estadoNota} /> : undefined}
-        sub="percentil 75 de visitas reais, ponderado entre as cinco Core Web Vitals"
+        sub="75th percentile of real visits, weighted across the five Core Web Vitals"
       />
     ) : aba === "conversao" && dados.funil ? (
       <HeroFigure
-        label="Doadores com 10k+ DOG"
+        label="Donors past 10k DOG"
         value={dados.funil.doacoes.cruzaram_10k}
         accent={CAT[0]}
-        sub={`licença Personal destravada · janela de ${dados.funil.periodo.dias} dias`}
+        sub={`Personal licence unlocked · ${dados.funil.periodo.dias}-day window`}
       />
     ) : aba === "ads" && ads ? (
       <HeroFigure
-        label="Impressões de banner"
+        label="Banner impressions"
         value={ads.summary.impressions}
         accent={CAT[0]}
-        sub={`${ads.advertiser} · janela de ${ads.period.days} dias`}
+        sub={`${ads.advertiser} · ${ads.period.days}-day window`}
       />
     ) : t ? (
       // ⚠️ O NÚMERO DE MANCHETE TEM QUE TER O HISTÓRICO INTEIRO.
@@ -160,24 +160,24 @@ export default function PainelAnalytics() {
       // ninguém tocar em código.
       heroIdentidadeMadura ? (
         <HeroFigure
-          label="Visitantes no período"
+          label="Visitors in period"
           value={t.resumo.visitantes}
           trend={tendencia}
-          trendUnidade={t.granularidade === "hora" ? "horas" : "dias"}
+          trendUnidade={t.granularidade === "hora" ? "hours" : "days"}
           accent={CAT[0]}
-          sub={`${fmtNum(t.resumo.sessoes)} sessões · ${fmtDuracao(t.resumo.duracao_media_s)} de permanência média`}
+          sub={`${fmtNum(t.resumo.sessoes)} sessions · ${fmtDuracao(t.resumo.duracao_media_s)} average time on site`}
         />
       ) : (
         <HeroFigure
-          label="Sessões no período"
+          label="Sessions in period"
           value={t.resumo.sessoes}
           trend={tendencia}
-          trendUnidade={t.granularidade === "hora" ? "horas" : "dias"}
+          trendUnidade={t.granularidade === "hora" ? "hours" : "days"}
           accent={CAT[0]}
           sub={
             t.resumo.sessoes_identificadas === 0
-              ? `${fmtNum(t.resumo.pageviews)} páginas · identificação de visitante começou em 27/08/2026`
-              : `${fmtNum(t.resumo.pageviews)} páginas · ${fmtNum(t.resumo.visitantes)} visitantes identificados até agora`
+              ? `${fmtNum(t.resumo.pageviews)} pageviews · visitor identity started 2026-08-27`
+              : `${fmtNum(t.resumo.pageviews)} pageviews · ${fmtNum(t.resumo.visitantes)} visitors identified so far`
           }
         />
       )
@@ -190,7 +190,7 @@ export default function PainelAnalytics() {
         <div className="max-w-[1400px] mx-auto px-5 md:px-10">
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5 pt-7 pb-5">
             <div>
-              <Scramble text="DOG DATA · TELEMETRIA INTERNA"
+              <Scramble text="DOG DATA · INTERNAL TELEMETRY"
                 className="font-mono text-[10px] tracking-[0.3em] text-lava" />
               {/* NÃO é um SplitLine: as primitivas de reveal compartilhadas
                   disparam num IntersectionObserver com margem de -10% no topo,
@@ -205,20 +205,20 @@ export default function PainelAnalytics() {
                     informar nada. Janela curta mostra a hora. */}
                 {t && (
                   <>
-                    {new Date(t.periodo.de).toLocaleString("pt-BR",
+                    {new Date(t.periodo.de).toLocaleString("en-US",
                       dias <= 2
-                        ? { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }
-                        : { day: "2-digit", month: "2-digit", year: "numeric" })}
+                        ? { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }
+                        : { month: "2-digit", day: "2-digit", year: "numeric" })}
                     {" → "}
-                    {new Date(t.periodo.ate).toLocaleString("pt-BR",
+                    {new Date(t.periodo.ate).toLocaleString("en-US",
                       dias <= 2
-                        ? { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }
-                        : { day: "2-digit", month: "2-digit", year: "numeric" })}
+                        ? { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }
+                        : { month: "2-digit", day: "2-digit", year: "numeric" })}
                   </>
                 )}
                 {ultima && (
                   <span className="text-white/25 ml-3">
-                    · atualizado {ultima.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                    · updated {ultima.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}
                   </span>
                 )}
               </p>
@@ -244,7 +244,7 @@ export default function PainelAnalytics() {
               </div>
               <button
                 onClick={() => { buscar(dias); if (aba === "ads") buscarAds(dias) }}
-                aria-label="Atualizar agora"
+                aria-label="Refresh now"
                 className={`grid place-items-center w-10 h-10 border ${HAIR} text-dusty
                   hover:text-snow hover:border-white/25 transition-colors`}
               >
@@ -281,19 +281,19 @@ export default function PainelAnalytics() {
       >
         {heroi && <Reveal y={14} className="block mb-12 md:mb-16">{heroi}</Reveal>}
 
-        {aba === "geral"         && (t ? <VisaoGeral data={t} />    : <Indisponivel o="tráfego" />)}
-        {aba === "aquisicao"     && (t ? <Aquisicao data={t} direto={dados.direto} /> : <Indisponivel o="tráfego" />)}
+        {aba === "geral"         && (t ? <VisaoGeral data={t} />    : <Indisponivel o="traffic" />)}
+        {aba === "aquisicao"     && (t ? <Aquisicao data={t} direto={dados.direto} /> : <Indisponivel o="acquisition" />)}
         {aba === "comportamento" && (dados.comportamento
-          ? <Comportamento data={dados.comportamento} /> : <Indisponivel o="comportamento" />)}
-        {aba === "publico"       && (t ? <Publico data={t} />       : <Indisponivel o="público" />)}
-        {aba === "conversao"     && (dados.funil ? <Conversao data={dados.funil} /> : <Indisponivel o="conversão" />)}
-        {aba === "velocidade"    && (v ? <Speed data={v} />         : <Indisponivel o="velocidade" />)}
+          ? <Comportamento data={dados.comportamento} /> : <Indisponivel o="behaviour" />)}
+        {aba === "publico"       && (t ? <Publico data={t} />       : <Indisponivel o="audience" />)}
+        {aba === "conversao"     && (dados.funil ? <Conversao data={dados.funil} /> : <Indisponivel o="conversion" />)}
+        {aba === "velocidade"    && (v ? <Speed data={v} />         : <Indisponivel o="speed" />)}
         {aba === "ads" && (
           ads
             ? <Ads data={ads} />
             : (
               <div className="py-24 text-center">
-                <Scramble text="CARREGANDO DADOS DE ADS"
+                <Scramble text="LOADING ADS DATA"
                   className="font-mono text-[11px] tracking-[0.3em] text-dusty" />
               </div>
             )
@@ -306,7 +306,7 @@ export default function PainelAnalytics() {
             dogdata.xyz
           </span>
           <span className="font-mono text-[10px] text-white/25">
-            auto-refresh 60s · rota não listada · esta rota não se mede
+            auto-refresh 60s · unlisted route · this route is not measured
           </span>
         </div>
       </footer>
@@ -321,10 +321,10 @@ function Indisponivel({ o }: { o: string }) {
   return (
     <div className={`border ${HAIR} p-8 text-center`}>
       <p className="font-mono text-[11px] text-dusty leading-relaxed">
-        O relatório de {o} não respondeu nesta consulta.
+        The {o} report did not answer this time.
         <br />
         <span className="text-white/25">
-          As outras abas seguem com dados. Tente atualizar; se persistir, o banco está sob carga.
+          The other tabs still have data. Try refreshing; if it persists, the database is under load.
         </span>
       </p>
     </div>

@@ -26,13 +26,13 @@ import {
 // deixar a cor seguir o ranking faria o mesmo canal trocar de cor entre duas
 // janelas — o jeito mais rápido de tornar um painel ilegível na comparação.
 const COR_CANAL: Record<string, string> = {
-  Direto: CAT[0],
+  Direct: CAT[0],
   Social: CAT[1],
-  Busca: CAT[2],
-  IA: CAT[1],
-  Campanha: CAT[2],
-  Pago: CAT[2],
-  Referencia: CAT[0],
+  Search: CAT[2],
+  AI: CAT[1],
+  Campaign: CAT[2],
+  Paid: CAT[2],
+  Referral: CAT[0],
 }
 
 export default function Aquisicao({ data, direto }: { data: Trafego; direto: LinhaDireto[] | null }) {
@@ -47,22 +47,22 @@ export default function Aquisicao({ data, direto }: { data: Trafego; direto: Lin
     cor: COR_CANAL[c.canal] ?? CAT[0],
   }))
 
-  const semBusca = (canais.find((c) => c.canal === "Busca")?.sessoes ?? 0) / totalSessoes < 0.05
+  const semBusca = (canais.find((c) => c.canal === "Search")?.sessoes ?? 0) / totalSessoes < 0.05
 
   return (
     <div className="space-y-12 md:space-y-16">
 
       <section>
         <SectionHead
-          eyebrow="AQUISIÇÃO"
-          title="De onde vem o tráfego, e o que cada origem entrega."
-          sub="Canal é a unidade: x.com e t.co são a mesma origem vista por dois domínios. Engajamento é a fração de sessões que leram ou navegaram."
+          eyebrow="ACQUISITION"
+          title="Where the traffic comes from, and what each source delivers."
+          sub="Channel is the unit: x.com and t.co are one source seen through two domains. Engagement is the share of sessions that read or navigated."
         />
 
         <Reveal delay={0.4} y={16}>
           <div className={`mt-10 border ${HAIR}`}>
             <Tabela
-              cabecalho={["Canal", "Sessões", "Share", "Visitantes", "Engajamento", "Permanência"]}
+              cabecalho={["Channel", "Sessions", "Share", "Visitors", "Engagement", "Time on site"]}
               alinhar={["l", "r", "r", "r", "r", "r"]}
               linhas={canais.map((c) => [
                 <span key="c" className="flex items-center gap-2">
@@ -81,9 +81,9 @@ export default function Aquisicao({ data, direto }: { data: Trafego; direto: Lin
 
         {semBusca && (
           <p className="font-mono text-[10px] text-dusty mt-4 leading-relaxed max-w-[70ch]">
-            Busca orgânica está abaixo de 5% do tráfego. Para um site cujo produto é dado
-            público sobre uma rune, isso é um canal inteiro fora de operação — não uma
-            flutuação do período.
+            Organic search is under 5% of traffic. For a site whose product is public data
+            about a rune, that is a whole channel out of service — not a fluctuation of the
+            period.
           </p>
         )}
       </section>
@@ -91,9 +91,9 @@ export default function Aquisicao({ data, direto }: { data: Trafego; direto: Lin
       <div className="grid lg:grid-cols-2 gap-6">
         <Reveal y={18}>
           <ChartFrame
-            eyebrow="Sessões por canal"
+            eyebrow="Sessions by channel"
             icon={Radar}
-            table={{ head: ["Canal", "Sessões"], rows: canais.map((c) => [c.canal, c.sessoes]) }}
+            table={{ head: ["Channel", "Sessions"], rows: canais.map((c) => [c.canal, c.sessoes]) }}
           >
             {barras.length ? (
               <ResponsiveContainer width="100%" height={230}>
@@ -115,7 +115,7 @@ export default function Aquisicao({ data, direto }: { data: Trafego; direto: Lin
 
         <Reveal y={18} delay={0.08}>
           <Plate className="h-full">
-            <PlateHead icon={Link2}>Origens (domínio de saída)</PlateHead>
+            <PlateHead icon={Link2}>Sources (referring domain)</PlateHead>
             <RankRows
               rows={data.origens.slice(0, 10).map((o) => ({
                 label: o.origem,
@@ -140,14 +140,14 @@ export default function Aquisicao({ data, direto }: { data: Trafego; direto: Lin
       {direto && direto.length > 0 && (
         <Reveal y={18}>
           <Plate>
-            <PlateHead icon={EyeOff}>Dentro do &ldquo;Direto&rdquo;</PlateHead>
+            <PlateHead icon={EyeOff}>Inside &ldquo;Direct&rdquo;</PlateHead>
             <p className="font-mono text-[10px] text-dusty mb-4 leading-relaxed max-w-[74ch]">
-              Sessões que chegaram sem dizer de onde vieram, abertas pela página em que
-              entraram. Entrada na raiz costuma ser quem digitou o endereço; entrada direta
-              numa página funda quase sempre é link externo que apagou o referrer.
+              Sessions that arrived without saying where from, broken down by the page they
+              landed on. Entry at the root is usually someone who typed the address; a direct
+              entry deep in the site is almost always an external link that stripped the referrer.
             </p>
             <Tabela
-              cabecalho={["Página de entrada", "Sessões", "Rejeição", "Páginas/sessão", "Permanência"]}
+              cabecalho={["Landing page", "Sessions", "Bounce", "Pages/session", "Time on site"]}
               alinhar={["l", "r", "r", "r", "r"]}
               linhas={direto.map((d) => [
                 <span key="p" className="text-snow">{d.pagina}</span>,
@@ -160,11 +160,11 @@ export default function Aquisicao({ data, direto }: { data: Trafego; direto: Lin
               ])}
             />
             <p className="font-mono text-[10px] text-white/25 mt-4 leading-relaxed max-w-[74ch]">
-              Para uma origem sair daqui e virar canal próprio, o link precisa carregar UTM —
-              por exemplo{" "}
+              For a source to leave this bucket and become its own channel, the link has to carry
+              UTM — for example{" "}
               <span className="text-mist">?utm_source=coinmarketcap&amp;utm_medium=referral</span>{" "}
-              no endereço submetido ao diretório. Sem isso não há como distinguir, e nenhuma
-              ferramenta de analytics consegue.
+              in the address submitted to the directory. Without it there is no way to tell them
+              apart, and no analytics tool can.
             </p>
           </Plate>
         </Reveal>
@@ -173,10 +173,10 @@ export default function Aquisicao({ data, direto }: { data: Trafego; direto: Lin
       {/* ── campanhas ───────────────────────────────────────────────────── */}
       <Reveal y={18}>
         <Plate>
-          <PlateHead icon={Megaphone}>Campanhas (UTM)</PlateHead>
+          <PlateHead icon={Megaphone}>Campaigns (UTM)</PlateHead>
           {data.campanhas.length ? (
             <Tabela
-              cabecalho={["Campanha", "Origem", "Meio", "Sessões", "Visitantes"]}
+              cabecalho={["Campaign", "Source", "Medium", "Sessions", "Visitors"]}
               alinhar={["l", "l", "l", "r", "r"]}
               linhas={data.campanhas.map((c) => [
                 <span key="c" className="text-snow">{c.campanha}</span>,
@@ -189,14 +189,14 @@ export default function Aquisicao({ data, direto }: { data: Trafego; direto: Lin
           ) : (
             <div className="py-10">
               <p className="font-mono text-[11px] text-dusty leading-relaxed max-w-[70ch]">
-                Nenhuma campanha marcada nesta janela.
+                No tagged campaign in this window.
               </p>
               <p className="font-mono text-[10px] text-white/25 leading-relaxed max-w-[70ch] mt-3">
-                A captura de UTM está ativa desde 27/08/2026 e sobrevive à navegação interna
-                (fica guardada na sessão). Para uma origem aparecer aqui, o link precisa
-                carregar os parâmetros — por exemplo{" "}
+                UTM capture has been live since 2026-08-27 and survives internal navigation (it
+                is kept in the session). For a source to show up here, the link has to carry the
+                parameters — for example{" "}
                 <span className="text-mist">?utm_source=x&amp;utm_medium=social&amp;utm_campaign=fundacao</span>.
-                gclid, fbclid, twclid e ?ref= são traduzidos automaticamente.
+                gclid, fbclid, twclid and ?ref= are translated automatically.
               </p>
             </div>
           )}

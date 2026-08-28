@@ -2279,7 +2279,14 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           o in orbit". Fechado, são duas linhas alinhadas à direita: o selo de
           vida em cima, a órbita embaixo. A faixa que atravessava a tela inteira
           no celular sumiu, e com ela um corredor de 358px de HUD sobre a cena. */}
-      <div className="absolute right-4 top-4 flex w-[13.5rem] flex-col items-end gap-2 sm:right-6 sm:top-6 sm:w-[20rem]">
+      {/* ⚠️ A LARGURA SEGUE O ESTADO: fechada, a coluna é estreita e a pílula
+          quase não existe sobre a cena; aberta no celular ela cresce para
+          17rem, senão cada valor quebra em três linhas. */}
+      <div
+        className={`absolute right-4 top-4 flex flex-col items-end gap-2 sm:right-6 sm:top-6 sm:w-[20rem] ${
+          boardOpen ? 'w-[17rem]' : 'w-[13.5rem]'
+        }`}
+      >
         {/* ⚠️ VISOR: fechado, o quadro é só uma LINHA sobre a cena, sem placa.
             Aberto ele volta a ter fundo, e aí é de propósito: são doze linhas
             de dado que ninguém lê em cima de regolito, e quem abriu escolheu
@@ -2350,9 +2357,12 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                     : 'waiting for the first block'
                 }
               />
+              {/* três números na ordem do rótulo: escrever "high/medium/low"
+                  ao lado de cada um quebrava a linha em duas e "1.01 low"
+                  sozinho na segunda parecia outro dado */}
               <Row
-                k="Fee rate, sat/vB"
-                v={s ? `${s.fee_fast ?? '…'} high · ${s.fee_normal ?? '…'} medium · ${s.fee_slow ?? '…'} low` : '…'}
+                k="Fee sat/vB · high med low"
+                v={s ? `${s.fee_fast ?? '…'} · ${s.fee_normal ?? '…'} · ${s.fee_slow ?? '…'}` : '…'}
               />
               <Row k="Bitcoin mempool" v={s ? `${fmtInt.format(s.tx_count)} txs pending` : '…'} />
               <Row k="Confirmed, last 10 min" v={`${hud.parked} tx${hud.parked === 1 ? '' : 's'}`} />
@@ -2517,11 +2527,21 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
   )
 }
 
+/**
+ * Uma linha do quadro.
+ * ⚠️ NO CELULAR O RÓTULO VAI POR CIMA DO VALOR. Lado a lado, numa coluna de
+ * 13,5rem, "block 964,388 · 3 txs · 36 min ago" quebrava em três linhas
+ * alinhadas à direita e o dado virava sopa. Empilhado, cada linha é uma
+ * afirmação: rótulo apagado, número inteiro embaixo. No desktop, onde a coluna
+ * tem 20rem, continua lado a lado.
+ */
 function Row({ k, v, strong }: { k: string; v: React.ReactNode; strong?: boolean }) {
   return (
-    <div className="flex items-baseline justify-between gap-4">
-      <dt className="shrink-0 text-white/45">{k}</dt>
-      <dd className={`text-right ${strong ? 'text-[#F7931A]' : 'text-white/85'}`}>{v}</dd>
+    <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+      <dt className="shrink-0 text-[10px] uppercase tracking-[0.14em] text-white/40 sm:text-[11px] sm:normal-case sm:tracking-normal sm:text-white/45">
+        {k}
+      </dt>
+      <dd className={`sm:text-right ${strong ? 'text-[#F7931A]' : 'text-white/85'}`}>{v}</dd>
     </div>
   )
 }

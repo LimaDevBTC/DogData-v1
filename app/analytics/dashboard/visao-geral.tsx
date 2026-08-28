@@ -48,10 +48,10 @@ export default function VisaoGeral({ data }: { data: Trafego }) {
   // uma parede de texto. O minTickGap resolve no desktop, mas o passo do eixo
   // precisa ser mais folgado na hora do que no dia.
   const intervaloEixo = g === "hora" ? 3 : "preserveStartEnd"
-  const unidade = g === "hora" ? "por hora" : "por dia"
+  const unidade = g === "hora" ? "per hour" : "per day"
 
   const agora = data.agora.map((b) => ({
-    rotulo: b.minutos_atras === 0 ? "agora" : `-${b.minutos_atras}m`,
+    rotulo: b.minutos_atras === 0 ? "now" : `-${b.minutos_atras}m`,
     views: b.views,
   }))
   const aoVivo = data.agora.reduce((s, b) => s + b.views, 0)
@@ -102,29 +102,29 @@ export default function VisaoGeral({ data }: { data: Trafego }) {
       {/* ── os cinco números ────────────────────────────────────────────── */}
       <section>
         <SectionHead
-          eyebrow="AUDIÊNCIA"
-          title="O que o site recebeu, contra o período anterior."
-          sub="Visitante é pessoa (identificador anônimo persistente); sessão é visita; nenhuma métrica abaixo é amostrada."
+          eyebrow="AUDIENCE"
+          title="What the site received, against the previous period."
+          sub="A visitor is a person (anonymous persistent id); a session is a visit. Nothing below is sampled."
         />
         <Reveal delay={0.4} y={16}>
           <PlotGrid className="mt-10 grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             <Metrica
-              label="Sessões"
+              label="Sessions"
               valor={fmtNum(r.sessoes)}
-              sub={`${fmtNum(r.pageviews)} páginas · ${r.paginas_sessao ?? "—"} por sessão`}
+              sub={`${fmtNum(r.pageviews)} pageviews · ${r.paginas_sessao ?? "—"} per session`}
               acento={CAT[0]}
               delta={<Delta atual={r.sessoes} anterior={a.sessoes} />}
             />
             <Metrica
-              label="Visitantes"
+              label="Visitors"
               valor={r.sessoes_identificadas === 0 ? "—" : fmtNum(r.visitantes)}
               sub={
                 r.sessoes_identificadas === 0
-                  ? "identificação começou em 27/08/2026"
+                  ? "identity started 2026-08-27"
                   : identidadeMadura
-                    ? `${sessoesPorPessoa?.toFixed(2) ?? "—"} sessões por pessoa`
-                    : `${sessoesPorPessoa?.toFixed(2) ?? "—"} sessões por pessoa · medido em ` +
-                      `${fmtNum(r.sessoes_identificadas)} de ${fmtNum(r.sessoes)} sessões (${cobIdentidade.toFixed(0)}%)`
+                    ? `${sessoesPorPessoa?.toFixed(2) ?? "—"} sessions per person`
+                    : `${sessoesPorPessoa?.toFixed(2) ?? "—"} sessions per person · measured on ` +
+                      `${fmtNum(r.sessoes_identificadas)} of ${fmtNum(r.sessoes)} sessions (${cobIdentidade.toFixed(0)}%)`
               }
               acento={CAT[1]}
               // Sem base comparável no período anterior o Delta já se cala
@@ -138,30 +138,30 @@ export default function VisaoGeral({ data }: { data: Trafego }) {
               icone={Users}
             />
             <Metrica
-              label="Permanência média"
+              label="Avg. time on site"
               valor={fmtDuracao(r.duracao_media_s)}
               sub={
                 r.sessoes_medidas === 0
-                  ? "ainda sem sessão medida na janela"
-                  : `mediana ${fmtDuracao(r.duracao_mediana_s)} · ${fmtNum(r.sessoes_medidas)} de ${fmtNum(r.sessoes)} sessões (${cobDuracao.toFixed(0)}%)`
+                  ? "no measured session in this window yet"
+                  : `median ${fmtDuracao(r.duracao_mediana_s)} · ${fmtNum(r.sessoes_medidas)} of ${fmtNum(r.sessoes)} sessions (${cobDuracao.toFixed(0)}%)`
               }
               acento={CAT[2]}
               delta={<Delta atual={r.duracao_media_s} anterior={a.duracao_media_s} sufixo="s" />}
               icone={Clock}
             />
             <Metrica
-              label="Taxa de rejeição"
+              label="Bounce rate"
               valor={fmtPct(r.taxa_rejeicao)}
-              sub="saiu sem ler nem navegar"
+              sub="left without reading or navigating"
               acento={CAT[1]}
               // Rejeição que cai é melhora: sem `inverso` o painel pintaria de
               // vermelho justamente o resultado que se quer.
               delta={<Delta atual={r.taxa_rejeicao} anterior={a.taxa_rejeicao} inverso sufixo="%" />}
             />
             <Metrica
-              label="Novos"
+              label="New"
               valor={novosPct == null ? "—" : fmtPct(novosPct)}
-              sub={`${fmtNum(r.novos)} novos · ${fmtNum(r.recorrentes)} recorrentes`}
+              sub={`${fmtNum(r.novos)} new · ${fmtNum(r.recorrentes)} returning`}
               acento={CAT[0]}
               icone={UserPlus}
             />
@@ -170,20 +170,20 @@ export default function VisaoGeral({ data }: { data: Trafego }) {
 
         {(r.sessoes_medidas < r.sessoes || r.sessoes_identificadas < r.sessoes) && (
           <p className="font-mono text-[10px] text-dusty mt-4 leading-relaxed max-w-[74ch]">
-            <span className="text-mist">Nada foi perdido nesta janela.</span> Sessões, páginas,
-            países, origens e rejeição vêm da série inteira, desde 04/07/2026. O que começou em
-            27/08 foi o <span className="text-mist">instrumento novo</span>: identidade de
-            visitante, permanência e rolagem. Sessões anteriores foram reconstruídas do
-            histórico — mantêm páginas, entrada e saída, mas não têm tempo nem identidade, e por
-            isso ficam de fora dessas três médias em vez de entrarem como zero. A cobertura sobe
-            sozinha conforme a janela anda.
+            <span className="text-mist">Nothing was lost in this window.</span> Sessions,
+            pageviews, countries, sources and bounce come from the whole series, since
+            2026-07-04. What started on 2026-08-27 was the <span className="text-mist">new
+            instrument</span>: visitor identity, time on page and scroll depth. Earlier sessions
+            were rebuilt from history — they keep pageviews, entry and exit, but have no time and
+            no identity, so they stay out of those three averages instead of entering as zero.
+            Coverage climbs on its own as the window moves.
             {cobIdentidade < 100 && (
               <>
                 {" "}
-                <span className="text-mist">Sessões e visitantes não se dividem entre si</span>{" "}
-                enquanto a cobertura não for 100%: sessões conta a janela inteira, visitantes só
-                conta dentro das sessões identificadas. A razão de sessões por pessoa ao lado já
-                usa o mesmo denominador dos dois lados.
+                <span className="text-mist">Sessions and visitors do not divide into each
+                other</span>{" "}while coverage is under 100%: sessions counts the whole window,
+                visitors only counts inside identified sessions. The sessions-per-person ratio
+                beside it already uses the same denominator on both sides.
               </>
             )}
           </p>
@@ -193,12 +193,12 @@ export default function VisaoGeral({ data }: { data: Trafego }) {
       {/* ── a série ─────────────────────────────────────────────────────── */}
       <Reveal y={18}>
         <ChartFrame
-          eyebrow={`Sessões, páginas e visitantes ${unidade}`}
+          eyebrow={`Sessions, pageviews and visitors ${unidade}`}
           icon={TrendingUp}
           table={{
-            head: [g === "hora" ? "Hora" : "Dia", "Sessões", "Páginas", "Visitantes"],
+            head: [g === "hora" ? "Hour" : "Day", "Sessions", "Pageviews", "Visitors"],
             rows: data.serie.map((d) => [
-              rotuloSerieLongo(d.inicio, g), d.sessoes, d.pageviews, d.visitantes ?? "não medido",
+              rotuloSerieLongo(d.inicio, g), d.sessoes, d.pageviews, d.visitantes ?? "not measured",
             ]),
           }}
         >
@@ -244,11 +244,11 @@ export default function VisaoGeral({ data }: { data: Trafego }) {
       <div className="grid lg:grid-cols-2 gap-6">
         <Reveal y={18}>
           <ChartFrame
-            eyebrow={`Permanência média ${unidade}`}
+            eyebrow={`Avg. time on site ${unidade}`}
             icon={Clock}
             table={{
-              head: [g === "hora" ? "Hora" : "Dia", "Segundos"],
-              rows: data.serie.map((d) => [rotuloSerieLongo(d.inicio, g), d.duracao_s ?? "não medido"]),
+              head: [g === "hora" ? "Hour" : "Day", "Seconds"],
+              rows: data.serie.map((d) => [rotuloSerieLongo(d.inicio, g), d.duracao_s ?? "not measured"]),
             }}
           >
             {/* connectNulls fica FALSO: os dias sem medição têm que aparecer
@@ -263,21 +263,21 @@ export default function VisaoGeral({ data }: { data: Trafego }) {
                   <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={52}
                     tickFormatter={(v: number) => fmtDuracao(v)} />
                   <Tooltip content={<ChartTooltip unit="s" />} cursor={{ stroke: "#ffffff25" }} />
-                  <Line type="monotone" dataKey="duracao_s" name="Permanência" stroke={CAT[2]}
+                  <Line type="monotone" dataKey="duracao_s" name="Time on site" stroke={CAT[2]}
                     strokeWidth={2} dot={{ r: 2.5, fill: CAT[2] }} connectNulls={false} />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <EmptyPlot height={200}>Medição começou em 27/08 — aguardando dias completos</EmptyPlot>
+              <EmptyPlot height={200}>Measurement started 2026-08-27 — waiting for full days</EmptyPlot>
             )}
           </ChartFrame>
         </Reveal>
 
         <Reveal y={18} delay={0.08}>
           <ChartFrame
-            eyebrow={`Taxa de rejeição ${unidade}`}
+            eyebrow={`Bounce rate ${unidade}`}
             table={{
-              head: [g === "hora" ? "Hora" : "Dia", "Rejeição %"],
+              head: [g === "hora" ? "Hour" : "Day", "Bounce %"],
               rows: data.serie.map((d) => [rotuloSerieLongo(d.inicio, g), d.rejeicao ?? "—"]),
             }}
           >
@@ -288,7 +288,7 @@ export default function VisaoGeral({ data }: { data: Trafego }) {
                   minTickGap={24} interval={intervaloEixo} />
                 <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={44} domain={[0, 100]} />
                 <Tooltip content={<ChartTooltip unit="%" />} cursor={{ stroke: "#ffffff25" }} />
-                <Line type="monotone" dataKey="rejeicao" name="Rejeição" stroke={CAT[1]}
+                <Line type="monotone" dataKey="rejeicao" name="Bounce" stroke={CAT[1]}
                   strokeWidth={2} dot={false} connectNulls={false} />
               </LineChart>
             </ResponsiveContainer>
@@ -300,9 +300,9 @@ export default function VisaoGeral({ data }: { data: Trafego }) {
       <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
         <Reveal y={18}>
           <ChartFrame
-            eyebrow={`Últimos 30 minutos · ${fmtNum(aoVivo)} views`}
+            eyebrow={`Last 30 minutes · ${fmtNum(aoVivo)} views`}
             live
-            table={{ head: ["Janela", "Views"], rows: agora.map((b) => [b.rotulo, b.views]) }}
+            table={{ head: ["Window", "Views"], rows: agora.map((b) => [b.rotulo, b.views]) }}
           >
             <ResponsiveContainer width="100%" height={172}>
               <BarChart data={agora} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
@@ -318,7 +318,7 @@ export default function VisaoGeral({ data }: { data: Trafego }) {
 
         <Reveal y={18} delay={0.08}>
           <Plate className="h-full">
-            <PlateHead icon={Radio}>Dispositivo</PlateHead>
+            <PlateHead icon={Radio}>Device</PlateHead>
             <ShareBar parts={dispositivos} total={totalDisp} />
             <ul className="mt-5 space-y-3">
               {dispositivos.map((d) => (
@@ -337,14 +337,14 @@ export default function VisaoGeral({ data }: { data: Trafego }) {
 
         <Reveal y={18} delay={0.16}>
           <Plate className="h-full">
-            <PlateHead icon={ShieldAlert}>Tráfego descartado</PlateHead>
+            <PlateHead icon={ShieldAlert}>Discarded traffic</PlateHead>
             {data.robos.sessoes_robo === 0 ? (
               <p className="font-mono text-[11px] text-dusty leading-relaxed">
-                Nenhuma sessão marcada como robô nesta janela.
+                No session discarded in this window.
                 <br />
                 <span className="text-white/25">
-                  A marcação depende do user-agent, que só passou a ser gravado em 27/08/2026.
-                  Tráfego anterior não pode ser reclassificado.
+                  Marking depends on the user-agent, only stored since 2026-08-27. Earlier
+                  traffic cannot be reclassified.
                 </span>
               </p>
             ) : (
@@ -353,7 +353,7 @@ export default function VisaoGeral({ data }: { data: Trafego }) {
                   {fmtNum(data.robos.sessoes_robo)}
                 </div>
                 <p className="font-mono text-[10px] text-dusty mt-2">
-                  sessões fora de toda conta desta página
+                  sessions kept out of every number on this page
                 </p>
                 <ul className={`mt-5 space-y-2.5 border-t ${HAIR_SOFT} pt-4`}>
                   {Object.entries(data.robos.por_motivo)

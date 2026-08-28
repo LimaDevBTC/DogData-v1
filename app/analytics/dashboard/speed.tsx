@@ -90,7 +90,7 @@ function VitalPlate({
           </span>
           {unitOf(name) && <span className="font-mono text-[11px] text-mist">{unitOf(name)}</span>}
           <span className="font-mono text-[10px] text-white/25 ml-1">
-            p75 · {fmtNum(v.samples)} amostras
+            p75 · {fmtNum(v.samples)} samples
           </span>
         </div>
 
@@ -233,8 +233,8 @@ export default function Speed({ data: bruto }: { data: Vitais }) {
       <section>
         <SectionHead
           eyebrow="CORE WEB VITALS"
-          title="Como o site se comporta em visitas reais."
-          sub="Percentil 75 de sessões reais (RUM) — não uma execução de laboratório. Cada métrica traz sua própria escala; comparar LCP com INP no mesmo eixo esconderia justamente a que costuma quebrar."
+          title="How the site behaves on real visits."
+          sub="75th percentile of real sessions (RUM) — not a lab run. Each metric carries its own scale; putting LCP and INP on one axis would hide exactly the one that tends to break."
         />
 
         {/* The aggregate score is the page hero; repeating it in a gauge here
@@ -242,7 +242,7 @@ export default function Speed({ data: bruto }: { data: Vitais }) {
             the hero can't: where each of the five weights actually landed. */}
         <Reveal delay={0.5} y={16}>
           <Plate className="mt-10">
-            <PlateHead icon={TimerReset}>Leitura do período · score por métrica</PlateHead>
+            <PlateHead icon={TimerReset}>Period reading · score per metric</PlateHead>
             <dl className="space-y-4">
               {present.map((name) => {
                 const v = data.web_vitals[name]
@@ -284,12 +284,12 @@ export default function Speed({ data: bruto }: { data: Vitais }) {
       {data.vitals_by_device.length > 0 && (
         <Reveal y={18}>
           <Plate>
-            <PlateHead icon={Smartphone}>Mobile vs desktop · p75 por métrica</PlateHead>
+            <PlateHead icon={Smartphone}>Mobile vs desktop · p75 per metric</PlateHead>
             <div className="overflow-x-auto">
               <table className="w-full font-mono text-[11px]">
                 <thead>
                   <tr className="text-dusty uppercase text-[9px] tracking-[0.18em]">
-                    <th className="text-left py-2 pr-4">Dispositivo</th>
+                    <th className="text-left py-2 pr-4">Device</th>
                     {present.map((n) => <th key={n} className="text-right py-2 px-3">{n}</th>)}
                   </tr>
                 </thead>
@@ -330,7 +330,7 @@ export default function Speed({ data: bruto }: { data: Vitais }) {
       {/* ── slowest pages ─────────────────────────────────────────────────── */}
       {Object.keys(data.slowest_pages).length > 0 && (
         <section>
-          <SectionHead eyebrow="PONTOS LENTOS" title="Onde cada métrica está pior." />
+          <SectionHead eyebrow="SLOW SPOTS" title="Where each metric is worst." />
           <Stagger className="mt-8 grid md:grid-cols-2 xl:grid-cols-3 gap-6" step={0.07} delay={0.5}>
             {present.filter((n) => data.slowest_pages[n]?.length).map((name) => {
               const pages = data.slowest_pages[name]
@@ -373,7 +373,7 @@ export default function Speed({ data: bruto }: { data: Vitais }) {
       {/* ── thresholds ────────────────────────────────────────────────────── */}
       <Reveal y={18}>
         <Plate>
-          <PlateHead>Referência de thresholds · Google</PlateHead>
+          <PlateHead>Threshold reference · Google</PlateHead>
           <div className="overflow-x-auto">
             <table className="w-full font-mono text-[11px]">
               <thead>
