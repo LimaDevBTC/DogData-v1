@@ -207,20 +207,20 @@ export default function DogPriceChart() {
             {atual ? preco(atual) : '—'}
           </p>
         </div>
+        {/* ⚠️ UMA VARIAÇÃO SÓ, e a da JANELA ESCOLHIDA. Ter as duas (a de 24h do
+            ticker e a do trecho desenhado) punha dois números diferentes com o
+            mesmo rótulo "24h" lado a lado, porque a corretora conta desde a
+            abertura dela e o gráfico conta desde o primeiro ponto da linha.
+            Duas contas certas, uma tela mentindo. */}
         <div className="shrink-0 text-right">
-          {vivo && (
-            <p
-              className="font-mono text-[11px] tabular-nums"
-              style={{ color: vivo.change24h >= 0 ? SOBE : DESCE }}
-            >
-              {pct(vivo.change24h)} <span className="text-dusty">24h · {vivo.fonte}</span>
-            </p>
-          )}
           {delta != null && (
-            <p className="mt-0.5 font-mono text-[11px] tabular-nums" style={{ color: subindo ? SOBE : DESCE }}>
-              {pct(delta)} <span className="text-dusty">{janela.toLowerCase()}</span>
+            <p className="font-mono text-[13px] tabular-nums" style={{ color: subindo ? SOBE : DESCE }}>
+              {pct(delta)}
             </p>
           )}
+          <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-dusty">
+            {janela.toLowerCase()}
+          </p>
         </div>
       </div>
 
@@ -233,7 +233,10 @@ export default function DogPriceChart() {
             height={150}
             format={preco}
             markExtremes
-            caption={`${pontos.length} points · touch and drag to read`}
+            /* ⚠️ SEM LEGENDA OCIOSA: "toque e arraste para ler" é instrução, e
+               instrução na tela é ruído. Quem toca descobre em meio segundo,
+               quem não toca não perde nada (fundador, 28/08). */
+            caption=""
           />
         ) : (
           <div className="flex h-[150px] items-center justify-center bg-white/[0.02] font-mono text-[10px] text-dusty">
@@ -258,11 +261,12 @@ export default function DogPriceChart() {
         ))}
       </div>
 
-      <p className="mt-3 font-mono text-[9px] leading-relaxed text-dusty">
+      {/* procedência em etiqueta, não em frase: quem quer saber de onde vem o
+          número acha em duas palavras, quem não quer não tropeça num parágrafo */}
+      <p className="mt-3 font-mono text-[9px] uppercase tracking-[0.16em] text-white/25">
         {JANELAS.find((j) => j.k === janela)?.intra
-          ? `${fonteVelas ?? 'Kraken'} candles, ${janela === '4H' ? '5' : '15'} minutes apart.`
-          : 'Daily close from Gate.io since 25/04/2024.'}{' '}
-        Live price from {vivo?.fonte ?? 'Kraken'}, the same source as the top of the site.
+          ? `${fonteVelas ?? 'Kraken'} · ${janela === '4H' ? '5m' : '15m'}`
+          : 'Gate.io · daily'}
       </p>
     </div>
   )

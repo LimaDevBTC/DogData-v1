@@ -385,7 +385,10 @@ export function HeroFigure({
               points={pontos}
               color={accent}
               format={format}
-              caption={`last ${pontos.length} ${trendUnidade}`}
+              /* a janela do traço em duas letras: ele mostra os últimos 14
+                 baldes, que NÃO é o filtro do topo da página, e omitir isso
+                 seria economizar palavra às custas do fato */
+              caption={`${pontos.length}${trendUnidade === "hours" ? "h" : "d"}`}
             />
           </div>
         )}

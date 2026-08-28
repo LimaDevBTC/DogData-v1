@@ -2327,10 +2327,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                   the apron": quem chegava não tinha como saber que estava
                   olhando a mempool do DOG. O foguete continua sendo foguete no
                   céu; aqui embaixo é transação, bloco, taxa e confirmação
-                  (fundador, 28/08). */}
-              <p className="-mt-1 mb-1 text-[10px] leading-relaxed text-white/40">
-                Live from our node. Each ship in the sky is one DOG transaction.
-              </p>
+                  (fundador, 28/08).
+                  A frase que explicava isso saiu no mesmo dia: com o título
+                  "DOG mempool" e os rótulos abaixo, ela só repetia. */}
               <Row
                 k="Unconfirmed DOG txs"
                 v={`${fmtInt.format(s?.dog_pending ?? 0)} tx${(s?.dog_pending ?? 0) === 1 ? '' : 's'} · ${fmtDog(s?.dog_pending_amount ?? 0)} DOG`}

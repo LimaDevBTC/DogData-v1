@@ -287,3 +287,55 @@ a Fase 2 inteira foi escrita para bairro por LINHAGEM genealógica, e as linhas
 fundador. A linha 150 carrega uma armadilha invertida. Enquanto isso não for
 reconciliado, quem ler este plano para executar a Fase 2 vai construir a cidade
 errada.
+
+---
+
+## Regra 50/50 e o mandato de qualidade urbana, 28/08
+
+Duas decisões do fundador, no mesmo fôlego.
+
+### 1. A cidade é metade dos holders, metade da casa
+
+Textual: "a cidade será composta por 50% existente e 50% reservado pra nós, pode
+ser parque e praça por enquanto". O reservado é ao mesmo tempo o verde da cidade
+e o estoque de terreno para negociar com coleções parceiras.
+
+A conta fecha de um jeito quase inacreditável:
+
+| | |
+|---|---|
+| sítio de raio 3.500 m | 38,485 km² |
+| metade dos holders | 19,242 km² |
+| menos 17,4% de via | 15,894 km² |
+| a 300 m² por lote | **52.980 lotes** |
+| carteiras com 20k DOG | **52.999** |
+
+Diferença de 19 lotes, 0,04%. Dito de outro jeito: **o 50/50 com lote de 300 m²
+exige raio de 3.501 m e o nosso sítio tem 3.500.** A cidade que já estava
+desenhada, partida ao meio, é exatamente a cidade que temos.
+
+⚠️ Ressalva medida, para ninguém se iludir: isso é área bruta. Se a metade dos
+holders tiver que ser só terreno abaixo de 2°, faltam 1,9 km², porque 14,36 km²
+do sítio é mais íngreme que isso. Aceitando lote em terreno de até 3°, que é
+rampa de 5% e mais suave que rua de cidade, sobra de sobra. **Premissa adotada:
+lote pousa em terreno de até 3°.**
+
+Do lado reservado, 12,402 km² já estão comprometidos (precinto, rampa do platô,
+parque, spaceport, cratera). **Faltam 6,840 km² a designar, e esse é o orçamento
+do verde, do esporte e do cívico.**
+
+### 2. O mandato
+
+Textual: "quero muita área verde, mobilidade urbana e esportiva pensada desde o
+dia zero. Em questão de planejamento, essa deve ser simplesmente a melhor cidade
+já pensada no mundo."
+
+Isso não é decoração, é a especificação. Verde, mobilidade e esporte entram no
+plano diretor como estrutura, antes do lote, não como sobra depois dele.
+
+### 3. Por que o portão dos 20k se paga sozinho
+
+O fundador apontou o que eu não tinha visto: **o mint custa 10.000 DOG.** Então
+o detentor de DSC precisa de DOG naquela carteira de qualquer maneira, não só
+para passar no portão. A regra da mesma carteira deixa de precisar de defesa: ela
+descreve o que ia acontecer de todo jeito.
