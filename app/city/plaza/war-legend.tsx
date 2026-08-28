@@ -135,6 +135,10 @@ const MAPA: Array<{ arma: string; cor?: string; leitura: string }> = [
     leitura: 'The spread widened, or the book tilted: one side of the depth grew against the other. This is the one that keeps running when nobody is trading at all.',
   },
   {
+    arma: 'Attack helicopter',
+    leitura: 'A trade ate most of the best level in the book. Not size: aggression. The aircraft crosses the front line, dives on the enemy troops and circles them while it strafes.',
+  },
+  {
     arma: 'Bomber',
     leitura: 'The price broke the high or the low of this session.',
   },
@@ -160,6 +164,7 @@ const MOTIVOS: Array<{ chave: string; nome: string; arma: string }> = [
   // ⚠️ o único evento que não precisa de negócio nenhum: mede a proporção
   // entre os dois lados do book mudando, e é o que dá vida a um mercado parado
   { chave: 'inclinacao', nome: 'Book tilted', arma: 'vanguard duel' },
+  { chave: 'agressao', nome: 'Taker ate the touch', arma: 'helicopter attack run' },
 ]
 
 // ── peças ──────────────────────────────────────────────────────────────────

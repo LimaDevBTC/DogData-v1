@@ -113,6 +113,16 @@ export interface Battlefield {
   update(agora: number): void
   setLive(on: boolean): void
   hud(): HudBatalha
+  /** ⚠️ COSTURA DE TESTE, e ela existe por um motivo concreto: desde que as
+   *  armas passaram a depender de evento de mercado, nao da mais para
+   *  verificar uma animacao esperando o DOG colaborar. Uma corrida de
+   *  helicoptero precisa de um trade que coma o topo do book, e isso pode nao
+   *  acontecer por meia hora. O anfitriao expoe isto sob `?stats=1`.
+   *  NAO usar em producao para "animar" nada: seria voltar a inventar evento,
+   *  que e exatamente o que foi retirado do motor. */
+  emiteEventoTeste(motivo: string, lado: 'buy' | 'sell', forca: number): void
+  /** telemetria de voo dos helicopteros, para conferir rota e fase sem olhar */
+  telemetriaHelis(): Array<{ lado: string; fase: string; x: number; z: number; y: number }>
   /** Acende `n` das `orc.maxLuzes` luzes de impacto e, se `frente` vier, a luz
    *  da frente. Devolve quantas PointLights o campo tem acesas DEPOIS da troca
    *  (obeliscos incluídos), que é o número que o anfitrião precisa para fechar
@@ -2045,6 +2055,7 @@ export function createBattlefield(
     | 'rompimento'    // preço passou da máxima ou mínima da sessão: bombardeiro
     | 'spread'        // spread abriu muito: duelo de vanguarda
     | 'inclinacao'    // o book pendeu para um lado: duelo pequeno
+    | 'agressao'      // o trade comeu o topo do book: corrida do helicóptero
   interface EventoMercado { motivo: MotivoEvento; lado: 'buy' | 'sell'; forca: number; at: number }
   const eventos: EventoMercado[] = []
   const emiteEvento = (motivo: MotivoEvento, lado: 'buy' | 'sell', forca: number) => {
@@ -2129,6 +2140,15 @@ export function createBattlefield(
           // casca no ar é negócio grande.
           if (rel >= 4) emiteEvento('trade-grande', t.side, Math.min(20, rel))
           else emiteEvento('trade-medio', t.side, Math.min(8, Math.max(1, rel)))
+          // ⚠️ AGRESSÃO NÃO É TAMANHO, é o quanto o trade COMEU do topo do
+          // book. Um negócio médio que limpa a melhor oferta diz mais sobre
+          // quem está mandando do que um negócio grande que encosta numa
+          // parede e para. É o evento do HELICÓPTERO, a arma que atravessa a
+          // linha: alguém foi lá e tomou o preço.
+          const topoOposto = t.side === 'buy' ? (book.asks[0]?.qty ?? 0) : (book.bids[0]?.qty ?? 0)
+          if (topoOposto > 0 && t.qty >= topoOposto * 0.6) {
+            emiteEvento('agressao', t.side, Math.min(10, 1 + t.qty / topoOposto))
+          }
           // sequência do mesmo lado: 2 é carga de esquadrão, 4 é maré (a
           // ofensiva do exército inteiro). Um trade contrário zera a conta.
           if (ladoSeguido === t.side) contaSeguidos++
@@ -3064,7 +3084,23 @@ export function createBattlefield(
   // foguetes visíveis (250ms entre eles) da PONTA_ARMA_HELI, varre o MESMO
   // alvo com uma rajada traçante de ~1s (6 tiros de fuzil a ~90ms, origem na
   // ponta da arma em coordenada de mundo) e só então sobe de volta
-  type FaseAtaqueHeli = 'patrulha' | 'mergulho' | 'fogo' | 'rajada' | 'subida'
+  // ⚠️⚠️ O VOO FOI REESCRITO EM 27/08. O fundador: "os dois helicópteros
+  // parecem estar sincronizados um com o outro, vão sempre na mesma direção,
+  // um atira e outro atira. Isso parece encenação completa". Ele leu o modelo
+  // exatamente como ele era: os dois viviam em `x = frenteX - sentido*18`,
+  // varrendo o MESMO eixo Z entre os mesmos limites, na mesma velocidade,
+  // com ataque agendado pela mesma fórmula de intensidade. Espelho perfeito.
+  //
+  // Agora cada aparelho tem ÓRBITA PRÓPRIA: centro, raio, período, altitude e
+  // sentido de giro tirados da semente, mais um centro que passeia devagar.
+  // Dois helicópteros do mesmo lado nunca desenham a mesma figura.
+  //
+  // E a CORRIDA DE ATAQUE deixou de ser vaivém com tiro: ele atravessa a
+  // linha, mergulha sobre a tropa inimiga, circula em cima dela metralhando
+  // (fase 'circulo') e só então sobe e volta. Quem arma a corrida é o evento
+  // de AGRESSÃO: um trade que comeu o topo do book. Voar é presença, como o
+  // exército em pé; ATACAR é evento.
+  type FaseAtaqueHeli = 'patrulha' | 'aproxima' | 'mergulho' | 'fogo' | 'circulo' | 'subida'
   interface Heli {
     lado: 'buy' | 'sell'
     sentido: 1 | -1
@@ -3074,19 +3110,32 @@ export function createBattlefield(
     rotorCaudaGrupo: THREE.Group
     estado: 'entrando' | 'combate'
     t0: number
-    z: number
-    dirZ: 1 | -1
     headingY: number
     fase: number
     altBase: number
+    // ── órbita de patrulha, própria de cada aparelho ──
+    orbCx: number      // centro da órbita, em recuo da frente
+    orbCz: number
+    orbRaio: number
+    orbPeriodo: number // segundos por volta
+    orbGiro: 1 | -1
+    orbAng: number
+    orbAlvoCz: number  // o centro passeia: alvo do passeio
+    tPasseio: number
+    altPref: number    // altitude preferida, diferente por aparelho
+    // ── ataque ──
     faseAtaque: FaseAtaqueHeli
-    proxAtaque: number
     tAtaque: number
     alvoAtaqueX: number
     alvoAtaqueZ: number
     foguetesRestantes: number
     proxFoguete: number
     mergulho: number
+    voltasCirculo: number
+    forcaAtaque: number
+    // posição corrente, que agora é 2D de verdade
+    px: number
+    pz: number
   }
   const criaHeli = (lado: 'buy' | 'sell', semente: number): Heli => {
     const sentido: 1 | -1 = lado === 'buy' ? 1 : -1
@@ -3108,60 +3157,107 @@ export function createBattlefield(
     grupo.add(corpo, rotorGrupo, rotorCaudaGrupo)
     grupo.visible = true
     group.add(grupo)
-    const dirZ: 1 | -1 = hash(semente, 131) < 0.5 ? 1 : -1
+    // ⚠️ TUDO tirado da semente: dois aparelhos nunca compartilham raio,
+    // período, altitude, sentido de giro nem fase. É isto que mata o espelho.
+    const orbCz = (hash(semente, 131) - 0.5) * 60
     return {
       lado, sentido, grupo, corpo, rotorGrupo, rotorCaudaGrupo,
-      estado: 'entrando', t0: performance.now(), z: 0, dirZ,
-      headingY: dirZ > 0 ? Math.PI / 2 : -Math.PI / 2,
+      estado: 'entrando', t0: performance.now(),
+      headingY: sentido > 0 ? Math.PI / 2 : -Math.PI / 2,
       fase: hash(semente, 137) * Math.PI * 2,
       altBase: 15,
+      orbCx: 16 + hash(semente, 151) * 16,
+      orbCz,
+      orbAlvoCz: orbCz,
+      orbRaio: 13 + hash(semente, 157) * 16,
+      orbPeriodo: 11 + hash(semente, 163) * 9,
+      orbGiro: hash(semente, 167) < 0.5 ? 1 : -1,
+      orbAng: hash(semente, 173) * Math.PI * 2,
+      tPasseio: performance.now() + hash(semente, 179) * 6000,
+      altPref: 12 + hash(semente, 181) * 9,
       faseAtaque: 'patrulha',
-      proxAtaque: performance.now() + 5000 + hash(semente, 149) * 5000,
       tAtaque: 0, alvoAtaqueX: 0, alvoAtaqueZ: 0,
       foguetesRestantes: 0, proxFoguete: 0, mergulho: 0,
+      voltasCirculo: 0, forcaAtaque: 0,
+      px: 0, pz: orbCz,
     }
   }
-  // 1 heli por lado em TODOS os tiers, decolando na montagem e NUNCA saindo:
-  // são 2 Groups de ~3 meshes, custo irrisório perto do exército instanciado,
-  // e o fundador assiste pelo celular
-  const helis: Heli[] = [criaHeli('buy', 1), criaHeli('sell', 2)]
+  // ⚠️ DOIS POR LADO (era um), pedido do fundador: "pode botar mais um
+  // helicóptero de cada lado". No celular fica um por lado, que já era o
+  // orçamento de lá. São Groups de 3 meshes: irrisório perto do exército
+  // instanciado, e o que custa é o desenho, não a conta de voo.
+  const helis: Heli[] = low
+    ? [criaHeli('buy', 1), criaHeli('sell', 2)]
+    : [criaHeli('buy', 1), criaHeli('sell', 2), criaHeli('buy', 3), criaHeli('sell', 4)]
+  // intervalo mínimo entre DUAS corridas quaisquer: não é cadência, é só para
+  // uma rajada de agressões não levantar os quatro aparelhos no mesmo segundo
+  let ultimaCorridaHeli = 0
   const bocaHeli = new THREE.Vector3()
   const direcaoHeli = new THREE.Vector3()
 
   const atualizaHelicopteros = (agora: number, dt: number) => {
     for (const h of helis) {
       const emAtaque = h.faseAtaque !== 'patrulha'
-      // strafe 0.7x (calmaria) a 1.4x (pico): a intensidade nunca decide SE
-      // ele voa, só o RITMO do voo. Na corrida de ataque o vaivém CONGELA:
-      // o heli paira e encara o alvo, senão o foguete nasce torto
+      // ── PARA ONDE ELE QUER IR NESTE QUADRO ────────────────────────────
+      // Patrulha: um ponto da própria órbita, que gira no seu período e cujo
+      // centro passeia. Ataque: o alvo, atravessando a linha.
+      let destX: number
+      let destZ: number
       if (!emAtaque) {
-        const velHeli = VEL_HELI * (0.7 + 0.7 * intensidade)
-        h.z += h.dirZ * velHeli * dt
-        if (h.z > HELI_Z_LIMITE) { h.z = HELI_Z_LIMITE; h.dirZ = -1 }
-        else if (h.z < -HELI_Z_LIMITE) { h.z = -HELI_Z_LIMITE; h.dirZ = 1 }
+        // o centro passeia: a cada 6 a 12 s escolhe outro z e desliza até lá,
+        // então nem a mesma órbita se repete duas vezes igual
+        if (agora > h.tPasseio) {
+          h.tPasseio = agora + 6000 + hash(Math.floor(agora) % 733, h.orbRaio | 0) * 6000
+          h.orbAlvoCz = (hash(Math.floor(agora) % 617, h.orbPeriodo | 0) - 0.5) * 76
+        }
+        h.orbCz += (h.orbAlvoCz - h.orbCz) * Math.min(1, dt * 0.25)
+        // ⚠️ o giro acompanha a INTENSIDADE só no ritmo, nunca no "se voa":
+        // mercado morto tem helicóptero patrulhando, porque estar no ar não é
+        // evento, é presença, igual ao exército em pé
+        h.orbAng += h.orbGiro * ((Math.PI * 2) / h.orbPeriodo) * (0.6 + 0.7 * intensidade) * dt
+        destX = frenteX - h.sentido * h.orbCx + Math.cos(h.orbAng) * h.orbRaio * 0.55
+        destZ = h.orbCz + Math.sin(h.orbAng) * h.orbRaio
+      } else if (h.faseAtaque === 'circulo') {
+        // ⚠️ CIRCULAR SOBRE A TROPA INIMIGA, que é o pedido: em vez de parar e
+        // atirar de ré, ele orbita o alvo apertado enquanto metralha
+        h.orbAng += h.orbGiro * ((Math.PI * 2) / 5.5) * dt
+        destX = h.alvoAtaqueX + Math.cos(h.orbAng) * 11
+        destZ = h.alvoAtaqueZ + Math.sin(h.orbAng) * 11
+      } else {
+        destX = h.alvoAtaqueX
+        destZ = h.alvoAtaqueZ
       }
-      const x = frenteX - h.sentido * X_RECUO_HELI
-      // o heading persegue a direção do vaivém com atraso: o próprio atraso
-      // é a virada, e o quanto falta pra chegar É o banco (rotation.z).
-      // Em ataque, persegue o AZIMUTE do alvo (nariz local = +x, mesma
-      // convenção da antiaérea: atan2(-dz, dx))
-      const alvoHeading = emAtaque
-        ? Math.atan2(-(h.alvoAtaqueZ - h.grupo.position.z), h.alvoAtaqueX - h.grupo.position.x)
-        : h.dirZ > 0 ? Math.PI / 2 : -Math.PI / 2
+      // ── VOO COM INÉRCIA: ele persegue o destino, não teleporta para ele.
+      // É o atraso que dá o arco da curva e o banco da asa.
+      const velHeli = VEL_HELI * (emAtaque ? 1.5 : 0.7 + 0.7 * intensidade)
+      const dxV = destX - h.px
+      const dzV = destZ - h.pz
+      const distV = Math.hypot(dxV, dzV)
+      if (distV > 0.01) {
+        const passoV = Math.min(distV, velHeli * dt)
+        h.px += (dxV / distV) * passoV
+        h.pz += (dzV / distV) * passoV
+      }
+      const x = h.px
+      // o heading persegue a direção do MOVIMENTO (nariz local = +x, mesma
+      // convenção da antiaérea: atan2(-dz, dx)); no fogo ele encara o alvo
+      const alvoHeading = h.faseAtaque === 'fogo' || h.faseAtaque === 'mergulho'
+        ? Math.atan2(-(h.alvoAtaqueZ - h.pz), h.alvoAtaqueX - h.px)
+        : Math.atan2(-dzV, dxV)
       const faltaHeading = anguloWrap(alvoHeading - h.headingY)
-      h.headingY += faltaHeading * Math.min(1, dt * (emAtaque ? 4.5 : 3.2))
+      h.headingY += faltaHeading * Math.min(1, dt * (emAtaque ? 4.5 : 2.6))
       // ⚠️ ALTITUDE RELATIVA AO TERRENO, nunca a y=0: com duna ou parede de
       // cratera o voo em cota fixa ENTRAVA NO CHÃO (o fundador viu). Voo de
       // contorno: o chão local + folga, suavizado pra não sacolejar no relevo
-      const chao = altura(x, h.z)
-      h.altBase += (Math.max(13, chao + 13) - h.altBase) * Math.min(1, dt * 2.2)
+      const chao = altura(x, h.pz)
+      h.altBase += (Math.max(h.altPref - 2, chao + h.altPref) - h.altBase) * Math.min(1, dt * 2.2)
       let y = h.altBase - h.mergulho + Math.sin(agora * 0.0009 + h.fase) * 2
       if (h.estado === 'entrando') {
         const f = Math.min(1, (agora - h.t0) / 1200)
         y -= (1 - f) * 14
         if (f >= 1) h.estado = 'combate'
       }
-      h.grupo.position.set(x, y, h.z)
+      h.grupo.position.set(x, y, h.pz)
       const banco = THREE.MathUtils.clamp(faltaHeading * 0.7, -0.3, 0.3)
       // pitch de mergulho: o nariz abaixa junto com a perda de altitude
       h.grupo.rotation.set(h.mergulho * 0.06, h.headingY, banco)
@@ -3170,24 +3266,39 @@ export function createBattlefield(
       if (h.estado !== 'combate') continue
       // ── o ciclo da corrida de ataque ──────────────────────────────────
       if (h.faseAtaque === 'patrulha') {
-        if (agora > h.proxAtaque) {
-          // alvo = soldado REAL do exército inimigo; sem amostra (book ainda
-          // vazio), tenta de novo daqui a pouco em vez de atirar no nada
-          if (alvoNoExercito(h.lado === 'buy' ? 'sell' : 'buy', vAlvoTeatro)) {
-            h.faseAtaque = 'mergulho'
+        // ⚠️ A CORRIDA É ARMADA POR EVENTO, nunca por relógio: só sai quando
+        // um trade come o topo do book do lado deste aparelho. Um evento
+        // move UM helicóptero, então os quatro nunca partem juntos.
+        if (agora - ultimaCorridaHeli > 2500) {
+          const ev = eventos.find((e) => e.motivo === 'agressao' && e.lado === h.lado)
+          if (ev && alvoNoExercito(h.lado === 'buy' ? 'sell' : 'buy', vAlvoTeatro)) {
+            eventos.splice(eventos.indexOf(ev), 1)
+            contagemEventos['agressao'] = (contagemEventos['agressao'] ?? 0) + 1
+            ultimaCorridaHeli = agora
+            h.faseAtaque = 'aproxima'
             h.tAtaque = agora
+            h.forcaAtaque = ev.forca
             h.alvoAtaqueX = vAlvoTeatro.x
             h.alvoAtaqueZ = vAlvoTeatro.z
-          } else {
-            h.proxAtaque = agora + 2000
           }
         }
+      } else if (h.faseAtaque === 'aproxima') {
+        // ⚠️ ATRAVESSA A LINHA antes de mergulhar: é o que o fundador quer
+        // dizer com "avançar em cima da tropa inimiga". Só passa para o
+        // mergulho quando está de fato por cima do alvo.
+        const perto = Math.hypot(h.px - h.alvoAtaqueX, h.pz - h.alvoAtaqueZ) < 22
+        if (perto || agora - h.tAtaque > 5000) {
+          h.faseAtaque = 'mergulho'
+          h.tAtaque = agora
+        }
       } else if (h.faseAtaque === 'mergulho') {
-        const f = Math.min(1, (agora - h.tAtaque) / 1000)
-        h.mergulho = 4 * f
+        const f = Math.min(1, (agora - h.tAtaque) / 900)
+        h.mergulho = 5 * f
         if (f >= 1) {
           h.faseAtaque = 'fogo'
-          h.foguetesRestantes = 2
+          // ⚠️ o TAMANHO DA AGRESSÃO decide quantos foguetes: um trade que
+          // limpou o topo inteiro rende salva maior que um que raspou
+          h.foguetesRestantes = 2 + Math.min(3, Math.floor(h.forcaAtaque))
           h.proxFoguete = agora
         }
       } else if (h.faseAtaque === 'fogo') {
@@ -3213,8 +3324,9 @@ export function createBattlefield(
           // acabaram os foguetes: rajada traçante no MESMO alvo, saindo da
           // ponta da arma em mundo. Agenda os 6 tiros de uma vez na fila da
           // fuzilaria (pool fixo) e segura o mergulho até a rajada acabar
-          h.faseAtaque = 'rajada'
+          h.faseAtaque = 'circulo'
           h.tAtaque = agora
+          h.voltasCirculo = 0
           h.corpo.updateWorldMatrix(true, false)
           paraLocal(bocaHeli.set(PONTA_ARMA_HELI, -0.28, 0).applyMatrix4(h.corpo.matrixWorld))
           direcaoParaLocal(direcaoHeli.set(1, 0, 0).transformDirection(h.corpo.matrixWorld))
@@ -3235,23 +3347,49 @@ export function createBattlefield(
             })
           }
         }
-      } else if (h.faseAtaque === 'rajada') {
-        // paira encarando o alvo enquanto a rajada corre (~0.9s de mergulho
-        // a mais); a fila acima cuida dos tiros, aqui só se segura a altitude
-        h.mergulho = 4
-        if (agora - h.tAtaque > 900) {
+      } else if (h.faseAtaque === 'circulo') {
+        // ⚠️ EM VEZ DE PAIRAR ATIRANDO DE RÉ (era isto que lia como boneco de
+        // videogame antigo), ele CIRCULA em cima da tropa metralhando. O voo
+        // desta fase está lá em cima, no bloco de destino; aqui só a rajada.
+        h.mergulho = 5
+        if (agora >= h.proxFoguete) {
+          h.proxFoguete = agora + 220
+          h.voltasCirculo++
+          h.corpo.updateWorldMatrix(true, false)
+          paraLocal(bocaHeli.set(PONTA_ARMA_HELI, -0.28, 0).applyMatrix4(h.corpo.matrixWorld))
+          direcaoParaLocal(direcaoHeli.set(1, 0, 0).transformDirection(h.corpo.matrixWorld))
+          lib.claraoDeBoca(bocaHeli, direcaoHeli, 2)
+          for (let k = 0; k < 3; k++) {
+            filaRajada.push({
+              at: agora + k * 70,
+              lado: h.lado,
+              z: h.alvoAtaqueZ,
+              forca: 1,
+              ultima: k === 2,
+              origemX: bocaHeli.x,
+              origemY: bocaHeli.y,
+              origemZ: bocaHeli.z,
+              alvoX: h.alvoAtaqueX + (hash(k, Math.floor(agora) % 383) - 0.5) * 5,
+              alvoZ: h.alvoAtaqueZ + (hash(k + 7, Math.floor(agora) % 359) - 0.5) * 5,
+            })
+          }
+        }
+        // uma volta e meia sobre o alvo, depois sobe
+        if (agora - h.tAtaque > 3400) {
           h.faseAtaque = 'subida'
           h.tAtaque = agora
         }
       } else {
         // subida: devolve a altitude e volta pra patrulha
         const f = Math.min(1, (agora - h.tAtaque) / 1200)
-        h.mergulho = 4 * (1 - f)
+        h.mergulho = 5 * (1 - f)
         if (f >= 1) {
           h.faseAtaque = 'patrulha'
-          // ciclo a cada 9-16s: 16s no piso de calmaria, 9s no pico, sempre
-          // saindo da INTENSIDADE (nunca timer fixo)
-          h.proxAtaque = agora + (16000 - intensidade * 7000) * (0.85 + hash(Math.floor(agora) % 431, h.sentido + 5) * 0.3)
+          // ⚠️ NÃO AGENDA A PRÓXIMA CORRIDA. Era aqui que morava o
+          // temporizador de 9 a 16 s por intensidade, e era ele que fazia os
+          // dois aparelhos atacarem em cadência parecida. A próxima corrida
+          // vem quando o mercado mandar, ou não vem.
+          h.orbAlvoCz = (hash(Math.floor(agora) % 617, h.orbRaio | 0) - 0.5) * 76
         }
       }
     }
@@ -4714,6 +4852,17 @@ export function createBattlefield(
   return {
     group,
     update,
+    emiteEventoTeste: (motivo: string, lado: 'buy' | 'sell', forca: number) => {
+      emiteEvento(motivo as MotivoEvento, lado, forca)
+    },
+    telemetriaHelis: () =>
+      helis.map((h) => ({
+        lado: h.lado,
+        fase: h.faseAtaque,
+        x: Math.round(h.px - frenteX), // em relacao a LINHA DE FRENTE: negativo
+        z: Math.round(h.pz),           // = lado dos caes, positivo = dos ursos
+        y: Math.round(h.grupo.position.y),
+      })),
     setLive: (on: boolean) => {
       if (on) liga()
       else if (feed) {

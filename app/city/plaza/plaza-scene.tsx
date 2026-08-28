@@ -874,6 +874,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           // local) é invisível em chapa: clarão de boca dura 100 ms. Medir a
           // distância é determinístico; olhar a foto é sorte.
           if (wantStats) {
+            // costura de teste do motor: emite um evento de mercado e le a
+            // telemetria dos helicopteros. So sob ?stats=1, nunca em producao
+            ;(window as unknown as { __plazaEvento?: (m: string, l: 'buy' | 'sell', f: number) => void }).__plazaEvento =
+              (m, l, f) => campo!.emiteEventoTeste(m, l, f)
+            ;(window as unknown as { __plazaHelis?: () => unknown }).__plazaHelis = () => campo!.telemetriaHelis()
             ;(window as unknown as { __plazaGuerra?: () => unknown }).__plazaGuerra = () => {
               const centro = new THREE.Vector3(WAR_POS.x, 0, WAR_POS.z)
               const v = new THREE.Vector3()
