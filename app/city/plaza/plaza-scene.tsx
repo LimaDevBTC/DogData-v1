@@ -2038,7 +2038,13 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // no telefone deitado (altura de 390) `bottom-8.5rem` joga a fita no
         // meio do campo de batalha: ali ela sobe para o alto, sob a linha da
         // órbita, onde só há céu.
-        className="pointer-events-none absolute bottom-[8.5rem] right-3 flex select-none flex-col items-end gap-0.5 font-mono text-[10px] tabular-nums tracking-[0.04em] text-white/70 transition-opacity duration-300 [@media(max-height:520px)]:bottom-auto [@media(max-height:520px)]:top-14 [@media(min-width:640px)_and_(min-height:521px)]:bottom-auto [@media(min-width:640px)_and_(min-height:521px)]:right-6 [@media(min-width:640px)_and_(min-height:521px)]:top-20 [@media(min-width:640px)_and_(min-height:521px)]:gap-1"
+        // ⚠️ A FITA ANCORA NO RODAPÉ, não num número solto. Com `bottom-8.5rem`
+        // ela boiava no meio da tela, longe do preço e longe do topo, e o
+        // fundador fotografou o vão. Agora sai da MESMA referência do rodapé
+        // (1,25rem + safe area), somando a altura dele mais uma folga: as duas
+        // peças sobem e descem juntas em qualquer aparelho, com ou sem barra
+        // de gestos, em vez de uma perseguir a outra.
+        className="pointer-events-none absolute bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-3 flex select-none flex-col items-end gap-0.5 font-mono text-[10px] tabular-nums tracking-[0.04em] text-white/70 transition-opacity duration-300 [@media(max-height:520px)]:bottom-auto [@media(max-height:520px)]:top-14 [@media(min-width:640px)_and_(min-height:521px)]:bottom-auto [@media(min-width:640px)_and_(min-height:521px)]:right-6 [@media(min-width:640px)_and_(min-height:521px)]:top-20 [@media(min-width:640px)_and_(min-height:521px)]:gap-1"
         style={{ opacity: 0, ...VISOR }}
       >
         {Array.from({ length: FITA_LINHAS }, (_, i) => (
