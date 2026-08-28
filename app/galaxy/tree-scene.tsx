@@ -1772,11 +1772,17 @@ export default function TreeScene() {
             >
               View address
             </a>
-            {selected.c > 0 && (
-              <p className="mt-3 hidden text-[10px] text-white/40 leading-relaxed sm:block">
-                Children fan out on the next shell. The bright line traces this wallet back to the treasury.
-              </p>
-            )}
+            {/* ⚠️ SEM FILHOS NAO E FALHA DE DESENHO, e o silencio parecia uma.
+                Dois tercos das carteiras (178.454 de 263.982, medido) nunca
+                foram a PRIMEIRA fonte de DOG de ninguem, entao nao ha leque a
+                abrir e a unica linha acesa e a linhagem ate a tesouraria. Sem
+                esta frase, a tela deixava a pessoa concluir que a galaxia
+                tinha parado de desenhar arestas. */}
+            <p className="mt-3 hidden text-[10px] text-white/40 leading-relaxed sm:block">
+              {selected.c > 0
+                ? 'Children fan out on the next shell. The bright line traces this wallet back to the treasury.'
+                : 'No wallet got its first DOG from here, so there is no fan to open. Sends to wallets that already held DOG are in the flow lists above. The bright line traces this wallet back to the treasury.'}
+            </p>
           </div>
         </div>
       )}
