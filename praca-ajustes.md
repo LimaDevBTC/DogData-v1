@@ -308,3 +308,28 @@ oferta. Um evento move UM aparelho. O temporizador de 9 a 16 s foi removido.
 **Medido em producao**, evento no lado sell: o aparelho saiu de x+16, cruzou
 para x-20 (campo dos caes), circulou com z indo de -45 a -31, subiu e voltou.
 Os outros tres em patrulha o tempo todo, em posicoes e altitudes distintas.
+
+### Jipe, tanque e antiaerea: mesmo tratamento (27/08, commit 3b9b763843)
+
+Os tres tinham o defeito do helicoptero: recuo fixo da frente, mesmo eixo Z,
+mesma velocidade, tiro por timer de intensidade.
+
+- **Jipe:** recuo, velocidade e z de passeio proprios. Atira so em CORTINA,
+  disparada pelo evento `recuo` (profundidade do proprio lado encolhendo).
+- **Tanque de guarda:** posto, velocidade e passeio proprios. Canhao so no
+  AVANCO, disparado por `reforco` (profundidade nova chegando).
+- **Antiaerea:** era timer de 3 a 6 s atirando com o ceu vazio. Agora so
+  dispara contra aeronave inimiga EM ataque e dentro de 95 u. Encadeia a
+  batalha: trade come o topo do book -> heli atravessa -> flak responde.
+  ⚠️ Consertou de quebra um defeito nascido quando a frota dobrou: o alvo
+  saia de `helis.find(lado)`, sempre o primeiro, entao a peca ignorava o
+  segundo aparelho.
+
+**Eventos novos:** `reforco` e `recuo`, profundidade de um lado crescendo ou
+encolhendo. Limiar 0,05%, MEDIDO em 26 amostras de 3 em 3 s (variacao tipica
+de milesimos de por cento, p80 0,004% nos bids e 0,013% nos asks, picos de
+0,73%). Sem medir eu teria chutado 5%, cem vezes errado.
+
+**Conferido em producao:** antes de qualquer injecao, o book real ja tinha
+gerado recuo 1, spread 1, inclinacao 2 e reforco 1. Com a costura, o ataque do
+heli percorreu mergulho -> fogo -> circulo -> subida cruzando para x negativo.
