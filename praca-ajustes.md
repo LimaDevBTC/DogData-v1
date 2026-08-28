@@ -240,3 +240,45 @@ Detalhe de cada item, com arquivo, linha, conserto proposto e teste na cidade:
 - Os números de tamanho de ponto citados por uma das frentes (poeira com cerca de 16 px no solo) estão trocados: 16.0 é a constante das BRASAS (battlefield.ts:556), a poeira usa PointsMaterial com size 2.4 (890). O defeito é o mesmo e continua válido, só o número da evidência estava errado; a conta correta está no item 2.
 
 **Fechado 27/08 depois da auditoria:** item 1 (datum, commit 3bca90d706) e item 2 (escala em Points e PointLight, commit 52d2ff2ec8, que de quebra achou as motas com gl_PointSize 60x menor que a irma, invisiveis desde sempre nos dois anfitrioes). Aberto a partir do item 3.
+
+---
+
+## Batalha: teatro disparado por evento real (27/08/2026)
+
+**Pedido do fundador:** "teatro disparado por eventos reais" e "um botao com
+legenda e info dos dados da batalha pra quem tiver curiosidade".
+
+**Antes:** num mercado calmo, de cada ~690 disparos por minuto na tela, 1 ou 2
+vinham de um numero da Kraken (0,2%), medido por auditoria das 4.486 linhas do
+motor. O resto era temporizador com o mercado escolhendo, no maximo, o lado.
+
+**Agora:** o mercado produz evento, a arma consome evento (barramento
+`emiteEvento`/`consomeEvento` em `battlefield.ts`). Nenhuma arma tem cadencia
+propria; o que sobra de relogio e o intervalo minimo por arma, que nao gera
+disparo. Mapa completo na legenda e na memoria do projeto.
+
+**Armas de book disparam com qty 0**, entao nao viram baixa no placar,
+letreiro de dano nem linha na fita: regra do fundador, "nada que seja o
+mercado fazendo trade".
+
+**Quatro rodadas de medicao, tres delas erradas, e o que cada uma ensinou:**
+1. Limiares em 4x e 2x da media: ZERO eventos em 90 s. O DOG faz ~1,2 trades
+   por minuto. Corrigido para todo trade armar algo, com o tamanho escolhendo
+   a arma.
+2. Razao de churn reportando 167: a baseline nasce em 0,3 e leva meia hora
+   para alcancar o real, entao a fuzilaria metralhava no talo nos primeiros
+   minutos. Base grudada na taxa nos primeiros 25 s.
+3. Evento de parede zerado mesmo com limiar baixo: comparar com MEDIA MOVEL
+   nao funciona, porque o book chega varias vezes por segundo e a media
+   alcanca o proprio valor. Trocado por amostra de 3 s atras.
+4. Inclinacao do book chutada em 2 pp: medindo, a amplitude inteira em 60 s e
+   0,116 pp. O palpite era 17x a faixa toda. Valor final 0,015 pp.
+
+**Resultado medido em producao, janela SEM nenhum trade:** duelos de vanguarda
+disparando so por inclinacao do book. Com o mercado acordando na mesma sessao:
+5 trades medios, 1 sequencia, 1 mare, 1 rompimento, assaltos subindo.
+
+**Legenda:** `app/city/plaza/war-legend.tsx`, botao "How to read this" no
+cartao de preco. Mapeamento completo, numeros vivos e contagem por evento.
+
+Commits: 5633b8d470 (barramento + legenda), 0d50a660ae (combustivel de book).
