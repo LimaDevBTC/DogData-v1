@@ -282,3 +282,29 @@ disparando so por inclinacao do book. Com o mercado acordando na mesma sessao:
 cartao de preco. Mapeamento completo, numeros vivos e contagem por evento.
 
 Commits: 5633b8d470 (barramento + legenda), 0d50a660ae (combustivel de book).
+
+### Helicopteros reescritos (27/08, commit fb8071912c)
+
+**Fundador:** "os dois helicopteros parecem estar sincronizados, vao sempre na
+mesma direcao, um atira e outro atira. Isso parece encenacao completa."
+
+**Causa:** os dois viviam em `x = frenteX - sentido*18`, varrendo o MESMO eixo
+Z entre os mesmos limites, na mesma velocidade, com ataque agendado pela mesma
+formula de intensidade. Espelho por construcao.
+
+**Agora:** 4 aparelhos (1 por lado no celular). Cada um com centro de orbita,
+raio, periodo, altitude, sentido de giro e fase da propria semente, e o centro
+passeia a cada 6 a 12 s. Voo com inercia. Ataque em 5 fases: aproxima
+(ATRAVESSA a linha) / mergulho / fogo / circulo (orbita a tropa metralhando) /
+subida. Foguetes pelo tamanho do evento.
+
+**Gatilho:** evento novo `agressao`, um trade que comeu 60%+ do topo do book do
+lado contrario. Agressao nao e tamanho: e quanto o trade limpou da melhor
+oferta. Um evento move UM aparelho. O temporizador de 9 a 16 s foi removido.
+
+**Costura de teste** (necessaria desde que tudo depende de evento): sob
+`?stats=1`, `__plazaEvento(motivo, lado, forca)` e `__plazaHelis()`.
+
+**Medido em producao**, evento no lado sell: o aparelho saiu de x+16, cruzou
+para x-20 (campo dos caes), circulou com z indo de -45 a -31, subiu e voltou.
+Os outros tres em patrulha o tempo todo, em posicoes e altitudes distintas.
