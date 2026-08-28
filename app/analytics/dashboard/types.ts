@@ -163,13 +163,29 @@ export interface Funil {
   tempo_ate_doar: { amostras: number; horas_mediana: number | null }
 }
 
-// A rota devolve os quatro em paralelo. Qualquer um pode vir null: uma função
+/**
+ * O balde "Direto" aberto por página de entrada. Não atribui origem: mostra a
+ * FORMA do tráfego sem referrer, porque link com rel="noreferrer" — o caso do
+ * CoinMarketCap, que lista o DogData como explorer da DOG — chega
+ * indistinguível de quem digitou o domínio.
+ */
+export interface LinhaDireto {
+  pagina: string
+  sessoes: number
+  rejeicao: number | null
+  paginas_sessao: number | null
+  duracao_s: number | null
+  profundidade: number
+}
+
+// A rota devolve os cinco em paralelo. Qualquer um pode vir null: uma função
 // que falhe custa UMA aba, não a página inteira.
 export interface Relatorio {
   trafego: Trafego | null
   comportamento: Comportamento | null
   vitais: Vitais | null
   funil: Funil | null
+  direto: LinhaDireto[] | null
   error?: string
 }
 

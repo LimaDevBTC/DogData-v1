@@ -14,12 +14,12 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
-import { Link2, Megaphone, Radar } from "lucide-react"
+import { EyeOff, Link2, Megaphone, Radar } from "lucide-react"
 import { Reveal } from "@/app/dogcity/motion"
-import type { Trafego } from "./types"
+import type { LinhaDireto, Trafego } from "./types"
 import {
   AXIS_TICK, CAT, ChartFrame, ChartTooltip, EmptyPlot, GRID, HAIR,
-  Plate, PlateHead, RankRows, SectionHead, Tabela, fmtDuracao, fmtNum, fmtPct,
+  Plate, PlateHead, RankRows, SectionHead, STATUS, Tabela, fmtDuracao, fmtNum, fmtPct,
 } from "./ui"
 
 // Ordem fixa e nomeada. Canal é categoria nominal com significado estável, e
@@ -35,7 +35,7 @@ const COR_CANAL: Record<string, string> = {
   Referencia: CAT[0],
 }
 
-export default function Aquisicao({ data }: { data: Trafego }) {
+export default function Aquisicao({ data, direto }: { data: Trafego; direto: LinhaDireto[] | null }) {
   const canais = data.canais
   const totalSessoes = canais.reduce((s, c) => s + c.sessoes, 0) || 1
 
@@ -126,6 +126,49 @@ export default function Aquisicao({ data }: { data: Trafego }) {
           </Plate>
         </Reveal>
       </div>
+
+      {/* ── o que tem dentro do "Direto" ────────────────────────────────── */}
+      {/* "Direto" e o maior canal do site e era uma linha sem nada dentro. Ele
+          quase nunca significa "digitou o endereco": significa "o navegador nao
+          disse de onde veio". Link com rel="noreferrer", app nativo, cliente de
+          email, QR code — tudo cai aqui.
+
+          Esta placa NAO atribui origem. Ela mostra a forma: por qual pagina
+          essa gente entra. Uma fonte externa manda para pagina profunda e
+          especifica; quem digita o dominio cai na raiz. A leitura fica com quem
+          sabe o que foi publicado onde. */}
+      {direto && direto.length > 0 && (
+        <Reveal y={18}>
+          <Plate>
+            <PlateHead icon={EyeOff}>Dentro do &ldquo;Direto&rdquo;</PlateHead>
+            <p className="font-mono text-[10px] text-dusty mb-4 leading-relaxed max-w-[74ch]">
+              Sessões que chegaram sem dizer de onde vieram, abertas pela página em que
+              entraram. Entrada na raiz costuma ser quem digitou o endereço; entrada direta
+              numa página funda quase sempre é link externo que apagou o referrer.
+            </p>
+            <Tabela
+              cabecalho={["Página de entrada", "Sessões", "Rejeição", "Páginas/sessão", "Permanência"]}
+              alinhar={["l", "r", "r", "r", "r"]}
+              linhas={direto.map((d) => [
+                <span key="p" className="text-snow">{d.pagina}</span>,
+                fmtNum(d.sessoes),
+                <span key="r" style={{ color: (d.rejeicao ?? 0) >= 70 ? STATUS.poor : undefined }}>
+                  {fmtPct(d.rejeicao)}
+                </span>,
+                d.paginas_sessao ?? "—",
+                fmtDuracao(d.duracao_s),
+              ])}
+            />
+            <p className="font-mono text-[10px] text-white/25 mt-4 leading-relaxed max-w-[74ch]">
+              Para uma origem sair daqui e virar canal próprio, o link precisa carregar UTM —
+              por exemplo{" "}
+              <span className="text-mist">?utm_source=coinmarketcap&amp;utm_medium=referral</span>{" "}
+              no endereço submetido ao diretório. Sem isso não há como distinguir, e nenhuma
+              ferramenta de analytics consegue.
+            </p>
+          </Plate>
+        </Reveal>
+      )}
 
       {/* ── campanhas ───────────────────────────────────────────────────── */}
       <Reveal y={18}>

@@ -24,7 +24,35 @@ export interface TerrainMeta {
   maxRelM: number
 }
 
-export const VERTICAL_EXAGGERATION = 2
+// ⚠️⚠️ O EXAGERO VERTICAL DEIXOU DE SER CONSTANTE EM 28/08/2026, e a razão é
+// urbanística, não estética. Mare Tranquillitatis é genuinamente plana: medido
+// na prancha /city/plan, o relevo REAL da NASA tem 17,36 km² a menos de 2 graus
+// dentro do sítio. Com o exagero de 2 que esta linha aplicava, sobravam 4,06.
+// Era o dobro de altura que tornava a cidade inconstruível, não a Lua.
+//
+// Agora o exagero é 1 DENTRO da cidade e volta a 2 no horizonte. A cidade se
+// apoia na Lua como ela é, e a paisagem distante continua dramática. A rampa é
+// suave (smoothstep) entre os dois raios, então não há costura: a derivada da
+// altura é contínua e nenhuma junta aparece no chão.
+//
+// ⚠️ MEXER NESTES NÚMEROS MOVE O MUNDO INTEIRO na vertical. Tudo que foi
+// enquadrado à mão sobre este terreno (as câmeras da guerra, o datum da
+// batalha, o pouso do parque) tem de ser reconferido depois, e o jeito de
+// conferir é `?stats=1` com window.__plazaView().
+export const VEX_CIDADE = 1
+export const VEX_HORIZONTE = 2
+/** raio até onde a cidade é plana como a Lua real */
+export const VEX_R_CIDADE = 3500
+/** e o raio onde o exagero do horizonte já está cheio */
+export const VEX_R_HORIZONTE = 6000
+export function exageroEm(r: number): number {
+  if (r <= VEX_R_CIDADE) return VEX_CIDADE
+  if (r >= VEX_R_HORIZONTE) return VEX_HORIZONTE
+  const t = (r - VEX_R_CIDADE) / (VEX_R_HORIZONTE - VEX_R_CIDADE)
+  return VEX_CIDADE + (VEX_HORIZONTE - VEX_CIDADE) * (t * t * (3 - 2 * t))
+}
+/** compatibilidade: quem só quer um número usa o do horizonte */
+export const VERTICAL_EXAGGERATION = VEX_HORIZONTE
 
 export interface Terrain {
   group: THREE.Group
@@ -73,16 +101,18 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array): Terrain 
   const cell = meta.cellSizeM
   const half = (n - 1) / 2
   const halfExtent = half * cell
-  const vex = VERTICAL_EXAGGERATION
-
-  const H = (i: number, j: number) => heights[Math.min(n - 1, Math.max(0, j)) * n + Math.min(n - 1, Math.max(0, i))] * vex
+  // ⚠️ o exagero entra DEPOIS da interpolação, e por lugar: interpolar alturas
+  // já exageradas com fatores diferentes nos quatro cantos criaria degrau na
+  // borda de célula. Interpola o relevo cru, depois escala pelo raio.
+  const H = (i: number, j: number) => heights[Math.min(n - 1, Math.max(0, j)) * n + Math.min(n - 1, Math.max(0, i))]
 
   const rawAt = (x: number, z: number): number => {
     const fi = Math.min(n - 1.001, Math.max(0, x / cell + half))
     const fj = Math.min(n - 1.001, Math.max(0, z / cell + half))
     const i = Math.floor(fi), j = Math.floor(fj)
     const u = fi - i, v = fj - j
-    return H(i, j) * (1 - u) * (1 - v) + H(i + 1, j) * u * (1 - v) + H(i, j + 1) * (1 - u) * v + H(i + 1, j + 1) * u * v
+    const cru = H(i, j) * (1 - u) * (1 - v) + H(i + 1, j) * u * (1 - v) + H(i, j + 1) * (1 - u) * v + H(i + 1, j + 1) * u * v
+    return cru * exageroEm(Math.hypot(x, z))
   }
   // O platô da praça: dentro de 960 m o chão é plano no nível 0 (o deck, as
   // âncoras e o jardim inteiro, até a muralha em 900, foram desenhados sobre um
@@ -96,8 +126,9 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array): Terrain 
     const k = t * t * (3 - 2 * t)
     return raw * k
   }
+  // a média da saia usa o exagero do HORIZONTE, que é onde a saia vive
   let mean = 0
-  for (let k = 0; k < heights.length; k++) mean += heights[k] * vex
+  for (let k = 0; k < heights.length; k++) mean += heights[k] * VEX_HORIZONTE
   mean /= heights.length
 
   // A saia: fora do quadrado do sítio, a altura parte da altura da BORDA (o ponto

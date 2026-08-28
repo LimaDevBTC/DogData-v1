@@ -143,7 +143,17 @@ export const TOUR: ReadonlyArray<{ key: string; text: string }> = [
 const TOUR_FLY_S = 4.2
 const TOUR_HOLD_MS = 6400
 
-function viewFor(name: string | null, aspect: number): View {
+// ⚠️ AS VISTAS DA GUERRA SÃO RELATIVAS AO CHÃO, e passaram a ser em 28/08.
+// O fundador enquadrou `warentry` à mão no navegador quando o exagero vertical
+// era 2 e o chão da cratera estava em 99 m. Ao baixar o exagero para 1 dentro
+// da cidade, esse chão desceu para cerca de metade: mantendo o y absoluto, a
+// câmera ficaria 50 m alta demais e devolveria o problema que ele fotografou.
+// Guardo a cota em que ele enquadrou e reaplico a MESMA altura sobre o chão de
+// agora, seja qual for. O enquadramento aprovado sobrevive a qualquer mexida
+// futura no relevo.
+const CHAO_DO_ENQUADRAMENTO = 99
+function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUADRAMENTO): View {
+  const dy = chaoGuerra - CHAO_DO_ENQUADRAMENTO
   switch (name) {
     case 'castle': case 'south': case 'chalet':
       return { pos: new THREE.Vector3(-560, 300, 1260), target: new THREE.Vector3(0, 110, 620) }
@@ -268,8 +278,8 @@ function viewFor(name: string | null, aspect: number): View {
       // costura de través com os dois exércitos e a régua no quadro; a escala
       // de monumento (2,6x) mantém os efeitos legíveis mesmo desta altura.
       return aspect >= 1
-        ? { pos: new THREE.Vector3(WAR_POS.x + 460, 175, WAR_POS.z - 480), target: new THREE.Vector3(WAR_POS.x - 60, 25, WAR_POS.z + 60) }
-        : { pos: new THREE.Vector3(WAR_POS.x + 350, 235, WAR_POS.z - 370), target: new THREE.Vector3(WAR_POS.x - 40, 5, WAR_POS.z + 40) }
+        ? { pos: new THREE.Vector3(WAR_POS.x + 460, 175 + dy, WAR_POS.z - 480), target: new THREE.Vector3(WAR_POS.x - 60, 25 + dy, WAR_POS.z + 60) }
+        : { pos: new THREE.Vector3(WAR_POS.x + 350, 235 + dy, WAR_POS.z - 370), target: new THREE.Vector3(WAR_POS.x - 40, 5 + dy, WAR_POS.z + 40) }
     case 'warentry':
       // A CHEGADA (pedido do fundador): o usuário cai DIRETO sobre a batalha,
       // vindo do sudoeste, com a skyline da cidade fechando o fundo a 3,7 km
@@ -303,8 +313,8 @@ function viewFor(name: string | null, aspect: number): View {
       // Mexer para baixo daqui devolve o urso na lente e, pior, volta a cair
       // abaixo do terreno, onde o número escrito deixa de ser o que vai pra tela.
       return aspect >= 1
-        ? { pos: new THREE.Vector3(WAR_POS.x - 202, 204, WAR_POS.z + 173), target: new THREE.Vector3(WAR_POS.x + 70, 152, WAR_POS.z - 110) }
-        : { pos: new THREE.Vector3(WAR_POS.x - 341, 186, WAR_POS.z + 308), target: new THREE.Vector3(WAR_POS.x + 60, 141, WAR_POS.z - 90) }
+        ? { pos: new THREE.Vector3(WAR_POS.x - 202, 204 + dy, WAR_POS.z + 173), target: new THREE.Vector3(WAR_POS.x + 70, 152 + dy, WAR_POS.z - 110) }
+        : { pos: new THREE.Vector3(WAR_POS.x - 341, 186 + dy, WAR_POS.z + 308), target: new THREE.Vector3(WAR_POS.x + 60, 141 + dy, WAR_POS.z - 90) }
     case 'far':
       return { pos: new THREE.Vector3(-2600, 2800, 4200), target: new THREE.Vector3(1800, 0, -1900) }
     case 'park':
@@ -533,7 +543,14 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     // câmera estaria sobre uma cratera vazia. ?view= explícito continua manda.
     const viewParam = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : null
     const entradaGuerra = !viewParam && !emLite
-    const home = entradaGuerra ? viewFor('warentry', camera.aspect) : homeFor(camera.aspect)
+    // ⚠️ o terreno carrega DEPOIS da câmera nascer (loadTerrain lá embaixo),
+    // então isto começa no chão em que o fundador enquadrou e é corrigido para
+    // o chão real assim que o relevo chega. O voo de pouso da entrada dispara
+    // depois disso, e é ele que o espectador vê: o primeiro quadro nem aparece.
+    let chaoGuerra = CHAO_DO_ENQUADRAMENTO
+    // o pouso cinematográfico da entrada, guardado até a cena estar pronta
+    let pousoDaEntrada: (() => void) | null = null
+    const home = entradaGuerra ? viewFor('warentry', camera.aspect, chaoGuerra) : homeFor(camera.aspect)
     camera.position.copy(home.pos)
     if (entradaGuerra) {
       // o dolly de pouso parte recuado e mais alto; o flyTo pro frame-herói
@@ -798,12 +815,21 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         if (b.done.includes(key)) return b
         const done = [...b.done, key]
         const next = BOOT_STEPS.find((st) => !done.includes(st.key))
-        return { ...b, done, label: next?.label ?? 'Ready', ready: done.length >= BOOT_STEPS.length }
+        const pronto = done.length >= BOOT_STEPS.length
+        // ⚠️ o pouso da guerra sai daqui, e só uma vez: a cena está montada, o
+        // relevo já respondeu qual é o chão, e é agora que a tela aparece
+        if (pronto && entradaGuerra && pousoDaEntrada) {
+          const disparar = pousoDaEntrada
+          pousoDaEntrada = null
+          requestAnimationFrame(() => disparar())
+        }
+        return { ...b, done, label: next?.label ?? 'Ready', ready: pronto }
       })
     }
     const boot = async () => {
       try {
         const terrain = await loadTerrain()
+        chaoGuerra = terrain.heightAt(WAR_POS.x, WAR_POS.z)
         if (disposed) return
         heightAt = terrain.heightAt
         groundAt = terrain.heightAt
@@ -1550,7 +1576,18 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     }
     // o pouso cinematográfico da entrada: desce devagar do recuo até o
     // frame-herói da batalha (só quando a chegada é a guerra, ver lá em cima)
-    if (entradaGuerra) flyTo({ pos: home.pos.clone(), target: home.target.clone() }, 4.2)
+    // ⚠️ O POUSO NÃO PODE SER DISPARADO AQUI, e descobri isso medindo. Este
+    // trecho roda ANTES de o relevo carregar (loadTerrain é await lá em cima,
+    // dentro do boot), então `chaoGuerra` ainda vale o padrão e o voo pousava
+    // 50 m alto demais depois que baixamos o exagero vertical. A sonda
+    // mostrava altura 204 com chão 50, ou seja 154 sobre o chão em vez dos 105
+    // que o fundador enquadrou.
+    // Agora o pouso é uma função guardada e quem a dispara é o portão da cena,
+    // que é exatamente quando o espectador começa a ver.
+    pousoDaEntrada = () => {
+      const v = viewFor('warentry', camera.aspect, chaoGuerra)
+      flyTo({ pos: v.pos, target: v.target }, 4.2)
+    }
     // duplo toque em qualquer coisa: o alvo vai até o ponto tocado e a câmera
     // chega perto, mantendo a direção; é assim que se chega a uma placa, a uma
     // estátua, ao parque
@@ -1594,7 +1631,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       // as paradas longe (parque, caverna) ganham voo mais longo: a mesma
       // distância no mesmo tempo é o que fazia a câmera parecer arrancada
       const far = st.key === 'park' || st.key.startsWith('temple')
-      flyTo(viewFor(st.key, camera.aspect), far ? TOUR_FLY_S * 1.6 : TOUR_FLY_S)
+      flyTo(viewFor(st.key, camera.aspect, chaoGuerra), far ? TOUR_FLY_S * 1.6 : TOUR_FLY_S)
       setTour({ i: tourStep, text: st.text, n: route.length })
       tourTimer = setTimeout(nextTourStep, far ? TOUR_HOLD_MS + 2200 : TOUR_HOLD_MS)
     }
@@ -1611,7 +1648,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     window.addEventListener('keydown', cancelTourOnInput)
 
     apiRef.current = {
-      flyTo(name) { flyTo(viewFor(name, camera.aspect)) },
+      flyTo(name) { flyTo(viewFor(name, camera.aspect, chaoGuerra)) },
       async follow(txid) {
         const inScene = orbit.follow(txid)
         if (inScene) {
@@ -1684,7 +1721,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       // andar (o fundador vetou: tour só se o usuário clicar em TOUR). O botão
       // no topo é a única porta.
       if (want && /^temple/.test(want)) {
-        const v = viewFor(want, camera.aspect)
+        const v = viewFor(want, camera.aspect, chaoGuerra)
         camera.position.copy(v.pos)
         controls.target.copy(v.target)
         controls.update()

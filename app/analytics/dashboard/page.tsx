@@ -282,7 +282,7 @@ export default function PainelAnalytics() {
         {heroi && <Reveal y={14} className="block mb-12 md:mb-16">{heroi}</Reveal>}
 
         {aba === "geral"         && (t ? <VisaoGeral data={t} />    : <Indisponivel o="tráfego" />)}
-        {aba === "aquisicao"     && (t ? <Aquisicao data={t} />     : <Indisponivel o="tráfego" />)}
+        {aba === "aquisicao"     && (t ? <Aquisicao data={t} direto={dados.direto} /> : <Indisponivel o="tráfego" />)}
         {aba === "comportamento" && (dados.comportamento
           ? <Comportamento data={dados.comportamento} /> : <Indisponivel o="comportamento" />)}
         {aba === "publico"       && (t ? <Publico data={t} />       : <Indisponivel o="público" />)}

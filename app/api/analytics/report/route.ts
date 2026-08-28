@@ -43,9 +43,10 @@ export async function GET(req: NextRequest) {
     chamar('analytics_behavior', dias),
     chamar('analytics_vitals', dias),
     chamar('analytics_funnel', dias),
-  ]).then(([trafego, comportamento, vitais, funil]) =>
+    chamar('analytics_direto', dias),
+  ]).then(([trafego, comportamento, vitais, funil, direto]) =>
     NextResponse.json(
-      { trafego, comportamento, vitais, funil },
+      { trafego, comportamento, vitais, funil, direto },
       { headers: { 'Cache-Control': 'no-store' } },
     ),
   )
@@ -56,7 +57,7 @@ export async function GET(req: NextRequest) {
       () =>
         res(
           NextResponse.json(
-            { error: 'banco ocupado', trafego: null, comportamento: null, vitais: null, funil: null },
+            { error: 'banco ocupado', trafego: null, comportamento: null, vitais: null, funil: null, direto: null },
             { status: 503, headers: { 'Cache-Control': 'no-store' } },
           ),
         ),
