@@ -918,6 +918,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 eventos: campo!.hud().eventos,
                 fila: campo!.hud().filaEventos,
                 churn: Number(campo!.hud().churnRelativo.toFixed(2)),
+                bids: campo!.hud().bidsDog,
+                asks: campo!.hud().asksDog,
                 menorY: Math.round(menorY),
                 enterradas,
               }

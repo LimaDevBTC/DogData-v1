@@ -2056,6 +2056,8 @@ export function createBattlefield(
     | 'spread'        // spread abriu muito: duelo de vanguarda
     | 'inclinacao'    // o book pendeu para um lado: duelo pequeno
     | 'agressao'      // o trade comeu o topo do book: corrida do helicóptero
+    | 'reforco'       // a profundidade de um lado CRESCEU: tanques avançam
+    | 'recuo'         // a profundidade de um lado ENCOLHEU: jipes fazem cortina
   interface EventoMercado { motivo: MotivoEvento; lado: 'buy' | 'sell'; forca: number; at: number }
   const eventos: EventoMercado[] = []
   const emiteEvento = (motivo: MotivoEvento, lado: 'buy' | 'sell', forca: number) => {
@@ -2082,6 +2084,8 @@ export function createBattlefield(
   let amostraTopo = 0
   let amostraSpread = 0
   let amostraInclina = 0
+  let amostraBids = 0
+  let amostraAsks = 0
   // contagem por motivo: é o que o painel de legenda publica para o curioso
   const contagemEventos: Record<string, number> = {}
 
@@ -2571,6 +2575,23 @@ export function createBattlefield(
         // não disparava nunca. 0,015 pp é pouco acima do passo normal, o que dá
         // alguns duelos por minuto. Em DOG isso são ~160 mil trocando de lado
         // num book de 1,09 bilhão: ordem de verdade, não ruído de última casa.
+        // ⚠️ REFORÇO E RECUO: o tamanho de cada exército mudando. Ordem nova
+        // entrando de um lado é reforço chegando; ordem sendo puxada é tropa
+        // recuando. Os dois acontecem sem nenhum negócio, que é o ponto.
+        // ⚠️ LIMIAR MEDIDO, 26 amostras de 3 em 3 s no book real: a variação
+        // típica é de MILÉSIMOS de por cento (p80 de 0,004% nos bids e 0,013%
+        // nos asks) com picos de 0,73%. 0,05% fica bem acima do ruído e bem
+        // abaixo dos picos, então dispara no movimento de verdade.
+        if (amostraBids > 0 && amostraAsks > 0) {
+          const dB = (bidsDog - amostraBids) / amostraBids
+          const dA = (asksDog - amostraAsks) / amostraAsks
+          if (dB > 0.0005) emiteEvento('reforco', 'buy', Math.min(8, 1 + dB * 400))
+          else if (dB < -0.0005) emiteEvento('recuo', 'buy', Math.min(8, 1 - dB * 400))
+          if (dA > 0.0005) emiteEvento('reforco', 'sell', Math.min(8, 1 + dA * 400))
+          else if (dA < -0.0005) emiteEvento('recuo', 'sell', Math.min(8, 1 - dA * 400))
+        }
+        amostraBids = bidsDog
+        amostraAsks = asksDog
         const totalBook = bidsDog + asksDog
         const inclina = totalBook > 0 ? bidsDog / totalBook : 0.5
         if (amostraInclina > 0 && Math.abs(inclina - amostraInclina) > 0.00015) {
@@ -3402,14 +3423,29 @@ export function createBattlefield(
   const X_RECUO_JIPE = 24
   const JIPE_Z_LIMITE = 40
   const VEL_JIPE = 4.5
+  // ⚠️ MESMO TRATAMENTO DOS HELICÓPTEROS (fundador: "mesmo tratamento").
+  // O jipe também vivia em `x = frenteX - sentido*24` varrendo o mesmo eixo Z
+  // entre os mesmos limites: dois jipes do mesmo lado desenhavam a mesma
+  // linha, e a rajada saía de um timer de 4 a 8 s.
+  // Agora: recuo próprio (cada um a uma distância diferente da frente), z de
+  // passeio (escolhe outro ponto a cada 5 a 11 s), e CORTINA disparada por
+  // evento: quando a profundidade do próprio lado ENCOLHE, ou seja quando a
+  // tropa dele está sendo puxada do book, o jipe corre para a linha e varre.
+  type FaseJipe = 'patrulha' | 'cortina'
   interface Jipe {
     lado: 'buy' | 'sell'
     sentido: 1 | -1
     grupo: THREE.Group
     armaGrupo: THREE.Group
     z: number
-    dirZ: 1 | -1
+    zAlvo: number
+    recuo: number
+    recuoBase: number
+    vel: number
+    tPasseio: number
     fase: number
+    faseJipe: FaseJipe
+    tCortina: number
     proxRajada: number
   }
   const criaJipe = (lado: 'buy' | 'sell', idx: number): Jipe => {
@@ -3426,32 +3462,74 @@ export function createBattlefield(
     const grupo = new THREE.Group()
     grupo.add(corpo, armaGrupo)
     group.add(grupo)
+    const sem = idx * 31 + (lado === 'buy' ? 3 : 19)
+    const z0 = (hash(sem, 23) - 0.5) * 70
     return {
       lado, sentido, grupo, armaGrupo,
-      z: (idx - (N_JIPE - 1) / 2) * 22,
-      dirZ: idx % 2 === 0 ? 1 : -1,
-      fase: hash(idx, lado === 'buy' ? 7 : 11),
-      proxRajada: performance.now() + 1500 + hash(idx, lado === 'buy' ? 13 : 17) * 3500,
+      z: z0,
+      zAlvo: z0,
+      // ⚠️ cada jipe a uma distância PRÓPRIA da frente: é isto que impede que
+      // dois do mesmo lado andem colados como se fossem um só
+      recuoBase: 16 + hash(sem, 29) * 18,
+      recuo: 16 + hash(sem, 29) * 18,
+      vel: VEL_JIPE * (0.75 + hash(sem, 37) * 0.6),
+      tPasseio: performance.now() + hash(sem, 41) * 5000,
+      fase: hash(sem, 43),
+      faseJipe: 'patrulha',
+      tCortina: 0,
+      proxRajada: 0,
     }
   }
   const jipes: Jipe[] = []
   for (const lado of ['buy', 'sell'] as const) {
     for (let k = 0; k < N_JIPE; k++) jipes.push(criaJipe(lado, k))
   }
+  // intervalo mínimo entre duas cortinas: não é cadência, é para uma sequência
+  // de recuos não levantar todos os jipes no mesmo segundo
+  let ultimaCortinaJipe = 0
   const bocaJipe = new THREE.Vector3()
   const direcaoJipe = new THREE.Vector3()
 
   const atualizaJipes = (agora: number, dt: number) => {
     for (const j of jipes) {
-      j.z += j.dirZ * VEL_JIPE * dt
-      if (j.z > JIPE_Z_LIMITE) { j.z = JIPE_Z_LIMITE; j.dirZ = -1 }
-      else if (j.z < -JIPE_Z_LIMITE) { j.z = -JIPE_Z_LIMITE; j.dirZ = 1 }
-      const x = frenteX - j.sentido * X_RECUO_JIPE
+      // ── CORTINA: armada pelo evento de RECUO do próprio lado ───────────
+      if (j.faseJipe === 'patrulha') {
+        const ev = eventos.find((e) => e.motivo === 'recuo' && e.lado === j.lado)
+        if (ev && agora - ultimaCortinaJipe > 3000) {
+          eventos.splice(eventos.indexOf(ev), 1)
+          contagemEventos['recuo'] = (contagemEventos['recuo'] ?? 0) + 1
+          ultimaCortinaJipe = agora
+          j.faseJipe = 'cortina'
+          j.tCortina = agora
+          j.proxRajada = agora
+          // corre PARA a linha e escolhe um ponto novo: a cortina é um
+          // deslocamento, não um passo de dança no mesmo lugar
+          j.zAlvo = (hash(Math.floor(agora) % 811, j.recuoBase | 0) - 0.5) * 80
+        }
+      } else if (agora - j.tCortina > 4200) {
+        j.faseJipe = 'patrulha'
+      }
+      // recuo: colado na linha durante a cortina, no posto durante a patrulha
+      const recuoAlvo = j.faseJipe === 'cortina' ? 7 : j.recuoBase
+      j.recuo += (recuoAlvo - j.recuo) * Math.min(1, dt * 0.9)
+      // z de passeio: escolhe outro ponto de tempos em tempos e desliza até lá
+      if (agora > j.tPasseio) {
+        j.tPasseio = agora + 5000 + hash(Math.floor(agora) % 599, j.fase * 100 | 0) * 6000
+        j.zAlvo = (hash(Math.floor(agora) % 683, j.recuoBase | 0) - 0.5) * (JIPE_Z_LIMITE * 2)
+      }
+      const dz = j.zAlvo - j.z
+      const velJ = j.vel * (j.faseJipe === 'cortina' ? 2.1 : 1)
+      if (Math.abs(dz) > 0.05) j.z += Math.sign(dz) * Math.min(Math.abs(dz), velJ * dt)
+      const x = frenteX - j.sentido * j.recuo
       const y = altura(x, j.z) + Math.abs(Math.sin(agora * 0.006 + j.fase * 10)) * 0.05
       j.grupo.position.set(x, y, j.z)
       j.armaGrupo.rotation.y = Math.sin(agora * 0.0007 + j.fase * 10) * 0.3
-      if (agora > j.proxRajada) {
-        j.proxRajada = agora + 4000 + hash(Math.floor(agora) % 277, j.z + j.sentido) * 4000
+      // ⚠️ O JIPE SÓ ATIRA EM CORTINA. Era um timer de 4 a 8 s que rodava
+      // eternamente; agora a arma dele existe para cobrir o recuo do próprio
+      // lado, e fora disso ele patrulha calado. O intervalo abaixo é cadência
+      // de arma dentro da cortina, não cadência de evento.
+      if (j.faseJipe === 'cortina' && agora > j.proxRajada) {
+        j.proxRajada = agora + 620 + hash(Math.floor(agora) % 277, j.z + j.sentido) * 380
         j.armaGrupo.updateWorldMatrix(true, false)
         paraLocal(bocaJipe.set(j.sentido * BOCA_ARMA_JIPE, 0, 0).applyMatrix4(j.armaGrupo.matrixWorld))
         direcaoParaLocal(direcaoJipe.set(j.sentido, 0, 0).transformDirection(j.armaGrupo.matrixWorld))
@@ -3485,8 +3563,20 @@ export function createBattlefield(
   const X_TANQUE_GUARDA_RECUO = 9
   const TANQUE_GUARDA_Z_LIMITE = 38
   const VEL_TANQUE_GUARDA = 2.6
+  // ⚠️ MESMO TRATAMENTO: o tanque de guarda também varria o mesmo eixo Z na
+  // mesma velocidade dos irmãos, e atirava por timer de 7 a 14 s.
+  // Agora ele tem posto próprio, passeio, e um AVANÇO disparado pelo evento de
+  // REFORÇO do próprio lado: quando chega profundidade nova no book daquele
+  // lado, o blindado rola para a linha, dispara e recua para o posto. É a
+  // leitura mais direta que existe de "chegou tropa".
   interface TanqueGuarda extends Tanque {
-    dirZ: 1 | -1
+    zAlvo: number
+    recuo: number
+    recuoBase: number
+    vel: number
+    tPasseio: number
+    avancando: boolean
+    tAvanco: number
   }
   const criaTanqueGuarda = (lado: 'buy' | 'sell', z: number): TanqueGuarda => {
     const sentido: 1 | -1 = lado === 'buy' ? 1 : -1
@@ -3504,27 +3594,57 @@ export function createBattlefield(
     const x = frenteX - sentido * X_TANQUE_GUARDA_RECUO
     grupo.position.set(x, altura(x, z), z)
     group.add(grupo)
+    const sem = Math.abs(z) * 7 + (lado === 'buy' ? 5 : 23)
+    const recuoBase = X_TANQUE_GUARDA_RECUO + hash(sem, 11) * 14
     return {
       grupo, casco, torreGrupo, lado, sentido, z, estado: 'combate',
-      proxTiro: performance.now() + 2000 + hash(z, sentido) * 4000,
+      proxTiro: 0,
       recuoT0: 0, mira: 0, proxPoeira: 0,
-      dirZ: hash(z, sentido + 9) < 0.5 ? 1 : -1,
+      zAlvo: z,
+      recuo: recuoBase,
+      recuoBase,
+      vel: VEL_TANQUE_GUARDA * (0.7 + hash(sem, 13) * 0.7),
+      tPasseio: performance.now() + hash(sem, 17) * 7000,
+      avancando: false,
+      tAvanco: 0,
     }
   }
   const N_TANQUE_GUARDA = tierMedio ? 2 : 1
   const Z_TANQUE_GUARDA = tierMedio ? [-18, 18] : [0]
+  let ultimoAvancoTanque = 0
   const tanquesGuarda: TanqueGuarda[] = []
   for (const lado of ['buy', 'sell'] as const) {
     for (let k = 0; k < N_TANQUE_GUARDA; k++) tanquesGuarda.push(criaTanqueGuarda(lado, Z_TANQUE_GUARDA[k]))
   }
   const atualizaTanquesGuarda = (agora: number, dt: number) => {
     for (const t of tanquesGuarda) {
-      t.z += t.dirZ * VEL_TANQUE_GUARDA * dt
-      if (t.z > TANQUE_GUARDA_Z_LIMITE) { t.z = TANQUE_GUARDA_Z_LIMITE; t.dirZ = -1 }
-      else if (t.z < -TANQUE_GUARDA_Z_LIMITE) { t.z = -TANQUE_GUARDA_Z_LIMITE; t.dirZ = 1 }
-      const x = frenteX - t.sentido * X_TANQUE_GUARDA_RECUO
+      // ── AVANÇO: armado pelo evento de REFORÇO do próprio lado ─────────
+      if (!t.avancando) {
+        const ev = eventos.find((e) => e.motivo === 'reforco' && e.lado === t.lado)
+        if (ev && agora - ultimoAvancoTanque > 2600) {
+          eventos.splice(eventos.indexOf(ev), 1)
+          contagemEventos['reforco'] = (contagemEventos['reforco'] ?? 0) + 1
+          ultimoAvancoTanque = agora
+          t.avancando = true
+          t.tAvanco = agora
+          t.proxTiro = agora + 700 // dispara ao chegar, não no posto
+          t.zAlvo = (hash(Math.floor(agora) % 733, t.recuoBase | 0) - 0.5) * (TANQUE_GUARDA_Z_LIMITE * 2)
+        }
+      } else if (agora - t.tAvanco > 6000) {
+        t.avancando = false
+      }
+      const recuoAlvo = t.avancando ? 4 : t.recuoBase
+      t.recuo += (recuoAlvo - t.recuo) * Math.min(1, dt * 0.55)
+      if (agora > t.tPasseio) {
+        t.tPasseio = agora + 7000 + hash(Math.floor(agora) % 641, t.recuoBase | 0) * 8000
+        t.zAlvo = (hash(Math.floor(agora) % 557, t.z | 0) - 0.5) * (TANQUE_GUARDA_Z_LIMITE * 2)
+      }
+      const dzT = t.zAlvo - t.z
+      const velT = t.vel * (t.avancando ? 1.8 : 1)
+      if (Math.abs(dzT) > 0.05) t.z += Math.sign(dzT) * Math.min(Math.abs(dzT), velT * dt)
+      const x = frenteX - t.sentido * t.recuo
       t.grupo.position.set(x, altura(x, t.z) + Math.abs(Math.sin(agora * 0.006 + t.z)) * 0.03, t.z)
-      if (Math.abs(t.dirZ) * VEL_TANQUE_GUARDA * dt > 0.02) esteiraPoeiraTanque(t, agora)
+      if (Math.abs(dzT) > 0.4) esteiraPoeiraTanque(t, agora)
       t.mira += (Math.sin(agora * 0.0006 + t.z) * 0.15 - t.mira) * Math.min(1, dt * 1.2)
       t.torreGrupo.rotation.y = t.mira
       // mesmo recuo de canhão de atualizaTanques
@@ -3535,11 +3655,11 @@ export function createBattlefield(
           t.casco.position.x = 0
         } else t.casco.position.x = -t.sentido * 0.45 * (1 - f) * (1 - f)
       }
-      // canhão a cada 7-14s, mais rápido quanto maior a intensidade
-      if (agora > t.proxTiro) {
-        const centro = 14000 - intensidade * 7000
-        const jitter = (hash(Math.floor(agora) % 613, t.z) - 0.5) * 4000
-        t.proxTiro = agora + Math.max(7000, Math.min(14000, centro + jitter))
+      // ⚠️ O CANHÃO SÓ FALA NO AVANÇO. Era um timer de 7 a 14 s por
+      // intensidade; agora o blindado atira porque chegou reforço e ele foi
+      // para a linha. Parado no posto, fica calado.
+      if (t.avancando && agora > t.proxTiro) {
+        t.proxTiro = agora + 1600 + hash(Math.floor(agora) % 613, t.z) * 900
         dispararTanque(t, agora)
       }
     }
@@ -3641,16 +3761,38 @@ export function createBattlefield(
       tracersAA.push({ i, t0: agora, dur: 260 + hash(i, k) * 140 })
     }
   }
+  // alcance útil da peça: além disso o traçante viraria linha no horizonte
+  const ALCANCE_AA = 95
   const atualizaAntiAereas = (agora: number, dt: number) => {
     for (const aa of antiAereas) {
       const bx = frenteX - aa.sentido * DIST_BATERIA
       aa.grupo.position.set(bx, altura(bx, aa.z), aa.z)
       const inimigoLado: 'buy' | 'sell' = aa.lado === 'buy' ? 'sell' : 'buy'
+      // ⚠️ O ALVO É O AERONAVE MAIS PRÓXIMA, não a primeira da lista. Com um
+      // helicóptero por lado o `find` dava no mesmo resultado; com dois, a
+      // peça mirava eternamente o mesmo aparelho enquanto o outro passava por
+      // cima dela. Erro que só nasceu quando a frota dobrou.
       let alvoPos: THREE.Vector3 | null = null
-      const heliInimigo = helis.find((h) => h.lado === inimigoLado)
-      if (heliInimigo) alvoPos = heliInimigo.grupo.position
+      let alvoAtacando = false
+      let melhorD = Infinity
+      for (const h of helis) {
+        if (h.lado !== inimigoLado) continue
+        const d = h.grupo.position.distanceToSquared(aa.grupo.position)
+        if (d < melhorD) {
+          melhorD = d
+          alvoPos = h.grupo.position
+          alvoAtacando = h.faseAtaque !== 'patrulha'
+        }
+      }
       const bombInimigo = bombardeiros[inimigoLado]
-      if (!alvoPos && bombInimigo.ativo) alvoPos = bombInimigo.mesh.position
+      if (bombInimigo.ativo) {
+        const dB = bombInimigo.mesh.position.distanceToSquared(aa.grupo.position)
+        if (dB < melhorD) {
+          melhorD = dB
+          alvoPos = bombInimigo.mesh.position
+          alvoAtacando = true // bombardeiro no ar já é corrida de ataque
+        }
+      }
       if (!alvoPos) continue
       vAlvoAA.copy(alvoPos).sub(aa.grupo.position)
       const azAlvo = Math.atan2(-vAlvoAA.z, vAlvoAA.x)
@@ -3660,11 +3802,18 @@ export function createBattlefield(
       const elevAlvo = Math.atan2(vAlvoAA.y, horiz)
       aa.elevAtual += (elevAlvo - aa.elevAtual) * Math.min(1, dt * 2.2)
       aa.canoGrupo.rotation.z = THREE.MathUtils.clamp(aa.elevAtual, -0.1, 1.3)
-      if (agora > aa.proxRajada) {
-        // cadência 3-6s por peça, mais rápida quanto maior a intensidade
-        const centro = 6000 - intensidade * 3000
-        const jitter = (hash(Math.floor(agora) % 449, aa.z) - 0.5) * 3000
-        aa.proxRajada = agora + Math.max(3000, Math.min(6000, centro + jitter))
+      // ⚠️⚠️ A ANTIAÉREA DEIXOU DE TER CADÊNCIA PRÓPRIA. Era um timer de 3 a 6 s
+      // por peça, e ela atirava mesmo com o céu vazio de ameaça, o que é a
+      // definição de teatro. Agora ela SÓ atira quando existe aeronave inimiga
+      // EM CORRIDA DE ATAQUE dentro do alcance. Isso encadeia a batalha inteira
+      // num fio de dado: um trade come o topo do book (agressão) -> o
+      // helicóptero atravessa a linha -> a antiaérea do outro lado responde.
+      // Quem assiste vê causa e efeito; quem não sabe do mercado vê uma guerra
+      // que faz sentido. O intervalo de 900 ms é só cadência de arma, para a
+      // peça não virar mangueira.
+      const dentroDoAlcance = melhorD < ALCANCE_AA * ALCANCE_AA
+      if (alvoAtacando && dentroDoAlcance && agora > aa.proxRajada) {
+        aa.proxRajada = agora + 900 + hash(Math.floor(agora) % 449, aa.z) * 700
         dispararFlak(aa, alvoPos, agora)
       }
     }

@@ -139,6 +139,18 @@ const MAPA: Array<{ arma: string; cor?: string; leitura: string }> = [
     leitura: 'A trade ate most of the best level in the book. Not size: aggression. The aircraft crosses the front line, dives on the enemy troops and circles them while it strafes.',
   },
   {
+    arma: 'Guard tank rolling forward',
+    leitura: 'Depth arrived on that side of the book. Reinforcements showed up, so the armour moves up to the line and fires.',
+  },
+  {
+    arma: 'Jeep screening run',
+    leitura: 'Depth was pulled from that side. The order was taken back, so the light vehicle races to the line and covers the withdrawal.',
+  },
+  {
+    arma: 'Anti-air flak',
+    leitura: 'It only fires at an enemy aircraft that is actually on an attack run and in range. No aircraft attacking, no flak: that is the whole chain in one line, a taker eats the book, the helicopter crosses, the guns answer.',
+  },
+  {
     arma: 'Bomber',
     leitura: 'The price broke the high or the low of this session.',
   },
@@ -165,6 +177,8 @@ const MOTIVOS: Array<{ chave: string; nome: string; arma: string }> = [
   // entre os dois lados do book mudando, e é o que dá vida a um mercado parado
   { chave: 'inclinacao', nome: 'Book tilted', arma: 'vanguard duel' },
   { chave: 'agressao', nome: 'Taker ate the touch', arma: 'helicopter attack run' },
+  { chave: 'reforco', nome: 'Depth arrived', arma: 'guard tank advance' },
+  { chave: 'recuo', nome: 'Depth pulled', arma: 'jeep screening run' },
 ]
 
 // ── peças ──────────────────────────────────────────────────────────────────
