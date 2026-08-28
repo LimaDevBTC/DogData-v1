@@ -43,6 +43,8 @@ export interface DomeOpts {
   crown?: number
   /** largura da nervura em metros; é ela que decide quanto céu a malha come */
   rib?: number
+  /** distância (m) em que a casca apaga; é o anti-cintilação */
+  fade?: number
 }
 
 export interface Dome {
@@ -51,39 +53,127 @@ export interface Dome {
   celulas: number
   /** triângulos somados das duas malhas */
   triangulos: number
+  /** altura da coroa sobre o datum: a órbita das naves lê daqui para passar por cima */
+  coroa: number
   dispose(): void
 }
 
 const COR_NERVURA = new THREE.Color('#C6C9D2')
-const COR_VIDRO = new THREE.Color('#9FC4E8')
+const COR_VIDRO = new THREE.Color('#C8D6E0')
 const COR_SAIA = new THREE.Color('#26262B')
 
-/** O vidro: quase invisível de frente e aceso na rasante. Sem transmissão de
- *  verdade (cara demais para 8 mil células): um fresnel resolve a leitura. */
-function materialVidro(): THREE.ShaderMaterial {
+/** O trecho de vértice que os dois materiais dividem: normal, direção de vista e
+ *  DISTÂNCIA À CÂMERA, que é o que mata a cintilação sem LOD de textura. */
+// ⚠️ NÃO USE `cameraPosition` AQUI. O three só alimenta essa uniforme embutida
+// para os materiais dele; num ShaderMaterial cru ela fica em (0,0,0) e toda
+// conta de distância passa a medir do CENTRO DA CIDADE. O sintoma é bonito e
+// enganoso: a casca some do raio do desvanecimento para fora e sobra só a
+// calota central boiando sobre a praça, que de fora parece uma abóbada ATRÁS
+// do tabuleiro. `uCam` é preenchida no onBeforeRender de cada malha.
+const VS = `
+  uniform vec3 uCam;
+  varying vec3 vN; varying vec3 vV; varying float vD;
+  void main() {
+    vec4 wp = modelMatrix * vec4(position, 1.0);
+    vec4 mv = viewMatrix * wp;
+    vN = normalize(normalMatrix * normal);
+    vV = normalize(-mv.xyz);
+    vD = distance(wp.xyz, uCam);
+    gl_Position = projectionMatrix * mv;
+  }`
+
+/** O vidro: invisível de frente, aceso na rasante, e NUNCA escurece o céu.
+ *  Mistura aditiva de propósito: com mistura normal a casca virava um véu azul
+ *  escuro sobre as estrelas (medido na primeira chapa, ficou rede de galinheiro).
+ *  Sem transmissão de verdade, que a 8 mil células não paga. */
+function materialVidro(fade: number, coroa: number): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     uniforms: {
       uTint: { value: COR_VIDRO },
-      uBase: { value: 0.045 },
-      uFres: { value: 0.5 },
+      uBase: { value: 0.03 },
+      uFres: { value: 0.17 },
+      uFade: { value: fade },
+      uCoroa: { value: coroa },
+      uCam: { value: new THREE.Vector3() },
     },
-    vertexShader: `
-      varying vec3 vN; varying vec3 vV;
-      void main() {
-        vec4 mv = modelViewMatrix * vec4(position, 1.0);
-        vN = normalize(normalMatrix * normal);
-        vV = normalize(-mv.xyz);
-        gl_Position = projectionMatrix * mv;
-      }`,
+    vertexShader: VS,
     fragmentShader: `
-      uniform vec3 uTint; uniform float uBase; uniform float uFres;
-      varying vec3 vN; varying vec3 vV;
+      uniform vec3 uTint; uniform float uBase; uniform float uFres; uniform float uFade; uniform float uCoroa; uniform vec3 uCam;
+      varying vec3 vN; varying vec3 vV; varying float vD;
+      // dentro = 1 quando a câmera está sob a casca, 0 quando ela saiu do sítio
+      // ou subiu acima da coroa. O apagamento é remédio de quem olha DE DENTRO;
+      // visto de fora a abóbada tem que ter silhueta.
+      float dentro() {
+        float r = 1.0 - smoothstep(3200.0, 3800.0, length(uCam.xz));
+        float h = 1.0 - smoothstep(uCoroa * 0.9, uCoroa * 1.4, uCam.y);
+        return r * h;
+      }
       void main() {
-        float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 3.0);
-        gl_FragColor = vec4(uTint * (0.55 + 0.9 * f), uBase + uFres * f);
+        vec3 n = normalize(vN); vec3 v = normalize(vV);
+        float f = pow(1.0 - abs(dot(n, v)), 3.0);
+        float d = dentro();
+        // ⚠️ O VIDRO TROCA DE REGRA CONFORME O LADO, e isso é escolha, não bug.
+        // Por dentro ele tem que sumir para o céu preto e as estrelas
+        // aparecerem; por fora ele tem que EXISTIR, senão a abóbada é um anel
+        // preto no chão e mais nada (medido: a 6,5 km a nervura de 0,9 m dá
+        // 0,05 px e some). Vidro de verdade faria a mesma coisa e ficaria
+        // invisível: aqui a cidade é virtual e a imagem manda.
+        float base = mix(0.11, uBase, d);
+        float fres = mix(0.42, uFres, d);
+        float brilho = pow(max(dot(reflect(-v, n), normalize(vec3(0.28, 0.86, 0.18))), 0.0), 36.0) * (1.0 - d) * 0.7;
+        float longe = mix(1.0, 1.0 - smoothstep(uFade * 0.45, uFade, vD), d);
+        gl_FragColor = vec4(uTint * (base + fres * f + brilho) * longe, 1.0);
       }`,
     transparent: true,
     depthWrite: false,
+    // ⚠️ SEM TESTE DE PROFUNDIDADE, e isto é medido, não preguiça. A cena vai do
+    // deck até o horizonte a 26 km com plano próximo curto, e a 6 km o buffer
+    // de profundidade não separa mais a casca (a 1,2 km de altura) do chão que
+    // ela cobre: a metade DA FRENTE da abóbada perdia o teste contra o terreno
+    // e sumia, deixando só a coroa contra o céu. De fora a leitura ficava
+    // "abóbada atrás do tabuleiro", que foi exatamente o que o fundador viu.
+    // Como a mistura é aditiva, desenhar por cima só clareia, nunca esconde.
+    // O conserto de verdade é buffer logarítmico no renderizador, e isso mexe
+    // na cena inteira: fica para depois da forma aprovada.
+    depthTest: false,
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide,
+  })
+}
+
+/** A nervura: linha clara e fina, com a claridade variando pela inclinação para
+ *  a abóbada ter forma, e sumindo com a distância.
+ *
+ *  ⚠️ O DESVANECIMENTO NÃO É ENFEITE. A nervura de 0,9 m cai abaixo de 1 pixel
+ *  além de 1.300 m; sem apagar, a malha do outro lado da cidade (7 km de vão)
+ *  vira um emaranhado que pisca a cada movimento de câmera. Aqui ela vai a 12%
+ *  de opacidade no longe: a borda continua legível como bruma, e não como rede. */
+function materialNervura(fade: number, coroa: number): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uCor: { value: COR_NERVURA },
+      uFade: { value: fade },
+      uCoroa: { value: coroa },
+      uCam: { value: new THREE.Vector3() },
+    },
+    vertexShader: VS,
+    fragmentShader: `
+      uniform vec3 uCor; uniform float uFade; uniform float uCoroa; uniform vec3 uCam;
+      varying vec3 vN; varying vec3 vV; varying float vD;
+      float dentro() {
+        float r = 1.0 - smoothstep(3200.0, 3800.0, length(uCam.xz));
+        float h = 1.0 - smoothstep(uCoroa * 0.9, uCoroa * 1.4, uCam.y);
+        return r * h;
+      }
+      void main() {
+        vec3 n = normalize(vN);
+        float k = 0.45 + 0.55 * abs(dot(n, normalize(vec3(0.28, 1.0, 0.18))));
+        float perto = mix(0.12, 1.0, 1.0 - smoothstep(uFade * 0.35, uFade * 1.2, vD));
+        gl_FragColor = vec4(uCor * k, mix(0.85, perto, dentro()));
+      }`,
+    transparent: true,
+    depthWrite: false,
+    depthTest: false,   // mesmo motivo do vidro, ver o comentário acima
     side: THREE.DoubleSide,
   })
 }
@@ -93,6 +183,7 @@ export function buildDome(o: DomeOpts): Dome {
   const rim = o.rim ?? 90
   const crown = o.crown ?? 1200
   const ribW = o.rib ?? 0.9
+  const fade = o.fade ?? 2200
 
   const group = new THREE.Group()
   group.name = 'abobada'
@@ -111,7 +202,7 @@ export function buildDome(o: DomeOpts): Dome {
   const rMax = DOME_R - a
   // Almofada: quanto a célula estufa acima da calota. 0,18·a dá a leitura de
   // acolchoado sem virar bolha de plástico.
-  const pillow = 0.18 * a
+  const pillow = 0.12 * a
   // Célula grande ganha um anel a mais: a 42 m ela ocupa 28,6 graus da tela e
   // um cone de 6 triângulos apareceria como cone.
   const aneis = a >= 30 ? 2 : 1
@@ -175,10 +266,18 @@ export function buildDome(o: DomeOpts): Dome {
   }
   const geoVidro = mergeGeometries(vidros, false)!
   vidros.forEach((g) => g.dispose())
-  const matVidro = materialVidro()
+  const matVidro = materialVidro(fade, crown)
   const malhaVidro = new THREE.Mesh(geoVidro, matVidro)
   malhaVidro.frustumCulled = false
   malhaVidro.renderOrder = 5
+  // ⚠️ `uniformsNeedUpdate` é obrigatório: num ShaderMaterial cru o three sobe as
+  // uniformes uma vez e depois só quando este sinal é levantado. Sem ele a
+  // posição da câmera congela no primeiro quadro e o desvanecimento passa a
+  // medir de um ponto que não existe mais.
+  malhaVidro.onBeforeRender = (_r, _s, cam) => {
+    cam.getWorldPosition(matVidro.uniforms.uCam.value)
+    matVidro.uniformsNeedUpdate = true
+  }
   group.add(malhaVidro)
 
   // ── nervuras: uma fita por aresta, cada aresta uma vez só ─────────────────
@@ -222,11 +321,14 @@ export function buildDome(o: DomeOpts): Dome {
   geoNerv.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
   geoNerv.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3))
   geoNerv.setIndex(idx)
-  const matNerv = new THREE.MeshStandardMaterial({
-    color: COR_NERVURA, metalness: 0.55, roughness: 0.38, side: THREE.DoubleSide,
-  })
+  const matNerv = materialNervura(fade, crown)
   const malhaNerv = new THREE.Mesh(geoNerv, matNerv)
+  malhaNerv.renderOrder = 6
   malhaNerv.frustumCulled = false
+  malhaNerv.onBeforeRender = (_r, _s, cam) => {
+    cam.getWorldPosition(matNerv.uniforms.uCam.value)
+    matNerv.uniformsNeedUpdate = true
+  }
   group.add(malhaNerv)
 
   // ── a saia da borda ───────────────────────────────────────────────────────
@@ -264,6 +366,7 @@ export function buildDome(o: DomeOpts): Dome {
     group,
     celulas: centros.length,
     triangulos,
+    coroa: crown,
     dispose() {
       geoVidro.dispose(); matVidro.dispose()
       geoNerv.dispose(); matNerv.dispose()

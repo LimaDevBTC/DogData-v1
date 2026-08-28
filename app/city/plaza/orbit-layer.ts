@@ -17,19 +17,44 @@ import * as THREE from 'three'
 import { isDonation, type DogTx } from './feed'
 
 export const ORBIT_CENTER = new THREE.Vector3(0, 0, 0)
-/** O pad principal do spaceport, no quadro three (x, y, z) = (-140, ~77, 3090). */
-export const PAD_MAIN = new THREE.Vector3(-140, 77.5, 3090)
+
+// ⚠️ A ESTAÇÃO SAIU DE DEBAIXO DA ABÓBADA em 28/08/2026, por ordem do fundador,
+// e o motivo é simples: foguete não atravessa a casca. O modelo veio do Blender
+// com o pad assado em (-140, 3090), raio 3.093 m, e a saia da abóbada fecha em
+// 3.458 m, ou seja a estação inteira estava por dentro. O deslocamento leva o
+// centro para o raio 4.400 no MESMO rumo, o que preserva o enquadramento do
+// herói (a estação no horizonte, atrás do castelo) e deixa 642 m de chão livre
+// entre a borda da casca e a testa da pegada de 845 por 599 m.
+// O +10,5 em y é medido por raio no terreno: o chão passa de 37,8 m no sítio
+// velho para 48,3 m no novo, e sem isso o pátio afunda.
+// ⚠️ ISTO TAMBÉM MOVE AS VAGAS DE POUSO. Elas são coordenadas de mundo e vivem
+// coladas ao modelo: mexer numa sem a outra põe nave pousando no vazio.
+export const SPACEPORT_SHIFT = new THREE.Vector3(-59, 10.5, 1306)
+
+const desloca = (v: THREE.Vector3) => v.add(SPACEPORT_SHIFT)
+
+/** O pad principal do spaceport, já no lugar novo, fora da abóbada. */
+export const PAD_MAIN = desloca(new THREE.Vector3(-140, 77.5, 3090))
 /** Vagas de pouso em volta do pad principal, para um bloco com várias naves. */
 const PAD_SPOTS: THREE.Vector3[] = [
   PAD_MAIN.clone(),
-  new THREE.Vector3(-380, 23.5, 3300), // SP_Pad0
-  new THREE.Vector3(-60, 77.5, 3160),
-  new THREE.Vector3(-220, 77.5, 3160),
-  new THREE.Vector3(-60, 77.5, 3020),
-  new THREE.Vector3(-220, 77.5, 3020),
-  new THREE.Vector3(-300, 60, 3120),
-  new THREE.Vector3(20, 80, 3090),
+  desloca(new THREE.Vector3(-380, 23.5, 3300)), // SP_Pad0
+  desloca(new THREE.Vector3(-60, 77.5, 3160)),
+  desloca(new THREE.Vector3(-220, 77.5, 3160)),
+  desloca(new THREE.Vector3(-60, 77.5, 3020)),
+  desloca(new THREE.Vector3(-220, 77.5, 3020)),
+  desloca(new THREE.Vector3(-300, 60, 3120)),
+  desloca(new THREE.Vector3(20, 80, 3090)),
 ]
+
+// ── o teto da abóbada empurra a órbita para cima ───────────────────────────
+// As naves circulam ACIMA da casca, também por ordem do fundador. A banda de
+// altitude continua codificando a taxa (rápida embaixo, lenta em cima), ela só
+// sobe inteira. Zero quando não há abóbada na cena, e é por isso que a /city
+// que está no ar não muda de aparência enquanto a casca não for aprovada.
+let pisoOrbita = 0
+/** Chamado pela cena quando a abóbada sobe. `y` é quanto a banda inteira sobe. */
+export function setOrbitFloor(y: number) { pisoOrbita = Math.max(0, y) }
 
 const DOG_ORANGE = new THREE.Color('#F7931A')
 // ⚠️ CAUDA VERMELHA É DOAÇÃO PARA A CIDADE (fundador, 2026-08-24). Vermelho
@@ -104,7 +129,7 @@ function sizeFor(dog: number): number {
 /** Altitude pela taxa, relativa à faixa rápida do momento: rápida ou acima → baixo,
  *  mínimo → alto. Sem cotação (feed frio) cai no meio. */
 export function altitudeFor(feeRate: number | null, fast: number | null, slow: number | null): number {
-  const lo = 330, hi = 760
+  const lo = 330 + pisoOrbita, hi = 760 + pisoOrbita
   if (feeRate == null) return (lo + hi) / 2
   const f = fast ?? 3, s = slow ?? 1
   const span = Math.max(0.5, f - s)
@@ -301,7 +326,7 @@ export function createOrbitLayer(): OrbitLayer {
       tx, group: g, body, glow, hit, trail, trailPts, trailAt: 0,
       phase: 'orbit',
       radius: 780 + hash01(tx.txid, 1) * 340,
-      altitude: 700,
+      altitude: 700 + pisoOrbita,
       omega: (Math.PI * 2) / (70 + hash01(tx.txid, 2) * 40),
       phase0: hash01(tx.txid, 3) * Math.PI * 2,
       tilt: (hash01(tx.txid, 4) - 0.5) * 0.28,

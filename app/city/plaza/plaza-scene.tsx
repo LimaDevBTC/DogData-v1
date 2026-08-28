@@ -21,7 +21,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { createBattlefield, type Battlefield } from '../war/battlefield'
 import WarLegend from './war-legend'
 import { loadTerrain } from './terrain'
-import { createOrbitLayer, PAD_MAIN } from './orbit-layer'
+import { createOrbitLayer, PAD_MAIN, SPACEPORT_SHIFT, setOrbitFloor } from './orbit-layer'
 import { startFeed, isDonation, type DogTx, type Snapshot, donationDog } from './feed'
 import { buildChalet, type Chalet } from './chalet'
 import { buildPrecinct, ANCHORS, type Precinct } from './precinct'
@@ -242,6 +242,14 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
       return { pos: new THREE.Vector3(-980, 320, -180), target: new THREE.Vector3(-620, 300, 0) }
     case 'top':
       return { pos: new THREE.Vector3(60, 2600, 900), target: new THREE.Vector3(0, 0, 100) }
+    // ── conferência da abóbada (?domo=1) ──────────────────────────────────────
+    // De pé no deck, olhando para cima: é o único enquadramento que mostra a
+    // colmeia como abóbada e não como véu no alto do quadro.
+    case 'abobada':
+      return { pos: new THREE.Vector3(0, 900, 3000), target: new THREE.Vector3(0, 620, 0) }
+    // a mesma casca vista de fora, do lado do parque: a silhueta e a saia
+    case 'abobadafora':
+      return { pos: new THREE.Vector3(4600, 1250, 4600), target: new THREE.Vector3(0, 380, 0) }
     // the park's own hero, "The Gate Reveal": from the Gate crest, south-west of the
     // Monarch, looking up the Vale of the Mark (park frame (−2210, −1748) → three (−2210, +1748))
     case 'parkclose':
@@ -320,8 +328,8 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
       return { pos: new THREE.Vector3(-2600, 2800, 4200), target: new THREE.Vector3(1800, 0, -1900) }
     case 'park':
       return { pos: new THREE.Vector3(PARK_CENTER.x - 2210, 30, PARK_CENTER.z + 1748), target: new THREE.Vector3(PARK_CENTER.x, 120, PARK_CENTER.z) }
-    case 'spaceport':
-      return { pos: new THREE.Vector3(600, 380, 3700), target: new THREE.Vector3(-140, 60, 3090) }
+    case 'spaceport': // segue a estação no lugar novo, fora da abóbada (SPACEPORT_SHIFT)
+      return { pos: new THREE.Vector3(541, 390, 5006), target: new THREE.Vector3(-199, 71, 4396) }
   }
   if (aspect >= 1) return { pos: HOME_POS.clone(), target: HOME_TARGET.clone() }
   return { pos: new THREE.Vector3(430, 760, -1300), target: new THREE.Vector3(0, 40, 420) }
@@ -859,7 +867,13 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               rib: num('nervura', 0.9),
             })
             scene.add(domo.group)
-            console.log(`[abobada] ${domo.celulas.toLocaleString('pt-BR')} células, ${domo.triangulos.toLocaleString('pt-BR')} triângulos`)
+            // As naves circulam ACIMA da casca. A banda de altitude sobe inteira,
+            // então a taxa continua sendo lida pela altura relativa. A folga de
+            // 180 m sai da geometria: sobre o raio de órbita (780 a 1.120 m) a
+            // calota está em 1,10 a 1,15 km, e a inclinação da órbita balança a
+            // nave em mais ou menos 46 m.
+            setOrbitFloor(domo.coroa - 180)
+            console.log(`[abobada] ${domo.celulas.toLocaleString('pt-BR')} células, ${domo.triangulos.toLocaleString('pt-BR')} triângulos, órbita sobe ${Math.round(domo.coroa - 180)} m`)
           } catch (err) {
             // a casca é experimento: ela nunca pode derrubar a praça que está no ar
             console.error('[abobada] não subiu', err)
@@ -1223,6 +1237,12 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           }
           for (const root of [bitflow, kray, needle]) liftMassing(root)
         }
+        // ⚠️ A ESTAÇÃO INTEIRA ANDA JUNTO. O GLB vem do Blender com o pátio assado
+        // em (-140, 3090), r 3.093 m, que fica DEBAIXO da abóbada (saia em 3.458).
+        // O deslocamento vive em orbit-layer.ts porque as vagas de pouso são
+        // coordenadas de mundo e têm de andar com o mesmo vetor: separar as duas
+        // coisas põe nave pousando no vazio.
+        spaceport.position.add(SPACEPORT_SHIFT)
         stripByName(spaceport, /^SP_Taxi\d+$/)
         // ── A REFORMA DO DECK (fundador, 2026-08-19: "completamente confusa,
         // elementos genéricos, árvores artificiais, anfiteatro") ──────────────
@@ -1401,7 +1421,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         void loadSf(gltf, SF.rocket).then((r) => {
           if (!r || disposed) return
           dressSf(r, { envMapIntensity: 1.2, roughness: 0.55 })
-          const x = -380, z = 3300 // SP_Pad0
+          const x = -380 + SPACEPORT_SHIFT.x, z = 3300 + SPACEPORT_SHIFT.z // SP_Pad0, já deslocado
           r.position.set(x, heightAt(x, z) + 0.4, z)
           r.rotation.y = Math.PI * 0.15
           r.scale.setScalar(1.6)
