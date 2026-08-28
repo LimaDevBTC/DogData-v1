@@ -66,8 +66,11 @@ export default function TreeClientWrapper() {
         <TreeScene />
         {/* a galaxia agora e a porta de entrada: o banner oferece as DUAS
             lentes de analise, nao so o caminho de volta */}
-        <div className="fixed bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 border border-white/10 bg-[#0B0A11]/90 px-3 py-1.5 font-mono">
-          <span className="whitespace-nowrap text-[10px] uppercase tracking-[0.2em] text-white/50">
+        {/* No celular a barra encolhe e perde o rótulo: dois botões bastam, e
+            cada linha de copy aqui é uma faixa de céu a menos (fundador,
+            28/08). No desktop o rótulo continua, porque lá sobra espaço. */}
+        <div className="fixed bottom-3 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 border border-white/10 bg-[#0B0A11]/90 px-2.5 py-1 font-mono sm:bottom-5 sm:gap-3 sm:px-3 sm:py-1.5">
+          <span className="hidden whitespace-nowrap text-[10px] uppercase tracking-[0.2em] text-white/50 sm:inline">
             For analysis:
           </span>
           <button

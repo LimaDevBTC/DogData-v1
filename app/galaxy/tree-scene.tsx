@@ -9,6 +9,7 @@
 // ⚠️ r3f NAO ENTRA NESTE REPO (quebra em runtime): Three.js cru, no mesmo
 // padrao de app/city/war/war-scene.tsx. Zero alocacao por frame no loop.
 import { useEffect, useRef, useState } from 'react'
+import { HelpCircle, Search, X } from 'lucide-react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import {
@@ -132,7 +133,6 @@ export default function TreeScene() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<TreeNode[]>([])
   const [searching, setSearching] = useState(false)
-  const [popInfo, setPopInfo] = useState<{ drawn: number } | null>(null)
   // ⚠️ CENSO DO QUE ESTA NA TELA, e nao o agregado de gens[]: a rota capa a
   // profundidade em 30 (GENS_MAX_DEPTH), entao somar gens[] perdia as 6.2 mil
   // carteiras alem da geracao 30 que a cena JA desenha, e o contador ficava
@@ -146,6 +146,12 @@ export default function TreeScene() {
   // LTH/STH, coorte e as maiores contrapartes com rotulo
   const [dossie, setDossie] = useState<NodeDossier | null>(null)
   const [cardAberto, setCardAberto] = useState(false)
+  // ⚠️ A TELA E A GALAXIA (fundador, 28/08). Tres paragrafos de explicacao
+  // ocupavam metade de um iPhone antes de qualquer estrela aparecer. O que
+  // explica passou a viver atras do "?" e a busca passou a viver atras da
+  // lupa no celular: os dois nascem fechados.
+  const [ajuda, setAjuda] = useState(false)
+  const [buscaAberta, setBuscaAberta] = useState(false)
 
   // ── busca (input controlado no React, voo executado pela cena) ─────────────
   useEffect(() => {
@@ -827,7 +833,12 @@ export default function TreeScene() {
       const alturaMundo = 2 * dCam * Math.tan((55 * Math.PI) / 360)
       const larguraMundo = alturaMundo * aspect
       const fx = aspect < 1 ? 0.5 : 0.4
-      const fy = aspect < 1 ? 0.76 : 0.5
+      // ⚠️ O RETRATO INVERTEU (28/08): o dossiê era um bloco no ALTO do celular
+      // e a estrela era jogada para 76% da altura, abaixo dele. Agora o dossiê é
+      // folha de BAIXO, então a estrela sobe para o terço de cima; deixá-la em
+      // 0.76 a punha exatamente atrás do card, que é o bug que este trecho
+      // existe para evitar.
+      const fy = aspect < 1 ? 0.3 : 0.5
       const kx = (0.5 - fx) * larguraMundo
       const ky = (fy - 0.5) * alturaMundo
       const ox = flyRight.x * kx + flyUpS.x * ky
@@ -1292,7 +1303,6 @@ export default function TreeScene() {
             const buf = await resP.arrayBuffer()
             if (disposed) return
             buildPopulation(buf)
-            if (popOrdem) setPopInfo({ drawn: popOrdem.length })
             // censo real: populacao + esqueleto, contados uma vez na carga
             if (popClasse && popDepth) {
               let h = 0
@@ -1477,119 +1487,152 @@ export default function TreeScene() {
     <div className="relative w-full h-screen overflow-hidden bg-[#040305] font-mono text-white">
       <div ref={mountRef} className="absolute inset-0" />
 
-      {/* HUD superior: titulo, subtitulo e contadores vindos de gens[] */}
-      <div className="absolute top-0 left-0 right-0 p-4 sm:p-6 pointer-events-none">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-          <div>
+      {/* ── HUD: só o que se opera ──────────────────────────────────────────
+          Regra do fundador (28/08): a tela é a galáxia. Antes daqui saíam três
+          parágrafos de explicação, um bloco de três contadores e a busca sempre
+          aberta, e no iPhone isso comia a metade de cima do céu antes de a
+          primeira estrela aparecer. Ficou o que se OPERA (voltar, filtrar,
+          buscar, limpar) mais dois números; o que EXPLICA mora atrás do "?". */}
+      <div className="pointer-events-none absolute top-0 left-0 right-0 p-3 sm:p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
             <a
               href="/holders"
-              className="pointer-events-auto text-[10px] tracking-[0.25em] uppercase text-white/40 hover:text-[#f7931a] transition-colors"
+              className="pointer-events-auto text-[9px] sm:text-[10px] tracking-[0.25em] uppercase text-white/40 transition-colors hover:text-[#f7931a]"
             >
               ← Holders
             </a>
-            <h1 className="mt-1 text-lg sm:text-xl tracking-[0.3em] uppercase text-white/90">$DOG Galaxy</h1>
+            <h1 className="mt-0.5 text-base sm:text-xl tracking-[0.3em] uppercase text-white/90">$DOG Galaxy</h1>
 
-            {/* ⚠️ MOBILE PRIMEIRO: o painel da carteira selecionada comeca em
-                ~160px no iPhone e cobre tudo abaixo. Controle e contadores
-                sobem para ANTES da copy descritiva, senao o filtro fica
-                inalcancavel exatamente quando ha uma carteira aberta. */}
-            <div className="pointer-events-auto mt-2 inline-flex items-center border border-white/10">
-              {(['all', 'holders', 'spent'] as StarFilter[]).map((f, i) => (
+            <div className="pointer-events-auto mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+              <div className="inline-flex items-center border border-white/10 bg-[#0a0708]/70">
+                {(['all', 'holders', 'spent'] as StarFilter[]).map((f, i) => (
+                  <button
+                    key={f}
+                    onClick={() => setFiltro(f)}
+                    title={FILTER_HINT[f]}
+                    aria-pressed={filtro === f}
+                    className={`px-2 py-1.5 text-[9px] uppercase tracking-[0.16em] transition-colors sm:px-2.5 sm:tracking-[0.18em] ${
+                      i > 0 ? 'border-l border-white/10' : ''
+                    } ${filtro === f ? 'bg-white/5 text-[#f7931a]' : 'text-white/40 hover:text-white'}`}
+                  >
+                    {FILTER_LABEL[f]}
+                  </button>
+                ))}
+              </div>
+
+              {/* dois números numa linha, no lugar do bloco de três colunas.
+                  A corrente mais funda virou dado do "?": é curiosidade, não
+                  navegação. */}
+              <div className="text-[9px] uppercase tracking-[0.14em] text-white/40 sm:text-[10px]">
+                <span className="text-[#f7931a]">{hud.status === 'live' ? fmtInt(mostrados) : '...'}</span>{' '}
+                {filtro === 'all' ? 'wallets' : 'shown'}
+                <span className="mx-1.5 text-white/20">·</span>
+                <span className="text-[#f7931a]">{hud.status === 'live' ? fmtInt(holdersAcesos) : '...'}</span> lit
+              </div>
+
+              {/* limpar rastros mora entre os controles, não num canto: o
+                  rodapé é do banner de análise e o card do celular sobe até
+                  lá. Só existe quando há rastro para limpar. */}
+              {trilhas > 0 && (
                 <button
-                  key={f}
-                  onClick={() => setFiltro(f)}
-                  title={FILTER_HINT[f]}
-                  aria-pressed={filtro === f}
-                  className={`px-2.5 py-1.5 text-[9px] uppercase tracking-[0.18em] transition-colors ${
-                    i > 0 ? 'border-l border-white/10' : ''
-                  } ${filtro === f ? 'bg-white/5 text-[#f7931a]' : 'text-white/40 hover:text-white'}`}
+                  onClick={() => apiRef.current?.clearTrails()}
+                  className="border border-white/15 bg-[#0a0708]/70 px-2 py-1 text-[9px] uppercase tracking-[0.16em] text-white/50 transition-colors hover:border-[#f7931a]/50 hover:text-[#f7931a]"
                 >
-                  {FILTER_LABEL[f]}
+                  Clear trails
                 </button>
-              ))}
-            </div>
-            {/* ⚠️ HONESTIDADE: "paper hands" e jargao do publico, nao um dado.
-                O criterio medido fica VISIVEL, nao so no title do botao. */}
-            <p className="mt-1.5 max-w-md text-[9px] leading-relaxed text-white/40">{FILTER_NOTE[filtro]}</p>
-
-            <div className="mt-2 flex gap-6 text-[10px] tracking-[0.2em] uppercase sm:mt-3">
-              <div>
-                <div className="text-white/40">{filtro === 'all' ? 'Total wallets' : 'Wallets shown'}</div>
-                <div className="mt-0.5 text-sm text-[#f7931a]">
-                  {hud.status === 'live' ? fmtInt(mostrados) : '...'}
-                </div>
-              </div>
-              <div>
-                <div className="text-white/40">Holders lit</div>
-                <div className="mt-0.5 text-sm text-[#f7931a]">
-                  {hud.status === 'live' ? fmtInt(holdersAcesos) : '...'}
-                </div>
-              </div>
-              <div>
-                {/* ⚠️ NAO publicar "Generations": gens[] vem capado em 30 pela
-                    rota (GENS_MAX_DEPTH), entao o numero seria sempre 30, um
-                    teto de implementacao vestido de fato. A corrente mais
-                    funda medida no proprio binario passa de 1.600. */}
-                <div className="text-white/40">Deepest chain</div>
-                <div className="mt-0.5 text-sm text-[#f7931a]">
-                  {censo ? fmtInt(censo.fundo) : '...'}
-                </div>
-              </div>
+              )}
             </div>
 
-            <p className="mt-3 max-w-md text-[11px] leading-relaxed text-white/50">
-              Every wallet that ever touched DOG, branching from the airdrop treasury. Lit nodes still hold today.
-            </p>
-
-            {popInfo && filtro === 'all' && (
-              <p className="mt-2 max-w-md text-[9px] leading-relaxed text-white/35">
-                Every dot is a real wallet and every wallet is in the sky.
-                Click any dot to open it.
+            {/* ⚠️ HONESTIDADE, agora só onde o jargão aparece: "paper hands" é
+                palavra do público e não um dado, então o critério medido segue
+                visível QUANDO esse filtro está ligado. Nos outros dois a frase
+                era ruído permanente e foi para o "?". */}
+            {filtro === 'spent' && (
+              <p className="mt-1.5 max-w-[16rem] text-[9px] leading-relaxed text-white/40 sm:max-w-md">
+                {FILTER_NOTE.spent}
               </p>
-            )}
-            {trilhas > 0 && (
-              <button
-                onClick={() => apiRef.current?.clearTrails()}
-                className="pointer-events-auto mt-3 border border-white/15 px-2.5 py-1 text-[9px] uppercase tracking-[0.2em] text-white/50 transition-colors hover:border-[#f7931a]/50 hover:text-[#f7931a]"
-              >
-                Clear trails
-              </button>
             )}
             {hud.status === 'error' && (
               <p className="mt-2 text-[10px] text-white/40">Tree data is still being written. Refresh in a moment.</p>
             )}
           </div>
 
-          {/* busca por endereco */}
-          <div className="pointer-events-auto relative w-full sm:w-80">
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search address"
-              spellCheck={false}
-              className="w-full bg-[#0a0708]/80 border border-white/10 rounded px-3 py-2 text-xs text-white/80 placeholder:text-white/30 outline-none focus:border-[#f7931a]/60 transition-colors"
-            />
-            {query.trim().length >= 3 && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-[#0a0708]/95 border border-white/10 rounded overflow-hidden z-20">
-                {searching && <div className="px-3 py-2 text-[10px] text-white/40">Searching...</div>}
-                {!searching && results.length === 0 && (
-                  <div className="px-3 py-2 text-[10px] text-white/40">No wallet found</div>
-                )}
-                {!searching &&
-                  results.map((r) => (
-                    <button
-                      key={r.w}
-                      onClick={() => pickResult(r.w)}
-                      className="w-full flex items-center justify-between px-3 py-2 text-left text-[11px] text-white/70 hover:bg-white/5 hover:text-[#f7931a] transition-colors"
-                    >
-                      <span>{shortAddr(r.w)}</span>
-                      <span className="text-white/40">{r.h ? `${fmtDog(r.b)} DOG` : 'spent'}</span>
-                    </button>
-                  ))}
-              </div>
-            )}
+          {/* ações da direita: busca (lupa no celular, campo no desktop) e ajuda */}
+          <div className="pointer-events-auto flex shrink-0 items-start gap-2">
+            <div className={`relative ${buscaAberta ? 'block' : 'hidden'} w-[min(62vw,18rem)] sm:block sm:w-80`}>
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search address"
+                spellCheck={false}
+                autoFocus={buscaAberta}
+                className="w-full rounded border border-white/10 bg-[#0a0708]/85 px-3 py-2 text-xs text-white/80 outline-none transition-colors placeholder:text-white/30 focus:border-[#f7931a]/60"
+              />
+              {query.trim().length >= 3 && (
+                <div className="absolute top-full left-0 right-0 z-20 mt-1 overflow-hidden rounded border border-white/10 bg-[#0a0708]/95">
+                  {searching && <div className="px-3 py-2 text-[10px] text-white/40">Searching...</div>}
+                  {!searching && results.length === 0 && (
+                    <div className="px-3 py-2 text-[10px] text-white/40">No wallet found</div>
+                  )}
+                  {!searching &&
+                    results.map((r) => (
+                      <button
+                        key={r.w}
+                        onClick={() => {
+                          pickResult(r.w)
+                          setBuscaAberta(false)
+                        }}
+                        className="flex w-full items-center justify-between px-3 py-2 text-left text-[11px] text-white/70 transition-colors hover:bg-white/5 hover:text-[#f7931a]"
+                      >
+                        <span>{shortAddr(r.w)}</span>
+                        <span className="text-white/40">{r.h ? `${fmtDog(r.b)} DOG` : 'spent'}</span>
+                      </button>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => {
+                setBuscaAberta((v) => !v)
+                if (buscaAberta) setQuery('')
+              }}
+              aria-label={buscaAberta ? 'Close search' : 'Search address'}
+              aria-expanded={buscaAberta}
+              className="flex h-8 w-8 items-center justify-center border border-white/10 bg-[#0a0708]/70 text-white/50 transition-colors hover:text-[#f7931a] sm:hidden"
+            >
+              {buscaAberta ? <X className="h-3.5 w-3.5" /> : <Search className="h-3.5 w-3.5" />}
+            </button>
+
+            <button
+              onClick={() => setAjuda((v) => !v)}
+              aria-label="What am I looking at"
+              aria-expanded={ajuda}
+              className={`flex h-8 w-8 items-center justify-center border bg-[#0a0708]/70 transition-colors ${
+                ajuda ? 'border-[#f7931a]/50 text-[#f7931a]' : 'border-white/10 text-white/50 hover:text-[#f7931a]'
+              }`}
+            >
+              {ajuda ? <X className="h-3.5 w-3.5" /> : <HelpCircle className="h-3.5 w-3.5" />}
+            </button>
           </div>
         </div>
+
+        {/* a explicação inteira, aberta só quando pedida */}
+        {ajuda && (
+          <div className="pointer-events-auto mt-3 max-w-md space-y-2 border border-white/10 bg-[#0a0708]/95 p-3 text-[10px] leading-relaxed text-white/55 backdrop-blur-sm">
+            <p>
+              Every wallet that ever touched DOG, branching from the airdrop treasury. Lit nodes still hold today,
+              and every dot is a real wallet: nothing here is a sample. Click any dot to open it.
+            </p>
+            <p className="text-white/40">{FILTER_HINT[filtro]}</p>
+            {censo && (
+              <p className="text-white/40">
+                Deepest chain measured: {fmtInt(censo.fundo)} generations from the treasury.
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* tooltip 2D do hover */}
@@ -1618,10 +1661,15 @@ export default function TreeScene() {
         </div>
       )}
 
-      {/* painel lateral do no selecionado */}
+      {/* Dossiê da carteira selecionada.
+          ⚠️ NO CELULAR ELE E FOLHA DE BAIXO, e antes era um bloco preso a 160px
+          do topo, empurrado para lá pela HUD que existia. Ancorado embaixo, a
+          galáxia continua visível acima dele e o polegar alcança tudo; o
+          `bottom-12` deixa passar o banner de análise. No desktop nada muda:
+          continua à direita, centralizado. */}
       {selected && (
-        <div className="absolute top-0 right-0 h-full w-full sm:w-96 p-4 sm:p-6 pointer-events-none flex items-start sm:items-center">
-          <div className="pointer-events-auto max-h-[62vh] w-full overflow-y-auto overscroll-contain bg-[#0a0708]/90 border border-white/10 rounded-lg p-3 backdrop-blur-sm mt-40 sm:mt-0 sm:max-h-[86vh] sm:p-5">
+        <div className="pointer-events-none absolute inset-x-0 bottom-12 flex items-end p-3 sm:inset-x-auto sm:right-0 sm:top-0 sm:bottom-0 sm:h-full sm:w-96 sm:items-center sm:p-6">
+          <div className="pointer-events-auto max-h-[50vh] w-full overflow-y-auto overscroll-contain bg-[#0a0708]/95 border border-white/10 rounded-lg p-3 backdrop-blur-sm sm:max-h-[86vh] sm:bg-[#0a0708]/90 sm:p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-[10px] tracking-[0.25em] uppercase text-white/40">
