@@ -38,13 +38,15 @@ const TradingViewWidget = dynamic(() => import('@/components/ui/trading-view-wid
   )
 })
 
-const TradingViewMobileWidget = dynamic(() => import('@/components/ui/trading-view-mobile-widget'), {
+// ⚠️ O WIDGET DE TERCEIRO SAIU DO CELULAR (fundador, 28/08). Era um iframe
+// externo, lento, com a tipografia de outra casa e sem leitura por toque. No
+// lugar dele, dado que já é nosso: fechamento diário da Gate.io no disco mais o
+// preço vivo dos 18 mercados, desenhado pelo mesmo gráfico que se lê com o dedo
+// no painel interno. De quebra, uma origem a menos executando script na página
+// onde mora o CTA de doação.
+const DogPriceChart = dynamic(() => import('@/components/ui/dog-price-chart'), {
   ssr: false,
-  loading: () => (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-dusty font-mono text-sm">Loading chart...</div>
-    </div>
-  )
+  loading: () => <div className="h-[300px] animate-pulse bg-white/[0.02]" />,
 })
 
 interface DogStats {
@@ -647,9 +649,9 @@ export default function OverviewPage() {
         {/* TradingView Chart — mobile vs desktop */}
         <Card variant="glass" className="overflow-hidden">
           <CardContent className="p-0">
-            {/* Mobile: Symbol Overview (área limpa, sem toolbars) */}
-            <div className="block md:hidden h-[300px]">
-              <TradingViewMobileWidget />
+            {/* Mobile: o nosso gráfico, com escala e toque */}
+            <div className="block md:hidden">
+              <DogPriceChart />
             </div>
             {/* Desktop: gráfico avançado com candles e ferramentas */}
             <div className="hidden md:block h-[600px]">

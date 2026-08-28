@@ -17,17 +17,28 @@
 // 3.499,9 m contra limite de 3.500) SEM GASTAR UM METRO COM RUA. Somar via a
 // ele não aperta, expulsa. E 5.360 daqueles lotes caem dentro da praça.
 //
-// ⚠️ O DECLIVE É MEDIDO NO TERRENO RENDERIZADO, com o exagero vertical de 2
-// que a cena aplica (terrain.ts:27), porque é nesse chão que o prédio vai
-// pousar. O relevo real da NASA é metade disto: a prancha mostra os dois,
-// porque a decisão de terraplanar depende de qual dos dois o fundador
-// considera a verdade.
+// ⚠️ O DECLIVE É MEDIDO NO TERRENO RENDERIZADO, porque é nesse chão que o
+// prédio vai pousar, e o exagero vem IMPORTADO de app/city/plaza/vex.ts, não
+// copiado. Dentro da cidade ele vale 1: o mare é plano de verdade e a cena
+// deixou de dramatizá-lo. Enquanto esta prancha tinha o 2 cravado, ela
+// publicou um sítio duas vezes mais íngreme do que o que existe, e os números
+// de área útil que ela mostrou estavam todos apertados demais.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { useEffect, useRef, useState } from 'react'
 
+import { exageroEm } from '../plaza/vex'
+
 // ── constantes do sítio, todas lidas do código que a cena usa ──────────────
-const VEX = 2                 // terrain.ts:27
+// ⚠️ O EXAGERO NÃO É MAIS UM NÚMERO AQUI, e essa é a correção mais importante
+// desta prancha. Ele era `const VEX = 2` cravado, e quando a cena passou a usar
+// exagero radial (1 dentro de 3.500 m, 2 no horizonte) a prancha continuou
+// medindo o terreno antigo: TODO declive publicado aqui estava dobrado, e a
+// cidade parecia ter menos da metade da terra que tem. Agora vem da mesma
+// função que o renderizador usa, importada, não copiada.
+const exagCena = (r: number) => exageroEm(r)
+/** só para a coluna de comparação: o que esta prancha dizia antes */
+const exagAntigo = () => 2
 const PLATO_R = 960           // terrain.ts: chão plano no nível 0 até aqui
 const PLATO_FUNDE = 1300      // e volta ao relevo real aqui
 const PARK_BEARING_DEG = 43   // park-site.ts
@@ -63,7 +74,7 @@ interface Resultado {
   areaParque: number
   areaSitio: number
   bracos: { rumo: number; alcance: number; bom: number }[]
-  relevoReal: number[]       // a mesma conta com vex 1, para comparar
+  exageroAntigo: number[]    // a mesma conta com exagero 2, para medir o erro antigo
 }
 
 export default function PlanClient() {
@@ -214,10 +225,12 @@ export default function PlanClient() {
 
           <section className="border-t border-white/10 pt-3">
             <p className="text-[10px] leading-relaxed text-white/35">
-              ⚠️ O declive é medido no terreno como a cena o desenha, com exagero vertical de 2, porque é
-              nesse chão que o prédio pousa. No relevo real da NASA a terra a menos de 2° seria de{' '}
-              {res ? `${res.relevoReal[0].toFixed(2)} km²` : '…'}, quase o dobro. Terraplanar é escolher
-              entre um número e o outro.
+              ⚠️ O declive é medido no terreno como a cena o desenha, porque é nesse chão que o prédio
+              pousa. Dentro da cidade o exagero vertical é 1, ou seja, o relevo é o da NASA sem
+              dramatização: Mare Tranquillitatis é plano de verdade. Esta prancha já publicou este
+              mesmo sítio com exagero 2, e naquela conta a terra a menos de 2° dava só{' '}
+              {res ? `${res.exageroAntigo[0].toFixed(2)} km²` : '…'}. A diferença não é opinião de
+              projeto: era o terreno errado.
             </p>
           </section>
         </aside>
@@ -266,8 +279,8 @@ function desenha(
   // ⚠️ o platô da praça é chão de VERDADE na cena (terrain.ts): dentro de 960 m
   // o relevo foi zerado e até 1300 volta suave. Medir o declive sem isso
   // acusaria ladeira onde a cena desenhou uma esplanada plana.
-  const alturaEm = (x: number, z: number, vex: number): number => {
-    const bruto = cruaEm(x, z) * vex
+  const alturaEm = (x: number, z: number, fator: (r: number) => number): number => {
+    const bruto = cruaEm(x, z) * fator(Math.hypot(x, z))
     const r = Math.hypot(x, z)
     if (r >= PLATO_FUNDE) return bruto
     if (r <= PLATO_R) return 0
@@ -295,7 +308,7 @@ function desenha(
   const areaCelula = (PASSO * PASSO) / 1e6 // km2
 
   const areaFaixa = new Array(FAIXAS.length).fill(0)
-  const relevoReal = new Array(FAIXAS.length).fill(0)
+  const exageroAntigo = new Array(FAIXAS.length).fill(0)
   let areaPraca = 0
   let areaParque = 0
   let areaSitio = 0
@@ -304,21 +317,23 @@ function desenha(
   const classe = new Int8Array(lado * lado).fill(-1) // -1 fora, 0..4 faixa, 5 praça, 6 parque
 
   // campo de declive por célula (uma vez), depois interpolado para desenhar
-  const campoDeclive = (vex: number): Float32Array => {
+  const campoDeclive = (fator: (r: number) => number): Float32Array => {
     const g = new Float32Array(n * n)
     for (let j = 0; j < n; j++) {
       for (let i = 0; i < n; i++) {
         const x = (i - half) * cell
         const z = (j - half) * cell
-        const hx = (alturaEm(x + cell, z, vex) - alturaEm(x - cell, z, vex)) / (2 * cell)
-        const hz = (alturaEm(x, z + cell, vex) - alturaEm(x, z - cell, vex)) / (2 * cell)
+        const hx = (alturaEm(x + cell, z, fator) - alturaEm(x - cell, z, fator)) / (2 * cell)
+        const hz = (alturaEm(x, z + cell, fator) - alturaEm(x, z - cell, fator)) / (2 * cell)
         g[j * n + i] = (Math.atan(Math.hypot(hx, hz)) * 180) / Math.PI
       }
     }
     return g
   }
-  const grade2 = campoDeclive(VEX)
-  const grade1 = campoDeclive(1)
+  // ⚠️ O CAMPO PRINCIPAL É O DA CENA. O outro fica só para mostrar de quanto era
+  // o erro: é o que esta prancha publicava quando o exagero era 2 em todo lugar.
+  const gradeCena = campoDeclive(exagCena)
+  const gradeAntigo = campoDeclive(exagAntigo)
   const leDoCampo = (g: Float32Array, x: number, z: number): number => {
     const fi = Math.min(n - 1.001, Math.max(0, x / cell + half))
     const fj = Math.min(n - 1.001, Math.max(0, z / cell + half))
@@ -330,7 +345,8 @@ function desenha(
       G(i, j + 1) * (1 - u) * v + G(i + 1, j + 1) * u * v
     )
   }
-  const declive = (x: number, z: number, vex: number) => leDoCampo(vex === 1 ? grade1 : grade2, x, z)
+  const declive = (x: number, z: number) => leDoCampo(gradeCena, x, z)
+  const decliveAntigo = (x: number, z: number) => leDoCampo(gradeAntigo, x, z)
 
   for (let a = 0; a < lado; a++) {
     const z = -R + (a + 0.5) * PASSO
@@ -341,13 +357,13 @@ function desenha(
       areaSitio += areaCelula
       if (Math.hypot(x, z) <= PLATO_R) { classe[idx] = 5; areaPraca += areaCelula; continue }
       if (noParque(x, z)) { classe[idx] = 6; areaParque += areaCelula; continue }
-      const g = declive(x, z, VEX)
+      const g = declive(x, z)
       let f = FAIXAS.length - 1
       for (let k = 0; k < FAIXAS.length; k++) if (g <= FAIXAS[k].max) { f = k; break }
       classe[idx] = f
       areaFaixa[f] += areaCelula
-      const gr = declive(x, z, 1)
-      for (let k = 0; k < FAIXAS.length; k++) if (gr <= FAIXAS[k].max) { relevoReal[k] += areaCelula; break }
+      const gr = decliveAntigo(x, z)
+      for (let k = 0; k < FAIXAS.length; k++) if (gr <= FAIXAS[k].max) { exageroAntigo[k] += areaCelula; break }
     }
   }
 
@@ -363,7 +379,7 @@ function desenha(
       const x = Math.sin(rad) * r
       const z = -Math.cos(rad) * r
       if (noParque(x, z)) continue
-      if (declive(x, z, VEX) <= 4) bom += 12
+      if (declive(x, z) <= 4) bom += 12
     }
     bomPorRumo.push(bom)
   }
@@ -379,7 +395,7 @@ function desenha(
   }
   bracos.sort((a, b) => a.rumo - b.rumo)
 
-  setRes({ areaFaixa, areaPraca, areaParque, areaSitio, bracos, relevoReal })
+  setRes({ areaFaixa, areaPraca, areaParque, areaSitio, bracos, exageroAntigo })
 
   // ── DESENHO ──────────────────────────────────────────────────────────────
   const dpr = Math.min(2, window.devicePixelRatio || 1)

@@ -14,6 +14,7 @@
 // Blender, a conversão do exportador glTF. Sem névoa: o que escurece é a luz e um
 // escurecimento suave com a distância, o mesmo para todas as malhas.
 import * as THREE from 'three'
+import { exageroEm, VEX_HORIZONTE } from './vex'
 import { PARK_CENTER, PARK_CORE, PARK_HALF, PARK_PIT } from './park-site'
 
 export interface TerrainMeta {
@@ -39,20 +40,10 @@ export interface TerrainMeta {
 // enquadrado à mão sobre este terreno (as câmeras da guerra, o datum da
 // batalha, o pouso do parque) tem de ser reconferido depois, e o jeito de
 // conferir é `?stats=1` com window.__plazaView().
-export const VEX_CIDADE = 1
-export const VEX_HORIZONTE = 2
-/** raio até onde a cidade é plana como a Lua real */
-export const VEX_R_CIDADE = 3500
-/** e o raio onde o exagero do horizonte já está cheio */
-export const VEX_R_HORIZONTE = 6000
-export function exageroEm(r: number): number {
-  if (r <= VEX_R_CIDADE) return VEX_CIDADE
-  if (r >= VEX_R_HORIZONTE) return VEX_HORIZONTE
-  const t = (r - VEX_R_CIDADE) / (VEX_R_HORIZONTE - VEX_R_CIDADE)
-  return VEX_CIDADE + (VEX_HORIZONTE - VEX_CIDADE) * (t * t * (3 - 2 * t))
-}
-/** compatibilidade: quem só quer um número usa o do horizonte */
-export const VERTICAL_EXAGGERATION = VEX_HORIZONTE
+// ⚠️ A CONTA DO EXAGERO MUDOU DE ENDEREÇO: ela agora mora em ./vex, sem
+// dependência nenhuma, para que a prancha de fundação possa importá-la sem
+// arrastar o Three junto. Reexportado aqui para quem já importava daqui.
+export { VEX_CIDADE, VEX_HORIZONTE, VEX_R_CIDADE, VEX_R_HORIZONTE, exageroEm, VERTICAL_EXAGGERATION } from './vex'
 
 export interface Terrain {
   group: THREE.Group

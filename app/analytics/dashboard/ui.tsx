@@ -38,6 +38,7 @@ import {
   Counter, DrawRule, EASE, Reveal, Scramble, SplitLine,
   useOnce, useSpotlight,
 } from "@/app/dogcity/motion"
+import { ScrubChart, type ScrubPoint } from "@/components/charts/scrub-chart"
 
 // ── colour ─────────────────────────────────────────────────────────────────
 // Series identity, fixed order, never cycled. Three slots is the cap for the
@@ -235,6 +236,17 @@ export function Sparkline({
   )
 }
 
+// ── TrendChart ─────────────────────────────────────────────────────────────
+// A linha do herói mora em components/charts/scrub-chart.tsx desde 28/08: o
+// mesmo gráfico que se lê com o dedo aqui vai ser o gráfico de preço do DOG no
+// celular, e um componente que serve às duas telas não pode viver dentro do
+// módulo de UI de uma aba interna. Aqui fica só o apelido e o tipo.
+export type TrendPoint = ScrubPoint
+
+export function TrendChart(props: React.ComponentProps<typeof ScrubChart>) {
+  return <ScrubChart {...props} />
+}
+
 // ── StatTile ───────────────────────────────────────────────────────────────
 export function StatTile({
   label, value, sub, trend, accent = CAT[0], format = fmtNum, delay = 0,
@@ -316,13 +328,15 @@ function MountCounter({
 // wanting proportional ones: the value COUNTS UP on enter, and proportional
 // digits reflow the box on every frame of the count.
 export function HeroFigure({
-  label, value, unit, sub, trend, trendUnidade = "dias", badge, accent = CAT[0], format = fmtNum,
+  label, value, unit, sub, pontos, trendUnidade = "dias", badge, accent = CAT[0], format = fmtNum,
 }: {
   label: string
   value: number | null
   unit?: string
   sub?: string
-  trend?: number[]
+  /** A série do herói COM RÓTULO em cada ponto: sem o rótulo não há o que
+   *  mostrar quando o dedo para em cima de um pico. */
+  pontos?: TrendPoint[]
   /** O que cada ponto da sparkline representa. A série do painel muda de passo
    *  conforme a janela (24h vem por hora), e "últimos 14 dias" cravado embaixo
    *  de 14 baldes horários é um rótulo que mente. */
@@ -360,12 +374,19 @@ export function HeroFigure({
           </div>
           {sub && <p className="font-mono text-[11px] text-dusty mt-3">{sub}</p>}
         </div>
-        {trend && trend.length > 2 && (
-          <div className="shrink-0">
-            <Sparkline values={trend} color={accent} width={200} height={56} />
-            <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/25 mt-2 text-right">
-              últimos {trend.length} {trendUnidade}
-            </div>
+        {/* ⚠️ O GRÁFICO DE ABERTURA SE LÊ COM O DEDO (fundador, 28/08). Era uma
+            sparkline decorativa de 200px: o pico da semana estava desenhado e
+            não havia como perguntar de que dia ele era. Agora ocupa a largura
+            inteira no celular, que é onde o painel é lido, e devolve rótulo,
+            número e o segundo dado do ponto tocado. */}
+        {pontos && pontos.length > 2 && (
+          <div className="w-full md:w-[19rem] md:shrink-0">
+            <TrendChart
+              points={pontos}
+              color={accent}
+              format={format}
+              caption={`últimos ${pontos.length} ${trendUnidade}`}
+            />
           </div>
         )}
       </div>

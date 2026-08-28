@@ -115,7 +115,28 @@ export default function PainelAnalytics() {
   const v = dados.vitais
   const nota = v?.nota_geral ?? null
   const estadoNota = nota == null ? "warn" : nota >= 90 ? "good" : nota >= 50 ? "warn" : "poor"
-  const tendencia = t ? t.serie.slice(-14).map((d) => d.sessoes) : []
+  // ⚠️ A SÉRIE DO HERÓI CARREGA RÓTULO. Antes eram 14 números soltos, e o
+  // gráfico de abertura não tinha como dizer de que dia era o pico que
+  // desenhava. Cada ponto agora leva a data por extenso e o segundo número do
+  // dia, que é o que aparece quando o dedo para em cima dele.
+  // ⚠️ O RÓTULO DIZ O DIA DA SEMANA, e não é enfeite: a pergunta que se faz a
+  // este gráfico é "o pico foi ontem?". "sex 23/08" responde de relance;
+  // "08/23/2026" obriga a contar nos dedos. Data em pt-BR porque o painel é
+  // interno e o resto dele está em pt-BR.
+  const rotuloPonto = (inicio: string) => {
+    const d = new Date(inicio)
+    if (Number.isNaN(d.getTime())) return inicio
+    return t?.granularidade === "hora"
+      ? d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
+      : d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" })
+  }
+  const tendencia = t
+    ? t.serie.slice(-14).map((d) => ({
+        label: rotuloPonto(d.inicio),
+        value: d.sessoes,
+        sub: `${fmtNum(d.pageviews)} pageviews`,
+      }))
+    : []
 
   // Mesma regra da aba Visão geral, ver o comentário no herói abaixo.
   const heroIdentidadeMadura =
@@ -162,7 +183,7 @@ export default function PainelAnalytics() {
         <HeroFigure
           label="Visitors in period"
           value={t.resumo.visitantes}
-          trend={tendencia}
+          pontos={tendencia}
           trendUnidade={t.granularidade === "hora" ? "hours" : "days"}
           accent={CAT[0]}
           sub={`${fmtNum(t.resumo.sessoes)} sessions · ${fmtDuracao(t.resumo.duracao_media_s)} average time on site`}
@@ -171,7 +192,7 @@ export default function PainelAnalytics() {
         <HeroFigure
           label="Sessions in period"
           value={t.resumo.sessoes}
-          trend={tendencia}
+          pontos={tendencia}
           trendUnidade={t.granularidade === "hora" ? "hours" : "days"}
           accent={CAT[0]}
           sub={
