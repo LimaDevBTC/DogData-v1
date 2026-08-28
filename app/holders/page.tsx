@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useRef } from "react"
+import { PageHeader, ultimaAtualizacao } from '@/components/ui/page-header'
 import Image from "next/image"
 import Link from "next/link"
 import { Layout } from "@/components/layout"
@@ -891,35 +892,35 @@ export default function HoldersPage() {
   return (
     <Layout currentPage="holders" setCurrentPage={() => {}}>
       <div className="pt-2 pb-3 px-3 md:p-6 space-y-3 md:space-y-6">
-      {/* Header */}
-      <div className="text-center space-y-2 md:space-y-4">
-        <div className="hero-glow">
-          <div className="flex items-center justify-center gap-3 md:gap-4">
-            <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-lava/[0.07] border border-lava/[0.1] flex items-center justify-center">
-              <Users className="w-5 h-5 md:w-6 md:h-6 text-lava" />
-            </div>
-            <h1 className="text-2xl md:text-4xl font-bold gradient-text-hero">
-              DOG Holders
-            </h1>
-          </div>
-        </div>
-        <p className="text-dusty font-mono text-base md:text-lg">
-          Complete holder database with real-time updates
-        </p>
-        {(resolvedLastUpdate) && (
-          <p className="text-dusty/70 font-mono text-sm">
-            Last update: {new Date(resolvedLastUpdate).toLocaleString('en-US', {
-              year: 'numeric',
-              month: 'short',
-              day: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-              hour12: true
-            })}
-          </p>
-        )}
-      </div>
+      {/* ── O CABEÇALHO ────────────────────────────────────────────────────
+          Esta é a página que mais importa do site: é onde aterrissa o tráfego
+          do CoinMarketCap, o público mais qualificado que existe — gente que
+          veio de propósito procurar dado de DOG. E ela perdia 74% dessa gente
+          na primeira tela.
+
+          O que estava aqui: título centralizado SEM `font-display`, ou seja em
+          JetBrains Mono laranja, dois centímetros acima do card do $DOG Galaxy
+          que usa Syne branco — duas tipografias na mesma tela. Ícone em
+          `rounded-xl` contra a chapa de canto reto de todo o resto. Subtítulo
+          em mono centralizado que num iPhone quebrava DENTRO da palavra:
+          "real-" numa linha, "time updates" na outra. E o carimbo de
+          atualização com segundos, que ninguém lê e muda sozinho.
+
+          Agora fala o mesmo idioma do card logo abaixo. Ver PageHeader. */}
+      <PageHeader
+        eyebrow="Holder database · live"
+        title="DOG Holders"
+        // A promessa mudou de "temos um banco de dados" para o que a pessoa
+        // vem procurar. Quem chega do CMC quer achar uma carteira ou entender
+        // a distribuição, não saber que existe um banco.
+        sub="Every address holding DOG on Bitcoin, ranked by balance and updated as blocks land. Search any address to see its position, history and cohort."
+        icon={Users}
+        meta={
+          resolvedLastUpdate
+            ? [{ rotulo: "Updated", valor: ultimaAtualizacao(resolvedLastUpdate) ?? "—", vivo: true }]
+            : undefined
+        }
+      />
 
       {/* Holders Tree: a genealogia viva, o cartão de entrada da galáxia.
           É a peça de retenção da página (tráfego direto do CoinMarketCap), então

@@ -333,3 +333,34 @@ de milesimos de por cento, p80 0,004% nos bids e 0,013% nos asks, picos de
 **Conferido em producao:** antes de qualquer injecao, o book real ja tinha
 gerado recuo 1, spread 1, inclinacao 2 e reforco 1. Com a costura, o ataque do
 heli percorreu mergulho -> fogo -> circulo -> subida cruzando para x negativo.
+
+## 28/08 · exagero vertical reduzido, e o que ele arrastou junto
+
+O terreno tinha exagero vertical 2 em todo lugar. Agora é radial: **1 dentro do
+raio de 3.500 m** (a cidade, achatada como o mare de verdade) e **2 a partir de
+6.000 m** (o horizonte, que continua com relevo), com transição suave entre os
+dois. `exageroEm(r)` em `app/city/plaza/terrain.ts`.
+
+Mexer nisso moveu o mundo na vertical, e três coisas precisaram de conserto:
+
+1. **O chão da cratera caiu de 99 m para 50 m.** Medido, não estimado:
+   `window.__plazaGuerra().chaoDaCratera` sob `?stats=1`.
+2. **O pouso da câmera ficou 50 m alto demais.** A causa não era o número: o voo
+   de entrada era disparado no corpo síncrono do efeito, ANTES de `loadTerrain()`
+   resolver, então ele lia o chão padrão. Virou uma função guardada
+   (`pousoDaEntrada`) que só dispara quando o portão da cena abre, que é quando
+   o espectador de fato começa a ver. Conferido: 105 m sobre o chão em paisagem,
+   87 m em retrato, exatamente os offsets que o fundador enquadrou à mão.
+3. **A fita de trades nunca apareceu no desktop.** Ela estava em `top-20`, que é
+   onde o Mission Board se abre sozinho em tela grande. Medido, o retângulo da
+   fita (1244‑1416, 80‑221) cabia INTEIRO dentro da placa (1096‑1416, 24‑271).
+   Mesmo defeito que o fundador pegou no celular, só que no computador. Como o
+   rodapé é centralizado, o vão da direita está livre até embaixo: a fita passou
+   a ancorar no rodapé no desktop também, igual ao que ele aprovou no telefone.
+
+Conferido em 1440×860, 390×844 e 844×390, e depois em produção.
+
+**Aberto:** o Mission Board abre sozinho em tela grande, contra a própria doutrina
+do visor ("fechado, o quadro é só uma LINHA sobre a cena") e contra o comentário
+que está no código ("quem abriu escolheu trocar cena por informação" — ninguém
+escolheu). Não mudei o padrão porque é uma decisão de desenho, não um defeito.
