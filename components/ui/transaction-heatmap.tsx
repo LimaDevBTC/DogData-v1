@@ -62,19 +62,6 @@ interface DrillTransaction {
   receiver_count: number
 }
 
-interface RedisTransaction {
-  txid: string
-  block_height: number
-  timestamp: string | number
-  type?: string
-  total_dog_moved: number
-  net_transfer?: number
-  fee_sats?: number
-  sender_count: number
-  receiver_count: number
-  senders?: Array<{ address: string; amount_dog: number }>
-  receivers?: Array<{ address: string; amount_dog: number; is_change?: boolean }>
-}
 
 // ─── Fixed grid: 7 rows × 52 cols for ALL timeframes ──────────
 const GRID_ROWS = 7
@@ -93,7 +80,13 @@ const MIN_CELL_SIZE = 8
 const MAX_CELL_SIZE = 56
 
 // ─── Color: empty cell ────────────────────────────────────────
+// Fora da grade conhecida (célula sem balde nenhum).
 const EMPTY_CELL_COLOR = 'rgb(8,8,8)'
+// ⚠️ BLOCO SEM DOG NÃO É BURACO. A grade é uma fita contínua de blocos, e um
+// bloco que o nó leu e não tinha transação de DOG é um FATO, não ausência de
+// dado. Pintado no mesmo preto do fundo, ele lia como falha do painel; com
+// este piso, a fita nunca se rompe e o vazio ainda é o tom mais apagado dela.
+const NO_ACTIVITY_COLOR = 'rgb(26,20,16)'
 
 // ─── Color gradient (orange/bitcoin) ──────────────────────────
 // Starts at a visible warm tone so even low-activity cells stand out
@@ -124,129 +117,9 @@ function fmtBlock(height: number): string {
   return `#${height.toLocaleString()}`
 }
 
-// ─── Process Redis data into block-based heatmap (1d) ─────────
-function processRedisData(transactions: RedisTransaction[]): { buckets: HeatmapBucket[]; meta: HeatmapMeta } {
-  const bpc = BLOCKS_PER_CELL['1d'] // 1
-
-  const heights = transactions.map(tx => tx.block_height).filter(h => h > 0)
-  if (heights.length === 0) {
-    return {
-      buckets: Array.from({ length: TOTAL_CELLS }, (_, i) => ({
-        index: i,
-        row: i % GRID_ROWS,
-        col: Math.floor(i / GRID_ROWS),
-        value: 0, txCount: 0, volume: 0, avgFee: null,
-        whaleVolume: 0, hasWhale: false, retailVolume: 0,
-        mediumVolume: 0, largeVolume: 0, netFlow: 0,
-        peakTx: null, uniqueSenders: null,
-        label: '', startBlock: 0, endBlock: 0,
-      })),
-      meta: {
-        timeframe: '1d',
-        gridConfig: { rows: GRID_ROWS, cols: GRID_COLS, blocksPerBucket: bpc },
-        startBlock: 0, endBlock: 0,
-        totalTx: 0, totalVolume: 0,
-        peakBucket: { index: 0, value: 0, label: '' },
-        whaleCount: 0, activeSlots: 0,
-      },
-    }
-  }
-
-  const tipBlock = Math.max(...heights)
-  const totalBlocks = TOTAL_CELLS * bpc
-  const startBlock = tipBlock - totalBlocks + 1
-
-  // Pre-create ALL cells (including future/empty ones)
-  const grid: HeatmapBucket[] = []
-  for (let i = 0; i < TOTAL_CELLS; i++) {
-    const blockStart = startBlock + i * bpc
-    const blockEnd = blockStart + bpc
-    grid.push({
-      index: i,
-      row: i % GRID_ROWS,
-      col: Math.floor(i / GRID_ROWS),
-      value: 0, txCount: 0, volume: 0, avgFee: null,
-      whaleVolume: 0, hasWhale: false, retailVolume: 0,
-      mediumVolume: 0, largeVolume: 0, netFlow: 0,
-      peakTx: null, uniqueSenders: null,
-      label: blockEnd - blockStart === 1
-        ? `Block ${fmtBlock(blockStart)}`
-        : `Blocks ${fmtBlock(blockStart)} → ${fmtBlock(blockEnd - 1)}`,
-      startBlock: blockStart,
-      endBlock: blockEnd,
-    })
-  }
-
-  let totalTx = 0
-  let totalVolume = 0
-  // Remetentes unicos por bucket: os enderecos ja vem no payload do Redis,
-  // contar aqui nao custa nenhuma consulta extra.
-  const senderSets = new Map<number, Set<string>>()
-
-  for (const tx of transactions) {
-    const h = tx.block_height
-    if (!h || h < startBlock || h > tipBlock) continue
-
-    // Self-transfers (UTXO consolidation / change-only) move no DOG:
-    // skip entirely so volume, whale flags, and tx counts reflect real movement.
-    if (tx.type === 'self_transfer') continue
-
-    const idx = Math.min(TOTAL_CELLS - 1, Math.floor((h - startBlock) / bpc))
-    const b = grid[idx]
-    const vol = typeof tx.net_transfer === 'number' ? tx.net_transfer : (tx.total_dog_moved || 0)
-    const fee = tx.fee_sats || 0
-
-    b.txCount++
-    b.volume += vol
-    b.netFlow += tx.net_transfer || 0
-    if (b.peakTx === null || vol > b.peakTx) b.peakTx = vol
-
-    if (Array.isArray(tx.senders) && tx.senders.length > 0) {
-      let set = senderSets.get(idx)
-      if (!set) { set = new Set(); senderSets.set(idx, set) }
-      for (const s of tx.senders) {
-        if (s && typeof s.address === 'string') set.add(s.address)
-      }
-    }
-
-    if (vol >= 1_000_000) { b.whaleVolume += vol; b.hasWhale = true }
-    else if (vol >= 100_000) b.largeVolume += vol
-    else if (vol >= 10_000) b.mediumVolume += vol
-    else b.retailVolume += vol
-
-    if (fee > 0) {
-      b.avgFee = b.avgFee !== null ? (b.avgFee * (b.txCount - 1) + fee) / b.txCount : fee
-    }
-
-    totalTx++
-    totalVolume += vol
-  }
-
-  for (const b of grid) {
-    b.value = b.volume
-  }
-
-  senderSets.forEach((set, idx) => {
-    grid[idx].uniqueSenders = set.size
-  })
-
-  const peak = grid.reduce((best, b) => b.value > best.value ? b : best, grid[0])
-
-  return {
-    buckets: grid,
-    meta: {
-      timeframe: '1d',
-      gridConfig: { rows: GRID_ROWS, cols: GRID_COLS, blocksPerBucket: bpc },
-      startBlock,
-      endBlock: tipBlock + 1,
-      totalTx,
-      totalVolume,
-      peakBucket: { index: peak.index, value: peak.value, label: peak.label },
-      whaleCount: grid.filter(b => b.hasWhale).length,
-      activeSlots: grid.filter(b => b.txCount > 0).length,
-    },
-  }
-}
+// A bucketização do 1d vivia AQUI, em cima do cache das 500 transações mais
+// recentes, e era a origem do buraco de todo dia (ver o comentário no load()).
+// Quem monta a grade agora é /api/dog-rune/heatmap, para os quatro recortes.
 
 // ─── CSV Export ────────────────────────────────────────────────
 function exportCSV(buckets: HeatmapBucket[], timeframe: string) {
@@ -273,7 +146,6 @@ export function TransactionHeatmap() {
   const [drillBucket, setDrillBucket] = useState<HeatmapBucket | null>(null)
   const [drillTxs, setDrillTxs] = useState<DrillTransaction[]>([])
   const [drillLoading, setDrillLoading] = useState(false)
-  const [rawTransactions, setRawTransactions] = useState<RedisTransaction[]>([])
   const [copiedTxid, setCopiedTxid] = useState<string | null>(null)
   const gridContainerRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(0)
@@ -297,23 +169,18 @@ export function TransactionHeatmap() {
       setDrillTxs([])
 
       try {
-        if (timeframe === '1d') {
-          const res = await fetch('/api/dog-rune/transactions-kv', { cache: 'no-store' })
-          if (res.ok) {
-            const data = await res.json()
-            const txs: RedisTransaction[] = Array.isArray(data) ? data : data.transactions || []
-            setRawTransactions(txs)
-            const result = processRedisData(txs)
-            setBuckets(result.buckets)
-            setMeta(result.meta)
-          }
-        } else {
-          const res = await fetch(`/api/dog-rune/heatmap?timeframe=${timeframe}`, { cache: 'no-store' })
-          if (res.ok) {
-            const data = await res.json()
-            setBuckets(data.buckets || [])
-            setMeta(data.meta || null)
-          }
+        // ⚠️ O BURACO DE TODO DIA ERA ESTA LINHA. O recorte de 1d se montava a
+        // partir do cache Redis das 500 transações mais recentes, e 500
+        // transações cobrem ~165 dos 364 blocos da grade: os outros 200 ficavam
+        // pretos, não porque nada aconteceu ali, mas porque o cliente nunca
+        // teve o dado. Medido em 28/08: nos últimos 364 blocos existem 1.104
+        // transações de DOG em 278 blocos distintos, e a rota devolve a grade
+        // inteira. Agora 1d lê a mesma rota que 7d, 30d e 1y.
+        const res = await fetch(`/api/dog-rune/heatmap?timeframe=${timeframe}`, { cache: 'no-store' })
+        if (res.ok) {
+          const data = await res.json()
+          setBuckets(data.buckets || [])
+          setMeta(data.meta || null)
         }
       } catch {
         // silent fail
@@ -336,45 +203,17 @@ export function TransactionHeatmap() {
     setDrillBucket(bucket)
     setDrillLoading(true)
     try {
-      if (timeframe === '1d' && rawTransactions.length > 0) {
-        const matched = rawTransactions
-          .filter(tx =>
-            tx.block_height >= bucket.startBlock &&
-            tx.block_height < bucket.endBlock &&
-            tx.type !== 'self_transfer'
-          )
-          .sort((a, b) => {
-            const aVol = typeof a.net_transfer === 'number' ? a.net_transfer : (a.total_dog_moved || 0)
-            const bVol = typeof b.net_transfer === 'number' ? b.net_transfer : (b.total_dog_moved || 0)
-            return bVol - aVol
-          })
-
-        setDrillTxs(matched.map(tx => ({
-          txid: tx.txid,
-          block_height: tx.block_height,
-          timestamp: typeof tx.timestamp === 'number'
-            ? new Date(tx.timestamp < 1e12 ? tx.timestamp * 1000 : tx.timestamp).toISOString()
-            : String(tx.timestamp),
-          type: tx.type || 'transfer',
-          total_dog_moved: tx.total_dog_moved || 0,
-          net_transfer: tx.net_transfer || 0,
-          fee_sats: tx.fee_sats || null,
-          sender_count: tx.sender_count || 0,
-          receiver_count: tx.receiver_count || 0,
-        })))
-      } else {
-        const res = await fetch(`/api/dog-rune/heatmap?timeframe=${timeframe}&drill=${bucket.index}`)
-        if (res.ok) {
-          const data = await res.json()
-          setDrillTxs(data.transactions || [])
-        }
+const res = await fetch(`/api/dog-rune/heatmap?timeframe=${timeframe}&drill=${bucket.index}`)
+      if (res.ok) {
+        const data = await res.json()
+        setDrillTxs(data.transactions || [])
       }
     } catch {
       setDrillTxs([])
     } finally {
       setDrillLoading(false)
     }
-  }, [timeframe, drillBucket, rawTransactions])
+  }, [timeframe, drillBucket])
 
   // ─── Computed values ────────────────────────────────────────
   const maxValue = useMemo(() => Math.max(1, ...buckets.map(b => b.value)), [buckets])
@@ -542,10 +381,11 @@ export function TransactionHeatmap() {
               const isCurrentSlot = bucket.index === currentBucketIdx
               const isDrilling = drillBucket?.index === bucket.index
 
-              // Empty cells stay dark; active cells get a visible floor
+              // Ativo: piso visível. Sem DOG naquele bloco: o tom apagado da
+              // fita, que ainda diz "este bloco existe e foi lido".
               const cellColor = hasActivity
                 ? interpolateColor(Math.max(0.08, rawRatio))
-                : EMPTY_CELL_COLOR
+                : NO_ACTIVITY_COLOR
 
               return (
                 <div
