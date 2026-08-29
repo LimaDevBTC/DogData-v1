@@ -235,6 +235,88 @@ praça, **36,5 fps com**. 476 mil triângulos e 12 draw calls a mais.
 
 ---
 
+## 3.7 O REPLANTE de 29/08: a peça deixou de ser elipse
+
+⚠️ **A causa raiz de "genérico e aleatório" não era acabamento, era a forma da
+reserva.** Uma peça era `('E01', 'Estádio Olímpico', 'esporte', 255, 2650, 175,
+130, 75)`: uma **elipse solta**, posicionada por rumo e raio, sem nenhuma relação
+com a malha. A rua passava por fora dela em ângulo qualquer, não existia divisa
+nem portão, e todo desenho feito dentro herdava a arbitrariedade do contorno.
+
+Agora uma peça é `(setor, ix, iz, w, h)`: um retângulo de células de 180 m no
+referencial girado do setor. De graça: toda divisa cai na via de contorno que já
+existe, o portão nasce onde a rua chega, os eixos internos podem prolongar os
+eixos da cidade, e a máscara vira teste de retângulo, exato.
+
+| | antes | depois |
+|---|---|---|
+| peças | 38 elipses | **33 retângulos de malha + 2 elipses na casca** |
+| programa | 136,0 ha | **532,5 ha** |
+| anéis viários | 0 | **3, 134,8 ha** |
+| tecido disponível | 25,42 km² | **22,07 km²** |
+| lote mediano | 312 m² | **274 m²** |
+| carteiras plantadas | 52.984 de 52.984 | **52.987 de 52.987, na 1ª passada** |
+
+### Os três anéis, e por que eles são estruturais
+
+Com 12 bulevares radiais e mais nada, ir do setor 4 ao setor 8 obrigava a passar
+pela praça: a cidade era uma roda de bicicleta sem aro. Numa chapa isso não
+aparece; numa volta de carro aparece na primeira curva.
+
+| | largura | função |
+|---|---|---|
+| bulevar radial | 34 m | 12 raios, praça até o Cinturão |
+| **anel** | **26 m** | 3 aros em r 1.750, 2.750 e 3.750 |
+| contorno | 12 m | toda divisa de quarteirão |
+| travessa | 9 m | 2 por quarteirão |
+
+Mais **36 rotatórias** onde anel cruza bulevar. Rotatória e não cruzamento porque
+numa malha radial os ângulos não são retos.
+
+⚠️ **O anel é círculo de verdade, não polígono da malha.** Cheguei a propor que
+ele seguisse a via de contorno para economizar 75 ha, com a conta da flecha de um
+vão de 180 m (2,3 m a r 1.750). **A conta estava errada de escala:** uma fileira
+de células é uma RETA que atravessa os 30 graus do setor inteiro, e a 30 graus ela
+se afasta do círculo em 97 m, não em 2. Seguir a malha daria um dodecágono com
+barriga visível.
+
+---
+
+## 3.8 Três defeitos que o replante desenterrou
+
+**(1) O gerador e o 3D giravam a peça em sentidos opostos.** A convenção agora é
+única e é a mesma do `giro` da malha: **MUNDO = R(rot) · LOCAL**. O gerador usava
+o sinal invertido. Medido sobre `cidade-lotes.bin` antes do conserto: a máscara
+guardava **0 lote** e a elipse efetivamente desenhada por `pecas.ts` caía em cima
+de **174** (Lago do Poente 33, Jardim das Coortes 25, Lago Maior 23). A reserva
+era honesta e o render mentia. Depois do replante: **0 e 0**.
+
+**(2) As 34 carteiras do Dog Social Club custavam 62 m² de mediana a toda a
+cidade.** Elas eram plantadas DEPOIS das 52.953 gerais, quando o setor 3 já tinha
+acabado, e o laço delas descartava calado (`if r:` sem else). A bisseção via a
+passada como "não cabe", baixava k, e os 52.987 lotes encolhiam juntos: a mediana
+caía de **274 para 212 m²** por causa de 0,06% das carteiras. Agora o DSC planta
+PRIMEIRO, que também é o que a regra 4 do fundador manda (o condomínio ocupa os
+lotes mais internos ignorando a idade) e estava escrito na documentação e
+desmentido pelo código.
+
+**(3) O anel nasceu com a face virada para baixo.** Mesma armadilha de
+`pracas.ts:98`: a ordem natural de escrever os cantos (raio, depois ângulo) dá
+normal para baixo e o backface culling apaga tudo. Sonda vertical de 72 pontos por
+anel: **8, 13 e 7 de 72** antes; **55, 63 e 71** depois (o resto são as bocas das
+rotatórias, que são vazias de propósito).
+
+![A cidade replantada, zenital](docs/loteamento/cidade-replantada.jpeg)
+
+![A cidade replantada, oblíqua](docs/loteamento/cidade-replantada-obliqua.jpeg)
+
+⚠️ **O que estas chapas ainda NÃO mostram:** o desenho de cada peça. A parcela
+está certa e o objeto dentro dela ainda é o genérico de `pecas.ts`, que continua
+sendo elipse com pista. Ou seja: **terra demarcada, obra não projetada**, e é
+assim que tem de ler até cada peça ganhar módulo próprio.
+
+---
+
 ## 4. A demarcação: 38 peças, 136 ha
 
 Reservadas **antes** do lote, cumprindo `masterplan.md:268-269` pela primeira vez.

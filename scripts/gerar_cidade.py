@@ -178,78 +178,141 @@ def rumo_de(x, z):
 #
 # rumo em graus (0 = norte, cresce para leste), raio ao centro em m,
 # a e b = meios-eixos em m, rot = giro da peça em graus.
-PROGRAMA = [
-  # ── a cadeia de distribuição das moedas ───────────────────────────────────
-  # A nave pousa FORA, no Spaceport em r 5.150. A moeda entra por um portão na
-  # casca, é triada na Alfândega e desce por um eixo até as doze Centrais, uma
-  # por setor, que alimentam os quarteirões. É o caminho de uma tx pagando um
-  # endereço, desenhado no chão.
-  ('D01', 'Portão da Abóbada',        'distribuicao', 177, 4450, 170,  70,  87),
-  ('D02', 'Alfândega e Triagem',      'distribuicao', 177, 4150, 190, 110,  87),
-  ('D03', 'Pátio de Contêineres',     'distribuicao', 171, 3900, 150, 100,  81),
-  ('D04', 'Central de Distribuição 1','distribuicao',   0, 2200,  70,  70,   0),
-  ('D05', 'Central de Distribuição 2','distribuicao',  30, 2200,  70,  70,   0),
-  ('D06', 'Central de Distribuição 3','distribuicao',  60, 2200,  70,  70,   0),
-  ('D07', 'Central de Distribuição 4','distribuicao',  90, 2200,  70,  70,   0),
-  ('D08', 'Central de Distribuição 5','distribuicao', 120, 2200,  70,  70,   0),
-  ('D09', 'Central de Distribuição 6','distribuicao', 150, 2200,  70,  70,   0),
-  ('D10', 'Central de Distribuição 7','distribuicao', 180, 2200,  70,  70,   0),
-  ('D11', 'Central de Distribuição 8','distribuicao', 210, 2200,  70,  70,   0),
-  ('D12', 'Central de Distribuição 9','distribuicao', 240, 2200,  70,  70,   0),
-  ('D13', 'Central de Distribuição 10','distribuicao',270, 2200,  70,  70,   0),
-  ('D14', 'Central de Distribuição 11','distribuicao',300, 2200,  70,  70,   0),
-  ('D15', 'Central de Distribuição 12','distribuicao',330, 2200,  70,  70,   0),
+# ⚠️ A PEÇA DEIXOU DE SER ELIPSE E VIROU RETÂNGULO DE CÉLULAS DA MALHA (29/08).
+# Uma peça era (rumo, raio, semieixos, giro): uma elipse SOLTA, sem nenhuma
+# relação com a malha. Por isso ela não conversava com a cidade: a rua passava
+# por fora em ângulo qualquer, não existia divisa nem portão, e todo desenho
+# feito dentro herdava a arbitrariedade do contorno. O fundador viu e disse o
+# que era: "completamente genérico e aleatório".
+# Agora a peça é (setor, ix, iz, w, h): um retângulo de células de 180 m no
+# referencial girado do setor. Consequências, todas de graça:
+#   - toda divisa de peça cai na via de contorno de 12 m que já existe
+#   - o portão nasce onde a rua chega, sem precisar inventar
+#   - os eixos internos podem prolongar os eixos da cidade
+#   - a máscara vira teste de retângulo, exato, sem margem de arredondamento
+#
+# ⚠️ CONVENÇÃO ÚNICA DE GIRO, E ELA ESTAVA QUEBRADA. `rot` é o giro da peça e
+# vale MUNDO = R(rot) · LOCAL, a mesma convenção do campo `giro` do
+# cidade-malha.json. A versão de elipse usava o sinal INVERTIDO aqui e o certo em
+# pecas.ts, então a reserva de terra e o desenho eram espelhados um do outro.
+# Medido em 29/08 sobre cidade-lotes.bin: a máscara guardava 0 lote, e a elipse
+# efetivamente desenhada caía em cima de 174 (Lago do Poente 33, Jardim das
+# Coortes 25, Lago Maior 23). A reserva era honesta e o render mentia.
 
-  # ── esporte (§5 itens 1 a 6) ──────────────────────────────────────────────
-  ('E01', 'Estádio Olímpico e pista de 400 m', 'esporte', 255, 2650, 175, 130, 75),
-  ('E02', 'Estádio de Futebol',                'esporte', 243, 3150, 130,  95, 63),
-  ('E03', 'Ginásio Coberto e Arena',           'esporte', 267, 3150,  95,  70, 87),
-  ('E04', 'Complexo Aquático',                 'esporte', 285, 2450, 100,  70,  0),
-  ('E05', 'Skatepark e Quadras Urbanas',       'esporte', 297, 2900,  70,  50,  0),
-
-  # ── água e jardim (fundador, 28/08) ───────────────────────────────────────
-  ('A01', 'Lago Maior',            'agua',   276, 1900, 340, 200, 100),
-  ('A02', 'Lago do Poente',        'agua',   309, 2350, 190, 120,  30),
-  ('A03', 'Jardim Botânico',       'jardim', 291, 1700, 150, 110,   0),
-  ('A04', 'Parque Central',        'jardim',  99, 1900, 280, 190,  10),
-  ('A05', 'Jardim das Coortes',    'jardim', 129, 2500, 170, 110,  40),
-  ('A06', 'Alameda dos Fundadores','jardim', 189, 1750, 210,  60,  99),
-
-  # ── educação, saúde, cultura, cívico (§5 itens 7 a 20, 33 a 39) ───────────
-  ('C01', 'DOG University',            'civico', 111, 2400, 165, 115,  20),
-  ('C02', 'Hospital Geral e Heliponto','civico', 141, 1900, 110,  80,  50),
-  ('C03', 'Teatro Municipal',          'civico', 159, 1700,  85,  65,  70),
-  ('C04', 'Museu da Runa',             'civico', 207, 1700,  90,  65, 117),
-  ('C05', 'City Hall',                 'civico', 219, 2000,  80,  80,   0),
-  ('C06', 'Casa da Moeda',             'civico', 195, 2050,  90,  65, 105),
-  ('C07', 'DOG DATA HQ e Bolsa',       'civico', 165, 2100,  80,  80,   0),
-  ('C08', 'Memorial do DOG Perdido',   'civico', 333, 2650, 110,  80,   0),
-  ('C09', 'Mercado Municipal',         'civico', 321, 1900,  85,  60,   0),
-  ('C10', 'Observatório do Cinturão',  'civico',   9, 4200,  70,  70,   0),
-  ('C11', 'Farol do Portão',           'civico', 183, 4380,  45,  45,   0),
-  ('C12', 'Colosso do Portão',         'civico', 174, 3700,  60,  60,   0),
+# (id, nome, tipo, setor, ix, iz, w, h) — w e h em CÉLULAS de 180 m
+PROGRAMA_MALHA = [
+  # ── agua ─────────────────────────────────────────────
+  ('A04', 'Lago do Poente',                'agua',          8,   -6,   11, 2, 2),
+  # ── civico ─────────────────────────────────────────────
+  ('C01', 'DOG University',                'civico',        4,   12,    0, 2, 2),
+  ('C02', 'Hospital Geral e Heliponto',    'civico',        4,    9,    3, 1, 2),
+  ('C03', 'Teatro Municipal',              'civico',        5,    8,    4, 1, 1),
+  ('C04', 'Museu da Runa',                 'civico',        6,    3,    9, 1, 1),
+  ('C05', 'City Hall',                     'civico',        7,    2,    9, 2, 2),
+  ('C06', 'Casa da Moeda',                 'civico',        6,    7,    8, 1, 1),
+  ('C07', 'DOG DATA HQ',                   'civico',        5,    9,    6, 1, 2),
+  ('C08', 'Memorial do DOG Perdido',       'civico',       10,  -14,    4, 1, 2),
+  ('C09', 'Mercado Municipal',             'civico',       10,  -10,    3, 1, 2),
+  ('C10', 'Observatório do Cinturão',      'civico',       11,  -24,   -2, 1, 1),
+  ('C12', 'Colosso do Portão',             'civico',        5,   14,   14, 1, 1),
+  # ── distribuicao ─────────────────────────────────────────────
+  ('D02', 'Alfândega e Triagem',           'distribuicao',  5,   14,   16, 2, 2),
+  ('D03', 'Pátio de Contêineres',          'distribuicao',  5,   16,   12, 2, 2),
+  ('D04', 'Central de Distribuição 1',     'distribuicao',  0,    1,  -12, 1, 1),
+  ('D05', 'Central de Distribuição 2',     'distribuicao',  1,    4,   -7, 1, 1),
+  ('D06', 'Central de Distribuição 3',     'distribuicao',  2,   11,   -5, 1, 1),
+  ('D07', 'Central de Distribuição 4',     'distribuicao',  3,   12,   -5, 1, 1),
+  ('D08', 'Central de Distribuição 5',     'distribuicao',  4,   11,    3, 1, 1),
+  ('D09', 'Central de Distribuição 6',     'distribuicao',  5,   10,    6, 1, 1),
+  ('D10', 'Central de Distribuição 7',     'distribuicao',  6,    3,    7, 1, 1),
+  ('D11', 'Central de Distribuição 8',     'distribuicao',  7,    0,   11, 1, 1),
+  ('D12', 'Central de Distribuição 9',     'distribuicao',  8,   -3,   11, 1, 1),
+  ('D13', 'Central de Distribuição 10',    'distribuicao',  9,   -7,   10, 1, 1),
+  ('D14', 'Central de Distribuição 11',    'distribuicao', 10,  -11,    6, 1, 1),
+  ('D15', 'Central de Distribuição 12',    'distribuicao', 11,  -12,    1, 1, 1),
+  # ── esporte ─────────────────────────────────────────────
+  ('E01', 'Parque Olímpico',               'esporte',       6,    4,   10, 6, 6),
+  ('E02', 'Hipódromo',                     'esporte',       4,   13,    4, 6, 3),
+  # ── financeiro ─────────────────────────────────────────────
+  ('F01', 'Distrito Financeiro',           'financeiro',    7,   -1,   12, 6, 2),
+  # ── jardim ─────────────────────────────────────────────
+  ('A01', 'Parque Central e Lago Maior',   'jardim',        3,    9,   -4, 6, 5),
+  ('A02', 'Jardim Botânico',               'jardim',        9,   -8,    6, 3, 3),
+  ('A03', 'Jardim das Coortes',            'jardim',       11,  -15,    2, 3, 3),
+  ('A05', 'Alameda dos Fundadores',        'jardim',        6,    3,    8, 4, 1),
 ]
+
+# ⚠️ DUAS PEÇAS FICAM NA CASCA E CONTINUAM ELIPSE LIVRE. O Portão da Abóbada e o
+# Farol vivem além de R_ABOBADA, onde não há malha nenhuma para ancorar: ali o
+# referencial é a casca, não o quarteirão.
+# (id, nome, tipo, rumo, raio, a, b, rot)
+PROGRAMA_CASCA = [
+  ('D01', 'Portão da Abóbada', 'distribuicao', 177, 4450, 170, 70, 87),
+  ('C11', 'Farol do Portão',   'civico',       183, 4380,  45, 45,  0),
+]
+
+# ⚠️ OS ANÉIS: a hierarquia viária que faltava, e ela é ESTRUTURAL. Com 12
+# bulevares radiais e mais nada, ir do setor 4 ao setor 8 obrigava a passar pela
+# praça: a cidade era uma roda de bicicleta sem aro. Numa chapa isso não aparece;
+# numa volta de carro aparece na primeira curva.
+# ⚠️ E ELE É CÍRCULO DE VERDADE, NÃO POLÍGONO DA MALHA. Eu cheguei a propor que o
+# anel seguisse a malha para economizar terra, com a conta da flecha de 180 m
+# (2,3 m a r 1.750). A conta estava errada em escala: uma fileira de células é
+# uma RETA que atravessa os 30 graus do setor inteiro, e a 30 graus ela se afasta
+# do círculo em 97 m, não em 2. Seguir a malha daria um dodecágono com barriga
+# visível. O anel corta a malha em ângulo, sobra quarteirão em cunha, e é isso
+# mesmo que dá esquina boa de dirigir (Haussmann fez de propósito em Paris).
+ANEIS = [
+  ('AN1', 'Anel Interior', 1750.0, 26.0),
+  ('AN2', 'Anel Médio',    2750.0, 26.0),
+  ('AN3', 'Anel Exterior', 3750.0, 26.0),
+]
+
+# medição: SEM_ANEIS=1 mede quanto do estrago é do anel e quanto é da peça
+if os.environ.get('SEM_ANEIS'):
+    ANEIS = []
 
 def _peca_xy(rumo, raio):
     a = math.radians(rumo)
     return math.sin(a) * raio, -math.cos(a) * raio
 
 PROGRAMA_GEO = []
-for pid, nome, tipo, rumo, raio, ea, eb, rot in PROGRAMA:
+for pid, nome, tipo, setor, ix, iz, w, h in PROGRAMA_MALHA:
+    rot = setor * GIRO_SETOR
+    rr = math.radians(rot)
+    c, sn = math.cos(rr), math.sin(rr)
+    lx, lz = (ix + w/2) * CELULA, (iz + h/2) * CELULA
+    PROGRAMA_GEO.append({'id': pid, 'nome': nome, 'tipo': tipo, 'forma': 'retangulo',
+                         'cx': lx*c - lz*sn, 'cz': lx*sn + lz*c,
+                         'a': w*CELULA/2, 'b': h*CELULA/2, 'rot': rot,
+                         'c': c, 's': sn, 'setor': setor, 'ix': ix, 'iz': iz, 'w': w, 'h': h,
+                         'area': w*h*CELULA*CELULA})
+for pid, nome, tipo, rumo, raio, ea, eb, rot in PROGRAMA_CASCA:
     cx, cz = _peca_xy(rumo, raio)
     rr = math.radians(rot)
-    PROGRAMA_GEO.append({'id': pid, 'nome': nome, 'tipo': tipo, 'cx': cx, 'cz': cz,
-                         'a': float(ea), 'b': float(eb), 'rot': rot,
+    PROGRAMA_GEO.append({'id': pid, 'nome': nome, 'tipo': tipo, 'forma': 'elipse',
+                         'cx': cx, 'cz': cz, 'a': float(ea), 'b': float(eb), 'rot': rot,
                          'c': math.cos(rr), 's': math.sin(rr),
                          'area': math.pi * ea * eb})
 
 def em_programa(x, z, margem=2.0):
+    """MUNDO = R(rot) · LOCAL, então LOCAL = R(-rot) · MUNDO."""
     for q in PROGRAMA_GEO:
         dx, dz = x - q['cx'], z - q['cz']
-        lx = dx*q['c'] - dz*q['s']
-        lz = dx*q['s'] + dz*q['c']
-        if (lx/(q['a']+margem))**2 + (lz/(q['b']+margem))**2 <= 1.0:
+        lx =  dx*q['c'] + dz*q['s']
+        lz = -dx*q['s'] + dz*q['c']
+        if q['forma'] == 'retangulo':
+            if abs(lx) <= q['a'] + margem and abs(lz) <= q['b'] + margem:
+                return q
+        elif (lx/(q['a']+margem))**2 + (lz/(q['b']+margem))**2 <= 1.0:
             return q
+    return None
+
+def num_anel(x, z, margem=2.0):
+    r = math.hypot(x, z)
+    for aid, nome, ra, larg in ANEIS:
+        if abs(r - ra) <= larg/2 + margem:
+            return aid
     return None
 
 def dentro_do_coliseu(x, z, margem=0.0):
@@ -270,6 +333,7 @@ def livre(x, z):
     if math.hypot(x-PCX, z-PCZ) < PARQUE_DISCO + 2: return False
     if dentro_do_coliseu(x, z, 2.0): return False
     if em_programa(x, z) is not None: return False
+    if num_anel(x, z) is not None: return False
     # o bulevar de 34 m sobre cada costura de setor é via, não lote
     ru = rumo_de(x, z)
     for s in range(SETORES):
@@ -538,6 +602,8 @@ for c in gerais:
 cursor = [0]*SETORES
 saida = []
 sem_lugar = []       # carteiras que não acharam lugar na passada corrente
+aparadas = []        # carteiras que couberam só com corte de cabelo (addr, escala)
+falhou_em = []       # diagnóstico: setor onde a carteira ficou sem lugar
 no_bloco = {}        # (setor, quarto, quarteirão) -> quantos lotes já plantados
 # ⚠️ O EMPACOTAMENTO PROCURA PRATELEIRA, NÃO ACEITA A PRIMEIRA. A versão de
 # estreia pegava a primeira prateleira com qualquer sobra e espremia o lote nela:
@@ -552,14 +618,16 @@ no_bloco = {}        # (setor, quarto, quarteirão) -> quantos lotes já plantad
 JANELA = 24
 PROF_MAX = FAIXA             # 50 m: além disso o lote atravessaria a travessa e comeria a rua
 
-def coloca(s, dog, addr):
-    """Consome testada e devolve (x, z, frente, prof)."""
+def coloca(s, dog, addr, escala=1.0):
+    """Consome testada e devolve (x, z, frente, prof).
+
+    `escala` encolhe a área pedida. Ver a nota do corte de cabelo em uma_passada()."""
     n = len(PASSO[s])
     while cursor[s] < n and PASSO[s][cursor[s]]['livre'] < LOTE_MIN_FRENTE:
         cursor[s] += 1
     if cursor[s] >= n: return None
     base = cursor[s]
-    area = area_de(dog, max(PASSO[s][base]['r'], R_INICIO))
+    area = area_de(dog, max(PASSO[s][base]['r'], R_INICIO)) * escala
     frente_nat = max(area / PROF, LOTE_MIN_FRENTE)
 
     escolhida, folgada = -1, -1
@@ -574,7 +642,7 @@ def coloca(s, dog, addr):
         if escolhida < 0:
             for k in range(base, min(n, base + JANELA)): PASSO[s][k]['livre'] = 0.0
             cursor[s] = base
-            return coloca(s, dog, addr) if base + JANELA < n else None
+            return coloca(s, dog, addr, escala) if base + JANELA < n else None
 
     pr = PASSO[s][escolhida]
 
@@ -694,13 +762,51 @@ def uma_passada():
     cursor = [0]*SETORES
     saida = []
     sem_lugar.clear()
+    aparadas.clear()
     no_bloco.clear()
+    # ⚠️ O DSC PLANTA PRIMEIRO, E ISSO CONSERTA DOIS DEFEITOS DE UMA VEZ.
+    # (1) Ele plantava DEPOIS de todas as 52.953 gerais, quando o setor 3 já
+    #     tinha acabado, e (2) o laço dele descartava calado: `if r:` sem else,
+    #     exatamente o defeito que o comentário do laço geral avisa em voz alta.
+    #     Medido em 29/08 com o programa novo: as 34 carteiras que a bisseção
+    #     enxergava como "não cabe" eram as 34 do DSC, todas elas, e o preço era
+    #     a mediana da cidade inteira cair de 264 para 212 m².
+    # (3) E é o que a regra 4 do fundador manda: o condomínio do Dog Social Club
+    #     ocupa os lotes MAIS INTERNOS do setor dele ignorando a idade. Plantando
+    #     por último ele pegava a sobra da periferia, ou seja a regra estava
+    #     escrita na documentação e desmentida pelo código.
+    for a in sorted(dsc):
+        r = coloca(S_DSC, elig[a], a)
+        if r is None:
+            sem_lugar.append(a); continue
+        chave = (S_DSC, r[4], r[5])
+        no_bloco[chave] = no_bloco.get(chave, 0) + 1
+        saida.append((r[0], r[1], S_DSC, a, r[2], r[3], r[4], r[5], no_bloco[chave]))
+
     for c, s in zip(gerais, destino):
         r = coloca(s, elig[c[3]], c[3])
         if r is None:
             alt = max(range(SETORES), key=lambda t: sum(pr['livre'] for pr in PASSO[t][cursor[t]:]))
             r = coloca(alt, elig[c[3]], c[3])
             s = alt
+        # ⚠️ CORTE DE CABELO EM VEZ DE REPROVAR A PASSADA, e isto conserta um
+        # defeito medido do gerador: UMA carteira sem prateleira reprovava a
+        # passada inteira, a bisseção baixava k, e os 52.987 lotes encolhiam
+        # juntos. Medido em 29/08 com o programa novo: 34 carteiras de 52.987
+        # (0,06%) não cabiam em k=0,198 e o preço disso era a mediana cair de
+        # 262 para 212 m², ou seja 0,06% da cidade cobrava 19% de todo mundo.
+        # Quem não cabe é a cauda do plantio, o fim da fila do setor, então
+        # encolher ELAS é o oposto de privilégio: é a única carteira que paga o
+        # próprio aperto. A escala mínima é 0,15; abaixo disso a passada reprova
+        # de verdade, porque aí o problema é terra e não empacotamento.
+        for esc in (0.6, 0.35, 0.15):
+            if r is not None: break
+            for t in (s, max(range(SETORES), key=lambda t: sum(pr['livre'] for pr in PASSO[t][cursor[t]:]))):
+                r = coloca(t, elig[c[3]], c[3], esc)
+                if r is not None:
+                    s = t; aparadas.append((c[3], esc)); break
+        if r is None and os.environ.get('DIAG'):
+            falhou_em.append(s)
         if r is None:
             # ⚠️ NUNCA DESCARTE CALADO. Isto era `continue`, e a regra do fundador
             # é inegociável: todo elegível tem endereço. Sem esta contagem a
@@ -710,12 +816,16 @@ def uma_passada():
         chave = (s, r[4], r[5])
         no_bloco[chave] = no_bloco.get(chave, 0) + 1
         saida.append((r[0], r[1], s, c[3], r[2], r[3], r[4], r[5], no_bloco[chave]))
-    for a in sorted(dsc):
-        r = coloca(S_DSC, elig[a], a)
-        if r:
-            chave = (S_DSC, r[4], r[5])
-            no_bloco[chave] = no_bloco.get(chave, 0) + 1
-            saida.append((r[0], r[1], S_DSC, a, r[2], r[3], r[4], r[5], no_bloco[chave]))
+    if os.environ.get('DIAG') and sem_lugar:
+        import collections
+        print('  DIAG %d sem lugar; por setor: %s' % (len(sem_lugar),
+              dict(sorted(collections.Counter(falhou_em).items()))), file=sys.stderr)
+        for t in range(SETORES):
+            resto = sum(pr['livre'] for pr in PASSO[t][cursor[t]:])
+            usadas = sum(1 for pr in PASSO[t] if pr['livre'] < 0.01)
+            print('    S%02d cursor %4d/%4d  testada livre restante %8.0f m  prateleiras zeradas %4d'
+                  % (t+1, cursor[t], len(PASSO[t]), resto, usadas), file=sys.stderr)
+        falhou_em.clear()
     return sum(w*d for _,_,_,_,w,d,_,_,_ in saida)
 
 # ⚠️ BISSEÇÃO, e a razão é que as duas coisas brigam: k maior dá lote maior e
@@ -874,9 +984,14 @@ json.dump({
     'enclaves': len(familias_grandes), 'carteirasEmEnclave': len(familia_de),
     'dsc': len(dsc), 'setorDSC': S_DSC+1,
     'programa': [{'id': q['id'], 'nome': q['nome'], 'tipo': q['tipo'],
+                  'forma': q['forma'],
                   'x': round(q['cx']), 'z': round(q['cz']),
                   'a': q['a'], 'b': q['b'], 'rot': q['rot'],
+                  'setor': q.get('setor'), 'ix': q.get('ix'), 'iz': q.get('iz'),
+                  'w': q.get('w'), 'h': q.get('h'),
                   'ha': round(q['area']/1e4, 2)} for q in PROGRAMA_GEO],
+    'aneis': [{'id': a, 'nome': n, 'r': r, 'larg': w} for a, n, r, w in ANEIS],
+    'aneisHa': round(sum(2*math.pi*r*w for _, _, r, w in ANEIS)/1e4, 1),
     'programaHa': round(sum(q['area'] for q in PROGRAMA_GEO)/1e4, 1),
     'quartos': sum(len(T[s]) for s in range(SETORES)),
     'quarteiroes': sum(len(q['quarteiroes']) for s in range(SETORES) for q in T[s]),

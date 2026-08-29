@@ -253,6 +253,10 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
       return { pos: new THREE.Vector3(0, 900, 3000), target: new THREE.Vector3(0, 620, 0) }
     // ── conferência do loteamento (?tecido=1) ────────────────────────────────
     // De cima, o tabuleiro inteiro: pega costura torta, lote em máscara e buraco.
+    // zenital: a única vista em que a hierarquia viária inteira se lê de uma vez
+    // (12 bulevares radiais, 3 anéis, 36 rotatórias e a grade dos quarteirões)
+    case 'plano':
+      return { pos: new THREE.Vector3(0, 9600, 1), target: new THREE.Vector3(0, 0, 0) }
     case 'tecido':
       return { pos: new THREE.Vector3(0, 5200, 3400), target: new THREE.Vector3(0, 0, 0) }
     // rasante sobre um bairro: mostra o lote assentado no relevo de verdade
@@ -1127,7 +1131,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 if (disposed) { v.dispose(); return }
                 vias = v
                 scene.add(v.group)
-                console.log(`[vias] ${v.quarteiroes.toLocaleString('pt-BR')} quarteirões + ${v.pracas} praças + ${v.bulevares} bulevares, ${(v.metrosDeVia / 1000).toFixed(1)} km de via, ${v.triangulos.toLocaleString('pt-BR')} triângulos`)
+                console.log(`[vias] ${v.quarteiroes.toLocaleString('pt-BR')} quarteirões + ${v.pracas} praças + ${v.bulevares} bulevares + ${v.aneis} anéis + ${v.rotatorias} rotatórias, ${(v.metrosDeVia / 1000).toFixed(1)} km de via, ${v.triangulos.toLocaleString('pt-BR')} triângulos`)
               })
               .catch((err) => console.error('[vias] não subiu', err))
 
@@ -2017,6 +2021,30 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         }
       }
     }
+    // ?stats=1 → window.__plazaPeca('E01'): enquadra QUALQUER peça do programa
+    // pelo id, numa oblíqua de 35 graus vista de fora para o centro da cidade.
+    // Existe porque conferir 35 peças uma a uma escrevendo um `case` para cada
+    // em viewFor() é trabalho de macaco, e porque a medida da parcela já está
+    // publicada em cidade.json: a câmera se deduz dela.
+    if (wantStats) {
+      ;(window as unknown as { __plazaPeca?: (id: string) => unknown }).__plazaPeca = async (id: string) => {
+        const meta = await fetch('/city/cidade.json').then((r) => r.json())
+        const q = (meta.programa as { id: string; nome: string; x: number; z: number; a: number; b: number }[])
+          .find((k) => k.id === id.toUpperCase())
+        if (!q) return `sem peça ${id}`
+        const raio = Math.hypot(q.x, q.z) || 1
+        const ux = q.x / raio, uz = q.z / raio          // radial, do centro para fora
+        const d = 1.9 * Math.max(q.a, q.b) + 120
+        const h = d * 0.70                              // 35 graus de elevação
+        const y0 = heightAt(q.x, q.z)
+        controls.autoRotate = false
+        camera.position.set(q.x + ux * d, y0 + h, q.z + uz * d)
+        controls.target.set(q.x, y0 + 12, q.z)
+        controls.update()
+        return { peca: q.id, nome: q.nome, parcela: `${q.a * 2} x ${q.b * 2} m`, distancia: Math.round(d) }
+      }
+    }
+
     // ?tx=<txid>: chegou pela landing (ou por um link) já seguindo uma nave
     {
       const txParam = (new URLSearchParams(window.location.search).get('tx') || '').trim().toLowerCase()

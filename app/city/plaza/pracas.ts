@@ -83,7 +83,7 @@ interface Quarto {
   giro: number; praca: boolean; pracaFracLivre: number
   quarteiroes: string[]
 }
-interface Peca { x: number; z: number; a: number; b: number; rot: number }
+interface Peca { x: number; z: number; a: number; b: number; rot: number; forma?: string }
 interface Malha { quartos: Quarto[] }
 
 /** ruído determinístico por praça: a cidade é a mesma em toda visita */
@@ -117,16 +117,26 @@ export async function buildPracas(o: PracasOpts): Promise<Pracas> {
   const group = new THREE.Group()
   group.name = 'pracas'
 
+  // ⚠️ A PEÇA VIROU RETÂNGULO DE CÉLULAS DA MALHA (29/08) e a máscara tem de
+  // saber disso. Quem ainda é elipse são só as duas da casca (Portão e Farol),
+  // que vivem além de R_ABOBADA onde não há malha para ancorar.
+  // ⚠️ CONVENÇÃO ÚNICA: MUNDO = R(rot) · LOCAL, a mesma do `giro` da malha, logo
+  // LOCAL = R(-rot) · MUNDO. O gerador usava o sinal invertido até 29/08 e por
+  // isso a reserva de terra e o desenho eram espelhados: a máscara guardava 0
+  // lote e a elipse desenhada caía em cima de 174. Medido, consertado, e agora
+  // os dois lados usam esta mesma linha.
   const pecas = (meta.programa ?? []).map((p) => {
-    const rot = (-p.rot * Math.PI) / 180
-    return { x: p.x, z: p.z, a: p.a, b: p.b, ca: Math.cos(rot), sa: Math.sin(rot), rr: Math.max(p.a, p.b) ** 2 }
+    const rr = (p.rot * Math.PI) / 180
+    return { x: p.x, z: p.z, a: p.a, b: p.b, ret: p.forma !== 'elipse',
+             ca: Math.cos(rr), sa: Math.sin(rr), rr2: (p.a * p.a + p.b * p.b) }
   })
   const emPeca = (px: number, pz: number) => {
     for (const p of pecas) {
       const dx = px - p.x, dz = pz - p.z
-      if (dx * dx + dz * dz > p.rr) continue
-      const lx = dx * p.ca - dz * p.sa, lz = dx * p.sa + dz * p.ca
-      if ((lx / p.a) ** 2 + (lz / p.b) ** 2 <= 1) return true
+      if (dx * dx + dz * dz > p.rr2) continue
+      const lx = dx * p.ca + dz * p.sa, lz = -dx * p.sa + dz * p.ca
+      if (p.ret) { if (Math.abs(lx) <= p.a && Math.abs(lz) <= p.b) return true }
+      else if ((lx / p.a) ** 2 + (lz / p.b) ** 2 <= 1) return true
     }
     return false
   }

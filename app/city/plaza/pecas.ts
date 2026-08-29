@@ -22,11 +22,13 @@
 // Three.js puro (regra da casa: nada de react-three-fiber).
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
+import { MODULOS } from './pecas/index'
+import { Prancheta, type Ctx, type Cova } from './pecas/kit'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 export interface Peca {
   id: string; nome: string; tipo: string
-  x: number; z: number; a: number; b: number; rot: number; ha: number
+  x: number; z: number; a: number; b: number; rot: number; ha: number; forma?: string
 }
 
 const COR = {
@@ -116,6 +118,21 @@ function desenhar(p: Peca): Parte[] {
   const seed = semente(p.id)
   const a = p.a, b = p.b
   const partes: Parte[] = []
+
+  // ⚠️ A PARCELA VEM ANTES DO DESENHO (29/08). A peça deixou de ser elipse solta
+  // e virou retângulo de células da malha, então a primeira coisa que ela tem é
+  // um CHÃO com a forma da reserva: recuado 6 m de cada lado, que é a metade da
+  // via de contorno de 12 m que ela divide com o quarteirão vizinho.
+  // ⚠️ Isto NÃO é o projeto da peça, é a parcela. Enquanto o desenho próprio de
+  // cada uma não existir, o que se vê é um pátio com um objeto genérico dentro,
+  // e é assim que tem de ler: terra demarcada, obra não projetada. As duas peças
+  // da casca (Portão e Farol) continuam elipse e não ganham parcela.
+  if (p.forma === 'retangulo') {
+    const q = new THREE.Shape()
+    q.moveTo(-a + 6, -b + 6); q.lineTo(a - 6, -b + 6)
+    q.lineTo(a - 6, b - 6);   q.lineTo(-a + 6, b - 6); q.closePath()
+    partes.push({ geo: chapaDaForma(q, 0.18), cor: p.tipo === 'jardim' || p.tipo === 'esporte' ? COR.grama : COR.adro })
+  }
 
   if (p.tipo === 'agua') {
     // ⚠️ LAGO NÃO É ELIPSE. Margem por soma de harmônicos, praia clara por fora,
@@ -216,6 +233,8 @@ function desenhar(p: Peca): Parte[] {
 }
 
 export interface PecasConstruidas {
+  /** covas de árvore que as peças pediram, em coordenadas de MUNDO */
+  covas: Cova[]
   group: THREE.Group
   triangulos: number
   dispose(): void
@@ -227,12 +246,46 @@ export function buildPecas(pecas: Peca[], heightAt: (x: number, z: number) => nu
   // junta por COR, não por peça: 38 peças com 5 partes cada dariam 190 draw
   // calls, e a cena tem orçamento medido de poucas dezenas
   const porCor = new Map<string, { geos: THREE.BufferGeometry[]; agua: boolean }>()
+  const covas: Cova[] = []
   let triangulos = 0
 
   for (const p of pecas) {
     const rot = -THREE.MathUtils.degToRad(p.rot)
     const c = Math.cos(rot), s = Math.sin(rot)
     const y = heightAt(p.x, p.z)
+
+    // ── peça com projeto próprio ─────────────────────────────────────────
+    // ⚠️ ELA NÃO GANHA O `y` DA PEÇA, E ISSO É O PONTO. `buildPecas` assenta a
+    // peça numa altura só, a do CENTRO. Numa elipse de 175 m passava; num
+    // Parque Olímpico de 1.080 m uma ponta enterra e a outra flutua metros
+    // acima do regolito. O módulo amostra a altura de verdade ponto a ponto
+    // (Prancheta faz isso), devolve Y de MUNDO, e aqui só se gira e translada
+    // no plano. Ver a armadilha C em pecas/kit.ts.
+    const modulo = MODULOS[p.id]
+    if (modulo) {
+      const rr = THREE.MathUtils.degToRad(p.rot)
+      const cr = Math.cos(rr), sr = Math.sin(rr)
+      const ctx: Ctx = {
+        id: p.id, nome: p.nome, tipo: p.tipo, a: p.a, b: p.b,
+        alt: (lx, lz) => heightAt(p.x + lx * cr - lz * sr, p.z + lx * sr + lz * cr),
+        ruido: (k) => { const t = Math.sin(semente(p.id) * 12.9898 + k * 78.233) * 43758.5453; return t - Math.floor(t) },
+      }
+      const d = modulo(ctx)
+      for (const parte of d.partes) {
+        const m = new THREE.Matrix4().makeRotationY(rot)
+        m.setPosition(p.x, 0, p.z)          // ⚠️ Y ZERO: o módulo já traz o de mundo
+        parte.geo.applyMatrix4(m)
+        const chave = parte.cor + (parte.agua ? '|agua' : '')
+        if (!porCor.has(chave)) porCor.set(chave, { geos: [], agua: !!parte.agua })
+        porCor.get(chave)!.geos.push(parte.geo)
+        triangulos += (parte.geo.index ? parte.geo.index.count : parte.geo.attributes.position.count) / 3
+      }
+      for (const cv of d.covas) {
+        covas.push({ x: p.x + cv.x * cr - cv.z * sr, z: p.z + cv.x * sr + cv.z * cr, r: cv.r })
+      }
+      continue
+    }
+
     for (const parte of desenhar(p)) {
       const g = parte.geo
       // do plano local da peça para o mundo
@@ -268,6 +321,7 @@ export function buildPecas(pecas: Peca[], heightAt: (x: number, z: number) => nu
 
   return {
     group,
+    covas,
     triangulos,
     dispose() {
       geometrias.forEach((g: THREE.BufferGeometry) => g.dispose())

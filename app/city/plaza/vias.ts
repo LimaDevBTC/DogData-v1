@@ -58,6 +58,9 @@ export interface ViasOpts {
 export interface Vias {
   group: THREE.Group
   quarteiroes: number
+  /** anéis desenhados e rotatórias nos cruzamentos com os bulevares */
+  aneis: number
+  rotatorias: number
   pracas: number
   bulevares: number
   /** travessias elevadas nas bocas de quarteirão */
@@ -142,6 +145,24 @@ const SEC_BULEVAR: Banda[] = [
   { de: 29.0, ate: 34.0, alt: Y_CALCADA, alvo: 'calcada' },
 ]
 
+// ⚠️ O ANEL: 26 m, e ele é a hierarquia que faltava. Com 12 bulevares radiais e
+// mais nada, ir do setor 4 ao setor 8 obrigava a passar pela praça: a cidade era
+// uma roda de bicicleta sem aro. Numa chapa isso não aparece; numa volta de
+// carro aparece na primeira curva, e a direção de arte agora é dirigível.
+// Seção 3,5 + 8 + 3 + 8 + 3,5: duas pistas com canteiro no meio, igual ao
+// bulevar em menor escala, e o canteiro existe para a arborização de eixo.
+const SEC_ANEL: Banda[] = [
+  { de: 0.0, ate: 3.5, alt: Y_CALCADA, alvo: 'calcada' },
+  { de: 3.5, ate: 11.5, alt: Y_PISTA, alvo: 'pista' },
+  { de: 11.5, ate: 14.5, alt: Y_CANTEIRO, alvo: 'canteiro' },
+  { de: 14.5, ate: 22.5, alt: Y_PISTA, alvo: 'pista' },
+  { de: 22.5, ate: 26.0, alt: Y_CALCADA, alvo: 'calcada' },
+]
+// A rotatória onde o anel cruza um bulevar. Rotatória e não cruzamento porque
+// numa malha radial os ângulos não são retos, e semáforo em ângulo agudo é
+// impossível de dirigir.
+const ROT_RAIO = 40, ROT_ILHA = 16
+
 // ── a travessia elevada (spec 3.5) ────────────────────────────────────────
 // Platô de 6 m no sentido da via, na cota da calçada, com rampa de 1 m nas duas
 // pontas. Vive dentro da boca da travessa, encostado na calçada do contorno.
@@ -186,7 +207,7 @@ interface Bulevar {
   rInicio: number; rFim: number
   x0: number; z0: number; x1: number; z1: number
 }
-interface Peca { x: number; z: number; a: number; b: number; rot: number }
+interface Peca { x: number; z: number; a: number; b: number; rot: number; forma?: string }
 interface Quarto {
   id: string; x: number; z: number; giro: number; pracaFracLivre: number
 }
@@ -200,7 +221,8 @@ export interface Malha {
   quarteiroes: Quarteirao[]
   quartos: Quarto[]
 }
-export interface Meta { programa: Peca[]; raioBorda: number }
+export interface Anel { id: string; nome: string; r: number; larg: number }
+export interface Meta { programa: Peca[]; raioBorda: number; aneis?: Anel[] }
 
 /** acumulador de triângulos: uma malha só, cor por vértice */
 class Fita {
@@ -258,16 +280,26 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   //     rua atravessando lago é o erro que a chapa mostra de longe. 26 centros de
   //     quarteirão caem dentro de peça, então o corte tem de ser por SEGMENTO e
   //     não por quarteirão inteiro.
+  // ⚠️ A PEÇA VIROU RETÂNGULO DE CÉLULAS DA MALHA (29/08) e a máscara tem de
+  // saber disso. Quem ainda é elipse são só as duas da casca (Portão e Farol),
+  // que vivem além de R_ABOBADA onde não há malha para ancorar.
+  // ⚠️ CONVENÇÃO ÚNICA: MUNDO = R(rot) · LOCAL, a mesma do `giro` da malha, logo
+  // LOCAL = R(-rot) · MUNDO. O gerador usava o sinal invertido até 29/08 e por
+  // isso a reserva de terra e o desenho eram espelhados: a máscara guardava 0
+  // lote e a elipse desenhada caía em cima de 174. Medido, consertado, e agora
+  // os dois lados usam esta mesma linha.
   const pecas = (meta.programa ?? []).map((p) => {
-    const rot = (-p.rot * Math.PI) / 180
-    return { x: p.x, z: p.z, a: p.a, b: p.b, ca: Math.cos(rot), sa: Math.sin(rot), rr: Math.max(p.a, p.b) ** 2 }
+    const rr = (p.rot * Math.PI) / 180
+    return { x: p.x, z: p.z, a: p.a, b: p.b, ret: p.forma !== 'elipse',
+             ca: Math.cos(rr), sa: Math.sin(rr), rr2: (p.a * p.a + p.b * p.b) }
   })
   const emPeca = (px: number, pz: number) => {
     for (const p of pecas) {
       const dx = px - p.x, dz = pz - p.z
-      if (dx * dx + dz * dz > p.rr) continue
-      const lx = dx * p.ca - dz * p.sa, lz = dx * p.sa + dz * p.ca
-      if ((lx / p.a) ** 2 + (lz / p.b) ** 2 <= 1) return true
+      if (dx * dx + dz * dz > p.rr2) continue
+      const lx = dx * p.ca + dz * p.sa, lz = -dx * p.sa + dz * p.ca
+      if (p.ret) { if (Math.abs(lx) <= p.a && Math.abs(lz) <= p.b) return true }
+      else if ((lx / p.a) ** 2 + (lz / p.b) ** 2 <= 1) return true
     }
     return false
   }
@@ -593,6 +625,90 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     }
   }
 
+  // ── 2b. OS ANÉIS ─────────────────────────────────────────────────────────
+  // ⚠️ ELES SÃO CÍRCULO DE VERDADE, NÃO POLÍGONO DA MALHA. Cheguei a propor que
+  // o anel seguisse a via de contorno para economizar terra, com a conta da
+  // flecha de um vão de 180 m (2,3 m a r 1.750). A conta estava errada de
+  // escala: uma fileira de células é uma RETA que atravessa os 30 graus do setor
+  // inteiro, e a 30 graus ela se afasta do círculo em 97 m, não em 2. Seguir a
+  // malha daria um dodecágono com barriga visível de longe.
+  // ⚠️ O ANEL PARA NA BOCA DA ROTATÓRIA. Sem isso a faixa dele passaria por cima
+  // da faixa do bulevar, duas superfícies coplanares no mesmo Y, e o z-buffer
+  // decide por pixel: aparece listra piscando exatamente no cruzamento, que é
+  // onde o olho vai.
+  let nAneis = 0, nRot = 0
+  for (const an of meta.aneis ?? []) {
+    const esc = an.larg / SEC_ANEL[SEC_ANEL.length - 1].ate
+    const secao = esc === 1 ? SEC_ANEL : SEC_ANEL.map((b) => ({ ...b, de: b.de * esc, ate: b.ate * esc }))
+    const r0 = an.r - an.larg / 2
+    const passos = Math.max(96, Math.round((2 * Math.PI * an.r) / PASSO))
+    let desenhou = false
+    for (let k = 0; k < passos; k++) {
+      const a0 = (k / passos) * Math.PI * 2, a1 = ((k + 1) / passos) * Math.PI * 2
+      const am = (a0 + a1) / 2
+      const mx = Math.sin(am) * an.r, mz = -Math.cos(am) * an.r
+      if (emPeca(mx, mz)) continue
+      // a boca da rotatória: o anel para antes de entrar no bulevar
+      let naBoca = false
+      for (let b = 0; b < 12; b++) {
+        const d = Math.abs(((am * 180) / Math.PI - b * 30 + 180) % 360 - 180)
+        if ((d * Math.PI) / 180 * an.r < ROT_RAIO + 6) { naBoca = true; break }
+      }
+      if (naBoca) continue
+      desenhou = true
+      metros += an.r * (a1 - a0)
+      const pt = (rr: number, aa: number) => [Math.sin(aa) * rr, -Math.cos(aa) * rr] as const
+      for (let i = 0; i < secao.length; i++) {
+        const b = secao[i]
+        const ra = r0 + b.de, rb = r0 + b.ate
+        // ⚠️ ORDEM ANTI-HORÁRIA VISTA DE CIMA: ângulo primeiro, raio depois. A
+        // ordem natural de escrever (raio, depois ângulo) dá normal para BAIXO e
+        // o backface culling apaga o anel inteiro. Medido: com a ordem errada a
+        // sonda vertical achava anel em 8 de 72 pontos, ou seja praticamente só
+        // as rotatórias. É a MESMA armadilha de pracas.ts:98.
+        const [ax, az] = pt(ra, a0), [dx, dz] = pt(ra, a1)
+        const [cx, cz] = pt(rb, a1), [bx, bz] = pt(rb, a0)
+        chao.add(COR[b.alvo],
+          ax, o.heightAt(ax, az) + b.alt, az,
+          dx, o.heightAt(dx, dz) + b.alt, dz,
+          cx, o.heightAt(cx, cz) + b.alt, cz,
+          bx, o.heightAt(bx, bz) + b.alt, bz)
+        const prox = secao[i + 1]
+        if (prox && prox.alt !== b.alt) {
+          const alto = Math.max(b.alt, prox.alt), baixo = Math.min(b.alt, prox.alt)
+          const h0 = o.heightAt(bx, bz), h1 = o.heightAt(cx, cz)
+          guia.add(COR.meiofio, bx, h0 + baixo, bz, bx, h0 + alto, bz,
+                   cx, h1 + alto, cz, cx, h1 + baixo, cz)
+        }
+      }
+    }
+    if (desenhou) nAneis++
+    // as 12 rotatórias deste anel
+    for (let b = 0; b < 12; b++) {
+      const ang = (b * 30 * Math.PI) / 180
+      const cx = Math.sin(ang) * an.r, cz = -Math.cos(ang) * an.r
+      if (emPeca(cx, cz) || Math.hypot(cx, cz) > rMax) continue
+      nRot++
+      const N = 48
+      for (let k = 0; k < N; k++) {
+        const a0 = (k / N) * Math.PI * 2, a1 = ((k + 1) / N) * Math.PI * 2
+        for (const [ra, rb, alt, alvo] of [
+          [ROT_ILHA, ROT_RAIO, Y_PISTA, 'pista'],
+          [0, ROT_ILHA, Y_CANTEIRO, 'canteiro'],
+        ] as [number, number, number, Alvo][]) {
+          const P = (rr: number, aa: number) => [cx + Math.sin(aa) * rr, cz - Math.cos(aa) * rr] as const
+          const [ax, az] = P(ra, a0), [dx2, dz2] = P(ra, a1)
+          const [cx2, cz2] = P(rb, a1), [bx2, bz2] = P(rb, a0)
+          chao.add(COR[alvo],
+            ax, o.heightAt(ax, az) + alt, az,
+            dx2, o.heightAt(dx2, dz2) + alt, dz2,
+            cx2, o.heightAt(cx2, cz2) + alt, cz2,
+            bx2, o.heightAt(bx2, bz2) + alt, bz2)
+        }
+      }
+    }
+  }
+
   // ── 3. UMA malha, UM material, cor por vértice ────────────────────────────
   // ⚠️ ANTES ERAM 4 MATERIAIS E 4 CHAMADAS. O limite real desta cena não é
   // triângulo nem chamada de desenho (373 numa GTX 1650 é folga), é MATERIAL e
@@ -641,6 +757,8 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   return {
     group,
     quarteiroes: nq,
+    aneis: nAneis,
+    rotatorias: nRot,
     pracas: np,
     bulevares: malha.bulevares.length,
     travessias,
