@@ -96,8 +96,17 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
   const geo = new THREE.BoxGeometry(1, 1, 1)
   geo.translate(0, 0.5, 0)          // pivô no pé: a massa cresce do chão para cima
   const mat = new THREE.MeshStandardMaterial({ roughness: 0.88, metalness: 0.0 })
-  const malha = new THREE.InstancedMesh(geo, mat, n)
-  malha.name = 'tecido:lote'
+  // ⚠️ UMA MALHA POR SETOR, E NÃO UMA SÓ, PORQUE O FRUSTUM PRECISA DE UMA ESFERA
+  // QUE SIRVA DE TESTE. Com os 52.984 lotes numa InstancedMesh única, a esfera
+  // envolvente dela tem raio de 6.894 m e cobre a cidade inteira: ela intersecta
+  // o frustum SEMPRE, olhando para onde for, e por isso o módulo vivia com
+  // `frustumCulled = false`. Resultado medido em 29/08: 1,44 milhão de triângulos
+  // desenhados em toda vista, inclusive nas que olham para o lado oposto.
+  // Fatiado em 12 setores, cada esfera tem raio de cerca de 1.700 m e o
+  // renderizador descarta as que estão fora do quadro. Custa 11 chamadas de
+  // desenho a mais, que é o troco.
+  const SET = meta.setores
+  const porSetor: { m: number[]; c: number[] }[] = Array.from({ length: SET }, () => ({ m: [], c: [] }))
   const m4 = new THREE.Matrix4()
   const cor = new THREE.Color()
   const q = new THREE.Quaternion()
@@ -147,7 +156,8 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
     pos.set(x, base, z)
     esc.set(Math.max(3, frente - RECUO * 2), alt, Math.max(3, prof - RECUO * 2))
     m4.compose(pos, q, esc)
-    malha.setMatrixAt(i, m4)
+    const sSet = Math.min(SET - 1, setor)
+    porSetor[sSet].m.push(...m4.elements)
 
     if (pintura === 'idade') cor.set(CORES_COORTE[Math.min(7, coorte)])
     else if (pintura === 'forma') cor.set(CORES_FORMA[forma])
@@ -158,12 +168,45 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
       cor.setRGB(cor.r * k, cor.g * k, cor.b * k)
     }
     if (flags & 1) cor.set('#7FD4E0')      // o condomínio DSC continua marcado
-    malha.setColorAt(i, cor)
+    porSetor[sSet].c.push(cor.r, cor.g, cor.b)
   }
-  malha.instanceMatrix.needsUpdate = true
-  if (malha.instanceColor) malha.instanceColor.needsUpdate = true
-  malha.frustumCulled = false
-  malha.receiveShadow = true
+
+  // ── as 12 malhas, uma por setor, cada uma com a esfera dela ──────────────
+  const lotes: THREE.InstancedMesh[] = []
+  const tmp = new THREE.Matrix4()
+  const cen = new THREE.Vector3()
+  for (let sIdx = 0; sIdx < SET; sIdx++) {
+    const b = porSetor[sIdx]
+    const qtd = b.c.length / 3
+    if (!qtd) continue
+    const im = new THREE.InstancedMesh(geo, mat, qtd)
+    im.name = `tecido:lote:S${String(sIdx + 1).padStart(2, '0')}`
+    const cx: number[] = []
+    for (let k = 0; k < qtd; k++) {
+      tmp.fromArray(b.m, k * 16)
+      im.setMatrixAt(k, tmp)
+      im.setColorAt(k, cor.setRGB(b.c[k * 3], b.c[k * 3 + 1], b.c[k * 3 + 2]))
+      cx.push(tmp.elements[12], tmp.elements[13], tmp.elements[14])
+    }
+    im.instanceMatrix.needsUpdate = true
+    if (im.instanceColor) im.instanceColor.needsUpdate = true
+    // ⚠️ A ESFERA SAI DAS INSTÂNCIAS, NÃO DA GEOMETRIA. `computeBoundingSphere`
+    // do three olha só a caixa de 1 m da geometria base e daria uma esfera
+    // minúscula na origem: o setor inteiro sumiria da tela. A esfera correta é a
+    // que envolve as POSIÇÕES das instâncias, com folga para a altura do volume.
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity
+    for (let k = 0; k < qtd; k++) {
+      minX = Math.min(minX, cx[k * 3]); maxX = Math.max(maxX, cx[k * 3])
+      minZ = Math.min(minZ, cx[k * 3 + 2]); maxZ = Math.max(maxZ, cx[k * 3 + 2])
+    }
+    cen.set((minX + maxX) / 2, 0, (minZ + maxZ) / 2)
+    const raio = Math.hypot(maxX - minX, maxZ - minZ) / 2 + 90   // 90 m de folga
+    im.boundingSphere = new THREE.Sphere(cen, raio)
+    im.frustumCulled = true
+    im.receiveShadow = true
+    lotes.push(im)
+  }
+  const malha = lotes[0]
   // ⚠️ SOMBRA PRÓPRIA, e ela era a causa raiz do achatamento. Até agora os 52.991
   // volumes só RECEBIAM sombra e nunca lançavam: por isso o modelo de massa lia
   // como planta extrudada em vez de maquete.
@@ -171,8 +214,8 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
   // na rasante, com muito mais lançador dentro da câmera de sombra, o quadro cai
   // de 51 para 24 fps. Fica ligada por padrão no modo massa, que é o registro de
   // CHAPA, e sai com ?sombra=0 para navegar.
-  malha.castShadow = o.sombra ?? (modo === 'massa')
-  group.add(malha)
+  for (const im of lotes) im.castShadow = o.sombra ?? (modo === 'massa')
+  for (const im of lotes) group.add(im)
 
   // ── os marcos de esquina ──────────────────────────────────────────────────
   // ⚠️ UM POR LOTE, e é ele que faz o chão parecer DEMARCADO em vez de pintado.
@@ -240,6 +283,7 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
     triangulos,
     dispose() {
       geo.dispose(); mat.dispose()
+      for (const im of lotes) im.dispose()
       geoMarco?.dispose(); matMarco?.dispose()
       construidas.dispose()
     },

@@ -588,6 +588,113 @@ programa é uma permutação de material e custa compilação e memória.
 
 ---
 
+## 3.14 A explosão de programas de shader, e o que ela era de verdade
+
+⚠️ **Cada mudança na CONTAGEM DE LUZES recompila todos os materiais da cena.** A
+contagem entra na chave de cache de programa do three; mudou a contagem, o
+renderizador recompila tudo e guarda mais uma família inteira de programas, para
+sempre.
+
+**A medição que achou o culpado:**
+
+| | direcionais | pontuais | spots |
+|---|---|---|---|
+| câmera perto | 2 | **10** | **2** |
+| câmera a 8,5 km | 2 | **5** | **0** |
+
+O `DistanceCuller` escondia grupos inteiros com `visible = false`, e vários têm luz
+dentro: o Parque Runestone tem 7, Monuments 2, Precinct 1, o Chalé 1, o DSC 1.
+**Uma viagem de ida e volta da câmera subia os programas compilados de 444 para
+480**, e navegando pela cidade isso nunca converge, porque cada combinação nova de
+(pontuais, spots) é uma família nova.
+
+### Duas tentativas que não bastaram, e por quê
+
+**(1) Inventariar as luzes no `add()` do culling** e apagar em vez de esconder.
+Estabilizou os spots e derrubou o crescimento de 36 por viagem para 9 em três,
+mas seis pontuais continuavam sumindo.
+
+**(2) Refazer o inventário na transição** de visibilidade, para pegar luz que o
+módulo pendura DEPOIS de registrar o grupo. Também não bastou: aquelas seis não
+estão em grupo nenhum do culling, estão penduradas em grupos e malhas que outros
+módulos escondem por conta própria.
+
+⚠️ **E não dá para consertar pelo lado da luz.** O three não conta luz cujo
+ANCESTRAL está invisível: marcar a própria luz como visível não adianta, porque
+quem apaga é o grupo acima dela.
+
+### O conserto é orçamentário e não estrutural
+
+`OrcamentoDeLuz` (perf.ts): um **lastro** de luzes de intensidade zero na raiz da
+cena, ligado e desligado para completar sempre o mesmo total. O renderizador vê um
+número fixo, compila uma família só, e o lastro não ilumina nada.
+
+| | antes | depois |
+|---|---|---|
+| contagem perto | 2dir 10pt 2sp | **2dir 12pt 2sp** |
+| contagem a 8,5 km | 2dir 5pt 0sp | **2dir 12pt 2sp** |
+| programas após 4 viagens | +144 (36 por viagem) | **+2** |
+
+O custo é honesto: o laço de 12 luzes no fragmento roda sempre, inclusive com a
+cidade longe. É exatamente o que já se pagava com a câmera perto.
+
+### O que restou, medido e sem maquiagem
+
+Na vista do lago, carga limpa: **37,5 fps, 579 chamadas, 6,15 M triângulos**, com
+o governador já em `shadowEvery 2`. Os 393 a 502 programas que sobram são
+diversidade real de material dos GLBs de Sketchfab, não permutação.
+
+Onde está o peso, e nada disso é desperdício:
+
+| grupo | triângulos | o que é |
+|---|---|---|
+| batalha de preço | 1,83 M | 2.894 ursos e 2.001 dogs, já instanciados |
+| tecido | 1,44 M | os 52.984 lotes e as 51 peças |
+| adereços | 1,29 M | recife, peixes, floresta, árvores de GLB |
+| vias | 0,45 M | 1.247 km de rua |
+| Parque Runestone | 0,42 M | obsidiana, paleta própria |
+
+---
+
+## 3.15 Frustum não é a alavanca aqui, e a medição é que diz
+
+O tecido era UMA InstancedMesh com os 52.984 lotes, e por isso vivia com
+`frustumCulled = false`: a esfera envolvente dela tem raio de 6.894 m e cobre a
+cidade inteira, então ela intersecta o frustum olhando para onde for. Fatiei em
+**12 malhas, uma por setor**, cada uma com a esfera calculada a partir das
+POSIÇÕES das instâncias.
+
+⚠️ `computeBoundingSphere` não serve para InstancedMesh: ele olha só a caixa de
+1 m da geometria base e devolveria uma esfera minúscula na origem, o que faria o
+setor inteiro sumir da tela.
+
+**E o resultado, medido em três vistas:**
+
+| vista | setores no quadro | economia |
+|---|---|---|
+| lago | 9 de 12 | 6% |
+| bairro, rasante | 10 de 12 | 3% |
+| topo | 12 de 12 | 0% |
+
+⚠️ **A razão é geométrica e vale para qualquer fatia radial: um setor é uma cunha
+LONGA E FINA**, de r 1.450 a 4.400, então a esfera dela tem 1.700 m de raio e o
+centro a 2.900 da origem. As doze esferas se sobrepõem no meio da cidade, e a
+câmera quase sempre está no meio da cidade olhando através dela. Frustum não
+descarta o que se está olhando.
+
+A fatia fica (ela é correta e tirou uma mentira do código, o `frustumCulled =
+false`), mas **a alavanca de verdade é DISTÂNCIA e não quadro**:
+
+| | triângulos | |
+|---|---|---|
+| batalha de preço | **1,77 M** | 6.295 bonecos de 240 a 312 triângulos |
+| o mesmo com proxy de caixa além de 700 m | **0,08 M** | 12 triângulos por boneco |
+
+**1,69 milhão de triângulos**, que é mais que o tecido inteiro, gastos em bonecos
+de 2 m vistos a 2 km. É o próximo alvo e é grande.
+
+---
+
 ## 4. A demarcação: 38 peças, 136 ha
 
 Reservadas **antes** do lote, cumprindo `masterplan.md:268-269` pela primeira vez.
