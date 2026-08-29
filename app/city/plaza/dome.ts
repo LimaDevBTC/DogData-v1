@@ -30,7 +30,9 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 /** raio em planta: o sítio inteiro, o mesmo de lib/city/lunar/sites.ts:73 */
-export const DOME_R = 3500
+// ⚠️ ANDA COM O SÍTIO. 3.500 -> 4.500 em 28/08. A casca cobre a cidade inteira
+// por decisão do fundador, então crescer o loteamento cresce a abóbada.
+export const DOME_R = 4500
 
 export interface DomeOpts {
   /** o chão, para a saia da borda pousar no relevo real */

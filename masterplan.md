@@ -327,3 +327,66 @@ programa cívico §5 · Reserva Urbana §6 · geometria de distrito em cunha ang
 (§2.1, implementada, substitui espiral por centro) · customização por ferramentas
 internas de edição, Personal/Commercial no kit paramétrico, Patron com modo avançado
 elevado (§4.1).
+
+---
+
+🔒 **2026-08-28, dono. A rodada que mexeu na constituição.** Seis decisões, e as três
+primeiras revogam texto que estava travado acima. Fica assim de propósito: o registro
+guarda o que valia antes e por que mudou, senão daqui a três semanas isto vira discussão
+outra vez.
+
+**1. A área do lote deixa de ser fixa e passa a seguir a bag.** O lote de 300,0 m² igual
+para todos (`plano-diretor.md` §2.1) morre. Área proporcional à RAIZ do saldo. Medido:
+a terra por carteira é 16,33 km² sobre 52.993, ou seja 308 m² de média, então lote premium
+maior só existe tirando de alguém. Com a raiz, o portão de 20k fica com 50 m², a mediana
+com 333 m² (praticamente o lote de hoje, o tecido sobrevive), o p99 com 1.333 m² e a maior
+carteira com 4,0 ha. Razão maior/menor 805x, contra 648.082x do proporcional puro, que
+transformaria a cidade em cem latifundiários e 53 mil armários.
+
+**2. `utxo_count` vira o terceiro eixo, e ele não mexe em área, mexe em FORMA.** Medido:
+R² de 0,053 contra o saldo, ou seja informação nova de verdade. 1 UTXO (63,2% da cidade)
+é massa única, casa no centro e fazenda na borda; 2 a 9 (30,6%) é pátio ou condomínio
+baixo; 10 a 99 (5,9%) é torre, a mesma área sobe em vez de espalhar; 100+ (114 carteiras)
+é quarteirão com várias torres. **Idade diz onde, saldo diz quanto, número de UTXOs diz
+que forma.** Nenhum dos três é inventado.
+
+**3. Gradiente centro-periferia.** Área por DOG cresce com o raio. A mesma carteira
+mediana pega 170 m² no centro ou 454 m² na borda. Resolve o problema de a periferia ser
+castigo: quem chega novo vai longe e recebe TERRA, quem é velho fica perto e recebe
+ENDEREÇO.
+
+**4. Crescimento por geração, não por subdivisão infinita (opção A).** Medido: o supply
+comporta 4.969.650 carteiras de 20k, e a cidade construída atende 1,1% disso. Curva
+côncava CRIA terra do nada quando a carteira se parte (4M partido em dois 2M rende 41% mais
+chão), então a raiz não sobrevive à subdivisão infinita. A cidade fundadora congela nas
+~53 mil e quem se dividir manda os filhos para **domos novos**, cada um uma safra datada.
+A alternativa recusada era proporcional puro, que conserva para sempre e faz uma cidade
+dura hoje.
+
+**5. Peça de customização PODE ser inscrita, revogando o §4.1.** O §4.1 dizia "nada de
+customização é inscrito no Bitcoin, porque não afeta posição, propriedade ou escassez, só
+aparência". Continua certo enquanto enfeite é enfeite: no momento em que a peça tem edição
+limitada e custa DOG, ela vira bem escasso, e bem escasso fora da cadeia é promessa nossa,
+não fato. Forma: **prédio é a inscrição pai, cada peça comprada é uma inscrição filha**, e
+o HTML recursivo lê `/r/children/<id>`. O prédio cresce sem nunca ser reescrito e a ordem
+das filhas é a linha do tempo da obra.
+⚠️ Limite duro: a recursão enxerga PROCEDÊNCIA, não POSSE. Peça soldada renderiza 100% na
+cadeia e não é vendável; peça negociável precisa do nosso indexador e deixa de ser
+trustless. Decisão: soldar, casando com o soulbound do §0.2.
+⚠️ Armadilha medida: comprar peça com DOG baixa o saldo e, pela decisão 1, ENCOLHERIA o
+prédio. Conserto: a área olha saldo mais o DOG já enterrado na cidade.
+
+**6. Raridade é o registro, não o dado.** Sorteio seria a primeira coisa arbitrária num
+projeto cujo pitch é "Don't trust. Verify.". Escassez honesta: edição limitada, peça que a
+cadeia autoriza (UTXO anterior a tal bloco, nunca vendeu, Runestone, DSC, fundador) e
+janela de blocos. O valor acumula upando.
+
+**Pendente desta rodada, ainda NÃO decidido:** tamanho do apartamento, que por aritmética
+decide a altura média da cidade (20 m² dá 12 andares, 35 m² dá 21, 70 m² dá 43).
+
+🔒 **2026-08-28, dono: SOL e STX saem dos polos.** `lib/city/lunar/sites.ts` põe Solana em
+Shackleton (polo sul) e Stacks em Peary (polo norte), a milhares de quilômetros do sítio
+`btc-core`. A decisão é que os domos das outras cadeias sejam **módulos vizinhos** do domo
+fundador, no mesmo mare, e não sítios polares isolados. Isso casa com a decisão 4: expansão
+é domo novo ao lado, não cidade nova em outro hemisfério. NÃO IMPLEMENTADO: `sites.ts`
+continua polar até alguém mexer.

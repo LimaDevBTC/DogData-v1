@@ -16,9 +16,13 @@
 export const VEX_CIDADE = 1
 export const VEX_HORIZONTE = 2
 /** raio até onde a cidade é plana como a Lua real */
-export const VEX_R_CIDADE = 3500
+// ⚠️ ACOMPANHA O RAIO DO SÍTIO. Ele foi de 3.500 para 4.500 m em 28/08 para o
+// lote mediano sair de 153 para 250 m². Se este número ficasse em 3.500, o anel
+// novo de loteamento nasceria com o exagero do horizonte já entrando, ou seja
+// com o terreno esticado na vertical debaixo dos lotes.
+export const VEX_R_CIDADE = 4500
 /** e o raio onde o exagero do horizonte já está cheio */
-export const VEX_R_HORIZONTE = 6000
+export const VEX_R_HORIZONTE = 7000
 
 /** o exagero vertical aplicado a uma distância `r` do centro da praça, em metros */
 export function exageroEm(r: number): number {

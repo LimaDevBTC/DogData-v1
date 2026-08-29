@@ -29,7 +29,12 @@ RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 def p(*a): return os.path.join(RAIZ, *a)
 
 # ── o tabuleiro (plano-diretor.md cap. 6.3) ────────────────────────────────
-R_SITIO      = 3500
+# ⚠️ O RAIO É UM NÚMERO SÓ, e ele tem teto de DADO, não de vontade: o heightmap
+# em public/lunar/btc-core-heightmap.json tem 137 células de 59,2 m, ou seja
+# meia-largura de 4.027 m. Acima disso o terreno acaba e é preciso regerar o
+# recorte a partir do tile SLDEM2015. Override por ambiente para medir o preço
+# de crescer sem editar o arquivo: R=4000 python3 scripts/gerar_cidade.py
+R_SITIO      = float(os.environ.get('R', 4500))
 R_INICIO     = 1300      # nada começa antes do fim da rampa do platô
 SETORES      = 12
 GIRO_SETOR   = 7.5       # graus por setor; 12 x 7,5 = 90, e a malha quadrada fecha
@@ -65,7 +70,37 @@ COLISEU_ROT = 5 * math.pi / 4
 # 3.500 e a saia desce ali até o chão. Lote além disso ficaria FORA da cidade
 # pressurizada. 3.480 deixa a
 # calçada de serviço no pé da saia.
-R_ABOBADA = 3480
+R_ABOBADA = R_SITIO - 20
+
+# ── O CONTORNO DEIXA DE SER CÍRCULO ────────────────────────────────────────
+# Os lobos não são gosto, são conserto de um defeito medido, e a razão está no
+# cabeçalho de gerar_forma_filotaxia.py: com o raio função pura do posto o
+# empacotamento não faz anel, mas a IDADE faz, e cada coorte ocupa uma coroa
+# limpa. Como prédio comum tem padrão por bairro (regra 5), a cidade subiria
+# anelada, que é o que a regra 3 proíbe. Modular o raio pelo ângulo transforma
+# coroa em pétala, e as reentrâncias entre pétalas viram cunhas verdes que
+# entram até perto da praça.
+# 5 é de Fibonacci, que é o pedido estético do fundador (concha, pinha).
+# ⚠️ Isto só é possível porque a área agora é variável: o tecido soma 16,33 km²
+# e o disco livre tem mais que isso, então sobra folga para ter FORMA. Com o
+# lote fixo de 300 m² não sobrava, e por isso o plano diretor encheu o disco.
+LOBOS = 5
+LOBO_AMP = 0.12
+LOBO_FASE = math.radians(18)
+
+def raio_borda(x, z):
+    return R_ABOBADA * (1 - LOBO_AMP + LOBO_AMP * math.cos(LOBOS * (math.atan2(z, x) - LOBO_FASE)))
+
+# ── a curva da área (masterplan §9, decisão 1 de 28/08) ────────────────────
+# Área proporcional à RAIZ do saldo, com gradiente centro-periferia. Medido:
+# a média é 308 m² por carteira e não tem como fugir disso, então premium só
+# existe tirando de alguém. A raiz dá razão de 805x entre o maior e o menor;
+# o proporcional puro daria 648.082x e faria cem latifundiários.
+EXPOENTE = 0.5
+GRADIENTE = 1.0        # borda com 2,7x a área por DOG do centro
+TECIDO_ALVO = 16.33e6  # m² da metade do holder
+LOTE_MIN_FRENTE = 5.0  # nenhum lote fica mais estreito que isto
+FILA_PROF = 25.0       # profundidade padrão da fileira
 DSC_RUMO  = 68.7
 
 # ── relevo ─────────────────────────────────────────────────────────────────
@@ -118,7 +153,7 @@ def dentro_do_coliseu(x, z):
 
 def livre(x, z):
     r = math.hypot(x, z)
-    if r < R_INICIO or r > R_ABOBADA: return False
+    if r < R_INICIO or r > raio_borda(x, z): return False
     if math.hypot(x-PCX, z-PCZ) < PARQUE_DISCO: return False
     if dentro_do_coliseu(x, z): return False
     # o bulevar de 34 m sobre cada costura de setor é via, não lote
@@ -256,74 +291,259 @@ try:
 except FileNotFoundError:
     print('DSC ausente', file=sys.stderr)
 
-# ── a ordem de passo dentro do setor (plano-diretor 6.4 passo 5) ───────────
-def ordem_de_passo(s):
-    passo = []
+# ── a ordem de passo: agora são PRATELEIRAS, não vagas ─────────────────────
+# ⚠️ MUDOU DE VAGA PARA METRO DE TESTADA em 28/08. Antes o quarteirão era 84
+# caixas de 12 x 25 m e cada carteira pegava uma. Com área variável isso não
+# serve: dar uma vaga de 300 m² para um lote de 50 desperdiça 250, e são 2.051
+# lotes abaixo de 60 m². Agora cada quarteirão oferece 6 prateleiras de 25 m de
+# profundidade e a carteira consome TESTADA conforme a área que lhe cabe.
+# Frente variável ao longo da rua é exatamente o que cidade velha parece.
+PROF = FILA_PROF
+def prateleiras_de(s):
+    """Por setor, as prateleiras em ordem de chegada: mais perto da praça primeiro."""
+    out = []
     for q in sorted(T[s], key=lambda q: q['r']):
         for b in sorted(q['quarteiroes'], key=lambda b: b['r']):
-            ls = sorted(b['lotes'], key=lambda L: (math.hypot(L[0], L[1]),
-                                                   rumo_de(L[0], L[1])))
-            for L in ls: passo.append(L)
-    return passo
-PASSO = [ordem_de_passo(s) for s in range(SETORES)]
+            # o quarteirão de borda entra com a testada proporcional ao que
+            # sobrou dele depois da máscara (relevo, bulevar, coliseu, borda)
+            frac = len(b['lotes']) / (LOTE_COLS * LOTE_ROWS)
+            util = QUARTEIRAO * frac
+            ang = math.radians(s * GIRO_SETOR)
+            ca, sa = math.cos(ang), math.sin(ang)
+            for fila in range(LOTE_ROWS):
+                oz = (fila - (LOTE_ROWS - 1) / 2) * PROF * 1.12
+                out.append({'bx': b['x'], 'bz': b['z'], 'oz': oz, 'ca': ca, 'sa': sa,
+                            'x0': -util / 2, 'livre': util, 'r': b['r']})
+    return out
+PASSO = [prateleiras_de(s) for s in range(SETORES)]
 
-# ── o condomínio do DSC: os lotes mais internos do setor do rumo 68,7 ──────
+# ── a área de cada carteira (masterplan §9, decisões 1 e 3) ────────────────
+# area = k · saldo^EXPOENTE · (r/R_INICIO)^GRADIENTE, com k calibrado para a
+# soma dar exatamente o tecido alvo. O raio entra depois, quando a carteira já
+# tem lugar; aqui vale o raio médio, e a calibração se refaz no fim.
+soma_raiz = sum(elig[a] ** EXPOENTE for _, _, _, a in carteiras)
+def area_de(dog, r):
+    return K_AREA * (dog ** EXPOENTE) * ((r / R_INICIO) ** GRADIENTE)
+def _mg():
+    sm = w = 0.0
+    for i in range(2000):
+        r = R_INICIO + (R_ABOBADA - R_INICIO) * (i + 0.5) / 2000
+        sm += (r / R_INICIO) ** GRADIENTE * r; w += r
+    return sm / w
+K_AREA = 0.0   # calibrado adiante, contra o tecido que sobrou depois dos lobos
+
+# ── capacidade agora é ÁREA, não contagem ──────────────────────────────────
+cap_area = [sum(pr['livre'] for pr in PASSO[s]) * PROF for s in range(SETORES)]
+CAP_AREA = sum(cap_area)
+# ⚠️ A CURVA SE CALIBRA CONTRA O TECIDO QUE EXISTE, não contra um alvo escrito
+# à mão. A primeira versão mirava os 16,33 km² do plano diretor e o contorno
+# lobado só deixou 12,51: 9.613 carteiras ficaram sem lote, caladas. Agora o
+# lobo é uma alavanca de gosto com preço medido, e o preço aparece no tamanho
+# do lote de todo mundo, não numa carteira que some.
+# O 0,97 é folga de empacotamento: a última carteira de cada prateleira raramente
+# fecha a testada exata.
+K_AREA = (CAP_AREA * 0.97) / (_mg() * soma_raiz)
+print(f'tecido disponível: {CAP_AREA/1e6:.2f} km² | curva: expoente {EXPOENTE}, '
+      f'gradiente {GRADIENTE}, k = {K_AREA:.6g}', file=sys.stderr)
+for s in range(SETORES):
+    print(f'  setor {s+1:2d} (rumo {s*30:3d}): {len(T[s]):3d} quartos, '
+          f'{sum(len(q["quarteiroes"]) for q in T[s]):4d} quarteirões, '
+          f'{cap_area[s]/1e4:8,.1f} ha', file=sys.stderr)
+
+# ── o condomínio do DSC: as prateleiras mais internas do setor do rumo 68,7 ─
 S_DSC = int(DSC_RUMO // (360/SETORES))
-reserva_dsc = PASSO[S_DSC][:len(dsc)]
-livres_dsc = set(range(len(dsc)))
-print(f'condomínio DSC no setor {S_DSC+1} (rumo {S_DSC*30}), '
-      f'{len(reserva_dsc)} lotes mais internos', file=sys.stderr)
 
-# ── cota por setor e rodízio de maior déficit ──────────────────────────────
+# ── cota por setor: por ÁREA pedida, não por cabeça ────────────────────────
+# ⚠️ A cota mudou de contagem para área junto com a curva. Duas carteiras não
+# pesam mais igual: uma de 4 ha ocupa o mesmo que 800 do portão.
+r_medio = [ (sum(pr['r'] for pr in PASSO[s]) / max(1, len(PASSO[s]))) for s in range(SETORES) ]
+def area_nominal(dog, s):
+    return K_AREA * (dog ** EXPOENTE) * ((max(r_medio[s], R_INICIO) / R_INICIO) ** GRADIENTE)
+
 gerais = [c for c in carteiras if c[3] not in dsc]
-NG = len(gerais)
-capg = list(cap); capg[S_DSC] -= len(dsc)
-SC = sum(capg)
-cota = [NG * capg[s] / SC for s in range(SETORES)]
-conta = [0]*SETORES
+capg = list(cap_area)
+usado = [0.0]*SETORES
 destino = []
 for c in gerais:
-    melhor, mdef = -1, -1e18
+    melhor, mfolga = -1, -1e18
     for s in range(SETORES):
-        if conta[s] >= capg[s]: continue
-        defi = cota[s] - conta[s]
-        if defi > mdef + 1e-12: mdef, melhor = defi, s
-    if melhor < 0: melhor = max(range(SETORES), key=lambda s: capg[s]-conta[s])
-    conta[melhor] += 1
+        pedido = area_nominal(elig[c[3]], s)
+        if usado[s] + pedido > capg[s]: continue
+        folga = (capg[s] - usado[s]) / capg[s]
+        if folga > mfolga: mfolga, melhor = folga, s
+    if melhor < 0:
+        melhor = max(range(SETORES), key=lambda s: capg[s] - usado[s])
+    usado[melhor] += area_nominal(elig[c[3]], melhor)
     destino.append(melhor)
 
-# ── planta ─────────────────────────────────────────────────────────────────
+# ── planta: consome TESTADA das prateleiras ───────────────────────────────
+# ⚠️ DUAS PASSADAS, e a segunda não é luxo. A primeira versão calibrava a curva
+# contra a área disponível e a cidade saía com 78% dela ocupada: a mediana caiu
+# para 150 m² quando a curva prometia 230. O que come a diferença é o
+# empacotamento, e ele não tem fórmula fechada: a frente mínima de 5 m gasta
+# 125 m² de prateleira num lote de 21, e a última carteira de cada fileira
+# quase nunca fecha a testada exata. Então a passada 1 MEDE o desperdício e a
+# passada 2 corrige o k por ele.
 cursor = [0]*SETORES
-cursor[S_DSC] = len(dsc)          # o condomínio já ocupa os mais internos
 saida = []
-for c, s in zip(gerais, destino):
-    idx = cursor[s]
-    if idx >= len(PASSO[s]): continue
-    x, z = PASSO[s][idx]; cursor[s] += 1
-    saida.append((x, z, s, c[3]))
-for k, a in enumerate(sorted(dsc)):
-    if k >= len(reserva_dsc): break
-    x, z = reserva_dsc[k]
-    saida.append((x, z, S_DSC, a))
+# ⚠️ O EMPACOTAMENTO PROCURA PRATELEIRA, NÃO ACEITA A PRIMEIRA. A versão de
+# estreia pegava a primeira prateleira com qualquer sobra e espremia o lote nela:
+# um lote de 1.600 m² caindo numa sobra de 6 m virava um corredor de 6 por 266 m,
+# a profundidade batia no teto de 255 e o resto da área EVAPORAVA. Era isso que
+# segurava o aproveitamento em 80% e fazia a bisseção parar cedo, com o lote de
+# todo mundo menor do que a terra permitia.
+# Agora: calcula a testada natural, varre uma JANELA de prateleiras à frente
+# procurando uma que caiba inteira, e só se nenhuma couber usa a de maior sobra,
+# com a profundidade compensando. A janela é curta de propósito: o lote tem de
+# ficar perto do lugar que a idade lhe deu, senão a regra 1 vira enfeite.
+JANELA = 24
+PROF_MAX = PROF * 3          # 75 m: o lote fundo ainda cabe na faixa do quarteirão
+
+def coloca(s, dog, addr):
+    """Consome testada e devolve (x, z, frente, prof)."""
+    n = len(PASSO[s])
+    while cursor[s] < n and PASSO[s][cursor[s]]['livre'] < LOTE_MIN_FRENTE:
+        cursor[s] += 1
+    if cursor[s] >= n: return None
+    base = cursor[s]
+    area = area_de(dog, max(PASSO[s][base]['r'], R_INICIO))
+    frente_nat = max(area / PROF, LOTE_MIN_FRENTE)
+
+    escolhida, folgada = -1, -1
+    for k in range(base, min(n, base + JANELA)):
+        livre = PASSO[s][k]['livre']
+        if livre + 1e-9 >= frente_nat:
+            escolhida = k; break
+        if livre > folgada: folgada, escolhida_alt = livre, k
+    if escolhida < 0:
+        # ninguém comporta a testada natural: usa a de maior sobra e afunda o lote
+        escolhida = escolhida_alt if folgada >= LOTE_MIN_FRENTE else -1
+        if escolhida < 0:
+            cursor[s] = base + JANELA
+            return coloca(s, dog, addr) if cursor[s] < n else None
+
+    pr = PASSO[s][escolhida]
+
+    # ⚠️ O GIGANTE PEGA PRATELEIRA INTEIRA. Sem este ramo o teto de profundidade
+    # decapita o topo da curva: o maior lote caía de 30.244 para 12.600 m², que é
+    # exatamente 168 x 75, e a área perdida ia parar no lote dos outros. São umas
+    # poucas dezenas de carteiras, mas são justamente as que a regra da raiz
+    # existe para tratar, então truncar aqui esvazia a regra.
+    if area > PROF_MAX * QUARTEIRAO:
+        fatias = max(1, min(LOTE_ROWS, math.ceil(area / (QUARTEIRAO * PROF))))
+        tomadas = 0
+        for k in range(escolhida, min(n, escolhida + fatias)):
+            PASSO[s][k]['x0'] += PASSO[s][k]['livre']
+            PASSO[s][k]['livre'] = 0.0
+            tomadas += 1
+        prof_g = min(255.0, area / QUARTEIRAO)
+        lxg, lzg = pr['bx'], pr['bz'] + pr['oz'] + (tomadas - 1) * PROF * 0.56
+        return (lxg*pr['ca'] - lzg*pr['sa'], lxg*pr['sa'] + lzg*pr['ca'],
+                QUARTEIRAO, prof_g)
+
+    frente = min(frente_nat, pr['livre'])
+    prof_real = area / frente
+    if prof_real > PROF_MAX:
+        # ainda fundo demais: alarga até o limite da sobra e aceita o que couber
+        frente = pr['livre']
+        prof_real = min(PROF_MAX, area / frente)
+    ox = pr['x0'] + frente / 2
+    pr['x0'] += frente; pr['livre'] -= frente
+    lx, lz = pr['bx'] + ox, pr['bz'] + pr['oz']
+    wx = lx*pr['ca'] - lz*pr['sa']
+    wz = lx*pr['sa'] + lz*pr['ca']
+    return (wx, wz, frente, min(255.0, prof_real))
+
+def uma_passada():
+    global PASSO, cursor, saida
+    PASSO = [prateleiras_de(s) for s in range(SETORES)]
+    cursor = [0]*SETORES
+    saida = []
+    for c, s in zip(gerais, destino):
+        r = coloca(s, elig[c[3]], c[3])
+        if r is None:
+            alt = max(range(SETORES), key=lambda t: sum(pr['livre'] for pr in PASSO[t][cursor[t]:]))
+            r = coloca(alt, elig[c[3]], c[3])
+            s = alt
+        if r is None: continue
+        saida.append((r[0], r[1], s, c[3], r[2], r[3]))
+    for a in sorted(dsc):
+        r = coloca(S_DSC, elig[a], a)
+        if r: saida.append((r[0], r[1], S_DSC, a, r[2], r[3]))
+    return sum(w*d for _,_,_,_,w,d in saida)
+
+# ⚠️ BISSEÇÃO, e a razão é que as duas coisas brigam: k maior dá lote maior e
+# k grande demais deixa carteira sem lote. A regra é inegociável (todo elegível
+# tem endereço), então a busca é pelo MAIOR k em que ainda cabe todo mundo, e o
+# resultado guardado é sempre o de uma passada completa.
+alvo = CAP_AREA * 0.97
+k_bom, saida_boa = None, None
+k_lo, k_hi = K_AREA, None
+for tentativa in range(6):
+    obtido = uma_passada()
+    coube = len(saida) >= N
+    med = sorted(w*d for _,_,_,_,w,d in saida)[len(saida)//2] if saida else 0
+    print(f'  passada {tentativa+1}: k={K_AREA:.5g}  {len(saida):,} plantadas, '
+          f'{obtido/1e6:.2f} km² ({obtido/alvo*100:.0f}% do alvo), mediana {med:,.0f} m²'
+          f'  {"cabe" if coube else "NAO CABE"}', file=sys.stderr)
+    if coube:
+        k_bom, saida_boa, k_lo = K_AREA, list(saida), K_AREA
+        if k_hi is None:
+            K_AREA /= max(0.55, obtido/alvo)      # primeiro salto: mira o desperdício medido
+            continue
+    else:
+        k_hi = K_AREA
+    if k_hi is None: break
+    if (k_hi - k_lo) / k_lo < 0.02: break
+    K_AREA = (k_lo + k_hi) / 2
+if saida_boa is not None:
+    saida, K_AREA = saida_boa, k_bom
+
 print(f'plantadas {len(saida):,} de {N:,}', file=sys.stderr)
+areas = sorted(w*d for _,_,_,_,w,d in saida)
+if areas:
+    print(f'lote: menor {areas[0]:,.0f} m² | mediana {areas[len(areas)//2]:,.0f} | '
+          f'p99 {areas[int(len(areas)*.99)]:,.0f} | maior {areas[-1]:,.0f}', file=sys.stderr)
+    print(f'área somada dos lotes: {sum(areas)/1e6:.2f} km²', file=sys.stderr)
 
 # ── grava ──────────────────────────────────────────────────────────────────
 posto = {c[3]: i for i, c in enumerate(carteiras)}
+UTX = {}
+with open(p('data/holders_by_age.csv'), newline='') as f:
+    for row in csv.DictReader(f):
+        try: UTX[row['address']] = int(float(row.get('utxo_count') or 1))
+        except (ValueError, KeyError): pass
+def forma_de(u):
+    if u <= 1: return 0        # massa única: casa no centro, fazenda na borda
+    if u <= 3: return 1        # pátio, geminada
+    if u <= 9: return 2        # condomínio baixo
+    if u <= 99: return 3       # torre
+    return 4                   # quarteirão com várias torres
 buf = bytearray()
-for x, z, s, a in saida:
+for x, z, s, a, w, d in saida:
     coorte = min(7, posto[a]*8//N)
     fam = familia_de.get(a, 0)
-    fl = 1 if a in dsc else 0
-    buf += struct.pack('<hhBBHB', int(round(x)), int(round(z)), s, coorte,
-                       min(65535, fam), fl)
+    fl = (1 if a in dsc else 0) | (forma_de(UTX.get(a, 1)) << 1)
+    buf += struct.pack('<hhBBHBBB', int(round(x)), int(round(z)), s, coorte,
+                       min(65535, fam), fl,
+                       max(1, min(255, int(round(w)))), max(1, min(255, int(round(d)))))
 open(p('public/city/cidade-lotes.bin'), 'wb').write(buf)
 json.dump({
-    'esquema': 'int16 x, int16 z, uint8 setor, uint8 coorte, uint16 familia, uint8 flags(bit0=DSC)',
+    'esquema': 'int16 x, int16 z, uint8 setor, uint8 coorte, uint16 familia, '
+               'uint8 flags(bit0=DSC, bits1-3=forma por utxo_count), uint8 frente_m, uint8 prof_m',
     'chave': '(ts, txid, vout) do UTXO mais antigo; zero colisoes',
+    'curva': {'expoente': EXPOENTE, 'gradiente': GRADIENTE, 'k': K_AREA,
+              'lobos': LOBOS, 'loboAmp': LOBO_AMP},
     'setores': SETORES, 'giroPorSetor': GIRO_SETOR, 'bulevar_m': BULEVAR,
-    'celula_m': CELULA, 'quarteirao_m': QUARTEIRAO, 'lote_m2': LOTE_W*LOTE_D,
+    'celula_m': CELULA, 'quarteirao_m': QUARTEIRAO,
     'declive_max': DECLIVE_MAX, 'raioInicio': R_INICIO, 'raioSitio': R_SITIO,
-    'capacidade': CAP, 'capacidadePorSetor': cap,
+    'raioBorda': R_ABOBADA,
+    'tecidoDisponivel_km2': round(CAP_AREA/1e6, 3),
+    'capacidadeHaPorSetor': [round(a/1e4, 1) for a in cap_area],
+    'areaLotes_km2': round(sum(areas)/1e6, 3) if areas else 0,
+    'loteMediana_m2': round(areas[len(areas)//2]) if areas else 0,
+    'loteMenor_m2': round(areas[0]) if areas else 0,
+    'loteMaior_m2': round(areas[-1]) if areas else 0,
     'carteiras': N, 'plantadas': len(saida),
     'enclaves': len(familias_grandes), 'carteirasEmEnclave': len(familia_de),
     'dsc': len(dsc), 'setorDSC': S_DSC+1,

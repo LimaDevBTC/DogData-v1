@@ -22,14 +22,20 @@ export const ORBIT_CENTER = new THREE.Vector3(0, 0, 0)
 // e o motivo é simples: foguete não atravessa a casca. O modelo veio do Blender
 // com o pad assado em (-140, 3090), raio 3.093 m, e a saia da abóbada fecha em
 // 3.458 m, ou seja a estação inteira estava por dentro. O deslocamento leva o
-// centro para o raio 4.400 no MESMO rumo, o que preserva o enquadramento do
-// herói (a estação no horizonte, atrás do castelo) e deixa 642 m de chão livre
+// centro para o raio 5.150 no MESMO rumo, o que preserva o enquadramento do
+// herói (a estação no horizonte, atrás do castelo) e deixa 350 m de chão livre
 // entre a borda da casca e a testa da pegada de 845 por 599 m.
-// O +10,5 em y é medido por raio no terreno: o chão passa de 37,8 m no sítio
-// velho para 48,3 m no novo, e sem isso o pátio afunda.
+// ⚠️ ESTE NÚMERO JÁ MUDOU DUAS VEZES NO MESMO DIA, e sempre pelo mesmo motivo:
+// ele é um DERIVADO do raio do sítio, não uma escolha. Foi 3.093 (dentro da
+// casca), virou 4.400 quando a casca fechou em 3.500, e virou 5.150 quando o
+// sítio cresceu para 4.500 para o lote mediano subir de 153 para 250 m². Se o
+// raio mexer de novo, este vetor mexe junto ou o foguete volta a atravessar o
+// vidro.
+// O +19,8 em y é medido por raio no terreno: o chão passa de 37,7 m no sítio
+// velho para 57,5 m no novo, e sem isso o pátio afunda.
 // ⚠️ ISTO TAMBÉM MOVE AS VAGAS DE POUSO. Elas são coordenadas de mundo e vivem
 // coladas ao modelo: mexer numa sem a outra põe nave pousando no vazio.
-export const SPACEPORT_SHIFT = new THREE.Vector3(-59, 10.5, 1306)
+export const SPACEPORT_SHIFT = new THREE.Vector3(-93, 19.8, 2055)
 
 const desloca = (v: THREE.Vector3) => v.add(SPACEPORT_SHIFT)
 

@@ -333,7 +333,7 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
     case 'park':
       return { pos: new THREE.Vector3(PARK_CENTER.x - 2210, 30, PARK_CENTER.z + 1748), target: new THREE.Vector3(PARK_CENTER.x, 120, PARK_CENTER.z) }
     case 'spaceport': // segue a estação no lugar novo, fora da abóbada (SPACEPORT_SHIFT)
-      return { pos: new THREE.Vector3(541, 390, 5006), target: new THREE.Vector3(-199, 71, 4396) }
+      return { pos: new THREE.Vector3(507, 400, 5755), target: new THREE.Vector3(-233, 78, 5145) }
   }
   if (aspect >= 1) return { pos: HOME_POS.clone(), target: HOME_TARGET.clone() }
   return { pos: new THREE.Vector3(430, 760, -1300), target: new THREE.Vector3(0, 40, 420) }
