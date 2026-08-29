@@ -57,5 +57,24 @@ export function desenhar(c: Ctx): Desenho {
   // Fileira de covas (arvores) na borda direita
   p.alinhamento(78, -160, 78, 160, 12)
 
+  // Oito bancos ao longo do espelho de agua
+  // Memorial silencioso: bancos posicionados em x=-70 e x=+70, olhando para o espelho
+  // Espelho de -140 a +140 em z, 4 bancos em cada lateral, espaçados 70m (aprox)
+  const zBancosMemorial = [-140, -70, 0, 70]
+  for (const z of zBancosMemorial) {
+    p.banco(-70, z, 90) // giro 90 = perpendicular, observando a agua
+    p.banco(70, z, 90)
+  }
+
+  // Postes no perimetro interno, altura 9m, passo 40m
+  // Lado norte (z=172, x de -82 a 82)
+  p.postes(-82, 172, 82, 172, 40, 9)
+  // Lado sul (z=-172, x de -82 a 82)
+  p.postes(-82, -172, 82, -172, 40, 9)
+  // Lado leste (x=82, z de -172 a 172)
+  p.postes(82, -172, 82, 172, 40, 9)
+  // Lado oeste (x=-82, z de -172 a 172)
+  p.postes(-82, -172, -82, 172, 40, 9)
+
   return p.fechar()
 }

@@ -350,6 +350,138 @@ export class Prancheta {
     g.dispose()
   }
 
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // O VERTICALZINHO: poste, mastro, refletor, cobertura, guarda-corpo, banco.
+  //
+  // ⚠️ É ISTO QUE TIRA A CARA DE MAQUETE. Um plano de massas tem volume e chão e
+  // por isso lê como maquete branca: falta a coisa fina e alta que dá ESCALA
+  // HUMANA. Um poste de 9 m ao lado de um galpão de 14 diz quanto o galpão tem;
+  // sem ele, o galpão pode ter 3 m ou 30. E na chapa de sol raso é a SOMBRA
+  // comprida do poste que desenha, não o poste.
+  //
+  // ⚠️ ORÇAMENTO: cada peça destas custa entre 12 e 60 triângulos. Pode haver
+  // centenas por peça sem mover o ponteiro, mas NÃO milhares: a cidade toda já
+  // roda com 51 peças e 39 mil árvores.
+  // ══════════════════════════════════════════════════════════════════════════
+
+  /** poste de iluminação: fuste + braço + luminária. 9 m é o padrão de via. */
+  poste(lx: number, lz: number, alturaM = 9, giro = 0, cor: string = COR.MEDIO) {
+    this.vol(cor, lx, lz, 0.34, alturaM, 0.34)
+    const bx = lx + Math.cos(giro) * 1.5, bz = lz + Math.sin(giro) * 1.5
+    const y = this.ctx.alt(lx, lz) + Y.PARCELA + alturaM
+    const g = new THREE.BoxGeometry(3.0, 0.28, 0.28)
+    g.rotateY(-giro)
+    g.translate((lx + bx) / 2, y, (lz + bz) / 2)
+    this.solto(cor, g)
+    const l = new THREE.BoxGeometry(1.5, 0.34, 0.8)
+    l.rotateY(-giro)
+    l.translate(bx + Math.cos(giro) * 0.9, y - 0.3, bz + Math.sin(giro) * 0.9)
+    this.solto(COR.CLARO, l)
+  }
+
+  /** fila de postes ao longo de uma reta, com o braço virado para dentro */
+  postes(x0: number, z0: number, x1: number, z1: number, passo = 32, alturaM = 9) {
+    const L = Math.hypot(x1 - x0, z1 - z0)
+    const n = Math.max(1, Math.round(L / passo))
+    const giro = Math.atan2(z1 - z0, x1 - x0) + Math.PI / 2
+    for (let k = 0; k <= n; k++) {
+      this.poste(x0 + ((x1 - x0) * k) / n, z0 + ((z1 - z0) * k) / n, alturaM, giro)
+    }
+  }
+
+  /** mastro: fuste fino e alto, para bandeira, antena ou marco. */
+  mastro(lx: number, lz: number, alturaM = 26, cor: string = COR.CLARO) {
+    this.cilindro(cor, lx, lz, 0.5, alturaM, 6)
+  }
+
+  /**
+   * REFLETOR DE ESTÁDIO: torre de 4 pernas com a bateria de luz no topo. É a
+   * silhueta que faz um campo virar estádio numa aérea, e ela é alta de
+   * propósito: 42 m é a altura real de torre de iluminação de estádio grande.
+   */
+  refletor(lx: number, lz: number, alturaM = 42, giro = 0) {
+    for (const [ox, oz] of [[-2.2, -2.2], [2.2, -2.2], [-2.2, 2.2], [2.2, 2.2]] as const) {
+      const cx = lx + ox * Math.cos(giro) - oz * Math.sin(giro)
+      const cz = lz + ox * Math.sin(giro) + oz * Math.cos(giro)
+      this.vol(COR.MEDIO, cx, cz, 0.6, alturaM, 0.6)
+    }
+    const y = this.ctx.alt(lx, lz) + Y.PARCELA + alturaM
+    const cab = new THREE.BoxGeometry(11, 4.5, 2.2)
+    cab.rotateY(-giro)
+    cab.translate(lx, y + 2.2, lz)
+    this.solto(COR.CLARO, cab)
+  }
+
+  /**
+   * COBERTURA DE ARQUIBANCADA: anel ou arco em balanço sobre os degraus. Uma
+   * arquibancada sem cobertura lê como degrau de concreto; com ela lê como
+   * estádio, porque a sombra do balanço desenha a bacia inteira.
+   */
+  cobertura(cx: number, cz: number, ri: number, re: number, alturaM: number,
+            a0 = 0, a1 = Math.PI * 2, cor: string = COR.CLARO, alongar = 1) {
+    const seg = Math.max(16, Math.ceil((Math.abs(a1 - a0) * re) / 20))
+    const P = (rr: number, aa: number, y: number) => {
+      const lx = cx + Math.sin(aa) * rr * alongar, lz = cz - Math.cos(aa) * rr
+      return [lx, this.ctx.alt(lx, lz) + y, lz]
+    }
+    for (let k = 0; k < seg; k++) {
+      const t0 = a0 + ((a1 - a0) * k) / seg, t1 = a0 + ((a1 - a0) * (k + 1)) / seg
+      this.quad(cor, P(ri, t0, alturaM), P(ri, t1, alturaM), P(re, t1, alturaM), P(re, t0, alturaM))
+      this.quad(COR.MEDIO, P(re, t0, alturaM), P(re, t1, alturaM),
+                P(re, t1, alturaM - 1.4), P(re, t0, alturaM - 1.4))
+    }
+    const np = Math.max(4, Math.round((Math.abs(a1 - a0) * 180) / Math.PI / 18))
+    for (let k = 0; k <= np; k++) {
+      const aa = a0 + ((a1 - a0) * k) / np
+      const lx = cx + Math.sin(aa) * re * alongar, lz = cz - Math.cos(aa) * re
+      this.vol(COR.MEDIO, lx, lz, 1.1, alturaM, 1.1)
+    }
+  }
+
+  /** guarda-corpo ao longo de uma polilinha: montantes a cada 4 m e um corrimão */
+  guardaCorpo(pts: [number, number][], alturaM = 1.1, cor: string = COR.MEDIO) {
+    for (let k = 0; k < pts.length - 1; k++) {
+      const [x0, z0] = pts[k], [x1, z1] = pts[k + 1]
+      const L = Math.hypot(x1 - x0, z1 - z0)
+      const n = Math.max(1, Math.round(L / 4))
+      for (let j = 0; j <= n; j++) {
+        this.vol(cor, x0 + ((x1 - x0) * j) / n, z0 + ((z1 - z0) * j) / n, 0.16, alturaM, 0.16)
+      }
+      const y0 = this.ctx.alt(x0, z0) + Y.PARCELA + alturaM
+      const y1 = this.ctx.alt(x1, z1) + Y.PARCELA + alturaM
+      const w = 0.1
+      const dx = ((z1 - z0) / (L || 1)) * w, dz = (-(x1 - x0) / (L || 1)) * w
+      this.quad(cor, [x0 - dx, y0, z0 - dz], [x1 - dx, y1, z1 - dz],
+                     [x1 + dx, y1, z1 + dz], [x0 + dx, y0, z0 + dz])
+    }
+  }
+
+  /** banco: assento e dois pés. 1,8 m é o comprimento de banco público real. */
+  banco(lx: number, lz: number, giro = 0, cor: string = COR.MEDIO) {
+    const y = this.ctx.alt(lx, lz) + Y.PARCELA
+    const a = new THREE.BoxGeometry(1.8, 0.14, 0.55)
+    a.rotateY(-giro); a.translate(lx, y + 0.45, lz)
+    this.solto(cor, a)
+    for (const s of [-1, 1]) {
+      const px = lx + Math.cos(giro) * 0.7 * s, pz = lz + Math.sin(giro) * 0.7 * s
+      this.vol(cor, px, pz, 0.14, 0.45, 0.5, giro)
+    }
+  }
+
+  /** placar: painel em pé sobre dois pés, virado para um ponto */
+  placar(lx: number, lz: number, larg = 18, alturaM = 9, giro = 0) {
+    for (const s of [-1, 1]) {
+      this.vol(COR.MEDIO, lx + Math.cos(giro) * (larg / 2 - 1) * s,
+               lz + Math.sin(giro) * (larg / 2 - 1) * s, 0.7, alturaM, 0.7)
+    }
+    const y = this.ctx.alt(lx, lz) + Y.PARCELA + alturaM
+    const g = new THREE.BoxGeometry(larg, alturaM * 0.62, 0.6)
+    g.rotateY(-giro)
+    g.translate(lx, y + alturaM * 0.31, lz)
+    this.solto(COR.ESCURO, g)
+  }
+
   /** fecha a prancheta e devolve as partes, uma por cor */
   fechar(): Desenho {
     if (this.podres) {

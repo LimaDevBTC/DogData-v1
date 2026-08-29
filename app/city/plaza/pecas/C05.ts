@@ -75,5 +75,26 @@ export function desenhar(c: Ctx): Desenho {
     p.cova(cant.x + 15, cant.z + 15, 2)
   }
 
+  // Mastros de 32 m ladeando a escadaria: marcas verticais da ascensao civica.
+  // Posicionados simetricamente nas laterais da sequencia de degraus.
+  p.mastro(-70, -30, 32)
+  p.mastro(70, -30, 32)
+
+  // Iluminacao do adro principal: 2 filas de postes de 8 m, passo 40 m.
+  // Bordas norte e sul do adro de 300 m de largura marcam entrada do edificio civico.
+  p.postes(-150, -5, 150, -5, 40, 8)      // Borda norte do adro
+  p.postes(-150, 125, 150, 125, 40, 8)    // Borda sul do adro
+
+  // Bancos: 8 peças no adro, posicionadas para circulação e repouso civico.
+  // Distribuição ao longo das laterais do espaço de chegada.
+  p.banco(-100, 40)
+  p.banco(-50, 40)
+  p.banco(50, 40)
+  p.banco(100, 40)
+  p.banco(-100, 80)
+  p.banco(-50, 80)
+  p.banco(50, 80)
+  p.banco(100, 80)
+
   return p.fechar()
 }

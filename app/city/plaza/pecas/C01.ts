@@ -88,5 +88,36 @@ export function desenhar(c: Ctx): Desenho {
   // Canto SE (sudeste): x de 120 a 170, z = 150
   p.alinhamento(120, 150, 170, 150, 10)
 
+  // Iluminacao do perimetro do patio central: 4 filas de postes de 8 m, passo 34 m.
+  // Altura 8 m e espaçamento regular marcam o perímetro civic do pátio.
+  p.postes(-90, -70, 90, -70, 34, 8)     // Lado norte
+  p.postes(-90, 70, 90, 70, 34, 8)       // Lado sul
+  p.postes(-90, -70, -90, 70, 34, 8)     // Lado oeste
+  p.postes(90, -70, 90, 70, 34, 8)       // Lado leste
+
+  // Bancos: 10 peças no patio central, posicionadas para convivio academico.
+  // Distribuícão simetricamente ao redor do disco de argamassa cinza.
+  p.banco(-50, -30)
+  p.banco(50, -30)
+  p.banco(-50, 0)
+  p.banco(50, 0)
+  p.banco(-50, 30)
+  p.banco(50, 30)
+  p.banco(-30, -50)
+  p.banco(30, -50)
+  p.banco(-30, 50)
+  p.banco(30, 50)
+
+  // Guarda corpo no anfiteatro: montantes de contenção da arquibancada.
+  // Raio externo 55 m em 16 pontos (semicirculo de 0 a pi), altura 1 m.
+  const pontosAnf = []
+  for (let i = 0; i <= 16; i++) {
+    const ang = (i / 16) * Math.PI
+    const x = 55 * Math.cos(ang)
+    const z = 40 + 55 * Math.sin(ang)
+    pontosAnf.push([x, z] as [number, number])
+  }
+  p.guardaCorpo(pontosAnf, 1)
+
   return p.fechar()
 }

@@ -51,5 +51,10 @@ export function desenhar(c: Ctx): Desenho {
   p.alinhamento(-a, -b + 16, a, -b + 16, 12)
   p.alinhamento(-a, b - 16, a, b - 16, 12)
 
+  // Postes entre as fileiras de estufa: 1 fila vertical em x=0
+  // Passo 50 m, altura 8 m para suporte estrutural das linhas de irrigacao
+  // Vai de z = -b + 50 a z = b - 50, percorrendo toda a profundidade longitudinal
+  p.postes(0, -b + 50, 0, b - 50, 50, 8)
+
   return p.fechar()
 }

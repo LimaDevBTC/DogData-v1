@@ -40,5 +40,33 @@ export function desenhar(c: Ctx): Desenho {
     p.cova(x, z)
   }
 
+  // Guarda-corpo no anel externo da plataforma: 24 pontos em raio 58 m
+  // Altura 1.2 m para proteger visitantes no ritual de observacao
+  const guardaCorpoPoints: [number, number][] = []
+  for (let k = 0; k < 24; k++) {
+    const angulo = (k / 24) * 2 * Math.PI
+    const x = 58 * Math.cos(angulo)
+    const z = 58 * Math.sin(angulo)
+    guardaCorpoPoints.push([x, z])
+  }
+  // Fecha o polígono
+  guardaCorpoPoints.push([58 * Math.cos(0), 58 * Math.sin(0)])
+  p.guardaCorpo(guardaCorpoPoints, 1.2)
+
+  // Seis bancos virados para fora, distribuidos uniformemente em volta do anel
+  // Giro em radianos para apontar para fora (radial)
+  for (let k = 0; k < 6; k++) {
+    const angulo = (k / 6) * 2 * Math.PI
+    const x = 50 * Math.cos(angulo)
+    const z = 50 * Math.sin(angulo)
+    const giro = angulo + Math.PI / 2  // perpendicular ao raio
+    p.banco(x, z, giro)
+  }
+
+  // Dois mastros de 22 m ladeando a torre central
+  // Um a oeste (x = -35, z = 0) e outro a leste (x = 35, z = 0)
+  p.mastro(-35, 0, 22)
+  p.mastro(35, 0, 22)
+
   return p.fechar()
 }

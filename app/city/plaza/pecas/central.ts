@@ -49,5 +49,14 @@ export function desenhar(c: Ctx): Desenho {
     p.cova(x, z, 3)
   }
 
+  // Iluminacao da plataforma de carga: fila de postes de 12 m ao longo do eixo x.
+  // Espaçados a 34 m, altura real de iluminacao de cais de carga.
+  p.postes(-70, 25, 70, 25, 34, 12)
+
+  // Dois mastros de 18 m laterais ao galpao, estrutura de suporte.
+  // Altura de mastro de triagem, um de cada lado da carga.
+  p.mastro(-60, -50, 18)
+  p.mastro(60, -50, 18)
+
   return p.fechar()
 }

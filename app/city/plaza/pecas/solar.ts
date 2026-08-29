@@ -36,5 +36,14 @@ export function desenhar(c: Ctx): Desenho {
   p.cilindro(COR.CLARO, -a + 40, b - 40, 2, 22)
   p.cilindro(COR.CLARO, a - 40, b - 40, 2, 22)
 
+  // Seis mastros de 20 m ao longo da via de servico central (x=0)
+  // Espacamento regular entre z = -b+60 e z = b-60 (distancia de 2b - 120)
+  // 6 mastros => 5 intervalos => passo = (2*b - 120) / 5
+  const passaMastro = (2 * b - 120) / 5
+  for (let i = 0; i < 6; i++) {
+    const z = -b + 60 + i * passaMastro
+    p.mastro(0, z, 20)
+  }
+
   return p.fechar()
 }

@@ -32,7 +32,7 @@ import { onDiagonal, DECK_Y, GENESIS_POS, SATOSHI_POOL, PAW_PALM, ORDINAL_CENTER
 import { TEMPLE_WORLD } from './park-site'
 import { CAVE_YAW, CAVE_LAYER } from './leonidas-cave'
 import { buildFoundersWalk, type FoundersWalk, type FoundersData } from './founders-walk'
-import { detectTier, profileFor, parseQuality, FrameGovernor, DistanceCuller, mergeStaticByMaterial } from './perf'
+import { detectTier, profileFor, parseQuality, FrameGovernor, DistanceCuller, mergeStaticByMaterial, OrcamentoDeLuz } from './perf'
 import { SF_CREDITS, SF, loadSf, dressSf } from './sf-assets'
 import { buildProps, type Props } from './props'
 import { buildDscGallery, DSC_CENTER, type DscGallery } from './dsc-gallery'
@@ -679,6 +679,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     }
 
     const scene = new THREE.Scene()
+    // ⚠️ CONTAGEM DE LUZ CONSTANTE: ver a nota longa em OrcamentoDeLuz (perf.ts).
+    // Mudar a contagem de luzes recompila TODOS os materiais da cena, e navegar
+    // pela cidade mudava de 10 pontuais e 2 spots para 5 e 0 o tempo todo.
+    const orcamentoLuz = new OrcamentoDeLuz(scene, 12, 2)
+
     // ?stats=1: a cena inteira na janela, para medir peça por fora (foi assim que
     // se achou o pé da caverna fora do chão). Declarado aqui, DEPOIS da cena
     // existir: no bloco de stats lá em cima ele caía na zona morta do const.
@@ -1024,6 +1029,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let campoVivo = false
     let emblemaGuerra: THREE.Group | null = null
     let heightAt: (x: number, z: number) => number = () => 0
+    let superficieAt: (x: number, z: number) => number = () => 0
+    let lagoGeo: { r0: number; r1: number; agua: number; fundo: number } | null = null
 
     const loadGlb = (url: string) =>
       new Promise<THREE.Group>((res, rej) => gltf.load(url, (g) => res(g.scene), undefined, rej))
@@ -1052,6 +1059,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         chaoGuerra = terrain.heightAt(WAR_POS.x, WAR_POS.z)
         if (disposed) return
         heightAt = terrain.heightAt
+        superficieAt = terrain.superficieAt
+        lagoGeo = terrain.lago
         groundAt = terrain.heightAt
         scene.add(terrain.group)
 
@@ -2115,6 +2124,42 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     // Existe porque conferir 35 peças uma a uma escrevendo um `case` para cada
     // em viewFor() é trabalho de macaco, e porque a medida da parcela já está
     // publicada em cidade.json: a câmera se deduz dela.
+    // ?stats=1 → sonda de altura: compara a superfície contínua com a linearizada
+    // ?stats=1 → window.__plazaProgramas(): agrupa os programas de shader
+    // compilados pela CHAVE DE CACHE, que é o que diz o que está variando.
+    // Programa é permutação de material: cada um custa compilação e memória, e a
+    // spec da maquete mediu 228 com teto de 235.
+    if (wantStats) {
+      ;(window as unknown as { __plazaProgramas?: () => unknown }).__plazaProgramas = () => {
+        const ps = renderer.info.programs ?? []
+        const porNome = new Map<string, number>()
+        for (const pg of ps) porNome.set(pg.name, (porNome.get(pg.name) ?? 0) + 1)
+        // ⚠️ A CHAVE DE CACHE É UMA LISTA POSICIONAL. Comparar as chaves campo a
+        // campo diz QUAL propriedade está explodindo em permutações, que é a
+        // única pergunta que importa aqui: nome de material não explica nada,
+        // porque material igual com flag diferente já é outro programa.
+        const chaves = ps.map((pg) => String(pg.cacheKey).split(','))
+        const larg = Math.max(...chaves.map((k) => k.length))
+        const campos: { pos: number; distintos: number; valores: string[] }[] = []
+        for (let i = 0; i < larg; i++) {
+          const vs = new Set<string>()
+          for (const k of chaves) vs.add(k[i] ?? '')
+          if (vs.size > 1) campos.push({ pos: i, distintos: vs.size, valores: Array.from(vs).slice(0, 6).map((v) => v.slice(0, 40)) })
+        }
+        return {
+          total: ps.length,
+          porNome: Array.from(porNome.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5),
+          camposQueVariam: campos.sort((a, b) => b.distintos - a.distintos).slice(0, 10),
+          semUso: ps.filter((pg) => pg.usedTimes === 0).length,
+        }
+      }
+    }
+    if (wantStats) {
+      ;(window as unknown as { __plazaAltura?: (r: number) => unknown }).__plazaAltura = (r: number) => {
+        const a = 0.9, x = Math.sin(a) * r, z = -Math.cos(a) * r
+        return { r, heightAt: +heightAt(x, z).toFixed(2), superficieAt: +superficieAt(x, z).toFixed(2), lago: lagoGeo }
+      }
+    }
     if (wantStats) {
       ;(window as unknown as { __plazaPeca?: (id: string) => unknown }).__plazaPeca = async (id: string) => {
         const meta = await fetch('/city/cidade.json').then((r) => r.json())
@@ -2178,7 +2223,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       governor.sample(nowMs - lastFrameAt, nowMs)
       lastFrameAt = nowMs
       culler.update(camera.position)
+      orcamentoLuz.update()
       arvores?.update(camera.position)
+      lago?.update(t)
       if (!controls.autoRotate && performance.now() - lastInteraction > 25_000) controls.autoRotate = true
       if (fly.on) {
         const u = Math.min(1, (performance.now() - fly.t0) / (fly.dur * 1000))

@@ -138,7 +138,7 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array): Terrain 
   // escavada nele com margem constante. A volta ao relevo real passa a ser de
   // 1.340 a 1.700, fora do lago e por baixo da primeira fileira de quarteirões,
   // que continuam acompanhando o chão como sempre acompanharam.
-  const PLATO_R = 1340, PLATO_FIM = 1700
+  const PLATO_R = 1470, PLATO_FIM = 1830
   const siteAt = (x: number, z: number): number => {
     const raw = rawAt(x, z)
     const r = Math.hypot(x, z)
@@ -193,7 +193,7 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array): Terrain 
   // rampa. Com 1.130 o talude começa em 1.060, 36 m livres da última peça.
   // A margem externa é 1.210 pelo motivo simétrico: o talude termina em 1.280 e o
   // lote mais interno da cidade está em r 1.300.
-  const LAGO_R0 = 1090, LAGO_R1 = 1250     // margem interna e externa da água
+  const LAGO_R0 = 1090, LAGO_R1 = 1390     // margem interna e externa da água
   // ⚠️ TALUDE DE 40 E NÃO 70. Com 70 m de rampa de cada lado sobrava mais praia
   // que água: a lâmina caía para 128 m de largura e a chapa lia deserto com uma
   // poça no meio. O talude é o que limita, não a bacia. Com 40 m a linha d'água

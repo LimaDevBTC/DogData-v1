@@ -84,7 +84,11 @@ export function buildAquario(o: AquarioOpts): Aquario {
   // Um anel de 22 m de largura em pé no fundo, com o teto na cota 0 (o piso da
   // praça) e o vidro na face de fora. Quem está na praça desce por uma rampa e
   // anda dentro dela com a água inteira do lado.
-  const R_GAL_I = L.r0 - 34, R_GAL_E = L.r0 - 12
+  // ⚠️ A GALERIA FICA DEPOIS DA QUEBRA DA RAMPA, e isso foi medido: em r 1.078 o
+  // talude ainda está em -20,4 e o piso da galeria em -25,4, ou seja ela nasceria
+  // ENTERRADA. Encostada em L.r0 ela pega o fundo cheio e o vidro dela abre
+  // exatamente na linha d'água.
+  const R_GAL_I = L.r0 - 12, R_GAL_E = L.r0 + 10
   const Y_TETO = 0.0, Y_PISO = L.fundo + 0.6
   const vs: number[] = [], ix: number[] = []
   const vidro: number[] = [], ixv: number[] = []
@@ -125,7 +129,7 @@ export function buildAquario(o: AquarioOpts): Aquario {
   const dx = Math.sin(ANG_TUN), dz = -Math.cos(ANG_TUN)
   const px = Math.cos(ANG_TUN), pz = Math.sin(ANG_TUN)
   {
-    const rI = L.r0 - 90, rE = L.r1 + 90
+    const rI = L.r0 - 50, rE = L.r1 + 50
     const n = 60, RAIO = 5.5, LADOS = 10
     for (let k = 0; k < n; k++) {
       const t0 = k / n, t1 = (k + 1) / n
@@ -166,7 +170,19 @@ export function buildAquario(o: AquarioOpts): Aquario {
         const x = Math.sin(a) * r, z = -Math.cos(a) * r
         return [x, o.heightAt(x, z) + 0.25, z]
       }
-      quad(areia, ixa, p(L.r0 - 40, a0), p(L.r0 - 40, a1), p(L.r1 + 40, a1), p(L.r1 + 40, a0))
+      // ⚠️ SUBDIVIDE NO RADIAL, E ESTE FOI O ERRO QUE TAPOU O LAGO INTEIRO. A
+      // primeira versão fazia UM quad de r 1.050 a r 1.430: nas duas pontas o
+      // chão está em 0 (fora da bacia) e no meio em −26, então o quad plano virou
+      // uma TAMPA a −1,9 m sobre a água de −17. A sonda vertical achava
+      // `aquario:areia @ −1,9` acima de `lago:agua @ −17,0`, e a chapa mostrava
+      // um deserto claro onde devia haver lago. 18 m é o mesmo vão da via, da
+      // peça e da praia.
+      const rIn = L.r0 - 40, rOut = L.r1 + 40
+      const nr = Math.max(1, Math.ceil((rOut - rIn) / 18))
+      for (let j = 0; j < nr; j++) {
+        const ra = rIn + ((rOut - rIn) * j) / nr, rb = rIn + ((rOut - rIn) * (j + 1)) / nr
+        quad(areia, ixa, p(ra, a0), p(ra, a1), p(rb, a1), p(rb, a0))
+      }
     }
     const g = new THREE.BufferGeometry()
     g.setAttribute('position', new THREE.Float32BufferAttribute(areia, 3))
@@ -309,7 +325,7 @@ export function buildAquario(o: AquarioOpts): Aquario {
   const peixes = Object.values(peixePontos).reduce((s, a) => s + a.length, 0)
   const floresta = florestaPalm.length + florestaSamambaia.length + florestaFeto.length + florestaGrama.length
 
-  const R_TUN_I = L.r0 - 90, R_TUN_E = L.r1 + 90
+  const R_TUN_I = L.r0 - 50, R_TUN_E = L.r1 + 50
   const Y_TUN = L.fundo + 1.2 + 5.5
   return {
     group, specs, recife, peixes, floresta,

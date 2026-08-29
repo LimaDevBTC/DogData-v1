@@ -161,5 +161,92 @@ export function desenhar(c: Ctx): Desenho {
     }
   }
 
+  // ── MOBILIARIO VERTICAL ────────────────────────────────────────────────────
+
+  // ESTADIO: 4 refletores de 46 m nos cantos do bowl
+  {
+    const cx = -360, cz = -360
+    const offset = 168  // raio interno da arquibancada
+    // 46 m: altura real de torre de iluminacao de estadio grande
+    p.refletor(cx - offset, cz - offset, 46)
+    p.refletor(cx + offset, cz - offset, 46)
+    p.refletor(cx - offset, cz + offset, 46)
+    p.refletor(cx + offset, cz + offset, 46)
+    // cobertura da arquibancada: raios 168 (interno) e 196 (externo), altura 46 m
+    p.cobertura(cx, cz, 168, 196, 46, 0, Math.PI * 2, COR.CLARO, 1.18)
+  }
+
+  // VELODROMO: cobertura de 20 m sobre o anel de ciclismo
+  {
+    const cx = -360, cz = 360
+    // raios 118 (interno) a 148 (externo), altura 20 m de cobertura leve
+    p.cobertura(cx, cz, 118, 148, 20)
+  }
+
+  // ARENA: 2 mastros de 30 m ladeando o adro
+  {
+    const cx = 360, cz = 360
+    // 30 m: mastros laterais para identidade visual de arena coberta
+    p.mastro(cx - 130, cz - 30, 30)
+    p.mastro(cx - 130, cz + 30, 30)
+  }
+
+  // CAMPO DE AQUECIMENTO: 4 refletores de 30 m nos cantos
+  {
+    const cx = 0, cz = 360
+    const ox = 120, oz = 90  // offset dos cantos da pista de treino
+    // 30 m: refletores menores que no estadio principal (treino, nao competicao)
+    p.refletor(cx - ox, cz - oz, 30)
+    p.refletor(cx + ox, cz - oz, 30)
+    p.refletor(cx - ox, cz + oz, 30)
+    p.refletor(cx + ox, cz + oz, 30)
+  }
+
+  // QUADRAS DE TENIS: postes nas duas bordas longas, passo 44 m, altura 12 m
+  {
+    const cx = 0, cz = -360
+    const larg = 280  // comprimento da laje (eixo x)
+    // 12 m: altura de cobertura lateral para protecao de jogo em quadra
+    p.postes(cx - larg / 2, cz - 100, cx + larg / 2, cz - 100, 44, 12)
+    p.postes(cx - larg / 2, cz + 100, cx + larg / 2, cz + 100, 44, 12)
+  }
+
+  // ESPLANADAS: 4 filas de postes ao longo dos bracos da cruz, passo 60 m, altura 11 m
+  {
+    const A = a - 6  // 534 m: limite interno da parcela (menos borda de 6 m)
+    // 11 m: iluminacao de esplanada civica, intermetiaria entre passeio e estrutura
+    // as filas estao offset (+/-20) das arvores que ocupam o eixo central (+/-45)
+    // braco horizontal
+    p.postes(-A, 20, A, 20, 60, 11)   // acima do eixo x
+    p.postes(-A, -20, A, -20, 60, 11)  // abaixo do eixo x
+    // braco vertical
+    p.postes(-20, -A, -20, A, 60, 11)  // esquerda do eixo z
+    p.postes(20, -A, 20, A, 60, 11)   // direita do eixo z
+  }
+
+  // PRACA DAS MEDALHAS: 8 mastros de 18 m em anel de raio 96
+  {
+    const R = 96  // raio do anel de mastros
+    const N = 8   // numero de mastros (8, um por direcao cardinais + intermediarias)
+    // 18 m: marco vertical de identidade local (maior que guarda-corpo, menor que arena)
+    for (let k = 0; k < N; k++) {
+      const ang = (k / N) * Math.PI * 2
+      p.mastro(Math.sin(ang) * R, -Math.cos(ang) * R, 18)
+    }
+  }
+
+  // PRACA DAS MEDALHAS: guarda-corpo em anel de raio 120 com 24 montantes
+  {
+    const R = 120  // raio do anel de guarda-corpo
+    const N = 24   // numero de pontos do circulo (24 = 15 graus cada)
+    const pts: [number, number][] = []
+    for (let k = 0; k < N; k++) {
+      const ang = (k / N) * Math.PI * 2
+      pts.push([Math.sin(ang) * R, -Math.cos(ang) * R])
+    }
+    // 1.2 m: altura padrao de guarda-corpo de seguranca em praca publica
+    p.guardaCorpo(pts, 1.2, COR.CLARO)
+  }
+
   return p.fechar()
 }

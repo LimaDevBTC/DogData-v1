@@ -44,5 +44,12 @@ export function desenhar(c: Ctx): Desenho {
   // Plataforma de 30 x 14 m em Y.L1, centrada a z = -b + 30
   p.chao(COR.CLARO, -15, -b + 30 - 7, 15, -b + 30 + 7, Y.L1)
 
+  // Quatro refletores de 24 m nos cantos internos da parcela
+  // Altura 24 m cobre toda a profundidade do deposito com luz direta
+  p.refletor(-a + 40, -b + 40, 24)
+  p.refletor(a - 40, -b + 40, 24)
+  p.refletor(-a + 40, b - 40, 24)
+  p.refletor(a - 40, b - 40, 24)
+
   return p.fechar()
 }

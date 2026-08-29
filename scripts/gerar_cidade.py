@@ -35,7 +35,12 @@ def p(*a): return os.path.join(RAIZ, *a)
 # recorte a partir do tile SLDEM2015. Override por ambiente para medir o preço
 # de crescer sem editar o arquivo: R=4000 python3 scripts/gerar_cidade.py
 R_SITIO      = float(os.environ.get('R', 4500))
-R_INICIO     = 1300      # nada começa antes do fim da rampa do platô
+# ⚠️ 1.450 E NÃO 1.300, E O MOTIVO É O LAGO. O primeiro lote parava em 1.300 e a
+# praça acaba em 1.024: sobravam 276 m de anel, e o Lago da Praça ficava espremido
+# em 193 m de lâmina. Empurrando o começo da cidade 150 m para fora o lago vai
+# para 333 m de lâmina e 259 ha, que é o lago gigante que o fundador pediu.
+# O preço está medido no replante: ver loteamento.md.
+R_INICIO     = 1450      # nada começa antes do fim da rampa do platô
 SETORES      = 12
 GIRO_SETOR   = 7.5       # graus por setor; 12 x 7,5 = 90, e a malha quadrada fecha
 BULEVAR      = 34.0      # largura do bulevar radial sobre cada costura

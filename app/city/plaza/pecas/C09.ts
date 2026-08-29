@@ -43,5 +43,27 @@ export function desenhar(c: Ctx): Desenho {
   p.alinhamento(-78, -160, -78, 160, 12)
   p.alinhamento(78, -160, 78, 160, 12)
 
+  // Postes no patio de carga, 1 fila longitudinal
+  // Patio de 150 x 70 em (0, +130), fila central ao longo de x para amarracao de cargas
+  p.postes(-75, 130, 75, 130, 40, 9)
+
+  // Seis bancos entre as barracas da feira
+  // Distribuidos entre as 6 fileiras de barracas (z=20,34,48,62,76,90)
+  // 1 banco por fileira, centrado em x=0 entre as colunas de barracas
+  const zBancosBarracas = [20, 34, 48, 62, 76, 90]
+  for (const z of zBancosBarracas) {
+    p.banco(0, z, 0) // vendedores e clientes podem descansar
+  }
+
+  // Postes no perimetro interno, altura 9m, passo 40m
+  // Lado norte (z=172, x de -82 a 82)
+  p.postes(-82, 172, 82, 172, 40, 9)
+  // Lado sul (z=-172, x de -82 a 82)
+  p.postes(-82, -172, 82, -172, 40, 9)
+  // Lado leste (x=82, z de -172 a 172)
+  p.postes(82, -172, 82, 172, 40, 9)
+  // Lado oeste (x=-82, z de -172 a 172)
+  p.postes(-82, -172, -82, 172, 40, 9)
+
   return p.fechar()
 }

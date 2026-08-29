@@ -49,5 +49,34 @@ export function desenhar(c: Ctx): Desenho {
   // Tubulacao: fita de (-a + 30, 0) a (a - 30, 0), largura 4, altura Y.L2
   p.fita(COR.MEDIO, [[-a + 30, 0], [a - 30, 0]], 4, Y.L2)
 
+  // Guarda-corpo em volta de cada bacia de contencao, altura 1.2 m
+  // Protege operadores e delimita area de risco nos tanques de agua
+
+  // Bacia 1: z = -b + 70, dimensoes (2*a - 60) x 70
+  const bacia1X0 = -(a - 30)
+  const bacia1X1 = a - 30
+  const bacia1Z0 = -b + 70 - 35
+  const bacia1Z1 = -b + 70 + 35
+  p.guardaCorpo([
+    [bacia1X0, bacia1Z0],
+    [bacia1X1, bacia1Z0],
+    [bacia1X1, bacia1Z1],
+    [bacia1X0, bacia1Z1],
+    [bacia1X0, bacia1Z0]
+  ], 1.2)
+
+  // Bacia 2: z = b - 70, mesmas dimensoes
+  const bacia2X0 = -(a - 30)
+  const bacia2X1 = a - 30
+  const bacia2Z0 = b - 70 - 35
+  const bacia2Z1 = b - 70 + 35
+  p.guardaCorpo([
+    [bacia2X0, bacia2Z0],
+    [bacia2X1, bacia2Z0],
+    [bacia2X1, bacia2Z1],
+    [bacia2X0, bacia2Z1],
+    [bacia2X0, bacia2Z0]
+  ], 1.2)
+
   return p.fechar()
 }

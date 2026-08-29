@@ -49,5 +49,16 @@ export function desenhar(c: Ctx): Desenho {
   // Borda oeste (x = -172).
   p.alinhamento(-a + 8, -b + 8, -a + 8, b - 8, 16)
 
+  // Iluminacao das docas: fila de postes de 14 m ao longo de z = -40.
+  // Espaçados a 30 m, altura de iluminacao de porto de descarregamento.
+  p.postes(-108, -40, 108, -40, 30, 14)
+
+  // Torres de iluminacao de estadio de 26 m nos cantos do patio de espera.
+  // Altura real de torre de iluminacao de grandes areas.
+  p.refletor(-150, 55, 26)
+  p.refletor(-150, 145, 26)
+  p.refletor(150, 55, 26)
+  p.refletor(150, 145, 26)
+
   return p.fechar()
 }

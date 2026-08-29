@@ -87,5 +87,48 @@ export function desenhar(c: Ctx): Desenho {
   p.alinhamento(-a + 20, -b + 20, a - 20, -b + 20, 14)
   p.alinhamento(-a + 20, b - 20, a - 20, b - 20, 14)
 
+  // ----- Cobertura da arquibancada -----
+  // Arco que cobre a reta de baixo da arquibancada, 26 m de altura,
+  // com arco de 2π*0.72 a 2π*1.28 (cobre o espectador em cota alta).
+  p.cobertura(0, 470, 250, 276, 26, Math.PI * 0.72, Math.PI * 1.28)
+
+  // ----- Refletores -----
+  // Torres de iluminacao de 34 m de altura (padrao de estadio grande).
+  // Posicionadas nos quatro cantos (±300, ±230) e dois na reta de cima (0, ±235).
+  // 34 m e a altura real de refletor de estadio grande para cobertura completa.
+  p.refletor(300, 230, 34)
+  p.refletor(-300, 230, 34)
+  p.refletor(300, -230, 34)
+  p.refletor(-300, -230, 34)
+  p.refletor(0, 235, 34)
+  p.refletor(0, -235, 34)
+
+  // ----- Guarda-corpo -----
+  // Acompanha a raia externa do oval, 24 pontos distribuidos ao redor
+  // da pista (8 na reta de cima, 5 na curva direita, 7 na reta de baixo, 4 na curva esquerda).
+  // Altura de corrimao padrao: 0.66 m (Y.L4).
+  const pontosGuardaCorpo: [number, number][] = [
+    [-230, -210], [-160, -210], [-90, -210], [-20, -210], [20, -210], [90, -210], [160, -210], [230, -210],
+    [305, -170], [320, -70], [320, 70], [305, 170], [230, 210],
+    [160, 210], [90, 210], [20, 210], [-20, 210], [-90, 210], [-160, 210], [-230, 210],
+    [-305, 170], [-320, 70], [-320, -70], [-305, -170],
+  ]
+  p.guardaCorpo(pontosGuardaCorpo, Y.L4)
+
+  // ----- Placar eletronico -----
+  // Painel de 40 m de largura, 14 m de altura, na reta de cima (z < -210).
+  // Giro 0 = frontal, enxerga os cavalos chegando na reta.
+  p.placar(0, -215, 40, 14, 0)
+
+  // ----- Postes de servico -----
+  // Fila de postes no paddock: de (-320, +120) a (-120, +120), passo 40 m.
+  // 6 postes totais, altura padrao de 9 m (iluminacao de patio).
+  p.postes(-320, 120, -120, 120, 40)
+
+  // ----- Mastro de chegada -----
+  // Mastro fino de 16 m em (230, 200), marco da linha de chegada.
+  // 16 m permite bandeira grande e visibilidade da meta.
+  p.mastro(230, 200, 16)
+
   return p.fechar()
 }

@@ -36,5 +36,14 @@ export function desenhar(c: Ctx): Desenho {
   p.alinhamento(-82, -172, -82, 172, 13)
   p.alinhamento(82, -172, 82, 172, 13)
 
+  // Iluminacao da Praca de Dados: 2 filas de postes de 6 m, passo 20 m.
+  // Altura 6 m ilumina as 12 lajes de leitura do supply central.
+  p.postes(-40, 30, -40, 150, 20, 6)      // Fila oeste
+  p.postes(40, 30, 40, 150, 20, 6)        // Fila leste
+
+  // Mastro de 40 m junto da torre: antenna de transmissao de dados.
+  // 40 m e a altura de torre de transmissao, junto ao volume de 78 m para visibilidade.
+  p.mastro(0, -110, 40)
+
   return p.fechar()
 }

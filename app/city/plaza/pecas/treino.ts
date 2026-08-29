@@ -51,5 +51,27 @@ export function desenhar(c: Ctx): Desenho {
   p.alinhamento(-a + 30, -b + 30, -a + 30, b - 30, 14)
   p.alinhamento(a - 30, -b + 30, a - 30, b - 30, 14)
 
+  // Quatro refletores de 28 m nos cantos do conjunto de campos
+  // Altura 28 m ilumina os campos de futebol e pista de caminhada
+  p.refletor(-a + 50, -b + 50, 28)
+  p.refletor(a - 50, -b + 50, 28)
+  p.refletor(a - 50, b - 50, 28)
+  p.refletor(-a + 50, b - 50, 28)
+
+  // Oito bancos na pista de caminhada: 2 em cada lado (NO, NE, SO, SE)
+  // Comprimento 1.8 m, virados para interior da pista
+  // Lado norte (z = -b + 30): bancos em x = -a + 60 e x = a - 60
+  p.banco(-a + 60, -b + 30, 0)
+  p.banco(a - 60, -b + 30, 0)
+  // Lado sul (z = b - 30): bancos em x = -a + 60 e x = a - 60
+  p.banco(-a + 60, b - 30, 0)
+  p.banco(a - 60, b - 30, 0)
+  // Lado oeste (x = -a + 30): bancos em z = -b + 60 e z = b - 60
+  p.banco(-a + 30, -b + 60, 1.57)
+  p.banco(-a + 30, b - 60, 1.57)
+  // Lado leste (x = a - 30): bancos em z = -b + 60 e z = b - 60
+  p.banco(a - 30, -b + 60, 1.57)
+  p.banco(a - 30, b - 60, 1.57)
+
   return p.fechar()
 }

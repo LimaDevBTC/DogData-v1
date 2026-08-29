@@ -44,5 +44,21 @@ export function desenhar(c: Ctx): Desenho {
     p.cova(x, z)
   }
 
+  // Oito mastros de 20 m em anel de raio 70 m ao redor do colosso.
+  // Altura de mastro de monumento, espaçados a 45 graus, estrutura de apoio visual.
+  for (let i = 0; i < 8; i++) {
+    const angulo = (i / 8) * Math.PI * 2
+    const x = 70 * Math.cos(angulo)
+    const z = 70 * Math.sin(angulo)
+    p.mastro(x, z, 20)
+  }
+
+  // Guarda-corpo nas quatro bordas do adro de observacao.
+  // Contenção de 1,2 m em volta da plataforma frontal do colosso.
+  p.guardaCorpo([[-80, 42], [80, 42]], 1.2)
+  p.guardaCorpo([[-80, 82], [80, 82]], 1.2)
+  p.guardaCorpo([[-80, 42], [-80, 82]], 1.2)
+  p.guardaCorpo([[80, 42], [80, 82]], 1.2)
+
   return p.fechar()
 }

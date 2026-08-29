@@ -110,5 +110,33 @@ export function desenhar(c: Ctx): Desenho {
     }
   }
 
+  // Iluminacao: postes ao longo das duas travessias, passo 46 m, altura 8 m
+  // (altura de poste de parque, mais discreto que os 9 m padrao)
+  p.postes(travessia1[0][0], travessia1[0][1], travessia1[1][0], travessia1[1][1], 46, 8)
+  p.postes(travessia2[0][0], travessia2[0][1], travessia2[1][0], travessia2[1][1], 46, 8)
+
+  // Bancos (20 unidades) dispostos em circulo de raio ~350 m ao redor do lago,
+  // virados para o lago (elemento principal). Ruido na distancia para naturalidade.
+  for (let k = 0; k < 20; k++) {
+    const angulo = (k / 20) * 2 * Math.PI
+    const raioBase = 350
+    const ruido = c.ruido(k) - 0.5  // -0.5 a +0.5
+    const dist = raioBase + ruido * 80  // +/- 40 m de variacao
+    const bx = dist * Math.cos(angulo)
+    const bz = dist * Math.sin(angulo)
+    const giro = angulo  // virado para o centro do lago
+    p.banco(bx, bz, giro, COR.CLARO)
+  }
+
+  // Guarda-corpo ao longo do trecho que margeia o lago, 20 pontos. Intercala vertices
+  // e pontos medios do contorno para cobrir a margem.
+  const guarda: [number, number][] = [
+    [-420, -360], [-310, -370], [-200, -380], [-30, -355], [140, -330],
+    [260, -265], [380, -200], [400, -70], [420, 60], [360, 180],
+    [300, 300], [150, 335], [0, 370], [-150, 350], [-300, 330],
+    [-365, 225], [-430, 120], [-425, -120], [-420, -360], [0, 0]
+  ]
+  p.guardaCorpo(guarda.slice(0, 20), 1.2, COR.CLARO)
+
   return p.fechar()
 }

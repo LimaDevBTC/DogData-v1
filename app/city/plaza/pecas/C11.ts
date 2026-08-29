@@ -19,5 +19,16 @@ export function desenhar(c: Ctx): Desenho {
   // Lanterna: cilindro MEDIO de raio 12, altura 66m (ultrapassa a torre em 8m)
   p.cilindro(COR.MEDIO, 0, 0, 12, 66)
 
+  // Guarda-corpo no degrau central: 20 pontos de raio 30 m.
+  // Segurança na circulação anular, altura de contenção de visitantes.
+  const pontosDegrau: [number, number][] = []
+  for (let i = 0; i < 20; i++) {
+    const angulo = (i / 20) * Math.PI * 2
+    const x = 30 * Math.cos(angulo)
+    const z = 30 * Math.sin(angulo)
+    pontosDegrau.push([x, z] as [number, number])
+  }
+  p.guardaCorpo(pontosDegrau, 1.2)
+
   return p.fechar()
 }

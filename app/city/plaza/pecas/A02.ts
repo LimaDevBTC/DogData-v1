@@ -71,5 +71,34 @@ export function desenhar(c: Ctx): Desenho {
     p.cova(cx, cz)
   }
 
+  // Iluminacao: postes ao longo das tres aleias principais de circulacao, passo 46 m, altura 8 m
+  // Aleia horizontal inferior
+  p.postes(-250, -110, 250, -110, 46, 8)
+  // Aleia horizontal superior
+  p.postes(-250, 110, 250, 110, 46, 8)
+  // Aleia vertical central
+  p.postes(0, -270, 0, 270, 46, 8)
+
+  // Bancos (12 unidades) dispostos em arco de raio ~180 m ao redor da estufa,
+  // virados para a estufa (elemento central). Ruido na distancia.
+  for (let k = 0; k < 12; k++) {
+    const angulo = (k / 12) * 2 * Math.PI
+    const raioBase = 180
+    const ruido = c.ruido(k) - 0.5
+    const dist = raioBase + ruido * 40
+    const bx = dist * Math.cos(angulo)
+    const bz = dist * Math.sin(angulo)
+    const giro = angulo
+    p.banco(bx, bz, giro, COR.CLARO)
+  }
+
+  // Mastros de 14 m nos quatro cantos do adro da estufa.
+  // Adro esta em -100..100 (x) e -75..-35 (z).
+  // Mastros ligeiramente afastados dos cantos para nao entrar no adro.
+  p.mastro(-105, -80, 14, COR.CLARO)   // SO
+  p.mastro(105, -80, 14, COR.CLARO)    // SE
+  p.mastro(105, -30, 14, COR.CLARO)    // NE
+  p.mastro(-105, -30, 14, COR.CLARO)   // NO
+
   return p.fechar()
 }

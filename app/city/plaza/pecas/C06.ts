@@ -56,5 +56,22 @@ export function desenhar(c: Ctx): Desenho {
   p.cova(90, -90)
   p.cova(90, 90)
 
+  // Quatro mastros de 12m nos cantos do muro defensivo
+  // Muro perimetral em x=±76, z=±76, altura 12m para vigilancia
+  p.mastro(76, 76, 12)
+  p.mastro(76, -76, 12)
+  p.mastro(-76, 76, 12)
+  p.mastro(-76, -76, 12)
+
+  // Postes no perimetro interno, altura 9m, passo 40m
+  // Lado norte (z=82, x de -82 a 82)
+  p.postes(-82, 82, 82, 82, 40, 9)
+  // Lado sul (z=-82, x de -82 a 82)
+  p.postes(-82, -82, 82, -82, 40, 9)
+  // Lado leste (x=82, z de -82 a 82)
+  p.postes(82, -82, 82, 82, 40, 9)
+  // Lado oeste (x=-82, z de -82 a 82)
+  p.postes(-82, -82, -82, 82, 40, 9)
+
   return p.fechar()
 }

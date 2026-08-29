@@ -48,5 +48,26 @@ export function desenhar(c: Ctx): Desenho {
   // Canto SW (x < 0, z < 0)
   p.alinhamento(-65, -65, -80, -80, 4)
 
+  // Guarda-corpo nas quatro passarelas sobre o espelho de agua
+  // Altura 1.2m, segurança para pedestres ao atravessar
+  // Passarela sul
+  p.guardaCorpo([[0, -78], [0, -45]], 1.2)
+  // Passarela norte
+  p.guardaCorpo([[0, 78], [0, 45]], 1.2)
+  // Passarela oeste
+  p.guardaCorpo([[-78, 0], [-45, 0]], 1.2)
+  // Passarela leste
+  p.guardaCorpo([[78, 0], [45, 0]], 1.2)
+
+  // Postes no perimetro interno, altura 9m, passo 40m
+  // Lado norte (z=82, x de -82 a 82)
+  p.postes(-82, 82, 82, 82, 40, 9)
+  // Lado sul (z=-82, x de -82 a 82)
+  p.postes(-82, -82, 82, -82, 40, 9)
+  // Lado leste (x=82, z de -82 a 82)
+  p.postes(82, -82, 82, 82, 40, 9)
+  // Lado oeste (x=-82, z de -82 a 82)
+  p.postes(-82, -82, -82, 82, 40, 9)
+
   return p.fechar()
 }

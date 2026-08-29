@@ -38,5 +38,17 @@ export function desenhar(c: Ctx): Desenho {
     p.chao(COR.CLARO, -65, z - 1.5, 65, z + 1.5, Y.L2)
   }
 
+  // Seis mastros de 28 m ao longo da cancela, espaçados de -140 a +140.
+  // Altura de mastro de portao de entrada, estrutura de controle.
+  for (let i = 0; i < 6; i++) {
+    const x = -140 + i * 56
+    p.mastro(x, 0, 28)
+  }
+
+  // Guarda-corpo nas bordas oeste e leste das pistas de carga.
+  // Contenção de 1,2 m ao longo das faixas de movimento.
+  p.guardaCorpo([[-65, -31.5], [-65, 31.5]], 1.2)
+  p.guardaCorpo([[65, -31.5], [65, 31.5]], 1.2)
+
   return p.fechar()
 }

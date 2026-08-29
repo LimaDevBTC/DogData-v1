@@ -448,6 +448,146 @@ o mesmo da via e da peça) e a folga em rampa é 80 cm.
 
 ---
 
+## 3.11 O Lago é um aquário, e a cidade recuou 150 m para ele caber
+
+⚠️ **Decisão do fundador em 29/08: o Lago da Praça é um AQUÁRIO MARINHO.** A parte
+submersa é de vidro, para o visitante ver o fundo do mar. Na Lua. Isso troca a
+natureza da peça: o lago deixa de ser paisagem e vira ATRAÇÃO, que é o que a
+cidade mais precisa antes do mint, porque até o mint não existe prédio para entrar.
+
+| | |
+|---|---|
+| lâmina | **293 ha** (era 156) |
+| largura da água | **333 m** (era 193) |
+| recife | 625 peças (coral, anêmona, alga) |
+| peixes | 1.120, instanciados em nuvem |
+| floresta das ilhas | 896 palmeiras, samambaias, fetos e grama |
+| ilhas | 8, a primeira do **Dog Social Club** |
+
+**O REPLANTE que pagou por isso:** `R_INICIO` foi de 1.300 para **1.450 m**. O
+tecido caiu de 22,07 para 21,35 km² (−3,3%) e a **mediana foi de 274 para 272 m²,
+dois metros quadrados**. Eu tinha projetado 266: a bisseção achou um k melhor
+(0,205 contra 0,196), porque o anel que saiu era justamente onde o gradiente faz
+o lote menor. 52.984 de 52.984 plantadas.
+
+**O vidro não é escavado no terreno, é construído dentro da água.** O talude é
+rampa; encostar parede vertical nele exigiria recortar um penhasco e estragaria a
+praia. A galeria fica EM PÉ no fundo, encostada na margem interna, com o teto na
+cota da praça e o vidro virado para fora. É como aquário público funciona: o
+visitante desce, a água não sobe. Mais um **túnel de vidro no rumo 45**, entre
+duas pontes de propósito, porque quem passa sob a ponte não vê nada.
+
+⚠️ **Uma exceção única à guarda de chão da câmera.** O laço nunca deixa a câmera
+entrar no regolito, e é isso que impede o usuário de cair para dentro do planeta.
+`aquario.dentro(p)` devolve true dentro da galeria e do túnel, e só ali o laço
+pula o travamento: sem isso o visitante é expulso do aquário quadro a quadro.
+
+![O lago aquário](docs/loteamento/lago-aquario.jpeg)
+
+### Três erros meus, todos da mesma família
+
+**(1) A areia do aquário tapou o lago inteiro.** Ela era UM quad radial de r 1.050
+a r 1.430; nas duas pontas o chão está em 0 e no meio em −26, então o plano virou
+uma TAMPA a −1,9 m sobre a água de −17. Sonda vertical: `aquario:areia @ −1,9`
+acima de `lago:agua @ −17,0`, e a chapa mostrava deserto onde devia haver lago.
+
+**(2) A praia do lago cintilava** porque os anéis usavam 180 segmentos fixos, o
+que dá corda de 45 m em cima de um talude, com folga de 22 cm.
+
+**(3) A bacia escavou por baixo da praça**, que vai até r 1.024 e não até a
+muralha em 900.
+
+**As três são a mesma coisa: superfície plana grande assentada sobre terreno que
+não é plano.** O remédio é sempre o mesmo e agora está escrito nos três arquivos:
+subdividir com passo de 18 m, nos DOIS eixos.
+
+⚠️ **E o material da água não é o das peças.** `#16283C` com roughness 0,08 e
+metalness 0,35 é valor de espelho de praça de 60 m: numa lâmina de 293 ha ele
+devolve o hemisfério claro e lê como areia pálida. Aqui é `#24597F` com roughness
+0,30 e metalness 0,02, para a cor base mandar.
+
+---
+
+## 3.12 A Caverna dos Runestones: reserva de volume
+
+⚠️ **Reserva, não obra**, igual às 51 peças lá em cima. 3 câmaras no subsolo do
+Parque Runestone somando **29,42 milhões de m³**: o Salão dos Runestones tem
+620 x 420 m com 110 m de pé direito, maior que qualquer arena da Terra. Doze
+runestones de obsidiana e duas bocas marcadas. A festa e o DJ vêm depois.
+
+⚠️ **Ela nasceu de um defeito que continua aberto.** No Parque Runestone a câmera
+entra na terra, e a causa é que o parque tem CHÃO PRÓPRIO (vale −61, cordilheira
++240 sobre o datum) enquanto a guarda do laço só conhece `terrain.heightAt`, que
+ali é a cova do parque. Consertar exige o parque publicar a altura dele.
+
+---
+
+## 3.13 O verticalzinho, a luz e a água
+
+### O que tira a cara de maquete é a coisa fina e alta
+
+⚠️ Um plano de massas tem volume e chão, e por isso lê como maquete branca:
+falta a **escala humana**. Um poste de 9 m ao lado de um galpão de 14 diz quanto
+o galpão tem; sem ele o galpão pode ter 3 m ou 30. E numa chapa de sol a 32 graus
+é a SOMBRA comprida do poste que desenha, não o poste.
+
+`pecas/kit.ts` ganhou oito primitivas: `poste`, `postes`, `mastro`, `refletor`,
+`cobertura`, `guardaCorpo`, `banco`, `placar`. **29 arquivos de peça** as
+receberam, escritos por 7 agentes em paralelo com orçamento de 40 a 120 peças de
+mobiliário cada.
+
+As duas que mais mudam a leitura: o **refletor de 42 m**, que é a altura real de
+torre de iluminação de estádio grande e é a silhueta que faz um campo virar
+estádio numa aérea; e a **cobertura de arquibancada**, sem a qual a arquibancada
+lê como degrau de concreto e com a qual a sombra do balanço desenha a bacia.
+
+![O Parque Olímpico com refletor, cobertura e poste](docs/loteamento/peca-E01-olimpico.jpeg)
+
+### ⚠️ Água não é uma cor, é um comportamento
+
+Gastei três tentativas trocando o azul do lago antes de entender o erro. Um
+`MeshStandardMaterial` azul liso é uma CHAPA azul: de cima ela é do tom escrito e
+de raso continua do mesmo tom, o que nenhum líquido faz. O que faz o olho
+reconhecer água são três coisas, e **nenhuma delas é a cor**:
+
+1. **Fresnel.** De cima se vê o corpo d'água (escuro); de raso ela devolve o céu
+   (claro). O contraste entre esses dois extremos dentro da mesma lâmina é o que
+   diz "isto é líquido".
+2. **Ondulação.** Três cristas cruzadas de período longo (26, 40 e 76 m) inclinam
+   a normal alguns graus. Não se vê a onda; vê-se o brilho do sol se partindo
+   nela.
+3. **Movimento.** As cristas andam. Lâmina parada de 293 ha lê como piso polido.
+
+Tudo em `onBeforeCompile`: **zero draw call novo, zero material novo, zero
+pós-processamento.** Um Reflector de verdade redesenha a cena por espelho e está
+proibido pela spec da maquete (decisão D10).
+
+### A luz já estava resolvida, e eu é que não estava usando
+
+O perfil `?hour=maquete` existe desde a rodada da spec: sol a 32 graus, razão sol
+sobre preenchimento de 4,0:1 (a banda que a fotografia de estúdio chama de padrão
+a dramático), `hemiGround` levantado de L 0,015 para L 0,043 e exposição 1,02. O
+`normalBias` já tinha caído de 1,2 para 0,15, que é o que faz o volume lançar
+sombra de verdade. **Eu vinha fotografando em `day` e `morning` esse tempo todo.**
+As chapas desta seção são as primeiras em `maquete`.
+
+![O lago com fresnel, ondulação e luz de maquete](docs/loteamento/lago-aquario.jpeg)
+
+### Custo medido
+
+| | |
+|---|---|
+| fps na vista do lago | **74,1** |
+| draw calls | 313 |
+| triângulos | 4,79 M |
+| programas compilados | **494** ⚠️ |
+
+⚠️ **494 programas contra o teto de 235 que a spec mediu.** Não derrubou o fps
+(74,1), mas é o número que mais cresceu na rodada e é o próximo a investigar: cada
+programa é uma permutação de material e custa compilação e memória.
+
+---
+
 ## 4. A demarcação: 38 peças, 136 ha
 
 Reservadas **antes** do lote, cumprindo `masterplan.md:268-269` pela primeira vez.

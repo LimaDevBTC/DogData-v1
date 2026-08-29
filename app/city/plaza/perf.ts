@@ -140,9 +140,51 @@ export class FrameGovernor {
 /** Culling por distância: registra objetos com um raio de "vale a pena desenhar";
  *  `update(cameraPos)` liga/desliga. Barato: uma distância por grupo. */
 export class DistanceCuller {
-  private items: { o: THREE.Object3D; center: THREE.Vector3; maxDist: number }[] = []
+  private items: {
+    o: THREE.Object3D; center: THREE.Vector3; maxDist: number
+    /** as luzes que vivem dentro deste grupo, com a intensidade original */
+    luzes: { l: THREE.Light; i0: number }[]
+  }[] = []
+
+  /**
+   * ⚠️ LUZ NUNCA É ESCONDIDA, SÓ APAGADA, E ISSO É O CONSERTO DE UM DEFEITO CARO.
+   *
+   * O culling escondia o grupo inteiro com `visible = false`, e vários grupos têm
+   * luz dentro (o Parque Runestone tem 7, Monuments 2, Precinct 1, o Chalé 1, o
+   * DSC 1). A CONTAGEM DE LUZES FAZ PARTE DA CHAVE DE CACHE DE PROGRAMA do three:
+   * toda vez que uma luz aparecia ou sumia, o renderizador recompilava TODOS os
+   * materiais da cena e guardava mais uma família inteira de programas, para
+   * sempre.
+   *
+   * Medido em 29/08/2026: com a câmera perto a cena tinha 10 pontuais e 2 spots;
+   * levando a câmera para 8,5 km e trazendo de volta, ela passava a 5 e 0 e
+   * voltava a 10 e 2. UMA viagem de ida e volta subiu os programas compilados de
+   * 444 para 480. Navegando pela cidade isso não converge: cada combinação nova
+   * de (pontuais, spots) é uma família nova.
+   *
+   * Apagar em vez de esconder mantém a contagem CONSTANTE, que é o que o
+   * renderizador precisa. Custa o laço fixo das 12 luzes no fragmento, que é
+   * previsível e já estava sendo pago quando a câmera está perto.
+   */
   add(o: THREE.Object3D, maxDist: number, center?: THREE.Vector3) {
-    this.items.push({ o, center: center ?? new THREE.Vector3(), maxDist })
+    this.items.push({ o, center: center ?? new THREE.Vector3(), maxDist, luzes: [] })
+  }
+
+  /**
+   * ⚠️ O INVENTÁRIO DE LUZ SE REFAZ NA TRANSIÇÃO, E NÃO NO REGISTRO. A primeira
+   * versão varria o grupo dentro de `add()`, e seis luzes continuavam escapando:
+   * vários módulos registram o grupo no culling e SÓ DEPOIS penduram luz nele
+   * (GLB que carrega assíncrono, luz criada no fim do build). O inventário de
+   * registro nascia incompleto e ninguém percebia.
+   * Varrer aqui é barato porque só roda quando a visibilidade MUDA, o que
+   * acontece algumas vezes por travessia de cidade e não por quadro.
+   */
+  private inventariar(it: { o: THREE.Object3D; luzes: { l: THREE.Light; i0: number }[] }) {
+    const vistas = new Set(it.luzes.map((z) => z.l))
+    it.o.traverse((c) => {
+      const l = c as THREE.Light
+      if (l.isLight && !vistas.has(l)) it.luzes.push({ l, i0: l.intensity })
+    })
   }
   /** Liga TUDO por um instante. O `compileAsync` do three só compila o que está
    *  visível, e a visita guiada voa justamente por peças que o culling esconde
@@ -150,13 +192,35 @@ export class DistanceCuller {
    *  pleno voo e a câmera engasgava. Usar só no boot, antes do portão abrir, e
    *  chamar `update()` logo depois. */
   revealAll() {
-    for (const it of this.items) it.o.visible = true
+    for (const it of this.items) {
+      it.o.visible = true
+      this.inventariar(it)
+      for (const z of it.luzes) { z.l.visible = true; z.l.intensity = z.i0 }
+    }
   }
   update(cam: THREE.Vector3) {
     for (const it of this.items) {
       const on = cam.distanceTo(it.center) < it.maxDist
-      if (it.o.visible !== on) it.o.visible = on
+      const mudou = it.o.visible !== on
+      if (mudou) {
+        it.o.visible = on
+        this.inventariar(it)
+      }
+      // ⚠️ a luz sai do esconde-esconde: fica sempre visível e só perde a
+      // intensidade. Ver a nota em add(): esconder luz recompila a cena inteira.
+      for (const z of it.luzes) {
+        z.l.visible = true
+        const alvo = on ? z.i0 : 0
+        if (z.l.intensity !== alvo) z.l.intensity = alvo
+      }
     }
+  }
+
+  /** quantas luzes o culling gerencia, e quantas estão acesas agora */
+  contagemDeLuz() {
+    let total = 0, acesas = 0
+    for (const it of this.items) for (const z of it.luzes) { total++; if (z.l.intensity > 0) acesas++ }
+    return { total, acesas }
   }
 }
 
@@ -208,4 +272,115 @@ export function mergeStaticByMaterial(root: THREE.Object3D, keep: RegExp): { bef
     after++
   }
   return { before, after }
+}
+
+/**
+ * ORÇAMENTO DE LUZ: mantém a contagem de luzes da cena CONSTANTE.
+ *
+ * ⚠️ POR QUE ISTO EXISTE. A contagem de luzes faz parte da chave de cache de
+ * programa do three: mudou a contagem, o renderizador RECOMPILA TODOS OS
+ * MATERIAIS da cena e guarda mais uma família inteira de programas, para sempre.
+ * Medido em 29/08/2026 nesta cena: uma viagem de câmera de ida e volta até 8,5 km
+ * subia os programas compilados de 444 para 480, e navegando não converge, porque
+ * cada combinação nova de (pontuais, spots) é uma família nova.
+ *
+ * ⚠️ E NÃO DÁ PARA CONSERTAR PELA LUZ. O three não conta luz cujo ANCESTRAL está
+ * invisível, então marcar a própria luz como visível não adianta: quem apaga é o
+ * grupo acima dela. Tentei duas vezes pelo lado do DistanceCuller (inventário no
+ * registro, depois inventário na transição) e sobraram seis pontuais que somem
+ * por outro caminho: elas estão penduradas em grupos e malhas que outros módulos
+ * escondem por conta própria.
+ *
+ * O conserto que FUNCIONA é orçamentário e não estrutural: um LASTRO de luzes de
+ * intensidade zero no raiz da cena, ligado e desligado para completar sempre o
+ * mesmo total. O renderizador vê um número fixo, compila uma família só, e o
+ * lastro não ilumina nada porque a intensidade é zero.
+ *
+ * O custo é honesto e previsível: o laço de N luzes no fragmento roda sempre,
+ * inclusive quando a cidade está longe. É exatamente o que já se pagava quando a
+ * câmera estava perto.
+ */
+export class OrcamentoDeLuz {
+  private lastroPonto: THREE.PointLight[] = []
+  private lastroSpot: THREE.SpotLight[] = []
+  private reais: THREE.Light[] = []
+  private quadro = 0
+
+  constructor(private scene: THREE.Object3D, private alvoPonto = 12, private alvoSpot = 2) {
+    for (let k = 0; k < alvoPonto; k++) {
+      const l = new THREE.PointLight(0xffffff, 0, 0.01)
+      l.name = `lastro:ponto${k}`
+      l.visible = false
+      scene.add(l)
+      this.lastroPonto.push(l)
+    }
+    for (let k = 0; k < alvoSpot; k++) {
+      const l = new THREE.SpotLight(0xffffff, 0, 0.01)
+      l.name = `lastro:spot${k}`
+      l.visible = false
+      scene.add(l)
+      this.lastroSpot.push(l)
+    }
+    this.recensear()
+  }
+
+  /** refaz a lista de luzes reais; caro, então só de tempos em tempos */
+  private recensear() {
+    this.reais = []
+    this.scene.traverse((o) => {
+      const l = o as THREE.Light
+      if (l.isLight && !l.name.startsWith('lastro:')) this.reais.push(l)
+    })
+  }
+
+  /** uma luz só conta se ela E todos os ancestrais dela estiverem visíveis */
+  private contaDeVerdade(l: THREE.Light) {
+    let p: THREE.Object3D | null = l
+    while (p) { if (!p.visible) return false; p = p.parent }
+    return true
+  }
+
+  update() {
+    // ⚠️ RECENSEIA A CADA 120 QUADROS, e não por quadro: módulo que carrega tarde
+    // (GLB assíncrono, peça atrás de bandeira) traz luz nova depois do boot, e um
+    // censo de boot só nasceria incompleto. Duas vezes por segundo é de sobra e
+    // custa uma travessia da cena.
+    if (this.quadro++ % 120 === 0) this.recensear()
+    let ponto = 0, spot = 0
+    for (const l of this.reais) {
+      if (!this.contaDeVerdade(l)) continue
+      if ((l as THREE.PointLight).isPointLight) ponto++
+      else if ((l as THREE.SpotLight).isSpotLight) spot++
+    }
+    for (let k = 0; k < this.lastroPonto.length; k++) {
+      const on = ponto + k < this.alvoPonto
+      if (this.lastroPonto[k].visible !== on) this.lastroPonto[k].visible = on
+    }
+    for (let k = 0; k < this.lastroSpot.length; k++) {
+      const on = spot + k < this.alvoSpot
+      if (this.lastroSpot[k].visible !== on) this.lastroSpot[k].visible = on
+    }
+  }
+
+  /** o que o renderizador está vendo agora, para a sonda de ?stats=1 */
+  medida() {
+    let ponto = 0, spot = 0
+    for (const l of this.reais) {
+      if (!this.contaDeVerdade(l)) continue
+      if ((l as THREE.PointLight).isPointLight) ponto++
+      else if ((l as THREE.SpotLight).isSpotLight) spot++
+    }
+    return {
+      reais: { ponto, spot },
+      lastroAceso: {
+        ponto: this.lastroPonto.filter((l) => l.visible).length,
+        spot: this.lastroSpot.filter((l) => l.visible).length,
+      },
+      alvo: { ponto: this.alvoPonto, spot: this.alvoSpot },
+    }
+  }
+
+  dispose() {
+    for (const l of [...this.lastroPonto, ...this.lastroSpot]) l.removeFromParent()
+  }
 }

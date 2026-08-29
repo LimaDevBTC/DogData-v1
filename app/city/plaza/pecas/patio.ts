@@ -40,5 +40,12 @@ export function desenhar(c: Ctx): Desenho {
   // Raio 6 m, altura 26 m, posicao em x = a - 60
   p.cilindro(COR.CLARO, a - 60, 0, 6, 26)
 
+  // Postes nas duas bordas longas (paralelas ao eixo x)
+  // Passo 60 m, altura 14 m para patio de manobra (necessita poste alto)
+  // Borda 1: z = -b + 30
+  p.postes(-a + 20, -b + 30, a - 20, -b + 30, 60, 14)
+  // Borda 2: z = b - 30
+  p.postes(-a + 20, b - 30, a - 20, b - 30, 60, 14)
+
   return p.fechar()
 }

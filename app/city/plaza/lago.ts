@@ -43,6 +43,8 @@ export interface Ilha { id: string; nome: string; x: number; z: number; r: numbe
 
 export interface Lago {
   group: THREE.Group
+  /** avança a ondulação da água; chame no laço com o tempo em segundos */
+  update(t: number): void
   pontes: number
   ilhas: Ilha[]
   areaHa: number
@@ -50,13 +52,14 @@ export interface Lago {
   dispose(): void
 }
 
-// ⚠️ A ÁGUA DO LAGO NÃO USA O AZUL DAS PEÇAS. `#16283C` é o azul de lâmina
+// ⚠️ A ÁGUA DO LAGO NÃO USA O AZUL DAS PEÇAS.
+// (ver também `aguaDeVerdade()` no fim do arquivo: o azul sozinho não resolve) `#16283C` é o azul de lâmina
 // pequena (espelho de praça, piscina), e ele foi escolhido para ler contra
 // calçada clara em peça de 60 m. Num lago de 173 ha cercado de regolito claro no
 // platô ele lê PRETO: a chapa mostrava um fosso de sombra e não água. Este aqui é
 // o mesmo azul um passo mais claro e mais saturado, que é o que faz a lâmina
 // pegar o sol raso e virar água.
-const COR_AGUA = '#24597F'
+const COR_AGUA = '#1D4A66'
 const COR_PRAIA = '#8E856F'
 const COR_PISO = '#CBC4B6'
 const COR_ESTRUTURA = '#8F8879'
@@ -268,8 +271,14 @@ export function buildLago(o: LagoOpts): Lago {
     const agua = cor === COR_AGUA
     const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({
       color: cor,
-      roughness: agua ? 0.08 : 0.92,
-      metalness: agua ? 0.35 : 0,
+      // ⚠️ ÁGUA COM roughness 0,08 E metalness 0,35 NÃO LÊ COMO ÁGUA AQUI, e
+      // isso foi medido na chapa: quase espelho, ela devolve o hemisfério claro
+      // da cena inteira e some, virando uma chapa PÁLIDA que parece areia. O
+      // valor de piscina de 60 m não serve numa lâmina de 293 ha vista de 400 m.
+      // Com 0,30 e 0,02 a cor base manda e o brilho vira reflexo de sol e não
+      // fundo de céu.
+      roughness: agua ? 0.30 : 0.92,
+      metalness: agua ? 0.02 : 0,
       side: THREE.DoubleSide,
     }))
     m.name = `lago:${agua ? 'agua' : cor}`
@@ -282,11 +291,67 @@ export function buildLago(o: LagoOpts): Lago {
   })
 
   const areaHa = (Math.PI * (rAguaE * rAguaE - rAguaI * rAguaI)) / 1e4
+  const relogios = feitas.map((m) => aguaDeVerdade(m)).filter(Boolean) as { value: number }[]
   return {
     group, pontes, ilhas, areaHa, triangulos,
+    update(t: number) { for (const u of relogios) u.value = t },
     dispose() {
       for (const m of feitas) { m.geometry.dispose(); (m.material as THREE.Material).dispose() }
       group.clear()
     },
   }
+}
+
+/**
+ * ⚠️ ÁGUA NÃO É UMA COR, É UM COMPORTAMENTO, e foi por não entender isso que eu
+ * gastei três tentativas trocando o azul. Um MeshStandardMaterial azul liso é
+ * uma CHAPA azul: de cima ela é do tom que se escreveu e de raso ela continua do
+ * mesmo tom, o que nenhum líquido faz. O que faz o olho reconhecer água são
+ * três coisas, e nenhuma delas é a cor:
+ *
+ *   1. FRESNEL. Olhando de cima você vê o corpo d'água (escuro); olhando de raso
+ *      ela devolve o céu (claro). É o contraste entre esses dois extremos DENTRO
+ *      da mesma lâmina que diz "isto é líquido".
+ *   2. ONDULAÇÃO. Duas cristas cruzadas de período longo (26 e 40 m) inclinam a
+ *      normal alguns graus. Não se vê a onda; vê-se o brilho do sol se partindo
+ *      nela, e é isso que tira a cara de vidro parado.
+ *   3. MOVIMENTO. As cristas andam. Uma lâmina parada num plano de 293 ha lê
+ *      como piso polido.
+ *
+ * Tudo isso cabe em `onBeforeCompile`: zero draw call novo, zero material novo,
+ * zero pós-processamento. A cena já compila 228 programas com teto medido de 235,
+ * e um Reflector de verdade (que redesenha a cena por espelho) está proibido pela
+ * spec da maquete, decisão D10.
+ */
+function aguaDeVerdade(m: THREE.Mesh): { value: number } | null {
+  if (!m.name.endsWith(':agua')) return null
+  const mat = m.material as THREE.MeshStandardMaterial
+  const uTempo = { value: 0 }
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uTempo = uTempo
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vMundoAgua;')
+      .replace('#include <begin_vertex>',
+               '#include <begin_vertex>\nvMundoAgua = (modelMatrix * vec4(position, 1.0)).xyz;')
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>',
+               '#include <common>\nuniform float uTempo;\nvarying vec3 vMundoAgua;')
+      // a ondulação entra DEPOIS de a normal existir e ANTES de a luz ser somada
+      .replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>
+        float ondaA = sin(vMundoAgua.x * 0.241 + uTempo * 0.62);
+        float ondaB = sin(vMundoAgua.z * 0.157 - uTempo * 0.44);
+        float ondaC = sin((vMundoAgua.x + vMundoAgua.z) * 0.083 + uTempo * 0.31);
+        normal = normalize(normal + vec3(ondaA * 0.052 + ondaC * 0.021, 0.0,
+                                         ondaB * 0.052 - ondaC * 0.019));
+      `)
+      // o fresnel entra no fim, sobre a cor já iluminada
+      .replace('#include <dithering_fragment>', `#include <dithering_fragment>
+        float cosI = clamp(abs(dot(normalize(vViewPosition), normal)), 0.0, 1.0);
+        float fres = pow(1.0 - cosI, 3.2);
+        vec3 ceu = vec3(0.42, 0.52, 0.60);
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, ceu, fres * 0.62);
+      `)
+  }
+  mat.needsUpdate = true
+  return uTempo
 }

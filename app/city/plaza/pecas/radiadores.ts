@@ -31,5 +31,12 @@ export function desenhar(c: Ctx): Desenho {
   p.vol(COR.MEDIO, -a + 70, -b + 60, 40, 10, 30, 0)
   p.vol(COR.MEDIO, a - 70, -b + 60, 40, 10, 30, 0)
 
+  // Quatro mastros de 26 m nas quinas do campo de radiadores
+  // Altura 26 m marca os vertices e deixa o pente como elemento principal
+  p.mastro(-a + 40, -b + 40, 26)
+  p.mastro(a - 40, -b + 40, 26)
+  p.mastro(-a + 40, b - 40, 26)
+  p.mastro(a - 40, b - 40, 26)
+
   return p.fechar()
 }

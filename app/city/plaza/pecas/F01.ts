@@ -51,5 +51,23 @@ export function desenhar(c: Ctx): Desenho {
   p.alinhamento(-520, -22, 520, -22, 11)
   p.alinhamento(-520, 22, 520, 22, 11)
 
+  // Iluminacao: postes de 11 m nas duas bordas do calcadao, passo 38 m.
+  // Altura 11 m e padrão de iluminação urbana de distrito financeiro.
+  p.postes(-520, -22, 520, -22, 38, 11)
+  p.postes(-520, 22, 520, 22, 38, 11)
+
+  // Mastros de 24 m na frente de cada volume, marca vertical de cada edifício.
+  // Posicionados no adro de chegada de cada lote, voltados para o calcadao.
+  p.mastro(-420, -70, 24)  // Bolsa do DOG
+  p.mastro(-210, -70, 24)  // BitFlow Swap
+  p.mastro(0, -70, 24)     // Casa de Crédito
+  p.mastro(210, -70, 24)   // Mercado de Previsões
+  p.mastro(420, -70, 24)   // Kray, arte on chain
+  p.mastro(-420, 70, 24)   // Torre de Dados
+  p.mastro(-210, 70, 24)   // Câmara de Compensação
+  p.mastro(210, 70, 24)    // Incubadora
+  p.mastro(420, 70, 24)    // Pavilhão de Leilão
+  p.mastro(0, 100, 24)     // Praça do Capital
+
   return p.fechar()
 }

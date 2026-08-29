@@ -47,5 +47,21 @@ export function desenhar(c: Ctx): Desenho {
     p.cova(x, z)
   }
 
+  // Guarda-corpo no anel de servico: 24 pontos de raio 35 m.
+  // Segurança ao redor da plataforma de observação, altura de contenção.
+  const pontosAnel: [number, number][] = []
+  for (let i = 0; i < 24; i++) {
+    const angulo = (i / 24) * Math.PI * 2
+    const x = 35 * Math.cos(angulo)
+    const z = 35 * Math.sin(angulo)
+    pontosAnel.push([x, z] as [number, number])
+  }
+  p.guardaCorpo(pontosAnel, 1.2)
+
+  // Dois mastros de 16 m de observação, estrutura de suporte lateral.
+  // Altura de antena de sinal, simetria este-oeste.
+  p.mastro(-35, 0, 16)
+  p.mastro(35, 0, 16)
+
   return p.fechar()
 }

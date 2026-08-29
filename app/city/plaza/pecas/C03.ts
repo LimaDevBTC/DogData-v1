@@ -55,5 +55,23 @@ export function desenhar(c: Ctx): Desenho {
     p.cova(cx, cz)
   }
 
+  // Seis bancos no adro, virados para o portico (norte em z=32)
+  // Dispostos em linha ao longo do adro, altura Y.L1
+  // Espaçamento: 160m entre -80 e +80 dividido por 6 = aprox 26-27m
+  const xBancosAdro = [-65, -39, -13, 13, 39, 65]
+  for (const x of xBancosAdro) {
+    p.banco(x, 50, 0) // giro 0 = frente pro norte, olhando o portico
+  }
+
+  // Postes no perimetro interno, altura 9m, passo 40m
+  // Lado norte (z=82, x de -82 a 82)
+  p.postes(-82, 82, 82, 82, 40, 9)
+  // Lado sul (z=-82, x de -82 a 82)
+  p.postes(-82, -82, 82, -82, 40, 9)
+  // Lado leste (x=82, z de -82 a 82)
+  p.postes(82, -82, 82, 82, 40, 9)
+  // Lado oeste (x=-82, z de -82 a 82)
+  p.postes(-82, -82, -82, 82, 40, 9)
+
   return p.fechar()
 }
