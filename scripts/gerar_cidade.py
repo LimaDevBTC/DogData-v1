@@ -143,19 +143,23 @@ PCX, PCZ = math.sin(prad)*PARQUE_DIST, -math.cos(prad)*PARQUE_DIST
 def rumo_de(x, z):
     return math.degrees(math.atan2(x, -z)) % 360
 
-def dentro_do_coliseu(x, z):
+def dentro_do_coliseu(x, z, margem=0.0):
     """A elipse do hipódromo, no quadro girado dele."""
     dx, dz = x - COLISEU_CX, z - COLISEU_CZ
     c, sn = math.cos(COLISEU_ROT), math.sin(COLISEU_ROT)
     lx = dx*c - dz*sn
     lz = dx*sn + dz*c
-    return (lx/COLISEU_A)**2 + (lz/COLISEU_B)**2 <= 1.0
+    return (lx/(COLISEU_A+margem))**2 + (lz/(COLISEU_B+margem))**2 <= 1.0
 
 def livre(x, z):
     r = math.hypot(x, z)
     if r < R_INICIO or r > raio_borda(x, z): return False
-    if math.hypot(x-PCX, z-PCZ) < PARQUE_DISCO: return False
-    if dentro_do_coliseu(x, z): return False
+    # ⚠️ MARGEM DE 2 m NAS MÁSCARAS. O arquivo grava x e z como int16 em metros
+    # inteiros, então um lote a 40 cm de fora da elipse do Coliseu arredondava
+    # para dentro. Eram 3 lotes em 52.991, mas um deles bastava para furar a
+    # promessa de guardar o espaço do Coliseu vazio.
+    if math.hypot(x-PCX, z-PCZ) < PARQUE_DISCO + 2: return False
+    if dentro_do_coliseu(x, z, 2.0): return False
     # o bulevar de 34 m sobre cada costura de setor é via, não lote
     ru = rumo_de(x, z)
     for s in range(SETORES):
@@ -411,16 +415,17 @@ def coloca(s, dog, addr):
 
     escolhida, folgada = -1, -1
     for k in range(base, min(n, base + JANELA)):
-        livre = PASSO[s][k]['livre']
-        if livre + 1e-9 >= frente_nat:
+        sobra = PASSO[s][k]['livre']        # ⚠️ não chame isto de `livre`: sombreia a função da máscara
+        if sobra + 1e-9 >= frente_nat:
             escolhida = k; break
-        if livre > folgada: folgada, escolhida_alt = livre, k
+        if sobra > folgada: folgada, escolhida_alt = sobra, k
     if escolhida < 0:
         # ninguém comporta a testada natural: usa a de maior sobra e afunda o lote
         escolhida = escolhida_alt if folgada >= LOTE_MIN_FRENTE else -1
         if escolhida < 0:
-            cursor[s] = base + JANELA
-            return coloca(s, dog, addr) if cursor[s] < n else None
+            for k in range(base, min(n, base + JANELA)): PASSO[s][k]['livre'] = 0.0
+            cursor[s] = base
+            return coloca(s, dog, addr) if base + JANELA < n else None
 
     pr = PASSO[s][escolhida]
 
@@ -437,8 +442,17 @@ def coloca(s, dog, addr):
             PASSO[s][k]['livre'] = 0.0
             tomadas += 1
         prof_g = min(255.0, area / QUARTEIRAO)
-        lxg, lzg = pr['bx'], pr['bz'] + pr['oz'] + (tomadas - 1) * PROF * 0.56
-        return (lxg*pr['ca'] - lzg*pr['sa'], lxg*pr['sa'] + lzg*pr['ca'],
+        oxg = pr['x0'] + pr['livre'] / 2
+        # o gigante também confere a máscara: ele grava o centro de uma prateleira
+        # inteira, e centro de quarteirão de borda cai em terra proibida
+        _cx = pr['bx'] + oxg*pr['ca'] - pr['oz']*pr['sa']
+        _cz = pr['bz'] + oxg*pr['sa'] + pr['oz']*pr['ca']
+        if not livre(_cx, _cz):
+            pr['livre'] = 0.0
+            return coloca(s, dog, addr)
+        ozg = pr['oz'] + (tomadas - 1) * PROF * 0.56
+        return (pr['bx'] + oxg*pr['ca'] - ozg*pr['sa'],
+                pr['bz'] + oxg*pr['sa'] + ozg*pr['ca'],
                 QUARTEIRAO, prof_g)
 
     frente = min(frente_nat, pr['livre'])
@@ -447,11 +461,50 @@ def coloca(s, dog, addr):
         # ainda fundo demais: alarga até o limite da sobra e aceita o que couber
         frente = pr['livre']
         prof_real = min(PROF_MAX, area / frente)
+    # ⚠️ CONFIRA A MÁSCARA NO PONTO QUE VAI SER GRAVADO. A sondagem de tecido()
+    # testa 84 pontos fixos por quarteirão; o lote de largura variável não cai em
+    # cima deles, então a borda do quarteirão escorregava para dentro de máscara.
+    # Resíduo medido depois de consertar a rotação dupla: 236 lotes no Parque,
+    # 126 DENTRO do Coliseu congelado (que o fundador mandou guardar vazio), 123
+    # fora do contorno lobado e 360 dentro do platô. Aqui o ponto é conferido um
+    # a um e a testada ruim é queimada em vez de virar endereço.
     ox = pr['x0'] + frente / 2
+    ok = False
+    for _ in range(14):
+        cx = pr['bx'] + ox*pr['ca'] - pr['oz']*pr['sa']
+        cz = pr['bz'] + ox*pr['sa'] + pr['oz']*pr['ca']
+        if livre(cx, cz): ok = True; break
+        # ⚠️ ANDE UM PASSO DE SONDAGEM, NÃO A TESTADA INTEIRA. Queimar `frente` a
+        # cada rejeição custou 53 m² no lote mediano (294 caiu para 241): a
+        # prateleira inteira ia embora por causa de uma ponta ruim. O passo de
+        # 12 m é a largura da vaga antiga, ou seja a resolução em que a máscara
+        # foi sondada; abaixo disso não há informação nova.
+        passo = min(frente, 12.0)
+        pr['x0'] += passo; pr['livre'] -= passo
+        if pr['livre'] < max(frente, LOTE_MIN_FRENTE): break
+        ox = pr['x0'] + frente / 2
+    if not ok:
+        # ⚠️ NÃO GRAVE ENDEREÇO EM TERRA MASCARADA. O fundador congelou o Coliseu
+        # e mandou guardar o espaço; lote plantado ali teria de ser desfeito, e
+        # lote atribuído não se desfaz. Melhor perder a prateleira que a regra.
+        # ⚠️ E ZERE SÓ ESTA PRATELEIRA. Empurrar o cursor para escolhida+1
+        # descartava também todas as prateleiras entre a atual e ela, até 24 de
+        # uma vez: custou 24 pontos de aproveitamento e 26 m² no lote mediano.
+        pr['livre'] = 0.0
+        return coloca(s, dog, addr)
     pr['x0'] += frente; pr['livre'] -= frente
-    lx, lz = pr['bx'] + ox, pr['bz'] + pr['oz']
-    wx = lx*pr['ca'] - lz*pr['sa']
-    wz = lx*pr['sa'] + lz*pr['ca']
+    # ⚠️ ROTACIONE O DESLOCAMENTO, NUNCA O CENTRO DO QUARTEIRÃO. `bx/bz` já vêm
+    # em MUNDO (saem de bwx/bwz dentro de tecido()); girar a soma dos dois girava
+    # a cidade uma segunda vez. O estrago era invisível na contagem e enorme no
+    # mapa: 49.021 lotes, 92,5% da cidade, com o setor gravado diferente do rumo
+    # geométrico, 9.902 lotes caídos DENTRO do disco do Parque Runestone, 4.791
+    # em declive acima de 4°, 1.263 em cima de bulevar, 253 dentro do Coliseu
+    # congelado e 9 fora do sítio. As máscaras eram testadas no quadro certo
+    # dentro de tecido() e o ponto era gravado a partir de outro quadro, então
+    # nenhuma delas valia na saída. O contorno lobado também sumia por isso.
+    oz = pr['oz']
+    wx = pr['bx'] + ox*pr['ca'] - oz*pr['sa']
+    wz = pr['bz'] + ox*pr['sa'] + oz*pr['ca']
     return (wx, wz, frente, min(255.0, prof_real))
 
 def uma_passada():
