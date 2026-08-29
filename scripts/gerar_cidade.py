@@ -242,6 +242,44 @@ PROGRAMA_MALHA = [
   ('A05', 'Alameda dos Fundadores',        'jardim',        6,    3,    8, 4, 1),
 ]
 
+# ⚠️ O PROGRAMA DE BORDA, E ELE EXISTE PARA A CIDADE PARAR DE SER UM CÍRCULO.
+# Medido em 29/08: `raio_borda` é 4.400 constante em TODO rumo, então o contorno
+# do tecido é um círculo por construção; e 99 quarteirões de borda têm menos de
+# 20 lotes, ou seja a última fileira é uma meia quadra vazia que serrilha o
+# perímetro. O fundador viu de cima e disse: "as bordas são todas serrilhadas,
+# nada parece ter uma continuação planejada".
+#
+# ⚠️ ESTAS PEÇAS NÃO CUSTAM UM LOTE. Todas moram além de R_ABOBADA (4.400), onde
+# `livre()` já recusava qualquer lote antes delas existirem. Por isso este bloco
+# entra SEM replante: o CSV sai byte a byte igual.
+#
+# O quadro delas é RADIAL: rot = rumo, então o x local é tangente ao Cinturão e o
+# z local é a profundidade para fora. É o que faz a peça de borda parecer
+# construída CONTRA a borda, e não largada perto dela.
+#
+# E o alcance é DESIGUAL de propósito: uma reentrância de 4.480 ao lado de um
+# braço de 4.950 é o que troca o círculo por uma engrenagem vista de cima. Peça
+# de borda com profundidade constante só engrossaria o mesmo círculo.
+# (id, nome, tipo, rumo, raio do centro, meia testada, meia profundidade)
+PROGRAMA_BORDA = [
+  ('B01', 'Campo Solar Leste',        'distribuicao', 100, 4700, 300, 260),
+  ('B02', 'Reservatório do Cinturão', 'distribuicao', 118, 4520, 150, 110),
+  ('B03', 'Pátio de Manobra Sudeste', 'distribuicao', 133, 4780, 250,  95),
+  ('B04', 'Campo de Radiadores',      'distribuicao', 150, 4880, 340, 190),
+  ('B05', 'Hortas do Cinturão',       'jardim',       163, 4510, 200, 100),
+  ('B06', 'Campo Solar Sul',          'distribuicao', 199, 4720, 280, 250),
+  ('B07', 'Depósito de Regolito',     'distribuicao', 214, 4500, 170,  90),
+  ('B08', 'Campo de Treino Sul',      'esporte',      228, 4790, 260, 180),
+  ('B09', 'Reservatório do Poente',   'distribuicao', 243, 4530, 150, 115),
+  ('B10', 'Campo Solar Oeste',        'distribuicao', 258, 4830, 300, 285),
+  ('B11', 'Pátio de Manobra Oeste',   'distribuicao', 275, 4490, 240,  85),
+  ('B12', 'Hortas do Poente',         'jardim',       289, 4700, 210, 170),
+  ('B13', 'Campo de Treino Norte',    'esporte',      303, 4520, 240, 110),
+  ('B14', 'Campo Solar Norte',        'distribuicao', 318, 4810, 290, 270),
+  ('B15', 'Mirante do Cinturão',      'civico',       333, 4480, 110,  70),
+  ('B16', 'Depósito Norte',           'distribuicao', 346, 4640, 190, 155),
+]
+
 # ⚠️ DUAS PEÇAS FICAM NA CASCA E CONTINUAM ELIPSE LIVRE. O Portão da Abóbada e o
 # Farol vivem além de R_ABOBADA, onde não há malha nenhuma para ancorar: ali o
 # referencial é a casca, não o quarteirão.
@@ -266,6 +304,11 @@ ANEIS = [
   ('AN1', 'Anel Interior', 1750.0, 26.0),
   ('AN2', 'Anel Médio',    2750.0, 26.0),
   ('AN3', 'Anel Exterior', 3750.0, 26.0),
+  # ⚠️ A AVENIDA DO CINTURÃO FECHA A CIDADE. Sem ela o tecido simplesmente PARA
+  # em 4.400 e a última fileira de quarteirão fica sendo a borda, o que numa
+  # aérea lê como corte e não como fim. Ela mora dentro do Cinturão, onde nunca
+  # houve lote, então custa zero.
+  ('AN4', 'Avenida do Cinturão', 4450.0, 30.0),
 ]
 
 # medição: SEM_ANEIS=1 mede quanto do estrago é do anel e quanto é da peça
@@ -287,6 +330,13 @@ for pid, nome, tipo, setor, ix, iz, w, h in PROGRAMA_MALHA:
                          'a': w*CELULA/2, 'b': h*CELULA/2, 'rot': rot,
                          'c': c, 's': sn, 'setor': setor, 'ix': ix, 'iz': iz, 'w': w, 'h': h,
                          'area': w*h*CELULA*CELULA})
+for pid, nome, tipo, rumo, raio, ea, eb in PROGRAMA_BORDA:
+    cx, cz = _peca_xy(rumo, raio)
+    rr = math.radians(rumo)
+    PROGRAMA_GEO.append({'id': pid, 'nome': nome, 'tipo': tipo, 'forma': 'retangulo',
+                         'cx': cx, 'cz': cz, 'a': float(ea), 'b': float(eb), 'rot': float(rumo),
+                         'c': math.cos(rr), 's': math.sin(rr),
+                         'area': 4 * ea * eb, 'borda': True})
 for pid, nome, tipo, rumo, raio, ea, eb, rot in PROGRAMA_CASCA:
     cx, cz = _peca_xy(rumo, raio)
     rr = math.radians(rot)
@@ -1147,13 +1197,19 @@ for s in range(SETORES):
         })
 
 bulevares = []
+# ⚠️ O BULEVAR VAI ATÉ A AVENIDA DO CINTURÃO, E NÃO ATÉ 4.400. Ele parava na
+# borda do tecido, o que deixava a Avenida do Cinturão (AN4, r 4.450) sendo um
+# anel fechado ligado a NADA: uma via para a qual não existe entrada. Estender os
+# 50 m que faltam custa zero (o Cinturão nunca teve lote) e é o que transforma a
+# borda de corte em remate: doze braços chegam nela e viram doze rotatórias.
+R_BUL_FIM = 4450.0
 for s in range(SETORES):
     rumo = s * (360 / SETORES)
     x0, z0 = _peca_xy(rumo, R_INICIO)
-    x1, z1 = _peca_xy(rumo, R_ABOBADA)
+    x1, z1 = _peca_xy(rumo, R_BUL_FIM)
     bulevares.append({
         'id': f'BUL{s+1:02d}', 'rumo': rumo, 'largura': BULEVAR,
-        'rInicio': R_INICIO, 'rFim': R_ABOBADA,
+        'rInicio': R_INICIO, 'rFim': R_BUL_FIM,
         # o + 0.0 apaga o "-0.0" que sin/cos deixam nos rumos 0, 90, 180 e 270
         'x0': round(x0, 1) + 0.0, 'z0': round(z0, 1) + 0.0,
         'x1': round(x1, 1) + 0.0, 'z1': round(z1, 1) + 0.0,

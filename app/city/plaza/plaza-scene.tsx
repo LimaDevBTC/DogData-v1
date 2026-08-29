@@ -41,6 +41,7 @@ import { buildColiseu, type Coliseu } from './coliseu'
 import { buildTecido, type Tecido } from './tecido'
 import { buildVias, type Vias } from './vias'
 import { buildPracas, type Pracas } from './pracas'
+import { buildArborizacao, type Arborizacao, type Cova } from './arborizacao'
 import { PROPS } from './props-table'
 import { CityChat } from '@/components/wallet/city-chat'
 
@@ -993,6 +994,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let tecido: Tecido | null = null
     let vias: Vias | null = null
     let pracas: Pracas | null = null
+    let arvores: Arborizacao | null = null
     let props: Props | null = null
     let dsc: DscGallery | null = null
     let founders: FoundersWalk | null = null
@@ -1105,6 +1107,27 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // É conferência: a prancha desenha sobre um disco perfeito e o mundo tem
         // relevo, cova de parque, platô e a saia da abóbada.
         if (qDomo.get('tecido') === '1') {
+          // ⚠️ A ARBORIZAÇÃO SÓ SOBE COM AS DUAS LISTAS DE COVA NA MÃO. As praças
+          // marcam as delas e as peças com módulo próprio marcam as suas, e as duas
+          // promessas resolvem fora de ordem: quem chegar por último dispara.
+          let covasDasPecas: Cova[] | null = null
+          let covasDasPracas: Cova[] | null = null
+          const plantar = () => {
+            if (!covasDasPecas || !covasDasPracas) return
+            if (qDomo.get('arvores') === '0') return
+            const todas = [...covasDasPecas, ...covasDasPracas]
+            void buildArborizacao({
+              heightAt: terrain.superficieAt,
+              covas: todas,
+              sombra: qDomo.get('sombra') !== '0',
+            }).then((a) => {
+              if (disposed) { a.dispose(); return }
+              arvores = a
+              scene.add(a.group)
+              console.log(`[arborização] ${a.arvores.toLocaleString('pt-BR')} árvores, ${a.triangulos.toLocaleString('pt-BR')} triângulos no pior caso, 4 chamadas de desenho`)
+            }).catch((err) => console.error('[arborização] não subiu', err))
+          }
+
           const pinta = qDomo.get('pintura')
           // ⚠️ superficieAt E NÃO heightAt: quem desenha chão tem de assentar na
           // malha que a câmera vê, senão fica ora boiando ora enterrado. A nota
@@ -1118,6 +1141,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             if (disposed) { t.dispose(); return }
             tecido = t
             scene.add(t.group)
+            covasDasPecas = t.covas
+            plantar()
             console.log(`[tecido] ${t.lotes.toLocaleString('pt-BR')} lotes, ${t.pecas} peças demarcadas, ${t.triangulos.toLocaleString('pt-BR')} triângulos`)
           }).catch((err) => console.error('[tecido] não subiu', err))
 
@@ -1145,6 +1170,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                   if (disposed) { pr.dispose(); return }
                   pracas = pr
                   scene.add(pr.group)
+                  covasDasPracas = pr.covas
+                  plantar()
                   console.log(`[praças] ${pr.pracas} praças, ${pr.covas.length.toLocaleString('pt-BR')} covas de árvore, ${pr.triangulos.toLocaleString('pt-BR')} triângulos`)
                 })
                 .catch((err) => console.error('[praças] não subiu', err))
@@ -2089,6 +2116,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       governor.sample(nowMs - lastFrameAt, nowMs)
       lastFrameAt = nowMs
       culler.update(camera.position)
+      arvores?.update(camera.position)
       if (!controls.autoRotate && performance.now() - lastInteraction > 25_000) controls.autoRotate = true
       if (fly.on) {
         const u = Math.min(1, (performance.now() - fly.t0) / (fly.dur * 1000))
@@ -2291,6 +2319,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       tecido?.dispose()
       vias?.dispose()
       pracas?.dispose()
+      arvores?.dispose()
       props?.dispose()
       dsc?.dispose()
       founders?.dispose()

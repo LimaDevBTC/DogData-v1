@@ -687,7 +687,10 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     for (let b = 0; b < 12; b++) {
       const ang = (b * 30 * Math.PI) / 180
       const cx = Math.sin(ang) * an.r, cz = -Math.cos(ang) * an.r
-      if (emPeca(cx, cz) || Math.hypot(cx, cz) > rMax) continue
+      // ⚠️ A ROTATÓRIA DO CINTURÃO FICA ALÉM DE rMax DE PROPÓSITO: a Avenida do
+      // Cinturão mora em 4.450, fora do tecido, e é lá que os doze bulevares
+      // terminam. Cortar por rMax deixaria a avenida sem nenhuma entrada.
+      if (emPeca(cx, cz) || Math.hypot(cx, cz) > 4520) continue
       nRot++
       const N = 48
       for (let k = 0; k < N; k++) {

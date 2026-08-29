@@ -74,6 +74,8 @@ export interface Terrain {
   /** altura média do sítio: a régua do relevo em `regolithColor` */
   meanHeight: number
   halfExtent: number
+  /** a bacia do lago da praça: margem interna, margem externa e cota da lâmina */
+  lago: { r0: number; r1: number; agua: number; fundo: number }
 }
 
 const BASE = new THREE.Color('#3f3d3a') // regolito iluminado pelo sol; o material escurece o resto
@@ -126,12 +128,23 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array): Terrain 
   // O platô da praça: dentro de 960 m o chão é plano no nível 0 (o deck, as
   // âncoras e o jardim inteiro, até a muralha em 900, foram desenhados sobre um
   // plano), e daí até 1300 m ele volta suavemente ao relevo real.
+  // ⚠️ O PLATÔ FOI ESTENDIDO DE 960 PARA 1.340 m, E ISSO FOI MEDIDO ANTES.
+  // Ele parava em 960 e o chão voltava ao relevo real até 1.300, que é onde o
+  // lote começa. Sonda de 36 rumos: em r 1.300 o regolito ia de -18,7 a +25,1,
+  // ou seja 43,8 m de amplitude só por rumo. Enquanto ali era só transição isso
+  // não incomodava ninguém; a partir do momento em que o anel vira LAGO, uma
+  // lâmina plana afundaria 18,7 m de um lado e boiaria 25,1 m do outro.
+  // Com o platô até 1.340 o anel inteiro fica no nível 0 e a bacia pode ser
+  // escavada nele com margem constante. A volta ao relevo real passa a ser de
+  // 1.340 a 1.700, fora do lago e por baixo da primeira fileira de quarteirões,
+  // que continuam acompanhando o chão como sempre acompanharam.
+  const PLATO_R = 1340, PLATO_FIM = 1700
   const siteAt = (x: number, z: number): number => {
     const raw = rawAt(x, z)
     const r = Math.hypot(x, z)
-    if (r >= 1300) return raw
-    if (r <= 960) return 0
-    const t = (r - 960) / 340
+    if (r >= PLATO_FIM) return raw
+    if (r <= PLATO_R) return 0
+    const t = (r - PLATO_R) / (PLATO_FIM - PLATO_R)
     const k = t * t * (3 - 2 * t)
     return raw * k
   }
@@ -166,8 +179,26 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array): Terrain 
   // cordilheira a +240 sobre o datum); sem a cova o regolito de Tranquillitatis
   // vazava pelo fundo do vale onde o relevo real é mais alto que o datum.
   const parkDatum = baseAt(PARK_CENTER.x, PARK_CENTER.z)
+  // ⚠️ A BACIA DO LAGO DA PRAÇA. O anel entre a praça e a cidade não tinha um
+  // lote sequer (o lote começa em 1.300 e a muralha do precinto está em 900),
+  // então ele podia virar água sem custar endereço nenhum. A bacia é escavada no
+  // platô: fundo em -LAGO_FUNDO no miolo do anel, com rampa de LAGO_TALUDE nas
+  // duas margens, para a praia existir em vez de a água terminar num degrau.
+  // A lâmina fica em LAGO_AGUA, ou seja o barranco tem 9 m em toda a volta.
+  const LAGO_R0 = 1020, LAGO_R1 = 1268     // margem interna e externa da água
+  const LAGO_TALUDE = 70                    // rampa de praia dos dois lados
+  const LAGO_FUNDO = 26
+  const bacia = (x: number, z: number): number => {
+    const r = Math.hypot(x, z)
+    if (r <= LAGO_R0 - LAGO_TALUDE || r >= LAGO_R1 + LAGO_TALUDE) return 0
+    let k: number
+    if (r < LAGO_R0) k = (r - (LAGO_R0 - LAGO_TALUDE)) / LAGO_TALUDE
+    else if (r > LAGO_R1) k = ((LAGO_R1 + LAGO_TALUDE) - r) / LAGO_TALUDE
+    else k = 1
+    return LAGO_FUNDO * (k * k * (3 - 2 * k))
+  }
   const heightAt = (x: number, z: number): number => {
-    const b = baseAt(x, z)
+    const b = baseAt(x, z) - bacia(x, z)
     const r = Math.hypot(x - PARK_CENTER.x, z - PARK_CENTER.z)
     if (r >= PARK_HALF) return b
     const k = r <= PARK_CORE ? 1 : 1 - (r - PARK_CORE) / (PARK_HALF - PARK_CORE)
@@ -273,7 +304,8 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array): Terrain 
 
   const group = new THREE.Group()
   group.add(mesh)
-  return { group, heightAt, horizonAt: heightAt, superficieAt, baseAt, meanHeight: mean, halfExtent }
+  return { group, heightAt, horizonAt: heightAt, superficieAt, baseAt, meanHeight: mean, halfExtent,
+           lago: { r0: LAGO_R0, r1: LAGO_R1, agua: -(LAGO_FUNDO - 9), fundo: -LAGO_FUNDO } }
 }
 
 function flipWinding(geo: THREE.BufferGeometry) {

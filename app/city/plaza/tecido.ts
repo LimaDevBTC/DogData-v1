@@ -37,6 +37,8 @@ export interface TecidoOpts {
 
 export interface Tecido {
   group: THREE.Group
+  /** covas de árvore que as peças com módulo próprio pediram, em mundo */
+  covas: { x: number; z: number; r: number }[]
   lotes: number
   pecas: number
   triangulos: number
@@ -232,6 +234,7 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
   const triangulos = n * 12 + construidas.triangulos
   return {
     group,
+    covas: construidas.covas,
     lotes: n,
     pecas: pecas.length,
     triangulos,

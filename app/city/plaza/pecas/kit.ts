@@ -55,14 +55,22 @@ export type Cor = typeof COR[keyof typeof COR]
  *  ela que faz a peça encostar na cidade sem degrau. Tudo abaixo do plinto de
  *  lote (0,45). Entre camadas há 4 cm, que é o que separa duas superfícies
  *  coplanares sem z-fighting. */
+// ⚠️ 12 cm ENTRE CAMADAS, E O NÚMERO FOI MEDIDO NUMA PEÇA GRANDE. A primeira
+// versão usava 4 cm, que é o que basta numa praça de quarto de 168 m e NÃO basta
+// no Parque Olímpico de 1.080 m: a esplanada e o gramado brigaram no z-buffer e
+// a chapa saiu com a cruz de esplanadas rasgada em mancha, e a Praça das
+// Medalhas em estilhaço. Peça grande é vista de longe, e é de longe que a
+// precisão de profundidade acaba.
+// A MOLDURA fica fora da escada de propósito: ela é 0,33 porque é a calçada da
+// RUA, e é isso que faz quem anda pela cidade entrar na peça sem degrau.
 export const Y = {
   PARCELA: 0.18,
-  L1: 0.22,
-  L2: 0.26,
-  L3: 0.30,
+  L1: 0.30,
+  L2: 0.42,
+  L3: 0.54,
   MOLDURA: 0.33,
-  L4: 0.37,
-  L5: 0.41,
+  L4: 0.66,
+  L5: 0.78,
 } as const
 
 export interface Parte { geo: THREE.BufferGeometry; cor: string; agua?: boolean }
@@ -104,6 +112,13 @@ export class Prancheta {
   readonly covas: Cova[] = []
   constructor(private ctx: Ctx) {}
 
+  /** ⚠️ NaN NÃO PODE VAZAR DAQUI, E TEM DE DIZER DE QUEM É. Um só vértice NaN
+   *  envenena o boundingSphere da malha FUNDIDA, e como buildPecas funde todas as
+   *  peças por cor, o three reclama uma vez e não diz qual peça errou: some a
+   *  cidade inteira daquela cor e a busca vira caça ao fantasma. Aqui o quad é
+   *  descartado e o id da peça aparece no console. */
+  private podres = 0
+
   private balde(cor: string, agua = false) {
     if (agua) this.aguas.add(cor)
     let b = this.baldes.get(cor)
@@ -123,8 +138,21 @@ export class Prancheta {
     // normal do primeiro triângulo, só no plano: se aponta para baixo, inverte
     const ux = B[0] - A[0], uz = B[2] - A[2]
     const vx = C[0] - B[0], vz = C[2] - B[2]
-    const ny = ux * vz - uz * vx      // componente Y do produto vetorial
+    // ⚠️ A COMPONENTE Y DE u x v É uz*vx - ux*vz, E NÃO O CONTRÁRIO. Eu escrevi
+    // invertido na primeira versão e o efeito foi cirurgicamente perverso: em vez
+    // de não corrigir nada, `quad()` virava justamente as faces que já estavam
+    // certas. As 12 peças saíram com o chão inteiro de cabeça para baixo e o que
+    // aparecia na cena eram só as caixas e os cilindros, que não passam por aqui.
+    // Conferência: para o quad (ax,az) (ax,bz) (bx,bz) (bx,az) com ax<bx e az<bz,
+    // que é sabidamente para cima, uz=+dz e vx=+dx, logo ny=+dz*dx>0. Mantém.
+    const ny = uz * vx - ux * vz      // componente Y do produto vetorial u x v
     const [p, q, r, s] = ny >= 0 ? [A, B, C, D] : [A, D, C, B]
+    for (const v of [p, q, r, s]) {
+      if (!Number.isFinite(v[0]) || !Number.isFinite(v[1]) || !Number.isFinite(v[2])) {
+        this.podres++
+        return
+      }
+    }
     const i = b.push(p[0], p[1], p[2])
     b.push(q[0], q[1], q[2]); b.push(r[0], r[1], r[2]); b.push(s[0], s[1], s[2])
     b.ix.push(i, i + 1, i + 2, i, i + 2, i + 3)
@@ -219,7 +247,11 @@ export class Prancheta {
     F(A - larg, -B + larg, A - larg, B - larg)
   }
 
-  /** caixa: volume sem fachada, que é como plano de massas mostra obra pública */
+  /** caixa: volume sem fachada, que é como plano de massas mostra obra pública.
+   *  ⚠️ NÃO RECEBE COTA. Volume assenta na parcela por definição, e o último
+   *  argumento é o GIRO em radianos. Um agente passou `Y.L1` aqui achando que era
+   *  altura e o museu nasceu torto 17 graus; no `cilindro` logo abaixo o mesmo
+   *  engano caiu no número de LADOS e devolveu vértice NaN. */
   vol(cor: string, cx: number, cz: number, sx: number, alturaM: number, sz: number, giro = 0) {
     const g = new THREE.BoxGeometry(sx, alturaM, sz)
     g.translate(0, alturaM / 2, 0)
@@ -228,8 +260,11 @@ export class Prancheta {
     this.solto(cor, g)
   }
 
-  /** cilindro em pé (torre, silo, mastro) */
+  /** cilindro em pé (torre, silo, mastro).
+   *  ⚠️ NÃO RECEBE COTA: o último argumento é o número de LADOS. Ver a nota em
+   *  vol(). O clamp abaixo é o que impede o engano de virar NaN em silêncio. */
   cilindro(cor: string, cx: number, cz: number, r: number, alturaM: number, seg = 16) {
+    seg = Math.max(3, Math.round(seg))
     const g = new THREE.CylinderGeometry(r, r, alturaM, seg)
     g.translate(cx, this.ctx.alt(cx, cz) + Y.PARCELA + alturaM / 2, cz)
     this.solto(cor, g)
@@ -305,7 +340,11 @@ export class Prancheta {
     const pos = g.attributes.position as THREE.BufferAttribute
     const idx = g.index
     const base = b.vs.length / 3
-    for (let i = 0; i < pos.count; i++) b.push(pos.getX(i), pos.getY(i), pos.getZ(i))
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i)
+      if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) { this.podres++; g.dispose(); return }
+      b.push(x, y, z)
+    }
     if (idx) for (let i = 0; i < idx.count; i++) b.ix.push(base + idx.getX(i))
     else for (let i = 0; i < pos.count; i++) b.ix.push(base + i)
     g.dispose()
@@ -313,6 +352,9 @@ export class Prancheta {
 
   /** fecha a prancheta e devolve as partes, uma por cor */
   fechar(): Desenho {
+    if (this.podres) {
+      console.warn(`[peça ${this.ctx.id} ${this.ctx.nome}] ${this.podres} faces descartadas por coordenada NaN ou infinita`)
+    }
     const partes: Parte[] = []
     this.baldes.forEach((b, cor) => {
       if (!b.ix.length) return

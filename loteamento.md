@@ -317,6 +317,62 @@ assim que tem de ler até cada peça ganhar módulo próprio.
 
 ---
 
+## 3.9 As 35 peças com projeto próprio
+
+⚠️ **A peça deixou de ser desenho genérico por tipo.** Cada uma tem módulo em
+`app/city/plaza/pecas/<ID>.ts`, registrado por id do programa em `pecas/index.ts`.
+Quem não estiver no registro cai no genérico de `pecas.ts`, que continua sendo
+placeholder e tem de ler como tal.
+
+**A ferramenta é o que torna isso barato.** `pecas/kit.ts` é a Prancheta: `chao`,
+`anel`, `disco`, `oval`, `fita`, `vol`, `cilindro`, `arquibancada`, `pista400`,
+`cova`, `alinhamento`, `moldura`. Um módulo de peça virou composição, e as
+armadilhas ficam resolvidas UMA vez, dentro dela.
+
+| | |
+|---|---|
+| peças com módulo | **35 de 35** |
+| arquivos | 23 (as 12 Centrais dividem um módulo com variação por `c.ruido`) |
+| agentes | 24 escritores + 2 de compilação, em duas levas |
+| tempo | 2 min + 2 min |
+| tokens de subagente | 564k + 501k |
+
+⚠️ **`buildPecas` assenta peça numa altura só, a do centro.** Numa elipse de 175 m
+passava; num Parque Olímpico de 1.080 m uma ponta enterra e a outra flutua. Por
+isso módulo devolve Y de MUNDO (a Prancheta amostra o terreno ponto a ponto) e o
+`buildPecas` só gira e translada no plano.
+
+### Três defeitos do kit, e o valor dele está aqui
+
+**(1) A componente Y de u×v é `uz·vx − ux·vz`, e eu escrevi invertido.** O efeito
+foi cirurgicamente perverso: em vez de não corrigir nada, `quad()` virava
+justamente as faces que já estavam CERTAS. As 12 peças da primeira leva saíram com
+o chão inteiro de cabeça para baixo, e o que aparecia na cena eram só as caixas e
+os cilindros, que não passam por ali.
+
+**(2) 4 cm entre camadas basta numa praça de 168 m e não basta numa peça de
+1.080.** A cruz de esplanadas do Parque Olímpico saiu rasgada em mancha e a Praça
+das Medalhas em estilhaço. Agora são 12 cm.
+
+**(3) `vol()` e `cilindro()` não recebem cota** e um agente passou `Y.L1` neles: no
+`vol` virou giro de 17 graus (museu torto), no `cilindro` caiu no número de LADOS e
+`CylinderGeometry` com 0,3 lado devolveu vértice NaN. Um NaN envenena o
+`boundingSphere` da malha FUNDIDA, e como `buildPecas` funde todas as peças por
+cor, o three reclama uma vez e não diz de quem é. Agora a Prancheta descarta a face
+e **grita o id da peça**, e `cilindro` faz clamp do número de lados.
+
+**As três foram uma correção de uma linha cada, e consertaram as 35 peças de uma
+vez.** Se cada agente tivesse escrito geometria crua, seriam 35 investigações.
+
+![A cidade com as 35 peças](docs/loteamento/cidade-35-pecas.jpeg)
+
+⚠️ **Isto é plano urbano bom, não é acabamento.** Os volumes ainda são caixa
+branca sem fachada, a água é chapa escura sem reflexo, e não existe nada vertical e
+miúdo (poste, cobertura, mastro, placar, gente). O que existe é a implantação certa
+com medida certa, que é o que faz o acabamento depois não ser arbitrário.
+
+---
+
 ## 4. A demarcação: 38 peças, 136 ha
 
 Reservadas **antes** do lote, cumprindo `masterplan.md:268-269` pela primeira vez.
