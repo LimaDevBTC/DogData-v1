@@ -185,8 +185,21 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array): Terrain 
   // platô: fundo em -LAGO_FUNDO no miolo do anel, com rampa de LAGO_TALUDE nas
   // duas margens, para a praia existir em vez de a água terminar num degrau.
   // A lâmina fica em LAGO_AGUA, ou seja o barranco tem 9 m em toda a volta.
-  const LAGO_R0 = 1020, LAGO_R1 = 1268     // margem interna e externa da água
-  const LAGO_TALUDE = 70                    // rampa de praia dos dois lados
+  // ⚠️ A MARGEM INTERNA É 1.130 POR CAUSA DA PRAÇA, e isto foi medido depois de
+  // errar: a primeira versão punha a bacia em 1.020, com talude começando em 950,
+  // e escavou POR BAIXO da geometria da praça, que vai até r 1.024 (monumentos e
+  // Calçada dos Fundadores, desenhados sobre um platô plano). O resultado na
+  // chapa foi um colar serrilhado na beira da praça: laje plana pendurada sobre
+  // rampa. Com 1.130 o talude começa em 1.060, 36 m livres da última peça.
+  // A margem externa é 1.210 pelo motivo simétrico: o talude termina em 1.280 e o
+  // lote mais interno da cidade está em r 1.300.
+  const LAGO_R0 = 1090, LAGO_R1 = 1250     // margem interna e externa da água
+  // ⚠️ TALUDE DE 40 E NÃO 70. Com 70 m de rampa de cada lado sobrava mais praia
+  // que água: a lâmina caía para 128 m de largura e a chapa lia deserto com uma
+  // poça no meio. O talude é o que limita, não a bacia. Com 40 m a linha d'água
+  // vai de r 1.074 a 1.266, ou seja 193 m de lâmina e 141 ha, e ainda sobram 26 m
+  // livres da praça (r 1.024) e 10 m do primeiro lote (r 1.300).
+  const LAGO_TALUDE = 40
   const LAGO_FUNDO = 26
   const bacia = (x: number, z: number): number => {
     const r = Math.hypot(x, z)

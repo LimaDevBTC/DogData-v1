@@ -15,6 +15,17 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 export interface Credit { title: string; author: string; license: string; url: string }
 
 export const SF_CREDITS: readonly Credit[] = [
+  // ── o aquário e a floresta das ilhas (29/08) ──────────────────────────────
+  { title: 'Soft Coral Set', author: 'Kanna-Nakajima', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/soft-coral-set-256355f15fcb4095af17b75ae572bff0' },
+  { title: 'Coral Piece', author: 'Sharon Kunne', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/coral-piece-bd879158d2c9496fa40eb9a8fd8e75f8' },
+  { title: 'Stylaster sanguineus', author: 'The Smithsonian Institution', license: 'CC0', url: 'https://sketchfab.com/3d-models/stylaster-sanguineus-4f1ddd8352944d16bf3b821b3e71b473' },
+  { title: 'Scaly Maw Anemone', author: 'gavinpgamer1', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/scaly-maw-anemone-75954c35ab4a4764928bdd83ad6830df' },
+  { title: 'Scan of Kelp and Seaweed on sand beach', author: 'sterlingcrispin', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/scan-of-kelp-and-seaweed-on-sand-beach-c9b5ef07047a4b7a90a4ffd6930ec22c' },
+  { title: 'Paracheirodon Innesi, Tetra Neon', author: 'BlueMesh', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/paracheirodon-innesi---tetra-neon-2fabf5db754746b7b81ebfa0bbe99161' },
+  { title: 'Clownfish', author: 'zixisun02', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/clownfish-47ba2679d91a4f14b3fc0bf8e3805af5' },
+  { title: 'Tropical Fern Phlebodium', author: 'The_Structure_World', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/tropical-fern-phlebodium-6008e9741f244dfda3dec50b78760488' },
+  { title: 'Realistic Fern Plant Bush', author: 'misty-wind', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/realistic-fern-plant-bush-467e72a68a2f416981e656096b7e3be0' },
+  { title: 'Realistic Lowpoly Grass', author: 'Mega 3D', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/realistic-lowpoly-grass-e07f59582b6342b4800ae5fe91bf6f30' },
   { title: 'Black Spider Warrior Character', author: 'iRahulRajput', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/black-spider-warrior-character-3d-model-free-99225611fda64a34aa197730dd3a67c0' },
   { title: 'Mystery in Bronze', author: 'dialobic', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/mystery-in-bronze-f8362dbac4204c03a9e7cffe7caaa4e4' },
   { title: 'Coconut tree', author: 'Rafael Benites de Souza', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/coconut-tree-a03863e070df4094939d37e60e4a8926' },

@@ -2,9 +2,7 @@
 // O REGISTRO DAS PEÇAS COM PROJETO PRÓPRIO.
 //
 // Peça que aparece aqui é desenhada pelo módulo dela, com a Prancheta de
-// ./kit.ts. Peça que NÃO aparece cai no desenho genérico por tipo de pecas.ts,
-// que é placeholder e tem de ler como tal: parcela demarcada, obra não
-// projetada.
+// ./kit.ts. Peça que NÃO aparece cai no genérico de pecas.ts, que é placeholder.
 //
 // ⚠️ A CHAVE É O ID DO PROGRAMA, o mesmo de public/city/cidade.json e de
 // scripts/gerar_cidade.py. Se o gerador renomear uma peça, o módulo dela para de
@@ -34,6 +32,14 @@ import { desenhar as D03 } from './D03'
 import { desenhar as E01 } from './E01'
 import { desenhar as E02 } from './E02'
 import { desenhar as F01 } from './F01'
+import { desenhar as deposito } from './deposito'
+import { desenhar as horta } from './horta'
+import { desenhar as mirante } from './mirante'
+import { desenhar as patio } from './patio'
+import { desenhar as radiadores } from './radiadores'
+import { desenhar as reservatorio } from './reservatorio'
+import { desenhar as solar } from './solar'
+import { desenhar as treino } from './treino'
 import { desenhar as central } from './central'
 
 export type Modulo = (c: Ctx) => Desenho
@@ -63,12 +69,9 @@ export const MODULOS: Record<string, Modulo> = {
   E02,
   F01,
 
-  // ⚠️ AS DOZE CENTRAIS DIVIDEM UM MÓDULO SÓ, e isso é decisão e não preguiça:
-  // elas têm a mesma parcela de 180 m e a mesma função (alimentar o setor delas).
-  // Doze arquivos iguais seriam doze lugares para o mesmo conserto. A variação que
-  // impede a cidade de parecer carimbada vem de `c.ruido()` dentro do módulo, que é
-  // determinístico por peça: altura de galpão, altura de silo e empilhamento de
-  // contêiner mudam de uma para a outra e não mudam entre visitas.
+  // ⚠️ MÓDULO COMPARTILHADO: peça que se repete em tamanho diferente usa o mesmo
+  // arquivo e se ajusta por c.a e c.b. Doze arquivos iguais seriam doze lugares
+  // para o mesmo conserto, e a variação que impede o carimbo vem de c.ruido().
   D04: central,
   D05: central,
   D06: central,
@@ -81,4 +84,20 @@ export const MODULOS: Record<string, Modulo> = {
   D13: central,
   D14: central,
   D15: central,
+  B07: deposito,
+  B16: deposito,
+  B05: horta,
+  B12: horta,
+  B15: mirante,
+  B03: patio,
+  B11: patio,
+  B04: radiadores,
+  B02: reservatorio,
+  B09: reservatorio,
+  B01: solar,
+  B06: solar,
+  B10: solar,
+  B14: solar,
+  B08: treino,
+  B13: treino,
 }

@@ -42,6 +42,9 @@ import { buildTecido, type Tecido } from './tecido'
 import { buildVias, type Vias } from './vias'
 import { buildPracas, type Pracas } from './pracas'
 import { buildArborizacao, type Arborizacao, type Cova } from './arborizacao'
+import { buildLago, type Lago } from './lago'
+import { buildAquario, type Aquario } from './aquario'
+import { buildCaverna, type Caverna } from './caverna'
 import { PROPS } from './props-table'
 import { CityChat } from '@/components/wallet/city-chat'
 
@@ -256,6 +259,17 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
     // De cima, o tabuleiro inteiro: pega costura torta, lote em máscara e buraco.
     // zenital: a única vista em que a hierarquia viária inteira se lê de uma vez
     // (12 bulevares radiais, 3 anéis, 36 rotatórias e a grade dos quarteirões)
+    // o lago da praça com as quatro pontes, de fora para dentro: é a vista que
+    // prova se a ponte tem silhueta ou se ela é só uma linha no chão
+    // DENTRO do túnel de vidro, no fundo do lago: é a vista que prova o aquário.
+    // O túnel corre no rumo 45, entre duas pontes, com o eixo a 6,7 m do fundo.
+    case 'aquario':
+      return { pos: new THREE.Vector3(771, -19, -771), target: new THREE.Vector3(940, -17, -940) }
+    // a galeria de vidro da margem interna, olhando para dentro da água
+    case 'galeria':
+      return { pos: new THREE.Vector3(0, -20, 1107), target: new THREE.Vector3(0, -17, 1330) }
+    case 'lago':
+      return { pos: new THREE.Vector3(-980, 430, 2050), target: new THREE.Vector3(0, -10, 0) }
     case 'plano':
       return { pos: new THREE.Vector3(0, 9600, 1), target: new THREE.Vector3(0, 0, 0) }
     case 'tecido':
@@ -995,6 +1009,10 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let vias: Vias | null = null
     let pracas: Pracas | null = null
     let arvores: Arborizacao | null = null
+    let lago: Lago | null = null
+    let aquario: Aquario | null = null
+    let caverna: Caverna | null = null
+    let specsDoAquario: import('./props').PropSpec[] = []
     let props: Props | null = null
     let dsc: DscGallery | null = null
     let founders: FoundersWalk | null = null
@@ -1100,6 +1118,50 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             console.log(`[coliseu] ${(coliseu.areaM2 / 1e4).toFixed(1)} ha, ${coliseu.lugares.toLocaleString('pt-BR')} lugares, ${coliseu.triangulos.toLocaleString('pt-BR')} triângulos`)
           } catch (err) {
             console.error('[coliseu] não subiu', err)
+          }
+        }
+
+        // ── a caverna do Parque Runestone: RESERVA de volume (?caverna=0) ───
+        // Espaço com nome e medida no subsolo do parque, para que o projeto venha
+        // depois sem desfazer nada. Ver a nota longa em caverna.ts, inclusive por
+        // que a câmera já entra na terra ali.
+        if (qDomo.get('caverna') !== '0') {
+          try {
+            caverna = buildCaverna({ heightAt: terrain.heightAt })
+            scene.add(caverna.group)
+            culler.add(caverna.group, 9000, new THREE.Vector3(PARK_CENTER.x, 0, PARK_CENTER.z))
+            console.log(`[caverna] ${caverna.camaras.length} câmaras reservadas, ${(caverna.volumeM3 / 1e6).toFixed(2)} milhões de m³, ${caverna.triangulos.toLocaleString('pt-BR')} triângulos`)
+          } catch (err) {
+            console.error('[caverna] não subiu', err)
+          }
+        }
+
+        // ── o lago da praça, com as quatro pontes (?lago=0 desliga) ─────────
+        // ⚠️ ELE NÃO ESPERA O TECIDO. O anel entre a muralha do precinto (r 900)
+        // e o primeiro lote (r 1.300) nunca teve endereço, então o lago não
+        // depende de nada que o loteamento decida.
+        if (qDomo.get('lago') !== '0') {
+          try {
+            lago = buildLago({
+              heightAt: terrain.superficieAt,
+              lago: terrain.lago,
+              sombra: qDomo.get('sombra') !== '0',
+            })
+            scene.add(lago.group)
+            // ⚠️ O AQUÁRIO SOBE COLADO NO LAGO E ANTES DOS ADEREÇOS. Ele devolve
+            // as especificações do recife, dos peixes e da floresta das ilhas, e
+            // quem instancia é o buildProps que a praça já usa: uma tabela só,
+            // um carregador só, um culling só.
+            aquario = buildAquario({
+              heightAt: terrain.superficieAt, lago: terrain.lago,
+              ilhas: lago.ilhas, sombra: qDomo.get('sombra') !== '0',
+            })
+            scene.add(aquario.group)
+            specsDoAquario = aquario.specs
+            console.log(`[aquário] ${aquario.recife} peças de recife, ${aquario.peixes} peixes, ${aquario.floresta} na floresta das ilhas, ${aquario.triangulos.toLocaleString('pt-BR')} triângulos de vidro e estrutura`)
+            console.log(`[lago] ${lago.areaHa.toFixed(0)} ha de lâmina, ${lago.pontes} pontes, ${lago.ilhas.length} ilhas (${lago.ilhas.filter((i) => i.dono).length} com dono), ${lago.triangulos.toLocaleString('pt-BR')} triângulos`)
+          } catch (err) {
+            console.error('[lago] não subiu', err)
           }
         }
 
@@ -1773,7 +1835,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           jitter: 0.22,
           cull: profile.smallCull * 1.4,
         }))
-        const allProps = [...PROPS, ...sectorSpecs]
+        const allProps = [...PROPS, ...sectorSpecs, ...specsDoAquario]
         const pProps = allProps.length
           ? buildProps({ specs: allProps, heightAt, gltf, profile, culler })
             .then((p) => { if (disposed) { p.dispose(); return } props = p; scene.add(p.group) })
@@ -2127,7 +2189,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       }
       controls.update()
       // o chão: a câmera nunca entra no regolito nem no deck (1,7 m = olhos de pé)
-      {
+      // ⚠️ COM UMA EXCEÇÃO: dentro do túnel e da galeria do aquário. São espaços
+      // fechados abaixo da lâmina d'água, e sem esta exceção o visitante é
+      // empurrado para fora do aquário quadro a quadro, ou seja a atração não
+      // pode ser visitada. Ver `dentro()` em aquario.ts.
+      if (!aquario?.dentro(camera.position)) {
         const gy = groundAt(camera.position.x, camera.position.z) + 1.7
         if (camera.position.y < gy) {
           // ⚠️ O ALVO SOBE JUNTO, e é isso que faz olhar para cima funcionar.
@@ -2320,6 +2386,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       vias?.dispose()
       pracas?.dispose()
       arvores?.dispose()
+      lago?.dispose()
+      aquario?.dispose()
+      caverna?.dispose()
       props?.dispose()
       dsc?.dispose()
       founders?.dispose()

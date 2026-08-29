@@ -373,6 +373,81 @@ com medida certa, que é o que faz o acabamento depois não ser arbitrário.
 
 ---
 
+## 3.10 A arborização, a borda e o Lago da Praça
+
+### A arborização: 39.799 árvores em 4 chamadas de desenho
+
+⚠️ **A copa não desenha por valor, desenha por SOMBRA.** Verde `#7E8A6B` contra
+calçada dá 2,11:1 e contra lote 1,43:1: de cima uma copa quase some. O que
+aparece numa aérea é a sombra dela, uma tracejada escura ao lado da calçada. É
+por isso que a árvore pode ter 30 triângulos e ainda funcionar.
+
+| onde | forma | espaçamento | árvores |
+|---|---|---|---|
+| covas de praça e de peça | esfera 30 tri | o que a peça mandou | 3.726 |
+| bulevar: canteiro e 2 calçadas | cone 12 tri + esfera | 7,6 m (Portland, 25 ft) | 14.412 |
+| **anéis: canteiro central** | cone | 7,6 m | **5.894** |
+| via de contorno, **um lado** | esfera | 9,1 m (Portland, 30 ft) | 15.767 |
+
+Um lado por quarteirão e não os dois: plantio unilateral em rua de 7 m é padrão
+real, e os dois lados dariam mais de 35 mil só no contorno. LOD em cruz de 6
+triângulos além de 400 m, **rebalanceado só quando a câmera anda 150 m**, porque
+árvore não se mexe. Um material, quatro InstancedMesh, 276 mil triângulos no pior
+caso.
+
+![Um bairro arborizado](docs/loteamento/bairro-arborizado.jpeg)
+
+### A borda: 16 peças e a Avenida do Cinturão
+
+⚠️ **O contorno era um círculo por construção.** `raio_borda` é 4.400 constante em
+TODO rumo, e **99 quarteirões de borda têm menos de 20 lotes**: a última fileira
+era meia quadra vazia, o que serrilha o perímetro. E o Cinturão tinha **279,6 ha
+sem nada dentro**.
+
+**Nada disso custou um lote**, porque tudo além de 4.400 já era proibido para
+lote antes destas peças existirem. O CSV saiu igual e a mediana ficou em 274 m².
+
+- **Avenida do Cinturão** (AN4, r 4.450, 30 m): o quarto anel, que fecha a
+  cidade. Sem ela o tecido simplesmente PARA e a aérea lê corte, não fim.
+- **Os 12 bulevares foram estendidos de 4.400 para 4.450** para chegarem nela.
+  Sem isso a avenida seria um anel fechado ligado a nada.
+- **16 peças de borda, 254 ha**: campo solar (4), reservatório (2), pátio de
+  manobra (2), campo de radiadores, hortas (2), campo de treino (2), depósito
+  (2), mirante. O alcance externo delas vai de 4.550 a 5.114, **desigual de
+  propósito**: profundidade constante só engrossaria o mesmo círculo.
+
+### O Lago da Praça, 4 pontes e 8 ilhas
+
+⚠️ **Ele também não custou um lote.** O lote começa em r 1.300 e a praça acaba em
+r 1.024: os 276 m entre os dois nunca tiveram endereço.
+
+⚠️ **Mas exigiu mexer no terreno, e a medição decidiu o projeto.** Sonda de 36
+rumos em r 1.300: o regolito ia de **−18,7 a +25,1 m**, ou seja 43,8 m de
+amplitude só por rumo. Uma lâmina plana ali afundaria 18,7 m de um lado e boiaria
+25,1 do outro. Por isso o platô foi estendido de 960 para 1.340 e a bacia foi
+escavada dentro dele: fundo −26, lâmina −17, 9 m de água, talude de 70 m nas duas
+margens. **209 ha de lâmina.**
+
+As quatro pontes caem nos rumos 0, 90, 180 e 270, que são costura de setor: quem
+atravessa desembarca no eixo radial que leva ao Cinturão. Tabuleiro de 26 m a
++7 m, duas torres de 74 m com tirantes.
+
+As oito ilhas são **reserva nomeada e não construção**: disco de terra com cais e
+nada em cima, igual ao resto da demarcação. A primeira é do **Dog Social Club**.
+
+![O lago com as pontes](docs/loteamento/lago-e-pontes.jpeg)
+
+![A cidade com lago e borda](docs/loteamento/cidade-com-lago-e-borda.jpeg)
+
+⚠️ **Duas armadilhas de margem, as duas minhas e as duas medidas.** (1) A bacia
+começava em 1.020 e escavou POR BAIXO da praça, que vai até 1.024: deu um colar
+serrilhado de laje plana pendurada sobre rampa. (2) Os anéis de praia usavam 180
+segmentos fixos, o que dá corda de 45 m em cima de um talude de 70, e a folga de
+22 cm não bastava: a margem cintilava em xadrez. Agora o passo sai do raio (18 m,
+o mesmo da via e da peça) e a folga em rampa é 80 cm.
+
+---
+
 ## 4. A demarcação: 38 peças, 136 ha
 
 Reservadas **antes** do lote, cumprindo `masterplan.md:268-269` pela primeira vez.
