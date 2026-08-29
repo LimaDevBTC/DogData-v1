@@ -675,7 +675,14 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       day: { el: 44, sun: 5.4, sunColor: 0xfff6e8, hemi: 0.34, earth: 0.15, exposure: 1.06 },
       // A dramática: sombra longa atravessando a praça e torres em contraluz. O
       // chão fica mais escuro, e isso aqui é escolha, não defeito.
-      morning: { el: 16, sun: 5.0, sunColor: 0xfff0d2, hemi: 0.28, earth: 0.18, exposure: 1.12 },
+      // ⚠️ A RAZÃO ENTRE SOL E PREENCHIMENTO ERA 39:1, ou 5,3 diafragmas. A
+      // fotografia de estúdio chama 3:1 de padrão e 8:1 de dramático; 39:1 dá
+      // sombra preta chapada, que é erro nomeado nos guias de iluminação de
+      // arquitetura, não estilo. Medido na chapa massa-v1: 97,8% do céu abaixo
+      // de L 0,06 e 50,4% da cidade acima de L 0,72, com 13,4% de meio-tom.
+      // A convenção da maquete é DUAS fontes, uma direta fazendo de sol e uma
+      // indireta de preenchimento, nunca duas diretas.
+      morning: { el: 16, sun: 4.2, sunColor: 0xfff0d2, hemi: 1.05, earth: 0.42, exposure: 1.05 },
       // A noite assumida: sem sol, a Terra manda. Ela é grande (2 graus) e fica
       // parada no céu, então a sombra dela é macia e a luz é azul. O que acende a
       // cidade é a luz artificial dela mesma.
@@ -943,7 +950,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           const pinta = qDomo.get('pintura')
           void buildTecido({
             heightAt: terrain.heightAt,
-            modo: qDomo.get('modo') === 'demarcacao' ? 'demarcacao' : 'massa',
+            modo: qDomo.get('modo') === 'massa' ? 'massa' : 'lote',
+            sombra: qDomo.get('sombra') !== '0',
             pintura: pinta === 'idade' || pinta === 'forma' ? pinta : 'pedra',
           }).then((t) => {
             if (disposed) { t.dispose(); return }

@@ -863,3 +863,196 @@ json.dump({
     'quarteiroes': sum(len(q['quarteiroes']) for s in range(SETORES) for q in T[s]),
 }, open(p('public/city/cidade.json'), 'w'), indent=1)
 print('gravado public/city/cidade.{json} + cidade-lotes.bin', file=sys.stderr)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# A MALHA VIÁRIA: a geometria que a cena precisa para desenhar rua, e não só
+# contar. Até 29/08 cidade.json publicava "quartos: 226, quarteiroes: 1182" e
+# nada mais: a cena não tinha como traçar a via de contorno de um quarteirão, as
+# duas travessas dele, a praça do quarto ou o bulevar, porque o centro e o giro
+# de cada peça morriam dentro de tecido(). Aqui NADA é recalculado: é a mesma
+# lista T que alimentou prateleiras_de(), na mesma ordem, com o mesmo id.
+#
+# ⚠️ O ID TEM DE SAIR DA MESMA ORDENAÇÃO DE prateleiras_de(). Lá o quarto é
+# numerado por raio crescente dentro do setor, e o quarteirão por raio crescente
+# dentro do quarto (sorted é estável, então empate mantém a ordem de tecido()).
+# Numerar por qualquer outro critério faria S07-Q09-B002 apontar para um
+# quarteirão diferente do que está gravado em data/dogcity_lotes.csv.
+#
+# ⚠️ QUADRO LOCAL E GIRO. Cada quarteirão vive num quadro girado por
+# setor x 7,5 graus: mundo = centro + R(giro) · local, com
+# wx = cx + lx·cos - lz·sin  e  wz = cz + lx·sin + lz·cos. O eixo x local corre
+# ao longo da testada; o eixo z local é a profundidade. As travessas correm ao
+# longo de x local, nas faixas de z local [-34, -25] e [25, 34]. Rotacione o
+# DESLOCAMENTO e some ao centro; o centro já está em mundo (a memória do
+# "rotacione o deslocamento, nunca o centro" em coloca() vale aqui igual).
+_MEIO = QUARTEIRAO / 2
+_FILEIRAS = [
+    {'fila': 0, 'borda': -_MEIO,                    'sentido': +1, 'abre': 'contorno'},
+    {'fila': 1, 'borda': -(_MEIO - FAIXA),          'sentido': -1, 'abre': 'travessa1'},
+    {'fila': 2, 'borda': -(_MEIO - FAIXA) + TRAVESSA,'sentido': +1, 'abre': 'travessa1'},
+    {'fila': 3, 'borda': +(_MEIO - FAIXA) - TRAVESSA,'sentido': -1, 'abre': 'travessa2'},
+    {'fila': 4, 'borda': +(_MEIO - FAIXA),          'sentido': +1, 'abre': 'travessa2'},
+    {'fila': 5, 'borda': +_MEIO,                    'sentido': -1, 'abre': 'contorno'},
+]
+
+def _fila_do_lote(ox, oz, prof):
+    """Reconstrói a fileira a partir do centro local e da profundidade.
+    ⚠️ Reconstrução, não registro: coloca() não devolve a fileira e mudar a
+    tupla de `saida` mexeria em nove desempacotamentos. Como oz = borda +
+    sentido·prof/2 é exato em float (o mesmo cálculo de coloca()), a fileira
+    cujo oz previsto bate com o gravado é única, exceto o caso prof = 50 nas
+    fileiras 2 e 3, que dão oz = 0 as duas; aí o empate fica com a 2 e não
+    altera a contagem de fileiras ocupadas (as duas abrem para travessas)."""
+    melhor, erro = 0, 1e18
+    for f in _FILEIRAS:
+        e = abs(oz - (f['borda'] + f['sentido'] * prof / 2))
+        if e < erro: erro, melhor = e, f['fila']
+    return melhor, erro
+
+malha_q, malha_b = [], []
+ocup = {}                        # (s, q, b) -> [lotes por fileira]
+sup = {}                         # (s, q, b) -> quantas superquadras
+erro_fila_max = 0.0
+for x, z, s, a, fr, pf, q_, b_, n_ in saida:
+    ch = (s, q_, b_)
+    ocup.setdefault(ch, [0]*LOTE_ROWS)
+    if pf > PROF_MAX:
+        # o ramo gigante de coloca(): frente 168, seis prateleiras consumidas
+        sup[ch] = sup.get(ch, 0) + 1
+
+for s in range(SETORES):
+    ang = math.radians(s * GIRO_SETOR)
+    ca, sa = math.cos(ang), math.sin(ang)
+    centros = {}
+    for iq, q in enumerate(sorted(T[s], key=lambda q: q['r'])):
+        for ib, b in enumerate(sorted(q['quarteiroes'], key=lambda b: b['r'])):
+            centros[(s, iq+1, ib+1)] = (b['x'], b['z'], ca, sa)
+    for x, z, ss, a, fr, pf, q_, b_, n_ in saida:
+        if ss != s or pf > PROF_MAX: continue
+        bx, bz, _, _ = centros[(s, q_, b_)]
+        dx, dz = x - bx, z - bz
+        ox = dx*ca + dz*sa
+        oz = -dx*sa + dz*ca
+        fila, e = _fila_do_lote(ox, oz, pf)
+        erro_fila_max = max(erro_fila_max, e)
+        ocup[(s, q_, b_)][fila] += 1
+# ⚠️ CONFERÊNCIA: se a reconstrução da fileira errar por mais de meio metro é
+# porque o quadro local mudou em coloca() e este bloco ficou para trás.
+if erro_fila_max > 0.5:
+    print(f'ERRO: fileira reconstruída com erro de {erro_fila_max:.2f} m; malha não gravada',
+          file=sys.stderr)
+    sys.exit(1)
+
+def _sonda_praca(wx, wz, ca, sa, s):
+    """25 sondas na célula central do quarto (a praça): fração livre E no setor.
+    A célula é a mesma 168 m das outras; a via de 12 m em volta é a do quarto."""
+    ok = tot = 0
+    for j in range(5):
+        for i in range(5):
+            lx = (i - 2) * (QUARTEIRAO / 4)
+            lz = (j - 2) * (QUARTEIRAO / 4)
+            fx, fz = wx + lx*ca - lz*sa, wz + lx*sa + lz*ca
+            tot += 1
+            if setor_de(fx, fz) == s and livre(fx, fz): ok += 1
+    return ok / tot
+
+for s in range(SETORES):
+    ang = math.radians(s * GIRO_SETOR)
+    ca, sa = math.cos(ang), math.sin(ang)
+    passo_q = CELULA * QUARTO
+    for iq, q in enumerate(sorted(T[s], key=lambda q: q['r'])):
+        qid = f'S{s+1:02d}-Q{iq+1:02d}'
+        # índice de célula no quadro do setor (inverso de tecido(): lx=(qx+.5)·540)
+        lx = q['x']*ca + q['z']*sa
+        lz = -q['x']*sa + q['z']*ca
+        qx, qz = int(round(lx/passo_q - 0.5)), int(round(lz/passo_q - 0.5))
+        frac = _sonda_praca(q['x'], q['z'], ca, sa, s)
+        blocos = []
+        for ib, b in enumerate(sorted(q['quarteiroes'], key=lambda b: b['r'])):
+            bid = f'{qid}-B{ib+1:03d}'
+            # célula 0..2 dentro do quarto, no quadro do setor
+            blx = b['x']*ca + b['z']*sa
+            blz = -b['x']*sa + b['z']*ca
+            cx = int(round((blx - lx)/CELULA)) + 1
+            cz = int(round((blz - lz)/CELULA)) + 1
+            ch = (s, iq+1, ib+1)
+            por_fila = ocup.get(ch, [0]*LOTE_ROWS)
+            malha_b.append({
+                'id': bid, 'setor': s+1, 'quarto': iq+1, 'quarteirao': ib+1,
+                'x': round(b['x'], 1), 'z': round(b['z'], 1), 'r': round(b['r']),
+                'giro': s * GIRO_SETOR, 'lado': QUARTEIRAO,
+                'celula': [cx, cz],
+                'sondasLivres': len(b['lotes']),           # de 84 pontos da sondagem
+                'lotes': sum(por_fila) + sup.get(ch, 0),
+                'lotesPorFileira': por_fila,
+                'fileirasComLote': sum(1 for v in por_fila if v),
+                'superquadra': ch in sup,
+            })
+            blocos.append(bid)
+        malha_q.append({
+            'id': qid, 'setor': s+1, 'quarto': iq+1,
+            'x': round(q['x'], 1), 'z': round(q['z'], 1), 'r': round(q['r']),
+            'giro': s * GIRO_SETOR, 'lado': CELULA * QUARTO,
+            'celula': [qx, qz],
+            'quarteiroes': blocos,
+            'pracaFracLivre': round(frac, 2),
+            'praca': frac >= 0.999,
+        })
+
+bulevares = []
+for s in range(SETORES):
+    rumo = s * (360 / SETORES)
+    x0, z0 = _peca_xy(rumo, R_INICIO)
+    x1, z1 = _peca_xy(rumo, R_ABOBADA)
+    bulevares.append({
+        'id': f'BUL{s+1:02d}', 'rumo': rumo, 'largura': BULEVAR,
+        'rInicio': R_INICIO, 'rFim': R_ABOBADA,
+        'x0': round(x0, 1), 'z0': round(z0, 1), 'x1': round(x1, 1), 'z1': round(z1, 1),
+        'setores': [s+1, (s+1) % SETORES + 1],   # os dois setores que a costura separa
+    })
+
+def _linhas(lst):
+    return '[\n' + ',\n'.join(json.dumps(o, ensure_ascii=False, separators=(',', ':')) for o in lst) + '\n]'
+
+with open(p('public/city/cidade-malha.json'), 'w') as f:
+    f.write('{\n"esquema":' + json.dumps({
+        'quadro': 'mundo = centro + R(giro)·local; wx = x + lx·cos(giro) - lz·sin(giro); '
+                  'wz = z + lx·sin(giro) + lz·cos(giro). x local = testada, z local = profundidade. '
+                  'giro em graus, positivo de +x para +z. rumo em graus, 0 = norte (-z), cresce para leste (+x).',
+        'quarteirao': 'centro x/z em mundo, lado 168, via de contorno de 12 m em volta '
+                      '(eixo da via a ±90 m do centro). Dentro, em z local: faixa [-84,-34], '
+                      'travessa1 [-34,-25], faixa [-25,25], travessa2 [25,34], faixa [34,84]. '
+                      'fileiras 0..5 em `fileiras`; lotesPorFileira segue essa ordem. '
+                      'sondasLivres = pontos livres dos 84 sondados por tecido(); quarteirão '
+                      'de borda entra com ≥ 20. superquadra = lote gigante tomou as 6 fileiras.',
+        'quarto': 'centro da célula central (a praça) em mundo, lado 540 = 3x3 células de 180. '
+                  'celula = [qx, qz] no quadro do setor. praca = 25 sondas da célula central '
+                  'todas livres e no setor; pracaFracLivre = fração.',
+        'bulevar': 'eixo radial sobre a costura de setor, de rInicio a rFim, largura 34.',
+        'ids': 'os mesmos S..-Q..-B.. de data/dogcity_lotes.csv (lot_id sem o -L...).',
+    }, ensure_ascii=False, separators=(',', ':')) + ',\n')
+    f.write('"constantes":' + json.dumps({
+        'setores': SETORES, 'giroPorSetor': GIRO_SETOR,
+        'celula': CELULA, 'quarto': CELULA * QUARTO, 'quarteirao': QUARTEIRAO,
+        'viaContorno': CELULA - QUARTEIRAO, 'faixa': FAIXA, 'travessa': TRAVESSA,
+        'bulevar': BULEVAR, 'filaProf': FILA_PROF, 'profMax': PROF_MAX,
+        'plato': {'r': R_INICIO, 'rampaDe': PLATO_R},
+        'cinturao': {'rInicio': R_ABOBADA, 'rFim': R_SITIO},
+        'raioSitio': R_SITIO,
+        'fileiras': _FILEIRAS,
+        'travessas': [{'z0': -(_MEIO - FAIXA), 'z1': -(_MEIO - FAIXA) + TRAVESSA},
+                      {'z0': +(_MEIO - FAIXA) - TRAVESSA, 'z1': +(_MEIO - FAIXA)}],
+    }, ensure_ascii=False, separators=(',', ':')) + ',\n')
+    f.write('"resumo":' + json.dumps({
+        'quartos': len(malha_q), 'quartosComLote': sum(1 for q in malha_q if any(
+            b['lotes'] for b in malha_b if b['id'].startswith(q['id'] + '-'))),
+        'quartosComPraca': sum(1 for q in malha_q if q['praca']),
+        'quarteiroes': len(malha_b), 'quarteiroesComLote': sum(1 for b in malha_b if b['lotes']),
+        'superquadras': sum(1 for b in malha_b if b['superquadra']),
+        'lotes': sum(b['lotes'] for b in malha_b),
+    }, separators=(',', ':')) + ',\n')
+    f.write('"bulevares":' + _linhas(bulevares) + ',\n')
+    f.write('"quartos":' + _linhas(malha_q) + ',\n')
+    f.write('"quarteiroes":' + _linhas(malha_b) + '\n}\n')
+print(f'gravado public/city/cidade-malha.json: {len(malha_q)} quartos, {len(malha_b)} quarteirões, '
+      f'{len(bulevares)} bulevares', file=sys.stderr)

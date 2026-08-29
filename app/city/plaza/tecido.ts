@@ -26,7 +26,11 @@ import { buildPecas, type Peca } from './pecas'
 
 export interface TecidoOpts {
   heightAt: (x: number, z: number) => number
-  modo?: 'massa' | 'demarcacao'
+  /** 'lote' (padrão) é a cidade ANTES do mint: terreno demarcado e nenhum prédio.
+   *  'massa' é a prévia de como ela fica cheia. */
+  modo?: 'lote' | 'massa'
+  /** sombra própria nos 52.991 volumes: transforma a imagem e custa fps */
+  sombra?: boolean
   /** 'pedra' é a paleta de maquete; 'idade' e 'forma' são lentes de diagnóstico */
   pintura?: 'pedra' | 'idade' | 'forma'
 }
@@ -42,7 +46,11 @@ export interface Tecido {
 // ⚠️ A PALETA PADRÃO NÃO É DE DADO, É DE MAQUETE. Quatro tons de concreto claro
 // sobre regolito: a variação por lote é o que impede a cidade de virar um bloco
 // só, e a ausência de cor forte é o que a faz parecer cidade e não gráfico.
-const PEDRA = ['#D8D2C6', '#C9C2B4', '#BBB3A4', '#E2DCD1']
+// ⚠️ CLAY É CINZA MÉDIO, NÃO BRANCO. O valor canônico do clay render é 0,65
+// linear, cerca de #CCCCCC. A primeira paleta estava em L 0,70 a 0,87: clara
+// demais, estourava no sol e matava o meio-tom. Medido na chapa: 50,4% da cidade
+// acima de L 0,72 e só 13,4% de meio-tom, ou seja uma imagem de dois valores.
+const PEDRA = ['#B9B3A8', '#ADA79B', '#A19B90', '#C4BEB3']
 const CORES_COORTE = ['#FFE9C4', '#FFC97A', '#F7931A', '#E8660D', '#C24A12', '#8E3A1B', '#5C2D1E', '#3A2320']
 const CORES_FORMA = ['#8B8B93', '#C9A227', '#3FA7D6', '#E8660D', '#E5484D']
 
@@ -75,7 +83,7 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
   const n = Math.floor(buf.byteLength / REG)
   const group = new THREE.Group()
   group.name = 'tecido'
-  const modo = o.modo ?? 'massa'
+  const modo = o.modo ?? 'lote'
   const pintura = o.pintura ?? 'pedra'
 
   // ⚠️ O RECUO É O QUE FAZ A RUA EXISTIR. Sem ele os lotes se encostam, o
@@ -104,8 +112,12 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
     const r01 = hash01(i)
 
     let alt: number
-    if (modo === 'demarcacao') {
-      alt = 1.6
+    if (modo === 'lote') {
+      // ⚠️ O TERRENO NÃO É PRÉDIO. 0,45 m é o suficiente para a borda do lote
+      // lançar uma linha de sombra com sol a 16 graus e o parcelamento ficar
+      // legível; mais que isso e o loteamento vira maquete de cidade cheia,
+      // que é exatamente o que o fundador não quer antes do mint.
+      alt = 0.45
     } else {
       // altura pela tipologia, modulada pela área e por um ruído fixo, para o
       // quarteirão ter perfil em vez de virar um degrau só
@@ -134,7 +146,55 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
   if (malha.instanceColor) malha.instanceColor.needsUpdate = true
   malha.frustumCulled = false
   malha.receiveShadow = true
+  // ⚠️ SOMBRA PRÓPRIA, e ela era a causa raiz do achatamento. Até agora os 52.991
+  // volumes só RECEBIAM sombra e nunca lançavam: por isso o modelo de massa lia
+  // como planta extrudada em vez de maquete.
+  // ⚠️ E ELA NÃO É DE GRAÇA. A frente de cena mediu 1,0 ms na vista de plano, mas
+  // na rasante, com muito mais lançador dentro da câmera de sombra, o quadro cai
+  // de 51 para 24 fps. Fica ligada por padrão no modo massa, que é o registro de
+  // CHAPA, e sai com ?sombra=0 para navegar.
+  malha.castShadow = o.sombra ?? (modo === 'massa')
   group.add(malha)
+
+  // ── os marcos de esquina ──────────────────────────────────────────────────
+  // ⚠️ UM POR LOTE, e é ele que faz o chão parecer DEMARCADO em vez de pintado.
+  // De longe some, de perto conta a história certa: terreno medido, com dono,
+  // esperando construção. 52.991 instâncias de 12 triângulos, dentro do teto
+  // medido de 300.000 e sem chamada de desenho nova relevante.
+  let marcos: THREE.InstancedMesh | null = null
+  let geoMarco: THREE.BufferGeometry | null = null
+  let matMarco: THREE.Material | null = null
+  if (modo === 'lote') {
+    geoMarco = new THREE.BoxGeometry(0.5, 1.5, 0.5)
+    geoMarco.translate(0, 0.75, 0)
+    matMarco = new THREE.MeshStandardMaterial({ color: '#8A8375', roughness: 0.95 })
+    marcos = new THREE.InstancedMesh(geoMarco, matMarco, n)
+    const mm = new THREE.Matrix4()
+    const pm = new THREE.Vector3()
+    const qm = new THREE.Quaternion()
+    const em = new THREE.Vector3(1, 1, 1)
+    for (let i = 0; i < n; i++) {
+      const off = i * REG
+      const x = dv.getInt16(off, true), z = dv.getInt16(off + 2, true)
+      const setor = dv.getUint8(off + 4)
+      const frente = dv.getUint8(off + 9), prof = dv.getUint8(off + 10)
+      const ang = -THREE.MathUtils.degToRad(setor * meta.giroPorSetor)
+      const cx = Math.cos(ang), sx = Math.sin(ang)
+      // esquina da frente, no canto esquerdo de quem olha da rua
+      const lx = -frente / 2 + 0.6, lz = -prof / 2 + 0.6
+      const wx = x + lx * cx - lz * sx
+      const wz = z + lx * sx + lz * cx
+      qm.setFromAxisAngle(eixoY, ang)
+      pm.set(wx, o.heightAt(wx, wz), wz)
+      mm.compose(pm, qm, em)
+      marcos.setMatrixAt(i, mm)
+    }
+    marcos.instanceMatrix.needsUpdate = true
+    marcos.frustumCulled = false
+    marcos.castShadow = o.sombra ?? true
+    marcos.receiveShadow = true
+    group.add(marcos)
+  }
 
   // ── os bulevares de costura ───────────────────────────────────────────────
   // Faixa de piso mais clara que o regolito, com meio-fio escuro dos dois lados:
@@ -191,6 +251,7 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
     triangulos,
     dispose() {
       geo.dispose(); mat.dispose()
+      geoMarco?.dispose(); matMarco?.dispose()
       meioFio.g.dispose(); (meioFio.m.material as THREE.Material).dispose()
       pista.g.dispose(); (pista.m.material as THREE.Material).dispose()
       construidas.dispose()
