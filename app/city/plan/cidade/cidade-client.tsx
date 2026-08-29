@@ -33,11 +33,17 @@ interface Meta {
   capacidadeHaPorSetor: number[]
   tecidoDisponivel_km2: number; areaLotes_km2: number
   loteMediana_m2: number; loteMenor_m2: number; loteMaior_m2: number
+  programaHa: number
+  programa: { id: string; nome: string; tipo: string; x: number; z: number; a: number; b: number; rot: number; ha: number }[]
   carteiras: number; plantadas: number
   enclaves: number; carteirasEmEnclave: number
   dsc: number; setorDSC: number; quartos: number; quarteiroes: number
 }
 
+const CORES_PROG: Record<string, string> = {
+  distribuicao: '#E8660D', esporte: '#3FA7D6', agua: '#2E6F9E',
+  jardim: '#3E7D4F', civico: '#C9A227',
+}
 const CORES_FORMA = ['#8B8B93', '#C9A227', '#3FA7D6', '#E8660D', '#E5484D']
 const CORES_COORTE = ['#FFE9C4', '#FFC97A', '#F7931A', '#E8660D', '#C24A12', '#8E3A1B', '#5C2D1E', '#3A2320']
 const PARQUE = { rumo: 43, dist: 5200, disco: 3600 }
@@ -133,6 +139,21 @@ export default function CidadeClient() {
       const w = Math.max(0.5, d.fr[i] * esc), h = Math.max(0.5, d.pf[i] * esc)
       g2.fillRect(X - w / 2, Y - h / 2, w, h)
     }
+
+    // ── a demarcação: reservado ANTES do lote, e por isso desenhado DEPOIS ──
+    // Nada aqui está construído. É terra com nome, para que nenhum lote nasça
+    // em cima: o gerador se recusa a gravar se um lote cair dentro de peça.
+    for (const q of meta.programa ?? []) {
+      const cor = CORES_PROG[q.tipo] ?? '#888'
+      g2.save()
+      g2.translate(px(q.x), py(q.z))
+      g2.rotate((q.rot * Math.PI) / 180)
+      g2.beginPath()
+      g2.ellipse(0, 0, Math.max(1, q.a * esc), Math.max(1, q.b * esc), 0, 0, Math.PI * 2)
+      g2.fillStyle = cor + '55'; g2.fill()
+      g2.strokeStyle = cor; g2.lineWidth = 1.1; g2.stroke()
+      g2.restore()
+    }
   }, [d, meta, pinta, zoom])
 
   const porSetor = useMemo(() => meta?.capacidadeHaPorSetor ?? [], [meta])
@@ -160,6 +181,7 @@ export default function CidadeClient() {
               <L k="Carteiras endereçadas" v={meta ? meta.plantadas.toLocaleString('pt-BR') : '…'} d />
               <L k="Tecido disponível" v={meta ? `${meta.tecidoDisponivel_km2} km²` : '…'} />
               <L k="Área dos lotes" v={meta ? `${meta.areaLotes_km2} km²` : '…'} />
+              <L k="Demarcado (programa)" v={meta ? `${meta.programa.length} peças · ${meta.programaHa} ha` : '…'} d />
               <L k="Quartos" v={meta ? String(meta.quartos) : '…'} />
               <L k="Quarteirões" v={meta ? String(meta.quarteiroes) : '…'} />
               <L k="Lote mediano" v={meta ? `${meta.loteMediana_m2.toLocaleString('pt-BR')} m²` : '…'} d />

@@ -38,6 +38,7 @@ import { buildProps, type Props } from './props'
 import { buildDscGallery, DSC_CENTER, type DscGallery } from './dsc-gallery'
 import { buildDome, type Dome } from './dome'
 import { buildColiseu, type Coliseu } from './coliseu'
+import { buildTecido, type Tecido } from './tecido'
 import { PROPS } from './props-table'
 import { CityChat } from '@/components/wallet/city-chat'
 
@@ -248,6 +249,20 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
     // colmeia como abóbada e não como véu no alto do quadro.
     case 'abobada':
       return { pos: new THREE.Vector3(0, 900, 3000), target: new THREE.Vector3(0, 620, 0) }
+    // ── conferência do loteamento (?tecido=1) ────────────────────────────────
+    // De cima, o tabuleiro inteiro: pega costura torta, lote em máscara e buraco.
+    case 'tecido':
+      return { pos: new THREE.Vector3(0, 5200, 3400), target: new THREE.Vector3(0, 0, 0) }
+    // rasante sobre um bairro: mostra o lote assentado no relevo de verdade
+    case 'tecidorasante':
+      return { pos: new THREE.Vector3(-2650, 300, -3350), target: new THREE.Vector3(-700, 30, -1100) }
+    // a borda: onde o lote encontra o Cinturão e o pé da saia da abóbada
+    // o grupo do poente: Lago Maior, Estádio Olímpico, Estádio de Futebol e o
+    // Jardim Botânico, que é onde as tipologias novas aparecem juntas
+    case 'pecas':
+      return { pos: new THREE.Vector3(-820, 620, 1180), target: new THREE.Vector3(-2250, 20, 180) }
+    case 'tecidoborda':
+      return { pos: new THREE.Vector3(2600, 420, 3400), target: new THREE.Vector3(1700, 20, 2400) }
     // o hipódromo visto do alto, do lado da praça: a forma e as duas bocas
     case 'coliseu':
       return { pos: new THREE.Vector3(-1380, 620 + dy, 2860), target: new THREE.Vector3(-2120, 40 + dy, 2120) }
@@ -812,6 +827,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let monuments: Monuments | null = null
     let domo: Dome | null = null
     let coliseu: Coliseu | null = null
+    let tecido: Tecido | null = null
     let props: Props | null = null
     let dsc: DscGallery | null = null
     let founders: FoundersWalk | null = null
@@ -918,6 +934,23 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           } catch (err) {
             console.error('[coliseu] não subiu', err)
           }
+        }
+
+        // ── o loteamento sobre o terreno real, atrás de ?tecido=1 ────────────
+        // É conferência: a prancha desenha sobre um disco perfeito e o mundo tem
+        // relevo, cova de parque, platô e a saia da abóbada.
+        if (qDomo.get('tecido') === '1') {
+          const pinta = qDomo.get('pintura')
+          void buildTecido({
+            heightAt: terrain.heightAt,
+            modo: qDomo.get('modo') === 'demarcacao' ? 'demarcacao' : 'massa',
+            pintura: pinta === 'idade' || pinta === 'forma' ? pinta : 'pedra',
+          }).then((t) => {
+            if (disposed) { t.dispose(); return }
+            tecido = t
+            scene.add(t.group)
+            console.log(`[tecido] ${t.lotes.toLocaleString('pt-BR')} lotes, ${t.pecas} peças demarcadas, ${t.triangulos.toLocaleString('pt-BR')} triângulos`)
+          }).catch((err) => console.error('[tecido] não subiu', err))
         }
         stepDone('terrain')
 
@@ -2032,6 +2065,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       monuments?.dispose()
       domo?.dispose()
       coliseu?.dispose()
+      tecido?.dispose()
       props?.dispose()
       dsc?.dispose()
       founders?.dispose()

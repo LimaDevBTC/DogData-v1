@@ -44,6 +44,8 @@ QUARTEIRAO   = 168.0     # e 12 m de via entre quarteirões
 QUARTO       = 3         # 3 x 3 células; a do meio é a praça do quarto
 LOTE_COLS, LOTE_ROWS = 14, 6      # 84 lotes
 LOTE_W, LOTE_D = 12.0, 25.0       # 300 m²
+FAIXA        = 50.0      # profundidade da faixa: duas fileiras costas com costas
+TRAVESSA     = 9.0       # a via de servico entre faixas (plano-diretor cap. 8)
 DECLIVE_MAX  = 4.0       # correção do júri: o tecido não cabe em 3 graus
 
 PLATO_R, PLATO_FUNDE = 960, 1300
@@ -70,22 +72,28 @@ COLISEU_ROT = 5 * math.pi / 4
 # 3.500 e a saia desce ali até o chão. Lote além disso ficaria FORA da cidade
 # pressurizada. 3.480 deixa a
 # calçada de serviço no pé da saia.
-R_ABOBADA = R_SITIO - 20
+# ⚠️ O CINTURÃO: o lote para 100 m ANTES da casca, não 20. Medido, com 20 m de
+# recuo havia lote gravado a 4.462 m, ou seja debaixo do pé da saia da abóbada,
+# que desce em 4.500. Os 100 m entre 4.400 e 4.500 são verde de borda mais o pé
+# da saia. Custa 0,78 km² de lote e 7 m² na mediana, e compra uma borda que
+# existe fisicamente.
+# ⚠️ NÃO MEXER em app/city/plaza/dome.ts:35: a casca continua com 4.500 m e o
+# Cinturão é interno a ela.
+R_ABOBADA = R_SITIO - 100
 
-# ── O CONTORNO DEIXA DE SER CÍRCULO ────────────────────────────────────────
-# Os lobos não são gosto, são conserto de um defeito medido, e a razão está no
-# cabeçalho de gerar_forma_filotaxia.py: com o raio função pura do posto o
-# empacotamento não faz anel, mas a IDADE faz, e cada coorte ocupa uma coroa
-# limpa. Como prédio comum tem padrão por bairro (regra 5), a cidade subiria
-# anelada, que é o que a regra 3 proíbe. Modular o raio pelo ângulo transforma
-# coroa em pétala, e as reentrâncias entre pétalas viram cunhas verdes que
-# entram até perto da praça.
-# 5 é de Fibonacci, que é o pedido estético do fundador (concha, pinha).
-# ⚠️ Isto só é possível porque a área agora é variável: o tecido soma 16,33 km²
-# e o disco livre tem mais que isso, então sobra folga para ter FORMA. Com o
-# lote fixo de 300 m² não sobrava, e por isso o plano diretor encheu o disco.
+# ── O CONTORNO VOLTA A SER CÍRCULO, E ISSO FOI MEDIDO ─────────────────────
+# ⚠️ O LOBO FOI TESTADO E REPROVOU. Ele existia para quebrar o anel de idade, e
+# não quebrava: R² de coorte contra raio de 0,8004 COM lobo contra 0,8477 sem.
+# Comprava 0,047 de R² e cobrava 6,46 km² de lote e 91 m² na mediana. Pior, a
+# forma nem se lia: no Fourier do envelope o harmônico k=5 valia 183 m pico a
+# pico contra os 1.075 pedidos, atrás de k=1, 2, 3 e 4. E a cunha verde entre
+# pétalas, que eu afirmei aqui que "entra até perto da praça", só começava em
+# 3.404,8 m contra R_INICIO de 1.300: o comentário errava por 2,1 km e nunca
+# tinha sido medido.
+# O que quebra o anel de verdade está no cotista, em RITMO_LOBOS: ele ataca a
+# correlação idade-raio direto, sem cortar terra nenhuma.
 LOBOS = 5
-LOBO_AMP = 0.12
+LOBO_AMP = 0.0
 LOBO_FASE = math.radians(18)
 
 def raio_borda(x, z):
@@ -143,6 +151,107 @@ PCX, PCZ = math.sin(prad)*PARQUE_DIST, -math.cos(prad)*PARQUE_DIST
 def rumo_de(x, z):
     return math.degrees(math.atan2(x, -z)) % 360
 
+# ═══════════════════════════════════════════════════════════════════════════
+# O PROGRAMA: tudo que é reservado ANTES do lote.
+#
+# ⚠️ REGRA DE OURO DO masterplan.md:268-269: equipamento vira zona reservada
+# ANTES do lote, nunca depois. Até 28/08 isso NUNCA tinha sido cumprido: dos 39
+# equipamentos do §5, ZERO era máscara. A cidade era plantada primeiro e o
+# programa ficava sendo promessa em tabela de markdown.
+#
+# ⚠️ A LISTA DO §5 FOI ESCRITA PARA OUTRA CIDADE. Ela tem porto, navios grandes,
+# marina, ponte estilo Golden Gate, farol na entrada do porto, estátua colossal
+# recebendo navios, aeroporto e observatório no topo da montanha. Nada disso
+# existe aqui: o sítio é mare plano sob abóbada pressurizada, sem costa, sem
+# montanha e sem aviões. Traduzido, com o original citado:
+#   porto e balsas multichain  -> Portão e Alfândega (a carga chega por nave)
+#   aeroporto                  -> o Spaceport, que já existe fora da casca
+#   farol da entrada do porto  -> Farol do Portão, na saia da abóbada
+#   estátua recebendo navios   -> Colosso do Portão, mesma função cênica
+#   observatório na montanha   -> Observatório do Cinturão, o terreno é plano
+#   marina, ponte, roda-gigante-> orla do Lago Maior, que agora existe de verdade
+# O lago artificial é decisão do fundador de 28/08 e resolve a órfandade dessas
+# peças: sob abóbada dá para ter água.
+#
+# ⚠️ NADA AQUI É CONSTRUÍDO. Isto é DEMARCAÇÃO: reserva de terra com nome, para
+# que nenhum lote nasça em cima. O 3D vem depois, e vem sem desfazer endereço.
+#
+# rumo em graus (0 = norte, cresce para leste), raio ao centro em m,
+# a e b = meios-eixos em m, rot = giro da peça em graus.
+PROGRAMA = [
+  # ── a cadeia de distribuição das moedas ───────────────────────────────────
+  # A nave pousa FORA, no Spaceport em r 5.150. A moeda entra por um portão na
+  # casca, é triada na Alfândega e desce por um eixo até as doze Centrais, uma
+  # por setor, que alimentam os quarteirões. É o caminho de uma tx pagando um
+  # endereço, desenhado no chão.
+  ('D01', 'Portão da Abóbada',        'distribuicao', 177, 4450, 170,  70,  87),
+  ('D02', 'Alfândega e Triagem',      'distribuicao', 177, 4150, 190, 110,  87),
+  ('D03', 'Pátio de Contêineres',     'distribuicao', 171, 3900, 150, 100,  81),
+  ('D04', 'Central de Distribuição 1','distribuicao',   0, 2200,  70,  70,   0),
+  ('D05', 'Central de Distribuição 2','distribuicao',  30, 2200,  70,  70,   0),
+  ('D06', 'Central de Distribuição 3','distribuicao',  60, 2200,  70,  70,   0),
+  ('D07', 'Central de Distribuição 4','distribuicao',  90, 2200,  70,  70,   0),
+  ('D08', 'Central de Distribuição 5','distribuicao', 120, 2200,  70,  70,   0),
+  ('D09', 'Central de Distribuição 6','distribuicao', 150, 2200,  70,  70,   0),
+  ('D10', 'Central de Distribuição 7','distribuicao', 180, 2200,  70,  70,   0),
+  ('D11', 'Central de Distribuição 8','distribuicao', 210, 2200,  70,  70,   0),
+  ('D12', 'Central de Distribuição 9','distribuicao', 240, 2200,  70,  70,   0),
+  ('D13', 'Central de Distribuição 10','distribuicao',270, 2200,  70,  70,   0),
+  ('D14', 'Central de Distribuição 11','distribuicao',300, 2200,  70,  70,   0),
+  ('D15', 'Central de Distribuição 12','distribuicao',330, 2200,  70,  70,   0),
+
+  # ── esporte (§5 itens 1 a 6) ──────────────────────────────────────────────
+  ('E01', 'Estádio Olímpico e pista de 400 m', 'esporte', 255, 2650, 175, 130, 75),
+  ('E02', 'Estádio de Futebol',                'esporte', 243, 3150, 130,  95, 63),
+  ('E03', 'Ginásio Coberto e Arena',           'esporte', 267, 3150,  95,  70, 87),
+  ('E04', 'Complexo Aquático',                 'esporte', 285, 2450, 100,  70,  0),
+  ('E05', 'Skatepark e Quadras Urbanas',       'esporte', 297, 2900,  70,  50,  0),
+
+  # ── água e jardim (fundador, 28/08) ───────────────────────────────────────
+  ('A01', 'Lago Maior',            'agua',   276, 1900, 340, 200, 100),
+  ('A02', 'Lago do Poente',        'agua',   309, 2350, 190, 120,  30),
+  ('A03', 'Jardim Botânico',       'jardim', 291, 1700, 150, 110,   0),
+  ('A04', 'Parque Central',        'jardim',  99, 1900, 280, 190,  10),
+  ('A05', 'Jardim das Coortes',    'jardim', 129, 2500, 170, 110,  40),
+  ('A06', 'Alameda dos Fundadores','jardim', 189, 1750, 210,  60,  99),
+
+  # ── educação, saúde, cultura, cívico (§5 itens 7 a 20, 33 a 39) ───────────
+  ('C01', 'DOG University',            'civico', 111, 2400, 165, 115,  20),
+  ('C02', 'Hospital Geral e Heliponto','civico', 141, 1900, 110,  80,  50),
+  ('C03', 'Teatro Municipal',          'civico', 159, 1700,  85,  65,  70),
+  ('C04', 'Museu da Runa',             'civico', 207, 1700,  90,  65, 117),
+  ('C05', 'City Hall',                 'civico', 219, 2000,  80,  80,   0),
+  ('C06', 'Casa da Moeda',             'civico', 195, 2050,  90,  65, 105),
+  ('C07', 'DOG DATA HQ e Bolsa',       'civico', 165, 2100,  80,  80,   0),
+  ('C08', 'Memorial do DOG Perdido',   'civico', 333, 2650, 110,  80,   0),
+  ('C09', 'Mercado Municipal',         'civico', 321, 1900,  85,  60,   0),
+  ('C10', 'Observatório do Cinturão',  'civico',   9, 4200,  70,  70,   0),
+  ('C11', 'Farol do Portão',           'civico', 183, 4380,  45,  45,   0),
+  ('C12', 'Colosso do Portão',         'civico', 174, 3700,  60,  60,   0),
+]
+
+def _peca_xy(rumo, raio):
+    a = math.radians(rumo)
+    return math.sin(a) * raio, -math.cos(a) * raio
+
+PROGRAMA_GEO = []
+for pid, nome, tipo, rumo, raio, ea, eb, rot in PROGRAMA:
+    cx, cz = _peca_xy(rumo, raio)
+    rr = math.radians(rot)
+    PROGRAMA_GEO.append({'id': pid, 'nome': nome, 'tipo': tipo, 'cx': cx, 'cz': cz,
+                         'a': float(ea), 'b': float(eb), 'rot': rot,
+                         'c': math.cos(rr), 's': math.sin(rr),
+                         'area': math.pi * ea * eb})
+
+def em_programa(x, z, margem=2.0):
+    for q in PROGRAMA_GEO:
+        dx, dz = x - q['cx'], z - q['cz']
+        lx = dx*q['c'] - dz*q['s']
+        lz = dx*q['s'] + dz*q['c']
+        if (lx/(q['a']+margem))**2 + (lz/(q['b']+margem))**2 <= 1.0:
+            return q
+    return None
+
 def dentro_do_coliseu(x, z, margem=0.0):
     """A elipse do hipódromo, no quadro girado dele."""
     dx, dz = x - COLISEU_CX, z - COLISEU_CZ
@@ -160,6 +269,7 @@ def livre(x, z):
     # promessa de guardar o espaço do Coliseu vazio.
     if math.hypot(x-PCX, z-PCZ) < PARQUE_DISCO + 2: return False
     if dentro_do_coliseu(x, z, 2.0): return False
+    if em_programa(x, z) is not None: return False
     # o bulevar de 34 m sobre cada costura de setor é via, não lote
     ru = rumo_de(x, z)
     for s in range(SETORES):
@@ -306,18 +416,43 @@ PROF = FILA_PROF
 def prateleiras_de(s):
     """Por setor, as prateleiras em ordem de chegada: mais perto da praça primeiro."""
     out = []
-    for q in sorted(T[s], key=lambda q: q['r']):
-        for b in sorted(q['quarteiroes'], key=lambda b: b['r']):
+    for iq, q in enumerate(sorted(T[s], key=lambda q: q['r'])):
+        for ib, b in enumerate(sorted(q['quarteiroes'], key=lambda b: b['r'])):
             # o quarteirão de borda entra com a testada proporcional ao que
             # sobrou dele depois da máscara (relevo, bulevar, coliseu, borda)
             frac = len(b['lotes']) / (LOTE_COLS * LOTE_ROWS)
             util = QUARTEIRAO * frac
             ang = math.radians(s * GIRO_SETOR)
             ca, sa = math.cos(ang), math.sin(ang)
+            # ⚠️ TODA FILEIRA DÁ FRENTE PARA RUA, e a primeira versão não dava.
+            # Ela punha as 6 fileiras igualmente espaçadas a 28 m, então as quatro
+            # do meio davam frente para uma fresta de 3 m, que não é rua: eram
+            # lotes encravados, e lote encravado não se vende nem se acessa.
+            # O plano diretor manda 3 faixas de 50 m separadas por 2 travessas de
+            # 9 m, ou seja fileiras COSTAS COM COSTAS: cada par divide o fundo e
+            # cada lote abre para a via da frente. As de fora abrem para a via de
+            # 12 m que contorna o quarteirão; as de dentro, para as travessas.
+            # (borda da via, sentido em que o lote cresce)
+            meio = QUARTEIRAO / 2                     # 84
+            frentes = [
+                (-meio, +1),                                  # abre para o contorno
+                (-(meio - FAIXA), -1),                        # abre para a travessa 1
+                (-(meio - FAIXA) + TRAVESSA, +1),             # abre para a travessa 1
+                (+(meio - FAIXA) - TRAVESSA, -1),             # abre para a travessa 2
+                (+(meio - FAIXA), +1),                        # abre para a travessa 2
+                (+meio, -1),                                  # abre para o contorno
+            ]
             for fila in range(LOTE_ROWS):
-                oz = (fila - (LOTE_ROWS - 1) / 2) * PROF * 1.12
-                out.append({'bx': b['x'], 'bz': b['z'], 'oz': oz, 'ca': ca, 'sa': sa,
-                            'x0': -util / 2, 'livre': util, 'r': b['r']})
+                borda_z, sentido = frentes[fila]
+                # ⚠️ O ENDEREÇO NASCE AQUI. Sem carregar quarto e quarteirão pela
+                # prateleira não há como compor S{setor}-Q{quarto}-B{quarteirão}
+                # -L{lote} na hora de plantar, e sem endereço o lote não é de
+                # ninguém: até 28/08 o vínculo lote-carteira só existia na
+                # memória da rodada e era jogado fora ao gravar.
+                out.append({'bx': b['x'], 'bz': b['z'],
+                            'borda': borda_z, 'sentido': sentido, 'ca': ca, 'sa': sa,
+                            'x0': -util / 2, 'livre': util, 'r': b['r'],
+                            'q': iq + 1, 'b': ib + 1})
     return out
 PASSO = [prateleiras_de(s) for s in range(SETORES)]
 
@@ -361,6 +496,18 @@ S_DSC = int(DSC_RUMO // (360/SETORES))
 # ⚠️ A cota mudou de contagem para área junto com a curva. Duas carteiras não
 # pesam mais igual: uma de 4 ha ocupa o mesmo que 800 do portão.
 r_medio = [ (sum(pr['r'] for pr in PASSO[s]) / max(1, len(PASSO[s]))) for s in range(SETORES) ]
+
+# ⚠️ O RITMO POR SETOR É O ANTI-ANEL. Ele faz cada setor encher em velocidade
+# diferente, então a frente de ocupação de um está mais longe da praça que a do
+# vizinho e a MESMA coorte cai em raios diferentes conforme o rumo, que é a
+# regra 3 do fundador. Medido contra o lobo, que fazia o mesmo serviço cortando
+# terra: R² de coorte contra raio cai de 0,8477 para 0,6433, a sobreposição
+# entre coortes vizinhas sobe de 59,9% para 70,4%, e o custo em terra é ZERO.
+# Cinco lobos porque a leitura de cinco é a que o fundador pediu (Fibonacci);
+# aqui ela vive no tecido em vez de viver no contorno.
+RITMO_LOBOS, RITMO_AMP = 5, 0.45
+peso_setor = [1 + RITMO_AMP * math.cos(RITMO_LOBOS * (math.radians(s * (360/SETORES)) - LOBO_FASE))
+              for s in range(SETORES)]
 def area_nominal(dog, s):
     return K_AREA * (dog ** EXPOENTE) * ((max(r_medio[s], R_INICIO) / R_INICIO) ** GRADIENTE)
 
@@ -373,7 +520,7 @@ for c in gerais:
     for s in range(SETORES):
         pedido = area_nominal(elig[c[3]], s)
         if usado[s] + pedido > capg[s]: continue
-        folga = (capg[s] - usado[s]) / capg[s]
+        folga = (capg[s] - usado[s]) / capg[s] * peso_setor[s]
         if folga > mfolga: mfolga, melhor = folga, s
     if melhor < 0:
         melhor = max(range(SETORES), key=lambda s: capg[s] - usado[s])
@@ -390,6 +537,8 @@ for c in gerais:
 # passada 2 corrige o k por ele.
 cursor = [0]*SETORES
 saida = []
+sem_lugar = []       # carteiras que não acharam lugar na passada corrente
+no_bloco = {}        # (setor, quarto, quarteirão) -> quantos lotes já plantados
 # ⚠️ O EMPACOTAMENTO PROCURA PRATELEIRA, NÃO ACEITA A PRIMEIRA. A versão de
 # estreia pegava a primeira prateleira com qualquer sobra e espremia o lote nela:
 # um lote de 1.600 m² caindo numa sobra de 6 m virava um corredor de 6 por 266 m,
@@ -401,7 +550,7 @@ saida = []
 # com a profundidade compensando. A janela é curta de propósito: o lote tem de
 # ficar perto do lugar que a idade lhe deu, senão a regra 1 vira enfeite.
 JANELA = 24
-PROF_MAX = PROF * 3          # 75 m: o lote fundo ainda cabe na faixa do quarteirão
+PROF_MAX = FAIXA             # 50 m: além disso o lote atravessaria a travessa e comeria a rua
 
 def coloca(s, dog, addr):
     """Consome testada e devolve (x, z, frente, prof)."""
@@ -434,26 +583,35 @@ def coloca(s, dog, addr):
     # exatamente 168 x 75, e a área perdida ia parar no lote dos outros. São umas
     # poucas dezenas de carteiras, mas são justamente as que a regra da raiz
     # existe para tratar, então truncar aqui esvazia a regra.
+    # ⚠️ QUEM PASSA DA FAIXA VIRA SUPERQUADRA, e isso não é exceção, é urbanismo:
+    # um lote de 4 hectares não é lote de rua, é quarteirão inteiro, com frente
+    # para as quatro vias de contorno e sem travessa por dentro. Sem esta regra o
+    # lote fundo atravessava a travessa e comia a rua dos vizinhos, que é
+    # justamente o que a regra do fundador proíbe.
     if area > PROF_MAX * QUARTEIRAO:
-        fatias = max(1, min(LOTE_ROWS, math.ceil(area / (QUARTEIRAO * PROF))))
+        fatias = LOTE_ROWS      # a superquadra toma as seis fileiras
         tomadas = 0
         for k in range(escolhida, min(n, escolhida + fatias)):
             PASSO[s][k]['x0'] += PASSO[s][k]['livre']
             PASSO[s][k]['livre'] = 0.0
             tomadas += 1
-        prof_g = min(255.0, area / QUARTEIRAO)
-        oxg = pr['x0'] + pr['livre'] / 2
+        oxg = 0.0
         # o gigante também confere a máscara: ele grava o centro de uma prateleira
         # inteira, e centro de quarteirão de borda cai em terra proibida
-        _cx = pr['bx'] + oxg*pr['ca'] - pr['oz']*pr['sa']
-        _cz = pr['bz'] + oxg*pr['sa'] + pr['oz']*pr['ca']
+        # ⚠️ CONFIRA NO PONTO QUE VAI SER GRAVADO, e não num vizinho. A primeira
+        # versão testava a máscara em `pr['oz']` e gravava em `ozg`, que é `oz`
+        # deslocado por (tomadas-1) fileiras. A banca pegou 1 lote de 26.712 m²
+        # gravado DENTRO do Coliseu congelado por causa desses metros de diferença.
+        # a superquadra ocupa o quarteirão todo, então o centro dela é o centro
+        # do quarteirão e a profundidade nunca passa dos 168 m da quadra
+        prof_g = min(QUARTEIRAO, area / QUARTEIRAO)
+        ozg = 0.0
+        _cx = pr['bx'] + oxg*pr['ca'] - ozg*pr['sa']
+        _cz = pr['bz'] + oxg*pr['sa'] + ozg*pr['ca']
         if not livre(_cx, _cz):
             pr['livre'] = 0.0
             return coloca(s, dog, addr)
-        ozg = pr['oz'] + (tomadas - 1) * PROF * 0.56
-        return (pr['bx'] + oxg*pr['ca'] - ozg*pr['sa'],
-                pr['bz'] + oxg*pr['sa'] + ozg*pr['ca'],
-                QUARTEIRAO, prof_g)
+        return (_cx, _cz, QUARTEIRAO, prof_g, pr['q'], pr['b'])
 
     frente = min(frente_nat, pr['livre'])
     prof_real = area / frente
@@ -471,8 +629,9 @@ def coloca(s, dog, addr):
     ox = pr['x0'] + frente / 2
     ok = False
     for _ in range(14):
-        cx = pr['bx'] + ox*pr['ca'] - pr['oz']*pr['sa']
-        cz = pr['bz'] + ox*pr['sa'] + pr['oz']*pr['ca']
+        ozc = pr['borda'] + pr['sentido'] * prof_real / 2
+        cx = pr['bx'] + ox*pr['ca'] - ozc*pr['sa']
+        cz = pr['bz'] + ox*pr['sa'] + ozc*pr['ca']
         if livre(cx, cz): ok = True; break
         # ⚠️ ANDE UM PASSO DE SONDAGEM, NÃO A TESTADA INTEIRA. Queimar `frente` a
         # cada rejeição custou 53 m² no lote mediano (294 caiu para 241): a
@@ -502,40 +661,60 @@ def coloca(s, dog, addr):
     # congelado e 9 fora do sítio. As máscaras eram testadas no quadro certo
     # dentro de tecido() e o ponto era gravado a partir de outro quadro, então
     # nenhuma delas valia na saída. O contorno lobado também sumia por isso.
-    oz = pr['oz']
+    # ⚠️ O LOTE CRESCE A PARTIR DA VIA, não em volta do eixo da fileira. Centrar
+    # na fileira fazia o lote fundo invadir a travessa dos dois lados e comer a
+    # rua que ele mesmo precisa.
+    oz = pr['borda'] + pr['sentido'] * prof_real / 2
     wx = pr['bx'] + ox*pr['ca'] - oz*pr['sa']
     wz = pr['bz'] + ox*pr['sa'] + oz*pr['ca']
-    return (wx, wz, frente, min(255.0, prof_real))
+    return (wx, wz, frente, min(255.0, prof_real), pr['q'], pr['b'])
 
 def uma_passada():
     global PASSO, cursor, saida
     PASSO = [prateleiras_de(s) for s in range(SETORES)]
     cursor = [0]*SETORES
     saida = []
+    sem_lugar.clear()
+    no_bloco.clear()
     for c, s in zip(gerais, destino):
         r = coloca(s, elig[c[3]], c[3])
         if r is None:
             alt = max(range(SETORES), key=lambda t: sum(pr['livre'] for pr in PASSO[t][cursor[t]:]))
             r = coloca(alt, elig[c[3]], c[3])
             s = alt
-        if r is None: continue
-        saida.append((r[0], r[1], s, c[3], r[2], r[3]))
+        if r is None:
+            # ⚠️ NUNCA DESCARTE CALADO. Isto era `continue`, e a regra do fundador
+            # é inegociável: todo elegível tem endereço. Sem esta contagem a
+            # bisseção enxergava a passada como boa e o script gravava uma cidade
+            # com carteira faltando, saindo com código 0.
+            sem_lugar.append(c[3]); continue
+        chave = (s, r[4], r[5])
+        no_bloco[chave] = no_bloco.get(chave, 0) + 1
+        saida.append((r[0], r[1], s, c[3], r[2], r[3], r[4], r[5], no_bloco[chave]))
     for a in sorted(dsc):
         r = coloca(S_DSC, elig[a], a)
-        if r: saida.append((r[0], r[1], S_DSC, a, r[2], r[3]))
-    return sum(w*d for _,_,_,_,w,d in saida)
+        if r:
+            chave = (S_DSC, r[4], r[5])
+            no_bloco[chave] = no_bloco.get(chave, 0) + 1
+            saida.append((r[0], r[1], S_DSC, a, r[2], r[3], r[4], r[5], no_bloco[chave]))
+    return sum(w*d for _,_,_,_,w,d,_,_,_ in saida)
 
 # ⚠️ BISSEÇÃO, e a razão é que as duas coisas brigam: k maior dá lote maior e
 # k grande demais deixa carteira sem lote. A regra é inegociável (todo elegível
 # tem endereço), então a busca é pelo MAIOR k em que ainda cabe todo mundo, e o
 # resultado guardado é sempre o de uma passada completa.
+# ⚠️ A BISSEÇÃO PRECISA DE UM PISO PROVADO. Se a passada 1 já não coubesse, o
+# laço saía na primeira volta com saida_boa em None e o script GRAVAVA a cidade
+# incompleta, saindo com código 0. Aconteceu de verdade com a borda em 4.300:
+# 52.988 de 52.991, sem um aviso. Agora o piso é provado antes de bisseccionar:
+# k cai pela metade até caber, e se nem assim couber o script morre alto.
 alvo = CAP_AREA * 0.97
 k_bom, saida_boa = None, None
 k_lo, k_hi = K_AREA, None
 for tentativa in range(6):
     obtido = uma_passada()
     coube = len(saida) >= N
-    med = sorted(w*d for _,_,_,_,w,d in saida)[len(saida)//2] if saida else 0
+    med = sorted(w*d for _,_,_,_,w,d,_,_,_ in saida)[len(saida)//2] if saida else 0
     print(f'  passada {tentativa+1}: k={K_AREA:.5g}  {len(saida):,} plantadas, '
           f'{obtido/1e6:.2f} km² ({obtido/alvo*100:.0f}% do alvo), mediana {med:,.0f} m²'
           f'  {"cabe" if coube else "NAO CABE"}', file=sys.stderr)
@@ -549,11 +728,55 @@ for tentativa in range(6):
     if k_hi is None: break
     if (k_hi - k_lo) / k_lo < 0.02: break
     K_AREA = (k_lo + k_hi) / 2
+if saida_boa is None:
+    # nenhuma passada coube: desce k até provar um piso, e DEPOIS volta a subir.
+    # ⚠️ Sem a segunda metade o piso fica onde o primeiro salto o deixou: medido
+    # com a borda em 4.300, o piso caía de 0,2205 para 0,1323 e a mediana ia
+    # para 148 m² quando 286 quase cabia. Achar o piso é meia solução.
+    k_falha = K_AREA
+    for _ in range(8):
+        K_AREA *= 0.6
+        uma_passada()
+        print(f'  piso: k={K_AREA:.5g} -> {len(saida):,} plantadas', file=sys.stderr)
+        if len(saida) >= N:
+            saida_boa, k_bom = list(saida), K_AREA
+            break
+    if saida_boa is not None:
+        lo, hi = k_bom, k_falha
+        for _ in range(5):
+            if (hi - lo) / lo < 0.02: break
+            K_AREA = (lo + hi) / 2
+            uma_passada()
+            coube = len(saida) >= N
+            med = sorted(w*d for _,_,_,_,w,d,_,_,_ in saida)[len(saida)//2] if saida else 0
+            print(f'  sobe: k={K_AREA:.5g} -> {len(saida):,} plantadas, mediana {med:,.0f} m²'
+                  f'  {"cabe" if coube else "NAO CABE"}', file=sys.stderr)
+            if coube: saida_boa, k_bom, lo = list(saida), K_AREA, K_AREA
+            else: hi = K_AREA
 if saida_boa is not None:
     saida, K_AREA = saida_boa, k_bom
 
+# ⚠️ GUARDA DURA: a regra do fundador é que todo elegível tem endereço. Se a
+# cidade sair incompleta o script MORRE em vez de gravar, porque arquivo gravado
+# vira prancha, prancha vira decisão e ninguém confere a contagem de novo.
+# ⚠️ CONFERÊNCIA DA DEMARCAÇÃO. A regra de ouro é que o equipamento é reservado
+# ANTES do lote; se um lote gravado cai dentro de peça, a reserva é decorativa.
+invasores = [(a, q['nome']) for x, z, s, a, w, d, _q, _b, _n in saida
+             if (q := em_programa(x, z, 0.0)) is not None]
+if invasores:
+    print(f'ERRO: {len(invasores)} lotes dentro de peça demarcada. Nada foi gravado.', file=sys.stderr)
+    for a, nome in invasores[:5]: print(f'  {a} em {nome}', file=sys.stderr)
+    sys.exit(1)
+
+if len(saida) < N:
+    print(f'ERRO: {N - len(saida):,} carteiras sem lote de {N:,}. Nada foi gravado.',
+          file=sys.stderr)
+    if sem_lugar[:5]:
+        print(f'  exemplos: {sem_lugar[:5]}', file=sys.stderr)
+    sys.exit(1)
+
 print(f'plantadas {len(saida):,} de {N:,}', file=sys.stderr)
-areas = sorted(w*d for _,_,_,_,w,d in saida)
+areas = sorted(w*d for _,_,_,_,w,d,_,_,_ in saida)
 if areas:
     print(f'lote: menor {areas[0]:,.0f} m² | mediana {areas[len(areas)//2]:,.0f} | '
           f'p99 {areas[int(len(areas)*.99)]:,.0f} | maior {areas[-1]:,.0f}', file=sys.stderr)
@@ -573,7 +796,7 @@ def forma_de(u):
     if u <= 99: return 3       # torre
     return 4                   # quarteirão com várias torres
 buf = bytearray()
-for x, z, s, a, w, d in saida:
+for x, z, s, a, w, d, _q, _b, _n in saida:
     coorte = min(7, posto[a]*8//N)
     fam = familia_de.get(a, 0)
     fl = (1 if a in dsc else 0) | (forma_de(UTX.get(a, 1)) << 1)
@@ -581,12 +804,43 @@ for x, z, s, a, w, d in saida:
                        min(65535, fam), fl,
                        max(1, min(255, int(round(w)))), max(1, min(255, int(round(d)))))
 open(p('public/city/cidade-lotes.bin'), 'wb').write(buf)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# O REGISTRO: quem é dono de qual lote.
+#
+# ⚠️ ISTO NÃO EXISTIA ATÉ 28/08 E É O QUE FAZ A CIDADE SER PRODUTO. O .bin
+# guarda posição, coorte, família, forma e tamanho, e joga fora o DONO: o
+# vínculo lote-carteira só vivia na memória da rodada. Ninguém conseguia
+# responder "qual é o meu lote", a /profile não tinha o que mostrar e o mint
+# não tinha o que inscrever.
+#
+# ⚠️ A ORDEM DAS LINHAS É A ORDEM DOS REGISTROS DO .bin, uma para uma. A prancha
+# desenha pelo índice e o registro dá o nome; quebrar essa correspondência
+# desalinha o mapa inteiro em silêncio.
+#
+# O lot_id é S{setor:02}-Q{quarto:02}-B{quarteirão:03}-L{lote:03} e é ESTÁVEL
+# enquanto a semente (ordem de chegada) e a geometria não mudarem. Ele ainda NÃO
+# é promessa pública: publicar a regra vem antes (plano-diretor, passo 4).
+with open(p('data/dogcity_lotes.csv'), 'w', newline='') as f:
+    w = csv.writer(f)
+    w.writerow(['lot_id', 'address', 'ordem', 'setor', 'quarto', 'quarteirao', 'lote',
+                'x_m', 'z_m', 'raio_m', 'frente_m', 'prof_m', 'area_m2',
+                'dog', 'utxo_count', 'forma', 'coorte', 'familia', 'dsc'])
+    for x, z, s, a, fr, pf, q_, b_, n_ in saida:
+        u = UTX.get(a, 1)
+        w.writerow([f'S{s+1:02d}-Q{q_:02d}-B{b_:03d}-L{n_:03d}', a, posto[a], s + 1, q_, b_, n_,
+                    round(x), round(z), round(math.hypot(x, z)),
+                    round(fr, 1), round(pf, 1), round(fr * pf),
+                    round(elig[a]), u, forma_de(u), min(7, posto[a]*8//N),
+                    familia_de.get(a, 0), 1 if a in dsc else 0])
+print(f'gravado data/dogcity_lotes.csv com {len(saida):,} lotes', file=sys.stderr)
 json.dump({
     'esquema': 'int16 x, int16 z, uint8 setor, uint8 coorte, uint16 familia, '
                'uint8 flags(bit0=DSC, bits1-3=forma por utxo_count), uint8 frente_m, uint8 prof_m',
     'chave': '(ts, txid, vout) do UTXO mais antigo; zero colisoes',
     'curva': {'expoente': EXPOENTE, 'gradiente': GRADIENTE, 'k': K_AREA,
-              'lobos': LOBOS, 'loboAmp': LOBO_AMP},
+              'lobos': LOBOS, 'loboAmp': LOBO_AMP,
+              'ritmoLobos': RITMO_LOBOS, 'ritmoAmp': RITMO_AMP},
     'setores': SETORES, 'giroPorSetor': GIRO_SETOR, 'bulevar_m': BULEVAR,
     'celula_m': CELULA, 'quarteirao_m': QUARTEIRAO,
     'declive_max': DECLIVE_MAX, 'raioInicio': R_INICIO, 'raioSitio': R_SITIO,
@@ -600,6 +854,11 @@ json.dump({
     'carteiras': N, 'plantadas': len(saida),
     'enclaves': len(familias_grandes), 'carteirasEmEnclave': len(familia_de),
     'dsc': len(dsc), 'setorDSC': S_DSC+1,
+    'programa': [{'id': q['id'], 'nome': q['nome'], 'tipo': q['tipo'],
+                  'x': round(q['cx']), 'z': round(q['cz']),
+                  'a': q['a'], 'b': q['b'], 'rot': q['rot'],
+                  'ha': round(q['area']/1e4, 2)} for q in PROGRAMA_GEO],
+    'programaHa': round(sum(q['area'] for q in PROGRAMA_GEO)/1e4, 1),
     'quartos': sum(len(T[s]) for s in range(SETORES)),
     'quarteiroes': sum(len(q['quarteiroes']) for s in range(SETORES) for q in T[s]),
 }, open(p('public/city/cidade.json'), 'w'), indent=1)
