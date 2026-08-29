@@ -14,13 +14,13 @@ o 3D venha depois sem desfazer endereço nenhum.
 
 | | |
 |---|---|
-| carteiras com endereço | **52.991 de 52.991** |
+| carteiras com endereço | **52.984 de 52.984** |
 | sítio | raio 4.500 m, 63,617 km² |
 | borda construída | 4.400 m (os 100 m seguintes são o Cinturão) |
 | tecido disponível | 25,42 km² |
 | área dos lotes | 20,24 km² |
-| **lote mediano** | **297 m²** |
-| menor / maior | 34 m² / 42.840 m² |
+| **lote mediano** | **312 m²** |
+| menor / maior | 33 m² / 28.224 m² (uma superquadra) |
 | p99 | 1.963 m² |
 | quartos / quarteirões | 226 / 1.182 |
 | peças demarcadas | 38, somando 136 ha |
@@ -82,6 +82,81 @@ profundidade a um modelo de massa. Ao fundo, a Praça Central e as três torres.
 colmeia lava a cidade em manchas claras e a nervura vira uma grade dura por cima do
 tecido. O LOD de textura que resolveria isso está listado como não implementado em
 `app/city/plaza/dome.ts`.
+
+---
+
+## 3.5 As vias: a rua, que até 29/08 não existia
+
+⚠️ **O levantamento achou a razão de a chapa parecer amadora, e não era acabamento,
+era ausência.** As únicas ruas com geometria eram os 12 bulevares de costura. Tudo
+que se lia como rua dentro dos quarteirões era o VÃO entre os plintos, o recuo de
+1,4 m de `tecido.ts`. Sem calçada, sem meio-fio, sem travessa, sem esquina. Um
+loteamento sem via desenhada é uma mancha com frestas.
+
+A rua agora é um módulo próprio, `app/city/plaza/vias.ts`, e toda a geometria sai
+de `public/city/cidade-malha.json`: se o gerador mudar a malha, a rua muda junto.
+Nada é desenhado à mão.
+
+| | |
+|---|---|
+| quarteirões atendidos | **1.182 de 1.182** |
+| bulevares | 12 |
+| **via desenhada** | **1.161 km** |
+| triângulos | 202.314 |
+| draw calls | **4** (pista, calçada, meio-fio, canteiro) |
+
+### As três seções
+
+| via | largura | seção |
+|---|---|---|
+| contorno | 12 m | calçada 2,5 + pista 3,5, espelhado (cada quarteirão desenha 6 m) |
+| travessa | 9 m | calçada 1,5 + pista 6 + calçada 1,5 |
+| bulevar | 34 m | calçada 5 + pista 10 + **canteiro 4** + pista 10 + calçada 5 |
+
+As cotas: pista +0,18, calçada +0,33, canteiro +0,40, contra o plinto de lote de
++0,45. O degrau de 15 cm entre pista e calçada é o meio-fio residencial universal
+dos EUA (6 in), o único número de guia que a pesquisa achou em fonte primária, e
+ele é desenhado como face vertical, não como linha.
+
+**A pista é o valor mais escuro da cidade e a calçada o mais claro**, com o lote
+entre os dois. Isso é decisão de registro e não de gosto: os maqueteiros de
+masterplan (RJ Models, Artistic Models, Pipers) gravam a RUA e deixam o limite de
+lote implícito. De cima a malha vira uma teia desenhada, com fio claro na borda e
+miolo escuro, que é como um plano de massas se lê numa prancha.
+
+![O plano com a malha viária inteira](docs/loteamento/vias-plano.jpeg)
+
+![Um bairro a 246 m: a rua é a estrutura da imagem](docs/loteamento/vias-bairro.jpeg)
+
+### A seção, que só aparece de perto
+
+![A 34 m: calçada, guia e pista](docs/loteamento/vias-secao.jpeg)
+
+⚠️ **Acima de ~150 m a guia some e a via vira adesivo.** Por isso existe a vista
+`?view=viasecao`: é a única distância em que a seção se prova. `?view=vias` é a
+vista de apresentação do bairro e `?view=bulevar` é a da costura.
+
+### O bulevar e a costura de setor
+
+![O bulevar de 34 m com canteiro central, entre dois setores](docs/loteamento/vias-bulevar.jpeg)
+
+Os quarteirões giram 7,5° por setor, então na costura a grade de um setor não casa
+com a do vizinho. Sem máscara, a via de contorno entraria por baixo do bulevar e
+duas faixas coplanares brigariam no z-buffer. **A máscara é por SEGMENTO e não por
+quarteirão**: 26 centros de quarteirão caem dentro de peça do programa e 25 desses
+quarteirões têm lote, então cortar o quarteirão inteiro apagaria rua boa.
+
+⚠️ **Os bulevares mudaram de arquivo.** Saíram de `tecido.ts` e moram em
+`vias.ts`. A versão antiga desenhava a pista em +0,45 e o meio-fio em +0,30, ou
+seja a seção de cabeça para baixo: a via era um planalto claro com moldura escura
+em vez de uma calha. Se os dois módulos desenharem, as faixas brigam.
+
+### Defeito conhecido da esquina
+
+Os lados ±z do quarteirão correm 6 m a mais de cada ponta e os lados ±x param na
+borda: é o que fecha a esquina sem sobrepor duas faixas. O preço é que a pista do
+lado ±x termina contra a calçada do lado ±z sem face de guia nesse encontro. Some
+a qualquer distância de apresentação e está escrito no código.
 
 ---
 
@@ -193,17 +268,15 @@ cinco sobrevive como **ritmo no cotista**, não como recorte no contorno.
 
 ---
 
-**Superquadra sobrepõe lotes normais (achado da frente de dados, 29/08, NÃO corrigido).** O
-ramo gigante de `coloca()` toma 6 prateleiras a partir da ESCOLHIDA, e a escolhida pode ser
-a fila 3 de um quarteirão: ele consome as filas 3..5 deste e 0..2 do seguinte, mas grava o
-lote centrado no quarteirão da escolhida, em cima de lotes já plantados nas filas 0..2.
-Medido contra `data/dogcity_lotes.csv`: **7 das 24 superquadras sobrepõem 141 lotes normais**
-(S06-Q19-B004 cobre 31, S07-Q09-B002 cobre 29, S12-Q17-B005 cobre 31) e 17 quarteirões
-seguintes ficam com as primeiras fileiras vazias. Consertar exige que a superquadra comece na
-fila 0 do próprio quarteirão, e isso **muda o endereço de todo mundo depois do primeiro
-gigante**: por isso ficou registrado no gerador e no `cidade-malha.json` (campo
-`superquadraProf`) em vez de corrigido calado. É a primeira coisa a fazer antes de publicar a
-regra. Enquanto isso a cena não deve desenhar por cima sem saber.
+**Superquadra sobrepondo lotes normais: CONSERTADO em 29/08.** O ramo gigante de
+`coloca()` tomava 6 prateleiras a partir da ESCOLHIDA, que pode ser a fileira 3 de um
+quarteirão: consumia as fileiras 3..5 deste e 0..2 do seguinte, mas gravava o lote
+centrado no quarteirão da escolhida, em cima de lotes já plantados. Medido antes:
+7 de 24 superquadras cobriam 141 lotes. Agora a superquadra varre para a frente até
+achar um quarteirão cujas seis fileiras ainda estejam intactas e toma o quarteirão
+inteiro. Medido depois: **26 superquadras, 0 sobreposições, 0 lotes cobertos, e
+nenhuma delas divide quarteirão com outro lote.** O lote mediano subiu de 287 para
+312 m² no mesmo movimento, porque a área que se perdia na sobreposição voltou.
 
 ---
 
@@ -216,3 +289,21 @@ na tela.
 A regra publicada. Enquanto a alocação não for pública com a tupla de desempate, a
 curva, as cotas e a lista das 38 peças, mudar qualquer coisa ainda é barato. Depois
 vira acusação de favorecimento.
+
+**As 226 praças de quarto não têm chão.** Achado na chapa `vias-plano.jpeg`, e
+antes disso a documentação dizia que elas "já eram estrutura e não precisaram de
+demarcação". São estrutura no DADO: a célula central de cada quarto fica livre e o
+gerador não planta lote nela. Na TELA não existe nada, então do alto elas aparecem
+como buracos pretos regulares no meio do tecido, quase um xadrez. É a coisa mais
+visível depois da rua, e agora que a rua existe elas ficaram mais evidentes ainda,
+porque a malha viária contorna um vazio.
+
+**O fundo de quarteirão continua nu.** O aproveitamento é 83%; os 17% que sobram
+não estão espalhados, estão concentrados em faixas atrás das fileiras rasas, e com
+a rua desenhada em volta essas faixas leem como terreno baldio dentro da quadra.
+Não é defeito de dado (lote raso é lote pequeno, e lote pequeno é carteira
+pequena), é assunto de desenho: o que ocupa o miolo do quarteirão.
+
+**A arborização.** Oito espécies já estão convertidas e instanciadas em
+`props.ts`, e o canteiro central do bulevar existe justamente para recebê-las.
+Nenhuma árvore foi plantada em via até agora.

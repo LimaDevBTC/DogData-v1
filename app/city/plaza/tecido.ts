@@ -196,43 +196,13 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
     group.add(marcos)
   }
 
-  // ── os bulevares de costura ───────────────────────────────────────────────
-  // Faixa de piso mais clara que o regolito, com meio-fio escuro dos dois lados:
-  // sem o meio-fio a via some no chão e a cidade fica sem estrutura visível.
-  const faixa = (meia: number, alturaOff: number, cor2: string) => {
-    const vs: number[] = []; const ix: number[] = []
-    const r0 = meta.raioInicio, r1 = meta.raioBorda
-    const passos = 48
-    for (let s = 0; s < meta.setores; s++) {
-      const ang = (s * (360 / meta.setores) * Math.PI) / 180
-      const dirX = Math.sin(ang), dirZ = -Math.cos(ang)
-      const perpX = Math.cos(ang), perpZ = Math.sin(ang)
-      const base = vs.length / 3
-      for (let k = 0; k <= passos; k++) {
-        const r = r0 + (k * (r1 - r0)) / passos
-        for (const lado of [-1, 1]) {
-          const px = dirX * r + perpX * meia * lado
-          const pz = dirZ * r + perpZ * meia * lado
-          vs.push(px, o.heightAt(px, pz) + alturaOff, pz)
-        }
-      }
-      for (let k = 0; k < passos; k++) {
-        const a = base + k * 2
-        ix.push(a, a + 1, a + 3, a, a + 3, a + 2)
-      }
-    }
-    const g = new THREE.BufferGeometry()
-    g.setAttribute('position', new THREE.Float32BufferAttribute(vs, 3))
-    g.setIndex(ix)
-    g.computeVertexNormals()
-    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: cor2, roughness: 1 }))
-    m.receiveShadow = true
-    m.frustumCulled = false
-    group.add(m)
-    return { g, m }
-  }
-  const meioFio = faixa(meta.bulevar_m / 2 + 1.6, 0.30, '#4A443C')
-  const pista = faixa(meta.bulevar_m / 2, 0.45, '#8A8377')
+  // ── os bulevares de costura MUDARAM DE ARQUIVO ────────────────────────────
+  // ⚠️ NÃO REDESENHE BULEVAR AQUI. Eles moram em app/city/plaza/vias.ts desde
+  // 29/08/2026, junto com a via de contorno e as travessas, porque rua é uma
+  // coisa só e tinha de ter um dono só. A versão que vivia aqui desenhava a
+  // pista em +0,45 e o meio-fio em +0,30, ou seja a seção de cabeça para baixo:
+  // a via virava um planalto claro com moldura escura em vez de uma calha. Se os
+  // dois módulos desenharem, as faixas coplanares brigam no z-buffer.
 
   // ── as peças demarcadas ───────────────────────────────────────────────────
   // ⚠️ CADA TIPO TEM DESENHO PRÓPRIO, e isso deixou de ser detalhe: enquanto
@@ -243,7 +213,7 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
   const construidas = buildPecas(pecas, o.heightAt)
   group.add(construidas.group)
 
-  const triangulos = n * 12 + 12 * 48 * 4 + construidas.triangulos
+  const triangulos = n * 12 + construidas.triangulos
   return {
     group,
     lotes: n,
@@ -252,8 +222,6 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
     dispose() {
       geo.dispose(); mat.dispose()
       geoMarco?.dispose(); matMarco?.dispose()
-      meioFio.g.dispose(); (meioFio.m.material as THREE.Material).dispose()
-      pista.g.dispose(); (pista.m.material as THREE.Material).dispose()
       construidas.dispose()
     },
   }

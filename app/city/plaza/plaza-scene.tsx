@@ -39,6 +39,8 @@ import { buildDscGallery, DSC_CENTER, type DscGallery } from './dsc-gallery'
 import { buildDome, type Dome } from './dome'
 import { buildColiseu, type Coliseu } from './coliseu'
 import { buildTecido, type Tecido } from './tecido'
+import { buildVias, type Vias } from './vias'
+import { buildPracas, type Pracas } from './pracas'
 import { PROPS } from './props-table'
 import { CityChat } from '@/components/wallet/city-chat'
 
@@ -256,6 +258,24 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
     // rasante sobre um bairro: mostra o lote assentado no relevo de verdade
     case 'tecidorasante':
       return { pos: new THREE.Vector3(-2650, 300, -3350), target: new THREE.Vector3(-700, 30, -1100) }
+    // a rua de perto: um quarteirão inteiro com contorno, travessa e esquina.
+    // É a vista que prova se a seção existe (calçada, guia, pista) ou se a via
+    // continua sendo um adesivo no chão.
+    case 'vias':
+      return { pos: new THREE.Vector3(-560, 246, -1620), target: new THREE.Vector3(-190, 6, -1420) }
+    // a mesma rua a 34 m de altura: é a única distância em que a SEÇÃO aparece
+    // (calçada, guia de 15 cm, pista). Acima de 150 m a guia some e a via vira
+    // um adesivo, que era o problema de origem.
+    case 'viasecao':
+      return { pos: new THREE.Vector3(-300, 34, -1500), target: new THREE.Vector3(-200, 2, -1420) }
+    // um bulevar de costura visto de baixo: prova a seção de 34 m com canteiro
+    // central e prova que a grade girada de dois setores não invade a via
+    case 'bulevar':
+      return { pos: new THREE.Vector3(300, 88, -1620), target: new THREE.Vector3(-10, 6, -2760) }
+    // uma praça de quarto de perto: prova que o tipo tem desenho (parterre,
+    // seca, largo verde ou espelho) e não é uma laje clara tapando buraco
+    case 'praca':
+      return { pos: new THREE.Vector3(1802, 234, 1185), target: new THREE.Vector3(1502, 4, 1179) }
     // a borda: onde o lote encontra o Cinturão e o pé da saia da abóbada
     // o grupo do poente: Lago Maior, Estádio Olímpico, Estádio de Futebol e o
     // Jardim Botânico, que é onde as tipologias novas aparecem juntas
@@ -342,7 +362,15 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
       // abaixo do terreno, onde o número escrito deixa de ser o que vai pra tela.
       return aspect >= 1
         ? { pos: new THREE.Vector3(WAR_POS.x - 202, 204 + dy, WAR_POS.z + 173), target: new THREE.Vector3(WAR_POS.x + 70, 152 + dy, WAR_POS.z - 110) }
-        : { pos: new THREE.Vector3(WAR_POS.x - 341, 186 + dy, WAR_POS.z + 308), target: new THREE.Vector3(WAR_POS.x + 60, 141 + dy, WAR_POS.z - 90) }
+        // ⚠️ O RETRATO CHEGAVA SOBRE A CIDADE, NÃO SOBRE A BATALHA. Ele estava a
+        // 567 m do alvo e a 137 m de altura, com o alvo 90 m ADIANTE do campo:
+        // no quadro alto do celular isso punha a praça no terço de cima, a
+        // batalha numa faixa fina no meio e regolito vazio na metade de baixo.
+        // Agora ele fecha para 333 m, sobe para 100 m acima do chão da cratera e
+        // mira o CENTRO do campo, que é o que o fundador pediu: chegar sobre a
+        // batalha. O y é escrito como valor + dy, e dy = chaoGuerra - 99, então
+        // 199 + dy dá 150 absolutos com o chão medido em 49,6.
+        : { pos: new THREE.Vector3(WAR_POS.x - 196, 196 + dy, WAR_POS.z + 186), target: new THREE.Vector3(WAR_POS.x + 10, 122 + dy, WAR_POS.z - 10) }
     case 'far':
       return { pos: new THREE.Vector3(-2600, 2800, 4200), target: new THREE.Vector3(1800, 0, -1900) }
     case 'park':
@@ -835,6 +863,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let domo: Dome | null = null
     let coliseu: Coliseu | null = null
     let tecido: Tecido | null = null
+    let vias: Vias | null = null
+    let pracas: Pracas | null = null
     let props: Props | null = null
     let dsc: DscGallery | null = null
     let founders: FoundersWalk | null = null
@@ -959,6 +989,36 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             scene.add(t.group)
             console.log(`[tecido] ${t.lotes.toLocaleString('pt-BR')} lotes, ${t.pecas} peças demarcadas, ${t.triangulos.toLocaleString('pt-BR')} triângulos`)
           }).catch((err) => console.error('[tecido] não subiu', err))
+
+          // ── a rua, que é a infra do loteamento (?vias=0 desliga) ───────────
+          // ⚠️ SOBE JUNTO COM O TECIDO E NUNCA SOZINHA: a seção da via é cotada
+          // contra o plinto de 0,45 m do lote. Sem o tecido, a calçada fica
+          // sendo o ponto mais alto da cidade e a chapa mente.
+          if (qDomo.get('vias') !== '0') {
+            void buildVias({ heightAt: terrain.heightAt, sombra: qDomo.get('sombra') !== '0' })
+              .then((v) => {
+                if (disposed) { v.dispose(); return }
+                vias = v
+                scene.add(v.group)
+                console.log(`[vias] ${v.quarteiroes.toLocaleString('pt-BR')} quarteirões + ${v.pracas} praças + ${v.bulevares} bulevares, ${(v.metrosDeVia / 1000).toFixed(1)} km de via, ${v.triangulos.toLocaleString('pt-BR')} triângulos`)
+              })
+              .catch((err) => console.error('[vias] não subiu', err))
+
+            // ── as praças de quarto (?pracas=0 desliga) ──────────────────────
+            // O chão dos vazios da célula central. Sai junto com a via porque é
+            // a mesma malha: a praça é uma célula de 180 como qualquer outra e
+            // as calçadas em volta são as mesmas.
+            if (qDomo.get('pracas') !== '0') {
+              void buildPracas({ heightAt: terrain.heightAt, sombra: qDomo.get('sombra') !== '0' })
+                .then((pr) => {
+                  if (disposed) { pr.dispose(); return }
+                  pracas = pr
+                  scene.add(pr.group)
+                  console.log(`[praças] ${pr.pracas} praças, ${pr.covas.length.toLocaleString('pt-BR')} covas de árvore, ${pr.triangulos.toLocaleString('pt-BR')} triângulos`)
+                })
+                .catch((err) => console.error('[praças] não subiu', err))
+            }
+          }
         }
         stepDone('terrain')
 
@@ -2074,6 +2134,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       domo?.dispose()
       coliseu?.dispose()
       tecido?.dispose()
+      vias?.dispose()
+      pracas?.dispose()
       props?.dispose()
       dsc?.dispose()
       founders?.dispose()

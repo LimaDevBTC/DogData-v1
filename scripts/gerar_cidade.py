@@ -451,7 +451,7 @@ def prateleiras_de(s):
                 # memória da rodada e era jogado fora ao gravar.
                 out.append({'bx': b['x'], 'bz': b['z'],
                             'borda': borda_z, 'sentido': sentido, 'ca': ca, 'sa': sa,
-                            'x0': -util / 2, 'livre': util, 'r': b['r'],
+                            'x0': -util / 2, 'livre': util, 'util0': util, 'r': b['r'],
                             'q': iq + 1, 'b': ib + 1})
     return out
 PASSO = [prateleiras_de(s) for s in range(SETORES)]
@@ -589,29 +589,48 @@ def coloca(s, dog, addr):
     # lote fundo atravessava a travessa e comia a rua dos vizinhos, que é
     # justamente o que a regra do fundador proíbe.
     if area > PROF_MAX * QUARTEIRAO:
-        fatias = LOTE_ROWS      # a superquadra toma as seis fileiras
-        tomadas = 0
-        for k in range(escolhida, min(n, escolhida + fatias)):
-            PASSO[s][k]['x0'] += PASSO[s][k]['livre']
-            PASSO[s][k]['livre'] = 0.0
-            tomadas += 1
-        oxg = 0.0
-        # o gigante também confere a máscara: ele grava o centro de uma prateleira
-        # inteira, e centro de quarteirão de borda cai em terra proibida
-        # ⚠️ CONFIRA NO PONTO QUE VAI SER GRAVADO, e não num vizinho. A primeira
-        # versão testava a máscara em `pr['oz']` e gravava em `ozg`, que é `oz`
-        # deslocado por (tomadas-1) fileiras. A banca pegou 1 lote de 26.712 m²
-        # gravado DENTRO do Coliseu congelado por causa desses metros de diferença.
-        # a superquadra ocupa o quarteirão todo, então o centro dela é o centro
-        # do quarteirão e a profundidade nunca passa dos 168 m da quadra
-        prof_g = min(QUARTEIRAO, area / QUARTEIRAO)
-        ozg = 0.0
-        _cx = pr['bx'] + oxg*pr['ca'] - ozg*pr['sa']
-        _cz = pr['bz'] + oxg*pr['sa'] + ozg*pr['ca']
-        if not livre(_cx, _cz):
-            pr['livre'] = 0.0
+        # ⚠️ A SUPERQUADRA EXIGE UM QUARTEIRÃO INTEIRO E VIRGEM, e isso é conserto
+        # de um defeito medido, não zelo. A versão anterior tomava 6 prateleiras a
+        # partir da ESCOLHIDA, que pode ser a fileira 3: ela consumia as fileiras
+        # 3..5 deste quarteirão e 0..2 do SEGUINTE, mas gravava o lote centrado no
+        # quarteirão da escolhida, EM CIMA de lotes já plantados nas fileiras 0..2.
+        # Medido em 29/08 contra data/dogcity_lotes.csv: 7 das 24 superquadras
+        # cobriam 141 lotes normais (S06-Q19-B004 cobria 31, S07-Q09-B002 29,
+        # S12-Q17-B005 31) e 17 quarteirões seguintes ficavam com as primeiras
+        # fileiras vazias.
+        # Agora ela varre para a frente até achar um quarteirão cujas seis
+        # fileiras ainda estejam com a testada original, toma as seis e grava no
+        # centro dele. Se não achar nenhum, cai no ramo normal e recebe um lote
+        # limitado à faixa: perde área, mas não come o lote de ninguém.
+        alvo = -1
+        j = cursor[s]
+        while j + LOTE_ROWS <= n:
+            pj = PASSO[s][j]
+            comeca_quarteirao = j == 0 or (PASSO[s][j-1]['q'], PASSO[s][j-1]['b']) != (pj['q'], pj['b'])
+            if comeca_quarteirao:
+                bloco = PASSO[s][j:j+LOTE_ROWS]
+                mesmo = all((x['q'], x['b']) == (pj['q'], pj['b']) for x in bloco)
+                virgem = all(x['livre'] >= x['util0'] - 0.01 for x in bloco)
+                if mesmo and virgem:
+                    alvo = j
+                    break
+            j += 1
+        if alvo >= 0:
+            pq = PASSO[s][alvo]
+            prof_g = min(QUARTEIRAO, area / QUARTEIRAO)
+            # centro do quarteirão: com a superquadra ocupando tudo, ox e oz são 0
+            _cx, _cz = pq['bx'], pq['bz']
+            if livre(_cx, _cz):
+                for k in range(alvo, alvo + LOTE_ROWS):
+                    PASSO[s][k]['x0'] += PASSO[s][k]['livre']
+                    PASSO[s][k]['livre'] = 0.0
+                return (_cx, _cz, QUARTEIRAO, prof_g, pq['q'], pq['b'])
+            # quarteirão em terra proibida: queima e tenta o próximo
+            for k in range(alvo, alvo + LOTE_ROWS):
+                PASSO[s][k]['livre'] = 0.0
             return coloca(s, dog, addr)
-        return (_cx, _cz, QUARTEIRAO, prof_g, pr['q'], pr['b'])
+        # sem quarteirão virgem à frente: segue no ramo normal, com o lote preso
+        # à faixa. A bisseção enxerga a área menor e se ajusta.
 
     frente = min(frente_nat, pr['livre'])
     prof_real = area / frente
