@@ -695,6 +695,59 @@ de 2 m vistos a 2 km. É o próximo alvo e é grande.
 
 ---
 
+## 3.16 A cena é limitada por PIXEL, não por triângulo
+
+⚠️ **O teste que virou a mesa.** A 720x450, com as MESMAS 571 chamadas de desenho
+e os MESMOS 4 milhões de triângulos, a cena roda a **13,3 ms**. A 1440x900,
+**26,7 ms**. Custo proporcional a pixel com geometria constante é assinatura de
+limitação por preenchimento, e ela invalida meia dúzia de otimizações que
+pareciam óbvias.
+
+⚠️ **E cuidado com vsync ao medir.** O monitor é 75 Hz: qualquer quadro entre
+13,4 e 26,6 ms aparece como 26,7. Por isso `fps` mente, e toda medição desta
+seção é MEDIANA DE TEMPO DE QUADRO, não fps.
+
+### O que foi cortado e não moveu o ponteiro
+
+| corte | economia | efeito no quadro |
+|---|---|---|
+| LOD dos exércitos | 1,77 M → 62,6 k triângulos | nenhum |
+| marcos de esquina com culling | 636 k triângulos + a passada de sombra | nenhum |
+| tecido fatiado em 12 setores | 3 a 6% por frustum | nenhum |
+| materiais Standard → Lambert em 54 malhas | shading PBR inteiro | nenhum |
+| lastro de luz apagado | 12 luzes → 2 no laço do fragmento | nenhum |
+
+**Nenhum deles é desperdício** (todos valem em máquina mais fraca, em DPR 2 e no
+celular), mas nenhum era a alavanca aqui.
+
+### A alavanca: `logarithmicDepthBuffer` desliga a rejeição precoce de pixel
+
+O buffer logarítmico escreve `gl_FragDepth` no FRAGMENTO. Isso obriga o GPU a
+rodar o shader inteiro antes do teste de profundidade, ou seja **mata o early-Z**.
+
+E esta cena empilha camada de chão como ninguém: terreno, pista, calçada, praça,
+plinto de lote, parcela de peça, moldura, e sobre o lago ainda areia e água. São
+**4 a 6 camadas sobrepostas por pixel**, e sem early-Z todas elas são sombreadas.
+
+| | mediana de quadro | fps |
+|---|---|---|
+| com `logarithmicDepthBuffer` | 26,7 ms | 37,5 |
+| **sem** (`?logdepth=0`) | **21,3 ms** | **46,9** |
+
+**20% do quadro**, e o suficiente para sair do travamento de meia taxa do vsync.
+
+![O lago sem o buffer logarítmico](docs/loteamento/lago-sem-logdepth.jpeg)
+
+⚠️ **NÃO É UM FLAG PARA VIRAR E ESQUECER.** O buffer logarítmico está lá porque a
+cena tem 12 km de profundidade e um plano near pequeno; tirar exige recalibrar
+near e far e conferir briga de profundidade em TODAS as vistas, inclusive a do
+Cinturão (r 4.500), a do Parque (5,2 km) e a de dentro do túnel do aquário. Na
+vista do lago não há briga nenhuma, mas uma vista não é prova.
+
+Fica atrás de `?logdepth=0` até essa conferência existir.
+
+---
+
 ## 4. A demarcação: 38 peças, 136 ha
 
 Reservadas **antes** do lote, cumprindo `masterplan.md:268-269` pela primeira vez.

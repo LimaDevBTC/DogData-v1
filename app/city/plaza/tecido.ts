@@ -37,6 +37,8 @@ export interface TecidoOpts {
 
 export interface Tecido {
   group: THREE.Group
+  /** liga e desliga os marcos de esquina por distância; chame no laço */
+  update(cam: THREE.Vector3): void
   /** covas de árvore que as peças com módulo próprio pediram, em mundo */
   covas: { x: number; z: number; r: number }[]
   lotes: number
@@ -222,14 +224,22 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
   // De longe some, de perto conta a história certa: terreno medido, com dono,
   // esperando construção. 52.991 instâncias de 12 triângulos, dentro do teto
   // medido de 300.000 e sem chamada de desenho nova relevante.
-  let marcos: THREE.InstancedMesh | null = null
+  const marcosSetores: { m: THREE.InstancedMesh; cx: number; cz: number; raio: number }[] = []
   let geoMarco: THREE.BufferGeometry | null = null
   let matMarco: THREE.Material | null = null
   if (modo === 'lote') {
     geoMarco = new THREE.BoxGeometry(0.5, 1.5, 0.5)
     geoMarco.translate(0, 0.75, 0)
     matMarco = new THREE.MeshStandardMaterial({ color: '#8A8375', roughness: 0.95 })
-    marcos = new THREE.InstancedMesh(geoMarco, matMarco, n)
+    // ⚠️ O MARCO PRECISA SUMIR DE LONGE, E ELE NÃO SUMIA. O comentário acima
+    // sempre disse "de longe some": não sumia. Eram 52.984 instâncias de 12
+    // triângulos numa malha só, com `frustumCulled = false` e `castShadow`
+    // ligado, ou seja 636 mil triângulos desenhados em toda vista MAIS 636 mil na
+    // passada de sombra, para postes de 1,5 m que a 1 km medem menos de um pixel.
+    // Medido em 29/08: escondendo o grupo `tecido` o quadro caía de 26,6 para
+    // 13,3 ms, que é a diferença entre 37 e 75 fps por causa do vsync.
+    // Agora são 12 malhas, uma por setor, e cada uma some a 900 m do centro dela.
+    const marcosPorSetor: number[][] = Array.from({ length: SET }, () => [])
     const mm = new THREE.Matrix4()
     const pm = new THREE.Vector3()
     const qm = new THREE.Quaternion()
@@ -248,13 +258,32 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
       qm.setFromAxisAngle(eixoY, ang)
       pm.set(wx, o.heightAt(wx, wz), wz)
       mm.compose(pm, qm, em)
-      marcos.setMatrixAt(i, mm)
+      marcosPorSetor[Math.min(SET - 1, setor)].push(...mm.elements)
     }
-    marcos.instanceMatrix.needsUpdate = true
-    marcos.frustumCulled = false
-    marcos.castShadow = o.sombra ?? true
-    marcos.receiveShadow = true
-    group.add(marcos)
+    for (let sIdx = 0; sIdx < SET; sIdx++) {
+      const arr = marcosPorSetor[sIdx]
+      const qtd = arr.length / 16
+      if (!qtd) continue
+      const im = new THREE.InstancedMesh(geoMarco, matMarco, qtd)
+      im.name = `tecido:marco:S${String(sIdx + 1).padStart(2, '0')}`
+      let mnX = Infinity, mxX = -Infinity, mnZ = Infinity, mxZ = -Infinity
+      for (let k = 0; k < qtd; k++) {
+        mm.fromArray(arr, k * 16)
+        im.setMatrixAt(k, mm)
+        const px = mm.elements[12], pz = mm.elements[14]
+        mnX = Math.min(mnX, px); mxX = Math.max(mxX, px)
+        mnZ = Math.min(mnZ, pz); mxZ = Math.max(mxZ, pz)
+      }
+      im.instanceMatrix.needsUpdate = true
+      im.frustumCulled = false
+      // ⚠️ SOMBRA DESLIGADA NO MARCO. Um poste de 1,5 m projeta 2,4 m com o sol a
+      // 32 graus, que na chapa de topo mede 0,4 px. Ele estava dobrando o custo
+      // dele na passada de sombra para não desenhar nada.
+      im.castShadow = false
+      im.receiveShadow = true
+      group.add(im)
+      marcosSetores.push({ m: im, cx: (mnX + mxX) / 2, cz: (mnZ + mxZ) / 2, raio: Math.hypot(mxX - mnX, mxZ - mnZ) / 2 })
+    }
   }
 
   // ── os bulevares de costura MUDARAM DE ARQUIVO ────────────────────────────
@@ -275,8 +304,18 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
   group.add(construidas.group)
 
   const triangulos = n * 12 + construidas.triangulos
+  // ⚠️ 900 m É ONDE O MARCO PARA DE CONTAR HISTÓRIA. Ele tem 1,5 m: a essa
+  // distância mede cerca de 2 px de altura, e o que ele diz (terreno demarcado,
+  // com dono) já foi dito pela própria fileira de lotes.
+  const R_MARCO = 900
   return {
     group,
+    update(cam: THREE.Vector3) {
+      for (const s2 of marcosSetores) {
+        const on = Math.hypot(cam.x - s2.cx, cam.z - s2.cz) < R_MARCO + s2.raio
+        if (s2.m.visible !== on) s2.m.visible = on
+      }
+    },
     covas: construidas.covas,
     lotes: n,
     pecas: pecas.length,

@@ -1208,13 +1208,18 @@ bulevares = []
 # 50 m que faltam custa zero (o Cinturão nunca teve lote) e é o que transforma a
 # borda de corte em remate: doze braços chegam nela e viram doze rotatórias.
 R_BUL_FIM = 4450.0
+# ⚠️ O BULEVAR COMEÇA NA ORLA DO LAGO, E NÃO NO PRIMEIRO LOTE. Ele nascia em
+# R_INICIO (1.450) e o Anel da Orla mora em 1.440: sobravam 10 m de vão e o
+# sistema não fechava. Os 30 m a mais custam zero (não há lote antes de 1.450) e
+# é o que liga as quatro pontes aos doze raios.
+R_BUL_INI = 1420.0
 for s in range(SETORES):
     rumo = s * (360 / SETORES)
-    x0, z0 = _peca_xy(rumo, R_INICIO)
+    x0, z0 = _peca_xy(rumo, R_BUL_INI)
     x1, z1 = _peca_xy(rumo, R_BUL_FIM)
     bulevares.append({
         'id': f'BUL{s+1:02d}', 'rumo': rumo, 'largura': BULEVAR,
-        'rInicio': R_INICIO, 'rFim': R_BUL_FIM,
+        'rInicio': R_BUL_INI, 'rFim': R_BUL_FIM,
         # o + 0.0 apaga o "-0.0" que sin/cos deixam nos rumos 0, 90, 180 e 270
         'x0': round(x0, 1) + 0.0, 'z0': round(z0, 1) + 0.0,
         'x1': round(x1, 1) + 0.0, 'z1': round(z1, 1) + 0.0,

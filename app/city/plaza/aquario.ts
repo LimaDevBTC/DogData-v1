@@ -34,6 +34,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
 import type { PropSpec } from './props'
+import { contornoIlha, anguloDesembarque } from './lago'
 
 export interface AquarioOpts {
   heightAt: (x: number, z: number) => number
@@ -275,14 +276,46 @@ export function buildAquario(o: AquarioOpts): Aquario {
     palhacoMeio: pontos(140, 601, R_REC_I, R_REC_E),
   }
   // a floresta das ilhas: palmeira, samambaia, feto e grama alta
-  const naIlha = (n: number, semente: number, k: number): [number, number][] => {
+  //
+  // ⚠️ ELA ESTAVA PLANTADA NO FUNDO DO LAGO. `props.ts` assenta no terreno, e sob
+  // a ilha o terreno é a bacia (L.fundo): sem `lift` a palmeira nascia 12 m abaixo
+  // do chão da ilha e 9 m debaixo d'água. Vista de cima a ilha era um disco pelado
+  // com um borrão submerso em volta, e era isso que a fazia parecer genérica.
+  const LIFT_ILHA = L.agua + 2.7 - L.fundo
+  //
+  // ⚠️ E ELA NÃO PODE CAIR EM QUALQUER LUGAR DA ILHA. A ilha tem praia, mata,
+  // trilha e clareira; mato em cima da trilha apaga o caminho, mato na clareira
+  // ocupa o lote que está guardado para o projeto do parceiro. A floresta vive nas
+  // DUAS FAIXAS DE MATA, e as frações abaixo são as mesmas de `lago.ts`.
+  const MATA_EXT: [number, number] = [0.72, 0.86]   // entre a praia e a trilha
+  const MATA_INT: [number, number] = [0.44, 0.60]   // entre a trilha e a clareira
+  //
+  // ⚠️ E ELA NÃO PODE SER UM ANEL UNIFORME. Mato sorteado ponto a ponto numa
+  // faixa dá densidade CONSTANTE, e densidade constante lê como cerca-viva
+  // plantada por jardineiro, não como mata. Mata tem BOSQUE e tem CLARO: por
+  // isso o sorteio é de bosques (2 a 6 pés cada, num raio de ~13 m), e não de
+  // indivíduos. É a mesma lição dos afloramentos do Parque Runestone.
+  const naIlha = (n: number, semente: number, k: number, faixa: [number, number]): [number, number][] => {
     const out: [number, number][] = []
     const ilha = o.ilhas[k]
     if (!ilha) return out
-    for (let j = 0; j < n; j++) {
-      const a = hash01(semente + j * 2) * Math.PI * 2
-      const rr = Math.sqrt(hash01(semente + j * 2 + 1)) * (ilha.r * 0.78)
-      out.push([ilha.x + Math.cos(a) * rr, ilha.z + Math.sin(a) * rr])
+    const aPath = anguloDesembarque(k)
+    const meiaPath = 9 / ilha.r        // a faixa do desembarque, com folga de mão
+    let posto = 0
+    for (let g = 0; posto < n && g < n; g++) {
+      const ga = hash01(semente + g * 7) * Math.PI * 2
+      const gf = faixa[0] + hash01(semente + g * 7 + 3) * (faixa[1] - faixa[0])
+      const quantos = Math.min(n - posto, 2 + Math.floor(hash01(semente + g * 7 + 5) * 5))
+      for (let j = 0; j < quantos; j++) {
+        posto++
+        const a = ga + (hash01(semente + g * 31 + j * 3) - 0.5) * (26 / ilha.r)
+        const f = Math.min(faixa[1], Math.max(faixa[0],
+          gf + (hash01(semente + g * 31 + j * 3 + 1) - 0.5) * 0.09))
+        const dd = Math.abs(((a - aPath + Math.PI * 3) % (Math.PI * 2)) - Math.PI)
+        if (dd < meiaPath) continue    // nada em cima do desembarque
+        const rr = contornoIlha(k, a, ilha.r * f)
+        out.push([ilha.x + Math.cos(a) * rr, ilha.z + Math.sin(a) * rr])
+      }
     }
     return out
   }
@@ -291,10 +324,16 @@ export function buildAquario(o: AquarioOpts): Aquario {
   const florestaFeto: [number, number][] = []
   const florestaGrama: [number, number][] = []
   o.ilhas.forEach((_, k) => {
-    florestaPalm.push(...naIlha(k === 0 ? 26 : 14, 1000 + k * 97, k))
-    florestaSamambaia.push(...naIlha(k === 0 ? 40 : 22, 2000 + k * 97, k))
-    florestaFeto.push(...naIlha(k === 0 ? 46 : 26, 3000 + k * 97, k))
-    florestaGrama.push(...naIlha(k === 0 ? 70 : 40, 4000 + k * 97, k))
+    const dsc = k === 0
+    // a palmeira fica na faixa de fora: é ela que desenha a silhueta contra a água
+    florestaPalm.push(...naIlha(dsc ? 30 : 16, 1000 + k * 97, k, MATA_EXT))
+    florestaPalm.push(...naIlha(dsc ? 10 : 5, 1500 + k * 97, k, MATA_INT))
+    florestaSamambaia.push(...naIlha(dsc ? 26 : 14, 2000 + k * 97, k, MATA_EXT))
+    florestaSamambaia.push(...naIlha(dsc ? 22 : 12, 2500 + k * 97, k, MATA_INT))
+    florestaFeto.push(...naIlha(dsc ? 30 : 17, 3000 + k * 97, k, MATA_EXT))
+    florestaFeto.push(...naIlha(dsc ? 24 : 13, 3500 + k * 97, k, MATA_INT))
+    florestaGrama.push(...naIlha(dsc ? 44 : 25, 4000 + k * 97, k, MATA_EXT))
+    florestaGrama.push(...naIlha(dsc ? 34 : 19, 4500 + k * 97, k, MATA_INT))
   })
 
   // ⚠️ `lift` é o que põe o bicho na coluna d'água. props.ts assenta no terreno,
@@ -315,10 +354,10 @@ export function buildAquario(o: AquarioOpts): Aquario {
     { file: 'peixe-neon', why: 'cardume rente ao recife', at: peixePontos.neonBaixo, scale: 8, jitter: 0.3, lift: ALTURA_AGUA * 0.25, cull: 1500, castShadow: false },
     { file: 'peixe-palhaco', why: 'peixe-palhaço junto do coral', at: peixePontos.palhacoBaixo, scale: 11, jitter: 0.3, lift: ALTURA_AGUA * 0.2, cull: 1500, castShadow: false },
     { file: 'peixe-palhaco', why: 'peixe-palhaço solto na lâmina', at: peixePontos.palhacoMeio, scale: 12, jitter: 0.3, lift: ALTURA_AGUA * 0.6, cull: 1500, castShadow: false },
-    { file: 'palm-tall', why: 'a palmeira que faz a ilha ler como paraíso', at: florestaPalm, scale: 1.15, jitter: 0.28, yaw: 0, cull: 3000 },
-    { file: 'samambaia', why: 'samambaia do sub-bosque da ilha', at: florestaSamambaia, scale: 1.6, jitter: 0.35, cull: 1500, castShadow: false },
-    { file: 'feto', why: 'moita de feto: o chão da floresta', at: florestaFeto, scale: 1.4, jitter: 0.4, cull: 1500, castShadow: false },
-    { file: 'grama-alta', why: 'grama alta entre as moitas', at: florestaGrama, scale: 1.5, jitter: 0.45, cull: 1200, castShadow: false },
+    { file: 'palm-tall', why: 'a palmeira que faz a ilha ler como paraíso', at: florestaPalm, scale: 1.15, lift: LIFT_ILHA, jitter: 0.28, yaw: 0, cull: 3000 },
+    { file: 'samambaia', why: 'samambaia do sub-bosque da ilha', at: florestaSamambaia, scale: 1.6, lift: LIFT_ILHA, jitter: 0.35, cull: 1500, castShadow: false },
+    { file: 'feto', why: 'moita de feto: o chão da floresta', at: florestaFeto, scale: 1.4, lift: LIFT_ILHA, jitter: 0.4, cull: 1500, castShadow: false },
+    { file: 'grama-alta', why: 'grama alta entre as moitas', at: florestaGrama, scale: 1.5, lift: LIFT_ILHA, jitter: 0.45, cull: 1200, castShadow: false },
   ]
 
   const recife = Object.values(recifePontos).reduce((s, a) => s + a.length, 0)

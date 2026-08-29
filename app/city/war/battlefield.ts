@@ -111,6 +111,9 @@ export interface HudBatalha {
 export interface Battlefield {
   group: THREE.Group
   update(agora: number): void
+  /** troca os exércitos por caixas de 12 triângulos além de 700 m da câmera.
+   *  Ver a nota longa no corpo: 1,77 M de triângulos viram 0,08 M. */
+  lod(camPos: THREE.Vector3): void
   setLive(on: boolean): void
   hud(): HudBatalha
   /** ⚠️ COSTURA DE TESTE, e ela existe por um motivo concreto: desde que as
@@ -459,6 +462,63 @@ export function createBattlefield(
     m.frustumCulled = false
   }
   group.add(caes, ursos)
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // LOD DOS EXÉRCITOS: o mesmo soldado, com 12 triângulos, quando está longe.
+  //
+  // ⚠️ POR QUE. Medido na cidade em 29/08/2026: os dois exércitos somavam
+  // 1,77 MILHÃO de triângulos desenhados sempre que a câmera estava a menos de
+  // 4.200 m do campo, que é mais que a cidade inteira de 52.984 lotes. Um urso
+  // tem 2,6 m de escala e 312 triângulos; a 2 km ele ocupa menos de um pixel.
+  // Ele não precisa de 312 triângulos, precisa de uma caixa.
+  //
+  // ⚠️ E O PROXY NÃO CUSTA CÓPIA NENHUMA, que é o truque que faz isto valer a
+  // pena. As duas malhas COMPARTILHAM o mesmo `instanceMatrix` e o mesmo atributo
+  // `aFase`: a marcha continua sendo escrita uma vez só, no exército de perto, e
+  // o proxy enxerga a mesma memória. Trocar de nível é ligar um `visible` e
+  // copiar um `count`, e nada mais.
+  //
+  // ⚠️ O MATERIAL É O MESMO, de propósito: mesmo programa de shader compilado,
+  // mesma ondulação de passada, e zero material novo numa cena onde material é o
+  // recurso escasso.
+  const geoLonge = (alturaM: number, largM: number) => {
+    const g = new THREE.BoxGeometry(largM, alturaM, largM * 0.72)
+    g.translate(0, alturaM / 2, 0)
+    return g
+  }
+  const caesLonge = new THREE.InstancedMesh(geoLonge(1.15, 0.62), matCaes, orc.cap)
+  const ursosLonge = new THREE.InstancedMesh(geoLonge(1.75, 0.92), matUrsos, orc.cap)
+  for (const [proxy, cheio, fase] of [
+    [caesLonge, caes, faseCaes], [ursosLonge, ursos, faseUrsos],
+  ] as [THREE.InstancedMesh, THREE.InstancedMesh, Float32Array][]) {
+    proxy.geometry.setAttribute('aFase', new THREE.InstancedBufferAttribute(fase, 1))
+    proxy.instanceMatrix = cheio.instanceMatrix     // MESMA memória, não cópia
+    proxy.count = 0
+    proxy.visible = false
+    semRaycast(proxy)
+    proxy.frustumCulled = false
+    proxy.castShadow = false                        // sombra de caixa a 2 km é ruído
+    group.add(proxy)
+  }
+
+  // ⚠️ 700 m COM HISTERESE DE 80. Sem a histerese, uma câmera parada bem no
+  // limiar troca de nível a cada quadro e o exército pisca. 700 m é onde o
+  // soldado de 2,6 m de escala passa a medir menos de dois pixels na vertical.
+  const LOD_PERTO = 700, LOD_HIST = 80
+  let lodCheio = true
+  const centroCampo = new THREE.Vector3()
+  const lodExercitos = (cam: THREE.Vector3) => {
+    group.getWorldPosition(centroCampo)
+    const d = cam.distanceTo(centroCampo)
+    const querCheio = lodCheio ? d < LOD_PERTO + LOD_HIST : d < LOD_PERTO
+    if (querCheio !== lodCheio) {
+      lodCheio = querCheio
+      caes.visible = querCheio; ursos.visible = querCheio
+      caesLonge.visible = !querCheio; ursosLonge.visible = !querCheio
+    }
+    caesLonge.count = caes.count
+    ursosLonge.count = ursos.count
+  }
 
   // ── MARCHA: o book define ALVOS e as tropas ANDAM até eles ───────────────
   // ⚠️ É AQUI QUE A CENA DEIXA DE SER ENFADONHA SEM INVENTAR DADO. O book de
@@ -5001,6 +5061,7 @@ export function createBattlefield(
   return {
     group,
     update,
+    lod: lodExercitos,
     emiteEventoTeste: (motivo: string, lado: 'buy' | 'sell', forca: number) => {
       emiteEvento(motivo as MotivoEvento, lado, forca)
     },

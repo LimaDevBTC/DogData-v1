@@ -270,6 +270,18 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
       return { pos: new THREE.Vector3(0, -20, 1107), target: new THREE.Vector3(0, -17, 1330) }
     case 'lago':
       return { pos: new THREE.Vector3(-980, 430, 2050), target: new THREE.Vector3(0, -10, 0) }
+    // a ilha do Dog Social Club de perto: prova que a ilha tem PRAIA, MATA,
+    // TRILHA e CLAREIRA, e que a floresta está em cima dela e não no fundo do lago
+    // o PERFIL da ponte, de lado e rente: é a vista que prova se o tabuleiro
+    // desce até a via ou se ele voa por cima dela
+    case 'ponteperfil':
+      return { pos: new THREE.Vector3(-330, 46, -1010), target: new THREE.Vector3(60, 12, -1120) }
+    case 'ilha':
+      return { pos: new THREE.Vector3(379, 95, -915), target: new THREE.Vector3(475, -14, -1146) }
+    // as oito de uma vez, de cima: prova que os raios variam e que nenhuma
+    // encosta em ponte
+    case 'ilhas':
+      return { pos: new THREE.Vector3(0, 3050, 420), target: new THREE.Vector3(0, -17, 0) }
     case 'plano':
       return { pos: new THREE.Vector3(0, 9600, 1), target: new THREE.Vector3(0, 0, 0) }
     case 'tecido':
@@ -629,7 +641,14 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       profile.maxPixelRatio = 1
       profile.minPixelRatio = 0.75
     }
-    const renderer = new THREE.WebGLRenderer({ antialias: profile.antialias, powerPreference: 'high-performance', logarithmicDepthBuffer: true })
+    const renderer = new THREE.WebGLRenderer({ antialias: profile.antialias, powerPreference: 'high-performance', // ⚠️ EXPERIMENTO MEDIDO, ATRÁS DE ?logdepth=0. O buffer logarítmico escreve
+      // gl_FragDepth no FRAGMENTO, e isso desliga a rejeição precoce de pixel do
+      // GPU: cada camada de chão sobreposta (terreno, rua, praça, plinto de lote,
+      // parcela de peça) roda o shader inteiro antes do teste de profundidade.
+      // Esta cena empilha de 4 a 6 dessas camadas, e medido em 29/08 ela é
+      // limitada por PREENCHIMENTO: a 720x450 com a mesma geometria ela roda a
+      // 13,3 ms e a 1440x900 a 26,7.
+      logarithmicDepthBuffer: new URLSearchParams(window.location.search).get('logdepth') !== '0' })
     const governor = new FrameGovernor(renderer, profile)
     renderer.setSize(mount.clientWidth, mount.clientHeight)
     renderer.outputColorSpace = THREE.SRGBColorSpace
@@ -2224,6 +2243,10 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       lastFrameAt = nowMs
       culler.update(camera.position)
       orcamentoLuz.update()
+      // ⚠️ LOD DOS EXÉRCITOS: 1,77 M de triângulos viram 0,08 M além de 700 m.
+      // Ver a nota longa em war/battlefield.ts, junto do proxy.
+      campo?.lod(camera.position)
+      tecido?.update(camera.position)
       arvores?.update(camera.position)
       lago?.update(t)
       if (!controls.autoRotate && performance.now() - lastInteraction > 25_000) controls.autoRotate = true

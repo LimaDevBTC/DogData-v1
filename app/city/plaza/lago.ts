@@ -41,6 +41,23 @@ export interface LagoOpts {
 
 export interface Ilha { id: string; nome: string; x: number; z: number; r: number; dono: string | null }
 
+/**
+ * ⚠️ A MARGEM DA ILHA NÃO É UM CÍRCULO, E QUEM PLANTA NELA PRECISA DA MESMA CURVA.
+ * Se a praia usar o raio deformado e a floresta usar o raio redondo, a palmeira
+ * nasce na água num lado da ilha e no meio da trilha no outro. Por isso o contorno
+ * é uma função exportada, e não uma conta repetida em dois arquivos.
+ * `k` é o índice da ilha (cada uma deforma diferente), `a` o ângulo em radianos.
+ */
+export function contornoIlha(k: number, a: number, base: number): number {
+  return base * (1 + 0.062 * Math.sin(a * 3 + k) + 0.038 * Math.sin(a * 5 - k * 2))
+}
+
+/** o ângulo LOCAL da ilha `k` onde o píer encosta: nada de mato pode nascer nele */
+export function anguloDesembarque(k: number): number {
+  const ang = ((22.5 + k * 45) * Math.PI) / 180
+  return Math.atan2(Math.cos(ang), -Math.sin(ang))
+}
+
 export interface Lago {
   group: THREE.Group
   /** avança a ondulação da água; chame no laço com o tempo em segundos */
@@ -63,6 +80,9 @@ const COR_AGUA = '#1D4A66'
 const COR_PRAIA = '#8E856F'
 const COR_PISO = '#CBC4B6'
 const COR_ESTRUTURA = '#8F8879'
+const COR_PISTA = '#57534B'
+const COR_TRILHA = '#A79C86'   // saibro: a trilha da ilha não é pista de atletismo
+const COR_MATO = '#6C7A5B'     // o verde fechado da mata, mais escuro que o gramado
 const COR_TERRA = '#7E8A6B'
 
 /** acumulador por cor, com o mesmo cuidado de sentido de face do kit das peças */
@@ -109,37 +129,77 @@ export function buildLago(o: LagoOpts): Lago {
     }
   }
 
-  // ── 2. os dois passeios de margem ────────────────────────────────────────
-  // Um calçadão de 14 m em cada lado, na cota do platô, que é o que dá borda ao
-  // lago. Sem ele a água encontra regolito solto e o desenho para no meio.
-  for (const [rIn, rOut] of [[L.r0 - 56, L.r0 - 42], [L.r1 + 42, L.r1 + 56]]) {
-    const b = B(COR_PISO)
-    // ⚠️ O PASSO SAI DO RAIO, E ISSO FOI MEDIDO NA CHAPA. Com 200 segmentos fixos
-    // a corda em r 1.280 dá 40 m, e uma faixa plana de 40 m assentada em cima do
-    // talude de 70 m serrilha a margem inteira: foi o dente de serra que apareceu
-    // na primeira chapa do lago. 18 m é o mesmo vão que a via e a peça usam.
-    const seg = Math.max(120, Math.ceil((2 * Math.PI * rOut) / 18))
+  // ── 2. OS DOIS ANÉIS DE MARGEM, QUE SÃO VIA E NÃO CALÇADA ────────────────
+  //
+  // ⚠️ ESTE BLOCO ERA UM PASSEIO DE 14 m E ISSO ESTAVA ERRADO, e o defeito era
+  // de SISTEMA e não de desenho. Sondei o chão nos quatro rumos onde as pontes
+  // encostam: do lado da praça, em r 960 e 990, a ponte desembocava em REGOLITO
+  // PURO, sem via nenhuma. E do lado de fora, as quatro pontes chegavam na
+  // cidade sem nada que as ligasse entre si: para ir da ponte norte à ponte
+  // leste era preciso atravessar a praça inteira ou dar a volta pela cidade.
+  // Quatro pontes espetaculares que não formam rede não são rede, são quatro
+  // becos. O fundador viu isso de cima antes de eu medir.
+  //
+  // Agora são dois ANÉIS VIÁRIOS de verdade, com seção:
+  //   ANEL DA PRAÇA  r 975, 20 m   recebe as pontes do lado de dentro
+  //   ANEL DA ORLA   r 1.440, 26 m recebe as pontes do lado de fora e alimenta
+  //                                os 12 bulevares, que passaram a começar em
+  //                                1.420 para encostar nele (gerar_cidade.py)
+  // Com eles o sistema fecha: praça → ponte → orla → bulevar → anel → Cinturão.
+  const R_ANEL_PRACA = 975, LARG_PRACA = 20
+  const R_ANEL_ORLA = L.r1 + 50, LARG_ORLA = 26
+  const aneisDeMargem = [
+    { r: R_ANEL_PRACA, larg: LARG_PRACA },
+    { r: R_ANEL_ORLA, larg: LARG_ORLA },
+  ]
+  for (const an of aneisDeMargem) {
+    const seg = Math.max(160, Math.ceil((2 * Math.PI * an.r) / 18))
+    // seção: calçada 3 + pista (larg-6) + calçada 3, com a guia de 15 cm
+    const bandas: [number, number, number, string][] = [
+      [0, 3, 0.8, COR_PISO],
+      [3, an.larg - 3, 0.65, COR_PISTA],
+      [an.larg - 3, an.larg, 0.8, COR_PISO],
+    ]
     for (let k = 0; k < seg; k++) {
       const a0 = (k / seg) * Math.PI * 2, a1 = ((k + 1) / seg) * Math.PI * 2
-      // ⚠️ 0,8 m E NÃO 0,33: numa RAMPA a corda de 18 m afunda mais que a folga
-      // plana da rua. Com 0,33 o barranco cintilava em xadrez, que é z-fighting
-      // entre a praia e o regolito. Em barranco ninguém percebe 80 cm.
-      const p = (r: number, a: number) => NO(Math.sin(a) * r, -Math.cos(a) * r, 0.8)
-      b.quad(p(rIn, a0), p(rIn, a1), p(rOut, a1), p(rOut, a0))
+      for (const [de, ate, alt, cor] of bandas) {
+        const b = B(cor)
+        const p = (t: number, a: number) => {
+          const r = an.r - an.larg / 2 + t
+          return NO(Math.sin(a) * r, -Math.cos(a) * r, alt)
+        }
+        b.quad(p(de, a0), p(de, a1), p(ate, a1), p(ate, a0))
+      }
     }
   }
-  // a faixa de praia entre o calçadão e a água, mais clara que o regolito
+  // a faixa de praia entre o anel e a água, mais clara que o regolito
   for (const [rIn, rOut] of [[L.r0 - 42, L.r0 - 14], [L.r1 + 14, L.r1 + 42]]) {
     const b = B(COR_PRAIA)
     const seg = Math.max(120, Math.ceil((2 * Math.PI * rOut) / 18))
     for (let k = 0; k < seg; k++) {
       const a0 = (k / seg) * Math.PI * 2, a1 = ((k + 1) / seg) * Math.PI * 2
-      // e subdivide no RADIAL também: 48 m de praia atravessam o talude inteiro
       const nr = 4
       for (let j = 0; j < nr; j++) {
         const ra = rIn + ((rOut - rIn) * j) / nr, rb = rIn + ((rOut - rIn) * (j + 1)) / nr
         const p = (r: number, a: number) => NO(Math.sin(a) * r, -Math.cos(a) * r, 0.55)
         b.quad(p(ra, a0), p(ra, a1), p(rb, a1), p(rb, a0))
+      }
+    }
+  }
+  // ⚠️ A ROTATÓRIA EM CADA CABECEIRA, e ela não é enfeite: é o que faz a ponte
+  // ENTREGAR em vez de despejar. Sem ela o tabuleiro de 26 m morre numa faixa de
+  // via de 20 e quem chega não tem para onde virar.
+  for (const rumo of [0, 90, 180, 270]) {
+    const ang = (rumo * Math.PI) / 180
+    for (const an of aneisDeMargem) {
+      const cx = Math.sin(ang) * an.r, cz = -Math.cos(ang) * an.r
+      const N = 36, RE = 26, RI = 11
+      for (let k = 0; k < N; k++) {
+        const a0 = (k / N) * Math.PI * 2, a1 = ((k + 1) / N) * Math.PI * 2
+        const P2 = (rr: number, aa: number, off: number) =>
+          NO(cx + Math.cos(aa) * rr, cz + Math.sin(aa) * rr, off)
+        B(COR_PISTA).quad(P2(RI, a0, 0.65), P2(RI, a1, 0.65), P2(RE, a1, 0.65), P2(RE, a0, 0.65))
+        B(COR_TERRA).quad(P2(0, a0, 0.9), P2(0, a1, 0.9), P2(RI, a1, 0.9), P2(RI, a0, 0.9))
       }
     }
   }
@@ -149,8 +209,28 @@ export function buildLago(o: LagoOpts): Lago {
   // Duas torres por ponte, de 74 m, com tirantes: é a silhueta que faz a ponte
   // ser vista da praça e do outro lado, que é o que o fundador pediu quando
   // disse "espetaculares".
-  const R_PONTE_I = L.r0 - 70, R_PONTE_E = L.r1 + 70
+  // ⚠️ A PONTE VAI DE ANEL A ANEL, e não de praia a praia. Antes ela começava em
+  // L.r0 - 70 e terminava em L.r1 + 70, ou seja no meio do nada dos dois lados.
+  const R_PONTE_I = R_ANEL_PRACA, R_PONTE_E = R_ANEL_ORLA
   const LARG = 26, Y_DECK = 7.0
+  //
+  // ⚠️ O TABULEIRO NÃO TINHA RAMPA, E ISSO SÓ APARECEU NA SONDA. Levar a ponte de
+  // anel a anel resolveu O PLANO (ela passou a encostar em via dos dois lados),
+  // mas não o PERFIL: `Y_DECK` era constante, então a ponte chegava na rotatória
+  // a 7 m de altura e a rotatória estava a 0,65 m. Vista de cima parecia ligada;
+  // de lado era uma laje voando com um degrau de 6,35 m na cabeceira. Ligação em
+  // planta sem ligação em corte não é ligação.
+  //
+  // Agora o perfil é de viaduto: encontro no nível da via, rampa de 28% do vão
+  // (130 m para 6,2 m, ou 4,8%), patamar no meio. A concordância é suavizada
+  // (`3k² − 2k³`) porque emenda reta deixa QUINA na crista, e quina numa peça de
+  // 465 m aparece de longe.
+  const Y_ENC = 0.8                 // o nível do anel, onde o tabuleiro encosta
+  const RAMPA = 0.28
+  const yDeck = (t: number) => {
+    const k = t < RAMPA ? t / RAMPA : t > 1 - RAMPA ? (1 - t) / RAMPA : 1
+    return Y_ENC + (Y_DECK - Y_ENC) * (k * k * (3 - 2 * k))
+  }
   const TORRES = [0.30, 0.70]        // fração do vão onde cada torre sobe
   const H_TORRE = 74
   let pontes = 0
@@ -169,11 +249,12 @@ export function buildLago(o: LagoOpts): Lago {
       const n = 40
       for (let k = 0; k < n; k++) {
         const [x0, z0] = eixo(k / n), [x1, z1] = eixo((k + 1) / n)
+        const y0 = yDeck(k / n), y1 = yDeck((k + 1) / n)
         b.quad(
-          P(x0 - px * LARG / 2, z0 - pz * LARG / 2, Y_DECK),
-          P(x1 - px * LARG / 2, z1 - pz * LARG / 2, Y_DECK),
-          P(x1 + px * LARG / 2, z1 + pz * LARG / 2, Y_DECK),
-          P(x0 + px * LARG / 2, z0 + pz * LARG / 2, Y_DECK),
+          P(x0 - px * LARG / 2, z0 - pz * LARG / 2, y0),
+          P(x1 - px * LARG / 2, z1 - pz * LARG / 2, y1),
+          P(x1 + px * LARG / 2, z1 + pz * LARG / 2, y1),
+          P(x0 + px * LARG / 2, z0 + pz * LARG / 2, y0),
         )
       }
       // as duas laterais do tabuleiro, para ele ter espessura vista de lado
@@ -182,9 +263,13 @@ export function buildLago(o: LagoOpts): Lago {
         for (let k = 0; k < n; k++) {
           const [x0, z0] = eixo(k / n), [x1, z1] = eixo((k + 1) / n)
           const ox = px * s * LARG / 2, oz = pz * s * LARG / 2
+          const y0 = yDeck(k / n), y1 = yDeck((k + 1) / n)
+          // ⚠️ NA RAMPA A SAIA TEM DE MORRER NO CHÃO e não acompanhar o tabuleiro:
+          // uma viga de 3,2 m pendurada sob o encontro fica boiando sobre a via.
+          const e0 = Math.min(3.2, y0 - Y_ENC + 0.6), e1 = Math.min(3.2, y1 - Y_ENC + 0.6)
           be.quad(
-            P(x0 + ox, z0 + oz, Y_DECK), P(x1 + ox, z1 + oz, Y_DECK),
-            P(x1 + ox, z1 + oz, Y_DECK - 3.2), P(x0 + ox, z0 + oz, Y_DECK - 3.2),
+            P(x0 + ox, z0 + oz, y0), P(x1 + ox, z1 + oz, y1),
+            P(x1 + ox, z1 + oz, y1 - e1), P(x0 + ox, z0 + oz, y0 - e0),
           )
         }
       }
@@ -209,13 +294,15 @@ export function buildLago(o: LagoOpts): Lago {
         for (let k = 1; k <= 6; k++) {
           const d = (k / 7) * (R_PONTE_E - R_PONTE_I) * 0.34
           for (const dir of [-1, 1]) {
-            const [ax, az] = eixo(t + (dir * d) / (R_PONTE_E - R_PONTE_I))
+            const ta = t + (dir * d) / (R_PONTE_E - R_PONTE_I)
+            const [ax, az] = eixo(ta)
             const w = 0.9
+            // o tirante ancora ONDE O TABULEIRO ESTÁ, que na rampa já não é 7 m
             b.quad(
               P(tx + ox - px * w, tz + oz - pz * w, Y_DECK + H_TORRE),
               P(tx + ox + px * w, tz + oz + pz * w, Y_DECK + H_TORRE),
-              P(ax + ox + px * w, az + oz + pz * w, Y_DECK),
-              P(ax + ox - px * w, az + oz - pz * w, Y_DECK),
+              P(ax + ox + px * w, az + oz + pz * w, yDeck(ta)),
+              P(ax + ox - px * w, az + oz - pz * w, yDeck(ta)),
             )
           }
         }
@@ -224,39 +311,152 @@ export function buildLago(o: LagoOpts): Lago {
   }
 
   // ── 4. as ilhas ──────────────────────────────────────────────────────────
-  // ⚠️ RESERVA NOMEADA, NÃO CONSTRUÇÃO. Enquanto não existir projeto, a ilha é
-  // um disco de terra com cais e nada em cima, e é assim que ela tem de ler:
-  // lugar guardado com nome, igual ao resto da demarcação da cidade. A primeira
-  // é do Dog Social Club por decisão do fundador.
+  //
+  // ⚠️ ELAS ERAM DISCOS DE TERRA E O FUNDADOR CHAMOU DE GENÉRICAS, com razão: um
+  // disco verde com mato jogado em cima não é ilha, é mancha. Ilha de verdade tem
+  // ORLA (praia, e a praia é o que faz a água ter margem), tem MIOLO (a floresta),
+  // tem CLAREIRA (senão não há para onde ir), tem TRILHA ligando as duas, e tem
+  // um jeito de CHEGAR. Sem os cinco ela continua sendo mancha por mais palmeira
+  // que se plante.
+  //
+  // ⚠️ E ELAS CONTINUAM SENDO RESERVA. O que está desenhado é o SÍTIO: praia,
+  // trilha, clareira e píer. Projeto de parceiro entra na clareira, que é
+  // exatamente o pedaço deixado livre. A primeira é do Dog Social Club por
+  // decisão do fundador, e por isso ela é maior e tem praça em vez de clareira.
   const rIlha = (rAguaI + rAguaE) / 2
   const ilhas: Ilha[] = []
   for (let k = 0; k < 8; k++) {
     const rumo = 22.5 + k * 45                    // entre as pontes, nunca sob elas
     const ang = (rumo * Math.PI) / 180
     const x = Math.sin(ang) * rIlha, z = -Math.cos(ang) * rIlha
-    const raio = k === 0 ? 78 : 54
+    const dsc = k === 0
+    const raio = dsc ? 92 : 54 + (k % 3) * 9      // ⚠️ raio VARIADO: oito ilhas do
+                                                  // mesmo tamanho leem como carimbo
     ilhas.push({
       id: `ILHA${String(k + 1).padStart(2, '0')}`,
-      nome: k === 0 ? 'Ilha do Dog Social Club' : `Ilha ${k + 1}, reservada`,
-      x, z, r: raio, dono: k === 0 ? 'Dog Social Club' : null,
+      nome: dsc ? 'Ilha do Dog Social Club' : `Ilha ${k + 1}, reservada`,
+      x, z, r: raio, dono: dsc ? 'Dog Social Club' : null,
     })
-    const seg = 40
-    const bt = B(COR_TERRA), bp = B(COR_PRAIA), bc = B(COR_PISO)
+    const seg = 44
+    const p = (r: number, a: number, y: number) => P(x + Math.cos(a) * r, z + Math.sin(a) * r, y)
+    // ⚠️ A MARGEM NÃO É UM CÍRCULO. Dois harmônicos deformam o raio em ±9%: é o
+    // suficiente para a ilha ter enseada e ponta, e é o que separa terra de moeda.
+    const rr = (a: number, base: number) => contornoIlha(k, a, base)
     for (let j = 0; j < seg; j++) {
       const a0 = (j / seg) * Math.PI * 2, a1 = ((j + 1) / seg) * Math.PI * 2
-      const p = (r: number, a: number, y: number) => P(x + Math.cos(a) * r, z + Math.sin(a) * r, y)
-      // praia submersa, praia seca e o miolo de terra
-      bp.quad(p(raio, a0, L.agua + 0.2), p(raio, a1, L.agua + 0.2),
-              p(raio * 0.86, a1, L.agua + 1.6), p(raio * 0.86, a0, L.agua + 1.6))
-      bt.quad(p(raio * 0.86, a0, L.agua + 1.6), p(raio * 0.86, a1, L.agua + 1.6),
-              p(0, a1, L.agua + 2.6), p(0, a0, L.agua + 2.6))
+      const R0 = (a: number) => rr(a, raio)           // linha d'água
+      const R1 = (a: number) => rr(a, raio * 0.88)    // fim da praia
+      const R2 = (a: number) => rr(a, raio * 0.70)    // trilha
+      const R3 = (a: number) => rr(a, raio * 0.655)  // ⚠️ 4,5% do raio, não 8%:
+                                                     // a trilha larga lia como
+                                                     // pista de atletismo
+      const R4 = (a: number) => rr(a, raio * (dsc ? 0.42 : 0.34))  // clareira
+      // praia: da linha d'água para dentro, subindo
+      B(COR_PRAIA).quad(p(R0(a0), a0, L.agua + 0.15), p(R0(a1), a1, L.agua + 0.15),
+                        p(R1(a1), a1, L.agua + 1.5), p(R1(a0), a0, L.agua + 1.5))
+      // mata: da praia até a trilha
+      B(COR_MATO).quad(p(R1(a0), a0, L.agua + 1.5), p(R1(a1), a1, L.agua + 1.5),
+                       p(R2(a1), a1, L.agua + 2.4), p(R2(a0), a0, L.agua + 2.4))
+      // trilha: um anel de saibro, que é o que faz a ilha ser percorrível
+      B(COR_TRILHA).quad(p(R2(a0), a0, L.agua + 2.6), p(R2(a1), a1, L.agua + 2.6),
+                         p(R3(a1), a1, L.agua + 2.6), p(R3(a0), a0, L.agua + 2.6))
+      // mata de novo, entre a trilha e a clareira
+      B(COR_MATO).quad(p(R3(a0), a0, L.agua + 2.7), p(R3(a1), a1, L.agua + 2.7),
+                       p(R4(a1), a1, L.agua + 3.0), p(R4(a0), a0, L.agua + 3.0))
+      // ⚠️ A CLAREIRA DAS SETE RESERVADAS É GRAMADO E NÃO LAJE. Laje clara num
+      // lote vazio lê como estacionamento; grama lê como terreno guardado.
+      if (!dsc)
+        B(COR_TERRA).quad(p(R4(a0), a0, L.agua + 3.1), p(R4(a1), a1, L.agua + 3.1),
+                          p(0, a1, L.agua + 3.1), p(0, a0, L.agua + 3.1))
     }
-    // o cais, virado para a praça
-    const cx = x - Math.sin(ang) * raio, cz = z + Math.cos(ang) * raio
-    bc.quad(P(cx - Math.cos(ang) * 9, cz - Math.sin(ang) * 9, L.agua + 1.2),
-            P(cx + Math.cos(ang) * 9, cz + Math.sin(ang) * 9, L.agua + 1.2),
-            P(cx + Math.cos(ang) * 9 + Math.sin(ang) * 26, cz + Math.sin(ang) * 9 - Math.cos(ang) * 26, L.agua + 1.2),
-            P(cx - Math.cos(ang) * 9 + Math.sin(ang) * 26, cz - Math.sin(ang) * 9 - Math.cos(ang) * 26, L.agua + 1.2))
+
+    // ── o desembarque: a ponte de tábuas encontra a trilha ──────────────────
+    //
+    // ⚠️ ISTO É O MESMO DEFEITO DAS PONTES DO LAGO, EM MINIATURA. O píer parava
+    // na areia e a trilha corria em anel sem tocar nele: quem desembarcava caía
+    // no mato. Uma faixa radial de saibro costura os dois, e é o que transforma
+    // praia + trilha + clareira em percurso em vez de três desenhos soltos.
+    const aPier = anguloDesembarque(k)
+    {
+      const meia = 5.5 / raio                       // 5,5 m de meia-largura
+      const passos = 10
+      for (let j = 0; j < passos; j++) {
+        const f0 = 0.30 + (0.62 * j) / passos, f1 = 0.30 + (0.62 * (j + 1)) / passos
+        const y = L.agua + 3.0 - 0.5 * (f0 - 0.30) / 0.62   // desce da clareira para a praia
+        const q = (f: number, da: number) => p(rr(aPier + da, raio * f), aPier + da, y)
+        B(COR_TRILHA).quad(q(f0, -meia), q(f1, -meia), q(f1, meia), q(f0, meia))
+      }
+    }
+
+    // ── o programa da Ilha do Dog Social Club ──────────────────────────────
+    //
+    // ⚠️ A CLAREIRA DELA ERA UMA LAJE BRANCA VAZIA OCUPANDO 40% DA ILHA, e um
+    // vazio desse tamanho no meio de um cartão de visita não lê como reserva,
+    // lê como esquecimento. As outras sete continuam guardadas (gramado, para o
+    // projeto do parceiro entrar depois); esta é do Dog Social Club por decisão
+    // do fundador, então ela é a única que já tem desenho.
+    //
+    // A composição é concêntrica e olha bem de cima, que é de onde a cidade é
+    // vista: átrio de laje, banco corrido em anel, ESPELHO D'ÁGUA e pódio no
+    // centro. O espelho repete a água do lago dentro da ilha, que é o truque que
+    // faz a peça pertencer ao lago em vez de estar pousada nele.
+    if (dsc) {
+      const aro = (rf0: number, rf1: number, y0: number, y1: number, cor: string) => {
+        for (let j = 0; j < seg; j++) {
+          const a0 = (j / seg) * Math.PI * 2, a1 = ((j + 1) / seg) * Math.PI * 2
+          B(cor).quad(p(rr(a0, raio * rf0), a0, y0), p(rr(a1, raio * rf0), a1, y0),
+                      p(rr(a1, raio * rf1), a1, y1), p(rr(a0, raio * rf1), a0, y1))
+        }
+      }
+      const Y0 = L.agua + 3.1
+      aro(0.42, 0.345, Y0, Y0, COR_PISO)              // átrio
+      aro(0.345, 0.335, Y0, Y0 + 0.55, COR_ESTRUTURA) // espelda do banco corrido
+      aro(0.335, 0.315, Y0 + 0.55, Y0 + 0.55, COR_ESTRUTURA)
+      aro(0.315, 0.305, Y0 + 0.55, Y0, COR_ESTRUTURA)
+      // ⚠️ ESPELHO D'ÁGUA NO NÍVEL DO PISO É UM DISCO AZUL PINTADO. Sem parede
+      // e sem recuo não há sombra na borda, e sem sombra na borda o olho lê
+      // tinta e não líquido. A bacia desce 1,6 m e a lâmina fica 35 cm abaixo
+      // do átrio: é o degrau que faz a água existir.
+      aro(0.305, 0.295, Y0, Y0 - 1.6, COR_ESTRUTURA)  // a parede da bacia
+      aro(0.295, 0.145, Y0 - 0.35, Y0 - 0.35, COR_AGUA)
+      aro(0.145, 0.135, Y0 - 1.6, Y0 + 1.2, COR_PISO) // o pé do pódio, dentro da água
+      aro(0.135, 0.0, Y0 + 1.2, Y0 + 1.2, COR_PISO)   // o pódio
+      // os doze mastros do átrio: é o que dá altura e é o que se vê de longe
+      for (let j = 0; j < 12; j++) {
+        const a = (j / 12) * Math.PI * 2
+        const mx = x + Math.cos(a) * rr(a, raio * 0.385), mz = z + Math.sin(a) * rr(a, raio * 0.385)
+        for (let f = 0; f < 4; f++) {
+          const b0 = (f / 4) * Math.PI * 2, b1 = ((f + 1) / 4) * Math.PI * 2
+          const q = (bb: number, yy: number) => P(mx + Math.cos(bb) * 0.7, mz + Math.sin(bb) * 0.7, yy)
+          B(COR_ESTRUTURA).quad(q(b0, Y0), q(b1, Y0), q(b1, Y0 + 15), q(b0, Y0 + 15))
+        }
+      }
+    }
+
+    // ⚠️ O PÍER APONTA PARA A PRAÇA, e não para um rumo qualquer: quem chega de
+    // barco vem de lá, que é onde estão as pontes e a cidade velha.
+    const dirX = -Math.sin(ang), dirZ = Math.cos(ang)
+    const perX = Math.cos(ang), perZ = Math.sin(ang)
+    const pIni = raio * 0.92, pFim = raio + 34, w = 4.5
+    B(COR_ESTRUTURA).quad(
+      P(x + dirX * pIni - perX * w, z + dirZ * pIni - perZ * w, L.agua + 1.4),
+      P(x + dirX * pFim - perX * w, z + dirZ * pFim - perZ * w, L.agua + 1.4),
+      P(x + dirX * pFim + perX * w, z + dirZ * pFim + perZ * w, L.agua + 1.4),
+      P(x + dirX * pIni + perX * w, z + dirZ * pIni + perZ * w, L.agua + 1.4))
+    // os pilares do píer, que é o que o faz ler como píer e não como tábua
+    for (let j = 0; j <= 5; j++) {
+      const t = pIni + ((pFim - pIni) * j) / 5
+      for (const sgn of [-1, 1]) {
+        const px2 = x + dirX * t + perX * w * 0.8 * sgn
+        const pz2 = z + dirZ * t + perZ * w * 0.8 * sgn
+        for (let f = 0; f < 4; f++) {
+          const b0 = (f / 4) * Math.PI * 2, b1 = ((f + 1) / 4) * Math.PI * 2
+          const q = (bb: number, yy: number) =>
+            P(px2 + Math.cos(bb) * 0.5, pz2 + Math.sin(bb) * 0.5, yy)
+          B(COR_ESTRUTURA).quad(q(b0, L.fundo), q(b1, L.fundo), q(b1, L.agua + 1.4), q(b0, L.agua + 1.4))
+        }
+      }
+    }
   }
 
   // ── 5. uma malha por cor ─────────────────────────────────────────────────
