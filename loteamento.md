@@ -193,6 +193,20 @@ cinco sobrevive como **ritmo no cotista**, não como recorte no contorno.
 
 ---
 
+**Superquadra sobrepõe lotes normais (achado da frente de dados, 29/08, NÃO corrigido).** O
+ramo gigante de `coloca()` toma 6 prateleiras a partir da ESCOLHIDA, e a escolhida pode ser
+a fila 3 de um quarteirão: ele consome as filas 3..5 deste e 0..2 do seguinte, mas grava o
+lote centrado no quarteirão da escolhida, em cima de lotes já plantados nas filas 0..2.
+Medido contra `data/dogcity_lotes.csv`: **7 das 24 superquadras sobrepõem 141 lotes normais**
+(S06-Q19-B004 cobre 31, S07-Q09-B002 cobre 29, S12-Q17-B005 cobre 31) e 17 quarteirões
+seguintes ficam com as primeiras fileiras vazias. Consertar exige que a superquadra comece na
+fila 0 do próprio quarteirão, e isso **muda o endereço de todo mundo depois do primeiro
+gigante**: por isso ficou registrado no gerador e no `cidade-malha.json` (campo
+`superquadraProf`) em vez de corrigido calado. É a primeira coisa a fazer antes de publicar a
+regra. Enquanto isso a cena não deve desenhar por cima sem saber.
+
+---
+
 ## 9. O que ainda não existe
 
 O 3D dos prédios. A forma por `utxo_count` está gravada em 3 bits e nada a

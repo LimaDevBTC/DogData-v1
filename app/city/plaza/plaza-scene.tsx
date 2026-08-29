@@ -2286,9 +2286,16 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
 
       {/* ── title, and the way back: the landing is the front door, the site is home */}
       <div className="absolute left-4 top-4 sm:left-6 sm:top-6">
+        {/* ⚠️ NO CELULAR A MIGALHA PERDE O PRIMEIRO ELO, e é medição, não gosto.
+            A 390 px "DogCity · DOG DATA" ia até x=176 e a pílula da mempool
+            começava em x=158: 18 px de sobreposição, com o fundo da pílula
+            comendo o fim de "DOG DATA" (o fundador mandou a chapa). O elo que
+            sai é o menos útil aqui: quem está na cena JÁ está na DogCity, e o
+            h1 logo abaixo diz onde. O que fica é o caminho de volta para casa.
+            Some só abaixo de sm; no desktop os dois cabem com folga. */}
         <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/50">
-          <a href="/dogcity" className="hover:text-white">DogCity</a>
-          <span className="mx-2 text-white/25">·</span>
+          <a href="/dogcity" className="hidden hover:text-white sm:inline">DogCity</a>
+          <span className="mx-2 hidden text-white/25 sm:inline">·</span>
           <a href="/" className="hover:text-white">DOG DATA</a>
         </p>
         <h1 className="mt-1 font-mono text-base font-semibold tracking-tight text-white sm:text-xl">Satoshi Plaza</h1>
@@ -2412,10 +2419,17 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           no celular sumiu, e com ela um corredor de 358px de HUD sobre a cena. */}
       {/* ⚠️ A LARGURA SEGUE O ESTADO: fechada, a coluna é estreita e a pílula
           quase não existe sobre a cena; aberta no celular ela cresce para
-          17rem, senão cada valor quebra em três linhas. */}
+          17rem, senão cada valor quebra em três linhas.
+          ⚠️ E NO CELULAR ELA NÃO TEM RÓTULO, o que é a terceira tentativa e a
+          única que fecha a conta. A 390 px o topo tem três coisas disputando a
+          mesma faixa: a migalha (até x=88), o h1 "Satoshi Plaza" (até x=128) e
+          a pílula. Com o rótulo "DOG mempool" inteiro ela precisa de 268 px e
+          começa em x=106, ou seja em cima do h1; encolher para caber trunca o
+          rótulo de novo. Então some o rótulo e ficam o selo de vida e o número,
+          que é o que muda. A palavra volta a partir de sm, onde há espaço. */}
       <div
         className={`absolute right-4 top-4 flex flex-col items-end gap-2 sm:right-6 sm:top-6 sm:w-[20rem] ${
-          boardOpen ? 'w-[17rem]' : 'w-[13.5rem]'
+          boardOpen ? 'w-[17rem]' : 'w-auto sm:w-[20rem]'
         }`}
       >
         {/* ⚠️ VISOR: fechado, o quadro é só uma LINHA sobre a cena, sem placa.
@@ -2440,10 +2454,15 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               className={`inline-block size-1.5 shrink-0 rounded-full ${live ? 'bg-[#10B981]' : 'bg-[#F59E0B]'}`}
               title={live ? 'live from our node' : hud.stale != null ? `${hud.stale}s since the last update` : 'connecting'}
             />
-            <span className="truncate">
+            <span className={boardOpen ? 'truncate' : 'hidden truncate sm:inline'}>
               DOG mempool
               {typeof window !== 'undefined' && window.location.search.includes('demo=1') ? ' · demo' : ''}
             </span>
+            {/* ⚠️ O "DOG" DO NÚMERO FICA, e no celular ele é o único a dizer do
+                que se trata, porque lá o rótulo não cabe.
+                ⚠️ E O COMENTÁRIO MORA AQUI FORA de propósito: dentro de
+                `{!boardOpen && ( ... )}` só cabe UM filho, e um comentário JSX
+                conta como filho. Pôr ele lá dentro derrubou a página em 500. */}
             {!boardOpen && (
               <span className="shrink-0 text-white/45">
                 {fmtInt.format(s?.dog_pending ?? 0)} tx · {fmtDog(s?.dog_pending_amount ?? 0)} DOG

@@ -911,14 +911,26 @@ def _fila_do_lote(ox, oz, prof):
 
 malha_q, malha_b = [], []
 ocup = {}                        # (s, q, b) -> [lotes por fileira]
-sup = {}                         # (s, q, b) -> quantas superquadras
+sup = {}                         # (s, q, b) -> profundidade da superquadra
 erro_fila_max = 0.0
 for x, z, s, a, fr, pf, q_, b_, n_ in saida:
     ch = (s, q_, b_)
     ocup.setdefault(ch, [0]*LOTE_ROWS)
     if pf > PROF_MAX:
         # o ramo gigante de coloca(): frente 168, seis prateleiras consumidas
-        sup[ch] = sup.get(ch, 0) + 1
+        # ⚠️ A SUPERQUADRA NÃO COMEÇA NA FILA 0, E ISSO É DEFEITO MEDIDO, NÃO
+        # REGRA. O ramo gigante toma 6 prateleiras a partir da ESCOLHIDA, e a
+        # escolhida pode ser a fila 3 de um quarteirão: aí ele consome as filas
+        # 3..5 deste e 0..2 do SEGUINTE (por raio), mas grava o lote centrado no
+        # quarteirão da escolhida, em cima de lotes já plantados nas filas 0..2.
+        # Medido em 29/08 contra data/dogcity_lotes.csv: 7 das 24 superquadras
+        # se sobrepõem a 141 lotes normais do próprio quarteirão (S06-Q19-B004
+        # cobre 31, S07-Q09-B002 cobre 29, S12-Q17-B005 cobre 31), e 17
+        # quarteirões seguintes ficam com as primeiras fileiras vazias.
+        # Consertar é mexer na alocação (coloca()), o que muda endereço de todo
+        # mundo depois do primeiro gigante; fica registrado aqui e no JSON para
+        # a cena não desenhar por cima sem saber. Não corrigir em silêncio.
+        sup[ch] = max(sup.get(ch, 0.0), pf)
 
 for s in range(SETORES):
     ang = math.radians(s * GIRO_SETOR)
@@ -983,10 +995,11 @@ for s in range(SETORES):
                 'giro': s * GIRO_SETOR, 'lado': QUARTEIRAO,
                 'celula': [cx, cz],
                 'sondasLivres': len(b['lotes']),           # de 84 pontos da sondagem
-                'lotes': sum(por_fila) + sup.get(ch, 0),
+                'lotes': sum(por_fila) + (1 if ch in sup else 0),
                 'lotesPorFileira': por_fila,
                 'fileirasComLote': sum(1 for v in por_fila if v),
                 'superquadra': ch in sup,
+                'superquadraProf': round(sup[ch], 1) if ch in sup else 0,
             })
             blocos.append(bid)
         malha_q.append({
@@ -1007,7 +1020,9 @@ for s in range(SETORES):
     bulevares.append({
         'id': f'BUL{s+1:02d}', 'rumo': rumo, 'largura': BULEVAR,
         'rInicio': R_INICIO, 'rFim': R_ABOBADA,
-        'x0': round(x0, 1), 'z0': round(z0, 1), 'x1': round(x1, 1), 'z1': round(z1, 1),
+        # o + 0.0 apaga o "-0.0" que sin/cos deixam nos rumos 0, 90, 180 e 270
+        'x0': round(x0, 1) + 0.0, 'z0': round(z0, 1) + 0.0,
+        'x1': round(x1, 1) + 0.0, 'z1': round(z1, 1) + 0.0,
         'setores': [s+1, (s+1) % SETORES + 1],   # os dois setores que a costura separa
     })
 
@@ -1024,7 +1039,13 @@ with open(p('public/city/cidade-malha.json'), 'w') as f:
                       'travessa1 [-34,-25], faixa [-25,25], travessa2 [25,34], faixa [34,84]. '
                       'fileiras 0..5 em `fileiras`; lotesPorFileira segue essa ordem. '
                       'sondasLivres = pontos livres dos 84 sondados por tecido(); quarteirão '
-                      'de borda entra com ≥ 20. superquadra = lote gigante tomou as 6 fileiras.',
+                      'de borda entra com ≥ 20. superquadra = lote gigante de frente 168 centrado '
+                      'no quarteirão, z local [-superquadraProf/2, +superquadraProf/2]. ⚠️ ele '
+                      'consome 6 prateleiras a partir da escolhida, então pode invadir o quarteirão '
+                      'seguinte e sobrepor lotes normais das primeiras fileiras deste (medido 29/08: '
+                      '7 de 24 superquadras sobrepõem 141 lotes). setor é o do gerador em precisão '
+                      'cheia: 5 quarteirões de S11 têm centro a 0,001° da costura 300 e o x/z '
+                      'arredondado a 0,1 m cai do outro lado; não recalcule setor a partir de x/z.',
         'quarto': 'centro da célula central (a praça) em mundo, lado 540 = 3x3 células de 180. '
                   'celula = [qx, qz] no quadro do setor. praca = 25 sondas da célula central '
                   'todas livres e no setor; pracaFracLivre = fração.',
