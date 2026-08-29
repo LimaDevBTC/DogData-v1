@@ -36,25 +36,55 @@ def tela(x, z):
 # planta e some justamente a informação em disputa: a DIREÇÃO da fileira. Sem
 # desenhar frente x profundidade não dá para ver a listra que faz a cidade
 # parecer veludo cotelê.
-GIRO_SETOR = 7.5
+# ⚠️ O GIRO DEIXOU DE SER `setor * 7,5`. Ele agora é DO QUARTEIRÃO (na Cinta é a
+# tangente local, diferente em cada bloco), então vem de cidade-malha.json pelo
+# id S..-Q..-B.., que é o mesmo lot_id sem o -L...
+import json
+MALHA = json.load(open(os.path.join(RAIZ, 'public', 'city', 'cidade-malha.json')))
+GIRO = {b['id']: math.radians(b['giro']) for b in MALHA['quarteiroes']}
 n = 0
 with open(CSV, newline='') as f:
     for row in csv.DictReader(f):
         x, z = float(row['x_m']), float(row['z_m'])
         if abs(x - CX) > R or abs(z - CZ) > R: continue
         fr, pf = float(row['frente_m']), float(row['prof_m'])
-        ang = math.radians((int(row['setor']) - 1) * GIRO_SETOR)
+        ang = GIRO.get(row['lot_id'].rsplit('-L', 1)[0], 0.0)
         ca, sa = math.cos(ang), math.sin(ang)
         # cantos no referencial do setor, depois girados para o mundo
         pts = []
         for dx, dz in ((-fr/2, -pf/2), (fr/2, -pf/2), (fr/2, pf/2), (-fr/2, pf/2)):
             pts.append(tela(x + dx*ca - dz*sa, z + dx*sa + dz*ca))
-        s = int(row['setor'])
-        # tom por setor, só para a costura entre setores aparecer
-        g = 150 + (s * 7) % 70
+        # tom por BANDA, para o grão mudar de cor junto com o quarteirão
+        g = 208 - int(row['quarto']) * 16
         dr.polygon(pts, fill=(g, g - 8, g - 20))
         n += 1
 
-dr.ellipse([tela(-R, -R)[0], tela(-R, -R)[1], tela(R, R)[0], tela(R, R)[1]], outline=(70, 70, 76))
+# ⚠️ SEM O PROGRAMA DESENHADO, A PLANTA MENTE. Os 786,8 ha das 51 peças e os 8
+# parques aparecem como BURACO PRETO, e eu mesmo li a planta como "tecido
+# esburacado" quando 96,5% dos quarteirões têm lote. Vazio sem nome lê como
+# falha; vazio com desenho lê como praça, estádio e parque.
+import json as _json
+_pg = _json.load(open(os.path.join(RAIZ, 'data', 'dogcity_programa_congelado.json')))
+for q in _pg:
+    cx, cz, ea, eb = q['cx'], q['cz'], q['a'], q['b']
+    g = math.radians(q['rot'])
+    cg, sg = math.cos(g), math.sin(g)
+    if q['forma'] == 'retangulo':
+        cantos = [(-ea, -eb), (ea, -eb), (ea, eb), (-ea, eb)]
+    else:
+        cantos = [(math.cos(2*math.pi*i/40)*ea, math.sin(2*math.pi*i/40)*eb) for i in range(40)]
+    pts = [tela(cx + lx*cg - lz*sg, cz + lx*sg + lz*cg) for lx, lz in cantos]
+    dr.polygon(pts, fill=(58, 62, 66))
+for pq in MALHA.get('parques', []):
+    g = math.radians(pq['rot']); cg, sg = math.cos(g), math.sin(g)
+    pts = [tela(pq['x'] + math.cos(2*math.pi*i/44)*pq['a']*cg - math.sin(2*math.pi*i/44)*pq['b']*sg,
+                pq['z'] + math.cos(2*math.pi*i/44)*pq['a']*sg + math.sin(2*math.pi*i/44)*pq['b']*cg)
+           for i in range(44)]
+    dr.polygon(pts, fill=(52, 74, 52))
+# o contorno da cidade, que agora e curva de nivel de phi e nao circulo
+if MALHA.get('contorno'):
+    dr.line([tela(x, z) for x, z in MALHA['contorno']] + [tela(*MALHA['contorno'][0])],
+            fill=(96, 96, 104), width=2)
+dr.ellipse([tela(-R, -R)[0], tela(-R, -R)[1], tela(R, R)[0], tela(R, R)[1]], outline=(40, 40, 46))
 im.save(saida)
 print(f'{n:,} lotes desenhados em {saida} ({PX}x{PX}, {2*R:.0f} m de lado)')
