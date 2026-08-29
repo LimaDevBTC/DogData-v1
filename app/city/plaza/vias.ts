@@ -87,11 +87,17 @@ const Y_PISTA = 0.18
 const Y_CALCADA = 0.33
 const Y_CANTEIRO = 0.40
 
-// ⚠️ 0,02 m É A CONSTANTE ÚNICA DE FOLGA, E ELA FOI MEDIDA. polygonOffset é
-// INERTE nesta cena: plaza-scene.tsx liga logarithmicDepthBuffer, o fragmento
-// escreve gl_FragDepthEXT e apaga o deslocamento do rasterizador (fator 0, -16 e
-// -64 deram os MESMOS 9.556 px na bancada). Só ALTURA resolve, e 0,02 m segura
-// cobertura plena de 300 m a 9.000 m.
+// ⚠️ 0,02 m É A CONSTANTE ÚNICA DE FOLGA, E ELA FOI MEDIDA. Só ALTURA resolve
+// aqui, e 0,02 m segura cobertura plena de 300 m a 9.000 m.
+//
+// ⚠️ A EXPLICAÇÃO ANTIGA CAIU, A CONSTANTE NÃO. Este comentário dizia que
+// polygonOffset era INERTE porque a cena ligava logarithmicDepthBuffer e o
+// fragmento escrevia gl_FragDepthEXT, apagando o deslocamento do rasterizador
+// (fator 0, -16 e -64 davam os MESMOS 9.556 px na bancada). Isso era verdade
+// enquanto o buffer logarítmico estava ligado; ele foi DESLIGADO por padrão
+// quando o `near` passou a acompanhar a distância (plaza-scene.tsx), então hoje
+// polygonOffset FUNCIONA de novo. A folga por altura continua sendo a escolha:
+// ela não depende de estado do rasterizador e sobrevive à próxima troca.
 const FOLGA = 0.02
 
 // Paleta: a pista é o valor mais escuro da cidade e a calçada o mais claro. O

@@ -13,10 +13,15 @@
 // 0,47 a 0,66 ms contra 1,67 a 2,11 ms do plinto. São 2 triângulos por lote,
 // 105.968 no total, UMA chamada de desenho.
 //
-// ⚠️ polygonOffset É INERTE NESTA CENA e não adianta tentar. plaza-scene.tsx
-// liga logarithmicDepthBuffer, o fragmento escreve gl_FragDepthEXT e apaga o
-// deslocamento do rasterizador: medido, fator 0, -16 e -64 dão os MESMOS 9.556
-// px de cobertura. O que resolve é ALTURA, e 0,02 m bastam de 300 m a 9.000 m.
+// ⚠️ O QUE RESOLVE É ALTURA, e 0,02 m bastam de 300 m a 9.000 m.
+//
+// ⚠️ A JUSTIFICATIVA MUDOU DE BAIXO DESTA LINHA. Aqui estava escrito que
+// polygonOffset era INERTE nesta cena porque plaza-scene.tsx ligava
+// logarithmicDepthBuffer (medido: fator 0, -16 e -64 davam os MESMOS 9.556 px).
+// O buffer logarítmico foi desligado por padrão quando o `near` passou a
+// acompanhar a distância, então polygonOffset voltou a valer. A folga por altura
+// fica: ela é independente do rasterizador e não precisa ser revisitada a cada
+// troca de pipeline.
 //
 // ⚠️ MeshStandardMaterial COM onBeforeCompile, E NÃO UM ShaderMaterial CRU. A
 // spec pede "ShaderMaterial, nunca RawShaderMaterial, com seis includes"; o

@@ -648,7 +648,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       // Esta cena empilha de 4 a 6 dessas camadas, e medido em 29/08 ela é
       // limitada por PREENCHIMENTO: a 720x450 com a mesma geometria ela roda a
       // 13,3 ms e a 1440x900 a 26,7.
-      logarithmicDepthBuffer: new URLSearchParams(window.location.search).get('logdepth') !== '0' })
+      logarithmicDepthBuffer: new URLSearchParams(window.location.search).get('logdepth') === '1' })
     const governor = new FrameGovernor(renderer, profile)
     renderer.setSize(mount.clientWidth, mount.clientHeight)
     renderer.outputColorSpace = THREE.SRGBColorSpace
@@ -717,6 +717,15 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     // encontrava: com `?stats=1` ela fica à mão, que é como se pergunta "o que é
     // esse pixel ali" sem adivinhar coordenada de mundo.
     if (wantStats) (window as unknown as { __plazaCamera?: THREE.Camera }).__plazaCamera = camera
+    // ?stats=1 → window.__plazaRender(): o que o renderizador REALMENTE ligou.
+    // Serviu para provar que ?logdepth=1 muda o pipeline de verdade e que a
+    // chapa igual não era a bandeira sendo ignorada.
+    if (wantStats) (window as unknown as { __plazaRender?: () => unknown }).__plazaRender = () => ({
+      logDepth: renderer.capabilities.logarithmicDepthBuffer,
+      near: camera.near, far: camera.far,
+      programas: renderer.info.programs?.length ?? 0,
+      chamadas: renderer.info.render.calls, triangulos: renderer.info.render.triangles,
+    })
     camera.layers.enable(CAVE_LAYER) // a caverna do Leonidas vive fora do sol
     // ⚠️ A ENTRADA PADRÃO (sem ?view=) agora é SOBRE A BATALHA com a cidade ao
     // fundo (decisão do fundador: entregar o user direto na guerra, take
@@ -896,6 +905,42 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     const SUN_DIST = sun.position.length()
     const lightRot = new THREE.Matrix4().lookAt(SUN_DIR, new THREE.Vector3(), new THREE.Vector3(0, 1, 0))
     const lightRotInv = lightRot.clone().invert()
+    // ── O PLANO DE CORTE ACOMPANHA A DISTÂNCIA ──────────────────────────────
+    //
+    // ⚠️ ISTO É O QUE DESTRAVA DESLIGAR O BUFFER LOGARÍTMICO, e é a razão de ele
+    // ter sido ligado um dia. Com `near` fixo em 0,5 e `far` em 200.000, a
+    // resolução do z-buffer comum é d² / (near · 2²⁴):
+    //
+    //     a   100 m ..... 0,12 cm      a 2.000 m ......  47,7 cm
+    //     a 1.000 m .... 11,92 cm      a 5.000 m ..... 298,0 cm
+    //
+    // As camadas do kit são separadas por 12 cm. Ou seja: a 1 km o z-buffer
+    // comum JÁ EMPATA com a separação das camadas, e a 5 km ele erra por 3 m,
+    // vinte e cinco vezes a separação. Nenhuma chapa larga sobreviveria. O
+    // buffer logarítmico consertava isso escrevendo `gl_FragDepth`, e escrever
+    // profundidade no fragmento MATA O EARLY-Z: com 4 a 6 camadas de chão
+    // empilhadas, essa era a conta de 20% do quadro.
+    //
+    // A saída não é o buffer, é o `near`. Fazendo near = d² / 1e6, a resolução
+    // vira CONSTANTE em qualquer distância:
+    //
+    //     d² / ((d²/1e6) · 2²⁴)  =  1e6 / 1,678e7  =  5,96 cm
+    //
+    // Metade da separação das camadas, em toda a faixa, sem `gl_FragDepth`. E o
+    // near só cresce quando a câmera está longe (a 9,6 km ele vale 92 m, e a
+    // essa altura não há nada a menos de 92 m da lente), então não corta nada:
+    // de perto ele desce para o piso de 0,3 m, que é mais folgado que o 0,5
+    // antigo.
+    const nearPorDistancia = (dist: number) => {
+      const n = Math.min(150, Math.max(0.3, (dist * dist) / 1e6))
+      // ⚠️ SÓ MEXE QUANDO MUDA DE VERDADE. `updateProjectionMatrix` a cada quadro
+      // com um valor que oscila na quinta casa faz a matriz mudar sem parar, e
+      // isso reaparece como tremor de sub-pixel nas bordas.
+      if (Math.abs(n - camera.near) > camera.near * 0.02) {
+        camera.near = n
+        camera.updateProjectionMatrix()
+      }
+    }
     const shadowAnchor = new THREE.Vector3()
     let shadowHalf = 1000
     const followShadow = () => {
@@ -2279,6 +2324,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       }
       // em voo da visita guiada a sombra está congelada: refazer o enquadramento
       // do mapa a cada quadro seria trabalho jogado fora
+      nearPorDistancia(camera.position.distanceTo(controls.target))
       if (!(fly.on && tourRunning)) followShadow()
       orbit.update(t, dt, fees)
       for (const p of pulses) p.m.emissiveIntensity = p.base * (0.8 + 0.25 * Math.sin(t * p.rate + p.phase))
