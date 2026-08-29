@@ -283,6 +283,70 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
       return { pos: new THREE.Vector3(-820, 620, 1180), target: new THREE.Vector3(-2250, 20, 180) }
     case 'tecidoborda':
       return { pos: new THREE.Vector3(2600, 420, 3400), target: new THREE.Vector3(1700, 20, 2400) }
+    // ── AS CINCO CHAPAS DA MAQUETE (?tecido=1&plate=1&hour=maquete&quality=high) ──
+    // As cotas de terreno citadas abaixo saíram de replicar rawAt/siteAt/heightAt/
+    // superficieAt de terrain.ts em python sobre public/lunar/btc-core-heightmap.f32.
+    // ⚠️ CONFIRA COM ?stats=1 e window.__plazaView() DEPOIS QUE O TERRENO CARREGAR:
+    // altura absoluta abaixo do chão é descartada pelo laço (o travamento de 1,7 m
+    // sobe câmera E alvo em bloco), então o número escrito aqui deixa de ser o que
+    // vai para a tela se ele afundar.
+
+    // 1. A PRANCHA. Zenital sobre o sítio inteiro. O z=1 existe só para o vetor
+    // "para cima" não degenerar num olhar exatamente vertical. Com fov 42 em
+    // 1440x900, 12.000 m cobrem 9.213 m na vertical e 14.740 na horizontal: o
+    // sítio de 9.000 entra com folga.
+    // PROVA: que existe um PLANO. O lote mede 1,22 px de frente e roda em modo
+    // TOM (o contorno já sumiu na rampa de 4.900 a 6.500 m); o que desenha é a
+    // teia viária, os 12 raios de bulevar, as 128 praças e as 119 reservas.
+    // Se sobrar buraco preto dentro de r 4.400, a chapa reprova.
+    case 'maqueteplano':
+      return { pos: new THREE.Vector3(0, 12000, 1), target: new THREE.Vector3(0, 0, 0) }
+
+    // 2. A AÉREA DE VENDA. Quarto S05-Q03 (praça inteira livre, 8 quarteirões com
+    // lote, terreno +1,03 m), a 1.899 m, elevação 38 graus, que é a banda de 30 a
+    // 45 graus que os guias de visualização dão como consenso de aérea. Câmera a
+    // sudoeste com o sol vindo de noroeste (SUN_AZ 306): 81 graus entre os dois,
+    // luz raspando de três quartos, que é como se fotografa maquete. A praça
+    // central da cidade aparece ao fundo.
+    // PROVA: a linha de lote lendo a 1.400 a 2.000 m, a teia branca contínua, o
+    // par calçada/lote de 1,55:1 e a tracejada de sombra da arborização.
+    case 'maqueteaerea':
+      return { pos: new THREE.Vector3(444, 1171, 2237), target: new THREE.Vector3(1502, 1, 1179) }
+
+    // 3. O QUARTEIRÃO. S05-Q03-B002 (1.346, 1.089), 115 lotes, giro 30 graus,
+    // terreno +1,03 m. Distância 339 m, elevação 23,6 graus.
+    // PROVA: o par lábio/sulco (4,56:1), o piso de 1,2 px entrando em ação (a
+    // linha de 0,30 m mediria 1,04 px aqui), a seção calçada/guia/pista, a
+    // travessia elevada na boca de rua, o marco de quarteirão e a SOMBRA. É a
+    // vista onde se mede o conserto do normalBias (0,15 no lugar de 1,2).
+    case 'maquetequarteirao':
+      return { pos: new THREE.Vector3(1126, 139, 1309), target: new THREE.Vector3(1346, 3, 1089) }
+
+    // 4. O PEDESTRE. De pé no BUL04 (rumo 90 graus, corre no +x com z=0) a 1,70 m
+    // do chão, olhando para fora. 1,70 m é a altura de olho que os guias de
+    // visualização fixam (160 a 170 cm).
+    // ⚠️ A COTA É MEDIDA, NÃO CHUTADA. O perfil do terreno no eixo tem uma crista
+    // em x=2.300 (-14,16 m) MAIS ALTA que o ponto em x=1.900 (-16,39 m): uma
+    // câmera posta em 1.900 olhando para 3.400 tem a linha de visão cortada pelo
+    // chão em 2.300. Por isso a câmera fica em x=1.500 (terreno -10,93, olho
+    // -9,23) e o alvo em x=4.400 com y=-12,0, uma inclinação de 0,055 grau: a
+    // linha passa 4,2 m acima da crista.
+    // PROVA: alinhamento. As três fileiras do bulevar (canteiro mais duas
+    // calçadas) convergem para o ponto de fuga e qualquer árvore fora do prumo
+    // aparece. Prova também a seção de 34 m e o eixo tracejado branco.
+    case 'maquetepedestre':
+      return { pos: new THREE.Vector3(1500, -9.2, 0), target: new THREE.Vector3(4400, -12, 0) }
+
+    // 5. O PROGRAMA. Lago Maior (A01, 21,36 ha), Jardim Botânico (A03) e Estádio
+    // Olímpico (E01) num quadro só. Distância 1.600 m, elevação 34 graus, câmera
+    // a sudeste do lago: com o sol em azimute 306 (noroeste) isso é CONTRALUZ, e
+    // é de propósito, porque é o que traz o realce especular da água para a lente.
+    // PROVA: que a peça deixou de ser adesivo. A moldura de 4,0 m com face de
+    // 0,15 m, a água escura de acrílico contra a calçada (8,63:1), a arquibancada
+    // em anel escalonado lida como CLARO e não como cor própria, e o verde único
+    // do campo, do jardim e da ilha.
+    case 'maqueteparque':
+      return { pos: new THREE.Vector3(-1312, 926, 1118), target: new THREE.Vector3(-2250, 25, 180) }
     // o hipódromo visto do alto, do lado da praça: a forma e as duas bocas
     case 'coliseu':
       return { pos: new THREE.Vector3(-1380, 620 + dy, 2860), target: new THREE.Vector3(-2120, 40 + dy, 2120) }
@@ -513,6 +577,20 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
   const [boardOpen, setBoardOpen] = useState(false)
   // ?plate=1: só a cena, sem HUD (para fotografar as chapas da landing)
   const [plate] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('plate') === '1')
+  // ⚠️ O BOTÃO "N" NÃO É REACT DESTA CENA, e por isso o `!plate` do JSX nunca o
+  // alcançou: ele é o custom element <nextjs-portal> que o dev server injeta no
+  // body (32 x 32 px em x 22, y 846 numa janela de 900) e que sobrava em toda
+  // chapa tirada em desenvolvimento, obrigando a recortar antes de mostrar. Em
+  // produção ele não existe; a folha abaixo só nasce com ?plate=1 e morre com a
+  // página, então nenhuma outra rota sente.
+  useEffect(() => {
+    if (!plate) return
+    const folha = document.createElement('style')
+    folha.setAttribute('data-plate', '1')
+    folha.textContent = 'nextjs-portal{display:none!important}'
+    document.head.appendChild(folha)
+    return () => { folha.remove() }
+  }, [plate])
 
   useEffect(() => {
     const mount = mountRef.current
@@ -688,7 +766,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     // o deck); o que muda é a ALTURA, que é o que decide comprimento de sombra e
     // quanto do regolito acende.
     const SUN_AZ = 306 // noroeste, como já era
-    type Hour = { el: number; sun: number; sunColor: number; hemi: number; earth: number; exposure: number }
+    // ⚠️ hemiGround ENTROU COM A HORA `maquete` porque o rebote do chão é o que
+    // decide quanto da chapa cai no preto. As três horas antigas recebem o
+    // 0x1a1712 que a HemisphereLight tinha fixo no código, para nenhuma delas
+    // mudar de aparência com esta rodada.
+    type Hour = { el: number; sun: number; sunColor: number; hemi: number; hemiGround: number; earth: number; exposure: number }
     // ⚠️ SOL RASO NÃO É CENA CLARA, e eu errei isto na primeira tentativa. Num
     // plano que olha para BAIXO, o assunto é o chão, e o que o chão recebe é
     // proporcional ao SENO da elevação: a 10 graus são 0,17 do que ele receberia
@@ -700,7 +782,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     const HOURS: Record<string, Hour> = {
       // O PADRÃO: sol alto o bastante para acender a esplanada (sen 44° = 0,69,
       // uma vez e meia o que a cena tinha) e ainda dar sombra com direção.
-      day: { el: 44, sun: 5.4, sunColor: 0xfff6e8, hemi: 0.34, earth: 0.15, exposure: 1.06 },
+      day: { el: 44, sun: 5.4, sunColor: 0xfff6e8, hemi: 0.34, hemiGround: 0x1a1712, earth: 0.15, exposure: 1.06 },
       // A dramática: sombra longa atravessando a praça e torres em contraluz. O
       // chão fica mais escuro, e isso aqui é escolha, não defeito.
       // ⚠️ A RAZÃO ENTRE SOL E PREENCHIMENTO ERA 39:1, ou 5,3 diafragmas. A
@@ -710,11 +792,33 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       // de L 0,06 e 50,4% da cidade acima de L 0,72, com 13,4% de meio-tom.
       // A convenção da maquete é DUAS fontes, uma direta fazendo de sol e uma
       // indireta de preenchimento, nunca duas diretas.
-      morning: { el: 16, sun: 4.2, sunColor: 0xfff0d2, hemi: 1.05, earth: 0.42, exposure: 1.05 },
+      morning: { el: 16, sun: 4.2, sunColor: 0xfff0d2, hemi: 1.05, hemiGround: 0x1a1712, earth: 0.42, exposure: 1.05 },
       // A noite assumida: sem sol, a Terra manda. Ela é grande (2 graus) e fica
       // parada no céu, então a sombra dela é macia e a luz é azul. O que acende a
       // cidade é a luz artificial dela mesma.
-      earthlight: { el: -8, sun: 0.0, sunColor: 0xfff1dc, hemi: 0.62, earth: 1.05, exposure: 1.16 },
+      earthlight: { el: -8, sun: 0.0, sunColor: 0xfff1dc, hemi: 0.62, hemiGround: 0x1a1712, earth: 1.05, exposure: 1.16 },
+      // A HORA DA MAQUETE: a chapa de apresentação do loteamento sem prédios.
+      // ⚠️ 32 GRAUS É O NÚMERO QUE DECIDE A CHAPA INTEIRA, e ele sai de duas
+      // contas. (1) O assunto é o CHÃO, e o chão recebe pelo SENO da elevação:
+      // 0,276 a 16 graus (a `morning`), 0,530 a 32, 0,695 a 44. A 16 graus a
+      // chapa medida em 29/08 deu média 61,6 e 0,1% de pixel acima de 184, ou
+      // seja, sem alta luz nenhuma. (2) A árvore de 7 m projeta 11,2 m a 32
+      // graus, o que mede 2,11 px a 6.213 m: a fileira vira tracejada escura no
+      // drone, e é o ÚNICO jeito de o alinhamento existir naquela distância. A
+      // 44 graus ela projeta 7,25 m e some; a 16 graus projeta 24,41 m e as
+      // sombras se emendam numa mancha.
+      // ⚠️ hemiGround 0x2e2a22 (L 0,043) no lugar de 0x1a1712 (L 0,015): é o
+      // rebote do chão, e é ele que jogava 48,1% da imagem abaixo de L8 40 na
+      // chapa de 29/08. Custa zero triângulo e zero material.
+      // ⚠️ exposure 1,02 é CONTA, não medida: sai da diferença de diafragma
+      // entre sen(32) x 4,8 e sen(16) x 4,2 da `morning`. Se a chapa estourar,
+      // desça para 0,96 antes de mexer em qualquer cor.
+      // Razão sol sobre preenchimento 4,8 / 1,20 = 4,0:1, que é a banda que a
+      // fotografia de estúdio chama de padrão (3:1) a dramático (8:1).
+      maquete: {
+        el: 32, sun: 4.8, sunColor: 0xfff4e2,
+        hemi: 1.20, hemiGround: 0x2e2a22, earth: 0.30, exposure: 1.02,
+      },
     }
     const hourKey = new URLSearchParams(window.location.search).get('hour') ?? 'day'
     const H = HOURS[hourKey] ?? HOURS.day
@@ -732,8 +836,14 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     sun.shadow.camera.far = 7000
     const sc = sun.shadow.camera as THREE.OrthographicCamera
     sc.left = -1000; sc.right = 1000; sc.top = 1000; sc.bottom = -1000
-    sun.shadow.bias = -0.0006
-    sun.shadow.normalBias = 1.2
+    // ⚠️ normalBias 1,2 APAGAVA 97% DA SOMBRA, e 1,2 m é mais comprido que a
+    // sombra inteira que o loteamento produz (o plinto de 0,45 m a 16 graus
+    // projeta 1,57 m). Medido na vista de quarteirão a 265 m, contando pixel
+    // que muda ao ligar a sombra: 0 dá 0,34%, 0,05 dá 0,30%, 0,2 dá 0,18%,
+    // 0,5 dá 0,06% e 1,2 dá 0,01%. Trinta e quatro vezes menos sombra, e a
+    // sombra é a única coisa que faz o alinhamento existir na vista aérea.
+    sun.shadow.bias = -0.0004
+    sun.shadow.normalBias = 0.15
     sun.target.position.set(0, 0, 320)
     scene.add(sun, sun.target)
     // A caixa de sombra segue o alvo da câmera (encaixada em texels da luz para
@@ -747,7 +857,12 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let shadowHalf = 1000
     const followShadow = () => {
       const dist = camera.position.distanceTo(controls.target)
-      const half = dist < 1500 ? 1000 : dist < 3500 ? 1800 : 3200
+      // ⚠️ O QUARTO DEGRAU EXISTE POR CAUSA DA VISTA `maqueteplano`, que fica a
+      // 12.000 m sobre um sítio de 9.000 m de diâmetro: com meio-lado 3.200 a
+      // sombra cobre só 6.400 m e o anel externo perde a sombra da arborização,
+      // o que aparece na chapa como a cidade parando num círculo. Com 4.600 e
+      // mapa 2048 o texel mede 4,49 m e o custo medido é 2,55 ms.
+      const half = dist < 1500 ? 1000 : dist < 3500 ? 1800 : dist < 8000 ? 3200 : 4600
       if (half !== shadowHalf) {
         shadowHalf = half
         sc.left = -half; sc.right = half; sc.top = half; sc.bottom = -half
@@ -767,7 +882,10 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     // dura das fotos de Apollo. Deixar o hemisférico alto de dia mata justamente
     // o contraste que estamos buscando. De noite ele inverte: a Terra é a fonte,
     // e ela é grande o suficiente para ser quase um difusor.
-    scene.add(new THREE.HemisphereLight(0x3a4664, 0x1a1712, H.hemi))
+    // ⚠️ A COR DE BAIXO VEM DA HORA (H.hemiGround), não é mais fixa: ela é o
+    // rebote do regolito e é o único parâmetro que levanta o pé da imagem sem
+    // custar triângulo, material ou draw call.
+    scene.add(new THREE.HemisphereLight(0x3a4664, H.hemiGround, H.hemi))
     // O brilho da Terra vem DA TERRA, e não de um ponto qualquer do céu: mesma
     // direção que o disco (EARTH_DIR, logo abaixo), para a luz e o objeto
     // concordarem.
@@ -799,7 +917,13 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     }
 
     // ── sky: stars and the Earth ─────────────────────────────────────────────
-    scene.add(buildStars())
+    // ⚠️ NA HORA `maquete` A ESTRELA SAI. Maquete em sala escura não tem céu,
+    // tem preto (o scene.background já é 0x000000), e ponto branco espalhado
+    // pelo fundo de uma chapa de apresentação lê como ruído de sensor. A Terra
+    // fica, porque ela é a segunda fonte indireta e é o que a água reflete.
+    const estrelas = buildStars()
+    estrelas.visible = hourKey !== 'maquete'
+    scene.add(estrelas)
     // ⚠️ A TERRA É CÉU, NÃO É OBJETO DA CENA, e é essa distinção que conserta o
     // que o fundador viu: "hoje a terra parece um satélite da lua".
     //
@@ -978,8 +1102,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // relevo, cova de parque, platô e a saia da abóbada.
         if (qDomo.get('tecido') === '1') {
           const pinta = qDomo.get('pintura')
+          // ⚠️ superficieAt E NÃO heightAt: quem desenha chão tem de assentar na
+          // malha que a câmera vê, senão fica ora boiando ora enterrado. A nota
+          // longa com a medição está em terrain.ts, na interface.
           void buildTecido({
-            heightAt: terrain.heightAt,
+            heightAt: terrain.superficieAt,
             modo: qDomo.get('modo') === 'massa' ? 'massa' : 'lote',
             sombra: qDomo.get('sombra') !== '0',
             pintura: pinta === 'idade' || pinta === 'forma' ? pinta : 'pedra',
@@ -995,7 +1122,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           // contra o plinto de 0,45 m do lote. Sem o tecido, a calçada fica
           // sendo o ponto mais alto da cidade e a chapa mente.
           if (qDomo.get('vias') !== '0') {
-            void buildVias({ heightAt: terrain.heightAt, sombra: qDomo.get('sombra') !== '0' })
+            void buildVias({ heightAt: terrain.superficieAt, sombra: qDomo.get('sombra') !== '0' })
               .then((v) => {
                 if (disposed) { v.dispose(); return }
                 vias = v
@@ -1009,7 +1136,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             // a mesma malha: a praça é uma célula de 180 como qualquer outra e
             // as calçadas em volta são as mesmas.
             if (qDomo.get('pracas') !== '0') {
-              void buildPracas({ heightAt: terrain.heightAt, sombra: qDomo.get('sombra') !== '0' })
+              void buildPracas({ heightAt: terrain.superficieAt, sombra: qDomo.get('sombra') !== '0' })
                 .then((pr) => {
                   if (disposed) { pr.dispose(); return }
                   pracas = pr

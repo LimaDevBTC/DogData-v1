@@ -51,6 +51,24 @@ export interface Terrain {
   heightAt: (x: number, z: number) => number
   /** Igual a heightAt; nome mantido para quem chamava o anel do horizonte. */
   horizonAt: (x: number, z: number) => number
+  /**
+   * ⚠️ A SUPERFÍCIE QUE A CÂMERA VÊ, QUE NÃO É `heightAt`. `heightAt` é a função
+   * contínua; a MALHA do regolito é a linearização dela em células de ~59 m, com
+   * cada célula partida em dois triângulos. Entre dois vértices as duas
+   * discordam pela flecha da corda, e quem assenta chão sobre `heightAt` fica
+   * ora acima ora abaixo do que aparece na tela.
+   *
+   * Medido em 29/08/2026 com 4.000 sondas verticais: a pista da via, posta a
+   * 0,18 m sobre `heightAt`, tinha regolito passando POR CIMA dela em 12,7% das
+   * amostras, até 1,00 m. Subdividir a via de 42 para 18 m derrubou para 4,4% e
+   * 0,30 m, e não ia a zero nunca, porque o resto não é erro da via: é a malha
+   * do terreno chordando os 59 m dela.
+   *
+   * Quem desenha chão (via, praça, lote, peça) usa ESTA e casa exatamente com o
+   * que se vê. Quem precisa da superfície real (câmera, física, silhueta do
+   * horizonte) usa `heightAt`.
+   */
+  superficieAt: (x: number, z: number) => number
   /** O chão SEM a cova do parque: o parque funde a borda dele neste valor. */
   baseAt: (x: number, z: number) => number
   /** altura média do sítio: a régua do relevo em `regolithColor` */
@@ -157,6 +175,23 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array): Terrain 
     return b - kk * Math.max(0, b - (parkDatum - PARK_PIT))
   }
 
+  // A mesma superfície que a malha abaixo desenha: acha a célula da grade, o
+  // triângulo dentro dela (a diagonal vai de (i+1,j) a (i,j+1), ver o
+  // `indices.push(a, c, b, b, c, d)` logo adiante) e interpola linear. Fora da
+  // grade do sítio devolve heightAt, porque a saia é feita de anéis radiais e
+  // não de grade.
+  const superficieAt = (x: number, z: number): number => {
+    const fi = x / cell + half, fj = z / cell + half
+    const i = Math.floor(fi), j = Math.floor(fj)
+    if (i < 0 || j < 0 || i >= n - 1 || j >= n - 1) return heightAt(x, z)
+    const u = fi - i, v = fj - j
+    const H = (ii: number, jj: number) => heightAt((ii - half) * cell, (jj - half) * cell)
+    const ya = H(i, j), yb = H(i + 1, j), yc = H(i, j + 1)
+    if (u + v <= 1) return ya + (yb - ya) * u + (yc - ya) * v
+    const yd = H(i + 1, j + 1)
+    return yd + (yb - yd) * (1 - v) + (yc - yd) * (1 - u)
+  }
+
   // ── a malha única: grade do sítio + anéis da saia soldados na borda ────────
   const positions: number[] = []
   const colors: number[] = []
@@ -238,7 +273,7 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array): Terrain 
 
   const group = new THREE.Group()
   group.add(mesh)
-  return { group, heightAt, horizonAt: heightAt, baseAt, meanHeight: mean, halfExtent }
+  return { group, heightAt, horizonAt: heightAt, superficieAt, baseAt, meanHeight: mean, halfExtent }
 }
 
 function flipWinding(geo: THREE.BufferGeometry) {

@@ -95,6 +95,7 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
   geo.translate(0, 0.5, 0)          // pivô no pé: a massa cresce do chão para cima
   const mat = new THREE.MeshStandardMaterial({ roughness: 0.88, metalness: 0.0 })
   const malha = new THREE.InstancedMesh(geo, mat, n)
+  malha.name = 'tecido:lote'
   const m4 = new THREE.Matrix4()
   const cor = new THREE.Color()
   const q = new THREE.Quaternion()
@@ -126,7 +127,22 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
     }
 
     q.setFromAxisAngle(eixoY, -THREE.MathUtils.degToRad(setor * meta.giroPorSetor))
-    pos.set(x, o.heightAt(x, z), z)
+    // ⚠️ O PÉ DO LOTE É O PONTO MAIS ALTO DA TESTADA, NÃO O CENTRO. Uma caixa é
+    // plana e o terreno não: assentando pelo centro, a metade de cima do lote
+    // afunda no regolito. Medido em 29/08 com 4.000 sondas verticais: 8,1% das
+    // amostras tinham chão por cima do lote, com o pior caso a 11,9 m, e os
+    // piores são justamente os maiores (a superquadra tem 168 m de testada num
+    // terreno que sobe). Tomando o MÁXIMO dos cinco pontos o lote nunca enterra;
+    // no máximo sobra um degrau do lado de baixo, que é o que um embasamento faz
+    // num terreno em declive de qualquer jeito.
+    const meiaF = frente / 2, meiaP = prof / 2
+    let base = o.heightAt(x, z)
+    for (const [dx, dz] of [[-meiaF, -meiaP], [meiaF, -meiaP], [-meiaF, meiaP], [meiaF, meiaP]] as const) {
+      const gx = THREE.MathUtils.degToRad(-setor * meta.giroPorSetor)
+      const cgx = Math.cos(gx), sgx = Math.sin(gx)
+      base = Math.max(base, o.heightAt(x + dx * cgx - dz * sgx, z + dx * sgx + dz * cgx))
+    }
+    pos.set(x, base, z)
     esc.set(Math.max(3, frente - RECUO * 2), alt, Math.max(3, prof - RECUO * 2))
     m4.compose(pos, q, esc)
     malha.setMatrixAt(i, m4)

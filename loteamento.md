@@ -160,6 +160,81 @@ a qualquer distância de apresentação e está escrito no código.
 
 ---
 
+## 3.6 As praças de quarto e o chão que a câmera vê
+
+⚠️ **Cada quarto é 3x3 células e a central nunca recebeu lote.** A célula (1,1)
+não aparece na lista de quarteirões de nenhum dos 226 quartos. A documentação
+registrava isso como "já era estrutura e não precisou de demarcação", e era
+verdade no DADO e mentira na TELA: nada desenhava aquele chão, então de cima a
+cidade tinha buracos pretos em xadrez, e depois que a rua nasceu ficou pior,
+porque a malha viária passou a contornar um vazio.
+
+`app/city/plaza/pracas.ts`, junto com `?tecido=1` (`?pracas=0` desliga).
+
+| | |
+|---|---|
+| praças construídas | **128** de 226 células centrais |
+| covas de árvore marcadas | **2.112** |
+| triângulos | 54.634 |
+
+**Não são as 226.** `pracaFracLivre` mede quantas das 25 sondas da célula estão
+livres e no setor; 82 quartos ficam abaixo de 0,4 e quase todos são quartos de
+costura com 1 a 4 quarteirões, ou seja não há tecido em volta e ali nunca houve
+buraco para tapar. Meia praça numa célula bloqueada é pior que o vazio. O limiar
+(0,5) é exportado de `pracas.ts` e `vias.ts` importa dele, porque a via de
+contorno em volta da praça tem de concordar exatamente com quem vira praça.
+
+**Tipologia, não 226 desenhos.** A regra da casa (cada peça com desenho próprio,
+elipse não é projeto) vale para as 38 peças do programa, que são únicas e têm
+nome. Praça de bairro que se repete 128 vezes é outro problema, e um masterplan
+resolve com vocabulário. São quatro, e o tipo **segue o raio**: perto da Praça
+Central manda o parterre formal, na periferia manda o largo verde.
+
+| tipo | desenho |
+|---|---|
+| parterre | dois eixos cruzando 4 quadrantes plantados, sebe de 0,9 m, espelho no cruzamento |
+| seca | piso corrido, plinto central de 1,2 m, grade 5x5 de covas com o miolo aberto |
+| largo verde | gramado com duas diagonais de piso e círculo no encontro |
+| água | espelho de 108 x 44 m com mureta e duas faixas de grama |
+
+![Uma praça do tipo seca com a malha viária em volta](docs/loteamento/praca-tipo-seca.jpeg)
+
+![O plano com praças: os quatro tipos se distinguem do alto](docs/loteamento/vias-plano.jpeg)
+
+### ⚠️ O chão que a câmera vê não é `heightAt`
+
+Este é o achado que vale para todo módulo futuro que assente coisa no chão.
+`heightAt` é a superfície contínua; a MALHA do regolito é a linearização dela em
+células de ~59 m, cada uma partida em dois triângulos. Entre dois vértices as
+duas discordam pela flecha da corda, e quem assenta chão sobre `heightAt` fica
+ora acima ora abaixo do que aparece na tela.
+
+Medido com 4.000 sondas verticais:
+
+| | furos antes | pior antes | furos depois | pior depois |
+|---|---|---|---|---|
+| pista da via | **12,7%** | −1,00 m | **0%** | +0,06 m |
+| calçada | 5,5% | −0,29 m | **0%** | +0,07 m |
+| piso de praça | 1,5% | −0,07 m | **0%** | +0,18 m |
+
+O primeiro remédio (encurtar o vão da faixa de 42 para 18 m) levou a pista de
+12,7% para 4,4% e nunca ia a zero, porque o resto não era erro da via: era a
+malha do terreno chordando os 59 m dela. `terrain.ts` agora exporta
+**`superficieAt`**, que reproduz exatamente a mesma interpolação linear da malha,
+e via, praça e tecido assentam nela. Zero furo por construção.
+
+**O lote também mudou de pé.** Ele era assentado pela altura do CENTRO, e uma
+caixa é plana enquanto o terreno não é: 8,1% das sondas tinham regolito por cima
+do lote, com pior caso a 11,9 m, e os piores eram os maiores (a superquadra tem
+168 m de testada). Agora o pé é o MÁXIMO dos quatro cantos mais o centro: sobra
+0,4% de furo (pior −1,36 m) e no outro extremo um lote grande em declive pode
+boiar até 7,1 m, que é o degrau que um embasamento faz num terreno inclinado.
+
+**Custo medido** na mesma vista, média de 3 s por rAF a DPR 1: 38,6 fps sem via e
+praça, **36,5 fps com**. 476 mil triângulos e 12 draw calls a mais.
+
+---
+
 ## 4. A demarcação: 38 peças, 136 ha
 
 Reservadas **antes** do lote, cumprindo `masterplan.md:268-269` pela primeira vez.
@@ -290,13 +365,10 @@ A regra publicada. Enquanto a alocação não for pública com a tupla de desemp
 curva, as cotas e a lista das 38 peças, mudar qualquer coisa ainda é barato. Depois
 vira acusação de favorecimento.
 
-**As 226 praças de quarto não têm chão.** Achado na chapa `vias-plano.jpeg`, e
-antes disso a documentação dizia que elas "já eram estrutura e não precisaram de
-demarcação". São estrutura no DADO: a célula central de cada quarto fica livre e o
-gerador não planta lote nela. Na TELA não existe nada, então do alto elas aparecem
-como buracos pretos regulares no meio do tecido, quase um xadrez. É a coisa mais
-visível depois da rua, e agora que a rua existe elas ficaram mais evidentes ainda,
-porque a malha viária contorna um vazio.
+**As 98 células centrais que continuam vazias.** Das 226, 128 viraram praça
+(§3.6). As outras estão abaixo do limiar de célula livre e quase todas são quartos
+de costura com 1 a 4 quarteirões: não há tecido em volta delas, então não leem
+como buraco. Se um dia o gerador encher esses quartos, elas voltam à fila.
 
 **O fundo de quarteirão continua nu.** O aproveitamento é 83%; os 17% que sobram
 não estão espalhados, estão concentrados em faixas atrás das fileiras rasas, e com
