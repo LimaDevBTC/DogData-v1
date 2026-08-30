@@ -538,50 +538,95 @@ def livre_de_canal(ru, ph, meio):
 # é raio: no rumo errado os dois diferem centenas de metros. `DOME_R` em
 # app/city/plaza/dome.ts é a verdade, e os dois TÊM de bater.
 R_CASCA = 7050.0
-_PRECISA_AR = {'agua', 'floresta', 'verde', 'producao', 'lazer', 'jardim',
-               'esporte', 'civico', 'financeiro', 'transporte', 'industria'}
+# ⚠️ O NOME É `_TIPOS_COM_AR` E NÃO `_PRECISA_AR` porque a linha ~1150 já usa
+# `_PRECISA_AR` para outra coisa: uma tupla de NOMES de peça de borda. Chamei o
+# meu de igual e ele foi silenciosamente sobrescrito antes de o cinturão rodar —
+# `'agua' in ('Hortas', 'Campo de Treino', ...)` é sempre falso, então oito peças
+# que dependem de atmosfera continuaram do lado de fora sem um erro sequer.
+_TIPOS_COM_AR = {'agua', 'floresta', 'verde', 'producao', 'lazer', 'jardim',
+                 'esporte', 'civico', 'financeiro', 'transporte', 'industria'}
+
+_CINT_POSTAS = []          # (x, z, raio ocupado) do que já foi assentado
 
 def assenta_no_cinturao(ru, ph, meia_a, meia_b, precisa_ar=False):
     """(rumo, raio) com a peça encostada num anel viário E num bulevar.
 
     A peça da teia tem rua na divisa POR CONSTRUÇÃO, porque ocupa célula inteira.
     A do cinturão era posta por rumo e φ livres e não tinha nada: 46 de 48 a mais
-    de 200 m de qualquer via. Aqui ela ganha duas frentes — encosta num ANEL
-    VIÁRIO por um lado e num BULEVAR pelo outro — e, se precisa de ar, fica
-    dentro da casca e perto de canal, que é a via de escoamento por água.
+    de 200 m de qualquer via, com distâncias de até 3.142 m. Aqui ela ganha duas
+    frentes — encosta num ANEL VIÁRIO por um lado e num BULEVAR pelo outro — e,
+    se precisa de ar, fica dentro da casca.
+
+    ⚠️ E REGISTRA O QUE JÁ FOI POSTO. A primeira versão não tinha ocupação e
+    EMPILHOU peça: FZ01 e FZ03 saíram no mesmo ponto, LP17 e LP18 também. As
+    vagas do cinturão são poucas (7 anéis × 2 lados × 9 bulevares × 2 lados), e
+    sem registro duas peças escolhem a mesma por construção.
     """
     ang0 = math.radians(ru)
     r0 = raio_em_phi(ang0, ph)
-    alvo = None
+    raios = []
     for _aid, _an, _ar, _al in ANEIS:
         if _ar < 4400: continue                      # os de dentro são do tecido
         for _sg in (1, -1):
             _r = _ar + _sg * (_al / 2 + meia_b + 25.0)
             if precisa_ar and _r + max(meia_a, meia_b) > R_CASCA - 100.0: continue
-            _c = abs(_r - r0)
-            if alvo is None or _c < alvo[0]: alvo = (_c, _r)
-    r = alvo[1] if alvo else r0
-    if os.environ.get('DBG_AR') and precisa_ar:
-        print(f'  [ar] ru={ru:.1f} ph={ph:.0f} a={meia_a:.0f} b={meia_b:.0f} r0={r0:.0f} -> r={r:.0f} alvo={alvo}', file=sys.stderr)
-    # o bulevar mais perto, com a peça ENCOSTADA nele e não centrada em cima
-    meia_ang = math.degrees((meia_a + BULEVAR / 2 + 25.0) / max(1.0, r))
-    dg = math.degrees((meia_a + CANAL_RAD_SEC / 2 + CANAL_TALUDE) / max(1.0, r))
+            raios.append((abs(_r - r0), _r))
+    raios.sort()
+    if not raios: raios = [(0.0, r0)]
     cands = []
-    for _b in _BUL_RUMOS:
-        for _sg in (1, -1):
-            _c = (_b + _sg * meia_ang) % 360.0
-            if any(abs(((_cr - _c + 180) % 360) - 180) < dg for _cr in CANAL_RADIAIS):
-                continue                             # canal radial cortaria a peça
-            # ⚠️ ACESSO À ÁGUA: quanto de arco separa a peça do canal radial mais
-            # próximo. Quem precisa de ar precisa de escoamento, e no cinturão a
-            # via de carga é o canal — barcaça leva 94 ha de fazenda, caminhão não.
-            _da = min(abs(((_cr - _c + 180) % 360) - 180) for _cr in CANAL_RADIAIS)
-            _dm = math.radians(_da) * r - meia_a
-            _viagem = abs(((_c - ru + 180) % 360) - 180)
-            cands.append((_viagem + (0.0 if _dm < 700.0 else 40.0), _c))
-    if not cands: return ru, r
+    for _cr_, r in raios:
+        meia_ang = math.degrees((meia_a + BULEVAR / 2 + 25.0) / max(1.0, r))
+        dg = math.degrees((meia_a + CANAL_RAD_SEC / 2 + CANAL_TALUDE) / max(1.0, r))
+        for _b in _BUL_RUMOS:
+            for _sg in (1, -1):
+                _c = (_b + _sg * meia_ang) % 360.0
+                if any(abs(((_x - _c + 180) % 360) - 180) < dg for _x in CANAL_RADIAIS):
+                    continue                         # canal radial cortaria a peça
+                _viagem = abs(((_c - ru + 180) % 360) - 180)
+                # ⚠️ ACESSO À ÁGUA entra como desempate para quem precisa de ar.
+                # No cinturão a via de carga é o canal: 94 ha de fazenda escoam
+                # por barcaça, não por caminhão. Quem não precisa de ar (painel
+                # solar, pátio de manobra) não paga essa penalidade.
+                _dm = math.radians(min(abs(((_x - _c + 180) % 360) - 180)
+                                       for _x in CANAL_RADIAIS)) * r - meia_a
+                _pen = 0.0 if (not precisa_ar or _dm < 800.0) else 35.0
+                cands.append((_cr_ / 40.0 + _viagem + _pen, _c, r))
     cands.sort()
-    return cands[0][1], r
+    # ⚠️ A OCUPAÇÃO USA A DIAGONAL, NÃO O MAIOR LADO. Com `max(a, b)` o círculo
+    # de uma peça 620×380 tinha raio 620 quando a diagonal é 727: subestimava em
+    # 17% e deixava passar 14 sobreposições que o teste SAT depois acusava.
+    meia = math.hypot(meia_a, meia_b)
+    for _cst, _c, _r in cands:
+        _a = math.radians(_c)
+        _x, _z = math.sin(_a) * _r, -math.cos(_a) * _r
+        if any(math.hypot(_x - px, _z - pz) < meia + pm + 40.0 for px, pz, pm in _CINT_POSTAS):
+            continue
+        _CINT_POSTAS.append((_x, _z, meia))
+        return _c, _r
+    # ⚠️ RESERVA: A VOLTA INTEIRA DO ANEL. Só as laterais de bulevar dão 2 vagas
+    # por bulevar por anel, e com 48 peças no cinturão a oferta acaba antes da
+    # demanda — 13 peças caíam de volta na posição original e se sobrepunham. Aqui
+    # a peça anda pelo anel de meio em meio comprimento até achar espaço. Ela
+    # perde a testada de bulevar, mas continua com a do ANEL VIÁRIO, que é a via
+    # de carga, e é infinitamente melhor que nascer em cima de outra peça.
+    for _cr_, r in raios:
+        _passo_ = math.degrees((meia_a + 60.0) / max(1.0, r))
+        _dg = math.degrees((meia_a + CANAL_RAD_SEC / 2 + CANAL_TALUDE) / max(1.0, r))
+        _n = max(8, int(360.0 / max(0.5, _passo_)))
+        for _k in range(_n):
+            _c = (ru + _k * _passo_) % 360.0
+            if any(abs(((_x - _c + 180) % 360) - 180) < _dg for _x in CANAL_RADIAIS):
+                continue
+            _a = math.radians(_c)
+            _x, _z = math.sin(_a) * r, -math.cos(_a) * r
+            if any(math.hypot(_x - px, _z - pz) < meia + pm + 40.0 for px, pz, pm in _CINT_POSTAS):
+                continue
+            _CINT_POSTAS.append((_x, _z, meia))
+            return _c, r
+    # nem assim: fica onde estava, e o relato de acesso vai acusar
+    _a = math.radians(ru)
+    _CINT_POSTAS.append((math.sin(_a) * r0, -math.cos(_a) * r0, meia))
+    return ru, r0
 
 def em_vao(ianel, rumo):
     """o canal `ianel` está interrompido naquele rumo?"""
@@ -960,7 +1005,8 @@ for pid, nome, tipo, setor, ix, iz, w, h in PROGRAMA_MALHA:
 # não são congeladas, mas isso nunca lhes deu rua: nove estavam a mais de 200 m
 # de qualquer via, entre elas os quatro Campos Solares e os Tanques de Oxigênio.
 for pid, nome, tipo, rumo, raio, ea, eb in PROGRAMA_BORDA:
-    rumo, raio = assenta_no_cinturao(rumo, raio, float(ea), float(eb), tipo in _PRECISA_AR)
+    _ar = tipo in _TIPOS_COM_AR or any(k in nome for k in ('Hortas', 'Campo de Treino', 'Reservatório', 'Mirante'))
+    rumo, raio = assenta_no_cinturao(rumo, raio, float(ea), float(eb), _ar)
     cx, cz = _peca_xy(rumo, raio)
     rr = math.radians(rumo)
     PROGRAMA_GEO.append({'id': pid, 'nome': nome, 'tipo': tipo, 'forma': 'retangulo',
@@ -1147,20 +1193,27 @@ setor_de = distrito_de      # ⚠️ apelido: o resto do arquivo ainda diz "seto
 # líquida, mirante tem gente. Painel solar, radiador térmico, depósito de regolito
 # e pátio de manobra não precisam de ar, e o radiador em particular tem de estar
 # FORA para radiar direto para o espaço.
-_PRECISA_AR = ('Hortas', 'Campo de Treino', 'Reservatório', 'Mirante')
+# ⚠️ ESTE BLOCO MOVIA PEÇA DEPOIS DE ASSENTADA, e era a última fonte de
+# sobreposição no cinturão: TODAS as 14 duplas envolviam uma peça de borda, e
+# eram justamente estas quatro famílias (Hortas, Campo de Treino, Reservatório,
+# Mirante). Ele empurrava cada uma para o meio do cinturão sem consultar o
+# registro de ocupação, e caía em cima de fazenda e de indústria.
+#
+# ⚠️ E ELE FICOU REDUNDANTE. `assenta_no_cinturao(..., precisa_ar=True)` já
+# resolve o mesmo problema na origem, e melhor: mantém a peça dentro da casca E
+# com frente para rua E fora de canal, tudo antes de ela existir. O que sobrou é
+# só marcar o Reservatório como peça de ar, porque o tipo dele é 'distribuicao'
+# mas o conteúdo é ÁGUA, e água ferve no vácuo.
+_NOMES_COM_AR = ('Hortas', 'Campo de Treino', 'Reservatório', 'Mirante')
 _trouxe = 0
 for _q in PROGRAMA_GEO:
     if not _q.get('borda'): continue
-    if not any(k in _q['nome'] for k in _PRECISA_AR): continue
+    if not any(k in _q['nome'] for k in _NOMES_COM_AR): continue
     _q['borda'] = False
     _q['produtivo'] = True          # passa a morar no cinturão, dentro da abóbada
-    _ang = math.atan2(_q['cx'], -_q['cz'])
-    _r = raio_em_phi(_ang, (PHI_PRODUTIVO + R_ABOBADA) / 2)
-    _q['cx'], _q['cz'] = math.sin(_ang) * _r, -math.cos(_ang) * _r
-    _q['rot'] = math.degrees(_ang) % 360
-    _q['c'], _q['s'] = math.cos(_ang), math.sin(_ang)
     _trouxe += 1
-print(f'peças trazidas para dentro da abóbada (precisam de ar): {_trouxe}', file=sys.stderr)
+print(f'peças de borda que passam a morar no cinturão: {_trouxe} '
+      f'(a posição já veio de assenta_no_cinturao)', file=sys.stderr)
 
 _realoc, _dmax = 0, 0.0
 for _q in PROGRAMA_GEO:
@@ -1626,55 +1679,13 @@ print(f'peças alocadas na teia: {_alocadas} de {len(_fila)} '
 for _w in _relato:
     print(f'  {_w}', file=sys.stderr)
 
-# ── O CINTURÃO PRODUTIVO ────────────────────────────────────────────────────
-#
-# ⚠️ ELE EXISTE PORQUE A CIDADE CRESCEU E O LOTE NÃO DEVIA CRESCER JUNTO. Com o
-# tecido indo até 6.900 a mediana ia a 476 m² e a ocupação a 32%: a terra nova
-# viraria quintal. De 5.500 a 6.900 fica o que o fundador descreveu quando falou
-# do mundo jogável: fazenda de proteína, lago de pesca, a infra que alimenta quem
-# mora sob a abóbada. É programa, não sobra.
-# ⚠️ E FICA DENTRO DA ABÓBADA: fazenda e lago dependem de atmosfera. O que fica
-# FORA é o Parque Runestone (9.800) e o spaceport, alcançados de veículo
-# pressurizado pela eclusa G01.
-_PROD = []
-for _i in range(12):
-    _PROD.append(('FZ', f'Fazenda de Proteína {_i+1}', 'producao',
-                  rumo_de_raio(15.0 + _i * 30.0), 5900.0, 620.0, 380.0))
-# ⚠️ O CAMPO DE GOLFE (fundador, 30/08). 18 buracos pedem 50 a 70 ha, e o
-# cinturão produtivo é onde isso cabe sem tirar lote: ele tem 2.600 m de faixa e
-# estava ralo demais para ler como cinturão, que é o defeito que eu mesmo apontei
-# na última chapa. Golfe é verde, é grande e é lazer: ocupa bem e dá conteúdo.
-_PROD.append(('GF', 'Campo de Golfe', 'lazer', rumo_de_raio(300.0), 5700.0, 620.0, 340.0))
-for _i in range(6):
-    _PROD.append(('LP', f'Lago de Pesca {_i+1}', 'agua',
-                  rumo_de_raio(30.0 + _i * 60.0), 6550.0, 460.0, 260.0))
-_np = 0
-# ⚠️ O CINTURÃO COMEÇA DEPOIS DO CAIS DA DOCA. A doca (CA07) é a última linha de
-# anel do tecido, e o cinturão produtivo mora logo além dela: sem esta guarda a
-# doca nascia por cima de dez Fazendas de Proteína, do Campo de Golfe e de três
-# plantas industriais, com 4,60 m de vala. Estas peças não passam pelo alocador
-# — são postas por rumo e φ — então a checagem tem de vir aqui, e a regra é a
-# mesma das outras: quem cede é a peça, porque o canal é infraestrutura da fase 1.
-_empurradas = 0
-for _pre, _nome, _tipo, _ru, _ph, _a, _b in _PROD:
-    _ang = math.radians(_ru)
-    _r = raio_em_phi(_ang, _ph)
-    if _r <= 0: continue
-    _ru, _r = assenta_no_cinturao(_ru, _ph, _a, _b, _tipo in _PRECISA_AR)
-    _ang = math.radians(_ru)
-    _empurradas += 1
-    PROGRAMA_GEO.append({
-        'id': f'{_pre}{_np+1:02d}', 'nome': _nome, 'tipo': _tipo,
-        'forma': 'elipse' if _pre == 'LP' else 'retangulo',
-        'cx': math.sin(_ang) * _r, 'cz': -math.cos(_ang) * _r,
-        'a': _a, 'b': _b, 'rot': _ru,
-        'c': math.cos(_ang), 's': math.sin(_ang),
-        'area': (math.pi if _pre == 'LP' else 4) * _a * _b, 'produtivo': True,
-    })
-    _np += 1
-print(f'cinturão produtivo: {_np} peças ({_empurradas} empurradas para fora do cais da doca) entre φ {PHI_PRODUTIVO:.0f} e {R_ABOBADA:.0f} '
-      f'({sum(q["area"] for q in PROGRAMA_GEO if q.get("produtivo"))/1e4:.0f} ha)', file=sys.stderr)
-
+# ⚠️ A CADEIA VEM ANTES DAS FAZENDAS, e isso é ordem de projeto e não capricho.
+# Ela é a peça mais RESTRITA do cinturão: as sete plantas têm de ficar contíguas
+# e em sequência, senão o minério atravessa a cidade entre uma etapa e outra. As
+# fazendas, ao contrário, são doze peças iguais que cabem em qualquer vaga. Com
+# as fazendas primeiro, a fila não achava sequência livre e se espalhava por
+# 183°, 192°, 200°, 134°, 142°, 76° e 9° — pior do que antes de eu mexer. O mais
+# restrito escolhe primeiro; o resto acomoda em volta.
 # ── A CADEIA DE SUPRIMENTO ──────────────────────────────────────────────────
 #
 # ⚠️ O HÉLIO-3 NÃO É O MOTOR, E O NÚMERO É QUE DIZ ISSO. Concentração de 4 a 20
@@ -1727,18 +1738,27 @@ _AN_ESC = next((a for a in ANEIS if a[1] == 'Avenida de Escoamento'), None)
 _r_ind = _AN_ESC[2] - _AN_ESC[3] / 2 - 330.0 - 25.0 if _AN_ESC else 6300.0
 _ru_ind = min(_BUL_RUMOS, key=lambda b: abs(((b - 180.0 + 180) % 360) - 180))
 _ind_mex = 0
+_ant_a = 0.0                      # meia-largura da planta anterior, para o passo
 for _nome, _tipo, _ru0, _ph, _a, _b in _IND:
-    # o passo é a largura da peça mais 90 m de via de serviço entre plantas
-    _passo = math.degrees((2 * _a + 90.0) / _r_ind)
-    _ru = (_ru_ind + _passo / 2) % 360.0
-    # ⚠️ E SE UM CANAL RADIAL CRUZAR A VAGA, A FILA PULA ELE em vez de a planta
-    # nascer dentro d'água. O canal é fase 1 e não cede; quem anda é a fila.
+    # ⚠️ O PASSO É CUMULATIVO E USA AS DUAS LARGURAS. A versão anterior andava
+    # `2a + 90` da peça ATUAL, então uma planta estreita depois de uma larga
+    # caía em cima da vizinha: sete sobreposições, todas dentro da própria fila.
+    # Numa fila, o vão entre dois vizinhos é meia largura de cada um mais a via.
+    _vao = math.degrees((_ant_a + _a + 90.0) / _r_ind)
+    _ru = (_ru_ind + _vao) % 360.0
     _dg = math.degrees((_a + CANAL_RAD_SEC / 2 + CANAL_TALUDE) / _r_ind)
-    for _ in range(N_RAIOS0):
-        if not any(abs(((_cr - _ru + 180) % 360) - 180) < _dg for _cr in CANAL_RADIAIS): break
-        _ru_ind = (_ru_ind + _passo / 2) % 360.0
-        _ru = (_ru_ind + _passo / 2) % 360.0
-    _ru_ind = (_ru_ind + _passo) % 360.0
+    _mi = math.hypot(_a, _b)
+    _extra = math.degrees((_a + 60.0) / _r_ind)
+    for _ in range(N_RAIOS0 * 2):
+        _xx = math.sin(math.radians(_ru)) * _r_ind
+        _zz = -math.cos(math.radians(_ru)) * _r_ind
+        _bate = any(abs(((_cr - _ru + 180) % 360) - 180) < _dg for _cr in CANAL_RADIAIS) \
+             or any(math.hypot(_xx - px, _zz - pz) < _mi + pm + 40.0 for px, pz, pm in _CINT_POSTAS)
+        if not _bate: break
+        _ru = (_ru + _extra) % 360.0
+    _CINT_POSTAS.append((math.sin(math.radians(_ru)) * _r_ind,
+                         -math.cos(math.radians(_ru)) * _r_ind, _mi))
+    _ru_ind, _ant_a = _ru, _a
     _r = _r_ind
     _ang = math.radians(_ru)
     _ind_mex += 1
@@ -1748,6 +1768,56 @@ for _nome, _tipo, _ru0, _ph, _a, _b in _IND:
         'c': math.cos(_ang), 's': math.sin(_ang), 'area': 4*_a*_b, 'produtivo': True,
     })
     _ni += 1
+
+
+# ── O CINTURÃO PRODUTIVO ────────────────────────────────────────────────────
+#
+# ⚠️ ELE EXISTE PORQUE A CIDADE CRESCEU E O LOTE NÃO DEVIA CRESCER JUNTO. Com o
+# tecido indo até 6.900 a mediana ia a 476 m² e a ocupação a 32%: a terra nova
+# viraria quintal. De 5.500 a 6.900 fica o que o fundador descreveu quando falou
+# do mundo jogável: fazenda de proteína, lago de pesca, a infra que alimenta quem
+# mora sob a abóbada. É programa, não sobra.
+# ⚠️ E FICA DENTRO DA ABÓBADA: fazenda e lago dependem de atmosfera. O que fica
+# FORA é o Parque Runestone (9.800) e o spaceport, alcançados de veículo
+# pressurizado pela eclusa G01.
+_PROD = []
+for _i in range(12):
+    _PROD.append(('FZ', f'Fazenda de Proteína {_i+1}', 'producao',
+                  rumo_de_raio(15.0 + _i * 30.0), 5900.0, 620.0, 380.0))
+# ⚠️ O CAMPO DE GOLFE (fundador, 30/08). 18 buracos pedem 50 a 70 ha, e o
+# cinturão produtivo é onde isso cabe sem tirar lote: ele tem 2.600 m de faixa e
+# estava ralo demais para ler como cinturão, que é o defeito que eu mesmo apontei
+# na última chapa. Golfe é verde, é grande e é lazer: ocupa bem e dá conteúdo.
+_PROD.append(('GF', 'Campo de Golfe', 'lazer', rumo_de_raio(300.0), 5700.0, 620.0, 340.0))
+for _i in range(6):
+    _PROD.append(('LP', f'Lago de Pesca {_i+1}', 'agua',
+                  rumo_de_raio(30.0 + _i * 60.0), 6550.0, 460.0, 260.0))
+_np = 0
+# ⚠️ O CINTURÃO COMEÇA DEPOIS DO CAIS DA DOCA. A doca (CA07) é a última linha de
+# anel do tecido, e o cinturão produtivo mora logo além dela: sem esta guarda a
+# doca nascia por cima de dez Fazendas de Proteína, do Campo de Golfe e de três
+# plantas industriais, com 4,60 m de vala. Estas peças não passam pelo alocador
+# — são postas por rumo e φ — então a checagem tem de vir aqui, e a regra é a
+# mesma das outras: quem cede é a peça, porque o canal é infraestrutura da fase 1.
+_empurradas = 0
+for _pre, _nome, _tipo, _ru, _ph, _a, _b in _PROD:
+    _ang = math.radians(_ru)
+    _r = raio_em_phi(_ang, _ph)
+    if _r <= 0: continue
+    _ru, _r = assenta_no_cinturao(_ru, _ph, _a, _b, _tipo in _TIPOS_COM_AR)
+    _ang = math.radians(_ru)
+    _empurradas += 1
+    PROGRAMA_GEO.append({
+        'id': f'{_pre}{_np+1:02d}', 'nome': _nome, 'tipo': _tipo,
+        'forma': 'elipse' if _pre == 'LP' else 'retangulo',
+        'cx': math.sin(_ang) * _r, 'cz': -math.cos(_ang) * _r,
+        'a': _a, 'b': _b, 'rot': _ru,
+        'c': math.cos(_ang), 's': math.sin(_ang),
+        'area': (math.pi if _pre == 'LP' else 4) * _a * _b, 'produtivo': True,
+    })
+    _np += 1
+print(f'cinturão produtivo: {_np} peças ({_empurradas} empurradas para fora do cais da doca) entre φ {PHI_PRODUTIVO:.0f} e {R_ABOBADA:.0f} '
+      f'({sum(q["area"] for q in PROGRAMA_GEO if q.get("produtivo"))/1e4:.0f} ha)', file=sys.stderr)
 
 # ── OS CAMPOS DE EXTRAÇÃO, FORA DA ABÓBADA ──────────────────────────────────
 #
@@ -1813,7 +1883,7 @@ for _nome, _tipo, _ru, _ph, _a, _b in [
     # ⚠️ A MESMA GUARDA DO CINTURÃO. Estas três também são postas por rumo e φ,
     # sem passar pelo alocador, e a Floresta de Extrativismo era a última peça da
     # cidade ainda com ÁGUA DE CANAL por cima.
-    _ru, _r = assenta_no_cinturao(_ru, _ph, _a, _b, _tipo in _PRECISA_AR)
+    _ru, _r = assenta_no_cinturao(_ru, _ph, _a, _b, _tipo in _TIPOS_COM_AR)
     _ang = math.radians(_ru)
     PROGRAMA_GEO.append({
         'id': f'VP{len([q for q in PROGRAMA_GEO if q.get("poente")])+1:02d}',
