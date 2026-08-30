@@ -681,7 +681,12 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       // Esta cena empilha de 4 a 6 dessas camadas, e medido em 29/08 ela é
       // limitada por PREENCHIMENTO: a 720x450 com a mesma geometria ela roda a
       // 13,3 ms e a 1440x900 a 26,7.
-      logarithmicDepthBuffer: new URLSearchParams(window.location.search).get('logdepth') === '1' })
+      // ⚠️ LIGADO POR PADRÃO desde 30/08. Era experimento atrás de ?logdepth=1 e
+      // virou o padrão porque o remendo que ele substitui saiu caro: sem buffer
+      // logarítmico a abóbada precisava de `depthTest: false` para não sumir a
+      // 6 km, e aí ela desenhava por cima de tudo que estava NA FRENTE dela.
+      // ?logdepth=0 volta ao comportamento antigo, para comparar.
+      logarithmicDepthBuffer: new URLSearchParams(window.location.search).get('logdepth') !== '0' })
     const governor = new FrameGovernor(renderer, profile)
     renderer.setSize(mount.clientWidth, mount.clientHeight)
     renderer.outputColorSpace = THREE.SRGBColorSpace

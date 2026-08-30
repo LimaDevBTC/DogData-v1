@@ -341,16 +341,22 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
   const scatterMat = track(new THREE.ShaderMaterial({
     uniforms: { uHalfH: { value: 450 }, uColor: { value: new THREE.Color(0x9fb4d8) }, uOpacity: { value: 0.6 } },
     vertexShader: `
+      #include <common>
+      #include <logdepthbuf_pars_vertex>
       uniform float uHalfH;
       varying float vA;
       void main() {
+      #include <logdepthbuf_fragment>
         vec4 mv = modelViewMatrix * vec4(position, 1.0);
         float ps = 1.6 * uHalfH / max(1.0, -mv.z);
         vA = clamp((ps - 0.5) / 1.6, 0.0, 1.0);
         gl_PointSize = clamp(ps, 1.0, 5.0);
         gl_Position = projectionMatrix * mv;
+      #include <logdepthbuf_vertex>
       }`,
     fragmentShader: `
+      #include <common>
+      #include <logdepthbuf_pars_fragment>
       uniform vec3 uColor; uniform float uOpacity;
       varying float vA;
       void main() {

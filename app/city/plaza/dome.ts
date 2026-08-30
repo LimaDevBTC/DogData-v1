@@ -146,7 +146,13 @@ const COR_SAIA = new THREE.Color('#26262B')
 // enganoso: a casca some do raio do desvanecimento para fora e sobra só a
 // calota central boiando sobre a praça, que de fora parece uma abóbada ATRÁS
 // do tabuleiro. `uCam` é preenchida no onBeforeRender de cada malha.
+// ⚠️ OS TRECHOS DE LOG-DEPTH SÃO OBRIGATÓRIOS AQUI. Com o buffer logarítmico
+// ligado no renderizador, um ShaderMaterial cru que não inclua estes trechos
+// escreve profundidade na escala ERRADA e some ou fura tudo. Três materiais na
+// cena são crus (dois da abóbada e um do parque) e os três levam os includes.
 const VS = `
+  #include <common>
+  #include <logdepthbuf_pars_vertex>
   uniform vec3 uCam;
   varying vec3 vN; varying vec3 vV; varying float vD;
   void main() {
@@ -156,6 +162,7 @@ const VS = `
     vV = normalize(-mv.xyz);
     vD = distance(wp.xyz, uCam);
     gl_Position = projectionMatrix * mv;
+    #include <logdepthbuf_vertex>
   }`
 
 /** O vidro: invisível de frente, aceso na rasante, e NUNCA escurece o céu.
@@ -174,6 +181,8 @@ function materialVidro(fade: number, coroa: number): THREE.ShaderMaterial {
     },
     vertexShader: VS,
     fragmentShader: `
+      #include <common>
+      #include <logdepthbuf_pars_fragment>
       uniform vec3 uTint; uniform float uBase; uniform float uFres; uniform float uFade; uniform float uCoroa; uniform vec3 uCam;
       varying vec3 vN; varying vec3 vV; varying float vD;
       // dentro = 1 quando a câmera está sob a casca, 0 quando ela saiu do sítio
@@ -185,6 +194,7 @@ function materialVidro(fade: number, coroa: number): THREE.ShaderMaterial {
         return r * h;
       }
       void main() {
+        #include <logdepthbuf_fragment>
         vec3 n = normalize(vN); vec3 v = normalize(vV);
         float f = pow(1.0 - abs(dot(n, v)), 3.0);
         float d = dentro();
@@ -202,16 +212,19 @@ function materialVidro(fade: number, coroa: number): THREE.ShaderMaterial {
       }`,
     transparent: true,
     depthWrite: false,
-    // ⚠️ SEM TESTE DE PROFUNDIDADE, e isto é medido, não preguiça. A cena vai do
-    // deck até o horizonte a 26 km com plano próximo curto, e a 6 km o buffer
-    // de profundidade não separa mais a casca (a 1,2 km de altura) do chão que
-    // ela cobre: a metade DA FRENTE da abóbada perdia o teste contra o terreno
-    // e sumia, deixando só a coroa contra o céu. De fora a leitura ficava
-    // "abóbada atrás do tabuleiro", que foi exatamente o que o fundador viu.
-    // Como a mistura é aditiva, desenhar por cima só clareia, nunca esconde.
-    // O conserto de verdade é buffer logarítmico no renderizador, e isso mexe
-    // na cena inteira: fica para depois da forma aprovada.
-    depthTest: false,
+    // ⚠️ O TESTE DE PROFUNDIDADE VOLTOU, 30/08. Ele estava DESLIGADO como remendo:
+    // a cena vai do deck ao horizonte a 26 km e a 6 km o buffer de 24 bits não
+    // separava mais a casca do chão, então a metade da frente da abóbada perdia
+    // o teste e sumia. Desligar resolveu aquilo e criou este: como a mistura é
+    // aditiva e não havia teste, a casca passou a desenhar por cima de TUDO,
+    // inclusive de quem está na frente dela — o fundador viu os cristais do
+    // parque com a abóbada por cima.
+    //
+    // O conserto de verdade era o buffer logarítmico, e o comentário antigo já
+    // dizia isso ("fica para depois da forma aprovada"). A forma está aprovada.
+    // Ele agora é o padrão no renderizador e os três ShaderMaterial crus da cena
+    // incluem os trechos de log-depth.
+    depthTest: true,
     blending: THREE.AdditiveBlending,
     side: THREE.DoubleSide,
   })
@@ -234,6 +247,8 @@ function materialNervura(fade: number, coroa: number): THREE.ShaderMaterial {
     },
     vertexShader: VS,
     fragmentShader: `
+      #include <common>
+      #include <logdepthbuf_pars_fragment>
       uniform vec3 uCor; uniform float uFade; uniform float uCoroa; uniform vec3 uCam;
       varying vec3 vN; varying vec3 vV; varying float vD;
       float dentro() {
@@ -242,6 +257,7 @@ function materialNervura(fade: number, coroa: number): THREE.ShaderMaterial {
         return r * h;
       }
       void main() {
+        #include <logdepthbuf_fragment>
         vec3 n = normalize(vN);
         float k = 0.45 + 0.55 * abs(dot(n, normalize(vec3(0.28, 1.0, 0.18))));
         float perto = mix(0.12, 1.0, 1.0 - smoothstep(uFade * 0.35, uFade * 1.2, vD));
@@ -249,7 +265,7 @@ function materialNervura(fade: number, coroa: number): THREE.ShaderMaterial {
       }`,
     transparent: true,
     depthWrite: false,
-    depthTest: false,   // mesmo motivo do vidro, ver o comentário acima
+    depthTest: true,    // mesmo motivo do vidro, ver o comentário acima
     side: THREE.DoubleSide,
   })
 }
