@@ -94,6 +94,11 @@ assert abs(sum(d[1] for d in DISTRITOS) - 360.0) < 1e-9
 # viram AVENIDAS RADIAIS próprias, independentes da divisa de distrito. Avenida
 # não precisa ser divisa; precisa ser via.
 AVENIDAS_RADIAIS = [0.0, 90.0, 180.0, 270.0]
+# ⚠️ OS NOVE RUMOS RADIAIS DA CIDADE, num lugar só. São as quatro avenidas das
+# pontes mais as seis costuras de distrito (o rumo 0 coincide, daí nove e não
+# dez). O cinturão precisa deles para assentar peça com frente para bulevar, e
+# `livre()` já os usava soltos em dois laços separados.
+_BUL_RUMOS = sorted({*AVENIDAS_RADIAIS, *[d[0] for d in DISTRITOS]})
 
 # ── AS BANDAS: O GRÃO MUDA COM O RAIO ───────────────────────────────────────
 #
@@ -479,10 +484,125 @@ if _nv:
           + ', '.join(f'CA{i+1:02d} {a0:.1f}->{a1:.1f}°'
                       for i, v in enumerate(CANAL_VAOS) for a0, a1 in v), file=sys.stderr)
 
+def livre_de_canal(ru, ph, meio):
+    """(rumo, raio) de uma peça do cinturão que não é cortada por canal nenhum.
+
+    ⚠️ AS PEÇAS DO CINTURÃO NÃO PASSAM PELO ALOCADOR — são postas por rumo e φ —
+    então a checagem de canal tem de vir na mão, e é a mesma regra das outras:
+    quem cede é a peça, porque o canal é infraestrutura da fase 1. Duas correções
+    na mesma função: EMPURRA em raio para sair do cais do anel, e GIRA de raio da
+    teia em raio da teia para sair do canal radial. Girar é o que resolve o
+    radial: ele é uma reta e acompanha quem só se afasta do centro.
+    """
+    ang = math.radians(ru)
+    r = raio_em_phi(ang, ph)
+    rc = max((raio_em_phi(ang, an) for k, an in enumerate(CANAL_ANEIS)
+              if not em_vao(k, ru)), default=0.0)
+    rmin = rc + CANAL_ANEL_SEC/2 + CANAL_TALUDE + meio
+    mexeu = r < rmin
+    r = max(r, rmin)
+    passo = 360.0 / N_RAIOS0
+    cand = ru
+    for t in range(N_RAIOS0):
+        achou = False
+        for sg in ((0,) if t == 0 else (-1, 1)):
+            cand = (ru + sg * t * passo) % 360.0
+            dg = math.degrees((meio + CANAL_RAD_SEC/2 + CANAL_TALUDE) / max(1.0, r))
+            if not any(abs(((cr - cand + 180) % 360) - 180) < dg for cr in CANAL_RADIAIS):
+                achou = True; break
+        if achou: break
+    if abs(((cand - ru + 180) % 360) - 180) > 0.01:
+        ru = cand; ang = math.radians(ru)
+        r = max(raio_em_phi(ang, ph), rmin); mexeu = True
+    return ru, r, mexeu
+
+# ⚠️ TODA PEÇA DO CINTURÃO COM FRENTE PARA RUA, igual às da teia (fundador,
+# 30/08: "eles não podem ficar com esse aspecto de terem sido jogados aí").
+# A peça da teia tem rua na divisa POR CONSTRUÇÃO, porque ocupa célula inteira.
+# A do cinturão era posta por rumo e φ livres e não tinha nada: 46 de 48 a mais
+# de 200 m de qualquer via. Aqui ela ganha duas frentes de uma vez — encosta num
+# ANEL VIÁRIO por um lado e num BULEVAR pelo outro. É a mesma regra, aplicada
+# onde não há teia para dar a rua de graça.
+# ⚠️ QUEM PRECISA DE AR MORA DENTRO DA CASCA (fundador, 30/08: "se o elemento
+# coerentemente precisar de atmosfera, mova ele pra dentro da abóbada, num dos
+# pontos que ele vai ter acesso à rua e a canais de água. Não vamos mais mexer em
+# abóbada nem fazer abóbadas novas").
+#
+# ⚠️ JÁ EXISTIA UMA REGRA DESSAS E ELA ERA CEGA PARA METADE DOS CASOS: o bloco
+# "nenhuma peça pode atravessar a casca" só olhava quem CRUZAVA a borda, então
+# peça inteiramente do lado de fora passava batido. Medido: oito peças que
+# dependem de atmosfera estavam FORA — dois Lagos de Pesca (água ferve no vácuo),
+# duas Fazendas de Proteína e quatro plantas industriais, que são guarnecidas.
+#
+# ⚠️ E O RAIO DA CASCA É 7.050, NÃO `R_ABOBADA`. R_ABOBADA (6.900) é um φ, e φ não
+# é raio: no rumo errado os dois diferem centenas de metros. `DOME_R` em
+# app/city/plaza/dome.ts é a verdade, e os dois TÊM de bater.
+R_CASCA = 7050.0
+_PRECISA_AR = {'agua', 'floresta', 'verde', 'producao', 'lazer', 'jardim',
+               'esporte', 'civico', 'financeiro', 'transporte', 'industria'}
+
+def assenta_no_cinturao(ru, ph, meia_a, meia_b, precisa_ar=False):
+    """(rumo, raio) com a peça encostada num anel viário E num bulevar.
+
+    A peça da teia tem rua na divisa POR CONSTRUÇÃO, porque ocupa célula inteira.
+    A do cinturão era posta por rumo e φ livres e não tinha nada: 46 de 48 a mais
+    de 200 m de qualquer via. Aqui ela ganha duas frentes — encosta num ANEL
+    VIÁRIO por um lado e num BULEVAR pelo outro — e, se precisa de ar, fica
+    dentro da casca e perto de canal, que é a via de escoamento por água.
+    """
+    ang0 = math.radians(ru)
+    r0 = raio_em_phi(ang0, ph)
+    alvo = None
+    for _aid, _an, _ar, _al in ANEIS:
+        if _ar < 4400: continue                      # os de dentro são do tecido
+        for _sg in (1, -1):
+            _r = _ar + _sg * (_al / 2 + meia_b + 25.0)
+            if precisa_ar and _r + max(meia_a, meia_b) > R_CASCA - 100.0: continue
+            _c = abs(_r - r0)
+            if alvo is None or _c < alvo[0]: alvo = (_c, _r)
+    r = alvo[1] if alvo else r0
+    if os.environ.get('DBG_AR') and precisa_ar:
+        print(f'  [ar] ru={ru:.1f} ph={ph:.0f} a={meia_a:.0f} b={meia_b:.0f} r0={r0:.0f} -> r={r:.0f} alvo={alvo}', file=sys.stderr)
+    # o bulevar mais perto, com a peça ENCOSTADA nele e não centrada em cima
+    meia_ang = math.degrees((meia_a + BULEVAR / 2 + 25.0) / max(1.0, r))
+    dg = math.degrees((meia_a + CANAL_RAD_SEC / 2 + CANAL_TALUDE) / max(1.0, r))
+    cands = []
+    for _b in _BUL_RUMOS:
+        for _sg in (1, -1):
+            _c = (_b + _sg * meia_ang) % 360.0
+            if any(abs(((_cr - _c + 180) % 360) - 180) < dg for _cr in CANAL_RADIAIS):
+                continue                             # canal radial cortaria a peça
+            # ⚠️ ACESSO À ÁGUA: quanto de arco separa a peça do canal radial mais
+            # próximo. Quem precisa de ar precisa de escoamento, e no cinturão a
+            # via de carga é o canal — barcaça leva 94 ha de fazenda, caminhão não.
+            _da = min(abs(((_cr - _c + 180) % 360) - 180) for _cr in CANAL_RADIAIS)
+            _dm = math.radians(_da) * r - meia_a
+            _viagem = abs(((_c - ru + 180) % 360) - 180)
+            cands.append((_viagem + (0.0 if _dm < 700.0 else 40.0), _c))
+    if not cands: return ru, r
+    cands.sort()
+    return cands[0][1], r
+
 def em_vao(ianel, rumo):
     """o canal `ianel` está interrompido naquele rumo?"""
     for a0, a1 in CANAL_VAOS[ianel]:
         if ((rumo - a0) % 360.0) <= ((a1 - a0) % 360.0): return True
+    return False
+
+def vao_cobre(ianel, g0, g1):
+    """o vão cobre o ARCO INTEIRO [g0, g1], e não só o meio dele?
+
+    ⚠️ JULGAR PELO PONTO MÉDIO NÃO BASTA. A Boca da Autopista 3 ocupava a célula
+    de rumo 174,375 a 180,0 e o vão do CA05 vai de 174,0 a 180,0: o meio caía
+    dentro, então o alocador dava o canal por morto ali e recuava só os 6 m da
+    rua comum — mas a PONTA da peça, em 180,0, é justamente onde o vão acaba e o
+    canal recomeça. Sobrava 4,60 m de vala na quina. Um canal só está morto para
+    a peça se o vão cobre ela inteira, com a folga do corredor nas duas pontas.
+    """
+    for a0, a1 in CANAL_VAOS[ianel]:
+        w = (a1 - a0) % 360.0
+        d0, d1 = (g0 - a0) % 360.0, (g1 - a0) % 360.0
+        if d0 <= w and d1 <= w and d1 >= d0: return True
     return False
 
 print('canais encostados no anel: ' + ', '.join(f'{a:.0f}->{b:.0f}'
@@ -789,6 +909,32 @@ ANEIS = [
   # aérea lê como corte e não como fim. Ela mora dentro do Cinturão, onde nunca
   # houve lote, então custa zero.
   ('AN4', 'Avenida do Cinturão', 4450.0, 30.0),
+  # ⚠️ DOIS ANÉIS NOVOS, E ELES SÃO CONSERTO DE UM BURACO GRANDE (fundador,
+  # 30/08: "eles precisam se integrar à cidade, se são fazenda são terra
+  # produtiva, precisa de vias de escoamento da produção").
+  #
+  # Medido antes: a malha viária parava em 4.450 e o cinturão produtivo começa em
+  # 5.300 — 2.450 m de cidade SEM UMA RUA. 46 das 48 peças do cinturão estavam a
+  # mais de 200 m de qualquer via, com distâncias de 233 m a 3.142 m: as doze
+  # Fazendas de Proteína, as sete plantas industriais, os quatro Campos Solares,
+  # os seis Lagos de Pesca, o Golfe, a Floresta. Todas encostadas em CANAL (11 a
+  # 14 m) e nenhuma em estrada. Fazenda de 94 ha que só escoa por barcaça não é
+  # fazenda, é ilha.
+  #
+  # A Avenida da Doca corre junto ao cais terminal (CA07, φ 5.492) e é a divisa
+  # entre o tecido e o cinturão. A Avenida de Escoamento corta o meio do
+  # cinturão, onde as fazendas e a indústria estão, e é por ela que a produção
+  # sai. Largura 34 m, de avenida: caminhão de carga não passa em rua de 26.
+  ('AN5', 'Avenida da Doca',       5620.0, 34.0),
+  ('AN6', 'Avenida de Escoamento', 6300.0, 34.0),
+  # ⚠️ E UMA PISTA FORA DA ABÓBADA. Sete peças moram além da casca (r 7.050) e
+  # não podiam ser servidas por avenida nenhuma: os quatro Campos Solares, dois
+  # Pátios de Manobra, o Depósito de Regolito e os Tanques de Oxigênio. Elas não
+  # precisam de ar — painel solar e pátio de manobra funcionam no vácuo — mas
+  # precisam de ACESSO, e hoje estavam a até 3.142 m de qualquer via. Esta é
+  # pista de serviço não pressurizada, e ela também é o caminho dos 16 Campos de
+  # Extração (r 7.600 e 8.600): sai pela eclusa e serve o lado de fora inteiro.
+  ('AN7', 'Pista de Serviço', 7600.0, 30.0),
 ]
 
 # medição: SEM_ANEIS=1 mede quanto do estrago é do anel e quanto é da peça
@@ -810,7 +956,11 @@ for pid, nome, tipo, setor, ix, iz, w, h in PROGRAMA_MALHA:
                          'a': w*CELULA/2, 'b': h*CELULA/2, 'rot': rot,
                          'c': c, 's': sn, 'setor': setor, 'ix': ix, 'iz': iz, 'w': w, 'h': h,
                          'area': w*h*CELULA*CELULA})
+# ⚠️ AS DE BORDA TAMBÉM SE ASSENTAM NUMA VIA. Elas seguem o contorno e por isso
+# não são congeladas, mas isso nunca lhes deu rua: nove estavam a mais de 200 m
+# de qualquer via, entre elas os quatro Campos Solares e os Tanques de Oxigênio.
 for pid, nome, tipo, rumo, raio, ea, eb in PROGRAMA_BORDA:
+    rumo, raio = assenta_no_cinturao(rumo, raio, float(ea), float(eb), tipo in _PRECISA_AR)
     cx, cz = _peca_xy(rumo, raio)
     rr = math.radians(rumo)
     PROGRAMA_GEO.append({'id': pid, 'nome': nome, 'tipo': tipo, 'forma': 'retangulo',
@@ -1265,10 +1415,14 @@ def _borda_r(ang, ph, canal, interna):
 def _janela(_i, _nr, _jj, _ns):
     """(prof, larg, c0, c1, dg0, dg1) da janela, ou None se um canal a atravessa."""
     p0, p1 = _PHI_B[_i], _PHI_B[_i + _nr]
-    # ⚠️ CANAL COM VÃO NAQUELE SETOR NÃO CONTA. Onde o anel está interrompido não
-    # há água nem vala, então ele não atravessa peça nenhuma e não pede recuo.
-    _gm = ((_jj + _ns / 2) / N_RAIOS0) * 360.0
-    _vivo = [an for k, an in enumerate(CANAL_ANEIS) if not em_vao(k, _gm)]
+    # ⚠️ CANAL COM VÃO NAQUELE SETOR NÃO CONTA — mas só se o vão cobre a peça
+    # INTEIRA. Ver `vao_cobre`: julgar pelo ponto médio deixava a quina da peça
+    # do lado de fora do vão, onde o canal recomeça.
+    _, _rm0, _, _ = _cell_arco(_i, _jj)
+    _mv = math.degrees((CANAL_ANEL_SEC/2 + CANAL_TALUDE) / max(1.0, _rm0))
+    _g0v = (_jj / N_RAIOS0) * 360.0 - _mv
+    _g1v = ((_jj + _ns) / N_RAIOS0) * 360.0 + _mv
+    _vivo = [an for k, an in enumerate(CANAL_ANEIS) if not vao_cobre(k, _g0v, _g1v)]
     if any(p0 + 1.0 < an < p1 - 1.0 for an in _vivo): return None
     c0 = any(abs(an - p0) <= 1.0 for an in _vivo)
     c1 = any(abs(an - p1) <= 1.0 for an in _vivo)
@@ -1506,33 +1660,9 @@ for _pre, _nome, _tipo, _ru, _ph, _a, _b in _PROD:
     _ang = math.radians(_ru)
     _r = raio_em_phi(_ang, _ph)
     if _r <= 0: continue
-    _s = max(_a, _b)
-    # 1. o anel: empurra para fora até o cais da doca liberar a peça
-    _rc = max((raio_em_phi(_ang, _an) for _k, _an in enumerate(CANAL_ANEIS)
-               if not em_vao(_k, _ru)), default=0.0)
-    _rmin = _rc + CANAL_ANEL_SEC/2 + CANAL_TALUDE + _s
-    if _r < _rmin:
-        _r = _rmin; _empurradas += 1
-    # 2. ⚠️ O RADIAL É O QUE MAIS CORTA AQUI, e não o anel. A Fazenda tem 1.240 m
-    # de largura, que a 6.000 m de raio são 11,8° de arco: ela ENGOLE um canal
-    # radial inteiro se o rumo dela cair perto de um. Com a doca em 5.492 os oito
-    # radiais passaram a chegar ao cinturão, e dez das doze fazendas ficaram com
-    # 4,60 m de vala por dentro. Empurrar em raio não resolve — o radial é uma
-    # reta e acompanha. Aqui a peça GIRA, de raio da teia em raio da teia, até o
-    # arco dela ficar livre. É a mesma regra das outras: a peça cede, o canal não.
-    _passo = 360.0 / N_RAIOS0
-    for _t in range(N_RAIOS0):
-        for _sg in ((0,) if _t == 0 else (-1, 1)):
-            _cand = (_ru + _sg * _t * _passo) % 360.0
-            _dg = math.degrees((_s + CANAL_RAD_SEC/2 + CANAL_TALUDE) / max(1.0, _r))
-            if not any(abs(((_cr - _cand + 180) % 360) - 180) < _dg for _cr in CANAL_RADIAIS):
-                break
-        else:
-            continue
-        break
-    if abs(((_cand - _ru + 180) % 360) - 180) > 0.01:
-        _ru = _cand; _ang = math.radians(_ru); _r = raio_em_phi(_ang, _ph)
-        _r = max(_r, _rmin); _empurradas += 1
+    _ru, _r = assenta_no_cinturao(_ru, _ph, _a, _b, _tipo in _PRECISA_AR)
+    _ang = math.radians(_ru)
+    _empurradas += 1
     PROGRAMA_GEO.append({
         'id': f'{_pre}{_np+1:02d}', 'nome': _nome, 'tipo': _tipo,
         'forma': 'elipse' if _pre == 'LP' else 'retangulo',
@@ -1576,10 +1706,42 @@ _IND = [
     ('Tanques de Oxigênio',        'infra',      45.0, 6550.0, 380.0, 240.0),
 ]
 _ni = 0
-for _nome, _tipo, _ru, _ph, _a, _b in _IND:
-    _ru = rumo_de_raio(_ru)
+# ⚠️ A MESMA GUARDA DO CINTURÃO, pelo mesmo motivo: com a doca em 5.492 os oito
+# radiais passaram a chegar aqui, e Beneficiamento, Eletrólise, Célula Solar e a
+# Floresta de Extrativismo ficaram com 4,60 m de vala por dentro.
+# ⚠️ A CADEIA VIRA UM DISTRITO, NÃO SETE ILHAS (fundador, 30/08: "pode colocar
+# onde ficar melhor"). Elas estavam em 76°, 104°, 194°, 225°, 284°, 315° e 346°:
+# o minério saía do Beneficiamento e ATRAVESSAVA A CIDADE INTEIRA para chegar à
+# Redução, e da Redução voltava para a Eletrólise. Cadeia de suprimento não se
+# espalha, se enfileira — é o que faz um distrito industrial ler como distrito.
+#
+# O setor escolhido é o SUDOESTE, e não por gosto: é onde a Boca da Autopista 3
+# desemboca (rumo 174–180), ou seja o único trecho do cinturão que já tem TÚNEL
+# para escoar sem cruzar a cidade. As sete plantas correm em sequência ao longo
+# da Avenida de Escoamento, na ordem do processo, com a mineração (fora da
+# abóbada, rumo 191–315) do lado de fora e a fundição na ponta de dentro.
+_AN_ESC = next((a for a in ANEIS if a[1] == 'Avenida de Escoamento'), None)
+# ⚠️ PELO LADO DE DENTRO DA AVENIDA. Pelo lado de fora a fila ficava com a borda
+# em r 7.192, atravessando a casca (7.050): quatro das sete plantas ficariam no
+# vácuo, e indústria é guarnecida. Do lado de dentro a borda fica em 6.448.
+_r_ind = _AN_ESC[2] - _AN_ESC[3] / 2 - 330.0 - 25.0 if _AN_ESC else 6300.0
+_ru_ind = min(_BUL_RUMOS, key=lambda b: abs(((b - 180.0 + 180) % 360) - 180))
+_ind_mex = 0
+for _nome, _tipo, _ru0, _ph, _a, _b in _IND:
+    # o passo é a largura da peça mais 90 m de via de serviço entre plantas
+    _passo = math.degrees((2 * _a + 90.0) / _r_ind)
+    _ru = (_ru_ind + _passo / 2) % 360.0
+    # ⚠️ E SE UM CANAL RADIAL CRUZAR A VAGA, A FILA PULA ELE em vez de a planta
+    # nascer dentro d'água. O canal é fase 1 e não cede; quem anda é a fila.
+    _dg = math.degrees((_a + CANAL_RAD_SEC / 2 + CANAL_TALUDE) / _r_ind)
+    for _ in range(N_RAIOS0):
+        if not any(abs(((_cr - _ru + 180) % 360) - 180) < _dg for _cr in CANAL_RADIAIS): break
+        _ru_ind = (_ru_ind + _passo / 2) % 360.0
+        _ru = (_ru_ind + _passo / 2) % 360.0
+    _ru_ind = (_ru_ind + _passo) % 360.0
+    _r = _r_ind
     _ang = math.radians(_ru)
-    _r = raio_em_phi(_ang, _ph)
+    _ind_mex += 1
     PROGRAMA_GEO.append({
         'id': f'IN{_ni+1:02d}', 'nome': _nome, 'tipo': _tipo, 'forma': 'retangulo',
         'cx': math.sin(_ang)*_r, 'cz': -math.cos(_ang)*_r, 'a': _a, 'b': _b, 'rot': _ru,
@@ -1648,8 +1810,11 @@ for _nome, _tipo, _ru, _ph, _a, _b in [
     ('Floresta de Extrativismo',  'floresta', rumo_de_raio(208.0), 5900.0, 640.0, 420.0),
     ('Estação do Poente',         'infra',    rumo_de_raio(186.0), 6500.0, 200.0, 130.0),
 ]:
+    # ⚠️ A MESMA GUARDA DO CINTURÃO. Estas três também são postas por rumo e φ,
+    # sem passar pelo alocador, e a Floresta de Extrativismo era a última peça da
+    # cidade ainda com ÁGUA DE CANAL por cima.
+    _ru, _r = assenta_no_cinturao(_ru, _ph, _a, _b, _tipo in _PRECISA_AR)
     _ang = math.radians(_ru)
-    _r = raio_em_phi(_ang, _ph)
     PROGRAMA_GEO.append({
         'id': f'VP{len([q for q in PROGRAMA_GEO if q.get("poente")])+1:02d}',
         'nome': _nome, 'tipo': _tipo, 'poente': True, 'produtivo': True,
@@ -2643,7 +2808,13 @@ bulevares = []
 # anel fechado ligado a NADA: uma via para a qual não existe entrada. Estender os
 # 50 m que faltam custa zero (o Cinturão nunca teve lote) e é o que transforma a
 # borda de corte em remate: doze braços chegam nela e viram doze rotatórias.
-R_BUL_FIM = 4450.0
+# ⚠️ 4.450 -> 6.900: O BULEVAR TEM DE ATRAVESSAR O CINTURÃO. Ele parava na
+# Avenida do Cinturão, e com isso os dois anéis novos (Doca e Escoamento) seriam
+# aros sem raio: anel viário sem bulevar que o cruze não liga em nada, é o mesmo
+# defeito da roda de bicicleta sem aro, agora ao contrário. Estendendo, cada
+# bulevar cruza os dois anéis novos e nascem 18 rotatórias que ligam a produção
+# à cidade.
+R_BUL_FIM = 6900.0
 # ⚠️ O BULEVAR COMEÇA NA ORLA DO LAGO, E NÃO NO PRIMEIRO LOTE. Ele nascia em
 # R_INICIO (1.450) e o Anel da Orla mora em 1.440: sobravam 10 m de vão e o
 # sistema não fechava. Os 30 m a mais custam zero (não há lote antes de 1.450) e
