@@ -28,6 +28,14 @@
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+import { Delaunay } from 'd3-delaunay'
+
+/** o d3-delaunay quer pares [x, y]; as sementes vivem num Float plano. */
+function pares(v: number[]): [number, number][] {
+  const out: [number, number][] = []
+  for (let i = 0; i < v.length; i += 2) out.push([v[i], v[i + 1]])
+  return out
+}
 
 /** raio em planta, usado só como piso quando o contorno da cidade não chega */
 // ⚠️ ANDA COM O SÍTIO. 3.500 -> 4.500 em 28/08, e em 30/08 deixou de ser um
@@ -332,146 +340,261 @@ export function buildDome(o: DomeOpts): Dome {
 
   // Almofada: quanto a célula estufa acima da calota. 0,18·a dá a leitura de
   // acolchoado sem virar bolha de plástico.
-  const pillow = 0.12 * a
+  // ⚠️ BOLHA, NÃO ALMOFADA (fundador, 30/08: "eu quero estilo bolha, igual do
+  // prédio que mandei"). A flecha era 0,12·a — 5 m num vão de 42, que lê como
+  // painel estufado. No Water Cube a célula é uma CALOTA CHEIA e o que desenha a
+  // fachada é a quina entre duas bolhas vizinhas. 0,30·a dá 12,6 m e é o que
+  // separa "almofada" de "bolha".
+  const pillow = 0.30 * a
   // Célula grande ganha um anel a mais: a 42 m ela ocupa 28,6 graus da tela e
   // um cone de 6 triângulos apareceria como cone.
   const aneis = a >= 30 ? 2 : 1
 
-  // ── a colmeia ──────────────────────────────────────────────────────────────
-  // Rede triangular de topo chato: x = 1,5·a·q, z = √3·a·(r + q/2).
+  // ── A CASCA É GERADA NA SUPERFÍCIE, NÃO RECORTADA DE UMA GRADE ────────────
   //
-  // ⚠️ A FAIXA DE `r` DEPENDE DE `q`, E ESSE FOI UM BURACO DE VERDADE. A rede é
-  // CISALHADA: o termo q/2 empurra a coluna inteira em z conforme ela se afasta
-  // do centro. Com uma faixa fixa de r (a primeira versão), as colunas extremas
-  // pediam índices fora dela e o disco saía com uma cunha vazia a leste e a
-  // oeste: 8.041 células geradas contra 8.196 que o disco pede, 1,9% de falta,
-  // e a olho lê como pedaço de colmeia faltando. Aqui a faixa é resolvida por
-  // coluna, a partir da corda do círculo naquele x.
-  const passoQ = 1.5 * a
-  const passoR = Math.sqrt(3) * a
-  const nQ = Math.ceil(DOME_R / passoQ) + 2
+  // ⚠️ REESCRITA DE 30/08, e o fundador diagnosticou a raiz antes de mim: "a
+  // abordagem que estamos usando pra fechar o tecido da cúpula está errada.
+  // Estamos jogando a tela de colmeias sobre a armação e obrigando a entrar.
+  // A cúpula terá que ser gerada e desenhada aresta por aresta. A colmeia tem
+  // que começar da base."
+  //
+  // Ele está certo, e a prova é o histórico: a versão antiga montava uma rede
+  // hexagonal NO PLANO, ficava com as células cujo CENTRO caía dentro do disco e
+  // aparava os vértices contra o círculo. O contorno virava um corte no meio das
+  // células, e nenhum remate resolvia isso — três tentativas, três defeitos:
+  // silhueta serrada, buraco entre cunhas, e faixa de tom errado. Cada conserto
+  // trocava um problema por outro porque o problema não era o remate, era a
+  // grade não terminar onde a cúpula termina.
+  //
+  // ⚠️ E O MODELO NÃO É COLMEIA, É ESPUMA. A referência que o fundador mandou é o
+  // Water Cube de Pequim: a fachada dele é a estrutura de Weaire–Phelan, uma
+  // espuma, com polígonos irregulares de 5, 6 e 7 lados. Quem gera isso é
+  // VORONOI com relaxamento de Lloyd, e ele tem a propriedade que a colmeia não
+  // tem: um diagrama de Voronoi é uma PARTIÇÃO do plano. Recortar uma partição
+  // contra o disco dá uma partição do disco — cobertura de 100% por teorema, não
+  // por remendo. A gola que eu tinha inventado deixa de existir.
+  //
+  // A ordem é a que ele pediu: a primeira fileira de sementes nasce ENCOSTADA na
+  // borda e as outras entram para dentro, de anel em anel.
+  const ESPACO = a * 1.73        // calibre médio; a célula sai com área de hexágono de raio a
 
-  const centros: { x: number; z: number }[] = []
-  for (let q = -nQ; q <= nQ; q++) {
-    const x = passoQ * q
-    if (Math.abs(x) > rMax) continue
-    const meiaCorda = Math.sqrt(rMax * rMax - x * x)   // meia altura do disco neste x
-    const rLo = Math.ceil((-meiaCorda) / passoR - q / 2)
-    const rHi = Math.floor(meiaCorda / passoR - q / 2)
-    for (let r = rLo; r <= rHi; r++) {
-      const z = passoR * (r + q / 2)
-      if (Math.hypot(x, z) <= raioNo(Math.atan2(z, x))) centros.push({ x, z })
-    }
+  // ⚠️ CINCO CALIBRES, NÃO UM (fundador, 30/08: "quero semear com no mínimo 5
+  // elementos diferentes, me parece que o water cube usa muitos"). Ele está
+  // certo sobre a referência: a espuma de Weaire–Phelan tem células de tipos
+  // diferentes, e cortada num plano a fachada mostra bolha grande e pequena
+  // encostadas. Com Voronoi puro o tamanho da célula segue a DENSIDADE LOCAL de
+  // sementes, então a variedade não se pinta, se semeia.
+  //
+  // Os pesos somam multiplicador médio 1,03, ou seja a contagem de células fica
+  // onde estava; o que muda é a distribuição. Mais no meio e menos nos extremos,
+  // que é como espuma real se distribui — bolha muito grande é rara.
+  // ⚠️ SETE CALIBRES, DE 0,48 A 1,85 (fundador, 30/08: "dá pra colocar ainda mais
+  // variedade, mais bolhas, mais irregularidades"). Cinco ainda deixava a
+  // fachada com cara de calibre único mais ruído; sete com a cauda mais longa dá
+  // a leitura de espuma, onde bolha grande e pequena se encostam sem transição.
+  const CALIBRES: [number, number][] = [   // [multiplicador, peso]
+    [0.48, 0.10], [0.62, 0.16], [0.78, 0.20], [0.96, 0.20],
+    [1.20, 0.16], [1.50, 0.11], [1.85, 0.07],
+  ]
+  // ⚠️ SORTEIO DETERMINÍSTICO. Sem semente fixa a cúpula muda a cada carregamento
+  // e nenhuma chapa pode ser comparada com a anterior.
+  let _rngS = 0x9e3779b9
+  const rng = () => {
+    _rngS = (_rngS + 0x6d2b79f5) | 0
+    let t = Math.imul(_rngS ^ (_rngS >>> 15), 1 | _rngS)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+  const sorteiaCalibre = () => {
+    let u = rng()
+    for (const [m, w] of CALIBRES) { if ((u -= w) <= 0) return m }
+    return 1.0
   }
 
-  const CANTO: [number, number][] = []
-  for (let k = 0; k < 6; k++) CANTO.push([Math.cos((k * Math.PI) / 3), Math.sin((k * Math.PI) / 3)])
+  // ⚠️ E O LLOYD SAIU. Ele existe para IGUALAR o tamanho das células, que é
+  // exatamente o contrário do que se quer agora: com cinco calibres, relaxar
+  // apaga a variedade e devolve o calibre único. O espaçamento passa a vir da
+  // amostragem de disco de Poisson, que já nasce bem distribuída — é a troca
+  // certa, porque Poisson dá espaçamento sem uniformizar tamanho.
+  const sementes: number[] = []
+  const raios: number[] = []
+  {
+    // ⚠️ A FIADA DA BASE TAMBÉM VAI SORTEADA (fundador, 30/08: "formato aleatório
+    // desde a primeira célula"). Ela era calibre único e passo único, e por isso
+    // a orla saía com todas as células do mesmo aspecto — uma fileira legível
+    // contra a espuma do resto. Isso REVISA o "começa da base" de mais cedo, e
+    // sem custo: quem garante o remate limpo é o RECORTE contra o disco, não a
+    // regularidade das sementes. A borda continua exata com a fiada bagunçada.
+    //
+    // A volta é caminhada: cada semente sorteia o próprio calibre, o passo é a
+    // média dela com a anterior (mesmo critério do arremesso lá embaixo) e a
+    // distância ao centro balança até um quarto do calibre.
+    {
+      let ang = 0
+      let ant = ESPACO * sorteiaCalibre()
+      while (ang < Math.PI * 2 - 1e-6) {
+        const r = ESPACO * sorteiaCalibre()
+        const rad = DOME_R - r * 0.5 - rng() * r * 0.25
+        sementes.push(Math.cos(ang) * rad, Math.sin(ang) * rad)
+        raios.push(r)
+        ang += ((ant + r) * 0.5) / DOME_R
+        ant = r
+      }
+    }
+    // grade de busca: célula do tamanho do maior calibre, para o teste de
+    // vizinhança olhar 3x3 e não a lista inteira
+    const RMAX = ESPACO * 1.62
+    const G = RMAX
+    const nG = Math.ceil((DOME_R * 2) / G) + 2
+    const balde: number[][] = Array.from({ length: nG * nG }, () => [])
+    const iG = (x: number, z: number) =>
+      (Math.floor((z + DOME_R) / G) + 1) * nG + (Math.floor((x + DOME_R) / G) + 1)
+    const guarda = (i: number) => balde[iG(sementes[i * 2], sementes[i * 2 + 1])]?.push(i)
+    for (let i = 0; i < raios.length; i++) guarda(i)
+    const cabe = (x: number, z: number, r: number) => {
+      const gx = Math.floor((x + DOME_R) / G) + 1, gz = Math.floor((z + DOME_R) / G) + 1
+      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+        const b = balde[(gz + dz) * nG + (gx + dx)]
+        if (!b) continue
+        for (const i of b) {
+          const ex = sementes[i * 2] - x, ez = sementes[i * 2 + 1] - z
+          // ⚠️ O CRITÉRIO É A MÉDIA DOS DOIS RAIOS, não o raio do candidato: com
+          // calibres diferentes, usar só um deixa a bolha grande invadir a
+          // pequena e o Voronoi devolve uma lasca no lugar da célula.
+          if (ex * ex + ez * ez < ((r + raios[i]) * 0.5) ** 2) return false
+        }
+      }
+      return true
+    }
+    // arremesso de dardos até falhar seguidamente: é o critério honesto de
+    // saturação, e não um número de tentativas escolhido a dedo
+    const LIMITE_INT = DOME_R - ESPACO * 0.95
+    let seguidas = 0
+    while (seguidas < 12000) {
+      const ang = rng() * Math.PI * 2
+      const rr = Math.sqrt(rng()) * LIMITE_INT
+      const x = Math.cos(ang) * rr, z = Math.sin(ang) * rr
+      const r = ESPACO * sorteiaCalibre()
+      if (!cabe(x, z, r)) { seguidas++; continue }
+      seguidas = 0
+      sementes.push(x, z); raios.push(r)
+      guarda(raios.length - 1)
+    }
+  }
+  const del = Delaunay.from(pares(sementes))
+  const LIM = DOME_R * 1.02
 
-  /** puxa um ponto para dentro do disco quando ele passa da borda */
-  const apara = (x: number, z: number, ligado: boolean): [number, number] => {
-    if (!ligado) return [x, z]
-    const d = Math.hypot(x, z)
-    const lim = raioNo(Math.atan2(z, x))
-    return d > lim ? [(x * lim) / d, (z * lim) / d] : [x, z]
+  // ⚠️ O RECORTE CONTRA O CÍRCULO É O QUE FECHA A CÚPULA. Célula de Voronoi é
+  // convexa e o disco é convexo, então a interseção é convexa e tem no máximo UM
+  // arco. O arco é subdividido para a borda não sair poligonal a olho nu.
+  const cortaNoDisco = (pol: [number, number][]): [number, number][] | null => {
+    const R = DOME_R
+    const dentro = pol.map(([x, z]) => x * x + z * z <= R * R)
+    if (dentro.every(Boolean)) return pol
+    if (!dentro.some(Boolean)) return null
+    const out: [number, number][] = []
+    let saida: [number, number] | null = null, entrada: [number, number] | null = null
+    for (let k = 0; k < pol.length; k++) {
+      const A = pol[k], B = pol[(k + 1) % pol.length]
+      const dA = dentro[k], dB = dentro[(k + 1) % pol.length]
+      if (dA) out.push(A)
+      if (dA !== dB) {
+        // interseção do segmento AB com o círculo
+        const dx = B[0] - A[0], dz = B[1] - A[1]
+        const qa = dx * dx + dz * dz
+        const qb = 2 * (A[0] * dx + A[1] * dz)
+        const qc = A[0] * A[0] + A[1] * A[1] - R * R
+        const disc = Math.max(0, qb * qb - 4 * qa * qc)
+        const raiz = Math.sqrt(disc)
+        for (const t of [(-qb - raiz) / (2 * qa), (-qb + raiz) / (2 * qa)]) {
+          if (t < -1e-9 || t > 1 + 1e-9) continue
+          const P: [number, number] = [A[0] + dx * t, A[1] + dz * t]
+          out.push(P)
+          if (dA && !dB) saida = P
+          else entrada = P
+          break
+        }
+      }
+    }
+    // costura o arco entre onde saiu e onde voltou
+    if (saida && entrada) {
+      let a0 = Math.atan2(saida[1], saida[0]), a1 = Math.atan2(entrada[1], entrada[0])
+      let d = a1 - a0
+      while (d <= -Math.PI) d += Math.PI * 2
+      while (d > Math.PI) d -= Math.PI * 2
+      const n = Math.max(1, Math.ceil(Math.abs(d) / 0.004))
+      const arco: [number, number][] = []
+      for (let k = 1; k < n; k++) {
+        const ang = a0 + (d * k) / n
+        arco.push([Math.cos(ang) * R, Math.sin(ang) * R])
+      }
+      const iSaida = out.findIndex((p) => p === saida)
+      if (iSaida >= 0) out.splice(iSaida + 1, 0, ...arco)
+    }
+    return out.length >= 3 ? out : null
+  }
+
+  const celulas: { cx: number; cz: number; pol: [number, number][] }[] = []
+  {
+    const vor = del.voronoi([-LIM, -LIM, LIM, LIM])
+    for (let i = 0; i < sementes.length / 2; i++) {
+      const cp = vor.cellPolygon(i)
+      if (!cp || cp.length < 4) continue
+      const bruto = cp.slice(0, -1) as [number, number][]   // d3 fecha o anel
+      const cort = cortaNoDisco(bruto)
+      if (!cort) continue
+      let cx = 0, cz = 0
+      for (const [x, z] of cort) { cx += x; cz += z }
+      celulas.push({ cx: cx / cort.length, cz: cz / cort.length, pol: cort })
+    }
   }
 
   // ── vidro: uma almofada por célula, tudo fundido numa malha só ────────────
+  //
+  // A célula agora é um POLÍGONO qualquer de 4 a 8 lados, não um hexágono, então
+  // o leque sai do centroide. Dois anéis: o de fora nos vértices (na calota) e um
+  // intermediário a 55% do caminho, que é o que dá a barriga da almofada em vez
+  // de um cone.
   const vidros: THREE.BufferGeometry[] = []
   const tmpN = new THREE.Vector3()
-  for (const c of centros) {
+  for (const c of celulas) {
+    const n = c.pol.length
     const pos: number[] = []
     const idx: number[] = []
-    normalEm(c.x, c.z, tmpN)
-    // centro
-    pos.push(c.x, capY(Math.hypot(c.x, c.z)) + pillow * tmpN.y, c.z)
-    // anéis, de dentro para fora; o de fora encosta na calota
-    for (let anel = 1; anel <= aneis; anel++) {
-      const t = anel / aneis
-      const raio = a * t
-      const alt = pillow * (1 - t * t)
-      for (let k = 0; k < 6; k++) {
-        // ⚠️ APARA CONTRA O CÍRCULO no anel de fora. Sem isto a célula da borda
-        // entra inteira (o teste é do CENTRO) e o hexágono avança até 42 m além
-        // do anel da saia: a silhueta da abóbada fica serrilhada como serra.
-        const [x, z] = apara(c.x + CANTO[k][0] * raio, c.z + CANTO[k][1] * raio, anel === aneis)
+    normalEm(c.cx, c.cz, tmpN)
+    pos.push(c.cx, capY(Math.hypot(c.cx, c.cz)) + pillow * tmpN.y, c.cz)
+    // ⚠️ O PERFIL É DE CALOTA, NÃO DE PARÁBOLA. `1 − t²` cai devagar no meio e
+    // rápido na borda: dá barriga mole. `√(1 − t²)` é a seção de uma esfera —
+    // sobe reto do caixilho e arredonda no alto, que é o que uma bolha faz.
+    // Três anéis porque com dois a quina do meio aparece na silhueta.
+    const ANEIS_B = [0.42, 0.72, 0.92, 1.0]
+    for (const t of ANEIS_B) {
+      const alt = pillow * Math.sqrt(Math.max(0, 1 - t * t))
+      for (const [vx, vz] of c.pol) {
+        const x = c.cx + (vx - c.cx) * t, z = c.cz + (vz - c.cz) * t
         pos.push(x, capY(Math.hypot(x, z)) + alt, z)
       }
     }
-    // leque do centro para o primeiro anel
-    for (let k = 0; k < 6; k++) idx.push(0, 1 + k, 1 + ((k + 1) % 6))
-    // faixas entre anéis
-    for (let anel = 1; anel < aneis; anel++) {
-      const b0 = 1 + (anel - 1) * 6
-      const b1 = 1 + anel * 6
-      for (let k = 0; k < 6; k++) {
-        const k2 = (k + 1) % 6
-        idx.push(b0 + k, b1 + k, b1 + k2)
-        idx.push(b0 + k, b1 + k2, b0 + k2)
+    for (let k = 0; k < n; k++) idx.push(0, 1 + k, 1 + ((k + 1) % n))
+    for (let m = 0; m < ANEIS_B.length - 1; m++) {
+      const A = 1 + m * n, B = 1 + (m + 1) * n
+      for (let k = 0; k < n; k++) {
+        const k2 = (k + 1) % n
+        idx.push(A + k, B + k, B + k2)
+        idx.push(A + k, B + k2, A + k2)
       }
     }
     const g = new THREE.BufferGeometry()
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
     g.setIndex(idx)
     g.computeVertexNormals()
+    // ⚠️ A BORDA NÃO CEDE MAIS A NORMAL. Isso era para a época da almofada: com a
+    // normal da calota nos vértices de borda, a célula ganhava um caixilho
+    // chapado e a junta sumia. Bolha é o contrário — duas bolhas vizinhas se
+    // encontram numa QUINA, e é a quina que desenha a fachada. Cada célula é
+    // geometria própria, então `computeVertexNormals` já dá a quina viva de
+    // graça: normal dura na divisa, suave por dentro.
     vidros.push(g)
-  }
-  // ── A GOLA: o remate contínuo da borda ────────────────────────────────────
-  //
-  // ⚠️ A BORDA SERRILHAVA E DEIXAVA BURACO (fundador, 30/08, com a chapa: "a
-  // borda da cúpula tem cobertura faltando... esse acabamento tem que ser
-  // perfeito"). A causa está no `apara` logo acima: a célula entra pelo CENTRO e
-  // depois tem os seis vértices de fora puxados para o círculo. Cada hexágono
-  // vira uma cunha, e duas cunhas vizinhas não se tocam — entre elas sobra um
-  // triângulo de céu. Aparar resolveu a silhueta serrada e criou o buraco.
-  //
-  // Aparar melhor não resolve: o hexágono tem seis vértices em ângulos fixos em
-  // torno do próprio centro, e não existe recorte radial que faça dois deles
-  // ladrilharem contra um círculo. O que fecha é uma GOLA: um anel contínuo de
-  // quadriláteros da borda para dentro, assentado 0,6 m ABAIXO da superfície da
-  // calota. Onde há célula, a célula ganha e a gola não aparece; onde falta
-  // célula, a gola está lá. Cobertura de 100% por construção, sem tocar no
-  // recorte que endireitou a silhueta.
-  //
-  // 1,8 célula de largura porque o pior vão possível é uma célula inteira (o
-  // centro pode estar a 42 m da borda) e a folga cobre o arredondamento.
-  // ⚠️ E A GOLA É UMA FIADA DE PAINÉIS, NÃO UMA CHAPA LISA (fundador, 30/08, com
-  // a chapa de perto: "ainda tem falhas em elementos menores que um hexágono").
-  // A primeira gola fechou o buraco e criou outro problema: ela era um anel liso
-  // e as células são ALMOFADADAS, então ela lia como faixa de outro material,
-  // com a linha ondulada dos hexágonos por cima. Não era mais vão, era remate
-  // errado. Cúpula de verdade fecha a borda com uma última fiada de painéis sob
-  // medida, e é o que ela é agora: dividida no mesmo passo angular das células,
-  // cada painel com a mesma almofada, do mesmo material. A onda dos hexágonos
-  // por cima dela deixa de ser falha e passa a ser junta de fiada.
-  {
-    const COLA = a * 1.8
-    const rMed = raioNo(0)
-    // o passo angular da fiada é o passo da colmeia: 1,5·a é a distância entre
-    // centros de hexágono na direção da fila.
-    const NP = Math.max(64, Math.round((2 * Math.PI * rMed) / (1.5 * a)))
-    for (let i = 0; i < NP; i++) {
-      const a0 = (i / NP) * Math.PI * 2
-      const a1 = ((i + 1) / NP) * Math.PI * 2
-      const am = (a0 + a1) / 2
-      const pos: number[] = [], idx: number[] = []
-      const P = (ang: number, r: number, dy: number) => {
-        pos.push(Math.cos(ang) * r, capY(r) - 0.35 + dy, Math.sin(ang) * r)
-        return pos.length / 3 - 1
-      }
-      const re0 = raioNo(a0), re1 = raioNo(a1), rem = raioNo(am)
-      const ri0 = Math.max(1, re0 - COLA), ri1 = Math.max(1, re1 - COLA)
-      const rim = Math.max(1, rem - COLA)
-      // ⚠️ A ALMOFADA VAI NO MEIO E MORRE NAS QUATRO BORDAS, igual à da célula:
-      // é isso que faz o painel pegar a mesma luz e sumir na fiada.
-      const c = P(am, (rim + rem) / 2, pillow * 0.55)
-      const v = [P(a0, ri0, 0), P(a1, ri1, 0), P(a1, re1, 0), P(a0, re0, 0)]
-      for (let k = 0; k < 4; k++) idx.push(c, v[k], v[(k + 1) % 4])
-      const g = new THREE.BufferGeometry()
-      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
-      g.setIndex(idx)
-      g.computeVertexNormals()
-      vidros.push(g)
-    }
   }
 
   const geoVidro = mergeGeometries(vidros, false)!
@@ -499,14 +622,18 @@ export function buildDome(o: DomeOpts): Dome {
   const idx: number[] = []
   const p0 = new THREE.Vector3(), p1 = new THREE.Vector3(), meio = new THREE.Vector3()
   const dir = new THREE.Vector3(), lado = new THREE.Vector3(), nrm = new THREE.Vector3()
-  const canto = (cx: number, cz: number, k: number, out: THREE.Vector3) => {
-    const [x, z] = apara(cx + CANTO[k][0] * a, cz + CANTO[k][1] * a, true)
-    return out.set(x, capY(Math.hypot(x, z)), z)
-  }
-  for (const c of centros) {
-    for (let k = 0; k < 6; k++) {
-      canto(c.x, c.z, k, p0)
-      canto(c.x, c.z, (k + 1) % 6, p1)
+  // ⚠️ A ARESTA VEM DO POLÍGONO, não de um hexágono ideal. Antes ela era calculada
+  // do centro do hexágono mais o vetor do canto; com célula de Voronoi o número
+  // de lados varia de 4 a 8 e a aresta É o dado. E a aresta da orla, que agora
+  // cai exatamente no círculo, ganha nervura como qualquer outra: é ela que faz o
+  // remate contra o anel de coroamento sem gola nenhuma.
+  const pontoNa = (x: number, z: number, out: THREE.Vector3) =>
+    out.set(x, capY(Math.hypot(x, z)), z)
+  for (const c of celulas) {
+    const n = c.pol.length
+    for (let k = 0; k < n; k++) {
+      pontoNa(c.pol[k][0], c.pol[k][1], p0)
+      pontoNa(c.pol[(k + 1) % n][0], c.pol[(k + 1) % n][1], p1)
       meio.addVectors(p0, p1).multiplyScalar(0.5)
       const chave = `${Math.round(meio.x / 0.5)}:${Math.round(meio.z / 0.5)}`
       if (vistas.has(chave)) continue
@@ -633,7 +760,7 @@ export function buildDome(o: DomeOpts): Dome {
 
   return {
     group,
-    celulas: centros.length,
+    celulas: celulas.length,
     triangulos,
     coroa: crown,
     dispose() {
