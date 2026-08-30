@@ -78,13 +78,9 @@ const MEIA = 84
 // volta de nada ou falta rua em volta de praça.
 export const LIMIAR_PRACA = 0.5
 
-interface Quarto {
-  id: string; setor: number; x: number; z: number; r: number
-  giro: number; praca: boolean; pracaFracLivre: number
-  quarteiroes: string[]
-}
+interface Parque { id: string; x: number; z: number; a: number; b: number; rot: number }
 interface Peca { x: number; z: number; a: number; b: number; rot: number; forma?: string }
-interface Malha { quartos: Quarto[] }
+interface Malha { parques?: Parque[] }
 
 /** ruído determinístico por praça: a cidade é a mesma em toda visita */
 function hash01(s: string): number {
@@ -146,19 +142,30 @@ export async function buildPracas(o: PracasOpts): Promise<Pracas> {
   const volumes: Record<Volume, { m: THREE.Matrix4; cor: number }[]> = { sebe: [], pedra: [] }
   const covas: Cova[] = []
 
-  // ── 1. quais células viram praça ──────────────────────────────────────────
-  // ⚠️ NÃO SÃO AS 226. `pracaFracLivre` é a fração das 25 sondas da célula
-  // central que estão livres e no setor; 82 quartos estão abaixo de 0,4 e quase
-  // todos são quartos de costura com 1 a 4 quarteirões, ou seja não há tecido em
-  // volta e ali nunca houve buraco nenhum para tapar. Meia praça numa célula
-  // bloqueada seria pior que o vazio.
-  const escolhidos = malha.quartos.filter((q) => q.pracaFracLivre >= LIMIAR_PRACA && Math.hypot(q.x, q.z) < rMax)
+  // ── 1. O VERDE DEIXOU DE SER A CÉLULA CENTRAL DE CADA QUARTO ──────────────
+  //
+  // ⚠️ ESTE MÓDULO DESENHAVA 128 PRAÇAS DE QUARTO E ELAS ERAM O DEFEITO. A célula
+  // do meio de cada quarto 3x3 nunca recebia lote, então havia um vazio a cada
+  // 540 m em fileira PERFEITA: na planta isso lê como poá, e foi o sinal mais
+  // forte de "carimbado" que o fundador viu de cima. Parque de cidade é POUCO,
+  // GRANDE e fica onde há motivo.
+  // Agora a fonte é `parques` do gerador: 8 elipses escolhidas, sem par
+  // simétrico e nenhuma no centro de um distrito. As quatro tipologias ficam
+  // (parterre, seca, largo verde, espelho) e passam a preencher a ELIPSE: as
+  // coordenadas locais, que eram de uma célula de 168 m, são esticadas por
+  // a/84 e b/84 para o desenho ocupar o parque inteiro.
+  const escolhidos = (malha.parques ?? [])
+    .filter((p) => Math.hypot(p.x, p.z) < rMax)
+    .map((p) => ({ id: p.id, x: p.x, z: p.z, r: Math.hypot(p.x, p.z),
+                   giro: p.rot, ex: p.a / 84, ez: p.b / 84 }))
 
   for (const q of escolhidos) {
     const g = (q.giro * Math.PI) / 180
     const cg = Math.cos(g), sg = Math.sin(g)
-    const mundo = (lx: number, lz: number): [number, number] =>
-      [q.x + lx * cg - lz * sg, q.z + lx * sg + lz * cg]
+    const mundo = (lx: number, lz: number): [number, number] => {
+      const sx = lx * q.ex, sz = lz * q.ez
+      return [q.x + sx * cg - sz * sg, q.z + sx * sg + sz * cg]
+    }
 
     // uma superfície plana em coordenadas locais, subdividida para acompanhar o
     // relevo: um tabuleiro de 168 m sobre terreno inclinado tem de dobrar junto,

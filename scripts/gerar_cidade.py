@@ -92,10 +92,15 @@ def _lado(k): return k * FAIXA + (k - 1) * TRAVESSA
 BANDAS = [   # (phi inicial, phi final, nome, k faixas)
     (1450.0, 2180.0, 'Nucleo', 2),      # 109 m: o núcleo antigo é miúdo
     (2180.0, 3010.0, 'Meio',   3),      # 168 m: o quarteirão de hoje
-    (3010.0, 3956.0, 'Bairro', 4),      # 227 m
+    (3010.0, 4040.0, 'Bairro', 4),      # 227 m
 ]
-PHI_CINTA = 3956.0       # daqui para fora o tecido deixa de ser cartesiano
-CINTA_FAIXAS = [3, 3, 4]
+# ⚠️ A CINTA TEM DE FECHAR EXATAMENTE NA BORDA, E NÃO FECHAVA. Ela começava em
+# 3.956 com três anéis de 180 + 180 + 239 = 4.555 m, e a borda está em 4.400: o
+# terceiro anel inteiro nascia FORA da cidade e era mascarado. Resultado medido:
+# 379 lotes em 66 quarteirões na banda 6, ou seja a borda ficava rala justo onde
+# a cinta existe para fechá-la. Agora 4.040 + 180 + 180 = 4.400 na conta.
+PHI_CINTA = 4040.0
+CINTA_FAIXAS = [3, 3]
 
 LOTE_W, LOTE_D = 12.0, 25.0       # 300 m² nominais; a testada vira variável ao plantar
 CELULA       = 180.0     # ⚠️ LEGADO: só as peças congeladas nasceram nesta célula
@@ -600,6 +605,31 @@ def distrito_de(x, z):
         if a <= ru < a + ab: return i
     return N_DIST - 1
 setor_de = distrito_de      # ⚠️ apelido: o resto do arquivo ainda diz "setor"
+
+# ── AS 16 PEÇAS DE BORDA SEGUEM O CONTORNO, E POR ISSO NÃO SÃO CONGELADAS ───
+#
+# ⚠️ A DIFERENÇA ENTRE ELAS E AS OUTRAS 35 É DE PROPÓSITO. As 33 de malha e as 2
+# da casca ocupam lugar ESCOLHIDO no miolo e têm de ficar exatamente onde o
+# desenho as pôs, senão o módulo 3D delas anda junto. As de borda existem para
+# REMATAR O CONTORNO: foram postas entre 4.550 e 5.114 m quando o contorno era um
+# círculo de 4.400, e com a forma nova chegando a 3.861 m em alguns rumos elas
+# ficaram BOIANDO FORA DA CIDADE. Cada uma guarda o afastamento que tinha da
+# borda antiga e é recolocada contra a borda nova, no mesmo rumo.
+# ⚠️ Isto TEM de rodar antes de `tecido()`, porque `livre()` consulta
+# `em_programa()` e a máscara precisa estar no lugar certo.
+_realoc, _dmax = 0, 0.0
+for _q in PROGRAMA_GEO:
+    if not _q.get('borda'): continue
+    _a = math.radians(_q['rot'])
+    _fora = math.hypot(_q['cx'], _q['cz']) - 4400.0
+    _nr = raio_em_phi(_a, PHI_BORDA) + _fora
+    _nx, _nz = math.sin(_a) * _nr, -math.cos(_a) * _nr
+    _dmax = max(_dmax, math.hypot(_nx - _q['cx'], _nz - _q['cz']))
+    _q['cx'], _q['cz'] = _nx, _nz
+    _realoc += 1
+if _realoc:
+    print(f'peças de borda recolocadas contra o contorno novo: {_realoc} '
+          f'(maior deslocamento {_dmax:.0f} m)', file=sys.stderr)
 
 # ── o tecido: quartos, quarteirões, lotes, por setor ───────────────────────
 def _z_das_filas(k):

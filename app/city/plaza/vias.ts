@@ -206,7 +206,11 @@ const FAIXA_VAO = 1.80
 
 interface Quarteirao {
   id: string; setor: number; x: number; z: number; r: number
+  /** ⚠️ `giro` e `lado` são DO BLOCO agora: 109 no Núcleo, 168 no Meio, 227 no
+   *  Bairro, e na Cinta o giro é a tangente local, diferente em cada quarteirão */
   giro: number; lado: number; lotes: number
+  /** faixas de 50 m do quarteirão: define quantas travessas e fileiras ele tem */
+  k: number
 }
 interface Bulevar {
   id: string; rumo: number; largura: number
@@ -214,18 +218,25 @@ interface Bulevar {
   x0: number; z0: number; x1: number; z1: number
 }
 interface Peca { x: number; z: number; a: number; b: number; rot: number; forma?: string }
-interface Quarto {
-  id: string; x: number; z: number; giro: number; pracaFracLivre: number
-}
+export interface Parque { id: string; x: number; z: number; a: number; b: number; rot: number }
+export interface Diagonal { id: string; rumo: number; afastamento: number; largura: number }
 export interface Malha {
   constantes: {
-    setores: number; giroPorSetor: number; quarteirao: number; viaContorno: number
+    distritos: number; viaContorno: number
     bulevar: number; raioSitio: number
-    travessas: { z0: number; z1: number }[]
+    // ⚠️ NÃO EXISTE MAIS UM QUARTEIRÃO SÓ, e por isso a travessa também não é
+    // uma tabela só: ela depende de k (2, 3 ou 4 faixas). Ler `travessas` fixo
+    // desenhava travessa fora do quarteirão no Núcleo e faltava uma no Bairro.
+    travessasPorK: Record<string, { z0: number; z1: number }[]>
+    bandas: { de: number; ate: number; nome: string; k: number; lado: number }[]
+    cinta: { de: number; faixas: number[]; lados: number[] }
+    arcoBanda: number; avenidaDistrito: number; diagLargura: number
   }
   bulevares: Bulevar[]
   quarteiroes: Quarteirao[]
-  quartos: Quarto[]
+  parques?: Parque[]
+  diagonais?: Diagonal[]
+  contorno?: [number, number][]
 }
 export interface Anel { id: string; nome: string; r: number; larg: number }
 export interface Meta { programa: Peca[]; raioBorda: number; aneis?: Anel[] }
@@ -277,7 +288,9 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     o.meta ?? fetch('/city/cidade.json').then((r) => r.json() as Promise<Meta>),
   ])
   const K = malha.constantes
-  const meio = K.quarteirao / 2          // 84
+  // ⚠️ `meio` ERA GLOBAL E VALIA 84 PARA A CIDADE INTEIRA. Com o quarteirão
+  // variando por banda ele passou a sair do bloco; a constante global aqui
+  // desenhava contorno de 168 m em cima de quarteirão de 109 e de 227.
   const group = new THREE.Group()
   group.name = 'vias'
 
@@ -313,16 +326,19 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   //     costura a grade de um setor não casa com a do vizinho e a via de contorno
   //     entraria por baixo do bulevar. Duas faixas coplanares brigam no z-buffer
   //     e a chapa mostra a briga.
-  const meiaBul = K.bulevar / 2 + 3
   const noBulevar = (px: number, pz: number) => {
     const r = Math.hypot(px, pz)
     if (r < 40) return true
-    for (let s = 0; s < K.setores; s++) {
-      const ang = (s * (2 * Math.PI)) / K.setores
+    // ⚠️ OS RADIAIS NÃO SÃO MAIS 12 COSTURAS IGUAIS. São as avenidas publicadas
+    // em `bulevares`: quatro do eixo das pontes (rumos 0/90/180/270, 34 m) e seis
+    // das costuras de distrito, que têm abertura desigual. Calcular por
+    // `s * 360/12` errava o rumo de seis delas.
+    for (const b of malha.bulevares) {
+      const ang = (b.rumo * Math.PI) / 180
       const dirX = Math.sin(ang), dirZ = -Math.cos(ang)
-      const proj = px * dirX + pz * dirZ
-      if (proj <= 0) continue
-      if (Math.abs(px * Math.cos(ang) + pz * Math.sin(ang)) < meiaBul) return true
+      if (px * dirX + pz * dirZ <= 0) continue
+      const meia = (b.largura ?? K.bulevar) / 2 + 3
+      if (Math.abs(px * Math.cos(ang) + pz * Math.sin(ang)) < meia) return true
     }
     return false
   }
@@ -456,6 +472,7 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   let nq = 0
   let travessias = 0
   for (const q of malha.quarteiroes) {
+    const meio = q.lado / 2
     const g = (q.giro * Math.PI) / 180
     const cg = Math.cos(g), sg = Math.sin(g)
     const mundo = (lx: number, lz: number) => [q.x + lx * cg - lz * sg, q.z + lx * sg + lz * cg] as const
@@ -476,7 +493,7 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
       faixa(ax, az, bx, bz, px, pz, SEC_CONTORNO)
     }
     // as duas travessas internas: a seção inteira cabe entre z local -34 e -25
-    for (const t of K.travessas) {
+    for (const t of (K.travessasPorK?.[String(q.k)] ?? [])) {
       const [ax, az] = mundo(-meio, t.z0)
       const [bx, bz] = mundo(+meio, t.z0)
       const [px, pz] = dir(0, 1)
@@ -515,33 +532,12 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     }
   }
 
-  // ── 1b. a via em volta da praça de quarto ─────────────────────────────────
-  // A célula central de cada quarto não é quarteirão e por isso não entrou no
-  // laço acima, mas ela é uma célula de 180 como qualquer outra: sem esta volta
-  // a rua morre na divisa da praça e a praça vira um pátio cercado de nada. O
-  // limiar vem de pracas.ts para os dois módulos nunca discordarem.
-  let np = 0
-  for (const q of malha.quartos ?? []) {
-    if (q.pracaFracLivre < LIMIAR_PRACA) continue
-    if (Math.hypot(q.x, q.z) >= rMax) continue
-    np++
-    const g = (q.giro * Math.PI) / 180
-    const cg = Math.cos(g), sg = Math.sin(g)
-    const mundo = (lx: number, lz: number) => [q.x + lx * cg - lz * sg, q.z + lx * sg + lz * cg] as const
-    const dir = (lx: number, lz: number) => [lx * cg - lz * sg, lx * sg + lz * cg] as const
-    const lados: [readonly [number, number], readonly [number, number], readonly [number, number]][] = [
-      [[-meio - 6, +meio], [+meio + 6, +meio], [0, 1]],
-      [[+meio + 6, -meio], [-meio - 6, -meio], [0, -1]],
-      [[+meio, -meio], [+meio, +meio], [1, 0]],
-      [[-meio, +meio], [-meio, -meio], [-1, 0]],
-    ]
-    for (const [a, b, pp] of lados) {
-      const [ax, az] = mundo(a[0], a[1])
-      const [bx, bz] = mundo(b[0], b[1])
-      const [px, pz] = dir(pp[0], pp[1])
-      faixa(ax, az, bx, bz, px, pz, SEC_CONTORNO)
-    }
-  }
+  // ── 1b. A VIA EM VOLTA DA PRAÇA DE QUARTO FOI REMOVIDA ────────────────────
+  // ⚠️ NÃO É PODA, É CONSEQUÊNCIA. A praça de quarto era a célula central de cada
+  // quarto 3x3, que nunca recebia lote: um buraco a cada 540 m em fileira
+  // perfeita, que na planta lia como poá e foi o que o fundador chamou de
+  // carimbado. O verde agora é `parques`, poucos e escolhidos, e quem desenha é
+  // pracas.ts. Sem quarto não há anel de quarto.
 
   // ── 2. os 12 bulevares de costura, e só eles ganham marcação ──────────────
   // ⚠️ ELES SAEM DE tecido.ts E PASSAM A MORAR AQUI. Lá a pista era desenhada
@@ -575,17 +571,20 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     // projetado no eixo do bulevar. Os dois setores vizinhos têm grades giradas
     // (7,5 graus por setor), então as duas famílias de divisa não coincidem e é
     // por isso que sai cerca de uma faixa a cada 250 m e não a cada 540.
-    // ⚠️ O campo `setores` do json NÃO serve para achar os vizinhos: BUL02 tem
-    // rumo 30 e diz [2,3], mas o setor 2 mede de 30 a 60 graus, ou seja a costura
-    // de 30 separa o setor 1 do 2. Aqui o vizinho é achado por geometria.
+    // ⚠️ A TRAVESSIA VINHA DOS QUARTOS, QUE NÃO EXISTEM MAIS. Ela nasce onde uma
+    // rua do tecido encosta na avenida, e quem sabe disso agora é o QUARTEIRÃO:
+    // cada bloco vizinho da avenida projeta a sua divisa sobre o eixo dela. O
+    // passo deixa de ser fixo em 270 m e passa a ser meio quarteirão, que muda
+    // por banda, então a travessia aparece onde a rua de fato chega.
     const cruz: number[] = []
-    for (const q of malha.quartos ?? []) {
+    for (const q of malha.quarteiroes) {
       const off = q.x * perpX + q.z * perpZ
-      if (Math.abs(off) > 420) continue
+      if (Math.abs(off) > q.lado + 60) continue
       const ao = q.x * dirX + q.z * dirZ
-      for (const r of [ao - 270, ao + 270]) {
+      const meio = q.lado / 2 + 6
+      for (const r of [ao - meio, ao + meio]) {
         if (r < b.rInicio + 80 || r > b.rFim - 80) continue
-        if (cruz.some((c) => Math.abs(c - r) < 80)) continue
+        if (cruz.some((c) => Math.abs(c - r) < 70)) continue
         cruz.push(r)
       }
     }
@@ -768,7 +767,7 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     quarteiroes: nq,
     aneis: nAneis,
     rotatorias: nRot,
-    pracas: np,
+    pracas: 0,   // ⚠️ a praça de quarto acabou; o verde é `parques`, em pracas.ts
     bulevares: malha.bulevares.length,
     travessias,
     eixos,
