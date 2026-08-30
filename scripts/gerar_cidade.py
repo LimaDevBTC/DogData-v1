@@ -92,15 +92,19 @@ def _lado(k): return k * FAIXA + (k - 1) * TRAVESSA
 BANDAS = [   # (phi inicial, phi final, nome, k faixas)
     (1450.0, 2180.0, 'Nucleo', 2),      # 109 m: o núcleo antigo é miúdo
     (2180.0, 3010.0, 'Meio',   3),      # 168 m: o quarteirão de hoje
-    (3010.0, 4040.0, 'Bairro', 4),      # 227 m
+    (3010.0, 4400.0, 'Bairro', 4),      # 227 m, e vai ATÉ A BORDA
 ]
-# ⚠️ A CINTA TEM DE FECHAR EXATAMENTE NA BORDA, E NÃO FECHAVA. Ela começava em
-# 3.956 com três anéis de 180 + 180 + 239 = 4.555 m, e a borda está em 4.400: o
-# terceiro anel inteiro nascia FORA da cidade e era mascarado. Resultado medido:
-# 379 lotes em 66 quarteirões na banda 6, ou seja a borda ficava rala justo onde
-# a cinta existe para fechá-la. Agora 4.040 + 180 + 180 = 4.400 na conta.
-PHI_CINTA = 4040.0
-CINTA_FAIXAS = [3, 3]
+# ⚠️ A CINTA POLAR DEIXOU DE EXISTIR E ISSO NÃO É PERDA. Ela era a faixa externa
+# em quadra tangencial, criada para consertar a borda serrilhada que a malha
+# CARTESIANA deixava ao ser recortada numa forma. Na teia o tecido INTEIRO já é
+# tangencial, então a borda fecha sozinha e uma cinta separada não teria o que
+# consertar. As constantes ficam declaradas só porque `cidade-malha.json` ainda
+# as publica para a cena.
+# ⚠️ E A ÚLTIMA BANDA TEM DE IR ATÉ A BORDA. Ela parava em 4.040, que era onde a
+# Cinta começava: sem a Cinta, os últimos 360 m de cidade ficavam SEM TECIDO, e
+# foi isso que derrubou a capacidade de 94.003 para 67.720 vagas.
+PHI_CINTA = 4400.0
+CINTA_FAIXAS = []
 
 LOTE_W, LOTE_D = 12.0, 25.0       # 300 m² nominais; a testada vira variável ao plantar
 CELULA       = 180.0     # ⚠️ LEGADO: só as peças congeladas nasceram nesta célula
@@ -566,6 +570,24 @@ def raio_em_phi(ang, alvo):
         else: hi = m
     return (lo + hi) / 2
 
+# ⚠️ O ALCANCE DO PARQUE RUNESTONE É ANISOTRÓPICO, E ESTA CÓPIA TEM DE BATER COM
+# `parkReach` em app/city/plaza/park-site.ts. O disco de 3.600 m a 5.200 m do
+# centro alcançava r 1.600 da cidade e proibia o nordeste inteiro: 11,72 km², ou
+# 21,6% do sítio, mais que toda a área de lote alocada. Encolher por igual
+# quebraria o Portão do parque, que fica a 2,8 km do Monarca do lado da praça.
+# Então encurta só no rumo da cidade e a borda vira a ENTRADA do parque.
+PARQUE_FRENTE = 2750.0
+def parque_alcance(x, z):
+    lx, lz = x - PCX, z - PCZ
+    nl = math.hypot(lx, lz)
+    if nl < 1e-6: return PARQUE_FRENTE
+    nd = math.hypot(PCX, PCZ) or 1.0
+    cos = (lx*(-PCX) + lz*(-PCZ)) / (nl * nd)
+    C1, C0 = math.cos(math.radians(42)), math.cos(math.radians(78))
+    t = min(1.0, max(0.0, (cos - C0) / (C1 - C0)))
+    k = t*t*(3 - 2*t)
+    return PARQUE_DISCO + (PARQUE_FRENTE - PARQUE_DISCO) * k
+
 def livre(x, z):
     r = math.hypot(x, z)
     if r < R_INICIO: return False
@@ -574,7 +596,7 @@ def livre(x, z):
     # inteiros, então um lote a 40 cm de fora da elipse do Coliseu arredondava
     # para dentro. Eram 3 lotes em 52.991, mas um deles bastava para furar a
     # promessa de guardar o espaço do Coliseu vazio.
-    if math.hypot(x-PCX, z-PCZ) < PARQUE_DISCO + 2: return False
+    if math.hypot(x-PCX, z-PCZ) < parque_alcance(x, z) + 2: return False
     if dentro_do_coliseu(x, z, 2.0): return False
     if em_programa(x, z) is not None: return False
     if num_anel(x, z) is not None: return False
@@ -631,15 +653,61 @@ if _realoc:
     print(f'peças de borda recolocadas contra o contorno novo: {_realoc} '
           f'(maior deslocamento {_dmax:.0f} m)', file=sys.stderr)
 
+# ── AS PEÇAS SEGUEM O FLUXO DA TEIA ─────────────────────────────────────────
+#
+# ⚠️ ELAS ESTAVAM JOGADAS POR CIMA, e o fundador viu isso na chapa. As 33 peças de
+# malha guardam `rot = setor * 7,5°`, um ângulo herdado do reticulado de 12
+# setores que NÃO EXISTE MAIS: contra a teia ele é um número aleatório, e o
+# estádio aparece torto sobre um tecido que corre em anel. As 16 de borda e os 8
+# parques já nascem tangentes, por isso só estas 33 destoavam.
+#
+# É a MESMA lição de 29/08, quando a peça deixou de ser elipse solta e virou
+# retângulo de células: peça sem relação com o tecido não tem divisa nem portão,
+# e todo desenho dentro dela herda essa arbitrariedade. Só que agora o tecido é
+# outro, então a relação tem de ser refeita contra ele.
+#
+# Duas correções, e nenhuma mexe nas MEDIDAS da peça (os módulos 3D em
+# `app/city/plaza/pecas/` foram desenhados para o `a` e o `b` que ela tem):
+#   1. o giro passa a ser a TANGENTE no rumo do centro dela, igual ao dos
+#      quarteirões vizinhos, então a peça corre junto com o anel;
+#   2. o centro é empurrado em φ para a peça ocupar um número INTEIRO de anéis,
+#      então as duas bordas radiais dela caem em rua e não no meio de um lote.
+_ANEIS_PHI = []
+for _p0, _p1, _nm, _k in BANDAS:
+    _passo = _lado(_k) + VIA_CONTORNO
+    _pp = _p0
+    while _pp + _passo <= _p1 + 1:
+        _ANEIS_PHI.append(_pp); _pp += _passo
+    _ANEIS_PHI.append(_pp)
+_ANEIS_PHI = sorted(set(_ANEIS_PHI))
+
+def _encaixa_em_anel(ph, b):
+    """empurra o centro para a peça cobrir anéis inteiros, sem mudar a altura dela"""
+    if not _ANEIS_PHI: return ph
+    de = min(_ANEIS_PHI, key=lambda v: abs(v - (ph - b)))
+    return de + b
+
+_gira = 0
+for _q in PROGRAMA_GEO:
+    if _q.get('borda'): continue
+    if _q['forma'] != 'retangulo': continue        # as 2 da casca vivem fora do tecido
+    _a = math.atan2(_q['cx'], -_q['cz'])           # o rumo do centro da peça
+    _ph = _encaixa_em_anel(phi(_q['cx'], _q['cz']), _q['b'])
+    _r = raio_em_phi(_a, _ph)
+    _q['cx'], _q['cz'] = math.sin(_a) * _r, -math.cos(_a) * _r
+    _q['rot'] = math.degrees(_a) % 360
+    _q['c'], _q['s'] = math.cos(_a), math.sin(_a)
+    _gira += 1
+print(f'peças de malha alinhadas à teia: {_gira}', file=sys.stderr)
+
 # ── o tecido: quartos, quarteirões, lotes, por setor ───────────────────────
 def _z_das_filas(k):
     """As 2k fileiras do quarteirão, cada uma com a sua frente.
 
     ⚠️ REGRA DO FUNDADOR: TODA FILEIRA DÁ FRENTE PARA VIA. O quarteirão é k
     faixas de 50 m separadas por travessas de 9 m, e cada faixa são DUAS fileiras
-    de 25 m costas com costas: a de fora abre para a via de contorno ou para a
-    travessa anterior, a de dentro para a travessa seguinte. Por isso o lado do
-    quarteirão só pode valer 109, 168, 227...: é a família que a regra permite.
+    de 25 m costas com costas. Na teia este eixo é o RADIAL: a fileira corre
+    paralela ao anel e abre para o anel ou para a travessa.
     """
     lado = _lado(k)
     out = []
@@ -649,83 +717,103 @@ def _z_das_filas(k):
         out.append((zc + LOTE_D/2, zc + FAIXA/2, -1))
     return out
 
-def _bloco(wx, wz, giro, k, d, banda, nome):
-    """Monta um quarteirão e sonda quais lotes dele sobrevivem às máscaras."""
-    lado = _lado(k)
+# ═══════════════════════════════════════════════════════════════════════════
+# A TEIA
+#
+# ⚠️ ISTO SUBSTITUI A MALHA CARTESIANA POR DISTRITO, E O MOTIVO É CONECTIVIDADE.
+# A versão de 30/08 dava a cada distrito uma malha OBLÍQUA ao anel (34 a 46° fora
+# da tangente). Aquilo matou a leitura de alvo, mas cobrou um preço pior e o
+# fundador viu na chapa antes de eu medir: a rua de um feixe do leque não
+# encontrava a rua do feixe vizinho. Eram seis ilhas encostadas, não uma cidade.
+#
+# Numa teia toda rua é contínua POR CONSTRUÇÃO:
+#   ANEL = curva de nível de φ, dá a volta inteira na cidade
+#   RAIO = do centro à borda; quando o vão entre dois raios fica largo demais
+#          NASCE UM RAIO NOVO entre eles, e o novo também vai até a borda
+# Nenhum trecho morre no nada, que era o defeito.
+#
+# ⚠️ E A TEIA NÃO É REDONDA. Os anéis são curvas de nível da superelipse, ou seja
+# retângulos arredondados encaixados. É o que separa teia de cidade de alvo de
+# tiro, e o fundador foi explícito duas vezes: cidade, não desenho.
+# ═══════════════════════════════════════════════════════════════════════════
+# ⚠️ A TESTADA É O QUE PAGA A RUA. Com 96 raios e alvo de 150 m a teia devolveu
+# 64.291 vagas contra 94.003 da malha antiga, e a mediana caiu de 164 para 103 m².
+# A conta: o vão de rua entre dois raios custa VIA/(testada+VIA) da terra, ou seja
+# 11,2% com testada de 95 m e 5,7% com 200 m. Rede conectada cobra mais rua que
+# malha desconectada, e é a testada que decide quanto.
+# 64 raios são 5,625° cada, e ainda contêm 0, 90, 180 e 270 exatos.
+N_RAIOS0 = 64
+FRENTE_ALVO = 200.0      # testada de quarteirão que a subdivisão persegue
+
+def n_raios(p):
+    """⚠️ O LIMIAR JÁ ESTEVE FROUXO E NÃO DOBRAVA NUNCA: a testada ia de 95 m no
+    miolo a 288 m na periferia e a teia perdia a razão de existir. Com 1,25x ele
+    dobra por volta de φ 2.900 e a testada fica entre 95 e 150 m em toda a cidade."""
+    n = N_RAIOS0
+    while (2*math.pi*p)/n > FRENTE_ALVO*1.25: n *= 2
+    return n
+
+def _aneis():
+    """Os anéis, com o passo saindo do grão da banda."""
+    out = []
+    for p0, p1, nome, k in BANDAS:
+        passo = _lado(k) + VIA_CONTORNO
+        p = p0
+        while p + passo <= p1 + 1:
+            out.append((p, p + passo, nome, k)); p += passo
+        if p1 - p > _lado(2) * 0.6:
+            out.append((p, p1, nome, k))
+    return out
+
+def _bloco(wx, wz, giro, k, frente, d, banda, nome):
+    """Monta um quarteirão da teia e sonda quais lotes dele sobrevivem.
+
+    ⚠️ O QUARTEIRÃO DA TEIA NÃO É QUADRADO: a TESTADA é o arco (tangencial,
+    variável, 95 a 150 m) e a PROFUNDIDADE é o vão entre anéis (radial, 109/168/
+    227 conforme a banda). Publicar um `lado` só faria a cena desenhar contorno
+    quadrado sobre trapézio.
+    """
+    prof = _lado(k)
     ca, sa = math.cos(giro), math.sin(giro)
-    cols = int(lado // LOTE_W)
+    cols = max(1, int(frente // LOTE_W))
     lotes = []
-    for zlote, _, _ in _z_das_filas(k):
+    for zlote, _b, _s in _z_das_filas(k):
         for rx in range(cols):
             ox = (rx - (cols-1)/2) * LOTE_W
             fx = wx + ox*ca - zlote*sa
             fz = wz + ox*sa + zlote*ca
             if not livre(fx, fz): continue
-            if distrito_de(fx, fz) != d: continue
             lotes.append((fx, fz))
-    if len(lotes) < 12: return None
+    if len(lotes) < 8: return None
     return {'x': wx, 'z': wz, 'r': phi(wx, wz), 'raio': math.hypot(wx, wz),
-            'giro': giro, 'k': k, 'lado': lado, 'cols': cols, 'lotes': lotes,
-            'cap': cols * 2 * k, 'banda': banda, 'tipo': nome}
+            'giro': giro, 'k': k, 'lado': frente, 'prof': prof, 'cols': cols,
+            'lotes': lotes, 'cap': cols * 2 * k, 'banda': banda, 'tipo': nome}
 
 def tecido():
-    """Por distrito, as bandas, e em cada banda os quarteirões com os seus lotes."""
+    """Por distrito, os anéis, e em cada anel os quarteirões com os seus lotes."""
     por_dist = [[] for _ in range(N_DIST)]
+    baldes = [{} for _ in range(N_DIST)]        # anel -> lista de blocos
+    for ia, (p0, p1, nome, k) in enumerate(_aneis()):
+        pm = (p0 + p1) / 2
+        n = n_raios(pm)
+        for j in range(n):
+            am = ((j + 0.5) / n) * 2*math.pi
+            rm = raio_em_phi(am, pm)
+            cx, cz = math.sin(am)*rm, -math.cos(am)*rm
+            d = distrito_de(cx, cz)
+            frente = (2*math.pi*rm)/n - VIA_CONTORNO
+            if frente < 3 * LOTE_W: continue
+            # ⚠️ O GIRO É A TANGENTE, e a conta certa é `giro = am`. A versão da
+            # Cinta usava `atan2(cos am, sin am)`, que não é tangente nem radial:
+            # é o espelho, e girava a faixa externa inteira errado em silêncio.
+            b = _bloco(cx, cz, am, k, frente, d, ia + 1, nome)
+            if b: baldes[d].setdefault(ia + 1, []).append(b)
     for d in range(N_DIST):
-        a0, ab, off = DISTRITOS[d]
-        giro = math.radians(a0 + ab/2 + off)
-        ca, sa = math.cos(giro), math.sin(giro)
-        for ib, (p0, p1, nome, k) in enumerate(BANDAS):
-            lado = _lado(k)
-            cel = lado + VIA_CONTORNO
-            alc = int(PHI_BORDA / cel) + 2
-            blocos = []
-            for iz in range(-alc, alc+1):
-                for ix in range(-alc, alc+1):
-                    lx, lz = (ix+0.5)*cel, (iz+0.5)*cel
-                    wx, wz = lx*ca - lz*sa, lx*sa + lz*ca
-                    ph = phi(wx, wz)
-                    if not (p0 - cel < ph < p1 + cel): continue
-                    if distrito_de(wx, wz) != d: continue
-                    b = _bloco(wx, wz, giro, k, d, ib+1, nome)
-                    if b: blocos.append(b)
-            if blocos:
-                por_dist[d].append({'banda': ib+1, 'nome': nome,
-                                    'r': sum(b['r'] for b in blocos)/len(blocos),
-                                    'quarteiroes': blocos})
-        # ── A CINTA: da última banda para fora o tecido vira POLAR ───────────
-        # ⚠️ ISTO CONSERTA A BORDA. Malha cartesiana recortada numa forma devolve
-        # polígono serrilhado, que é a queixa antiga do fundador ("as bordas são
-        # todas serrilhadas"). Aqui o quarteirão SEGUE A CURVA DE NÍVEL de φ: a
-        # testada é tangente, a profundidade é radial, e a borda da cidade fecha
-        # na forma porque é feita da forma. De quebra é o contraste de textura do
-        # Eixample encostando na Ciutat Vella: o miolo é grade, a cinta é anel, e
-        # a divisa entre os dois se lê de 9 km.
-        ph = PHI_CINTA
-        for ic, k in enumerate(CINTA_FAIXAS):
-            lado = _lado(k)
-            ph1 = ph + lado + VIA_CONTORNO
-            blocos = []
-            passo_ang = math.radians(0.25)
-            ang = math.radians(a0)
-            fim_ang = math.radians(a0 + ab)
-            acum = 0.0
-            while ang < fim_ang:
-                rm = raio_em_phi(ang + passo_ang/2, (ph + ph1)/2)
-                acum += rm * passo_ang
-                if acum >= lado + VIA_CONTORNO:
-                    acum = 0.0
-                    cx = math.sin(ang)*rm; cz = -math.cos(ang)*rm
-                    # o giro do bloco é a TANGENTE ali, não o giro do distrito
-                    g2 = math.atan2(math.cos(ang), math.sin(ang))
-                    b = _bloco(cx, cz, g2, k, d, len(BANDAS)+1+ic, 'Cinta')
-                    if b: blocos.append(b)
-                ang += passo_ang
-            if blocos:
-                por_dist[d].append({'banda': len(BANDAS)+1+ic, 'nome': 'Cinta',
-                                    'r': sum(b['r'] for b in blocos)/len(blocos),
-                                    'quarteiroes': blocos})
-            ph = ph1
+        for banda in sorted(baldes[d]):
+            bl = baldes[d][banda]
+            por_dist[d].append({'banda': banda, 'nome': bl[0]['tipo'],
+                                'r': sum(b['r'] for b in bl)/len(bl),
+                                'quarteiroes': bl})
     return por_dist
 
 print('medindo o tecido...', file=sys.stderr)
@@ -864,7 +952,7 @@ def prateleiras_de(s):
                             # superquadra não pode mais contar 6 prateleiras fixas
                             # nem supor lado 168: cada prateleira carrega o lado e
                             # o número de fileiras do bloco de onde ela saiu.
-                            'lado': b['lado'], 'nf': 2 * b['k']})
+                            'lado': b['lado'], 'prof': b['prof'], 'nf': 2 * b['k']})
     return out
 PASSO = [prateleiras_de(s) for s in range(N_DIST)]
 
@@ -1045,15 +1133,21 @@ def coloca(s, dog, addr, escala=1.0):
             j += 1
         if alvo >= 0:
             pq = PASSO[s][alvo]
+            # ⚠️ NA TEIA A SUPERQUADRA OCUPA O BLOCO, ENTÃO A PROFUNDIDADE DELA É
+            # A DO BLOCO. Antes ela vinha de `area / testada`, e como a testada da
+            # teia é o ARCO (125 a 250 m) essa conta devolvia profundidade ABAIXO
+            # dos 50 m de PROF_MAX: a superquadra deixava de ser reconhecida rio
+            # abaixo, entrava na reconstrução de fileira como lote normal e o
+            # guarda de meio metro pegou 26,02 m de erro.
             lado_q = pq['lado']
-            prof_g = min(lado_q, area / lado_q)
+            prof_g = pq['prof']
             # centro do quarteirão: com a superquadra ocupando tudo, ox e oz são 0
             _cx, _cz = pq['bx'], pq['bz']
             if livre(_cx, _cz):
                 for k in range(alvo, alvo + nf_alvo):
                     PASSO[s][k]['x0'] += PASSO[s][k]['livre']
                     PASSO[s][k]['livre'] = 0.0
-                return (_cx, _cz, lado_q, prof_g, pq['q'], pq['b'])
+                return (_cx, _cz, min(lado_q, area / prof_g), prof_g, pq['q'], pq['b'])
             # quarteirão em terra proibida: queima e tenta o próximo
             for k in range(alvo, alvo + nf_alvo):
                 PASSO[s][k]['livre'] = 0.0
@@ -1285,14 +1379,28 @@ def forma_de(u):
     if u <= 9: return 2        # condomínio baixo
     if u <= 99: return 3       # torre
     return 4                   # quarteirão com várias torres
+# ⚠️ O REGISTRO PASSOU DE 11 PARA 13 BYTES, E O MOTIVO É O GIRO. Até aqui a cena
+# reconstruía a orientação do lote como `setor * 7,5°`, porque havia um giro por
+# setor e ele cabia no byte do setor. Agora o giro é DO QUARTEIRÃO: muda por
+# distrito e, na Cinta, muda em CADA bloco, porque lá ele é a tangente local.
+# Derivar do setor giraria a Cinta inteira errado e não haveria como perceber
+# olhando o número. Vai um uint16 em centésimos de grau (0 a 36.000): 0,01° em
+# 227 m de quarteirão dá 4 cm, folgado.
+_GIRO_DE = {}
+for _s in range(N_DIST):
+    for _q in T[_s]:
+        for _ib, _b in enumerate(sorted(_q['quarteiroes'], key=lambda b: b['r'])):
+            _GIRO_DE[(_s, _q['banda'], _ib + 1)] = math.degrees(_b['giro']) % 360.0
 buf = bytearray()
 for x, z, s, a, w, d, _q, _b, _n in saida:
     coorte = min(7, posto[a]*8//N)
     fam = familia_de.get(a, 0)
     fl = (1 if a in dsc else 0) | (forma_de(UTX.get(a, 1)) << 1)
-    buf += struct.pack('<hhBBHBBB', int(round(x)), int(round(z)), s, coorte,
+    giro_c = int(round(_GIRO_DE.get((s, _q, _b), 0.0) * 100)) % 36000
+    buf += struct.pack('<hhBBHBBBH', int(round(x)), int(round(z)), s, coorte,
                        min(65535, fam), fl,
-                       max(1, min(255, int(round(w)))), max(1, min(255, int(round(d)))))
+                       max(1, min(255, int(round(w)))), max(1, min(255, int(round(d)))),
+                       giro_c)
 open(p('public/city/cidade-lotes.bin'), 'wb').write(buf)
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1459,6 +1567,8 @@ for s in range(N_DIST):
         ox = dx*ca + dz*sa
         oz = -dx*sa + dz*ca
         fila, e = _fila_do_lote(ox, oz, pf, kk)
+        if e > erro_fila_max:
+            _pior = (s, q_, b_, kk, round(ox,2), round(oz,2), round(pf,2), round(e,2))
         erro_fila_max = max(erro_fila_max, e)
         ocup[(s, q_, b_)][fila] += 1
 # ⚠️ CONFERÊNCIA: se a reconstrução da fileira errar por mais de meio metro é
@@ -1466,6 +1576,9 @@ for s in range(N_DIST):
 if erro_fila_max > 0.5:
     print(f'ERRO: fileira reconstruída com erro de {erro_fila_max:.2f} m; malha não gravada',
           file=sys.stderr)
+    print(f'  pior caso (s,q,b,k,ox,oz,pf,erro) = {_pior}', file=sys.stderr)
+    print(f'  fileiras previstas para k={_pior[3]}: '
+          f'{[(round(f["borda"],1), f["sentido"]) for f in _fileiras_de(_pior[3])]}', file=sys.stderr)
     sys.exit(1)
 
 # ⚠️ A PRAÇA DE QUARTO MORREU AQUI, E DE PROPÓSITO. `_sonda_praca` media quanto
@@ -1490,7 +1603,12 @@ for s in range(N_DIST):
                 # ⚠️ O GIRO É DO BLOCO. No miolo ele é o do distrito; na Cinta é a
                 # TANGENTE local, diferente em cada quarteirão. Publicar um giro
                 # por setor faria a cena desenhar a Cinta torta.
-                'giro': round(math.degrees(b['giro']), 3), 'lado': b['lado'],
+                'giro': round(math.degrees(b['giro']), 3),
+                # ⚠️ TESTADA E PROFUNDIDADE SÃO DIFERENTES NA TEIA: `lado` é o arco
+                # (tangencial, 125 a 250 m) e `prof` é o vão entre anéis (radial,
+                # 109/168/227). Publicar só `lado` faz a cena desenhar contorno
+                # QUADRADO sobre quarteirão trapezoidal.
+                'lado': round(b['lado'], 1), 'prof': b['prof'],
                 'k': b['k'], 'fileiras': 2*b['k'], 'tipo': b['tipo'],
                 'sondasLivres': len(b['lotes']), 'capacidade': b['cap'],
                 'lotes': sum(por_fila) + (1 if ch in sup else 0),

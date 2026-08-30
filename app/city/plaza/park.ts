@@ -29,7 +29,7 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { regolithColor } from './terrain'
-import { PARK_CENTER, PARK_ROT_Y, PARK_HALF, PARK_CORE, TEMPLE_WORLD } from './park-site'
+import { PARK_CENTER, PARK_ROT_Y, PARK_HALF, PARK_CORE, TEMPLE_WORLD, parkReach, parkCore } from './park-site'
 import { buildLeonidasCave, CAVE_LOCAL, CAVE_YAW } from './leonidas-cave'
 import { mergeStaticByMaterial, type PerfProfile, type DistanceCuller } from './perf'
 import { SF, loadSf, dressSf } from './sf-assets'
@@ -158,7 +158,10 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
   const ringLocal = (lx: number, lz: number) => { const w = worldOf(lx, lz); return opts.baseAt(w.x, w.z) - center0 }
   const coreK = (lx: number, lz: number) => {
     const r = Math.hypot(lx, lz)
-    const k = r < PARK_CORE ? 1 : r > PARK_HALF ? 0 : 1 - (r - PARK_CORE) / (PARK_HALF - PARK_CORE)
+    // ⚠️ O MESMO ALCANCE ANISOTRÓPICO DA COVA. Se o parque fundir em 3.600 e o
+    // terreno em 2.750 do lado da cidade, sobra um degrau de 850 m entre os dois.
+    const _mm = parkReach(lx, lz), _nn = parkCore(lx, lz)
+    const k = r < _nn ? 1 : r > _mm ? 0 : 1 - (r - _nn) / (_mm - _nn)
     return k * k * (3 - 2 * k)
   }
   /** altura LOCAL (relativa ao grupo) do chão do parque em (lx, lz), quadro three local */

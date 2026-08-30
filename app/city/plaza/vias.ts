@@ -209,6 +209,9 @@ interface Quarteirao {
   /** ⚠️ `giro` e `lado` são DO BLOCO agora: 109 no Núcleo, 168 no Meio, 227 no
    *  Bairro, e na Cinta o giro é a tangente local, diferente em cada quarteirão */
   giro: number; lado: number; lotes: number
+  /** ⚠️ profundidade RADIAL do quarteirão. Na teia ela difere da testada: `lado`
+   *  é o arco (125 a 250 m) e `prof` é o vão entre anéis (109/168/227) */
+  prof: number
   /** faixas de 50 m do quarteirão: define quantas travessas e fileiras ele tem */
   k: number
 }
@@ -472,7 +475,9 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   let nq = 0
   let travessias = 0
   for (const q of malha.quarteiroes) {
-    const meio = q.lado / 2
+    // ⚠️ DOIS MEIOS, NÃO UM. O quarteirão da teia é trapézio: testada no arco,
+    // profundidade no raio. Um `meio` só desenhava contorno quadrado por cima.
+    const meio = q.lado / 2, meioZ = (q.prof ?? q.lado) / 2
     const g = (q.giro * Math.PI) / 180
     const cg = Math.cos(g), sg = Math.sin(g)
     const mundo = (lx: number, lz: number) => [q.x + lx * cg - lz * sg, q.z + lx * sg + lz * cg] as const
@@ -481,10 +486,10 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
 
     // os quatro lados: [borda local, perpendicular local, extensão nas pontas]
     const lados: [readonly [number, number], readonly [number, number], readonly [number, number]][] = [
-      [[-meio - 6, +meio], [+meio + 6, +meio], [0, 1]],   // +z, esticado
-      [[+meio + 6, -meio], [-meio - 6, -meio], [0, -1]],  // -z, esticado
-      [[+meio, -meio], [+meio, +meio], [1, 0]],           // +x
-      [[-meio, +meio], [-meio, -meio], [-1, 0]],          // -x
+      [[-meio - 6, +meioZ], [+meio + 6, +meioZ], [0, 1]],   // +z, esticado
+      [[+meio + 6, -meioZ], [-meio - 6, -meioZ], [0, -1]],  // -z, esticado
+      [[+meio, -meioZ], [+meio, +meioZ], [1, 0]],           // +x
+      [[-meio, +meioZ], [-meio, -meioZ], [-1, 0]],          // -x
     ]
     for (const [a, b, p] of lados) {
       const [ax, az] = mundo(a[0], a[1])

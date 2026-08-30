@@ -15,7 +15,7 @@
 // escurecimento suave com a distância, o mesmo para todas as malhas.
 import * as THREE from 'three'
 import { exageroEm, VEX_HORIZONTE } from './vex'
-import { PARK_CENTER, PARK_CORE, PARK_HALF, PARK_PIT } from './park-site'
+import { PARK_CENTER, PARK_PIT, parkReach, parkCore } from './park-site'
 
 export interface TerrainMeta {
   cols: number
@@ -212,9 +212,13 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array): Terrain 
   }
   const heightAt = (x: number, z: number): number => {
     const b = baseAt(x, z) - bacia(x, z)
-    const r = Math.hypot(x - PARK_CENTER.x, z - PARK_CENTER.z)
-    if (r >= PARK_HALF) return b
-    const k = r <= PARK_CORE ? 1 : 1 - (r - PARK_CORE) / (PARK_HALF - PARK_CORE)
+    const lx = x - PARK_CENTER.x, lz = z - PARK_CENTER.z
+    const r = Math.hypot(lx, lz)
+    // ⚠️ O ALCANCE VEM DA DIREÇÃO, não de uma constante: curto no rumo da cidade
+    // (onde fica o Portão do parque) e inteiro nos outros. Ver park-site.ts.
+    const meia = parkReach(lx, lz), nucleo = parkCore(lx, lz)
+    if (r >= meia) return b
+    const k = r <= nucleo ? 1 : 1 - (r - nucleo) / (meia - nucleo)
     const kk = k * k * (3 - 2 * k)
     return b - kk * Math.max(0, b - (parkDatum - PARK_PIT))
   }

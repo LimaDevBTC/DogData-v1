@@ -145,7 +145,7 @@ function fundir(gs: THREE.BufferGeometry[]): THREE.BufferGeometry {
   return g
 }
 
-interface Quarteirao { x: number; z: number; giro: number }
+interface Quarteirao { x: number; z: number; giro: number; lado: number; prof?: number }
 interface Bulevar { rumo: number; largura: number; x0: number; z0: number; x1: number; z1: number }
 interface Anel { r: number; larg: number }
 interface Peca { x: number; z: number; a: number; b: number; rot: number; forma?: string }
@@ -278,9 +278,14 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
   // dois lados dariam mais de 35 mil árvores só aqui.
   const PASSO_CONT = 9.1
   const RECUO_ESQ = 10.7
-  const meio = K.quarteirao / 2
-  const off = meio + 2.5 + 1.07     // 1,07 m da face do meio-fio da calçada
+  // ⚠️ O MEIO SAI DO BLOCO, NÃO DE UMA CONSTANTE. Era `K.quarteirao / 2` (84)
+  // para a cidade inteira; com o quarteirão variando por banda (109 no Núcleo,
+  // 168 no Meio, 227 no Bairro) isso plantava a fileira de árvores 30 m dentro
+  // do lote no Núcleo e 30 m fora dele no Bairro.
   for (const q of malha.quarteiroes) {
+    const meio = q.lado / 2
+    // a fileira corre ao longo da TESTADA e recua a PROFUNDIDADE
+    const off = (q.prof ?? q.lado) / 2 + 2.5 + 1.07
     const g = (q.giro * Math.PI) / 180
     const cg = Math.cos(g), sg = Math.sin(g)
     const meia = meio - RECUO_ESQ

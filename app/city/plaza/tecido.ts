@@ -16,7 +16,7 @@
 // ⚠️ NADA AQUI É PROJETO DE PRÉDIO. Massa não é fachada: são caixas sem detalhe,
 // que é exatamente como se apresenta plano urbano antes de existir arquitetura.
 //
-// Lê public/city/cidade-lotes.bin (11 bytes por lote) e public/city/cidade.json.
+// Lê public/city/cidade-lotes.bin (13 bytes por lote) e public/city/cidade.json.
 // A ordem dos registros é a mesma de data/dogcity_lotes.csv, onde mora o dono.
 //
 // Three.js puro (regra da casa: nada de react-three-fiber).
@@ -64,7 +64,7 @@ const CORES_FORMA = ['#8B8B93', '#C9A227', '#3FA7D6', '#E8660D', '#E5484D']
 const ALTURA = [7, 11, 17, 30, 52]
 
 interface Meta {
-  setores: number; giroPorSetor: number; bulevar_m: number
+  distritos?: number; setores?: number; bulevar_m: number
   raioInicio: number; raioSitio: number; raioBorda: number
   plantadas: number; programa: Peca[]
 }
@@ -82,8 +82,13 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
     fetch('/city/cidade.json').then((r) => r.json() as Promise<Meta>),
     fetch('/city/cidade-lotes.bin').then((r) => r.arrayBuffer()),
   ])
+  // ⚠️ O REGISTRO PASSOU DE 11 PARA 13 BYTES. Os dois a mais são o GIRO DO LOTE,
+  // uint16 em centésimos de grau. Até aqui a orientação era reconstruída como
+  // `setor * 7,5°`, o que funcionava enquanto havia um giro por setor; agora o
+  // giro é do QUARTEIRÃO e, na Cinta, é a tangente local, diferente em cada
+  // bloco. Derivar do setor giraria a Cinta inteira errado, em silêncio.
   const dv = new DataView(buf)
-  const REG = 11
+  const REG = 13
   const n = Math.floor(buf.byteLength / REG)
   const group = new THREE.Group()
   group.name = 'tecido'
@@ -107,7 +112,11 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
   // Fatiado em 12 setores, cada esfera tem raio de cerca de 1.700 m e o
   // renderizador descarta as que estão fora do quadro. Custa 11 chamadas de
   // desenho a mais, que é o troco.
-  const SET = meta.setores
+  // ⚠️ ISTO DERRUBOU O TECIDO INTEIRO E EM SILÊNCIO. O campo `setores` virou
+  // `distritos` quando os 12 setores de 7,5° deram lugar a 6 distritos desiguais.
+  // `Array.from({length: undefined})` devolve array VAZIO, então `porSetor[s]`
+  // era undefined e o módulo morria no primeiro lote: a cidade subia só com ruas.
+  const SET = meta.distritos ?? meta.setores ?? 12
   const porSetor: { m: number[]; c: number[] }[] = Array.from({ length: SET }, () => ({ m: [], c: [] }))
   const m4 = new THREE.Matrix4()
   const cor = new THREE.Color()
@@ -122,6 +131,7 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
     const setor = dv.getUint8(off + 4), coorte = dv.getUint8(off + 5)
     const flags = dv.getUint8(off + 8)
     const frente = dv.getUint8(off + 9), prof = dv.getUint8(off + 10)
+    const giroLote = (dv.getUint16(off + 11, true) / 100) * Math.PI / 180
     const forma = Math.min(4, (flags >> 1) & 7)
     const r01 = hash01(i)
 
@@ -139,7 +149,7 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
       alt = ALTURA[forma] * (0.72 + 0.5 * areaRel * 0.35 + 0.4 * r01)
     }
 
-    q.setFromAxisAngle(eixoY, -THREE.MathUtils.degToRad(setor * meta.giroPorSetor))
+    q.setFromAxisAngle(eixoY, -giroLote)
     // ⚠️ O PÉ DO LOTE É O PONTO MAIS ALTO DA TESTADA, NÃO O CENTRO. Uma caixa é
     // plana e o terreno não: assentando pelo centro, a metade de cima do lote
     // afunda no regolito. Medido em 29/08 com 4.000 sondas verticais: 8,1% das
@@ -151,7 +161,7 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
     const meiaF = frente / 2, meiaP = prof / 2
     let base = o.heightAt(x, z)
     for (const [dx, dz] of [[-meiaF, -meiaP], [meiaF, -meiaP], [-meiaF, meiaP], [meiaF, meiaP]] as const) {
-      const gx = THREE.MathUtils.degToRad(-setor * meta.giroPorSetor)
+      const gx = -giroLote
       const cgx = Math.cos(gx), sgx = Math.sin(gx)
       base = Math.max(base, o.heightAt(x + dx * cgx - dz * sgx, z + dx * sgx + dz * cgx))
     }
@@ -249,7 +259,8 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
       const x = dv.getInt16(off, true), z = dv.getInt16(off + 2, true)
       const setor = dv.getUint8(off + 4)
       const frente = dv.getUint8(off + 9), prof = dv.getUint8(off + 10)
-      const ang = -THREE.MathUtils.degToRad(setor * meta.giroPorSetor)
+    const giroLote = (dv.getUint16(off + 11, true) / 100) * Math.PI / 180
+      const ang = -giroLote
       const cx = Math.cos(ang), sx = Math.sin(ang)
       // esquina da frente, no canto esquerdo de quem olha da rua
       const lx = -frente / 2 + 0.6, lz = -prof / 2 + 0.6

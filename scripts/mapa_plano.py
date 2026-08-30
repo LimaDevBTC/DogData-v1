@@ -54,8 +54,10 @@ with open(CSV, newline='') as f:
         pts = []
         for dx, dz in ((-fr/2, -pf/2), (fr/2, -pf/2), (fr/2, pf/2), (-fr/2, pf/2)):
             pts.append(tela(x + dx*ca - dz*sa, z + dx*sa + dz*ca))
-        # tom por BANDA, para o grão mudar de cor junto com o quarteirão
-        g = 208 - int(row['quarto']) * 16
+        # ⚠️ O TOM SAI DO RAIO, NÃO DA BANDA. Com a teia as bandas viraram ANÉIS
+        # (são 17), e `208 - banda*16` ficava negativo do 13º anel para fora:
+        # a periferia inteira saía preta e parecia que não havia tecido lá.
+        g = int(200 - 46 * min(1.0, max(0.0, (float(row['raio_m']) - 1450) / 2950)))
         dr.polygon(pts, fill=(g, g - 8, g - 20))
         n += 1
 

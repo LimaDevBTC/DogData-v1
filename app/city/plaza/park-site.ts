@@ -21,6 +21,42 @@ export const PARK_ROT_Y = 0
 export const PARK_HALF = 3600
 /** até aqui o parque é o parque; daqui a PARK_HALF ele funde no regolito */
 export const PARK_CORE = 3100
+/**
+ * ⚠️ O ALCANCE DO PARQUE É ANISOTRÓPICO, E ISSO NÃO É CAPRICHO. `PARK_HALF` era
+ * 3.600 em toda direção, e como o parque está a 5.200 do centro, a cova dele
+ * alcançava r 1.600 da cidade: o quadrante nordeste inteiro afundava e ficava
+ * proibido para lote. Custo medido: 11,72 km², 21,6% do sítio, mais que toda a
+ * área de lote alocada.
+ *
+ * ⚠️ E ENCOLHER POR IGUAL QUEBRARIA O PORTAL. A chegada do parque (estrada,
+ * Portão, Longshadow Plaza) fica a 2,8 km do Monarca, do lado da praça: um raio
+ * único menor que isso deixaria o Portão FORA da malha do parque. Então o
+ * alcance encurta só no rumo da cidade, onde a chegada está, e continua 3.600
+ * nas outras direções, onde o parque tem cordilheira.
+ *
+ * O resultado é o que o fundador pediu: a borda do parque do lado da cidade
+ * passa a ser a ENTRADA, com o Portão nela, e o resto do espaço volta a ser
+ * cidade.
+ */
+export const PARK_FRENTE = 2750
+export const PARK_BLEND = 450
+/** meio-lado efetivo naquela direção. (lx, lz) é local ao parque. */
+export function parkReach(lx: number, lz: number): number {
+  const dx = -PARK_CENTER.x, dz = -PARK_CENTER.z          // do parque para a cidade
+  const nd = Math.hypot(dx, dz) || 1
+  const nl = Math.hypot(lx, lz)
+  if (nl < 1e-6) return PARK_FRENTE
+  const cos = (lx * dx + lz * dz) / (nl * nd)
+  const C1 = Math.cos(THREE.MathUtils.degToRad(42))       // dentro disto: frente cheia
+  const C0 = Math.cos(THREE.MathUtils.degToRad(78))       // fora disto: parque cheio
+  const t = Math.min(1, Math.max(0, (cos - C0) / (C1 - C0)))
+  const k = t * t * (3 - 2 * t)
+  return PARK_HALF + (PARK_FRENTE - PARK_HALF) * k
+}
+export function parkCore(lx: number, lz: number): number {
+  return parkReach(lx, lz) - PARK_BLEND
+}
+
 /** quanto o regolito desce sob o parque, abaixo do datum, para nunca vazar pelo vale (fundo −61) */
 export const PARK_PIT = 80
 

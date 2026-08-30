@@ -33,7 +33,7 @@
 // seriam medidas contra um lote iluminado por outra fórmula e não fechariam.
 // Continua sendo 1 material e 1 programa.
 //
-// Lê public/city/cidade-lotes.bin (11 bytes por lote) e, para os marcos,
+// Lê public/city/cidade-lotes.bin (13 bytes por lote) e, para os marcos,
 // public/city/cidade-malha.json (1.182 quarteirões com centro, lado e giro).
 //
 // Three.js puro (regra da casa: nada de react-three-fiber).
@@ -42,7 +42,7 @@ import * as THREE from 'three'
 
 export interface LotesMeta {
   /** graus de giro por setor; a malha do setor k está girada k * este valor */
-  giroPorSetor: number
+  distritos?: number
   setores?: number
 }
 
@@ -50,7 +50,7 @@ interface QuarteiraoMalha {
   id: string; setor: number; x: number; z: number; giro: number; lado: number
 }
 interface MalhaLotes {
-  constantes: { giroPorSetor: number; quarteirao: number }
+  constantes: { distritos?: number }
   quarteiroes: QuarteiraoMalha[]
 }
 
@@ -169,10 +169,14 @@ export async function buildLotes(o: LotesOpts): Promise<Lotes> {
     o.malha ? Promise.resolve(o.malha) : fetch('/city/cidade-malha.json').then((r) => r.json() as Promise<MalhaLotes>),
   ])
 
-  const REG = 11
+  // ⚠️ O REGISTRO PASSOU DE 11 PARA 13 BYTES. Os dois a mais são o GIRO DO LOTE,
+  // uint16 em centésimos de grau. Até aqui a orientação era reconstruída como
+  // `setor * 7,5°`, o que funcionava enquanto havia um giro por setor; agora o
+  // giro é do QUARTEIRÃO e, na Cinta, é a tangente local, diferente em cada
+  // bloco. Derivar do setor giraria a Cinta inteira errado, em silêncio.
+  const REG = 13
   const dv = new DataView(buf)
   const n = Math.floor(buf.byteLength / REG)
-  const giroPorSetor = meta.giroPorSetor ?? 7.5
   const group = new THREE.Group()
   group.name = 'lotes'
 
@@ -180,6 +184,7 @@ export async function buildLotes(o: LotesOpts): Promise<Lotes> {
   const cx = new Float32Array(n), cz = new Float32Array(n)
   const fr = new Float32Array(n), pf = new Float32Array(n)
   const setorDe = new Uint8Array(n), formaDe = new Uint8Array(n), dscDe = new Uint8Array(n)
+  const giroDe = new Float32Array(n)   // radianos, do quarteirão do lote
   for (let i = 0; i < n; i++) {
     const off = i * REG
     cx[i] = dv.getInt16(off, true)
@@ -190,6 +195,7 @@ export async function buildLotes(o: LotesOpts): Promise<Lotes> {
     formaDe[i] = Math.min(4, (flags >> 1) & 7)
     fr[i] = dv.getUint8(off + 9)
     pf[i] = dv.getUint8(off + 10)
+    giroDe[i] = (dv.getUint16(off + 11, true) / 100) * Math.PI / 180
   }
 
   // ── 2. a regra D9: quem está contido em quem ────────────────────────────
@@ -214,7 +220,7 @@ export async function buildLotes(o: LotesOpts): Promise<Lotes> {
   }
   const superqComLote = new Set<number>()
   for (const g of grandes) {
-    const ang = -THREE.MathUtils.degToRad(setorDe[g] * giroPorSetor)
+    const ang = -giroDe[g]
     const cg = Math.cos(ang), sg = Math.sin(ang)
     const raio = Math.hypot(fr[g], pf[g]) / 2
     const g0x = Math.floor((cx[g] - raio) / CEL), g1x = Math.floor((cx[g] + raio) / CEL)
@@ -247,7 +253,7 @@ export async function buildLotes(o: LotesOpts): Promise<Lotes> {
   const tint = new THREE.Color()
 
   for (let i = 0; i < n; i++) {
-    const ang = -THREE.MathUtils.degToRad(setorDe[i] * giroPorSetor)
+    const ang = -giroDe[i]
     const cg = Math.cos(ang), sg = Math.sin(ang)
     const larg = Math.max(1, fr[i] - 2 * RECUO_DIVISA)
     const prof = Math.max(1, pf[i] - 2 * RECUO_DIVISA)
