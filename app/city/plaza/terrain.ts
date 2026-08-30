@@ -14,6 +14,7 @@
 // Blender, a conversão do exportador glTF. Sem névoa: o que escurece é a luz e um
 // escurecimento suave com a distância, o mesmo para todas as malhas.
 import * as THREE from 'three'
+import { PODIO_Y, PODIO_R0, PODIO_R1, PODIO_R2, PODIO_R3, PODIO_R3_PARQUE } from './dome'
 import { exageroEm, VEX_HORIZONTE } from './vex'
 import { PARK_CENTER, PARK_PIT, parkReach, parkCore } from './park-site'
 
@@ -110,7 +111,7 @@ export function regolithColor(x: number, z: number, relief: number, dist: number
 export interface Monte { x: number; z: number; raio: number; altura: number }
 
 export interface CanalCava {
-  radiais: { rumo: number; secao: number; rInicio: number }[]
+  radiais: { rumo: number; secao: number; rInicio: number; rFim?: number }[]
   aneis: { phi: number; secao: number; contorno: [number, number][] }[]
   /** quanto o leito desce abaixo do chão original */
   fundo?: number
@@ -143,6 +144,8 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
   const _tal = cava?.talude ?? 26
   const _radiais = (cava?.radiais ?? []).map((r) => ({
     ...r, dx: Math.sin((r.rumo * Math.PI) / 180), dz: -Math.cos((r.rumo * Math.PI) / 180),
+    // ⚠️ SEM ESTE FIM A VALA VAI ATÉ O INFINITO. Ver o comentário em plaza-scene.
+    rFim: r.rFim ?? Infinity,
   }))
   // ⚠️ PERFIL DE COSSENO, NÃO CONE. Cone dá aresta na base e ponta no topo: a
   // aresta vira degrau visível de longe e a ponta não tem onde pôr o teleférico.
@@ -167,7 +170,7 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
     let k = 0
     for (const r of _radiais) {
       const t = x * r.dx + z * r.dz
-      if (t < r.rInicio - 40) continue
+      if (t < r.rInicio - 40 || t > r.rFim + _tal) continue
       const d = Math.abs(x * r.dz - z * r.dx)     // distância ao eixo
       const meia = r.secao / 2
       if (d < meia) k = Math.max(k, 1)
@@ -290,10 +293,52 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
     else k = 1
     return LAGO_FUNDO * (k * k * (3 - 2 * k))
   }
+  // ── O PÓDIO DA ABÓBADA ────────────────────────────────────────────────────
+  //
+  // ⚠️ SEM ESTE BLOCO A CÚPULA NÃO FECHA. A casca é uma calota esférica pura, de
+  // borda numa cota só; o terreno cru varia 232 m no círculo de 8.600 m. Se a
+  // terra não for nivelada, a abóbada fura o chão de um lado e fica pendurada a
+  // 100 m dele do outro. Foi exatamente isso que apareceu na chapa como o rasgo
+  // na borda, e a tentativa de consertar pela casca (fazer a borda seguir o
+  // relevo) transformou a cúpula em lençol. O desnível se resolve com terra.
+  //
+  // O anel é plano entre R1 e R2 e se dissolve nos dois lados por smoothstep.
+  // A rampa interna, 750 m para até 127 m de corte, dá 19,3% no pior rumo — um
+  // talude de 1:5, que se sustenta. R0 é 7.700 porque a cidade acaba em 7.691:
+  // nenhuma quadra é tocada pela terraplenagem.
+  // ⚠️ O FADE EXTERNO ENCURTA NO RUMO DO PARQUE. Ver PODIO_R3_PARQUE em dome.ts:
+  // a partir de 7.550 naquele setor começa a cova do Runestone, e um fade longo
+  // ali levantaria a testada do parque. A mistura angular é a mesma de
+  // `parkReach`, para as duas transições combinarem em vez de brigarem.
+  const _pdx = PARK_CENTER.x, _pdz = PARK_CENTER.z
+  const _pnd = Math.hypot(_pdx, _pdz) || 1
+  const podioR3Em = (x: number, z: number): number => {
+    const nl = Math.hypot(x, z)
+    if (nl < 1e-6) return PODIO_R3
+    const cos = (x * _pdx + z * _pdz) / (nl * _pnd)
+    const C1 = Math.cos((42 * Math.PI) / 180)      // dentro disto: fade curto inteiro
+    const C0 = Math.cos((78 * Math.PI) / 180)      // fora disto: fade longo
+    const t = Math.min(1, Math.max(0, (cos - C0) / (C1 - C0)))
+    const k = t * t * (3 - 2 * t)
+    return PODIO_R3 + (PODIO_R3_PARQUE - PODIO_R3) * k
+  }
+  const podioPeso = (x: number, z: number): number => {
+    const r = Math.hypot(x, z)
+    if (r <= PODIO_R0) return 0
+    const R3 = podioR3Em(x, z)
+    if (r >= R3) return 0
+    if (r >= PODIO_R1 && r <= PODIO_R2) return 1
+    const t = r < PODIO_R1
+      ? (r - PODIO_R0) / (PODIO_R1 - PODIO_R0)
+      : (R3 - r) / (R3 - PODIO_R2)
+    return t * t * (3 - 2 * t)
+  }
   const heightAt = (x: number, z: number): number => {
     // ⚠️ A VALA DO CANAL ENTRA JUNTO COM A BACIA DO LAGO, no mesmo ponto e pelo
     // mesmo motivo: os dois são água, e água só aparece se o chão for cavado.
-    const b = baseAt(x, z) - bacia(x, z) - _fundoC * cavaEm(x, z) + monteEm(x, z)
+    const b0 = baseAt(x, z) - bacia(x, z) - _fundoC * cavaEm(x, z) + monteEm(x, z)
+    const _w = podioPeso(x, z)
+    const b = _w > 0 ? b0 * (1 - _w) + PODIO_Y * _w : b0
     const lx = x - PARK_CENTER.x, lz = z - PARK_CENTER.z
     const r = Math.hypot(lx, lz)
     // ⚠️ O ALCANCE VEM DA DIREÇÃO, não de uma constante: curto no rumo da cidade

@@ -1160,9 +1160,21 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         const _malhaCava = await fetch('/city/cidade-malha.json')
           .then((r) => r.json()).catch(() => null)
         const _cn = _malhaCava?.canais
+        // ⚠️ A VALA PRECISA DO FIM, NÃO SÓ DO COMEÇO. Esta linha passava
+        // `{rumo, secao, rInicio}` e descartava o fim do canal, enquanto a ÁGUA
+        // (canais.ts) já parava em `rFimRadial`. Resultado: cada uma das 8 valas
+        // radiais corria de 1.450 até o INFINITO, 96 m de largura, cortando o
+        // cinturão inteiro e passando por baixo da parede da abóbada. Medido: os
+        // Campos de Extração EX07 (r 7.600) e EX08 (r 8.600) apareciam cortados
+        // pelo canal CR06, cujo próprio `phiFim` é 3.727. O fim é o mesmo que a
+        // água usa: o raio máximo dos anéis de canal.
+        const _rFimCanal = _cn?.aneis?.length
+          ? Math.max(..._cn.aneis.flatMap((a: { contorno: [number, number][] }) =>
+              a.contorno.map(([x, z]: [number, number]) => Math.hypot(x, z))))
+          : 4300
         const terrain = await loadTerrain(_cn ? {
           radiais: (_cn.radiais ?? []).map((r: { rumo: number; secao: number; rInicio: number }) =>
-            ({ rumo: r.rumo, secao: r.secao, rInicio: r.rInicio })),
+            ({ rumo: r.rumo, secao: r.secao, rInicio: r.rInicio, rFim: _rFimCanal })),
           aneis: (_cn.aneis ?? []).map((a: { phi: number; secao: number; contorno: [number, number][] }) =>
             ({ phi: a.phi, secao: a.secao, contorno: a.contorno })),
           // ⚠️ A MONTANHA DE NEVE ENTRA JUNTO COM A VALA, pelo mesmo caminho e pelo
@@ -1204,8 +1216,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               superficieAt: terrain.superficieAt,
               contorno: _malhaDomo.contorno,
               cell: num('celula', 42),
-              crown: num('flecha', 1200),
-              rim: num('borda', 90),
+              crown: num('flecha', 2619),
+              rim: num('borda', 53),
               rib: num('nervura', 0.9),
             })
             scene.add(domo.group)
@@ -1229,7 +1241,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                   heightAt: terrain.heightAt, superficieAt: terrain.superficieAt,
                   contorno: cont, centro: { x: _v.x, z: _v.z },
                   cell: num('celula', 42), crown: _v.flecha ?? 614,
-                  rim: num('borda', 90), rib: num('nervura', 0.9),
+                  rim: num('borda', 53), rib: num('nervura', 0.9),
                 })
                 dv.group.name = 'abobada-vale'
                 scene.add(dv.group)

@@ -36,7 +36,47 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 // sobre ela ou sobrava 1,5 km de um lado ou cortava a cidade do outro.
 // A abóbada agora recorta no MESMO contorno que o gerador publica em
 // `cidade-malha.json` -> `contorno`, com uma folga. Sem contorno, cai neste raio.
-export const DOME_R = 7600
+export const DOME_R = 7050
+
+/**
+ * ⚠️ 8.600 -> 7.050 em 30/08. A borda agora termina EXATAMENTE na entrada do
+ * Parque Runestone. O parque está a 9.800 do centro e alcança 2.750 na direção
+ * da cidade (`PARK_FRENTE`), então a testada dele é 9.800 − 2.750 = 7.050. Com
+ * 8.600 a abóbada entrava 1.550 m parque adentro e a saia dela ficava DE PÉ
+ * dentro da cova do parque, a −263 m; com os 7.600 antigos já entrava 550 m.
+ * O cinturão continua grande de propósito, para a cidade crescer: 87,7 km²,
+ * 56% do que a cúpula cobre.
+ *
+ * ⚠️ SE `PARK_FRENTE` OU `DIST` MUDAREM EM park-site.ts, ESTE NÚMERO MUDA JUNTO.
+ */
+
+/**
+ * ⚠️ O PÓDIO. A casca é uma calota esférica pura, então a borda dela está numa
+ * COTA SÓ. O terreno não está: no círculo de 7.050 m ele varia 235 m. Se a terra
+ * não for nivelada, a abóbada fura o chão de um lado e fica pendurada a 100 m
+ * dele do outro. A cota saiu do equilíbrio entre corte e aterro (149 m de corte
+ * no pior rumo, 85 m de aterro no oposto).
+ */
+export const PODIO_Y = 13
+// ⚠️ A FAIXA É LARGA DE PROPÓSITO, e alargar quase não mudou a rampa: de 6.200
+// para 5.000 ela caiu só de 34,1% para 30,7%. O motivo é que a rampa não vem da
+// transição, vem do SÍTIO: o terreno cru tem 42,8% no rumo 193 e 43,0% no 39, e
+// há uma depressão de 180 m entre r 5.750 e 7.250 no setor sudoeste. A
+// terraplenagem SUAVIZA essa cara (31% contra 43%), não a cria. A mediana do
+// sítio é 1,8% e o p95 7,3%; esses picos são feição local.
+export const PODIO_R0 = 5000      // onde a transição começa (a cidade acaba em 4.666)
+export const PODIO_R1 = 6950      // daqui até R2 é plano, e a borda (7.050) fica dentro
+export const PODIO_R2 = 7150
+/**
+ * ⚠️ O FADE EXTERNO É ANISOTRÓPICO, PELO MESMO MOTIVO QUE O DO PARQUE. Ele
+ * precisa de 708 m no rumo 180, onde o terreno está 142 m acima do pódio, mas
+ * no rumo do parque (313°) ele não pode passar de 7.550: dali para fora começa
+ * a cova do Runestone, e um fade longo levantaria a testada do parque. Medido:
+ * no setor do parque o fade necessário é 425 m, e 7.150 → 7.550 dá 400, com
+ * rampa de 20,8% — a mesma ordem da rampa interna, 19,9%.
+ */
+export const PODIO_R3 = 8300
+export const PODIO_R3_PARQUE = 7550
 
 export interface DomeOpts {
   /** o chão, para a saia da borda pousar no relevo real */
@@ -208,8 +248,24 @@ function materialNervura(fade: number, coroa: number): THREE.ShaderMaterial {
 
 export function buildDome(o: DomeOpts): Dome {
   const a = o.cell ?? 42
-  const rim = o.rim ?? 90
-  const crown = o.crown ?? 1200
+  // ⚠️ A BORDA ASSENTA NO PÓDIO, não numa cota solta. `rim` é onde a tela de
+  // hexágonos morre, e ela fica PARAPEITO acima do anel nivelado: 40 m, que é a
+  // pilha anel de coroamento 7,5 + parede 23,5 + berma 9. Constante em toda a
+  // volta, porque o pódio é constante. Em 54 km de perímetro isso dá 2,2 km² de
+  // superfície cega, contra os 3,46 km² que a parede variável cobrava.
+  const PARAPEITO = 40
+  const rim = o.rim ?? (PODIO_Y + PARAPEITO)
+  // ⚠️ A FLECHA SE ESCOLHE PELO ÂNGULO DA BORDA, não pela altura. A relação é
+  // `flecha / raio = tan(θ/2)`, onde θ é a inclinação da casca onde ela morre no
+  // anel. Isso é o que decide se a peça lê como CÚPULA ou como lente, e a altura
+  // sozinha engana: a versão de 1.256 m parecia baixa não por ser baixa, mas
+  // porque chegava ao chão a 16,6° — quase deitada. Com 3.130 m ela chega a
+  // 40,0°, que é barriga de cúpula de verdade.
+  //
+  // Não custa geometria: as células são distribuídas em PLANTA, então subir a
+  // flecha não muda a contagem (1,26 M de triângulos nas duas). O que sobe junto
+  // é a órbita das naves, que é lida de `coroa − 180`.
+  const crown = o.crown ?? (PODIO_Y + PARAPEITO + 2566)
   const ribW = o.rib ?? 0.9
   const fade = o.fade ?? 2200
 
@@ -223,7 +279,7 @@ export function buildDome(o: DomeOpts): Dome {
   const yc = crown - Rc
   /** a normal da esfera em (x, z), que é o que orienta pillow e nervura */
   const normalEm = (x: number, z: number, out: THREE.Vector3) =>
-    out.set(x, capY(Math.hypot(x, z), Math.atan2(z, x)) - yc, z).normalize()
+    out.set(x, capY(Math.hypot(x, z)) - yc, z).normalize()
 
   // ⚠️ A CASCA VAI ATÉ 3.500, NÃO ATÉ 3.500 MENOS UMA CÉLULA. A primeira versão
   // parava uma célula antes para não ter hexágono pela metade, e isso custava
@@ -242,69 +298,38 @@ export function buildDome(o: DomeOpts): Dome {
   const chaoBorda = o.superficieAt
     ? (x: number, z: number) => o.superficieAt!(x + cen.x, z + cen.z)
     : heightAt
-  const folga = o.rimFolga ?? 120
-  const cont = (o.contorno ?? []).map(([x, z]) => ({ a: Math.atan2(z, x), r: Math.hypot(x, z) + folga }))
-  cont.sort((p, q) => p.a - q.a)
-  const raioNo = (ang: number): number => {
-    if (!cont.length) return DOME_R
-    let a = ang
-    while (a < cont[0].a) a += Math.PI * 2
-    while (a > cont[cont.length - 1].a + Math.PI * 2) a -= Math.PI * 2
-    for (let i = 0; i < cont.length; i++) {
-      const p = cont[i], q = cont[(i + 1) % cont.length]
-      let qa = q.a; if (qa < p.a) qa += Math.PI * 2
-      let aa = a; if (aa < p.a) aa += Math.PI * 2
-      if (aa >= p.a && aa <= qa) {
-        const t = qa === p.a ? 0 : (aa - p.a) / (qa - p.a)
-        return p.r + (q.r - p.r) * t
-      }
-    }
-    return cont[0].r
-  }
-
-  const rMax = cont.length ? Math.max(...cont.map((c) => c.r)) : DOME_R
-
-  // ── A BORDA ACOMPANHA O CHÃO ──────────────────────────────────────────────
+  // ⚠️ PLANTA CIRCULAR (fundador, 30/08: "a abóbada está toda torda, deixou de
+  // ser uma cúpula pra virar um lençol, quero ela como uma cúpula perfeita").
   //
-  // ⚠️ ELA ERA UMA COTA FIXA E O TERRENO VARIA 235 m. Medido em 720 rumos: a
-  // parede entre a borda da calota e o solo ia de +163,8 m (rumo 310, chão a
-  // −73,8) a **−71,6 m** (rumo 180, chão a +161,6). Negativo quer dizer que o
-  // TERRENO ESTAVA ACIMA DA CASCA e a atravessava por 71,6 m. De um lado um
-  // penhasco cego de 164 m com 3,46 km² de parede sem nada, do outro a montanha
-  // entrando por dentro do domo. Era isso, e não a falta de acabamento, o que
-  // aparecia na chapa como o rasgo na borda.
+  // A versão anterior fazia duas coisas que, juntas, desmanchavam a esfera:
+  // recortava a casca no CONTORNO DA CIDADE, uma superelipse de raio 6.103 a
+  // 7.691 m, e ainda levantava cada rumo pela altura do chão naquele ponto. A
+  // silhueta mudava a cada rumo e a aba ondulava 481 m: lençol, não cúpula.
   //
-  // Agora a calota inteira é levantada por `baseNo(ang)`: a altura do chão na
-  // borda, SUAVIZADA numa janela larga. Suavizar é o ponto: seguir o relevo cru
-  // faria a casca ondular como lona; a janela de ±25° deixa a cúpula inclinar
-  // devagar acompanhando o sítio, que é o que estrutura grande faz, e mantém a
-  // parede com altura parecida em toda a volta.
-  const NB = 180
-  const bruto: number[] = []
-  for (let i = 0; i < NB; i++) {
-    const a = (i / NB) * Math.PI * 2
-    const rr = raioNo(a)
-    bruto.push(chaoBorda(Math.cos(a) * rr, Math.sin(a) * rr))
-  }
-  const suave: number[] = []
-  const JAN = Math.round(NB * 25 / 360)      // ±25° de janela
-  for (let i = 0; i < NB; i++) {
-    let sm = 0, w = 0
-    for (let k = -JAN; k <= JAN; k++) {
-      const p = (i + k + NB * 2) % NB
-      const peso = 1 - Math.abs(k) / (JAN + 1)
-      sm += bruto[p] * peso; w += peso
-    }
-    suave.push(sm / w)
-  }
-  const baseNo = (ang: number) => {
-    let a = ang % (Math.PI * 2); if (a < 0) a += Math.PI * 2
-    const t = (a / (Math.PI * 2)) * NB
-    const i = Math.floor(t) % NB, f = t - Math.floor(t)
-    return suave[i] * (1 - f) + suave[(i + 1) % NB] * f
-  }
-  const capY = (r: number, ang?: number) =>
-    yc + Math.sqrt(Math.max(0, Rc * Rc - r * r)) + (ang === undefined ? 0 : baseNo(ang))
+  // Medi o terreno num CÍRCULO e a surpresa desfez o problema: ele varia 232 m,
+  // não 481. Os 481 m nunca foram do sítio — eram da superelipse cortando a
+  // encosta em diagonal, entrando e saindo da subida. Num círculo o sítio é
+  // muito mais manso do que parecia.
+  //
+  // Então a casca volta a ser calota esférica pura, com a borda numa cota só, e
+  // o desnível do chão passa a ser problema do PÓDIO, que é a peça de projeto
+  // certa para ele. `o.contorno` continua na interface porque o domo do vale
+  // passa um, mas aqui ele não recorta mais nada.
+  const raioNo = (_ang: number): number => DOME_R
+  const rMax = DOME_R
+
+  // ── A BORDA NUMA COTA SÓ ──────────────────────────────────────────────────
+  //
+  // ⚠️ NÃO PONHA O RELEVO DE VOLTA AQUI. Eu já tentei: fiz a borda seguir o chão
+  // para a parede ficar com altura constante, e o resultado foi a casca virar
+  // lona. O erro estava em escolher o lugar errado para absorver o desnível. A
+  // casca é a peça RÍGIDA — ela não negocia. Quem negocia com o terreno é o
+  // pódio, embaixo, que é terra e existe para isso.
+  //
+  // Assim `capY` volta a depender só do raio: uma esfera, igual em todo rumo.
+  const capY = (r: number) =>
+    yc + Math.sqrt(Math.max(0, Rc * Rc - Math.min(r, DOME_R) * Math.min(r, DOME_R)))
+
   // Almofada: quanto a célula estufa acima da calota. 0,18·a dá a leitura de
   // acolchoado sem virar bolha de plástico.
   const pillow = 0.12 * a
@@ -358,7 +383,7 @@ export function buildDome(o: DomeOpts): Dome {
     const idx: number[] = []
     normalEm(c.x, c.z, tmpN)
     // centro
-    pos.push(c.x, capY(Math.hypot(c.x, c.z), Math.atan2(c.z, c.x)) + pillow * tmpN.y, c.z)
+    pos.push(c.x, capY(Math.hypot(c.x, c.z)) + pillow * tmpN.y, c.z)
     // anéis, de dentro para fora; o de fora encosta na calota
     for (let anel = 1; anel <= aneis; anel++) {
       const t = anel / aneis
@@ -369,7 +394,7 @@ export function buildDome(o: DomeOpts): Dome {
         // entra inteira (o teste é do CENTRO) e o hexágono avança até 42 m além
         // do anel da saia: a silhueta da abóbada fica serrilhada como serra.
         const [x, z] = apara(c.x + CANTO[k][0] * raio, c.z + CANTO[k][1] * raio, anel === aneis)
-        pos.push(x, capY(Math.hypot(x, z), Math.atan2(z, x)) + alt, z)
+        pos.push(x, capY(Math.hypot(x, z)) + alt, z)
       }
     }
     // leque do centro para o primeiro anel
@@ -417,7 +442,7 @@ export function buildDome(o: DomeOpts): Dome {
   const dir = new THREE.Vector3(), lado = new THREE.Vector3(), nrm = new THREE.Vector3()
   const canto = (cx: number, cz: number, k: number, out: THREE.Vector3) => {
     const [x, z] = apara(cx + CANTO[k][0] * a, cz + CANTO[k][1] * a, true)
-    return out.set(x, capY(Math.hypot(x, z), Math.atan2(z, x)), z)
+    return out.set(x, capY(Math.hypot(x, z)), z)
   }
   for (const c of centros) {
     for (let k = 0; k < 6; k++) {
@@ -493,7 +518,7 @@ export function buildDome(o: DomeOpts): Dome {
     const rr = raioNo(ang)
     const cx2 = Math.cos(ang), cz2 = Math.sin(ang)
     const x = cx2 * rr, z = cz2 * rr
-    const yBorda = capY(rr, ang)            // onde a tela de hexágonos morre
+    const yBorda = capY(rr)            // onde a tela de hexágonos morre
     const yChao = chao(x, z)
     // o anel: caixão que recebe a tela, avança para fora e desce ANEL_H
     aPos.push(cx2 * (rr - ANEL_W), yBorda, cz2 * (rr - ANEL_W))            // 0 aba de dentro
