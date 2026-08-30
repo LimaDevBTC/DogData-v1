@@ -245,7 +245,14 @@ def phi(x, z):
     lx, lz = x*c + z*sn, -x*sn + z*c
     q = (abs(lx/FORMA_AX)**FORMA_N + abs(lz/FORMA_AZ)**FORMA_N) ** (1.0/FORMA_N)
     q *= (1.0 - FORMA_HARM*math.cos(3*math.atan2(z, x) - 0.7))
-    w = min(1.0, max(0.0, (r - R_INICIO) / (PHI_BORDA - R_INICIO)))
+    # ⚠️ A MISTURA TERMINA ONDE O TECIDO TERMINA, NÃO NA BORDA DA ABÓBADA. Isto
+    # era `(r - R_INICIO) / (PHI_BORDA - R_INICIO)` com PHI_BORDA = 6.900, e o
+    # lote para em 4.300: naquele ponto a fração valia 0,52, ou seja a forma
+    # estava aplicada pela METADE onde a cidade acaba. A superelipse só ficava
+    # ela mesma perto de 6.900, que é o cinturão vazio. Resultado visto de cima:
+    # abóbada em superelipse e TECIDO EM CÍRCULO PERFEITO. A forma estava sendo
+    # gasta na parte vazia. Resíduo de quando o lote ia até a borda.
+    w = min(1.0, max(0.0, (r - R_INICIO) / (PHI_PRODUTIVO - R_INICIO)))
     return r*(1 - w*w*(3 - 2*w)) + q*(w*w*(3 - 2*w))
 
 # ── PARQUES ESCOLHIDOS, NÃO SORTEADOS POR MALHA ─────────────────────────────
