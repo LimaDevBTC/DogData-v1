@@ -1,49 +1,57 @@
 {
-  "esquema": "Reserva Cívica da DogCity: as parcelas que NÃO saem da regra de idade porque nunca entraram nela. Loteamento de verdade reserva as quadras cívicas e a frente d'água antes de distribuir o resto; isto é esse ato, escrito, contável e publicável junto com a regra de alocação. O gerador lê este arquivo ANTES de plantar e retira estas parcelas do estoque.",
-  "versao": 1,
-  "decidido_em": "2026-08-29",
-  "porque_existe": [
-    "A regra de idade acerta para holder e erra para endereco civico: a carteira de doacao do projeto (1.030.708 DOG) caiu no raio 4.133 de 4.400, na periferia, porque o endereco e novo. Tesouraria na borda e defeito, nao resultado.",
-    "Sem reserva declarada nao ha como dar, permutar ou vender terreno depois sem tirar de alguem, e tirar de alguem depois de publicado e quebra de contrato.",
-    "Reserva escondida e rug. Reserva publicada e plano diretor. A diferenca inteira esta em anunciar o numero antes."
-  ],
-  "regra_publicavel": "O projeto reserva 102 parcelas de 85.943, ou 0,12% do total. Toda parcela reservada e nominal, tem posicao fixa neste arquivo e aparece no mapa como propriedade do projeto. Nenhuma outra parcela e retirada do sorteio por idade.",
-  "civicas": [
-    {
-      "id": "CIV-01",
-      "nome": "Casa do Fundador",
-      "address": "bc1pd56er837kuywwxvysnwx30kdpa82ktm7kvvp83xnc2lykqcjz6qq76wrnl",
-      "banda": "Orla",
-      "rumo_graus": 0.0,
-      "lado": "leste da cabeceira da ponte norte",
-      "area_m2": 900,
-      "nota": "Frente para a agua, no eixo cerimonial que vai da Praca Satoshi pela ponte norte para dentro da cidade. Pedido do fundador em 29/08/2026. A carteira nao estava no snapshot das 18:31 daquele dia porque os 100k DOG entraram depois; o vinculo aqui e por ENDERECO, entao a posicao nao depende de quando o scanner a enxergar."
-    },
-    {
-      "id": "CIV-02",
-      "nome": "Tesouraria DogData",
-      "address": "bc1pxk7aw9ug55jkkz02z7ayhlkxxq92ya0ctegcwm5j8jumgaavjlkqdylk2p",
-      "banda": "Orla",
-      "rumo_graus": 180.0,
-      "lado": "cabeceira da ponte sul",
-      "area_m2": 1400,
-      "nota": "A carteira de doacao publicada em app/dogcity/dogcity-data.ts (DONATION_WALLET). Sai do lote S10-Q19-B005-L008 (raio 4.133) e vem para a orla, no polo oposto a Casa do Fundador. Endereco civico fica onde a cidade se ve."
-    }
-  ],
-  "reserva": {
-    "quantidade": 100,
-    "banda": "Orla",
-    "distribuicao": "25 parcelas em cada uma das quatro cabeceiras de ponte (rumos 0, 90, 180, 270), para o projeto ter presenca em todas as portas da cidade e para lote de presente ser um lote bom",
-    "area_m2_cada": 600,
-    "area_total_ha": 6.0,
-    "usos": ["presente", "permuta", "venda de terreno", "parceria"],
-    "regra": "Enquanto nao atribuida, a parcela aparece como Reserva do Projeto, demarcada e vazia. Ao ser atribuida, passa a valer a regra normal de construcao: 20.000 DOG na carteira dona destravam o mint."
+ "esquema": "Reserva Cívica da DogCity: as parcelas que NÃO saem da regra de idade porque nunca entraram nela. Loteamento de verdade reserva as quadras cívicas e a frente d'água antes de distribuir o resto; isto é esse ato, escrito, contável e publicável junto com a regra de alocação. O gerador lê este arquivo ANTES de plantar e retira estas parcelas do estoque.",
+ "versao": 1,
+ "decidido_em": "2026-08-30",
+ "porque_existe": [
+  "A regra de idade acerta para holder e erra para endereco civico: a carteira de doacao do projeto (1.030.708 DOG) caiu no raio 4.133 de 4.400, na periferia, porque o endereco e novo. Tesouraria na borda e defeito, nao resultado.",
+  "Sem reserva declarada nao ha como dar, permutar ou vender terreno depois sem tirar de alguem, e tirar de alguem depois de publicado e quebra de contrato.",
+  "Reserva escondida e rug. Reserva publicada e plano diretor. A diferenca inteira esta em anunciar o numero antes."
+ ],
+ "regra_publicavel": "O projeto reserva 102 parcelas de 85.839, ou 0,12% do total. As duas cívicas nominais (Casa do Fundador e Sede DogData) ficam FORA do tecido, em ilha e em praça, e por isso não retiram nenhuma parcela do sorteio por idade. As outras 100, de reserva para presente, permuta e venda, ficam na primeira banda.",
+ "civicas": [
+  {
+   "id": "CIV-01",
+   "nome": "Casa do Fundador",
+   "address": "bc1pd56er837kuywwxvysnwx30kdpa82ktm7kvvp83xnc2lykqcjz6qq76wrnl",
+   "banda": null,
+   "rumo_graus": null,
+   "lado": null,
+   "area_m2": 900,
+   "nota": "Decisão do fundador em 30/08/2026: a casa fica numa das ilhas particulares do lago. Isso a define por completo e a tira da questão do loteamento, porque a ilha está FORA do tecido (o lago vai de r 1.052 a 1.428 e o lote começa em 1.450): nenhuma parcela de carteira nenhuma é tocada. A ILHA01 é do Dog Social Club por decisão anterior, então esta é a ILHA02. O vínculo continua por ENDEREÇO.",
+   "onde": "ilha particular do lago da praça",
+   "ilha": "ILHA02"
   },
-  "contabilidade": {
-    "parcelas_reservadas": 102,
-    "parcelas_totais_estimadas": 85943,
-    "fracao_das_parcelas_pct": 0.12,
-    "area_reservada_ha": 8.3,
-    "fracao_do_tecido_pct": 0.51
+  {
+   "id": "CIV-02",
+   "nome": "Sede DogData",
+   "address": "bc1pxk7aw9ug55jkkz02z7ayhlkxxq92ya0ctegcwm5j8jumgaavjlkqdylk2p",
+   "banda": null,
+   "rumo_graus": null,
+   "lado": null,
+   "area_m2": 1400,
+   "nota": "Decisão do fundador em 30/08/2026: o prédio do DogData fica na praça central. A praça é terreno do projeto e vai até r 1.024, ou seja também FORA do tecido: não custa lote. Posição exata dentro da praça a definir. A carteira é a DONATION_WALLET publicada em app/dogcity/dogcity-data.ts.",
+   "onde": "Praça Satoshi, no miolo"
   }
+ ],
+ "reserva": {
+  "quantidade": 100,
+  "banda": "Orla",
+  "distribuicao": "25 parcelas em cada uma das quatro cabeceiras de ponte (rumos 0, 90, 180, 270), para o projeto ter presenca em todas as portas da cidade e para lote de presente ser um lote bom",
+  "area_m2_cada": 600,
+  "area_total_ha": 6.0,
+  "usos": [
+   "presente",
+   "permuta",
+   "venda de terreno",
+   "parceria"
+  ],
+  "regra": "Enquanto nao atribuida, a parcela aparece como Reserva do Projeto, demarcada e vazia. Ao ser atribuida, passa a valer a regra normal de construcao: 20.000 DOG na carteira dona destravam o mint."
+ },
+ "contabilidade": {
+  "parcelas_reservadas": 102,
+  "parcelas_totais_estimadas": 85943,
+  "fracao_das_parcelas_pct": 0.12,
+  "area_reservada_ha": 8.3,
+  "fracao_do_tecido_pct": 0.51
+ }
 }

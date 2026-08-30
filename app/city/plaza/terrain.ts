@@ -93,7 +93,24 @@ export function regolithColor(x: number, z: number, relief: number, dist: number
   return out.set(BASE.r * shade, BASE.g * shade, BASE.b * shade)
 }
 
-export async function loadTerrain(): Promise<Terrain> {
+/**
+ * ⚠️ A VALA DO CANAL TEM DE SER CAVADA NO TERRENO, e não estava. O lago tem
+ * bacia escavada aqui (LAGO_*) e por isso a lâmina dele aparece; o canal era
+ * desenhado por `canais.ts` a 1 m abaixo do chão e o REGOLITO ficava por cima.
+ * Medido em corte perpendicular no rumo 22,5 a r 2.000: água a −32,2 e regolito
+ * a −28,2, ou seja o canal inteiro enterrado 4 m, sem erro nenhum aparecer.
+ * O gerador publica os canais; a cena passa a especificação para cá.
+ */
+export interface CanalCava {
+  radiais: { rumo: number; secao: number; rInicio: number }[]
+  aneis: { phi: number; secao: number; contorno: [number, number][] }[]
+  /** quanto o leito desce abaixo do chão original */
+  fundo?: number
+  /** a largura da rampa de terra de cada lado, além da seção */
+  talude?: number
+}
+
+export async function loadTerrain(cava?: CanalCava): Promise<Terrain> {
   const [meta, buf] = await Promise.all([
     fetch('/lunar/btc-core-heightmap.json').then((r) => {
       if (!r.ok) throw new Error('heightmap meta missing')
@@ -104,10 +121,49 @@ export async function loadTerrain(): Promise<Terrain> {
       return r.arrayBuffer()
     }),
   ])
-  return buildTerrain(meta, new Float32Array(buf))
+  return buildTerrain(meta, new Float32Array(buf), cava)
 }
 
-export function buildTerrain(meta: TerrainMeta, heights: Float32Array): Terrain {
+export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: CanalCava): Terrain {
+  // ── a vala dos canais ─────────────────────────────────────────────────────
+  // ⚠️ SE ESTE BLOCO NÃO RODAR, O CANAL FICA ENTERRADO E NADA ACUSA. A água é
+  // desenhada por outro módulo, então o regolito por cima dela não gera erro:
+  // só some com o canal.
+  const _fundoC = cava?.fundo ?? 4.6
+  const _tal = cava?.talude ?? 26
+  const _radiais = (cava?.radiais ?? []).map((r) => ({
+    ...r, dx: Math.sin((r.rumo * Math.PI) / 180), dz: -Math.cos((r.rumo * Math.PI) / 180),
+  }))
+  const _aneis = (cava?.aneis ?? []).map((a) => ({
+    secao: a.secao,
+    pts: a.contorno.map(([x, z]) => ({ a: Math.atan2(z, x), r: Math.hypot(x, z) })),
+  }))
+  /** quanto o chão desce naquele ponto, de 0 (fora) a 1 (no eixo) */
+  const cavaEm = (x: number, z: number): number => {
+    let k = 0
+    for (const r of _radiais) {
+      const t = x * r.dx + z * r.dz
+      if (t < r.rInicio - 40) continue
+      const d = Math.abs(x * r.dz - z * r.dx)     // distância ao eixo
+      const meia = r.secao / 2
+      if (d < meia) k = Math.max(k, 1)
+      else if (d < meia + _tal) k = Math.max(k, 1 - (d - meia) / _tal)
+    }
+    for (const an of _aneis) {
+      if (!an.pts.length) continue
+      const ang = Math.atan2(z, x)
+      let melhor = an.pts[0], dd = 9
+      for (const p of an.pts) {
+        const q = Math.abs(((p.a - ang + Math.PI * 3) % (Math.PI * 2)) - Math.PI)
+        if (q < dd) { dd = q; melhor = p }
+      }
+      const d = Math.abs(Math.hypot(x, z) - melhor.r)
+      const meia = an.secao / 2
+      if (d < meia) k = Math.max(k, 1)
+      else if (d < meia + _tal) k = Math.max(k, 1 - (d - meia) / _tal)
+    }
+    return k * k * (3 - 2 * k)                    // suaviza a borda da vala
+  }
   const n = meta.cols
   const cell = meta.cellSizeM
   const half = (n - 1) / 2
@@ -211,7 +267,9 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array): Terrain 
     return LAGO_FUNDO * (k * k * (3 - 2 * k))
   }
   const heightAt = (x: number, z: number): number => {
-    const b = baseAt(x, z) - bacia(x, z)
+    // ⚠️ A VALA DO CANAL ENTRA JUNTO COM A BACIA DO LAGO, no mesmo ponto e pelo
+    // mesmo motivo: os dois são água, e água só aparece se o chão for cavado.
+    const b = baseAt(x, z) - bacia(x, z) - _fundoC * cavaEm(x, z)
     const lx = x - PARK_CENTER.x, lz = z - PARK_CENTER.z
     const r = Math.hypot(lx, lz)
     // ⚠️ O ALCANCE VEM DA DIREÇÃO, não de uma constante: curto no rumo da cidade

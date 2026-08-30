@@ -275,6 +275,13 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
     // TRILHA e CLAREIRA, e que a floresta está em cima dela e não no fundo do lago
     // o PERFIL da ponte, de lado e rente: é a vista que prova se o tabuleiro
     // desce até a via ou se ele voa por cima dela
+    // a seção do canal de perto, ao nível do olho: é a única distância em que os
+    // DOIS NÍVEIS aparecem (werf na água, muro, passeio, pista). De cima o canal
+    // é uma fita azul e a seção não existe.
+    case 'canal':
+      return { pos: new THREE.Vector3(830, 14, -1990), target: new THREE.Vector3(980, 2, -2360) }
+    case 'canaltopo':
+      return { pos: new THREE.Vector3(900, 320, -2100), target: new THREE.Vector3(1050, 0, -2500) }
     case 'ponteperfil':
       return { pos: new THREE.Vector3(-330, 46, -1010), target: new THREE.Vector3(60, 12, -1120) }
     case 'ilha':
@@ -283,10 +290,19 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
     // encosta em ponte
     case 'ilhas':
       return { pos: new THREE.Vector3(0, 3050, 420), target: new THREE.Vector3(0, -17, 0) }
+    // ⚠️ AS TRÊS VISTAS DE CONJUNTO FORAM REENQUADRADAS EM 30/08. A cidade foi de
+    // 9 para 15 km de ponta a ponta (abóbada 6.900) e as alturas antigas cortavam
+    // a borda: `plano` a 9.600 mostrava só o miolo.
     case 'plano':
-      return { pos: new THREE.Vector3(0, 9600, 1), target: new THREE.Vector3(0, 0, 0) }
+      return { pos: new THREE.Vector3(0, 17500, 1), target: new THREE.Vector3(0, 0, 0) }
+    // a oblíqua de apresentação: a cidade inteira sob a abóbada
+    case 'aereo':
+      return { pos: new THREE.Vector3(-9200, 5200, 12800), target: new THREE.Vector3(0, 200, 0) }
+    // rasante sobre a borda, olhando para dentro: a casca e o tecido juntos
+    case 'casca':
+      return { pos: new THREE.Vector3(-7800, 1500, 6600), target: new THREE.Vector3(-500, 300, -300) }
     case 'tecido':
-      return { pos: new THREE.Vector3(0, 5200, 3400), target: new THREE.Vector3(0, 0, 0) }
+      return { pos: new THREE.Vector3(0, 8600, 5600), target: new THREE.Vector3(0, 0, 0) }
     // rasante sobre um bairro: mostra o lote assentado no relevo de verdade
     case 'tecidorasante':
       return { pos: new THREE.Vector3(-2650, 300, -3350), target: new THREE.Vector3(-700, 30, -1100) }
@@ -1121,7 +1137,18 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     }
     const boot = async () => {
       try {
-        const terrain = await loadTerrain()
+        // ⚠️ A MALHA VEM ANTES DO TERRENO porque o terreno precisa CAVAR a vala
+        // dos canais. Sem isso a água é desenhada 1 m abaixo do chão e o regolito
+        // fica por cima: medido, canal enterrado 4 m, sem erro nenhum aparecer.
+        const _malhaCava = await fetch('/city/cidade-malha.json')
+          .then((r) => r.json()).catch(() => null)
+        const _cn = _malhaCava?.canais
+        const terrain = await loadTerrain(_cn ? {
+          radiais: (_cn.radiais ?? []).map((r: { rumo: number; secao: number; rInicio: number }) =>
+            ({ rumo: r.rumo, secao: r.secao, rInicio: r.rInicio })),
+          aneis: (_cn.aneis ?? []).map((a: { phi: number; secao: number; contorno: [number, number][] }) =>
+            ({ phi: a.phi, secao: a.secao, contorno: a.contorno })),
+        } : undefined)
         chaoGuerra = terrain.heightAt(WAR_POS.x, WAR_POS.z)
         if (disposed) return
         heightAt = terrain.heightAt

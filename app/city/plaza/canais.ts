@@ -60,10 +60,35 @@ export interface Canais {
   dispose(): void
 }
 
-const COR_CAIS = '#8E856F'
-const COR_MURO = '#6E685C'
-const FUNDO = 2.6        // quanto a lâmina fica abaixo do chão
-const CAIS_ALT = 0.55    // o cais sobe um pouco, para ler como borda
+const COR_CAIS = '#8E856F'     // o passeio de cima
+const COR_MURO = '#6E685C'     // o muro de arrimo
+const COR_PISTA = '#57534B'    // a pista, o valor mais escuro da cidade
+const COR_WERF = '#A79C86'     // o cais baixo, na água
+
+// ── A LÂMINA SOBE ATÉ A PORTA, E É POR ISSO QUE NÃO HÁ ESCADA ──────────────
+//
+// ⚠️ EU TINHA COPIADO UTRECHT E ESTAVA ERRADO. A Oudegracht tem dois níveis (rua
+// em cima, cais baixo na água, 96 lances de escada) porque o nível do Oude Rijn
+// foi fixado por uma eclusa de 1122 e ficou ABAIXO da rua: eles não podiam
+// levantar a água, então desceram as pessoas até ela. É uma solução brilhante
+// para uma limitação que NÓS NÃO TEMOS. A cidade é nova, é fechada sob abóbada e
+// a cota da lâmina é uma escolha nossa.
+//
+// O fundador cortou isso na hora certa: "que escada o que, a galera tem que
+// poder parar lancha na frente da casa". Então a lâmina sobe para 1,0 m abaixo
+// do passeio, que é a altura de convés de lancha: atraca-se encostando, sem
+// escada e sem cais intermediário. É o Grande Canal de Veneza, onde o palácio
+// tem a porta na água, e não o werf de Utrecht.
+//
+// A seção por margem, da água para fora:
+//   BORDA    a guia de atracação, com cabeços
+//   PASSEIO  calçada
+//   PISTA    a via que o anel perdeu para a água
+//   GUIA     meio-fio e faixa de árvore, encostando no lote
+const FUNDO = 4.0        // o leito: 3 m de lâmina, que aceita calado de lancha
+const LAMINA = 1.0       // a água, abaixo do passeio: altura de convés
+const RUA_ALT = 0.35     // o nível do passeio, acima do chão
+const CABECO_CADA = 24   // um cabeço de amarração a cada tantos metros
 
 class Balde {
   vs: number[] = []; ix: number[] = []
@@ -108,32 +133,66 @@ export function buildCanais(o: CanaisOpts): Canais {
       const t0 = i / n, t1 = (i + 1) / n
       const ax = x0 + dx * t0, az = z0 + dz * t0
       const bx = x0 + dx * t1, bz = z0 + dz * t1
-      const ya = o.heightAt(ax, az), yb = o.heightAt(bx, bz)
+      // ⚠️ A COTA VEM DA RUA, FORA DA VALA, E ISSO É CIRCULARIDADE CONSERTADA.
+      // O terreno agora CAVA a vala do canal, então `heightAt` no eixo devolve o
+      // FUNDO dela: pôr a lâmina 1 m abaixo disso afundava a água junto com a
+      // escavação e o regolito continuava por cima. Medido: chão do eixo a −32,8
+      // e água mais abaixo ainda. Amostrando os dois lados FORA da seção sai o
+      // nível da rua, que é a referência certa para a lâmina e para o passeio.
+      const fora = meiaC + 14
+      const ref = (px2: number, pz2: number) =>
+        (o.heightAt(px2 + px * fora, pz2 + pz * fora) + o.heightAt(px2 - px * fora, pz2 - pz * fora)) / 2
+      const ya = ref(ax, az), yb = ref(bx, bz)
       const p = (cx: number, cz: number, off: number, y: number) =>
         P(cx + px * off, cz + pz * off, y)
-      // a lâmina
-      B(COR_AGUA).quad(p(ax, az, -meiaA, ya - FUNDO), p(bx, bz, -meiaA, yb - FUNDO),
-                       p(bx, bz, +meiaA, yb - FUNDO), p(ax, az, +meiaA, ya - FUNDO))
-      // os dois muros de arrimo, da lâmina até o cais
+      // ⚠️ A LÂMINA É `LAMINA`, NÃO `FUNDO`. Aqui estava desenhando a água na cota
+      // do LEITO (4 m abaixo da rua) em vez da superfície (1 m): a água ficava
+      // abaixo do fundo da própria vala e o regolito continuava por cima. `FUNDO`
+      // é onde o leito fica; `LAMINA` é onde a água encosta na calçada, que é o
+      // ponto inteiro de subir o nível para a lancha atracar na porta.
+      B(COR_AGUA).quad(p(ax, az, -meiaA, ya - LAMINA), p(bx, bz, -meiaA, yb - LAMINA),
+                       p(bx, bz, +meiaA, yb - LAMINA), p(ax, az, +meiaA, ya - LAMINA))
+      // ── a margem: um nível só, com a água encostando nele ──────────────
+      const banda = meiaC - meiaA
+      const fPasseio = 0.26, fPista = 0.52     // o resto é guia e faixa de árvore
       for (const sg of [-1, 1]) {
-        B(COR_MURO).quad(p(ax, az, sg * meiaA, ya - FUNDO), p(bx, bz, sg * meiaA, yb - FUNDO),
-                         p(bx, bz, sg * meiaA, yb + CAIS_ALT), p(ax, az, sg * meiaA, ya + CAIS_ALT))
+        const w0 = sg * meiaA
+        const w1 = sg * (meiaA + banda * fPasseio)
+        const w2 = sg * (meiaA + banda * (fPasseio + fPista))
+        const w3 = sg * meiaC
+        const yR = (y: number) => y + RUA_ALT
+        // 1. a parede de atracação, da lâmina até o passeio: só 1 m, e é ela que
+        //    põe o convés da lancha na altura da calçada
+        B(COR_MURO).quad(p(ax, az, w0, ya - LAMINA), p(bx, bz, w0, yb - LAMINA),
+                         p(bx, bz, w0, yR(yb)), p(ax, az, w0, yR(ya)))
+        // 2. o PASSEIO, que encosta na água
+        B(COR_CAIS).quad(p(ax, az, w0, yR(ya)), p(bx, bz, w0, yR(yb)),
+                         p(bx, bz, w1, yR(yb)), p(ax, az, w1, yR(ya)))
+        // 3. a PISTA, que é a via que o anel perdeu para a água
+        B(COR_PISTA).quad(p(ax, az, w1, yR(ya) - 0.15), p(bx, bz, w1, yR(yb) - 0.15),
+                          p(bx, bz, w2, yR(yb) - 0.15), p(ax, az, w2, yR(ya) - 0.15))
+        // 4. a GUIA e a faixa de árvore, encostando no lote
+        B(COR_CAIS).quad(p(ax, az, w2, yR(ya)), p(bx, bz, w2, yR(yb)),
+                         p(bx, bz, w3, yR(yb)), p(ax, az, w3, yR(ya)))
+        // 5. o leito, abaixo da lâmina
+        B(COR_MURO).quad(p(ax, az, w0, ya - FUNDO), p(bx, bz, w0, yb - FUNDO),
+                         p(bx, bz, w0, yb - LAMINA), p(ax, az, w0, ya - LAMINA))
       }
-      // os dois cais
-      for (const sg of [-1, 1]) {
-        const i0 = sg * meiaA, i1 = sg * meiaC
-        B(COR_CAIS).quad(p(ax, az, i0, ya + CAIS_ALT), p(bx, bz, i0, yb + CAIS_ALT),
-                         p(bx, bz, i1, yb + CAIS_ALT), p(ax, az, i1, ya + CAIS_ALT))
+      // ⚠️ O CABEÇO É O QUE FAZ A MARGEM SER ATRACADOURO e não beira. Sem ele a
+      // promessa de parar a lancha na frente de casa não tem onde amarrar.
+      if (Math.floor((i * L) / n / CABECO_CADA) !== Math.floor(((i + 1) * L) / n / CABECO_CADA)) {
+        for (const sg of [-1, 1]) {
+          const wb = sg * (meiaA + 1.1)
+          const cx = ax + px * wb, cz = az + pz * wb
+          const y0 = ya + RUA_ALT, y1 = y0 + 0.85
+          for (let f = 0; f < 4; f++) {
+            const b0 = (f / 4) * Math.PI * 2, b1 = ((f + 1) / 4) * Math.PI * 2
+            const q = (bb: number, yy: number) =>
+              P(cx + Math.cos(bb) * 0.28, cz + Math.sin(bb) * 0.28, yy)
+            B(COR_MURO).quad(q(b0, y0), q(b1, y0), q(b1, y1), q(b0, y1))
+          }
+        }
       }
-    }
-  }
-
-  // ── os anéis: seguem o contorno publicado, que é curva de nível de φ ──────
-  for (const a of o.aneis) {
-    const c = a.contorno
-    for (let i = 0; i < c.length; i++) {
-      const [x0, z0] = c[i], [x1, z1] = c[(i + 1) % c.length]
-      trecho(x0, z0, x1, z1, a.secao, a.lamina)
     }
   }
 

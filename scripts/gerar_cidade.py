@@ -65,14 +65,26 @@ GIRO_SETOR   = 7.5       # desenhadas neste reticulado. O TECIDO não usa mais.
 # tudo: o mapa vira alvo de tiro. Oblíqua a 34-46°, as ruas cruzam os anéis em
 # diagonal e os anéis passam a se ler como elemento próprio. É o Eixample
 # correndo a 45° da costa em vez de acompanhá-la.
+# ⚠️ OS RUMOS SÃO MÚLTIPLOS DO PASSO DO RAIO (5,625° = 360/64), E ISSO NÃO É
+# DETALHE. Eles eram 0/62/108/186/240/308, números redondos que NÃO são raio da
+# teia: 62 dá 11,02 passos, 108 dá 19,20, 240 dá 42,67. Uma avenida num rumo
+# desses corta célula em ângulo, exatamente como as diagonais que já foram
+# removidas por isso. Encostados no passo, as aberturas mudam um pouco e
+# continuam desiguais, que é o que interessa.
 DISTRITOS = [   # (rumo inicial, abertura, giro FORA da tangente)
-    (  0.0, 62.0,  38.0),
-    ( 62.0, 46.0, -41.0),    # o que olha para o Parque Runestone (rumo 43)
-    (108.0, 78.0,  35.0),
-    (186.0, 54.0, -46.0),
-    (240.0, 68.0,  40.0),
-    (308.0, 52.0, -34.0),
+    (  0.000, 61.875,  38.0),
+    ( 61.875, 45.000, -41.0),   # o que olha para o Parque Runestone (rumo 43)
+    (106.875, 78.750,  35.0),
+    (185.625, 56.250, -46.0),
+    (241.875, 67.500,  40.0),
+    (309.375, 50.625, -34.0),
 ]
+# ⚠️ GUARDA: toda avenida tem de cair em raio da teia, senão ela corta célula.
+for _d0, _ab, _ in DISTRITOS:
+    assert abs(_d0 / (360.0 / 64) - round(_d0 / (360.0 / 64))) < 1e-9, \
+        f'costura de distrito no rumo {_d0} não é raio da teia'
+    assert abs(_ab / (360.0 / 64) - round(_ab / (360.0 / 64))) < 1e-9, \
+        f'abertura de distrito de {_ab} não é múltiplo do passo do raio'
 N_DIST = len(DISTRITOS)
 assert abs(sum(d[1] for d in DISTRITOS) - 360.0) < 1e-9
 
@@ -331,6 +343,46 @@ def em_canal(x, z, margem=0.0):
         dang = abs(((ru - a + 180) % 360) - 180)
         if math.radians(dang) * r < CANAL_RAD_SEC/2 + margem: return True
     return False
+
+# ── AS AUTOPISTAS: DIAGONAIS QUE VOLTARAM, MAS POR BAIXO ────────────────────
+#
+# ⚠️ ELAS FORAM REMOVIDAS DA SUPERFÍCIE E VOLTAM COMO TÚNEL (fundador, 30/08:
+# "as autopistas diagonais podem ser túneis"). É a solução que dissolve o
+# conflito inteiro: na superfície uma diagonal corta célula em ângulo e por isso
+# era o elemento mais arbitrário do plano; ENTERRADA ela não toca o tecido, não
+# consome um lote sequer e não precisa respeitar a teia, porque passa por baixo
+# dela. Vira camada de transporte, que é o que autopista é.
+#
+# ⚠️ O QUE PRECISA ENCAIXAR SÃO AS BOCAS. O túnel é invisível; a rampa e o pátio
+# são superfície e passam pelo alocador como qualquer peça, em célula inteira.
+#
+# ⚠️ RESERVA DE VOLUME, NÃO OBRA, igual à Caverna dos Runestones.
+AUTOPISTAS = [   # (rumo do eixo, afastamento do centro em m, largura da caixa)
+    ( 24.0,  1750.0, 26.0),
+    ( 99.0, -2050.0, 26.0),
+    (158.0,  1500.0, 26.0),
+]
+AUTO_COTA = -42.0     # abaixo de qualquer fundação de lote
+
+# ── O METRÔ ─────────────────────────────────────────────────────────────────
+#
+# ⚠️ DUAS CAMADAS ENTERRADAS, EM COTAS DIFERENTES, E A ORDEM NÃO É ARBITRÁRIA. O
+# metrô serve a cidade quarteirão a quarteirão e precisa de MUITA estação, então
+# fica raso (−26 m), perto da superfície onde a escada é curta. A autopista
+# atravessa a cidade sem parar e fica funda (−42 m), embaixo do metrô: assim as
+# duas se cruzam sem conflito e o cruzamento não precisa ser resolvido.
+#
+# ⚠️ E O TRAÇADO SEGUE A TEIA, mesmo enterrado. Linha radial sobre avenida, linha
+# circular sobre anel: é o desenho de Moscou, Paris e Londres, e aqui ele sai de
+# graça porque a teia já é radial-concêntrica. Metrô que ignora a malha da
+# superfície entrega estação no meio de quarteirão, onde ninguém consegue sair.
+#
+# ⚠️ ESTAÇÃO NÃO CUSTA LOTE. Ela fica no CRUZAMENTO de avenida com rua de anel,
+# que já é espaço público: é onde estação de metrô fica em cidade de verdade, e
+# aqui isso significa zero terra tirada de carteira nenhuma.
+METRO_COTA = -26.0
+METRO_RADIAIS = [0.0, 90.0, 180.0, 270.0]      # sobre as avenidas das pontes
+METRO_ANEIS_ALVO = [2180.0, 3400.0]            # duas circulares; encostam em anel abaixo
 
 # ⚠️ AS DIAGONAIS SAÍRAM (fundador, 30/08: "nada aleatório, teia perfeita"). Elas
 # eram o antídoto contra a monotonia de uma malha CARTESIANA: uma via que ignora
@@ -748,6 +800,27 @@ setor_de = distrito_de      # ⚠️ apelido: o resto do arquivo ainda diz "seto
 # borda antiga e é recolocada contra a borda nova, no mesmo rumo.
 # ⚠️ Isto TEM de rodar antes de `tecido()`, porque `livre()` consulta
 # `em_programa()` e a máscara precisa estar no lugar certo.
+# ⚠️ SETE PEÇAS DE BORDA ESTAVAM DO LADO ERRADO DA CASCA, e o fundador viu antes
+# de mim. A regra é simples e é física, não estética: quem precisa de ATMOSFERA
+# fica dentro. Horta tem planta, campo de treino tem gente, reservatório tem água
+# líquida, mirante tem gente. Painel solar, radiador térmico, depósito de regolito
+# e pátio de manobra não precisam de ar, e o radiador em particular tem de estar
+# FORA para radiar direto para o espaço.
+_PRECISA_AR = ('Hortas', 'Campo de Treino', 'Reservatório', 'Mirante')
+_trouxe = 0
+for _q in PROGRAMA_GEO:
+    if not _q.get('borda'): continue
+    if not any(k in _q['nome'] for k in _PRECISA_AR): continue
+    _q['borda'] = False
+    _q['produtivo'] = True          # passa a morar no cinturão, dentro da abóbada
+    _ang = math.atan2(_q['cx'], -_q['cz'])
+    _r = raio_em_phi(_ang, (PHI_PRODUTIVO + R_ABOBADA) / 2)
+    _q['cx'], _q['cz'] = math.sin(_ang) * _r, -math.cos(_ang) * _r
+    _q['rot'] = math.degrees(_ang) % 360
+    _q['c'], _q['s'] = math.cos(_ang), math.sin(_ang)
+    _trouxe += 1
+print(f'peças trazidas para dentro da abóbada (precisam de ar): {_trouxe}', file=sys.stderr)
+
 _realoc, _dmax = 0, 0.0
 for _q in PROGRAMA_GEO:
     if not _q.get('borda'): continue
@@ -926,6 +999,52 @@ def _encosta_em_anel(ph, b):
     d, novo = min(cand)
     return novo if d < b else ph                   # não anda mais que a própria peça
 
+# ── AS LINHAS E AS ESTAÇÕES DO METRÔ ────────────────────────────────────────
+# As circulares encostam em linha de anel, como os canais: metrô fora do anel
+# entregaria estação em fundo de quarteirão.
+METRO_ANEIS = []
+for _alvo in METRO_ANEIS_ALVO:
+    _c = [v for v in _ANEIS_PHI if R_INICIO + 200 < v < PHI_PRODUTIVO - 200]
+    if _c: METRO_ANEIS.append(min(_c, key=lambda v: abs(v - _alvo)))
+METRO_ESTACOES = []
+for _ru in METRO_RADIAIS:
+    _a = math.radians(_ru)
+    for _ph in _ANEIS_PHI:
+        if _ph < R_INICIO + 150 or _ph > PHI_PRODUTIVO - 100: continue
+        # estação em toda rua de anel sobre a radial, e transferência nas circulares
+        _r = raio_em_phi(_a, _ph)
+        METRO_ESTACOES.append({
+            'id': f'E{len(METRO_ESTACOES)+1:03d}',
+            'rumo': _ru, 'phi': round(_ph, 1),
+            'x': round(math.sin(_a)*_r, 1), 'z': round(-math.cos(_a)*_r, 1),
+            'transferencia': any(abs(_ph - v) < 1 for v in METRO_ANEIS),
+        })
+print(f'metrô: {len(METRO_RADIAIS)} radiais + {len(METRO_ANEIS)} circulares, '
+      f'{len(METRO_ESTACOES)} estações ({sum(1 for e in METRO_ESTACOES if e["transferencia"])} de baldeação)',
+      file=sys.stderr)
+
+# ── AS BOCAS DAS AUTOPISTAS ─────────────────────────────────────────────────
+# Duas por túnel, onde o eixo cruza a borda do tecido. São superfície, então
+# passam pelo alocador e ocupam célula inteira como qualquer peça.
+for _i, (_ru, _off, _lg) in enumerate(AUTOPISTAS):
+    _a = math.radians(_ru)
+    _nx, _nz = math.cos(_a), math.sin(_a)
+    _dx, _dz = -_nz, _nx
+    _t2 = PHI_PRODUTIVO*PHI_PRODUTIVO - _off*_off
+    if _t2 <= 0: continue
+    _t = math.sqrt(_t2)
+    for _k, _sg in enumerate((-1, 1)):
+        _bx = _nx*_off + _dx*_t*_sg
+        _bz = _nz*_off + _dz*_t*_sg
+        PROGRAMA_GEO.append({
+            'id': f'AU{_i+1}{"AB"[_k]}',
+            'nome': f'Boca da Autopista {_i+1}', 'tipo': 'transporte',
+            'forma': 'retangulo', 'boca': True, 'autopista': _i,
+            'cx': _bx, 'cz': _bz, 'a': 190.0, 'b': 120.0,
+            'rot': math.degrees(math.atan2(_bx, -_bz)) % 360,
+            'c': 1.0, 's': 0.0, 'area': 4*190.0*120.0,
+        })
+
 # ── OS PARQUES ENTRAM NA TEIA COMO PEÇA ─────────────────────────────────────
 # ⚠️ ELES ERAM ELIPSES SOLTAS e o fundador viu: "os círculos verdes também
 # precisam fazer parte da teia". Elipse não tem divisa, não tem portão e não tem
@@ -1078,6 +1197,11 @@ _PROD = []
 for _i in range(12):
     _PROD.append(('FZ', f'Fazenda de Proteína {_i+1}', 'producao',
                   rumo_de_raio(15.0 + _i * 30.0), 5900.0, 620.0, 380.0))
+# ⚠️ O CAMPO DE GOLFE (fundador, 30/08). 18 buracos pedem 50 a 70 ha, e o
+# cinturão produtivo é onde isso cabe sem tirar lote: ele tem 2.600 m de faixa e
+# estava ralo demais para ler como cinturão, que é o defeito que eu mesmo apontei
+# na última chapa. Golfe é verde, é grande e é lazer: ocupa bem e dá conteúdo.
+_PROD.append(('GF', 'Campo de Golfe', 'lazer', rumo_de_raio(300.0), 5700.0, 620.0, 340.0))
 for _i in range(6):
     _PROD.append(('LP', f'Lago de Pesca {_i+1}', 'agua',
                   rumo_de_raio(30.0 + _i * 60.0), 6550.0, 460.0, 260.0))
@@ -1149,6 +1273,80 @@ for _nome, _tipo, _ru, _ph, _a, _b in _IND:
 # por veículo pressurizado pela mesma eclusa do parque.
 # São setores nomeados e vazios. O detalhe vem depois; o que não pode vir depois
 # é o LUGAR, porque depois já estará ocupado.
+# ── AS ECLUSAS: NENHUMA ENTRADA DE VEÍCULO ABRE DIRETO ─────────────────────
+#
+# ⚠️ ISTO É FÍSICA, NÃO DETALHE (fundador, 30/08): "não tem como abrir uma câmara
+# pressurizada de uma vez só". Abrir a abóbada direto para o vácuo despressuriza
+# a cidade inteira; e mesmo uma câmara única do tamanho de um veículo teria de
+# despejar todo o ar dela a cada ciclo. Por isso toda entrada de veículo é uma
+# CADEIA de câmaras, cada uma menor que a anterior: o ar é transferido de uma
+# para a seguinte em vez de perdido, e nenhuma porta jamais separa pressão plena
+# do vácuo. É a mesma lógica de eclusa de canal, com ar no lugar de água.
+#
+# Três câmaras por entrada: a de fora recebe do vácuo, a do meio equaliza, a de
+# dentro abre para a cidade. Raios decrescentes porque volume menor é ar menos
+# bombeado a cada ciclo.
+ECLUSA_CAMARAS = [(1.00, 260.0), (0.62, 170.0), (0.38, 110.0)]   # (fração do vão, raio)
+
+def _eclusa(nome, rumo, r_borda, para_fora=True):
+    """A cadeia de câmaras num rumo, da borda da abóbada para fora."""
+    a = math.radians(rumo)
+    out = []
+    for i, (frac, raio) in enumerate(ECLUSA_CAMARAS):
+        d = r_borda + (raio * 1.6) * (i + 1) * (1 if para_fora else -1)
+        out.append({'ordem': i + 1, 'raio': raio,
+                    'x': round(math.sin(a) * d, 1), 'z': round(-math.cos(a) * d, 1),
+                    'papel': ('externa', 'equalizacao', 'interna')[i]})
+    return {'id': f'EC{nome}', 'nome': f'Eclusa {nome}', 'rumo': rumo,
+            'camaras': out,
+            'nota': 'tres camaras em serie: o ar passa de uma para a seguinte, '
+                    'nunca do interior direto para o vacuo'}
+
+# ── O VALE DO PONENTE: um domo anexo sobre o relevo de verdade ──────────────
+#
+# ⚠️ ELE NASCE DE TRÊS OBSERVAÇÕES DO FUNDADOR QUE SÃO A MESMA. (1) "tem uma
+# parte montanhosa a sudoeste, daria um belíssimo lago e floresta de
+# extrativismo"; (2) "exatamente nesse ponto a abóbada não tem um acabamento
+# legal"; (3) "temos vários elementos na borda de fora da abóbada, acho que isso
+# tá errado". As três se resolvem juntas: a borda malacabada vira JUNÇÃO, e o que
+# precisa de ar deixa de ficar exposto.
+#
+# ⚠️ O LUGAR SAIU DA SONDA DO TERRENO, NÃO DE GOSTO. Varredura do quadrante
+# sudoeste fora da abóbada: o ponto mais alto é a oeste (rumo 270, r 7.200,
+# +158 m) e a bacia é a sul (rumo 180, r 7.200 a 8.800, +56 a +69 m). São 90 m de
+# desnível, ou seja um vale real. O domo anexo cobre a bacia (lago) e a encosta
+# que sobe para a montanha (floresta de extrativismo).
+VALE_RUMO, VALE_R = 196.0, 1750.0
+# ⚠️ A DISTÂNCIA É CALCULADA, NÃO CHUTADA. Eu tinha posto 8.100 e o corredor saiu
+# NEGATIVO (−628 m): a superelipse chega a mais de 7.500 m nesse rumo, então o
+# domo anexo estava SOBREPONDO a abóbada principal em vez de ficar ao lado dela.
+# Agora ele nasce a partir da borda real medida naquele rumo, com corredor de
+# 900 m entre as duas cascas.
+_VALE_CORR = 900.0
+VALE_DIST = raio_em_phi(math.radians(196.0), PHI_BORDA) + _VALE_CORR + VALE_R
+_va = math.radians(VALE_RUMO)
+VALE_CX, VALE_CZ = math.sin(_va) * VALE_DIST, -math.cos(_va) * VALE_DIST
+# a ligação com a abóbada principal: corredor pressurizado no mesmo rumo
+VALE_CORREDOR = {'rumo': VALE_RUMO, 'largura': 90.0,
+                 'de': raio_em_phi(_va, PHI_BORDA), 'ate': VALE_DIST - VALE_R}
+for _nome, _tipo, _dx, _dz, _a, _b in [
+    ('Lago do Vale',              'agua',    -180.0,  120.0, 620.0, 400.0),
+    ('Floresta de Extrativismo',  'floresta', 420.0, -260.0, 700.0, 480.0),
+    ('Estação do Vale',           'infra',   -640.0, -520.0, 180.0, 120.0),
+]:
+    _cx = VALE_CX + _dx * math.cos(_va) - _dz * math.sin(_va)
+    _cz = VALE_CZ + _dx * math.sin(_va) + _dz * math.cos(_va)
+    PROGRAMA_GEO.append({
+        'id': f'VL{len([q for q in PROGRAMA_GEO if q.get("vale")])+1:02d}',
+        'nome': _nome, 'tipo': _tipo, 'vale': True, 'produtivo': True,
+        'forma': 'elipse' if _tipo == 'agua' else 'retangulo',
+        'cx': _cx, 'cz': _cz, 'a': _a, 'b': _b, 'rot': VALE_RUMO,
+        'c': math.cos(_va), 's': math.sin(_va),
+        'area': (math.pi if _tipo == 'agua' else 4) * _a * _b,
+    })
+print(f'Vale do Poente: domo anexo em ({VALE_CX:.0f}, {VALE_CZ:.0f}), raio {VALE_R:.0f} m, '
+      f'corredor de {VALE_CORREDOR["ate"] - VALE_CORREDOR["de"]:.0f} m', file=sys.stderr)
+
 EXTRACAO = []
 for _i in range(8):
     _ru = rumo_de_raio(190.0 + _i * 18.0)       # o arco oposto ao parque (rumo 43)
@@ -2186,7 +2384,37 @@ with open(p('public/city/cidade-malha.json'), 'w') as f:
     f.write('"parques":' + _linhas(parques_pub) + ',\n')
     f.write('"diagonais":' + _linhas(diagonais_pub) + ',\n')
     f.write('"canais":' + json.dumps(canais_pub, ensure_ascii=False, separators=(',', ':')) + ',\n')
+    f.write('"autopistas":' + json.dumps([
+        {'id': f'AU{i+1}', 'rumo': ru, 'afastamento': off, 'largura': lg, 'cota': AUTO_COTA,
+         'bocas': [{'id': q['id'], 'x': round(q['cx'], 1), 'z': round(q['cz'], 1),
+                    'poly': q.get('poly'), 'celulas': q.get('celulas')}
+                   for q in PROGRAMA_GEO if q.get('autopista') == i]}
+        for i, (ru, off, lg) in enumerate(AUTOPISTAS)],
+        ensure_ascii=False, separators=(',', ':')) + ',\n')
+    f.write('"metro":' + json.dumps({
+        'cota': METRO_COTA, 'autopistaCota': AUTO_COTA,
+        'radiais': METRO_RADIAIS, 'circulares': [round(v, 1) for v in METRO_ANEIS],
+        'estacoes': METRO_ESTACOES,
+        'nota': 'radial sobre avenida e circular sobre anel; estacao no cruzamento, '
+                'que ja e espaco publico e nao custa lote',
+    }, ensure_ascii=False, separators=(',', ':')) + ',\n')
     f.write('"extracao":' + _linhas(EXTRACAO) + ',\n')
+    f.write('"eclusas":' + json.dumps([
+        _eclusa('Parque', PARQUE_RUMO, raio_em_phi(math.radians(PARQUE_RUMO), PHI_BORDA)),
+        _eclusa('Vale', VALE_RUMO, raio_em_phi(math.radians(VALE_RUMO), PHI_BORDA)),
+        _eclusa('Extracao', 214.0, raio_em_phi(math.radians(214.0), PHI_BORDA)),
+        _eclusa('Spaceport', 0.0, raio_em_phi(0.0, PHI_BORDA)),
+    ], ensure_ascii=False, separators=(',', ':')) + ',\n')
+    f.write('"vale":' + json.dumps({
+        'nome': 'Vale do Poente', 'rumo': VALE_RUMO, 'dist': VALE_DIST, 'raio': VALE_R,
+        'x': round(VALE_CX, 1), 'z': round(VALE_CZ, 1), 'corredor': VALE_CORREDOR,
+        'pecas': [{'id': q['id'], 'nome': q['nome'], 'tipo': q['tipo'],
+                   'x': round(q['cx'], 1), 'z': round(q['cz'], 1),
+                   'a': q['a'], 'b': q['b'], 'rot': q['rot'], 'forma': q['forma']}
+                  for q in PROGRAMA_GEO if q.get('vale')],
+        'nota': 'domo anexo sobre o vale real: bacia a sul (+56 m) e montanha a oeste (+158 m). '
+                'Liga na abobada principal por corredor pressurizado no mesmo rumo.',
+    }, ensure_ascii=False, separators=(',', ':')) + ',\n')
     f.write('"contorno":' + json.dumps(contorno_pub, separators=(',', ':')) + ',\n')
     f.write('"quartos":' + _linhas(malha_q) + ',\n')
     f.write('"quarteiroes":' + _linhas(malha_b) + '\n}\n')
