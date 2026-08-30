@@ -101,6 +101,14 @@ export function regolithColor(x: number, z: number, relief: number, dist: number
  * a −28,2, ou seja o canal inteiro enterrado 4 m, sem erro nenhum aparecer.
  * O gerador publica os canais; a cena passa a especificação para cá.
  */
+/**
+ * ⚠️ A MONTANHA DE NEVE É ESCULPIDA NO TERRENO, não pintada sobre ele. O relevo
+ * real dentro do domo do vale dá 77 m em 2.642 m, ou 1,7° de declive médio, que
+ * é rampa de estacionamento e não pista (azul de iniciante na Terra tem 8 a 12°).
+ * Sem levantar o chão de verdade, a pista seria uma textura branca num plano.
+ */
+export interface Monte { x: number; z: number; raio: number; altura: number }
+
 export interface CanalCava {
   radiais: { rumo: number; secao: number; rInicio: number }[]
   aneis: { phi: number; secao: number; contorno: [number, number][] }[]
@@ -108,6 +116,8 @@ export interface CanalCava {
   fundo?: number
   /** a largura da rampa de terra de cada lado, além da seção */
   talude?: number
+  /** montes construídos, como a montanha de neve do Vale do Poente */
+  montes?: Monte[]
 }
 
 export async function loadTerrain(cava?: CanalCava): Promise<Terrain> {
@@ -134,6 +144,20 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
   const _radiais = (cava?.radiais ?? []).map((r) => ({
     ...r, dx: Math.sin((r.rumo * Math.PI) / 180), dz: -Math.cos((r.rumo * Math.PI) / 180),
   }))
+  // ⚠️ PERFIL DE COSSENO, NÃO CONE. Cone dá aresta na base e ponta no topo: a
+  // aresta vira degrau visível de longe e a ponta não tem onde pôr o teleférico.
+  // `1 − cos` sobe suave do pé e arredonda o cume, que é a forma de montanha.
+  const _montes = cava?.montes ?? []
+  const monteEm = (x: number, z: number): number => {
+    let h = 0
+    for (const m of _montes) {
+      const d = Math.hypot(x - m.x, z - m.z)
+      if (d >= m.raio) continue
+      const t = 1 - d / m.raio
+      h = Math.max(h, m.altura * (t * t * (3 - 2 * t)))
+    }
+    return h
+  }
   const _aneis = (cava?.aneis ?? []).map((a) => ({
     secao: a.secao,
     pts: a.contorno.map(([x, z]) => ({ a: Math.atan2(z, x), r: Math.hypot(x, z) })),
@@ -269,7 +293,7 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
   const heightAt = (x: number, z: number): number => {
     // ⚠️ A VALA DO CANAL ENTRA JUNTO COM A BACIA DO LAGO, no mesmo ponto e pelo
     // mesmo motivo: os dois são água, e água só aparece se o chão for cavado.
-    const b = baseAt(x, z) - bacia(x, z) - _fundoC * cavaEm(x, z)
+    const b = baseAt(x, z) - bacia(x, z) - _fundoC * cavaEm(x, z) + monteEm(x, z)
     const lx = x - PARK_CENTER.x, lz = z - PARK_CENTER.z
     const r = Math.hypot(lx, lz)
     // ⚠️ O ALCANCE VEM DA DIREÇÃO, não de uma constante: curto no rumo da cidade

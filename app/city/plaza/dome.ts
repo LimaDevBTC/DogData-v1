@@ -49,6 +49,13 @@ export interface DomeOpts {
   contorno?: [number, number][]
   /** quanto a saia da casca passa da borda da cidade, em metros */
   rimFolga?: number
+  /**
+   * ⚠️ ONDE A CASCA FICA. A geometria é sempre construída em torno da ORIGEM e o
+   * grupo é transladado no fim; `heightAt` é consultado já somando este centro,
+   * senão a saia do domo anexo pousaria no relevo do lugar errado. Sem isto só
+   * existe uma abóbada possível, a da cidade, e o Vale do Poente não teria casca.
+   */
+  centro?: { x: number; z: number }
   /** raio circunscrito da célula, em metros. 42 = um quarto do quarteirão de 168 m */
   cell?: number
   /** altura da borda sobre o datum da praça (o relevo do sítio vai de −85 a +66) */
@@ -224,6 +231,8 @@ export function buildDome(o: DomeOpts): Dome {
   // contorno publicado; sem contorno devolve DOME_R e a casca volta a ser
   // circular, que é o comportamento antigo e continua correto para um sítio
   // redondo.
+  const cen = o.centro ?? { x: 0, z: 0 }
+  const heightAt = (x: number, z: number) => o.heightAt(x + cen.x, z + cen.z)
   const folga = o.rimFolga ?? 120
   const cont = (o.contorno ?? []).map(([x, z]) => ({ a: Math.atan2(z, x), r: Math.hypot(x, z) + folga }))
   cont.sort((p, q) => p.a - q.a)
@@ -407,7 +416,7 @@ export function buildDome(o: DomeOpts): Dome {
     const x = Math.cos(ang) * rr
     const z = Math.sin(ang) * rr
     sPos.push(x, capY(rr), z)
-    sPos.push(x, o.heightAt(x, z) - 8, z)
+    sPos.push(x, heightAt(x, z) - 8, z)
   }
   for (let i = 0; i < SEG; i++) {
     const b = i * 2
@@ -426,6 +435,9 @@ export function buildDome(o: DomeOpts): Dome {
 
   const triangulos =
     geoVidro.index!.count / 3 + geoNerv.index!.count / 3 + geoSaia.index!.count / 3
+
+  group.position.set(cen.x, 0, cen.z)
+
 
   return {
     group,

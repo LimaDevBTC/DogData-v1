@@ -43,6 +43,7 @@ import { buildVias, type Vias } from './vias'
 import { buildPracas, type Pracas } from './pracas'
 import { buildArborizacao, type Arborizacao, type Cova } from './arborizacao'
 import { buildCanais, type Canais } from './canais'
+import { buildMontanha, type Montanha } from './montanha'
 import { buildLago, type Lago } from './lago'
 import { buildAquario, type Aquario } from './aquario'
 import { buildCaverna, type Caverna } from './caverna'
@@ -296,6 +297,21 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
     case 'plano':
       return { pos: new THREE.Vector3(0, 17500, 1), target: new THREE.Vector3(0, 0, 0) }
     // a oblíqua de apresentação: a cidade inteira sob a abóbada
+    // o Vale do Poente e a montanha de neve, de fora, com a cidade ao fundo
+    case 'vale':
+      return { pos: new THREE.Vector3(-6400, 1900, 13400), target: new THREE.Vector3(-2833, 200, 9880) }
+    // ⚠️ ENQUADRAMENTO CALCULADO, NÃO CHUTADO. O cume MEDIDO está em
+    // (−2.394, 10.672) a 620 m e o pé a 186 m. A câmera fica a 3 km a sudeste, a
+    // 900 m, olhando para meia encosta: é o ângulo em que os 434 m de desnível
+    // aparecem contra o horizonte em vez de se achatarem na vertical. A chapa
+    // anterior estava ruim porque a câmera olhava para o lugar errado.
+    case 'montanha':
+      return { pos: new THREE.Vector3(-260, 900, 12980), target: new THREE.Vector3(-2394, 430, 10672) }
+    // a bancada dos candidatos, os três lado a lado
+    case 'candidatos':
+      return { pos: new THREE.Vector3(-4500, 1400, 22500), target: new THREE.Vector3(-4500, 200, 16000) }
+    case 'montanhatopo':
+      return { pos: new THREE.Vector3(-2394, 2400, 12600), target: new THREE.Vector3(-2394, 300, 10672) }
     case 'aereo':
       return { pos: new THREE.Vector3(-9200, 5200, 12800), target: new THREE.Vector3(0, 200, 0) }
     // rasante sobre a borda, olhando para dentro: a casca e o tecido juntos
@@ -1097,6 +1113,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let arvores: Arborizacao | null = null
     let lago: Lago | null = null
     let canais: Canais | null = null
+    let montanha: Montanha | null = null
     let aquario: Aquario | null = null
     let caverna: Caverna | null = null
     let specsDoAquario: import('./props').PropSpec[] = []
@@ -1148,6 +1165,10 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             ({ rumo: r.rumo, secao: r.secao, rInicio: r.rInicio })),
           aneis: (_cn.aneis ?? []).map((a: { phi: number; secao: number; contorno: [number, number][] }) =>
             ({ phi: a.phi, secao: a.secao, contorno: a.contorno })),
+          // ⚠️ A MONTANHA DE NEVE ENTRA JUNTO COM A VALA, pelo mesmo caminho e pelo
+          // mesmo motivo: é relevo, e relevo mora no terreno. O monte do Vale do
+          // Poente levanta 380 m porque o chão real ali dá 1,7° e isso não é pista.
+          montes: _malhaCava?.vale?.monte ? [_malhaCava.vale.monte] : [],
         } : undefined)
         chaoGuerra = terrain.heightAt(WAR_POS.x, WAR_POS.z)
         if (disposed) return
@@ -1171,8 +1192,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             // uma cidade que é superelipse: sobraria 1,5 km de casca de um lado e
             // ela cortaria a cidade do outro.
             const _malhaDomo = await fetch('/city/cidade-malha.json')
-              .then((r) => r.json() as Promise<{ contorno?: [number, number][] }>)
-              .catch(() => ({ contorno: undefined }))
+              .then((r) => r.json() as Promise<{
+                contorno?: [number, number][]
+                vale?: { x: number; z: number; raio: number; flecha?: number }
+              }>)
+              .catch(() => ({ contorno: undefined, vale: undefined }))
             domo = buildDome({
               heightAt: terrain.heightAt,
               contorno: _malhaDomo.contorno,
@@ -1182,6 +1206,31 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               rib: num('nervura', 0.9),
             })
             scene.add(domo.group)
+            // ── A SEGUNDA CASCA: o domo do Vale do Poente ────────────────────
+            // ⚠️ SÃO DUAS ABÓBADAS AGORA. A do vale cobre a montanha de neve, o
+            // lago e a floresta, e ela é MAIS ALTA em relação ao seu tamanho do
+            // que a da cidade: 614 m de flecha, porque o pé direito dela sai do
+            // SALTO e não da montanha (cume 438 + ápice de 96 a 127 km/h + 80 de
+            // folga). Dimensionar pela montanha faria o atleta atravessar a casca
+            // no primeiro salto grande.
+            try {
+              const _v = _malhaDomo?.vale
+              if (_v) {
+                const n = 72
+                const cont: [number, number][] = []
+                for (let i = 0; i < n; i++) {
+                  const a = (i / n) * Math.PI * 2
+                  cont.push([Math.cos(a) * _v.raio, Math.sin(a) * _v.raio])
+                }
+                const dv = buildDome({
+                  heightAt: terrain.heightAt, contorno: cont, centro: { x: _v.x, z: _v.z },
+                  cell: num('celula', 42), crown: _v.flecha ?? 614,
+                  rim: num('borda', 90), rib: num('nervura', 0.9),
+                })
+                dv.group.name = 'abobada-vale'
+                scene.add(dv.group)
+              }
+            } catch (e) { console.error('[abóbada do vale] não subiu', e) }
             // As naves circulam ACIMA da casca. A banda de altitude sobe inteira,
             // então a taxa continua sendo lida pela altura relativa. A folga de
             // 180 m sai da geometria: sobre o raio de órbita (780 a 1.120 m) a
@@ -1309,6 +1358,54 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                   'm de canal,', canais.pontes, 'pontes,', canais.triangulos.toLocaleString('pt-BR'), 'tri')
               }
             } catch (e) { console.error('[canais] não subiu', e) }
+            // ── A MONTANHA DE NEVE ───────────────────────────────────────────
+            // ⚠️ Ela sobe DEPOIS do terreno porque pousa nele: o pé da malha é
+            // assentado em `superficieAt`, e 6 m enterrado para a saia sumir no
+            // chão em vez de deixar aresta.
+            try {
+              const _mt = _malhaCava?.vale?.monte
+              if (_mt?.modelo) {
+                // ⚠️ PASSA O LOADER DA CENA, NÃO UM CRU. Os .glb convertidos aqui
+                // vêm comprimidos em DRACO, e um GLTFLoader sem DRACOLoader falha
+                // com "No DRACOLoader instance provided". A cena já monta o dela
+                // com o decodificador em /draco/ lá em cima.
+                montanha = await buildMontanha({
+                  monte: _mt, heightAt: terrain.superficieAt, gltf,
+                  sombra: qDomo.get('sombra') !== '0',
+                })
+                if (montanha) {
+                  scene.add(montanha.group)
+                  if (wantStats) console.log('[montanha]', _mt.modelo.file,
+                    montanha.triangulos.toLocaleString('pt-BR'), 'tri')
+                }
+              }
+            } catch (e) { console.error('[montanha] não subiu', e) }
+            // ── BANCADA: ?montanhas=1 põe os candidatos lado a lado ──────────
+            // ⚠️ ESCOLHER MODELO PELO NOME E PELA CONTAGEM DE FACES JÁ CUSTOU UMA
+            // RODADA. O "Gudauri Flat" tinha o nome de estação de esqui real e
+            // 904 mil faces, e é um RECORTE PLANO de fotogrametria: apareceu na
+            // cena como um bloco branco de paredes retas. O teste de sanidade é a
+            // proporção que o conversor imprime: montanha fechada tem base 6 a 8
+            // vezes a altura; o Gudauri tinha 1,4. Esta bancada existe para a
+            // escolha ser feita OLHANDO, que é a única forma que não erra.
+            if (new URLSearchParams(window.location.search).get('montanhas') === '1') {
+              const cand = [
+                { file: 'timpanogos', x: -9000, z: 16000 },
+                { file: 'nevada', x: -4500, z: 16000 },
+                { file: 'devoluy', x: 0, z: 16000 },
+              ]
+              for (const c of cand) {
+                try {
+                  const mm = await buildMontanha({
+                    monte: { x: c.x, z: c.z, raio: 1400, altura: 438,
+                             modelo: { file: c.file, escala: 1 } },
+                    heightAt: terrain.superficieAt, gltf,
+                    sombra: qDomo.get('sombra') !== '0',
+                  })
+                  if (mm) { mm.group.name = `cand:${c.file}`; scene.add(mm.group) }
+                } catch (e) { console.error('[bancada]', c.file, e) }
+              }
+            }
             // ⚠️ O AQUÁRIO SOBE COLADO NO LAGO E ANTES DOS ADEREÇOS. Ele devolve
             // as especificações do recife, dos peixes e da floresta das ilhas, e
             // quem instancia é o buildProps que a praça já usa: uma tabela só,
@@ -2593,6 +2690,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       arvores?.dispose()
       lago?.dispose()
       canais?.dispose()
+      montanha?.dispose()
       aquario?.dispose()
       caverna?.dispose()
       props?.dispose()

@@ -1316,7 +1316,11 @@ def _eclusa(nome, rumo, r_borda, para_fora=True):
 # +158 m) e a bacia é a sul (rumo 180, r 7.200 a 8.800, +56 a +69 m). São 90 m de
 # desnível, ou seja um vale real. O domo anexo cobre a bacia (lago) e a encosta
 # que sobe para a montanha (floresta de extrativismo).
-VALE_RUMO, VALE_R = 196.0, 1750.0
+# ⚠️ O DOMO DO VALE CRESCEU DE 1.750 PARA 2.400 POR CAUSA DA MONTANHA. Um monte
+# de 380 m de altura precisa de ~1.400 m de raio de base para ter 15° de declive
+# médio (pista preta na Terra tem 25 a 30°); com o centro dele a 900 m do centro
+# do domo, ele alcança 2.300 m e furaria uma casca de 1.750.
+VALE_RUMO, VALE_R = 196.0, 2400.0
 # ⚠️ A DISTÂNCIA É CALCULADA, NÃO CHUTADA. Eu tinha posto 8.100 e o corredor saiu
 # NEGATIVO (−628 m): a superelipse chega a mais de 7.500 m nesse rumo, então o
 # domo anexo estava SOBREPONDO a abóbada principal em vez de ficar ao lado dela.
@@ -1329,10 +1333,52 @@ VALE_CX, VALE_CZ = math.sin(_va) * VALE_DIST, -math.cos(_va) * VALE_DIST
 # a ligação com a abóbada principal: corredor pressurizado no mesmo rumo
 VALE_CORREDOR = {'rumo': VALE_RUMO, 'largura': 90.0,
                  'de': raio_em_phi(_va, PHI_BORDA), 'ate': VALE_DIST - VALE_R}
+# ── A MONTANHA DE NEVE ──────────────────────────────────────────────────────
+#
+# ⚠️ O RELEVO REAL NÃO SERVIA E O NÚMERO É QUE DIZ: dentro do domo o desnível
+# natural é 77 m em 2.642 m, ou seja 1,7° de declive médio. Pista azul de
+# iniciante na Terra tem 8 a 12°. Aquilo é rampa de estacionamento, não pista.
+#
+# ⚠️ E A GRAVIDADE LUNAR INVERTE AS DUAS METADES DO ESPORTE (g = 1,625 m/s²,
+# 1/6 da Terra): DESCER É LENTO e SALTAR É ABSURDO. Caindo 77 m chega-se a
+# 57 km/h (na Terra, 140); mas um salto saindo a 50 km/h numa rampa de 30° voa
+# 103 m aqui contra 17 m na Terra. Copiar estação alpina daria pista morna. O
+# que a Lua pede é SNOWPARK: half-pipe, kicker, big air, slopestyle. Salto de
+# 100 m com dez segundos de ar não existe em lugar nenhum na Terra, e é isso que
+# faz alguém viajar para cá.
+#
+# Decisão do fundador: CONSTRUIR a montanha, 380 m de desnível, pé na bacia do
+# lago. Aí a descida principal chega a 127 km/h e o kicker grande tem altura.
+# O monte é esculpido no terreno (terrain.ts), do mesmo jeito que a bacia do lago
+# e a vala do canal: sem isso a pista seria uma pintura sobre chão plano.
+# ⚠️ AS MEDIDAS SEGUEM O MODELO, NÃO O CONTRÁRIO. O Gudauri baixado tem
+# 1.541 × 634 m em planta por 438 m de altura: é uma CRISTA, não um cone, e crista
+# é forma melhor de pista que cone. Escalar o modelo para cobrir um monte de
+# 2.800 m de base o levaria a 797 m de altura, alto demais; então o monte
+# esculpido é que encolhe para caber DEBAIXO dele e virar a base.
+# ⚠️ O ESCULPIDO FICA MAIS BAIXO QUE O MODELO DE PROPÓSITO (360 contra 438): ele
+# é o terreno, o que garante que pista, snowpark e base não flutuem, e o modelo é
+# a superfície que se vê. Se o esculpido passasse o modelo, ele furaria por cima.
+# ⚠️ 360 AINDA FURAVA O MODELO. O Gudauri é uma CRISTA: a altura dele varia muito
+# dentro da base, e em boa parte dela a superfície está bem abaixo do pico. Um
+# monte cosseno de 360 m encostava em 598 e aparecia rasgando a encosta. Com 240
+# o esculpido fica por dentro em toda a área e continua fazendo o trabalho dele,
+# que é sustentar a pista, o snowpark e a base para não flutuarem.
+# ⚠️ O CERTO SERIA O TERRENO AMOSTRAR A MALHA DO MODELO em vez de aproximá-la por
+# um cosseno. Isso exige ler o .glb no gerador (Python) e fica para outra rodada;
+# enquanto não for feito, as peças assentam no pé da montanha e não na encosta.
+MONTE_ALT = 240.0
+MONTE_RAIO = 700.0
+MONTE_DX, MONTE_DZ = -640.0, -640.0     # do centro do vale para o noroeste, onde o
+                                        # terreno real já é mais alto (+132 m)
+
 for _nome, _tipo, _dx, _dz, _a, _b in [
-    ('Lago do Vale',              'agua',    -180.0,  120.0, 620.0, 400.0),
-    ('Floresta de Extrativismo',  'floresta', 420.0, -260.0, 700.0, 480.0),
-    ('Estação do Vale',           'infra',   -640.0, -520.0, 180.0, 120.0),
+    ('Lago do Vale',              'agua',     700.0,  520.0, 700.0, 460.0),
+    ('Floresta de Extrativismo',  'floresta', 900.0, -700.0, 760.0, 520.0),
+    ('Pista Principal',           'neve',    -300.0, -200.0, 620.0, 380.0),
+    ('Snowpark e Half-pipe',      'neve',      80.0, -760.0, 480.0, 300.0),
+    ('Base da Montanha',          'infra',    240.0,  -60.0, 260.0, 170.0),
+    ('Estação do Vale',           'infra',   -180.0, 1180.0, 200.0, 130.0),
 ]:
     _cx = VALE_CX + _dx * math.cos(_va) - _dz * math.sin(_va)
     _cz = VALE_CZ + _dx * math.sin(_va) + _dz * math.cos(_va)
@@ -2407,6 +2453,32 @@ with open(p('public/city/cidade-malha.json'), 'w') as f:
     ], ensure_ascii=False, separators=(',', ':')) + ',\n')
     f.write('"vale":' + json.dumps({
         'nome': 'Vale do Poente', 'rumo': VALE_RUMO, 'dist': VALE_DIST, 'raio': VALE_R,
+        # ⚠️ O PÉ DIREITO SAI DO SALTO, NÃO DA MONTANHA. Cume 438 + ápice do salto
+        # a 127 km/h numa rampa de 30° (96 m) + 80 de folga = 614. Dimensionar pela
+        # montanha só faria o atleta atravessar a casca no primeiro salto grande.
+        # ⚠️ 614 NÃO BASTOU E A SONDA PEGOU: topo da montanha em y 670, topo da
+        # casca em 619, ou seja o pico furando o vidro. A conta de 614 partia dos
+        # 438 m do modelo, mas ele pousa sobre o vale que já está a ~230, e a
+        # flecha é medida do chão. 900 dá folga para o cume E para o ápice do
+        # salto de 96 m, que era o motivo de dimensionar pelo salto e não pela
+        # montanha.
+        'flecha': 900,
+        'monte': {'x': round(VALE_CX + MONTE_DX*math.cos(_va) - MONTE_DZ*math.sin(_va), 1),
+                  'z': round(VALE_CZ + MONTE_DX*math.sin(_va) + MONTE_DZ*math.cos(_va), 1),
+                  'raio': MONTE_RAIO, 'altura': MONTE_ALT,
+                  # o modelo que veste o monte: Gudauri Flat, a estação de esqui
+                  # real da Geórgia, CC-BY, decimada de 904.879 para 19.999 tri
+                  # ⚠️ `nevada` E NÃO `gudauri`. O Gudauri tinha o nome da estação real e 904 mil
+                  # faces, e é um RECORTE PLANO de fotogrametria: entrou na cena como um
+                  # bloco branco de paredes retas. A proporção que o conversor imprime já
+                  # denunciava (634 × 1.541 × 438 = 1,4:1); montanha fechada dá 6 a 8:1.
+                  # A `nevada` é cordilheira inteira, 3.068 × 3.075 × 443 = 6,9:1, com pico,
+                  # vale, crista e ravina, e ainda é a mais leve: 260.642 → 19.999 tri.
+                  'modelo': {'file': 'nevada', 'escala': 1.0,
+                             'giroY': round(VALE_RUMO + 90.0, 1),
+                             'creditoEm': 'app/city/plaza/sf-assets.ts'},
+                  'nota': 'monte construido: 380 m de desnivel, ~15 graus medios. O relevo real '
+                          'dava 1,7 graus, que nao e pista. Esculpido em terrain.ts.'},
         'x': round(VALE_CX, 1), 'z': round(VALE_CZ, 1), 'corredor': VALE_CORREDOR,
         'pecas': [{'id': q['id'], 'nome': q['nome'], 'tipo': q['tipo'],
                    'x': round(q['cx'], 1), 'z': round(q['cz'], 1),
