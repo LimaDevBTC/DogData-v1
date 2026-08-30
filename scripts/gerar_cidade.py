@@ -24,6 +24,7 @@ da cadeia. Trocar `ts` por altura de bloco é refinamento posterior e mexe em
 pouca posição.
 """
 import csv, json, math, struct, sys, os, collections
+import heapq
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 def p(*a): return os.path.join(RAIZ, *a)
@@ -403,7 +404,13 @@ _ANEIS_PHI = sorted({a[0] for a in _aneis()} | {a[1] for a in _aneis()})
 
 # Deslocados meio passo de 45°, os canais correm ENTRE as avenidas: a cidade fica
 # com raio de água e raio de asfalto alternados, que é o que Amsterdam faz.
-CANAL_RADIAIS = [22.5 + i * 45.0 for i in range(8)]
+# ⚠️ TRÊS RADIAIS, NÃO OITO (fundador, 30/08: "ajuste o desenho da cidade à
+# geografia"). Medido na cota −40: só CR01 (22,5°), CR02 (67,5°) e CR03 (112,5°)
+# ALCANÇAM o lago — os outros cinco terminariam em trincheira cega, com corte de
+# até 123 m para cavar vala sem saída. Escavação: 22,8 Mm³ contra 112 se os oito
+# ficassem, e 945 se os anéis também ficassem.
+# Os cinco rumos que saíram continuam existindo como BULEVAR, que já corria neles.
+CANAL_RADIAIS = [22.5, 67.5, 112.5]
 # ⚠️ 96 -> 60 (fundador, 30/08: "60 m já resolve"). 96 m de lâmina entre
 # quarteirões de 109 a 227 m de fundo era canal mais largo que a quadra do
 # Núcleo. 60 m ainda é mais largo que qualquer canal de Amsterdam e cabe entre
@@ -438,7 +445,12 @@ CANAL_TALUDE = 12.0
 # anel intermediário e os 300 m finais de cidade ficavam secos: canal que acaba
 # no meio do quarteirão não é canal, é vala. Com a doca a rede fecha — do lago
 # central pelos radiais até um cais perimetral, que é o Singelgracht de Amsterdam.
-CANAL_ANEIS_ALVO = [1850.0, 2500.0, 3150.0, 3900.0, 4700.0, 5150.0, 5490.0]
+# ⚠️ OS SETE ANÉIS DE CANAL SAÍRAM, e o motivo é o mesmo que matou a colmeia da
+# cúpula: eram círculos geométricos jogados sobre um relevo que não é circular.
+# Medido: o CA07 passava 20,5 dos seus 34,4 km DENTRO de cratera, 60% do traçado,
+# e nivelá-los custaria 945 Mm³ — quatro Canais do Panamá e meio. A água da
+# cidade passa a ser o LAGO natural, que é o que a geografia oferece de graça.
+CANAL_ANEIS_ALVO = []
 _usadas = set()
 CANAL_ANEIS = []
 for _alvo in CANAL_ANEIS_ALVO:
@@ -837,6 +849,92 @@ def declive(x, z):
     G = lambda a,b: grade[min(n-1,b)*n+min(n-1,a)]
     return G(i,j)*(1-u)*(1-v)+G(i+1,j)*u*(1-v)+G(i,j+1)*(1-u)*v+G(i+1,j+1)*u*v
 
+# ── OS LAGOS DE CRATERA ────────────────────────────────────────────────────
+#
+# ⚠️ IDEIA DO FUNDADOR, 30/08: "já que temos que usar o terreno real, é só
+# transformar as crateras em lagos. Quero encher os lagos e mover o que ficar
+# submerso, simples assim." Ele está certo e as duas alternativas que eu tinha
+# medido eram piores: nivelar o corredor dos canais custava 276 Mm³ (o Canal do
+# Panamá inteiro moveu 205), e deixar a água acompanhar o chão é o defeito que
+# ele apontou — água que sobe e desce não existe.
+#
+# ⚠️ E EU ERREI DUAS VEZES ANTES DE ACHAR AS CRATERAS. Registro porque as duas
+# são erros de medição, não de terreno:
+#   1. Enchi cada bacia até a COTA DO CANAL em vez da soleira dela. Como a cota
+#      estava acima de várias soleiras, elas derramavam umas nas outras e o
+#      cálculo somava um lago de 75 km², 74% da cúpula. Isso não media se a
+#      cratera é local: media se o canal estava alto demais.
+#   2. Achei as bacias certas e ordenei por ÁREA, imprimindo as maiores — que são
+#      as rasas e largas da periferia, de 0 a 6 m. As crateras fundas são
+#      PEQUENAS e ficaram no fim da lista. Conclui "nenhuma cratera fecha" com a
+#      lista certa na mão, lida pelo lado errado.
+# Ordenadas por PROFUNDIDADE aparecem 16 bacias de mais de 25 m, somando 23,9 km².
+#
+# O algoritmo é o hidrológico: a partir do fundo, enche tirando sempre a célula
+# de borda mais baixa (fila de prioridade). O nível é o máximo já tirado; quando
+# a água escaparia do domo, aquela é a soleira e a bacia acaba ali.
+# ⚠️ NÍVEL ÚNICO (fundador, 30/08: "toda água da cidade precisa ter exatamente o
+# mesmo nível, já que está tudo interligado"). Ele está certo e é hidráulica
+# básica: água conectada acha um nível só. A escolha da cota deixou de ser
+# estética e virou medida — ver a tabela abaixo.
+#
+# −40 m porque é onde o custo desaba: afoga 163 lotes (0,2%) e não pede parede de
+# contenção, porque abaixo dessa cota o terreno já é bacia. Em −20 seriam 14.958
+# lotes; em −10, 24.280.
+LAGO_COTA = -40.0
+
+def _acha_lagos():
+    """Tudo que está abaixo de LAGO_COTA dentro da casca é água.
+
+    ⚠️ E ISSO NÃO DÁ ANEL, DÁ UM LAGO. Medido: 40 corpos somando 24,4 km², mas
+    UM deles tem 21,3 km² — 87% de toda a água — no quadrante nordeste, com
+    caixa de 7,8 por 9,4 km. O sítio é uma RAMPA, com o terreno baixo a nordeste;
+    nível único em terreno inclinado põe água de um lado só. Não existe bacia
+    concêntrica aqui, existe encosta.
+    """
+    from collections import deque
+    dentro=[[False]*n for _ in range(n)]
+    for j in range(n):
+        for i in range(n):
+            x, z = (i-half)*cell, (j-half)*cell
+            if math.hypot(x, z) < R_CASCA - 60 and H(i, j) < LAGO_COTA:
+                dentro[j][i] = True
+    vis=[[False]*n for _ in range(n)]; out=[]
+    for j in range(n):
+        for i in range(n):
+            if not dentro[j][i] or vis[j][i]: continue
+            q=deque([(i,j)]); vis[j][i]=True; cel=set()
+            while q:
+                a,b=q.popleft(); cel.add((a,b))
+                for da,db in ((1,0),(-1,0),(0,1),(0,-1)):
+                    u,v=a+da,b+db
+                    if 0<=u<n and 0<=v<n and dentro[v][u] and not vis[v][u]:
+                        vis[v][u]=True; q.append((u,v))
+            if len(cel)*cell*cell < 3e4: continue
+            cx=sum((a-half)*cell for a,b in cel)/len(cel)
+            cz=sum((b-half)*cell for a,b in cel)/len(cel)
+            out.append({'lamina': LAGO_COTA, 'area': round(len(cel)*cell*cell,1),
+                        'x': round(cx,1), 'z': round(cz,1), 'celulas': cel})
+    out.sort(key=lambda L: -L['area'])
+    return out
+
+LAGOS = _acha_lagos()
+_LAGO_MASC = set()
+for _L in LAGOS: _LAGO_MASC |= _L['celulas']
+print(f'lagos na cota {LAGO_COTA:.0f}: {len(LAGOS)} corpos, '
+      f'{sum(L["area"] for L in LAGOS)/1e6:.1f} km2 de agua '
+      f'(o maior com {LAGOS[0]["area"]/1e6:.1f} km2)', file=sys.stderr)
+
+def em_lago(x, z, margem=0.0):
+    """⚠️ A MARGEM É EM METROS E VIRA CÉLULAS DA GRADE. A grade tem 59,2 m, então
+    um lote encostado na margem cai na célula de fora e passaria batido."""
+    d = max(1, int(math.ceil(margem / cell)))
+    i0 = int(round(x/cell + half)); j0 = int(round(z/cell + half))
+    for dj in range(-d, d+1):
+        for di in range(-d, d+1):
+            if (i0+di, j0+dj) in _LAGO_MASC: return True
+    return False
+
 prad = math.radians(PARQUE_RUMO)
 PCX, PCZ = math.sin(prad)*PARQUE_DIST, -math.cos(prad)*PARQUE_DIST
 
@@ -1168,6 +1266,7 @@ def livre(x, z):
     if em_diagonal(x, z, 2.0): return False
     if em_canal(x, z, CANAL_TALUDE + 2.0): return False
     if em_guerra(x, z, 2.0): return False
+    if em_lago(x, z, 30.0): return False
     # ⚠️ AS QUATRO PONTES DESEMBOCAM AQUI. Antes eram as costuras de setor; agora
     # as costuras de distrito estão em 0/62/108/186/240/308 e só o rumo 0
     # coincide, então os eixos das pontes viram avenida própria. Avenida não
@@ -2925,9 +3024,23 @@ diagonais_pub = [{'id': f'DG{i+1}', 'rumo': ru, 'afastamento': off, 'largura': D
                  for i, (ru, off) in enumerate(DIAGONAIS)]
 # ⚠️ O CANAL PRECISA SER PUBLICADO EM GEOMETRIA, não só existir como máscara:
 # sem isto o gerador abre a vala e a cena não desenha água nenhuma dentro dela.
+# ⚠️ O RADIAL AGORA MORRE NO LAGO, não num anel de canal. `phiFim` referenciava
+# `CANAL_ANEIS[-1]` e a lista ficou vazia quando os anéis saíram — o gerador
+# estourou aqui, e é o tipo de acoplamento que só aparece quando o outro lado
+# some. O fim de cada radial é medido: o primeiro raio em que o chão desce abaixo
+# da cota do lago. É lá que a vala encontra água e deixa de ser vala.
+def _fim_no_lago(rumo):
+    a = math.radians(rumo); sx, sz = math.sin(a), -math.cos(a)
+    t = R_INICIO
+    while t < R_CASCA:
+        if crua(sx*t, sz*t) < LAGO_COTA: return round(t, 1)
+        t += 25
+    return round(R_CASCA - 200, 1)
+
 canais_pub = {
     'radiais': [{'id': f'CR{i+1:02d}', 'rumo': ru, 'secao': CANAL_RAD_SEC,
-                 'lamina': 60.0, 'rInicio': R_INICIO, 'phiFim': CANAL_ANEIS[-1],
+                 'lamina': 60.0, 'cota': LAGO_COTA,
+                 'rInicio': R_INICIO, 'rFim': _fim_no_lago(ru),
                  'sobreBulevar': ru in AVENIDAS_RADIAIS}
                 for i, ru in enumerate(CANAL_RADIAIS)],
     # ⚠️ `vaos` = os trechos em que o anel está INTERROMPIDO, em rumo. Sem eles a
@@ -3068,6 +3181,14 @@ with open(p('public/city/cidade-malha.json'), 'w') as f:
     # ficam as avenidas circulares e três delas ficam sem travessia sobre os oito
     # canais radiais — 24 interrupções, uma delas na Avenida do Cinturão, que é
     # onde os três túneis de eclusa desembocam.
+    # ⚠️ OS LAGOS VÃO PUBLICADOS, com a cota única. A cena desenha a lâmina PLANA
+    # nesta cota, não seguindo o chão: era esse o defeito que o fundador apontou
+    # ("a água desce e sobe, isso é impossível").
+    f.write('"lagos":' + json.dumps(
+        {'cota': LAGO_COTA,
+         'corpos': [{'x': L['x'], 'z': L['z'], 'area': L['area']} for L in LAGOS],
+         'nota': 'lamina unica: tudo abaixo de cota dentro da casca e agua'},
+        ensure_ascii=False, separators=(',', ':')) + ',\n')
     f.write('"aneisViarios":' + json.dumps(
         [{'id': a, 'nome': n, 'r': r, 'larg': w} for a, n, r, w in ANEIS],
         ensure_ascii=False, separators=(',', ':')) + ',\n')
