@@ -35,7 +35,19 @@ export const ORBIT_CENTER = new THREE.Vector3(0, 0, 0)
 // velho para 57,5 m no novo, e sem isso o pátio afunda.
 // ⚠️ ISTO TAMBÉM MOVE AS VAGAS DE POUSO. Elas são coordenadas de mundo e vivem
 // coladas ao modelo: mexer numa sem a outra põe nave pousando no vazio.
-export const SPACEPORT_SHIFT = new THREE.Vector3(-93, 19.8, 2055)
+// ⚠️ E MUDOU UMA TERCEIRA VEZ, 30/08, PELO MESMO MOTIVO DE SEMPRE. A casca foi a
+// 8.600 e depois a 7.050 no mesmo dia e este vetor ficou parado: o spaceport
+// terminou a 5.150 do centro, ou seja **1.900 m DENTRO da abóbada**, com o
+// foguete decolando de dentro do vidro. O fundador viu na chapa.
+//
+// Agora ele está em r 7.800, no rumo 182,6°: 750 m FORA da casca, logo além da
+// Pista de Serviço (r 7.600) para o pátio ter acesso rodoviário, e no mesmo rumo
+// do Portão da Abóbada (177°) e do Farol do Portão (183°), que é por onde se sai.
+// O chão ali é 84,5 m contra 59,8 m no lugar antigo, e os 24,7 m de diferença
+// entram no y deste vetor, senão o pátio afunda.
+//
+// ⚠️ SE `DOME_R` EM dome.ts MUDAR, ESTE VETOR MUDA JUNTO. É a terceira vez.
+export const SPACEPORT_SHIFT = new THREE.Vector3(-214, 44.5, 4702)
 
 const desloca = (v: THREE.Vector3) => v.add(SPACEPORT_SHIFT)
 

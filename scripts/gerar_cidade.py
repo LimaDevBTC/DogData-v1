@@ -546,6 +546,17 @@ R_CASCA = 7050.0
 _TIPOS_COM_AR = {'agua', 'floresta', 'verde', 'producao', 'lazer', 'jardim',
                  'esporte', 'civico', 'financeiro', 'transporte', 'industria'}
 
+def _janela_pega_guerra(_i, _nr, _jj, _ns):
+    """a janela de células cobre a Cratera da Guerra (com folga)?"""
+    gphi = phi(GUERRA_CX, GUERRA_CZ)
+    p0, p1 = _PHI_B[_i], _PHI_B[_i + _nr]
+    if not (p0 - GUERRA_R <= gphi <= p1 + GUERRA_R): return False
+    _, rm, _, _ = _cell_arco(_i, _jj)
+    dg = math.degrees(GUERRA_R / max(1.0, rm))
+    g0 = (_jj / N_RAIOS0) * 360.0 - dg
+    g1 = ((_jj + _ns) / N_RAIOS0) * 360.0 + dg
+    return ((GUERRA_RUMO - g0) % 360.0) <= ((g1 - g0) % 360.0 or 360.0)
+
 _CINT_POSTAS = []          # (x, z, raio ocupado) do que já foi assentado
 
 def assenta_no_cinturao(ru, ph, meia_a, meia_b, precisa_ar=False):
@@ -627,6 +638,26 @@ def assenta_no_cinturao(ru, ph, meia_a, meia_b, precisa_ar=False):
     _a = math.radians(ru)
     _CINT_POSTAS.append((math.sin(_a) * r0, -math.cos(_a) * r0, meia))
     return ru, r0
+
+# ── A CRATERA DA GUERRA ────────────────────────────────────────────────────
+#
+# ⚠️ ELA NUNCA FOI MÁSCARA E SOBREVIVIA POR SORTE. A batalha de preços (o book de
+# DOG/USD como campo, `app/city/war/battlefield.ts`) mora em (−2120, 2120) — r
+# 2.998, rumo 225°, 287 m de diâmetro — e é um LUGAR do mundo, com enquadramento
+# de câmera próprio. `livre()` mascarava canal, peça, anel, avenida, parque e
+# Coliseu, e não ela: nenhum lote tinha caído lá porque nenhuma peça tinha caído
+# lá, e só. Quando eu consertei o alocador em 30/08, o Parque Olímpico finalmente
+# achou vaga — e a vaga era em cima da cratera, 294 m do centro com 1.051 m de
+# largura. O fundador perguntou "a batalha foi parar aonde?" e era isso.
+GUERRA_CX, GUERRA_CZ = -2120.0, 2120.0
+GUERRA_PHI = None                  # calculado sob demanda: phi() já existe aqui
+GUERRA_RUMO = 225.0
+# 143,5 m é a cratera; o resto é o pátio de quem assiste, medido no enquadramento
+# da câmera de guerra (ela fecha a 333 m do centro).
+GUERRA_R = 340.0
+
+def em_guerra(x, z, margem=0.0):
+    return math.hypot(x - GUERRA_CX, z - GUERRA_CZ) < GUERRA_R + margem
 
 def em_vao(ianel, rumo):
     """o canal `ianel` está interrompido naquele rumo?"""
@@ -712,7 +743,15 @@ AUTOPISTAS = [   # (rumo do eixo, afastamento do centro em m, largura da caixa)
     ( 99.0, -2050.0, 26.0),
     (158.0,  1500.0, 26.0),
 ]
-AUTO_COTA = -42.0     # abaixo de qualquer fundação de lote
+# ⚠️ COTA ABSOLUTA É ERRADA PARA TÚNEL, e isto foi medido em 30/08. O sítio
+# ondula de −90 a +160 m; com o túnel numa cota fixa de −42, o chão passa POR
+# BAIXO dele onde o terreno afunda e o túnel aflora. Medido nas três autopistas:
+# AU1 com 34 de 161 amostras com menos de 10 m de cobertura (chão a −48), AU2 com
+# 46 de 161 (chão a −51). Túnel de verdade se mede ABAIXO DA SUPERFÍCIE, e é isso
+# que `AUTO_PROF` publica: a cena assenta o teto em `superficieAt(x,z) − prof`.
+# `AUTO_COTA` fica como referência do datum, para quem ainda lê o campo antigo.
+AUTO_COTA = -42.0     # ⚠️ LEGADO: use AUTO_PROF
+AUTO_PROF = 35.0      # metros de cobertura sob a superfície, em qualquer ponto
 
 # ── O METRÔ ─────────────────────────────────────────────────────────────────
 #
@@ -1128,6 +1167,7 @@ def livre(x, z):
     if num_anel(x, z) is not None: return False
     if em_diagonal(x, z, 2.0): return False
     if em_canal(x, z, CANAL_TALUDE + 2.0): return False
+    if em_guerra(x, z, 2.0): return False
     # ⚠️ AS QUATRO PONTES DESEMBOCAM AQUI. Antes eram as costuras de setor; agora
     # as costuras de distrito estão em 0/62/108/186/240/308 e só o rumo 0
     # coincide, então os eixos das pontes viram avenida própria. Avenida não
@@ -1538,6 +1578,11 @@ for _q in _fila:
                     _cells = {(_i + _r, (_jj + _c) % N_RAIOS0)
                               for _r in range(_nr) for _c in range(_ns)}
                     if _cells & _ocupado: continue
+                    # ⚠️ E A CRATERA DA GUERRA TAMBÉM REPROVA A JANELA. Ela é
+                    # infraestrutura da fase 1 como o canal: lugar do mundo, com
+                    # câmera e HUD próprios. Sem isto o Parque Olímpico volta a
+                    # cair em cima dela.
+                    if _janela_pega_guerra(_i, _nr, _jj, _ns): continue
                     _jan = _janela(_i, _nr, _jj, _ns)
                     if _jan is None: continue
                     _prof, _larg, _c0_, _c1_, _dg0_, _dg1_ = _jan
@@ -1843,19 +1888,55 @@ print(f'cinturão produtivo: {_np} peças ({_empurradas} empurradas para fora do
 # bombeado a cada ciclo.
 ECLUSA_CAMARAS = [(1.00, 260.0), (0.62, 170.0), (0.38, 110.0)]   # (fração do vão, raio)
 
-def _eclusa(nome, rumo, r_borda, para_fora=True):
-    """A cadeia de câmaras num rumo, da borda da abóbada para fora."""
+# ── A ECLUSA É UM TÚNEL, NÃO UMA PORTA NA CASCA ────────────────────────────
+#
+# ⚠️ MUDANÇA DE 30/08, do fundador: "faz sentido a entrada e saída da abóbada ser
+# por uma sequência de túneis, com estágios e divisões? Fazer uma porta e várias
+# camadas de proteção na abóbada creio ser mais trabalho. O foguete aterrissa, as
+# dog embarcam no veículo, entram no túnel e já saem lá dentro."
+#
+# Ele está certo, e por três razões que se medem:
+#   1. ABERTURA EM CASCA DE PRESSÃO é o ponto mais caro de toda a estrutura. A
+#      abóbada é uma membrana: o esforço corre por ela e toda abertura obriga a
+#      rotear esse esforço em volta, com anel de borda dimensionado à parte. O
+#      túnel passa POR BAIXO e não toca a casca — ela segue contínua, que é o que
+#      o fundador exigiu quando pediu um domo só, sem junta.
+#   2. VOLUME BOMBEADO. Câmara que engole veículo tem dezenas de milhares de m³
+#      para pressurizar a cada ciclo; um túnel de 26 m é uma fração disso.
+#   3. A CAMADA JÁ EXISTE. As três autopistas correm em AUTO_COTA (−42 m) e o
+#      metrô em −26. O túnel de entrada não inventa nível novo: entra na mesma
+#      laje, e a fundação da saia da abóbada (embutida 8 m) passa 47 m acima.
+#
+# ⚠️ E A VERSÃO ANTERIOR TINHA AS CÂMARAS FORA DE ORDEM. A distância de cada uma
+# saía de `r_borda + raio*1,6*(i+1)`, ou seja do raio DELA MESMA, e como os raios
+# decresciam (260, 170, 110) a terceira câmara caía em r 7.568, ANTES da segunda
+# em 7.584. Agora a posição é acumulada ao longo do eixo, que é como fila funciona.
+ECLUSA_TUNEL_LARG = 26.0        # mesma caixa das autopistas
+ECLUSA_PASSO = 300.0            # entre câmaras, ao longo do eixo
+
+def _eclusa(nome, rumo, r_externo, r_interno):
+    """O túnel de entrada: portal externo, três câmaras em série sob a casca,
+    portal interno. Tudo em AUTO_COTA; só os portais sobem à superfície."""
     a = math.radians(rumo)
-    out = []
-    for i, (frac, raio) in enumerate(ECLUSA_CAMARAS):
-        d = r_borda + (raio * 1.6) * (i + 1) * (1 if para_fora else -1)
-        out.append({'ordem': i + 1, 'raio': raio,
-                    'x': round(math.sin(a) * d, 1), 'z': round(-math.cos(a) * d, 1),
-                    'papel': ('externa', 'equalizacao', 'interna')[i]})
+    pos = lambda r: (round(math.sin(a) * r, 1), round(-math.cos(a) * r, 1))
+    # as três câmaras straddleiam a casca: uma fora, uma sob ela, uma dentro
+    cam = []
+    for i, papel in enumerate(('externa', 'equalizacao', 'interna')):
+        r = R_CASCA + ECLUSA_PASSO * (1 - i)
+        x, z = pos(r)
+        cam.append({'ordem': i + 1, 'papel': papel, 'raio': 110.0,
+                    'x': x, 'z': z, 'r': round(r, 1), 'profundidade': AUTO_PROF})
+    px, pz = pos(r_externo)
+    ix, iz = pos(r_interno)
     return {'id': f'EC{nome}', 'nome': f'Eclusa {nome}', 'rumo': rumo,
-            'camaras': out,
-            'nota': 'tres camaras em serie: o ar passa de uma para a seguinte, '
-                    'nunca do interior direto para o vacuo'}
+            'cota': AUTO_COTA, 'profundidade': AUTO_PROF, 'largura': ECLUSA_TUNEL_LARG,
+            'comprimento': round(abs(r_externo - r_interno), 1),
+            'portalExterno': {'x': px, 'z': pz, 'r': round(r_externo, 1)},
+            'portalInterno': {'x': ix, 'z': iz, 'r': round(r_interno, 1)},
+            'camaras': cam,
+            'nota': 'tunel sob a casca, 35 m abaixo da superficie: o veiculo entra pelo portal '
+                    'externo, passa tres camaras em serie e sobe dentro da cidade. '
+                    'A casca nao e perfurada.'}
 
 # ── O VALE DO PONENTE FOI DISSOLVIDO (fundador, 30/08) ──────────────────────
 #
@@ -2998,9 +3079,26 @@ with open(p('public/city/cidade-malha.json'), 'w') as f:
     }, ensure_ascii=False, separators=(',', ':')) + ',\n')
     f.write('"extracao":' + _linhas(EXTRACAO) + ',\n')
     f.write('"eclusas":' + json.dumps([
-        _eclusa('Parque', PARQUE_RUMO, raio_em_phi(math.radians(PARQUE_RUMO), PHI_BORDA)),
-        _eclusa('Extracao', 214.0, raio_em_phi(math.radians(214.0), PHI_BORDA)),
-        _eclusa('Spaceport', 0.0, raio_em_phi(0.0, PHI_BORDA)),
+        # ⚠️ AS ECLUSAS FICAM NA CASCA, E A CASCA É `R_CASCA` EM RAIO. Estavam em
+        # `raio_em_phi(rumo, PHI_BORDA)`, e PHI_BORDA é 6.900 em φ enquanto a
+        # casca fecha em 7.050 de RAIO: φ não é raio, e as duas nunca coincidiam.
+        # A eclusa ficava dentro ou fora do vidro conforme o rumo.
+        # ⚠️ O PORTAL EXTERNO FICA NO DESTINO, não na casca: é lá que o veículo
+        # embarca. O interno sai na Avenida do Cinturão (r 4.450), que é o anel
+        # viário que já fecha o tecido — o passageiro desce direto na malha.
+        # ⚠️ O PORTAL DO PARQUE É NA SOLEIRA, NÃO LÁ DENTRO. O parque mora numa bacia a
+        # −156 m que começa a despencar em r 7.150: em 7.400 o chão já está em
+        # −113 e o túnel saía suspenso no ar sobre a cova. 7.150 é a última cota
+        # firme (+3); de lá a estrada cênica desce para o parque, que é como já
+        # estava desenhado na landing.
+        _eclusa('Parque', PARQUE_RUMO, 7150.0, 4450.0),
+        _eclusa('Extracao', 214.0, 7600.0, 4450.0),
+        # ⚠️ A ECLUSA TEM DE FICAR NO RUMO DO SPACEPORT, e estava no 0° enquanto
+        # ele mora no 182,6°: lados OPOSTOS da cidade. Quem saísse por ela andava
+        # 15 km em volta da casca para chegar no pátio de lançamento. 183° é o
+        # rumo do Farol do Portão e vizinho do Portão da Abóbada (177°), ou seja
+        # o portão de veículo já está lá — a eclusa só volta para junto dele.
+        _eclusa('Spaceport', 183.0, 7700.0, 4450.0),
     ], ensure_ascii=False, separators=(',', ':')) + ',\n')
     f.write('"contorno":' + json.dumps(contorno_pub, separators=(',', ':')) + ',\n')
     f.write('"quartos":' + _linhas(malha_q) + ',\n')
