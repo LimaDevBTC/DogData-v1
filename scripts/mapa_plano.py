@@ -67,7 +67,19 @@ with open(CSV, newline='') as f:
 # falha; vazio com desenho lê como praça, estádio e parque.
 import json as _json
 _pg = _json.load(open(os.path.join(RAIZ, 'data', 'dogcity_programa_congelado.json')))
+# ⚠️ A PEÇA DE CÉLULA SE DESENHA PELO `poly`, NÃO POR a/b. Ela é um trapézio da
+# teia; desenhar o retângulo inscrito devolve exatamente o retângulo reto sobre
+# tecido curvo que o fundador vinha apontando.
+import json as _j2
+try:
+    _prog = _j2.load(open(os.path.join(RAIZ, 'public', 'city', 'cidade.json')))['programa']
+except Exception:
+    _prog = []
+_poly = {q['id']: q['poly'] for q in _prog if q.get('poly')}
 for q in _pg:
+    if q['id'] in _poly:
+        dr.polygon([tela(x, z) for x, z in _poly[q['id']]], fill=(58, 62, 66))
+        continue
     cx, cz, ea, eb = q['cx'], q['cz'], q['a'], q['b']
     g = math.radians(q['rot'])
     cg, sg = math.cos(g), math.sin(g)
@@ -77,12 +89,17 @@ for q in _pg:
         cantos = [(math.cos(2*math.pi*i/40)*ea, math.sin(2*math.pi*i/40)*eb) for i in range(40)]
     pts = [tela(cx + lx*cg - lz*sg, cz + lx*sg + lz*cg) for lx, lz in cantos]
     dr.polygon(pts, fill=(58, 62, 66))
+# ⚠️ O PARQUE TAMBÉM É CÉLULA DA TEIA AGORA: desenha pelo `poly`, o trapézio de
+# dois arcos e dois raios. Desenhar a elipse antiga devolveria o círculo verde
+# solto que o fundador apontou.
 for pq in MALHA.get('parques', []):
+    if pq.get('poly'):
+        dr.polygon([tela(x, z) for x, z in pq['poly']], fill=(52, 74, 52))
+        continue
     g = math.radians(pq['rot']); cg, sg = math.cos(g), math.sin(g)
-    pts = [tela(pq['x'] + math.cos(2*math.pi*i/44)*pq['a']*cg - math.sin(2*math.pi*i/44)*pq['b']*sg,
-                pq['z'] + math.cos(2*math.pi*i/44)*pq['a']*sg + math.sin(2*math.pi*i/44)*pq['b']*cg)
-           for i in range(44)]
-    dr.polygon(pts, fill=(52, 74, 52))
+    dr.polygon([tela(pq['x'] + math.cos(2*math.pi*i/44)*pq['a']*cg - math.sin(2*math.pi*i/44)*pq['b']*sg,
+                     pq['z'] + math.cos(2*math.pi*i/44)*pq['a']*sg + math.sin(2*math.pi*i/44)*pq['b']*cg)
+                for i in range(44)], fill=(52, 74, 52))
 # ⚠️ A ÁGUA VEM ANTES DO CONTORNO E DEPOIS DO TECIDO: ela é o que dá a leitura
 # da cidade de canais, e sem desenhá-la a planta só mostra as valas vazias.
 _cn = MALHA.get('canais') or {}

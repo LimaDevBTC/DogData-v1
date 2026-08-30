@@ -101,15 +101,23 @@ BANDAS = [   # (phi inicial, phi final, nome, k faixas)
     (1450.0, 2180.0, 'Nucleo', 2),      # 109 m: o núcleo antigo é miúdo
     (2180.0, 3010.0, 'Meio',   3),      # 168 m: o quarteirão de hoje
     (3010.0, 4300.0, 'Bairro', 4),      # 227 m
-    (4300.0, 5500.0, 'Borda',  5),      # 286 m: o grão continua abrindo
 ]
+# ⚠️ O LOTE PARA EM 4.300 E ISSO É CONSERTO DE ERRO MEU. Eu cresci a cidade para
+# 6.900 para levantar a mediana, e a mediana subiu (113 -> 293), mas a conta que eu
+# não fiz foi a de OCUPAÇÃO: sobraram 161.172 vagas para 85.838 carteiras, ou seja
+# o dobro do tecido necessário. Medido no resultado: quarteirão com 42% da
+# capacidade em média e 1.118 de 2.057 abaixo de 40%. Tecido meio vazio não lê como
+# cidade, lê como ruína, e foi isso que o fundador viu ao dar zoom.
+# A cidade continua grande: o que encolhe é a FAIXA DE LOTE. De 4.300 a 6.900 é
+# cinturão produtivo, que é programa e não vazio.
+
 # ⚠️ O LOTE PARA EM 5.500 E O RESTO NÃO É SOBRA. Com a cidade a 6.900 o tecido
 # oferecia 264.888 vagas para 85.838 carteiras: 32% de ocupação e mediana de
 # 476 m². Isso não é cidade, é subúrbio, e a terra nova viraria quintal em vez de
 # programa. De 5.500 a 6.900 fica o CINTURÃO PRODUTIVO, que é o que o fundador
 # descreveu: fazendas de proteína, lagos de pesca e a infraestrutura que alimenta
 # a cidade sob a abóbada.
-PHI_PRODUTIVO = 5500.0
+PHI_PRODUTIVO = 4300.0
 # ⚠️ A CINTA POLAR DEIXOU DE EXISTIR E ISSO NÃO É PERDA. Ela era a faixa externa
 # em quadra tangencial, criada para consertar a borda serrilhada que a malha
 # CARTESIANA deixava ao ser recortada numa forma. Na teia o tecido INTEIRO já é
@@ -119,7 +127,7 @@ PHI_PRODUTIVO = 5500.0
 # ⚠️ E A ÚLTIMA BANDA TEM DE IR ATÉ A BORDA. Ela parava em 4.040, que era onde a
 # Cinta começava: sem a Cinta, os últimos 360 m de cidade ficavam SEM TECIDO, e
 # foi isso que derrubou a capacidade de 94.003 para 67.720 vagas.
-PHI_CINTA = 5500.0
+PHI_CINTA = 4300.0
 CINTA_FAIXAS = []
 
 LOTE_W, LOTE_D = 12.0, 25.0       # 300 m² nominais; a testada vira variável ao plantar
@@ -233,7 +241,8 @@ def phi(x, z):
 # cada 540 m em fileira perfeita. Na planta isso vira POÁ, e poá é o sinal mais
 # forte de carimbo num mapa. Parque de cidade é POUCO, GRANDE e fica onde há
 # motivo. Nenhum destes tem par simétrico e nenhum está no centro de um distrito.
-PARQUES = [   # (rumo, φ do centro, meio-eixo maior, menor)
+# ⚠️ OS RUMOS DOS PARQUES SÃO ENCOSTADOS EM RAIO logo abaixo, em `_pq_geo()`.
+PARQUES = [   # (rumo desejado, φ do centro, meio-eixo maior, menor)
     ( 34.0, 2020.0, 300.0, 190.0), ( 78.0, 3180.0, 210.0, 340.0),
     (127.0, 2440.0, 260.0, 175.0), (166.0, 3420.0, 175.0, 300.0),
     (214.0, 1960.0, 240.0, 160.0), (262.0, 3020.0, 330.0, 210.0),
@@ -253,13 +262,9 @@ def _pq_geo():
         out.append((math.sin(g)*rr, -math.cos(g)*rr, a, b, g))
     return out
 PARQUES_GEO = _pq_geo()
-def em_parque(x, z, margem=0.0):
-    for px, pz, a, b, g in PARQUES_GEO:
-        dx, dz = x - px, z - pz
-        lx = dx*math.cos(g) + dz*math.sin(g)
-        lz = -dx*math.sin(g) + dz*math.cos(g)
-        if (lx/(a+margem))**2 + (lz/(b+margem))**2 <= 1.0: return True
-    return False
+# ⚠️ `em_parque` FOI REMOVIDA. O parque virou peça da teia e quem o mascara é
+# `em_programa`, como toda peça. Duas máscaras para a mesma coisa era o caminho
+# curto para as duas divergirem.
 
 # ── AS DIAGONAIS ────────────────────────────────────────────────────────────
 # Broadway em Nova York, a Diagonal em Barcelona. Uma via que IGNORA a malha e
@@ -286,12 +291,35 @@ def em_parque(x, z, margem=0.0):
 # 180, 270) caem sobre bulevar que já existe, onde a água ocupa o canteiro
 # central: ali o canal não custa lote NENHUM, e as quatro pontes do lago já são
 # as primeiras pontes dele.
-CANAL_RADIAIS = [0.0, 45.0, 90.0, 135.0, 180.0, 225.0, 270.0, 315.0]
+# ⚠️ OS RUMOS TÊM DE SER RAIO DA TEIA, e estes são: o passo do raio é
+# 360/N_RAIOS0 = 5,625°, e 22,5 são 4 passos exatos.
+#
+# ⚠️ E ELES NÃO PODEM SER AVENIDA. A primeira versão pôs os canais em 0/45/90/...,
+# ou seja EM CIMA dos eixos das pontes: lâmina de 60 m sobre avenida de 34, com a
+# água cobrindo a via inteira. Quatro das nove avenidas radiais afogadas, e
+# justamente as quatro que recebem as pontes. O fundador desconfiou olhando a
+# chapa e a conferência confirmou por construção.
+# Deslocados meio passo de 45°, os canais correm ENTRE as avenidas: a cidade fica
+# com raio de água e raio de asfalto alternados, que é o que Amsterdam faz.
+CANAL_RADIAIS = [22.5 + i * 45.0 for i in range(8)]
 CANAL_RAD_SEC = 96.0
 # ⚠️ UM QUINTO ANEL DE CANAL entrou junto com o crescimento: sem ele os 2.000 m
 # novos de cidade ficariam sem água, e a rede tem de chegar na borda nova.
-CANAL_ANEIS   = [1850.0, 2500.0, 3150.0, 3900.0, 4700.0]
+# ⚠️ ESTES SÃO OS φ DESEJADOS, NÃO OS FINAIS. Logo abaixo de `_aneis()` cada um é
+# encostado na linha de anel mais próxima: sem isso o canal passava no meio de uma
+# fileira de lotes, e o fundador chamaria de aleatório com razão.
+CANAL_ANEIS_ALVO = [1850.0, 2500.0, 3150.0, 3900.0, 4700.0]
+CANAL_ANEIS      = list(CANAL_ANEIS_ALVO)
 CANAL_ANEL_SEC = 56.0
+# ⚠️ GUARDA DURA: canal e avenida NÃO podem partilhar rumo. Sem isto o erro volta
+# em silêncio, porque água desenhada por cima de via não gera erro nenhum: a
+# cidade só fica sem as avenidas que recebem as pontes.
+for _cr in CANAL_RADIAIS:
+    for _av in list(AVENIDAS_RADIAIS) + [d[0] for d in DISTRITOS]:
+        _dd = abs(((_cr - _av + 180) % 360) - 180)
+        assert _dd > 3.0, (f'canal no rumo {_cr} coincide com avenida no rumo {_av}: '
+                           f'a lâmina de {CANAL_RAD_SEC:.0f} m afogaria a via')
+
 def em_canal(x, z, margem=0.0):
     r = math.hypot(x, z)
     if r < R_INICIO: return False
@@ -304,7 +332,14 @@ def em_canal(x, z, margem=0.0):
         if math.radians(dang) * r < CANAL_RAD_SEC/2 + margem: return True
     return False
 
-DIAGONAIS = [(24.0, 1750.0), (99.0, -2050.0), (158.0, 1500.0)]   # (rumo, afastamento do centro)
+# ⚠️ AS DIAGONAIS SAÍRAM (fundador, 30/08: "nada aleatório, teia perfeita"). Elas
+# eram o antídoto contra a monotonia de uma malha CARTESIANA: uma via que ignora
+# a grade e produz esquina em cunha. Numa teia esse trabalho já é dos raios, que
+# convergem e por isso nunca deixam o tecido virar xadrez. O que sobrava eram três
+# cordas em rumos inventados por mim (24° a 1.750 do centro, 99° a −2.050, 158° a
+# 1.500), sem relação com anel nem com raio: o elemento MAIS arbitrário que restava
+# no plano, justamente no lugar onde se pedia rigor.
+DIAGONAIS: list[tuple[float, float]] = []
 DIAG_LARG = 44.0
 def em_diagonal(x, z, margem=0.0):
     for ru, off in DIAGONAIS:
@@ -590,8 +625,23 @@ if os.path.exists(_CONG):
     print(f'programa lido do congelado: {len(PROGRAMA_GEO)} peças', file=sys.stderr)
 
 def em_programa(x, z, margem=2.0):
-    """MUNDO = R(rot) · LOCAL, então LOCAL = R(-rot) · MUNDO."""
+    """MUNDO = R(rot) · LOCAL, então LOCAL = R(-rot) · MUNDO.
+
+    ⚠️ A PEÇA DE CÉLULA NÃO SE TESTA COMO RETÂNGULO. Ela é um trapézio da teia, e
+    o teste dela é em COORDENADA DE TEIA: φ entre os dois anéis e rumo entre os
+    dois raios. Testar o retângulo inscrito deixaria lote nascer nos cantos do
+    trapézio, que é justamente onde a peça e a quadra brigavam.
+    """
     for q in PROGRAMA_GEO:
+        c = q.get('cel')
+        if c:
+            ph = phi(x, z)
+            if not (c['phi0'] - margem <= ph <= c['phi1'] + margem): continue
+            ru = rumo_de(x, z)
+            a0, a1 = c['a0'], c['a1']
+            d = (ru - a0) % 360.0
+            if d <= (a1 - a0) % 360.0 or (a1 - a0) % 360.0 == 0: return q
+            continue
         dx, dz = x - q['cx'], z - q['cz']
         lx =  dx*q['c'] + dz*q['s']
         lz = -dx*q['s'] + dz*q['c']
@@ -659,7 +709,6 @@ def livre(x, z):
     if dentro_do_coliseu(x, z, 2.0): return False
     if em_programa(x, z) is not None: return False
     if num_anel(x, z) is not None: return False
-    if em_parque(x, z, 2.0): return False
     if em_diagonal(x, z, 2.0): return False
     if em_canal(x, z, 2.0): return False
     # ⚠️ AS QUATRO PONTES DESEMBOCAM AQUI. Antes eram as costuras de setor; agora
@@ -813,6 +862,15 @@ def n_raios(p):
     while (2*math.pi*p)/n > FRENTE_ALVO*1.25: n *= 2
     return n
 
+# ⚠️ NENHUM RUMO É INVENTADO A PARTIR DAQUI. `rumo_de_raio()` devolve o rumo do
+# raio da teia mais próximo, e TODA peça extra (fazenda, lago, planta, campo de
+# extração, parque) nasce num deles. Antes eu escolhia 15°, 30°, 190°+18i a dedo:
+# números redondos não são a mesma coisa que números do desenho, e é exatamente
+# essa diferença que o fundador vinha chamando de aleatório.
+def rumo_de_raio(ru, phi_ref=3000.0):
+    passo = 360.0 / n_raios(phi_ref)
+    return round(ru / passo) * passo % 360.0
+
 def _aneis():
     """Os anéis, com o passo saindo do grão da banda.
 
@@ -837,6 +895,20 @@ def _aneis():
 
 _ANEIS_PHI = sorted({a[0] for a in _aneis()} | {a[1] for a in _aneis()})
 
+# ⚠️ O CANAL VIRA ANEL DA TEIA, não uma vala por cima dela. Cada φ desejado é
+# trocado pela linha de anel mais próxima, e duas linhas nunca recebem dois
+# canais. Assim a margem do canal É a rua do quarteirão, e o lote da margem tem
+# testada de água pelo mesmo motivo que os outros têm testada de rua.
+_usadas = set()
+CANAL_ANEIS = []
+for _alvo in CANAL_ANEIS_ALVO:
+    _cand = [v for v in _ANEIS_PHI if v not in _usadas and R_INICIO + 100 < v < PHI_PRODUTIVO - 100]
+    if not _cand: continue
+    _v = min(_cand, key=lambda v: abs(v - _alvo))
+    _usadas.add(_v); CANAL_ANEIS.append(_v)
+print('canais encostados no anel: ' + ', '.join(f'{a:.0f}->{b:.0f}'
+      for a, b in zip(CANAL_ANEIS_ALVO, CANAL_ANEIS)), file=sys.stderr)
+
 def _encosta_em_anel(ph, b):
     """Empurra o centro da peça até a borda dela cair na linha de anel mais perto.
 
@@ -854,41 +926,143 @@ def _encosta_em_anel(ph, b):
     d, novo = min(cand)
     return novo if d < b else ph                   # não anda mais que a própria peça
 
-# ── AS PEÇAS GIRAM PARA A TANGENTE E ENCOSTAM NO ANEL ───────────────────────
-#
-# ⚠️ ISTO SE PERDEU UMA VEZ NUMA SUBSTITUIÇÃO MINHA e a chapa não acusou: as peças
-# voltaram a usar `rot = setor * 7,5°`, ângulo de um reticulado que não existe
-# mais, e ficaram tortas de novo sobre o tecido em anel. Fica aqui embaixo, depois
-# de `n_raios` e `_aneis` existirem, porque depende dos dois.
-#
-# ⚠️ ANDA, NÃO REDIMENSIONA. Uma versão anterior esticava a peça até 70% para ela
-# cobrir anéis inteiros, e isso deformava o desenho que os 34 módulos 3D
-# receberam. Aqui a medida é intocada: escolhe-se a linha de anel que exige o
-# menor deslocamento e o resto da diferença vira recuo em volta da peça.
-_ANEIS_PHI = sorted({a[0] for a in _aneis()} | {a[1] for a in _aneis()})
-
-def _encosta_em_anel(ph, b):
-    if not _ANEIS_PHI: return ph
-    cand = []
-    for v in _ANEIS_PHI:
-        cand.append((abs(v + b - ph), v + b))
-        cand.append((abs(v - b - ph), v - b))
-    d, novo = min(cand)
-    return novo if d < b else ph
-
-_gira = 0
-for _q in PROGRAMA_GEO:
-    if _q.get('borda') or _q.get('produtivo'): continue
-    if _q['forma'] != 'retangulo': continue
-    _ang = math.atan2(_q['cx'], -_q['cz'])
-    _ph = _encosta_em_anel(phi(_q['cx'], _q['cz']), _q['b'])
+# ── OS PARQUES ENTRAM NA TEIA COMO PEÇA ─────────────────────────────────────
+# ⚠️ ELES ERAM ELIPSES SOLTAS e o fundador viu: "os círculos verdes também
+# precisam fazer parte da teia". Elipse não tem divisa, não tem portão e não tem
+# relação com anel nem com raio, que é exatamente a crítica que já matou a peça
+# de malha duas vezes nesta cidade. Agora eles passam pelo MESMO alocador: ocupam
+# células inteiras, ganham o trapézio da teia e são mascarados por `em_programa`
+# como qualquer outra peça. `em_parque` deixa de existir.
+for _i, (_ru, _ph, _pa, _pb) in enumerate(PARQUES):
+    _ang = math.radians(_ru)
     _r = raio_em_phi(_ang, _ph)
-    _q['cx'], _q['cz'] = math.sin(_ang) * _r, -math.cos(_ang) * _r
-    _q['rot'] = math.degrees(_ang) % 360
-    _q['c'], _q['s'] = math.cos(_ang), math.sin(_ang)
-    _gira += 1
-print(f'peças giradas para a tangente e encostadas no anel: {_gira} (medidas intactas)',
-      file=sys.stderr)
+    PROGRAMA_GEO.append({
+        'id': f'PQ{_i+1:02d}', 'nome': f'Parque {_i+1}', 'tipo': 'verde',
+        'forma': 'retangulo', 'parque': True,
+        'cx': math.sin(_ang)*_r, 'cz': -math.cos(_ang)*_r,
+        'a': _pa, 'b': _pb, 'rot': _ru,
+        'c': math.cos(_ang), 's': math.sin(_ang), 'area': 4*_pa*_pb,
+    })
+
+# ── O ALOCADOR DE PEÇAS: TODA PEÇA OCUPA QUARTEIRÃO INTEIRO DA TEIA ─────────
+#
+# ⚠️ TRÊS TENTATIVAS ANTES DESTA REPROVARAM, e vale registrar porque cada uma
+# parecia suficiente:
+#   1. só girar para a tangente: a peça continuava atravessando anel e raio no
+#      meio do vão, com lasca dos dois lados;
+#   2. girar e ANDAR até encostar num anel: consertava o raio e deixava o arco
+#      solto, então a lateral continuava cortando quarteirão;
+#   3. inserir as bordas das peças como corte de anel: o corte é GLOBAL, uma peça
+#      no rumo 43 fatiava o anel na volta inteira e a capacidade caiu de 75.559
+#      para 54.256.
+#
+# O que o fundador mandou fazer, e que é o certo: "se for grande demais pra caber
+# entre os canais, jogue pra borda, gire, ajuste, posicione dentro do quarteirão,
+# um ou mais, mas seguindo o desenho da teia". Ou seja a peça é LIVRE para mudar
+# de lugar e de medida, e é OBRIGADA a ocupar um bloco retangular de células da
+# teia. Assim a divisa dela é rua por construção, sempre, sem exceção e sem lasca.
+#
+# ⚠️ AS FRONTEIRAS ANGULARES USAM O RAIO BASE (N_RAIOS0), nunca o raio dobrado.
+# Como 128 é múltiplo de 64, todo raio do conjunto base existe em qualquer anel;
+# usar o dobrado faria a borda da peça cair num raio que não existe no anel de
+# dentro, e ela voltaria a cortar quarteirão.
+_ANEIS_LISTA = _aneis()
+_PHI_B = [a[0] for a in _ANEIS_LISTA] + [_ANEIS_LISTA[-1][1]]
+
+def _cell_arco(i, j):
+    """centro e meia-largura da célula (anel i, raio-base j), em mundo."""
+    p0, p1 = _PHI_B[i], _PHI_B[i + 1]
+    a0 = (j / N_RAIOS0) * 2*math.pi
+    a1 = ((j + 1) / N_RAIOS0) * 2*math.pi
+    am = (a0 + a1) / 2
+    rm = raio_em_phi(am, (p0 + p1) / 2)
+    return am, rm, (a1 - a0) * rm / 2, (p1 - p0) / 2
+
+_ocupado = set()
+_alocadas, _movidas = 0, 0
+_relato = []
+# as maiores primeiro: quem precisa de mais células escolhe antes
+_fila = [q for q in PROGRAMA_GEO
+         if not q.get('borda') and not q.get('produtivo') and q['forma'] == 'retangulo']
+_fila.sort(key=lambda q: -q['a'] * q['b'])
+for _q in _fila:
+    _a0, _b0 = _q['a'], _q['b']
+    _ru0 = math.degrees(math.atan2(_q['cx'], -_q['cz'])) % 360
+    _ph0 = phi(_q['cx'], _q['cz'])
+    _j0 = int(round(_ru0 / 360.0 * N_RAIOS0)) % N_RAIOS0
+    _melhor = None
+    for _i in range(len(_PHI_B) - 1):
+        for _nr in (1, 2, 3, 4):
+            if _i + _nr >= len(_PHI_B): break
+            _prof = (_PHI_B[_i + _nr] - _PHI_B[_i]) / 2 - VIA_CONTORNO / 2
+            if _prof < _b0 * 0.45 or _prof > _b0 * 2.4: continue
+            _am, _rm, _mw, _ = _cell_arco(_i, _j0)
+            _cel = (2*math.pi*_rm) / N_RAIOS0
+            _ns = max(1, int(round((2 * _a0) / _cel)))
+            _larg = (_ns * _cel) / 2 - VIA_CONTORNO / 2
+            if _larg < _a0 * 0.45: continue
+            # varre o rumo a partir do original, para os dois lados
+            for _d in range(0, N_RAIOS0):
+                for _sg in ((0,) if _d == 0 else (-1, 1)):
+                    _jj = (_j0 + _sg * _d) % N_RAIOS0
+                    _cells = {(_i + _r, (_jj + _c) % N_RAIOS0)
+                              for _r in range(_nr) for _c in range(_ns)}
+                    if _cells & _ocupado: continue
+                    _amm, _rmm, _, _ = _cell_arco(_i, _jj)
+                    _amc = ((_jj + _ns / 2) / N_RAIOS0) * 2*math.pi
+                    _phc = (_PHI_B[_i] + _PHI_B[_i + _nr]) / 2
+                    # custo: deformação nos dois eixos + quanto a peça viajou
+                    _c1 = abs(_prof / _b0 - 1) + abs(_larg / _a0 - 1)
+                    _c2 = abs(math.degrees(_amc) - _ru0) / 180.0 + abs(_phc - _ph0) / 3000.0
+                    _cst = _c1 + _c2 * 0.8
+                    if _melhor is None or _cst < _melhor[0]:
+                        _melhor = (_cst, _i, _nr, _jj, _ns, _prof, _larg, _amc, _phc, _cells)
+                    break
+                if _melhor and _melhor[0] < 0.12: break
+            if _melhor and _melhor[0] < 0.12: break
+    if _melhor is None:
+        _relato.append(f"{_q['id']} {_q['nome'][:26]}: NÃO COUBE, ficou onde estava")
+        continue
+    _cst, _i, _nr, _jj, _ns, _prof, _larg, _amc, _phc, _cells = _melhor
+    _ocupado |= _cells
+    _r = raio_em_phi(_amc, _phc)
+    _dx = math.hypot(math.sin(_amc)*_r - _q['cx'], -math.cos(_amc)*_r - _q['cz'])
+    _q['cx'], _q['cz'] = math.sin(_amc) * _r, -math.cos(_amc) * _r
+    _q['a'], _q['b'] = _larg, _prof
+    _q['rot'] = math.degrees(_amc) % 360
+    _q['c'], _q['s'] = math.cos(_amc), math.sin(_amc)
+    _q['area'] = 4 * _larg * _prof
+    # ⚠️ A PEÇA DEIXA DE SER RETÂNGULO E PASSA A TER A FORMA DA CÉLULA. O fundador
+    # pediu "em formato de teia", e é literal: a célula da teia é um TRAPÉZIO
+    # (dois arcos e dois raios que convergem), então um retângulo de lados retos
+    # nunca encaixa nela por mais que eu gire. Os cantos não alcançam e as bordas
+    # cruzam o arco. Agora a peça guarda os índices da célula e o polígono do
+    # trapézio, e é ele que vale para a máscara e para o desenho.
+    # `a` e `b` continuam gravados porque os 34 módulos 3D compõem dentro deles:
+    # eles passam a ser o RETÂNGULO INSCRITO no trapézio.
+    _q['celulas'] = [_nr, _ns]
+    _q['forma'] = 'celula'
+    _q['cel'] = {'i': _i, 'nr': _nr, 'j': _jj, 'ns': _ns,
+                 'phi0': _PHI_B[_i], 'phi1': _PHI_B[_i + _nr],
+                 'a0': (_jj / N_RAIOS0) * 360.0, 'a1': ((_jj + _ns) / N_RAIOS0) * 360.0}
+    _pol = []
+    _p0v, _p1v = _PHI_B[_i] + VIA_CONTORNO / 2, _PHI_B[_i + _nr] - VIA_CONTORNO / 2
+    _passos = max(2, int(_ns * 3))
+    for _t in range(_passos + 1):
+        _aa = ((_jj + _ns * _t / _passos) / N_RAIOS0) * 2 * math.pi
+        _rr = raio_em_phi(_aa, _p0v)
+        _pol.append([round(math.sin(_aa) * _rr, 1), round(-math.cos(_aa) * _rr, 1)])
+    for _t in range(_passos, -1, -1):
+        _aa = ((_jj + _ns * _t / _passos) / N_RAIOS0) * 2 * math.pi
+        _rr = raio_em_phi(_aa, _p1v)
+        _pol.append([round(math.sin(_aa) * _rr, 1), round(-math.cos(_aa) * _rr, 1)])
+    _q['poly'] = _pol
+    _alocadas += 1
+    if _dx > 120: _movidas += 1
+print(f'peças alocadas na teia: {_alocadas} de {len(_fila)} '
+      f'({_movidas} tiveram de mudar de lugar)', file=sys.stderr)
+for _w in _relato:
+    print(f'  {_w}', file=sys.stderr)
 
 # ── O CINTURÃO PRODUTIVO ────────────────────────────────────────────────────
 #
@@ -903,10 +1077,10 @@ print(f'peças giradas para a tangente e encostadas no anel: {_gira} (medidas in
 _PROD = []
 for _i in range(12):
     _PROD.append(('FZ', f'Fazenda de Proteína {_i+1}', 'producao',
-                  15.0 + _i * 30.0, 5900.0, 620.0, 380.0))
+                  rumo_de_raio(15.0 + _i * 30.0), 5900.0, 620.0, 380.0))
 for _i in range(6):
     _PROD.append(('LP', f'Lago de Pesca {_i+1}', 'agua',
-                  30.0 + _i * 60.0, 6550.0, 460.0, 260.0))
+                  rumo_de_raio(30.0 + _i * 60.0), 6550.0, 460.0, 260.0))
 _np = 0
 for _pre, _nome, _tipo, _ru, _ph, _a, _b in _PROD:
     _ang = math.radians(_ru)
@@ -956,6 +1130,7 @@ _IND = [
 ]
 _ni = 0
 for _nome, _tipo, _ru, _ph, _a, _b in _IND:
+    _ru = rumo_de_raio(_ru)
     _ang = math.radians(_ru)
     _r = raio_em_phi(_ang, _ph)
     PROGRAMA_GEO.append({
@@ -976,7 +1151,7 @@ for _nome, _tipo, _ru, _ph, _a, _b in _IND:
 # é o LUGAR, porque depois já estará ocupado.
 EXTRACAO = []
 for _i in range(8):
-    _ru = 190.0 + _i * 18.0                     # o arco oposto ao parque (rumo 43)
+    _ru = rumo_de_raio(190.0 + _i * 18.0)       # o arco oposto ao parque (rumo 43)
     if abs(((_ru - PARQUE_RUMO + 180) % 360) - 180) < 40: continue
     for _j, _rr in enumerate([7600.0, 8600.0]):
         _ang = math.radians(_ru)
@@ -1022,6 +1197,15 @@ def tecido():
         pm = (p0 + p1) / 2
         n = n_raios(pm)
         for j in range(n):
+            # ⚠️ A CÉLULA OCUPADA POR PEÇA NÃO GERA QUARTEIRÃO, E ISTO É A CORREÇÃO
+            # QUE FALTAVA. O alocador já rodava ANTES do tecido, mas o tecido não o
+            # consultava: ele montava o quarteirão inteiro e só depois cada lote era
+            # recusado por `em_programa`. Quarteirão meio comido cai abaixo do
+            # mínimo de 8 lotes e é DESCARTADO INTEIRO, então o buraco ficava maior
+            # que a peça e a peça parecia jogada por cima. Como o fundador disse: o
+            # problema é colocar os elementos depois da cidade toda ser gerada.
+            # Agora a peça É o quarteirão, e a soma fecha.
+            if (ia, (j * N_RAIOS0) // n) in _ocupado: continue
             am = ((j + 0.5) / n) * 2*math.pi
             rm = raio_em_phi(am, pm)
             cx, cz = math.sin(am)*rm, -math.cos(am)*rm
@@ -1681,8 +1865,23 @@ json.dump({
                   'forma': q['forma'],
                   'x': round(q['cx']), 'z': round(q['cz']),
                   'a': q['a'], 'b': q['b'], 'rot': q['rot'],
+                  # ⚠️ `setor/ix/iz/w/h` SÃO LEGADO do reticulado de 12 setores e não
+                  # querem dizer mais nada: a peça agora mora na teia. Ficam porque
+                  # a cena antiga ainda os lê, mas quem manda é `celulas`.
                   'setor': q.get('setor'), 'ix': q.get('ix'), 'iz': q.get('iz'),
                   'w': q.get('w'), 'h': q.get('h'),
+                  # ⚠️ `celulas` = [anéis, células de raio] que a peça ocupa. Sem
+                  # este campo a cena recebe a peça como um retângulo solto e não
+                  # tem como saber que a divisa dela É rua da teia: o alocador
+                  # gravava no objeto e o publicador o descartava, então saíam 0 de
+                  # 77. Conferir com `celulas` presente em toda peça de malha.
+                  'celulas': q.get('celulas'), 'cel': q.get('cel'),
+                  # ⚠️ `poly` é o CONTORNO REAL da peça: o trapézio da teia, com o
+                  # arco subdividido. Quem desenhar `a`/`b` como retângulo volta a
+                  # pôr um retângulo reto sobre tecido curvo.
+                  'poly': q.get('poly'),
+                  'produtivo': True if q.get('produtivo') else None,
+                  'borda': True if q.get('borda') else None,
                   'ha': round(q['area']/1e4, 2)} for q in PROGRAMA_GEO],
     'aneis': [{'id': a, 'nome': n, 'r': r, 'larg': w} for a, n, r, w in ANEIS],
     'aneisHa': round(sum(2*math.pi*r*w for _, _, r, w in ANEIS)/1e4, 1),
@@ -1848,13 +2047,17 @@ for s in range(N_DIST):
             'phi': round(q['r']), 'quarteiroes': blocos,
         })
 
-parques_pub = []
-for i, (ru, d, a, b) in enumerate(PARQUES):
-    px, pz, ea, eb, g = PARQUES_GEO[i]
-    parques_pub.append({'id': f'PQ{i+1:02d}', 'rumo': ru, 'phi': d,
-                        'x': round(px, 1), 'z': round(pz, 1),
-                        'a': ea, 'b': eb, 'rot': round(math.degrees(g), 2),
-                        'ha': round(math.pi*ea*eb/1e4, 2)})
+# ⚠️ OS PARQUES SÃO PUBLICADOS A PARTIR DAS PEÇAS ALOCADAS, não mais da tabela
+# de elipses: é o alocador que decidiu onde eles couberam, e o `poly` é o
+# trapézio da teia. `pracas.ts` desenha DENTRO desse polígono.
+parques_pub = [{'id': q['id'], 'nome': q['nome'],
+                'x': round(q['cx'], 1), 'z': round(q['cz'], 1),
+                'a': round(q['a'], 1), 'b': round(q['b'], 1),
+                'rot': round(q['rot'], 2), 'celulas': q.get('celulas'),
+                'poly': q.get('poly'),
+                'ha': round(q['area']/1e4, 2)}
+               for q in PROGRAMA_GEO if q.get('parque')]
+
 diagonais_pub = [{'id': f'DG{i+1}', 'rumo': ru, 'afastamento': off, 'largura': DIAG_LARG}
                  for i, (ru, off) in enumerate(DIAGONAIS)]
 # ⚠️ O CANAL PRECISA SER PUBLICADO EM GEOMETRIA, não só existir como máscara:
@@ -1957,6 +2160,10 @@ with open(p('public/city/cidade-malha.json'), 'w') as f:
         'celulaLegado': CELULA, 'quarteiraoLegado': QUARTEIRAO,
         'viaContorno': VIA_CONTORNO, 'faixa': FAIXA, 'travessa': TRAVESSA,
         'arcoBanda': ARCO_BANDA, 'avenidaDistrito': AVENIDA_DIST, 'diagLargura': DIAG_LARG,
+        # ⚠️ ONDE ESTÃO AS RUAS DE ANEL. Sem esta lista a cena não tem como saber
+        # onde uma via cruza um canal, e sem isso não há ponte: cinco anéis de
+        # água sem travessia partem a cidade em seis ilhas concêntricas.
+        'aneisPhi': [round(a[0], 1) for a in _aneis()] + [round(_aneis()[-1][1], 1)],
         'bulevar': BULEVAR, 'filaProf': FILA_PROF, 'profMax': PROF_MAX,
         'plato': {'r': R_INICIO, 'rampaDe': PLATO_R},
         'cinturao': {'rInicio': R_ABOBADA, 'rFim': R_SITIO},

@@ -42,6 +42,7 @@ import { buildTecido, type Tecido } from './tecido'
 import { buildVias, type Vias } from './vias'
 import { buildPracas, type Pracas } from './pracas'
 import { buildArborizacao, type Arborizacao, type Cova } from './arborizacao'
+import { buildCanais, type Canais } from './canais'
 import { buildLago, type Lago } from './lago'
 import { buildAquario, type Aquario } from './aquario'
 import { buildCaverna, type Caverna } from './caverna'
@@ -1079,6 +1080,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let pracas: Pracas | null = null
     let arvores: Arborizacao | null = null
     let lago: Lago | null = null
+    let canais: Canais | null = null
     let aquario: Aquario | null = null
     let caverna: Caverna | null = null
     let specsDoAquario: import('./props').PropSpec[] = []
@@ -1228,6 +1230,58 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               sombra: qDomo.get('sombra') !== '0',
             })
             scene.add(lago.group)
+            // ── OS CANAIS ────────────────────────────────────────────────────
+            // ⚠️ SOBEM COLADOS NO LAGO porque desaguam nele: mesma cor, mesmo
+            // material e o MESMO shader de água (`aguaDeVerdade`, exportado de
+            // lago.ts). Água de canal com outro brilho ao lado da água do lago
+            // aparece na emenda.
+            // ⚠️ E O GERADOR JÁ ABRIU A VALA: `livre()` recusa lote dentro da
+            // seção do canal e `cidade-malha.json` publica a geometria. Se este
+            // módulo e o gerador discordarem, sai água sobre lote ou vala seca.
+            try {
+              const mc = await fetch('/city/cidade-malha.json').then((r) => r.json())
+              const cn = mc?.canais
+              if (cn?.aneis?.length) {
+                const rFim = Math.max(...cn.aneis.flatMap((a: { contorno: [number, number][] }) =>
+                  a.contorno.map(([x, z]) => Math.hypot(x, z))))
+                // ⚠️ AS PONTES PRECISAM DAS AVENIDAS E DAS RUAS DE ANEL. Sem elas o
+                // canal vira fosso: 5 anéis de água sem travessia partem a cidade em
+                // 6 ilhas concêntricas e os 8 radiais impedem dar a volta em
+                // qualquer anel. `raioEmPhi` interpola o contorno de cada anel de
+                // canal para achar o raio em qualquer rumo, que é onde a ponte cai.
+                const _porPhi = new Map<number, { a: number; r: number }[]>()
+                for (const a of cn.aneis as { phi: number; contorno: [number, number][] }[]) {
+                  _porPhi.set(a.phi, a.contorno.map(([x, z]) => ({ a: Math.atan2(z, x), r: Math.hypot(x, z) })))
+                }
+                const _raioEmPhi = (ang: number, ph: number) => {
+                  const c = _porPhi.get(ph)
+                  if (c && c.length) {
+                    let melhor = c[0], dd = 9
+                    for (const p of c) {
+                      const d = Math.abs(((p.a - ang + Math.PI * 3) % (Math.PI * 2)) - Math.PI)
+                      if (d < dd) { dd = d; melhor = p }
+                    }
+                    return melhor.r
+                  }
+                  // sem contorno publicado (as ruas de anel), o φ aproxima o raio
+                  return ph
+                }
+                canais = buildCanais({
+                  heightAt: terrain.superficieAt,
+                  radiais: cn.radiais ?? [],
+                  aneis: cn.aneis,
+                  avenidas: (mc?.bulevares ?? []).map((b: { rumo: number; largura: number }) =>
+                    ({ rumo: b.rumo, largura: b.largura })),
+                  aneisPhi: mc?.constantes?.aneisPhi ?? [],
+                  raioEmPhi: _raioEmPhi,
+                  rFimRadial: rFim,
+                  sombra: qDomo.get('sombra') !== '0',
+                })
+                scene.add(canais.group)
+                if (wantStats) console.log('[canais]', canais.metros.toLocaleString('pt-BR'),
+                  'm de canal,', canais.pontes, 'pontes,', canais.triangulos.toLocaleString('pt-BR'), 'tri')
+              }
+            } catch (e) { console.error('[canais] não subiu', e) }
             // ⚠️ O AQUÁRIO SOBE COLADO NO LAGO E ANTES DOS ADEREÇOS. Ele devolve
             // as especificações do recife, dos peixes e da floresta das ilhas, e
             // quem instancia é o buildProps que a praça já usa: uma tabela só,
@@ -2301,6 +2355,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       tecido?.update(camera.position)
       arvores?.update(camera.position)
       lago?.update(t)
+      canais?.update(t)
       if (!controls.autoRotate && performance.now() - lastInteraction > 25_000) controls.autoRotate = true
       if (fly.on) {
         const u = Math.min(1, (performance.now() - fly.t0) / (fly.dur * 1000))
@@ -2510,6 +2565,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       pracas?.dispose()
       arvores?.dispose()
       lago?.dispose()
+      canais?.dispose()
       aquario?.dispose()
       caverna?.dispose()
       props?.dispose()

@@ -76,7 +76,7 @@ export interface Lago {
 // platô ele lê PRETO: a chapa mostrava um fosso de sombra e não água. Este aqui é
 // o mesmo azul um passo mais claro e mais saturado, que é o que faz a lâmina
 // pegar o sol raso e virar água.
-const COR_AGUA = '#1D4A66'
+export const COR_AGUA = '#1D4A66'
 const COR_PRAIA = '#8E856F'
 const COR_PISO = '#CBC4B6'
 const COR_ESTRUTURA = '#8F8879'
@@ -523,7 +523,10 @@ export function buildLago(o: LagoOpts): Lago {
  * e um Reflector de verdade (que redesenha a cena por espelho) está proibido pela
  * spec da maquete, decisão D10.
  */
-function aguaDeVerdade(m: THREE.Mesh): { value: number } | null {
+// ⚠️ EXPORTADO PARA OS CANAIS USAREM O MESMO COMPORTAMENTO. Água de canal com
+// outro shader ficaria de outra cor e outro brilho ao lado da água do lago, e
+// os dois se encontram: o canal desagua nele.
+export function aguaDeVerdade(m: THREE.Mesh): { value: number } | null {
   if (!m.name.endsWith(':agua')) return null
   const mat = m.material as THREE.MeshStandardMaterial
   const uTempo = { value: 0 }
