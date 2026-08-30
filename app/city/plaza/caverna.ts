@@ -95,9 +95,15 @@ export function buildCaverna(o: CavernaOpts): Caverna {
       const t = (j / 12) * Math.PI * 2
       const bx = c.x + Math.cos(t) * c.a * 0.82, bz = c.z + Math.sin(t) * c.b * 0.82
       const h = 16 + ((j * 7) % 11)
+      // ⚠️ ROTACIONAR DEPOIS DE TRANSLADAR GIRA EM TORNO DA ORIGEM DO MUNDO, não
+      // do próprio bloco. Estes runestones eram transladados para junto da
+      // caverna e SÓ ENTÃO girados: cada um saía em órbita a 7,2 km do centro da
+      // cidade. Achei pelo bounding box, que dava 21 km de lado e simétrico na
+      // origem para uma peça de 900 m escondida no subsolo do parque. Gira
+      // primeiro, translada depois.
       const g = new THREE.BoxGeometry(7, h, 5)
-      g.translate(bx, piso + h / 2, bz)
       g.rotateY(t)
+      g.translate(bx, piso + h / 2, bz)
       const pos = g.attributes.position as THREE.BufferAttribute
       const base = vs.length / 3
       cor.set(COR_MARCO)

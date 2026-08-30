@@ -34,7 +34,6 @@ import Masterplan from "./sections/masterplan"
 import Needle from "./sections/needle"
 import Partners from "./sections/partners"
 import Park from "./sections/park"
-import ParkTour from "./sections/park-tour"
 import FinalCta from "./sections/final-cta"
 import { ResumePill } from "@/components/resume-pill"
 import type { LeaderboardData } from "./types"
@@ -194,7 +193,14 @@ export default function LandingPage() {
         <Needle />
         <Partners />
         <Park />
-        <ParkTour />
+        {/* ⚠️ O TOUR DO PARQUE SAIU DA LANDING EM 30/08 E NÃO DEVE VOLTAR ASSIM.
+            Os 150 quadros de `sections/park-tour.tsx` foram assados com o Parque
+            Runestone a 5,2 km do centro. Naquele mesmo dia a cidade cresceu para
+            6.900 e o parque foi para 9,8 km, para continuar FORA da abóbada: a
+            animação passou a mostrar um enquadramento que não existe mais.
+            O componente e os quadros continuam no repositório de propósito, para
+            o dia em que forem reassados na posição nova. Recolocar <ParkTour />
+            sem reassar devolve a mentira. */}
         <FinalCta />
       </div>
       {mounted && createPortal(cta, document.body)}

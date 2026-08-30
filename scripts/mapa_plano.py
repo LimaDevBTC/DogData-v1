@@ -22,7 +22,7 @@ for i, a in enumerate(sys.argv):
     if a == '--px': PX = int(sys.argv[i+1])
     if a == '--zoom': foco = [float(v) for v in sys.argv[i+1].split(',')]
 
-R = foco[2] if foco else 4700.0
+R = foco[2] if foco else 7300.0
 CX, CZ = (foco[0], foco[1]) if foco else (0.0, 0.0)
 esc = PX / (2 * R)
 
@@ -57,7 +57,7 @@ with open(CSV, newline='') as f:
         # ⚠️ O TOM SAI DO RAIO, NÃO DA BANDA. Com a teia as bandas viraram ANÉIS
         # (são 17), e `208 - banda*16` ficava negativo do 13º anel para fora:
         # a periferia inteira saía preta e parecia que não havia tecido lá.
-        g = int(200 - 46 * min(1.0, max(0.0, (float(row['raio_m']) - 1450) / 2950)))
+        g = int(200 - 46 * min(1.0, max(0.0, (float(row['raio_m']) - 1450) / 4050)))
         dr.polygon(pts, fill=(g, g - 8, g - 20))
         n += 1
 
@@ -83,6 +83,19 @@ for pq in MALHA.get('parques', []):
                 pq['z'] + math.cos(2*math.pi*i/44)*pq['a']*sg + math.sin(2*math.pi*i/44)*pq['b']*cg)
            for i in range(44)]
     dr.polygon(pts, fill=(52, 74, 52))
+# ⚠️ A ÁGUA VEM ANTES DO CONTORNO E DEPOIS DO TECIDO: ela é o que dá a leitura
+# da cidade de canais, e sem desenhá-la a planta só mostra as valas vazias.
+_cn = MALHA.get('canais') or {}
+for _a in _cn.get('aneis', []):
+    pts = [tela(x, z) for x, z in _a['contorno']]
+    dr.line(pts + [pts[0]], fill=(38, 84, 116), width=max(2, int(_a['lamina'] * esc)))
+for _r in _cn.get('radiais', []):
+    g = math.radians(_r['rumo'])
+    x0, z0 = math.sin(g) * _r['rInicio'], -math.cos(g) * _r['rInicio']
+    # o fim do radial: onde phi vale o do anel externo, naquele rumo
+    _lo, _hi = 500.0, 14000.0
+    dr.line([tela(x0, z0), tela(math.sin(g) * 5000, -math.cos(g) * 5000)],
+            fill=(38, 84, 116), width=max(3, int(_r['lamina'] * esc)))
 # o contorno da cidade, que agora e curva de nivel de phi e nao circulo
 if MALHA.get('contorno'):
     dr.line([tela(x, z) for x, z in MALHA['contorno']] + [tela(*MALHA['contorno'][0])],

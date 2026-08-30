@@ -1138,8 +1138,15 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             return Number.isFinite(v) ? v : d
           }
           try {
+            // ⚠️ O CONTORNO VAI JUNTO. Sem ele a abóbada volta a ser um círculo sobre
+            // uma cidade que é superelipse: sobraria 1,5 km de casca de um lado e
+            // ela cortaria a cidade do outro.
+            const _malhaDomo = await fetch('/city/cidade-malha.json')
+              .then((r) => r.json() as Promise<{ contorno?: [number, number][] }>)
+              .catch(() => ({ contorno: undefined }))
             domo = buildDome({
               heightAt: terrain.heightAt,
+              contorno: _malhaDomo.contorno,
               cell: num('celula', 42),
               crown: num('flecha', 1200),
               rim: num('borda', 90),

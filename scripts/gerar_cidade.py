@@ -34,7 +34,15 @@ def p(*a): return os.path.join(RAIZ, *a)
 # meia-largura de 4.027 m. Acima disso o terreno acaba e é preciso regerar o
 # recorte a partir do tile SLDEM2015. Override por ambiente para medir o preço
 # de crescer sem editar o arquivo: R=4000 python3 scripts/gerar_cidade.py
-R_SITIO      = float(os.environ.get('R', 4500))
+# ⚠️ A CIDADE FOI DE 4.500 PARA 7.000 (fundador, 30/08: "não existe limitação
+# espacial, a gente pode crescer a cidade o que for preciso"). Eu tinha tratado o
+# mapa de altura como teto e ele NÃO É teto: é um arquivo, gerado por
+# `scripts/lunar/fetch_terrain.ts` a partir do `siteRadiusM` de sites.ts. Ele foi
+# regerado com dado real do SLDEM2015 para 11.000 m (429x429, relevo −182 a +230),
+# que cobre a cidade E o Parque Runestone na posição nova.
+# ⚠️ O RAIO DO TERRENO E O DA CIDADE SE SEPARARAM: eram os dois 4.500 por
+# coincidência. Terreno 11.000 (sites.ts), cidade 7.000 (aqui).
+R_SITIO      = float(os.environ.get('R', 7000))
 # ⚠️ 1.450 E NÃO 1.300, E O MOTIVO É O LAGO. O primeiro lote parava em 1.300 e a
 # praça acaba em 1.024: sobravam 276 m de anel, e o Lago da Praça ficava espremido
 # em 193 m de lâmina. Empurrando o começo da cidade 150 m para fora o lago vai
@@ -92,8 +100,16 @@ def _lado(k): return k * FAIXA + (k - 1) * TRAVESSA
 BANDAS = [   # (phi inicial, phi final, nome, k faixas)
     (1450.0, 2180.0, 'Nucleo', 2),      # 109 m: o núcleo antigo é miúdo
     (2180.0, 3010.0, 'Meio',   3),      # 168 m: o quarteirão de hoje
-    (3010.0, 4400.0, 'Bairro', 4),      # 227 m, e vai ATÉ A BORDA
+    (3010.0, 4300.0, 'Bairro', 4),      # 227 m
+    (4300.0, 5500.0, 'Borda',  5),      # 286 m: o grão continua abrindo
 ]
+# ⚠️ O LOTE PARA EM 5.500 E O RESTO NÃO É SOBRA. Com a cidade a 6.900 o tecido
+# oferecia 264.888 vagas para 85.838 carteiras: 32% de ocupação e mediana de
+# 476 m². Isso não é cidade, é subúrbio, e a terra nova viraria quintal em vez de
+# programa. De 5.500 a 6.900 fica o CINTURÃO PRODUTIVO, que é o que o fundador
+# descreveu: fazendas de proteína, lagos de pesca e a infraestrutura que alimenta
+# a cidade sob a abóbada.
+PHI_PRODUTIVO = 5500.0
 # ⚠️ A CINTA POLAR DEIXOU DE EXISTIR E ISSO NÃO É PERDA. Ela era a faixa externa
 # em quadra tangencial, criada para consertar a borda serrilhada que a malha
 # CARTESIANA deixava ao ser recortada numa forma. Na teia o tecido INTEIRO já é
@@ -103,7 +119,7 @@ BANDAS = [   # (phi inicial, phi final, nome, k faixas)
 # ⚠️ E A ÚLTIMA BANDA TEM DE IR ATÉ A BORDA. Ela parava em 4.040, que era onde a
 # Cinta começava: sem a Cinta, os últimos 360 m de cidade ficavam SEM TECIDO, e
 # foi isso que derrubou a capacidade de 94.003 para 67.720 vagas.
-PHI_CINTA = 4400.0
+PHI_CINTA = 5500.0
 CINTA_FAIXAS = []
 
 LOTE_W, LOTE_D = 12.0, 25.0       # 300 m² nominais; a testada vira variável ao plantar
@@ -115,7 +131,11 @@ FAIXA        = 50.0      # profundidade da faixa: duas fileiras costas com costa
 DECLIVE_MAX  = 4.0       # correção do júri: o tecido não cabe em 3 graus
 
 PLATO_R, PLATO_FUNDE = 960, 1300
-PARQUE_RUMO, PARQUE_DIST, PARQUE_DISCO = 43.0, 5200.0, 3600.0
+# ⚠️ O PARQUE TEVE DE SAIR. Com a cidade a 6.900 (R_ABOBADA) ele ficaria DENTRO
+# dela em 5.200, e ele é parque nacional: fica fora da abóbada, alcançado de
+# veículo pressurizado. 9.800 deixa a chegada dele (o Portão, a 2,75 km do
+# Monarca pelo lado da cidade) a 7.050, ou seja 150 m depois da borda urbana.
+PARQUE_RUMO, PARQUE_DIST, PARQUE_DISCO = 43.0, 9800.0, 3600.0
 # ⚠️ O SPACEPORT SAIU DO SÍTIO em 28/08/2026 e por isso NÃO É MAIS MÁSCARA.
 # Ele estava em (-140, 3090), raio 3.093 m, e foi para o raio 4.400 porque
 # foguete não atravessa a abóbada (SPACEPORT_SHIFT em app/city/plaza/orbit-layer.ts).
@@ -245,6 +265,45 @@ def em_parque(x, z, margem=0.0):
 # Broadway em Nova York, a Diagonal em Barcelona. Uma via que IGNORA a malha e
 # atravessa a cidade inteira é o elemento mais barato que existe para tirar mapa
 # de grade do genérico: ela produz esquina em cunha em toda quadra que toca.
+# ── OS CANAIS ───────────────────────────────────────────────────────────────
+#
+# ⚠️ O VALOR DELES NÃO É PAISAGEM, É TESTADA DE ÁGUA. O pedido do fundador foi
+# explícito: canais para criar MILHARES de lotes com saída para o lago principal,
+# tudo interligado, e "não podem ser canais pequenos". Então a rede é medida pelo
+# que ela produz: 8.635 lotes de frente para a água, contra 9,6% do tecido.
+#
+# As duas escalas vêm de cidade que existe, não de gosto:
+#   RADIAL  60 m de lâmina, seção 96 m   escala do Canal Grande de Veneza (30-70 m)
+#   ANEL    28 m de lâmina, seção 56 m   escala das grachten de Amsterdam (27 m
+#                                        médios; a Keizersgracht, a maior, 28,31)
+# A seção inclui cais e pista nas duas margens, que é o que faz o canal ser
+# endereço e não vala: em Amsterdam a casa dá para o cais, o cais para a pista e
+# a pista para a água.
+#
+# ⚠️ A REDE É CONECTADA E DESAGUA NO LAGO. Os oito radiais saem da orla do lago
+# (r 1.450) e vão até o anel externo; os quatro anéis cruzam todos eles. Quem tem
+# frente de canal tem barco até a praça. Quatro dos oito radiais (rumos 0, 90,
+# 180, 270) caem sobre bulevar que já existe, onde a água ocupa o canteiro
+# central: ali o canal não custa lote NENHUM, e as quatro pontes do lago já são
+# as primeiras pontes dele.
+CANAL_RADIAIS = [0.0, 45.0, 90.0, 135.0, 180.0, 225.0, 270.0, 315.0]
+CANAL_RAD_SEC = 96.0
+# ⚠️ UM QUINTO ANEL DE CANAL entrou junto com o crescimento: sem ele os 2.000 m
+# novos de cidade ficariam sem água, e a rede tem de chegar na borda nova.
+CANAL_ANEIS   = [1850.0, 2500.0, 3150.0, 3900.0, 4700.0]
+CANAL_ANEL_SEC = 56.0
+def em_canal(x, z, margem=0.0):
+    r = math.hypot(x, z)
+    if r < R_INICIO: return False
+    ph = phi(x, z)
+    for an in CANAL_ANEIS:
+        if abs(ph - an) < CANAL_ANEL_SEC/2 + margem: return True
+    ru = rumo_de(x, z)
+    for a in CANAL_RADIAIS:
+        dang = abs(((ru - a + 180) % 360) - 180)
+        if math.radians(dang) * r < CANAL_RAD_SEC/2 + margem: return True
+    return False
+
 DIAGONAIS = [(24.0, 1750.0), (99.0, -2050.0), (158.0, 1500.0)]   # (rumo, afastamento do centro)
 DIAG_LARG = 44.0
 def em_diagonal(x, z, margem=0.0):
@@ -602,6 +661,7 @@ def livre(x, z):
     if num_anel(x, z) is not None: return False
     if em_parque(x, z, 2.0): return False
     if em_diagonal(x, z, 2.0): return False
+    if em_canal(x, z, 2.0): return False
     # ⚠️ AS QUATRO PONTES DESEMBOCAM AQUI. Antes eram as costuras de setor; agora
     # as costuras de distrito estão em 0/62/108/186/240/308 e só o rumo 0
     # coincide, então os eixos das pontes viram avenida própria. Avenida não
@@ -672,33 +732,33 @@ if _realoc:
 #      quarteirões vizinhos, então a peça corre junto com o anel;
 #   2. o centro é empurrado em φ para a peça ocupar um número INTEIRO de anéis,
 #      então as duas bordas radiais dela caem em rua e não no meio de um lote.
-_ANEIS_PHI = []
-for _p0, _p1, _nm, _k in BANDAS:
-    _passo = _lado(_k) + VIA_CONTORNO
-    _pp = _p0
-    while _pp + _passo <= _p1 + 1:
-        _ANEIS_PHI.append(_pp); _pp += _passo
-    _ANEIS_PHI.append(_pp)
-_ANEIS_PHI = sorted(set(_ANEIS_PHI))
+# (o encaixe das peças na teia roda mais abaixo, depois de `n_raios` existir)
 
-def _encaixa_em_anel(ph, b):
-    """empurra o centro para a peça cobrir anéis inteiros, sem mudar a altura dela"""
-    if not _ANEIS_PHI: return ph
-    de = min(_ANEIS_PHI, key=lambda v: abs(v - (ph - b)))
-    return de + b
 
-_gira = 0
-for _q in PROGRAMA_GEO:
-    if _q.get('borda'): continue
-    if _q['forma'] != 'retangulo': continue        # as 2 da casca vivem fora do tecido
-    _a = math.atan2(_q['cx'], -_q['cz'])           # o rumo do centro da peça
-    _ph = _encaixa_em_anel(phi(_q['cx'], _q['cz']), _q['b'])
-    _r = raio_em_phi(_a, _ph)
-    _q['cx'], _q['cz'] = math.sin(_a) * _r, -math.cos(_a) * _r
-    _q['rot'] = math.degrees(_a) % 360
-    _q['c'], _q['s'] = math.cos(_a), math.sin(_a)
-    _gira += 1
-print(f'peças de malha alinhadas à teia: {_gira}', file=sys.stderr)
+# ── O PORTÃO DO PARQUE: a cidade encontra o Runestone numa entrada, não num vazio
+#
+# ⚠️ ISTO EXISTE PORQUE A BORDA VIROU FRENTE. Enquanto a cova do parque alcançava
+# r 1.600, o nordeste era terra proibida e não havia o que desenhar ali. Com o
+# alcance anisotrópico a cidade avança até 2.750 m do Monarca, que é exatamente
+# onde a chegada do parque começa (estrada, Portão, Longshadow Plaza, a 2,8 km).
+# Sem uma peça aqui a cidade simplesmente PARA no rumo 43 e o parque começa 50 m
+# depois, sem transição: dois desenhos encostados, que é o defeito que o fundador
+# vem apontando a noite toda.
+# A peça é tangente como todas as outras da teia e olha para o parque.
+_PORTAO_RUMO = PARQUE_RUMO                      # 43°, o eixo do parque
+_pa = math.radians(_PORTAO_RUMO)
+_r_lim = PARQUE_DIST - PARQUE_FRENTE            # onde a cidade para nesse rumo
+_pr = _r_lim - 150                              # o pátio encosta na borda, por dentro
+PROGRAMA_GEO.append({
+    'id': 'G01', 'nome': 'Portão do Parque Runestone', 'tipo': 'civico',
+    'forma': 'retangulo',
+    'cx': math.sin(_pa) * _pr, 'cz': -math.cos(_pa) * _pr,
+    'a': 430.0, 'b': 145.0, 'rot': _PORTAO_RUMO,
+    'c': math.cos(_pa), 's': math.sin(_pa),
+    'area': 4 * 430.0 * 145.0, 'portao': True,
+})
+print(f'Portão do Parque em r {_pr:.0f} (rumo {_PORTAO_RUMO}), '
+      f'{4*430*145/1e4:.1f} ha', file=sys.stderr)
 
 # ── o tecido: quartos, quarteirões, lotes, por setor ───────────────────────
 def _z_das_filas(k):
@@ -754,7 +814,17 @@ def n_raios(p):
     return n
 
 def _aneis():
-    """Os anéis, com o passo saindo do grão da banda."""
+    """Os anéis, com o passo saindo do grão da banda.
+
+    ⚠️ O CORTE DO PROGRAMA FOI TESTADO AQUI E REPROVOU. Inserir as bordas radiais
+    das 34 peças como cortes de anel fazia o tecido se acomodar ao programa, que é
+    o que o fundador pediu, mas o corte é GLOBAL: uma peça no rumo 43 fatiava o
+    anel na volta inteira, inclusive do outro lado da cidade, onde não há peça
+    nenhuma. Medido: capacidade 75.559 -> 54.256 e mediana 113 -> 67 m². Adaptar
+    localmente (o anel desviar só no vão da peça) é possível e é trabalho de outra
+    rodada; o que está aqui é o meio-termo que entrega o mesmo resultado visível
+    sem o custo: o anel fica regular e é a PEÇA que anda até encostar nele.
+    """
     out = []
     for p0, p1, nome, k in BANDAS:
         passo = _lado(k) + VIA_CONTORNO
@@ -764,6 +834,161 @@ def _aneis():
         if p1 - p > _lado(2) * 0.6:
             out.append((p, p1, nome, k))
     return out
+
+_ANEIS_PHI = sorted({a[0] for a in _aneis()} | {a[1] for a in _aneis()})
+
+def _encosta_em_anel(ph, b):
+    """Empurra o centro da peça até a borda dela cair na linha de anel mais perto.
+
+    ⚠️ ANDA, NÃO REDIMENSIONA. A versão anterior esticava a peça até 70% para ela
+    cobrir anéis inteiros, e isso deformava o desenho que os 34 módulos 3D
+    receberam. Aqui a medida é intocada: escolhe-se a linha de anel que exige o
+    MENOR deslocamento, e o resto da diferença vira recuo em volta da peça, que é
+    o que uma praça de frente faz de qualquer jeito.
+    """
+    if not _ANEIS_PHI: return ph
+    cand = []
+    for v in _ANEIS_PHI:
+        cand.append((abs(v + b - ph), v + b))      # encostar a borda de dentro
+        cand.append((abs(v - b - ph), v - b))      # ou a de fora
+    d, novo = min(cand)
+    return novo if d < b else ph                   # não anda mais que a própria peça
+
+# ── AS PEÇAS GIRAM PARA A TANGENTE E ENCOSTAM NO ANEL ───────────────────────
+#
+# ⚠️ ISTO SE PERDEU UMA VEZ NUMA SUBSTITUIÇÃO MINHA e a chapa não acusou: as peças
+# voltaram a usar `rot = setor * 7,5°`, ângulo de um reticulado que não existe
+# mais, e ficaram tortas de novo sobre o tecido em anel. Fica aqui embaixo, depois
+# de `n_raios` e `_aneis` existirem, porque depende dos dois.
+#
+# ⚠️ ANDA, NÃO REDIMENSIONA. Uma versão anterior esticava a peça até 70% para ela
+# cobrir anéis inteiros, e isso deformava o desenho que os 34 módulos 3D
+# receberam. Aqui a medida é intocada: escolhe-se a linha de anel que exige o
+# menor deslocamento e o resto da diferença vira recuo em volta da peça.
+_ANEIS_PHI = sorted({a[0] for a in _aneis()} | {a[1] for a in _aneis()})
+
+def _encosta_em_anel(ph, b):
+    if not _ANEIS_PHI: return ph
+    cand = []
+    for v in _ANEIS_PHI:
+        cand.append((abs(v + b - ph), v + b))
+        cand.append((abs(v - b - ph), v - b))
+    d, novo = min(cand)
+    return novo if d < b else ph
+
+_gira = 0
+for _q in PROGRAMA_GEO:
+    if _q.get('borda') or _q.get('produtivo'): continue
+    if _q['forma'] != 'retangulo': continue
+    _ang = math.atan2(_q['cx'], -_q['cz'])
+    _ph = _encosta_em_anel(phi(_q['cx'], _q['cz']), _q['b'])
+    _r = raio_em_phi(_ang, _ph)
+    _q['cx'], _q['cz'] = math.sin(_ang) * _r, -math.cos(_ang) * _r
+    _q['rot'] = math.degrees(_ang) % 360
+    _q['c'], _q['s'] = math.cos(_ang), math.sin(_ang)
+    _gira += 1
+print(f'peças giradas para a tangente e encostadas no anel: {_gira} (medidas intactas)',
+      file=sys.stderr)
+
+# ── O CINTURÃO PRODUTIVO ────────────────────────────────────────────────────
+#
+# ⚠️ ELE EXISTE PORQUE A CIDADE CRESCEU E O LOTE NÃO DEVIA CRESCER JUNTO. Com o
+# tecido indo até 6.900 a mediana ia a 476 m² e a ocupação a 32%: a terra nova
+# viraria quintal. De 5.500 a 6.900 fica o que o fundador descreveu quando falou
+# do mundo jogável: fazenda de proteína, lago de pesca, a infra que alimenta quem
+# mora sob a abóbada. É programa, não sobra.
+# ⚠️ E FICA DENTRO DA ABÓBADA: fazenda e lago dependem de atmosfera. O que fica
+# FORA é o Parque Runestone (9.800) e o spaceport, alcançados de veículo
+# pressurizado pela eclusa G01.
+_PROD = []
+for _i in range(12):
+    _PROD.append(('FZ', f'Fazenda de Proteína {_i+1}', 'producao',
+                  15.0 + _i * 30.0, 5900.0, 620.0, 380.0))
+for _i in range(6):
+    _PROD.append(('LP', f'Lago de Pesca {_i+1}', 'agua',
+                  30.0 + _i * 60.0, 6550.0, 460.0, 260.0))
+_np = 0
+for _pre, _nome, _tipo, _ru, _ph, _a, _b in _PROD:
+    _ang = math.radians(_ru)
+    _r = raio_em_phi(_ang, _ph)
+    if _r <= 0: continue
+    PROGRAMA_GEO.append({
+        'id': f'{_pre}{_np+1:02d}', 'nome': _nome, 'tipo': _tipo,
+        'forma': 'elipse' if _pre == 'LP' else 'retangulo',
+        'cx': math.sin(_ang) * _r, 'cz': -math.cos(_ang) * _r,
+        'a': _a, 'b': _b, 'rot': _ru,
+        'c': math.cos(_ang), 's': math.sin(_ang),
+        'area': (math.pi if _pre == 'LP' else 4) * _a * _b, 'produtivo': True,
+    })
+    _np += 1
+print(f'cinturão produtivo: {_np} peças entre φ {PHI_PRODUTIVO:.0f} e {R_ABOBADA:.0f} '
+      f'({sum(q["area"] for q in PROGRAMA_GEO if q.get("produtivo"))/1e4:.0f} ha)', file=sys.stderr)
+
+# ── A CADEIA DE SUPRIMENTO ──────────────────────────────────────────────────
+#
+# ⚠️ O HÉLIO-3 NÃO É O MOTOR, E O NÚMERO É QUE DIZ ISSO. Concentração de 4 a 20
+# ppb no regolito comum e 20 a 50 ppb em mare de alto titânio; a 30 ppb, UM GRAMA
+# de He-3 está espalhado em 33.000 toneladas de solo, e uma tonelada exige
+# processar 100 a 200 MILHÕES de toneladas. Pior: não existe reator que queime
+# D-He3. Minerar montanha para vender produto sem comprador não sustenta colônia.
+#
+# ⚠️ O QUE PAGA A CONTA É O OXIGÊNIO. O regolito é 40 a 45% oxigênio em massa, e
+# oxigênio é a maior parte da massa de qualquer propelente. A primeira indústria
+# lunar existe para ABASTECER FOGUETE E RESPIRAR.
+#
+# ⚠️ E O SÍTIO FECHA A HISTÓRIA: Mare Tranquillitatis é mare de ALTO TITÂNIO (a
+# Apollo 11 pousou aqui e trouxe basalto de alto Ti), ou seja rico em ILMENITA
+# (FeTiO3). Ilmenita é ao mesmo tempo o melhor hospedeiro de He-3 E a matéria
+# prima da redução com hidrogênio que dá oxigênio, ferro e titânio. Então o He-3
+# entra honesto, como SUBPRODUTO do mesmo forno que já ia ser aceso.
+#
+# A cadeia, em peças: mineração (fora da abóbada) -> beneficiamento -> redução ->
+# eletrólise -> fundição e célula solar -> sinterização -> agricultura.
+_IND = [
+    ('Beneficiamento de Ilmenita', 'industria',  75.0, 5900.0, 520.0, 330.0),
+    ('Redução com Hidrogênio',     'industria', 105.0, 5900.0, 520.0, 330.0),
+    ('Eletrólise de Regolito',     'industria', 195.0, 5900.0, 520.0, 330.0),
+    ('Planta de Voláteis (He-3, H2, C, N2)', 'industria', 225.0, 5900.0, 460.0, 300.0),
+    ('Fundição e Laminação',       'industria', 285.0, 5900.0, 520.0, 330.0),
+    ('Fábrica de Célula Solar',    'industria', 315.0, 5900.0, 460.0, 300.0),
+    ('Sinterização de Blocos',     'industria', 345.0, 5900.0, 460.0, 300.0),
+    ('Tanques de Oxigênio',        'infra',      45.0, 6550.0, 380.0, 240.0),
+]
+_ni = 0
+for _nome, _tipo, _ru, _ph, _a, _b in _IND:
+    _ang = math.radians(_ru)
+    _r = raio_em_phi(_ang, _ph)
+    PROGRAMA_GEO.append({
+        'id': f'IN{_ni+1:02d}', 'nome': _nome, 'tipo': _tipo, 'forma': 'retangulo',
+        'cx': math.sin(_ang)*_r, 'cz': -math.cos(_ang)*_r, 'a': _a, 'b': _b, 'rot': _ru,
+        'c': math.cos(_ang), 's': math.sin(_ang), 'area': 4*_a*_b, 'produtivo': True,
+    })
+    _ni += 1
+
+# ── OS CAMPOS DE EXTRAÇÃO, FORA DA ABÓBADA ──────────────────────────────────
+#
+# ⚠️ RESERVA DE ESPAÇO, NÃO OBRA, e é exatamente o que o fundador pediu: "espaço é
+# algo que vale a pena criar agora e permitir a expansão das atividades de
+# exploração depois". Mineração a céu aberto não cabe sob abóbada: ela mora no
+# vácuo, entre a borda urbana (6.900) e o Parque Runestone (9.800), e é servida
+# por veículo pressurizado pela mesma eclusa do parque.
+# São setores nomeados e vazios. O detalhe vem depois; o que não pode vir depois
+# é o LUGAR, porque depois já estará ocupado.
+EXTRACAO = []
+for _i in range(8):
+    _ru = 190.0 + _i * 18.0                     # o arco oposto ao parque (rumo 43)
+    if abs(((_ru - PARQUE_RUMO + 180) % 360) - 180) < 40: continue
+    for _j, _rr in enumerate([7600.0, 8600.0]):
+        _ang = math.radians(_ru)
+        EXTRACAO.append({
+            'id': f'EX{len(EXTRACAO)+1:02d}',
+            'nome': f'Campo de Extração {len(EXTRACAO)+1}',
+            'rumo': _ru, 'raio': _rr, 'a': 620.0, 'b': 420.0,
+            'x': round(math.sin(_ang)*_rr, 1), 'z': round(-math.cos(_ang)*_rr, 1),
+            'ha': round(4*620*420/1e4, 1),
+        })
+print(f'cadeia de suprimento: {_ni} plantas no cinturão + {len(EXTRACAO)} campos de '
+      f'extração fora da abóbada ({sum(e["ha"] for e in EXTRACAO):.0f} ha)', file=sys.stderr)
 
 def _bloco(wx, wz, giro, k, frente, d, banda, nome):
     """Monta um quarteirão da teia e sonda quais lotes dele sobrevivem.
@@ -1632,6 +1857,20 @@ for i, (ru, d, a, b) in enumerate(PARQUES):
                         'ha': round(math.pi*ea*eb/1e4, 2)})
 diagonais_pub = [{'id': f'DG{i+1}', 'rumo': ru, 'afastamento': off, 'largura': DIAG_LARG}
                  for i, (ru, off) in enumerate(DIAGONAIS)]
+# ⚠️ O CANAL PRECISA SER PUBLICADO EM GEOMETRIA, não só existir como máscara:
+# sem isto o gerador abre a vala e a cena não desenha água nenhuma dentro dela.
+canais_pub = {
+    'radiais': [{'id': f'CR{i+1:02d}', 'rumo': ru, 'secao': CANAL_RAD_SEC,
+                 'lamina': 60.0, 'rInicio': R_INICIO, 'phiFim': CANAL_ANEIS[-1],
+                 'sobreBulevar': ru in AVENIDAS_RADIAIS}
+                for i, ru in enumerate(CANAL_RADIAIS)],
+    'aneis': [{'id': f'CA{i+1:02d}', 'phi': an, 'secao': CANAL_ANEL_SEC, 'lamina': 28.0,
+               'contorno': [[round(math.sin(math.radians(g))*raio_em_phi(math.radians(g), an), 1),
+                             round(-math.cos(math.radians(g))*raio_em_phi(math.radians(g), an), 1)]
+                            for g in range(0, 360, 3)]}
+              for i, an in enumerate(CANAL_ANEIS)],
+    'nota': 'radial em escala do Canal Grande de Veneza, anel em escala das grachten de Amsterda',
+}
 # ⚠️ A BORDA NÃO É MAIS UM RAIO: é a curva de nível de φ. A cena precisa dela em
 # pontos, senão não tem como desenhar o contorno da cidade nem a abóbada.
 contorno_pub = []
@@ -1739,6 +1978,8 @@ with open(p('public/city/cidade-malha.json'), 'w') as f:
     f.write('"bulevares":' + _linhas(bulevares) + ',\n')
     f.write('"parques":' + _linhas(parques_pub) + ',\n')
     f.write('"diagonais":' + _linhas(diagonais_pub) + ',\n')
+    f.write('"canais":' + json.dumps(canais_pub, ensure_ascii=False, separators=(',', ':')) + ',\n')
+    f.write('"extracao":' + _linhas(EXTRACAO) + ',\n')
     f.write('"contorno":' + json.dumps(contorno_pub, separators=(',', ':')) + ',\n')
     f.write('"quartos":' + _linhas(malha_q) + ',\n')
     f.write('"quarteiroes":' + _linhas(malha_b) + '\n}\n')

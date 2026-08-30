@@ -14,7 +14,15 @@
 import * as THREE from 'three'
 
 const BEARING = THREE.MathUtils.degToRad(43)
-const DIST = 5200
+// ⚠️ 5.200 -> 9.800 em 30/08. A cidade cresceu para 6.900 (R_ABOBADA) e a 5.200 o
+// parque ficaria DENTRO dela. Ele é parque nacional: mora FORA da abóbada e se
+// chega nele de veículo pressurizado, pela eclusa G01 no rumo 43.
+// ⚠️ ESTE NÚMERO TEM DE BATER COM `PARQUE_DIST` em scripts/gerar_cidade.py, que
+// é quem abre a máscara do lote. Se os dois divergirem, o gerador reserva um
+// vazio onde o parque não está e o parque nasce em cima de lote.
+// ⚠️ E O TERRENO PRECISA ALCANÇAR: `siteRadiusM` em lib/city/lunar/sites.ts foi a
+// 11.000 justamente para cobrir a cidade E o parque na posição nova.
+const DIST = 9800
 export const PARK_CENTER = new THREE.Vector3(Math.round(DIST * Math.sin(BEARING)), 0, -Math.round(DIST * Math.cos(BEARING)))
 export const PARK_ROT_Y = 0
 /** meio-lado da malha do parque (o disco tem este raio) */

@@ -29,14 +29,26 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
-/** raio em planta: o sítio inteiro, o mesmo de lib/city/lunar/sites.ts:73 */
-// ⚠️ ANDA COM O SÍTIO. 3.500 -> 4.500 em 28/08. A casca cobre a cidade inteira
-// por decisão do fundador, então crescer o loteamento cresce a abóbada.
-export const DOME_R = 4500
+/** raio em planta, usado só como piso quando o contorno da cidade não chega */
+// ⚠️ ANDA COM O SÍTIO. 3.500 -> 4.500 em 28/08, e em 30/08 deixou de ser um
+// NÚMERO para virar um CONTORNO. A cidade parou de ser um disco: ela é uma
+// superelipse 1,25:1 cujo alcance vai de 6.054 a 7.573 m, e uma casca circular
+// sobre ela ou sobrava 1,5 km de um lado ou cortava a cidade do outro.
+// A abóbada agora recorta no MESMO contorno que o gerador publica em
+// `cidade-malha.json` -> `contorno`, com uma folga. Sem contorno, cai neste raio.
+export const DOME_R = 7600
 
 export interface DomeOpts {
   /** o chão, para a saia da borda pousar no relevo real */
   heightAt: (x: number, z: number) => number
+  /**
+   * ⚠️ O CONTORNO DA CIDADE, de `cidade-malha.json`. É ele que dá a forma à
+   * casca: sem ele a abóbada volta a ser um círculo sobre uma cidade que não é.
+   * Pontos [x, z] em ordem angular; a folga de `rimFolga` é somada.
+   */
+  contorno?: [number, number][]
+  /** quanto a saia da casca passa da borda da cidade, em metros */
+  rimFolga?: number
   /** raio circunscrito da célula, em metros. 42 = um quarto do quarteirão de 168 m */
   cell?: number
   /** altura da borda sobre o datum da praça (o relevo do sítio vai de −85 a +66) */
@@ -207,7 +219,31 @@ export function buildDome(o: DomeOpts): Dome {
   // 1.500 lotes, contra 52.991 carteiras que precisam de endereço). Como os
   // vértices da fileira de fora já são aparados contra o círculo por `apara`,
   // a borda sai limpa de qualquer jeito e a terra volta para a cidade.
-  const rMax = DOME_R
+  // ── O CONTORNO MANDA, O RAIO É SÓ O PISO ──────────────────────────────────
+  // ⚠️ `raioNo(ang)` é o que substitui `rMax` em toda parte. Ele interpola o
+  // contorno publicado; sem contorno devolve DOME_R e a casca volta a ser
+  // circular, que é o comportamento antigo e continua correto para um sítio
+  // redondo.
+  const folga = o.rimFolga ?? 120
+  const cont = (o.contorno ?? []).map(([x, z]) => ({ a: Math.atan2(z, x), r: Math.hypot(x, z) + folga }))
+  cont.sort((p, q) => p.a - q.a)
+  const raioNo = (ang: number): number => {
+    if (!cont.length) return DOME_R
+    let a = ang
+    while (a < cont[0].a) a += Math.PI * 2
+    while (a > cont[cont.length - 1].a + Math.PI * 2) a -= Math.PI * 2
+    for (let i = 0; i < cont.length; i++) {
+      const p = cont[i], q = cont[(i + 1) % cont.length]
+      let qa = q.a; if (qa < p.a) qa += Math.PI * 2
+      let aa = a; if (aa < p.a) aa += Math.PI * 2
+      if (aa >= p.a && aa <= qa) {
+        const t = qa === p.a ? 0 : (aa - p.a) / (qa - p.a)
+        return p.r + (q.r - p.r) * t
+      }
+    }
+    return cont[0].r
+  }
+  const rMax = cont.length ? Math.max(...cont.map((c) => c.r)) : DOME_R
   // Almofada: quanto a célula estufa acima da calota. 0,18·a dá a leitura de
   // acolchoado sem virar bolha de plástico.
   const pillow = 0.12 * a
@@ -238,7 +274,7 @@ export function buildDome(o: DomeOpts): Dome {
     const rHi = Math.floor(meiaCorda / passoR - q / 2)
     for (let r = rLo; r <= rHi; r++) {
       const z = passoR * (r + q / 2)
-      if (Math.hypot(x, z) <= rMax) centros.push({ x, z })
+      if (Math.hypot(x, z) <= raioNo(Math.atan2(z, x))) centros.push({ x, z })
     }
   }
 
@@ -249,7 +285,8 @@ export function buildDome(o: DomeOpts): Dome {
   const apara = (x: number, z: number, ligado: boolean): [number, number] => {
     if (!ligado) return [x, z]
     const d = Math.hypot(x, z)
-    return d > rMax ? [(x * rMax) / d, (z * rMax) / d] : [x, z]
+    const lim = raioNo(Math.atan2(z, x))
+    return d > lim ? [(x * lim) / d, (z * lim) / d] : [x, z]
   }
 
   // ── vidro: uma almofada por célula, tudo fundido numa malha só ────────────
@@ -366,9 +403,10 @@ export function buildDome(o: DomeOpts): Dome {
   const sIdx: number[] = []
   for (let i = 0; i <= SEG; i++) {
     const ang = (i / SEG) * Math.PI * 2
-    const x = Math.cos(ang) * rMax
-    const z = Math.sin(ang) * rMax
-    sPos.push(x, capY(rMax), z)
+    const rr = raioNo(ang)
+    const x = Math.cos(ang) * rr
+    const z = Math.sin(ang) * rr
+    sPos.push(x, capY(rr), z)
     sPos.push(x, o.heightAt(x, z) - 8, z)
   }
   for (let i = 0; i < SEG; i++) {
