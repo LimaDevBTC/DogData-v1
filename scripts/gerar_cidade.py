@@ -113,6 +113,15 @@ BANDAS = [   # (phi inicial, phi final, nome, k faixas)
     (1450.0, 2180.0, 'Nucleo', 2),      # 109 m: o núcleo antigo é miúdo
     (2180.0, 3010.0, 'Meio',   3),      # 168 m: o quarteirão de hoje
     (3010.0, 4300.0, 'Bairro', 4),      # 227 m
+    # ⚠️ A BANDA DA BORDA VOLTOU (fundador, 30/08: "temos centenas de metros de
+    # espaço sobrando debaixo da cúpula, ocupe o espaço que precisar"). O tecido
+    # parava em 4.300 por causa do erro OPOSTO: com ele em 6.900 a ocupação caía
+    # a 32% e a mediana ia a 476 m² — subúrbio, não cidade. Agora o erro inverteu
+    # de sinal: com as máscaras corrigidas a mediana caiu a 58 m². O dado que
+    # decide não é a área total, que sobra (os lotes somam 8,01 km² num tecido de
+    # 23,99), é a TESTADA LOCAL: a bissecção parava porque 614 carteiras não
+    # achavam frente no distrito delas. Uma banda a mais dá para onde elas irem.
+    (4300.0, 5500.0, 'Borda',  5),      # 286 m: grão largo de periferia
 ]
 # ⚠️ O LOTE PARA EM 4.300 E ISSO É CONSERTO DE ERRO MEU. Eu cresci a cidade para
 # 6.900 para levantar a mediana, e a mediana subiu (113 -> 293), mas a conta que eu
@@ -129,7 +138,11 @@ BANDAS = [   # (phi inicial, phi final, nome, k faixas)
 # programa. De 5.500 a 6.900 fica o CINTURÃO PRODUTIVO, que é o que o fundador
 # descreveu: fazendas de proteína, lagos de pesca e a infraestrutura que alimenta
 # a cidade sob a abóbada.
-PHI_PRODUTIVO = 4300.0
+# ⚠️ ESTE NÚMERO TEM DE ACOMPANHAR A ÚLTIMA BANDA, sempre. Ele é o fim do tecido
+# E o fim da mistura da superelipse em `phi()`: se ficar atrás da última banda, a
+# forma é aplicada pela metade onde a cidade acaba e o tecido volta a sair
+# circular sob uma abóbada que não é.
+PHI_PRODUTIVO = 5500.0
 # ⚠️ A CINTA POLAR DEIXOU DE EXISTIR E ISSO NÃO É PERDA. Ela era a faixa externa
 # em quadra tangencial, criada para consertar a borda serrilhada que a malha
 # CARTESIANA deixava ao ser recortada numa forma. Na teia o tecido INTEIRO já é
@@ -139,7 +152,7 @@ PHI_PRODUTIVO = 4300.0
 # ⚠️ E A ÚLTIMA BANDA TEM DE IR ATÉ A BORDA. Ela parava em 4.040, que era onde a
 # Cinta começava: sem a Cinta, os últimos 360 m de cidade ficavam SEM TECIDO, e
 # foi isso que derrubou a capacidade de 94.003 para 67.720 vagas.
-PHI_CINTA = 4300.0
+PHI_CINTA = 5500.0
 CINTA_FAIXAS = []
 
 LOTE_W, LOTE_D = 12.0, 25.0       # 300 m² nominais; a testada vira variável ao plantar
@@ -318,18 +331,94 @@ PARQUES_GEO = _pq_geo()
 # água cobrindo a via inteira. Quatro das nove avenidas radiais afogadas, e
 # justamente as quatro que recebem as pontes. O fundador desconfiou olhando a
 # chapa e a conferência confirmou por construção.
+# ═══════════════════════════════════════════════════════════════════════════
+# FASE 1 — A INFRAESTRUTURA. Nada aqui depende de lote nem de peça.
+#
+# ⚠️ A ORDEM É LEI, NÃO COINCIDÊNCIA (fundador, 30/08: "mudar a ordem de
+# planejamento e execução fode tudo"). A teia, os canais e as vias nascem
+# PRIMEIRO, porque são a infraestrutura; depois as peças escolhem célula
+# sabendo onde tudo passa; só então o lote é plantado no que sobrou. Este bloco
+# estava 650 linhas abaixo, DEPOIS das peças de borda já terem consultado
+# `livre()` — ou seja a máscara respondia com os φ ALVO do canal e não com os
+# encostados, e eu tinha de invalidar a tabela na mão para consertar. Subindo o
+# bloco o problema deixa de existir em vez de ser remendado.
+#
+N_RAIOS0 = 64
+FRENTE_ALVO = 200.0      # testada de quarteirão que a subdivisão persegue
+
+def n_raios(p):
+    """⚠️ O LIMIAR JÁ ESTEVE FROUXO E NÃO DOBRAVA NUNCA: a testada ia de 95 m no
+    miolo a 288 m na periferia e a teia perdia a razão de existir. Com 1,25x ele
+    dobra por volta de φ 2.900 e a testada fica entre 95 e 150 m em toda a cidade."""
+    n = N_RAIOS0
+    while (2*math.pi*p)/n > FRENTE_ALVO*1.25: n *= 2
+    return n
+
+# ⚠️ NENHUM RUMO É INVENTADO A PARTIR DAQUI. `rumo_de_raio()` devolve o rumo do
+# raio da teia mais próximo, e TODA peça extra (fazenda, lago, planta, campo de
+# extração, parque) nasce num deles. Antes eu escolhia 15°, 30°, 190°+18i a dedo:
+# números redondos não são a mesma coisa que números do desenho, e é exatamente
+# essa diferença que o fundador vinha chamando de aleatório.
+def rumo_de_raio(ru, phi_ref=3000.0):
+    passo = 360.0 / n_raios(phi_ref)
+    return round(ru / passo) * passo % 360.0
+
+def _aneis():
+    """Os anéis, com o passo saindo do grão da banda.
+
+    ⚠️ O CORTE DO PROGRAMA FOI TESTADO AQUI E REPROVOU. Inserir as bordas radiais
+    das 34 peças como cortes de anel fazia o tecido se acomodar ao programa, que é
+    o que o fundador pediu, mas o corte é GLOBAL: uma peça no rumo 43 fatiava o
+    anel na volta inteira, inclusive do outro lado da cidade, onde não há peça
+    nenhuma. Medido: capacidade 75.559 -> 54.256 e mediana 113 -> 67 m². Adaptar
+    localmente (o anel desviar só no vão da peça) é possível e é trabalho de outra
+    rodada; o que está aqui é o meio-termo que entrega o mesmo resultado visível
+    sem o custo: o anel fica regular e é a PEÇA que anda até encostar nele.
+    """
+    out = []
+    for p0, p1, nome, k in BANDAS:
+        passo = _lado(k) + VIA_CONTORNO
+        p = p0
+        while p + passo <= p1 + 1:
+            out.append((p, p + passo, nome, k)); p += passo
+        if p1 - p > _lado(2) * 0.6:
+            out.append((p, p1, nome, k))
+    return out
+
+_ANEIS_PHI = sorted({a[0] for a in _aneis()} | {a[1] for a in _aneis()})
+
 # Deslocados meio passo de 45°, os canais correm ENTRE as avenidas: a cidade fica
 # com raio de água e raio de asfalto alternados, que é o que Amsterdam faz.
 CANAL_RADIAIS = [22.5 + i * 45.0 for i in range(8)]
-CANAL_RAD_SEC = 96.0
+# ⚠️ 96 -> 60 (fundador, 30/08: "60 m já resolve"). 96 m de lâmina entre
+# quarteirões de 109 a 227 m de fundo era canal mais largo que a quadra do
+# Núcleo. 60 m ainda é mais largo que qualquer canal de Amsterdam e cabe entre
+# as células com folga para o cais dos dois lados.
+CANAL_RAD_SEC = 60.0
 # ⚠️ UM QUINTO ANEL DE CANAL entrou junto com o crescimento: sem ele os 2.000 m
 # novos de cidade ficariam sem água, e a rede tem de chegar na borda nova.
 # ⚠️ ESTES SÃO OS φ DESEJADOS, NÃO OS FINAIS. Logo abaixo de `_aneis()` cada um é
 # encostado na linha de anel mais próxima: sem isso o canal passava no meio de uma
 # fileira de lotes, e o fundador chamaria de aleatório com razão.
-CANAL_ANEIS_ALVO = [1850.0, 2500.0, 3150.0, 3900.0, 4700.0]
-CANAL_ANEIS      = list(CANAL_ANEIS_ALVO)
-CANAL_ANEL_SEC = 56.0
+# ⚠️ UM SEXTO ANEL entrou com a banda da Borda: sem ele os 1.200 m novos de
+# cidade ficariam secos e a rede de água pararia antes da última banda.
+CANAL_ANEIS_ALVO = [1850.0, 2500.0, 3150.0, 3900.0, 4700.0, 5150.0]
+_usadas = set()
+CANAL_ANEIS = []
+for _alvo in CANAL_ANEIS_ALVO:
+    _cand = [v for v in _ANEIS_PHI if v not in _usadas and R_INICIO + 100 < v < PHI_PRODUTIVO - 100]
+    if not _cand: continue
+    _v = min(_cand, key=lambda v: abs(v - _alvo))
+    _usadas.add(_v); CANAL_ANEIS.append(_v)
+print('canais encostados no anel: ' + ', '.join(f'{a:.0f}->{b:.0f}'
+      for a, b in zip(CANAL_ANEIS_ALVO, CANAL_ANEIS)), file=sys.stderr)
+CANAL_ANEL_SEC = 60.0
+# ⚠️ O TALUDE É PARTE DO CORREDOR E PRECISA SER RESERVADO. `terrain.ts` cava uma
+# rampa de terra de `CANAL_TALUDE` metros de cada lado, além da lâmina. A máscara
+# antiga reservava só a lâmina, então o lote da margem nascia EM CIMA da rampa:
+# medido, 2.190 lotes com a pegada no talude. Reservar aqui é o que faz a margem
+# virar cais em vez de barranco.
+CANAL_TALUDE = 12.0
 # ⚠️ GUARDA DURA: canal e avenida NÃO podem partilhar rumo. Sem isto o erro volta
 # em silêncio, porque água desenhada por cima de via não gera erro nenhum: a
 # cidade só fica sem as avenidas que recebem as pontes.
@@ -339,12 +428,32 @@ for _cr in CANAL_RADIAIS:
         assert _dd > 3.0, (f'canal no rumo {_cr} coincide com avenida no rumo {_av}: '
                            f'a lâmina de {CANAL_RAD_SEC:.0f} m afogaria a via')
 
+# ⚠️ O ANEL DE CANAL SE MEDE EM RAIO, NÃO EM φ. Esta função comparava
+# `abs(phi(x,z) - an)` com uma largura em METROS, e φ é um potencial: dφ/dr vai
+# de 0,75 a 1,26 pelo sítio, então a máscara de 56 m valia de 44,4 a 75,1 m de
+# raio real. Onde ela encolhia, o lote nascia DENTRO da lâmina — 3.560 lotes com
+# o centro na água, medidos no binário publicado. `terrain.ts` cava por raio
+# contra o contorno publicado, então medir por raio aqui é o que faz as duas
+# pontas concordarem por construção, em vez de por coincidência.
+_CANAL_NB = 720
+_CANAL_TAB = None
+def _canal_tabela():
+    """raio de cada anel de canal, por rumo. Construída uma vez."""
+    global _CANAL_TAB
+    if _CANAL_TAB is None:
+        _CANAL_TAB = [[raio_em_phi((k / _CANAL_NB) * 2*math.pi, an) for k in range(_CANAL_NB)]
+                      for an in CANAL_ANEIS]
+    return _CANAL_TAB
+
 def em_canal(x, z, margem=0.0):
     r = math.hypot(x, z)
     if r < R_INICIO: return False
-    ph = phi(x, z)
-    for an in CANAL_ANEIS:
-        if abs(ph - an) < CANAL_ANEL_SEC/2 + margem: return True
+    ang = math.atan2(x, -z) % (2*math.pi)          # mesmo quadro de rumo_de
+    t = (ang / (2*math.pi)) * _CANAL_NB
+    i = int(t) % _CANAL_NB; f = t - int(t); j = (i + 1) % _CANAL_NB
+    for tab in _canal_tabela():
+        rn = tab[i] * (1 - f) + tab[j] * f
+        if abs(r - rn) < CANAL_ANEL_SEC/2 + margem: return True
     ru = rumo_de(x, z)
     for a in CANAL_RADIAIS:
         dang = abs(((ru - a + 180) % 360) - 180)
@@ -769,7 +878,7 @@ def livre(x, z):
     if em_programa(x, z) is not None: return False
     if num_anel(x, z) is not None: return False
     if em_diagonal(x, z, 2.0): return False
-    if em_canal(x, z, 2.0): return False
+    if em_canal(x, z, CANAL_TALUDE + 2.0): return False
     # ⚠️ AS QUATRO PONTES DESEMBOCAM AQUI. Antes eram as costuras de setor; agora
     # as costuras de distrito estão em 0/62/108/186/240/308 e só o rumo 0
     # coincide, então os eixos das pontes viram avenida própria. Avenida não
@@ -788,6 +897,28 @@ def livre(x, z):
     for b0, b1, _, _ in BANDAS:
         if abs(ph - b0) < ARCO_BANDA/2 or abs(ph - b1) < ARCO_BANDA/2: return False
     return declive(x, z) <= DECLIVE_MAX
+
+# ⚠️ O LOTE SE CONFERE PELA PEGADA, NÃO PELO CENTRO (fundador, 30/08: "assim é
+# impossível nascer um lote dentro de uma área proibida"). A conferência testava
+# `livre(cx, cz)` no CENTRO do lote, e o lote tem até 255 m de testada: um centro
+# a 30 m da margem do canal ainda põe 100 m de terreno dentro d'água. Medido no
+# binário publicado: 3.560 lotes com o CENTRO na lâmina, mas 6.810 com a PEGADA
+# nela. A diferença, 3.250 lotes, é exatamente o que testar um ponto só deixa
+# passar.
+#
+# Testa o centro e os quatro cantos. Cinco pontos bastam porque toda máscara
+# desta cidade é convexa OU muito maior que o lote: canal, avenida, anel viário
+# e divisa de banda são faixas, e peça e Coliseu são convexos. Faixa mais
+# estreita que o lote não existe — a menor é a rua de contorno, 12 m, e ela não
+# é máscara de `livre()`.
+def _cabe(pr, ox, oz, frente, prof):
+    ca, sa = pr['ca'], pr['sa']
+    for dx, dz in ((0.0, 0.0), (-frente/2, -prof/2), (frente/2, -prof/2),
+                   (frente/2, prof/2), (-frente/2, prof/2)):
+        lx, lz = ox + dx, oz + dz
+        if not livre(pr['bx'] + lx*ca - lz*sa, pr['bz'] + lx*sa + lz*ca):
+            return False
+    return True
 
 def distrito_de(x, z):
     ru = rumo_de(x, z)
@@ -931,63 +1062,7 @@ def _z_das_filas(k):
 # 11,2% com testada de 95 m e 5,7% com 200 m. Rede conectada cobra mais rua que
 # malha desconectada, e é a testada que decide quanto.
 # 64 raios são 5,625° cada, e ainda contêm 0, 90, 180 e 270 exatos.
-N_RAIOS0 = 64
-FRENTE_ALVO = 200.0      # testada de quarteirão que a subdivisão persegue
 
-def n_raios(p):
-    """⚠️ O LIMIAR JÁ ESTEVE FROUXO E NÃO DOBRAVA NUNCA: a testada ia de 95 m no
-    miolo a 288 m na periferia e a teia perdia a razão de existir. Com 1,25x ele
-    dobra por volta de φ 2.900 e a testada fica entre 95 e 150 m em toda a cidade."""
-    n = N_RAIOS0
-    while (2*math.pi*p)/n > FRENTE_ALVO*1.25: n *= 2
-    return n
-
-# ⚠️ NENHUM RUMO É INVENTADO A PARTIR DAQUI. `rumo_de_raio()` devolve o rumo do
-# raio da teia mais próximo, e TODA peça extra (fazenda, lago, planta, campo de
-# extração, parque) nasce num deles. Antes eu escolhia 15°, 30°, 190°+18i a dedo:
-# números redondos não são a mesma coisa que números do desenho, e é exatamente
-# essa diferença que o fundador vinha chamando de aleatório.
-def rumo_de_raio(ru, phi_ref=3000.0):
-    passo = 360.0 / n_raios(phi_ref)
-    return round(ru / passo) * passo % 360.0
-
-def _aneis():
-    """Os anéis, com o passo saindo do grão da banda.
-
-    ⚠️ O CORTE DO PROGRAMA FOI TESTADO AQUI E REPROVOU. Inserir as bordas radiais
-    das 34 peças como cortes de anel fazia o tecido se acomodar ao programa, que é
-    o que o fundador pediu, mas o corte é GLOBAL: uma peça no rumo 43 fatiava o
-    anel na volta inteira, inclusive do outro lado da cidade, onde não há peça
-    nenhuma. Medido: capacidade 75.559 -> 54.256 e mediana 113 -> 67 m². Adaptar
-    localmente (o anel desviar só no vão da peça) é possível e é trabalho de outra
-    rodada; o que está aqui é o meio-termo que entrega o mesmo resultado visível
-    sem o custo: o anel fica regular e é a PEÇA que anda até encostar nele.
-    """
-    out = []
-    for p0, p1, nome, k in BANDAS:
-        passo = _lado(k) + VIA_CONTORNO
-        p = p0
-        while p + passo <= p1 + 1:
-            out.append((p, p + passo, nome, k)); p += passo
-        if p1 - p > _lado(2) * 0.6:
-            out.append((p, p1, nome, k))
-    return out
-
-_ANEIS_PHI = sorted({a[0] for a in _aneis()} | {a[1] for a in _aneis()})
-
-# ⚠️ O CANAL VIRA ANEL DA TEIA, não uma vala por cima dela. Cada φ desejado é
-# trocado pela linha de anel mais próxima, e duas linhas nunca recebem dois
-# canais. Assim a margem do canal É a rua do quarteirão, e o lote da margem tem
-# testada de água pelo mesmo motivo que os outros têm testada de rua.
-_usadas = set()
-CANAL_ANEIS = []
-for _alvo in CANAL_ANEIS_ALVO:
-    _cand = [v for v in _ANEIS_PHI if v not in _usadas and R_INICIO + 100 < v < PHI_PRODUTIVO - 100]
-    if not _cand: continue
-    _v = min(_cand, key=lambda v: abs(v - _alvo))
-    _usadas.add(_v); CANAL_ANEIS.append(_v)
-print('canais encostados no anel: ' + ', '.join(f'{a:.0f}->{b:.0f}'
-      for a, b in zip(CANAL_ANEIS_ALVO, CANAL_ANEIS)), file=sys.stderr)
 
 def _encosta_em_anel(ph, b):
     """Empurra o centro da peça até a borda dela cair na linha de anel mais perto.
@@ -1104,6 +1179,41 @@ def _cell_arco(i, j):
     rm = raio_em_phi(am, (p0 + p1) / 2)
     return am, rm, (a1 - a0) * rm / 2, (p1 - p0) / 2
 
+# ⚠️ CANAL NA DIVISA É MARGEM; CANAL NO MEIO É TALHO. A primeira versão desta
+# checagem reprovava os dois, e com isso NENHUMA janela da banda Borda passava:
+# os canais de anel caem a exatamente dois passos de anel um do outro (4.598 e
+# 5.194, passo 298), então toda janela tem canal numa das pontas. O Parque
+# Olímpico não achava lugar em raio nenhum.
+#
+# A distinção é a do próprio desenho: "a margem do canal É a rua do quarteirão".
+# Canal ATRAVESSANDO a peça reprova; canal ENCOSTADO nela é margem, e a peça
+# recua o corredor inteiro (42 m) em vez dos 6 m da rua comum. Assim a borda da
+# peça vira cais, que é o que se queria desde o começo.
+_CANAL_REC_PHI = CANAL_ANEL_SEC/2 + CANAL_TALUDE
+def _janela(_i, _nr, _jj, _ns):
+    """(prof, larg, p0v, p1v, dg0, dg1) da janela, ou None se um canal a atravessa."""
+    p0, p1 = _PHI_B[_i], _PHI_B[_i + _nr]
+    if any(p0 + 1.0 < an < p1 - 1.0 for an in CANAL_ANEIS): return None
+    r0 = _CANAL_REC_PHI if any(abs(an - p0) <= 1.0 for an in CANAL_ANEIS) else VIA_CONTORNO/2
+    r1 = _CANAL_REC_PHI if any(abs(an - p1) <= 1.0 for an in CANAL_ANEIS) else VIA_CONTORNO/2
+    prof = (p1 - p0 - r0 - r1) / 2
+    if prof < 40: return None
+    _, rm, _, _ = _cell_arco(_i, _jj)
+    g0 = (_jj / N_RAIOS0) * 360.0
+    g1 = ((_jj + _ns) / N_RAIOS0) * 360.0
+    rec_ang = math.degrees((CANAL_RAD_SEC/2 + CANAL_TALUDE) / max(1.0, rm))
+    d0 = d1 = 0.0
+    for cr in CANAL_RADIAIS:
+        d = ((cr - g0) % 360.0)
+        larg_ang = (g1 - g0) % 360.0 or 360.0
+        if 1e-6 < d < larg_ang - 1e-6: return None       # radial no meio: talho
+        if d <= 1e-6 or d >= 360.0 - 1e-6: d0 = rec_ang  # encostado na divisa de baixo
+        if abs(d - larg_ang) <= 1e-6: d1 = rec_ang       # encostado na de cima
+    cel = (2*math.pi*rm) / N_RAIOS0
+    larg = (_ns * cel - (d0 + d1) * math.pi/180.0 * rm) / 2
+    if larg < 40: return None
+    return prof, larg, p0 + r0, p1 - r1, d0, d1
+
 _ocupado = set()
 _alocadas, _movidas = 0, 0
 _relato = []
@@ -1120,8 +1230,11 @@ for _q in _fila:
     for _i in range(len(_PHI_B) - 1):
         for _nr in (1, 2, 3, 4):
             if _i + _nr >= len(_PHI_B): break
+            # pré-filtro barato: o recuo do canal só DIMINUI a profundidade, então
+            # se ela já é curta sem recuo não adianta seguir. O teto se confere
+            # depois, com o valor real que `_janela` devolve.
             _prof = (_PHI_B[_i + _nr] - _PHI_B[_i]) / 2 - VIA_CONTORNO / 2
-            if _prof < _b0 * 0.45 or _prof > _b0 * 2.4: continue
+            if _prof < _b0 * 0.45: continue
             _am, _rm, _mw, _ = _cell_arco(_i, _j0)
             _cel = (2*math.pi*_rm) / N_RAIOS0
             _ns = max(1, int(round((2 * _a0) / _cel)))
@@ -1134,6 +1247,11 @@ for _q in _fila:
                     _cells = {(_i + _r, (_jj + _c) % N_RAIOS0)
                               for _r in range(_nr) for _c in range(_ns)}
                     if _cells & _ocupado: continue
+                    _jan = _janela(_i, _nr, _jj, _ns)
+                    if _jan is None: continue
+                    _prof, _larg, _p0v_, _p1v_, _dg0_, _dg1_ = _jan
+                    if _prof < _b0 * 0.45 or _prof > _b0 * 2.4: continue
+                    if _larg < _a0 * 0.45: continue
                     _amm, _rmm, _, _ = _cell_arco(_i, _jj)
                     _amc = ((_jj + _ns / 2) / N_RAIOS0) * 2*math.pi
                     _phc = (_PHI_B[_i] + _PHI_B[_i + _nr]) / 2
@@ -1142,14 +1260,15 @@ for _q in _fila:
                     _c2 = abs(math.degrees(_amc) - _ru0) / 180.0 + abs(_phc - _ph0) / 3000.0
                     _cst = _c1 + _c2 * 0.8
                     if _melhor is None or _cst < _melhor[0]:
-                        _melhor = (_cst, _i, _nr, _jj, _ns, _prof, _larg, _amc, _phc, _cells)
+                        _melhor = (_cst, _i, _nr, _jj, _ns, _prof, _larg, _amc, _phc, _cells,
+                                   _p0v_, _p1v_, _dg0_, _dg1_)
                     break
                 if _melhor and _melhor[0] < 0.12: break
             if _melhor and _melhor[0] < 0.12: break
     if _melhor is None:
         _relato.append(f"{_q['id']} {_q['nome'][:26]}: NÃO COUBE, ficou onde estava")
         continue
-    _cst, _i, _nr, _jj, _ns, _prof, _larg, _amc, _phc, _cells = _melhor
+    _cst, _i, _nr, _jj, _ns, _prof, _larg, _amc, _phc, _cells, _p0v, _p1v, _dg0, _dg1 = _melhor
     _ocupado |= _cells
     _r = raio_em_phi(_amc, _phc)
     _dx = math.hypot(math.sin(_amc)*_r - _q['cx'], -math.cos(_amc)*_r - _q['cz'])
@@ -1171,20 +1290,99 @@ for _q in _fila:
     _q['cel'] = {'i': _i, 'nr': _nr, 'j': _jj, 'ns': _ns,
                  'phi0': _PHI_B[_i], 'phi1': _PHI_B[_i + _nr],
                  'a0': (_jj / N_RAIOS0) * 360.0, 'a1': ((_jj + _ns) / N_RAIOS0) * 360.0}
+    # ⚠️ O POLÍGONO USA O RECUO DE `_janela`, não os 6 m da rua comum. Onde a
+    # divisa carrega canal o recuo é o corredor inteiro: é isso que faz a borda
+    # da peça virar cais em vez de barranco dentro d'água.
     _pol = []
-    _p0v, _p1v = _PHI_B[_i] + VIA_CONTORNO / 2, _PHI_B[_i + _nr] - VIA_CONTORNO / 2
+    _ga0 = (_jj / N_RAIOS0) * 360.0 + _dg0
+    _ga1 = ((_jj + _ns) / N_RAIOS0) * 360.0 - _dg1
     _passos = max(2, int(_ns * 3))
     for _t in range(_passos + 1):
-        _aa = ((_jj + _ns * _t / _passos) / N_RAIOS0) * 2 * math.pi
+        _aa = math.radians(_ga0 + (_ga1 - _ga0) * _t / _passos)
         _rr = raio_em_phi(_aa, _p0v)
         _pol.append([round(math.sin(_aa) * _rr, 1), round(-math.cos(_aa) * _rr, 1)])
     for _t in range(_passos, -1, -1):
-        _aa = ((_jj + _ns * _t / _passos) / N_RAIOS0) * 2 * math.pi
+        _aa = math.radians(_ga0 + (_ga1 - _ga0) * _t / _passos)
         _rr = raio_em_phi(_aa, _p1v)
         _pol.append([round(math.sin(_aa) * _rr, 1), round(-math.cos(_aa) * _rr, 1)])
     _q['poly'] = _pol
     _alocadas += 1
     if _dx > 120: _movidas += 1
+# ── SEGUNDA PASSADA: A PEÇA QUE NÃO COUBE MUDA DE PROPORÇÃO ────────────────
+#
+# ⚠️ FICAR ONDE ESTAVA É O PIOR DESFECHO. Quem não achou bloco livre de canal
+# ficava na coordenada congelada, que é justamente onde o canal passa por cima:
+# o Parque Olímpico saía com 4,60 m de vala atravessando ele. Melhor mudar de
+# forma do que ficar debaixo d'água — e é o que o fundador mandou fazer desde o
+# começo: "se for grande demais pra caber entre os canais, jogue pra borda,
+# gire, ajuste, posicione dentro do quarteirão".
+#
+# ⚠️ E A ÁREA É O QUE SE PRESERVA, NÃO O FORMATO. O Parque Olímpico tem 1.080 m
+# de lado e 116,6 ha; os anéis de canal ficam a cada ~600 m de φ, então NENHUMA
+# janela livre de canal tem 1.080 m de fundo, em raio nenhum. Larga e rasa ele
+# cabe: na borda o arco é longo e os radiais estão a 45°, ou seja 3.900 m de vão
+# em r 5.000. A busca vai da BORDA para dentro porque é lá que há arco sobrando.
+_segunda = [q for q in _fila if q.get('forma') != 'celula']
+for _q in _segunda:
+    _a0, _b0 = _q['a'], _q['b']
+    _area0 = 4 * _a0 * _b0
+    _achou = None
+    for _i in range(len(_PHI_B) - 2, -1, -1):          # de fora para dentro
+        for _nr in (1, 2, 3):
+            if _i + _nr >= len(_PHI_B): break
+            for _jj in range(N_RAIOS0):
+                _, _rmm, _, _ = _cell_arco(_i, _jj)
+                _cel = (2*math.pi*_rmm) / N_RAIOS0
+                _pf0 = (_PHI_B[_i + _nr] - _PHI_B[_i]) / 2 - VIA_CONTORNO / 2
+                if _pf0 < 40: continue
+                # largura que devolve a ÁREA original nesta profundidade
+                _ns = max(1, int(round((_area0 / (2 * _pf0)) / _cel)))
+                if _ns > N_RAIOS0 // 6: continue     # 60°: mais que isso sempre cruza um radial
+                _cells = {(_i + _r, (_jj + _c) % N_RAIOS0)
+                          for _r in range(_nr) for _c in range(_ns)}
+                if _cells & _ocupado: continue
+                _jan = _janela(_i, _nr, _jj, _ns)
+                if _jan is None: continue
+                _achou = (_i, _nr, _jj, _ns) + _jan
+                break
+            if _achou: break
+        if _achou: break
+    if not _achou:
+        _relato.append(f"{_q['id']} {_q['nome'][:26]}: nem na segunda passada")
+        continue
+    _i, _nr, _jj, _ns, _prof, _larg, _p0v, _p1v, _dg0, _dg1 = _achou
+    _ocupado |= {(_i + _r, (_jj + _c) % N_RAIOS0) for _r in range(_nr) for _c in range(_ns)}
+    _amc = ((_jj + _ns / 2) / N_RAIOS0) * 2*math.pi
+    _phc = (_PHI_B[_i] + _PHI_B[_i + _nr]) / 2
+    _r = raio_em_phi(_amc, _phc)
+    _q['cx'], _q['cz'] = math.sin(_amc) * _r, -math.cos(_amc) * _r
+    _q['a'], _q['b'] = _larg, _prof
+    _q['rot'] = math.degrees(_amc) % 360
+    _q['c'], _q['s'] = math.cos(_amc), math.sin(_amc)
+    _q['area'] = 4 * _larg * _prof
+    _q['celulas'] = [_nr, _ns]
+    _q['forma'] = 'celula'
+    _q['cel'] = {'i': _i, 'nr': _nr, 'j': _jj, 'ns': _ns,
+                 'phi0': _PHI_B[_i], 'phi1': _PHI_B[_i + _nr],
+                 'a0': (_jj / N_RAIOS0) * 360.0, 'a1': ((_jj + _ns) / N_RAIOS0) * 360.0}
+    _pol = []
+    _ga0 = (_jj / N_RAIOS0) * 360.0 + _dg0
+    _ga1 = ((_jj + _ns) / N_RAIOS0) * 360.0 - _dg1
+    _passos = max(2, int(_ns * 3))
+    for _t in range(_passos + 1):
+        _aa = math.radians(_ga0 + (_ga1 - _ga0) * _t / _passos)
+        _pol.append([round(math.sin(_aa) * raio_em_phi(_aa, _p0v), 1),
+                     round(-math.cos(_aa) * raio_em_phi(_aa, _p0v), 1)])
+    for _t in range(_passos, -1, -1):
+        _aa = math.radians(_ga0 + (_ga1 - _ga0) * _t / _passos)
+        _pol.append([round(math.sin(_aa) * raio_em_phi(_aa, _p1v), 1),
+                     round(-math.cos(_aa) * raio_em_phi(_aa, _p1v), 1)])
+    _q['poly'] = _pol
+    _alocadas += 1
+    print(f"  2a passada: {_q['id']} {_q['nome'][:24]} -> r {_r:.0f}, "
+          f"{2*_larg:.0f} x {2*_prof:.0f} m ({_q['area']/1e4:.0f} ha, era {_area0/1e4:.0f})",
+          file=sys.stderr)
+
 print(f'peças alocadas na teia: {_alocadas} de {len(_fila)} '
       f'({_movidas} tiveram de mudar de lugar)', file=sys.stderr)
 for _w in _relato:
@@ -1778,7 +1976,12 @@ def coloca(s, dog, addr, escala=1.0):
             prof_g = pq['prof']
             # centro do quarteirão: com a superquadra ocupando tudo, ox e oz são 0
             _cx, _cz = pq['bx'], pq['bz']
-            if livre(_cx, _cz):
+            # ⚠️ A SUPERQUADRA TAMBÉM SE CONFERE PELA PEGADA. Ela ocupa o bloco
+            # INTEIRO (até 250 m de testada por 227 m de fundo) e este teste
+            # olhava só o centro: era o caminho por onde os últimos lotes ainda
+            # nasciam dentro do canal depois de `_cabe` entrar no ramo normal.
+            _fq = min(lado_q, area / prof_g)
+            if _cabe(pq, 0.0, 0.0, _fq, prof_g):
                 for k in range(alvo, alvo + nf_alvo):
                     PASSO[s][k]['x0'] += PASSO[s][k]['livre']
                     PASSO[s][k]['livre'] = 0.0
@@ -1809,7 +2012,7 @@ def coloca(s, dog, addr, escala=1.0):
         ozc = pr['borda'] + pr['sentido'] * prof_real / 2
         cx = pr['bx'] + ox*pr['ca'] - ozc*pr['sa']
         cz = pr['bz'] + ox*pr['sa'] + ozc*pr['ca']
-        if livre(cx, cz): ok = True; break
+        if _cabe(pr, ox, ozc, frente, prof_real): ok = True; break
         # ⚠️ ANDE UM PASSO DE SONDAGEM, NÃO A TESTADA INTEIRA. Queimar `frente` a
         # cada rejeição custou 53 m² no lote mediano (294 caiu para 241): a
         # prateleira inteira ia embora por causa de uma ponta ruim. O passo de
@@ -2298,7 +2501,11 @@ canais_pub = {
                              round(-math.cos(math.radians(g))*raio_em_phi(math.radians(g), an), 1)]
                             for g in range(0, 360, 3)]}
               for i, an in enumerate(CANAL_ANEIS)],
-    'nota': 'radial em escala do Canal Grande de Veneza, anel em escala das grachten de Amsterda',
+    # ⚠️ O TALUDE VAI JUNTO. `terrain.ts` usava 26 m fixo enquanto a máscara aqui
+    # reservava 0: as duas pontas discordavam e o lote da margem nascia na rampa.
+    # Publicar é o que faz cavar e reservar serem o mesmo número.
+    'talude': CANAL_TALUDE,
+    'nota': 'radial e anel a 60 m de lâmina, com talude de 12 m: cabe entre as células da teia',
 }
 # ⚠️ A BORDA NÃO É MAIS UM RAIO: é a curva de nível de φ. A cena precisa dela em
 # pontos, senão não tem como desenhar o contorno da cidade nem a abóbada.

@@ -1175,6 +1175,10 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         const terrain = await loadTerrain(_cn ? {
           radiais: (_cn.radiais ?? []).map((r: { rumo: number; secao: number; rInicio: number }) =>
             ({ rumo: r.rumo, secao: r.secao, rInicio: r.rInicio, rFim: _rFimCanal })),
+          // ⚠️ O TALUDE VEM DO GERADOR. Estava 26 m fixo aqui e 0 na máscara do
+          // gerador: cavava-se mais do que se reservava, e o lote da margem
+          // nascia na rampa.
+          talude: _cn.talude,
           aneis: (_cn.aneis ?? []).map((a: { phi: number; secao: number; contorno: [number, number][] }) =>
             ({ phi: a.phi, secao: a.secao, contorno: a.contorno })),
           // ⚠️ A MONTANHA DE NEVE ENTRA JUNTO COM A VALA, pelo mesmo caminho e pelo

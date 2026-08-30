@@ -64,7 +64,7 @@ export const PODIO_Y = 13
 // há uma depressão de 180 m entre r 5.750 e 7.250 no setor sudoeste. A
 // terraplenagem SUAVIZA essa cara (31% contra 43%), não a cria. A mediana do
 // sítio é 1,8% e o p95 7,3%; esses picos são feição local.
-export const PODIO_R0 = 5000      // onde a transição começa (a cidade acaba em 4.666)
+export const PODIO_R0 = 6150      // onde a transição começa (o tecido acaba em 6.036)
 export const PODIO_R1 = 6950      // daqui até R2 é plano, e a borda (7.050) fica dentro
 export const PODIO_R2 = 7150
 /**
