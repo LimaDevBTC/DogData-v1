@@ -1199,6 +1199,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               .catch(() => ({ contorno: undefined, vale: undefined }))
             domo = buildDome({
               heightAt: terrain.heightAt,
+              // ⚠️ A SAPATA ASSENTA NA SUPERFÍCIE QUE A CÂMERA VÊ, não na função
+              // contínua: a diferença entre as duas já mediu 1,00 m nesta cena.
+              superficieAt: terrain.superficieAt,
               contorno: _malhaDomo.contorno,
               cell: num('celula', 42),
               crown: num('flecha', 1200),
@@ -1223,7 +1226,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                   cont.push([Math.cos(a) * _v.raio, Math.sin(a) * _v.raio])
                 }
                 const dv = buildDome({
-                  heightAt: terrain.heightAt, contorno: cont, centro: { x: _v.x, z: _v.z },
+                  heightAt: terrain.heightAt, superficieAt: terrain.superficieAt,
+                  contorno: cont, centro: { x: _v.x, z: _v.z },
                   cell: num('celula', 42), crown: _v.flecha ?? 614,
                   rim: num('borda', 90), rib: num('nervura', 0.9),
                 })

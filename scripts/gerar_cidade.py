@@ -1302,96 +1302,71 @@ def _eclusa(nome, rumo, r_borda, para_fora=True):
             'nota': 'tres camaras em serie: o ar passa de uma para a seguinte, '
                     'nunca do interior direto para o vacuo'}
 
-# ── O VALE DO PONENTE: um domo anexo sobre o relevo de verdade ──────────────
+# ── O VALE DO PONENTE FOI DISSOLVIDO (fundador, 30/08) ──────────────────────
 #
-# ⚠️ ELE NASCE DE TRÊS OBSERVAÇÕES DO FUNDADOR QUE SÃO A MESMA. (1) "tem uma
-# parte montanhosa a sudoeste, daria um belíssimo lago e floresta de
-# extrativismo"; (2) "exatamente nesse ponto a abóbada não tem um acabamento
-# legal"; (3) "temos vários elementos na borda de fora da abóbada, acho que isso
-# tá errado". As três se resolvem juntas: a borda malacabada vira JUNÇÃO, e o que
-# precisa de ar deixa de ficar exposto.
+# ⚠️ ELE EXISTIU POR UMA MONTANHA QUE DEIXOU DE EXISTIR. O vale nasceu para
+# abrigar a pista de esqui sobre o relevo real do sudoeste; com a montanha
+# cancelada, sobravam lago, floresta e uma estação, e esses três cabem no
+# CINTURÃO PRODUTIVO, que já está dentro da abóbada principal e que eu mesmo
+# apontei como ralo demais.
 #
-# ⚠️ O LUGAR SAIU DA SONDA DO TERRENO, NÃO DE GOSTO. Varredura do quadrante
-# sudoeste fora da abóbada: o ponto mais alto é a oeste (rumo 270, r 7.200,
-# +158 m) e a bacia é a sul (rumo 180, r 7.200 a 8.800, +56 a +69 m). São 90 m de
-# desnível, ou seja um vale real. O domo anexo cobre a bacia (lago) e a encosta
-# que sobe para a montanha (floresta de extrativismo).
-# ⚠️ O DOMO DO VALE CRESCEU DE 1.750 PARA 2.400 POR CAUSA DA MONTANHA. Um monte
-# de 380 m de altura precisa de ~1.400 m de raio de base para ter 15° de declive
-# médio (pista preta na Terra tem 25 a 30°); com o centro dele a 900 m do centro
-# do domo, ele alcança 2.300 m e furaria uma casca de 1.750.
-VALE_RUMO, VALE_R = 196.0, 2400.0
-# ⚠️ A DISTÂNCIA É CALCULADA, NÃO CHUTADA. Eu tinha posto 8.100 e o corredor saiu
-# NEGATIVO (−628 m): a superelipse chega a mais de 7.500 m nesse rumo, então o
-# domo anexo estava SOBREPONDO a abóbada principal em vez de ficar ao lado dela.
-# Agora ele nasce a partir da borda real medida naquele rumo, com corredor de
-# 900 m entre as duas cascas.
-_VALE_CORR = 900.0
-VALE_DIST = raio_em_phi(math.radians(196.0), PHI_BORDA) + _VALE_CORR + VALE_R
-_va = math.radians(VALE_RUMO)
-VALE_CX, VALE_CZ = math.sin(_va) * VALE_DIST, -math.cos(_va) * VALE_DIST
-# a ligação com a abóbada principal: corredor pressurizado no mesmo rumo
-VALE_CORREDOR = {'rumo': VALE_RUMO, 'largura': 90.0,
-                 'de': raio_em_phi(_va, PHI_BORDA), 'ate': VALE_DIST - VALE_R}
-# ── A MONTANHA DE NEVE ──────────────────────────────────────────────────────
+# ⚠️ E A CONTA FECHOU A DECISÃO. Duas cascas somam 167,6 km² e 99,1 km³ de ar; um
+# domo único englobando cidade e vale daria 505,0 km² e 303,9 km³, sendo 337 km²
+# de regolito VAZIO pressurizado à toa. E a alternativa de ligar as duas por
+# corredor traz DUAS juntas de casca sob pressão, que é problema mais difícil que
+# o remate no solo, não mais fácil. Dissolver resolve os três de uma vez: uma
+# casca, um remate, zero junta.
 #
-# ⚠️ O RELEVO REAL NÃO SERVIA E O NÚMERO É QUE DIZ: dentro do domo o desnível
-# natural é 77 m em 2.642 m, ou seja 1,7° de declive médio. Pista azul de
-# iniciante na Terra tem 8 a 12°. Aquilo é rampa de estacionamento, não pista.
-#
-# ⚠️ E A GRAVIDADE LUNAR INVERTE AS DUAS METADES DO ESPORTE (g = 1,625 m/s²,
-# 1/6 da Terra): DESCER É LENTO e SALTAR É ABSURDO. Caindo 77 m chega-se a
-# 57 km/h (na Terra, 140); mas um salto saindo a 50 km/h numa rampa de 30° voa
-# 103 m aqui contra 17 m na Terra. Copiar estação alpina daria pista morna. O
-# que a Lua pede é SNOWPARK: half-pipe, kicker, big air, slopestyle. Salto de
-# 100 m com dez segundos de ar não existe em lugar nenhum na Terra, e é isso que
-# faz alguém viajar para cá.
-#
-# Decisão do fundador: CONSTRUIR a montanha, 380 m de desnível, pé na bacia do
-# lago. Aí a descida principal chega a 127 km/h e o kicker grande tem altura.
-# O monte é esculpido no terreno (terrain.ts), do mesmo jeito que a bacia do lago
-# e a vala do canal: sem isso a pista seria uma pintura sobre chão plano.
-# ⚠️ AS MEDIDAS SEGUEM O MODELO, NÃO O CONTRÁRIO. O Gudauri baixado tem
-# 1.541 × 634 m em planta por 438 m de altura: é uma CRISTA, não um cone, e crista
-# é forma melhor de pista que cone. Escalar o modelo para cobrir um monte de
-# 2.800 m de base o levaria a 797 m de altura, alto demais; então o monte
-# esculpido é que encolhe para caber DEBAIXO dele e virar a base.
-# ⚠️ O ESCULPIDO FICA MAIS BAIXO QUE O MODELO DE PROPÓSITO (360 contra 438): ele
-# é o terreno, o que garante que pista, snowpark e base não flutuem, e o modelo é
-# a superfície que se vê. Se o esculpido passasse o modelo, ele furaria por cima.
-# ⚠️ 360 AINDA FURAVA O MODELO. O Gudauri é uma CRISTA: a altura dele varia muito
-# dentro da base, e em boa parte dela a superfície está bem abaixo do pico. Um
-# monte cosseno de 360 m encostava em 598 e aparecia rasgando a encosta. Com 240
-# o esculpido fica por dentro em toda a área e continua fazendo o trabalho dele,
-# que é sustentar a pista, o snowpark e a base para não flutuarem.
-# ⚠️ O CERTO SERIA O TERRENO AMOSTRAR A MALHA DO MODELO em vez de aproximá-la por
-# um cosseno. Isso exige ler o .glb no gerador (Python) e fica para outra rodada;
-# enquanto não for feito, as peças assentam no pé da montanha e não na encosta.
-MONTE_ALT = 240.0
-MONTE_RAIO = 700.0
-MONTE_DX, MONTE_DZ = -640.0, -640.0     # do centro do vale para o noroeste, onde o
-                                        # terreno real já é mais alto (+132 m)
-
-for _nome, _tipo, _dx, _dz, _a, _b in [
-    ('Lago do Vale',              'agua',     700.0,  520.0, 700.0, 460.0),
-    ('Floresta de Extrativismo',  'floresta', 900.0, -700.0, 760.0, 520.0),
-    ('Pista Principal',           'neve',    -300.0, -200.0, 620.0, 380.0),
-    ('Snowpark e Half-pipe',      'neve',      80.0, -760.0, 480.0, 300.0),
-    ('Base da Montanha',          'infra',    240.0,  -60.0, 260.0, 170.0),
-    ('Estação do Vale',           'infra',   -180.0, 1180.0, 200.0, 130.0),
+# O que sumiu junto, e some sozinho na cena porque tudo lê o mesmo campo
+# publicado: a segunda abóbada, o corredor, a Eclusa do Vale, o monte esculpido
+# em terrain.ts e o modelo `nevada`.
+for _nome, _tipo, _ru, _ph, _a, _b in [
+    ('Lago do Poente',            'agua',     rumo_de_raio(196.0), 6100.0, 620.0, 400.0),
+    ('Floresta de Extrativismo',  'floresta', rumo_de_raio(208.0), 5900.0, 640.0, 420.0),
+    ('Estação do Poente',         'infra',    rumo_de_raio(186.0), 6500.0, 200.0, 130.0),
 ]:
-    _cx = VALE_CX + _dx * math.cos(_va) - _dz * math.sin(_va)
-    _cz = VALE_CZ + _dx * math.sin(_va) + _dz * math.cos(_va)
+    _ang = math.radians(_ru)
+    _r = raio_em_phi(_ang, _ph)
     PROGRAMA_GEO.append({
-        'id': f'VL{len([q for q in PROGRAMA_GEO if q.get("vale")])+1:02d}',
-        'nome': _nome, 'tipo': _tipo, 'vale': True, 'produtivo': True,
+        'id': f'VP{len([q for q in PROGRAMA_GEO if q.get("poente")])+1:02d}',
+        'nome': _nome, 'tipo': _tipo, 'poente': True, 'produtivo': True,
         'forma': 'elipse' if _tipo == 'agua' else 'retangulo',
-        'cx': _cx, 'cz': _cz, 'a': _a, 'b': _b, 'rot': VALE_RUMO,
-        'c': math.cos(_va), 's': math.sin(_va),
+        'cx': math.sin(_ang) * _r, 'cz': -math.cos(_ang) * _r,
+        'a': _a, 'b': _b, 'rot': _ru,
+        'c': math.cos(_ang), 's': math.sin(_ang),
         'area': (math.pi if _tipo == 'agua' else 4) * _a * _b,
     })
-print(f'Vale do Poente: domo anexo em ({VALE_CX:.0f}, {VALE_CZ:.0f}), raio {VALE_R:.0f} m, '
-      f'corredor de {VALE_CORREDOR["ate"] - VALE_CORREDOR["de"]:.0f} m', file=sys.stderr)
+print('Vale do Poente dissolvido: lago, floresta e estação foram para o cinturão',
+      file=sys.stderr)
+
+# ── NENHUMA PEÇA PODE ATRAVESSAR A CASCA ────────────────────────────────────
+#
+# ⚠️ NOVE ATRAVESSAVAM, e uma delas é impossível e não só feia: os SEIS Lagos de
+# Pesca estavam metade dentro e metade fora da abóbada. Água metade no vácuo
+# ferve. Junto com eles, Tanques de Oxigênio, Depósito de Regolito e Pátio de
+# Manobra. Na chapa isso aparece como o rasgo na borda que o fundador chamou de
+# buraco enorme: não é falta de acabamento, é peça cortada pela casca.
+#
+# ⚠️ E A REGRA DE PARA QUE LADO EMPURRAR JÁ EXISTIA, é a mesma das peças de borda:
+# quem precisa de ATMOSFERA vai para dentro, quem não precisa vai para fora. Lago
+# e tanque de oxigênio precisam; depósito de regolito e pátio de manobra não.
+# Empurrar todo mundo para dentro seria mais simples e estaria errado.
+_PRECISA_AR_TIPOS = ('agua', 'floresta', 'lazer', 'verde', 'producao')
+_ajust = 0
+for _q in PROGRAMA_GEO:
+    if _q.get('vale'): continue                       # o vale tem casca própria
+    _a = math.atan2(_q['cz'], _q['cx'])
+    _r = math.hypot(_q['cx'], _q['cz'])
+    _ang = math.atan2(_q['cx'], -_q['cz'])
+    _b = raio_em_phi(_ang, PHI_BORDA)
+    _meio = max(_q['a'], _q['b'])
+    if abs(_r - _b) >= _meio: continue                # não atravessa
+    _dentro = _q.get('tipo') in _PRECISA_AR_TIPOS or _q.get('produtivo') and _q.get('tipo') != 'infra'
+    _novo = (_b - _meio - 60) if _dentro else (_b + _meio + 60)
+    _q['cx'], _q['cz'] = math.sin(_ang) * _novo, -math.cos(_ang) * _novo
+    _q['borda'] = not _dentro
+    _ajust += 1
+print(f'peças que atravessavam a casca, empurradas para um lado só: {_ajust}', file=sys.stderr)
 
 EXTRACAO = []
 for _i in range(8):
@@ -2447,46 +2422,9 @@ with open(p('public/city/cidade-malha.json'), 'w') as f:
     f.write('"extracao":' + _linhas(EXTRACAO) + ',\n')
     f.write('"eclusas":' + json.dumps([
         _eclusa('Parque', PARQUE_RUMO, raio_em_phi(math.radians(PARQUE_RUMO), PHI_BORDA)),
-        _eclusa('Vale', VALE_RUMO, raio_em_phi(math.radians(VALE_RUMO), PHI_BORDA)),
         _eclusa('Extracao', 214.0, raio_em_phi(math.radians(214.0), PHI_BORDA)),
         _eclusa('Spaceport', 0.0, raio_em_phi(0.0, PHI_BORDA)),
     ], ensure_ascii=False, separators=(',', ':')) + ',\n')
-    f.write('"vale":' + json.dumps({
-        'nome': 'Vale do Poente', 'rumo': VALE_RUMO, 'dist': VALE_DIST, 'raio': VALE_R,
-        # ⚠️ O PÉ DIREITO SAI DO SALTO, NÃO DA MONTANHA. Cume 438 + ápice do salto
-        # a 127 km/h numa rampa de 30° (96 m) + 80 de folga = 614. Dimensionar pela
-        # montanha só faria o atleta atravessar a casca no primeiro salto grande.
-        # ⚠️ 614 NÃO BASTOU E A SONDA PEGOU: topo da montanha em y 670, topo da
-        # casca em 619, ou seja o pico furando o vidro. A conta de 614 partia dos
-        # 438 m do modelo, mas ele pousa sobre o vale que já está a ~230, e a
-        # flecha é medida do chão. 900 dá folga para o cume E para o ápice do
-        # salto de 96 m, que era o motivo de dimensionar pelo salto e não pela
-        # montanha.
-        'flecha': 900,
-        'monte': {'x': round(VALE_CX + MONTE_DX*math.cos(_va) - MONTE_DZ*math.sin(_va), 1),
-                  'z': round(VALE_CZ + MONTE_DX*math.sin(_va) + MONTE_DZ*math.cos(_va), 1),
-                  'raio': MONTE_RAIO, 'altura': MONTE_ALT,
-                  # o modelo que veste o monte: Gudauri Flat, a estação de esqui
-                  # real da Geórgia, CC-BY, decimada de 904.879 para 19.999 tri
-                  # ⚠️ `nevada` E NÃO `gudauri`. O Gudauri tinha o nome da estação real e 904 mil
-                  # faces, e é um RECORTE PLANO de fotogrametria: entrou na cena como um
-                  # bloco branco de paredes retas. A proporção que o conversor imprime já
-                  # denunciava (634 × 1.541 × 438 = 1,4:1); montanha fechada dá 6 a 8:1.
-                  # A `nevada` é cordilheira inteira, 3.068 × 3.075 × 443 = 6,9:1, com pico,
-                  # vale, crista e ravina, e ainda é a mais leve: 260.642 → 19.999 tri.
-                  'modelo': {'file': 'nevada', 'escala': 1.0,
-                             'giroY': round(VALE_RUMO + 90.0, 1),
-                             'creditoEm': 'app/city/plaza/sf-assets.ts'},
-                  'nota': 'monte construido: 380 m de desnivel, ~15 graus medios. O relevo real '
-                          'dava 1,7 graus, que nao e pista. Esculpido em terrain.ts.'},
-        'x': round(VALE_CX, 1), 'z': round(VALE_CZ, 1), 'corredor': VALE_CORREDOR,
-        'pecas': [{'id': q['id'], 'nome': q['nome'], 'tipo': q['tipo'],
-                   'x': round(q['cx'], 1), 'z': round(q['cz'], 1),
-                   'a': q['a'], 'b': q['b'], 'rot': q['rot'], 'forma': q['forma']}
-                  for q in PROGRAMA_GEO if q.get('vale')],
-        'nota': 'domo anexo sobre o vale real: bacia a sul (+56 m) e montanha a oeste (+158 m). '
-                'Liga na abobada principal por corredor pressurizado no mesmo rumo.',
-    }, ensure_ascii=False, separators=(',', ':')) + ',\n')
     f.write('"contorno":' + json.dumps(contorno_pub, separators=(',', ':')) + ',\n')
     f.write('"quartos":' + _linhas(malha_q) + ',\n')
     f.write('"quarteiroes":' + _linhas(malha_b) + '\n}\n')

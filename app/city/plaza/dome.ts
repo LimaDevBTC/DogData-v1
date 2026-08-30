@@ -42,6 +42,13 @@ export interface DomeOpts {
   /** o chão, para a saia da borda pousar no relevo real */
   heightAt: (x: number, z: number) => number
   /**
+   * ⚠️ A SUPERFÍCIE QUE A CÂMERA VÊ, e é ela que a sapata usa. `heightAt` é
+   * contínua; a malha do regolito lineariza em células de ~59 m e a diferença
+   * entre as duas já mediu 1,00 m nesta cena. Assentar pela contínua deixa a
+   * sapata boiando ou enterrada por um valor que ninguém vê no código.
+   */
+  superficieAt?: (x: number, z: number) => number
+  /**
    * ⚠️ O CONTORNO DA CIDADE, de `cidade-malha.json`. É ele que dá a forma à
    * casca: sem ele a abóbada volta a ser um círculo sobre uma cidade que não é.
    * Pontos [x, z] em ordem angular; a folga de `rimFolga` é somada.
@@ -214,10 +221,9 @@ export function buildDome(o: DomeOpts): Dome {
   const f = crown - rim
   const Rc = (DOME_R * DOME_R + f * f) / (2 * f)
   const yc = crown - Rc
-  const capY = (r: number) => yc + Math.sqrt(Math.max(0, Rc * Rc - r * r))
   /** a normal da esfera em (x, z), que é o que orienta pillow e nervura */
   const normalEm = (x: number, z: number, out: THREE.Vector3) =>
-    out.set(x, capY(Math.hypot(x, z)) - yc, z).normalize()
+    out.set(x, capY(Math.hypot(x, z), Math.atan2(z, x)) - yc, z).normalize()
 
   // ⚠️ A CASCA VAI ATÉ 3.500, NÃO ATÉ 3.500 MENOS UMA CÉLULA. A primeira versão
   // parava uma célula antes para não ter hexágono pela metade, e isso custava
@@ -233,6 +239,9 @@ export function buildDome(o: DomeOpts): Dome {
   // redondo.
   const cen = o.centro ?? { x: 0, z: 0 }
   const heightAt = (x: number, z: number) => o.heightAt(x + cen.x, z + cen.z)
+  const chaoBorda = o.superficieAt
+    ? (x: number, z: number) => o.superficieAt!(x + cen.x, z + cen.z)
+    : heightAt
   const folga = o.rimFolga ?? 120
   const cont = (o.contorno ?? []).map(([x, z]) => ({ a: Math.atan2(z, x), r: Math.hypot(x, z) + folga }))
   cont.sort((p, q) => p.a - q.a)
@@ -252,7 +261,50 @@ export function buildDome(o: DomeOpts): Dome {
     }
     return cont[0].r
   }
+
   const rMax = cont.length ? Math.max(...cont.map((c) => c.r)) : DOME_R
+
+  // ── A BORDA ACOMPANHA O CHÃO ──────────────────────────────────────────────
+  //
+  // ⚠️ ELA ERA UMA COTA FIXA E O TERRENO VARIA 235 m. Medido em 720 rumos: a
+  // parede entre a borda da calota e o solo ia de +163,8 m (rumo 310, chão a
+  // −73,8) a **−71,6 m** (rumo 180, chão a +161,6). Negativo quer dizer que o
+  // TERRENO ESTAVA ACIMA DA CASCA e a atravessava por 71,6 m. De um lado um
+  // penhasco cego de 164 m com 3,46 km² de parede sem nada, do outro a montanha
+  // entrando por dentro do domo. Era isso, e não a falta de acabamento, o que
+  // aparecia na chapa como o rasgo na borda.
+  //
+  // Agora a calota inteira é levantada por `baseNo(ang)`: a altura do chão na
+  // borda, SUAVIZADA numa janela larga. Suavizar é o ponto: seguir o relevo cru
+  // faria a casca ondular como lona; a janela de ±25° deixa a cúpula inclinar
+  // devagar acompanhando o sítio, que é o que estrutura grande faz, e mantém a
+  // parede com altura parecida em toda a volta.
+  const NB = 180
+  const bruto: number[] = []
+  for (let i = 0; i < NB; i++) {
+    const a = (i / NB) * Math.PI * 2
+    const rr = raioNo(a)
+    bruto.push(chaoBorda(Math.cos(a) * rr, Math.sin(a) * rr))
+  }
+  const suave: number[] = []
+  const JAN = Math.round(NB * 25 / 360)      // ±25° de janela
+  for (let i = 0; i < NB; i++) {
+    let sm = 0, w = 0
+    for (let k = -JAN; k <= JAN; k++) {
+      const p = (i + k + NB * 2) % NB
+      const peso = 1 - Math.abs(k) / (JAN + 1)
+      sm += bruto[p] * peso; w += peso
+    }
+    suave.push(sm / w)
+  }
+  const baseNo = (ang: number) => {
+    let a = ang % (Math.PI * 2); if (a < 0) a += Math.PI * 2
+    const t = (a / (Math.PI * 2)) * NB
+    const i = Math.floor(t) % NB, f = t - Math.floor(t)
+    return suave[i] * (1 - f) + suave[(i + 1) % NB] * f
+  }
+  const capY = (r: number, ang?: number) =>
+    yc + Math.sqrt(Math.max(0, Rc * Rc - r * r)) + (ang === undefined ? 0 : baseNo(ang))
   // Almofada: quanto a célula estufa acima da calota. 0,18·a dá a leitura de
   // acolchoado sem virar bolha de plástico.
   const pillow = 0.12 * a
@@ -306,7 +358,7 @@ export function buildDome(o: DomeOpts): Dome {
     const idx: number[] = []
     normalEm(c.x, c.z, tmpN)
     // centro
-    pos.push(c.x, capY(Math.hypot(c.x, c.z)) + pillow * tmpN.y, c.z)
+    pos.push(c.x, capY(Math.hypot(c.x, c.z), Math.atan2(c.z, c.x)) + pillow * tmpN.y, c.z)
     // anéis, de dentro para fora; o de fora encosta na calota
     for (let anel = 1; anel <= aneis; anel++) {
       const t = anel / aneis
@@ -317,7 +369,7 @@ export function buildDome(o: DomeOpts): Dome {
         // entra inteira (o teste é do CENTRO) e o hexágono avança até 42 m além
         // do anel da saia: a silhueta da abóbada fica serrilhada como serra.
         const [x, z] = apara(c.x + CANTO[k][0] * raio, c.z + CANTO[k][1] * raio, anel === aneis)
-        pos.push(x, capY(Math.hypot(x, z)) + alt, z)
+        pos.push(x, capY(Math.hypot(x, z), Math.atan2(z, x)) + alt, z)
       }
     }
     // leque do centro para o primeiro anel
@@ -365,7 +417,7 @@ export function buildDome(o: DomeOpts): Dome {
   const dir = new THREE.Vector3(), lado = new THREE.Vector3(), nrm = new THREE.Vector3()
   const canto = (cx: number, cz: number, k: number, out: THREE.Vector3) => {
     const [x, z] = apara(cx + CANTO[k][0] * a, cz + CANTO[k][1] * a, true)
-    return out.set(x, capY(Math.hypot(x, z)), z)
+    return out.set(x, capY(Math.hypot(x, z), Math.atan2(z, x)), z)
   }
   for (const c of centros) {
     for (let k = 0; k < 6; k++) {
@@ -404,23 +456,63 @@ export function buildDome(o: DomeOpts): Dome {
   }
   group.add(malhaNerv)
 
-  // ── a saia da borda ───────────────────────────────────────────────────────
-  // Da borda da calota até o relevo real, que dentro do sítio varia de −85 a
-  // +66 m. Sem ela a abóbada flutua e o vazio embaixo entrega a farsa.
-  const SEG = 360
-  const sPos: number[] = []
-  const sIdx: number[] = []
+  // ── O REMATE COM O SOLO ───────────────────────────────────────────────────
+  //
+  // ⚠️ O HEXÁGONO NÃO TOCA O CHÃO (fundador, 30/08). Ele morre num ANEL DE
+  // COROAMENTO de aço, e é o aço que desce até a sapata. Antes a tela de
+  // hexágonos era simplesmente recortada no raio da borda e ia morrer na terra:
+  // a chapa mostrava a célula cortada pela metade chegando ao solo, que é o que
+  // o fundador chamou de agonia. Engenheiro nenhum aprova uma estrutura
+  // pressurizada terminando assim, porque a borda de uma casca é justamente onde
+  // o esforço de membrana vira esforço de flexão e precisa de um elemento rígido
+  // para receber.
+  //
+  // A sequência, de cima para baixo, é a de uma casca de verdade:
+  //   1. TELA DE HEXÁGONOS      recortada no raio da borda
+  //   2. ANEL DE COROAMENTO     caixão de aço preto, onde a tela morre
+  //   3. PAREDE                 do anel até o joelho
+  //   4. BERMA                  o chanfro
+  //   5. SAPATA                 anel horizontal, embutido no solo
+  //
+  // ⚠️ E AS COTAS SAEM DE `superficieAt`, a superfície que a câmera vê, com 2.880
+  // segmentos. Medido antes: com 360 a corda reta entre dois vértices se afastava
+  // do chão real em até 4,66 m num perímetro de 44,9 km. Com 2.880 o pior caso é
+  // 0,57 m e a berma de 9 m absorve isso com folga de ordem de grandeza.
+  const SEG = 2880
+  const EMBUTE = 8         // quanto a sapata entra no solo
+  const sapata = 26        // largura do anel horizontal
+  const berma = 9          // o chanfro entre a parede e a sapata
+  const ANEL_H = 7.5       // altura do caixão de coroamento
+  const ANEL_W = 4.5       // o quanto ele avança para fora da tela
+  const chao = o.superficieAt ?? heightAt
+
+  const sPos: number[] = [], sIdx: number[] = []     // parede, berma e sapata
+  const aPos: number[] = [], aIdx: number[] = []     // o anel de aço
   for (let i = 0; i <= SEG; i++) {
     const ang = (i / SEG) * Math.PI * 2
     const rr = raioNo(ang)
-    const x = Math.cos(ang) * rr
-    const z = Math.sin(ang) * rr
-    sPos.push(x, capY(rr), z)
-    sPos.push(x, heightAt(x, z) - 8, z)
+    const cx2 = Math.cos(ang), cz2 = Math.sin(ang)
+    const x = cx2 * rr, z = cz2 * rr
+    const yBorda = capY(rr, ang)            // onde a tela de hexágonos morre
+    const yChao = chao(x, z)
+    // o anel: caixão que recebe a tela, avança para fora e desce ANEL_H
+    aPos.push(cx2 * (rr - ANEL_W), yBorda, cz2 * (rr - ANEL_W))            // 0 aba de dentro
+    aPos.push(cx2 * (rr + ANEL_W), yBorda, cz2 * (rr + ANEL_W))            // 1 aba de fora
+    aPos.push(cx2 * (rr + ANEL_W), yBorda - ANEL_H, cz2 * (rr + ANEL_W))   // 2 pé de fora
+    aPos.push(cx2 * (rr - ANEL_W), yBorda - ANEL_H, cz2 * (rr - ANEL_W))   // 3 pé de dentro
+    // a parede e a base, a partir do pé do anel
+    sPos.push(x, yBorda - ANEL_H, z)                                        // 0 topo da parede
+    sPos.push(x, yChao + berma, z)                                          // 1 pé da parede
+    sPos.push(cx2 * (rr + berma), yChao, cz2 * (rr + berma))                // 2 joelho
+    sPos.push(cx2 * (rr + sapata), yChao - EMBUTE, cz2 * (rr + sapata))     // 3 borda enterrada
   }
   for (let i = 0; i < SEG; i++) {
-    const b = i * 2
-    sIdx.push(b, b + 1, b + 3, b, b + 3, b + 2)
+    const b = i * 4, c = (i + 1) * 4
+    for (let k = 0; k < 3; k++) {
+      sIdx.push(b + k, b + k + 1, c + k + 1, b + k, c + k + 1, c + k)
+      aIdx.push(b + k, b + k + 1, c + k + 1, b + k, c + k + 1, c + k)
+    }
+    aIdx.push(b + 3, b, c, b + 3, c, c + 3)     // fecha o caixão por dentro
   }
   const geoSaia = new THREE.BufferGeometry()
   geoSaia.setAttribute('position', new THREE.Float32BufferAttribute(sPos, 3))
@@ -429,6 +521,22 @@ export function buildDome(o: DomeOpts): Dome {
   const matSaia = new THREE.MeshStandardMaterial({
     color: COR_SAIA, metalness: 0.3, roughness: 0.8, side: THREE.DoubleSide,
   })
+  // ⚠️ O ANEL É PRETO E METÁLICO DE PROPÓSITO: é ele que dá a linha de remate que
+  // se lê de longe e que separa a tela clara do solo. Sem contraste ele some e o
+  // problema volta a ser visual mesmo estando construído.
+  const geoAnel = new THREE.BufferGeometry()
+  geoAnel.setAttribute('position', new THREE.Float32BufferAttribute(aPos, 3))
+  geoAnel.setIndex(aIdx)
+  geoAnel.computeVertexNormals()
+  const matAnel = new THREE.MeshStandardMaterial({
+    color: '#141416', metalness: 0.85, roughness: 0.42, side: THREE.DoubleSide,
+  })
+  const malhaAnel = new THREE.Mesh(geoAnel, matAnel)
+  malhaAnel.name = 'abobada:anel'
+  malhaAnel.castShadow = true
+  malhaAnel.receiveShadow = true
+  malhaAnel.frustumCulled = false
+  group.add(malhaAnel)
   const malhaSaia = new THREE.Mesh(geoSaia, matSaia)
   malhaSaia.frustumCulled = false
   group.add(malhaSaia)
