@@ -43,6 +43,11 @@ export interface CanaisOpts {
   avenidas?: Avenida[]
   /** os φ das ruas de anel: cada uma ganha ponte sobre cada canal radial */
   aneisPhi?: number[]
+  /** os ANÉIS VIÁRIOS, em raio de mundo e largura. Não são os mesmos que
+   *  `aneisPhi`: aqueles são as linhas de anel da teia, estes são as avenidas
+   *  circulares (Anel Interior, Médio, Exterior, Cinturão, Doca, Escoamento,
+   *  Pista de Serviço). Sem eles aqui, três avenidas ficam sem travessia. */
+  aneisViarios?: { r: number; larg: number }[]
   /** φ -> raio naquele rumo, para achar onde a rua de anel cruza o canal */
   raioEmPhi?: (ang: number, phi: number) => number
   /** ⚠️ `superficieAt`, NUNCA `heightAt`: é o chão que a câmera vê */
@@ -230,6 +235,7 @@ export function buildCanais(o: CanaisOpts): Canais {
   }
   let pontes = 0
   const rEm = o.raioEmPhi
+  const rFimBridge = o.rFimRadial ?? 4300
   // avenida radial cruzando anel de canal
   for (const av of o.avenidas ?? []) {
     const g = (av.rumo * Math.PI) / 180
@@ -249,6 +255,17 @@ export function buildCanais(o: CanaisOpts): Canais {
       if (!rr || rr < r.rInicio) continue
       // a ponte corre TANGENTE, cruzando o canal radial
       ponte(dx * rr, dz * rr, Math.cos(g), Math.sin(g), 12, r.secao + 24)
+    }
+    // ⚠️ E OS ANÉIS VIÁRIOS TAMBÉM, que não estão em `aneisPhi`. Medido em
+    // 30/08: o Anel Interior (r 1.750), a Avenida do Cinturão (4.450) e a
+    // Avenida da Doca (5.620) eram cortados pelos oito canais radiais sem uma
+    // travessia — 24 interrupções. A do Cinturão é a pior das três: é nela que
+    // desembocam os três túneis de eclusa, então o veículo saía do túnel e batia
+    // na água oito vezes ao tentar dar a volta. Sem isto, "levar DOG a qualquer
+    // endereço da cidade" é falso e nada acusa.
+    for (const av of o.aneisViarios ?? []) {
+      if (av.r < r.rInicio || av.r > rFimBridge) continue
+      ponte(dx * av.r, dz * av.r, Math.cos(g), Math.sin(g), av.larg, r.secao + 24)
     }
   }
 

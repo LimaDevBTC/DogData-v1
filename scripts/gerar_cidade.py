@@ -3063,6 +3063,14 @@ with open(p('public/city/cidade-malha.json'), 'w') as f:
     f.write('"parques":' + _linhas(parques_pub) + ',\n')
     f.write('"diagonais":' + _linhas(diagonais_pub) + ',\n')
     f.write('"canais":' + json.dumps(canais_pub, ensure_ascii=False, separators=(',', ':')) + ',\n')
+    # ⚠️ OS ANÉIS VIÁRIOS VÃO NA MALHA, e não só em cidade.json. A cena carrega a
+    # MALHA para montar canal e ponte; sem eles aqui, `canais.ts` não sabe onde
+    # ficam as avenidas circulares e três delas ficam sem travessia sobre os oito
+    # canais radiais — 24 interrupções, uma delas na Avenida do Cinturão, que é
+    # onde os três túneis de eclusa desembocam.
+    f.write('"aneisViarios":' + json.dumps(
+        [{'id': a, 'nome': n, 'r': r, 'larg': w} for a, n, r, w in ANEIS],
+        ensure_ascii=False, separators=(',', ':')) + ',\n')
     f.write('"autopistas":' + json.dumps([
         {'id': f'AU{i+1}', 'rumo': ru, 'afastamento': off, 'largura': lg, 'cota': AUTO_COTA,
          'bocas': [{'id': q['id'], 'x': round(q['cx'], 1), 'z': round(q['cz'], 1),
@@ -3098,7 +3106,10 @@ with open(p('public/city/cidade-malha.json'), 'w') as f:
         # 15 km em volta da casca para chegar no pátio de lançamento. 183° é o
         # rumo do Farol do Portão e vizinho do Portão da Abóbada (177°), ou seja
         # o portão de veículo já está lá — a eclusa só volta para junto dele.
-        _eclusa('Spaceport', 183.0, 7700.0, 4450.0),
+        # ⚠️ O PORTAL EXTERNO SEGUE O PÁTIO. Ele foi para r 9.200 (respiro de 1,8 km da
+        # casca, ver SPACEPORT_SHIFT em orbit-layer.ts) e o portal vai junto, para
+        # 9.100: quem desce do foguete embarca ali mesmo. Túnel de 4.650 m.
+        _eclusa('Spaceport', 183.0, 9100.0, 4450.0),
     ], ensure_ascii=False, separators=(',', ':')) + ',\n')
     f.write('"contorno":' + json.dumps(contorno_pub, separators=(',', ':')) + ',\n')
     f.write('"quartos":' + _linhas(malha_q) + ',\n')

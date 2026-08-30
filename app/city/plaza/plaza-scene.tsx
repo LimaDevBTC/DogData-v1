@@ -1369,6 +1369,10 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                   avenidas: (mc?.bulevares ?? []).map((b: { rumo: number; largura: number }) =>
                     ({ rumo: b.rumo, largura: b.largura })),
                   aneisPhi: mc?.constantes?.aneisPhi ?? [],
+                  // ⚠️ os anéis VIÁRIOS vão junto: sem eles três avenidas
+                  // circulares ficam sem ponte sobre os canais radiais.
+                  aneisViarios: ((mc?.aneisViarios ?? []) as { r: number; larg: number }[])
+                    .map((a) => ({ r: a.r, larg: a.larg })),
                   raioEmPhi: _raioEmPhi,
                   rFimRadial: rFim,
                   sombra: qDomo.get('sombra') !== '0',

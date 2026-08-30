@@ -40,14 +40,27 @@ export const ORBIT_CENTER = new THREE.Vector3(0, 0, 0)
 // terminou a 5.150 do centro, ou seja **1.900 m DENTRO da abóbada**, com o
 // foguete decolando de dentro do vidro. O fundador viu na chapa.
 //
-// Agora ele está em r 7.800, no rumo 182,6°: 750 m FORA da casca, logo além da
-// Pista de Serviço (r 7.600) para o pátio ter acesso rodoviário, e no mesmo rumo
-// do Portão da Abóbada (177°) e do Farol do Portão (183°), que é por onde se sai.
-// O chão ali é 84,5 m contra 59,8 m no lugar antigo, e os 24,7 m de diferença
-// entram no y deste vetor, senão o pátio afunda.
+// ⚠️ E DE 7.800 PARA 9.200 NA MESMA TARDE, por respiro: "o spaceport me parecia
+// muito perto da cúpula". Estava mesmo — com o complexo de 740 m, a testada dele
+// ficava a 500 m da saia da abóbada. Para veículo classe Starship a faixa de
+// segurança de lançamento é da ordem de 1,5 a 2 km; em 9.200 a testada fica a
+// 1.780 m da casca.
+//
+// O rumo não muda (182,6°, o do Portão da Abóbada e do Farol). O raio saiu de
+// medir o TERRENO: entre 8.400 e 9.200 há um platô com 0,6 a 1,1% de declive,
+// e pátio de lançamento quer chão manso. Fora dele o declive volta a 5%.
+// ⚠️ O y SE MEDE NA CENA, NÃO NUM MODELO DE TERRENO À PARTE. Eu calculei +78 m
+// para o chão em 9.200 com uma réplica do heightmap e o `Regolith` da cena
+// devolve 153: a réplica não tinha tudo (fade do pódio, cova, monte). Com o y
+// tirado da réplica o pátio saiu 125 m ENTERRADO. O valor bom vem de raycast no
+// próprio regolito: base do modelo em −10 no espaço dele, chão em 153, embute 5.
+//
+// ⚠️ E O TÚNEL DA ECLUSA ACOMPANHA. O portal externo dele é no pátio, não na
+// casca: mover um sem o outro deixa o passageiro descendo do foguete a 1,4 km
+// da porta. Ver `_eclusa('Spaceport', ...)` em scripts/gerar_cidade.py.
 //
 // ⚠️ SE `DOME_R` EM dome.ts MUDAR, ESTE VETOR MUDA JUNTO. É a terceira vez.
-export const SPACEPORT_SHIFT = new THREE.Vector3(-214, 44.5, 4702)
+export const SPACEPORT_SHIFT = new THREE.Vector3(-277.3, 158.0, 6100.5)
 
 const desloca = (v: THREE.Vector3) => v.add(SPACEPORT_SHIFT)
 

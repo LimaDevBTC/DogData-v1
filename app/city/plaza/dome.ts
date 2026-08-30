@@ -415,6 +415,65 @@ export function buildDome(o: DomeOpts): Dome {
     g.computeVertexNormals()
     vidros.push(g)
   }
+  // ── A GOLA: o remate contínuo da borda ────────────────────────────────────
+  //
+  // ⚠️ A BORDA SERRILHAVA E DEIXAVA BURACO (fundador, 30/08, com a chapa: "a
+  // borda da cúpula tem cobertura faltando... esse acabamento tem que ser
+  // perfeito"). A causa está no `apara` logo acima: a célula entra pelo CENTRO e
+  // depois tem os seis vértices de fora puxados para o círculo. Cada hexágono
+  // vira uma cunha, e duas cunhas vizinhas não se tocam — entre elas sobra um
+  // triângulo de céu. Aparar resolveu a silhueta serrada e criou o buraco.
+  //
+  // Aparar melhor não resolve: o hexágono tem seis vértices em ângulos fixos em
+  // torno do próprio centro, e não existe recorte radial que faça dois deles
+  // ladrilharem contra um círculo. O que fecha é uma GOLA: um anel contínuo de
+  // quadriláteros da borda para dentro, assentado 0,6 m ABAIXO da superfície da
+  // calota. Onde há célula, a célula ganha e a gola não aparece; onde falta
+  // célula, a gola está lá. Cobertura de 100% por construção, sem tocar no
+  // recorte que endireitou a silhueta.
+  //
+  // 1,8 célula de largura porque o pior vão possível é uma célula inteira (o
+  // centro pode estar a 42 m da borda) e a folga cobre o arredondamento.
+  // ⚠️ E A GOLA É UMA FIADA DE PAINÉIS, NÃO UMA CHAPA LISA (fundador, 30/08, com
+  // a chapa de perto: "ainda tem falhas em elementos menores que um hexágono").
+  // A primeira gola fechou o buraco e criou outro problema: ela era um anel liso
+  // e as células são ALMOFADADAS, então ela lia como faixa de outro material,
+  // com a linha ondulada dos hexágonos por cima. Não era mais vão, era remate
+  // errado. Cúpula de verdade fecha a borda com uma última fiada de painéis sob
+  // medida, e é o que ela é agora: dividida no mesmo passo angular das células,
+  // cada painel com a mesma almofada, do mesmo material. A onda dos hexágonos
+  // por cima dela deixa de ser falha e passa a ser junta de fiada.
+  {
+    const COLA = a * 1.8
+    const rMed = raioNo(0)
+    // o passo angular da fiada é o passo da colmeia: 1,5·a é a distância entre
+    // centros de hexágono na direção da fila.
+    const NP = Math.max(64, Math.round((2 * Math.PI * rMed) / (1.5 * a)))
+    for (let i = 0; i < NP; i++) {
+      const a0 = (i / NP) * Math.PI * 2
+      const a1 = ((i + 1) / NP) * Math.PI * 2
+      const am = (a0 + a1) / 2
+      const pos: number[] = [], idx: number[] = []
+      const P = (ang: number, r: number, dy: number) => {
+        pos.push(Math.cos(ang) * r, capY(r) - 0.35 + dy, Math.sin(ang) * r)
+        return pos.length / 3 - 1
+      }
+      const re0 = raioNo(a0), re1 = raioNo(a1), rem = raioNo(am)
+      const ri0 = Math.max(1, re0 - COLA), ri1 = Math.max(1, re1 - COLA)
+      const rim = Math.max(1, rem - COLA)
+      // ⚠️ A ALMOFADA VAI NO MEIO E MORRE NAS QUATRO BORDAS, igual à da célula:
+      // é isso que faz o painel pegar a mesma luz e sumir na fiada.
+      const c = P(am, (rim + rem) / 2, pillow * 0.55)
+      const v = [P(a0, ri0, 0), P(a1, ri1, 0), P(a1, re1, 0), P(a0, re0, 0)]
+      for (let k = 0; k < 4; k++) idx.push(c, v[k], v[(k + 1) % 4])
+      const g = new THREE.BufferGeometry()
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+      g.setIndex(idx)
+      g.computeVertexNormals()
+      vidros.push(g)
+    }
+  }
+
   const geoVidro = mergeGeometries(vidros, false)!
   vidros.forEach((g) => g.dispose())
   const matVidro = materialVidro(fade, crown)
