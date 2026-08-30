@@ -112,7 +112,7 @@ export interface Monte { x: number; z: number; raio: number; altura: number }
 
 export interface CanalCava {
   radiais: { rumo: number; secao: number; rInicio: number; rFim?: number }[]
-  aneis: { phi: number; secao: number; contorno: [number, number][] }[]
+  aneis: { phi: number; secao: number; contorno: [number, number][]; vaos?: [number, number][] }[]
   /** quanto o leito desce abaixo do chão original */
   fundo?: number
   /** a largura da rampa de terra de cada lado, além da seção */
@@ -161,10 +161,25 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
     }
     return h
   }
+  // ⚠️ `vaos` = onde o anel está INTERROMPIDO. O gerador para o canal antes de
+  // uma peça de porta e recomeça depois dela; se a vala for cavada mesmo assim, o
+  // vão não existe e a peça volta a ficar sobre 4,6 m de vala. Os vãos vêm em
+  // RUMO (0 no −Z, horário), que é o quadro do gerador, e aqui o ângulo do anel é
+  // `atan2(z, x)`: os dois não são a mesma coisa e a conversão é obrigatória.
   const _aneis = (cava?.aneis ?? []).map((a) => ({
     secao: a.secao,
+    vaos: a.vaos ?? [],
     pts: a.contorno.map(([x, z]) => ({ a: Math.atan2(z, x), r: Math.hypot(x, z) })),
   }))
+  const _noVao = (vaos: [number, number][], x: number, z: number) => {
+    if (!vaos.length) return false
+    let ru = (Math.atan2(x, -z) * 180) / Math.PI
+    ru = ((ru % 360) + 360) % 360
+    for (const [a0, a1] of vaos) {
+      if (((ru - a0) % 360 + 360) % 360 <= ((a1 - a0) % 360 + 360) % 360) return true
+    }
+    return false
+  }
   /** quanto o chão desce naquele ponto, de 0 (fora) a 1 (no eixo) */
   const cavaEm = (x: number, z: number): number => {
     let k = 0
@@ -177,7 +192,7 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
       else if (d < meia + _tal) k = Math.max(k, 1 - (d - meia) / _tal)
     }
     for (const an of _aneis) {
-      if (!an.pts.length) continue
+      if (!an.pts.length || _noVao(an.vaos as [number, number][], x, z)) continue
       const ang = Math.atan2(z, x)
       let melhor = an.pts[0], dd = 9
       for (const p of an.pts) {

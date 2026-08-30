@@ -1179,8 +1179,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           // gerador: cavava-se mais do que se reservava, e o lote da margem
           // nascia na rampa.
           talude: _cn.talude,
-          aneis: (_cn.aneis ?? []).map((a: { phi: number; secao: number; contorno: [number, number][] }) =>
-            ({ phi: a.phi, secao: a.secao, contorno: a.contorno })),
+          aneis: (_cn.aneis ?? []).map((a: { phi: number; secao: number; contorno: [number, number][]; vaos?: [number, number][] }) =>
+            ({ phi: a.phi, secao: a.secao, contorno: a.contorno, vaos: a.vaos })),
           // ⚠️ A MONTANHA DE NEVE ENTRA JUNTO COM A VALA, pelo mesmo caminho e pelo
           // mesmo motivo: é relevo, e relevo mora no terreno. O monte do Vale do
           // Poente levanta 380 m porque o chão real ali dá 1,7° e isso não é pista.
@@ -1365,7 +1365,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 canais = buildCanais({
                   heightAt: terrain.superficieAt,
                   radiais: cn.radiais ?? [],
-                  aneis: cn.aneis,
+                  aneis: cn.aneis,   // com os vãos: ver canais.ts
                   avenidas: (mc?.bulevares ?? []).map((b: { rumo: number; largura: number }) =>
                     ({ rumo: b.rumo, largura: b.largura })),
                   aneisPhi: mc?.constantes?.aneisPhi ?? [],

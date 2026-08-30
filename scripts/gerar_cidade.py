@@ -363,6 +363,15 @@ def rumo_de_raio(ru, phi_ref=3000.0):
     passo = 360.0 / n_raios(phi_ref)
     return round(ru / passo) * passo % 360.0
 
+def raio_em_phi(ang, alvo):
+    """o raio, naquele rumo, onde φ vale `alvo`. φ é monótono, então bisseção basta."""
+    lo, hi = 200.0, 14000.0
+    for _ in range(42):
+        m = (lo + hi) / 2
+        if phi(math.sin(ang)*m, -math.cos(ang)*m) < alvo: lo = m
+        else: hi = m
+    return (lo + hi) / 2
+
 def _aneis():
     """Os anéis, com o passo saindo do grão da banda.
 
@@ -400,18 +409,17 @@ CANAL_RAD_SEC = 60.0
 # ⚠️ ESTES SÃO OS φ DESEJADOS, NÃO OS FINAIS. Logo abaixo de `_aneis()` cada um é
 # encostado na linha de anel mais próxima: sem isso o canal passava no meio de uma
 # fileira de lotes, e o fundador chamaria de aleatório com razão.
+# ⚠️ DUAS PEÇAS FICAM NA CASCA E CONTINUAM ELIPSE LIVRE. O Portão da Abóbada e o
+# Farol vivem além de R_ABOBADA, onde não há malha nenhuma para ancorar: ali o
+# referencial é a casca, não o quarteirão.
+# (id, nome, tipo, rumo, raio, a, b, rot)
+PROGRAMA_CASCA = [
+  ('D01', 'Portão da Abóbada', 'distribuicao', 177, 4450, 170, 70, 87),
+  ('C11', 'Farol do Portão',   'civico',       183, 4380,  45, 45,  0),
+]
+
 # ⚠️ UM SEXTO ANEL entrou com a banda da Borda: sem ele os 1.200 m novos de
 # cidade ficariam secos e a rede de água pararia antes da última banda.
-CANAL_ANEIS_ALVO = [1850.0, 2500.0, 3150.0, 3900.0, 4700.0, 5150.0]
-_usadas = set()
-CANAL_ANEIS = []
-for _alvo in CANAL_ANEIS_ALVO:
-    _cand = [v for v in _ANEIS_PHI if v not in _usadas and R_INICIO + 100 < v < PHI_PRODUTIVO - 100]
-    if not _cand: continue
-    _v = min(_cand, key=lambda v: abs(v - _alvo))
-    _usadas.add(_v); CANAL_ANEIS.append(_v)
-print('canais encostados no anel: ' + ', '.join(f'{a:.0f}->{b:.0f}'
-      for a, b in zip(CANAL_ANEIS_ALVO, CANAL_ANEIS)), file=sys.stderr)
 CANAL_ANEL_SEC = 60.0
 # ⚠️ O TALUDE É PARTE DO CORREDOR E PRECISA SER RESERVADO. `terrain.ts` cava uma
 # rampa de terra de `CANAL_TALUDE` metros de cada lado, além da lâmina. A máscara
@@ -419,6 +427,66 @@ CANAL_ANEL_SEC = 60.0
 # medido, 2.190 lotes com a pegada no talude. Reservar aqui é o que faz a margem
 # virar cais em vez de barranco.
 CANAL_TALUDE = 12.0
+
+# ⚠️ E O ÚLTIMO É A DOCA (fundador, 30/08: "criamos mais um anel de canais no fim
+# da cidade, onde todos os canais terminam"). Sem ele os oito radiais morriam num
+# anel intermediário e os 300 m finais de cidade ficavam secos: canal que acaba
+# no meio do quarteirão não é canal, é vala. Com a doca a rede fecha — do lago
+# central pelos radiais até um cais perimetral, que é o Singelgracht de Amsterdam.
+CANAL_ANEIS_ALVO = [1850.0, 2500.0, 3150.0, 3900.0, 4700.0, 5150.0, 5490.0]
+_usadas = set()
+CANAL_ANEIS = []
+for _alvo in CANAL_ANEIS_ALVO:
+    # ⚠️ O TETO É PHI_PRODUTIVO − 5, NÃO − 100. Com −100 a linha de anel de 5.492
+    # ficava de fora e a doca não tinha onde encostar.
+    _cand = [v for v in _ANEIS_PHI if v not in _usadas and R_INICIO + 100 < v < PHI_PRODUTIVO - 5]
+    if not _cand: continue
+    _v = min(_cand, key=lambda v: abs(v - _alvo))
+    _usadas.add(_v); CANAL_ANEIS.append(_v)
+# ── OS VÃOS: O CANAL PARA ANTES DE BATER E RECOMEÇA DEPOIS ─────────────────
+#
+# ⚠️ IDEIA DO FUNDADOR, 30/08: "não podemos parar o canal antes dele colidir com
+# o outro elemento? Afinal é um canal, começamos e terminamos ele onde
+# quisermos". É a saída certa e a alternativa era pior: mover o Farol do Portão
+# para longe do canal move ele para longe do PORTÃO, que é a razão de ele
+# existir. Um farol que não está no portão não é o farol do portão.
+#
+# ⚠️ E ISTO RODA NA FASE 1, junto com o canal, não depois. As peças da casca são
+# a PORTA da abóbada: posição fixada pela casca, não pelo quarteirão, portanto
+# infraestrutura como o canal. Quem cede é o canal, porque a porta não pode
+# andar. Peça de quarteirão nunca abre vão — essa se resolve no alocador.
+_VAO_MARG = CANAL_ANEL_SEC/2 + CANAL_TALUDE + 20.0
+CANAL_VAOS = []
+for _an in CANAL_ANEIS:
+    _v = []
+    for _pid, _nome, _tp, _ru, _ra, _ea, _eb, _rot in PROGRAMA_CASCA:
+        _s = max(_ea, _eb)
+        # o anel passa pela faixa de raio da peça?
+        _rr = raio_em_phi(math.radians(_ru), _an)
+        if abs(_rr - _ra) > _s + _VAO_MARG: continue
+        _dg = math.degrees((_s + _VAO_MARG) / max(1.0, _ra))
+        _v.append((_ru - _dg, _ru + _dg))
+    # funde os vãos que se tocam, senão sobra ilha de água de 3 m entre dois
+    _v.sort()
+    _f = []
+    for _a0, _a1 in _v:
+        if _f and _a0 <= _f[-1][1] + 1.0: _f[-1] = (_f[-1][0], max(_f[-1][1], _a1))
+        else: _f.append((_a0, _a1))
+    CANAL_VAOS.append([[round(_a0 % 360.0, 2), round(_a1 % 360.0, 2)] for _a0, _a1 in _f])
+_nv = sum(len(v) for v in CANAL_VAOS)
+if _nv:
+    print(f'vãos abertos nos canais de anel: {_nv} '
+          + ', '.join(f'CA{i+1:02d} {a0:.1f}->{a1:.1f}°'
+                      for i, v in enumerate(CANAL_VAOS) for a0, a1 in v), file=sys.stderr)
+
+def em_vao(ianel, rumo):
+    """o canal `ianel` está interrompido naquele rumo?"""
+    for a0, a1 in CANAL_VAOS[ianel]:
+        if ((rumo - a0) % 360.0) <= ((a1 - a0) % 360.0): return True
+    return False
+
+print('canais encostados no anel: ' + ', '.join(f'{a:.0f}->{b:.0f}'
+      for a, b in zip(CANAL_ANEIS_ALVO, CANAL_ANEIS)), file=sys.stderr)
 # ⚠️ GUARDA DURA: canal e avenida NÃO podem partilhar rumo. Sem isto o erro volta
 # em silêncio, porque água desenhada por cima de via não gera erro nenhum: a
 # cidade só fica sem as avenidas que recebem as pontes.
@@ -451,9 +519,10 @@ def em_canal(x, z, margem=0.0):
     ang = math.atan2(x, -z) % (2*math.pi)          # mesmo quadro de rumo_de
     t = (ang / (2*math.pi)) * _CANAL_NB
     i = int(t) % _CANAL_NB; f = t - int(t); j = (i + 1) % _CANAL_NB
-    for tab in _canal_tabela():
+    for k, tab in enumerate(_canal_tabela()):
         rn = tab[i] * (1 - f) + tab[j] * f
-        if abs(r - rn) < CANAL_ANEL_SEC/2 + margem: return True
+        if abs(r - rn) < CANAL_ANEL_SEC/2 + margem and not em_vao(k, math.degrees(ang)):
+            return True
     ru = rumo_de(x, z)
     for a in CANAL_RADIAIS:
         dang = abs(((ru - a + 180) % 360) - 180)
@@ -699,14 +768,6 @@ PROGRAMA_BORDA = [
   ('B16', 'Depósito Norte',           'distribuicao', 346, 4640, 190, 155),
 ]
 
-# ⚠️ DUAS PEÇAS FICAM NA CASCA E CONTINUAM ELIPSE LIVRE. O Portão da Abóbada e o
-# Farol vivem além de R_ABOBADA, onde não há malha nenhuma para ancorar: ali o
-# referencial é a casca, não o quarteirão.
-# (id, nome, tipo, rumo, raio, a, b, rot)
-PROGRAMA_CASCA = [
-  ('D01', 'Portão da Abóbada', 'distribuicao', 177, 4450, 170, 70, 87),
-  ('C11', 'Farol do Portão',   'civico',       183, 4380,  45, 45,  0),
-]
 
 # ⚠️ OS ANÉIS: a hierarquia viária que faltava, e ela é ESTRUTURAL. Com 12
 # bulevares radiais e mais nada, ir do setor 4 ao setor 8 obrigava a passar pela
@@ -838,14 +899,6 @@ def dentro_do_coliseu(x, z, margem=0.0):
 ARCO_BANDA   = 26.0      # a rua em arco na divisa de banda
 AVENIDA_DIST = 44.0      # a avenida na costura de distrito
 
-def raio_em_phi(ang, alvo):
-    """o raio, naquele rumo, onde φ vale `alvo`. φ é monótono, então bisseção basta."""
-    lo, hi = 200.0, 14000.0
-    for _ in range(42):
-        m = (lo + hi) / 2
-        if phi(math.sin(ang)*m, -math.cos(ang)*m) < alvo: lo = m
-        else: hi = m
-    return (lo + hi) / 2
 
 # ⚠️ O ALCANCE DO PARQUE RUNESTONE É ANISOTRÓPICO, E ESTA CÓPIA TEM DE BATER COM
 # `parkReach` em app/city/plaza/park-site.ts. O disco de 3.600 m a 5.200 m do
@@ -1189,30 +1242,61 @@ def _cell_arco(i, j):
 # Canal ATRAVESSANDO a peça reprova; canal ENCOSTADO nela é margem, e a peça
 # recua o corredor inteiro (42 m) em vez dos 6 m da rua comum. Assim a borda da
 # peça vira cais, que é o que se queria desde o começo.
-_CANAL_REC_PHI = CANAL_ANEL_SEC/2 + CANAL_TALUDE
+# ⚠️ E O RECUO SE MEDE EM METROS DE RAIO, NÃO EM φ. A primeira versão recuava 42
+# em φ, que é o corredor em metros — mas dφ/dr vai de 1,06 a 1,4 nestes rumos, e
+# 42 de φ viravam de 30 a 40 m de raio. Faltavam de 5 a 12 m e a peça encostava
+# no leito: onze peças ainda saíam com 4,60 m de vala, todas com o canal na
+# DIVISA e nenhuma com ele dentro. O mesmo erro de unidade que já tinha posto
+# lote dentro d'água em `em_canal`, agora na peça. Aqui o recuo sai do RAIO do
+# anel de canal naquele rumo, que é o que `terrain.ts` cava.
+_CANAL_REC = CANAL_ANEL_SEC/2 + CANAL_TALUDE
+def _borda_r(ang, ph, canal, interna):
+    """raio da borda da peça naquele rumo: recua o corredor se a divisa tem canal.
+
+    ⚠️ O SINAL DEPENDE DE QUAL DIVISA É. A primeira versão somava o recuo nos
+    DOIS lados, então a borda externa era empurrada 42 m PARA DENTRO do canal em
+    vez de recuar dele: as peças cortadas subiram de 11 para 18. Divisa interna
+    cresce em raio, divisa externa encolhe — sempre para dentro da peça.
+    """
+    r = raio_em_phi(ang, ph)
+    rec = _CANAL_REC if canal else VIA_CONTORNO / 2
+    return r + rec if interna else r - rec
+
 def _janela(_i, _nr, _jj, _ns):
-    """(prof, larg, p0v, p1v, dg0, dg1) da janela, ou None se um canal a atravessa."""
+    """(prof, larg, c0, c1, dg0, dg1) da janela, ou None se um canal a atravessa."""
     p0, p1 = _PHI_B[_i], _PHI_B[_i + _nr]
-    if any(p0 + 1.0 < an < p1 - 1.0 for an in CANAL_ANEIS): return None
-    r0 = _CANAL_REC_PHI if any(abs(an - p0) <= 1.0 for an in CANAL_ANEIS) else VIA_CONTORNO/2
-    r1 = _CANAL_REC_PHI if any(abs(an - p1) <= 1.0 for an in CANAL_ANEIS) else VIA_CONTORNO/2
-    prof = (p1 - p0 - r0 - r1) / 2
-    if prof < 40: return None
+    # ⚠️ CANAL COM VÃO NAQUELE SETOR NÃO CONTA. Onde o anel está interrompido não
+    # há água nem vala, então ele não atravessa peça nenhuma e não pede recuo.
+    _gm = ((_jj + _ns / 2) / N_RAIOS0) * 360.0
+    _vivo = [an for k, an in enumerate(CANAL_ANEIS) if not em_vao(k, _gm)]
+    if any(p0 + 1.0 < an < p1 - 1.0 for an in _vivo): return None
+    c0 = any(abs(an - p0) <= 1.0 for an in _vivo)
+    c1 = any(abs(an - p1) <= 1.0 for an in _vivo)
     _, rm, _, _ = _cell_arco(_i, _jj)
+    mid = ((_jj + _ns / 2) / N_RAIOS0) * 2*math.pi
+    r0m = _borda_r(mid, p0, c0, True)
+    r1m = _borda_r(mid, p1, c1, False)
+    prof = (r1m - r0m) / 2
+    if prof < 40: return None
     g0 = (_jj / N_RAIOS0) * 360.0
     g1 = ((_jj + _ns) / N_RAIOS0) * 360.0
-    rec_ang = math.degrees((CANAL_RAD_SEC/2 + CANAL_TALUDE) / max(1.0, rm))
+    # ⚠️ O RECUO ANGULAR SAI DO RAIO INTERNO, não do médio. O canal radial é uma
+    # RETA e o recuo é um ângulo: no raio de dentro o mesmo ângulo vale menos
+    # arco, e o canto interno da peça entrava no corredor. Medido com o raio
+    # médio: sete peças ainda com o leito inteiro por cima, todas com o radial na
+    # divisa. Pelo raio interno o recuo vale 42 m em toda a altura da peça.
+    rec_ang = math.degrees((CANAL_RAD_SEC/2 + CANAL_TALUDE) / max(1.0, r0m))
     d0 = d1 = 0.0
     for cr in CANAL_RADIAIS:
         d = ((cr - g0) % 360.0)
         larg_ang = (g1 - g0) % 360.0 or 360.0
         if 1e-6 < d < larg_ang - 1e-6: return None       # radial no meio: talho
-        if d <= 1e-6 or d >= 360.0 - 1e-6: d0 = rec_ang  # encostado na divisa de baixo
-        if abs(d - larg_ang) <= 1e-6: d1 = rec_ang       # encostado na de cima
+        if d <= 1e-6 or d >= 360.0 - 1e-6: d0 = rec_ang
+        if abs(d - larg_ang) <= 1e-6: d1 = rec_ang
     cel = (2*math.pi*rm) / N_RAIOS0
     larg = (_ns * cel - (d0 + d1) * math.pi/180.0 * rm) / 2
     if larg < 40: return None
-    return prof, larg, p0 + r0, p1 - r1, d0, d1
+    return prof, larg, c0, c1, d0, d1
 
 _ocupado = set()
 _alocadas, _movidas = 0, 0
@@ -1249,7 +1333,7 @@ for _q in _fila:
                     if _cells & _ocupado: continue
                     _jan = _janela(_i, _nr, _jj, _ns)
                     if _jan is None: continue
-                    _prof, _larg, _p0v_, _p1v_, _dg0_, _dg1_ = _jan
+                    _prof, _larg, _c0_, _c1_, _dg0_, _dg1_ = _jan
                     if _prof < _b0 * 0.45 or _prof > _b0 * 2.4: continue
                     if _larg < _a0 * 0.45: continue
                     _amm, _rmm, _, _ = _cell_arco(_i, _jj)
@@ -1261,14 +1345,14 @@ for _q in _fila:
                     _cst = _c1 + _c2 * 0.8
                     if _melhor is None or _cst < _melhor[0]:
                         _melhor = (_cst, _i, _nr, _jj, _ns, _prof, _larg, _amc, _phc, _cells,
-                                   _p0v_, _p1v_, _dg0_, _dg1_)
+                                   _c0_, _c1_, _dg0_, _dg1_)
                     break
                 if _melhor and _melhor[0] < 0.12: break
             if _melhor and _melhor[0] < 0.12: break
     if _melhor is None:
         _relato.append(f"{_q['id']} {_q['nome'][:26]}: NÃO COUBE, ficou onde estava")
         continue
-    _cst, _i, _nr, _jj, _ns, _prof, _larg, _amc, _phc, _cells, _p0v, _p1v, _dg0, _dg1 = _melhor
+    _cst, _i, _nr, _jj, _ns, _prof, _larg, _amc, _phc, _cells, _c0, _c1, _dg0, _dg1 = _melhor
     _ocupado |= _cells
     _r = raio_em_phi(_amc, _phc)
     _dx = math.hypot(math.sin(_amc)*_r - _q['cx'], -math.cos(_amc)*_r - _q['cz'])
@@ -1299,11 +1383,11 @@ for _q in _fila:
     _passos = max(2, int(_ns * 3))
     for _t in range(_passos + 1):
         _aa = math.radians(_ga0 + (_ga1 - _ga0) * _t / _passos)
-        _rr = raio_em_phi(_aa, _p0v)
+        _rr = _borda_r(_aa, _PHI_B[_i], _c0, True)
         _pol.append([round(math.sin(_aa) * _rr, 1), round(-math.cos(_aa) * _rr, 1)])
     for _t in range(_passos, -1, -1):
         _aa = math.radians(_ga0 + (_ga1 - _ga0) * _t / _passos)
-        _rr = raio_em_phi(_aa, _p1v)
+        _rr = _borda_r(_aa, _PHI_B[_i + _nr], _c1, False)
         _pol.append([round(math.sin(_aa) * _rr, 1), round(-math.cos(_aa) * _rr, 1)])
     _q['poly'] = _pol
     _alocadas += 1
@@ -1350,7 +1434,7 @@ for _q in _segunda:
     if not _achou:
         _relato.append(f"{_q['id']} {_q['nome'][:26]}: nem na segunda passada")
         continue
-    _i, _nr, _jj, _ns, _prof, _larg, _p0v, _p1v, _dg0, _dg1 = _achou
+    _i, _nr, _jj, _ns, _prof, _larg, _c0, _c1, _dg0, _dg1 = _achou
     _ocupado |= {(_i + _r, (_jj + _c) % N_RAIOS0) for _r in range(_nr) for _c in range(_ns)}
     _amc = ((_jj + _ns / 2) / N_RAIOS0) * 2*math.pi
     _phc = (_PHI_B[_i] + _PHI_B[_i + _nr]) / 2
@@ -1371,12 +1455,12 @@ for _q in _segunda:
     _passos = max(2, int(_ns * 3))
     for _t in range(_passos + 1):
         _aa = math.radians(_ga0 + (_ga1 - _ga0) * _t / _passos)
-        _pol.append([round(math.sin(_aa) * raio_em_phi(_aa, _p0v), 1),
-                     round(-math.cos(_aa) * raio_em_phi(_aa, _p0v), 1)])
+        _rr = _borda_r(_aa, _PHI_B[_i], _c0, True)
+        _pol.append([round(math.sin(_aa) * _rr, 1), round(-math.cos(_aa) * _rr, 1)])
     for _t in range(_passos, -1, -1):
         _aa = math.radians(_ga0 + (_ga1 - _ga0) * _t / _passos)
-        _pol.append([round(math.sin(_aa) * raio_em_phi(_aa, _p1v), 1),
-                     round(-math.cos(_aa) * raio_em_phi(_aa, _p1v), 1)])
+        _rr = _borda_r(_aa, _PHI_B[_i + _nr], _c1, False)
+        _pol.append([round(math.sin(_aa) * _rr, 1), round(-math.cos(_aa) * _rr, 1)])
     _q['poly'] = _pol
     _alocadas += 1
     print(f"  2a passada: {_q['id']} {_q['nome'][:24]} -> r {_r:.0f}, "
@@ -1411,10 +1495,44 @@ for _i in range(6):
     _PROD.append(('LP', f'Lago de Pesca {_i+1}', 'agua',
                   rumo_de_raio(30.0 + _i * 60.0), 6550.0, 460.0, 260.0))
 _np = 0
+# ⚠️ O CINTURÃO COMEÇA DEPOIS DO CAIS DA DOCA. A doca (CA07) é a última linha de
+# anel do tecido, e o cinturão produtivo mora logo além dela: sem esta guarda a
+# doca nascia por cima de dez Fazendas de Proteína, do Campo de Golfe e de três
+# plantas industriais, com 4,60 m de vala. Estas peças não passam pelo alocador
+# — são postas por rumo e φ — então a checagem tem de vir aqui, e a regra é a
+# mesma das outras: quem cede é a peça, porque o canal é infraestrutura da fase 1.
+_empurradas = 0
 for _pre, _nome, _tipo, _ru, _ph, _a, _b in _PROD:
     _ang = math.radians(_ru)
     _r = raio_em_phi(_ang, _ph)
     if _r <= 0: continue
+    _s = max(_a, _b)
+    # 1. o anel: empurra para fora até o cais da doca liberar a peça
+    _rc = max((raio_em_phi(_ang, _an) for _k, _an in enumerate(CANAL_ANEIS)
+               if not em_vao(_k, _ru)), default=0.0)
+    _rmin = _rc + CANAL_ANEL_SEC/2 + CANAL_TALUDE + _s
+    if _r < _rmin:
+        _r = _rmin; _empurradas += 1
+    # 2. ⚠️ O RADIAL É O QUE MAIS CORTA AQUI, e não o anel. A Fazenda tem 1.240 m
+    # de largura, que a 6.000 m de raio são 11,8° de arco: ela ENGOLE um canal
+    # radial inteiro se o rumo dela cair perto de um. Com a doca em 5.492 os oito
+    # radiais passaram a chegar ao cinturão, e dez das doze fazendas ficaram com
+    # 4,60 m de vala por dentro. Empurrar em raio não resolve — o radial é uma
+    # reta e acompanha. Aqui a peça GIRA, de raio da teia em raio da teia, até o
+    # arco dela ficar livre. É a mesma regra das outras: a peça cede, o canal não.
+    _passo = 360.0 / N_RAIOS0
+    for _t in range(N_RAIOS0):
+        for _sg in ((0,) if _t == 0 else (-1, 1)):
+            _cand = (_ru + _sg * _t * _passo) % 360.0
+            _dg = math.degrees((_s + CANAL_RAD_SEC/2 + CANAL_TALUDE) / max(1.0, _r))
+            if not any(abs(((_cr - _cand + 180) % 360) - 180) < _dg for _cr in CANAL_RADIAIS):
+                break
+        else:
+            continue
+        break
+    if abs(((_cand - _ru + 180) % 360) - 180) > 0.01:
+        _ru = _cand; _ang = math.radians(_ru); _r = raio_em_phi(_ang, _ph)
+        _r = max(_r, _rmin); _empurradas += 1
     PROGRAMA_GEO.append({
         'id': f'{_pre}{_np+1:02d}', 'nome': _nome, 'tipo': _tipo,
         'forma': 'elipse' if _pre == 'LP' else 'retangulo',
@@ -1424,7 +1542,7 @@ for _pre, _nome, _tipo, _ru, _ph, _a, _b in _PROD:
         'area': (math.pi if _pre == 'LP' else 4) * _a * _b, 'produtivo': True,
     })
     _np += 1
-print(f'cinturão produtivo: {_np} peças entre φ {PHI_PRODUTIVO:.0f} e {R_ABOBADA:.0f} '
+print(f'cinturão produtivo: {_np} peças ({_empurradas} empurradas para fora do cais da doca) entre φ {PHI_PRODUTIVO:.0f} e {R_ABOBADA:.0f} '
       f'({sum(q["area"] for q in PROGRAMA_GEO if q.get("produtivo"))/1e4:.0f} ha)', file=sys.stderr)
 
 # ── A CADEIA DE SUPRIMENTO ──────────────────────────────────────────────────
@@ -2496,7 +2614,11 @@ canais_pub = {
                  'lamina': 60.0, 'rInicio': R_INICIO, 'phiFim': CANAL_ANEIS[-1],
                  'sobreBulevar': ru in AVENIDAS_RADIAIS}
                 for i, ru in enumerate(CANAL_RADIAIS)],
+    # ⚠️ `vaos` = os trechos em que o anel está INTERROMPIDO, em rumo. Sem eles a
+    # cena desenha o anel fechado e a vala volta a passar por cima da peça: o
+    # gerador abre o vão e o cliente ignora.
     'aneis': [{'id': f'CA{i+1:02d}', 'phi': an, 'secao': CANAL_ANEL_SEC, 'lamina': 28.0,
+               'vaos': CANAL_VAOS[i],
                'contorno': [[round(math.sin(math.radians(g))*raio_em_phi(math.radians(g), an), 1),
                              round(-math.cos(math.radians(g))*raio_em_phi(math.radians(g), an), 1)]
                             for g in range(0, 360, 3)]}

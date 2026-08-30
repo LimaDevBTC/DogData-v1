@@ -34,6 +34,8 @@ export interface CanalRadial {
 }
 export interface CanalAnel {
   id: string; phi: number; secao: number; lamina: number; contorno: [number, number][]
+  /** trechos em que o anel está interrompido, em rumo (graus) */
+  vaos?: [number, number][]
 }
 export interface Avenida { rumo: number; largura: number }
 export interface CanaisOpts {
@@ -256,6 +258,43 @@ export function buildCanais(o: CanaisOpts): Canais {
     const g = (r.rumo * Math.PI) / 180
     const sx = Math.sin(g), sz = -Math.cos(g)
     trecho(sx * r.rInicio, sz * r.rInicio, sx * rFim, sz * rFim, r.secao, r.lamina)
+  }
+
+  // ── os ANÉIS: eles não tinham água nenhuma ────────────────────────────────
+  //
+  // ⚠️ ESTE MÓDULO SÓ DESENHAVA OS RADIAIS. Os anéis entravam aqui apenas para
+  // receber ponte, e o `terrain.ts` cavava a vala deles: sete anéis de 60 m
+  // abertos no chão, 4,6 m de fundo, SECOS. Não gerava erro nenhum — vala vazia
+  // é só terreno rebaixado — e passou despercebida até a conferência do
+  // histograma de vértices da água mostrar 64 por faixa de raio, ou seja o
+  // padrão de oito radiais e mais nada. É o mesmo tipo de silêncio que já tinha
+  // enterrado o canal 4 m antes: água que não é desenhada não reclama.
+  //
+  // O anel é desenhado trecho a trecho pelo contorno publicado, pulando os vãos.
+  const noVao = (vaos: [number, number][] | undefined, x: number, z: number) => {
+    if (!vaos || !vaos.length) return false
+    let ru = (Math.atan2(x, -z) * 180) / Math.PI
+    ru = ((ru % 360) + 360) % 360
+    for (const [a0, a1] of vaos) {
+      if (((ru - a0) % 360 + 360) % 360 <= ((a1 - a0) % 360 + 360) % 360) return true
+    }
+    return false
+  }
+  for (const a of o.aneis) {
+    const c = a.contorno
+    if (!c || c.length < 3) continue
+    for (let i = 0; i < c.length; i++) {
+      const [x0, z0] = c[i], [x1, z1] = c[(i + 1) % c.length]
+      // ⚠️ TESTA AS DUAS PONTAS E O MEIO. O contorno vem amostrado a cada 3° e o
+      // vão é mais fino que isso: testando só o meio, o trecho que ENTRA no vão
+      // era desenhado inteiro e a água invadia a peça. Medido: água em 181° a
+      // 183° dentro de um vão que começa em 181,6. Qualquer ponto do trecho no
+      // vão derruba o trecho — a água recua até o próximo ponto do contorno, que
+      // é o que se quer: melhor água de menos do que água por cima da peça.
+      if (noVao(a.vaos, x0, z0) || noVao(a.vaos, x1, z1) ||
+          noVao(a.vaos, (x0 + x1) / 2, (z0 + z1) / 2)) continue
+      trecho(x0, z0, x1, z1, a.secao, a.lamina)
+    }
   }
 
   const feitas: THREE.Mesh[] = []
