@@ -428,7 +428,18 @@ _ANEIS_PHI = sorted({a[0] for a in _aneis()} | {a[1] for a in _aneis()})
 # até 123 m para cavar vala sem saída. Escavação: 22,8 Mm³ contra 112 se os oito
 # ficassem, e 945 se os anéis também ficassem.
 # Os cinco rumos que saíram continuam existindo como BULEVAR, que já corria neles.
-CANAL_RADIAIS = [22.5, 67.5, 112.5]
+# ⚠️ OS TRÊS CANAIS FORAM MOVIDOS PARA A JANELA DA BAÍA (fundador, 31/08: "os
+# canais não estão escavados até a baía"). Medido: a baía de 20,5 km² só é
+# alcançável a partir do anel interior nos rumos 355° a 105° — ela ocupa o
+# quadrante nordeste e mais nada. Os rumos antigos (22,5 · 67,5 · 112,5) tinham um
+# acerto, um estouro e um FURO: o de 112,5° corria 5,4 km e não encontrava água
+# nenhuma, porque naquele rumo não há baía. Canal que não chega na água não é
+# canal, é vala.
+#
+# 25 · 55 · 85 ficam espaçados de 30° dentro da janela, e a baía os encontra em
+# r 4.850, 3.730 e 5.810. Eles radiam do porto para dentro da cidade, que é como
+# via de água funciona: ela nasce no ancoradouro.
+CANAL_RADIAIS = [25.0, 55.0, 85.0]
 # ⚠️ 96 -> 60 (fundador, 30/08: "60 m já resolve"). 96 m de lâmina entre
 # quarteirões de 109 a 227 m de fundo era canal mais largo que a quadra do
 # Núcleo. 60 m ainda é mais largo que qualquer canal de Amsterdam e cabe entre
@@ -3163,11 +3174,27 @@ diagonais_pub = [{'id': f'DG{i+1}', 'rumo': ru, 'afastamento': off, 'largura': D
 # some. O fim de cada radial é medido: o primeiro raio em que o chão desce abaixo
 # da cota do lago. É lá que a vala encontra água e deixa de ser vala.
 def _fim_no_lago(rumo):
+    """onde o canal encontra A BAÍA, não a primeira poça.
+
+    ⚠️ A VERSÃO ANTERIOR TESTAVA `crua() < LAGO_COTA`, ou seja QUALQUER cota
+    abaixo da lâmina. Isso encontra depressão de 200 m² tanto quanto a baía de
+    20,5 km², e o canal terminava numa poça no meio do tecido — ou, quando a poça
+    não existia, seguia até a casca. Aqui o teste é a máscara da BAÍA, que é o
+    maior corpo, o mesmo que a orla usa.
+
+    ⚠️ E ELE RECUA 30 m. Sem o recuo o canal entra na baía e as paredes dele são
+    desenhadas POR CIMA da água aberta — foi o que o fundador viu ("sobre a baía
+    tem marca do canal"). Medido antes do conserto: o CR02 entrava 265 m.
+    """
     a = math.radians(rumo); sx, sz = math.sin(a), -math.cos(a)
     t = R_INICIO
     while t < R_CASCA:
-        if crua(sx*t, sz*t) < LAGO_COTA: return round(t, 1)
-        t += 25
+        if em_baia(sx*t, sz*t): return round(max(R_INICIO + 200, t - 30), 1)
+        t += 20
+    # sem baía neste rumo o canal não tem para onde ir: para na última água
+    while t > R_INICIO:
+        if crua(sx*t, sz*t) < LAGO_COTA: return round(t - 30, 1)
+        t -= 20
     return round(R_CASCA - 200, 1)
 
 canais_pub = {

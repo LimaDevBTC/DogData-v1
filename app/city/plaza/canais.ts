@@ -184,62 +184,52 @@ export function buildCanais(o: CanaisOpts): Canais {
       const wB = COTA !== undefined ? COTA : yb - LAMINA
       B(COR_AGUA).quad(p(ax, az, -meiaA, wA), p(bx, bz, -meiaA, wB),
                        p(bx, bz, +meiaA, wB), p(ax, az, +meiaA, wA))
-      // ── a margem: MESMA LINGUAGEM DA ORLA DA BAÍA ─────────────────────
+      // ── a margem: DUAS PAREDES VERTICAIS, e nada mais ─────────────────
       //
-      // ⚠️ ESTA É A SEGUNDA METADE DO CONSERTO DO SERRILHADO. Pôr a água na cota
-      // única deixou a LÂMINA plana, e o cais continuou tirando o nível do
-      // terreno a cada 18 m (`yR(ya)`): o passeio zigue-zagueava ao longo de um
-      // canal reto, que é exatamente a descrição do fundador ("pedaços de um rio
-      // tortuoso colocado num canal reto"). Cais tem UMA cota, como a lâmina.
-      // Quem negocia com o relevo é o talude de trás, igual à orla da baía.
-      const yDeck = wA + DECK          // o passeio, acima da lâmina
-      const banda = meiaC - meiaA
-      const fPasseio = 0.26, fPista = 0.52     // o resto é guia e faixa de árvore
+      // ⚠️ ESTA É A QUARTA VERSÃO DA SEÇÃO E AS TRÊS ANTERIORES SERRILHARAM, cada
+      // uma por um motivo, todas pelo mesmo vício: tentar acompanhar o terreno.
+      //   v1: a água tirava a cota do terreno a cada 18 m -> escada de água.
+      //   v2: água plana, mas o CAIS ainda seguia o terreno -> passeio em zigue-
+      //       zague ao longo de um canal reto.
+      //   v3: cais plano, mas o TALUDE era um quad entre dois pontos amostrados,
+      //       e o regolito furava essa reta no meio do vão -> a fita d'água
+      //       aparecia só nos furos.
+      //
+      // O que não pode serrilhar é uma PAREDE VERTICAL num deslocamento FIXO: ela
+      // não interpola terreno em nenhuma direção. A seção virou o mínimo que
+      // descreve um canal: lâmina plana em `COTA`, e de cada lado uma parede que
+      // sobe do leito até o chão daquele ponto. O chão em volta continua sendo o
+      // terreno da cidade, que já está cavado; a parede só impede que ele apareça
+      // por dentro do canal.
+      //
+      // ⚠️ A PAREDE É AMOSTRADA NO MESMO PASSO DA ÁGUA (18 m) e no MESMO
+      // deslocamento (±meiaC). Como os dois vértices de cima de um painel são o
+      // terreno naqueles dois pontos e os de baixo são a cota do leito, o painel
+      // encosta no chão por construção nas duas pontas — e entre elas ele fica
+      // ACIMA do chão, nunca abaixo, porque o leito é plano e o chão sobe.
+      // ⚠️ NA FOZ A PAREDE PARA, e sem isto ela continua desenhada POR CIMA da
+      // água aberta: o fundador viu a linha do canal atravessando a baía, mais um
+      // banco de areia na frente dele. A parede só existe onde há TERRA para
+      // conter — se os dois lados já estão abaixo da lâmina, a margem acabou e o
+      // canal virou baía. É o mesmo princípio do talude: quem negocia com o
+      // relevo é a parede, e onde não há relevo não há parede.
+      const _terraA = Math.max(o.heightAt(ax + px * meiaC, az + pz * meiaC),
+                               o.heightAt(ax - px * meiaC, az - pz * meiaC))
+      const _terraB = Math.max(o.heightAt(bx + px * meiaC, bz + pz * meiaC),
+                               o.heightAt(bx - px * meiaC, bz - pz * meiaC))
+      if (_terraA < wA + 0.5 && _terraB < wB + 0.5) continue
       for (const sg of [-1, 1]) {
-        const w0 = sg * meiaA
-        const w1 = sg * (meiaA + banda * fPasseio)
-        const w2 = sg * (meiaA + banda * (fPasseio + fPista))
-        const w3 = sg * meiaC
-        const w4 = sg * (meiaC + TALUDE)
-        // 1. a parede de atracação, da lâmina até o passeio
-        B(COR_MURO).quad(p(ax, az, w0, wA), p(bx, bz, w0, wB),
-                         p(bx, bz, w0, yDeck), p(ax, az, w0, yDeck))
-        // 2. o PASSEIO, que encosta na água
-        B(COR_CAIS).quad(p(ax, az, w0, yDeck), p(bx, bz, w0, yDeck),
-                         p(bx, bz, w1, yDeck), p(ax, az, w1, yDeck))
-        // 3. a PISTA, a via que corre na margem
-        B(COR_PISTA).quad(p(ax, az, w1, yDeck - 0.15), p(bx, bz, w1, yDeck - 0.15),
-                          p(bx, bz, w2, yDeck - 0.15), p(ax, az, w2, yDeck - 0.15))
-        // 4. a GUIA e a faixa de árvore
-        B(COR_CAIS).quad(p(ax, az, w2, yDeck), p(bx, bz, w2, yDeck),
-                         p(bx, bz, w3, yDeck), p(ax, az, w3, yDeck))
-        // 5. o TALUDE, e ele é SUBDIVIDIDO, não um quad só.
-        //
-        // ⚠️ ESTA É A TERCEIRA E ÚLTIMA CAUSA DO CANAL CAÓTICO. A água já estava
-        // plana e reta, mas na chapa ela parecia serpentear: o que serpenteava
-        // era a PAREDE DA VALA. O terreno cava o canal com mistura suave (o peso
-        // de `cavaEm` cai do eixo até o fim do talude), então a borda da
-        // escavação é irregular; um talude de UM quad só é uma reta entre dois
-        // pontos e o regolito fura essa reta no meio do vão, tapando pedaços da
-        // fita d'água e deixando o resto à mostra. Daí a leitura de "pedaços de
-        // rio tortuoso num canal reto": a água era reta, o buraco é que não era.
-        //
-        // ⚠️ A COTA DE CADA ESTAÇÃO É `max(terreno, cais)`. Assim o talude nunca
-        // passa POR BAIXO do chão (que é o que deixava o regolito aparecer) e
-        // nunca desce abaixo do cais (que é o que abriria um degrau na margem).
-        // É um aterro de canal: ele preenche o que falta e acompanha o que sobra.
-        const NT = 5
-        for (let t = 0; t < NT; t++) {
-          const wa = w3 + (w4 - w3) * (t / NT)
-          const wb = w3 + (w4 - w3) * ((t + 1) / NT)
-          const yy = (cx2: number, cz2: number, w: number) =>
-            Math.max(o.heightAt(cx2 + px * w, cz2 + pz * w), yDeck)
-          B(COR_MURO).quad(p(ax, az, wa, yy(ax, az, wa)), p(bx, bz, wa, yy(bx, bz, wa)),
-                           p(bx, bz, wb, yy(bx, bz, wb)), p(ax, az, wb, yy(ax, az, wb)))
-        }
-        // 6. o leito, abaixo da lâmina
-        B(COR_MURO).quad(p(ax, az, w0, wA - 3.0), p(bx, bz, w0, wB - 3.0),
-                         p(bx, bz, w0, wB), p(ax, az, w0, wA))
+        const w = sg * meiaC
+        const ta = Math.max(o.heightAt(ax + px * w, az + pz * w), wA + 0.5)
+        const tb2 = Math.max(o.heightAt(bx + px * w, bz + pz * w), wB + 0.5)
+        B(COR_MURO).quad(p(ax, az, w, wA - 4.0), p(bx, bz, w, wB - 4.0),
+                         p(bx, bz, w, tb2), p(ax, az, w, ta))
+        // a guia de 2,5 m no topo da parede: é ela que dá a linha clara da margem
+        const wg = sg * (meiaC + 2.5)
+        const ga = Math.max(o.heightAt(ax + px * wg, az + pz * wg), ta)
+        const gb = Math.max(o.heightAt(bx + px * wg, bz + pz * wg), tb2)
+        B(COR_CAIS).quad(p(ax, az, w, ta), p(bx, bz, w, tb2),
+                         p(bx, bz, wg, gb), p(ax, az, wg, ga))
       }
       // ⚠️ O CABEÇO É O QUE FAZ A MARGEM SER ATRACADOURO e não beira. Sem ele a
       // promessa de parar a lancha na frente de casa não tem onde amarrar.

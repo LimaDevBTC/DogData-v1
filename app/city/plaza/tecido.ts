@@ -326,7 +326,18 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
   // cidade parecia um mapa com adesivos. O desenho de cada uma mora em
   // app/city/plaza/pecas.ts. Continua sendo massa, sem fachada.
   const pecas = (meta.programa ?? []) as Peca[]
-  const construidas = buildPecas(pecas, o.heightAt)
+  // ⚠️ A COMPOSIÇÃO 3D DA PEÇA FICOU ADIADA, NÃO APAGADA (fundador, 31/08: "não
+  // precisamos das peças ainda, somente do projeto delas na cidade"). O que a
+  // cidade mostra agora é a PARCELA RESERVADA, desenhada por `programa.ts` sobre
+  // um número inteiro de módulos da teia, com rua nos quatro lados por
+  // construção. As 3.134 linhas de `pecas/*.ts` continuam no repositório e voltam
+  // com `?pecas3d=1` — elas são projeto nosso, não asset baixado, e o defeito
+  // nunca foi o desenho delas: era o endereço, que vinha de outra grade.
+  const quer3d = typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).get('pecas3d') === '1'
+  const construidas = quer3d
+    ? buildPecas(pecas, o.heightAt)
+    : { group: new THREE.Group(), triangulos: 0, covas: [], dispose() {} }
   group.add(construidas.group)
 
   const triangulos = (modo === 'obra' ? 0 : n * 12) + construidas.triangulos

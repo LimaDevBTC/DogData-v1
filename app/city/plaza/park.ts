@@ -39,6 +39,20 @@ export { PARK_CENTER, PARK_ROT_Y }
 export interface Park {
   group: THREE.Group
   update: (t: number, halfHeightPx: number, camPos: THREE.Vector3) => void
+  /** ⚠️ A COTA DO CHÃO DO PARQUE, EM MUNDO, ou null fora da pegada dele.
+   *
+   *  Ela existe porque o parque tem TERRENO PRÓPRIO. `terrain.heightAt` e
+   *  `terrain.superficieAt` são o relevo da CIDADE, e o parque está a r 9.800,
+   *  fora dela: nenhuma das duas sabe onde fica o gramado daqui. O trava-chão da
+   *  câmera usava uma delas e por isso o visitante atravessava o chão do parque
+   *  (fundador, 31/08: "o parque Runestone está permitindo a câmera passar por
+   *  dentro da terra"). Medido por raycast no centro do parque: chão visível em
+   *  y = 40,1 m; a superfície da cidade ali devolve outra coisa.
+   *
+   *  ⚠️ E ISSO É O QUE FECHA A CAVERNA TAMBÉM. O plano dela existe embaixo do
+   *  parque, mas ela é destino de GAMEPLAY, não de câmera livre. Com o chão certo
+   *  no trava-chão, descer até lá deixa de ser possível por navegação. */
+  alturaEm: (x: number, z: number) => number | null
   dispose: () => void
 }
 
@@ -249,6 +263,19 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
   terrainCoarse.name = 'ParkTerrainCoarse'
   terrainCoarse.visible = false
   group.add(terrainCoarse)
+  // ⚠️ O INVERSO DE `worldOf`: mundo -> local do parque. Sem ele o trava-chão não
+  // tem como perguntar "qual a cota daqui" usando a mesma função que desenhou.
+  const _eixoY = new THREE.Vector3(0, 1, 0)
+  const _tmpLocal = new THREE.Vector3()
+  const alturaEm = (x: number, z: number): number | null => {
+    _tmpLocal.set(x - PARK_CENTER.x, 0, z - PARK_CENTER.z)
+      .applyAxisAngle(_eixoY, -PARK_ROT_Y)
+    const lx = _tmpLocal.x, lz = _tmpLocal.z
+    // fora do sítio do parque quem manda é o relevo da cidade
+    if (Math.hypot(lx, lz) > PARK_HALF) return null
+    return groundLocal(lx, lz) + center0
+  }
+
   const lodTerrain = (dist: number) => {
     const fine = dist < 4500
     if (terrain.visible !== fine) { terrain.visible = fine; terrainCoarse.visible = !fine }
@@ -439,6 +466,7 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
 
   return {
     group,
+    alturaEm,
     update(t, halfHeightPx, camPos) {
       scatterMat.uniforms.uHalfH.value = halfHeightPx
       const dist = camPos.distanceTo(PARK_CENTER)

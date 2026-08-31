@@ -271,11 +271,24 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
   // ⚠️ ISTO NÃO ESTAVA NA SPEC porque o anel não existia quando ela foi escrita.
   // É a peça que faltava para o verde da cidade ser SISTEMA e não ilha: o anel
   // plantado liga um distrito ao outro por baixo de árvore.
+  // ⚠️ A FILEIRA SEGUE O POLÍGONO, NÃO O CÍRCULO. O anel virou dodecágono em
+  // 31/08 ("teia é em linha reta") e a flecha vai de 60 m no Anel Interior a
+  // 259 m na Pista de Serviço: plantar no círculo deixaria a fileira até 259 m
+  // FORA da rua, atravessando o terreno — que é exatamente a leitura de "elemento
+  // atrapalhando". Aqui a árvore anda pela corda entre duas avenidas, como a via.
+  const _VERT = 12
   for (const a of aneis) {
     const n = Math.floor((2 * Math.PI * a.r) / PASSO_BUL)
     for (let k = 0; k < n; k++) {
       const t = (k / n) * Math.PI * 2
-      const x = Math.sin(t) * a.r, z = -Math.cos(t) * a.r
+      // projeta o ângulo na corda do dodecágono: o vértice fica no raio cheio e
+      // o meio da aresta em cos(π/12) dele
+      const lado = Math.floor((t / (Math.PI * 2)) * _VERT)
+      const g0 = (lado / _VERT) * Math.PI * 2, g1 = ((lado + 1) / _VERT) * Math.PI * 2
+      const u = (t - g0) / (g1 - g0)
+      const P0x = Math.sin(g0) * a.r, P0z = -Math.cos(g0) * a.r
+      const P1x = Math.sin(g1) * a.r, P1z = -Math.cos(g1) * a.r
+      const x = P0x + (P1x - P0x) * u, z = P0z + (P1z - P0z) * u
       if (Math.hypot(x, z) < rMin || Math.hypot(x, z) > rMax) continue
       if (emPeca(x, z) || noBulevar(x, z)) continue
       if (mudas.length >= TETO) break
@@ -296,7 +309,18 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
   // para a cidade inteira; com o quarteirão variando por banda (109 no Núcleo,
   // 168 no Meio, 227 no Bairro) isso plantava a fileira de árvores 30 m dentro
   // do lote no Núcleo e 30 m fora dele no Bairro.
-  for (const q of malha.quarteiroes) {
+  // ⚠️ ESTA FILEIRA FICOU ÓRFÃ EM 31/08 e por isso saiu. Ela era plantada ao
+  // longo da VIA DE CONTORNO de cada quarteirão, e a via de contorno deixou de
+  // existir quando a cidade passou a ter só as vias principais (7 anéis × 12
+  // avenidas). O resultado na chapa eram fileiras pontilhadas atravessando o
+  // terreno sem rua nenhuma embaixo, que é o que o fundador viu como elemento
+  // atrapalhando. Árvore acompanha rua; sem rua, não há alinhamento.
+  //
+  // As de BULEVAR e de ANEL continuam, porque essas ruas existem. `?arvcont=1`
+  // traz esta de volta para quem restaurar a teia fina.
+  const _querCont = typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).get('arvcont') === '1'
+  for (const q of (_querCont ? malha.quarteiroes : [])) {
     const meio = q.lado / 2
     // a fileira corre ao longo da TESTADA e recua a PROFUNDIDADE
     const off = (q.prof ?? q.lado) / 2 + 2.5 + 1.07

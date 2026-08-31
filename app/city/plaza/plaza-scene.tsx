@@ -41,6 +41,8 @@ import { buildColiseu, type Coliseu } from './coliseu'
 import { buildTecido, type Tecido } from './tecido'
 import { buildObras, type Obras } from './obras'
 import { buildIlhas, type Ilhas } from './ilhas'
+import { encaixaPrograma, desenhaPrograma, type PecaEncaixada,
+         type ProgramaDesenho } from './programa'
 import { buildVias, type Vias } from './vias'
 import { buildPracas, type Pracas } from './pracas'
 import { buildArborizacao, type Arborizacao, type Cova } from './arborizacao'
@@ -1131,6 +1133,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let lagos: Lagos | null = null
     let obras: Obras | null = null
     let ilhas: Ilhas | null = null
+    let programa: ProgramaDesenho | null = null
+    let parcelas: PecaEncaixada[] = []
     let montanha: Montanha | null = null
     let aquario: Aquario | null = null
     let caverna: Caverna | null = null
@@ -1186,13 +1190,22 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // Campos de Extração EX07 (r 7.600) e EX08 (r 8.600) apareciam cortados
         // pelo canal CR06, cujo próprio `phiFim` é 3.727. O fim é o mesmo que a
         // água usa: o raio máximo dos anéis de canal.
+        // ⚠️ CADA CANAL TEM O SEU PRÓPRIO FIM, e usar um só para os três foi o que
+        // o fundador viu como "os canais não estão escavados até a baía". A vala
+        // recebia um valor GLOBAL (o raio máximo dos anéis de canal, ou 4.300
+        // quando eles não existem) enquanto a ÁGUA já usava o `rFim` de cada
+        // radial. Medido: o CR01 leva água até 5.625 e a vala dele parava em
+        // 4.300, ou seja 1.325 m de canal desenhado sobre terreno não escavado.
+        // Duas pontas diferentes para a mesma coisa nunca se encontram.
         const _rFimCanal = _cn?.aneis?.length
           ? Math.max(..._cn.aneis.flatMap((a: { contorno: [number, number][] }) =>
               a.contorno.map(([x, z]: [number, number]) => Math.hypot(x, z))))
           : 4300
         const terrain = await loadTerrain(_cn ? {
-          radiais: (_cn.radiais ?? []).map((r: { rumo: number; secao: number; rInicio: number }) =>
-            ({ rumo: r.rumo, secao: r.secao, rInicio: r.rInicio, rFim: _rFimCanal })),
+          radiais: (_cn.radiais ?? []).map(
+            (r: { rumo: number; secao: number; rInicio: number; rFim?: number }) =>
+            ({ rumo: r.rumo, secao: r.secao, rInicio: r.rInicio,
+               rFim: r.rFim ?? _rFimCanal })),
           // ⚠️ O TALUDE VEM DO GERADOR. Estava 26 m fixo aqui e 0 na máscara do
           // gerador: cavava-se mais do que se reservava, e o lote da margem
           // nascia na rampa.
@@ -1214,7 +1227,25 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         heightAt = terrain.heightAt
         superficieAt = terrain.superficieAt
         lagoGeo = terrain.lago
-        groundAt = terrain.heightAt
+        // ⚠️ `superficieAt`, NUNCA `heightAt`, E É O TRAVA-CHÃO DA CÂMERA.
+        //
+        // O fundador, 31/08: "o parque Runestone está permitindo a câmera passar
+        // por dentro da terra". E a causa é esta linha: `heightAt` é o relevo CRU
+        // e `superficieAt` é o chão que a câmera VÊ, com o pódio da abóbada, a
+        // cova do parque e a vala do canal já aplicados. Onde os dois divergem, a
+        // câmera para na cota errada — no parque a cova chega a 80 m, então o
+        // visitante atravessava o gramado e ficava dentro da terra.
+        //
+        // ⚠️ E ISSO TAMBÉM FECHA A CAVERNA. O plano dela existe embaixo do parque,
+        // mas ela é destino de GAMEPLAY, não de câmera livre: "o user só vai
+        // conseguir chegar lá via gameplay do jogo, navegando câmera não". Com o
+        // trava-chão na superfície visível, descer até lá deixa de ser possível
+        // por navegação. A única exceção continua sendo o aquário, que é um
+        // espaço fechado visitável e tem `dentro()` próprio.
+        //
+        // A regra já estava escrita em `terrain.ts` e em três módulos de desenho;
+        // faltava no lugar onde ela mais importa, que é onde a pessoa anda.
+        groundAt = terrain.superficieAt
         scene.add(terrain.group)
 
         // ── a abóbada de colmeia, por enquanto atrás de ?domo=1 ──────────────
@@ -1613,8 +1644,44 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           // contra o plinto de 0,45 m do lote. Sem o tecido, a calçada fica
           // sendo o ponto mais alto da cidade e a chapa mente.
           if (qDomo.get('vias') !== '0') {
+            // ⚠️ a cidade publicada: é dela que sai o programa a encaixar
+            const _cidadeJson = await fetch('/city/cidade.json')
+              .then((r) => r.json()).catch(() => null)
+            // ⚠️ O PROGRAMA ENCAIXA ANTES DA RUA, e a ordem é a decisão. A rua
+            // usa as parcelas como máscara: assim ela para exatamente na divisa
+            // da peça em vez de passar rente a ela. Foi o defeito que o fundador
+            // apontou ("as peças extras não conversam com as ruas").
+            {
+              const _cotaAg = _malhaCava?.lagos?.cota ?? -40
+              const _molh = (x: number, z: number) => terrain.superficieAt(x, z) < _cotaAg + 1.2
+              const _prog = (_cidadeJson?.programa ?? []) as {
+                id: string; nome: string; tipo: string; x: number; z: number
+                a?: number; b?: number; ha?: number }[]
+              parcelas = encaixaPrograma(_prog.map((q) => ({
+                id: q.id, nome: q.nome, tipo: q.tipo, x: q.x, z: q.z,
+                area: (q.ha ?? 0) * 1e4 || 4 * (q.a ?? 100) * (q.b ?? 100),
+              })), _molh, {
+                // ⚠️ as vias principais publicadas: é nelas que a parcela precisa
+                // ter testada, agora que a teia fina saiu
+                aneis: ((_malhaCava?.aneisViarios ?? []) as { r: number }[]).map((r) => r.r),
+                bulevares: ((_malhaCava?.bulevares ?? []) as { rumo: number }[]).map((b) => b.rumo),
+              })
+              // ⚠️ AS PARCELAS SAÍRAM DA CENA (fundador, 31/08: "retire todos os
+              // elementos extras, eles ainda estão atrapalhando"). O ENCAIXE
+              // continua rodando, porque é ele que a rua usa como máscara e é o
+              // projeto do programa; o que saiu é o desenho delas. `?programa=1`
+              // mostra de volta.
+              if (qDomo.get('programa') === '1') {
+                programa = desenhaPrograma(parcelas, terrain.superficieAt)
+                scene.add(programa.group)
+              }
+              console.log(`[programa] ${parcelas.length} de ${_prog.length} peças `
+                + `encaixadas em módulo inteiro da teia`
+                + (programa ? `, ${programa.triangulos.toLocaleString('pt-BR')} triângulos` : ' (só o encaixe; ?programa=1 desenha)'))
+            }
             void buildVias({ heightAt: terrain.superficieAt,
               cotaAgua: _malhaCava?.lagos?.cota ?? -40,
+              parcelas,
               sombra: qDomo.get('sombra') !== '0' })
               .then((v) => {
                 if (disposed) { v.dispose(); return }
@@ -2641,7 +2708,17 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       // empurrado para fora do aquário quadro a quadro, ou seja a atração não
       // pode ser visitada. Ver `dentro()` em aquario.ts.
       if (!aquario?.dentro(camera.position)) {
-        const gy = groundAt(camera.position.x, camera.position.z) + 1.7
+        // ⚠️ O PARQUE TEM CHÃO PRÓPRIO E ELE MANDA DENTRO DA PEGADA DELE. `groundAt`
+        // é o relevo da CIDADE; o Parque Runestone está a r 9.800, fora dela, com
+        // terreno seu (`ParkTerrainCoarse`). Sem este máximo a câmera atravessava
+        // o gramado — e, por baixo dele, chegava à caverna, que é destino de
+        // gameplay e não de câmera livre.
+        const chao = (x: number, z: number) => {
+          const g = groundAt(x, z)
+          const pk = park?.alturaEm(x, z)
+          return pk === null || pk === undefined ? g : Math.max(g, pk)
+        }
+        const gy = chao(camera.position.x, camera.position.z) + 1.7
         if (camera.position.y < gy) {
           // ⚠️ O ALVO SOBE JUNTO, e é isso que faz olhar para cima funcionar.
           // Empurrar só a câmera devolvia a vista para baixo no quadro seguinte
@@ -2651,7 +2728,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           camera.position.y = gy
           controls.target.y += lift
         }
-        const ty = groundAt(controls.target.x, controls.target.z) + 0.3
+        const ty = chao(controls.target.x, controls.target.z) + 0.3
         if (controls.target.y < ty) controls.target.y = ty
       }
       // em voo da visita guiada a sombra está congelada: refazer o enquadramento
@@ -2839,6 +2916,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       lagos?.dispose()
       obras?.dispose()
       ilhas?.dispose()
+      programa?.dispose()
       montanha?.dispose()
       aquario?.dispose()
       caverna?.dispose()
