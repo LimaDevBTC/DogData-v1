@@ -1248,11 +1248,20 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         groundAt = terrain.superficieAt
         scene.add(terrain.group)
 
-        // ── a abóbada de colmeia, por enquanto atrás de ?domo=1 ──────────────
-        // A /city está no ar; a casca só entra quando o fundador aprovar a
-        // forma. `?domo=1&celula=42&flecha=1200&nervura=0.9` varre as opções.
+        // ── a abóbada de colmeia: NO AR POR PADRÃO desde 31/08 ───────────────
+        // Ela viveu atrás de ?domo=1 enquanto a forma estava em prova. O
+        // fundador aprovou ("a cúpula não está em produção"), então o portão
+        // inverteu: ela entra sozinha e `?domo=0` a tira. As outras chaves
+        // (`celula`, `flecha`, `borda`, `nervura`) continuam varrendo as opções.
+        //
+        // ⚠️ A CÉLULA VEM DO PERFIL, NÃO DE UM NÚMERO FIXO. A casca é a peça mais
+        // cara da praça: medida em 31/08, 2.105.493 triângulos com célula 42,
+        // que é 54% da cena inteira, e o vidro ainda repinta a tela por cima de
+        // tudo. `profile.domeCell` dá 42 no cinematográfico e 130 no fraco; ver
+        // o comentário do campo em perf.ts. Uma célula fixa aqui era o caminho
+        // curto para a praça travar no celular no dia em que ela foi ao ar.
         const qDomo = new URLSearchParams(window.location.search)
-        if (qDomo.get('domo') === '1') {
+        if (qDomo.get('domo') !== '0') {
           const num = (k: string, d: number) => {
             const v = parseFloat(qDomo.get(k) || '')
             return Number.isFinite(v) ? v : d
@@ -1273,7 +1282,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               // contínua: a diferença entre as duas já mediu 1,00 m nesta cena.
               superficieAt: terrain.superficieAt,
               contorno: _malhaDomo.contorno,
-              cell: num('celula', 42),
+              cell: num('celula', profile.domeCell),
               crown: num('flecha', 2619),
               rim: num('borda', 53),
               rib: num('nervura', 0.9),
@@ -1298,7 +1307,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 const dv = buildDome({
                   heightAt: terrain.heightAt, superficieAt: terrain.superficieAt,
                   contorno: cont, centro: { x: _v.x, z: _v.z },
-                  cell: num('celula', 42), crown: _v.flecha ?? 614,
+                  cell: num('celula', profile.domeCell), crown: _v.flecha ?? 614,
                   rim: num('borda', 53), rib: num('nervura', 0.9),
                 })
                 dv.group.name = 'abobada-vale'
@@ -2275,6 +2284,56 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           }
         }
 
+        // ── O FOGUETE DO SPACEPORT A 100 M (fundador, 31/08: "foguetes com 100 m")
+        //
+        // Medido antes de mexer: o corpo tinha 73 m por 14 de diâmetro, contra os
+        // 121 x 9 de uma Starship empilhada. E o PÓRTICO ao lado já tinha 98,2 m,
+        // ou seja ele foi desenhado para um foguete que nunca chegou: a 100 m o
+        // conjunto finalmente fecha, com o farol do bico logo acima do pórtico.
+        //
+        // ⚠️ ISTO RODA ANTES DA FUSÃO POR MATERIAL, e a ordem não é detalhe. O
+        // foguete é SETE nós no spaceport.glb (corpo, duas cintas, saia, aletas,
+        // farol, chama) e só o corpo tem material próprio: os outros seis são
+        // soldados em merged:M_Silver junto com os pads e o pórtico. Depois da
+        // fusão não existe mais "o foguete" para escalar, existe uma malha só com
+        // metade do pátio dentro. (Medido: buscando os sete pela cena montada,
+        // seis somem e sobra o corpo.)
+        //
+        // ⚠️ E É PIVÔ, NÃO ESCALA DE NÓ. A geometria vem assada em espaço de cena
+        // (SP_Rocket tem position 0 e caixa de 73 m), então multiplicar o `scale`
+        // do nó escalaria em relação à origem do glTF e o foguete sairia andando
+        // pelo pátio. O pivô fica na BASE, `attach` preserva o mundo, e ele cresce
+        // para cima apoiado no pad.
+        //
+        // ⚠️ A ESCALA É SÓ NA ALTURA, DE PROPÓSITO. Uniforme, 100 m levariam o
+        // diâmetro de 14 para 19,2 e o foguete ficaria mais gordo do que já era
+        // (uma Starship é 121 por 9). Esticando só em Y a razão vai de 5,2:1 para
+        // 7,1:1, que é a direção certa. Corpo de revolução não deforma com isso.
+        const ALTURA_FOGUETE = 100
+        {
+          const PECAS = /^SP_(Rocket|Band1|Band2|Skirt|Fins|RocketBeacon|EngineGlow)$/
+          const partes: THREE.Object3D[] = []
+          spaceport.traverse((n) => { if (PECAS.test(n.name)) partes.push(n) })
+          const corpo = partes.find((n) => n.name === 'SP_Rocket')
+          if (corpo && partes.length) {
+            spaceport.updateMatrixWorld(true)
+            const cx = new THREE.Box3().setFromObject(corpo)   // a altura é a do CORPO
+            const todos = new THREE.Box3()
+            for (const q of partes) todos.expandByObject(q)
+            const k = ALTURA_FOGUETE / Math.max(1, cx.max.y - cx.min.y)
+            const pivoMundo = new THREE.Vector3((todos.min.x + todos.max.x) / 2, cx.min.y, (todos.min.z + todos.max.z) / 2)
+            const pivo = new THREE.Group()
+            pivo.name = 'SP_RocketPivot'
+            spaceport.add(pivo)
+            pivo.position.copy(spaceport.worldToLocal(pivoMundo.clone()))
+            pivo.updateMatrixWorld(true)
+            for (const q of partes) pivo.attach(q)
+            pivo.scale.set(1, k, 1)
+            pivo.updateMatrixWorld(true)
+            if (wantStats) console.log(`[spaceport] foguete ${(cx.max.y - cx.min.y).toFixed(1)} m → ${ALTURA_FOGUETE} m (x${k.toFixed(3)} em Y), ${partes.length} peças`)
+          }
+        }
+
         // perf: cada GLB vira poucas malhas (uma por material); os nós animados ficam de fora
         const KEEP = /^(KRAY_CROWN_ICON|BITFLOW_ROOF_MARK|WATER_JET|NEEDLE_LED_BAND|NEEDLE_LED_DOTS|BITFLOW_SIGN_BACK)$/
         for (const [root, label] of [[plaza, 'plaza'], [spaceport, 'spaceport'], [needle, 'needle'], [bitflow, 'bitflow'], [kray, 'kray']] as const) {
@@ -2291,7 +2350,15 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           const x = -380 + SPACEPORT_SHIFT.x, z = 3300 + SPACEPORT_SHIFT.z // SP_Pad0, já deslocado
           r.position.set(x, heightAt(x, z) + 0.4, z)
           r.rotation.y = Math.PI * 0.15
-          r.scale.setScalar(1.6)
+          // ⚠️ 100 m TAMBÉM AQUI, MAS COM LARGURA JUNTO. Ele estava com 32 m
+          // (escala 1,6 sobre um modelo de 20 m). Foram medidas as três saídas:
+          //   · uniforme x5,0  → 100 x 34,7 m, razão 2,9:1, que é silo e não foguete;
+          //   · só em Y        → 100 x 11,1 m, razão 9:1, e vira ANTENA: a forma do
+          //     V2 é baixa e atarracada, e esticada 5x o corpo liso engole as
+          //     aletas quadriculadas, que ficam num toco no pé (visto na chapa);
+          //   · 2,6 no plano   → 100 x 18 m, razão 5,6:1, que é a faixa de uma
+          //     Soyuz com os quatro berços (46 x 10,3 = 4,5:1). É esta.
+          r.scale.set(2.6, 5.0, 2.6)
           scene.add(r)
           culler.add(r, 6000, new THREE.Vector3(x, 0, z))
         })

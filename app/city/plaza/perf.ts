@@ -45,6 +45,18 @@ export interface PerfProfile {
   lodDistance: number
   /** frações de cristais do parque por faixa de distância (perto, médio, longe, horizonte) */
   crystalLod: [number, number, number, number]
+  /**
+   * ⚠️ O LADO DA CÉLULA DA ABÓBADA (m), E ELE É O BOTÃO DE CUSTO MAIS PESADO DA
+   * CENA. Medido em 31/08 com célula 42: a casca sozinha é 2.105.493 triângulos,
+   * 54% dos 3.879.647 da praça inteira, em 4 malhas. O número de células cai com
+   * o QUADRADO do lado, então 42 → 84 divide o custo por quatro.
+   *
+   * ⚠️ E O TRIÂNGULO NÃO É O PIOR. O vidro é transparente com mistura aditiva,
+   * ou seja ele repinta a tela inteira por cima de tudo: no celular quem dói é
+   * a taxa de preenchimento, não a geometria. Por isso o celular leva a célula
+   * mais larga mesmo tendo triângulo de sobra.
+   */
+  domeCell: number
 }
 
 export function detectTier(): Tier {
@@ -72,7 +84,7 @@ export function profileFor(tier: Tier, quality: Quality = 'balanced'): PerfProfi
       tier, quality, maxPixelRatio: Math.min(dpr, 3), minPixelRatio: 1.5, antialias: true,
       shadowMapSize: 2048, softShadows: true, shadowUpdateEvery: 1,
       censusPoints: true, jetParticles: 900, smallCull: 3400, textCull: 1700, parkDetailCull: 3800, lodDistance: 4800,
-      crystalLod: [1, 0.6, 0.3, 0.15],
+      crystalLod: [1, 0.6, 0.3, 0.15], domeCell: 42,
     }
   }
   if (quality === 'low') {
@@ -80,7 +92,7 @@ export function profileFor(tier: Tier, quality: Quality = 'balanced'): PerfProfi
       tier, quality, maxPixelRatio: 1.25, minPixelRatio: 0.9, antialias: true,
       shadowMapSize: 1024, softShadows: false, shadowUpdateEvery: 2,
       censusPoints: false, jetParticles: 300, smallCull: 1200, textCull: 600, parkDetailCull: 2200, lodDistance: 1300,
-      crystalLod: [0.6, 0.2, 0.1, 0.05],
+      crystalLod: [0.6, 0.2, 0.1, 0.05], domeCell: 130,
     }
   }
   // balanced
@@ -89,13 +101,13 @@ export function profileFor(tier: Tier, quality: Quality = 'balanced'): PerfProfi
       tier, quality, maxPixelRatio: 2, minPixelRatio: 1.25, antialias: true,
       shadowMapSize: 2048, softShadows: false, shadowUpdateEvery: 1,
       censusPoints: false, jetParticles: 600, smallCull: 2200, textCull: 1000, parkDetailCull: 2800, lodDistance: 2600,
-      crystalLod: [1, 0.3, 0.15, 0.08],
+      crystalLod: [1, 0.3, 0.15, 0.08], domeCell: 96,
     }
     : {
       tier, quality, maxPixelRatio: 2, minPixelRatio: 1.25, antialias: true,
       shadowMapSize: 2048, softShadows: true, shadowUpdateEvery: 1,
       censusPoints: true, jetParticles: 900, smallCull: 2600, textCull: 1300, parkDetailCull: 3000, lodDistance: 3200,
-      crystalLod: [1, 0.35, 0.15, 0.08],
+      crystalLod: [1, 0.35, 0.15, 0.08], domeCell: 58,
     }
 }
 
