@@ -1431,10 +1431,25 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 // borda irregular da escavação por cima do canal.
                 const _cnr = (mc?.canais?.radiais ?? []) as {
                   rumo: number; secao: number; rInicio: number; rFim: number }[]
+                // ⚠️ A EXCLUSÃO ACABA ANTES DA FOZ, NÃO DEPOIS. Ela ia até
+                // `rFim + 40`, e o canal desenha a própria água só até `rFim`:
+                // sobrava uma faixa de 40 m onde NENHUM dos dois sistemas
+                // desenhava água, e o que aparecia ali era o fundo da vala a −50.
+                // Na chapa isso lê como terra atravessando a boca do canal e
+                // bloqueando a saída dele — foi o que o fundador viu.
+                //
+                // Medido no eixo do CR03: água a −40 até r 5.650, REGOLITO a −50
+                // em r 5.700, água de novo em 5.750. Quarenta metros de barragem
+                // feita por uma máscara, não por relevo.
+                //
+                // Agora ela para 25 m ANTES do fim do canal: a lâmina do lago
+                // entra pela boca e cobre o último trecho, então as duas águas se
+                // encontram sobrepostas em vez de deixarem vão. Sobreposição de
+                // duas lâminas na MESMA cota não tem custo visual nenhum; vão tem.
                 const _foraDoCanal = (x: number, z: number) => {
                   const r = Math.hypot(x, z)
                   for (const c of _cnr) {
-                    if (r < c.rInicio - 40 || r > (c.rFim ?? 1e9) + 40) continue
+                    if (r < c.rInicio - 40 || r > (c.rFim ?? 1e9) + 60) continue
                     const a2 = (c.rumo * Math.PI) / 180
                     // distância do ponto ao eixo radial daquele rumo
                     const d = Math.abs(x * Math.cos(a2) + z * Math.sin(a2))
@@ -1449,7 +1464,12 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 lagos = buildLagos({
                   cota: (mc?.lagos?.cota ?? -40),
                   superficieAt: terrain.superficieAt,
-                  foraDe: _foraDoCanal,
+                  // ⚠️ A ÁGUA ENTRA NO CANAL, A MARGEM NÃO. Tirar a água do
+                  // corredor fazia o contorno da baía CONTORNAR a boca e construir
+                  // cais atravessado nela: o fundador viu um U de cais fechando a
+                  // saída. As duas lâminas estão na mesma cota (−40), então
+                  // sobrepor não custa nada; o que não pode é a margem cruzar.
+                  semMargem: _foraDoCanal,
                   raio: 7050,
                   sombra: qDomo.get('sombra') !== '0',
                 })
@@ -1681,6 +1701,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             }
             void buildVias({ heightAt: terrain.superficieAt,
               cotaAgua: _malhaCava?.lagos?.cota ?? -40,
+              // ⚠️ A RUA PARA NA ORLA DA BAÍA. `lagos` sobe antes de `vias` (linha
+              // 1464 contra 1702), então a máscara está pronta aqui. Se essa ordem
+              // mudar, a consulta cai para undefined em silêncio e as estradas
+              // voltam a atravessar a baía.
+              naBaia: (x, z) => lagos?.naBaia(x, z) ?? false,
               parcelas,
               sombra: qDomo.get('sombra') !== '0' })
               .then((v) => {

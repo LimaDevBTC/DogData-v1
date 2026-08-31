@@ -40,7 +40,22 @@ export interface LagosOpts {
   raio: number
   /** passo da amostragem em metros; 30 dá orla lisa sem pesar */
   passo?: number
-  /** ⚠️ ONDE O LAGO NÃO ENTRA, e isso existe por causa do CANAL. O leito do canal
+  /** ⚠️ ONDE A MARGEM NÃO SE DESENHA, mas a ÁGUA ENTRA.
+   *
+   *  ⚠️ ESTA DISTINÇÃO É O CONSERTO DA BOCA DO CANAL. A versão anterior tirava a
+   *  ÁGUA do corredor do canal, e o efeito colateral foi pior que o problema: sem
+   *  água ali, o contorno da baía CONTORNA a boca do canal, e a orla (cais, muro,
+   *  talude) é construída atravessada na frente dela. O fundador viu um U de cais
+   *  fechando a saída do canal e disse, com razão, que a terra bloqueava a saída.
+   *
+   *  Água e margem são coisas separadas. A lâmina do lago PODE inundar o
+   *  corredor: ela está na mesma cota do canal (−40), então as duas se sobrepõem
+   *  sem diferença visual nenhuma. O que não pode é a MARGEM cruzar a boca, porque
+   *  o canal já tem cais próprio. Aqui só a margem é suprimida. */
+  semMargem?: (x: number, z: number) => boolean
+
+  /** ⚠️ ONDE O LAGO NÃO ENTRA. Continua existindo para quem precisar, mas o canal
+   *  NÃO usa mais: ver `semMargem` acima. O leito do canal
    *  é cavado a −44, abaixo da lâmina de −40, então o marching squares daqui
    *  inundava a vala inteira e desenhava a borda dela — uma linha azul sinuosa
    *  seguindo o fundo irregular da escavação, por cima da água RETA que
@@ -56,6 +71,16 @@ export interface Lagos {
   area: number
   corpos: number
   triangulos: number
+  /** ⚠️ ESTÁ NA BAÍA? (o maior corpo, não uma poça qualquer)
+   *
+   *  Existe porque a RUA precisa saber. Travessia sobre um canal de 60 m ou sobre
+   *  uma cratera de 300 m é ponte; travessia sobre 20,5 km² não é ponte, é outra
+   *  coisa — e o fundador decidiu que ali não passa estrada. Sem esta consulta a
+   *  via não tem como distinguir os dois casos, porque para ela toda água é água.
+   *
+   *  A resposta sai da mesma rotulagem por preenchimento que decide quem ganha
+   *  orla, então as duas pontas nunca divergem. */
+  naBaia: (x: number, z: number) => boolean
   update: (t: number) => void
   dispose: () => void
 }
@@ -205,7 +230,11 @@ export function buildLagos(o: LagosOpts): Lagos {
       // regolito cru — foi o que o fundador viu como "margem faltando
       // acabamento". Qual acabamento depende do CORPO: a baía recebe cais e
       // passeio (é a frente da cidade), a cratera recebe praia (é paisagem).
-      if (c !== 15) {
+      // ⚠️ A MARGEM PODE SER SUPRIMIDA SEM QUE A ÁGUA SEJA. Ver `semMargem`: na
+      // boca do canal a lâmina entra, mas o cais da baía não pode cruzar, porque
+      // o canal já tem o dele.
+      const _mx = (x0 + x1) / 2, _mz = (z0 + z1) / 2
+      if (c !== 15 && !(o.semMargem && o.semMargem(_mx, _mz))) {
         const eBaia = rot[j * (n + 1) + i] === baia || rot[j * (n + 1) + i + 1] === baia
           || rot[(j + 1) * (n + 1) + i] === baia || rot[(j + 1) * (n + 1) + i + 1] === baia
         for (let k = 0; k < caso.length; k++) {
@@ -368,9 +397,18 @@ export function buildLagos(o: LagosOpts): Lagos {
   monta(posR, idxR, COR_PISTA, false, 'orla:pista')
   monta(posA, idxA, COR_AGUA, true, 'lagos:agua')
 
+  // ⚠️ A CONSULTA USA A GRADE JÁ AMOSTRADA, não uma nova. Ela tem passo de 30 m e
+  // os rótulos de corpo já estão nela: perguntar é um índice, não um cálculo.
+  const naBaia = (x: number, z: number): boolean => {
+    const i = Math.round((x + R) / passo), j = Math.round((z + R) / passo)
+    if (i < 0 || j < 0 || i > n || j > n) return false
+    return rot[j * (n + 1) + i] === baia
+  }
+
   const relogios = feitas.map((m) => aguaDeVerdade(m)).filter(Boolean) as { value: number }[]
   return {
     group,
+    naBaia,
     area,
     corpos: 0,
     triangulos: (idxA.length + idxP.length + idxM.length + idxC.length + idxR.length) / 3,

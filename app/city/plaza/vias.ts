@@ -49,6 +49,11 @@ export interface ViasOpts {
   /** ⚠️ a cota da lâmina: a teia não atravessa a baía. Sem isto os 26 anéis
    *  completos cruzam 20,5 km² de água. */
   cotaAgua?: number
+  /** ⚠️ ESTÁ NA BAÍA? A rua PARA na orla dela (fundador, 31/08: "retire as
+   *  estradas de cima da baía"). Canal de 60 m e cratera de 300 m continuam
+   *  ganhando ponte — o que não existe é viaduto de 20,5 km². Sem esta consulta a
+   *  via não distingue os dois casos, porque para ela toda água é água. */
+  naBaia?: (x: number, z: number) => boolean
   /** ⚠️ as parcelas do programa JÁ ENCAIXADAS na teia (programa.ts). Quando elas
    *  vêm, a máscara de peça é o polígono do MÓDULO, e aí a rua para exatamente na
    *  divisa da parcela: os lados da peça SÃO ruas, por construção. Sem isto a
@@ -475,6 +480,8 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
       const x1 = ax + (bx - ax) * t1, z1 = az + (bz - az) * t1
       const mx = (x0 + x1) / 2 + perpX * meioSec, mz = (z0 + z1) / 2 + perpZ * meioSec
       if (Math.hypot(mx, mz) > rMax) continue
+      // ⚠️ A AVENIDA PARA NA ORLA DA BAÍA. Ver `naBaia` nas opções.
+      if (o.naBaia && o.naBaia(mx, mz)) continue
       // ⚠️ A PARCELA NÃO CORTA A AVENIDA. Auditado por raycast em 31/08: 15
       // interrupções nas 12 avenidas, com vãos de até 600 m, todas onde uma
       // parcela do programa cai em cima da via. A rua é a estrutura primária
@@ -821,6 +828,11 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
           const dx = A0x + (A1x - A0x) * u1, dz = A0z + (A1z - A0z) * u1
           const cx = B0x + (B1x - B0x) * u1, cz = B0z + (B1z - B0z) * u1
           const bx = B0x + (B1x - B0x) * u0, bz = B0z + (B1z - B0z) * u0
+          // ⚠️ O ANEL PARA NA ORLA DA BAÍA, pelo mesmo motivo da avenida. O teste
+          // é por SUBTRECHO, não pelo lado inteiro: um lado do dodecágono tem até
+          // 3.900 m e pode entrar na baía por 300 m — matar o lado todo devolveria
+          // o buraco de 3 km que a auditoria acabou de fechar.
+          if (o.naBaia && o.naBaia((ax + cx) / 2, (az + cz) / 2)) continue
           // ⚠️ ORDEM ANTI-HORÁRIA VISTA DE CIMA: ângulo primeiro, raio depois. A
           // ordem natural de escrever (raio, depois ângulo) dá normal para BAIXO
           // e o backface culling apaga o anel inteiro. Mesma armadilha de
