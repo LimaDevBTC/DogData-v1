@@ -8,7 +8,7 @@ import TreeClientWrapper from './tree-client-wrapper'
 const TITLE = '$DOG Galaxy'
 const TITULO_SOCIAL = '$DOG Galaxy: every wallet DOG ever touched, mapped'
 const DESCRIPTION =
-  'The living galaxy of DOG: all 263,000 wallets since the airdrop, each one a real star sized by its balance, branching from the treasury generation by generation. Click any star to open its dossier, or switch to the Flow and Graph lenses for on-chain analysis.'
+  'The living galaxy of DOG: all 263,000 wallets since the airdrop, each one a real star sized by its balance, branching from the treasury generation by generation. Click any star to open its dossier.'
 const OG = 'https://www.dogdata.xyz/galaxy-og.jpg'
 
 export const metadata: Metadata = {
