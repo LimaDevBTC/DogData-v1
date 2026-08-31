@@ -30,6 +30,7 @@
 // Three.js puro (regra da casa: nada de react-three-fiber).
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
+import { AVENIDAS, avenidasGeom, emAvenida } from './teia'
 import type { DistanceCuller } from './perf'
 
 export interface Cova { x: number; z: number; r: number }
@@ -197,16 +198,20 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
   const rMax = meta.raioBorda ?? 4400
   const rMin = (meta.raioInicio ?? 1300) - 40
   const aneis = meta.aneis ?? []
-  const meiaBul = K.bulevar / 2 + 3
+  // ⚠️ ESTA MÁSCARA ESTAVA MORTA, E CALADA. Ela varria `K.setores`, e
+  // `constantes` publica `setoresLegado`, não `setores`: `s < undefined` é falso
+  // na primeira volta, o laço nunca rodava e a função só respondia `r < 40`. Ou
+  // seja, desde sempre a árvore NÃO desviava de avenida nenhuma, e as fileiras
+  // de anel eram plantadas por dentro dos cruzamentos.
+  //
+  // Undefined numa comparação não estoura, dá falso: a máscara errada tem a
+  // mesma aparência de máscara ausente, e nada no console reclama.
+  //
+  // Agora ela vem da teia, com a largura de CADA avenida (44 nas quatro cardeais,
+  // 34 nas outras oito) em vez de um `meiaBul` único.
   const noBulevar = (px: number, pz: number) => {
-    const r = Math.hypot(px, pz)
-    if (r < 40) return true
-    for (let s = 0; s < K.setores; s++) {
-      const ang = (s * 2 * Math.PI) / K.setores
-      if (px * Math.sin(ang) - pz * Math.cos(ang) <= 0) continue
-      if (Math.abs(px * Math.cos(ang) + pz * Math.sin(ang)) < meiaBul) return true
-    }
-    return false
+    if (Math.hypot(px, pz) < 40) return true
+    return emAvenida(px, pz, 3)
   }
   const noAnel = (px: number, pz: number) => {
     const r = Math.hypot(px, pz)
@@ -241,7 +246,13 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
   // Seção do bulevar (vias.ts): calçada 0 a 5, pista 5 a 15, canteiro 15 a 19,
   // pista 19 a 29, calçada 29 a 34, medida da borda esquerda.
   const PASSO_BUL = 7.6
-  for (const b of malha.bulevares) {
+  // ⚠️ AS AVENIDAS VÊM DE `avenidasGeom()`, NÃO DE `malha.bulevares`. O campo
+  // `bulevares` do JSON são as 9 costuras dos 6 distritos, e `vias.ts` as troca
+  // pelas 12 simétricas na cópia DELE. Este módulo busca o JSON por conta
+  // própria e via as costuras: plantava em 61,9°, 106,9°, 185,6°, 241,9° e
+  // 309,4°, onde não há rua, e deixava pelada a avenida de 30, 60, 120, 150,
+  // 210, 240, 300 e 330. As duas listas só coincidem em 0, 90, 180 e 270.
+  for (const b of avenidasGeom()) {
     const ang = (b.rumo * Math.PI) / 180
     const dirX = Math.sin(ang), dirZ = -Math.cos(ang)
     const perpX = Math.cos(ang), perpZ = Math.sin(ang)
@@ -276,7 +287,11 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
   // 259 m na Pista de Serviço: plantar no círculo deixaria a fileira até 259 m
   // FORA da rua, atravessando o terreno — que é exatamente a leitura de "elemento
   // atrapalhando". Aqui a árvore anda pela corda entre duas avenidas, como a via.
-  const _VERT = 12
+  // ⚠️ O NÚMERO DE VÉRTICES É O NÚMERO DE AVENIDAS, não um 12 escrito à mão. O
+  // anel vira polígono com um vértice em cada rotatória (é assim que `vias.ts`
+  // o desenha, em `verticesDoAnel`), então derivar daqui é o que impede a
+  // fileira de sair da corda no dia em que a teia mudar de contagem.
+  const _VERT = AVENIDAS.length
   for (const a of aneis) {
     const n = Math.floor((2 * Math.PI * a.r) / PASSO_BUL)
     for (let k = 0; k < n; k++) {

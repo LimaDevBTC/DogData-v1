@@ -42,7 +42,7 @@
 import * as THREE from 'three'
 import { LIMIAR_PRACA } from './pracas'
 import type { DistanceCuller } from './perf'
-import { AVENIDAS } from './teia'
+import { AVENIDAS, avenidasGeom } from './teia'
 
 export interface ViasOpts {
   heightAt: (x: number, z: number) => number
@@ -327,17 +327,11 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   // publica as divisas dos 6 distritos no campo `bulevares`, e elas ficam entre
   // 5,6° e 73,1° uma da outra (medido): isso é divisa de loteamento, não
   // estrutura viária. Ver a nota longa em `teia.ts`.
-  malha.bulevares = AVENIDAS.map((av, i) => {
-    const g = (av.rumo * Math.PI) / 180
-    const rI = 1420, rF = 6900
-    return {
-      id: `AV${String(i + 1).padStart(2, '0')}`,
-      rumo: av.rumo, largura: av.largura, papel: av.papel,
-      rInicio: rI, rFim: rF,
-      x0: Math.sin(g) * rI, z0: -Math.cos(g) * rI,
-      x1: Math.sin(g) * rF, z1: -Math.cos(g) * rF,
-    } as Bulevar
-  })
+  // ⚠️ A CONSTRUÇÃO SAIU DAQUI EM 31/08 e foi para `avenidasGeom()` em teia.ts.
+  // Ela era feita aqui, na CÓPIA LOCAL deste módulo, e a arborização buscava o
+  // mesmo JSON por conta própria: nunca via a troca e plantava nas 9 costuras de
+  // distrito enquanto a rua saía nas 12 avenidas. Ver a nota em teia.ts.
+  malha.bulevares = avenidasGeom() as Bulevar[]
 
   const K = malha.constantes
   // ⚠️ `meio` ERA GLOBAL E VALIA 84 PARA A CIDADE INTEIRA. Com o quarteirão

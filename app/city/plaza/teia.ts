@@ -166,3 +166,74 @@ export const AVENIDAS: readonly { rumo: number; largura: number; papel: string }
     largura: i % 3 === 0 ? 44 : 34,
     papel: i % 3 === 0 ? 'distrito' : 'ponte',
   }))
+
+/** onde a avenida nasce (rente ao platô) e onde ela morre (a borda do tecido) */
+export const AV_R_INICIO = 1420
+export const AV_R_FIM = R_FORA
+
+export interface AvenidaGeom {
+  id: string
+  rumo: number
+  largura: number
+  papel: string
+  rInicio: number
+  rFim: number
+  x0: number
+  z0: number
+  x1: number
+  z1: number
+}
+
+/**
+ * A GEOMETRIA DAS AVENIDAS, EM UM LUGAR SÓ.
+ *
+ * ⚠️ ELA MORA AQUI PELO MESMO MOTIVO QUE O RESTO DA TEIA, E O MOTIVO SE PROVOU
+ * SOZINHO EM 31/08. A construção vivia dentro de `vias.ts`, que trocava
+ * `malha.bulevares` pelas 12 avenidas na SUA cópia do JSON. Só que
+ * `arborizacao.ts` busca o mesmo JSON por conta própria e nunca viu a troca:
+ * ela plantava nas 9 COSTURAS DE DISTRITO publicadas pelo gerador
+ * (0, 61,9, 90, 106,9, 180, 185,6, 241,9, 270, 309,4) enquanto a rua era
+ * desenhada nas 12 simétricas (0, 30, 60 ... 330).
+ *
+ * O que o fundador viu: "temos algumas fileiras de árvores em locais que não
+ * temos ruas, e também uma rua faltando árvores". Medido, era exatamente isso:
+ * as duas listas se cruzam só em 0, 90, 180 e 270, então CINCO fileiras ficavam
+ * sobre terreno sem rua nenhuma e OITO avenidas ficavam peladas.
+ *
+ * Trocar a cópia local de um JSON compartilhado não é fonte única, é fonte
+ * única para quem lembra de olhar. Agora quem quiser avenida chama isto.
+ */
+export function avenidasGeom(): AvenidaGeom[] {
+  return AVENIDAS.map((av, i) => {
+    const g = (av.rumo * Math.PI) / 180
+    return {
+      id: `AV${String(i + 1).padStart(2, '0')}`,
+      rumo: av.rumo,
+      largura: av.largura,
+      papel: av.papel,
+      rInicio: AV_R_INICIO,
+      rFim: AV_R_FIM,
+      x0: Math.sin(g) * AV_R_INICIO,
+      z0: -Math.cos(g) * AV_R_INICIO,
+      x1: Math.sin(g) * AV_R_FIM,
+      z1: -Math.cos(g) * AV_R_FIM,
+    }
+  })
+}
+
+/**
+ * Está o ponto dentro da caixa de uma avenida? (com folga `folga` de cada lado)
+ *
+ * ⚠️ A AVENIDA É MEIA-RETA, NÃO RETA. Testar só a distância ao eixo marcaria
+ * também o lado oposto da cidade, porque a reta do rumo 30° passa igualmente
+ * pelo rumo 210°. O produto escalar com a direção resolve, e sem ele a máscara
+ * apagaria árvore em avenida que nem existe naquele lado.
+ */
+export function emAvenida(px: number, pz: number, folga = 3): boolean {
+  for (const av of AVENIDAS) {
+    const g = (av.rumo * Math.PI) / 180
+    if (px * Math.sin(g) - pz * Math.cos(g) <= 0) continue
+    if (Math.abs(px * Math.cos(g) + pz * Math.sin(g)) < av.largura / 2 + folga) return true
+  }
+  return false
+}
