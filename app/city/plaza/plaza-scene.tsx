@@ -43,6 +43,7 @@ import { buildVias, type Vias } from './vias'
 import { buildPracas, type Pracas } from './pracas'
 import { buildArborizacao, type Arborizacao, type Cova } from './arborizacao'
 import { buildCanais, type Canais } from './canais'
+import { buildLagos, type Lagos } from './lagos'
 import { buildMontanha, type Montanha } from './montanha'
 import { buildLago, type Lago } from './lago'
 import { buildAquario, type Aquario } from './aquario'
@@ -686,7 +687,14 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       // logarítmico a abóbada precisava de `depthTest: false` para não sumir a
       // 6 km, e aí ela desenhava por cima de tudo que estava NA FRENTE dela.
       // ?logdepth=0 volta ao comportamento antigo, para comparar.
-      logarithmicDepthBuffer: new URLSearchParams(window.location.search).get('logdepth') !== '0' })
+      logarithmicDepthBuffer: new URLSearchParams(window.location.search).get('logdepth') !== '0',
+      // ⚠️ ATRÁS DE ?grab=1, e só para tirar chapa. Sem `preserveDrawingBuffer` o
+      // buffer de desenho é limpo assim que o quadro é composto, e
+      // `canvas.toDataURL()` devolve preto — foi o que aconteceu quando o
+      // screenshot do Playwright começou a estourar o tempo e eu tentei capturar
+      // pelo canvas. Ligado sempre, ele custa uma cópia por quadro; ligado só
+      // aqui, custa nada no uso normal.
+      preserveDrawingBuffer: new URLSearchParams(window.location.search).get('grab') === '1' })
     const governor = new FrameGovernor(renderer, profile)
     renderer.setSize(mount.clientWidth, mount.clientHeight)
     renderer.outputColorSpace = THREE.SRGBColorSpace
@@ -1118,6 +1126,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let arvores: Arborizacao | null = null
     let lago: Lago | null = null
     let canais: Canais | null = null
+    let lagos: Lagos | null = null
     let montanha: Montanha | null = null
     let aquario: Aquario | null = null
     let caverna: Caverna | null = null
@@ -1342,9 +1351,18 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             try {
               const mc = await fetch('/city/cidade-malha.json').then((r) => r.json())
               const cn = mc?.canais
-              if (cn?.aneis?.length) {
-                const rFim = Math.max(...cn.aneis.flatMap((a: { contorno: [number, number][] }) =>
-                  a.contorno.map(([x, z]) => Math.hypot(x, z))))
+              // ⚠️ O GUARD ERA `cn?.aneis?.length` E ISSO VIROU BOMBA em 30/08:
+              // quando os sete anéis de canal saíram (eles eram círculos brigando
+              // com o relevo), a lista ficou vazia, o guard virou falso e o bloco
+              // INTEIRO parou de rodar — sumiram junto os canais radiais que
+              // sobraram e os lagos. Nada acusou: água que não é desenhada não
+              // gera erro, só não aparece. Agora basta haver água de qualquer
+              // tipo, e `rFim` cai no raio dos radiais quando não há anel.
+              if (cn?.aneis?.length || cn?.radiais?.length || mc?.lagos) {
+                const rFim = cn?.aneis?.length
+                  ? Math.max(...cn.aneis.flatMap((a: { contorno: [number, number][] }) =>
+                      a.contorno.map(([x, z]) => Math.hypot(x, z))))
+                  : Math.max(4300, ...(cn?.radiais ?? []).map((r: { rFim?: number }) => r.rFim ?? 4300))
                 // ⚠️ AS PONTES PRECISAM DAS AVENIDAS E DAS RUAS DE ANEL. Sem elas o
                 // canal vira fosso: 5 anéis de água sem travessia partem a cidade em
                 // 6 ilhas concêntricas e os 8 radiais impedem dar a volta em
@@ -1367,6 +1385,15 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                   // sem contorno publicado (as ruas de anel), o φ aproxima o raio
                   return ph
                 }
+                lagos = buildLagos({
+                  cota: (mc?.lagos?.cota ?? -40),
+                  superficieAt: terrain.superficieAt,
+                  raio: 7050,
+                  sombra: qDomo.get('sombra') !== '0',
+                })
+                scene.add(lagos.group)
+                if (wantStats) console.log('[lagos]', (lagos.area/1e6).toFixed(1),
+                  'km2 de agua,', lagos.triangulos.toLocaleString('pt-BR'), 'tri')
                 canais = buildCanais({
                   heightAt: terrain.superficieAt,
                   radiais: cn.radiais ?? [],
@@ -2509,6 +2536,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       arvores?.update(camera.position)
       lago?.update(t)
       canais?.update(t)
+      lagos?.update(t)
       if (!controls.autoRotate && performance.now() - lastInteraction > 25_000) controls.autoRotate = true
       if (fly.on) {
         const u = Math.min(1, (performance.now() - fly.t0) / (fly.dur * 1000))
@@ -2719,6 +2747,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       arvores?.dispose()
       lago?.dispose()
       canais?.dispose()
+      lagos?.dispose()
       montanha?.dispose()
       aquario?.dispose()
       caverna?.dispose()
