@@ -81,6 +81,22 @@ export interface Lagos {
    *  A resposta sai da mesma rotulagem por preenchimento que decide quem ganha
    *  orla, então as duas pontas nunca divergem. */
   naBaia: (x: number, z: number) => boolean
+  /** ⚠️ ESTÁ MOLHADO? QUALQUER CORPO, não só a baía.
+   *
+   *  Existe porque a ÁRVORE precisa saber, e por muito tempo não soube: medido em
+   *  31/08, 13,7% da plantação (cerca de 6.800 de 49.818 mudas) estava plantada
+   *  em cima d'água. A fileira da avenida de rumo 0 seguia reta da margem até
+   *  r 5.400, com a rua parando na baía e as árvores atravessando. Foi o que o
+   *  fundador viu como "fileiras de árvores em locais que não temos ruas".
+   *
+   *  ⚠️ E É SEPARADA DA `naBaia` DE PROPÓSITO. Para a RUA a distinção importa
+   *  (cratera de 300 m é ponte, 20,5 km² não é); para quem PLANTA não importa
+   *  nada: toda água é igualmente inplantável. Uma consulta só, respondendo as
+   *  duas perguntas, faria uma das duas errar.
+   *
+   *  `folga` é em METROS e é medida de verdade, não dilatação de célula: a grade
+   *  tem passo de 30 m e crescer por célula saltaria de 0 para 30. */
+  naAgua: (x: number, z: number, folga?: number) => boolean
   update: (t: number) => void
   dispose: () => void
 }
@@ -405,10 +421,27 @@ export function buildLagos(o: LagosOpts): Lagos {
     return rot[j * (n + 1) + i] === baia
   }
 
+  /** a mesma grade, perguntando por QUALQUER corpo (rot >= 0 é água rotulada) */
+  const molhadoNoPonto = (x: number, z: number): boolean => {
+    const i = Math.round((x + R) / passo), j = Math.round((z + R) / passo)
+    if (i < 0 || j < 0 || i > n || j > n) return false
+    return rot[j * (n + 1) + i] >= 0
+  }
+  const naAgua = (x: number, z: number, folga = 0): boolean => {
+    if (molhadoNoPonto(x, z)) return true
+    if (folga <= 0) return false
+    for (let k = 0; k < 4; k++) {
+      const a = (k / 4) * Math.PI * 2
+      if (molhadoNoPonto(x + Math.cos(a) * folga, z + Math.sin(a) * folga)) return true
+    }
+    return false
+  }
+
   const relogios = feitas.map((m) => aguaDeVerdade(m)).filter(Boolean) as { value: number }[]
   return {
     group,
     naBaia,
+    naAgua,
     area,
     corpos: 0,
     triangulos: (idxA.length + idxP.length + idxM.length + idxC.length + idxR.length) / 3,

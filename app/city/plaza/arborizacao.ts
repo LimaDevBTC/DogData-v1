@@ -39,6 +39,15 @@ export interface ArborizacaoOpts {
   heightAt: (x: number, z: number) => number
   /** covas que as praças e as peças pediram, em coordenadas de mundo */
   covas?: Cova[]
+  /** ⚠️ ESTÁ MOLHADO? Sem isto a plantação atravessa a baía.
+   *
+   *  Medido em 31/08, antes de existir: 13,7% das mudas (cerca de 6.800 de
+   *  49.818) estavam sobre água. A rua PARA na baía por decisão do fundador
+   *  ("retire as estradas de cima da baía"), e a fileira de árvore seguia em
+   *  frente, reta, por cima da lâmina. Vem de `lagos.naAgua`, que é a mesma
+   *  rotulagem por preenchimento que desenha a água: fonte única, não uma
+   *  conta paralela de altura que divergiria na borda do pódio. */
+  molhado?: (x: number, z: number) => boolean
   sombra?: boolean
   culler?: DistanceCuller
 }
@@ -219,12 +228,20 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
     return false
   }
 
+  // ⚠️ SE A CONSULTA DE ÁGUA NÃO CHEGAR, RECLAME ALTO. O defeito que ela conserta
+  // é invisível no console: máscara ausente e máscara errada têm a mesma cara, e
+  // foi assim que `noBulevar` ficou morta por semanas lendo um campo que não
+  // existe. Melhor um aviso feio do que 6.800 árvores boiando em silêncio.
+  const molhado = o.molhado ?? (() => false)
+  if (!o.molhado) console.warn('[arborização] sem consulta de água: a plantação pode atravessar a baía')
+
   const mudas: Muda[] = []
   const por = (x: number, z: number, forma: Forma, i: number, evitaVia = true) => {
     if (mudas.length >= TETO) return
     const r = Math.hypot(x, z)
     if (r < rMin || r > rMax) return
     if (emPeca(x, z)) return
+    if (molhado(x, z)) return
     if (evitaVia && (noBulevar(x, z) || noAnel(x, z))) return
     mudas.push({ x, z, forma, esc: 0.86 + hash01(i) * 0.28, giro: hash01(i * 7) * Math.PI * 2 })
   }
@@ -237,6 +254,8 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
     if (mudas.length >= TETO) break
     const r = Math.hypot(c.x, c.z)
     if (r < rMin || r > rMax) continue
+    // a cova escapa da máscara de PEÇA (foi a peça que a pediu), nunca da de água
+    if (molhado(c.x, c.z)) continue
     mudas.push({ x: c.x, z: c.z, forma: 'esfera', esc: 0.9 + hash01(i) * 0.3, giro: hash01(i * 13) * Math.PI * 2 })
     i++
   }
@@ -269,7 +288,7 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
       for (const t of [3.93 - meia, 30.07 - meia]) {
         const x = bx + perpX * t, z = bz + perpZ * t
         if (Math.hypot(x, z) < rMin || Math.hypot(x, z) > rMax) continue
-        if (emPeca(x, z)) continue
+        if (emPeca(x, z) || molhado(x, z)) continue
         if (mudas.length >= TETO) break
         mudas.push({ x, z, forma: 'esfera', esc: 0.86 + hash01(i) * 0.28, giro: hash01(i * 7) * Math.PI * 2 })
         i++
@@ -305,7 +324,7 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
       const P1x = Math.sin(g1) * a.r, P1z = -Math.cos(g1) * a.r
       const x = P0x + (P1x - P0x) * u, z = P0z + (P1z - P0z) * u
       if (Math.hypot(x, z) < rMin || Math.hypot(x, z) > rMax) continue
-      if (emPeca(x, z) || noBulevar(x, z)) continue
+      if (emPeca(x, z) || molhado(x, z) || noBulevar(x, z)) continue
       if (mudas.length >= TETO) break
       mudas.push({ x, z, forma: 'cone', esc: 0.86 + hash01(i) * 0.28, giro: hash01(i * 7) * Math.PI * 2 })
       i++

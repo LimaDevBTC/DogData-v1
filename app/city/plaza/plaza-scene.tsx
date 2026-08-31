@@ -1647,9 +1647,16 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             if (!covasDasPecas || !covasDasPracas) return
             if (qDomo.get('arvores') === '0') return
             const todas = [...covasDasPecas, ...covasDasPracas]
+            // ⚠️ A CONSULTA DE ÁGUA VEM DE `lagos`, LIDA NA HORA DA CHAMADA. Ela
+            // é a mesma rotulagem por preenchimento que desenha a lâmina, então
+            // as duas pontas não podem divergir. A folga de 10 m tira a muda com
+            // o pé na arrebentação sem raspar a arborização da orla, que está a
+            // 52 m da água (muro 26 + passeio 14 + talude 12).
+            if (!lagos) console.warn('[arborização] os lagos ainda não subiram: plantando sem máscara de água')
             void buildArborizacao({
               heightAt: terrain.superficieAt,
               covas: todas,
+              molhado: lagos ? (x, z) => lagos!.naAgua(x, z, 10) : undefined,
               sombra: qDomo.get('sombra') !== '0',
             }).then((a) => {
               if (disposed) { a.dispose(); return }
