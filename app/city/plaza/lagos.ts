@@ -40,6 +40,14 @@ export interface LagosOpts {
   raio: number
   /** passo da amostragem em metros; 30 dá orla lisa sem pesar */
   passo?: number
+  /** ⚠️ ONDE O LAGO NÃO ENTRA, e isso existe por causa do CANAL. O leito do canal
+   *  é cavado a −44, abaixo da lâmina de −40, então o marching squares daqui
+   *  inundava a vala inteira e desenhava a borda dela — uma linha azul sinuosa
+   *  seguindo o fundo irregular da escavação, por cima da água RETA que
+   *  `canais.ts` já desenha no mesmo lugar. O fundador viu as duas sobrepostas e
+   *  chamou de "pedaços de um rio tortuoso colocado num canal reto". Não são dois
+   *  desenhos do mesmo canal: são dois sistemas de água pisando um no outro. */
+  foraDe?: (x: number, z: number) => boolean
   sombra?: boolean
 }
 
@@ -118,7 +126,8 @@ export function buildLagos(o: LagosOpts): Lagos {
     for (let i = 0; i <= n; i++) {
       const x = px(i), z = px(j)
       // fora da casca não há água: a cidade acaba ali
-      alt[j * (n + 1) + i] = Math.hypot(x, z) > R - 40 ? 1e6 : o.superficieAt(x, z)
+      alt[j * (n + 1) + i] = (Math.hypot(x, z) > R - 40 || (o.foraDe && o.foraDe(x, z)))
+        ? 1e6 : o.superficieAt(x, z)
     }
   }
   const A = (i: number, j: number) => alt[j * (n + 1) + i]

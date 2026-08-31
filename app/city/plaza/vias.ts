@@ -108,8 +108,11 @@ const COR_CALCADA = '#CBC4B6'
 const COR_MEIOFIO = '#8F8879'
 const COR_CANTEIRO = '#7E8A6B'
 const COR_MARCA = '#D8D2C4'
+// ⚠️ O PLATÔ DO QUARTEIRÃO: a plataforma terraplenada, esperando prédio.
+// Ele é MAIS CLARO que a pista de propósito, e é isso que faz a malha existir.
+const COR_PLATO = '#9E968A'
 
-type Alvo = 'pista' | 'calcada' | 'canteiro' | 'meiofio' | 'marca'
+type Alvo = 'pista' | 'calcada' | 'canteiro' | 'meiofio' | 'marca' | 'plato'
 
 // ⚠️ AS CORES VIRAM Color UMA VEZ E ENTRAM COMO ATRIBUTO. Com
 // ColorManagement.enabled (padrão desde a r152) o setStyle já converte sRGB para
@@ -117,6 +120,7 @@ type Alvo = 'pista' | 'calcada' | 'canteiro' | 'meiofio' | 'marca'
 // a rua clara demais.
 const COR: Record<Alvo, THREE.Color> = {
   pista: new THREE.Color(COR_PISTA),
+  plato: new THREE.Color(COR_PLATO),
   calcada: new THREE.Color(COR_CALCADA),
   canteiro: new THREE.Color(COR_CANTEIRO),
   meiofio: new THREE.Color(COR_MEIOFIO),
@@ -134,6 +138,15 @@ interface Banda { de: number; ate: number; alt: number; alvo: Alvo }
 const SEC_CONTORNO: Banda[] = [
   { de: 0.0, ate: 2.5, alt: Y_CALCADA, alvo: 'calcada' },
   { de: 2.5, ate: 6.0, alt: Y_PISTA, alvo: 'pista' },
+]
+// ⚠️ A RUA DA TEIA, 12 m, CENTRADA NA DIVISA E INTEIRA.
+// Ela substitui o par de meias-seções que cada quarteirão desenhava por conta
+// própria. Ver a nota grande na seção 1: meia-seção por quarteirão nunca fecha
+// cruzamento, porque no cruzamento não existe quarteirão para desenhar.
+const SEC_RUA: Banda[] = [
+  { de: -6.0, ate: -3.5, alt: Y_CALCADA, alvo: 'calcada' },
+  { de: -3.5, ate: +3.5, alt: Y_PISTA, alvo: 'pista' },
+  { de: +3.5, ate: +6.0, alt: Y_CALCADA, alvo: 'calcada' },
 ]
 // Travessa de 9 m, seção inteira (ela não é compartilhada com ninguém)
 const SEC_TRAVESSA: Banda[] = [
@@ -214,6 +227,8 @@ interface Quarteirao {
   prof: number
   /** faixas de 50 m do quarteirão: define quantas travessas e fileiras ele tem */
   k: number
+  /** a banda do distrito: é ela que agrupa os quarteirões num anel */
+  quarto?: number
 }
 interface Bulevar {
   id: string; rumo: number; largura: number
@@ -491,12 +506,32 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
       [[+meio, -meioZ], [+meio, +meioZ], [1, 0]],           // +x
       [[-meio, +meioZ], [-meio, -meioZ], [-1, 0]],          // -x
     ]
-    for (const [a, b, p] of lados) {
-      const [ax, az] = mundo(a[0], a[1])
-      const [bx, bz] = mundo(b[0], b[1])
-      const [px, pz] = dir(p[0], p[1])
-      faixa(ax, az, bx, bz, px, pz, SEC_CONTORNO)
-    }
+    // ⚠️ O CONTORNO POR QUARTEIRÃO SAIU DAQUI (fundador, 30/08: "essas ruas
+    // soltas completamente desencontradas estão péssimas... sem elas estarem
+    // completamente ligadas não tem como dirigir um carro pela cidade"). E ele
+    // tinha razão sobre a causa: cada quarteirão desenhava a PRÓPRIA meia-seção
+    // de 6 m, e duas meias encostadas formam a rua ao longo da divisa — mas no
+    // CRUZAMENTO não existe quarteirão nenhum para desenhar, então toda esquina
+    // ficava com um buraco de 12 por 12 m. Não é acabamento, é topologia: a rua
+    // nunca foi um grafo, era um efeito colateral do preenchimento do lote.
+    // A malha ligada é montada depois deste laço, na seção 1c.
+    void lados
+
+    // ── O PLATÔ DO QUARTEIRÃO SAIU ────────────────────────────────────────
+    //
+    // ⚠️ ELE EXISTIU POR UMA TARDE E MORREU COM O MOTIVO DELE. Quando a
+    // demarcação dos lotes saiu, o quarteirão virou regolito cru, que tem quase o
+    // mesmo valor da pista, e a malha viária sumiu na chapa. Eu tapei isso com um
+    // platô claro em cada quarteirão. Só que a causa real era outra: a rua nunca
+    // tinha sido desenhada como RUA (ver a seção 1c), era o vão entre lotes. Com
+    // a malha virando grafo de verdade, com arcos contínuos e radiais que morrem
+    // em cima deles, ela se sustenta sozinha contra o terreno cru.
+    //
+    // O fundador, 30/08: "esse monte de placas brancas no terreno são o quê?
+    // Poderíamos ter terreno cru, apenas com os canais, as pistas e os prédios
+    // extras?" Pode, e agora fica melhor: platô era remendo de uma coisa que já
+    // foi consertada na origem.
+
     // as duas travessas internas: a seção inteira cabe entre z local -34 e -25
     for (const t of (K.travessasPorK?.[String(q.k)] ?? [])) {
       const [ax, az] = mundo(-meio, t.z0)
@@ -535,6 +570,194 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
         travessias++
       }
     }
+  }
+
+  // ── 1c. A MALHA LIGADA: arcos de banda e radiais de divisa ────────────────
+  //
+  // ⚠️ ESTA É A RUA COMO GRAFO, e é o conserto do defeito que o fundador chamou
+  // de "ruas soltas completamente desencontradas". Antes cada quarteirão
+  // desenhava a PRÓPRIA meia-seção de 6 m nos quatro lados: duas meias encostadas
+  // formam a rua ao longo de uma divisa, mas no CRUZAMENTO não existe quarteirão
+  // para desenhar, então toda esquina ficava com um buraco de 12 por 12 m.
+  //
+  // A regra que faz a ligação existir POR CONSTRUÇÃO:
+  //   1. cada quarteirão emite os DOIS arcos dele (raio de dentro e de fora) e os
+  //      DOIS radiais (divisa de cada lado), todos com a seção inteira de 12 m;
+  //   2. o arco de um quarteirão cobre o vão da divisa TAMBÉM, esticando meia
+  //      largura de rua para cada lado, então dois vizinhos se encontram no meio
+  //      do cruzamento em vez de pararem antes dele;
+  //   3. os arcos se acumulam por RAIO e os vãos angulares são FUNDIDOS antes de
+  //      desenhar: a divisa externa de uma banda é a interna da seguinte, e sem
+  //      fundir cada raio interno ganharia duas fitas coplanares no mesmo Y, com
+  //      o z-buffer decidindo por pixel (a listra piscando que o anel da seção 2b
+  //      já documenta).
+  //
+  // ⚠️ O PASSO ANGULAR SAI DE `lado`, NÃO DAS DIFERENÇAS DE `giro`. A primeira
+  // versão tirava a mediana das diferenças entre quarteirões vizinhos. Medido:
+  // a mediana é 12,0 m de vão na cidade toda, mas em SEIS bandas onde uma peça
+  // comeu os quarteirões do meio ela chega a 985 m — e ali os radiais nasciam
+  // centenas de metros dentro do vazio, com a rua atravessando terreno cru. O vão
+  // de projeto é 12 m sempre, então o passo é `(lado + 12) / r`, que não depende
+  // de qual vizinho sobreviveu.
+  {
+    const HR = 6                              // meia largura da rua
+    const arcos = new Map<number, [number, number][]>()
+    type Rad = { g: number; r0: number; r1: number }
+    const radiais: Rad[] = []
+    for (const q of malha.quarteiroes) {
+      const rr = q.r || Math.hypot(q.x, q.z)
+      const prof = q.prof ?? q.lado
+      const ha = (q.lado / 2) / rr           // meio arco do quarteirão, em radianos
+      const hr = HR / rr
+      const g = (q.giro * Math.PI) / 180
+      const r0 = rr - prof / 2 - HR
+      const r1 = rr + prof / 2 + HR
+      for (const ra of [r0, r1]) {
+        const k = Math.round(ra)
+        const v: [number, number] = [g - ha - 2 * hr, g + ha + 2 * hr]
+        const l = arcos.get(k); if (l) l.push(v); else arcos.set(k, [v])
+      }
+      radiais.push({ g: g - ha - hr, r0, r1 }, { g: g + ha + hr, r0, r1 })
+    }
+
+    let nArco = 0, nRad = 0
+    const pt = (rr: number, aa: number) => [Math.sin(aa) * rr, -Math.cos(aa) * rr] as const
+    for (const [rr, vaos] of Array.from(arcos.entries())) {
+      // funde os vãos que se tocam: é isso que impede fita dupla no mesmo raio
+      vaos.sort((a, b) => a[0] - b[0])
+      const juntos: [number, number][] = []
+      for (const v of vaos) {
+        const u = juntos[juntos.length - 1]
+        if (u && v[0] <= u[1] + 1e-6) u[1] = Math.max(u[1], v[1])
+        else juntos.push([v[0], v[1]])
+      }
+      for (const v of juntos) {
+        const passos = Math.max(1, Math.round((rr * (v[1] - v[0])) / PASSO))
+        for (let k = 0; k < passos; k++) {
+          const a0 = v[0] + ((v[1] - v[0]) * k) / passos
+          const a1 = v[0] + ((v[1] - v[0]) * (k + 1)) / passos
+          const am = (a0 + a1) / 2
+          if (emPeca(Math.sin(am) * rr, -Math.cos(am) * rr)) continue
+          for (const bn of SEC_RUA) {
+            const ra = rr + bn.de, rb = rr + bn.ate
+            // ⚠️ ÂNGULO PRIMEIRO, RAIO DEPOIS: é a ordem que dá normal para CIMA.
+            // A mesma armadilha da seção 2b e de pracas.ts:98.
+            const [ax, az] = pt(ra, a0), [dx, dz] = pt(ra, a1)
+            const [cx, cz] = pt(rb, a1), [bx, bz] = pt(rb, a0)
+            chao.add(COR[bn.alvo],
+              ax, o.heightAt(ax, az) + bn.alt, az,
+              dx, o.heightAt(dx, dz) + bn.alt, dz,
+              cx, o.heightAt(cx, cz) + bn.alt, cz,
+              bx, o.heightAt(bx, bz) + bn.alt, bz)
+          }
+          nArco++
+        }
+      }
+    }
+
+    // ⚠️ O RADIAL SOBE 6 mm sobre o arco. Os dois cruzam no mesmo plano e o
+    // z-buffer decidiria por pixel, que é listra piscando bem no cruzamento.
+    const SOBE = 0.006
+    for (const rd of radiais) {
+      const px = Math.cos(rd.g), pz = Math.sin(rd.g)
+      const passos = Math.max(1, Math.round((rd.r1 - rd.r0) / PASSO))
+      for (let k = 0; k < passos; k++) {
+        const ra = rd.r0 + ((rd.r1 - rd.r0) * k) / passos
+        const rb = rd.r0 + ((rd.r1 - rd.r0) * (k + 1)) / passos
+        const rm = (ra + rb) / 2
+        const [mx, mz] = pt(rm, rd.g)
+        if (emPeca(mx, mz)) continue
+        for (const bn of SEC_RUA) {
+          // ⚠️ +perpendicular PRIMEIRO, DEPOIS PARA FORA EM RAIO: mesma regra de
+          // sinal dos arcos, escrita para uma reta em vez de um arco.
+          const [sx, sz] = pt(ra, rd.g), [ex, ez] = pt(rb, rd.g)
+          const ax = sx + px * bn.de, az = sz + pz * bn.de
+          const bx = sx + px * bn.ate, bz = sz + pz * bn.ate
+          const cx = ex + px * bn.ate, cz = ez + pz * bn.ate
+          const dx = ex + px * bn.de, dz = ez + pz * bn.de
+          chao.add(COR[bn.alvo],
+            ax, o.heightAt(ax, az) + bn.alt + SOBE, az,
+            bx, o.heightAt(bx, bz) + bn.alt + SOBE, bz,
+            cx, o.heightAt(cx, cz) + bn.alt + SOBE, cz,
+            dx, o.heightAt(dx, dz) + bn.alt + SOBE, dz)
+        }
+        nRad++
+      }
+    }
+    // ── as avenidas de transição ────────────────────────────────────────────
+    //
+    // ⚠️ ELAS EXISTEM PORQUE O VÃO ENTRE DUAS BANDAS NEM SEMPRE É A RUA DE 12 m.
+    // Medido em 30/08: a mediana do vão radial é 11 m, mas o p90 é 64 e o máximo
+    // 76 — são as 37 divisas onde a teia TROCA DE PROFUNDIDADE (109 → 168 → 227 →
+    // 286 m). Ali sobrava uma faixa de regolito cru de até 76 m de largura
+    // atravessando a cidade inteira, e na chapa isso lia como rasgo escuro entre
+    // os quarteirões claros. Não é buraco a tapar com platô: um vão desses É uma
+    // avenida, e desenhá-la como avenida resolve o rasgo E dá mais uma linha de
+    // ligação à malha.
+    //
+    // ⚠️ O TETO DE 90 m NÃO É ARBITRÁRIO. Acima disso o vão não é transição de
+    // banda, é programa (peça, anel viário, cinturão) ou espaço aberto de
+    // projeto, e pintar avenida por cima seria inventar rua onde a cidade decidiu
+    // não ter. O máximo medido de vão legítimo é 76.
+    {
+      type Faixa2 = { r0: number; r1: number; g0: number; g1: number }
+      const bandas = new Map<string, Faixa2>()
+      for (const q of malha.quarteiroes) {
+        const rr = q.r || Math.hypot(q.x, q.z)
+        const prof = q.prof ?? q.lado
+        const ha = (q.lado / 2 + HR) / rr
+        const g = (q.giro * Math.PI) / 180
+        const k = `${q.setor}|${q.quarto}`
+        const b = bandas.get(k)
+        if (b) { b.g0 = Math.min(b.g0, g - ha); b.g1 = Math.max(b.g1, g + ha) }
+        else bandas.set(k, { r0: rr - prof / 2, r1: rr + prof / 2, g0: g - ha, g1: g + ha })
+      }
+      const porSetor = new Map<string, Faixa2[]>()
+      for (const [k, b] of Array.from(bandas.entries())) {
+        const st = k.split('|')[0]
+        const l = porSetor.get(st); if (l) l.push(b); else porSetor.set(st, [b])
+      }
+      let nAv = 0
+      for (const l of Array.from(porSetor.values())) {
+        l.sort((x, y) => x.r0 - y.r0)
+        for (let i = 0; i + 1 < l.length; i++) {
+          const vao = l[i + 1].r0 - l[i].r1
+          if (vao <= 14 || vao > 90) continue
+          const rc = (l[i].r1 + l[i + 1].r0) / 2
+          const meia = vao / 2
+          // a seção da avenida é a da rua, esticada: calçada de 2,5 nas duas
+          // bordas e pista no meio, para a leitura ser a MESMA da rua de 12 m.
+          const sec = [
+            { de: -meia, ate: -meia + 2.5, alt: Y_CALCADA, alvo: 'calcada' as const },
+            { de: -meia + 2.5, ate: meia - 2.5, alt: Y_PISTA, alvo: 'pista' as const },
+            { de: meia - 2.5, ate: meia, alt: Y_CALCADA, alvo: 'calcada' as const },
+          ]
+          const g0 = Math.min(l[i].g0, l[i + 1].g0), g1 = Math.max(l[i].g1, l[i + 1].g1)
+          const passos = Math.max(1, Math.round((rc * (g1 - g0)) / PASSO))
+          for (let k2 = 0; k2 < passos; k2++) {
+            const a0 = g0 + ((g1 - g0) * k2) / passos
+            const a1 = g0 + ((g1 - g0) * (k2 + 1)) / passos
+            const am = (a0 + a1) / 2
+            if (emPeca(Math.sin(am) * rc, -Math.cos(am) * rc)) continue
+            for (const bn of sec) {
+              const ra = rc + bn.de, rb = rc + bn.ate
+              const [ax, az] = pt(ra, a0), [dx, dz] = pt(ra, a1)
+              const [cx, cz] = pt(rb, a1), [bx, bz] = pt(rb, a0)
+              chao.add(COR[bn.alvo],
+                ax, o.heightAt(ax, az) + bn.alt, az,
+                dx, o.heightAt(dx, dz) + bn.alt, dz,
+                cx, o.heightAt(cx, cz) + bn.alt, cz,
+                bx, o.heightAt(bx, bz) + bn.alt, bz)
+            }
+            nAv++
+          }
+        }
+      }
+      console.log(`[vias] avenidas de transição: ${nAv.toLocaleString('pt-BR')} trechos`)
+    }
+
+    console.log(`[vias] malha ligada: ${arcos.size} raios de arco, `
+      + `${nArco.toLocaleString('pt-BR')} trechos de arco + ${nRad.toLocaleString('pt-BR')} de radial`)
   }
 
   // ── 1b. A VIA EM VOLTA DA PRAÇA DE QUARTO FOI REMOVIDA ────────────────────

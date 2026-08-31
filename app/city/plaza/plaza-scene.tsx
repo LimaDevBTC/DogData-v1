@@ -39,6 +39,7 @@ import { buildDscGallery, DSC_CENTER, type DscGallery } from './dsc-gallery'
 import { buildDome, type Dome } from './dome'
 import { buildColiseu, type Coliseu } from './coliseu'
 import { buildTecido, type Tecido } from './tecido'
+import { buildObras, type Obras } from './obras'
 import { buildVias, type Vias } from './vias'
 import { buildPracas, type Pracas } from './pracas'
 import { buildArborizacao, type Arborizacao, type Cova } from './arborizacao'
@@ -1127,6 +1128,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let lago: Lago | null = null
     let canais: Canais | null = null
     let lagos: Lagos | null = null
+    let obras: Obras | null = null
     let montanha: Montanha | null = null
     let aquario: Aquario | null = null
     let caverna: Caverna | null = null
@@ -1193,6 +1195,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           // gerador: cavava-se mais do que se reservava, e o lote da margem
           // nascia na rampa.
           talude: _cn.talude,
+          // ⚠️ O LEITO É COTA ABSOLUTA, 4 m abaixo da lâmina. É o que tira o
+          // serrilhado do canal: cavar uma PROFUNDIDADE fixa abaixo de um terreno
+          // que ondula 25 m dá um leito que ondula 25 m junto, e a água em cima
+          // dele vira escada. Medido: os três radiais em −44 custam 16,7 Mm³.
+          leito: (_malhaCava?.lagos?.cota ?? -40) - 4,
           aneis: (_cn.aneis ?? []).map((a: { phi: number; secao: number; contorno: [number, number][]; vaos?: [number, number][] }) =>
             ({ phi: a.phi, secao: a.secao, contorno: a.contorno, vaos: a.vaos })),
           // ⚠️ A MONTANHA DE NEVE ENTRA JUNTO COM A VALA, pelo mesmo caminho e pelo
@@ -1385,17 +1392,58 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                   // sem contorno publicado (as ruas de anel), o φ aproxima o raio
                   return ph
                 }
+                // ⚠️ O CORREDOR DO CANAL FICA DE FORA DO LAGO. Os dois sistemas
+                // desenham água na MESMA cota e o canal já desenha a dele, reta.
+                // Sem esta máscara o lago inunda a vala (leito a −44) e traça a
+                // borda irregular da escavação por cima do canal.
+                const _cnr = (mc?.canais?.radiais ?? []) as {
+                  rumo: number; secao: number; rInicio: number; rFim: number }[]
+                const _foraDoCanal = (x: number, z: number) => {
+                  const r = Math.hypot(x, z)
+                  for (const c of _cnr) {
+                    if (r < c.rInicio - 40 || r > (c.rFim ?? 1e9) + 40) continue
+                    const a2 = (c.rumo * Math.PI) / 180
+                    // distância do ponto ao eixo radial daquele rumo
+                    const d = Math.abs(x * Math.cos(a2) + z * Math.sin(a2))
+                    if (d < c.secao / 2 + (mc?.canais?.talude ?? 12) + 6) return true
+                  }
+                  return false
+                }
                 lagos = buildLagos({
                   cota: (mc?.lagos?.cota ?? -40),
                   superficieAt: terrain.superficieAt,
+                  foraDe: _foraDoCanal,
                   raio: 7050,
                   sombra: qDomo.get('sombra') !== '0',
                 })
                 scene.add(lagos.group)
                 if (wantStats) console.log('[lagos]', (lagos.area/1e6).toFixed(1),
                   'km2 de agua,', lagos.triangulos.toLocaleString('pt-BR'), 'tri')
+
+                // ── a obra: a cidade sendo construída (?obras=0 desliga) ─────
+                // ⚠️ SOBE DEPOIS DOS LAGOS DE PROPÓSITO. O trabalhador se semeia
+                // sobre os anéis viários e os bulevares, e com a baía ocupando
+                // 20,5 km² há anel inteiro submerso: sem a máscara de água,
+                // centenas de pessoas nascem em pé no meio do lago.
+                if (qDomo.get('obras') !== '0') {
+                  obras = buildObras({
+                    heightAt: terrain.superficieAt,
+                    aneis: (mc?.aneisViarios ?? []) as { r: number; larg: number }[],
+                    bulevares: (mc?.bulevares ?? []) as {
+                      x0: number; z0: number; x1: number; z1: number; largura: number
+                    }[],
+                    gente: Number(qDomo.get('gente') ?? 1400) || 1400,
+                    molhado: (x, z) => terrain.superficieAt(x, z) < (mc?.lagos?.cota ?? -40) + 1.5,
+                    sombra: qDomo.get('sombra') !== '0',
+                  })
+                  scene.add(obras.group)
+                  console.log(`[obras] ${obras.gente.toLocaleString('pt-BR')} trabalhadores, `
+                    + `${obras.canteiros} canteiros`)
+                }
                 canais = buildCanais({
                   heightAt: terrain.superficieAt,
+                  // ⚠️ A MESMA COTA DOS LAGOS. Água interligada tem um nível só.
+                  cota: mc?.lagos?.cota ?? -40,
                   radiais: cn.radiais ?? [],
                   aneis: cn.aneis,   // com os vãos: ver canais.ts
                   avenidas: (mc?.bulevares ?? []).map((b: { rumo: number; largura: number }) =>
@@ -1466,13 +1514,24 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             // as especificações do recife, dos peixes e da floresta das ilhas, e
             // quem instancia é o buildProps que a praça já usa: uma tabela só,
             // um carregador só, um culling só.
-            aquario = buildAquario({
-              heightAt: terrain.superficieAt, lago: terrain.lago,
-              ilhas: lago.ilhas, sombra: qDomo.get('sombra') !== '0',
-            })
-            scene.add(aquario.group)
-            specsDoAquario = aquario.specs
-            console.log(`[aquário] ${aquario.recife} peças de recife, ${aquario.peixes} peixes, ${aquario.floresta} na floresta das ilhas, ${aquario.triangulos.toLocaleString('pt-BR')} triângulos de vidro e estrutura`)
+            // ⚠️ O AQUÁRIO SAIU (fundador, 30/08: "retire todos os peixes e corais,
+            // eles hoje estão flutuando no ar em torno do canal central"). E ele
+            // estava certo: o recife e os cardumes eram posicionados contra a
+            // lâmina ANTIGA do lago da praça, que ficava logo abaixo do piso da
+            // cidade. Quando toda a água da cidade foi para a cota única de −40,
+            // o chão continuou onde estava e os peixes ficaram nadando 10 m acima
+            // da água. Não é remendo de altura: reposicionar peixe por peixe
+            // deixaria o recife dentro de uma vala de canal, que não é onde um
+            // recife mora. ?aquario=1 traz de volta para quem for refazê-lo.
+            if (qDomo.get('aquario') === '1') {
+              aquario = buildAquario({
+                heightAt: terrain.superficieAt, lago: terrain.lago,
+                ilhas: lago.ilhas, sombra: qDomo.get('sombra') !== '0',
+              })
+              scene.add(aquario.group)
+              specsDoAquario = aquario.specs
+            }
+            if (aquario) console.log(`[aquário] ${aquario.recife} peças de recife, ${aquario.peixes} peixes, ${aquario.floresta} na floresta das ilhas, ${aquario.triangulos.toLocaleString('pt-BR')} triângulos de vidro e estrutura`)
             console.log(`[lago] ${lago.areaHa.toFixed(0)} ha de lâmina, ${lago.pontes} pontes, ${lago.ilhas.length} ilhas (${lago.ilhas.filter((i) => i.dono).length} com dono), ${lago.triangulos.toLocaleString('pt-BR')} triângulos`)
           } catch (err) {
             console.error('[lago] não subiu', err)
@@ -1510,7 +1569,10 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           // longa com a medição está em terrain.ts, na interface.
           void buildTecido({
             heightAt: terrain.superficieAt,
-            modo: qDomo.get('modo') === 'massa' ? 'massa' : 'lote',
+            // ⚠️ 'obra' É O PADRÃO (fundador, 30/08). ?modo=lote traz a
+            // demarcação de volta, ?modo=massa mostra a cidade cheia.
+            modo: qDomo.get('modo') === 'massa' ? 'massa'
+                : qDomo.get('modo') === 'lote' ? 'lote' : 'obra',
             sombra: qDomo.get('sombra') !== '0',
             pintura: pinta === 'idade' || pinta === 'forma' ? pinta : 'pedra',
           }).then((t) => {
@@ -2537,6 +2599,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       lago?.update(t)
       canais?.update(t)
       lagos?.update(t)
+      obras?.update(t, camera.position)
       if (!controls.autoRotate && performance.now() - lastInteraction > 25_000) controls.autoRotate = true
       if (fly.on) {
         const u = Math.min(1, (performance.now() - fly.t0) / (fly.dur * 1000))
@@ -2748,6 +2811,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       lago?.dispose()
       canais?.dispose()
       lagos?.dispose()
+      obras?.dispose()
       montanha?.dispose()
       aquario?.dispose()
       caverna?.dispose()

@@ -456,7 +456,15 @@ CANAL_ANEL_SEC = 60.0
 # antiga reservava só a lâmina, então o lote da margem nascia EM CIMA da rampa:
 # medido, 2.190 lotes com a pegada no talude. Reservar aqui é o que faz a margem
 # virar cais em vez de barranco.
-CANAL_TALUDE = 12.0
+# ⚠️ 40 m, NÃO 12, E OS TRÊS LADOS TÊM DE CONCORDAR (30/08). Com a água da cidade
+# na cota única de −40, o cais do canal fica a −37,8 e a cidade em volta a −28:
+# são 10 m de desnível para vencer. Em 12 m isso é rampa de 83%, e o desenho do
+# canal (que precisa de 40 m para fazer um talude de 25%) passava POR CIMA da
+# escavação em parte do trecho e POR BAIXO no resto — o regolito furava a margem
+# em pedaços e a leitura virava "canal caótico", com a fita d'água reta aparecendo
+# só nos vãos. Quem cava (terrain.ts), quem desenha (canais.ts) e quem reserva a
+# terra (`em_canal` aqui) têm de usar o MESMO número, e ele é publicado.
+CANAL_TALUDE = 40.0
 
 # ⚠️ E O ÚLTIMO É A DOCA (fundador, 30/08: "criamos mais um anel de canais no fim
 # da cidade, onde todos os canais terminam"). Sem ele os oito radiais morriam num

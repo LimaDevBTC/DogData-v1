@@ -115,6 +115,20 @@ export interface CanalCava {
   aneis: { phi: number; secao: number; contorno: [number, number][]; vaos?: [number, number][] }[]
   /** quanto o leito desce abaixo do chão original */
   fundo?: number
+  /** ⚠️ A COTA ABSOLUTA DO LEITO, e é ela que manda quando existe.
+   *
+   *  `fundo` é uma profundidade RELATIVA ao chão, e é exatamente por isso que o
+   *  canal ficou serrilhado: cavar 4,6 m abaixo de um terreno que ondula 25 m
+   *  produz um leito que ondula 25 m junto, e a água em cima dele sobe e desce.
+   *  O fundador matou esse defeito nos lagos em 30/08 ("toda água da cidade
+   *  precisa ter exatamente o mesmo nível, já que está tudo interligado") e ele
+   *  sobreviveu nos três radiais. Com `leito` o corte vai até uma COTA, como uma
+   *  eclusa de verdade, e a água passa a ser uma lâmina só.
+   *
+   *  Medido em 30/08: pôr os três radiais em −44 custa 16,7 Mm³ de corte
+   *  (11 a 22 m de profundidade média, 36,5 no pior ponto). É barato perto dos
+   *  276 Mm³ que mataram os canais de anel. */
+  leito?: number
   /** a largura da rampa de terra de cada lado, além da seção */
   talude?: number
   /** montes construídos, como a montanha de neve do Vale do Poente */
@@ -142,6 +156,7 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
   // só some com o canal.
   const _fundoC = cava?.fundo ?? 4.6
   const _tal = cava?.talude ?? 26
+  const _leitoAbs = cava?.leito
   const _radiais = (cava?.radiais ?? []).map((r) => ({
     ...r, dx: Math.sin((r.rumo * Math.PI) / 180), dz: -Math.cos((r.rumo * Math.PI) / 180),
     // ⚠️ SEM ESTE FIM A VALA VAI ATÉ O INFINITO. Ver o comentário em plaza-scene.
@@ -351,7 +366,15 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
   const heightAt = (x: number, z: number): number => {
     // ⚠️ A VALA DO CANAL ENTRA JUNTO COM A BACIA DO LAGO, no mesmo ponto e pelo
     // mesmo motivo: os dois são água, e água só aparece se o chão for cavado.
-    const b0 = baseAt(x, z) - bacia(x, z) - _fundoC * cavaEm(x, z) + monteEm(x, z)
+    // ⚠️ COM `leito`, A VALA VAI ATÉ UMA COTA, NÃO ATÉ UMA PROFUNDIDADE. `cavaEm`
+    // devolve o peso da vala (1 no eixo, caindo a 0 no fim do talude), e o corte
+    // interpola do chão até a cota do leito por esse peso: no eixo o fundo é
+    // exatamente `leito`, na borda do talude é o chão, e no meio é a rampa.
+    const _kc = cavaEm(x, z)
+    const _bb = baseAt(x, z) - bacia(x, z) + monteEm(x, z)
+    const b0 = _leitoAbs !== undefined && _kc > 0
+      ? _bb - _kc * Math.max(0, _bb - _leitoAbs)
+      : _bb - _fundoC * _kc
     const _w = podioPeso(x, z)
     const b = _w > 0 ? b0 * (1 - _w) + PODIO_Y * _w : b0
     const lx = x - PARK_CENTER.x, lz = z - PARK_CENTER.z

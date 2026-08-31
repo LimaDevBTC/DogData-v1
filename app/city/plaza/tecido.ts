@@ -7,11 +7,23 @@
 // péssima como imagem, porque uma cidade pintada de heatmap parece planilha
 // extrudada. O fundador viu e disse o que era: amador.
 //
-//   'massa'       (padrão)  modelo de massa de arquiteto: volume claro, sem
+//   'obra'        (padrão)  A CIDADE EM CONSTRUÇÃO: infraestrutura pronta (rua,
+//                           canal, orla, túnel, peça) e NENHUM lote desenhado.
+//   'massa'                 modelo de massa de arquiteto: volume claro, sem
 //                           fachada, altura pela tipologia, rua legível, sombra
 //                           lateral de sol baixo. É o registro certo para um
 //                           plano ANTES de projetar prédio.
-//   'demarcacao'            plinto raso, para conferência de geometria.
+//   'lote'                  plinto raso de 0,45 m por lote, para conferência de
+//                           geometria e para ver o parcelamento.
+//
+// ⚠️ 'obra' É O PADRÃO DESDE 30/08, a pedido do fundador ("retire a demarcação
+// dos lotes e adicione a animação de construção"). E é honesto: nada foi mintado
+// ainda, então lote demarcado promete uma posse que não existe. O que existe de
+// verdade é a infraestrutura, e é ela que a cidade mostra.
+//
+// ⚠️ NÃO APAGUE O CAMINHO DE 'lote'. Ele é a chapa de conferência de geometria e
+// já achou lote em máscara, costura torta e superquadra invadindo quarteirão
+// vizinho. `?modo=lote` continua ligando.
 //
 // ⚠️ NADA AQUI É PROJETO DE PRÉDIO. Massa não é fachada: são caixas sem detalhe,
 // que é exatamente como se apresenta plano urbano antes de existir arquitetura.
@@ -28,7 +40,7 @@ export interface TecidoOpts {
   heightAt: (x: number, z: number) => number
   /** 'lote' (padrão) é a cidade ANTES do mint: terreno demarcado e nenhum prédio.
    *  'massa' é a prévia de como ela fica cheia. */
-  modo?: 'lote' | 'massa'
+  modo?: 'obra' | 'lote' | 'massa'
   /** sombra própria nos 52.991 volumes: transforma a imagem e custa fps */
   sombra?: boolean
   /** 'pedra' é a paleta de maquete; 'idade' e 'forma' são lentes de diagnóstico */
@@ -92,7 +104,7 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
   const n = Math.floor(buf.byteLength / REG)
   const group = new THREE.Group()
   group.name = 'tecido'
-  const modo = o.modo ?? 'lote'
+  const modo = o.modo ?? 'obra'
   const pintura = o.pintura ?? 'pedra'
 
   // ⚠️ O RECUO É O QUE FAZ A RUA EXISTIR. Sem ele os lotes se encostam, o
@@ -125,7 +137,10 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
   const pos = new THREE.Vector3()
   const esc = new THREE.Vector3()
 
-  for (let i = 0; i < n; i++) {
+  // ⚠️ EM 'obra' O LAÇO NEM RODA. Não basta esconder a malha depois: o laço faz
+  // 5 sondagens de terreno por lote em 85.839 lotes, ou seja 429 mil chamadas de
+  // `superficieAt`, e isso é o grosso do tempo de subida da cena.
+  for (let i = 0; modo !== 'obra' && i < n; i++) {
     const off = i * REG
     const x = dv.getInt16(off, true), z = dv.getInt16(off + 2, true)
     const setor = dv.getUint8(off + 4), coorte = dv.getUint8(off + 5)
@@ -314,7 +329,7 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
   const construidas = buildPecas(pecas, o.heightAt)
   group.add(construidas.group)
 
-  const triangulos = n * 12 + construidas.triangulos
+  const triangulos = (modo === 'obra' ? 0 : n * 12) + construidas.triangulos
   // ⚠️ 900 m É ONDE O MARCO PARA DE CONTAR HISTÓRIA. Ele tem 1,5 m: a essa
   // distância mede cerca de 2 px de altura, e o que ele diz (terreno demarcado,
   // com dono) já foi dito pela própria fileira de lotes.
@@ -328,7 +343,7 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
       }
     },
     covas: construidas.covas,
-    lotes: n,
+    lotes: modo === 'obra' ? 0 : n,
     pecas: pecas.length,
     triangulos,
     dispose() {

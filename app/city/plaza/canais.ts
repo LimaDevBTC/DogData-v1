@@ -52,6 +52,10 @@ export interface CanaisOpts {
   raioEmPhi?: (ang: number, phi: number) => number
   /** ⚠️ `superficieAt`, NUNCA `heightAt`: é o chão que a câmera vê */
   heightAt: (x: number, z: number) => number
+  /** ⚠️ A COTA ABSOLUTA DA LÂMINA, a mesma dos lagos e da baía (−40). Sem ela o
+   *  módulo volta ao comportamento antigo, em que cada trecho tirava o nível do
+   *  terreno ao lado e a água virava escada. */
+  cota?: number
   radiais: CanalRadial[]
   aneis: CanalAnel[]
   /** até onde o radial vai, em raio de mundo. Vem do maior anel de canal. */
@@ -93,8 +97,13 @@ const COR_WERF = '#A79C86'     // o cais baixo, na água
 //   PISTA    a via que o anel perdeu para a água
 //   GUIA     meio-fio e faixa de árvore, encostando no lote
 const FUNDO = 4.0        // o leito: 3 m de lâmina, que aceita calado de lancha
-const LAMINA = 1.0       // a água, abaixo do passeio: altura de convés
-const RUA_ALT = 0.35     // o nível do passeio, acima do chão
+const LAMINA = 1.0       // a água, abaixo do passeio: altura de convés (modo antigo)
+const RUA_ALT = 0.35     // o nível do passeio, acima do chão (modo antigo)
+const DECK = 2.2         // o cais acima da lâmina: o MESMO valor da orla da baía
+// ⚠️ 40 m, NÃO 16. O cais fica a −37,8 e a cidade ao redor a −28: são quase 10 m
+// para subir, e em 16 m isso é uma rampa de 61%, que lê como parede e ainda deixa
+// o regolito furar. Em 40 m dá 25%, que é talude de aterro de verdade.
+const TALUDE = 40        // onde o cais encontra o chão de verdade
 const CABECO_CADA = 24   // um cabeço de amarração a cada tantos metros
 
 class Balde {
@@ -126,6 +135,20 @@ export function buildCanais(o: CanaisOpts): Canais {
    * ondulado vira ponte reta e o chão fura a água no meio do vão. 18 m é o mesmo
    * passo que a praça e as vias usam nesta cena, pelo mesmo motivo.
    */
+  // ⚠️ A LÂMINA DO CANAL É ABSOLUTA E É A MESMA DE TODA A ÁGUA DA CIDADE.
+  //
+  // O fundador, em 30/08: "veja o canal como está completamente serrilhado, não é
+  // um fluxo de água contínuo, parece pedaços de um rio tortuoso colocado num
+  // canal reto". A causa estava aqui: cada trecho de 18 m tirava a própria cota
+  // amostrando o TERRENO ao lado (`ref`), então a água subia e descia em degraus
+  // acompanhando o relevo, e entre um degrau e outro aparecia a parede. É o mesmo
+  // defeito que ele já tinha matado nos lagos, sobrevivendo nos três radiais.
+  //
+  // Agora a água é uma lâmina só, na cota que o gerador publica (−40, a mesma dos
+  // lagos e da baía), e quem negocia com o relevo é a PAREDE: ela estica do nível
+  // da água até o passeio, que continua acompanhando a rua. Água plana, cais em
+  // degrau — que é como um canal de verdade se comporta.
+  const COTA = o.cota
   const trecho = (x0: number, z0: number, x1: number, z1: number, secao: number, lamina: number) => {
     const dx = x1 - x0, dz = z1 - z0
     const L = Math.hypot(dx, dz)
@@ -157,9 +180,19 @@ export function buildCanais(o: CanaisOpts): Canais {
       // abaixo do fundo da própria vala e o regolito continuava por cima. `FUNDO`
       // é onde o leito fica; `LAMINA` é onde a água encosta na calçada, que é o
       // ponto inteiro de subir o nível para a lancha atracar na porta.
-      B(COR_AGUA).quad(p(ax, az, -meiaA, ya - LAMINA), p(bx, bz, -meiaA, yb - LAMINA),
-                       p(bx, bz, +meiaA, yb - LAMINA), p(ax, az, +meiaA, ya - LAMINA))
-      // ── a margem: um nível só, com a água encostando nele ──────────────
+      const wA = COTA !== undefined ? COTA : ya - LAMINA
+      const wB = COTA !== undefined ? COTA : yb - LAMINA
+      B(COR_AGUA).quad(p(ax, az, -meiaA, wA), p(bx, bz, -meiaA, wB),
+                       p(bx, bz, +meiaA, wB), p(ax, az, +meiaA, wA))
+      // ── a margem: MESMA LINGUAGEM DA ORLA DA BAÍA ─────────────────────
+      //
+      // ⚠️ ESTA É A SEGUNDA METADE DO CONSERTO DO SERRILHADO. Pôr a água na cota
+      // única deixou a LÂMINA plana, e o cais continuou tirando o nível do
+      // terreno a cada 18 m (`yR(ya)`): o passeio zigue-zagueava ao longo de um
+      // canal reto, que é exatamente a descrição do fundador ("pedaços de um rio
+      // tortuoso colocado num canal reto"). Cais tem UMA cota, como a lâmina.
+      // Quem negocia com o relevo é o talude de trás, igual à orla da baía.
+      const yDeck = wA + DECK          // o passeio, acima da lâmina
       const banda = meiaC - meiaA
       const fPasseio = 0.26, fPista = 0.52     // o resto é guia e faixa de árvore
       for (const sg of [-1, 1]) {
@@ -167,23 +200,46 @@ export function buildCanais(o: CanaisOpts): Canais {
         const w1 = sg * (meiaA + banda * fPasseio)
         const w2 = sg * (meiaA + banda * (fPasseio + fPista))
         const w3 = sg * meiaC
-        const yR = (y: number) => y + RUA_ALT
-        // 1. a parede de atracação, da lâmina até o passeio: só 1 m, e é ela que
-        //    põe o convés da lancha na altura da calçada
-        B(COR_MURO).quad(p(ax, az, w0, ya - LAMINA), p(bx, bz, w0, yb - LAMINA),
-                         p(bx, bz, w0, yR(yb)), p(ax, az, w0, yR(ya)))
+        const w4 = sg * (meiaC + TALUDE)
+        // 1. a parede de atracação, da lâmina até o passeio
+        B(COR_MURO).quad(p(ax, az, w0, wA), p(bx, bz, w0, wB),
+                         p(bx, bz, w0, yDeck), p(ax, az, w0, yDeck))
         // 2. o PASSEIO, que encosta na água
-        B(COR_CAIS).quad(p(ax, az, w0, yR(ya)), p(bx, bz, w0, yR(yb)),
-                         p(bx, bz, w1, yR(yb)), p(ax, az, w1, yR(ya)))
-        // 3. a PISTA, que é a via que o anel perdeu para a água
-        B(COR_PISTA).quad(p(ax, az, w1, yR(ya) - 0.15), p(bx, bz, w1, yR(yb) - 0.15),
-                          p(bx, bz, w2, yR(yb) - 0.15), p(ax, az, w2, yR(ya) - 0.15))
-        // 4. a GUIA e a faixa de árvore, encostando no lote
-        B(COR_CAIS).quad(p(ax, az, w2, yR(ya)), p(bx, bz, w2, yR(yb)),
-                         p(bx, bz, w3, yR(yb)), p(ax, az, w3, yR(ya)))
-        // 5. o leito, abaixo da lâmina
-        B(COR_MURO).quad(p(ax, az, w0, ya - FUNDO), p(bx, bz, w0, yb - FUNDO),
-                         p(bx, bz, w0, yb - LAMINA), p(ax, az, w0, ya - LAMINA))
+        B(COR_CAIS).quad(p(ax, az, w0, yDeck), p(bx, bz, w0, yDeck),
+                         p(bx, bz, w1, yDeck), p(ax, az, w1, yDeck))
+        // 3. a PISTA, a via que corre na margem
+        B(COR_PISTA).quad(p(ax, az, w1, yDeck - 0.15), p(bx, bz, w1, yDeck - 0.15),
+                          p(bx, bz, w2, yDeck - 0.15), p(ax, az, w2, yDeck - 0.15))
+        // 4. a GUIA e a faixa de árvore
+        B(COR_CAIS).quad(p(ax, az, w2, yDeck), p(bx, bz, w2, yDeck),
+                         p(bx, bz, w3, yDeck), p(ax, az, w3, yDeck))
+        // 5. o TALUDE, e ele é SUBDIVIDIDO, não um quad só.
+        //
+        // ⚠️ ESTA É A TERCEIRA E ÚLTIMA CAUSA DO CANAL CAÓTICO. A água já estava
+        // plana e reta, mas na chapa ela parecia serpentear: o que serpenteava
+        // era a PAREDE DA VALA. O terreno cava o canal com mistura suave (o peso
+        // de `cavaEm` cai do eixo até o fim do talude), então a borda da
+        // escavação é irregular; um talude de UM quad só é uma reta entre dois
+        // pontos e o regolito fura essa reta no meio do vão, tapando pedaços da
+        // fita d'água e deixando o resto à mostra. Daí a leitura de "pedaços de
+        // rio tortuoso num canal reto": a água era reta, o buraco é que não era.
+        //
+        // ⚠️ A COTA DE CADA ESTAÇÃO É `max(terreno, cais)`. Assim o talude nunca
+        // passa POR BAIXO do chão (que é o que deixava o regolito aparecer) e
+        // nunca desce abaixo do cais (que é o que abriria um degrau na margem).
+        // É um aterro de canal: ele preenche o que falta e acompanha o que sobra.
+        const NT = 5
+        for (let t = 0; t < NT; t++) {
+          const wa = w3 + (w4 - w3) * (t / NT)
+          const wb = w3 + (w4 - w3) * ((t + 1) / NT)
+          const yy = (cx2: number, cz2: number, w: number) =>
+            Math.max(o.heightAt(cx2 + px * w, cz2 + pz * w), yDeck)
+          B(COR_MURO).quad(p(ax, az, wa, yy(ax, az, wa)), p(bx, bz, wa, yy(bx, bz, wa)),
+                           p(bx, bz, wb, yy(bx, bz, wb)), p(ax, az, wb, yy(ax, az, wb)))
+        }
+        // 6. o leito, abaixo da lâmina
+        B(COR_MURO).quad(p(ax, az, w0, wA - 3.0), p(bx, bz, w0, wB - 3.0),
+                         p(bx, bz, w0, wB), p(ax, az, w0, wA))
       }
       // ⚠️ O CABEÇO É O QUE FAZ A MARGEM SER ATRACADOURO e não beira. Sem ele a
       // promessa de parar a lancha na frente de casa não tem onde amarrar.

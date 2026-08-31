@@ -55,7 +55,7 @@ const COR_TRONCO = new THREE.Color('#6E685C')
 const COR_COPA = new THREE.Color('#7E8A6B')
 
 const TETO = 40000        // teto duro de instâncias; o módulo loga o plantado
-const R_CHEIA = 400       // além disto a árvore vira cruz de 6 triângulos
+const R_CHEIA = 1400      // além disto a árvore vira o volume de longe (8 triângulos)
 const PASSO_REBALANCE = 150
 
 type Forma = 'esfera' | 'cone'
@@ -96,23 +96,37 @@ function geoCone(): THREE.BufferGeometry {
 }
 
 /**
- * CRUZ: três quads cruzados, 6 triângulos, que é o LOD de longe.
- * ⚠️ TRÊS E NÃO UM. Um quad só some quando a câmera fica de perfil com ele, e na
- * rasante isso é exatamente o que acontece com metade da cidade.
+ * O VOLUME DE LONGE: um octaedro alongado, 8 triângulos.
+ *
+ * ⚠️ ISTO SUBSTITUI A CRUZ DE QUADS (fundador, 30/08: "esse monte de bloco verde
+ * é o quê? Horrível, se for algum tipo de árvore precisamos trocar todas"). A
+ * cruz eram três quads cruzados: de frente parece árvore, mas na RASANTE, que é
+ * como se olha uma cidade, ela vira uma laje verde chapada sem silhueta nenhuma,
+ * e eram 39.518 delas contra 1.800 copas de verdade.
+ *
+ * ⚠️ E O CONSERTO NÃO É MAIS CARO, é 8 triângulos contra 6. O que a cruz nunca
+ * teve e o octaedro tem é VOLUME: qualquer ângulo devolve um contorno de copa, a
+ * luz varia entre as faces e a sombra projetada é de árvore, não de placa. A
+ * cintura fica a 62% da altura, que é onde a copa de uma árvore de rua é mais
+ * larga.
  */
-function geoCruz(altura: number, larg: number): THREE.BufferGeometry {
-  const vs: number[] = [], ix: number[] = [], cs: number[] = []
-  const h = larg / 2
-  for (let k = 0; k < 3; k++) {
-    const a = (k / 3) * Math.PI
-    const dx = Math.cos(a) * h, dz = Math.sin(a) * h
-    const b = vs.length / 3
-    vs.push(-dx, 0, -dz, dx, 0, dz, dx, altura, dz, -dx, altura, -dz)
-    for (let j = 0; j < 4; j++) {
-      const c = j < 2 ? COR_TRONCO : COR_COPA
-      cs.push(c.r, c.g, c.b)
-    }
-    ix.push(b, b + 1, b + 2, b, b + 2, b + 3)
+function geoLonge(altura: number, larg: number): THREE.BufferGeometry {
+  const R = larg / 2
+  const yc = altura * 0.62
+  const vs: number[] = [0, 0, 0]                 // o pé, na cor do tronco
+  const cs: number[] = [COR_TRONCO.r, COR_TRONCO.g, COR_TRONCO.b]
+  for (let k = 0; k < 4; k++) {
+    const a = (k / 4) * Math.PI * 2
+    vs.push(Math.cos(a) * R, yc, Math.sin(a) * R)
+    cs.push(COR_COPA.r, COR_COPA.g, COR_COPA.b)
+  }
+  vs.push(0, altura, 0)                          // o topo
+  cs.push(COR_COPA.r, COR_COPA.g, COR_COPA.b)
+  const ix: number[] = []
+  for (let k = 0; k < 4; k++) {
+    const a = 1 + k, b = 1 + ((k + 1) % 4)
+    ix.push(0, b, a)                             // a saia, para baixo
+    ix.push(a, b, 5)                             // a copa, para cima
   }
   const g = new THREE.BufferGeometry()
   g.setAttribute('position', new THREE.Float32BufferAttribute(vs, 3))
@@ -306,11 +320,16 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
     vertexColors: true, roughness: 0.95, metalness: 0, side: THREE.DoubleSide,
   })
   const gEsf = geoEsfera(), gCon = geoCone()
-  const gCruzE = geoCruz(7.0, 4.4), gCruzC = geoCruz(11.0, 4.2)
+  const gCruzE = geoLonge(7.0, 4.8), gCruzC = geoLonge(11.0, 4.6)
 
   const nEsf = mudas.filter((m) => m.forma === 'esfera').length
   const nCon = mudas.length - nEsf
-  const CAP_CHEIA = 900              // teto de copas cheias em cena ao mesmo tempo
+  // ⚠️ 900 ERA POUCO DEMAIS e o fundador viu: "esse monte de bloco verde é o quê?
+  // Horrível". Com 40.000 árvores e teto de 900 copas, 39.518 delas eram o LOD de
+  // longe, então praticamente a cidade INTEIRA era o LOD. Um teto de LOD só vale
+  // quando o LOD é a exceção. Os lotes saíram e devolveram 1,03 milhão de
+  // triângulos ao orçamento; 6.000 copas custam 180 mil.
+  const CAP_CHEIA = 6000             // teto de copas cheias em cena ao mesmo tempo
 
   const malhas: Record<string, THREE.InstancedMesh> = {
     cruzEsfera: new THREE.InstancedMesh(gCruzE, mat, Math.max(1, nEsf)),
@@ -364,7 +383,7 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
   rebalancear(new THREE.Vector3(0, 0, 0))
 
   const triangulos =
-    nEsf * 6 + nCon * 6 + CAP_CHEIA * 30 + CAP_CHEIA * 12
+    nEsf * 8 + nCon * 8 + CAP_CHEIA * 30 + CAP_CHEIA * 12
 
   console.log(
     `[arborização] ${mudas.length.toLocaleString('pt-BR')} árvores: ` +
