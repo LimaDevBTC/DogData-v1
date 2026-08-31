@@ -542,8 +542,17 @@ interface HudState {
  *  depois entregar a página"). A cena só é entregue quando cada etapa termina;
  *  até lá a tela de carga cobre tudo e os controles ficam desligados. Os pesos
  *  são o tempo relativo de cada etapa, medido aqui: o parque e as torres pesam. */
+// ⚠️ `domo`, `cidade` E `arvores` ENTRARAM EM 31/08, e o motivo é um defeito que
+// o fundador viu: "a cidade abriu sem a cúpula, carreguemos tudo antes de abrir
+// o mapa". A causa era `void`: a abóbada, o tecido, as vias, as praças e a
+// arborização eram disparadas sem que ninguém esperasse por elas, então o portão
+// abria com a praça pronta e a CIDADE ainda se montando por baixo. Uma promessa
+// sem dono não atrasa a tela, só chega atrasada.
 const BOOT_STEPS = [
   { key: 'terrain', label: 'Reading Mare Tranquillitatis', weight: 8 },
+  { key: 'domo', label: 'Closing the dome', weight: 10 },
+  { key: 'cidade', label: 'Laying the avenues, the bay and the canals', weight: 22 },
+  { key: 'arvores', label: 'Planting the streets', weight: 12 },
   { key: 'towers', label: 'Raising the plaza and the towers', weight: 26 },
   { key: 'chalet', label: 'Raising the OrdCards Chalet', weight: 6 },
   { key: 'garden', label: 'Planting the garden', weight: 10 },
@@ -551,7 +560,7 @@ const BOOT_STEPS = [
   { key: 'props', label: 'Placing the fountains and the palms', weight: 12 },
   { key: 'founders', label: "Engraving the founders' plaques", weight: 4 },
   { key: 'park', label: 'Growing Runestone Park', weight: 16 },
-  { key: 'shaders', label: 'Lighting the plaza', weight: 6 },
+  { key: 'shaders', label: 'Lighting DogCity', weight: 6 },
 ] as const
 type BootKey = (typeof BOOT_STEPS)[number]['key']
 const BOOT_TOTAL = BOOT_STEPS.reduce((a, b) => a + b.weight, 0)
@@ -568,7 +577,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     stopTour: () => void
   } | null>(null)
   const [hud, setHud] = useState<HudState>({
-    loading: 'Loading the plaza…', error: null, snapshot: null, stale: null,
+    loading: 'Loading DogCity…', error: null, snapshot: null, stale: null,
     orbit: 0, parked: 0, picked: null, followed: null, followNote: null,
   })
   const [followInput, setFollowInput] = useState('')
@@ -1322,10 +1331,14 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             setOrbitFloor(domo.coroa - 180)
             console.log(`[abobada] ${domo.celulas.toLocaleString('pt-BR')} células, ${domo.triangulos.toLocaleString('pt-BR')} triângulos, órbita sobe ${Math.round(domo.coroa - 180)} m`)
           } catch (err) {
-            // a casca é experimento: ela nunca pode derrubar a praça que está no ar
-            console.error('[abobada] não subiu', err)
+            // ⚠️ A CASCA DEIXOU DE SER EXPERIMENTO EM 31/08 e a falha dela deixou
+            // de ser aceitável em silêncio. Ela continua não derrubando a praça,
+            // mas agora RECLAMA: quando o portão promete "closing the dome" e a
+            // cidade abre sem cúpula, o log tem de dizer por quê.
+            console.error('[abóbada] NÃO SUBIU, a cidade vai abrir sem cúpula:', err)
           }
         }
+        stepDone('domo')
 
         // ── o coliseu da batalha, atrás de ?coliseu=1 ────────────────────────
         // Fica DENTRO da abóbada de propósito: a cratera vai de 2.816 a 3.180 m
@@ -1637,6 +1650,12 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // que sobrevive ao fim da conferência vira defeito.
         //
         // `?tecido=0` continua desligando, para comparar antes e depois.
+        // ⚠️ AS PROMESSAS DA CIDADE PRECISAM DE DONO. Tecido, vias, praças e
+        // arborização eram `void`: disparadas e esquecidas. O portão abria com a
+        // praça montada e o mapa ainda chegando, que foi o que o fundador viu.
+        // Agora cada uma entra numa lista e o portão espera pelas listas.
+        const daCidade: Promise<unknown>[] = []
+        const daArborizacao: Promise<unknown>[] = []
         if (qDomo.get('tecido') !== '0') {
           // ⚠️ A ARBORIZAÇÃO SÓ SOBE COM AS DUAS LISTAS DE COVA NA MÃO. As praças
           // marcam as delas e as peças com módulo próprio marcam as suas, e as duas
@@ -1653,7 +1672,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             // o pé na arrebentação sem raspar a arborização da orla, que está a
             // 52 m da água (muro 26 + passeio 14 + talude 12).
             if (!lagos) console.warn('[arborização] os lagos ainda não subiram: plantando sem máscara de água')
-            void buildArborizacao({
+            daArborizacao.push(buildArborizacao({
               heightAt: terrain.superficieAt,
               covas: todas,
               molhado: lagos ? (x, z) => lagos!.naAgua(x, z, 10) : undefined,
@@ -1663,14 +1682,14 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               arvores = a
               scene.add(a.group)
               console.log(`[arborização] ${a.arvores.toLocaleString('pt-BR')} árvores, ${a.triangulos.toLocaleString('pt-BR')} triângulos no pior caso, 4 chamadas de desenho`)
-            }).catch((err) => console.error('[arborização] não subiu', err))
+            }).catch((err) => console.error('[arborização] não subiu', err)))
           }
 
           const pinta = qDomo.get('pintura')
           // ⚠️ superficieAt E NÃO heightAt: quem desenha chão tem de assentar na
           // malha que a câmera vê, senão fica ora boiando ora enterrado. A nota
           // longa com a medição está em terrain.ts, na interface.
-          void buildTecido({
+          daCidade.push(buildTecido({
             heightAt: terrain.superficieAt,
             // ⚠️ 'obra' É O PADRÃO (fundador, 30/08). ?modo=lote traz a
             // demarcação de volta, ?modo=massa mostra a cidade cheia.
@@ -1685,7 +1704,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             covasDasPecas = t.covas
             plantar()
             console.log(`[tecido] ${t.lotes.toLocaleString('pt-BR')} lotes, ${t.pecas} peças demarcadas, ${t.triangulos.toLocaleString('pt-BR')} triângulos`)
-          }).catch((err) => console.error('[tecido] não subiu', err))
+          }).catch((err) => console.error('[tecido] não subiu', err)))
 
           // ── a rua, que é a infra do loteamento (?vias=0 desliga) ───────────
           // ⚠️ SOBE JUNTO COM O TECIDO E NUNCA SOZINHA: a seção da via é cotada
@@ -1727,7 +1746,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 + `encaixadas em módulo inteiro da teia`
                 + (programa ? `, ${programa.triangulos.toLocaleString('pt-BR')} triângulos` : ' (só o encaixe; ?programa=1 desenha)'))
             }
-            void buildVias({ heightAt: terrain.superficieAt,
+            daCidade.push(buildVias({ heightAt: terrain.superficieAt,
               cotaAgua: _malhaCava?.lagos?.cota ?? -40,
               // ⚠️ A RUA PARA NA ORLA DA BAÍA. `lagos` sobe antes de `vias` (linha
               // 1464 contra 1702), então a máscara está pronta aqui. Se essa ordem
@@ -1742,14 +1761,14 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 scene.add(v.group)
                 console.log(`[vias] ${v.quarteiroes.toLocaleString('pt-BR')} quarteirões + ${v.pracas} praças + ${v.bulevares} bulevares + ${v.aneis} anéis + ${v.rotatorias} rotatórias, ${(v.metrosDeVia / 1000).toFixed(1)} km de via, ${v.triangulos.toLocaleString('pt-BR')} triângulos`)
               })
-              .catch((err) => console.error('[vias] não subiu', err))
+              .catch((err) => console.error('[vias] não subiu', err)))
 
             // ── as praças de quarto (?pracas=0 desliga) ──────────────────────
             // O chão dos vazios da célula central. Sai junto com a via porque é
             // a mesma malha: a praça é uma célula de 180 como qualquer outra e
             // as calçadas em volta são as mesmas.
             if (qDomo.get('pracas') !== '0') {
-              void buildPracas({ heightAt: terrain.superficieAt, sombra: qDomo.get('sombra') !== '0' })
+              daCidade.push(buildPracas({ heightAt: terrain.superficieAt, sombra: qDomo.get('sombra') !== '0' })
                 .then((pr) => {
                   if (disposed) { pr.dispose(); return }
                   pracas = pr
@@ -1758,10 +1777,22 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                   plantar()
                   console.log(`[praças] ${pr.pracas} praças, ${pr.covas.length.toLocaleString('pt-BR')} covas de árvore, ${pr.triangulos.toLocaleString('pt-BR')} triângulos`)
                 })
-                .catch((err) => console.error('[praças] não subiu', err))
+                .catch((err) => console.error('[praças] não subiu', err)))
             }
           }
         }
+        // ⚠️ `allSettled` E NÃO `all`: uma peça que falhar já reclamou no log, e
+        // travar o portão para sempre por causa dela é trocar um defeito visível
+        // por uma tela preta eterna.
+        //
+        // ⚠️ E A ORDEM IMPORTA. `daArborizacao` só é preenchida DENTRO do `.then`
+        // do tecido e do das praças, porque a plantação precisa das covas dos
+        // dois. Esperar pela cidade primeiro é o que garante que a lista já
+        // exista quando eu for esperar por ela.
+        await Promise.allSettled(daCidade)
+        stepDone('cidade')
+        await Promise.allSettled(daArborizacao)
+        stepDone('arvores')
         stepDone('terrain')
 
         // ── a Cratera da Guerra nasce com o terreno, dormindo ────────────────
@@ -2463,7 +2494,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       } catch (err) {
         console.error('[plaza]', err)
         setBoot((b) => ({ ...b, failed: true, label: 'The plaza did not load' }))
-        setHud((h) => ({ ...h, loading: null, error: 'The plaza did not load. Refresh to try again.' }))
+        setHud((h) => ({ ...h, loading: null, error: 'DogCity did not load. Refresh to try again.' }))
       }
     }
     void boot()
@@ -3099,8 +3130,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       {!boot.ready && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-black px-8 text-center">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/40">DogCity · the Moon</p>
-            <h1 className="mt-2 font-mono text-xl font-semibold tracking-tight text-white sm:text-2xl">Satoshi Plaza</h1>
+            {/* ⚠️ O QUE CARREGA É A CIDADE, NÃO A PRAÇA (fundador, 31/08). A praça
+                é o centro dela, e anunciar o centro como se fosse o todo diz ao
+                visitante que ele está esperando por menos do que vai receber. */}
+            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/40">Mare Tranquillitatis · the Moon</p>
+            <h1 className="mt-2 font-mono text-xl font-semibold tracking-tight text-white sm:text-2xl">DogCity</h1>
           </div>
           <div className="w-full max-w-sm">
             <div className="h-[3px] w-full overflow-hidden bg-white/10">

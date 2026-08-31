@@ -45,6 +45,43 @@ export const metadata: Metadata = {
   },
 }
 
+// ⚠️ ESTE SCRIPT CORRE ANTES DA HIDRATAÇÃO, E É POR ISSO QUE ELE EXISTE.
+//
+// A página já tinha um `history.scrollRestoration = "manual"` dentro de um
+// `useEffect` em page.tsx. O problema é QUANDO: efeito roda depois da
+// hidratação, e num celular a restauração do navegador acontece ANTES disso, na
+// carga. Quem chega primeiro ganha, e não éramos nós. Fundador, 31/08: "a
+// landing está carregando com a hero já com um pouco de scroll, ao menos em
+// mobile; quero ela carregando no topo, mostrando o header".
+//
+// ⚠️ E O DOCUMENTO TEM 18.694 PX. Restaurar "um pouco" aqui é cair vários
+// milhares de pixels adentro, passando do herói inteiro. Numa landing isso não
+// é uma inconveniência, é o visitante nunca ver a primeira frase.
+//
+// O `#âncora` explícito continua valendo: chegar em /dogcity#build é pedido, não
+// posição restaurada. Por isso a guarda de hash aqui e no efeito.
+const TOPO_ANTES_DA_HIDRATACAO = `
+try {
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  if (!location.hash) {
+    window.scrollTo(0, 0);
+    // a carga ainda vai mexer no layout (fontes, imagens, o scrub do herói):
+    // reafirma no 'load' e um quadro depois dele, que é quando a altura para
+    // de mudar. Sem isto, um deslocamento tardio desfaz o reset silenciosamente.
+    addEventListener('load', function () {
+      if (location.hash) return;
+      window.scrollTo(0, 0);
+      requestAnimationFrame(function () { if (!location.hash) window.scrollTo(0, 0); });
+    }, { once: true });
+  }
+} catch (e) { /* navegador que proíbe: o efeito em page.tsx ainda tenta */ }
+`
+
 export default function DogCityLayout({ children }: { children: React.ReactNode }) {
-  return children
+  return (
+    <>
+      <script dangerouslySetInnerHTML={{ __html: TOPO_ANTES_DA_HIDRATACAO }} />
+      {children}
+    </>
+  )
 }

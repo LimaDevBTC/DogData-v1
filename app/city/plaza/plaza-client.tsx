@@ -7,9 +7,13 @@ import { useEffect, useState } from 'react'
 // component so the route still has metadata and a first paint.
 const PlazaScene = dynamic(() => import('./plaza-scene'), {
   ssr: false,
+  // ⚠️ ESTE É O PRIMEIRO TEXTO QUE O VISITANTE LÊ, antes até do portão de carga
+  // da cena, e por muito tempo ele dizia "Satoshi Plaza". A praça é o centro da
+  // cidade, não a cidade: anunciar o centro como se fosse o todo promete menos
+  // do que se entrega. Fundador, 31/08: "estamos carregando a DOGCITY".
   loading: () => (
     <div className="flex h-screen w-full items-center justify-center bg-black">
-      <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-white/50">Satoshi Plaza</p>
+      <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-white/50">DogCity</p>
     </div>
   ),
 })
@@ -42,9 +46,10 @@ export default function PlazaClient() {
   }, [])
 
   if (porta === 'checando') {
+    // o segundo cartaz de espera, o da checagem de WebView: mesma correção
     return (
       <div className="flex h-screen w-full items-center justify-center bg-black">
-        <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-white/50">Satoshi Plaza</p>
+        <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-white/50">DogCity</p>
       </div>
     )
   }
