@@ -1613,10 +1613,22 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           }
         }
 
-        // ── o loteamento sobre o terreno real, atrás de ?tecido=1 ────────────
-        // É conferência: a prancha desenha sobre um disco perfeito e o mundo tem
-        // relevo, cova de parque, platô e a saia da abóbada.
-        if (qDomo.get('tecido') === '1') {
+        // ── a cidade construída: vias, arborização e o programa ─────────────
+        //
+        // ⚠️ ISTO LIGOU POR PADRÃO EM 31/08. A bandeira `?tecido=1` nasceu como
+        // CONFERÊNCIA, quando o que estava aqui era o loteamento desenhado sobre
+        // um disco perfeito e havia dúvida se ele casava com o relevo. De lá para
+        // cá o bloco virou a cidade inteira: as 12 avenidas, os 7 anéis, a
+        // arborização e o encaixe do programa na teia.
+        //
+        // ⚠️ E ISSO ESTAVA ESCONDENDO O TRABALHO EM PRODUÇÃO. O fundador subiu
+        // tudo, conferiu e disse "me parece que não está em produção ainda" — o
+        // código estava lá e no ar, mas quem abria /city limpo via água, canal e
+        // orla (que ficam FORA do bloco) e nenhuma rua. Bandeira de conferência
+        // que sobrevive ao fim da conferência vira defeito.
+        //
+        // `?tecido=0` continua desligando, para comparar antes e depois.
+        if (qDomo.get('tecido') !== '0') {
           // ⚠️ A ARBORIZAÇÃO SÓ SOBE COM AS DUAS LISTAS DE COVA NA MÃO. As praças
           // marcam as delas e as peças com módulo próprio marcam as suas, e as duas
           // promessas resolvem fora de ordem: quem chegar por último dispara.
@@ -2602,6 +2614,27 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           alturaDaCamera: r(p.y),
           distanciaAoAlvo: r(p.distanceTo(t)),
         }
+      }
+    }
+    // ?stats=1 → window.__plazaOlhar(px,py,pz, tx,ty,tz, fov?): o GÊMEO DE ESCRITA
+    // do __plazaView. Existe porque escrever direto em camera.position não pega:
+    // controls.update() roda depois no laço e reescreve a orientação a partir de
+    // controls.target, então a câmera volta sozinha no quadro seguinte. Quem
+    // enquadra de fora tem de mexer no ALVO, não na matriz.
+    // É por aqui que as chapas de OG são tiradas, com ?grab=1 ligando o
+    // preserveDrawingBuffer e canvas.toDataURL lendo o resultado.
+    if (wantStats) {
+      ;(window as unknown as { __plazaOlhar?: (...a: number[]) => unknown }).__plazaOlhar = (
+        px: number, py: number, pz: number, tx: number, ty: number, tz: number, fov?: number,
+      ) => {
+        camera.position.set(px, py, pz)
+        controls.target.set(tx, ty, tz)
+        if (fov && camera instanceof THREE.PerspectiveCamera) {
+          camera.fov = fov
+          camera.updateProjectionMatrix()
+        }
+        controls.update()
+        return { pos: [px, py, pz], target: [tx, ty, tz], fov: (camera as THREE.PerspectiveCamera).fov }
       }
     }
     // ?stats=1 → window.__plazaPeca('E01'): enquadra QUALQUER peça do programa

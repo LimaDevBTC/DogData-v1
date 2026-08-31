@@ -173,8 +173,8 @@ function materialVidro(fade: number, coroa: number): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     uniforms: {
       uTint: { value: COR_VIDRO },
-      uBase: { value: 0.03 },
-      uFres: { value: 0.17 },
+      uBase: { value: 0.055 },
+      uFres: { value: 0.30 },
       uFade: { value: fade },
       uCoroa: { value: coroa },
       uCam: { value: new THREE.Vector3() },
@@ -207,7 +207,15 @@ function materialVidro(fade: number, coroa: number): THREE.ShaderMaterial {
         float base = mix(0.11, uBase, d);
         float fres = mix(0.42, uFres, d);
         float brilho = pow(max(dot(reflect(-v, n), normalize(vec3(0.28, 0.86, 0.18))), 0.0), 36.0) * (1.0 - d) * 0.7;
-        float longe = mix(1.0, 1.0 - smoothstep(uFade * 0.45, uFade, vD), d);
+        // ⚠️ DE DENTRO O LONGE PARA NUM PISO, NÃO EM ZERO (fundador, 31/08:
+        // "não existe esse negócio de face única, a cúpula tem que aparecer de
+        // dentro também"). O "1.0 - smoothstep" original zerava o vidro além de
+        // 2.200 m, e como a casca tem 7.076 m de raio isso apagava TODA a
+        // metade da frente: da praça o céu ficava liso, sem cúpula nenhuma.
+        // Medido no enquadramento do OG (olho em r 3.000, y 1.840): a casca
+        // cruza o quadro entre 6.000 e 10.076 m, ou seja inteiramente dentro
+        // da faixa que era zerada.
+        float longe = mix(1.0, 1.0 - 0.62 * smoothstep(uFade * 0.45, uFade * 2.6, vD), d);
         gl_FragColor = vec4(uTint * (base + fres * f + brilho) * longe, 1.0);
       }`,
     transparent: true,
@@ -260,7 +268,12 @@ function materialNervura(fade: number, coroa: number): THREE.ShaderMaterial {
         #include <logdepthbuf_fragment>
         vec3 n = normalize(vN);
         float k = 0.45 + 0.55 * abs(dot(n, normalize(vec3(0.28, 1.0, 0.18))));
-        float perto = mix(0.12, 1.0, 1.0 - smoothstep(uFade * 0.35, uFade * 1.2, vD));
+        // ⚠️ O PISO SOBE DE 0,12 PARA 0,34, e o motivo do 0,12 continua de pé: a
+        // nervura de 0,9 m cai abaixo de 1 px além de 1.300 m e a 7 km de vão
+        // vira rede que pisca. Por isso quem carrega o longe é o VIDRO (acima),
+        // que é superfície e não alia; a nervura só precisa de presença
+        // suficiente para a casca ter forma, não de leitura de malha.
+        float perto = mix(0.34, 1.0, 1.0 - smoothstep(uFade * 0.35, uFade * 1.2, vD));
         gl_FragColor = vec4(uCor * k, mix(0.85, perto, dentro()));
       }`,
     transparent: true,

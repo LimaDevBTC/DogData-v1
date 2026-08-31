@@ -12,7 +12,20 @@ import PlazaClient from './plaza/plaza-client'
 // browser cache.
 const TITLE = 'Satoshi Plaza · DogCity on the Moon'
 const DESCRIPTION =
-  'The central plaza of DogCity on real lunar terrain, with the DOG mempool alive above it: every pending transaction is a ship in orbit, every block is a landing.'
+  'DogCity on real lunar terrain: the bay, the road web, and Satoshi Plaza under the dome, with the DOG mempool alive above it. Every DOG holder gets a plot at the snapshot.'
+
+// ⚠️ A METADATA NÃO ENXERGA A QUERY. `/city?view=home` e `/city` servem estas
+// mesmas etiquetas, porque `metadata` estático resolve por ROTA e o buscador
+// nunca vê `?view=`. Então não existe "adicionar OG ao ?view=home" separado: o
+// que existe é manter ESTE bloco em dia, que é o que sai em toda variante.
+//
+// ⚠️ A IMAGEM LEVA `?v=`, e isso não é enfeite. X e Facebook guardam a chapa
+// pela URL e não voltam a buscar quando o arquivo muda no mesmo caminho: sem o
+// selo, o post de hoje sairia com a chapa de 18/08, que é anterior à baía, às
+// vias, ao canal e à abóbada. Ao trocar o JPG, incremente o número.
+const OG = '/city/og-plaza.jpg?v=3'
+const OG_ALT =
+  'Inside the DogCity dome on the Moon: the honeycomb shell overhead with stars through it, the bay, the radial road web, and Satoshi Plaza with the Needle, Kray Tower, BitFlow HQ and the OrdCards Chalet'
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -21,14 +34,17 @@ export const metadata: Metadata = {
     title: TITLE,
     description: DESCRIPTION,
     type: 'website',
-    images: [{ url: '/city/og-plaza.jpg', width: 1200, height: 630, alt: 'Satoshi Plaza: the Needle, Kray Tower, BitFlow HQ and the OrdCards Chalet on the Moon, DOG ships in orbit' }],
+    url: '/city',
+    siteName: 'DOG DATA',
+    images: [{ url: OG, width: 1200, height: 630, alt: OG_ALT }],
   },
   twitter: {
     card: 'summary_large_image',
     title: TITLE,
     description: DESCRIPTION,
-    images: ['/city/og-plaza.jpg'],
+    images: [OG],
   },
+  alternates: { canonical: '/city' },
 }
 
 export default function CityPage() {
