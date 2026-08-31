@@ -280,6 +280,24 @@ def phi(x, z):
 # forte de carimbo num mapa. Parque de cidade é POUCO, GRANDE e fica onde há
 # motivo. Nenhum destes tem par simétrico e nenhum está no centro de um distrito.
 # ⚠️ OS RUMOS DOS PARQUES SÃO ENCOSTADOS EM RAIO logo abaixo, em `_pq_geo()`.
+# ⚠️ AS PEÇAS DE SÉRIE NUMERADA SAÍRAM (fundador, 30/08). Ele foi direto: "os
+# elementos brancos foram colocados por nós mesmo pra ocupar espaço vazio... tire
+# os elementos sem identificação". São 26 peças e 1.240 ha: 12 Fazendas de
+# Proteína, 8 Parques e 6 Lagos de Pesca — a mesma laje branca repetida, que na
+# chapa lê como confete e não como programa.
+#
+# ⚠️ O CRITÉRIO É IDENTIDADE, NÃO TIPO NEM TAMANHO. Fica tudo que tem NOME
+# PRÓPRIO, mesmo ainda sem desenho 3D: DOG University, City Hall, Casa da Moeda,
+# Museu da Runa, Distrito Financeiro, Parque Olímpico, Hipódromo, os sete elos da
+# cadeia industrial, os jardins. Essas não são enchimento, são programa à espera
+# de desenho. E ficam também as 6 Bocas de Autopista, que são numeradas mas têm
+# FUNÇÃO: são as bocas dos túneis.
+#
+# ⚠️ E OS 6 LAGOS DE PESCA FICARAM REDUNDANTES POR CONTA PRÓPRIA. A cidade passou
+# a ter 20,5 km² de água na baía; seis tanques de 37 ha ao lado disso são ruído.
+# Ver a decisão da baía.
+SERIE_NUMERADA = False
+
 PARQUES = [   # (rumo desejado, φ do centro, meio-eixo maior, menor)
     ( 34.0, 2020.0, 300.0, 190.0), ( 78.0, 3180.0, 210.0, 340.0),
     (127.0, 2440.0, 260.0, 175.0), (166.0, 3420.0, 175.0, 300.0),
@@ -569,6 +587,43 @@ def _janela_pega_guerra(_i, _nr, _jj, _ns):
     g1 = ((_jj + _ns) / N_RAIOS0) * 360.0 + dg
     return ((GUERRA_RUMO - g0) % 360.0) <= ((g1 - g0) % 360.0 or 360.0)
 
+def _janela_no_lago(_i, _nr, _jj, _ns):
+    """a janela de células tem água dentro?
+
+    ⚠️ TERCEIRA MÁSCARA QUE O ALOCADOR NÃO TINHA. Ele já pergunta pelo canal
+    (`_janela`) e pela Cratera da Guerra (`_janela_pega_guerra`) e não perguntava
+    pelo LAGO, que é a maior reserva do sítio: 23,3 km² dentro da casca. Medido
+    na chapa de 30/08 e confirmado contra `cidade.json`: 11 de 96 peças com pelo
+    menos um canto na água, 6 delas Fazendas de Proteína de 94 ha e uma (FZ01)
+    com os cinco pontos submersos.
+
+    ⚠️ E A AMOSTRAGEM É EM GRADE, NÃO NAS QUINAS. A célula da teia é um trapézio
+    de até 4 anéis por 4 setores e o lago entra por dentro dela sem tocar canto
+    nenhum: testar só as quinas aprovava janela com água no meio.
+    """
+    p0, p1 = _PHI_B[_i], _PHI_B[_i + _nr]
+    for _kp in range(5):
+        _ph = p0 + (p1 - p0) * _kp / 4.0
+        for _kg in range(5):
+            _g = ((_jj + _ns * _kg / 4.0) / N_RAIOS0) * 2*math.pi
+            _r = raio_em_phi(_g, _ph)
+            if em_lago(math.sin(_g)*_r, -math.cos(_g)*_r, 40.0): return True
+    return False
+
+def _pega_lago(rumo, r, meia_a, meia_b, margem=40.0):
+    """a peça do cinturão (rumo, r, meia_a × meia_b) encosta na água?
+
+    Mesma grade da janela da teia, pelo mesmo motivo: 94 ha de fazenda cabem
+    inteiros dentro de um braço do lago sem que uma quina o toque.
+    """
+    _da = math.degrees(meia_a / max(1.0, r))
+    for _u in (-1.0, -0.5, 0.0, 0.5, 1.0):
+        _a = math.radians(rumo + _u * _da)
+        for _v in (-1.0, -0.5, 0.0, 0.5, 1.0):
+            _rr = r + _v * meia_b
+            if em_lago(math.sin(_a)*_rr, -math.cos(_a)*_rr, margem): return True
+    return False
+
 _CINT_POSTAS = []          # (x, z, raio ocupado) do que já foi assentado
 
 def assenta_no_cinturao(ru, ph, meia_a, meia_b, precisa_ar=False):
@@ -605,6 +660,7 @@ def assenta_no_cinturao(ru, ph, meia_a, meia_b, precisa_ar=False):
                 _c = (_b + _sg * meia_ang) % 360.0
                 if any(abs(((_x - _c + 180) % 360) - 180) < dg for _x in CANAL_RADIAIS):
                     continue                         # canal radial cortaria a peça
+                if _pega_lago(_c, r, meia_a, meia_b): continue
                 _viagem = abs(((_c - ru + 180) % 360) - 180)
                 # ⚠️ ACESSO À ÁGUA entra como desempate para quem precisa de ar.
                 # No cinturão a via de carga é o canal: 94 ha de fazenda escoam
@@ -640,6 +696,21 @@ def assenta_no_cinturao(ru, ph, meia_a, meia_b, precisa_ar=False):
             _c = (ru + _k * _passo_) % 360.0
             if any(abs(((_x - _c + 180) % 360) - 180) < _dg for _x in CANAL_RADIAIS):
                 continue
+            if _pega_lago(_c, r, meia_a, meia_b): continue
+            _a = math.radians(_c)
+            _x, _z = math.sin(_a) * r, -math.cos(_a) * r
+            if any(math.hypot(_x - px, _z - pz) < meia + pm + 40.0 for px, pz, pm in _CINT_POSTAS):
+                continue
+            _CINT_POSTAS.append((_x, _z, meia))
+            return _c, r
+    # ⚠️ ÚLTIMA VARREDURA, E ELA EXISTE POR CAUSA DA ÁGUA. Antes do lago, cair de
+    # volta na posição original era só perder testada; com 23,3 km² de água no
+    # sítio, virou nascer submerso. Aqui a peça aceita qualquer ponto SECO de
+    # qualquer anel do cinturão, de meio em meio grau, antes de desistir.
+    for _cr_, r in raios:
+        for _k in range(720):
+            _c = (ru + _k * 0.5) % 360.0
+            if _pega_lago(_c, r, meia_a, meia_b): continue
             _a = math.radians(_c)
             _x, _z = math.sin(_a) * r, -math.cos(_a) * r
             if any(math.hypot(_x - px, _z - pz) < meia + pm + 40.0 for px, pz, pm in _CINT_POSTAS):
@@ -921,6 +992,32 @@ def _acha_lagos():
 LAGOS = _acha_lagos()
 _LAGO_MASC = set()
 for _L in LAGOS: _LAGO_MASC |= _L['celulas']
+# ⚠️ A BAÍA É O MAIOR CORPO, E ELA TEM RESERVA MAIOR QUE AS OUTRAS. Decisão do
+# fundador em 30/08 ("eu gostei da baía, vamos organizar a cidade em torno
+# disso"): o maior corpo deixa de ser acidente do relevo e vira a frente da
+# cidade, com cais, passeio e faixa de rolamento. Essa orla ocupa 52 m de terra
+# a partir da linha d'água (26 de passeio + 14 de pista + 12 de talude), então a
+# reserva ali é 60, não 30 — senão nasce lote DEBAIXO do cais. As outras 19
+# crateras continuam com margem natural de praia, e 30 basta.
+_BAIA_MASC = set(LAGOS[0]['celulas']) if LAGOS else set()
+ORLA_RESERVA = 60.0
+
+# ⚠️ A DILATAÇÃO SE PRÉ-CALCULA, senão a máscara custa o alocador inteiro. A
+# versão que varria a vizinhança a cada chamada fazia (2d+1)² buscas por ponto e
+# 25 pontos por janela candidata — 225 buscas por janela, num alocador que testa
+# dezenas de milhares. Aqui a dilatação roda UMA vez por raio e a consulta vira
+# uma busca em conjunto. Só d=1 e d=2 existem: as margens usadas são 30, 40 e 60,
+# e a célula tem 59,2 m.
+def _dilata(base, d):
+    out = set()
+    for (i, j) in base:
+        for dj in range(-d, d+1):
+            for di in range(-d, d+1):
+                out.add((i+di, j+dj))
+    return out
+
+_LAGO_D = {d: _dilata(_LAGO_MASC, d) for d in (1, 2)}
+_BAIA_D = {d: _dilata(_BAIA_MASC, d) for d in (1, 2)}
 print(f'lagos na cota {LAGO_COTA:.0f}: {len(LAGOS)} corpos, '
       f'{sum(L["area"] for L in LAGOS)/1e6:.1f} km2 de agua '
       f'(o maior com {LAGOS[0]["area"]/1e6:.1f} km2)', file=sys.stderr)
@@ -928,12 +1025,13 @@ print(f'lagos na cota {LAGO_COTA:.0f}: {len(LAGOS)} corpos, '
 def em_lago(x, z, margem=0.0):
     """⚠️ A MARGEM É EM METROS E VIRA CÉLULAS DA GRADE. A grade tem 59,2 m, então
     um lote encostado na margem cai na célula de fora e passaria batido."""
-    d = max(1, int(math.ceil(margem / cell)))
-    i0 = int(round(x/cell + half)); j0 = int(round(z/cell + half))
-    for dj in range(-d, d+1):
-        for di in range(-d, d+1):
-            if (i0+di, j0+dj) in _LAGO_MASC: return True
-    return False
+    d = min(2, max(1, int(math.ceil(margem / cell))))
+    return (int(round(x/cell + half)), int(round(z/cell + half))) in _LAGO_D[d]
+
+def em_baia(x, z, margem=0.0):
+    """só o maior corpo, que é o que ganha orla construída."""
+    d = min(2, max(1, int(math.ceil(margem / cell))))
+    return (int(round(x/cell + half)), int(round(z/cell + half))) in _BAIA_D[d]
 
 prad = math.radians(PARQUE_RUMO)
 PCX, PCZ = math.sin(prad)*PARQUE_DIST, -math.cos(prad)*PARQUE_DIST
@@ -1266,6 +1364,7 @@ def livre(x, z):
     if em_diagonal(x, z, 2.0): return False
     if em_canal(x, z, CANAL_TALUDE + 2.0): return False
     if em_guerra(x, z, 2.0): return False
+    if em_baia(x, z, ORLA_RESERVA): return False
     if em_lago(x, z, 30.0): return False
     # ⚠️ AS QUATRO PONTES DESEMBOCAM AQUI. Antes eram as costuras de setor; agora
     # as costuras de distrito estão em 0/62/108/186/240/308 e só o rumo 0
@@ -1529,7 +1628,7 @@ for _i, (_ru, _off, _lg) in enumerate(AUTOPISTAS):
 # de malha duas vezes nesta cidade. Agora eles passam pelo MESMO alocador: ocupam
 # células inteiras, ganham o trapézio da teia e são mascarados por `em_programa`
 # como qualquer outra peça. `em_parque` deixa de existir.
-for _i, (_ru, _ph, _pa, _pb) in enumerate(PARQUES):
+for _i, (_ru, _ph, _pa, _pb) in enumerate(PARQUES if SERIE_NUMERADA else []):
     _ang = math.radians(_ru)
     _r = raio_em_phi(_ang, _ph)
     PROGRAMA_GEO.append({
@@ -1682,6 +1781,7 @@ for _q in _fila:
                     # câmera e HUD próprios. Sem isto o Parque Olímpico volta a
                     # cair em cima dela.
                     if _janela_pega_guerra(_i, _nr, _jj, _ns): continue
+                    if _janela_no_lago(_i, _nr, _jj, _ns): continue
                     _jan = _janela(_i, _nr, _jj, _ns)
                     if _jan is None: continue
                     _prof, _larg, _c0_, _c1_, _dg0_, _dg1_ = _jan
@@ -1896,7 +1996,14 @@ for _nome, _tipo, _ru0, _ph, _a, _b in _IND:
     for _ in range(N_RAIOS0 * 2):
         _xx = math.sin(math.radians(_ru)) * _r_ind
         _zz = -math.cos(math.radians(_ru)) * _r_ind
+        # ⚠️ E O LAGO ENTRA AQUI TAMBÉM. A fila industrial não passa por
+        # `assenta_no_cinturao`: ela tem laço próprio, que só media canal e
+        # ocupação. Medido em 30/08, foi a última peça na água depois de as duas
+        # outras máscaras entrarem — a Fundição, com 9,1% dela sobre 39,8 m de
+        # lago. Avançar o rumo preserva a ORDEM DO PROCESSO, que é o que faz a
+        # cadeia ler como distrito.
         _bate = any(abs(((_cr - _ru + 180) % 360) - 180) < _dg for _cr in CANAL_RADIAIS) \
+             or _pega_lago(_ru, _r_ind, _a, _b) \
              or any(math.hypot(_xx - px, _zz - pz) < _mi + pm + 40.0 for px, pz, pm in _CINT_POSTAS)
         if not _bate: break
         _ru = (_ru + _extra) % 360.0
@@ -1925,7 +2032,7 @@ for _nome, _tipo, _ru0, _ph, _a, _b in _IND:
 # FORA é o Parque Runestone (9.800) e o spaceport, alcançados de veículo
 # pressurizado pela eclusa G01.
 _PROD = []
-for _i in range(12):
+for _i in range(12 if SERIE_NUMERADA else 0):
     _PROD.append(('FZ', f'Fazenda de Proteína {_i+1}', 'producao',
                   rumo_de_raio(15.0 + _i * 30.0), 5900.0, 620.0, 380.0))
 # ⚠️ O CAMPO DE GOLFE (fundador, 30/08). 18 buracos pedem 50 a 70 ha, e o
@@ -1933,7 +2040,7 @@ for _i in range(12):
 # estava ralo demais para ler como cinturão, que é o defeito que eu mesmo apontei
 # na última chapa. Golfe é verde, é grande e é lazer: ocupa bem e dá conteúdo.
 _PROD.append(('GF', 'Campo de Golfe', 'lazer', rumo_de_raio(300.0), 5700.0, 620.0, 340.0))
-for _i in range(6):
+for _i in range(6 if SERIE_NUMERADA else 0):
     _PROD.append(('LP', f'Lago de Pesca {_i+1}', 'agua',
                   rumo_de_raio(30.0 + _i * 60.0), 6550.0, 460.0, 260.0))
 _np = 0
@@ -2101,7 +2208,25 @@ for _q in PROGRAMA_GEO:
     if abs(_r - _b) >= _meio: continue                # não atravessa
     _dentro = _q.get('tipo') in _PRECISA_AR_TIPOS or _q.get('produtivo') and _q.get('tipo') != 'infra'
     _novo = (_b - _meio - 60) if _dentro else (_b + _meio + 60)
+    # ⚠️ E ESTE BLOCO RODA DEPOIS DO ASSENTAMENTO, sem consultar nada. É o padrão
+    # de falha que já mordeu três vezes nesta cidade: alguém move a peça DEPOIS e
+    # desfaz a decisão de quem mediu. Medido em 30/08: `assenta_no_cinturao` tirou
+    # 10 das 11 peças da água e este empurrão pôs a Fundição de volta, 9,1% dela
+    # sobre 39,8 m de lago. Agora, se o destino é molhado, ela anda pelo anel até
+    # achar terra seca — o raio é o que a casca exige, o rumo é negociável.
+    _ru_ = math.degrees(_ang) % 360.0
+    if _pega_lago(_ru_, _novo, _q['a'], _q['b']):
+        for _k in range(720):
+            for _sg in (1, -1):
+                _c = (_ru_ + _sg * _k * 0.5) % 360.0
+                if not _pega_lago(_c, _novo, _q['a'], _q['b']):
+                    _ang = math.radians(_c); _ru_ = _c
+                    break
+            else: continue
+            break
     _q['cx'], _q['cz'] = math.sin(_ang) * _novo, -math.cos(_ang) * _novo
+    _q['rot'] = _ru_
+    _q['c'], _q['s'] = math.cos(_ang), math.sin(_ang)
     _q['borda'] = not _dentro
     _ajust += 1
 print(f'peças que atravessavam a casca, empurradas para um lado só: {_ajust}', file=sys.stderr)
@@ -3187,7 +3312,16 @@ with open(p('public/city/cidade-malha.json'), 'w') as f:
     f.write('"lagos":' + json.dumps(
         {'cota': LAGO_COTA,
          'corpos': [{'x': L['x'], 'z': L['z'], 'area': L['area']} for L in LAGOS],
-         'nota': 'lamina unica: tudo abaixo de cota dentro da casca e agua'},
+         # ⚠️ A BAÍA VAI IDENTIFICADA. A cena traça o próprio contorno (o chão
+         # dela tem pódio e cova, o do gerador é cru) e precisa saber QUAL corpo
+         # recebe cais e qual recebe praia. Ela redescobre o maior por
+         # preenchimento, e este bloco é o que permite conferir se as duas pontas
+         # concordam — foi assim que se achou que o segundo corpo tem 0,53 km²
+         # contra 20,48 do primeiro, ou seja não há empate possível.
+         'baia': ({'x': LAGOS[0]['x'], 'z': LAGOS[0]['z'], 'area': LAGOS[0]['area'],
+                   'reserva': ORLA_RESERVA} if LAGOS else None),
+         'nota': 'lamina unica: tudo abaixo de cota dentro da casca e agua; '
+                 'o maior corpo e a baia e leva orla construida'},
         ensure_ascii=False, separators=(',', ':')) + ',\n')
     f.write('"aneisViarios":' + json.dumps(
         [{'id': a, 'nome': n, 'r': r, 'larg': w} for a, n, r, w in ANEIS],
