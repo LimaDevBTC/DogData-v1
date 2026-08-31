@@ -40,6 +40,7 @@ import { buildDome, type Dome } from './dome'
 import { buildColiseu, type Coliseu } from './coliseu'
 import { buildTecido, type Tecido } from './tecido'
 import { buildObras, type Obras } from './obras'
+import { buildIlhas, type Ilhas } from './ilhas'
 import { buildVias, type Vias } from './vias'
 import { buildPracas, type Pracas } from './pracas'
 import { buildArborizacao, type Arborizacao, type Cova } from './arborizacao'
@@ -1129,6 +1130,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let canais: Canais | null = null
     let lagos: Lagos | null = null
     let obras: Obras | null = null
+    let ilhas: Ilhas | null = null
     let montanha: Montanha | null = null
     let aquario: Aquario | null = null
     let caverna: Caverna | null = null
@@ -1409,6 +1411,10 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                   }
                   return false
                 }
+                // ⚠️ A ÁGUA NÃO SABE DAS ILHAS, e não precisa. Elas mergulham e a
+                // lâmina opaca esconde o que está embaixo, que é o comportamento
+                // certo. Houve uma versão com banco raso pintado acima da lâmina;
+                // saiu a pedido do fundador ("faça só as ilhas").
                 lagos = buildLagos({
                   cota: (mc?.lagos?.cota ?? -40),
                   superficieAt: terrain.superficieAt,
@@ -1419,6 +1425,24 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 scene.add(lagos.group)
                 if (wantStats) console.log('[lagos]', (lagos.area/1e6).toFixed(1),
                   'km2 de agua,', lagos.triangulos.toLocaleString('pt-BR'), 'tri')
+
+                // ── as ilhas da baía (?ilhas=0 desliga) ─────────────────────
+                // ⚠️ SOBEM DEPOIS DOS LAGOS porque a cota da lâmina é que
+                // define o quanto cada uma afunda: ilha pousada exatamente na
+                // linha d'água lê como adesivo boiando.
+                // ⚠️ AS ILHAS ESTÃO DESLIGADAS POR PADRÃO (fundador, 31/08: "tira
+                // as ilhas por enquanto"). O módulo fica pronto e medido; `?ilhas=1`
+                // traz de volta. As posições saíram de varredura da máscara da baía
+                // e continuam válidas, então voltar não custa nada.
+                if (qDomo.get('ilhas') === '1') {
+                  ilhas = buildIlhas({
+                    cota: mc?.lagos?.cota ?? -40,
+                    sombra: qDomo.get('sombra') !== '0',
+                  })
+                  scene.add(ilhas.group)
+                  console.log(`[ilhas] ${ilhas.postas} na baía, `
+                    + `${ilhas.triangulos.toLocaleString('pt-BR')} triângulos`)
+                }
 
                 // ── a obra: a cidade sendo construída (?obras=0 desliga) ─────
                 // ⚠️ SOBE DEPOIS DOS LAGOS DE PROPÓSITO. O trabalhador se semeia
@@ -1589,7 +1613,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           // contra o plinto de 0,45 m do lote. Sem o tecido, a calçada fica
           // sendo o ponto mais alto da cidade e a chapa mente.
           if (qDomo.get('vias') !== '0') {
-            void buildVias({ heightAt: terrain.superficieAt, sombra: qDomo.get('sombra') !== '0' })
+            void buildVias({ heightAt: terrain.superficieAt,
+              cotaAgua: _malhaCava?.lagos?.cota ?? -40,
+              sombra: qDomo.get('sombra') !== '0' })
               .then((v) => {
                 if (disposed) { v.dispose(); return }
                 vias = v
@@ -2812,6 +2838,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       canais?.dispose()
       lagos?.dispose()
       obras?.dispose()
+      ilhas?.dispose()
       montanha?.dispose()
       aquario?.dispose()
       caverna?.dispose()

@@ -45,6 +45,9 @@ import type { DistanceCuller } from './perf'
 
 export interface ViasOpts {
   heightAt: (x: number, z: number) => number
+  /** ⚠️ a cota da lâmina: a teia não atravessa a baía. Sem isto os 26 anéis
+   *  completos cruzam 20,5 km² de água. */
+  cotaAgua?: number
   /** sombra própria da rua: é o meio-fio de 0,15 m que dá relevo à seção */
   sombra?: boolean
   /** a malha já carregada (public/city/cidade-malha.json). Sem ela o módulo busca sozinho. */
@@ -572,105 +575,91 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     }
   }
 
-  // ── 1c. A MALHA LIGADA: arcos de banda e radiais de divisa ────────────────
+  // ── 1c. A TEIA: 26 ANÉIS E 256 RADIAIS, DESENHADOS DO ZERO ────────────────
   //
-  // ⚠️ ESTA É A RUA COMO GRAFO, e é o conserto do defeito que o fundador chamou
-  // de "ruas soltas completamente desencontradas". Antes cada quarteirão
-  // desenhava a PRÓPRIA meia-seção de 6 m nos quatro lados: duas meias encostadas
-  // formam a rua ao longo de uma divisa, mas no CRUZAMENTO não existe quarteirão
-  // para desenhar, então toda esquina ficava com um buraco de 12 por 12 m.
+  // ⚠️ ESTA É A TERCEIRA VERSÃO, E AS DUAS ANTERIORES ERRARAM PELO MESMO MOTIVO:
+  // derivavam a rua dos QUARTEIRÕES. A primeira desenhava meia seção por
+  // quarteirão (e no cruzamento não existe quarteirão, então toda esquina ficava
+  // com um buraco de 12 por 12 m). A segunda derivava os ângulos das divisas de
+  // cada banda, e como uma banda usa cada ponto da malha e a vizinha usa um sim
+  // um não, 204 cruzamentos viravam T. O fundador cortou certo: "conte o número
+  // de ruas que precisamos e desenhe do zero".
   //
-  // A regra que faz a ligação existir POR CONSTRUÇÃO:
-  //   1. cada quarteirão emite os DOIS arcos dele (raio de dentro e de fora) e os
-  //      DOIS radiais (divisa de cada lado), todos com a seção inteira de 12 m;
-  //   2. o arco de um quarteirão cobre o vão da divisa TAMBÉM, esticando meia
-  //      largura de rua para cada lado, então dois vizinhos se encontram no meio
-  //      do cruzamento em vez de pararem antes dele;
-  //   3. os arcos se acumulam por RAIO e os vãos angulares são FUNDIDOS antes de
-  //      desenhar: a divisa externa de uma banda é a interna da seguinte, e sem
-  //      fundir cada raio interno ganharia duas fitas coplanares no mesmo Y, com
-  //      o z-buffer decidindo por pixel (a listra piscando que o anel da seção 2b
-  //      já documenta).
+  // ⚠️ A RUA É A ESTRUTURA PRIMÁRIA, O QUARTEIRÃO É O QUE SOBRA ENTRE ELAS. Com
+  // essa inversão o problema desaparece por construção:
   //
-  // ⚠️ O PASSO ANGULAR SAI DE `lado`, NÃO DAS DIFERENÇAS DE `giro`. A primeira
-  // versão tirava a mediana das diferenças entre quarteirões vizinhos. Medido:
-  // a mediana é 12,0 m de vão na cidade toda, mas em SEIS bandas onde uma peça
-  // comeu os quarteirões do meio ela chega a 985 m — e ali os radiais nasciam
-  // centenas de metros dentro do vazio, com a rua atravessando terreno cru. O vão
-  // de projeto é 12 m sempre, então o passo é `(lado + 12) / r`, que não depende
-  // de qual vizinho sobreviveu.
+  //   ANEL   = círculo COMPLETO. 26 deles, do anel interior (1.450) à borda
+  //            (6.900), com o vão crescendo por classe de profundidade da teia
+  //            (122 m no núcleo, 180, 239, 298 na Cinta) — os mesmos degraus que
+  //            o gerador usa para o quarteirão.
+  //   RADIAL = reta CONTÍNUA do raio onde nasce até a borda. 256 no total, em
+  //            três níveis: 64 desde 1.450, mais 64 desde 2.900, mais 128 desde
+  //            5.800. O nível dobra onde a testada passaria de 285 m.
+  //
+  // Um círculo completo cruzado por uma reta contínua dá X. Sempre. Não existe
+  // caso de borda, não existe banda faltando, não existe ponta que não casa: os
+  // 26 × 256 cruzamentos fecham porque as duas famílias são contínuas.
+  //
+  // ⚠️ A TESTADA MEDIDA: 142 m onde cada nível nasce, 285 m onde ele termina
+  // (é onde o próximo dobra). Isso é quarteirão de cidade, não superquadra.
   {
-    const HR = 6                              // meia largura da rua
-    const arcos = new Map<number, [number, number][]>()
-    type Rad = { g: number; r0: number; r1: number }
-    const radiais: Rad[] = []
-    for (const q of malha.quarteiroes) {
-      const rr = q.r || Math.hypot(q.x, q.z)
-      const prof = q.prof ?? q.lado
-      const ha = (q.lado / 2) / rr           // meio arco do quarteirão, em radianos
-      const hr = HR / rr
-      const g = (q.giro * Math.PI) / 180
-      const r0 = rr - prof / 2 - HR
-      const r1 = rr + prof / 2 + HR
-      for (const ra of [r0, r1]) {
-        const k = Math.round(ra)
-        const v: [number, number] = [g - ha - 2 * hr, g + ha + 2 * hr]
-        const l = arcos.get(k); if (l) l.push(v); else arcos.set(k, [v])
-      }
-      radiais.push({ g: g - ha - hr, r0, r1 }, { g: g + ha + hr, r0, r1 })
+    const HR = 6                                   // meia largura da rua
+    const pt = (rr: number, aa: number) => [Math.sin(aa) * rr, -Math.cos(aa) * rr] as const
+    const R_DENTRO = 1450, R_FORA = 6900
+
+    const ANEIS_R: number[] = []
+    for (let r = R_DENTRO; r <= R_FORA; ) {
+      ANEIS_R.push(r)
+      r += r < 2200 ? 122 : r < 3400 ? 180 : r < 5000 ? 239 : 298
     }
+    // três níveis de radial; o índice em 256 diz de qual nível ele é
+    const NIVEIS = [{ passo: 4, r0: R_DENTRO }, { passo: 2, r0: 2900 }, { passo: 1, r0: 5800 }]
+    const N_RAD = 256
+
+    // ⚠️ A ÁGUA CORTA A RUA, e sem isto a teia atravessa a baía. `emPeca` já
+    // tira as peças; a lâmina precisa da mesma cortesia.
+    const molhado = (x: number, z: number) => o.heightAt(x, z) < (o.cotaAgua ?? -40) + 1.2
 
     let nArco = 0, nRad = 0
-    const pt = (rr: number, aa: number) => [Math.sin(aa) * rr, -Math.cos(aa) * rr] as const
-    for (const [rr, vaos] of Array.from(arcos.entries())) {
-      // funde os vãos que se tocam: é isso que impede fita dupla no mesmo raio
-      vaos.sort((a, b) => a[0] - b[0])
-      const juntos: [number, number][] = []
-      for (const v of vaos) {
-        const u = juntos[juntos.length - 1]
-        if (u && v[0] <= u[1] + 1e-6) u[1] = Math.max(u[1], v[1])
-        else juntos.push([v[0], v[1]])
-      }
-      for (const v of juntos) {
-        const passos = Math.max(1, Math.round((rr * (v[1] - v[0])) / PASSO))
-        for (let k = 0; k < passos; k++) {
-          const a0 = v[0] + ((v[1] - v[0]) * k) / passos
-          const a1 = v[0] + ((v[1] - v[0]) * (k + 1)) / passos
-          const am = (a0 + a1) / 2
-          if (emPeca(Math.sin(am) * rr, -Math.cos(am) * rr)) continue
-          for (const bn of SEC_RUA) {
-            const ra = rr + bn.de, rb = rr + bn.ate
-            // ⚠️ ÂNGULO PRIMEIRO, RAIO DEPOIS: é a ordem que dá normal para CIMA.
-            // A mesma armadilha da seção 2b e de pracas.ts:98.
-            const [ax, az] = pt(ra, a0), [dx, dz] = pt(ra, a1)
-            const [cx, cz] = pt(rb, a1), [bx, bz] = pt(rb, a0)
-            chao.add(COR[bn.alvo],
-              ax, o.heightAt(ax, az) + bn.alt, az,
-              dx, o.heightAt(dx, dz) + bn.alt, dz,
-              cx, o.heightAt(cx, cz) + bn.alt, cz,
-              bx, o.heightAt(bx, bz) + bn.alt, bz)
-          }
-          nArco++
+    for (const rr of ANEIS_R) {
+      const passos = Math.max(96, Math.round((2 * Math.PI * rr) / PASSO))
+      for (let k = 0; k < passos; k++) {
+        const a0 = (k / passos) * Math.PI * 2, a1 = ((k + 1) / passos) * Math.PI * 2
+        const am = (a0 + a1) / 2
+        const mx = Math.sin(am) * rr, mz = -Math.cos(am) * rr
+        if (emPeca(mx, mz) || molhado(mx, mz)) continue
+        for (const bn of SEC_RUA) {
+          const ra = rr + bn.de, rb = rr + bn.ate
+          // ⚠️ ÂNGULO PRIMEIRO, RAIO DEPOIS: é a ordem que dá normal para CIMA.
+          const [ax, az] = pt(ra, a0), [dx, dz] = pt(ra, a1)
+          const [cx, cz] = pt(rb, a1), [bx, bz] = pt(rb, a0)
+          chao.add(COR[bn.alvo],
+            ax, o.heightAt(ax, az) + bn.alt, az,
+            dx, o.heightAt(dx, dz) + bn.alt, dz,
+            cx, o.heightAt(cx, cz) + bn.alt, cz,
+            bx, o.heightAt(bx, bz) + bn.alt, bz)
         }
+        nArco++
       }
     }
 
-    // ⚠️ O RADIAL SOBE 6 mm sobre o arco. Os dois cruzam no mesmo plano e o
-    // z-buffer decidiria por pixel, que é listra piscando bem no cruzamento.
+    // ⚠️ O RADIAL SOBE 6 mm sobre o anel. Os dois cruzam no mesmo plano e o
+    // z-buffer decidiria por pixel: listra piscando bem no cruzamento.
     const SOBE = 0.006
-    for (const rd of radiais) {
-      const px = Math.cos(rd.g), pz = Math.sin(rd.g)
-      const passos = Math.max(1, Math.round((rd.r1 - rd.r0) / PASSO))
+    for (let i = 0; i < N_RAD; i++) {
+      const niv = NIVEIS.find((n) => i % n.passo === 0)
+      if (!niv) continue
+      const g = (i / N_RAD) * Math.PI * 2
+      const px = Math.cos(g), pz = Math.sin(g)
+      const passos = Math.max(2, Math.round((R_FORA - niv.r0) / PASSO))
       for (let k = 0; k < passos; k++) {
-        const ra = rd.r0 + ((rd.r1 - rd.r0) * k) / passos
-        const rb = rd.r0 + ((rd.r1 - rd.r0) * (k + 1)) / passos
+        const ra = niv.r0 + ((R_FORA - niv.r0) * k) / passos
+        const rb = niv.r0 + ((R_FORA - niv.r0) * (k + 1)) / passos
         const rm = (ra + rb) / 2
-        const [mx, mz] = pt(rm, rd.g)
-        if (emPeca(mx, mz)) continue
+        const [mx, mz] = pt(rm, g)
+        if (emPeca(mx, mz) || molhado(mx, mz)) continue
         for (const bn of SEC_RUA) {
-          // ⚠️ +perpendicular PRIMEIRO, DEPOIS PARA FORA EM RAIO: mesma regra de
-          // sinal dos arcos, escrita para uma reta em vez de um arco.
-          const [sx, sz] = pt(ra, rd.g), [ex, ez] = pt(rb, rd.g)
+          const [sx, sz] = pt(ra, g), [ex, ez] = pt(rb, g)
           const ax = sx + px * bn.de, az = sz + pz * bn.de
           const bx = sx + px * bn.ate, bz = sz + pz * bn.ate
           const cx = ex + px * bn.ate, cz = ez + pz * bn.ate
@@ -684,80 +673,9 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
         nRad++
       }
     }
-    // ── as avenidas de transição ────────────────────────────────────────────
-    //
-    // ⚠️ ELAS EXISTEM PORQUE O VÃO ENTRE DUAS BANDAS NEM SEMPRE É A RUA DE 12 m.
-    // Medido em 30/08: a mediana do vão radial é 11 m, mas o p90 é 64 e o máximo
-    // 76 — são as 37 divisas onde a teia TROCA DE PROFUNDIDADE (109 → 168 → 227 →
-    // 286 m). Ali sobrava uma faixa de regolito cru de até 76 m de largura
-    // atravessando a cidade inteira, e na chapa isso lia como rasgo escuro entre
-    // os quarteirões claros. Não é buraco a tapar com platô: um vão desses É uma
-    // avenida, e desenhá-la como avenida resolve o rasgo E dá mais uma linha de
-    // ligação à malha.
-    //
-    // ⚠️ O TETO DE 90 m NÃO É ARBITRÁRIO. Acima disso o vão não é transição de
-    // banda, é programa (peça, anel viário, cinturão) ou espaço aberto de
-    // projeto, e pintar avenida por cima seria inventar rua onde a cidade decidiu
-    // não ter. O máximo medido de vão legítimo é 76.
-    {
-      type Faixa2 = { r0: number; r1: number; g0: number; g1: number }
-      const bandas = new Map<string, Faixa2>()
-      for (const q of malha.quarteiroes) {
-        const rr = q.r || Math.hypot(q.x, q.z)
-        const prof = q.prof ?? q.lado
-        const ha = (q.lado / 2 + HR) / rr
-        const g = (q.giro * Math.PI) / 180
-        const k = `${q.setor}|${q.quarto}`
-        const b = bandas.get(k)
-        if (b) { b.g0 = Math.min(b.g0, g - ha); b.g1 = Math.max(b.g1, g + ha) }
-        else bandas.set(k, { r0: rr - prof / 2, r1: rr + prof / 2, g0: g - ha, g1: g + ha })
-      }
-      const porSetor = new Map<string, Faixa2[]>()
-      for (const [k, b] of Array.from(bandas.entries())) {
-        const st = k.split('|')[0]
-        const l = porSetor.get(st); if (l) l.push(b); else porSetor.set(st, [b])
-      }
-      let nAv = 0
-      for (const l of Array.from(porSetor.values())) {
-        l.sort((x, y) => x.r0 - y.r0)
-        for (let i = 0; i + 1 < l.length; i++) {
-          const vao = l[i + 1].r0 - l[i].r1
-          if (vao <= 14 || vao > 90) continue
-          const rc = (l[i].r1 + l[i + 1].r0) / 2
-          const meia = vao / 2
-          // a seção da avenida é a da rua, esticada: calçada de 2,5 nas duas
-          // bordas e pista no meio, para a leitura ser a MESMA da rua de 12 m.
-          const sec = [
-            { de: -meia, ate: -meia + 2.5, alt: Y_CALCADA, alvo: 'calcada' as const },
-            { de: -meia + 2.5, ate: meia - 2.5, alt: Y_PISTA, alvo: 'pista' as const },
-            { de: meia - 2.5, ate: meia, alt: Y_CALCADA, alvo: 'calcada' as const },
-          ]
-          const g0 = Math.min(l[i].g0, l[i + 1].g0), g1 = Math.max(l[i].g1, l[i + 1].g1)
-          const passos = Math.max(1, Math.round((rc * (g1 - g0)) / PASSO))
-          for (let k2 = 0; k2 < passos; k2++) {
-            const a0 = g0 + ((g1 - g0) * k2) / passos
-            const a1 = g0 + ((g1 - g0) * (k2 + 1)) / passos
-            const am = (a0 + a1) / 2
-            if (emPeca(Math.sin(am) * rc, -Math.cos(am) * rc)) continue
-            for (const bn of sec) {
-              const ra = rc + bn.de, rb = rc + bn.ate
-              const [ax, az] = pt(ra, a0), [dx, dz] = pt(ra, a1)
-              const [cx, cz] = pt(rb, a1), [bx, bz] = pt(rb, a0)
-              chao.add(COR[bn.alvo],
-                ax, o.heightAt(ax, az) + bn.alt, az,
-                dx, o.heightAt(dx, dz) + bn.alt, dz,
-                cx, o.heightAt(cx, cz) + bn.alt, cz,
-                bx, o.heightAt(bx, bz) + bn.alt, bz)
-            }
-            nAv++
-          }
-        }
-      }
-      console.log(`[vias] avenidas de transição: ${nAv.toLocaleString('pt-BR')} trechos`)
-    }
-
-    console.log(`[vias] malha ligada: ${arcos.size} raios de arco, `
-      + `${nArco.toLocaleString('pt-BR')} trechos de arco + ${nRad.toLocaleString('pt-BR')} de radial`)
+    console.log(`[vias] teia: ${ANEIS_R.length} anéis completos + ${N_RAD} radiais `
+      + `(${nArco.toLocaleString('pt-BR')} + ${nRad.toLocaleString('pt-BR')} trechos), `
+      + `${ANEIS_R.length * N_RAD} cruzamentos em X`)
   }
 
   // ── 1b. A VIA EM VOLTA DA PRAÇA DE QUARTO FOI REMOVIDA ────────────────────
