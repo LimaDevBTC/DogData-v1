@@ -54,6 +54,9 @@ import { buildLago, type Lago } from './lago'
 import { buildAquario, type Aquario } from './aquario'
 import { buildCaverna, type Caverna } from './caverna'
 import { PROPS } from './props-table'
+import { look2 } from './look'
+import { setAnisotropia } from './materiais'
+import { montarPos, type Pos } from './pos'
 import { CityChat } from '@/components/wallet/city-chat'
 
 // ── framing ────────────────────────────────────────────────────────────────────
@@ -709,7 +712,17 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       // pelo canvas. Ligado sempre, ele custa uma cópia por quadro; ligado só
       // aqui, custa nada no uso normal.
       preserveDrawingBuffer: new URLSearchParams(window.location.search).get('grab') === '1' })
-    const governor = new FrameGovernor(renderer, profile)
+    // ⚠️ ANISOTROPIA, NOS DOIS LOOKS, porque é correção objetiva e não estilo:
+    // sem ela o filtro mipmap escolhe o nível pelo eixo mais comprimido, e toda
+    // textura vista em ângulo raso (que é COMO SE VÊ UMA RUA) vira papa cinzenta
+    // a poucos metros da câmera. A biblioteca de materiais aplica este valor em
+    // cada mapa que ela cria; chamada aqui, logo depois do renderer nascer,
+    // porque antes disso não existe `capabilities`.
+    setAnisotropia(renderer.capabilities.getMaxAnisotropy())
+    // o composer nasce mais abaixo (precisa de cena e câmera); declarado aqui
+    // para o governador de quadro poder avisar quando o DPR mudar
+    let pos: Pos | null = null
+    const governor = new FrameGovernor(renderer, profile, (dpr) => pos?.setDpr(dpr))
     renderer.setSize(mount.clientWidth, mount.clientHeight)
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -787,6 +800,29 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       chamadas: renderer.info.render.calls, triangulos: renderer.info.render.triangles,
     })
     camera.layers.enable(CAVE_LAYER) // a caverna do Leonidas vive fora do sol
+
+    // ── PÓS-PROCESSAMENTO (só no ?look=2) ──────────────────────────────────
+    // ⚠️ NÃO ENTRA NO PERFIL `low`. O composer troca o framebuffer padrão por
+    // dois alvos HalfFloat do tamanho da tela e ainda desenha a geometria uma
+    // segunda vez para o G-buffer do AO; numa máquina que já está no `low` isso
+    // é o oposto do que ela pediu. No `low` o ?look=2 fica só com material e
+    // contato, sem passe nenhum.
+    // ⚠️ E O AO SÓ NO `high`. Ele é o passe caro daqui: o prepasse de normal
+    // repete as ~442 chamadas de desenho da cena. No `balanced` fica bloom mais
+    // saída mais SMAA, que custam preenchimento e não geometria.
+    if (look2 && profile.quality !== 'low') {
+      pos = montarPos(renderer, scene, camera, {
+        largura: mount.clientWidth,
+        altura: mount.clientHeight,
+        dpr: governor.pixelRatio,
+        ao: profile.quality === 'high',
+        // meia resolução de AO no balanced não se aplica (lá o AO nem liga);
+        // no high o buffer é cheio porque o que a chapa julga é a emenda de
+        // contato, e ela some quando o AO é reamostrado
+        aoEscala: 1,
+      })
+      if (wantStats) (window as unknown as { __plazaPos?: () => unknown }).__plazaPos = () => ({ ativo: pos?.ativo, ...(pos?.diagnostico ?? {}) })
+    }
     // ⚠️ A ENTRADA PADRÃO (sem ?view=) agora é SOBRE A BATALHA com a cidade ao
     // fundo (decisão do fundador: entregar o user direto na guerra, take
     // cinematográfico). Fora do lite apenas: no lite o campo nem nasce e a
@@ -1010,7 +1046,18 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       // sombra cobre só 6.400 m e o anel externo perde a sombra da arborização,
       // o que aparece na chapa como a cidade parando num círculo. Com 4.600 e
       // mapa 2048 o texel mede 4,49 m e o custo medido é 2,55 ms.
-      const half = dist < 1500 ? 1000 : dist < 3500 ? 1800 : dist < 8000 ? 3200 : 4600
+      // ⚠️ E OS DOIS PRIMEIROS DEGRAUS SÃO NOVOS (?look=2), porque o degrau único
+      // de 1.000 m era o motivo da borda de sombra serrilhada de perto: com mapa
+      // 2048 o texel mede 2 · 1000 / 2048 = 0,977 m, e um poste tem 4 m de alto
+      // por 0,2 m de grosso, ou seja a sombra dele CABE em um texel. Com a câmera
+      // de rua a 497 m do alvo (o enquadramento de conferência
+      // __plazaOlhar(980,46,240, 500,6,120, 45)) o campo de visão no alvo mede
+      // cerca de 614 m de largura, então uma caixa de 1.300 m ainda sobra de todo
+      // lado e o texel cai para 0,635 m. Abaixo de 300 m ele cai para 0,293 m.
+      // Nenhum degrau LONGO mudou: a vista de drone continua com 3.200 e 4.600.
+      const half = look2
+        ? (dist < 300 ? 300 : dist < 800 ? 650 : dist < 1500 ? 1000 : dist < 3500 ? 1800 : dist < 8000 ? 3200 : 4600)
+        : (dist < 1500 ? 1000 : dist < 3500 ? 1800 : dist < 8000 ? 3200 : 4600)
       if (half !== shadowHalf) {
         shadowHalf = half
         sc.left = -half; sc.right = half; sc.top = half; sc.bottom = -half
@@ -1033,12 +1080,75 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     // ⚠️ A COR DE BAIXO VEM DA HORA (H.hemiGround), não é mais fixa: ela é o
     // rebote do regolito e é o único parâmetro que levanta o pé da imagem sem
     // custar triângulo, material ou draw call.
-    scene.add(new THREE.HemisphereLight(0x3a4664, H.hemiGround, H.hemi))
+    const hemi = new THREE.HemisphereLight(0x3a4664, H.hemiGround, H.hemi)
+    scene.add(hemi)
     // O brilho da Terra vem DA TERRA, e não de um ponto qualquer do céu: mesma
     // direção que o disco (EARTH_DIR, logo abaixo), para a luz e o objeto
     // concordarem.
     const earthshine = new THREE.DirectionalLight(0x8fb0ff, H.earth)
     scene.add(earthshine)
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // O REBOTE DO REGOLITO (só no ?look=2, e só com o sol acima do horizonte)
+    //
+    // ⚠️ A SOMBRA DESTA CENA É PRETA CHAPADA, E DÁ PARA PROVAR NA CONTA. Na hora
+    // padrão `day`, o chão iluminado recebe 5,4 · sen(44°) · lum(0xfff6e8) =
+    // 3,496 de irradiância; dentro da sombra o único preenchimento que chega
+    // numa superfície virada para cima é o termo de CÉU do hemisférico, que vale
+    // 0,34 · lum(0x3a4664) = 0,0215. Razão de 163:1, sete diafragmas e meio. A
+    // sombra da torre corta o chão numa reta afiada e tudo que cai dentro dela
+    // some, que é metade do quadro na vista de rua.
+    //
+    // ⚠️ E A RESPOSTA CERTA NÃO É INVENTAR CÉU AZUL. Na Lua não há espalhamento
+    // atmosférico: o que existe de verdade dentro de uma sombra lunar é (a) a luz
+    // que o próprio regolito ao redor devolve, que é forte porque a área
+    // iluminada é enorme, e (b) o brilho da Terra, que esta cena já tem. Foto de
+    // Apollo tem sombra legível pelo (a), não por céu.
+    //
+    // Então o modelo aqui é duas peças:
+    //   1. O TERMO DE CÉU DO HEMISFÉRICO VIRA COR DE REGOLITO. Num plano de chão
+    //      (normal para cima) o hemisférico entrega o termo de CÉU, não o de
+    //      chão, ou seja o parâmetro azul 0x3a4664 era justamente o que pintava
+    //      a sombra do chão. Trocado por 0x9d8f7d e calibrado por conta.
+    //   2. UM PREENCHIMENTO DIRECIONAL DO LADO OPOSTO AO SOL, rasante, cor de
+    //      quique. Ele é quem devolve forma às FACHADAS na sombra, que o
+    //      hemisférico não alcança (numa parede vertical o hemisférico entrega
+    //      só a média dos dois termos).
+    //
+    // Os alvos são frações da irradiância do sol NA HORA, e não números soltos,
+    // para as quatro horas continuarem sendo quatro direções de arte:
+    //   céu do hemisférico  = 6,2% do sol  (+ 0,03 de piso, para a noite)
+    //   rebote direcional   = 4,5% do sol  medido no chão
+    // Na `day` isso dá 0,247 + 0,157 = 0,404 dentro da sombra contra 3,90 fora,
+    // ou 10,4%, três diafragmas e meio: a forma se lê e o contraste duro de Lua
+    // continua lá. Uma parede virada para o rebote recebe 0,388 contra os 3,62 de
+    // uma parede virada para o sol, 10,7%.
+    // ⚠️ ISTO É CONTA, NÃO CHAPA: os alvos saem da fórmula acima, a validação em
+    // pixel está no relatório da rodada.
+    const lumLinear = (hex: number) => {
+      const c = new THREE.Color(hex) // THREE.Color já converte de sRGB para linear
+      return 0.299 * c.r + 0.587 * c.g + 0.114 * c.b
+    }
+    if (look2 && H.sun > 0) {
+      const irrSol = H.sun * Math.sin(THREE.MathUtils.degToRad(H.el)) * lumLinear(H.sunColor)
+      const CEU_REGOLITO = 0x9d8f7d
+      hemi.color.setHex(CEU_REGOLITO)
+      hemi.intensity = (irrSol * 0.062 + 0.03) / lumLinear(CEU_REGOLITO)
+      // ⚠️ O TERMO DE BAIXO SOBE JUNTO, senão a barriga das peças fica mais
+      // escura que a sombra do chão e cada objeto passa a flutuar. Ele continua
+      // sendo o mais escuro dos dois, que é o certo.
+      hemi.groundColor.setHex(0x3a332a)
+      const REBOTE = 0xa8927a
+      const REBOTE_EL = 22 // rasante: é quique de chão, não uma segunda lâmpada
+      const az = THREE.MathUtils.degToRad(SUN_AZ + 180)
+      const el = THREE.MathUtils.degToRad(REBOTE_EL)
+      const rebote = new THREE.DirectionalLight(REBOTE, (irrSol * 0.045) / (Math.sin(el) * lumLinear(REBOTE)))
+      rebote.name = 'rebote:regolito'
+      rebote.position.set(Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el)).multiplyScalar(4000)
+      // sem sombra de propósito: luz de rebote não projeta borda, e uma segunda
+      // sombra custaria outro mapa inteiro
+      scene.add(rebote, rebote.target)
+    }
 
     // dark studio reflections for the glass towers, per-material tamed below
     // ⚠️ O AMBIENTE ERA UM ESTÚDIO FOTOGRÁFICO, e numa lua sem atmosfera isso é
@@ -1136,6 +1246,18 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let coliseu: Coliseu | null = null
     let tecido: Tecido | null = null
     let vias: Vias | null = null
+    // ⚠️ A ÁRVORE ESPERA A RUA, e este par de variáveis é o porquê. A queixa do
+    // fundador foi literal: "o asfalto cortando a árvore ao meio". A causa é de
+    // ORDEM, não de máscara: a arborização é disparada lá em cima, no bloco do
+    // tecido, e as vias só nascem bem depois, então no instante em que a muda
+    // era plantada a máscara da rua ainda não existia. `vias.naVia` resolve o
+    // "onde", isto resolve o "quando".
+    //
+    // `viasAssentou` vira true no `.then` E no `.catch` de propósito: se a via
+    // falhar, a cidade ainda tem de ganhar árvore (sem máscara, com aviso), em
+    // vez de ficar careca esperando uma promessa que nunca vem.
+    let viasAssentou = false
+    let plantar: (() => void) | null = null
     let pracas: Pracas | null = null
     let arvores: Arborizacao | null = null
     let lago: Lago | null = null
@@ -1663,8 +1785,10 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           // promessas resolvem fora de ordem: quem chegar por último dispara.
           let covasDasPecas: Cova[] | null = null
           let covasDasPracas: Cova[] | null = null
-          const plantar = () => {
+          plantar = () => {
             if (!covasDasPecas || !covasDasPracas) return
+            // ⚠️ TERCEIRO PORTÃO, NOVO: a via também. Ver a nota em `viasAssentou`.
+            if (!viasAssentou) return
             if (qDomo.get('arvores') === '0') return
             const todas = [...covasDasPecas, ...covasDasPracas]
             // ⚠️ A CONSULTA DE ÁGUA VEM DE `lagos`, LIDA NA HORA DA CHAMADA. Ela
@@ -1677,6 +1801,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               heightAt: terrain.superficieAt,
               covas: todas,
               molhado: lagos ? (x, z) => lagos!.naAgua(x, z, 10) : undefined,
+              // ⚠️ A MÁSCARA DA RUA, A MESMA QUE A RUA USA PARA SE DESENHAR.
+              // Fonte única de propósito: uma conta paralela de "onde tem via"
+              // divergiria na esquina e na rotatória, que é justamente onde a
+              // muda estava nascendo dentro do asfalto.
+              naVia: vias ? (x, z, folga) => vias!.naVia(x, z, folga) : undefined,
               sombra: qDomo.get('sombra') !== '0',
             }).then((a) => {
               if (disposed) { a.dispose(); return }
@@ -1703,7 +1832,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             tecido = t
             scene.add(t.group)
             covasDasPecas = t.covas
-            plantar()
+            plantar?.()
             console.log(`[tecido] ${t.lotes.toLocaleString('pt-BR')} lotes, ${t.pecas} peças demarcadas, ${t.triangulos.toLocaleString('pt-BR')} triângulos`)
           }).catch((err) => console.error('[tecido] não subiu', err)))
 
@@ -1760,9 +1889,20 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 if (disposed) { v.dispose(); return }
                 vias = v
                 scene.add(v.group)
+                // a rua assentou: agora a árvore pode ser plantada sabendo onde
+                // é pista, sarjeta e calçada
+                viasAssentou = true
+                plantar?.()
                 console.log(`[vias] ${v.quarteiroes.toLocaleString('pt-BR')} quarteirões + ${v.pracas} praças + ${v.bulevares} bulevares + ${v.aneis} anéis + ${v.rotatorias} rotatórias, ${(v.metrosDeVia / 1000).toFixed(1)} km de via, ${v.triangulos.toLocaleString('pt-BR')} triângulos`)
               })
-              .catch((err) => console.error('[vias] não subiu', err)))
+              .catch((err) => {
+                console.error('[vias] não subiu', err)
+                // sem rua não há máscara, mas a cidade não fica careca por isso:
+                // planta assim mesmo, e a arborização avisa alto que plantou sem
+                // saber onde é asfalto
+                viasAssentou = true
+                plantar?.()
+              }))
 
             // ── as praças de quarto (?pracas=0 desliga) ──────────────────────
             // O chão dos vazios da célula central. Sai junto com a via porque é
@@ -1775,7 +1915,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                   pracas = pr
                   scene.add(pr.group)
                   covasDasPracas = pr.covas
-                  plantar()
+                  plantar?.()
                   console.log(`[praças] ${pr.pracas} praças, ${pr.covas.length.toLocaleString('pt-BR')} covas de árvore, ${pr.triangulos.toLocaleString('pt-BR')} triângulos`)
                 })
                 .catch((err) => console.error('[praças] não subiu', err)))
@@ -3027,7 +3167,10 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       }
       camera.position.x += sx
       camera.position.y += sy
-      renderer.render(scene, camera)
+      // ⚠️ `pos.ativo` só vira true quando os módulos do composer chegam (import
+      // dinâmico): até lá, e no look 1, o desenho é o direto de sempre.
+      if (pos?.ativo) pos.render()
+      else renderer.render(scene, camera)
       camera.position.x -= sx
       camera.position.y -= sy
       statsTick++
@@ -3050,6 +3193,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       camera.aspect = mount.clientWidth / mount.clientHeight
       camera.updateProjectionMatrix()
       renderer.setSize(mount.clientWidth, mount.clientHeight)
+      // o composer tem alvos próprios: sem isto a janela cresce e a imagem fica
+      // esticada a partir de um buffer do tamanho velho
+      pos?.resize(mount.clientWidth, mount.clientHeight)
     }
     window.addEventListener('resize', onResize)
 
@@ -3063,6 +3209,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       renderer.domElement.removeEventListener('pointerup', onUp)
       renderer.domElement.removeEventListener('pointerdown', wake)
       renderer.domElement.removeEventListener('wheel', wake)
+      pos?.dispose()
       controls.dispose()
       orbit.dispose()
       chalet?.dispose()

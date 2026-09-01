@@ -43,6 +43,8 @@ import * as THREE from 'three'
 import { LIMIAR_PRACA } from './pracas'
 import type { DistanceCuller } from './perf'
 import { AVENIDAS, avenidasGeom } from './teia'
+import { look2 } from './look'
+import { superficie, vestir, type Superficie } from './materiais'
 
 export interface ViasOpts {
   heightAt: (x: number, z: number) => number
@@ -85,6 +87,24 @@ export interface Vias {
   faixas: number
   triangulos: number
   metrosDeVia: number
+  /** true se (x,z) cai sobre pista, sarjeta ou calçada de QUALQUER via
+   *  desenhada, mais `folga` metros de margem.
+   *
+   *  ⚠️ ELA EXISTE PORQUE A ÁRVORE NASCIA DENTRO DO ASFALTO. Até 01/09 a única
+   *  máscara que a arborização tinha era `emAvenida` da teia, um teste analítico
+   *  sobre as 12 retas radiais, mais um `noAnel` que compara o raio com o raio de
+   *  cada anel. Só que o anel É UM DODECÁGONO desde 31/08 (a nota longa da seção
+   *  2b), e o meio da aresta fica a 96,6% do raio: uma máscara circular erra por
+   *  até 3,4% do raio, que na Pista de Serviço são 259 m. Some a isso as 46
+   *  rotatórias, que nenhuma das duas conhecia, e o resultado é o que o fundador
+   *  viu: o asfalto cortando a árvore ao meio.
+   *
+   *  ⚠️ O CANTEIRO CENTRAL NÃO ENTRA NA MÁSCARA, DE PROPÓSITO. Ele é exatamente
+   *  onde a arborização de eixo deve plantar (ver SEC_BULEVAR e SEC_ANEL); marcar
+   *  a seção inteira apagaria as duas fileiras que a cidade quer ter. */
+  naVia(x: number, z: number, folga?: number): boolean
+  /** quanto custou preencher a grade da máscara, em ms (medido no boot) */
+  mascaraMs: number
   /** liga/desliga as marcas de bulevar por distância; redundante se `culler` foi passado */
   update(cam: THREE.Vector3): void
   dispose(): void
@@ -231,6 +251,56 @@ const FAIXA_BARRAS = 6
 const FAIXA_LARG = 0.60
 const FAIXA_VAO = 1.80
 
+// ── A MÁSCARA DA VIA (`naVia`) ─────────────────────────────────────────────
+// Um campo de bits em coordenada de mundo, pintado enquanto a rua é desenhada.
+//
+// ⚠️ A CONSULTA TEM DE SER O(1) PORQUE A ARBORIZAÇÃO CHAMA DEZENAS DE MILHARES DE
+// VEZES NO BOOT. Percorrer trilho, anel e rotatória por ponto seria O(n) sobre
+// milhares de trechos; aqui a rua vira bit e a consulta é um deslocamento.
+//
+// ⚠️ 4.096 CÉLULAS DE LADO PORQUE 4.096 = 2^12, e aí o índice é `(iz << 12) | ix`
+// sem uma multiplicação sequer. Com célula de 4 m isso cobre 16.384 m, o dobro
+// do raio da Pista de Serviço (7.600 m), e o campo inteiro cabe em 2 MB
+// (16.777.216 bits). Uma grade de bytes custaria 16 MB pela mesma cobertura.
+//
+// ⚠️ A CÉLULA DE 4 m É CONSERVADORA POR CONSTRUÇÃO: ela marca até 4 m ALÉM da
+// borda real da via. Para uma máscara de plantio esse é o lado certo do erro,
+// porque árvore 4 m longe da guia é jardim e árvore 1 m dentro da pista é
+// defeito. Quem precisar de precisão de centímetro não deve usar isto.
+const MASC_CEL = 4
+const MASC_N = 4096
+const MASC_MEIO = MASC_N >> 1
+// ⚠️ O PASSO DE AMOSTRAGEM TEM DE SER MENOR QUE A CÉLULA, senão sobra furo: uma
+// faixa de 12 m amostrada de 5 em 5 deixa células inteiras sem nenhuma sonda
+// dentro. 2,5 m em célula de 4 m dá cobertura com folga em qualquer ângulo.
+const MASC_PASSO = 2.5
+
+// ── O MEIO-FIO DE VERDADE (só no `?look=2`) ────────────────────────────────
+// ⚠️ ATÉ 01/09 O DESNÍVEL DE 15 cm EXISTIA SÓ COMO COTA. A guia era UM retângulo
+// vertical e mais nada: sem topo, sem chanfro, sem sarjeta. Guia de verdade tem
+// quatro planos, e três deles pegam a luz em ângulo diferente, que é o que faz
+// a leitura de "rua" numa câmera a 3 m de altura.
+//
+//   sarjeta  0,40 m de concreto rente à pista: é a faixa clara que a chapa
+//            zenital lê como fio de borda
+//   face     vertical, do fundo da sarjeta até o topo menos o chanfro
+//   chanfro  5 cm a 45 graus, o único plano da seção que devolve especular na
+//            luz rasante de 16 graus desta cena
+//   topo     0,28 m de guia, 1,5 cm acima da calçada
+//
+// ⚠️ A SARJETA NÃO É UMA CONCHA, E NÃO PODE SER. A pista aqui é um quad PLANO de
+// até 24 m; uma sarjeta rebaixada ficaria escondida por baixo dele em todo o
+// trecho. Ela vai rente, a FOLGA de 2 cm, e o que a distingue da pista é o
+// material, não o rebaixo.
+//
+// ⚠️ O TOPO SOBE 1,5 cm SOBRE A CALÇADA PORQUE COPLANAR BRIGA. Guia e calçada na
+// mesma cota é a listra piscando que este arquivo já pagou duas vezes (seção 2b
+// e a nota do TRV_RECUO). 1,5 cm é sub-pixel a partir de uns 10 m de câmera.
+const CB_SARJETA = 0.40
+const CB_CHANFRO = 0.05
+const CB_TOPO = 0.28
+const CB_LIP = 0.015
+
 interface Quarteirao {
   id: string; setor: number; x: number; z: number; r: number
   /** ⚠️ `giro` e `lado` são DO BLOCO agora: 109 no Núcleo, 168 no Meio, 227 no
@@ -273,11 +343,43 @@ export interface Malha {
 export interface Anel { id: string; nome: string; r: number; larg: number }
 export interface Meta { programa: Peca[]; raioBorda: number; aneis?: Anel[] }
 
-/** acumulador de triângulos: uma malha só, cor por vértice */
+/** acumulador de triângulos: uma malha só por superfície */
 class Fita {
   vs: number[] = []
   cs: number[] = []
+  us: number[] = []
   ix: number[] = []
+  /**
+   * ⚠️ O UV SAI EM UNIDADES DE LADRILHO, NÃO EM METROS, e isso é imposição de
+   * `materiais.ts`: lá o `repeat` é `Math.max(1, mundo / metros)`, ou seja ele
+   * NUNCA fica abaixo de 1. Com `vestir(mat, nome, 1)` o repeat trava em 1 e quem
+   * tem de dividir pelo lado do ladrilho é a geometria. `escala` é esse lado, em
+   * metros de mundo. Zero desliga o UV inteiro, que é o caminho do `?look=1`:
+   * sem textura o atributo seria 1,1 MB de vértice à toa.
+   *
+   * `comCor` idem: no look 2 cada fita é de UMA superfície só, então a cor sai do
+   * material e o atributo de cor não precisa existir.
+   */
+  constructor(readonly escala = 0, readonly comCor = true) {}
+
+  private uvOn = false
+  private uvq = new Float64Array(8)
+  /**
+   * UV explícito do PRÓXIMO `add`, em unidades de ladrilho.
+   *
+   * ⚠️ SEM ELE O SULCO DE RODA DO ASFALTO CORRE NO EIXO X DO MUNDO. A projeção XZ
+   * é a mais barata, mas a receita `asfalto` de materiais.ts tem duas faixas de
+   * rodado gaussianas em u = 0,3 e u = 0,7: projetada em XZ, a marca de pneu
+   * atravessa a pista na diagonal em 10 das 12 avenidas. Com o UV da via, u é a
+   * seção e v é o comprimento, e o rodado nasce onde a roda passa.
+   */
+  comUV(a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) {
+    const q = this.uvq
+    q[0] = a; q[1] = b; q[2] = c; q[3] = d; q[4] = e; q[5] = f; q[6] = g; q[7] = h
+    this.uvOn = true
+    return this
+  }
+
   // ⚠️ OS QUATRO CANTOS TÊM DE VIR NO SENTIDO ANTI-HORÁRIO VISTO DE CIMA, senão
   // a normal aponta para baixo e o backface culling apaga a face inteira. Custou
   // uma rodada inteira em pracas.ts (a nota está em pracas.ts:101-107).
@@ -286,15 +388,46 @@ class Fita {
       cx: number, cy: number, cz: number, dx: number, dy: number, dz: number) {
     const b = this.vs.length / 3
     this.vs.push(ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz)
-    for (let i = 0; i < 4; i++) this.cs.push(cor.r, cor.g, cor.b)
+    if (this.comCor) for (let i = 0; i < 4; i++) this.cs.push(cor.r, cor.g, cor.b)
+    if (this.escala > 0) {
+      if (this.uvOn) {
+        const q = this.uvq
+        this.us.push(q[0], q[1], q[2], q[3], q[4], q[5], q[6], q[7])
+      } else {
+        const k = 1 / this.escala
+        this.us.push(ax * k, az * k, bx * k, bz * k, cx * k, cz * k, dx * k, dz * k)
+      }
+    }
+    this.uvOn = false
     this.ix.push(b, b + 1, b + 2, b, b + 2, b + 3)
   }
+
+  /**
+   * O mesmo quad, mas com UV de face VERTICAL: u corre na horizontal a partir de
+   * `a`, v é a altura.
+   *
+   * ⚠️ PROJEÇÃO XZ NUMA FACE VERTICAL COLAPSA O u E ESTICA O LADRILHO AO INFINITO.
+   * Numa guia de 15 cm ninguém veria; o pilar da ponte, que desce do tabuleiro
+   * até o leito, tem dezenas de metros de face e é lá que o defeito aparece.
+   */
+  addV(cor: THREE.Color,
+       ax: number, ay: number, az: number, bx: number, by: number, bz: number,
+       cx: number, cy: number, cz: number, dx: number, dy: number, dz: number) {
+    if (this.escala > 0) {
+      const k = 1 / this.escala
+      const du = (x: number, z: number) => Math.hypot(x - ax, z - az) * k
+      this.comUV(0, ay * k, du(bx, bz), by * k, du(cx, cz), cy * k, du(dx, dz), dy * k)
+    }
+    this.add(cor, ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz)
+  }
+
   get triangulos() { return this.ix.length / 3 }
   get vazia() { return this.ix.length === 0 }
   malha(mat: THREE.Material, nome: string): THREE.Mesh {
     const g = new THREE.BufferGeometry()
     g.setAttribute('position', new THREE.Float32BufferAttribute(this.vs, 3))
-    g.setAttribute('color', new THREE.Float32BufferAttribute(this.cs, 3))
+    if (this.comCor) g.setAttribute('color', new THREE.Float32BufferAttribute(this.cs, 3))
+    if (this.escala > 0) g.setAttribute('uv', new THREE.Float32BufferAttribute(this.us, 2))
     g.setIndex(this.ix)
     g.computeVertexNormals()
     const m = new THREE.Mesh(g, mat)
@@ -413,15 +546,76 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   // sondas e custa 210 mil triângulos a menos que 18.
   const PASSO = 24
 
-  const chao = new Fita()
+  // ── as fitas: uma por superfície no look 2, uma só no look 1 ─────────────
+  //
+  // ⚠️ A DECISÃO DE MATERIAL, MEDIDA ANTES DE ESCOLHER. O look 1 desenha a rua
+  // inteira com UM MeshStandardMaterial e cor por vértice: 14 malhas no grupo
+  // `vias` (1 chão + 1 guia + 12 marcas), 206.594 triângulos. Vestir esse
+  // material único com 'asfalto' não é uma opção defensável, e não é questão de
+  // gosto: um material carrega UM albedo, UM normal e UMA rugosidade, então a
+  // calçada receberia grão de asfalto e o canteiro central também. A cor por
+  // vértice só multiplicaria o mesmo mapa em três tons, que é literalmente o que
+  // a rua já faz hoje, com uma foto de asfalto por cima.
+  //
+  // O custo do caminho separado foi medido, não estimado: chamada de desenho no
+  // three é por MALHA, não por material, e o chão vira 3 malhas em vez de 1. Com
+  // a guia partida em duas (ver abaixo) o grupo sai de 14 para 17 malhas, ou
+  // seja +3 chamadas num orçamento de 442: 0,7%. Programa compilado, que é o
+  // recurso de verdade escasso aqui (402 na vista alta), NÃO cresce: os quatro
+  // materiais vestidos têm exatamente os mesmos defines (map + normalMap +
+  // roughnessMap, sem vertexColors) e todos declaram a mesma
+  // `customProgramCacheKey` de `quebrarRepeticao`, então o three compila um só.
+  //
+  // ⚠️ E A COR POR VÉRTICE SAI DE CENA NO LOOK 2, não fica clareada. O BRIEFING
+  // avisa que cor de material e cor por vértice MULTIPLICAM o mapa; a saída
+  // "clareia as cores para perto do branco" só faz sentido se as três superfícies
+  // dividissem uma textura, e elas não dividem mais. Cada fita é de uma
+  // superfície só, então a cor é do material e o atributo nem é gerado.
+  const ESC: Record<'asfalto' | 'calcada' | 'campo' | 'pedra', number> = look2
+    ? { asfalto: superficie('asfalto').metros, calcada: superficie('calcada').metros,
+        campo: superficie('campo').metros, pedra: superficie('pedra').metros }
+    : { asfalto: 0, calcada: 0, campo: 0, pedra: 0 }
+
+  const chao = new Fita()                                   // look 1: tudo aqui
+  const fPista = new Fita(ESC.asfalto, false)
+  const fCalcada = new Fita(ESC.calcada, false)
+  const fCanteiro = new Fita(ESC.campo, false)
+  /** para onde vai um quad de chão, conforme o look */
+  const fitaDe = (alvo: Alvo): Fita => {
+    if (!look2) return chao
+    if (alvo === 'calcada') return fCalcada
+    if (alvo === 'canteiro') return fCanteiro
+    return fPista                                            // pista, plato, marca
+  }
+
   // ⚠️ A GUIA VAI NUMA MALHA SÓ DELA, E NÃO É CAPRICHO: ela é a única coisa da
   // rua que PODE lançar sombra. Chão plano lançando sombra em chão plano com o
   // sol a 16 graus é a receita da acne de sombra (o gradiente de profundidade
   // por texel fica enorme na luz rasante, e o texel aqui mede de 0,88 a 3,5 m).
   // Duas malhas com o MESMO material custam 1 chamada de desenho a mais e zero
   // material, que é o recurso escasso desta cena.
-  const guia = new Fita()
+  const guia = new Fita(ESC.pedra, !look2)
+  // ⚠️ E NO LOOK 2 ELA VIRA DUAS, PARA A SOMBRA NÃO TRIPLICAR DE PREÇO. O perfil
+  // novo tem 4 quads por junta em vez de 1, mas só UM deles é vertical. Sarjeta,
+  // chanfro e topo são planos quase deitados e lançar sombra deles é exatamente
+  // a acne que a nota acima descreve. Separadas, a malha que projeta sombra fica
+  // com a MESMA contagem de triângulos que tinha antes desta rodada, e o custo
+  // do meio-fio novo é 1 chamada de desenho, zero no mapa de sombra.
+  const guiaPiso = new Fita(ESC.pedra, !look2)
   let metros = 0
+
+  // ── a máscara da via, pintada durante o desenho ─────────────────────────
+  // Ver a nota longa nas constantes MASC_*. Os quads são acumulados aqui e
+  // rasterizados de uma vez no fim, o que permite MEDIR o preenchimento em ms
+  // sem chamar `performance.now()` cem mil vezes dentro do laço de geometria.
+  const mascara = new Uint8Array((MASC_N * MASC_N) >> 3)
+  const quadsVia: number[] = []
+  const marcarVia = (ax: number, az: number, bx: number, bz: number,
+                     cx: number, cz: number, dx: number, dz: number) => {
+    quadsVia.push(ax, az, bx, bz, cx, cz, dx, dz)
+  }
+  /** pista e calçada entram; canteiro NÃO, é onde a arborização de eixo planta */
+  const mascaravel = (alvo: Alvo) => alvo === 'pista' || alvo === 'calcada' || alvo === 'plato'
 
   // ── A PONTE ───────────────────────────────────────────────────────────────
   //
@@ -445,6 +639,77 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   const DECK = COTA_AG + GABARITO
   const cotaVia = (x: number, z: number) => Math.max(o.heightAt(x, z), DECK)
   const sobreAgua = (x: number, z: number) => o.heightAt(x, z) < COTA_AG + 0.5
+
+  // ── as três peças do meio-fio (look 2) ───────────────────────────────────
+  /** um quad DEITADO entre dois offsets da seção, assentado no terreno */
+  const deitado = (
+    fita: Fita, oa: number, ob: number, sa: number, sb: number,
+    ax: number, az: number, bx: number, bz: number,
+    px: number, pz: number, esc: number, vA: number, vB: number,
+  ) => {
+    // ⚠️ A ORDEM É A MESMA DE `faixa`: menor offset, maior offset, e só então ao
+    // longo da via. Inverter devolve normal para baixo e o quad some no culling,
+    // que é a armadilha registrada em pracas.ts:98 e na seção 2b daqui.
+    const de = Math.min(oa, ob), ate = Math.max(oa, ob)
+    const sde = oa <= ob ? sa : sb, sate = oa <= ob ? sb : sa
+    const pax = ax + px * de, paz = az + pz * de
+    const pbx = ax + px * ate, pbz = az + pz * ate
+    const pcx = bx + px * ate, pcz = bz + pz * ate
+    const pdx = bx + px * de, pdz = bz + pz * de
+    fita.comUV(de / esc, vA / esc, ate / esc, vA / esc, ate / esc, vB / esc, de / esc, vB / esc)
+      .add(COR.meiofio,
+        pax, cotaVia(pax, paz) + sde, paz,
+        pbx, cotaVia(pbx, pbz) + sate, pbz,
+        pcx, cotaVia(pcx, pcz) + sate, pcz,
+        pdx, cotaVia(pdx, pdz) + sde, pdz)
+  }
+
+  /**
+   * Uma face VERTICAL virada para (nx,nz).
+   *
+   * ⚠️ E ESTE É O DEFEITO QUE FAZIA A GUIA ANTIGA NÃO TER SOMBRA LEGÍVEL. Ela era
+   * emitida sempre na mesma ordem de vértices, sem olhar de que lado da seção
+   * está a pista: numa seção como SEC_RUA, que tem calçada dos DOIS lados, a
+   * junta de baixo e a de cima têm a pista em sentidos opostos, então metade das
+   * guias da cidade nascia com a normal virada para dentro do lote e o
+   * `side: FrontSide` do material simplesmente não a desenhava. Aqui o sentido é
+   * escolhido pelo produto vetorial e a face olha sempre para o asfalto.
+   */
+  const paredeVert = (
+    fita: Fita, ax: number, az: number, bx: number, bz: number,
+    yaB: number, yaT: number, ybB: number, ybT: number,
+    nx: number, nz: number,
+  ) => {
+    const dx = bx - ax, dz = bz - az
+    if (dx * nz - dz * nx > 0) {
+      fita.addV(COR.meiofio, ax, yaB, az, bx, ybB, bz, bx, ybT, bz, ax, yaT, az)
+    } else {
+      fita.addV(COR.meiofio, bx, ybB, bz, ax, yaB, az, ax, yaT, az, bx, ybT, bz)
+    }
+  }
+
+  /** o perfil inteiro da guia numa junta da seção: sarjeta, face, chanfro, topo */
+  const meioFio = (
+    ax: number, az: number, bx: number, bz: number,
+    off: number, lado: number, baixo: number, alto: number,
+    px: number, pz: number, vA: number, vB: number,
+  ) => {
+    const esc = ESC.pedra || 1
+    const yT = alto + CB_LIP
+    deitado(guiaPiso, off - lado * CB_SARJETA, off, baixo + FOLGA, baixo + FOLGA,
+            ax, az, bx, bz, px, pz, esc, vA, vB)
+    deitado(guiaPiso, off, off + lado * CB_CHANFRO, yT - CB_CHANFRO, yT,
+            ax, az, bx, bz, px, pz, esc, vA, vB)
+    deitado(guiaPiso, off + lado * CB_CHANFRO, off + lado * CB_TOPO, yT, yT,
+            ax, az, bx, bz, px, pz, esc, vA, vB)
+    const fx0 = ax + px * off, fz0 = az + pz * off
+    const fx1 = bx + px * off, fz1 = bz + pz * off
+    const h0 = cotaVia(fx0, fz0), h1 = cotaVia(fx1, fz1)
+    paredeVert(guia, fx0, fz0, fx1, fz1,
+               h0 + baixo, h0 + yT - CB_CHANFRO,
+               h1 + baixo, h1 + yT - CB_CHANFRO,
+               -lado * px, -lado * pz)
+  }
 
   // ── o gerador de faixa: um eixo, uma seção, o relevo de verdade ───────────
   // A linha t=0 é a BORDA da via, não o eixo: é assim que a seção fica escrita
@@ -486,27 +751,45 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
       if (respeitaBulevar && noBulevar(mx, mz)) continue
       desenhado[k] = true
       metros += Math.hypot(x1 - x0, z1 - z0)
+      // ⚠️ O v DO UV É O METRO AO LONGO DA VIA, CONTADO DO INÍCIO DO TRILHO, e
+      // não o t normalizado: com t o ladrilho esticaria conforme o comprimento do
+      // trecho e a emenda entre dois passos apareceria como salto de escala.
+      const vA = t0 * comp, vB = t1 * comp
       for (let i = 0; i < secao.length; i++) {
         const s = secao[i]
         const pax = x0 + perpX * s.de, paz = z0 + perpZ * s.de
         const pbx = x0 + perpX * s.ate, pbz = z0 + perpZ * s.ate
         const pcx = x1 + perpX * s.ate, pcz = z1 + perpZ * s.ate
         const pdx = x1 + perpX * s.de, pdz = z1 + perpZ * s.de
-        chao.add(COR[s.alvo],
-          pax, cotaVia(pax, paz) + s.alt, paz,
-          pbx, cotaVia(pbx, pbz) + s.alt, pbz,
-          pcx, cotaVia(pcx, pcz) + s.alt, pcz,
-          pdx, cotaVia(pdx, pdz) + s.alt, pdz,
-        )
-        // a face vertical do meio-fio, no degrau entre esta banda e a próxima
+        const ft = fitaDe(s.alvo)
+        const esc = ft.escala || 1
+        ft.comUV(s.de / esc, vA / esc, s.ate / esc, vA / esc,
+                 s.ate / esc, vB / esc, s.de / esc, vB / esc)
+          .add(COR[s.alvo],
+            pax, cotaVia(pax, paz) + s.alt, paz,
+            pbx, cotaVia(pbx, pbz) + s.alt, pbz,
+            pcx, cotaVia(pcx, pcz) + s.alt, pcz,
+            pdx, cotaVia(pdx, pdz) + s.alt, pdz,
+          )
+        // ⚠️ A MÁSCARA SÓ CONHECE O QUE SAIU. Estamos DEPOIS de todos os
+        // `continue` deste passo, ou seja `desenhado[k]` já é true: marcar antes
+        // deles cobriria rua que a baía, a borda ou a avenida cortaram, e a
+        // arborização deixaria de plantar num terreno vazio.
+        if (mascaravel(s.alvo)) marcarVia(pax, paz, pbx, pbz, pcx, pcz, pdx, pdz)
+        // o meio-fio, no degrau entre esta banda e a próxima
         const prox = secao[i + 1]
         if (prox && prox.alt !== s.alt) {
           const alto = Math.max(s.alt, prox.alt), baixo = Math.min(s.alt, prox.alt)
-          const h0 = cotaVia(pbx, pbz), h1 = cotaVia(pcx, pcz)
-          guia.add(COR.meiofio,
-            pbx, h0 + baixo, pbz, pbx, h0 + alto, pbz,
-            pcx, h1 + alto, pcz, pcx, h1 + baixo, pcz,
-          )
+          if (look2) {
+            meioFio(x0, z0, x1, z1, s.ate, prox.alt > s.alt ? 1 : -1,
+                    baixo, alto, perpX, perpZ, vA, vB)
+          } else {
+            const h0 = cotaVia(pbx, pbz), h1 = cotaVia(pcx, pcz)
+            guia.add(COR.meiofio,
+              pbx, h0 + baixo, pbz, pbx, h0 + alto, pbz,
+              pcx, h1 + alto, pcz, pcx, h1 + baixo, pcz,
+            )
+          }
         }
         // ⚠️ O PARAPEITO SÓ EXISTE SOBRE A ÁGUA, e é ele que faz a travessia LER
         // como ponte em vez de aterro. 1,1 m, nas duas bordas da seção.
@@ -514,7 +797,7 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
           const bx2 = i === 0 ? pax : pbx, bz2 = i === 0 ? paz : pbz
           const cx2 = i === 0 ? pdx : pcx, cz2 = i === 0 ? pdz : pcz
           const y0 = cotaVia(bx2, bz2) + s.alt, y1 = cotaVia(cx2, cz2) + s.alt
-          guia.add(COR.meiofio,
+          guia.addV(COR.meiofio,
             bx2, y0, bz2, bx2, y0 + 1.1, bz2,
             cx2, y1 + 1.1, cz2, cx2, y1, cz2,
           )
@@ -522,7 +805,7 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
           if (i === 0 && k % 2 === 0) {
             const fundo = o.heightAt(bx2, bz2)
             const lx = perpX * 2.2, lz = perpZ * 2.2
-            guia.add(COR.meiofio,
+            guia.addV(COR.meiofio,
               bx2 - lx, fundo, bz2 - lz, bx2 - lx, y0, bz2 - lz,
               bx2 + lx, y0, bz2 + lz, bx2 + lx, fundo, bz2 + lz,
             )
@@ -659,7 +942,12 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
                      b.x1 - perpX * larg / 2, b.z1 - perpZ * larg / 2,
                      perpX, perpZ, secao, false)
 
-    const fita = new Fita()
+    // ⚠️ A MARCA NÃO GANHA TEXTURA, E É DECISÃO, NÃO ESQUECIMENTO. Ela é tinta
+    // de 0,60 m de largura sobre asfalto: qualquer ladrilho de 4 a 9 m dentro
+    // dela é um borrão, e vesti-la custaria um material com defines diferentes,
+    // ou seja um programa novo. Ela fica chapada, com a rugosidade um pouco mais
+    // baixa que a da pista, que é o que a tinta faz de verdade na luz rasante.
+    const fita = new Fita(0, !look2)
     // as duas pistas do bulevar: bandas 1 e 3 da seção
     const pistas = [secao[1], secao[3]]
 
@@ -816,6 +1104,8 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
         // as quatro pontas da corda, nos dois raios da banda
         const [A0x, A0z] = pt(ra, a0), [A1x, A1z] = pt(ra, a1)
         const [B0x, B0z] = pt(rb, a0), [B1x, B1z] = pt(rb, a1)
+        // o comprimento da corda deste lado: é ele que dá o v do UV em metros
+        const cordaL = Math.hypot(A1x - A0x, A1z - A0z)
         for (let t = 0; t < NSUB; t++) {
           const u0 = t / NSUB, u1 = (t + 1) / NSUB
           const ax = A0x + (A1x - A0x) * u0, az = A0z + (A1z - A0z) * u0
@@ -831,19 +1121,41 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
           // ordem natural de escrever (raio, depois ângulo) dá normal para BAIXO
           // e o backface culling apaga o anel inteiro. Mesma armadilha de
           // pracas.ts:98.
-          chao.add(COR[b.alvo],
-            // ⚠️ `cotaVia`, NÃO `heightAt`: sobre a baía o anel viria assentado
-            // no LEITO, 50 m debaixo da lâmina. Ver a nota da ponte lá em cima.
-            ax, cotaVia(ax, az) + b.alt, az,
-            dx, cotaVia(dx, dz) + b.alt, dz,
-            cx, cotaVia(cx, cz) + b.alt, cz,
-            bx, cotaVia(bx, bz) + b.alt, bz)
+          // ⚠️ NO ANEL O u DO UV É O RAIO E O v É O ARCO, que é a mesma
+          // convenção da avenida (u = seção, v = comprimento) girada 90 graus. Com
+          // projeção XZ o sulco de roda do asfalto cortaria o anel na diagonal
+          // em todos os lados do dodecágono menos dois.
+          const ft = fitaDe(b.alvo)
+          const esc = ft.escala || 1
+          const vA = u0 * cordaL, vB = u1 * cordaL
+          ft.comUV(b.de / esc, vA / esc, b.de / esc, vB / esc,
+                   b.ate / esc, vB / esc, b.ate / esc, vA / esc)
+            .add(COR[b.alvo],
+              // ⚠️ `cotaVia`, NÃO `heightAt`: sobre a baía o anel viria assentado
+              // no LEITO, 50 m debaixo da lâmina. Ver a nota da ponte lá em cima.
+              ax, cotaVia(ax, az) + b.alt, az,
+              dx, cotaVia(dx, dz) + b.alt, dz,
+              cx, cotaVia(cx, cz) + b.alt, cz,
+              bx, cotaVia(bx, bz) + b.alt, bz)
+          if (mascaravel(b.alvo)) marcarVia(ax, az, dx, dz, cx, cz, bx, bz)
           const prox = secao[i + 1]
           if (prox && prox.alt !== b.alt) {
             const alto = Math.max(b.alt, prox.alt), baixo = Math.min(b.alt, prox.alt)
-            const h0 = cotaVia(bx, bz), h1 = cotaVia(cx, cz)
-            guia.add(COR.meiofio, bx, h0 + baixo, bz, bx, h0 + alto, bz,
-                     cx, h1 + alto, cz, cx, h1 + baixo, cz)
+            if (look2) {
+              // ⚠️ A PERPENDICULAR DO ANEL É O RAIO, e ela é tomada no MEIO do
+              // subtrecho. Os dois extremos têm raios ligeiramente diferentes,
+              // mas o subtrecho tem no máximo 24 m sobre um raio de 1.750 m ou
+              // mais (0,8 grau): a diferença sobre os 0,40 m da sarjeta é
+              // milimétrica e uma normal só evita quebrar a guia em leque.
+              const mxr = (bx + cx) / 2, mzr = (bz + cz) / 2
+              const hr = Math.hypot(mxr, mzr) || 1
+              meioFio(bx, bz, cx, cz, 0, prox.alt > b.alt ? 1 : -1,
+                      baixo, alto, mxr / hr, mzr / hr, vA, vB)
+            } else {
+              const h0 = cotaVia(bx, bz), h1 = cotaVia(cx, cz)
+              guia.add(COR.meiofio, bx, h0 + baixo, bz, bx, h0 + alto, bz,
+                       cx, h1 + alto, cz, cx, h1 + baixo, cz)
+            }
           }
         }
       }
@@ -868,11 +1180,18 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
           const P = (rr: number, aa: number) => [cx + Math.sin(aa) * rr, cz - Math.cos(aa) * rr] as const
           const [ax, az] = P(ra, a0), [dx2, dz2] = P(ra, a1)
           const [cx2, cz2] = P(rb, a1), [bx2, bz2] = P(rb, a0)
-          chao.add(COR[alvo],
+          // ⚠️ A ROTATÓRIA FICA COM A PROJEÇÃO XZ E ESTÁ CERTO ASSIM: ela é um
+          // disco, não tem "ao longo da via", e qualquer UV direcional
+          // escolheria arbitrariamente um dos doze sentidos que chegam nela.
+          fitaDe(alvo).add(COR[alvo],
             ax, o.heightAt(ax, az) + alt, az,
             dx2, o.heightAt(dx2, dz2) + alt, dz2,
             cx2, o.heightAt(cx2, cz2) + alt, cz2,
             bx2, o.heightAt(bx2, bz2) + alt, bz2)
+          // ⚠️ AS 46 ROTATÓRIAS ERAM O MAIOR BURACO DA MÁSCARA ANTIGA: um disco
+          // de 80 m de asfalto em cada cruzamento anel × avenida, e nem
+          // `emAvenida` nem o teste de raio do anel sabiam que ele existia.
+          if (mascaravel(alvo)) marcarVia(ax, az, dx2, dz2, cx2, cz2, bx2, bz2)
         }
       }
     }
@@ -884,35 +1203,92 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   // PROGRAMA: a vista de topo compila 228 programas e o teto da rodada é 235.
   // Com cor por vértice, acrescentar cor à rua (a marca branca, por exemplo)
   // passou a custar zero material.
+  const mats: THREE.Material[] = []
+  /** um material de chão vestido com uma superfície de `materiais.ts` */
+  const vestido = (nome: Superficie, tinta: string, forcaNormal = 1, macroM = 140) => {
+    // ⚠️ `mundo = 1` NÃO É ENGANO. `vestir` calcula `repeat = max(1, mundo/metros)`
+    // e o piso desse `max` é 1, então não existe repeat menor que a unidade: quem
+    // divide pelo lado do ladrilho é o UV que a Fita gerou. Passar aqui o tamanho
+    // do chão em metros, que é o uso normal documentado no BRIEFING, repetiria a
+    // textura mais de mil vezes por ladrilho.
+    // ⚠️ A TINTA É QUASE BRANCA PORQUE COR DE MATERIAL MULTIPLICA O MAPA. O valor
+    // que o olho lê agora vem da receita, não do hex: 'asfalto' entrega base 53
+    // em 255, mais escuro que o #57534B (87) que a rua tinha, o que só AUMENTA a
+    // separação pista/calçada que a paleta persegue.
+    const m = new THREE.MeshStandardMaterial({ color: tinta, roughness: 1, metalness: 0 })
+    m.name = `via:${nome}`
+    vestir(m, nome, 1, { normal: forcaNormal, macroMetros: macroM })
+    mats.push(m)
+    return m
+  }
+
+  // ⚠️ NO LOOK 1 NADA MUDA: um material, cor por vértice, as mesmas 14 malhas.
+  // ⚠️ ANTES ERAM 4 MATERIAIS E 4 CHAMADAS. O limite real desta cena não é
+  // triângulo nem chamada de desenho (373 numa GTX 1650 é folga), é MATERIAL e
+  // PROGRAMA: a vista de topo compila 228 programas e o teto da rodada é 235.
   const mat = new THREE.MeshStandardMaterial({
     vertexColors: true, roughness: 0.95, metalness: 0,
   })
   mat.name = 'via'
+  mats.push(mat)
+
+  // ⚠️ macroMetros MENOR NA CALÇADA (60) QUE NO ASFALTO (90) porque a calçada
+  // tem junta de laje a cada 6 m: um ruído de mundo de 140 m sobre um desenho de
+  // 6 m não quebra grade nenhuma, só clareia manchas do tamanho de um quarteirão.
+  const matPista = look2 ? vestido('asfalto', '#F5EFE4', 1.0, 90) : mat
+  const matCalcada = look2 ? vestido('calcada', '#FFFFFF', 0.95, 60) : mat
+  const matCanteiro = look2 ? vestido('campo', '#FFFFFF', 1.1, 120) : mat
+  const matGuia = look2 ? vestido('pedra', '#FFFFFF', 1.0, 70) : mat
+  const matMarca = look2
+    ? (() => {
+        const m = new THREE.MeshStandardMaterial({ color: COR_MARCA, roughness: 0.72, metalness: 0 })
+        m.name = 'via:marca'
+        mats.push(m)
+        return m
+      })()
+    : mat
+
   const feitas: THREE.Mesh[] = []
-  const piso = chao.malha(mat, 'via:chao')
-  piso.receiveShadow = true
-  piso.castShadow = false
-  piso.frustumCulled = false
-  group.add(piso)
-  feitas.push(piso)
+  const porChao: [Fita, THREE.Material, string][] = look2
+    ? [[fPista, matPista, 'via:pista'], [fCalcada, matCalcada, 'via:calcada'],
+       [fCanteiro, matCanteiro, 'via:canteiro']]
+    : [[chao, mat, 'via:chao']]
+  for (const [f, mm, nome] of porChao) {
+    if (f.vazia) continue
+    const piso = f.malha(mm, nome)
+    piso.receiveShadow = true
+    piso.castShadow = false
+    piso.frustumCulled = false
+    group.add(piso)
+    feitas.push(piso)
+  }
 
   // ⚠️ A SOMBRA DA RUA É A FACE DO MEIO-FIO, e ela é o único relevo que a seção
   // tem. Com plaza-scene.tsx em normalBias 1,2 (o valor antigo) ela não aparece:
   // medido, 1,2 apaga 97% da sombra de um degrau desta ordem. Quem for conferir
   // o relevo tem de estar com o normalBias 0,15 da spec 6.2.
   if (!guia.vazia) {
-    const gm = guia.malha(mat, 'via:guia')
+    const gm = guia.malha(matGuia, 'via:guia')
     gm.receiveShadow = true
     gm.castShadow = o.sombra ?? true
     gm.frustumCulled = false
     group.add(gm)
     feitas.push(gm)
   }
+  // sarjeta, chanfro e topo: mesmo material da face, sombra desligada
+  if (!guiaPiso.vazia) {
+    const gp = guiaPiso.malha(matGuia, 'via:guia:piso')
+    gp.receiveShadow = true
+    gp.castShadow = false
+    gp.frustumCulled = false
+    group.add(gp)
+    feitas.push(gp)
+  }
 
   const marcaMeshes: THREE.Mesh[] = []
   for (let i = 0; i < marcas.length; i++) {
-    const m = marcas[i].fita.malha(mat, `via:marca:${malha.bulevares[i]?.id ?? i}`)
-    m.receiveShadow = true          // mesmo material e mesma permutação de programa do piso
+    const m = marcas[i].fita.malha(matMarca, `via:marca:${malha.bulevares[i]?.id ?? i}`)
+    m.receiveShadow = true
     m.castShadow = false            // 2 cm de tinta não lançam sombra
     m.frustumCulled = true
     group.add(m)
@@ -921,7 +1297,67 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     o.culler?.add(m, MARCA_CULL, marcas[i].centro)
   }
 
-  const triangulos = chao.triangulos + guia.triangulos + marcas.reduce((s, m) => s + m.fita.triangulos, 0)
+  const triangulos = chao.triangulos + fPista.triangulos + fCalcada.triangulos
+    + fCanteiro.triangulos + guia.triangulos + guiaPiso.triangulos
+    + marcas.reduce((s, m) => s + m.fita.triangulos, 0)
+
+  // ── a máscara: rasteriza tudo de uma vez e mede ──────────────────────────
+  // ⚠️ RASTERIZAR NO FIM, E NÃO DENTRO DO LAÇO DE GEOMETRIA, TEM DOIS MOTIVOS. O
+  // primeiro é MEDIR: dois `performance.now()` em volta de um laço só, em vez de
+  // cem mil chamadas de relógio de 30 a 50 ns dentro do desenho, que sozinhas
+  // custariam mais que o trabalho. O segundo é localidade: um laço que só escreve
+  // bit num Uint8Array de 2 MB roda em cache, enquanto intercalado com `cotaVia`
+  // e `push` de vértice ele briga por linha de cache com tudo.
+  const tMasc = performance.now()
+  for (let q = 0; q < quadsVia.length; q += 8) {
+    const ax = quadsVia[q], az = quadsVia[q + 1]
+    const bx = quadsVia[q + 2], bz = quadsVia[q + 3]
+    const cx = quadsVia[q + 4], cz = quadsVia[q + 5]
+    const dx = quadsVia[q + 6], dz = quadsVia[q + 7]
+    const l1 = Math.max(Math.hypot(bx - ax, bz - az), Math.hypot(cx - dx, cz - dz))
+    const l2 = Math.max(Math.hypot(dx - ax, dz - az), Math.hypot(cx - bx, cz - bz))
+    const n1 = Math.max(1, Math.ceil(l1 / MASC_PASSO))
+    const n2 = Math.max(1, Math.ceil(l2 / MASC_PASSO))
+    for (let i = 0; i <= n1; i++) {
+      const u = i / n1
+      const p0x = ax + (bx - ax) * u, p0z = az + (bz - az) * u
+      const p1x = dx + (cx - dx) * u, p1z = dz + (cz - dz) * u
+      for (let j = 0; j <= n2; j++) {
+        const v = j / n2
+        const gx = (p0x + (p1x - p0x) * v) / MASC_CEL + MASC_MEIO
+        const gz = (p0z + (p1z - p0z) * v) / MASC_CEL + MASC_MEIO
+        if (gx < 0 || gz < 0 || gx >= MASC_N || gz >= MASC_N) continue
+        const bit = ((gz | 0) << 12) | (gx | 0)
+        mascara[bit >> 3] |= 1 << (bit & 7)
+      }
+    }
+  }
+  const mascaraMs = performance.now() - tMasc
+  quadsVia.length = 0
+
+  const naVia = (x: number, z: number, folga = 0): boolean => {
+    const f = folga > 0 ? folga : 0
+    let i0 = Math.floor((x - f) / MASC_CEL) + MASC_MEIO
+    let i1 = Math.floor((x + f) / MASC_CEL) + MASC_MEIO
+    let j0 = Math.floor((z - f) / MASC_CEL) + MASC_MEIO
+    let j1 = Math.floor((z + f) / MASC_CEL) + MASC_MEIO
+    if (i1 < 0 || j1 < 0 || i0 >= MASC_N || j0 >= MASC_N) return false
+    if (i0 < 0) i0 = 0
+    if (j0 < 0) j0 = 0
+    if (i1 >= MASC_N) i1 = MASC_N - 1
+    if (j1 >= MASC_N) j1 = MASC_N - 1
+    // ⚠️ O LAÇO É O(1) AMORTIZADO E TEM DE CONTINUAR SENDO. Com a folga de 3 a 6 m
+    // que a arborização usa, isto varre de 4 a 9 células; a folga não é um raio
+    // qualquer, e pedir 200 m aqui varreria 2.500 células por consulta.
+    for (let j = j0; j <= j1; j++) {
+      const base = j << 12
+      for (let i = i0; i <= i1; i++) {
+        const bit = base | i
+        if (mascara[bit >> 3] & (1 << (bit & 7))) return true
+      }
+    }
+    return false
+  }
 
   return {
     group,
@@ -935,6 +1371,8 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     faixas: faixasPed,
     triangulos,
     metrosDeVia: Math.round(metros),
+    naVia,
+    mascaraMs,
     update(cam: THREE.Vector3) {
       for (let i = 0; i < marcaMeshes.length; i++) {
         const on = cam.distanceTo(marcas[i].centro) < MARCA_CULL
@@ -943,7 +1381,11 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     },
     dispose() {
       for (const m of feitas) m.geometry.dispose()
-      mat.dispose()
+      // ⚠️ TODOS OS MATERIAIS, não só o antigo `mat`: o look 2 cria cinco. Cada um
+      // segura três clones de textura (map, normal, roughness) e o clone morre
+      // com ele; a IMAGEM na GPU é compartilhada por `materiais.ts` e não é
+      // liberada aqui, que é o certo, senão a próxima cena regenera 512² à toa.
+      for (const m of mats) m.dispose()
       group.clear()
     },
   }
