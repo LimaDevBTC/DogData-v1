@@ -77,7 +77,20 @@ export const SF = {
 /** Carrega um GLB e devolve a cena, ou null se faltar (a praça nunca quebra por
  *  causa de um adereço). */
 export function loadSf(gltf: GLTFLoader, url: string): Promise<THREE.Object3D | null> {
-  return new Promise((res) => gltf.load(url, (g) => res(g.scene), undefined, () => { console.warn('[plaza] asset ausente', url); res(null) }))
+  // ⚠️ ESTE AVISO DIZIA "asset ausente" E MENTIA. Ele nasce no `onError` do
+  // GLTFLoader, que dispara tanto quando o arquivo não existe quanto quando ele
+  // existe e a DECODIFICAÇÃO falha, e as duas coisas não têm o mesmo conserto.
+  // Medido em 01/09: `/city/sf/torch-pillar.glb` e `/city/sf/pedestal.glb`
+  // avisavam "ausente" enquanto o dev server respondia 200 com 83.464 e 32.160
+  // bytes, e os dois arquivos estavam íntegros (glTF 2, chunk JSON válido,
+  // Draco + EXT_texture_webp, iguais em espécie aos que carregam bem). Ou seja o
+  // aviso mandava a próxima pessoa procurar um arquivo que estava lá.
+  // Agora ele carrega o erro junto, que é a única informação que separa os dois
+  // casos.
+  return new Promise((res) => gltf.load(url, (g) => res(g.scene), undefined, (err) => {
+    console.warn('[plaza] asset não carregou', url, err instanceof Error ? err.message : err)
+    res(null)
+  }))
 }
 
 /** A primeira geometria de uma cena, já no quadro do mundo dela (os modelos vêm

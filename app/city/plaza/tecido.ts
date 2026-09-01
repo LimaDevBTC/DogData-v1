@@ -35,6 +35,8 @@
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
 import { buildPecas, type Peca } from './pecas'
+import { look2 } from './look'
+import { vestir } from './materiais'
 
 export interface TecidoOpts {
   heightAt: (x: number, z: number) => number
@@ -115,6 +117,22 @@ export async function buildTecido(o: TecidoOpts): Promise<Tecido> {
   const geo = new THREE.BoxGeometry(1, 1, 1)
   geo.translate(0, 0.5, 0)          // pivô no pé: a massa cresce do chão para cima
   const mat = new THREE.MeshStandardMaterial({ roughness: 0.88, metalness: 0.0 })
+  // ⚠️ AQUI A COR POR INSTÂNCIA GANHOU, E ELA MULTIPLICA O MAPA IGUALZINHO À COR
+  // POR VÉRTICE. A maquete tem uma paleta de clay MEDIDA (PEDRA, L 0,65, a nota
+  // logo acima diz por quê); vestir com o albedo de 'concreto' multiplicaria
+  // 0,48 linear por 0,33 e devolveria a cidade a 0,16, ou seja desfazendo o
+  // ajuste de valor que já custou uma rodada. E clarear a paleta pra compensar
+  // não fecha: o fator seria 3,07 e estoura em 1.
+  // Por isso o albedo do mapa SAI e ficam o normal e a rugosidade. Isso é o que
+  // a maquete precisava mesmo: relevo de fôrma e resposta de luz não uniforme,
+  // com o valor do clay intacto.
+  // ⚠️ SÓ VALE NOS MODOS 'lote' E 'massa'. Em 'obra', que é o padrão, este
+  // material não vai a lugar nenhum, porque o laço abaixo nem roda.
+  if (look2 && modo !== 'obra') {
+    vestir(mat, 'concreto', 12, { normal: 0.9, macro: false })
+    mat.map = null
+    mat.needsUpdate = true
+  }
   // ⚠️ UMA MALHA POR SETOR, E NÃO UMA SÓ, PORQUE O FRUSTUM PRECISA DE UMA ESFERA
   // QUE SIRVA DE TESTE. Com os 52.984 lotes numa InstancedMesh única, a esfera
   // envolvente dela tem raio de 6.894 m e cobre a cidade inteira: ela intersecta

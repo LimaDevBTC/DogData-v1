@@ -39,6 +39,20 @@
 // Three.js puro (regra da casa: nada de react-three-fiber).
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
+import { look2 } from './look'
+import { superficie } from './materiais'
+
+/** metros de mundo por ladrilho no miolo do lote. ⚠️ NÃO PASSA POR `vestir`:
+ *  este material já tem `onBeforeCompile` próprio e o UV dele é o do quad, ou
+ *  seja 0..1 sobre um lote que vai de 6 a 168 m de testada. Vestir por aí
+ *  esticaria a textura junto com o lote e o terreno viraria uma colcha de
+ *  escalas diferentes. Aqui os UVs dos mapas são REESCRITOS em coordenada de
+ *  mundo dentro do vértice, e por isso as texturas entram cruas, com repeat 1. */
+const LOTE_METROS = 10
+/** o albedo médio de 'concreto' em linear, pra dividir e o grão ficar em torno
+ *  de 1: sem isto a paleta MIOLO (medida, ±7% de luminância) seria multiplicada
+ *  por 0,33 e todo o trabalho de contraste local iria embora. */
+const MEDIA_CONCRETO = 0.33
 
 export interface LotesMeta {
   /** graus de giro por setor; a malha do setor k está girada k * este valor */
@@ -329,6 +343,14 @@ export async function buildLotes(o: LotesOpts): Promise<Lotes> {
     transparent: true,
   })
   mat.name = 'lote'
+  if (look2) {
+    const c = superficie('concreto')
+    mat.map = c.map
+    mat.normalMap = c.normalMap
+    mat.roughnessMap = c.roughnessMap
+    mat.normalScale = new THREE.Vector2(c.normalScale, c.normalScale)
+    mat.roughness = 1
+  }
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uLabio = { value: new THREE.Color(LABIO) }
     sh.uniforms.uSulco = { value: new THREE.Color(SULCO) }
@@ -378,6 +400,20 @@ export async function buildLotes(o: LotesOpts): Promise<Lotes> {
         vTint = iTint;
         vFlag = iFlag;
         vDistCam = distance(cameraPosition, transformed);
+        // ⚠️ OS UV DOS MAPAS SÃO REESCRITOS AQUI, DEPOIS DE `uv_vertex`. O three
+        // calcula vMapUv a partir do atributo `uv` (0..1 do quad) vezes o
+        // mapTransform; varying é atribuível em qualquer ponto, então sobrescrever
+        // com o XZ de mundo dá um ladrilho de tamanho constante em toda a cidade,
+        // sem tocar no atributo compartilhado nem clonar textura.
+        #ifdef USE_MAP
+          vMapUv = wxz / ${LOTE_METROS.toFixed(1)};
+        #endif
+        #ifdef USE_NORMALMAP
+          vNormalMapUv = wxz / ${LOTE_METROS.toFixed(1)};
+        #endif
+        #ifdef USE_ROUGHNESSMAP
+          vRoughnessMapUv = wxz / ${LOTE_METROS.toFixed(1)};
+        #endif
         `,
       )
     sh.fragmentShader = sh.fragmentShader
@@ -420,6 +456,13 @@ export async function buildLotes(o: LotesOpts): Promise<Lotes> {
         vec3 corBorda = mix(uLabio, uSulco, smoothstep(0.4 - tw, 0.4 + tw, tb));
         corBorda = mix(corBorda, uAcento, ehDsc);
         diffuseColor.rgb = mix(vTint, corBorda, banda);
+        #ifdef USE_MAP
+          // o grão do concreto entra DIVIDIDO PELA MÉDIA, então ele modula em
+          // torno de 1 e a paleta MIOLO continua valendo o que foi medido. A
+          // divisa não recebe grão: ela é linha de desenho, não superfície.
+          vec3 grao = texture2D(map, vMapUv).rgb / ${MEDIA_CONCRETO.toFixed(3)};
+          diffuseColor.rgb *= mix(clamp(grao, 0.75, 1.3), vec3(1.0), banda);
+        #endif
         diffuseColor.a = mix(mix(${ALFA_MIOLO_PERTO.toFixed(2)}, 1.0, k), 1.0, banda);
         `,
       )

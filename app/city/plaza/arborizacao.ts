@@ -472,7 +472,63 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
     if (!naVia(px, pz, folga)) return false
     return propria ? !propria(px, pz) : true
   }
-  let rejVia = 0
+  let rejVia = 0, salvas = 0
+
+  // ⚠️ RECUSAR NÃO PODE SER O FIM DA HISTÓRIA, E A PRIMEIRA VERSÃO DESTA MÁSCARA
+  // ERA. Medido em 01/09, com a máscara recém-ligada: 14.633 mudas recusadas
+  // contra 19.790 plantadas, ou seja 42,5% da arborização da cidade nascia dentro
+  // do asfalto. Só que APAGAR as 14.633 deixa avenida sem fileira, e fileira de
+  // árvore de rua é o primeiro sinal de "isto é uma cidade de verdade" numa vista
+  // rasante: o remédio ficaria tão visível quanto a doença.
+  //
+  // ⚠️ O EMPURRÃO É AO LONGO DA FILEIRA, NÃO PARA QUALQUER LADO. A muda já está
+  // no recuo certo da seção (calçada a 1,07 m da guia, ou o canteiro central de
+  // 15 a 19); o que a derrubou foi uma rua ATRAVESSANDO a fileira, quase sempre
+  // uma travessa local ou a boca de uma rotatória de 40 m. Andar 4 ou 8 m no
+  // sentido da fileira sai do cruzamento e MANTÉM O ALINHAMENTO, que é justamente
+  // o cue que se quer preservar. Só se isso falhar o candidato anda de lado, e aí
+  // ele já está procurando outra calçada, não a sua.
+  //
+  // ⚠️ 12 TENTATIVAS É TETO DE BOOT, NÃO DE GOSTO: 12 consultas de grade por muda
+  // recusada, cerca de 176 mil no pior caso medido. Quem aumentar paga no tempo
+  // de subida da cidade, que já é o que o portão da praça espera.
+  //
+  // ⚠️ E O EMPURRÃO PODE ENCOSTAR DUAS MUDAS. O passo da fileira é 7,6 m e o
+  // menor empurrão é 3,8 m, então na BORDA de um cruzamento a muda salva pode
+  // parar a 3,8 m da vizinha que não precisou andar. NÃO MEDI quantas ficam
+  // assim; em fileira de rua, espaçamento irregular lê melhor do que buraco.
+  const TENTATIVAS: [number, number][] = [
+    [3.8, 0], [-3.8, 0],
+    [2.6, 2.2], [-2.6, 2.2], [2.6, -2.2], [-2.6, -2.2],
+    [7.6, 0], [-7.6, 0],
+    [0, 4.4], [0, -4.4],
+    [11.4, 0], [-11.4, 0],
+    // ⚠️ E OS QUATRO ÚLTIMOS SÃO PARA A ROTATÓRIA. Ela tem 40 m de raio: um
+    // deslize de 11,4 m não sai dela, e era ali que ficava a maior parte das
+    // mudas perdidas, bem na boca da travessia, que é onde o olho vai.
+    [15.2, 0], [-15.2, 0], [22.8, 0], [-22.8, 0],
+  ]
+  /** o ponto vale? raio, peça, água e via alheia, na ordem mais barata */
+  const vale = (px: number, pz: number, propria?: (x: number, z: number) => boolean) => {
+    const r = Math.hypot(px, pz)
+    if (r < rMin || r > rMax) return false
+    if (emPeca(px, pz)) return false
+    if (molhado(px, pz)) return false
+    return !emViaAlheia(px, pz, FOLGA_VIA, propria)
+  }
+  /** empurra a muda recusada para o ponto legal mais próximo, ao longo da fileira
+   *  (`ao`) e depois de través (`tr`). Devolve null quando não há salvação. */
+  const empurrar = (
+    x: number, z: number, ao: [number, number], tr: [number, number],
+    propria?: (px: number, pz: number) => boolean,
+  ): [number, number] | null => {
+    for (const [a, t] of TENTATIVAS) {
+      const px = x + ao[0] * a + tr[0] * t
+      const pz = z + ao[1] * a + tr[1] * t
+      if (vale(px, pz, propria)) return [px, pz]
+    }
+    return null
+  }
 
   // ⚠️ SE A CONSULTA DE ÁGUA NÃO CHEGAR, RECLAME ALTO. O defeito que ela conserta
   // é invisível no console: máscara ausente e máscara errada têm a mesma cara, e
@@ -485,14 +541,22 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
   /** `propria`: a seção de via a que esta fileira pertence, se houver. Sem ela,
    *  qualquer rua debaixo da muda a recusa. */
   const por = (x: number, z: number, forma: Forma, i: number, evitaVia = true,
-               propria?: (px: number, pz: number) => boolean) => {
+               propria?: (px: number, pz: number) => boolean,
+               ao: [number, number] = [1, 0], tr: [number, number] = [0, 1]) => {
     if (mudas.length >= TETO) return
     const r = Math.hypot(x, z)
     if (r < rMin || r > rMax) return
     if (emPeca(x, z)) return
     if (molhado(x, z)) return
     if (evitaVia && (noBulevar(x, z) || noAnel(x, z))) return
-    if (emViaAlheia(x, z, FOLGA_VIA, propria)) { rejVia++; return }
+    if (emViaAlheia(x, z, FOLGA_VIA, propria)) {
+      rejVia++
+      const p = empurrar(x, z, ao, tr, propria)
+      if (!p) return
+      salvas++
+      mudas.push(criarMuda(p[0], p[1], forma, i))
+      return
+    }
     mudas.push(criarMuda(x, z, forma, i))
   }
 
@@ -508,7 +572,16 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
     if (molhado(c.x, c.z)) continue
     // ⚠️ nem da de VIA: quem desenhou o pátio escolheu a cova, mas nenhuma peça
     // pediu uma árvore no meio de uma rua que o `vias.ts` desenhou por cima dela
-    if (emViaAlheia(c.x, c.z, FOLGA_VIA)) { rejVia++; continue }
+    if (emViaAlheia(c.x, c.z, FOLGA_VIA)) {
+      rejVia++
+      // a cova não tem fileira: o empurrão vira uma busca em anel curto
+      const p = empurrar(c.x, c.z, [1, 0], [0, 1])
+      if (!p) continue
+      salvas++
+      mudas.push(criarMuda(p[0], p[1], 'esfera', i))
+      i++
+      continue
+    }
     mudas.push(criarMuda(c.x, c.z, 'esfera', i))
     i++
   }
@@ -545,15 +618,25 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
       const d = k * PASSO_BUL
       const bx = b.x0 + dirX * d, bz = b.z0 + dirZ * d
       // cone no eixo do canteiro (t = 17 da borda, ou seja o meio)
-      por(bx, bz, 'cone', i++, false, naSecaoDoBulevar)
+      por(bx, bz, 'cone', i++, false, naSecaoDoBulevar, [dirX, dirZ], [perpX, perpZ])
       // esfera a 1,07 m da face de cada meio-fio: t = 3,93 e t = 30,07 na seção
       // de 34 m, ambos esticados por esc
       for (const t of [3.93 * esc - meia, 30.07 * esc - meia]) {
         const x = bx + perpX * t, z = bz + perpZ * t
         if (Math.hypot(x, z) < rMin || Math.hypot(x, z) > rMax) continue
         if (emPeca(x, z) || molhado(x, z)) continue
-        if (emViaAlheia(x, z, FOLGA_VIA, naSecaoDoBulevar)) { rejVia++; continue }
         if (mudas.length >= TETO) break
+        if (emViaAlheia(x, z, FOLGA_VIA, naSecaoDoBulevar)) {
+          rejVia++
+          // ⚠️ ao longo da avenida primeiro: a calçada continua depois do
+          // cruzamento, e é lá que a fileira quer estar
+          const p = empurrar(x, z, [dirX, dirZ], [perpX, perpZ], naSecaoDoBulevar)
+          if (!p) continue
+          salvas++
+          mudas.push(criarMuda(p[0], p[1], 'esfera', i))
+          i++
+          continue
+        }
         mudas.push(criarMuda(x, z, 'esfera', i))
         i++
       }
@@ -594,8 +677,35 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
       // As 46 rotatórias eram o buraco maior: `noBulevar` recusa até 3 m fora da
       // caixa da avenida, e a rotatória tem 40 m de raio, então sobrava um aro de
       // asfalto de 15 m em cada travessia onde a fileira entrava e continuava.
-      if (emViaAlheia(x, z, FOLGA_VIA, (px, pz) => Math.abs(Math.hypot(px, pz) - a.r) <= a.larg / 2)) { rejVia++; continue }
       if (mudas.length >= TETO) break
+      // ⚠️ A FAIXA PRÓPRIA DO ANEL É A CORDA, NÃO O CÍRCULO, e testar o círculo
+      // custou 12.855 árvores na primeira medição: o anel é um dodecágono desde
+      // 31/08 e o meio da aresta fica a 96,6% do raio, então `|hypot − r|` vale
+      // 3,4% do raio (235 m na Pista de Serviço) no meio de cada lado. A fileira
+      // inteira aparecia como "fora da própria faixa" e ia toda para a máscara.
+      // Aqui a distância é ao SEGMENTO P0P1, que é onde a via realmente está.
+      const noCanteiroDoAnel = (px: number, pz: number) => {
+        const ex = P1x - P0x, ez = P1z - P0z
+        const L2 = ex * ex + ez * ez
+        const u2 = L2 > 0 ? Math.max(0, Math.min(1, ((px - P0x) * ex + (pz - P0z) * ez) / L2)) : 0
+        const qx = P0x + ex * u2, qz = P0z + ez * u2
+        // e a rotatória NÃO é faixa própria do anel: ela é rua de outro dono, com
+        // 40 m de raio, e `noBulevar` só recusa 3 m fora da caixa da avenida
+        return Math.hypot(px - qx, pz - qz) <= a.larg / 2 && !emAvenida(px, pz, 18)
+      }
+      if (emViaAlheia(x, z, FOLGA_VIA, noCanteiroDoAnel)) {
+        rejVia++
+        // a fileira do anel corre pela corda: `ao` é a direção da aresta do
+        // dodecágono, `tr` é o radial
+        const cl = Math.hypot(P1x - P0x, P1z - P0z) || 1
+        const aoX = (P1x - P0x) / cl, aoZ = (P1z - P0z) / cl
+        const p = empurrar(x, z, [aoX, aoZ], [-aoZ, aoX], noCanteiroDoAnel)
+        if (!p) continue
+        salvas++
+        mudas.push(criarMuda(p[0], p[1], 'cone', i))
+        i++
+        continue
+      }
       mudas.push(criarMuda(x, z, 'cone', i))
       i++
     }
@@ -635,7 +745,7 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
     for (let k = 0; k <= n; k++) {
       const lx = -meia + k * PASSO_CONT
       const x = q.x + lx * cg - off * sg, z = q.z + lx * sg + off * cg
-      por(x, z, 'esfera', i++)
+      por(x, z, 'esfera', i++, true, undefined, [cg, sg], [-sg, cg])
     }
   }
   const doContorno = mudas.length - daCova - doBulevar - doAnel
@@ -780,7 +890,8 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
     `[arborização] ${mudas.length.toLocaleString('pt-BR')} árvores: ` +
     `${daCova.toLocaleString('pt-BR')} de cova, ${doBulevar.toLocaleString('pt-BR')} de bulevar, ` +
     `${doAnel.toLocaleString('pt-BR')} de anel, ${doContorno.toLocaleString('pt-BR')} de contorno; ` +
-    `${rejVia.toLocaleString('pt-BR')} recusadas pela máscara de via` +
+    `${rejVia.toLocaleString('pt-BR')} recusadas pela máscara de via ` +
+    `(${salvas.toLocaleString('pt-BR')} salvas pelo empurrão, ${(rejVia - salvas).toLocaleString('pt-BR')} perdidas)` +
     `${naVia ? '' : ' (MÁSCARA AUSENTE: o campo `naVia` não chegou por opts)'}` +
     `; copa cheia ${TRI_ESF}/${TRI_CON} triângulos, look ${look2 ? 2 : 1}`,
   )

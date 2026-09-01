@@ -3176,9 +3176,16 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       statsTick++
       if (wantStats && (statsTick & 15) === 0) {
         const info = renderer.info
+        // ⚠️ O CONTADOR TEM DE SER O DA CENA, E COM COMPOSER ELE NÃO ESTÁ AQUI.
+        // `renderer.info.render` zera no começo de cada `renderer.render()`, e
+        // cada passe de tela cheia do composer é um desses: lido no fim do
+        // quadro, o painel mostrava "1 calls · 1 tris", que é o quad do SMAA.
+        // `pos.medida` é a foto tirada logo depois do RenderPass, ou seja a
+        // geometria real. Sem composer, `renderer.info.render` já é isso.
+        const cena = pos?.medida ?? info.render
         const w = window as unknown as { __plazaStats?: unknown }
-        w.__plazaStats = { fps: Math.round(1000 / Math.max(1, nowMs - lastFrameAt + dt * 1000)), calls: info.render.calls, triangles: info.render.triangles, points: info.render.points, lines: info.render.lines, programs: info.programs?.length ?? 0, textures: info.memory.textures, geometries: info.memory.geometries, dpr: governor.pixelRatio, tier: profile.tier, quality: profile.quality, shadowEvery: governor.shadowEvery }
-        setHud((h) => ({ ...h, stats: `${profile.tier} · ${profile.quality} · dpr ${governor.pixelRatio.toFixed(2)} · shadow/${governor.shadowEvery} · ${info.render.calls} calls · ${(info.render.triangles / 1e6).toFixed(2)}M tris · ${Math.round(1000 / Math.max(1, dt * 1000))} fps` }))
+        w.__plazaStats = { fps: Math.round(1000 / Math.max(1, nowMs - lastFrameAt + dt * 1000)), calls: cena.calls, triangles: cena.triangles, points: cena.points, lines: cena.lines, programs: info.programs?.length ?? 0, textures: info.memory.textures, geometries: info.memory.geometries, dpr: governor.pixelRatio, tier: profile.tier, quality: profile.quality, shadowEvery: governor.shadowEvery, pos: pos?.ativo ? (pos.aoLigado ? 'composer+ao' : 'composer') : 'direto' }
+        setHud((h) => ({ ...h, stats: `${profile.tier} · ${profile.quality} · dpr ${governor.pixelRatio.toFixed(2)} · shadow/${governor.shadowEvery} · ${cena.calls} calls · ${(cena.triangles / 1e6).toFixed(2)}M tris · ${Math.round(1000 / Math.max(1, dt * 1000))} fps` }))
       }
       // the counters on the board follow the scene, twice a second
       if ((hudTick++ & 31) === 0) {

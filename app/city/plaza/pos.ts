@@ -50,6 +50,10 @@ export interface PosOpts {
   aoForca?: number
   /** escala do buffer de AO (1 = resolução cheia, 0,5 = metade) */
   aoEscala?: number
+  /** meio-lado (m) da caixa em volta da câmera dentro da qual o AO é calculado */
+  aoAlcance?: number
+  /** direções amostradas pelo GTAO (16 é o padrão do three) */
+  aoAmostras?: number
   bloomForca?: number
   bloomRaio?: number
   bloomLimiar?: number
@@ -62,6 +66,15 @@ export interface Pos {
   readonly aoLigado: boolean
   /** o que aconteceu ao montar; sai em window.__plazaPos() com ?stats=1 */
   readonly diagnostico: Record<string, unknown>
+  /**
+   * ⚠️ OS CONTADORES DA CENA, LIDOS NA HORA CERTA. `renderer.info.render` é
+   * ZERADO no começo de cada `renderer.render()`, e cada passe de tela cheia do
+   * composer é um `renderer.render()` de um quad. Quem lesse o info no fim do
+   * quadro leria o último quad: "1 chamada, 1 triângulo". Isto aqui é a foto
+   * tirada logo depois do RenderPass, ou seja a geometria REAL da cena, que é o
+   * número com que os outros módulos medem o próprio trabalho.
+   */
+  readonly medida: { calls: number; triangles: number; points: number; lines: number } | null
   render(): void
   resize(largura: number, altura: number): void
   /** o FrameGovernor (perf.ts) mexe no DPR do renderer; o composer segue */
@@ -83,10 +96,13 @@ class Composicao implements Pos {
   ativo = false
   aoLigado = false
   diagnostico: Record<string, unknown> = { estado: 'carregando' }
+  medida: { calls: number; triangles: number; points: number; lines: number } | null = null
 
   private composer: EffectComposer | null = null
   private gtao: GTAOPass | null = null
   private descartado = false
+  /** caixa de recorte do AO, refeita por quadro em volta da câmera */
+  private caixaAo = new THREE.Box3()
   private l: number
   private a: number
 
@@ -121,7 +137,17 @@ class Composicao implements Pos {
       const composer = new EC(this.renderer)
       composer.setPixelRatio(dpr)
       composer.setSize(this.l, this.a)
-      composer.addPass(new RenderPass(this.scene, this.camera))
+      const rp = new RenderPass(this.scene, this.camera)
+      // ⚠️ A FOTO DOS CONTADORES SAI DAQUI, e não do fim do quadro. Ver a nota
+      // em `medida`, na interface: o info do renderizador zera a cada
+      // `renderer.render()`, e o composer faz um por passe.
+      const rpRender = rp.render.bind(rp)
+      rp.render = (...args: Parameters<typeof rpRender>) => {
+        rpRender(...args)
+        const r = this.renderer.info.render
+        this.medida = { calls: r.calls, triangles: r.triangles, points: r.points, lines: r.lines }
+      }
+      composer.addPass(rp)
 
       // ── OCLUSÃO DE AMBIENTE ───────────────────────────────────────────────
       // O defeito nº 1 de contato da cena é que tudo encosta no chão com emenda
@@ -185,10 +211,10 @@ class Composicao implements Pos {
           distanceExponent: 1.4,
           thickness: 1.2,
           scale: 1,
-          samples: 16,
+          samples: o.aoAmostras ?? 16,
           screenSpaceRadius: false,
         })
-        gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 5, rings: 2, samples: 16 })
+        gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 5, rings: 2, samples: o.aoAmostras ?? 16 })
         gtao.blendIntensity = o.aoForca ?? 0.6
         if (modo === 'so') gtao.output = GTAO.OUTPUT.Denoise
 
@@ -243,6 +269,8 @@ class Composicao implements Pos {
         aoRaio: o.aoRaio ?? 0.9,
         aoForca: o.aoForca ?? 0.6,
         aoEscala: o.aoEscala ?? 1,
+        aoAlcance: o.aoAlcance ?? 380,
+        aoAmostras: o.aoAmostras ?? 16,
         bloom: { forca: o.bloomForca ?? 0.16, raio: o.bloomRaio ?? 0.34, limiar: o.bloomLimiar ?? 0.95 },
         logDepth: this.renderer.capabilities.logarithmicDepthBuffer,
       }
@@ -254,6 +282,36 @@ class Composicao implements Pos {
   }
 
   render() {
+    // ── A CAIXA DE RECORTE DO AO SEGUE A CÂMERA ────────────────────────────
+    //
+    // ⚠️ ISTO É O CONSERTO DO CHUVISCO NO CÉU E NA ABÓBADA, e o defeito não era
+    // o G-buffer estar sem gl_FragDepth: era PRECISÃO DE PROFUNDIDADE LONGE.
+    // Sem buffer logarítmico, a resolução do z de 24 bits vale d² / (near · 2²⁴).
+    // Nesta vista de rua o `near` está no piso de 0,3 m, então a 6 km, que é
+    // onde mora a casca da abóbada, cada degrau de z mede 36e6 / (0,3 · 1,678e7)
+    // = 7,2 m; nas estrelas mede quilômetros. O GTAO reconstrói posição de vista
+    // a partir desse z e compara o horizonte entre pixels VIZINHOS: com degraus
+    // de 7 metros numa casca lisa, vizinhos caem em degraus diferentes, o teste
+    // de horizonte alterna, e a saída é exatamente um chuvisco fino.
+    //
+    // ⚠️ E ESCREVER PROFUNDIDADE LOGARÍTMICA NO PREPASSE NÃO SERIA O CONSERTO
+    // CERTO, seria um conserto caro para um problema que não precisa existir. O
+    // raio do AO é 0,9 m de mundo: a 400 m de câmera, 0,9 m já mede menos de um
+    // pixel. Oclusão de contato a 6 km é ruído por definição, não informação.
+    //
+    // Então o AO passa a valer só dentro de uma caixa em volta da câmera. O
+    // shader do GTAO tem isso pronto (SCENE_CLIP_BOX): fora da caixa mais o
+    // raio ele DESCARTA o fragmento, e o alvo fica no branco de limpeza, que é
+    // "sem oclusão". Céu, estrelas, abóbada e horizonte saem do AO, o chuvisco
+    // some, e de quebra o laço de 16 direções deixa de rodar na maior parte da
+    // tela, que é onde estava boa parte do custo.
+    if (this.gtao) {
+      const p = this.camera.position
+      const r = this.opts.aoAlcance ?? 380
+      this.caixaAo.min.set(p.x - r, p.y - r, p.z - r)
+      this.caixaAo.max.set(p.x + r, p.y + r, p.z + r)
+      this.gtao.setSceneClipBox(this.caixaAo)
+    }
     this.composer?.render()
   }
 

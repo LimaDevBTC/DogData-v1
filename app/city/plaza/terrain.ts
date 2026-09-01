@@ -17,6 +17,8 @@ import * as THREE from 'three'
 import { PODIO_Y, PODIO_R0, PODIO_R1, PODIO_R2, PODIO_R3, PODIO_R3_PARQUE } from './dome'
 import { exageroEm, VEX_HORIZONTE } from './vex'
 import { PARK_CENTER, PARK_PIT, parkReach, parkCore } from './park-site'
+import { look2 } from './look'
+import { vestir } from './materiais'
 
 export interface TerrainMeta {
   cols: number
@@ -80,6 +82,16 @@ export interface Terrain {
 }
 
 const BASE = new THREE.Color('#3f3d3a') // regolito iluminado pelo sol; o material escurece o resto
+
+/** metros de mundo por unidade de UV da malha do regolito. Ver `push`. */
+const UV_ESCALA = 1000
+/** ⚠️ A TINTA QUE DEVOLVE O VALOR QUE `BASE` DAVA. Conta feita, não chutada:
+ *  BASE em linear é 0,0497 e o albedo médio da receita 'regolito' é cerca de
+ *  0,17 linear, então a tinta tem de valer 0,29 linear pra imagem não clarear
+ *  de repente. #9A948B mede 0,325, ou seja 12% acima do que havia: é o pouco de
+ *  respiro que o meio-tom pedia, não uma troca de exposição. Não medi na chapa
+ *  qual dos dois o fundador prefere. */
+const TINTA_REGOLITO = '#9A948B'
 const R_DARK_START = 3000
 const R_DARK_END = 26000
 
@@ -408,12 +420,35 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
   // ── a malha única: grade do sítio + anéis da saia soldados na borda ────────
   const positions: number[] = []
   const colors: number[] = []
+  const uvs: number[] = []
   const indices: number[] = []
   const col = new THREE.Color()
   const push = (x: number, y: number, z: number, relief: number) => {
     positions.push(x, y, z)
     regolithColor(x, z, relief, Math.hypot(x, z), col)
-    colors.push(col.r, col.g, col.b)
+    if (look2) {
+      // ⚠️ A COR POR VÉRTICE MULTIPLICA O MAPA, e é aqui que a armadilha mora.
+      // `regolithColor` devolve BASE (#3f3d3a, 0,0497 linear) VEZES um fator de
+      // sombreamento; vestir o material por cima disso multiplicaria a receita
+      // do regolito por 0,05 e o chão sairia preto e sujo. A escolha foi deixar
+      // a TEXTURA mandar no tom e a cor por vértice guardar só o que ela sabe e
+      // a textura não: o relevo, o ruído por vértice e o escurecimento com a
+      // distância. Por isso o valor vira cinza normalizado (BASE sai da conta) e
+      // volta pela tinta TINTA_REGOLITO do material.
+      // A alternativa, desligar `vertexColors`, foi descartada: perderia o
+      // escurecimento de 26 km do horizonte, que é o que dá profundidade à saia
+      // e não tem como vir de um ladrilho de 90 m.
+      const s = col.r / BASE.r
+      colors.push(s, s, s)
+    } else {
+      colors.push(col.r, col.g, col.b)
+    }
+    // UV em MUNDO dividido por UV_ESCALA. ⚠️ NÃO É `vestir(mat, nome, 1)`: o
+    // `repeat` de `vestir` é `max(1, mundo/metros)` e o piso trava em 1, então
+    // UV em metros crus daria um ladrilho por metro. Com UV em quilômetros e
+    // `mundo = UV_ESCALA` a conta fecha: repeat = 1000/90 e o ladrilho mede
+    // exatamente 90 m de mundo, em qualquer ponto da malha, sítio ou saia.
+    uvs.push(x / UV_ESCALA, z / UV_ESCALA)
     return positions.length / 3 - 1
   }
   // grade do sítio: índice j*n+i
@@ -461,6 +496,7 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
   const geo = new THREE.BufferGeometry()
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
   geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
   geo.setIndex(indices)
   geo.computeVertexNormals()
   // Enrolamento medido, não adivinhado: se a normal no centro apontar para
@@ -479,6 +515,17 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
     geo.computeVertexNormals()
   }
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0 })
+  if (look2) {
+    // ⚠️ 90 m DE LADRILHO, E O NÚMERO É O TRABALHO TODO. O padrão da receita é
+    // 26 m: numa superfície que vai a 64 km de ponta a ponta isso são 2.400
+    // repetições, e o olho lê a grade antes de ler a cratera. Com 90 m as
+    // covinhas do regolito medem de 10 a 40 m, que é a escala em que a foto da
+    // Apollo lê como Lua na vista aérea, e de perto ainda sobra o mapa de normal
+    // pra luz rasante ter em que bater. A quebra de repetição vai a 1.400 m
+    // porque em chão de quilômetro um ruído de 140 m vira mosqueado.
+    mat.color = new THREE.Color(TINTA_REGOLITO)
+    vestir(mat, 'regolito', UV_ESCALA, { metros: 90, normal: 1.0, macroMetros: 1400 })
+  }
   const mesh = new THREE.Mesh(geo, mat)
   mesh.receiveShadow = true
   mesh.name = 'Regolith'

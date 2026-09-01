@@ -24,6 +24,15 @@
 // Three.js puro (regra da casa: nada de react-three-fiber).
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
+import { look2 } from './look'
+import { vestir, type Superficie } from './materiais'
+
+/** metros de mundo por unidade de UV das fitas da praça. ⚠️ O UV É DE MUNDO,
+ *  NÃO DO QUAD: a praça é feita de quads de tamanhos diferentes (o tabuleiro de
+ *  168 m, a diagonal de 8 m, a cova de 3,2 m) e um UV 0..1 por quad esticaria o
+ *  ladrilho num e espremeria no outro. Com XZ de mundo a laje continua a mesma
+ *  laje de um pedaço da praça pro outro, que é o ponto de existir junta. */
+const UV_ESCALA = 100
 
 export interface PracasOpts {
   heightAt: (x: number, z: number) => number
@@ -90,7 +99,7 @@ function hash01(s: string): number {
 }
 
 class Fita {
-  vs: number[] = []; ix: number[] = []
+  vs: number[] = []; ix: number[] = []; uv: number[] = []
   // ⚠️ OS QUATRO CANTOS TÊM DE VIR NO SENTIDO ANTI-HORÁRIO VISTO DE CIMA, senão
   // a normal aponta para baixo e o backface culling apaga a face inteira. Foi
   // exatamente o que aconteceu na primeira versão: a praça saía com o plinto
@@ -100,6 +109,7 @@ class Fita {
   quad(a: number[], b: number[], c: number[], d: number[]) {
     const i = this.vs.length / 3
     this.vs.push(...a, ...b, ...c, ...d)
+    for (const p of [a, b, c, d]) this.uv.push(p[0] / UV_ESCALA, p[2] / UV_ESCALA)
     this.ix.push(i, i + 1, i + 2, i, i + 2, i + 3)
   }
   get triangulos() { return this.ix.length / 3 }
@@ -313,13 +323,30 @@ export async function buildPracas(o: PracasOpts): Promise<Pracas> {
     if (!f.ix.length) continue
     const g = new THREE.BufferGeometry()
     g.setAttribute('position', new THREE.Float32BufferAttribute(f.vs, 3))
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(f.uv, 2))
     g.setIndex(f.ix)
     g.computeVertexNormals()
-    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({
+    const matAlvo = new THREE.MeshStandardMaterial({
       color: cores[alvo],
       roughness: alvo === 'agua' ? 0.14 : alvo === 'grama' ? 0.95 : 1,
       metalness: alvo === 'agua' ? 0.3 : 0,
-    }))
+    })
+    // ⚠️ NÃO HÁ COR POR VÉRTICE AQUI, ENTÃO QUEM MULTIPLICA O MAPA É A TINTA DO
+    // MATERIAL, e as cores chapadas de cima não servem: 'campo' já entrega verde
+    // (86,112,66 antes do viço) e multiplicar por COR_GRAMA (#3E5F42) daria um
+    // verde de pântano. Cada alvo vestido troca a cor por uma TINTA quase
+    // branca, com só o desvio de matiz que a praça quer.
+    if (look2 && alvo !== 'agua') {
+      const veste: Record<'piso' | 'grama' | 'cova', [Superficie, string, number]> = {
+        piso: ['calcada', '#EDE7DA', 60],
+        grama: ['campo', '#E8EEE2', 90],
+        cova: ['pedra', '#B9A98E', 30],   // a cova é terra batida: a tinta puxa pro barro
+      }
+      const [nome, tinta, macro] = veste[alvo as 'piso' | 'grama' | 'cova']
+      matAlvo.color = new THREE.Color(tinta)
+      vestir(matAlvo, nome, UV_ESCALA, { macroMetros: macro })
+    }
+    const m = new THREE.Mesh(g, matAlvo)
     m.name = `praca:${alvo}`
     m.receiveShadow = true
     m.frustumCulled = false
