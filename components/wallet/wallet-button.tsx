@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Wallet, LogOut, User, ChevronDown, ShieldCheck, ShieldAlert, Loader2, Gauge } from 'lucide-react'
 import { useWallet } from '@/contexts/WalletContext'
 import { WALLETS } from '@/lib/wallet'
+import { useIsAdmin } from '@/lib/admin/use-is-admin'
 
 function truncate(addr: string) {
   return addr.length > 12 ? `${addr.slice(0, 5)}…${addr.slice(-4)}` : addr
@@ -61,44 +62,6 @@ function useIdentity(address: string | null): Identity | null {
   return identity
 }
 
-
-/**
- * Esta pessoa abre a sala de operação?
- *
- * ⚠️ A RESPOSTA VEM DO SERVIDOR, SEMPRE. A allowlist é ENV do servidor, e
- * comparar o endereço aqui exigiria mandar a lista para o navegador, o que
- * publicaria quais carteiras abrem a sala. O que este hook faz é perguntar.
- *
- * E é só cosmético: esconder o item não protege nada, quem protege é o portão
- * em /admin e em cada rota de API. Aqui o único efeito de errar é um link a
- * mais ou a menos num menu.
- *
- * Só pergunta depois que a posse foi provada, porque antes disso não existe
- * sessão para o servidor consultar e a resposta seria não por falta de prova,
- * não por falta de permissão.
- */
-function useIsAdmin(verified: boolean): boolean {
-  const [admin, setAdmin] = useState(false)
-
-  useEffect(() => {
-    if (!verified) {
-      setAdmin(false)
-      return
-    }
-    let vivo = true
-    fetch('/api/admin/me')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (vivo) setAdmin(Boolean(d?.admin))
-      })
-      .catch(() => {})
-    return () => {
-      vivo = false
-    }
-  }, [verified])
-
-  return admin
-}
 
 /**
  * Botão do header. Desconectado → "Connect Wallet". Conectado → endereço +

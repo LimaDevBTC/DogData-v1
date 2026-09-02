@@ -21,12 +21,13 @@ import Image from "next/image"
 import Link from "next/link"
 import {
   ArrowDownLeft, ArrowLeftRight, ArrowUpRight, AtSign, Building2, Check, Copy,
-  ExternalLink, Fingerprint, Image as ImageIcon, Loader2, LogOut, MessageSquare,
+  ExternalLink, Fingerprint, Gauge, Image as ImageIcon, Loader2, LogOut, MessageSquare,
   ShieldAlert, ShieldCheck, Trophy, Wallet,
 } from "lucide-react"
 import { Layout } from "@/components/layout"
 import { Plate, PlateHead, PlotGrid, StatTile, CAT } from "@/components/plot/kit"
 import { useWallet } from "@/contexts/WalletContext"
+import { useIsAdmin } from "@/lib/admin/use-is-admin"
 import { useDonate } from "@/components/donate/donate-modal"
 import { WALLETS } from "@/lib/wallet"
 import { handleProblem, normalizeHandle } from "@/lib/identity/handle"
@@ -381,6 +382,7 @@ const DIR_TONE = { in: "text-[#10B981]", out: "text-[#EF4444]", self: "text-dust
 
 export default function ProfilePage() {
   const { account, verified, status, prove, disconnect, openModal } = useWallet()
+  const isAdmin = useIsAdmin(verified)
   const { open: openDonate } = useDonate()
   const proving = status === "proving"
   const address = account?.ordinalsAddress ?? null
@@ -645,6 +647,18 @@ export default function ProfilePage() {
                     {proving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
                     {proving ? "Signing" : "Verify ownership"}
                   </button>
+                )}
+                {/* A porta da sala de operação. Só existe para quem a abre, e
+                    perguntar isso é papel do servidor: ver lib/admin/use-is-admin.
+                    Esconder o botão é higiene, não é a tranca. */}
+                {isAdmin && (
+                  <Link
+                    href="/admin"
+                    className="inline-flex items-center justify-center gap-2 border border-lava/50 bg-lava/[0.08] px-4 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-lava transition-colors hover:bg-lava/[0.16]"
+                  >
+                    <Gauge className="w-3.5 h-3.5" />
+                    Operations
+                  </Link>
                 )}
                 <button
                   onClick={disconnect}

@@ -20,9 +20,10 @@
 // dela mostra o aviso — o painel perde uma aba, não a página.
 // ═══════════════════════════════════════════════════════════════════════════
 
+import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
 import {
-  BarChart3, Coins, Compass, Megaphone, MousePointer2, RefreshCw, Users, Zap,
+  ArrowLeft, BarChart3, Coins, Compass, Megaphone, MousePointer2, RefreshCw, Users, Zap,
 } from "lucide-react"
 import { Reveal, Scramble } from "@/app/dogcity/motion"
 import Ads from "./ads"
@@ -106,6 +107,15 @@ export default function PainelAnalytics() {
           <div className="mt-4 h-px w-40 mx-auto bg-white/10">
             <div className="h-full w-1/3 bg-lava animate-pulse-slow" />
           </div>
+          {/* Se o banco estiver ocupado esta tela é o que fica no ar, e sem
+              saída ela vira um beco. */}
+          <Link
+            href="/admin"
+            className="mt-6 inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-dusty transition-colors hover:text-lava"
+          >
+            <ArrowLeft className="w-3 h-3" />
+            Operations
+          </Link>
         </div>
       </main>
     )
@@ -210,6 +220,19 @@ export default function PainelAnalytics() {
         <div className="max-w-[1400px] mx-auto px-5 md:px-10">
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5 pt-7 pb-5">
             <div>
+              {/* A saída. Este painel tem casco próprio, sem o header do site,
+                  então sem este link a única forma de voltar é o botão do
+                  navegador — e quem chega por link direto nem isso tem. Fica
+                  no cabeçalho sticky para acompanhar a rolagem: nas abas
+                  longas, um retorno no rodapé estaria a milhares de pixels. */}
+              <Link
+                href="/admin"
+                className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-dusty transition-colors hover:text-lava"
+              >
+                <ArrowLeft className="w-3 h-3" />
+                Operations
+              </Link>
+              <div className="mt-2.5" />
               <Scramble text="DOG DATA · INTERNAL TELEMETRY"
                 className="font-mono text-[10px] tracking-[0.3em] text-lava" />
               {/* NÃO é um SplitLine: as primitivas de reveal compartilhadas
