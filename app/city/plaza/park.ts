@@ -373,7 +373,22 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
       uniform float uHalfH;
       varying float vA;
       void main() {
-      #include <logdepthbuf_fragment>
+        // ATENCAO: aqui havia um include de logdepthbuf_fragment e ele derrubava
+        // a cena inteira. Aquele trecho escreve gl_FragDepthEXT a partir de
+        // gl_FragCoord, e nenhum dos dois existe num shader de VERTICE: o
+        // programa nao compilava e o three cuspia "Vertex shader is not
+        // compiled" no primeiro quadro em que o censo entrava no campo de visao.
+        // O par certo e logdepthbuf_vertex no fim do vertice, depois de
+        // gl_Position, que ja esta la embaixo, e logdepthbuf_fragment no COMECO
+        // do fragmento, que estava faltando.
+        //
+        // E NENHUMA CRASE NESTE COMENTARIO: ele mora dentro de um template
+        // literal, e a crase fecha a string. Eu mesmo quebrei o arquivo assim ao
+        // escrever esta nota, minutos depois de gravar a armadilha no wiki.
+        //
+        // E so apareceu agora porque o look=2 virou padrao em 02/09: o buffer
+        // logaritmico e ligado pela cena, entao USE_LOGDEPTHBUF so fica definido
+        // nesse caminho. O defeito estava escrito havia dias, e calado.
         vec4 mv = modelViewMatrix * vec4(position, 1.0);
         float ps = 1.6 * uHalfH / max(1.0, -mv.z);
         vA = clamp((ps - 0.5) / 1.6, 0.0, 1.0);
@@ -387,6 +402,7 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
       uniform vec3 uColor; uniform float uOpacity;
       varying float vA;
       void main() {
+      #include <logdepthbuf_fragment>
         float d = length(gl_PointCoord - 0.5);
         if (d > 0.5 || vA <= 0.001) discard;
         gl_FragColor = vec4(uColor, uOpacity * vA * (1.0 - d * 1.6));

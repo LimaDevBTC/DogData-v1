@@ -65,7 +65,22 @@ export const ORBIT_CENTER = new THREE.Vector3(0, 0, 0)
 // spaceport ficaria colado no vidro. O deslocamento é ao longo do rumo 182,6°,
 // que é o eixo dele, então o enquadramento não gira: o pátio sai de r 9.200 para
 // r 11200 e o respiro volta a ser 2.150 m.
-export const SPACEPORT_SHIFT = new THREE.Vector3(-368.0, 158.0, 8098.4)
+// ⚠️ O y FOI DE 158 PARA 195,4 EM 02/09, E EU DEVIA TER FEITO ISSO JUNTO COM O
+// DESLOCAMENTO HORIZONTAL. Quando o pátio saiu de r 9.200 para 11.200 eu mexi só
+// em x e z. O y estava calibrado para o chão do lugar VELHO, medido em 153; no
+// lugar novo o raycast no regolito dá 190,4. Consequência medida: a base do
+// modelo (que fica em -10 no espaço dele) caía em 148, ou seja 42 m ENTERRADA, e
+// as vagas de pouso ficavam 45 m ACIMA do chão. O fundador viu naves flutuando
+// sobre regolito pelado com o pátio escondido embaixo.
+//
+// A regra é a mesma de antes: base do modelo 5 m dentro do chão, logo
+// y = chao + 10 + 5 = 190,4 + 15 = 205,4 menos os 10 do offset do modelo = 195,4.
+//
+// ⚠️ E O y SE MEDE POR RAYCAST NO REGOLITO DA CENA, NUNCA POR RÉPLICA DO
+// HEIGHTMAP. Já está escrito acima e eu repeti o erro de outra forma: uma grade
+// de 40 m amostrada fora da cena deu 95 m para este mesmo ponto, 95 metros de
+// diferença, porque não tem o pódio, a cova nem o monte.
+export const SPACEPORT_SHIFT = new THREE.Vector3(-368.0, 195.4, 8098.4)
 
 const desloca = (v: THREE.Vector3) => v.add(SPACEPORT_SHIFT)
 

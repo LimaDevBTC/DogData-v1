@@ -453,7 +453,13 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
       // noite mais quieta, sem nave nenhuma pousada.
       // e olhando um pouco PARA CIMA (alvo acima da câmera): mirando para baixo,
       // 55% do quadro era chão vazio.
-      return { pos: new THREE.Vector3(PAD_MAIN.x + 40, 58, PAD_MAIN.z + 215), target: new THREE.Vector3(PAD_MAIN.x + 10, 92, PAD_MAIN.z - 60) }
+      // ⚠️ O y ERA ABSOLUTO (58 e 92) E POR ISSO QUEBROU. x e z seguiam o
+      // PAD_MAIN e acompanharam a mudança de 02/09; o y ficou no valor de quando
+      // o chão ali era baixo, e a câmera do tour foi parar 177 m ABAIXO do pátio,
+      // olhando para cima, para o vazio. Agora as três coordenadas são relativas
+      // ao pad, então a parada acompanha qualquer mudança futura sozinha.
+      return { pos: new THREE.Vector3(PAD_MAIN.x + 40, PAD_MAIN.y - 178, PAD_MAIN.z + 215),
+               target: new THREE.Vector3(PAD_MAIN.x + 10, PAD_MAIN.y - 144, PAD_MAIN.z - 60) }
     }
     case 'war':
       // chegando do lado da praça (NE da cratera), baixo o bastante pros
@@ -513,8 +519,13 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
       return { pos: new THREE.Vector3(-2600, 2800, 4200), target: new THREE.Vector3(1800, 0, -1900) }
     case 'park':
       return { pos: new THREE.Vector3(PARK_CENTER.x - 2210, 30, PARK_CENTER.z + 1748), target: new THREE.Vector3(PARK_CENTER.x, 120, PARK_CENTER.z) }
-    case 'spaceport': // segue a estação no lugar novo, fora da abóbada (SPACEPORT_SHIFT)
-      return { pos: new THREE.Vector3(507, 400, 5755), target: new THREE.Vector3(-233, 78, 5145) }
+    case 'spaceport':
+      // ⚠️ ESTAVA EM (507, 400, 5755) OLHANDO PARA (-233, 78, 5145), que é o
+      // pátio do lugar de DUAS mudanças atrás, r 5.150. O comentário aqui dizia
+      // "segue a estação no lugar novo" e não seguia nada: eram números cravados.
+      // Agora é relativo ao PAD_MAIN e acompanha sozinho.
+      return { pos: new THREE.Vector3(PAD_MAIN.x + 1015, PAD_MAIN.y + 165, PAD_MAIN.z - 1490),
+               target: new THREE.Vector3(PAD_MAIN.x + 275, PAD_MAIN.y - 158, PAD_MAIN.z - 2100) }
   }
   if (aspect >= 1) return { pos: HOME_POS.clone(), target: HOME_TARGET.clone() }
   return { pos: new THREE.Vector3(430, 760, -1300), target: new THREE.Vector3(0, 40, 420) }

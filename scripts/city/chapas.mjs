@@ -48,6 +48,8 @@ const VISTAS = {
   // foi a 9.050. O enquadramento antigo apontava para o lugar vazio, e a primeira
   // conferência depois da mudança fotografou chão nenhum sem ninguém perceber.
   spaceport:[-508, 520, 9700, -508, 180, 11188, 42],
+  // a parada do tour, exatamente como o visitante a recebe
+  padtour:  [-468, 95, 11403, -498, 129, 11128, 42],
   zenite:   [0, 300, 0, 0, 1200, 0, 60],
   // pedidos pelos agentes da água em 02/09, para conferir borda molhada e fusão
   // da areia no chão. Rasante de verdade: a câmera fica NA cota da lâmina.
