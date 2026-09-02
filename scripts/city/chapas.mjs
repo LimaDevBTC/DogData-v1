@@ -53,6 +53,11 @@ const VISTAS = {
   // o mar e o arquipelago, de cima: a baia nova tem centro em (4815, -3589) e
   // raio equivalente 4.246 m, e a aerea padrao nao alcanca ela.
   mar:      [-1200, 4200, 3800, 4815, -40, -3589, 50],
+  // a Ilha do Fundador (IL01) de perto: forma da costa, praia, mata e patamar
+  ilhaperto:[2650, 620, -3560, 3526, -30, -4340, 42],
+  // a margem do Lago da Praca, o canal central: camera baixa sobre a beirada
+  lagocentral:[0, 55, 2050, 0, -38, 1150, 48],
+  lagorase:  [0, -30, 1750, 0, -39, 1250, 55],
 }
 
 // ⚠️ ERROS QUE NÃO SÃO NOSSOS. O backend local não roda, então estas rotas dão
