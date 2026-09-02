@@ -55,6 +55,7 @@ import { buildAquario, type Aquario } from './aquario'
 import { buildCaverna, type Caverna } from './caverna'
 import { PROPS } from './props-table'
 import { look2 } from './look'
+import { instalarAtmosfera } from './atmosfera'
 import { setAnisotropia } from './materiais'
 import { montarPos, type Pos } from './pos'
 import { CityChat } from '@/components/wallet/city-chat'
@@ -971,6 +972,13 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     const hourKey = new URLSearchParams(window.location.search).get('hour') ?? 'day'
     const H = HOURS[hourKey] ?? HOURS.day
     renderer.toneMappingExposure = H.exposure
+
+    // A ATMOSFERA CONTIDA (?look=2): névoa quase seca que só existe DENTRO da
+    // abóbada, para a distância se ler. Toda a lógica, a dose e as armadilhas
+    // medidas estão em atmosfera.ts; aqui é só a fiação. Instalada cedo, antes de
+    // qualquer material da praça nascer, porque ela reescreve os chunks de névoa
+    // do three e liga o define USE_FOG em tudo que não pediu `fog: false`.
+    if (look2) instalarAtmosfera(scene, H)
 
     const sunPos = (el: number, dist: number) => {
       const a = THREE.MathUtils.degToRad(SUN_AZ), e = THREE.MathUtils.degToRad(el)

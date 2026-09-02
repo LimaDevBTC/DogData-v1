@@ -157,19 +157,30 @@ export const PROPS: readonly PropSpec[] = [
     scale: 1, cull: 1100, castShadow: false,
   },
   // ── o spaceport: torre, tanques e antenas ──────────────────────────────────
+  // ⚠️ AS TRÊS ESCALAS DOBRARAM EM 01/09, E NÃO POR GOSTO: elas ACOMPANHAM o
+  // foguete. `sizeFor()` em orbit-layer.ts saiu da faixa 16 a 60 m para 32 a
+  // 120 m porque a nave sumia vista da praça, a 5.150 m do pad (a conta está
+  // escrita lá). Escala é RELAÇÃO: dobrar só a nave deixaria a torre de
+  // lançamento com metade da altura do que ela serve, e torre menor que o
+  // foguete lê como erro antes de qualquer outra coisa no quadro.
+  //
+  // Alturas nativas medidas no bbox dos GLB: strongback 58 m, tanque 12 m,
+  // antena por conferir. Com escala 2 a torre vai a 116 m, logo abaixo dos 120 m
+  // do maior foguete, que é a proporção certa: a torre serve a nave e não
+  // compete com ela.
   {
     file: 'sp-strongback', why: 'a torre de lançamento do spaceport, ao lado do pad principal',
-    at: [[PAD_MAIN.x + 120, PAD_MAIN.z - 40]], yaw: 'center', scale: 1, cull: 9000,
+    at: [[PAD_MAIN.x + 120, PAD_MAIN.z - 40]], yaw: 'center', scale: 2, cull: 9000,
   },
   {
     file: 'sp-tank', why: 'o parque de tanques atrás dos hangares',
     at: [[PAD_MAIN.x - 250, PAD_MAIN.z + 240], [PAD_MAIN.x - 250, PAD_MAIN.z + 300], [PAD_MAIN.x - 250, PAD_MAIN.z + 360]],
-    yaw: 90, scale: 1.4, cull: 6000,
+    yaw: 90, scale: 2.8, cull: 6000,
   },
   {
     file: 'sp-dish', why: 'as antenas do controle, olhando para a Terra',
     at: [[PAD_MAIN.x + 330, PAD_MAIN.z + 90], [PAD_MAIN.x + 380, PAD_MAIN.z + 160]],
-    yaw: 210, scale: 1.6, cull: 6000,
+    yaw: 210, scale: 2.6, cull: 6000,
   },
 ]
 

@@ -153,8 +153,26 @@ function hash01(s: string, salt = 0): number {
 }
 
 function sizeFor(dog: number): number {
-  // 1e3 → 20 m · 1e5 → 32 m · 1e7 → 44 m · 1e9 → 56 m
-  return THREE.MathUtils.clamp(2 + 6 * Math.log10(Math.max(1, dog)), 16, 60)
+  // 1e3 → 40 m · 1e5 → 64 m · 1e7 → 88 m · 1e9 → 112 m
+  //
+  // ⚠️ DOBROU EM 01/09 (fundador: "os foguetes vão precisar dobrar de tamanho,
+  // no mínimo, eles praticamente sumiram"). A faixa era de 16 a 60 m, que é a
+  // proporção honesta de uma Starship (50 m), e é exatamente por isso que não
+  // funcionava: a nave é lida de DENTRO da cidade, e o pad fica a 5.150 m do
+  // centro. A conta que explica o sumiço: com a câmera de 42° em 1440 px cada
+  // pixel vale 0,029°, então um foguete de 60 m a 5 km mede
+  // atan(60/5000) = 0,69°, ou 23 px de altura. Vinte e três pixels a 5 km, com o
+  // céu preto atrás, é um risco, não uma nave.
+  //
+  // Com 120 m ele mede 47 px, que já se lê como objeto. Escala real perdida,
+  // leitura ganha, e o precedente já existe: um Saturno V tem 110 m. Isto é
+  // cidade virtual, o critério é a tela.
+  //
+  // ⚠️ SE MEXER AQUI, MEXA NA TORRE JUNTO. A torre de lançamento
+  // (`sp-strongback` em props-table.ts) tem 58 m de altura nativa e a escala
+  // dela foi para 2 pela mesma razão: torre mais baixa que o foguete que ela
+  // serve lê como erro na hora.
+  return THREE.MathUtils.clamp(4 + 12 * Math.log10(Math.max(1, dog)), 32, 120)
 }
 
 /** Altitude pela taxa, relativa à faixa rápida do momento: rápida ou acima → baixo,

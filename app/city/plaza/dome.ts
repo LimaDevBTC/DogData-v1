@@ -29,6 +29,7 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { Delaunay } from 'd3-delaunay'
+import { look2 } from './look'
 
 /** o d3-delaunay quer pares [x, y]; as sementes vivem num Float plano. */
 function pares(v: number[]): [number, number][] {
@@ -153,17 +154,39 @@ const COR_SAIA = new THREE.Color('#26262B')
 const VS = `
   #include <common>
   #include <logdepthbuf_pars_vertex>
+  #include <fog_pars_vertex>
   uniform vec3 uCam;
-  varying vec3 vN; varying vec3 vV; varying float vD;
+  varying vec3 vN; varying vec3 vV; varying float vD; varying vec2 vUvPlano;
   void main() {
     vec4 wp = modelMatrix * vec4(position, 1.0);
     vec4 mv = viewMatrix * wp;
     vN = normalize(normalMatrix * normal);
     vV = normalize(-mv.xyz);
     vD = distance(wp.xyz, uCam);
+    vUvPlano = uv;
+    #ifdef USE_FOG
+      vFogDepth = -mv.z;
+    #endif
     gl_Position = projectionMatrix * mv;
     #include <logdepthbuf_vertex>
   }`
+
+// ⚠️ NÉVOA À MÃO, PORQUE A MISTURA É ADITIVA. O trecho `fog_fragment` do three
+// faz `mix(cor, fogColor, f)`: numa malha aditiva isso SOMA a cor da névoa no
+// quadro inteiro e a casca vira um véu claro em vez de sumir. Em mistura
+// aditiva o certo é a contribuição TENDER A ZERO, ou seja multiplicar por
+// (1 − f). Os `fog_pars_*` continuam sendo os do three, então fogColor,
+// fogNear, fogFar e fogDensity chegam pelo caminho normal e a casca respeita a
+// mesma atmosfera do resto da cena.
+const FOG_APLICA = `
+  #ifdef USE_FOG
+    #ifdef FOG_EXP2
+      float fogFactor = 1.0 - exp(-fogDensity * fogDensity * vFogDepth * vFogDepth);
+    #else
+      float fogFactor = smoothstep(fogNear, fogFar, vFogDepth);
+    #endif
+    gl_FragColor.rgb *= 1.0 - fogFactor;
+  #endif`
 
 /** O vidro: invisível de frente, aceso na rasante, e NUNCA escurece o céu.
  *  Mistura aditiva de propósito: com mistura normal a casca virava um véu azul
@@ -172,6 +195,7 @@ const VS = `
 function materialVidro(fade: number, coroa: number): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     uniforms: {
+      ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
       uTint: { value: COR_VIDRO },
       uBase: { value: 0.055 },
       uFres: { value: 0.30 },
@@ -183,8 +207,9 @@ function materialVidro(fade: number, coroa: number): THREE.ShaderMaterial {
     fragmentShader: `
       #include <common>
       #include <logdepthbuf_pars_fragment>
+      #include <fog_pars_fragment>
       uniform vec3 uTint; uniform float uBase; uniform float uFres; uniform float uFade; uniform float uCoroa; uniform vec3 uCam;
-      varying vec3 vN; varying vec3 vV; varying float vD;
+      varying vec3 vN; varying vec3 vV; varying float vD; varying vec2 vUvPlano;
       // dentro = 1 quando a câmera está sob a casca, 0 quando ela saiu do sítio
       // ou subiu acima da coroa. O apagamento é remédio de quem olha DE DENTRO;
       // visto de fora a abóbada tem que ter silhueta.
@@ -217,6 +242,7 @@ function materialVidro(fade: number, coroa: number): THREE.ShaderMaterial {
         // da faixa que era zerada.
         float longe = mix(1.0, 1.0 - 0.62 * smoothstep(uFade * 0.45, uFade * 2.6, vD), d);
         gl_FragColor = vec4(uTint * (base + fres * f + brilho) * longe, 1.0);
+        ${FOG_APLICA}
       }`,
     transparent: true,
     depthWrite: false,
@@ -235,6 +261,7 @@ function materialVidro(fade: number, coroa: number): THREE.ShaderMaterial {
     depthTest: true,
     blending: THREE.AdditiveBlending,
     side: THREE.DoubleSide,
+    fog: true,
   })
 }
 
@@ -248,6 +275,7 @@ function materialVidro(fade: number, coroa: number): THREE.ShaderMaterial {
 function materialNervura(fade: number, coroa: number): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     uniforms: {
+      ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
       uCor: { value: COR_NERVURA },
       uFade: { value: fade },
       uCoroa: { value: coroa },
@@ -257,8 +285,9 @@ function materialNervura(fade: number, coroa: number): THREE.ShaderMaterial {
     fragmentShader: `
       #include <common>
       #include <logdepthbuf_pars_fragment>
+      #include <fog_pars_fragment>
       uniform vec3 uCor; uniform float uFade; uniform float uCoroa; uniform vec3 uCam;
-      varying vec3 vN; varying vec3 vV; varying float vD;
+      varying vec3 vN; varying vec3 vV; varying float vD; varying vec2 vUvPlano;
       float dentro() {
         float r = 1.0 - smoothstep(3200.0, 3800.0, length(uCam.xz));
         float h = 1.0 - smoothstep(uCoroa * 0.9, uCoroa * 1.4, uCam.y);
@@ -275,11 +304,194 @@ function materialNervura(fade: number, coroa: number): THREE.ShaderMaterial {
         // suficiente para a casca ter forma, não de leitura de malha.
         float perto = mix(0.34, 1.0, 1.0 - smoothstep(uFade * 0.35, uFade * 1.2, vD));
         gl_FragColor = vec4(uCor * k, mix(0.85, perto, dentro()));
+        ${FOG_APLICA}
       }`,
     transparent: true,
     depthWrite: false,
     depthTest: true,    // mesmo motivo do vidro, ver o comentário acima
     side: THREE.DoubleSide,
+    fog: true,
+  })
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LOOK 2: A CASCA DISCRETA. O favo sai da GEOMETRIA e entra no FRAGMENTO.
+//
+// ⚠️ O DIAGNÓSTICO QUE MANDOU FAZER ISTO (medido em 01/09 com
+// `__plazaMeshes('abobada')`): nervura 1.805.391 tris, vidro 259.782 tris, anel
+// 23.040, saia 17.280. Total 2.105.493, ou 33% da cena inteira. 86% da abóbada
+// era fita de nervura, e a fita tem 0,9 m: além de ~1.300 m ela cai abaixo de 1
+// pixel. Ou seja o objeto mais caro da cidade existia para desenhar linhas mais
+// finas que um pixel, que por isso cintilavam contra o céu preto.
+//
+// O cabeçalho deste arquivo já tinha nomeado a cura em 30/08 ("a cura não é
+// estrutural, é LOD: a casca devia virar textura projetada com mipmap"). É o
+// que está aqui. O ponto INTEIRO é o mipmap: ele funde detalhe sub-pixel numa
+// média suave, que é exatamente a operação que geometria não sabe fazer. Longe,
+// a nervura não pisca: ela perde contraste e some.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** lado da textura do favo. 4096 sobre um diâmetro de 14.100 m dá 3,44 m/texel. */
+const FAVO_LADO = 4096
+
+/**
+ * Rasteriza UMA VEZ, em canvas, o mesmo Voronoi que a geometria usava, e devolve
+ * um mapa de UM CANAL (RedFormat) com mipmap.
+ *
+ * ⚠️ UM CANAL, NÃO QUATRO. 4096² em RGBA são 67 MB de VRAM mais 22 de mipmap;
+ * em RedFormat são 16,8 mais 5,6. A informação cabe num escalar porque os dois
+ * dados que a casca precisa vivem em FAIXAS diferentes do mesmo número:
+ *   0,00 a 0,50  a sombra da bolha (o gradiente do centro da célula para a quina)
+ *   0,50 a 1,00  a nervura
+ * O shader separa por faixa. E como o mipmap faz média, uma nervura que ocupa
+ * meio texel no nível N vira meio valor no nível N+1: o contraste cai sozinho
+ * com a distância, sem nenhuma conta de fade.
+ *
+ * ⚠️ A PROJEÇÃO É PLANAR (x, z) E ISSO ESTÁ CERTO, não é preguiça: as sementes
+ * do Voronoi sempre foram sorteadas EM PLANTA, não sobre a superfície. Então
+ * projetar em planta reproduz exatamente a mesma célula que a geometria fazia.
+ * A esticada da grazing na saia é problema da ANISOTROPIA, que está ligada.
+ */
+function texturaFavo(
+  celulas: { cx: number; cz: number; pol: [number, number][] }[],
+  R: number,
+  ribM: number,
+): THREE.DataTexture {
+  const L = FAVO_LADO
+  const cv = document.createElement('canvas')
+  cv.width = L; cv.height = L
+  const g = cv.getContext('2d', { willReadFrequently: true })!
+  g.fillStyle = '#000'
+  g.fillRect(0, 0, L, L)
+  const px = (x: number) => ((x + R) / (2 * R)) * L
+  const pz = (z: number) => ((z + R) / (2 * R)) * L
+  // ⚠️ A NERVURA ENGORDA DE 0,9 m PARA ~4 m, e é ganho, não perda. 0,9 m não
+  // cabe num texel de 3,44 m: rasterizada, ela vira um fio de 0,26 px que o
+  // canvas já entrega serrilhado. Com 4 m ela ocupa pouco mais de um texel,
+  // desce limpo pela pirâmide de mipmap, e na tela ainda é fina: a 2.600 m
+  // (altura da coroa) dá 2 px, contra os 0,5 px da fita de geometria.
+  const ribPx = Math.max(1.1, (ribM / (2 * R)) * L)
+  g.lineJoin = 'round'
+  g.lineCap = 'round'
+  for (const c of celulas) {
+    const cxp = px(c.cx), czp = pz(c.cz)
+    let rr = 0
+    g.beginPath()
+    for (let k = 0; k < c.pol.length; k++) {
+      const X = px(c.pol[k][0]), Z = pz(c.pol[k][1])
+      rr = Math.max(rr, Math.hypot(X - cxp, Z - czp))
+      if (k === 0) g.moveTo(X, Z); else g.lineTo(X, Z)
+    }
+    g.closePath()
+    // a bolha: claro no centro, escuro na quina. Fica INTEIRA abaixo de 0,5.
+    const grad = g.createRadialGradient(cxp, czp, 0, cxp, czp, Math.max(1, rr))
+    grad.addColorStop(0, 'rgb(112,112,112)')   // 0,44
+    grad.addColorStop(0.7, 'rgb(66,66,66)')    // 0,26
+    grad.addColorStop(1, 'rgb(20,20,20)')      // 0,08
+    g.fillStyle = grad
+    g.fill()
+    g.strokeStyle = 'rgb(255,255,255)'
+    g.lineWidth = ribPx
+    g.stroke()
+  }
+  // extrai o canal vermelho em faixas, para não alocar 67 MB de uma vez
+  const dados = new Uint8Array(L * L)
+  const FAIXA = 512
+  for (let y0 = 0; y0 < L; y0 += FAIXA) {
+    const h = Math.min(FAIXA, L - y0)
+    const img = g.getImageData(0, y0, L, h).data
+    for (let i = 0, n = L * h; i < n; i++) dados[y0 * L + i] = img[i * 4]
+  }
+  const tex = new THREE.DataTexture(dados, L, L, THREE.RedFormat, THREE.UnsignedByteType)
+  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping
+  tex.generateMipmaps = true
+  tex.minFilter = THREE.LinearMipmapLinearFilter
+  tex.magFilter = THREE.LinearFilter
+  // ⚠️ ANISOTROPIA É OBRIGATÓRIA AQUI, não é enfeite. Na saia a casca é quase
+  // paralela ao raio de visão e o mipmap isotrópico borra os DOIS eixos: sem
+  // anisotropia a orla vira um borrão cinza e a silhueta perde o remate. O three
+  // apara este 16 no máximo que a placa oferecer, então não precisa do
+  // renderizador aqui.
+  tex.anisotropy = 16
+  tex.colorSpace = THREE.NoColorSpace
+  tex.needsUpdate = true
+  return tex
+}
+
+/**
+ * O material da casca discreta: uma superfície só, com o favo lido da textura.
+ *
+ * ⚠️ ELE JÁ NASCE PRONTO PARA O TELÃO. `uConteudo` e `uConteudoMix` existem e
+ * estão ligados no fragmento: a calota inteira já carrega o UV planar da cidade
+ * (0..1 sobre o diâmetro), então basta `setConteudoAbobada(dome, textura, 0.8)`
+ * para projetar imagem na abóbada sem tocar em geometria nenhuma. Nesta rodada
+ * a mistura é 0, ou seja custo zero e nenhum pixel muda.
+ */
+function materialCalota(fade: number, coroa: number, favo: THREE.Texture): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
+      uTint: { value: COR_VIDRO },
+      uNerv: { value: COR_NERVURA },
+      uFavo: { value: favo },
+      uConteudo: { value: null as THREE.Texture | null },
+      uConteudoMix: { value: 0 },
+      uFade: { value: fade },
+      uCoroa: { value: coroa },
+      uCam: { value: new THREE.Vector3() },
+    },
+    vertexShader: VS,
+    fragmentShader: `
+      #include <common>
+      #include <logdepthbuf_pars_fragment>
+      #include <fog_pars_fragment>
+      uniform vec3 uTint; uniform vec3 uNerv;
+      uniform sampler2D uFavo; uniform sampler2D uConteudo; uniform float uConteudoMix;
+      uniform float uFade; uniform float uCoroa; uniform vec3 uCam;
+      varying vec3 vN; varying vec3 vV; varying float vD; varying vec2 vUvPlano;
+      float dentro() {
+        float r = 1.0 - smoothstep(3200.0, 3800.0, length(uCam.xz));
+        float h = 1.0 - smoothstep(uCoroa * 0.9, uCoroa * 1.4, uCam.y);
+        return r * h;
+      }
+      void main() {
+        #include <logdepthbuf_fragment>
+        vec3 n = normalize(vN); vec3 v = normalize(vV);
+        float f = pow(1.0 - abs(dot(n, v)), 3.0);
+        float d = dentro();
+        float base = mix(0.11, 0.055, d);
+        float fres = mix(0.42, 0.30, d);
+        float brilho = pow(max(dot(reflect(-v, n), normalize(vec3(0.28, 0.86, 0.18))), 0.0), 36.0) * (1.0 - d) * 0.7;
+        float longe = mix(1.0, 1.0 - 0.62 * smoothstep(uFade * 0.45, uFade * 2.6, vD), d);
+        vec3 cor = uTint * (base + fres * f + brilho) * longe;
+
+        // ── o favo, separado por faixa do MESMO escalar ─────────────────────
+        float t = texture2D(uFavo, vUvPlano).r;
+        float bolha = clamp(t * 2.0, 0.0, 1.0);          // 0,00 a 0,50 -> sombreado
+        float nerv = max(0.0, t - 0.5) * 2.0;            // 0,50 a 1,00 -> nervura
+        // ⚠️ NÃO EXISTE FADE DE DISTÂNCIA NA NERVURA AQUI, DE PROPÓSITO. Quem
+        // apaga é o mipmap: longe, o texel branco entra na média com os vizinhos
+        // pretos e o valor cai por baixo de 0,5, onde \`nerv\` já é zero. É o
+        // desvanecimento correto porque acompanha a AMOSTRAGEM, e não uma
+        // distância chutada. O que sobra de escolha é o zênite.
+        float zen = mix(1.0, 0.30, pow(max(n.y, 0.0), 3.0));
+        cor += uTint * bolha * 0.030 * longe;
+        cor += uNerv * nerv * 0.24 * zen * longe;
+
+        // o telão do futuro: nesta rodada uConteudoMix é 0 e isto não pesa
+        vec3 conteudo = texture2D(uConteudo, vUvPlano).rgb;
+        cor = mix(cor, conteudo, uConteudoMix);
+
+        gl_FragColor = vec4(cor, 1.0);
+        ${FOG_APLICA}
+      }`,
+    transparent: true,
+    depthWrite: false,
+    depthTest: true,
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide,
+    fog: true,
   })
 }
 
@@ -578,123 +790,191 @@ export function buildDome(o: DomeOpts): Dome {
     }
   }
 
-  // ── vidro: uma almofada por célula, tudo fundido numa malha só ────────────
-  //
-  // A célula agora é um POLÍGONO qualquer de 4 a 8 lados, não um hexágono, então
-  // o leque sai do centroide. Dois anéis: o de fora nos vértices (na calota) e um
-  // intermediário a 55% do caminho, que é o que dá a barriga da almofada em vez
-  // de um cone.
-  const vidros: THREE.BufferGeometry[] = []
-  const tmpN = new THREE.Vector3()
-  for (const c of celulas) {
-    const n = c.pol.length
+  // ⚠️ AQUI SE PARTE O CAMINHO (01/09). O look 1 continua construindo a casca em
+  // GEOMETRIA: uma almofada por célula mais uma fita por aresta, os 2,07 M de
+  // triângulos medidos. O look 2 constrói UMA CALOTA de poucos milhares de
+  // triângulos e desenha o mesmo favo no fragmento, a partir da textura com
+  // mipmap. Nada some: o favo continua lá, só deixou de ser malha.
+  let trisCasca = 0
+  const aDescartar: (() => void)[] = []
+
+  if (look2) {
+    // ── LOOK 2: uma calota lisa, o favo no fragmento ────────────────────────
+    //
+    // ⚠️ A MALHA É RADIAL PORQUE A SUPERFÍCIE É DE REVOLUÇÃO. 48 anéis por 192
+    // setores dão 18.432 triângulos, contra os 1.805.391 da nervura sozinha
+    // (fator 98). E não perde forma: a maior corda dessa grade sobre a esfera é
+    // de 231 m na saia, onde a flecha da corda contra a esfera dá 0,6 m, muito
+    // abaixo de um pixel em qualquer enquadramento desta cena.
+    const ANEIS = 48, SETORES = 192
+    const cPos: number[] = [], cNor: number[] = [], cUv: number[] = [], cIdx: number[] = []
+    const nrmC = new THREE.Vector3()
+    for (let i = 0; i <= ANEIS; i++) {
+      // ⚠️ RAIO COM EXPOENTE 0,85, não linear: perto da orla a casca é mais
+      // inclinada e é lá que a silhueta se lê. O expoente adensa os anéis na
+      // saia sem gastar anel no zênite, onde a superfície é quase plana.
+      const r = DOME_R * Math.pow(i / ANEIS, 0.85)
+      const y = capY(r)
+      for (let k = 0; k <= SETORES; k++) {
+        const ang = (k / SETORES) * Math.PI * 2
+        const x = Math.cos(ang) * r, z = Math.sin(ang) * r
+        normalEm(x, z, nrmC)
+        cPos.push(x, y, z)
+        cNor.push(nrmC.x, nrmC.y, nrmC.z)
+        cUv.push(x / (2 * DOME_R) + 0.5, z / (2 * DOME_R) + 0.5)
+      }
+    }
+    const LINHA = SETORES + 1
+    for (let i = 0; i < ANEIS; i++) {
+      for (let k = 0; k < SETORES; k++) {
+        const A = i * LINHA + k, B = (i + 1) * LINHA + k
+        cIdx.push(A, B, B + 1, A, B + 1, A + 1)
+      }
+    }
+    const geoCalota = new THREE.BufferGeometry()
+    geoCalota.setAttribute('position', new THREE.Float32BufferAttribute(cPos, 3))
+    geoCalota.setAttribute('normal', new THREE.Float32BufferAttribute(cNor, 3))
+    geoCalota.setAttribute('uv', new THREE.Float32BufferAttribute(cUv, 2))
+    geoCalota.setIndex(cIdx)
+
+    const texFavo = texturaFavo(celulas, DOME_R, 4.0)
+    const matCal = materialCalota(fade, crown, texFavo)
+    const malhaCal = new THREE.Mesh(geoCalota, matCal)
+    malhaCal.name = 'abobada:calota'
+    malhaCal.frustumCulled = false
+    malhaCal.renderOrder = 5
+    malhaCal.onBeforeRender = (_r, _s, cam) => {
+      cam.getWorldPosition(matCal.uniforms.uCam.value)
+      matCal.uniformsNeedUpdate = true
+    }
+    group.add(malhaCal)
+    trisCasca = cIdx.length / 3
+    aDescartar.push(() => { geoCalota.dispose(); matCal.dispose(); texFavo.dispose() })
+  } else {
+    // ── vidro: uma almofada por célula, tudo fundido numa malha só ────────────
+    //
+    // A célula agora é um POLÍGONO qualquer de 4 a 8 lados, não um hexágono, então
+    // o leque sai do centroide. Dois anéis: o de fora nos vértices (na calota) e um
+    // intermediário a 55% do caminho, que é o que dá a barriga da almofada em vez
+    // de um cone.
+    const vidros: THREE.BufferGeometry[] = []
+    const tmpN = new THREE.Vector3()
+    for (const c of celulas) {
+      const n = c.pol.length
+      const pos: number[] = []
+      const idx: number[] = []
+      normalEm(c.cx, c.cz, tmpN)
+      pos.push(c.cx, capY(Math.hypot(c.cx, c.cz)) + pillow * tmpN.y, c.cz)
+      // ⚠️ O PERFIL É DE CALOTA, NÃO DE PARÁBOLA. `1 − t²` cai devagar no meio e
+      // rápido na borda: dá barriga mole. `√(1 − t²)` é a seção de uma esfera —
+      // sobe reto do caixilho e arredonda no alto, que é o que uma bolha faz.
+      // Três anéis porque com dois a quina do meio aparece na silhueta.
+      const ANEIS_B = [0.42, 0.72, 0.92, 1.0]
+      for (const t of ANEIS_B) {
+        const alt = pillow * Math.sqrt(Math.max(0, 1 - t * t))
+        for (const [vx, vz] of c.pol) {
+          const x = c.cx + (vx - c.cx) * t, z = c.cz + (vz - c.cz) * t
+          pos.push(x, capY(Math.hypot(x, z)) + alt, z)
+        }
+      }
+      for (let k = 0; k < n; k++) idx.push(0, 1 + k, 1 + ((k + 1) % n))
+      for (let m = 0; m < ANEIS_B.length - 1; m++) {
+        const A = 1 + m * n, B = 1 + (m + 1) * n
+        for (let k = 0; k < n; k++) {
+          const k2 = (k + 1) % n
+          idx.push(A + k, B + k, B + k2)
+          idx.push(A + k, B + k2, A + k2)
+        }
+      }
+      const g = new THREE.BufferGeometry()
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+      g.setIndex(idx)
+      g.computeVertexNormals()
+      // ⚠️ A BORDA NÃO CEDE MAIS A NORMAL. Isso era para a época da almofada: com a
+      // normal da calota nos vértices de borda, a célula ganhava um caixilho
+      // chapado e a junta sumia. Bolha é o contrário — duas bolhas vizinhas se
+      // encontram numa QUINA, e é a quina que desenha a fachada. Cada célula é
+      // geometria própria, então `computeVertexNormals` já dá a quina viva de
+      // graça: normal dura na divisa, suave por dentro.
+      vidros.push(g)
+    }
+
+    const geoVidro = mergeGeometries(vidros, false)!
+    vidros.forEach((g) => g.dispose())
+    const matVidro = materialVidro(fade, crown)
+    const malhaVidro = new THREE.Mesh(geoVidro, matVidro)
+    malhaVidro.frustumCulled = false
+    malhaVidro.renderOrder = 5
+    // ⚠️ `uniformsNeedUpdate` é obrigatório: num ShaderMaterial cru o three sobe as
+    // uniformes uma vez e depois só quando este sinal é levantado. Sem ele a
+    // posição da câmera congela no primeiro quadro e o desvanecimento passa a
+    // medir de um ponto que não existe mais.
+    malhaVidro.onBeforeRender = (_r, _s, cam) => {
+      cam.getWorldPosition(matVidro.uniforms.uCam.value)
+      matVidro.uniformsNeedUpdate = true
+    }
+    group.add(malhaVidro)
+
+    // ── nervuras: uma fita por aresta, cada aresta uma vez só ─────────────────
+    // A aresta é compartilhada por duas células. Sem a chave de deduplicação a
+    // malha desenharia 2x a estrutura e o céu ficaria com o dobro de traço.
+    const vistas = new Set<string>()
     const pos: number[] = []
+    const nor: number[] = []
     const idx: number[] = []
-    normalEm(c.cx, c.cz, tmpN)
-    pos.push(c.cx, capY(Math.hypot(c.cx, c.cz)) + pillow * tmpN.y, c.cz)
-    // ⚠️ O PERFIL É DE CALOTA, NÃO DE PARÁBOLA. `1 − t²` cai devagar no meio e
-    // rápido na borda: dá barriga mole. `√(1 − t²)` é a seção de uma esfera —
-    // sobe reto do caixilho e arredonda no alto, que é o que uma bolha faz.
-    // Três anéis porque com dois a quina do meio aparece na silhueta.
-    const ANEIS_B = [0.42, 0.72, 0.92, 1.0]
-    for (const t of ANEIS_B) {
-      const alt = pillow * Math.sqrt(Math.max(0, 1 - t * t))
-      for (const [vx, vz] of c.pol) {
-        const x = c.cx + (vx - c.cx) * t, z = c.cz + (vz - c.cz) * t
-        pos.push(x, capY(Math.hypot(x, z)) + alt, z)
-      }
-    }
-    for (let k = 0; k < n; k++) idx.push(0, 1 + k, 1 + ((k + 1) % n))
-    for (let m = 0; m < ANEIS_B.length - 1; m++) {
-      const A = 1 + m * n, B = 1 + (m + 1) * n
+    const p0 = new THREE.Vector3(), p1 = new THREE.Vector3(), meio = new THREE.Vector3()
+    const dir = new THREE.Vector3(), lado = new THREE.Vector3(), nrm = new THREE.Vector3()
+    // ⚠️ A ARESTA VEM DO POLÍGONO, não de um hexágono ideal. Antes ela era calculada
+    // do centro do hexágono mais o vetor do canto; com célula de Voronoi o número
+    // de lados varia de 4 a 8 e a aresta É o dado. E a aresta da orla, que agora
+    // cai exatamente no círculo, ganha nervura como qualquer outra: é ela que faz o
+    // remate contra o anel de coroamento sem gola nenhuma.
+    const pontoNa = (x: number, z: number, out: THREE.Vector3) =>
+      out.set(x, capY(Math.hypot(x, z)), z)
+    for (const c of celulas) {
+      const n = c.pol.length
       for (let k = 0; k < n; k++) {
-        const k2 = (k + 1) % n
-        idx.push(A + k, B + k, B + k2)
-        idx.push(A + k, B + k2, A + k2)
+        pontoNa(c.pol[k][0], c.pol[k][1], p0)
+        pontoNa(c.pol[(k + 1) % n][0], c.pol[(k + 1) % n][1], p1)
+        meio.addVectors(p0, p1).multiplyScalar(0.5)
+        const chave = `${Math.round(meio.x / 0.5)}:${Math.round(meio.z / 0.5)}`
+        if (vistas.has(chave)) continue
+        vistas.add(chave)
+        normalEm(meio.x, meio.z, nrm)
+        dir.subVectors(p1, p0).normalize()
+        lado.crossVectors(dir, nrm).normalize().multiplyScalar(ribW / 2)
+        // 0,4 m acima do vidro: sem isso as duas superfícies brigam pelo z-buffer
+        const sobe = 0.4
+        const base = pos.length / 3
+        for (const p of [p0, p1]) {
+          pos.push(p.x - lado.x, p.y + nrm.y * sobe - lado.y, p.z - lado.z)
+          nor.push(nrm.x, nrm.y, nrm.z)
+          pos.push(p.x + lado.x, p.y + nrm.y * sobe + lado.y, p.z + lado.z)
+          nor.push(nrm.x, nrm.y, nrm.z)
+        }
+        idx.push(base, base + 1, base + 3, base, base + 3, base + 2)
       }
     }
-    const g = new THREE.BufferGeometry()
-    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
-    g.setIndex(idx)
-    g.computeVertexNormals()
-    // ⚠️ A BORDA NÃO CEDE MAIS A NORMAL. Isso era para a época da almofada: com a
-    // normal da calota nos vértices de borda, a célula ganhava um caixilho
-    // chapado e a junta sumia. Bolha é o contrário — duas bolhas vizinhas se
-    // encontram numa QUINA, e é a quina que desenha a fachada. Cada célula é
-    // geometria própria, então `computeVertexNormals` já dá a quina viva de
-    // graça: normal dura na divisa, suave por dentro.
-    vidros.push(g)
-  }
-
-  const geoVidro = mergeGeometries(vidros, false)!
-  vidros.forEach((g) => g.dispose())
-  const matVidro = materialVidro(fade, crown)
-  const malhaVidro = new THREE.Mesh(geoVidro, matVidro)
-  malhaVidro.frustumCulled = false
-  malhaVidro.renderOrder = 5
-  // ⚠️ `uniformsNeedUpdate` é obrigatório: num ShaderMaterial cru o three sobe as
-  // uniformes uma vez e depois só quando este sinal é levantado. Sem ele a
-  // posição da câmera congela no primeiro quadro e o desvanecimento passa a
-  // medir de um ponto que não existe mais.
-  malhaVidro.onBeforeRender = (_r, _s, cam) => {
-    cam.getWorldPosition(matVidro.uniforms.uCam.value)
-    matVidro.uniformsNeedUpdate = true
-  }
-  group.add(malhaVidro)
-
-  // ── nervuras: uma fita por aresta, cada aresta uma vez só ─────────────────
-  // A aresta é compartilhada por duas células. Sem a chave de deduplicação a
-  // malha desenharia 2x a estrutura e o céu ficaria com o dobro de traço.
-  const vistas = new Set<string>()
-  const pos: number[] = []
-  const nor: number[] = []
-  const idx: number[] = []
-  const p0 = new THREE.Vector3(), p1 = new THREE.Vector3(), meio = new THREE.Vector3()
-  const dir = new THREE.Vector3(), lado = new THREE.Vector3(), nrm = new THREE.Vector3()
-  // ⚠️ A ARESTA VEM DO POLÍGONO, não de um hexágono ideal. Antes ela era calculada
-  // do centro do hexágono mais o vetor do canto; com célula de Voronoi o número
-  // de lados varia de 4 a 8 e a aresta É o dado. E a aresta da orla, que agora
-  // cai exatamente no círculo, ganha nervura como qualquer outra: é ela que faz o
-  // remate contra o anel de coroamento sem gola nenhuma.
-  const pontoNa = (x: number, z: number, out: THREE.Vector3) =>
-    out.set(x, capY(Math.hypot(x, z)), z)
-  for (const c of celulas) {
-    const n = c.pol.length
-    for (let k = 0; k < n; k++) {
-      pontoNa(c.pol[k][0], c.pol[k][1], p0)
-      pontoNa(c.pol[(k + 1) % n][0], c.pol[(k + 1) % n][1], p1)
-      meio.addVectors(p0, p1).multiplyScalar(0.5)
-      const chave = `${Math.round(meio.x / 0.5)}:${Math.round(meio.z / 0.5)}`
-      if (vistas.has(chave)) continue
-      vistas.add(chave)
-      normalEm(meio.x, meio.z, nrm)
-      dir.subVectors(p1, p0).normalize()
-      lado.crossVectors(dir, nrm).normalize().multiplyScalar(ribW / 2)
-      // 0,4 m acima do vidro: sem isso as duas superfícies brigam pelo z-buffer
-      const sobe = 0.4
-      const base = pos.length / 3
-      for (const p of [p0, p1]) {
-        pos.push(p.x - lado.x, p.y + nrm.y * sobe - lado.y, p.z - lado.z)
-        nor.push(nrm.x, nrm.y, nrm.z)
-        pos.push(p.x + lado.x, p.y + nrm.y * sobe + lado.y, p.z + lado.z)
-        nor.push(nrm.x, nrm.y, nrm.z)
-      }
-      idx.push(base, base + 1, base + 3, base, base + 3, base + 2)
+    const geoNerv = new THREE.BufferGeometry()
+    geoNerv.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+    geoNerv.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3))
+    geoNerv.setIndex(idx)
+    const matNerv = materialNervura(fade, crown)
+    const malhaNerv = new THREE.Mesh(geoNerv, matNerv)
+    malhaNerv.renderOrder = 6
+    malhaNerv.frustumCulled = false
+    malhaNerv.onBeforeRender = (_r, _s, cam) => {
+      cam.getWorldPosition(matNerv.uniforms.uCam.value)
+      matNerv.uniformsNeedUpdate = true
     }
+    group.add(malhaNerv)
+
+    trisCasca = geoVidro.index!.count / 3 + geoNerv.index!.count / 3
+    aDescartar.push(() => {
+      geoVidro.dispose(); matVidro.dispose()
+      geoNerv.dispose(); matNerv.dispose()
+    })
   }
-  const geoNerv = new THREE.BufferGeometry()
-  geoNerv.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
-  geoNerv.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3))
-  geoNerv.setIndex(idx)
-  const matNerv = materialNervura(fade, crown)
-  const malhaNerv = new THREE.Mesh(geoNerv, matNerv)
-  malhaNerv.renderOrder = 6
-  malhaNerv.frustumCulled = false
-  malhaNerv.onBeforeRender = (_r, _s, cam) => {
-    cam.getWorldPosition(matNerv.uniforms.uCam.value)
-    matNerv.uniformsNeedUpdate = true
-  }
-  group.add(malhaNerv)
 
   // ── O REMATE COM O SOLO ───────────────────────────────────────────────────
   //
@@ -718,7 +998,12 @@ export function buildDome(o: DomeOpts): Dome {
   // segmentos. Medido antes: com 360 a corda reta entre dois vértices se afastava
   // do chão real em até 4,66 m num perímetro de 44,9 km. Com 2.880 o pior caso é
   // 0,57 m e a berma de 9 m absorve isso com folga de ordem de grandeza.
-  const SEG = 2880
+  // ⚠️ NO LOOK 2 A VOLTA CAI PELA METADE, 2.880 -> 1.440. O critério do 2.880 era
+  // a corda reta se afastar do chão real em no máximo 0,57 m (com 360 dava 4,66);
+  // com 1.440 o pior caso medido pela mesma regra fica na ordem de 1,1 m, e a
+  // berma tem 9 m. Em troca o anel cai de 23.040 para 11.520 triângulos e a saia
+  // de 17.280 para 8.640, que é o que fecha a abóbada inteira abaixo de 40 mil.
+  const SEG = look2 ? 1440 : 2880
   const EMBUTE = 8         // quanto a sapata entra no solo
   const sapata = 26        // largura do anel horizontal
   const berma = 9          // o chanfro entre a parede e a sapata
@@ -728,6 +1013,13 @@ export function buildDome(o: DomeOpts): Dome {
 
   const sPos: number[] = [], sIdx: number[] = []     // parede, berma e sapata
   const aPos: number[] = [], aIdx: number[] = []     // o anel de aço
+  // ⚠️ O ANEL ERA UMA ARESTA PRETA E RETA (#141416, metalness 0,85) encostando no
+  // regolito sem nenhum tratamento, e é o que mais salta na orla. No look 2 ele
+  // deixa de ser cromado (roughness 0,42 -> 0,62, metalness 0,85 -> 0,55, cor
+  // #1E1F24) e ganha COR POR VÉRTICE: a aba de cima, que pega o céu, fica clara,
+  // e o pé, que está em sombra própria contra o solo, fica escuro. Assim a linha
+  // de remate continua legível de longe sem ser um traço chapado.
+  const aCor: number[] = []
   for (let i = 0; i <= SEG; i++) {
     const ang = (i / SEG) * Math.PI * 2
     const rr = raioNo(ang)
@@ -740,6 +1032,9 @@ export function buildDome(o: DomeOpts): Dome {
     aPos.push(cx2 * (rr + ANEL_W), yBorda, cz2 * (rr + ANEL_W))            // 1 aba de fora
     aPos.push(cx2 * (rr + ANEL_W), yBorda - ANEL_H, cz2 * (rr + ANEL_W))   // 2 pé de fora
     aPos.push(cx2 * (rr - ANEL_W), yBorda - ANEL_H, cz2 * (rr - ANEL_W))   // 3 pé de dentro
+    if (look2) {
+      aCor.push(1.55, 1.55, 1.62,  1.70, 1.70, 1.78,  0.52, 0.52, 0.56,  0.42, 0.42, 0.46)
+    }
     // a parede e a base, a partir do pé do anel
     sPos.push(x, yBorda - ANEL_H, z)                                        // 0 topo da parede
     sPos.push(x, yChao + berma, z)                                          // 1 pé da parede
@@ -768,9 +1063,15 @@ export function buildDome(o: DomeOpts): Dome {
   geoAnel.setAttribute('position', new THREE.Float32BufferAttribute(aPos, 3))
   geoAnel.setIndex(aIdx)
   geoAnel.computeVertexNormals()
-  const matAnel = new THREE.MeshStandardMaterial({
-    color: '#141416', metalness: 0.85, roughness: 0.42, side: THREE.DoubleSide,
-  })
+  if (look2) geoAnel.setAttribute('color', new THREE.Float32BufferAttribute(aCor, 3))
+  const matAnel = look2
+    ? new THREE.MeshStandardMaterial({
+        color: '#1E1F24', metalness: 0.55, roughness: 0.62,
+        side: THREE.DoubleSide, vertexColors: true,
+      })
+    : new THREE.MeshStandardMaterial({
+        color: '#141416', metalness: 0.85, roughness: 0.42, side: THREE.DoubleSide,
+      })
   const malhaAnel = new THREE.Mesh(geoAnel, matAnel)
   malhaAnel.name = 'abobada:anel'
   malhaAnel.castShadow = true
@@ -781,8 +1082,7 @@ export function buildDome(o: DomeOpts): Dome {
   malhaSaia.frustumCulled = false
   group.add(malhaSaia)
 
-  const triangulos =
-    geoVidro.index!.count / 3 + geoNerv.index!.count / 3 + geoSaia.index!.count / 3
+  const triangulos = trisCasca + geoSaia.index!.count / 3 + geoAnel.index!.count / 3
 
   group.position.set(cen.x, 0, cen.z)
 
@@ -793,9 +1093,9 @@ export function buildDome(o: DomeOpts): Dome {
     triangulos,
     coroa: crown,
     dispose() {
-      geoVidro.dispose(); matVidro.dispose()
-      geoNerv.dispose(); matNerv.dispose()
+      for (const d of aDescartar) d()
       geoSaia.dispose(); matSaia.dispose()
+      geoAnel.dispose(); matAnel.dispose()
     },
   }
 }
