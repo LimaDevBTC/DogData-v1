@@ -40,6 +40,17 @@ export interface LagosOpts {
   superficieAt: (x: number, z: number) => number
   /** até onde procurar água: a casca */
   raio: number
+  /** ⚠️ ONDE FICA A BAÍA, segundo o gerador (`cidade-malha.json` -> `lagos.baia`).
+   *
+   *  ⚠️ SEM ISTO A BAÍA É ELEITA POR TAMANHO, E ISSO QUEBRA QUANDO O RAIO CRESCE.
+   *  A regra antiga era "o maior corpo é a baía", o que valia enquanto a casca
+   *  fechava em 7.050. Com a casca em 9.050 (02/09) entra no alcance um anel de
+   *  água externo de 34,5 km² que GANHA da baía do fundador, e a orla construída
+   *  (cais, muro, passeio) muda de lugar sozinha, em silêncio.
+   *
+   *  Passando o ponto que o gerador publica, a eleição vira "o corpo que contém
+   *  ESTE ponto", que é fonte única e não depende de quem é maior. */
+  baiaEm?: [number, number]
   /** passo da amostragem em metros; 30 dá orla lisa sem pesar */
   passo?: number
   /** ⚠️ ONDE A MARGEM NÃO SE DESENHA, mas a ÁGUA ENTRA.
@@ -248,8 +259,18 @@ export function buildLagos(o: LagosOpts): Lagos {
     }
     tam.push(cont)
   }
+  // ⚠️ A BAÍA É QUEM CONTÉM O PONTO PUBLICADO, não quem é maior. Ver `baiaEm`.
+  // O maior corpo continua sendo a queda: sem a consulta, o comportamento antigo.
   let baia = -1
-  for (let k = 0; k < tam.length; k++) if (baia < 0 || tam[k] > tam[baia]) baia = k
+  if (o.baiaEm) {
+    const [bx, bz] = o.baiaEm
+    const bi = Math.round((bx + R) / passo), bj = Math.round((bz + R) / passo)
+    if (bi >= 0 && bi <= n && bj >= 0 && bj <= n) baia = rot[bj * (n + 1) + bi]
+  }
+  if (baia < 0) {
+    if (o.baiaEm) console.warn('[lagos] o ponto da baía publicado caiu fora da água; elegendo por tamanho')
+    for (let k = 0; k < tam.length; k++) if (baia < 0 || tam[k] > tam[baia]) baia = k
+  }
 
   const posA: number[] = [], idxA: number[] = []      // a lâmina
   const posP: number[] = [], idxP: number[] = []      // a praia das crateras

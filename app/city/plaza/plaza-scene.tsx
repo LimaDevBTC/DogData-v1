@@ -36,7 +36,7 @@ import { detectTier, profileFor, parseQuality, FrameGovernor, DistanceCuller, me
 import { SF_CREDITS, SF, loadSf, dressSf } from './sf-assets'
 import { buildProps, type Props } from './props'
 import { buildDscGallery, DSC_CENTER, type DscGallery } from './dsc-gallery'
-import { buildDome, type Dome } from './dome'
+import { buildDome, DOME_R, type Dome } from './dome'
 import { buildColiseu, type Coliseu } from './coliseu'
 import { buildTecido, type Tecido } from './tecido'
 import { buildObras, type Obras } from './obras'
@@ -1643,7 +1643,18 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                   // saída. As duas lâminas estão na mesma cota (−40), então
                   // sobrepor não custa nada; o que não pode é a margem cruzar.
                   semMargem: _foraDoCanal,
-                  raio: 7050,
+                  // ⚠️ ERA `7050` CRAVADO, e ficou para trás quando a casca foi a
+                  // 9.050 em 02/09. O efeito era invisível no console e enorme na
+                  // cena: a lâmina parava em r 7.010, a baía desenhada tinha 21,98
+                  // km² contra os 56,63 que o gerador calculou, e 21 das 26 ilhas
+                  // do arquipélago nasciam em terra seca. Agora acompanha o
+                  // `DOME_R`, que é a fonte da casca.
+                  raio: DOME_R,
+                  // ⚠️ E A BAÍA PASSA A SER ELEITA PELO PONTO PUBLICADO. Ver a nota
+                  // em `LagosOpts.baiaEm`: com o raio maior, um anel de água
+                  // externo de 34,5 km² ganharia da baía do fundador na regra de
+                  // "maior corpo" e levaria a orla construída junto.
+                  baiaEm: mc?.lagos?.baia ? [mc.lagos.baia.x, mc.lagos.baia.z] : undefined,
                   sombra: qDomo.get('sombra') !== '0',
                 })
                 scene.add(lagos.group)

@@ -45,7 +45,10 @@ function pares(v: number[]): [number, number][] {
 // sobre ela ou sobrava 1,5 km de um lado ou cortava a cidade do outro.
 // A abóbada agora recorta no MESMO contorno que o gerador publica em
 // `cidade-malha.json` -> `contorno`, com uma folga. Sem contorno, cai neste raio.
-export const DOME_R = 7050
+// ⚠️ 7.050 -> 9.050 em 02/09. Continua sendo a testada do parque
+// (PARK_CENTER a 11.800 menos PARK_FRENTE 2.750), e continua tendo de bater com
+// `R_CASCA` em scripts/gerar_cidade.py.
+export const DOME_R = 9050
 
 /**
  * ⚠️ 8.600 -> 7.050 em 30/08. A borda agora termina EXATAMENTE na entrada do

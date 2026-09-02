@@ -43,7 +43,12 @@ def p(*a): return os.path.join(RAIZ, *a)
 # que cobre a cidade E o Parque Runestone na posição nova.
 # ⚠️ O RAIO DO TERRENO E O DA CIDADE SE SEPARARAM: eram os dois 4.500 por
 # coincidência. Terreno 11.000 (sites.ts), cidade 7.000 (aqui).
-R_SITIO      = float(os.environ.get('R', 7000))
+# ⚠️ 7.000 -> 9.000 em 02/09 (decisão do fundador: aumentar a abóbada para abrir
+# margem d'água). O terreno NÃO precisou ser regerado: medido, o parque em 11.800
+# tem extremo em |z| 12.230 m e a grade de 429x429 cobre 12.704, com 474 m de
+# folga. E a célula de 59,23 m já é a resolução NATIVA do SLDEM2015 a 512 px por
+# grau, então regerar não traria detalhe nenhum.
+R_SITIO      = float(os.environ.get('R', 9000))
 # ⚠️ 1.450 E NÃO 1.300, E O MOTIVO É O LAGO. O primeiro lote parava em 1.300 e a
 # praça acaba em 1.024: sobravam 276 m de anel, e o Lago da Praça ficava espremido
 # em 193 m de lâmina. Empurrando o começo da cidade 150 m para fora o lago vai
@@ -174,7 +179,13 @@ PLATO_R, PLATO_FUNDE = 960, 1300
 # dela em 5.200, e ele é parque nacional: fica fora da abóbada, alcançado de
 # veículo pressurizado. 9.800 deixa a chegada dele (o Portão, a 2,75 km do
 # Monarca pelo lado da cidade) a 7.050, ou seja 150 m depois da borda urbana.
-PARQUE_RUMO, PARQUE_DIST, PARQUE_DISCO = 43.0, 9800.0, 3600.0
+# ⚠️ 9.800 -> 11.800 em 02/09, junto com a cidade indo a 9.000. O parque tem de
+# continuar FORA da casca, e a identidade que amarra os dois é
+# `PARQUE_DIST - PARQUE_FRENTE == R_CASCA`: 11.800 - 2.750 = 9.050. Se você mexer
+# num, mexa no outro. E ESTE NÚMERO TEM DE BATER COM `DIST` em
+# app/city/plaza/park-site.ts, senão o gerador reserva o vazio num lugar e o
+# parque nasce noutro, em cima de lote.
+PARQUE_RUMO, PARQUE_DIST, PARQUE_DISCO = 43.0, 11800.0, 3600.0
 # ⚠️ O SPACEPORT SAIU DO SÍTIO em 28/08/2026 e por isso NÃO É MAIS MÁSCARA.
 # Ele estava em (-140, 3090), raio 3.093 m, e foi para o raio 4.400 porque
 # foguete não atravessa a abóbada (SPACEPORT_SHIFT em app/city/plaza/orbit-layer.ts).
@@ -586,7 +597,11 @@ def livre_de_canal(ru, ph, meio):
 # ⚠️ E O RAIO DA CASCA É 7.050, NÃO `R_ABOBADA`. R_ABOBADA (6.900) é um φ, e φ não
 # é raio: no rumo errado os dois diferem centenas de metros. `DOME_R` em
 # app/city/plaza/dome.ts é a verdade, e os dois TÊM de bater.
-R_CASCA = 7050.0
+# ⚠️ ANDA COM `PARQUE_DIST`: a casca fecha exatamente na testada do parque, ou
+# seja R_CASCA == PARQUE_DIST - PARQUE_FRENTE. 7.050 -> 9.050 em 02/09. Não é
+# derivado em código porque PARQUE_FRENTE só nasce lá embaixo, na linha 1359.
+# ⚠️ E TEM DE BATER COM `DOME_R` em app/city/plaza/dome.ts.
+R_CASCA = 9050.0
 # ⚠️ O NOME É `_TIPOS_COM_AR` E NÃO `_PRECISA_AR` porque a linha ~1150 já usa
 # `_PRECISA_AR` para outra coisa: uma tupla de NOMES de peça de borda. Chamei o
 # meu de igual e ele foi silenciosamente sobrescrito antes de o cinturão rodar —
@@ -2254,7 +2269,10 @@ EXTRACAO = []
 for _i in range(8):
     _ru = rumo_de_raio(190.0 + _i * 18.0)       # o arco oposto ao parque (rumo 43)
     if abs(((_ru - PARQUE_RUMO + 180) % 360) - 180) < 40: continue
-    for _j, _rr in enumerate([7600.0, 8600.0]):
+    # ⚠️ +2.000 EM 02/09, JUNTO COM A CASCA. A extração é industrial e mora FORA
+    # do vidro, no arco oposto ao parque. Com a casca indo de 7.050 para 9.050, os
+    # anéis de 7.600 e 8.600 passariam a ficar DENTRO da cidade.
+    for _j, _rr in enumerate([9600.0, 10600.0]):
         _ang = math.radians(_ru)
         EXTRACAO.append({
             'id': f'EX{len(EXTRACAO)+1:02d}',
@@ -3238,7 +3256,8 @@ bulevares = []
 # defeito da roda de bicicleta sem aro, agora ao contrário. Estendendo, cada
 # bulevar cruza os dois anéis novos e nascem 18 rotatórias que ligam a produção
 # à cidade.
-R_BUL_FIM = 6900.0
+# ⚠️ É O `R_ABOBADA` (R_SITIO - 100), escrito à mão. 6.900 -> 8.900 em 02/09.
+R_BUL_FIM = 8900.0
 # ⚠️ O BULEVAR COMEÇA NA ORLA DO LAGO, E NÃO NO PRIMEIRO LOTE. Ele nascia em
 # R_INICIO (1.450) e o Anel da Orla mora em 1.440: sobravam 10 m de vão e o
 # sistema não fechava. Os 30 m a mais custam zero (não há lote antes de 1.450) e
@@ -3389,8 +3408,11 @@ with open(p('public/city/cidade-malha.json'), 'w') as f:
         # −113 e o túnel saía suspenso no ar sobre a cova. 7.150 é a última cota
         # firme (+3); de lá a estrada cênica desce para o parque, que é como já
         # estava desenhado na landing.
-        _eclusa('Parque', PARQUE_RUMO, 7150.0, 4450.0),
-        _eclusa('Extracao', 214.0, 7600.0, 4450.0),
+        # 7.150 -> 9.150: continua sendo a soleira, 100 m além de onde a cidade
+        # para nesse rumo (PARQUE_DIST - PARQUE_FRENTE), que é a última cota firme
+        # antes de a bacia do parque despencar.
+        _eclusa('Parque', PARQUE_RUMO, PARQUE_DIST - PARQUE_FRENTE + 100.0, 4450.0),
+        _eclusa('Extracao', 214.0, 9600.0, 4450.0),
         # ⚠️ A ECLUSA TEM DE FICAR NO RUMO DO SPACEPORT, e estava no 0° enquanto
         # ele mora no 182,6°: lados OPOSTOS da cidade. Quem saísse por ela andava
         # 15 km em volta da casca para chegar no pátio de lançamento. 183° é o
@@ -3399,7 +3421,7 @@ with open(p('public/city/cidade-malha.json'), 'w') as f:
         # ⚠️ O PORTAL EXTERNO SEGUE O PÁTIO. Ele foi para r 9.200 (respiro de 1,8 km da
         # casca, ver SPACEPORT_SHIFT em orbit-layer.ts) e o portal vai junto, para
         # 9.100: quem desce do foguete embarca ali mesmo. Túnel de 4.650 m.
-        _eclusa('Spaceport', 183.0, 9100.0, 4450.0),
+        _eclusa('Spaceport', 183.0, 11100.0, 4450.0),
     ], ensure_ascii=False, separators=(',', ':')) + ',\n')
     f.write('"contorno":' + json.dumps(contorno_pub, separators=(',', ':')) + ',\n')
     f.write('"quartos":' + _linhas(malha_q) + ',\n')

@@ -14,16 +14,38 @@
 // arredondado com enseada funda e praia no fundo dela. Nenhuma das três tem pico.
 // A primeira versão nossa era vulcão jovem — a coisa errada, bem feita.
 //
-// ⚠️ O BANCO RASO É DESENHADO ACIMA DA LÂMINA, E ISSO É DELIBERADO. A água da
-// cidade é opaca (`lagos.ts`, MeshStandardMaterial sem transparência), então
-// nada submerso aparece: um banco desenhado no lugar certo, debaixo d'água,
-// seria invisível. Aqui o apron submerso sobe para 15 cm ACIMA da lâmina e é
-// pintado no gradiente do raso — é o mesmo truque de sempre nesta cena, faixa
-// pintada em vez de volume, e é o que faz a turquesa existir.
+// ⚠️ O PARÁGRAFO DO "BANCO RASO A 15 CM" SAIU DAQUI PORQUE ELE MENTIA. O apron
+// acima da lâmina foi REMOVIDO do código em 31/08 (ver o ⚠️ dentro de `campo`),
+// mas o cabeçalho continuou anunciando o truque, e cabeçalho que mente manda a
+// próxima pessoa procurar a coisa errada.
+//
+// ⚠️ E EM 01/09 A ÁGUA GANHOU GRADIENTE DE PROFUNDIDADE (`lago.ts`,
+// `aplicarProfundidade`): a lâmina virou `transparent`, a opacidade vai de 0,32
+// no raso a 1,0 no fundo, e a cor clareia junto. A pergunta óbvia é se isso
+// aposentou o truque do apron. NÃO APOSENTOU, e a razão é aritmética:
+// `profDaAgua()` não mede profundidade, mede DISTÂNCIA ATÉ A MARGEM DA LÂMINA, e
+// a lâmina da baía é uma casca CONTÍNUA que não tem furo nenhum onde as ilhas
+// estão. Com `uProfRef` no teto de 150 m, a opacidade satura em
+// −150·ln(0,42) ≈ 130 m da margem EXTERNA da baía. A ilha mais próxima da costa
+// aqui está a 464 m dela: em volta de toda ilha o termo vale exp(−3,1) ≈ 0,045,
+// ou seja água cheia, opaca e escura encostando na praia. Turquesa de ilha,
+// hoje, não existe em lugar nenhum.
+//
+// ⚠️ O CONSERTO CERTO NÃO É NESTE ARQUIVO: é FURAR a lâmina da baía no contorno
+// de cada ilha (`lagos.ts`), porque aí o `campoDeMargem` passa a contar a costa
+// da ilha como margem e a turquesa sai de graça, correta, sem apron e sem
+// z-fighting. Está no relatório como pedido para quem é dono de `lagos.ts`.
+//
+// ⚠️ A FORMA É DEDO FINO, E A RAZÃO É ARITMÉTICA, NÃO GOSTO. O produto aqui é
+// MARGEM, e margem sai do PERÍMETRO, não da área. Medido neste arquivo: as 26
+// ilhas somam 7,21 km² de terra e 61,16 km de linha d'água, ou seja 8,5 km de
+// margem por km² de terra. A mesma terra num disco só daria 9,54 km de
+// perímetro: o recorte multiplica a orla por 6,4. É por isso que existe `dedos`.
 //
 // Three.js puro (regra da casa: nada de react-three-fiber).
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { look2 } from './look'
 import { superficie, quebrarRepeticao } from './materiais'
 
@@ -58,6 +80,20 @@ export interface IlhaSpec {
   alonga: number
   /** giro do eixo maior, em graus */
   giro: number
+  /** o grupo do arquipélago a que ela pertence (só leitura, para menu e relatório) */
+  grupo?: string
+  /** ⚠️ QUANTOS DEDOS a costa tem. 0 = a bolha de antes.
+   *
+   *  ⚠️ E O TERMO TEM MÉDIA 1, `1 + k·cos(n·(a − fase))`, DE PROPÓSITO. A
+   *  primeira versão usava `1 − k·(1 − cos)/2`, que só SUBTRAI: media 15,0 km de
+   *  margem nas cinco antigas e caiu para 13,4, porque encolheu a ilha inteira em
+   *  vez de recortá-la. Com média 1 a área fica onde estava e só o contorno
+   *  serpenteia: as mesmas cinco foram de 14,99 para 22,24 km de margem. */
+  dedos?: number
+  /** a profundidade do recorte, 0..0,5. Acima de 0,5 o dedo fecha sobre si mesmo. */
+  dedoK?: number
+  /** o rumo do primeiro dedo, em graus do quadro LOCAL da ilha */
+  fase?: number
   /** ⚠️ até onde o banco raso vai, como múltiplo do raio.
    *
    *  ⚠️ E ELE TEM TETO. A primeira tentativa usou 2,0 a 3,1 e o resultado medido
@@ -71,52 +107,229 @@ export interface IlhaSpec {
   dono?: string
 }
 
-// ⚠️ COORDENADAS MEDIDAS (preenchimento por distância à costa nos 20,48 km² da
-// baía), não escolhidas. O ponto mais fundo está a 1.540 m da costa.
+// ⚠️ AS COORDENADAS SÃO MEDIDAS, NÃO ESCOLHIDAS, e a régua está escrita aqui
+// porque sem ela ninguém consegue mexer numa linha destas sem chutar.
 //
-// ⚠️ A RAZÃO CUME/RAIO CAIU DE 0,39 PARA 0,05–0,15. Angra dos Reis tem morro de
-// 200 m em ilha de 3 km: razão 0,07. Um cayo das Bahamas fica em 0,01. A primeira
-// versão estava em 0,39, que é ilha vulcânica de 1 milhão de anos, não paraíso.
+// A baía cresceu com a casca em 02/09 (7.050 -> 9.050 de raio): 56,63 km² de
+// água contra os 20,48 de antes. Cada ilha abaixo foi posta rodando o MESMO
+// preenchimento por cota que `lagos.ts` roda, sobre o mesmo heightmap
+// (`public/lunar/btc-core-heightmap.f32`), na cota −40, e depois exigindo que
+// TODOS os 720 pontos do contorno dela caiam em água com pelo menos 55 m de
+// folga até a terra firme. A folga medida de cada uma vai no comentário do grupo.
+//
+// ⚠️ E A MÁSCARA USADA É A INTERSEÇÃO DE DUAS, não a do gerador sozinha. O
+// gerador (`scripts/gerar_cidade.py`) mede o relevo CRU, sem exagero vertical e
+// sem o pódio da abóbada; a cena mede `terrain.superficieAt`, que tem os dois.
+// Medido: só 80,7% da baía do gerador também é água na cena. Ilha posta pela
+// máscara do gerador sozinha nasce em cima de regolito nos outros 19,2%.
+//
+// ⚠️ DEPENDÊNCIA FORA DESTE ARQUIVO, E ELA É UM NÚMERO SÓ: `plaza-scene.tsx`
+// ainda chama `buildLagos({ raio: 7050 })` enquanto `DOME_R` já é 9.050. Com
+// 7.050 a lâmina para em r 7.010 e a baía desenhada tem 21,98 km², não 56,63:
+// as 15 ilhas de r > 7.010 (os grupos 'angra-leste' e 'cayos-sul', e parte de
+// 'cayos-norte') nascem em terra seca. Está no relatório.
+//
+// ⚠️ A RAZÃO CUME/RAIO FICA EM 0,05 a 0,15. Angra dos Reis tem morro de 200 m em
+// ilha de 3 km: razão 0,07. Um cayo das Bahamas fica em 0,01. A primeira versão
+// estava em 0,39, que é ilha vulcânica de 1 milhão de anos, não paraíso.
+//
+// OS GRUPOS, e cada um existe por uma razão de leitura:
+//   angra-fundador  as 5 originais, no miolo velho da baía. Morro arredondado,
+//                   enseada funda. As únicas que já apareciam em chapa.
+//   cayos-norte     BAHAMAS: seis cayos baixos e COMPRIDOS (alonga 1,9 a 2,6)
+//                   enfileirados no raso do noroeste. Cume de 8 a 14 m: quase
+//                   tudo ali é praia.
+//   atois           MALDIVAS: cinco atóis com lagoa, no meio-norte. Sem dedo, de
+//                   propósito: atol é anel, e anel com dedo deixa de ser anel.
+//   angra-leste     seis morros no arco leste, o grupo com mais silhueta.
+//   cayos-sul       quatro peças soltas fechando o arco sul, para o arquipélago
+//                   dar a volta em vez de virar um bolo num canto.
+//
+// ⚠️ E O VAZIO É PARTE DO DESENHO. O miolo fundo da baía (perto de 5.000,−5.000,
+// o ponto a 1.235 m de qualquer costa) ficou SEM ilha nenhuma. Arquipélago sem
+// água aberta não lê como arquipélago, lê como pântano.
 export const ILHAS: readonly IlhaSpec[] = [
-  // A DO FUNDADOR, tipo Angra: morros arredondados, enseadas fundas, praia no
-  // fundo de cada uma. A 5.589 m do centro no rumo 40,3°, o eixo entre a cidade e
-  // o Parque Runestone. A maior, e a única com banco em toda a volta.
-  { id: 'IL01', nome: 'Ilha do Fundador', x: 3613, z: -4264,
-    raio: 600, cume: 88, tipo: 'angra', semente: 1, alonga: 1.35, giro: 214,
-    banco: 1.55, dono: 'fundador',
+  { id: 'IL01', nome: 'Ilha do Fundador', grupo: 'angra-fundador', x: 3624, z: -4261,
+    raio: 600, cume: 86, tipo: 'angra', semente: 7, alonga: 1.35, giro: 150,
+    banco: 1.55, dedos: 4, dedoK: 0.34, fase: 30, dono: 'fundador',
     patamares: [
-      { raio: 118, rumo: 214, dist: 245, cota: 0.62 },   // o alto, vista da cidade
-      { raio: 104, rumo: 62, dist: 335, cota: 0.16 },    // o baixo, sobre a praia
+      { raio: 114, rumo: 323, dist: 378, cota: 0.6 },
+      { raio: 100, rumo: 143, dist: 694, cota: 0.16 },
     ] },
-  { id: 'IL02', nome: 'Ilha Norte', x: 4975, z: -3494,
-    raio: 430, cume: 62, tipo: 'angra', semente: 7, alonga: 1.18, giro: 70,
-    banco: 1.50,
+  { id: 'IL02', nome: 'Ilha Norte', grupo: 'angra-fundador', x: 5022, z: -3277,
+    raio: 430, cume: 58, tipo: 'angra', semente: 13, alonga: 1.18, giro: 195,
+    banco: 1.55, dedos: 4, dedoK: 0.36, fase: 255,
     patamares: [
-      { raio: 92, rumo: 152, dist: 185, cota: 0.58 },
-      { raio: 80, rumo: 340, dist: 230, cota: 0.14 },
+      { raio: 78, rumo: 147, dist: 216, cota: 0.6 },
+      { raio: 71, rumo: 327, dist: 171, cota: 0.16 },
     ] },
-  // BAHAMAS: cayo baixo sobre um banco enorme. Quase toda ela é praia e raso.
-  { id: 'IL03', nome: 'Banco do Poente', x: 3139, z: -5390,
-    raio: 285, cume: 13, tipo: 'banco', semente: 13, alonga: 1.7, giro: 128,
-    banco: 1.95,
+  { id: 'IL03', nome: 'Banco do Poente', grupo: 'angra-fundador', x: 3029, z: -5451,
+    raio: 285, cume: 13, tipo: 'banco', semente: 19, alonga: 1.7, giro: 165,
+    banco: 1.55, dedos: 3, dedoK: 0.3, fase: 300,
     patamares: [
-      { raio: 74, rumo: 128, dist: 105, cota: 0.72 },
-      { raio: 64, rumo: 300, dist: 128, cota: 0.66 },
+      { raio: 53, rumo: 239, dist: 121, cota: 0.72 },
+      { raio: 45, rumo: 331, dist: 185, cota: 0.66 },
     ] },
-  { id: 'IL04', nome: 'Ilha Leste', x: 5626, z: -2665,
-    raio: 230, cume: 40, tipo: 'angra', semente: 23, alonga: 1.45, giro: 20,
-    banco: 1.55,
+  { id: 'IL04', nome: 'Ilha Leste', grupo: 'angra-fundador', x: 5739, z: -2277,
+    raio: 230, cume: 32, tipo: 'angra', semente: 25, alonga: 1.45, giro: 315,
+    banco: 1.55, dedos: 3, dedoK: 0.28, fase: 135,
     patamares: [
-      { raio: 62, rumo: 20, dist: 92, cota: 0.56 },
-      { raio: 54, rumo: 205, dist: 106, cota: 0.18 },
+      { raio: 44, rumo: 280, dist: 141, cota: 0.6 },
+      { raio: 38, rumo: 24, dist: 203, cota: 0.16 },
     ] },
-  // MALDIVAS: atol com lagoa. O anel é estreito e a lagoa é rasa e clara.
-  { id: 'IL05', nome: 'Atol', x: 4679, z: -4323,
-    raio: 150, cume: 9, tipo: 'atol', semente: 31, alonga: 1.2, giro: 300,
-    banco: 1.85,
+  { id: 'IL05', nome: 'Atol da Baía', grupo: 'angra-fundador', x: 4628, z: -4350,
+    raio: 150, cume: 9, tipo: 'atol', semente: 31, alonga: 1.2, giro: 270,
+    banco: 1.55, dedos: 0, dedoK: 0, fase: 345,
     patamares: [
-      { raio: 40, rumo: 300, dist: 96, cota: 0.9 },
-      { raio: 34, rumo: 128, dist: 100, cota: 0.86 },
+      { raio: 31, rumo: 167, dist: 92, cota: 0.9 },
+      { raio: 29, rumo: 347, dist: 111, cota: 0.86 },
+    ] },
+  { id: 'IL10', nome: 'Cayo Maior', grupo: 'cayos-norte', x: 475, z: -8196,
+    raio: 260, cume: 14, tipo: 'banco', semente: 37, alonga: 2.1, giro: 180,
+    banco: 1.55, dedos: 4, dedoK: 0.42, fase: 15,
+    patamares: [
+      { raio: 48, rumo: 277, dist: 276, cota: 0.72 },
+      { raio: 42, rumo: 97, dist: 390, cota: 0.66 },
+    ] },
+  { id: 'IL11', nome: 'Cayo do Vento', grupo: 'cayos-norte', x: 2253, z: -7912,
+    raio: 200, cume: 11, tipo: 'banco', semente: 43, alonga: 2.3, giro: 0,
+    banco: 1.55, dedos: 4, dedoK: 0.44, fase: 165,
+    patamares: [
+      { raio: 37, rumo: 263, dist: 205, cota: 0.72 },
+      { raio: 32, rumo: 83, dist: 290, cota: 0.66 },
+    ] },
+  { id: 'IL12', nome: 'Cayo Longo', grupo: 'cayos-norte', x: 3199, z: -7458,
+    raio: 175, cume: 9, tipo: 'banco', semente: 49, alonga: 2.6, giro: 90,
+    banco: 1.55, dedos: 3, dedoK: 0.4, fase: 210,
+    patamares: [
+      { raio: 32, rumo: 193, dist: 185, cota: 0.72 },
+      { raio: 28, rumo: 347, dist: 240, cota: 0.66 },
+    ] },
+  { id: 'IL13', nome: 'Cayo do Meio', grupo: 'cayos-norte', x: 1553, z: -8213,
+    raio: 150, cume: 9, tipo: 'banco', semente: 55, alonga: 2, giro: 30,
+    banco: 1.55, dedos: 4, dedoK: 0.46, fase: 300,
+    patamares: [
+      { raio: 28, rumo: 19, dist: 107, cota: 0.72 },
+      { raio: 24, rumo: 199, dist: 112, cota: 0.66 },
+    ] },
+  { id: 'IL14', nome: 'Cayo Menor', grupo: 'cayos-norte', x: 2635, z: -7399,
+    raio: 120, cume: 8, tipo: 'banco', semente: 61, alonga: 1.9, giro: 60,
+    banco: 1.55, dedos: 3, dedoK: 0.44, fase: 120,
+    patamares: [
+      { raio: 22, rumo: 168, dist: 87, cota: 0.72 },
+      { raio: 19, rumo: 252, dist: 79, cota: 0.66 },
+    ] },
+  { id: 'IL15', nome: 'Cayo do Fim', grupo: 'cayos-norte', x: 1327, z: -7679,
+    raio: 105, cume: 8, tipo: 'banco', semente: 67, alonga: 2.2, giro: 180,
+    banco: 1.55, dedos: 3, dedoK: 0.42, fase: 120,
+    patamares: [
+      { raio: 19, rumo: 52, dist: 68, cota: 0.72 },
+      { raio: 17, rumo: 128, dist: 96, cota: 0.66 },
+    ] },
+  { id: 'IL20', nome: 'Atol Grande', grupo: 'atois', x: 4213, z: -6799,
+    raio: 190, cume: 11, tipo: 'atol', semente: 73, alonga: 1.25, giro: 345,
+    banco: 1.55, dedos: 0, dedoK: 0, fase: 90,
+    patamares: [
+      { raio: 42, rumo: 195, dist: 98, cota: 0.9 },
+      { raio: 33, rumo: 15, dist: 98, cota: 0.86 },
+    ] },
+  { id: 'IL21', nome: 'Atol da Lagoa', grupo: 'atois', x: 5286, z: -6468,
+    raio: 150, cume: 9, tipo: 'atol', semente: 79, alonga: 1.35, giro: 15,
+    banco: 1.55, dedos: 0, dedoK: 0, fase: 30,
+    patamares: [
+      { raio: 34, rumo: 98, dist: 103, cota: 0.9 },
+      { raio: 31, rumo: 278, dist: 118, cota: 0.86 },
+    ] },
+  { id: 'IL22', nome: 'Atol Gêmeo', grupo: 'atois', x: 4783, z: -6906,
+    raio: 125, cume: 9, tipo: 'atol', semente: 85, alonga: 1.2, giro: 345,
+    banco: 1.55, dedos: 0, dedoK: 0, fase: 300,
+    patamares: [
+      { raio: 28, rumo: 50, dist: 76, cota: 0.9 },
+      { raio: 26, rumo: 230, dist: 77, cota: 0.86 },
+    ] },
+  { id: 'IL23', nome: 'Atol do Canal', grupo: 'atois', x: 5499, z: -5848,
+    raio: 110, cume: 8, tipo: 'atol', semente: 91, alonga: 1.4, giro: 285,
+    banco: 1.55, dedos: 0, dedoK: 0, fase: 15,
+    patamares: [
+      { raio: 28, rumo: 176, dist: 93, cota: 0.9 },
+      { raio: 23, rumo: 356, dist: 99, cota: 0.86 },
+    ] },
+  { id: 'IL24', nome: 'Atol Pequeno', grupo: 'atois', x: 5770, z: -6130,
+    raio: 95, cume: 8, tipo: 'atol', semente: 97, alonga: 1.15, giro: 195,
+    banco: 1.55, dedos: 0, dedoK: 0, fase: 120,
+    patamares: [
+      { raio: 22, rumo: 19, dist: 56, cota: 0.9 },
+      { raio: 20, rumo: 199, dist: 66, cota: 0.86 },
+    ] },
+  { id: 'IL30', nome: 'Ilha dos Morros', grupo: 'angra-leste', x: 7146, z: -3885,
+    raio: 380, cume: 48, tipo: 'angra', semente: 103, alonga: 1.4, giro: 120,
+    banco: 1.55, dedos: 5, dedoK: 0.42, fase: 195,
+    patamares: [
+      { raio: 72, rumo: 161, dist: 239, cota: 0.6 },
+      { raio: 63, rumo: 315, dist: 293, cota: 0.16 },
+    ] },
+  { id: 'IL31', nome: 'Ilha da Enseada', grupo: 'angra-leste', x: 6255, z: -5172,
+    raio: 300, cume: 38, tipo: 'angra', semente: 109, alonga: 1.3, giro: 225,
+    banco: 1.55, dedos: 5, dedoK: 0.44, fase: 345,
+    patamares: [
+      { raio: 51, rumo: 213, dist: 212, cota: 0.6 },
+      { raio: 21, rumo: 1, dist: 66, cota: 0.16 },
+    ] },
+  { id: 'IL32', nome: 'Ilha do Costão', grupo: 'angra-leste', x: 7761, z: -2217,
+    raio: 245, cume: 30, tipo: 'angra', semente: 115, alonga: 1.5, giro: 240,
+    banco: 1.55, dedos: 4, dedoK: 0.42, fase: 90,
+    patamares: [
+      { raio: 42, rumo: 300, dist: 46, cota: 0.6 },
+      { raio: 41, rumo: 120, dist: 198, cota: 0.16 },
+    ] },
+  { id: 'IL33', nome: 'Ilha da Ferradura', grupo: 'angra-leste', x: 7856, z: -1404,
+    raio: 200, cume: 24, tipo: 'angra', semente: 121, alonga: 1.35, giro: 345,
+    banco: 1.55, dedos: 5, dedoK: 0.46, fase: 30,
+    patamares: [
+      { raio: 38, rumo: 128, dist: 87, cota: 0.6 },
+      { raio: 33, rumo: 281, dist: 142, cota: 0.16 },
+    ] },
+  { id: 'IL34', nome: 'Ilha do Farol', grupo: 'angra-leste', x: 7004, z: -4695,
+    raio: 160, cume: 20, tipo: 'angra', semente: 127, alonga: 1.25, giro: 255,
+    banco: 1.55, dedos: 4, dedoK: 0.44, fase: 75,
+    patamares: [
+      { raio: 24, rumo: 266, dist: 59, cota: 0.6 },
+      { raio: 27, rumo: 86, dist: 43, cota: 0.16 },
+    ] },
+  { id: 'IL35', nome: 'Ilha Rasa', grupo: 'angra-leste', x: 7828, z: -3083,
+    raio: 130, cume: 11, tipo: 'banco', semente: 133, alonga: 1.8, giro: 255,
+    banco: 1.55, dedos: 3, dedoK: 0.4, fase: 165,
+    patamares: [
+      { raio: 24, rumo: 7, dist: 98, cota: 0.72 },
+      { raio: 21, rumo: 131, dist: 71, cota: 0.66 },
+    ] },
+  { id: 'IL40', nome: 'Ilha do Sul', grupo: 'cayos-sul', x: 7825, z: 2658,
+    raio: 290, cume: 34, tipo: 'angra', semente: 139, alonga: 1.45, giro: 105,
+    banco: 1.55, dedos: 5, dedoK: 0.44, fase: 285,
+    patamares: [
+      { raio: 33, rumo: 276, dist: 66, cota: 0.6 },
+      { raio: 48, rumo: 46, dist: 139, cota: 0.16 },
+    ] },
+  { id: 'IL41', nome: 'Cayo do Sul', grupo: 'cayos-sul', x: 7900, z: -282,
+    raio: 190, cume: 10, tipo: 'banco', semente: 145, alonga: 2.2, giro: 240,
+    banco: 1.55, dedos: 4, dedoK: 0.44, fase: 60,
+    patamares: [
+      { raio: 35, rumo: 248, dist: 130, cota: 0.72 },
+      { raio: 23, rumo: 68, dist: 102, cota: 0.66 },
+    ] },
+  { id: 'IL42', nome: 'Atol do Sul', grupo: 'cayos-sul', x: 7889, z: 1566,
+    raio: 135, cume: 9, tipo: 'atol', semente: 151, alonga: 1.3, giro: 105,
+    banco: 1.55, dedos: 0, dedoK: 0, fase: 240,
+    patamares: [
+      { raio: 29, rumo: 218, dist: 78, cota: 0.9 },
+      { raio: 23, rumo: 38, dist: 87, cota: 0.86 },
+    ] },
+  { id: 'IL43', nome: 'Cayo da Ponta', grupo: 'cayos-sul', x: 7884, z: 766,
+    raio: 110, cume: 8, tipo: 'banco', semente: 157, alonga: 2, giro: 90,
+    banco: 1.55, dedos: 3, dedoK: 0.42, fase: 195,
+    patamares: [
+      { raio: 20, rumo: 188, dist: 118, cota: 0.72 },
+      { raio: 18, rumo: 333, dist: 131, cota: 0.66 },
     ] },
 ]
 
@@ -140,11 +353,16 @@ function ruido2(semente: number) {
 const suave = (k: number) => { const c = Math.max(0, Math.min(1, k)); return c * c * (3 - 2 * c) }
 
 function geoIlha(spec: IlhaSpec, cota: number): THREE.BufferGeometry {
-  const NA = 176
-  // ⚠️ 104 ANÉIS, NÃO 72. A costa é irregular (`raioEm` varia com o ângulo) e
-  // atravessa os anéis em raios diferentes a cada rumo: com poucos anéis o
-  // contorno vira escada. É a mesma razão que o contorno da baía usa passo de 30 m.
-  const NR = 104
+  // ⚠️ A RESOLUÇÃO PASSOU A SEGUIR O TAMANHO, e é o que permite ter 26 ilhas em
+  // vez de 5. Com 176x104 fixos, 26 ilhas custariam 951.408 triângulos numa cena
+  // que já roda 6,3 M a 36 fps. Escalando por raio, custam 206.978, ou seja 3,3%
+  // da cena e só 13% acima do que as cinco antigas já gastavam (183.040).
+  // ⚠️ OS PISOS (72 e 40) NÃO SÃO ENFEITE. A costa é irregular e atravessa os
+  // anéis em raios diferentes a cada rumo: com poucos anéis o contorno vira
+  // escada. E com 5 dedos, 72 rumos deixam 14 amostras por dedo, que é o mínimo
+  // para a enseada ler como enseada e não como dente.
+  const NA = Math.max(72, Math.min(200, Math.round(spec.raio * 0.30)))
+  const NR = Math.max(40, Math.min(104, Math.round(spec.raio * 0.16)))
   const rn = ruido2(spec.semente)
   const rnFino = ruido2(spec.semente * 31 + 7)
   const g0 = (spec.giro * Math.PI) / 180
@@ -152,13 +370,20 @@ function geoIlha(spec: IlhaSpec, cota: number): THREE.BufferGeometry {
   // ⚠️ A COSTA DE ANGRA É RECORTADA, a de banco é lisa e comprida. Enseada funda
   // é o que faz Angra ser Angra: a praia mora no FUNDO dela, protegida.
   const rec = spec.tipo === 'angra' ? 1.6 : spec.tipo === 'banco' ? 0.8 : 0.5
+  const nDedo = spec.dedos ?? 0
+  const kDedo = spec.dedoK ?? 0
+  const faseD = ((spec.fase ?? 0) * Math.PI) / 180
   const raioEm = (a: number) => {
     const s = spec.semente
-    return spec.raio * (1
+    const b = spec.raio * (1
       + 0.20 * rec * Math.sin(a * 2 + s * 1.7)
       + 0.14 * rec * Math.sin(a * 3 - s * 2.3)
       + 0.08 * rec * Math.sin(a * 5 + s * 0.9)
       + 0.10 * rec * rn(Math.cos(a) * 2.3 + s, Math.sin(a) * 2.3 - s))
+    // ⚠️ OS DEDOS. Enseada funda entre pontas compridas: é isto que transforma
+    // 9,5 km de perímetro em 61 km, e é isto que faz a casa de magnata ter
+    // frente d'água em vez de fundo de morro.
+    return nDedo ? b * (1 + kDedo * Math.cos(nDedo * (a - faseD))) : b
   }
 
   const paraLocal = (x: number, z: number) => {
@@ -213,7 +438,13 @@ function geoIlha(spec: IlhaSpec, cota: number): THREE.BufferGeometry {
   function trilha(x: number, z: number) {
     const A = pats[0], B = pats[1]
     const ab = (B.rumo * Math.PI) / 180
-    const C = { px: Math.sin(ab) * (spec.raio * 0.93), pz: -Math.cos(ab) * (spec.raio * 0.93), cota: 0.03 }
+    // ⚠️ A PRAIA NÃO ESTÁ MAIS EM `raio * 0,93`, E COM DEDO ISSO IMPORTA. O
+    // contorno agora vai de 0,66 a 1,34 do raio nominal: no fundo de uma enseada,
+    // 0,93 do raio cai DENTRO DA ÁGUA e a trilha terminava no mar. Aqui o ponto
+    // sai da costa de verdade naquele rumo, medida pelo mesmo `raioEm`.
+    const [cu, cv] = paraLocal(Math.sin(ab), -Math.cos(ab))
+    const rCosta = raioEm(Math.atan2(cv, cu)) * 0.93
+    const C = { px: Math.sin(ab) * rCosta, pz: -Math.cos(ab) * rCosta, cota: 0.03 }
     let melhor = { d: Infinity, y: 0 }
     for (const [P, Q] of [[A, B], [B, C]] as const) {
       const dx = Q.px - P.px, dz = Q.pz - P.pz
@@ -369,16 +600,34 @@ export function buildIlhas(o: { cota: number; sombra?: boolean }): Ilhas {
     quebrarRepeticao(mat, 120)
     mat.needsUpdate = true
   }
+  // ⚠️ UMA MALHA SÓ PARA AS 26, E ISSO É ORÇAMENTO, NÃO ELEGÂNCIA. Uma malha por
+  // ilha eram 5 chamadas de desenho e viraria 26, numa cena que já faz 442 e roda
+  // a 36 fps. As geometrias são todas diferentes (cada ilha tem semente própria),
+  // então instanciar não serve: o caminho é FUNDIR. Todas já dividiam o mesmo
+  // material, todas têm os mesmos atributos (position, color, uv, index), e a
+  // posição de cada uma entra por `translate` antes da fusão.
+  //
+  // ⚠️ O PREÇO É O RECORTE POR TRONCO. Fundidas, as 26 viram um volume de 9 km de
+  // lado e o three passa a desenhar as 26 sempre que qualquer uma estiver no
+  // quadro. Aceito medindo: 206.978 triângulos no total, 3,3% da cena, contra as
+  // 21 chamadas que a alternativa custaria.
+  const partes: THREE.BufferGeometry[] = []
   let tri = 0
   for (const il of ILHAS) {
     const g = geoIlha(il, o.cota)
-    const m = new THREE.Mesh(g, mat)
-    m.name = `ilha:${il.id}`
-    m.position.set(il.x, 0, il.z)
+    g.translate(il.x, 0, il.z)
+    partes.push(g)
+    tri += (g.index?.count ?? 0) / 3
+  }
+  const fundida = mergeGeometries(partes, false)
+  for (const g of partes) g.dispose()
+  if (fundida) {
+    fundida.computeBoundingSphere()
+    const m = new THREE.Mesh(fundida, mat)
+    m.name = 'ilhas:arquipelago'
     m.castShadow = o.sombra ?? true
     m.receiveShadow = true
     group.add(m)
-    tri += (g.index?.count ?? 0) / 3
   }
   return {
     group, postas: ILHAS.length, triangulos: tri,

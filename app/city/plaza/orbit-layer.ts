@@ -60,7 +60,12 @@ export const ORBIT_CENTER = new THREE.Vector3(0, 0, 0)
 // da porta. Ver `_eclusa('Spaceport', ...)` em scripts/gerar_cidade.py.
 //
 // ⚠️ SE `DOME_R` EM dome.ts MUDAR, ESTE VETOR MUDA JUNTO. É a terceira vez.
-export const SPACEPORT_SHIFT = new THREE.Vector3(-277.3, 158.0, 6100.5)
+// ⚠️ O PÁTIO SAIU +2.000 m EM 02/09, e não por gosto: a casca foi de 7.050 para
+// 9.050 e o respiro medido do pátio caía de 2.150 m para 150 m, ou seja o
+// spaceport ficaria colado no vidro. O deslocamento é ao longo do rumo 182,6°,
+// que é o eixo dele, então o enquadramento não gira: o pátio sai de r 9.200 para
+// r 11200 e o respiro volta a ser 2.150 m.
+export const SPACEPORT_SHIFT = new THREE.Vector3(-368.0, 158.0, 8098.4)
 
 const desloca = (v: THREE.Vector3) => v.add(SPACEPORT_SHIFT)
 

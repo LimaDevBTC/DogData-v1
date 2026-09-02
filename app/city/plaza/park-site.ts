@@ -22,7 +22,10 @@ const BEARING = THREE.MathUtils.degToRad(43)
 // vazio onde o parque não está e o parque nasce em cima de lote.
 // ⚠️ E O TERRENO PRECISA ALCANÇAR: `siteRadiusM` em lib/city/lunar/sites.ts foi a
 // 11.000 justamente para cobrir a cidade E o parque na posição nova.
-const DIST = 9800
+// ⚠️ 9.800 -> 11.800 em 02/09, junto com a cidade indo a 9.000 e a casca a 9.050.
+// A identidade que amarra tudo é DIST - PARK_FRENTE == DOME_R: 11.800 - 2.750 =
+// 9.050. Se um mudar, os três mudam.
+const DIST = 11800
 export const PARK_CENTER = new THREE.Vector3(Math.round(DIST * Math.sin(BEARING)), 0, -Math.round(DIST * Math.cos(BEARING)))
 export const PARK_ROT_Y = 0
 /** meio-lado da malha do parque (o disco tem este raio) */

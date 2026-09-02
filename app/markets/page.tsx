@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { PageHeader } from '@/components/ui/page-header'
 import { Layout } from "@/components/layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { TrendingUp, TrendingDown, ExternalLink, RefreshCw, DollarSign, BarChart3, Activity } from "lucide-react"
+import { TrendingUp, TrendingDown, RefreshCw, DollarSign, BarChart3, Activity } from "lucide-react"
 
 interface MarketTicker {
   market: string
@@ -108,11 +108,11 @@ export default function MarketsPage() {
     }
   }
 
+  // ⚠️ A BITFLOW NÃO É MAIS FIXADA NO TOPO (decisão do fundador, 02/09/2026).
+  // Ela vinha antes de todo mundo por regra, fora da ordenação escolhida; agora
+  // entra na mesma fila que as outras e sobe ou desce pelo critério da coluna.
   const sortedTickers = data?.tickers ? (() => {
-    const bitflow = data.tickers.find(t => t.market === 'Bitflow')
-    const others = data.tickers.filter(t => t.market !== 'Bitflow')
-
-    const sortedOthers = [...others].sort((a, b) => {
+    const sortedOthers = [...data.tickers].sort((a, b) => {
       let comparison = 0
       switch (sortBy) {
         case 'alpha':
@@ -135,8 +135,7 @@ export default function MarketsPage() {
       return sortOrder === 'asc' ? comparison : -comparison
     })
 
-    // Bitflow SEMPRE no topo
-    return bitflow ? [bitflow, ...sortedOthers] : sortedOthers
+    return sortedOthers
   })() : []
 
   return (
@@ -292,18 +291,7 @@ export default function MarketsPage() {
                           <td className="py-3 px-4">
                             <div className="flex items-center space-x-2">
                               <div className={`w-2 h-2 rounded-full flex-shrink-0 ${getTrustScoreColor(ticker.trustScore)}`}></div>
-                              {ticker.market === 'Bitflow' ? (
-                                <a
-                                  href="https://btflw.link/brl"
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-lava hover:text-lava-light font-mono font-medium transition-colors underline decoration-lava/30 hover:decoration-lava"
-                                >
-                                  {ticker.market}
-                                </a>
-                              ) : (
-                                <span className="text-snow font-mono font-medium">{ticker.market}</span>
-                              )}
+                              <span className="text-snow font-mono font-medium">{ticker.market}</span>
                             </div>
                           </td>
                           <td className="py-3 px-4 text-snow/80 font-mono text-sm truncate" title={ticker.pair}>
@@ -343,23 +331,16 @@ export default function MarketsPage() {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-2">
                             <div className={`w-2 h-2 rounded-full ${getTrustScoreColor(ticker.trustScore)}`}></div>
-                            {ticker.market === 'Bitflow' ? (
-                              <a
-                                href="https://btflw.link/brl"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-lava hover:text-lava-light font-mono font-medium transition-colors underline decoration-lava/30"
-                              >
-                                {ticker.market}
-                              </a>
-                            ) : (
-                              <span className="text-snow font-mono font-medium">{ticker.market}</span>
-                            )}
+                            <span className="text-snow font-mono font-medium">{ticker.market}</span>
                           </div>
                           <span className="text-dusty font-mono text-sm">{ticker.pair}</span>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        {/* ⚠️ SEM BOTÃO "TRADE". Havia aqui um link para `ticker.tradeUrl`
+                            que levava o usuário para a corretora. Decisão do fundador,
+                            02/09/2026: não mandamos ninguém daqui para exchange. A página
+                            mostra onde o DOG negocia, e para por aí. */}
+                        <div className="grid grid-cols-3 gap-3">
                           <div>
                             <div className="text-xs text-dusty/70 font-mono mb-1">Price</div>
                             <div className="text-snow font-mono text-sm">{formatPrice(ticker.price)}</div>
@@ -373,17 +354,6 @@ export default function MarketsPage() {
                             <div className={`font-mono text-sm ${ticker.spread == null ? 'text-dusty/50' : ticker.spread < 0.3 ? 'text-green-400' : ticker.spread < 0.6 ? 'text-yellow-400' : 'text-red-400'}`}>
                               {ticker.spread != null ? ticker.spread.toFixed(2) + '%' : '—'}
                             </div>
-                          </div>
-                          <div className="flex items-end">
-                            <a
-                              href={ticker.tradeUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center space-x-1 px-3 py-1.5 bg-lava/20 hover:bg-lava/30 text-lava font-mono text-xs transition-colors w-full justify-center"
-                            >
-                              <span>Trade</span>
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
                           </div>
                         </div>
                       </CardContent>

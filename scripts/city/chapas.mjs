@@ -50,6 +50,9 @@ const VISTAS = {
   // da areia no chão. Rasante de verdade: a câmera fica NA cota da lâmina.
   aguarase: [-971.93, -36, -5400, -842.47, -40.5, -5400, 55],
   areiarase:[2504, -35, -2190, 2714, -40, -1980, 55],
+  // o mar e o arquipelago, de cima: a baia nova tem centro em (4815, -3589) e
+  // raio equivalente 4.246 m, e a aerea padrao nao alcanca ela.
+  mar:      [-1200, 4200, 3800, 4815, -40, -3589, 50],
 }
 
 // ⚠️ ERROS QUE NÃO SÃO NOSSOS. O backend local não roda, então estas rotas dão

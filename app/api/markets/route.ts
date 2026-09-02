@@ -234,6 +234,81 @@ export async function GET() {
       console.warn('⚠️ DexScreener fetch failed for Solana DEXs:', error)
     }
 
+    // ── AS CEX QUE O COINGECKO NÃO RASTREIA ──────────────────────────────────
+    //
+    // ⚠️ O COINGECKO NÃO É A LISTA COMPLETA, E ISSO CUSTOU A MAIOR VENUE DO DOG.
+    // O fundador apontou em 02/09/2026 que a WEEX lista DOG e não aparecia aqui.
+    // Medido no mesmo dia: o payload de tickers do CoinGecko traz 23 entradas e
+    // NENHUMA é WEEX, enquanto o CoinLore reporta WEEX com DOG/USDT a US$ 228.941
+    // em 24 h, o maior volume de venue única da moeda (o Gate, líder da nossa
+    // lista, faz 148.864). Também faltavam Niza.io e BTSE.
+    //
+    // ⚠️ O COINLORE É COMPLEMENTO, NUNCA SOBRESCRITA. Ele é a fonte mais fraca
+    // das três: não publica spread, não publica trust score e o volume é o
+    // declarado pela corretora. Então ele só ENTRA onde o CoinGecko não chegou,
+    // e a comparação é por nome normalizado, senão 'Weex' e 'WEEX' viram duas
+    // linhas da mesma corretora.
+    //
+    // ⚠️ O NOME IGUAL NÃO BASTA PARA DEDUPLICAR, e testar só igualdade duplicava
+    // a MEXC: o CoinGecko chama de 'MEXC' e o CoinLore de 'MEXC Global'. Por isso
+    // o teste é de CONTENÇÃO nos dois sentidos, com piso de 4 caracteres no nome
+    // curto para 'Gate' não engolir uma corretora qualquer que tenha 'gate' no
+    // meio. Isso também resolve 'Gate' contra 'Gate.io'.
+    //
+    // ⚠️ E A FAIXA DE SANIDADE DE PREÇO NÃO SEGURA COTAÇÃO PODRE. Eu tinha escrito
+    // aqui que ela barrava a BTSE, e não barra: 0,000399 cai dentro de
+    // (0,00001 ; 0,01) e passaria batido, com um terço do preço real. O teste que
+    // funciona é contra o preço de mercado que já temos em mãos, e 35% de desvio
+    // é folgado para spread de corretora pequena e apertado para lixo.
+    try {
+      const clRes = await fetch(
+        'https://api.coinlore.net/api/coin/markets/?id=147537',
+        { cache: 'no-store', signal: AbortSignal.timeout(API_TIMEOUT) }
+      )
+      if (clRes.ok) {
+        const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+        const mesmaCasa = (a: string, b: string) => {
+          if (a === b) return true
+          const [curto, longo] = a.length <= b.length ? [a, b] : [b, a]
+          return curto.length >= 4 && longo.includes(curto)
+        }
+        const vistos: string[] = tickers.map((t: any) => norm(t.market))
+        const clJson: any[] = await clRes.json()
+        const refPrice = marketData.price
+
+        for (const m of Array.isArray(clJson) ? clJson : []) {
+          const nome: string = m?.name ?? ''
+          const preco = parseFloat(m?.price_usd ?? '0')
+          const quote: string = (m?.quote ?? '').toUpperCase()
+
+          if (!nome || vistos.some((v) => mesmaCasa(v, norm(nome)))) continue
+          if (!['USDT', 'USD', 'EUR', 'BRL'].includes(quote)) continue
+          if (!(preco > 0.00001 && preco < 0.01)) continue
+          if (refPrice > 0 && Math.abs(preco - refPrice) / refPrice > 0.35) {
+            console.warn(`⚠️ ${nome} descartada pelo CoinLore: preço ${preco} contra ${refPrice} de mercado`)
+            continue
+          }
+
+          const volumeUsd = Number(m?.volume_usd) || 0
+          tickers.push({
+            market: nome,
+            pair: `${(m?.base ?? 'DOG').toUpperCase()}/${quote}`,
+            price: preco,
+            volumeUsd: Math.round(volumeUsd),
+            volume: Number(m?.volume) || 0,
+            spread: null,
+            trustScore: 'green',
+            tradeUrl: null,
+          })
+          vistos.push(norm(nome))
+          console.log(`✅ ${nome} via CoinLore: $${preco.toFixed(8)}, vol $${volumeUsd.toFixed(0)}`)
+        }
+        tickers.sort((a: any, b: any) => (b.volumeUsd || 0) - (a.volumeUsd || 0))
+      }
+    } catch (error) {
+      console.warn('⚠️ CoinLore fetch failed (CEXs fora do CoinGecko):', error)
+    }
+
     console.log('📊 Markets data updated:', {
       exchanges: tickers.length,
       totalVolume: `$${marketData.totalVolume.toFixed(0)}`,
