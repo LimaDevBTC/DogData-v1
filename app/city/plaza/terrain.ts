@@ -305,35 +305,86 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
   // vazava pelo fundo do vale onde o relevo real é mais alto que o datum.
   const parkDatum = baseAt(PARK_CENTER.x, PARK_CENTER.z)
   // ⚠️ A BACIA DO LAGO DA PRAÇA. O anel entre a praça e a cidade não tinha um
-  // lote sequer (o lote começa em 1.300 e a muralha do precinto está em 900),
-  // então ele podia virar água sem custar endereço nenhum. A bacia é escavada no
-  // platô: fundo em -LAGO_FUNDO no miolo do anel, com rampa de LAGO_TALUDE nas
-  // duas margens, para a praia existir em vez de a água terminar num degrau.
-  // A lâmina fica em LAGO_AGUA, ou seja o barranco tem 9 m em toda a volta.
-  // ⚠️ A MARGEM INTERNA É 1.130 POR CAUSA DA PRAÇA, e isto foi medido depois de
-  // errar: a primeira versão punha a bacia em 1.020, com talude começando em 950,
-  // e escavou POR BAIXO da geometria da praça, que vai até r 1.024 (monumentos e
-  // Calçada dos Fundadores, desenhados sobre um platô plano). O resultado na
-  // chapa foi um colar serrilhado na beira da praça: laje plana pendurada sobre
-  // rampa. Com 1.130 o talude começa em 1.060, 36 m livres da última peça.
-  // A margem externa é 1.210 pelo motivo simétrico: o talude termina em 1.280 e o
-  // lote mais interno da cidade está em r 1.300.
-  const LAGO_R0 = 1090, LAGO_R1 = 1390     // margem interna e externa da água
-  // ⚠️ TALUDE DE 40 E NÃO 70. Com 70 m de rampa de cada lado sobrava mais praia
-  // que água: a lâmina caía para 128 m de largura e a chapa lia deserto com uma
-  // poça no meio. O talude é o que limita, não a bacia. Com 40 m a linha d'água
-  // vai de r 1.074 a 1.266, ou seja 193 m de lâmina e 141 ha, e ainda sobram 26 m
-  // livres da praça (r 1.024) e 10 m do primeiro lote (r 1.300).
-  const LAGO_TALUDE = 40
-  const LAGO_FUNDO = 26
+  // lote sequer, então ele podia virar água sem custar endereço nenhum.
+  //
+  // ⚠️ O PERFIL DEIXOU DE SER UM `smoothstep` ÚNICO EM 02/09, E ELE ERA A CAUSA
+  // DA "PISTA DE SKATE" QUE O FUNDADOR APONTOU. Medido no perfil antigo (talude
+  // de 40 m para 26 m de queda, lâmina em −17): a inclinação ia de 0° em r 1.050
+  // a 44,3° em r 1.070, e a linha d'água caía em r 1.074,2, ou seja EM CIMA da
+  // parte mais íngreme, a 43,0°. Uma tigela analítica, igual nos 360°, com uma
+  // fita clara de largura constante colada por cima. Areia não era possível ali:
+  // `w = 1,5 / inclinação` dava 1,6 m na linha d'água.
+  //
+  // Agora o talude tem TRÊS TRECHOS e a linha d'água cai no do meio:
+  //   A   0 a 42% do talude    0 -> `seca`             smoothstep, o banco seco
+  //   B   42% a 74%            `seca` -> +BANQUETA     LINEAR, a banqueta rasa
+  //   C   74% a 100%           -> LAGO_FUNDO           smoothstep, o mergulho
+  // A derivada do `smoothstep` é ZERO nas duas pontas, então A entra em B sem
+  // quina, sem precisar de concordância à mão.
+  //
+  // ⚠️ E O TALUDE VARIA COM O RUMO, senão o conserto entrega o mesmo anel
+  // perfeito, só que mais bonito. Dois harmônicos (o raciocínio do
+  // `contornoIlha`) mexem no COMPRIMENTO do talude e na ALTURA do banco seco: a
+  // linha d'água anda dentro da banqueta e a areia nasce larga na enseada e
+  // estreita na ponta, sem nenhuma decisão binária para oscilar em volta.
+  //
+  // ⚠️ AS FOLGAS SÃO MEDIDAS, NÃO CHUTADAS. A praça vai até r 1.024 (monumentos
+  // e Calçada dos Fundadores, desenhados sobre platô plano) e o anel da orla
+  // passou de r 1.440 para r 1.465, aresta interna em 1.452. Com R0 = 1.100 e
+  // talude interno de 43 a 67 m, o topo do barranco fica entre r 1.033 e 1.057:
+  // 9 m livres da praça no pior rumo. Com talude externo de 47 a 57 m, o pé fica
+  // entre r 1.437 e 1.447: 5 m livres do anel no pior rumo.
+  const LAGO_R0 = 1100, LAGO_R1 = 1390     // o fundo plano da bacia
+  // ⚠️ FUNDO 14 E NÃO 26. Com 26 o trecho C caía 12,4 m em 14,3 m (52°) logo
+  // depois da praia, e areia rasa que vira penhasco a 5 m da beira lê como
+  // piscina. Com 14 o mergulho fica em 34° e a lâmina tem 7,5 m: é lago, não fosso.
+  const LAGO_FUNDO = 14
+  const LAGO_TAL_A = 0.42, LAGO_TAL_B = 0.74   // as duas dobras, em fração do talude
+  const LAGO_BANQUETA = 1.6                    // a queda dentro da banqueta
+  const LAGO_AGUA_Y = -6.5                     // a cota da lâmina
+  const lagoMod = (x: number, z: number): number => {
+    const a = Math.atan2(z, x)
+    return Math.sin(a * 3 + 0.7) * 0.62 + Math.sin(a * 5 - 1.4) * 0.38
+  }
   const bacia = (x: number, z: number): number => {
     const r = Math.hypot(x, z)
-    if (r <= LAGO_R0 - LAGO_TALUDE || r >= LAGO_R1 + LAGO_TALUDE) return 0
-    let k: number
-    if (r < LAGO_R0) k = (r - (LAGO_R0 - LAGO_TALUDE)) / LAGO_TALUDE
-    else if (r > LAGO_R1) k = ((LAGO_R1 + LAGO_TALUDE) - r) / LAGO_TALUDE
-    else k = 1
-    return LAGO_FUNDO * (k * k * (3 - 2 * k))
+    if (r > LAGO_R0 && r < LAGO_R1) return LAGO_FUNDO
+    const m = lagoMod(x, z)
+    const fora = r >= LAGO_R1
+    const T = fora ? 52 + 5 * m : 55 + 12 * m
+    const seca = 5.7 + 0.7 * m
+    const s = fora ? (LAGO_R1 + T - r) / T : (r - (LAGO_R0 - T)) / T
+    if (s <= 0) return 0
+    if (s >= 1) return LAGO_FUNDO
+    if (s < LAGO_TAL_A) {
+      const t = s / LAGO_TAL_A
+      return seca * (t * t * (3 - 2 * t))
+    }
+    if (s < LAGO_TAL_B) return seca + LAGO_BANQUETA * ((s - LAGO_TAL_A) / (LAGO_TAL_B - LAGO_TAL_A))
+    const t = (s - LAGO_TAL_B) / (1 - LAGO_TAL_B)
+    const d0 = seca + LAGO_BANQUETA
+    return d0 + (LAGO_FUNDO - d0) * (t * t * (3 - 2 * t))
+  }
+  // ⚠️ A FAIXA REFINADA DO TALUDE, DECLARADA AQUI PORQUE O `superficieAt`
+  // PRECISA DELA. Quem pousa peça no barranco pergunta ao `superficieAt`, e ele
+  // interpola a MALHA, não a curva. Se ele continuasse lendo a grade de 59 m
+  // enquanto a malha desenha a de 4,9 m, a areia voltaria a enterrar, só que
+  // menos. Passo fino medido: 59,225 / 12 = 4,94 m.
+  const LAGO_SUB = 12
+  const FAIXA: [number, number][] = [[1025, 1110], [1385, 1455]]
+  const naFaixa = (i: number, j: number): boolean => {
+    // ⚠️ PORTA RÁPIDA, e ela não é otimização prematura: `superficieAt` chama
+    // isto, e `superficieAt` é o trava-chão da câmera (todo quadro) e o pouso de
+    // 86 mil lotes. Uma raiz quadrada no caso comum em vez de quatro.
+    const rc = Math.hypot((i + 0.5 - half) * cell, (j + 0.5 - half) * cell)
+    if (rc < FAIXA[0][0] - cell || rc > FAIXA[1][1] + cell) return false
+    for (let dj = 0; dj <= 1; dj++) {
+      for (let di = 0; di <= 1; di++) {
+        const r = Math.hypot((i + di - half) * cell, (j + dj - half) * cell)
+        for (const [ra, rb] of FAIXA) if (r > ra && r < rb) return true
+      }
+    }
+    return false
   }
   // ── O PÓDIO DA ABÓBADA ────────────────────────────────────────────────────
   //
@@ -406,11 +457,22 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
   // grade do sítio devolve heightAt, porque a saia é feita de anéis radiais e
   // não de grade.
   const superficieAt = (x: number, z: number): number => {
-    const fi = x / cell + half, fj = z / cell + half
+    const ci = Math.floor(x / cell + half), cj = Math.floor(z / cell + half)
+    if (ci < 0 || cj < 0 || ci >= n - 1 || cj >= n - 1) return heightAt(x, z)
+    // ⚠️ DENTRO DA FAIXA DO LAGO A MALHA É OUTRA. Ver `naFaixa`: ali a célula
+    // grossa é subdividida em LAGO_SUB por lado, então o triângulo que o olho vê
+    // é o fino. Perguntar pela grade de 59 m aqui devolveria a resposta da malha
+    // que NÃO existe mais naquele pedaço.
+    const fino = naFaixa(ci, cj)
+    const passo = fino ? cell / LAGO_SUB : cell
+    const ox = (ci - half) * cell, oz = (cj - half) * cell
+    const fi = fino ? (x - ox) / passo : x / cell + half
+    const fj = fino ? (z - oz) / passo : z / cell + half
     const i = Math.floor(fi), j = Math.floor(fj)
-    if (i < 0 || j < 0 || i >= n - 1 || j >= n - 1) return heightAt(x, z)
     const u = fi - i, v = fj - j
-    const H = (ii: number, jj: number) => heightAt((ii - half) * cell, (jj - half) * cell)
+    const H = fino
+      ? (ii: number, jj: number) => heightAt(ox + ii * passo, oz + jj * passo)
+      : (ii: number, jj: number) => heightAt((ii - half) * cell, (jj - half) * cell)
     const ya = H(i, j), yb = H(i + 1, j), yc = H(i, j + 1)
     if (u + v <= 1) return ya + (yb - ya) * u + (yc - ya) * v
     const yd = H(i + 1, j + 1)
@@ -459,12 +521,65 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
       push(x, y, z, y - mean)
     }
   }
+  // ── ⚠️ O TALUDE DO LAGO NÃO CABE NA GRADE DO SÍTIO, E ERA A CAUSA RAIZ ────
+  //
+  // A grade tem `cellSizeM` 59,225 m (`btc-core-heightmap.json`) e o talude do
+  // lago mede 55: são 0,93 vértice atravessando o barranco INTEIRO. Medi em 720
+  // rumos o desvio entre o `heightAt` analítico, que é onde toda peça pousa, e a
+  // malha que o olho vê: 14,43 m no rumo 45°, em r 1.053,5. Ou seja, a faixa de
+  // areia enterrava 14 m num rumo e pairava no outro, e o barranco na tela era
+  // meia dúzia de triângulos gigantes de transição. Isso é rampa de skate por
+  // construção, e nenhum conserto de perfil ou de cor sobrevive a ela.
+  //
+  // O conserto refina SÓ AS DUAS FAIXAS DO TALUDE, em `LAGO_SUB` por lado.
+  // Refinar o anel inteiro (r 1.000 a 1.460) seriam 977 células da grade; as
+  // duas faixas são 341, medidas pela área: π(1110² − 1025²) e π(1455² − 1385²)
+  // divididas por 59,225². O número real conferido está no relatório.
+  //
+  // ⚠️ E A BORDA DA FAIXA NÃO PODE RACHAR. Vértice novo numa aresta que o
+  // vizinho NÃO subdividiu é junta em T: pousado no `heightAt`, ele abre fenda.
+  // Aqui ele é interpolado LINEARMENTE na aresta grossa, ou seja fica exatamente
+  // em cima da reta que o vizinho desenha. E não custa nada de forma: a
+  // vizinhança da faixa é platô plano de um lado (o topo do barranco fica em
+  // r 1.033 no pior rumo, dentro da faixa) e fundo plano do outro (r 1.100 a
+  // 1.390), então ali o interpolado e o real são o MESMO ponto.
+  let celulasFinas = 0
+  const refina = (i: number, j: number) => {
+    celulasFinas++
+    const K = LAGO_SUB
+    const x0 = (i - half) * cell, z0 = (j - half) * cell
+    // as alturas dos quatro cantos grossos, para interpolar as arestas de junta
+    const y00 = heightAt(x0, z0), y10 = heightAt(x0 + cell, z0)
+    const y01 = heightAt(x0, z0 + cell), y11 = heightAt(x0 + cell, z0 + cell)
+    const eO = !naFaixa(i - 1, j), eL = !naFaixa(i + 1, j)
+    const eN = !naFaixa(i, j - 1), eS = !naFaixa(i, j + 1)
+    const base = positions.length / 3
+    for (let v = 0; v <= K; v++) {
+      for (let u = 0; u <= K; u++) {
+        const fu = u / K, fv = v / K
+        const x = x0 + cell * fu, z = z0 + cell * fv
+        const junta = (u === 0 && eO) || (u === K && eL) || (v === 0 && eN) || (v === K && eS)
+        const y = junta
+          ? y00 * (1 - fu) * (1 - fv) + y10 * fu * (1 - fv) + y01 * (1 - fu) * fv + y11 * fu * fv
+          : heightAt(x, z)
+        push(x, y, z, y - mean)
+      }
+    }
+    for (let v = 0; v < K; v++) {
+      for (let u = 0; u < K; u++) {
+        const a = base + v * (K + 1) + u, b = a + 1, c = a + (K + 1), d = c + 1
+        indices.push(a, c, b, b, c, d)
+      }
+    }
+  }
   for (let j = 0; j < n - 1; j++) {
     for (let i = 0; i < n - 1; i++) {
+      if (naFaixa(i, j)) { refina(i, j); continue }
       const a = j * n + i, b = a + 1, c = a + n, d = c + 1
       indices.push(a, c, b, b, c, d)
     }
   }
+  if (typeof window !== 'undefined') (window as unknown as { __lagoFinas?: number }).__lagoFinas = celulasFinas
   // o perímetro, em ordem, começando no canto (i=0,j=0) e girando
   const perimeter: number[] = []
   for (let i = 0; i < n - 1; i++) perimeter.push(0 * n + i)
@@ -476,6 +591,12 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
   // anéis fechados perto da borda (triângulos curtos, sombreamento sem raias) e
   // abertos longe, onde ninguém vê a diferença
   const SCALES = [1.03, 1.07, 1.12, 1.19, 1.28, 1.4, 1.56, 1.78, 2.08, 2.5, 3.1, 4.0, 5.4, 7.6, 11.0, 16.0]
+  // ⚠️ OS MARCADORES DA SAIA SÃO LIDOS AQUI, e não recalculados de `n`. O
+  // refinamento do talude insere vértices e índices ENTRE a grade e a saia, e as
+  // duas contas antigas (`perimeter.length + n * n` e `(n - 1) * (n - 1) * 6`)
+  // passariam a apontar para o meio do barranco.
+  const saiaVert = positions.length / 3
+  const saiaIdx = indices.length
   let prevRing = perimeter
   for (const s of SCALES) {
     const ring: number[] = []
@@ -505,11 +626,11 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
   const nrm = geo.attributes.normal as THREE.BufferAttribute
   const centerIdx = Math.floor(n / 2) * n + Math.floor(n / 2)
   if (nrm.getY(centerIdx) < 0) flipWinding(geo)
-  const skirtProbe = perimeter.length + n * n // primeiro vértice do primeiro anel
+  const skirtProbe = saiaVert // primeiro vértice do primeiro anel da saia
   if ((geo.attributes.normal as THREE.BufferAttribute).getY(Math.min(skirtProbe, positions.length / 3 - 1)) < 0) {
     // a saia veio ao contrário da grade: inverte só os triângulos da saia
     const idx = geo.getIndex()!
-    const start = (n - 1) * (n - 1) * 6
+    const start = saiaIdx
     for (let k = start; k < idx.count; k += 3) { const b = idx.getX(k + 1); idx.setX(k + 1, idx.getX(k + 2)); idx.setX(k + 2, b) }
     idx.needsUpdate = true
     geo.computeVertexNormals()
@@ -547,7 +668,7 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
   const group = new THREE.Group()
   group.add(mesh)
   return { group, heightAt, horizonAt: heightAt, superficieAt, baseAt, meanHeight: mean, halfExtent,
-           lago: { r0: LAGO_R0, r1: LAGO_R1, agua: -(LAGO_FUNDO - 9), fundo: -LAGO_FUNDO } }
+           lago: { r0: LAGO_R0, r1: LAGO_R1, agua: LAGO_AGUA_Y, fundo: -LAGO_FUNDO } }
 }
 
 function flipWinding(geo: THREE.BufferGeometry) {

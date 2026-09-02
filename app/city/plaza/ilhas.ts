@@ -45,6 +45,18 @@
 // divirjam em silêncio, que é como esta cena já perdeu semanas.
 // ═══════════════════════════════════════════════════════════════════════════
 //
+// ⚠️ OS NÚMEROS DESTA VERSÃO, medidos fora do navegador sobre o campo de altura
+// (o script vive no scratchpad; o que importa é que dá para refazer):
+//
+//   25 especificacoes que produzem 28 CORPOS de terra (tres ilhas se partem)
+//   5,50 km2 de terra, 74,67 km de linha d'agua, 13,58 km de orla por km2
+//   282.776 triangulos, UMA chamada de desenho, UM programa
+//   folga minima ate a terra firme: 80 m, medida no contorno de todas elas
+//
+// Para comparar com as duas versões mortas, na mesma baía: a roseta de senoide
+// dava 8,48 km de orla por km² e o fbm radial 7,90. O campo de altura dá 13,58,
+// e o ganho não é de ajuste, é de TOPOLOGIA: ele pode fazer curva que volta.
+//
 // ⚠️ A PRAIA SAI DA INCLINAÇÃO, NÃO DE UMA FAIXA DE COTA. A versão anterior
 // pintava de areia tudo abaixo de 4 m e a chapa mostrava metade da ilha branca.
 // A regra certa já estava medida na margem da baía (`lagos.ts`, PRAIA_SUBIDA e
@@ -77,15 +89,49 @@ import { superficie } from './materiais'
 // o valor foi copiado de lá. Se um dia divergirem, a ilha volta a saltar do mapa.
 const C_AREIA = new THREE.Color('#8E856F')   // = COR_AREIA de lagos.ts (praia da baía)
 const C_MATO = new THREE.Color('#6C7A5B')    // = COR_MATO de lago.ts (a mata do tecido)
+const C_MATO_S = new THREE.Color('#7E8A6B')  // = COR_TERRA de lago.ts (a capoeira seca)
 const C_MATO_E = new THREE.Color('#5A6650')  // a mesma mata, fechada, no alto
 const C_ROCHA = new THREE.Color('#9A948B')   // = TINTA_REGOLITO de terrain.ts
-const C_PLATO = new THREE.Color('#A39C90')   // o patamar: regolito clareado, não branco
+// ⚠️ O TOM DO PATAMAR SAIU DA PALETA EM 03/09. Ele era `#A39C90`, quase branco
+// ao lado do verde, e na chapa os dois pads liam como remendo de neve com borda
+// serrilhada, a pior coisa do quadro. A decisão, com a conta na mão: ANTES DO
+// MINT UM PATAMAR NÃO É UMA SUPERFÍCIE, É UMA PROMESSA. O que existe hoje ali é
+// terraplenagem, e terraplenagem se vê pelo RELEVO (o aplainamento continua no
+// campo de altura, intacto), não por tinta. Então o pad deixou de ser pintado e
+// virou uma CLAREIRA: a mesma mata, um pouco mais seca, entrando por rampa
+// suave. Quando o mint existir e a construção for real, aí sim ela pede
+// superfície própria, e o gancho é este comentário.
+const C_CLAREIRA = new THREE.Color('#7E8A6B')  // = COR_TERRA de lago.ts (mato seco)
 const C_TRILHA = new THREE.Color('#8E856F')  // a trilha é areia batida
 // ⚠️ O FUNDO SUBMERSO DEIXOU DE SER AZUL. Ele era `#2E4A57` de quando a água era
 // opaca e nada submerso aparecia; com o halo de raso ligado, os primeiros metros
 // de banco ficam VISÍVEIS através da lâmina, e quem tem de pintá-los de azul é a
 // água, não a areia. Areia molhada é areia escura.
 const C_FUNDO = new THREE.Color('#6A6354')
+
+/** ⚠️ 0,95 É 44 GRAUS, E O NÚMERO ANTERIOR ERA 0,62, QUE É 32. 32 graus é a
+ *  encosta normal do flanco de um domo, não um paredão: com 0,62 nascia
+ *  afloramento na barriga de todo morro, e na chapa isso lia como caroço marrom
+ *  solto no meio do verde. Rocha exposta é onde a terra não para. */
+const ROCHA_DECL = 0.95
+
+// ⚠️ A MATA VARIA EM MANCHA, E ISSO É UM RUÍDO DE MUNDO, NÃO POR ILHA. Se cada
+// ilha tivesse a sua semente, duas ilhas vizinhas teriam capoeiras de padrões
+// diferentes e o olho leria isso como material diferente. Uma função só, em
+// coordenada de mundo, é o que faz o arquipélago inteiro parecer a mesma mata.
+const manchaMata = fazFbm2(90210, 3)
+
+/** ⚠️ A MÉDIA DESTA FUNÇÃO É `C_MATO` DE PROPÓSITO: a mancha varia para os dois
+ *  lados em torno da cor MEDIDA do tecido do mapa, então ela acrescenta variação
+ *  sem deslocar o tom. `alto` escurece com a cota, que é o que a versão anterior
+ *  fazia sozinha e por isso saturava numa ilha baixa. */
+const _mata = new THREE.Color()
+function mataEm(mancha: number, alto: number): THREE.Color {
+  const m = suave(mancha)
+  if (m < 0.5) _mata.copy(C_MATO_S).lerp(C_MATO, m * 2)
+  else _mata.copy(C_MATO).lerp(C_MATO_E, (m - 0.5) * 2)
+  return _mata.lerp(C_MATO_E, Math.min(1, Math.max(0, alto)) * 0.5)
+}
 
 /** metros de mundo por unidade do UV da malha (o `tbn` do splat sai daqui) */
 const UV_METROS = 9
@@ -311,56 +357,56 @@ function mergulho(h: number): number {
 // ⚠️ E O VAZIO É PARTE DO DESENHO. O miolo fundo da baía ficou SEM ilha nenhuma.
 // Arquipélago sem água aberta não lê como arquipélago, lê como pântano.
 export const ILHAS: readonly IlhaSpec[] = [
-  { id: 'IL01', nome: 'Ilha do Fundador', grupo: 'angra-fundador', x: 3526, z: -4340,
-    raio: 672, cume: 86, tipo: 'angra', semente: 7, alonga: 1.35, giro: 135, dono: 'fundador' },
-  { id: 'IL02', nome: 'Ilha Norte', grupo: 'angra-fundador', x: 5229, z: -2926,
-    raio: 482, cume: 58, tipo: 'angra', semente: 13, alonga: 1.18, giro: 195 },
-  { id: 'IL04', nome: 'Ilha Leste', grupo: 'angra-fundador', x: 5638, z: -2047,
-    raio: 258, cume: 32, tipo: 'angra', semente: 19, alonga: 1.45, giro: 285 },
-  { id: 'IL05', nome: 'Atol da Baía', grupo: 'angra-fundador', x: 5552, z: -5142,
-    raio: 168, cume: 9, tipo: 'atol', semente: 25, alonga: 1.2, giro: 120 },
+  { id: 'IL01', nome: 'Ilha do Fundador', grupo: 'angra-fundador', x: 3509, z: -4308,
+    raio: 672, cume: 86, tipo: 'angra', semente: 7, alonga: 1.35, giro: 240, dono: 'fundador' },
+  { id: 'IL02', nome: 'Ilha Norte', grupo: 'angra-fundador', x: 4875, z: -3316,
+    raio: 482, cume: 58, tipo: 'angra', semente: 13, alonga: 1.18, giro: 90 },
+  { id: 'IL04', nome: 'Ilha Leste', grupo: 'angra-fundador', x: 5669, z: -2201,
+    raio: 258, cume: 32, tipo: 'angra', semente: 19, alonga: 1.45, giro: 330 },
+  { id: 'IL05', nome: 'Atol da Baía', grupo: 'angra-fundador', x: 5813, z: -5376,
+    raio: 168, cume: 9, tipo: 'atol', semente: 25, alonga: 1.2, giro: 300 },
   { id: 'IL10', nome: 'Cayo Maior', grupo: 'cayos-norte', x: 1591, z: -8063,
-    raio: 291, cume: 14, tipo: 'banco', semente: 31, alonga: 2.1, giro: 345 },
-  { id: 'IL11', nome: 'Cayo do Vento', grupo: 'cayos-norte', x: 2632, z: -8124,
-    raio: 224, cume: 11, tipo: 'banco', semente: 37, alonga: 2.3, giro: 315 },
-  { id: 'IL12', nome: 'Cayo Longo', grupo: 'cayos-norte', x: 739, z: -7826,
-    raio: 196, cume: 9, tipo: 'banco', semente: 43, alonga: 2.6, giro: 285 },
-  { id: 'IL13', nome: 'Cayo do Meio', grupo: 'cayos-norte', x: 2464, z: -7370,
-    raio: 168, cume: 9, tipo: 'banco', semente: 49, alonga: 2, giro: 150 },
-  { id: 'IL14', nome: 'Cayo Menor', grupo: 'cayos-norte', x: 165, z: -8696,
-    raio: 134, cume: 8, tipo: 'banco', semente: 55, alonga: 1.9, giro: 315 },
-  { id: 'IL15', nome: 'Cayo do Fim', grupo: 'cayos-norte', x: 1132, z: -8555,
-    raio: 118, cume: 8, tipo: 'banco', semente: 61, alonga: 2.2, giro: 255 },
-  { id: 'IL20', nome: 'Atol Grande', grupo: 'atois', x: 3664, z: -7007,
-    raio: 213, cume: 11, tipo: 'atol', semente: 67, alonga: 1.25, giro: 330 },
-  { id: 'IL21', nome: 'Atol da Lagoa', grupo: 'atois', x: 4248, z: -7325,
-    raio: 168, cume: 9, tipo: 'atol', semente: 73, alonga: 1.35, giro: 75 },
-  { id: 'IL22', nome: 'Atol Gêmeo', grupo: 'atois', x: 3670, z: -7679,
-    raio: 140, cume: 9, tipo: 'atol', semente: 79, alonga: 1.2, giro: 15 },
-  { id: 'IL23', nome: 'Atol do Canal', grupo: 'atois', x: 4088, z: -6564,
-    raio: 123, cume: 8, tipo: 'atol', semente: 85, alonga: 1.4, giro: 240 },
-  { id: 'IL24', nome: 'Atol Pequeno', grupo: 'atois', x: 4728, z: -7309,
-    raio: 106, cume: 8, tipo: 'atol', semente: 91, alonga: 1.15, giro: 75 },
+    raio: 291, cume: 14, tipo: 'banco', semente: 31, alonga: 2.1, giro: 150 },
+  { id: 'IL11', nome: 'Cayo do Vento', grupo: 'cayos-norte', x: 2581, z: -7918,
+    raio: 224, cume: 11, tipo: 'banco', semente: 37, alonga: 2.3, giro: 150 },
+  { id: 'IL12', nome: 'Cayo Longo', grupo: 'cayos-norte', x: 390, z: -8092,
+    raio: 196, cume: 9, tipo: 'banco', semente: 43, alonga: 2.6, giro: 150 },
+  { id: 'IL13', nome: 'Cayo do Meio', grupo: 'cayos-norte', x: 3008, z: -7249,
+    raio: 168, cume: 9, tipo: 'banco', semente: 49, alonga: 2, giro: 330 },
+  { id: 'IL14', nome: 'Cayo Menor', grupo: 'cayos-norte', x: 671, z: -8592,
+    raio: 134, cume: 8, tipo: 'banco', semente: 55, alonga: 1.9, giro: 180 },
+  { id: 'IL15', nome: 'Cayo do Fim', grupo: 'cayos-norte', x: 1445, z: -8644,
+    raio: 118, cume: 8, tipo: 'banco', semente: 61, alonga: 2.2, giro: 0 },
+  { id: 'IL20', nome: 'Atol Grande', grupo: 'atois', x: 3808, z: -7082,
+    raio: 213, cume: 11, tipo: 'atol', semente: 67, alonga: 1.25, giro: 120 },
+  { id: 'IL21', nome: 'Atol da Lagoa', grupo: 'atois', x: 4432, z: -7073,
+    raio: 168, cume: 9, tipo: 'atol', semente: 73, alonga: 1.35, giro: 120 },
+  { id: 'IL22', nome: 'Atol Gêmeo', grupo: 'atois', x: 3527, z: -7654,
+    raio: 140, cume: 9, tipo: 'atol', semente: 79, alonga: 1.2, giro: 150 },
+  { id: 'IL23', nome: 'Atol do Canal', grupo: 'atois', x: 4282, z: -6593,
+    raio: 123, cume: 8, tipo: 'atol', semente: 85, alonga: 1.4, giro: 150 },
+  { id: 'IL24', nome: 'Atol Pequeno', grupo: 'atois', x: 4892, z: -6872,
+    raio: 106, cume: 8, tipo: 'atol', semente: 91, alonga: 1.15, giro: 120 },
   { id: 'IL30', nome: 'Ilha dos Morros', grupo: 'angra-leste', x: 6645, z: -4684,
-    raio: 426, cume: 48, tipo: 'angra', semente: 97, alonga: 1.4, giro: 255 },
+    raio: 426, cume: 48, tipo: 'angra', semente: 97, alonga: 1.4, giro: 300 },
   { id: 'IL31', nome: 'Ilha da Enseada', grupo: 'angra-leste', x: 7530, z: -2999,
-    raio: 336, cume: 38, tipo: 'angra', semente: 103, alonga: 1.3, giro: 285 },
-  { id: 'IL32', nome: 'Ilha do Costão', grupo: 'angra-leste', x: 7769, z: -2252,
-    raio: 274, cume: 30, tipo: 'angra', semente: 109, alonga: 1.5, giro: 195 },
-  { id: 'IL33', nome: 'Ilha da Ferradura', grupo: 'angra-leste', x: 7707, z: -4022,
-    raio: 224, cume: 24, tipo: 'angra', semente: 115, alonga: 1.35, giro: 60 },
-  { id: 'IL34', nome: 'Ilha do Farol', grupo: 'angra-leste', x: 7699, z: -1542,
-    raio: 179, cume: 20, tipo: 'angra', semente: 121, alonga: 1.25, giro: 0 },
+    raio: 336, cume: 38, tipo: 'angra', semente: 103, alonga: 1.3, giro: 0 },
+  { id: 'IL32', nome: 'Ilha do Costão', grupo: 'angra-leste', x: 7849, z: -2253,
+    raio: 274, cume: 30, tipo: 'angra', semente: 109, alonga: 1.5, giro: 180 },
+  { id: 'IL33', nome: 'Ilha da Ferradura', grupo: 'angra-leste', x: 7421, z: -3838,
+    raio: 224, cume: 24, tipo: 'angra', semente: 115, alonga: 1.35, giro: 120 },
+  { id: 'IL34', nome: 'Ilha do Farol', grupo: 'angra-leste', x: 7785, z: -1559,
+    raio: 179, cume: 20, tipo: 'angra', semente: 121, alonga: 1.25, giro: 30 },
   { id: 'IL35', nome: 'Ilha Rasa', grupo: 'angra-leste', x: 6832, z: -3713,
-    raio: 146, cume: 11, tipo: 'banco', semente: 127, alonga: 1.8, giro: 45 },
-  { id: 'IL40', nome: 'Ilha do Sul', grupo: 'cayos-sul', x: 7554, z: 2620,
-    raio: 325, cume: 34, tipo: 'angra', semente: 133, alonga: 1.45, giro: 225 },
-  { id: 'IL41', nome: 'Cayo do Sul', grupo: 'cayos-sul', x: 7706, z: -159,
-    raio: 213, cume: 10, tipo: 'banco', semente: 139, alonga: 2.2, giro: 315 },
-  { id: 'IL42', nome: 'Atol do Sul', grupo: 'cayos-sul', x: 7585, z: 604,
-    raio: 151, cume: 9, tipo: 'atol', semente: 145, alonga: 1.3, giro: 315 },
-  { id: 'IL43', nome: 'Cayo da Ponta', grupo: 'cayos-sul', x: 7560, z: -808,
-    raio: 123, cume: 8, tipo: 'banco', semente: 151, alonga: 2, giro: 210 },
+    raio: 146, cume: 11, tipo: 'banco', semente: 127, alonga: 1.8, giro: 300 },
+  { id: 'IL40', nome: 'Ilha do Sul', grupo: 'cayos-sul', x: 7852, z: 2566,
+    raio: 325, cume: 34, tipo: 'angra', semente: 133, alonga: 1.45, giro: 270 },
+  { id: 'IL41', nome: 'Cayo do Sul', grupo: 'cayos-sul', x: 7962, z: -86,
+    raio: 213, cume: 10, tipo: 'banco', semente: 139, alonga: 2.2, giro: 90 },
+  { id: 'IL42', nome: 'Atol do Sul', grupo: 'cayos-sul', x: 7930, z: 853,
+    raio: 151, cume: 9, tipo: 'atol', semente: 145, alonga: 1.3, giro: 90 },
+  { id: 'IL43', nome: 'Cayo da Ponta', grupo: 'cayos-sul', x: 7946, z: -1109,
+    raio: 123, cume: 8, tipo: 'banco', semente: 151, alonga: 2, giro: 180 },
 ]
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -439,9 +485,13 @@ function acharPatamares(g: Grade, D: Float32Array, spec: IlhaSpec): Patamar[] {
     if (esc.length >= 2) break
     // ⚠️ SEPARADOS, senão os dois pads caem no mesmo morro e viram um só.
     if (esc.some((e) => Math.hypot(e.x - c.x, e.z - c.z) < (e.raio + c.d) * 1.6)) continue
-    // ⚠️ O PAD É 0,56 DA FOLGA porque a saia de transição vale 1,75 raios: mais
-    // que isso e a terraplenagem come a praia.
-    const r = Math.max(16, Math.min(spec.raio * 0.20, c.d * 0.56))
+    // ⚠️ O PAD TEM TETO EM METROS, E ELE É NOVO. Com `raio * 0,20` a Ilha do
+    // Fundador ganhava um pad de 134 m de raio, ou seja 268 m de ponta a ponta:
+    // um TERÇO da ilha. Na chapa isso não lia como plataforma de mansão, lia como
+    // calvície. Uma mansão de magnata com jardim cabe em 90 m de frente, então o
+    // teto é 46 m de raio; a fração do raio e a folga continuam mandando nas
+    // ilhas pequenas, onde 46 m não caberia.
+    const r = Math.max(16, Math.min(46, spec.raio * 0.12, c.d * 0.45))
     esc.push({ x: c.x, z: c.z, raio: r, cota: c.h })
   }
   return esc
@@ -489,6 +539,14 @@ let _contornos: number[] | null = null
 export function contornosIlhas(): number[] {
   if (_contornos) return _contornos
   const out: number[] = []
+  // ⚠️ ILHA DESLIGADA NÃO TEM COSTA. `plaza-scene` só monta o grupo com
+  // `?ilhas=1`; sem esta guarda, `lago.ts` pediria o campo de altura de 25 ilhas
+  // que ninguém vai desenhar, e ainda abriria um halo de raso em volta de nada.
+  if (typeof window === 'undefined'
+      || new URLSearchParams(window.location.search).get('ilhas') !== '1') {
+    _contornos = out
+    return out
+  }
   for (const il of ILHAS) {
     const g = grade(il)
     const g0 = (il.giro * Math.PI) / 180
@@ -560,6 +618,12 @@ function geoIlha(spec: IlhaSpec, cota: number): THREE.BufferGeometry {
   const idx: number[] = []
   const c = new THREE.Color()
   const rnFino = ruido2(spec.semente * 31 + 7)
+  // ⚠️ A FAIXA DE MISTURA ENTRE AREIA E MATA ACOMPANHA O RELEVO DA ILHA, e este
+  // era o verdadeiro motivo de a ilha ler branca. Ela estava fixa em 6 m: numa
+  // ilha de 86 m de cume isso é uma orla; num cayo de 9 m de cume é a ilha
+  // INTEIRA em meio-tom de areia. Medido: 42,5% dos vértices emersos carregavam
+  // peso de areia. Com a faixa proporcional ao cume, o cayo mistura em 2 m.
+  const mistura = Math.max(1.5, Math.min(9, spec.cume * 0.10))
   const HP = (i: number, j: number) => H[Math.min(NJ - 1, Math.max(0, j)) * NI + Math.min(NI - 1, Math.max(0, i))]
   // ⚠️ MAPA DE ÍNDICE, porque a malha é RECORTADA: o quad fundo demais não entra,
   // e emitir todo vértice mesmo assim deixaria milhares de órfãos no buffer.
@@ -584,29 +648,60 @@ function geoIlha(spec: IlhaSpec, cota: number): THREE.BufferGeometry {
     // `min(PRAIA_MAX·decl, PRAIA_SUBIDA)`. Encosta rasa: banda finíssima mas
     // dezenas de metros de largura. Costão: banda de 1,5 m e três metros de
     // largura, ou seja praia nenhuma. É isto que tira o plástico branco.
+    // ⚠️ E A PRAIA É LIMITADA POR LARGURA, NÃO SÓ POR COTA, e sem isto ela ainda
+    // inundava. Medido depois da primeira versão do campo: 59% dos vértices
+    // emersos saíam areia. A causa é que `lagos.ts` aplica a regra como LARGURA
+    // ao longo da margem, com teto de 18 m, e eu a transpus para uma BANDA DE
+    // COTA: numa ilha genuinamente plana, como um cayo de 9 m de cume, "tudo
+    // abaixo de 1,5 m" é quase a ilha inteira. Aqui entram as duas, e a que
+    // manda é a largura, que é a formulação original: `D` é a distância medida
+    // até a costa e já existe para achar os patamares.
+    const largura = Math.min(PRAIA_MAX, decl < 1e-3 ? PRAIA_MAX : PRAIA_SUBIDA / decl)
+    const naPraia = D[k] < largura && h < PRAIA_SUBIDA * 2
     const hPraia = Math.min(PRAIA_MAX * decl, PRAIA_SUBIDA)
-    const noPat = pats.some((p) => Math.hypot(sx - p.x, sz - p.z) < p.raio * 1.05)
+    // ⚠️ O PATAMAR ENTRA POR RAMPA, NÃO POR LIMIAR, e a borda em degraus da chapa
+    // era exatamente isto: `dp < raio * 1,05` é um teste booleano por vértice, ou
+    // seja a fronteira de cor caía na GRADE e desenhava a escada. A rampa espalha
+    // a transição por metros e a grade some dentro dela.
+    let clareira = 0
+    for (const p of pats) {
+      const dp = Math.hypot(sx - p.x, sz - p.z)
+      if (dp < p.raio * 1.35) clareira = Math.max(clareira, suave(1 - dp / (p.raio * 1.35)))
+    }
     const naTrilha = pernas.some((p) => distSegLocal(sx, sz, p.ax, p.az, p.bx, p.bz).d < 7)
+    // ⚠️ A MATA EM MANCHAS, e a falta disto foi a queixa "verde chapado". A versão
+    // de contorno tinha gradação por cota, que numa ilha baixa satura logo e vira
+    // campo liso: medido, num cayo de 9 m de cume a rampa inteira cabe em 0,9 m de
+    // altura, então 100% da mata saía na mesma tinta. Mata de verdade varia em
+    // MANCHA, não em faixa. Aqui a variação vem de um fbm em coordenada de mundo
+    // com escala de dezenas de metros, que é o tamanho de uma capoeira.
+    const mancha = manchaMata(wx / 62, wz / 62) * 0.5 + 0.5
     let ua = 0, ub = 0, uc = 0                     // areia, mata, rocha
     // ⚠️ A COR E O USO DO SOLO SAEM DO MESMO RAMO. São duas descrições da MESMA
     // classificação e, escritas em dois lugares, divergem em silêncio.
-    if (h > 0.6 && noPat) { c.copy(C_PLATO); uc = 1 }
-    else if (h > 0.6 && naTrilha) { c.copy(C_TRILHA); ua = 1 }
+    if (h > 0.6 && naTrilha) { c.copy(C_TRILHA); ua = 1 }
     else if (h <= 0) { c.copy(C_FUNDO); ua = 1 }
-    else if (h < hPraia) { c.copy(C_AREIA); ua = 1 }
-    else if (h < hPraia + 6) {
-      const t = (h - hPraia) / 6
-      c.copy(C_AREIA).lerp(C_MATO, t); ua = 1 - t; ub = t
-    } else if (decl > 0.62 || h > spec.cume * 0.80) {
+    else if (naPraia) { c.copy(C_AREIA); ua = 1 }
+    else if (h < hPraia + mistura) {
+      const t = Math.min(1, Math.max(0, (h - hPraia) / mistura))
+      c.copy(C_AREIA).lerp(mataEm(mancha, 0), t); ua = 1 - t; ub = t
+    } else if (decl > ROCHA_DECL || h > spec.cume * 0.84) {
       // ⚠️ O COSTÃO É INCLINAÇÃO, NÃO ALTURA. Rocha aparece onde a encosta é
       // íngreme demais para segurar terra, e isso acontece a 8 m de cota tanto
       // quanto a 80. Amarrar rocha só à cota dava a faixa horizontal de sempre.
-      const t = Math.min(1, Math.max((decl - 0.62) / 0.5, (h - spec.cume * 0.80) / (spec.cume * 0.20)))
-      c.copy(C_MATO_E).lerp(C_ROCHA, t); ub = 1 - t; uc = t
+      //
+      // ⚠️ MAS O LIMIAR ERA 0,62 E ISSO ESTAVA ERRADO: 0,62 é 32 graus, que é a
+      // encosta NORMAL do flanco de um domo, não um paredão. O resultado eram as
+      // bossas marrons no meio da ilha que a chapa mostrou, afloramento nascendo
+      // onde só havia barriga de morro. 0,95 é 44 graus, aí sim é face de rocha.
+      const t = suave(Math.max((decl - ROCHA_DECL) / 0.55,
+                               (h - spec.cume * 0.84) / (spec.cume * 0.16)))
+      c.copy(mataEm(mancha, 1)).lerp(C_ROCHA, t); ub = 1 - t; uc = t
     } else {
-      const t = Math.min(1, (h - hPraia - 6) / Math.max(1, spec.cume * 0.55))
-      c.copy(C_MATO).lerp(C_MATO_E, t); ub = 1
+      const t = Math.min(1, (h - hPraia - mistura) / Math.max(1, spec.cume * 0.55))
+      c.copy(mataEm(mancha, t)); ub = 1
     }
+    if (clareira > 0 && h > 0.6) c.lerp(C_CLAREIRA, clareira * 0.42)
     const kk = 0.95 + 0.10 * (rnFino(wx / 30, wz / 30) * 0.5 + 0.5)
     cor.push(c.r * kk, c.g * kk, c.b * kk)
     uso.push(ua, ub, uc)
@@ -687,7 +782,13 @@ const MEDIA_AREIA = new THREE.Vector3(0.1811, 0.1620, 0.1384)   // 'regolito'
 const MEDIA_MATA = new THREE.Vector3(0.1230, 0.1884, 0.0620)    // 'campo'
 const MEDIA_ROCHA = new THREE.Vector3(0.2461, 0.2271, 0.1952)   // 'pedra'
 /** metros de mundo por ladrilho de cada uma, na escala em que a ilha as usa */
-const M_AREIA = 6, M_MATA = 7, M_ROCHA = 4
+// ⚠️ A MATA SUBIU DE 7 PARA 11 m DE LADRILHO E O NORMAL CAIU DE 0,85 PARA 0,55.
+// A queixa da chapa foi "um trançado fino de textura que não lê como vegetação",
+// e trançado é o que um ladrilho de 7 m com normal forte faz quando visto em
+// ângulo raso: a grade da receita vira tecido. Ladrilho maior e relevo mais
+// fraco devolvem a leitura de massa vegetal. ⚠️ NÃO MEDI ISTO NA CHAPA, é a
+// mudança menos verificada desta rodada.
+const M_AREIA = 6, M_MATA = 11, M_ROCHA = 4
 /** escala do ruído de mundo que apaga a grade do ladrilho, em metros */
 const MACRO_METROS = 120
 
@@ -701,7 +802,7 @@ function vestirSplat(mat: THREE.MeshStandardMaterial) {
   mat.map = mata.map
   mat.normalMap = mata.normalMap
   mat.roughnessMap = mata.roughnessMap
-  mat.normalScale = new THREE.Vector2(0.85, 0.85)
+  mat.normalScale = new THREE.Vector2(0.55, 0.55)
   // ⚠️ `roughness` FICA EM 1: no three ele MULTIPLICA o mapa de rugosidade, e
   // 0,92 (o valor que estava aqui) apagaria 8% do que o mapa diz.
   mat.roughness = 1
@@ -795,8 +896,8 @@ export function buildIlhas(o: { cota: number; sombra?: boolean }): Ilhas {
   //
   // ⚠️ O PREÇO É O RECORTE POR TRONCO. Fundidas, as 25 viram um volume de 9 km de
   // lado e o three passa a desenhar as 25 sempre que qualquer uma estiver no
-  // quadro. Aceito medindo: 269.026 triângulos no total, 4,3% da cena, contra as
-  // 20 chamadas que a alternativa custaria.
+  // quadro. Aceito medindo: 282.776 triângulos no total, 4,5% da cena, contra as
+  // 24 chamadas que a alternativa custaria.
   const partes: THREE.BufferGeometry[] = []
   let tri = 0
   for (const il of ILHAS) {

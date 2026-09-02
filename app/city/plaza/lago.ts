@@ -14,10 +14,26 @@
 // 1.340 e escavou uma bacia dentro dele: com o anel inteiro no nível 0, a água
 // fica plana e o barranco tem a mesma altura em toda a volta.
 //
-// A GEOMETRIA, publicada por terrain.ts em `lago`:
-//   fundo   −26 m      a bacia escavada no platô
-//   lâmina  −17 m      9 m de água
-//   margem  r 1.020 a 1.200, mais 70 m de talude de cada lado
+// A GEOMETRIA, publicada por terrain.ts em `lago` e MEDIDA em 02/09:
+//   fundo   −14 m      a bacia escavada no platô
+//   lâmina  −6,5 m     7,5 m de água, 262 ha
+//   fundo plano  r 1.100 a 1.390
+//   linha d'água r 1.062,9 a 1.087,7 por dentro, r 1.403,3 a 1.421,7 por fora
+//
+// ⚠️ ESTE CABEÇALHO JÁ MENTIU UMA VEZ, e a mentira custou um diagnóstico
+// inteiro: ele dizia margem em r 1.020 a 1.200 com 70 m de talude e lâmina em
+// −17 quando o `terrain.ts` já tinha 1.090 / 1.390, talude de 40 e fundo de 26.
+// Número de geometria aqui é CÓPIA: a fonte é `bacia()` em `terrain.ts`.
+//
+// ⚠️ A LÂMINA SUBIU DE −17 PARA −6,5 EM 02/09, POR DECISÃO DO FUNDADOR, e o
+// motivo é a margem. Com a lâmina a 17 m abaixo do platô e 40 m de talude, o
+// barranco seco tinha 44,3° de pico e a linha d'água caía justamente em cima
+// dele, a 43,0°: era a "pista de skate" que ele apontou, e nenhuma areia era
+// possível ali (`w = 1,5 / inclinação` dava 1,6 m). Agora o banco seco tem 6,5 m
+// em 22,4° de pico e a linha d'água cai numa BANQUETA de 5,9 a 15,3°, que dá de
+// 5,5 a 14,4 m de areia conforme o rumo. As cotas dependentes (as quatro pontes,
+// as oito ilhas, o pé do píer e o espelho d'água do Dog Social Club) saem todas
+// de `L.agua` e acompanharam sozinhas.
 //
 // ⚠️ AS QUATRO PONTES CAEM NOS BULEVARES, nos rumos 0, 90, 180 e 270. Não é
 // simetria por simetria: os quatro são costura de setor, então a ponte entrega
@@ -32,8 +48,9 @@
 // Three.js puro (regra da casa: nada de react-three-fiber).
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
+import { contornosIlhas } from './ilhas'
 import { look2 } from './look'
-import { vestir } from './materiais'
+import { vestir, superficie, quebrarRepeticao } from './materiais'
 
 export interface LagoOpts {
   heightAt: (x: number, z: number) => number
@@ -79,7 +96,28 @@ export interface Lago {
 // o mesmo azul um passo mais claro e mais saturado, que é o que faz a lâmina
 // pegar o sol raso e virar água.
 export const COR_AGUA = '#1D4A66'
-const COR_PRAIA = '#8E856F'
+// ⚠️ A AREIA DO LAGO É A MESMA DA BAÍA, E ISSO NÃO É ECONOMIA, É MUNDO. As duas
+// se encontram, e o fundador já reclamou de peça que "parece alienígena" quando
+// uma família de cor não fecha. Os dois valores estão medidos contra o CHÃO
+// VESTIDO em `lagos.ts`: o regolito de look2 cai perto de #6B6459 na tela, e a
+// areia seca fica UM passo acima dele. #8E856F, que era o valor daqui, está dois
+// passos acima e lê como glacê.
+// ⚠️ E NO look2 A COR NÃO VEM DO MATERIAL, VEM DO VÉRTICE, em rampa de quatro
+// componentes: a transição para o chão é ALFA, não cor. Cor fixa não funde com
+// chão texturado por ruído de mundo em nenhuma hora do dia, e foi essa a lição
+// que a orla da baía já pagou.
+const AREIA_MOLHADA = '#463F33'
+const AREIA_SECA = '#847A66'
+const COR_PRAIA = AREIA_SECA          // a faixa do look 1, chapada, como sempre foi
+// as constantes da praia por inclinação, iguais às de `lagos.ts` de propósito
+const PRAIA_SUBIDA = 1.5
+const PRAIA_SONDA = 6.0
+const PRAIA_SONDA2 = 16.0
+const PRAIA_MAX = 18.0
+const PRAIA_MIN = 2.5
+const PRAIA_FUNDO = 0.9
+const PRAIA_ALISA = 6
+const NA_MARGEM = 720                 // rumos em que a linha d'água é medida
 const COR_PISO = '#CBC4B6'
 const COR_ESTRUTURA = '#8F8879'
 const COR_PISTA = '#57534B'
@@ -168,12 +206,51 @@ export function buildLago(o: LagoOpts): Lago {
   const P = (x: number, z: number, y: number) => [x, y, z]
   const NO = (x: number, z: number, off: number) => [x, o.heightAt(x, z) + off, z]
 
+  // ⚠️ A LINHA D'ÁGUA SE MEDE, NÃO SE CALCULA. O talude varia com o rumo (ver
+  // `bacia` em terrain.ts: dois harmônicos mexem no comprimento dele e na altura
+  // do banco seco), então o raio em que o chão cruza a cota da lâmina muda de
+  // rumo para rumo, e nenhuma constante de raio serve mais. Bisseção no
+  // `heightAt`, 720 rumos, 40 passos: 28.800 consultas UMA VEZ, na construção.
+  // ⚠️ E `o.heightAt` AQUI É O `superficieAt` DO TERRENO, não a curva analítica:
+  // `plaza-scene.tsx` passa `heightAt: terrain.superficieAt`. É o certo, porque
+  // a areia tem de pousar na MALHA que o olho vê, e não na fórmula. Foi essa
+  // diferença que enterrou a faixa antiga em até 14,43 m (rumo 45°, r 1.053,5).
+  const linhaDagua = (fora: boolean): Float64Array => {
+    const out = new Float64Array(NA_MARGEM)
+    const lo = fora ? L.r1 : L.r0 - 90, hi = fora ? L.r1 + 90 : L.r0
+    for (let k = 0; k < NA_MARGEM; k++) {
+      const a = (k / NA_MARGEM) * Math.PI * 2
+      const sx = Math.sin(a), sz = -Math.cos(a)
+      let l = lo, h = hi
+      for (let it = 0; it < 40; it++) {
+        const m = (l + h) / 2
+        const y = o.heightAt(sx * m, sz * m)
+        // por dentro o chão DESCE com o raio; por fora, SOBE
+        if (fora ? y < L.agua : y > L.agua) l = m
+        else h = m
+      }
+      out[k] = (l + h) / 2
+    }
+    return out
+  }
+  const margemI = linhaDagua(false), margemE = linhaDagua(true)
+  let rMargemI = Infinity, rMargemE = -Infinity
+  for (let k = 0; k < NA_MARGEM; k++) {
+    if (margemI[k] < rMargemI) rMargemI = margemI[k]
+    if (margemE[k] > rMargemE) rMargemE = margemE[k]
+  }
+
   // ── 1. a lâmina d'água ───────────────────────────────────────────────────
   // ⚠️ ELA VAI ALÉM DA MARGEM NOMINAL DE PROPÓSITO. A bacia tem talude de 70 m
   // de cada lado, e a linha d'água cai DENTRO do talude, não na quebra: estender
   // a lâmina 60 m para dentro e para fora garante que ela morra enterrada no
   // barranco em vez de terminar num degrau boiando.
-  const rAguaI = L.r0 - 38, rAguaE = L.r1 + 38
+  // ⚠️ OS RAIOS SAEM DA MARGEM MEDIDA, e a folga de 30 m é o que ENTERRA a
+  // ponta da lâmina no barranco em vez de deixá-la terminar num degrau boiando.
+  // Como a linha d'água anda de 25 m com o rumo (r 1.062,9 a 1.087,7 por
+  // dentro), um raio constante tirado de `L.r0` voltaria a errar nos dois
+  // sentidos: sobra de fora num rumo, fresta de água no outro.
+  const rAguaI = rMargemI - 30, rAguaE = rMargemE + 30
   {
     const b = B(COR_AGUA)
     const seg = 240
@@ -226,7 +303,15 @@ export function buildLago(o: LagoOpts): Lago {
   //                                1.420 para encostar nele (gerar_cidade.py)
   // Com eles o sistema fecha: praça → ponte → orla → bulevar → anel → Cinturão.
   const R_ANEL_PRACA = 975, LARG_PRACA = 20
-  const R_ANEL_ORLA = L.r1 + 50, LARG_ORLA = 26
+  // ⚠️ O ANEL DA ORLA RECUOU DE L.r1+50 PARA L.r1+75 EM 02/09, E NÃO É GOSTO.
+  // Com ele em r 1.440 a rotatória de cada cabeceira (raio 26) chegava em
+  // r 1.414, onde o chão MEDIDO estava a −9,15 m: eram quatro línguas de asfalto
+  // de 26 m descendo 9 m por um barranco de 40°, e elas caíam exatamente onde o
+  // pé da ponte encosta, que é onde o olho vai. Recuar mata o defeito na origem
+  // e é mais barato que recortar o disco. Em r 1.465 a aresta interna do anel
+  // fica em 1.452, e o pé do talude externo vai no máximo até 1.447: 5 m livres
+  // no pior rumo.
+  const R_ANEL_ORLA = L.r1 + 75, LARG_ORLA = 26
   const aneisDeMargem = [
     { r: R_ANEL_PRACA, larg: LARG_PRACA },
     { r: R_ANEL_ORLA, larg: LARG_ORLA },
@@ -251,8 +336,12 @@ export function buildLago(o: LagoOpts): Lago {
       }
     }
   }
-  // a faixa de praia entre o anel e a água, mais clara que o regolito
-  for (const [rIn, rOut] of [[L.r0 - 42, L.r0 - 14], [L.r1 + 14, L.r1 + 42]]) {
+  // A faixa de praia do LOOK 1: anel concêntrico de largura constante.
+  // ⚠️ ELA É O DEFEITO QUE O FUNDADOR APONTOU, E FICA SÓ PORQUE O look 1 FICA.
+  // Largura fixa de 28 m sobre um barranco que muda de inclinação, cor chapada
+  // sem mapa e sem alfa, e as duas pontas erram a linha d'água por alguns
+  // metros. No look 2 ela não é desenhada: ver o bloco da praia por inclinação.
+  if (!look2) for (const [rIn, rOut] of [[L.r0 - 42, L.r0 - 14], [L.r1 + 14, L.r1 + 42]]) {
     const b = B(COR_PRAIA)
     const seg = Math.max(120, Math.ceil((2 * Math.PI * rOut) / 18))
     for (let k = 0; k < seg; k++) {
@@ -265,6 +354,128 @@ export function buildLago(o: LagoOpts): Lago {
       }
     }
   }
+  // ── 2b. A PRAIA DO LOOK 2: A LARGURA SAI DA INCLINAÇÃO ──────────────────
+  //
+  // ⚠️ A LARGURA NÃO É UMA CONSTANTE, É UMA CONSEQUÊNCIA. `w = subida /
+  // inclinação`: a areia acompanha 1,5 m de subida do terreno, e onde ela vem,
+  // vem. Medido no barranco novo: a inclinação na linha d'água vai de 5,9° a
+  // 15,3° conforme o rumo, o que dá de 5,5 a 14,4 m de areia antes da modulação.
+  // A mesma máquina de `lagos.ts`, e de propósito: as duas areias se encontram.
+  //
+  // ⚠️ DUAS SONDAS, A MAIS ÍNGREME MANDA. Com uma sonda só, uma margem redonda
+  // devolve a MESMA largura em toda a volta e a praia volta a ler como fita.
+  //
+  // ⚠️ E O LADO DE TERRA ACABA EM ALFA, NÃO EM COR. Chutar a cor do regolito
+  // para fundir não funde: o chão é textura mais ruído de mundo mais sombra, e
+  // uma cor fixa é igual a ele em UM ponto do dia. Alfa se desfaz sobre o chão
+  // QUE ESTIVER LÁ. Por isso a cor por vértice aqui tem QUATRO componentes.
+  //
+  // ⚠️ A NORMAL DA MARGEM É RADIAL, e isso é conta e não preguiça: o talude varia
+  // ±12 m em lóbulos de 120°, ou seja dr/da fica perto de 5,6 m por radiano
+  // contra r 1.074, e a margem se afasta do radial em menos de 0,3°. Chamar a
+  // máquina de esquadria de `lagos.ts` aqui seria precisão que ninguém vê.
+  const posAr: number[] = [], corAr: number[] = [], uvAr: number[] = [], idxAr: number[] = []
+  if (look2) {
+    const cMol = new THREE.Color(AREIA_MOLHADA), cSec = new THREE.Color(AREIA_SECA)
+    const LADRILHO = 8
+    const rnd = (x: number, z: number) => {
+      const h = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453
+      return h - Math.floor(h)
+    }
+    const onda = (x: number, z: number, esc: number) => {
+      const xi = Math.floor(x / esc), zi = Math.floor(z / esc)
+      const fx = x / esc - xi, fz = z / esc - zi
+      const ux = fx * fx * (3 - 2 * fx), uz = fz * fz * (3 - 2 * fz)
+      const q0 = rnd(xi, zi) + (rnd(xi + 1, zi) - rnd(xi, zi)) * ux
+      const q1 = rnd(xi, zi + 1) + (rnd(xi + 1, zi + 1) - rnd(xi, zi + 1)) * ux
+      return q0 + (q1 - q0) * uz
+    }
+    const emite = (x: number, y: number, z: number, cor: THREE.Color, al: number) => {
+      posAr.push(x, y, z)
+      corAr.push(cor.r, cor.g, cor.b, al)
+      uvAr.push(x / LADRILHO, z / LADRILHO)
+    }
+    for (const fora of [false, true]) {
+      const sinal = fora ? 1 : -1                  // para que lado fica a terra
+      const rr = fora ? margemE : margemI
+      const M = NA_MARGEM
+      const SX = new Float64Array(M), SZ = new Float64Array(M)
+      for (let k = 0; k < M; k++) {
+        const a = (k / M) * Math.PI * 2
+        SX[k] = Math.sin(a); SZ[k] = -Math.cos(a)
+      }
+      const em = (k: number, d: number) =>
+        [SX[k] * (rr[k] + sinal * d), SZ[k] * (rr[k] + sinal * d)] as const
+      const W = new Float64Array(M)
+      for (let k = 0; k < M; k++) {
+        const [x1, z1] = em(k, PRAIA_SONDA), [x2, z2] = em(k, PRAIA_SONDA2)
+        const h1 = o.heightAt(x1, z1), h2 = o.heightAt(x2, z2)
+        const decl = Math.max(0, (h1 - L.agua) / PRAIA_SONDA, (h2 - L.agua) / PRAIA_SONDA2)
+        const w = decl < 1e-3 ? PRAIA_MAX : Math.min(PRAIA_MAX, PRAIA_SUBIDA / decl)
+        // ⚠️ A MODULAÇÃO MULTIPLICA, NÃO SOMA: onde a medida é zero continua
+        // zero, e a areia nunca é inventada em cima de rocha.
+        W[k] = w * (0.75 + 0.5 * onda(SX[k] * rr[k], SZ[k] * rr[k], 70))
+      }
+      // ⚠️ ALISAR É O QUE MATA A LASCA, e o laço é CIRCULAR: deixar a emenda dos
+      // 720 rumos de fora guardaria uma quina não alisada por margem, e uma
+      // quina só numa faixa lisa é justamente o que o olho acha.
+      for (let p = 0; p < PRAIA_ALISA; p++) {
+        const T = W.slice()
+        for (let k = 0; k < M; k++) W[k] = (T[(k + M - 1) % M] + 2 * T[k] + T[(k + 1) % M]) / 4
+      }
+      // ⚠️ NÃO EXISTE CORTE POR LIMIAR, e essa era a causa da lasca no gêmeo
+      // deste código: campo contínuo não pisca, porque não há decisão para
+      // oscilar em volta. Quem desaparece é o alfa.
+      const alfa = (w: number) => Math.max(0, Math.min(1, (w - 0.8) / (PRAIA_MIN - 0.8)))
+      const banda = (k: number) => {
+        const w = W[k]
+        // ⚠️ A FRANJA ENTRA PARA DENTRO DA LÂMINA e começa 0,9 m abaixo dela:
+        // assim a areia não tem borda nenhuma do lado molhado, ela só some.
+        const wm = -(5 + 0.25 * w)
+        // ⚠️ O RABO É LONGO DE PROPÓSITO. Com 3 m ele não é fusão, é chanfro.
+        const wf = w + Math.max(9, w * 0.9)
+        const [xs, zs] = em(k, w), [xf, zf] = em(k, wf)
+        return {
+          wm, w, wf, a: alfa(w),
+          // ⚠️ A COTA SAI DO CHÃO, NÃO DE UMA CONSTANTE, senão a faixa lê como
+          // prateleira apoiada onde o terreno sobe devagar.
+          ys: Math.max(L.agua + 0.05, o.heightAt(xs, zs) + 0.06),
+          yf: Math.max(L.agua + 0.06, o.heightAt(xf, zf) + 0.06),
+        }
+      }
+      for (let k = 0; k < M; k++) {
+        const k2 = (k + 1) % M
+        const A0 = banda(k), B0 = banda(k2)
+        if (A0.a <= 0 && B0.a <= 0) continue        // aqui a água encosta na rocha
+        const quad = (
+          wa0: number, ya0: number, aa0: number, wa1: number, ya1: number, aa1: number,
+          wb0: number, yb0: number, ab0: number, wb1: number, yb1: number, ab1: number,
+          c0: THREE.Color, c1: THREE.Color,
+        ) => {
+          const bp = posAr.length / 3
+          const [xa, za] = em(k, wa0), [xb, zb] = em(k2, wa1)
+          const [xc, zc] = em(k2, wb1), [xd, zd] = em(k, wb0)
+          emite(xa, ya0, za, c0, aa0)
+          emite(xb, ya1, zb, c0, aa1)
+          emite(xc, yb1, zc, c1, ab1)
+          emite(xd, yb0, zd, c1, ab0)
+          // ⚠️ O SENTIDO DEPENDE DO LADO: por fora a normal do quad vira, e o
+          // material é DoubleSide justamente porque a faixa é vista de raso dos
+          // dois lados do lago. Manter a ordem constante e confiar no DoubleSide
+          // é mais barato que testar produto vetorial em 5.760 quads.
+          idxAr.push(bp, bp + 1, bp + 2, bp, bp + 2, bp + 3)
+        }
+        const yL = L.agua + 0.02
+        quad(A0.wm, L.agua - PRAIA_FUNDO, A0.a, B0.wm, L.agua - PRAIA_FUNDO, B0.a,
+             0, yL, A0.a, 0, yL, B0.a, cMol, cMol)
+        quad(0, yL, A0.a, 0, yL, B0.a,
+             A0.w, A0.ys, A0.a, B0.w, B0.ys, B0.a, cMol, cSec)
+        quad(A0.w, A0.ys, A0.a, B0.w, B0.ys, B0.a,
+             A0.wf, A0.yf, 0, B0.wf, B0.yf, 0, cSec, cSec)
+      }
+    }
+  }
+
   // ⚠️ A ROTATÓRIA EM CADA CABECEIRA, e ela não é enfeite: é o que faz a ponte
   // ENTREGAR em vez de despejar. Sem ela o tabuleiro de 26 m morre numa faixa de
   // via de 20 e quem chega não tem para onde virar.
@@ -449,6 +660,19 @@ export function buildLago(o: LagoOpts): Lago {
                           p(0, a1, L.agua + 3.1), p(0, a0, L.agua + 3.1))
     }
 
+    // ⚠️ AS ILHAS ERAM TAMPAS DE PAPEL. A praia delas começa em `L.agua + 0,15` e
+    // não havia NADA entre essa borda e o fundo da bacia: de qualquer ângulo
+    // raso a ilha era um disco de 15 cm de espessura boiando 6,65 m acima do
+    // leito, e a lâmina passava por baixo dela. Uma parede por segmento resolve,
+    // e custa 44 quads por ilha, 352 no total. Ela usa a MESMA `contornoIlha`
+    // que a praia, senão a parede sai de um contorno e a areia de outro.
+    for (let j = 0; j < seg; j++) {
+      const a0 = (j / seg) * Math.PI * 2, a1 = ((j + 1) / seg) * Math.PI * 2
+      B(COR_TERRA).quad(
+        p(rr(a0, raio), a0, L.agua + 0.15), p(rr(a1, raio), a1, L.agua + 0.15),
+        p(rr(a1, raio), a1, L.fundo), p(rr(a0, raio), a0, L.fundo))
+    }
+
     // ── o desembarque: a ponte de tábuas encontra a trilha ──────────────────
     //
     // ⚠️ ISTO É O MESMO DEFEITO DAS PONTES DO LAGO, EM MINIATURA. O píer parava
@@ -571,6 +795,56 @@ export function buildLago(o: LagoOpts): Lago {
     triangulos += b.ix.length / 3
   })
 
+  // ── 5b. A MALHA DA AREIA, QUE NÃO CABE NO BALDE ─────────────────────────
+  // ⚠️ QUATRO COMPONENTES DE COR, e o three só respeita o alfa da cor por
+  // vértice se o material for `transparent`. Com itemSize 3 o alfa simplesmente
+  // não existe e a faixa volta a acabar em aresta. O `Balde` só carrega
+  // `position`, por isso a areia tem malha própria: uma chamada de desenho a
+  // mais, e é a única do trabalho inteiro.
+  if (idxAr.length) {
+    const g = new THREE.BufferGeometry()
+    g.setAttribute('position', new THREE.Float32BufferAttribute(posAr, 3))
+    g.setAttribute('color', new THREE.Float32BufferAttribute(corAr, 4))
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uvAr, 2))
+    g.setIndex(idxAr)
+    g.computeVertexNormals()
+    const mat = new THREE.MeshStandardMaterial({
+      color: '#ffffff',
+      roughness: 1,
+      metalness: 0,
+      side: THREE.DoubleSide,
+      vertexColors: true,
+      // ⚠️ TRANSPARENTE, MAS SEM ESCREVER PROFUNDIDADE. A faixa é pintada por
+      // cima do chão que está a 6 cm dela, que é o que a areia faz; com
+      // `depthWrite` ligado as duas brigariam em z na margem inteira.
+      transparent: true,
+      depthWrite: false,
+    })
+    // ⚠️ SÓ NORMAL E RUGOSIDADE, O ALBEDO SE DESCARTA. A cor por vértice
+    // MULTIPLICA o mapa: areia clara vezes o albedo do regolito daria cinza
+    // sujo, e compensar exigiria clarear até estourar. Textura COMPARTILHADA do
+    // cache: nenhum upload novo de GPU, e o `customProgramCacheKey` de
+    // `quebrarRepeticao` mantém tudo num programa só.
+    const sup = superficie('regolito')
+    mat.normalMap = sup.normalMap
+    mat.roughnessMap = sup.roughnessMap
+    // ⚠️ NORMAL FRACO DE PROPÓSITO: luz rasante na Lua amplifica normal, e a
+    // margem é vista quase sempre rasante. No valor cheio a areia vira lixa.
+    const f = sup.normalScale * 0.55
+    mat.normalScale = new THREE.Vector2(f, f)
+    quebrarRepeticao(mat, 110)
+    const m = new THREE.Mesh(g, mat)
+    m.name = 'lago:areia'
+    m.receiveShadow = true
+    // ⚠️ AREIA NÃO PROJETA SOMBRA: é uma fita deitada no chão, a sombra dela cai
+    // nela mesma, e ela pagaria passe de mapa de sombra em 8 km de margem.
+    m.castShadow = false
+    m.frustumCulled = false
+    group.add(m)
+    feitas.push(m)
+    triangulos += idxAr.length / 3
+  }
+
   const areaHa = (Math.PI * (rAguaE * rAguaE - rAguaI * rAguaI)) / 1e4
   const relogios = feitas.map((m) => aguaDeVerdade(m)).filter(Boolean) as { value: number }[]
   return {
@@ -612,7 +886,11 @@ export function aguaDeVerdade(m: THREE.Mesh): { value: number } | null {
   const mat = m.material as THREE.MeshStandardMaterial
   const uTempo = { value: 0 }
   // no look 2 a lâmina ganha o campo de margem antes de o shader existir
-  const campo = look2 ? campoDeMargem(m.geometry) : null
+  // ⚠️ SÓ A LÂMINA DOS LAGOS RECEBE A COSTA DAS ILHAS. O canal tem 60 m de
+  // largura e a sua própria margem a 30 m, então a ilha a 5 km nunca seria o
+  // mínimo; o que se evita aqui é inflar o balde de segmentos de dois corpos
+  // que não têm nada a ganhar com isso.
+  const campo = look2 ? campoDeMargem(m.geometry, m.name === 'lagos:agua') : null
   if (campo) {
     mat.transparent = true
     // ⚠️ `depthWrite` FICA LIGADO mesmo com transparência. A lâmina é uma casca
@@ -721,7 +999,7 @@ function distSeg(px: number, pz: number,
  *      margem indexadas numa grade, senão são 91 mil vértices contra alguns
  *      milhares de arestas.
  */
-function campoDeMargem(geo: THREE.BufferGeometry): { ref: number; esc: number } | null {
+function campoDeMargem(geo: THREE.BufferGeometry, comIlhas = false): { ref: number; esc: number } | null {
   const pos = geo.getAttribute('position')
   if (!pos) return null
   const idx = geo.getIndex()
@@ -751,6 +1029,32 @@ function campoDeMargem(geo: THREE.BufferGeometry): { ref: number; esc: number } 
       const k = a < b ? `${a}|${b}` : `${b}|${a}`
       if (conta.get(k) !== 1) continue
       seg.push(pos.getX(ia), pos.getZ(ia), pos.getX(ib), pos.getZ(ib))
+    }
+  }
+  // ⚠️ A COSTA DAS ILHAS ENTRA AQUI COMO MARGEM, e é isto que dá o halo de raso.
+  //
+  // O defeito, medido e relatado duas rodadas antes de ser consertado: a lâmina
+  // da baía é uma casca CONTÍNUA, sem furo onde as ilhas estão, então a margem
+  // que este trecho extrai por topologia é só o contorno EXTERNO da baía. Com
+  // `uProfRef` no teto de 150 m, a opacidade satura a −150·ln(0,42) ≈ 130 m da
+  // margem; a ilha mais próxima da costa está a 275 m dela. Resultado: em volta
+  // de toda ilha a água chegava cheia, opaca e escura até encostar na praia, e a
+  // ilha lia como adesivo recortado colado sobre azul.
+  //
+  // ⚠️ E O CONSERTO NÃO É FURAR A MALHA. Furar exigiria recortar a lâmina no
+  // contorno de 25 ilhas, o que muda a triangulação da baía inteira e mexe em
+  // `lagos.ts`. Não é preciso: a lâmina passa POR BAIXO da ilha e a ilha a
+  // esconde, então o único lugar em que o furo faria diferença é este, o CAMPO
+  // DE DISTÂNCIA. Injetar os segmentos custa uma concatenação e devolve
+  // exatamente o gradiente que o furo devolveria.
+  //
+  // ⚠️ A LISTA VEM MEMOIZADA E JÁ EM COORDENADA DE MUNDO (`contornosIlhas`), e o
+  // custo dela é o campo de altura das ilhas, que o módulo das ilhas geraria de
+  // qualquer jeito. Se as ilhas estiverem desligadas, a lista volta vazia.
+  if (comIlhas) {
+    const ilhas = contornosIlhas()
+    for (let k = 0; k < ilhas.length; k += 4) {
+      seg.push(ilhas[k], ilhas[k + 1], ilhas[k + 2], ilhas[k + 3])
     }
   }
   if (!seg.length) return null
@@ -809,7 +1113,13 @@ function campoDeMargem(geo: THREE.BufferGeometry): { ref: number; esc: number } 
       tri.push(pos.getX(i), pos.getZ(i)); alt.push(pos.getY(i))
     }
   }
-  const TETO = nTri + 18000
+  // ⚠️ O TETO SUBIU DE +18.000 PARA +34.000 JUNTO COM O HALO DAS ILHAS, e a razão
+  // é que o adensamento só entra onde o triângulo é grande E está perto da
+  // margem. Com 25 ilhas injetadas, "perto da margem" passou a incluir 74,67 km
+  // de costa nova no meio da baía: com o teto antigo o orçamento se gastava nas
+  // ilhas e a orla EXTERNA da baía perdia o gradiente que já tinha. Os 16.000
+  // triângulos a mais valem 0,25% de uma cena de 6,3 M.
+  const TETO = nTri + 34000
   const LADO = 18, PERTO = 45
   for (let passe = 0; passe < 7; passe++) {
     if (tri.length / 6 >= TETO) break
