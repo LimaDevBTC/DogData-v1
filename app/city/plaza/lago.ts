@@ -909,11 +909,22 @@ function aplicarProfundidade(sh: { vertexShader: string; fragmentShader: string 
     .replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>
       float prof = profDaAgua();
       float f = uEsc;
-      float ondaA = sin(vMundoAgua.x * 0.241 * f + uTempo * 0.62 * f);
-      float ondaB = sin(vMundoAgua.z * 0.157 * f - uTempo * 0.44 * f);
-      float ondaC = sin((vMundoAgua.x + vMundoAgua.z) * 0.083 * f + uTempo * 0.31 * f);
+      // ⚠️ AS TRÊS CRISTAS NÃO SÃO MAIS PARALELAS AOS EIXOS. Com x puro e z puro
+      // as duas primeiras cruzavam em 90 graus e desenhavam um XADREZ, que na
+      // chapa da foz do canal lia como tecido e não como água. Rumos quebrados
+      // (26, 118 e 71 graus) tiram a grade sem custar uma instrução a mais.
+      float dA = dot(vMundoAgua.xz, vec2(0.898, 0.440));
+      float dB = dot(vMundoAgua.xz, vec2(-0.469, 0.883));
+      float dC = dot(vMundoAgua.xz, vec2(0.326, 0.945));
+      float ondaA = sin(dA * 0.241 * f + uTempo * 0.62 * f);
+      float ondaB = sin(dB * 0.157 * f - uTempo * 0.44 * f);
+      float ondaC = sin(dC * 0.083 * f + uTempo * 0.31 * f);
       // onda de beira quase não existe: o fundo trava a lâmina
       float amp = mix(0.22, 1.0, prof);
+      // ⚠️ E CORPO PEQUENO NÃO FAZ ONDA GRANDE. uEsc já encurta o período, mas
+      // encurtar sem baixar a altura dá uma vala de 60 m com mar de fundo. A
+      // altura cai junto com o tamanho do corpo: canal abrigado, baía aberta.
+      amp *= mix(1.0, 0.45, clamp((uEsc - 1.0) / 2.4, 0.0, 1.0));
       // ⚠️ E A ONDA MORRE COM A DISTÂNCIA, o que não é economia, é
       // antisserrilhamento. A crista tem período de 26 m: passados uns 1.500 m
       // ela mede menos que um pixel e vira o mesmo moiré xadrez que a chapa
@@ -929,22 +940,31 @@ function aplicarProfundidade(sh: { vertexShader: string; fragmentShader: string 
       vec3 raso  = gl_FragColor.rgb * 1.42 + vec3(0.020, 0.048, 0.044);
       vec3 fundo = gl_FragColor.rgb * 0.44;
       gl_FragColor.rgb = mix(raso, fundo, profF);
-      // A BORDA MOLHADA: uma faixa de 3,4 m onde a lâmina some, o que sobra é o
-      // filme escuro por cima da areia. Isto é a linha d'água, e de perto é o
-      // detalhe que mais convence.
-      float molhada = 1.0 - smoothstep(0.0, 3.4, vDist);
-      gl_FragColor.rgb *= mix(1.0, 0.70, molhada);
-      // o fresnel entra no fim, sobre a cor já iluminada, e ele é do corpo
-      // d'água: no raso quem manda é o leito, não o céu
+      // o fresnel entra sobre a cor já iluminada, e ele é do corpo d'água: no
+      // raso quem manda é o leito, não o céu
       float cosI = clamp(abs(dot(normalize(vViewPosition), normal)), 0.0, 1.0);
       float fres = pow(1.0 - cosI, 3.2);
       vec3 ceu = vec3(0.42, 0.52, 0.60);
       gl_FragColor.rgb = mix(gl_FragColor.rgb, ceu, fres * 0.62 * mix(0.30, 1.0, profF));
+      // A BORDA MOLHADA: uma faixa de 3,4 m onde a lâmina some, o que sobra é o
+      // filme escuro por cima da areia. Isto é a linha d'água, e de perto é o
+      // detalhe que mais convence.
+      //
+      // ⚠️ ELA ENTRA DEPOIS DO FRESNEL, e a ordem foi medida na rasante a 4 m da
+      // beira. Antes dele, o rasante zera a conta: na beira o cosI vai a zero, o
+      // fresnel mistura 62% de céu por cima e apaga tanto a faixa molhada quanto
+      // o tom do raso. Vista de cima nada mudava, e foi por isso que passou.
+      float molhada = 1.0 - smoothstep(0.0, 3.4, vDist);
+      gl_FragColor.rgb *= mix(1.0, 0.70, molhada);
       // e a opacidade, que é o que separa raso de fundo antes de qualquer cor
       // ⚠️ O PISO É 0,32 E NÃO 0,24: com 0,24 o trecho raso do canal virava um
       // vidro pálido por cima do regolito e perdia a leitura de água. Água rasa
       // é translúcida, não é ausente.
-      gl_FragColor.a *= mix(0.32, 1.0, smoothstep(0.0, 0.58, profF)) + fres * 0.35;
+      // ⚠️ E O GANHO DE FRESNEL NA OPACIDADE TAMBÉM É DO FUNDO. Sem o profF
+      // ele fechava a lâmina rasa em ângulo raso, que é o único ângulo de onde
+      // se olha a beira andando por ela, e a areia submersa sumia de novo.
+      gl_FragColor.a *= mix(0.32, 1.0, smoothstep(0.0, 0.58, profF))
+                      + fres * 0.35 * mix(0.20, 1.0, profF);
       gl_FragColor.a = clamp(gl_FragColor.a, 0.0, 1.0);
     `)
 }

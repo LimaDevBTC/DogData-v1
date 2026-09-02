@@ -187,18 +187,19 @@ const PRAIA_SONDA2 = 16.0      // a sonda longa
 const PRAIA_MAX    = 18.0      // teto: acima disso não é praia, é planície molhada
 const PRAIA_MIN    = 2.5       // abaixo disso a água encosta na rocha, e é o certo
 const PRAIA_FUNDO  = 0.9       // quanto a areia molhada mergulha sob a lâmina
-const PRAIA_ALISA  = 3         // passadas do filtro de largura ao longo da margem
+const PRAIA_ALISA  = 6         // passadas do filtro de largura ao longo da margem
 // A cor da areia vira COR POR VÉRTICE, porque a transição dos dois lados é uma
 // RAMPA e rampa não cabe num `color` de material. O albedo da textura é
 // descartado de propósito (ver a montagem): cor por vértice MULTIPLICA o mapa, e
 // areia clara sobre albedo de regolito daria um cinza sujo.
-// ⚠️ OS TRÊS VALORES SÃO MEDIDOS CONTRA O CHÃO VESTIDO, não contra o hex do
-// regolito. Na primeira chapa a areia saiu em creme #9A9078 e leu como glacê:
-// o regolito de `look2` tem textura e cai perto de #6B6459 na tela, e areia dois
+// ⚠️ OS DOIS VALORES SÃO MEDIDOS CONTRA O CHÃO VESTIDO, não contra o hex do
+// regolito. Na primeira chapa a areia saiu em creme #9A9078 e leu como glacê: o
+// regolito de `look2` tem textura e cai perto de #6B6459 na tela, e areia dois
 // passos mais clara que o chão vira anel de bolo. Aqui ela fica UM passo acima.
+// ⚠️ E NÃO EXISTE COR DE FUSÃO. Existia (#6B6459, tirada da chapa) e era o erro:
+// ver a nota do alfa, adiante. Cor fixa não funde com chão texturado.
 const AREIA_MOLHADA = '#463F33' // a franja que a água lambe: escura e sem brilho
 const AREIA_SECA    = '#847A66' // o corpo da praia, um passo acima do regolito
-const AREIA_REGOLITO = '#6B6459' // o chão vestido, para onde a areia se desfaz
 
 export function buildLagos(o: LagosOpts): Lagos {
   const group = new THREE.Group()
@@ -401,7 +402,7 @@ export function buildLagos(o: LagosOpts): Lagos {
 
   /** a normal de cada VÉRTICE, média das duas arestas que chegam nele, com
    *  esquadria limitada. Saiu do laço da orla para a praia usar a mesma. */
-  const normais = (pts: number[]) => {
+  const normais = (pts: number[], limite = 2.5) => {
     const m = pts.length / 2
     const fechada = Math.hypot(pts[0] - pts[2 * m - 2], pts[1] - pts[2 * m - 1]) < 0.01
     const NX = new Float64Array(m), NZ = new Float64Array(m)
@@ -419,10 +420,58 @@ export function buildLagos(o: LagosOpts): Lagos {
       // ⚠️ O FATOR DE ESQUADRIA SE LIMITA. Numa quina de quase 180° o
       // comprimento de esquadria vai ao infinito e a margem dispararia num
       // espeto, que é a MESMA aparência do defeito que ele veio consertar.
-      const f = Math.min(2.5, 1 / Math.max(0.4, ax * ant[0] + az * ant[1]))
+      const f = Math.min(limite, 1 / Math.max(0.4, ax * ant[0] + az * ant[1]))
       NX[k] = ax * f; NZ[k] = az * f
     }
     return { m, fechada, NX, NZ }
+  }
+
+  /** ⚠️ ALISA O CONTORNO, e é o conserto da ARESTA FACETADA da areia.
+   *
+   *  O contorno do marching squares é feito de cordas de uma grade de 30 m: nas
+   *  quinas a direção da margem vira 90 graus de um vértice para o outro, e a
+   *  normal de esquadria vira junto. Numa faixa larga isso faz duas coisas, e as
+   *  duas apareceram na chapa: a borda de fora desenha uma ESCADA, e os painéis
+   *  vizinhos se SOBREPÕEM por dentro da quina côncava. Sobreposição em material
+   *  opaco não se vê; em material transparente, que é o que a areia virou para
+   *  poder sumir no chão, ela soma alfa duas vezes e a quina acende. Era isso o
+   *  "cantos retos e segmentos visíveis contra o chão".
+   *
+   *  ⚠️ E O DESVIO SE LIMITA A 4 m. Alisar sem trava afasta a areia da água e
+   *  abre fresta entre as duas. A franja molhada entra de 2 a 6,5 m para dentro
+   *  da lâmina, então 4 m de desvio continuam cobertos por ela.
+   *  A ÁGUA NÃO É ALISADA: ela é a mesma malha do lago e não pode divergir da
+   *  cota nem do contorno que as consultas `naAgua` e `naBaia` usam. */
+  const alisaContorno = (pts: number[], passadas = 2, teto = 4) => {
+    const m = pts.length / 2
+    if (m < 4) return pts
+    const orig = pts
+    const cur = pts.slice()
+    // ⚠️ CORRENTE FECHADA TAMBÉM ALISA NA EMENDA. Deixar o primeiro e o último
+    // parados (eles são o MESMO ponto) guardaria uma quina não alisada por lago,
+    // e uma quina só numa margem lisa é justamente o que o olho acha.
+    const fech = Math.hypot(pts[0] - pts[2 * m - 2], pts[1] - pts[2 * m - 1]) < 0.01
+    for (let p = 0; p < passadas; p++) {
+      const T = cur.slice()
+      for (let k = 1; k < m - 1; k++) {
+        cur[2 * k] = T[2 * k] * 0.5 + (T[2 * k - 2] + T[2 * k + 2]) * 0.25
+        cur[2 * k + 1] = T[2 * k + 1] * 0.5 + (T[2 * k - 1] + T[2 * k + 3]) * 0.25
+      }
+      if (fech) {
+        cur[0] = T[0] * 0.5 + (T[2 * m - 4] + T[2]) * 0.25
+        cur[1] = T[1] * 0.5 + (T[2 * m - 3] + T[3]) * 0.25
+        cur[2 * m - 2] = cur[0]; cur[2 * m - 1] = cur[1]
+      }
+    }
+    for (let k = 0; k < m; k++) {
+      const dx = cur[2 * k] - orig[2 * k], dz = cur[2 * k + 1] - orig[2 * k + 1]
+      const d = Math.hypot(dx, dz)
+      if (d > teto) {
+        cur[2 * k] = orig[2 * k] + (dx / d) * teto
+        cur[2 * k + 1] = orig[2 * k + 1] + (dz / d) * teto
+      }
+    }
+    return cur
   }
 
   // as correntes de praia: as da margem natural mais, em look2, as da baía que o
@@ -474,36 +523,56 @@ export function buildLagos(o: LagosOpts): Lagos {
   //
   // ⚠️ A LARGURA NÃO É UMA CONSTANTE, É UMA CONSEQUÊNCIA. `w = subida /
   // inclinação`: a areia acompanha PRAIA_SUBIDA (1,5 m) de subida do terreno, e
-  // onde ela vem, vem. Encosta de 6% dá 25 m de areia; encosta de 60% dá 2,5 m e
-  // cai fora pelo piso, e é isso que põe a água encostando na rocha, que é o
-  // certo. A inclinação se mede com UMA sonda a 10 m para fora, na normal do
-  // vértice: com passo de grade de 30 m, sondar mais perto lê ruído da
-  // interpolação em vez de lê encosta.
+  // onde ela vem, vem. Encosta de 8% dá 18 m de areia; encosta de 60% dá 2,5 m e
+  // apaga no álibi da transparência, e é isso que põe a água encostando na
+  // rocha, que é o certo.
   //
-  // ⚠️ E A LARGURA SE ALISA AO LONGO DA MARGEM, três passadas. Sem isso ela
-  // salta de vértice a vértice (a sonda cai em células diferentes) e a praia
-  // volta a aparecer em manchas, que era o defeito 4. Alisar ANTES do corte do
-  // mínimo é o que importa: alisar depois faria média com zeros e devolveria o
-  // pisca-pisca.
+  // ⚠️ DUAS SONDAS, A MAIS ÍNGREME MANDA. Com uma sonda só, a margem de uma
+  // cratera redonda devolvia a MESMA largura em toda a volta e a praia voltava a
+  // ler como fita, só que curva.
+  //
+  // ⚠️ E O LADO DE TERRA ACABA EM ALFA, NÃO EM COR. Primeira tentativa: a última
+  // linha da faixa recebia a cor do regolito (#6B6459 chutado da chapa) para
+  // fundir. Não funde. O chão é textura mais ruído de mundo mais sombra, e uma
+  // cor fixa é igual a ele em UM ponto do dia e diferente no resto: o que se via
+  // era um contorno de polígono com cantos retos, que foi exatamente o que o
+  // fundador apontou. Alfa não chuta nada: a areia se desfaz sobre o chão QUE
+  // ESTIVER LÁ. Por isso a cor por vértice aqui tem QUATRO componentes.
   if (look2 && (segsP.length || correntesPraia.length)) {
     for (const c of encadear(segsP)) correntesPraia.push(c.pts)
     const cMol = new THREE.Color(AREIA_MOLHADA)
     const cSec = new THREE.Color(AREIA_SECA)
-    const cReg = new THREE.Color(AREIA_REGOLITO)
     // ⚠️ O UV SAI EM LADRILHOS DE MUNDO, não em 0..1 sobre a malha. Esta malha é
-    // uma fita de quilômetros com 4 m de largura: UV normalizado esticaria a
-    // textura numa lasanha. Dividir a coordenada de mundo por LADRILHO deixa o
-    // grão do mesmo tamanho em toda a orla, e é por isso que aqui NÃO se chama
-    // `vestir`: ele resolveria o repeat achando que o UV é 0..1 (ver a armadilha
-    // do `vestir(mat, nome, 1)`).
+    // uma fita de quilômetros com poucos metros de largura: UV normalizado
+    // esticaria a textura numa lasanha. Dividir a coordenada de mundo por
+    // LADRILHO deixa o grão do mesmo tamanho em toda a orla, e é por isso que
+    // aqui NÃO se chama `vestir`: ele resolveria o `repeat` achando que o UV é
+    // 0..1 (ver a armadilha do `vestir(mat, nome, 1)`).
     const LADRILHO = 8
-    const emite = (x: number, y: number, z: number, cor: THREE.Color) => {
+    const emite = (x: number, y: number, z: number, cor: THREE.Color, a: number) => {
       posP.push(x, y, z)
-      corP.push(cor.r, cor.g, cor.b)
+      corP.push(cor.r, cor.g, cor.b, a)
       uvP.push(x / LADRILHO, z / LADRILHO)
     }
-    for (const pts of correntesPraia) {
-      const { m, NX, NZ } = normais(pts)
+    // ruído de valor barato em coordenada de mundo, só para a largura respirar
+    const rnd = (x: number, z: number) => {
+      const h = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453
+      return h - Math.floor(h)
+    }
+    const onda = (x: number, z: number, esc: number) => {
+      const xi = Math.floor(x / esc), zi = Math.floor(z / esc)
+      const fx = x / esc - xi, fz = z / esc - zi
+      const ux = fx * fx * (3 - 2 * fx), uz = fz * fz * (3 - 2 * fz)
+      const a = rnd(xi, zi), b = rnd(xi + 1, zi), c = rnd(xi, zi + 1), d = rnd(xi + 1, zi + 1)
+      return (a + (b - a) * ux) + ((c + (d - c) * ux) - (a + (b - a) * ux)) * uz
+    }
+    for (const cru of correntesPraia) {
+      // ⚠️ ESQUADRIA MAIS CURTA QUE A DO CAIS (1,6 contra 2,5). O cais é opaco e
+      // uma esquadria longa nele só produz canto cheio; na areia transparente a
+      // mesma esquadria produz sobreposição visível. Alisar já tirou a quina;
+      // isto é o cinto de segurança.
+      const pts = alisaContorno(cru)
+      const { m, NX, NZ } = normais(pts, 1.6)
       if (m < 2) continue
       // largura crua, por vértice, a partir da inclinação medida
       const W = new Float64Array(m)
@@ -512,8 +581,20 @@ export function buildLagos(o: LagosOpts): Lagos {
         const h1 = o.superficieAt(x + NX[k] * PRAIA_SONDA, z + NZ[k] * PRAIA_SONDA)
         const h2 = o.superficieAt(x + NX[k] * PRAIA_SONDA2, z + NZ[k] * PRAIA_SONDA2)
         const decl = Math.max(0, (h1 - L) / PRAIA_SONDA, (h2 - L) / PRAIA_SONDA2)
-        W[k] = decl < 1e-3 ? PRAIA_MAX : Math.min(PRAIA_MAX, PRAIA_SUBIDA / decl)
+        const w = decl < 1e-3 ? PRAIA_MAX : Math.min(PRAIA_MAX, PRAIA_SUBIDA / decl)
+        // ⚠️ O CONTORNO DE FORA NÃO PODE SER UM OFFSET PARALELO. Largura só do
+        // terreno num trecho de encosta uniforme desenha uma linha paralela à
+        // margem, com as MESMAS quinas da grade de 30 m: era o "corpo grande de
+        // areia com cantos retos". A modulação de ±25% numa onda de 70 m tira a
+        // linha do paralelo sem inventar praia onde não há: ela MULTIPLICA a
+        // largura medida, então onde a medida é zero continua zero.
+        W[k] = w * (0.75 + 0.5 * onda(x, z, 70))
       }
+      // ⚠️ ALISAR É O QUE MATA A LASCA. A sonda cai em células diferentes da
+      // grade de 30 m e a largura salta de vértice a vértice; sem filtro, dois
+      // vizinhos caem em lados opostos do limiar e a praia pisca. Seis passadas
+      // de um filtro de três tomas cobrem cerca de ±6 vértices, que na margem
+      // fina de 2 m por segmento é a escala em que a lasca aparecia.
       for (let p = 0; p < PRAIA_ALISA; p++) {
         const T = W.slice()
         for (let k = 0; k < m; k++) {
@@ -521,52 +602,64 @@ export function buildLagos(o: LagosOpts): Lagos {
           W[k] = (a + 2 * T[k] + b) / 4
         }
       }
-      // ⚠️ O MÍNIMO NÃO CORTA EM DEGRAU, AFINA. Zerar de uma vez em 2,5 m
-      // desenharia uma ponta reta de areia acabando no nada, que é a mesma
-      // aresta dura de antes só que na outra direção.
-      for (let k = 0; k < m; k++) {
-        if (W[k] < PRAIA_MIN) W[k] = W[k] * Math.max(0, (W[k] - 1) / (PRAIA_MIN - 1))
-      }
       const px = (k: number, w: number) => pts[2 * k] + NX[k] * w
       const pz = (k: number, w: number) => pts[2 * k + 1] + NZ[k] * w
+      // ⚠️ NÃO EXISTE MAIS CORTE POR LIMIAR, E ESSA É A CAUSA DA LASCA. A versão
+      // anterior zerava a largura abaixo de 2,5 m e pulava o trecho inteiro
+      // (`if (W[k] <= 0) continue`), então uma margem cuja encosta oscila em
+      // torno de 60% ganhava praia, perdia, ganhava de novo, sem motivo legível
+      // no terreno. Agora a faixa é CONTÍNUA e quem desaparece é o alfa: campo
+      // contínuo não pisca, porque não há decisão para oscilar em volta.
+      const alfa = (w: number) => Math.max(0, Math.min(1, (w - 0.8) / (PRAIA_MIN - 0.8)))
       for (let k = 0; k < m - 1; k++) {
-        if (W[k] <= 0 && W[k + 1] <= 0) continue
-        // quatro linhas por vértice, de dentro d'água para o regolito:
+        // quatro linhas por vértice, de dentro d'água para o chão seco:
         //  −wm : a franja submersa, escura, que some sob a lâmina
         //    0 : a linha d'água, 2 cm acima da lâmina
         //   +w : o corpo seco, pousado no CHÃO DE VERDADE
-        //  +wf : a fusão no regolito, também no chão, só que já com a cor dele
+        //  +wf : o rabo de areia, na mesma cor e com alfa zero
         const banda = (k0: number) => {
           const w = W[k0]
-          const wm = -(2 + 0.25 * w)                  // a franja molhada, para dentro
-          const wf = w + Math.max(3, w * 0.55)        // até onde a cor se desfaz
+          // ⚠️ 5 m É CONTA, NÃO GOSTO: o alisamento do contorno pode afastar a
+          // areia da água em até 4 m (teto do `alisaContorno`), então a franja
+          // precisa entrar MAIS que isso para não abrir fresta. 5 + 0,25 w dá de
+          // 5 a 9,5 m de cobertura, com 1 m de folga sobre o pior caso.
+          const wm = -(5 + 0.25 * w)                  // a franja molhada, para dentro
+          // ⚠️ O RABO É LONGO DE PROPÓSITO. Com 3 m ele não é fusão, é chanfro: o
+          // olho ainda acha a linha. Aqui ele vale quase uma praia inteira, então
+          // a queda de alfa se espalha por dezenas de metros e não há aresta.
+          const wf = w + Math.max(9, w * 0.9)
           // ⚠️ A COTA SAI DO CHÃO, NÃO DE UMA CONSTANTE. Era L + 1,2 fixo, e por
           // isso a faixa lia como prateleira apoiada. Aqui o lado seco pousa em
           // `superficieAt` mais 6 cm, que é o que faz a areia deitar no terreno.
           const ys = Math.max(L + 0.05, o.superficieAt(px(k0, w), pz(k0, w)) + 0.06)
           const yf = Math.max(L + 0.06, o.superficieAt(px(k0, wf), pz(k0, wf)) + 0.06)
-          return { wm, w, wf, ys, yf }
+          return { wm, w, wf, ys, yf, a: alfa(w) }
         }
         const A0 = banda(k), B0 = banda(k + 1)
+        if (A0.a <= 0 && B0.a <= 0) continue         // aqui a água encosta na rocha
         const quad = (
-          wa0: number, ya0: number, wa1: number, ya1: number,
-          wb0: number, yb0: number, wb1: number, yb1: number,
+          wa0: number, ya0: number, aa0: number, wa1: number, ya1: number, aa1: number,
+          wb0: number, yb0: number, ab0: number, wb1: number, yb1: number, ab1: number,
           c0: THREE.Color, c1: THREE.Color,
         ) => {
           const bp = posP.length / 3
-          emite(px(k, wa0), ya0, pz(k, wa0), c0)
-          emite(px(k + 1, wa1), ya1, pz(k + 1, wa1), c0)
-          emite(px(k + 1, wb1), yb1, pz(k + 1, wb1), c1)
-          emite(px(k, wb0), yb0, pz(k, wb0), c1)
+          emite(px(k, wa0), ya0, pz(k, wa0), c0, aa0)
+          emite(px(k + 1, wa1), ya1, pz(k + 1, wa1), c0, aa1)
+          emite(px(k + 1, wb1), yb1, pz(k + 1, wb1), c1, ab1)
+          emite(px(k, wb0), yb0, pz(k, wb0), c1, ab0)
           idxP.push(bp, bp + 1, bp + 2, bp, bp + 2, bp + 3)
         }
+        const yL = L + 0.02
         // ⚠️ A FRANJA COMEÇA SOB A ÁGUA (−0,9 m) DE PROPÓSITO: assim a areia não
         // tem borda nenhuma do lado molhado, ela só some. Medido antes: a borda
-        // interna estava a −0,4 m e a lâmina é opaca, então dava para ver a
-        // aresta pela transparência da beirada.
-        quad(A0.wm, L - PRAIA_FUNDO, B0.wm, L - PRAIA_FUNDO, 0, L + 0.02, 0, L + 0.02, cMol, cMol)
-        quad(0, L + 0.02, 0, L + 0.02, A0.w, A0.ys, B0.w, B0.ys, cMol, cSec)
-        quad(A0.w, A0.ys, B0.w, B0.ys, A0.wf, A0.yf, B0.wf, B0.yf, cSec, cReg)
+        // interna estava a −0,4 m, rasa demais, e a aresta aparecia pela beirada
+        // da lâmina.
+        quad(A0.wm, L - PRAIA_FUNDO, A0.a, B0.wm, L - PRAIA_FUNDO, B0.a,
+             0, yL, A0.a, 0, yL, B0.a, cMol, cMol)
+        quad(0, yL, A0.a, 0, yL, B0.a,
+             A0.w, A0.ys, A0.a, B0.w, B0.ys, B0.a, cMol, cSec)
+        quad(A0.w, A0.ys, A0.a, B0.w, B0.ys, B0.a,
+             A0.wf, A0.yf, 0, B0.wf, B0.yf, 0, cSec, cSec)
       }
     }
   }
@@ -580,7 +673,10 @@ export function buildLagos(o: LagosOpts): Lagos {
     const g = new THREE.BufferGeometry()
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
     if (areia) {
-      g.setAttribute('color', new THREE.Float32BufferAttribute(corP, 3))
+      // ⚠️ QUATRO COMPONENTES, e o three só respeita o alfa da cor por vértice se
+      // o material for `transparent`. Com itemSize 3 o alfa simplesmente não
+      // existe e a faixa volta a acabar em aresta.
+      g.setAttribute('color', new THREE.Float32BufferAttribute(corP, 4))
       g.setAttribute('uv', new THREE.Float32BufferAttribute(uvP, 2))
     }
     g.setIndex(idx)
@@ -592,6 +688,13 @@ export function buildLagos(o: LagosOpts): Lagos {
       metalness: agua ? 0.02 : 0,
       side: THREE.DoubleSide,
       vertexColors: areia,
+      // ⚠️ TRANSPARENTE, MAS SEM ESCREVER PROFUNDIDADE. A faixa se sobrepõe a si
+      // mesma nas quinas côncavas (a esquadria tem fator até 2,5) e com
+      // `depthWrite` ligado essas sobreposições brigariam em z contra o chão a
+      // 6 cm de distância. Desligado, ela é sempre pintada por cima do chão, que
+      // é o que a areia faz.
+      transparent: areia,
+      depthWrite: !areia,
     })
     if (areia) {
       // ⚠️ SÓ NORMAL E RUGOSIDADE, O ALBEDO SE DESCARTA. A cor por vértice
