@@ -27,10 +27,16 @@
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
 import { COR_AGUA, aguaDeVerdade } from './lago'
+import { look2 } from './look'
 
 export interface CanalRadial {
   id: string; rumo: number; secao: number; lamina: number
   rInicio: number; phiFim: number; sobreBulevar?: boolean
+  /** ⚠️ ATÉ ONDE ESTE canal vai, publicado por canal em `cidade-malha.json`.
+   *  Ele era IGNORADO: o desenho usava um `rFimRadial` único, o maior de todos,
+   *  e por isso CR01 (rFim 4.540) e CR02 (3.640) eram desenhados até 5.660, ou
+   *  seja 1.120 e 2.020 m de canal DENTRO da baía. Ver `buildCanais`. */
+  rFim?: number
 }
 export interface CanalAnel {
   id: string; phi: number; secao: number; lamina: number; contorno: [number, number][]
@@ -115,6 +121,13 @@ class Balde {
     this.vs.push(...a, ...b, ...c, ...d)
     this.ix.push(i, i + 1, i + 2, i, i + 2, i + 3)
   }
+  /** o leque da ponta do molhe: quad com dois vértices juntos gastaria um
+   *  triângulo degenerado por fatia, e a ponta tem seis */
+  tri(a: number[], b: number[], c: number[]) {
+    const i = this.vs.length / 3
+    this.vs.push(...a, ...b, ...c)
+    this.ix.push(i, i + 1, i + 2)
+  }
 }
 
 export function buildCanais(o: CanaisOpts): Canais {
@@ -149,6 +162,32 @@ export function buildCanais(o: CanaisOpts): Canais {
   // da água até o passeio, que continua acompanhando a rua. Água plana, cais em
   // degrau — que é como um canal de verdade se comporta.
   const COTA = o.cota
+  // ── LOOK 2: A FOZ, O NÍVEL DO CAIS E O DESENCONTRO DE LÂMINAS ────────────
+  //
+  // ⚠️ AS DUAS LÂMINAS JÁ ESTÃO NA MESMA COTA, O DEGRAU ERA NO CAIS. Medido em
+  // 02/09 nas constantes dos dois módulos, que é onde o número mora:
+  //   água do canal   COTA = −40,0   (`o.cota`, vem de `lagos.cota`)
+  //   água da baía    −40,0          (`buildLagos`, mesma constante)   degrau 0
+  //   cais do canal   −39,5 na foz   (piso antigo: lâmina + 0,5)
+  //   orla da baía    −37,8          (ORLA_ALTURA 2,2 em `lagos.ts`)   degrau 1,7
+  // Ou seja: onde o canal encontra a baía, o passeio do canal chegava 1,7 m
+  // ABAIXO do passeio da baía, e antes disso já tinha sumido, porque a regra da
+  // parede desiste quando não há terra. No look 2 o piso do cais passa a ser
+  // COTA + DECK = −37,8, o MESMO valor da orla: os dois passeios se encontram na
+  // mesma linha e o degrau vai a zero. `DECK` não muda de valor, ele passa a ser
+  // usado como PISO MÍNIMO em vez de só existir na constante.
+  //
+  // ⚠️ AS DUAS ÁGUAS SÃO COPLANARES EM −40 AO LONGO DO CANAL INTEIRO, e isto não
+  // é só na foz: `buildLagos` desenha lâmina em TODO ponto de terreno abaixo da
+  // cota, e o leito do canal está escavado a −44, então ele também enche. Duas
+  // faces no mesmo plano brigam pelo depth buffer e cintilam. Ninguém tinha
+  // medido isto porque água que cintila lê como reflexo. 3 cm de viés resolvem:
+  // a água do canal ganha sempre, e 3 cm num sítio de 412 m de relevo é nada.
+  const FOZ2 = look2 && COTA !== undefined
+  const NIVEL = COTA ?? -40
+  const PISO = NIVEL + DECK          // −37,8: o passeio, igual ao da orla da baía
+  const PE = NIVEL - 4.0             // o pé do muro, dentro d'água
+  const VIES_AGUA = FOZ2 ? 0.03 : 0
   const trecho = (x0: number, z0: number, x1: number, z1: number, secao: number, lamina: number) => {
     const dx = x1 - x0, dz = z1 - z0
     const L = Math.hypot(dx, dz)
@@ -180,8 +219,8 @@ export function buildCanais(o: CanaisOpts): Canais {
       // abaixo do fundo da própria vala e o regolito continuava por cima. `FUNDO`
       // é onde o leito fica; `LAMINA` é onde a água encosta na calçada, que é o
       // ponto inteiro de subir o nível para a lancha atracar na porta.
-      const wA = COTA !== undefined ? COTA : ya - LAMINA
-      const wB = COTA !== undefined ? COTA : yb - LAMINA
+      const wA = (COTA !== undefined ? COTA : ya - LAMINA) + VIES_AGUA
+      const wB = (COTA !== undefined ? COTA : yb - LAMINA) + VIES_AGUA
       B(COR_AGUA).quad(p(ax, az, -meiaA, wA), p(bx, bz, -meiaA, wB),
                        p(bx, bz, +meiaA, wB), p(ax, az, +meiaA, wA))
       // ── a margem: DUAS PAREDES VERTICAIS, e nada mais ─────────────────
@@ -217,17 +256,23 @@ export function buildCanais(o: CanaisOpts): Canais {
                                o.heightAt(ax - px * meiaC, az - pz * meiaC))
       const _terraB = Math.max(o.heightAt(bx + px * meiaC, bz + pz * meiaC),
                                o.heightAt(bx - px * meiaC, bz - pz * meiaC))
-      if (_terraA < wA + 0.5 && _terraB < wB + 0.5) continue
+      // ⚠️ NO LOOK 2 A PAREDE NÃO DESISTE, ELA VIRA CAIS SOBRE A ÁGUA. O caminho
+      // antigo saía fora aqui e o passeio evaporava no ponto mais fotografado da
+      // cidade. Com o piso mínimo em −37,8 a parede sempre tem onde encostar em
+      // cima, e o trecho já para na foz, então este caso quase não acontece: ele
+      // fica de pé como muro de cais, que é o certo, em vez de sumir.
+      if (!FOZ2 && _terraA < wA + 0.5 && _terraB < wB + 0.5) continue
+      const _piso = FOZ2 ? PISO : -Infinity
       for (const sg of [-1, 1]) {
         const w = sg * meiaC
-        const ta = Math.max(o.heightAt(ax + px * w, az + pz * w), wA + 0.5)
-        const tb2 = Math.max(o.heightAt(bx + px * w, bz + pz * w), wB + 0.5)
+        const ta = Math.max(o.heightAt(ax + px * w, az + pz * w), wA + 0.5, _piso)
+        const tb2 = Math.max(o.heightAt(bx + px * w, bz + pz * w), wB + 0.5, _piso)
         B(COR_MURO).quad(p(ax, az, w, wA - 4.0), p(bx, bz, w, wB - 4.0),
                          p(bx, bz, w, tb2), p(ax, az, w, ta))
         // a guia de 2,5 m no topo da parede: é ela que dá a linha clara da margem
         const wg = sg * (meiaC + 2.5)
-        const ga = Math.max(o.heightAt(ax + px * wg, az + pz * wg), ta)
-        const gb = Math.max(o.heightAt(bx + px * wg, bz + pz * wg), tb2)
+        const ga = Math.max(o.heightAt(ax + px * wg, az + pz * wg), ta, _piso)
+        const gb = Math.max(o.heightAt(bx + px * wg, bz + pz * wg), tb2, _piso)
         B(COR_CAIS).quad(p(ax, az, w, ta), p(bx, bz, w, tb2),
                          p(bx, bz, wg, gb), p(ax, az, wg, ga))
       }
@@ -237,7 +282,7 @@ export function buildCanais(o: CanaisOpts): Canais {
         for (const sg of [-1, 1]) {
           const wb = sg * (meiaA + 1.1)
           const cx = ax + px * wb, cz = az + pz * wb
-          const y0 = ya + RUA_ALT, y1 = y0 + 0.85
+          const y0 = FOZ2 ? Math.max(ya + RUA_ALT, PISO) : ya + RUA_ALT, y1 = y0 + 0.85
           for (let f = 0; f < 4; f++) {
             const b0 = (f / 4) * Math.PI * 2, b1 = ((f + 1) / 4) * Math.PI * 2
             const q = (bb: number, yy: number) =>
@@ -315,13 +360,213 @@ export function buildCanais(o: CanaisOpts): Canais {
     }
   }
 
-  // ── os radiais: do lago para fora, até o anel de canal mais externo ───────
+  // ═══════════════════════════════════════════════════════════════════════
+  // A FOZ: onde o canal entrega a água à baía
+  //
+  // ⚠️ A FOZ ESTAVA SENDO DESENHADA COMO O LUGAR ONDE A REGRA DESISTIU. Três
+  // defeitos empilhados, todos medidos em 02/09:
+  //   1. o `rFim` de cada canal era ignorado e todos iam ao maior (5.660), então
+  //      CR01 e CR02 desenhavam vala e água ATRAVESSANDO a baía aberta;
+  //   2. a parede parava onde não havia terra, e como a linha d'água de CR01 cai
+  //      em r 3.405 e a de CR02 em 2.810, o cais evaporava justo na boca;
+  //   3. o passeio do canal chegava a −39,5 e a orla da baía está a −37,8.
+  // O resultado na chapa era uma vala aberta no regolito, e vala é o oposto do
+  // que a baía vende: o valor do canal é TESTADA DE ÁGUA, e testada acaba em
+  // endereço, não em barranco.
+  //
+  // O vocabulário escolhido é o de porto, o mesmo de Amsterdam e de qualquer
+  // canal que chega ao mar: a foz ALARGA, o cais DÁ A VOLTA e avança sobre a
+  // água como MOLHE, o molhe termina em PONTA arredondada, o lado de fora leva
+  // GUARDA-CORPO e o lado de dentro fica livre para atracar, com CABEÇOS e uma
+  // ESCADA descendo à água. Nada disso interpola terreno: está tudo sobre a
+  // lâmina, na cota da lâmina, então não pode serrilhar.
+  const FOZ_ML = 130      // quanto o molhe avança sobre a baía
+  // ⚠️ 36, NÃO 40, E O TETO NÃO É ESTÉTICO. `_foraDoCanal` (em `plaza-scene.tsx`)
+  // suprime a margem da baía num corredor de secao/2 + talude 40 + 6 = 76 m em
+  // volta do eixo. Com 40 o molhe media 30 + 40 + 9 = 79 m e a ponta saía do
+  // corredor: a orla da baía voltaria a ser desenhada por cima dela, que é o
+  // mesmo "U de cais fechando a saída" que já foi consertado uma vez. Com 36 dá
+  // 75 m e a ponta fica dentro, com 1 m de folga.
+  const FOZ_ABRE = 36     // quanto a boca abre de cada lado ao longo do molhe
+  const FOZ_LARG = 9      // o tabuleiro do molhe: passeio de gente, não pista
+  const FOZ_GUARDA = 1.0  // o guarda-corpo, só na face de fora
+
+  /** o degrau de uma escada de cais, saindo da face para dentro d'água */
+  const escada = (bx: number, bz: number, ux: number, uz: number, px: number, pz: number,
+                  larg: number, fundo: number, topo: number) => {
+    // ⚠️ `px,pz` APONTA PARA A ÁGUA e os deslocamentos são POSITIVOS. Com sinal
+    // trocado a escada desce para DENTRO do molhe, some no maciço e o cais fica
+    // com um rasgo no meio: acontece que ninguém vê, porque o rasgo é do tamanho
+    // do degrau.
+    const N = 6, dh = (topo - NIVEL) / N
+    for (let k = 0; k < N; k++) {
+      const y = topo - dh * k, y2 = y - dh
+      const o0 = fundo * (k / N)
+      const o1 = fundo * ((k + 1) / N)
+      const q = (off: number, lat: number, yy: number) =>
+        P(bx + px * off + ux * lat, bz + pz * off + uz * lat, yy)
+      // o piso do degrau e o espelho dele
+      B(COR_CAIS).quad(q(o0, -larg / 2, y), q(o1, -larg / 2, y), q(o1, larg / 2, y), q(o0, larg / 2, y))
+      B(COR_MURO).quad(q(o1, -larg / 2, y2), q(o1, larg / 2, y2), q(o1, larg / 2, y), q(o1, -larg / 2, y))
+    }
+  }
+
+  /** o cabeço de amarração, avulso: a foz precisa dele fora do passo do trecho */
+  const cabeco = (cx: number, cz: number, y0: number) => {
+    const y1 = y0 + 0.85
+    for (let f = 0; f < 4; f++) {
+      const b0 = (f / 4) * Math.PI * 2, b1 = ((f + 1) / 4) * Math.PI * 2
+      const q = (bb: number, yy: number) => P(cx + Math.cos(bb) * 0.28, cz + Math.sin(bb) * 0.28, yy)
+      B(COR_MURO).quad(q(b0, y0), q(b1, y0), q(b1, y1), q(b0, y1))
+    }
+  }
+
+  /** as duas pontas de molhe de uma foz, a partir do ponto em que o canal cruza
+   *  a linha d'água. `ux,uz` aponta para FORA, para a baía. */
+  const molhes = (fx: number, fz: number, ux: number, uz: number, meiaC: number) => {
+    const px = -uz, pz = ux
+    const n = 10
+    // ⚠️ ABRE EM SUAVIZAÇÃO, NÃO EM RETA. Boca de canal que abre em reta lê como
+    // funil de concreto; a curva em S faz a margem sair tangente ao canal e
+    // chegar tangente à baía, que é o desenho de molhe de verdade.
+    const abre = (t: number) => meiaC + FOZ_ABRE * (t * t * (3 - 2 * t))
+    for (const sg of [-1, 1]) {
+      const q = (t: number, off: number, y: number) =>
+        P(fx + ux * FOZ_ML * t + px * sg * off, fz + uz * FOZ_ML * t + pz * sg * off, y)
+      for (let i = 0; i < n; i++) {
+        const t0 = i / n, t1 = (i + 1) / n
+        const o0 = abre(t0), o1 = abre(t1)
+        B(COR_CAIS).quad(q(t0, o0, PISO), q(t1, o1, PISO),
+                         q(t1, o1 + FOZ_LARG, PISO), q(t0, o0 + FOZ_LARG, PISO))
+        // a face de dentro, que é onde a lancha encosta
+        B(COR_MURO).quad(q(t0, o0, PE), q(t1, o1, PE), q(t1, o1, PISO), q(t0, o0, PISO))
+        // a face de fora
+        B(COR_MURO).quad(q(t0, o0 + FOZ_LARG, PE), q(t1, o1 + FOZ_LARG, PE),
+                         q(t1, o1 + FOZ_LARG, PISO), q(t0, o0 + FOZ_LARG, PISO))
+        // o guarda-corpo: só na face de fora, senão fecha o atracadouro
+        B(COR_MURO).quad(q(t0, o0 + FOZ_LARG, PISO), q(t1, o1 + FOZ_LARG, PISO),
+                         q(t1, o1 + FOZ_LARG, PISO + FOZ_GUARDA),
+                         q(t0, o0 + FOZ_LARG, PISO + FOZ_GUARDA))
+      }
+      // ── A PONTA: o cais dá a volta ──────────────────────────────────────
+      const R = FOZ_LARG / 2
+      const oC = abre(1) + R
+      const cx = fx + ux * FOZ_ML + px * sg * oC
+      const cz = fz + uz * FOZ_ML + pz * sg * oC
+      const C = P(cx, cz, PISO)
+      const NS = 6
+      const arco = (k: number) => {
+        // −90° é a face de dentro, +90° a de fora, passando pela frente
+        const a = (-Math.PI / 2) + (Math.PI * k) / NS
+        const ex = Math.cos(a), ey = Math.sin(a) * sg
+        return [cx + ux * R * ex + px * R * ey, cz + uz * R * ex + pz * R * ey]
+      }
+      for (let k = 0; k < NS; k++) {
+        const [ax2, az2] = arco(k), [bx2, bz2] = arco(k + 1)
+        B(COR_CAIS).tri(C, P(ax2, az2, PISO), P(bx2, bz2, PISO))
+        B(COR_MURO).quad(P(ax2, az2, PE), P(bx2, bz2, PE), P(bx2, bz2, PISO), P(ax2, az2, PISO))
+        // o guarda-corpo dá a volta na metade de fora da ponta
+        if (k >= NS / 2) {
+          B(COR_MURO).quad(P(ax2, az2, PISO), P(bx2, bz2, PISO),
+                           P(bx2, bz2, PISO + FOZ_GUARDA), P(ax2, az2, PISO + FOZ_GUARDA))
+        }
+      }
+      // ── o remate de uso: escada para a água e três cabeços ───────────────
+      const dentro = (t: number) => {
+        const off = abre(t)
+        return [fx + ux * FOZ_ML * t + px * sg * off, fz + uz * FOZ_ML * t + pz * sg * off]
+      }
+      const [ex2, ez2] = dentro(0.22)
+      escada(ex2, ez2, ux, uz, -px * sg, -pz * sg, 4, 3.2, PISO)
+      for (const t of [0.45, 0.7, 0.95]) {
+        const [kx, kz] = dentro(t)
+        cabeco(kx + px * sg * 1.4, kz + pz * sg * 1.4, PISO)
+      }
+    }
+  }
+
+  /** CR03 não chega à água: em vez de sumir no regolito ele ganha CABECEIRA, que
+   *  é o fim construído de um canal, com muro de testa, passeio dando a volta,
+   *  escada e cabeços. Uma dársena de verdade precisaria de escavação nova, que é
+   *  obra do gerador e não deste módulo (ver relatório). */
+  const cabeceira = (ex: number, ez: number, ux: number, uz: number, meiaC: number) => {
+    const px = -uz, pz = ux
+    const w = (off: number, dl: number, y: number) =>
+      P(ex + px * off + ux * dl, ez + pz * off + uz * dl, y)
+    // ⚠️ O TOPO SAI DO MAIOR DOS TRÊS PONTOS, senão o passeio da testa fica
+    // enterrado de um lado. Nunca abaixo do piso do cais, que é o nível do resto.
+    const top = Math.max(PISO,
+      o.heightAt(ex + px * meiaC, ez + pz * meiaC),
+      o.heightAt(ex - px * meiaC, ez - pz * meiaC),
+      o.heightAt(ex + ux * 10, ez + uz * 10))
+    B(COR_MURO).quad(w(-meiaC, 0, PE), w(meiaC, 0, PE), w(meiaC, 0, top), w(-meiaC, 0, top))
+    B(COR_CAIS).quad(w(-meiaC - 2.5, 0, top), w(meiaC + 2.5, 0, top),
+                     w(meiaC + 2.5, 8, top), w(-meiaC - 2.5, 8, top))
+    for (const sg of [-1, 1]) {
+      B(COR_MURO).quad(w(sg * (meiaC + 2.5), 0, top), w(sg * (meiaC + 2.5), 8, top),
+                       w(sg * (meiaC + 2.5), 8, top + FOZ_GUARDA),
+                       w(sg * (meiaC + 2.5), 0, top + FOZ_GUARDA))
+      cabeco(ex + px * sg * (meiaC - 3) - ux * 2, ez + pz * sg * (meiaC - 3) - uz * 2, top)
+    }
+    escada(ex, ez, px, pz, -ux, -uz, 5, 3.2, top)
+  }
+
+  /** ⚠️ A FOZ SE MEDE, NÃO SE DECLARA. É o primeiro raio em que as DUAS margens
+   *  já estão abaixo da lâmina: dali para fora não há terra para conter e o canal
+   *  virou baía. Passo grosso de 15 m e refino por bisseção, para a boca não
+   *  ficar dependendo de onde caiu a amostra. Devolve −1 se o canal morre seco. */
+  const acharFoz = (sx: number, sz: number, r0: number, r1: number, meiaC: number) => {
+    const px = -sz, pz = sx
+    // ⚠️ AMOSTRA FORA DA ESCAVAÇÃO, e este é o erro que me custou uma medição.
+    // A ±meiaC o chão JÁ É a vala, cavada a −44, ou seja abaixo da lâmina: com
+    // essa amostra os três canais "chegavam à água" logo depois do começo (medido:
+    // CR01 em r 1.730, CR02 em 1.788, CR03 em 1.626, todos a menos de 350 m do
+    // rInicio 1.450) e o canal inteiro virava foz. A vala tem talude de 40 m de
+    // cada lado, então terra de verdade só existe a partir de meiaC + 40. Amostro
+    // a meiaC + 50, o mesmo lugar de onde `_foraDoCanal` tira a máscara do lago.
+    const fora = meiaC + 50
+    const seco = (r: number) => {
+      const x = sx * r, z = sz * r
+      return Math.max(o.heightAt(x + px * fora, z + pz * fora),
+                      o.heightAt(x - px * fora, z - pz * fora)) >= NIVEL + 0.5
+    }
+    let ant = r0
+    for (let r = r0 + 15; r <= r1; r += 15) {
+      if (!seco(r)) {
+        let a = ant, b = r
+        for (let k = 0; k < 6; k++) { const m = (a + b) / 2; if (seco(m)) a = m; else b = m }
+        return b
+      }
+      ant = r
+    }
+    return -1
+  }
+
+  // ── os radiais: do lago para fora, até a foz (ou até a cabeceira) ─────────
   const rFim = o.rFimRadial ?? 4300
+  const fozes: string[] = []
   for (const r of o.radiais) {
     const g = (r.rumo * Math.PI) / 180
     const sx = Math.sin(g), sz = -Math.cos(g)
-    trecho(sx * r.rInicio, sz * r.rInicio, sx * rFim, sz * rFim, r.secao, r.lamina)
+    if (!FOZ2) {
+      trecho(sx * r.rInicio, sz * r.rInicio, sx * rFim, sz * rFim, r.secao, r.lamina)
+      continue
+    }
+    // ⚠️ CADA CANAL TEM O SEU `rFim`, e usar o maior de todos é o que jogava CR01
+    // e CR02 baía adentro. O `rFimRadial` continua valendo como teto de segurança.
+    const rSeu = Math.min(r.rFim ?? rFim, rFim)
+    const rF = acharFoz(sx, sz, r.rInicio, rSeu, r.secao / 2)
+    const rPara = rF > 0 ? rF : rSeu
+    trecho(sx * r.rInicio, sz * r.rInicio, sx * rPara, sz * rPara, r.secao, r.lamina)
+    if (rF > 0) {
+      molhes(sx * rF, sz * rF, sx, sz, r.secao / 2)
+      fozes.push(`${r.id} foz em r ${Math.round(rF)}`)
+    } else {
+      cabeceira(sx * rSeu, sz * rSeu, sx, sz, r.secao / 2)
+      fozes.push(`${r.id} cabeceira em r ${Math.round(rSeu)} (morre em terra)`)
+    }
   }
+  if (FOZ2 && fozes.length) console.log('[canais] look 2:', fozes.join(' | '))
 
   // ── os ANÉIS: eles não tinham água nenhuma ────────────────────────────────
   //

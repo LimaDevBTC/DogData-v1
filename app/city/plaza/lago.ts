@@ -177,10 +177,34 @@ export function buildLago(o: LagoOpts): Lago {
   {
     const b = B(COR_AGUA)
     const seg = 240
-    for (let k = 0; k < seg; k++) {
-      const a0 = (k / seg) * Math.PI * 2, a1 = ((k + 1) / seg) * Math.PI * 2
-      const p = (r: number, a: number) => P(Math.sin(a) * r, -Math.cos(a) * r, L.agua)
-      b.quad(p(rAguaI, a0), p(rAguaI, a1), p(rAguaE, a1), p(rAguaE, a0))
+    const p = (r: number, a: number) => P(Math.sin(a) * r, -Math.cos(a) * r, L.agua)
+    if (!look2) {
+      for (let k = 0; k < seg; k++) {
+        const a0 = (k / seg) * Math.PI * 2, a1 = ((k + 1) / seg) * Math.PI * 2
+        b.quad(p(rAguaI, a0), p(rAguaI, a1), p(rAguaE, a1), p(rAguaE, a0))
+      }
+    } else {
+      // ⚠️ NO LOOK 2 A LÂMINA PRECISA DE VÉRTICE NO MEIO, e o motivo não é
+      // geometria, é o GRADIENTE DE PROFUNDIDADE. O anel tinha 276 m de largura
+      // (r 962 a 1.238) com UM quad de ponta a ponta: os dois únicos vértices
+      // radiais estão os dois NA MARGEM, então a distância até a margem
+      // interpolada entre eles dá zero no anel inteiro e a água sai rasa em toda
+      // a volta. Aqui o raio vai em 12 faixas com espaçamento cosseno, denso nas
+      // duas beiras (primeiro passo ~4,7 m) e folgado no meio, que é onde o
+      // gradiente pouco muda. Custo medido no papel: 480 -> 5.760 triângulos.
+      const RD = 12
+      const raios: number[] = []
+      for (let j = 0; j <= RD; j++) {
+        const s = (1 - Math.cos((j / RD) * Math.PI)) / 2
+        raios.push(rAguaI + (rAguaE - rAguaI) * s)
+      }
+      for (let k = 0; k < seg; k++) {
+        const a0 = (k / seg) * Math.PI * 2, a1 = ((k + 1) / seg) * Math.PI * 2
+        for (let j = 0; j < RD; j++) {
+          const r0 = raios[j], r1 = raios[j + 1]
+          b.quad(p(r0, a0), p(r0, a1), p(r1, a1), p(r1, a0))
+        }
+      }
     }
   }
 
@@ -587,8 +611,24 @@ export function aguaDeVerdade(m: THREE.Mesh): { value: number } | null {
   if (!m.name.endsWith(':agua')) return null
   const mat = m.material as THREE.MeshStandardMaterial
   const uTempo = { value: 0 }
+  // no look 2 a lâmina ganha o campo de margem antes de o shader existir
+  const campo = look2 ? campoDeMargem(m.geometry) : null
+  if (campo) {
+    mat.transparent = true
+    // ⚠️ `depthWrite` FICA LIGADO mesmo com transparência. A lâmina é uma casca
+    // única e quase plana, sem sobreposição consigo mesma, então escrever
+    // profundidade não cria erro de ordem e evita que a água deixe de ocluir o
+    // que está atrás dela (barranco do outro lado, ilha, pilar de ponte).
+    mat.depthWrite = true
+  }
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uTempo = uTempo
+    if (campo) {
+      sh.uniforms.uProfRef = { value: campo.ref }
+      sh.uniforms.uEsc = { value: campo.esc }
+      aplicarProfundidade(sh)
+      return
+    }
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vMundoAgua;')
       .replace('#include <begin_vertex>',
@@ -612,6 +652,299 @@ export function aguaDeVerdade(m: THREE.Mesh): { value: number } | null {
         gl_FragColor.rgb = mix(gl_FragColor.rgb, ceu, fres * 0.62);
       `)
   }
+  // ⚠️ CHAVE FIXA, e ela é obrigatória: sem `customProgramCacheKey` o three
+  // compila UM programa por material com `onBeforeCompile`, numa cena que já
+  // compila 228 programas com teto medido em 235. As três águas (lago, baía,
+  // canais) dividem o mesmo programa por look.
+  mat.customProgramCacheKey = () => (campo ? 'agua-prof-v1' : 'agua-v1')
   mat.needsUpdate = true
   return uTempo
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PROFUNDIDADE: por que a lâmina lia como adesivo, e por qual caminho ela deixou
+// de ler.
+//
+// O defeito, medido em chapa em 01/09: a água era azul UNIFORME até encostar na
+// margem. Água rasa e água funda chegavam ao olho com a mesma cor e a mesma
+// opacidade, e o que vende água num render não é a onda, é o gradiente de
+// profundidade: clara e translúcida onde é raso, escura e opaca onde é fundo.
+// Sem esse gradiente, qualquer margem parece adesivo colado no chão.
+//
+// ⚠️ O BUFFER DE PROFUNDIDADE DA CENA FOI DESCARTADO, e não por gosto. Ele daria
+// água que responde a qualquer coisa submersa, mas: (1) exige um passe extra da
+// cena inteira num alvo de profundidade, e a cena tem 6,3 M de triângulos a 36
+// fps, ou seja o passe custaria a ordem de um quadro; (2) o renderer liga
+// `logarithmicDepthBuffer`, então a leitura precisaria desfazer a curva
+// logarítmica antes de virar metro, e errar esse passo dá um gradiente plausível
+// e falso; (3) nada disso cabe na assinatura `aguaDeVerdade(mesh)`, que a baía e
+// os canais já consomem: precisaria do renderer e do laço de render.
+//
+// ⚠️ E A SONDA DO TERRENO TAMBÉM FOI DESCARTADA, apesar de `heightAt` existir nos
+// três chamadores. Ela mede a profundidade DE VERDADE, mas o leito destes três
+// corpos é escavado quase plano (bacia do lago a −26 com lâmina a −17, vala de
+// canal com fundo fixo): amostrar o terreno devolve profundidade CONSTANTE, que
+// é exatamente o defeito que se quer corrigir. Ela só teria o que dizer no leito
+// natural da baía.
+//
+// O que sobrou é o que a própria malha já sabe: a DISTÂNCIA ATÉ A MARGEM. A
+// margem é o contorno da lâmina, e o contorno se extrai da topologia, sem
+// terreno e sem passe extra: aresta que pertence a um só triângulo é borda.
+// Distância até a borda é um proxy honesto de profundidade em corpo escavado, e
+// tem a propriedade que interessa: escala sozinha. Numa baía de 20,5 km² a
+// referência sai em centenas de metros, num canal de 60 m sai em ~15.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** distância no plano XZ de um ponto até um segmento */
+function distSeg(px: number, pz: number,
+                 ax: number, az: number, bx: number, bz: number): number {
+  const dx = bx - ax, dz = bz - az
+  const ll = dx * dx + dz * dz
+  let t = ll > 0 ? ((px - ax) * dx + (pz - az) * dz) / ll : 0
+  t = t < 0 ? 0 : t > 1 ? 1 : t
+  const qx = ax + dx * t - px, qz = az + dz * t - pz
+  return Math.hypot(qx, qz)
+}
+
+/**
+ * Escreve no `aDist` da malha, em METROS, a distância de cada vértice até a
+ * margem, e devolve a escala do corpo d'água. Trabalha em três tempos:
+ *
+ *   1. SOLDA por posição arredondada e conta aresta. Aresta de contagem 1 é
+ *      margem. ⚠️ A solda é obrigatória: as três lâminas nascem de um acumulador
+ *      de quads que DUPLICA todo vértice, então contar aresta por índice daria
+ *      contagem 1 em todas elas e a malha inteira viraria margem.
+ *   2. ADENSA onde o triângulo é grande e está perto da margem, porque `aDist` é
+ *      varying: um quad de canal com 60 m de vão tem os dois vértices na margem,
+ *      distância 0 nos dois, e interpola zero no meio do canal.
+ *   3. MEDE a distância de cada vértice à borda mais próxima, com as arestas de
+ *      margem indexadas numa grade, senão são 91 mil vértices contra alguns
+ *      milhares de arestas.
+ */
+function campoDeMargem(geo: THREE.BufferGeometry): { ref: number; esc: number } | null {
+  const pos = geo.getAttribute('position')
+  if (!pos) return null
+  const idx = geo.getIndex()
+  const nTri = (idx ? idx.count : pos.count) / 3
+  if (nTri < 1) return null
+  const vi = (k: number) => (idx ? idx.getX(k) : k)
+
+  // ── 1. margem por contagem de aresta, com solda a 5 cm ────────────────────
+  const CH = (i: number) => `${Math.round(pos.getX(i) * 20)},${Math.round(pos.getZ(i) * 20)}`
+  const chave: string[] = new Array(pos.count)
+  for (let i = 0; i < pos.count; i++) chave[i] = CH(i)
+  const conta = new Map<string, number>()
+  for (let t = 0; t < nTri; t++) {
+    for (let e = 0; e < 3; e++) {
+      const a = chave[vi(t * 3 + e)], b = chave[vi(t * 3 + ((e + 1) % 3))]
+      if (a === b) continue
+      const k = a < b ? `${a}|${b}` : `${b}|${a}`
+      conta.set(k, (conta.get(k) ?? 0) + 1)
+    }
+  }
+  const seg: number[] = []          // ax, az, bx, bz
+  for (let t = 0; t < nTri; t++) {
+    for (let e = 0; e < 3; e++) {
+      const ia = vi(t * 3 + e), ib = vi(t * 3 + ((e + 1) % 3))
+      const a = chave[ia], b = chave[ib]
+      if (a === b) continue
+      const k = a < b ? `${a}|${b}` : `${b}|${a}`
+      if (conta.get(k) !== 1) continue
+      seg.push(pos.getX(ia), pos.getZ(ia), pos.getX(ib), pos.getZ(ib))
+    }
+  }
+  if (!seg.length) return null
+
+  // ── 3a. grade das arestas de margem, para a consulta não ser O(V x B) ─────
+  const CEL = 48
+  const balde = new Map<number, number[]>()
+  const cel = (v: number) => Math.floor(v / CEL)
+  const KG = (i: number, j: number) => i * 100003 + j
+  for (let s = 0; s < seg.length; s += 4) {
+    const i0 = cel(Math.min(seg[s], seg[s + 2])), i1 = cel(Math.max(seg[s], seg[s + 2]))
+    const j0 = cel(Math.min(seg[s + 1], seg[s + 3])), j1 = cel(Math.max(seg[s + 1], seg[s + 3]))
+    for (let i = i0; i <= i1; i++) {
+      for (let j = j0; j <= j1; j++) {
+        const k = KG(i, j)
+        const l = balde.get(k); if (l) l.push(s); else balde.set(k, [s])
+      }
+    }
+  }
+  const dist = (x: number, z: number): number => {
+    const ci = cel(x), cj = cel(z)
+    let best = Infinity
+    for (let r = 0; r < 60; r++) {
+      if (best < Infinity && (r - 1) * CEL > best) break
+      for (let i = ci - r; i <= ci + r; i++) {
+        for (let j = cj - r; j <= cj + r; j++) {
+          if (r > 0 && Math.abs(i - ci) !== r && Math.abs(j - cj) !== r) continue
+          const l = balde.get(KG(i, j)); if (!l) continue
+          for (const s of l) {
+            const d = distSeg(x, z, seg[s], seg[s + 1], seg[s + 2], seg[s + 3])
+            if (d < best) best = d
+          }
+        }
+      }
+    }
+    return best === Infinity ? 0 : best
+  }
+
+  // ── 2. adensamento por bisseção da aresta mais longa ──────────────────────
+  //
+  // ⚠️ BISSECÇÃO DA ARESTA MAIS LONGA, não subdivisão 1 para 4. A 1 para 4
+  // quadruplica por passe e estoura o orçamento em dois passes; a bissecção
+  // dobra. E ela só entra onde vale: triângulo grande PERTO da margem. No miolo
+  // da baía o gradiente já está achatado pela exponencial e ninguém vê a
+  // diferença.
+  //
+  // ⚠️ Isto deixa junção em T entre triângulos vizinhos, e isso é aceito de
+  // propósito: as três lâminas são planas ou quase, então não abre fenda
+  // geométrica, e a diferença de `aDist` no meio de uma aresta partida é
+  // centimétrica dentro de um campo que vale metros.
+  const tri: number[] = []          // 6 números por triângulo: x,z de cada canto
+  const alt: number[] = []          // a cota, que é linear e vai junto
+  for (let t = 0; t < nTri; t++) {
+    for (let e = 0; e < 3; e++) {
+      const i = vi(t * 3 + e)
+      tri.push(pos.getX(i), pos.getZ(i)); alt.push(pos.getY(i))
+    }
+  }
+  const TETO = nTri + 18000
+  const LADO = 18, PERTO = 45
+  for (let passe = 0; passe < 7; passe++) {
+    if (tri.length / 6 >= TETO) break
+    let partiu = false
+    const nT = tri.length / 6
+    for (let t = 0; t < nT; t++) {
+      if (tri.length / 6 >= TETO) break
+      const o = t * 6, oy = t * 3
+      const px = [tri[o], tri[o + 2], tri[o + 4]], pz = [tri[o + 1], tri[o + 3], tri[o + 5]]
+      const py = [alt[oy], alt[oy + 1], alt[oy + 2]]
+      let pior = -1, comp = 0
+      for (let e = 0; e < 3; e++) {
+        const f = (e + 1) % 3
+        const c = Math.hypot(px[f] - px[e], pz[f] - pz[e])
+        if (c > comp) { comp = c; pior = e }
+      }
+      if (comp <= LADO) continue
+      const perto = Math.min(dist(px[0], pz[0]), dist(px[1], pz[1]), dist(px[2], pz[2]))
+      if (perto > PERTO) continue
+      const a = pior, b = (pior + 1) % 3, c = (pior + 2) % 3
+      const mx = (px[a] + px[b]) / 2, mz = (pz[a] + pz[b]) / 2, my = (py[a] + py[b]) / 2
+      // o triângulo original vira a metade a-m-c
+      tri[o] = px[a]; tri[o + 1] = pz[a]; alt[oy] = py[a]
+      tri[o + 2] = mx; tri[o + 3] = mz; alt[oy + 1] = my
+      tri[o + 4] = px[c]; tri[o + 5] = pz[c]; alt[oy + 2] = py[c]
+      // e a outra metade m-b-c entra no fim
+      tri.push(mx, mz, px[b], pz[b], px[c], pz[c]); alt.push(my, py[b], py[c])
+      partiu = true
+    }
+    if (!partiu) break
+  }
+
+  // ── 3b. grava posição, `aDist` e a escala do corpo ────────────────────────
+  const nF = alt.length / 3
+  const np = new Float32Array(nF * 9)
+  const nd = new Float32Array(nF * 3)
+  const memo = new Map<string, number>()
+  const dCache = (x: number, z: number) => {
+    const k = `${Math.round(x * 4)},${Math.round(z * 4)}`
+    let v = memo.get(k); if (v === undefined) { v = dist(x, z); memo.set(k, v) }
+    return v
+  }
+  const todas: number[] = []
+  for (let t = 0; t < nF; t++) {
+    for (let e = 0; e < 3; e++) {
+      const x = tri[t * 6 + e * 2], z = tri[t * 6 + e * 2 + 1], y = alt[t * 3 + e]
+      np[t * 9 + e * 3] = x; np[t * 9 + e * 3 + 1] = y; np[t * 9 + e * 3 + 2] = z
+      const d = dCache(x, z)
+      nd[t * 3 + e] = d
+      todas.push(d)
+    }
+  }
+  geo.setIndex(null)
+  geo.setAttribute('position', new THREE.BufferAttribute(np, 3))
+  geo.setAttribute('aDist', new THREE.BufferAttribute(nd, 1))
+  if (geo.getAttribute('normal')) geo.deleteAttribute('normal')
+  if (geo.getAttribute('uv')) geo.deleteAttribute('uv')
+  geo.computeVertexNormals()
+  geo.computeBoundingSphere()
+
+  // ⚠️ A REFERÊNCIA É PERCENTIL, NÃO MÁXIMO. O máximo de uma baía é o ponto mais
+  // longe de qualquer margem e não descreve nada: com ele a curva ficaria rasa
+  // no corpo inteiro. O percentil 65 é o "meio da água" e faz o mesmo material
+  // servir uma baía de quilômetros e um canal de 60 m sem constante por corpo.
+  todas.sort((a, b) => a - b)
+  const bruto = todas[Math.floor(todas.length * 0.65)] || 12
+  const ref = Math.max(5, Math.min(150, bruto))
+  // e a onda encolhe com o corpo: crista de 26 m num canal de 60 m é maré
+  const esc = Math.max(1, Math.min(3.4, 90 / Math.max(8, bruto)))
+  return { ref, esc }
+}
+
+/** o shader completo do look 2: onda em escala do corpo, profundidade, borda molhada */
+function aplicarProfundidade(sh: { vertexShader: string; fragmentShader: string }) {
+  sh.vertexShader = sh.vertexShader
+    .replace('#include <common>',
+             '#include <common>\nattribute float aDist;\nvarying float vDist;\nvarying vec3 vMundoAgua;')
+    .replace('#include <begin_vertex>', `#include <begin_vertex>
+      vMundoAgua = (modelMatrix * vec4(position, 1.0)).xyz;
+      vDist = aDist;
+    `)
+  sh.fragmentShader = sh.fragmentShader
+    .replace('#include <common>', `#include <common>
+      uniform float uTempo;
+      uniform float uProfRef;
+      uniform float uEsc;
+      varying float vDist;
+      varying vec3 vMundoAgua;
+      float profDaAgua() { return 1.0 - exp(-max(vDist, 0.0) / uProfRef); }
+    `)
+    // ⚠️ raso é liso e fundo é fosco, e não o contrário: o filme de água sobre a
+    // areia é quase espelho, e a lâmina funda é picada pela onda inteira.
+    .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+      roughnessFactor = mix(0.11, 0.34, profDaAgua());
+    `)
+    // a ondulação entra DEPOIS de a normal existir e ANTES de a luz ser somada
+    .replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>
+      float prof = profDaAgua();
+      float f = uEsc;
+      float ondaA = sin(vMundoAgua.x * 0.241 * f + uTempo * 0.62 * f);
+      float ondaB = sin(vMundoAgua.z * 0.157 * f - uTempo * 0.44 * f);
+      float ondaC = sin((vMundoAgua.x + vMundoAgua.z) * 0.083 * f + uTempo * 0.31 * f);
+      // onda de beira quase não existe: o fundo trava a lâmina
+      float amp = mix(0.22, 1.0, prof);
+      // ⚠️ E A ONDA MORRE COM A DISTÂNCIA, o que não é economia, é
+      // antisserrilhamento. A crista tem período de 26 m: passados uns 1.500 m
+      // ela mede menos que um pixel e vira o mesmo moiré xadrez que a chapa
+      // mostrava na água aberta, nos DOIS looks. Amostrar mais fino não resolve
+      // o que já não cabe: o que resolve é a lâmina distante ficar lisa.
+      amp *= mix(1.0, 0.14, smoothstep(500.0, 2600.0, length(vViewPosition)));
+      normal = normalize(normal + amp * vec3(ondaA * 0.052 + ondaC * 0.021, 0.0,
+                                             ondaB * 0.052 - ondaC * 0.019));
+    `)
+    .replace('#include <dithering_fragment>', `#include <dithering_fragment>
+      float profF = profDaAgua();
+      // a cor: o raso deixa o leito passar e clareia, o fundo fecha em azul
+      vec3 raso  = gl_FragColor.rgb * 1.42 + vec3(0.020, 0.048, 0.044);
+      vec3 fundo = gl_FragColor.rgb * 0.44;
+      gl_FragColor.rgb = mix(raso, fundo, profF);
+      // A BORDA MOLHADA: uma faixa de 3,4 m onde a lâmina some, o que sobra é o
+      // filme escuro por cima da areia. Isto é a linha d'água, e de perto é o
+      // detalhe que mais convence.
+      float molhada = 1.0 - smoothstep(0.0, 3.4, vDist);
+      gl_FragColor.rgb *= mix(1.0, 0.70, molhada);
+      // o fresnel entra no fim, sobre a cor já iluminada, e ele é do corpo
+      // d'água: no raso quem manda é o leito, não o céu
+      float cosI = clamp(abs(dot(normalize(vViewPosition), normal)), 0.0, 1.0);
+      float fres = pow(1.0 - cosI, 3.2);
+      vec3 ceu = vec3(0.42, 0.52, 0.60);
+      gl_FragColor.rgb = mix(gl_FragColor.rgb, ceu, fres * 0.62 * mix(0.30, 1.0, profF));
+      // e a opacidade, que é o que separa raso de fundo antes de qualquer cor
+      // ⚠️ O PISO É 0,32 E NÃO 0,24: com 0,24 o trecho raso do canal virava um
+      // vidro pálido por cima do regolito e perdia a leitura de água. Água rasa
+      // é translúcida, não é ausente.
+      gl_FragColor.a *= mix(0.32, 1.0, smoothstep(0.0, 0.58, profF)) + fres * 0.35;
+      gl_FragColor.a = clamp(gl_FragColor.a, 0.0, 1.0);
+    `)
 }

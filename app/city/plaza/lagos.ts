@@ -21,6 +21,8 @@
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
 import { COR_AGUA, aguaDeVerdade } from './lago'
+import { look2 } from './look'
+import { superficie, quebrarRepeticao } from './materiais'
 
 const COR_AREIA = '#8E856F'    // a faixa de praia, no mesmo tom do cais dos canais
 const COR_FUNDO = '#243B47'    // o raso junto à margem, para a água não virar chapa
@@ -150,6 +152,54 @@ const ORLA_PASSEIO = 26.0      // largura do passeio
 const ORLA_PISTA  = 14.0       // a faixa de rolamento atrás dele
 const ORLA_TALUDE = 12.0       // onde a orla encontra o chão de verdade
 
+// ═══════════════════════════════════════════════════════════════════════════
+// A MARGEM DE AREIA, VERSÃO `look2`. O caminho velho continua inteiro embaixo do
+// `if (look2)`: em `?look=1` nada aqui é lido.
+//
+// ⚠️ O DEFEITO QUE ISTO CONSERTA, nas palavras do fundador (01/09): "em alguns
+// lugares adicionamos areia nas bordas da baía e dos canais e acho que é o que
+// tem de pior no mapa ainda". Medido na chapa antes de mexer, e são quatro
+// defeitos empilhados num quadrilátero só por aresta de corte:
+//
+//  1. LARGURA CONSTANTE de 12 m. Praia de verdade não tem largura própria: ela é
+//     a projeção horizontal de uma subida pequena. Encosta de 2% dá 75 m de
+//     areia, encosta de 50% não dá areia nenhuma. Fita de largura fixa é a
+//     assinatura mais legível de "isto foi gerado por laço".
+//  2. ARESTA DURA DOS DOIS LADOS. O quadrilátero ia de −40,4 (dentro d'água por
+//     40 cm) a −38,8, e do lado seco simplesmente ACABAVA, cortando o regolito
+//     numa linha reta.
+//  3. PRATELEIRA. Medido: o lado seco ficava a L + 1,2 m, uma cota FIXA que não
+//     tem relação com o chão embaixo dela. Onde o terreno subia devagar, a faixa
+//     pairava; onde subia rápido, ela enterrava. Lia como bandeja apoiada.
+//  4. EM MANCHAS. A areia saía por ARESTA solta, cada uma com a normal dela: nas
+//     curvas os quadriláteros abriam em leque e se sobrepunham, e onde a corrente
+//     do cais era descartada (menos de 300 m) a margem ficava com buraco, sem cais
+//     E sem praia. É o mesmo defeito do leque que a orla da baía já tinha
+//     consertado encadeando, e que a praia nunca recebeu.
+const PRAIA_SUBIDA = 1.5       // a subida que a areia acompanha; a largura sai daí
+// ⚠️ DUAS SONDAS, E A MAIS ÍNGREME MANDA. Com uma sonda só, uma margem de
+// cratera redonda devolvia a MESMA largura em toda a volta e a praia voltava a
+// ler como fita, só que curva. Medir perto (6 m) e longe (16 m) e ficar com a
+// encosta maior faz a largura respirar com o terreno de verdade, sem hash e sem
+// ruído inventado: onde a subida começa mais cedo, a areia acaba mais cedo.
+const PRAIA_SONDA  = 6.0       // a sonda curta, em metros
+const PRAIA_SONDA2 = 16.0      // a sonda longa
+const PRAIA_MAX    = 18.0      // teto: acima disso não é praia, é planície molhada
+const PRAIA_MIN    = 2.5       // abaixo disso a água encosta na rocha, e é o certo
+const PRAIA_FUNDO  = 0.9       // quanto a areia molhada mergulha sob a lâmina
+const PRAIA_ALISA  = 3         // passadas do filtro de largura ao longo da margem
+// A cor da areia vira COR POR VÉRTICE, porque a transição dos dois lados é uma
+// RAMPA e rampa não cabe num `color` de material. O albedo da textura é
+// descartado de propósito (ver a montagem): cor por vértice MULTIPLICA o mapa, e
+// areia clara sobre albedo de regolito daria um cinza sujo.
+// ⚠️ OS TRÊS VALORES SÃO MEDIDOS CONTRA O CHÃO VESTIDO, não contra o hex do
+// regolito. Na primeira chapa a areia saiu em creme #9A9078 e leu como glacê:
+// o regolito de `look2` tem textura e cai perto de #6B6459 na tela, e areia dois
+// passos mais clara que o chão vira anel de bolo. Aqui ela fica UM passo acima.
+const AREIA_MOLHADA = '#463F33' // a franja que a água lambe: escura e sem brilho
+const AREIA_SECA    = '#847A66' // o corpo da praia, um passo acima do regolito
+const AREIA_REGOLITO = '#6B6459' // o chão vestido, para onde a areia se desfaz
+
 export function buildLagos(o: LagosOpts): Lagos {
   const group = new THREE.Group()
   group.name = 'lagos'
@@ -206,6 +256,9 @@ export function buildLagos(o: LagosOpts): Lagos {
   const posC: number[] = [], idxC: number[] = []      // o passeio da orla
   const posR: number[] = [], idxR: number[] = []      // a faixa de rolamento
   const segs: number[] = []                          // (ax,az,bx,bz) da orla da baía
+  const segsP: number[] = []                         // (ax,az,bx,bz) da margem de praia (look2)
+  const corP: number[] = []                          // cor por vértice da praia (look2)
+  const uvP: number[] = []                           // uv em LADRILHOS de mundo (look2)
   let area = 0
 
   /** o ponto onde o chão cruza a lâmina, entre dois cantos */
@@ -262,6 +315,11 @@ export function buildLagos(o: LagosOpts): Lagos {
           // a normal aponta para FORA da água (para o lado seco)
           const nx = -dz / dl, nz = dx / dl
           if (!eBaia) {
+            // ⚠️ EM `look2` A PRAIA TAMBÉM SÓ SE COLETA. Ver o bloco de constantes:
+            // emitir por aresta é o defeito do leque, e a praia estava emitindo
+            // por aresta desde sempre. Aqui ela entra na mesma máquina de
+            // corrente que a orla da baía já usava.
+            if (look2) { segsP.push(a[0], a[1], b[0], b[1]); continue }
             const fora = 12
             const bp = posP.length / 3
             posP.push(a[0], L - 0.4, a[1])
@@ -298,26 +356,29 @@ export function buildLagos(o: LagosOpts): Lagos {
   // perímetro, que viravam uma florzinha de cais no meio do lago. O gerador já
   // descarta corpo d'água com menos de 3 ha pelo mesmo motivo; aqui o corte é
   // por número de segmentos.
-  {
+  // ⚠️ ENCADEAR VIROU FUNÇÃO porque a PRAIA precisa da mesma máquina. Ela era o
+  // único acabamento de margem que ainda saía por aresta solta, e por isso era o
+  // único que ainda abria em leque nas curvas. Uma máquina só para os dois.
+  const encadear = (src: number[]): { pts: number[]; comp: number }[] => {
     const CHAVE = (x: number, z: number) => `${Math.round(x * 100)},${Math.round(z * 100)}`
     const daPonta = new Map<string, number[]>()
-    for (let k = 0; k < segs.length; k += 4) {
-      const ch = CHAVE(segs[k], segs[k + 1])
+    for (let k = 0; k < src.length; k += 4) {
+      const ch = CHAVE(src[k], src[k + 1])
       const l = daPonta.get(ch); if (l) l.push(k); else daPonta.set(ch, [k])
     }
-    const usado = new Uint8Array(segs.length / 4)
-    const correntes: number[][] = []
-    for (let k0 = 0; k0 < segs.length; k0 += 4) {
+    const usado = new Uint8Array(src.length / 4)
+    const correntes: { pts: number[]; comp: number }[] = []
+    for (let k0 = 0; k0 < src.length; k0 += 4) {
       if (usado[k0 / 4]) continue
-      const pts: number[] = [segs[k0], segs[k0 + 1]]
+      const pts: number[] = [src[k0], src[k0 + 1]]
       let k = k0
       // ⚠️ O TETO DO LAÇO NÃO É ENFEITE: uma corrente mal formada (ponta que
       // aponta para si mesma por arredondamento) faria laço infinito e a página
       // congelaria sem erro nenhum no console.
-      for (let guarda = 0; guarda < segs.length / 4 + 2; guarda++) {
+      for (let guarda = 0; guarda < src.length / 4 + 2; guarda++) {
         usado[k / 4] = 1
-        pts.push(segs[k + 2], segs[k + 3])
-        const seg = daPonta.get(CHAVE(segs[k + 2], segs[k + 3]))
+        pts.push(src[k + 2], src[k + 3])
+        const seg = daPonta.get(CHAVE(src[k + 2], src[k + 3]))
         const prox = seg && seg.find((q) => !usado[q / 4])
         if (prox === undefined) break
         k = prox
@@ -333,35 +394,57 @@ export function buildLagos(o: LagosOpts): Lagos {
       for (let q = 0; q + 3 < pts.length; q += 2) {
         comp += Math.hypot(pts[q + 2] - pts[q], pts[q + 3] - pts[q + 1])
       }
-      if (pts.length >= 2 * 6 && comp >= 300) correntes.push(pts)
+      correntes.push({ pts, comp })
     }
+    return correntes
+  }
 
+  /** a normal de cada VÉRTICE, média das duas arestas que chegam nele, com
+   *  esquadria limitada. Saiu do laço da orla para a praia usar a mesma. */
+  const normais = (pts: number[]) => {
+    const m = pts.length / 2
+    const fechada = Math.hypot(pts[0] - pts[2 * m - 2], pts[1] - pts[2 * m - 1]) < 0.01
+    const NX = new Float64Array(m), NZ = new Float64Array(m)
+    const eN = (k: number) => {
+      const dx = pts[2 * k + 2] - pts[2 * k], dz = pts[2 * k + 3] - pts[2 * k + 1]
+      const dl = Math.hypot(dx, dz) || 1
+      return [-dz / dl, dx / dl] as [number, number]
+    }
+    for (let k = 0; k < m; k++) {
+      const ant = k > 0 ? eN(k - 1) : (fechada ? eN(m - 2) : eN(0))
+      const pro = k < m - 1 ? eN(k) : (fechada ? eN(0) : eN(m - 2))
+      let ax = ant[0] + pro[0], az = ant[1] + pro[1]
+      const al = Math.hypot(ax, az) || 1
+      ax /= al; az /= al
+      // ⚠️ O FATOR DE ESQUADRIA SE LIMITA. Numa quina de quase 180° o
+      // comprimento de esquadria vai ao infinito e a margem dispararia num
+      // espeto, que é a MESMA aparência do defeito que ele veio consertar.
+      const f = Math.min(2.5, 1 / Math.max(0.4, ax * ant[0] + az * ant[1]))
+      NX[k] = ax * f; NZ[k] = az * f
+    }
+    return { m, fechada, NX, NZ }
+  }
+
+  // as correntes de praia: as da margem natural mais, em look2, as da baía que o
+  // corte de 300 m recusou (ver o comentário do descarte, adiante)
+  const correntesPraia: number[][] = []
+
+  {
     const w1 = ORLA_PASSEIO
     const w2 = w1 + ORLA_PISTA
     const w3 = w2 + ORLA_TALUDE
     const yD = L + ORLA_ALTURA
-    for (const pts of correntes) {
-      const m = pts.length / 2
-      const fechada = Math.hypot(pts[0] - pts[2 * m - 2], pts[1] - pts[2 * m - 1]) < 0.01
-      // normal de cada vértice = média das arestas vizinhas, com esquadria
-      const NX = new Float64Array(m), NZ = new Float64Array(m)
-      const eN = (k: number) => {
-        const dx = pts[2 * k + 2] - pts[2 * k], dz = pts[2 * k + 3] - pts[2 * k + 1]
-        const dl = Math.hypot(dx, dz) || 1
-        return [-dz / dl, dx / dl] as [number, number]
+    for (const c of encadear(segs)) {
+      const pts = c.pts
+      // ⚠️ O DESCARTE DEIXAVA BURACO NA MARGEM, e este é o defeito 4 da lista lá
+      // em cima: a corrente curta perdia o cais e não ganhava nada no lugar, então
+      // a água encostava no regolito cru em trechos sem motivo legível. Em look2
+      // ela cai para a PRAIA, que é o acabamento certo para 300 m de margem.
+      if (pts.length < 2 * 6 || c.comp < 300) {
+        if (look2 && pts.length >= 2 * 3) correntesPraia.push(pts)
+        continue
       }
-      for (let k = 0; k < m; k++) {
-        const ant = k > 0 ? eN(k - 1) : (fechada ? eN(m - 2) : eN(0))
-        const pro = k < m - 1 ? eN(k) : (fechada ? eN(0) : eN(m - 2))
-        let ax = ant[0] + pro[0], az = ant[1] + pro[1]
-        const al = Math.hypot(ax, az) || 1
-        ax /= al; az /= al
-        // ⚠️ O FATOR DE ESQUADRIA SE LIMITA. Numa quina de quase 180° o
-        // comprimento de esquadria vai ao infinito e o cais dispararia num
-        // espeto — que é a MESMA aparência do defeito que eu vim consertar.
-        const f = Math.min(2.5, 1 / Math.max(0.4, ax * ant[0] + az * ant[1]))
-        NX[k] = ax * f; NZ[k] = az * f
-      }
+      const { m, NX, NZ } = normais(pts)
       const px = (k: number, w: number) => pts[2 * k] + NX[k] * w
       const pz = (k: number, w: number) => pts[2 * k + 1] + NZ[k] * w
       for (let k = 0; k < m - 1; k++) {
@@ -386,28 +469,160 @@ export function buildLagos(o: LagosOpts): Lagos {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // A PRAIA (look2): largura tirada da INCLINAÇÃO, e transição dos dois lados.
+  //
+  // ⚠️ A LARGURA NÃO É UMA CONSTANTE, É UMA CONSEQUÊNCIA. `w = subida /
+  // inclinação`: a areia acompanha PRAIA_SUBIDA (1,5 m) de subida do terreno, e
+  // onde ela vem, vem. Encosta de 6% dá 25 m de areia; encosta de 60% dá 2,5 m e
+  // cai fora pelo piso, e é isso que põe a água encostando na rocha, que é o
+  // certo. A inclinação se mede com UMA sonda a 10 m para fora, na normal do
+  // vértice: com passo de grade de 30 m, sondar mais perto lê ruído da
+  // interpolação em vez de lê encosta.
+  //
+  // ⚠️ E A LARGURA SE ALISA AO LONGO DA MARGEM, três passadas. Sem isso ela
+  // salta de vértice a vértice (a sonda cai em células diferentes) e a praia
+  // volta a aparecer em manchas, que era o defeito 4. Alisar ANTES do corte do
+  // mínimo é o que importa: alisar depois faria média com zeros e devolveria o
+  // pisca-pisca.
+  if (look2 && (segsP.length || correntesPraia.length)) {
+    for (const c of encadear(segsP)) correntesPraia.push(c.pts)
+    const cMol = new THREE.Color(AREIA_MOLHADA)
+    const cSec = new THREE.Color(AREIA_SECA)
+    const cReg = new THREE.Color(AREIA_REGOLITO)
+    // ⚠️ O UV SAI EM LADRILHOS DE MUNDO, não em 0..1 sobre a malha. Esta malha é
+    // uma fita de quilômetros com 4 m de largura: UV normalizado esticaria a
+    // textura numa lasanha. Dividir a coordenada de mundo por LADRILHO deixa o
+    // grão do mesmo tamanho em toda a orla, e é por isso que aqui NÃO se chama
+    // `vestir`: ele resolveria o repeat achando que o UV é 0..1 (ver a armadilha
+    // do `vestir(mat, nome, 1)`).
+    const LADRILHO = 8
+    const emite = (x: number, y: number, z: number, cor: THREE.Color) => {
+      posP.push(x, y, z)
+      corP.push(cor.r, cor.g, cor.b)
+      uvP.push(x / LADRILHO, z / LADRILHO)
+    }
+    for (const pts of correntesPraia) {
+      const { m, NX, NZ } = normais(pts)
+      if (m < 2) continue
+      // largura crua, por vértice, a partir da inclinação medida
+      const W = new Float64Array(m)
+      for (let k = 0; k < m; k++) {
+        const x = pts[2 * k], z = pts[2 * k + 1]
+        const h1 = o.superficieAt(x + NX[k] * PRAIA_SONDA, z + NZ[k] * PRAIA_SONDA)
+        const h2 = o.superficieAt(x + NX[k] * PRAIA_SONDA2, z + NZ[k] * PRAIA_SONDA2)
+        const decl = Math.max(0, (h1 - L) / PRAIA_SONDA, (h2 - L) / PRAIA_SONDA2)
+        W[k] = decl < 1e-3 ? PRAIA_MAX : Math.min(PRAIA_MAX, PRAIA_SUBIDA / decl)
+      }
+      for (let p = 0; p < PRAIA_ALISA; p++) {
+        const T = W.slice()
+        for (let k = 0; k < m; k++) {
+          const a = T[k > 0 ? k - 1 : 0], b = T[k < m - 1 ? k + 1 : m - 1]
+          W[k] = (a + 2 * T[k] + b) / 4
+        }
+      }
+      // ⚠️ O MÍNIMO NÃO CORTA EM DEGRAU, AFINA. Zerar de uma vez em 2,5 m
+      // desenharia uma ponta reta de areia acabando no nada, que é a mesma
+      // aresta dura de antes só que na outra direção.
+      for (let k = 0; k < m; k++) {
+        if (W[k] < PRAIA_MIN) W[k] = W[k] * Math.max(0, (W[k] - 1) / (PRAIA_MIN - 1))
+      }
+      const px = (k: number, w: number) => pts[2 * k] + NX[k] * w
+      const pz = (k: number, w: number) => pts[2 * k + 1] + NZ[k] * w
+      for (let k = 0; k < m - 1; k++) {
+        if (W[k] <= 0 && W[k + 1] <= 0) continue
+        // quatro linhas por vértice, de dentro d'água para o regolito:
+        //  −wm : a franja submersa, escura, que some sob a lâmina
+        //    0 : a linha d'água, 2 cm acima da lâmina
+        //   +w : o corpo seco, pousado no CHÃO DE VERDADE
+        //  +wf : a fusão no regolito, também no chão, só que já com a cor dele
+        const banda = (k0: number) => {
+          const w = W[k0]
+          const wm = -(2 + 0.25 * w)                  // a franja molhada, para dentro
+          const wf = w + Math.max(3, w * 0.55)        // até onde a cor se desfaz
+          // ⚠️ A COTA SAI DO CHÃO, NÃO DE UMA CONSTANTE. Era L + 1,2 fixo, e por
+          // isso a faixa lia como prateleira apoiada. Aqui o lado seco pousa em
+          // `superficieAt` mais 6 cm, que é o que faz a areia deitar no terreno.
+          const ys = Math.max(L + 0.05, o.superficieAt(px(k0, w), pz(k0, w)) + 0.06)
+          const yf = Math.max(L + 0.06, o.superficieAt(px(k0, wf), pz(k0, wf)) + 0.06)
+          return { wm, w, wf, ys, yf }
+        }
+        const A0 = banda(k), B0 = banda(k + 1)
+        const quad = (
+          wa0: number, ya0: number, wa1: number, ya1: number,
+          wb0: number, yb0: number, wb1: number, yb1: number,
+          c0: THREE.Color, c1: THREE.Color,
+        ) => {
+          const bp = posP.length / 3
+          emite(px(k, wa0), ya0, pz(k, wa0), c0)
+          emite(px(k + 1, wa1), ya1, pz(k + 1, wa1), c0)
+          emite(px(k + 1, wb1), yb1, pz(k + 1, wb1), c1)
+          emite(px(k, wb0), yb0, pz(k, wb0), c1)
+          idxP.push(bp, bp + 1, bp + 2, bp, bp + 2, bp + 3)
+        }
+        // ⚠️ A FRANJA COMEÇA SOB A ÁGUA (−0,9 m) DE PROPÓSITO: assim a areia não
+        // tem borda nenhuma do lado molhado, ela só some. Medido antes: a borda
+        // interna estava a −0,4 m e a lâmina é opaca, então dava para ver a
+        // aresta pela transparência da beirada.
+        quad(A0.wm, L - PRAIA_FUNDO, B0.wm, L - PRAIA_FUNDO, 0, L + 0.02, 0, L + 0.02, cMol, cMol)
+        quad(0, L + 0.02, 0, L + 0.02, A0.w, A0.ys, B0.w, B0.ys, cMol, cSec)
+        quad(A0.w, A0.ys, B0.w, B0.ys, A0.wf, A0.yf, B0.wf, B0.yf, cSec, cReg)
+      }
+    }
+  }
+
   const feitas: THREE.Mesh[] = []
-  const monta = (pos: number[], idx: number[], cor: string, agua: boolean, nome: string) => {
+  const monta = (
+    pos: number[], idx: number[], cor: string, agua: boolean, nome: string,
+    areia = false,
+  ) => {
     if (!idx.length) return
     const g = new THREE.BufferGeometry()
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+    if (areia) {
+      g.setAttribute('color', new THREE.Float32BufferAttribute(corP, 3))
+      g.setAttribute('uv', new THREE.Float32BufferAttribute(uvP, 2))
+    }
     g.setIndex(idx)
     g.computeVertexNormals()
-    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({
-      color: cor,
+    const mat = new THREE.MeshStandardMaterial({
+      color: areia ? '#ffffff' : cor,
       // os mesmos valores do lago central: os dois se encontram e não podem divergir
       roughness: agua ? 0.30 : 0.92,
       metalness: agua ? 0.02 : 0,
       side: THREE.DoubleSide,
-    }))
+      vertexColors: areia,
+    })
+    if (areia) {
+      // ⚠️ SÓ NORMAL E RUGOSIDADE, O ALBEDO SE DESCARTA. A cor por vértice
+      // MULTIPLICA o mapa (armadilha da casa): areia clara vezes o albedo do
+      // regolito daria um cinza sujo, e compensar exigiria clarear a cor por
+      // vértice até estourar. Aqui a cor é toda da rampa por vértice e a textura
+      // entra só como micro-relevo. Textura COMPARTILHADA do cache: nenhum
+      // upload novo de GPU, e o `customProgramCacheKey` de `quebrarRepeticao`
+      // mantém tudo num programa só.
+      const s = superficie('regolito')
+      mat.normalMap = s.normalMap
+      mat.roughnessMap = s.roughnessMap
+      // ⚠️ NORMAL FRACO DE PROPÓSITO: luz rasante na Lua amplifica normal, e a
+      // margem é vista quase sempre rasante. No valor cheio a areia vira lixa.
+      const f = s.normalScale * 0.55
+      mat.normalScale = new THREE.Vector2(f, f)
+      mat.roughness = 1
+      mat.metalness = 0
+      quebrarRepeticao(mat, 110)
+    }
+    const m = new THREE.Mesh(g, mat)
     m.name = nome
     m.receiveShadow = !agua
-    m.castShadow = (o.sombra ?? true) && !agua
+    // ⚠️ AREIA NÃO PROJETA SOMBRA: é uma fita deitada no chão, a sombra dela cai
+    // nela mesma, e ela pagaria passe de mapa de sombra em quilômetros de orla.
+    m.castShadow = (o.sombra ?? true) && !agua && !areia
     m.frustumCulled = false
     group.add(m)
     feitas.push(m)
   }
-  monta(posP, idxP, COR_AREIA, false, 'lagos:praia')
+  monta(posP, idxP, COR_AREIA, false, 'lagos:praia', look2)
   monta(posM, idxM, COR_MURO, false, 'orla:muro')
   monta(posC, idxC, COR_CAIS, false, 'orla:passeio')
   monta(posR, idxR, COR_PISTA, false, 'orla:pista')
