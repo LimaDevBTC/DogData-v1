@@ -400,8 +400,14 @@ export async function buildLotes(o: LotesOpts): Promise<Lotes> {
         vTint = iTint;
         vFlag = iFlag;
         vDistCam = distance(cameraPosition, transformed);
-        // ⚠️ OS UV DOS MAPAS SÃO REESCRITOS AQUI, DEPOIS DE `uv_vertex`. O three
-        // calcula vMapUv a partir do atributo `uv` (0..1 do quad) vezes o
+        // ⚠️ OS UV DOS MAPAS SÃO REESCRITOS AQUI, DEPOIS DE uv_vertex. O three
+        // calcula vMapUv a partir do atributo uv (0..1 do quad) vezes o
+        // mapTransform.
+        // ⚠️ E NADA DE CRASE NESTE COMENTÁRIO. Ele mora DENTRO de um template
+        // literal de GLSL, e a crase que a gente usa por hábito para marcar
+        // nome de variável FECHA A STRING. Foi assim que este arquivo parou de
+        // compilar em 01/09, com um erro que apontava para a linha do comentário
+        // e não para a causa.
         // mapTransform; varying é atribuível em qualquer ponto, então sobrescrever
         // com o XZ de mundo dá um ladrilho de tamanho constante em toda a cidade,
         // sem tocar no atributo compartilhado nem clonar textura.
