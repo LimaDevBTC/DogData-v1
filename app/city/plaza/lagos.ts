@@ -199,6 +199,42 @@ const PRAIA_MAX    = 18.0      // teto: acima disso não é praia, é planície 
 const PRAIA_MIN    = 2.5       // abaixo disso a água encosta na rocha, e é o certo
 const PRAIA_FUNDO  = 0.9       // quanto a areia molhada mergulha sob a lâmina
 const PRAIA_ALISA  = 6         // passadas do filtro de largura ao longo da margem
+// ⚠️ A BERMA: A PRAIA DEIXOU DE SER UMA RAMPA SÓ, e é o segundo defeito que o
+// fundador nomeou ("a areia parece pista de skate"). Mesmo com a normal certa,
+// o perfil transversal era UM segmento reto da linha d'água até o chão seco:
+// curvatura constante, sem quebra, e a mesma quebra em toda a costa. Praia real
+// tem antepraia íngreme, uma CRISTA de berma, e um pós-praia quase plano atrás.
+//
+// A crista entra como estação intermediária, e as duas coisas que a definem
+// variam ao longo da costa em ondas de comprimento DIFERENTE da largura (70 m),
+// senão a berma só copiaria a modulação da largura e a fita voltaria a ser fita:
+//   posição  em 135 m de onda, entre 45% e 70% da largura
+//   altura   em 190 m de onda, escalada pela largura da praia ali
+// ⚠️ E A CRISTA POUSA NO CHÃO, NÃO NA CORDA. Medido: a corda reta da linha
+// d'água ao chão seco ficava ENTERRADA no regolito em 10,4% das amostras (pior
+// caso 1,79 m), porque o terreno entre as duas pontas é convexo. Amostrando o
+// chão TAMBÉM na crista, a mesma medição cai para 1,5%.
+const PRAIA_BERMA_F0 = 0.45    // a crista mais para a água
+const PRAIA_BERMA_F1 = 0.25    // quanto ela pode recuar (fração da largura)
+const PRAIA_BERMA_H  = 0.60    // altura da crista numa praia de largura cheia
+const PRAIA_BERMA_H0 = 0.22    // o mínimo, para a praia estreita ainda ter quebra
+// ⚠️ PONTA DE CORRENTE ABERTA MOSTRA A SEÇÃO. Medido: 98 pontas abertas na
+// praia (a `semMargem` da boca do canal e a troca de corpo entre cratera e baía
+// cortam a corrente), TODAS com alfa 1, ou seja a fita acabava numa parede de
+// areia em pé, virada para quem navega. O cais já tinha tampa; a praia não.
+// Aqui ela não ganha tampa, ganha SUMIÇO: a largura afina a zero nos últimos
+// vértices e o alfa apaga sozinho, que é o que uma praia faz ao encontrar rocha.
+const PRAIA_PONTA = 4          // vértices de afinamento em cada ponta aberta
+// ⚠️ CORRENTE DE UM SEGMENTO SÓ NÃO É PRAIA, É MANCHA, e este é o cinto do
+// conserto de `encadear` (ver a nota lá). Com o estilhaçamento, 1.032 das 1.186
+// correntes de margem tinham UM ÚNICO segmento de 30 m: cada uma virava um
+// quadrilátero solto de areia com aresta dura nos quatro lados, que é o defeito
+// das "manchas". Com o encadeamento certo sobram 15, e o corte de 90 m tira
+// essas 15 mais 6 outras.
+// ⚠️ O AFINAMENTO DE PONTA NÃO SALVA CORRENTE DE 2 VÉRTICES: com m = 2 não há
+// vértice do meio para segurar largura, então ou ela some ou ela é uma parede.
+// Por isso o corte fica, mesmo valendo pouco agora. O cais tem o mesmo, em 300 m.
+const PRAIA_CORRENTE = 90      // metros mínimos para uma corrente virar praia
 // A cor da areia vira COR POR VÉRTICE, porque a transição dos dois lados é uma
 // RAMPA e rampa não cabe num `color` de material. O albedo da textura é
 // descartado de propósito (ver a montagem): cor por vértice MULTIPLICA o mapa, e
@@ -324,18 +360,58 @@ export function buildLagos(o: LagosOpts): Lagos {
       // ⚠️ A MARGEM PODE SER SUPRIMIDA SEM QUE A ÁGUA SEJA. Ver `semMargem`: na
       // boca do canal a lâmina entra, mas o cais da baía não pode cruzar, porque
       // o canal já tem o dele.
-      const _mx = (x0 + x1) / 2, _mz = (z0 + z1) / 2
-      if (c !== 15 && !(o.semMargem && o.semMargem(_mx, _mz))) {
+      // ⚠️ NA BORDA DA CASCA NÃO SE CONSTRÓI MARGEM, SÓ ÁGUA. Fora do raio a
+      // grade guarda o sentinela 1e6, e a interpolação de `corta` entre −45 e
+      // 1e6 dá t ≈ 5e−5: o corte SNAPA no canto molhado da grade. O resultado
+      // não é curva de nível, é escada de 30 m.
+      // ⚠️ MEDIDO: 1.036 células molhadas encostam no sentinela, TODAS em
+      // r 9.000, e elas sozinhas produziam 1.036 das 5.006 arestas de corte da
+      // cidade (20,7%). Ou seja um quinto de toda a costa era serra de grade,
+      // num anel colado na saia da abóbada. Aqui a água continua (a lâmina não
+      // muda), o acabamento é que para: quem fecha ali é a casca.
+      const _naBorda = y0 > 1e5 || y1 > 1e5 || y2 > 1e5 || y3 > 1e5
+      if (c !== 15 && !_naBorda) {
         const eBaia = rot[j * (n + 1) + i] === baia || rot[j * (n + 1) + i + 1] === baia
           || rot[(j + 1) * (n + 1) + i] === baia || rot[(j + 1) * (n + 1) + i + 1] === baia
         for (let k = 0; k < caso.length; k++) {
           const ia = caso[k], ib = caso[(k + 1) % caso.length]
           if (ia < 4 || ib < 4) continue          // só as arestas de corte
           const a = P[ia], b = P[ib]
+          // ⚠️ A MÁSCARA DA BOCA SE MEDE NA ARESTA, E EXIGE AS DUAS PONTAS. Ela
+          // era testada em `(_mx, _mz)`, o meio da CÉLULA de 30 m, e a aresta de
+          // corte pode estar a até 21 m dali (meia diagonal): a supressão parava
+          // fora de hora e a TAMPA do cais nascia fora do corredor de 76 m que o
+          // molhe do `canais.ts` cobre, ou seja uma parede de 5,7 m em água
+          // aberta ao lado da foz. Medido: 1 das 8 tampas a 85,5 m do eixo do
+          // CR03, 9,5 m fora.
+          // ⚠️ E É `&&`, NÃO `||`. Com `||` a aresta que atravessa a fronteira
+          // também some, então a última aresta guardada COMEÇA fora do corredor e
+          // a tampa vai parar mais longe ainda: medido, 5 das 8 tampas fora, pior
+          // que o defeito. Com `&&` a aresta que atravessa fica, e a ponta dela
+          // cai DENTRO do corredor por construção. Medido depois: 0 de 8 fora.
+          if (o.semMargem && o.semMargem(a[0], a[1]) && o.semMargem(b[0], b[1])) continue
           const dx = b[0] - a[0], dz = b[1] - a[1]
           const dl = Math.hypot(dx, dz) || 1
-          // a normal aponta para FORA da água (para o lado seco)
-          const nx = -dz / dl, nz = dx / dl
+          // ⚠️ A NORMAL APONTAVA PARA DENTRO DA ÁGUA, E ERA A RAIZ DA MARGEM
+          // DEFORMADA. `CASOS` lista o polígono MOLHADO com winding tal que
+          // (−dz, dx) é a normal INTERNA: conferido nos 16 casos numa célula
+          // unitária, 14 dos 16 apontavam para o miolo molhado (os 2 restantes
+          // são as selas, onde o teste do centroide não vale).
+          //
+          // ⚠️ MEDIDO NO TERRENO DE VERDADE, 5.006 arestas de corte da cidade:
+          // sondando 12 m no sentido que o código chamava de "seco", 99,5% caíam
+          // ABAIXO da lâmina, com mediana 2,28 m debaixo d'água; no sentido
+          // oposto a mediana era 1,17 m ACIMA. Em 4.398 das 5.006 arestas o lado
+          // certo era o outro.
+          //
+          // O estrago era o produto inteiro: a sonda de inclinação da praia lia
+          // fundo de lago, devolvia declive 0, e a largura ia ao teto em 73,8%
+          // dos vértices. A praia que o fundador chamou de "pista de skate" era
+          // literalmente uma fita de 18 m de largura constante deitada DENTRO
+          // d'água, com a franja molhada enterrada 0,9 m na terra firme.
+          // Depois do sinal certo: declive mediano 8,6%, largura de 2,6 a 20,1 m
+          // e só 36,0% no teto.
+          const nx = dz / dl, nz = -dx / dl
           if (!eBaia) {
             // ⚠️ EM `look2` A PRAIA TAMBÉM SÓ SE COLETA. Ver o bloco de constantes:
             // emitir por aresta é o defeito do leque, e a praia estava emitindo
@@ -390,7 +466,40 @@ export function buildLagos(o: LagosOpts): Lagos {
     }
     const usado = new Uint8Array(src.length / 4)
     const correntes: { pts: number[]; comp: number }[] = []
-    for (let k0 = 0; k0 < src.length; k0 += 4) {
+    // ⚠️⚠️ AS PONTAS ANDAM PRIMEIRO, E ISTO ERA A MARGEM DEFORMADA INTEIRA.
+    //
+    // A varredura era `for k0 in ordem de índice`, e o índice é a ordem das
+    // CÉLULAS da grade, não a ordem do contorno. Entrar num contorno pelo meio
+    // consome só o pedaço da frente; o pedaço de trás é encontrado depois, anda
+    // um passo, esbarra no que já foi usado e vira corrente própria. O processo
+    // se repete e o contorno se estilhaça de trás para frente.
+    //
+    // ⚠️ MEDIDO na baía de verdade, 1.826 segmentos: a topologia tem 23 caminhos
+    // e 7 ciclos, ou seja 30 correntes. `encadear` devolvia 345, com 279 delas de
+    // UM ÚNICO segmento de 30 m. Consequência direta na tela: uma corrente de 2
+    // vértices não passa por `alisaContorno` (ele desiste com m < 4), tira as
+    // duas normais da mesma aresta e vira um retalho de cais ou de areia com
+    // aresta dura nos quatro lados, virado para um rumo qualquer. E o corte de
+    // 300 m recusava quase tudo.
+    // ⚠️ O QUE ISSO CUSTAVA EM PRODUTO, medido: a orla CONSTRUÍDA da baía tinha
+    // 13 pedaços e 32,8 km. Com as pontas primeiro são 7 pedaços e 42,0 km. São
+    // 9,2 km de frente d'água contínua que existiam no terreno e não chegavam à
+    // tela, porque a corrente que os carregava tinha sido picada abaixo do corte
+    // de 300 m. As correntes de praia caem de 841 para 31 pelo mesmo motivo.
+    //
+    // O conserto é o de sempre para grafo 1-entra-1-sai: começar pelos segmentos
+    // SEM PREDECESSOR (as pontas de caminho aberto) e só depois varrer o resto,
+    // que aí só pode ser ciclo. Não muda o resultado de um contorno fechado.
+    const NS = src.length / 4
+    const temPred = new Uint8Array(NS)
+    for (let k = 0; k < src.length; k += 4) {
+      const l = daPonta.get(CHAVE(src[k + 2], src[k + 3]))
+      if (l) for (const q of l) temPred[q / 4] = 1
+    }
+    const ordem: number[] = []
+    for (let s = 0; s < NS; s++) if (!temPred[s]) ordem.push(s * 4)
+    for (let s = 0; s < NS; s++) if (temPred[s]) ordem.push(s * 4)
+    for (const k0 of ordem) {
       if (usado[k0 / 4]) continue
       const pts: number[] = [src[k0], src[k0 + 1]]
       let k = k0
@@ -430,7 +539,10 @@ export function buildLagos(o: LagosOpts): Lagos {
     const eN = (k: number) => {
       const dx = pts[2 * k + 2] - pts[2 * k], dz = pts[2 * k + 3] - pts[2 * k + 1]
       const dl = Math.hypot(dx, dz) || 1
-      return [-dz / dl, dx / dl] as [number, number]
+      // ⚠️ MESMO SINAL DO LAÇO ACIMA, e pelo mesmo motivo medido: para o winding
+      // de `CASOS` a normal externa é (dz, −dx). Se as duas divergirem, o cais
+      // sai para um lado e a praia para o outro.
+      return [dz / dl, -dx / dl] as [number, number]
     }
     for (let k = 0; k < m; k++) {
       const ant = k > 0 ? eN(k - 1) : (fechada ? eN(m - 2) : eN(0))
@@ -626,6 +738,12 @@ export function buildLagos(o: LagosOpts): Lagos {
       return (a + (b - a) * ux) + ((c + (d - c) * ux) - (a + (b - a) * ux)) * uz
     }
     for (const cru of correntesPraia) {
+      // ver PRAIA_CORRENTE: corrente curta é mancha, não margem
+      let _comp = 0
+      for (let q = 0; q + 3 < cru.length; q += 2) {
+        _comp += Math.hypot(cru[q + 2] - cru[q], cru[q + 3] - cru[q + 1])
+      }
+      if (_comp < PRAIA_CORRENTE) continue
       // ⚠️ ESQUADRIA MAIS CURTA QUE A DO CAIS (1,6 contra 2,5). O cais é opaco e
       // uma esquadria longa nele só produz canto cheio; na areia transparente a
       // mesma esquadria produz sobreposição visível. Alisar já tirou a quina;
@@ -661,6 +779,17 @@ export function buildLagos(o: LagosOpts): Lagos {
           W[k] = (a + 2 * T[k] + b) / 4
         }
       }
+      // ⚠️ E A PONTA ABERTA AFINA. Ver PRAIA_PONTA: corrente fechada não tem
+      // ponta, então isto só roda onde a margem foi mesmo cortada.
+      const _fechada = Math.hypot(pts[0] - pts[2 * m - 2], pts[1] - pts[2 * m - 1]) < 0.01
+      if (!_fechada) {
+        const q = Math.min(PRAIA_PONTA, (m - 1) >> 1)
+        for (let k = 0; k < q; k++) {
+          const f = k / q
+          W[k] *= f
+          W[m - 1 - k] *= f
+        }
+      }
       const px = (k: number, w: number) => pts[2 * k] + NX[k] * w
       const pz = (k: number, w: number) => pts[2 * k + 1] + NZ[k] * w
       // ⚠️ NÃO EXISTE MAIS CORTE POR LIMIAR, E ESSA É A CAUSA DA LASCA. A versão
@@ -671,9 +800,10 @@ export function buildLagos(o: LagosOpts): Lagos {
       // contínuo não pisca, porque não há decisão para oscilar em volta.
       const alfa = (w: number) => Math.max(0, Math.min(1, (w - 0.8) / (PRAIA_MIN - 0.8)))
       for (let k = 0; k < m - 1; k++) {
-        // quatro linhas por vértice, de dentro d'água para o chão seco:
+        // cinco linhas por vértice, de dentro d'água para o chão seco:
         //  −wm : a franja submersa, escura, que some sob a lâmina
         //    0 : a linha d'água, 2 cm acima da lâmina
+        //  +wb : a CRISTA DA BERMA, a quebra do perfil (ver PRAIA_BERMA_*)
         //   +w : o corpo seco, pousado no CHÃO DE VERDADE
         //  +wf : o rabo de areia, na mesma cor e com alfa zero
         const banda = (k0: number) => {
@@ -692,7 +822,13 @@ export function buildLagos(o: LagosOpts): Lagos {
           // `superficieAt` mais 6 cm, que é o que faz a areia deitar no terreno.
           const ys = Math.max(L + 0.05, o.superficieAt(px(k0, w), pz(k0, w)) + 0.06)
           const yf = Math.max(L + 0.06, o.superficieAt(px(k0, wf), pz(k0, wf)) + 0.06)
-          return { wm, w, wf, ys, yf, a: alfa(w) }
+          // a crista: posição e altura em ondas próprias, e pousada no chão
+          const cx = pts[2 * k0], cz = pts[2 * k0 + 1]
+          const wb = w * (PRAIA_BERMA_F0 + PRAIA_BERMA_F1 * onda(cx, cz, 135))
+          const cris = PRAIA_BERMA_H0
+            + PRAIA_BERMA_H * (w / PRAIA_MAX) * (0.6 + 0.8 * onda(cx + 311, cz - 177, 190))
+          const yb = Math.max(L + 0.10, o.superficieAt(px(k0, wb), pz(k0, wb)) + 0.06) + cris
+          return { wm, w, wb, wf, ys, yb, yf, a: alfa(w) }
         }
         const A0 = banda(k), B0 = banda(k + 1)
         if (A0.a <= 0 && B0.a <= 0) continue         // aqui a água encosta na rocha
@@ -715,8 +851,15 @@ export function buildLagos(o: LagosOpts): Lagos {
         // da lâmina.
         quad(A0.wm, L - PRAIA_FUNDO, A0.a, B0.wm, L - PRAIA_FUNDO, B0.a,
              0, yL, A0.a, 0, yL, B0.a, cMol, cMol)
+        // ⚠️ A ANTEPRAIA VAI SÓ ATÉ A CRISTA, e é ela que fica ÍNGREME: a
+        // transição molhada-seca acontece nesta faixa curta, não espalhada por
+        // toda a largura. Espalhada era o que dava a rampa lisa.
         quad(0, yL, A0.a, 0, yL, B0.a,
-             A0.w, A0.ys, A0.a, B0.w, B0.ys, B0.a, cMol, cSec)
+             A0.wb, A0.yb, A0.a, B0.wb, B0.yb, B0.a, cMol, cSec)
+        // o pós-praia: da crista até o chão, quase plano, e é a quebra entre os
+        // dois que o olho lê como praia em vez de rampa
+        quad(A0.wb, A0.yb, A0.a, B0.wb, B0.yb, B0.a,
+             A0.w, A0.ys, A0.a, B0.w, B0.ys, B0.a, cSec, cSec)
         quad(A0.w, A0.ys, A0.a, B0.w, B0.ys, B0.a,
              A0.wf, A0.yf, 0, B0.wf, B0.yf, 0, cSec, cSec)
       }

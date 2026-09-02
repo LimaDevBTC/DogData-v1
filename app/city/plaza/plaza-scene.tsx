@@ -49,6 +49,7 @@ import { buildArborizacao, type Arborizacao, type Cova } from './arborizacao'
 import { buildCanais, type Canais } from './canais'
 import { buildMobiliarioUrbano, type MobiliarioUrbano } from './mobiliario-urbano'
 import { buildLagos, type Lagos } from './lagos'
+import { buildAlpino, type Alpino } from './alpino'
 import { buildMontanha, type Montanha } from './montanha'
 import { buildLago, type Lago } from './lago'
 import { buildAquario, type Aquario } from './aquario'
@@ -1338,6 +1339,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let tremorForca = 0
     let campoVivo = false
     let emblemaGuerra: THREE.Group | null = null
+    let alpino: Alpino | null = null
     let heightAt: (x: number, z: number) => number = () => 0
     let superficieAt: (x: number, z: number) => number = () => 0
     let lagoGeo: { r0: number; r1: number; agua: number; fundo: number } | null = null
@@ -1879,7 +1881,13 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               if (disposed) { a.dispose(); return }
               arvores = a
               scene.add(a.group)
-              console.log(`[arborização] ${a.arvores.toLocaleString('pt-BR')} árvores, ${a.triangulos.toLocaleString('pt-BR')} triângulos no pior caso, 4 chamadas de desenho`)
+              // ⚠️ NÃO LOGUE AQUI. Havia um `console.log` nesta linha dizendo
+              // "4 chamadas de desenho" em texto FIXO, e já eram 6 fazia tempo
+              // (baldes de perto, de longe e de arbusto). Ninguém percebeu
+              // porque log constante envelhece calado, e depois é citado como
+              // se fosse medição. O `arborizacao.ts` já emite a linha completa,
+              // com contagem por espécie, recusadas pela máscara e look, tudo
+              // derivado do que ele acabou de construir. Uma fonte só.
             }).catch((err) => console.error('[arborização] não subiu', err)))
           }
 
@@ -1996,6 +2004,30 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 if (disposed) return
                 console.log(`[mobiliário] ${_m.postes.toLocaleString('pt-BR')} postes ao longo de avenida e anel`)
               }).catch((err) => console.error('[mobiliário] não subiu', err)))
+            }
+
+            // ⚠️ A COROA DE NEVE É FUNDO, NÃO DESTINO, E O NÚMERO MANDA NISSO.
+            // Medi a grade construída dentro da casca (raio 9.050): o pico é
+            // 321,7 m e a mediana do terreno é 10,6 m, então NÃO existe alpe
+            // aqui. Acima de 250 m há 5,29 km² (2,06% da área), todos no anel
+            // r 6.032 a 9.050, com o cume a r 8.283 e azimute 264 graus. Pico
+            // nevado pontudo nessa amplitude leria como brinquedo; coroa no
+            // arco oeste, vista de toda a cidade encostada na casca, não.
+            //
+            // ⚠️ ELE PEDE `superficieAt`, NÃO `heightAt`. São dois modelos de
+            // terreno e misturá-los já nos custou 42 m de erro no spaceport
+            // esta semana. A mata e a neve assentam na SUPERFÍCIE.
+            if (qDomo.get('neve') !== '0') {
+              alpino = buildAlpino({
+                heightAt: terrain.superficieAt,
+                molhado: lagos ? (x, z) => lagos!.naAgua(x, z, 2) : undefined,
+                naVia: vias ? (x, z, folga) => vias!.naVia(x, z, folga) : undefined,
+                sombra: qDomo.get('sombra') !== '0',
+                profile,
+                culler,
+              })
+              scene.add(alpino.group)
+              console.log(`[alpino] ${alpino.neveKm2.toFixed(2)} km² de neve, ${alpino.arvores.toLocaleString('pt-BR')} coníferas, ${alpino.triangulos.toLocaleString('pt-BR')} tris`)
             }
 
             // ── as praças de quarto (?pracas=0 desliga) ──────────────────────
@@ -3131,6 +3163,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       campo?.lod(camera.position)
       tecido?.update(camera.position)
       arvores?.update(camera.position)
+      alpino?.update(camera.position)
       // só faz trabalho quando a câmera anda mais que o passo dele; fora
       // disso retorna na primeira linha
       mob?.atualizar(camera)

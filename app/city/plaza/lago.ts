@@ -117,6 +117,19 @@ const PRAIA_MAX = 18.0
 const PRAIA_MIN = 2.5
 const PRAIA_FUNDO = 0.9
 const PRAIA_ALISA = 6
+// ⚠️ A BERMA, IGUAL À DE `lagos.ts` E PELO MESMO MOTIVO. Esta praia já tinha
+// largura saudável (medido nos 720 rumos contra `superficieAt`: 7,6 a 13,4 m por
+// dentro, 5,7 a 15,2 m por fora, e só 0% e 1% dos rumos no teto), mas o PERFIL
+// TRANSVERSAL continuava um segmento reto só, da linha d'água ao chão: mesma
+// curvatura em toda a volta, sem quebra. É a "pista de skate" vista de perto, e
+// esta é a praia que fica ao lado da praça, ou seja a que se vê de mais perto.
+// A crista entra como estação intermediária, com posição e altura em ondas de
+// comprimento diferente do da largura (70 m), senão ela só copia a modulação
+// que já existe e a fita continua fita.
+const PRAIA_BERMA_F0 = 0.45
+const PRAIA_BERMA_F1 = 0.25
+const PRAIA_BERMA_H = 0.60
+const PRAIA_BERMA_H0 = 0.22
 const NA_MARGEM = 720                 // rumos em que a linha d'água é medida
 const COR_PISO = '#CBC4B6'
 const COR_ESTRUTURA = '#8F8879'
@@ -464,8 +477,17 @@ export function buildLago(o: LagoOpts): Lago {
         // ⚠️ O RABO É LONGO DE PROPÓSITO. Com 3 m ele não é fusão, é chanfro.
         const wf = w + Math.max(9, w * 0.9)
         const [xs, zs] = em(k, w), [xf, zf] = em(k, wf)
+        // a crista da berma: onde ela cai e quanto ela levanta
+        const wb = w * (PRAIA_BERMA_F0 + PRAIA_BERMA_F1 * onda(SX[k] * rr[k], SZ[k] * rr[k], 135))
+        const [xb, zb] = em(k, wb)
+        const cris = PRAIA_BERMA_H0 + PRAIA_BERMA_H * (w / PRAIA_MAX)
+          * (0.6 + 0.8 * onda(SX[k] * rr[k] + 311, SZ[k] * rr[k] - 177, 190))
         return {
-          wm, w, wf, a: alfa(w),
+          wm, w, wb, wf, a: alfa(w),
+          // ⚠️ A CRISTA POUSA NO CHÃO E DEPOIS LEVANTA, não numa cota fixa: se
+          // ela saísse de uma constante voltaria a ser prateleira, que é o
+          // defeito que a linha `ys` abaixo já tinha consertado uma vez.
+          yb: Math.max(L.agua + 0.10, o.heightAt(xb, zb) + 0.06) + cris,
           // ⚠️ A COTA SAI DO CHÃO, NÃO DE UMA CONSTANTE, senão a faixa lê como
           // prateleira apoiada onde o terreno sobe devagar.
           ys: Math.max(L.agua + 0.05, o.heightAt(xs, zs) + 0.06),
@@ -497,8 +519,13 @@ export function buildLago(o: LagoOpts): Lago {
         const yL = L.agua + 0.02
         quad(A0.wm, L.agua - PRAIA_FUNDO, A0.a, B0.wm, L.agua - PRAIA_FUNDO, B0.a,
              0, yL, A0.a, 0, yL, B0.a, cMol, cMol)
+        // a antepraia, curta e íngreme, sobe só até a crista
         quad(0, yL, A0.a, 0, yL, B0.a,
-             A0.w, A0.ys, A0.a, B0.w, B0.ys, B0.a, cMol, cSec)
+             A0.wb, A0.yb, A0.a, B0.wb, B0.yb, B0.a, cMol, cSec)
+        // o pós-praia, quase plano, da crista até o chão: é a QUEBRA entre os
+        // dois que faz o olho ler praia em vez de rampa
+        quad(A0.wb, A0.yb, A0.a, B0.wb, B0.yb, B0.a,
+             A0.w, A0.ys, A0.a, B0.w, B0.ys, B0.a, cSec, cSec)
         quad(A0.w, A0.ys, A0.a, B0.w, B0.ys, B0.a,
              A0.wf, A0.yf, 0, B0.wf, B0.yf, 0, cSec, cSec)
       }

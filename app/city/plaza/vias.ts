@@ -341,6 +341,171 @@ const OMBRO_DESNIVEL = 3.0
 /** folga do pé do talude sobre o regolito, mesma lógica do FOLGA da pista */
 const OMBRO_POUSO = 0.03
 
+// ── O ACABAMENTO DA PISTA (02/09) ──────────────────────────────────────────
+//
+// ⚠️ O DEFEITO: A PISTA ESTAVA GEOMETRICAMENTE CERTA E VISUALMENTE MORTA. A
+// escala foi conferida hoje contra este arquivo e está correta (asfalto de 7 m
+// na rua da teia, 6 na travessa, 8+8 no anel, 10+10 no bulevar, meio-fio de
+// 0,15 m, eixo tracejado em MUTCD). O que faltava não era largura, era HISTÓRIA:
+// a fita saía com tom uniforme de ponta a ponta, e material uniforme lê como
+// adesivo em qualquer resolução. Asfalto de verdade guarda o registro de quem
+// passou por cima dele.
+//
+// Quatro coisas entram aqui, todas no FRAGMENTO e nenhuma em geometria nova:
+//   trilha    duas rodadas por sentido, mais escuras e mais lisas
+//   virgem    a faixa entre a rodada e a guia, mais clara e mais áspera
+//   sarjeta   a sujeira que acumula encostada no meio-fio (é ela que faz a
+//             transição asfalto/guia/calçada deixar de ser aresta seca)
+//   remendo   retângulo de vala com contorno selado, mais trinca
+//
+// ⚠️ A LARGURA DA BANDA VEM DE ATRIBUTO, NÃO DO UV, E ISSO FOI MEDIDO NO CÓDIGO.
+// O UV que a `Fita` publica é métrico (metro/9), mas contado da borda da SEÇÃO
+// inteira, que não é a borda do asfalto: em SEC_RUA a pista vai de -3,5 a +3,5 e
+// em SEC_BULEVAR de 5 a 15 e de 19 a 29. Um rodado escrito em u fixo cairia em
+// lugar diferente em cada uma das cinco seções, e em SEC_BULEVAR nem sequer no
+// asfalto. Com `aVia` o shader recebe a banda normalizada e a largura real, e a
+// rodada nasce onde a roda passa em TODAS elas.
+//
+// ⚠️ E ELE TAMBÉM CORRIGE O RODADO JÁ ASSADO NA RECEITA. `amostraAsfalto` de
+// materiais.ts tem duas gaussianas em u = 0,3 e u = 0,7 do ladrilho de 9 m, ou
+// seja repetidas a cada 9 m ATRAVÉS da pista: numa faixa de 7 m elas caem uma
+// vez e meia, fora de lugar. Não posso editar materiais.ts (não é meu arquivo),
+// então a rugosidade daqui não SOMA, ela MISTURA por cima com peso 0,7: o perfil
+// que o olho lê passa a ser o desta função, e o que sobra da receita é grão.
+//
+// ⚠️ UM PROGRAMA PARA OS DOIS MATERIAIS, POR UNIFORME E NÃO POR SOURCE. Asfalto
+// e calçada compartilham a MESMA fonte e a MESMA `customProgramCacheKey`, e o
+// que muda entre eles é `uViaTipo`. Medido no arquivo: os dois já tinham os
+// mesmos defines (map + normalMap + roughnessMap, sem vertexColors). Custo: os
+// dois saem do balde 'dogcity:macro' e entram num balde novo, ou seja +1
+// programa sobre os 402 da vista alta, não +2.
+//
+// ⚠️ E A CHAVE DE CACHE TEM DE SER DIFERENTE DA DE `quebrarRepeticao`. Duas
+// fontes distintas com a MESMA chave fazem o three servir o programa errado, e o
+// erro não é de compilação, é de tela.
+const CACHE_VIA = 'dogcity:via:acabamento'
+
+/**
+ * Veste um material de via já vestido por `materiais.ts` com o acabamento.
+ * `tipo`: 1 = asfalto (trilha, remendo, trinca), 0 = calçada (só contato e mancha).
+ *
+ * ⚠️ ENVOLVE O `onBeforeCompile` QUE JÁ EXISTIA, NÃO O SUBSTITUI. `vestir` chama
+ * `quebrarRepeticao`, que instala o ruído de mundo por este mesmo gancho:
+ * atribuir por cima apagaria a quebra de ladrilho em silêncio e a grade de 9 m
+ * voltaria a aparecer de longe.
+ */
+function acabamentoVia(mat: THREE.MeshStandardMaterial, tipo: number) {
+  const base = mat.onBeforeCompile
+  mat.onBeforeCompile = (shader, renderer) => {
+    base?.call(mat, shader, renderer)
+    shader.uniforms.uViaTipo = { value: tipo }
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>
+attribute float aVia;
+varying float vVia;
+varying vec2 vViaXZ;`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+vVia = aVia;
+vViaXZ = (modelMatrix * vec4(transformed, 1.0)).xz;`)
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+varying float vVia;
+varying vec2 vViaXZ;
+uniform float uViaTipo;
+float vrand(vec2 p){ return fract(sin(dot(p, vec2(21.98, 78.233))) * 41758.5453); }
+float vnoi(vec2 p){
+  vec2 i = floor(p), f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(vrand(i), vrand(i + vec2(1.0, 0.0)), u.x),
+             mix(vrand(i + vec2(0.0, 1.0)), vrand(i + vec2(1.0, 1.0)), u.x), u.y);
+}`)
+      // ⚠️ O PONTO DE ENXERTO É `roughnessmap_fragment` PORQUE ELE É O ÚNICO
+      // LUGAR ONDE AS DUAS VARIÁVEIS EXISTEM JUNTAS. diffuseColor nasce lá atrás
+      // em map_fragment e roughnessFactor nasce aqui; enxertar antes daria
+      // roughnessFactor indefinido e o shader não compila.
+      .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+{
+  float wcode = floor(vVia);
+  float larg = wcode * 0.5;         // ver a nota de comBanda: vai em meios metros
+  float tt = fract(vVia);
+  float tinta = 1.0;      // multiplica o albedo
+  float lisa = 0.0;       // quanto a superficie ficou polida pelo uso
+  float aspera = 0.0;     // quanto ela ficou aberta por falta de uso
+
+  if (wcode >= 1.0) {
+    float m = tt * larg;              // metros a partir da borda da banda
+    float pista = larg * 0.5;         // uma faixa por sentido
+    float borda = min(m, larg - m);
+
+    if (uViaTipo > 0.5) {
+      // as quatro rodadas: 0,8 m de cada lado do eixo de cada faixa
+      float d = 9.0;
+      d = min(d, abs(m - (pista * 0.5 - 0.8)));
+      d = min(d, abs(m - (pista * 0.5 + 0.8)));
+      d = min(d, abs(m - (pista * 1.5 - 0.8)));
+      d = min(d, abs(m - (pista * 1.5 + 0.8)));
+      float trilha = exp(-d * d / 0.34);
+      tinta *= mix(1.0, 0.84, trilha);
+      lisa += trilha * 0.34;
+
+      // a faixa que ninguem pisa: entre a rodada e a guia, e no meio da via
+      float virgem = smoothstep(0.30, 0.85, borda) * (1.0 - smoothstep(0.85, 1.90, borda));
+      virgem = max(virgem, exp(-pow((m - pista) / 0.55, 2.0)) * 0.7);
+      tinta *= mix(1.0, 1.10, virgem);
+      aspera += virgem * 0.10;
+
+      // junta longitudinal de construcao, no encontro das duas faixas
+      float junta = exp(-pow((m - pista) / 0.055, 2.0));
+      tinta *= mix(1.0, 0.58, junta);
+      lisa += junta * 0.22;
+    }
+
+    // a sujeira da sarjeta: e ela que apaga a aresta asfalto/guia/calcada
+    float sujo = 1.0 - smoothstep(0.0, uViaTipo > 0.5 ? 0.55 : 0.35, borda);
+    tinta *= mix(1.0, uViaTipo > 0.5 ? 0.74 : 0.80, sujo);
+    aspera += sujo * 0.08;
+  } else if (vVia < -0.5 && uViaTipo > 0.5) {
+    // cruzamento e rotatoria: o desgaste concentra e nao tem direcao
+    float g = vnoi(vViaXZ * 0.55);
+    tinta *= mix(0.86, 0.98, g);
+    lisa += 0.26;
+  }
+
+  // remendo de vala: um retangulo por celula de 6 m, com insets sorteados para
+  // nao desenhar grade, e o contorno selado mais escuro que o miolo
+  vec2 cel = vViaXZ / 6.0;
+  vec2 cid = floor(cel), cf = fract(cel);
+  vec2 lo = vec2(0.08 + vrand(cid + 11.3) * 0.34, 0.08 + vrand(cid + 27.7) * 0.34);
+  vec2 hi = lo + vec2(0.20 + vrand(cid + 41.1) * 0.34, 0.20 + vrand(cid + 5.9) * 0.34);
+  float dentro = step(lo.x, cf.x) * step(cf.x, hi.x) * step(lo.y, cf.y) * step(cf.y, hi.y);
+  float ativo = step(vrand(cid + 3.7), uViaTipo > 0.5 ? 0.09 : 0.05);
+  float remendo = dentro * ativo;
+  float bd = min(min(cf.x - lo.x, hi.x - cf.x), min(cf.y - lo.y, hi.y - cf.y)) * 6.0;
+  float selo = remendo * (1.0 - smoothstep(0.0, 0.14, bd));
+  tinta *= mix(1.0, 0.84 + vrand(cid + 61.2) * 0.16, remendo);
+  lisa += remendo * 0.10;
+  tinta *= mix(1.0, 0.58, selo);
+
+  // trinca: uma crista fina de ruido de mundo, so onde o asfalto ja envelheceu
+  if (uViaTipo > 0.5) {
+    float n = vnoi(vViaXZ * 0.085);
+    float cr = 1.0 - smoothstep(0.004, 0.026, abs(n - 0.5));
+    cr *= smoothstep(0.50, 0.72, vnoi(vViaXZ * 0.011));
+    tinta *= mix(1.0, 0.52, cr);
+    lisa += cr * 0.10;
+  }
+
+  diffuseColor.rgb *= tinta;
+  // ⚠️ MISTURA, NAO SOMA: ver a nota do rodado assado na receita.
+  float alvoRug = clamp(0.96 - lisa + aspera, 0.35, 1.0);
+  roughnessFactor = mix(roughnessFactor, roughnessFactor * alvoRug / 0.96, 0.7);
+  roughnessFactor = clamp(roughnessFactor, 0.05, 1.0);
+}`)
+  }
+  mat.customProgramCacheKey = () => CACHE_VIA
+  mat.needsUpdate = true
+}
+
 interface Quarteirao {
   id: string; setor: number; x: number; z: number; r: number
   /** ⚠️ `giro` e `lado` são DO BLOCO agora: 109 no Núcleo, 168 no Meio, 227 no
@@ -400,7 +565,14 @@ class Fita {
    * `comCor` idem: no look 2 cada fita é de UMA superfície só, então a cor sai do
    * material e o atributo de cor não precisa existir.
    */
-  constructor(readonly escala = 0, readonly comCor = true) {}
+  /**
+   * `comBanda` liga o atributo `aVia`, que é o ÚNICO canal por onde o acabamento
+   * do asfalto sabe onde ele está DENTRO da faixa de rolamento. Ver a nota longa
+   * de `acabamentoVia` mais abaixo: sem ele o shader só teria o UV do ladrilho,
+   * que é métrico mas contado da borda da SEÇÃO inteira, e a trilha de pneu
+   * nasceria em lugar diferente em cada uma das cinco seções.
+   */
+  constructor(readonly escala = 0, readonly comCor = true, readonly comBandaAttr = false) {}
 
   private uvOn = false
   private uvq = new Float64Array(8)
@@ -417,6 +589,45 @@ class Fita {
     const q = this.uvq
     q[0] = a; q[1] = b; q[2] = c; q[3] = d; q[4] = e; q[5] = f; q[6] = g; q[7] = h
     this.uvOn = true
+    return this
+  }
+
+  bs: number[] = []
+  private bandaOn = false
+  private bandaq = new Float64Array(4)
+  /**
+   * A BANDA DO PRÓXIMO `add`, empacotada num float por vértice.
+   *
+   * Codificação (decodificada no shader de `acabamentoVia`):
+   *   valor  <  0   cruzamento ou rotatória: desgaste isotrópico, sem trilha
+   *   valor === 0   sem informação de banda (platô, disco, o que não é faixa)
+   *   valor  >= 1   parte inteira = LARGURA da banda em MEIOS METROS
+   *                 parte fracionária = posição através da banda, 0 a 1
+   *
+   * ⚠️ UM FLOAT, NÃO DOIS. `fPista` é a maior malha do grupo `vias`; um vec2 por
+   * vértice custaria o dobro de VRAM de atributo pelo mesmo desenho.
+   *
+   * ⚠️ E A LARGURA VAI EM MEIOS METROS, NÃO EM METROS INTEIROS. As bandas deste
+   * arquivo são 7, 6, 8 e 10 m de asfalto mas 2,5 e 3,5 m de calçada; arredondar
+   * 2,5 para 3 esticaria a escala da sarjeta em 20% em toda calçada da cidade.
+   * Meio metro cobre as dez larguras das cinco seções sem sobra.
+   *
+   * ⚠️ E O t NUNCA CHEGA A 1,0, senão `floor` sobe a largura em um metro na borda
+   * de cima e a banda inteira lê 8 m onde tem 7. 0,999 é sub-milímetro em 7 m.
+   */
+  comBanda(larg: number, ta: number, tb: number, tc: number, td: number) {
+    const q = this.bandaq
+    const w = Math.max(1, Math.round(larg * 2))
+    q[0] = w + ta * 0.999; q[1] = w + tb * 0.999
+    q[2] = w + tc * 0.999; q[3] = w + td * 0.999
+    this.bandaOn = true
+    return this
+  }
+  /** o próximo `add` é cruzamento: desgaste sem direção */
+  comCruzamento() {
+    const q = this.bandaq
+    q[0] = q[1] = q[2] = q[3] = -1
+    this.bandaOn = true
     return this
   }
 
@@ -438,7 +649,13 @@ class Fita {
         this.us.push(ax * k, az * k, bx * k, bz * k, cx * k, cz * k, dx * k, dz * k)
       }
     }
+    if (this.comBandaAttr) {
+      const q = this.bandaq
+      if (this.bandaOn) this.bs.push(q[0], q[1], q[2], q[3])
+      else this.bs.push(0, 0, 0, 0)
+    }
     this.uvOn = false
+    this.bandaOn = false
     this.ix.push(b, b + 1, b + 2, b, b + 2, b + 3)
   }
 
@@ -468,6 +685,7 @@ class Fita {
     g.setAttribute('position', new THREE.Float32BufferAttribute(this.vs, 3))
     if (this.comCor) g.setAttribute('color', new THREE.Float32BufferAttribute(this.cs, 3))
     if (this.escala > 0) g.setAttribute('uv', new THREE.Float32BufferAttribute(this.us, 2))
+    if (this.comBandaAttr) g.setAttribute('aVia', new THREE.Float32BufferAttribute(this.bs, 1))
     g.setIndex(this.ix)
     g.computeVertexNormals()
     const m = new THREE.Mesh(g, mat)
@@ -617,8 +835,11 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     : { asfalto: 0, calcada: 0, campo: 0, pedra: 0 }
 
   const chao = new Fita()                                   // look 1: tudo aqui
-  const fPista = new Fita(ESC.asfalto, false)
-  const fCalcada = new Fita(ESC.calcada, false)
+  // ⚠️ O ATRIBUTO DE BANDA SÓ EXISTE NO LOOK 2. No look 1 não há material vestido
+  // para consumi-lo, e ele seria um float por vértice de puro peso morto na
+  // maior malha do grupo.
+  const fPista = new Fita(ESC.asfalto, false, look2)
+  const fCalcada = new Fita(ESC.calcada, false, look2)
   const fCanteiro = new Fita(ESC.campo, false)
   /** para onde vai um quad de chão, conforme o look */
   const fitaDe = (alvo: Alvo): Fita => {
@@ -873,7 +1094,11 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
         const pdx = x1 + perpX * s.de, pdz = z1 + perpZ * s.de
         const ft = fitaDe(s.alvo)
         const esc = ft.escala || 1
-        ft.comUV(s.de / esc, vA / esc, s.ate / esc, vA / esc,
+        // ⚠️ A ORDEM DOS t É A ORDEM DOS CANTOS DESTE `add`, e ela não é a mesma
+        // do anel (lá é ângulo primeiro). Trocar as duas espelha a trilha de
+        // pneu, que numa faixa simétrica não aparece, mas na sarjeta sim.
+        ft.comBanda(s.ate - s.de, 0, 1, 1, 0)
+          .comUV(s.de / esc, vA / esc, s.ate / esc, vA / esc,
                  s.ate / esc, vB / esc, s.de / esc, vB / esc)
           .add(COR[s.alvo],
             pax, cotaVia(pax, paz) + s.alt, paz,
@@ -1249,7 +1474,10 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
           const ft = fitaDe(b.alvo)
           const esc = ft.escala || 1
           const vA = u0 * cordaL, vB = u1 * cordaL
-          ft.comUV(b.de / esc, vA / esc, b.de / esc, vB / esc,
+          // ⚠️ NO ANEL OS CANTOS SAEM (de,vA) (de,vB) (ate,vB) (ate,vA): o t da
+          // banda acompanha essa ordem, e não a de `faixa`.
+          ft.comBanda(b.ate - b.de, 0, 0, 1, 1)
+            .comUV(b.de / esc, vA / esc, b.de / esc, vB / esc,
                    b.ate / esc, vB / esc, b.ate / esc, vA / esc)
             .add(COR[b.alvo],
               // ⚠️ `cotaVia`, NÃO `heightAt`: sobre a baía o anel viria assentado
@@ -1343,7 +1571,11 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
           // ⚠️ A ROTATÓRIA FICA COM A PROJEÇÃO XZ E ESTÁ CERTO ASSIM: ela é um
           // disco, não tem "ao longo da via", e qualquer UV direcional
           // escolheria arbitrariamente um dos doze sentidos que chegam nela.
-          fitaDe(alvo).add(COR[alvo],
+          // ⚠️ A ROTATÓRIA NÃO TEM BANDA E É POR ISSO QUE ELA PRECISA DE MARCA
+          // PRÓPRIA: doze sentidos chegam nela, então não existe "trilha de
+          // pneu" com direção. `comCruzamento` troca a rodada linear por um
+          // desgaste sem direção, que é o que o disco pede.
+          fitaDe(alvo).comCruzamento().add(COR[alvo],
             ax, o.heightAt(ax, az) + alt, az,
             dx2, o.heightAt(dx2, dz2) + alt, dz2,
             cx2, o.heightAt(cx2, cz2) + alt, cz2,
@@ -1397,6 +1629,13 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   // 6 m não quebra grade nenhuma, só clareia manchas do tamanho de um quarteirão.
   const matPista = look2 ? vestido('asfalto', '#F5EFE4', 1.0, 90) : mat
   const matCalcada = look2 ? vestido('calcada', '#FFFFFF', 0.95, 60) : mat
+  // ⚠️ O ACABAMENTO ENTRA DEPOIS DE `vestido`, NUNCA ANTES: ele envolve o
+  // `onBeforeCompile` que `vestir` acabou de instalar. Invertido, `vestir`
+  // sobrescreveria o gancho e o acabamento sumiria sem erro nenhum.
+  if (look2) {
+    acabamentoVia(matPista, 1)
+    acabamentoVia(matCalcada, 0)
+  }
   const matCanteiro = look2 ? vestido('campo', '#FFFFFF', 1.1, 120) : mat
   const matGuia = look2 ? vestido('pedra', '#FFFFFF', 1.0, 70) : mat
   const matMarca = look2
