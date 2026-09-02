@@ -32,9 +32,24 @@ function allowlist(): Set<string> {
   return new Set(
     bruto
       .split(',')
-      .map((a) => a.trim())
+      .map((a) => chave(a.trim()))
       .filter(Boolean),
   )
+}
+
+/**
+ * Forma canônica para comparar endereços.
+ *
+ * ⚠️ SÓ bech32/bech32m VIRA MINÚSCULA. Endereço `bc1...` é insensível a caixa
+ * por especificação, e a carteira pode devolver a versão em maiúsculas (a
+ * forma usada em QR code) — comparar literalmente trancaria o dono do lado de
+ * fora sem nenhum sinal de por quê. Já base58 (`1...`, `3...`) é sensível a
+ * caixa, e baixar a caixa lá confundiria endereços diferentes, então esses
+ * passam intactos.
+ */
+function chave(endereco: string): string {
+  const baixo = endereco.toLowerCase()
+  return baixo.startsWith('bc1') || baixo.startsWith('tb1') ? baixo : endereco
 }
 
 export interface Admin {
@@ -61,7 +76,7 @@ async function porSid(sid: string | undefined): Promise<Admin | null> {
     return null
   }
 
-  if (!sessao?.address || !lista.has(sessao.address)) return null
+  if (!sessao?.address || !lista.has(chave(sessao.address))) return null
   return { address: sessao.address, walletId: sessao.walletId ?? null, verifiedAt: sessao.verifiedAt }
 }
 

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
-import { Wallet, LogOut, User, ChevronDown, ShieldCheck, ShieldAlert, Loader2 } from 'lucide-react'
+import { Wallet, LogOut, User, ChevronDown, ShieldCheck, ShieldAlert, Loader2, Gauge } from 'lucide-react'
 import { useWallet } from '@/contexts/WalletContext'
 import { WALLETS } from '@/lib/wallet'
 
@@ -61,6 +61,45 @@ function useIdentity(address: string | null): Identity | null {
   return identity
 }
 
+
+/**
+ * Esta pessoa abre a sala de operação?
+ *
+ * ⚠️ A RESPOSTA VEM DO SERVIDOR, SEMPRE. A allowlist é ENV do servidor, e
+ * comparar o endereço aqui exigiria mandar a lista para o navegador, o que
+ * publicaria quais carteiras abrem a sala. O que este hook faz é perguntar.
+ *
+ * E é só cosmético: esconder o item não protege nada, quem protege é o portão
+ * em /admin e em cada rota de API. Aqui o único efeito de errar é um link a
+ * mais ou a menos num menu.
+ *
+ * Só pergunta depois que a posse foi provada, porque antes disso não existe
+ * sessão para o servidor consultar e a resposta seria não por falta de prova,
+ * não por falta de permissão.
+ */
+function useIsAdmin(verified: boolean): boolean {
+  const [admin, setAdmin] = useState(false)
+
+  useEffect(() => {
+    if (!verified) {
+      setAdmin(false)
+      return
+    }
+    let vivo = true
+    fetch('/api/admin/me')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (vivo) setAdmin(Boolean(d?.admin))
+      })
+      .catch(() => {})
+    return () => {
+      vivo = false
+    }
+  }, [verified])
+
+  return admin
+}
+
 /**
  * Botão do header. Desconectado → "Connect Wallet". Conectado → endereço +
  * dropdown com 3 itens (Profile, Verify ownership se ainda não verificado,
@@ -74,6 +113,7 @@ function useIdentity(address: string | null): Identity | null {
 export function WalletButton({ variant = 'desktop' }: { variant?: 'desktop' | 'mobile' }) {
   const { account, openModal, disconnect, verified, prove, status } = useWallet()
   const identity = useIdentity(account?.ordinalsAddress ?? null)
+  const isAdmin = useIsAdmin(verified)
   const [menuOpen, setMenuOpen] = useState(false)
   const [coords, setCoords] = useState<{ top: number; right: number } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
@@ -175,6 +215,15 @@ export function WalletButton({ variant = 'desktop' }: { variant?: 'desktop' | 'm
             <User className="w-4 h-4" />
             Profile
           </Link>
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className="w-full flex items-center gap-3 px-3 py-2.5 font-mono text-sm text-[#6B6B78] hover:text-snow hover:bg-white/[0.03] rounded-lg transition-colors"
+            >
+              <Gauge className="w-4 h-4" />
+              Operations
+            </Link>
+          )}
           {!verified && (
             <button
               onClick={handleProve}
@@ -257,6 +306,16 @@ export function WalletButton({ variant = 'desktop' }: { variant?: 'desktop' | 'm
             <User className="w-3.5 h-3.5" />
             Profile
           </Link>
+          {isAdmin && (
+            <Link
+              href="/admin"
+              onClick={closeMenu}
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-[12px] font-mono text-snow hover:bg-white/[0.05] transition-colors"
+            >
+              <Gauge className="w-3.5 h-3.5" />
+              Operations
+            </Link>
+          )}
           {!verified && (
             <button
               onClick={handleProve}
