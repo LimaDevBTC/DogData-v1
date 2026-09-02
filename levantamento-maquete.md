@@ -1,5 +1,12 @@
 # Levantamento para a maquete do loteamento
 
+> **Nota de 01/09/2026.** Os números de loteamento deste levantamento (raio de
+> sítio 4.500, 52.991 lotes, `cidade.json` de 29/08) foram superados: o sítio foi
+> para raio 7.000 em 31/08 e a cidade tem 85.843 carteiras plantadas. Para número
+> corrente, leia `public/city/cidade.json` ou a tarja no topo de
+> `orcamento-de-terra.md`. As medições de GLB e de técnica de render continuam
+> válidas.
+
 Fase 1 do pipeline `dogcity-maquete`, interrompida pelo fundador em 29/08/2026 depois do
 levantamento (economia de tokens). Três frentes entregaram completo; a frente de técnica de
 render foi interrompida e o que ela chegou a escrever está no fim, marcado como PARCIAL.

@@ -53,8 +53,27 @@ export const DOME_R = 7050
  * da cidade (`PARK_FRENTE`), então a testada dele é 9.800 − 2.750 = 7.050. Com
  * 8.600 a abóbada entrava 1.550 m parque adentro e a saia dela ficava DE PÉ
  * dentro da cova do parque, a −263 m; com os 7.600 antigos já entrava 550 m.
- * O cinturão continua grande de propósito, para a cidade crescer: 87,7 km²,
- * 56% do que a cúpula cobre.
+ * ⚠️ O CINTURÃO ACABOU, E ESTA NOTA DIZIA O CONTRÁRIO ATÉ 01/09. O texto aqui
+ * afirmava "o cinturão continua grande de propósito, para a cidade crescer:
+ * 87,7 km², 56% do que a cúpula cobre", e aquilo era verdade enquanto o sítio
+ * tinha raio 4.500 e a casca era um disco. Em 31/08 o sítio foi para 7.000 e o
+ * contorno publicado passou a chegar a 7.571 m, ou seja a cidade ALCANÇOU a
+ * casca e em parte do rumo passa dela. Medido em 01/09 sobre os 180 vértices de
+ * `cidade-malha.json` -> `contorno`:
+ *
+ *   área do sítio            149,250 km²   (raio de 5.983 a 7.571 m)
+ *   disco de DOME_R 7.050    156,145 km²
+ *   diferença                  6,895 km²
+ *
+ * E a diferença nem é cinturão de verdade, porque a casca RECORTA NO CONTORNO,
+ * não neste raio: o raio só vale como piso quando o contorno não chega.
+ *
+ * Isso é decisão de produto, não trivia de render: não existe mais reserva de
+ * terra fora da cidade. O que sobra para crescer é tecido não loteado DENTRO
+ * dela, 16,939 km² medidos em 01/09 (`public/city/cidade.json`:
+ * `tecidoDisponivel_km2` 47,298 menos `areaLotes_km2` 30,359). Quem for
+ * prometer terra a coleção parceira decide em cima desse número, e decide ANTES
+ * do mint, porque lote inscrito na L1 congela o traçado.
  *
  * ⚠️ SE `PARK_FRENTE` OU `DIST` MUDAREM EM park-site.ts, ESTE NÚMERO MUDA JUNTO.
  */

@@ -1,5 +1,12 @@
 # A MAQUETE DA DOGCITY: especificação de construção
 
+> **Nota de 01/09/2026.** Os números de loteamento deste levantamento (raio de
+> sítio 4.500, 52.991 lotes, `cidade.json` de 29/08) foram superados: o sítio foi
+> para raio 7.000 em 31/08 e a cidade tem 85.843 carteiras plantadas. Para número
+> corrente, leia `public/city/cidade.json` ou a tarja no topo de
+> `orcamento-de-terra.md`. As medições de GLB e de técnica de render continuam
+> válidas.
+
 Contrato verificável do loteamento sem prédios. Escrito em 29/08/2026 pelo diretor de
 arte da rodada, a partir da direção vencedora e dos enxertos que os três jurados
 pediram. Seis construtores trabalham em paralelo lendo só este arquivo; três jurados

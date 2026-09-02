@@ -1,5 +1,33 @@
 # O loteamento da DogCity
 
+> ## ⚠️ SUPERADO EM 01/09/2026. LEIA ISTO ANTES DO RESTO.
+>
+> Este documento mede a cidade de **raio 4.500 m com 52.991 carteiras**. Em
+> 31/08 o sítio foi para **raio 7.000** e o corte de 20.000 DOG caiu, então
+> **toda carteira com qualquer DOG recebe lote**. Praticamente todo número
+> abaixo está desatualizado por um fator grande.
+>
+> O documento continua valendo como REGISTRO DE DECISÃO: o raciocínio, os
+> critérios e as armadilhas seguem bons. O que não vale mais é a aritmética.
+>
+> Números correntes, medidos em 01/09 contra `public/city/cidade.json` e os 180
+> vértices de `public/city/cidade-malha.json` -> `contorno`:
+>
+> | | antes (este doc) | agora |
+> |---|--:|--:|
+> | raio do sítio | 4.500 m | 5.983 a 7.571 m |
+> | área do sítio | 63,617 km² | **149,250 km²** |
+> | carteiras | 52.991 | **85.843** |
+> | tecido disponível | 25,522 km² | **47,298 km²** |
+> | área de lote | 21,140 km² | **30,359 km²** |
+> | lote mediano | 315 m² | **238 m²** |
+> | **tecido livre** | 4,382 km² | **16,939 km²** |
+>
+> E o cinturão de reserva fora da cidade **acabou**: a cúpula tem 156,145 km² de
+> disco contra 149,250 km² de sítio, e ela recorta no contorno, não no raio. Não
+> existe mais terra sobrando fora do tecido. Ver `app/city/plaza/dome.ts`.
+
+
 Estado de 28/08/2026, conferido sobre o terreno real da NASA e não sobre a planta.
 Todo número aqui saiu de uma rodada de `scripts/gerar_cidade.py` ou de uma medição
 sobre `public/city/cidade-lotes.bin` e `data/dogcity_lotes.csv`. Onde não foi
