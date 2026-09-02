@@ -233,7 +233,36 @@ export function buildLago(o: LagoOpts): Lago {
     }
     return out
   }
+  // ⚠️ A LINHA D'ÁGUA MEDIDA NÃO PODE IR CRUA PARA A PRAIA, e esta era a margem
+  // deformada do lago. `linhaDagua` faz bisseção contra `superficieAt`, que é a
+  // MALHA do terreno interpolada por triângulo: a raiz não é uma curva lisa, ela
+  // salta quando o rumo troca de triângulo. A largura da areia (`W`) já era
+  // alisada em 6 passadas, mas a LINHA de onde ela sai não era nunca, então a
+  // borda molhada seguia um contorno serrilhado a 720 rumos, ou seja um dente a
+  // cada 9,3 m de arco em r 1.075: de perto lê como recorte de tesoura.
+  // Mesma máquina de `alisaContorno` em `lagos.ts`, mesmo teto de desvio de 4 m,
+  // e ele é o que impede o alisamento de descolar a areia da água: a franja
+  // molhada entra de 5 a 9,5 m para dentro da lâmina e cobre os 4 m com folga.
+  // ⚠️ E O LAÇO É CIRCULAR. Deixar a emenda dos 720 rumos de fora guardaria uma
+  // quina não alisada por margem, e uma quina só numa linha lisa é o que o olho
+  // acha primeiro.
+  const alisaRaio = (r: Float64Array, passadas = 3, teto = 4) => {
+    const M = r.length
+    const cru = r.slice()
+    for (let p = 0; p < passadas; p++) {
+      const T = r.slice()
+      for (let k = 0; k < M; k++) {
+        r[k] = T[k] * 0.5 + (T[(k + M - 1) % M] + T[(k + 1) % M]) * 0.25
+      }
+    }
+    for (let k = 0; k < M; k++) {
+      const d = r[k] - cru[k]
+      if (d > teto) r[k] = cru[k] + teto
+      else if (d < -teto) r[k] = cru[k] - teto
+    }
+  }
   const margemI = linhaDagua(false), margemE = linhaDagua(true)
+  alisaRaio(margemI); alisaRaio(margemE)
   let rMargemI = Infinity, rMargemE = -Infinity
   for (let k = 0; k < NA_MARGEM; k++) {
     if (margemI[k] < rMargemI) rMargemI = margemI[k]
@@ -682,11 +711,29 @@ export function buildLago(o: LagoOpts): Lago {
     const aPier = anguloDesembarque(k)
     {
       const meia = 5.5 / raio                       // 5,5 m de meia-largura
-      const passos = 10
+      // ⚠️ A COTA DA FAIXA DE DESEMBARQUE VINHA DE UMA RAMPA RETA E ELA NÃO
+      // ENCOSTAVA NA ILHA EM LUGAR NENHUM, e é a segunda margem deformada que
+      // achei. A ilha é feita de patamares (clareira +3,1 / mata +2,7 a +3,0 /
+      // trilha +2,6 / mata +1,5 a +2,4 / praia +0,15 a +1,5), e a faixa descia
+      // de +3,0 a +2,5 em linha reta por cima de tudo: no começo ela ficava 10 cm
+      // ENTERRADA na clareira, e na beira d'água (f 0,92) ficava +2,5 sobre uma
+      // praia de +1,05, ou seja uma tábua de saibro flutuando 1,45 m acima da
+      // areia, oito vezes, uma por ilha. Agora a cota SAI DO PATAMAR que está
+      // embaixo, mais 5 cm, e o passo caiu de 10 para 22 porque com 10 cada
+      // degrau saltava 45 cm perto da praia.
+      const fCl = dsc ? 0.42 : 0.34
+      const yTerraco = (f: number) => {
+        if (f <= fCl) return L.agua + 3.1
+        if (f <= 0.655) return L.agua + 3.0 - (0.3 * (f - fCl)) / (0.655 - fCl)
+        if (f <= 0.70) return L.agua + 2.6
+        if (f <= 0.88) return L.agua + 2.4 - (0.9 * (f - 0.70)) / 0.18
+        return L.agua + 1.5 - (1.35 * (f - 0.88)) / 0.12
+      }
+      const passos = 22
       for (let j = 0; j < passos; j++) {
-        const f0 = 0.30 + (0.62 * j) / passos, f1 = 0.30 + (0.62 * (j + 1)) / passos
-        const y = L.agua + 3.0 - 0.5 * (f0 - 0.30) / 0.62   // desce da clareira para a praia
-        const q = (f: number, da: number) => p(rr(aPier + da, raio * f), aPier + da, y)
+        const f0 = 0.30 + (0.64 * j) / passos, f1 = 0.30 + (0.64 * (j + 1)) / passos
+        const q = (f: number, da: number) =>
+          p(rr(aPier + da, raio * f), aPier + da, yTerraco(f) + 0.05)
         B(COR_TRILHA).quad(q(f0, -meia), q(f1, -meia), q(f1, meia), q(f0, meia))
       }
     }
@@ -934,7 +981,7 @@ export function aguaDeVerdade(m: THREE.Mesh): { value: number } | null {
   // compila UM programa por material com `onBeforeCompile`, numa cena que já
   // compila 228 programas com teto medido em 235. As três águas (lago, baía,
   // canais) dividem o mesmo programa por look.
-  mat.customProgramCacheKey = () => (campo ? 'agua-prof-v1' : 'agua-v1')
+  mat.customProgramCacheKey = () => (campo ? 'agua-prof-v2' : 'agua-v1')
   mat.needsUpdate = true
   return uTempo
 }
@@ -1219,30 +1266,65 @@ function aplicarProfundidade(sh: { vertexShader: string; fragmentShader: string 
     .replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>
       float prof = profDaAgua();
       float f = uEsc;
-      // ⚠️ AS TRÊS CRISTAS NÃO SÃO MAIS PARALELAS AOS EIXOS. Com x puro e z puro
-      // as duas primeiras cruzavam em 90 graus e desenhavam um XADREZ, que na
-      // chapa da foz do canal lia como tecido e não como água. Rumos quebrados
-      // (26, 118 e 71 graus) tiram a grade sem custar uma instrução a mais.
-      float dA = dot(vMundoAgua.xz, vec2(0.898, 0.440));
-      float dB = dot(vMundoAgua.xz, vec2(-0.469, 0.883));
-      float dC = dot(vMundoAgua.xz, vec2(0.326, 0.945));
-      float ondaA = sin(dA * 0.241 * f + uTempo * 0.62 * f);
-      float ondaB = sin(dB * 0.157 * f - uTempo * 0.44 * f);
-      float ondaC = sin(dC * 0.083 * f + uTempo * 0.31 * f);
+      vec2 pw = vMundoAgua.xz;
+      float dv = length(vViewPosition);
+      // ⚠️ VELUDO COTELÊ: A CAUSA ERA O CANAL, NÃO O RUMO. A versão de três
+      // cristas mandava a inclinação para vec3(ondaA + ondaC, 0, ondaB + ondaC):
+      // o X carregava uma senoide dominante de 26 m e o Z outra de 40 m,
+      // INDEPENDENTES do rumo em que cada crista viajava. Sob luz direcional só
+      // conta a componente da normal no azimute do sol, então um dos dois canais
+      // manda sozinho e o que chega na tela é UMA senoide pura: faixas paralelas
+      // regulares, que é exatamente o tecido que o fundador viu na rasante.
+      // Girar os rumos matou o xadrez e não podia matar a listra, porque a
+      // listra nasce da separação por eixo e não do ângulo entre as cristas.
+      // Agora cada crista inclina a normal NO PRÓPRIO RUMO dela, que é o que
+      // onda faz, e nenhum azimute de sol consegue isolar uma senoide só.
+      //
+      // ⚠️ E O ESPECTRO NÃO PODE TER RAZÃO SIMPLES. Os períodos velhos eram 26,1,
+      // 40,0 e 75,7 m: 75,7 / 26,1 = 2,90, quase 3, e duas senoides quase em
+      // razão inteira voltam a somar em fase a cada ~78 m e desenham banda larga
+      // por cima da fina. Os cinco de agora (7,9 / 11,3 / 17,7 / 28,3 / 46,1 m)
+      // não têm razão perto de inteiro entre nenhum par.
+      //
+      // ⚠️ E ÁGUA REAL NÃO TEM AMPLITUDE CONSTANTE. Mesmo com cinco cristas, cinco
+      // senoides de amplitude fixa cobrem o corpo inteiro com a mesma agitação,
+      // e regularidade em campo grande volta a ler como tecido. O termo raj e um campo
+      // de rajada de 556 por 722 m que abre manchas de calmaria: é o termo que
+      // mais tira a cara de padrão, e custa duas senoides.
+      //
+      // Custo: 7 senoides no fragmento contra 3. NÃO MEDIDO em quadro; a lâmina
+      // é fragmento puro, zero chamada nova e zero programa novo.
+      float raj = 0.62 + 0.38 * sin(dot(pw, vec2(0.71, 0.70)) * 0.0113 + uTempo * 0.10)
+                              * sin(dot(pw, vec2(-0.66, 0.75)) * 0.0087 - uTempo * 0.08);
+      // ⚠️ A MORTE POR DISTÂNCIA É POR BANDA, e tem de ser: crista de 7,9 m mede
+      // menos que um pixel muito antes da de 46 m. Amortecer todas na mesma
+      // janela ou deixa a curta serrilhando de longe, ou apaga a longa de perto.
+      float dCurta = mix(1.0, 0.05, smoothstep(160.0, 800.0, dv));
+      float dMedia = mix(1.0, 0.10, smoothstep(400.0, 1600.0, dv));
+      float dLonga = mix(1.0, 0.16, smoothstep(900.0, 3000.0, dv));
+      vec2 d1 = vec2(0.974, 0.225);   // 13 graus
+      vec2 d2 = vec2(0.629, 0.777);   // 51
+      vec2 d3 = vec2(0.035, 0.999);   // 88
+      vec2 d4 = vec2(-0.588, 0.809);  // 126
+      vec2 d5 = vec2(-0.956, 0.292);  // 163
+      float o1 = sin(dot(pw, d1) * 0.795 * f - uTempo * 1.51 * f);
+      float o2 = sin(dot(pw, d2) * 0.556 * f + uTempo * 1.22 * f);
+      float o3 = sin(dot(pw, d3) * 0.355 * f - uTempo * 0.96 * f);
+      float o4 = sin(dot(pw, d4) * 0.222 * f + uTempo * 0.73 * f);
+      float o5 = sin(dot(pw, d5) * 0.136 * f - uTempo * 0.54 * f);
+      vec2 incl = d1 * (o1 * 0.026 * dCurta)
+                + d2 * (o2 * 0.023 * dCurta)
+                + d3 * (o3 * 0.020 * dMedia)
+                + d4 * (o4 * 0.016 * dLonga)
+                + d5 * (o5 * 0.013 * dLonga);
       // onda de beira quase não existe: o fundo trava a lâmina
       float amp = mix(0.22, 1.0, prof);
       // ⚠️ E CORPO PEQUENO NÃO FAZ ONDA GRANDE. uEsc já encurta o período, mas
       // encurtar sem baixar a altura dá uma vala de 60 m com mar de fundo. A
       // altura cai junto com o tamanho do corpo: canal abrigado, baía aberta.
       amp *= mix(1.0, 0.45, clamp((uEsc - 1.0) / 2.4, 0.0, 1.0));
-      // ⚠️ E A ONDA MORRE COM A DISTÂNCIA, o que não é economia, é
-      // antisserrilhamento. A crista tem período de 26 m: passados uns 1.500 m
-      // ela mede menos que um pixel e vira o mesmo moiré xadrez que a chapa
-      // mostrava na água aberta, nos DOIS looks. Amostrar mais fino não resolve
-      // o que já não cabe: o que resolve é a lâmina distante ficar lisa.
-      amp *= mix(1.0, 0.14, smoothstep(500.0, 2600.0, length(vViewPosition)));
-      normal = normalize(normal + amp * vec3(ondaA * 0.052 + ondaC * 0.021, 0.0,
-                                             ondaB * 0.052 - ondaC * 0.019));
+      amp *= raj;
+      normal = normalize(normal + amp * vec3(incl.x, 0.0, incl.y));
     `)
     .replace('#include <dithering_fragment>', `#include <dithering_fragment>
       float profF = profDaAgua();

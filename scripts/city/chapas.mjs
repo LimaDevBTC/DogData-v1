@@ -44,7 +44,10 @@ const VISTAS = {
   aerea:    [0, 1400, 2200, 0, 0, 0, 45],
   orla:     [2000, 70, -1500, 2900, -35, -2500, 45],
   foz:      [1100, 95, -2650, 1620, -35, -3260, 42],
-  spaceport:[-140, 260, 4300, -140, 120, 5150, 40],
+  // ⚠️ ATUALIZADO EM 02/09: o pátio saiu de r 9.200 para r 11.200 quando a casca
+  // foi a 9.050. O enquadramento antigo apontava para o lugar vazio, e a primeira
+  // conferência depois da mudança fotografou chão nenhum sem ninguém perceber.
+  spaceport:[-508, 520, 9700, -508, 180, 11188, 42],
   zenite:   [0, 300, 0, 0, 1200, 0, 60],
   // pedidos pelos agentes da água em 02/09, para conferir borda molhada e fusão
   // da areia no chão. Rasante de verdade: a câmera fica NA cota da lâmina.
@@ -53,6 +56,10 @@ const VISTAS = {
   // o mar e o arquipelago, de cima: a baia nova tem centro em (4815, -3589) e
   // raio equivalente 4.246 m, e a aerea padrao nao alcanca ela.
   mar:      [-1200, 4200, 3800, 4815, -40, -3589, 50],
+  // pedido pelo agente do canal central em 02/09: rasante na margem INTERNA do
+  // Lago da Praca, para julgar a praia por inclinacao e a juncao da malha fina
+  lagointerno:[1000, 14, 300, 1200, -6, 360, 45],
+  lagoponte: [0, 60, 1700, 0, -6, 1300, 50],
   // a Ilha do Fundador (IL01) de perto: forma da costa, praia, mata e patamar
   ilhaperto:[2650, 620, -3560, 3526, -30, -4340, 42],
   // a margem do Lago da Praca, o canal central: camera baixa sobre a beirada

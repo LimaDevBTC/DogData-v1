@@ -301,6 +301,46 @@ const CB_CHANFRO = 0.05
 const CB_TOPO = 0.28
 const CB_LIP = 0.015
 
+// ── O OMBRO DA VIA (02/09) ─────────────────────────────────────────────────
+// ⚠️ O DEFEITO: A PISTA ERA UMA FITA DE ASFALTO LARGADA SOBRE REGOLITO NU. Entre
+// a calçada e o que vinha depois não havia NADA: nem canteiro, nem guia, nem
+// talude, nem transição. Numa vista de cima o bulevar lia como um traço preto no
+// marrom, e era isso que fazia a rua parecer genérica mesmo tendo faixa pintada,
+// meio-fio de quatro planos e canteiro central. Rua de verdade tem OMBRO: uma
+// berma plana rente à calçada e um talude que MORRE NO TERRENO.
+//
+// ⚠️ A COTA DE FORA É O TERRENO, NÃO UMA CONSTANTE. Se as duas bordas saíssem de
+// `cotaVia`, o ombro seria mais uma fita plana, só que verde, e o buraco entre
+// ela e o chão continuaria lá 9 m adiante. Aqui a borda de dentro nasce na
+// calçada e a de fora assenta em `cotaVia + 3 cm`: o quad É o talude, e o
+// encontro com o regolito é uma aresta e não uma emenda seca.
+//
+// ⚠️ E O DESNÍVEL É LIMITADO A 3 m. Sem trava, um trecho onde o regolito sobe 20 m
+// em 9 m de vão devolveria uma PAREDE verde de 20 m ao lado da pista, que lê como
+// defeito antes de ler como talude. Não medi a frequência disso; a trava é
+// preventiva e barata.
+//
+// ⚠️ HIERARQUIA, QUE ERA O SEGUNDO DEFEITO: bulevar e anel tinham a MESMA cara e
+// só mudavam de largura. O ombro é onde a diferença passa a existir sem custar
+// material: o bulevar ganha berma larga com uma soleira clara de 1 m em
+// 'calcada' (a faixa de acostamento), o anel ganha só a berma estreita de campo,
+// e o mobiliário fecha a leitura (gradil na avenida, balizador no anel, em
+// `mobiliario-urbano.ts`).
+//
+// ⚠️ ZERO CHAMADA DE DESENHO NOVA, DE PROPÓSITO: a berma cai em `fCanteiro` e a
+// soleira em `fCalcada`, as duas fitas que a rua já publica. Custo estimado
+// (não medido em tela): ~55 mil triângulos sobre os 436.874 do grupo `vias`.
+const OMBRO_BULEVAR = 9.0
+const OMBRO_ANEL = 5.0
+/** a soleira clara rente à calçada, só no bulevar */
+const OMBRO_SOLEIRA = 1.0
+/** a berma nasce 3 cm abaixo da calçada: nunca coplanar com ela */
+const OMBRO_ALT = Y_CALCADA - 0.03
+/** quanto o pé do talude pode se afastar da cota da via, para cima ou para baixo */
+const OMBRO_DESNIVEL = 3.0
+/** folga do pé do talude sobre o regolito, mesma lógica do FOLGA da pista */
+const OMBRO_POUSO = 0.03
+
 interface Quarteirao {
   id: string; setor: number; x: number; z: number; r: number
   /** ⚠️ `giro` e `lado` são DO BLOCO agora: 109 no Núcleo, 168 no Meio, 227 no
@@ -711,6 +751,72 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
                -lado * px, -lado * pz)
   }
 
+  // ── o ombro: a berma e o talude que costuram a via ao chão ───────────────
+  /** cota de um ponto do ombro: `terreno` manda assentar no chão, senão é a via */
+  const cotaOmbro = (x: number, z: number, terreno: boolean, ref: number) => {
+    if (!terreno) return cotaVia(x, z) + OMBRO_ALT
+    const y = cotaVia(x, z) + OMBRO_POUSO
+    // ⚠️ ver a nota do OMBRO_DESNIVEL: sem esta trava o talude vira parede.
+    return Math.min(ref + OMBRO_DESNIVEL, Math.max(ref - OMBRO_DESNIVEL, y))
+  }
+  /**
+   * Um quad de ombro entre dois offsets da seção.
+   *
+   * ⚠️ A ORDEM É A MESMA DE `faixa` e de `deitado`: menor offset, maior offset, e
+   * só então ao longo da via. Inverter devolve normal para baixo e o quad some no
+   * culling, que é a armadilha registrada em pracas.ts:98.
+   */
+  const bandaOmbro = (
+    fita: Fita, cor: THREE.Color,
+    x0: number, z0: number, x1: number, z1: number,
+    px: number, pz: number, oa: number, ob: number,
+    terrA: boolean, terrB: boolean, vA: number, vB: number,
+  ) => {
+    const de = Math.min(oa, ob), ate = Math.max(oa, ob)
+    const tde = oa <= ob ? terrA : terrB, tate = oa <= ob ? terrB : terrA
+    const esc = fita.escala || 1
+    const pax = x0 + px * de, paz = z0 + pz * de
+    const pbx = x0 + px * ate, pbz = z0 + pz * ate
+    const pcx = x1 + px * ate, pcz = z1 + pz * ate
+    const pdx = x1 + px * de, pdz = z1 + pz * de
+    // a referência do desnível é a cota da VIA no início da banda, não a média
+    const refA = cotaVia(pax, paz) + OMBRO_ALT
+    const refB = cotaVia(pdx, pdz) + OMBRO_ALT
+    fita.comUV(de / esc, vA / esc, ate / esc, vA / esc, ate / esc, vB / esc, de / esc, vB / esc)
+      .add(cor,
+        pax, cotaOmbro(pax, paz, tde, refA), paz,
+        pbx, cotaOmbro(pbx, pbz, tate, refA), pbz,
+        pcx, cotaOmbro(pcx, pcz, tate, refB), pcz,
+        pdx, cotaOmbro(pdx, pdz, tde, refB), pdz)
+  }
+  /**
+   * Os dois ombros de um trecho reto de via, um por borda da seção.
+   *
+   * ⚠️ O OMBRO NÃO ATRAVESSA ÁGUA. Sobre a baía a via vira ponte, e ponte não tem
+   * talude: uma berma de 9 m seguindo o tabuleiro seria uma saia verde boiando
+   * sobre a lâmina. O teste é no PÉ do talude, que é a parte que primeiro sai do
+   * aterro e entra na água.
+   */
+  const ombros = (
+    x0: number, z0: number, x1: number, z1: number,
+    px: number, pz: number, de0: number, ate0: number,
+    larg: number, soleira: number, vA: number, vB: number,
+  ) => {
+    if (larg <= 0) return
+    for (const lado of [-1, 1] as const) {
+      const base = lado < 0 ? de0 : ate0
+      const pe = base + lado * larg
+      if (sobreAgua(x0 + px * pe, z0 + pz * pe)) continue
+      let borda = base
+      if (soleira > 0) {
+        const s = base + lado * soleira
+        bandaOmbro(fitaDe('calcada'), COR.calcada, x0, z0, x1, z1, px, pz, base, s, false, false, vA, vB)
+        borda = s
+      }
+      bandaOmbro(fitaDe('canteiro'), COR.canteiro, x0, z0, x1, z1, px, pz, borda, pe, false, true, vA, vB)
+    }
+  }
+
   // ── o gerador de faixa: um eixo, uma seção, o relevo de verdade ───────────
   // A linha t=0 é a BORDA da via, não o eixo: é assim que a seção fica escrita
   // como "de 0 até 2,5 é calçada", que é como um projeto de via se lê.
@@ -720,6 +826,10 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     ax: number, az: number, bx: number, bz: number,
     perpX: number, perpZ: number, secao: Banda[],
     respeitaBulevar = true,
+    /** largura do ombro em cada borda; 0 desliga (ver a nota do OMBRO_BULEVAR) */
+    ombro = 0,
+    /** soleira clara rente à calçada, dentro do ombro */
+    soleira = 0,
   ): Trilho => {
     // ⚠️ O PASSO SAI DO COMPRIMENTO, E ISTO FOI MEDIDO, NÃO ESTIMADO. Com 4
     // passos fixos o lado de 168 m virava trechos de 42 m, e uma faixa plana de
@@ -812,6 +922,11 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
           }
         }
       }
+      // ⚠️ O OMBRO SAI DEPOIS DA SEÇÃO E DENTRO DO MESMO PASSO, senão ele não
+      // sabe quais trechos a baía, a borda e a parcela cortaram, e a berma
+      // continuaria correndo verde onde a pista já tinha parado.
+      ombros(x0, z0, x1, z1, perpX, perpZ,
+             secao[0].de, secao[secao.length - 1].ate, ombro, soleira, vA, vB)
     }
     return { ax, az, bx, bz, perpX, perpZ, comp, passos, secao, desenhado }
   }
@@ -940,7 +1055,13 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     // a linha t=0 é a borda esquerda: recua meia largura do eixo
     const tr = faixa(b.x0 - perpX * larg / 2, b.z0 - perpZ * larg / 2,
                      b.x1 - perpX * larg / 2, b.z1 - perpZ * larg / 2,
-                     perpX, perpZ, secao, false)
+                     perpX, perpZ, secao, false,
+                     // ⚠️ O OMBRO ACOMPANHA A ESCALA DA SEÇÃO. As avenidas vão de
+                     // 34 a 44 m e a seção é reescalada por `esc`; um ombro fixo
+                     // de 9 m deixaria a avenida de 44 m com berma
+                     // proporcionalmente mais estreita que a de 34, que é
+                     // exatamente a uniformidade que estamos consertando.
+                     OMBRO_BULEVAR * esc, OMBRO_SOLEIRA * esc)
 
     // ⚠️ A MARCA NÃO GANHA TEXTURA, E É DECISÃO, NÃO ESQUECIMENTO. Ela é tinta
     // de 0,60 m de largura sobre asfalto: qualquer ladrilho de 4 a 9 m dentro
@@ -1155,6 +1276,45 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
               const h0 = cotaVia(bx, bz), h1 = cotaVia(cx, cz)
               guia.add(COR.meiofio, bx, h0 + baixo, bz, bx, h0 + alto, bz,
                        cx, h1 + alto, cz, cx, h1 + baixo, cz)
+            }
+          }
+        }
+      }
+      // ── o ombro do anel: berma de campo dos dois lados ──────────────────
+      // ⚠️ MAIS ESTREITO QUE O DO BULEVAR E SEM SOLEIRA, E É ISSO QUE CRIA A
+      // HIERARQUIA. Até 02/09 anel e bulevar tinham a MESMA seção (calçada,
+      // pista, canteiro, pista, calçada) e só mudavam de largura: de cima os
+      // dois liam como a mesma rua desenhada duas vezes.
+      //
+      // ⚠️ E O SENTIDO DO OMBRO DE FORA É INVERTIDO DE PROPÓSITO. `bandaOmbro`
+      // emite raio primeiro e ângulo depois, que é a ordem ERRADA no anel (a
+      // nota de duas seções acima: ângulo primeiro, raio depois). Para o lado de
+      // dentro o sinal do raio já corrige sozinho; para o de fora o conserto é
+      // percorrer a corda ao contrário, e aí a normal volta a apontar para cima.
+      // Sem isto o backface culling apaga metade das bermas do anel, em silêncio.
+      {
+        const rIn = r0 + secao[0].de
+        const rOut = r0 + secao[secao.length - 1].ate
+        const largOmb = OMBRO_ANEL * esc
+        for (const [rB, sinal] of [[rIn, -1], [rOut, 1]] as [number, number][]) {
+          const [P0x, P0z] = pt(rB, a0), [P1x, P1z] = pt(rB, a1)
+          const cordaL = Math.hypot(P1x - P0x, P1z - P0z)
+          for (let t = 0; t < NSUB; t++) {
+            const u0 = t / NSUB, u1 = (t + 1) / NSUB
+            const qax = P0x + (P1x - P0x) * u0, qaz = P0z + (P1z - P0z) * u0
+            const qdx = P0x + (P1x - P0x) * u1, qdz = P0z + (P1z - P0z) * u1
+            const mxr = (qax + qdx) / 2, mzr = (qaz + qdz) / 2
+            const hr = Math.hypot(mxr, mzr) || 1
+            const nx = (mxr / hr) * sinal, nz = (mzr / hr) * sinal
+            const px2 = mxr + nx * largOmb, pz2 = mzr + nz * largOmb
+            if (o.naBaia && o.naBaia(px2, pz2)) continue
+            if (sobreAgua(px2, pz2)) continue
+            if (sinal < 0) {
+              bandaOmbro(fitaDe('canteiro'), COR.canteiro, qax, qaz, qdx, qdz, nx, nz,
+                         0, largOmb, false, true, u0 * cordaL, u1 * cordaL)
+            } else {
+              bandaOmbro(fitaDe('canteiro'), COR.canteiro, qdx, qdz, qax, qaz, nx, nz,
+                         0, largOmb, false, true, u1 * cordaL, u0 * cordaL)
             }
           }
         }

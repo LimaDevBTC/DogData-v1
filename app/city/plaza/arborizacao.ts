@@ -94,6 +94,11 @@ const COR_COPA = new THREE.Color('#7E8A6B')
 // escura de propósito: contra regolito #9B958C dá 2,4:1, que é o valor de uma
 // oclusão de contato, não de uma mancha desenhada.
 const COR_TERRA = new THREE.Color('#4A4238')
+/** ⚠️ O ARBUSTO É MAIS ESCURO QUE A COPA DE PROPÓSITO. Sub-bosque real vive na
+ *  sombra da árvore e nunca lê mais claro que ela; arbusto no mesmo valor da copa
+ *  some dentro dela e o canteiro não aparece. #63704F contra copa #7E8A6B dá uma
+ *  diferença de luminância de 17%, que é o que separa as duas massas na rasante. */
+const COR_ARBUSTO = new THREE.Color('#63704F')
 
 const TETO = 40000        // teto duro de instâncias; o módulo loga o plantado
 const R_CHEIA = 1400      // além disto a árvore vira o volume de longe (8 triângulos)
@@ -104,7 +109,7 @@ const FOLGA_VIA = 1.9
 /** a seção do bulevar em `vias.ts` mede 34 m e é esticada por largura/34 */
 const SEC_BULEVAR_M = 34
 
-type Forma = 'esfera' | 'cone'
+type Forma = 'esfera' | 'cone' | 'copada'
 interface Muda {
   x: number; z: number; forma: Forma
   /** porte geral da muda */
@@ -174,11 +179,15 @@ const ARQUETIPOS: Record<Forma, [number, number][]> = {
   // xz, y
   esfera: [[1.00, 1.00], [1.34, 0.74], [0.66, 1.34], [0.88, 1.40]],
   cone: [[1.00, 1.00], [1.25, 0.85], [0.80, 1.10], [0.72, 1.24]],
+  // a copada já nasce larga: a faixa dela é mais curta, senão vira cogumelo
+  copada: [[1.00, 1.00], [1.18, 0.86], [0.86, 1.12], [1.08, 0.92]],
 }
 /** ⚠️ 0,86 a 1,14 ERA FAIXA DE 30%, E ÁRVORE DE RUA NÃO É ASSIM. Uma fileira
  *  real tem muda nova de 3 m ao lado de exemplar velho de 13 m. Com o arquétipo
  *  junto, a esfera vai de 3,1 m a 13,2 m e o cone de 5,1 m a 15,1 m. */
-const PORTE: Record<Forma, [number, number]> = { esfera: [0.60, 1.35], cone: [0.55, 1.25] }
+const PORTE: Record<Forma, [number, number]> = {
+  esfera: [0.60, 1.35], cone: [0.55, 1.25], copada: [0.62, 1.22],
+}
 
 /** o multiplicador de cor de uma muda: frio e escuro de um lado, quente e claro
  *  do outro. Ele MULTIPLICA a cor por vértice, então 1,0 é a copa de hoje. */
@@ -217,7 +226,7 @@ function criarMuda(x: number, z: number, forma: Forma, i: number): Muda {
   const [escXZ, escY] = arq[Math.min(arq.length - 1, Math.floor(q * arq.length))]
   // o cone é a árvore de canteiro, estaqueada: quase no prumo. A esfera é a de
   // calçada, que cresce torta.
-  const tombo = forma === 'cone' ? 0.026 : 0.062
+  const tombo = forma === 'cone' ? 0.026 : forma === 'copada' ? 0.048 : 0.062
   return {
     x, z, forma, esc, escXZ, escY, giro,
     tomboX: (hash01(i * 77) - 0.5) * 2 * tombo,
@@ -260,6 +269,76 @@ function tubo(perfil: [number, number][], lados: number, cor: THREE.Color): THRE
 }
 
 /**
+ * O LÓBULO DE FOLHA: um icosaedro com o raio empurrado por vértice e a normal
+ * trocada pela direção do centro. 20 triângulos.
+ *
+ * ⚠️ É ISTO QUE TIRA A COPA DE "FORMA PRIMITIVA", e o motivo é que a leitura de
+ * esfera não vem do número de faces, vem de duas coisas que um icosaedro tem e
+ * uma massa de folha não: SILHUETA REGULAR e NORMAL FACETADA. Aqui as duas são
+ * atacadas sem gastar um triângulo:
+ *   1. o raio de cada canto varia de 0,74 a 1,26, então o contorno fica irregular
+ *      em qualquer ângulo, que é o que o olho lê como folhagem;
+ *   2. a normal passa a ser a direção do centro do lóbulo, ou seja ESFÉRICA e
+ *      não por face, e a copa deixa de acender em vinte chapas planas.
+ *
+ * ⚠️ E O RUÍDO É POR POSIÇÃO, NÃO POR ÍNDICE, senão a copa RACHA. A
+ * `IcosahedronGeometry` do three não é indexada: cada face traz os seus 3
+ * vértices, e o mesmo canto aparece em 5 faces com índices diferentes. Ruído por
+ * índice empurraria cada cópia para um raio diferente e a copa abriria fendas em
+ * todos os cantos. A chave é a posição quantizada em milésimos, que devolve o
+ * mesmo empurrão para as 5 cópias.
+ */
+function lobo(
+  r: number, cx: number, cy: number, cz: number,
+  achata: number, semente: number, cor: THREE.Color,
+): THREE.BufferGeometry {
+  const g = new THREE.IcosahedronGeometry(r, 0)
+  const p = g.attributes.position as THREE.BufferAttribute
+  const nrm = new Float32Array(p.count * 3)
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i)
+    const qx = Math.round(x * 1000), qy = Math.round(y * 1000), qz = Math.round(z * 1000)
+    const chave = ((Math.imul(qx, 73856093) ^ Math.imul(qy, 19349663) ^ Math.imul(qz, 83492791)) >>> 0)
+    const k = 0.74 + hash01(chave + semente) * 0.52
+    const nx = x * k, ny = y * k * achata, nz = z * k
+    p.setXYZ(i, nx, ny, nz)
+    const L = Math.hypot(nx, ny, nz) || 1
+    nrm[i * 3] = nx / L; nrm[i * 3 + 1] = ny / L; nrm[i * 3 + 2] = nz / L
+  }
+  g.setAttribute('normal', new THREE.BufferAttribute(nrm, 3))
+  g.translate(cx, cy, cz)
+  return pintar(g, cor)
+}
+
+/**
+ * A MASSA DE FOLHA: três lóbulos que se cruzam, 60 triângulos.
+ *
+ * ⚠️ TRÊS, E NÃO UM MAIOR. Um lóbulo só, por mais irregular que seja, continua
+ * tendo um contorno CONVEXO, e é a convexidade que faz o olho dizer "bola". A
+ * cintura entre dois lóbulos é o único jeito barato de produzir contorno côncavo,
+ * que é o que toda copa de verdade tem. O quarto lóbulo custaria mais 20
+ * triângulos por árvore, ou seja 76 mil na cidade cheia, e a leitura já fecha
+ * com três.
+ */
+function copaLobada(
+  semente: number, raio: number, y: number, achata: number, espalha: number,
+): THREE.BufferGeometry[] {
+  const gs: THREE.BufferGeometry[] = []
+  for (let k = 0; k < 3; k++) {
+    const a = (k / 3) * Math.PI * 2 + hash01(semente * 17 + k) * 1.1
+    const rr = raio * (0.72 + hash01(semente * 3 + k) * 0.30)
+    gs.push(lobo(
+      rr,
+      Math.cos(a) * raio * espalha,
+      y + (hash01(semente * 5 + k) - 0.45) * raio * 0.50,
+      Math.sin(a) * raio * espalha,
+      achata, semente * 31 + k + 1, COR_COPA,
+    ))
+  }
+  return gs
+}
+
+/**
  * O PÉ: fuste alargado na base mais um torrão de terra batida. 32 triângulos.
  *
  * ⚠️ ISTO VALE MAIS QUE QUALQUER DETALHE DE COPA, e a razão é medida na chapa
@@ -290,7 +369,11 @@ function geoEsfera(comPe: boolean): THREE.BufferGeometry {
   const copa = new THREE.IcosahedronGeometry(2.6, 0)
   copa.scale(1, 0.82, 1)
   copa.translate(0, 4.9, 0)
-  if (comPe) return fundir([pintar(copa, COR_COPA), ...geoPe(3.4, 0.18)])
+  // look 2: a copa vira massa de folha lobada. 60 + 32 = 92 triângulos, 7,6 m
+  if (comPe) {
+    copa.dispose()
+    return fundir([...copaLobada(11, 2.45, 4.9, 0.88, 0.40), ...geoPe(3.4, 0.18)], true)
+  }
   const tronco = new THREE.CylinderGeometry(0.18, 0.26, 3.4, 5, 1, true)
   tronco.translate(0, 1.7, 0)
   return fundir([pintar(copa, COR_COPA), pintar(tronco, COR_TRONCO)])
@@ -305,13 +388,69 @@ function geoEsfera(comPe: boolean): THREE.BufferGeometry {
  *  ganha um fuste que se vê, que é o que faz a peça encostar no chão. */
 function geoCone(comPe: boolean): THREE.BufferGeometry {
   if (comPe) {
-    const c = new THREE.ConeGeometry(2.4, 9.4, 6)
-    c.translate(0, 1.6 + 4.7, 0)
-    return fundir([pintar(c, COR_COPA), ...geoPe(1.9, 0.30)])
+    // ⚠️ CONE LISO É A FORMA PRIMITIVA MAIS DENUNCIÁVEL QUE EXISTE, porque a
+    // silhueta dele é uma reta e nenhuma conífera tem contorno reto: o que se vê
+    // numa é uma pilha de saias, cada uma com a ponta caída. Aqui são três saias
+    // tronco-cônicas mais uma ponta, 42 triângulos contra os 6 do cone de antes,
+    // e o que muda não é o número, é o CONTORNO ficar serrilhado a cada 2,4 m de
+    // altura. Contado: 3 saias de 12 mais a ponta de 12 dão 48, e com o pé 80. As
+    // saias são cascas abertas, e é o `DoubleSide` do material que as deixa
+    // existir vistas de baixo. (A ponta é `ConeGeometry` aberto de 6 lados e sai
+    // com 12 triângulos, não 6: o three guarda o quad degenerado do ápice.)
+    const saias: THREE.BufferGeometry[] = [
+      tubo([[1.90, 2.50], [4.60, 1.90]], 6, COR_COPA),
+      tubo([[4.30, 2.05], [7.00, 1.45]], 6, COR_COPA),
+      tubo([[6.70, 1.55], [9.00, 0.95]], 6, COR_COPA),
+    ]
+    const ponta = new THREE.ConeGeometry(1.00, 2.20, 6, 1, true)
+    ponta.translate(0, 9.00 + 1.10, 0)
+    return fundir([...saias, pintar(ponta, COR_COPA), ...geoPe(1.9, 0.30)], true)
   }
   const c = new THREE.ConeGeometry(2.4, 11.0, 6)
   c.translate(0, 5.5, 0)
   return pintar(c, COR_COPA)
+}
+
+/**
+ * A COPADA: a terceira espécie, em vaso, guarda-chuva. 92 triângulos, 8,1 m.
+ *
+ * ⚠️ ESPÉCIE ÚNICA POR CIDADE INTEIRA É O QUE ACHATA A VISTA DE RUA, e nenhuma
+ * cidade de verdade é assim: a espécie é dominante POR AVENIDA, e é a troca de
+ * espécie entre uma avenida e a seguinte que dá a sensação de bairro. Duas formas
+ * davam duas leituras; com a copada são três, e a escolha por avenida (hash do
+ * índice da avenida) faz a fileira inteira ter parentesco, como um plantio real.
+ *
+ * ⚠️ E ELA CUSTA UMA CHAMADA DE DESENHO, NÃO DUAS. O balde de longe dela é o
+ * mesmo `cruzEsfera`: a 1.400 m um octaedro de 8 triângulos não tem espécie, tem
+ * proporção, e a proporção sai da matriz de instância (a copada entra no balde de
+ * longe alargada em 1,32 e rebaixada em 0,94). Uma geometria de longe própria
+ * seria a quinta chamada por nada.
+ */
+function geoCopada(): THREE.BufferGeometry {
+  return fundir([...copaLobada(23, 2.95, 5.75, 0.60, 0.64), ...geoPe(4.2, 0.20)], true)
+}
+
+/**
+ * O ARBUSTO: dois lóbulos rentes ao chão, 40 triângulos, 1,6 m.
+ *
+ * ⚠️ SEM SUB-BOSQUE, JARDIM LÊ COMO ESTACIONAMENTO COM ÁRVORE, e a razão é de
+ * composição, não de botânica: entre o chão e a copa, a 5 m de altura, não havia
+ * NADA, e um vão vazio dessa altura em toda a cidade é o que faz a árvore parecer
+ * colada por cima do terreno em vez de plantada nele. O arbusto ocupa a faixa de
+ * 0 a 1,6 m, que é justamente a altura do olho de quem anda, ou seja a faixa que
+ * mais aparece na vista de rua.
+ *
+ * ⚠️ ELE NÃO TEM LOD DE LONGE, E ISSO É DE PROPÓSITO. Um arbusto de 1,6 m a
+ * 420 m mede cerca de 2 px numa tela de 900 px com 45 graus de campo: um LOD ali
+ * gastaria uma chamada de desenho e mais 30 mil instâncias para pintar dois
+ * pixels. Ele simplesmente não é desenhado além do raio, e o aparecimento é
+ * invisível porque acontece no tamanho de um pixel.
+ */
+function geoArbusto(): THREE.BufferGeometry {
+  return fundir([
+    lobo(0.95, 0.00, 0.62, 0.00, 0.74, 4001, COR_ARBUSTO),
+    lobo(0.66, 0.74, 0.46, 0.28, 0.72, 4007, COR_ARBUSTO),
+  ], true)
 }
 
 /**
@@ -355,15 +494,28 @@ function geoLonge(altura: number, larg: number): THREE.BufferGeometry {
   return g
 }
 
-function fundir(gs: THREE.BufferGeometry[]): THREE.BufferGeometry {
-  const vs: number[] = [], cs: number[] = [], ix: number[] = []
+/**
+ * ⚠️ `manterNormais` EXISTE PORQUE `computeVertexNormals` APAGA O LÓBULO. A copa
+ * lobada só deixa de parecer primitiva porque a normal dela é esférica, e não por
+ * face; se a fusão recalcular a normal no fim, ela volta a ser por face e os 60
+ * triângulos acendem como 60 chapas, que é exatamente o defeito que o lóbulo
+ * veio consertar. O padrão continua `false` para o look 1 sair byte a byte igual
+ * ao que saía antes.
+ */
+function fundir(gs: THREE.BufferGeometry[], manterNormais = false): THREE.BufferGeometry {
+  const vs: number[] = [], cs: number[] = [], ns: number[] = [], ix: number[] = []
   for (const g of gs) {
     const base = vs.length / 3
     const p = g.attributes.position as THREE.BufferAttribute
     const c = g.attributes.color as THREE.BufferAttribute
+    const nn = g.attributes.normal as THREE.BufferAttribute | undefined
     for (let i = 0; i < p.count; i++) {
       vs.push(p.getX(i), p.getY(i), p.getZ(i))
       cs.push(c.getX(i), c.getY(i), c.getZ(i))
+      if (manterNormais) {
+        if (nn) ns.push(nn.getX(i), nn.getY(i), nn.getZ(i))
+        else ns.push(0, 1, 0)
+      }
     }
     const idx = g.getIndex()
     if (idx) for (let i = 0; i < idx.count; i++) ix.push(base + idx.getX(i))
@@ -374,7 +526,8 @@ function fundir(gs: THREE.BufferGeometry[]): THREE.BufferGeometry {
   g.setAttribute('position', new THREE.Float32BufferAttribute(vs, 3))
   g.setAttribute('color', new THREE.Float32BufferAttribute(cs, 3))
   g.setIndex(ix)
-  g.computeVertexNormals()
+  if (manterNormais) g.setAttribute('normal', new THREE.Float32BufferAttribute(ns, 3))
+  else g.computeVertexNormals()
   return g
 }
 
@@ -563,6 +716,13 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
     mudas.push(criarMuda(x, z, forma, i))
   }
 
+  /** ⚠️ A COVA NÃO TEM AVENIDA A QUEM PERTENCER, então a espécie dela sai do
+   *  RUÍDO DE MUNDO em célula de 260 m: o pátio inteiro de uma peça cai na mesma
+   *  célula e recebe a mesma espécie, que é o parentesco que a avenida ganha do
+   *  índice. Hash puro por cova daria confete dentro de um mesmo pátio. */
+  const espDaCova = (px: number, pz: number): Forma =>
+    (look2 && ruidoMundo(px, pz, 260) > 0.52) ? 'copada' : 'esfera'
+
   // ── 1. as covas que a praça e a peça pediram ─────────────────────────────
   // Elas já vêm com posição escolhida por quem desenhou o chão, então não passam
   // pela máscara de peça: a cova DENTRO de uma peça é justamente a que a peça pôs.
@@ -581,11 +741,11 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
       const p = empurrar(c.x, c.z, [1, 0], [0, 1])
       if (!p) continue
       salvas++
-      mudas.push(criarMuda(p[0], p[1], 'esfera', i))
+      mudas.push(criarMuda(p[0], p[1], espDaCova(p[0], p[1]), i))
       i++
       continue
     }
-    mudas.push(criarMuda(c.x, c.z, 'esfera', i))
+    mudas.push(criarMuda(c.x, c.z, espDaCova(c.x, c.z), i))
     i++
   }
   const daCova = mudas.length
@@ -600,7 +760,18 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
   // própria e via as costuras: plantava em 61,9°, 106,9°, 185,6°, 241,9° e
   // 309,4°, onde não há rua, e deixava pelada a avenida de 30, 60, 120, 150,
   // 210, 240, 300 e 330. As duas listas só coincidem em 0, 90, 180 e 270.
-  for (const b of avenidasGeom()) {
+  // ⚠️ A ESPÉCIE É POR AVENIDA, E ESSE É O PONTO. Sortear a espécie muda a muda
+  // dá salada: cada árvore de uma fileira de um tipo, que é ruído, não plantio.
+  // Uma avenida de verdade foi plantada de uma vez e tem uma espécie dominante do
+  // começo ao fim; o que varia é a avenida SEGUINTE. Aqui o hash é do ÍNDICE da
+  // avenida, então cada uma das 12 tem a sua identidade e ela é a mesma em toda
+  // visita. No look 1 nada disso acontece: continua esfera na calçada, cone no
+  // canteiro, como antes.
+  const avenidas = avenidasGeom()
+  for (let ai = 0; ai < avenidas.length; ai++) {
+    const b = avenidas[ai]
+    const espCalcada: Forma = look2 && hash01(ai * 4099 + 7) < 0.45 ? 'copada' : 'esfera'
+    const espCanteiro: Forma = look2 && hash01(ai * 7717 + 3) < 0.35 ? 'copada' : 'cone'
     const ang = (b.rumo * Math.PI) / 180
     const dirX = Math.sin(ang), dirZ = -Math.cos(ang)
     const perpX = Math.cos(ang), perpZ = Math.sin(ang)
@@ -621,7 +792,7 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
       const d = k * PASSO_BUL
       const bx = b.x0 + dirX * d, bz = b.z0 + dirZ * d
       // cone no eixo do canteiro (t = 17 da borda, ou seja o meio)
-      por(bx, bz, 'cone', i++, false, naSecaoDoBulevar, [dirX, dirZ], [perpX, perpZ])
+      por(bx, bz, espCanteiro, i++, false, naSecaoDoBulevar, [dirX, dirZ], [perpX, perpZ])
       // esfera a 1,07 m da face de cada meio-fio: t = 3,93 e t = 30,07 na seção
       // de 34 m, ambos esticados por esc
       for (const t of [3.93 * esc - meia, 30.07 * esc - meia]) {
@@ -636,11 +807,11 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
           const p = empurrar(x, z, [dirX, dirZ], [perpX, perpZ], naSecaoDoBulevar)
           if (!p) continue
           salvas++
-          mudas.push(criarMuda(p[0], p[1], 'esfera', i))
+          mudas.push(criarMuda(p[0], p[1], espCalcada, i))
           i++
           continue
         }
-        mudas.push(criarMuda(x, z, 'esfera', i))
+        mudas.push(criarMuda(x, z, espCalcada, i))
         i++
       }
     }
@@ -753,7 +924,57 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
   }
   const doContorno = mudas.length - daCova - doBulevar - doAnel
 
-  // ── 5. quatro InstancedMesh, UM material ─────────────────────────────────
+  // ── 4b. o sub-bosque: touceira de arbusto ao pé da árvore ────────────────
+  // ⚠️ O ARBUSTO NASCE DA ÁRVORE, NÃO DE UMA GRADE PRÓPRIA, e isso não é preguiça
+  // é composição: canteiro de arbusto solto no meio do terreno vira mato, o que o
+  // olho lê como jardim é o arbusto ENCOSTADO no pé da árvore, formando uma massa
+  // baixa contínua embaixo da fileira. Herdar a posição da muda também herda de
+  // graça tudo o que ela já passou: raio, peça, água e via.
+  //
+  // ⚠️ MAS HERDAR NÃO DISPENSA CONFERIR, porque o arbusto anda de 1,6 a 3,1 m do
+  // tronco e 3,1 m é mais que os 1,9 m de folga da própria muda: na calçada de
+  // 5 m, um arbusto empurrado para fora cai na sarjeta. Cada touceira passa por
+  // `vale` de novo, com a seção própria genérica de avenida e anel, e quem não
+  // passa simplesmente não nasce.
+  //
+  // ⚠️ A SEÇÃO PRÓPRIA AQUI É GENÉRICA, e a diferença importa. `naSecaoDoBulevar`
+  // e `noCanteiroDoAnel` valem por avenida e por aresta do dodecágono; o arbusto
+  // não sabe de quem herdou. `propriaGeral` é a união das duas, ou seja mais
+  // permissiva: ela deixa o arbusto ficar na calçada de QUALQUER avenida, não só
+  // da sua. NÃO MEDI quantas touceiras isso deixa passar na calçada da avenida
+  // vizinha; como as duas fileiras são plantadas do mesmo jeito, a leitura não
+  // muda.
+  const propriaGeral = (px: number, pz: number) =>
+    (emAvenida(px, pz, 0) && !noAnel(px, pz, 18)) || noAnel(px, pz, 0)
+  interface Arbusto { x: number; z: number; esc: number; escXZ: number; giro: number; tint: THREE.Color | null }
+  const arbustos: Arbusto[] = []
+  if (look2) {
+    for (let k = 0; k < mudas.length; k++) {
+      const m = mudas[k]
+      // 55% das árvores ganham touceira, de 1 a 3 arbustos: a fração é o que
+      // separa "fileira com canteiro" de "cidade coberta de mato"
+      if (hash01(k * 913 + 17) > 0.55) continue
+      const quantos = 1 + Math.floor(hash01(k * 2287) * 3)
+      for (let j = 0; j < quantos; j++) {
+        const a = hash01(k * 331 + j * 97) * Math.PI * 2
+        const d = 1.6 + hash01(k * 613 + j * 53) * 1.5
+        const px = m.x + Math.cos(a) * d, pz = m.z + Math.sin(a) * d
+        if (!vale(px, pz, propriaGeral)) continue
+        arbustos.push({
+          x: px, z: pz,
+          esc: 0.62 + hash01(k * 71 + j * 29) * 0.85,
+          escXZ: 0.80 + hash01(k * 149 + j * 11) * 0.55,
+          giro: hash01(k * 977 + j * 13) * Math.PI * 2,
+          // ⚠️ O ARBUSTO PEGA O TINTE DA ÁRVORE DE CIMA, não um seu. Touceira e
+          // copa no mesmo lugar com temperaturas diferentes lê como dois
+          // plantios sobrepostos; com o mesmo tinte, lê como um canteiro só.
+          tint: m.tint,
+        })
+      }
+    }
+  }
+
+  // ── 5. seis InstancedMesh, UM material ───────────────────────────────────
   // ⚠️ DoubleSide POR CAUSA DA CRUZ: um quad de costas some, e metade das cruzes
   // fica de costas para qualquer câmera. Custa fragmento a mais em copa de 30
   // triângulos, o que não move o ponteiro, e é o que faz a cruz existir.
@@ -761,12 +982,17 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
     vertexColors: true, roughness: 0.95, metalness: 0, side: THREE.DoubleSide,
   })
   const gEsf = geoEsfera(look2), gCon = geoCone(look2)
+  const gCop = look2 ? geoCopada() : null
+  const gArb = look2 ? geoArbusto() : null
   const gCruzE = geoLonge(7.0, 4.8), gCruzC = geoLonge(11.0, 4.6)
   const TRI_ESF = gEsf.getIndex()!.count / 3
   const TRI_CON = gCon.getIndex()!.count / 3
+  const TRI_COP = gCop ? gCop.getIndex()!.count / 3 : 0
+  const TRI_ARB = gArb ? gArb.getIndex()!.count / 3 : 0
 
   const nEsf = mudas.filter((m) => m.forma === 'esfera').length
-  const nCon = mudas.length - nEsf
+  const nCop = mudas.filter((m) => m.forma === 'copada').length
+  const nCon = mudas.length - nEsf - nCop
   // ⚠️ 900 ERA POUCO DEMAIS e o fundador viu: "esse monte de bloco verde é o quê?
   // Horrível". Com 40.000 árvores e teto de 900 copas, 39.518 delas eram o LOD de
   // longe, então praticamente a cidade INTEIRA era o LOD. Um teto de LOD só vale
@@ -778,14 +1004,49 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
   // 252.000 de hoje. 4.200 é o número que cabe: a densidade medida da cidade é
   // de 616 árvores/km² (34.436 no cinturão de 55,9 km²), então um disco de
   // R_CHEIA = 1.400 m contém cerca de 3.794 árvores e o teto quase nunca morde.
-  const CAP_CHEIA = look2 ? 4200 : 6000   // teto de copas cheias em cena ao mesmo tempo
+  // ⚠️ E O TETO VOLTOU A CAIR NO LOOK 2, PORQUE A COPA VIROU MASSA DE FOLHA. A
+  // esfera saiu de 52 para 92 triângulos (60 de lóbulo + 32 de pé), o cone de 44
+  // para 80 (48 de saia e ponta + 32 de pé) e a copada nova custa 92. Manter
+  // 4.200 em cada balde daria 4.200 × (92 + 92 + 80) = 1,11 milhão de triângulos
+  // só de perto, quase o dobro dos 687.120 que o módulo inteiro custava. Os tetos
+  // abaixo somam 2.600 × 92 + 1.200 × 92 + 1.400 × 80 = 461.600 no PIOR caso, e
+  // o pior caso quase não acontece: a densidade medida é de 616 árvores/km², um
+  // disco de R_CHEIA = 1.400 m contém cerca de 3.794 árvores e a repartição por
+  // espécie fica dentro dos três tetos.
+  //
+  // ⚠️ E AGORA O TETO NÃO É MAIS COBRADO QUANDO NÃO É USADO. O balde de perto
+  // ficava com `count` no teto e as sobras preenchidas com uma matriz de escala
+  // zero: triângulo degenerado não pinta pixel, mas PASSA pelo vértice, e a cena
+  // pagava 4.200 instâncias mesmo com 300 árvores em volta. Agora `count` recebe
+  // o número de fato preenchido, que é o mesmo conserto que os baldes de longe já
+  // tinham.
+  const CAP_ESF = look2 ? 2600 : 6000
+  const CAP_COP = look2 ? 1200 : 1
+  const CAP_CON = look2 ? 1400 : 6000
+  // ⚠️ O ARBUSTO É O MAIS BARATO DE TODOS, E POR ISSO O RAIO É CURTO. 420 m e
+  // teto de 1.400: na densidade medida, um disco de 420 m tem cerca de 341
+  // árvores e, com 55% delas ganhando de 1 a 3 touceiras, cerca de 375 arbustos.
+  // O teto é quase 4 vezes a conta esperada e custa 1.400 × 40 = 56.000
+  // triângulos no pior caso.
+  const R_ARBUSTO = 420
+  const CAP_ARB = look2 ? 1400 : 1
 
   const malhas: Record<string, THREE.InstancedMesh> = {
-    cruzEsfera: new THREE.InstancedMesh(gCruzE, mat, Math.max(1, nEsf)),
+    cruzEsfera: new THREE.InstancedMesh(gCruzE, mat, Math.max(1, nEsf + nCop)),
     cruzCone: new THREE.InstancedMesh(gCruzC, mat, Math.max(1, nCon)),
-    cheiaEsfera: new THREE.InstancedMesh(gEsf, mat, CAP_CHEIA),
-    cheiaCone: new THREE.InstancedMesh(gCon, mat, CAP_CHEIA),
+    cheiaEsfera: new THREE.InstancedMesh(gEsf, mat, CAP_ESF),
+    cheiaCone: new THREE.InstancedMesh(gCon, mat, CAP_CON),
   }
+  // ⚠️ DUAS CHAMADAS DE DESENHO NOVAS, DE 4 PARA 6, e o motivo de cada uma está
+  // escrito no cabeçalho da geometria: `cheiaCopada` é a terceira espécie (sem
+  // ela a cidade inteira é uma espécie só) e `arbusto` é o sub-bosque (sem ele
+  // não há nada entre o chão e a copa). Nenhuma das duas soma MATERIAL nem
+  // PROGRAMA: as seis dividem o mesmo `MeshStandardMaterial`, que é o recurso
+  // escasso desta cena (228 programas compilados contra um teto medido de 235).
+  // A copada não ganhou balde de longe, ela entra no `cruzEsfera` com a matriz
+  // alargada, senão seriam três chamadas novas em vez de duas.
+  if (gCop) malhas.cheiaCopada = new THREE.InstancedMesh(gCop, mat, CAP_COP)
+  if (gArb) malhas.arbusto = new THREE.InstancedMesh(gArb, mat, CAP_ARB)
   for (const [nome, m] of Object.entries(malhas)) {
     m.name = `arvore:${nome}`
     m.castShadow = o.sombra ?? true
@@ -801,7 +1062,7 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
   const esc = new THREE.Vector3()
   const eixoY = new THREE.Vector3(0, 1, 0)
   const y0 = mudas.map((m) => o.heightAt(m.x, m.z))
-  const ZERO = new THREE.Matrix4().makeScale(0, 0, 0)
+  const yArb = arbustos.map((a) => o.heightAt(a.x, a.z))
 
   // ── a cor por instância entra UMA VEZ, no balde de longe e no de perto ─────
   // ⚠️ instanceColor MULTIPLICA a cor por vértice, não a substitui: o tronco
@@ -823,28 +1084,31 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
   // vira um raio em vez de uma ordem de chegada.
   const BINS = 48
   const binW = R_CHEIA / BINS
-  const histE = new Int32Array(BINS), histC = new Int32Array(BINS)
-  const corte = (h: Int32Array) => {
+  const histE = new Int32Array(BINS), histC = new Int32Array(BINS), histP = new Int32Array(BINS)
+  const corte = (h: Int32Array, teto: number) => {
     let acc = 0
-    for (let b = 0; b < BINS; b++) { acc += h[b]; if (acc > CAP_CHEIA) return b * binW }
+    for (let b = 0; b < BINS; b++) { acc += h[b]; if (acc > teto) return b * binW }
     return R_CHEIA
   }
 
   let ultima = new THREE.Vector3(1e9, 1e9, 1e9)
   let cheias = 0
   const rebalancear = (cam: THREE.Vector3) => {
-    histE.fill(0); histC.fill(0)
+    histE.fill(0); histC.fill(0); histP.fill(0)
     for (let k = 0; k < mudas.length; k++) {
       const m = mudas[k]
       const d = Math.hypot(m.x - cam.x, m.z - cam.z)
       if (d >= R_CHEIA) continue
       const b = Math.min(BINS - 1, (d / binW) | 0)
-      if (m.forma === 'esfera') histE[b]++; else histC[b]++
+      if (m.forma === 'esfera') histE[b]++
+      else if (m.forma === 'copada') histP[b]++
+      else histC[b]++
     }
-    const rE = corte(histE), rC = corte(histC)
-    const rE2 = rE * rE, rC2 = rC * rC
+    const rE2 = corte(histE, CAP_ESF) ** 2
+    const rC2 = corte(histC, CAP_CON) ** 2
+    const rP2 = corte(histP, CAP_COP) ** 2
 
-    let iCE = 0, iCC = 0, iXE = 0, iXC = 0
+    let iCE = 0, iCC = 0, iCP = 0, iXE = 0, iXC = 0
     for (let k = 0; k < mudas.length; k++) {
       const m = mudas[k]
       const dx = m.x - cam.x, dz = m.z - cam.z
@@ -856,8 +1120,22 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
       } else qua.setFromAxisAngle(eixoY, m.giro)
       esc.set(m.esc * m.escXZ, m.esc * m.escY, m.esc * m.escXZ)
       m4.compose(pos, qua, esc)
-      if (m.forma === 'esfera') {
-        if (d2 < rE2 && iCE < CAP_CHEIA) {
+      if (m.forma === 'copada') {
+        if (d2 < rP2 && iCP < CAP_COP && malhas.cheiaCopada) {
+          if (m.tint) malhas.cheiaCopada.setColorAt(iCP, m.tint)
+          malhas.cheiaCopada.setMatrixAt(iCP++, m4)
+        } else {
+          // ⚠️ NO BALDE DE LONGE A COPADA É UM OCTAEDRO ALARGADO, e a conta é
+          // feita aqui porque ela não tem geometria de longe própria: 1,32 em xz
+          // e 0,94 em y devolvem a proporção de guarda-chuva a 1.400 m sem gastar
+          // a quinta chamada de desenho.
+          esc.set(m.esc * m.escXZ * 1.32, m.esc * m.escY * 0.94, m.esc * m.escXZ * 1.32)
+          m4.compose(pos, qua, esc)
+          if (m.tint) malhas.cruzEsfera.setColorAt(iXE, m.tint)
+          malhas.cruzEsfera.setMatrixAt(iXE++, m4)
+        }
+      } else if (m.forma === 'esfera') {
+        if (d2 < rE2 && iCE < CAP_ESF) {
           if (m.tint) malhas.cheiaEsfera.setColorAt(iCE, m.tint)
           malhas.cheiaEsfera.setMatrixAt(iCE++, m4)
         } else {
@@ -865,7 +1143,7 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
           malhas.cruzEsfera.setMatrixAt(iXE++, m4)
         }
       } else {
-        if (d2 < rC2 && iCC < CAP_CHEIA) {
+        if (d2 < rC2 && iCC < CAP_CON) {
           if (m.tint) malhas.cheiaCone.setColorAt(iCC, m.tint)
           malhas.cheiaCone.setMatrixAt(iCC++, m4)
         } else {
@@ -874,20 +1152,46 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
         }
       }
     }
-    for (let k = iCE; k < CAP_CHEIA; k++) malhas.cheiaEsfera.setMatrixAt(k, ZERO)
-    for (let k = iCC; k < CAP_CHEIA; k++) malhas.cheiaCone.setMatrixAt(k, ZERO)
+    // ⚠️ `count` EM VEZ DE MATRIZ ZERADA: a sobra do teto deixou de ser cobrada.
+    malhas.cheiaEsfera.count = iCE
+    malhas.cheiaCone.count = iCC
+    if (malhas.cheiaCopada) malhas.cheiaCopada.count = iCP
     malhas.cruzEsfera.count = iXE
     malhas.cruzCone.count = iXC
+
+    // o sub-bosque: sem histograma, porque o teto é quase 4 vezes a conta
+    // esperada dentro do raio. ⚠️ SE ELE MORDER, quem fica de fora é quem foi
+    // plantado por último, não quem está mais longe: é o mesmo defeito de ordem
+    // de chegada que o histograma consertou para a copa. NÃO MEDI se ele morde.
+    let iA = 0
+    if (malhas.arbusto) {
+      const rA2 = R_ARBUSTO * R_ARBUSTO
+      for (let k = 0; k < arbustos.length && iA < CAP_ARB; k++) {
+        const a = arbustos[k]
+        const dx = a.x - cam.x, dz = a.z - cam.z
+        if (dx * dx + dz * dz >= rA2) continue
+        pos.set(a.x, yArb[k], a.z)
+        qua.setFromAxisAngle(eixoY, a.giro)
+        esc.set(a.esc * a.escXZ, a.esc, a.esc * a.escXZ)
+        m4.compose(pos, qua, esc)
+        if (a.tint) malhas.arbusto.setColorAt(iA, a.tint)
+        malhas.arbusto.setMatrixAt(iA++, m4)
+      }
+      malhas.arbusto.count = iA
+    }
+
     for (const m of Object.values(malhas)) {
       m.instanceMatrix.needsUpdate = true
       if (m.instanceColor) m.instanceColor.needsUpdate = true
     }
-    cheias = iCE + iCC
+    cheias = iCE + iCC + iCP
   }
   rebalancear(new THREE.Vector3(0, 0, 0))
 
+  // pior caso contado no código, não medido na chapa: todo balde de perto cheio
   const triangulos =
-    nEsf * 8 + nCon * 8 + CAP_CHEIA * TRI_ESF + CAP_CHEIA * TRI_CON
+    (nEsf + nCop) * 8 + nCon * 8
+    + CAP_ESF * TRI_ESF + CAP_CON * TRI_CON + CAP_COP * TRI_COP + CAP_ARB * TRI_ARB
 
   console.log(
     `[arborização] ${mudas.length.toLocaleString('pt-BR')} árvores: ` +
@@ -896,7 +1200,9 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
     `${rejVia.toLocaleString('pt-BR')} recusadas pela máscara de via ` +
     `(${salvas.toLocaleString('pt-BR')} salvas pelo empurrão, ${(rejVia - salvas).toLocaleString('pt-BR')} perdidas)` +
     `${naVia ? '' : ' (MÁSCARA AUSENTE: o campo `naVia` não chegou por opts)'}` +
-    `; copa cheia ${TRI_ESF}/${TRI_CON} triângulos, look ${look2 ? 2 : 1}`,
+    `; espécies ${nEsf.toLocaleString('pt-BR')} esfera, ${nCop.toLocaleString('pt-BR')} copada, ` +
+    `${nCon.toLocaleString('pt-BR')} cone; ${arbustos.length.toLocaleString('pt-BR')} arbustos` +
+    `; copa cheia ${TRI_ESF}/${TRI_COP}/${TRI_CON} e arbusto ${TRI_ARB} triângulos, look ${look2 ? 2 : 1}`,
   )
 
   return {

@@ -2984,6 +2984,35 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       }
     }
     if (wantStats) {
+      // ?stats=1 → window.__plazaGrade(n, raio): a SUPERFÍCIE COMO CONSTRUÍDA,
+      // amostrada numa grade quadrada de n por n sobre um quadrado de lado
+      // 2·raio, centrado na praça. Devolve `alturas` como Float32Array.
+      //
+      // ⚠️ EXISTE PORQUE REPLICAR O TERRENO FORA DA CENA JÁ DEU ERRADO, e caro:
+      // em 30/08 alguém calculou a cota do pátio do spaceport com uma réplica do
+      // heightmap e errou por 75 m, porque a réplica não tinha o fade do pódio,
+      // nem a cova do parque, nem o monte. O `superficieAt` daqui é a mesma
+      // função que assenta lote, rua, praia e peça: é a única fonte que não
+      // diverge do que a câmera vê.
+      //
+      // Serve para curva de nível, para mapa topográfico, para conferir declive
+      // antes de pousar peça, e para achar platô manso sem abrir o Blender.
+      ;(window as unknown as { __plazaGrade?: (n: number, raio: number) => unknown }).__plazaGrade =
+        (n = 400, raio = 12000) => {
+          const alturas = new Float32Array(n * n)
+          let min = Infinity, max = -Infinity
+          for (let j = 0; j < n; j++) {
+            const z = -raio + (2 * raio * j) / (n - 1)
+            for (let i = 0; i < n; i++) {
+              const x = -raio + (2 * raio * i) / (n - 1)
+              const y = superficieAt(x, z)
+              alturas[j * n + i] = y
+              if (y < min) min = y
+              if (y > max) max = y
+            }
+          }
+          return { n, raio, min, max, alturas: Array.from(alturas) }
+        }
       ;(window as unknown as { __plazaAltura?: (r: number) => unknown }).__plazaAltura = (r: number) => {
         const a = 0.9, x = Math.sin(a) * r, z = -Math.cos(a) * r
         return { r, heightAt: +heightAt(x, z).toFixed(2), superficieAt: +superficieAt(x, z).toFixed(2), lago: lagoGeo }

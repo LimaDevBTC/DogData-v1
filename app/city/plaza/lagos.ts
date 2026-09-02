@@ -505,7 +505,20 @@ export function buildLagos(o: LagosOpts): Lagos {
     const w3 = w2 + ORLA_TALUDE
     const yD = L + ORLA_ALTURA
     for (const c of encadear(segs)) {
-      const pts = c.pts
+      // ⚠️ O CAIS ERA A ÚNICA MARGEM CONSTRUÍDA SOBRE CONTORNO CRU, e é a
+      // primeira margem deformada da baía. A praia já passava por `alisaContorno`
+      // desde que a lasca foi consertada; a orla não passava por nada. O contorno
+      // do marching squares é feito de cordas de uma grade de 30 m: a direção
+      // vira 90 graus de um vértice para o outro, e a esquadria de `normais`
+      // multiplica isso por até 2,5 numa extrusão de 52 m. Nas quinas côncavas os
+      // painéis se cruzam (auto-interseção do passeio), nas convexas o teto de
+      // esquadria trunca e abre um entalhe: era o "quina" e o "largura oscilando"
+      // ao mesmo tempo, na mesma peça.
+      // ⚠️ E O TETO DE DESVIO AQUI É 1,5 m E NÃO 4. Alisar o contorno afasta o
+      // muro da lâmina, e a lâmina NÃO é alisada (ela é a malha que `naAgua` e
+      // `naBaia` consultam): 4 m abririam uma fresta de chão entre a água e o pé
+      // do muro. 1,5 m fica coberto pelo pé de muro rebaixado, adiante.
+      const pts = alisaContorno(c.pts, 2, 1.5)
       // ⚠️ O DESCARTE DEIXAVA BURACO NA MARGEM, e este é o defeito 4 da lista lá
       // em cima: a corrente curta perdia o cais e não ganhava nada no lugar, então
       // a água encostava no regolito cru em trechos sem motivo legível. Em look2
@@ -517,6 +530,26 @@ export function buildLagos(o: LagosOpts): Lagos {
       const { m, NX, NZ } = normais(pts)
       const px = (k: number, w: number) => pts[2 * k] + NX[k] * w
       const pz = (k: number, w: number) => pts[2 * k + 1] + NZ[k] * w
+      // ⚠️ AS PONTAS DE CORRENTE ABERTA PRECISAM DE TAMPA, e são elas a margem
+      // deformada da BAÍA. `semMargem` suprime a margem no corredor do canal, o
+      // que CORTA a corrente da orla: o que sobra é uma corrente aberta cuja
+      // ponta cai na foz. Sem tampa, a seção do cais (muro de 3,5 m sob a água,
+      // passeio de 26 m, pista de 14 m) termina no vazio e mostra o miolo oco da
+      // laje, virada para quem entra no canal, que é justamente o ângulo de
+      // quem navega. São duas pontas por foz. A tampa é honesta: cais de
+      // verdade acaba em parede.
+      const fech = Math.hypot(pts[0] - pts[2 * m - 2], pts[1] - pts[2 * m - 1]) < 0.01
+      if (!fech && m >= 2) {
+        for (const kt of [0, m - 1]) {
+          const bp = posM.length / 3
+          const yb = L - ORLA_PE
+          posM.push(px(kt, -1.8), yb, pz(kt, -1.8))
+          posM.push(px(kt, w2), yb, pz(kt, w2))
+          posM.push(px(kt, w2), yD, pz(kt, w2))
+          posM.push(px(kt, 0), yD, pz(kt, 0))
+          idxM.push(bp, bp + 1, bp + 2, bp, bp + 2, bp + 3)
+        }
+      }
       for (let k = 0; k < m - 1; k++) {
         const faixa = (
           wa: number, ya: number, wb: number, yb: number,
@@ -531,7 +564,12 @@ export function buildLagos(o: LagosOpts): Lagos {
           dest.push(px(k, wb), y0, pz(k, wb))
           di.push(bp, bp + 1, bp + 2, bp, bp + 2, bp + 3)
         }
-        faixa(0, L - ORLA_PE, 0, yD, posM, idxM)          // o muro, dentro d'água
+        // ⚠️ O MURO GANHOU PÉ, e ele não é estética, é o cinto do alisamento acima:
+        // a base sai 1,8 m para DENTRO da lâmina, então mesmo com o contorno
+        // deslocado até 1,5 m para a terra nunca abre fresta entre água e muro.
+        // De brinde o muro fica escarpado em vez de vertical, que é como muro de
+        // arrimo de cais real se apoia.
+        faixa(-1.8, L - ORLA_PE, 0, yD, posM, idxM)       // o muro, dentro d'água
         faixa(0, yD, w1, yD, posC, idxC)                  // o passeio
         faixa(w1, yD - 0.15, w2, yD - 0.15, posR, idxR)   // a faixa de rolamento
         faixa(w2, yD, w3, yD, posM, idxM, true)           // o talude encontra o chão

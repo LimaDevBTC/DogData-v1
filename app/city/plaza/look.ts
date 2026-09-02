@@ -24,7 +24,21 @@
 
 export type Look = 1 | 2
 
-const PADRAO: Look = 1
+// ⚠️ INVERTIDO EM 02/09/2026, por decisão do fundador. O acabamento passou a ser
+// o que todo visitante vê, e `?look=1` vira a VOLTA DE EMERGÊNCIA até o caminho
+// velho ser apagado.
+//
+// O que autorizou a inversão, e é o padrão para a próxima vez: varredura dos 17
+// enquadramentos do portão (`scripts/city/chapas.mjs`) com ZERO erro de console,
+// mais uma conferência da entrada padrão, que o portão não cobre porque força
+// `view=deck`. A entrada real da /city é o pouso sobre a batalha, e ela mediu 37
+// fps e console limpo.
+//
+// ⚠️ O `fps` DO PORTÃO NÃO SERVE PARA DECIDIR NADA. Na varredura ele saiu 10 nos
+// dezessete enquadramentos, o que é artefato do navegador sem cabeça e não
+// medição: as leituras reais do mesmo dia foram 77, 60, 41, 37, 32 e 18. Meça
+// quadro numa aba de verdade, com uma aba só aberta.
+const PADRAO: Look = 2
 
 function ler(): Look {
   if (typeof window === 'undefined') return PADRAO

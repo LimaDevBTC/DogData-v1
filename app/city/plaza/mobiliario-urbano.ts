@@ -91,9 +91,49 @@ export function carregarPecas(gltf: GLTFLoader): Promise<Map<string, THREE.Buffe
   return cacheGeo
 }
 
+// ── O OMBRO MOBILIADO (02/09) ──────────────────────────────────────────────
+// ⚠️ O GRADIL E O BALIZADOR EXISTIAM NO GLB E NÃO ESTAVAM EM LUGAR NENHUM. O
+// arquivo publica seis peças (`PECAS_MOBILIARIO`) e só duas eram usadas, as do
+// poste. As outras estavam ali desde 01/09 sem um único consumidor, que é a
+// armadilha "nem tudo que é importado é chamado" na versão de dado: peça pronta,
+// exportada, e invisível.
+//
+// ⚠️ E ELAS SÃO A HIERARQUIA, NÃO ENFEITE. `vias.ts` passou a dar ombro largo com
+// soleira à avenida e ombro estreito ao anel; aqui a diferença fica legível de
+// dentro do carro: AVENIDA GANHA GRADIL, ANEL GANHA BALIZADOR. Duas vias com a
+// mesma seção e mobiliário diferente já leem como duas classes de via.
+//
+// ⚠️ ORÇAMENTO, medido no cabeçalho JSON do GLB: gradil 128 triângulos por
+// módulo, balizador 40. Contínuos, seriam ~23 mil instâncias e mais de 2 M de
+// triângulos, ou seja um terço da cena por causa de guarda-corpo. Por isso eles
+// entram pelo MESMO LOD do poste modelado: a lista inteira fica em memória como
+// (x, z, giro) e só as mais próximas viram matriz. Teto: 900 gradis (115.200
+// tris) e 700 balizadores (28.000), e só quando a câmera está na rua.
+//
+// ⚠️ CUSTO DE CHAMADA: +2, e é o limite que o orçamento desta rodada permitia.
+// Foi por isso que BALIZADOR_LUZ ficou de fora: acender o balizador seria uma
+// terceira InstancedMesh, com material emissivo próprio. Fica registrado como a
+// próxima peça a entrar se sobrar chamada.
+//
+// ⚠️ O GIRO É O NEGATIVO DO RUMO, e isso não é gosto. Uma rotação em Y no three
+// leva o +X local para (cos θ, 0, −sen θ): com θ = atan2(uz, ux) o módulo de
+// gradil, que corre em +X, sairia ESPELHADO em z e a corrida de 12 m se afastaria
+// da via em vez de acompanhá-la. O poste não sofre disso porque é quase
+// simétrico; o gradil sofre, e apareceria como cerca cruzando a pista.
 const PASSO_AVENIDA = 36
 const PASSO_ANEL = 44
 const MAX_POSTES = 7200
+/** módulo de gradil: corre em +X de 0 a 2,40 m e encadeia sem sobrepor */
+const GRADIL_MODULO = 2.40
+/** módulos por corrida de gradil, e de quantos em quantos metros uma corrida sai */
+const GRADIL_MODULOS = 5
+const GRADIL_PASSO = 96
+/** balizador do anel, um a cada tantos metros */
+const BALIZ_PASSO = 22
+const GRADIL_MAX = 900
+const BALIZ_MAX = 700
+const RAIO_GRADIL = 420
+const RAIO_BALIZ = 320
 /** Teto de postes modelados vivos ao mesmo tempo. 640 × 178 tris = 113.920. */
 const DETALHE_MAX = 640
 /** Além disto o modelado não paga: o poste tem 7 m e some na perspectiva. */
@@ -112,6 +152,16 @@ export function buildMobiliarioUrbano(o: MobiliarioUrbanoOpts): MobiliarioUrbano
     pontos.push({ x, z, giro })
   }
 
+  // as peças do ombro, guardadas como número solto e não como Matrix4: são
+  // dezenas de milhares de candidatas e só as próximas da câmera viram matriz
+  const gradis: { x: number; z: number; giro: number }[] = []
+  const balizas: { x: number; z: number; giro: number }[] = []
+  const peca = (lista: { x: number; z: number; giro: number }[],
+                x: number, z: number, giro: number) => {
+    if (molhado(x, z)) return
+    lista.push({ x, z, giro })
+  }
+
   // Em avenidas, os mastros ficam no passeio, voltados para a pista. As duas
   // fileiras alternam meio passo: a rua ganha ritmo sem parecer pista de pouso.
   for (const av of avenidasGeom()) {
@@ -126,6 +176,23 @@ export function buildMobiliarioUrbano(o: MobiliarioUrbanoOpts): MobiliarioUrbano
         por(av.x0 + ux * d + px * distBorda * lado,
             av.z0 + uz * d + pz * distBorda * lado,
             Math.atan2(uz, ux) + (lado < 0 ? Math.PI : 0))
+      }
+    }
+    // ── o gradil da avenida, no ombro, em corridas curtas ────────────────
+    // ⚠️ ELE VAI ALÉM DA CALÇADA, EM CIMA DA SOLEIRA QUE `vias.ts` DESENHOU.
+    // Encostado no meio-fio ele leria como grade de canteiro; no ombro ele
+    // fecha a borda da via, que é o que a chapa de cima estava pedindo.
+    const rumo = -Math.atan2(uz, ux)
+    const noOmbro = av.largura / 2 + 1.2
+    for (let d = GRADIL_PASSO * 0.5; d < L - 40; d += GRADIL_PASSO) {
+      for (const lado of [-1, 1]) {
+        for (let m2 = 0; m2 < GRADIL_MODULOS; m2++) {
+          const dd = d + m2 * GRADIL_MODULO
+          peca(gradis,
+               av.x0 + ux * dd + px * noOmbro * lado,
+               av.z0 + uz * dd + pz * noOmbro * lado,
+               rumo)
+        }
       }
     }
   }
@@ -148,6 +215,17 @@ export function buildMobiliarioUrbano(o: MobiliarioUrbanoOpts): MobiliarioUrbano
           por(x0 + ux * d + px * distBorda * lado,
               z0 + uz * d + pz * distBorda * lado,
               Math.atan2(uz, ux) + (lado < 0 ? Math.PI : 0))
+        }
+      }
+      // ── o balizador do anel: cadência fina onde a avenida tem gradil ────
+      const rumoA = -Math.atan2(uz, ux)
+      const noOmbroA = anel.larg / 2 + 1.0
+      for (const lado of [-1, 1]) {
+        for (let d = BALIZ_PASSO; d < L - 24; d += BALIZ_PASSO) {
+          peca(balizas,
+               x0 + ux * d + px * noOmbroA * lado,
+               z0 + uz * d + pz * noOmbroA * lado,
+               rumoA)
         }
       }
     }
@@ -200,12 +278,42 @@ export function buildMobiliarioUrbano(o: MobiliarioUrbanoOpts): MobiliarioUrbano
   const ZERO = new THREE.Matrix4().makeScale(0, 0, 0)
   let mastrosGLB: THREE.InstancedMesh | null = null
   let difusoresGLB: THREE.InstancedMesh | null = null
+  let gradilMesh: THREE.InstancedMesh | null = null
+  let balizMesh: THREE.InstancedMesh | null = null
   let escondidos: number[] = []
   const camAnterior = new THREE.Vector3(1e9, 1e9, 1e9)
   let primeira = true
 
   const pronto: Promise<void> = (look2 && o.gltf && pontos.length)
     ? carregarPecas(o.gltf).then((geo) => {
+        // ── as peças do ombro entram ANTES do poste ──────────────────────
+        // ⚠️ E A ORDEM IMPORTA: o bloco do poste tem um `return` quando o GLB não
+        // traz a luminária, e escrever o gradil depois dele o deixaria refém de
+        // uma peça que não é dele. Cada peça que falta desliga só a si mesma.
+        const gGradil = geo.get('GRADIL_MODULO')
+        if (gGradil && gradis.length) {
+          gradilMesh = new THREE.InstancedMesh(gGradil, posteMat, Math.min(GRADIL_MAX, gradis.length))
+          gradilMesh.name = 'urbano:gradil'
+          gradilMesh.castShadow = o.sombra ?? true
+          gradilMesh.receiveShadow = true
+          gradilMesh.frustumCulled = false
+          // ⚠️ count 0 até o primeiro `atualizar`, pelo mesmo motivo do poste:
+          // InstancedMesh recém-nascida tem matriz zerada e desenharia a
+          // corrida inteira espremida na origem.
+          gradilMesh.count = 0
+          group.add(gradilMesh)
+        }
+        const gBaliz = geo.get('BALIZADOR')
+        if (gBaliz && balizas.length) {
+          balizMesh = new THREE.InstancedMesh(gBaliz, posteMat, Math.min(BALIZ_MAX, balizas.length))
+          balizMesh.name = 'urbano:balizador'
+          balizMesh.castShadow = false      // 96 cm de poste não pagam mapa de sombra
+          balizMesh.receiveShadow = true
+          balizMesh.frustumCulled = false
+          balizMesh.count = 0
+          group.add(balizMesh)
+        }
+        primeira = true
         const gMastro = geo.get('LUM_MASTRO')
         const gDifusor = geo.get('LUM_DIFUSOR')
         if (!gMastro || !gDifusor) return
@@ -230,13 +338,47 @@ export function buildMobiliarioUrbano(o: MobiliarioUrbanoOpts): MobiliarioUrbano
 
   const alvo = new THREE.Vector3()
   const perto: { i: number; d: number }[] = []
+  const escolhidas: { i: number; d: number }[] = []
+
+  /** preenche uma InstancedMesh com as `max` peças mais próximas dentro de `raio` */
+  const pertoDe = (
+    malha: THREE.InstancedMesh | null,
+    lista: { x: number; z: number; giro: number }[],
+    raio: number, max: number,
+  ) => {
+    if (!malha) return
+    const r2 = raio * raio
+    escolhidas.length = 0
+    for (let i = 0; i < lista.length; i++) {
+      const dx = lista[i].x - alvo.x, dz = lista[i].z - alvo.z
+      const d = dx * dx + dz * dz
+      if (d < r2) escolhidas.push({ i, d })
+    }
+    escolhidas.sort((a, b) => a.d - b.d)
+    const n = Math.min(escolhidas.length, max)
+    for (let k = 0; k < n; k++) {
+      const p2 = lista[escolhidas[k].i]
+      p.set(p2.x, o.heightAt(p2.x, p2.z), p2.z)
+      q.setFromAxisAngle(eixoY, p2.giro)
+      m.compose(p, q, s)
+      malha.setMatrixAt(k, m)
+    }
+    malha.count = n
+    malha.instanceMatrix.needsUpdate = true
+  }
 
   function atualizar(camera: THREE.Camera) {
-    if (!mastrosGLB || !difusoresGLB) return
+    if (!mastrosGLB && !gradilMesh && !balizMesh) return
     camera.getWorldPosition(alvo)
     if (!primeira && alvo.distanceToSquared(camAnterior) < PASSO_REFAZ * PASSO_REFAZ) return
     primeira = false
     camAnterior.copy(alvo)
+
+    // ⚠️ O OMBRO É REFEITO ANTES DO POSTE, E FORA DA GUARDA DELE: o gradil não
+    // pode depender de o GLB ter trazido a luminária.
+    pertoDe(gradilMesh, gradis, RAIO_GRADIL, GRADIL_MAX)
+    pertoDe(balizMesh, balizas, RAIO_BALIZ, BALIZ_MAX)
+    if (!mastrosGLB || !difusoresGLB) return
 
     // repõe as primitivas que a rodada anterior tinha apagado
     for (const i of escondidos) mastros.setMatrixAt(i, matrizes[i])
