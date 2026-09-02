@@ -26,9 +26,27 @@
 // ═══════════════════════════════════════════════════════════════════════════
 import { readFileSync, writeFileSync } from 'node:fs'
 
+// ⚠️ A FONTE VAI EMBUTIDA, e não é capricho. Antes daqui o cartucho pedia
+// `ui-monospace, SFMono-Regular, Menlo, monospace`: uma família do SISTEMA, que
+// muda conforme a máquina que abre o arquivo. O letreiro DOGCITY do cartucho é a
+// marca do projeto, e marca que troca de desenho por computador não é marca.
+// 21 KB de woff2 em base64 contra 3,5 MB de vetor não pesa em nada.
+const FONTE_EMBUTIDA = readFileSync(
+  resolve(dirname(fileURLToPath(import.meta.url)), 'fontes/jetbrains-mono-latin.woff2')
+).toString('base64')
+const ESTILO = `<defs><style>
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:400;
+src:url(data:font/woff2;base64,${FONTE_EMBUTIDA}) format('woff2');}
+</style></defs>`
+// O destino padrao e a pasta de pecas premium, NAO /tmp: peca de marketing
+// gravada em /tmp e apagada no proximo boot, e ja se perdeu um mapa assim.
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+const PADRAO = resolve(dirname(fileURLToPath(import.meta.url)), '../../../marketing/mapas')
+
 const arg = (k, d) => (process.argv.find((a) => a.startsWith(`--${k}=`)) || `--${k}=${d}`).split('=').slice(1).join('=')
-const ENT = arg('entrada', '/tmp/topo')
-const SAI = arg('saida', '/tmp/topo')
+const ENT = arg('entrada', PADRAO)
+const SAI = arg('saida', PADRAO)
 const LADO = +arg('lado', 2400)          // o SVG, em px
 const PASSO = +arg('passo', 20)          // curva fina, em metros
 const MESTRA = +arg('mestra', 100)       // curva mestra, em metros
@@ -247,7 +265,7 @@ corpo += `<circle cx="${LADO / 2}" cy="${LADO / 2}" r="${rDomePx.toFixed(1)}" fi
 // top para um sheik", não "chapa de diagnóstico".
 const F = LADO / 2400                                  // fator, para o desenho escalar junto
 const T = (x, y, txt, o = {}) => `<text x="${x}" y="${y}" fill="${o.cor || '#E4D2B9'}" `
-  + `font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="${(o.tam || 22) * F}" `
+  + `font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace" font-size="${(o.tam || 22) * F}" `
   + `letter-spacing="${(o.esp ?? 3) * F}" opacity="${o.op ?? 1}" `
   + `text-anchor="${o.anc || 'start'}">${txt}</text>`
 
@@ -306,6 +324,7 @@ mob += T(lx, ly, 'WATER', { tam: 14, esp: 3, op: 0.75 })
 mob += T(LADO - m - 26 * F, LADO - m - 26 * F, 'DOG DATA', { tam: 15, esp: 5, op: 0.5, anc: 'end' })
 
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${LADO}" height="${LADO}" viewBox="0 0 ${LADO} ${LADO}">
+${ESTILO}
 <rect width="${LADO}" height="${LADO}" fill="${FUNDO}"/>
 ${corpo}${mob}</svg>`
 writeFileSync(`${SAI}/mapa-topo.svg`, svg)

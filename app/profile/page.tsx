@@ -25,7 +25,7 @@ import {
   ShieldAlert, ShieldCheck, Trophy, Wallet,
 } from "lucide-react"
 import { Layout } from "@/components/layout"
-import { Plate, PlateHead, PlotGrid, StatTile, CAT } from "@/app/analytics/dashboard/ui"
+import { Plate, PlateHead, PlotGrid, StatTile, CAT } from "@/components/plot/kit"
 import { useWallet } from "@/contexts/WalletContext"
 import { useDonate } from "@/components/donate/donate-modal"
 import { WALLETS } from "@/lib/wallet"

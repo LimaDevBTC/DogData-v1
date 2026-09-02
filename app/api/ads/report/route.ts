@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { getAdminFromRequest } from '@/lib/admin/gate'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
+  // Só a aba Ads do painel consome isto, e o painel é a sala fechada. Ver o
+  // mesmo comentário em /api/analytics/report.
+  if (!(await getAdminFromRequest(req))) {
+    return new NextResponse(null, { status: 404 })
+  }
+
   const { searchParams } = new URL(req.url)
 
   const advertiser = searchParams.get('advertiser') ?? 'bitflow'

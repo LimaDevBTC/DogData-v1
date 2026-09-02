@@ -49,7 +49,7 @@ const VISTAS = {
   // conferência depois da mudança fotografou chão nenhum sem ninguém perceber.
   spaceport:[-508, 520, 9700, -508, 180, 11188, 42],
   // a parada do tour, exatamente como o visitante a recebe
-  padtour:  [-468, 95, 11403, -498, 129, 11128, 42],
+  padtour:  [-388, 227, 11618, -528, 299, 11148, 42],
   zenite:   [0, 300, 0, 0, 1200, 0, 60],
   // pedidos pelos agentes da água em 02/09, para conferir borda molhada e fusão
   // da areia no chão. Rasante de verdade: a câmera fica NA cota da lâmina.
@@ -79,6 +79,20 @@ const look = arg('look', '2')
 const saida = arg('saida', 'chapas')
 const extra = arg('url-extra', '')
 const pedidas = arg('vistas', '').split(',').filter(Boolean)
+// ⚠️ RESOLUÇÃO PARAMETRIZADA, padrão INALTERADO. 1440x900 continua sendo o que
+// sai quando ninguém pede nada, para que a chapa de hoje siga comparável com a
+// da semana passada. Peça de marketing é outro caso: banner de YouTube quer
+// 2560x1440 e esticar 1440 até lá borra, que é o defeito do banner antigo.
+// `escala` é deviceScaleFactor: renderiza em N vezes e reduz, o que suaviza
+// serrilhado melhor do que qualquer filtro depois.
+const largura = +arg('largura', 1440)
+const altura = +arg('altura', 900)
+const escala = +arg('escala', 1)
+// ⚠️ O PRAZO DE CARGA ESCALA COM O QUADRO. Em 1440x900 a cena abre em ~40 s e os
+// 300 s cravados sobravam. Em 2560x1440 são 2,8x mais pixels e a primeira
+// tentativa estourou o prazo sem tirar nenhuma chapa. Quem pede quadro grande
+// precisa poder pedir prazo grande junto.
+const prazoCarga = +arg('prazo-carga', 300000)
 const lista = pedidas.length ? pedidas : Object.keys(VISTAS)
 for (const v of lista) if (!VISTAS[v]) { console.error(`enquadramento desconhecido: ${v}\nexistem: ${Object.keys(VISTAS).join(', ')}`); process.exit(2) }
 
@@ -91,7 +105,7 @@ mkdirSync(saida, { recursive: true })
 const url = `http://localhost:3000/city?stats=1&quality=high&view=deck&look=${look}${extra}`
 
 const nav = await chromium.launch()
-const pag = await (await nav.newContext({ viewport: { width: 1440, height: 900 } })).newPage()
+const pag = await (await nav.newContext({ viewport: { width: largura, height: altura }, deviceScaleFactor: escala })).newPage()
 const erros = [], logs = []
 pag.on('console', (m) => {
   const t = m.text()
@@ -109,7 +123,7 @@ await pag.waitForFunction(() => !!window.__plazaStats, null, { timeout: 180000 }
 // cena desenha um overlay preto por cima de tudo. Esperamos o overlay SAIR do DOM.
 await pag.waitForFunction(
   () => !document.body.innerText.includes('The whole plaza loads before it opens'),
-  null, { timeout: 300000 },
+  null, { timeout: prazoCarga },
 )
 // ⚠️ E DEPOIS DO PORTÃO A CENA AINDA CRESCE. Os módulos pesados continuam
 // chegando e a contagem de triângulos sobe por mais uns segundos.

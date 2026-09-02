@@ -53,7 +53,7 @@ import { buildMontanha, type Montanha } from './montanha'
 import { buildLago, type Lago } from './lago'
 import { buildAquario, type Aquario } from './aquario'
 import { buildCaverna, type Caverna } from './caverna'
-import { PROPS } from './props-table'
+import { PROPS, SP_DECK_TOP } from './props-table'
 import { look2 } from './look'
 import { instalarAtmosfera } from './atmosfera'
 import { setAnisotropia } from './materiais'
@@ -458,8 +458,25 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
       // o chão ali era baixo, e a câmera do tour foi parar 177 m ABAIXO do pátio,
       // olhando para cima, para o vazio. Agora as três coordenadas são relativas
       // ao pad, então a parada acompanha qualquer mudança futura sozinha.
-      return { pos: new THREE.Vector3(PAD_MAIN.x + 40, PAD_MAIN.y - 178, PAD_MAIN.z + 215),
-               target: new THREE.Vector3(PAD_MAIN.x + 10, PAD_MAIN.y - 144, PAD_MAIN.z - 60) }
+      // ⚠️ SÓ DESLOCAMENTO POSITIVO A PARTIR DE `PAD_MAIN.y`, E ISSO É REGRA, NÃO
+      // GOSTO. `PAD_MAIN` NÃO é constante: a linha ~2605 reescreve o y dele para
+      // `heightAt(x, z) + 1` quando o GLB carrega, ou seja em tempo de execução
+      // ele vale CHÃO MAIS UM, e não a cota que sai de `SPACEPORT_SHIFT`.
+      //
+      // Eu tropecei nisso em 02/09: ancorei a câmera em `PAD_MAIN.y - 46`
+      // achando que o valor era o deck, e com o valor real isso põe a câmera 45 m
+      // ABAIXO do terreno, com o quadro preto. Qualquer deslocamento NEGATIVO
+      // aqui enterra a câmera.
+      //
+      // ⚠️ E EU CONFERI COM O PROXY ERRADO. O portão de chapas usa coordenada
+      // absoluta, então ele fotografou um quadro bom enquanto o tour de verdade
+      // continuava quebrado. Enquadramento de tour se confere PELO TOUR.
+      //
+      // O quadro: câmera a 41 m do chão, 430 m ao sul, mirando 90 m acima do
+      // chão, que é onde está o deck do pátio (82 m) e a metade de baixo do
+      // foguete maior.
+      return { pos: new THREE.Vector3(PAD_MAIN.x + 120, PAD_MAIN.y + 40, PAD_MAIN.z + 430),
+               target: new THREE.Vector3(PAD_MAIN.x - 20, PAD_MAIN.y + 90, PAD_MAIN.z - 40) }
     }
     case 'war':
       // chegando do lado da praça (NE da cratera), baixo o bastante pros
@@ -524,8 +541,9 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
       // pátio do lugar de DUAS mudanças atrás, r 5.150. O comentário aqui dizia
       // "segue a estação no lugar novo" e não seguia nada: eram números cravados.
       // Agora é relativo ao PAD_MAIN e acompanha sozinho.
-      return { pos: new THREE.Vector3(PAD_MAIN.x + 1015, PAD_MAIN.y + 165, PAD_MAIN.z - 1490),
-               target: new THREE.Vector3(PAD_MAIN.x + 275, PAD_MAIN.y - 158, PAD_MAIN.z - 2100) }
+      // deslocamento positivo pelo mesmo motivo do `padtour`: ver a nota longa lá.
+      return { pos: new THREE.Vector3(PAD_MAIN.x + 1015, PAD_MAIN.y + 330, PAD_MAIN.z - 1490),
+               target: new THREE.Vector3(PAD_MAIN.x + 275, PAD_MAIN.y + 60, PAD_MAIN.z - 2100) }
   }
   if (aspect >= 1) return { pos: HOME_POS.clone(), target: HOME_TARGET.clone() }
   return { pos: new THREE.Vector3(430, 760, -1300), target: new THREE.Vector3(0, 40, 420) }
@@ -2595,8 +2613,23 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           const r = mergeStaticByMaterial(root, KEEP)
           if (wantStats) console.log(`[plaza] merged ${label}: ${r.before} → ${r.after} meshes`)
         }
-        // the main pad sits on the terrain: keep the constant honest
-        PAD_MAIN.y = heightAt(PAD_MAIN.x, PAD_MAIN.z) + 1
+        // ⚠️ A NAVE POUSA NO DECK, NÃO NO CHÃO, e esta linha dizia o contrário.
+        // O comentário antigo era "the main pad sits on the terrain: keep the
+        // constant honest", e ele valia para um modelo em que o pátio era um
+        // disco no regolito. O `spaceport.glb` de hoje tem o `LandingZonePad` a
+        // 76,7 no espaço dele, ou seja o pátio é o TOPO de uma estrutura de 82 m.
+        //
+        // Com `heightAt + 1` as naves da mempool desciam para o chão, EMBAIXO da
+        // mesa, e o fundador viu foguete pendurado dentro do fosso de chamas em
+        // 02/09. Agora a cota de pouso é o deck, medido e publicado por
+        // `props-table.ts` como `SP_DECK_TOP` (81,9 m acima do regolito), que é o
+        // mesmo número que o `build_spaceport.py` usa para levantar a laje.
+        //
+        // ⚠️ E ISTO MUTA UMA CONSTANTE IMPORTADA. `PAD_MAIN` é lido por
+        // `viewFor()` nos enquadramentos do tour, então qualquer vista ancorada
+        // nele muda junto: use só deslocamento POSITIVO lá, ver a nota em
+        // `padtour`.
+        PAD_MAIN.y = heightAt(PAD_MAIN.x, PAD_MAIN.z) + SP_DECK_TOP
         // um foguete aposentado no pad de trás do spaceport (V2 Rocket, Diccbudd,
         // CC-BY-4.0): a silhueta que faltava no pátio; sem placa, é cenário
         void loadSf(gltf, SF.rocket).then((r) => {

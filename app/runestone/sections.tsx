@@ -2,7 +2,7 @@
 
 // The Runestone dossier, section by section.
 //
-// Visual language is the plot-map kit from app/analytics/dashboard/ui.tsx:
+// Visual language is the plot-map kit from components/plot/kit.tsx:
 // square hairline plates, one hue per series, marks in #E8660D. The kit ships
 // pt-BR number formatting and two Portuguese chrome labels, so this file
 // carries its own en-US formatters and its own Frame; everything else is the
@@ -18,7 +18,7 @@ import { Check, Copy, ExternalLink } from "lucide-react"
 import {
   AXIS_TICK, CAT, GRID, HAIR, HAIR_SOFT, Legend, Plate, PlateHead,
   PlotGrid, RankRows, STATUS, SectionHead, ShareBar, StatTile,
-} from "@/app/analytics/dashboard/ui"
+} from "@/components/plot/kit"
 import type { Dossier, HolderRow } from "./types"
 
 // ── formatters (en-US; the shared kit formats pt-BR) ───────────────────────

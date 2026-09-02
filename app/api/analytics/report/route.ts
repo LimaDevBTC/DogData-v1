@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { getAdminFromRequest } from '@/lib/admin/gate'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -35,6 +36,14 @@ async function chamar(fn: string, dias: number): Promise<unknown | null> {
 }
 
 export async function GET(req: NextRequest) {
+  // ⚠️ O PORTÃO DA PÁGINA NÃO CHEGA AQUI. /admin gateia o que se pinta; esta
+  // rota é alcançável direto pelo navegador de qualquer pessoa que saiba o
+  // caminho, e num repositório público o caminho não é segredo. Antes disto,
+  // o relatório inteiro respondia a quem pedisse.
+  if (!(await getAdminFromRequest(req))) {
+    return new NextResponse(null, { status: 404 })
+  }
+
   const { searchParams } = new URL(req.url)
   const dias = Math.min(Math.max(parseInt(searchParams.get('days') ?? '30', 10) || 30, 1), 365)
 

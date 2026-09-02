@@ -11,10 +11,15 @@
 //   node scripts/city/topo.mjs --n=600 --raio=12000
 import { chromium } from '/home/bitmax/.npm/_npx/705bc6b22212b352/node_modules/playwright/index.mjs'
 import { writeFileSync, mkdirSync } from 'node:fs'
+// O destino padrao e a pasta de pecas premium, NAO /tmp: peca de marketing
+// gravada em /tmp e apagada no proximo boot, e ja se perdeu um mapa assim.
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+const PADRAO = resolve(dirname(fileURLToPath(import.meta.url)), '../../../marketing/mapas')
 
 const arg = (k, d) => (process.argv.find((a) => a.startsWith(`--${k}=`)) || `--${k}=${d}`).split('=')[1]
 const n = +arg('n', 600), raio = +arg('raio', 12000)
-const saida = arg('saida', '/tmp/topo')
+const saida = arg('saida', PADRAO)
 mkdirSync(saida, { recursive: true })
 
 const nav = await chromium.launch()

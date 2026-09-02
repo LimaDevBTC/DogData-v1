@@ -17,6 +17,17 @@ import { PAD_MAIN } from './orbit-layer'
 
 const rad = (d: number) => (d * Math.PI) / 180
 
+/**
+ * Altura do topo da laje do complexo de lançamento, acima do regolito.
+ *
+ * ⚠️ ESTE NÚMERO É MEDIDO, NÃO ESCOLHIDO, e é o mesmo `DECK_TOP` de
+ * `blender/build_spaceport.py`: (y do LandingZonePad no mundo) menos (chão por
+ * raycast). Hoje 272,1 − 190,4 = 81,7, arredondado para cima em 0,2 para a laje
+ * COBRIR o disco preto em vez de brigar com ele por profundidade.
+ * Se `SPACEPORT_SHIFT.y` ou o terreno dali mudarem, muda aqui E no .py.
+ */
+export const SP_DECK_TOP = 81.9
+
 /** um anel de `n` pontos no raio `r`, começando no ângulo `a0` (graus, de +x para +z) */
 export function ring(n: number, r: number, a0 = 0): [number, number][] {
   return Array.from({ length: n }, (_, i) => {
@@ -168,9 +179,41 @@ export const PROPS: readonly PropSpec[] = [
   // antena por conferir. Com escala 2 a torre vai a 116 m, logo abaixo dos 120 m
   // do maior foguete, que é a proporção certa: a torre serve a nave e não
   // compete com ela.
+  // ── O COMPLEXO DE LANÇAMENTO (2026-09-02) ─────────────────────────────────
+  // ⚠️ O DISCO PRETO DO PÁTIO FLUTUA 82 m ACIMA DO REGOLITO, e era isso que
+  // fazia o conjunto ler como maquete de papel a 430 m. Medido importando
+  // `public/city/spaceport.glb` no Blender: LandingZonePad está em y 76,7 no
+  // espaço do modelo, mais `SPACEPORT_SHIFT.y` (195,4) dá 272,1 no mundo,
+  // contra 190,4 de chão por raycast no regolito. Delta 81,7.
+  //
+  // `sp-complex.glb` (blender/build_spaceport.py) constrói NESSE VAZIO: pátio
+  // de concreto, mesa sobre 16 pilares contraventados, laje com goela para o
+  // foguete, fosso de chamas com defletor, queimado e poeira soprada no chão,
+  // tubulação sobre cavalete vindo do parque de tanques, quatro mastros de
+  // 150 m, cerca, portão iluminado, estrada de serviço e três carretas.
+  // 6.486 triângulos, 4 materiais, ou seja 4 chamadas de desenho.
+  //
+  // ⚠️ ELE ENTRA COM UM ÚNICO PONTO EM `at`, DE PROPÓSITO. `props.ts` só
+  // instancia quando há mais de um ponto; com um ponto ele clona a raiz e a
+  // peça inteira fica rígida, nivelada por si, apoiada em UM valor de
+  // `heightAt`. Espalhar o complexo em várias linhas o deixaria escadeado pelo
+  // declive de 0,93% do platô.
   {
-    file: 'sp-strongback', why: 'a torre de lançamento do spaceport, ao lado do pad principal',
-    at: [[PAD_MAIN.x + 120, PAD_MAIN.z - 40]], yaw: 'center', scale: 2, cull: 9000,
+    file: 'sp-complex', why: 'a mesa de lançamento sobre pilares, o fosso de chamas e tudo que dá escala ao pátio',
+    // cull 9000 e não mais: o centro da praça está a 11,2 km do pad, então o
+    // complexo NÃO entra nas 570 chamadas da vista de rua; ele acende nas
+    // paradas que chegam perto (pad, padclose, padtour, spaceport).
+    at: [[PAD_MAIN.x, PAD_MAIN.z]], yaw: 0, scale: 1, cull: 9000,
+  },
+  // ⚠️ O STRONGBACK SUBIU PARA A LAJE. Ele estava no regolito, 82 m ABAIXO do
+  // deck onde o foguete se apoia: uma torre de lançamento no pé do barranco,
+  // servindo uma nave que ela não alcança. Agora ele fica na laje, do lado
+  // oposto ao pórtico (que ocupa dx +2 a +36), com o foguete no meio dos dois.
+  // `lift` é o topo da laje de `sp-complex`; os dois se movem juntos porque
+  // ambos partem do mesmo `heightAt`.
+  {
+    file: 'sp-strongback', why: 'a torre de lançamento, na laje, flanqueando o foguete do lado oposto ao pórtico',
+    at: [[PAD_MAIN.x - 62, PAD_MAIN.z - 18]], yaw: 'center', scale: 2, lift: SP_DECK_TOP, cull: 9000,
   },
   {
     file: 'sp-tank', why: 'o parque de tanques atrás dos hangares',

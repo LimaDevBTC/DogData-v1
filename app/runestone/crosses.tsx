@@ -11,7 +11,7 @@ import {
 import {
   AXIS_TICK, CAT, GRID, HAIR_SOFT, Plate, PlateHead, PlotGrid,
   RankRows, SectionHead, StatTile,
-} from "@/app/analytics/dashboard/ui"
+} from "@/components/plot/kit"
 import { Fact, Frame, compact, n0, pct } from "./sections"
 import type { Dossier } from "./types"
 

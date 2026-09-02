@@ -14,7 +14,7 @@ import { ArrowLeft, Database } from "lucide-react"
 import { Layout } from "@/components/layout"
 import {
   CAT, HeroFigure, Plate, PlateHead, PlotGrid, STATUS, SectionHead, StatTile,
-} from "@/app/analytics/dashboard/ui"
+} from "@/components/plot/kit"
 import { Built, Cross, Custody, Dormancy, Fact, Leaderboard, Provenance, n0, pct } from "./sections"
 import { City, Divergence, Sealed, TwoClocks } from "./crosses"
 import type { Dossier, HolderRow } from "./types"

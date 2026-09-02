@@ -9,11 +9,19 @@
 //     100 milhões é um cargueiro. Nunca linear, senão uma tx grande esconde a praça.
 //   • a nave é um FOGUETE de aço inox no desenho de uma Starship, com "$DOG" na
 //     fuselagem (pedido do fundador: "estilo SpaceX, escrito $DOG"): ogiva, corpo
-//     cilíndrico, quatro flaps, três motores, o lado do escudo térmico em preto.
+//     de virolas soldadas, quatro flaps, seis sinos de motor, carenagem de perna
+//     e o lado do escudo térmico em preto ladrilhado.
 //     Voa de nariz em órbita e vira em pé para pousar, como a de verdade.
+//   • ⚠️ O ACABAMENTO É TODO EM MATERIAL, A SILHUETA É QUE É GEOMETRIA. Linha de
+//     painel, cordão de solda, ladrilho do escudo, fuligem dos motores e a
+//     variação de brilho ao longo do corpo vivem em três mapas gerados em canvas
+//     (cor, rugosidade, normal), compartilhados por TODAS as naves. O motivo é a
+//     conta de escala: dezenas de naves ao mesmo tempo multiplicam qualquer
+//     custo por nave, e o que a cena não tem folga é CHAMADA DE DESENHO.
 //   • a nave que o visitante está seguindo ganha halo branco e maior.
 //   • nada aqui decide estado. Entrar, pousar e cair chegam prontos do feed.
 import * as THREE from 'three'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { isDonation, type DogTx } from './feed'
 
 export const ORBIT_CENTER = new THREE.Vector3(0, 0, 0)
@@ -124,7 +132,10 @@ type Phase = 'orbit' | 'landing' | 'parked' | 'dropping'
 interface Ship {
   tx: DogTx
   group: THREE.Group
-  body: THREE.Mesh
+  /** As duas malhas do LOD (perto, longe). Compartilham geometria e material. */
+  meshes: THREE.Mesh[]
+  /** true quando a nave ganhou um material só dela (a queda faz fade nele). */
+  ownMat: boolean
   glow: THREE.Sprite
   hit: THREE.Mesh
   trail: THREE.Line
@@ -206,65 +217,188 @@ export function altitudeFor(feeRate: number | null, fast: number | null, slow: n
   return hi - k * (hi - lo)
 }
 
-/** A pintura da nave: aço inox com juntas de painel, o lado do escudo térmico em
- *  preto, "$DOG" grande na fuselagem e a marca pequena. Uma textura, todas as naves. */
-function makeLiveryTexture(): THREE.Texture {
-  // O mapa UV do Lathe: u dá a volta (1024 px = 2π·0,09 = 0,565 do comprimento),
-  // v anda com o ÍNDICE do ponto do perfil, e no corpo 1 v = 1,26 do comprimento
-  // (512 px). Logo 1 unidade de comprimento vale 1811 px em volta e 406 px ao
-  // longo, e todo texto escrito ao longo do eixo tem de ser encolhido por 0,224
-  // no avanço para não esticar (a primeira versão virou faixas laranja).
-  const W = 1024, H = 512
-  const ALONG = 0.224
-  const c = document.createElement('canvas')
-  c.width = W; c.height = H
-  const ctx = c.getContext('2d')!
-  // aço
-  const g = ctx.createLinearGradient(0, 0, 0, H)
-  g.addColorStop(0, '#d9dce1'); g.addColorStop(0.5, '#c4c8ce'); g.addColorStop(1, '#d2d5da')
-  ctx.fillStyle = g
-  ctx.fillRect(0, 0, W, H)
-  // juntas dos anéis e das chapas
-  ctx.strokeStyle = 'rgba(70,74,82,0.35)'
-  ctx.lineWidth = 2
-  for (let i = 1; i < 12; i++) { const y = (i / 12) * H; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke() }
-  for (let i = 1; i < 16; i++) { const x = (i / 16) * W; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke() }
-  // v = 0 é a cauda e fica na BASE da imagem (flipY): a ogiva está no topo.
-  // Escudo térmico: metade da circunferência centrada em u = 0 (o −y do modelo,
-  // que em voo é a barriga e no pouso é o lado sul, de costas para a praça),
-  // da cauda até quase a ponta. As bordas caem em u = 0,25 e 0,75, onde estão
-  // os flaps (±x do modelo), como no Starship.
-  ctx.fillStyle = '#17181c'
-  ctx.fillRect(0, H * 0.08, W * 0.25, H * 0.92)
-  ctx.fillRect(W * 0.75, H * 0.08, W * 0.25, H * 0.92)
-  ctx.fillStyle = 'rgba(0,0,0,0.25)'
-  for (let i = 0; i < 26; i++) { const y = H * 0.08 + (i / 26) * H * 0.92; ctx.fillRect(0, y, W * 0.25, 1.5); ctx.fillRect(W * 0.75, y, W * 0.25, 1.5) }
-  // "$DOG" ao longo do eixo, lendo da cauda para a ponta: no lado limpo (u = 0,5,
-  // o +y do modelo: o céu em voo, o norte e a praça no pouso) em laranja sobre o
-  // aço, e no escudo (u = 0) em laranja sobre o preto, para ler também de baixo.
-  const word = (cx: number, cy: number, text: string, px: number, color: string) => {
-    ctx.save()
-    ctx.translate(cx, cy)
-    ctx.rotate(-Math.PI / 2)
-    ctx.scale(ALONG, 1)
-    ctx.fillStyle = color
-    ctx.font = `bold ${px}px "JetBrains Mono", "DM Sans", system-ui, sans-serif`
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-    ctx.fillText(text, 0, 0)
-    ctx.restore()
+// ── a pele da nave: três mapas, um único conjunto para TODAS as naves ────────
+// ⚠️ A CONTA QUE MANDA NESTE ARQUIVO: `sizeFor` põe a nave entre 32 e 120 m e
+// pode haver dezenas em órbita ao mesmo tempo, uma por transação pendente. Logo
+// TODO detalhe que custa triângulo é multiplicado por dezenas, e todo detalhe
+// que custa CHAMADA DE DESENHO é multiplicado por dezenas numa cena que já está
+// em ~570 chamadas. Por isso a regra aqui é: linha de painel, anel de solda,
+// fuligem e variação de brilho vivem em TEXTURA; só a silhueta vira geometria,
+// e a geometria toda da nave é FUNDIDA numa malha só.
+//
+// Layout dos três mapas (mesmo layout nos três, é o mesmo UV):
+//   • v ∈ [0,06 · 1] = o CORPO. v = 0,06 é a cauda (base da imagem, flipY) e
+//     v = 1 é a ponta da ogiva. O v do Lathe é reescrito por POSIÇÃO no eixo,
+//     não pelo índice do ponto do perfil, senão a cadência dos anéis mente.
+//   • v ∈ [0 · 0,06] = um ATLAS de peças: metade esquerda (u < 0,5) é o flap,
+//     metade direita é o sino do motor. Assim flap e motor entram na MESMA
+//     malha e no MESMO material do corpo, e a nave inteira é 1 chamada.
+const TEX_W = 1024, TEX_H = 512
+const ATLAS_V = 0.06                 // fatia de v reservada para o atlas de peças
+const BODY_H = TEX_H * (1 - ATLAS_V) // altura em px da região do corpo
+// ⚠️ FATOR DE ESTICAMENTO DO TEXTO, RECALCULADO. O u dá a volta no casco:
+// 1024 px valem 2π·0,09 = 0,565 de comprimento, ou seja 1811 px por unidade.
+// O v agora anda com a POSIÇÃO: 481 px (BODY_H) por unidade de comprimento.
+// Texto escrito ao longo do eixo precisa do avanço encolhido por 481/1811.
+const ALONG = BODY_H / (TEX_W / (2 * Math.PI * 0.09))
+const RINGS = 26                     // virolas: 50 m / 1,9 m é o passo do Starship
+
+interface ShipMaps { map: THREE.Texture; rough: THREE.Texture; normal: THREE.Texture }
+
+function makeShipMaps(): ShipMaps {
+  const W = TEX_W, H = TEX_H, HB = BODY_H
+  const novo = () => {
+    const c = document.createElement('canvas')
+    c.width = W; c.height = H
+    return { c, x: c.getContext('2d')! }
   }
-  word(W * 0.5, H * 0.6, '$DOG', 300, '#F7931A')
-  word(0, H * 0.6, '$DOG', 300, '#F7931A')
-  word(W, H * 0.6, '$DOG', 300, '#F7931A') // a metade que sobra do escudo (u = 1)
-  word(W * 0.5, H * 0.87, 'DOGCITY', 56, '#1a1a1e')
-  // anel de aviso na saia dos motores
-  ctx.fillStyle = '#F7931A'
-  ctx.fillRect(0, H * 0.985, W, H * 0.015)
-  const tex = new THREE.CanvasTexture(c)
-  tex.colorSpace = THREE.SRGBColorSpace
-  tex.wrapS = THREE.RepeatWrapping
-  tex.anisotropy = 4
-  return tex
+  const A = novo(), R = novo(), N = novo()   // albedo, rugosidade, normal
+  const a = A.x, r = R.x, n = N.x
+
+  // y da imagem para uma altura z ∈ [0,1] do corpo (0 = cauda, 1 = ponta)
+  const by = (z: number) => (1 - z) * HB
+
+  // ── base ──────────────────────────────────────────────────────────────────
+  const g = a.createLinearGradient(0, 0, 0, HB)
+  g.addColorStop(0, '#dcdfe4'); g.addColorStop(0.45, '#c2c6cd'); g.addColorStop(1, '#cfd2d7')
+  a.fillStyle = g; a.fillRect(0, 0, W, HB)
+  r.fillStyle = '#4a4a4a'; r.fillRect(0, 0, W, H)     // 0,29: inox escovado
+  n.fillStyle = '#8080ff'; n.fillRect(0, 0, W, H)     // normal neutra
+
+  // brilho variando ao longo do corpo: faixas largas de rugosidade, sem feição
+  // que o olho consiga identificar (armadilha do ladrilho, armadilhas-3d.md)
+  for (let i = 0; i < 90; i++) {
+    const y = Math.random() * HB, h = 2 + Math.random() * 9
+    const k = 0.18 + Math.random() * 0.34
+    r.fillStyle = `rgba(${Math.round(k * 255)},${Math.round(k * 255)},${Math.round(k * 255)},0.5)`
+    r.fillRect(0, y, W, h)
+    a.fillStyle = `rgba(255,255,255,${0.03 + Math.random() * 0.05})`
+    a.fillRect(0, y, W, h)
+  }
+
+  // ── anel de solda e linha de painel: o detalhe que entrega escala ──────────
+  // Cada virola ganha (1) uma junta escura, (2) um cordão de solda claro logo
+  // acima e (3) um degrau na normal, que é o que dá SOMBRA PRÓPRIA de perto.
+  for (let i = 1; i < RINGS; i++) {
+    const y = Math.round(by(i / RINGS))
+    a.fillStyle = 'rgba(64,68,76,0.42)'; a.fillRect(0, y, W, 2)
+    a.fillStyle = 'rgba(255,255,255,0.28)'; a.fillRect(0, y - 2, W, 1)
+    r.fillStyle = 'rgba(150,150,150,0.75)'; r.fillRect(0, y - 2, W, 4) // solda é fosca
+    // cordão: sobe de um lado e desce do outro no canal verde (eixo v)
+    n.fillStyle = 'rgba(128,190,255,1)'; n.fillRect(0, y - 2, W, 2)
+    n.fillStyle = 'rgba(128,66,255,1)'; n.fillRect(0, y, W, 2)
+    // costura vertical das chapas, desencontrada a cada virola para não virar grade
+    const off = (i * 0.37) % 1
+    for (let k = 0; k < 6; k++) {
+      const x = Math.round(((k / 6 + off) % 1) * W)
+      a.fillStyle = 'rgba(72,76,84,0.30)'; a.fillRect(x, y, 1.5, Math.round(HB / RINGS))
+    }
+  }
+
+  // ── escudo térmico: metade da circunferência centrada em u = 0 ────────────
+  // (o −y do modelo: a barriga em voo, o lado sul no pouso). As bordas caem em
+  // u = 0,25 e 0,75, onde estão os flaps, como no Starship.
+  const shieldTop = by(0.94)
+  for (const x0 of [0, W * 0.75]) {
+    a.fillStyle = '#15161a'; a.fillRect(x0, shieldTop, W * 0.25, HB - shieldTop)
+    r.fillStyle = '#e0e0e0'; r.fillRect(x0, shieldTop, W * 0.25, HB - shieldTop) // cerâmica é fosca
+  }
+  // ladrilho hexagonal aproximado: linhas nos dois sentidos, finas
+  for (const x0 of [0, W * 0.75]) {
+    for (let i = 0; i < 60; i++) {
+      const y = shieldTop + (i / 60) * (HB - shieldTop)
+      a.fillStyle = 'rgba(255,255,255,0.07)'; a.fillRect(x0, y, W * 0.25, 1)
+      n.fillStyle = 'rgba(128,150,255,0.6)'; n.fillRect(x0, y, W * 0.25, 1)
+    }
+    for (let k = 0; k < 22; k++) {
+      const x = x0 + (k / 22) * W * 0.25
+      a.fillStyle = 'rgba(255,255,255,0.05)'; a.fillRect(x, shieldTop, 1, HB - shieldTop)
+    }
+  }
+  // a borda do escudo é uma linha viva, é ela que se lê a distância
+  a.fillStyle = 'rgba(40,42,48,0.9)'
+  a.fillRect(W * 0.25 - 2, shieldTop, 3, HB - shieldTop)
+  a.fillRect(W * 0.75 - 1, shieldTop, 3, HB - shieldTop)
+
+  // ── linha de separação de estágio: uma cinta mais pesada no pé do corpo ────
+  const sep = by(0.085)
+  a.fillStyle = 'rgba(52,56,64,0.55)'; a.fillRect(0, sep - 5, W, 10)
+  a.fillStyle = 'rgba(255,255,255,0.22)'; a.fillRect(0, sep - 7, W, 2)
+  r.fillStyle = 'rgba(160,160,160,0.8)'; r.fillRect(0, sep - 7, W, 14)
+
+  // ── DESGASTE ORIENTADO: fuligem subindo dos motores ───────────────────────
+  // ⚠️ metal limpo e uniforme é a assinatura de render amador. A fuligem é o que
+  // separa "cilindro branco" de "veículo que já voou".
+  const soot = a.createLinearGradient(0, HB, 0, by(0.26))
+  soot.addColorStop(0, 'rgba(18,18,20,0.85)')
+  soot.addColorStop(0.35, 'rgba(28,28,32,0.45)')
+  soot.addColorStop(1, 'rgba(30,30,34,0)')
+  a.fillStyle = soot; a.fillRect(0, by(0.26), W, HB - by(0.26))
+  const sootR = r.createLinearGradient(0, HB, 0, by(0.26))
+  sootR.addColorStop(0, 'rgba(230,230,230,0.9)')
+  sootR.addColorStop(1, 'rgba(230,230,230,0)')
+  r.fillStyle = sootR; r.fillRect(0, by(0.26), W, HB - by(0.26))
+  // línguas de fuligem irregulares, senão a borda do gradiente lê como faixa
+  for (let i = 0; i < 46; i++) {
+    const x = Math.random() * W, h = (0.06 + Math.random() * 0.20) * HB
+    a.fillStyle = `rgba(20,20,24,${0.10 + Math.random() * 0.18})`
+    a.fillRect(x, HB - h, 8 + Math.random() * 60, h)
+  }
+
+  // ── a marca ───────────────────────────────────────────────────────────────
+  // "$DOG" ao longo do eixo, lendo da cauda para a ponta: no lado limpo
+  // (u = 0,5, o +y do modelo: o céu em voo, a praça no pouso) e no escudo
+  // (u = 0), para ler também de baixo.
+  const word = (cx: number, cy: number, text: string, px: number, color: string) => {
+    a.save()
+    a.translate(cx, cy)
+    a.rotate(-Math.PI / 2)
+    a.scale(ALONG, 1)
+    a.fillStyle = color
+    a.font = 'bold ' + px + 'px "JetBrains Mono", "DM Sans", system-ui, sans-serif'
+    a.textAlign = 'center'; a.textBaseline = 'middle'
+    a.fillText(text, 0, 0)
+    a.restore()
+  }
+  word(W * 0.5, by(0.44), '$DOG', 300, '#F7931A')
+  word(0, by(0.44), '$DOG', 300, '#F7931A')
+  word(W, by(0.44), '$DOG', 300, '#F7931A') // a metade que sobra do escudo (u = 1)
+  word(W * 0.5, by(0.15), 'DOGCITY', 56, '#1a1a1e')
+  // anel de aviso na saia dos motores, já por baixo da fuligem
+  a.fillStyle = 'rgba(247,147,26,0.75)'; a.fillRect(0, HB - 8, W, 8)
+
+  // ── ATLAS DE PEÇAS (v < 0,06) ─────────────────────────────────────────────
+  // esquerda = flap (grafite com nervura), direita = sino do motor (gradiente da
+  // garganta para a saída, escurecendo, com canaleta de refrigeração).
+  const ay0 = HB, ah = H - HB
+  a.fillStyle = '#26272d'; a.fillRect(0, ay0, W * 0.5, ah)
+  r.fillStyle = '#c0c0c0'; r.fillRect(0, ay0, W * 0.5, ah)
+  for (let k = 0; k < 40; k++) {
+    const x = (k / 40) * W * 0.5
+    a.fillStyle = 'rgba(255,255,255,0.06)'; a.fillRect(x, ay0, 2, ah)
+    n.fillStyle = 'rgba(150,128,255,1)'; n.fillRect(x, ay0, 1, ah)
+  }
+  const bell = a.createLinearGradient(0, H, 0, ay0) // baixo = garganta, topo = saída
+  bell.addColorStop(0, '#6a5b4e'); bell.addColorStop(0.45, '#3a3a3e'); bell.addColorStop(1, '#17171a')
+  a.fillStyle = bell; a.fillRect(W * 0.5, ay0, W * 0.5, ah)
+  r.fillStyle = '#707070'; r.fillRect(W * 0.5, ay0, W * 0.5, ah)
+  for (let k = 0; k < 64; k++) {
+    const x = W * 0.5 + (k / 64) * W * 0.5
+    a.fillStyle = 'rgba(0,0,0,0.30)'; a.fillRect(x, ay0, 2, ah)
+    n.fillStyle = 'rgba(96,128,255,1)'; n.fillRect(x, ay0, 1, ah)
+    n.fillStyle = 'rgba(160,128,255,1)'; n.fillRect(x + 2, ay0, 1, ah)
+  }
+
+  const tex = (c: HTMLCanvasElement, srgb: boolean) => {
+    const t = new THREE.CanvasTexture(c)
+    t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace
+    t.wrapS = THREE.RepeatWrapping
+    t.anisotropy = 4
+    return t
+  }
+  // ⚠️ rugosidade e normal são DADO, não cor: se forem para sRGB o three
+  // aplica a curva e o inox vira plástico.
+  return { map: tex(A.c, true), rough: tex(R.c, false), normal: tex(N.c, false) }
 }
 
 function makeGlowTexture(): THREE.Texture {
@@ -289,48 +423,187 @@ export function createOrbitLayer(): OrbitLayer {
   const ships = new Map<string, Ship>()
   const glowTex = makeGlowTexture()
 
-  // ── o foguete: uma geometria só (revolução), flaps, motores, e a pintura ──
-  // Perfil ao longo de +z (0 = cauda, 1 = ponta), raio em unidades de comprimento;
-  // proporções de Starship: 9 m de diâmetro para 50 m de altura → raio 0,09.
-  const rocketGeo = (() => {
+  // ── o foguete: DUAS geometrias fundidas (perto e longe), UM material ──────
+  // ⚠️ A CONTA DA CHAMADA DE DESENHO. Antes desta versão cada nave era 10 objetos
+  // (casco + 4 flaps + 3 motores + halo + rastro): com 30 naves em órbita isso é
+  // 300 chamadas numa cena que já mede ~570. Casco, flaps, sinos e pernas agora
+  // são UMA malha, com UM material, porque flap e motor foram parar num atlas
+  // dentro da mesma textura. A nave passou a custar 3 chamadas (malha + halo +
+  // rastro), ou seja 90 para 30 naves: ~210 chamadas devolvidas para a cena.
+  //
+  // ⚠️ E TEM LOD. A nave em órbita alta mede poucos pixels e detalhe sub-pixel
+  // cintila (armadilhas-3d.md, "geometria fina"). Cada nave é um THREE.LOD, que
+  // o próprio renderer resolve por distância sem que ninguém precise passar a
+  // câmera para o `update` daqui.
+  const R = 0.09 // proporção de Starship: 9 m de diâmetro para 50 m de altura
+
+  /** Reescreve o uv de uma peça para dentro de um retângulo do atlas. */
+  const atlasUV = (g: THREE.BufferGeometry, u0: number, u1: number, v0: number, v1: number) => {
+    const uv = g.attributes.uv as THREE.BufferAttribute
+    let minU = Infinity, maxU = -Infinity, minV = Infinity, maxV = -Infinity
+    for (let i = 0; i < uv.count; i++) {
+      const u = uv.getX(i), v = uv.getY(i)
+      if (u < minU) minU = u; if (u > maxU) maxU = u
+      if (v < minV) minV = v; if (v > maxV) maxV = v
+    }
+    const du = maxU - minU || 1, dv = maxV - minV || 1
+    for (let i = 0; i < uv.count; i++) {
+      uv.setXY(i,
+        u0 + ((uv.getX(i) - minU) / du) * (u1 - u0),
+        v0 + ((uv.getY(i) - minV) / dv) * (v1 - v0))
+    }
+    uv.needsUpdate = true
+    return g
+  }
+  const FLAP_UV = [0.01, 0.48, 0.006, 0.054] as const
+  const BELL_UV = [0.52, 0.99, 0.006, 0.054] as const
+
+  /** Casco de revolução. `seg` é a resolução em volta; o v sai da POSIÇÃO no eixo. */
+  const hullGeo = (seg: number, fatias: number) => {
     const pts: THREE.Vector2[] = []
-    const R = 0.09
     pts.push(new THREE.Vector2(0.0, 0.0))
-    pts.push(new THREE.Vector2(R * 0.72, 0.0))     // a saia dos motores
-    // o corpo em fatias: o v da textura anda com o índice do ponto, então o
-    // corpo precisa de tantos pontos quanto a ogiva para a pintura não escorrer
-    for (let i = 0; i <= 10; i++) pts.push(new THREE.Vector2(R, 0.03 + (0.63 * i) / 10))
-    for (let i = 1; i <= 8; i++) {                  // ogiva
-      const t = i / 8
+    pts.push(new THREE.Vector2(R * 0.70, 0.0))       // a saia dos motores
+    pts.push(new THREE.Vector2(R * 0.76, 0.014))     // o alargamento da saia
+    pts.push(new THREE.Vector2(R, 0.034))
+    for (let i = 1; i <= fatias; i++) pts.push(new THREE.Vector2(R, 0.034 + (0.626 * i) / fatias))
+    for (let i = 1; i <= Math.max(4, Math.round(fatias * 0.8)); i++) {   // ogiva
+      const nOg = Math.max(4, Math.round(fatias * 0.8))
+      const t = i / nOg
       pts.push(new THREE.Vector2(R * Math.cos((t * Math.PI) / 2) * (1 - 0.15 * t), 0.66 + 0.34 * t))
     }
-    const g = new THREE.LatheGeometry(pts, 28)
+    const g = new THREE.LatheGeometry(pts, seg)
     g.rotateX(Math.PI / 2) // o Lathe nasce em torno de +y; a nave voa em +z
-    // UV: u em volta, v ao longo: é o que a pintura espera
+    // ⚠️ O v DO LATHE ANDA COM O ÍNDICE DO PONTO, e índice não é comprimento: com
+    // o perfil desigual a cadência dos anéis de solda mentiria e o "$DOG"
+    // escorreria. Reescrito por posição no eixo, dentro da faixa do corpo.
+    const pos = g.attributes.position as THREE.BufferAttribute
+    const uv = g.attributes.uv as THREE.BufferAttribute
+    for (let i = 0; i < uv.count; i++) {
+      const z = THREE.MathUtils.clamp(pos.getZ(i), 0, 1)
+      uv.setY(i, ATLAS_V + z * (1 - ATLAS_V))
+    }
+    uv.needsUpdate = true
     return g
-  })()
-  // flap: uma pá trapezoidal (raiz longa no casco, ponta recuada), 0,17 de
-  // comprimento por 0,10 de envergadura, no plano x-z do modelo
-  const flapGeo = (() => {
+  }
+
+  /** Pá trapezoidal: raiz longa no casco, ponta recuada. */
+  const flapBase = (() => {
     const sh = new THREE.Shape()
     sh.moveTo(0, 0); sh.lineTo(0.10, 0.025); sh.lineTo(0.10, 0.11); sh.lineTo(0.03, 0.17); sh.lineTo(0, 0.17); sh.closePath()
     const g = new THREE.ExtrudeGeometry(sh, { depth: 0.008, bevelEnabled: false })
     g.rotateX(Math.PI / 2) // (x, y, z) → (x, −z, y): o comprimento cai em +z, a espessura em y
-    return g
+    atlasUV(g, FLAP_UV[0], FLAP_UV[1], FLAP_UV[2], FLAP_UV[3])
+    return g.toNonIndexed()
   })()
-  const engineGeo = new THREE.ConeGeometry(0.02, 0.05, 10, 1, true)
-  engineGeo.rotateX(-Math.PI / 2)
+
+  /** Os quatro flaps: dois traseiros grandes, dois dianteiros menores.
+   *  ⚠️ O ESPELHO É ROTAÇÃO, NÃO ESCALA NEGATIVA. `scale(-1,1,1)` inverte o
+   *  sentido do triângulo e a peça fica avessa; a versão anterior tinha dois
+   *  flaps virados do avesso. Girar π em torno do eixo da nave põe a pá no lado
+   *  −x com o sentido preservado. */
+  const flapsGeo = () => {
+    const out: THREE.BufferGeometry[] = []
+    for (const [z, sc, lado] of [[0.085, 1, 1], [0.085, 1, -1], [0.70, 0.62, 1], [0.70, 0.62, -1]] as const) {
+      const f = flapBase.clone()
+      f.scale(sc, sc, sc)
+      f.translate(R * 0.94, 0, 0)
+      if (lado < 0) f.rotateZ(Math.PI)
+      f.translate(0, 0, z)
+      out.push(f)
+    }
+    return out
+  }
+
+  /** Sino de motor: garganta estreita e expansão, é o que muda a leitura de perto.
+   *  Aponta para −z (a popa). Aberto dos dois lados, por isso o material é
+   *  `DoubleSide`: sem isso o interior do sino é um buraco. */
+  const bellBase = (() => {
+    const pts = [
+      new THREE.Vector2(0.0048, -0.004),
+      new THREE.Vector2(0.0062, -0.010),
+      new THREE.Vector2(0.0095, -0.019),
+      new THREE.Vector2(0.0145, -0.030),
+      new THREE.Vector2(0.0195, -0.042),
+      new THREE.Vector2(0.0225, -0.055),
+    ]
+    const g = new THREE.LatheGeometry(pts, 10)
+    g.rotateX(Math.PI / 2)
+    atlasUV(g, BELL_UV[0], BELL_UV[1], BELL_UV[2], BELL_UV[3])
+    return g.toNonIndexed()
+  })()
+
+  /** Seis motores, como o Starship: três de vácuo por fora, três de mar por dentro. */
+  const enginesGeo = () => {
+    const out: THREE.BufferGeometry[] = []
+    // ⚠️ O RAIO DA SAIA MANDA: a saia fecha em R·0,70 = 0,063, então a borda de
+    // fora do sino mais externo (raio do anel + raio da saída) tem de caber em
+    // 0,063 ou os motores ficam mais largos que o foguete. Externos: 0,038 +
+    // 0,0225·1,12 = 0,063 na conta.
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI * 2 + Math.PI / 6
+      const e = bellBase.clone(); e.scale(1.12, 1.12, 1.15)
+      e.translate(Math.cos(a) * 0.038, Math.sin(a) * 0.038, -0.004)
+      out.push(e)
+    }
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI * 2 - Math.PI / 6
+      const e = bellBase.clone(); e.scale(0.72, 0.72, 0.70)
+      e.translate(Math.cos(a) * 0.014, Math.sin(a) * 0.014, 0.0)
+      out.push(e)
+    }
+    return out
+  }
+
+  /** Carenagem de perna de pouso: quatro caixinhas na saia. Silhueta, não função. */
+  const legsGeo = () => {
+    const out: THREE.BufferGeometry[] = []
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 4
+      // ⚠️ TEM QUE SAIR DO CASCO. Com o raio do casco em 0,09, uma carenagem
+      // centrada em 0,072 ficaria INTEIRA dentro dele e não se veria nada.
+      // Centrada em 0,096 ela avança de 0,084 a 0,108, ou seja 0,018 de saliência.
+      const b = new THREE.BoxGeometry(0.024, 0.012, 0.060)
+      atlasUV(b, FLAP_UV[0], FLAP_UV[1], FLAP_UV[2], FLAP_UV[3])
+      const nb = b.toNonIndexed()
+      nb.rotateZ(a)
+      nb.translate(Math.cos(a) * R * 1.07, Math.sin(a) * R * 1.07, 0.034)
+      out.push(nb)
+    }
+    return out
+  }
+
+  // ⚠️ TRIÂNGULO CONTADO NO CÓDIGO, NÃO MEDIDO NO NAVEGADOR (eu não abri o
+  // navegador). Perto: casco 32 setores × 25 fatias × 2 = 1.600, mais 4 flaps de
+  // 16 = 64, mais 6 sinos de 10 × 5 × 2 = 600, mais 4 pernas de 12 = 48, ou seja
+  // 2.312 por nave. Trinta naves de perto dão 69 mil triângulos, 1,3% dos 5,5 M
+  // da cena. Longe: 12 × 11 × 2 = 264 mais os flaps, 328 por nave. A folga está
+  // em triângulo, e é por isso que o ganho todo foi buscado na chamada de desenho.
+  const rocketNear = mergeGeometries(
+    [hullGeo(32, 12).toNonIndexed(), ...flapsGeo(), ...enginesGeo(), ...legsGeo()], false,
+  )!
+  const rocketFar = mergeGeometries([hullGeo(12, 4).toNonIndexed(), ...flapsGeo()], false)!
   const hitGeo = new THREE.SphereGeometry(1, 8, 8)
   const hitMat = new THREE.MeshBasicMaterial({ visible: false })
-  const livery = makeLiveryTexture()
-  const steelMat = (hot: boolean) =>
+  const maps = makeShipMaps()
+  // ⚠️ UM MATERIAL PARA TODAS AS NAVES, TRÊS AO TODO. Antes era um material novo
+  // por nave (`steelMat(hot)` dentro de `makeShip`). Material novo não custa
+  // chamada, mas custa cache de programa e cada nave que caía chamava `dispose`
+  // nele; com material compartilhado o `dispose` de uma nave apagaria a pintura
+  // de todas, e é por isso que `remove` só descarta material PRÓPRIO (ver `ownMat`).
+  const steelMat = (emissive: THREE.Color | number, intensity: number) =>
     new THREE.MeshStandardMaterial({
-      map: livery, color: 0xffffff, metalness: 0.88, roughness: 0.3, envMapIntensity: 1.2,
-      // a emissão segue a pintura (o "$DOG" continua lendo na sombra; o escudo fica preto)
-      emissive: hot ? DOG_HOT : 0xffffff, emissiveMap: livery, emissiveIntensity: hot ? 0.3 : 0.14,
+      map: maps.map, roughnessMap: maps.rough, normalMap: maps.normal,
+      normalScale: new THREE.Vector2(0.8, 0.8),
+      color: 0xffffff, metalness: 0.9,
+      // ⚠️ `roughness` MULTIPLICA `roughnessMap`: com mapa, 1 é o único valor que
+      // deixa o mapa mandar (armadilhas-3d.md).
+      roughness: 1, envMapIntensity: 1.2,
+      side: THREE.DoubleSide, // o sino do motor é aberto
+      emissive, emissiveMap: maps.map, emissiveIntensity: intensity,
     })
-  const flapMat = new THREE.MeshStandardMaterial({ color: 0x8b8f96, metalness: 0.9, roughness: 0.35 })
-  const engineMat = new THREE.MeshStandardMaterial({ color: 0x35373c, metalness: 0.9, roughness: 0.4, side: THREE.DoubleSide })
+  const matCold = steelMat(0xffffff, 0.12)
+  const matHot = steelMat(DOG_HOT, 0.26)
+  const matFollow = steelMat(FOLLOW_WHITE, 0.45)
 
   let landingQueueAt = 0 // carimbo do último pouso agendado, para escalonar
   let spotIndex = 0
@@ -344,25 +617,17 @@ export function createOrbitLayer(): OrbitLayer {
     g.name = `ship:${tx.txid}`
     const hot = tx.dog_net >= 10_000_000
     // o modelo mede 1 de comprimento em +z, cauda em z = 0; escala pelo tamanho
-    const model = new THREE.Group()
-    const body = new THREE.Mesh(rocketGeo, steelMat(hot))
-    body.castShadow = true
-    model.add(body)
-    // flaps: dois traseiros grandes, dois dianteiros menores, nos lados ±x
-    for (const [z, sc, sx] of [[0.04, 1, -1], [0.04, 1, 1], [0.7, 0.62, -1], [0.7, 0.62, 1]] as const) {
-      const f = new THREE.Mesh(flapGeo, flapMat)
-      f.scale.set(sx * sc, sc, sc) // o lado −x é o espelho
-      f.position.set(sx * 0.085, 0.004 * sc, z)
-      f.castShadow = true
-      model.add(f)
-    }
-    // três motores na saia
-    for (let i = 0; i < 3; i++) {
-      const a = (i / 3) * Math.PI * 2 + Math.PI / 6
-      const e = new THREE.Mesh(engineGeo, engineMat)
-      e.position.set(Math.cos(a) * 0.035, Math.sin(a) * 0.035, -0.02)
-      model.add(e)
-    }
+    const mat = hot ? matHot : matCold
+    const near = new THREE.Mesh(rocketNear, mat)
+    near.castShadow = true
+    const far = new THREE.Mesh(rocketFar, mat)
+    // ⚠️ A TROCA DE NÍVEL É POR TAMANHO, não uma distância fixa: um cargueiro de
+    // 120 m ainda se lê de longe e um de 32 m já não. Com a câmera de 42° em
+    // 1440 px, cada pixel vale 0,029°, então a nave sai de ~50 px de altura na
+    // distância de troca de 32 m e fica na mesma leitura em toda a faixa.
+    const model = new THREE.LOD()
+    model.addLevel(near, 0)
+    model.addLevel(far, 700 + size * 16)
     model.scale.setScalar(size)
     const glow = new THREE.Sprite(
       new THREE.SpriteMaterial({ map: glowTex, color: 0xffffff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.95 }),
@@ -392,7 +657,7 @@ export function createOrbitLayer(): OrbitLayer {
     trail.frustumCulled = false
     group.add(g, trail)
     return {
-      tx, group: g, body, glow, hit, trail, trailPts, trailAt: 0,
+      tx, group: g, meshes: [near, far], ownMat: false, glow, hit, trail, trailPts, trailAt: 0,
       phase: 'orbit',
       radius: 780 + hash01(tx.txid, 1) * 340,
       altitude: 700 + pisoOrbita,
@@ -421,26 +686,28 @@ export function createOrbitLayer(): OrbitLayer {
     return spot.clone()
   }
 
+  /** Troca o material das duas malhas do LOD de uma vez. */
+  const setMat = (s: Ship, m: THREE.Material) => { for (const k of s.meshes) k.material = m }
+
   const remove = (s: Ship) => {
     group.remove(s.group, s.trail)
     s.trail.geometry.dispose()
     ;(s.trail.material as THREE.Material).dispose()
-    ;(s.body.material as THREE.Material).dispose()
+    // ⚠️ NUNCA descarte o material do casco aqui: ele é compartilhado por todas
+    // as naves. Só o material PRÓPRIO, o que a queda clona para poder apagar.
+    if (s.ownMat) (s.meshes[0].material as THREE.Material).dispose()
     ;(s.glow.material as THREE.Material).dispose()
     ships.delete(s.tx.txid)
   }
 
   const applyFollow = (s: Ship) => {
-    const m = s.body.material as THREE.MeshStandardMaterial
+    if (s.ownMat) return // a nave em queda tem material próprio, não se mexe nele
     if (s.followed) {
-      m.emissive.copy(FOLLOW_WHITE)
-      m.emissiveIntensity = 0.45
+      setMat(s, matFollow)
       ;(s.glow.material as THREE.SpriteMaterial).color.set(0xffffff)
       s.glow.scale.setScalar(s.size * 3.4)
     } else {
-      const hot = s.tx.dog_net >= 10_000_000
-      m.emissive.copy(hot ? DOG_HOT : FOLLOW_WHITE)
-      m.emissiveIntensity = hot ? 0.3 : 0.14
+      setMat(s, s.tx.dog_net >= 10_000_000 ? matHot : matCold)
       ;(s.glow.material as THREE.SpriteMaterial).color.set(0xffffff)
       s.glow.scale.setScalar(s.size * 1.9)
     }
@@ -510,6 +777,12 @@ export function createOrbitLayer(): OrbitLayer {
     drop(tx) {
       const s = ships.get(tx.txid)
       if (!s || s.phase !== 'orbit') return
+      // ⚠️ A QUEDA APAGA A NAVE MEXENDO NA EMISSÃO DO MATERIAL, e o material do
+      // casco é COMPARTILHADO: sem este clone, uma tx caindo apagaria todas as
+      // naves da órbita junto. Custa um material por queda, que é raro e breve.
+      const own = (s.meshes[0].material as THREE.MeshStandardMaterial).clone()
+      setMat(s, own)
+      s.ownMat = true
       const p0 = s.group.position.clone()
       const away = orbitPos(s, clock + 10, tmp).clone().multiplyScalar(2.2)
       away.y = p0.y + 900
@@ -577,7 +850,7 @@ export function createOrbitLayer(): OrbitLayer {
           if (tmp2.lengthSq() > 1e-4) s.group.lookAt(tmp.clone().add(tmp2))
           const fade = 1 - u
           ;(s.glow.material as THREE.SpriteMaterial).opacity = 0.95 * fade
-          ;(s.body.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.9 * fade
+          ;(s.meshes[0].material as THREE.MeshStandardMaterial).emissiveIntensity = 0.9 * fade
           ;(s.trail.material as THREE.LineBasicMaterial).opacity = 0.55 * fade
           if (u >= 1) { remove(s); continue }
         } else if (s.phase === 'parked') {
@@ -638,7 +911,10 @@ export function createOrbitLayer(): OrbitLayer {
     },
     dispose() {
       for (const s of Array.from(ships.values())) remove(s)
-      rocketGeo.dispose(); flapGeo.dispose(); engineGeo.dispose(); hitGeo.dispose(); glowTex.dispose(); hitMat.dispose(); livery.dispose(); flapMat.dispose(); engineMat.dispose()
+      rocketNear.dispose(); rocketFar.dispose(); flapBase.dispose(); bellBase.dispose()
+      hitGeo.dispose(); glowTex.dispose(); hitMat.dispose()
+      maps.map.dispose(); maps.rough.dispose(); maps.normal.dispose()
+      matCold.dispose(); matHot.dispose(); matFollow.dispose()
     },
   }
   return api
