@@ -475,9 +475,15 @@ function materialCalota(fade: number, coroa: number, favo: THREE.Texture): THREE
         // pretos e o valor cai por baixo de 0,5, onde \`nerv\` já é zero. É o
         // desvanecimento correto porque acompanha a AMOSTRAGEM, e não uma
         // distância chutada. O que sobra de escolha é o zênite.
-        float zen = mix(1.0, 0.30, pow(max(n.y, 0.0), 3.0));
-        cor += uTint * bolha * 0.030 * longe;
-        cor += uNerv * nerv * 0.24 * zen * longe;
+        // ⚠️ O ZÊNITE É QUASE MUDO, POR ORDEM (fundador, 01/09: "no zênite é
+        // quase invisível"). Medido na chapa de olhar para cima: com o fator em
+        // 0,30 a malha ainda era o assunto do quadro inteiro. Em 0,18 sobre um
+        // ganho de 0,18 a nervura no topo sai a 0,032, menos da metade dos
+        // 0,072 da primeira versão, e na barriga da casca (n.y baixo) ela
+        // continua inteira, que é onde a forma se lê.
+        float zen = mix(1.0, 0.18, pow(max(n.y, 0.0), 2.0));
+        cor += uTint * bolha * 0.026 * longe;
+        cor += uNerv * nerv * 0.18 * zen * longe;
 
         // o telão do futuro: nesta rodada uConteudoMix é 0 e isto não pesa
         vec3 conteudo = texture2D(uConteudo, vUvPlano).rgb;
