@@ -184,16 +184,19 @@ const PORTE: Record<Forma, [number, number]> = { esfera: [0.60, 1.35], cone: [0.
  *  do outro. Ele MULTIPLICA a cor por vértice, então 1,0 é a copa de hoje. */
 function tintarMuda(x: number, z: number, i: number, alvo: THREE.Color): THREE.Color {
   const t = 0.65 * ruidoMundo(x, z, 170) + 0.35 * hash01(i * 2654435761)
-  // frio (0) → #B8DBC7 escurecido; quente (1) → #FFE8B0 clareado
+  // ⚠️ O TINTE TEM DE FICAR ABAIXO DE 1, E A PRIMEIRA VERSÃO NÃO FICAVA. Ela
+  // somava até 1,26 por canal e o vermelho e o verde ESTOURAVAM: seis amostras
+  // lidas da malha davam fffff9, fffee8, fffff6, f5f8e6, fffffb, ou seja quase
+  // branco, e a variação inteira sobrava no azul. Multiplicador que passa de 1
+  // não clareia a copa, ele a satura e come a própria variação.
+  // Frio (t = 0): azulado e apagado. Quente (t = 1): oliva, seco, dourado.
   alvo.setRGB(
-    0.74 + t * 0.52,
-    0.86 + t * 0.30,
-    0.80 + t * 0.08,
+    0.70 + t * 0.42,
+    0.82 + t * 0.16,
+    0.86 - t * 0.24,
   )
-  // luminância geral: as claras clareiam mais do que as escuras escurecem, senão
-  // a massa toda cai de valor e o verde some contra o lote (1,43:1 já é pouco)
-  const l = 0.88 + hash01(i * 40503) * 0.30
-  alvo.multiplyScalar(l)
+  // e a luminância por muda, que é o que separa duas vizinhas do mesmo tom
+  alvo.multiplyScalar(0.82 + hash01(i * 40503) * 0.34)
   return alvo
 }
 

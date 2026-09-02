@@ -24,6 +24,8 @@
 // Three.js puro (regra da casa: nada de react-three-fiber).
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
+import { look2 } from './look'
+import { superficie, quebrarRepeticao } from './materiais'
 
 // paleta: a maquete da cidade + a faixa de raso, que é nova
 const C_FUNDO = new THREE.Color('#2E4A57')   // o mergulho, na borda do banco
@@ -33,6 +35,9 @@ const C_MATO_E = new THREE.Color('#59684C')  // a mata fechada do alto
 const C_ROCHA = new THREE.Color('#8A8375')   // o costão de rocha
 const C_PLATO = new THREE.Color('#C3BBA8')   // o patamar de construção
 const C_TRILHA = new THREE.Color('#A79C86')  // a trilha de saibro
+
+/** metros de mundo por ladrilho do normal da ilha da baía */
+const UV_METROS = 9
 
 export type TipoIlha = 'angra' | 'banco' | 'atol'
 
@@ -324,6 +329,20 @@ function geoIlha(spec: IlhaSpec, cota: number): THREE.BufferGeometry {
   g.setIndex(idx)
   g.computeVertexNormals()
   g.translate(0, cota, 0)
+  // ⚠️ UV EM METROS DE MUNDO, PROJETADO DE CIMA. A malha é um leque polar e nunca
+  // teve UV: sem ele o normalMap não tem o que ler. Projeção planar XZ deforma no
+  // costão quase vertical, e isso é aceito de propósito: o costão é 1/5 da ilha e
+  // a alternativa (UV pelo leque) esticaria o ladrilho no centro, que é onde a
+  // praia e o patamar estão.
+  {
+    const pp = g.getAttribute('position')
+    const uv = new Float32Array(pp.count * 2)
+    for (let i = 0; i < pp.count; i++) {
+      uv[i * 2] = pp.getX(i) / UV_METROS
+      uv[i * 2 + 1] = pp.getZ(i) / UV_METROS
+    }
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
+  }
   return g
 }
 
@@ -331,6 +350,25 @@ export function buildIlhas(o: { cota: number; sombra?: boolean }): Ilhas {
   const group = new THREE.Group()
   group.name = 'ilhas'
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0 })
+  // ⚠️ AQUI O ALBEDO É DESCARTADO DE PROPÓSITO, e a conta é o motivo. A ilha é
+  // pintada por VÉRTICE num gradiente que vai de areia (#E2D9BE) a mata fechada
+  // (#59684C) a rocha, e cor por vértice MULTIPLICA o mapa igual à cor do
+  // material. Vestir com o albedo do 'campo' (meio medido em 98,120,70) pintaria
+  // de verde a praia e o patamar de construção, que é justamente o que a
+  // gradação existe para separar. Então entram só NORMAL e RUGOSIDADE: o
+  // micro-relevo e a resposta de luz chegam, a leitura de uso do solo fica.
+  //
+  // Custo: zero chamada de desenho (as cinco ilhas já dividiam este material) e
+  // zero programa novo (o `quebrarRepeticao` usa chave de cache fixa).
+  if (look2) {
+    const c = superficie('campo')
+    mat.normalMap = c.normalMap
+    mat.roughnessMap = c.roughnessMap
+    mat.normalScale = new THREE.Vector2(c.normalScale * 1.25, c.normalScale * 1.25)
+    mat.roughness = 1
+    quebrarRepeticao(mat, 120)
+    mat.needsUpdate = true
+  }
   let tri = 0
   for (const il of ILHAS) {
     const g = geoIlha(il, o.cota)

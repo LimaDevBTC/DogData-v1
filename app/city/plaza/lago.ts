@@ -32,6 +32,8 @@
 // Three.js puro (regra da casa: nada de react-three-fiber).
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
+import { look2 } from './look'
+import { vestir } from './materiais'
 
 export interface LagoOpts {
   heightAt: (x: number, z: number) => number
@@ -98,6 +100,59 @@ class Balde {
     this.vs.push(...p, ...q, ...r, ...s)
     this.ix.push(i, i + 1, i + 2, i, i + 2, i + 3)
   }
+}
+
+/**
+ * ⚠️ AS DUAS MALHAS VERDES ERAM O DEFEITO NÚMERO UM DA CENA, e não por serem
+ * grandes: por serem CHAPADAS. Medido em 01/09 no `?stats=1`: `lago:#7E8A6B`
+ * ocupa 2.902 m de caixa e `lago:#6C7A5B` 2.426 m, as duas com `map: false`,
+ * `uv: false` e cor única. Quatro agentes texturizaram rua, calçada, regolito,
+ * praça e lote no mesmo dia, e a chapa continuava amadora porque metade do
+ * quadro na câmera de rua é este verde sem mapa nenhum.
+ *
+ * ⚠️ SEM UV, `vestir` NÃO TEM O QUE REPETIR. As malhas do `Balde` só carregam
+ * `position`: elas nascem de quads em coordenada de mundo e ninguém nunca
+ * pediu UV delas. Então o UV é gerado aqui, em METROS DE MUNDO divididos pelo
+ * lado do ladrilho, e o `vestir` é chamado com `mundo = 1, metros = 1`, que dá
+ * `repeat = 1`. Chamar `vestir(mat, 'campo', 1)` direto NÃO funcionaria: o
+ * `Math.max(1, ...)` de dentro do `vestir` trava o repeat em 1 e o ladrilho
+ * sairia do tamanho da peça inteira.
+ *
+ * ⚠️ A COR DO MATERIAL MULTIPLICA O MAPA, então vestir mantendo `#6C7A5B`
+ * (linear ~0,15) daria um verde de pântano. As duas viram TINTA CLARA e a
+ * textura passa a mandar. Conta feita na mão, com o meio do albedo do 'campo'
+ * em ~(105,128,80) sRGB: com a tinta `#D8E0CC` a mata cai em ~(89,112,66), um
+ * passo abaixo do `#6C7A5B` que ela substituiu, que é o que mata fechada deve
+ * ser; com a tinta branca o gramado fica em ~(110,127,72), mais claro que a
+ * mata. O par continua legível como dois usos de solo, que era o pedido.
+ *
+ * MATA e GRAMADO se separam por TRÊS coisas, não só por tinta, porque só tinta
+ * o olho lê como "a mesma grama com sombra":
+ *   mata     ladrilho 11 m, normal 1,15, macro 90 m   denso, relevo forte
+ *   gramado  ladrilho 17 m, normal 0,60, macro 70 m   aberto, quase liso
+ *
+ * Custo: ZERO triângulo e ZERO chamada de desenho, porque os dois materiais já
+ * existiam. Zero programa novo também: o `quebrarRepeticao` de dentro do
+ * `vestir` declara `customProgramCacheKey` fixo e divide o programa com todo o
+ * resto da cidade.
+ */
+function vestirVerde(g: THREE.BufferGeometry, mat: THREE.MeshStandardMaterial, cor: string) {
+  const mata = cor === COR_MATO
+  if (!mata && cor !== COR_TERRA) return
+  const lado = mata ? 11 : 17
+  const p = g.getAttribute('position')
+  const uv = new Float32Array(p.count * 2)
+  for (let i = 0; i < p.count; i++) {
+    uv[i * 2] = p.getX(i) / lado
+    uv[i * 2 + 1] = p.getZ(i) / lado
+  }
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
+  mat.color.set(mata ? '#D8E0CC' : '#FFFFFF')
+  vestir(mat, 'campo', 1, {
+    metros: 1,
+    normal: mata ? 1.15 : 0.6,
+    macroMetros: mata ? 90 : 70,
+  })
 }
 
 export function buildLago(o: LagoOpts): Lago {
@@ -469,7 +524,7 @@ export function buildLago(o: LagoOpts): Lago {
     g.setIndex(b.ix)
     g.computeVertexNormals()
     const agua = cor === COR_AGUA
-    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({
+    const mat = new THREE.MeshStandardMaterial({
       color: cor,
       // ⚠️ ÁGUA COM roughness 0,08 E metalness 0,35 NÃO LÊ COMO ÁGUA AQUI, e
       // isso foi medido na chapa: quase espelho, ela devolve o hemisfério claro
@@ -480,7 +535,9 @@ export function buildLago(o: LagoOpts): Lago {
       roughness: agua ? 0.30 : 0.92,
       metalness: agua ? 0.02 : 0,
       side: THREE.DoubleSide,
-    }))
+    })
+    if (look2) vestirVerde(g, mat, cor)
+    const m = new THREE.Mesh(g, mat)
     m.name = `lago:${agua ? 'agua' : cor}`
     m.receiveShadow = !agua
     m.castShadow = (o.sombra ?? true) && !agua

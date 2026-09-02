@@ -1117,12 +1117,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     //
     // Os alvos são frações da irradiância do sol NA HORA, e não números soltos,
     // para as quatro horas continuarem sendo quatro direções de arte:
-    //   céu do hemisférico  = 6,2% do sol  (+ 0,03 de piso, para a noite)
-    //   rebote direcional   = 4,5% do sol  medido no chão
-    // Na `day` isso dá 0,247 + 0,157 = 0,404 dentro da sombra contra 3,90 fora,
-    // ou 10,4%, três diafragmas e meio: a forma se lê e o contraste duro de Lua
-    // continua lá. Uma parede virada para o rebote recebe 0,388 contra os 3,62 de
-    // uma parede virada para o sol, 10,7%.
+    //   céu do hemisférico  = 2,5% do sol  (+ 0,015 de piso, para a noite)
+    //   rebote direcional   = 7,0% do sol  medido no chão
+    // Na `day` isso dá 0,102 + 0,245 = 0,347 dentro da sombra contra 3,84 fora,
+    // ou 9,0%, três diafragmas e meio: a forma se lê e o contraste duro de Lua
+    // continua lá.
     // ⚠️ ISTO É CONTA, NÃO CHAPA: os alvos saem da fórmula acima, a validação em
     // pixel está no relatório da rodada.
     const lumLinear = (hex: number) => {
@@ -1131,18 +1130,32 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     }
     if (look2 && H.sun > 0) {
       const irrSol = H.sun * Math.sin(THREE.MathUtils.degToRad(H.el)) * lumLinear(H.sunColor)
+      // ⚠️ E O PESO FICA NO DIRECIONAL, NÃO NO HEMISFÉRICO, POR UM DEFEITO
+      // MEDIDO EM CHAPA. A primeira calibragem punha 6,2% do sol no termo de céu
+      // do hemisférico, o que multiplicava o ambiente da cena por 11,6 (de
+      // 0,34 · lum(0x3a4664) = 0,0215 para 0,87 · lum(0x9d8f7d) = 0,248). O
+      // hemisférico é OMNIDIRECIONAL: ele levantou junto a casca da abóbada, que
+      // está a 6 km recortada contra o preto do espaço, e a malha de células
+      // dela virou um chuvisco branco cobrindo a metade de cima do quadro. Foi
+      // visto na chapa a1-look2-rua e some ao voltar o hemisférico para perto do
+      // valor antigo.
+      // O rebote real do regolito TEM direção (vem do chão iluminado do lado
+      // oposto ao sol), então ele cabe no direcional abaixo: ali ele acende uma
+      // face e deixa a outra escura, que é o que lê como luz. No hemisférico ele
+      // só lavava tudo por igual.
       const CEU_REGOLITO = 0x9d8f7d
       hemi.color.setHex(CEU_REGOLITO)
-      hemi.intensity = (irrSol * 0.062 + 0.03) / lumLinear(CEU_REGOLITO)
-      // ⚠️ O TERMO DE BAIXO SOBE JUNTO, senão a barriga das peças fica mais
-      // escura que a sombra do chão e cada objeto passa a flutuar. Ele continua
-      // sendo o mais escuro dos dois, que é o certo.
-      hemi.groundColor.setHex(0x3a332a)
+      hemi.intensity = (irrSol * 0.025 + 0.015) / lumLinear(CEU_REGOLITO)
+      // ⚠️ O TERMO DE BAIXO SOBE UM POUCO, senão a barriga das peças fica mais
+      // escura que a sombra do chão e cada objeto passa a flutuar. Sobe pouco,
+      // pelo mesmo motivo da abóbada: a casca é vista POR DENTRO, e por dentro
+      // quem a acende é o termo de baixo.
+      hemi.groundColor.setHex(0x241f19)
       const REBOTE = 0xa8927a
       const REBOTE_EL = 22 // rasante: é quique de chão, não uma segunda lâmpada
       const az = THREE.MathUtils.degToRad(SUN_AZ + 180)
       const el = THREE.MathUtils.degToRad(REBOTE_EL)
-      const rebote = new THREE.DirectionalLight(REBOTE, (irrSol * 0.045) / (Math.sin(el) * lumLinear(REBOTE)))
+      const rebote = new THREE.DirectionalLight(REBOTE, (irrSol * 0.07) / (Math.sin(el) * lumLinear(REBOTE)))
       rebote.name = 'rebote:regolito'
       rebote.position.set(Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el)).multiplyScalar(4000)
       // sem sombra de propósito: luz de rebote não projeta borda, e uma segunda
@@ -1258,6 +1271,13 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     // vez de ficar careca esperando uma promessa que nunca vem.
     let viasAssentou = false
     let plantar: (() => void) | null = null
+    // ⚠️ O MOBILIÁRIO ESTAVA MORTO NA ÁRVORE. `buildMobiliarioUrbano` era
+    // importado no topo deste arquivo desde 31/08 e NUNCA CHAMADO: um módulo
+    // inteiro de iluminação urbana, para até 7.200 postes ao longo dos 261 km de
+    // via, existia no disco sem nascer na cena. Os postes que apareciam vinham de
+    // precinct.ts, lotes.ts e light-pool.ts, que são outros módulos e outra
+    // cadência. Ligado em 01/09.
+    let mob: MobiliarioUrbano | null = null
     let pracas: Pracas | null = null
     let arvores: Arborizacao | null = null
     let lago: Lago | null = null
@@ -1903,6 +1923,32 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 viasAssentou = true
                 plantar?.()
               }))
+
+            // ── o mobiliário urbano: o poste que dá cadência à via ───────────
+            // ⚠️ SAI JUNTO COM A VIA, e os anéis vêm do MESMO `cidade.json` que
+            // a via usa, não de uma segunda leitura: poste que segue uma lista
+            // de anéis diferente da que a rua desenhou fica no meio do mato.
+            // ⚠️ O `gltf` PRECISA SER O DA CENA, que tem DRACOLoader (linha
+            // 1248). Os GLB do projeto vêm comprimidos em Draco e um loader sem
+            // o decodificador falha com "No DRACOLoader instance provided".
+            // Sem ele o look 2 cai calado no poste de primitiva.
+            if (qDomo.get('postes') !== '0') {
+              const _aneisViarios = ((_cidadeJson?.aneis ?? []) as { r: number; larg: number }[])
+                .map((a) => ({ r: a.r, larg: a.larg }))
+              mob = buildMobiliarioUrbano({
+                heightAt: terrain.superficieAt,
+                molhado: lagos ? (x, z) => lagos!.naAgua(x, z, 2) : undefined,
+                aneis: _aneisViarios,
+                sombra: qDomo.get('sombra') !== '0',
+                gltf,
+              })
+              scene.add(mob.group)
+              const _m = mob
+              daCidade.push(_m.pronto.then(() => {
+                if (disposed) return
+                console.log(`[mobiliário] ${_m.postes.toLocaleString('pt-BR')} postes ao longo de avenida e anel`)
+              }).catch((err) => console.error('[mobiliário] não subiu', err)))
+            }
 
             // ── as praças de quarto (?pracas=0 desliga) ──────────────────────
             // O chão dos vazios da célula central. Sai junto com a via porque é
@@ -2993,6 +3039,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       campo?.lod(camera.position)
       tecido?.update(camera.position)
       arvores?.update(camera.position)
+      // só faz trabalho quando a câmera anda mais que o passo dele; fora
+      // disso retorna na primeira linha
+      mob?.atualizar(camera)
       lago?.update(t)
       canais?.update(t)
       lagos?.update(t)
@@ -3229,6 +3278,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       vias?.dispose()
       pracas?.dispose()
       arvores?.dispose()
+      mob?.dispose()
       lago?.dispose()
       canais?.dispose()
       lagos?.dispose()

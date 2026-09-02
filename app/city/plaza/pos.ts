@@ -82,6 +82,15 @@ export interface Pos {
   dispose(): void
 }
 
+/** lê um número da URL, para experimentar sem recompilar */
+function lerNumero(chave: string, padrao: number): number {
+  if (typeof window === 'undefined') return padrao
+  const v = new URLSearchParams(window.location.search).get(chave)
+  if (v === null) return padrao
+  const n = Number(v)
+  return Number.isFinite(n) ? n : padrao
+}
+
 /** ?ao=1 liga, ?ao=0 desliga, ?ao=so mostra só o buffer de oclusão */
 function lerModoAo(): 'liga' | 'desliga' | 'so' | null {
   if (typeof window === 'undefined') return null
@@ -236,13 +245,16 @@ class Composicao implements Pos {
       // além de feio. Força baixa e limiar ALTO: só o que já está acima de 0,95
       // linear floresce, e o regolito ao sol, medido em 30% de luminância na
       // chapa de 29/08, fica de fora com folga.
-      const bloom = new UnrealBloomPass(
-        new THREE.Vector2(this.l * dpr, this.a * dpr),
-        o.bloomForca ?? 0.16,
-        o.bloomRaio ?? 0.34,
-        o.bloomLimiar ?? 0.95,
-      )
-      composer.addPass(bloom)
+      const forcaBloom = lerNumero('bloom', o.bloomForca ?? 0)
+      if (forcaBloom > 0) {
+        const bloom = new UnrealBloomPass(
+          new THREE.Vector2(this.l * dpr, this.a * dpr),
+          forcaBloom,
+          o.bloomRaio ?? 0.34,
+          o.bloomLimiar ?? 0.95,
+        )
+        composer.addPass(bloom)
+      }
 
       // ── SAÍDA ─────────────────────────────────────────────────────────────
       // OutputPass faz ACES + sRGB, uma vez só (ver a nota do topo).
@@ -264,14 +276,14 @@ class Composicao implements Pos {
       this.ativo = true
       this.diagnostico = {
         estado: 'ativo',
-        passes: ['render', ...(gtao ? ['gtao'] : []), 'bloom', 'output', 'smaa'],
+        passes: ['render', ...(gtao ? ['gtao'] : []), ...(forcaBloom > 0 ? ['bloom'] : []), 'output', 'smaa'],
         ao: motivoAo,
         aoRaio: o.aoRaio ?? 0.9,
         aoForca: o.aoForca ?? 0.6,
         aoEscala: o.aoEscala ?? 1,
         aoAlcance: o.aoAlcance ?? 380,
         aoAmostras: o.aoAmostras ?? 16,
-        bloom: { forca: o.bloomForca ?? 0.16, raio: o.bloomRaio ?? 0.34, limiar: o.bloomLimiar ?? 0.95 },
+        bloom: forcaBloom > 0 ? { forca: forcaBloom, raio: o.bloomRaio ?? 0.34, limiar: o.bloomLimiar ?? 0.95 } : 'desligado: a cena não tem alta luz acima de 1,0',
         logDepth: this.renderer.capabilities.logarithmicDepthBuffer,
       }
     } catch (e) {

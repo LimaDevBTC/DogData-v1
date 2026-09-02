@@ -97,24 +97,40 @@ type Amostra = { h: number; r: number; g: number; b: number; rug: number }
 
 const S = 512 // lado do ladrilho em pixels
 
-function amostraRegolito(u: number, v: number, cr: Cratera[]): Amostra {
-  const x = u * 8, y = v * 8
-  const grosso = fbm(x, y, 5, 8)
-  const fino = fbm(x * 6, y * 6, 4, 48)
-  let h = grosso * 0.55 + fino * 0.45
-  // ⚠️ AS CRATERAS SÃO O QUE FAZ LER COMO LUA. Ruído sozinho dá areia de praia;
-  // o que a foto da Apollo mostra é uma distribuição de covinhas com borda
-  // levantada, em muitas escalas ao mesmo tempo.
-  for (const c of cr) {
-    const dx = Math.abs(u - c.x), dy = Math.abs(v - c.y)
-    const d = Math.hypot(Math.min(dx, 1 - dx), Math.min(dy, 1 - dy)) / c.r
-    if (d > 1.35) continue
-    if (d < 1) h -= (1 - d * d) * c.p * 0.9
-    else h += (1.35 - d) * c.p * 0.5 // a borda levantada
-  }
-  h = Math.max(0, Math.min(1, h))
-  const t = 0.72 + h * 0.5
-  return { h, r: 118 * t, g: 112 * t, b: 104 * t, rug: 0.97 - fino * 0.06 }
+function amostraRegolito(u: number, v: number): Amostra {
+  // ⚠️ ESTA RECEITA TINHA 56 CRATERAS CARIMBADAS E ELAS FORAM REMOVIDAS EM
+  // 01/09, a pedido do fundador ("são as mesmas marcas por todo o terreno").
+  // O comentário que estava aqui dizia que a cratera era o que fazia o chão ler
+  // como Lua. Isso é verdade numa FOTO e é falso num LADRILHO, e a diferença é a
+  // regra que vale pra toda textura que se repete:
+  //
+  //   UM LADRILHO SÓ PODE CONTER O QUE O OLHO NÃO CONSEGUE IDENTIFICAR
+  //   INDIVIDUALMENTE.
+  //
+  // Grão, poeira e variação de rugosidade não têm identidade: repetidos, viram
+  // superfície. Uma cratera TEM identidade, e o olho que reconhece uma feição
+  // passa a usá-la pra achar a grade. Com ladrilho de 90 m sobre um terreno de
+  // quilômetros, as 56 crateras apareciam de novo a cada 90 m, em formação, e o
+  // xadrez que elas desenhavam lia PIOR que a cor chapada que a textura veio
+  // substituir.
+  //
+  // ⚠️ E O ALBEDO QUASE LISO NÃO É CONCESSÃO, É O CERTO. O regolito real é quase
+  // uniforme em cor na escala de dezenas de metros: o que varia na foto da
+  // Apollo é a LUZ, não a tinta. Cratera é acidente de LUGAR, tem posição
+  // verdadeira, e por isso pertence à malha do terreno (que aqui é elevação
+  // lunar real do Mare Tranquillitatis), nunca a uma imagem que se repete.
+  //
+  // Sobra, de propósito, só o que amacia a luz sem nunca ser visto como desenho:
+  // grão fino de amplitude baixa no relevo, e uma variação de rugosidade menor
+  // ainda. A quebra de escala grande continua vindo de `quebrarRepeticao`, que
+  // trabalha em coordenada de MUNDO e por isso não repete nunca.
+  const grao = fbm(u * 34, v * 34, 3, 34)
+  const poeira = fbm(u * 96, v * 96, 2, 96)
+  const h = grao * 0.45 + poeira * 0.55
+  // faixa de tom estreita: 0,96 a 1,04, ou seja mais ou menos 4%. É variação de
+  // pó assentado, não de mancha.
+  const t = 0.96 + h * 0.08
+  return { h, r: 118 * t, g: 112 * t, b: 104 * t, rug: 0.955 + poeira * 0.03 }
 }
 
 function amostraAsfalto(u: number, v: number): Amostra {
@@ -185,18 +201,11 @@ function amostraPedra(u: number, v: number): Amostra {
   return { h, r: 138 * t, g: 133 * t, b: 124 * t, rug: 0.88 + grao * 0.1 }
 }
 
-type Cratera = { x: number; y: number; r: number; p: number }
-function crateras(n: number): Cratera[] {
-  const out: Cratera[] = []
-  for (let i = 0; i < n; i++) {
-    const r = 0.012 + hash2(i, 91) ** 3 * 0.12
-    out.push({ x: hash2(i, 11), y: hash2(i, 23), r, p: 0.25 + hash2(i, 37) * 0.5 })
-  }
-  return out
-}
-
 const RECEITAS: Record<Superficie, { fn: (u: number, v: number) => Amostra; metros: number; normalScale: number }> = {
-  regolito: { fn: (() => { const c = crateras(56); return (u, v) => amostraRegolito(u, v, c) })(), metros: 26, normalScale: 1.1 },
+  // ⚠️ `normalScale` BAIXO DE PROPÓSITO. O grão aqui existe pra amaciar a luz,
+  // não pra ser visto: normal forte num chão sem feição vira aquele granulado de
+  // plástico que denuncia textura procedural.
+  regolito: { fn: amostraRegolito, metros: 40, normalScale: 0.5 },
   asfalto:  { fn: amostraAsfalto,  metros: 9,  normalScale: 0.7 },
   calcada:  { fn: amostraCalcada,  metros: 6,  normalScale: 0.85 },
   campo:    { fn: amostraCampo,    metros: 7,  normalScale: 0.75 },

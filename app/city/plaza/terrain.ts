@@ -517,14 +517,27 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0 })
   if (look2) {
     // ⚠️ 90 m DE LADRILHO, E O NÚMERO É O TRABALHO TODO. O padrão da receita é
-    // 26 m: numa superfície que vai a 64 km de ponta a ponta isso são 2.400
-    // repetições, e o olho lê a grade antes de ler a cratera. Com 90 m as
-    // covinhas do regolito medem de 10 a 40 m, que é a escala em que a foto da
-    // Apollo lê como Lua na vista aérea, e de perto ainda sobra o mapa de normal
-    // pra luz rasante ter em que bater. A quebra de repetição vai a 1.400 m
-    // porque em chão de quilômetro um ruído de 140 m vira mosqueado.
+    // ⚠️ O LADRILHO ENCOLHEU DE 90 m PRA 14 m EM 01/09, E O MOTIVO É O INVERSO
+    // DO QUE PARECE. Ladrilho grande era a defesa contra repetição enquanto a
+    // receita tinha 56 CRATERAS carimbadas: feição reconhecível repetindo de 90
+    // em 90 m desenhava um xadrez, e foi a queixa do fundador ("são as mesmas
+    // marcas por todo o terreno"). Tiradas as crateras (ver materiais.ts), a
+    // textura não tem mais nenhuma feição que o olho saiba identificar, e aí
+    // ladrilho grande deixou de ser defesa e virou DEFEITO: com 90 m de lado num
+    // mapa de 512 px, um texel mede 0,176 m e o grão mais fino que cabe é de
+    // 0,35 m, então de perto o ruído virava mancha de 2 a 3 m. Com o sol rasante
+    // desta cena, mapa de normal em mancha desse tamanho vira camuflagem.
+    //
+    // Com 14 m o texel cai pra 0,027 m e o grão fica na escala de pó de verdade,
+    // que é o que a luz rasante quer. A repetição não volta porque não há o que
+    // reconhecer, e o que sobra de escala grande vem do `quebrarRepeticao`, que
+    // trabalha em coordenada de MUNDO e não repete nunca.
+    //
+    // ⚠️ E A FORÇA DO NORMAL CAIU JUNTO. Sob luz rasante o normal é o parâmetro
+    // que mais engana: forte demais e o chão vira plástico granulado. Aqui ele
+    // serve pra amaciar a luz, não pra ser visto.
     mat.color = new THREE.Color(TINTA_REGOLITO)
-    vestir(mat, 'regolito', UV_ESCALA, { metros: 90, normal: 1.0, macroMetros: 1400 })
+    vestir(mat, 'regolito', UV_ESCALA, { metros: 14, normal: 0.55, macroMetros: 1400 })
   }
   const mesh = new THREE.Mesh(geo, mat)
   mesh.receiveShadow = true
