@@ -56,6 +56,47 @@
 // não estreia sem o fundador ver a chapa antes de virar padrão pro visitante
 // da hora seguinte.
 //
+// ── O CONSTRUTOR NUNCA VARRE: A VARREDURA É FATIADA EM `atualizar` ─────────
+// ⚠️ DEFEITO MEDIDO PELO FUNDADOR (03/09), E CORRIGIDO. A primeira versão
+// deste módulo fazia a varredura inteira (≈7.854 células, cada uma com hash,
+// `heightAt` e `naVia`/`sobreQue`) DENTRO do construtor, síncrona. Enquanto só
+// a zona 'regolito' nascia (antes de `naVia` chegar pela opção) o custo era
+// pequeno e passava despercebido; assim que a máscara de via ligou, o custo
+// real apareceu: com `?decalque=1`, o portão de carga da cidade não abria em
+// 600 s, sem erro de console — porque o portão espera a promessa que monta a
+// cidade, essa promessa espera o construtor deste módulo, e o construtor não
+// devolvia o controle até varrer tudo.
+//
+// A correção não foi otimizar a varredura, foi tirá-la do caminho crítico:
+// `buildDecalques` devolve NA HORA, com o grupo vazio e a malha de 0
+// instâncias, e quem varre é `atualizar(camera)`, chamado por quadro pelo
+// laço de animação da cena — que não é esperado por promessa nenhuma. A
+// varredura roda em FATIAS orçadas por tempo (`ORCAMENTO_QUADRO_MS`, medido
+// com `performance.now()` a cada `CHECA_A_CADA` células, não a cada uma, pra
+// não pagar o relógio mais do que o trabalho): quando o orçamento da fatia
+// estoura, o laço para e retoma exatamente de onde parou no quadro seguinte.
+// As instâncias já escritas ficam visíveis a cada fatia (`geo.instanceCount`
+// sobe aos poucos): o decalque aparece aos poucos depois que a cidade abre,
+// nunca trava o portão. Se a câmera andar muito no meio de uma varredura, ela
+// termina com a âncora com que começou e a PRÓXIMA varredura (dispara
+// sozinha, no quadro seguinte) já nasce centrada na posição nova — atraso de
+// alguns quadros, nunca abortada no meio de uma perseguição rápida de câmera.
+//
+// A cada varredura fechada, o console publica células varridas, instâncias
+// nascidas e milissegundos totais — o equivalente do `mascaraMs` que
+// `vias.ts` já publica, sem o qual ninguém, nem quem escreve o módulo, sabe
+// se o tamanho da fatia está certo.
+//
+// ⚠️ A GERAÇÃO DO ATLAS CONTINUA SÍNCRONA NO CONSTRUTOR, DE PROPÓSITO — ela
+// NÃO era a causa do bloqueio (a comparação do fundador isolou a variável:
+// só ligar `naVia` travou o portão, e a geração do atlas roda igual nos dois
+// lados da comparação). É custo FIXO (12 receitas em células de 512², a
+// mesma ordem de grandeza do que `materiais.ts` já gera síncrono no boot da
+// cena pras seis superfícies), não custo que cresce com o tamanho da
+// cidade — fatiar não muda o comportamento no limite, só complicaria o
+// código. O que crescia sem limite era a varredura por célula do mundo, e é
+// só ela que saiu do construtor.
+//
 // Three.js puro (regra da casa: nada de react-three-fiber).
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
@@ -239,8 +280,11 @@ export interface Decalques {
   triangulosMax: number
   /** memória do atlas, com mipmap, em MiB — fixa, não cresce com instância */
   atlasMiB: number
-  /** só refaz a lista quando a câmera anda mais que PASSO_REFAZ; o padrão é
-   *  `mobiliario-urbano.ts`, função `atualizar`. */
+  /** Chame no laço de quadro. Só COMEÇA uma varredura nova quando a câmera
+   *  anda mais que PASSO_REFAZ (o padrão de `mobiliario-urbano.ts`); a
+   *  varredura em si é FATIADA por orçamento de tempo (ORCAMENTO_QUADRO_MS
+   *  por quadro, ver o cabeçalho) e pode levar vários quadros pra fechar —
+   *  o construtor NUNCA varre, só este método varre. */
   atualizar(camera: THREE.Camera): void
   dispose(): void
 }
@@ -282,6 +326,18 @@ const RAIO_PADRAO = 300
  *  uma lista de postes já filtrada por avenida: NÃO MEDIDO o custo real de
  *  um refazimento, este número é uma escolha conservadora, não uma medição. */
 const PASSO_REFAZ = 40
+/** orçamento de tempo por FATIA da varredura, em ms — não confundir com
+ *  PASSO_REFAZ (que decide QUANDO uma varredura nova começa). O fundador
+ *  pediu "algo como 2 a 3 ms, medido com performance.now()"; 2,5 m fica no
+ *  meio, e é o mesmo valor a reduzir se a chapa mostrar engasgo mesmo assim
+ *  (NÃO MEDIDO em navegador). */
+const ORCAMENTO_QUADRO_MS = 2.5
+/** quantas células rodam entre uma checagem de relógio e outra, dentro de
+ *  uma fatia. ⚠️ NÃO É A CADA CÉLULA DE PROPÓSITO: `performance.now()` tem
+ *  custo, e chamá-lo 7.854 vezes por varredura só pra medir um trabalho de
+ *  poucos microssegundos por célula pagaria o relógio mais que o trabalho.
+ *  NÃO MEDIDO qual seria o custo certo; 64 é uma escolha conservadora. */
+const CHECA_A_CADA = 64
 /** largura da faixa de poeira/sujeira fora da via, medida a partir do fio da
  *  via (folga positiva de `naVia`). Não é medição de campo, é escala de
  *  desenho: a sarjeta em V do Bloco B mede 0,30 m e o meio-fio 0,15 m: uma
@@ -768,112 +824,166 @@ export function buildDecalques(o: DecalquesOpts): Decalques {
   let primeira = true
   let instancias = 0
 
+  // ── o estado de uma varredura em fatias, ver a nota longa do cabeçalho ──
+  // ⚠️ NADA DISTO EXISTE NO CONSTRUTOR. O construtor devolveu o grupo vazio
+  // lá em cima; é `atualizar`, chamado por quadro, que avança este estado
+  // aos poucos. `varrendo` é o único sinal de "há trabalho pendente" — sem
+  // ele, `atualizar` sai na primeira linha sempre que não há nada a fazer,
+  // como antes da correção.
+  let varreCx = 0, varreCz = 0, varreReach = 0, varreLargura = 0, varreTotal = 0
+  let varreIdx = 0
+  let varreK = 0
+  let varreT0 = 0
+  let varreCelulas = 0
+  let varrendo = false
+
   function atualizar(camera: THREE.Camera) {
     camera.getWorldPosition(alvo)
-    if (!primeira && alvo.distanceToSquared(camAnterior) < PASSO_REFAZ * PASSO_REFAZ) return
-    primeira = false
-    camAnterior.copy(alvo)
+    const moveu = primeira || alvo.distanceToSquared(camAnterior) >= PASSO_REFAZ * PASSO_REFAZ
 
-    // ⚠️ GRADE ANCORADA NA ORIGEM DO MUNDO (ci = round(x/PASSO)), NÃO NA
-    // CÂMERA: se a grade se movesse com a câmera, a célula de cada ponto do
-    // mundo mudaria a cada refazimento e a "colocação determinística por
-    // célula" do cabeçalho deixaria de valer entre uma chamada e a próxima.
-    // O jitter (ver a nota longa do cabeçalho) desloca o CENTRO dentro da
-    // célula; a célula em si continua fixa no mundo.
-    //
-    // ⚠️ ARITMÉTICA DE CÉLULAS VARRIDAS, RECALCULADA PRO PASSO DE 6 m: com
-    // RAIO = 300 m, reach = ceil(300 / 6,0) = 50; a caixa varrida é
-    // (2·50+1)² = 10.201 células, das quais ficam dentro do círculo
-    // π·50² ≈ 7.854 (contra ≈17.671 no passo antigo de 4 m — a grade mais
-    // larga varre MENOS, não mais). TETO = 20.000 continua sendo só o teto
-    // de segurança: com ≈7.854 células candidatas por refazimento e
-    // densidade máxima de 78,75% (zona 'borda'), o pior caso teórico
-    // (~6.185 instâncias se TODA célula varrida caísse na zona mais densa)
-    // já fica bem abaixo do teto — TETO nunca deveria ser o fator limitante
-    // na prática. NÃO MEDIDO em navegador.
-    const reach = Math.ceil(RAIO / PASSO)
-    const cx = Math.round(alvo.x / PASSO)
-    const cz = Math.round(alvo.z / PASSO)
+    // ⚠️ SÓ COMEÇA VARREDURA NOVA SE NÃO HOUVER UMA EM ANDAMENTO. Se a
+    // câmera andar de novo no meio de uma fatia, a varredura corrente
+    // termina com a âncora com que começou (ela fica levemente atrasada
+    // por alguns quadros) e a PRÓXIMA, dez linhas abaixo, já nasce
+    // centrada na posição nova — preferível a abortar no meio e nunca
+    // fechar nada numa perseguição rápida de câmera.
+    if (moveu && !varrendo) {
+      primeira = false
+      camAnterior.copy(alvo)
+
+      // ⚠️ GRADE ANCORADA NA ORIGEM DO MUNDO (ci = round(x/PASSO)), NÃO NA
+      // CÂMERA: se a grade se movesse com a câmera, a célula de cada ponto
+      // do mundo mudaria a cada refazimento e a "colocação determinística
+      // por célula" do cabeçalho deixaria de valer entre uma chamada e a
+      // próxima. O jitter (ver a nota longa do cabeçalho) desloca o CENTRO
+      // dentro da célula; a célula em si continua fixa no mundo.
+      //
+      // ⚠️ ARITMÉTICA DE CÉLULAS VARRIDAS, PRO PASSO DE 6 m: com RAIO =
+      // 300 m, reach = ceil(300 / 6,0) = 50; a caixa varrida é
+      // (2·50+1)² = 10.201 células, das quais ficam dentro do círculo
+      // π·50² ≈ 7.854 (contra ≈17.671 no passo antigo de 4 m — a grade
+      // mais larga varre MENOS, não mais). TETO = 20.000 continua sendo só
+      // o teto de segurança: com ≈7.854 células candidatas por varredura e
+      // densidade máxima de 78,75% (zona 'borda'), o pior caso teórico
+      // (~6.185 instâncias se TODA célula caísse na zona mais densa) já
+      // fica bem abaixo do teto — TETO não deveria ser o fator limitante
+      // na prática. NÃO MEDIDO em navegador.
+      varreReach = Math.ceil(RAIO / PASSO)
+      varreCx = Math.round(alvo.x / PASSO)
+      varreCz = Math.round(alvo.z / PASSO)
+      varreLargura = 2 * varreReach + 1
+      varreTotal = varreLargura * varreLargura
+      varreIdx = 0
+      varreK = 0
+      varreCelulas = 0
+      varreT0 = performance.now()
+      varrendo = true
+    }
+    if (!varrendo) return // nada pendente: sai na primeira linha, como antes da correção
+
     const r2max = RAIO * RAIO
+    const tFatia0 = performance.now()
+    let desdeChecagem = 0
 
-    let k = 0
-    for (let di = -reach; di <= reach && k < TETO; di++) {
-      for (let dj = -reach; dj <= reach && k < TETO; dj++) {
-        const ci = cx + di, cj = cz + dj
+    // ⚠️ UMA FATIA ORÇADA POR TEMPO, NÃO POR NÚMERO DE CÉLULAS. `varreIdx` é
+    // um índice LINEAR (0..varreTotal-1); `di`/`dj` saem dele por divisão e
+    // resto, o mesmo laço duplo de antes, só que RETOMÁVEL: parar e recomeçar
+    // no meio não perde nem repete célula nenhuma.
+    while (varreIdx < varreTotal && varreK < TETO) {
+      const di = Math.floor(varreIdx / varreLargura) - varreReach
+      const dj = (varreIdx % varreLargura) - varreReach
+      varreIdx++
+      varreCelulas++
+      const ci = varreCx + di, cj = varreCz + dj
 
-        // ⚠️ AMOSTRAGEM UNIFORME EM DISCO: ângulo de um hash, raio de
-        // `JITTER_R · √h` do outro. `JITTER_R · h`, sem raiz, empilharia
-        // ponto perto do centro, porque área cresce com o raio ao quadrado.
-        const ang = hashCelula(ci, cj, 9) * Math.PI * 2
-        const rad = JITTER_R * Math.sqrt(hashCelula(ci, cj, 10))
-        const wx = ci * PASSO + Math.cos(ang) * rad
-        const wz = cj * PASSO + Math.sin(ang) * rad
+      // ⚠️ AMOSTRAGEM UNIFORME EM DISCO: ângulo de um hash, raio de
+      // `JITTER_R · √h` do outro. `JITTER_R · h`, sem raiz, empilharia
+      // ponto perto do centro, porque área cresce com o raio ao quadrado.
+      const ang = hashCelula(ci, cj, 9) * Math.PI * 2
+      const rad = JITTER_R * Math.sqrt(hashCelula(ci, cj, 10))
+      const wx = ci * PASSO + Math.cos(ang) * rad
+      const wz = cj * PASSO + Math.sin(ang) * rad
 
-        // ⚠️ O TESTE DE RAIO USA A POSIÇÃO JÁ JITTERADA, não o centro da
-        // célula: é o ponto onde o decalque REALMENTE nasce que precisa
-        // caber no anel de detalhe, não a âncora da grade.
-        const ddx = wx - alvo.x, ddz = wz - alvo.z
-        if (ddx * ddx + ddz * ddz > r2max) continue
+      // ⚠️ O TESTE DE RAIO USA A POSIÇÃO JÁ JITTERADA, não o centro da
+      // célula: é o ponto onde o decalque REALMENTE nasce que precisa
+      // caber no anel de detalhe, não a âncora da grade. ⚠️ E USA `alvo`
+      // CONGELADO NO INÍCIO DESTA VARREDURA (não recapturado por fatia):
+      // a varredura inteira tem que julgar contra a MESMA posição de
+      // câmera com que começou, senão o raio muda de fatia pra fatia.
+      const ddx = wx - camAnterior.x, ddz = wz - camAnterior.z
+      if (ddx * ddx + ddz * ddz > r2max) continue
 
-        // ── classificação: `sobreQue` fino primeiro, `naVia` como
-        // fallback (ver a nota longa no topo do arquivo e em
-        // DecalquesOpts.sobreQue) ──────────────────────────────────────
-        let zona: Zona
-        const fina: Superficie | null = sobreQue ? sobreQue(wx, wz) : null
-        if (fina) {
-          zona = 'via'
-        } else if (naVia) {
-          if (naVia(wx, wz, 0)) zona = 'via'
-          else if (naVia(wx, wz, FOLGA_BORDA)) zona = 'borda'
-          else zona = 'regolito'
-        } else {
-          zona = 'regolito'
-        }
+      // ── classificação: `sobreQue` fino primeiro, `naVia` como
+      // fallback (ver a nota longa no topo do arquivo e em
+      // DecalquesOpts.sobreQue) ──────────────────────────────────────
+      let zona: Zona
+      const fina: Superficie | null = sobreQue ? sobreQue(wx, wz) : null
+      if (fina) {
+        zona = 'via'
+      } else if (naVia) {
+        if (naVia(wx, wz, 0)) zona = 'via'
+        else if (naVia(wx, wz, FOLGA_BORDA)) zona = 'borda'
+        else zona = 'regolito'
+      } else {
+        zona = 'regolito'
+      }
 
-        // com superfície fina, o balde é por AFINIDADE (só os tipos que
-        // nascem em 'pista', 'sarjeta' ou 'calcada'), não a zona larga
-        // 'via' inteira; se a superfície não bater com tipo nenhum do
-        // catálogo de hoje (não deveria acontecer), cai no balde largo
-        // como rede de segurança, pra não perder a instância.
-        let candidatos: TipoDecal[]
-        if (fina) {
-          candidatos = POR_SUPERFICIE[fina]
-          if (!candidatos.length) candidatos = POR_ZONA.via
-        } else {
-          candidatos = POR_ZONA[zona]
-        }
-        if (!candidatos.length) continue
-
+      // com superfície fina, o balde é por AFINIDADE (só os tipos que
+      // nascem em 'pista', 'sarjeta' ou 'calcada'), não a zona larga
+      // 'via' inteira; se a superfície não bater com tipo nenhum do
+      // catálogo de hoje (não deveria acontecer), cai no balde largo
+      // como rede de segurança, pra não perder a instância.
+      let candidatos: TipoDecal[]
+      if (fina) {
+        candidatos = POR_SUPERFICIE[fina]
+        if (!candidatos.length) candidatos = POR_ZONA.via
+      } else {
+        candidatos = POR_ZONA[zona]
+      }
+      if (candidatos.length) {
         const presenca = hashCelula(ci, cj, 1)
-        if (presenca > DENSIDADE[zona]) continue
+        if (presenca <= DENSIDADE[zona]) {
+          const hTipo = hashCelula(ci, cj, 2)
+          const tipo = candidatos[Math.min(candidatos.length - 1, Math.floor(hTipo * candidatos.length))]
 
-        const hTipo = hashCelula(ci, cj, 2)
-        const tipo = candidatos[Math.min(candidatos.length - 1, Math.floor(hTipo * candidatos.length))]
+          const g = amostrarAltura(ci, cj, wx, wz)
+          const hRot = hashCelula(ci, cj, 3)
+          const hEsc = hashCelula(ci, cj, 4)
+          const hFlip = hashCelula(ci, cj, 5)
+          const hT0 = hashCelula(ci, cj, 6), hT1 = hashCelula(ci, cj, 7), hT2 = hashCelula(ci, cj, 8)
 
-        const g = amostrarAltura(ci, cj, wx, wz)
-        const hRot = hashCelula(ci, cj, 3)
-        const hEsc = hashCelula(ci, cj, 4)
-        const hFlip = hashCelula(ci, cj, 5)
-        const hT0 = hashCelula(ci, cj, 6), hT1 = hashCelula(ci, cj, 7), hT2 = hashCelula(ci, cj, 8)
+          const escala = 0.85 + hEsc * 0.30
+          const k = varreK
+          iOff[k * 2] = wx; iOff[k * 2 + 1] = wz
+          iY[k] = g.h
+          iGrad[k * 2] = g.dx; iGrad[k * 2 + 1] = g.dz
+          iRot[k] = hRot * Math.PI * 2
+          iSize[k * 2] = tipo.sx * escala; iSize[k * 2 + 1] = tipo.sz * escala
+          iCel[k] = tipo.cel
+          iFlip[k] = hFlip < 0.5 ? 0 : 1
+          const tintJitter = 0.92 + 0.16 * hT0
+          iTint[k * 3] = tintJitter
+          iTint[k * 3 + 1] = tintJitter * (0.98 + 0.04 * hT1)
+          iTint[k * 3 + 2] = tintJitter * (0.97 + 0.05 * hT2)
+          varreK++
+        }
+      }
 
-        const escala = 0.85 + hEsc * 0.30
-        iOff[k * 2] = wx; iOff[k * 2 + 1] = wz
-        iY[k] = g.h
-        iGrad[k * 2] = g.dx; iGrad[k * 2 + 1] = g.dz
-        iRot[k] = hRot * Math.PI * 2
-        iSize[k * 2] = tipo.sx * escala; iSize[k * 2 + 1] = tipo.sz * escala
-        iCel[k] = tipo.cel
-        iFlip[k] = hFlip < 0.5 ? 0 : 1
-        const tintJitter = 0.92 + 0.16 * hT0
-        iTint[k * 3] = tintJitter
-        iTint[k * 3 + 1] = tintJitter * (0.98 + 0.04 * hT1)
-        iTint[k * 3 + 2] = tintJitter * (0.97 + 0.05 * hT2)
-        k++
+      // ⚠️ O RELÓGIO SÓ É CONSULTADO A CADA CHECA_A_CADA CÉLULAS — ver a
+      // constante no cabeçalho. `performance.now()` tem custo, e checar a
+      // cada célula pagaria o relógio mais do que o trabalho.
+      desdeChecagem++
+      if (desdeChecagem >= CHECA_A_CADA) {
+        desdeChecagem = 0
+        if (performance.now() - tFatia0 > ORCAMENTO_QUADRO_MS) break
       }
     }
 
-    instancias = k
-    geo.instanceCount = k
+    // ⚠️ instanceCount SEMPRE REFLETE O QUE JÁ FOI ESCRITO NESTA VARREDURA,
+    // mesmo parcial: é assim que o decalque aparece AOS POUCOS em vez de
+    // pipocar tudo de uma vez quando a varredura inteira fecha.
+    instancias = varreK
+    geo.instanceCount = varreK
     attrOff.needsUpdate = true
     attrY.needsUpdate = true
     attrGrad.needsUpdate = true
@@ -882,6 +992,20 @@ export function buildDecalques(o: DecalquesOpts): Decalques {
     attrCel.needsUpdate = true
     attrFlip.needsUpdate = true
     attrTint.needsUpdate = true
+
+    const fechou = varreIdx >= varreTotal || varreK >= TETO
+    if (fechou) {
+      varrendo = false
+      const ms = performance.now() - varreT0
+      // ⚠️ O NÚMERO QUE FALTAVA: sem ele ninguém, nem quem escreve o
+      // módulo, sabe se ORCAMENTO_QUADRO_MS e CHECA_A_CADA estão do
+      // tamanho certo. Mesmo idioma do `mascaraMs` que vias.ts publica.
+      console.log(
+        `[decalques] varredura completa: ${varreCelulas.toLocaleString('pt-BR')} células, ` +
+        `${varreK.toLocaleString('pt-BR')} instâncias, ${ms.toFixed(1)} ms totais` +
+        `${varreK >= TETO ? ' (parou no teto de 20.000)' : ''}`,
+      )
+    }
   }
 
   return {

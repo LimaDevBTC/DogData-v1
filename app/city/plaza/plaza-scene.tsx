@@ -25,10 +25,10 @@ import { criarTerrenoFino, ligarNaVia, type TerrenoFino } from './terreno-fino'
 import { criarSombraCascata, type SombraCascata } from './sombra'
 import { createOrbitLayer, PAD_MAIN, SPACEPORT_SHIFT, setOrbitFloor } from './orbit-layer'
 import { startFeed, isDonation, type DogTx, type Snapshot, donationDog } from './feed'
-import { buildChalet, type Chalet } from './chalet'
+import { buildChalet, chaletComoTrabalho, type Chalet } from './chalet'
 import { buildPrecinct, ANCHORS, type Precinct } from './precinct'
-import { loadPark, PARK_CENTER, type Park } from './park'
-import { buildMonuments, type Monuments } from './monuments'
+import { loadPark, parkComoTrabalho, PARK_CENTER, type Park } from './park'
+import { buildMonuments, monumentosEmObra, type Monuments } from './monuments'
 import { buildLunarEnvironment, LUNAR_ENV_INTENSITY } from './lunar-env'
 import { onDiagonal, DECK_Y, GENESIS_POS, SATOSHI_POOL, PAW_PALM, ORDINAL_CENTER, LEONIDAS_POS, BUST_POS } from './garden-plan'
 import { TEMPLE_WORLD } from './park-site'
@@ -54,6 +54,7 @@ import { buildDecalques, type Decalques } from './decalques'
 import { FUNDIR, fundirMalhasLisas, NOME_PISCA } from './fusao'
 import { buildLagos, type Lagos } from './lagos'
 import { buildAlpino, type Alpino } from './alpino'
+import { Obra, aquece } from './obra'
 import { buildMontanha, type Montanha } from './montanha'
 import { buildLago, type Lago } from './lago'
 import { buildAquario, type Aquario } from './aquario'
@@ -797,6 +798,33 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     renderer.shadowMap.type = profile.softShadows ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap
     mount.appendChild(renderer.domElement)
     const culler = new DistanceCuller()
+    // ⚠️ A OBRA. Ela é quem constrói com teto de milissegundo por quadro; o
+    // `passo()` dela é chamado uma vez por quadro dentro de `animate`. O porquê,
+    // com os números medidos, está em `obra.ts`.
+    const obra = new Obra({
+      orcamentoMs: 6,
+      aoTerminar: () => console.log('[obra] a cidade terminou de nascer'),
+    })
+
+    // ⚠️ REVELAR SÓ DEPOIS DE AQUECER, E ISTO É A PRECONDIÇÃO DE ABRIR CEDO.
+    //
+    // Medido em 03/09: tirar chalé, monumentos e parque do portão NÃO reduziu o
+    // bloqueio sozinho. E não reduziria mesmo: o custo nunca esteve no
+    // JavaScript daquelas peças (o chalé mede 2,6 ms de JS, o parque 440 ms de
+    // laços), e sim no PRIMEIRO QUADRO que desenha cada peça nova, que paga de
+    // uma vez o link dos programas dela e o upload das texturas dela. Abrir o
+    // portão antes disso só mudava o travamento de lugar: de antes da cidade
+    // aparecer para depois, com a câmera andando, que é onde o visitante lê
+    // como app quebrado. O fundador já tinha vivido exatamente esse sintoma e
+    // avisou; a medição deu razão a ele.
+    //
+    // Então a peça entra na cena INVISÍVEL. O `compile` do three ignora o que
+    // está invisível, mas `compileAsync` recebe o grupo explicitamente e compila
+    // mesmo assim, sem bloquear, pela extensão de compilação paralela. Só depois
+    // dela responder o grupo acende.
+    const revela = (g: THREE.Object3D) => {
+      void aquece(renderer, scene, camera, g).then(() => { if (!disposed) g.visible = true })
+    }
     const wantStats = new URLSearchParams(window.location.search).get('stats') === '1'
     if (wantStats) {
       // ?stats=1: window.__plazaDump() → custo por grupo de topo (malhas, triângulos, instâncias)
@@ -1399,6 +1427,19 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     const loadGlb = (url: string) =>
       new Promise<THREE.Group>((res, rej) => gltf.load(url, (g) => res(g.scene), undefined, rej))
 
+    // ⚠️ ESTAS TRÊS NÃO SEGURAM MAIS O PORTÃO. Elas entram pela `Obra`, que
+    // constrói com orçamento de quadro e a câmera já andando. O fundador pediu
+    // isso em 03/09, e pediu com a ressalva certa: uma tentativa anterior de
+    // abrir cedo deixou a cidade travando durante o primeiro minuto, porque
+    // "segundo plano" numa thread só não existe. O que mudou é que agora elas
+    // CEDEM: maior fatia medida de 0,99 ms no chalé e de 5,1 ms no parque,
+    // contra os 21.257 ms de tarefa única que o parque bloqueava antes.
+    //
+    // ⚠️ E O NÚMERO QUE JUSTIFICA ABRIR SEM ELAS: as três somam 40 s dos 60 s de
+    // thread bloqueada que medi no boot, e NENHUMA delas é vista da praça no
+    // primeiro quadro. O parque fica a 9,8 km a nordeste.
+    const EM_OBRA: BootKey[] = ['chalet', 'monuments', 'park']
+
     // marca uma etapa como pronta; quando todas terminam, o portão abre
     const stepDone = (key: BootKey) => {
       if (disposed) return
@@ -1406,7 +1447,10 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         if (b.done.includes(key)) return b
         const done = [...b.done, key]
         const next = BOOT_STEPS.find((st) => !done.includes(st.key))
-        const pronto = done.length >= BOOT_STEPS.length
+        // ⚠️ NÃO É MAIS `done.length >= BOOT_STEPS.length`. As etapas de `EM_OBRA`
+        // continuam existindo, continuam marcando `done` quando terminam de
+        // verdade e continuam movendo a barra, mas não são condição de abrir.
+        const pronto = BOOT_STEPS.every((st) => done.includes(st.key) || EM_OBRA.includes(st.key))
         // ⚠️ o pouso da guerra sai daqui, e só uma vez: a cena está montada, o
         // relevo já respondeu qual é o chão, e é agora que a tela aparece
         if (pronto && entradaGuerra && pousoDaEntrada) {
@@ -2852,13 +2896,25 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           new Promise<THREE.Texture>((res, rej) => texLoader.load(url, (t) => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; res(t) }, undefined, rej))
         const lf = await loadTex('/city/cards/logo-front.png')
         if (disposed) return
-        chalet = buildChalet(lf)
-        chalet.group.position.copy(ANCHORS.south.pos)
-        chalet.group.rotation.y = ANCHORS.south.rotY
-        scene.add(chalet.group)
+        // ⚠️ O CHALÉ MEDIU 2,6 a 3,9 ms DE JAVASCRIPT, e não os 7,6 s que a
+        // etapa dele bloqueava. O tempo estava no laço de render pagando o
+        // upload desta textura (`logo-front.png`: 154 KB em disco, 11,81 MB de
+        // RGBA na GPU) e o link dos programas novos. Converter para `Trabalho`
+        // é barato e correto, mas quem paga a conta aqui é o aquecimento.
+        obra.põe(chaletComoTrabalho(lf, {
+          aoPronto: (c) => {
+            if (disposed) { c.dispose?.(); return }
+            chalet = c
+            c.group.position.copy(ANCHORS.south.pos)
+            c.group.rotation.y = ANCHORS.south.rotY
+            c.group.visible = false
+            scene.add(c.group)
+            revela(c.group)
+            stepDone('chalet')
+          },
+        }))
 
         // The precinct: boulevards, the ring, the lunar garden, the Mother Tree (D7, D8).
-        stepDone('chalet')
         precinct = buildPrecinct({ heightAt, profile, culler, realTrees: PROPS.length > 0 })
         scene.add(precinct.group)
         // compila os shaders agora, com o aviso de carga na tela, e não no primeiro
@@ -2870,10 +2926,29 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // Os monumentos (White Paper, Gênese, Satoshi, Pata, Jardim Ordinal) e a
         // Calçada dos Fundadores entram logo depois do jardim: texturas e o
         // leaderboard chegam pela rede, e nenhum deles segura o primeiro quadro.
-        const pMonuments = buildMonuments({ heightAt, gltf, profile, culler })
-          .then((m) => { if (disposed) { m.dispose(); return } monuments = m; scene.add(m.group) })
-          .catch((err) => console.warn('[plaza] monuments did not load', err))
-          .finally(() => stepDone('monuments'))
+        // ⚠️ OS MONUMENTOS BLOQUEAVAM 10,7 s EM DUAS TAREFAS (5.490 e 4.498 ms),
+        // e as duas metades eram simplesmente o que corria ENTRE os `await` de
+        // rede. Nenhum monumento é caro sozinho: era a soma de 21 texturas de
+        // canvas, 40 geometrias e 35 materiais sem devolver a thread uma vez.
+        // O módulo também corrigiu quatro `await` que eram SERIAIS, quatro idas
+        // ao servidor em fila.
+        const emObra = monumentosEmObra({ heightAt, gltf, profile, culler })
+        monuments = emObra
+        emObra.group.visible = false
+        scene.add(emObra.group)
+        let faltamMonumentos = emObra.trabalhos.length
+        for (const t of emObra.trabalhos) {
+          obra.põe({
+            ...t,
+            fatia: () => {
+              const g = t.fatia()
+              return (function* () {
+                while (!g.next().done) yield
+                if (--faltamMonumentos === 0) { revela(emObra.group); stepDone('monuments') }
+              })()
+            },
+          })
+        }
         // os adereços de fora (props-table.ts): entram depois do jardim, e cada um
         // só existe se o arquivo existir (a praça nunca quebra por um adereço)
         // as árvores semeadas dos setores vêm do precinto como MODELOS (item 11:
@@ -2915,14 +2990,40 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // The Runestone park, 5.2 km to the north-east (D10, the landing's
         // position), loads after the plaza is up: it is a horizon until someone
         // flies there, and 2 MB of park should never delay the first frame.
-        const pPark = loadPark({ baseAt: terrain.baseAt, meanHeight: terrain.meanHeight, gltf, profile, culler })
-          .then((p) => { if (disposed) { p.dispose(); return } park = p; scene.add(p.group) })
-          .catch((err) => console.warn('[plaza] park did not load', err))
-          .finally(() => stepDone('park'))
+        // ⚠️ O PARQUE ERA A PIOR TRAVA DA CIDADE: 21.257 ms NUMA TAREFA SÓ, um
+        // terço de todo o bloqueio do boot. E os laços dele somam ~440 ms: o
+        // resto era `PlaneGeometry(7200,7200,240,240)` (120 ms a frio),
+        // `computeVertexNormals` sobre 58.081 vértices (36 ms) e pressão de
+        // coletor. O módulo tirou 172 mil `new Vector3` por boot.
+        //
+        // ⚠️ O `await` AQUI É SÓ REDE E DRACO. O `Trabalho` que ele devolve é
+        // CPU pura e cede: maior fatia medida 5,1 ms, fora as duas chamadas do
+        // three acima, que são indivisíveis sem reescrever internals.
+        const pPark = parkComoTrabalho({
+          baseAt: terrain.baseAt, meanHeight: terrain.meanHeight, gltf, profile, culler,
+          aoPronto: (p) => { if (disposed) { p.dispose(); return } park = p; revela(p.group); stepDone('park') },
+        })
+          .then((t) => {
+            if (disposed) return
+            // o grupo nasce VAZIO e enche fatia a fatia. Entra INVISÍVEL: quem
+            // acende é `revela`, depois do aquecimento (ver a nota acima).
+            t.group.visible = false
+            scene.add(t.group)
+            obra.põe(t)
+          })
+          .catch((err) => { console.warn('[plaza] park did not load', err); stepDone('park') })
 
         // o portão só abre depois de TUDO montado e dos shaders compilados: o
         // usuário não pega mais uma praça que não responde ao dedo
-        await Promise.all([pMonuments, pProps, pFounders, pPark, pDsc])
+        // ⚠️ `pMonuments` SAIU DAQUI, E ISSO É O CONSERTO. Este `Promise.all` era
+        // o portão: enquanto QUALQUER peça não resolvesse, o visitante ficava na
+        // barra de progresso. Medido em 02/09, o boot levava 147 s em produção
+        // com 60,3 s de thread bloqueada, e monumentos mais parque respondiam
+        // por 32 desses segundos.
+        //
+        // `pPark` continua aqui, mas ele agora resolve quando a REDE termina, e
+        // não quando o parque está construído: a construção virou `Trabalho`.
+        await Promise.all([pProps, pFounders, pPark, pDsc])
         if (disposed) return
         // tudo VISÍVEL para compilar: o compile do three ignora o que está
         // invisível, e a visita guiada passa exatamente pelo que o culling
@@ -3336,6 +3437,10 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       governor.sample(nowMs - lastFrameAt, nowMs)
       lastFrameAt = nowMs
       culler.update(camera.position)
+      // ⚠️ UMA VEZ POR QUADRO, ANTES DO RENDER, E ANTES DO RESTO DO LAÇO. A obra
+      // gasta o orçamento dela (6 ms) e devolve a thread. Se esta linha sair
+      // daqui, a cidade simplesmente para de nascer no meio.
+      if (!obra.terminou) obra.passo()
       orcamentoLuz.update()
       // ⚠️ LOD DOS EXÉRCITOS: 1,77 M de triângulos viram 0,08 M além de 700 m.
       // Ver a nota longa em war/battlefield.ts, junto do proxy.
@@ -3572,6 +3677,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     window.addEventListener('resize', onResize)
 
     return () => {
+      // ⚠️ A OBRA MORRE COM A CENA. Sem isto, um gerador a meio caminho segue
+      // pendurado no `animate` de uma cena que já foi desmontada.
+      obra.descarta()
       disposed = true
       cancelAnimationFrame(raf)
       feed.stop()

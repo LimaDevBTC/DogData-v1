@@ -205,15 +205,27 @@ export function* emFatias<T>(
  * esta função vira quase um no-op caro: ela não trava, mas também não garante
  * nada. Não dá para depender dela como se fosse sincronização.
  */
+// ⚠️ TIPADO FROUXO DE PROPÓSITO, e não por preguiça. A assinatura real do
+// three é `compileAsync(scene: Object3D, camera: Camera, targetScene?: Scene)`,
+// e ela NÃO aceita `Scene | null` no terceiro parâmetro em todas as versões dos
+// tipos. Amarrar aqui obriga este módulo a importar THREE só para um tipo, num
+// arquivo que hoje não depende de three nenhum e por isso pode ser testado
+// fora do navegador. O `unknown` no lugar de `object` é o que faz um
+// `WebGLRenderer` de verdade encaixar: `object` não aceita o tipo nominal.
+type ComCompile = {
+  compileAsync?: (cena: never, camera: never, alvo?: never) => Promise<unknown>
+}
+
 export async function aquece(
-  renderer: { compileAsync?: (s: object, c: object, alvo?: object | null) => Promise<unknown> },
-  cena: object,
-  camera: object,
-  trecho?: object,
+  renderer: unknown,
+  cena: unknown,
+  camera: unknown,
+  trecho?: unknown,
 ): Promise<void> {
-  if (typeof renderer.compileAsync !== 'function') return
+  const r = renderer as ComCompile
+  if (typeof r.compileAsync !== 'function') return
   try {
-    await renderer.compileAsync(trecho ?? cena, camera, trecho ? cena : null)
+    await r.compileAsync((trecho ?? cena) as never, camera as never, (trecho ? cena : undefined) as never)
   } catch (err) {
     // ⚠️ AQUECER NUNCA PODE DERRUBAR A CIDADE. É otimização: se falhar, o
     // caminho normal do render compila do mesmo jeito, só que travando.

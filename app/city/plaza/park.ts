@@ -30,10 +30,11 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { regolithColor } from './terrain'
 import { PARK_CENTER, PARK_ROT_Y, PARK_HALF, PARK_CORE, TEMPLE_WORLD, parkReach, parkCore } from './park-site'
-import { buildLeonidasCave, CAVE_LOCAL, CAVE_YAW } from './leonidas-cave'
+import { buildLeonidasCave, CAVE_LOCAL, CAVE_YAW, type LeonidasCave } from './leonidas-cave'
 import { mergeStaticByMaterial, type PerfProfile, type DistanceCuller } from './perf'
 import { SF, loadSf, dressSf } from './sf-assets'
 import { FUNDIR, fundirMalhasLisas } from './fusao'
+import { emFatias, type Tarefa, type Trabalho } from './obra'
 
 export { PARK_CENTER, PARK_ROT_Y }
 
@@ -103,6 +104,12 @@ const B2T = new THREE.Matrix4().set(
 )
 const T2B = B2T.clone().invert()
 
+/** O eixo do giro do parque, uma vez só. Ele era um `new THREE.Vector3(0, 1, 0)`
+ *  DENTRO de `worldOf`, que roda uma vez por vértice do terreno e uma por ponto
+ *  do censo: 172 mil objetos jogados fora por boot só para dizer "para cima".
+ *  `applyAxisAngle` não escreve no eixo, então um só serve para todos. */
+const EIXO_Y = new THREE.Vector3(0, 1, 0)
+
 /** O material de UMA pedra: a receita da marca branca em shader (ver o bloco das
  *  pedras marcadas em loadPark). Exportado para o Jardim Ordinal da praça usar as
  *  mesmas pedras com a mesma pele. */
@@ -151,7 +158,112 @@ export function loadCrystalTextures(): Promise<[THREE.Texture, THREE.Texture]> {
   return Promise.all([loadTex('/city/park/crystal-basecolor.webp', true), loadTex('/city/park/crystal-normal.webp', false)])
 }
 
-export async function loadPark(opts: { baseAt: (x: number, z: number) => number; meanHeight: number; gltf?: GLTFLoader; profile?: PerfProfile; culler?: DistanceCuller }): Promise<Park> {
+// ═══════════════════════════════════════════════════════════════════════════
+// A CONSTRUÇÃO EM FATIAS. O contrato está em `obra.ts`; aqui está o CORTE.
+//
+// ⚠️ O PARQUE ERA A MAIOR TRAVA DA CIDADE. Medido em 02/09/2026 no boot de
+// `/city` com `PerformanceObserver` em `longtask`: 60,3 s de thread bloqueada em
+// 29 tarefas, e 21,4 s deles NESTE arquivo, sendo 21.257 ms numa ÚNICA tarefa.
+// Um terço da trava da cidade inteira saía daqui. Por isso a construção deixou
+// de ser uma função síncrona e virou um gerador que cede o controle.
+//
+// ⚠️ E CEDER POUCAS VEZES NÃO RESOLVERIA NADA. O orçamento da `Obra` é checado
+// ENTRE cessões: ceder cinco vezes numa tarefa de 21 s entrega cinco travadas de
+// 4 s, que o visitante lê igual a uma de 21. A regra deste arquivo é que NENHUMA
+// fatia passe de ~4 ms, e quem decide é o RELÓGIO, nunca a contagem de itens. O
+// custo por item varia de verdade: no laço do terreno um vértice do miolo do
+// disco custa uma consulta de heightmap, e um da borda cai na saia da cidade,
+// que tem exponencial dentro.
+//
+// O QUE MEDI, E ONDE. Não abri navegador. Medi os laços numéricos no Node 20
+// (mesmo V8), em 03/09/2026, com os arquivos reais de `public/city/park/` e
+// `public/lunar/`, na PRIMEIRA passada, sem JIT quente, que é o que o boot vive:
+//     162 ms   o laço do terreno fino, 58.081 vértices
+//     120 ms   `new THREE.PlaneGeometry(7200, 7200, 240, 240)`
+//      36 ms   `computeVertexNormals` dele, 115.200 triângulos
+//     104 ms   o laço do censo, 111.374 pontos
+//       9 ms   o terreno grosso, 3.721 vértices
+//       5 ms   as 1.009 pedras marcadas
+// Soma ~440 ms, e NÃO os 21 s. NÃO MEDI o que exigiria navegador: o parse dos
+// três glTF com Draco, `mergeStaticByMaterial`, os `setFromObject` do construído
+// e `buildLeonidasCave`. O resto do tempo está nesses quatro, ou na pressão de
+// GC do boot inteiro. O corte por tempo cobre os dois casos: se um trecho for
+// dez vezes mais lento no navegador do que aqui, ele cede dez vezes mais.
+//
+// E DEPOIS DO CORTE, rodando os mesmos geradores e cronometrando cada `next()`:
+//     terreno fino     20 fatias, a maior de 35,2 ms
+//     terreno grosso    3 fatias, a maior de  4,1 ms
+//     censo            26 fatias, a maior de  5,1 ms
+//
+// ⚠️ AS DUAS FATIAS QUE AINDA ESTOURAM O ALVO SÃO DUAS CHAMADAS DO THREE, E EU
+// NÃO AS FATIEI DE PROPÓSITO: `new PlaneGeometry(...)` (120 ms frio, 26 ms
+// quente) e `computeVertexNormals` (36 ms frio, 14 ms quente), as duas sobre o
+// mesmo disco de 58.081 vértices. Elas são divisíveis SÓ reescrevendo aqui o
+// que o three faz lá dentro (a grade do plano é `push` em vetor JS, e a normal
+// é acúmulo por triângulo mais normalização), e o resultado teria de ser
+// bit a bit igual ou o sombreado do chão muda. Dá para fazer e dá para
+// conferir offline; é decisão de quem coordena, não coisa para entrar de
+// carona numa conversão de orçamento. No navegador as duas chegam quentes: a
+// cidade constrói dezenas de `PlaneGeometry` antes de o parque (faixa 2)
+// começar.
+//
+// ⚠️ E POR ISSO A REDE FICA FORA DO GERADOR. `parkComoTrabalho` é `async`: baixa
+// e decodifica tudo ANTES de a peça entrar na fila. Um gerador que cedesse
+// esperando `fetch` queimaria os 6 ms de TODO quadro girando em falso, e ainda
+// seguraria as outras peças atrás dele na fila (é a mesma lição já escrita em
+// `chalet.ts`).
+//
+// ⚠️ NÃO USE `yield*` NESTE ARQUIVO. O `target` do tsconfig é `es5` e
+// `npx tsc --noEmit` recusa com "TS2802: Type 'Tarefa' can only be iterated
+// through when using the '--downlevelIteration' flag" (conferido em 02/09).
+// Repassar as cessões à mão, `for (const it = sub(); !it.next().done;) yield`,
+// faz exatamente a mesma coisa e compila.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** O que `loadPark` sempre pediu, agora com nome: os dois caminhos usam o mesmo. */
+export interface ParkOpts {
+  baseAt: (x: number, z: number) => number
+  meanHeight: number
+  gltf?: GLTFLoader
+  profile?: PerfProfile
+  culler?: DistanceCuller
+}
+
+/** O parque como peça da `Obra`. */
+export interface ParkTrabalho extends Trabalho {
+  /** O grupo do parque. Nasce VAZIO e enche fatia a fatia, então já pode entrar
+   *  na cena antes de a obra começar: o visitante vê o parque aparecer por
+   *  partes em vez de esperar o pacote inteiro. */
+  readonly group: THREE.Group
+  /** O parque pronto, ou null enquanto a obra não chegou ao fim. */
+  readonly parque: Park | null
+}
+
+/** O que a rede traz. Nenhuma geometria construída ainda. */
+interface AtivosDoParque {
+  meta: HeightMeta
+  heights: Float32Array
+  stones: { variants: string[]; stones: number[][] }
+  s16: Int16Array
+  gltf: GLTFLoader
+  crystals: THREE.Group
+  temple: THREE.Group
+  trails: THREE.Group
+  bcTex: THREE.Texture
+  nmTex: THREE.Texture
+}
+
+/** O que a obra vai enchendo enquanto constrói. */
+interface SaidaDoParque {
+  group: THREE.Group
+  park: Park | null
+  /** A caverna do Leonidas termina DEPOIS do parque, fora da fila. Ver o bloco
+   *  dela em `constroiParque`. */
+  caverna: Promise<void> | null
+}
+
+/** Rede e decodificação: tudo o que não é CPU de construção. */
+async function baixaAtivos(opts: ParkOpts): Promise<AtivosDoParque> {
   const [meta, hbuf, stones, sbuf] = await Promise.all([
     fetch('/city/park/heightmap.json').then((r) => r.json() as Promise<HeightMeta>),
     fetch('/city/park/heightmap.f32').then((r) => r.arrayBuffer()),
@@ -160,21 +272,93 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
   ])
   const gltf = opts.gltf ?? (() => { const d = new DRACOLoader(); d.setDecoderPath('/draco/'); const g = new GLTFLoader(); g.setDRACOLoader(d); return g })()
   const loadGlb = (url: string) => new Promise<THREE.Group>((res, rej) => gltf.load(url, (g) => res(g.scene), undefined, rej))
-  const [crystals, temple, trails, [bcTex, nmTex]] = await Promise.all([
+  const [crystals, temple, trails, tex] = await Promise.all([
     loadGlb('/city/park/crystals.glb'), loadGlb('/city/park/temple.glb'), loadGlb('/city/park/trails.glb'),
     loadCrystalTextures(),
   ])
+  return { meta, heights: new Float32Array(hbuf), stones, s16: new Int16Array(sbuf), gltf, crystals, temple, trails, bcTex: tex[0], nmTex: tex[1] }
+}
 
+/** O grupo do parque, já nomeado e girado, antes de ter uma malha dentro. */
+function novoGrupoDoParque(): THREE.Group {
   const group = new THREE.Group()
   group.name = 'RunestonePark'
   group.rotation.y = PARK_ROT_Y
+  return group
+}
+
+/**
+ * O cortador deste arquivo: roda `faz(i)` para i em [0, n) e cede PELO RELÓGIO.
+ *
+ * É o `emFatias` de `obra.ts` para quem itera um ÍNDICE e não um vetor (os laços
+ * do terreno andam sobre `BufferAttribute`, e o do censo sobre um `Int16Array`
+ * de passo 4: em nenhum dos dois existe o "item" que `emFatias` quer entregar).
+ * A regra é a mesma e o motivo é o mesmo: contagem fixa daria fatia de 2 ms num
+ * trecho e de 900 ms no seguinte.
+ *
+ * `passo` só existe para não ler o relógio a cada item; com 64, o estouro máximo
+ * de uma fatia é o custo de 64 itens, medido em 0,18 ms no pior laço daqui.
+ */
+function* porIndice(n: number, faz: (i: number) => void, msPorFatia = 4, passo = 64): Tarefa {
+  let t0 = performance.now()
+  for (let i = 0; i < n; i++) {
+    faz(i)
+    if (i % passo === passo - 1 && performance.now() - t0 > msPorFatia) {
+      yield
+      t0 = performance.now()
+    }
+  }
+}
+
+/**
+ * Levanta e pinta os vértices de um disco do chão do parque, cedendo pelo
+ * relógio. O fino (240×240) e o grosso (60×60) são o MESMO código: eram dois
+ * laços copiados, e cada correção precisava ser feita duas vezes.
+ */
+function* moldaDiscoDoParque(
+  geo: THREE.BufferGeometry,
+  groundLocal: (lx: number, lz: number) => number,
+  worldOf: (lx: number, lz: number) => THREE.Vector3,
+  center0: number,
+  meanHeight: number,
+): Tarefa {
+  const pos = geo.attributes.position as THREE.BufferAttribute
+  const col = new Float32Array(pos.count * 3)
+  // a MESMA cor do chão da praça: o parque é o mesmo regolito, só com relevo
+  const tint = new THREE.Color()
+  const it = porIndice(pos.count, (k) => {
+    let lx = pos.getX(k), lz = pos.getZ(k)
+    // disco: os cantos do quadrado colapsam no raio PARK_HALF
+    const rr = Math.hypot(lx, lz)
+    if (rr > PARK_HALF) { lx *= PARK_HALF / rr; lz *= PARK_HALF / rr; pos.setX(k, lx); pos.setZ(k, lz) }
+    const y = groundLocal(lx, lz)
+    pos.setY(k, y)
+    const w = worldOf(lx, lz)
+    // relevo na MESMA régua do regolito (altura de mundo menos a média do sítio),
+    // senão o disco do parque aparece mais claro que a planície em volta
+    regolithColor(w.x, w.z, y + center0 - meanHeight, Math.hypot(w.x, w.z), tint)
+    col[k * 3] = tint.r; col[k * 3 + 1] = tint.g; col[k * 3 + 2] = tint.b
+  })
+  while (!it.next().done) yield
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3))
+  // ⚠️ NÃO FATIADA, DE PROPÓSITO: uma chamada só do three, 36 ms medidos frios no
+  // disco fino (115.200 triângulos) e 2,7 ms no grosso; quente dá 14 ms. Fatiar
+  // exigiria reimplementar a normal do three aqui, bit a bit igual, e aí o
+  // sombreado do chão do parque passaria a depender da minha cópia dela.
+  geo.computeVertexNormals()
+  yield
+}
+
+/** A construção inteira, em fatias de no máximo ~4 ms. */
+function* constroiParque(a: AtivosDoParque, opts: ParkOpts, saida: SaidaDoParque): Tarefa {
+  const { meta, heights, stones, s16, gltf, crystals, temple, trails, bcTex, nmTex } = a
+  const group = saida.group
   const disposables: { dispose: () => void }[] = []
   const track = <T extends { dispose: () => void }>(o: T): T => { disposables.push(o); return o }
 
   // ── o datum: o chão real sob o Monarca; o núcleo do parque é plano sobre ele ──
   // e a borda (PARK_CORE → PARK_HALF) funde no regolito real. Tudo local ao grupo,
   // cujo y é o datum.
-  const heights = new Float32Array(hbuf)
   const { cols, rows, cellSizeM: cell } = meta
   const parkH = (bx: number, by: number): number => {
     const fi = THREE.MathUtils.clamp((bx - meta.minX) / cell, 0, cols - 1.001)
@@ -184,7 +368,7 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
     return H(i, j) * (1 - u) * (1 - v) + H(i + 1, j) * u * (1 - v) + H(i, j + 1) * (1 - u) * v + H(i + 1, j + 1) * u * v
   }
   const local = new THREE.Vector3()
-  const worldOf = (lx: number, lz: number) => local.set(lx, 0, lz).applyAxisAngle(new THREE.Vector3(0, 1, 0), PARK_ROT_Y).add(PARK_CENTER)
+  const worldOf = (lx: number, lz: number) => local.set(lx, 0, lz).applyAxisAngle(EIXO_Y, PARK_ROT_Y).add(PARK_CENTER)
   const center0 = opts.baseAt(PARK_CENTER.x, PARK_CENTER.z)
   group.position.set(PARK_CENTER.x, center0, PARK_CENTER.z)
   const ringLocal = (lx: number, lz: number) => { const w = worldOf(lx, lz); return opts.baseAt(w.x, w.z) - center0 }
@@ -227,55 +411,31 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
     const k = THREE.MathUtils.clamp((120 - d) / 58, 0, 1)
     return h + (CAVE_FLOOR - h) * (k * k * (3 - 2 * k))
   }
+  yield
 
   // ── terreno ───────────────────────────────────────────────────────────────
   const N = 240
+  // ⚠️ A MAIOR FATIA QUE SOBROU: 120 ms medidos na primeira passada (58.081
+  // vértices, 115.200 triângulos), 26 ms com o JIT quente. É uma chamada só do
+  // three, e fatiá-la é reescrever `PlaneGeometry` aqui dentro. O que dá para
+  // fazer, e está feito, é cercá-la de cessões: ela nunca divide uma FATIA com
+  // outro trabalho. Dividir o QUADRO ela ainda pode, porque a `Obra` só olha o
+  // relógio entre cessões e pode começá-la com orçamento sobrando.
   const geo = track(new THREE.PlaneGeometry(2 * PARK_HALF, 2 * PARK_HALF, N, N))
   geo.rotateX(-Math.PI / 2)
-  const pos = geo.attributes.position as THREE.BufferAttribute
-  const col = new Float32Array(pos.count * 3)
-  // a MESMA cor do chão da praça: o parque é o mesmo regolito, só com relevo
-  const tint = new THREE.Color()
-  for (let k = 0; k < pos.count; k++) {
-    let lx = pos.getX(k), lz = pos.getZ(k)
-    // disco: os cantos do quadrado colapsam no raio PARK_HALF
-    const rr = Math.hypot(lx, lz)
-    if (rr > PARK_HALF) { lx *= PARK_HALF / rr; lz *= PARK_HALF / rr; pos.setX(k, lx); pos.setZ(k, lz) }
-    const y = groundLocal(lx, lz)
-    pos.setY(k, y)
-    const w = worldOf(lx, lz)
-    // relevo na MESMA régua do regolito (altura de mundo menos a média do sítio),
-    // senão o disco do parque aparece mais claro que a planície em volta
-    regolithColor(w.x, w.z, y + center0 - opts.meanHeight, Math.hypot(w.x, w.z), tint)
-    col[k * 3] = tint.r; col[k * 3 + 1] = tint.g; col[k * 3 + 2] = tint.b
-  }
-  geo.setAttribute('color', new THREE.BufferAttribute(col, 3))
-  geo.computeVertexNormals()
+  yield
+  for (const it = moldaDiscoDoParque(geo, groundLocal, worldOf, center0, opts.meanHeight); !it.next().done;) yield
   const terrainMat = track(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 }))
   const terrain = new THREE.Mesh(geo, terrainMat)
   terrain.receiveShadow = true
   terrain.name = 'ParkTerrain'
   group.add(terrain)
+  yield
   // a versão grossa do mesmo chão (60×60) para quando o parque é horizonte
   const NC = 60
   const geoC = track(new THREE.PlaneGeometry(2 * PARK_HALF, 2 * PARK_HALF, NC, NC))
   geoC.rotateX(-Math.PI / 2)
-  {
-    const pc = geoC.attributes.position as THREE.BufferAttribute
-    const cc = new Float32Array(pc.count * 3)
-    for (let k = 0; k < pc.count; k++) {
-      let lx = pc.getX(k), lz = pc.getZ(k)
-      const rr = Math.hypot(lx, lz)
-      if (rr > PARK_HALF) { lx *= PARK_HALF / rr; lz *= PARK_HALF / rr; pc.setX(k, lx); pc.setZ(k, lz) }
-      const y = groundLocal(lx, lz)
-      pc.setY(k, y)
-      const w = worldOf(lx, lz)
-      regolithColor(w.x, w.z, y + center0 - opts.meanHeight, Math.hypot(w.x, w.z), tint)
-      cc[k * 3] = tint.r; cc[k * 3 + 1] = tint.g; cc[k * 3 + 2] = tint.b
-    }
-    geoC.setAttribute('color', new THREE.BufferAttribute(cc, 3))
-    geoC.computeVertexNormals()
-  }
+  for (const it = moldaDiscoDoParque(geoC, groundLocal, worldOf, center0, opts.meanHeight); !it.next().done;) yield
   const terrainCoarse = new THREE.Mesh(geoC, terrainMat)
   terrainCoarse.receiveShadow = true
   terrainCoarse.name = 'ParkTerrainCoarse'
@@ -283,11 +443,10 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
   group.add(terrainCoarse)
   // ⚠️ O INVERSO DE `worldOf`: mundo -> local do parque. Sem ele o trava-chão não
   // tem como perguntar "qual a cota daqui" usando a mesma função que desenhou.
-  const _eixoY = new THREE.Vector3(0, 1, 0)
   const _tmpLocal = new THREE.Vector3()
   const alturaEm = (x: number, z: number): number | null => {
     _tmpLocal.set(x - PARK_CENTER.x, 0, z - PARK_CENTER.z)
-      .applyAxisAngle(_eixoY, -PARK_ROT_Y)
+      .applyAxisAngle(EIXO_Y, -PARK_ROT_Y)
     const lx = _tmpLocal.x, lz = _tmpLocal.z
     // fora do sítio do parque quem manda é o relevo da cidade
     if (Math.hypot(lx, lz) > PARK_HALF) return null
@@ -298,6 +457,7 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
     const fine = dist < 4500
     if (terrain.visible !== fine) { terrain.visible = fine; terrainCoarse.visible = !fine }
   }
+  yield
 
   // ── as pedras marcadas: cristais instanciados por variante ────────────────
   // A receita da marca branca, do .blend, em shader: a luminância da textura de
@@ -316,14 +476,15 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
   })
   const byVariant = new Map<number, THREE.Matrix4[]>()
   const M = new THREE.Matrix4()
-  for (const row of stones.stones) {
+  const pDaPedra = new THREE.Vector3()
+  const itPedras = emFatias(stones.stones, (row) => {
     const v = row[0]
     M.set(row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8], row[9], row[10], row[11], row[12], row[13], row[14], row[15], row[16])
     // M leva do local do cristal (Blender) ao mundo (Blender). Em three: B2T · M · T2B,
     // porque a geometria do GLB já está no quadro three.
     const Mt = new THREE.Matrix4().multiplyMatrices(B2T, M).multiply(T2B)
     // e desce ao datum: soma o anel local (a matriz traz o z do parque)
-    const p = new THREE.Vector3().setFromMatrixPosition(Mt)
+    const p = pDaPedra.setFromMatrixPosition(Mt)
     // A pedra que cai DENTRO da caverna do Leonidas sai da lista. Com o maciço a
     // 117 m (2026-08-19), um dos cristais vizinhos passou a atravessar a parede
     // da câmara e a furar o teto: por dentro via-se a lasca branca e a luz de
@@ -331,11 +492,12 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
     // ⚠️ 150, não 78: com a reforma de 26/08 o maciço passou a 152 x 129 m
     // (fundo a 141 m atrás da boca), e o escudo antigo deixava cristal nascer
     // dentro da parede da câmara de novo.
-    if (Math.hypot(p.x - CAVE_LOCAL.x, p.z - CAVE_LOCAL.z) < 150) continue
+    if (Math.hypot(p.x - CAVE_LOCAL.x, p.z - CAVE_LOCAL.z) < 150) return
     const list = byVariant.get(v) ?? []
     list.push(Mt)
     byVariant.set(v, list)
-  }
+  })
+  while (!itPedras.next().done) yield
   // LOD por contagem: cada variante é um InstancedMesh com as instâncias ordenadas
   // da MAIOR para a menor; de longe só as maiores são desenhadas (`count`), e a
   // silhueta da cordilheira não muda porque as grandes é que a fazem. De perto,
@@ -346,9 +508,9 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
   for (const [v, list] of Array.from(byVariant.entries())) {
     const g = variantGeo[v]
     if (!g) continue
-    list.sort((a, b) => scaleOf(b) - scaleOf(a))
+    list.sort((m1, m2) => scaleOf(m2) - scaleOf(m1))
     const im = new THREE.InstancedMesh(g, crystalMats[Math.min(v, crystalMats.length - 1)], list.length)
-    list.forEach((m, i) => im.setMatrixAt(i, m))
+    for (const it = emFatias(list, (m, i) => im.setMatrixAt(i, m)); !it.next().done;) yield
     im.instanceMatrix.needsUpdate = true
     im.castShadow = true
     im.receiveShadow = true
@@ -357,28 +519,34 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
     im.frustumCulled = false // as instâncias cobrem 7 km; a esfera da geometria mentiria
     group.add(im)
     crystalMeshes.push(im)
+    yield
   }
   const CL = opts.profile?.crystalLod ?? [1, 0.35, 0.15, 0.08]
   const lodCrystals = (dist: number) => {
     const frac = dist < 2500 ? CL[0] : dist < 5000 ? CL[1] : dist < 9000 ? CL[2] : CL[3]
     for (const im of crystalMeshes) {
-      const n = Math.max(1, Math.ceil((im.userData.total as number) * frac))
-      if (im.count !== n) im.count = n
+      const n2 = Math.max(1, Math.ceil((im.userData.total as number) * frac))
+      if (im.count !== n2) im.count = n2
     }
   }
 
   // ── o censo: 111 mil pontos, uma pedra por Runestone ─────────────────────
-  const s16 = new Int16Array(sbuf)
+  // ⚠️ AQUI MORAVA UM `await new Promise(setTimeout)` A CADA 24.000 PONTOS. Era
+  // a intenção certa com a régua errada: 111.374 pontos em 5 pedaços é ceder de
+  // 20 em 20 mil itens, ou seja fatias de tamanho arbitrário, e o orçamento da
+  // `Obra` (checado ENTRE cessões) não segura nenhuma delas. Agora o relógio
+  // manda, e o caminho antigo (`loadPark`) recuperou a respiração de macrotarefa
+  // no laço que o roda.
   const n = s16.length / 4
   const spos = new Float32Array(n * 3)
-  for (let i = 0; i < n; i++) {
-    if (i % 24000 === 23999) await new Promise<void>((r) => setTimeout(r, 0)) // respira: 111 mil pontos sem travar o quadro
+  const itCenso = porIndice(n, (i) => {
     const bx = s16[i * 4] / 4, by = s16[i * 4 + 1] / 4, bz = s16[i * 4 + 2] / 4
     const lx = bx, lz = -by
     spos[i * 3] = lx
     spos[i * 3 + 1] = groundLocal(lx, lz) + Math.max(0.5, bz - parkH(bx, by)) + 0.6
     spos[i * 3 + 2] = lz
-  }
+  })
+  while (!itCenso.next().done) yield
   const sgeo = track(new THREE.BufferGeometry())
   sgeo.setAttribute('position', new THREE.BufferAttribute(spos, 3))
   // pontos que somem quando o tamanho projetado cai abaixo de um pixel (de longe
@@ -435,13 +603,20 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
     group.add(scatter)
     opts.culler?.add(scatter, opts.profile?.parkDetailCull ?? 4200, PARK_CENTER)
   }
+  yield
 
   // ── o templo e o construído ───────────────────────────────────────────────
   const built = new THREE.Group()
   built.add(temple, trails)
-  built.traverse((o) => {
-    const m = o as THREE.Mesh
-    if (!m.isMesh) return
+  // ⚠️ O `traverse` VIRA LISTA ANTES DE VIRAR TRABALHO. `Object3D.traverse` é uma
+  // recursão de uma tacada só: não dá para ceder no meio dela sem inventar uma
+  // pilha própria. Colher os nós primeiro custa uma passada barata (138 malhas) e
+  // devolve um vetor que o `emFatias` corta. E a ORDEM é a mesma da recursão
+  // (pré-ordem), o que importa porque o segundo laço mexe em `position.y` e um
+  // pai ajustado antes do filho não dá o mesmo resultado que o contrário.
+  const malhas: THREE.Mesh[] = []
+  built.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) malhas.push(m) })
+  const itPele = emFatias(malhas, (m) => {
     m.castShadow = true
     m.receiveShadow = true
     const mat = m.material as THREE.MeshStandardMaterial
@@ -451,22 +626,26 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
     if ('roughness' in mat) { mat.roughness = Math.max(0.35, mat.roughness); if ('envMapIntensity' in mat) mat.envMapIntensity = 0.3 }
     if (mat.emissive && mat.emissiveIntensity > 0 && (mat.emissive.r > 0.5)) { mat.toneMapped = false; mat.emissiveIntensity = Math.min(mat.emissiveIntensity, 1.6) }
   })
+  while (!itPele.next().done) yield
   // cada peça desce ao datum pelo anel LOCAL dela: o anel do horizonte inclina
   // 0,6° ao longo do parque, e um deslocamento único enterraria a estrada numa
   // ponta e a deixaria no ar na outra
   const bb = new THREE.Box3()
   const c = new THREE.Vector3()
-  built.traverse((o) => {
-    const m = o as THREE.Mesh
-    if (!m.isMesh) return
+  // ⚠️ `passo` 1 AQUI, e não o 64 padrão. `setFromObject` varre TODOS os
+  // vértices da malha, e `trails.glb` sozinho tem 153 mil triângulos: uma malha
+  // grande pode custar mais que a fatia inteira, então o relógio é lido a cada
+  // uma. Com 138 malhas o custo de ler o relógio é irrelevante.
+  const itDatum = emFatias(malhas, (m) => {
     bb.setFromObject(m)
     bb.getCenter(c)
     m.position.y += groundLocal(c.x, c.z) - parkH(c.x, -c.z)
-  })
+  }, 4, 1)
+  while (!itDatum.next().done) yield
   // ── o Templo Leonidas saiu do pódio e entrou na CAVERNA ──────────────────
   // O pódio de três tiers (que o masterplan do parque deixou pronto para um
   // salão que nunca existiu) fica como está: uma plataforma vazia, na trilha.
-  // O salão foi para dentro da rocha, entre as monarcas — item 14 da lista do
+  // O salão foi para dentro da rocha, entre as monarcas, item 14 da lista do
   // fundador. O que ficou aqui é só a MEDIDA do pódio, que é de onde o caminho
   // secreto sai.
   const podiumBox = (() => {
@@ -476,8 +655,9 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
     built.updateMatrixWorld(true)
     return new THREE.Box3().setFromObject(node)
   })()
+  yield
   // ⚠️ A FUSÃO ENTRA AQUI, DEPOIS do `podiumBox` (que procura o nó "Podium" pelo
-  // NOME, e a fusão apaga nomes) e depois do `traverse` que ajusta rugosidade e
+  // NOME, e a fusão apaga nomes) e depois do laço que ajusta rugosidade e
   // emissiva (a fusão lê o material já mutado, senão reconstrói o valor errado
   // de antes do ajuste). Atrás de `?fundir=1`: sem a bandeira, `built` chega em
   // `mergeStaticByMaterial` do jeito que sempre chegou, byte a byte igual a hoje.
@@ -486,30 +666,47 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
     if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('stats') === '1') {
       console.log('[park] fundiu', r.antes, 'malhas lisas em', r.fundidas, 'material(is), recusadas', r.recusadas)
     }
+    yield
   }
+  // ⚠️ NÃO FATIADA, E NÃO MEDIDA (mediria só com navegador, porque depende do
+  // glTF decodificado): uma chamada só de `perf.ts`, que faz `toNonIndexed` e
+  // `mergeGeometries` sobre as 138 malhas do construído (`trails.glb` tem 153
+  // mil triângulos). Fatiá-la é reescrever a fusão dentro de `perf.ts`, que não
+  // é meu arquivo. O que dá para fazer daqui é cercá-la de cessões, e está feito.
   mergeStaticByMaterial(built, /^$/) // 138 malhas → ~20; com `?fundir=1` já não sobra quase nada aqui
   group.add(built)
   // as trilhas e o templo só de perto do parque (153 mil triângulos de passarela)
   opts.culler?.add(built, opts.profile?.parkDetailCull ?? 4200, PARK_CENTER)
+  yield
 
   // ── a caverna do Leonidas, e o caminho secreto que leva a ela ────────────
+  // ⚠️ ELA NÃO ESPERA, E NÃO É PREGUIÇA. `buildLeonidasCave` é `async` (baixa
+  // quatro glTF) e este é um gerador: não existe `await` aqui dentro. Segurar a
+  // fila do parque esperando rede seria o defeito que a `Obra` veio consertar.
+  // Então a caverna é DISPARADA aqui e se pendura no grupo quando chegar; o
+  // `update` e o `dispose` leem a variável, que pode estar nula por um tempo. O
+  // caminho antigo (`loadPark`) espera a promessa antes de devolver, para quem
+  // dependia de `TEMPLE_WORLD` preenchido continuar dependendo.
+  let cave: LeonidasCave | null = null
   const podC = podiumBox ? podiumBox.getCenter(new THREE.Vector3()) : new THREE.Vector3(1290, 0, -430)
-  const cave = await buildLeonidasCave({
+  saida.caverna = buildLeonidasCave({
     gltf, groundLocal, pathFrom: { x: podC.x, z: podC.z }, parkCenter: PARK_CENTER,
     profile: opts.profile, culler: opts.culler,
-  })
-  if (cave) {
-    group.add(cave.group)
-    TEMPLE_WORLD.copy(cave.mouthLocal).applyAxisAngle(new THREE.Vector3(0, 1, 0), PARK_ROT_Y)
-      .add(new THREE.Vector3(PARK_CENTER.x, center0, PARK_CENTER.z))
-  }
+  }).then((c2) => {
+    cave = c2
+    if (c2) {
+      group.add(c2.group)
+      TEMPLE_WORLD.copy(c2.mouthLocal).applyAxisAngle(EIXO_Y, PARK_ROT_Y)
+        .add(new THREE.Vector3(PARK_CENTER.x, center0, PARK_CENTER.z))
+    }
+  }).catch((err) => { console.error('[park] a caverna do Leonidas caiu e o parque seguiu', err) })
 
   // uma luz fria e baixa no templo, e o cristal-monarca com um halo
   const templeLight = new THREE.PointLight(0xffa04d, 1.0, 700, 1.4) // âmbar: a lei do parque, nada frio aceso
   templeLight.position.set(1290, groundLocal(1290, -430) + 40, -430)
   group.add(templeLight)
 
-  return {
+  saida.park = {
     group,
     alturaEm,
     update(t, halfHeightPx, camPos) {
@@ -520,5 +717,76 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
       cave?.update(t)
     },
     dispose() { cave?.dispose(); for (const d of disposables) d.dispose(); bcTex.dispose(); nmTex.dispose(); crystals.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) m.geometry?.dispose() }) },
+  }
+}
+
+/**
+ * O caminho antigo, INTACTO na assinatura: devolve o parque pronto, com a
+ * caverna já pendurada. Por dentro ele já é o gerador novo, rodado até o fim,
+ * com a mesma respiração de macrotarefa que o censo tinha antes (um `setTimeout`
+ * a cada ~200 ms de trabalho).
+ *
+ * ⚠️ ELE NÃO CONSERTA A TRAVA, e não é para consertar: 200 ms de fatia é
+ * exatamente o defeito descrito no topo do arquivo. Quem quer a cidade fluida
+ * usa `parkComoTrabalho` com a `Obra`. Este aqui existe só enquanto o
+ * orquestrador não religa.
+ */
+export async function loadPark(opts: ParkOpts): Promise<Park> {
+  const a = await baixaAtivos(opts)
+  const saida: SaidaDoParque = { group: novoGrupoDoParque(), park: null, caverna: null }
+  const g = constroiParque(a, opts, saida)
+  let t0 = performance.now()
+  while (!g.next().done) {
+    if (performance.now() - t0 > 200) {
+      await new Promise<void>((r) => setTimeout(r, 0))
+      t0 = performance.now()
+    }
+  }
+  await saida.caverna
+  return saida.park as Park
+}
+
+/**
+ * O parque como peça da `Obra`. A rede acontece no `await` daqui; o `Trabalho`
+ * devolvido é CPU pura, fatiada em ~4 ms.
+ *
+ * Uso: `const p = await parkComoTrabalho({ ... }); scene.add(p.group); obra.põe(p)`.
+ * O grupo já pode entrar na cena vazio, e enche sozinho enquanto a obra anda.
+ *
+ * `?stats=1` faz a peça relatar no fim quantas fatias gastou e qual foi a maior,
+ * que é o número que esta conversão existe para segurar.
+ */
+export async function parkComoTrabalho(
+  opts: ParkOpts & { aoPronto?: (park: Park) => void; peso?: number },
+): Promise<ParkTrabalho> {
+  const a = await baixaAtivos(opts)
+  const saida: SaidaDoParque = { group: novoGrupoDoParque(), park: null, caverna: null }
+  return {
+    nome: 'Runestone Park',
+    // peso relativo, só para a barra andar honesta: o parque é a maior peça da
+    // cidade, ~440 ms de laço medidos contra os ~6 do chalé.
+    peso: opts.peso ?? 20,
+    faixa: 2,
+    group: saida.group,
+    get parque() { return saida.park },
+    *fatia() {
+      const g = constroiParque(a, opts, saida)
+      // o cronômetro mede o que a `Obra` de fato executa de uma vez, que é
+      // exatamente a definição de fatia: um `next()` do gerador de dentro
+      let fatias = 0, pior = 0
+      for (;;) {
+        const t0 = performance.now()
+        const r = g.next()
+        const dt = performance.now() - t0
+        fatias++
+        if (dt > pior) pior = dt
+        if (r.done) break
+        yield
+      }
+      if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('stats') === '1') {
+        console.log('[park] obra em', fatias, 'fatias, a maior de', pior.toFixed(1), 'ms')
+      }
+      if (saida.park) opts.aoPronto?.(saida.park)
+    },
   }
 }

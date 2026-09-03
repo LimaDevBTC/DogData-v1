@@ -20,6 +20,7 @@
 // passeio liga a porta ao fim do bulevar sul.
 import * as THREE from 'three'
 import { makeGlowTexture, makeGroundPool, makeHalo, POOL_SPREAD, type PoolDisc } from './light-pool'
+import type { Tarefa, Trabalho } from './obra'
 
 const CARD_RATIO = 88 / 63
 const WARM = new THREE.Color('#FFB35C')
@@ -33,12 +34,46 @@ export interface Chalet {
   dispose: () => void
 }
 
-export function buildChalet(front: THREE.Texture): Chalet {
+/** teto de cada fatia dos dois laços de instância, em ms. O resto do chalé são
+ *  fases de tamanho fixo, medidas abaixo, e cada uma cabe folgada neste teto. */
+const MS_POR_FATIA = 4
+
+/**
+ * A construção do chalé, em fatias. `buildChalet` drena isto de uma vez só (o
+ * caminho antigo, síncrono); `chaletComoTrabalho` entrega o mesmo gerador para
+ * a Obra, que gasta o orçamento de quadro dela e devolve a thread ao render.
+ *
+ * ⚠️ FATIAR ESTE ARQUIVO NÃO ERA O CONSERTO DOS 7,6 s, E A MEDIDA DIZ ISSO. O
+ * corpo inteiro daqui foi cronometrado em 02/09/2026 fora do navegador (mesmo
+ * V8, node 20, o three 0.162 do repo, três execuções de aquecimento antes):
+ * **2,6 a 3,9 ms**, para 62 malhas, 26 materiais, 9 chaves de programa, 1 luz e
+ * 4.016 triângulos. Não existem 7,6 s de JavaScript nesta peça para dividir.
+ *
+ * A janela de boot rotulada `chalet` em `plaza-scene.tsx` contém, além desta
+ * função, o `await` da textura `/city/cards/logo-front.png` (1488 x 2080,
+ * 154 KB no disco, 12,4 MB de RGBA para subir à GPU, e ela vai em `map` E em
+ * `emissiveMap`) e o que o laço de eventos drenar durante esse `await`. E o
+ * laço de render já está rodando desde antes: `animate()` é chamado no mesmo
+ * efeito que dispara `boot()`, então o primeiro quadro depois de cada
+ * `scene.add` paga de uma vez a compilação dos programas novos e a subida das
+ * texturas novas, sem ninguém pedir. NÃO MEDI essas duas: não abri navegador.
+ * Ficam ditas, com o que dá para medir sem ele.
+ *
+ * O gerador continua valendo pelo pior caso: 3,9 ms é num desktop, e a mesma
+ * conta num celular de gama média fica na casa dos 15 ms, ou seja um quadro
+ * inteiro perdido. Fatiado são 17 cessões e a MAIOR fatia medida é 0,99 ms.
+ */
+function* construirChalet(front: THREE.Texture, saida: { chale: Chalet | null }): Tarefa {
   const group = new THREE.Group()
   group.name = 'OrdCardsChalet'
   const disposables: { dispose: () => void }[] = []
   const track = <T extends { dispose: () => void }>(o: T): T => { disposables.push(o); return o }
   const glowTex = track(makeGlowTexture())
+  // NÃO MEDI esta linha: ela é a única do arquivo que toca em canvas 2D (um
+  // gradiente radial num 64 x 64) e o cronômetro que usei roda fora do
+  // navegador, com o canvas dublado. Fica numa fatia própria justamente por
+  // isso: se ela custar caro em algum aparelho, custa sozinha.
+  yield // ── fatia: a textura do brilho ─────────────────────────────────────
   const pools: PoolDisc[] = []
   /** ⚠️ A POÇA LARGA VALE METADE DA LUMINÁRIA (0,3 nas poças dos postes do
    *  precinct → 0,15 aqui), pelo mesmo motivo dos monumentos: ela cobre dezenas
@@ -71,6 +106,7 @@ export function buildChalet(front: THREE.Texture): Chalet {
   const glass = new THREE.Mesh(track(new THREE.BoxGeometry(baseW, BASE_H, baseD)), glassMat)
   glass.position.y = 1.4 + BASE_H / 2
   group.add(glass)
+  yield // ── fatia: o pódio está de pé ──────────────────────────────────────
   // esquadrias do pódio: mullions verticais nas quatro faces
   const mullionMat = track(new THREE.MeshStandardMaterial({ color: 0x24252c, metalness: 0.75, roughness: 0.4 }))
   const mullionGeo = track(new THREE.BoxGeometry(0.7, BASE_H, 0.7))
@@ -78,11 +114,25 @@ export function buildChalet(front: THREE.Texture): Chalet {
   const mullions = new THREE.InstancedMesh(mullionGeo, mullionMat, (nMx + nMz) * 2 + 4)
   const o = new THREE.Object3D()
   let mi = 0
-  for (let i = 0; i <= nMx; i++) for (const s of [-1, 1]) { o.position.set(-baseW / 2 + (i * baseW) / nMx, 1.4 + BASE_H / 2, s * baseD / 2); o.updateMatrix(); mullions.setMatrixAt(mi++, o.matrix) }
-  for (let i = 1; i < nMz; i++) for (const s of [-1, 1]) { o.position.set(s * baseW / 2, 1.4 + BASE_H / 2, -baseD / 2 + (i * baseD) / nMz); o.updateMatrix(); mullions.setMatrixAt(mi++, o.matrix) }
+  // ⚠️ CEDE POR TEMPO, NÃO POR CONTAGEM (a regra está em obra.ts). Medido em
+  // 02/09: são 92 instâncias e o laço inteiro custa 0,13 ms, então o relógio
+  // nunca dispara com os números de hoje. Ele fica porque `nMx`/`nMz` saem de
+  // uma divisão da fachada: quem trocar o módulo de 9 m por 1 m multiplica a
+  // contagem por nove sem tocar em nada aqui, e um limite escrito em itens
+  // acerta num tamanho e erra em todos os outros.
+  let relogio = performance.now()
+  for (let i = 0; i <= nMx; i++) for (const s of [-1, 1]) {
+    o.position.set(-baseW / 2 + (i * baseW) / nMx, 1.4 + BASE_H / 2, s * baseD / 2); o.updateMatrix(); mullions.setMatrixAt(mi++, o.matrix)
+    if ((mi & 15) === 0 && performance.now() - relogio > MS_POR_FATIA) { yield; relogio = performance.now() }
+  }
+  for (let i = 1; i < nMz; i++) for (const s of [-1, 1]) {
+    o.position.set(s * baseW / 2, 1.4 + BASE_H / 2, -baseD / 2 + (i * baseD) / nMz); o.updateMatrix(); mullions.setMatrixAt(mi++, o.matrix)
+    if ((mi & 15) === 0 && performance.now() - relogio > MS_POR_FATIA) { yield; relogio = performance.now() }
+  }
   mullions.count = mi
   mullions.instanceMatrix.needsUpdate = true
   group.add(mullions)
+  yield // ── fatia: as esquadrias do pódio ──────────────────────────────────
   // pisos por dentro do pódio (dois) e mezaninos dentro do A (três), quentes
   // lajes escuras com fita de luz quente na borda e guarda-corpo de vidro: o
   // interior lê como arquitetura, não como prateleiras (a primeira versão tinha
@@ -118,14 +168,20 @@ export function buildChalet(front: THREE.Texture): Chalet {
   }
   floorAt(1.4 + 0.6, baseW - 2, baseD - 2, true, 0.16)
   floorAt(1.4 + BASE_H / 2, baseW - 4, baseD - 4, true, 0.16)
+  yield // ── fatia: os dois pisos de dentro do pódio ────────────────────────
   const cardBase = 1.4 + BASE_H // as cartas nascem no topo do pódio
+  // uma parada por mezanino: cada `floorAt` iluminado são seis malhas e cinco
+  // geometrias novas, e é a menor unidade que dá para interromper sem deixar
+  // uma laje sem guarda-corpo no quadro do meio
   for (const k of [0.16, 0.34, 0.52]) {
     const y = cardBase + apex * k
     const d = 2 * half * (1 - k) - 6
     if (d > 20) floorAt(y, W - 10, d)
+    yield // ── fatia: um mezanino do "A" ────────────────────────────────────
   }
   // o "chão" do A no topo do pódio: laje clara
   floorAt(cardBase - 0.6, baseW, baseD, false)
+  yield // ── fatia: a laje do topo do pódio ─────────────────────────────────
 
   // ── as duas cartas ────────────────────────────────────────────────────────
   const cardMat = (map: THREE.Texture) =>
@@ -155,7 +211,10 @@ export function buildChalet(front: THREE.Texture): Chalet {
   }
   // a MESMA face nas duas águas: quem sobe pela escadaria e quem vem do
   // spaceport veem a carta, não o verso dela
-  group.add(mk(front, -1), mk(front, 1))
+  group.add(mk(front, -1))
+  yield // ── fatia: a água sul ──────────────────────────────────────────────
+  group.add(mk(front, 1))
+  yield // ── fatia: a água norte ────────────────────────────────────────────
   // ── a estrutura por dentro do "A": caibros de aço a cada 12 m, nas duas águas ──
   const rafterMat = track(new THREE.MeshStandardMaterial({ color: 0x2b2c33, metalness: 0.8, roughness: 0.35 }))
   const rafterLen = H - 6
@@ -171,12 +230,16 @@ export function buildChalet(front: THREE.Texture): Chalet {
       o.rotation.set(-lean, sign > 0 ? 0 : Math.PI, 0, 'YXZ')
       o.updateMatrix()
       rafters.setMatrixAt(ri++, o.matrix)
+      // mesmo relógio das esquadrias: 26 caibros hoje, 0,04 ms medidos, e o
+      // limite existe pelo `nR`, que também sai de uma divisão da fachada
+      if ((ri & 15) === 0 && performance.now() - relogio > MS_POR_FATIA) { yield; relogio = performance.now() }
     }
   }
   rafters.count = ri
   rafters.instanceMatrix.needsUpdate = true
   rafters.castShadow = true
   group.add(rafters)
+  yield // ── fatia: os caibros de aço ───────────────────────────────────────
 
   // ── a escadaria monumental, do lado da praça: três terraços de pedra escura ──
   // com o degrau iluminado, do gramado ao pórtico
@@ -200,6 +263,7 @@ export function buildChalet(front: THREE.Texture): Chalet {
     for (const sx of [-1, 0, 1]) pools.push({ at: [sx * (stairW - k * 14) / 3, hgt + k * hgt + 0.12, zc], r: depth / 2, gain: WASH_GAIN })
     // e, no chão diante da escadaria, a poça de quem chega pelo passeio
     if (k === 0) pools.push({ at: [0, 0.42, zc - depth], r: depth / 2, gain: WASH_GAIN })
+    yield // ── fatia: um terraço da escadaria ──────────────────────────────
   }
 
   // ── luz ──────────────────────────────────────────────────────────────────
@@ -231,6 +295,7 @@ export function buildChalet(front: THREE.Texture): Chalet {
   // um volume aceso deixa no chão em volta. Quem cortar o raio para `plinthR`
   // some com a poça inteira, porque aí ela cabe embaixo da pedra.
   pools.push({ at: [0, 0.42, 0], r: plinthR * 2, gain: WASH_GAIN })
+  yield // ── fatia: a luz de dentro do "A" ──────────────────────────────────
 
   // ── a porta e o passeio para o bulevar sul (norte do chalé) ──────────────
   const walkMat = track(new THREE.MeshStandardMaterial({ color: 0x17181d, roughness: 0.75, metalness: 0.15 }))
@@ -254,6 +319,7 @@ export function buildChalet(front: THREE.Texture): Chalet {
   const portal = new THREE.Mesh(track(new THREE.BoxGeometry(34, 12, 4)), track(new THREE.MeshStandardMaterial({ color: 0x0f0f13, roughness: 0.4, metalness: 0.6, emissive: WARM, emissiveIntensity: 0.15 })))
   portal.position.set(0, 9.6 + 6.5, -baseD / 2 - 6)
   group.add(portal)
+  yield // ── fatia: o passeio e o pórtico ───────────────────────────────────
 
   // ── a marca girando sobre o ápice ────────────────────────────────────────
   const glyph = new THREE.Group()
@@ -267,13 +333,14 @@ export function buildChalet(front: THREE.Texture): Chalet {
   const beacon = track(makeHalo([[0, 0, 0]], { color: ORANGE, size: 4 * 2 * POOL_SPREAD, texture: glowTex, name: 'ChaletBeacon' }))
   glyph.add(beacon.object)
   const beaconBase = beacon.material.opacity
+  yield // ── fatia: a marca e o farol do ápice ──────────────────────────────
 
   // todas as poças do chalé numa malha só
   const pool = track(makeGroundPool(pools, { texture: glowTex, name: 'ChaletPools' }))
   group.add(pool.object)
   const poolBase = pool.material.opacity
 
-  return {
+  saida.chale = {
     group,
     apexY: cardBase + apex,
     update(t) {
@@ -286,5 +353,57 @@ export function buildChalet(front: THREE.Texture): Chalet {
       beacon.material.opacity = beaconBase * (0.92 + 0.08 * Math.sin(t * 0.8))
     },
     dispose() { for (const d of disposables) d.dispose() },
+  }
+}
+
+/**
+ * O caminho antigo, síncrono, e ele NÃO MUDOU DE ASSINATURA: drena o gerador de
+ * uma vez só e devolve o chalé pronto. Quem já chamava isto continua chamando.
+ */
+export function buildChalet(front: THREE.Texture): Chalet {
+  const saida: { chale: Chalet | null } = { chale: null }
+  const g = construirChalet(front, saida)
+  while (!g.next().done) { /* sem parar: é o comportamento de antes */ }
+  // o gerador só termina depois de escrever `saida.chale`; se caiu antes, quem
+  // chamou já recebeu a exceção e nunca chega aqui
+  return saida.chale as Chalet
+}
+
+/** O chalé como peça da Obra. `chale` fica nulo até a última fatia rodar. */
+export interface ChaletTrabalho extends Trabalho {
+  readonly chale: Chalet | null
+}
+
+/**
+ * O chalé para o contrato de `obra.ts`. FAIXA 2 (fundo): a cidade abre sem ele.
+ *
+ * `peso` 6 é o mesmo que a etapa `chalet` já tinha na tela de carga de
+ * `plaza-scene.tsx`, para a barra não mudar de ritmo na troca.
+ *
+ * ⚠️ A TEXTURA TEM DE CHEGAR PRONTA, e é de propósito. Um gerador não sabe
+ * esperar promessa, e a Obra chama `next()` em laço apertado dentro do
+ * orçamento do quadro: um gerador que cedesse enquanto espera a textura queimaria
+ * os 6 ms de TODO quadro girando em falso, e ainda seguraria as outras peças da
+ * fila atrás dele. Quem chama carrega o PNG antes e passa a textura aqui.
+ */
+export function chaletComoTrabalho(
+  front: THREE.Texture,
+  opts: { aoPronto?: (c: Chalet) => void; peso?: number } = {},
+): ChaletTrabalho {
+  const saida: { chale: Chalet | null } = { chale: null }
+  return {
+    nome: 'OrdCards Chalet',
+    peso: opts.peso ?? 6,
+    faixa: 2,
+    get chale() { return saida.chale },
+    // ⚠️ NÃO USE `yield*` AQUI. O `target` deste tsconfig é abaixo de ES2015 e
+    // `npx tsc --noEmit` recusa: "TS2802: Type 'Tarefa' can only be iterated
+    // through when using the '--downlevelIteration' flag". Repassar as cessões
+    // à mão faz a mesma coisa e compila.
+    *fatia() {
+      const g = construirChalet(front, saida)
+      while (!g.next().done) yield
+      if (saida.chale) opts.aoPronto?.(saida.chale)
+    },
   }
 }
