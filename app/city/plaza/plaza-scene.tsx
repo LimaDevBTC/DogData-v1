@@ -1531,6 +1531,17 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let eclusas: Eclusas | null = null
     let metro: Metro | null = null
     let inverno: Inverno | null = null
+    // ⚠️ OBRA PRÓPRIA, NÃO A COMPARTILHADA, e o motivo é um defeito medido ao
+    // vivo em 03/09 depois de ligar o padrão por padrão: a `obra` principal é
+    // SELADA logo depois do boot (`obra.sela()`, mais abaixo), e "selada"
+    // quer dizer que todo `põe()` chegado depois é RECUSADO EM SILÊNCIO (só um
+    // `console.warn`), pela mesma razão que a própria `Obra` documenta no seu
+    // cabeçalho: fila vazia não pode virar "morta" por engano. O parque de
+    // inverno enfileira sua construção MUITO depois do boot (rede suspensa até
+    // `abrirPortaoInverno`, depois até 8 s de teto por GLB), ou seja sempre
+    // depois da selagem. Igual à `obraPerto` que `dispararCamadaPerto` já usa
+    // dentro de `inverno.ts` para a camada perto, esta obra é só do parque.
+    const obraInverno = new Obra({ orcamentoMs: 4 })
     let heightAt: (x: number, z: number) => number = () => 0
     let superficieAt: (x: number, z: number) => number = () => 0
     let lagoGeo: { r0: number; r1: number; agua: number; fundo: number } | null = null
@@ -2514,9 +2525,14 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               // Agora ele segue o padrão de `pPark`: `invernoComoTrabalho`
               // só faz REDE (relevo + 12 .glb, suspensa até `abrirPortaoInverno`
               // disparar), e a construção pesada é uma `Trabalho` fatiada na
-              // MESMA `Obra` compartilhada do parque e do chalé — nunca
+              // MESMA `Obra` compartilhada do parque e do chalé, nunca
               // aguardada aqui, nunca parte de `Promise.allSettled(daCidade)`.
-              if (qDomo.get('inverno') === '1') {
+              //
+              // ⚠️ PADRÃO INVERTIDO EM 03/09, MESMO MOTIVO E MESMO INSTANTE DE
+              // `INVERNO_ATIVO` (`inverno.ts`) e `lerCasca` (`dome.ts`): o
+              // parque virou o hype do fim de semana. `?inverno=0` é a volta
+              // de emergência.
+              if (qDomo.get('inverno') !== '0') {
                 void invernoComoTrabalho({
                   heightAt: terrain.superficieAt,
                   // ⚠️ O `gltf` PRECISA SER O DA CENA, que tem DRACOLoader: os GLB
@@ -2541,7 +2557,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                     // aquecimento de shader (mesmo padrão de `pPark`)
                     t.group.visible = false
                     scene.add(t.group)
-                    obra.põe(t)
+                    obraInverno.põe(t)
                   })
                   .catch((err) => console.error('[inverno] não subiu', err))
               }
@@ -3803,6 +3819,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       // gasta o orçamento dela (6 ms) e devolve a thread. Se esta linha sair
       // daqui, a cidade simplesmente para de nascer no meio.
       obra.passo()
+      obraInverno.passo()
       orcamentoLuz.update()
       // ⚠️ LOD DOS EXÉRCITOS: 1,77 M de triângulos viram 0,08 M além de 700 m.
       // Ver a nota longa em war/battlefield.ts, junto do proxy.

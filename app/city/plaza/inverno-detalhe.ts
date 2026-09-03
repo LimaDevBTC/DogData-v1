@@ -138,6 +138,20 @@ import * as THREE from 'three'
 import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { INVERNO_ATIVO, PISTAS, type Pista } from './inverno'
 
+// ⚠️ CONSERTO DE 03/09, mesmo achado e mesma regra de `inverno.ts` e
+// `estacao-inverno.ts`: `gltf.load()` pode travar sem nunca voltar. Aqui o
+// efeito é menor (as 2 rochas de destaque simplesmente nunca apareceriam,
+// sem erro nenhum no console), mas a mesma defesa se aplica.
+function comLimiteDeTempo<T>(p: Promise<T>, ms: number, rotulo: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_res, rej) => setTimeout(
+      () => rej(new Error(`${rotulo}: sem resposta em ${ms} ms (decodificador travado ou rede lenta)`)),
+      ms,
+    )),
+  ])
+}
+
 // ── bandeira própria, E POR QUE ELA NÃO É UM PORTÃO ─────────────────────
 // ⚠️ CORRIGIDO (revisão do coordenador): a primeira versão deste módulo
 // exigia `?invdet=1` além de `?inverno=1` pra qualquer coisa aparecer. Isso
@@ -832,7 +846,10 @@ export function buildInvernoDetalhe(o: InvernoDetalheOpts): InvernoDetalhe {
   group.add(grupoRochas)
   let rochaTrianguloTeto = 0
   if (o.gltf) {
-    const carregar = (arquivo: string) => new Promise<THREE.Group>((res, rej) => o.gltf!.load(`/city/sf/${arquivo}`, (g) => res(g.scene), undefined, rej))
+    const carregar = (arquivo: string) => comLimiteDeTempo(
+      new Promise<THREE.Group>((res, rej) => o.gltf!.load(`/city/sf/${arquivo}`, (g) => res(g.scene), undefined, rej)),
+      8000, `[inverno-detalhe] ${arquivo}`,
+    )
     Promise.all([carregar('inverno-rocha-granito-a.glb'), carregar('inverno-rocha-granito-b.glb')])
       .then(([cenaA, cenaB]) => {
         let malhaA: THREE.Mesh | null = null, malhaB: THREE.Mesh | null = null

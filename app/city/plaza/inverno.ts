@@ -442,6 +442,34 @@ import type { DistanceCuller, PerfProfile } from './perf'
 import { Obra, emFatias, type Tarefa, type Trabalho } from './obra'
 import { buildEstacaoInverno, type EstacaoInverno } from './estacao-inverno'
 import { buildInvernoDetalhe } from './inverno-detalhe'
+
+// ⚠️ DEFEITO ACHADO E CONSERTADO EM 03/09, DEPOIS DE LIGAR O PADRÃO POR
+// PADRÃO. Medido ao vivo: os `gltf.load()` desta rodada (pinheiro, sequoia,
+// pacote de rocha, todos convertidos hoje) disparam e NUNCA voltam, nem
+// sucesso, nem erro, nem progresso. O decodificador Draco embutido
+// (`public/draco/`, de 09/07) parece travar silenciosamente em cima de um
+// bitstream codificado por uma versão mais nova do exportador, sem nunca
+// postar erro de volta pro worker principal. Sem limite de tempo, a Promise
+// que `carregarInstanciavel`/`carregarPacoteRochas` devolvem FICA PENDENTE
+// PARA SEMPRE, e como `baixaAtivosInverno` é aguardada ANTES de
+// `invernoComoTrabalho` devolver o `Trabalho`, a função inteira nunca
+// retorna: nenhuma pista, halfpipe, teleférico, vila ou floresta jamais
+// entra na cena, mesmo a camada BARATA que não depende de espécie nenhuma.
+//
+// A regra que sai daqui, e que vale para qualquer `gltf.load()` desta cena:
+// UM RECURSO EXTERNO (rede, worker, decodificador) NUNCA TEM PERMISSÃO DE
+// TRAVAR A CENA PARA SEMPRE. Toda promessa de carga precisa de um teto de
+// tempo, e estourar o teto é uma FALHA COMO QUALQUER OUTRA (a espécie fica de
+// fora, o peso dela é redistribuído), nunca um travamento silencioso.
+function comLimiteDeTempo<T>(p: Promise<T>, ms: number, rotulo: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_res, rej) => setTimeout(
+      () => rej(new Error(`${rotulo}: sem resposta em ${ms} ms (decodificador travado ou rede lenta)`)),
+      ms,
+    )),
+  ])
+}
 // ⚠️ OS DOIS RELEVOS ASSADOS (script Python, fora deste arquivo, dos scans
 // fotogramétricos reais: ver a nota "SEGUNDA CORREÇÃO" acima) NÃO SÃO MAIS
 // `import`. Ver "FRENTE CARREGAMENTO" no cabeçalho: eram `./dados/*.json`
@@ -451,8 +479,23 @@ import { buildInvernoDetalhe } from './inverno-detalhe'
 // `public/city/inverno/` porque só `public/` é servido por URL.
 
 // ── A BANDEIRA ───────────────────────────────────────────────────────────────
+// ⚠️ PADRÃO INVERTIDO EM 03/09/2026, decisão do fundador: o parque virou o
+// ponto alto do hype do fim de semana e passou a ser o que todo visitante vê.
+// `?inverno=0` vira a VOLTA DE EMERGÊNCIA (mesmo espírito de `look.ts`), até o
+// dia em que a bandeira for apagada de vez.
+//
+// ⚠️ `typeof window !== 'undefined'` CONTINUA NO LADO ESQUERDO, e isso não é
+// detalhe. Este componente é `'use client'`, mas o Next.js ainda o renderiza
+// uma vez NO SERVIDOR para montar o HTML inicial, e o `if (INVERNO_ATIVO) void
+// carregarRelevo()` logo abaixo roda na AVALIAÇÃO DO MÓDULO, fora de qualquer
+// `useEffect`. Inverter para `typeof window === 'undefined' || ...` (que seria
+// o espelho ingênuo do padrão de cima) faria essa condição valer `true` NO
+// SERVIDOR, disparando um `fetch('/city/inverno/...')` com URL relativa dentro
+// do runtime Node do SSR, que não tem base para resolver e lança. Mantendo o
+// `typeof window` do jeito que sempre foi, o servidor nunca vê `INVERNO_ATIVO`
+// como verdadeiro, e só o navegador decide.
 export const INVERNO_ATIVO =
-  typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('inverno') === '1'
+  typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('inverno') !== '0'
 
 // ── A GEOGRAFIA, EM NÚMERO (ver a conta completa no cabeçalho) ──────────────
 /** o pico medido por `alpino.ts`, tal como está hoje, sem este módulo */
@@ -1428,7 +1471,10 @@ async function carregarInstanciavel(
   gltf: GLTFLoader, especie: EspecieArvore,
 ): Promise<{ geo: THREE.BufferGeometry; mat: THREE.Material } | null> {
   try {
-    const cena = await new Promise<THREE.Group>((res, rej) => gltf.load(especie.url, (g) => res(g.scene), undefined, rej))
+    const cena = await comLimiteDeTempo(
+      new Promise<THREE.Group>((res, rej) => gltf.load(especie.url, (g) => res(g.scene), undefined, rej)),
+      8000, `[inverno] floresta: ${especie.url}`,
+    )
     let achado: THREE.Mesh | null = null
     cena.traverse((o) => { if (!achado && (o as THREE.Mesh).isMesh) achado = o as THREE.Mesh })
     if (!achado) {
@@ -1511,7 +1557,10 @@ async function carregarPacoteRochas(gltf?: GLTFLoader): Promise<{ geo: THREE.Buf
     return null
   }
   try {
-    const cena = await new Promise<THREE.Group>((res, rej) => gltf.load('/city/sf/rocks-stylized-pack.glb', (g) => res(g.scene), undefined, rej))
+    const cena = await comLimiteDeTempo(
+      new Promise<THREE.Group>((res, rej) => gltf.load('/city/sf/rocks-stylized-pack.glb', (g) => res(g.scene), undefined, rej)),
+      8000, '[inverno] penhascos (rocks-stylized-pack.glb)',
+    )
     let malha: THREE.Mesh | null = null
     cena.traverse((k) => { if (!malha && (k as THREE.Mesh).isMesh) malha = k as THREE.Mesh })
     if (!malha) {

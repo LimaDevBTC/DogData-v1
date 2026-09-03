@@ -94,6 +94,24 @@ import * as THREE from 'three'
 import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { DistanceCuller } from './perf'
 
+// ⚠️ CONSERTO DE 03/09, ACHADO AO VIVO NO MESMO DIA: `gltf.load()` para os GLB
+// convertidos hoje (chalé, bilheteria, snowcat, cerca) pode disparar e NUNCA
+// voltar (nem sucesso, nem erro), o decodificador Draco embutido trava
+// silenciosamente. Sem limite de tempo, `buildEstacaoInverno` nunca resolve, e
+// como quem chama isto (`inverno.ts`) espera essa Promise antes de trocar a
+// caixa placeholder, a estação inteira travaria pra sempre. Mesma regra em
+// `inverno.ts`: recurso externo nunca trava a cena, estourar o teto é falha
+// como qualquer outra.
+function comLimiteDeTempo<T>(p: Promise<T>, ms: number, rotulo: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_res, rej) => setTimeout(
+      () => rej(new Error(`${rotulo}: sem resposta em ${ms} ms (decodificador travado ou rede lenta)`)),
+      ms,
+    )),
+  ])
+}
+
 // ── tipos ────────────────────────────────────────────────────────────────
 export type DificuldadePista = 'verde' | 'azul' | 'vermelha' | 'preta' | 'parque'
 
@@ -351,7 +369,10 @@ async function carregarPecaUnica(
   gltf: GLTFLoader, url: string, x: number, z: number, azGraus: number, y: number, sombra: boolean,
 ): Promise<{ obj: THREE.Object3D; triangulos: number } | null> {
   try {
-    const cena = await new Promise<THREE.Group>((res, rej) => gltf.load(url, (g) => res(g.scene), undefined, rej))
+    const cena = await comLimiteDeTempo(
+      new Promise<THREE.Group>((res, rej) => gltf.load(url, (g) => res(g.scene), undefined, rej)),
+      8000, `[estacao-inverno] ${url}`,
+    )
     const caixa = new THREE.Box3().setFromObject(cena)
     cena.position.set(x - (caixa.min.x + caixa.max.x) / 2, y - caixa.min.y, z - (caixa.min.z + caixa.max.z) / 2)
     cena.rotation.y = (azGraus * Math.PI) / 180
@@ -376,7 +397,10 @@ async function carregarPecaUnica(
  *  nós nomeados. */
 async function carregarGeometriaEMaterial(gltf: GLTFLoader, url: string): Promise<{ geo: THREE.BufferGeometry; mat: THREE.Material } | null> {
   try {
-    const cena = await new Promise<THREE.Group>((res, rej) => gltf.load(url, (g) => res(g.scene), undefined, rej))
+    const cena = await comLimiteDeTempo(
+      new Promise<THREE.Group>((res, rej) => gltf.load(url, (g) => res(g.scene), undefined, rej)),
+      8000, `[estacao-inverno] ${url}`,
+    )
     let achado: THREE.Mesh | null = null
     cena.traverse((k) => { if (!achado && (k as THREE.Mesh).isMesh) achado = k as THREE.Mesh })
     if (!achado) return null

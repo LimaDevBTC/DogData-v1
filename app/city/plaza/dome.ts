@@ -72,9 +72,17 @@ import { look2 } from './look'
 // DENTRO se ignora o `crown`/`fade` recebido e usa a proposta desta frente.
 // Módulo lê, módulo decide; trocar de casca pede recarregar a página, que é o
 // comportamento certo porque a textura de relevo nasce no boot da cena.
+// ⚠️ PADRÃO INVERTIDO EM 03/09/2026, MESMO DIA E MESMO MOTIVO DE `INVERNO_ATIVO`
+// EM `inverno.ts`: o parque de inverno precisa da flecha de 5.500 para não
+// atravessar a casca (com a flecha antiga o cume já ultrapassava a abóbada), e
+// o parque virou o que todo visitante vê. `?casca=1` vira a VOLTA DE
+// EMERGÊNCIA para a calota rasa antiga, até o dia em que a bandeira for
+// apagada de vez. `typeof window === 'undefined'` continua devolvendo `false`
+// aqui: esta é geometria pura, sem fetch de rede disparado na avaliação do
+// módulo, então o risco de SSR que existe em `inverno.ts` não existe aqui.
 function lerCasca(): boolean {
   if (typeof window === 'undefined') return false
-  return new URLSearchParams(window.location.search).get('casca') === '2'
+  return new URLSearchParams(window.location.search).get('casca') !== '1'
 }
 const CASCA2 = lerCasca()
 
