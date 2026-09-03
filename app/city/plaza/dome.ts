@@ -38,6 +38,12 @@
 // abóbada é exatamente a de hoje. Ver `CASCA2` logo abaixo e o comentário
 // sobre `crown`/`fade` dentro de `buildDome`.
 //
+// ⚠️ O LEVANTE DA BORDA NÃO É PARTE DESSA PROPOSTA, embora tenha nascido no
+// mesmo relatório: ele é CONSERTO e vale sempre. Sem ele a borda fica numa cota
+// só (53 m) e o relevo do arco oeste a enterra em 45% dos azimutes, por até
+// 240,7 m — o defeito que o fundador relatou em 03/09 ("a ponta tá entrando pra
+// dentro da terra"). Ver `levanteEm`.
+//
 // Three.js puro (regra da casa: nada de react-three-fiber).
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
@@ -48,9 +54,15 @@ import { look2 } from './look'
 // ═══════════════════════════════════════════════════════════════════════════
 // A BANDEIRA DESTA FRENTE. `?casca=2` liga a casca mais funda (o relatório de
 // 02/09 propõe flecha 5.500 no lugar dos 2.566 de hoje) e a pele com relevo
-// especular por célula. Sem ela a abóbada é EXATAMENTE a de hoje: `crown` e
-// `fade` continuam saindo de `o.crown`/`o.fade`, que é quem `plaza-scene.tsx`
-// já controla (inclusive por `?flecha=`).
+// especular por célula. Sem ela a abóbada é a de hoje: `crown` e `fade`
+// continuam saindo de `o.crown`/`o.fade`, que é quem `plaza-scene.tsx` já
+// controla (inclusive por `?flecha=`).
+//
+// ⚠️ O QUE ELA NÃO GOVERNA MAIS, DESDE 03/09: o levante da borda. Ele estava
+// aqui dentro porque veio no mesmo relatório, e isso fazia a bandeira de
+// PROPOSTA carregar um CONSERTO — contra a regra que `look.ts` já escreve
+// ("correção de defeito objetivo NÃO passa por aqui"). O levante saiu; a flecha
+// e a pele ficam.
 //
 // ⚠️ POR QUE A BANDEIRA MORA AQUI E NÃO EM `plaza-scene.tsx`. `buildDome`
 // recebe `crown` sempre PRONTO de fora (`crown: num('flecha', 2619)`), então
@@ -812,9 +824,24 @@ function fatorLevanteAngular(ang: number): number {
   return 1 - suave(0, BORDA_TRANS1, a - BORDA_ANG1)
 }
 
-/** quanto a casca sobe, em metros, no ponto (r, ang); 0 sem `?casca=2` */
+/**
+ * quanto a casca sobe, em metros, no ponto (r, ang).
+ *
+ * ⚠️ SAIU DE TRÁS DE `?casca=2` EM 03/09, e a razão é a regra de `look.ts`:
+ * bandeira serve para PROPOSTA DE ACABAMENTO, não para conserto de defeito
+ * objetivo. O levante estava no mesmo pacote da flecha de 5.500 porque as duas
+ * nasceram no mesmo relatório, mas só uma é proposta. Sem o levante a borda
+ * fica numa cota só, 53 m, e o relevo do arco oeste passa dela: medido na cena
+ * viva, em 1.441 azimutes da própria saia construída, 648 deles (45,0%) tinham
+ * a borda ENTERRADA, num arco contínuo de 63° a 232,3° e por até 240,7 m no
+ * pior ponto (ang 160,5°, terreno a 293,7 m contra a borda a 53). O sintoma que
+ * o fundador relatou é exatamente esse: a ponta preta do anel entra na terra e
+ * o terreno que devia estar DENTRO da abóbada aparece fora dela.
+ *
+ * Com o levante, no mesmo varrimento: zero azimutes enterrados e folga mínima
+ * de +59,3 m. A flecha continua atrás de `?casca=2`, que é o que ela é.
+ */
 function levanteEm(r: number, ang: number): number {
-  if (!CASCA2) return 0
   return fatorLevanteAngular(ang) * suave(BORDA_R_RAMPA0, DOME_R, r) * BORDA_LEVANTE_MAX
 }
 
@@ -918,6 +945,14 @@ export function buildDome(o: DomeOpts): Dome {
   // circular, que é o comportamento antigo e continua correto para um sítio
   // redondo.
   const cen = o.centro ?? { x: 0, z: 0 }
+  // ⚠️ O LEVANTE É SÓ DA CASCA DA CIDADE. O platô de `levanteEm` foi calibrado
+  // contra o heightmap num círculo centrado na PRAÇA; aplicá-lo a uma casca com
+  // outro centro (o domo do Vale do Poente passa `centro`) levantaria um arco
+  // que ali não tem montanha nenhuma, pelo rumo errado. O vale não está montado
+  // hoje (`cidade-malha.json` não publica `vale`), então isto é guarda, não
+  // conserto: no dia em que ele voltar, ele precisa do seu PRÓPRIO platô medido.
+  const levanteAtivo = cen.x === 0 && cen.z === 0
+  const levante = levanteAtivo ? levanteEm : () => 0
   const heightAt = (x: number, z: number) => o.heightAt(x + cen.x, z + cen.z)
   const chaoBorda = o.superficieAt
     ? (x: number, z: number) => o.superficieAt!(x + cen.x, z + cen.z)
@@ -951,14 +986,15 @@ export function buildDome(o: DomeOpts): Dome {
   // pódio, embaixo, que é terra e existe para isso.
   //
   // Assim `capY` volta a depender só do raio: uma esfera, igual em todo rumo.
-  // ⚠️ 03/09: "SÓ DO RAIO" GANHOU UMA EXCEÇÃO MEDIDA. `capY` agora também lê
-  // `ang`, mas SEM `?casca=2` `levanteEm` devolve 0 sempre e a conta acima
-  // continua sendo a resposta inteira, bit a bit; a esfera pura permanece o
-  // comportamento padrão. Com a bandeira, `levanteEm` soma o platô do arco
-  // oeste; ver o bloco grande de comentário antes de `buildDome` para o
-  // porquê e o custo.
+  // ⚠️ 03/09: "SÓ DO RAIO" GANHOU UMA EXCEÇÃO MEDIDA, E ELA VALE SEMPRE. `capY`
+  // agora também lê `ang`, porque `levante` soma o platô do arco oeste: a
+  // esfera pura era o padrão até 03/09 e o padrão estava com a borda enterrada
+  // em 45% dos azimutes. Isto NÃO é o experimento reprovado do parágrafo acima
+  // (aquele amostrava o terreno ponto a ponto e ondulava 481 m); é uma função
+  // fixa de (r, ângulo), calibrada uma vez, com dois patamares. Ver o bloco
+  // grande de comentário antes de `buildDome` para o porquê e o custo.
   const capY = (r: number, ang: number) =>
-    yc + Math.sqrt(Math.max(0, Rc * Rc - Math.min(r, DOME_R) * Math.min(r, DOME_R))) + levanteEm(r, ang)
+    yc + Math.sqrt(Math.max(0, Rc * Rc - Math.min(r, DOME_R) * Math.min(r, DOME_R))) + levante(r, ang)
 
   // Almofada: quanto a célula estufa acima da calota. 0,18·a dá a leitura de
   // acolchoado sem virar bolha de plástico.
@@ -1200,17 +1236,17 @@ export function buildDome(o: DomeOpts): Dome {
         const x = Math.cos(ang) * r, z = Math.sin(ang) * r
         // ⚠️ `y` MUDOU DE FORA PARA DENTRO DO LAÇO EM 03/09. Com o levante da
         // borda (ver `levanteEm`) a altura deixa de ser só função do anel (r):
-        // depende do setor também. Sem `?casca=2` `levanteEm` é 0 e `y` sai
-        // idêntico ao de antes, só que recalculado 193x a mais por anel, um
+        // depende do setor também. Custa recalcular 193x a mais por anel, e é
         // custo de boot, não de quadro.
         const y = capY(r, ang)
-        // ⚠️ NORMAL ANALÍTICA SÓ SEM A BANDEIRA. `normalEm` presume esfera
-        // pura (deriva a normal do raio contra o centro da esfera); com o
-        // levante ativo a superfície deixa de ser essa esfera perto da borda
-        // oeste e a normal analítica erraria bem ali. Sem bandeira nada muda:
-        // mesma normal de sempre. Com ela, cai para `computeVertexNormals()`
-        // depois de fechados os índices, mais abaixo.
-        if (CASCA2) nrmC.set(0, 1, 0)
+        // ⚠️ A NORMAL ANALÍTICA NÃO SERVE COM O LEVANTE. `normalEm` presume
+        // esfera pura (deriva a normal do raio contra o centro da esfera); com
+        // o levante a superfície deixa de ser essa esfera perto da borda oeste
+        // e a normal analítica erraria bem ali, que é justamente onde a saia
+        // fica mais vertical e a luz mais rasante. Quando o levante está ativo
+        // cai para `computeVertexNormals()`, depois de fechados os índices,
+        // mais abaixo; sem ele (a casca de outro centro) fica a de sempre.
+        if (levanteAtivo) nrmC.set(0, 1, 0)
         else normalEm(x, z, nrmC)
         cPos.push(x, y, z)
         cNor.push(nrmC.x, nrmC.y, nrmC.z)
@@ -1229,10 +1265,11 @@ export function buildDome(o: DomeOpts): Dome {
     geoCalota.setAttribute('normal', new THREE.Float32BufferAttribute(cNor, 3))
     geoCalota.setAttribute('uv', new THREE.Float32BufferAttribute(cUv, 2))
     geoCalota.setIndex(cIdx)
-    // ⚠️ RECALCULA A NORMAL SÓ COM A BANDEIRA (ver o comentário no laço acima):
-    // sem `?casca=2` a normal já gravada é a analítica de sempre, e recalcular
-    // aqui mudaria o número por arredondamento de vizinhança sem necessidade.
-    if (CASCA2) geoCalota.computeVertexNormals()
+    // ⚠️ RECALCULA A NORMAL SÓ ONDE O LEVANTE ANDA (ver o comentário no laço
+    // acima): sem levante a normal já gravada é a analítica de sempre, e
+    // recalcular aqui mudaria o número por arredondamento de vizinhança sem
+    // necessidade.
+    if (levanteAtivo) geoCalota.computeVertexNormals()
 
     const texFavo = texturaFavo(celulas, DOME_R, 4.0)
     // ⚠️ O RELEVO SÓ NASCE ATRÁS DA BANDEIRA. Gerar a textura custa uma
@@ -1245,16 +1282,25 @@ export function buildDome(o: DomeOpts): Dome {
     malhaCal.renderOrder = 5
     // ⚠️ SEM RAYCAST, 03/09. O fundador relatou: de fora da cidade, o duplo
     // toque para se aproximar de algo visto ATRAVÉS DO VIDRO "seleciona o
-    // próprio domo", e só dá para voltar clicando em Tour. Medido com um log
-    // temporário no próprio picking: o raio do centro da tela, mirando a
-    // Needle a 6.563 m de distância, acha PRIMEIRO `merged:mullion` (a
-    // nervura desta casca) a 420 m, porque a transparência é visual, e o
-    // Raycaster do three não sabe disso: ele acha o primeiro triângulo no
-    // caminho, vidro ou não. Cada novo duplo toque reaproxima da MESMA casca,
-    // cada vez mais perto, e nunca atravessa — é uma casca fechada.
-    // A mesma regra já existe nesta cena para o emblema de guerra
-    // (plaza-scene.tsx, `emblema.traverse(o => { o.raycast = () => {} })`):
-    // um objeto que é atmosfera, não destino, não intercepta picking.
+    // próprio domo", e só dá para voltar clicando em Tour.
+    //
+    // A causa é estrutural e não precisa de mais prova que a própria
+    // transparência: `matCal`, `matVidro` e `matNerv` são `transparent: true`
+    // (o olho atravessa), mas nenhum tinha `raycast` desligado, e o
+    // `Raycaster` do three não distingue transparência visual de sólido: ele
+    // acha o primeiro triângulo no caminho do raio, vidro ou não. De fora,
+    // essa casca fica sempre ENTRE a câmera e a cidade, então todo duplo
+    // toque mirando algo lá dentro acerta a casca primeiro. E como ela é
+    // fechada, o próximo toque acerta a MESMA casca, um pouco mais perto,
+    // nunca atravessa.
+    //
+    // Confirmado ao vivo com um raio disparado do centro da tela em
+    // `?view=abobadafora`: sem este conserto, `focusAt` recebia um ponto
+    // ainda distante da Needle; com ele, o mesmo raio chega sem obstrução até
+    // a torre, na distância certa. A mesma regra já existe nesta cena para o
+    // emblema de guerra (plaza-scene.tsx, `emblema.traverse(o => { o.raycast
+    // = () => {} })`): objeto que é atmosfera, não destino, não intercepta
+    // picking. `malhaVidro` e `malhaNerv`, abaixo, recebem o mesmo conserto.
     malhaCal.raycast = () => {}
     malhaCal.onBeforeRender = (_r, _s, cam) => {
       cam.getWorldPosition(matCal.uniforms.uCam.value)
@@ -1380,7 +1426,7 @@ export function buildDome(o: DomeOpts): Dome {
     malhaNerv.name = 'abobada:nervura'
     malhaNerv.renderOrder = 6
     malhaNerv.frustumCulled = false
-    malhaNerv.raycast = () => {} // ver a nota grande em malhaCal: foi ESTA malha que o duplo toque achava
+    malhaNerv.raycast = () => {} // ver a nota grande em malhaCal, mesmo defeito, mesmo conserto
     malhaNerv.onBeforeRender = (_r, _s, cam) => {
       cam.getWorldPosition(matNerv.uniforms.uCam.value)
       matNerv.uniformsNeedUpdate = true
