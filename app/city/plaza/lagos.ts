@@ -23,6 +23,7 @@ import * as THREE from 'three'
 import { COR_AGUA, aguaDeVerdade } from './lago'
 import { look2 } from './look'
 import { superficie, quebrarRepeticao } from './materiais'
+import { ANEIS, N_RAD, anguloDe, nasceEm, passoNoRaio } from './teia'
 
 const COR_AREIA = '#8E856F'    // a faixa de praia, no mesmo tom do cais dos canais
 const COR_FUNDO = '#243B47'    // o raso junto à margem, para a água não virar chapa
@@ -110,6 +111,23 @@ export interface Lagos {
    *  `folga` é em METROS e é medida de verdade, não dilatação de célula: a grade
    *  tem passo de 30 m e crescer por célula saltaria de 0 para 30. */
   naAgua: (x: number, z: number, folga?: number) => boolean
+  /** ⚠️ ESTA ÁGUA EMPURRA A MALHA VIÁRIA, em vez de receber ponte?
+   *
+   *  É a terceira consulta, e ela existe porque as duas de cima respondiam
+   *  perguntas diferentes desta. `naBaia` é sobre UM corpo (o que ganha cais);
+   *  `naAgua` é sobre plantar árvore, onde toda água é igual. Esta é sobre a RUA,
+   *  e a resposta dela é uma CLASSIFICAÇÃO medida: o corpo cujo maior vão contra
+   *  a teia passa de `LIMIAR_PONTE` faz a via parar na linha d'água; o resto
+   *  continua atravessando sobre o tabuleiro. Ver o bloco de `LIMIAR_PONTE`. */
+  bloqueiaMalha: (x: number, z: number) => boolean
+  /** ⚠️ POR ONDE A VIA DE ORLA PASSA, um array de [x,z,x,z,…] por eixo.
+   *
+   *  A outra metade do pedido de 03/09. Parar a rua na margem sozinho deixaria a
+   *  malha com tocos cegos apontando para a água; estes eixos são o que os costura,
+   *  e eles são CURVA de verdade — seguem a linha d'água suavizada, não a grade.
+   *  Só os corpos que empurram a malha entram, e a baía fica de fora porque a orla
+   *  construída dela já tem pista própria. Quem desenha é `vias.ts`. */
+  orlasDesvio: number[][]
   update: (t: number) => void
   dispose: () => void
 }
@@ -162,6 +180,40 @@ const ORLA_PE     = 3.5        // quanto o muro desce dentro d'água
 const ORLA_PASSEIO = 26.0      // largura do passeio
 const ORLA_PISTA  = 14.0       // a faixa de rolamento atrás dele
 const ORLA_TALUDE = 12.0       // onde a orla encontra o chão de verdade
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PONTE OU DESVIO: O CORTE ENTRE OS DOIS, E ELE FOI MEDIDO
+//
+// ⚠️ FUNDADOR, 03/09: "existem locais onde a estrada passa por cima de lagos,
+// inclusive formando quarteirão sobre o lago. Temos que selecionar onde precisa
+// de ponte e onde a rua deve se adaptar ao terreno e fazer curva."
+//
+// Antes daqui existiam DUAS respostas e nenhuma escolha. A baía era cortada por
+// `naBaia` em vias.ts, e TODO o resto da água virava viaduto automático: a via
+// era assentada em `cotaVia = max(terreno, lâmina + gabarito)` e seguia reta por
+// cima. Medido na superfície como construída (grade de 1.400², célula 10,3 m):
+// dos 1.342,8 km da teia, 214,9 km caíam sobre água; 194,7 eram a baía (esses o
+// corte já pegava) e sobravam 20,8 km em 168 arestas sobre 25 corpos, desenhados.
+// Cinco lagos levavam 15,15 km disso, com a grade fechando quarteirão inteiro em
+// cima da lâmina.
+//
+// ⚠️ O CRITÉRIO É O VÃO QUE A VIA TERIA DE CRUZAR, NÃO A ÁREA DO CORPO. Área não
+// decide nada aqui: uma lagoa comprida e estreita de 30 ha se atravessa em 80 m e
+// merece ponte; uma redonda de 18 ha pede 239 m e não merece. O que decide é o
+// vão, porque é ele que separa "ponte" de "estrada desenhada por cima da água".
+//
+// ⚠️ E 150 m NÃO É NÚMERO REDONDO, É UM VÃO NA DISTRIBUIÇÃO. Varri a teia inteira
+// contra os corpos rotulados e ordenei pelo maior vão de cada um:
+//
+//   298 · 298 · 298 · 239 · 239 · 239 · 231 · 190 · 180 · 169 · 165 | 123 · 115 ·
+//   110 · 110 · 92 · 87 · 79 · 78 · 78 · 67 · 55 · 42 · 18 · 12 · 12 · 6 · 6
+//
+// Entre 165 e 123 há um buraco de 42 m e nenhum corpo dentro dele. Cortar em 150
+// cai no meio desse buraco: mexer o limiar de 130 a 164 não muda um único corpo
+// de lado, que é a prova de que a linha não é gosto. Sai em 10 corpos que
+// empurram a malha (mais a baía, que empurra sempre) e 17 que ganham ponte, com
+// a maior ponte medindo 123 m — vão de viaduto urbano comum para uma rua de 12 m.
+export const LIMIAR_PONTE = 150
 
 // ═══════════════════════════════════════════════════════════════════════════
 // A MARGEM DE AREIA, VERSÃO `look2`. O caminho velho continua inteiro embaixo do
@@ -308,6 +360,89 @@ export function buildLagos(o: LagosOpts): Lagos {
     for (let k = 0; k < tam.length; k++) if (baia < 0 || tam[k] > tam[baia]) baia = k
   }
 
+  // ── QUEM EMPURRA A MALHA E QUEM GANHA PONTE ───────────────────────────────
+  //
+  // ⚠️ A CLASSIFICAÇÃO SE MEDE CONTRA A TEIA, aqui, no boot, e não é uma lista
+  // escrita à mão. Escrever "os lagos 7, 22, 23, 31 e 34 desviam" seria uma
+  // tabela que mente no dia seguinte: o rótulo do corpo vem de preenchimento e
+  // muda se o heightmap, a cota ou o pódio mudarem, e o vão muda se `teia.ts`
+  // mudar o passo dos anéis. Varrendo a teia contra os corpos rotulados, a
+  // classificação se refaz sozinha nos dois casos. Ver `LIMIAR_PONTE` para o
+  // porquê do número.
+  //
+  // ⚠️ CUSTO: 1.342,8 km de teia amostrados de 6 em 6 m são ~224 mil consultas a
+  // um Int32Array já construído. É custo de boot, uma vez, na mesma ordem do
+  // preenchimento que acabou de rodar acima.
+  const corpoNo = (x: number, z: number): number => {
+    const i = Math.round((x + R) / passo), j = Math.round((z + R) / passo)
+    if (i < 0 || j < 0 || i > n || j > n) return -1
+    return rot[j * (n + 1) + i]
+  }
+  const vaoMax = new Float64Array(tam.length)
+  {
+    const AMOSTRA = 6
+    /** o maior trecho CONTÍGUO dentro de cada corpo, ao longo de um eixo */
+    const varrer = (
+      x0: number, z0: number, x1: number, z1: number,
+      arco: { r: number; a0: number; a1: number } | null,
+    ) => {
+      const comp = arco ? arco.r * Math.abs(arco.a1 - arco.a0) : Math.hypot(x1 - x0, z1 - z0)
+      const k = Math.max(1, Math.ceil(comp / AMOSTRA))
+      const dm = comp / k
+      // ⚠️ O RUN SE FECHA NA TROCA DE CORPO, INCLUSIVE PARA A TERRA (-1). Uma
+      // aresta que entra num lago, sai numa ilha e volta a entrar tem DOIS vãos,
+      // não um: somar os dois daria a um lago com ilha no meio um vão que a via
+      // nunca precisa cruzar, e ele seria classificado como desvio sem merecer.
+      let atual = -1, acum = 0
+      for (let t = 0; t < k; t++) {
+        const u = (t + 0.5) / k
+        let cx: number, cz: number
+        if (arco) {
+          const a = arco.a0 + (arco.a1 - arco.a0) * u
+          cx = Math.cos(a) * arco.r; cz = Math.sin(a) * arco.r
+        } else {
+          cx = x0 + (x1 - x0) * u; cz = z0 + (z1 - z0) * u
+        }
+        const c = corpoNo(cx, cz)
+        if (c === atual) { acum += dm; continue }
+        if (atual >= 0 && acum > vaoMax[atual]) vaoMax[atual] = acum
+        atual = c; acum = c >= 0 ? dm : 0
+      }
+      if (atual >= 0 && acum > vaoMax[atual]) vaoMax[atual] = acum
+    }
+    // os arcos, entre radiais vizinhos ATIVOS naquele raio
+    for (const rr of ANEIS) {
+      const p = passoNoRaio(rr)
+      for (let i = 0; i < N_RAD; i += p) {
+        varrer(0, 0, 0, 0, { r: rr, a0: anguloDe(i), a1: anguloDe(i + p) })
+      }
+    }
+    // os trechos radiais, de anel a anel, a partir do raio em que cada um nasce
+    for (let i = 0; i < N_RAD; i++) {
+      const r0n = nasceEm(i)
+      if (r0n === null) continue
+      const a = anguloDe(i), ca = Math.cos(a), sa = Math.sin(a)
+      for (let k = 0; k + 1 < ANEIS.length; k++) {
+        if (ANEIS[k] < r0n - 1) continue
+        varrer(ANEIS[k] * ca, ANEIS[k] * sa, ANEIS[k + 1] * ca, ANEIS[k + 1] * sa, null)
+      }
+    }
+  }
+  /** o corpo empurra a malha para o lado, em vez de receber ponte */
+  const empurra = new Uint8Array(tam.length)
+  for (let k = 0; k < tam.length; k++) if (vaoMax[k] > LIMIAR_PONTE) empurra[k] = 1
+  // ⚠️ A BAÍA EMPURRA SEMPRE, e não por medição. Ela é a frente da cidade, tem
+  // orla construída e o fundador decidiu em 03/09 que ela não recebe travessia
+  // nenhuma: "não podemos construir uma ponte monumento na baía, dentro dela
+  // haverão algumas ilhas com mansões". Uma ponte de 1 km passaria por cima
+  // dessas ilhas. Se um dia a teia mal a tocar, ela continua empurrando.
+  if (baia >= 0) empurra[baia] = 1
+
+  const bloqueiaMalha = (x: number, z: number): boolean => {
+    const c = corpoNo(x, z)
+    return c >= 0 && empurra[c] === 1
+  }
+
   const posA: number[] = [], idxA: number[] = []      // a lâmina
   const posP: number[] = [], idxP: number[] = []      // a praia das crateras
   const posM: number[] = [], idxM: number[] = []      // muro de arrimo e talude
@@ -315,6 +450,13 @@ export function buildLagos(o: LagosOpts): Lagos {
   const posR: number[] = [], idxR: number[] = []      // a faixa de rolamento
   const segs: number[] = []                          // (ax,az,bx,bz) da orla da baía
   const segsP: number[] = []                         // (ax,az,bx,bz) da margem de praia (look2)
+  // ⚠️ A LINHA D'ÁGUA DOS CORPOS QUE EMPURRAM A MALHA, e ela é coletada aqui
+  // porque é aqui que ela existe: `vias.ts` não tem contorno de lago nenhum, só
+  // consultas por ponto. Sem esta lista a rua saberia PARAR na margem e não teria
+  // como CORRER ao longo dela, que é a metade que o fundador pediu ("a rua deve
+  // se adaptar ao terreno e fazer curva"). A baía fica de fora: ela já tem a
+  // própria pista dentro da orla construída (`ORLA_PISTA`).
+  const segsD: number[] = []                         // (ax,az,bx,bz) da margem de desvio
   const corP: number[] = []                          // cor por vértice da praia (look2)
   const uvP: number[] = []                           // uv em LADRILHOS de mundo (look2)
   let area = 0
@@ -373,6 +515,16 @@ export function buildLagos(o: LagosOpts): Lagos {
       if (c !== 15 && !_naBorda) {
         const eBaia = rot[j * (n + 1) + i] === baia || rot[j * (n + 1) + i + 1] === baia
           || rot[(j + 1) * (n + 1) + i] === baia || rot[(j + 1) * (n + 1) + i + 1] === baia
+        // ⚠️ O RÓTULO DA CÉLULA SAI DO CANTO MOLHADO, não de um canto qualquer.
+        // Um canto seco tem rot −1 e `empurra[−1]` não existe; pegar o primeiro
+        // canto daria falso para metade das células de margem, que é justamente
+        // onde a linha d'água está.
+        let _cd = -1
+        for (const _q of [j * (n + 1) + i, j * (n + 1) + i + 1,
+                          (j + 1) * (n + 1) + i, (j + 1) * (n + 1) + i + 1]) {
+          if (rot[_q] >= 0) { _cd = rot[_q]; break }
+        }
+        const eDesvio = _cd >= 0 && _cd !== baia && empurra[_cd] === 1
         for (let k = 0; k < caso.length; k++) {
           const ia = caso[k], ib = caso[(k + 1) % caso.length]
           if (ia < 4 || ib < 4) continue          // só as arestas de corte
@@ -412,6 +564,7 @@ export function buildLagos(o: LagosOpts): Lagos {
           // Depois do sinal certo: declive mediano 8,6%, largura de 2,6 a 20,1 m
           // e só 36,0% no teto.
           const nx = dz / dl, nz = -dx / dl
+          if (eDesvio) segsD.push(a[0], a[1], b[0], b[1])
           if (!eBaia) {
             // ⚠️ EM `look2` A PRAIA TAMBÉM SÓ SE COLETA. Ver o bloco de constantes:
             // emitir por aresta é o defeito do leque, e a praia estava emitindo
@@ -605,6 +758,66 @@ export function buildLagos(o: LagosOpts): Lagos {
       }
     }
     return cur
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // A VIA DE ORLA: o eixo que a rua vai seguir na margem dos lagos de desvio.
+  //
+  // ⚠️ ESTE MÓDULO NÃO DESENHA A RUA, SÓ DIZ POR ONDE ELA PASSA. Quem tem seção,
+  // meio-fio, calçada e material é `vias.ts`; quem tem contorno de lago é aqui. A
+  // divisa entre os dois é esta lista de eixos, e ela existe para não haver uma
+  // segunda máquina de traçar margem dentro do módulo de rua.
+  //
+  // ⚠️ E O EIXO É RECUADO, NÃO A LINHA D'ÁGUA. `RECUO_ORLA` põe a rua ATRÁS da
+  // praia: a areia tem largura variável (de `PRAIA_MIN` 2,5 a `PRAIA_MAX` 18 m,
+  // porque ela é a projeção da subida do terreno, não uma fita), então recuar
+  // pelo TETO é o único valor que nunca põe asfalto em cima de areia. Onde a
+  // praia é estreita sobra regolito entre a areia e a guia, e isso é o acostamento
+  // que uma estrada de beira de lago tem de verdade. Recuar pela largura MÉDIA
+  // faria a pista invadir a areia justamente nas enseadas, que é onde ela mais
+  // se vê.
+  //
+  // ⚠️ E O RECUO É PELA NORMAL DO VÉRTICE, com a mesma esquadria da orla e da
+  // praia. Recuar cada aresta pela normal DELA é o defeito do leque outra vez, e
+  // ele é pior aqui: a orla erra o acabamento, a rua erraria a geometria da
+  // pista. Uma máquina só para as três coisas.
+  const RECUO_ORLA = PRAIA_MAX + 6 + 2
+  const orlasDesvio: number[][] = []
+  {
+    for (const c of encadear(segsD)) {
+      // ⚠️ MESMO CORTE DE 300 m DO CAIS, e pelo mesmo motivo: abaixo disso o
+      // contorno é baixio ou ilhota de uma célula, e uma estrada em volta de um
+      // banco de areia de 60 m é a "florzinha" que a orla da baía já teve.
+      if (c.comp < 300 || c.pts.length < 8) continue
+      const pts = alisaContorno(c.pts, 3, 6)
+      const { m, NX, NZ } = normais(pts, 2.0)
+      // ⚠️ O EIXO SE PARTE ONDE O RECUO CAI NA ÁGUA. Num istmo estreito a normal
+      // de um lado empurra o ponto para dentro do lago do outro lado, e a rua
+      // atravessaria a lâmina — que é exatamente o defeito que este trabalho veio
+      // consertar, reintroduzido pela porta dos fundos. Onde isso acontece o eixo
+      // simplesmente ACABA e recomeça depois: dois trechos, e a via morre na
+      // ponta, como via de verdade morre.
+      let atual: number[] = []
+      for (let k = 0; k < m; k++) {
+        const ex = pts[2 * k] + NX[k] * RECUO_ORLA
+        const ez = pts[2 * k + 1] + NZ[k] * RECUO_ORLA
+        if (corpoNo(ex, ez) >= 0) {
+          if (atual.length >= 8) orlasDesvio.push(atual)
+          atual = []
+          continue
+        }
+        atual.push(ex, ez)
+      }
+      if (atual.length >= 8) orlasDesvio.push(atual)
+    }
+    let mt = 0
+    for (const e of orlasDesvio) {
+      for (let k = 0; k + 3 < e.length; k += 2) mt += Math.hypot(e[k + 2] - e[k], e[k + 3] - e[k + 1])
+    }
+    if (orlasDesvio.length) {
+      console.log(`[lagos] via de orla: ${orlasDesvio.length} eixos, ${(mt / 1000).toFixed(2)} km, `
+        + `recuados ${RECUO_ORLA} m da linha d'agua`)
+    }
   }
 
   // as correntes de praia: as da margem natural mais, em look2, as da baía que o
@@ -935,18 +1148,13 @@ export function buildLagos(o: LagosOpts): Lagos {
 
   // ⚠️ A CONSULTA USA A GRADE JÁ AMOSTRADA, não uma nova. Ela tem passo de 30 m e
   // os rótulos de corpo já estão nela: perguntar é um índice, não um cálculo.
-  const naBaia = (x: number, z: number): boolean => {
-    const i = Math.round((x + R) / passo), j = Math.round((z + R) / passo)
-    if (i < 0 || j < 0 || i > n || j > n) return false
-    return rot[j * (n + 1) + i] === baia
-  }
+  // ⚠️ AS TRÊS CONSULTAS DIVIDEM O MESMO ÍNDICE (`corpoNo`, lá em cima). Elas
+  // tinham a conta de i/j copiada uma em cada, e três cópias da mesma indexação
+  // é onde uma delas fica para trás quando o passo da grade muda.
+  const naBaia = (x: number, z: number): boolean => corpoNo(x, z) === baia
 
   /** a mesma grade, perguntando por QUALQUER corpo (rot >= 0 é água rotulada) */
-  const molhadoNoPonto = (x: number, z: number): boolean => {
-    const i = Math.round((x + R) / passo), j = Math.round((z + R) / passo)
-    if (i < 0 || j < 0 || i > n || j > n) return false
-    return rot[j * (n + 1) + i] >= 0
-  }
+  const molhadoNoPonto = (x: number, z: number): boolean => corpoNo(x, z) >= 0
   const naAgua = (x: number, z: number, folga = 0): boolean => {
     if (molhadoNoPonto(x, z)) return true
     if (folga <= 0) return false
@@ -958,10 +1166,25 @@ export function buildLagos(o: LagosOpts): Lagos {
   }
 
   const relogios = feitas.map((m) => aguaDeVerdade(m)).filter(Boolean) as { value: number }[]
+  {
+    const desvio: string[] = [], pontes: string[] = []
+    for (let k = 0; k < tam.length; k++) {
+      if (vaoMax[k] <= 0 && k !== baia) continue
+      const ha = (tam[k] * passo * passo / 1e4).toFixed(1)
+      const s2 = `${ha}ha/${vaoMax[k].toFixed(0)}m`
+      if (empurra[k]) desvio.push(k === baia ? `${s2}(baia)` : s2); else pontes.push(s2)
+    }
+    console.log(`[lagos] agua contra a teia, limiar ${LIMIAR_PONTE} m: `
+      + `${desvio.length} corpos empurram a malha [${desvio.join(' ')}], `
+      + `${pontes.length} ganham ponte [${pontes.join(' ')}]`)
+  }
+
   return {
     group,
     naBaia,
     naAgua,
+    bloqueiaMalha,
+    orlasDesvio,
     area,
     corpos: 0,
     triangulos: (idxA.length + idxP.length + idxM.length + idxC.length + idxR.length) / 3,

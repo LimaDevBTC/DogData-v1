@@ -63,6 +63,21 @@ export interface ViasOpts {
    *  ganhando ponte — o que não existe é viaduto de 20,5 km². Sem esta consulta a
    *  via não distingue os dois casos, porque para ela toda água é água. */
   naBaia?: (x: number, z: number) => boolean
+  /** ⚠️ A ÁGUA QUE EMPURRA A MALHA, e é ela que substitui `naBaia` no corte da
+   *  teia. `naBaia` respondia por UM corpo e por isso deixava passar tudo o mais:
+   *  medido em 03/09, 20,8 km de asfalto da teia sobre 25 lagos, em 168 arestas,
+   *  com vãos de até 298 m e quarteirão fechando em cima da lâmina. Quem decide
+   *  agora é `lagos.ts`, medindo o vão que a via teria de cruzar em cada corpo
+   *  (ver `LIMIAR_PONTE` lá): acima do limiar a via para na linha d'água, abaixo
+   *  ela atravessa sobre o tabuleiro, que é a ponte que sempre existiu. A baía
+   *  continua entrando aqui, porque ela é o maior dos corpos que empurram. */
+  bloqueiaMalha?: (x: number, z: number) => boolean
+  /** ⚠️ OS EIXOS DA VIA DE ORLA, de `lagos.ts`: [x,z,x,z,…] por eixo, já recuados
+   *  para trás da praia. Sem eles a malha aprende a PARAR na margem e para por
+   *  aí, deixando toco cego apontando para a água em cada aresta cortada. Esta é
+   *  a metade que costura os tocos, e é ela que faz a rua "se adaptar ao terreno
+   *  e fazer curva": o eixo segue a linha d'água suavizada, não a grade. */
+  orlasDesvio?: number[][]
   /** ⚠️ as parcelas do programa JÁ ENCAIXADAS na teia (programa.ts). Quando elas
    *  vêm, a máscara de peça é o polígono do MÓDULO, e aí a rua para exatamente na
    *  divisa da parcela: os lados da peça SÃO ruas, por construção. Sem isto a
@@ -1113,6 +1128,14 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   // máximo, o tabuleiro fica nivelado sobre a água e encontra o chão EXATAMENTE
   // onde ele sobe até a mesma cota: a rampa é o próprio terreno, e não existe
   // junta para errar. É a mesma ideia do talude do canal, ao contrário.
+  // ⚠️ UM PREDICADO SÓ PARA AS QUATRO VIAS. O corte da água estava escrito quatro
+  // vezes (`o.naBaia && o.naBaia(...)`) — teia, avenida, anel e ombro do anel — e
+  // quatro cópias é onde uma fica para trás: quando a classificação de `lagos.ts`
+  // entrou, atualizar só a da teia deixaria bulevar e anel viário atravessando os
+  // mesmos lagos que a rua acabou de aprender a contornar.
+  const paraNaAgua = (x: number, z: number): boolean =>
+    o.bloqueiaMalha ? o.bloqueiaMalha(x, z) : (o.naBaia ? o.naBaia(x, z) : false)
+
   const COTA_AG = o.cotaAgua ?? -40
   const GABARITO = 7                  // altura livre do tabuleiro sobre a lâmina
   const DECK = COTA_AG + GABARITO
@@ -1334,8 +1357,9 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
       const x1 = ax + (bx - ax) * t1, z1 = az + (bz - az) * t1
       const mx = (x0 + x1) / 2 + perpX * meioSec, mz = (z0 + z1) / 2 + perpZ * meioSec
       if (Math.hypot(mx, mz) > rMax) continue
-      // ⚠️ A AVENIDA PARA NA ORLA DA BAÍA. Ver `naBaia` nas opções.
-      if (o.naBaia && o.naBaia(mx, mz)) continue
+      // ⚠️ A AVENIDA PARA NA ORLA. Ver `bloqueiaMalha` nas opções: era só a
+      // baía, e agora é todo corpo cujo vão passa de `LIMIAR_PONTE`.
+      if (paraNaAgua(mx, mz)) continue
       // ⚠️ A PARCELA NÃO CORTA A AVENIDA. Auditado por raycast em 31/08: 15
       // interrupções nas 12 avenidas, com vãos de até 600 m, todas onde uma
       // parcela do programa cai em cima da via. A rua é a estrutura primária
@@ -1781,11 +1805,11 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
           const dx = A0x + (A1x - A0x) * u1, dz = A0z + (A1z - A0z) * u1
           const cx = B0x + (B1x - B0x) * u1, cz = B0z + (B1z - B0z) * u1
           const bx = B0x + (B1x - B0x) * u0, bz = B0z + (B1z - B0z) * u0
-          // ⚠️ O ANEL PARA NA ORLA DA BAÍA, pelo mesmo motivo da avenida. O teste
+          // ⚠️ O ANEL PARA NA ORLA, pelo mesmo motivo da avenida. O teste
           // é por SUBTRECHO, não pelo lado inteiro: um lado do dodecágono tem até
           // 3.900 m e pode entrar na baía por 300 m — matar o lado todo devolveria
           // o buraco de 3 km que a auditoria acabou de fechar.
-          if (o.naBaia && o.naBaia((ax + cx) / 2, (az + cz) / 2)) continue
+          if (paraNaAgua((ax + cx) / 2, (az + cz) / 2)) continue
           // ⚠️ ORDEM ANTI-HORÁRIA VISTA DE CIMA: ângulo primeiro, raio depois. A
           // ordem natural de escrever (raio, depois ângulo) dá normal para BAIXO
           // e o backface culling apaga o anel inteiro. Mesma armadilha de
@@ -1858,7 +1882,7 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
             const hr = Math.hypot(mxr, mzr) || 1
             const nx = (mxr / hr) * sinal, nz = (mzr / hr) * sinal
             const px2 = mxr + nx * largOmb, pz2 = mzr + nz * largOmb
-            if (o.naBaia && o.naBaia(px2, pz2)) continue
+            if (paraNaAgua(px2, pz2)) continue
             if (sobreAgua(px2, pz2)) continue
             // ⚠️ A BOCA DO CRUZAMENTO, o par da que `ombros` abre na avenida. O
             // anel viário é tangencial, então quem o cruza é sempre um trecho
@@ -2140,9 +2164,74 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
    * vez de parar 6 m antes. Mesma lógica para a avenida, que é radial: quem cruza
    * ela é sempre o arco, sempre perpendicular, folga zero.
    */
+  // ── O CORREDOR DA VIA DE ORLA ────────────────────────────────────────────
+  //
+  // ⚠️ A TEIA CEDE À ORLA, e não o contrário. As duas se cruzam por construção:
+  // a teia morre na linha d'água e a orla corre 26 m atrás dela, então todo toco
+  // da teia atravessa a orla. Alguém tem de ceder, senão os dois pavimentos saem
+  // desenhados na mesma cota e brigam no z-buffer — e a orla é a via contínua,
+  // então quem para é o toco. É o mesmo arranjo que a avenida e o anel viário já
+  // têm com a teia, pelo mesmo motivo, e o resultado é o encontro em T desenhado
+  // uma vez só.
+  //
+  // ⚠️ E A CONSULTA É INDEXADA, senão ela custa o boot. `teiaBloqueado` roda
+  // dezenas de milhares de vezes, cada uma com 6 bisseções: varrer alguns
+  // milhares de segmentos de eixo a cada chamada seria O(n·m). Um balde de 64 m
+  // (mais que o alcance máximo da consulta, que é meia via mais folga) deixa a
+  // consulta em O(1) com um punhado de segmentos por célula.
+  const ORLA_BALDE = 64
+  const orlaSegs: number[] = []          // (ax,az,bx,bz)
+  const orlaGrade = new Map<number, number[]>()
+  const orlaChave = (i: number, j: number) => (i + 2048) * 4096 + (j + 2048)
+  if (o.orlasDesvio) {
+    for (const eixo of o.orlasDesvio) {
+      for (let k = 0; k + 3 < eixo.length; k += 2) {
+        const ax = eixo[k], az = eixo[k + 1], bx = eixo[k + 2], bz = eixo[k + 3]
+        const id = orlaSegs.length
+        orlaSegs.push(ax, az, bx, bz)
+        const i0 = Math.floor(Math.min(ax, bx) / ORLA_BALDE), i1 = Math.floor(Math.max(ax, bx) / ORLA_BALDE)
+        const j0 = Math.floor(Math.min(az, bz) / ORLA_BALDE), j1 = Math.floor(Math.max(az, bz) / ORLA_BALDE)
+        for (let j = j0; j <= j1; j++) {
+          for (let i = i0; i <= i1; i++) {
+            const c = orlaChave(i, j); const l = orlaGrade.get(c)
+            if (l) l.push(id); else orlaGrade.set(c, [id])
+          }
+        }
+      }
+    }
+  }
+  /** distância ao eixo da orla menor que meia via mais `folga`? */
+  const naOrlaPav = (px: number, pz: number, folga: number): boolean => {
+    if (!orlaSegs.length) return false
+    const alc = HR + folga
+    const i0 = Math.floor((px - alc) / ORLA_BALDE), i1 = Math.floor((px + alc) / ORLA_BALDE)
+    const j0 = Math.floor((pz - alc) / ORLA_BALDE), j1 = Math.floor((pz + alc) / ORLA_BALDE)
+    const a2 = alc * alc
+    for (let j = j0; j <= j1; j++) {
+      for (let i = i0; i <= i1; i++) {
+        const l = orlaGrade.get(orlaChave(i, j))
+        if (!l) continue
+        for (const id of l) {
+          const ax = orlaSegs[id], az = orlaSegs[id + 1]
+          const dx = orlaSegs[id + 2] - ax, dz = orlaSegs[id + 3] - az
+          const ll = dx * dx + dz * dz
+          let t = ll > 0 ? ((px - ax) * dx + (pz - az) * dz) / ll : 0
+          t = t < 0 ? 0 : t > 1 ? 1 : t
+          const qx = px - (ax + dx * t), qz = pz - (az + dz * t)
+          if (qx * qx + qz * qz < a2) return true
+        }
+      }
+    }
+    return false
+  }
+
   const teiaBloqueado = (px: number, pz: number, folga: number): boolean => {
     if (Math.hypot(px, pz) > rMax) return true
-    if (o.naBaia && o.naBaia(px, pz)) return true
+    // ⚠️ `bloqueiaMalha` INCLUI A BAÍA, então `naBaia` aqui virou a queda para
+    // quando a classificação não vem. Não são duas perguntas somadas: quando as
+    // duas existem, a primeira já responde pela segunda.
+    if (paraNaAgua(px, pz)) return true
+    if (naOrlaPav(px, pz, folga)) return true
     if (emCorredorAvenida(px, pz, 0)) return true
     if (emAnelPav(px, pz, folga)) return true
     if (naRotatoriaPav(px, pz, folga)) return true
@@ -2523,6 +2612,73 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
       teiaTrechos++
     }
   }
+  // ── A VIA DE ORLA: a mesma seção da teia, correndo numa curva ────────────
+  //
+  // ⚠️ ELA USA `teiaBraco`, E NÃO `faixa`, e a diferença é a mesma que já está
+  // registrada duas vezes neste arquivo e uma em lagos.ts: `faixa` corta a fita
+  // em ângulo RETO com o eixo. Numa reta isso é o certo; numa curva, dois trechos
+  // vizinhos cortam em ângulos diferentes e abrem em LEQUE — sobra vão por fora
+  // da curva e sobreposição por dentro. `teiaBraco` recebe as duas FACES e
+  // interpola entre elas, então basta dar a ele a face em ESQUADRIA de cada
+  // vértice (a bissetriz das duas arestas que chegam nele) e os trechos vizinhos
+  // passam a compartilhar a face inteira. É a mesma cura que a orla da baía e a
+  // praia já receberam; a rua era a terceira peça de margem e a única que ainda
+  // não existia.
+  //
+  // ⚠️ A ESQUADRIA TEM TETO. Numa quina fechada a bissetriz vai ao infinito e a
+  // face viraria uma lasca de centenas de metros atravessada na paisagem. Com o
+  // teto, a quina muito fechada volta a abrir um vãozinho — que a 12 m de via e
+  // com a margem já alisada em `alisaContorno` fica abaixo do centímetro.
+  let orlaTrechos = 0
+  let orlaMetros = 0
+  if (o.orlasDesvio) {
+    const SEC_ORLA = centrada(SEC_RUA)
+    const meia = SEC_ORLA[SEC_ORLA.length - 1].ate
+    for (const eixo of o.orlasDesvio) {
+      const m = eixo.length / 2
+      if (m < 2) continue
+      // a face de cada vértice: ponto ± normal em esquadria
+      const fx: number[] = [], fz: number[] = []
+      for (let k = 0; k < m; k++) {
+        // a direção que chega e a que sai; nas pontas, a única que existe
+        const kAnt = k > 0 ? k - 1 : k, kPro = k < m - 1 ? k + 1 : k
+        const ax = eixo[2 * kPro] - eixo[2 * kAnt], az = eixo[2 * kPro + 1] - eixo[2 * kAnt + 1]
+        const al = Math.hypot(ax, az) || 1
+        let nx = -az / al, nz = ax / al
+        // esquadria: a face abre 1/cos(θ/2) na quina, com teto de 2,5
+        if (k > 0 && k < m - 1) {
+          const d0x = eixo[2 * k] - eixo[2 * k - 2], d0z = eixo[2 * k + 1] - eixo[2 * k - 1]
+          const d1x = eixo[2 * k + 2] - eixo[2 * k], d1z = eixo[2 * k + 3] - eixo[2 * k + 1]
+          const l0 = Math.hypot(d0x, d0z) || 1, l1 = Math.hypot(d1x, d1z) || 1
+          const cos = (d0x * d1x + d0z * d1z) / (l0 * l1)
+          const esc = Math.min(2.5, 1 / Math.max(0.4, Math.sqrt((1 + cos) / 2)))
+          nx *= esc; nz *= esc
+        }
+        fx.push(eixo[2 * k] - nx * meia, eixo[2 * k] + nx * meia)
+        fz.push(eixo[2 * k + 1] - nz * meia, eixo[2 * k + 1] + nz * meia)
+      }
+      for (let k = 0; k + 1 < m; k++) {
+        const mx = (eixo[2 * k] + eixo[2 * k + 2]) / 2, mz = (eixo[2 * k + 1] + eixo[2 * k + 3]) / 2
+        // ⚠️ A ORLA CEDE AO BULEVAR, AO ANEL E À PARCELA, mas NÃO à teia: a teia
+        // já cedeu a ela em `teiaBloqueado`. Ceder dos dois lados abriria um
+        // buraco no cruzamento em vez de fechá-lo.
+        if (Math.hypot(mx, mz) > rMax) continue
+        if (paraNaAgua(mx, mz)) continue
+        if (emCorredorAvenida(mx, mz, 0) || emAnelPav(mx, mz, meia) || naRotatoriaPav(mx, mz, meia)) continue
+        if (emParcela(mx, mz)) continue
+        teiaBraco(fx[2 * k], fz[2 * k], fx[2 * k + 1], fz[2 * k + 1],
+                  fx[2 * k + 2], fz[2 * k + 2], fx[2 * k + 3], fz[2 * k + 3], SEC_ORLA)
+        orlaTrechos++
+        orlaMetros += Math.hypot(eixo[2 * k + 2] - eixo[2 * k], eixo[2 * k + 3] - eixo[2 * k + 1])
+      }
+    }
+  }
+
+  if (orlaTrechos) {
+    console.log(`[vias] via de orla: ${orlaTrechos} trechos, ${(orlaMetros / 1000).toFixed(2)} km `
+      + `costurando a margem dos lagos que empurram a malha`)
+  }
+
   let teiaCruz = 0
   for (const no of teiaNos) {
     if (no.br.length === 0) continue

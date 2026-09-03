@@ -23,7 +23,7 @@ import WarLegend from './war-legend'
 import { loadTerrain } from './terrain'
 import { criarTerrenoFino, ligarNaVia, type TerrenoFino } from './terreno-fino'
 import type { SombraCascata } from './sombra'  // mesma razão do decalques: 747 linhas fora do pacote
-import { buildInverno, type Inverno } from './inverno'
+import { invernoComoTrabalho, abrirPortaoInverno, aguardaRelevoInverno, type Inverno } from './inverno'
 import { createOrbitLayer, PAD_MAIN, SPACEPORT_SHIFT, setOrbitFloor } from './orbit-layer'
 import { startFeed, isDonation, type DogTx, type Snapshot, donationDog } from './feed'
 import { buildChalet, chaletComoTrabalho, type Chalet } from './chalet'
@@ -61,6 +61,9 @@ import type { Decalques } from './decalques'
 import { FUNDIR, fundirMalhasLisas, NOME_PISCA } from './fusao'
 import { buildLagos, type Lagos } from './lagos'
 import { buildAlpino, type Alpino } from './alpino'
+import { buildAutopistas, type Autopistas } from './autopistas'
+import { buildEclusas, type Eclusas } from './eclusas'
+import { buildMetro, type Metro } from './metro'
 import { Obra, aquece } from './obra'
 import { buildMontanha, type Montanha } from './montanha'
 import { buildLago, type Lago } from './lago'
@@ -848,6 +851,60 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     renderer.shadowMap.type = profile.softShadows ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap
     mount.appendChild(renderer.domElement)
     const culler = new DistanceCuller()
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // O PISO DA CÂMERA, e por que ele é obrigatório desde que existe subsolo.
+    //
+    // ⚠️ MEDIDO EM 03/09 CONTRA PRODUÇÃO: com a câmera a 60 m ABAIXO do solo,
+    // olhando para cima, NÃO HÁ CHÃO NENHUM. Vê-se a casca da abóbada e as
+    // estrelas, direto através do terreno. A causa é que o material do terreno
+    // não declara `side`, então vale `THREE.FrontSide` e a face de baixo é
+    // descartada: o chão só existe visto de cima.
+    //
+    // Isso não era problema enquanto nada morava embaixo. Agora moram três
+    // eclusas, três autopistas e 49 km de metrô, e o fundador levantou a
+    // questão certa antes de ela aparecer: "o túnel e o metrô ficam invisíveis
+    // a maior parte sob a terra, esse efeito de subterrâneo tem que ser muito
+    // bem feito, senão a câmera enlouquece".
+    //
+    // ⚠️ E A CÂMERA JÁ CAIU ABAIXO DO CHÃO POR BUG, não por navegação: o
+    // enquadramento `padtour` usava `PAD_MAIN.y − 46` e o `y` é reescrito em
+    // tempo de execução, o que punha a câmera 45 m enterrada. Consertado em
+    // 02/09, mas o que permitiu o sintoma foi a AUSÊNCIA DE PISO, e é ela que
+    // se conserta aqui.
+    //
+    // ⚠️ O CONSERTO NÃO É `DoubleSide` NO TERRENO. Desligar o descarte de face
+    // dobra o trabalho de fragmento num chão que já é o maior consumidor de
+    // preenchimento da cena (medido em 29/08: a cena é limitada por
+    // preenchimento, 13,3 ms a 720x450 contra 26,7 a 1440x900), e ainda
+    // acenderia a face de baixo com a normal apontando para cima, ou seja
+    // preta. Além disso `terrain.ts` é de outra frente. Piso de câmera custa
+    // uma chamada de `superficieAt` por quadro.
+    //
+    // ⚠️ E O PISO PRECISA DE PORTA. Quando o metaverso em terceira pessoa
+    // existir, o jogador ENTRA no túnel, e aí o piso tem de sair do caminho.
+    // Por isso ele consulta `volumesSubterraneos`: quem desenha subsolo publica
+    // a sua caixa aqui, e dentro dela a câmera desce à vontade.
+    const volumesSubterraneos: { dentro: (p: THREE.Vector3) => boolean }[] = []
+    /** ⚠️ 2 m ACIMA DA SUPERFÍCIE, e não 0: no zero a câmera raspa a malha e o
+     *  plano de corte próximo (0,5 m) come o chão em rampa forte, o que pisca. */
+    const FOLGA_PISO = 2
+    let pisouNoChao = 0
+    const aplicarPiso = () => {
+      const p = camera.position
+      for (const v of volumesSubterraneos) if (v.dentro(p)) return
+      const solo = superficieAt(p.x, p.z)
+      if (p.y >= solo + FOLGA_PISO) return
+      p.y = solo + FOLGA_PISO
+      // ⚠️ ISTO LOGA UMA VEZ SÓ, DE PROPÓSITO. O piso é uma REDE, não um modo de
+      // navegação: se ele estiver segurando a câmera todo quadro, existe um
+      // enquadramento ou uma animação querendo ir para baixo do chão, e isso é
+      // bug de quem chamou, não trabalho do piso. Uma linha no console basta
+      // para achar; um log por quadro esconderia o resto.
+      if (pisouNoChao++ === 0) {
+        console.warn(`[câmera] o piso segurou a câmera em ${solo.toFixed(1)} m. Se isto se repetir, algum enquadramento está pedindo cota abaixo do solo.`)
+      }
+    }
     // ⚠️ A OBRA. Ela é quem constrói com teto de milissegundo por quadro; o
     // `passo()` dela é chamado uma vez por quadro dentro de `animate`. O porquê,
     // com os números medidos, está em `obra.ts`.
@@ -1470,6 +1527,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let campoVivo = false
     let emblemaGuerra: THREE.Group | null = null
     let alpino: Alpino | null = null
+    let autopistas: Autopistas | null = null
+    let eclusas: Eclusas | null = null
+    let metro: Metro | null = null
     let inverno: Inverno | null = null
     let heightAt: (x: number, z: number) => number = () => 0
     let superficieAt: (x: number, z: number) => number = () => 0
@@ -1502,6 +1562,13 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // continuam existindo, continuam marcando `done` quando terminam de
         // verdade e continuam movendo a barra, mas não são condição de abrir.
         const pronto = BOOT_STEPS.every((st) => done.includes(st.key) || EM_OBRA.includes(st.key))
+        // ⚠️ O PARQUE DE INVERNO NUNCA FOI UMA CHAVE DE BOOT_STEPS, e é assim
+        // de propósito (o fundador decidiu: fora da fila, como o Runestone
+        // Park). A rede dele (2 JSON de relevo + 12 .glb) fica suspensa até
+        // aqui, para não competir por conexão HTTP com o que ainda segura a
+        // tela de carga; `abrirPortaoInverno()` é idempotente, então chamar
+        // aqui, no mesmo instante em que `pronto` vira verdadeiro, é seguro.
+        if (pronto) abrirPortaoInverno()
         // ⚠️ o pouso da guerra sai daqui, e só uma vez: a cena está montada, o
         // relevo já respondeu qual é o chão, e é agora que a tela aparece
         if (pronto && entradaGuerra && pousoDaEntrada) {
@@ -1539,6 +1606,14 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           ? Math.max(..._cn.aneis.flatMap((a: { contorno: [number, number][] }) =>
               a.contorno.map(([x, z]: [number, number]) => Math.hypot(x, z))))
           : 4300
+        // ⚠️ ESPERA O RELEVO DO MACIÇO ANTES DE MONTAR A MALHA DO TERRENO, e
+        // não é sobre UX, é sobre CORREÇÃO. A malha é síncrona e nunca é
+        // reconstruída: se ela nascer antes de `alturaInvernoAt` ter dado
+        // vindo de rede, o maciço fica CONGELADO no perfil genérico antigo
+        // (~322 m) para sempre naquela carga de página, mesmo depois que o
+        // relevo real (~1.098 m, dois picos fotogrametrados) chegar. Sem
+        // `?inverno=1` isto resolve na hora, sem round-trip nenhum.
+        await aguardaRelevoInverno()
         const terrain = await loadTerrain(_cn ? {
           radiais: (_cn.radiais ?? []).map(
             (r: { rumo: number; secao: number; rInicio: number; rFim?: number }) =>
@@ -2132,6 +2207,167 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 + `encaixadas em módulo inteiro da teia`
                 + (programa ? `, ${programa.triangulos.toLocaleString('pt-BR')} triângulos` : ' (só o encaixe; ?programa=1 desenha)'))
             }
+            // ⚠️ φ NÃO É RAIO, E A DIFERENÇA CHEGA A 646 m. O sítio é uma
+            // superelipse com um harmônico por cima (`FORMA_HARM` no gerador),
+            // então a curva de nível de φ constante NÃO é um círculo: o raio
+            // de mundo no mesmo φ varia com o RUMO. O `metro.ts` avisa que sem
+            // esta conversão ele erra de 0,4% a 2,7% e que isso "serve para
+            // desenho de depuração, não para assentar embocadura".
+            //
+            // ⚠️ DERIVADA DOS 1.862 QUARTEIRÕES PUBLICADOS, que trazem `r` e
+            // `phi` juntos. Medido: a razão `r/φ` NÃO depende de φ (as cinco
+            // faixas de mil em mil dão 1,0000, 0,9995, 1,0043, 0,9993 e 0,9990)
+            // e depende SÓ do rumo, indo de 0,930 a 1,066. Daí a tabela ser de
+            // uma dimensão, em 36 faixas de 10 graus, com interpolação linear e
+            // volta pelo zero.
+            //
+            // ⚠️ E O RESÍDUO NÃO É ZERO, ENTÃO NÃO TRATE COMO EXATO. Medido
+            // contra os mesmos 1.862 quarteirões: sem a tabela o erro tem
+            // mediana de 52,0 m, p95 de 403,0 e máximo de 646,0; com ela, 36,9,
+            // 190,7 e 370,1. O que sobra é do PRÓPRIO DADO e não do ajuste: `r`
+            // é o centro do quarteirão e `phi` é o valor da BANDA dele, e o
+            // quarteirão não fica exatamente sobre a curva da própria banda.
+            // Para acertar de verdade seria preciso a função `phi()` do
+            // gerador, que não é publicada.
+            const _RAZAO_RPHI = [
+      0.9858, 1.0000, 1.0121, 1.0096, 1.0046, 1.0000,
+      0.9947, 0.9991, 1.0114, 1.0457, 1.0663, 1.0584,
+      1.0145, 0.9884, 0.9515, 0.9300, 0.9433, 0.9546,
+      0.9717, 1.0034, 1.0410, 1.0559, 1.0592, 1.0263,
+      1.0057, 0.9966, 0.9980, 1.0068, 1.0195, 1.0192,
+      1.0018, 0.9897, 0.9733, 0.9589, 0.9593, 0.9672,
+            ]
+            const _raioEmPhi = (ang: number, phi: number) => {
+              const g = ((ang * 180) / Math.PI + 360) % 360
+              const t = (g * _RAZAO_RPHI.length) / 360
+              const i = Math.floor(t) % _RAZAO_RPHI.length
+              const f = t - Math.floor(t)
+              const j = (i + 1) % _RAZAO_RPHI.length
+              return phi * (_RAZAO_RPHI[i] * (1 - f) + _RAZAO_RPHI[j] * f)
+            }
+
+            // ⚠️ O METRÔ EXISTIA NO PLANO E NUNCA FOI DESENHADO, como as
+            // autopistas. `cidade-malha.json` publica `metro` desde sempre e
+            // nenhum módulo lia a chave.
+            //
+            // ⚠️ E O TRAÇADO PUBLICADO TEM QUATRO DEFEITOS MEDIDOS, que este
+            // módulo contorna mas que precisam voltar ao `gerar_cidade.py`:
+            //   1. `METRO_COTA = -26` é cota ABSOLUTA, e em 13 das 80 estações
+            //      o chão está ABAIXO dela: o túnel aflora. É o mesmo erro que
+            //      a autopista já corrigiu trocando cota por PROFUNDIDADE. O
+            //      módulo usa `superficieAt − 12 m` alisado a 4% e a pior
+            //      escada cai de 117 m para 32,1 m.
+            //   2. As 80 estações estão TODAS nas 4 radiais, com vão mediano de
+            //      184 m, que é padrão de bonde de rua. E005 e E006 ficam a
+            //      4 m uma da outra. As duas circulares, com 35,6 km de via,
+            //      não têm estação própria.
+            //   3. Cobertura a pé de apenas 32,4%: 67,6% dos 85.824 lotes ficam
+            //      além de 800 m de qualquer estação (o padrão APTA para
+            //      trilho), média de 1.293 m e pior quarteirão a 4.046 m.
+            //   4. Baldeação barco para metrô é IMPOSSÍVEL: os 3 canais cruzam
+            //      as circulares em 6 pontos e não há estação em nenhum deles,
+            //      porque os canais estão nos rumos 25/55/85 e o metrô em
+            //      0/90/180/270.
+            metro = buildMetro({
+              heightAt: terrain.superficieAt,
+              estacoes: _malhaCava?.metro?.estacoes ?? [],
+              radiais: _malhaCava?.metro?.radiais ?? [],
+              circulares: _malhaCava?.metro?.circulares ?? [],
+              raioEmPhi: _raioEmPhi,
+              // ⚠️ REAMOSTRA A PARTIR DAS LINHAS, e isto foi medido contra o
+              // publicado: 80 estações viram 60, as duas circulares saem de
+              // ZERO para 44 paradas, o vão mediano vai de 180 m para 783, os
+              // lotes fora de 800 m caem de 67,6% para 20,7%, a distância média
+              // de 1.293 m para 613, e a baldeação barco para metrô sai de 0 de
+              // 20 docas para 17 de 32. Custa MENOS: 20.398 triângulos contra
+              // 26.320. `reamostrar: false` volta a desenhar as 80 publicadas.
+              reamostrar: true,
+              vao: 800,
+              canais: _malhaCava?.canais?.radiais ?? [],
+              aneisViarios: _malhaCava?.aneisViarios ?? [],
+              aguaCota: _malhaCava?.lagos?.cota ?? -40,
+              molhado: lagos ? (x, z) => lagos!.naAgua(x, z, 2) : undefined,
+              bocasPorEstacao: 2,
+              sombra: qDomo.get('sombra') !== '0',
+            })
+            scene.add(metro.group)
+            console.log(`[metrô] ${metro.rede.arestas} arestas em ${(metro.rede.metros / 1000).toFixed(1)} km, ${metro.rede.componentes} componente(s), ${metro.bocas} bocas e ${metro.docas} docas de barco, ${metro.triangulos.toLocaleString('pt-BR')} triângulos em ${metro.chamadas} chamadas`)
+
+            // ⚠️ OS 3 TÚNEIS DE ECLUSA: A ENTRADA DA CIDADE, E ELA NÃO EXISTIA.
+            // Queixa do fundador em 03/09: "os túneis que vêm do spaceport, a
+            // entrada deles está flutuando no solo, eles apontam pra uma
+            // direção que não é a da cúpula". Eles são por onde a transação de
+            // DOG chega ao endereço que recebe, então são a artéria narrativa
+            // da cidade e não podem ler como bueiro.
+            //
+            // ⚠️ O `rumo` PUBLICADO SEMPRE ESTEVE CERTO, E A CONVENÇÃO É ESTA:
+            // `x = sin(rumo)·r`, `z = -cos(rumo)·r`, ou seja `rumo = atan2(x, -z)`,
+            // com 0 no norte (−z) crescendo para +x. Confirmado contra
+            // `scripts/gerar_cidade.py:2161`. Ler com `atan2(-x, -z)`, que é o
+            // mesmo raio com o x espelhado, devolve `360 − rumo` e faz parecer
+            // que o dado está torto: foi assim que eu mesmo errei a leitura
+            // antes de despachar esta frente. O módulo não usa o campo, deriva
+            // o eixo dos dois portais, que é imune à convenção.
+            //
+            // ⚠️ A PISTA FICA ACIMA DO SOLO, E ISSO É PROJETO, NÃO PREGUIÇA.
+            // Cavar exigiria `terrain.ts`, e a `CanalCava` de lá só abre vala
+            // radial e de anel. Piso abaixo da superfície seria escondido pelo
+            // próprio regolito: com o olho a 1,8 m e o piso a 0,6 m abaixo, o
+            // raio cruza o chão a 75% da distância. Então a pista fica +0,30 m
+            // e quem sobe é o maciço dos dois lados, de 1,6 m na ponta a 16 m
+            // no emboque. O olho lê descida e nada fica enterrado. Medido: pior
+            // folga +0,300 m em dois terrenos sintéticos diferentes.
+            // ⚠️ O SUBSOLO NASCE DESLIGADO, e isto é consequência do piso da
+            // câmera (ver a nota grande na criação do `culler`). Com a câmera
+            // travada acima do solo, tubo e volume de câmara enterrados são
+            // geometria que NINGUÉM PODE VER: custo sem imagem. E há um risco
+            // junto: peça a cota fixa aflora onde o terreno afunda, que é
+            // exatamente o defeito que as autopistas tiveram (2.551 m à vista
+            // na AU1, medido).
+            //
+            // ⚠️ NÃO APAGUE O CAMINHO. `?subsolo=1` liga de volta, e ele volta
+            // a ser necessário no dia em que o metaverso em terceira pessoa
+            // deixar o jogador ENTRAR no túnel: aí o piso abre pelo volume
+            // registrado e o subsolo precisa existir para ser visto por dentro.
+            eclusas = buildEclusas({
+              eclusas: (_malhaCava?.eclusas ?? []) as never,
+              superficieAt: terrain.superficieAt,
+              raioCasca: DOME_R,
+              subsolo: qDomo.get('subsolo') === '1',
+              sombra: qDomo.get('sombra') !== '0',
+            })
+            scene.add(eclusas.group)
+            console.log(`[eclusas] ${eclusas.desvios.length} túneis, ${eclusas.triangulos.toLocaleString('pt-BR')} triângulos em ${eclusas.chamadas} chamadas; desvio do eixo ao centro: ${eclusas.desvios.map((d) => `${d.id} ${d.desvio.toFixed(2)}°`).join(', ')}`)
+
+            // ⚠️ AS 3 SUPERVIAS EXISTIAM NO PLANO E NUNCA FORAM DESENHADAS.
+            // `cidade-malha.json` publica `autopistas` desde sempre e NENHUM
+            // módulo da cena lia essa chave. O fundador cobrou em 03/09 ("o
+            // projeto tinha 3 supervias que contornavam toda a cidade, elas
+            // obrigatoriamente precisam existir e estarem conectadas").
+            //
+            // ⚠️ AS `bocas` PUBLICADAS NÃO SERVEM, E ISSO FOI MEDIDO. Elas
+            // deveriam estar sobre a própria corda da autopista e estão de 771
+            // a 5.611 m fora dela; a AU2A cai 5.327 m fora do eixo, do lado
+            // ERRADO da cidade. A causa é que a boca passa pelo alocador de
+            // peças do gerador e foi empurrada até achar célula livre. O módulo
+            // ignora `bocas` e deriva tudo da corda, que é o dado íntegro.
+            //
+            // ⚠️ E A COTA FIXA DE −42 AFLORAVA. Medido: AU1 2.551 m à vista
+            // (24,5%), AU2 2.001 m (19,6%), AU3 zero. O módulo resolve com
+            // envoltória inferior de rampa limitada em 4,00%, e não com teto
+            // rígido, que dava rampa de 24,7% na AU1.
+            daCidade.push(buildAutopistas({
+              heightAt: terrain.superficieAt,
+              cotaAgua: _malhaCava?.lagos?.cota ?? -40,
+              malha: _malhaCava,
+              culler,
+            }).then((a) => {
+              if (disposed) { a.dispose(); return }
+              autopistas = a
+              scene.add(a.group)
+              console.log(`[autopistas] ${a.portais} portais + ${a.trevos} trevos, ${(a.metrosDeTunel / 1000).toFixed(1)} km em túnel, ${(a.metrosDeTrincheira / 1000).toFixed(1)} km de trincheira, ${(a.metrosDeViaduto).toFixed(0)} m de viaduto, ${a.triangulos.toLocaleString('pt-BR')} triângulos em ${a.chamadas} chamadas`)
+            }).catch((err) => console.error('[autopistas] não subiu', err)))
+
             daCidade.push(buildVias({ heightAt: terrain.superficieAt,
               cotaAgua: _malhaCava?.lagos?.cota ?? -40,
               // ⚠️ A RUA PARA NA ORLA DA BAÍA. `lagos` sobe antes de `vias` (linha
@@ -2139,6 +2375,13 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               // mudar, a consulta cai para undefined em silêncio e as estradas
               // voltam a atravessar a baía.
               naBaia: (x, z) => lagos?.naBaia(x, z) ?? false,
+              // ⚠️ QUEM CORTA A VIA AGORA É A CLASSIFICAÇÃO, não o rótulo de um
+              // corpo só. Ver `bloqueiaMalha` em lagos.ts e `LIMIAR_PONTE`.
+              bloqueiaMalha: (x, z) => lagos?.bloqueiaMalha(x, z) ?? false,
+              // ⚠️ E OS EIXOS DA VIA DE ORLA. `lagos` é montado bem antes de
+              // `vias` (linha ~1848 contra ~2135), então isto é valor, não
+              // promessa: a lista já existe quando a rua a lê.
+              orlasDesvio: lagos?.orlasDesvio ?? [],
               parcelas,
               sombra: qDomo.get('sombra') !== '0' })
               .then((v) => {
@@ -2260,27 +2503,45 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               // ATRAVESSA a abóbada e isso é esperado e está documentado; com a
               // flecha de 5.500 de `?casca=2` sobram 170,5 m de folga medida.
               // As duas bandeiras andam juntas até o padrão da casca virar.
+              //
+              // ⚠️ FORA DE `daCidade`, DE PROPÓSITO, DECISÃO DO FUNDADOR EM
+              // 03/09: "fora da fila, como o Runestone Park". Até aqui o
+              // parque entrava em `daCidade` e travava `stepDone('cidade')`,
+              // ou seja travava a entrada de QUALQUER visitante com
+              // `?inverno=1`, mesmo quem nunca chegasse perto do maciço.
+              // Agora ele segue o padrão de `pPark`: `invernoComoTrabalho`
+              // só faz REDE (relevo + 12 .glb, suspensa até `abrirPortaoInverno`
+              // disparar), e a construção pesada é uma `Trabalho` fatiada na
+              // MESMA `Obra` compartilhada do parque e do chalé — nunca
+              // aguardada aqui, nunca parte de `Promise.allSettled(daCidade)`.
               if (qDomo.get('inverno') === '1') {
-                // ⚠️ ASSÍNCRONO DESDE 03/09: o módulo passou a carregar GLB de
-                // pinheiro e sequoia para a floresta do maciço, então ele entra
-                // na lista `daCidade` como todo mundo que carrega arquivo. Sem
-                // isso o portão de carga abriria com a montanha ainda subindo,
-                // que é o defeito que o fundador viu em 31/08 com a abóbada.
-                daCidade.push(buildInverno({
+                void invernoComoTrabalho({
                   heightAt: terrain.superficieAt,
                   // ⚠️ O `gltf` PRECISA SER O DA CENA, que tem DRACOLoader: os GLB
-                  // do pinheiro e da sequoia vêm comprimidos em Draco e um loader
-                  // sem decodificador falha com "No DRACOLoader instance provided".
-                  // Sem ele a montanha sobe pelada, sem floresta e sem erro claro.
+                  // do pinheiro, da sequoia, da estação e das rochas vêm
+                  // comprimidos em Draco e um loader sem decodificador falha
+                  // com "No DRACOLoader instance provided". Sem ele a montanha
+                  // sobe pelada, sem floresta e sem erro claro.
                   gltf,
                   sombra: qDomo.get('sombra') !== '0',
                   profile, culler,
-                }).then((iv) => {
-                  if (disposed) { iv.dispose(); return }
-                  inverno = iv
-                  scene.add(iv.group)
-                  console.log(`[inverno] ${iv.triangulos.toLocaleString('pt-BR')} triângulos, ${iv.arvores.toLocaleString('pt-BR')} árvores`)
-                }).catch((err) => console.error('[inverno] não subiu', err)))
+                  aoPronto: (iv) => {
+                    if (disposed) { iv.dispose(); return }
+                    inverno = iv
+                    revela(iv.group)
+                    console.log(`[inverno] ${iv.triangulos.toLocaleString('pt-BR')} triângulos, ${iv.arvores.toLocaleString('pt-BR')} árvores`)
+                  },
+                })
+                  .then((t) => {
+                    if (disposed) return
+                    // nasce invisível e cresce fatia a fatia por baixo: quem
+                    // acende é `revela`, dentro de `aoPronto`, só depois do
+                    // aquecimento de shader (mesmo padrão de `pPark`)
+                    t.group.visible = false
+                    scene.add(t.group)
+                    obra.põe(t)
+                  })
+                  .catch((err) => console.error('[inverno] não subiu', err))
               }
               console.log(`[alpino] ${alpino.neveKm2.toFixed(2)} km² de neve, ${alpino.arvores.toLocaleString('pt-BR')} coníferas, ${alpino.triangulos.toLocaleString('pt-BR')} tris`)
             }
@@ -3534,6 +3795,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       const nowMs = performance.now()
       governor.sample(nowMs - lastFrameAt, nowMs)
       lastFrameAt = nowMs
+      aplicarPiso()
       culler.update(camera.position)
       // ⚠️ UMA VEZ POR QUADRO, ANTES DO RENDER, E ANTES DO RESTO DO LAÇO. A obra
       // gasta o orçamento dela (6 ms) e devolve a thread. Se esta linha sair
@@ -3546,6 +3808,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       tecido?.update(camera.position)
       arvores?.update(camera.position)
       alpino?.update(camera.position)
+      autopistas?.update(camera.position)
       inverno?.update(camera.position)   // mesmo contrato do alpino: troca o LOD da floresta
       // só faz trabalho quando a câmera anda mais que o passo dele; fora
       // disso retorna na primeira linha

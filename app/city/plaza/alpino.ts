@@ -44,14 +44,43 @@
 // coníferas dividem um material só). Três, não cinco: os dois níveis de LOD da
 // árvore são InstancedMesh sobre o MESMO material.
 //
+// ⚠️ ACHADO 03/09, A CAUSA DA CHAPA SEM NEVE, MEDIDA COM SCRIPT OFFLINE (node
+// importando terrain.ts + inverno.ts de verdade, sobre o heightmap real):
+// depois das duas correções da rodada anterior (pre-corte adaptativo e
+// LEVANTE escalado por zona), a MÁSCARA JÁ NÃO ERA O PROBLEMA. Amostrando a
+// grade inteira do maciço (célula 40 m, mesma desta função) com
+// `?inverno=1` ligado: 6.270 quads com cobertura > 0, **10,03 km² de área**,
+// cobertura MÁXIMA 0,96 (o teto do próprio `neveEm`), pico real da montanha
+// em 1.098 m sobre a grade de `superficieAt`. A máscara SEMPRE devolveu neve
+// de verdade; zero pixel branco na chapa não podia vir daqui.
+// O material era o problema. `conjNeve = superficie('concreto')` (linha que
+// existia aqui) emprestava a receita de PAVIMENTO como mapa de albedo da
+// neve. Medido (amostrando o canvas real gerado por `amostraConcreto`):
+// albedo médio (169, 166, 160) em sRGB 0-255. Multiplicado pela cor por
+// vértice `COR_NEVE` (232, 236, 242), o produto cai pra ~61% de reflectância
+// (≈156, 156, 153), um CINZA MÉDIO MORNO, não branco. A cobertura de 0,96
+// no pico da montanha, a MELHOR condição possível, nunca passava disso: a
+// textura emprestada cortava o teto de branco que `COR_NEVE` foi desenhada
+// pra entregar (91% por canal) pela metade, e o resultado, semitransparente
+// sobre um regolito da MESMA família de tom (`TINTA_REGOLITO = #9A948B`,
+// medida em `terrain.ts`), lia como "sem neve nenhuma" numa chapa, mesmo com
+// a malha de fato desenhada por baixo. Script e números completos no
+// relatório desta rodada.
+//
+// O CONSERTO: a neve não usa mais NENHUM mapa de albedo emprestado. A cor
+// sai só da cor por vértice (branco quase puro, ver `COR_NEVE_PO` abaixo),
+// que agora também carrega DUAS variações (pó fresco vs pista compactada, e
+// a borda suja perto da rocha), ver a seção de cor mais abaixo. A textura
+// nova que entrou é só um NORMAL MAP de alta frequência (o brilho de
+// cristal), não um albedo: ver "A TEXTURA DO BRILHO" mais abaixo.
+//
 // Three.js puro (regra da casa: nada de react-three-fiber).
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { DOME_R } from './dome'
-import { superficie, vestir } from './materiais'
 import type { DistanceCuller, PerfProfile } from './perf'
-import { INVERNO_ATIVO, zonaEsquiavelAt } from './inverno'
+import { INVERNO_ATIVO, zonaEsquiavelAt, PISTAS } from './inverno'
 
 export interface AlpinoOpts {
   /** ⚠️ passe `terrain.superficieAt`, não `terrain.heightAt`. Ver cabeçalho. */
@@ -151,19 +180,157 @@ function suave01(t: number): number {
 // ── cores ───────────────────────────────────────────────────────────────────
 /** ⚠️ A NEVE NÃO É BRANCA #FFFFFF. Branco puro contra o regolito #9A948B estoura
  *  e some no céu; a neve real na sombra da manhã lê azulada. #E8ECF2 é o que
- *  sobra de branco depois que a luz da cena já é quente. */
-const COR_NEVE = new THREE.Color('#E8ECF2')
+ *  sobra de branco depois que a luz da cena já é quente. Esta é a cor do PÓ
+ *  FRESCO, fora de pista: a mais clara das três, porque é ela quem carrega o
+ *  branco que o achado 03/09 mediu sendo cortado pela metade pela textura de
+ *  concreto emprestada (ver cabeçalho). Sem mapa de albedo agora, ESTA cor
+ *  chega inteira ao olho. */
+const COR_NEVE_PO = new THREE.Color('#E8ECF2')
+/** neve de PISTA, onde a máquina de compactação passa (ou, sem `?inverno=1`,
+ *  onde a rampa é mansa o bastante pra parecer pisoteada): mais cinza e mais
+ *  densa que o pó, porque compactação esmaga o cristal solto que dá o branco
+ *  frio da neve fresca. Mais escura de propósito, não mais suja: a sujeira é
+ *  a terceira cor, só na borda. */
+const COR_NEVE_COMPACTADA = new THREE.Color('#C7CCD6')
+/** ⚠️ A BORDA DE DERRETIMENTO NÃO É A ROCHA, É A MISTURA. Puxar até
+ *  `TINTA_REGOLITO` (o mesmo `#9A948B` que `terrain.ts` usa pra tingir o
+ *  regolito exposto) em vez de inventar um marrom novo: onde a neve rareia
+ *  perto da pedra, a MESMA pedra que já está exposta ali do lado deveria
+ *  aparecer misturada, não uma cor de "sujeira" sem relação com o que a
+ *  câmera vê a um metro dali. */
+const COR_NEVE_SUJA = new THREE.Color('#9A948B')
 /** agulha de conífera: mais escura e mais fria que a copa da cidade (#7E8A6B),
  *  porque é isso que separa a mata do morro da arborização de rua na mesma vista */
 const COR_AGULHA = new THREE.Color('#3E5140')
 const COR_FUSTE = new THREE.Color('#4A423A')
+
+// ── pó fresco vs pista compactada ────────────────────────────────────────────
+// ⚠️ MESMA LÓGICA DE VARIAÇÃO DE MUNDO QUE `materiais.ts` USA NO ASFALTO
+// (lida como referência, não editada aqui): o sinal que decide a mistura vem
+// de COORDENADA DE MUNDO (posição real da pista, ou inclinação real do
+// terreno), nunca de UV/ladrilho, senão a "pista" ficaria repetindo a cada
+// tile e denunciaria a conta como um xadrez.
+//
+// ⚠️ PISTA DE VERDADE QUANDO EXISTE: com `?inverno=1`, `PISTAS` (de
+// `inverno.ts`) tem a geometria REAL das pistas esculpidas; a "compactação"
+// aqui é 1 no eixo de cada uma, decaindo a 0 em `largura/2 + FAIXA_PISOTEIO`
+// metros pra fora, a mesma forma de `pistaProximidade01` de `inverno.ts`
+// (não exportada; a distância ponto-segmento é reimplementada aqui, pequena
+// e sem estado, não vale a pena mudar o contrato de `inverno.ts` por ela).
+// SEM a bandeira (ou fora de alcance de qualquer pista), cai no substituto
+// pedido: inclinação. Rampa mansa é onde máquina e esquiador pisam mais.
+const FAIXA_PISOTEIO = 12
+/** cópia local e pequena de `pontoEmRumo` de `inverno.ts` (não exportada):
+ *  mesma convenção documentada lá (azimute 0 = -Z, sentido horário). */
+function pontoEmRumoNeve(r: number, azGraus: number): [number, number] {
+  const a = (azGraus * Math.PI) / 180
+  return [Math.sin(a) * r, -Math.cos(a) * r]
+}
+function compactacaoEm(x: number, z: number, inc: number, zona: number): number {
+  if (zona > 0.01 && PISTAS.length > 0) {
+    let melhorDist = Infinity
+    let melhorMeia = 0
+    for (const p of PISTAS) {
+      const meia = p.largura / 2
+      const pts = p.pontos
+      for (let i = 0; i < pts.length - 1; i++) {
+        const [ax, az_] = pontoEmRumoNeve(pts[i].r, pts[i].az)
+        const [bx, bz] = pontoEmRumoNeve(pts[i + 1].r, pts[i + 1].az)
+        const dx = bx - ax, dz = bz - az_
+        const lenSq = dx * dx + dz * dz || 1
+        let t = ((x - ax) * dx + (z - az_) * dz) / lenSq
+        t = t < 0 ? 0 : t > 1 ? 1 : t
+        const px = ax + dx * t, pz = az_ + dz * t
+        const d = Math.hypot(x - px, z - pz)
+        if (d < melhorDist) { melhorDist = d; melhorMeia = meia }
+      }
+    }
+    const alcance = melhorMeia + FAIXA_PISOTEIO
+    if (melhorDist < alcance) return suave01(1 - melhorDist / alcance)
+  }
+  // sem pista real por perto: rampa mansa (< 8°) lê como pisoteada, íngreme
+  // (> 28°) lê como pó intocado
+  return 1 - suave01((inc - 8) / 20)
+}
+
+// ── a textura do brilho ─────────────────────────────────────────────────────
+// ⚠️ NÃO É ALBEDO, É SÓ RELEVO FINO. Pesquisado antes de escrever (WebSearch:
+// "snow shader real-time", "PBR snow material", "subsurface scattering
+// snow"): o item caro de verdade em neve renderizada é o subsurface
+// scattering (a luz entra no cristal, espalha, sai por outro ponto): isso é
+// coisa de render offline, fora do orçamento desta cena. O item BARATO que
+// sobra, e que esta busca confirma como a técnica padrão em tempo real, é um
+// normal map de alta frequência: com a rugosidade baixa e o normal
+// perturbado pixel a pixel, o especular do próprio `MeshStandardMaterial`
+// (GGX, já pago em qualquer material físico da cena) já produz o brilho
+// pontual que muda de posição a cada passo de câmera, que é a assinatura do
+// "sparkle" de cristal. Nenhum termo novo de shader, nenhum
+// `onBeforeCompile`: zero programas novos, só um mapa a mais no material
+// padrão.
+//
+// ⚠️ TAMANHO: 256×256, RGBA8, um canal só de conteúdo (o normal; alfa fica
+// 255 fixo). 256×256×4 bytes = 262.144 bytes cru; com a cadeia de mipmap
+// (que o three gera sozinho pra `RepeatWrapping`) o custo real de GPU fica
+// perto de 1,33× isso, **≈ 0,35 MB**. Comparado ao que SAIU (os três mapas de
+// 512×512 de `superficie('concreto')` que este material usava antes:
+// albedo+normal+roughness, ~3 MB, mas COMPARTILHADOS com `autopistas.ts`,
+// `metro.ts` e `tecido.ts`, a economia de memória não é real: ninguém mais
+// vai deixar de pagar por eles), o número que importa é BINDINGS deste
+// material: 3 texturas antes (map+normalMap+roughnessMap), 1 agora.
+const SPARKLE_PX = 256
+/** dois oitavas de valor-ruído em coordenada de TEXTURA (pixel), não de
+ *  mundo: isto é o grão do cristal, tem escala de ladrilho mesmo, repete a
+ *  cada `TILE_SPARKLE` metros de propósito (ruído puro não tem feição que o
+ *  olho reconheça, então repetir não denuncia nada, a mesma regra que
+ *  `materiais.ts` usa pro grão do regolito). */
+function gerarNormalNeve(): THREE.CanvasTexture {
+  const t0 = performance.now()
+  const cv = document.createElement('canvas')
+  cv.width = SPARKLE_PX; cv.height = SPARKLE_PX
+  const ctx = cv.getContext('2d')!
+  const alt = new Float32Array(SPARKLE_PX * SPARKLE_PX)
+  for (let v = 0; v < SPARKLE_PX; v++) {
+    for (let u = 0; u < SPARKLE_PX; u++) {
+      const n1 = ruido(u, v, 5, 501)
+      const n2 = ruido(u, v, 1.7, 502)
+      alt[v * SPARKLE_PX + u] = n1 * 0.65 + n2 * 0.35
+    }
+  }
+  const at = (u: number, v: number) =>
+    alt[((v + SPARKLE_PX) % SPARKLE_PX) * SPARKLE_PX + ((u + SPARKLE_PX) % SPARKLE_PX)]
+  const dados = ctx.createImageData(SPARKLE_PX, SPARKLE_PX)
+  const FORCA = 6 // alto de propósito: isto é o cristal, não o relevo do terreno
+  for (let v = 0; v < SPARKLE_PX; v++) {
+    for (let u = 0; u < SPARKLE_PX; u++) {
+      const l = at(u - 1, v), r = at(u + 1, v), d0 = at(u, v - 1), d1 = at(u, v + 1)
+      let nx = -(r - l) * FORCA, nz = -(d1 - d0) * FORCA, ny = 1
+      const len = Math.hypot(nx, ny, nz) || 1
+      nx /= len; ny /= len; nz /= len
+      const k = (v * SPARKLE_PX + u) * 4
+      dados.data[k] = (nx * 0.5 + 0.5) * 255
+      dados.data[k + 1] = (ny * 0.5 + 0.5) * 255
+      dados.data[k + 2] = (nz * 0.5 + 0.5) * 255
+      dados.data[k + 3] = 255
+    }
+  }
+  ctx.putImageData(dados, 0, 0)
+  const tex = new THREE.CanvasTexture(cv)
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping
+  tex.anisotropy = 8
+  console.log(`[alpino] normal map da neve gerado em ${(performance.now() - t0).toFixed(1)} ms (${SPARKLE_PX}×${SPARKLE_PX})`)
+  return tex
+}
+/** tamanho do ladrilho do brilho, em metros de mundo: pequeno de propósito
+ *  (o cristal é um detalhe fino, não uma macro-variação como a do regolito) */
+const TILE_SPARKLE = 6
 
 interface Arvore { x: number; z: number; y: number; esc: number; escXZ: number; giro: number }
 
 /**
  * A coroa de neve e a mata do maciço oeste.
  *
- * Síncrona: não carrega arquivo nenhum, a textura da neve sai de `materiais`.
+ * Síncrona: não carrega arquivo nenhum. A cor da neve sai só de vértice; a
+ * única textura é o normal map de brilho, gerado aqui mesmo por canvas.
  */
 export function buildAlpino(o: AlpinoOpts): Alpino {
   const group = new THREE.Group()
@@ -253,8 +420,10 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
   const uv: number[] = []
   const cor: number[] = []
   const cobertura = new Float32Array(N * N)
-  const conjNeve = superficie('concreto')
-  const TILE = conjNeve.metros
+  // ⚠️ "compactação" (0 pó fresco .. 1 pista), amostrada JUNTO com a
+  // cobertura, no mesmo laço, pra não abrir uma segunda varredura da grade
+  // inteira só pra isto. Ver `compactacaoEm` acima.
+  const compact = new Float32Array(N * N)
 
   // ⚠️ ACHADO 03/09, medido offline antes de mexer: o pre-corte abaixo usava
   // `COTA_NEVE` (250) sozinho como piso, e isso e um limiar DIFERENTE do que
@@ -277,12 +446,18 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
       if (!valido[k] || h[k] < pisoPreCorte) continue
       const x = xDe(i), z = xDe(j)
       if (Math.hypot(x, z) > R_EXT) continue
-      cobertura[k] = neveEm(x, z, h[k], inclinacaoEm(i, j))
+      const inc = inclinacaoEm(i, j)
+      cobertura[k] = neveEm(x, z, h[k], inc)
+      if (cobertura[k] > 0) {
+        const zona = INVERNO_ATIVO ? zonaEsquiavelAt(x, z) : 0
+        compact[k] = compactacaoEm(x, z, inc, zona)
+      }
     }
   }
 
   let quads = 0
   const nv = new THREE.Vector3()
+  const corPonto = new THREE.Color()
   const empurra = (i: number, j: number) => {
     const k = idx(i, j)
     const x = xDe(i), z = xDe(j)
@@ -294,10 +469,18 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
     const dz = (h[idx(i, j + 1)] - h[idx(i, j - 1)]) / (2 * PASSO)
     nv.set(-dx, 1, -dz).normalize()
     nor.push(nv.x, nv.y, nv.z)
-    // ⚠️ UV EM METROS DE MUNDO: `vestir` recebe `mundo = TILE` lá embaixo, então
-    // o `repeat` sai 1 e o ladrilho já vem no tamanho certo daqui.
-    uv.push(x / TILE, z / TILE)
-    cor.push(COR_NEVE.r, COR_NEVE.g, COR_NEVE.b, cobertura[k])
+    // ⚠️ UV EM METROS DE MUNDO, ladrilho do BRILHO (`TILE_SPARKLE`), não mais
+    // do concreto: sem mapa de albedo, o UV só serve pro normal map fino.
+    uv.push(x / TILE_SPARKLE, z / TILE_SPARKLE)
+    // ⚠️ A COR NÃO É MAIS CONSTANTE. Pó → compactada por `compact[k]`, e as
+    // duas puxam pra `COR_NEVE_SUJA` conforme a cobertura cai perto da borda
+    // (`cobertura` já carrega a mistura de cota + inclinação + ruído, então
+    // reusar ela aqui é reusar o MESMO sinal que já decide "quão dentro da
+    // neve" este ponto está, não inventar uma segunda métrica de borda).
+    corPonto.copy(COR_NEVE_PO).lerp(COR_NEVE_COMPACTADA, compact[k])
+    const borda = Math.min(1, cobertura[k] / 0.7)
+    corPonto.lerp(COR_NEVE_SUJA, 1 - borda)
+    cor.push(corPonto.r, corPonto.g, corPonto.b, cobertura[k])
   }
   for (let j = 1; j < N - 2; j++) {
     for (let i = 1; i < N - 2; i++) {
@@ -311,19 +494,40 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
   }
 
   let neve: THREE.Mesh | null = null
+  // ⚠️ SEM `map` NENHUM DE PROPÓSITO. Ver o achado 03/09 no cabeçalho: o
+  // defeito da chapa sem neve era exatamente aqui, um `map` emprestado
+  // cortando pela metade o branco que a cor por vértice já entrega. `color`
+  // fica branco (neutro, não multiplica nada) e quem pinta é só a cor por
+  // vértice (`corPonto` acima) vezes a luz da cena, inclusive a luz azulada
+  // do céu (`HemisphereLight` já existe em `plaza-scene.tsx`, cor
+  // `0x3a4664`, e o `earthshine` em `0x8fb0ff`): a sombra azulada da neve
+  // pedida na Tarefa 3 não precisa de código novo aqui, é o PBR padrão do
+  // `MeshStandardMaterial` recebendo a luz que a cena já tem, iluminando um
+  // material quase branco. `roughness = 0.55` é escolha de olho (não
+  // medida): neve real varia de ~0,9 (pó) a ~0,3 (pista prensada) e não dá
+  // pra variar por vértice sem shader novo, então fica no meio da faixa.
   const matNeve = new THREE.MeshStandardMaterial({
-    // ⚠️ BRANCO NO `color` PORQUE A COR MULTIPLICA O MAPA, e aqui quem dá a cor
-    // é a cor por vértice (que também multiplica). Pintar `color` de novo
-    // escureceria a neve duas vezes.
     color: '#ffffff',
     vertexColors: true,
+    roughness: 0.55,
+    metalness: 0,
     transparent: true,
     depthWrite: false,
     polygonOffset: true,
     polygonOffsetFactor: -2,
     polygonOffsetUnits: -2,
   })
-  vestir(matNeve, 'concreto', TILE, { normal: 0.45, macroMetros: 320 })
+  const texNeve = gerarNormalNeve()
+  matNeve.normalMap = texNeve
+  // ⚠️ FORÇA MODERADA, DE OLHO: alta o bastante pra dar o brilho pontual que
+  // muda de posição com a câmera (o "sparkle"), baixa o bastante pra não
+  // virar plástico granulado uniforme quando a luz bate de frente. NÃO MEDI
+  // a distância exata onde o mipmap do three apaga este detalhe (dependeria
+  // de FOV e resolução de tela, que não tenho aqui); o que sei, porque é
+  // física de mipmap e não suposição, é que ele decai sozinho conforme o
+  // ladrilho de `TILE_SPARKLE` (6 m) encolhe abaixo de um pixel de tela, sem
+  // nenhum código de distância meu.
+  matNeve.normalScale = new THREE.Vector2(0.9, 0.9)
   if (quads > 0) {
     const g = new THREE.BufferGeometry()
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
@@ -486,6 +690,7 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
     dispose() {
       neve?.geometry.dispose()
       matNeve.dispose()
+      texNeve.dispose()
       gPerto.dispose()
       gLonge.dispose()
       matArvore.dispose()

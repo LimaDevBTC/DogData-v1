@@ -213,10 +213,12 @@
 // não neste arquivo) numa grade de altura 96×96, MESMA ideia do heightmap
 // SLDEM2015 que `terrain.ts` já usa pro sítio inteiro: rasteriza a nuvem de
 // vértices num grid, guarda só a altura normalizada. O resultado mora em
-// `./dados/relevo-weisse-wand.json` e `./dados/relevo-zwoelfernock.json`
-// (import estático, `resolveJsonModule` já ligado no tsconfig: estes dados
-// entram no bundle, sem fetch, sem quebrar a pureza síncrona de
-// `alturaInvernoAt`).
+// `/public/city/inverno/relevo-weisse-wand.json` e `relevo-zwoelfernock.json`
+// (⚠️ MUDOU DE LUGAR E DE FORMA DE CARGA em 03/09: ver a seção "FRENTE
+// CARREGAMENTO" mais abaixo. Eram `import` estático de `./dados/*.json`, hoje
+// são `fetch()` a partir de `public/`. `alturaInvernoAt` continua pura em
+// (x, z) e continua devolvendo 0 sem dado, só que agora "sem dado" também
+// cobre "a rede ainda não respondeu", não só "a bandeira está desligada").
 //
 // ⚠️ AS DUAS FEIÇÕES ENTRAM TRÊS VEZES (`FEICOES` abaixo), NÃO DUAS: o
 // Zwölfernock uma vez como pico principal, o Weisse Wand duas vezes, em
@@ -244,16 +246,209 @@
 // pista fica lisa como uma pista preparada de verdade, sem virar
 // montanha-russa.
 // ═══════════════════════════════════════════════════════════════════════════
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// FRENTE CARREGAMENTO, 03/09: o fundador quer o parque "impecável" pro evento
+// de hype deste fim de semana, mas foi explícito: "se pesar demais pro user
+// entrar fica ruim, precisamos ser muito eficientes nisso". E decidiu, quando
+// perguntado, que o parque fica FORA da fila obrigatória de carga, do mesmo
+// jeito que o Runestone Park (`park.ts`) já funciona hoje: ninguém espera por
+// ele para entrar na cidade, e o peso pesado só entra quando a câmera se
+// aproxima ou alguém pede.
+//
+// ── ACHADO 1: OS DOIS JSON PESAVAM PRA TODO MUNDO, SEMPRE ───────────────────
+// `import relevoWeisseWand from './dados/relevo-weisse-wand.json'` e o par
+// dele eram `import` ESTÁTICO: 72 KB cada, 145 KB juntos, e um `import`
+// estático entra no pacote de JavaScript pra QUALQUER visitante, porque o
+// bundler não sabe que `INVERNO_ATIVO` vai dar `false` em produção pra quase
+// todo mundo. `terrain.ts` e `alpino.ts` importam `alturaInvernoAt`,
+// `zonaEsquiavelAt`, `fatorRochaAt` e `INVERNO_ATIVO` deste arquivo, e os dois
+// são NÚCLEO da cidade (sempre carregados, `?inverno=1` ou não). Ou seja: hoje,
+// com a bandeira desligada, todo visitante de `/city` baixa 145 KB que nunca
+// vai usar, só porque o módulo que ele NUNCA liga mora no mesmo arquivo do
+// módulo que ele sempre usa.
+//
+// O CONSERTO: os dois JSON saíram de `import` estático e viraram `fetch()` em
+// tempo de execução, a partir de `/public/city/inverno/*.json` (mudaram de
+// `app/city/plaza/dados/` pra `public/`, porque só `public/` é servido por
+// URL). `FEICOES` (a lista que `alturaInvernoAt` soma) nasce VAZIA e só ganha
+// conteúdo quando o fetch resolve; `alturaInvernoAt` devolve 0 (o MESMO
+// neutro de bandeira desligada) enquanto `FEICOES` estiver vazia, guarda
+// explícita, não acidente de loop vazio. O CONTRATO das quatro funções
+// exportadas (`alturaInvernoAt`, `zonaEsquiavelAt`, `fatorRochaAt`,
+// `INVERNO_ATIVO`) fica EXATAMENTE como estava: mesmo nome, mesma assinatura,
+// mesmo tipo de retorno, mesmo "não faz nada sem dado". `terrain.ts` e
+// `alpino.ts` não mudam uma linha. A prova é o teste offline descrito no
+// relatório (roda com o fetch nunca resolvendo e confere que as quatro
+// funções batem bit a bit com o comportamento de hoje).
+//
+// ⚠️ ISSO ABRIA UMA CORRIDA, E A FRENTE DE NEVE MEDIU O ESTRAGO DELA ANTES
+// de eu fechar esta frente: `terrain.ts` monta a malha do terreno UMA VEZ,
+// cedo no `boot()`, chamando `alturaInvernoAt` por vértice; testado com o
+// fetch do relevo forçado a perder a corrida contra o heightmap do terreno,
+// o maciço nascia no PERFIL ANTIGO (~322 m em vez de ~1.098 m) e FICAVA
+// ASSIM PARA SEMPRE naquela carga de página, porque a malha não é
+// reconstruída depois. "Disparar cedo" (o gatilho logo abaixo, no `import`
+// deste módulo) reduz a chance de perder a corrida, mas não a elimina, e não
+// dá pra torcer pra ganhar corrida onde o resultado errado congela pra
+// sempre. A CORREÇÃO fica exportada logo depois do gatilho:
+// `aguardaRelevoInverno()`, que `plaza-scene.tsx` precisa chamar (`await`)
+// ANTES de montar a malha (`loadTerrain(...)`, ver a nota completa junto da
+// função). Isto NÃO afeta o parque em si (pistas/floresta/rochas/estação):
+// aquele usa o `heightAt` que já vem pronto de fora, não depende do relevo
+// pra nada, e continua na fila de rede pós-portão (ver "QUANDO COMEÇAR A
+// REDE").
+//
+// ── ACHADO 2: O PARQUE TRAVAVA A CIDADE INTEIRA PRA QUEM LIGAVA A BANDEIRA ──
+// `buildInverno` era chamado dentro de `daCidade.push(...)` em
+// `plaza-scene.tsx`, e `daCidade` é esperado por `Promise.allSettled` antes de
+// `stepDone('cidade')`, um dos 12 passos que o portão de carga espera. Com a
+// bandeira desligada isso não custava nada (`buildInverno` sai na primeira
+// linha), mas com `?inverno=1` ligado — exatamente o link que o fundador vai
+// mandar pro hype deste fim de semana — o visitante ficava preso na tela de
+// carga até TODA a construção terminar: pistas, halfpipe, vila, dois
+// teleféricos, a floresta inteira (até 1.303 candidatos) e os penhascos
+// (até 140 instâncias), mais a rede e o parse Draco de 12 arquivos `.glb`
+// (10 espécies de árvore + estação + pacote de rochas), tudo numa função
+// `async` só, sem um `yield` sequer. Isso contraria a decisão do fundador.
+//
+// MEDIDO OFFLINE (Node 20, `tsx`, 03/09, sem abrir navegador), com um
+// `heightAt` sintético (rampa natural de 10 a 310 m somada a `alturaInvernoAt`
+// de verdade, pra cair na faixa de elevação que a floresta planta) e um
+// `gltf` FALSO (resolve na hora com uma malha mínima, isolando o LAÇO de
+// construção do parse real do Draco, que só existe no navegador):
+//
+//     775,37 ms   gerarCandidatosFloresta (o laço de grade inteiro, cold)
+//      50,63 ms   pistas + halfpipe + teleféricos + vila-caixa (cold, sem gltf)
+//      14,48 ms   (incluso acima) medirPista × 7
+//      62,0  ms   floresta + rochas: só o LAÇO de instanciar (InstancedMesh,
+//                 compose de matriz), geometria FAKE no lugar do `.glb` real
+//     ───────────
+//     ~887 ms     soma da CPU pura medida aqui
+//
+// NÃO MEDIDO, por depender de navegador: o parse Draco real dos 12 `.glb`
+// (o `gltf` fake não baixa nem decodifica nada) e o custo de
+// `terrain.superficieAt` de verdade, que É mais caro que o `heightAt`
+// sintético usado acima (ela chama `cavaEm`, `baseAt`, `bacia`, `monteEm`,
+// `podioPeso`, `parkReach`, `parkCore` e `microRelevoAt` a cada chamada, e
+// `gerarCandidatosFloresta` chama `heightAt` até 5× por candidato, ~19 mil
+// vezes no total). Por analogia com o que esta casa já mediu em produção
+// (Chalé OrdCards, 3 assets, 7.648 ms numa tarefa só; Runestone Park, mais
+// pesado ainda, 21.257 ms), é seguro dizer que o total real passa de
+// segundos quando rodado de uma vez: os ~887 ms medidos aqui já são maiores
+// que meia dúzia de tarefas que a `Obra` já trata como "trava real" em
+// outras partes desta cidade, e faltam somar rede + parse de 12 arquivos.
+//
+// O CONSERTO: o mesmo padrão de `parkComoTrabalho` (`park.ts`), com o nome
+// `invernoComoTrabalho`. Uma função `async` que só faz REDE (os dois JSON de
+// relevo — best-effort, pra `terrain.ts`/`alpino.ts`, não bloqueia o parque
+// em si — mais o `.load()` dos 12 `.glb`) e devolve rápido; um `Trabalho`
+// (`obra.ts`) cujo gerador `*fatia()` faz a CONSTRUÇÃO cedendo o controle a
+// cada poucos ms, do jeito que `park.ts` já mede e reporta com `?stats=1`; e
+// um `aoPronto`, chamado quando a fatia termina, onde `plaza-scene.tsx` marca
+// o parque como pronto e revela o grupo (`revela(iv.group)`, a mesma forma
+// que já existe pro Runestone Park).
+//
+// ── ACHADO 3: O ORÇAMENTO EM DUAS CAMADAS ───────────────────────────────────
+// O pedido do fundador tem duas metades que puxam pra lados opostos: "nível
+// top 1 mundo" (detalhe absurdo) e "muito eficiente" (nada pesa pra entrar).
+// A resposta não é escolher um lado, é SEPARAR por distância, o mesmo
+// princípio do "anel de detalhe" (`R_DET`) já descrito em
+// `fundacao-gta5.md` § 2 pro resto da cidade (aqui é uma constante própria,
+// não a mesma variável: a escala do maciço, ~1.500 m de ponta a ponta, não
+// tem nada a ver com a escala de um meio-fio).
+//
+// CAMADA LONGE (sempre construída, pela `Obra`, mas NUNCA some e NUNCA espera
+// aproximação): a silhueta do maciço. O relevo em si (as `FEICOES` somadas em
+// `terrain.ts`) já é de graça aqui — inverno.ts não desenha terreno, só lê
+// `heightAt` de fora. O que ESTE módulo constrói sempre e barato:
+//   - as 7 fitas de pista + o halfpipe + os 2 teleféricos + a vila-caixa
+//     placeholder: ~2.268 triângulos, MEDIDO acima (o "buildInverno total"
+//     de 50,63 ms sem gltf, que é exatamente essa lista);
+//   - uma floresta ESPARSA, só CONE (8 tri cada, a mesma silhueta de longe
+//     que a floresta cheia já usa pra quem está longe dela), teto de 220
+//     árvores. Proposto dentro da faixa pedida (150 a 300): o maciço cobre
+//     um arco de 40° entre r 7.150 e 8.650 visto da praça a ~8 km, ou seja
+//     cada árvore da silhueta cobre um ângulo minúsculo — 220 pontos bem
+//     espalhados (reaproveitando o MESMO sorteio de posição da floresta
+//     cheia, por passo, não uma segunda grade) bastam pra quebrar a
+//     sensação de "montanha pelada" sem custar mais que 220×8 = 1.760
+//     triângulos.
+//   Total da camada longe: ~4.000 triângulos, a maior fatia medida (a
+//   geração de candidatos, 775 ms cold) FATIADA pela `Obra` como tudo aqui,
+//   então mesmo esse custo nunca trava um quadro.
+//
+// CAMADA PERTO (só entra quando a câmera cruza `INVERNO_R_DET`, pela MESMA
+// `Obra`, fatiada, nunca de uma vez): a floresta densa completa (até 1.303
+// candidatos, MEDIDO em `gerarCandidatosFloresta` com o `heightAt` real, nota
+// de `FLORESTA_TETO_PERTO` mais abaixo: 450 instâncias reais + resto em
+// cone), o pacote de rochas (até 140 instâncias, até 430.640 triângulos no
+// pior caso, ambos já medidos e documentados na seção "OS PENHASCOS"), e a
+// estação em detalhe (troca a caixa placeholder pela estação real de
+// `estacao-inverno.ts`, integrada pelo coordenador em 03/09). Nada disso é
+// reduzido nem simplificado: é o MESMO conteúdo "top 1
+// mundo" que o fundador pediu, só adiado pra quando alguém está perto o
+// bastante pra ver a diferença.
+//
+// `INVERNO_R_DET = 4000` (4 km), medido a partir do mesmo ponto que já ancora
+// o culler do grupo inteiro (`r=7800, az=268`, ver o fim do arquivo).
+// Justificativa: é mais que o triplo de `FLORESTA_R_CHEIA` (1.300 m, o raio
+// em que a floresta cheia já troca cone por malha real, ponto a ponto) — dá
+// margem pra a `Obra` terminar de construir a camada perto (fatiada, poucos
+// ms por quadro) ANTES de a câmera chegar perto o bastante pra notar a malha
+// de longe ainda em pé. Comparado ao raio de descarte do grupo inteiro
+// (26.000 m, `o.culler?.add`), 4.000 m ainda é bem menor, então o gatilho
+// nunca dispara depois que o parque já teria sumido por distância.
+//
+// ⚠️ A CAMADA PERTO NÃO PODE USAR A `Obra` COMPARTILHADA (a mesma instância
+// que `plaza-scene.tsx` cria em `boot()` e passa pra chalé/monumentos/parque):
+// aquela `Obra` é SELADA (`obra.sela()`) no fim do `boot()`, e `põe()` recusa
+// qualquer trabalho novo depois disso (ver a nota de `selado` em `obra.ts`).
+// Como a câmera pode cruzar `INVERNO_R_DET` MINUTOS depois do portão abrir
+// (o visitante andando pela cidade antes de ir até o parque), qualquer
+// `põe()` tardio na `Obra` compartilhada seria recusado e a camada perto
+// nunca subiria. A CAMADA LONGE usa a `Obra` compartilhada normalmente (entra
+// durante o `boot()`, igual ao parque/chalé/monumentos); a CAMADA PERTO usa
+// uma `Obra` PRÓPRIA deste módulo, instanciada uma vez, cujo `.passo()` é
+// chamado de dentro do `update(cam)` do próprio parque — o mesmo `update`
+// que `plaza-scene.tsx` já chama todo quadro (`inverno?.update(camera.position)`,
+// sem mudar essa linha). É o MESMO mecanismo (a classe `Obra`, o mesmo
+// orçamento por quadro, o mesmo "uma peça que cai não derruba a cidade"),
+// só uma segunda instância, porque a primeira já fechou as portas.
+//
+// ── QUANDO COMEÇAR A REDE ────────────────────────────────────────────────
+// A rede do inverno (os 2 JSON + os 12 `.glb`) só começa DEPOIS que
+// `abrirPortaoInverno()` é chamado, e a única chamada dela fica em
+// `plaza-scene.tsx`, dentro de `stepDone`, no mesmo instante em que `pronto`
+// vira `true` (o portão da cidade abre). Antes disso a chamada fica
+// suspensa numa Promise. MOTIVO: no instante em que o portão abre, o boot já
+// disparou dezenas de outros fetches e `.glb` (chalé, monumentos, parque,
+// adereços, fundadores, galeria) — competir por conexão HTTP nesse momento
+// atrasaria exatamente os arquivos que SEGURAM a tela de carga. Esperar o
+// portão abrir e só então disparar a rede do parque bota a rede dele numa
+// fila que não compete com nada crítico, e ainda assim começa cedo o
+// bastante (no instante em que a cidade abre, não quando a câmera chega
+// perto) pra o parque estar pronto ou quase pronto quando o visitante for
+// até lá por Tour ou por Places. A CONSTRUÇÃO (o que pesa de verdade) nunca
+// entra nessa conta: ela é sempre `Obra`, sempre fatiada, o portão nunca
+// espera por ela — nem pela camada longe, nem pela perto.
+// ═══════════════════════════════════════════════════════════════════════════
 
 // Three.js puro (regra da casa: nada de react-three-fiber).
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { DistanceCuller, PerfProfile } from './perf'
-// dados assados offline (script Python, fora deste arquivo) dos dois scans
-// fotogramétricos reais: ver a nota "SEGUNDA CORREÇÃO" acima
-import relevoWeisseWand from './dados/relevo-weisse-wand.json'
-import relevoZwoelfernock from './dados/relevo-zwoelfernock.json'
+import { Obra, emFatias, type Tarefa, type Trabalho } from './obra'
+import { buildEstacaoInverno, type EstacaoInverno } from './estacao-inverno'
+import { buildInvernoDetalhe } from './inverno-detalhe'
+// ⚠️ OS DOIS RELEVOS ASSADOS (script Python, fora deste arquivo, dos scans
+// fotogramétricos reais: ver a nota "SEGUNDA CORREÇÃO" acima) NÃO SÃO MAIS
+// `import`. Ver "FRENTE CARREGAMENTO" no cabeçalho: eram `./dados/*.json`
+// estático (145 KB no pacote de TODO visitante, bandeira ligada ou não);
+// agora são `fetch('/city/inverno/*.json')`, carregados só quando
+// `INVERNO_ATIVO`, e o arquivo mudou de `app/city/plaza/dados/` pra
+// `public/city/inverno/` porque só `public/` é servido por URL.
 
 // ── A BANDEIRA ───────────────────────────────────────────────────────────────
 export const INVERNO_ATIVO =
@@ -492,21 +687,109 @@ interface FeicaoReal { cx: number; cz: number; giro: number; raioM: number; peso
  *  medidos pela frente da casca, já foi reconferida pra esse valor). O
  *  Zwölfernock carrega o grosso (900 m no seu próprio pico), os dois usos do
  *  Weisse Wand ficam abaixo dele (640 e 430 m) pra não competir pelo posto
- *  de cume mais alto e ler como dois picos iguais de novo. */
-const FEICOES: FeicaoReal[] = (() => {
+ *  de cume mais alto e ler como dois picos iguais de novo.
+ *
+ *  ⚠️ MONTA AS 3 FEIÇÕES A PARTIR DOS DOIS JSON JÁ BAIXADOS. Antes era uma
+ *  IIFE de módulo (`const FEICOES = (() => {...})()`) porque os dois arquivos
+ *  chegavam por `import` estático, prontos no instante em que o módulo
+ *  carregava. Agora chegam por `fetch` (ver "FRENTE CARREGAMENTO" no
+ *  cabeçalho), então a montagem virou uma função comum, chamada quando os
+ *  dois `.json` resolvem, não mais no carregamento do módulo. */
+function montarFeicoes(weisse: DadosRelevo, zwoelfernock: DadosRelevo): FeicaoReal[] {
   const [x1, z1] = pontoEmRumo(8280, 266)
   const [x2, z2] = pontoEmRumo(7950, 250)
   const [x3, z3] = pontoEmRumo(8100, 284)
   return [
-    { cx: x1, cz: z1, giro: 0.35, raioM: 820, pesoAltura: 900, dados: relevoZwoelfernock as DadosRelevo },
-    { cx: x2, cz: z2, giro: 1.10, raioM: 620, pesoAltura: 640, dados: relevoWeisseWand as DadosRelevo },
+    { cx: x1, cz: z1, giro: 0.35, raioM: 820, pesoAltura: 900, dados: zwoelfernock },
+    { cx: x2, cz: z2, giro: 1.10, raioM: 620, pesoAltura: 640, dados: weisse },
     // ⚠️ MESMO ARQUIVO QUE A FEIÇÃO ANTERIOR, GIRO E RAIO DIFERENTES: é a
     // técnica de "carimbo" reaproveitado com transform distinto (mesma ideia
     // das 9 sequoias resolvendo a floresta hoje). O que causaria repetição
     // seria repetir posição E escala juntas, não repetir a fonte de dado.
-    { cx: x3, cz: z3, giro: 4.20, raioM: 520, pesoAltura: 430, dados: relevoWeisseWand as DadosRelevo },
+    { cx: x3, cz: z3, giro: 4.20, raioM: 520, pesoAltura: 430, dados: weisse },
   ]
-})()
+}
+
+/** Vazio até o fetch resolver: `alturaInvernoAt` trata "vazio" como "sem
+ *  dado" e devolve 0, o mesmo neutro de bandeira desligada (ver a guarda
+ *  explícita nela, não um efeito colateral de "loop vazio soma 0"). */
+let FEICOES: FeicaoReal[] = []
+
+let relevoPromessa: Promise<void> | null = null
+
+/**
+ * Dispara (uma vez; chamadas repetidas devolvem a MESMA promessa) o fetch
+ * dos dois relevos assados e, quando os dois chegarem, monta `FEICOES`. Sem
+ * `?inverno=1` isto nunca é chamado (ver o gatilho logo abaixo), então
+ * nenhum visitante sem a bandeira paga um fetch sequer.
+ *
+ * ⚠️ FALHA AQUI NÃO DERRUBA NADA: se a rede cair, `FEICOES` continua vazia
+ * pra sempre e `alturaInvernoAt` continua devolvendo 0 pra sempre — o mesmo
+ * comportamento de bandeira desligada, só que com a bandeira ligada. O
+ * maciço nasce só com o envelope + tempero (que já existiam antes desta
+ * frente), sem os dois picos reais. Avisado no console, nunca silencioso.
+ */
+function carregarRelevo(): Promise<void> {
+  if (relevoPromessa) return relevoPromessa
+  relevoPromessa = (async () => {
+    try {
+      const [weisse, zwoelfernock] = await Promise.all([
+        fetch('/city/inverno/relevo-weisse-wand.json').then((r) => r.json() as Promise<DadosRelevo>),
+        fetch('/city/inverno/relevo-zwoelfernock.json').then((r) => r.json() as Promise<DadosRelevo>),
+      ])
+      FEICOES = montarFeicoes(weisse, zwoelfernock)
+    } catch (err) {
+      console.error('[inverno] os relevos reais (weisse-wand/zwoelfernock) NÃO CARREGARAM. O maciço fica só com envelope + tempero, sem os dois picos reais, até recarregar a página.', err)
+    }
+  })()
+  return relevoPromessa
+}
+
+// ⚠️ O GATILHO MORA AQUI, NÃO NUM CALLER EXTERNO: `INVERNO_ATIVO` já é
+// conhecido no instante em que este módulo é avaliado (lê a URL, síncrono),
+// então disparar o fetch aqui mesmo, no import, dá a ele a MAIOR vantagem de
+// tempo possível sobre a montagem da malha do terreno em `terrain.ts`. Isto
+// NÃO conflita com "a rede do PARQUE só começa depois do portão abrir" (ver
+// "QUANDO COMEÇAR A REDE"): são dois fetches diferentes, com dois motivos
+// diferentes. Este aqui é para `terrain.ts`/`alpino.ts` (o relevo somado à
+// malha, que só pode ser corrigido ANTES da malha nascer, ver
+// `aguardaRelevoInverno` logo abaixo); o outro é para o parque em si
+// (pistas, floresta, rochas, estação), que não tem essa pressa e pode
+// esperar a fila de rede do boot esvaziar.
+if (INVERNO_ATIVO) void carregarRelevo()
+
+/**
+ * ⚠️ ACHADO DA FRENTE DE NEVE, 03/09: testando o cenário em que o fetch do
+ * relevo perde a corrida contra o heightmap do terreno, o maciço nascia no
+ * PERFIL ANTIGO (~322 m em vez de ~1.098 m) e FICAVA ASSIM PARA SEMPRE
+ * naquela carga de página, porque a malha de `terrain.ts` é síncrona,
+ * construída uma vez, nunca reconstruída. "Disparar cedo" (o gatilho acima)
+ * reduz a chance de perder a corrida, mas não a elimina — e não dá pra
+ * torcer pra ganhar corrida onde a malha errada fica congelada pra sempre.
+ *
+ * A CORREÇÃO: exportar um jeito de ESPERAR o relevo, pra quem monta a malha
+ * chamar ANTES de montá-la, exatamente o caminho (a) que a Obra já favorece
+ * aqui (rede primeiro, construção fatiada depois, mesmo formato de
+ * `parkComoTrabalho`). `aguardaRelevoInverno()` resolve na hora, sem fetch
+ * nenhum, se `?inverno=1` estiver desligado (então não custa nada pra quase
+ * todo visitante); com a bandeira ligada, resolve só quando `FEICOES` está
+ * pronta (ou quando a rede falhar de vez — nesse caso resolve com o
+ * envelope neutro mesmo, avisado no console por `carregarRelevo`, nunca
+ * trava pra sempre).
+ *
+ * QUEM PRECISA CHAMAR ISTO, E ONDE: `plaza-scene.tsx`, dentro de `boot()`,
+ * ANTES de `const terrain = await loadTerrain(...)` (a chamada que monta a
+ * malha do maciço). Uma linha: `await aguardaRelevoInverno()` logo antes
+ * daquele `await`. Isto NÃO é o mesmo fetch do parque em si (pistas,
+ * floresta, rochas, estação): aquele pode esperar o portão abrir (ver
+ * "QUANDO COMEÇAR A REDE"), porque o parque não precisa do relevo pra nada
+ * (usa o `heightAt` que já vem pronto de fora). Este aqui é sobre a FORMA da
+ * montanha dentro da malha do terreno, que só pode ser corrigida uma vez, e
+ * por isso precisa da garantia, não da torcida.
+ */
+export function aguardaRelevoInverno(): Promise<void> {
+  return INVERNO_ATIVO ? carregarRelevo() : Promise.resolve()
+}
 
 function amostrarFeicao(f: FeicaoReal, x: number, z: number): number {
   const dx = x - f.cx, dz = z - f.cz
@@ -657,9 +940,19 @@ function pistaProximidade01(x: number, z: number): number {
  * bandeira, puro em (x, z), sem depender de câmera nem de estado. A forma
  * vem das `FEICOES` reais (multiplicadas pelo envelope de existência), o
  * tempero fino vem do ruído em crista, e a pista cava por cima dos dois.
+ *
+ * ⚠️ 0 TAMBÉM ENQUANTO `FEICOES` ESTIVER VAZIA (rede ainda não respondeu, ver
+ * "FRENTE CARREGAMENTO" no cabeçalho), NÃO SÓ SEM A BANDEIRA. Guarda
+ * EXPLÍCITA, de propósito: sem ela, `baseReal` ficaria 0 (o `for` sobre um
+ * array vazio não muda nada), mas `temperoFino` ainda somaria ruído e
+ * `pistaProximidade01` ainda cavaria a pista, e o retorno NÃO seria mais 0
+ * bit a bit — quebraria exatamente o contrato que este comentário promete.
+ * Este `return 0` cedo é o que faz "sem dado" e "sem bandeira" darem o
+ * MESMO resultado, sempre.
  */
 export function alturaInvernoAt(x: number, z: number): number {
   if (!INVERNO_ATIVO) return 0
+  if (FEICOES.length === 0) return 0
   const r = Math.hypot(x, z)
   const envR = envelopeRadial(r)
   if (envR <= 0) return 0
@@ -1053,9 +1346,27 @@ function distanciaAPistaMaisProxima(x: number, z: number): number {
   return melhor
 }
 
-export function gerarCandidatosFloresta(heightAt: (x: number, z: number) => number): CandidatoFloresta[] {
-  const candidatos: CandidatoFloresta[] = []
+/**
+ * O laço de verdade: varre a grade inteira e chama `aoAchar` pra cada
+ * candidato que passa em todos os filtros. Cede pelo relógio (mesmo padrão
+ * de `emFatias`/`porIndice` em `obra.ts`/`park.ts`: contagem fixa dá fatia de
+ * 2 ms num trecho e 900 ms no seguinte, ceder por tempo não).
+ *
+ * ⚠️ EXTRAÍDO EM 03/09 (frente carregamento) PRA TER UMA VERSÃO QUE CEDE.
+ * MEDIDO OFFLINE (Node, `heightAt` sintético): 775 ms cold pra varrer a grade
+ * inteira — o item mais caro deste módulo fora do parse de GLB (ver o
+ * cabeçalho). `gerarCandidatosFloresta` (abaixo) chama isto e roda até o
+ * fim de uma vez, MESMO COMPORTAMENTO de sempre; `invernoComoTrabalho` usa
+ * este gerador direto, cedendo, pra nunca travar um quadro com o laço.
+ */
+function* varrerCandidatosFloresta(
+  heightAt: (x: number, z: number) => number,
+  aoAchar: (c: CandidatoFloresta) => void,
+  msPorFatia = 4,
+): Tarefa {
   const passos = Math.ceil((R_QUEDA - R_PE + 200) / FLORESTA_PASSO)
+  let t0 = performance.now()
+  let n = 0
   for (let ir = 0; ir <= passos; ir++) {
     const r = R_PE - 100 + ir * FLORESTA_PASSO
     if (r < R_PE - 100 || r > R_QUEDA) continue
@@ -1067,27 +1378,42 @@ export function gerarCandidatosFloresta(heightAt: (x: number, z: number) => numb
       const jaz = (hash2(ir, Math.round(az * 10), 502) - 0.5) * passoAz * 0.8
       const rr = r + jr, azz = az + jaz
       const [x, z] = pontoEmRumo(rr, azz)
+      n++
       const zona = zonaEsquiavelAt(x, z)
-      if (zona <= 0.04) continue
-      const y = heightAt(x, z)
-      const dens = suave01((y - (FLORESTA_BAIXO - FLORESTA_PLUMA)) / (2 * FLORESTA_PLUMA))
-        * (1 - suave01((y - (FLORESTA_ALTO - FLORESTA_PLUMA)) / (2 * FLORESTA_PLUMA)))
-      if (dens <= 0.03) continue
-      if (hash2(ir, Math.round(azz * 10), 503) > dens) continue
-      const d = 15
-      const dhx = (heightAt(x + d, z) - heightAt(x - d, z)) / (2 * d)
-      const dhz = (heightAt(x, z + d) - heightAt(x, z - d)) / (2 * d)
-      const inc = (Math.atan(Math.hypot(dhx, dhz)) * 180) / Math.PI
-      if (inc > FLORESTA_INC_MAX) continue
-      if (distanciaAPistaMaisProxima(x, z) < FLORESTA_FOLGA_PISTA) continue
-      candidatos.push({
-        x, z, y,
-        giro: hash2(ir, Math.round(azz * 10), 506) * Math.PI * 2,
-        tEspecie: hash2(ir, Math.round(azz * 10), 504),
-        tEsc: hash2(ir, Math.round(azz * 10), 505),
-      })
+      if (zona > 0.04) {
+        const y = heightAt(x, z)
+        const dens = suave01((y - (FLORESTA_BAIXO - FLORESTA_PLUMA)) / (2 * FLORESTA_PLUMA))
+          * (1 - suave01((y - (FLORESTA_ALTO - FLORESTA_PLUMA)) / (2 * FLORESTA_PLUMA)))
+        if (dens > 0.03 && hash2(ir, Math.round(azz * 10), 503) <= dens) {
+          const d = 15
+          const dhx = (heightAt(x + d, z) - heightAt(x - d, z)) / (2 * d)
+          const dhz = (heightAt(x, z + d) - heightAt(x, z - d)) / (2 * d)
+          const inc = (Math.atan(Math.hypot(dhx, dhz)) * 180) / Math.PI
+          if (inc <= FLORESTA_INC_MAX && distanciaAPistaMaisProxima(x, z) >= FLORESTA_FOLGA_PISTA) {
+            aoAchar({
+              x, z, y,
+              giro: hash2(ir, Math.round(azz * 10), 506) * Math.PI * 2,
+              tEspecie: hash2(ir, Math.round(azz * 10), 504),
+              tEsc: hash2(ir, Math.round(azz * 10), 505),
+            })
+          }
+        }
+      }
+      if (n % 64 === 0 && performance.now() - t0 > msPorFatia) {
+        yield
+        t0 = performance.now()
+      }
     }
   }
+}
+
+/** ⚠️ SÍNCRONA, MESMO COMPORTAMENTO DE SEMPRE: roda `varrerCandidatosFloresta`
+ *  até o fim de uma vez, sem ceder. Existe pra quem precisa da lista inteira
+ *  na hora (compat e testes); `invernoComoTrabalho` usa o gerador direto. */
+export function gerarCandidatosFloresta(heightAt: (x: number, z: number) => number): CandidatoFloresta[] {
+  const candidatos: CandidatoFloresta[] = []
+  const g = varrerCandidatosFloresta(heightAt, (c) => candidatos.push(c))
+  while (!g.next().done) { /* roda tudo de uma vez, de propósito */ }
   return candidatos
 }
 
@@ -1140,30 +1466,122 @@ interface Floresta {
   update(cam: THREE.Vector3): void
 }
 
-/** `null` sem `?inverno=1`, sem `gltf`, ou se TODOS os `.glb` falharem ao
- *  carregar: a floresta é aditiva, o resto do parque sobe de qualquer jeito.
- *  Falha PARCIAL (algumas espécies, não todas) NÃO devolve `null`: a
- *  floresta sobe com quem carregou e grita no console por quem não. */
-async function construirFloresta(o: InvernoOpts): Promise<Floresta | null> {
-  if (!INVERNO_ATIVO || !o.gltf) return null
-  const carregadas = await Promise.all(ARVORES.map((esp) => carregarInstanciavel(o.gltf!, esp)))
+/** Descarta geometria e material de tudo dentro de um grupo, depois o
+ *  esvazia. A mesma varredura que `buildInverno` fazia no `dispose()`;
+ *  virou função porque agora há mais de um grupo pra descartar (a floresta
+ *  esparsa some quando a densa sobe, ver `dispararCamadaPerto`). */
+function disposeGrupo(group: THREE.Group) {
+  group.traverse((k) => {
+    const mesh = k as THREE.Mesh
+    if (!mesh.isMesh) return
+    mesh.geometry?.dispose()
+    const mat = mesh.material as THREE.Material | THREE.Material[]
+    if (Array.isArray(mat)) mat.forEach((m) => m.dispose()); else mat?.dispose?.()
+  })
+  group.clear()
+}
+
+/**
+ * REDE: as 10 espécies de árvore (`ARVORES`). Falha PARCIAL não é erro: quem
+ * não carregar fica de fora e o peso dela é redistribuído entre as outras
+ * (ver `instanciarFlorestaDensa`); falha TOTAL devolve lista vazia e a
+ * camada perto sobe sem floresta real (a esparsa, cone-only, continua de
+ * pé, ver "ACHADO 3" no cabeçalho).
+ */
+async function carregarEspeciesArvore(
+  gltf: GLTFLoader,
+): Promise<{ especie: EspecieArvore; dados: { geo: THREE.BufferGeometry; mat: THREE.Material } }[]> {
+  const carregadas = await Promise.all(ARVORES.map((esp) => carregarInstanciavel(gltf, esp)))
   const vivas = ARVORES
     .map((esp, i) => ({ especie: esp, dados: carregadas[i] }))
     .filter((v): v is { especie: EspecieArvore; dados: { geo: THREE.BufferGeometry; mat: THREE.Material } } => v.dados !== null)
   if (vivas.length === 0) {
-    console.error('[inverno] floresta: NENHUMA espécie carregou. Sem árvore nenhuma, o resto do parque sobe normal.')
-    return null
-  }
-  if (vivas.length < ARVORES.length) {
+    console.error('[inverno] floresta: NENHUMA espécie carregou. A camada perto sobe sem árvore real; a esparsa (cone) continua de pé.')
+  } else if (vivas.length < ARVORES.length) {
     console.warn(`[inverno] floresta: subiu com ${vivas.length}/${ARVORES.length} espécies (ver os erros acima por nome de arquivo).`)
   }
+  return vivas
+}
 
-  // ⚠️ TABELA DE PESO CUMULATIVO SÓ DE QUEM CARREGOU. `tEspecie` (0..1, hash
-  // determinístico já sorteado por posição) resolve contra ESTA tabela: se
-  // uma espécie caiu, a fatia dela é absorvida pelas outras porque a soma
-  // total muda, não porque alguém reagiu à falha em tempo de execução: é
-  // reconstrução, não fallback condicional, então o resultado é o mesmo
-  // sempre que os mesmos arquivos carregarem, determinístico de novo.
+/** REDE: o pacote de rochas, cru (só o par geo/mat do primeiro mesh achado).
+ *  `null` sem `gltf`, se o `.glb` falhar, ou se não tiver mesh dentro. */
+async function carregarPacoteRochas(gltf?: GLTFLoader): Promise<{ geo: THREE.BufferGeometry; mat: THREE.Material } | null> {
+  if (!gltf) {
+    console.warn('[inverno] sem `gltf`: sem penhasco de verdade, só a cor de rocha do vértice.')
+    return null
+  }
+  try {
+    const cena = await new Promise<THREE.Group>((res, rej) => gltf.load('/city/sf/rocks-stylized-pack.glb', (g) => res(g.scene), undefined, rej))
+    let malha: THREE.Mesh | null = null
+    cena.traverse((k) => { if (!malha && (k as THREE.Mesh).isMesh) malha = k as THREE.Mesh })
+    if (!malha) {
+      console.error('[inverno] rocks-stylized-pack.glb carregou mas não tem mesh dentro. Sem penhasco.')
+      return null
+    }
+    return { geo: (malha as THREE.Mesh).geometry, mat: (malha as THREE.Mesh).material as THREE.Material }
+  } catch (e) {
+    console.error('[inverno] penhascos (rocks-stylized-pack.glb) NÃO CARREGARAM. A face fica só com a cor de rocha, sem volume.', e)
+    return null
+  }
+}
+
+/**
+ * A CAMADA LONGE da floresta: um recorte por PASSO dos MESMOS candidatos que
+ * a densa vai usar depois (mesma posição, mesma seleção de onde plantar —
+ * não uma segunda grade, não um segundo `heightAt`), só CONE (8 triângulos),
+ * sem depender de `gltf` nem de espécie nenhuma carregada. Sempre construída
+ * pela camada longe, nunca some sozinha (só é trocada pela densa quando a
+ * camada perto termina, ver `dispararCamadaPerto`). CPU tão barata (≤300
+ * itens) que não precisa ceder: uma função comum, não geradora.
+ */
+function construirFlorestaEsparsa(candidatos: CandidatoFloresta[], teto: number): Floresta {
+  const passo = Math.max(1, Math.ceil(candidatos.length / teto))
+  const amostra = candidatos.filter((_, i) => i % passo === 0)
+  const geo = geoConeLonge()
+  const mat = new THREE.MeshStandardMaterial({ color: '#ffffff', vertexColors: true, roughness: 0.95, flatShading: true })
+  const inst = new THREE.InstancedMesh(geo, mat, Math.max(1, amostra.length))
+  inst.name = 'inverno:floresta:esparsa'
+  inst.castShadow = false
+  inst.frustumCulled = false
+  const m4 = new THREE.Matrix4(), vp = new THREE.Vector3(), vq = new THREE.Quaternion(), ve = new THREE.Euler()
+  const escala1 = new THREE.Vector3(1, 1, 1)
+  for (let i = 0; i < amostra.length; i++) {
+    const c = amostra[i]
+    vp.set(c.x, c.y, c.z)
+    ve.set(0, c.giro, 0)
+    vq.setFromEuler(ve)
+    m4.compose(vp, vq, escala1)
+    inst.setMatrixAt(i, m4)
+  }
+  inst.count = amostra.length
+  inst.instanceMatrix.needsUpdate = true
+  inst.computeBoundingSphere()
+  const group = new THREE.Group()
+  group.name = 'inverno:floresta:esparsa:grupo'
+  group.add(inst)
+  const triUnit = geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3
+  return { group, triangulos: Math.round(amostra.length * triUnit), arvores: amostra.length, update() { /* sempre cone, nunca troca de LOD sozinha */ } }
+}
+
+/**
+ * A CAMADA PERTO da floresta: a malha real das espécies vivas, instanciada
+ * pros `candidatosBase` inteiros (até 1.303, `FLORESTA_TETO_PERTO` = 450 com
+ * malha real e o resto no balde de longe interno, MESMA régua de sempre —
+ * ver a nota de `FLORESTA_TETO_PERTO` mais abaixo). Idêntica, item por item,
+ * ao antigo `construirFloresta`: só mudou de forma (gerador que cede, recebe
+ * `vivas`/`candidatosBase` já prontos em vez de carregar e gerar sozinha) e
+ * de lugar (não roda mais durante o boot, só quando a câmera cruza
+ * `INVERNO_R_DET`). Escreve o resultado em `saida.floresta`, padrão de
+ * `constroiParque` em `park.ts` (gerador não pode `return` valor com
+ * `--downlevelIteration` desligado; `saida` sai da mesma forma sem depender
+ * disso).
+ */
+function* instanciarFlorestaDensa(
+  vivas: { especie: EspecieArvore; dados: { geo: THREE.BufferGeometry; mat: THREE.Material } }[],
+  candidatosBase: CandidatoFloresta[],
+  sombra: boolean,
+  saida: { floresta: Floresta | null },
+): Tarefa {
   const pesoTotal = vivas.reduce((s, v) => s + v.especie.peso, 0)
   const cumulativo: { ateT: number; idx: number }[] = []
   let acc = 0
@@ -1173,7 +1591,9 @@ async function construirFloresta(o: InvernoOpts): Promise<Floresta | null> {
     return cumulativo.length - 1
   }
 
-  const candidatos = gerarCandidatosFloresta(o.heightAt).map((c) => ({ ...c, especieIdx: resolverEspecie(c.tEspecie) }))
+  const candidatos: (CandidatoFloresta & { especieIdx: number })[] = []
+  for (const it = emFatias(candidatosBase, (c) => candidatos.push({ ...c, especieIdx: resolverEspecie(c.tEspecie) })); !it.next().done; ) yield
+
   // desbaste determinístico se passar do teto de perto (o balde de longe não
   // tem teto: cone de 8 tri é barato o bastante pra sobrar todo mundo nele)
   let paraPerto = candidatos
@@ -1181,35 +1601,38 @@ async function construirFloresta(o: InvernoOpts): Promise<Floresta | null> {
     const manter = FLORESTA_TETO_PERTO / candidatos.length
     paraPerto = candidatos.filter((_, i) => hash01(i * 2654435761) < manter)
   }
+  yield
   const paraPertoSet = new Set(paraPerto)
 
   const group = new THREE.Group()
-  group.name = 'inverno:floresta'
+  group.name = 'inverno:floresta:densa'
   let triangulos = 0
 
-  const instPerto: (THREE.InstancedMesh | null)[] = vivas.map((v, i) => {
+  const instPerto: (THREE.InstancedMesh | null)[] = new Array(vivas.length).fill(null)
+  for (const it = emFatias(vivas, (v, i) => {
     const cap = Math.max(1, paraPerto.filter((c) => c.especieIdx === i).length)
     const inst = new THREE.InstancedMesh(v.dados.geo, v.dados.mat, cap)
     inst.name = `inverno:floresta:${v.especie.id}:perto`
-    inst.castShadow = o.sombra ?? true
+    inst.castShadow = sombra
     inst.frustumCulled = false
     inst.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
     group.add(inst)
     const triUnit = v.dados.geo.index ? v.dados.geo.index.count / 3 : v.dados.geo.attributes.position.count / 3
     triangulos += triUnit * cap
-    return inst
-  })
+    instPerto[i] = inst
+  }); !it.next().done; ) yield
 
   const geoLonge = geoConeLonge()
   const matLonge = new THREE.MeshStandardMaterial({ color: '#ffffff', vertexColors: true, roughness: 0.95, flatShading: true })
   const longe = new THREE.InstancedMesh(geoLonge, matLonge, Math.max(1, candidatos.length))
-  longe.name = 'inverno:floresta:longe'
+  longe.name = 'inverno:floresta:longe-lod'
   longe.castShadow = false
   longe.frustumCulled = false
   longe.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
   group.add(longe)
   const triLonge = geoLonge.index ? geoLonge.index.count / 3 : geoLonge.attributes.position.count / 3
   triangulos += candidatos.length * triLonge // pior caso: todo mundo no balde de longe
+  yield
 
   const m4 = new THREE.Matrix4(), vp = new THREE.Vector3(), vq = new THREE.Quaternion()
   const ve = new THREE.Euler(), vs = new THREE.Vector3()
@@ -1244,236 +1667,445 @@ async function construirFloresta(o: InvernoOpts): Promise<Floresta | null> {
   for (const inst of instPerto) inst?.computeBoundingSphere()
   longe.computeBoundingSphere()
 
-  return { group, triangulos: Math.round(triangulos), arvores: candidatos.length, update }
+  saida.floresta = { group, triangulos: Math.round(triangulos), arvores: candidatos.length, update }
+}
+
+interface CandidatoRocha { x: number; z: number; y: number; esc: number; giro: number }
+
+/**
+ * A grade dos penhascos, extraída de dentro de `buildInverno` em 03/09 pra
+ * ceder (mesmo padrão de `varrerCandidatosFloresta`): ~4.500 células no pior
+ * caso (arco de 50° entre `R_PE` e `R_QUEDA`, passo de 45 m), cada uma com
+ * até 3 chamadas de `heightAt`. NÃO MEDIDO em separado (a soma do módulo
+ * inteiro está no cabeçalho), mas é a mesma FAMÍLIA de laço que a floresta,
+ * então cede pelo mesmo relógio, por precaução.
+ */
+function* varrerCandidatosRocha(
+  heightAt: (x: number, z: number) => number,
+  aoAchar: (c: CandidatoRocha) => void,
+  msPorFatia = 4,
+): Tarefa {
+  const passos = Math.ceil((R_QUEDA - R_PE) / 45)
+  let t0 = performance.now()
+  let n = 0
+  for (let ir = 0; ir <= passos; ir++) {
+    const r = R_PE + ir * 45
+    const passoAz = (45 / r) * (180 / Math.PI)
+    for (let az = AZ0 - 5; az <= AZ1 + 5; az += passoAz) {
+      const jr = (hash2(ir, Math.round(az * 10), 601) - 0.5) * 45 * 0.8
+      const jaz = (hash2(ir, Math.round(az * 10), 602) - 0.5) * passoAz * 0.8
+      const rr = r + jr, azz = az + jaz
+      const [x, z] = pontoEmRumo(rr, azz)
+      n++
+      const zona = zonaEsquiavelAt(x, z)
+      if (zona > 0.05) {
+        const y = heightAt(x, z)
+        const d = 15
+        const dhx = (heightAt(x + d, z) - heightAt(x - d, z)) / (2 * d)
+        const dhz = (heightAt(x, z + d) - heightAt(x, z - d)) / (2 * d)
+        const inc = (Math.atan(Math.hypot(dhx, dhz)) * 180) / Math.PI
+        // só nas faces expostas (a mesma faixa da rocha exposta), e um pouco
+        // além, pra ancorar visualmente o pé do penhasco também
+        if (inc >= 28 && pistaProximidade01(x, z) <= 0.15 && hash2(ir, Math.round(azz * 10), 603) <= 0.35) {
+          aoAchar({
+            x, z, y,
+            esc: 0.6 + hash2(ir, Math.round(azz * 10), 604) * 1.2,
+            giro: hash2(ir, Math.round(azz * 10), 605) * Math.PI * 2,
+          })
+        }
+      }
+      if (n % 64 === 0 && performance.now() - t0 > msPorFatia) { yield; t0 = performance.now() }
+    }
+  }
+}
+
+/** ⚠️ OS PENHASCOS: rocha espalhada de verdade, não só cor de vértice.
+ *  Segunda técnica do fundador pra atacar "parece bloco repetido", e a mais
+ *  barata das três (ele mesmo disse): mesmo com o relevo vindo de scan
+ *  real, uma silhueta 100% lisa nas encostas ainda lê como escultura. O
+ *  pacote (`rocks-stylized-pack.glb`, CC-BY, PolyOne Studio) virou UM mesh
+ *  só na conversão (o Blender uniu as peças do pack), então cada instância
+ *  aqui é um agrupamento pequeno de pedras, não uma pedra igual repetida:
+ *  ESCALA e GIRO por instância ainda variam, o que evita ler como carimbo. */
+const TETO_ROCHA = 140
+
+function* instanciarPenhascos(
+  geoRocha: THREE.BufferGeometry, matRocha: THREE.Material,
+  candidatosRocha: CandidatoRocha[], sombra: boolean,
+  saida: { mesh: THREE.InstancedMesh | null; triangulos: number },
+): Tarefa {
+  let usar = candidatosRocha
+  if (candidatosRocha.length > TETO_ROCHA) {
+    const manter = TETO_ROCHA / candidatosRocha.length
+    usar = candidatosRocha.filter((_, i) => hash01(i * 2654435761 + 17) < manter)
+  }
+  yield
+  const inst = new THREE.InstancedMesh(geoRocha, matRocha, Math.max(1, usar.length))
+  inst.name = 'inverno:penhascos'
+  inst.castShadow = sombra
+  inst.receiveShadow = true
+  inst.frustumCulled = false
+  const m4r = new THREE.Matrix4(), vpr = new THREE.Vector3(), vqr = new THREE.Quaternion(), ver = new THREE.Euler(), vsr = new THREE.Vector3()
+  for (const it = emFatias(usar, (c, i) => {
+    vpr.set(c.x, c.y, c.z)
+    ver.set(0, c.giro, 0)
+    vqr.setFromEuler(ver)
+    vsr.set(c.esc, c.esc, c.esc)
+    m4r.compose(vpr, vqr, vsr)
+    inst.setMatrixAt(i, m4r)
+  }); !it.next().done; ) yield
+  inst.count = usar.length
+  inst.instanceMatrix.needsUpdate = true
+  inst.computeBoundingSphere()
+  const triRocha = geoRocha.index ? geoRocha.index.count / 3 : geoRocha.attributes.position.count / 3
+  saida.mesh = inst
+  saida.triangulos = Math.round(triRocha * usar.length)
+}
+
+/** ⚠️ TETO DA CAMADA LONGE, dentro da faixa pedida (150 a 300): o maciço
+ *  cobre um arco de 40° entre r 7.150 e 8.650, visto da praça a ~8 km de
+ *  distância — cada árvore da silhueta cobre um ângulo minúsculo daquele
+ *  arco, então 220 pontos bem espalhados (reaproveitando o MESMO sorteio de
+ *  posição da floresta cheia, por passo, não uma segunda grade) bastam pra
+ *  quebrar a sensação de "montanha pelada" sem custar mais que 220 × 8 tri
+ *  = 1.760 triângulos. Ver "ACHADO 3" no cabeçalho. */
+const FLORESTA_TETO_LONGE = 220
+
+/** ⚠️ O RAIO DA CAMADA PERTO, medido a partir do mesmo ponto que já ancora o
+ *  culler do grupo inteiro (`r=7800, az=268`, definido logo abaixo). É mais
+ *  que o triplo de `FLORESTA_R_CHEIA` (1.300 m, o raio em que a floresta
+ *  cheia já troca cone por malha real, ponto a ponto): dá margem pra a
+ *  `Obra` privada da camada perto (ver `invernoComoTrabalho`) terminar de
+ *  construir ANTES de a câmera chegar perto o bastante pra notar a malha de
+ *  longe ainda em pé. Comparado ao raio de descarte do grupo inteiro
+ *  (26.000 m, `culler?.add` abaixo), 4.000 m ainda é bem menor, então o
+ *  gatilho nunca dispara depois que o parque já teria sumido por distância.
+ *  Ver "ACHADO 3" no cabeçalho pra justificativa completa. */
+const INVERNO_R_DET = 4000
+const [INVERNO_CX, INVERNO_CZ] = pontoEmRumo(7800, 268)
+
+/**
+ * REDE: tudo que `invernoComoTrabalho` precisa antes de começar a construir,
+ * numa função só (mesmo formato de `baixaAtivos` em `park.ts`). Dispara
+ * também `carregarRelevo()` (o fetch dos dois JSON de relevo, que serve
+ * `terrain.ts`/`alpino.ts`, não o parque em si — ver a nota "ACHADO 1" no
+ * cabeçalho): não é `await`ado aqui, é best-effort em paralelo, porque o
+ * parque não depende dele pra nada (usa o `heightAt` que já vem pronto de
+ * fora).
+ */
+interface AtivosDoInverno {
+  arvores: { especie: EspecieArvore; dados: { geo: THREE.BufferGeometry; mat: THREE.Material } }[]
+  rochas: { geo: THREE.BufferGeometry; mat: THREE.Material } | null
+}
+
+// ⚠️ A ESTAÇÃO DEIXOU DE SER UM `.glb` CRU BUSCADO AQUI, 03/09. A frente
+// dedicada de estação entregou `buildEstacaoInverno` (chalé, bilheteria,
+// canhão de neve, cerca, rede, cabines no cabo, placa), que já resolve a
+// própria rede de vários `.glb` e não precisa entrar em `Promise.all` com o
+// resto: ela é disparada dentro de `dispararCamadaPerto`, fire-and-forget,
+// e substitui a caixa placeholder quando terminar (ver lá embaixo).
+async function baixaAtivosInverno(o: InvernoOpts): Promise<AtivosDoInverno> {
+  void carregarRelevo()
+  const [arvores, rochas] = await Promise.all([
+    o.gltf ? carregarEspeciesArvore(o.gltf) : Promise.resolve([]),
+    carregarPacoteRochas(o.gltf),
+  ])
+  return { arvores, rochas }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// O PORTÃO DA REDE DO PARQUE. Ver "QUANDO COMEÇAR A REDE" no cabeçalho: a
+// rede do parque (os 2 JSON de relevo real e os 12 `.glb`) fica suspensa até
+// `abrirPortaoInverno()` ser chamado, e a única chamada dela deve ficar em
+// `plaza-scene.tsx`, dentro de `stepDone`, no mesmo instante em que o portão
+// da CIDADE abre (`pronto` vira `true`). Isto evita que os fetches do parque
+// compitam por conexão HTTP com os fetches que ainda estão segurando a tela
+// de carga (chalé, monumentos, parque, adereços, fundadores, galeria).
+// ═══════════════════════════════════════════════════════════════════════════
+let resolverPortaoInverno: (() => void) | null = null
+const portaoInvernoAberto = new Promise<void>((res) => { resolverPortaoInverno = res })
+
+/** Chame quando o portão da cidade abrir. Chamar mais de uma vez não tem
+ *  efeito (resolver uma Promise já resolvida é no-op); chamar sem nunca ter
+ *  `?inverno=1` também não tem efeito (a rede nem existe pra liberar, ver
+ *  `invernoComoTrabalho`). */
+export function abrirPortaoInverno() { resolverPortaoInverno?.() }
+
+/** O parque de inverno como peça da `Obra`, no mesmo espírito de
+ *  `parkComoTrabalho` (`park.ts`). O grupo nasce vazio e some visível=false
+ *  até a camada longe terminar; `parque` reflete o estado corrente. */
+export interface InvernoTrabalho extends Trabalho {
+  readonly group: THREE.Group
+  readonly parque: Inverno | null
 }
 
 /**
- * O parque de inverno inteiro: pistas, halfpipe, vila-base, teleféricos e a
- * floresta. Devolve grupo vazio sem `?inverno=1` (a mesma defesa em
- * profundidade de `terreno-fino.ts`: quem esquecer de checar a bandeira
- * antes de chamar isto não quebra nada).
+ * O parque de inverno inteiro, como `Trabalho`. Ver "ACHADO 2" e "ACHADO 3"
+ * no cabeçalho pro raciocínio completo; aqui só a forma.
  *
- * ⚠️ FICOU ASSÍNCRONA EM 03/09, por causa da floresta (`GLTFLoader.load` é
- * Promise). Quem chamava `buildInverno({...})` direto agora precisa de
- * `await`; ver a linha exata no relatório.
+ * Uso: `const t = await invernoComoTrabalho({...}); scene.add(t.group);
+ * obra.põe(t)` — IDÊNTICO ao uso de `parkComoTrabalho`. `aoPronto` dispara
+ * quando a CAMADA LONGE termina (pistas, halfpipe, teleféricos, vila-caixa,
+ * floresta esparsa): é a hora de revelar o grupo. A CAMADA PERTO (floresta
+ * densa, penhascos, estação em detalhe) sobe depois, sozinha, quando a
+ * câmera cruza `INVERNO_R_DET` — sem aviso, sem segurar nada, ela só troca
+ * de conteúdo por baixo do visitante enquanto ele já está lá.
  */
-export async function buildInverno(o: InvernoOpts): Promise<Inverno> {
+export async function invernoComoTrabalho(
+  o: InvernoOpts & { aoPronto?: (parque: Inverno) => void; peso?: number },
+): Promise<InvernoTrabalho> {
   const group = new THREE.Group()
   group.name = 'inverno'
   const medidas: Inverno['medidas'] = []
+
+  // ⚠️ DEFESA EM PROFUNDIDADE: sem `?inverno=1` isto devolve na primeira
+  // fatia, sem um fetch, sem um triângulo. Quem esquecer de checar a
+  // bandeira antes de chamar isto não quebra nada (mesma regra de
+  // `terreno-fino.ts`).
   if (!INVERNO_ATIVO) {
-    return { group, triangulos: 0, medidas, arvores: 0, update() {}, dispose() { group.clear() } }
-  }
-
-  let triangulos = 0
-  const matFita = new THREE.MeshStandardMaterial({
-    vertexColors: true, roughness: 0.9, metalness: 0, polygonOffset: true,
-    polygonOffsetFactor: -1, polygonOffsetUnits: -1,
-  })
-  for (const p of PISTAS) {
-    const g = construirFita(p, o.heightAt)
-    const mesh = new THREE.Mesh(g, matFita)
-    mesh.name = `inverno:pista:${p.nome}`
-    mesh.receiveShadow = o.sombra ?? true
-    mesh.castShadow = false
-    group.add(mesh)
-    triangulos += g.index ? g.index.count / 3 : g.attributes.position.count / 3
-    const med = medirPista(p, o.heightAt)
-    medidas.push({ nome: p.nome, dificuldade: p.dificuldade, ...med })
-  }
-
-  // o halfpipe: no colo entre o ombro sul e o pico principal, já fora da
-  // faixa pesada do pódio (r > 8.100, supressão ≤ 17%, ver cabeçalho)
-  const gPipe = construirHalfpipe(8220, 261, 264, o.heightAt)
-  const matPipe = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.35, metalness: 0.05 })
-  const meshPipe = new THREE.Mesh(gPipe, matPipe)
-  meshPipe.name = 'inverno:halfpipe'
-  meshPipe.receiveShadow = o.sombra ?? true
-  group.add(meshPipe)
-  triangulos += gPipe.attributes.position.count / 3
-
-  // a vila-base: um volume simples de apoio, mais a estação de teleférico
-  // REAL (buscada no Sketchfab, ver a nota "SEGUNDA CORREÇÃO": mobiliário
-  // não é terreno, e o acervo tem estação melhor que a caixa que eu desenhava)
-  const matVila = new THREE.MeshStandardMaterial({ color: '#6B5B4A', roughness: 0.85 })
-  {
-    const [r, az, largura, altura] = [6920, 273, 30, 12] as const
-    const [x, z] = pontoEmRumo(r, az)
-    const y = o.heightAt(x, z)
-    const geo = new THREE.BoxGeometry(largura, altura, largura * 0.6)
-    const mesh = new THREE.Mesh(geo, matVila)
-    mesh.position.set(x, y + altura / 2, z)
-    mesh.rotation.y = (az * Math.PI) / 180
-    mesh.name = 'inverno:vila'
-    mesh.castShadow = o.sombra ?? true
-    mesh.receiveShadow = true
-    group.add(mesh)
-    triangulos += geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3
-  }
-  if (o.gltf) {
-    try {
-      const cena = await new Promise<THREE.Group>((res, rej) =>
-        o.gltf!.load('/city/sf/ski-lift-station.glb', (g) => res(g.scene), undefined, rej))
-      const [r, az] = [6990, 265]
-      const [x, z] = pontoEmRumo(r, az)
-      const y = o.heightAt(x, z)
-      const caixa = new THREE.Box3().setFromObject(cena)
-      cena.position.set(x - (caixa.min.x + caixa.max.x) / 2, y - caixa.min.y, z - (caixa.min.z + caixa.max.z) / 2)
-      cena.rotation.y = (az * Math.PI) / 180
-      cena.name = 'inverno:estacao'
-      let triEstacao = 0
-      cena.traverse((k) => {
-        const mesh = k as THREE.Mesh
-        if (!mesh.isMesh) return
-        mesh.castShadow = o.sombra ?? true
-        mesh.receiveShadow = true
-        const g = mesh.geometry
-        triEstacao += g.index ? g.index.count / 3 : g.attributes.position.count / 3
-      })
-      group.add(cena)
-      triangulos += triEstacao
-    } catch (e) {
-      console.error('[inverno] estação de teleférico (ski-lift-station.glb) NÃO CARREGOU. A vila sobe só com a caixa.', e)
+    const vazio: Inverno = { group, triangulos: 0, medidas, arvores: 0, update() {}, dispose() { group.clear() } }
+    return {
+      nome: 'Winter Park', peso: 0, faixa: 2, group,
+      get parque() { return vazio },
+      *fatia() { o.aoPronto?.(vazio) },
     }
-  } else {
-    console.warn('[inverno] sem `gltf`: a estação real não sobe, só a caixa placeholder.')
   }
 
-  // ⚠️ OS PENHASCOS: rocha espalhada de verdade, não só cor de vértice.
-  // Segunda técnica do fundador pra atacar "parece bloco repetido", e a mais
-  // barata das três (ele mesmo disse): mesmo com o relevo vindo de scan
-  // real, uma silhueta 100% lisa nas encostas ainda lê como escultura. O
-  // pacote (`rocks-stylized-pack.glb`, CC-BY, PolyOne Studio) virou UM mesh
-  // só na conversão (o Blender uniu as peças do pack), então cada instância
-  // aqui é um agrupamento pequeno de pedras, não uma pedra igual repetida:
-  // ESCALA e GIRO por instância ainda variam, o que evita ler como carimbo.
-  if (o.gltf) {
-    try {
-      const cena = await new Promise<THREE.Group>((res, rej) =>
-        o.gltf!.load('/city/sf/rocks-stylized-pack.glb', (g) => res(g.scene), undefined, rej))
-      let malha: THREE.Mesh | null = null
-      cena.traverse((k) => { if (!malha && (k as THREE.Mesh).isMesh) malha = k as THREE.Mesh })
-      if (malha) {
-        const geoRocha = (malha as THREE.Mesh).geometry
-        const matRocha = (malha as THREE.Mesh).material as THREE.Material
-        const candidatosRocha: { x: number; z: number; y: number; esc: number; giro: number }[] = []
-        const passos = Math.ceil((R_QUEDA - R_PE) / 45)
-        for (let ir = 0; ir <= passos; ir++) {
-          const r = R_PE + ir * 45
-          const passoAz = (45 / r) * (180 / Math.PI)
-          for (let az = AZ0 - 5; az <= AZ1 + 5; az += passoAz) {
-            const jr = (hash2(ir, Math.round(az * 10), 601) - 0.5) * 45 * 0.8
-            const jaz = (hash2(ir, Math.round(az * 10), 602) - 0.5) * passoAz * 0.8
-            const rr = r + jr, azz = az + jaz
-            const [x, z] = pontoEmRumo(rr, azz)
-            const zona = zonaEsquiavelAt(x, z)
-            if (zona <= 0.05) continue
-            const y = o.heightAt(x, z)
-            const d = 15
-            const dhx = (o.heightAt(x + d, z) - o.heightAt(x - d, z)) / (2 * d)
-            const dhz = (o.heightAt(x, z + d) - o.heightAt(x, z - d)) / (2 * d)
-            const inc = (Math.atan(Math.hypot(dhx, dhz)) * 180) / Math.PI
-            // só nas faces expostas (a mesma faixa da rocha exposta), e um
-            // pouco além, pra ancorar visualmente o pé do penhasco também
-            if (inc < 28) continue
-            if (pistaProximidade01(x, z) > 0.15) continue
-            if (hash2(ir, Math.round(azz * 10), 603) > 0.35) continue // desbasta: nem toda célula vira pedra
-            candidatosRocha.push({
-              x, z, y,
-              esc: 0.6 + hash2(ir, Math.round(azz * 10), 604) * 1.2,
-              giro: hash2(ir, Math.round(azz * 10), 605) * Math.PI * 2,
-            })
-          }
-        }
-        const TETO_ROCHA = 140
-        let usar = candidatosRocha
-        if (candidatosRocha.length > TETO_ROCHA) {
-          const manter = TETO_ROCHA / candidatosRocha.length
-          usar = candidatosRocha.filter((_, i) => hash01(i * 2654435761 + 17) < manter)
-        }
-        const instRocha = new THREE.InstancedMesh(geoRocha, matRocha, Math.max(1, usar.length))
-        instRocha.name = 'inverno:penhascos'
-        instRocha.castShadow = o.sombra ?? true
-        instRocha.receiveShadow = true
-        instRocha.frustumCulled = false
-        const m4r = new THREE.Matrix4(), vpr = new THREE.Vector3(), vqr = new THREE.Quaternion()
-        const ver = new THREE.Euler(), vsr = new THREE.Vector3()
-        for (let i = 0; i < usar.length; i++) {
-          const c = usar[i]
-          vpr.set(c.x, c.y, c.z)
-          ver.set(0, c.giro, 0)
-          vqr.setFromEuler(ver)
-          vsr.set(c.esc, c.esc, c.esc)
-          m4r.compose(vpr, vqr, vsr)
-          instRocha.setMatrixAt(i, m4r)
-        }
-        instRocha.count = usar.length
-        instRocha.instanceMatrix.needsUpdate = true
-        instRocha.computeBoundingSphere()
-        group.add(instRocha)
-        const triRocha = geoRocha.index ? geoRocha.index.count / 3 : geoRocha.attributes.position.count / 3
-        triangulos += triRocha * usar.length
-      } else {
-        console.error('[inverno] rocks-stylized-pack.glb carregou mas não tem mesh dentro. Sem penhasco.')
-      }
-    } catch (e) {
-      console.error('[inverno] penhascos (rocks-stylized-pack.glb) NÃO CARREGARAM. A face fica só com a cor de rocha, sem volume.', e)
-    }
-  } else {
-    console.warn('[inverno] sem `gltf`: sem penhasco de verdade, só a cor de rocha do vértice.')
-  }
+  // ── REDE: suspensa até o portão da cidade abrir, depois dispara tudo em
+  // paralelo e decodifica antes de entrar na fila de construção. ──────────
+  await portaoInvernoAberto
+  const ativos = await baixaAtivosInverno(o)
 
-  // os teleféricos
-  const t1 = construirTeleferico(7000, 268, 8280, 268, 6, o.heightAt)
-  t1.pilones.name = 'inverno:teleferico:principal:pilones'
-  t1.cabo.name = 'inverno:teleferico:principal:cabo'
-  group.add(t1.pilones, t1.cabo)
-  triangulos += t1.triangulos
-
-  const t2 = construirTeleferico(6950, 273, 8220, 261, 4, o.heightAt)
-  t2.pilones.name = 'inverno:teleferico:parque:pilones'
-  t2.cabo.name = 'inverno:teleferico:parque:cabo'
-  group.add(t2.pilones, t2.cabo)
-  triangulos += t2.triangulos
-
-  for (const m of [t1.pilones, t2.pilones]) { m.castShadow = o.sombra ?? true; m.frustumCulled = false }
-
-  // ⚠️ A FLORESTA É ADITIVA. `construirFloresta` devolve `null` sem `gltf`,
-  // sem os dois `.glb`, ou se os dois falharem ao carregar: o resto do
-  // parque (pistas, halfpipe, vila, teleféricos) já subiu e continua de pé.
-  let floresta: Floresta | null = null
-  try {
-    floresta = await construirFloresta(o)
-    if (floresta) {
-      floresta.group.name = 'inverno:floresta'
-      group.add(floresta.group)
-      triangulos += floresta.triangulos
-    } else {
-      console.warn('[inverno] floresta não subiu: sem `gltf` ou os .glb falharam ao carregar')
-    }
-  } catch (e) {
-    console.error('[inverno] floresta não subiu', e)
-  }
-
-  const [ccx, ccz] = pontoEmRumo(7800, 268)
-  o.culler?.add(group, 26000, new THREE.Vector3(ccx, 0, ccz))
-
+  const saida: { parque: Inverno | null } = { parque: null }
   return {
+    nome: 'Winter Park',
+    peso: o.peso ?? 14,
+    faixa: 2,
     group,
-    triangulos: Math.round(triangulos),
-    medidas,
-    arvores: floresta?.arvores ?? 0,
-    update(cam: THREE.Vector3) { floresta?.update(cam) },
-    dispose() {
-      group.traverse((k) => {
-        const mesh = k as THREE.Mesh
-        if ((mesh as THREE.Mesh).isMesh) {
-          mesh.geometry.dispose()
-          const mat = mesh.material as THREE.Material | THREE.Material[]
-          if (Array.isArray(mat)) mat.forEach((m) => m.dispose()); else mat?.dispose?.()
-        }
+    get parque() { return saida.parque },
+    *fatia() {
+      // ══ CAMADA LONGE: sempre construída, barata, nunca espera aproximação ══
+      let triangulos = 0
+      const matFita = new THREE.MeshStandardMaterial({
+        vertexColors: true, roughness: 0.9, metalness: 0, polygonOffset: true,
+        polygonOffsetFactor: -1, polygonOffsetUnits: -1,
       })
-      group.clear()
+      for (const p of PISTAS) {
+        const g = construirFita(p, o.heightAt)
+        const mesh = new THREE.Mesh(g, matFita)
+        mesh.name = `inverno:pista:${p.nome}`
+        mesh.receiveShadow = o.sombra ?? true
+        mesh.castShadow = false
+        group.add(mesh)
+        triangulos += g.index ? g.index.count / 3 : g.attributes.position.count / 3
+        const med = medirPista(p, o.heightAt)
+        medidas.push({ nome: p.nome, dificuldade: p.dificuldade, ...med })
+      }
+      yield
+
+      // o halfpipe: no colo entre o ombro sul e o pico principal, já fora da
+      // faixa pesada do pódio (r > 8.100, supressão ≤ 17%, ver cabeçalho)
+      const gPipe = construirHalfpipe(8220, 261, 264, o.heightAt)
+      const matPipe = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.35, metalness: 0.05 })
+      const meshPipe = new THREE.Mesh(gPipe, matPipe)
+      meshPipe.name = 'inverno:halfpipe'
+      meshPipe.receiveShadow = o.sombra ?? true
+      group.add(meshPipe)
+      triangulos += gPipe.attributes.position.count / 3
+
+      // a vila-base: caixa placeholder até a camada perto trocar pela
+      // estação real (`ativos.estacao`, se tiver carregado)
+      const matVila = new THREE.MeshStandardMaterial({ color: '#6B5B4A', roughness: 0.85 })
+      let vilaMesh: THREE.Mesh | null = null
+      {
+        const [r, az, largura, altura] = [6920, 273, 30, 12] as const
+        const [x, z] = pontoEmRumo(r, az)
+        const y = o.heightAt(x, z)
+        const geo = new THREE.BoxGeometry(largura, altura, largura * 0.6)
+        vilaMesh = new THREE.Mesh(geo, matVila)
+        vilaMesh.position.set(x, y + altura / 2, z)
+        vilaMesh.rotation.y = (az * Math.PI) / 180
+        vilaMesh.name = 'inverno:vila'
+        vilaMesh.castShadow = o.sombra ?? true
+        vilaMesh.receiveShadow = true
+        group.add(vilaMesh)
+        triangulos += geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3
+      }
+      yield
+
+      // os teleféricos
+      const t1 = construirTeleferico(7000, 268, 8280, 268, 6, o.heightAt)
+      t1.pilones.name = 'inverno:teleferico:principal:pilones'
+      t1.cabo.name = 'inverno:teleferico:principal:cabo'
+      group.add(t1.pilones, t1.cabo)
+      triangulos += t1.triangulos
+
+      const t2 = construirTeleferico(6950, 273, 8220, 261, 4, o.heightAt)
+      t2.pilones.name = 'inverno:teleferico:parque:pilones'
+      t2.cabo.name = 'inverno:teleferico:parque:cabo'
+      group.add(t2.pilones, t2.cabo)
+      triangulos += t2.triangulos
+      for (const m of [t1.pilones, t2.pilones]) { m.castShadow = o.sombra ?? true; m.frustumCulled = false }
+      yield
+
+      // a grade da floresta inteira (o item mais caro do módulo, 775 ms cold
+      // medido no relatório): cedida pelo relógio, os candidatos servem TANTO
+      // a floresta esparsa de agora QUANTO a densa de quando a câmera chegar
+      // perto, uma varredura só, nunca duas.
+      const candidatos: CandidatoFloresta[] = []
+      for (const it = varrerCandidatosFloresta(o.heightAt, (c) => candidatos.push(c)); !it.next().done; ) yield
+
+      const florestaEsparsa = construirFlorestaEsparsa(candidatos, FLORESTA_TETO_LONGE)
+      group.add(florestaEsparsa.group)
+      triangulos += florestaEsparsa.triangulos
+      yield
+
+      // ⚠️ INVERNO-DETALHE (corduroy da pista, rastro de esqui, pegada,
+      // 2 rochas de granito de destaque) MONTA JÁ NA CAMADA LONGE, e isso é
+      // deliberado: o módulo se esconde SOZINHO por um raio próprio de 120 m
+      // (ver o cabeçalho dele), bem menor que os 4.000 m de `INVERNO_R_DET`,
+      // então esperar pela camada perto só atrasaria o momento em que ele
+      // aparece pra quem já estiver perto quando a camada perto disparar. O
+      // custo de construção dele é barato (quads + 2 GLB pequenos), não
+      // precisa de `Obra`.
+      const detalhe = buildInvernoDetalhe({
+        heightAt: o.heightAt, zonaEsquiavelAt, gltf: o.gltf, sombra: o.sombra ?? true,
+      })
+      group.add(detalhe.group)
+      yield
+
+      // ══ CAMADA PERTO: só entra quando a câmera cruza INVERNO_R_DET ══
+      // Não pode usar a `Obra` compartilhada (ela é SELADA no fim do
+      // `boot()`, e a câmera pode chegar minutos depois): uma `Obra` PRÓPRIA,
+      // cujo `.passo()` é chamado de dentro do `update(cam)` abaixo, o mesmo
+      // `update` que `plaza-scene.tsx` já chama todo quadro. Ver "ACHADO 3"
+      // no cabeçalho.
+      let florestaAtual: Floresta = florestaEsparsa
+      let pertoDisparado = false
+      let estacaoAtual: EstacaoInverno | null = null
+      // ⚠️ SÓ PRA ESTA CORRIDA: `buildEstacaoInverno` é assíncrona de verdade
+      // (busca 4 `.glb` próprios) e pode resolver DEPOIS que o visitante já
+      // saiu e `dispose()` já rodou. Sem esta guarda, o `.then()` colaria a
+      // estação de volta num `group` já esvaziado.
+      let dispostoDeVerdade = false
+      const obraPerto = new Obra({ orcamentoMs: 4 })
+
+      const dispararCamadaPerto = () => {
+        if (pertoDisparado) return
+        pertoDisparado = true
+        obraPerto.põe({
+          nome: 'inverno:camada-perto',
+          peso: 1,
+          faixa: 2,
+          *fatia() {
+            if (ativos.arvores.length > 0) {
+              const saidaFl: { floresta: Floresta | null } = { floresta: null }
+              const g = instanciarFlorestaDensa(ativos.arvores, candidatos, o.sombra ?? true, saidaFl)
+              while (!g.next().done) yield
+              if (saidaFl.floresta) {
+                group.remove(florestaEsparsa.group)
+                disposeGrupo(florestaEsparsa.group)
+                group.add(saidaFl.floresta.group)
+                florestaAtual = saidaFl.floresta
+                console.log(`[inverno] camada perto: floresta densa, ${saidaFl.floresta.arvores.toLocaleString('pt-BR')} árvores`)
+              }
+            }
+            if (ativos.rochas) {
+              const candidatosRocha: CandidatoRocha[] = []
+              for (const it2 = varrerCandidatosRocha(o.heightAt, (c) => candidatosRocha.push(c)); !it2.next().done; ) yield
+              const saidaRo: { mesh: THREE.InstancedMesh | null; triangulos: number } = { mesh: null, triangulos: 0 }
+              const g2 = instanciarPenhascos(ativos.rochas.geo, ativos.rochas.mat, candidatosRocha, o.sombra ?? true, saidaRo)
+              while (!g2.next().done) yield
+              if (saidaRo.mesh) {
+                group.add(saidaRo.mesh)
+                console.log(`[inverno] camada perto: ${saidaRo.mesh.count.toLocaleString('pt-BR')} penhascos, ${saidaRo.triangulos.toLocaleString('pt-BR')} triângulos`)
+              }
+            }
+          },
+        })
+        // ⚠️ A ESTAÇÃO REAL RODA FORA DA `Obra`, EM PARALELO, DE PROPÓSITO. Ela
+        // é `async` por natureza (busca 4 `.glb` próprios) e não fatia CPU
+        // pesada nenhuma (só um `Box3` e um `traverse` por peça, cada um sobre
+        // um objeto só), então entrar na `Obra` só atrasaria sem ceder nada de
+        // verdade. Sobe assim que a rede terminar, troca a caixa placeholder,
+        // e se falhar a caixa continua de pé (mesma regra de toda falha
+        // parcial deste módulo).
+        buildEstacaoInverno({
+          heightAt: o.heightAt, gltf: o.gltf, sombra: o.sombra ?? true, culler: o.culler,
+          vilaBase: { r: 6920, az: 273 },
+          cabos: [
+            { rBase: 7000, azBase: 268, rTopo: 8280, azTopo: 268, nCabines: 10 },
+            { rBase: 6950, azBase: 273, rTopo: 8220, azTopo: 261, nCabines: 6 },
+          ],
+          trilhas: PISTAS,
+        })
+          .then((est) => {
+            if (dispostoDeVerdade) { est.dispose(); return }
+            estacaoAtual = est
+            if (vilaMesh) { group.remove(vilaMesh); vilaMesh.geometry.dispose(); vilaMesh = null }
+            group.add(est.group)
+            console.log(`[inverno] estação real no lugar da caixa placeholder, ${est.triangulos.toLocaleString('pt-BR')} triângulos`)
+          })
+          .catch((err) => console.error('[inverno] estação não subiu, a caixa placeholder continua de pé', err))
+      }
+
+      const [ccx, ccz] = [INVERNO_CX, INVERNO_CZ]
+      o.culler?.add(group, 26000, new THREE.Vector3(ccx, 0, ccz))
+
+      const parque: Inverno = {
+        group,
+        triangulos: Math.round(triangulos),
+        medidas,
+        get arvores() { return florestaAtual.arvores },
+        update(cam: THREE.Vector3) {
+          if (obraPerto.pendentes > 0) obraPerto.passo()
+          if (!pertoDisparado) {
+            const d = Math.hypot(cam.x - ccx, cam.z - ccz)
+            if (d < INVERNO_R_DET) dispararCamadaPerto()
+          }
+          florestaAtual.update(cam)
+          // ⚠️ ADAPTADOR: `Inverno.update` só recebe a POSIÇÃO da câmera (é o
+          // contrato de toda esta cena, `plaza-scene.tsx` chama com
+          // `camera.position`), mas `InvernoDetalhe.atualizar` pede o objeto
+          // `THREE.Camera` inteiro, porque ele lê por `getWorldPosition`. Em
+          // vez de mudar o contrato de `Inverno` (que outros lugares podem
+          // depender), um objeto mínimo que só sabe responder
+          // `getWorldPosition` resolve os dois lados sem gambiarra maior.
+          detalhe.atualizar({ getWorldPosition: (v: THREE.Vector3) => v.copy(cam) } as unknown as THREE.Camera)
+        },
+        dispose() {
+          dispostoDeVerdade = true
+          obraPerto.descarta()
+          detalhe.dispose()
+          estacaoAtual?.dispose()
+          disposeGrupo(group)
+        },
+      }
+      saida.parque = parque
+      o.aoPronto?.(parque)
     },
   }
+}
+
+/**
+ * ⚠️ COMPATIBILIDADE, NÃO CAMINHO RECOMENDADO. `plaza-scene.tsx` hoje
+ * importa `buildInverno` e chama dentro de `daCidade.push(...)` — é
+ * EXATAMENTE o "ACHADO 2" do cabeçalho, o defeito que esta frente existe pra
+ * consertar. Esta função existe só pra `import { buildInverno }` continuar
+ * compilando enquanto a troca pro padrão novo (`invernoComoTrabalho`, linha
+ * exata no relatório) não é colada em `plaza-scene.tsx`; ela NÃO conserta a
+ * trava, só preserva a assinatura antiga (mesmo espírito de `loadPark` em
+ * `park.ts`, que existe pelo mesmo motivo).
+ *
+ * Por dentro já é `invernoComoTrabalho` rodado até o fim de uma vez (sem
+ * ceder, sem `Obra`): `abrirPortaoInverno()` é chamado aqui mesmo, porque
+ * este caminho não conhece o portão da cidade (não faz sentido esperar por
+ * um evento que só existe no caminho novo).
+ */
+export async function buildInverno(o: InvernoOpts): Promise<Inverno> {
+  abrirPortaoInverno()
+  const t = await invernoComoTrabalho(o)
+  const g = t.fatia()
+  while (!g.next().done) { /* roda tudo de uma vez, de propósito: ver a nota acima */ }
+  return t.parque as Inverno
 }

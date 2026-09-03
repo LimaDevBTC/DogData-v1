@@ -174,7 +174,12 @@ BULEVAR      = 34.0      # largura do bulevar radial sobre cada costura
 FAIXA        = 50.0      # profundidade da faixa: duas fileiras costas com costas
 DECLIVE_MAX  = 4.0       # correção do júri: o tecido não cabe em 3 graus
 
-PLATO_R, PLATO_FUNDE = 960, 1300
+# ⚠️ 960/1.300 -> 1.470/1.830 EM 03/09, e o número não é escolha desta frente: é
+# o que `terrain.ts` desenha (`PLATO_R`/`PLATO_FIM`, linha 307). O platô da praça
+# foi estendido lá em 30/08 para o anel do Lago da Praça ficar todo na cota 0, e
+# o gerador ficou com o par velho. Enquanto ficou, ele mediu relevo de verdade
+# entre 1.300 e 1.830 num lugar onde a cena desenha rampa até a cota 0.
+PLATO_R, PLATO_FUNDE = 1470, 1830
 # ⚠️ O PARQUE TEVE DE SAIR. Com a cidade a 6.900 (R_ABOBADA) ele ficaria DENTRO
 # dela em 5.200, e ele é parque nacional: fica fora da abóbada, alcançado de
 # veículo pressurizado. 9.800 deixa a chegada dele (o Portão, a 2,75 km do
@@ -928,17 +933,122 @@ with open(p('public/lunar/btc-core-heightmap.f32'), 'rb') as f:
     alt = list(struct.unpack(f'<{n*n}f', f.read(n*n*4)))
 H = lambda i, j: alt[min(n-1, max(0, j))*n + min(n-1, max(0, i))]
 
+# ═══════════════════════════════════════════════════════════════════════════
+# O EXAGERO VERTICAL, E POR QUE ELE PRECISOU VIR PARA CÁ (03/09/2026)
+#
+# ⚠️ A CENA NÃO DESENHA O HEIGHTMAP CRU. `app/city/plaza/vex.ts` aplica um
+# exagero vertical RADIAL: 1 dentro de r 4.500 (a cidade é plana como o mare de
+# verdade) subindo por smoothstep até 2 em r 7.000 (o horizonte é dramatizado).
+# Este gerador não aplicava nenhum, e por isso plantava lote num terreno até
+# DUAS VEZES mais raso do que o que a câmera mostra.
+#
+# ⚠️ E ISTO É A SEGUNDA VEZ QUE A MESMA DERIVA ACONTECE. O cabeçalho do próprio
+# `vex.ts` registra a primeira: a prancha de fundação (`app/city/plan`) tinha um
+# `const VEX = 2` cravado e "continuou medindo um terreno duas vezes mais íngreme
+# do que o que a cidade desenha, e ninguém percebeu porque os dois números eram
+# plausíveis". Foi exatamente o que aconteceu aqui, do outro lado.
+#
+# O que a divergência custava, medido em 03/09 contra a superfície como
+# construída (extraída da cena por `scripts/city/topo.mjs`, grade 1.400²):
+#
+#   em r 6.200          o cru diz −54 m e a cena desenha −94 m
+#   lotes afogados      484 com o centro sob a lâmina de −40; 411 deles (85%)
+#                       só afundam por causa do exagero
+#   quarteirões         44 com o centro a mais de 2 m sob a lâmina, agrupados
+#                       no leste em r 5.500 a 5.860
+#   declive             o limite aqui é 4°, e na superfície da cena 12,5% dos
+#                       lotes ficavam acima disso, o pior em 23,5°
+#   água no tecido      a cena desenha 24,36 km², este gerador media 22,11
+#
+# ⚠️ PYTHON NÃO IMPORTA TypeScript, então estes quatro números são CÓPIA, que é
+# a mesma doença que causou o problema. O antídoto é medição, não disciplina:
+# `scripts/city/conferir_terreno.py` compara `altura()` daqui com a superfície
+# que a cena publica e reprova se elas divergirem. Rode-o sempre que mexer em
+# `vex.ts`, em `terrain.ts` ou aqui.
+VEX_CIDADE, VEX_HORIZONTE = 1.0, 2.0
+VEX_R_CIDADE, VEX_R_HORIZONTE = 4500.0, 7000.0
+
+def exagero_em(r):
+    """o mesmo `exageroEm(r)` de app/city/plaza/vex.ts"""
+    if r <= VEX_R_CIDADE: return VEX_CIDADE
+    if r >= VEX_R_HORIZONTE: return VEX_HORIZONTE
+    t = (r - VEX_R_CIDADE) / (VEX_R_HORIZONTE - VEX_R_CIDADE)
+    return VEX_CIDADE + (VEX_HORIZONTE - VEX_CIDADE) * (t*t*(3-2*t))
+
 def crua(x, z):
+    # ⚠️ O EXAGERO ENTRA DEPOIS DA INTERPOLAÇÃO, e a ordem é a mesma de `rawAt`
+    # em terrain.ts, pelo motivo que está anotado lá: interpolar alturas já
+    # exageradas com fatores diferentes nos quatro cantos criaria degrau na borda
+    # de célula. Interpola o relevo cru, depois escala pelo raio.
     fi = min(n-1.001, max(0, x/cell+half)); fj = min(n-1.001, max(0, z/cell+half))
     i, j = int(fi), int(fj); u, v = fi-i, fj-j
-    return H(i,j)*(1-u)*(1-v) + H(i+1,j)*u*(1-v) + H(i,j+1)*(1-u)*v + H(i+1,j+1)*u*v
+    b = H(i,j)*(1-u)*(1-v) + H(i+1,j)*u*(1-v) + H(i,j+1)*(1-u)*v + H(i+1,j+1)*u*v
+    return b * exagero_em(math.hypot(x, z))
+
+# ── O PÓDIO DA ABÓBADA, que este gerador também não conhecia ────────────────
+#
+# ⚠️ ACHADO MEDINDO O CONSERTO DO EXAGERO, e é o segundo terreno que a cena tem
+# e o gerador não. A borda da casca assenta numa cota só, então `terrain.ts`
+# NIVELA o chão num pódio de `PODIO_Y` = 13 m entre r 6.150 e 8.300 (plano de
+# 6.950 a 7.150, rampa nas duas pontas). O tecido acaba em 6.900, ou seja os
+# últimos 750 m de cidade ficam EM CIMA dessa rampa.
+#
+# ⚠️ E OS DOIS ERROS SE CANCELAVAM, QUE É POR QUE NINGUÉM VIU. Sem exagero o
+# gerador media o chão mais RASO; sem pódio, media mais BAIXO. Na faixa de 6.150
+# a 6.900 os dois se anulavam parcialmente e o número saía plausível. Corrigir só
+# o exagero descobriu o outro: a primeira rodada com exagero e sem pódio achou
+# 74,7 km² de água (contra 24,4 antes e ~24 que a cena desenha) e um "lago" de
+# 71,7 km², porque afogou a coroa inteira que o pódio levanta.
+#
+# Medido por faixa de raio, |cena − gerador| na mediana, antes do pódio entrar:
+#   1.500–6.150   0,11 a 0,19 m   (o exagero já tinha fechado esta parte)
+#   6.150–6.900        36,23 m    (água: 21,2% na cena contra 42,1% aqui)
+#   6.900–7.150       124,84 m    (água: 0,0% na cena contra 43,2% aqui)
+#
+# Os números vêm de `PODIO_*` em app/city/plaza/dome.ts e da mistura angular de
+# `podioR3Em` em terrain.ts. São CÓPIA, como o exagero: quem confere é
+# `scripts/city/conferir_terreno.py`.
+PODIO_Y = 13.0
+PODIO_R0, PODIO_R1, PODIO_R2 = 6150.0, 6950.0, 7150.0
+PODIO_R3, PODIO_R3_PARQUE = 8300.0, 7550.0
+
+# ⚠️ O CENTRO DO PARQUE SOBE PARA CÁ porque `_podio_r3` precisa dele, e o pódio
+# é lido por `altura()`, que `_acha_lagos` chama no nível do módulo. Ficava 160
+# linhas abaixo e daria NameError no import.
+prad = math.radians(PARQUE_RUMO)
+PCX, PCZ = math.sin(prad)*PARQUE_DIST, -math.cos(prad)*PARQUE_DIST
+
+def _podio_r3(x, z):
+    """o fade externo encurta no rumo do parque: ali começa a cova do Runestone"""
+    nl = math.hypot(x, z)
+    if nl < 1e-6: return PODIO_R3
+    cos = (x*PCX + z*PCZ) / (nl * math.hypot(PCX, PCZ))
+    C1, C0 = math.cos(math.radians(42)), math.cos(math.radians(78))
+    t = min(1.0, max(0.0, (cos - C0) / (C1 - C0)))
+    return PODIO_R3 + (PODIO_R3_PARQUE - PODIO_R3) * (t*t*(3-2*t))
+
+def podio_peso(x, z):
+    r = math.hypot(x, z)
+    if r <= PODIO_R0: return 0.0
+    R3 = _podio_r3(x, z)
+    if r >= R3: return 0.0
+    if PODIO_R1 <= r <= PODIO_R2: return 1.0
+    t = (r-PODIO_R0)/(PODIO_R1-PODIO_R0) if r < PODIO_R1 else (R3-r)/(R3-PODIO_R2)
+    return t*t*(3-2*t)
 
 def altura(x, z):
     b = crua(x, z); r = math.hypot(x, z)
-    if r >= PLATO_FUNDE: return b
-    if r <= PLATO_R: return 0.0
-    t = (r-PLATO_R)/(PLATO_FUNDE-PLATO_R)
-    return b*(t*t*(3-2*t))
+    if r < PLATO_FUNDE:
+        if r <= PLATO_R: b = 0.0
+        else:
+            t = (r-PLATO_R)/(PLATO_FUNDE-PLATO_R)
+            b = b*(t*t*(3-2*t))
+    # ⚠️ O PÓDIO ENTRA POR MISTURA, não por soma: `terrain.ts` interpola o chão
+    # ATÉ a cota do pódio pelo peso (`b0*(1-w) + PODIO_Y*w`), então no platô o
+    # chão É 13 m, não "13 m acima do que havia". Somar deixaria o relevo cru
+    # embaixo e a coroa continuaria ondulando 232 m.
+    w = podio_peso(x, z)
+    return b*(1.0-w) + PODIO_Y*w
 
 grade = [0.0]*(n*n)
 for j in range(n):
@@ -1002,7 +1112,11 @@ def _acha_lagos():
     for j in range(n):
         for i in range(n):
             x, z = (i-half)*cell, (j-half)*cell
-            if math.hypot(x, z) < R_CASCA - 60 and H(i, j) < LAGO_COTA:
+            # ⚠️ `altura()`, NÃO `H(i,j)`. Esta linha lia o heightmap CRU: sem o
+            # exagero ela não via 2,25 km² de água que a cena desenha, e sem o
+            # achatamento do platô ela podia inventar lago dentro da praça, onde
+            # o chão da cena é a cota 0 lisa.
+            if math.hypot(x, z) < R_CASCA - 60 and altura(x, z) < LAGO_COTA:
                 dentro[j][i] = True
     vis=[[False]*n for _ in range(n)]; out=[]
     for j in range(n):
@@ -1066,9 +1180,6 @@ def em_baia(x, z, margem=0.0):
     """só o maior corpo, que é o que ganha orla construída."""
     d = min(2, max(1, int(math.ceil(margem / cell))))
     return (int(round(x/cell + half)), int(round(z/cell + half))) in _BAIA_D[d]
-
-prad = math.radians(PARQUE_RUMO)
-PCX, PCZ = math.sin(prad)*PARQUE_DIST, -math.cos(prad)*PARQUE_DIST
 
 def rumo_de(x, z):
     return math.degrees(math.atan2(x, -z)) % 360

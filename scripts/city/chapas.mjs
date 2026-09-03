@@ -90,6 +90,16 @@ const VISTAS = {
   abobadafora:[4600, 1250, 4600, 0, 380, 0, 45],
   cascaoeste:[-6400, 1700, 4200, -8000, 500, 300, 45],
   invernope: [-7300, 240, 700, -8325, 600, 291, 50],
+  // ⚠️ A ÁGUA CONTRA A MALHA VIÁRIA, acrescentados em 03/09 quando o fundador
+  // apontou "estrada passa por cima de lagos, inclusive formando quarteirão sobre
+  // o lago". Os dois são os piores casos MEDIDOS, não escolhidos a olho:
+  //   `lagogrid`  o corpo de 48,5 ha em (785, -3506): 42 arestas da teia por cima
+  //               dele, 5,5 km de deck, vãos de 239 m. É o retrato do defeito.
+  //   `bacialeste` a bacia rasa em (5665, 1493), onde 44 quarteirões têm o centro
+  //               abaixo da lâmina (até 15,1 m) e 311 lotes vieram junto. Aqui a
+  //               água é do CHÃO DA CENA e o gerador não a enxergou.
+  lagogrid:  [480, 520, -2147, 785, -40, -3506, 45],
+  bacialeste:[4100, 620, 1200, 5665, -40, 1493, 45],
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

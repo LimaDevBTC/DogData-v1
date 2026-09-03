@@ -52,6 +52,21 @@ export const SF_CREDITS: readonly Credit[] = [
   { title: 'Coconut tree', author: 'Rafael Benites de Souza', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/coconut-tree-a03863e070df4094939d37e60e4a8926' },
   { title: 'Japanese Lowpoly temple', author: 'carolinefangel', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/japanese-lowpoly-temple-cc26af7781344e908d356030e84e4121' },
   { title: 'V2 Rocket', author: 'Diccbudd', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/v2-rocket-c12726a34e534e53af7134e22b1f9cca' },
+  // ⚠️ ROCHA DE DESTAQUE DO PARQUE DE INVERNO, 03/09, frente PISTA E ROCHA.
+  // Escaneamentos reais de granito, com veio e cor mosqueada visíveis de perto:
+  // peça única, não pacote de massa. Usadas na base da estação e na chegada da
+  // pista preta principal.
+  { title: 'Granite stone brown 02', author: '3dhdscan', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/granite-stone-brown-02-585b09b796e745be960f80fdb6bcd4a0' },
+  { title: 'Granite rock yellowish brown', author: '3dhdscan', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/granite-rock-yellowish-brown-519c813e95af46a59e010539cd02ac5f' },
+  // ⚠️ ESTAÇÃO DO PARQUE DE INVERNO, 03/09, frente ESTAÇÃO. Chalé, bilheteria,
+  // cerca de segurança e o veículo de compactação (o snowcat é derivado: só o
+  // veículo foi extraído do diorama original com um script Blender próprio,
+  // terreno e placa do autor descartados; o crédito é do modelo original
+  // mesmo assim, é o que a licença pede).
+  { title: 'Snowy North American Chalet Cabin – Low Poly', author: 'ARTEL_3D', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/snowy-north-american-chalet-cabin-low-poly-44ed4093f2904361898b9cbc3dcc1aa9' },
+  { title: 'Ticket Booth', author: 'daedaljs', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/ticket-booth-7e12559eed534b5699c4262e7e1a6bb1' },
+  { title: 'Snowy skigard fence', author: 'NoodlePoodle', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/snowy-skigard-fence-14184c4c14de4ca19200da098bf46d47' },
+  { title: 'Cartoon Low Poly Snowcat Small', author: 'antonmoek', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/cartoon-low-poly-snowcat-small-2cbb90a5f22c4eeead51979b50f9d48c' },
   // ⚠️ PARQUE DE INVERNO, 03/09. Os dois primeiros NÃO entram na cena como malha:
   // a altura deles foi assada numa grade e virou a FORMA do maciço oeste, do
   // mesmo jeito que o `terrain.ts` usa o SLDEM2015 da NASA. Vieram porque o
@@ -61,8 +76,6 @@ export const SF_CREDITS: readonly Credit[] = [
   { title: 'Weisse Wand Mountain peek 2517 m 8257 ft', author: 'Shahriar Shahrabi', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/weisse-wand-mountain-peek-2517-m-8257-ft-cddef5cc80bc4aab8be65b38c29987fa' },
   { title: 'Zwoelfernock Mountain Peek 2516 m 8252 ft.', author: 'Shahriar Shahrabi', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/zwoelfernock-mountain-peek-2516-m-8252-ft-cb035c08e59f48459c56156327b56dc5' },
   { title: 'Free Pack - Rocks Stylized', author: 'PolyOne Studio', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/free-pack-rocks-stylized-7c60b4d1b8ab4187965f30c5e0212fc0' },
-  { title: 'Ski gongola and lift station detailed drafts', author: 'Wilin_Amaurea', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/ski-gongola-and-lift-station-detailed-drafts-a8fabd3e955643a2a9e9f09bd46635db' },
-  { title: '1379 Chairlift', author: 'jaimerog', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/1379-chairlift-e64b45f5c11c4aeca70be9a485d66ee7' },
   // ⚠️ JARDIM ITALIANO, 03/09. Estes cinco chegaram ao disco e foram USADOS antes
   // de a linha de credito existir, e a frente que os trouxe declarou isso no
   // relatorio, o que foi honesto. Mas CC-BY sem atribuicao num repositorio
