@@ -100,6 +100,16 @@ const VISTAS = {
   //               água é do CHÃO DA CENA e o gerador não a enxergou.
   lagogrid:  [480, 520, -2147, 785, -40, -3506, 45],
   bacialeste:[4100, 620, 1200, 5665, -40, 1493, 45],
+  // ⚠️ O CANAL CONTRA O PÓDIO, acrescentado em 03/09 quando o gerador passou a
+  // medir o terreno da cena. Os três canais radiais foram de rFim 3.640/4.540/
+  // 5.660 para 7.180/7.200: no relevo corrigido a água mais próxima naqueles
+  // rumos só começa em r ~7.320, logo depois do pódio, e a regra do gerador é
+  // que o canal morre onde encontra água. O resultado é uma trincheira de 60 m
+  // cortando o anel do pódio três vezes, e é isso que esta vista julga.
+  //   `canalpodio` a boca do CR01 (rumo 25) chegando na borda do pódio
+  //   `canallongo`  o mesmo canal visto de dentro, para medir o corte no tecido
+  canalpodio:[2662, 420, -5710, 3043, -40, -6525, 45],
+  canallongo:[1775, 900, -3806, 3043, -40, -6525, 50],
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

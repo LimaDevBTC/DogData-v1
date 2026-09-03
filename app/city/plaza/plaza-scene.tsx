@@ -2291,7 +2291,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               sombra: qDomo.get('sombra') !== '0',
             })
             scene.add(metro.group)
-            console.log(`[metrô] ${metro.rede.arestas} arestas em ${(metro.rede.metros / 1000).toFixed(1)} km, ${metro.rede.componentes} componente(s), ${metro.bocas} bocas e ${metro.docas} docas de barco, ${metro.triangulos.toLocaleString('pt-BR')} triângulos em ${metro.chamadas} chamadas`)
+            // ⚠️ `arestas` e `docas` SÃO LISTAS, não contagens, e imprimi-las direto
+            // dava `[object Object]` repetido no console. Use `.length`.
+            console.log(`[metrô] ${metro.rede.nos.size} estações, ${metro.rede.arestas.length} arestas em ${(metro.rede.metros / 1000).toFixed(1)} km, ${metro.rede.componentes} componente(s)${metro.rede.conexa ? ' (conexa)' : ' NÃO CONEXA'}, ${metro.rede.baldeacoes.length} baldeações, ${metro.bocas} bocas e ${metro.docas.length} docas de barco, ${metro.triangulos.toLocaleString('pt-BR')} triângulos em ${metro.chamadas} chamadas`)
 
             // ⚠️ OS 3 TÚNEIS DE ECLUSA: A ENTRADA DA CIDADE, E ELA NÃO EXISTIA.
             // Queixa do fundador em 03/09: "os túneis que vêm do spaceport, a
