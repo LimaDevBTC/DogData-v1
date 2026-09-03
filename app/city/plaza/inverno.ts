@@ -517,6 +517,34 @@ const AZ1 = 288
 const R_PE = 7150
 const R_CRISTA_PICO = 8280
 const R_QUEDA = 8650
+/**
+ * ⚠️ O AVENTAL, 03/09/2026, e ele é a resposta a um defeito de FORMA que o
+ * fundador descreveu assim: "hoje temos um pico único, queremos declives
+ * controlados no entorno, para as mansões... hoje parece que só tem pista pra
+ * atletas avançados".
+ *
+ * ⚠️ A CAUSA ESTAVA NA FONTE, e ela se lê num número só. O maciço era carimbado
+ * a partir de dois scans de PAREDÃO, e o Weisse Wand mede 900 x 901 x 902 m:
+ * altura igual à largura, razão 0,997. Uma forma com essa proporção não tem
+ * declive habitável em lugar nenhum, e nenhum acabamento cria um. Medido na
+ * superfície como construída (grade de 12,3 m, `topo.mjs`), o maciço subia 988 m
+ * em 750 m de percurso — 132% de grau, com um trecho de 234% — e da cunha de
+ * 12,68 km² sobrava: 27,1% de penhasco (>60%), e de terra mansa acima de 120 m,
+ * 216,7 ha, dos quais ~200 ATRÁS da crista, onde ninguém chega.
+ *
+ * ⚠️ E ESPALHAR NÃO CUSTA CIDADE. Medido em `cidade-lotes.bin`: na cunha do
+ * maciço (rumos 246-292) existem ZERO lotes entre r 5.500 e 6.900, e 26 entre
+ * 5.000 e 5.500 — 0,03% da cidade. O declive de paredão já reprovava aquela
+ * terra no teste de 4° do gerador. O avental não come cidade: ele recupera
+ * 13,5 km² que estavam sendo desperdiçados.
+ *
+ * A fonte nova é o Mount Fuji Wide Area (DEM de 41,6 x 34,2 km por 3.573 m,
+ * razão 0,086 — onze vezes mais manso), e o gradiente dele foi medido no
+ * próprio DEM antes de entrar: 37-41% no cone (0-4 km do cume), 25% em 4-6 km,
+ * 15,5% em 6-8 km e 10,4% em 8-12 km. Essa faixa de 10-15% é a de Beverly
+ * Hills, que é a referência que o fundador deu.
+ */
+const R_AVENTAL = 5500
 /** expoente da face de rocha: mantém a curva perto de 1 quase até o topo e
  *  desaba no último trecho, o oposto do suave01 puro. Continua valendo:
  *  isto é o envelope de EXISTÊNCIA (onde o maciço pode aparecer), não a
@@ -693,8 +721,13 @@ export const PISTAS: Pista[] = ESPECIFICACOES.map((e) => ({
  *  até o topo e desaba no último trecho). Continua a mesma forma da primeira
  *  correção: isto é só o envelope de EXISTÊNCIA, não a forma fina. */
 function envelopeRadial(r: number): number {
-  if (r <= R_PE || r >= R_QUEDA) return 0
-  if (r <= R_CRISTA_PICO) return suave01((r - R_PE) / (R_CRISTA_PICO - R_PE))
+  // ⚠️ ABRE EM `R_AVENTAL`, NÃO EM `R_PE`, e isso NÃO engorda os picos: os três
+  // carimbos de cume têm `raioM` de 520 a 1.150 m em torno de r 7.950-8.280, e
+  // o falloff circular de `amostrarFeicao` já os zera muito antes de r 6.500.
+  // Quem passa a existir na faixa nova é só o carimbo do avental, que tem raio
+  // grande de propósito. Sem abrir aqui, o avental nasceria recortado no pé.
+  if (r <= R_AVENTAL || r >= R_QUEDA) return 0
+  if (r <= R_CRISTA_PICO) return suave01((r - R_AVENTAL) / (R_CRISTA_PICO - R_AVENTAL))
   const t = suave01((R_QUEDA - r) / (R_QUEDA - R_CRISTA_PICO))
   return Math.pow(t, EXP_FACE_ROCHA)
 }
@@ -738,11 +771,57 @@ interface FeicaoReal { cx: number; cz: number; giro: number; raioM: number; peso
  *  carregava. Agora chegam por `fetch` (ver "FRENTE CARREGAMENTO" no
  *  cabeçalho), então a montagem virou uma função comum, chamada quando os
  *  dois `.json` resolvem, não mais no carregamento do módulo. */
-function montarFeicoes(weisse: DadosRelevo, zwoelfernock: DadosRelevo): FeicaoReal[] {
+function montarFeicoes(weisse: DadosRelevo, zwoelfernock: DadosRelevo,
+                       fuji: DadosRelevo): FeicaoReal[] {
   const [x1, z1] = pontoEmRumo(8280, 266)
   const [x2, z2] = pontoEmRumo(7950, 250)
   const [x3, z3] = pontoEmRumo(8100, 284)
+  // ⚠️ O AVENTAL É CARIMBO GRANDE E BAIXO, centrado no MESMO cume: `Math.max`
+  // em `alturaInvernoAt` faz o pico real vencer no alto (900 m contra os 560 do
+  // avental ali) e o avental vencer sozinho no pé, onde o pico já não alcança.
+  // Não há mistura a calibrar: a soma é um máximo, e cada um manda onde é maior.
+  //
+  // ⚠️ OS DOIS NÚMEROS SÃO PRIMEIRA ESTIMATIVA E TÊM DE SER MEDIDOS. `raioM`
+  // 4.600 põe o pé do avental em r 5.500 (o falloff começa em 0,72 do raio, ou
+  // seja 3.312 m do centro) e `pesoAltura` 560 sai da conta do perfil assado
+  // (queda de 0,89 para 0,18 ao longo do raio, ver `assar_relevo_dem.py`): dá
+  // ~13% de grau médio na faixa habitável. Estimativa não é medição — a regra
+  // desta casa é conferir na superfície como construída (`topo.mjs` mais o
+  // histograma de declive) e ajustar os dois escalares contra o número, não
+  // contra o desenho.
+  const [xa, za] = pontoEmRumo(8280, 266)
   return [
+    // ⚠️ 6.600 / 420 SÃO MEDIDOS, e a primeira estimativa (4.600 / 560, sobre o
+    // DEM inteiro) foi REPROVADA pela medição: ela piorava o maciço. Com o Fuji
+    // inteiro o carimbo trazia junto o cone dele (0-4 km do cume, 37-41% de
+    // grau) e só a ponta da cauda chegava perto da cidade — terra plana caía de
+    // 638,9 para 355,7 ha e penhasco subia de 360,0 para 469,8. O conserto foi
+    // no ASSADO, não aqui: `--anel=0.42,1.0` recorta só a cauda e a rezera.
+    //
+    // Os dois números saem de varredura offline (o modelo replica
+    // `alturaInvernoAt` e soma o candidato à base recuperada de 42.926 amostras
+    // da superfície como construída, ver o script da frente). Contra o maciço de
+    // hoje, na cunha az 240-298 entre r 5.300 e 8.900:
+    //
+    //                        hoje    com o avental
+    //   8-15% (habitável)    17,5%      22,5%
+    //   >60% (penhasco)      13,9%      14,6%
+    //   terra de mansão       802 ha    1.137 ha   (+42%)
+    //   cume                1.112 m     1.113 m    (intacto, que era a ordem)
+    //
+    // A queda do <8% (24,7% para 13,0%) NÃO é regressão: aquele "plano" era o
+    // pódio a 13 m no pé da cunha, chão liso sem vista nem cota. Ele virou
+    // encosta habitável, que é o pedido.
+    { cx: xa, cz: za, giro: 0.0, raioM: 6600, pesoAltura: 420, dados: fuji },
+    // ⚠️ O DESBASTE DO GUME FICOU DE FORA, E O MOTIVO É A CASCA. Alargar este
+    // carimbo (820 -> 950 -> 1.100) foi medido e faz o que se queria na forma,
+    // mas LEVANTA o cume junto: 1.113 -> 1.163 -> 1.267 m. E o maciço já não
+    // cabe na abóbada padrão — medido em 10.814 pontos de terreno acima de 200 m,
+    // 464 deles (4,3%) FURAM a casca com a flecha padrão de 2.566, o pior por
+    // 504 m (r 8.254, rumo 264: terreno a 1.109 m contra casca a 605). Com a
+    // flecha de `?casca=2` (5.500) não fura nenhum, com 324 m de folga.
+    // Desbastar antes de a flecha virar padrão é subir o teto de uma sala que
+    // já está sem pé-direito. Volta quando a casca funda for o padrão.
     { cx: x1, cz: z1, giro: 0.35, raioM: 820, pesoAltura: 900, dados: zwoelfernock },
     { cx: x2, cz: z2, giro: 1.10, raioM: 620, pesoAltura: 640, dados: weisse },
     // ⚠️ MESMO ARQUIVO QUE A FEIÇÃO ANTERIOR, GIRO E RAIO DIFERENTES: é a
@@ -776,13 +855,14 @@ function carregarRelevo(): Promise<void> {
   if (relevoPromessa) return relevoPromessa
   relevoPromessa = (async () => {
     try {
-      const [weisse, zwoelfernock] = await Promise.all([
+      const [weisse, zwoelfernock, fuji] = await Promise.all([
         fetch('/city/inverno/relevo-weisse-wand.json').then((r) => r.json() as Promise<DadosRelevo>),
         fetch('/city/inverno/relevo-zwoelfernock.json').then((r) => r.json() as Promise<DadosRelevo>),
+        fetch('/city/inverno/relevo-fuji-avental.json').then((r) => r.json() as Promise<DadosRelevo>),
       ])
-      FEICOES = montarFeicoes(weisse, zwoelfernock)
+      FEICOES = montarFeicoes(weisse, zwoelfernock, fuji)
     } catch (err) {
-      console.error('[inverno] os relevos reais (weisse-wand/zwoelfernock) NÃO CARREGARAM. O maciço fica só com envelope + tempero, sem os dois picos reais, até recarregar a página.', err)
+      console.error('[inverno] os relevos reais (weisse-wand/zwoelfernock/fuji-avental) NÃO CARREGARAM. O maciço fica só com envelope + tempero, sem os dois picos reais, até recarregar a página.', err)
     }
   })()
   return relevoPromessa

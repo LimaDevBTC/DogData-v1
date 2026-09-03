@@ -75,6 +75,7 @@ export const SF_CREDITS: readonly Credit[] = [
   // Scan real carrega EROSÃO real, que é o que ruído não sabe imitar.
   { title: 'Weisse Wand Mountain peek 2517 m 8257 ft', author: 'Shahriar Shahrabi', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/weisse-wand-mountain-peek-2517-m-8257-ft-cddef5cc80bc4aab8be65b38c29987fa' },
   { title: 'Zwoelfernock Mountain Peek 2516 m 8252 ft.', author: 'Shahriar Shahrabi', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/zwoelfernock-mountain-peek-2516-m-8252-ft-cb035c08e59f48459c56156327b56dc5' },
+  { title: 'Mount Fuji Volcano Wide Area Model - Japan', author: 'Nate Loper', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/mount-fuji-volcano-wide-area-model-japan-2bc48894d5c0496eb83d7b0eaf529499' },
   { title: 'Free Pack - Rocks Stylized', author: 'PolyOne Studio', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/free-pack-rocks-stylized-7c60b4d1b8ab4187965f30c5e0212fc0' },
   // ⚠️ JARDIM ITALIANO, 03/09. Estes cinco chegaram ao disco e foram USADOS antes
   // de a linha de credito existir, e a frente que os trouxe declarou isso no
