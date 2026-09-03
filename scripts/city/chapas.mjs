@@ -110,6 +110,14 @@ const VISTAS = {
   //   `canallongo`  o mesmo canal visto de dentro, para medir o corte no tecido
   canalpodio:[2662, 420, -5710, 3043, -40, -6525, 45],
   canallongo:[1775, 900, -3806, 3043, -40, -6525, 50],
+  // ⚠️ A CIDADE INTEIRA NUM QUADRO, acrescentada em 03/09 a pedido do fundador.
+  // `cidadetoda` é a oblíqua de masterplan: a 9 km de altura e 13 km ao sul, o
+  // alvo a 15,9 km, o campo cobre 21 km na horizontal contra os 13,8 km do
+  // tecido (r 6.900), então o sítio inteiro cabe com folga e a casca ainda faz
+  // silhueta. `cidadeplano` é a mesma coisa em NADIR, para ler a malha como
+  // prancha; rode-a com `--url-extra='&domo=0'`, senão a casca lava o quadro.
+  cidadetoda: [0, 9000, 13000, 0, 0, -500, 45],
+  cidadeplano:[0, 17000, 1, 0, 0, 0, 60],
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
