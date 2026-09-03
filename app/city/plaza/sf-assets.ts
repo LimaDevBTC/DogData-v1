@@ -52,6 +52,17 @@ export const SF_CREDITS: readonly Credit[] = [
   { title: 'Coconut tree', author: 'Rafael Benites de Souza', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/coconut-tree-a03863e070df4094939d37e60e4a8926' },
   { title: 'Japanese Lowpoly temple', author: 'carolinefangel', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/japanese-lowpoly-temple-cc26af7781344e908d356030e84e4121' },
   { title: 'V2 Rocket', author: 'Diccbudd', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/v2-rocket-c12726a34e534e53af7134e22b1f9cca' },
+  // ⚠️ PARQUE DE INVERNO, 03/09. Os dois primeiros NÃO entram na cena como malha:
+  // a altura deles foi assada numa grade e virou a FORMA do maciço oeste, do
+  // mesmo jeito que o `terrain.ts` usa o SLDEM2015 da NASA. Vieram porque o
+  // fundador reprovou a montanha procedural ("parece repetição de blocos, 4 na
+  // sequência") e mandou, pela segunda vez no dia, olhar o acervo antes de gerar.
+  // Scan real carrega EROSÃO real, que é o que ruído não sabe imitar.
+  { title: 'Weisse Wand Mountain peek 2517 m 8257 ft', author: 'Shahriar Shahrabi', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/weisse-wand-mountain-peek-2517-m-8257-ft-cddef5cc80bc4aab8be65b38c29987fa' },
+  { title: 'Zwoelfernock Mountain Peek 2516 m 8252 ft.', author: 'Shahriar Shahrabi', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/zwoelfernock-mountain-peek-2516-m-8252-ft-cb035c08e59f48459c56156327b56dc5' },
+  { title: 'Free Pack - Rocks Stylized', author: 'PolyOne Studio', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/free-pack-rocks-stylized-7c60b4d1b8ab4187965f30c5e0212fc0' },
+  { title: 'Ski gongola and lift station detailed drafts', author: 'Wilin_Amaurea', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/ski-gongola-and-lift-station-detailed-drafts-a8fabd3e955643a2a9e9f09bd46635db' },
+  { title: '1379 Chairlift', author: 'jaimerog', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/1379-chairlift-e64b45f5c11c4aeca70be9a485d66ee7' },
   // ⚠️ JARDIM ITALIANO, 03/09. Estes cinco chegaram ao disco e foram USADOS antes
   // de a linha de credito existir, e a frente que os trouxe declarou isso no
   // relatorio, o que foi honesto. Mas CC-BY sem atribuicao num repositorio

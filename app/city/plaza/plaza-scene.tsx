@@ -2187,7 +2187,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 // é pista, sarjeta e calçada
                 viasAssentou = true
                 plantar?.()
-                console.log(`[vias] ${v.quarteiroes.toLocaleString('pt-BR')} quarteirões + ${v.pracas} praças + ${v.bulevares} bulevares + ${v.aneis} anéis + ${v.rotatorias} rotatórias, ${(v.metrosDeVia / 1000).toFixed(1)} km de via, ${v.triangulos.toLocaleString('pt-BR')} triângulos`)
+                console.log(`[vias] ${v.quarteiroes.toLocaleString('pt-BR')} quarteirões + ${v.pracas} praças + ${v.bulevares} bulevares + ${v.aneis} anéis + ${v.rotatorias} rotatórias + ${v.cruzamentos.toLocaleString('pt-BR')} cruzamentos, ${(v.metrosDeVia / 1000).toFixed(1)} km de via, ${v.triangulos.toLocaleString('pt-BR')} triângulos; ${v.quarteiroesSemVia} quarteirões a mais de 200 m de pavimento`)
               })
               .catch((err) => {
                 console.error('[vias] não subiu', err)

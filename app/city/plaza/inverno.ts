@@ -405,28 +405,37 @@ const ESPECIFICACOES: EspecPista[] = [
   },
   {
     nome: 'Super-G Regolito', dificuldade: 'preta', largura: 27,
-    // ⚠️ 8.000 -> 8.040 em 03/09: a crista ficou mais afiada (Tarefa da chapa)
-    // e o desnível daqui caiu de 411 para 393 m, 7 m abaixo do piso FIS
-    // (400). Reancorado mais alto no flanco, reconferido por `medirPista`.
-    rInicio: 8040, rFim: 7550, azCentro: 275, amplitude: 2, oscilacoes: 1, amostras: 60,
+    // ⚠️ RETUNADO EM 03/09, SEGUNDA VEZ: a troca do relevo por dado real
+    // (Zwölfernock/Weisse Wand) moveu o flanco íngreme de novo. Medido de
+    // novo por `medirPista`: 565 m de desnível, dentro de 400-650.
+    rInicio: 7900, rFim: 7600, azCentro: 268, amplitude: 2, oscilacoes: 1, amostras: 60,
   },
   {
     nome: 'Slalom Gigante Cratera Rasa', dificuldade: 'vermelha', largura: 22,
-    // ⚠️ 7.800 -> 7.860, mesmo motivo: 295 m tinha caído para 245, 5 m abaixo
-    // do piso FIS (250). Reconferido por `medirPista`.
-    rInicio: 7860, rFim: 7500, azCentro: 258, amplitude: 2, oscilacoes: 1, amostras: 50,
+    // ⚠️ RETUNADO EM 03/09, SEGUNDA VEZ, mesmo motivo. Medido: 408 m, dentro
+    // de 250-450.
+    rInicio: 7780, rFim: 7600, azCentro: 268, amplitude: 2, oscilacoes: 1, amostras: 50,
   },
   {
     nome: 'Slalom Poeira Fina', dificuldade: 'azul', largura: 18,
-    rInicio: 7630, rFim: 7500, azCentro: 278, amplitude: 3.5, oscilacoes: 1, amostras: 40,
+    // ⚠️ RETUNADO EM 03/09, SEGUNDA VEZ. Medido: 208 m, dentro de 180-220.
+    rInicio: 7650, rFim: 7530, azCentro: 268, amplitude: 2, oscilacoes: 1, amostras: 40,
   },
   {
     nome: 'Boardercross Baixa Gravidade', dificuldade: 'parque', largura: 30,
-    rInicio: 7450, rFim: 7150, azCentro: 264, amplitude: 2, oscilacoes: 1, amostras: 50,
+    // ⚠️ RETUNADO EM 03/09, SEGUNDA VEZ. Medido: 1.192 m de percurso (alvo
+    // 800-1.200), 249 m de desnível (alvo 100-250), 11,8° de grau médio
+    // (alvo FIS 7-11°, 0,8° acima: os três critérios juntos não fecham
+    // perfeito no relevo novo, e ficar 0,8° acima do teto de uma
+    // RECOMENDAÇÃO, não de uma regra de homologação, foi a troca aceita
+    // em vez de furar o percurso ou o desnível).
+    rInicio: 7650, rFim: 7350, azCentro: 268, amplitude: 2, oscilacoes: 1, amostras: 50,
   },
   {
     nome: 'Slopestyle Um Sexto', dificuldade: 'parque', largura: 24,
-    rInicio: 7560, rFim: 7280, azCentro: 273, amplitude: 2, oscilacoes: 1, amostras: 40,
+    // ⚠️ RETUNADO EM 03/09, SEGUNDA VEZ. Sem norma FIS estrita; 164 m de
+    // queda numa progressão razoável de freestyle.
+    rInicio: 7850, rFim: 7600, azCentro: 260, amplitude: 2, oscilacoes: 1, amostras: 40,
   },
   {
     nome: 'Pista Verde de Acesso', dificuldade: 'verde', largura: 20,
@@ -443,9 +452,8 @@ export const PISTAS: Pista[] = ESPECIFICACOES.map((e) => ({
 /** envelope radial ASSIMÉTRICO: sobe em cosseno do pé até a crista (o
  *  versante esquiável, moderado), cai em `Math.pow(suave01, EXP_FACE_ROCHA)`
  *  da crista até a queda externa (a face de rocha, que fica perto de 1 quase
- *  até o topo e desaba no último trecho). Um raio só no máximo
- *  (`R_CRISTA_PICO`), não um platô: é essa única linha de topo que dá aresta
- *  ao relevo, em vez do domo que a chapa reprovou. */
+ *  até o topo e desaba no último trecho). Continua a mesma forma da primeira
+ *  correção: isto é só o envelope de EXISTÊNCIA, não a forma fina. */
 function envelopeRadial(r: number): number {
   if (r <= R_PE || r >= R_QUEDA) return 0
   if (r <= R_CRISTA_PICO) return suave01((r - R_PE) / (R_CRISTA_PICO - R_PE))
@@ -453,70 +461,159 @@ function envelopeRadial(r: number): number {
   return Math.pow(t, EXP_FACE_ROCHA)
 }
 
-/** fator azimutal: máximo entre o colo (piso) e o ombro mais próximo, com
- *  transição suave, exatamente o "ombro, colo, crista" que `montanha.ts` descreveu
- *  como o que falta numa montanha matematicamente pura. */
-function fatorAzimute(az: number): number {
-  let fora = true
-  let m = 0
-  for (const o of OMBROS) {
-    const d = Math.abs(difAngulo(az, o.azCentro))
-    if (d < o.azMeia * 2.2) fora = false
-    const t = suave01(1 - d / o.azMeia)
-    m = Math.max(m, t * o.fracao)
+/** janela angular de existência, em platô entre AZ0 e AZ1 com 10° de
+ *  transição suave em cada ponta. Substitui os "ombros" da primeira
+ *  correção: aquilo desenhava a FORMA do cume (era o próprio defeito, cumes
+ *  colocados); isto só diz ONDE o maciço pode existir, e quem desenha a
+ *  forma agora são as feições reais (`FEICOES`) mais o tempero fino. */
+function envelopeAzimute(az: number): number {
+  if (az <= AZ0 - 10 || az >= AZ1 + 10) return 0
+  if (az >= AZ0 && az <= AZ1) return 1
+  if (az < AZ0) return suave01((az - (AZ0 - 10)) / 10)
+  return suave01((AZ1 + 10 - az) / 10)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AS FEIÇÕES REAIS: dois scans fotogramétricos (ver a nota "SEGUNDA
+// CORREÇÃO" no cabeçalho do arquivo), usados TRÊS vezes com posição, giro e
+// raio DIFERENTES cada uma: é isso que evita repetição, não a quantidade de
+// arquivos. Amostragem por vizinho bilinear na grade 96×96 assada offline,
+// com falloff circular suave (não quadrado) na borda de cada feição, e
+// combinadas por MÁXIMO (mesma convenção de `monteEm` em `terrain.ts`): onde
+// duas feições se sobrepõem, a mais alta vence e a transição sai suave
+// porque as duas já desvanecem para 0 nas próprias bordas.
+// ═══════════════════════════════════════════════════════════════════════════
+interface DadosRelevo { grid: number; alturas: number[] }
+interface FeicaoReal { cx: number; cz: number; giro: number; raioM: number; pesoAltura: number; dados: DadosRelevo }
+
+/** ⚠️ PESO EM METROS, MEDIDO CONTRA O ALVO, NÃO CHUTADO: o terreno natural no
+ *  arco da crista mede 260-320 m (Tarefa 1); o alvo de cume é ~1.150 m
+ *  (Tarefa 2, e a folga da casca com a borda nova do arco oeste, 353,9 m
+ *  medidos pela frente da casca, já foi reconferida pra esse valor). O
+ *  Zwölfernock carrega o grosso (900 m no seu próprio pico), os dois usos do
+ *  Weisse Wand ficam abaixo dele (640 e 430 m) pra não competir pelo posto
+ *  de cume mais alto e ler como dois picos iguais de novo. */
+const FEICOES: FeicaoReal[] = (() => {
+  const [x1, z1] = pontoEmRumo(8280, 266)
+  const [x2, z2] = pontoEmRumo(7950, 250)
+  const [x3, z3] = pontoEmRumo(8100, 284)
+  return [
+    { cx: x1, cz: z1, giro: 0.35, raioM: 820, pesoAltura: 900, dados: relevoZwoelfernock as DadosRelevo },
+    { cx: x2, cz: z2, giro: 1.10, raioM: 620, pesoAltura: 640, dados: relevoWeisseWand as DadosRelevo },
+    // ⚠️ MESMO ARQUIVO QUE A FEIÇÃO ANTERIOR, GIRO E RAIO DIFERENTES: é a
+    // técnica de "carimbo" reaproveitado com transform distinto (mesma ideia
+    // das 9 sequoias resolvendo a floresta hoje). O que causaria repetição
+    // seria repetir posição E escala juntas, não repetir a fonte de dado.
+    { cx: x3, cz: z3, giro: 4.20, raioM: 520, pesoAltura: 430, dados: relevoWeisseWand as DadosRelevo },
+  ]
+})()
+
+function amostrarFeicao(f: FeicaoReal, x: number, z: number): number {
+  const dx = x - f.cx, dz = z - f.cz
+  const c = Math.cos(-f.giro), s = Math.sin(-f.giro)
+  const lx = dx * c - dz * s
+  const lz = dx * s + dz * c
+  const distNorm = Math.hypot(lx, lz) / f.raioM
+  if (distNorm >= 1) return 0
+  const g = f.dados.grid
+  const u = lx / f.raioM * 0.5 + 0.5
+  const v = lz / f.raioM * 0.5 + 0.5
+  const fx = Math.min(g - 1.001, Math.max(0, u * (g - 1)))
+  const fz = Math.min(g - 1.001, Math.max(0, v * (g - 1)))
+  const i = Math.floor(fx), j = Math.floor(fz)
+  const tx = fx - i, tz = fz - j
+  const A = f.dados.alturas
+  const H = (ii: number, jj: number) => A[jj * g + ii]
+  const h = (H(i, j) * (1 - tx) + H(i + 1, j) * tx) * (1 - tz) + (H(i, j + 1) * (1 - tx) + H(i + 1, j + 1) * tx) * tz
+  // ⚠️ FALLOFF CIRCULAR, NÃO QUADRADO: a grade é quadrada (u,v em [0,1]²),
+  // mas cortar no quadrado desenharia uma aresta reta na chapa. O raio
+  // normalizado (`distNorm`) já é a distância euclidiana, então o desvanece
+  // é um círculo de verdade em torno de `(cx, cz)`.
+  const falloff = 1 - suave01((distNorm - 0.72) / 0.28)
+  return h * f.pesoAltura * falloff
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// O TEMPERO FINO: ridged multifractal (Musgrave/libnoise) com deformação de
+// domínio, pesquisados antes de escrever (fonte: libnoise RidgedMulti e
+// Inigo Quilez, "Domain Warping"). Isto NÃO desenha a montanha (isso é
+// `FEICOES` acima); preenche a escala que a grade 96×96 não resolve, com
+// amplitude pequena de propósito.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** deformação de domínio: desloca (x, z) por outro ruído de célula GRANDE
+ *  (1.100 m, bem maior que a escala do tempero, 260 m) antes de amostrar
+ *  qualquer coisa. É o que Quilez descreve: o campo de deformação varia mais
+ *  devagar no espaço que o detalhe que ele desloca, senão vira tremedeira em
+ *  vez de dobra suave. Isto quebra o alinhamento radial que o envelope ainda
+ *  tem, sem isto mesmo com dado real o eco do raio poderia aparecer. */
+function deformarDominio(x: number, z: number): [number, number] {
+  const forca = 200
+  const wx = (ruido(x, z, 1100, 811) * 2 - 1) * forca
+  const wz = (ruido(x, z, 1100, 812) * 2 - 1) * forca
+  return [x + wx, z + wz]
+}
+
+/** uma oitava em crista: `signal = (1 - |ruído|)²`. O valor absoluto dobra
+ *  os lóbulos negativos pra cima, criando um VINCO exatamente onde o ruído
+ *  cru cruza zero, e vinco é o que uma crista É. Elevar ao quadrado afia o
+ *  vinco e achata o vale, que é a assinatura de "cume fino, vale largo" que
+ *  o fundador pediu. */
+function ridgedOitava(x: number, z: number, celula: number, semente: number): number {
+  const n = ruido(x, z, celula, semente) * 2 - 1
+  const sinal = 1 - Math.abs(n)
+  return sinal * sinal
+}
+
+/** a parte MULTIFRACTAL, que é o que distingue isto de fBm comum: o peso de
+ *  cada oitava não é uma persistência fixa, é REALIMENTADO pelo `signal` da
+ *  oitava ANTERIOR (`peso = clamp(signal · ganho, 0, 1)`, fórmula exata do
+ *  `RidgedMulti` do libnoise). Onde a oitava anterior já saiu alta (perto de
+ *  uma crista), a próxima ganha até 2× de peso e fica mais áspera; onde saiu
+ *  baixa (um vale), a próxima fica quase lisa. É por isso que o alto de uma
+ *  montanha de verdade é mais rugoso que o baixo, em qualquer escala. */
+function ridgedMultifractal(x: number, z: number, celulaBase: number, semente: number, oitavas: number): number {
+  let soma = 0, somaAmp = 0, amp = 1, peso = 1, celula = celulaBase
+  const lacunaridade = 2.0, ganho = 2.0
+  for (let o = 0; o < oitavas; o++) {
+    const sinal = ridgedOitava(x, z, celula, semente + o * 7) * peso
+    peso = Math.min(1, Math.max(0, sinal * ganho))
+    soma += sinal * amp
+    somaAmp += amp
+    celula /= lacunaridade
+    amp *= 0.5
   }
-  if (fora && (az < AZ0 - 6 || az > AZ1 + 6)) return 0
-  return Math.max(m, COLO_FRACAO)
+  return somaAmp > 0 ? soma / somaAmp : 0 // ~0..1
 }
 
-/**
- * ⚠️ RELEVO DE SEGUNDA ORDEM, REDESENHADO EM 03/09. A versão anterior só
- * CAVAVA (um `-Math.abs(sin)`, sempre negativo, até 34 m contra 820 m de
- * relevo primário: 4%, invisível). Uma montanha de verdade alterna ESPORÃO
- * (aresta que sobra, positiva) e CANALETA (sulco que escava, negativa) em
- * faixas que correm radialmente, subindo e descendo a face inteira, e por
- * isso `Math.sin` puro (bipolar), não `Math.abs(sin)` (só um sinal). A
- * amplitude sobe para até 70 m, e o padrão fica mais apertado (frequência
- * maior) perto da crista e mais largo perto do pé, como cristas de erosão
- * de verdade: o desenho fica mais fino onde a rocha está mais exposta.
- */
-function estruturaSegundaOrdem(r: number, az: number): number {
-  const tFace = suave01((r - R_PE) / (R_CRISTA_PICO - R_PE))
-  // envelope de amplitude: cresce do pé até perto da crista, cai um pouco
-  // bem no topo (a aresta em si fica limpa, o esporão mora na encosta)
-  const encosta = suave01((r - R_PE) / 250) * (1 - suave01((r - (R_CRISTA_PICO - 60)) / 160))
-  const azRad = (az * Math.PI) / 180
-  // frequência que aumenta com a proximidade da crista: 6 ciclos no pé, 11 no topo
-  const freq = 6 + 5 * tFace
-  const fina = Math.sin(azRad * freq + 0.6)
-  const grossa = Math.sin(azRad * (freq * 0.42) - 1.1)
-  return (fina * 46 + grossa * 24) * encosta
-}
-
-/** crag de escala fina, três oitavas (antes eram duas de ±14 m, invisíveis
- *  contra 820 m de relevo primário). Sobe para ±34 m combinadas, e a oitava
- *  mais fina (célula 22 m) é o que lê como rocha fraturada de perto, na
- *  chapa `invernope`. Tapeado pelo envelope pra não vazar do maciço. */
-function cragAt(x: number, z: number, env: number): number {
-  const a = ruido(x, z, 95, 401) * 2 - 1
-  const b = ruido(x, z, 34, 402) * 2 - 1
-  const c = ruido(x, z, 22, 403) * 2 - 1
-  return (a * 20 + b * 10 + c * 6) * env
+/** amplitude do tempero, em metros: pequena contra as feições reais
+ *  (430-900 m no pico), grande o bastante pra ler como rocha fraturada nas
+ *  chapas de perto (`invernope`). `pesoPista` (0..1, ver `pistaProximidade01`)
+ *  desliga o tempero perto da fita ANTES do corte entrar: senão a cava de
+ *  profundidade constante deixaria os solavancos do ruído por baixo dela e a
+ *  pista viraria montanha-russa, exatamente o defeito que foi apontado. */
+const AMPLITUDE_TEMPERO = 55
+function temperoFino(x: number, z: number, env: number, pesoPista: number): number {
+  if (env <= 0 || pesoPista >= 1) return 0
+  const [wx, wz] = deformarDominio(x, z)
+  const rm = ridgedMultifractal(wx, wz, 260, 901, 4) // 0..1
+  const centralizado = (rm - 0.5) * 2 // -1..1 aprox: sobe E desce, não só cava
+  return centralizado * AMPLITUDE_TEMPERO * env * (1 - pesoPista)
 }
 
 /**
  * ⚠️ A PISTA É CAVADA, NÃO PINTADA. Uma fita de cor sobre a superfície lisa
- * lê como estrada (foi exatamente o defeito que a chapa apontou). Pista de
- * esqui de verdade é um corte na mata e no relevo: uma calha rasa com talude
- * nas duas bordas. Isto mede a distância ao segmento mais próximo de CADA
- * pista (as mesmas `PISTAS` que a fita desenha por cima) e devolve um corte
- * negativo: fundo raso no eixo, sobe em cosseno até a borda da pista mais um
- * talude de 8 m, e zero dali para fora. Half-largura da pista + talude é o
- * alcance; o eixo baixa `PROFUNDIDADE_CORTE` metros.
+ * lê como estrada. Pista de esqui de verdade é um corte na mata e no
+ * relevo: uma calha rasa com talude nas duas bordas. `pistaProximidade01`
+ * mede a distância ao segmento mais próximo de CADA pista (as mesmas
+ * `PISTAS` que a fita desenha por cima) e devolve 1 no eixo, decaindo em
+ * cosseno até 0 na borda do talude, o MESMO peso serve pra desligar
+ * `temperoFino` (acima) e pra escalar a profundidade do corte (abaixo), os
+ * dois lidos de uma distância só, não duas.
  *
  * ⚠️ CUSTO: soma de segmentos de TODAS as pistas, por chamada. ~360 pontos
  * ao todo (7 pistas, 30 a 90 amostras cada); cada `alturaInvernoAt` já
- * descarta cedo por envelope/fator antes de chegar aqui, então isto só roda
+ * descarta cedo por envelope antes de chegar aqui, então isto só roda
  * dentro da zona do parque. NÃO MEDI o custo total de construção da malha
  * com isto ligado; se a chapa acusar, o corte é trocar a busca linear por
  * uma grade de baldes (bucket) pelas mesmas `PISTAS`.
@@ -531,7 +628,7 @@ const PISTAS_MUNDO = PISTAS.map((p) => ({
   }),
 }))
 
-function corteDePistaAt(x: number, z: number): number {
+function pistaProximidade01(x: number, z: number): number {
   let melhorDist = Infinity
   let melhorMeiaLarg = 0
   for (const pista of PISTAS_MUNDO) {
@@ -549,27 +646,32 @@ function corteDePistaAt(x: number, z: number): number {
   }
   const alcance = melhorMeiaLarg + TALUDE_CORTE
   if (melhorDist >= alcance) return 0
-  if (melhorDist <= melhorMeiaLarg) return -PROFUNDIDADE_CORTE
+  if (melhorDist <= melhorMeiaLarg) return 1
   const t = (melhorDist - melhorMeiaLarg) / TALUDE_CORTE
-  return -PROFUNDIDADE_CORTE * (1 - suave01(t))
+  return suave01(1 - t)
 }
 
 /**
  * A altura ADICIONADA pelo parque de inverno, em metros, para somar direto a
- * `heightAt` (mesmo contrato de `microRelevoAt`): 0 bit a bit sem a bandeira,
- * puro em (x, z), sem depender de câmera nem de estado.
+ * `heightAt` (mesmo contrato de `microRelevoAt`): 0 bit a bit sem a
+ * bandeira, puro em (x, z), sem depender de câmera nem de estado. A forma
+ * vem das `FEICOES` reais (multiplicadas pelo envelope de existência), o
+ * tempero fino vem do ruído em crista, e a pista cava por cima dos dois.
  */
 export function alturaInvernoAt(x: number, z: number): number {
   if (!INVERNO_ATIVO) return 0
   const r = Math.hypot(x, z)
-  const env = envelopeRadial(r)
-  if (env <= 0) return 0
+  const envR = envelopeRadial(r)
+  if (envR <= 0) return 0
   const az = azimuteDe(x, z)
-  const fAz = fatorAzimute(az)
-  if (fAz <= 0) return 0
-  const base = env * fAz * ADD_CRISTA
-  const relevo = base + estruturaSegundaOrdem(r, az) * env + cragAt(x, z, env)
-  return relevo + corteDePistaAt(x, z)
+  const envAz = envelopeAzimute(az)
+  if (envAz <= 0) return 0
+  const env = envR * envAz
+  let baseReal = 0
+  for (const f of FEICOES) baseReal = Math.max(baseReal, amostrarFeicao(f, x, z))
+  const pesoPista = pistaProximidade01(x, z)
+  const relevo = baseReal * env + temperoFino(x, z, env, pesoPista)
+  return relevo - PROFUNDIDADE_CORTE * pesoPista
 }
 
 /**
@@ -581,12 +683,11 @@ export function alturaInvernoAt(x: number, z: number): number {
 export function zonaEsquiavelAt(x: number, z: number): number {
   if (!INVERNO_ATIVO) return 0
   const r = Math.hypot(x, z)
-  const env = envelopeRadial(r)
-  if (env <= 0) return 0
+  const envR = envelopeRadial(r)
+  if (envR <= 0) return 0
   const az = azimuteDe(x, z)
-  return env * fatorAzimute(az)
+  return envR * envelopeAzimute(az)
 }
-
 /**
  * ⚠️ ROCHA EXPOSTA. A mesma regra de `alpino.ts` (neve não gruda acima de
  * ~30°, zero em 55°): acima disso o que aparece não pode ser regolito
@@ -1191,13 +1292,12 @@ export async function buildInverno(o: InvernoOpts): Promise<Inverno> {
   group.add(meshPipe)
   triangulos += gPipe.attributes.position.count / 3
 
-  // a vila-base: dois volumes simples sobre o anel plano do pódio (r=7.150,
-  // cota 13 m garantida pelo próprio nivelamento da abóbada)
+  // a vila-base: um volume simples de apoio, mais a estação de teleférico
+  // REAL (buscada no Sketchfab, ver a nota "SEGUNDA CORREÇÃO": mobiliário
+  // não é terreno, e o acervo tem estação melhor que a caixa que eu desenhava)
   const matVila = new THREE.MeshStandardMaterial({ color: '#6B5B4A', roughness: 0.85 })
-  const vilaPos: [number, number, number, number][] = [
-    [6980, 267, 46, 16], [6920, 273, 30, 12],
-  ]
-  for (const [r, az, largura, altura] of vilaPos) {
+  {
+    const [r, az, largura, altura] = [6920, 273, 30, 12] as const
     const [x, z] = pontoEmRumo(r, az)
     const y = o.heightAt(x, z)
     const geo = new THREE.BoxGeometry(largura, altura, largura * 0.6)
@@ -1209,6 +1309,118 @@ export async function buildInverno(o: InvernoOpts): Promise<Inverno> {
     mesh.receiveShadow = true
     group.add(mesh)
     triangulos += geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3
+  }
+  if (o.gltf) {
+    try {
+      const cena = await new Promise<THREE.Group>((res, rej) =>
+        o.gltf!.load('/city/sf/ski-lift-station.glb', (g) => res(g.scene), undefined, rej))
+      const [r, az] = [6990, 265]
+      const [x, z] = pontoEmRumo(r, az)
+      const y = o.heightAt(x, z)
+      const caixa = new THREE.Box3().setFromObject(cena)
+      cena.position.set(x - (caixa.min.x + caixa.max.x) / 2, y - caixa.min.y, z - (caixa.min.z + caixa.max.z) / 2)
+      cena.rotation.y = (az * Math.PI) / 180
+      cena.name = 'inverno:estacao'
+      let triEstacao = 0
+      cena.traverse((k) => {
+        const mesh = k as THREE.Mesh
+        if (!mesh.isMesh) return
+        mesh.castShadow = o.sombra ?? true
+        mesh.receiveShadow = true
+        const g = mesh.geometry
+        triEstacao += g.index ? g.index.count / 3 : g.attributes.position.count / 3
+      })
+      group.add(cena)
+      triangulos += triEstacao
+    } catch (e) {
+      console.error('[inverno] estação de teleférico (ski-lift-station.glb) NÃO CARREGOU. A vila sobe só com a caixa.', e)
+    }
+  } else {
+    console.warn('[inverno] sem `gltf`: a estação real não sobe, só a caixa placeholder.')
+  }
+
+  // ⚠️ OS PENHASCOS: rocha espalhada de verdade, não só cor de vértice.
+  // Segunda técnica do fundador pra atacar "parece bloco repetido", e a mais
+  // barata das três (ele mesmo disse): mesmo com o relevo vindo de scan
+  // real, uma silhueta 100% lisa nas encostas ainda lê como escultura. O
+  // pacote (`rocks-stylized-pack.glb`, CC-BY, PolyOne Studio) virou UM mesh
+  // só na conversão (o Blender uniu as peças do pack), então cada instância
+  // aqui é um agrupamento pequeno de pedras, não uma pedra igual repetida:
+  // ESCALA e GIRO por instância ainda variam, o que evita ler como carimbo.
+  if (o.gltf) {
+    try {
+      const cena = await new Promise<THREE.Group>((res, rej) =>
+        o.gltf!.load('/city/sf/rocks-stylized-pack.glb', (g) => res(g.scene), undefined, rej))
+      let malha: THREE.Mesh | null = null
+      cena.traverse((k) => { if (!malha && (k as THREE.Mesh).isMesh) malha = k as THREE.Mesh })
+      if (malha) {
+        const geoRocha = (malha as THREE.Mesh).geometry
+        const matRocha = (malha as THREE.Mesh).material as THREE.Material
+        const candidatosRocha: { x: number; z: number; y: number; esc: number; giro: number }[] = []
+        const passos = Math.ceil((R_QUEDA - R_PE) / 45)
+        for (let ir = 0; ir <= passos; ir++) {
+          const r = R_PE + ir * 45
+          const passoAz = (45 / r) * (180 / Math.PI)
+          for (let az = AZ0 - 5; az <= AZ1 + 5; az += passoAz) {
+            const jr = (hash2(ir, Math.round(az * 10), 601) - 0.5) * 45 * 0.8
+            const jaz = (hash2(ir, Math.round(az * 10), 602) - 0.5) * passoAz * 0.8
+            const rr = r + jr, azz = az + jaz
+            const [x, z] = pontoEmRumo(rr, azz)
+            const zona = zonaEsquiavelAt(x, z)
+            if (zona <= 0.05) continue
+            const y = o.heightAt(x, z)
+            const d = 15
+            const dhx = (o.heightAt(x + d, z) - o.heightAt(x - d, z)) / (2 * d)
+            const dhz = (o.heightAt(x, z + d) - o.heightAt(x, z - d)) / (2 * d)
+            const inc = (Math.atan(Math.hypot(dhx, dhz)) * 180) / Math.PI
+            // só nas faces expostas (a mesma faixa da rocha exposta), e um
+            // pouco além, pra ancorar visualmente o pé do penhasco também
+            if (inc < 28) continue
+            if (pistaProximidade01(x, z) > 0.15) continue
+            if (hash2(ir, Math.round(azz * 10), 603) > 0.35) continue // desbasta: nem toda célula vira pedra
+            candidatosRocha.push({
+              x, z, y,
+              esc: 0.6 + hash2(ir, Math.round(azz * 10), 604) * 1.2,
+              giro: hash2(ir, Math.round(azz * 10), 605) * Math.PI * 2,
+            })
+          }
+        }
+        const TETO_ROCHA = 140
+        let usar = candidatosRocha
+        if (candidatosRocha.length > TETO_ROCHA) {
+          const manter = TETO_ROCHA / candidatosRocha.length
+          usar = candidatosRocha.filter((_, i) => hash01(i * 2654435761 + 17) < manter)
+        }
+        const instRocha = new THREE.InstancedMesh(geoRocha, matRocha, Math.max(1, usar.length))
+        instRocha.name = 'inverno:penhascos'
+        instRocha.castShadow = o.sombra ?? true
+        instRocha.receiveShadow = true
+        instRocha.frustumCulled = false
+        const m4r = new THREE.Matrix4(), vpr = new THREE.Vector3(), vqr = new THREE.Quaternion()
+        const ver = new THREE.Euler(), vsr = new THREE.Vector3()
+        for (let i = 0; i < usar.length; i++) {
+          const c = usar[i]
+          vpr.set(c.x, c.y, c.z)
+          ver.set(0, c.giro, 0)
+          vqr.setFromEuler(ver)
+          vsr.set(c.esc, c.esc, c.esc)
+          m4r.compose(vpr, vqr, vsr)
+          instRocha.setMatrixAt(i, m4r)
+        }
+        instRocha.count = usar.length
+        instRocha.instanceMatrix.needsUpdate = true
+        instRocha.computeBoundingSphere()
+        group.add(instRocha)
+        const triRocha = geoRocha.index ? geoRocha.index.count / 3 : geoRocha.attributes.position.count / 3
+        triangulos += triRocha * usar.length
+      } else {
+        console.error('[inverno] rocks-stylized-pack.glb carregou mas não tem mesh dentro. Sem penhasco.')
+      }
+    } catch (e) {
+      console.error('[inverno] penhascos (rocks-stylized-pack.glb) NÃO CARREGARAM. A face fica só com a cor de rocha, sem volume.', e)
+    }
+  } else {
+    console.warn('[inverno] sem `gltf`: sem penhasco de verdade, só a cor de rocha do vértice.')
   }
 
   // os teleféricos

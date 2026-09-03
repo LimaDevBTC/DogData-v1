@@ -15,14 +15,21 @@
 // lote: de cima a malha viária vira uma teia desenhada, com fio claro na borda e
 // miolo escuro, que é como um plano de massas se lê numa prancha.
 //
-// Toda a geometria sai de public/city/cidade-malha.json, que o gerador publica:
-// 1.182 quarteirões com centro, lado e GIRO, mais os 12 bulevares. Nada aqui é
-// inventado; se o gerador mudar a malha, a rua muda junto.
+// ⚠️ A FONTE MUDOU EM 03/09 E ELA É `teia.ts`, NÃO O QUARTEIRÃO. Até 02/09 a rua
+// saía do registro de cada quarteirão do gerador (centro, lado e GIRO), meia
+// seção por quarteirão, e o fundador viu de cima o que isso produz: "essas ruas
+// estão completamente desconectadas, sobrepostas, separadas... se elas seguirem a
+// malha mãe do dodecaedro, funciona". Agora a rua é um GRAFO sobre a teia, com os
+// mesmos 27 anéis e 168 radiais que `programa.ts` já usava para encaixar as peças
+// e o cruzamento é desenhado UMA vez, no nó. A seção 2c registra a medição
+// inteira. `cidade-malha.json` continua entrando, mas para contar quarteirão e
+// medir cobertura, não para desenhar.
 //
-// Três seções, todas em constantes.* do mesmo json:
-//   contorno  12 m  em volta de cada quarteirão (6 m por quarteirão, ver abaixo)
-//   travessa   9 m  duas por quarteirão, em z local [-34,-25] e [25,34]
-//   bulevar   34 m  12 raios sobre a costura de setor, com canteiro central
+// A hierarquia, de fora para dentro:
+//   bulevar   34 a 44 m  12 avenidas radiais a 30 graus, com canteiro central
+//   anel      26 a 34 m  7 anéis viários, dodecágonos, rotatória em cada cruzamento
+//   rua       12 m       a teia: 27 anéis x 84 radiais, 168 de ANEIS[13] pra fora
+//   travessa   9 m       os 84 radiais do nível fino, que partem a quadra externa
 //
 // ── O QUE A RODADA DA MAQUETE (maquete-spec.md seção 3) MUDOU AQUI ──────────
 //  (1) COR: o canteiro sai de #4A5C3E (L 0,095) para VERDE #7E8A6B (L 0,237). O
@@ -81,6 +88,15 @@ export interface Vias {
   bulevares: number
   /** travessias elevadas nas bocas de quarteirão */
   travessias: number
+  /** ⚠️ CONTRATO NOVO (03/09): os cruzamentos da teia desenhados, um por nó. É a
+   *  peça que não existia antes desta rodada: até 02/09 quatro meias-seções
+   *  chegavam num cruzamento e nenhuma se tocava. */
+  cruzamentos: number
+  /** ⚠️ CONTRATO NOVO (03/09): quantos dos quarteirões publicados ficam a mais de
+   *  200 m de QUALQUER pavimento. É a regra da casa ("todo lote com frente pra
+   *  rua") virada em número medido, contra a máscara que a própria rua acabou de
+   *  pintar. Em 02/09 eram 660 de 1.862; medido offline com a teia, zero. */
+  quarteiroesSemVia: number
   /** traços do eixo tracejado dos bulevares */
   eixos: number
   /** cruzamentos de bulevar com contorno de quarto que ganharam faixa */
@@ -186,11 +202,17 @@ const COR: Record<Alvo, THREE.Color> = {
 /** uma faixa da seção: de/até em metros a partir da borda t=0, na cota alt */
 interface Banda { de: number; ate: number; alt: number; alvo: Alvo }
 
-// Seção do meio contorno: o quarteirão tem lado 168 e a célula 180, então sobram
-// 12 m entre dois quarteirões vizinhos. ⚠️ CADA QUARTEIRÃO DESENHA SÓ A SUA
-// METADE (6 m, da borda 84 até 90); o vizinho desenha a outra e as duas se
-// encontram exatamente em 90. Desenhar os 12 m inteiros duplicaria a via em toda
-// divisa e o z-fighting apareceria como listra piscando na chapa.
+// ⚠️ MORTA DESDE 03/09, MANTIDA COMO REGISTRO. Esta era a meia-seção que cada
+// quarteirão desenhava por conta própria: 6 m, da borda 84 até 90, com o vizinho
+// desenhando a outra metade a partir do PRÓPRIO registro. A ideia era não
+// duplicar a via na divisa, e ela funciona enquanto os dois quarteirões forem
+// paralelos, só que a grade do gerador GIRA por setor, então em toda costura as
+// duas metades se cruzam em ângulo e o pavimento sai desenhado duas vezes na
+// mesma cota. Some a isso o cruzamento, que não tem quarteirão para desenhá-lo, e
+// está o relato do fundador de 03/09 inteiro: "desconectadas, sobrepostas,
+// separadas". Quem desenha rua agora é a seção 2c, a partir da teia, com a seção
+// INTEIRA e o cruzamento no nó. Nenhuma linha deste arquivo usa mais esta
+// constante; ela fica porque a lógica antiga precisa continuar legível.
 const SEC_CONTORNO: Banda[] = [
   { de: 0.0, ate: 2.5, alt: Y_CALCADA, alvo: 'calcada' },
   { de: 2.5, ate: 6.0, alt: Y_PISTA, alvo: 'pista' },
@@ -354,6 +376,19 @@ const RAMPA_EXTREMOS = (Y_CALCADA - Y_PISTA) * RAMPA_1_12   // 1,8 m
 const CB_V_PCT = 0.05
 const CB_V_FUNDO = (CB_SARJETA / 2) * CB_V_PCT   // ~1 cm, o fundo do V
 
+// ⚠️ TRÊS DOS CINCO ITENS DO BLOCO B FICARAM SEM DONO EM 03/09, e é preciso dizer
+// qual e por quê. `abaular` (item 1), `rampaExtremos` (item 4) e o leque de
+// esquina (item 5) eram ligados SÓ pelo contorno de quarteirão, que saiu junto com
+// a arquitetura dele. Os itens 4 e 5 não fazem mais falta: eles existiam porque a
+// esquina antiga era um leque chapado de pista, e a rampa 1:12 era o jeito de a
+// calçada descer até ele; a teia desenha a esquina com calçada e meio-fio de
+// verdade (`teiaCruzamento`), então não há degrau para rampar. O item 1 (a crista
+// de 2% da pista) está VIVO no código de `faixa` e sem nenhum chamador: quem
+// quiser trazer o abaulamento para a rua da teia enxerta em `teiaBraco`, e o custo
+// medido lá atrás é +2 triângulos por banda de pista por passo. Os itens 2 e 3
+// (sarjeta em V e face com chanfro) continuam ativos na avenida e no anel viário,
+// que são quem chama `meioFio`.
+//
 // ⚠️ O ESCOPO DO BLOCO B. Dos cinco itens do plano, todos FEITOS:
 //   1. abaulamento              `faixa` + parâmetro `abaular`
 //   2. sarjeta em V             `meioFio`
@@ -434,6 +469,49 @@ const OMBRO_ALT = Y_CALCADA - 0.03
 const OMBRO_DESNIVEL = 3.0
 /** folga do pé do talude sobre o regolito, mesma lógica do FOLGA da pista */
 const OMBRO_POUSO = 0.03
+
+// ── ONDE A TEIA CRUZA, O OMBRO ABRE (03/09) ────────────────────────────────
+//
+// ⚠️ O OMBRO ERA UMA PAREDE VERDE ATRAVESSADA NA FRENTE DA RUA LOCAL, e a conta é
+// direta: a avenida tem 34 a 44 m de seção MAIS 9 a 11,6 m de berma de cada lado,
+// então o corredor que ela ocupa de verdade tem 26 a 33,6 m de meia largura. A rua
+// da teia que chega perpendicular a ela precisaria parar aí, ou seja a 12 a 20 m
+// depois da guia da avenida, em cima de grama. E a berma fica em `OMBRO_ALT`
+// (0,30 m), entre a pista da teia (0,18) e a calçada dela (0,33): sobrepor as duas
+// não faz uma emenda ruim, faz o verde ATRAVESSAR o asfalto.
+//
+// A saída é a de qualquer cruzamento de verdade: onde a via transversal chega, a
+// berma ABRE. Os raios em que isso acontece não são chutados, são os 27 anéis da
+// teia, e por isso moram aqui em cima, fora de `buildVias`: quem desenha o ombro
+// da avenida roda ANTES da seção 2c e precisa deles prontos.
+//
+// ⚠️ A MITRA É A DE `caixaDoModulo`, NÃO A "CERTA". `passoNoRaio` de teia.ts
+// devolve 2 para qualquer raio acima de 1.450 (o laço casa no primeiro nível e
+// nunca chega ao segundo), então a cidade inteira usa 1/cos(pi/84). Uso o mesmo
+// valor para a rua nascer exatamente na divisa que `programa.ts` publica.
+const TEIA_MITRA = 1 / Math.cos(Math.PI / (N_RAD / 2))
+/** os raios dos anéis da teia, já com a esquadria do polígono */
+const RAIOS_TEIA: readonly number[] = ANEIS.map((r) => r * TEIA_MITRA)
+/** meia abertura da boca que a teia pede no ombro alheio: a seção mais uma folga */
+const TEIA_BOCA = HR + 4
+/** o raio está em cima de um anel da teia? (a boca do ombro da avenida) */
+function noAnelDaTeia(x: number, z: number): boolean {
+  const r = Math.hypot(x, z)
+  for (const rr of RAIOS_TEIA) if (Math.abs(r - rr) < TEIA_BOCA) return true
+  return false
+}
+/** o rumo está em cima de um radial da teia? (a boca do ombro do anel viário) */
+function noRadialDaTeia(x: number, z: number): boolean {
+  const r = Math.hypot(x, z)
+  if (r < 1) return false
+  // ⚠️ O RADIAL FINO SÓ EXISTE DE ANEIS[13] PARA FORA (`nasceEm`), e abrir a boca
+  // dele antes disso rasgaria a berma do Anel Interior e do Anel Médio em 84
+  // pontos onde não chega rua nenhuma.
+  const passo = r >= (nasceEm(1) ?? Infinity) ? 1 : 2
+  const salto = ((Math.PI * 2) / N_RAD) * passo
+  const u = Math.atan2(x, -z) / salto
+  return Math.abs(u - Math.round(u)) * salto * r < TEIA_BOCA
+}
 
 // ── O ACABAMENTO DA PISTA (02/09) ──────────────────────────────────────────
 //
@@ -1187,6 +1265,13 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     larg: number, soleira: number, vA: number, vB: number,
   ) => {
     if (larg <= 0) return
+    // ⚠️ A BOCA DO CRUZAMENTO: ver a nota de `noAnelDaTeia` lá em cima. `ombros` é
+    // chamado só pela AVENIDA (o anel viário monta a berma dele à mão, na seção
+    // 2b), e a avenida é radial: quem a cruza é sempre um arco da teia, sempre em
+    // cima de um dos 27 raios. A granularidade é a do passo de `faixa` (24 m), o
+    // que abre uma boca um pouco mais larga que os 20 m pedidos, que é
+    // exatamente o que uma esquina de arterial parece.
+    if (noAnelDaTeia((x0 + x1) / 2, (z0 + z1) / 2)) return
     for (const lado of [-1, 1] as const) {
       const base = lado < 0 ? de0 : ate0
       const pe = base + lado * larg
@@ -1775,6 +1860,12 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
             const px2 = mxr + nx * largOmb, pz2 = mzr + nz * largOmb
             if (o.naBaia && o.naBaia(px2, pz2)) continue
             if (sobreAgua(px2, pz2)) continue
+            // ⚠️ A BOCA DO CRUZAMENTO, o par da que `ombros` abre na avenida. O
+            // anel viário é tangencial, então quem o cruza é sempre um trecho
+            // RADIAL da teia: a boca sai por rumo, não por raio. Sem ela a berma
+            // de 5 a 6,5 m do anel fica atravessada na frente de cada radial que
+            // chega, e o verde a 0,30 m fura o asfalto a 0,18 m.
+            if (noRadialDaTeia(mxr, mzr)) continue
             if (sinal < 0) {
               bandaOmbro(fitaDe('canteiro'), COR.canteiro, qax, qaz, qdx, qdz, nx, nz,
                          0, largOmb, false, true, u0 * cordaL, u1 * cordaL)
@@ -1832,168 +1923,620 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     }
   }
 
-  // ── 2c. O CONTORNO DE QUARTEIRÃO: cada lote com frente pra rua (02/09) ────
+  // ── 2c. A TEIA VIRA GRAFO: a rua sai da malha mãe, e só dela ─────────────
   //
-  // ⚠️ O DEFEITO, MEDIDO OFFLINE COM naVia (sem navegador, `node` sobre o
-  // JSON). O portão de conferência buscou pavimento em anéis de 2 em 2 m até
-  // 200 m do CENTRO de dois quarteirões (S06-Q17-B015, banda Bairro;
-  // S04-Q19-B017, banda Borda) e não achou nada. Reproduzido aqui por
-  // distância pura até a superfície pavimentada mais próxima (borda do
-  // polígono do anel ou da avenida, já descontada a meia-largura): o centro de
-  // S06-Q17-B015 fica a 277,6 m de qualquer asfalto; o de S04-Q19-B017, a
-  // 498,6 m. Os dois pontos que ACHARAM via no mesmo teste (bulevar em
-  // (12,-2600), núcleo perto de (1697,7, 802,9)) medem 0 m e 136,5 m pela
-  // mesma conta: bate com o portão em todos os quatro casos. O defeito é
-  // real, não é raio de máscara: `MASC_N·MASC_CEL` cobre 16.384 m, dez vezes
-  // o raio testado.
+  // ⚠️ O QUE SAIU DAQUI EM 03/09: O CONTORNO POR QUARTEIRÃO. Ele nasceu em 02/09
+  // para tapar um buraco real e MEDIDO: as duas remoções de 31/08 (a malha antiga
+  // do gerador, depois a teia fina) deixaram 660 dos 1.862 quarteirões (35,4%) a
+  // mais de 200 m de qualquer pavimento. Ele tapava, e o próprio comentário dele
+  // registrava o preço em letras: cada quarteirão desenhava os 6 m da SUA metade
+  // do vão de 12 m e "as duas se encontram no meio do vão SEM NENHUMA
+  // COORDENAÇÃO entre os dois".
   //
-  // ⚠️ A CAUSA: NENHUM QUARTEIRÃO DESENHA A PRÓPRIA VIA. As seções "1. O
-  // DESENHO POR QUARTEIRÃO SAIU INTEIRO" e "1c. A TEIA FINA SAIU" (acima)
-  // registram DUAS remoções em 31/08: primeiro a malha antiga do GERADOR,
-  // depois a teia fina de 26 anéis × 168 radiais que a substituiu ("milhares
-  // de ruas sem conexão"). As duas foram corretas nos próprios termos, mas a
-  // segunda não devolveu nada no lugar: `SEC_CONTORNO` e `SEC_TRAVESSA`
-  // ficaram como constante morta (nenhuma outra linha deste arquivo as usa), e
-  // `malha.quarteiroes` ficou morto para DESENHO: a única leitura dele é a
-  // contagem em `nq` e o cálculo de travessia de faixa de pedestre, duas
-  // seções acima. A cidade ficou só com as vias PRINCIPAIS (7 anéis + 12
-  // avenidas), e todo quarteirão fora do alcance delas não tem pavimento
-  // nenhum, contra a regra da casa. Contado offline contra os 1.862
-  // quarteirões do JSON, pela mesma distância de superfície: 660 (35,4%)
-  // ficam a mais de 200 m de QUALQUER pavimento (Núcleo 55/302, 18%; Meio
-  // 109/394, 28%; Bairro 259/647, 40%; Borda 237/519, 46%). Cresce para a
-  // borda porque lá o vão entre anéis e entre avenidas é maior, mas as
-  // quatro bandas têm caso: hipótese (a) do plano confirmada, generalizada
-  // (não é só Bairro/Borda).
+  // ⚠️ É ESSA FRASE QUE O FUNDADOR VIU DE CIMA EM 03/09: "essas ruas estão
+  // completamente desconectadas, sobrepostas, separadas, tem de tudo aí. Se elas
+  // seguirem a malha mãe do dodecaedro, funciona." Meia-seção por quarteirão
+  // produz os três defeitos DE UMA VEZ, e nenhum deles é acabamento:
+  //   · SOBREPOSTA   a grade do gerador GIRA por setor (`giro` é o rumo do setor,
+  //                  38 a -46 graus conforme o distrito), então duas metades
+  //                  vizinhas não são paralelas: onde elas se cruzam há pavimento
+  //                  desenhado duas vezes na mesma cota, e duas faces coplanares
+  //                  no mesmo Y é o z-fighting que a chapa lê como linha dupla;
+  //   · DESCONECTADA no CRUZAMENTO não existe quarteirão para desenhar, logo não
+  //                  existe cruzamento: quatro fitas chegam e nenhuma se toca;
+  //   · SEPARADA     onde o vizinho não existe (borda de banda, beira de avenida)
+  //                  a outra metade nunca sai, e sobra uma rua de 6 m encostada
+  //                  em nada.
   //
-  // ⚠️ O CONSERTO NÃO É REABRIR A TEIA FINA: o motivo dela ter saído continua
-  // de pé (rua de 12 m a cada ~108 m em 156 km² sem ligação). É devolver a
-  // CADA quarteirão a sua própria frente, com o que a malha já publica para
-  // ele: `x`, `z`, `giro`, `lado` (testada, arco) e `prof` (profundidade
-  // radial). Esse retângulo NÃO é um grid novo por cima do quarteirão, é o
-  // próprio quarteirão: `scripts/gerar_cidade.py` (`_bloco`, e `frente =
-  // ... - VIA_CONTORNO` em `tecido()`) mostra que a testada JÁ SAI reduzida
-  // dos 12 m de `VIA_CONTORNO`, e que `_aneis()` reserva o mesmo 12 m entre
-  // bandas com o quarteirão centrado no meio do vão. Ou seja: os 12 m entre
-  // dois quarteirões vizinhos, nos quatro lados, CONTINUAM reservados no
-  // gerador, só faltava alguém desenhar rua neles. Cada quarteirão desenha os
-  // 6 m da sua própria metade, exatamente a lógica que o comentário de
-  // `SEC_CONTORNO` já descrevia; o vizinho desenha a outra a partir do
-  // PRÓPRIO registro, e as duas se encontram no meio do vão sem nenhuma
-  // coordenação entre os dois. Onde não há vizinho (banda mais externa, ou
-  // perto de uma avenida), a metade que falta simplesmente não existe: a rua
-  // para na divisa, que é o comportamento correto.
+  // ⚠️ E A CORREÇÃO NÃO É DESENHAR MELHOR O CONTORNO, É TROCAR DE FONTE. `teia.ts`
+  // se declara "a definição única da malha viária da cidade" e `programa.ts` já a
+  // consome para encaixar as peças em módulo inteiro. A RUA ERA O ÚNICO CONSUMIDOR
+  // QUE AINDA NÃO A USAVA, e é literalmente por isso que rua e peça não
+  // conversavam: eram duas grades. Aqui a rua passa a ser um GRAFO, e o grafo é a
+  // teia:
+  //   NÓ      um vértice da teia (anel i x radial j). Medido no JSON de hoje:
+  //           27 anéis (1.450 a 6.727 m) x 84 radiais até ANEIS[13]=3.384 e 168
+  //           daí para fora = 3.444 nós.
+  //   ARESTA  um arco de anel entre dois radiais vizinhos, ou um trecho radial
+  //           entre dois anéis vizinhos. 3.444 arcos + 3.276 radiais = 6.720.
+  //   CRUZAMENTO  desenhado UMA VEZ, no nó, por todas as arestas que chegam nele.
+  //           Não existe mais "duas meias-seções se encontrando por acaso".
   //
-  // ⚠️ A CONVENÇÃO DE GIRO É A DO GERADOR, NÃO A DO ANEL. `giro` do
-  // quarteirão é o ângulo do setor em grau (`am` em radianos no gerador,
-  // convertido antes do JSON) e o mundo sai de uma rotação 2D comum:
-  // `wx = x + ox·cos(giro) - zlote·sin(giro)`, `wz = z + ox·sin(giro) +
-  // zlote·cos(giro)` (`_bloco`, gerar_cidade.py). NÃO é a convenção
-  // `sin/-cos` que o resto deste arquivo usa pro ANEL. `eox` é a direção de
-  // +ox (a testada, `lado`); `ezl`, a de +zlote (a profundidade, `prof`).
-  for (const q of malha.quarteiroes) {
-    const g = (q.giro * Math.PI) / 180
-    const eoxX = Math.cos(g), eoxZ = Math.sin(g)
-    const ezlX = -Math.sin(g), ezlZ = Math.cos(g)
-    const hx = q.lado / 2, hz = q.prof / 2
-    const mundo = (ox: number, zl: number): [number, number] =>
-      [q.x + ox * eoxX + zl * ezlX, q.z + ox * eoxZ + zl * ezlZ]
-    // ⚠️ CADA ARESTA: NORMAL PRA FORA, PONTO DE PARTIDA, COMPRIMENTO. `faixa`
-    // exige `perp = dir` girado +90° (a mesma regra da avenida, algumas
-    // seções acima); dada a normal que eu QUERO, a direção que satisfaz essa
-    // regra é a rotação inversa, `dir = (nz, -nx)`. Resolvido uma vez aqui,
-    // não em cada aresta: nenhuma das quatro precisa de caso especial.
-    const arestas: { nx: number; nz: number; ox0: number; zl0: number; comp: number }[] = [
-      { nx: -ezlX, nz: -ezlZ, ox0: hx, zl0: -hz, comp: q.lado },   // zlote = -hz
-      { nx: ezlX, nz: ezlZ, ox0: -hx, zl0: hz, comp: q.lado },     // zlote = +hz
-      { nx: -eoxX, nz: -eoxZ, ox0: -hx, zl0: -hz, comp: q.prof },  // ox = -hx
-      { nx: eoxX, nz: eoxZ, ox0: hx, zl0: hz, comp: q.prof },      // ox = +hx
-    ]
-    for (const a of arestas) {
-      const [ax, az] = mundo(a.ox0, a.zl0)
-      const dirX = a.nz, dirZ = -a.nx
-      const bx = ax + dirX * a.comp, bz = az + dirZ * a.comp
-      // `abaular = true`: o contorno não pinta eixo nem faixa de pedestre
-      // (ver a nota de `abaular` em `faixa`), então pode ligar a crista sem
-      // risco de enterrar marca nenhuma.
-      faixa(ax, az, bx, bz, a.nx, a.nz, SEC_CONTORNO, true, 0, 0, true, RAMPA_EXTREMOS)
-    }
+  // ⚠️ TUDO ABAIXO FOI MEDIDO RODANDO ESTE ARQUIVO FORA DO NAVEGADOR, não
+  // estimado por planilha. O aferidor monta `buildVias` em node (`tsx`, com uma
+  // casca mínima de DOM para `materiais.ts`), com `heightAt` fixo em 0, sem baía e
+  // sem parcela, e lê os buffers que saem. Ele está CALIBRADO: rodado contra o
+  // código de 02/09 devolve 1.271.668 triângulos no grupo e 1.630,7 km, e o
+  // contorno de quarteirão sozinho dá 719.460, que é EXATAMENTE o número que o
+  // cabeçalho deste arquivo registrou em tela naquele dia.
+  //
+  // ⚠️ SOBREPOSIÇÃO, QUE É A QUEIXA PRINCIPAL, MEDIDA POR SONDA. 3.000.000 de
+  // pontos no disco da teia, contando quantos triângulos de pista ou calçada
+  // contêm cada ponto:
+  //     02/09 (contorno)  8,01% do pavimento coberto DUAS ou mais vezes
+  //     03/09 (teia)      0,79%, e o grafo contribui ZERO com ele
+  // Os 0,79% que sobram já existiam sem a teia (é o cruzamento das 12 avenidas
+  // com os 7 anéis viários, seções 2 e 2b, que não são desta rodada); rodando a
+  // mesma sonda contra a cidade SEM a teia dá os mesmos 0,79%.
+  //
+  // ⚠️ CONEXÃO, MEDIDA POR PREENCHIMENTO. O asfalto rasterizado em célula de 4 m
+  // e percorrido por vizinhança de 8:
+  //     02/09   5 componentes, a maior com 92,15% do asfalto
+  //     03/09   2 componentes, a maior com 93,99% (r 1.415 a 6.905, todos os rumos)
+  // A componente solta que sobra é a Pista de Serviço (r 7.600), que JÁ ESTAVA
+  // solta antes desta rodada porque as 12 avenidas morrem em 6.900: fica
+  // registrada como defeito herdado, não é meu.
+  //
+  // ⚠️ COBERTURA: empate, e é honesto dizer. O contorno de 02/09 também entregava
+  // ZERO quarteirão a mais de 200 m de pavimento (ele dava frente pra rua por
+  // construção). A teia entrega o mesmo ZERO, e a diferença é que agora o número
+  // é MEDIDO no boot em `quarteiroesSemVia`, contra a máscara que a própria rua
+  // pintou. Só as vias principais, sem teia nenhuma, dão 657 de 1.862, que bate
+  // com os 660 contados offline em 02/09 (a diferença é a célula de 4 m da
+  // máscara contra a distância analítica).
+  //
+  // ⚠️ E O ORÇAMENTO CAI. O contorno custava 719.460 triângulos; a teia inteira,
+  // com a seção de 12 m INTEIRA em vez de meia, custa 611.640 (-15,0%). No grupo
+  // todo: 1.271.668 -> 1.163.848 (-8,5%), com 1.407,1 km de via em vez de 1.630,7.
+  // Chamada de desenho: 17 malhas antes, 17 malhas depois. Material e programa de
+  // shader: zero a mais, nenhum `new THREE.MeshStandardMaterial` nesta rodada.
+  //
+  // ⚠️ O MEIO-FIO DA RUA LOCAL É UMA FACE SÓ, E A ESCOLHA FOI ORÇADA. O perfil de
+  // quatro planos de `meioFio` (sarjeta, face, chanfro, topo) custa 8 triângulos
+  // por junta por passo; a face vertical sozinha custa 2. Sobre os 1.407 km da
+  // cidade isso é a diferença entre 611.640 e cerca de 1,28 milhão de triângulos,
+  // ou seja o perfil completo em TODA rua local sozinho custaria mais do que a
+  // cidade inteira de rua custa hoje, num aparelho que já está estourando a
+  // memória do Safari do fundador. O perfil de quatro planos continua exclusivo da
+  // AVENIDA e do ANEL VIÁRIO, que é onde a câmera de pedestre vai e onde a seção é
+  // larga o bastante para ele aparecer; e o `acabamentoVia` desenha a sujeira de
+  // sarjeta no fragmento, então a transição asfalto/guia/calçada não fica seca na
+  // rua local.
+  //
+  // ⚠️ O QUE AINDA NÃO FECHA, MEDIDO: 0,75% do eixo da teia (10,2 km de 1.358 km,
+  // em 484 pedaços) fica sem pavimento nenhum, e 200 desses 484 estão a menos de
+  // 140 m de um anel viário. Não é bug de emenda, é a cunha que sobra quando duas
+  // vias correm quase tangentes: o anel 17 da teia (4.284) passa RENTE à Avenida
+  // do Cinturão (4.450, que no meio da aresta do dodecágono mergulha para 4.298), e
+  // a faixa de 6 m em que o eixo da teia não cabe entre as duas vira 104 m de arco
+  // por não haver ângulo nenhum entre elas. Ali quem serve o trecho é a própria
+  // Cinturão, que está a menos de 20 m. Nenhum pedaço passa de 104 m.
+  // ⚠️ CONSEQUÊNCIA REGISTRADA: `sobreQue` não devolve mais 'sarjeta' na rua da
+  // teia (quem marcava o código 3 era `meioFio`). `naVia` não muda, porque quem a
+  // alimenta são as bandas de pista e de calçada. E `sobreQue` está DESLIGADO em
+  // produção desde 02/09 pela própria precisão dele (25,9% em via estreita).
 
-    // ── A ESQUINA (Tarefa 3, 02/09), atrás de `?corte=1` ──────────────────
-    //
-    // ⚠️ O QUE FICAVA: as quatro arestas acima cobrem cada uma a PRÓPRIA
-    // faixa (0 a 6 m, saindo do próprio lado do retângulo), e nunca uma
-    // extensão diagonal além do canto. Resultado, medido offline: nenhuma das
-    // duas faixas que se encontram num canto cobre a cunha de 90° que fica
-    // ALÉM dele (nem sobra, nem falta no meio, é uma cunha que nenhuma das
-    // duas arestas alcança). Antes da Tarefa 3 essa cunha ficava vazia, um
-    // buraco pequeno mas repetido em todo canto de todo quarteirão.
-    //
-    // ⚠️ A SOLUÇÃO (a) DO FUNDADOR: NÃO HÁ INTERSEÇÃO PRA CALCULAR. O
-    // retângulo local já dá os quatro cantos por construção (`hx`,`hz`,
-    // `giro` do próprio registro), e a folga que evita disputa com o
-    // quarteirão vizinho já existe: R_GAP é exatamente a meia-seção de 6 m,
-    // ou seja o leque nunca sai da METADE do vão de 12 m que é minha. Não
-    // preciso saber nada do vizinho: ele desenha a outra metade a partir do
-    // PRÓPRIO registro, do mesmo jeito.
-    //
-    // ⚠️ POR QUE UM LEQUE CHAPADO (PISTA), E NÃO TRÊS BANDAS COMO NA ARESTA
-    // RETA. Ele só existe porque `rampaExtremos` (acima) já desceu a calçada
-    // e o meio-fio até a cota da pista bem antes de chegar no canto (fRampa
-    // -> 0 em s=0/s=comp). No canto, calçada e meio-fio JÁ estão em Y_PISTA;
-    // o leque só fecha o buraco que sobrou, na MESMA cota, com a MESMA cor. Um
-    // leque com banda de calçada aqui reabriria o degrau que a rampa acabou
-    // de fechar.
-    //
-    // ⚠️ N_ARCO NÃO É CHUTE: é a sagita da corda, a MESMA conta que decide
-    // faceta em outras curvas deste arquivo. Sagita = R·(1-cos(dθ/2)); pedindo
-    // sagita < CB_CHANFRO (5 cm, a escala de detalhe que este arquivo já
-    // aceita pro chanfro do meio-fio) no maior raio usado (R_GAP=6 m) dá
-    // dθ < 14,8° e 90°/14,8° = 6,08 → 7 segmentos fecham com folga (sagita
-    // medida: 3,8 cm).
-    if (CORTE1) {
-      const R_GAP = SEC_CONTORNO[SEC_CONTORNO.length - 1].ate   // 6 m: a própria meia-seção
-      const N_ARCO = 7
-      const cantos: { ox: number; zl: number; na: [number, number]; nb: [number, number] }[] = [
-        { ox: hx, zl: hz, na: [eoxX, eoxZ], nb: [ezlX, ezlZ] },
-        { ox: hx, zl: -hz, na: [eoxX, eoxZ], nb: [-ezlX, -ezlZ] },
-        { ox: -hx, zl: -hz, na: [-eoxX, -eoxZ], nb: [-ezlX, -ezlZ] },
-        { ox: -hx, zl: hz, na: [-eoxX, -eoxZ], nb: [ezlX, ezlZ] },
-      ]
-      for (const c of cantos) {
-        // ⚠️ ORDEM DE VARREDURA: precisa de `cross2D(n1,n2) > 0` pra normal
-        // pra cima (a mesma conta de `dir = (nz,-nx)` acima, aplicada à dupla
-        // de normais em vez de a uma só). `na`/`nb` são sempre perpendiculares
-        // entre si; testa e troca se vier na ordem errada.
-        let n1 = c.na, n2 = c.nb
-        if (n1[0] * n2[1] - n1[1] * n2[0] < 0) { n1 = c.nb; n2 = c.na }
-        const [px, pz] = mundo(c.ox, c.zl)
-        if (Math.hypot(px, pz) > rMax) continue
-        if (o.naBaia && o.naBaia(px, pz)) continue
-        const yP = cotaVia(px, pz) + Y_PISTA
-        for (let k = 0; k < N_ARCO; k++) {
-          const phi0 = (k / N_ARCO) * (Math.PI / 2)
-          const phi1 = ((k + 1) / N_ARCO) * (Math.PI / 2)
-          const d0x = Math.cos(phi0) * n1[0] + Math.sin(phi0) * n2[0]
-          const d0z = Math.cos(phi0) * n1[1] + Math.sin(phi0) * n2[1]
-          const d1x = Math.cos(phi1) * n1[0] + Math.sin(phi1) * n2[0]
-          const d1z = Math.cos(phi1) * n1[1] + Math.sin(phi1) * n2[1]
-          const ax2 = px + d0x * R_GAP, az2 = pz + d0z * R_GAP
-          const bx2 = px + d1x * R_GAP, bz2 = pz + d1z * R_GAP
-          // ⚠️ TRIÂNGULO COMO QUAD DEGENERADO: `Fita.add` só sabe fazer quad
-          // (a-b-c, a-c-d); o ápice repetido em `d` fecha o segundo triângulo
-          // com área zero, sem quebrar a malha. Ordem (ápice, arco em φ1,
-          // arco em φ0) e não (φ0,φ1): é a que dá normal pra cima aqui (ver a
-          // nota de `cross2D` acima).
-          fPista.comCruzamento().add(COR.pista,
-            px, yP, pz,
-            bx2, cotaVia(bx2, bz2) + Y_PISTA, bz2,
-            ax2, cotaVia(ax2, az2) + Y_PISTA, az2,
-            px, yP, pz)
-          marcarVia(codigoDe('pista'), px, pz, bx2, bz2, ax2, az2, px, pz)
+  // ⚠️ `TEIA_MITRA` e `RAIOS_TEIA` MORAM NO MÓDULO, NÃO AQUI, e o motivo é ordem
+  // de execução: o ombro da avenida (seção 2, acima) precisa saber onde a teia vai
+  // cruzar para abrir a boca dele, e ele roda antes desta seção existir.
+  /** o índice do anel em que o segundo nível de radiais nasce (ANEIS[13]=3.384) */
+  const TEIA_DOBRA = (() => {
+    const r = nasceEm(1)
+    const k = r === null ? -1 : ANEIS.indexOf(r)
+    return k < 0 ? ANEIS.length : k
+  })()
+  /** quantos índices de 168 vale um passo de módulo naquele anel */
+  const teiaPasso = (i: number) => (i < TEIA_DOBRA ? 2 : 1)
+  const teiaPt = (i: number, j: number): [number, number] => {
+    const a = anguloDe(j), R = ANEIS[i] * TEIA_MITRA
+    return [Math.sin(a) * R, -Math.cos(a) * R]
+  }
+
+  /** a mesma seção, com o zero no EIXO em vez de na borda */
+  const centrada = (s: Banda[]): Banda[] => {
+    const c = (s[0].de + s[s.length - 1].ate) / 2
+    return s.map((b) => ({ ...b, de: b.de - c, ate: b.ate - c }))
+  }
+  // ⚠️ A TRAVESSA DE 9 m VOLTA A TER DONO, e ela é a hierarquia do nível fino. Os
+  // 84 radiais que nascem em ANEIS[13] existem só para partir ao meio um módulo
+  // que já ficou largo demais lá fora (o arco do anel 26 tem 252 m); desenhá-los
+  // com os mesmos 12 m do resto apagaria a diferença entre "a rua" e "a rua que
+  // parte a quadra". 12 contra 9 m é 25% de largura, que de cima se lê.
+  const SEC_TRAVESSA_C = centrada(SEC_TRAVESSA)
+  const meiaDe = (s: Banda[]) => (s[s.length - 1].ate - s[0].de) / 2
+  const meiaPistaDe = (s: Banda[]) => {
+    let de = Infinity, ate = -Infinity
+    for (const b of s) if (b.alvo === 'pista') { de = Math.min(de, b.de); ate = Math.max(ate, b.ate) }
+    return de > ate ? 0 : (ate - de) / 2
+  }
+
+  // ── as máscaras que a teia respeita, todas com folga ZERO ────────────────
+  //
+  // ⚠️ FOLGA ZERO É O REQUISITO, NÃO DESCUIDO. A rua da teia tem de ENCOSTAR no
+  // pavimento da avenida e do anel viário: um metro a menos e sobra uma fresta de
+  // regolito entre as duas, que é o "termina no ar"; um metro a mais e as duas
+  // desenham o mesmo chão na mesma cota, que é o z-fighting. Aqui o corte é
+  // analítico, refinado por bisseção, e as duas superfícies compartilham a linha.
+
+  /** dentro do pavimento de um dos anéis viários (que são DODECÁGONOS) */
+  const emAnelPav = (px: number, pz: number, folga: number): boolean => {
+    const r = Math.hypot(px, pz)
+    if (r < 1) return false
+    // ⚠️ O ANEL VIÁRIO É DODECÁGONO DESDE 31/08 e comparar `r` com `an.r` erra por
+    // até 3,4% do raio (259 m na Pista de Serviço). A corda entre dois vértices a
+    // 30 graus tem apótema `an.r*cos(15)`; um raio a `d` graus do meio da corda a
+    // cruza em `an.r*cos(15)/cos(d)`. Sem esta conta o anel viário e a teia se
+    // sobrepõem no MEIO da aresta, que é justamente onde o dodecágono mais
+    // mergulha para dentro: medido nos raios publicados, o Anel Interior (1.750)
+    // mergulha para 1.690 e passa a 4 m do anel 2 da teia (1.694), o Anel Médio
+    // (2.750 -> 2.656) a 8 m do anel 9 (2.664) e a Avenida do Cinturão
+    // (4.450 -> 4.298) a 17 m do anel 17 (4.281). Os três se sobrepunham.
+    const u = Math.atan2(px, -pz) / (Math.PI / 6)
+    const d = (u - Math.floor(u) - 0.5) * (Math.PI / 6)
+    const kf = Math.cos(Math.PI / 12) / Math.cos(d)
+    for (const an of meta.aneis ?? []) {
+      // ⚠️ A BERMA DO ANEL SÓ CONTA PARA QUEM CORRE PARALELO A ELE. `folga` só é
+      // diferente de zero no ARCO, que é a via que corre lado a lado com o anel e
+      // portanto a única que pode acabar em cima da berma dele; o trecho RADIAL
+      // cruza o anel de frente, e para ele a berma abre (`noRadialDaTeia`, na
+      // seção 2b), então somar a berma aqui só o faria parar 6 m antes da guia.
+      const ombro = folga > 0 ? OMBRO_ANEL * (an.larg / SEC_ANEL[SEC_ANEL.length - 1].ate) : 0
+      const meia = an.larg / 2 + ombro
+      if (r > (an.r + meia) * kf + folga) continue
+      if (r >= (an.r - meia) * kf - folga) return true
+    }
+    return false
+  }
+  /** dentro do disco de uma rotatória JÁ DESENHADA (a lista sai da seção 2b) */
+  const naRotatoriaPav = (px: number, pz: number, folga: number): boolean => {
+    const rr = (ROT_RAIO + folga) ** 2
+    for (let k = 0; k < rotCentros.length; k += 2) {
+      const dx = px - rotCentros[k], dz = pz - rotCentros[k + 1]
+      if (dx * dx + dz * dz < rr) return true
+    }
+    return false
+  }
+  // ⚠️ A PARCELA COM CAIXA ENVOLVENTE, senão o teste não paga. `dentroDoPoly` é
+  // O(vértices) e a teia pergunta dezenas de milhares de vezes; a caixa resolve
+  // quase todas as consultas em quatro comparações.
+  const caixaParcela = parcelas.map((q) => {
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity
+    for (const [x, z] of q.poly) {
+      if (x < x0) x0 = x
+      if (x > x1) x1 = x
+      if (z < z0) z0 = z
+      if (z > z1) z1 = z
+    }
+    return { x0, x1, z0, z1, poly: q.poly }
+  })
+  const emParcela = (px: number, pz: number): boolean => {
+    for (const c of caixaParcela) {
+      if (px < c.x0 || px > c.x1 || pz < c.z0 || pz > c.z1) continue
+      if (dentroDoPoly(px, pz, c.poly)) return true
+    }
+    return false
+  }
+  /**
+   * O ponto está em cima de pavimento que NÃO é meu, ou fora do sítio?
+   *
+   * ⚠️ `folga` É A MEIA LARGURA DA VIA E SÓ VALE PARA O ARCO, e a assimetria tem
+   * conta. O teste corre no EIXO do braço, mas quem invade o pavimento alheio é a
+   * BORDA dele, a `meia` metros do eixo, e essa borda só avança na direção
+   * RADIAL. O arco de anel é tangencial, então a meia largura dele é toda radial e
+   * ele precisa da folga inteira: sem ela, o arco 2 da teia (1.694) corre com o
+   * eixo 4 m fora da banda do Anel Interior e a calçada DENTRO dela. O trecho
+   * radial é radial, então a meia largura dele é toda tangencial e não avança nada
+   * na direção do anel: folga zero, e é o que faz ele ENCOSTAR no anel viário em
+   * vez de parar 6 m antes. Mesma lógica para a avenida, que é radial: quem cruza
+   * ela é sempre o arco, sempre perpendicular, folga zero.
+   */
+  const teiaBloqueado = (px: number, pz: number, folga: number): boolean => {
+    if (Math.hypot(px, pz) > rMax) return true
+    if (o.naBaia && o.naBaia(px, pz)) return true
+    if (emCorredorAvenida(px, pz, 0)) return true
+    if (emAnelPav(px, pz, folga)) return true
+    if (naRotatoriaPav(px, pz, folga)) return true
+    return false
+  }
+
+  // ⚠️ 12 m DE AMOSTRA E 6 BISSEÇÕES DÃO 19 cm DE PRECISÃO NA FRONTEIRA, e é
+  // dessa ordem que ela precisa ser: a fronteira é onde a teia encosta no
+  // pavimento da avenida, e um erro de 3 m para dentro é briga no z-buffer,
+  // 3 m para fora é fresta de terra. 12/2^6 = 0,1875 m. O passo de amostra não
+  // pode ser maior que a via mais estreita que ele precisa achar (a avenida de
+  // 34 m), e 12 m tem folga de quase três vezes.
+  const TEIA_AMOSTRA = 12
+  const TEIA_BISSECAO = 6
+  /** os pedaços VIVOS de um eixo, em pares (s0,s1) de metro ao longo dele */
+  const teiaVivos = (cx: number, cz: number, dx: number, dz: number,
+                     comp: number, folga: number): number[] => {
+    const n = Math.max(2, Math.ceil(comp / TEIA_AMOSTRA))
+    const fronteira = (a: number, b: number, vivoEmA: boolean): number => {
+      let lo = a, hi = b
+      for (let k = 0; k < TEIA_BISSECAO; k++) {
+        const m = (lo + hi) / 2
+        if (!teiaBloqueado(cx + dx * m, cz + dz * m, folga) === vivoEmA) lo = m
+        else hi = m
+      }
+      return (lo + hi) / 2
+    }
+    const out: number[] = []
+    let ini = 0, ant = false
+    for (let k = 0; k <= n; k++) {
+      const s = (comp * k) / n
+      const v = !teiaBloqueado(cx + dx * s, cz + dz * s, folga)
+      if (v && !ant) ini = k === 0 ? 0 : fronteira((comp * (k - 1)) / n, s, false)
+      else if (!v && ant) out.push(ini, fronteira((comp * (k - 1)) / n, s, true))
+      ant = v
+    }
+    if (ant) out.push(ini, comp)
+    return out
+  }
+
+  // ── o grafo: nós, arestas, e um braço por ponta de aresta ────────────────
+  interface BracoTeia {
+    dx: number; dz: number; ang: number
+    /** meia largura da seção e meia largura da pista, em metros */
+    meia: number; pm: number
+    /** os quatro cantos deste braço no cruzamento: seção e pista, +perp e -perp */
+    ce: [number, number]; cd: [number, number]
+    ke: [number, number]; kd: [number, number]
+    /** os dois pontos da BOCA da pista na face de encontro */
+    pe: [number, number]; pd: [number, number]
+  }
+  interface NoTeia { x: number; z: number; br: BracoTeia[] }
+  interface ArestaTeia {
+    a: number; b: number; sec: Banda[]
+    /** arco de anel (tangencial) ou trecho radial: muda a folga de `teiaBloqueado` */
+    arco: boolean
+    /** ⚠️ REFERÊNCIA, NÃO ÍNDICE: os braços são REORDENADOS por ângulo no nó, e um
+     *  índice guardado antes da ordenação apontaria para outra aresta depois dela. */
+    bA?: BracoTeia; bB?: BracoTeia
+  }
+
+  const teiaNos: NoTeia[] = []
+  const teiaChave = new Map<number, number>()
+  const teiaNo = (i: number, j: number): number => {
+    const k = i * N_RAD + j
+    let n = teiaChave.get(k)
+    if (n === undefined) {
+      const [x, z] = teiaPt(i, j)
+      n = teiaNos.length
+      teiaNos.push({ x, z, br: [] })
+      teiaChave.set(k, n)
+    }
+    return n
+  }
+  const teiaArestas: ArestaTeia[] = []
+  for (let i = 0; i < ANEIS.length; i++) {
+    const p = teiaPasso(i)
+    for (let j = 0; j < N_RAD; j += p) {
+      teiaArestas.push({ a: teiaNo(i, j), b: teiaNo(i, (j + p) % N_RAD), sec: SEC_RUA, arco: true })
+    }
+  }
+  for (let j = 0; j < N_RAD; j++) {
+    // ⚠️ O RADIAL NASCE EM CIMA DE UM ANEL, e quem sabe disso é `nasceEm`. Um
+    // radial que começa num raio redondo começa no MEIO de uma face de
+    // quarteirão, sem nada para encontrar: é o "radial sem conexão" que o
+    // fundador apontou em 31/08 e a nota longa de `teia.ts` mede em 56 m.
+    const i0 = j % 2 === 0 ? 0 : TEIA_DOBRA
+    const sec = j % 2 === 0 ? SEC_RUA : SEC_TRAVESSA_C
+    for (let i = i0; i + 1 < ANEIS.length; i++) {
+      teiaArestas.push({ a: teiaNo(i, j), b: teiaNo(i + 1, j), sec, arco: false })
+    }
+  }
+
+  // ⚠️ A PARCELA ENGOLE A ARESTA INTEIRA, E ISSO É PROJETO, NÃO CORTE. Uma peça
+  // do programa ocupa um bloco INTEIRO de módulos (`programa.ts`), então quando
+  // ela tem mais de um módulo de fundo ou de testada existem arestas da teia
+  // POR DENTRO dela. Cortar essas arestas na divisa devolveria ruas sem saída
+  // batendo no muro da peça; apagá-las inteiras devolve o que a peça é de
+  // verdade, uma superquadra com rua nos quatro lados. O teste é o ponto médio
+  // da aresta, e o polígono é o mesmo objeto que define a divisa da parcela.
+  const teiaViva: boolean[] = teiaArestas.map((e) => {
+    const A = teiaNos[e.a], B = teiaNos[e.b]
+    return !emParcela((A.x + B.x) / 2, (A.z + B.z) / 2)
+  })
+
+  for (let e = 0; e < teiaArestas.length; e++) {
+    if (!teiaViva[e]) continue
+    const ar = teiaArestas[e]
+    const A = teiaNos[ar.a], B = teiaNos[ar.b]
+    const L = Math.hypot(B.x - A.x, B.z - A.z)
+    if (L < 1) { teiaViva[e] = false; continue }
+    const dx = (B.x - A.x) / L, dz = (B.z - A.z) / L
+    const meia = meiaDe(ar.sec), pm = meiaPistaDe(ar.sec)
+    const zero = (): [number, number] => [0, 0]
+    const bA: BracoTeia = { dx, dz, ang: Math.atan2(dz, dx), meia, pm,
+      ce: zero(), cd: zero(), ke: zero(), kd: zero(), pe: zero(), pd: zero() }
+    const bB: BracoTeia = { dx: -dx, dz: -dz, ang: Math.atan2(-dz, -dx), meia, pm,
+      ce: zero(), cd: zero(), ke: zero(), kd: zero(), pe: zero(), pd: zero() }
+    A.br.push(bA)
+    B.br.push(bB)
+    ar.bA = bA
+    ar.bB = bB
+  }
+
+  /**
+   * O canto entre dois braços vizinhos: a interseção da borda +perp do primeiro
+   * com a borda -perp do segundo, que é a construção clássica de esquina.
+   *
+   * ⚠️ É ELA QUE FAZ O CRUZAMENTO NÃO TER NEM FRESTA NEM SOBRA, e nenhuma
+   * aproximação por quadrado consegue isso aqui. O radial e a corda do anel não
+   * são perpendiculares: no vértice do polígono a corda sai a 90 graus MENOS
+   * metade do passo angular, ou seja 2,14 graus no nível de 84 radiais e 1,07 no
+   * de 168. Um cruzamento quadrado de 12 m alinhado na tangente erraria a ponta
+   * do braço em 6*tan(2,14) = 22 cm, metade fresta e metade sobreposição, e a
+   * metade sobreposta é z-fighting. Com a interseção, a ponta do braço É o lado
+   * do cruzamento, por construção, para qualquer ângulo.
+   */
+  const cantoEntre = (no: NoTeia, b1: BracoTeia, b2: BracoTeia,
+                      w1: number, w2: number): [number, number] => {
+    const o1x = no.x - b1.dz * w1, o1z = no.z + b1.dx * w1
+    const o2x = no.x + b2.dz * w2, o2z = no.z - b2.dx * w2
+    const det = b1.dx * b2.dz - b1.dz * b2.dx
+    if (Math.abs(det) < 1e-6) return [o1x, o1z]
+    let t = ((o2x - o1x) * b2.dz - (o2z - o1z) * b2.dx) / det
+    // ⚠️ A TRAVA NÃO É ESTÉTICA. Dois braços quase alinhados dão determinante
+    // quase zero e a interseção foge para o infinito; sem o teto o cruzamento
+    // vira uma agulha de centenas de metros atravessando a cidade. `t` negativo
+    // é o canto reflexo de um nó com dois braços em L, e ali o certo é não
+    // avançar nada.
+    const lim = 3 * Math.max(w1, w2)
+    if (!(t > 0)) t = 0
+    else if (t > lim) t = lim
+    return [o1x + b1.dx * t, o1z + b1.dz * t]
+  }
+
+  for (const no of teiaNos) {
+    const br = no.br
+    const m = br.length
+    if (m === 0) continue
+    br.sort((p, q) => p.ang - q.ang)
+    if (m === 1) {
+      const b = br[0]
+      b.ce = [no.x - b.dz * b.meia, no.z + b.dx * b.meia]
+      b.cd = [no.x + b.dz * b.meia, no.z - b.dx * b.meia]
+      b.ke = [no.x - b.dz * b.pm, no.z + b.dx * b.pm]
+      b.kd = [no.x + b.dz * b.pm, no.z - b.dx * b.pm]
+    } else {
+      for (let k = 0; k < m; k++) {
+        const b1 = br[k], b2 = br[(k + 1) % m]
+        const c = cantoEntre(no, b1, b2, b1.meia, b2.meia)
+        b1.ce = c
+        b2.cd = c
+        const kk = cantoEntre(no, b1, b2, b1.pm, b2.pm)
+        b1.ke = kk
+        b2.kd = kk
+      }
+    }
+    // a boca da pista na face de encontro: onde a calçada acaba e o asfalto começa
+    for (const b of br) {
+      const td = (b.meia - b.pm) / (2 * b.meia), te = (b.meia + b.pm) / (2 * b.meia)
+      b.pd = [b.cd[0] + (b.ce[0] - b.cd[0]) * td, b.cd[1] + (b.ce[1] - b.cd[1]) * td]
+      b.pe = [b.cd[0] + (b.ce[0] - b.cd[0]) * te, b.cd[1] + (b.ce[1] - b.cd[1]) * te]
+    }
+  }
+
+  // ── o braço: uma seção inteira entre duas faces que podem ser tortas ─────
+  /**
+   * ⚠️ ISTO NÃO É `faixa` COM OUTRO NOME, E A DIFERENÇA É A PONTA. `faixa` corta a
+   * fita em ângulo reto com o eixo, que é o certo para a avenida (uma reta longa)
+   * e o errado para o braço de um cruzamento: a ponta dele TEM de ser o lado do
+   * cruzamento, e o lado do cruzamento não é perpendicular a ninguém. Aqui as
+   * duas faces entram como par de pontos e a seção é interpolada bilinearmente
+   * entre elas, e os lados continuam paralelos ao eixo (é o que garante que a
+   * largura não mude no meio) e só as pontas ficam tortas.
+   */
+  const teiaBraco = (
+    e0x: number, e0z: number, e1x: number, e1z: number,
+    f0x: number, f0z: number, f1x: number, f1z: number,
+    sec: Banda[],
+  ) => {
+    const cax = (e0x + e1x) / 2, caz = (e0z + e1z) / 2
+    const cbx = (f0x + f1x) / 2, cbz = (f0z + f1z) / 2
+    const comp = Math.hypot(cbx - cax, cbz - caz)
+    if (comp < 0.6) return
+    const dx = (cbx - cax) / comp, dz = (cbz - caz) / comp
+    const px = -dz, pz = dx
+    const d0 = sec[0].de, W = sec[sec.length - 1].ate - d0
+    // ⚠️ MESMO PASSO DE 24 m DO RESTO DO ARQUIVO, e ele foi MEDIDO em 02/09: com
+    // trechos de 42 m a sonda de 4.000 pontos achou terreno furando a pista em
+    // 12,7% das amostras, até 1,00 m acima dela. O erro cai com o QUADRADO do vão,
+    // então encurtar a corda é o único conserto.
+    const passos = Math.max(1, Math.ceil(comp / PASSO))
+    const em = (t: number, tau: number, out: number[]) => {
+      const ax = e0x + (e1x - e0x) * tau, az = e0z + (e1z - e0z) * tau
+      const bx = f0x + (f1x - f0x) * tau, bz = f0z + (f1z - f0z) * tau
+      out[0] = ax + (bx - ax) * t
+      out[1] = az + (bz - az) * t
+    }
+    const qa: number[] = [0, 0], qb: number[] = [0, 0], qc: number[] = [0, 0], qd: number[] = [0, 0]
+    metros += comp
+    for (let k = 0; k < passos; k++) {
+      const t0 = k / passos, t1 = (k + 1) / passos
+      const vA = t0 * comp, vB = t1 * comp
+      for (let i = 0; i < sec.length; i++) {
+        const s = sec[i]
+        const tau0 = (s.de - d0) / W, tau1 = (s.ate - d0) / W
+        em(t0, tau0, qa); em(t0, tau1, qb); em(t1, tau1, qc); em(t1, tau0, qd)
+        const ft = fitaDe(s.alvo)
+        const esc = ft.escala || 1
+        // ⚠️ A ORDEM DOS CANTOS É A DE `faixa` (offset primeiro, comprimento
+        // depois) e ela dá a normal para CIMA. Trocar as duas apaga a face
+        // inteira no backface culling, que é a armadilha registrada em
+        // pracas.ts:98 e repetida três vezes neste arquivo.
+        ft.comBanda(s.ate - s.de, 0, 1, 1, 0)
+          .comUV(s.de / esc, vA / esc, s.ate / esc, vA / esc,
+                 s.ate / esc, vB / esc, s.de / esc, vB / esc)
+          .add(COR[s.alvo],
+            qa[0], cotaVia(qa[0], qa[1]) + s.alt, qa[1],
+            qb[0], cotaVia(qb[0], qb[1]) + s.alt, qb[1],
+            qc[0], cotaVia(qc[0], qc[1]) + s.alt, qc[1],
+            qd[0], cotaVia(qd[0], qd[1]) + s.alt, qd[1])
+        if (mascaravel(s.alvo)) {
+          marcarVia(codigoDe(s.alvo), qa[0], qa[1], qb[0], qb[1], qc[0], qc[1], qd[0], qd[1])
+        }
+        // o meio-fio: uma face vertical, no degrau entre esta banda e a próxima
+        const prox = sec[i + 1]
+        if (prox && prox.alt !== s.alt) {
+          const alto = Math.max(s.alt, prox.alt), baixo = Math.min(s.alt, prox.alt)
+          const lado = prox.alt > s.alt ? 1 : -1
+          const h0 = cotaVia(qb[0], qb[1]), h1 = cotaVia(qc[0], qc[1])
+          paredeVert(guia, qb[0], qb[1], qc[0], qc[1],
+                     h0 + baixo, h0 + alto, h1 + baixo, h1 + alto,
+                     -lado * px, -lado * pz)
+        }
+        // ⚠️ O PARAPEITO SÓ EXISTE SOBRE ÁGUA, e é ele que faz a travessia ler
+        // como ponte em vez de aterro. A teia cruza canal de 60 m e cratera de
+        // 300 m; a baía já foi cortada lá atrás por `teiaBloqueado`.
+        if ((i === 0 || i === sec.length - 1) && sobreAgua(qa[0], qa[1])) {
+          const b2x = i === 0 ? qa[0] : qb[0], b2z = i === 0 ? qa[1] : qb[1]
+          const c2x = i === 0 ? qd[0] : qc[0], c2z = i === 0 ? qd[1] : qc[1]
+          const y0 = cotaVia(b2x, b2z) + s.alt, y1 = cotaVia(c2x, c2z) + s.alt
+          guia.addV(COR.meiofio,
+            b2x, y0, b2z, b2x, y0 + 1.1, b2z,
+            c2x, y1 + 1.1, c2z, c2x, y1, c2z)
+          if (i === 0 && k % 2 === 0) {
+            const fundo = o.heightAt(b2x, b2z)
+            const lx = px * 2.2, lz = pz * 2.2
+            guia.addV(COR.meiofio,
+              b2x - lx, fundo, b2z - lz, b2x - lx, y0, b2z - lz,
+              b2x + lx, y0, b2z + lz, b2x + lx, fundo, b2z + lz)
+          }
         }
       }
     }
+  }
+
+  // ── o cruzamento: desenhado UMA vez, no nó ───────────────────────────────
+  /**
+   * ⚠️ O CRUZAMENTO É O QUE NÃO EXISTIA, e é o defeito central do relato de
+   * 03/09. Ele sai em três peças, e a ordem delas é a de uma rua de verdade:
+   *   1. o LEQUE de pista, que é a união dos leitos que chegam (uma cruz, não um
+   *      quadrado: onde as duas calçadas se cruzariam não há asfalto);
+   *   2. a ESQUINA DE CALÇADA, um quadrilátero por vão entre braços vizinhos, que
+   *      é o "a calçada faz o canto";
+   *   3. o MEIO-FIO da esquina, duas faces por vão, seguindo o contorno da
+   *      calçada e olhando para o asfalto.
+   * As três nascem dos MESMOS cantos que pararam os braços, então não existe
+   * nem fresta nem sobreposição entre o cruzamento e o que chega nele.
+   */
+  const teiaCruzamento = (no: NoTeia) => {
+    const br = no.br
+    const m = br.length
+    if (m === 0) return
+    const yP = (x: number, z: number) => cotaVia(x, z) + Y_PISTA
+    const yC = (x: number, z: number) => cotaVia(x, z) + Y_CALCADA
+    // o contorno do leque, em sentido de ângulo crescente
+    const borda: [number, number][] = []
+    for (const b of br) { borda.push(b.pd, b.pe, b.ke) }
+    const ftP = fitaDe('pista')
+    // ⚠️ EM QUADS, NÃO EM TRIÂNGULOS SOLTOS. `Fita.add` sempre emite 2 triângulos;
+    // um leque de triângulo por triângulo pagaria um triângulo degenerado por
+    // fatia, ou seja o DOBRO. Como a diagonal do quad é sempre o raio do meio, o
+    // par (centro, v+2, v+1, v) é exatamente as duas fatias do leque.
+    const nb = borda.length
+    for (let k = 0; k < nb; k += 2) {
+      const v0 = borda[k]
+      const v1 = borda[(k + 1) % nb]
+      // ⚠️ COM `nb` ÍMPAR A ÚLTIMA FATIA FICA SOZINHA. Repetir o vértice fecha o
+      // quad com um triângulo de área zero; ir buscar `borda[0]` desenharia a
+      // PRIMEIRA fatia uma segunda vez, que é pavimento duplicado na mesma cota.
+      const v2 = k + 2 <= nb ? borda[(k + 2) % nb] : v1
+      // ⚠️ ORDEM INVERTIDA (centro, v2, v1, v0) PORQUE `borda` cresce em ângulo, e
+      // ângulo crescente no plano (x,z) é a ordem que dá normal para BAIXO.
+      ftP.comCruzamento().add(COR.pista,
+        no.x, yP(no.x, no.z), no.z,
+        v2[0], yP(v2[0], v2[1]), v2[1],
+        v1[0], yP(v1[0], v1[1]), v1[1],
+        v0[0], yP(v0[0], v0[1]), v0[1])
+      marcarVia(codigoDe('pista'), no.x, no.z, v2[0], v2[1], v1[0], v1[1], v0[0], v0[1])
+    }
+    if (m < 2) return
+    const ftC = fitaDe('calcada')
+    for (let k = 0; k < m; k++) {
+      const b1 = br[k], b2 = br[(k + 1) % m]
+      ftC.comCruzamento().add(COR.calcada,
+        b2.pd[0], yC(b2.pd[0], b2.pd[1]), b2.pd[1],
+        b1.ce[0], yC(b1.ce[0], b1.ce[1]), b1.ce[1],
+        b1.pe[0], yC(b1.pe[0], b1.pe[1]), b1.pe[1],
+        b1.ke[0], yC(b1.ke[0], b1.ke[1]), b1.ke[1])
+      marcarVia(codigoDe('calcada'), b2.pd[0], b2.pd[1], b1.ce[0], b1.ce[1],
+                b1.pe[0], b1.pe[1], b1.ke[0], b1.ke[1])
+      // as duas faces de meio-fio da esquina, cada uma olhando para o asfalto do
+      // braço que ela margeia
+      const face = (ax: number, az: number, bx2: number, bz2: number, nx: number, nz: number) => {
+        const h0 = cotaVia(ax, az), h1 = cotaVia(bx2, bz2)
+        paredeVert(guia, ax, az, bx2, bz2,
+                   h0 + Y_PISTA, h0 + Y_CALCADA, h1 + Y_PISTA, h1 + Y_CALCADA, nx, nz)
+      }
+      face(b1.ke[0], b1.ke[1], b1.pe[0], b1.pe[1], b1.dz, -b1.dx)
+      face(b2.pd[0], b2.pd[1], b1.ke[0], b1.ke[1], -b2.dz, b2.dx)
+    }
+  }
+
+  // ── e o laço: cada aresta em pedaços vivos, cada nó uma vez ──────────────
+  let teiaTrechos = 0
+  for (let e = 0; e < teiaArestas.length; e++) {
+    if (!teiaViva[e]) continue
+    const ar = teiaArestas[e]
+    const bA = ar.bA, bB = ar.bB
+    if (!bA || !bB) continue
+    // as duas faces de encontro, cada uma de -meia (índice 0) até +meia (índice 1)
+    const e0 = bA.cd, e1 = bA.ce
+    const f0 = bB.ce, f1 = bB.cd
+    const cax = (e0[0] + e1[0]) / 2, caz = (e0[1] + e1[1]) / 2
+    const cbx = (f0[0] + f1[0]) / 2, cbz = (f0[1] + f1[1]) / 2
+    const comp = Math.hypot(cbx - cax, cbz - caz)
+    if (comp < 0.6) continue
+    const dx = (cbx - cax) / comp, dz = (cbz - caz) / comp
+    const px = -dz, pz = dx
+    const meia = bA.meia
+    const viv = teiaVivos(cax, caz, dx, dz, comp, ar.arco ? meia : 0)
+    for (let k = 0; k < viv.length; k += 2) {
+      const s0 = viv[k], s1 = viv[k + 1]
+      if (s1 - s0 < 1) continue
+      // ⚠️ SÓ A PONTA QUE SOBROU INTEIRA HERDA A FACE TORTA DO CRUZAMENTO. Onde a
+      // avenida, o anel ou a baía cortaram, a ponta nova é reta e perpendicular:
+      // é ali que a teia ENCOSTA no pavimento do outro, e o outro tem borda reta.
+      const inteiroA = s0 <= 0.001, inteiroB = s1 >= comp - 0.001
+      const g0x = inteiroA ? e0[0] : cax + dx * s0 - px * meia
+      const g0z = inteiroA ? e0[1] : caz + dz * s0 - pz * meia
+      const g1x = inteiroA ? e1[0] : cax + dx * s0 + px * meia
+      const g1z = inteiroA ? e1[1] : caz + dz * s0 + pz * meia
+      const h0x = inteiroB ? f0[0] : cax + dx * s1 - px * meia
+      const h0z = inteiroB ? f0[1] : caz + dz * s1 - pz * meia
+      const h1x = inteiroB ? f1[0] : cax + dx * s1 + px * meia
+      const h1z = inteiroB ? f1[1] : caz + dz * s1 + pz * meia
+      teiaBraco(g0x, g0z, g1x, g1z, h0x, h0z, h1x, h1z, ar.sec)
+      teiaTrechos++
+    }
+  }
+  let teiaCruz = 0
+  for (const no of teiaNos) {
+    if (no.br.length === 0) continue
+    // ⚠️ O TESTE É NA PEGADA, NÃO NO CENTRO. O cruzamento tem 12 m de lado; medir
+    // só o nó deixaria um deles entrar 6 m por baixo do Anel Interior, que é
+    // exatamente a sobreposição que esta rodada veio consertar. `ce` são os cantos
+    // externos que a construção de esquina acabou de calcular, ou seja a pegada
+    // de verdade e não um raio inventado.
+    if (teiaBloqueado(no.x, no.z, 0) || emParcela(no.x, no.z)) continue
+    let livre = true
+    for (const b of no.br) if (teiaBloqueado(b.ce[0], b.ce[1], 0)) { livre = false; break }
+    if (!livre) continue
+    teiaCruzamento(no)
+    teiaCruz++
   }
 
   // ── 3. UMA malha, UM material, cor por vértice ────────────────────────────
@@ -2157,6 +2700,55 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   const mascaraMs = performance.now() - tMasc
   quadsVia.length = 0
 
+  // ── a cobertura, medida na própria máscara ──────────────────────────────
+  //
+  // ⚠️ ELA É MEDIDA E NÃO PROMETIDA, e o motivo é que a promessa já falhou uma
+  // vez. Em 02/09 o portão de conferência achou dois quarteirões sem pavimento
+  // por sonda manual, e a conta offline mostrou que eram 660 de 1.862 (35,4%).
+  // Agora quem responde é a própria máscara que a rua acabou de pintar, no boot,
+  // toda vez: se alguém tirar uma classe de via do desenho, o número sobe no
+  // console no mesmo instante em vez de esperar outra chapa.
+  //
+  // ⚠️ O ANEL QUADRADO ANDA DE DOIS EM DOIS E ISSO É SEGURO POR CONSTRUÇÃO. A via
+  // mais estreita desta cidade tem 9 m de seção, ou seja pelo menos duas células
+  // de 4 m no sentido curto: ela não cabe entre dois anéis vizinhos sem tocar um
+  // deles. Pular de dois corta o custo pela metade sem poder escapar de nada.
+  //
+  // ⚠️ E A PARADA É PELA DISTÂNCIA EUCLIDIANA, NÃO PELO ANEL. Achar pavimento no
+  // anel de Chebyshev `r` significa distância entre (r-1)·4 e r·4·raiz(2): parar
+  // no primeiro achado devolveria "coberto" para pontos a 283 m. O laço continua
+  // enquanto o anel ainda puder bater o melhor já achado, então o mínimo sai
+  // certo com erro de uma célula.
+  const RAIO_COBERTURA = 200
+  let quarteiroesSemVia = 0
+  {
+    const nmax = Math.ceil(RAIO_COBERTURA / MASC_CEL) + 2
+    const conta = (px: number, pz: number): number => {
+      const gx = Math.floor(px / MASC_CEL) + MASC_MEIO
+      const gz = Math.floor(pz / MASC_CEL) + MASC_MEIO
+      let melhor = Infinity
+      const olha = (i: number, j: number) => {
+        if (i < 0 || j < 0 || i >= MASC_N || j >= MASC_N) return
+        if (lerCel(i, j) === 0) return
+        const dx = (i - gx) * MASC_CEL, dz = (j - gz) * MASC_CEL
+        const d = Math.hypot(dx, dz)
+        if (d < melhor) melhor = d
+      }
+      for (let r = 0; r <= nmax; r += 2) {
+        if ((r - 1) * MASC_CEL >= Math.min(melhor, RAIO_COBERTURA)) break
+        if (r === 0) { olha(gx, gz); continue }
+        for (let d = -r; d <= r; d++) {
+          olha(gx + d, gz - r)
+          olha(gx + d, gz + r)
+          olha(gx - r, gz + d)
+          olha(gx + r, gz + d)
+        }
+      }
+      return melhor
+    }
+    for (const q of malha.quarteiroes) if (conta(q.x, q.z) > RAIO_COBERTURA) quarteiroesSemVia++
+  }
+
   const naVia = (x: number, z: number, folga = 0): boolean => {
     const f = folga > 0 ? folga : 0
     let i0 = Math.floor((x - f) / MASC_CEL) + MASC_MEIO
@@ -2203,6 +2795,8 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     pracas: 0,   // ⚠️ a praça de quarto acabou; o verde é `parques`, em pracas.ts
     bulevares: malha.bulevares.length,
     travessias,
+    cruzamentos: teiaCruz,
+    quarteiroesSemVia,
     eixos,
     faixas: faixasPed,
     triangulos,

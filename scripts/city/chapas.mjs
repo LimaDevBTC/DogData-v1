@@ -219,11 +219,12 @@ await pag.waitForFunction(() => !!window.__plazaStats, null, { timeout: 180000 }
 // sem motivo aparente. `plaza-scene.tsx` agora publica `window.__plazaPronto`
 // no MESMO efeito que abre a cena, entao nao ha como os dois divergirem.
 // A frase fica como reserva, para o roteiro nao quebrar contra uma versao velha.
-await pag.waitForFunction(
-  () => window.__plazaPronto === true
-    || !document.body.innerText.includes('The whole plaza loads before it opens'),
-  null, { timeout: prazoCarga },
-)
+// ⚠️ SEM RESERVA, E ISSO E DELIBERADO. Eu tinha deixado a condicao antiga ligada
+// por `||` "para nao quebrar contra versao velha", e foi ELA que disparou na
+// execucao seguinte: a chapa saiu na cortina de 7 por cento outra vez. Uma
+// condicao de reserva mais fraca ligada por OU nao e rede de seguranca, e o
+// caminho de menor resistencia para o bug voltar. Ou o sinal existe, ou falha.
+await pag.waitForFunction(() => window.__plazaPronto === true, null, { timeout: prazoCarga })
 // e uma confirmacao curta: o sinal pode nascer um quadro antes do primeiro
 // desenho da cena aberta, e a chapa nao pode pegar esse quadro
 await pag.waitForTimeout(1500)
