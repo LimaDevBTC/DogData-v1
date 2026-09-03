@@ -74,6 +74,21 @@ const VISTAS = {
   // ou seja (-8.325, 291), a 1.065,9 m. Estes dois enquadramentos são contrato:
   // é contra eles que a montanha de amanhã se compara com a de hoje.
   inverno:   [-3800, 1250, 400, -8325, 700, 291, 42],
+  // ⚠️ A CASCA, acrescentada em 03/09 quando a flecha foi de 2.566 para 5.500 e a
+  // borda deixou de ser constante. Os três são contrato: `abobada` julga se ela
+  // lê como cúpula ou como lente de dentro, `cascaoeste` é o arco onde a borda
+  // sobe para 353 m e é o único lugar onde a forma nova aparece, e `abobadafora`
+  // é a silhueta de fora. Coordenadas copiadas de `viewFor()`, e a do oeste é
+  // espelhada da `abobadafora` para pegar o lado que mudou.
+  abobada:   [0, 900, 3000, 0, 620, 0, 45],
+  // ⚠️ ENQUADRAMENTOS NOVOS, 03/09, e o motivo é o que o cabeçalho do terrain.ts
+  // avisa: MEXER NA ALTURA MOVE O MUNDO. A coroa foi de 2.619 para 5.513 m e a
+  // `abobada` acima, calibrada para a casca velha, passou a fotografar céu preto:
+  // a colmeia subiu para fora do cone da câmera. Estes dois OLHAM PARA CIMA.
+  cupula:    [0, 240, 2400, 0, 3600, 0, 60],
+  cupulaoeste:[-5200, 300, 1200, -8600, 2200, 500, 60],
+  abobadafora:[4600, 1250, 4600, 0, 380, 0, 45],
+  cascaoeste:[-6400, 1700, 4200, -8000, 500, 300, 45],
   invernope: [-7300, 240, 700, -8325, 600, 291, 50],
 }
 
@@ -197,10 +212,21 @@ await pag.waitForFunction(() => !!window.__plazaStats, null, { timeout: 180000 }
 // rendeu uma chapa da cortina de carga em 96% na primeira execução, em 02/09. O
 // sinal honesto é o portão `boot.ready` do plaza-scene: enquanto ele é falso, a
 // cena desenha um overlay preto por cima de tudo. Esperamos o overlay SAIR do DOM.
+// ⚠️ O SINAL AGORA E EXPLICITO, e a mudanca veio de tres chapas pretas. A espera
+// antiga era pela AUSENCIA de uma frase no DOM, e isso e corrida: em 02 e 03/09
+// ela passou com a cortina de carga ainda de pe e o roteiro fotografou preto,
+// uma vez com `?plate=1` (que esconde a propria frase que ele procurava) e duas
+// sem motivo aparente. `plaza-scene.tsx` agora publica `window.__plazaPronto`
+// no MESMO efeito que abre a cena, entao nao ha como os dois divergirem.
+// A frase fica como reserva, para o roteiro nao quebrar contra uma versao velha.
 await pag.waitForFunction(
-  () => !document.body.innerText.includes('The whole plaza loads before it opens'),
+  () => window.__plazaPronto === true
+    || !document.body.innerText.includes('The whole plaza loads before it opens'),
   null, { timeout: prazoCarga },
 )
+// e uma confirmacao curta: o sinal pode nascer um quadro antes do primeiro
+// desenho da cena aberta, e a chapa nao pode pegar esse quadro
+await pag.waitForTimeout(1500)
 // ⚠️ E DEPOIS DO PORTÃO A CENA AINDA CRESCE. Os módulos pesados continuam
 // chegando e a contagem de triângulos sobe por mais uns segundos.
 await pag.waitForTimeout(25000)

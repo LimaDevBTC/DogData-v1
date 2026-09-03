@@ -42,7 +42,7 @@
 import * as THREE from 'three'
 import { LIMIAR_PRACA } from './pracas'
 import type { DistanceCuller } from './perf'
-import { AVENIDAS, avenidasGeom } from './teia'
+import { ANEIS, AVENIDAS, HR, N_RAD, anguloDe, avenidasGeom, nasceEm } from './teia'
 import { look2 } from './look'
 import { superficie, vestir, type Superficie } from './materiais'
 
@@ -874,9 +874,13 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   //     costura a grade de um setor não casa com a do vizinho e a via de contorno
   //     entraria por baixo do bulevar. Duas faixas coplanares brigam no z-buffer
   //     e a chapa mostra a briga.
-  const noBulevar = (px: number, pz: number) => {
-    const r = Math.hypot(px, pz)
-    if (r < 40) return true
+  // ⚠️ `folga` VIROU PARÂMETRO EM 03/09, e o motivo é a teia da seção 2c. Quem
+  // desenha CONTRA a avenida (o contorno antigo) queria margem, para não brigar
+  // no z-buffer com ela; quem ENCOSTA nela (a rua da teia, que tem de terminar no
+  // pavimento da avenida e não 3 m antes dele) quer margem ZERO, senão sobra uma
+  // fresta de regolito de 3 m em toda esquina de avenida, que é a "rua terminando
+  // no ar" do relato. Uma função, duas folgas.
+  const emCorredorAvenida = (px: number, pz: number, folga: number) => {
     // ⚠️ OS RADIAIS NÃO SÃO MAIS 12 COSTURAS IGUAIS. São as avenidas publicadas
     // em `bulevares`: quatro do eixo das pontes (rumos 0/90/180/270, 34 m) e seis
     // das costuras de distrito, que têm abertura desigual. Calcular por
@@ -884,11 +888,16 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     for (const b of malha.bulevares) {
       const ang = (b.rumo * Math.PI) / 180
       const dirX = Math.sin(ang), dirZ = -Math.cos(ang)
-      if (px * dirX + pz * dirZ <= 0) continue
-      const meia = (b.largura ?? K.bulevar) / 2 + 3
+      const ao = px * dirX + pz * dirZ
+      if (ao <= 0) continue
+      const meia = (b.largura ?? K.bulevar) / 2 + folga
       if (Math.abs(px * Math.cos(ang) + pz * Math.sin(ang)) < meia) return true
     }
     return false
+  }
+  const noBulevar = (px: number, pz: number) => {
+    if (Math.hypot(px, pz) < 40) return true
+    return emCorredorAvenida(px, pz, 3)
   }
   const rMax = (meta.raioBorda ?? 4400) + 10
   // Vão máximo de uma face de via, em metros: ver a nota em faixa(). Depois que
@@ -1621,6 +1630,9 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   // decide por pixel: aparece listra piscando exatamente no cruzamento, que é
   // onde o olho vai.
   let nAneis = 0, nRot = 0
+  /** os centros das rotatórias desenhadas, em pares (x,z): a teia da seção 2c
+   *  precisa deles para não passar por baixo do disco */
+  const rotCentros: number[] = []
   for (const an of meta.aneis ?? []) {
     const esc = an.larg / SEC_ANEL[SEC_ANEL.length - 1].ate
     const secao = esc === 1 ? SEC_ANEL : SEC_ANEL.map((b) => ({ ...b, de: b.de * esc, ate: b.ate * esc }))
@@ -1784,6 +1796,11 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
       // terminam. Cortar por rMax deixaria a avenida sem nenhuma entrada.
       if (emPeca(cx, cz) || Math.hypot(cx, cz) > 4520) continue
       nRot++
+      // ⚠️ PUBLICADA PARA A TEIA (seção 2c). O disco tem 80 m de diâmetro e nem
+      // `emAvenidaPav` nem `emAnelPav` sabem dele: sem esta lista a rua da teia
+      // entra por baixo da rotatória e as duas brigam no z-buffer, que é a
+      // "sobreposição" que o fundador apontou em 03/09.
+      rotCentros.push(cx, cz)
       const N = 48
       for (let k = 0; k < N; k++) {
         const a0 = (k / N) * Math.PI * 2, a1 = ((k + 1) / N) * Math.PI * 2

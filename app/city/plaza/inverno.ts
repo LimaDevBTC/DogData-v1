@@ -182,11 +182,78 @@
 // parede vertical, porque a própria gravidade não empresta o "murro" que uma
 // preta terrestre empresta de graça.
 //
+// ═══════════════════════════════════════════════════════════════════════════
+// SEGUNDA CORREÇÃO DO FUNDADOR, MESMO DIA (03/09): "as montanha ta bem feia,
+// parece uma repetição de blocos, 4 na sequência, um maior que outro". O
+// diagnóstico do coordenador foi exato: eu esculpia por PERFIL RADIAL com
+// cosseno de um lado e potência do outro, e somava alguns "ombros" (cumes
+// COLOCADOS por fórmula, com espaçamento angular parecido). Cosseno é
+// periódico por definição; somar N cumes parecidos e igualmente espaçados
+// produz exatamente "blocos em fileira". A conta estava certa, a FAMÍLIA de
+// função estava errada: montanha de verdade é o que sobra depois da erosão,
+// não uma soma de bumps colocados.
+//
+// ⚠️ E A PRIMEIRA INSTRUÇÃO PARA CONSERTAR ISSO (ruído multifractal com
+// crista + deformação de domínio) TAMBÉM FOI CORRIGIDA, na sequência, pelo
+// mesmo motivo que já tinha corrigido a sequoia horas antes: esta casa tem
+// API do Sketchfab conectada (`blender/sketchfab_fetch.py`), e um scan
+// fotogramétrico real de montanha JÁ CARREGA erosão de verdade (vale
+// ramificado, crista irregular, sela de altura variável) que ruído
+// procedural não sabe imitar de graça. A ordem certa, dita pelo fundador:
+// BUSQUE PRIMEIRO, meça, e só use ruído no que o acervo não resolver.
+//
+// ⚠️ O QUE FOI BUSCADO E MEDIDO, não suposto:
+//   `weisse-wand-mountain.glb`   scan CC-BY de Shahriar Shahrabi, pico
+//                                austríaco Weisse Wand (2.517 m de verdade),
+//                                444.814 faces cru, decimado pra 15.000 aqui
+//   `zwoelfernock-mountain.glb`  mesmo autor, pico Zwölfernock (2.516 m),
+//                                534.842 faces cru, decimado pra 15.000
+// Os DOIS scans crus (pré-conversão, `blender/assets-sketchfab/*/scene.gltf`
+// + `.bin`, glTF simples sem DRACO) foram assados OFFLINE (script Python,
+// não neste arquivo) numa grade de altura 96×96, MESMA ideia do heightmap
+// SLDEM2015 que `terrain.ts` já usa pro sítio inteiro: rasteriza a nuvem de
+// vértices num grid, guarda só a altura normalizada. O resultado mora em
+// `./dados/relevo-weisse-wand.json` e `./dados/relevo-zwoelfernock.json`
+// (import estático, `resolveJsonModule` já ligado no tsconfig: estes dados
+// entram no bundle, sem fetch, sem quebrar a pureza síncrona de
+// `alturaInvernoAt`).
+//
+// ⚠️ AS DUAS FEIÇÕES ENTRAM TRÊS VEZES (`FEICOES` abaixo), NÃO DUAS: o
+// Zwölfernock uma vez como pico principal, o Weisse Wand duas vezes, em
+// posição/giro/escala DIFERENTES cada uma. Reusar a mesma fonte com
+// transform diferente é a técnica normal de "stamps" de terreno de
+// verdade (é a mesma lógica das 9 sequoias diferentes resolvendo a floresta
+// hoje): o que gera repetição não é reusar dado, é reusar POSIÇÃO e ESCALA
+// junto. Cada uma das 3 feições tem centro, giro e raio próprios, medidos
+// contra o layout do maciço, não copiados.
+//
+// ⚠️ RUÍDO ENTRA SÓ COMO TEMPERO, DEPOIS: `temperoFino` é ridged multifractal
+// de verdade (fórmula do Musgrave/libnoise: `signal = (1 - |ruído|)²`, peso
+// do próximo octave realimentado pelo `signal` do anterior, não persistência
+// fixa) mais deformação de domínio (a coordenada de amostragem é deslocada
+// por outro ruído de célula grande ANTES de qualquer coisa, pra quebrar o
+// alinhamento radial que o perfil ainda tem). A amplitude dele é pequena
+// contra a das feições reais: ele preenche a escala fina que 96×96 não
+// resolve, não desenha a montanha.
+//
+// ⚠️ A PISTA CONTINUA CAVADA, E A CAVA AGORA TAMBÉM SUPRIME O TEMPERO por
+// perto do eixo, não só soma profundidade fixa por cima: relevo com ruído de
+// verdade embaixo de uma cava de profundidade constante ainda mostraria
+// solavanco, porque subtrair uma constante não achata bump. `pistaPeso`
+// (0..1) desliga `temperoFino` perto da fita ANTES do corte entrar, então a
+// pista fica lisa como uma pista preparada de verdade, sem virar
+// montanha-russa.
+// ═══════════════════════════════════════════════════════════════════════════
+
 // Three.js puro (regra da casa: nada de react-three-fiber).
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { DistanceCuller, PerfProfile } from './perf'
+// dados assados offline (script Python, fora deste arquivo) dos dois scans
+// fotogramétricos reais: ver a nota "SEGUNDA CORREÇÃO" acima
+import relevoWeisseWand from './dados/relevo-weisse-wand.json'
+import relevoZwoelfernock from './dados/relevo-zwoelfernock.json'
 
 // ── A BANDEIRA ───────────────────────────────────────────────────────────────
 export const INVERNO_ATIVO =
@@ -212,32 +279,11 @@ const AZ1 = 288
 const R_PE = 7150
 const R_CRISTA_PICO = 8280
 const R_QUEDA = 8650
-/** expoente da face de rocha, não cosmético: Math.pow(suave01(t), K)
- *  com K > 1 mantém a curva perto de 1 quase até o topo e desaba no último
- *  trecho, o oposto do suave01 puro (que já teria caído pela metade a meio
- *  caminho). É isso que dá parede vertical junto da crista e esparrama para
- *  scree (pedregulho solto) só perto da base da face, que é como um paredão
- *  de circo glacial de verdade se comporta. */
+/** expoente da face de rocha: mantém a curva perto de 1 quase até o topo e
+ *  desaba no último trecho, o oposto do suave01 puro. Continua valendo:
+ *  isto é o envelope de EXISTÊNCIA (onde o maciço pode aparecer), não a
+ *  forma fina dele, que agora vem das feições reais abaixo. */
 const EXP_FACE_ROCHA = 2.4
-
-/** metros somados no PLANALTO da crista, no centro de um ombro (fração 1,0).
- *  Conta: terreno natural medido no arco da crista ≈ 260-320 m; alvo de cume
- *  ≈ 1.100 m (topo do desnível de descida masculina, Tarefa 2); 1.100 − 290
- *  (média medida) ≈ 810, arredondado para 820 de margem. Verificado no
- *  script de medição: o cume novo sai em 1.080-1.130 m, dentro do alvo. */
-const ADD_CRISTA = 820
-
-/** os ombros da crista: pico principal no rumo do pico medido (com folga de
- *  4° para o lado do planalto, ver nota no cabeçalho), mais dois ombros
- *  menores. `fracao` é a altura relativa a `ADD_CRISTA` no CENTRO do ombro. */
-interface Ombro { azCentro: number; azMeia: number; fracao: number }
-const OMBROS: Ombro[] = [
-  { azCentro: 255, azMeia: 9, fracao: 0.74 },   // ombro sul: flanco mais manso
-  { azCentro: 268, azMeia: 10, fracao: 1.00 },  // pico principal
-  { azCentro: 282, azMeia: 8, fracao: 0.82 },   // ombro norte
-]
-/** piso de altura da crista FORA dos ombros (o colo entre eles, não um vale) */
-const COLO_FRACAO = 0.42
 
 function suave01(t: number): number {
   const u = t < 0 ? 0 : t > 1 ? 1 : t
@@ -591,12 +637,14 @@ export interface InvernoOpts {
    *  desenha coisa que ENCOSTA no chão usa a superfície que a câmera vê, não
    *  a função contínua. */
   heightAt: (x: number, z: number) => number
-  /** ⚠️ O LOADER DA CENA, NÃO UM CRU. `tree-pine.glb` e `sequoia-mass.glb`
-   *  vêm comprimidos em DRACO (medido: os dois falham em `GLTFLoader` sem
-   *  `DRACOLoader`, mesma armadilha documentada em `montanha.ts`). Sem
-   *  `gltf`, a floresta simplesmente não sobe (falha silenciosa, registrada
-   *  no console) e o resto do módulo (pistas, halfpipe, teleféricos) sobe
-   *  normalmente: a floresta é aditiva, não trava o parque. */
+  /** ⚠️ O LOADER DA CENA, NÃO UM CRU. As dez malhas de árvore em `ARVORES`
+   *  (`tree-pine.glb` mais as nove sequoias, `sq-*.glb`) vêm comprimidas em
+   *  DRACO (mesma armadilha documentada em `montanha.ts`: falham em
+   *  `GLTFLoader` sem `DRACOLoader`). Sem `gltf`, a floresta não sobe
+   *  (avisado no console, não silencioso) e o resto do módulo (pistas,
+   *  halfpipe, teleféricos) sobe normalmente: a floresta é aditiva, não
+   *  trava o parque. Falha de UM `.glb` também não trava nada: ver o
+   *  cabeçalho da seção "A FLORESTA". */
   gltf?: GLTFLoader
   sombra?: boolean
   profile?: PerfProfile
@@ -775,30 +823,56 @@ function construirTeleferico(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// A FLORESTA (03/09). A chapa apontou "árvores esparsas no pé e nada na
-// montanha": a faixa de mata que `alpino.ts` adaptou (40-140 m) e as
-// coníferas de 34 triângulos dele são de propósito UM FUNDO visto de 6 a
-// 9 km, não uma floresta que aguenta câmera perto do maciço. Uma frente
-// irmã publicou dois modelos reais especificamente para isto:
-//   `tree-pine.glb`      10,97 m de altura, 3.199 triângulos, DRACO
-//   `sequoia-mass.glb`   84,69 m de altura (é um BOSQUE, não uma árvore só:
-//                        a base mede 28,6 × 27,6 m), 1.932-2.648 triângulos
-// (dimensões medidas direto no binário glTF, accessor min/max, sem abrir
-// navegador; a discrepância de triângulos entre o accessor pré-decodificação
-// DRACO e a contagem pós-decodificação é esperada e não muda o uso aqui).
+// A FLORESTA (03/09, redesenhada no mesmo dia). A chapa apontou "árvores
+// esparsas no pé e nada na montanha": a faixa de mata que `alpino.ts`
+// adaptou e as coníferas de 34 triângulos dele são de propósito UM FUNDO
+// visto de 6 a 9 km, não uma floresta que aguenta câmera perto do maciço.
 //
-// ⚠️ A SEQUOIA-MASSA NÃO SE REPETE COMO ÁRVORE. 84,69 m de altura é
-// fisicamente correto para sequoias gigantes de verdade (General Sherman
-// passa de 80 m, é a referência que `blender/build_sequoia.py` usa, ver
-// `sf-assets.ts`), mas plantar isso centenas de vezes densamente pareceria
-// errado: é um BOSQUE inteiro por instância. Por isso ela entra RARA (poucas
-// dezenas, só na banda mais baixa, perto da vila-base), como um marco visual,
-// e quem faz o volume de floresta de verdade é o pinheiro.
+// ⚠️ COLISÃO ENTRE FRENTES, 03/09: este módulo usava `sequoia-mass.glb`
+// (84,69 m, um BOSQUE inteiro por instância, ver a nota que existia aqui). A
+// frente de espécies aposentou esse arquivo (e `sequoia.glb`) no mesmo dia:
+// achou no acervo Sketchfab sequoias de verdade, com casca texturizada, mais
+// baratas (2.536-3.339 tri contra 10.336 do gerado por código, que lia como
+// brócolis facetado). O `.catch(() => null)` que eu já tinha evitou a
+// quebra, mas produziu um BURACO SILENCIOSO: 404 no console, floresta sem
+// sequoia, ninguém sabendo, o mesmo defeito que `loadSf` teve em outro
+// lugar da cena no mesmo dia. Duas correções aqui: (1) a fonte trocou para
+// as novas; (2) falha de carregamento agora GRITA (`console.error`) por
+// arquivo, nunca mais silenciosa.
+//
+// ⚠️ AS NOVAS SÃO ÁRVORES, NÃO BOSQUES, e isso muda a lógica inteira de
+// densidade. `sequoia-mass.glb` entrava RARA (3,5% dos candidatos, só abaixo
+// de 70 m) porque cada instância já valia uma clareira cheia. As novas
+// medem 16 a 40 m (`sq-small-1`, `sq-med-1..4`, `sq-big-1..3`, medido no
+// binário glTF, accessor min/max), na mesma ordem de grandeza do pinheiro
+// (11 m), só mais altas: uma sequoia de verdade emerge acima do dossel de
+// coníferas, não domina a clareira sozinha. Por isso a fração sobe de 3,5%
+// para a maior parte da mistura (ver `ARVORES` abaixo) e passa a valer em
+// toda a faixa de elevação, não só embaixo.
+//
+// ⚠️ `sq-rh.glb` MEDE 80 M, quase a escala do bosque antigo, só que é UMA
+// árvore só (General Sherman de verdade passa de 80 m). É o "exemplar
+// isolado de destaque perto da câmera" que a origem do modelo já descreve:
+// entra no MESMO sorteio de todo mundo, mas com peso baixíssimo, então dá
+// só um punhado de exemplares no maciço inteiro: raro e dramático, não repetido.
+//
+// ⚠️ OITO SILHUETAS DISTINTAS (nove com `sq-rh`) MATAM DE GRAÇA A FLORESTA
+// DE CLONES: o defeito conhecido desta cidade (`props.ts` nunca chamou
+// `setColorAt`, toda cópia de uma espécie saía bit a bit igual). Aqui cada
+// candidato sorteia a PEÇA pelo MESMO hash determinístico que já decide
+// posição, então a escolha é estável (recarregar a página planta a mesma
+// árvore no mesmo lugar) sem custar um for-loop de cor por instância.
+//
+// ⚠️ SE UMA ESPÉCIE FALHA AO CARREGAR, OS CANDIDATOS DELA NÃO SOMEM: a
+// tabela de peso cumulativo é reconstruída só com quem carregou, e o hash
+// de espécie é resolvido contra ESSA tabela: outra espécie absorve a fatia,
+// sem buraco silencioso na densidade. Só some a SILHUETA daquela espécie,
+// nunca a árvore inteira.
 //
 // ⚠️ DOIS NÍVEIS DE DETALHE, MESMO CONTRATO DE `alpino.ts`: perto (r_cam <
 // `FLORESTA_R_CHEIA`) usa a malha real carregada; longe usa um cone de 4
 // lados (8 triângulos), a MESMA forma que `alpino.ts` já usa pro fundo dele,
-// para as duas florestas lerem como uma silhueta só de longe. `update(cam)`
+// para todas as espécies lerem como uma silhueta só de longe. `update(cam)`
 // troca o balde a cada chamada, como alpino faz.
 //
 // ⚠️ CUSTO DECLARADO NA CONSTRUÇÃO, NÃO SUPOSTO: contagem real no relatório
@@ -809,24 +883,52 @@ const FLORESTA_BAIXO = 15
 const FLORESTA_ALTO = 190
 const FLORESTA_PLUMA = 22
 const FLORESTA_PASSO = 30
-// ⚠️ MEDIDO OFFLINE ANTES DE ESCOLHER: a varredura gera 1.303 candidatos no
-// maciço inteiro (~1.300 pinheiro, ~3 sequoia-massa). Com `tree-pine.glb` a
-// 3.199 triângulos por instância, um teto de 900 já custa 2,88 M triângulos
-// sozinho, quase dobrando o total da cidade (4,57 M antes deste módulo). 450
-// custa a metade (~1,44 M) e ainda é mais que suficiente pra encher o flanco
-// visto das duas chapas de contrato (`inverno`, a 4,5 km, e `invernope`, a
-// 1,2 km): ajuste este número pra cima se a chapa pedir mais densidade de
-// perto, é o único knob que precisa mexer.
+/** ⚠️ MEDIDO OFFLINE DEPOIS DA TROCA DE ESPÉCIE, NÃO SUPOSTO: a varredura
+ *  continua gerando 1.303 candidatos (a posição não mudou, só a espécie).
+ *  Com os pesos de `ARVORES` e as dez malhas carregando, o teto de 450 aloca
+ *  231 pinheiro, 76 sq-small, 108 sq-med (as 4 juntas), 33 sq-big (as 3
+ *  juntas) e 1 sq-rh: 1.328.152 triângulos de perto mais 10.424 no pior caso
+ *  do balde de longe, 1.338.576 no total declarado. Ajuste este número pra
+ *  cima se a chapa pedir mais densidade de perto. */
 const FLORESTA_TETO_PERTO = 450
 const FLORESTA_R_CHEIA = 1300
 /** acima disto (inclinação em graus) não planta: mesma regra de `alpino.ts` */
 const FLORESTA_INC_MAX = 42
 /** folga além da meia-largura da pista mais próxima antes de plantar */
 const FLORESTA_FOLGA_PISTA = 10
-/** fração de sequoia-massa entre os candidatos da banda mais baixa (< 70 m) */
-const SEQUOIA_FRACAO = 0.035
 
-interface CandidatoFloresta { x: number; z: number; y: number; esc: number; giro: number; especie: 'pinheiro' | 'sequoia' }
+/**
+ * ⚠️ AS ESPÉCIES, COM PESO RELATIVO NO SORTEIO. `peso` não precisa somar 1:
+ * o código normaliza pela soma de quem CARREGOU (ver `construirFloresta`).
+ * Pesos escolhidos por bom senso de estrutura de floresta real (mudas
+ * pequenas são a maioria, exemplares grandes são raros, o gigante isolado é
+ * rariíssimo), não medidos, dito por honestidade: é a única parte deste
+ * módulo que não vem de conta.
+ */
+interface EspecieArvore { id: string; url: string; peso: number; escMin: number; escMax: number }
+const ARVORES: EspecieArvore[] = [
+  { id: 'pinheiro', url: '/city/sf/tree-pine.glb', peso: 0.50, escMin: 0.80, escMax: 1.35 },
+  { id: 'sq-small-1', url: '/city/sf/sq-small-1.glb', peso: 0.16, escMin: 0.85, escMax: 1.15 },
+  { id: 'sq-med-1', url: '/city/sf/sq-med-1.glb', peso: 0.065, escMin: 0.85, escMax: 1.10 },
+  { id: 'sq-med-2', url: '/city/sf/sq-med-2.glb', peso: 0.065, escMin: 0.85, escMax: 1.10 },
+  { id: 'sq-med-3', url: '/city/sf/sq-med-3.glb', peso: 0.06, escMin: 0.85, escMax: 1.10 },
+  { id: 'sq-med-4', url: '/city/sf/sq-med-4.glb', peso: 0.06, escMin: 0.85, escMax: 1.10 },
+  { id: 'sq-big-1', url: '/city/sf/sq-big-1.glb', peso: 0.03, escMin: 0.90, escMax: 1.08 },
+  { id: 'sq-big-2', url: '/city/sf/sq-big-2.glb', peso: 0.025, escMin: 0.90, escMax: 1.08 },
+  { id: 'sq-big-3', url: '/city/sf/sq-big-3.glb', peso: 0.02, escMin: 0.90, escMax: 1.08 },
+  // ⚠️ RARO DE PROPÓSITO: 80 m é quase a escala do bosque que este módulo
+  // usava antes. Peso de 0,3% num sorteio de ~1.300 candidatos dá uns 3 a 5
+  // exemplares no maciço inteiro: marco visual, não repetição.
+  { id: 'sq-rh', url: '/city/sf/sq-rh.glb', peso: 0.003, escMin: 0.95, escMax: 1.05 },
+]
+
+interface CandidatoFloresta {
+  x: number; z: number; y: number; giro: number
+  /** hash cru 0..1 pra resolver espécie DEPOIS do carregamento (ver cabeçalho) */
+  tEspecie: number
+  /** hash cru 0..1 pra resolver a escala dentro da faixa da espécie sorteada */
+  tEsc: number
+}
 
 /** distância ao segmento de pista mais próximo, reusando `PISTAS_MUNDO`
  *  (a mesma tabela que `corteDePistaAt` já monta) para não plantar árvore em
@@ -877,14 +979,11 @@ export function gerarCandidatosFloresta(heightAt: (x: number, z: number) => numb
       const inc = (Math.atan(Math.hypot(dhx, dhz)) * 180) / Math.PI
       if (inc > FLORESTA_INC_MAX) continue
       if (distanciaAPistaMaisProxima(x, z) < FLORESTA_FOLGA_PISTA) continue
-      const tEsp = hash2(ir, Math.round(azz * 10), 504)
-      const especie: CandidatoFloresta['especie'] = (y < 70 && tEsp < SEQUOIA_FRACAO) ? 'sequoia' : 'pinheiro'
-      const tEsc = hash2(ir, Math.round(azz * 10), 505)
       candidatos.push({
         x, z, y,
-        esc: especie === 'sequoia' ? 0.75 + tEsc * 0.5 : 0.8 + tEsc * 0.55,
         giro: hash2(ir, Math.round(azz * 10), 506) * Math.PI * 2,
-        especie,
+        tEspecie: hash2(ir, Math.round(azz * 10), 504),
+        tEsc: hash2(ir, Math.round(azz * 10), 505),
       })
     }
   }
@@ -892,26 +991,35 @@ export function gerarCandidatosFloresta(heightAt: (x: number, z: number) => numb
 }
 
 /** carrega um `.glb` e devolve a geometria e o material do primeiro mesh
- *  achado, prontos pra instanciar, mais a altura real (bounding box), tudo
- *  medido no modelo carregado, não suposto. `null` se não achar mesh (ou se
- *  o carregamento falhar; o chamador decide o que fazer sem árvore real). */
+ *  achado, prontos pra instanciar. `null` se não achar mesh OU se o
+ *  carregamento falhar, e falha AGORA GRITA no console (`console.error`),
+ *  em vez do `.catch(() => null)` silencioso que já custou dois buracos
+ *  nesta casa no mesmo dia (este módulo e `loadSf`). O chamador ainda decide
+ *  o que fazer sem a árvore (a espécie perdida é redistribuída entre as que
+ *  carregaram, ver `construirFloresta`), mas ninguém fica sem SABER. */
 async function carregarInstanciavel(
-  gltf: GLTFLoader, url: string,
-): Promise<{ geo: THREE.BufferGeometry; mat: THREE.Material; altura: number } | null> {
-  const cena = await new Promise<THREE.Group>((res, rej) => gltf.load(url, (g) => res(g.scene), undefined, rej))
-  let achado: THREE.Mesh | null = null
-  cena.traverse((o) => { if (!achado && (o as THREE.Mesh).isMesh) achado = o as THREE.Mesh })
-  if (!achado) return null
-  const mesh = achado as THREE.Mesh
-  mesh.geometry.computeBoundingBox()
-  const bb = mesh.geometry.boundingBox!
-  return { geo: mesh.geometry, mat: mesh.material as THREE.Material, altura: bb.max.y - bb.min.y }
+  gltf: GLTFLoader, especie: EspecieArvore,
+): Promise<{ geo: THREE.BufferGeometry; mat: THREE.Material } | null> {
+  try {
+    const cena = await new Promise<THREE.Group>((res, rej) => gltf.load(especie.url, (g) => res(g.scene), undefined, rej))
+    let achado: THREE.Mesh | null = null
+    cena.traverse((o) => { if (!achado && (o as THREE.Mesh).isMesh) achado = o as THREE.Mesh })
+    if (!achado) {
+      console.error(`[inverno] floresta: ${especie.url} carregou mas não tem mesh nenhum dentro. Espécie '${especie.id}' fica de fora, redistribuída.`)
+      return null
+    }
+    const mesh = achado as THREE.Mesh
+    return { geo: mesh.geometry, mat: mesh.material as THREE.Material }
+  } catch (e) {
+    console.error(`[inverno] floresta: ${especie.url} NÃO CARREGOU (espécie '${especie.id}'). Ela fica de fora e o peso dela é redistribuído entre as outras; a densidade não cai, só perde essa silhueta. Motivo:`, e)
+    return null
+  }
 }
 
 /**
- * O cone barato de longe (8 triângulos), MESMA forma que `alpino.ts` usa: as
- * duas florestas precisam ler como a mesma silhueta quando a câmera está a
- * quilômetros, senão o horizonte ganha uma costura visível entre elas.
+ * O cone barato de longe (8 triângulos), MESMA forma que `alpino.ts` usa:
+ * todas as espécies precisam ler como uma silhueta só quando a câmera está
+ * a quilômetros, senão o horizonte ganha costura visível entre elas.
  */
 function geoConeLonge(): THREE.BufferGeometry {
   const g = new THREE.ConeGeometry(2.3, 11.5, 4, 1, false)
@@ -931,17 +1039,40 @@ interface Floresta {
   update(cam: THREE.Vector3): void
 }
 
-/** `null` sem `?inverno=1`, sem `gltf`, ou se os dois `.glb` falharem ao
- *  carregar: a floresta é aditiva, o resto do parque sobe de qualquer jeito. */
+/** `null` sem `?inverno=1`, sem `gltf`, ou se TODOS os `.glb` falharem ao
+ *  carregar: a floresta é aditiva, o resto do parque sobe de qualquer jeito.
+ *  Falha PARCIAL (algumas espécies, não todas) NÃO devolve `null`: a
+ *  floresta sobe com quem carregou e grita no console por quem não. */
 async function construirFloresta(o: InvernoOpts): Promise<Floresta | null> {
   if (!INVERNO_ATIVO || !o.gltf) return null
-  const [pinheiro, sequoia] = await Promise.all([
-    carregarInstanciavel(o.gltf, '/city/sf/tree-pine.glb').catch(() => null),
-    carregarInstanciavel(o.gltf, '/city/sf/sequoia-mass.glb').catch(() => null),
-  ])
-  if (!pinheiro && !sequoia) return null
+  const carregadas = await Promise.all(ARVORES.map((esp) => carregarInstanciavel(o.gltf!, esp)))
+  const vivas = ARVORES
+    .map((esp, i) => ({ especie: esp, dados: carregadas[i] }))
+    .filter((v): v is { especie: EspecieArvore; dados: { geo: THREE.BufferGeometry; mat: THREE.Material } } => v.dados !== null)
+  if (vivas.length === 0) {
+    console.error('[inverno] floresta: NENHUMA espécie carregou. Sem árvore nenhuma, o resto do parque sobe normal.')
+    return null
+  }
+  if (vivas.length < ARVORES.length) {
+    console.warn(`[inverno] floresta: subiu com ${vivas.length}/${ARVORES.length} espécies (ver os erros acima por nome de arquivo).`)
+  }
 
-  const candidatos = gerarCandidatosFloresta(o.heightAt)
+  // ⚠️ TABELA DE PESO CUMULATIVO SÓ DE QUEM CARREGOU. `tEspecie` (0..1, hash
+  // determinístico já sorteado por posição) resolve contra ESTA tabela: se
+  // uma espécie caiu, a fatia dela é absorvida pelas outras porque a soma
+  // total muda, não porque alguém reagiu à falha em tempo de execução: é
+  // reconstrução, não fallback condicional, então o resultado é o mesmo
+  // sempre que os mesmos arquivos carregarem, determinístico de novo.
+  const pesoTotal = vivas.reduce((s, v) => s + v.especie.peso, 0)
+  const cumulativo: { ateT: number; idx: number }[] = []
+  let acc = 0
+  for (let i = 0; i < vivas.length; i++) { acc += vivas[i].especie.peso / pesoTotal; cumulativo.push({ ateT: acc, idx: i }) }
+  const resolverEspecie = (t: number): number => {
+    for (const c of cumulativo) if (t <= c.ateT) return c.idx
+    return cumulativo.length - 1
+  }
+
+  const candidatos = gerarCandidatosFloresta(o.heightAt).map((c) => ({ ...c, especieIdx: resolverEspecie(c.tEspecie) }))
   // desbaste determinístico se passar do teto de perto (o balde de longe não
   // tem teto: cone de 8 tri é barato o bastante pra sobrar todo mundo nele)
   let paraPerto = candidatos
@@ -955,33 +1086,21 @@ async function construirFloresta(o: InvernoOpts): Promise<Floresta | null> {
   group.name = 'inverno:floresta'
   let triangulos = 0
 
-  const capPinheiro = Math.max(1, paraPerto.filter((c) => c.especie === 'pinheiro').length)
-  const capSequoia = Math.max(1, paraPerto.filter((c) => c.especie === 'sequoia').length)
+  const instPerto: (THREE.InstancedMesh | null)[] = vivas.map((v, i) => {
+    const cap = Math.max(1, paraPerto.filter((c) => c.especieIdx === i).length)
+    const inst = new THREE.InstancedMesh(v.dados.geo, v.dados.mat, cap)
+    inst.name = `inverno:floresta:${v.especie.id}:perto`
+    inst.castShadow = o.sombra ?? true
+    inst.frustumCulled = false
+    inst.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+    group.add(inst)
+    const triUnit = v.dados.geo.index ? v.dados.geo.index.count / 3 : v.dados.geo.attributes.position.count / 3
+    triangulos += triUnit * cap
+    return inst
+  })
+
   const geoLonge = geoConeLonge()
   const matLonge = new THREE.MeshStandardMaterial({ color: '#ffffff', vertexColors: true, roughness: 0.95, flatShading: true })
-
-  let instPinheiro: THREE.InstancedMesh | null = null
-  if (pinheiro) {
-    instPinheiro = new THREE.InstancedMesh(pinheiro.geo, pinheiro.mat, capPinheiro)
-    instPinheiro.name = 'inverno:floresta:pinheiro:perto'
-    instPinheiro.castShadow = o.sombra ?? true
-    instPinheiro.frustumCulled = false
-    instPinheiro.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
-    group.add(instPinheiro)
-    const triUnit = pinheiro.geo.index ? pinheiro.geo.index.count / 3 : pinheiro.geo.attributes.position.count / 3
-    triangulos += triUnit * capPinheiro
-  }
-  let instSequoia: THREE.InstancedMesh | null = null
-  if (sequoia) {
-    instSequoia = new THREE.InstancedMesh(sequoia.geo, sequoia.mat, capSequoia)
-    instSequoia.name = 'inverno:floresta:sequoia:perto'
-    instSequoia.castShadow = o.sombra ?? true
-    instSequoia.frustumCulled = false
-    instSequoia.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
-    group.add(instSequoia)
-    const triUnit = sequoia.geo.index ? sequoia.geo.index.count / 3 : sequoia.geo.attributes.position.count / 3
-    triangulos += triUnit * capSequoia
-  }
   const longe = new THREE.InstancedMesh(geoLonge, matLonge, Math.max(1, candidatos.length))
   longe.name = 'inverno:floresta:longe'
   longe.castShadow = false
@@ -995,35 +1114,33 @@ async function construirFloresta(o: InvernoOpts): Promise<Floresta | null> {
   const ve = new THREE.Euler(), vs = new THREE.Vector3()
 
   const update = (cam: THREE.Vector3) => {
-    let nPinheiro = 0, nSequoia = 0, nLonge = 0
+    const contagens = new Array(vivas.length).fill(0)
+    let nLonge = 0
     for (const c of candidatos) {
       const d = Math.hypot(c.x - cam.x, c.z - cam.z)
       const perto = d < FLORESTA_R_CHEIA && paraPertoSet.has(c)
+      const especie = vivas[c.especieIdx].especie
+      const esc = especie.escMin + c.tEsc * (especie.escMax - especie.escMin)
       vp.set(c.x, c.y, c.z)
       ve.set(0, c.giro, 0)
       vq.setFromEuler(ve)
-      if (perto && c.especie === 'pinheiro' && instPinheiro) {
-        vs.set(c.esc, c.esc, c.esc)
-        m4.compose(vp, vq, vs)
-        instPinheiro.setMatrixAt(nPinheiro++, m4)
-      } else if (perto && c.especie === 'sequoia' && instSequoia) {
-        vs.set(c.esc, c.esc, c.esc)
-        m4.compose(vp, vq, vs)
-        instSequoia.setMatrixAt(nSequoia++, m4)
-      } else {
-        vs.set(c.esc, c.esc, c.esc)
-        m4.compose(vp, vq, vs)
-        longe.setMatrixAt(nLonge++, m4)
-      }
+      vs.set(esc, esc, esc)
+      m4.compose(vp, vq, vs)
+      const inst = perto ? instPerto[c.especieIdx] : null
+      if (inst) inst.setMatrixAt(contagens[c.especieIdx]++, m4)
+      else longe.setMatrixAt(nLonge++, m4)
     }
-    if (instPinheiro) { instPinheiro.count = nPinheiro; instPinheiro.instanceMatrix.needsUpdate = true }
-    if (instSequoia) { instSequoia.count = nSequoia; instSequoia.instanceMatrix.needsUpdate = true }
+    for (let i = 0; i < vivas.length; i++) {
+      const inst = instPerto[i]
+      if (!inst) continue
+      inst.count = contagens[i]
+      inst.instanceMatrix.needsUpdate = true
+    }
     longe.count = nLonge
     longe.instanceMatrix.needsUpdate = true
   }
   update(new THREE.Vector3(0, 0, 0))
-  if (instPinheiro) instPinheiro.computeBoundingSphere()
-  if (instSequoia) instSequoia.computeBoundingSphere()
+  for (const inst of instPerto) inst?.computeBoundingSphere()
   longe.computeBoundingSphere()
 
   return { group, triangulos: Math.round(triangulos), arvores: candidatos.length, update }

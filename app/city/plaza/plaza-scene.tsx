@@ -692,6 +692,19 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
   const [boot, setBoot] = useState<{ done: BootKey[]; label: string; ready: boolean; failed: boolean }>({ done: [], label: BOOT_STEPS[0].label, ready: false, failed: false })
   const readyRef = useRef<(() => void) | null>(null)
   useEffect(() => { if (boot.ready) readyRef.current?.() }, [boot.ready])
+  // ⚠️ UM SINAL EXPLÍCITO DE "A CENA ABRIU", e ele nasceu de três chapas pretas.
+  // O portão de conferência (`scripts/city/chapas.mjs`) detectava a abertura pela
+  // AUSÊNCIA de uma frase no DOM, e isso é uma corrida: em três execuções de
+  // 02 e 03/09 a espera passou com a cortina de carga ainda de pé e o roteiro
+  // fotografou preto, uma vez com `?plate=1` (que esconde a própria frase) e duas
+  // sem motivo aparente. Detectar estado por texto de interface é frágil por
+  // construção: a frase muda, o idioma muda, uma bandeira esconde o elemento.
+  // Aqui o sinal é o mesmo booleano que abre a cena, então não há como divergir.
+  useEffect(() => {
+    const w = window as unknown as { __plazaPronto?: boolean }
+    if (boot.ready) w.__plazaPronto = true
+    return () => { delete w.__plazaPronto }
+  }, [boot.ready])
   const [qualityNow] = useState(() => (typeof window !== 'undefined' ? parseQuality(new URLSearchParams(window.location.search).get('quality')) : 'balanced'))
   // Phones start with the board folded to its one-line summary; the scene is the
   // point. Deitado conta como phone: largura engana, a altura não.

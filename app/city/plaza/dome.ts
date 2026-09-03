@@ -710,7 +710,116 @@ ${blocoRelevo}
   return mat
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// A BORDA, E O DEFEITO QUE FLECHA NENHUMA CONSERTA (03/09).
+//
+// A calota passa por (0, crown) e (R, rim) SEMPRE: `capY(DOME_R) = rim`, para
+// qualquer flecha. Aprofundar a cúpula empurra o CRUZAMENTO com o terreno para
+// fora (medido com o heightmap real, `public/lunar/btc-core-heightmap.f32`,
+// convenção nativa: ang em radianos, 0 no leste, sentido anti-horário, ver
+// `raioNo`/os laços de setor abaixo):
+//
+//   f 2.566 (hoje): cruzamento entre r 8.700 e 8.975, conforme o setor.
+//   f 5.500 (proposta): cruzamento entre r 8.930 e 9.015.
+//
+// mas nunca ELIMINA, porque a borda não sobe junto: `rim` fica em 53 m em
+// QUALQUER flecha. E o relevo bruto do arco oeste (ang 60° a 240°, na
+// convenção acima) passa de 53 m por até 241 m perto de r = 9.050, medido em
+// 3.600 amostras angulares, pico em ang ≈ 165° (293,7 m de terreno contra 53
+// de borda). Fora desse arco (240° a 60°, passando pelo leste) o terreno no
+// raio da borda fica entre −193 e −25 m: sobra folga de sobra, o problema é
+// só no oeste.
+//
+// ⚠️ ESCOLHA: BORDA VARIÁVEL POR AZIMUTE, EM PLATÔ, NÃO POR CONTORNO. Três
+// caminhos foram pesados com número:
+//
+//   (a) BORDA VARIÁVEL: a escolhida. Não é o mesmo experimento que já foi
+//       tentado e desfeito (ver "NÃO PONHA O RELEVO DE VOLTA AQUI" duas
+//       telas abaixo): aquele fazia a borda SEGUIR o chão ponto a ponto, e o
+//       resultado ondulava 481 m e lia como lona. Este é um LEVANTE EM
+//       PLATÔ: dois patamares (53 m normal, 353 m sobre o arco oeste) unidos
+//       por uma transição suave (`smoothstep`) de 25 a 32 graus de largura e uma
+//       rampa radial de 1.250 m (de r 7.800 a 9.050): a casca não amostra o
+//       terreno em lugar nenhum, só soma uma função fixa de (r, ângulo)
+//       calibrada uma vez contra o heightmap. Custa a PROPRIEDADE que o
+//       cabeçalho original defendia (tração de membrana uniforme, `N =
+//       p·Rc/2` com um Rc só): no arco oeste a curvatura local deixa de ser
+//       a do Rc global (10.196 m) e passa a ter também a curvatura do
+//       LEVANTE em si. Uma rampa de 300 m de altura em 1.250 m de raio tem
+//       curvatura da ordem de W²/(π²·A) ≈ 1.250² / (π²·300) ≈ 528 m no ponto
+//       mais inclinado da transição: MENOS tração ali (raio menor), não
+//       mais, pela mesma física da Tarefa 1(b). É uma ESTIMATIVA de ordem de
+//       grandeza (perfil de smoothstep, não medida em elemento finito), não
+//       um projeto estrutural; o que ela diz é que a transição não é o ponto
+//       fraco. Custo em área cega: 8,32 km² de parede nova (48,75% do
+//       perímetro, ponderado pela transição), contra 17,06 km² se a mesma
+//       altura fosse aplicada nos 360°.
+//   (b) BORDA MAIS ALTA E CONSTANTE: pesada e descartada. Preserva a esfera
+//       pura em TODO lugar, mas paga integralmente: 300 m de parapeito extra
+//       em 56.863 m de perímetro (2π·DOME_R) são 17,06 km² de parede cega
+//       nova NOS 360°, contra os 2,2 km² que o parapeito de hoje custa no
+//       relatório original: mais de 7,7x a área cega da cidade inteira para
+//       resolver um problema que existe em menos da metade do círculo. Não é
+//       proporcional.
+//   (c) NIVELAR O TERRENO: não é decisão de `dome.ts` (o pódio mora em
+//       `terrain.ts`, que outra frente possui) e a frente de inverno já
+//       avisou que o nivelamento do pódio suprime até 97,8% do relevo entre
+//       r 6.950 e 7.150; estender isso até r 9.050 no arco oeste arrisca a
+//       montanha nova dela (cume em 1.151,3 m, r 8.220, ang 178° nesta
+//       convenção). Fica registrado como alternativa, não implementada aqui.
+//
+// ⚠️ A MONTANHA DO INVERNO GANHA FOLGA COM O LEVANTE, NÃO PERDE. O levante só
+// SOMA altura à casca; no ponto da montanha (r 8.220, ang 178°) o fator
+// angular já está no núcleo pleno (1,0) e o fator radial mede 0,387, somando
+// 116,1 m à casca de 1.389,2 m (f 5.500), e a folga sobe de 237,9 m para
+// 353,9 m. Reconferir sempre que `RAISE_MAX`, a rampa radial ou a janela
+// angular mudarem.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** curva suave 0→1 entre `e0` e `e1`, a mesma usada em toda a casca */
+function suave(e0: number, e1: number, x: number): number {
+  const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0)))
+  return t * t * (3 - 2 * t)
+}
+
+// ⚠️ JANELA MEDIDA, NÃO CHUTADA. `ANG0`/`ANG1` (75° a 222°, convenção nativa:
+// 0 no leste, anti-horário) é o núcleo onde o levante entra CHEIO; fora dele
+// as transições `TRANS0`/`TRANS1` (25° e 32°, assimétricas porque o relevo
+// cai em ritmos diferentes dos dois lados) descem a 0. Verificado varrendo
+// r de 7.800 a 9.050 e ângulo de 0° a 360° a cada 10 m / 0,2°: a pior folga
+// contra o terreno real, com este levante somado, é +59,9 m, positiva em
+// toda a banda, para f 2.566 E f 5.500 (o levante não depende da flecha).
+const BORDA_ANG0 = (75 * Math.PI) / 180
+const BORDA_ANG1 = (222 * Math.PI) / 180
+const BORDA_TRANS0 = (25 * Math.PI) / 180
+const BORDA_TRANS1 = (32 * Math.PI) / 180
+// onde a rampa radial começa (0 no levante) e termina (1, cheio, na borda)
+const BORDA_R_RAMPA0 = 7800
+/** quanto o pior ponto do arco oeste precisa: 293,7 m de terreno medido no
+ *  raio da borda, mais ~59 m de folga do próprio levante (a folga total no
+ *  pico, com a rampa radial em 1,0 ali, sai maior, ver o cabeçalho acima) */
+const BORDA_LEVANTE_MAX = 300
+
+function anguloNormalizado(ang: number): number {
+  const a = ang % (Math.PI * 2)
+  return a < 0 ? a + Math.PI * 2 : a
+}
+
+function fatorLevanteAngular(ang: number): number {
+  const a = anguloNormalizado(ang)
+  if (a >= BORDA_ANG0 && a <= BORDA_ANG1) return 1
+  if (a < BORDA_ANG0) return 1 - suave(0, BORDA_TRANS0, BORDA_ANG0 - a)
+  return 1 - suave(0, BORDA_TRANS1, a - BORDA_ANG1)
+}
+
+/** quanto a casca sobe, em metros, no ponto (r, ang); 0 sem `?casca=2` */
+function levanteEm(r: number, ang: number): number {
+  if (!CASCA2) return 0
+  return fatorLevanteAngular(ang) * suave(BORDA_R_RAMPA0, DOME_R, r) * BORDA_LEVANTE_MAX
+}
+
 export function buildDome(o: DomeOpts): Dome {
+
   const a = o.cell ?? 42
   // ⚠️ A BORDA ASSENTA NO PÓDIO, não numa cota solta. `rim` é onde a tela de
   // hexágonos morre, e ela fica PARAPEITO acima do anel nivelado: 40 m, que é a
@@ -794,7 +903,7 @@ export function buildDome(o: DomeOpts): Dome {
   const yc = crown - Rc
   /** a normal da esfera em (x, z), que é o que orienta pillow e nervura */
   const normalEm = (x: number, z: number, out: THREE.Vector3) =>
-    out.set(x, capY(Math.hypot(x, z)) - yc, z).normalize()
+    out.set(x, capY(Math.hypot(x, z), Math.atan2(z, x)) - yc, z).normalize()
 
   // ⚠️ A CASCA VAI ATÉ 3.500, NÃO ATÉ 3.500 MENOS UMA CÉLULA. A primeira versão
   // parava uma célula antes para não ter hexágono pela metade, e isso custava
@@ -842,8 +951,14 @@ export function buildDome(o: DomeOpts): Dome {
   // pódio, embaixo, que é terra e existe para isso.
   //
   // Assim `capY` volta a depender só do raio: uma esfera, igual em todo rumo.
-  const capY = (r: number) =>
-    yc + Math.sqrt(Math.max(0, Rc * Rc - Math.min(r, DOME_R) * Math.min(r, DOME_R)))
+  // ⚠️ 03/09: "SÓ DO RAIO" GANHOU UMA EXCEÇÃO MEDIDA. `capY` agora também lê
+  // `ang`, mas SEM `?casca=2` `levanteEm` devolve 0 sempre e a conta acima
+  // continua sendo a resposta inteira, bit a bit; a esfera pura permanece o
+  // comportamento padrão. Com a bandeira, `levanteEm` soma o platô do arco
+  // oeste; ver o bloco grande de comentário antes de `buildDome` para o
+  // porquê e o custo.
+  const capY = (r: number, ang: number) =>
+    yc + Math.sqrt(Math.max(0, Rc * Rc - Math.min(r, DOME_R) * Math.min(r, DOME_R))) + levanteEm(r, ang)
 
   // Almofada: quanto a célula estufa acima da calota. 0,18·a dá a leitura de
   // acolchoado sem virar bolha de plástico.
@@ -1080,11 +1195,23 @@ export function buildDome(o: DomeOpts): Dome {
       // inclinada e é lá que a silhueta se lê. O expoente adensa os anéis na
       // saia sem gastar anel no zênite, onde a superfície é quase plana.
       const r = DOME_R * Math.pow(i / ANEIS, 0.85)
-      const y = capY(r)
       for (let k = 0; k <= SETORES; k++) {
         const ang = (k / SETORES) * Math.PI * 2
         const x = Math.cos(ang) * r, z = Math.sin(ang) * r
-        normalEm(x, z, nrmC)
+        // ⚠️ `y` MUDOU DE FORA PARA DENTRO DO LAÇO EM 03/09. Com o levante da
+        // borda (ver `levanteEm`) a altura deixa de ser só função do anel (r):
+        // depende do setor também. Sem `?casca=2` `levanteEm` é 0 e `y` sai
+        // idêntico ao de antes, só que recalculado 193x a mais por anel, um
+        // custo de boot, não de quadro.
+        const y = capY(r, ang)
+        // ⚠️ NORMAL ANALÍTICA SÓ SEM A BANDEIRA. `normalEm` presume esfera
+        // pura (deriva a normal do raio contra o centro da esfera); com o
+        // levante ativo a superfície deixa de ser essa esfera perto da borda
+        // oeste e a normal analítica erraria bem ali. Sem bandeira nada muda:
+        // mesma normal de sempre. Com ela, cai para `computeVertexNormals()`
+        // depois de fechados os índices, mais abaixo.
+        if (CASCA2) nrmC.set(0, 1, 0)
+        else normalEm(x, z, nrmC)
         cPos.push(x, y, z)
         cNor.push(nrmC.x, nrmC.y, nrmC.z)
         cUv.push(x / (2 * DOME_R) + 0.5, z / (2 * DOME_R) + 0.5)
@@ -1102,6 +1229,10 @@ export function buildDome(o: DomeOpts): Dome {
     geoCalota.setAttribute('normal', new THREE.Float32BufferAttribute(cNor, 3))
     geoCalota.setAttribute('uv', new THREE.Float32BufferAttribute(cUv, 2))
     geoCalota.setIndex(cIdx)
+    // ⚠️ RECALCULA A NORMAL SÓ COM A BANDEIRA (ver o comentário no laço acima):
+    // sem `?casca=2` a normal já gravada é a analítica de sempre, e recalcular
+    // aqui mudaria o número por arredondamento de vizinhança sem necessidade.
+    if (CASCA2) geoCalota.computeVertexNormals()
 
     const texFavo = texturaFavo(celulas, DOME_R, 4.0)
     // ⚠️ O RELEVO SÓ NASCE ATRÁS DA BANDEIRA. Gerar a textura custa uma
@@ -1135,7 +1266,7 @@ export function buildDome(o: DomeOpts): Dome {
       const pos: number[] = []
       const idx: number[] = []
       normalEm(c.cx, c.cz, tmpN)
-      pos.push(c.cx, capY(Math.hypot(c.cx, c.cz)) + pillow * tmpN.y, c.cz)
+      pos.push(c.cx, capY(Math.hypot(c.cx, c.cz), Math.atan2(c.cz, c.cx)) + pillow * tmpN.y, c.cz)
       // ⚠️ O PERFIL É DE CALOTA, NÃO DE PARÁBOLA. `1 − t²` cai devagar no meio e
       // rápido na borda: dá barriga mole. `√(1 − t²)` é a seção de uma esfera —
       // sobe reto do caixilho e arredonda no alto, que é o que uma bolha faz.
@@ -1145,7 +1276,7 @@ export function buildDome(o: DomeOpts): Dome {
         const alt = pillow * Math.sqrt(Math.max(0, 1 - t * t))
         for (const [vx, vz] of c.pol) {
           const x = c.cx + (vx - c.cx) * t, z = c.cz + (vz - c.cz) * t
-          pos.push(x, capY(Math.hypot(x, z)) + alt, z)
+          pos.push(x, capY(Math.hypot(x, z), Math.atan2(z, x)) + alt, z)
         }
       }
       for (let k = 0; k < n; k++) idx.push(0, 1 + k, 1 + ((k + 1) % n))
@@ -1201,7 +1332,7 @@ export function buildDome(o: DomeOpts): Dome {
     // cai exatamente no círculo, ganha nervura como qualquer outra: é ela que faz o
     // remate contra o anel de coroamento sem gola nenhuma.
     const pontoNa = (x: number, z: number, out: THREE.Vector3) =>
-      out.set(x, capY(Math.hypot(x, z)), z)
+      out.set(x, capY(Math.hypot(x, z), Math.atan2(z, x)), z)
     for (const c of celulas) {
       const n = c.pol.length
       for (let k = 0; k < n; k++) {
@@ -1296,7 +1427,7 @@ export function buildDome(o: DomeOpts): Dome {
     const rr = raioNo(ang)
     const cx2 = Math.cos(ang), cz2 = Math.sin(ang)
     const x = cx2 * rr, z = cz2 * rr
-    const yBorda = capY(rr)            // onde a tela de hexágonos morre
+    const yBorda = capY(rr, ang)       // onde a tela de hexágonos morre (o levante da borda entra aqui)
     const yChao = chao(x, z)
     // o anel: caixão que recebe a tela, avança para fora e desce ANEL_H
     aPos.push(cx2 * (rr - ANEL_W), yBorda, cz2 * (rr - ANEL_W))            // 0 aba de dentro

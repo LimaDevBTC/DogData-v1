@@ -64,8 +64,31 @@ export const SF_CREDITS: readonly Credit[] = [
   { title: 'Hedge', author: 'Ingenuitee', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/hedge-96bfd9a2cb854f239c5b58ead1fb431d' },
   { title: 'Low poly Bush (Buxus)', author: 'arekusandoru.kurobe', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/low-poly-bush-buxus-d3383bb111bc49d6a9d6cfe810e3058b' },
   { title: 'Topiary bush - Bell shape - Sceaux Park', author: 'Luis 3D', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/topiary-bush-bell-shape-sceaux-park-ac98e638a0994e9e96884d7189af56eb' },
-  { title: 'Young Lemon Tree in pot', author: 'Simon Laisné', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/young-lemon-tree-in-pot-3088d91ba347468b9d1b6453c4b36cdb' },
+  // limao-vaso.glb: DUAS pecas do acervo compostas numa so (a 1a tentativa
+  // usava "Young Lemon Tree in pot", que tem vaso mas textura de folha
+  // ESTILIZADA, fundo azul-petroleo pintado, nao fotoreal -- visto direto no
+  // arquivo de textura, destoa do resto do jardim; descartada, sem uso hoje).
   { title: 'Realistic HD Lemon tree (22/30)', author: 'PlantCatalog', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/realistic-hd-lemon-tree-2230-3e05fb1381644233bbb948a78d2f9b08' },
+  { title: 'Terracotta pot', author: 'Sousinho', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/terracotta-pot-2bcf7aab467e490e9095257a2107a751' },
+  // o fruto amarelo por cima das duas pecas acima e meu: nenhum candidato de
+  // limao achado (nem este, nem a serie inteira da PlantCatalog) vem com
+  // fruto modelado. `blender/compor_limao.py`.
+  { title: 'Limao siciliano, fruto (camada gerada por codigo sobre o acervo acima)', author: 'DogCity (blender/compor_limao.py)', license: 'proprio, gerado por codigo nesta casa', url: 'blender/compor_limao.py' },
+  // cycas.glb (adulta, chao) e cycas-vaso.glb (jovem, no vaso terracota
+  // acima): mesmo modelo, duas alturas, sem camada minha por cima. A roseta
+  // ja vem assimetrica de verdade no arquivo original (frondes de idade
+  // diferente, nao um leque igualmente espacado), motivo pelo qual passou
+  // no teste da silhueta sem retoque.
+  { title: 'Sago Palm, Game ready, Low poly, baked textures.', author: 'Valykor', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/sago-palm-game-ready-low-poly-baked-textures-85c86658224a4fe493f0f35091635555' },
+  // repertorio de flor do jardim italiano (03/09): busca ampla, --any-license
+  // primeiro. Iris = estilizada (nao fotoreal, mas geometria limpa, silhueta
+  // reconhecivel do simbolo de Florenca). Wisteria = 1 ramo pendente pronto
+  // pra pergola, decimou limpo (966k para 12k, 2 passos, sem estilhaco).
+  // Oleander e um CACHO de 3 arbustos (a caixa larga de 8x8 m denunciou: nao
+  // e 1 arbusto so, e um recorte de canteiro do autor com varias plantas).
+  { title: 'Iris', author: 'TIS', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/iris-8bf8a71b6f2449a98c9dd2c7f1a3ae1b' },
+  { title: 'Wisteria sinensis001', author: 'André Murrugarra', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/wisteria-sinensis001-5f066b725aef44bbb993a5a84989ec72' },
+  { title: 'Pink Oleander Shrub 3D Model', author: 'misty-wind', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/pink-oleander-shrub-3d-model-3821ea730a7240f083351e7c09d3627b' },
   // ⚠️ ACRESCENTADOS PELO COORDENADOR EM 03/09, e o motivo vale como regra: o
   // fundador mandou buscar no acervo antes de modelar, e tinha razao. A sequoia
   // gerada por codigo custou 10.336 triangulos e le como brocolis facetado; esta
