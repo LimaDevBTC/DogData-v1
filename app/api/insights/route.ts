@@ -71,9 +71,9 @@ export async function GET() {
       supabase.from('dog_labels').select('address, entity, role, kind').eq('internal', false),
       supabase
         .from('dog_transactions')
-        .select('txid, timestamp, total_dog_moved, senders, receivers')
+        .select('txid, timestamp, type, net_transfer, senders, receivers')
         .gte('timestamp', desde)
-        .order('total_dog_moved', { ascending: false })
+        .order('net_transfer', { ascending: false })
         .limit(400),
       supabase.from('dog_mempool').select('txid, dog_out, senders, receivers, first_seen').eq('status', 'pending'),
     ])
@@ -102,21 +102,28 @@ export async function GET() {
     let mesaRecebeu = 0
     let mesaMandou = 0
     const mesaPara = new Map<string, number>()
+    // ⚠️ TODA CLASSE PASSA PELO MESMO LÍQUIDO, e a exceção é que quebrava a conta.
+    // O troco de rune volta para quem gastou: um mercado que move um UTXO de 100M
+    // para pagar 2M recebe 98M de volta, e somar a saída bruta punha os 98M de
+    // troco na frase "mudou de mão nos mercados". A corretora já era lida no
+    // líquido; mercado e mesa somavam bruto. Agora a chave carrega a CLASSE junto
+    // do nome, e o saldo da entidade dentro da transação é o único número que sai
+    // daqui — troco e remanejo interno se cancelam sozinhos.
+    const CH = '\u0000'
     for (const t of txs) {
       const recebeu = new Map<string, number>()
       const mandou = new Map<string, number>()
       for (const r of arr(t.receivers)) {
         const lab = rotulo.get(r.address)
         if (!lab || !(Number(r.amount_dog) > 0)) continue
-        if (lab.kind === 'exchange') recebeu.set(lab.nome, (recebeu.get(lab.nome) || 0) + Number(r.amount_dog))
-        else if (lab.kind === 'marketplace') mercado += Number(r.amount_dog)
-        else if (lab.kind === 'desk') mesaRecebeu += Number(r.amount_dog)
+        const k = `${lab.kind}${CH}${lab.nome}`
+        recebeu.set(k, (recebeu.get(k) || 0) + Number(r.amount_dog))
       }
       for (const s of arr(t.senders)) {
         const lab = rotulo.get(s.address)
         if (!lab || !(Number(s.amount_dog) > 0)) continue
-        if (lab.kind === 'exchange') mandou.set(lab.nome, (mandou.get(lab.nome) || 0) + Number(s.amount_dog))
-        else if (lab.kind === 'desk') mesaMandou += Number(s.amount_dog)
+        const k = `${lab.kind}${CH}${lab.nome}`
+        mandou.set(k, (mandou.get(k) || 0) + Number(s.amount_dog))
       }
       // ⚠️ O QUE A MESA MANDOU PARA CADA CORRETORA, CONTADO POR TRANSAÇÃO E COM
       // TETO. A primeira versão somava, para cada remetente-mesa, TODOS os
@@ -126,13 +133,24 @@ export async function GET() {
       // é o que a mesa efetivamente mandou naquela transação, e a atribuição
       // acontece UMA vez por transação, não uma por remetente.
       {
-        const mesaNestaTx = arr(t.senders)
-          .filter((x: any) => rotulo.get(x.address)?.kind === 'desk')
-          .reduce((n: number, x: any) => n + Number(x.amount_dog || 0), 0)
+        // ⚠️ O TETO É O LÍQUIDO DA MESA, não o que ela gastou. Uma mesa que gasta
+        // um UTXO de 100M para mandar 5M recebe 95M de troco; o bruto dizia que
+        // ela mandou 100M para a corretora, e a frase saía dez vezes maior que o
+        // fato.
+        const mesaNestaTx = Math.max(
+          0,
+          Array.from(mandou.entries()).reduce((n, [k, v]) => (k.startsWith(`desk${CH}`) ? n + v : n), 0) -
+            Array.from(recebeu.entries()).reduce((n, [k, v]) => (k.startsWith(`desk${CH}`) ? n + v : n), 0),
+        )
         if (mesaNestaTx > 0) {
           let sobra = mesaNestaTx
+          // ⚠️ QUEM MANDOU NÃO É DESTINO. Endereço que aparece nos dois lados da
+          // transação está recebendo troco, e troco atribuído como destino faz a
+          // frase dizer que a corretora recebeu o que ela mesma gastou.
+          const remetentes = new Set(arr(t.senders).map((x: any) => x.address))
           for (const r of arr(t.receivers)) {
             if (sobra <= 0) break
+            if (remetentes.has(r.address)) continue
             const dst = rotulo.get(r.address)
             if (dst?.nomeado && dst.kind === 'exchange') {
               const parcela = Math.min(Number(r.amount_dog || 0), sobra)
@@ -150,10 +168,21 @@ export async function GET() {
       // tempo todo. Se a mesma entidade aparece mandando e recebendo na mesma
       // transação, o que houve foi mudança de bolso, não gente comprando nem
       // vendendo. Só o SALDO da entidade naquela transação vira notícia.
-      for (const entity of Array.from(new Set([...Array.from(recebeu.keys()), ...Array.from(mandou.keys())]))) {
-        const liquido = (recebeu.get(entity) || 0) - (mandou.get(entity) || 0)
-        if (liquido > 0) entrou.set(entity, (entrou.get(entity) || 0) + liquido)
-        else if (liquido < 0) saiu.set(entity, (saiu.get(entity) || 0) - liquido)
+      for (const k of Array.from(new Set([...Array.from(recebeu.keys()), ...Array.from(mandou.keys())]))) {
+        const liquido = (recebeu.get(k) || 0) - (mandou.get(k) || 0)
+        if (liquido === 0) continue
+        const corte = k.indexOf(CH)
+        const classe = k.slice(0, corte)
+        const entity = k.slice(corte + 1)
+        if (classe === 'exchange') {
+          if (liquido > 0) entrou.set(entity, (entrou.get(entity) || 0) + liquido)
+          else saiu.set(entity, (saiu.get(entity) || 0) - liquido)
+        } else if (classe === 'marketplace') {
+          if (liquido > 0) mercado += liquido
+        } else if (classe === 'desk') {
+          if (liquido > 0) mesaRecebeu += liquido
+          else mesaMandou += -liquido
+        }
       }
     }
     // ⚠️ ENTRADA E SAÍDA COMPETEM PELO MESMO ESPAÇO. A versão anterior empurrava
@@ -216,13 +245,29 @@ export async function GET() {
     }
 
     // ── a maior transferência do dia ────────────────────────────────────────
-    const maior = txs[0]
-    if (maior && Number(maior.total_dog_moved) > 0) {
+    // ⚠️ `total_dog_moved` É BRUTO NESTA TABELA, e ler essa coluna aqui pôs a
+    // mesma manchete de 1.27B no ar em 31/08 e 02/09 com txid diferente: a
+    // carteira bc1plzs2ll… reembala o próprio UTXO de tempos em tempos, e o
+    // bruto conta o troco como se fosse transferência. Nas 24h dessa segunda
+    // leitura havia 2.88B de auto-transferência com líquido ZERO contra 177M de
+    // movimento real, e a maior transferência de verdade era 20M.
+    //
+    // ⚠️ A COLUNA HONESTA É `net_transfer`, e ela existe porque as duas pontas do
+    // pipeline discordam: o scanner grava o bruto em `total_dog_moved`, a rota
+    // `update-transactions` grava o líquido na mesma coluna. Uma coluna com duas
+    // convenções não serve de manchete. Heatmap, busca e extrato já leem
+    // `net_transfer`; o feed era o último a ler o número errado.
+    //
+    // ⚠️ E `self_transfer` FICA DE FORA POR NOME, não só por número. Líquido zero
+    // já a derrubaria, mas dizer o motivo evita que a próxima pessoa "conserte" o
+    // filtro achando que ele é redundante.
+    const maior = txs.find((t: any) => t.type !== 'self_transfer' && Number(t.net_transfer) > 0)
+    if (maior) {
       out.push({
         id: `big-${maior.txid}`, kind: 'whale', at: maior.timestamp, source: 'our index',
-        dog: Number(maior.total_dog_moved),
-        headline: `Largest transfer of the day: ${fmt(Number(maior.total_dog_moved))} DOG`,
-        value: `${fmt(Number(maior.total_dog_moved))} DOG`,
+        dog: Number(maior.net_transfer),
+        headline: `Largest transfer of the day: ${fmt(Number(maior.net_transfer))} DOG`,
+        value: `${fmt(Number(maior.net_transfer))} DOG`,
         href: `/tx/bitcoin/${maior.txid}`,
       })
     }

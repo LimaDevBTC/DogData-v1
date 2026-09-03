@@ -23,6 +23,8 @@
 //   node scripts/city/chapas.mjs                      todos os enquadramentos, look 2
 //   node scripts/city/chapas.mjs --look=1             o caminho antigo
 //   node scripts/city/chapas.mjs --vistas=orla,foz    só alguns
+//   node scripts/city/chapas.mjs --vistas=olhobulevar,olhonucleo,olhobairro,olhoborda
+//                                                     as quatro de altura do olho
 //   node scripts/city/chapas.mjs --saida=/tmp/x       onde gravar
 //   node scripts/city/chapas.mjs --url-extra='&hour=night'
 //
@@ -69,6 +71,69 @@ const VISTAS = {
   lagorase:  [0, -30, 1750, 0, -39, 1250, 55],
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// OS ENQUADRAMENTOS DE ALTURA DO OLHO (02/09/2026)
+//
+// ⚠️ POR QUE UMA TABELA SEPARADA, e não mais quatro linhas em VISTAS. Nas de
+// cima o `y` é um número escrito à mão, e isso funciona porque a câmera está a
+// dezenas ou centenas de metros do chão: errar 3 m numa aérea não muda a chapa.
+// A 1,7 m, errar 30 cm põe a câmera dentro do asfalto ou flutuando, e o chão da
+// DogCity varia 232 m dentro do sítio. Então aqui o `y` NÃO se escreve: ele se
+// pergunta para a cena, com `window.__plazaChao(x, z)`, que devolve a MESMA
+// superfície que a malha desenha.
+//
+// ⚠️ E O PONTO TAMBÉM SE PERGUNTA. O centro de um quarteirão não é rua, é lote.
+// Cada semente abaixo é um LUGAR, não uma coordenada exata: o roteiro procura em
+// anéis crescentes o pavimento mais próximo, usando `naVia`, que é a mesma
+// máscara com que a arborização evita plantar dentro do asfalto. Sem isso a
+// chapa de rua saía com a câmera no meio de um lote vazio, olhando para nada.
+//
+// Formato: [x semente, z semente, rumo em graus, fov].
+// Rumo segue a convenção dos bulevares de `cidade-malha.json`: 0 = -z.
+// As sementes de quarteirão são os IDs reais da malha, um por banda:
+//   olhonucleo  S03-Q04-B001 (Núcleo, k=2, travessa estreita)
+//   olhobairro  S06-Q17-B015 (Bairro, k=4)
+//   olhoborda   S04-Q19-B017 (Borda, k=5, o quarteirão mais fundo)
+const OLHOS = {
+  olhobulevar: [12, -2600, 0, 55],          // BUL01, olhando para fora
+  olhonucleo:  [1697.7, 802.9, 115.312, 55],
+  olhobairro:  [-1258.6, -3809.8, 341.719, 55],
+  olhoborda:   [-1778.2, 4609.7, 201.094, 55],
+}
+
+/** Resolve uma semente de OLHOS no argumento de `__plazaOlhar`, dentro da página. */
+const acharRua = (pag, [x0, z0, rumo, fov]) =>
+  pag.evaluate(
+    ([x0, z0, rumo, fov]) => {
+      const rad = (rumo * Math.PI) / 180
+      const dir = [Math.sin(rad), -Math.cos(rad)]
+      let pe = null
+      // ⚠️ ANÉIS DE 2 EM 2 m ATÉ 200 m, COM PASSO ANGULAR EM ARCO, e as duas
+      // coisas são conserto de erro medido em 02/09. O primeiro laço andava de
+      // 10 em 10 graus: a 100 m do centro isso são 17 m entre amostras, e a
+      // travessa da cidade tem 9 m de largura. Duas das quatro sementes voltaram
+      // "não achei pavimento" com a rua passando a 100 m dali. Passo de arco de
+      // 3 m nunca pula uma via, porque a via mais estreita tem 9.
+      // O alcance vai a 200 porque o quarteirão mais fundo tem 286 m de prof.,
+      // ou seja 143 m do centro ao contorno, e 140 raspava.
+      for (let r = 2; r <= 200 && !pe; r += 2) {
+        const passos = Math.max(12, Math.ceil((2 * Math.PI * r) / 3))
+        for (let k = 0; k < passos; k++) {
+          const ar = (k / passos) * 2 * Math.PI
+          const c = window.__plazaChao(x0 + r * Math.cos(ar), z0 + r * Math.sin(ar))
+          if (c && c.naVia) { pe = c; break }
+        }
+      }
+      if (!pe) return null
+      const ax = pe.x + dir[0] * 60, az = pe.z + dir[1] * 60
+      const alvo = window.__plazaChao(ax, az)
+      // olho a 1,7 m, alvo a 1,6 m: a linha de visada cai 10 cm em 60 m, que é
+      // o que o olho de um adulto faz e o que põe o horizonte no lugar certo.
+      return { args: [pe.x, pe.superficieAt + 1.7, pe.z, ax, alvo.superficieAt + 1.6, az, fov], achouEm: pe }
+    },
+    [x0, z0, rumo, fov],
+  )
+
 // ⚠️ ERROS QUE NÃO SÃO NOSSOS. O backend local não roda, então estas rotas dão
 // 503 sempre. Sem esta lista o portão acusaria falha em toda execução e viraria
 // alarme que ninguém olha, que é pior que não ter alarme.
@@ -92,9 +157,14 @@ const escala = +arg('escala', 1)
 // 300 s cravados sobravam. Em 2560x1440 são 2,8x mais pixels e a primeira
 // tentativa estourou o prazo sem tirar nenhuma chapa. Quem pede quadro grande
 // precisa poder pedir prazo grande junto.
-const prazoCarga = +arg('prazo-carga', 300000)
-const lista = pedidas.length ? pedidas : Object.keys(VISTAS)
-for (const v of lista) if (!VISTAS[v]) { console.error(`enquadramento desconhecido: ${v}\nexistem: ${Object.keys(VISTAS).join(', ')}`); process.exit(2) }
+// ⚠️ 300 s NÃO BASTAM QUANDO A MÁQUINA ESTÁ COMPARTILHADA, medido em 02/09: duas
+// execuções seguidas estouraram o prazo, e uma sonda do mesmo portão, com a
+// máquina mais folgada, mediu o portão abrindo em 169,9 s com zero erro de
+// console. Ou seja o portão está são e o prazo é que estava justo. 480 s dá a
+// folga de 2,8x que o pior caso medido pede.
+const prazoCarga = +arg('prazo-carga', 480000)
+const lista = pedidas.length ? pedidas : [...Object.keys(VISTAS), ...Object.keys(OLHOS)]
+for (const v of lista) if (!VISTAS[v] && !OLHOS[v]) { console.error(`enquadramento desconhecido: ${v}\nexistem: ${[...Object.keys(VISTAS), ...Object.keys(OLHOS)].join(', ')}`); process.exit(2) }
 
 mkdirSync(saida, { recursive: true })
 // ⚠️ `view=deck` NÃO É ENFEITE. Sem `?view=` a cena entra pelo voo de pouso da
@@ -131,7 +201,15 @@ await pag.waitForTimeout(25000)
 
 const relatorio = { url, quando: new Date().toISOString(), vistas: {}, logs, erros }
 for (const v of lista) {
-  await pag.evaluate((a) => window.__plazaOlhar(...a), VISTAS[v])
+  let achouEm = null
+  if (OLHOS[v]) {
+    const r = await acharRua(pag, OLHOS[v])
+    if (!r) { console.error(`  ${v}: não achei pavimento a 200 m da semente (${OLHOS[v][0]}, ${OLHOS[v][1]})`); relatorio.vistas[v] = { erro: 'sem via em 200 m' }; continue }
+    achouEm = r.achouEm
+    await pag.evaluate((a) => window.__plazaOlhar(...a), r.args)
+  } else {
+    await pag.evaluate((a) => window.__plazaOlhar(...a), VISTAS[v])
+  }
   await pag.waitForTimeout(2500)
   const st = await pag.evaluate(() => window.__plazaStats)
   const arquivo = join(saida, `${v}-look${look}.jpeg`)
@@ -146,8 +224,8 @@ for (const v of lista) {
     catch (e) { console.log(`  (${v}: chapa estourou ${prazo / 1000}s, tentando de novo)`) }
   }
   if (!tirou) { console.error(`  ${v}: NÃO consegui tirar a chapa`); relatorio.vistas[v] = { erro: 'timeout' }; continue }
-  relatorio.vistas[v] = { arquivo, fps: st?.fps, calls: st?.calls, tris: st?.triangles, programas: st?.programs, pos: st?.pos }
-  console.log(`  ${v.padEnd(10)} ${String(st?.fps).padStart(3)} fps · ${String(st?.calls).padStart(4)} calls · ${((st?.triangles ?? 0) / 1e6).toFixed(2)}M tris  -> ${arquivo}`)
+  relatorio.vistas[v] = { arquivo, fps: st?.fps, calls: st?.calls, tris: st?.triangles, programas: st?.programs, pos: st?.pos, ...(achouEm ? { olho: achouEm } : {}) }
+  console.log(`  ${v.padEnd(12)} ${String(st?.fps).padStart(3)} fps · ${String(st?.calls).padStart(4)} calls · ${((st?.triangles ?? 0) / 1e6).toFixed(2)}M tris · ${String(st?.programs).padStart(3)} prog${achouEm ? ` · rua em (${achouEm.x.toFixed(0)}, ${achouEm.z.toFixed(0)}) cota ${achouEm.superficieAt}` : ''}  -> ${arquivo}`)
 }
 await nav.close()
 writeFileSync(join(saida, 'chapas.json'), JSON.stringify(relatorio, null, 2))

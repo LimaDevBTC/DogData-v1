@@ -743,6 +743,29 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       // pelo canvas. Ligado sempre, ele custa uma cópia por quadro; ligado só
       // aqui, custa nada no uso normal.
       preserveDrawingBuffer: new URLSearchParams(window.location.search).get('grab') === '1' })
+
+    // ⚠️ ISTO SERIALIZAVA A COMPILAÇÃO DOS 373 PROGRAMAS DE SHADER DA CENA, e em
+    // 02/09 era o MAIOR item de CPU do boot depois que o campo de distância do
+    // lago foi consertado. O `onFirstUse` do three roda, para CADA programa:
+    //
+    //     if (renderer.debug.checkShaderErrors) {
+    //       gl.getProgramInfoLog(program)              // <- bloqueia
+    //       gl.getProgramParameter(program, LINK_STATUS)  // <- bloqueia
+    //
+    // As duas são consultas SÍNCRONAS: elas param a thread até o driver terminar
+    // de compilar e linkar aquele programa. O driver sabe compilar vários em
+    // paralelo, em segundo plano, e essa checagem tira isso dele um por um. E
+    // ela vem LIGADA por padrão no three.
+    //
+    // ⚠️ E NÃO DÁ PARA SIMPLESMENTE DESLIGAR EM TODO LUGAR. Foi um erro de
+    // shader que quebrou a produção HOJE (o `logdepthbuf_fragment` no vertex do
+    // `park.ts`), e sem esta checagem ele teria falhado calado, com a peça
+    // sumindo da cena e nenhuma linha no console. Então: ligada em
+    // desenvolvimento e sempre que `?stats=1` pedir instrumentação, desligada no
+    // visitante de produção, que é quem paga o tempo de espera.
+    renderer.debug.checkShaderErrors =
+      process.env.NODE_ENV !== 'production' ||
+      new URLSearchParams(window.location.search).has('stats')
     // ⚠️ ANISOTROPIA, NOS DOIS LOOKS, porque é correção objetiva e não estilo:
     // sem ela o filtro mipmap escolhe o nível pelo eixo mais comprimido, e toda
     // textura vista em ângulo raso (que é COMO SE VÊ UMA RUA) vira papa cinzenta
@@ -3093,6 +3116,27 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         const a = 0.9, x = Math.sin(a) * r, z = -Math.cos(a) * r
         return { r, heightAt: +heightAt(x, z).toFixed(2), superficieAt: +superficieAt(x, z).toFixed(2), lago: lagoGeo }
       }
+      // ?stats=1 → window.__plazaChao(x, z): a cota E o teste de pavimento NUM
+      // PONTO QUALQUER, que é o par que falta para plantar uma câmera na altura
+      // do olho sem chutar.
+      //
+      // ⚠️ POR QUE ELE EXISTE, e é o mesmo motivo do __plazaGrade logo acima:
+      // replicar o terreno fora da cena já errou por 75 m. Uma chapa de 1,7 m
+      // não perdoa 20 cm, quanto mais 75 m, e o enquadramento de rua é o que o
+      // portão de conferência passou a exigir (`scripts/city/chapas.mjs`, tabela
+      // OLHOS). Quem quiser saber onde é a rua pergunta para a rua: `naVia` é a
+      // MESMA máscara que a arborização usa para não plantar dentro do asfalto,
+      // e não uma reconstrução analítica dos anéis, que já errou por 259 m.
+      //
+      // `naVia` é null enquanto `vias` não assentou, e isso é informação, não
+      // falha: quem chama antes da hora sabe que perguntou cedo demais.
+      ;(window as unknown as { __plazaChao?: (x: number, z: number, folga?: number) => unknown }).__plazaChao =
+        (x: number, z: number, folga?: number) => ({
+          x, z,
+          superficieAt: +superficieAt(x, z).toFixed(2),
+          heightAt: +heightAt(x, z).toFixed(2),
+          naVia: vias ? vias.naVia(x, z, folga ?? 0) : null,
+        })
     }
     if (wantStats) {
       ;(window as unknown as { __plazaPeca?: (id: string) => unknown }).__plazaPeca = async (id: string) => {

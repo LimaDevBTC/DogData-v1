@@ -1148,23 +1148,64 @@ function campoDeMargem(geo: THREE.BufferGeometry, comIlhas = false): { ref: numb
       }
     }
   }
+  // ⚠️ A CAIXA DAS CÉLULAS OCUPADAS, e ela existe só para o laço abaixo PARAR.
+  // Sem ela, um ponto longe de qualquer margem (miolo da baía, ou fora dela)
+  // nunca acha bucket, `best` fica infinito e a busca caminha os 60 anéis
+  // inteiros colecionando falha de Map.
+  let gi0 = Infinity, gi1 = -Infinity, gj0 = Infinity, gj1 = -Infinity
+  for (let s = 0; s < seg.length; s += 4) {
+    const a = cel(Math.min(seg[s], seg[s + 2])), b = cel(Math.max(seg[s], seg[s + 2]))
+    const c = cel(Math.min(seg[s + 1], seg[s + 3])), d = cel(Math.max(seg[s + 1], seg[s + 3]))
+    if (a < gi0) gi0 = a; if (b > gi1) gi1 = b
+    if (c < gj0) gj0 = c; if (d > gj1) gj1 = d
+  }
+
   const dist = (x: number, z: number): number => {
     const ci = cel(x), cj = cel(z)
     let best = Infinity
+    // ⚠️ ISTO CUSTAVA 62,2% DE TODA A CPU DO BOOT DA CIDADE, medido em 02/09 com
+    // o Profiler do CDP: 47,6 s de 76,5 s locais, e o mesmo perfil em produção
+    // com a página levando 147 s para abrir o portão.
+    //
+    // O defeito era de laço, não de algoritmo. A intenção sempre foi percorrer
+    // o ANEL de células no raio `r`, mas o código varria o QUADRADO inteiro
+    // (`i` e `j` de -r a +r) e jogava fora o miolo com um `continue`. Somando
+    // r de 0 a 59 isso é Σ(2r+1)² = 287.980 visitas de célula para aproveitar
+    // Σ8r = 14.161: **20,3 vezes mais trabalho do que o necessário**, e o
+    // desperdício cresce com o QUADRADO do raio, então ele explode exatamente
+    // nos pontos longe da margem, que são a maioria da lâmina.
+    //
+    // Agora as quatro bordas do anel são caminhadas diretamente. Mesma ordem de
+    // visita, mesmo resultado, sem o miolo.
     for (let r = 0; r < 60; r++) {
       if (best < Infinity && (r - 1) * CEL > best) break
-      for (let i = ci - r; i <= ci + r; i++) {
-        for (let j = cj - r; j <= cj + r; j++) {
-          if (r > 0 && Math.abs(i - ci) !== r && Math.abs(j - cj) !== r) continue
-          const l = balde.get(KG(i, j)); if (!l) continue
-          for (const s of l) {
-            const d = distSeg(x, z, seg[s], seg[s + 1], seg[s + 2], seg[s + 3])
-            if (d < best) best = d
-          }
+      // o anel já contém toda a caixa ocupada: nenhum anel maior pode achar nada
+      if (best === Infinity && ci - r < gi0 && ci + r > gi1 && cj - r < gj0 && cj + r > gj1) break
+      const visita = (i: number, j: number) => {
+        const l = balde.get(KG(i, j)); if (!l) return
+        for (const s of l) {
+          const d = distSeg(x, z, seg[s], seg[s + 1], seg[s + 2], seg[s + 3])
+          if (d < best) best = d
         }
       }
+      if (r === 0) { visita(ci, cj); continue }
+      for (let i = ci - r; i <= ci + r; i++) { visita(i, cj - r); visita(i, cj + r) }
+      for (let j = cj - r + 1; j <= cj + r - 1; j++) { visita(ci - r, j); visita(ci + r, j) }
     }
     return best === Infinity ? 0 : best
+  }
+
+  // ⚠️ O MEMO NASCIA TARDE DEMAIS. Ele vivia lá embaixo, no trecho 3b, então o
+  // laço de bissecção (sete passes, três cantos por triângulo, dezenas de
+  // milhares de triângulos) chamava `dist` CRU. E canto de triângulo é o caso
+  // com mais reuso que existe aqui: numa malha, cada vértice pertence a vários
+  // triângulos, e a bissecção reavalia os mesmos cantos passe após passe.
+  // Subindo o memo, os dois consumidores dividem o mesmo cache.
+  const memo = new Map<string, number>()
+  const dCache = (x: number, z: number) => {
+    const k = `${Math.round(x * 4)},${Math.round(z * 4)}`
+    let v = memo.get(k); if (v === undefined) { v = dist(x, z); memo.set(k, v) }
+    return v
   }
 
   // ── 2. adensamento por bisseção da aresta mais longa ──────────────────────
@@ -1211,7 +1252,7 @@ function campoDeMargem(geo: THREE.BufferGeometry, comIlhas = false): { ref: numb
         if (c > comp) { comp = c; pior = e }
       }
       if (comp <= LADO) continue
-      const perto = Math.min(dist(px[0], pz[0]), dist(px[1], pz[1]), dist(px[2], pz[2]))
+      const perto = Math.min(dCache(px[0], pz[0]), dCache(px[1], pz[1]), dCache(px[2], pz[2]))
       if (perto > PERTO) continue
       const a = pior, b = (pior + 1) % 3, c = (pior + 2) % 3
       const mx = (px[a] + px[b]) / 2, mz = (pz[a] + pz[b]) / 2, my = (py[a] + py[b]) / 2
@@ -1230,12 +1271,6 @@ function campoDeMargem(geo: THREE.BufferGeometry, comIlhas = false): { ref: numb
   const nF = alt.length / 3
   const np = new Float32Array(nF * 9)
   const nd = new Float32Array(nF * 3)
-  const memo = new Map<string, number>()
-  const dCache = (x: number, z: number) => {
-    const k = `${Math.round(x * 4)},${Math.round(z * 4)}`
-    let v = memo.get(k); if (v === undefined) { v = dist(x, z); memo.set(k, v) }
-    return v
-  }
   const todas: number[] = []
   for (let t = 0; t < nF; t++) {
     for (let e = 0; e < 3; e++) {

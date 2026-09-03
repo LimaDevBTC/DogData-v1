@@ -201,17 +201,64 @@ function amostraPedra(u: number, v: number): Amostra {
   return { h, r: 138 * t, g: 133 * t, b: 124 * t, rug: 0.88 + grao * 0.1 }
 }
 
-const RECEITAS: Record<Superficie, { fn: (u: number, v: number) => Amostra; metros: number; normalScale: number }> = {
+const RECEITAS: Record<Superficie, { fn: (u: number, v: number) => Amostra; metros: number; normalScale: number; relevoM: number }> = {
   // ⚠️ `normalScale` BAIXO DE PROPÓSITO. O grão aqui existe pra amaciar a luz,
   // não pra ser visto: normal forte num chão sem feição vira aquele granulado de
   // plástico que denuncia textura procedural.
-  regolito: { fn: amostraRegolito, metros: 40, normalScale: 0.5 },
-  asfalto:  { fn: amostraAsfalto,  metros: 9,  normalScale: 0.7 },
-  calcada:  { fn: amostraCalcada,  metros: 6,  normalScale: 0.85 },
-  campo:    { fn: amostraCampo,    metros: 7,  normalScale: 0.75 },
-  concreto: { fn: amostraConcreto, metros: 10, normalScale: 0.5 },
-  pedra:    { fn: amostraPedra,    metros: 4,  normalScale: 0.9 },
+  //
+  // ── `relevoM`: QUANTOS METROS DE RELEVO VALE `h = 1` (?relevo=1) ────────────
+  //
+  // ⚠️ ISTO É O CONSERTO DE UM DEFEITO MEDIDO EM 02/09, e ele só apareceu quando
+  // o portão ganhou chapa na ALTURA DO OLHO. De cima o chão estava bom; a 1,7 m
+  // o asfalto lia como papel-alumínio amassado e o regolito como veludo cotelê,
+  // com a direção do ladrilho visível a perder de vista.
+  //
+  // A causa não é gosto, é uma conta que faltava. O mapa de normal sai de um
+  // Sobel sobre `h` multiplicado por uma FORÇA ÚNICA, a mesma para as seis
+  // superfícies, e a inclinação física que isso produz é
+  //
+  //     inclinação = FORÇA · 8 · (∂h/∂texel) · (S / metros)
+  //
+  // ou seja ela DEPENDE DE `metros`, que vai de 4 a 40. Com uma força só, o
+  // regolito (ladrilho de 40 m) recebia 4,4 vezes mais relevo físico que o
+  // asfalto (9 m) para o mesmo desenho de altura, e os dois recebiam relevo de
+  // ordens de grandeza acima do real. Daí a corrugação de um metro num pó que na
+  // vida é milimétrico.
+  //
+  // Com `relevoM` a força se DERIVA, e some do arbítrio:
+  //
+  //     FORÇA = relevoM · S / (8 · metros)
+  //
+  // Os valores abaixo são o TOPO da faixa plausível de cada material, não a
+  // média: o objetivo é matar o alumínio amassado sem chapar o chão de vez.
+  // Brita de capa de rolamento é 8 a 16 mm; junta de laje de calçada é 1 cm;
+  // pó assentado é centimétrico.
+  //
+  // ⚠️ E ISTO TIRA RELEVO DE LONGE, DE PROPÓSITO. Chão de verdade fica liso a
+  // 50 m: o que sobrevive à distância é MANCHA, não bolha. Se a vista alta ficar
+  // pobre depois desta conta, a resposta certa é variação de albedo e decalque,
+  // e micro-relevo na GEOMETRIA do terreno, nunca devolver a força do normal.
+  // ⚠️ O REGOLITO É O ÚNICO QUE SUBIU DEPOIS DA PRIMEIRA CHAPA, e não por gosto.
+  // Com 0,05 m a planície ficou uma chapa marrom morta na rasante: certo para
+  // pó, errado para o LUGAR, porque num ladrilho de 40 m o que o olho vê não é
+  // grão de pó, é clod, ejecta e cratera de meio metro, que o mare tem de sobra.
+  // 0,25 m em 40 m é a decimetria real dessa escala, e continua 8 vezes abaixo
+  // do que a força cega de 3,2 aplicava.
+  regolito: { fn: amostraRegolito, metros: 40, normalScale: 0.5,  relevoM: 0.25 },
+  asfalto:  { fn: amostraAsfalto,  metros: 9,  normalScale: 0.7,  relevoM: 0.022 },
+  calcada:  { fn: amostraCalcada,  metros: 6,  normalScale: 0.85, relevoM: 0.014 },
+  campo:    { fn: amostraCampo,    metros: 7,  normalScale: 0.75, relevoM: 0.05 },
+  concreto: { fn: amostraConcreto, metros: 10, normalScale: 0.5,  relevoM: 0.010 },
+  pedra:    { fn: amostraPedra,    metros: 4,  normalScale: 0.9,  relevoM: 0.030 },
 }
+
+// ⚠️ ATRÁS DE BANDEIRA, e o motivo é o mesmo do `look.ts`: o bot de auto-commit
+// empurra pra `origin/main` de hora em hora e a Vercel publica dali. Uma conta
+// que muda o chão das seis superfícies da cidade inteira não estreia sem o
+// fundador ver as duas chapas lado a lado. `?relevo=1` liga; sem ela, nada muda.
+// Quando aprovar, o padrão inverte aqui e `?relevo=0` passa a ser a volta.
+const RELEVO_FISICO =
+  typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('relevo') === '1'
 
 // ── geração ─────────────────────────────────────────────────────────────────
 function canvasDe(dados: Uint8ClampedArray): THREE.CanvasTexture {
@@ -226,7 +273,7 @@ function canvasDe(dados: Uint8ClampedArray): THREE.CanvasTexture {
 }
 
 function gerar(nome: Superficie): Conjunto {
-  const { fn, metros, normalScale } = RECEITAS[nome]
+  const { fn, metros, normalScale, relevoM } = RECEITAS[nome]
   const alt = new Float32Array(S * S)
   const alb = new Uint8ClampedArray(S * S * 4)
   const rug = new Uint8ClampedArray(S * S * 4)
@@ -246,7 +293,9 @@ function gerar(nome: Superficie): Conjunto {
   // sem o wrap a emenda ganha um vinco de luz que aparece de longe.
   const nrm = new Uint8ClampedArray(S * S * 4)
   const at = (x: number, y: number) => alt[(((y % S) + S) % S) * S + (((x % S) + S) % S)]
-  const FORCA = 3.2
+  // 3,2 é o número único e cego que valia para as seis superfícies até 02/09.
+  // Ver a nota longa em RECEITAS: com `?relevo=1` ele vira conta.
+  const FORCA = RELEVO_FISICO ? (relevoM * S) / (8 * metros) : 3.2
   for (let y = 0; y < S; y++) {
     for (let x = 0; x < S; x++) {
       const dx = (at(x + 1, y - 1) + 2 * at(x + 1, y) + at(x + 1, y + 1))
