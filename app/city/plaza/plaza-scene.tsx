@@ -3218,6 +3218,10 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // o que houver sob o dedo: malhas só (pontos e sprites não contam)
         ray.params.Points = { threshold: 0 }
         const hits = ray.intersectObjects(scene.children, true).filter((h) => (h.object as THREE.Mesh).isMesh && !(h.object as THREE.Sprite).isSprite)
+        // ⚠️ DIAGNÓSTICO TEMPORÁRIO, 03/09, para investigar o relato do fundador
+        // ("de fora pra dentro a câmera seleciona o próprio domo"). Remover
+        // depois de identificada a causa.
+        if (wantStats) console.log('[picking] isDouble, hits:', hits.length, hits.slice(0, 3).map((h) => h.object.name || h.object.parent?.name))
         if (hits.length) focusAt(hits[0].point)
         return
       }

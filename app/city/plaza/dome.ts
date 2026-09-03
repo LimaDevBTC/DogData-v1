@@ -1243,6 +1243,19 @@ export function buildDome(o: DomeOpts): Dome {
     malhaCal.name = 'abobada:calota'
     malhaCal.frustumCulled = false
     malhaCal.renderOrder = 5
+    // ⚠️ SEM RAYCAST, 03/09. O fundador relatou: de fora da cidade, o duplo
+    // toque para se aproximar de algo visto ATRAVÉS DO VIDRO "seleciona o
+    // próprio domo", e só dá para voltar clicando em Tour. Medido com um log
+    // temporário no próprio picking: o raio do centro da tela, mirando a
+    // Needle a 6.563 m de distância, acha PRIMEIRO `merged:mullion` (a
+    // nervura desta casca) a 420 m, porque a transparência é visual, e o
+    // Raycaster do three não sabe disso: ele acha o primeiro triângulo no
+    // caminho, vidro ou não. Cada novo duplo toque reaproxima da MESMA casca,
+    // cada vez mais perto, e nunca atravessa — é uma casca fechada.
+    // A mesma regra já existe nesta cena para o emblema de guerra
+    // (plaza-scene.tsx, `emblema.traverse(o => { o.raycast = () => {} })`):
+    // um objeto que é atmosfera, não destino, não intercepta picking.
+    malhaCal.raycast = () => {}
     malhaCal.onBeforeRender = (_r, _s, cam) => {
       cam.getWorldPosition(matCal.uniforms.uCam.value)
       matCal.uniformsNeedUpdate = true
@@ -1307,6 +1320,7 @@ export function buildDome(o: DomeOpts): Dome {
     const malhaVidro = new THREE.Mesh(geoVidro, matVidro)
     malhaVidro.frustumCulled = false
     malhaVidro.renderOrder = 5
+    malhaVidro.raycast = () => {} // ver a nota grande em malhaCal, mesmo defeito, mesmo conserto
     // ⚠️ `uniformsNeedUpdate` é obrigatório: num ShaderMaterial cru o three sobe as
     // uniformes uma vez e depois só quando este sinal é levantado. Sem ele a
     // posição da câmera congela no primeiro quadro e o desvanecimento passa a
@@ -1363,8 +1377,10 @@ export function buildDome(o: DomeOpts): Dome {
     geoNerv.setIndex(idx)
     const matNerv = materialNervura(fade, crown)
     const malhaNerv = new THREE.Mesh(geoNerv, matNerv)
+    malhaNerv.name = 'abobada:nervura'
     malhaNerv.renderOrder = 6
     malhaNerv.frustumCulled = false
+    malhaNerv.raycast = () => {} // ver a nota grande em malhaCal: foi ESTA malha que o duplo toque achava
     malhaNerv.onBeforeRender = (_r, _s, cam) => {
       cam.getWorldPosition(matNerv.uniforms.uCam.value)
       matNerv.uniformsNeedUpdate = true
