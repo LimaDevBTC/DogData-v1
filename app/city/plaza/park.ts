@@ -484,7 +484,7 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
   if (FUNDIR) {
     const r = fundirMalhasLisas(built, /^$/)
     if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('stats') === '1') {
-      console.log('[park] fundiu', r.antes, 'malhas lisas em', r.fundidas, 'material(is)')
+      console.log('[park] fundiu', r.antes, 'malhas lisas em', r.fundidas, 'material(is), recusadas', r.recusadas)
     }
   }
   mergeStaticByMaterial(built, /^$/) // 138 malhas → ~20; com `?fundir=1` já não sobra quase nada aqui

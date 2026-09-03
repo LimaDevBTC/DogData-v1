@@ -104,9 +104,12 @@ export interface Vias {
    *  a seção inteira apagaria as duas fileiras que a cidade quer ter. */
   naVia(x: number, z: number, folga?: number): boolean
   /** ⚠️ TAREFA 4 (02/09): sobre qual das três superfícies (x,z) cai, ou
-   *  `null` se não está em nenhuma. Mesma máscara de `naVia`, célula de 4 m
-   *  (a sarjeta, de 0,40 m, nem sempre vence a célula: ver a nota grande de
-   *  `mascara`). Pra decalque de junta/remendo, não pra precisão de traço. */
+   *  `null` se não está em nenhuma. Mesma máscara de `naVia`, célula de 4 m.
+   *  MEDIDO (ver a nota grande de `mascara`): 76,2% de acerto em via larga
+   *  (bulevar), só 25,9% no contorno de quarteirão (6 m de seção inteira,
+   *  menor que 2 células). No contorno isto resolve "estou perto de uma
+   *  junta" (sarjeta acerta 99,1% ali); não resolve "pista ou calçada" numa
+   *  via estreita. */
   sobreQue(x: number, z: number): 'pista' | 'sarjeta' | 'calcada' | null
   /** quanto custou preencher a grade da máscara, em ms (medido no boot) */
   mascaraMs: number
@@ -351,38 +354,46 @@ const RAMPA_EXTREMOS = (Y_CALCADA - Y_PISTA) * RAMPA_1_12   // 1,8 m
 const CB_V_PCT = 0.05
 const CB_V_FUNDO = (CB_SARJETA / 2) * CB_V_PCT   // ~1 cm, o fundo do V
 
-// ⚠️ O ESCOPO DO BLOCO B, E O QUE FICOU DE FORA. Dos cinco itens do plano:
-//   1. abaulamento              FEITO (acima, `faixa` + parâmetro `abaular`)
-//   2. sarjeta em V             FEITO (acima, `meioFio`)
-//   3. face de meio-fio         JÁ EXISTIA antes deste Bloco B: a rodada de
+// ⚠️ O ESCOPO DO BLOCO B. Dos cinco itens do plano, todos FEITOS:
+//   1. abaulamento              `faixa` + parâmetro `abaular`
+//   2. sarjeta em V             `meioFio`
+//   3. face de meio-fio         JÁ EXISTIA antes deste Bloco B (rodada de
 //      com chanfro               02/09 que fixou CB_SARJETA/CB_CHANFRO/CB_TOPO
-//                                já desenha `paredeVert` (face vertical) mais
-//                                o chanfro de 45°. Nenhuma linha nova aqui.
-//   4. rebaixamento de esquina  NÃO FEITO.
-//   5. raio de concordância     NÃO FEITO.
-// ⚠️ 4 e 5 exigem saber onde duas arestas do contorno se encontram (o canto do
-// quarteirão) e cortar OU a parede do meio-fio OU o quad da pista bem
-// perto dali, sem abrir buraco nem sobrepor. Testei achar o quanto os cantos
-// de quarteirões VIZINHOS coincidem numa malha radial (banda muda `giro` e
-// `prof`, não é grade cartesiana) e não cheguei a um número em que confiasse
-// o bastante pra cortar geometria sobre ele sem risco de fresta ou
-// sobreposição em alguma das quatro bandas. Registrado como NÃO MEDIDO, não
-// como feito com pressa: o canto do contorno hoje fica reto (miter), sem
-// rampa e sem raio, e o defeito de FRENTE (Tarefa 1) não depende disso.
+//                                e `paredeVert`); nenhuma linha nova aqui.
+//   4. rebaixamento de esquina  Tarefa 3 (02/09): `rampaExtremos` em `faixa`,
+//      rampa 1:12                1,8 m = 0,15 m / (1/12), o degrau já
+//                                declarado dividido pela rampa que o plano
+//                                pediu. Faz calçada E meio-fio convergirem
+//                                pra cota da pista exatamente na ponta do
+//                                trilho, ou seja nos quatro cantos do
+//                                contorno de quarteirão.
+//   5. raio de concordância     Tarefa 3: a solução (a) do fundador, sem
+//                                interseção nenhuma. O retângulo local (`hx`,
+//                                `hz`, `giro`) já dá os quatro cantos por
+//                                construção; um leque de `N_ARCO`=7 triângulos
+//                                por canto, raio `R_GAP`=6 m (a própria
+//                                meia-seção, a MESMA folga de 6 m que já
+//                                evita disputa com o vizinho), fecha a cunha
+//                                de 90° que nenhuma das duas arestas retas
+//                                alcançava. Zero interseção calculada, zero
+//                                dependência do registro do quarteirão vizinho.
 //
 // ⚠️ O ORÇAMENTO, MEDIDO OFFLINE (node/tsx sobre o JSON, `heightAt` fixo em 0,
 // sem baía, sem material novo, mesmas malhas de sempre): a Tarefa 1 sozinha
 // (contorno sem corte) levou o grupo `vias` de 557.104 para 1.276.564
 // triângulos (+719.460, o custo de dar frente pra rua a 1.862 quarteirões que
-// não desenhavam nada). Ligar `?corte=1` por cima soma mais 328.524
-// (1.276.564 -> 1.605.088, +25,7%): é o abaulamento dobrando cada banda de
-// pista do contorno em duas, mais a sarjeta em V dobrando cada `deitado` de
-// sarjeta em TODA a guia da cidade (contorno, bulevar e anel, porque
-// `meioFio` é compartilhada pelas três). Chamada de desenho: zero a mais (a
-// geometria cai nas MESMAS Fitas de sempre). Material e programa de shader:
-// zero a mais, nenhum `new THREE.MeshStandardMaterial` neste bloco inteiro.
-// `metrosDeVia` não muda com `?corte=1` (268.204 -> 1.630.669 é só a Tarefa
-// 1; o corte é seção, não comprimento).
+// não desenhavam nada). Ligar `?corte=1` por cima (abaulamento + sarjeta em V,
+// itens 1 e 2) soma mais 328.524 (1.276.564 -> 1.605.088, +25,7%): a sarjeta
+// em V dobrando cada `deitado` de sarjeta em TODA a guia da cidade (contorno,
+// bulevar e anel, porque `meioFio` é compartilhada pelas três) é a maior
+// fatia disso. A esquina (Tarefa 3, itens 4 e 5) soma mais 104.272
+// (1.605.088 -> 1.709.360, +6,5%): 7 triângulos por canto x 4 cantos x 1.862
+// quarteirões = 52.136 do leque, o resto é o mesmo custo de sempre só
+// redistribuído pela rampa. Chamada de desenho: zero a mais em todo o Bloco B
+// (a geometria cai nas MESMAS Fitas de sempre). Material e programa de
+// shader: zero a mais, nenhum `new THREE.MeshStandardMaterial` neste bloco
+// inteiro. `metrosDeVia` não muda com `?corte=1` (268.204 -> 1.630.669 é só a
+// Tarefa 1; o corte é seção e esquina, não comprimento).
 
 // ── O OMBRO DA VIA (02/09) ─────────────────────────────────────────────────
 // ⚠️ O DEFEITO: A PISTA ERA UMA FITA DE ASFALTO LARGADA SOBRE REGOLITO NU. Entre
@@ -965,15 +976,23 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   // 16 MB, quatro vezes mais que o necessário para só 4 estados. 2 bits é a
   // codificação mais barata que ainda responde às três classes: escolhida.
   //
-  // ⚠️ A CÉLULA DE 4 m CONTINUA A MESMA (MASC_CEL), E ISTO É UM LIMITE REAL,
-  // NÃO ESCONDIDO. A sarjeta tem 0,40 m; numa célula de 4 m ela quase sempre
-  // perde área para a pista ou a calçada vizinha, que são bem mais largas. A
-  // prioridade em `escreverCel` (sarjeta > calçada > pista > nada) garante
-  // que uma célula que recebeu QUALQUER escrita de sarjeta responde
-  // 'sarjeta', mas uma célula a 3 m da sarjeta real, que nunca recebeu essa
-  // escrita, responde 'pista' ou 'calcada' mesmo perto da junta. Quem usar
-  // isto decide decalque de ÁREA (a escala que `sobreQue` resolve bem), não
-  // decalque de traço fino.
+  // ⚠️ A CÉLULA DE 4 m CONTINUA A MESMA (MASC_CEL), E MEDI O LIMITE EM VEZ
+  // DE SÓ AVISAR DELE. Amostrando `sobreQue` contra a classe analítica
+  // esperada (offline, node/tsx, sem navegador), em vias LARGAS (bulevar de
+  // 44 m) a resposta bate em 76,2% dos pontos (calçada 95,0%, sarjeta
+  // 100,0%, pista 64,6%, a maior parte do erro perto do canteiro, que não é
+  // uma das três classes). No CONTORNO de quarteirão, que tem só 6 m de
+  // seção inteira (2,5 calçada + 3,5 pista), a célula de 4 m é maior que
+  // metade da via inteira: a resposta bate em só 25,9% dos pontos (sarjeta
+  // 99,1%, mas calçada 23,0% e pista 20,9%, porque a prioridade da sarjeta
+  // toma conta de quase toda célula que toca a fronteira). **`sobreQue` no
+  // contorno serve pra achar "estou perto de uma junta" (é o que a sarjeta
+  // responde quase sempre certo); não serve pra decidir "estou no meio da
+  // pista ou no meio da calçada" numa via de 6 m.** Isto não é bug: é célula
+  // maior que o objeto medindo objeto pequeno, e fica registrado com número
+  // em vez de só um aviso qualitativo. Reduzir `MASC_CEL` resolveria, mas ele
+  // é compartilhado com `naVia` (a arborização depende do valor de hoje) e
+  // mexer nele é fora do escopo desta tarefa.
   const mascara = new Uint8Array((MASC_N * MASC_N) >> 2)
   const quadsVia: number[] = []
   /** cada quad carrega o próprio código de classe: pista/calçada/sarjeta */
@@ -1241,7 +1260,7 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
       // `rampaExtremos` metros dela pra dentro). É a MESMA fração pras três
       // coisas que a esquina precisa mexer junto: a altura da calçada, a
       // altura do meio-fio e (mais abaixo, fora deste laço) a crista do
-      // abaulamento — as três têm de chegar a ZERO exatamente na ponta, ou o
+      // abaulamento: as três têm de chegar a ZERO exatamente na ponta, ou o
       // canto arredondado que `?corte=1` desenha lá fora ganha um degrau.
       const sMeio = ((t0 + t1) / 2) * comp
       const distExtremo = rampaExtremos > 0 ? Math.min(sMeio, comp - sMeio) : Infinity

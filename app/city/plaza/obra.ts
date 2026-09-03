@@ -170,3 +170,53 @@ export function* emFatias<T>(
     }
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AQUECIMENTO DE SHADER
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Compila os programas de um trecho da cena SEM bloquear a thread.
+ *
+ * ⚠️ POR QUE ISTO É PARTE DO PLANO DE ABRIR CEDO, e não um extra. Compilar
+ * shader é a única parte do boot que a thread principal NÃO controla: quem
+ * compila é o driver. O three só pergunta se terminou, e a pergunta é que
+ * decide se a espera bloqueia.
+ *
+ * O caminho normal (`renderer.render`) descobre o programa na hora do primeiro
+ * desenho e, dentro de `onFirstUse`, chama `gl.getProgramInfoLog` e
+ * `gl.getProgramParameter(LINK_STATUS)`: as duas param a thread até aquele
+ * programa ficar pronto, um por um. Medido em 02/09 nesta cena, com 373
+ * programas, isso era o maior item de CPU do boot depois do campo de distância
+ * do lago ser consertado.
+ *
+ * `compileAsync` faz o contrário: dispara todas as compilações e pergunta com
+ * `COMPLETION_STATUS_KHR`, que é a consulta NÃO bloqueante da extensão
+ * `KHR_parallel_shader_compile`. O driver compila várias em paralelo, em
+ * segundo plano, e nós esperamos numa Promise.
+ *
+ * ⚠️ E POR ISSO ELE PRECISA SER CHAMADO POR FAIXA, NÃO UMA VEZ SÓ. `compile`
+ * varre a cena que EXISTE naquele instante. Se chamarmos só antes de abrir,
+ * cada peça que a faixa 2 acrescentar depois traz programa novo, e o engasgo
+ * volta, agora com a câmera andando, que é o pior lugar para ele aparecer.
+ * Aqueça o grupo ANTES de pendurá-lo na cena.
+ *
+ * ⚠️ SEM A EXTENSÃO, `isReady()` do three devolve true na primeira pergunta, e
+ * esta função vira quase um no-op caro: ela não trava, mas também não garante
+ * nada. Não dá para depender dela como se fosse sincronização.
+ */
+export async function aquece(
+  renderer: { compileAsync?: (s: object, c: object, alvo?: object | null) => Promise<unknown> },
+  cena: object,
+  camera: object,
+  trecho?: object,
+): Promise<void> {
+  if (typeof renderer.compileAsync !== 'function') return
+  try {
+    await renderer.compileAsync(trecho ?? cena, camera, trecho ? cena : null)
+  } catch (err) {
+    // ⚠️ AQUECER NUNCA PODE DERRUBAR A CIDADE. É otimização: se falhar, o
+    // caminho normal do render compila do mesmo jeito, só que travando.
+    console.warn('[obra] aquecimento de shader falhou, seguindo sem ele', err)
+  }
+}

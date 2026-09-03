@@ -22,6 +22,7 @@ import { createBattlefield, type Battlefield } from '../war/battlefield'
 import WarLegend from './war-legend'
 import { loadTerrain } from './terrain'
 import { criarTerrenoFino, ligarNaVia, type TerrenoFino } from './terreno-fino'
+import { criarSombraCascata, type SombraCascata } from './sombra'
 import { createOrbitLayer, PAD_MAIN, SPACEPORT_SHIFT, setOrbitFloor } from './orbit-layer'
 import { startFeed, isDonation, type DogTx, type Snapshot, donationDog } from './feed'
 import { buildChalet, type Chalet } from './chalet'
@@ -1063,7 +1064,23 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     sun.shadow.bias = -0.0004
     sun.shadow.normalBias = 0.15
     sun.target.position.set(0, 0, 320)
-    scene.add(sun, sun.target)
+    // ── A CASCATA (`?csm=1`) TOMA O LUGAR DESTE SOL ───────────────────────────
+    //
+    // ⚠️ O TEXEL DE SOMBRA DESTA LUZ CHEGA A 3,1 m, maior que um lote inteiro,
+    // porque a meia-largura cresce até 3.200 m sobre um mapa de 2.048. Isso é
+    // invisível de cima e fatal a 1,7 m: um meio-fio de 0,15 m sem sombra de
+    // contato não existe. `sombra.ts` faz três cascatas (2,9 cm / 16,6 cm /
+    // 78,1 cm) e é ela quem cria a DirectionalLight quando a bandeira está
+    // ligada.
+    //
+    // ⚠️ E POR ISSO O `scene.add` É CONDICIONAL, e não a criação. Duas luzes
+    // direcionais na cena mudariam `NUM_DIR_LIGHTS` em TODO material iluminado,
+    // que é exatamente o que o `OrcamentoDeLuz` de perf.ts existe para impedir
+    // (medido lá: 444 para 480 programas numa ida e volta de câmera). O objeto
+    // `sun` continua existindo porque `SUN_DIR`, `SUN_DIST` e `followShadow`
+    // saem dele; órfão, ele não custa nada e o caminho velho volta com `?csm=0`.
+    const usarCsm = new URLSearchParams(window.location.search).get('csm') === '1'
+    if (!usarCsm) scene.add(sun, sun.target)
     // A caixa de sombra segue o alvo da câmera (encaixada em texels da luz para
     // não tremer) e cresce com a distância: sombras na praça E no parque, a 9 km,
     // com um mapa só. Sem isto o parque era plano: as pedras não assentavam.
@@ -1350,6 +1367,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let mob: MobiliarioUrbano | null = null
     let decal: Decalques | null = null
     let terrenoFino: TerrenoFino | null = null
+    let csm: SombraCascata | null = null
     let pracas: Pracas | null = null
     let arvores: Arborizacao | null = null
     let lago: Lago | null = null
@@ -1504,6 +1522,20 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           uvEscala: terrain.uvEscala, material: terrain.material, sombra: qDomo.get('sombra') !== '0',
         })
         scene.add(terrenoFino.group)
+
+        // ⚠️ A CASCATA NASCE AQUI, E NÃO LÁ EM CIMA COM O SOL, por uma razão de
+        // ordem: o decalque escurecedor dela pousa no terreno, e `superficieAt`
+        // só existe depois do `await loadTerrain`. Enquanto ela não nasce, a
+        // cena está atrás do portão de carga e ninguém vê chão nenhum.
+        if (usarCsm) {
+          csm = criarSombraCascata(scene, {
+            mapSize: profile.shadowMapSize,
+            azimuteGraus: SUN_AZ,
+            alturaEm: terrain.superficieAt,
+          })
+          csm.aplicarHora({ elevacaoGraus: H.el, intensidade: H.sun, cor: H.sunColor })
+          csm.everyN = governor.shadowEvery
+        }
         if (qDomo.get('domo') !== '0') {
           const num = (k: string, d: number) => {
             const v = parseFloat(qDomo.get(k) || '')
@@ -2019,6 +2051,36 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 // ⚠️ o micro-relevo é ZERO sob pavimento, e quem sabe onde é
                 // pavimento é a via. Asfalto ondulado é defeito, não detalhe.
                 ligarNaVia(v.naVia)
+
+                // ── OS DECALQUES DE CHÃO (`?decalque=1`) ──────────────────────
+                //
+                // ⚠️ NASCEM AQUI DENTRO, E ISSO FOI ERRO MEU MEDIDO EM 02/09. Eu
+                // os criava lá em cima, junto do mobiliário, passando
+                // `vias ? ... : undefined`. Só que `vias` é preenchido NESTE
+                // `.then`, que resolve muito depois: no instante da criação ele
+                // era null, e o módulo caiu no seu próprio aviso, que o console
+                // publicou sem eu ver na primeira medição:
+                //   "[decalques] sem `naVia` nem `sobreQue`: só a zona regolito
+                //    nasce (rastro, trilha, ejecta)".
+                // Ou seja remendo, junta, tampa, grelha, caixa, faixa e poeira
+                // NUNCA nasceram. A regra que sai daí vale para todo módulo novo
+                // do chão: quem depende da rua nasce depois da rua, e o lugar de
+                // "depois da rua" é aqui.
+                //
+                // ⚠️ `sobreQue` FICA DESLIGADO DE PROPÓSITO, e o número é o motivo.
+                // A frente de vias mediu a precisão da consulta em vez de assumir:
+                // 76,2% no bulevar de 44 m, mas só 25,9% no contorno de 6 m, que
+                // é a rua mais comum da cidade depois do conserto dos 1.862
+                // quarteirões. A célula da máscara tem 4 m, maior que a seção
+                // inteira da via, e a sarjeta engole o resto. Ligar isso poria
+                // junta de concretagem no meio do asfalto na maioria das ruas.
+                // Religar quando a classificação for analítica e não rasterizada.
+                decal = buildDecalques({
+                  heightAt: terrain.superficieAt,
+                  naVia: (x, z, folga) => v.naVia(x, z, folga),
+                  sombra: qDomo.get('sombra') !== '0',
+                })
+                scene.add(decal.group)
                 scene.add(v.group)
                 // a rua assentou: agora a árvore pode ser plantada sabendo onde
                 // é pista, sarjeta e calçada
@@ -2061,31 +2123,6 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               }).catch((err) => console.error('[mobiliário] não subiu', err)))
             }
 
-            // ── OS DECALQUES DE CHÃO (`?decalque=1`) ──────────────────────────
-            //
-            // ⚠️ ENTRA AQUI, E NÃO ANTES, POR TRÊS DEPENDÊNCIAS. Ele precisa do
-            // terreno (para pousar), de `vias.naVia` (para saber o que é via) e
-            // de `vias.sobreQue` (para saber SE é pista, sarjeta ou calçada, que
-            // é o que separa remendo de asfalto de junta de concretagem). As
-            // três já respondem neste ponto do boot.
-            //
-            // ⚠️ O MÓDULO SE FECHA SOZINHO NA BANDEIRA. `buildDecalques` lê
-            // `?decalque=1` por dentro e devolve um grupo vazio sem ela, então
-            // não há condicional aqui: quem decide é o módulo, como em `look.ts`.
-            decal = buildDecalques({
-              heightAt: terrain.superficieAt,
-              naVia: vias ? (x, z, folga) => vias!.naVia(x, z, folga) : undefined,
-              // ⚠️ `sobreQue` AINDA NÃO EXISTE em `Vias`, e por isso não está
-              // ligado aqui. A frente de vias está construindo a consulta que
-              // distingue pista, sarjeta e calçada; `decalques.ts` já sabe
-              // consumir e cai no `naVia` largo enquanto ela não vem. Religar
-              // esta linha assim que o tipo existir:
-              //   sobreQue: vias?.sobreQue ? (x, z) => vias!.sobreQue!(x, z) : undefined,
-              // Sem ela, remendo de asfalto e junta de concretagem disputam a
-              // mesma zona, que é exatamente o defeito que a consulta conserta.
-              sombra: qDomo.get('sombra') !== '0',
-            })
-            scene.add(decal.group)
 
             // ⚠️ A COROA DE NEVE É FUNDO, NÃO DESTINO, E O NÚMERO MANDA NISSO.
             // Medi a grade construída dentro da casca (raio 9.050): o pico é
@@ -3356,7 +3393,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       // em voo da visita guiada a sombra está congelada: refazer o enquadramento
       // do mapa a cada quadro seria trabalho jogado fora
       nearPorDistancia(camera.position.distanceTo(controls.target))
-      if (!(fly.on && tourRunning)) followShadow()
+      if (csm) {
+        csm.everyN = governor.shadowEvery
+        csm.atualizar({ camera, alvo: controls.target, renderer, congelarTudo: fly.on && tourRunning, forcarTudo: shadowDirty })
+        if (shadowDirty) shadowDirty = false
+      } else if (!(fly.on && tourRunning)) followShadow()
       orbit.update(t, dt, fees)
       for (const p of pulses) p.m.emissiveIntensity = p.base * (0.8 + 0.25 * Math.sin(t * p.rate + p.phase))
       for (const s of sways) { s.o.rotation.y = Math.sin(t * 0.22) * 0.95; s.o.position.y = s.y0 + Math.sin(t * 0.8) * s.amp }
@@ -3456,8 +3497,14 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       // dois. EM VOO da visita guiada ele congela: refazer a sombra do sol a cada
       // quadro enquanto a câmera atravessa 5 km era metade do engasgo que o
       // fundador viu. Ao pousar, uma atualização só.
+      // ⚠️ COM `?csm=1` ESTE BLOCO SAI DE CENA. `renderer.shadowMap.needsUpdate` é
+      // GLOBAL, e a cascata precisa de cadência POR LUZ: a de perto atualiza todo
+      // quadro, as de longe seguem o governador. Quem decide passa a ser
+      // `csm.atualizar()`, logo acima, e dois donos do mesmo portão brigariam em
+      // silêncio, com a sombra piscando sem erro nenhum no console.
       renderer.shadowMap.autoUpdate = false
-      if (fly.on && tourRunning) renderer.shadowMap.needsUpdate = false
+      if (csm) { /* a cascata já resolveu o needsUpdate neste quadro */ }
+      else if (fly.on && tourRunning) renderer.shadowMap.needsUpdate = false
       else if (shadowDirty) { renderer.shadowMap.needsUpdate = true; shadowDirty = false }
       else if (statsTick % governor.shadowEvery === 0) renderer.shadowMap.needsUpdate = true
       // ── TREMOR DE IMPACTO ────────────────────────────────────────────
@@ -3550,6 +3597,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       mob?.dispose()
       decal?.dispose()
       terrenoFino?.dispose()
+      csm?.dispose()
       lago?.dispose()
       canais?.dispose()
       lagos?.dispose()

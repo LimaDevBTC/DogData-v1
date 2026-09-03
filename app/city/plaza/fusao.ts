@@ -14,6 +14,16 @@
 // arquivo: 250 dos 254 (98%) são PBR liso. É o único lugar da cena onde o
 // mesmo trabalho rende centenas de materiais de uma vez.
 //
+// ⚠️ MEDIDO DEPOIS DE LIGAR, 02/09: a economia real é CHAMADA DE DESENHO, não
+// PROGRAMA. Entrada padrão, `perto`: 273 → 210 chamadas (23%), carga inteira
+// 332 → 200 (40%), mas programas só 487 → 471 (16, não as centenas que os
+// 250 materiais lisos prometiam). A causa: material de mesma assinatura
+// estrutural (sem mapa, opaco, mesmo `side`) já compartilhava PROGRAMA antes
+// desta função existir, por conta própria do three (`WebGLPrograms.js`, sem
+// nenhum `customProgramCacheKey` escrito por ninguém). Registrando para não
+// repetir o erro de expectativa: cortar N materiais corta N chamadas de
+// desenho sempre; corta programa só até onde as assinaturas já divergiam.
+//
 // ⚠️ A RECONSTRUÇÃO É EXATA, NÃO APROXIMADA. Sem mapa não há UV para perder;
 // cor, rugosidade, metalicidade e `emissive × emissiveIntensity` (o valor que
 // o three já pré-multiplica em `WebGLMaterials.js`) são lidos do material tal
@@ -23,7 +33,7 @@
 // mutados em `traverse`), nunca antes, senão ela cozinha o valor de ANTES do
 // ajuste. `park.ts` já roda assim; é o padrão para todo chamador novo.
 //
-// ⚠️ DUAS ARMADILHAS, achadas no censo de 02/09 e as duas reais:
+// ⚠️ TRÊS ARMADILHAS, achadas em duas rodadas de censo e as três reais:
 //
 //   1. NOME DE MATERIAL QUE REGE REPINTURA. `plaza-scene.tsx` repinta os
 //      sítios da Kray e da BitFlow pelo NOME DO MATERIAL (`site_asphalt`,
@@ -43,8 +53,36 @@
 //      descarta os originais. Fundir um nó guardado por referência apaga a
 //      animação em silêncio (o material antigo, órfão, continua mutando sem
 //      que nada o desenhe). `keep` PRECISA proteger os dois conjuntos de nome,
-//      não só o de posição/giro. O relatório desta rodada traz a lista exata,
-//      medida por prédio, dos nós que caem nesta armadilha.
+//      não só o de posição/giro.
+//
+//   3. A TRANSFORMAÇÃO APLICADA DUAS VEZES, achada em 03/09 pela BitFlow
+//      sumindo com `?fundir=1` (Kray e Needle de pé na mesma chapa: era
+//      específico da BitFlow por causa da MAGNITUDE do deslocamento da
+//      âncora, não por causa de algo exclusivo da BitFlow no código). A
+//      causa: a função assava `mesh.matrixWorld` (mundo ABSOLUTO, contando
+//      todo o caminho até a raiz da cena) na geometria e depois pendurava a
+//      malha fundida em `root` com `root.add(mesh)`. Se `root` JÁ estava
+//      dentro de uma árvore posicionada (a BitFlow entra fundida DEPOIS de
+//      `bitflowLod.position.copy(ANCHORS.west.pos)` e
+//      `bitflowLod.rotation.y = ANCHORS.west.rotY`, com `bitflow` já
+//      pendurado dentro de `bitflowLod`), o `matrixWorld` de `root` ENTRA DE
+//      NOVO no desenho pela adoção, e a peça vai parar a `pos` de distância E
+//      dobrada de rotação de onde devia (a BitFlow ficou 620 m mais longe do
+//      que devia, virada 180° a mais; a Needle, que só tem `position.y = 39,9`
+//      sem giro, só flutuou 39,9 m acima do chão, defeito pequeno demais para
+//      aparecer na mesma chapa). `park.ts` nunca mostrou o sintoma porque
+//      `built` ainda não tinha pai nenhum no momento da fusão (`group.add`
+//      só roda DEPOIS): ali `matrixWorld` já era, por acaso, o mesmo que
+//      `matrix` relativo à raiz.
+//
+//      A REGRA GERAL, para não repetir: uma função que funde geometria e
+//      PENDURA O RESULTADO DE VOLTA numa árvore existente nunca pode assar
+//      `matrixWorld` (espaço absoluto) na geometria; tem de assar a
+//      transformação RELATIVA À RAIZ que recebe o resultado
+//      (`raiz⁻¹ · mundoDaMalha`), porque é a raiz, não a cena, que aplica a
+//      transformação de novo no desenho. A função corrigida abaixo faz
+//      exatamente isso, e funciona igual esteja `root` já pendurado na cena
+//      ou ainda solto (os dois casos que este arquivo atende hoje).
 //
 // Three.js puro (regra da casa: nada de react-three-fiber).
 import * as THREE from 'three'
@@ -72,24 +110,41 @@ export function materialLiso(m: THREE.Material): m is THREE.MeshStandardMaterial
     && mm.transparent === false && mm.alphaTest === 0
 }
 
+/** metros de tolerância na guarda de caixa envolvente: acima disso, a fusão
+ *  daquele grupo não é confiável e a função recusa, ver `fundirMalhasLisas`. */
+const TOLERANCIA_CAIXA_M = 0.5
+
 /** Funde, por atributo de vértice, as malhas ESTÁTICAS de `root` cujo material
  *  é PBR liso (`materialLiso`) e do MESMO lado (`side`). `keep` casa com os
  *  nomes de NÓ que não podem entrar: nó animado (posição/giro/escala) OU nó
- *  cujo material uma animação guarda por referência (ver armadilha 2 acima).
- *  Mesma assinatura de `mergeStaticByMaterial` (perf.ts), de propósito: um
- *  chamador que já monta o `keep` certo para aquela função monta o mesmo
- *  `keep`, OU MAIOR, para esta. Devolve quantas malhas entraram e em quantos
- *  materiais viraram (0 ou 1 por lado; 1 malha sozinha não funde, porque
- *  fundir uma coisa só não economiza nada). */
-export function fundirMalhasLisas(root: THREE.Object3D, keep: RegExp): { antes: number; fundidas: number } {
+ *  cujo material uma animação guarda por referência (armadilha 2 no
+ *  cabeçalho). Mesma assinatura de `mergeStaticByMaterial` (perf.ts), de
+ *  propósito: um chamador que já monta o `keep` certo para aquela função
+ *  monta o mesmo `keep`, OU MAIOR, para esta.
+ *
+ *  ⚠️ `root` NUNCA é testado contra `keep`, só os DESCENDENTES. Testar a
+ *  própria raiz é um erro de categoria (quem chamou já escolheu operar nela)
+ *  e é armadilha por si: `keep = /^$/` (o sentinela "nada protegido" que
+ *  `park.ts` usa) casa com um `THREE.Group()` sem nome, que É a raiz, e
+ *  achado em 03/09 fazia a função proteger a ÁRVORE INTEIRA e não fundir
+ *  nada (`antes: 0, fundidas: 0` no console, no templo e nas trilhas).
+ *
+ *  Devolve quantas malhas entraram, em quantos materiais viraram (0 ou 1 por
+ *  lado; 1 malha sozinha não funde) e quantos grupos a GUARDA DE CAIXA
+ *  recusou por divergirem demais da união das caixas de entrada (ver
+ *  `TOLERANCIA_CAIXA_M`): uma fusão que muda a caixa do prédio é pior do que
+ *  nenhuma fusão, e por isso ela AVISA e DEIXA o grupo como estava, em vez
+ *  de arriscar. */
+export function fundirMalhasLisas(root: THREE.Object3D, keep: RegExp): { antes: number; fundidas: number; recusadas: number } {
   root.updateMatrixWorld(true)
+  // a raiz nunca aparece nesta busca por nome: só os descendentes dela
   const pular = new Set<THREE.Object3D>()
-  root.traverse((o) => { if (keep.test(o.name)) o.traverse((c) => pular.add(c)) })
+  root.traverse((o) => { if (o !== root && keep.test(o.name)) o.traverse((c) => pular.add(c)) })
   const porLado = new Map<THREE.Side, THREE.Mesh[]>()
   let antes = 0
   root.traverse((o) => {
     const m = o as THREE.Mesh & { isInstancedMesh?: boolean; isSkinnedMesh?: boolean }
-    if (!m.isMesh || m.isInstancedMesh || m.isSkinnedMesh || pular.has(o)) return
+    if (o === root || !m.isMesh || m.isInstancedMesh || m.isSkinnedMesh || pular.has(o)) return
     if (Array.isArray(m.material)) return
     if (!materialLiso(m.material as THREE.Material)) return
     antes++
@@ -98,24 +153,42 @@ export function fundirMalhasLisas(root: THREE.Object3D, keep: RegExp): { antes: 
     lista.push(m)
     porLado.set(lado, lista)
   })
+  // ⚠️ RELATIVO À RAIZ, NUNCA MUNDO ABSOLUTO. Ver a armadilha 3 no cabeçalho:
+  // `root` pode já estar pendurado numa árvore posicionada (as três torres) ou
+  // ainda solto (`built`, em park.ts); nos dois casos, `root.add(mesh)` logo
+  // abaixo faz a cadeia de ancestrais de `root` aplicar a transformação DELE
+  // no desenho. A geometria só pode carregar o que falta: a transformação de
+  // cada malha ATÉ `root`, não além dele.
+  const raizInversa = new THREE.Matrix4().copy(root.matrixWorld).invert()
   let fundidas = 0
+  let recusadas = 0
   Array.from(porLado.entries()).forEach(([lado, meshes]) => {
     if (meshes.length < 2) return // uma malha sozinha: fundir não economiza nada
-    const geos = meshes.map((mesh) => {
+    const relativas = meshes.map((mesh) => new THREE.Matrix4().multiplyMatrices(raizInversa, mesh.matrixWorld))
+    // a UNIÃO das caixas de entrada, no mesmo espaço (relativo a `root`) que o
+    // resultado vai ocupar: é a referência da guarda, calculada ANTES de tocar
+    // em geometria nenhuma.
+    const caixaEntrada = new THREE.Box3()
+    meshes.forEach((mesh, i) => {
+      const bb = new THREE.Box3().setFromBufferAttribute(mesh.geometry.attributes.position as THREE.BufferAttribute)
+      bb.applyMatrix4(relativas[i])
+      caixaEntrada.union(bb)
+    })
+    const geos = meshes.map((mesh, i) => {
       const mat = mesh.material as THREE.MeshStandardMaterial
       const g = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry.clone()
       for (const a of Object.keys(g.attributes)) if (a !== 'position' && a !== 'normal') g.deleteAttribute(a)
       if (!g.attributes.normal) g.computeVertexNormals()
-      g.applyMatrix4(mesh.matrixWorld)
+      g.applyMatrix4(relativas[i])
       const n = g.attributes.position.count
       const cor = new Float32Array(n * 3)
       const rm = new Float32Array(n * 2)
       const emit = new Float32Array(n * 3)
       const emissivo = mat.emissive.clone().multiplyScalar(mat.emissiveIntensity)
-      for (let i = 0; i < n; i++) {
-        cor[i * 3] = mat.color.r; cor[i * 3 + 1] = mat.color.g; cor[i * 3 + 2] = mat.color.b
-        rm[i * 2] = mat.roughness; rm[i * 2 + 1] = mat.metalness
-        emit[i * 3] = emissivo.r; emit[i * 3 + 1] = emissivo.g; emit[i * 3 + 2] = emissivo.b
+      for (let k = 0; k < n; k++) {
+        cor[k * 3] = mat.color.r; cor[k * 3 + 1] = mat.color.g; cor[k * 3 + 2] = mat.color.b
+        rm[k * 2] = mat.roughness; rm[k * 2 + 1] = mat.metalness
+        emit[k * 3] = emissivo.r; emit[k * 3 + 1] = emissivo.g; emit[k * 3 + 2] = emissivo.b
       }
       g.setAttribute('color', new THREE.BufferAttribute(cor, 3))
       g.setAttribute('aRoughMetal', new THREE.BufferAttribute(rm, 2))
@@ -123,6 +196,27 @@ export function fundirMalhasLisas(root: THREE.Object3D, keep: RegExp): { antes: 
       return g
     })
     const merged = mergeGeometries(geos, false)
+    merged.computeBoundingBox()
+    // ── A GUARDA ──────────────────────────────────────────────────────────
+    // Compara a caixa do resultado com a união das caixas de entrada. Fora da
+    // tolerância, algo na conta acima está errado (a transformação, o lado, o
+    // que for) e fundir SILENCIOSAMENTE apagaria o prédio, como a BitFlow fez
+    // em 03/09. Aqui a função recusa o grupo em vez de arriscar: avisa no
+    // console e devolve as malhas originais intocadas.
+    const caixaSaida = merged.boundingBox!
+    const divergeMin = caixaEntrada.min.distanceTo(caixaSaida.min)
+    const divergeMax = caixaEntrada.max.distanceTo(caixaSaida.max)
+    if (divergeMin > TOLERANCIA_CAIXA_M || divergeMax > TOLERANCIA_CAIXA_M) {
+      console.warn(
+        '[fusao] recusei um grupo: a caixa do resultado diverge da união das caixas de entrada além de',
+        TOLERANCIA_CAIXA_M, 'm. min diverge', divergeMin.toFixed(2), 'max diverge', divergeMax.toFixed(2),
+        '· malhas envolvidas:', meshes.length, '· nomes:', meshes.slice(0, 5).map((m) => m.name || '(sem nome)'),
+      )
+      for (const g of geos) g.dispose()
+      merged.dispose()
+      recusadas++
+      return
+    }
     for (const g of geos) g.dispose()
     for (const mesh of meshes) mesh.removeFromParent()
     const mat = vestirFundido(new THREE.MeshStandardMaterial({ vertexColors: true, side: lado }))
@@ -133,7 +227,7 @@ export function fundirMalhasLisas(root: THREE.Object3D, keep: RegExp): { antes: 
     root.add(mesh)
     fundidas++
   })
-  return { antes, fundidas }
+  return { antes, fundidas, recusadas }
 }
 
 // Chave de programa FIXA para todo material fundido por esta função: sem ela
