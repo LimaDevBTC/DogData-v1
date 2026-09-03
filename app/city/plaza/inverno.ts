@@ -185,6 +185,7 @@
 // Three.js puro (regra da casa: nada de react-three-fiber).
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { DistanceCuller, PerfProfile } from './perf'
 
 // ── A BANDEIRA ───────────────────────────────────────────────────────────────
@@ -199,13 +200,25 @@ export const PICO_MEDIDO = { x: -8234, z: -902, r: 8283.3, azimuteGraus: 264 }
 const AZ0 = 248
 const AZ1 = 288
 
-/** bandas radiais do perfil: pé (dentro do anel já nivelado pelo pódio),
- *  início e fim do planalto da crista, e onde a adição volta a zero antes da
- *  fratura de borda medida na Tarefa 1 */
+/** bandas radiais do perfil, redesenhado em 03/09 depois da chapa reprovar
+ *  a montanha como duna sem aresta. A versão anterior tinha um PLANALTO
+ *  (R_CRISTA0 a R_CRISTA1, 270 m de topo achatado): é exatamente isso que lê
+ *  como cúpula de areia. Uma crista de verdade é uma ARESTA, não um platô:
+ *  um raio SÓ no topo (R_CRISTA_PICO), subida mansa de um lado (o versante
+ *  esquiável, para a cidade) e queda ABRUPTA do outro (a face de rocha, para
+ *  fora). R_PE é o pé, dentro do anel que o pódio da abóbada já deixa
+ *  plano; R_QUEDA é onde a adição volta a zero, antes da fratura de borda
+ *  medida na Tarefa 1. */
 const R_PE = 7150
-const R_CRISTA0 = 8150
-const R_CRISTA1 = 8420
+const R_CRISTA_PICO = 8280
 const R_QUEDA = 8650
+/** expoente da face de rocha, não cosmético: Math.pow(suave01(t), K)
+ *  com K > 1 mantém a curva perto de 1 quase até o topo e desaba no último
+ *  trecho, o oposto do suave01 puro (que já teria caído pela metade a meio
+ *  caminho). É isso que dá parede vertical junto da crista e esparrama para
+ *  scree (pedregulho solto) só perto da base da face, que é como um paredão
+ *  de circo glacial de verdade se comporta. */
+const EXP_FACE_ROCHA = 2.4
 
 /** metros somados no PLANALTO da crista, no centro de um ombro (fração 1,0).
  *  Conta: terreno natural medido no arco da crista ≈ 260-320 m; alvo de cume
@@ -264,82 +277,6 @@ function ruido(x: number, z: number, celula: number, semente: number): number {
   const a = hash2(ix, iz, semente), b = hash2(ix + 1, iz, semente)
   const c = hash2(ix, iz + 1, semente), d = hash2(ix + 1, iz + 1, semente)
   return (a + (b - a) * sx) * (1 - sz) + (c + (d - c) * sx) * sz
-}
-
-/** envelope radial: 0 no pé e na queda externa, 1 no planalto da crista,
- *  transição em cosseno (`suave01`) nos dois lados. Perfil "1 − cos" da casa
- *  (ver `terrain.ts` → `monteEm`), não um cone: sobe suave, arredonda o cume. */
-function envelopeRadial(r: number): number {
-  if (r <= R_PE || r >= R_QUEDA) return 0
-  if (r >= R_CRISTA0 && r <= R_CRISTA1) return 1
-  if (r < R_CRISTA0) return suave01((r - R_PE) / (R_CRISTA0 - R_PE))
-  return suave01((R_QUEDA - r) / (R_QUEDA - R_CRISTA1))
-}
-
-/** fator azimutal: máximo entre o colo (piso) e o ombro mais próximo, com
- *  transição suave, exatamente o "ombro, colo, crista" que `montanha.ts` descreveu
- *  como o que falta numa montanha matematicamente pura. */
-function fatorAzimute(az: number): number {
-  let fora = true
-  let m = 0
-  for (const o of OMBROS) {
-    const d = Math.abs(difAngulo(az, o.azCentro))
-    if (d < o.azMeia * 2.2) fora = false
-    const t = suave01(1 - d / o.azMeia)
-    m = Math.max(m, t * o.fracao)
-  }
-  if (fora && (az < AZ0 - 6 || az > AZ1 + 6)) return 0
-  return Math.max(m, COLO_FRACAO)
-}
-
-/** couloirs: corredores radiais rasos entre os ombros, mais fundos a meia
- *  encosta e desvanecendo no pé e na crista, exatamente o que dá "ravina" ao relevo,
- *  a textura que falta num cone matemático. Só atua DENTRO do envelope. */
-function corredores(x: number, z: number, r: number, az: number): number {
-  const meioEncosta = suave01((r - R_PE) / (R_CRISTA0 - R_PE)) * (1 - suave01((r - R_CRISTA0) / 200))
-  const azRad = (az * Math.PI) / 180
-  const padrao = Math.pow(Math.abs(Math.sin(azRad * 9 + 0.6)), 1.4)
-  return -padrao * 34 * meioEncosta
-}
-
-/** crag de escala fina: ±14 m, ruído em duas oitavas, tapeado pelo próprio
- *  envelope para não vazar fora do maciço esculpido */
-function cragAt(x: number, z: number, env: number): number {
-  const a = ruido(x, z, 95, 401) * 2 - 1
-  const b = ruido(x, z, 34, 402) * 2 - 1
-  return (a * 11 + b * 5) * env
-}
-
-/**
- * A altura ADICIONADA pelo parque de inverno, em metros, para somar direto a
- * `heightAt` (mesmo contrato de `microRelevoAt`): 0 bit a bit sem a bandeira,
- * puro em (x, z), sem depender de câmera nem de estado.
- */
-export function alturaInvernoAt(x: number, z: number): number {
-  if (!INVERNO_ATIVO) return 0
-  const r = Math.hypot(x, z)
-  const env = envelopeRadial(r)
-  if (env <= 0) return 0
-  const az = azimuteDe(x, z)
-  const fAz = fatorAzimute(az)
-  if (fAz <= 0) return 0
-  const base = env * fAz * ADD_CRISTA
-  return base + corredores(x, z, r, az) * env + cragAt(x, z, env)
-}
-
-/**
- * Quanto (0..1) um ponto pertence à zona esculpida pelo parque de inverno.
- * `alpino.ts` usa isto para baixar a cota de neve SÓ onde a montanha nova
- * está, sem gelar encostas de outro rumo que não têm nada com este módulo.
- * 0 bit a bit sem `?inverno=1`, mesmo contrato de `alturaInvernoAt`.
- */
-export function zonaEsquiavelAt(x: number, z: number): number {
-  if (!INVERNO_ATIVO) return 0
-  const r = Math.hypot(x, z)
-  const env = envelopeRadial(r)
-  if (env <= 0) return 0
-  const az = azimuteDe(x, z)
-  return env * fatorAzimute(az)
 }
 
 function pontoEmRumo(r: number, azGraus: number): [number, number] {
@@ -422,11 +359,16 @@ const ESPECIFICACOES: EspecPista[] = [
   },
   {
     nome: 'Super-G Regolito', dificuldade: 'preta', largura: 27,
-    rInicio: 8000, rFim: 7550, azCentro: 275, amplitude: 2, oscilacoes: 1, amostras: 60,
+    // ⚠️ 8.000 -> 8.040 em 03/09: a crista ficou mais afiada (Tarefa da chapa)
+    // e o desnível daqui caiu de 411 para 393 m, 7 m abaixo do piso FIS
+    // (400). Reancorado mais alto no flanco, reconferido por `medirPista`.
+    rInicio: 8040, rFim: 7550, azCentro: 275, amplitude: 2, oscilacoes: 1, amostras: 60,
   },
   {
     nome: 'Slalom Gigante Cratera Rasa', dificuldade: 'vermelha', largura: 22,
-    rInicio: 7800, rFim: 7500, azCentro: 258, amplitude: 2, oscilacoes: 1, amostras: 50,
+    // ⚠️ 7.800 -> 7.860, mesmo motivo: 295 m tinha caído para 245, 5 m abaixo
+    // do piso FIS (250). Reconferido por `medirPista`.
+    rInicio: 7860, rFim: 7500, azCentro: 258, amplitude: 2, oscilacoes: 1, amostras: 50,
   },
   {
     nome: 'Slalom Poeira Fina', dificuldade: 'azul', largura: 18,
@@ -451,6 +393,173 @@ const ESPECIFICACOES: EspecPista[] = [
 export const PISTAS: Pista[] = ESPECIFICACOES.map((e) => ({
   nome: e.nome, dificuldade: e.dificuldade, largura: e.largura, pontos: gerarSerpentina(e),
 }))
+
+/** envelope radial ASSIMÉTRICO: sobe em cosseno do pé até a crista (o
+ *  versante esquiável, moderado), cai em `Math.pow(suave01, EXP_FACE_ROCHA)`
+ *  da crista até a queda externa (a face de rocha, que fica perto de 1 quase
+ *  até o topo e desaba no último trecho). Um raio só no máximo
+ *  (`R_CRISTA_PICO`), não um platô: é essa única linha de topo que dá aresta
+ *  ao relevo, em vez do domo que a chapa reprovou. */
+function envelopeRadial(r: number): number {
+  if (r <= R_PE || r >= R_QUEDA) return 0
+  if (r <= R_CRISTA_PICO) return suave01((r - R_PE) / (R_CRISTA_PICO - R_PE))
+  const t = suave01((R_QUEDA - r) / (R_QUEDA - R_CRISTA_PICO))
+  return Math.pow(t, EXP_FACE_ROCHA)
+}
+
+/** fator azimutal: máximo entre o colo (piso) e o ombro mais próximo, com
+ *  transição suave, exatamente o "ombro, colo, crista" que `montanha.ts` descreveu
+ *  como o que falta numa montanha matematicamente pura. */
+function fatorAzimute(az: number): number {
+  let fora = true
+  let m = 0
+  for (const o of OMBROS) {
+    const d = Math.abs(difAngulo(az, o.azCentro))
+    if (d < o.azMeia * 2.2) fora = false
+    const t = suave01(1 - d / o.azMeia)
+    m = Math.max(m, t * o.fracao)
+  }
+  if (fora && (az < AZ0 - 6 || az > AZ1 + 6)) return 0
+  return Math.max(m, COLO_FRACAO)
+}
+
+/**
+ * ⚠️ RELEVO DE SEGUNDA ORDEM, REDESENHADO EM 03/09. A versão anterior só
+ * CAVAVA (um `-Math.abs(sin)`, sempre negativo, até 34 m contra 820 m de
+ * relevo primário: 4%, invisível). Uma montanha de verdade alterna ESPORÃO
+ * (aresta que sobra, positiva) e CANALETA (sulco que escava, negativa) em
+ * faixas que correm radialmente, subindo e descendo a face inteira, e por
+ * isso `Math.sin` puro (bipolar), não `Math.abs(sin)` (só um sinal). A
+ * amplitude sobe para até 70 m, e o padrão fica mais apertado (frequência
+ * maior) perto da crista e mais largo perto do pé, como cristas de erosão
+ * de verdade: o desenho fica mais fino onde a rocha está mais exposta.
+ */
+function estruturaSegundaOrdem(r: number, az: number): number {
+  const tFace = suave01((r - R_PE) / (R_CRISTA_PICO - R_PE))
+  // envelope de amplitude: cresce do pé até perto da crista, cai um pouco
+  // bem no topo (a aresta em si fica limpa, o esporão mora na encosta)
+  const encosta = suave01((r - R_PE) / 250) * (1 - suave01((r - (R_CRISTA_PICO - 60)) / 160))
+  const azRad = (az * Math.PI) / 180
+  // frequência que aumenta com a proximidade da crista: 6 ciclos no pé, 11 no topo
+  const freq = 6 + 5 * tFace
+  const fina = Math.sin(azRad * freq + 0.6)
+  const grossa = Math.sin(azRad * (freq * 0.42) - 1.1)
+  return (fina * 46 + grossa * 24) * encosta
+}
+
+/** crag de escala fina, três oitavas (antes eram duas de ±14 m, invisíveis
+ *  contra 820 m de relevo primário). Sobe para ±34 m combinadas, e a oitava
+ *  mais fina (célula 22 m) é o que lê como rocha fraturada de perto, na
+ *  chapa `invernope`. Tapeado pelo envelope pra não vazar do maciço. */
+function cragAt(x: number, z: number, env: number): number {
+  const a = ruido(x, z, 95, 401) * 2 - 1
+  const b = ruido(x, z, 34, 402) * 2 - 1
+  const c = ruido(x, z, 22, 403) * 2 - 1
+  return (a * 20 + b * 10 + c * 6) * env
+}
+
+/**
+ * ⚠️ A PISTA É CAVADA, NÃO PINTADA. Uma fita de cor sobre a superfície lisa
+ * lê como estrada (foi exatamente o defeito que a chapa apontou). Pista de
+ * esqui de verdade é um corte na mata e no relevo: uma calha rasa com talude
+ * nas duas bordas. Isto mede a distância ao segmento mais próximo de CADA
+ * pista (as mesmas `PISTAS` que a fita desenha por cima) e devolve um corte
+ * negativo: fundo raso no eixo, sobe em cosseno até a borda da pista mais um
+ * talude de 8 m, e zero dali para fora. Half-largura da pista + talude é o
+ * alcance; o eixo baixa `PROFUNDIDADE_CORTE` metros.
+ *
+ * ⚠️ CUSTO: soma de segmentos de TODAS as pistas, por chamada. ~360 pontos
+ * ao todo (7 pistas, 30 a 90 amostras cada); cada `alturaInvernoAt` já
+ * descarta cedo por envelope/fator antes de chegar aqui, então isto só roda
+ * dentro da zona do parque. NÃO MEDI o custo total de construção da malha
+ * com isto ligado; se a chapa acusar, o corte é trocar a busca linear por
+ * uma grade de baldes (bucket) pelas mesmas `PISTAS`.
+ */
+const PROFUNDIDADE_CORTE = 3.2
+const TALUDE_CORTE = 8
+const PISTAS_MUNDO = PISTAS.map((p) => ({
+  meiaLargura: p.largura / 2,
+  pontos: p.pontos.map((pt) => {
+    const [x, z] = pontoEmRumo(pt.r, pt.az)
+    return { x, z }
+  }),
+}))
+
+function corteDePistaAt(x: number, z: number): number {
+  let melhorDist = Infinity
+  let melhorMeiaLarg = 0
+  for (const pista of PISTAS_MUNDO) {
+    const pts = pista.pontos
+    for (let i = 0; i < pts.length - 1; i++) {
+      const ax = pts[i].x, az_ = pts[i].z, bx = pts[i + 1].x, bz = pts[i + 1].z
+      const dx = bx - ax, dz = bz - az_
+      const lenSq = dx * dx + dz * dz || 1
+      let t = ((x - ax) * dx + (z - az_) * dz) / lenSq
+      t = t < 0 ? 0 : t > 1 ? 1 : t
+      const px = ax + dx * t, pz = az_ + dz * t
+      const d = Math.hypot(x - px, z - pz)
+      if (d < melhorDist) { melhorDist = d; melhorMeiaLarg = pista.meiaLargura }
+    }
+  }
+  const alcance = melhorMeiaLarg + TALUDE_CORTE
+  if (melhorDist >= alcance) return 0
+  if (melhorDist <= melhorMeiaLarg) return -PROFUNDIDADE_CORTE
+  const t = (melhorDist - melhorMeiaLarg) / TALUDE_CORTE
+  return -PROFUNDIDADE_CORTE * (1 - suave01(t))
+}
+
+/**
+ * A altura ADICIONADA pelo parque de inverno, em metros, para somar direto a
+ * `heightAt` (mesmo contrato de `microRelevoAt`): 0 bit a bit sem a bandeira,
+ * puro em (x, z), sem depender de câmera nem de estado.
+ */
+export function alturaInvernoAt(x: number, z: number): number {
+  if (!INVERNO_ATIVO) return 0
+  const r = Math.hypot(x, z)
+  const env = envelopeRadial(r)
+  if (env <= 0) return 0
+  const az = azimuteDe(x, z)
+  const fAz = fatorAzimute(az)
+  if (fAz <= 0) return 0
+  const base = env * fAz * ADD_CRISTA
+  const relevo = base + estruturaSegundaOrdem(r, az) * env + cragAt(x, z, env)
+  return relevo + corteDePistaAt(x, z)
+}
+
+/**
+ * Quanto (0..1) um ponto pertence à zona esculpida pelo parque de inverno.
+ * `alpino.ts` usa isto para baixar a cota de neve SÓ onde a montanha nova
+ * está, sem gelar encostas de outro rumo que não têm nada com este módulo.
+ * 0 bit a bit sem `?inverno=1`, mesmo contrato de `alturaInvernoAt`.
+ */
+export function zonaEsquiavelAt(x: number, z: number): number {
+  if (!INVERNO_ATIVO) return 0
+  const r = Math.hypot(x, z)
+  const env = envelopeRadial(r)
+  if (env <= 0) return 0
+  const az = azimuteDe(x, z)
+  return env * fatorAzimute(az)
+}
+
+/**
+ * ⚠️ ROCHA EXPOSTA. A mesma regra de `alpino.ts` (neve não gruda acima de
+ * ~30°, zero em 55°): acima disso o que aparece não pode ser regolito
+ * marrom, tem que ser pedra. `terrain.ts` chama isto (ele é o dono da cor
+ * por vértice da malha grossa, `regolithColor`) com a inclinação que ELE já
+ * calcula ao montar a malha, e mistura a cor pra um cinza de rocha onde o
+ * fator voltar > 0. 0 fora da zona do parque (não pinta rocha na cidade),
+ * 0 dentro da zona mas em terreno manso (< 30°): a transição usa a MESMA
+ * faixa 30-55° que a neve usa, de propósito, para rocha e neve se encaixarem
+ * sem uma tira de regolito sobrando entre as duas.
+ */
+export function fatorRochaAt(x: number, z: number, inclinacaoGraus: number): number {
+  if (!INVERNO_ATIVO) return 0
+  const zona = zonaEsquiavelAt(x, z)
+  if (zona <= 0) return 0
+  const porInclinacao = suave01((inclinacaoGraus - 30) / 25)
+  return zona * porInclinacao
+}
+
 
 const CORES: Record<Dificuldade, THREE.Color> = {
   verde: new THREE.Color('#3DBB4C'),
@@ -482,6 +591,13 @@ export interface InvernoOpts {
    *  desenha coisa que ENCOSTA no chão usa a superfície que a câmera vê, não
    *  a função contínua. */
   heightAt: (x: number, z: number) => number
+  /** ⚠️ O LOADER DA CENA, NÃO UM CRU. `tree-pine.glb` e `sequoia-mass.glb`
+   *  vêm comprimidos em DRACO (medido: os dois falham em `GLTFLoader` sem
+   *  `DRACOLoader`, mesma armadilha documentada em `montanha.ts`). Sem
+   *  `gltf`, a floresta simplesmente não sobe (falha silenciosa, registrada
+   *  no console) e o resto do módulo (pistas, halfpipe, teleféricos) sobe
+   *  normalmente: a floresta é aditiva, não trava o parque. */
+  gltf?: GLTFLoader
   sombra?: boolean
   profile?: PerfProfile
   culler?: DistanceCuller
@@ -492,6 +608,10 @@ export interface Inverno {
   triangulos: number
   /** as medições reais de cada pista, para `?stats=1` e para o relatório */
   medidas: { nome: string; dificuldade: Dificuldade; comprimento: number; desnivel: number; grauMedio: number }[]
+  /** quantas árvores reais (pinheiro + sequoia) subiram, para o log de boot */
+  arvores: number
+  /** troca o LOD por distância de câmera, mesmo contrato de `alpino.ts` */
+  update(cam: THREE.Vector3): void
   dispose(): void
 }
 
@@ -654,18 +774,277 @@ function construirTeleferico(
   return { pilones, cabo, triangulos: Math.round(triPilone * pontos.length + triCabo) }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// A FLORESTA (03/09). A chapa apontou "árvores esparsas no pé e nada na
+// montanha": a faixa de mata que `alpino.ts` adaptou (40-140 m) e as
+// coníferas de 34 triângulos dele são de propósito UM FUNDO visto de 6 a
+// 9 km, não uma floresta que aguenta câmera perto do maciço. Uma frente
+// irmã publicou dois modelos reais especificamente para isto:
+//   `tree-pine.glb`      10,97 m de altura, 3.199 triângulos, DRACO
+//   `sequoia-mass.glb`   84,69 m de altura (é um BOSQUE, não uma árvore só:
+//                        a base mede 28,6 × 27,6 m), 1.932-2.648 triângulos
+// (dimensões medidas direto no binário glTF, accessor min/max, sem abrir
+// navegador; a discrepância de triângulos entre o accessor pré-decodificação
+// DRACO e a contagem pós-decodificação é esperada e não muda o uso aqui).
+//
+// ⚠️ A SEQUOIA-MASSA NÃO SE REPETE COMO ÁRVORE. 84,69 m de altura é
+// fisicamente correto para sequoias gigantes de verdade (General Sherman
+// passa de 80 m, é a referência que `blender/build_sequoia.py` usa, ver
+// `sf-assets.ts`), mas plantar isso centenas de vezes densamente pareceria
+// errado: é um BOSQUE inteiro por instância. Por isso ela entra RARA (poucas
+// dezenas, só na banda mais baixa, perto da vila-base), como um marco visual,
+// e quem faz o volume de floresta de verdade é o pinheiro.
+//
+// ⚠️ DOIS NÍVEIS DE DETALHE, MESMO CONTRATO DE `alpino.ts`: perto (r_cam <
+// `FLORESTA_R_CHEIA`) usa a malha real carregada; longe usa um cone de 4
+// lados (8 triângulos), a MESMA forma que `alpino.ts` já usa pro fundo dele,
+// para as duas florestas lerem como uma silhueta só de longe. `update(cam)`
+// troca o balde a cada chamada, como alpino faz.
+//
+// ⚠️ CUSTO DECLARADO NA CONSTRUÇÃO, NÃO SUPOSTO: contagem real no relatório
+// final (`triangulos`/`arvores` do retorno). Teto duro de candidatos perto
+// (`FLORESTA_TETO_PERTO`) para o orçamento não fugir se a densidade medida
+// vier maior que a esperada.
+const FLORESTA_BAIXO = 15
+const FLORESTA_ALTO = 190
+const FLORESTA_PLUMA = 22
+const FLORESTA_PASSO = 30
+// ⚠️ MEDIDO OFFLINE ANTES DE ESCOLHER: a varredura gera 1.303 candidatos no
+// maciço inteiro (~1.300 pinheiro, ~3 sequoia-massa). Com `tree-pine.glb` a
+// 3.199 triângulos por instância, um teto de 900 já custa 2,88 M triângulos
+// sozinho, quase dobrando o total da cidade (4,57 M antes deste módulo). 450
+// custa a metade (~1,44 M) e ainda é mais que suficiente pra encher o flanco
+// visto das duas chapas de contrato (`inverno`, a 4,5 km, e `invernope`, a
+// 1,2 km): ajuste este número pra cima se a chapa pedir mais densidade de
+// perto, é o único knob que precisa mexer.
+const FLORESTA_TETO_PERTO = 450
+const FLORESTA_R_CHEIA = 1300
+/** acima disto (inclinação em graus) não planta: mesma regra de `alpino.ts` */
+const FLORESTA_INC_MAX = 42
+/** folga além da meia-largura da pista mais próxima antes de plantar */
+const FLORESTA_FOLGA_PISTA = 10
+/** fração de sequoia-massa entre os candidatos da banda mais baixa (< 70 m) */
+const SEQUOIA_FRACAO = 0.035
+
+interface CandidatoFloresta { x: number; z: number; y: number; esc: number; giro: number; especie: 'pinheiro' | 'sequoia' }
+
+/** distância ao segmento de pista mais próximo, reusando `PISTAS_MUNDO`
+ *  (a mesma tabela que `corteDePistaAt` já monta) para não plantar árvore em
+ *  cima da fita nem do talude dela. */
+function distanciaAPistaMaisProxima(x: number, z: number): number {
+  let melhor = Infinity
+  for (const pista of PISTAS_MUNDO) {
+    const pts = pista.pontos
+    for (let i = 0; i < pts.length - 1; i++) {
+      const ax = pts[i].x, azp = pts[i].z, bx = pts[i + 1].x, bz = pts[i + 1].z
+      const dx = bx - ax, dz = bz - azp
+      const lenSq = dx * dx + dz * dz || 1
+      let t = ((x - ax) * dx + (z - azp) * dz) / lenSq
+      t = t < 0 ? 0 : t > 1 ? 1 : t
+      const px = ax + dx * t, pz = azp + dz * t
+      const d = Math.hypot(x - px, z - pz)
+      if (d < melhor) melhor = d
+      if (melhor < pista.meiaLargura) return melhor // já colou, não precisa continuar
+    }
+  }
+  return melhor
+}
+
+export function gerarCandidatosFloresta(heightAt: (x: number, z: number) => number): CandidatoFloresta[] {
+  const candidatos: CandidatoFloresta[] = []
+  const passos = Math.ceil((R_QUEDA - R_PE + 200) / FLORESTA_PASSO)
+  for (let ir = 0; ir <= passos; ir++) {
+    const r = R_PE - 100 + ir * FLORESTA_PASSO
+    if (r < R_PE - 100 || r > R_QUEDA) continue
+    // passo angular menor perto do centro pra não desperdiçar amostra, maior
+    // longe: mantém a densidade LINEAR (metros entre candidatos) constante
+    const passoAz = (FLORESTA_PASSO / r) * (180 / Math.PI)
+    for (let az = AZ0 - 8; az <= AZ1 + 8; az += passoAz) {
+      const jr = (hash2(ir, Math.round(az * 10), 501) - 0.5) * FLORESTA_PASSO * 0.8
+      const jaz = (hash2(ir, Math.round(az * 10), 502) - 0.5) * passoAz * 0.8
+      const rr = r + jr, azz = az + jaz
+      const [x, z] = pontoEmRumo(rr, azz)
+      const zona = zonaEsquiavelAt(x, z)
+      if (zona <= 0.04) continue
+      const y = heightAt(x, z)
+      const dens = suave01((y - (FLORESTA_BAIXO - FLORESTA_PLUMA)) / (2 * FLORESTA_PLUMA))
+        * (1 - suave01((y - (FLORESTA_ALTO - FLORESTA_PLUMA)) / (2 * FLORESTA_PLUMA)))
+      if (dens <= 0.03) continue
+      if (hash2(ir, Math.round(azz * 10), 503) > dens) continue
+      const d = 15
+      const dhx = (heightAt(x + d, z) - heightAt(x - d, z)) / (2 * d)
+      const dhz = (heightAt(x, z + d) - heightAt(x, z - d)) / (2 * d)
+      const inc = (Math.atan(Math.hypot(dhx, dhz)) * 180) / Math.PI
+      if (inc > FLORESTA_INC_MAX) continue
+      if (distanciaAPistaMaisProxima(x, z) < FLORESTA_FOLGA_PISTA) continue
+      const tEsp = hash2(ir, Math.round(azz * 10), 504)
+      const especie: CandidatoFloresta['especie'] = (y < 70 && tEsp < SEQUOIA_FRACAO) ? 'sequoia' : 'pinheiro'
+      const tEsc = hash2(ir, Math.round(azz * 10), 505)
+      candidatos.push({
+        x, z, y,
+        esc: especie === 'sequoia' ? 0.75 + tEsc * 0.5 : 0.8 + tEsc * 0.55,
+        giro: hash2(ir, Math.round(azz * 10), 506) * Math.PI * 2,
+        especie,
+      })
+    }
+  }
+  return candidatos
+}
+
+/** carrega um `.glb` e devolve a geometria e o material do primeiro mesh
+ *  achado, prontos pra instanciar, mais a altura real (bounding box), tudo
+ *  medido no modelo carregado, não suposto. `null` se não achar mesh (ou se
+ *  o carregamento falhar; o chamador decide o que fazer sem árvore real). */
+async function carregarInstanciavel(
+  gltf: GLTFLoader, url: string,
+): Promise<{ geo: THREE.BufferGeometry; mat: THREE.Material; altura: number } | null> {
+  const cena = await new Promise<THREE.Group>((res, rej) => gltf.load(url, (g) => res(g.scene), undefined, rej))
+  let achado: THREE.Mesh | null = null
+  cena.traverse((o) => { if (!achado && (o as THREE.Mesh).isMesh) achado = o as THREE.Mesh })
+  if (!achado) return null
+  const mesh = achado as THREE.Mesh
+  mesh.geometry.computeBoundingBox()
+  const bb = mesh.geometry.boundingBox!
+  return { geo: mesh.geometry, mat: mesh.material as THREE.Material, altura: bb.max.y - bb.min.y }
+}
+
 /**
- * O parque de inverno inteiro: pistas, halfpipe, vila-base e teleféricos.
- * Devolve grupo vazio sem `?inverno=1` (a mesma defesa em profundidade de
- * `terreno-fino.ts`: quem esquecer de checar a bandeira antes de chamar isto
- * não quebra nada).
+ * O cone barato de longe (8 triângulos), MESMA forma que `alpino.ts` usa: as
+ * duas florestas precisam ler como a mesma silhueta quando a câmera está a
+ * quilômetros, senão o horizonte ganha uma costura visível entre elas.
  */
-export function buildInverno(o: InvernoOpts): Inverno {
+function geoConeLonge(): THREE.BufferGeometry {
+  const g = new THREE.ConeGeometry(2.3, 11.5, 4, 1, false)
+  g.translate(0, 5.75, 0)
+  const n = g.attributes.position.count
+  const cor = new THREE.Color('#3E5140')
+  const arr = new Float32Array(n * 3)
+  for (let i = 0; i < n; i++) { arr[i * 3] = cor.r; arr[i * 3 + 1] = cor.g; arr[i * 3 + 2] = cor.b }
+  g.setAttribute('color', new THREE.BufferAttribute(arr, 3))
+  return g
+}
+
+interface Floresta {
+  group: THREE.Group
+  triangulos: number
+  arvores: number
+  update(cam: THREE.Vector3): void
+}
+
+/** `null` sem `?inverno=1`, sem `gltf`, ou se os dois `.glb` falharem ao
+ *  carregar: a floresta é aditiva, o resto do parque sobe de qualquer jeito. */
+async function construirFloresta(o: InvernoOpts): Promise<Floresta | null> {
+  if (!INVERNO_ATIVO || !o.gltf) return null
+  const [pinheiro, sequoia] = await Promise.all([
+    carregarInstanciavel(o.gltf, '/city/sf/tree-pine.glb').catch(() => null),
+    carregarInstanciavel(o.gltf, '/city/sf/sequoia-mass.glb').catch(() => null),
+  ])
+  if (!pinheiro && !sequoia) return null
+
+  const candidatos = gerarCandidatosFloresta(o.heightAt)
+  // desbaste determinístico se passar do teto de perto (o balde de longe não
+  // tem teto: cone de 8 tri é barato o bastante pra sobrar todo mundo nele)
+  let paraPerto = candidatos
+  if (candidatos.length > FLORESTA_TETO_PERTO) {
+    const manter = FLORESTA_TETO_PERTO / candidatos.length
+    paraPerto = candidatos.filter((_, i) => hash01(i * 2654435761) < manter)
+  }
+  const paraPertoSet = new Set(paraPerto)
+
+  const group = new THREE.Group()
+  group.name = 'inverno:floresta'
+  let triangulos = 0
+
+  const capPinheiro = Math.max(1, paraPerto.filter((c) => c.especie === 'pinheiro').length)
+  const capSequoia = Math.max(1, paraPerto.filter((c) => c.especie === 'sequoia').length)
+  const geoLonge = geoConeLonge()
+  const matLonge = new THREE.MeshStandardMaterial({ color: '#ffffff', vertexColors: true, roughness: 0.95, flatShading: true })
+
+  let instPinheiro: THREE.InstancedMesh | null = null
+  if (pinheiro) {
+    instPinheiro = new THREE.InstancedMesh(pinheiro.geo, pinheiro.mat, capPinheiro)
+    instPinheiro.name = 'inverno:floresta:pinheiro:perto'
+    instPinheiro.castShadow = o.sombra ?? true
+    instPinheiro.frustumCulled = false
+    instPinheiro.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+    group.add(instPinheiro)
+    const triUnit = pinheiro.geo.index ? pinheiro.geo.index.count / 3 : pinheiro.geo.attributes.position.count / 3
+    triangulos += triUnit * capPinheiro
+  }
+  let instSequoia: THREE.InstancedMesh | null = null
+  if (sequoia) {
+    instSequoia = new THREE.InstancedMesh(sequoia.geo, sequoia.mat, capSequoia)
+    instSequoia.name = 'inverno:floresta:sequoia:perto'
+    instSequoia.castShadow = o.sombra ?? true
+    instSequoia.frustumCulled = false
+    instSequoia.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+    group.add(instSequoia)
+    const triUnit = sequoia.geo.index ? sequoia.geo.index.count / 3 : sequoia.geo.attributes.position.count / 3
+    triangulos += triUnit * capSequoia
+  }
+  const longe = new THREE.InstancedMesh(geoLonge, matLonge, Math.max(1, candidatos.length))
+  longe.name = 'inverno:floresta:longe'
+  longe.castShadow = false
+  longe.frustumCulled = false
+  longe.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+  group.add(longe)
+  const triLonge = geoLonge.index ? geoLonge.index.count / 3 : geoLonge.attributes.position.count / 3
+  triangulos += candidatos.length * triLonge // pior caso: todo mundo no balde de longe
+
+  const m4 = new THREE.Matrix4(), vp = new THREE.Vector3(), vq = new THREE.Quaternion()
+  const ve = new THREE.Euler(), vs = new THREE.Vector3()
+
+  const update = (cam: THREE.Vector3) => {
+    let nPinheiro = 0, nSequoia = 0, nLonge = 0
+    for (const c of candidatos) {
+      const d = Math.hypot(c.x - cam.x, c.z - cam.z)
+      const perto = d < FLORESTA_R_CHEIA && paraPertoSet.has(c)
+      vp.set(c.x, c.y, c.z)
+      ve.set(0, c.giro, 0)
+      vq.setFromEuler(ve)
+      if (perto && c.especie === 'pinheiro' && instPinheiro) {
+        vs.set(c.esc, c.esc, c.esc)
+        m4.compose(vp, vq, vs)
+        instPinheiro.setMatrixAt(nPinheiro++, m4)
+      } else if (perto && c.especie === 'sequoia' && instSequoia) {
+        vs.set(c.esc, c.esc, c.esc)
+        m4.compose(vp, vq, vs)
+        instSequoia.setMatrixAt(nSequoia++, m4)
+      } else {
+        vs.set(c.esc, c.esc, c.esc)
+        m4.compose(vp, vq, vs)
+        longe.setMatrixAt(nLonge++, m4)
+      }
+    }
+    if (instPinheiro) { instPinheiro.count = nPinheiro; instPinheiro.instanceMatrix.needsUpdate = true }
+    if (instSequoia) { instSequoia.count = nSequoia; instSequoia.instanceMatrix.needsUpdate = true }
+    longe.count = nLonge
+    longe.instanceMatrix.needsUpdate = true
+  }
+  update(new THREE.Vector3(0, 0, 0))
+  if (instPinheiro) instPinheiro.computeBoundingSphere()
+  if (instSequoia) instSequoia.computeBoundingSphere()
+  longe.computeBoundingSphere()
+
+  return { group, triangulos: Math.round(triangulos), arvores: candidatos.length, update }
+}
+
+/**
+ * O parque de inverno inteiro: pistas, halfpipe, vila-base, teleféricos e a
+ * floresta. Devolve grupo vazio sem `?inverno=1` (a mesma defesa em
+ * profundidade de `terreno-fino.ts`: quem esquecer de checar a bandeira
+ * antes de chamar isto não quebra nada).
+ *
+ * ⚠️ FICOU ASSÍNCRONA EM 03/09, por causa da floresta (`GLTFLoader.load` é
+ * Promise). Quem chamava `buildInverno({...})` direto agora precisa de
+ * `await`; ver a linha exata no relatório.
+ */
+export async function buildInverno(o: InvernoOpts): Promise<Inverno> {
   const group = new THREE.Group()
   group.name = 'inverno'
   const medidas: Inverno['medidas'] = []
   if (!INVERNO_ATIVO) {
-    return { group, triangulos: 0, medidas, dispose() { group.clear() } }
+    return { group, triangulos: 0, medidas, arvores: 0, update() {}, dispose() { group.clear() } }
   }
 
   let triangulos = 0
@@ -730,6 +1109,23 @@ export function buildInverno(o: InvernoOpts): Inverno {
 
   for (const m of [t1.pilones, t2.pilones]) { m.castShadow = o.sombra ?? true; m.frustumCulled = false }
 
+  // ⚠️ A FLORESTA É ADITIVA. `construirFloresta` devolve `null` sem `gltf`,
+  // sem os dois `.glb`, ou se os dois falharem ao carregar: o resto do
+  // parque (pistas, halfpipe, vila, teleféricos) já subiu e continua de pé.
+  let floresta: Floresta | null = null
+  try {
+    floresta = await construirFloresta(o)
+    if (floresta) {
+      floresta.group.name = 'inverno:floresta'
+      group.add(floresta.group)
+      triangulos += floresta.triangulos
+    } else {
+      console.warn('[inverno] floresta não subiu: sem `gltf` ou os .glb falharam ao carregar')
+    }
+  } catch (e) {
+    console.error('[inverno] floresta não subiu', e)
+  }
+
   const [ccx, ccz] = pontoEmRumo(7800, 268)
   o.culler?.add(group, 26000, new THREE.Vector3(ccx, 0, ccz))
 
@@ -737,6 +1133,8 @@ export function buildInverno(o: InvernoOpts): Inverno {
     group,
     triangulos: Math.round(triangulos),
     medidas,
+    arvores: floresta?.arvores ?? 0,
+    update(cam: THREE.Vector3) { floresta?.update(cam) },
     dispose() {
       group.traverse((k) => {
         const mesh = k as THREE.Mesh

@@ -191,12 +191,122 @@ const AF_CEDROS: [number, number][] = [
   noJardim(AF_CX, AF_CZ, AF_ROT, -120, 20), noJardim(AF_CX, AF_CZ, AF_ROT, -120, -20),
   noJardim(AF_CX, AF_CZ, AF_ROT, 120, 20), noJardim(AF_CX, AF_CZ, AF_ROT, 120, -20),
 ]
-// ⚠️ A SEQUOIA-GIGANTE FICA PENDENTE AQUI, NO MESMO EIXO. Sem licença
-// compatível encontrada (paisagismo.md §6); outra frente está modelando por
-// código no Blender (tronco colunar cônico com contraforte, copa estreita a
-// partir do terço superior), em duas versões, hero e barata para bosque.
-// Quando o modelo chegar, o lugar certo é aqui: um "Bosque dos Fundadores"
-// ladeando estes mesmos cedros, não um jardim novo.
+// ⚠️ A SEQUOIA-GIGANTE CHEGOU EM 03/09 (`sequoia.glb`/`sequoia-mass.glb`,
+// geradas por código, `blender/build_sequoia.py`, crédito próprio sem CC-BY
+// porque não vieram de terceiro): o "Bosque dos Fundadores" que ficava
+// pendente aqui agora existe. Duas heros nas pontas da faixa (mais longe do
+// centro que os cedros, porque sequoia impressiona por tamanho e quer
+// distância para se ler) mais oito baratas em pequenos grupos ao redor de
+// cada uma.
+const AF_SEQUOIA_HERO: [number, number][] = [
+  noJardim(AF_CX, AF_CZ, AF_ROT, -280, 0), noJardim(AF_CX, AF_CZ, AF_ROT, 280, 0),
+]
+const AF_SEQUOIA_MASSA: [number, number][] = [-280, 280].flatMap((lx) => [
+  noJardim(AF_CX, AF_CZ, AF_ROT, lx - 18, 14), noJardim(AF_CX, AF_CZ, AF_ROT, lx + 14, 18),
+  noJardim(AF_CX, AF_CZ, AF_ROT, lx - 14, -18), noJardim(AF_CX, AF_CZ, AF_ROT, lx + 18, -14),
+])
+
+// ═══════════════════════════════════════════════════════════════════════════
+// O JARDIM ITALIANO (paisagismo.md §4.6 a §4.8), atrás de `?verde=1`.
+//
+// ⚠️ O SÍTIO É MEDIDO, NÃO ESCOLHIDO. "Floresta de Extrativismo" (VP02,
+// `cidade.json`, x −5.612 z 3.772, rot 236,1°, 107,52 ha, tipo `floresta`,
+// logo não é lote de holder) é a peça do programa com o maior declive real
+// medido em 03/09 no heightmap bruto (`public/lunar/btc-core-heightmap.f32`,
+// fora do arco do parque de inverno, `?inverno=1`, que fica 12° mais a
+// oeste): um trecho de 280 m com queda monótona de 63,6 m, 22,7% de
+// declividade média, da ordem da queda real de Villa d'Este (mais de 45 m).
+// O eixo (rumo 56,1°, descendo do TOPO para a BASE) aponta, estendido, quase
+// exatamente para o centro da cidade: a vista no fim do eixo não foi
+// desenhada, é o terreno relido.
+//
+//   TOPO (entrada, viale dei cipressi): x −6.161  z 3.960  h 113,2 m
+//   BASE (belvedere, fim do eixo):      x −5.928  z 3.804  h  49,6 m
+//
+// Uso só o núcleo (280 × 120 m, 3,36 ha) desse lote de 107,52 ha; o resto
+// continua floresta de produção e vira, de graça, o BOSCO que o cânone exige
+// (mata informal ao redor do parterre geométrico).
+//
+// ⚠️ TRÊS ARQUIVOS AQUI (`pine-umbrella`, `buxo-sebe`, `buxo-bola`) AINDA NÃO
+// TÊM LINHA DE CRÉDITO EM `sf-assets.ts`. Não é meu arquivo para editar (a
+// frente de espécies foi interrompida por limite de sessão no meio do
+// trabalho); estão atrás de `?verde=1`, então não aparecem em produção sem a
+// bandeira, e a linha de crédito é dado que chega depois da geometria, não
+// um bloqueio para desenhar o projeto. Um quarto, `limao-vaso-test`, tem
+// sufixo "-teste" no nome: tratado como provisório.
+//
+// ⚠️ ORÇAMENTO: tree-cypress 2, pine-umbrella 2, buxo-sebe 2, buxo-bola 1,
+// limao-vaso-test 2, garden-urn 2, fountain-basin 1 → **12 chamadas de
+// desenho novas**, mais as 8 da sequoia acima (`sequoia` 4, `sequoia-mass`
+// 4). Contas completas em `paisagismo.md` §7.
+const IT_CX = -6160.5, IT_CZ = 3959.9, IT_ROT = 56.1   // TOPO do eixo, rumo descendo para a BASE
+
+/** viale dei cipressi: fileira dupla dos primeiros 80 m do eixo, do TOPO até
+ *  a boca do parterre. 6 m de passo, mais fechado que a rua (paisagismo.md
+ *  §1): aqui é parede vegetal de chegada, não alameda urbana. */
+const IT_VIALE: [number, number][] = Array.from({ length: 14 }, (_, i) => 10 + i * 6).flatMap(
+  (la) => [noJardim(IT_CX, IT_CZ, IT_ROT, la, 14), noJardim(IT_CX, IT_CZ, IT_ROT, la, -14)],
+)
+
+/** um compartimento do parterre: o contorno (passo `passo`, para `buxo-sebe`)
+ *  e os 4 cantos (para `buxo-bola`), em coordenada LOCAL do parterre (antes
+ *  de `noJardim`). `cx,cz` é o centro do compartimento, `w,h` a largura e a
+ *  profundidade. */
+function compartimento(cx: number, cz: number, w: number, h: number, passo: number) {
+  const x0 = cx - w / 2, x1 = cx + w / 2, z0 = cz - h / 2, z1 = cz + h / 2
+  const contorno: [number, number][] = []
+  const nx = Math.max(1, Math.round(w / passo)), nz = Math.max(1, Math.round(h / passo))
+  for (let i = 0; i <= nx; i++) { const x = x0 + (w * i) / nx; contorno.push([x, z0], [x, z1]) }
+  for (let i = 1; i < nz; i++) { const z = z0 + (h * i) / nz; contorno.push([x0, z], [x1, z]) }
+  const cantos: [number, number][] = [[x0, z0], [x1, z0], [x0, z1], [x1, z1]]
+  return { contorno, cantos }
+}
+
+// ⚠️ QUATRO COMPARTIMENTOS, 2×2, CAMINHO CENTRAL DE 6 m (a mesma geometria em
+// cruz de Villa Lante: quatro tabuleiros ao redor de um eixo de água). Cada
+// compartimento 26 × 22 m, centrado a 100+13=113 e 100+13+6+26=145 m do TOPO
+// (a `la` cresce descendo o eixo), lb em ±(3+11)=±14.
+const IT_COMPARTIMENTOS = [
+  compartimento(113, -14, 26, 22, 2.6), compartimento(145, -14, 26, 22, 2.6),
+  compartimento(113, 14, 26, 22, 2.6), compartimento(145, 14, 26, 22, 2.6),
+]
+const IT_SEBE: [number, number][] = IT_COMPARTIMENTOS.flatMap((c) =>
+  c.contorno.map(([la, lb]) => noJardim(IT_CX, IT_CZ, IT_ROT, la, lb)))
+const IT_TOPIARIA: [number, number][] = IT_COMPARTIMENTOS.flatMap((c) =>
+  c.cantos.map(([la, lb]) => noJardim(IT_CX, IT_CZ, IT_ROT, la, lb)))
+
+/** a limonaia: fileira dupla de limoeiro em vaso flanqueando o trecho do
+ *  eixo reservado para a catena d'acqua (a água em si é `lagos.ts`/
+ *  `canais.ts`, fora do escopo). 6 pontos por lado, passo 6 m. */
+const IT_LIMONAIA: [number, number][] = Array.from({ length: 6 }, (_, i) => 182 + i * 6).flatMap(
+  (la) => [noJardim(IT_CX, IT_CZ, IT_ROT, la, 20), noJardim(IT_CX, IT_CZ, IT_ROT, la, -20)],
+)
+
+/** as cicas em vaso, em PARES (não fileira, ao contrário do limoeiro): portão
+ *  de entrada, as duas quebras de terraço, entrada do belvedere. `cycas-
+ *  vaso.glb` ainda não chegou ao disco (paisagismo.md §6.4); a linha entra
+ *  mesmo assim porque `loadSf` nunca quebra por asset ausente (sf-assets.ts)
+ *  quando o arquivo chegar, esta linha passa a desenhar sem eu tocar em
+ *  código de novo. */
+const IT_CICAS: [number, number][] = [0, 95, 175, 255].flatMap((la) => [
+  noJardim(IT_CX, IT_CZ, IT_ROT, la, 4), noJardim(IT_CX, IT_CZ, IT_ROT, la, -4),
+])
+
+/** o bosco: pinheiro-manso em bosque informal (a mesma função `bosque()` do
+ *  Jardim Tropical), na faixa mais baixa e mais sombria do eixo, entre o
+ *  parterre e o belvedere. Informal de propósito: bosco é o contraste contra
+ *  a geometria do parterre, alinhar os dois seria o erro canônico. */
+const IT_BOSCO = bosque(IT_CX, IT_CZ, IT_ROT, 14, 200, 260, 9203)
+
+/** o belvedere: moldura da água (reaproveitando `fountain-basin`, a água de
+ *  verdade fica pendente) e um par de urnas na borda, olhando para a vista
+ *  que o eixo natural já aponta (paisagismo.md §4.6: quase exatamente o
+ *  centro da cidade). */
+const IT_BELVEDERE_FONTE: [number, number][] = [noJardim(IT_CX, IT_CZ, IT_ROT, 272, 0)]
+const IT_BELVEDERE_URNAS: [number, number][] = [
+  noJardim(IT_CX, IT_CZ, IT_ROT, 260, 16), noJardim(IT_CX, IT_CZ, IT_ROT, 260, -16),
+  noJardim(IT_CX, IT_CZ, IT_ROT, 280, 16), noJardim(IT_CX, IT_CZ, IT_ROT, 280, -16),
+]
 
 const JARDINS_TEMATICOS: PropSpec[] = [
   {
@@ -242,6 +352,47 @@ const JARDINS_TEMATICOS: PropSpec[] = [
   {
     file: 'cedar-lebanon', why: 'a Alameda dos Fundadores (distrito 2), lote publicado e ainda vazio: o cedro é a árvore de memorial em paisagismo real',
     at: AF_CEDROS, jitter: 0.08, cull: 2000,
+  },
+  {
+    file: 'sequoia', why: 'o Bosque dos Fundadores: duas sequoias-hero nas pontas da Alameda, mais longe do centro que os cedros',
+    at: AF_SEQUOIA_HERO, cull: 2600,
+  },
+  {
+    file: 'sequoia-mass', why: 'a variante barata da sequoia, em pequenos grupos ao redor de cada hero',
+    at: AF_SEQUOIA_MASSA, jitter: 0.15, cull: 1800,
+  },
+  // ── o Jardim Italiano (paisagismo.md §4.6 a §4.8) ──────────────────────────
+  {
+    file: 'tree-cypress', why: 'o viale dei cipressi do Jardim Italiano, do TOPO até a boca do parterre',
+    at: IT_VIALE, jitter: 0.08, cull: 1800,
+  },
+  {
+    file: 'buxo-sebe', why: 'o contorno dos 4 compartimentos do parterre de buxo (crédito pendente em sf-assets.ts, ver paisagismo.md §6.4)',
+    at: IT_SEBE, cull: 900, castShadow: false,
+  },
+  {
+    file: 'buxo-bola', why: 'a topiária dos cantos de cada compartimento (crédito pendente)',
+    at: IT_TOPIARIA, yaw: 'center', jitter: 0.05, cull: 900, castShadow: false,
+  },
+  {
+    file: 'limao-vaso-test', why: 'a limonaia flanqueando o trecho reservado para a catena d\'acqua (arquivo provisório, sufixo "-teste")',
+    at: IT_LIMONAIA, yaw: 'center', jitter: 0.08, cull: 1200,
+  },
+  {
+    file: 'cycas-vaso', why: 'as cicas em par: portão de entrada, as duas quebras de terraço, entrada do belvedere (arquivo ainda não chegou, linha pronta para quando chegar)',
+    at: IT_CICAS, yaw: 'center', jitter: 0.06, cull: 1200,
+  },
+  {
+    file: 'pine-umbrella', why: 'o bosco do Jardim Italiano, entre o parterre e o belvedere (crédito pendente)',
+    at: IT_BOSCO, jitter: 0.2, cull: 2000,
+  },
+  {
+    file: 'fountain-basin', why: 'a moldura da água no belvedere, no fim do eixo do Jardim Italiano (a água de verdade é lagos.ts/canais.ts, fora do escopo)',
+    at: IT_BELVEDERE_FONTE, yaw: 'center', scale: 1.6, cull: 1800,
+  },
+  {
+    file: 'garden-urn', why: 'a borda do belvedere do Jardim Italiano, olhando para a vista que o eixo natural aponta',
+    at: IT_BELVEDERE_URNAS, yaw: 'center', jitter: 0.05, cull: 1200,
   },
 ]
 

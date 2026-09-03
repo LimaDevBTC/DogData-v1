@@ -22,7 +22,7 @@ import { createBattlefield, type Battlefield } from '../war/battlefield'
 import WarLegend from './war-legend'
 import { loadTerrain } from './terrain'
 import { criarTerrenoFino, ligarNaVia, type TerrenoFino } from './terreno-fino'
-import { criarSombraCascata, type SombraCascata } from './sombra'
+import type { SombraCascata } from './sombra'  // mesma razão do decalques: 747 linhas fora do pacote
 import { buildInverno, type Inverno } from './inverno'
 import { createOrbitLayer, PAD_MAIN, SPACEPORT_SHIFT, setOrbitFloor } from './orbit-layer'
 import { startFeed, isDonation, type DogTx, type Snapshot, donationDog } from './feed'
@@ -51,7 +51,13 @@ import { buildPracas, type Pracas } from './pracas'
 import { buildArborizacao, type Arborizacao, type Cova } from './arborizacao'
 import { buildCanais, type Canais } from './canais'
 import { buildMobiliarioUrbano, type MobiliarioUrbano } from './mobiliario-urbano'
-import { buildDecalques, type Decalques } from './decalques'
+// ⚠️ SÓ O TIPO, E ISSO É ORÇAMENTO DE REDE, NÃO ESTILO. `type` é apagado na
+// compilação e não custa um byte no pacote; a função entra por `import()`
+// dinâmico lá embaixo, dentro da bandeira. O padrão é o de `pos.ts`, que já
+// dizia: "o composer é acessório, e quem paga a primeira tela é o caminho
+// normal". Eu tinha ignorado isso ao ligar os módulos desta rodada, e são
+// 1.195 linhas que o visitante baixava sem nunca executar.
+import type { Decalques } from './decalques'
 import { FUNDIR, fundirMalhasLisas, NOME_PISCA } from './fusao'
 import { buildLagos, type Lagos } from './lagos'
 import { buildAlpino, type Alpino } from './alpino'
@@ -769,6 +775,36 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     // sumindo da cena e nenhuma linha no console. Então: ligada em
     // desenvolvimento e sempre que `?stats=1` pedir instrumentação, desligada no
     // visitante de produção, que é quem paga o tempo de espera.
+    // ⚠️ PERDA DE CONTEXTO WEBGL: A CENA NÃO TRATAVA, E ERA POR ISSO QUE O
+    // SINTOMA CHEGAVA COMO "erro de client" SEM DIAGNÓSTICO.
+    //
+    // Relatado pelo fundador em 03/09: a barra chega a 68%, trava, reinicia e dá
+    // erro de cliente. Sem listener, a sequência é: o driver derruba o contexto,
+    // o three para de desenhar calado, e o primeiro acesso a um recurso morto
+    // estoura no React, que remonta a árvore. O visitante vê "reiniciou", e o
+    // console não diz a palavra "contexto" em lugar nenhum.
+    //
+    // ⚠️ `preventDefault()` NO `lost` NÃO É OPCIONAL. Sem ele o navegador nunca
+    // dispara `webglcontextrestored`: a especificação exige que a página declare
+    // que quer o contexto de volta.
+    //
+    // Isto NÃO conserta a causa. Ele transforma uma falha silenciosa numa falha
+    // que se lê, e é o que faltava para saber se a hipótese de memória de vídeo
+    // está certa. Medido em 03/09 em produção: 455,1 MB só de textura em 233
+    // texturas, mais 4,3 M de triângulos e os alvos do pós-processamento.
+    const lona = renderer.domElement
+    lona.addEventListener('webglcontextlost', (ev) => {
+      ev.preventDefault()
+      console.error('[plaza] CONTEXTO WEBGL PERDIDO. Isto costuma ser falta de memória de vídeo ou reinício do driver.',
+        { texturas: renderer.info.memory.textures, geometrias: renderer.info.memory.geometries,
+          programas: renderer.info.programs?.length, chamadas: renderer.info.render.calls,
+          triangulos: renderer.info.render.triangles })
+      setBoot((b) => ({ ...b, failed: true, label: 'The graphics driver dropped the scene' }))
+    })
+    lona.addEventListener('webglcontextrestored', () => {
+      console.warn('[plaza] contexto restaurado pelo navegador; a cena precisa ser remontada')
+    })
+
     renderer.debug.checkShaderErrors =
       process.env.NODE_ENV !== 'production' ||
       new URLSearchParams(window.location.search).has('stats')
@@ -1574,6 +1610,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // só existe depois do `await loadTerrain`. Enquanto ela não nasce, a
         // cena está atrás do portão de carga e ninguém vê chão nenhum.
         if (usarCsm) {
+          const { criarSombraCascata } = await import('./sombra')
           csm = criarSombraCascata(scene, {
             mapSize: profile.shadowMapSize,
             azimuteGraus: SUN_AZ,
@@ -2121,12 +2158,17 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 // inteira da via, e a sarjeta engole o resto. Ligar isso poria
                 // junta de concretagem no meio do asfalto na maioria das ruas.
                 // Religar quando a classificação for analítica e não rasterizada.
-                decal = buildDecalques({
-                  heightAt: terrain.superficieAt,
-                  naVia: (x, z, folga) => v.naVia(x, z, folga),
-                  sombra: qDomo.get('sombra') !== '0',
-                })
-                scene.add(decal.group)
+                if (qDomo.get('decalque') === '1') {
+                  daCidade.push(import('./decalques').then(({ buildDecalques }) => {
+                    if (disposed) return
+                    decal = buildDecalques({
+                      heightAt: terrain.superficieAt,
+                      naVia: (x, z, folga) => v.naVia(x, z, folga),
+                      sombra: qDomo.get('sombra') !== '0',
+                    })
+                    scene.add(decal.group)
+                  }).catch((err) => console.error('[decalques] não subiu', err)))
+                }
                 scene.add(v.group)
                 // a rua assentou: agora a árvore pode ser plantada sabendo onde
                 // é pista, sarjeta e calçada
@@ -2206,13 +2248,26 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               // flecha de 5.500 de `?casca=2` sobram 170,5 m de folga medida.
               // As duas bandeiras andam juntas até o padrão da casca virar.
               if (qDomo.get('inverno') === '1') {
-                inverno = buildInverno({
+                // ⚠️ ASSÍNCRONO DESDE 03/09: o módulo passou a carregar GLB de
+                // pinheiro e sequoia para a floresta do maciço, então ele entra
+                // na lista `daCidade` como todo mundo que carrega arquivo. Sem
+                // isso o portão de carga abriria com a montanha ainda subindo,
+                // que é o defeito que o fundador viu em 31/08 com a abóbada.
+                daCidade.push(buildInverno({
                   heightAt: terrain.superficieAt,
+                  // ⚠️ O `gltf` PRECISA SER O DA CENA, que tem DRACOLoader: os GLB
+                  // do pinheiro e da sequoia vêm comprimidos em Draco e um loader
+                  // sem decodificador falha com "No DRACOLoader instance provided".
+                  // Sem ele a montanha sobe pelada, sem floresta e sem erro claro.
+                  gltf,
                   sombra: qDomo.get('sombra') !== '0',
                   profile, culler,
-                })
-                scene.add(inverno.group)
-                console.log(`[inverno] ${inverno.triangulos.toLocaleString('pt-BR')} triângulos`)
+                }).then((iv) => {
+                  if (disposed) { iv.dispose(); return }
+                  inverno = iv
+                  scene.add(iv.group)
+                  console.log(`[inverno] ${iv.triangulos.toLocaleString('pt-BR')} triângulos, ${iv.arvores.toLocaleString('pt-BR')} árvores`)
+                }).catch((err) => console.error('[inverno] não subiu', err)))
               }
               console.log(`[alpino] ${alpino.neveKm2.toFixed(2)} km² de neve, ${alpino.arvores.toLocaleString('pt-BR')} coníferas, ${alpino.triangulos.toLocaleString('pt-BR')} tris`)
             }
@@ -3478,6 +3533,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       tecido?.update(camera.position)
       arvores?.update(camera.position)
       alpino?.update(camera.position)
+      inverno?.update(camera.position)   // mesmo contrato do alpino: troca o LOD da floresta
       // só faz trabalho quando a câmera anda mais que o passo dele; fora
       // disso retorna na primeira linha
       mob?.atualizar(camera)

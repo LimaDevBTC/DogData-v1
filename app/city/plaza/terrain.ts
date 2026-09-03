@@ -28,7 +28,7 @@ import { PARK_CENTER, PARK_PIT, parkReach, parkCore } from './park-site'
 import { look2 } from './look'
 import { vestir } from './materiais'
 import { microRelevoAt, TERRENO_FINO_ATIVO } from './terreno-fino'
-import { alturaInvernoAt } from './inverno'
+import { alturaInvernoAt, zonaEsquiavelAt, fatorRochaAt } from './inverno'
 
 export interface TerrainMeta {
   cols: number
@@ -113,6 +113,16 @@ export interface Terrain {
 }
 
 const BASE = new THREE.Color('#3f3d3a') // regolito iluminado pelo sol; o material escurece o resto
+// ⚠️ A ROCHA EXPOSTA DO PARQUE DE INVERNO (03/09). A chapa reprovou a face
+// íngreme do maciço como "regolito marrom com neve por cima": acima de 30°,
+// crescendo a 55° (a mesma faixa que `alpino.ts` usa pra neve não grudar),
+// o vértice mistura para este cinza de pedra em vez do marrom do resto da
+// cidade. Não é textura nova (não tenho onde declarar um material a mais sem
+// tocar `materiais.ts`, que tem dono): é SÓ a cor por vértice, mistura no
+// `corVertice` que já existe. `#6E6A63` é mais claro e mais frio que `BASE`
+// (que mede 0,0497 linear); pedra fraturada lê mais clara que regolito fino
+// sob a mesma luz, então clarear é a direção certa, não medi o albedo exato.
+const ROCHA_PICO = new THREE.Color('#6E6A63')
 
 /** metros de mundo por unidade de UV da malha do regolito. Ver `push`. */
 const UV_ESCALA = 1000
@@ -564,6 +574,21 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
   // `push` fazia inline, nenhum número muda.
   const corVertice = (x: number, z: number, relief: number, out: THREE.Color): THREE.Color => {
     regolithColor(x, z, relief, Math.hypot(x, z), out)
+    // ⚠️ ROCHA EXPOSTA, SÓ DENTRO DA ZONA DO PARQUE. `zonaEsquiavelAt` é 0 em
+    // praticamente todo o sítio (a zona é um arco de 40° a 7-8,6 km do
+    // centro), então o early-exit poupa as duas chamadas extras de `heightAt`
+    // (a diferença central da inclinação) em toda a cidade. Sem `?inverno=1`
+    // `zonaEsquiavelAt` já é 0 na primeira linha: esta soma é `out` puro,
+    // bit a bit, exatamente como antes desta mistura existir.
+    const zona = zonaEsquiavelAt(x, z)
+    if (zona > 0) {
+      const d = 20
+      const dhx = (heightAt(x + d, z) - heightAt(x - d, z)) / (2 * d)
+      const dhz = (heightAt(x, z + d) - heightAt(x, z - d)) / (2 * d)
+      const inc = (Math.atan(Math.hypot(dhx, dhz)) * 180) / Math.PI
+      const fRocha = fatorRochaAt(x, z, inc)
+      if (fRocha > 0) out.lerp(ROCHA_PICO, fRocha)
+    }
     if (look2) {
       const s = out.r / BASE.r
       return out.set(s, s, s)

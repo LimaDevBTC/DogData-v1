@@ -69,6 +69,12 @@ const VISTAS = {
   // a margem do Lago da Praca, o canal central: camera baixa sobre a beirada
   lagocentral:[0, 55, 2050, 0, -38, 1150, 48],
   lagorase:  [0, -30, 1750, 0, -39, 1250, 55],
+  // ⚠️ O MACIÇO OESTE, acrescentado em 03/09 quando ele deixou de ser morro e
+  // virou estação de inverno. O cume medido fica em r 8.330, azimute 268 graus,
+  // ou seja (-8.325, 291), a 1.065,9 m. Estes dois enquadramentos são contrato:
+  // é contra eles que a montanha de amanhã se compara com a de hoje.
+  inverno:   [-3800, 1250, 400, -8325, 700, 291, 42],
+  invernope: [-7300, 240, 700, -8325, 600, 291, 50],
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

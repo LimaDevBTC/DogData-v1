@@ -98,8 +98,32 @@ export function profileFor(tier: Tier, quality: Quality = 'balanced'): PerfProfi
   // balanced
   return mobile
     ? {
-      tier, quality, maxPixelRatio: 2, minPixelRatio: 1.25, antialias: true,
-      shadowMapSize: 2048, softShadows: false, shadowUpdateEvery: 1,
+      // ⚠️ ESTE PERFIL ERA UM DESKTOP COM SOMBRA MOLE, E O CELULAR MORRIA NELE.
+      //
+      // Medido em 03/09 contra produção, com iPhone 13 emulado: o telefone
+      // recebia 233 texturas, 455 MB de VRAM e 5,3 M de triângulos, ou seja
+      // EXATAMENTE a carga do desktop, e ainda desenhava em `dpr 2`. O fundador
+      // relatou a consequência: a barra chega a 68%, trava, reinicia e dá erro
+      // de cliente. Isso é o navegador do celular derrubando o contexto WebGL
+      // por falta de memória, e ele não avisa antes.
+      //
+      // O que este perfil cortava era CUSTO DE DESENHO (sombra suave, pontos de
+      // censo), que é o eixo errado: o telefone não estava lento, estava sem
+      // memória. Os dois números abaixo são de MEMÓRIA e por isso mudaram:
+      //
+      //   · `maxPixelRatio` 2 para 1,5: o alvo de render escala com o QUADRADO
+      //     da densidade, e o pós-processamento aloca vários alvos do tamanho
+      //     da tela. 1,5² sobre 2² é 44% a menos em cada um deles.
+      //   · `shadowMapSize` 2048 para 1024: um mapa de profundidade de 2048 são
+      //     16 MB; de 1024, 4 MB. São 12 MB por luz que projeta sombra.
+      //
+      // ⚠️ ISTO NÃO RESOLVE OS 455 MB DE TEXTURA, que é o item dominante e vem
+      // do CONTEÚDO, não do perfil. Os três maiores são uma textura procedural
+      // de 4096x2112 (44 MB), o atlas `dsc-atlas.webp` (26,68 MB) e uma de
+      // 2048x2048 (21,34 MB). Cortar isso é a próxima frente e precisa de um
+      // teto de resolução por aparelho, não de um ajuste aqui.
+      tier, quality, maxPixelRatio: 1.5, minPixelRatio: 1, antialias: true,
+      shadowMapSize: 1024, softShadows: false, shadowUpdateEvery: 1,
       censusPoints: false, jetParticles: 600, smallCull: 2200, textCull: 1000, parkDetailCull: 2800, lodDistance: 2600,
       crystalLod: [1, 0.3, 0.15, 0.08], domeCell: 96,
     }

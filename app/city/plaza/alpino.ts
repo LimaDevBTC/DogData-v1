@@ -108,11 +108,6 @@ const COTA_NEVE_INVERNO = 70
 /** faixa da mata, com pluma nas duas pontas */
 const MATA_BAIXO = 150
 const MATA_ALTO = 250
-// ⚠️ A MESMA ADAPTAÇÃO NA MATA: numa montanha de 1.066 m a floresta real fica
-// numa faixa BAIXA (o pé), não nos mesmos 150-250 m de um morro de 320 m. Só
-// dentro da zona do parque a faixa desce para 40-140 m; fora, 150-250 de sempre.
-const MATA_BAIXO_INVERNO = 40
-const MATA_ALTO_INVERNO = 140
 const PLUMA_MATA = 25
 /** espaçamento do candidato a conífera, antes das máscaras */
 const PASSO_MATA = 26
@@ -236,9 +231,23 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
   // ── 2. a coroa: uma casca de quads sobre o terreno, alfa = cobertura ──────
   // ⚠️ MALHA PRÓPRIA E NÃO COR POR VÉRTICE DO TERRENO: o regolito é de
   // `terrain.ts`, que não é meu arquivo, e repintar vértice de lá seria mexer no
-  // modelo de terreno de outro módulo. A casca sobe 0,4 m e vai com
-  // `polygonOffset`, que é o par de cintos que a cena já usa em chão sobre chão.
-  const LEVANTE = 0.4
+  // modelo de terreno de outro módulo. A casca sobe e vai com `polygonOffset`,
+  // que é o par de cintos que a cena já usa em chão sobre chão.
+  //
+  // ⚠️ 0,4 m FIXO ENTERRAVA A NEVE NO FLANCO ÍNGREME, medido em 03/09: esta
+  // grade (PASSO=40) interpola `superficieAt` nos SEUS próprios cantos, e a
+  // malha grossa do terreno interpola os DELA (cell aprox 59 m). As duas são
+  // aproximações diferentes da MESMA `heightAt`, e onde o relevo é raso (a
+  // cidade) elas quase coincidem; onde é íngreme (o maciço, até 130% de
+  // rampa) elas divergem de verdade. Varredura de 1.802 pontos fora da grade
+  // no flanco do parque: divergência média 0,617 m, MÁXIMA 7,62 m (0,4% das
+  // amostras acima de 5 m). 0,4 m de folga não cobre isso: a neve ficava
+  // enterrada exatamente nos pontos mais íngremes, que também são os mais
+  // visíveis de longe. A folga agora escala com `zonaEsquiavelAt` (0 fora do
+  // parque, bit a bit os mesmos 0,4 m de sempre; até 9 m dentro dele, folga
+  // sobre o pior caso medido).
+  const LEVANTE_BASE = 0.4
+  const LEVANTE_INVERNO = 9
   const pos: number[] = []
   const nor: number[] = []
   const uv: number[] = []
@@ -247,10 +256,25 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
   const conjNeve = superficie('concreto')
   const TILE = conjNeve.metros
 
+  // ⚠️ ACHADO 03/09, medido offline antes de mexer: o pre-corte abaixo usava
+  // `COTA_NEVE` (250) sozinho como piso, e isso e um limiar DIFERENTE do que
+  // `neveEm` de fato usa quando a zona do parque baixa a cota para
+  // `COTA_NEVE_INVERNO` (70). Resultado medido: qualquer ponto com altura
+  // entre 39 e 219 m DENTRO da zona (cotaBase baixo, ainda deveria nevar)
+  // nunca chegava a `neveEm`, porque o pre-corte já tinha descartado a
+  // célula. Isso reduzia a área nevada, mas sozinho NAO explica zero neve
+  // (a varredura offline com o mesmo bug ainda deu 13,258 km² > 0): é bug
+  // real, corrigido aqui, mas não é a causa de "nem um pixel branco" sozinho.
+  // O piso do pre-corte agora usa o MENOR limiar possível (o da zona do
+  // parque, quando `?inverno=1` está ligado); é só uma otimização de
+  // descarte, `neveEm` continua sendo quem decide de verdade.
+  const pisoPreCorte = INVERNO_ATIVO
+    ? Math.min(COTA_NEVE, COTA_NEVE_INVERNO) - FAIXA_NEVE - RUIDO_NEVE
+    : COTA_NEVE - FAIXA_NEVE - RUIDO_NEVE
   for (let j = 0; j < N; j++) {
     for (let i = 0; i < N; i++) {
       const k = idx(i, j)
-      if (!valido[k] || h[k] < COTA_NEVE - FAIXA_NEVE - RUIDO_NEVE) continue
+      if (!valido[k] || h[k] < pisoPreCorte) continue
       const x = xDe(i), z = xDe(j)
       if (Math.hypot(x, z) > R_EXT) continue
       cobertura[k] = neveEm(x, z, h[k], inclinacaoEm(i, j))
@@ -262,7 +286,9 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
   const empurra = (i: number, j: number) => {
     const k = idx(i, j)
     const x = xDe(i), z = xDe(j)
-    pos.push(x, h[k] + LEVANTE, z)
+    const zona = INVERNO_ATIVO ? zonaEsquiavelAt(x, z) : 0
+    const levante = LEVANTE_BASE + (LEVANTE_INVERNO - LEVANTE_BASE) * zona
+    pos.push(x, h[k] + levante, z)
     // normal da grade, não do quad: a casca acompanha o morro sem facetar
     const dx = (h[idx(i + 1, j)] - h[idx(i - 1, j)]) / (2 * PASSO)
     const dz = (h[idx(i, j + 1)] - h[idx(i, j - 1)]) / (2 * PASSO)
@@ -327,14 +353,18 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
       if (r < R_INT || r > R_EXT - 30) continue
       const alt = alturaEm(x, z)
       if (!Number.isFinite(alt)) continue
-      // ⚠️ FAIXA MISTURADA PELA ZONA DO PARQUE, mesmo contrato da neve acima:
-      // 0 bit a bit sem `?inverno=1`.
+      // ⚠️ 03/09: DENTRO DA ZONA DO PARQUE, QUEM PLANTA É `inverno.ts`. Ele
+      // tem árvore de verdade (`tree-pine.glb`, `sequoia-mass.glb`, publicadas
+      // pela frente de espécies especificamente pra isto) numa faixa própria
+      // (15-190 m); manter a conífera de 34 triângulos daqui por cima
+      // dobraria a densidade com duas espécies que não combinam. A faixa
+      // MATA_BAIXO_INVERNO/MATA_ALTO_INVERNO que existia aqui virou código
+      // morto por esse motivo e foi retirada: fora da zona nada mudou.
       const zonaMata = INVERNO_ATIVO ? zonaEsquiavelAt(x, z) : 0
-      const mataBaixo = MATA_BAIXO - (MATA_BAIXO - MATA_BAIXO_INVERNO) * zonaMata
-      const mataAlto = MATA_ALTO - (MATA_ALTO - MATA_ALTO_INVERNO) * zonaMata
+      if (zonaMata > 0.04) continue
       // pluma nas duas pontas da faixa: a mata não começa nem acaba numa reta
-      const dens = suave01((alt - (mataBaixo - PLUMA_MATA)) / (2 * PLUMA_MATA))
-        * (1 - suave01((alt - (mataAlto - PLUMA_MATA)) / (2 * PLUMA_MATA)))
+      const dens = suave01((alt - (MATA_BAIXO - PLUMA_MATA)) / (2 * PLUMA_MATA))
+        * (1 - suave01((alt - (MATA_ALTO - PLUMA_MATA)) / (2 * PLUMA_MATA)))
       if (dens <= 0.02) continue
       // manchado: mata de verdade tem clareira e adensamento
       const mancha = 0.35 + 0.9 * ruido(x, z, 180, 41)

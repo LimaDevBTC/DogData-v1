@@ -52,6 +52,38 @@ export const SF_CREDITS: readonly Credit[] = [
   { title: 'Coconut tree', author: 'Rafael Benites de Souza', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/coconut-tree-a03863e070df4094939d37e60e4a8926' },
   { title: 'Japanese Lowpoly temple', author: 'carolinefangel', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/japanese-lowpoly-temple-cc26af7781344e908d356030e84e4121' },
   { title: 'V2 Rocket', author: 'Diccbudd', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/v2-rocket-c12726a34e534e53af7134e22b1f9cca' },
+  // ⚠️ JARDIM ITALIANO, 03/09. Estes cinco chegaram ao disco e foram USADOS antes
+  // de a linha de credito existir, e a frente que os trouxe declarou isso no
+  // relatorio, o que foi honesto. Mas CC-BY sem atribuicao num repositorio
+  // publico e violacao de licenca a partir do primeiro commit, e o bot publica de
+  // hora em hora: nao ha janela segura. A regra fica, e ela nao tem excecao:
+  // O CREDITO ENTRA NO MESMO MOMENTO DO DOWNLOAD, nunca "depois que funcionar".
+  // Origem conferida no license.txt que o proprio Sketchfab grava junto do
+  // arquivo, nao de memoria.
+  { title: 'Umbrella Pine', author: 'rhcreations', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/umbrella-pine-0de584cdb07a408c8e411d892cb2c9a7' },
+  { title: 'Hedge', author: 'Ingenuitee', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/hedge-96bfd9a2cb854f239c5b58ead1fb431d' },
+  { title: 'Low poly Bush (Buxus)', author: 'arekusandoru.kurobe', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/low-poly-bush-buxus-d3383bb111bc49d6a9d6cfe810e3058b' },
+  { title: 'Topiary bush - Bell shape - Sceaux Park', author: 'Luis 3D', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/topiary-bush-bell-shape-sceaux-park-ac98e638a0994e9e96884d7189af56eb' },
+  { title: 'Young Lemon Tree in pot', author: 'Simon Laisné', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/young-lemon-tree-in-pot-3088d91ba347468b9d1b6453c4b36cdb' },
+  { title: 'Realistic HD Lemon tree (22/30)', author: 'PlantCatalog', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/realistic-hd-lemon-tree-2230-3e05fb1381644233bbb948a78d2f9b08' },
+  // ⚠️ ACRESCENTADOS PELO COORDENADOR EM 03/09, e o motivo vale como regra: o
+  // fundador mandou buscar no acervo antes de modelar, e tinha razao. A sequoia
+  // gerada por codigo custou 10.336 triangulos e le como brocolis facetado; esta
+  // do acervo custa 3.339, tem casca com textura e folhagem em cartao recortado.
+  // Credito entra no MESMO momento do download, nunca depois: foi assim que tres
+  // modelos ficaram meses sem atribuicao, o que e violacao de CC-BY.
+  { title: 'Redwood Tree 2', author: 'rhcreations', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/redwood-tree-2-2c34fb28a756474eb8072a450c8f632b' },
+  // usado como sq-rh.glb (exemplar isolado, destaque perto da camera)
+  { title: 'Stylised Redwood Trees Pack (with LOD groups)', author: 'Parelaxel', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/stylised-redwood-trees-pack-with-lod-groups-80dec2fffb174051a5a88a404b760895' },
+  // ESTE credito cobre as 8 arvores separadas do pacote (frente especies,
+  // 03/09): sq-big-1/2/3.glb (~40 m), sq-med-1/2/3/4.glb (~30,9 m),
+  // sq-small-1.glb (~16 m). O pacote original ("with LOD groups" no titulo)
+  // NAO trouxe niveis de LOD no glTF baixado: medido no scene.gltf cru, sao
+  // 16 malhas (8 arvores x tronco+copa), sem MSFT_lod, sem extras, sem nome
+  // de variante ("_LOD0"/"_LOD1") -- o titulo descreve um recurso do pacote
+  // de origem (Unity/3ds Max) que a exportacao para Sketchfab nao carregou.
+  // sq-pack.glb (as 8 fundidas num objeto so) foi descartado depois da
+  // separacao: as 8 pecas independentes substituem com folga.
   { title: 'Cypress tree', author: 'ElectroNick', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/cypress-tree-249d8cb553a8469e9d645713f8e96ed1' },
   { title: 'Old olive tree', author: 'massive-graphisme', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/old-olive-tree-6328df8a0f214143a880a72b86db2ab4' },
   { title: 'Sakura Tree 01', author: 'Jogoss', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/sakura-tree-01-low-poly-model-147ae7d0d332456a99ec6195e9b0cd4f' },
@@ -95,20 +127,28 @@ export const SF_CREDITS: readonly Credit[] = [
   { title: 'Heliconia Rostrata', author: 'Meownster', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/heliconia-rostrata-bb7240aecc774cd388304b59dcdc7cdb' },
   { title: 'Realistic Baobab Tree', author: 'pighunt3r15', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/realistic-baobab-tree-f3bb8b2c910241d49b5e38351fe9b1b2' },
   { title: 'Cedar Of Lebanon', author: 'Valery.Li', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/cedar-of-lebanon-6bf28d5c230a4dbcbc350ab7e4964a89' },
-  // ── a sequoia gigante NAO tem crédito de terceiro porque não veio de acervo
-  // nenhum: a busca (02-03/09) só achou tronco/cone de fotogrametria em
-  // licença compatível, nenhuma árvore inteira. Nasceu de código,
-  // `blender/build_sequoia.py` (perfil do tronco medido no General Sherman,
-  // NPS, ver o cabeçalho do script), e por isso não precisa de CC-BY, mas
-  // precisa desta linha: sem ela, daqui a três meses ninguém sabe de onde
-  // `sequoia.glb`/`sequoia-mass.glb` vieram.
-  { title: 'Sequoia gigante (tronco + copa gerados por código)', author: 'DogCity (blender/build_sequoia.py)', license: 'proprio, gerado por codigo nesta casa', url: 'blender/build_sequoia.py' },
-  // ── mesmo caso do flamboyant: busca (03/09) devolveu ZERO resultado em
-  // licença compatível para "royal poinciana"/"flamboyant tree" no Sketchfab.
-  // Nasceu de código pelo mesmo motivo, `blender/build_flamboyant.py` (copa em
-  // guarda-chuva achatado, floração vermelho-alaranjada, proporção conferida
-  // em gardenia.net/UC Davis, ver o cabeçalho do script).
-  { title: 'Flamboyant / Royal Poinciana (copa gerada por código)', author: 'DogCity (blender/build_flamboyant.py)', license: 'proprio, gerado por codigo nesta casa', url: 'blender/build_flamboyant.py' },
+  // ── a sequoia gerada por código (`sequoia.glb`/`sequoia-mass.glb`,
+  // `blender/build_sequoia.py`) foi APOSENTADA em 03/09: o acervo (ver
+  // "Redwood Tree 2"/"Stylised Redwood Trees Pack" acima) rendeu casca com
+  // textura e folhagem em cartão recortado por um TERÇO do triângulo. O
+  // script fica no repositório como registro de técnica (perfil de tronco
+  // por superelipse, blob sólido de preenchimento de copa), não como fonte
+  // de nada publicado hoje. Lição: acervo primeiro, Blender só no que faltar
+  // de verdade (ver o mesmo cabeçalho do script).
+  // ── flamboyant: a 1a busca (03/09) voltou vazia, mas era busca curta.
+  // Repetida com --any-license e nomes populares (royal poinciana, Delonix
+  // regia, flame tree), achou "Realistic HD Royal poinciana" da PlantCatalog,
+  // serie de 40 fotogrametrias. NENHUMA das testadas (36/40 e 40/40) mostra
+  // floracao (fora da epoca de flor na captura, poucas semanas por ano). A
+  // arvore publicada usa a 40/40 (mais larga e com melhor tronco) como base
+  // 100% do acervo; a floracao vermelha por cima e camada minha, gerada por
+  // `blender/compor_flamboyant.py` (blob solido plantado nos poligonos de
+  // folha de verdade, nao num volume inventado -- ver o cabecalho do script
+  // para a 1a tentativa que falhou e o motivo). `build_flamboyant.py`
+  // (copa inteira por codigo) fica como registro de tecnica, aposentado
+  // pelo mesmo motivo da sequoia: acervo com textura ganha de solido sem.
+  { title: 'Realistic HD Royal poinciana (40/40)', author: 'PlantCatalog', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/realistic-hd-royal-poinciana-4040-b4668f3739494f0e826666f1f01342ea' },
+  { title: 'Flamboyant, floração (camada gerada por código sobre o acervo acima)', author: 'DogCity (blender/compor_flamboyant.py)', license: 'proprio, gerado por codigo nesta casa', url: 'blender/compor_flamboyant.py' },
 ]
 
 export const SF = {

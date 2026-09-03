@@ -249,9 +249,15 @@ MISTURA por lugar, não a variação por indivíduo.
 
 ---
 
-## 4. Os jardins temáticos: japonês e tropical
+## 4. Os jardins temáticos: japonês, tropical e italiano
 
-### 4.1 Onde, e por que ali
+Atualizado em 03/09 com o terceiro jardim, pedido do fundador ("aqueles pinheiros em forma de
+guarda-chuva que tem em Roma, pinheiros da Toscana compridos e altos, muitas flores, limão
+siciliano etc"): um Jardim Italiano renascentista, tratado no cânone real (Villa d'Este, Villa
+Lante, Boboli), nas seções 4.6 a 4.8. As seções 4.1 a 4.5 são as duas primeiras rodadas,
+intocadas.
+
+### 4.1 Onde, e por que ali (Japonês e Tropical)
 
 `cidade.json` já reserva dois lotes de jardim que ninguém tinha plantado: **Jardim Botânico**
 (id `?`, setor 9, **distrito 4**, x = −1.969, z = −705, rotação 289,69°, 30,06 ha) e **Jardim
@@ -363,13 +369,222 @@ vertical da colunar, e é literalmente a árvore que paisagismo real planta em a
 memorial e fundadores. Duas duplas de **`cedar-lebanon`** (Cedar Of Lebanon, Valery.Li, CC BY
 4.0, chegou 03/09) flanqueiam o eixo, 4 chamadas de desenho.
 
-**Pendente, marcado e não implementado**: a sequoia-gigante, pedida no pedido de espécie e sem
-licença compatível encontrada em nenhum banco (nem CC0 nem CC-BY); outra frente está
-modelando-a por código no Blender, em duas versões (hero e barata para bosque), porque é a
-árvore mais parametrizável que existe (tronco colunar cônico com contraforte, copa estreita a
-partir do terço superior). O lugar já está reservado: um "Bosque dos Fundadores" no mesmo eixo
-da Alameda, ladeando os cedros já plantados. Nenhuma linha de código referencia um arquivo que
-não existe; isto é só o registro de onde ela entra quando chegar.
+**A sequoia-gigante chegou em 03/09** (`sequoia.glb` e `sequoia-mass.glb`), depois de a busca
+não achar licença compatível em banco nenhum: a outra frente a gerou por código
+(`blender/build_sequoia.py`, perfil do tronco medido no General Sherman, NPS; crédito próprio,
+sem CC-BY porque não veio de terceiro). O "Bosque dos Fundadores" que a versão anterior deste
+documento reservava, sem código nenhum apontando para ele, agora existe: 2 exemplares-hero
+(`sequoia.glb`, 4 primitivas) nas duas pontas da alameda, além dos cedros já plantados, e 8 da
+variante barata para bosque (`sequoia-mass.glb`, 4 primitivas) em pequenos grupos ao redor de
+cada hero. Progressão de chegada: cedro perto do centro (já plantado), sequoia longe, nas
+pontas, como convém a uma árvore que impressiona por TAMANHO e quer distância para se ler.
+
+---
+
+### 4.6 O Jardim Italiano: TAREFA 1, o sítio (dado, não gosto)
+
+O pedido do fundador, junto com o cânone que ele citou sem saber que estava citando (Villa
+d'Este, Villa Lante, Boboli), exige uma coisa que os outros dois jardins não exigiam:
+**encosta real, contínua**. Jardim japonês e jardim tropical toleram terreno raso; jardim
+italiano renascentista NASCE da encosta, com o eixo de água caindo de terraço em terraço. Sem
+declive de verdade, um "jardim italiano" no plano é meia coisa: um parterre sem cascata.
+
+### O que eu tinha para escolher
+
+Medido em 03/09, direto no arquivo real (`public/lunar/btc-core-heightmap.f32`, 429×429,
+célula 59,225 m, o mesmo dado que `terrain.ts` interpola, sem abrir navegador): dentro do
+tecido construído (`declive_max` publicado é 4,0%, mas isso é meta do GERADOR para o lote, não
+um limite que `terrain.ts` de fato impõe ao relevo bruto fora da praça) e no anel além dele, a
+maior parte do sítio é Mare Tranquillitatis de verdade: **genuinamente plana**. A única
+concentração de relevo forte é o maciço oeste, onde `alpino.ts` já planta a coroa de neve e a
+mata de conífera (sempre ativa, sem bandeira) e onde `inverno.ts` esculpe a montanha de
+1.065,9 m (atrás de `?inverno=1`, arco 248° a 288°).
+
+**Considerei o pé da montanha de inverno, como pedido, e decidi não usar.** Três motivos, os
+três medidos:
+
+1. **Bandeira cruzada.** A montanha de 1.066 m só existe com `?inverno=1` ligada; o anel de
+   6.150 a 8.100 m que o pódio já deixa plano virou, por decisão daquela frente, "pista verde
+   de acesso e vila-base" (estação, garagem de teleférico), e a montanha de verdade mora de
+   r≈8.150 a r≈8.650, dentro do MESMO arco de 40° (248°-288°). Colocar o Jardim Italiano ali
+   faria ele exigir `?verde=1 AND ?inverno=1` ao mesmo tempo para aparecer, o que contradiz a
+   regra "sua bandeira é `?verde=1`, sem ela nada muda": com `?inverno=1` desligada (o padrão),
+   meu jardim sumiria junto com a montanha que não é minha.
+2. **Território ocupado.** Mesmo sem a montanha nova, o relevo NATURAL do maciço (pico de
+   321,7 m em r=8.283, azimute 264°, medido por `alpino.ts` antes de qualquer sculpting) já é
+   plantado por `alpino.ts` (coroa de neve acima de 250 m, mata de conífera de 150 a 250 m,
+   SEMPRE ativa). Entrar ali é pisar em cima de um módulo que não é meu e que já tem programa.
+3. **Não é a única encosta.** A busca por slope real (abaixo) achou algo melhor: dentro da
+   PRÓPRIA malha de peças do programa, fora de qualquer bandeira alheia.
+
+### A busca real, e o achado
+
+Varri os 70 pontos de `cidade.json → programa` contra o gradiente local do heightmap bruto (4
+amostras a 40 m, a mesma célula de `alpino.ts`), ranqueado por inclinação:
+
+| Peça | Tipo | r (m) | Altura no ponto | Gradiente local |
+|---|---|---|---|---|
+| **Floresta de Extrativismo** (VP02) | floresta | 6.762 | 76,9 m | **22,9%** |
+| Fundição e Laminação | indústria | 5.928 | 95,6 m | 9,1% |
+| Campo Solar Norte | distribuição | 8.994 | 30,5 m | 8,7% |
+| Hortas do Poente | jardim | 4.700 | 75,8 m | 7,6% |
+
+**A Floresta de Extrativismo (VP02) vence por larga margem**, e ela está fora de qualquer
+bandeira: 107,52 ha, x = −5.612, z = 3.772, rumo próprio 236,1° (o mesmo rumo do seu raio a
+partir do centro: a peça já nasce orientada radialmente), tipo `floresta` (produtiva, não
+residencial, não é lote de holder: pode ser parcialmente reaproveitada sem tirar endereço de
+carteira nenhuma, a regra dura do plano diretor §6.7). Ela fica na **Cinta** (r > 5.500, o
+cinturão industrial), a 12° de distância angular da borda do arco do parque de inverno (236°
+contra 248°): vizinha do maciço, nunca dentro dele.
+
+Tracei o perfil real ao longo do eixo mais longo da peça e achei um trecho de 280 m com queda
+monótona (sem reversão) de 63,6 m:
+
+| Ponto | x | z | h (m) | r (m) |
+|---|---|---|---|---|
+| **TOPO** (entrada, chegada da villa) | −6.161 | 3.960 | 113,2 | 7.402 |
+| **BASE** (belvedere, fim do eixo) | −5.928 | 3.804 | 49,6 | 6.842 |
+
+280 m de comprimento, 63,6 m de queda, **22,7% de declividade média**. Para comparar (seção
+4.8 traz a fonte): Villa d'Este cai mais de 45 m do topo à base em encosta íngreme, a mesma
+ordem de grandeza, meu jardim até excede um pouco. Isto não é lote raso com terraço fingido: é
+relevo real, medido, dentro do próprio arquivo que a cidade usa para desenhar o chão.
+
+**O achado extra, não procurado**: o eixo descendente (rumo 56,1°, de TOPO a BASE) aponta, se
+estendido, quase exatamente para o **centro da cidade** (rumo real do BASE até a origem:
+57,3°, a 7.043 m). Um patrono de villa renascentista constrói o eixo para terminar numa vista
+que mostra seu domínio (Villa d'Este mostra Tivoli; Caprarola mostra o campo); aqui, sem eu
+desenhar nada, o declive natural já aponta para o skyline inteiro da DogCity. A "vista no fim
+do eixo" que a Tarefa 1 pede não é imaginada, é geometria de terreno relida.
+
+### A peça que eu trocaria, e por que só em parte
+
+Não removo a Floresta de Extrativismo inteira. Uso um núcleo de **cerca de 3,3 ha** (a faixa de
+280 × ~120 m do eixo real, seção 4.8) e deixo os outros ~104 ha como estavam: floresta de
+produção intacta. Essa floresta remanescente vira, sem esforço extra, o **bosco** que o cânone
+exige (seção 4.7): mata informal ao redor do jardim geométrico é justamente o que uma floresta
+de extração JÁ é. Não inventei um bosco, herdei um.
+
+### 4.7 O Jardim Italiano: TAREFA 2, o cânone (pesquisado, não clichê)
+
+Fontes: WebSearch em 03/09, citadas ao final desta seção. Sete elementos do cânone, e o que
+cada um vira nesta praça:
+
+**EIXO.** O trecho de 280 m da seção 4.6, TOPO a BASE, simetria espelhada nos dois lados. Tudo
+abaixo se organiza nele.
+
+**VIALE DEI CIPRESSI.** `tree-cypress` (Cypress tree, ElectroNick, CC BY 4.0; 2.600 triângulos,
+2 primitivas) é exatamente o material: coluna estreita e alta, e é o "pinheiro da Toscana
+comprido e alto" que o fundador descreveu sem saber o nome botânico certo (cipreste, não
+pinheiro; o pinheiro-guarda-chuva vem a seguir, no bosco). Fileira dupla nos primeiros 80 m do
+eixo, do TOPO até a boca do parterre, espaçamento 6 m (mais fechado que o espaçamento de rua da
+seção 1: aqui é parede vegetal de chegada, não alameda urbana).
+
+**TERRAÇOS, ESCADARIA, BALAUSTRADA.** Fora do meu escopo: são três arquivos meus
+(`arborizacao.ts`, `props-table.ts`, `especies.ts`), nenhum deles mexe em terra nem em
+alvenaria. O corte do talude, os degraus e a balaustrada de pedra são trabalho de terreno/obra
+(o mesmo tipo de módulo que construiu `sp-complex.glb` para o spaceport, por script Blender
+dedicado). Planto sobre o `heightAt` que já existe: sem terraço de alvenaria, a fileira de
+cipreste e o parterre já seguem a queda real do terreno, o que dá a LEITURA de encosta
+trabalhada mesmo antes de qualquer talude ser cortado. O terraço de pedra é melhoria futura,
+não bloqueio.
+
+**PARTERRE DE BUXO, COM CASCALHO.** `buxo-sebe` (sebe, 2 primitivas, 1.824 triângulos) e
+`buxo-bola` (topiária esférica, 1 primitiva, 1.080 triângulos) chegaram em 03/09 (ainda SEM
+linha de crédito em `sf-assets.ts`, que não é meu arquivo: ver a ressalva no fim desta seção).
+Quatro compartimentos (2×2), 26 × 22 m cada, com caminho central de 6 m entre eles (a mesma
+geometria em cruz de Villa Lante, quatro tabuleiros ao redor de uma fonte central), sebe
+contornando cada compartimento e uma bola de buxo em cada um dos 4 cantos. **O cascalho já
+existe**: o piso é regolito lunar, que é literalmente cascalho fino, então o "chão entre os
+compartimentos" que separa jardim italiano de jardim inglês está resolvido pelo material que a
+cidade inteira já usa, sem decal novo.
+
+**ÁGUA COMO EIXO.** Fora do escopo dos meus três arquivos (é `lagos.ts`/`canais.ts`, outra
+frente). O que planto é a MOLDURA: `fountain-basin` (Fuente de agua, Harold.Llanos, CC BY 4.0,
+já usado 3× na Praça Central, aqui reaproveitado) marca o ponto de chegada da água no
+belvedere, na BASE do eixo. A catena d'acqua descendo pelos terraços (o gesto mais
+reconhecível de Villa d'Este) fica pedida, não construída: ver seção 4.8/6.
+
+**BOSCO.** A própria Floresta de Extrativismo remanescente (seção 4.6), mais uma bolsa
+plantada de `pine-umbrella` (pinheiro-manso, chegou 03/09, SEM crédito ainda, 2 primitivas,
+6.000 triângulos) na faixa mais baixa e mais sombria do eixo (entre o parterre e o belvedere):
+é o pinheiro real de Roma, Pinus pinea, 15 a 25 m de altura, copa em guarda-chuva de 8 a 12 m
+de vão (Villa Borghese é a referência clássica). Plantado em bosque informal (a mesma função
+`bosque()` que já uso no Jardim Tropical), não em fileira: bosco é o contraste INFORMAL contra
+o parterre geométrico, e teria sido erro alinhar os dois.
+
+**LIMONAIA.** `limao-vaso-test` (nome de arquivo com sufixo "-teste": tratar como provisório,
+sem crédito ainda) em vaso de terracota, fileira dupla flanqueando o trecho do eixo reservado
+para a catena d'agua (12 exemplares, 6 de cada lado, espaçamento 6 m). Nunca no chão: em vaso,
+em fileira, encostado numa borda, exatamente o gesto que a Tarefa 2 pediu.
+
+**CICA (adendo do fundador, 03/09).** `Cycas revoluta`, cicadácea e não palmeira apesar do
+nome popular: mesmo papel do limoeiro, exemplar jovem em vaso de terracota, em PAR simétrico,
+ladeando escadaria, portão e borda de terraço. `cycas-vaso.glb` foi pedido à frente de espécies
+(mesma classe de massa do buxo, 2.500 a 3.500 triângulos) e AINDA NÃO CHEGOU ao disco: a linha
+de código já está escrita (ela carrega sozinha quando o arquivo aparecer, `loadSf` nunca quebra
+por asset ausente), mas o efeito visual é zero até lá. Quatro pares (8 exemplares): no portão de
+entrada do TOPO, no alto de cada uma das duas quebras de terraço, e na entrada do belvedere.
+
+**FLORES DENTRO DO COMPARTIMENTO.** Oleandro, roseira, alfazema, glicínia (em pérgola), jasmim
+e íris (o símbolo de Florença): todos pedidos à frente de espécies, nenhum chegou ainda. O
+cânone é claro e a versão anterior deste documento já citava a regra para os outros jardins:
+flor entra DENTRO do compartimento de buxo e na borda dele, nunca espalhada em maciço solto.
+Contagem e posição exatas na seção 4.8; nenhuma linha de código as referencia hoje porque eu
+não tenho nome de arquivo real para arriscar (um nome errado apontaria para um arquivo que a
+outra frente nunca criaria com aquele nome, e a peça nunca apareceria mesmo depois de pronta).
+
+**Fontes desta seção** (WebSearch, 03/09): Villa d'Este (área 4,5 ha, queda de mais de 45 m,
+eixo longitudinal central com cinco eixos transversais, cerca de 50 fontes): visititaly.eu,
+UNESCO (whc.unesco.org/en/list/1025), Wikipedia; Villa Lante (22 ha ao todo, parterre
+quadripartido com 4 bacias e 12 canteiros de buxo esculpido ao redor da Fonte dos Mouros):
+italia.it, Wikipedia; Boboli (cerca de 45 ha, Viottolone de cerca de 300 m ladeado por
+ciprestes até o Isolotto): florenceinferno.com, boboli-gardens.com; Pinus pinea (15 a 25 m de
+altura, copa de 8 a 12 m, ícone de Villa Borghese): treesandshrubsonline.org, vdberk.com,
+rome.us.
+
+### 4.8 O Jardim Italiano: TAREFA 3, os números
+
+**Núcleo curado**: 280 × 120 m ao longo do eixo, **3,36 ha**. Comparado aos outros dois
+jardins (Japonês 2,54 ha, Tropical implícito no mesmo raio de 90 m ≈ 2,54 ha): o italiano é o
+maior dos três, e isso é DEFENSÁVEL pelas referências: Villa d'Este sozinha (sem contar o
+parque externo) já tem 4,5 ha; Villa Lante, se contar só o parterre formal (a "grandiosa
+composição" ao redor da Fonte dos Mouros), é bem menor que os 22 ha totais da propriedade
+(a maior parte de Villa Lante é bosco, não parterre); Boboli tem quase 45 ha, mas a maior parte
+também é bosco e anfiteatro, não canteiro. 3,36 ha de núcleo curado contra 104 ha de floresta
+remanescente ao redor é uma proporção parterre:bosco perto da de Villa Lante, não um exagero.
+
+**Contagem por espécie** (todas atrás de `?verde=1`; ⚠️ marca arquivo sem linha de crédito em
+`sf-assets.ts` ainda, fora do meu escopo editar):
+
+| Espécie | Papel | Instâncias | Primitivas (chamadas) |
+|---|---|---|---|
+| `tree-cypress` | viale dei cipressi | 26 (13 por lado) | 2 |
+| `pine-umbrella` ⚠️ | bosco | 14 | 2 |
+| `buxo-sebe` ⚠️ | contorno dos 4 compartimentos | ~148 (perímetro a cada 2,6 m) | 2 |
+| `buxo-bola` ⚠️ | topiária dos cantos | 16 (4 por compartimento) | 1 |
+| `limao-vaso-test` ⚠️ | limonaia | 12 | 2 |
+| `cycas-vaso` (arquivo pendente) | pares de escadaria/portão | 8 (código pronto, efeito zero até o arquivo chegar) | NÃO MEDIDO |
+| `garden-urn` | balaustrada do belvedere (reaproveitado) | 4 | 2 |
+| `fountain-basin` | moldura da água no belvedere (reaproveitado) | 1 | 1 |
+| **Total desta seção** | | **221 instâncias plantadas + 8 pendentes** | **12** (mais o que `cycas-vaso` custar) |
+
+**Flores pedidas, ainda sem arquivo** (seção 6): 6 compartimentos de canteiro (2 por
+"tabuleiro" dos 4 quadrantes do parterre, mais 2 nas bordas junto à escadaria) recebem,
+quando chegarem: íris nas bordas voltadas para o caminho central (o símbolo muda em uso mais
+visível), lavanda e roseira dividindo o miolo dos 4 compartimentos, oleandro em pontos isolados
+nas quinas externas do parterre (arbusto maior, marca de esquina), jasmim e glicínia
+trepando uma pérgola na transição do parterre para o bosco (a pérgola em si é peça de
+arquitetura, fora do escopo, mas o local está reservado). Nenhuma contagem de instância aqui é
+final: sem arquivo, é intenção de projeto, não plantio.
+
+**Transição para o entorno, sem virar parque temático isolado**: ao norte e a leste do núcleo
+(fora dos 280 × 120 m), a Floresta de Extrativismo continua produtiva e sem árvore curada
+nenhuma extra: é o bosco cânone, herdado de graça (seção 4.6). Ao sul, a peça encosta na
+Cinta industrial (Fundição e Laminação, Reservatório do Poente): o jardim não finge que a
+vizinhança industrial não existe, ele vira o contraponto cultivado dela, que é exatamente o
+papel que jardins de patrono cumpriam na Itália real, cercados por terra de trabalho, não por
+outros jardins.
 
 ---
 
@@ -387,9 +602,18 @@ não existe; isto é só o registro de onde ela entra quando chegar.
 | Travessa (bookend, k=2/3/4, 3.031 segmentos × 2) | **6.062** (calculado em 03/09) | `?verde=1` (novo) |
 | Jardim Japonês (peças curadas) | 12 instâncias | `?verde=1` |
 | Jardim Tropical (peças curadas) | 38 instâncias | `?verde=1` |
+| Jardim Italiano (peças curadas, seção 4.8) | 221 instâncias + 8 pendentes | `?verde=1` |
+| Alameda dos Fundadores (cedro + sequoia) | 4 + 10 = 14 instâncias | `?verde=1` |
 
-Com `?verde=1` sozinho (sem `?arvcont=1`): 20.756 + 6.062 + 50 ≈ **26.868**, folgado abaixo do
-teto de instância de 40.000 (`TETO`, `arborizacao.ts`), sem precisar tocar o teto.
+Os quatro jardins e a alameda são `props-table.ts` (adereço, contagem de INSTÂNCIA por linha,
+sem teto próprio hoje); a linha de cima é `arborizacao.ts` (árvore procedural, teto duro
+`TETO`). São dois orçamentos diferentes, medidos separadamente; a seção 7 trata do de
+`props-table.ts`.
+
+Com `?verde=1` sozinho (sem `?arvcont=1`), só a arborização procedural: 20.756 + 6.062 + 50 ≈
+**26.868**, folgado abaixo do teto de instância de 40.000 (`TETO`, `arborizacao.ts`), sem
+precisar tocar o teto. Os jardins e a Alameda não entram nesta conta: são instâncias de
+`props-table.ts`, orçadas à parte na seção 7.
 
 Com `?verde=1&arvcont=1` juntos: 20.756 + 30.661 + 6.062 + 50 ≈ **57.529**, que ULTRAPASSA o
 teto de 40.000. Isto não é bug desta entrega: o teto já cortava silenciosamente (`if
@@ -426,9 +650,10 @@ e eu não vou forçar uma. O que É comparável, e vale registrar:
 
 ## 6. O pedido de espécie
 
-Atualizado em 03/09: os itens 1 a 4 do pedido original chegaram (pinheiro-negro, bambu,
-bananeira, helicônia) e já estão incorporados na seção 4. Ficam três listas: o que chegou, o
-que já está disponível mas não wireado, e o que genuinamente ainda falta.
+Atualizado em 03/09, duas vezes: os itens 1 a 4 do pedido original (Japonês/Tropical) chegaram
+(pinheiro-negro, bambu, bananeira, helicônia); depois o Jardim Italiano trouxe um pedido novo
+inteiro (seção 6.4). Ficam quatro listas: o que chegou, o que já está disponível mas não
+wireado, o que genuinamente ainda falta, e o pedido do Jardim Italiano especificamente.
 
 ### 6.1 Chegou e foi incorporado (03/09)
 
@@ -456,22 +681,54 @@ conífera do maciço de inverno (`alpino.ts`), fora do escopo deste documento.
 
 ### 6.3 Ainda genuinamente faltando
 
-1. **Sequoia-gigante** (*Sequoiadendron giganteum*). Sem licença compatível encontrada em
-   nenhum banco; outra frente já está modelando por código (Blender), hero e barata para
-   bosque. Lugar reservado: "Bosque dos Fundadores", junto aos cedros da seção 4.5. **NÃO
-   ENTROU, marcado pendente.**
-2. **Flamboyant** (*Delonix regia*). Também sem licença compatível; pedido inicial não
-   substituído por nenhum modelo equivalente (helicônia e banana cobrem folha/flor tropical,
-   mas nenhuma cobre a copa larga em guarda-sol vermelha do flamboyant). Sem substituto
-   inventado: fica em aberto.
-3. **Bétula** ou espécie de casca branca (*Betula pendula* ou similar). Porte 10 a 15 m, copa
+1. **Flamboyant** (*Delonix regia*). Existe um arquivo publicado (`flamboyant.glb`, gerado por
+   código, `blender/build_flamboyant.py`), mas a frente que o gerou avisou em 03/09: a copa
+   saiu em hélice, versão ruim, "não conte com ele até eu avisar". Continua fora do jardim até
+   segunda notícia.
+2. **Bétula** ou espécie de casca branca (*Betula pendula* ou similar). Porte 10 a 15 m, copa
    fina, tronco branco muito reconhecível. Para: um porte/textura que nenhuma das quatro
-   silhuetas procedurais nem os sete modelos novos oferecem (todos têm tronco escuro), útil
-   para marcar a transição de banda Bairro para Borda com um elemento genuinamente novo.
-4. **Musgo/pedra de jardim seco**, não é árvore mas é o item que fecha o Jardim Japonês como
+   silhuetas procedurais nem os modelos novos oferecem (todos têm tronco escuro), útil para
+   marcar a transição de banda Bairro para Borda com um elemento genuinamente novo.
+3. **Musgo/pedra de jardim seco**, não é árvore mas é o item que fecha o Jardim Japonês como
    karesansui de verdade: uma textura de cascalho rastelado e 3 a 5 pedras de composição
    (tamanhos variados, não uniformes). Sem água, isto é o que carrega o jardim; hoje ele tem
    árvore, lanterna e bambu, mas nenhum piso de jardim seco.
+
+A sequoia-gigante SAIU desta lista: chegou em 03/09 gerada por código (`sequoia.glb`,
+`sequoia-mass.glb`), plantada na Alameda dos Fundadores (§4.5).
+
+### 6.4 O pedido do Jardim Italiano (novo, 03/09)
+
+Três arquivos já chegaram ao disco mas **ainda sem linha de crédito em `sf-assets.ts`** (que
+não é meu arquivo para editar; a frente de espécies foi interrompida por limite de sessão no
+meio do trabalho, e crédito é ela quem escreve): `pine-umbrella.glb` (pinheiro-manso, 2
+primitivas, 6.000 triângulos), `buxo-sebe.glb` (sebe, 2 primitivas, 1.824 triângulos) e
+`buxo-bola.glb` (topiária, 1 primitiva, 1.080 triângulos). Usei os três no projeto (seção 4.7)
+porque estão atrás de `?verde=1` (nunca aparecem em produção sem a bandeira) e porque o
+crédito é dado que chega depois, não geometria: quando a linha existir, o jardim já está
+pronto para exibir, sem eu precisar tocar em código de novo.
+
+Um quarto arquivo, `limao-vaso-test.glb`, tem sufixo "-teste" no próprio nome: tratei como
+provisório na seção 4.7 (usei, mas sinalizado), porque um nome com "teste" pode não ser a
+malha final que a frente pretende publicar.
+
+Pendente, sem arquivo nenhum ainda, todos pedidos à frente de espécies e usados no projeto da
+seção 4.8 por posição e quantidade, mesmo sem geometria:
+
+| Espécie pedida (pelo fundador, adendo "muitas flores"/"mini sagu") | Nome científico | Onde entra | Quantidade prevista |
+|---|---|---|---|
+| Cica (mini sagu) | *Cycas revoluta* | pares em vaso, escadaria/portão do Jardim Italiano | 8 (4 pares) |
+| Oleandro | *Nerium oleander* | quinas externas do parterre | ~4 |
+| Roseira | *Rosa* sp. | miolo dos compartimentos de buxo | ~2 compartimentos |
+| Alfazema/lavanda | *Lavandula* sp. | miolo dos compartimentos de buxo, junto à roseira | ~2 compartimentos |
+| Glicínia | *Wisteria sinensis* | pérgola na transição parterre → bosco (a pérgola é arquitetura, fora do escopo) | 1 trecho |
+| Jasmim | *Jasminum* sp. | junto à glicínia, mesma pérgola | 1 trecho |
+| Íris | *Iris germanica* (o símbolo de Florença) | bordas dos compartimentos voltadas para o caminho central | ~4 pontos |
+
+`cycas-vaso.glb` já tem a linha de código escrita (props-table.ts, seção 4.8); os seis
+restantes não têm arquivo nem nome confirmado, então não há linha de código para eles ainda:
+arriscar um nome de arquivo errado deixaria a peça muda mesmo depois de pronta, porque
+`props.ts` procura pelo nome exato.
 
 ---
 
@@ -489,13 +746,31 @@ em `props-table.ts`. Esta entrega soma, contando as sete espécies novas (seçã
 | **Total** | **31** | `?verde=1` |
 
 31 chamadas a mais sobre 45 é +69%, e é bem mais do que a estimativa da primeira versão deste
-documento (10, antes das sete espécies novas chegarem). Continua **atrás de bandeira desligada
-por padrão**: o caminho de produção de hoje (sem `?verde=1`) não ganha um draw call sequer. Se
-o orçamento total de `props.ts` (que outra frente mede e possui) não tiver folga para 31
-chamadas a mais mesmo opt-in, os cortes mais baratos, em ordem, são: `baobab` (2, um único
-specimen, o item que não veio de pedido), `heliconia` (3, já é hero de poucos pontos) e
-`bamboo-clump` (5, a tela pode virar decal de chão em vez de modelo, se algum dia alguém
-escrever esse decal).
+documento (10, antes das sete espécies novas chegarem).
+
+**E o Jardim Italiano soma mais 12** (tree-cypress 2, pine-umbrella 2, buxo-sebe 2, buxo-bola
+1, limao-vaso-test 2, garden-urn 2, fountain-basin 1) **mais 8 da Alameda dos Fundadores**
+(sequoia 4, sequoia-mass 4) que já estavam contadas na linha "Alameda dos Fundadores" acima
+como parte da atualização de 03/09. Somando as três rodadas desta entrega:
+
+| Rodada | Chamadas novas |
+|---|---|
+| Jardim Japonês + Jardim Tropical + cedro (primeira rodada) | 31 |
+| Jardim Italiano (viale, bosco, parterre, limonaia, belvedere) | 12 |
+| Sequoia na Alameda dos Fundadores (segunda rodada, mesma linha da tabela acima) | 8 |
+| **Total acumulado desta entrega** | **51** |
+
+51 chamadas a mais sobre as 45 originais de `props.ts` é **+113%**: mais que dobra a fatia de
+adereço da cena. Continua **atrás de bandeira desligada por padrão** (o caminho de produção de
+hoje não ganha um draw call sequer sem `?verde=1`), mas o número já não é pequeno e eu não vou
+fingir que é: se o orçamento total de `props.ts` (que outra frente mede e possui) não tiver
+folga para 51 chamadas a mais mesmo opt-in, os cortes mais baratos, em ordem, são: `baobab` (2,
+specimen único, não veio de pedido), `fountain-basin` (1, moldura simbólica, a água de verdade
+nem existe ainda), `heliconia` (3, já é hero de poucos pontos) e `bamboo-clump` (5, a tela pode
+virar decal de chão em vez de modelo, se algum dia alguém escrever esse decal). O corte mais
+caro e menos recomendável é o viale de cipreste (`tree-cypress`, 2 chamadas mas é o elemento
+mais reconhecível do cânone citado pelo fundador): cortar esse antes dos outros desmontaria o
+projeto pelo motivo errado.
 
 A arborização procedural (seções 1 e 2) não soma NENHUM material nem geometria nova: a
 hierarquia inteira é peso de mistura sobre as 4 silhuetas e o material único que já existiam, e
@@ -533,6 +808,20 @@ correspondentes.
   `sf-assets.ts` (não encontrei arquivo com esse nome em `public/city/sf/`; é possível que
   `palm.glb` ou `tree-palm.glb` sejam essa conversão sob nome genérico, mas não abri o modelo
   para confirmar).
+- O talude, a escadaria e a balaustrada de pedra do Jardim Italiano NÃO existem: plantei sobre
+  o `heightAt` real, que já dá a queda de 22,7%, mas a alvenaria que faria os quatro
+  compartimentos de parterre ficarem realmente NIVELADOS (terraço plano, não rampa) é obra de
+  terreno, fora dos meus três arquivos. NÃO MEDI se plantar sem nivelar deixa a sebe de buxo
+  visivelmente inclinada demais para ler como parterre geométrico.
+- O comprimento real do módulo de `buxo-sebe.glb` (o "tamanho de um segmento de sebe"): sem
+  abrir o modelo num visualizador, usei um passo de 2,6 m escolhido por proporção com o buxo-
+  bola, não medido no glTF. Se o módulo nativo for muito maior ou menor, o contorno dos
+  compartimentos pode ficar com sebe sobreposta ou com vão.
+- Se `pine-umbrella`, `buxo-sebe`, `buxo-bola` e `limao-vaso-test` ganharem linha de crédito em
+  `sf-assets.ts` com um NOME DE ARQUIVO diferente do que usei aqui (a frente de espécies foi
+  interrompida antes de escrever a linha, então o nome final não está confirmado): as quatro
+  linhas de `props-table.ts` que os referenciam quebram silenciosamente (viram prop ausente,
+  não erro), até alguém trocar o nome.
 
 ---
 
@@ -566,3 +855,16 @@ correspondentes.
     a lado (esfera, cone, copada, colunar), com e sem `?verde=1`: é o teste mais direto do
     conserto da seção 0.1, e o mais fácil de julgar errado a distância (as quatro têm que
     parecer QUATRO plantas, não quatro tons do mesmo verde).
+11. **O eixo inteiro do Jardim Italiano**, do TOPO (x −6.161 z 3.960) até a BASE (x −5.928
+    z 3.804), câmera baixa alinhada ao rumo 56°: é o enquadramento que testa a tarefa 1 inteira
+    (o declive real de 22,7% tem que LER como encosta, não como terreno raso com árvore em
+    cima) e a tarefa 2 (o viale de cipreste emoldurando o parterre de buxo lá embaixo).
+12. **O parterre de buxo visto de cima** (drone/câmera alta sobre o núcleo curado): confirmar
+    que os 4 compartimentos com sebe e as 16 bolas de topiária realmente leem como geometria,
+    não como mancha verde solta, e que o regolito entre eles passa por "cascalho".
+13. **A transição do Jardim Italiano para a Floresta de Extrativismo ao redor**: um
+    enquadramento na borda dos 280 × 120 m mostrando o parterre geométrico de um lado e a
+    floresta de produção contínua do outro, sem cerca nem faixa dura entre os dois.
+14. **A limonaia e as duas primeiras cicas** (se `cycas-vaso.glb` já tiver chegado): confirmar
+    o gesto de vaso-em-fileira contra vaso-em-par, lado a lado, que é a diferença de composição
+    entre os dois elementos que a tarefa 4 pediu.
