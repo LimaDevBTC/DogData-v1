@@ -23,6 +23,7 @@ import WarLegend from './war-legend'
 import { loadTerrain } from './terrain'
 import { criarTerrenoFino, ligarNaVia, type TerrenoFino } from './terreno-fino'
 import { criarSombraCascata, type SombraCascata } from './sombra'
+import { buildInverno, type Inverno } from './inverno'
 import { createOrbitLayer, PAD_MAIN, SPACEPORT_SHIFT, setOrbitFloor } from './orbit-layer'
 import { startFeed, isDonation, type DogTx, type Snapshot, donationDog } from './feed'
 import { buildChalet, chaletComoTrabalho, type Chalet } from './chalet'
@@ -1420,6 +1421,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let campoVivo = false
     let emblemaGuerra: THREE.Group | null = null
     let alpino: Alpino | null = null
+    let inverno: Inverno | null = null
     let heightAt: (x: number, z: number) => number = () => 0
     let superficieAt: (x: number, z: number) => number = () => 0
     let lagoGeo: { r0: number; r1: number; agua: number; fundo: number } | null = null
@@ -2189,6 +2191,29 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 culler,
               })
               scene.add(alpino.group)
+
+              // ── O PARQUE DE INVERNO (`?inverno=1`) ───────────────────────
+              //
+              // ⚠️ ENTRA DEPOIS DO ALPINO PORQUE ESCULPE O MESMO MACIÇO. O
+              // relevo natural do sítio tem 311 m de desnível, que dá halfpipe
+              // e slalom e não dá descida. O módulo levanta o cume para 1.065,9 m
+              // (medido, por busca em grade sobre o `heightAt` real, não
+              // assumido) e abre 1.052,9 m de queda, que é o topo da faixa FIS
+              // de descida masculina.
+              //
+              // ⚠️ ELE PEDE A CASCA FUNDA. Com a flecha de hoje (2.566) o cume
+              // ATRAVESSA a abóbada e isso é esperado e está documentado; com a
+              // flecha de 5.500 de `?casca=2` sobram 170,5 m de folga medida.
+              // As duas bandeiras andam juntas até o padrão da casca virar.
+              if (qDomo.get('inverno') === '1') {
+                inverno = buildInverno({
+                  heightAt: terrain.superficieAt,
+                  sombra: qDomo.get('sombra') !== '0',
+                  profile, culler,
+                })
+                scene.add(inverno.group)
+                console.log(`[inverno] ${inverno.triangulos.toLocaleString('pt-BR')} triângulos`)
+              }
               console.log(`[alpino] ${alpino.neveKm2.toFixed(2)} km² de neve, ${alpino.arvores.toLocaleString('pt-BR')} coníferas, ${alpino.triangulos.toLocaleString('pt-BR')} tris`)
             }
 
@@ -3031,6 +3056,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         culler.revealAll()
         try { await renderer.compileAsync(scene, camera) } catch { /* sem compile paralelo */ }
         culler.update(camera.position)
+        // ⚠️ SELA A OBRA: daqui pra frente não entra mais trabalho, e só agora ela
+        // pode se dar por encerrada. Ver a nota longa em `obra.ts`: sem esta
+        // linha a obra fica viva para sempre, o que é inofensivo mas mantém o
+        // `passo()` sendo chamado à toa em todo quadro.
+        obra.sela()
         stepDone('shaders')
       } catch (err) {
         console.error('[plaza]', err)
@@ -3440,7 +3470,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       // ⚠️ UMA VEZ POR QUADRO, ANTES DO RENDER, E ANTES DO RESTO DO LAÇO. A obra
       // gasta o orçamento dela (6 ms) e devolve a thread. Se esta linha sair
       // daqui, a cidade simplesmente para de nascer no meio.
-      if (!obra.terminou) obra.passo()
+      obra.passo()
       orcamentoLuz.update()
       // ⚠️ LOD DOS EXÉRCITOS: 1,77 M de triângulos viram 0,08 M além de 700 m.
       // Ver a nota longa em war/battlefield.ts, junto do proxy.
@@ -3706,6 +3736,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       decal?.dispose()
       terrenoFino?.dispose()
       csm?.dispose()
+      inverno?.dispose()
       lago?.dispose()
       canais?.dispose()
       lagos?.dispose()

@@ -40,6 +40,47 @@
 // fundir ali, e SOZINHAS elas não pesam no orçamento de material. O peso
 // está nas espécies com textura, e essas dependem de atlas por família
 // (Bloco C/D), fora do alcance de um módulo de three.js puro.
+//
+// ⚠️ A VARIAÇÃO DE COR POR INSTÂNCIA (`?copa=1`), achada em falta em 03/09 pela
+// frente de espécies: `setColorAt` tinha ZERO ocorrências neste arquivo, então
+// toda cópia plantada de uma espécie saía bit a bit idêntica à anterior. Uma
+// alameda inteira de tamareiras, todas do MESMO tom de verde. `InstancedMesh`
+// já tem `instanceColor`; o que faltava era chamar `setColorAt` com uma cor
+// por instância, semeada pelo MESMO hash de `place()` (giro e escala), nunca
+// por um segundo gerador: a mesma semente tem de plantar a mesma árvore
+// sempre, cor incluída.
+//
+// A variação é por ESPÉCIE, não global: o campo opcional `variacaoCor` do
+// `PropSpec` (matiz/saturação/luz do giro de cor, ver `corInstancia` abaixo)
+// entra na TABELA (`props-table.ts`, hoje da frente de paisagismo). Sem o
+// campo, uma peça ainda recebe `VARIACAO_PADRAO`, conservador de propósito:
+// é a rede de segurança até a tabela ganhar valor por espécie.
+//
+// ⚠️ `instanceColor` MULTIPLICA o albedo do material (medido lendo os
+// `ShaderChunk` do three instalado: `color_vertex.glsl.js` faz
+// `vColor.xyz *= instanceColor.xyz` no vértice, e `color_fragment.glsl.js`
+// faz `diffuseColor.rgb *= vColor` no fragmento; a textura da folha entra
+// nessa conta como parte de `diffuseColor`, ANTES desta multiplicação). Por
+// isso `corInstancia` centra o multiplicador de luz em 1,0 (faixa
+// `[1−luz, 1+luz]`, nunca `[1−luz, 1]`): uma faixa que só vai para baixo
+// escurece toda a alameda de novo, o mesmo defeito com outro nome.
+//
+// ⚠️ ORÇAMENTO, medido em 03/09. `instanceColor` é um `Float32Array(count·3)`:
+// 12 bytes por instância (3 floats). Somando `props-table.ts` hoje (30
+// espécies com `?verde=1` ligado, a bandeira dos jardins temáticos): 344
+// instâncias, 4.128 bytes, 4 KB: NÃO são "dezenas de milhares", esse volume
+// mora no gerador procedural de `arborizacao.ts`, que já tem `setColorAt`
+// (três ocorrências, achadas no mesmo grep que provou a falta aqui). O que
+// faltava era só a árvore DISCRETA, de modelo real, plantada por tabela.
+//
+// ⚠️ `instanceColor` MUDA O PROGRAMA. Lendo `WebGLPrograms.js`: `instancingColor`
+// entra no bitmask que vira parte da chave de cache
+// (`getProgramCacheKeyBooleans`), e `WebGLProgram.js` só define
+// `USE_INSTANCING_COLOR` quando ele está ligado. Ou seja: a MESMA espécie,
+// com e sem `instanceColor`, são DOIS programas. Como cada espécie desta
+// tabela já tem textura própria (nenhuma divide programa com outra hoje,
+// visto no censo de 02/09), o custo real é NO MÁXIMO +1 programa por espécie
+// que ganhar `?copa=1`, não uma explosão: meça com `__plazaProgramas()`.
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
@@ -64,6 +105,27 @@ export interface PropSpec {
   cull?: number
   castShadow?: boolean
   envMapIntensity?: number
+  /** Atrás de `?copa=1` (ver `COPA` abaixo): a faixa de variação de cor POR
+   *  INSTÂNCIA, semeada pelo mesmo hash de posição que já decide giro e
+   *  escala em `place()`. Sem este campo, a peça ainda varia, mas com
+   *  `VARIACAO_PADRAO` (conservador); a espécie que precisa de uma
+   *  personalidade própria (oliveira em prata, cerejeira em rosa e branco,
+   *  conífera em verde-azulado) declara a SUA faixa aqui. Ver `corInstancia`
+   *  para o que cada campo faz e por quê os três são centrados em zero
+   *  desvio, nunca em "sempre escurece". */
+  variacaoCor?: {
+    /** amplitude do giro de matiz, em fração da volta (0 a 1 = 0° a 360°);
+     *  por instância, o giro sorteado vai de −matiz a +matiz */
+    matiz: number
+    /** o quanto do giro de matiz aparece, 0 (nenhum, só a luz varia) a 1
+     *  (a cor do giro pura); por instância, de 0 a `sat` */
+    sat: number
+    /** amplitude do multiplicador de luz, centrado em 1: por instância, de
+     *  `1 − luz` a `1 + luz`. NUNCA usar uma faixa que só vai para baixo de
+     *  1: `instanceColor` multiplica o albedo, e uma faixa como `[1−luz, 1]`
+     *  escurece a alameda inteira de novo (a razão de existir este campo). */
+    luz: number
+  }
 }
 
 export interface Props {
@@ -83,6 +145,52 @@ const hash = (x: number, z: number) => {
 // (ver o pedido de medição no fim de `fundacao-gta5.md`). ──────────────────
 const FUNDIR = typeof window !== 'undefined'
   && new URLSearchParams(window.location.search).get('fundir') === '1'
+
+// ── outra bandeira, outro assunto: `?copa=1` liga a variação de cor por
+// instância (ver o cabeçalho, seção "A VARIAÇÃO DE COR"). `?fundir=1` não
+// serve aqui porque não muda pixel nenhum da MASSA do prédio, muda a cor de
+// CADA árvore plantada; as duas bandeiras são independentes e podem conviver
+// na mesma URL. ──────────────────────────────────────────────────────────
+const COPA = typeof window !== 'undefined'
+  && new URLSearchParams(window.location.search).get('copa') === '1'
+
+/** A rede de segurança de toda espécie sem `variacaoCor` própria na tabela:
+ *  um giro de matiz pequeno (±3,6°), pouca saturação do giro (até 10%) e uma
+ *  luz que varia ±6% em torno de 1, visível o bastante para quebrar o clone
+ *  perfeito, subtil o bastante para não brigar com nenhuma espécie que ainda
+ *  não tem número próprio. */
+const VARIACAO_PADRAO = { matiz: 0.01, sat: 0.10, luz: 0.06 }
+
+/** A cor de UMA instância, determinística por (x, z): mesma semente, mesma
+ *  árvore, sempre. Usa a MESMA função `hash` de `place()` (giro e escala),
+ *  só que em três pontos deslocados, para os três canais não andarem
+ *  amarrados um no outro (senão a árvore mais alta seria sempre a mais rosada
+ *  também). Isto NÃO é um segundo gerador: é a mesma fórmula determinística,
+ *  avaliada em outra coordenada.
+ *
+ *  A matemática, e por que ela não escurece a alameda (ver o cabeçalho):
+ *   · `luz` é um multiplicador de cinza centrado em 1 (`1−luz` a `1+luz`),
+ *     livre para passar de 1, não é luminância de HSL, que não passaria de
+ *     branco; é o fator que `instanceColor` de fato aplica no shader.
+ *   · o giro de matiz vira uma cor PURA (`setHSL`, saturação 1) que se
+ *     mistura ao cinza na fração `sat` (0 = só o cinza; `sat` = a cor pura
+ *     inteira). Por isso a tabela deve manter `sat` modesto (a própria
+ *     `VARIACAO_PADRAO` usa 0,10): a mistura com uma cor pura, mesmo em
+ *     fração pequena, puxa a média um pouco pra baixo de `luz` sozinho (a
+ *     cor pura em HSL l=0,5 não é branca), e é essa a razão de o padrão desta
+ *     casa ficar em 0,10 e não mais alto. */
+function corInstancia(x: number, z: number, v: { matiz: number; sat: number; luz: number }): THREE.Color {
+  const hLuz = hash(x, z)                 // o MESMO hash de place(): giro/escala/cor amarrados na base
+  const hMatiz = hash(x + 1013.1, z - 1013.1)
+  const hSat = hash(x - 7919.3, z + 7919.3)
+  const luzMul = 1 + (hLuz - 0.5) * 2 * v.luz
+  const cinza = new THREE.Color(luzMul, luzMul, luzMul)
+  if (v.matiz <= 0 || v.sat <= 0) return cinza
+  const matizAng = (((hMatiz - 0.5) * 2 * v.matiz) % 1 + 1) % 1
+  const satAmt = hSat * v.sat
+  const puro = new THREE.Color().setHSL(matizAng, 1, 0.5)
+  return cinza.lerp(puro, satAmt)
+}
 
 interface Parte { geo: THREE.BufferGeometry; mat: THREE.Material | THREE.Material[]; local: THREE.Matrix4 }
 
@@ -232,10 +340,22 @@ export async function buildProps(opts: {
     parts = reorganizarParaFusao(parts)
     if (spec.at.length > 1) {
       const mats = spec.at.map(([x, z]) => place(x, z))
+      // `?copa=1`: sem `variacaoCor` própria na linha da tabela, a espécie
+      // ainda ganha a rede de segurança de `VARIACAO_PADRAO` (ver cabeçalho).
+      // `null` sem a bandeira: nenhum `setColorAt` roda, nenhum pixel muda,
+      // nenhum programa novo compila.
+      const variacao = COPA ? (spec.variacaoCor ?? VARIACAO_PADRAO) : null
       for (const part of parts) {
         const im = new THREE.InstancedMesh(part.geo, part.mat as THREE.Material, mats.length)
         mats.forEach((m, i) => im.setMatrixAt(i, new THREE.Matrix4().multiplyMatrices(m, part.local)))
         im.instanceMatrix.needsUpdate = true
+        if (variacao) {
+          // a MESMA posição (x, z) que gerou a matriz de cada instância, não o
+          // índice: é a coordenada que `corInstancia` semeia, para a cor
+          // continuar amarrada ao lugar e não à ordem de inserção no array.
+          spec.at.forEach(([x, z], i) => im.setColorAt(i, corInstancia(x, z, variacao)))
+          if (im.instanceColor) im.instanceColor.needsUpdate = true
+        }
         im.castShadow = spec.castShadow ?? true
         im.receiveShadow = true
         im.name = `prop:${spec.file}`

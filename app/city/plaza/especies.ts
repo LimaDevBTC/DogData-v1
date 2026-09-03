@@ -29,8 +29,23 @@
 // PRÓPRIA faixa de tinte. Quem planta escolhe por CONTEXTO, não por sorteio.
 //
 // Three.js puro (regra da casa: nada de react-three-fiber).
+//
+// ⚠️ 03/09: A FRENTE PAISAGISMO. O projeto inteiro está escrito em
+// `paisagismo.md`, antes do código, porque é assim que um paisagista de
+// verdade trabalha: paleta por hierarquia viária primeiro, código depois. A
+// bandeira é `?verde=1` (padrão do bot de auto-commit: sem ela, nada muda;
+// ver `look.ts` para o mesmo raciocínio). Ela mora aqui e não em
+// `arborizacao.ts` porque `props-table.ts` também precisa dela para os dois
+// jardins temáticos, e um valor lido duas vezes de `window.location.search`
+// é bug esperando para nascer no dia em que alguém trocar o nome do parâmetro
+// num lugar só.
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
+
+/** true quando `?verde=1` está na URL. Lido uma vez, no módulo, como `look2`
+ *  de `look.ts`: trocar de bandeira pede recarregar a página. */
+export const verde: boolean = typeof window !== 'undefined'
+  && new URLSearchParams(window.location.search).get('verde') === '1'
 
 // ── as cores base, que o tinte por instância MULTIPLICA ───────────────────
 export const COR_TRONCO = new THREE.Color('#6E685C')
@@ -44,12 +59,42 @@ export const COR_TERRA = new THREE.Color('#4A4238')
  *  some dentro dela e o canteiro não aparece. #63704F contra copa #7E8A6B dá uma
  *  diferença de luminância de 17%, que é o que separa as duas massas na rasante. */
 export const COR_ARBUSTO = new THREE.Color('#63704F')
-/** a conífera é a mais escura e a mais fria das quatro: é ela que faz a encosta
- *  ler como mata e não como parque */
-const COR_CONIF = new THREE.Color('#66765C')
-/** a colunar é escura mas seca, de cipreste, para o risco vertical aparecer
+
+/**
+ * ⚠️ 03/09, PRIMEIRA ORDEM DE `paisagismo.md`: ISTO É O "SAGE CHAPADO" QUE A
+ * CHAPA DE 1,7 M DENUNCIA. Antes desta nota, esfera e guarda-chuva dividiam o
+ * MESMO pigmento (`COR_COPA`, #7E8A6B) e conífera/colunar eram só duas
+ * variações de VALOR da mesma família de verde acinzentado (mesmo matiz,
+ * luminância diferente). E o tinte por instância (`tintarMuda`, abaixo) só
+ * inclina a cor toda do objeto (tronco, torrão e copa juntos) como se fosse
+ * a luz do lugar, não redefine a família de matiz da copa: rodar o tinte não
+ * resolve espécie plantada na mesma família de verde.
+ *
+ * ⚠️ NÃO BASTA VARIAR POR MUDA, tem que variar por ESPÉCIE. Quatro silhuetas
+ * com quatro tons do mesmo verde continuam lendo como UM plantio de longe,
+ * que é a distância em que a silhueta já não resolve nada (a mesma lição que
+ * `tintarMuda` já registrava para o tinte, agora aplicada ao pigmento).
+ *
+ * Atrás de `?verde=1`: cada silhueta ganha pigmento de FAMÍLIA própria, não
+ * só de valor. Sem a bandeira, os quatro pigmentos originais continuam byte
+ * a byte iguais (regra 5, nada muda sem ela).
+ *
+ *   esfera (Alameda)      verde-folha comum, a mais neutra das quatro
+ *   copada (Guarda-chuva) oliva PRATEADA (a nota antiga já dizia "oliva
+ *                         seca de praça ensolarada" mas usava o MESMO
+ *                         pigmento da esfera; agora tem o dela)
+ *   cone (Conífera)       azul-esverdeado escuro de agulha, mais frio e
+ *                         mais saturado, não só mais escuro
+ *   colunar (Colunar)     quase preto-verde de cipreste, a mais saturada
+ *                         e a mais escura das quatro
+ */
+const COR_COPA_GC = new THREE.Color(verde ? '#A69A5E' : '#7E8A6B')
+/** a conífera é a mais fria e a mais saturada das quatro: é ela que faz a
+ *  encosta ler como mata e não como parque */
+const COR_CONIF = new THREE.Color(verde ? '#3E5A52' : '#66765C')
+/** a colunar é escura e seca, de cipreste, para o risco vertical aparecer
  *  contra a copa arredondada da vizinha */
-const COR_COLUNAR = new THREE.Color('#5F6B52')
+const COR_COLUNAR = new THREE.Color(verde ? '#3C4632' : '#5F6B52')
 /** o tronco alto e limpo da guarda-chuva é mais claro: é ele que se vê */
 const COR_TRONCO_CLARO = new THREE.Color('#877F6F')
 
@@ -310,8 +355,12 @@ function geoConiferaVelha(): THREE.BufferGeometry {
  * contra a sombra da própria copa.
  */
 function geoGuardaChuva(): THREE.BufferGeometry {
+  // ⚠️ COR PRÓPRIA DESDE 03/09 (`COR_COPA_GC`, não mais o `COR_COPA` default
+  // de `copaLobada`): era o pigmento que faltava para a guarda-chuva parar
+  // de ser a mesma alameda com fuste mais alto. Ver a nota grande do "sage
+  // chapado" no topo do arquivo.
   return fundir([
-    ...copaLobada(23, 2.90, 6.9, 0.42, 0.72),
+    ...copaLobada(23, 2.90, 6.9, 0.42, 0.72, COR_COPA_GC),
     ...geoPe(5.6, 0.20, COR_TRONCO_CLARO),
   ], true)
 }
@@ -582,7 +631,11 @@ const PESO: Record<Contexto, [EspecieId, number][]> = {
 const DECLIVE_MATA = 0.16
 
 /**
- * A ESPÉCIE DE UMA MUDA.
+ * O NÚCLEO DA ESCOLHA POR PESO, separado de `especieDe` em 03/09 para servir
+ * dois chamadores: o de sempre (`especieDe`, que busca o peso em `PESO[ctx]`)
+ * e o novo da hierarquia viária (`especieDeTabela`, que recebe o peso pronto
+ * de uma tabela de `paisagismo.md`). MESMA fórmula, ZERO mudança de resultado
+ * para quem já chamava `especieDe`: é refatoração, não comportamento novo.
  *
  * ⚠️ E A ESCOLHA TEM PARENTESCO, senão vira confete. `q` é 62% ruído de mundo em
  * célula de 520 m e 38% hash da fileira: 520 m é da ordem de um quarteirão largo,
@@ -593,11 +646,10 @@ const DECLIVE_MATA = 0.16
  * @param semente índice da fileira (avenida, aresta de anel), não da muda
  * @param declive tangente do declive local, 0 quando não foi amostrado
  */
-export function especieDe(
-  ctx: Contexto, x: number, z: number, semente: number, declive = 0,
+function escolherPeso(
+  pesos: readonly (readonly [EspecieId, number])[], x: number, z: number, semente: number, declive: number,
 ): EspecieId {
   const q = 0.62 * ruidoMundo(x, z, 520) + 0.38 * hash01(semente * 4099 + 7)
-  const pesos = PESO[ctx]
   // na encosta, a conífera engole metade do peso de todo mundo
   const mata = declive > DECLIVE_MATA
   let total = 0
@@ -613,6 +665,201 @@ export function especieDe(
     if (alvo < acc) return pesos[k][0]
   }
   return pesos[pesos.length - 1][0]
+}
+
+export function especieDe(
+  ctx: Contexto, x: number, z: number, semente: number, declive = 0,
+): EspecieId {
+  return escolherPeso(PESO[ctx], x, z, semente, declive)
+}
+
+/**
+ * A MESMA ESCOLHA, com o peso vindo de FORA em vez de `PESO[ctx]`. É a porta
+ * de entrada da hierarquia viária de `paisagismo.md` (§1): bulevar cardinal x
+ * intermediário, anel por nome, banda por raio. Atrás de `?verde=1` em
+ * `arborizacao.ts`: sem a bandeira ninguém chama esta função, e `especieDe`
+ * acima continua sendo o único caminho, byte a byte igual a antes de 03/09.
+ */
+export function especieDeTabela(
+  pesos: readonly (readonly [EspecieId, number])[], x: number, z: number, semente: number, declive = 0,
+): EspecieId {
+  return escolherPeso(pesos, x, z, semente, declive)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// A HIERARQUIA VIÁRIA (paisagismo.md, §1 e §2): DADO, NÃO IF.
+//
+// ⚠️ TODOS OS NÚMEROS DAQUI SÃO OS PUBLICADOS POR `cidade-malha.json` /
+// `cidade.json` / `teia.ts`, lidos em 03/09: 4 bulevares cardeais (0/90/180/
+// 270°) de 44,0 m contra 8 intermediários de 34,0 m (`teia.ts`, `AVENIDAS`);
+// 7 anéis nomeados com raio e largura publicados em `cidade.json` (`aneis`);
+// 4 bandas de distrito (Núcleo/Meio/Bairro/Borda) com os raios de corte
+// publicados em `cidade-malha.json` (`constantes.bandas`); 6 distritos com
+// rumo e abertura publicados em `constantes.distritosDef`. Nada aqui é
+// inventado: quem planta (`arborizacao.ts`) passa os números que já buscou do
+// mesmo JSON, esta tabela só decide o que fazer com eles.
+//
+// A regra de leitura, por trecho de `paisagismo.md`:
+//   §1 hierarquia   → PESO_BULEVAR_CANTEIRO, PESO_BULEVAR_CALCADA, PESO_ANEL
+//   §2 bairro/banda → PESO_BANDA, ACENTO_DISTRITO, comAcento, distritoDe
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** classe de bulevar: só existem estas duas larguras nos 12 radiais publicados
+ *  (`teia.ts:AVENIDAS`, 44 nos quatro cardeais e 34 nos outros oito) */
+export type ClasseBulevar = 'cardinal' | 'intermedio'
+
+/**
+ * ⚠️ O CARDINAL LEVA A LEITURA MAIS DISCIPLINADA DA CIDADE, DE PROPÓSITO. Ele
+ * cruza o sítio inteiro (é o eixo das pontes, `teia.ts`) e é nele que a cidade
+ * se apresenta de uma ponta a outra: uma alameda dupla de `esfera` contínua
+ * lê como Barcelona (plátano do Eixample) ou Paris (o alinhamento de um só
+ * porte no bulevar), que é exatamente a referência que sustenta espécie única
+ * em via de maior hierarquia. O canteiro de 4 m (esticado por `esc` nos
+ * cardeais) é o único lugar da cidade largo o bastante para a copa de 10,1 m
+ * da guarda-chuva sem disputar a pista; a colunar entra como o "risco" que
+ * pontua a massa a cada trecho, como um poste de luz pontua uma alameda real.
+ *
+ * O intermediário (34 m) é a mesma estrutura em escala menor: canteiro mais
+ * estreito não cabe copada folgada, então a colunar assume, e a calçada
+ * ganha mais textura (duas espécies fortes em vez de uma quase pura) porque
+ * ele conecta bairro a bairro, não a cidade inteira: é onde a variação de
+ * caráter local pode aparecer sem quebrar a legibilidade do sistema primário.
+ */
+export const PESO_BULEVAR_CANTEIRO: Record<ClasseBulevar, [EspecieId, number][]> = {
+  cardinal: [['copada', 0.48], ['colunar', 0.32], ['cone', 0.20]],
+  intermedio: [['colunar', 0.44], ['cone', 0.34], ['copada', 0.22]],
+}
+export const PESO_BULEVAR_CALCADA: Record<ClasseBulevar, [EspecieId, number][]> = {
+  cardinal: [['esfera', 0.72], ['copada', 0.18], ['colunar', 0.10]],
+  intermedio: [['esfera', 0.48], ['copada', 0.28], ['colunar', 0.16], ['cone', 0.08]],
+}
+
+/**
+ * ⚠️ OS SETE ANÉIS NÃO SÃO UMA VIA SÓ REPETIDA, e hoje eram (100% conífera,
+ * ver a nota de `PESO.anel` acima). Cada nome publicado em `cidade.json`
+ * carrega o caráter do lugar onde ele está:
+ *
+ *   Anel Interior (r 1.750, 26 m)   Núcleo:  quase tão disciplinado quanto o
+ *                                   bulevar cardinal, porque está colado à
+ *                                   praça e à malha mais fina da cidade.
+ *   Anel Médio (r 2.750, 26 m)      Meio:    a transição, metade folhosa
+ *                                   metade guarda-chuva.
+ *   Anel Exterior (r 3.750, 26 m)   Bairro:  a copa se abre e a conífera
+ *                                   entra de vez, preparando o Cinturão.
+ *   Avenida do Cinturão (r 4.450, 30 m)  Borda: hardier, guarda-chuva vira
+ *                                   acento raro, não presença.
+ *   Avenida da Doca / de Escoamento (r 5.620 e 6.300, 34 m)  Cinta: via de
+ *                                   serviço portuário/industrial, conífera e
+ *                                   colunar, nada ornamental, espaçamento
+ *                                   maior (ver `paisagismo.md` §1).
+ *   Pista de Serviço (r 7.600, 30 m)  a borda do sítio: conífera pura, a
+ *                                   única leitura honesta para uma via de
+ *                                   manutenção que ninguém passeia.
+ *
+ * Chave por `a.nome` (o campo que `cidade.json.aneis[]` já publica); quem
+ * chama passa um fallback para o nome que não bater (não deveria acontecer,
+ * mas a malha pode crescer sem esta tabela crescer junto).
+ */
+export const PESO_ANEL: Record<string, [EspecieId, number][]> = {
+  'Anel Interior': [['esfera', 0.56], ['copada', 0.32], ['colunar', 0.12]],
+  'Anel Médio': [['esfera', 0.38], ['copada', 0.36], ['cone', 0.26]],
+  'Anel Exterior': [['copada', 0.36], ['cone', 0.40], ['colunar', 0.24]],
+  'Avenida do Cinturão': [['cone', 0.56], ['colunar', 0.30], ['copada', 0.14]],
+  'Avenida da Doca': [['cone', 0.64], ['colunar', 0.36]],
+  'Avenida de Escoamento': [['cone', 0.70], ['colunar', 0.30]],
+  'Pista de Serviço': [['cone', 1]],
+}
+/** o peso de anel para um nome que a tabela não conhece: o do Anel Médio, o
+ *  mais neutro dos sete */
+export const PESO_ANEL_PADRAO: [EspecieId, number][] = PESO_ANEL['Anel Médio']
+
+/**
+ * ⚠️ AS QUATRO BANDAS SÃO UM GRADIENTE DE FORMALIDADE, NÃO QUATRO CAIXAS. O
+ * Núcleo (raio 1.450 a 2.180, quarteirão de 109 m) é a malha mais fina e mais
+ * perto da praça: leitura disciplinada, quase toda folhosa. A Borda (4.300 a
+ * 5.500, quarteirão de 286 m) encosta na Cinta industrial e no Parque
+ * Runestone: a mistura pende para a conífera, preparando o olho para o que
+ * vem depois. Meio e Bairro interpolam entre as duas pontas. Os quatro cortes
+ * de raio são os PUBLICADOS em `constantes.bandas`: `bandaDe` below lê o
+ * array de verdade, nunca um número fixo aqui.
+ */
+export type Banda = 'Nucleo' | 'Meio' | 'Bairro' | 'Borda' | 'Cinta'
+
+export const PESO_BANDA: Record<Banda, [EspecieId, number][]> = {
+  Nucleo: [['esfera', 0.62], ['copada', 0.26], ['colunar', 0.12]],
+  Meio: [['esfera', 0.48], ['copada', 0.28], ['colunar', 0.14], ['cone', 0.10]],
+  Bairro: [['esfera', 0.34], ['copada', 0.26], ['cone', 0.26], ['colunar', 0.14]],
+  Borda: [['cone', 0.42], ['esfera', 0.24], ['copada', 0.20], ['colunar', 0.14]],
+  Cinta: [['cone', 0.62], ['colunar', 0.38]],
+}
+
+/**
+ * Em que banda cai um raio `r`, a partir do array PUBLICADO (`meta.constantes
+ * .bandas` de `cidade-malha.json`: `{ de, ate, nome }`, nomes exatamente
+ * 'Nucleo' | 'Meio' | 'Bairro' | 'Borda'). Além da última banda é `'Cinta'`
+ * (o cinturão industrial, r ≥ 5.500, que a malha de distrito não cobre).
+ *
+ * ⚠️ NUNCA HARDCODEAR OS RAIOS AQUI: eles vêm de fora porque são dado do
+ * gerador (`scripts/gerar_cidade.py`), não constante de paisagismo. Se a
+ * cidade crescer uma banda, esta função não precisa mudar.
+ */
+export function bandaDe(r: number, bandas: readonly { de: number; ate: number; nome: string }[]): Banda {
+  for (const b of bandas) if (r >= b.de && r < b.ate) return b.nome as Banda
+  return 'Cinta'
+}
+
+/**
+ * ⚠️ O ACENTO É SÓ NA MALHA LOCAL (contorno e travessa), NUNCA NO BULEVAR NEM
+ * NO ANEL. Essa é a diferença entre "identidade de bairro" e "colcha de
+ * retalhos": a estrutura primária (12 avenidas, 7 anéis) tem de ler como UM
+ * sistema em toda a cidade, senão ninguém reconhece um bulevar de outro; é a
+ * malha fina, que já muda de banda a cada quarteirão, quem pode carregar o
+ * sotaque do distrito sem quebrar a leitura de cima.
+ *
+ * Os seis distritos publicados (`constantes.distritosDef`, rumo 0°, 61,875°,
+ * 106,875°, 185,625°, 241,875°, 309,375°) foram lidos contra o programa cívico
+ * de `cidade.json` (medido em 03/09, ver `paisagismo.md` §2) para escolher o
+ * acento:
+ *
+ *   0  Cais Norte (logística, sem monumento)         → cone, robusto, utilitário
+ *   1  Universidade/Hospital/Hipódromo, Lago Maior    → copada, parque e sombra
+ *   2  HQ, Museu, Casa da Moeda, Fundadores (o maior) → colunar, cívico e vertical
+ *   3  City Hall, Distrito Financeiro, Lago do Poente → esfera, formal e disciplinado
+ *   4  Memorial, Mercado, Jardim Botânico             → esfera, quieto e refletido
+ *   5  Observatório, Cinturão, Jardim das Coortes     → cone, fronteira
+ *
+ * `comAcento` multiplica o peso da espécie-acento por 1,6 e deixa o resto como
+ * está (a normalização de `escolherPeso` cuida do resto somar 1 de novo).
+ */
+export const ACENTO_DISTRITO: readonly EspecieId[] = ['cone', 'copada', 'colunar', 'esfera', 'esfera', 'cone']
+
+export function comAcento(
+  pesos: readonly (readonly [EspecieId, number])[], distrito: number | null,
+): [EspecieId, number][] {
+  if (distrito == null) return pesos as [EspecieId, number][]
+  const alvo = ACENTO_DISTRITO[((distrito % ACENTO_DISTRITO.length) + ACENTO_DISTRITO.length) % ACENTO_DISTRITO.length]
+  return pesos.map(([id, p]) => [id, id === alvo ? p * 1.6 : p] as [EspecieId, number])
+}
+
+/**
+ * Em que distrito (0..5) cai um ponto do mundo, a partir de `distritosDef`
+ * PUBLICADO (`constantes.distritosDef`, `{ rumo, abertura }` em graus).
+ *
+ * ⚠️ A CONVENÇÃO DE RUMO É A DE `teia.ts`: rumo 0° aponta para −z (mundo
+ * `[x, z] = [sin(a)·r, −cos(a)·r]`), então o ângulo inverso é
+ * `atan2(x, −z)`, normalizado para [0°, 360°). Usar `atan2(z, x)` (a
+ * convenção matemática comum) giraria os seis distritos 90° e cada acento
+ * cairia no bairro errado, em silêncio: o mesmo defeito de convenção que já
+ * custou uma cidade espelhada em `vias.ts` (nota de 29/08).
+ */
+export function distritoDe(x: number, z: number, distritosDef: readonly { rumo: number; abertura: number }[]): number {
+  let ang = (Math.atan2(x, -z) * 180) / Math.PI
+  ang = ((ang % 360) + 360) % 360
+  for (let i = 0; i < distritosDef.length; i++) {
+    const d = distritosDef[i]
+    if (ang >= d.rumo && ang < d.rumo + d.abertura) return i
+  }
+  return distritosDef.length - 1
 }
 
 /**

@@ -65,8 +65,11 @@ import type { DistanceCuller } from './perf'
 import {
   ESPECIES, ORDEM, GEO_LOOK1, geoArbusto, geoLonge,
   arquetipoDe, especieDe, tintarMuda, hash01,
+  // ── a hierarquia viária de paisagismo.md, atrás de `?verde=1` (§1, §2) ──
+  verde, especieDeTabela, PESO_BULEVAR_CANTEIRO, PESO_BULEVAR_CALCADA,
+  PESO_ANEL, PESO_ANEL_PADRAO, PESO_BANDA, bandaDe, comAcento, distritoDe,
 } from './especies'
-import type { Contexto, EspecieId } from './especies'
+import type { Contexto, EspecieId, ClasseBulevar } from './especies'
 
 export interface Cova { x: number; z: number; r: number }
 
@@ -156,15 +159,25 @@ function criarMuda(x: number, z: number, forma: Forma, i: number): Muda {
   }
 }
 
-interface Quarteirao { x: number; z: number; giro: number; lado: number; prof?: number }
+interface Quarteirao { x: number; z: number; giro: number; lado: number; prof?: number; k?: number }
 interface Bulevar { rumo: number; largura: number; x0: number; z0: number; x1: number; z1: number }
-interface Anel { r: number; larg: number }
+interface Anel { r: number; larg: number; nome?: string }
 interface Peca { x: number; z: number; a: number; b: number; rot: number; forma?: string }
+/** as bandas de distrito e os distritos, publicados por `scripts/gerar_cidade.py`
+ *  em `cidade-malha.json`; ver `paisagismo.md` §2 e a nota de `especies.ts` */
+interface DadoBanda { de: number; ate: number; nome: string }
+interface DadoDistrito { rumo: number; abertura: number }
+/** os pares z0/z1 de cada travessa do quarteirão, por número de faixas `k`
+ *  (ver `travessasPorK` em `cidade-malha.json`, e a nota de `paisagismo.md` §1) */
+type TravessasPorK = Record<string, { z0: number; z1: number }[]>
 
 export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao> {
   const [malha, meta] = await Promise.all([
     fetch('/city/cidade-malha.json').then((r) => r.json() as Promise<{
-      constantes: { setores: number; quarteirao: number; viaContorno: number; bulevar: number }
+      constantes: {
+        setores: number; quarteirao: number; viaContorno: number; bulevar: number
+        bandas?: DadoBanda[]; distritosDef?: DadoDistrito[]; travessasPorK?: TravessasPorK
+      }
       quarteiroes: Quarteirao[]; bulevares: Bulevar[]
     }>),
     fetch('/city/cidade.json').then((r) => r.json() as Promise<{
@@ -172,6 +185,12 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
     }>),
   ])
   const K = malha.constantes
+  // ⚠️ TUDO NÃO PUBLICADO VIRA ARRAY VAZIO, NUNCA NÚMERO INVENTADO. Sem
+  // `bandas`/`distritosDef` a hierarquia de bairro simplesmente não se aplica
+  // (`bandaDe`/`distritoDe` caem no padrão delas) em vez de travar a cidade.
+  const BANDAS = K.bandas ?? []
+  const DISTRITOS = K.distritosDef ?? []
+  const TRAVESSAS_POR_K = K.travessasPorK ?? {}
   const group = new THREE.Group()
   group.name = 'arborizacao'
 
@@ -460,11 +479,24 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
     // a árvore de bulevar tem seção própria: a caixa da avenida a legitima, menos
     // onde ela entra na rotatória, que é rua de outro dono
     const naSecaoDoBulevar = (px: number, pz: number) => emAvenida(px, pz, 0) && !noAnel(px, pz, 18)
+    // ⚠️ HIERARQUIA (paisagismo.md §1), ATRÁS DE `?verde=1`. Antes de 03/09 as
+    // 12 avenidas recebiam a MESMA mistura `canteiro`/`calcada`, cardinal e
+    // intermediária igual: um bulevar de 44 m (o eixo das pontes) e um de 34 m
+    // (a costura de distrito) liam como a mesma via em porte diferente. Com a
+    // bandeira, a classe vem da LARGURA JÁ MEDIDA (`larg`, publicada por
+    // `avenidasGeom()`), não de um número novo.
+    const classe: ClasseBulevar = larg >= 40 ? 'cardinal' : 'intermedio'
+    const espCanteiro = (px: number, pz: number) => verde
+      ? especieDeTabela(PESO_BULEVAR_CANTEIRO[classe], px, pz, ai)
+      : espDa('canteiro', px, pz, ai, 'cone')
+    const espCalcada = (px: number, pz: number) => verde
+      ? especieDeTabela(PESO_BULEVAR_CALCADA[classe], px, pz, ai)
+      : espDa('calcada', px, pz, ai, 'esfera')
     for (let k = 0; k <= n; k++) {
       const d = k * PASSO_BUL
       const bx = b.x0 + dirX * d, bz = b.z0 + dirZ * d
       // cone no eixo do canteiro (t = 17 da borda, ou seja o meio)
-      por(bx, bz, espDa('canteiro', bx, bz, ai, 'cone'), i++, false,
+      por(bx, bz, espCanteiro(bx, bz), i++, false,
           naSecaoDoBulevar, [dirX, dirZ], [perpX, perpZ])
       // esfera a 1,07 m da face de cada meio-fio: t = 3,93 e t = 30,07 na seção
       // de 34 m, ambos esticados por esc
@@ -480,11 +512,11 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
           const p = empurrar(x, z, [dirX, dirZ], [perpX, perpZ], naSecaoDoBulevar)
           if (!p) continue
           salvas++
-          mudas.push(criarMuda(p[0], p[1], espDa('calcada', p[0], p[1], ai, 'esfera'), i))
+          mudas.push(criarMuda(p[0], p[1], espCalcada(p[0], p[1]), i))
           i++
           continue
         }
-        mudas.push(criarMuda(x, z, espDa('calcada', x, z, ai, 'esfera'), i))
+        mudas.push(criarMuda(x, z, espCalcada(x, z), i))
         i++
       }
     }
@@ -506,6 +538,15 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
   // fileira de sair da corda no dia em que a teia mudar de contagem.
   const _VERT = AVENIDAS.length
   for (const a of aneis) {
+    // ⚠️ HIERARQUIA POR NOME (paisagismo.md §1), ATRÁS DE `?verde=1`. Os sete
+    // anéis eram uma via só repetida sete vezes (100% conífera); agora cada
+    // nome PUBLICADO por `cidade.json` (`a.nome`) busca o caráter do lugar
+    // onde está: ver a tabela `PESO_ANEL` em `especies.ts`. Sem o nome (json
+    // antigo, sem campo `nome`) cai no perfil neutro do Anel Médio.
+    const pesosAnel = a.nome ? (PESO_ANEL[a.nome] ?? PESO_ANEL_PADRAO) : PESO_ANEL_PADRAO
+    const espAnel = (px: number, pz: number, semente: number, decl: number) => verde
+      ? especieDeTabela(pesosAnel, px, pz, semente, decl)
+      : espDa('anel', px, pz, semente, 'cone', decl)
     const n = Math.floor((2 * Math.PI * a.r) / PASSO_BUL)
     for (let k = 0; k < n; k++) {
       const t = (k / n) * Math.PI * 2
@@ -549,7 +590,7 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
         const p = empurrar(x, z, [aoX, aoZ], [-aoZ, aoX], noCanteiroDoAnel)
         if (!p) continue
         salvas++
-        mudas.push(criarMuda(p[0], p[1], espDa('anel', p[0], p[1], lado, 'cone', declive(p[0], p[1])), i))
+        mudas.push(criarMuda(p[0], p[1], espAnel(p[0], p[1], lado, declive(p[0], p[1])), i))
         i++
         continue
       }
@@ -559,7 +600,7 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
       // multiplicador de "genérico" que este módulo tinha. A semente é o LADO do
       // dodecágono, e não o anel: assim uma aresta inteira tem parentesco e a
       // seguinte troca, que é o que dá a leitura de trecho.
-      mudas.push(criarMuda(x, z, espDa('anel', x, z, lado, 'cone', declive(x, z)), i))
+      mudas.push(criarMuda(x, z, espAnel(x, z, lado, declive(x, z)), i))
       i++
     }
   }
@@ -600,13 +641,73 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
     const cg = Math.cos(g), sg = Math.sin(g)
     const meia = meio - RECUO_ESQ
     const n = Math.floor((meia * 2) / PASSO_CONT)
+    // ⚠️ BANDA + ACENTO DE DISTRITO (paisagismo.md §2), ATRÁS DE `?verde=1`.
+    // O raio do CENTRO do quarteirão já diz a banda (Núcleo a Cinta); o
+    // ângulo já diz o distrito. As duas leituras vêm dos MESMOS arrays
+    // publicados que a máscara de via já usa: nada novo é buscado por
+    // quarteirão além de um `hypot`/`atan2` que a malha inteira já paga.
+    const rQ = Math.hypot(q.x, q.z)
+    const bandaQ = BANDAS.length ? bandaDe(rQ, BANDAS) : null
+    const distritoQ = DISTRITOS.length ? distritoDe(q.x, q.z, DISTRITOS) : null
+    const pesosContorno = bandaQ ? comAcento(PESO_BANDA[bandaQ], distritoQ) : null
+    const espContorno = (px: number, pz: number) => verde && pesosContorno
+      ? especieDeTabela(pesosContorno, px, pz, semQ)
+      : espDa('contorno', px, pz, semQ, 'esfera')
     for (let k = 0; k <= n; k++) {
       const lx = -meia + k * PASSO_CONT
       const x = q.x + lx * cg - off * sg, z = q.z + lx * sg + off * cg
-      por(x, z, espDa('contorno', x, z, semQ, 'esfera'), i++, true, undefined, [cg, sg], [-sg, cg])
+      por(x, z, espContorno(x, z), i++, true, undefined, [cg, sg], [-sg, cg])
     }
   }
   const doContorno = mudas.length - daCova - doBulevar - doAnel
+
+  // ── 4c. a travessa, marcada nas duas bocas: a veia verde do plano-diretor
+  // (cap. 3.2) que hoje não tem uma única árvore ─────────────────────────────
+  //
+  // ⚠️ ISTO É NOVO EM 03/09, E SÓ EXISTE ATRÁS DE `?verde=1`. A travessa (9 m,
+  // `TRAVESSAS_POR_K`) corta o quarteirão pelo meio e o plano-diretor a chama
+  // de "veia verde contínua" (217,7 km de corredor capilar), mas o código de
+  // hoje nunca planta nela: ela nem entra na máscara `naVia` (a nota do topo
+  // deste arquivo já registrava o buraco). Duas árvores por travessa, uma em
+  // cada BOCA (onde ela encontra a testada do quarteirão, o `TRV_FORA` de
+  // `vias.ts`), marcam a passagem sem armar uma segunda alameda de 9,1 m
+  // dentro de um corredor de 9 m, o que sobraria fileira dupla disputando
+  // pista com pedestre. É leitura de "isto é uma passagem", não de bulevar.
+  //
+  // ⚠️ SÓ K = 2, 3 E 4 TÊM TRAVESSA DEFINIDA. `travessasPorK` publicado (ver
+  // `paisagismo.md` §1) não tem entrada para k = 5 (a banda Borda, 519 dos
+  // 1.862 quarteirões): a Borda não tem travessa nesta malha, e plantar uma
+  // aqui seria inventar geometria que o gerador não desenhou. `?? []` deixa
+  // esses quarteirões de fora, calados, em vez de assumir um par de bordas.
+  //
+  // ⚠️ O RECUO DA BOCA (6,0 m) É ESCOLHA, NÃO MEDIÇÃO: não há um manual citado
+  // para "quanto recuar da esquina de uma travessa de 9 m"; é menor que o
+  // recuo de esquina do contorno (10,7 m, NYC) de propósito, porque aqui a
+  // árvore está MARCANDO a boca, não evitando o cruzamento.
+  const RECUO_TRAV = 6.0
+  for (const q of (verde ? malha.quarteiroes : [])) {
+    const segs = TRAVESSAS_POR_K[String(q.k ?? '')]
+    if (!segs || !segs.length) continue
+    const meio = q.lado / 2
+    const meiaTrav = meio - RECUO_TRAV
+    if (meiaTrav <= 0) continue
+    const semQ = Math.round(q.x) * 31 + Math.round(q.z) + 97   // semente distinta do contorno
+    const g = (q.giro * Math.PI) / 180
+    const cg = Math.cos(g), sg = Math.sin(g)
+    const rQ = Math.hypot(q.x, q.z)
+    const bandaQ = BANDAS.length ? bandaDe(rQ, BANDAS) : null
+    const distritoQ = DISTRITOS.length ? distritoDe(q.x, q.z, DISTRITOS) : null
+    const pesosTrav = bandaQ ? comAcento(PESO_BANDA[bandaQ], distritoQ) : null
+    for (const seg of segs) {
+      const lz = (seg.z0 + seg.z1) / 2
+      for (const lx of [-meiaTrav, meiaTrav]) {
+        const x = q.x + lx * cg - lz * sg, z = q.z + lx * sg + lz * cg
+        const esp = pesosTrav ? especieDeTabela(pesosTrav, x, z, semQ) : 'esfera'
+        por(x, z, esp, i++, true, undefined, [cg, sg], [-sg, cg])
+      }
+    }
+  }
+  const doTravessa = mudas.length - daCova - doBulevar - doAnel - doContorno
 
   // ── 4b. o sub-bosque: touceira de arbusto ao pé da árvore ────────────────
   // ⚠️ O ARBUSTO NASCE DA ÁRVORE, NÃO DE UMA GRADE PRÓPRIA, e isso não é preguiça
@@ -863,9 +964,10 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
   for (const e of vivas) triangulos += CAP[e] * tri(geos[e])
 
   console.log(
-    `[arborização] ${mudas.length.toLocaleString('pt-BR')} árvores: ` +
+    `[arborização] ${mudas.length.toLocaleString('pt-BR')} árvores (paisagismo ${verde ? 'ON' : 'off'}): ` +
     `${daCova.toLocaleString('pt-BR')} de cova, ${doBulevar.toLocaleString('pt-BR')} de bulevar, ` +
-    `${doAnel.toLocaleString('pt-BR')} de anel, ${doContorno.toLocaleString('pt-BR')} de contorno; ` +
+    `${doAnel.toLocaleString('pt-BR')} de anel, ${doContorno.toLocaleString('pt-BR')} de contorno, ` +
+    `${doTravessa.toLocaleString('pt-BR')} de travessa; ` +
     `${rejVia.toLocaleString('pt-BR')} recusadas pela máscara de via ` +
     `(${salvas.toLocaleString('pt-BR')} salvas pelo empurrão, ${(rejVia - salvas).toLocaleString('pt-BR')} perdidas)` +
     `${naVia ? '' : ' (MÁSCARA AUSENTE: o campo `naVia` não chegou por opts)'}` +

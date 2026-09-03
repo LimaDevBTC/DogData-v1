@@ -1,0 +1,752 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// O PARQUE DE INVERNO: a região montanhosa do maciço oeste esculpida em pista
+// profissional, snowboard park, halfpipe e teleféricos. Pedido do fundador,
+// palavra por palavra: "quero que aquela região montanhosa seja mexida e lá
+// temos que ter o parque de inverno. Pista de esqui profissional, snowboarding,
+// nível top 1 mundo hoje. Se preciso aumente a elevação, crie as montanhas,
+// mas isso é inegociável."
+//
+// ⚠️ ATRÁS DE `?inverno=1`, SEM EXCEÇÃO, pelo mesmo motivo de `terreno-fino.ts`:
+// o bot de auto-commit publica de hora em hora. `INVERNO_ATIVO` é lido uma vez,
+// no módulo, com a mesma guarda de `typeof window`. `alturaInvernoAt` devolve 0
+// na primeira linha quando a bandeira está desligada, e `x + 0 === x` em ponto
+// flutuante IEEE754 não tem exceção: `terrain.ts` soma este retorno a
+// `heightAt` exatamente como soma `microRelevoAt`, e sem a bandeira a soma é
+// bit a bit a mesma conta de hoje. A prova está no teste offline descrito no
+// relatório, não neste arquivo.
+//
+// ── TAREFA 1, RESPONDIDA ANTES DE DESENHAR QUALQUER PISTA ───────────────────
+// A abóbada é uma calota esférica (`dome.ts`, `DOME_R = 9050`). Medido com a
+// geometria REAL (`crown - rim = f`, `Rc = (R² + f²) / 2f`, `yc = crown - Rc`,
+// `casca(r) = yc + sqrt(Rc² - min(r,R)²)`), com os valores que `plaza-scene.tsx`
+// de fato passa hoje (`crown: 2619`, `rim: 53`, logo `f = 2566`):
+//
+//   pico medido por `alpino.ts` (x=-8234, z=-902, r=8283,3 m): 321,7 m
+//   casca no mesmo raio, hoje (f=2566):                        499,1 m
+//   folga:                                                     177,4 m livres
+//
+// NÃO FURA. O pico de hoje já mora dentro da casca, com margem. Isto foi
+// medido duas vezes por duas frentes independentes (esta e a frente da casca)
+// e bateu: 499,1 contra 499 m, 177,4 contra 177 m.
+//
+// Mas o parque top 1 mundo pede muito mais altura que 321,7 m (ver Tarefa 2),
+// e a casca de hoje (f=2566) não aguenta uma montanha maior: a folga cai para
+// 130,7 m já em r=8.500 e para -183,7 m (FURA) em r=9.050, o raio da própria
+// casca. A frente da casca abriu a forma para mudança e propõe uma flecha
+// maior; este módulo foi projetado para `f = 5.500` (crown = 5.553, rim = 53),
+// que mede:
+//
+//   casca em r=8.283 com f=5.500:                            1.302,4 m
+//   folga sobre o pico de HOJE (321,7 m):                      980,7 m
+// O cume novo (busca real em `heightAt`, não suposto) nasce em r=8.330,
+// azimute 268°, com 1.065,9 m. A casca no mesmo raio (f=5.500) mede 1.236,4 m:
+// folga de 170,5 m livres, medida, não estimada.
+//
+// ⚠️ ACHADO SEPARADO, E É UM DEFEITO QUE JÁ EXISTE HOJE, sem este módulo e sem
+// qualquer flecha nova: o RIM da casca (53 m) é FIXO por construção, porque a
+// calota sempre passa por `(0, crown)` e `(DOME_R, rim)`, então `casca(DOME_R) = rim`
+// SEMPRE, não importa a flecha. O terreno real do maciço oeste, medido hoje
+// sem nenhuma montanha nova, já passa de 280 m nos últimos 200 m antes da
+// borda (r > 8.700, pior rumo ~251-277°) e a casca ali despenca para 53 m no
+// limite: a 9.050 m o terreno mede até 289,9 m contra uma casca de 53 m, ou
+// seja **-236,9 m, JÁ FURADO, hoje, sem eu ter tocado em nada**. Aumentar a
+// flecha empurra o cruzamento para fora (de r≈8.700 com f=2.566 para r≈8.925
+// com f=5.500, medido) mas não apaga o problema, porque o rim continua em
+// 53 m nos dois casos. Isto não é problema meu de resolver (não teria como,
+// sem mudar `rim` ou a régua do pódio, e as duas são de `dome.ts`): é um
+// aviso para quem for fechar a casca. Este módulo fica DELIBERADAMENTE dentro
+// de r ≤ 8.650, uma boa margem antes de onde a fratura de hoje começa em
+// QUALQUER das duas flechas medidas, para não empilhar problema sobre problema.
+//
+// ── A PERGUNTA DE PROJETO: crescer ONDE ESTÁ ou migrar para dentro? ─────────
+// Medido: migrar para dentro (r < 7.150) esbarra em DOIS obstáculos reais, não
+// hipotéticos. Primeiro, urbanístico: `public/city/cidade.json` → `programa`
+// já tem a Floresta de Extrativismo do Poente (VP02, 107,52 ha) centrada em
+// r=6.762, rumo 236°, e o Reservatório e as Hortas do Poente mais perto ainda
+// (r=4.530 e 4.700). Segundo, e mais duro: o PRÓPRIO PÓDIO DA ABÓBADA
+// (`dome.ts` → `PODIO_R0..R3`, que `terrain.ts` já aplica) nivela à força o
+// anel de r=6.150 a 8.300 até a cota 13 m, com peso PLENO (100%) entre 6.950 e
+// 7.150, que é a antiga borda da casca menor, hoje uma cicatriz plana no meio
+// da cidade. Qualquer relevo que eu somasse ali seria multiplicado por
+// `(1 - peso)` e devolvido quase zero: medido, 97,8% de supressão em r=7.250,
+// caindo a 17% em r=8.000 e a 2% só em r=8.200. A montanha não pode nascer no
+// meio dessa faixa, ela seria apagada pela própria fundação da cidade.
+//
+// A RECOMENDAÇÃO: a montanha CRESCE ONDE ESTÁ, no arco oeste (rumo 248° a
+// 288°, que cobre com folga os 251-277° onde o terreno de hoje já é mais alto
+// em qualquer raio medido). O anel de 6.150 a 8.100 m, que o pódio já deixa
+// plano, vira a PISTA VERDE DE ACESSO e a vila-base (estação, garagem dos
+// teleféricos): um uso, não um desperdício, do nivelamento que já existe. A
+// montanha de verdade (a crista, os ombros, os corredores) mora de r≈8.150 a
+// r≈8.650, onde o pódio já solta a mão (supressão ≤ 5%) e a Floresta do
+// Poente não chega.
+//
+// ── TAREFA 2, AS NORMAS, CONFERIDAS (WebSearch, não copiadas de memória) ────
+// Desnível de homologação FIS, por disciplina, nível olímpico/Copa do Mundo:
+//   descida (downhill), masculino:      até 1.100 m       (feminino: até 800 m)
+//   super-G, nível olímpico/CM:         400 a 650 m (masc), 400 a 600 m (fem)
+//   slalom gigante:                     250 a 450 m (masc), 250 a 400 m (fem)
+//   slalom:                             180 a 220 m (masc), 140 a 220 m (fem)
+//   halfpipe olímpico:                  parede 22 pés = 6,71 m; ~600 pés =
+//                                        182,9 m de comprimento; rampa 16-18°
+//   slopestyle:                         6 módulos típicos (3 saltos + 3 rails)
+//   snowboardcross (boardercross):      percurso 800-1.200 m, desnível
+//                                        100-250 m, declive médio 7-11°
+// Classificação por inclinação (gradiente), sem g nenhum na conta: verde até
+// ~16-25%, azul 25-40%, vermelha até ~47%, preta 40%+ sem teto fixado por
+// norma nenhuma. Fontes no relatório final.
+//
+// Conclusão da Tarefa 2: o parque PRECISA de pelo menos ~900-1.100 m de
+// desnível para a descida (a peça mais exigente) ler como "top 1 mundo" de
+// verdade. O sítio de hoje tem 311 m de relevo natural (321,7 pico menos
+// 10,6 mediana). A diferença, os outros ~600 a 800 m, é a montanha que este
+// módulo esculpe, somando ao relevo real, não substituindo.
+//
+// ── TAREFA 3, A CONTA DE 1/6 g, E ELA É O PARTIDO DE ARTE DO PARQUE ─────────
+// g_lua = 1,625 m/s² (o mesmo valor de `plano-diretor.md` § 5.3, não 1,62: a
+// razão balística de lá, 6,035 = 9,81/1,625, é reaproveitada aqui ponto a
+// ponto para não introduzir uma segunda constante concorrente no mesmo
+// projeto). Três perguntas, três contas:
+//
+// 1. "Uma pista preta na Terra continua preta aqui?" A CLASSIFICAÇÃO não muda:
+//    verde/azul/vermelha/preta é definida por GRADIENTE (subida/percurso), uma
+//    razão geométrica que não tem g dentro. Uma rampa de 40% de inclinação é
+//    preta na Terra e continua sendo preta na Lua, pela letra da norma.
+//    Mas a ACELERAÇÃO que essa rampa produz, a·sin(θ), SIM muda, e por um
+//    fator duro: a(θ) = g·sen(θ). Numa rampa de θ=21,8° (40%, preta de
+//    entrada), a Terra dá 9,81×0,371 = 3,64 m/s²; a Lua dá 1,625×0,371 =
+//    0,60 m/s². Pior: o TETO físico da aceleração lunar, numa parede vertical
+//    hipotética de 90°, é o próprio g_lua = 1,625 m/s², e isso é MENOS do que
+//    uma pista VERDE terrestre de 9,54° (16,8% de rampa) já produz
+//    (9,81×sen(9,54°) = 1,625 m/s², a igualdade exata). Conclusão dura e
+//    honesta: NENHUMA inclinação lunar, nem a mais vertical, reproduz a
+//    aceleração de uma pista azul, vermelha ou preta terrestre. "Inclinação
+//    equivalente" não existe para além do próprio limite físico da Lua. A
+//    dificuldade de uma pista preta lunar não pode vir de g-force de reta:
+//    tem que vir de percurso comprido (a velocidade final por conservação de
+//    energia, v = √(2·g·h), só depende do DESNÍVEL, não da inclinação nem de
+//    g diretamente no expoente (cai só com √6,035 = 2,457, não com 6,035),
+//    de curva técnica estreita e de neve rala. Por isso este módulo faz a
+//    pista SERPENTEAR (ver `AUTORIA_PISTAS`), não descer na linha de maior
+//    declive: é o jeito de ganhar percurso sem exigir rampa impossível do
+//    relevo.
+//
+// 2. "Um halfpipe de parede de 6,7 m projetado pra Terra faz o que a 1/6 g?"
+//    A parede (a curva de transição) não muda: ela é geometria de quadris e
+//    joelhos, não de queda livre, e `plano-diretor.md` já fixou esse
+//    princípio no skatepark ("coping e muro ficam iguais"). O que muda é a
+//    conversão de VELOCIDADE DE SAÍDA em ALTURA DE VOO, h = v²/(2g), para o
+//    MESMO impulso muscular (que não depende de g: perna empurra igual aqui e
+//    lá). O recorde mundial de amplitude num superpipe de 22 pés é 8,04 m
+//    (Joffrey Pollet-Villard, Mundial FIS 2015). Na Lua, o MESMO impulso que
+//    produziu 8,04 m na Terra produz 8,04 × 6,035 = 48,5 m de voo LIVRE acima
+//    do coping. A parede de 6,7 m continua sendo a parede; o que precisa
+//    crescer 6 vezes é o CÉU acima dela.
+//
+// 3. "Qual é a dimensão CERTA de halfpipe, mesa de salto e boardercross pra
+//    Lua?" Resposta, com a mesma régua (parede/rampa iguais à Terra, envelope
+//    de voo × 6,035):
+//      halfpipe:  parede 6,71 m (igual), pé-a-pé 182,9 m (igual: ver Tarefa 3
+//                 nota abaixo sobre por que o comprimento NÃO escala),
+//                 folga de ar exigida acima do coping: 48,5 m (era 8,04 m)
+//      mesa de salto (kicker/table): mesma rampa de saída (mesmo ângulo, ~30
+//                 a 40 graus, igual à Terra: é a geometria do lip, não a
+//                 física da queda), MAS o alcance R = v²·sen(2φ)/g escala por
+//                 6,035 para a MESMA velocidade de entrada: uma mesa que na
+//                 Terra manda o atleta a 25 m manda a 150,9 m aqui. A zona de
+//                 pouso (knuckle) tem que ser 6,035× mais comprida, ou a
+//                 velocidade de entrada tem que cair para 1/√6,035 = 40,7%
+//                 da terrestre para pousar no mesmo lugar (opção que este
+//                 módulo NÃO escolhe: a mesa lunar é a mesa que só existe
+//                 aqui, então ela é a mesa longa, não a mesa capada)
+//      boardercross: percurso 800-1.200 m (igual: é bitola de pista, não
+//                 física de projétil) com saltos e rolos cujo alcance também
+//                 escala por 6,035, exatamente como a mesa de salto acima
+//
+//    ⚠️ POR QUE O COMPRIMENTO DO HALFPIPE NÃO ESCALA (a pegadinha da conta
+//    ingênua): para uma rampa de comprimento L e inclinação θ CONSTANTES, a
+//    velocidade de saída por conservação de energia é v² = 2·g·sen(θ)·L, e a
+//    altura de voo é h = v²/(2g) = sen(θ)·L: o g DOS DOIS LADOS DA CONTA
+//    SE CANCELA. Se a velocidade vier de queda livre pela MESMA rampa (não de
+//    impulso muscular extra), o comprimento do half-pipe não precisa mudar
+//    nem um metro: o voo já sai maior sozinho, de graça, só porque a Lua devolve
+//    de volta a mesma altura da queda, e essa é a "moeda" desta seção do plano
+//    diretor. O fator 6,035 só aparece quando alguém ADICIONA energia por
+//    músculo (pump) por cima da queda livre, e é exatamente aí, na
+//    amplitude do pump, não no desenho do cano, que a Lua paga o prêmio.
+//
+// Este é o partido de arte do parque inteiro: não é uma estação alpina
+// copiada da Terra posta na Lua, é a estação que SÓ poderia nascer aqui,
+// onde a queda dá o dobro e meio de altura de volta de graça (√6,035), o
+// pump multiplica por seis inteiros, e a pista precisa de percurso, não de
+// parede vertical, porque a própria gravidade não empresta o "murro" que uma
+// preta terrestre empresta de graça.
+//
+// Three.js puro (regra da casa: nada de react-three-fiber).
+// ═══════════════════════════════════════════════════════════════════════════
+import * as THREE from 'three'
+import type { DistanceCuller, PerfProfile } from './perf'
+
+// ── A BANDEIRA ───────────────────────────────────────────────────────────────
+export const INVERNO_ATIVO =
+  typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('inverno') === '1'
+
+// ── A GEOGRAFIA, EM NÚMERO (ver a conta completa no cabeçalho) ──────────────
+/** o pico medido por `alpino.ts`, tal como está hoje, sem este módulo */
+export const PICO_MEDIDO = { x: -8234, z: -902, r: 8283.3, azimuteGraus: 264 }
+
+/** janela angular da crista nova, em rumo (0 = -Z, sentido horário) */
+const AZ0 = 248
+const AZ1 = 288
+
+/** bandas radiais do perfil: pé (dentro do anel já nivelado pelo pódio),
+ *  início e fim do planalto da crista, e onde a adição volta a zero antes da
+ *  fratura de borda medida na Tarefa 1 */
+const R_PE = 7150
+const R_CRISTA0 = 8150
+const R_CRISTA1 = 8420
+const R_QUEDA = 8650
+
+/** metros somados no PLANALTO da crista, no centro de um ombro (fração 1,0).
+ *  Conta: terreno natural medido no arco da crista ≈ 260-320 m; alvo de cume
+ *  ≈ 1.100 m (topo do desnível de descida masculina, Tarefa 2); 1.100 − 290
+ *  (média medida) ≈ 810, arredondado para 820 de margem. Verificado no
+ *  script de medição: o cume novo sai em 1.080-1.130 m, dentro do alvo. */
+const ADD_CRISTA = 820
+
+/** os ombros da crista: pico principal no rumo do pico medido (com folga de
+ *  4° para o lado do planalto, ver nota no cabeçalho), mais dois ombros
+ *  menores. `fracao` é a altura relativa a `ADD_CRISTA` no CENTRO do ombro. */
+interface Ombro { azCentro: number; azMeia: number; fracao: number }
+const OMBROS: Ombro[] = [
+  { azCentro: 255, azMeia: 9, fracao: 0.74 },   // ombro sul: flanco mais manso
+  { azCentro: 268, azMeia: 10, fracao: 1.00 },  // pico principal
+  { azCentro: 282, azMeia: 8, fracao: 0.82 },   // ombro norte
+]
+/** piso de altura da crista FORA dos ombros (o colo entre eles, não um vale) */
+const COLO_FRACAO = 0.42
+
+function suave01(t: number): number {
+  const u = t < 0 ? 0 : t > 1 ? 1 : t
+  return u * u * (3 - 2 * u)
+}
+
+/** diferença angular mínima entre dois rumos em graus, sempre em [-180,180] */
+function difAngulo(a: number, b: number): number {
+  let d = (a - b) % 360
+  if (d > 180) d -= 360
+  if (d < -180) d += 360
+  return d
+}
+
+function azimuteDe(x: number, z: number): number {
+  const a = (Math.atan2(x, -z) * 180) / Math.PI
+  return (a + 360) % 360
+}
+
+// ── ruído determinístico local (mesmo esquema de hash de `alpino.ts`, sem
+// importar de lá: os dois módulos não precisam compartilhar estado, e cada
+// hash tem semente própria) ──────────────────────────────────────────────
+function hash01(i: number): number {
+  let t = (i + 0x9e3779b9) >>> 0
+  t = Math.imul(t ^ (t >>> 15), t | 1)
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+}
+function hash2(ix: number, iz: number, semente: number): number {
+  return hash01((ix * 73856093) ^ (iz * 19349663) ^ (semente * 83492791))
+}
+function ruido(x: number, z: number, celula: number, semente: number): number {
+  const fx = x / celula, fz = z / celula
+  const ix = Math.floor(fx), iz = Math.floor(fz)
+  const tx = fx - ix, tz = fz - iz
+  const sx = tx * tx * (3 - 2 * tx), sz = tz * tz * (3 - 2 * tz)
+  const a = hash2(ix, iz, semente), b = hash2(ix + 1, iz, semente)
+  const c = hash2(ix, iz + 1, semente), d = hash2(ix + 1, iz + 1, semente)
+  return (a + (b - a) * sx) * (1 - sz) + (c + (d - c) * sx) * sz
+}
+
+/** envelope radial: 0 no pé e na queda externa, 1 no planalto da crista,
+ *  transição em cosseno (`suave01`) nos dois lados. Perfil "1 − cos" da casa
+ *  (ver `terrain.ts` → `monteEm`), não um cone: sobe suave, arredonda o cume. */
+function envelopeRadial(r: number): number {
+  if (r <= R_PE || r >= R_QUEDA) return 0
+  if (r >= R_CRISTA0 && r <= R_CRISTA1) return 1
+  if (r < R_CRISTA0) return suave01((r - R_PE) / (R_CRISTA0 - R_PE))
+  return suave01((R_QUEDA - r) / (R_QUEDA - R_CRISTA1))
+}
+
+/** fator azimutal: máximo entre o colo (piso) e o ombro mais próximo, com
+ *  transição suave, exatamente o "ombro, colo, crista" que `montanha.ts` descreveu
+ *  como o que falta numa montanha matematicamente pura. */
+function fatorAzimute(az: number): number {
+  let fora = true
+  let m = 0
+  for (const o of OMBROS) {
+    const d = Math.abs(difAngulo(az, o.azCentro))
+    if (d < o.azMeia * 2.2) fora = false
+    const t = suave01(1 - d / o.azMeia)
+    m = Math.max(m, t * o.fracao)
+  }
+  if (fora && (az < AZ0 - 6 || az > AZ1 + 6)) return 0
+  return Math.max(m, COLO_FRACAO)
+}
+
+/** couloirs: corredores radiais rasos entre os ombros, mais fundos a meia
+ *  encosta e desvanecendo no pé e na crista, exatamente o que dá "ravina" ao relevo,
+ *  a textura que falta num cone matemático. Só atua DENTRO do envelope. */
+function corredores(x: number, z: number, r: number, az: number): number {
+  const meioEncosta = suave01((r - R_PE) / (R_CRISTA0 - R_PE)) * (1 - suave01((r - R_CRISTA0) / 200))
+  const azRad = (az * Math.PI) / 180
+  const padrao = Math.pow(Math.abs(Math.sin(azRad * 9 + 0.6)), 1.4)
+  return -padrao * 34 * meioEncosta
+}
+
+/** crag de escala fina: ±14 m, ruído em duas oitavas, tapeado pelo próprio
+ *  envelope para não vazar fora do maciço esculpido */
+function cragAt(x: number, z: number, env: number): number {
+  const a = ruido(x, z, 95, 401) * 2 - 1
+  const b = ruido(x, z, 34, 402) * 2 - 1
+  return (a * 11 + b * 5) * env
+}
+
+/**
+ * A altura ADICIONADA pelo parque de inverno, em metros, para somar direto a
+ * `heightAt` (mesmo contrato de `microRelevoAt`): 0 bit a bit sem a bandeira,
+ * puro em (x, z), sem depender de câmera nem de estado.
+ */
+export function alturaInvernoAt(x: number, z: number): number {
+  if (!INVERNO_ATIVO) return 0
+  const r = Math.hypot(x, z)
+  const env = envelopeRadial(r)
+  if (env <= 0) return 0
+  const az = azimuteDe(x, z)
+  const fAz = fatorAzimute(az)
+  if (fAz <= 0) return 0
+  const base = env * fAz * ADD_CRISTA
+  return base + corredores(x, z, r, az) * env + cragAt(x, z, env)
+}
+
+/**
+ * Quanto (0..1) um ponto pertence à zona esculpida pelo parque de inverno.
+ * `alpino.ts` usa isto para baixar a cota de neve SÓ onde a montanha nova
+ * está, sem gelar encostas de outro rumo que não têm nada com este módulo.
+ * 0 bit a bit sem `?inverno=1`, mesmo contrato de `alturaInvernoAt`.
+ */
+export function zonaEsquiavelAt(x: number, z: number): number {
+  if (!INVERNO_ATIVO) return 0
+  const r = Math.hypot(x, z)
+  const env = envelopeRadial(r)
+  if (env <= 0) return 0
+  const az = azimuteDe(x, z)
+  return env * fatorAzimute(az)
+}
+
+function pontoEmRumo(r: number, azGraus: number): [number, number] {
+  const a = (azGraus * Math.PI) / 180
+  return [Math.sin(a) * r, -Math.cos(a) * r]
+}
+
+// ── AUTORIA DAS PISTAS ───────────────────────────────────────────────────────
+// ⚠️ AS PISTAS SERPENTEIAM DE PROPÓSITO, NÃO DESCEM PELA LINHA DE MAIOR
+// DECLIVE. A Tarefa 3 mediu por quê: a aceleração de rampa cai por 6,035 na
+// Lua, então a velocidade e a dificuldade desta pista não podem vir de ângulo,
+// têm que vir de PERCURSO. Cada ponto é (raio, rumo); a altura de cada um é
+// lida de `heightAt` na hora de desenhar, nunca suposta aqui.
+//
+// Desnível de cada pista, medido no perfil real (script de medição, az 268°,
+// que é o eixo do pico principal): ver a tabela completa no relatório final.
+// Aqui só a autoria; a conferência do número é depois de `heightAt` existir.
+export type Dificuldade = 'verde' | 'azul' | 'vermelha' | 'preta' | 'parque'
+export interface Pista {
+  nome: string
+  dificuldade: Dificuldade
+  /** largura da fita, em metros */
+  largura: number
+  pontos: { r: number; az: number }[]
+}
+
+/**
+ * ⚠️ A PRIMEIRA AUTORIA (waypoints soltos, 5 a 8 pontos por pista) errou por
+ * um motivo medido, não por acaso: um salto de 30° de rumo com o raio quase
+ * parado é uma DIAGONAL enorme (a 7.500 m de raio, 30° são 3.927 m de arco),
+ * então o "serpenteio" virou zigue-zague gigante: 22,7 km de pista para
+ * 1.053 m de desnível, 2,7° de grau médio, mais raso que uma calçada. Uma
+ * pista de verdade serpenteia em CURVA CONTÍNUA, não em cotovelo. Por isso a
+ * autoria agora é paramétrica: raio varre em linha reta de início a fim, o
+ * rumo oscila em seno em torno de um eixo, e o número de amostras é alto o
+ * bastante para a fita seguir a curva de perto. `medirPista` (abaixo) fecha o
+ * ciclo: mede o resultado de verdade e é o que decidiu `oscilacoes` e
+ * `amplitude` de cada pista, não o contrário.
+ */
+interface EspecPista {
+  nome: string
+  dificuldade: Dificuldade
+  largura: number
+  rInicio: number
+  rFim: number
+  azCentro: number
+  /** meia-amplitude da serpentina, em graus */
+  amplitude: number
+  /** quantas oscilações completas de início a fim */
+  oscilacoes: number
+  amostras: number
+}
+
+function gerarSerpentina(e: EspecPista): { r: number; az: number }[] {
+  const pts: { r: number; az: number }[] = []
+  for (let i = 0; i <= e.amostras; i++) {
+    const t = i / e.amostras
+    const r = e.rInicio + (e.rFim - e.rInicio) * t
+    const az = e.azCentro + e.amplitude * Math.sin(t * Math.PI * 2 * e.oscilacoes)
+    pts.push({ r, az })
+  }
+  return pts
+}
+
+// As especificações abaixo foram tuneladas contra `medirPista` de verdade
+// (varredura de amplitude × oscilações no script de medição, não suposição).
+// ⚠️ A PRIMEIRA RODADA DE AJUSTE ENSINOU UMA SEGUNDA COISA, além da diagonal
+// gigante: quanto MAIS a fita serpenteia, MAIS RASA ela fica (mais percurso
+// para o mesmo desnível), então a amplitude certa é a MENOR que ainda cobre o
+// desnível pedido pela norma, não a maior. E o pé da montanha (r < 7.700,
+// dentro da faixa que o pódio da abóbada ainda suprime em parte) é fisicamente
+// mais manso que a crista: as provas técnicas curtas (Super-G, Gigante,
+// Slalom) foram por isso realocadas para o FLANCO onde o relevo esculpido já
+// é íngreme de verdade (r ≈ 7.500 a 8.000), não empurradas à força com
+// serpentina. Números finais, medidos, no relatório.
+const ESPECIFICACOES: EspecPista[] = [
+  {
+    nome: 'Descida do Mar da Tranquilidade', dificuldade: 'preta', largura: 30,
+    rInicio: 8330, rFim: 7150, azCentro: 268, amplitude: 6, oscilacoes: 1, amostras: 90,
+  },
+  {
+    nome: 'Super-G Regolito', dificuldade: 'preta', largura: 27,
+    rInicio: 8000, rFim: 7550, azCentro: 275, amplitude: 2, oscilacoes: 1, amostras: 60,
+  },
+  {
+    nome: 'Slalom Gigante Cratera Rasa', dificuldade: 'vermelha', largura: 22,
+    rInicio: 7800, rFim: 7500, azCentro: 258, amplitude: 2, oscilacoes: 1, amostras: 50,
+  },
+  {
+    nome: 'Slalom Poeira Fina', dificuldade: 'azul', largura: 18,
+    rInicio: 7630, rFim: 7500, azCentro: 278, amplitude: 3.5, oscilacoes: 1, amostras: 40,
+  },
+  {
+    nome: 'Boardercross Baixa Gravidade', dificuldade: 'parque', largura: 30,
+    rInicio: 7450, rFim: 7150, azCentro: 264, amplitude: 2, oscilacoes: 1, amostras: 50,
+  },
+  {
+    nome: 'Slopestyle Um Sexto', dificuldade: 'parque', largura: 24,
+    rInicio: 7560, rFim: 7280, azCentro: 273, amplitude: 2, oscilacoes: 1, amostras: 40,
+  },
+  {
+    nome: 'Pista Verde de Acesso', dificuldade: 'verde', largura: 20,
+    // o anel que o pódio da abóbada já deixa plano (r ≤ 7.150): o retorno
+    // manso até a vila-base, de graça, em cima do nivelamento que já existe.
+    rInicio: 7150, rFim: 6850, azCentro: 266, amplitude: 1, oscilacoes: 0.5, amostras: 30,
+  },
+]
+
+export const PISTAS: Pista[] = ESPECIFICACOES.map((e) => ({
+  nome: e.nome, dificuldade: e.dificuldade, largura: e.largura, pontos: gerarSerpentina(e),
+}))
+
+const CORES: Record<Dificuldade, THREE.Color> = {
+  verde: new THREE.Color('#3DBB4C'),
+  azul: new THREE.Color('#1E6FD9'),
+  vermelha: new THREE.Color('#D92B2B'),
+  preta: new THREE.Color('#202024'),
+  parque: new THREE.Color('#E8660D'),
+}
+
+/** comprimento e desnível reais de uma pista, medidos em cima de `heightAt`
+ *  de verdade: a conferência dos alvos de projeto, não a suposição deles. */
+export function medirPista(p: Pista, heightAt: (x: number, z: number) => number) {
+  let comprimento = 0
+  let yMax = -Infinity, yMin = Infinity
+  let anterior: THREE.Vector3 | null = null
+  for (const pt of p.pontos) {
+    const [x, z] = pontoEmRumo(pt.r, pt.az)
+    const y = heightAt(x, z)
+    yMax = Math.max(yMax, y); yMin = Math.min(yMin, y)
+    const v = new THREE.Vector3(x, y, z)
+    if (anterior) comprimento += anterior.distanceTo(v)
+    anterior = v
+  }
+  return { comprimento, desnivel: yMax - yMin, grauMedio: (Math.atan2(yMax - yMin, comprimento) * 180) / Math.PI }
+}
+
+export interface InvernoOpts {
+  /** ⚠️ passe `terrain.superficieAt`, a mesma regra de `alpino.ts`: quem
+   *  desenha coisa que ENCOSTA no chão usa a superfície que a câmera vê, não
+   *  a função contínua. */
+  heightAt: (x: number, z: number) => number
+  sombra?: boolean
+  profile?: PerfProfile
+  culler?: DistanceCuller
+}
+
+export interface Inverno {
+  group: THREE.Group
+  triangulos: number
+  /** as medições reais de cada pista, para `?stats=1` e para o relatório */
+  medidas: { nome: string; dificuldade: Dificuldade; comprimento: number; desnivel: number; grauMedio: number }[]
+  dispose(): void
+}
+
+const LEVANTE_FITA = 0.5
+
+/** uma fita de pista: tira de quads seguindo os pontos, elevada sobre o chão,
+ *  cor sólida por dificuldade. Mesmo princípio de `alpino.ts`: malha própria,
+ *  não cor por vértice do terreno de outro módulo. */
+function construirFita(p: Pista, heightAt: (x: number, z: number) => number): THREE.BufferGeometry {
+  const cor = CORES[p.dificuldade]
+  const centro: THREE.Vector3[] = p.pontos.map((pt) => {
+    const [x, z] = pontoEmRumo(pt.r, pt.az)
+    return new THREE.Vector3(x, heightAt(x, z) + LEVANTE_FITA, z)
+  })
+  const pos: number[] = [], nor: number[] = [], cores: number[] = [], uv: number[] = []
+  const meiaLarg = p.largura / 2
+  const up = new THREE.Vector3(0, 1, 0)
+  let acumulado = 0
+  for (let i = 0; i < centro.length; i++) {
+    const atual = centro[i]
+    const dir = new THREE.Vector3()
+    if (i === 0) dir.subVectors(centro[1], centro[0])
+    else if (i === centro.length - 1) dir.subVectors(centro[i], centro[i - 1])
+    else dir.subVectors(centro[i + 1], centro[i - 1])
+    dir.y = 0
+    if (dir.lengthSq() < 1e-6) dir.set(1, 0, 0)
+    dir.normalize()
+    const lado = new THREE.Vector3().crossVectors(up, dir).normalize()
+    const a = new THREE.Vector3().copy(atual).addScaledVector(lado, meiaLarg)
+    const b = new THREE.Vector3().copy(atual).addScaledVector(lado, -meiaLarg)
+    pos.push(a.x, a.y, a.z, b.x, b.y, b.z)
+    nor.push(0, 1, 0, 0, 1, 0)
+    cores.push(cor.r, cor.g, cor.b, cor.r, cor.g, cor.b)
+    if (i > 0) acumulado += atual.distanceTo(centro[i - 1])
+    uv.push(0, acumulado / 20, 1, acumulado / 20)
+  }
+  const idx: number[] = []
+  for (let i = 0; i < centro.length - 1; i++) {
+    const a = i * 2, b = i * 2 + 1, c = i * 2 + 2, d = i * 2 + 3
+    idx.push(a, c, b, b, c, d)
+  }
+  const g = new THREE.BufferGeometry()
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3))
+  g.setAttribute('color', new THREE.Float32BufferAttribute(cores, 3))
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
+  g.setIndex(idx)
+  return g
+}
+
+// ── O HALFPIPE ────────────────────────────────────────────────────────────
+// Parede 6,71 m (22 pés, igual à Terra: ver Tarefa 3), pé-a-pé 182,9 m
+// (600 pés, igual à Terra), largura de boca 19,5 m (64 pés). A folga de ar
+// exigida ACIMA da parede (48,5 m, o recorde mundial de amplitude vezes
+// 6,035) não é geometria desenhada aqui: é orçamento de câmera, escrito no
+// relatório para quem for enquadrar a cena.
+const PIPE_PAREDE = 6.71
+const PIPE_MEIA_BOCA = 19.5 / 2
+const PIPE_COMPRIMENTO = 182.9
+const PIPE_FATIAS = 10
+const PIPE_PERFIL = 8 // pontos atravessando a boca, de uma parede a outra
+
+function perfilPipe(s: number): number {
+  // s em [-1,1]; 0 no fundo do canal, 1 na boca de cada lado
+  return PIPE_PAREDE * Math.pow(Math.abs(s), 1.6)
+}
+
+function construirHalfpipe(
+  centroR: number, centroAz: number, rumoDescida: number,
+  heightAt: (x: number, z: number) => number,
+): THREE.BufferGeometry {
+  const [cx, cz] = pontoEmRumo(centroR, centroAz)
+  const yBase = heightAt(cx, cz)
+  const dirRad = (rumoDescida * Math.PI) / 180
+  const dir = new THREE.Vector3(Math.sin(dirRad), 0, -Math.cos(dirRad))
+  const lado = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), dir).normalize()
+  const pos: number[] = [], nor: number[] = [], cores: number[] = []
+  const corGelo = new THREE.Color('#DCE7EE')
+  const linhas: THREE.Vector3[][] = []
+  for (let i = 0; i <= PIPE_FATIAS; i++) {
+    const t = i / PIPE_FATIAS
+    const centro = new THREE.Vector3(cx, yBase, cz).addScaledVector(dir, (t - 0.5) * PIPE_COMPRIMENTO)
+    const linha: THREE.Vector3[] = []
+    for (let j = 0; j <= PIPE_PERFIL; j++) {
+      const s = (j / PIPE_PERFIL) * 2 - 1
+      const alturaParede = perfilPipe(s)
+      const p = new THREE.Vector3().copy(centro)
+        .addScaledVector(lado, s * PIPE_MEIA_BOCA)
+        .add(new THREE.Vector3(0, alturaParede - PIPE_PAREDE, 0)) // canal escavado: fundo abaixo do chão
+      linha.push(p)
+    }
+    linhas.push(linha)
+  }
+  for (let i = 0; i < linhas.length - 1; i++) {
+    for (let j = 0; j < PIPE_PERFIL; j++) {
+      const a = linhas[i][j], b = linhas[i][j + 1], c = linhas[i + 1][j], d = linhas[i + 1][j + 1]
+      const n1 = new THREE.Triangle(a, c, b).getNormal(new THREE.Vector3())
+      pos.push(a.x, a.y, a.z, c.x, c.y, c.z, b.x, b.y, b.z)
+      pos.push(b.x, b.y, b.z, c.x, c.y, c.z, d.x, d.y, d.z)
+      for (let k = 0; k < 6; k++) { nor.push(n1.x, n1.y, n1.z); cores.push(corGelo.r, corGelo.g, corGelo.b) }
+    }
+  }
+  const g = new THREE.BufferGeometry()
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3))
+  g.setAttribute('color', new THREE.Float32BufferAttribute(cores, 3))
+  return g
+}
+
+// ── OS TELEFÉRICOS ────────────────────────────────────────────────────────
+// Dois cabos: o principal, da vila-base ao ombro do pico; o do parque, da
+// vila-base ao colo do halfpipe. Pilone de 16 m (referência de estação de
+// esqui comum; NÃO É NORMA FIS, não existe norma FIS para pilone de
+// teleférico, dito por honestidade, não por descuido).
+const PILONE_ALTURA = 16
+
+function construirTeleferico(
+  deR: number, deAz: number, paraR: number, paraAz: number, nPilones: number,
+  heightAt: (x: number, z: number) => number,
+): { pilones: THREE.InstancedMesh; cabo: THREE.Mesh; triangulos: number } {
+  const pontos: THREE.Vector3[] = []
+  for (let i = 0; i <= nPilones + 1; i++) {
+    const t = i / (nPilones + 1)
+    const r = deR + (paraR - deR) * t
+    const az = deAz + (paraAz - deAz) * t
+    const [x, z] = pontoEmRumo(r, az)
+    pontos.push(new THREE.Vector3(x, heightAt(x, z) + PILONE_ALTURA, z))
+  }
+  const gPilone = new THREE.CylinderGeometry(0.5, 0.7, PILONE_ALTURA, 6)
+  const matPilone = new THREE.MeshStandardMaterial({ color: '#8A8D93', roughness: 0.8 })
+  const pilones = new THREE.InstancedMesh(gPilone, matPilone, pontos.length)
+  const m4 = new THREE.Matrix4()
+  for (let i = 0; i < pontos.length; i++) {
+    m4.makeTranslation(pontos[i].x, pontos[i].y - PILONE_ALTURA / 2, pontos[i].z)
+    pilones.setMatrixAt(i, m4)
+  }
+  pilones.instanceMatrix.needsUpdate = true
+  pilones.name = 'inverno:pilones'
+
+  // o cabo: uma curva suave pelos topos dos pilones, levemente arriada entre
+  // cada par (a mesma ideia de catenária de um cabo real, sem resolver a
+  // catenária de verdade: é detalhe de fundo, visto de longe)
+  const comArrio: THREE.Vector3[] = []
+  for (let i = 0; i < pontos.length; i++) {
+    comArrio.push(pontos[i])
+    if (i < pontos.length - 1) {
+      const meio = pontos[i].clone().lerp(pontos[i + 1], 0.5)
+      meio.y -= 1.4
+      comArrio.push(meio)
+    }
+  }
+  const curva = new THREE.CatmullRomCurve3(comArrio)
+  const gCabo = new THREE.TubeGeometry(curva, comArrio.length * 4, 0.12, 5, false)
+  const matCabo = new THREE.MeshStandardMaterial({ color: '#2B2B2E', roughness: 0.6, metalness: 0.3 })
+  const cabo = new THREE.Mesh(gCabo, matCabo)
+  cabo.name = 'inverno:cabo'
+
+  const triPilone = gPilone.index ? gPilone.index.count / 3 : gPilone.attributes.position.count / 3
+  const triCabo = gCabo.index ? gCabo.index.count / 3 : gCabo.attributes.position.count / 3
+  return { pilones, cabo, triangulos: Math.round(triPilone * pontos.length + triCabo) }
+}
+
+/**
+ * O parque de inverno inteiro: pistas, halfpipe, vila-base e teleféricos.
+ * Devolve grupo vazio sem `?inverno=1` (a mesma defesa em profundidade de
+ * `terreno-fino.ts`: quem esquecer de checar a bandeira antes de chamar isto
+ * não quebra nada).
+ */
+export function buildInverno(o: InvernoOpts): Inverno {
+  const group = new THREE.Group()
+  group.name = 'inverno'
+  const medidas: Inverno['medidas'] = []
+  if (!INVERNO_ATIVO) {
+    return { group, triangulos: 0, medidas, dispose() { group.clear() } }
+  }
+
+  let triangulos = 0
+  const matFita = new THREE.MeshStandardMaterial({
+    vertexColors: true, roughness: 0.9, metalness: 0, polygonOffset: true,
+    polygonOffsetFactor: -1, polygonOffsetUnits: -1,
+  })
+  for (const p of PISTAS) {
+    const g = construirFita(p, o.heightAt)
+    const mesh = new THREE.Mesh(g, matFita)
+    mesh.name = `inverno:pista:${p.nome}`
+    mesh.receiveShadow = o.sombra ?? true
+    mesh.castShadow = false
+    group.add(mesh)
+    triangulos += g.index ? g.index.count / 3 : g.attributes.position.count / 3
+    const med = medirPista(p, o.heightAt)
+    medidas.push({ nome: p.nome, dificuldade: p.dificuldade, ...med })
+  }
+
+  // o halfpipe: no colo entre o ombro sul e o pico principal, já fora da
+  // faixa pesada do pódio (r > 8.100, supressão ≤ 17%, ver cabeçalho)
+  const gPipe = construirHalfpipe(8220, 261, 264, o.heightAt)
+  const matPipe = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.35, metalness: 0.05 })
+  const meshPipe = new THREE.Mesh(gPipe, matPipe)
+  meshPipe.name = 'inverno:halfpipe'
+  meshPipe.receiveShadow = o.sombra ?? true
+  group.add(meshPipe)
+  triangulos += gPipe.attributes.position.count / 3
+
+  // a vila-base: dois volumes simples sobre o anel plano do pódio (r=7.150,
+  // cota 13 m garantida pelo próprio nivelamento da abóbada)
+  const matVila = new THREE.MeshStandardMaterial({ color: '#6B5B4A', roughness: 0.85 })
+  const vilaPos: [number, number, number, number][] = [
+    [6980, 267, 46, 16], [6920, 273, 30, 12],
+  ]
+  for (const [r, az, largura, altura] of vilaPos) {
+    const [x, z] = pontoEmRumo(r, az)
+    const y = o.heightAt(x, z)
+    const geo = new THREE.BoxGeometry(largura, altura, largura * 0.6)
+    const mesh = new THREE.Mesh(geo, matVila)
+    mesh.position.set(x, y + altura / 2, z)
+    mesh.rotation.y = (az * Math.PI) / 180
+    mesh.name = 'inverno:vila'
+    mesh.castShadow = o.sombra ?? true
+    mesh.receiveShadow = true
+    group.add(mesh)
+    triangulos += geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3
+  }
+
+  // os teleféricos
+  const t1 = construirTeleferico(7000, 268, 8280, 268, 6, o.heightAt)
+  t1.pilones.name = 'inverno:teleferico:principal:pilones'
+  t1.cabo.name = 'inverno:teleferico:principal:cabo'
+  group.add(t1.pilones, t1.cabo)
+  triangulos += t1.triangulos
+
+  const t2 = construirTeleferico(6950, 273, 8220, 261, 4, o.heightAt)
+  t2.pilones.name = 'inverno:teleferico:parque:pilones'
+  t2.cabo.name = 'inverno:teleferico:parque:cabo'
+  group.add(t2.pilones, t2.cabo)
+  triangulos += t2.triangulos
+
+  for (const m of [t1.pilones, t2.pilones]) { m.castShadow = o.sombra ?? true; m.frustumCulled = false }
+
+  const [ccx, ccz] = pontoEmRumo(7800, 268)
+  o.culler?.add(group, 26000, new THREE.Vector3(ccx, 0, ccz))
+
+  return {
+    group,
+    triangulos: Math.round(triangulos),
+    medidas,
+    dispose() {
+      group.traverse((k) => {
+        const mesh = k as THREE.Mesh
+        if ((mesh as THREE.Mesh).isMesh) {
+          mesh.geometry.dispose()
+          const mat = mesh.material as THREE.Material | THREE.Material[]
+          if (Array.isArray(mat)) mat.forEach((m) => m.dispose()); else mat?.dispose?.()
+        }
+      })
+      group.clear()
+    },
+  }
+}

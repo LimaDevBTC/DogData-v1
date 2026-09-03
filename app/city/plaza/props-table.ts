@@ -14,6 +14,10 @@ import {
 } from './garden-plan'
 import { R_ANCHOR } from './precinct'
 import { PAD_MAIN } from './orbit-layer'
+// ⚠️ 03/09: os dois jardins temáticos de `paisagismo.md` §4, atrás da MESMA
+// bandeira `?verde=1` que `arborizacao.ts` usa (ver a nota dela em
+// `especies.ts`): um valor, um lugar, lido por quem precisar.
+import { verde, hash01 } from './especies'
 
 const rad = (d: number) => (d * Math.PI) / 180
 
@@ -62,6 +66,184 @@ const deckDiag = (r: number): [number, number][] => {
   const k = r / Math.SQRT2
   return [[k, -k], [k, k], [-k, k], [-k, -k]]
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// OS DOIS JARDINS TEMÁTICOS (paisagismo.md §4), atrás de `?verde=1`.
+//
+// ⚠️ AS DUAS COORDENADAS SÃO LOTES DE VERDADE, NÃO INVENÇÃO. `cidade.json`
+// (`programa[]`) já reserva "Jardim Botânico" (setor 9, distrito 4, x −1969
+// z −705, 30,06 ha) e "Jardim das Coortes" (setor 11, distrito 5, x −699
+// z −1954, 28,28 ha): dois lotes de jardim que o gerador desenhou e ninguém
+// tinha plantado ainda. Medido em 03/09 lendo o próprio JSON publicado.
+//
+// ⚠️ SÓ O NÚCLEO DE CADA LOTE RECEBE PEÇA CURADA, NÃO OS 30 HA INTEIROS. Um
+// jardim japonês de 30 ha não é um jardim japonês, é um parque com enfeite
+// oriental: Portland tem 5,2 ha, Kenrokuen (um dos três grandes do Japão)
+// tem 11,4 ha. Aqui o núcleo fica em raio 90 m (2,54 ha) e o resto do lote é
+// bosque comum do distrito, plantado pela hierarquia de `especies.ts` como
+// qualquer contorno da cidade: é o acento de distrito (§2) que já empurra o
+// distrito 4 para `esfera` (quieto) e o distrito 5 para `cone` (fronteira),
+// então a moldura em volta do jardim já nasce coerente com o bairro em vez de
+// ser um recorte estrangeiro.
+//
+// ⚠️ 03/09, SEGUNDA RODADA: sete espécies novas chegaram publicadas em
+// `public/city/sf/` com crédito em `sf-assets.ts` (outra frente, a pedido do
+// item 3 de `paisagismo.md` §6). `tree-black-pine` SUBSTITUI `tree-gnarled`
+// no Jardim Japonês (era um substituto genérico, agora é o pinheiro-negro de
+// verdade que o pedido descrevia); `bamboo-clump` entra como tela de fundo;
+// `banana-tree` e `heliconia` entram no Jardim Tropical; `baobab` vira o
+// marco de chegada do Jardim Tropical (silhueta única, tema certo: savana);
+// `cedar-lebanon` planta a Alameda dos Fundadores (distrito 2, outro lote
+// publicado por `cidade.json` que ninguém tinha ocupado ainda). `tree-pine`
+// NÃO entra aqui: a outra frente já a destinou à floresta de conífera do
+// maciço de inverno, que é módulo alheio (`alpino.ts`).
+//
+// ⚠️ ORÇAMENTO: contagem de `materials` no JSON de cada .glb (script de
+// 03/09). Jardim Japonês: sakura-hero 3, lamp-stone 1, tree-black-pine 3
+// (hero, 1 instância só, nunca alameda: 40.000 tri é classe de exceção),
+// bamboo-clump 5 → **12**. Jardim Tropical: palm 3, feto 1, samambaia 1,
+// banana-tree 5, heliconia 3 (15.000 tri para 2 m de planta: hero também,
+// poucos pontos), baobab 2 → **15**. Alameda dos Fundadores: cedar-lebanon
+// 4 → **4**. Total desta entrega: **31 chamadas de desenho novas**, todas
+// atrás de `?verde=1` (custo zero na produção sem a bandeira). NÃO ENTROU
+// `temple-hall` (9 primitivas): fica no pedido de espécie, "já disponível,
+// caro" (`paisagismo.md` §6). `tree-palm.glb` (5 primitivas) também ficou de
+// fora: `palm` já cobre o mesmo papel por 3.
+/** ponto local (lx ao longo do eixo do jardim, lz perpendicular) para mundo,
+ *  girado pelo `rot` do PRÓPRIO lote publicado em `cidade.json`: a
+ *  composição interna gira junto com o lote em vez de flutuar em diagonal
+ *  sobre ele. */
+function noJardim(cx: number, cz: number, rotDeg: number, lx: number, lz: number): [number, number] {
+  const r = rad(rotDeg), c = Math.cos(r), s = Math.sin(r)
+  return [cx + lx * c - lz * s, cz + lx * s + lz * c]
+}
+/** um bosque informal de `n` pontos entre `rMin` e `rMax` do eixo do jardim:
+ *  nem anel nem grade, porque folhagem tropical e sub-bosque não nascem em
+ *  fileira. O hash de `especies.ts` garante posição determinística. */
+function bosque(
+  cx: number, cz: number, rotDeg: number, n: number, rMin: number, rMax: number, semente: number,
+): [number, number][] {
+  return Array.from({ length: n }, (_, i) => {
+    const a = hash01(semente * 131 + i * 7) * Math.PI * 2
+    const r = rMin + hash01(semente * 271 + i * 13) * (rMax - rMin)
+    return noJardim(cx, cz, rotDeg, Math.cos(a) * r, Math.sin(a) * r)
+  })
+}
+
+// ── Jardim Botânico → JARDIM JAPONÊS (distrito 4: Memorial, Mercado) ────────
+const JB_CX = -1969, JB_CZ = -705, JB_ROT = 289.69
+// duas cerejeiras-hero flanqueando a alameda de chegada (peça de 45.000 tri:
+// duas, não mais, "hero" é specimen raro, não plantio)
+const JB_SAKURA: [number, number][] = [
+  noJardim(JB_CX, JB_CZ, JB_ROT, -35, 20),
+  noJardim(JB_CX, JB_CZ, JB_ROT, -35, -20),
+]
+// oito lanternas de pedra ao longo do eixo, alternando lado (mesmo espírito
+// da alameda do Jardim Ordinal, `lamp-stone` reaproveitado)
+const JB_LAMPS: [number, number][] = [-60, -42, -24, -6, 12, 30, 48, 66].map(
+  (lx, i) => noJardim(JB_CX, JB_CZ, JB_ROT, lx, (i % 2 === 0 ? 1 : -1) * 9),
+)
+// ⚠️ O PINHEIRO-NEGRO SUBSTITUI O `tree-gnarled` QUE ESTAVA AQUI. Antes de
+// 03/09 a árvore antiga e retorcida ("tronco lenhoso e retorcido") era o
+// substituto disponível para o pedido de `paisagismo.md` §6 item 1 (Pinus
+// thunbergii); agora o pinheiro-negro japonês de verdade chegou, e ele é
+// classe de exceção (40.000 tri, hero): UMA instância só, no fim do eixo,
+// nunca em fileira.
+const JB_BLACKPINE: [number, number][] = [noJardim(JB_CX, JB_CZ, JB_ROT, 55, 0)]
+// tela de bambu fechando os dois lados do núcleo curado, separando-o do
+// bosque comum do distrito sem precisar de muro (o pedido §6 item 2)
+const JB_BAMBOO: [number, number][] = [-75, -50, -25, 0, 25, 50, 75].flatMap(
+  (lx) => [noJardim(JB_CX, JB_CZ, JB_ROT, lx, 34), noJardim(JB_CX, JB_CZ, JB_ROT, lx, -34)],
+)
+
+// ── Jardim das Coortes → JARDIM TROPICAL (distrito 5: Observatório, Cinturão) ─
+const JC_CX = -699, JC_CZ = -1954, JC_ROT = 340.31
+// dez palmeiras em bosque informal (não fileira): a espécie que NENHUM outro
+// lugar da praça usa, para o jardim ter cara própria mesmo com peças velhas
+const JC_PALMS = bosque(JC_CX, JC_CZ, JC_ROT, 10, 30, 80, 5501)
+// duas camadas de samambaia sob as palmeiras: o mesmo par que já veste a
+// floresta das ilhas (`aquario.ts`), aqui como sub-bosque do jardim
+const JC_FETO = bosque(JC_CX, JC_CZ, JC_ROT, 14, 15, 70, 6607)
+const JC_SAMAMBAIA = bosque(JC_CX, JC_CZ, JC_ROT, 14, 15, 70, 7703)
+// bananeiras na camada média, entre o sub-bosque e o dossel das palmeiras
+// (pedido §6 item 3)
+const JC_BANANA = bosque(JC_CX, JC_CZ, JC_ROT, 8, 20, 60, 8807)
+// helicônias como ponto focal de cor perto dos caminhos: 15.000 tri para
+// 2 m de planta é orçamento de hero (pedido §6 item 4), por isso só 5 pontos,
+// não plantio de canteiro
+const JC_HELICONIA: [number, number][] = [
+  noJardim(JC_CX, JC_CZ, JC_ROT, -30, 12), noJardim(JC_CX, JC_CZ, JC_ROT, 30, 12),
+  noJardim(JC_CX, JC_CZ, JC_ROT, -30, -12), noJardim(JC_CX, JC_CZ, JC_ROT, 30, -12),
+  noJardim(JC_CX, JC_CZ, JC_ROT, 0, 24),
+]
+// o baobá como marco de chegada do Jardim Tropical: silhueta única (savana),
+// o tema certo para esta espécie, não um landmark cívico solto
+const JC_BAOBA: [number, number][] = [noJardim(JC_CX, JC_CZ, JC_ROT, -70, 0)]
+
+// ── Alameda dos Fundadores (distrito 2: HQ, Museu, Casa da Moeda, Colosso) ──
+// Outro lote publicado por `cidade.json` (x −354, z 1777, rot 191,25°, faixa
+// de 343,7 × 114,4 m) que ninguém tinha plantado. O cedro do Líbano, copa em
+// bandejas horizontais, é a árvore de memorial/fundador em paisagismo real
+// (contraste deliberado com o risco vertical da colunar, que já é o acento
+// deste distrito): duas duplas flanqueando o eixo.
+const AF_CX = -354, AF_CZ = 1777, AF_ROT = 191.25
+const AF_CEDROS: [number, number][] = [
+  noJardim(AF_CX, AF_CZ, AF_ROT, -120, 20), noJardim(AF_CX, AF_CZ, AF_ROT, -120, -20),
+  noJardim(AF_CX, AF_CZ, AF_ROT, 120, 20), noJardim(AF_CX, AF_CZ, AF_ROT, 120, -20),
+]
+// ⚠️ A SEQUOIA-GIGANTE FICA PENDENTE AQUI, NO MESMO EIXO. Sem licença
+// compatível encontrada (paisagismo.md §6); outra frente está modelando por
+// código no Blender (tronco colunar cônico com contraforte, copa estreita a
+// partir do terço superior), em duas versões, hero e barata para bosque.
+// Quando o modelo chegar, o lugar certo é aqui: um "Bosque dos Fundadores"
+// ladeando estes mesmos cedros, não um jardim novo.
+
+const JARDINS_TEMATICOS: PropSpec[] = [
+  {
+    file: 'tree-sakura-hero', why: 'as duas cerejeiras-hero do Jardim Japonês, flanqueando a chegada',
+    at: JB_SAKURA, jitter: 0.06, cull: 1800,
+  },
+  {
+    file: 'lamp-stone', why: 'as lanternas de pedra do eixo do Jardim Japonês',
+    at: JB_LAMPS, yaw: 'center', scale: 1, cull: 1100, castShadow: false,
+  },
+  {
+    file: 'tree-black-pine', why: 'o pinheiro-negro-japonês, hero único, no fim do eixo do Jardim Japonês',
+    at: JB_BLACKPINE, cull: 2000,
+  },
+  {
+    file: 'bamboo-clump', why: 'a tela de bambu que separa o núcleo curado do Jardim Japonês do bosque comum do distrito',
+    at: JB_BAMBOO, jitter: 0.15, cull: 1300, castShadow: false,
+  },
+  {
+    file: 'palm', why: 'o bosque de palmeiras do Jardim Tropical: a única espécie de palmeira que nenhum outro lugar da praça usa',
+    at: JC_PALMS, jitter: 0.2, cull: 1600,
+  },
+  {
+    file: 'feto', why: 'sub-bosque do Jardim Tropical, sob as palmeiras',
+    at: JC_FETO, scale: 1.4, jitter: 0.4, cull: 1400, castShadow: false,
+  },
+  {
+    file: 'samambaia', why: 'segunda camada de sub-bosque do Jardim Tropical, para variar a textura do chão',
+    at: JC_SAMAMBAIA, scale: 1.6, jitter: 0.35, cull: 1400, castShadow: false,
+  },
+  {
+    file: 'banana-tree', why: 'a camada média do Jardim Tropical, entre o sub-bosque e o dossel de palmeiras',
+    at: JC_BANANA, jitter: 0.25, cull: 1400,
+  },
+  {
+    file: 'heliconia', why: 'os pontos focais de cor do Jardim Tropical, perto dos caminhos: hero, não canteiro',
+    at: JC_HELICONIA, jitter: 0.1, cull: 1200, castShadow: false,
+  },
+  {
+    file: 'baobab', why: 'o marco de chegada do Jardim Tropical: a silhueta mais reconhecível do repertório',
+    at: JC_BAOBA, cull: 2200,
+  },
+  {
+    file: 'cedar-lebanon', why: 'a Alameda dos Fundadores (distrito 2), lote publicado e ainda vazio: o cedro é a árvore de memorial em paisagismo real',
+    at: AF_CEDROS, jitter: 0.08, cull: 2000,
+  },
+]
 
 export const PROPS: readonly PropSpec[] = [
   // ── árvores: as espécies com papel (as de copa redonda e os pinheiros seguem
@@ -225,6 +407,47 @@ export const PROPS: readonly PropSpec[] = [
     at: [[PAD_MAIN.x + 330, PAD_MAIN.z + 90], [PAD_MAIN.x + 380, PAD_MAIN.z + 160]],
     yaw: 210, scale: 2.6, cull: 6000,
   },
+  // ── os dois jardins temáticos (paisagismo.md §4), atrás de `?verde=1` ──────
+  ...(verde ? JARDINS_TEMATICOS : []),
 ]
 
 export { QUADRANT_ANGLE }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PALETA DE VARIAÇÃO POR INSTÂNCIA, RESERVADA PARA `props.ts` (paisagismo.md
+// §pedido do fundador, item 4 do briefing de 03/09).
+//
+// ⚠️ ESTE CAMPO AINDA NÃO ESTÁ LIGADO A NADA. Outra frente está dando a
+// `PropSpec` a capacidade de variar cor por instância (hoje toda cópia de uma
+// espécie é clone bit a bit); quando o nome exato do campo chegar, é só
+// espalhar os valores abaixo nas linhas de `JARDINS_TEMATICOS` (e nas outras
+// árvores da tabela) pelo nome do arquivo. Escrevo aqui agora para não perder
+// a decisão de paisagismo enquanto o campo não existe: matiz em graus (0 a
+// 360, a faixa é a AMPLITUDE da variação, não limite absoluto), saturação e
+// luz como fração 0 a 1 (a mesma convenção de `THREE.Color.setHSL`).
+//
+// A regra de paisagismo por trás de cada linha: cópia de oliveira varia em
+// PRATA (luz alta, saturação baixa), cerejeira varia em ROSA (matiz estreito,
+// luz alta), bordo varia em OURO/VERMELHO (matiz largo, outono), pinheiro
+// varia pouco (é hero, uma instância não precisa de variação nenhuma) e
+// folhagem tropical varia em verde-amarelo (a folha nova contra a madura). Um
+// intervalo único para tudo pinta a cerejeira da cor do pinheiro, que é o
+// mesmo defeito do "sage chapado" registrado em `especies.ts`, só que nos
+// modelos importados em vez das quatro silhuetas procedurais.
+export interface VariacaoCorHSL { h: [number, number]; s: [number, number]; l: [number, number] }
+export const PALETA_INSTANCIA_PENDENTE: Record<string, VariacaoCorHSL> = {
+  'tree-sakura-hero': { h: [330, 350], s: [0.35, 0.55], l: [0.62, 0.78] },
+  'tree-maple': { h: [15, 45], s: [0.45, 0.75], l: [0.35, 0.55] },
+  'tree-olive': { h: [70, 90], s: [0.10, 0.25], l: [0.55, 0.72] },
+  'tree-cypress': { h: [140, 160], s: [0.20, 0.35], l: [0.18, 0.28] },
+  'tree-black-pine': { h: [150, 160], s: [0.15, 0.20], l: [0.14, 0.18] },  // hero, quase sem faixa
+  'bamboo-clump': { h: [75, 95], s: [0.30, 0.45], l: [0.42, 0.58] },
+  'banana-tree': { h: [90, 110], s: [0.35, 0.55], l: [0.40, 0.58] },
+  'heliconia': { h: [5, 25], s: [0.55, 0.80], l: [0.45, 0.60] },
+  'baobab': { h: [30, 45], s: [0.15, 0.25], l: [0.35, 0.45] },
+  'cedar-lebanon': { h: [155, 170], s: [0.20, 0.30], l: [0.22, 0.32] },
+  'palm': { h: [85, 105], s: [0.25, 0.40], l: [0.35, 0.50] },
+  'palm-date': { h: [80, 100], s: [0.20, 0.35], l: [0.38, 0.52] },
+  'feto': { h: [95, 115], s: [0.30, 0.45], l: [0.30, 0.42] },
+  'samambaia': { h: [95, 115], s: [0.25, 0.40], l: [0.32, 0.45] },
+}

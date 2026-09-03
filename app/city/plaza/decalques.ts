@@ -97,6 +97,76 @@
 // código. O que crescia sem limite era a varredura por célula do mundo, e é
 // só ela que saiu do construtor.
 //
+// ── O CUSTO POR CÉLULA, MEDIDO: 1,73 ms, E A CAUSA É CRUZADA ────────────────
+// ⚠️ MEDIDO PELO FUNDADOR (03/09), COM O FATIAMENTO JÁ NO AR: o portão abre,
+// mas a primeira varredura de verdade (10.201 células, raio 300 m) mediu
+// 17.689,5 ms TOTAIS, ou seja 1,73 ms POR CÉLULA — um hash, uma consulta de
+// altura e uma de máscara deveriam custar microssegundos, não milissegundos.
+// A 2,5 ms de orçamento por quadro, uma varredura inteira levava perto de
+// dois minutos de RELÓGIO pra fechar, e recomeçava do zero a cada 40 m de
+// câmera: na prática a rua nunca ficava povoada, mesmo com o portão aberto.
+//
+// A causa é CRUZADA, e só existe porque cinco frentes rodam juntas: a frente
+// de terreno fino somou micro-relevo dentro de `heightAt`, e esse
+// micro-relevo é ZERO sob pavimento — o que ela resolve consultando
+// `vias.naVia` DE DENTRO de `heightAt`, mais um fbm de várias oitavas. Nada
+// disso aparece no código DESTE módulo; só aparece no tempo que a chamada
+// devolve. Por célula, o custo pago aqui era: a NOSSA chamada de `naVia`
+// (até duas, pra classificar via/borda/regolito), mais a NOSSA chamada de
+// `heightAt` — que por dentro chama `naVia` de novo E roda o fbm — TRÊS
+// vezes (centro, +X, +Z, pro gradiente), e só nas células que passam no
+// sorteio de densidade.
+//
+// ⚠️ PRIMEIRO PASSO: INSTRUMENTAR, NÃO ADIVINHAR. Antes de cortar qualquer
+// chamada, o módulo passou a medir, com `performance.now()` em volta da
+// FRONTEIRA de cada família (o que ESTE módulo chama; o que roda dentro de
+// `heightAt` é conta de outra frente e cai junto no balde dela, de
+// propósito — é o tempo que ELE devolve que importa aqui, não uma auditoria
+// do código alheio): `msMascara`/`nMascara` (naVia + sobreQue, que ainda não
+// chegou) e `msAltura`/`nAltura` (heightAt). A cada varredura fechada, o
+// console publica os três baldes (máscara, altura, resto) e o custo por
+// célula — sem esse número, o próximo corte seria chute igual ao primeiro.
+//
+// SEGUNDO PASSO: OS CORTES ÓBVIOS, SEM TOCAR NO QUE ESTÁ CERTO.
+//   1. `naVia` agora é consultado com a folga LARGA primeiro. A maioria das
+//      células cai longe de qualquer via — regolito aberto — e o código
+//      velho pagava DUAS chamadas (folga 0 falha, depois FOLGA_BORDA falha)
+//      pra chegar nessa conclusão. Testando a folga larga primeiro, o caso
+//      majoritário resolve com UMA chamada; só a minoria dentro da folga
+//      paga a segunda, que distingue via exata de faixa de borda.
+//   2. `heightAt` já era chamado só DEPOIS do sorteio de densidade passar
+//      (ver `amostrarAltura`, sempre foi assim) — ou seja das 10.201
+//      células só as ~675 que de fato ganham decalque pagam as três
+//      chamadas. Essa parte não precisou de correção, só de confirmação:
+//      o número "93% de desperdício" da hipótese do fundador era condicional
+//      ("SE você está chamando antes de decidir") e a resposta medida é que
+//      não estava.
+//   3. `CHECA_A_CADA` caiu de 64 pra 1 (ver a constante): 64 só fazia
+//      sentido se a célula custasse microssegundos; a 1,73 ms por célula,
+//      64 delas estouravam o orçamento de 2,5 ms por QUARENTA E QUATRO
+//      vezes antes de o relógio ser sequer consultado — o oposto do que o
+//      fatiamento existe pra evitar. Isto sozinho já deveria encolher o
+//      engasgo por quadro em ordem de grandeza, independente de onde o
+//      tempo por célula estiver indo.
+//
+// ⚠️ TERCEIRO PASSO, QUE ESTE MÓDULO NÃO FAZ SOZINHO: remedir. A regra da
+// casa proíbe abrir navegador; o número novo por célula, e se ele já é
+// aceitável, é o fundador quem publica na próxima chapa. Se depois da
+// instrumentação e dos três cortes o custo continuar alto, o log agora
+// aponta ONDE (máscara, altura ou resto), o que faltava pra saber.
+//
+// ⚠️ E A CONTAGEM POR ZONA (via/borda/regolito) FOI JUNTO, por uma pergunta
+// separada que o fundador levantou: 675 instâncias em 10.201 células com
+// raio de 300 m PARECE pouco pra uma rua que devia ter remendo e junta
+// visíveis. Isso pode ser a densidade orçada funcionando exatamente como
+// escrito sobre uma área que É majoritariamente regolito aberto (via real
+// ocupa uma fração pequena de qualquer disco de 300 m — é largura de rua
+// contra área de quarteirão), não um defeito de densidade. O log agora
+// publica quantas células caíram em cada zona ANTES do sorteio: se
+// `regolito` domina de forma desproporcional à área real de via dentro do
+// raio, a resposta é RAIO ou POSIÇÃO DE PARTIDA, não densidade — e isso
+// também só se decide olhando o número, não confiando na primeira leitura.
+//
 // Three.js puro (regra da casa: nada de react-three-fiber).
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
@@ -333,11 +403,22 @@ const PASSO_REFAZ = 40
  *  (NÃO MEDIDO em navegador). */
 const ORCAMENTO_QUADRO_MS = 2.5
 /** quantas células rodam entre uma checagem de relógio e outra, dentro de
- *  uma fatia. ⚠️ NÃO É A CADA CÉLULA DE PROPÓSITO: `performance.now()` tem
- *  custo, e chamá-lo 7.854 vezes por varredura só pra medir um trabalho de
- *  poucos microssegundos por célula pagaria o relógio mais que o trabalho.
- *  NÃO MEDIDO qual seria o custo certo; 64 é uma escolha conservadora. */
-const CHECA_A_CADA = 64
+ *  uma fatia.
+ *
+ *  ⚠️ ERA 64, E A SUPOSIÇÃO POR TRÁS DISSO CAIU MEDIDA (03/09). O comentário
+ *  antigo achava que a célula custava "poucos microssegundos" e por isso
+ *  amortizava `performance.now()` a cada 64. A primeira chapa com `naVia`
+ *  de verdade mediu 1,73 ms POR CÉLULA em média — quatro ordens de grandeza
+ *  acima do suposto. Com 64 células a esse custo, uma fatia só CHECAVA o
+ *  relógio depois de já ter gasto ≈110 ms (64 × 1,73 ms), 44× o orçamento
+ *  de 2,5 ms de ORCAMENTO_QUADRO_MS: a fatia estourava o quadro por engano,
+ *  o oposto do que o fatiamento existe pra evitar. A 1, o pior excesso
+ *  possível é o custo de UMA célula, que é exatamente o "parar quando
+ *  estourar" que foi pedido. O custo do relógio em si (dezenas de
+ *  nanossegundos) é irrelevante perto de uma célula na casa do milissegundo:
+ *  a suposição que justificava 64 só valia NUM MUNDO onde a célula fosse
+ *  barata, e não é o mundo medido. */
+const CHECA_A_CADA = 1
 /** largura da faixa de poeira/sujeira fora da via, medida a partir do fio da
  *  via (folga positiva de `naVia`). Não é medição de campo, é escala de
  *  desenho: a sarjeta em V do Bloco B mede 0,30 m e o meio-fio 0,15 m: uma
@@ -806,14 +887,49 @@ export function buildDecalques(o: DecalquesOpts): Decalques {
   // cache economiza; ele só é limpo se crescer demais (ver o teto abaixo).
   const cacheAltura = new Map<number, { h: number; dx: number; dz: number }>()
   const CACHE_TETO = 200000
+
+  // ── instrumentação por família de chamada (03/09), pedida antes de
+  // qualquer corte. A hipótese do fundador é CRUZADA: a frente de terreno
+  // fino somou micro-relevo dentro de `heightAt`, e esse micro-relevo é
+  // ZERO sob pavimento — o que ela resolve consultando `vias.naVia` DE
+  // DENTRO de `heightAt`. Nada disso aparece no NOSSO código; só aparece no
+  // TEMPO que a chamada devolve. Por isso o relógio fica em volta da
+  // FRONTEIRA (o que ESTE módulo chama), não de uma contagem de linha: o
+  // que `heightAt` faz por dentro é conta de outra frente. `sobreQue` cai no
+  // mesmo balde de `naVia` porque as duas são a mesma família — consulta de
+  // máscara — mesmo que hoje `sobreQue` nunca chegue (ainda não foi ligada).
+  let msMascara = 0, nMascara = 0
+  let msAltura = 0, nAltura = 0
+  const chamarNaVia = naVia
+    ? (x: number, z: number, folga?: number): boolean => {
+        const t0 = performance.now()
+        const r = naVia(x, z, folga)
+        msMascara += performance.now() - t0
+        nMascara++
+        return r
+      }
+    : undefined
+  const chamarSobreQue = sobreQue
+    ? (x: number, z: number): Superficie | null => {
+        const t0 = performance.now()
+        const r = sobreQue(x, z)
+        msMascara += performance.now() - t0
+        nMascara++
+        return r
+      }
+    : undefined
+
   const amostrarAltura = (ci: number, cj: number, wx: number, wz: number) => {
     const chave = (ci + 65536) * 131072 + (cj + 65536)
     const visto = cacheAltura.get(chave)
     if (visto) return visto
     if (cacheAltura.size > CACHE_TETO) cacheAltura.clear()
+    const t0 = performance.now()
     const h0 = o.heightAt(wx, wz)
     const hx = o.heightAt(wx + PASSO_GRAD, wz)
     const hz = o.heightAt(wx, wz + PASSO_GRAD)
+    msAltura += performance.now() - t0
+    nAltura += 3
     const r = { h: h0, dx: (hx - h0) / PASSO_GRAD, dz: (hz - h0) / PASSO_GRAD }
     cacheAltura.set(chave, r)
     return r
@@ -836,6 +952,13 @@ export function buildDecalques(o: DecalquesOpts): Decalques {
   let varreT0 = 0
   let varreCelulas = 0
   let varrendo = false
+  // ⚠️ CONTAGEM POR ZONA (03/09), pedida junto com a instrumentação de custo:
+  // "675 instâncias em 10.201 células com raio de 300 m parece pouco" só se
+  // resolve olhando pra quantas células caíram em cada zona ANTES do sorteio
+  // de densidade — se quase tudo é regolito aberto longe de via, o problema
+  // é RAIO/POSIÇÃO, não a densidade orçada (ver a nota no cabeçalho).
+  let contVia = 0, contBorda = 0, contRegolito = 0
+  let instVia = 0, instBorda = 0, instRegolito = 0
 
   function atualizar(camera: THREE.Camera) {
     camera.getWorldPosition(alvo)
@@ -878,6 +1001,10 @@ export function buildDecalques(o: DecalquesOpts): Decalques {
       varreCelulas = 0
       varreT0 = performance.now()
       varrendo = true
+      msMascara = 0; nMascara = 0
+      msAltura = 0; nAltura = 0
+      contVia = 0; contBorda = 0; contRegolito = 0
+      instVia = 0; instBorda = 0; instRegolito = 0
     }
     if (!varrendo) return // nada pendente: sai na primeira linha, como antes da correção
 
@@ -916,17 +1043,31 @@ export function buildDecalques(o: DecalquesOpts): Decalques {
       // ── classificação: `sobreQue` fino primeiro, `naVia` como
       // fallback (ver a nota longa no topo do arquivo e em
       // DecalquesOpts.sobreQue) ──────────────────────────────────────
+      //
+      // ⚠️ ORDEM TROCADA DE PROPÓSITO (03/09), depois de medir. A maioria
+      // das células cai longe de qualquer via — é regolito aberto, não
+      // via nem borda — e o código antigo pagava DUAS chamadas de `naVia`
+      // pra chegar nessa conclusão (uma com folga 0, que falha, depois uma
+      // com FOLGA_BORDA, que também falha). Checando a folga LARGA
+      // primeiro, o caso majoritário (fora da folga inteira) resolve com
+      // UMA chamada; só a minoria que está DENTRO da folga paga a segunda,
+      // que distingue via exata de faixa de borda. Não muda o resultado,
+      // muda só quantas vezes `naVia` é chamado pra chegar nele — e cada
+      // chamada tem custo real, ver `msMascara` no relatório da varredura.
       let zona: Zona
-      const fina: Superficie | null = sobreQue ? sobreQue(wx, wz) : null
+      const fina: Superficie | null = chamarSobreQue ? chamarSobreQue(wx, wz) : null
       if (fina) {
         zona = 'via'
-      } else if (naVia) {
-        if (naVia(wx, wz, 0)) zona = 'via'
-        else if (naVia(wx, wz, FOLGA_BORDA)) zona = 'borda'
-        else zona = 'regolito'
+      } else if (chamarNaVia) {
+        if (!chamarNaVia(wx, wz, FOLGA_BORDA)) zona = 'regolito'
+        else if (chamarNaVia(wx, wz, 0)) zona = 'via'
+        else zona = 'borda'
       } else {
         zona = 'regolito'
       }
+      if (zona === 'via') contVia++
+      else if (zona === 'borda') contBorda++
+      else contRegolito++
 
       // com superfície fina, o balde é por AFINIDADE (só os tipos que
       // nascem em 'pista', 'sarjeta' ou 'calcada'), não a zona larga
@@ -946,6 +1087,10 @@ export function buildDecalques(o: DecalquesOpts): Decalques {
           const hTipo = hashCelula(ci, cj, 2)
           const tipo = candidatos[Math.min(candidatos.length - 1, Math.floor(hTipo * candidatos.length))]
 
+          // ⚠️ A ALTURA (E O GRADIENTE JUNTO DELA) SÓ É PEDIDA AQUI, DEPOIS
+          // DO SORTEIO DE DENSIDADE PASSAR — já era assim antes desta
+          // correção, e continua sendo o que evita pagar `heightAt` nas
+          // 93%+ das células que não recebem decalque nenhum.
           const g = amostrarAltura(ci, cj, wx, wz)
           const hRot = hashCelula(ci, cj, 3)
           const hEsc = hashCelula(ci, cj, 4)
@@ -966,6 +1111,9 @@ export function buildDecalques(o: DecalquesOpts): Decalques {
           iTint[k * 3 + 1] = tintJitter * (0.98 + 0.04 * hT1)
           iTint[k * 3 + 2] = tintJitter * (0.97 + 0.05 * hT2)
           varreK++
+          if (zona === 'via') instVia++
+          else if (zona === 'borda') instBorda++
+          else instRegolito++
         }
       }
 
@@ -997,13 +1145,36 @@ export function buildDecalques(o: DecalquesOpts): Decalques {
     if (fechou) {
       varrendo = false
       const ms = performance.now() - varreT0
-      // ⚠️ O NÚMERO QUE FALTAVA: sem ele ninguém, nem quem escreve o
-      // módulo, sabe se ORCAMENTO_QUADRO_MS e CHECA_A_CADA estão do
-      // tamanho certo. Mesmo idioma do `mascaraMs` que vias.ts publica.
+      const msResto = Math.max(0, ms - msMascara - msAltura)
+      const porCelula = varreCelulas > 0 ? ms / varreCelulas : 0
+      // ⚠️ O NÚMERO QUE FALTAVA (03/09): sem a QUEBRA por família, ninguém,
+      // nem quem escreve o módulo, sabe ONDE o tempo foi — só que foi
+      // gasto. Mesmo idioma do `mascaraMs` que vias.ts publica, mas em três
+      // baldes: máscara (naVia/sobreQue — inclui a chamada NOSSA, não o que
+      // roda dentro de `heightAt`), altura (heightAt — inclui QUALQUER
+      // coisa que rode dentro dela, de outra frente, como micro-relevo e
+      // fbm), e resto (hash, jitter, gravação nos arrays — MAS TAMBÉM
+      // qualquer tempo ocioso entre quadros, porque `ms` é RELÓGIO de
+      // parede do início ao fim da varredura, o mesmo campo que o fundador
+      // já usou pra calcular 1,73 ms/célula, não soma de CPU pura das
+      // fatias; então "resto" alto não prova hash/gravação caros, só que
+      // sobrou tempo fora de máscara e altura, ocioso ou não). A contagem
+      // por zona responde a outra pergunta, a da densidade: se `regolito`
+      // domina MUITO acima do que a área abrigaria (via costuma ser minoria
+      // da área de um raio de 300 m), o raio ou a posição de partida é que
+      // estão errados, não a fração orçada por zona.
       console.log(
         `[decalques] varredura completa: ${varreCelulas.toLocaleString('pt-BR')} células, ` +
-        `${varreK.toLocaleString('pt-BR')} instâncias, ${ms.toFixed(1)} ms totais` +
-        `${varreK >= TETO ? ' (parou no teto de 20.000)' : ''}`,
+        `${varreK.toLocaleString('pt-BR')} instâncias, ${ms.toFixed(1)} ms totais, ` +
+        `${porCelula.toFixed(3)} ms/célula` +
+        `${varreK >= TETO ? ' (parou no teto de 20.000)' : ''}` +
+        `; máscara ${msMascara.toFixed(1)} ms (${nMascara.toLocaleString('pt-BR')} chamadas), ` +
+        `altura ${msAltura.toFixed(1)} ms (${nAltura.toLocaleString('pt-BR')} chamadas), ` +
+        `resto ${msResto.toFixed(1)} ms` +
+        `; zonas varridas: via ${contVia.toLocaleString('pt-BR')}, ` +
+        `borda ${contBorda.toLocaleString('pt-BR')}, regolito ${contRegolito.toLocaleString('pt-BR')}` +
+        `; instâncias por zona: via ${instVia.toLocaleString('pt-BR')}, ` +
+        `borda ${instBorda.toLocaleString('pt-BR')}, regolito ${instRegolito.toLocaleString('pt-BR')}`,
       )
     }
   }

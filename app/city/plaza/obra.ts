@@ -66,6 +66,22 @@ export class Obra {
   private pesoTotal = 0
   private abriu = false
   private morto = false
+  // ⚠️ A OBRA SÓ PODE ACABAR DEPOIS DE SELADA, e isto é conserto de um bug que
+  // chegou a PRODUÇÃO em 03/09/2026. `animate()` começa a rodar ANTES de
+  // `boot()` enfileirar qualquer coisa, então o primeiro `passo()` encontrava a
+  // fila vazia, concluía "acabou", punha `morto = true` e disparava
+  // `aoTerminar`. A partir dali todo `põe()` caía no `if (this.morto) return` e
+  // o laço nunca mais chamava `passo()`.
+  //
+  // O estrago não apareceu em nenhum teste porque ele é SILENCIOSO: nada
+  // quebra, nada loga, o console fica limpo. O parque, os monumentos e o chalé
+  // simplesmente nunca nascem, e o grupo deles fica vazio e invisível na cena.
+  // Eu ainda medi "zero travamento depois do portão" e quase reportei como
+  // vitória: não havia travamento porque não havia obra.
+  //
+  // Fila vazia significa "sem trabalho AGORA", nunca "sem trabalho NUNCA MAIS".
+  // Só `sela()` diz a segunda coisa.
+  private selado = false
   private readonly orcamento: number
   private readonly opts: ObraOpts
 
@@ -77,6 +93,10 @@ export class Obra {
   /** Enfileira. Pode ser chamado depois da obra já ter começado. */
   põe(t: Trabalho) {
     if (this.morto) return
+    if (this.selado) {
+      console.warn(`[obra] "${t.nome}" chegou depois de selada e foi recusado`)
+      return
+    }
     this.fila.push(t)
     this.pesoTotal += t.peso
     // ⚠️ ORDENA POR FAIXA, ESTÁVEL. `Array.prototype.sort` é estável desde a
@@ -128,7 +148,9 @@ export class Obra {
         }
       }
     }
-    if (!this.corrente && !this.fila.length) {
+    // ⚠️ `selado` É O QUE SEPARA "fila vazia" DE "obra acabada". Ver a nota no
+    // campo. Sem ele isto matava a obra no primeiro quadro.
+    if (this.selado && !this.corrente && !this.fila.length) {
       if (!this.abriu) { this.abriu = true; this.opts.aoAbrir?.() }
       this.opts.aoTerminar?.()
       this.morto = true
@@ -138,6 +160,10 @@ export class Obra {
   private fracao() {
     return this.pesoTotal ? Math.min(1, this.pesoFeito / this.pesoTotal) : 0
   }
+
+  /** Avisa que não vem mais trabalho. Sem isto a obra NUNCA se dá por encerrada,
+   *  o que é de propósito: ver a nota em `selado`. Chame no fim do `boot`. */
+  sela() { this.selado = true }
 
   get terminou() { return this.morto }
   get pendentes() { return this.fila.length + (this.corrente ? 1 : 0) }

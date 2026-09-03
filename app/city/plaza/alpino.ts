@@ -51,6 +51,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { DOME_R } from './dome'
 import { superficie, vestir } from './materiais'
 import type { DistanceCuller, PerfProfile } from './perf'
+import { INVERNO_ATIVO, zonaEsquiavelAt } from './inverno'
 
 export interface AlpinoOpts {
   /** ⚠️ passe `terrain.superficieAt`, não `terrain.heightAt`. Ver cabeçalho. */
@@ -92,9 +93,26 @@ const RUIDO_NEVE = 16
 /** célula do ruído que quebra a curva de nível */
 const CELULA_RUIDO = 240
 
+// ⚠️ A COTA DE NEVE DO PARQUE DE INVERNO É OUTRA, E SÓ VALE DENTRO DA ZONA
+// ESCULPIDA POR `inverno.ts`. 250 m fazia sentido para um morro de 321,7 m de
+// pico (cobria só o 22% de cima, o que este cabeçalho já defendia: "coroa no
+// arco oeste, não um destino"). A montanha nova sobe a ~1.066 m sobre uma base
+// a 13 m: uma estação de esqui de verdade é nevada da base ao cume nas pistas
+// preparadas, não só no topo. `COTA_NEVE_INVERNO = 70` cobre praticamente todo
+// o relevo esculpido; fora da zona (`zonaEsquiavelAt` = 0) a conta volta a
+// `COTA_NEVE = 250` de sempre, sem gelar encosta que não é do parque.
+// Sem `?inverno=1`, `zonaEsquiavelAt` devolve 0 em qualquer ponto e esta
+// mistura devolve `COTA_NEVE` puro: bit a bit o que já rodava.
+const COTA_NEVE_INVERNO = 70
+
 /** faixa da mata, com pluma nas duas pontas */
 const MATA_BAIXO = 150
 const MATA_ALTO = 250
+// ⚠️ A MESMA ADAPTAÇÃO NA MATA: numa montanha de 1.066 m a floresta real fica
+// numa faixa BAIXA (o pé), não nos mesmos 150-250 m de um morro de 320 m. Só
+// dentro da zona do parque a faixa desce para 40-140 m; fora, 150-250 de sempre.
+const MATA_BAIXO_INVERNO = 40
+const MATA_ALTO_INVERNO = 140
 const PLUMA_MATA = 25
 /** espaçamento do candidato a conífera, antes das máscaras */
 const PASSO_MATA = 26
@@ -200,7 +218,12 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
 
   /** cobertura de neve em 0..1: cota + faixa + inclinação + ruído */
   const neveEm = (x: number, z: number, alt: number, inc: number): number => {
-    const limiar = COTA_NEVE + (ruido(x, z, CELULA_RUIDO, 11) * 2 - 1) * RUIDO_NEVE
+    // ⚠️ COTA MISTURADA PELA ZONA DO PARQUE. Sem `?inverno=1`,
+    // `zonaEsquiavelAt` é 0 em qualquer (x, z) e `cotaBase` é `COTA_NEVE` puro:
+    // bit a bit a conta de sempre.
+    const zona = INVERNO_ATIVO ? zonaEsquiavelAt(x, z) : 0
+    const cotaBase = COTA_NEVE - (COTA_NEVE - COTA_NEVE_INVERNO) * zona
+    const limiar = cotaBase + (ruido(x, z, CELULA_RUIDO, 11) * 2 - 1) * RUIDO_NEVE
     const t = suave01((alt - (limiar - FAIXA_NEVE)) / (2 * FAIXA_NEVE))
     if (t <= 0) return 0
     // neve não gruda em face muito íngreme: cheia até 30°, zero em 55°
@@ -304,9 +327,14 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
       if (r < R_INT || r > R_EXT - 30) continue
       const alt = alturaEm(x, z)
       if (!Number.isFinite(alt)) continue
+      // ⚠️ FAIXA MISTURADA PELA ZONA DO PARQUE, mesmo contrato da neve acima:
+      // 0 bit a bit sem `?inverno=1`.
+      const zonaMata = INVERNO_ATIVO ? zonaEsquiavelAt(x, z) : 0
+      const mataBaixo = MATA_BAIXO - (MATA_BAIXO - MATA_BAIXO_INVERNO) * zonaMata
+      const mataAlto = MATA_ALTO - (MATA_ALTO - MATA_ALTO_INVERNO) * zonaMata
       // pluma nas duas pontas da faixa: a mata não começa nem acaba numa reta
-      const dens = suave01((alt - (MATA_BAIXO - PLUMA_MATA)) / (2 * PLUMA_MATA))
-        * (1 - suave01((alt - (MATA_ALTO - PLUMA_MATA)) / (2 * PLUMA_MATA)))
+      const dens = suave01((alt - (mataBaixo - PLUMA_MATA)) / (2 * PLUMA_MATA))
+        * (1 - suave01((alt - (mataAlto - PLUMA_MATA)) / (2 * PLUMA_MATA)))
       if (dens <= 0.02) continue
       // manchado: mata de verdade tem clareira e adensamento
       const mancha = 0.35 + 0.9 * ruido(x, z, 180, 41)

@@ -17,12 +17,26 @@
 // O resto da engenharia (gás, radiação, incêndio) foi descartado pelo fundador
 // e com razão: esta cidade é virtual. O critério é a tela.
 //
-// ⚠️ CINTILAÇÃO É O ÚNICO RISCO REAL. Uma nervura de 0,9 m cai abaixo de 1
-// pixel além de ~1.300 m, e a partir daí a malha pisca contra o céu preto
-// estrelado, que é o pior artefato possível nesta cena. A cura não é
-// estrutural, é LOD: além de `distTextura` a casca devia virar textura
-// projetada com mipmap. NÃO IMPLEMENTADO nesta primeira passada, e é a próxima
-// coisa a fazer se o fundador aprovar a forma.
+// ⚠️ CINTILAÇÃO ERA O ÚNICO RISCO REAL, E FOI CURADO EM 02/09 (commit
+// 881fa63be4). Uma nervura de 0,9 m cai abaixo de 1 pixel além de ~1.300 m e
+// piscava contra o céu preto estrelado; a cura era LOD, e o look 2 é essa
+// cura: a casca virou uma calota lisa (18.432 tris) com o favo inteiro (bolha
+// e nervura) desenhado no FRAGMENTO a partir de uma textura de 4.096² com
+// mipmap (`texturaFavo`). O mipmap funde o sub-pixel numa média: longe, a
+// nervura não pisca, ela perde contraste e some. Sem geometria fina, não tem
+// o que cintilar.
+//
+// ⚠️ O RESÍDUO DESTA CURA É A SAIA, NÃO A CINTILAÇÃO. Uma casca mais funda
+// deixa a orla mais vertical (a borda passa de 31,7° a 62,6° entre a de hoje e
+// a proposta de `?casca=2`), e é lá, quase raspando o olhar, que o mipmap
+// isotrópico borraria a fachada se a anisotropia não estivesse ligada; ela
+// está, em 16 (o teto que a placa oferece), então o item continua coberto e é
+// só o que fica pra fotografar de novo.
+//
+// ⚠️ A FLECHA VIROU BANDEIRA. `?casca=2` liga a casca proposta (mais funda +
+// pele com relevo especular por célula) por cima de tudo isto; sem ela a
+// abóbada é exatamente a de hoje. Ver `CASCA2` logo abaixo e o comentário
+// sobre `crown`/`fade` dentro de `buildDome`.
 //
 // Three.js puro (regra da casa: nada de react-three-fiber).
 // ═══════════════════════════════════════════════════════════════════════════
@@ -30,6 +44,27 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { Delaunay } from 'd3-delaunay'
 import { look2 } from './look'
+
+// ═══════════════════════════════════════════════════════════════════════════
+// A BANDEIRA DESTA FRENTE. `?casca=2` liga a casca mais funda (o relatório de
+// 02/09 propõe flecha 5.500 no lugar dos 2.566 de hoje) e a pele com relevo
+// especular por célula. Sem ela a abóbada é EXATAMENTE a de hoje: `crown` e
+// `fade` continuam saindo de `o.crown`/`o.fade`, que é quem `plaza-scene.tsx`
+// já controla (inclusive por `?flecha=`).
+//
+// ⚠️ POR QUE A BANDEIRA MORA AQUI E NÃO EM `plaza-scene.tsx`. `buildDome`
+// recebe `crown` sempre PRONTO de fora (`crown: num('flecha', 2619)`), então
+// uma bandeira lida do lado de fora não teria como mudar o valor sem editar
+// aquele arquivo, e esta frente não edita `plaza-scene.tsx`. A saída é a
+// mesma do `look`: ler a própria URL, uma vez, no módulo, e DECIDIR AQUI
+// DENTRO se ignora o `crown`/`fade` recebido e usa a proposta desta frente.
+// Módulo lê, módulo decide; trocar de casca pede recarregar a página, que é o
+// comportamento certo porque a textura de relevo nasce no boot da cena.
+function lerCasca(): boolean {
+  if (typeof window === 'undefined') return false
+  return new URLSearchParams(window.location.search).get('casca') === '2'
+}
+const CASCA2 = lerCasca()
 
 /** o d3-delaunay quer pares [x, y]; as sementes vivem num Float plano. */
 function pares(v: number[]): [number, number][] {
@@ -138,7 +173,13 @@ export interface DomeOpts {
   cell?: number
   /** altura da borda sobre o datum da praça (o relevo do sítio vai de −85 a +66) */
   rim?: number
-  /** altura da coroa sobre o datum. 1.200 deixa a câmera do herói (y 640) por dentro */
+  /**
+   * altura da coroa sobre o datum. O número de exemplo aqui já foi 1.200; o
+   * default de hoje (vindo de `plaza-scene.tsx`) é 2.619. Em qualquer um dos
+   * dois a câmera do herói (y 640, `HOME_POS` em plaza-scene.tsx) fica bem
+   * por dentro, medido em 02/09 até para a coroa de 8.963 do hemisfério
+   * pleno, então não é um limite que a flecha proposta aperte.
+   */
   crown?: number
   /** largura da nervura em metros; é ela que decide quanto céu a malha come */
   rib?: number
@@ -354,7 +395,11 @@ function materialNervura(fade: number, coroa: number): THREE.ShaderMaterial {
 // a nervura não pisca: ela perde contraste e some.
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** lado da textura do favo. 4096 sobre um diâmetro de 14.100 m dá 3,44 m/texel. */
+// ⚠️ NÚMERO CORRIGIDO EM 02/09. Este comentário dizia "diâmetro de 14.100 m,
+// 3,44 m/texel": verdade quando `DOME_R` valia 7.050, mentira desde que ele
+// virou 9.050 (ver a constante `DOME_R` no topo do arquivo). Hoje o diâmetro
+// é 18.100 m: 4,42 m/texel.
+/** lado da textura do favo. 4096 sobre um diâmetro de 18.100 m dá 4,42 m/texel. */
 const FAVO_LADO = 4096
 
 /**
@@ -389,10 +434,11 @@ function texturaFavo(
   const px = (x: number) => ((x + R) / (2 * R)) * L
   const pz = (z: number) => ((z + R) / (2 * R)) * L
   // ⚠️ A NERVURA ENGORDA DE 0,9 m PARA ~4 m, e é ganho, não perda. 0,9 m não
-  // cabe num texel de 3,44 m: rasterizada, ela vira um fio de 0,26 px que o
-  // canvas já entrega serrilhado. Com 4 m ela ocupa pouco mais de um texel,
-  // desce limpo pela pirâmide de mipmap, e na tela ainda é fina: a 2.600 m
-  // (altura da coroa) dá 2 px, contra os 0,5 px da fita de geometria.
+  // cabe num texel de 4,42 m (era 3,44 quando DOME_R era 7.050): rasterizada,
+  // ela vira um fio de 0,20 px que o canvas já entrega serrilhado. Com 4 m ela
+  // bate no PISO de 1,1 px (4/4,42 = 0,90, abaixo do piso; antes, com 3,44
+  // m/texel, os mesmos 4 m davam 1,16 e não precisavam do piso), desce limpo
+  // pela pirâmide de mipmap, e na tela ainda é fina.
   const ribPx = Math.max(1.1, (ribM / (2 * R)) * L)
   g.lineJoin = 'round'
   g.lineCap = 'round'
@@ -441,6 +487,102 @@ function texturaFavo(
   return tex
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// A PELE INFLA (atrás de `?casca=2`). Resposta direta ao "por que não um
+// prédio tipo Water Cube": a fachada do Water Cube (Pequim) É uma espuma de
+// Weaire-Phelan em almofadas de ETFE, e a nossa casca já reproduz a MESMA
+// partição (Voronoi por Delaunay, célula de ~42 m, nervura de 0,9 m, e o
+// tamanho da célula sai da MESMA conta de tração de membrana que dimensiona
+// as almofadas dele). O que falta é só a almofada ser ESTUFADA: hoje a
+// célula é uma face plana e só finge volume por sombreamento (`bolha` no
+// fragmento de baixo). Uma almofada de verdade pega brilho ESPECULAR próprio
+// porque a normal muda de direção dentro da célula, e face plana não faz isso.
+//
+// ⚠️ POR QUE NÃO GEOMETRIA. O look 1 já faz almofada de verdade em malha
+// (`pillow = 0,30·a`, o "else" mais abaixo) e ela media 259.782 triângulos
+// SÓ NO VIDRO, medido em 01/09 com `__plazaMeshes('abobada')`: número real,
+// não estimado, porque é o mesmo layout de células. Somar isso aos 38.592 do
+// look 2 seria +673%, e o fundador já avisou que a cena vive perto do teto
+// enquanto outra frente inteira está cortando triângulo pra baixo. Não cabe.
+// A saída é a mesma que resolveu a nervura: LOD por textura, agora para o
+// RELEVO em vez da linha. Custo: uma textura nova pequena (abaixo) e meia
+// dúzia de instruções de ALU no fragmento. Zero triângulo.
+//
+// ⚠️ QUANTO DE FLECHA POR CÉLULA. O guia de projeto do ETFE (Architen
+// Landrell, confirmado por duas fontes independentes) dá rise/span ≈ 10% como
+// o padrão da indústria para uma almofada pneumática, não os 30% que o
+// `pillow` geométrico do look 1 usa (esse número foi escolhido em 30/08 para
+// ler como "bolha" de propósito; o pedido desta vez é o oposto, "almofada,
+// não bolha de sabão"). O relevo abaixo usa o MESMO perfil de calota
+// (√(1−t²), não parábola) que o look 1 já usa, só que como altura relativa
+// (0 a 1) numa textura, na proporção 10% real do Water Cube.
+const RELEVO_LADO = 1024
+
+/**
+ * A textura de relevo: o MESMO Voronoi de `texturaFavo`, mas só a barriga da
+ * célula (perfil de calota, sem nervura, sem faixa dupla), numa resolução bem
+ * mais baixa.
+ *
+ * ⚠️ BAIXA RESOLUÇÃO DE PROPÓSITO, NÃO DESLEIXO. O relevo é sinal de baixa
+ * frequência: a barriga de uma célula de ~42 m, não uma aresta que precisa
+ * de nitidez como a nervura. 1.024² sobre 18.100 m dá 17,7 m/texel: uma
+ * célula de 42 m ainda cobre ~2,4 texels de lado a lado, o bastante pro
+ * degradê ler como curva. Custo: 1.024² em RedFormat são 1,05 MB de VRAM mais
+ * 0,35 de mipmap, contra os 22,4 MB do favo (2,8% do custo de textura que a
+ * casca já paga).
+ */
+function texturaRelevo(
+  celulas: { cx: number; cz: number; pol: [number, number][] }[],
+  R: number,
+): THREE.DataTexture {
+  const L = RELEVO_LADO
+  const cv = document.createElement('canvas')
+  cv.width = L; cv.height = L
+  const g = cv.getContext('2d', { willReadFrequently: true })!
+  g.fillStyle = '#000'
+  g.fillRect(0, 0, L, L)
+  const px = (x: number) => ((x + R) / (2 * R)) * L
+  const pz = (z: number) => ((z + R) / (2 * R)) * L
+  for (const c of celulas) {
+    const cxp = px(c.cx), czp = pz(c.cz)
+    let rr = 0
+    g.beginPath()
+    for (let k = 0; k < c.pol.length; k++) {
+      const X = px(c.pol[k][0]), Z = pz(c.pol[k][1])
+      rr = Math.max(rr, Math.hypot(X - cxp, Z - czp))
+      if (k === 0) g.moveTo(X, Z); else g.lineTo(X, Z)
+    }
+    g.closePath()
+    // ⚠️ PERFIL DE CALOTA, NÃO RAMPA LINEAR: a mesma curva √(1−t²) do pillow
+    // geométrico do look 1: sobe quase reto do caixilho e arredonda no meio,
+    // que é o que uma almofada de verdade faz. O gradiente radial do canvas só
+    // aceita paradas de cor, não uma função, daí as cinco amostras.
+    const grad = g.createRadialGradient(cxp, czp, 0, cxp, czp, Math.max(1, rr))
+    const paradas: [number, number][] = [
+      [0.0, 1.0], [0.5, Math.sqrt(1 - 0.25)], [0.75, Math.sqrt(1 - 0.5625)],
+      [0.9, Math.sqrt(1 - 0.81)], [1.0, 0.0],
+    ]
+    for (const [t, h] of paradas) {
+      const v8 = Math.round(h * 255)
+      grad.addColorStop(t, `rgb(${v8},${v8},${v8})`)
+    }
+    g.fillStyle = grad
+    g.fill()
+  }
+  const dados = new Uint8Array(L * L)
+  const img = g.getImageData(0, 0, L, L).data
+  for (let i = 0, n = L * L; i < n; i++) dados[i] = img[i * 4]
+  const tex = new THREE.DataTexture(dados, L, L, THREE.RedFormat, THREE.UnsignedByteType)
+  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping
+  tex.generateMipmaps = true
+  tex.minFilter = THREE.LinearMipmapLinearFilter
+  tex.magFilter = THREE.LinearFilter
+  tex.anisotropy = 16
+  tex.colorSpace = THREE.NoColorSpace
+  tex.needsUpdate = true
+  return tex
+}
+
 /**
  * O material da casca discreta: uma superfície só, com o favo lido da textura.
  *
@@ -450,8 +592,44 @@ function texturaFavo(
  * para projetar imagem na abóbada sem tocar em geometria nenhuma. Nesta rodada
  * a mistura é 0, ou seja custo zero e nenhum pixel muda.
  */
-function materialCalota(fade: number, coroa: number, favo: THREE.Texture): THREE.ShaderMaterial {
-  return new THREE.ShaderMaterial({
+// ⚠️ FORÇA DO RELEVO, E É A ÚNICA CONSTANTE DESTA FRENTE QUE NÃO SAI DE CONTA
+// FECHADA. O perfil da textura (acima) segue o rise/span de 10% medido no
+// guia do ETFE; a CONVERSÃO de `dFdx`/`dFdy` de tela para inclinação de
+// normal depende de quantos pixels de tela a casca ocupa no enquadramento, o
+// que só se sabe olhando, e esta frente não abre navegador. Este número é
+// primeira passada, calculado por ordem de grandeza (não chutado: 1.024
+// texels sobre 18.100 m, visto de 1 a 3 km, dá derivada de tela da ordem de
+// 10⁻³ a 10⁻² por pixel; para virar uma inclinação visível sem estourar,
+// precisa de ganho de dezenas), e É A PRIMEIRA COISA A CONFERIR com
+// `?casca=2`.
+const RELEVO_FORCA = 18.0
+
+function materialCalota(
+  fade: number, coroa: number, favo: THREE.Texture, relevo: THREE.Texture | null = null,
+): THREE.ShaderMaterial {
+  // ⚠️ O BLOCO SÓ EXISTE NO TEXTO QUANDO `relevo` VEM PREENCHIDO. Sem
+  // `?casca=2`, `relevo` é null e o shader que sai daqui é BYTE A BYTE o
+  // mesmo de antes desta frente: nem sampler extra, nem ALU extra, nem
+  // `extensions.derivatives` ligado. "Sem a bandeira a abóbada é exatamente a
+  // de hoje" vale também no shader compilado, não só no visual.
+  const blocoRelevo = relevo ? `
+
+        // ── A PELE INFLA: brilho especular por célula, sem geometria nenhuma ──
+        // ⚠️ NORMAL "BUMP" BARATO, NÃO GEOMETRIA (ver o comentário grande perto
+        // de \`texturaRelevo\`). \`uRelevo\` é um campo de altura de baixa
+        // frequência (a barriga da célula); a derivada de TELA dessa altura dá a
+        // inclinação local sem precisar de tangente/bitangente calculados por
+        // célula, a mesma perturbação de normal que um bump map clássico faz,
+        // só que a partir de \`dFdx\`/\`dFdy\` em vez de um segundo canal de UV.
+        vec3 up2 = abs(n.y) > 0.99 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
+        vec3 tg = normalize(cross(up2, n));
+        vec3 btg = cross(n, tg);
+        float relevoH = texture2D(uRelevo, vUvPlano).r;
+        vec3 nBolha = normalize(n - (dFdx(relevoH) * tg + dFdy(relevoH) * btg) * uRelevoForca);
+        float brilhoCelula = pow(max(dot(reflect(-v, nBolha), normalize(vec3(0.28, 0.86, 0.18))), 0.0), 24.0);
+        cor += uTint * brilhoCelula * (1.0 - d) * longe * 0.55;
+` : ''
+  const mat = new THREE.ShaderMaterial({
     uniforms: {
       ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
       uTint: { value: COR_VIDRO },
@@ -462,6 +640,7 @@ function materialCalota(fade: number, coroa: number, favo: THREE.Texture): THREE
       uFade: { value: fade },
       uCoroa: { value: coroa },
       uCam: { value: new THREE.Vector3() },
+      ...(relevo ? { uRelevo: { value: relevo }, uRelevoForca: { value: RELEVO_FORCA } } : {}),
     },
     vertexShader: VS,
     fragmentShader: `
@@ -471,6 +650,7 @@ function materialCalota(fade: number, coroa: number, favo: THREE.Texture): THREE
       uniform vec3 uTint; uniform vec3 uNerv;
       uniform sampler2D uFavo; uniform sampler2D uConteudo; uniform float uConteudoMix;
       uniform float uFade; uniform float uCoroa; uniform vec3 uCam;
+      ${relevo ? 'uniform sampler2D uRelevo; uniform float uRelevoForca;' : ''}
       varying vec3 vN; varying vec3 vV; varying float vD; varying vec2 vUvPlano;
       float dentro() {
         float r = 1.0 - smoothstep(3200.0, 3800.0, length(uCam.xz));
@@ -506,7 +686,7 @@ function materialCalota(fade: number, coroa: number, favo: THREE.Texture): THREE
         float zen = mix(1.0, 0.18, pow(max(n.y, 0.0), 2.0));
         cor += uTint * bolha * 0.026 * longe;
         cor += uNerv * nerv * 0.18 * zen * longe;
-
+${blocoRelevo}
         // o telão do futuro: nesta rodada uConteudoMix é 0 e isto não pesa
         vec3 conteudo = texture2D(uConteudo, vUvPlano).rgb;
         cor = mix(cor, conteudo, uConteudoMix);
@@ -521,6 +701,13 @@ function materialCalota(fade: number, coroa: number, favo: THREE.Texture): THREE
     side: THREE.DoubleSide,
     fog: true,
   })
+  // ⚠️ CAST NECESSÁRIO: o @types/three instalado aqui só declara
+  // `clipCullDistance`/`multiDraw` em `extensions` (o `derivatives` existe em
+  // tempo de execução, ver three/src/materials/ShaderMaterial.js, mas ficou
+  // de fora do .d.ts). Sem o cast o `tsc --noEmit` reprova por um tipo
+  // desatualizado, não por um erro real.
+  if (relevo) (mat.extensions as unknown as Record<string, boolean>).derivatives = true
+  return mat
 }
 
 export function buildDome(o: DomeOpts): Dome {
@@ -537,14 +724,65 @@ export function buildDome(o: DomeOpts): Dome {
   // anel. Isso é o que decide se a peça lê como CÚPULA ou como lente, e a altura
   // sozinha engana: a versão de 1.256 m parecia baixa não por ser baixa, mas
   // porque chegava ao chão a 16,6° — quase deitada. Com 3.130 m ela chega a
-  // 40,0°, que é barriga de cúpula de verdade.
+  // 40,0°, que é barriga de cúpula de verdade. Hoje (sem bandeira) o default
+  // que chega daqui de fora é 2.619 de coroa, ou seja flecha 2.566 e borda a
+  // 31,7°, no meio do caminho entre lente e cúpula.
   //
-  // Não custa geometria: as células são distribuídas em PLANTA, então subir a
-  // flecha não muda a contagem (1,26 M de triângulos nas duas). O que sobe junto
-  // é a órbita das naves, que é lida de `coroa − 180`.
-  const crown = o.crown ?? (PODIO_Y + PARAPEITO + 2566)
+  // ⚠️ 5.500 DE FLECHA, ATRÁS DE `?casca=2`, com os três argumentos medidos:
+  //
+  // (a) LEITURA. Comparei θ contra cúpulas reais (raio de curvatura próprio,
+  //     não a altura do prédio inteiro): o Panteão é hemisfério puro, 90°. A
+  //     cúpula ORIGINAL de Santa Sofia (a que caiu em 558 por ser rasa demais)
+  //     media Rc ≈ 69 pés contra um vão de 31 m, dá 47,5°, quase o mesmo dos
+  //     4.000 (47,7°), e a HISTÓRIA já classificou esse ângulo como raso
+  //     demais para ler (e aguentar) como cúpula. A reconstrução de Isidoro, o
+  //     Jovem, subiu o Rc para ≈ 53 pés (73,7°) para resolver exatamente
+  //     isso. A cúpula pontuda de Florença (quinto acuto, raio = 4/5 do vão)
+  //     dá 112°, mais que hemisfério. Os quatro ficam entre 47,5° e 112°; os
+  //     31,7° de hoje ficam ABAIXO de todos, inclusive da cúpula que a
+  //     história reprovou. 5.500 dá 62,6°: ainda abaixo da reconstrução de
+  //     Santa Sofia, mas bem acima do piso de "cúpula de verdade" que o
+  //     parágrafo anterior já tinha medido em 40°.
+  // (b) ESTRUTURA. `N = p·Rc/2` é da CASCA INTEIRA (a estrutura primária, anéis
+  //     e nervuras), não da célula: o Rc de uma célula de 42 m vem do PRÓPRIO
+  //     estufamento dela (ver `pillow`/relevo mais abaixo) e não muda com a
+  //     flecha grande, então os 23,7 mm de vidro por célula NÃO mudam. O que
+  //     muda é a tração que a casca grande carrega: Rc cai de 17.242 (flecha
+  //     2.566) para 10.196 (5.500), 40,9% menos tração na estrutura primária.
+  //     Hemisfério pleno (9.050) dá 47,5%, mais 6,6 pontos por mais 3.550 m
+  //     de flecha: retorno decrescente.
+  // (c) MONTANHA. No raio 8.283 (o pico do maciço oeste, 321,7 m, medido pela
+  //     outra frente) a casca de hoje passa a 499 m: 177,4 m de vão livre
+  //     acima do pico. Em 5.500 ela passa a 1.302 m: 980,7 m livres, de sobra
+  //     para o parque de inverno que a outra frente está montando ali.
+  //
+  // Não custa geometria na CALOTA: as células são distribuídas em PLANTA,
+  // então subir a flecha não muda a contagem da malha de revolução. O que
+  // sobe junto é a órbita das naves, que é lida de `coroa − 180`, de propósito,
+  // porque `setOrbitFloor(domo.coroa - 180)` em plaza-scene.tsx lê o valor
+  // DEVOLVIDO por `buildDome`, não uma constante duplicada: a órbita sobe
+  // sozinha com a coroa, sem precisar tocar naquele arquivo.
+  const FLECHA_HOJE = 2566
+  const FLECHA_PROPOSTA = 5500
+  // ⚠️ REFERÊNCIA FIXA, NÃO `o.crown`. Se alguém combinar `?flecha=` com
+  // `?casca=2`, o `crown` recebido de fora pode não ser o 2.619 de hoje; o
+  // fade tem de escalar contra o valor que CALIBROU o desvanecimento
+  // original, não contra um número arbitrário digitado na URL.
+  const CROWN_HOJE_REF = PODIO_Y + PARAPEITO + FLECHA_HOJE
+  const crown = CASCA2 ? rim + FLECHA_PROPOSTA : (o.crown ?? CROWN_HOJE_REF)
   const ribW = o.rib ?? 0.9
-  const fade = o.fade ?? 2200
+  // ⚠️ O FADE ESCALA COM A COROA ATRÁS DA BANDEIRA, SENÃO A BARRIGA LAVA. O
+  // desvanecimento de longe (`uFade*0,45` a `uFade*2,6`) foi calibrado para a
+  // coroa de hoje: a 2.619 m de distância de uma câmera perto do centro, o
+  // fator de brilho já mede 0,80 (medido por conta, não chutado). Sem escalar
+  // o fade, uma coroa a 5.553 m cairia para 0,38 (quase no piso do
+  // desvanecimento) e a barriga que a Tarefa 1 acabou de conquistar voltaria
+  // lavada de neblina. Escalando `fade` na MESMA proporção que a coroa cresceu,
+  // o fator no topo volta a bater 0,80: a conta é `fade_novo = fade_base ×
+  // (coroa_nova / coroa_de_hoje)`, então o desenho do desvanecimento não muda,
+  // só a distância em que ele acontece.
+  const fadeBase = o.fade ?? 2200
+  const fade = CASCA2 ? fadeBase * (crown / CROWN_HOJE_REF) : fadeBase
 
   const group = new THREE.Group()
   group.name = 'abobada'
@@ -866,7 +1104,10 @@ export function buildDome(o: DomeOpts): Dome {
     geoCalota.setIndex(cIdx)
 
     const texFavo = texturaFavo(celulas, DOME_R, 4.0)
-    const matCal = materialCalota(fade, crown, texFavo)
+    // ⚠️ O RELEVO SÓ NASCE ATRÁS DA BANDEIRA. Gerar a textura custa uma
+    // passada de canvas a mais no boot; sem `?casca=2` esse custo nem existe.
+    const texRelevo = CASCA2 ? texturaRelevo(celulas, DOME_R) : null
+    const matCal = materialCalota(fade, crown, texFavo, texRelevo)
     const malhaCal = new THREE.Mesh(geoCalota, matCal)
     malhaCal.name = 'abobada:calota'
     malhaCal.frustumCulled = false
@@ -877,7 +1118,9 @@ export function buildDome(o: DomeOpts): Dome {
     }
     group.add(malhaCal)
     trisCasca = cIdx.length / 3
-    aDescartar.push(() => { geoCalota.dispose(); matCal.dispose(); texFavo.dispose() })
+    aDescartar.push(() => {
+      geoCalota.dispose(); matCal.dispose(); texFavo.dispose(); texRelevo?.dispose()
+    })
   } else {
     // ── vidro: uma almofada por célula, tudo fundido numa malha só ────────────
     //

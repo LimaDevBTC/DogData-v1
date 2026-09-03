@@ -9,6 +9,27 @@
 // FICOU DE FORA: "Fur Tree" de Harri Jones é CC-BY-SA-4.0 (share-alike): usar
 // obriga a licenciar o derivado (a cena) nos mesmos termos. Decisão do fundador;
 // o arquivo está guardado em blender/assets-sketchfab/ com o nome marcado.
+//
+// CONSERTO DE CRÉDITO (frente espécies, 02-03/09): o levantamento de maquete
+// achou 3 modelos JÁ PUBLICADOS em public/city/sf/ sem linha aqui:
+// tree-olive-old, tree-date-hero, tree-sakura-hero, o que é violação de
+// CC-BY (a licença EXIGE crédito). Origem e licença conferidas direto no
+// `license.txt` que o Sketchfab grava junto de cada download em
+// blender/assets-sketchfab/<nome>/license.txt (fonte primária, não a memória
+// de ninguém): os três são CC-BY-4.0, uid batendo com blender/picks4.json.
+// Linhas abaixo, marca ⚠️ CRÉDITO ATRASADO.
+//
+// CATÁLOGO NOVO (frente espécies, 02-03/09): sequoia gigante e flamboyant
+// pedidos pelo fundador NÃO ENTRARAM: nenhum modelo CC0/CC-BY encontrado no
+// Sketchfab é uma árvore inteira (só tronco/cone de fotogrametria para
+// sequoia; zero resultado para flamboyant/royal poinciana). Araucaria
+// araucana, fig tree (Ficus carica) e jacaranda entraram no pipeline e
+// FALHARAM na conversão (fotogrametria com ruído topológico ou geometria
+// Sketchfab_model quebrada; ver blender/convert_one_asset.py e o relatório da
+// frente para os números), não foram publicados. Os 7 abaixo passaram por
+// carga real no Blender e saíram com silhueta íntegra (chapa conferida em
+// blender/assets-sketchfab/<nome>/preview.png, renderizada pelo próprio
+// conversor, não pela cena).
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
@@ -60,6 +81,34 @@ export const SF_CREDITS: readonly Credit[] = [
   { title: 'Stylized glowing mushrooms', author: 'RiZoRuS77', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/stylized-glowing-mushrooms-c041db2908ba4bf0a028af10436e1582' },
   { title: 'Human Skull', author: 'CDmir (OpenGameArt)', license: 'CC0', url: 'https://opengameart.org/content/human-skull-0' },
   { title: 'Human Base Meshes', author: 'Blender Studio', license: 'CC0', url: 'https://www.blender.org/download/demo/asset-bundles/' },
+  // ── ⚠️ CRÉDITO ATRASADO: já em public/city/sf/ desde antes desta frente,
+  // sem esta linha (achado pelo levantamento de maquete) ──────────────────
+  { title: 'Old Olive Tree', author: 'AhmetGuner3d', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/old-olive-tree-915d62b65f0d41fba3f473cd047df799' },
+  { title: 'Date Palm Photogrammetry Scan', author: 'AirSickLowLander', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/date-palm-photogrammetry-scan-853b4e0d46c54012829a0a68631580d2' },
+  { title: 'Cherry Blossom (Sakura) Tree Realistic Model', author: 'Viasky', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/cherry-blossom-sakura-tree-realistic-model-6c70f11081e4438b878f4c007a48ab65' },
+  // ── o catálogo novo (frente espécies, 02-03/09): sequoia/pinheiro, jardim
+  // japonês, jardim tropical e árvores icônicas do mundo ───────────────────
+  { title: 'Low Poly Pine Tree', author: 'Epic wolf studio', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/low-poly-pine-tree-99fb6a37547840e3a295689df032ba28' },
+  { title: 'Japanese Black Pine', author: 'matt z chan', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/japanese-black-pine-f0cb4705f1c446c7bc393fdbfcdf024a' },
+  { title: 'Bamboo', author: 'arthur', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/bamboo-b2e6f889630e4ab593376a151836a3e1' },
+  { title: 'Banana Tree', author: 'Garecra', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/banana-tree-5cb46e64d7fc40978c3d6798017eced1' },
+  { title: 'Heliconia Rostrata', author: 'Meownster', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/heliconia-rostrata-bb7240aecc774cd388304b59dcdc7cdb' },
+  { title: 'Realistic Baobab Tree', author: 'pighunt3r15', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/realistic-baobab-tree-f3bb8b2c910241d49b5e38351fe9b1b2' },
+  { title: 'Cedar Of Lebanon', author: 'Valery.Li', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/cedar-of-lebanon-6bf28d5c230a4dbcbc350ab7e4964a89' },
+  // ── a sequoia gigante NAO tem crédito de terceiro porque não veio de acervo
+  // nenhum: a busca (02-03/09) só achou tronco/cone de fotogrametria em
+  // licença compatível, nenhuma árvore inteira. Nasceu de código,
+  // `blender/build_sequoia.py` (perfil do tronco medido no General Sherman,
+  // NPS, ver o cabeçalho do script), e por isso não precisa de CC-BY, mas
+  // precisa desta linha: sem ela, daqui a três meses ninguém sabe de onde
+  // `sequoia.glb`/`sequoia-mass.glb` vieram.
+  { title: 'Sequoia gigante (tronco + copa gerados por código)', author: 'DogCity (blender/build_sequoia.py)', license: 'proprio, gerado por codigo nesta casa', url: 'blender/build_sequoia.py' },
+  // ── mesmo caso do flamboyant: busca (03/09) devolveu ZERO resultado em
+  // licença compatível para "royal poinciana"/"flamboyant tree" no Sketchfab.
+  // Nasceu de código pelo mesmo motivo, `blender/build_flamboyant.py` (copa em
+  // guarda-chuva achatado, floração vermelho-alaranjada, proporção conferida
+  // em gardenia.net/UC Davis, ver o cabeçalho do script).
+  { title: 'Flamboyant / Royal Poinciana (copa gerada por código)', author: 'DogCity (blender/build_flamboyant.py)', license: 'proprio, gerado por codigo nesta casa', url: 'blender/build_flamboyant.py' },
 ]
 
 export const SF = {

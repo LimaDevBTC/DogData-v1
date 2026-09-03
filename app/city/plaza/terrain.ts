@@ -28,6 +28,7 @@ import { PARK_CENTER, PARK_PIT, parkReach, parkCore } from './park-site'
 import { look2 } from './look'
 import { vestir } from './materiais'
 import { microRelevoAt, TERRENO_FINO_ATIVO } from './terreno-fino'
+import { alturaInvernoAt } from './inverno'
 
 export interface TerrainMeta {
   cols: number
@@ -487,7 +488,14 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
     // `microRelevoAt` devolve 0 sem a bandeira `?terreno=fino` (checado na
     // primeira linha dela), então esta soma é `bParque + 0 = bParque` bit a
     // bit quando a bandeira está desligada. Ver o cabeçalho de `terreno-fino.ts`.
-    return bParque + microRelevoAt(x, z)
+    //
+    // ⚠️ O PARQUE DE INVERNO ENTRA PELO MESMO CONTRATO. `alturaInvernoAt`
+    // esculpe o maciço oeste (ver o cabeçalho de `inverno.ts`) e devolve 0 na
+    // primeira linha sem `?inverno=1`: esta soma continua bit a bit igual a
+    // hoje com a bandeira desligada. Somado DEPOIS do micro-relevo, na mesma
+    // ordem em que `terreno-fino.ts` já soma depois de tudo o mais: os dois
+    // relevos aditivos não competem, eles se empilham.
+    return bParque + microRelevoAt(x, z) + alturaInvernoAt(x, z)
   }
 
   // ⚠️ CONTRATO NOVO, DEPOIS DE A MALHA GROSSA SER MASCARADA (não mais
