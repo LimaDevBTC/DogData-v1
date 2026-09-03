@@ -20,6 +20,13 @@ const PADRAO = resolve(dirname(fileURLToPath(import.meta.url)), '../../../market
 const arg = (k, d) => (process.argv.find((a) => a.startsWith(`--${k}=`)) || `--${k}=${d}`).split('=')[1]
 const n = +arg('n', 600), raio = +arg('raio', 12000)
 const saida = arg('saida', PADRAO)
+// ⚠️ O PRAZO VIROU BANDEIRA, e o motivo é o mesmo que `chapas.mjs` já registra:
+// o runtime é COMPARTILHADO. Com três frentes na mesma máquina a cena passa dos
+// 180 s cravados que este script esperava por `__plazaGrade` e ele morria sem
+// gravar nada. `chapas.mjs` já tinha aprendido isso (`--prazo-carga`, com a nota
+// de que 300 s não bastam quando a máquina está compartilhada); aqui a lição
+// custou uma carga inteira de cena para ser reaprendida.
+const prazo = +arg('prazo', 900000)
 mkdirSync(saida, { recursive: true })
 
 const nav = await chromium.launch()
@@ -27,10 +34,10 @@ const pag = await (await nav.newContext({ viewport: { width: 1280, height: 800 }
 const url = 'http://localhost:3000/city?stats=1&quality=high&view=deck&ilhas=1'
 console.log(`carregando ${url}`)
 await pag.goto(url, { waitUntil: 'domcontentloaded' })
-await pag.waitForFunction(() => !!window.__plazaGrade, null, { timeout: 180000 })
+await pag.waitForFunction(() => !!window.__plazaGrade, null, { timeout: prazo })
 await pag.waitForFunction(
   () => !document.body.innerText.includes('The whole plaza loads before it opens'),
-  null, { timeout: 300000 })
+  null, { timeout: prazo })
 await pag.waitForTimeout(20000)
 console.log(`amostrando ${n} por ${n} sobre ${2 * raio} m...`)
 const g = await pag.evaluate(([n, r]) => window.__plazaGrade(n, r), [n, raio])
