@@ -1,11 +1,11 @@
 // O chão: UM regolito, contínuo, do deck ao horizonte, passando pelo parque.
 //
 // Mare Tranquillitatis de verdade no sítio (public/lunar/btc-core-heightmap.f32,
-// SLDEM2015, 137×137 células de 59,2 m, exageração vertical 2×, a mesma da cena da
-// landing; conferido: o pad do spaceport cai a +75,5 onde o .blend tem 76,7, o
-// plinto da Kray a -6,0), e dali para fora uma SAIA costurada vértice a vértice na
-// borda do sítio, que leva o olho até o horizonte descendo devagar. Uma malha só,
-// um material só, uma função de cor só (`regolithColor`), que o parque também usa:
+// SLDEM2015, exageração vertical 2×, a mesma da cena da landing; conferido: o
+// pad do spaceport cai a +75,5 onde o .blend tem 76,7, o plinto da Kray a -6,0),
+// e dali para fora uma SAIA costurada vértice a vértice na borda do sítio, que
+// leva o olho até o horizonte descendo devagar. Uma malha só, um material só,
+// uma função de cor só (`regolithColor`), que o parque também usa:
 // o fundador viu o sítio claro, o anel escuro e o parque marrom lado a lado, com
 // fatias pretas onde a borda do sítio ficava mais alta que o anel e vazava o
 // fundo, e disse o óbvio: "tudo isso está se passando no mesmo lugar, na Lua".
@@ -13,12 +13,21 @@
 // Quadro three: x = leste, y = para cima, z = sul, que é exatamente (x, z, −y) do
 // Blender, a conversão do exportador glTF. Sem névoa: o que escurece é a luz e um
 // escurecimento suave com a distância, o mesmo para todas as malhas.
+//
+// ⚠️ A GRADE É 429×429, NÃO 137×137 (o número que este cabeçalho tinha até
+// 02/09/2026). `public/lunar/btc-core-heightmap.json`, o arquivo real que
+// `loadTerrain` busca, diz `cols: 429`, `cellSizeM: 59,225293797166955`: a
+// meia-largura real do sítio é `214 × 59,225 ≈ 12.674 m`, não os ~4.027 m que
+// 137×137 daria. Achado ao medir a máscara da malha grossa em
+// `terreno-fino.ts`: a primeira versão do Bloco A supôs, com o número errado,
+// que um único nível de clipmap extra cobriria o sítio inteiro, e não cobre.
 import * as THREE from 'three'
 import { PODIO_Y, PODIO_R0, PODIO_R1, PODIO_R2, PODIO_R3, PODIO_R3_PARQUE } from './dome'
 import { exageroEm, VEX_HORIZONTE } from './vex'
 import { PARK_CENTER, PARK_PIT, parkReach, parkCore } from './park-site'
 import { look2 } from './look'
 import { vestir } from './materiais'
+import { microRelevoAt, TERRENO_FINO_ATIVO } from './terreno-fino'
 
 export interface TerrainMeta {
   cols: number
@@ -70,6 +79,16 @@ export interface Terrain {
    * Quem desenha chão (via, praça, lote, peça) usa ESTA e casa exatamente com o
    * que se vê. Quem precisa da superfície real (câmera, física, silhueta do
    * horizonte) usa `heightAt`.
+   *
+   * ⚠️ COM `?terreno=fino` LIGADO, ESTA FUNÇÃO VIRA `heightAt` SEM MAIS NADA,
+   * em todo (x, z). A malha grossa deixa de ser a coisa desenhada por baixo
+   * do clipmap (é mascarada por `THREE.Plane`, ver `terreno-fino.ts`), então
+   * o erro de corda que o parágrafo acima descreve deixa de existir onde o
+   * clipmap cobre; e fora do clipmap a malha grossa segue exatamente como
+   * hoje, então tratar tudo como `heightAt` ali é uma aproximação aceita, não
+   * medida por sonda, para não fazer a resposta desta função depender de
+   * onde a câmera está agora (isso derrubaria árvore, poste e câmera perto
+   * de qualquer fronteira de nível: ver a armadilha 3 em `terreno-fino.ts`).
    */
   superficieAt: (x: number, z: number) => number
   /** O chão SEM a cova do parque: o parque funde a borda dele neste valor. */
@@ -79,6 +98,17 @@ export interface Terrain {
   halfExtent: number
   /** a bacia do lago da praça: margem interna, margem externa e cota da lâmina */
   lago: { r0: number; r1: number; agua: number; fundo: number }
+  /** ⚠️ PARA QUEM DESENHA OUTRA MALHA DE CHÃO COM O MESMO MATERIAL (o
+   *  clipmap de `terreno-fino.ts`). A cor por vértice que a malha grossa usa
+   *  em `push`, exposta para não duplicar a conta: cinza normalizado quando
+   *  `look2` está ligado (a textura manda no tom), cor direta senão. */
+  corAt: (x: number, z: number, relief: number, out: THREE.Color) => THREE.Color
+  /** metros de mundo por unidade de UV, para quem precisar casar o ladrilho
+   *  da textura com a malha grossa. */
+  uvEscala: number
+  /** o material da malha grossa, por referência: quem quiser reusar (e não
+   *  criar um material novo) clona a partir daqui. */
+  material: THREE.Material
 }
 
 const BASE = new THREE.Color('#3f3d3a') // regolito iluminado pelo sol; o material escurece o resto
@@ -445,18 +475,41 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
     // ⚠️ O ALCANCE VEM DA DIREÇÃO, não de uma constante: curto no rumo da cidade
     // (onde fica o Portão do parque) e inteiro nos outros. Ver park-site.ts.
     const meia = parkReach(lx, lz), nucleo = parkCore(lx, lz)
-    if (r >= meia) return b
-    const k = r <= nucleo ? 1 : 1 - (r - nucleo) / (meia - nucleo)
-    const kk = k * k * (3 - 2 * k)
-    return b - kk * Math.max(0, b - (parkDatum - PARK_PIT))
+    const bParque = r >= meia ? b : (() => {
+      const k = r <= nucleo ? 1 : 1 - (r - nucleo) / (meia - nucleo)
+      const kk = k * k * (3 - 2 * k)
+      return b - kk * Math.max(0, b - (parkDatum - PARK_PIT))
+    })()
+    // ⚠️ O MICRO-RELEVO DO TERRENO FINO ENTRA AQUI, E É A ARMADILHA 1 DO
+    // BLOCO A: se ele existisse só na malha desenhada, peça, rua, poste,
+    // árvore e câmera (que pousam todos em `heightAt`/`superficieAt`, não na
+    // malha) ficariam flutuando ou afundadas sobre o chão que a tela mostra.
+    // `microRelevoAt` devolve 0 sem a bandeira `?terreno=fino` (checado na
+    // primeira linha dela), então esta soma é `bParque + 0 = bParque` bit a
+    // bit quando a bandeira está desligada. Ver o cabeçalho de `terreno-fino.ts`.
+    return bParque + microRelevoAt(x, z)
   }
 
-  // A mesma superfície que a malha abaixo desenha: acha a célula da grade, o
-  // triângulo dentro dela (a diagonal vai de (i+1,j) a (i,j+1), ver o
-  // `indices.push(a, c, b, b, c, d)` logo adiante) e interpola linear. Fora da
-  // grade do sítio devolve heightAt, porque a saia é feita de anéis radiais e
-  // não de grade.
+  // ⚠️ CONTRATO NOVO, DEPOIS DE A MALHA GROSSA SER MASCARADA (não mais
+  // desenhada) por baixo do clipmap fino: com `?terreno=fino` ligado, esta
+  // função é `return heightAt(x, z)`, ponto final, sem depender de qual
+  // nível do clipmap cobre o ponto nem de onde a câmera está agora.
+  //
+  // A tentação era responder pela malha que está desenhada NESTE instante
+  // (o clipmap perto, a grade de 59 m longe): foi descartada porque a
+  // resposta para o MESMO (x, z) mudaria conforme a câmera anda (o clipmap
+  // é centrado nela), e árvore, poste e câmera pousam nesta função uma vez
+  // e não esperam que o chão debaixo deles se mova depois. `heightAt` é
+  // pura em (x, z); o único resíduo de dependência de câmera que ela carrega
+  // é o próprio micro-relevo (até 12 cm, orçado e aceito), não a escolha de
+  // malha. Ver a armadilha 3 no cabeçalho de `terreno-fino.ts`.
+  //
+  // Sem a bandeira, nada disto roda: o caminho de baixo (a mesma superfície
+  // que a malha grossa desenha, achando a célula da grade e interpolando
+  // linear, com a grade do sítio e a faixa fina do lago) continua sendo a
+  // resposta inteira, exatamente como antes deste bloco existir.
   const superficieAt = (x: number, z: number): number => {
+    if (TERRENO_FINO_ATIVO) return heightAt(x, z)
     const ci = Math.floor(x / cell + half), cj = Math.floor(z / cell + half)
     if (ci < 0 || cj < 0 || ci >= n - 1 || cj >= n - 1) return heightAt(x, z)
     // ⚠️ DENTRO DA FAIXA DO LAGO A MALHA É OUTRA. Ver `naFaixa`: ali a célula
@@ -485,26 +538,34 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
   const uvs: number[] = []
   const indices: number[] = []
   const col = new THREE.Color()
+  // ⚠️ A COR POR VÉRTICE MULTIPLICA O MAPA, e é aqui que a armadilha mora.
+  // `regolithColor` devolve BASE (#3f3d3a, 0,0497 linear) VEZES um fator de
+  // sombreamento; vestir o material por cima disso multiplicaria a receita
+  // do regolito por 0,05 e o chão sairia preto e sujo. A escolha foi deixar
+  // a TEXTURA mandar no tom e a cor por vértice guardar só o que ela sabe e
+  // a textura não: o relevo, o ruído por vértice e o escurecimento com a
+  // distância. Por isso o valor vira cinza normalizado (BASE sai da conta) e
+  // volta pela tinta TINTA_REGOLITO do material.
+  // A alternativa, desligar `vertexColors`, foi descartada: perderia o
+  // escurecimento de 26 km do horizonte, que é o que dá profundidade à saia
+  // e não tem como vir de um ladrilho de 90 m.
+  //
+  // ⚠️ EXTRAÍDA DE `push` PARA `terreno-fino.ts` PODER REUSAR, sem duplicar a
+  // conta nem importar este arquivo (ciclo: `terrain.ts` importa
+  // `terreno-fino.ts` para o micro-relevo). Comportamento idêntico ao que
+  // `push` fazia inline, nenhum número muda.
+  const corVertice = (x: number, z: number, relief: number, out: THREE.Color): THREE.Color => {
+    regolithColor(x, z, relief, Math.hypot(x, z), out)
+    if (look2) {
+      const s = out.r / BASE.r
+      return out.set(s, s, s)
+    }
+    return out
+  }
   const push = (x: number, y: number, z: number, relief: number) => {
     positions.push(x, y, z)
-    regolithColor(x, z, relief, Math.hypot(x, z), col)
-    if (look2) {
-      // ⚠️ A COR POR VÉRTICE MULTIPLICA O MAPA, e é aqui que a armadilha mora.
-      // `regolithColor` devolve BASE (#3f3d3a, 0,0497 linear) VEZES um fator de
-      // sombreamento; vestir o material por cima disso multiplicaria a receita
-      // do regolito por 0,05 e o chão sairia preto e sujo. A escolha foi deixar
-      // a TEXTURA mandar no tom e a cor por vértice guardar só o que ela sabe e
-      // a textura não: o relevo, o ruído por vértice e o escurecimento com a
-      // distância. Por isso o valor vira cinza normalizado (BASE sai da conta) e
-      // volta pela tinta TINTA_REGOLITO do material.
-      // A alternativa, desligar `vertexColors`, foi descartada: perderia o
-      // escurecimento de 26 km do horizonte, que é o que dá profundidade à saia
-      // e não tem como vir de um ladrilho de 90 m.
-      const s = col.r / BASE.r
-      colors.push(s, s, s)
-    } else {
-      colors.push(col.r, col.g, col.b)
-    }
+    corVertice(x, z, relief, col)
+    colors.push(col.r, col.g, col.b)
     // UV em MUNDO dividido por UV_ESCALA. ⚠️ NÃO É `vestir(mat, nome, 1)`: o
     // `repeat` de `vestir` é `max(1, mundo/metros)` e o piso trava em 1, então
     // UV em metros crus daria um ladrilho por metro. Com UV em quilômetros e
@@ -668,7 +729,8 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
   const group = new THREE.Group()
   group.add(mesh)
   return { group, heightAt, horizonAt: heightAt, superficieAt, baseAt, meanHeight: mean, halfExtent,
-           lago: { r0: LAGO_R0, r1: LAGO_R1, agua: LAGO_AGUA_Y, fundo: -LAGO_FUNDO } }
+           lago: { r0: LAGO_R0, r1: LAGO_R1, agua: LAGO_AGUA_Y, fundo: -LAGO_FUNDO },
+           corAt: corVertice, uvEscala: UV_ESCALA, material: mat }
 }
 
 function flipWinding(geo: THREE.BufferGeometry) {

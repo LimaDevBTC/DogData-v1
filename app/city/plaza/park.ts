@@ -33,8 +33,26 @@ import { PARK_CENTER, PARK_ROT_Y, PARK_HALF, PARK_CORE, TEMPLE_WORLD, parkReach,
 import { buildLeonidasCave, CAVE_LOCAL, CAVE_YAW } from './leonidas-cave'
 import { mergeStaticByMaterial, type PerfProfile, type DistanceCuller } from './perf'
 import { SF, loadSf, dressSf } from './sf-assets'
+import { FUNDIR, fundirMalhasLisas } from './fusao'
 
 export { PARK_CENTER, PARK_ROT_Y }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// A FUSÃO DO TEMPLO E DAS TRILHAS (`?fundir=1`). `materialLiso` e
+// `fundirMalhasLisas` viviam aqui e se mudaram para `fusao.ts` (censo de
+// 02/09, frente orçamento): a técnica é genérica, não específica do parque,
+// e os seis prédios de `plaza-scene.tsx` (254 dos ~510 materiais da entrada
+// padrão) são o próximo a usá-la. Esta seção documentava o achado que abriu
+// o módulo, e fica como resumo: lendo o JSON de `temple.glb` e `trails.glb`,
+// 16 + 9 = 25 materiais, e 24 deles (todos menos `M_T5`, a pedra runestone
+// que já troca de material na linha do `TIER_BY_NAME` abaixo) são PBR LISO,
+// sem mapa nenhum. `mergeStaticByMaterial` (perf.ts) já funde por material
+// EXISTENTE (138 malhas → ~20) mas não reduz quantos materiais existem;
+// `fundirMalhasLisas` funde os 24 num só ANTES daquela rodar, e ela roda
+// depois só para o que sobrar (a pedra retagueada). `temple-hall.glb`
+// (leonidas-cave.ts, 9 materiais, TODOS com textura) não entra: fundir
+// textura sem atlas troca o pixel, e isso fica fora da bandeira.
+// ═══════════════════════════════════════════════════════════════════════════
 
 export interface Park {
   group: THREE.Group
@@ -458,7 +476,18 @@ export async function loadPark(opts: { baseAt: (x: number, z: number) => number;
     built.updateMatrixWorld(true)
     return new THREE.Box3().setFromObject(node)
   })()
-  mergeStaticByMaterial(built, /^$/) // 138 malhas → ~20
+  // ⚠️ A FUSÃO ENTRA AQUI, DEPOIS do `podiumBox` (que procura o nó "Podium" pelo
+  // NOME, e a fusão apaga nomes) e depois do `traverse` que ajusta rugosidade e
+  // emissiva (a fusão lê o material já mutado, senão reconstrói o valor errado
+  // de antes do ajuste). Atrás de `?fundir=1`: sem a bandeira, `built` chega em
+  // `mergeStaticByMaterial` do jeito que sempre chegou, byte a byte igual a hoje.
+  if (FUNDIR) {
+    const r = fundirMalhasLisas(built, /^$/)
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('stats') === '1') {
+      console.log('[park] fundiu', r.antes, 'malhas lisas em', r.fundidas, 'material(is)')
+    }
+  }
+  mergeStaticByMaterial(built, /^$/) // 138 malhas → ~20; com `?fundir=1` já não sobra quase nada aqui
   group.add(built)
   // as trilhas e o templo só de perto do parque (153 mil triângulos de passarela)
   opts.culler?.add(built, opts.profile?.parkDetailCull ?? 4200, PARK_CENTER)

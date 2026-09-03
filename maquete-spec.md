@@ -190,6 +190,17 @@ escrito em `tecido.ts:46-52`: a primeira paleta ficava em L 0,70 a 0,87 e a chap
 
 ## 2. CHÃO E LOTE, módulo novo `app/city/plaza/lotes.ts`
 
+> **OBSOLETA NA PARTE DE LOTE, 02/09/2026.** O fundador decidiu em 30/08 que a
+> demarcação do lote NÃO aparece (`tecido.ts` ficou em `modo: 'obra'`), e
+> reafirmou a decisão em 02/09 ao definir o alvo da fundação: a cidade mostra
+> infraestrutura, não divisa, porque nada foi mintado e lote demarcado promete
+> uma posse que não existe. Consequência: `buildLotes` ficou exportado e sem
+> nenhum importador, e a técnica dele (quad instanciado com a divisa desenhada no
+> fragmento, medida contra decalque projetivo e contra atlas) migrou para o
+> sistema de decalque de chão. O plano corrente é `fundacao-gta5.md`, Bloco C.
+> **Não reimplante a divisa lendo esta seção.** O que continua valendo aqui é a
+> técnica e as três medições que ela carrega, não o produto.
+
 **Construtor 1.** O módulo nasce novo e assume o desenho do lote. `tecido.ts` perde o
 plinto e o marco no `modo === 'lote'` e continua dono do `modo === 'massa'` (diagnóstico) e
 da chamada de `buildPecas`.

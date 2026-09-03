@@ -87,7 +87,28 @@ export function loadSf(gltf: GLTFLoader, url: string): Promise<THREE.Object3D | 
   // aviso mandava a próxima pessoa procurar um arquivo que estava lá.
   // Agora ele carrega o erro junto, que é a única informação que separa os dois
   // casos.
-  return new Promise((res) => gltf.load(url, (g) => res(g.scene), undefined, (err) => {
+  //
+  // ⚠️ UM TERCEIRO CASO, achado em 02/09 (censo da frente orçamento): o arquivo
+  // RESPONDE 200, o glTF é VÁLIDO, e a cena vem VAZIA: zero nós, zero malha.
+  // `cardume.glb`, `peixe-anjo.glb` e `polvo-jardim.glb` em `public/city/sf/`
+  // são assim hoje (132 bytes, `{"scenes":[{"name":"Scene"}]}`, conversão que
+  // não terminou). Sem este bloco, `loadSf` devolvia um `Object3D` de verdade
+  // (sem erro, sem aviso) e quem chamasse `root.traverse` achava zero malha e
+  // seguia calado (`buildProps` já tem `if (!parts.length) return`): a peça
+  // simplesmente não aparecia, sem uma linha no console dizendo por quê. Agora
+  // uma cena sem malha nenhuma conta como ausente, com o MESMO aviso e o MESMO
+  // `null` que o resto desta função já devolve; quem chama não precisa saber
+  // que existe um terceiro caso.
+  return new Promise((res) => gltf.load(url, (g) => {
+    let temMalha = false
+    g.scene.traverse((o) => { if ((o as THREE.Mesh).isMesh) temMalha = true })
+    if (!temMalha) {
+      console.warn('[plaza] asset carregou mas a cena está vazia (zero malhas)', url)
+      res(null)
+      return
+    }
+    res(g.scene)
+  }, undefined, (err) => {
     console.warn('[plaza] asset não carregou', url, err instanceof Error ? err.message : err)
     res(null)
   }))

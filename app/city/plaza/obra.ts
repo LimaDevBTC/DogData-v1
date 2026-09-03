@@ -1,0 +1,172 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// A OBRA: construção da cidade com ORÇAMENTO DE QUADRO.
+//
+// ⚠️ POR QUE ISTO EXISTE, E O NÚMERO QUE OBRIGOU. Medido em 02/09/2026 com
+// `PerformanceObserver` em `longtask`, no boot de `/city`: **60,3 s de thread
+// bloqueada em 29 tarefas, num boot de 63 s**. Ou seja a thread principal fica
+// presa 96% do tempo. E a forma é pior que o total:
+//
+//     21.257 ms  numa ÚNICA tarefa   Runestone Park
+//      7.648 ms  numa única tarefa   Chalé OrdCards
+//      5.490 ms  + 4.498 ms          monumentos
+//      4.155 ms  + 2.790 + 2.488     terreno, domo, tecido
+//
+// Quatro monolitos respondem por 53 dos 60 segundos.
+//
+// ⚠️ E É POR ISSO QUE "ABRIR CEDO E CONSTRUIR EM SEGUNDO PLANO" JÁ FALHOU. O
+// fundador viveu isso: a cidade abria e travava durante o primeiro minuto. Não
+// existe segundo plano numa thread só. Enquanto a peça for uma função síncrona
+// de 21 segundos, mostrar a câmera antes só troca uma espera honesta por um
+// travamento que o visitante lê como app quebrado.
+//
+// A saída não é começar a desenhar mais cedo. É a construção virar
+// INTERROMPÍVEL. Uma peça deixa de ser `function build()` e vira um gerador que
+// cede o controle; o escalonador gasta no máximo `orcamentoMs` por quadro e
+// devolve a thread para o render. O custo por quadro passa a ser um teto que
+// escolhemos, não uma consequência do tamanho da peça.
+//
+// ⚠️ O ORÇAMENTO NÃO É O QUADRO INTEIRO. A 60 fps o quadro tem 16,7 ms e o
+// render da cena já usa boa parte dele: medido em 02/09, `/city` roda entre 28
+// e 41 fps no desktop com a cidade completa, ou seja 24 a 36 ms de render. O
+// orçamento aqui é o que sobra para CONSTRUIR sem estourar o alvo, e por isso o
+// padrão é conservador. Preferimos a cidade nascer mais devagar e a câmera
+// nunca engasgar do que o contrário: engasgo é o que o fundador reclamou.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** Uma peça em construção. Cede o controle sempre que puder. */
+export type Tarefa = Generator<void, void, unknown>
+
+/** Quem constrói se registra assim. `fatia` é chamada até o gerador acabar. */
+export interface Trabalho {
+  /** rótulo para o log e para a barra de progresso */
+  nome: string
+  /** peso relativo, só para a barra andar de forma honesta */
+  peso: number
+  /** 0 = a cidade não abre sem isto. 1 = perto da câmera. 2 = fundo. */
+  faixa: 0 | 1 | 2
+  /** o gerador que faz o trabalho. Pode ceder quantas vezes quiser. */
+  fatia(): Tarefa
+}
+
+export interface ObraOpts {
+  /** teto de milissegundos gastos construindo POR QUADRO. Padrão 6. */
+  orcamentoMs?: number
+  /** chamado quando o progresso muda, com 0..1 e o rótulo corrente */
+  aoAndar?: (fracao: number, nome: string) => void
+  /** chamado quando a faixa 0 termina: é a hora de abrir a cidade */
+  aoAbrir?: () => void
+  /** chamado quando não sobra nada a construir */
+  aoTerminar?: () => void
+}
+
+export class Obra {
+  private fila: Trabalho[] = []
+  private corrente: { t: Trabalho; g: Tarefa } | null = null
+  private pesoFeito = 0
+  private pesoTotal = 0
+  private abriu = false
+  private morto = false
+  private readonly orcamento: number
+  private readonly opts: ObraOpts
+
+  constructor(opts: ObraOpts = {}) {
+    this.opts = opts
+    this.orcamento = opts.orcamentoMs ?? 6
+  }
+
+  /** Enfileira. Pode ser chamado depois da obra já ter começado. */
+  põe(t: Trabalho) {
+    if (this.morto) return
+    this.fila.push(t)
+    this.pesoTotal += t.peso
+    // ⚠️ ORDENA POR FAIXA, ESTÁVEL. `Array.prototype.sort` é estável desde a
+    // ES2019 em todo motor que nos interessa, então dentro da mesma faixa a
+    // ordem de registro é respeitada: quem depende de quem continua funcionando
+    // sem o módulo precisar declarar dependência.
+    this.fila.sort((a, b) => a.faixa - b.faixa)
+  }
+
+  /**
+   * Gasta até `orcamentoMs` construindo. CHAME UMA VEZ POR QUADRO, antes do
+   * render.
+   *
+   * ⚠️ O RELÓGIO É CHECADO ENTRE CESSÕES, NÃO DENTRO DELAS. Se uma peça ceder
+   * de 200 em 200 ms, o orçamento de 6 ms não a segura: ele só decide se a
+   * PRÓXIMA fatia começa. Quem escreve a peça é responsável por ceder fino. A
+   * regra prática que uso nos briefings: ceda a cada algumas centenas de itens,
+   * e meça, não presuma.
+   */
+  passo() {
+    if (this.morto) return
+    const fim = performance.now() + this.orcamento
+    while (performance.now() < fim) {
+      if (!this.corrente) {
+        const t = this.fila.shift()
+        if (!t) break
+        this.corrente = { t, g: t.fatia() }
+        this.opts.aoAndar?.(this.fracao(), t.nome)
+      }
+      let pronto = false
+      try {
+        pronto = !!this.corrente.g.next().done
+      } catch (err) {
+        // ⚠️ UMA PEÇA QUE MORRE NÃO PODE LEVAR A CIDADE. Antes, com tudo atrás
+        // de um `Promise.all`, uma exceção em qualquer módulo segurava o portão
+        // fechado para sempre e o visitante ficava na barra de progresso sem
+        // nenhuma mensagem. Aqui a peça cai, o log conta, e a obra segue.
+        console.error(`[obra] "${this.corrente.t.nome}" caiu e foi descartada`, err)
+        pronto = true
+      }
+      if (pronto) {
+        this.pesoFeito += this.corrente.t.peso
+        const faixaFeita = this.corrente.t.faixa
+        this.corrente = null
+        this.opts.aoAndar?.(this.fracao(), '')
+        if (!this.abriu && faixaFeita === 0 && !this.fila.some((t) => t.faixa === 0)) {
+          this.abriu = true
+          this.opts.aoAbrir?.()
+        }
+      }
+    }
+    if (!this.corrente && !this.fila.length) {
+      if (!this.abriu) { this.abriu = true; this.opts.aoAbrir?.() }
+      this.opts.aoTerminar?.()
+      this.morto = true
+    }
+  }
+
+  private fracao() {
+    return this.pesoTotal ? Math.min(1, this.pesoFeito / this.pesoTotal) : 0
+  }
+
+  get terminou() { return this.morto }
+  get pendentes() { return this.fila.length + (this.corrente ? 1 : 0) }
+
+  descarta() { this.morto = true; this.fila.length = 0; this.corrente = null }
+}
+
+/**
+ * Açúcar para transformar um laço comum em tarefa que cede.
+ *
+ * ⚠️ CEDER POR TEMPO E NÃO POR CONTAGEM. Ceder "a cada 500 itens" parece
+ * equivalente e não é: o custo por item varia com o item (um triângulo perto da
+ * margem custa muito mais que um no miolo, ver o campo de distância em
+ * `lago.ts`), então contagem fixa dá fatia de 2 ms num trecho e de 900 ms no
+ * seguinte. Medir o relógio a cada `passo` itens custa uma chamada barata e
+ * limita o pior caso de verdade.
+ */
+export function* emFatias<T>(
+  itens: ArrayLike<T>,
+  faz: (item: T, i: number) => void,
+  msPorFatia = 4,
+  passo = 64,
+): Tarefa {
+  let t0 = performance.now()
+  for (let i = 0; i < itens.length; i++) {
+    faz(itens[i] as T, i)
+    if (i % passo === 0 && performance.now() - t0 > msPorFatia) {
+      yield
+      t0 = performance.now()
+    }
+  }
+}

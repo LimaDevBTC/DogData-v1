@@ -21,6 +21,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { createBattlefield, type Battlefield } from '../war/battlefield'
 import WarLegend from './war-legend'
 import { loadTerrain } from './terrain'
+import { criarTerrenoFino, ligarNaVia, type TerrenoFino } from './terreno-fino'
 import { createOrbitLayer, PAD_MAIN, SPACEPORT_SHIFT, setOrbitFloor } from './orbit-layer'
 import { startFeed, isDonation, type DogTx, type Snapshot, donationDog } from './feed'
 import { buildChalet, type Chalet } from './chalet'
@@ -48,6 +49,8 @@ import { buildPracas, type Pracas } from './pracas'
 import { buildArborizacao, type Arborizacao, type Cova } from './arborizacao'
 import { buildCanais, type Canais } from './canais'
 import { buildMobiliarioUrbano, type MobiliarioUrbano } from './mobiliario-urbano'
+import { buildDecalques, type Decalques } from './decalques'
+import { FUNDIR, fundirMalhasLisas, NOME_PISCA } from './fusao'
 import { buildLagos, type Lagos } from './lagos'
 import { buildAlpino, type Alpino } from './alpino'
 import { buildMontanha, type Montanha } from './montanha'
@@ -778,6 +781,12 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let pos: Pos | null = null
     const governor = new FrameGovernor(renderer, profile, (dpr) => pos?.setDpr(dpr))
     renderer.setSize(mount.clientWidth, mount.clientHeight)
+    // ⚠️ SEM ISTO OS PLANOS DE RECORTE SÃO IGNORADOS EM SILÊNCIO, sem erro e sem
+    // aviso. `terreno-fino.ts` (`?terreno=fino`) mascara a malha grossa com
+    // quatro THREE.Plane para não haver dois chãos no mesmo lugar; ligar a chave
+    // aqui não custa nada enquanto nenhum material tiver plano, e é o tipo de
+    // linha que se esquece e depois se procura por uma hora.
+    renderer.localClippingEnabled = true
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
     // a exposição passou a ser propriedade da HORA (ver HOURS, mais abaixo); este
@@ -1339,6 +1348,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     // precinct.ts, lotes.ts e light-pool.ts, que são outros módulos e outra
     // cadência. Ligado em 01/09.
     let mob: MobiliarioUrbano | null = null
+    let decal: Decalques | null = null
+    let terrenoFino: TerrenoFino | null = null
     let pracas: Pracas | null = null
     let arvores: Arborizacao | null = null
     let lago: Lago | null = null
@@ -1475,6 +1486,24 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // o comentário do campo em perf.ts. Uma célula fixa aqui era o caminho
         // curto para a praça travar no celular no dia em que ela foi ao ar.
         const qDomo = new URLSearchParams(window.location.search)
+
+        // ── O TERRENO FINO (`?terreno=fino`) ──────────────────────────────────
+        //
+        // ⚠️ O CHÃO DA CIDADE TEM TRIÂNGULO DE 59 m, e é o defeito de primeira
+        // ordem da fundação: abaulamento, sarjeta, talude e micro-relevo não têm
+        // onde existir. Este módulo põe um clipmap de cinco níveis centrado na
+        // câmera (0,5 m debaixo dela) e RECORTA a malha grossa exatamente no
+        // quadrado que ele cobre, para nenhum ponto do mundo ter dois chãos.
+        //
+        // ⚠️ SEM A BANDEIRA ELE É NADA: grupo vazio, material da malha grossa
+        // intocado, `heightAt` bit a bit igual ao de hoje. Isso importa porque
+        // mexer na altura MOVE O MUNDO, e tudo que foi enquadrado à mão sobre
+        // este terreno teria de ser reconferido.
+        terrenoFino = criarTerrenoFino({
+          heightAt: terrain.heightAt, corAt: terrain.corAt, meanHeight: terrain.meanHeight,
+          uvEscala: terrain.uvEscala, material: terrain.material, sombra: qDomo.get('sombra') !== '0',
+        })
+        scene.add(terrenoFino.group)
         if (qDomo.get('domo') !== '0') {
           const num = (k: string, d: number) => {
             const v = parseFloat(qDomo.get(k) || '')
@@ -1987,6 +2016,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               .then((v) => {
                 if (disposed) { v.dispose(); return }
                 vias = v
+                // ⚠️ o micro-relevo é ZERO sob pavimento, e quem sabe onde é
+                // pavimento é a via. Asfalto ondulado é defeito, não detalhe.
+                ligarNaVia(v.naVia)
                 scene.add(v.group)
                 // a rua assentou: agora a árvore pode ser plantada sabendo onde
                 // é pista, sarjeta e calçada
@@ -2028,6 +2060,32 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 console.log(`[mobiliário] ${_m.postes.toLocaleString('pt-BR')} postes ao longo de avenida e anel`)
               }).catch((err) => console.error('[mobiliário] não subiu', err)))
             }
+
+            // ── OS DECALQUES DE CHÃO (`?decalque=1`) ──────────────────────────
+            //
+            // ⚠️ ENTRA AQUI, E NÃO ANTES, POR TRÊS DEPENDÊNCIAS. Ele precisa do
+            // terreno (para pousar), de `vias.naVia` (para saber o que é via) e
+            // de `vias.sobreQue` (para saber SE é pista, sarjeta ou calçada, que
+            // é o que separa remendo de asfalto de junta de concretagem). As
+            // três já respondem neste ponto do boot.
+            //
+            // ⚠️ O MÓDULO SE FECHA SOZINHO NA BANDEIRA. `buildDecalques` lê
+            // `?decalque=1` por dentro e devolve um grupo vazio sem ela, então
+            // não há condicional aqui: quem decide é o módulo, como em `look.ts`.
+            decal = buildDecalques({
+              heightAt: terrain.superficieAt,
+              naVia: vias ? (x, z, folga) => vias!.naVia(x, z, folga) : undefined,
+              // ⚠️ `sobreQue` AINDA NÃO EXISTE em `Vias`, e por isso não está
+              // ligado aqui. A frente de vias está construindo a consulta que
+              // distingue pista, sarjeta e calçada; `decalques.ts` já sabe
+              // consumir e cai no `naVia` largo enquanto ela não vem. Religar
+              // esta linha assim que o tipo existir:
+              //   sobreQue: vias?.sobreQue ? (x, z) => vias!.sobreQue!(x, z) : undefined,
+              // Sem ela, remendo de asfalto e junta de concretagem disputam a
+              // mesma zona, que é exatamente o defeito que a consulta conserta.
+              sombra: qDomo.get('sombra') !== '0',
+            })
+            scene.add(decal.group)
 
             // ⚠️ A COROA DE NEVE É FUNDO, NÃO DESTINO, E O NÚMERO MANDA NISSO.
             // Medi a grade construída dentro da casca (raio 9.050): o pico é
@@ -2495,6 +2553,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           // por isso; o marco tinha nascido fora dele. Diminuir refletor não
           // resolvia nada, e foi o que eu tentei antes de medir.
           tameEnv(btcMark)
+          // sem armadilha: btcMark não entra em reconcileSite, nem em pulses, nem
+          // no laço de mescla, e nenhum nó dele é procurado por nome depois
+          if (FUNDIR) fundirMalhasLisas(btcMark, /^$/)
           btcMark.traverse((o) => {
             const mesh = o as THREE.Mesh
             if (!mesh.isMesh) return
@@ -2541,10 +2602,34 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         reconcileSite(krayLod1)
         for (const root of [bitflowLod1, krayLod1, needleLod1]) liftMassing(root)
         const LOD_DIST = profile.lodDistance // a vista de casa (1,6 km) fica com as torres inteiras
+        // ⚠️ `KEEP` SUBIU PARA CÁ EM 02/09 e a razão é o `lodOf` logo abaixo: o
+        // LOD1 é fundido no mesmo ponto em que é mesclado, e ele nasce antes do
+        // laço do LOD0. Uma lista de protegidos só serve se as duas pontas leem
+        // a MESMA lista.
+        const KEEP = /^(KRAY_CROWN_ICON|BITFLOW_ROOF_MARK|WATER_JET|NEEDLE_LED_BAND|NEEDLE_LED_DOTS|BITFLOW_SIGN_BACK)$/
+        // ⚠️ E A FUSÃO PRECISA DE UMA LISTA MAIOR QUE A DA MESCLA, porque as duas
+        // quebram coisas diferentes. `mergeStaticByMaterial` REUSA o objeto de
+        // material, então o `pulses` continua achando o material que ele guardou
+        // por referência. `fundirMalhasLisas` CRIA material novo e descarta o
+        // velho: o material antigo fica órfão, o `pulses` continua mutando ele, e
+        // nada mais o desenha. O farol da Needle e o LED da BitFlow parariam de
+        // respirar EM SILÊNCIO. Medido: NEEDLE_BEACON, BITFLOW_LED_TRIM,
+        // BITFLOW_CORE_STRIP, BITFLOW_PORTAL_GLOW, SP_RocketBeacon e SP_EngineGlow
+        // são todos PBR liso e nenhum está no KEEP. `NOME_PISCA` vem de fusao.ts,
+        // que é a mesma fonte que o `pulses` usa, para as duas pontas nunca
+        // divergirem.
+        const PROTEGIDOS = new RegExp(`${KEEP.source}|${NOME_PISCA.source}`, 'i')
         const lodOf = (full: THREE.Object3D, low: THREE.Object3D | null) => {
           const lod = new THREE.LOD()
           lod.addLevel(full, 0)
-          if (low) { mergeStaticByMaterial(low, /^$/); lod.addLevel(low, LOD_DIST, 0.08) } // histerese: sem pisca na fronteira
+          if (low) {
+            // ⚠️ O NÍVEL DE LONGE PASSA PELA MESMA FUSÃO QUE O DE PERTO. Fundir
+            // só o nível 0 faria a praça TROCAR de material, e de contagem de
+            // programa, no instante em que a câmera recua e o three troca de
+            // nível. É o mesmo dever que a repintura dos sítios já tem.
+            if (FUNDIR) fundirMalhasLisas(low, PROTEGIDOS)
+            mergeStaticByMaterial(low, /^$/); lod.addLevel(low, LOD_DIST, 0.08) // histerese: sem pisca na fronteira
+          }
           return lod
         }
         const needleLod = lodOf(needle, needleLod1)
@@ -2663,7 +2748,20 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         }
 
         // perf: cada GLB vira poucas malhas (uma por material); os nós animados ficam de fora
-        const KEEP = /^(KRAY_CROWN_ICON|BITFLOW_ROOF_MARK|WATER_JET|NEEDLE_LED_BAND|NEEDLE_LED_DOTS|BITFLOW_SIGN_BACK)$/
+        // (`KEEP` e `PROTEGIDOS` subiram para junto do `lodOf`, ver a nota lá)
+        //
+        // ⚠️ A ORDEM DESTE BLOCO É CONTRATO, e ela é: stripByName, reconcileSite,
+        // liftMassing, FUSÃO, mescla. A fusão lê `color`, `roughness` e
+        // `emissive` no estado ATUAL do material, então rodar depois da repintura
+        // não é coincidência, é o único jeito de ela reconstruir a cor certa. E
+        // rodar antes apagaria os nomes de material (`site_asphalt`, `site_kerb`,
+        // `veg_leaf`) de que a repintura depende.
+        if (FUNDIR) {
+          for (const [root, label] of [[plaza, 'plaza'], [spaceport, 'spaceport'], [needle, 'needle'], [bitflow, 'bitflow'], [kray, 'kray']] as const) {
+            const r = fundirMalhasLisas(root, PROTEGIDOS)
+            if (wantStats) console.log(`[plaza] fundiu ${label}: ${r.antes} malhas lisas em ${r.fundidas} material(is)`)
+          }
+        }
         for (const [root, label] of [[plaza, 'plaza'], [spaceport, 'spaceport'], [needle, 'needle'], [bitflow, 'bitflow'], [kray, 'kray']] as const) {
           const r = mergeStaticByMaterial(root, KEEP)
           if (wantStats) console.log(`[plaza] merged ${label}: ${r.before} → ${r.after} meshes`)
@@ -3211,6 +3309,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       // só faz trabalho quando a câmera anda mais que o passo dele; fora
       // disso retorna na primeira linha
       mob?.atualizar(camera)
+      decal?.atualizar(camera)
+      terrenoFino?.atualizar(camera)
       lago?.update(t)
       canais?.update(t)
       lagos?.update(t)
@@ -3448,6 +3548,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       pracas?.dispose()
       arvores?.dispose()
       mob?.dispose()
+      decal?.dispose()
+      terrenoFino?.dispose()
       lago?.dispose()
       canais?.dispose()
       lagos?.dispose()

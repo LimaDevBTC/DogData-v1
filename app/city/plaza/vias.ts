@@ -103,12 +103,31 @@ export interface Vias {
    *  onde a arborização de eixo deve plantar (ver SEC_BULEVAR e SEC_ANEL); marcar
    *  a seção inteira apagaria as duas fileiras que a cidade quer ter. */
   naVia(x: number, z: number, folga?: number): boolean
+  /** ⚠️ TAREFA 4 (02/09): sobre qual das três superfícies (x,z) cai, ou
+   *  `null` se não está em nenhuma. Mesma máscara de `naVia`, célula de 4 m
+   *  (a sarjeta, de 0,40 m, nem sempre vence a célula: ver a nota grande de
+   *  `mascara`). Pra decalque de junta/remendo, não pra precisão de traço. */
+  sobreQue(x: number, z: number): 'pista' | 'sarjeta' | 'calcada' | null
   /** quanto custou preencher a grade da máscara, em ms (medido no boot) */
   mascaraMs: number
   /** liga/desliga as marcas de bulevar por distância; redundante se `culler` foi passado */
   update(cam: THREE.Vector3): void
   dispose(): void
 }
+
+// ── A BANDEIRA DO CORTE (Bloco B, fundacao-gta5.md, 02/09) ─────────────────
+// ⚠️ MESMO PADRÃO DE `look.ts` (lida uma vez, no módulo, com guarda de SSR),
+// mas escrita aqui porque `look.ts` não é meu arquivo: cada bandeira desta
+// casa mora no módulo dono da peça que ela liga. O corte de verdade da seção
+// (abaulamento, sarjeta em V, esquina) é CONTEÚDO NOVO sobre uma via que já
+// funciona, não correção de defeito objetivo, e o bot de auto-commit publica
+// de hora em hora: sem bandeira, o passo intermediário apareceria pro
+// visitante antes de eu e o fundador termos visto as chapas lado a lado.
+function lerCorte(): boolean {
+  if (typeof window === 'undefined') return false
+  return new URLSearchParams(window.location.search).get('corte') === '1'
+}
+const CORTE1 = lerCorte()
 
 // ⚠️ AS COTAS SÃO O QUE FAZ A RUA TER SEÇÃO E NÃO SER UM ADESIVO. O plinto do
 // lote em tecido.ts tem 0,45 m; a calçada fica 0,12 abaixo dele e a pista 0,15
@@ -300,6 +319,70 @@ const CB_SARJETA = 0.40
 const CB_CHANFRO = 0.05
 const CB_TOPO = 0.28
 const CB_LIP = 0.015
+
+// ── O CORTE DE VERDADE (Bloco B, fundacao-gta5.md, atrás de `?corte=1`) ────
+// ⚠️ ABAULAMENTO: 2% de caimento do eixo pra sarjeta, o número do plano
+// (fundacao-gta5.md, Bloco B item 1). Aplicado como altura de crista no meio
+// de cada banda de pista (ver `faixa`, parâmetro `abaular`): a borda fica na
+// mesma cota de sempre, só o meio sobe.
+const ABAUL_PCT = 0.02
+
+// ⚠️ RAMPA DO REBAIXAMENTO (Tarefa 3, item 4 do Bloco B): 1:12 é a proporção
+// que o plano pede; o comprimento em metros é essa proporção aplicada ao
+// próprio degrau já declarado (Y_CALCADA-Y_PISTA=0,15m), não um número novo.
+const RAMPA_1_12 = 12
+const RAMPA_EXTREMOS = (Y_CALCADA - Y_PISTA) * RAMPA_1_12   // 1,8 m
+
+// ⚠️ A SARJETA EM V, E POR QUE ELA NÃO CONTRARIA O CB_SARJETA=0,40 ACIMA. O
+// plano original (fundacao-gta5.md, Bloco B item 2) pede "sarjeta em V de
+// 30 cm". A rodada de 02/09 que fixou CB_SARJETA já MEDIU e REJEITOU uma
+// sarjeta REBAIXADA nessa largura: "a pista aqui é um quad PLANO de até 24 m;
+// uma sarjeta rebaixada ficaria escondida por baixo dele" (nota acima, "A
+// SARJETA NÃO É UMA CONCHA"). Essa rejeição continua certa para uma pista
+// FLAT. Com o abaulamento acima a pista deixa de ser flat: a borda encosta
+// exatamente onde sempre encostou (a rejeição não fala da LARGURA, fala da
+// PROFUNDIDADE), então mantenho os 0,40 m já medidos e abro o V DENTRO deles,
+// como uma continuação do MESMO caimento que a pista acabou de ganhar, só que
+// mais íngreme (é o que concentra a água pro centro da sarjeta em vez de
+// deixá-la correr pelos 40 cm inteiros). CB_V_PCT não é medido em campo
+// nenhum, nenhuma fonte primária foi achada pra sarjeta de maquete lunar; é
+// uma decisão de projeto, registrada como tal, e o valor é deliberadamente
+// MAIOR que os 2% da pista (é a sarjeta que tem de vencer, não o contrário).
+const CB_V_PCT = 0.05
+const CB_V_FUNDO = (CB_SARJETA / 2) * CB_V_PCT   // ~1 cm, o fundo do V
+
+// ⚠️ O ESCOPO DO BLOCO B, E O QUE FICOU DE FORA. Dos cinco itens do plano:
+//   1. abaulamento              FEITO (acima, `faixa` + parâmetro `abaular`)
+//   2. sarjeta em V             FEITO (acima, `meioFio`)
+//   3. face de meio-fio         JÁ EXISTIA antes deste Bloco B: a rodada de
+//      com chanfro               02/09 que fixou CB_SARJETA/CB_CHANFRO/CB_TOPO
+//                                já desenha `paredeVert` (face vertical) mais
+//                                o chanfro de 45°. Nenhuma linha nova aqui.
+//   4. rebaixamento de esquina  NÃO FEITO.
+//   5. raio de concordância     NÃO FEITO.
+// ⚠️ 4 e 5 exigem saber onde duas arestas do contorno se encontram (o canto do
+// quarteirão) e cortar OU a parede do meio-fio OU o quad da pista bem
+// perto dali, sem abrir buraco nem sobrepor. Testei achar o quanto os cantos
+// de quarteirões VIZINHOS coincidem numa malha radial (banda muda `giro` e
+// `prof`, não é grade cartesiana) e não cheguei a um número em que confiasse
+// o bastante pra cortar geometria sobre ele sem risco de fresta ou
+// sobreposição em alguma das quatro bandas. Registrado como NÃO MEDIDO, não
+// como feito com pressa: o canto do contorno hoje fica reto (miter), sem
+// rampa e sem raio, e o defeito de FRENTE (Tarefa 1) não depende disso.
+//
+// ⚠️ O ORÇAMENTO, MEDIDO OFFLINE (node/tsx sobre o JSON, `heightAt` fixo em 0,
+// sem baía, sem material novo, mesmas malhas de sempre): a Tarefa 1 sozinha
+// (contorno sem corte) levou o grupo `vias` de 557.104 para 1.276.564
+// triângulos (+719.460, o custo de dar frente pra rua a 1.862 quarteirões que
+// não desenhavam nada). Ligar `?corte=1` por cima soma mais 328.524
+// (1.276.564 -> 1.605.088, +25,7%): é o abaulamento dobrando cada banda de
+// pista do contorno em duas, mais a sarjeta em V dobrando cada `deitado` de
+// sarjeta em TODA a guia da cidade (contorno, bulevar e anel, porque
+// `meioFio` é compartilhada pelas três). Chamada de desenho: zero a mais (a
+// geometria cai nas MESMAS Fitas de sempre). Material e programa de shader:
+// zero a mais, nenhum `new THREE.MeshStandardMaterial` neste bloco inteiro.
+// `metrosDeVia` não muda com `?corte=1` (268.204 -> 1.630.669 é só a Tarefa
+// 1; o corte é seção, não comprimento).
 
 // ── O OMBRO DA VIA (02/09) ─────────────────────────────────────────────────
 // ⚠️ O DEFEITO: A PISTA ERA UMA FITA DE ASFALTO LARGADA SOBRE REGOLITO NU. Entre
@@ -869,14 +952,43 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   // Ver a nota longa nas constantes MASC_*. Os quads são acumulados aqui e
   // rasterizados de uma vez no fim, o que permite MEDIR o preenchimento em ms
   // sem chamar `performance.now()` cem mil vezes dentro do laço de geometria.
-  const mascara = new Uint8Array((MASC_N * MASC_N) >> 3)
+  // ⚠️ TAREFA 4 (02/09): 2 BITS POR CÉLULA, NÃO 1. Até aqui a máscara só
+  // respondia sim/não pra `naVia`; a frente de decalque precisa saber SOBRE
+  // QUE SUPERFÍCIE o ponto cai (remendo de asfalto pede pista, junta de
+  // concretagem pede calçada, e os dois disputavam a mesma zona porque a
+  // máscara não distinguia nenhum dos dois). Código por célula: 0 nada,
+  // 1 pista, 2 calçada, 3 sarjeta (a mais estreita, 0,40 m; ganha empate de
+  // propósito, ver `escreverCel`). Custo medido em MB, não estimado:
+  // MASC_N² = 16.777.216 células. A 1 bit (o que existia) são 2.097.152
+  // bytes = 2 MB. A 2 bits são 4.194.304 bytes = 4 MB. A 1 byte inteiro (a
+  // opção óbvia, um `Uint8Array` sem empacotar) seriam 16.777.216 bytes =
+  // 16 MB, quatro vezes mais que o necessário para só 4 estados. 2 bits é a
+  // codificação mais barata que ainda responde às três classes: escolhida.
+  //
+  // ⚠️ A CÉLULA DE 4 m CONTINUA A MESMA (MASC_CEL), E ISTO É UM LIMITE REAL,
+  // NÃO ESCONDIDO. A sarjeta tem 0,40 m; numa célula de 4 m ela quase sempre
+  // perde área para a pista ou a calçada vizinha, que são bem mais largas. A
+  // prioridade em `escreverCel` (sarjeta > calçada > pista > nada) garante
+  // que uma célula que recebeu QUALQUER escrita de sarjeta responde
+  // 'sarjeta', mas uma célula a 3 m da sarjeta real, que nunca recebeu essa
+  // escrita, responde 'pista' ou 'calcada' mesmo perto da junta. Quem usar
+  // isto decide decalque de ÁREA (a escala que `sobreQue` resolve bem), não
+  // decalque de traço fino.
+  const mascara = new Uint8Array((MASC_N * MASC_N) >> 2)
   const quadsVia: number[] = []
-  const marcarVia = (ax: number, az: number, bx: number, bz: number,
+  /** cada quad carrega o próprio código de classe: pista/calçada/sarjeta */
+  const marcarVia = (codigo: number, ax: number, az: number, bx: number, bz: number,
                      cx: number, cz: number, dx: number, dz: number) => {
-    quadsVia.push(ax, az, bx, bz, cx, cz, dx, dz)
+    quadsVia.push(codigo, ax, az, bx, bz, cx, cz, dx, dz)
   }
-  /** pista e calçada entram; canteiro NÃO, é onde a arborização de eixo planta */
+  /** pista, calçada e platô entram na máscara; canteiro NÃO, é onde a
+   *  arborização de eixo planta */
   const mascaravel = (alvo: Alvo) => alvo === 'pista' || alvo === 'calcada' || alvo === 'plato'
+  /** o platô (plataforma terraplenada do quarteirão) soma no código de
+   *  PISTA: são só 4 estados no total e o platô não é uma das três classes
+   *  que `sobreQue` promete. */
+  const codigoDe = (alvo: Alvo): number => (alvo === 'calcada' ? 2 : (alvo === 'pista' || alvo === 'plato') ? 1 : 0)
+  const COD_SARJETA = 3
 
   // ── A PONTE ───────────────────────────────────────────────────────────────
   //
@@ -957,8 +1069,31 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   ) => {
     const esc = ESC.pedra || 1
     const yT = alto + CB_LIP
-    deitado(guiaPiso, off - lado * CB_SARJETA, off, baixo + FOLGA, baixo + FOLGA,
-            ax, az, bx, bz, px, pz, esc, vA, vB)
+    // ⚠️ TAREFA 4: A PEGADA DA SARJETA NA MÁSCARA, INDEPENDENTE DE `?corte=1`.
+    // A sarjeta em si (flat ou em V) sempre existiu aqui; o que não existia
+    // era ALGUÉM registrando essa faixa de 0,40 m na máscara. Sem isto
+    // `sobreQue` nunca devolveria 'sarjeta', porque nenhum quad da guia
+    // chamava `marcarVia`. XZ apenas, então V ou flat dá o mesmo retângulo.
+    {
+      const sa = off - lado * CB_SARJETA, sb = off
+      marcarVia(COD_SARJETA,
+        ax + px * sa, az + pz * sa, ax + px * sb, az + pz * sb,
+        bx + px * sb, bz + pz * sb, bx + px * sa, bz + pz * sa)
+    }
+    if (CORTE1) {
+      // ⚠️ SARJETA EM V (item 2 do Bloco B): ver a nota grande de CB_V_PCT,
+      // acima. Os dois EXTREMOS ficam exatamente onde a sarjeta rente já
+      // encostava (a pista de um lado, o chanfro do outro); só o fundo, no
+      // meio dos 0,40 m, cai `CB_V_FUNDO`.
+      const meio = off - lado * CB_SARJETA * 0.5
+      deitado(guiaPiso, off - lado * CB_SARJETA, meio, baixo + FOLGA, baixo + FOLGA - CB_V_FUNDO,
+              ax, az, bx, bz, px, pz, esc, vA, vB)
+      deitado(guiaPiso, meio, off, baixo + FOLGA - CB_V_FUNDO, baixo + FOLGA,
+              ax, az, bx, bz, px, pz, esc, vA, vB)
+    } else {
+      deitado(guiaPiso, off - lado * CB_SARJETA, off, baixo + FOLGA, baixo + FOLGA,
+              ax, az, bx, bz, px, pz, esc, vA, vB)
+    }
     deitado(guiaPiso, off, off + lado * CB_CHANFRO, yT - CB_CHANFRO, yT,
             ax, az, bx, bz, px, pz, esc, vA, vB)
     deitado(guiaPiso, off + lado * CB_CHANFRO, off + lado * CB_TOPO, yT, yT,
@@ -1051,6 +1186,22 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     ombro = 0,
     /** soleira clara rente à calçada, dentro do ombro */
     soleira = 0,
+    /** ⚠️ CORTE DE VERDADE (Bloco B, atrás de `?corte=1`): crista a `ABAUL_PCT`
+     *  no meio de cada banda de pista. DESLIGADO por padrão de propósito: quem
+     *  usa `faixa` pra bulevar e avenida pinta eixo e faixa de pedestre com
+     *  `pontoVia`, que lê a altura pela banda FLAT (ver a nota grande dali) e
+     *  não sabe da crista. Ligar aqui sem mexer em `pontoVia` enterraria a
+     *  tinta sob o asfalto. Só o contorno de quarteirão, que não pinta nada,
+     *  liga isto hoje. */
+    abaular = false,
+    /** ⚠️ REBAIXAMENTO NAS PONTAS (Tarefa 3, 02/09), rampa 1:12. Distância em
+     *  metros, medida A PARTIR DE CADA PONTA do trilho (s=0 e s=comp), em que
+     *  o meio-fio e a calçada descem de volta pra cota da pista. O número não
+     *  é escolhido: é o próprio degrau já declarado (Y_CALCADA-Y_PISTA=0,15m)
+     *  dividido pela rampa que a tarefa pediu (1:12) = 1,8 m. Só o contorno
+     *  de quarteirão liga isto (as pontas do trilho SÃO os quatro cantos do
+     *  quarteirão); bulevar e anel não têm ponta no meio do próprio trilho. */
+    rampaExtremos = 0,
   ): Trilho => {
     // ⚠️ O PASSO SAI DO COMPRIMENTO, E ISTO FOI MEDIDO, NÃO ESTIMADO. Com 4
     // passos fixos o lado de 168 m virava trechos de 42 m, e uma faixa plana de
@@ -1086,8 +1237,25 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
       // não o t normalizado: com t o ladrilho esticaria conforme o comprimento do
       // trecho e a emenda entre dois passos apareceria como salto de escala.
       const vA = t0 * comp, vB = t1 * comp
+      // ⚠️ TAREFA 3: fRampa VAI DE 0 (na ponta do trilho) A 1 (a partir de
+      // `rampaExtremos` metros dela pra dentro). É a MESMA fração pras três
+      // coisas que a esquina precisa mexer junto: a altura da calçada, a
+      // altura do meio-fio e (mais abaixo, fora deste laço) a crista do
+      // abaulamento — as três têm de chegar a ZERO exatamente na ponta, ou o
+      // canto arredondado que `?corte=1` desenha lá fora ganha um degrau.
+      const sMeio = ((t0 + t1) / 2) * comp
+      const distExtremo = rampaExtremos > 0 ? Math.min(sMeio, comp - sMeio) : Infinity
+      const fRampa = rampaExtremos > 0 ? Math.min(1, distExtremo / rampaExtremos) : 1
+      const rampaAtiva = CORTE1 && rampaExtremos > 0 && fRampa < 1
       for (let i = 0; i < secao.length; i++) {
         const s = secao[i]
+        const prox = secao[i + 1]
+        // ⚠️ SÓ A BANDA MAIS ALTA DA DUPLA DESCE (a calçada, nunca a pista: a
+        // pista já É a cota de chegada da rampa). Sem `prox` (última banda da
+        // seção) não há dupla pra ramp ar, então não mexe.
+        const altBanda = rampaAtiva && prox && s.alt > prox.alt
+          ? prox.alt + (s.alt - prox.alt) * fRampa
+          : s.alt
         const pax = x0 + perpX * s.de, paz = z0 + perpZ * s.de
         const pbx = x0 + perpX * s.ate, pbz = z0 + perpZ * s.ate
         const pcx = x1 + perpX * s.ate, pcz = z1 + perpZ * s.ate
@@ -1097,24 +1265,63 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
         // ⚠️ A ORDEM DOS t É A ORDEM DOS CANTOS DESTE `add`, e ela não é a mesma
         // do anel (lá é ângulo primeiro). Trocar as duas espelha a trilha de
         // pneu, que numa faixa simétrica não aparece, mas na sarjeta sim.
-        ft.comBanda(s.ate - s.de, 0, 1, 1, 0)
-          .comUV(s.de / esc, vA / esc, s.ate / esc, vA / esc,
-                 s.ate / esc, vB / esc, s.de / esc, vB / esc)
-          .add(COR[s.alvo],
-            pax, cotaVia(pax, paz) + s.alt, paz,
-            pbx, cotaVia(pbx, pbz) + s.alt, pbz,
-            pcx, cotaVia(pcx, pcz) + s.alt, pcz,
-            pdx, cotaVia(pdx, pdz) + s.alt, pdz,
-          )
+        if (CORTE1 && abaular && s.alvo === 'pista') {
+          // ⚠️ ABAULAMENTO, item 1 do Bloco B. A BORDA (s.de e s.ate) fica
+          // EXATAMENTE em `s.alt`, sem mudar: é dali que o degrau do meio-fio
+          // e a máscara leem a altura, e as duas contas continuam corretas sem
+          // saber que a crista existe. Só o MEIO sobe `ABAUL_PCT` por metro de
+          // meia-largura, então a banda vira dois quads (borda -> meio,
+          // meio -> borda) em vez de um, com a normal da luz rasante fazendo o
+          // resto: `computeVertexNormals` no fim de `Fita.malha` lê a
+          // inclinação de verdade, não precisa de mapa de normal pra isso.
+          // ⚠️ E A CRISTA TAMBÉM SOME NA PONTA (`* fRampa`), senão ela desenha
+          // um lombo entrando bem no meio do leque arredondado da esquina, que
+          // lá fora é chapado.
+          const meio = (s.de + s.ate) / 2
+          const crista = s.alt + ((s.ate - s.de) / 2) * ABAUL_PCT * fRampa
+          const tMeio = 0.4995        // ligeiramente antes de 0,5: mesma razão do 0,999 de comBanda
+          const meiaBanda = (oa: number, ob: number, altA: number, altB: number, ta: number, tb: number) => {
+            const qax = x0 + perpX * oa, qaz = z0 + perpZ * oa
+            const qbx = x0 + perpX * ob, qbz = z0 + perpZ * ob
+            const qcx = x1 + perpX * ob, qcz = z1 + perpZ * ob
+            const qdx = x1 + perpX * oa, qdz = z1 + perpZ * oa
+            ft.comBanda(s.ate - s.de, ta, tb, tb, ta)
+              .comUV(oa / esc, vA / esc, ob / esc, vA / esc, ob / esc, vB / esc, oa / esc, vB / esc)
+              .add(COR[s.alvo],
+                qax, cotaVia(qax, qaz) + altA, qaz,
+                qbx, cotaVia(qbx, qbz) + altB, qbz,
+                qcx, cotaVia(qcx, qcz) + altB, qcz,
+                qdx, cotaVia(qdx, qdz) + altA, qdz)
+          }
+          meiaBanda(s.de, meio, s.alt, crista, 0, tMeio)
+          meiaBanda(meio, s.ate, crista, s.alt, tMeio, 0.999)
+        } else {
+          ft.comBanda(s.ate - s.de, 0, 1, 1, 0)
+            .comUV(s.de / esc, vA / esc, s.ate / esc, vA / esc,
+                   s.ate / esc, vB / esc, s.de / esc, vB / esc)
+            .add(COR[s.alvo],
+              pax, cotaVia(pax, paz) + altBanda, paz,
+              pbx, cotaVia(pbx, pbz) + altBanda, pbz,
+              pcx, cotaVia(pcx, pcz) + altBanda, pcz,
+              pdx, cotaVia(pdx, pdz) + altBanda, pdz,
+            )
+        }
         // ⚠️ A MÁSCARA SÓ CONHECE O QUE SAIU. Estamos DEPOIS de todos os
         // `continue` deste passo, ou seja `desenhado[k]` já é true: marcar antes
         // deles cobriria rua que a baía, a borda ou a avenida cortaram, e a
         // arborização deixaria de plantar num terreno vazio.
-        if (mascaravel(s.alvo)) marcarVia(pax, paz, pbx, pbz, pcx, pcz, pdx, pdz)
+        if (mascaravel(s.alvo)) marcarVia(codigoDe(s.alvo), pax, paz, pbx, pbz, pcx, pcz, pdx, pdz)
         // o meio-fio, no degrau entre esta banda e a próxima
-        const prox = secao[i + 1]
         if (prox && prox.alt !== s.alt) {
-          const alto = Math.max(s.alt, prox.alt), baixo = Math.min(s.alt, prox.alt)
+          const altoNominal = Math.max(s.alt, prox.alt), baixo = Math.min(s.alt, prox.alt)
+          // ⚠️ TAREFA 3: A ALTURA DO DEGRAU ENCOLHE COM `fRampa`, NÃO SÓ A
+          // CALÇADA. Rampa de 1:12 é FACE, não platô: se só a calçada descesse
+          // e o meio-fio continuasse com o degrau nominal de 0,15 m, a rampa
+          // ficaria mais íngreme que a calçada que ela carrega. `baixo` nunca
+          // muda (é sempre a cota da pista), então em `fRampa=0` a soma dá
+          // `alto=baixo`: o meio-fio funde na pista, exatamente onde o leque
+          // arredondado de fora começa.
+          const alto = rampaAtiva ? baixo + (altoNominal - baixo) * fRampa : altoNominal
           if (look2) {
             meioFio(x0, z0, x1, z1, s.ate, prox.alt > s.alt ? 1 : -1,
                     baixo, alto, perpX, perpZ, vA, vB)
@@ -1486,7 +1693,7 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
               dx, cotaVia(dx, dz) + b.alt, dz,
               cx, cotaVia(cx, cz) + b.alt, cz,
               bx, cotaVia(bx, bz) + b.alt, bz)
-          if (mascaravel(b.alvo)) marcarVia(ax, az, dx, dz, cx, cz, bx, bz)
+          if (mascaravel(b.alvo)) marcarVia(codigoDe(b.alvo), ax, az, dx, dz, cx, cz, bx, bz)
           const prox = secao[i + 1]
           if (prox && prox.alt !== b.alt) {
             const alto = Math.max(b.alt, prox.alt), baixo = Math.min(b.alt, prox.alt)
@@ -1583,7 +1790,171 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
           // ⚠️ AS 46 ROTATÓRIAS ERAM O MAIOR BURACO DA MÁSCARA ANTIGA: um disco
           // de 80 m de asfalto em cada cruzamento anel × avenida, e nem
           // `emAvenida` nem o teste de raio do anel sabiam que ele existia.
-          if (mascaravel(alvo)) marcarVia(ax, az, dx2, dz2, cx2, cz2, bx2, bz2)
+          if (mascaravel(alvo)) marcarVia(codigoDe(alvo), ax, az, dx2, dz2, cx2, cz2, bx2, bz2)
+        }
+      }
+    }
+  }
+
+  // ── 2c. O CONTORNO DE QUARTEIRÃO: cada lote com frente pra rua (02/09) ────
+  //
+  // ⚠️ O DEFEITO, MEDIDO OFFLINE COM naVia (sem navegador, `node` sobre o
+  // JSON). O portão de conferência buscou pavimento em anéis de 2 em 2 m até
+  // 200 m do CENTRO de dois quarteirões (S06-Q17-B015, banda Bairro;
+  // S04-Q19-B017, banda Borda) e não achou nada. Reproduzido aqui por
+  // distância pura até a superfície pavimentada mais próxima (borda do
+  // polígono do anel ou da avenida, já descontada a meia-largura): o centro de
+  // S06-Q17-B015 fica a 277,6 m de qualquer asfalto; o de S04-Q19-B017, a
+  // 498,6 m. Os dois pontos que ACHARAM via no mesmo teste (bulevar em
+  // (12,-2600), núcleo perto de (1697,7, 802,9)) medem 0 m e 136,5 m pela
+  // mesma conta: bate com o portão em todos os quatro casos. O defeito é
+  // real, não é raio de máscara: `MASC_N·MASC_CEL` cobre 16.384 m, dez vezes
+  // o raio testado.
+  //
+  // ⚠️ A CAUSA: NENHUM QUARTEIRÃO DESENHA A PRÓPRIA VIA. As seções "1. O
+  // DESENHO POR QUARTEIRÃO SAIU INTEIRO" e "1c. A TEIA FINA SAIU" (acima)
+  // registram DUAS remoções em 31/08: primeiro a malha antiga do GERADOR,
+  // depois a teia fina de 26 anéis × 168 radiais que a substituiu ("milhares
+  // de ruas sem conexão"). As duas foram corretas nos próprios termos, mas a
+  // segunda não devolveu nada no lugar: `SEC_CONTORNO` e `SEC_TRAVESSA`
+  // ficaram como constante morta (nenhuma outra linha deste arquivo as usa), e
+  // `malha.quarteiroes` ficou morto para DESENHO: a única leitura dele é a
+  // contagem em `nq` e o cálculo de travessia de faixa de pedestre, duas
+  // seções acima. A cidade ficou só com as vias PRINCIPAIS (7 anéis + 12
+  // avenidas), e todo quarteirão fora do alcance delas não tem pavimento
+  // nenhum, contra a regra da casa. Contado offline contra os 1.862
+  // quarteirões do JSON, pela mesma distância de superfície: 660 (35,4%)
+  // ficam a mais de 200 m de QUALQUER pavimento (Núcleo 55/302, 18%; Meio
+  // 109/394, 28%; Bairro 259/647, 40%; Borda 237/519, 46%). Cresce para a
+  // borda porque lá o vão entre anéis e entre avenidas é maior, mas as
+  // quatro bandas têm caso: hipótese (a) do plano confirmada, generalizada
+  // (não é só Bairro/Borda).
+  //
+  // ⚠️ O CONSERTO NÃO É REABRIR A TEIA FINA: o motivo dela ter saído continua
+  // de pé (rua de 12 m a cada ~108 m em 156 km² sem ligação). É devolver a
+  // CADA quarteirão a sua própria frente, com o que a malha já publica para
+  // ele: `x`, `z`, `giro`, `lado` (testada, arco) e `prof` (profundidade
+  // radial). Esse retângulo NÃO é um grid novo por cima do quarteirão, é o
+  // próprio quarteirão: `scripts/gerar_cidade.py` (`_bloco`, e `frente =
+  // ... - VIA_CONTORNO` em `tecido()`) mostra que a testada JÁ SAI reduzida
+  // dos 12 m de `VIA_CONTORNO`, e que `_aneis()` reserva o mesmo 12 m entre
+  // bandas com o quarteirão centrado no meio do vão. Ou seja: os 12 m entre
+  // dois quarteirões vizinhos, nos quatro lados, CONTINUAM reservados no
+  // gerador, só faltava alguém desenhar rua neles. Cada quarteirão desenha os
+  // 6 m da sua própria metade, exatamente a lógica que o comentário de
+  // `SEC_CONTORNO` já descrevia; o vizinho desenha a outra a partir do
+  // PRÓPRIO registro, e as duas se encontram no meio do vão sem nenhuma
+  // coordenação entre os dois. Onde não há vizinho (banda mais externa, ou
+  // perto de uma avenida), a metade que falta simplesmente não existe: a rua
+  // para na divisa, que é o comportamento correto.
+  //
+  // ⚠️ A CONVENÇÃO DE GIRO É A DO GERADOR, NÃO A DO ANEL. `giro` do
+  // quarteirão é o ângulo do setor em grau (`am` em radianos no gerador,
+  // convertido antes do JSON) e o mundo sai de uma rotação 2D comum:
+  // `wx = x + ox·cos(giro) - zlote·sin(giro)`, `wz = z + ox·sin(giro) +
+  // zlote·cos(giro)` (`_bloco`, gerar_cidade.py). NÃO é a convenção
+  // `sin/-cos` que o resto deste arquivo usa pro ANEL. `eox` é a direção de
+  // +ox (a testada, `lado`); `ezl`, a de +zlote (a profundidade, `prof`).
+  for (const q of malha.quarteiroes) {
+    const g = (q.giro * Math.PI) / 180
+    const eoxX = Math.cos(g), eoxZ = Math.sin(g)
+    const ezlX = -Math.sin(g), ezlZ = Math.cos(g)
+    const hx = q.lado / 2, hz = q.prof / 2
+    const mundo = (ox: number, zl: number): [number, number] =>
+      [q.x + ox * eoxX + zl * ezlX, q.z + ox * eoxZ + zl * ezlZ]
+    // ⚠️ CADA ARESTA: NORMAL PRA FORA, PONTO DE PARTIDA, COMPRIMENTO. `faixa`
+    // exige `perp = dir` girado +90° (a mesma regra da avenida, algumas
+    // seções acima); dada a normal que eu QUERO, a direção que satisfaz essa
+    // regra é a rotação inversa, `dir = (nz, -nx)`. Resolvido uma vez aqui,
+    // não em cada aresta: nenhuma das quatro precisa de caso especial.
+    const arestas: { nx: number; nz: number; ox0: number; zl0: number; comp: number }[] = [
+      { nx: -ezlX, nz: -ezlZ, ox0: hx, zl0: -hz, comp: q.lado },   // zlote = -hz
+      { nx: ezlX, nz: ezlZ, ox0: -hx, zl0: hz, comp: q.lado },     // zlote = +hz
+      { nx: -eoxX, nz: -eoxZ, ox0: -hx, zl0: -hz, comp: q.prof },  // ox = -hx
+      { nx: eoxX, nz: eoxZ, ox0: hx, zl0: hz, comp: q.prof },      // ox = +hx
+    ]
+    for (const a of arestas) {
+      const [ax, az] = mundo(a.ox0, a.zl0)
+      const dirX = a.nz, dirZ = -a.nx
+      const bx = ax + dirX * a.comp, bz = az + dirZ * a.comp
+      // `abaular = true`: o contorno não pinta eixo nem faixa de pedestre
+      // (ver a nota de `abaular` em `faixa`), então pode ligar a crista sem
+      // risco de enterrar marca nenhuma.
+      faixa(ax, az, bx, bz, a.nx, a.nz, SEC_CONTORNO, true, 0, 0, true, RAMPA_EXTREMOS)
+    }
+
+    // ── A ESQUINA (Tarefa 3, 02/09), atrás de `?corte=1` ──────────────────
+    //
+    // ⚠️ O QUE FICAVA: as quatro arestas acima cobrem cada uma a PRÓPRIA
+    // faixa (0 a 6 m, saindo do próprio lado do retângulo), e nunca uma
+    // extensão diagonal além do canto. Resultado, medido offline: nenhuma das
+    // duas faixas que se encontram num canto cobre a cunha de 90° que fica
+    // ALÉM dele (nem sobra, nem falta no meio, é uma cunha que nenhuma das
+    // duas arestas alcança). Antes da Tarefa 3 essa cunha ficava vazia, um
+    // buraco pequeno mas repetido em todo canto de todo quarteirão.
+    //
+    // ⚠️ A SOLUÇÃO (a) DO FUNDADOR: NÃO HÁ INTERSEÇÃO PRA CALCULAR. O
+    // retângulo local já dá os quatro cantos por construção (`hx`,`hz`,
+    // `giro` do próprio registro), e a folga que evita disputa com o
+    // quarteirão vizinho já existe: R_GAP é exatamente a meia-seção de 6 m,
+    // ou seja o leque nunca sai da METADE do vão de 12 m que é minha. Não
+    // preciso saber nada do vizinho: ele desenha a outra metade a partir do
+    // PRÓPRIO registro, do mesmo jeito.
+    //
+    // ⚠️ POR QUE UM LEQUE CHAPADO (PISTA), E NÃO TRÊS BANDAS COMO NA ARESTA
+    // RETA. Ele só existe porque `rampaExtremos` (acima) já desceu a calçada
+    // e o meio-fio até a cota da pista bem antes de chegar no canto (fRampa
+    // -> 0 em s=0/s=comp). No canto, calçada e meio-fio JÁ estão em Y_PISTA;
+    // o leque só fecha o buraco que sobrou, na MESMA cota, com a MESMA cor. Um
+    // leque com banda de calçada aqui reabriria o degrau que a rampa acabou
+    // de fechar.
+    //
+    // ⚠️ N_ARCO NÃO É CHUTE: é a sagita da corda, a MESMA conta que decide
+    // faceta em outras curvas deste arquivo. Sagita = R·(1-cos(dθ/2)); pedindo
+    // sagita < CB_CHANFRO (5 cm, a escala de detalhe que este arquivo já
+    // aceita pro chanfro do meio-fio) no maior raio usado (R_GAP=6 m) dá
+    // dθ < 14,8° e 90°/14,8° = 6,08 → 7 segmentos fecham com folga (sagita
+    // medida: 3,8 cm).
+    if (CORTE1) {
+      const R_GAP = SEC_CONTORNO[SEC_CONTORNO.length - 1].ate   // 6 m: a própria meia-seção
+      const N_ARCO = 7
+      const cantos: { ox: number; zl: number; na: [number, number]; nb: [number, number] }[] = [
+        { ox: hx, zl: hz, na: [eoxX, eoxZ], nb: [ezlX, ezlZ] },
+        { ox: hx, zl: -hz, na: [eoxX, eoxZ], nb: [-ezlX, -ezlZ] },
+        { ox: -hx, zl: -hz, na: [-eoxX, -eoxZ], nb: [-ezlX, -ezlZ] },
+        { ox: -hx, zl: hz, na: [-eoxX, -eoxZ], nb: [ezlX, ezlZ] },
+      ]
+      for (const c of cantos) {
+        // ⚠️ ORDEM DE VARREDURA: precisa de `cross2D(n1,n2) > 0` pra normal
+        // pra cima (a mesma conta de `dir = (nz,-nx)` acima, aplicada à dupla
+        // de normais em vez de a uma só). `na`/`nb` são sempre perpendiculares
+        // entre si; testa e troca se vier na ordem errada.
+        let n1 = c.na, n2 = c.nb
+        if (n1[0] * n2[1] - n1[1] * n2[0] < 0) { n1 = c.nb; n2 = c.na }
+        const [px, pz] = mundo(c.ox, c.zl)
+        if (Math.hypot(px, pz) > rMax) continue
+        if (o.naBaia && o.naBaia(px, pz)) continue
+        const yP = cotaVia(px, pz) + Y_PISTA
+        for (let k = 0; k < N_ARCO; k++) {
+          const phi0 = (k / N_ARCO) * (Math.PI / 2)
+          const phi1 = ((k + 1) / N_ARCO) * (Math.PI / 2)
+          const d0x = Math.cos(phi0) * n1[0] + Math.sin(phi0) * n2[0]
+          const d0z = Math.cos(phi0) * n1[1] + Math.sin(phi0) * n2[1]
+          const d1x = Math.cos(phi1) * n1[0] + Math.sin(phi1) * n2[0]
+          const d1z = Math.cos(phi1) * n1[1] + Math.sin(phi1) * n2[1]
+          const ax2 = px + d0x * R_GAP, az2 = pz + d0z * R_GAP
+          const bx2 = px + d1x * R_GAP, bz2 = pz + d1z * R_GAP
+          // ⚠️ TRIÂNGULO COMO QUAD DEGENERADO: `Fita.add` só sabe fazer quad
+          // (a-b-c, a-c-d); o ápice repetido em `d` fecha o segundo triângulo
+          // com área zero, sem quebrar a malha. Ordem (ápice, arco em φ1,
+          // arco em φ0) e não (φ0,φ1): é a que dá normal pra cima aqui (ver a
+          // nota de `cross2D` acima).
+          fPista.comCruzamento().add(COR.pista,
+            px, yP, pz,
+            bx2, cotaVia(bx2, bz2) + Y_PISTA, bz2,
+            ax2, cotaVia(ax2, az2) + Y_PISTA, az2,
+            px, yP, pz)
+          marcarVia(codigoDe('pista'), px, pz, bx2, bz2, ax2, az2, px, pz)
         }
       }
     }
@@ -1707,12 +2078,29 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   // custariam mais que o trabalho. O segundo é localidade: um laço que só escreve
   // bit num Uint8Array de 2 MB roda em cache, enquanto intercalado com `cotaVia`
   // e `push` de vértice ele briga por linha de cache com tudo.
+  // ⚠️ LEITURA E ESCRITA DE 2 BITS, NUM LUGAR SÓ. `escreverCel` prioriza
+  // sarjeta > calçada > pista > nada (ver a nota grande de `mascara`, acima):
+  // nunca sobrescreve um código MAIOR por um menor, então a ordem em que os
+  // quads chegam durante o desenho não importa pro resultado final.
+  const lerCel = (gx: number, gz: number): number => {
+    const bit = (gz << 12) | gx
+    const idx = bit >> 2, desloc = (bit & 3) * 2
+    return (mascara[idx] >> desloc) & 3
+  }
+  const escreverCel = (gx: number, gz: number, codigo: number) => {
+    const bit = (gz << 12) | gx
+    const idx = bit >> 2, desloc = (bit & 3) * 2
+    if (codigo > ((mascara[idx] >> desloc) & 3)) {
+      mascara[idx] = (mascara[idx] & ~(3 << desloc)) | (codigo << desloc)
+    }
+  }
   const tMasc = performance.now()
-  for (let q = 0; q < quadsVia.length; q += 8) {
-    const ax = quadsVia[q], az = quadsVia[q + 1]
-    const bx = quadsVia[q + 2], bz = quadsVia[q + 3]
-    const cx = quadsVia[q + 4], cz = quadsVia[q + 5]
-    const dx = quadsVia[q + 6], dz = quadsVia[q + 7]
+  for (let q = 0; q < quadsVia.length; q += 9) {
+    const codigo = quadsVia[q]
+    const ax = quadsVia[q + 1], az = quadsVia[q + 2]
+    const bx = quadsVia[q + 3], bz = quadsVia[q + 4]
+    const cx = quadsVia[q + 5], cz = quadsVia[q + 6]
+    const dx = quadsVia[q + 7], dz = quadsVia[q + 8]
     const l1 = Math.max(Math.hypot(bx - ax, bz - az), Math.hypot(cx - dx, cz - dz))
     const l2 = Math.max(Math.hypot(dx - ax, dz - az), Math.hypot(cx - bx, cz - bz))
     const n1 = Math.max(1, Math.ceil(l1 / MASC_PASSO))
@@ -1726,8 +2114,7 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
         const gx = (p0x + (p1x - p0x) * v) / MASC_CEL + MASC_MEIO
         const gz = (p0z + (p1z - p0z) * v) / MASC_CEL + MASC_MEIO
         if (gx < 0 || gz < 0 || gx >= MASC_N || gz >= MASC_N) continue
-        const bit = ((gz | 0) << 12) | (gx | 0)
-        mascara[bit >> 3] |= 1 << (bit & 7)
+        escreverCel(gx | 0, gz | 0, codigo)
       }
     }
   }
@@ -1749,13 +2136,27 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     // que a arborização usa, isto varre de 4 a 9 células; a folga não é um raio
     // qualquer, e pedir 200 m aqui varreria 2.500 células por consulta.
     for (let j = j0; j <= j1; j++) {
-      const base = j << 12
       for (let i = i0; i <= i1; i++) {
-        const bit = base | i
-        if (mascara[bit >> 3] & (1 << (bit & 7))) return true
+        if (lerCel(i, j) !== 0) return true
       }
     }
     return false
+  }
+
+  // ⚠️ TAREFA 4 (02/09), pedida pela frente de decalque: `naVia` só respondia
+  // sim/não; remendo de asfalto e junta de concretagem de calçada disputavam
+  // a mesma zona porque nada sabia distinguir uma da outra. Mesma máscara,
+  // mesma célula de 4 m (ver a nota grande lá em cima e o limite que ela
+  // registra pra sarjeta), zero consulta nova: só devolve o código que já
+  // estava lá. Sem folga, de propósito: quem quer margem chama `naVia` com
+  // `folga` primeiro e usa `sobreQue` só pra classificar um ponto que já sabe
+  // que está em cima de via.
+  const sobreQue = (x: number, z: number): 'pista' | 'sarjeta' | 'calcada' | null => {
+    const gx = Math.floor(x / MASC_CEL) + MASC_MEIO
+    const gz = Math.floor(z / MASC_CEL) + MASC_MEIO
+    if (gx < 0 || gz < 0 || gx >= MASC_N || gz >= MASC_N) return null
+    const c = lerCel(gx, gz)
+    return c === 1 ? 'pista' : c === 2 ? 'calcada' : c === 3 ? 'sarjeta' : null
   }
 
   return {
@@ -1771,6 +2172,7 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     triangulos,
     metrosDeVia: Math.round(metros),
     naVia,
+    sobreQue,
     mascaraMs,
     update(cam: THREE.Vector3) {
       for (let i = 0; i < marcaMeshes.length; i++) {
