@@ -118,6 +118,58 @@ const VISTAS = {
   // prancha; rode-a com `--url-extra='&domo=0'`, senão a casca lava o quadro.
   cidadetoda: [0, 9000, 13000, 0, 0, -500, 45],
   cidadeplano:[0, 17000, 1, 0, 0, 0, 60],
+  // ⚠️ AS VISTAS DA RODADA DA MONTANHA (04/09/2026). O quartel da rodada é
+  // `montanha.md`, na raiz do repo; aqui só a câmera. Coordenadas CALCULADAS,
+  // não chutadas: MEDIDO OFFLINE (Node 20, `tsx`, sem abrir navegador),
+  // importando `alturaInvernoAt` de `inverno.ts:1076` com um shim de
+  // `window`+`fetch` que lê os três `public/city/inverno/relevo-*.json`
+  // direto do disco — o mesmo dado que o navegador buscaria por rede, só que
+  // sem render nenhum. `alturaInvernoAt` devolve a ADIÇÃO do maciço; a cota
+  // absoluta soma a base lunar ao redor, que a Fase 0 mediu como mediana
+  // 254 m (`montanha.md`), meu piso para os números abaixo onde preciso de
+  // absoluto — é estimativa, não a `superficieAt` completa (que também soma
+  // pódio/parque/micro-relevo), então confira a chapa antes de fechar a
+  // rodada.
+  //
+  // A vista antiga `inverno` (03/09) fica a 4.560 m do alvo: contrato bom
+  // para "existe uma montanha ali", curto demais para julgar floresta, neve
+  // ou o pé dela. Estas quatro entram do lado dela, sem tocar `inverno` nem
+  // `invernope`. A quinta (floresta na altura do olho) não cabe aqui — o chão
+  // varia demais para um `y` escrito à mão — e mora em `OLHOSFIXOS`, logo
+  // depois de `OLHOS` mais abaixo.
+  //
+  //   `silhueta`    a cadeia inteira de perfil contra o céu: câmera a leste,
+  //                 elevada (clearing de qualquer prédio da cidade no
+  //                 caminho, mesmo truque da `inverno`), a 4.760 m do alvo.
+  //                 O alvo é o centro geométrico da cadeia — x é a média dos
+  //                 três cumes da Fase 0, z é o meio exato entre os extremos
+  //                 -2.312 e 2.420 — na cota real medida ali (alturaInvernoAt
+  //                 678,1 m, abs. ~930). Julga se virou cordilheira ou
+  //                 continua três agulhas.
+  //   `cumenevado`  só o cume principal (-8230, 887), 1.115,3 m medido em
+  //                 `montanha.md`. Câmera 730 m a sudoeste dele (r 7.850,
+  //                 azimute 268), alturaInvernoAt 683,1 (abs. ~937), fov
+  //                 fechado a 34° para cortar o talude de baixo fora do
+  //                 quadro — só o topo. Julga se a neve cobre a rocha do
+  //                 cume ou aparece em retalho (a causa 3 do diagnóstico).
+  //   `pemontanha`  o penhasco do ENVELOPE, não do relevo: de
+  //                 `R_CRISTA_PICO` (8.280, inverno.ts:518) a `R_QUEDA`
+  //                 (8.650, inverno.ts:519), 370 m onde a adição cai de
+  //                 844,4 m para 0,0 m (medido no perfil fino, azimute 264,
+  //                 passo de 20 m). Câmera no chão plano além da queda
+  //                 (r 8.750, alturaInvernoAt medida 0,0), olhando para a
+  //                 crista: mostra os dois extremos no mesmo quadro.
+  //   `vagalagoa`   a sela entre o cume principal (azimute 264) e o
+  //                 secundário norte (-7695, 2420; azimute 252,5 medido), em
+  //                 r 7.100 azimute 258 (alturaInvernoAt 134,3, abs. ~388) —
+  //                 onde a Fase 2 decide a bacia. Hoje é só relevo do
+  //                 maciço, sem lago nem código de água (Fase 1, achado
+  //                 "Lagoa"): esta chapa é o ANTES, para comparar com o
+  //                 depois quando a lagoa nascer.
+  silhueta:   [-3220, 650, 54, -7973, 930, 54, 42],
+  cumenevado: [-7845, 965, 274, -8230, 1060, 887, 34],
+  pemontanha: [-8703, 270, 914, -8235, 1095, 865, 45],
+  vagalagoa:  [-6358, 550, 1351, -6945, 388, 1476, 45],
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -183,6 +235,54 @@ const acharRua = (pag, [x0, z0, rumo, fov]) =>
     [x0, z0, rumo, fov],
   )
 
+// ═══════════════════════════════════════════════════════════════════════════
+// AS VISTAS DE OLHO SEM RUA (04/09/2026, rodada da montanha).
+//
+// ⚠️ POR QUE NÃO ENTRAM EM `OLHOS`. `acharRua` procura pavimento (`c.naVia`)
+// em anéis crescentes até 200 m e falha ("não achei pavimento") se não achar
+// — certo para uma câmera de calçada, errado para uma câmera de floresta: lá
+// dentro não tem asfalto nenhum, então a busca falharia sempre e a chapa
+// nunca sairia. O que as duas tabelas COMPARTILHAM é o motivo de existir:
+// nenhum `y` escrito à mão, porque o chão varia demais (o maciço sobe e desce
+// dezenas de metros por passo, ver a Fase 0 em `montanha.md`). `OLHOSFIXOS`
+// pergunta a cota ao vivo no PONTO DADO, sem procurar nada ao redor.
+//
+// Formato: [x, z, rumo em graus, fov]. Mesma convenção de rumo de `OLHOS`
+// (0 = -z, sentido horário).
+//
+//   florestaolho  a 1,7 m dentro do maciço, na faixa de altura onde a
+//                 floresta planta de verdade: `FLORESTA_R_CHEIA` é 1.300 m
+//                 (inverno.ts:1411) e a densidade vem de `FLORESTA_BAIXO`/
+//                 `FLORESTA_ALTO` (15 a 190 m de alturaInvernoAt,
+//                 inverno.ts:1399-1400). Semente em r 7.100, azimute 272 —
+//                 dentro da cunha AZ0..AZ1 (248-288, inverno.ts:505-506) e
+//                 fora do eixo do cume (264), pra não cair em cima de pista —
+//                 MEDIDO OFFLINE em alturaInvernoAt = 119,4, bem no meio da
+//                 faixa de plantio (a varredura da cunha inteira, passo 50 m
+//                 em r e 4° em azimute, achou 269 pontos nessa faixa de 627
+//                 amostrados). Rumo 225° aponta ladeira acima, para o cume
+//                 principal: o alvo a 60 m nessa direção mede 134,4 (só 15 m
+//                 de subida), então a rampa ali é mansa, não penhasco.
+const OLHOSFIXOS = {
+  florestaolho: [-7096, -248, 225, 55],
+}
+
+/** Resolve uma semente de OLHOSFIXOS: pergunta a cota ao vivo no PONTO DADO
+ *  (sem procurar pavimento perto, ao contrário de `acharRua`) e no ponto a
+ *  60 m adiante no rumo, mesmo par olho/alvo de 1,7/1,6 m que `acharRua` usa. */
+const acharChao = (pag, [x0, z0, rumo, fov]) =>
+  pag.evaluate(
+    ([x0, z0, rumo, fov]) => {
+      const rad = (rumo * Math.PI) / 180
+      const dir = [Math.sin(rad), -Math.cos(rad)]
+      const pe = window.__plazaChao(x0, z0)
+      const ax = x0 + dir[0] * 60, az = z0 + dir[1] * 60
+      const alvo = window.__plazaChao(ax, az)
+      return { args: [x0, pe.superficieAt + 1.7, z0, ax, alvo.superficieAt + 1.6, az, fov], achouEm: pe }
+    },
+    [x0, z0, rumo, fov],
+  )
+
 // ⚠️ ERROS QUE NÃO SÃO NOSSOS. O backend local não roda, então estas rotas dão
 // 503 sempre. Sem esta lista o portão acusaria falha em toda execução e viraria
 // alarme que ninguém olha, que é pior que não ter alarme.
@@ -212,8 +312,8 @@ const escala = +arg('escala', 1)
 // console. Ou seja o portão está são e o prazo é que estava justo. 480 s dá a
 // folga de 2,8x que o pior caso medido pede.
 const prazoCarga = +arg('prazo-carga', 480000)
-const lista = pedidas.length ? pedidas : [...Object.keys(VISTAS), ...Object.keys(OLHOS)]
-for (const v of lista) if (!VISTAS[v] && !OLHOS[v]) { console.error(`enquadramento desconhecido: ${v}\nexistem: ${[...Object.keys(VISTAS), ...Object.keys(OLHOS)].join(', ')}`); process.exit(2) }
+const lista = pedidas.length ? pedidas : [...Object.keys(VISTAS), ...Object.keys(OLHOS), ...Object.keys(OLHOSFIXOS)]
+for (const v of lista) if (!VISTAS[v] && !OLHOS[v] && !OLHOSFIXOS[v]) { console.error(`enquadramento desconhecido: ${v}\nexistem: ${[...Object.keys(VISTAS), ...Object.keys(OLHOS), ...Object.keys(OLHOSFIXOS)].join(', ')}`); process.exit(2) }
 
 mkdirSync(saida, { recursive: true })
 // ⚠️ `view=deck` NÃO É ENFEITE. Sem `?view=` a cena entra pelo voo de pouso da
@@ -268,6 +368,10 @@ for (const v of lista) {
     if (!r) { console.error(`  ${v}: não achei pavimento a 200 m da semente (${OLHOS[v][0]}, ${OLHOS[v][1]})`); relatorio.vistas[v] = { erro: 'sem via em 200 m' }; continue }
     achouEm = r.achouEm
     await pag.evaluate((a) => window.__plazaOlhar(...a), r.args)
+  } else if (OLHOSFIXOS[v]) {
+    const r = await acharChao(pag, OLHOSFIXOS[v])
+    achouEm = r.achouEm
+    await pag.evaluate((a) => window.__plazaOlhar(...a), r.args)
   } else {
     await pag.evaluate((a) => window.__plazaOlhar(...a), VISTAS[v])
   }
@@ -286,7 +390,7 @@ for (const v of lista) {
   }
   if (!tirou) { console.error(`  ${v}: NÃO consegui tirar a chapa`); relatorio.vistas[v] = { erro: 'timeout' }; continue }
   relatorio.vistas[v] = { arquivo, fps: st?.fps, calls: st?.calls, tris: st?.triangles, programas: st?.programs, pos: st?.pos, ...(achouEm ? { olho: achouEm } : {}) }
-  console.log(`  ${v.padEnd(12)} ${String(st?.fps).padStart(3)} fps · ${String(st?.calls).padStart(4)} calls · ${((st?.triangles ?? 0) / 1e6).toFixed(2)}M tris · ${String(st?.programs).padStart(3)} prog${achouEm ? ` · rua em (${achouEm.x.toFixed(0)}, ${achouEm.z.toFixed(0)}) cota ${achouEm.superficieAt}` : ''}  -> ${arquivo}`)
+  console.log(`  ${v.padEnd(12)} ${String(st?.fps).padStart(3)} fps · ${String(st?.calls).padStart(4)} calls · ${((st?.triangles ?? 0) / 1e6).toFixed(2)}M tris · ${String(st?.programs).padStart(3)} prog${achouEm ? ` · olho em (${achouEm.x.toFixed(0)}, ${achouEm.z.toFixed(0)}) cota ${achouEm.superficieAt}` : ''}  -> ${arquivo}`)
 }
 await nav.close()
 writeFileSync(join(saida, 'chapas.json'), JSON.stringify(relatorio, null, 2))

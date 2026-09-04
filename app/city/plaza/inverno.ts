@@ -515,6 +515,14 @@ const AZ1 = 288
  *  plano; R_QUEDA é onde a adição volta a zero, antes da fratura de borda
  *  medida na Tarefa 1. */
 const R_PE = 7150
+/** ⚠️ ESTE RAIO VOLTOU A SER SÓ DO AVENTAL EM 04/09, e a volta é deliberada.
+ *  Mexer nele para consertar a crista foi TENTADO E MEDIDO nesta mesma rodada,
+ *  e o resultado reprovou: levar 8.280 para 8.100 subia a adição em r 6.900 de
+ *  146,3 para ~161 m (fura a regra de não crescer dentro do tecido da cidade),
+ *  e levar para 8.380 arrastava o cume para r 8.240, colado em `R_QUEDA`, onde
+ *  8 dos 32 rumos despencam 920 m em 500 m. A crista agora tem faixa radial
+ *  PRÓPRIA (`faixaR`) e não passa mais por este envelope, então o avental
+ *  ficou com ele inteiro, do jeito que o fundador aprovou. */
 const R_CRISTA_PICO = 8280
 const R_QUEDA = 8650
 /**
@@ -545,15 +553,54 @@ const R_QUEDA = 8650
  * Hills, que é a referência que o fundador deu.
  */
 const R_AVENTAL = 5500
-/** expoente da face de rocha: mantém a curva perto de 1 quase até o topo e
- *  desaba no último trecho, o oposto do suave01 puro. Continua valendo:
- *  isto é o envelope de EXISTÊNCIA (onde o maciço pode aparecer), não a
- *  forma fina dele, que agora vem das feições reais abaixo. */
+/** expoente da face de rocha do AVENTAL. Continua valendo: isto é o envelope de
+ *  EXISTÊNCIA (onde o avental pode aparecer), não a forma fina do maciço.
+ *
+ *  ⚠️ O COMENTÁRIO ANTIGO ("mantém a curva perto de 1 quase até o topo e desaba
+ *  no último trecho") DESCREVE A CURVA AO CONTRÁRIO, e vale corrigir porque
+ *  alguém vai voltar aqui: `t` vale 1 na crista e 0 em `R_QUEDA`, e para t em
+ *  (0,1) tem-se t^2,4 < t com derivada 2,4 em t=1. Ou seja o expoente faz a
+ *  curva desabar LOGO onde a crista começa e depois arrastar uma cauda fina, o
+ *  oposto do que está escrito. O número fica em 2,4 mesmo assim: quem sofria
+ *  com ele era a crista, e a crista saiu deste envelope (ver `faixaR`). Para o
+ *  avental, que em r 8.280 já é baixo, a cauda fina é o pé macio que se quer. */
 const EXP_FACE_ROCHA = 2.4
+/** expoente da face EXTERNA da crista (a queda de `faixaR`, de r2 a r3).
+ *  Menor que 1 de propósito, e o motivo é aritmético: entre o cume (r ~8.070)
+ *  e `R_QUEDA` sobram 580 m de corrida para ~830 m de relevo, e um `suave01`
+ *  puro gasta essa corrida devagar no começo, deixando a queda inteira para o
+ *  fim. Medido no envelope: em r 8.570 o suave01 puro retém 5,8% do peso e
+ *  ^0,7 retém 13,5%, o que tira ~100 m da queda de cada rumo externo. Abaixo de
+ *  0,7 o pé vira um degrau (com ^0,5 seriam 26 m nos últimos 10 m de raio), e
+ *  degrau no pé é exatamente a "mesa com beirada cortada" que esta rodada foi
+ *  proibida de fabricar. */
+const EXP_FACE_CRISTA = 0.7
 
 function suave01(t: number): number {
   const u = t < 0 ? 0 : t > 1 ? 1 : t
   return u * u * (3 - 2 * u)
+}
+
+/**
+ * Rampa de 0 a 1 com um TRECHO RETO no meio e as duas pontas arredondadas em
+ * `macio` (fração do percurso). Existe porque `suave01` não serve para desenhar
+ * uma encosta longa: ele é plano nas duas pontas e paga isso com o dobro no
+ * meio, com derivada máxima 1,5 vezes a média. Numa encosta de 830 m em 1.250 m
+ * (a subida interna da crista, ver `faixaR`) isso significa 33,6 graus de
+ * talude médio virando 44,9 no meio da encosta, e era esse trecho do meio que
+ * aparecia como parede. Com `macio` 0,20 a derivada máxima cai para 1,25 vezes
+ * a média (39,7 graus no mesmo caso) e as pontas continuam suaves, sem vinco.
+ *
+ * Conferido por continuidade: em `u = macio` os dois ramos valem `k·macio/2` e
+ * têm a mesma derivada `k`, então a curva é C¹ nas duas emendas.
+ */
+function rampaReta(t: number, macio: number): number {
+  const u = t < 0 ? 0 : t > 1 ? 1 : t
+  const m = Math.min(0.499, Math.max(1e-4, macio))
+  const k = 1 / (1 - m)
+  if (u < m) return (k * u * u) / (2 * m)
+  if (u > 1 - m) { const v = 1 - u; return 1 - (k * v * v) / (2 * m) }
+  return k * (u - m / 2)
 }
 
 /** diferença angular mínima entre dois rumos em graus, sempre em [-180,180] */
@@ -721,11 +768,12 @@ export const PISTAS: Pista[] = ESPECIFICACOES.map((e) => ({
  *  até o topo e desaba no último trecho). Continua a mesma forma da primeira
  *  correção: isto é só o envelope de EXISTÊNCIA, não a forma fina. */
 function envelopeRadial(r: number): number {
-  // ⚠️ ABRE EM `R_AVENTAL`, NÃO EM `R_PE`, e isso NÃO engorda os picos: os três
-  // carimbos de cume têm `raioM` de 520 a 1.150 m em torno de r 7.950-8.280, e
-  // o falloff circular de `amostrarFeicao` já os zera muito antes de r 6.500.
-  // Quem passa a existir na faixa nova é só o carimbo do avental, que tem raio
-  // grande de propósito. Sem abrir aqui, o avental nasceria recortado no pé.
+  // ⚠️ ABRE EM `R_AVENTAL`, NÃO EM `R_PE`, e isso NÃO engorda os picos: os
+  // carimbos de crista têm faixa radial PRÓPRIA (`faixaR`, ver `FeicaoReal`) e
+  // são zero por construção antes de r 6.700. Quem existe na faixa nova é o
+  // carimbo do avental, que tem raio grande de propósito. Sem abrir aqui, o
+  // avental nasceria recortado no pé.
+  //
   if (r <= R_AVENTAL || r >= R_QUEDA) return 0
   if (r <= R_CRISTA_PICO) return suave01((r - R_AVENTAL) / (R_CRISTA_PICO - R_AVENTAL))
   const t = suave01((R_QUEDA - r) / (R_QUEDA - R_CRISTA_PICO))
@@ -755,7 +803,85 @@ function envelopeAzimute(az: number): number {
 // porque as duas já desvanecem para 0 nas próprias bordas.
 // ═══════════════════════════════════════════════════════════════════════════
 interface DadosRelevo { grid: number; alturas: number[] }
-interface FeicaoReal { cx: number; cz: number; giro: number; raioM: number; pesoAltura: number; dados: DadosRelevo }
+interface FeicaoReal {
+  cx: number; cz: number; giro: number; raioM: number; pesoAltura: number; dados: DadosRelevo
+  /**
+   * onde o desvanece circular COMEÇA, em raio normalizado (0..1). Padrão 0,72,
+   * que é o valor de sempre e o que o avental continua usando.
+   *
+   * ⚠️ ESTE NÚMERO ERA O PRINCIPAL FABRICANTE DE PAREDE, e dá pra ver na conta:
+   * com 0,72 o carimbo cai de cheio a zero em 0,28 do raio, ou seja 230 m num
+   * `raioM` de 820. O Zwölfernock guarda 0,88 do peso (790 m com peso 900) no
+   * anel de distNorm 0,55, então eram 790 m de queda em 230 m: 74 graus, uma
+   * parede, e ela aparecia em TODOS os rumos ao mesmo tempo, que é a definição
+   * de agulha. Baixar o início do desvanece para 0,38-0,45 espalha a mesma
+   * massa por 0,55-0,62 do raio.
+   */
+  inicioQueda?: number
+  /**
+   * A FAIXA RADIAL PRÓPRIA DA FEIÇÃO, em metros de raio do centro da cidade:
+   * `[r0, r1, r2, r3]` sobe de 0 em r0 a cheio em r1, segura até r2 e volta a
+   * zero em r3. Um trapézio, e ele é o perfil radial DA MONTANHA, não uma
+   * guarda de segurança.
+   *
+   * ⚠️ QUEM TEM `faixaR` NÃO PASSA PELO `envelopeRadial` (ver `alturaInvernoAt`):
+   * seria contar a mesma queda duas vezes, e a queda do envelope é do avental,
+   * calibrada para outra coisa. Esta é a mudança de arquitetura de 04/09 e é o
+   * que finalmente permitiu escolher onde o cume mora.
+   *
+   * ⚠️ A CONTA QUE DECIDIU OS QUATRO NÚMEROS, e ela é dura: a crista só pode
+   * existir entre r 6.700 (abaixo disso a adição tem de ficar sob a do avental,
+   * senão o tecido da cidade sobe) e r 8.650 (`R_QUEDA`, antes da fratura do
+   * rim da casca). São 1.950 m de corrida para ~830 m de relevo. O cume não vai
+   * no meio: ele vai onde as PISTAS precisam dele, r ~8.070, porque as sete
+   * fitas de `ESPECIFICACOES` descem de r 8.330 para r 6.850 e um cume mais
+   * para dentro faria a Super-G e o slalom gigante subirem antes de descer.
+   * Com o cume em 8.070 sobram 1.370 m de corrida para dentro e 530 para fora,
+   * e é por isso que a face externa é a íngreme: ela é a FACE DE ROCHA, que é o
+   * que o projeto sempre quis ali, e a encosta esquiável é a de dentro.
+   *
+   * ⚠️ `r3` É SEMPRE `R_QUEDA`: a feição morre exatamente onde o envelope do
+   * avental já morria, então sair do envelope NÃO afrouxou o limite externo
+   * que protege o rim da casca. Isso é invariante, não coincidência.
+   */
+  faixaR?: [number, number, number, number]
+  /**
+   * ESTE É O DESBASTE DO GUME que a nota antiga deixou pendente, e ele mora no
+   * VALOR do dado, não no raio. `h' = média + (h - média) · contraste`, com a
+   * média medida no próprio disco do arquivo (ver `mediaDoDisco`). 1 é o dado
+   * cru, que é o que o avental continua usando.
+   *
+   * ⚠️ POR QUE PRECISA EXISTIR, em número medido nos três arquivos assados
+   * (perfil por anel de raio normalizado, 20 anéis):
+   *
+   *              máximo por anel        mínimo por anel      média por anel
+   *   zwölfernock  1,00 -> 0,84          0,56 -> 0,55         0,59 -> 0,89
+   *   weisse wand  1,00 -> 0,68          0,18 -> 0,33         ~0,53 chapado
+   *   fuji         ~0,74 chapado         0,61 -> 0,00         0,67 -> 0,34
+   *
+   * Ou seja: o Zwölfernock não é um cone, é um PLANALTO de ~0,85 com uma rede
+   * de vales cavados até 0,36, e o pico é uma célula solta em 1,00. Esticar
+   * esse arquivo de `raioM` 820 para 1.500 estica a PLANTA dos vales por 1,83
+   * mas não mexe na altura deles: com peso 820, aquele intervalo de 0,64
+   * normalizado vira 525 m de ravina dentro do carimbo, e o pico vira uma
+   * agulha de ~280 m sobre o próprio entorno. Não adianta alargar a montanha se
+   * a textura da fonte carrega meio quilômetro de relevo por conta própria.
+   *
+   * Quem passa a desenhar a FORMA é `faixaR` (o trapézio radial) vezes o
+   * desvanece circular; o arquivo fica com o papel de textura, com amplitude
+   * reduzida. O tempero fino (`temperoFino`, 55 m de ridged multifractal) e o
+   * relevo natural por baixo continuam intactos, então isto não vira plástico.
+   */
+  contraste?: number
+  /** liga o passa-baixa de uma célula na amostragem da grade (ver
+   *  `amostrarFeicao`). O avental não usa: com `raioM` 6.600 a célula dele já
+   *  mede 139 m e não existe pico de célula única para tirar. */
+  suavizaCelula?: boolean
+  /** média do arquivo dentro do disco, calculada uma vez em `montarFeicoes`
+   *  (9.216 células) e NÃO escrita à mão: é o eixo em torno do qual
+   *  `contraste` comprime. */
+  mediaDisco?: number
+}
 
 /** ⚠️ PESO EM METROS, MEDIDO CONTRA O ALVO, NÃO CHUTADO: o terreno natural no
  *  arco da crista mede 260-320 m (Tarefa 1); o alvo de cume é ~1.150 m
@@ -771,11 +897,38 @@ interface FeicaoReal { cx: number; cz: number; giro: number; raioM: number; peso
  *  carregava. Agora chegam por `fetch` (ver "FRENTE CARREGAMENTO" no
  *  cabeçalho), então a montagem virou uma função comum, chamada quando os
  *  dois `.json` resolvem, não mais no carregamento do módulo. */
+/** média do arquivo DENTRO do disco amostrado (o falloff é circular, então a
+ *  moldura fora do círculo não conta). 9.216 células por arquivo, três
+ *  arquivos: 27.648 somas, uma vez na vida da página. É o eixo de compressão
+ *  de `contraste`, e sai do dado, não de constante escrita à mão. */
+function mediaDoDisco(d: DadosRelevo): number {
+  const g = d.grid
+  let soma = 0, n = 0
+  for (let j = 0; j < g; j++) {
+    for (let i = 0; i < g; i++) {
+      const u = (i / (g - 1)) * 2 - 1, v = (j / (g - 1)) * 2 - 1
+      if (u * u + v * v >= 1) continue
+      soma += d.alturas[j * g + i]
+      n++
+    }
+  }
+  return n > 0 ? soma / n : 0.5
+}
+
 function montarFeicoes(weisse: DadosRelevo, zwoelfernock: DadosRelevo,
                        fuji: DadosRelevo): FeicaoReal[] {
-  const [x1, z1] = pontoEmRumo(8280, 266)
-  const [x2, z2] = pontoEmRumo(7950, 250)
-  const [x3, z3] = pontoEmRumo(8100, 284)
+  const mW = mediaDoDisco(weisse), mZ = mediaDoDisco(zwoelfernock), mF = mediaDoDisco(fuji)
+  // os três cumes da cordilheira e as quatro feições que os ligam. O raio
+  // desceu de 8.280/7.950/8.100 para a faixa 7.860-7.960 (ver a nota do
+  // orçamento radial logo abaixo) e a abertura em azimute subiu de 34 para 40
+  // graus, para os secundários ficarem a 12 graus do principal em vez de 16-18.
+  const [x1, z1] = pontoEmRumo(8070, 266) // cume principal, Zwölfernock
+  const [x2, z2] = pontoEmRumo(8090, 254) // secundário norte, Weisse Wand A
+  const [x3, z3] = pontoEmRumo(8040, 278) // secundário sul, Weisse Wand B
+  const [s1x, s1z] = pontoEmRumo(8060, 260) // sela entre o principal e o norte
+  const [s2x, s2z] = pontoEmRumo(8050, 272) // sela entre o principal e o sul
+  const [c1x, c1z] = pontoEmRumo(8080, 246) // contraforte de ponta, norte
+  const [c2x, c2z] = pontoEmRumo(8020, 286) // contraforte de ponta, sul
   // ⚠️ O AVENTAL É CARIMBO GRANDE E BAIXO, centrado no MESMO cume: `Math.max`
   // em `alturaInvernoAt` faz o pico real vencer no alto (900 m contra os 560 do
   // avental ali) e o avental vencer sozinho no pé, onde o pico já não alcança.
@@ -813,22 +966,70 @@ function montarFeicoes(weisse: DadosRelevo, zwoelfernock: DadosRelevo,
     // pódio a 13 m no pé da cunha, chão liso sem vista nem cota. Ele virou
     // encosta habitável, que é o pedido.
     { cx: xa, cz: za, giro: 0.0, raioM: 6600, pesoAltura: 420, dados: fuji },
-    // ⚠️ O DESBASTE DO GUME FICOU DE FORA, E O MOTIVO É A CASCA. Alargar este
-    // carimbo (820 -> 950 -> 1.100) foi medido e faz o que se queria na forma,
-    // mas LEVANTA o cume junto: 1.113 -> 1.163 -> 1.267 m. E o maciço já não
-    // cabe na abóbada padrão — medido em 10.814 pontos de terreno acima de 200 m,
-    // 464 deles (4,3%) FURAM a casca com a flecha padrão de 2.566, o pior por
-    // 504 m (r 8.254, rumo 264: terreno a 1.109 m contra casca a 605). Com a
-    // flecha de `?casca=2` (5.500) não fura nenhum, com 324 m de folga.
-    // Desbastar antes de a flecha virar padrão é subir o teto de uma sala que
-    // já está sem pé-direito. Volta quando a casca funda for o padrão.
-    { cx: x1, cz: z1, giro: 0.35, raioM: 820, pesoAltura: 900, dados: zwoelfernock },
-    { cx: x2, cz: z2, giro: 1.10, raioM: 620, pesoAltura: 640, dados: weisse },
+    // ── A CRISTA, REDESENHADA EM 04/09 ─────────────────────────────────────
+    // ⚠️ O DESBASTE DO GUME TINHA FICADO DE FORA POR CAUSA DA CASCA, e a casca
+    // funda (flecha 5.500) virou o padrão: a trava caiu. O que a nota antiga
+    // temia (alargar o carimbo LEVANTA o cume) não acontece, e isso é
+    // aritmética do amostrador, não opinião: `amostrarFeicao` normaliza a
+    // grade 96x96 por `raioM`, então mexer no raio muda só a PLANTA; a cota do
+    // pico é `h_max · pesoAltura · envelope`, e `h_max` é 1,0 nos três dados.
+    // Alargar espalha, não sobe.
+    //
+    // ⚠️ E O QUE ESTAVA ERRADO ERA A PLANTA, medido na cena viva pelo laudo da
+    // rodada: talude médio de 53,9 a 61,1 graus nos primeiros 400 m do cume, em
+    // 32 rumos. Montanha de rocha real fica em 25 a 35. Três coisas faziam a
+    // agulha, e as três estão consertadas aqui:
+    //   1. `raioM` de 520 a 820 m para 860 m de relevo (razão altura/raio > 1);
+    //   2. `inicioQueda` de 0,72, que despejava 790 m em 230 m de desvanece;
+    //   3. os três cumes a 16-18 graus de azimute um do outro e NADA entre
+    //      eles além do envelope liso, ou seja três agulhas, nunca uma
+    //      cordilheira.
+    //
+    // ⚠️ O ORÇAMENTO RADIAL É DURO E NÃO TEM SAÍDA, e é honesto deixá-lo
+    // escrito: a montanha só pode existir entre r 6.700 (onde o pódio nivela o
+    // anel da vila-base e da pista verde) e r 8.650 (`R_QUEDA`, antes da
+    // fratura do rim da casca, ver o cabeçalho). São 1.950 m para 850 m de
+    // relevo: um cone simétrico dentro dessa faixa mede 41 graus de talude
+    // radial no melhor caso. Por isso a montanha nova NÃO é um cone: é uma
+    // CRISTA deitada no azimute, onde o espaço não acaba (a janela de 248 a
+    // 288 graus dá 5,6 km de arco em r 8.000). O talude gentil mora ao longo
+    // da crista; o radial fica íngreme, que é o que uma cordilheira de região
+    // de lagos faz mesmo.
+    //
+    // ⚠️ CENTRO PUXADO PARA DENTRO (8.280 -> 7.860): é a única direção com
+    // espaço. Para fora só existem 370 m até `R_QUEDA`, e um cume ali obriga a
+    // face externa a despejar 850 m nesses 370 m (67 graus). Puxando para
+    // dentro, a face externa ganha 790 m de corrida.
+    { cx: x1, cz: z1, giro: 0.35, raioM: 1900, pesoAltura: 950, inicioQueda: 0.34, faixaR: [6700, 7950, 8110, 8650], suavizaCelula: true, contraste: 0.20, mediaDisco: mZ, dados: zwoelfernock },
+    { cx: x2, cz: z2, giro: 1.10, raioM: 1550, pesoAltura: 930, inicioQueda: 0.40, faixaR: [6700, 7950, 8110, 8650], suavizaCelula: true, contraste: 0.25, mediaDisco: mW, dados: weisse },
     // ⚠️ MESMO ARQUIVO QUE A FEIÇÃO ANTERIOR, GIRO E RAIO DIFERENTES: é a
     // técnica de "carimbo" reaproveitado com transform distinto (mesma ideia
     // das 9 sequoias resolvendo a floresta hoje). O que causaria repetição
     // seria repetir posição E escala juntas, não repetir a fonte de dado.
-    { cx: x3, cz: z3, giro: 4.20, raioM: 520, pesoAltura: 430, dados: weisse },
+    { cx: x3, cz: z3, giro: 4.20, raioM: 1450, pesoAltura: 850, inicioQueda: 0.40, faixaR: [6700, 7950, 8110, 8650], suavizaCelula: true, contraste: 0.25, mediaDisco: mW, dados: weisse },
+    // ── AS SELAS E OS CONTRAFORTES: o que faz virar cordilheira ────────────
+    // Um cume principal (266), dois secundários (254 e 278) e as cristas que os
+    // ligam. Sem estas quatro feições, entre um cume e outro só existia o
+    // envelope liso, e três picos soltos num avental leem como três agulhas.
+    //
+    // ⚠️ AS SELAS USAM O DADO DO FUJI, DE PROPÓSITO, e a escolha vem do perfil
+    // medido de cada arquivo (média por anel de raio normalizado, 12 anéis):
+    //   fuji           0,63 no centro caindo monotônico a 0,34 na borda -> domo
+    //   zwölfernock    0,59 no centro, 0,88 num ANEL em 0,55, 0,65 na borda
+    //   weisse wand    ~0,52 chapado em toda a área, com um espinho de 1,0
+    // Uma sela é uma passagem, não um pico: precisa de uma forma que suba manso
+    // e não tenha anel nem espinho. O Fuji é o único dos três com esse perfil.
+    // Os contrafortes de ponta usam o Weisse porque ali a chapa QUER pedra
+    // quebrada, e o patamar de 0,52 dele é justamente um ombro.
+    //
+    // ⚠️ PESO ABAIXO DOS CUMES, DE PROPÓSITO: 620/600 nas selas contra 900 do
+    // principal. Com `Math.max`, uma sela só aparece onde os cumes já não
+    // alcançam, então o peso dela é literalmente a cota do colo. Colo a ~300 m
+    // abaixo do cume é o que separa cordilheira de serra dentada.
+    { cx: s1x, cz: s1z, giro: 2.60, raioM: 1300, pesoAltura: 900, inicioQueda: 0.44, faixaR: [6700, 7950, 8110, 8650], suavizaCelula: true, contraste: 0.34, mediaDisco: mF, dados: fuji },
+    { cx: s2x, cz: s2z, giro: 5.10, raioM: 1300, pesoAltura: 870, inicioQueda: 0.44, faixaR: [6700, 7950, 8110, 8650], suavizaCelula: true, contraste: 0.34, mediaDisco: mF, dados: fuji },
+    { cx: c1x, cz: c1z, giro: 3.30, raioM: 1350, pesoAltura: 700, inicioQueda: 0.42, faixaR: [6700, 7950, 8110, 8650], suavizaCelula: true, contraste: 0.25, mediaDisco: mW, dados: weisse },
+    { cx: c2x, cz: c2z, giro: 0.80, raioM: 1300, pesoAltura: 660, inicioQueda: 0.42, faixaR: [6700, 7950, 8110, 8650], suavizaCelula: true, contraste: 0.25, mediaDisco: mW, dados: weisse },
   ]
 }
 
@@ -922,20 +1123,58 @@ function amostrarFeicao(f: FeicaoReal, x: number, z: number): number {
   const distNorm = Math.hypot(lx, lz) / f.raioM
   if (distNorm >= 1) return 0
   const g = f.dados.grid
-  const u = lx / f.raioM * 0.5 + 0.5
-  const v = lz / f.raioM * 0.5 + 0.5
-  const fx = Math.min(g - 1.001, Math.max(0, u * (g - 1)))
-  const fz = Math.min(g - 1.001, Math.max(0, v * (g - 1)))
-  const i = Math.floor(fx), j = Math.floor(fz)
-  const tx = fx - i, tz = fz - j
   const A = f.dados.alturas
   const H = (ii: number, jj: number) => A[jj * g + ii]
-  const h = (H(i, j) * (1 - tx) + H(i + 1, j) * tx) * (1 - tz) + (H(i, j + 1) * (1 - tx) + H(i + 1, j + 1) * tx) * tz
+  /** uma amostra bilinear da grade, em coordenada LOCAL da feição (metros) */
+  const amostra = (ax: number, az: number): number => {
+    const u = (ax / f.raioM) * 0.5 + 0.5
+    const v = (az / f.raioM) * 0.5 + 0.5
+    const fx = Math.min(g - 1.001, Math.max(0, u * (g - 1)))
+    const fz = Math.min(g - 1.001, Math.max(0, v * (g - 1)))
+    const i = Math.floor(fx), j = Math.floor(fz)
+    const tx = fx - i, tz = fz - j
+    return (H(i, j) * (1 - tx) + H(i + 1, j) * tx) * (1 - tz) + (H(i, j + 1) * (1 - tx) + H(i + 1, j + 1) * tx) * tz
+  }
+  // ⚠️ O PASSA-BAIXA DE UMA CÉLULA, E ELE É A AGULHA DO CUME EM PESSOA. Medido
+  // com o cume novo em pé: a adição caía de 831,4 m para 679,2 m em 50 m de
+  // distância, média de 32 rumos. São 152 m em meia célula, e a célula é o
+  // motivo: com `raioM` 1.500 a grade 96x96 tem 31,6 m por célula, e a célula
+  // do máximo do Zwölfernock vale 1,00 num vizinhança que vale ~0,57 (medido
+  // por anel: no anel central o máximo é 1,00 e a média é 0,59). Uma célula
+  // solta virava uma torre de 150 m. A cruz de 5 amostras a ±1 célula é um
+  // passa-baixa exatamente na escala do artefato: derruba um pico de célula
+  // única para 20% dele e não toca em nada com 3 células ou mais de largura,
+  // que é toda a forma que interessa. Custo: 5 bilineares por feição de crista
+  // em vez de 1, e só dentro da cunha (o `envelopeAzimute` já corta antes).
+  let h = f.suavizaCelula
+    ? (() => {
+      const p = (2 * f.raioM) / (g - 1)
+      return (amostra(lx, lz) + amostra(lx + p, lz) + amostra(lx - p, lz) + amostra(lx, lz + p) + amostra(lx, lz - p)) / 5
+    })()
+    : amostra(lx, lz)
+  // o desbaste do gume, ver `contraste`. Sem o campo não roda nada: o avental
+  // continua com o dado cru, bit a bit.
+  if (f.contraste !== undefined && f.mediaDisco !== undefined) {
+    h = f.mediaDisco + (h - f.mediaDisco) * f.contraste
+  }
   // ⚠️ FALLOFF CIRCULAR, NÃO QUADRADO: a grade é quadrada (u,v em [0,1]²),
   // mas cortar no quadrado desenharia uma aresta reta na chapa. O raio
   // normalizado (`distNorm`) já é a distância euclidiana, então o desvanece
   // é um círculo de verdade em torno de `(cx, cz)`.
-  const falloff = 1 - suave01((distNorm - 0.72) / 0.28)
+  const q = f.inicioQueda ?? 0.72
+  let falloff = 1 - suave01((distNorm - q) / (1 - q))
+  // o trapézio radial da crista: ver `faixaR`. Nem entra quando a feição não
+  // tem faixa própria (o avental), que continua no envelope compartilhado.
+  if (f.faixaR) {
+    const [r0, r1, r2, r3] = f.faixaR
+    const rMundo = Math.hypot(x, z)
+    if (rMundo <= r0 || rMundo >= r3) return 0
+    // encosta interna (a esquiável): rampa de trecho reto, ver `rampaReta`.
+    // encosta externa (a face de rocha): a mesma rampa com expoente < 1, que é
+    // o que segura cota no meio da face com só 540 m de corrida até `R_QUEDA`.
+    if (rMundo < r1) falloff *= rampaReta((rMundo - r0) / (r1 - r0), 0.20)
+    else if (rMundo > r2) falloff *= Math.pow(rampaReta((r3 - rMundo) / (r3 - r2), 0.20), EXP_FACE_CRISTA)
+  }
   return h * f.pesoAltura * falloff
 }
 
@@ -999,12 +1238,32 @@ function ridgedMultifractal(x: number, z: number, celulaBase: number, semente: n
  *  profundidade constante deixaria os solavancos do ruído por baixo dela e a
  *  pista viraria montanha-russa, exatamente o defeito que foi apontado. */
 const AMPLITUDE_TEMPERO = 55
+/**
+ * ⚠️ A AMPLITUDE CRESCE NA CRISTA, 04/09, E É A COMPENSAÇÃO DO `contraste`.
+ * O desbaste do gume (ver `FeicaoReal.contraste`) tira relevo do arquivo assado
+ * na escala de 500 a 1.000 m, que é a escala que fabricava parede; sem devolver
+ * nada, a montanha vira duna, e "duna sem aresta" já foi motivo de reprovação
+ * de chapa nesta mesma região. O tempero devolve aspereza na escala de 260 m,
+ * que é curta o bastante para NÃO entrar na conta de talude médio de 500 m (o
+ * ruído é centrado, sobe e desce, e a média de 32 rumos cancela), e é
+ * exatamente a escala de rocha quebrada que a chapa de perto pede.
+ *
+ * ⚠️ E CRESCE SÓ ACIMA DE r 7.000, o que não é detalhe estético: com 85 m em
+ * toda a área, a adição máxima em r < 6.900 subia de 146,3 para 155,4 m
+ * (medido), e crescer dentro do tecido da cidade é proibido nesta rodada.
+ * Abaixo de 7.000 a amplitude é 55 m, o MESMO número de sempre, bit a bit.
+ */
+const AMPLITUDE_TEMPERO_CRISTA = 85
+const R_TEMPERO_0 = 7000
+const R_TEMPERO_1 = 7800
 function temperoFino(x: number, z: number, env: number, pesoPista: number): number {
   if (env <= 0 || pesoPista >= 1) return 0
   const [wx, wz] = deformarDominio(x, z)
   const rm = ridgedMultifractal(wx, wz, 260, 901, 4) // 0..1
   const centralizado = (rm - 0.5) * 2 // -1..1 aprox: sobe E desce, não só cava
-  return centralizado * AMPLITUDE_TEMPERO * env * (1 - pesoPista)
+  const k = suave01((Math.hypot(x, z) - R_TEMPERO_0) / (R_TEMPERO_1 - R_TEMPERO_0))
+  const amplitude = AMPLITUDE_TEMPERO + (AMPLITUDE_TEMPERO_CRISTA - AMPLITUDE_TEMPERO) * k
+  return centralizado * amplitude * env * (1 - pesoPista)
 }
 
 /**
@@ -1083,10 +1342,27 @@ export function alturaInvernoAt(x: number, z: number): number {
   const envAz = envelopeAzimute(az)
   if (envAz <= 0) return 0
   const env = envR * envAz
-  let baseReal = 0
-  for (const f of FEICOES) baseReal = Math.max(baseReal, amostrarFeicao(f, x, z))
+  // ⚠️ DUAS FAMÍLIAS DE FEIÇÃO, E ELAS NÃO PASSAM PELO MESMO ENVELOPE, 04/09.
+  // Quem NÃO tem `faixaR` (o avental) continua exatamente como sempre:
+  // multiplicado pelo `envelopeRadial` compartilhado. Quem TEM (os cumes, as
+  // selas, os contrafortes) já traz o perfil radial dentro de si, então
+  // multiplicar pelo envelope de novo somaria duas quedas em cima da mesma
+  // encosta, que é literalmente o que fazia a agulha: a queda do carimbo (790 m
+  // em 230 m de desvanece) vinha multiplicada pela queda do envelope (100% a 0%
+  // em 370 m). As duas famílias se combinam por `Math.max`, a mesma convenção
+  // de sempre, então onde o avental é maior ele vence, e vice-versa.
+  let comEnvelope = 0
+  let comFaixa = 0
+  for (const f of FEICOES) {
+    const h = amostrarFeicao(f, x, z)
+    if (f.faixaR) { if (h > comFaixa) comFaixa = h } else if (h > comEnvelope) comEnvelope = h
+  }
+  // `envAz` (a janela angular de existência) vale para as DUAS famílias: ela é
+  // o que diz que o maciço só existe no arco oeste, e nenhuma faixa radial
+  // substitui isso. Só o `envR` é que ficou sendo do avental.
+  const baseReal = Math.max(comEnvelope * envR, comFaixa) * envAz
   const pesoPista = pistaProximidade01(x, z)
-  const relevo = baseReal * env + temperoFino(x, z, env, pesoPista)
+  const relevo = baseReal + temperoFino(x, z, env, pesoPista)
   return relevo - PROFUNDIDADE_CORTE * pesoPista
 }
 
@@ -1397,18 +1673,88 @@ function construirTeleferico(
 // (`FLORESTA_TETO_PERTO`) para o orçamento não fugir se a densidade medida
 // vier maior que a esperada.
 const FLORESTA_BAIXO = 15
-const FLORESTA_ALTO = 190
-const FLORESTA_PLUMA = 22
+/**
+ * ⚠️ 190 -> 550 EM 04/09, E ESTA É A MAIOR PARTE DA QUEIXA "vegetação
+ * completamente esparsa". Não era só densidade: era ONDE. A faixa de plantio
+ * ia de 15 a 190 m de cota, num maciço que agora chega a 1.044 m, ou seja a
+ * mata existia nos 18% de baixo e o resto era pedra pelada. Cordilheira de
+ * região de lagos tem mata na metade de baixo inteira, e é isso que 550 dá:
+ * 53% da montanha arborizada, rocha e neve acima.
+ *
+ * MEDIDO OFFLINE (`heightAt` real de `terrain.ts`, varredura completa da cunha):
+ *
+ *   FLORESTA_ALTO   candidatos   cota mediana   cone (8 tri cada)
+ *        190           2.684         137 m         21.472
+ *        320           3.956         158 m         31.648
+ *        430           5.014         178 m         40.112
+ *        550           5.728         202 m         45.824
+ *
+ * O custo de perto NÃO muda com isto (o teto de 450 é quem manda); o que
+ * cresce é o balde de cone, 8 triângulos por árvore. Dobrar a mata inteira
+ * custou 24.352 triângulos, que é 0,6% da praça.
+ */
+const FLORESTA_ALTO = 550
+/** ⚠️ 22 -> 70. A pluma é o desvanece da densidade nas duas pontas da faixa de
+ *  cota, e com 22 m o limite superior da mata era uma LINHA horizontal de 44 m
+ *  de espessura contornando a montanha, que é exatamente o que não existe na
+ *  natureza. Com a faixa indo até 550 m, 70 m dissolve o limite superior ao
+ *  longo de ~140 m de desnível: a mata rareia antes de acabar. */
+const FLORESTA_PLUMA = 70
 const FLORESTA_PASSO = 30
-/** ⚠️ MEDIDO OFFLINE DEPOIS DA TROCA DE ESPÉCIE, NÃO SUPOSTO: a varredura
- *  continua gerando 1.303 candidatos (a posição não mudou, só a espécie).
- *  Com os pesos de `ARVORES` e as dez malhas carregando, o teto de 450 aloca
- *  231 pinheiro, 76 sq-small, 108 sq-med (as 4 juntas), 33 sq-big (as 3
- *  juntas) e 1 sq-rh: 1.328.152 triângulos de perto mais 10.424 no pior caso
- *  do balde de longe, 1.338.576 no total declarado. Ajuste este número pra
- *  cima se a chapa pedir mais densidade de perto. */
+/**
+ * ⚠️ O TETO CONTINUA 450, E ISSO AGORA É UMA DECISÃO MEDIDA, não a inércia.
+ * O que mudou foi o SIGNIFICADO: até 04/09 as 450 eram um sorteio fixo por
+ * hash, e o resto ficava cone para sempre; agora são as 450 MAIS PRÓXIMAS da
+ * câmera (ver `instanciarFlorestaDensa`). Com a floresta de hoje, medida
+ * offline (Node 20, `tsx`, `heightAt` real de `terrain.ts` sobre o heightmap
+ * real, sem abrir navegador): 5.671 candidatos numa cunha de 12,28 km², ou 462
+ * árvores por km². As 450 mais próximas cobrem 0,97 km² em volta de quem olha,
+ * um raio de 557 m de mata REAL, e além disso o cone com a silhueta certa.
+ *
+ * ⚠️ E O CUSTO DELAS TRIPLICOU DE PROPÓSITO. Com o carregador consertado
+ * (`carregarInstanciavel`), a árvore média custa 2.960 triângulos em vez de
+ * 900: as 450 saem por 1,33 milhão, que é EXATAMENTE o número que este
+ * comentário já declarava desde 03/09 e que a cena nunca pagou de verdade
+ * (rodava a 30% dele, com tronco faltando). Subir o teto agora tem preço
+ * medido, e ele fica registrado para quem for mexer:
+ *
+ *   teto   malha real   + cones     total      contra a praça inteira (3,88 M)
+ *    450    1.330.587    45.368    1.375.955        35%
+ *    600    1.774.116    45.368    1.819.484        47%
+ *    800    2.365.488    45.368    2.410.856        62%
+ *
+ * A abóbada sozinha já é 2,1 M dos 3,88 M da praça (`perf.ts`), então passar
+ * de 450 antes de a chapa pedir seria gastar metade de um orçamento de cena
+ * numa coisa só.
+ */
 const FLORESTA_TETO_PERTO = 450
-const FLORESTA_R_CHEIA = 1300
+/** folga da capacidade por espécie sobre a fatia esperada do teto: as N mais
+ *  próximas não respeitam a mistura de pesos exatamente, e faltar buffer
+ *  faria a espécie sumir no lugar de virar cone. Custa buffer, não triângulo. */
+const FOLGA_CAP = 1.5
+/**
+ * ⚠️ 1.300 -> 2.600 EM 04/09, E O NÚMERO SAI DE DUAS CONTAS, não de gosto.
+ *
+ * (1) De DENTRO: com o corte por distância, este raio virou um TETO, não a
+ * régua. Quem decide é `FLORESTA_TETO_PERTO`; 2.600 m só garante que o corte
+ * nunca fique preso num raio menor que a mata que o orçamento paga.
+ *
+ * (2) De FORA, e aqui está a razão de NÃO subir mais: a chapa de contrato
+ * `inverno` (`scripts/city/chapas.mjs`) fica a 4.526 m do alvo e a `silhueta` a
+ * 4.753 m. Nessa distância, com 1.600 px de largura e 42 graus de campo, um
+ * pixel vale 2,4 m: uma árvore de 19 m mede 8 px. Malha real e cone de
+ * silhueta certa são indistinguíveis em 8 px, e o cone custa 8 triângulos
+ * contra 2.960. Deixar o raio abaixo da distância de contrato é o que mantém a
+ * chapa de longe barata E uniforme (mata inteira em cone, sem uma faixa
+ * detalhada colada na borda de baixo, que é o que aconteceria com um raio
+ * grande e um teto pequeno).
+ *
+ * O que fazia a chapa de contrato ler como mato ralo NÃO era este raio: era o
+ * teto da camada esparsa (220 cones para 5.771 candidatos) e o tamanho do cone
+ * (60% da altura e 42% da largura da árvore real). Os dois estão consertados
+ * logo abaixo e em `geoConeLonge`.
+ */
+const FLORESTA_R_CHEIA = 2600
 /** acima disto (inclinação em graus) não planta: mesma regra de `alpino.ts` */
 const FLORESTA_INC_MAX = 42
 /** folga além da meia-largura da pista mais próxima antes de plantar */
@@ -1540,29 +1886,92 @@ export function gerarCandidatosFloresta(heightAt: (x: number, z: number) => numb
   return candidatos
 }
 
-/** carrega um `.glb` e devolve a geometria e o material do primeiro mesh
- *  achado, prontos pra instanciar. `null` se não achar mesh OU se o
- *  carregamento falhar, e falha AGORA GRITA no console (`console.error`),
- *  em vez do `.catch(() => null)` silencioso que já custou dois buracos
- *  nesta casa no mesmo dia (este módulo e `loadSf`). O chamador ainda decide
- *  o que fazer sem a árvore (a espécie perdida é redistribuída entre as que
- *  carregaram, ver `construirFloresta`), mas ninguém fica sem SABER. */
+/** uma primitiva do `.glb`: geometria, material e a matriz de mundo do nó que
+ *  a carrega DENTRO do modelo (a mesma `local` de `props.ts`, aplicada por
+ *  instância em `setMatrixAt`). `tri` fica junto porque o orçamento é
+ *  declarado por parte, não estimado depois. */
+interface ParteArvore { geo: THREE.BufferGeometry; mat: THREE.Material; local: THREE.Matrix4; tri: number }
+
+/** o modelo inteiro de uma espécie: as partes e a CAIXA medida no GLB
+ *  carregado. A caixa não é constante escrita à mão: ela sai de
+ *  `computeBoundingBox` das próprias geometrias, e serve pro LOD de longe
+ *  ter a mesma silhueta que a malha real que ele substitui (ver `update`
+ *  em `instanciarFlorestaDensa`). */
+interface MalhaArvore { partes: ParteArvore[]; alturaM: number; larguraM: number; triangulos: number }
+
+/**
+ * carrega um `.glb` e devolve TODAS as primitivas dele, prontas pra
+ * instanciar. `null` se não achar mesh OU se o carregamento falhar, e falha
+ * AGORA GRITA no console (`console.error`), em vez do `.catch(() => null)`
+ * silencioso que já custou dois buracos nesta casa no mesmo dia (este módulo
+ * e `loadSf`). O chamador ainda decide o que fazer sem a árvore (a espécie
+ * perdida é redistribuída entre as que carregaram, ver
+ * `instanciarFlorestaDensa`), mas ninguém fica sem SABER.
+ *
+ * ⚠️ TODAS AS PRIMITIVAS, NÃO A PRIMEIRA, E ESTE É O CONSERTO DA QUEIXA
+ * "as sequoias estão sem tronco". O exportador glTF quebra a malha em uma
+ * primitiva POR MATERIAL, então `traverse` + "para na primeira malha"
+ * guardava um pedaço e jogava o resto fora. `props.ts:381` já tinha resolvido
+ * o MESMO bug com uma InstancedMesh por parte ("instanciar só a primeira
+ * deixava as palmeiras sem folha e as colunas sem capitel"); este arquivo
+ * nunca tinha recebido o padrão.
+ *
+ * MEDIDO OFFLINE (Node 20, decodificação dos GLB no nível de accessor glTF,
+ * sem abrir navegador), o que a linha antiga guardava de cada arquivo:
+ *
+ *   tree-pine.glb   4 primitivas (11 / 37 / 234 / 2.917 tri)   ficava com 11 = 0,3%
+ *   sq-small-1.glb  2 primitivas (folha MASK 1.676, tronco 860) ficava com 66,1%
+ *   sq-med-*.glb    2 primitivas (folha MASK 1.928, tronco 860) ficava com 69,2%
+ *   sq-big-*.glb    2 primitivas (folha MASK 1.928, tronco 860) ficava com 69,2%
+ *   sq-rh.glb       2 primitivas (1.851 + arbusto MASK 1.488)   ficava com 55,4%
+ *
+ * Em 8 dos 9 `sq-*.glb` a FOLHA vem primeiro e o TRONCO era descartado; o
+ * pinheiro, que é metade da floresta, era desenhado com 0,3% do modelo.
+ *
+ * ⚠️ MATERIAL POR PARTE, NÃO UNIFICADO: a folha é `alphaMode: MASK` (o
+ * `GLTFLoader` traduz isso pra `alphaTest`) e o tronco é opaco. Juntar os dois
+ * num material só devolveria folha quadrada ou tronco furado. Cada parte fica
+ * com o material que veio do arquivo.
+ *
+ * ⚠️ `local` VEM DE `matrixWorld`, não da identidade: hoje os 10 arquivos têm
+ * um nó só, sem transform (medido no mesmo laudo acima), mas o conversor de
+ * Sketchfab pode passar a emitir hierarquia a qualquer momento, e aí a parte
+ * com transform próprio nasceria fora de lugar. `updateMatrixWorld(true)`
+ * antes do `traverse` é o que torna isso verdade agora e depois.
+ */
 async function carregarInstanciavel(
   gltf: GLTFLoader, especie: EspecieArvore,
-): Promise<{ geo: THREE.BufferGeometry; mat: THREE.Material } | null> {
+): Promise<MalhaArvore | null> {
   try {
     const cena = await comLimiteDeTempo(
       new Promise<THREE.Group>((res, rej) => gltf.load(especie.url, (g) => res(g.scene), undefined, rej)),
       8000, `[inverno] floresta: ${especie.url}`,
     )
-    let achado: THREE.Mesh | null = null
-    cena.traverse((o) => { if (!achado && (o as THREE.Mesh).isMesh) achado = o as THREE.Mesh })
-    if (!achado) {
+    cena.updateMatrixWorld(true)
+    const partes: ParteArvore[] = []
+    const caixa = new THREE.Box3()
+    cena.traverse((o) => {
+      const m = o as THREE.Mesh
+      if (!m.isMesh || !m.geometry) return
+      const mat = Array.isArray(m.material) ? m.material[0] : m.material
+      if (!mat) return
+      const geo = m.geometry
+      const tri = geo.index ? geo.index.count / 3 : geo.attributes.position.count / 3
+      partes.push({ geo, mat: mat as THREE.Material, local: m.matrixWorld.clone(), tri })
+      if (!geo.boundingBox) geo.computeBoundingBox()
+      if (geo.boundingBox) caixa.union(geo.boundingBox.clone().applyMatrix4(m.matrixWorld))
+    })
+    if (!partes.length) {
       console.error(`[inverno] floresta: ${especie.url} carregou mas não tem mesh nenhum dentro. Espécie '${especie.id}' fica de fora, redistribuída.`)
       return null
     }
-    const mesh = achado as THREE.Mesh
-    return { geo: mesh.geometry, mat: mesh.material as THREE.Material }
+    const tam = caixa.isEmpty() ? new THREE.Vector3(1, 1, 1) : caixa.getSize(new THREE.Vector3())
+    return {
+      partes,
+      alturaM: Math.max(0.01, tam.y),
+      larguraM: Math.max(0.01, (tam.x + tam.z) / 2),
+      triangulos: Math.round(partes.reduce((s, p) => s + p.tri, 0)),
+    }
   } catch (e) {
     console.error(`[inverno] floresta: ${especie.url} NÃO CARREGOU (espécie '${especie.id}'). Ela fica de fora e o peso dela é redistribuído entre as outras; a densidade não cai, só perde essa silhueta. Motivo:`, e)
     return null
@@ -1573,10 +1982,30 @@ async function carregarInstanciavel(
  * O cone barato de longe (8 triângulos), MESMA forma que `alpino.ts` usa:
  * todas as espécies precisam ler como uma silhueta só quando a câmera está
  * a quilômetros, senão o horizonte ganha costura visível entre elas.
+ *
+ * ⚠️ A FORMA CONTINUA A MESMA (raio 2,3 m, altura 11,5 m), O TAMANHO É QUE
+ * PASSOU A SER ESCALADO POR QUEM USA. Medido offline nas caixas dos 10 GLB
+ * (decodificação dos accessors POSITION, sem abrir navegador), a árvore média
+ * da tabela `ARVORES`, ponderada pelo peso de sorteio, mede 19,24 m de altura
+ * por 11,11 m de largura. O cone nominal tem 11,5 x 4,6: ele desenhava 60% da
+ * altura e 42% da largura da árvore que substitui, ou seja ~21% da área de
+ * silhueta. Isso, e não a contagem, é o que fazia a mata sumir de longe na
+ * chapa de contrato, que é justamente a distância em que TUDO ali é cone.
+ * Quem instancia agora escala (ver `ESCALA_CONE_MEDIA` e a escala por espécie
+ * em `instanciarFlorestaDensa`), o que custa zero triângulo a mais.
  */
+/** o cone nominal, em metros: a MESMA forma de `alpino.ts`, guardada em
+ *  constante porque agora ela é o denominador de toda escala de LOD longe. */
+const CONE_ALTURA = 11.5
+const CONE_LARGURA = 4.6
+/** média ponderada das caixas dos 10 GLB de `ARVORES` (19,24 m de altura por
+ *  11,11 m de largura), sobre o cone nominal. Medida offline, ver
+ *  `geoConeLonge`; só a camada esparsa usa, porque ela sobe sem modelo. */
+const ESCALA_CONE_MEDIA = { y: 19.24 / CONE_ALTURA, xz: 11.11 / CONE_LARGURA }
+
 function geoConeLonge(): THREE.BufferGeometry {
-  const g = new THREE.ConeGeometry(2.3, 11.5, 4, 1, false)
-  g.translate(0, 5.75, 0)
+  const g = new THREE.ConeGeometry(CONE_LARGURA / 2, CONE_ALTURA, 4, 1, false)
+  g.translate(0, CONE_ALTURA / 2, 0)
   const n = g.attributes.position.count
   const cor = new THREE.Color('#3E5140')
   const arr = new Float32Array(n * 3)
@@ -1616,11 +2045,11 @@ function disposeGrupo(group: THREE.Group) {
  */
 async function carregarEspeciesArvore(
   gltf: GLTFLoader,
-): Promise<{ especie: EspecieArvore; dados: { geo: THREE.BufferGeometry; mat: THREE.Material } }[]> {
+): Promise<{ especie: EspecieArvore; malha: MalhaArvore }[]> {
   const carregadas = await Promise.all(ARVORES.map((esp) => carregarInstanciavel(gltf, esp)))
   const vivas = ARVORES
-    .map((esp, i) => ({ especie: esp, dados: carregadas[i] }))
-    .filter((v): v is { especie: EspecieArvore; dados: { geo: THREE.BufferGeometry; mat: THREE.Material } } => v.dados !== null)
+    .map((esp, i) => ({ especie: esp, malha: carregadas[i] }))
+    .filter((v): v is { especie: EspecieArvore; malha: MalhaArvore } => v.malha !== null)
   if (vivas.length === 0) {
     console.error('[inverno] floresta: NENHUMA espécie carregou. A camada perto sobe sem árvore real; a esparsa (cone) continua de pé.')
   } else if (vivas.length < ARVORES.length) {
@@ -1630,7 +2059,14 @@ async function carregarEspeciesArvore(
 }
 
 /** REDE: o pacote de rochas, cru (só o par geo/mat do primeiro mesh achado).
- *  `null` sem `gltf`, se o `.glb` falhar, ou se não tiver mesh dentro. */
+ *  `null` sem `gltf`, se o `.glb` falhar, ou se não tiver mesh dentro.
+ *
+ *  ⚠️ AQUI "PRIMEIRO MESH" NÃO É O DEFEITO QUE `carregarInstanciavel` acabou de
+ *  consertar, E ISSO FOI MEDIDO, não suposto: `rocks-stylized-pack.glb` tem UMA
+ *  primitiva só (3.076 triângulos, material `RocksStylized_M`, opaco), então o
+ *  primeiro mesh É o modelo inteiro. Se o pacote de rocha for trocado por um
+ *  arquivo de vários materiais, este caminho passa a jogar peça fora igual ao
+ *  outro, e aí a correção é a mesma: uma `InstancedMesh` por parte. */
 async function carregarPacoteRochas(gltf?: GLTFLoader): Promise<{ geo: THREE.BufferGeometry; mat: THREE.Material } | null> {
   if (!gltf) {
     console.warn('[inverno] sem `gltf`: sem penhasco de verdade, só a cor de rocha do vértice.')
@@ -1660,8 +2096,14 @@ async function carregarPacoteRochas(gltf?: GLTFLoader): Promise<{ geo: THREE.Buf
  * não uma segunda grade, não um segundo `heightAt`), só CONE (8 triângulos),
  * sem depender de `gltf` nem de espécie nenhuma carregada. Sempre construída
  * pela camada longe, nunca some sozinha (só é trocada pela densa quando a
- * camada perto termina, ver `dispararCamadaPerto`). CPU tão barata (≤300
- * itens) que não precisa ceder: uma função comum, não geradora.
+ * camada perto termina, ver `dispararCamadaPerto`).
+ *
+ * ⚠️ O TETO PASSOU DE 220 PARA TODO MUNDO (ver `FLORESTA_TETO_LONGE`), então o
+ * "CPU tão barata (≤300 itens)" do comentário antigo precisa de número novo:
+ * medido offline (Node 20, `THREE.Matrix4` de verdade, 5.671 itens, média de
+ * 20 repetições), o laço de matriz custa 0,80 ms. Continua sendo função comum,
+ * não geradora: 0,80 ms cabe num quadro de 16,7 ms com folga, e esta camada
+ * roda UMA vez.
  */
 function construirFlorestaEsparsa(candidatos: CandidatoFloresta[], teto: number): Floresta {
   const passo = Math.max(1, Math.ceil(candidatos.length / teto))
@@ -1673,13 +2115,17 @@ function construirFlorestaEsparsa(candidatos: CandidatoFloresta[], teto: number)
   inst.castShadow = false
   inst.frustumCulled = false
   const m4 = new THREE.Matrix4(), vp = new THREE.Vector3(), vq = new THREE.Quaternion(), ve = new THREE.Euler()
-  const escala1 = new THREE.Vector3(1, 1, 1)
+  // ⚠️ ESCALA MÉDIA, NÃO 1. Esta camada sobe ANTES de qualquer `.glb` chegar,
+  // então ela não tem a caixa medida de espécie nenhuma pra consultar: usa a
+  // média ponderada de `ARVORES` (19,24 m x 11,11 m, medida offline nos 10
+  // arquivos, ver `geoConeLonge`) sobre o cone nominal de 11,5 x 4,6.
+  const escalaMedia = new THREE.Vector3(ESCALA_CONE_MEDIA.xz, ESCALA_CONE_MEDIA.y, ESCALA_CONE_MEDIA.xz)
   for (let i = 0; i < amostra.length; i++) {
     const c = amostra[i]
     vp.set(c.x, c.y, c.z)
     ve.set(0, c.giro, 0)
     vq.setFromEuler(ve)
-    m4.compose(vp, vq, escala1)
+    m4.compose(vp, vq, escalaMedia)
     inst.setMatrixAt(i, m4)
   }
   inst.count = amostra.length
@@ -1706,7 +2152,7 @@ function construirFlorestaEsparsa(candidatos: CandidatoFloresta[], teto: number)
  * disso).
  */
 function* instanciarFlorestaDensa(
-  vivas: { especie: EspecieArvore; dados: { geo: THREE.BufferGeometry; mat: THREE.Material } }[],
+  vivas: { especie: EspecieArvore; malha: MalhaArvore }[],
   candidatosBase: CandidatoFloresta[],
   sombra: boolean,
   saida: { floresta: Floresta | null },
@@ -1723,32 +2169,59 @@ function* instanciarFlorestaDensa(
   const candidatos: (CandidatoFloresta & { especieIdx: number })[] = []
   for (const it = emFatias(candidatosBase, (c) => candidatos.push({ ...c, especieIdx: resolverEspecie(c.tEspecie) })); !it.next().done; ) yield
 
-  // desbaste determinístico se passar do teto de perto (o balde de longe não
-  // tem teto: cone de 8 tri é barato o bastante pra sobrar todo mundo nele)
-  let paraPerto = candidatos
-  if (candidatos.length > FLORESTA_TETO_PERTO) {
-    const manter = FLORESTA_TETO_PERTO / candidatos.length
-    paraPerto = candidatos.filter((_, i) => hash01(i * 2654435761) < manter)
-  }
+  // ⚠️ O TETO DE PERTO DEIXOU DE SER UM SORTEIO FIXO, 04/09, E ISSO É A QUEIXA
+  // "vegetação completamente esparsa" VISTA DE DENTRO. Antes, 450 candidatos
+  // eram escolhidos POR HASH, uma vez, e só eles podiam virar malha real; os
+  // outros ficavam cone para sempre, inclusive a 30 m do visitante. Medido com
+  // a floresta de hoje (2.684 candidatos), isso quer dizer que 83% das árvores
+  // ao redor de quem está DENTRO do maciço eram pirâmides de 8 triângulos.
+  // Nenhum aumento de teto conserta isso: o problema não era quantas, era
+  // QUAIS. Agora o teto é um ORÇAMENTO e quem entra nele são as MAIS PERTO da
+  // câmera, decidido a cada `update` (ver o histograma lá embaixo). Mesmo custo
+  // de triângulo, densidade percebida completamente diferente.
+  //
+  // ⚠️ A CAPACIDADE POR ESPÉCIE SAI DO PESO, NÃO DA CONTAGEM DO SORTEIO, porque
+  // a mistura das N mais próximas varia com o lugar da câmera. `FOLGA_CAP` de
+  // 1,5 cobre essa variação: para o pinheiro (peso 0,50) o esperado entre 450
+  // são 225 e a capacidade fica em 338. O custo dessa folga é buffer de
+  // matriz, não triângulo desenhado (`count` é o que a GPU paga), e o buffer
+  // inteiro dá ~90 KB.
   yield
-  const paraPertoSet = new Set(paraPerto)
 
   const group = new THREE.Group()
   group.name = 'inverno:floresta:densa'
   let triangulos = 0
 
-  const instPerto: (THREE.InstancedMesh | null)[] = new Array(vivas.length).fill(null)
+  // ⚠️ UMA `InstancedMesh` POR PARTE DO MODELO, não por espécie: é o padrão de
+  // `props.ts:381` trazido pra cá (ver `carregarInstanciavel`). Todas as partes
+  // de uma espécie recebem a MESMA lista de posições, cada uma multiplicada
+  // pela matriz da parte dentro do modelo, então o tronco e a folha andam
+  // juntos. Custo de chamada de desenho, medido nos arquivos de hoje: 4 partes
+  // no pinheiro e 2 em cada uma das outras 9 = 22 malhas onde antes eram 10.
+  const instPerto: (THREE.InstancedMesh[] | null)[] = new Array(vivas.length).fill(null)
+  const capPerto: number[] = new Array(vivas.length).fill(0)
   for (const it = emFatias(vivas, (v, i) => {
-    const cap = Math.max(1, paraPerto.filter((c) => c.especieIdx === i).length)
-    const inst = new THREE.InstancedMesh(v.dados.geo, v.dados.mat, cap)
-    inst.name = `inverno:floresta:${v.especie.id}:perto`
-    inst.castShadow = sombra
-    inst.frustumCulled = false
-    inst.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
-    group.add(inst)
-    const triUnit = v.dados.geo.index ? v.dados.geo.index.count / 3 : v.dados.geo.attributes.position.count / 3
-    triangulos += triUnit * cap
-    instPerto[i] = inst
+    const cap = Math.min(
+      candidatos.length,
+      Math.max(4, Math.ceil((FLORESTA_TETO_PERTO * v.especie.peso / pesoTotal) * FOLGA_CAP)),
+    )
+    capPerto[i] = cap
+    const malhas: THREE.InstancedMesh[] = []
+    v.malha.partes.forEach((parte, p) => {
+      const inst = new THREE.InstancedMesh(parte.geo, parte.mat, cap)
+      inst.name = `inverno:floresta:${v.especie.id}:perto:${p}`
+      inst.castShadow = sombra
+      inst.frustumCulled = false
+      inst.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+      group.add(inst)
+      // ⚠️ O ORÇAMENTO DECLARADO É O QUE A GPU PAGA, não o que o buffer aloca:
+      // `count` nunca passa de `FLORESTA_TETO_PERTO` somado sobre as espécies,
+      // então a conta usa a fatia ESPERADA da espécie, não a capacidade com
+      // folga. Alocar a mais custa memória de matriz, não triângulo.
+      triangulos += parte.tri * (FLORESTA_TETO_PERTO * v.especie.peso / pesoTotal)
+      malhas.push(inst)
+    })
+    instPerto[i] = malhas
   }); !it.next().done; ) yield
 
   const geoLonge = geoConeLonge()
@@ -1763,37 +2236,85 @@ function* instanciarFlorestaDensa(
   triangulos += candidatos.length * triLonge // pior caso: todo mundo no balde de longe
   yield
 
-  const m4 = new THREE.Matrix4(), vp = new THREE.Vector3(), vq = new THREE.Quaternion()
+  const m4 = new THREE.Matrix4(), mParte = new THREE.Matrix4()
+  const vp = new THREE.Vector3(), vq = new THREE.Quaternion()
   const ve = new THREE.Euler(), vs = new THREE.Vector3()
+
+  // ⚠️ O CONE DE LONGE PASSA A TER A SILHUETA DA ESPÉCIE QUE ELE SUBSTITUI.
+  // A caixa vem medida do próprio GLB (`carregarInstanciavel`), então a troca
+  // de LOD não muda mais o tamanho da árvore: antes um pinheiro de 10,97 m por
+  // 12,79 m virava um cone de 11,5 m por 4,6 m ao cruzar `FLORESTA_R_CHEIA`, e
+  // uma sequoia de 39,96 m encolhia pra 11,5 m. Escala NÃO uniforme de
+  // propósito (largura e altura têm razões diferentes), e custa zero triângulo.
+  const escalaLonge = vivas.map((v) => ({
+    y: v.malha.alturaM / CONE_ALTURA,
+    xz: v.malha.larguraM / CONE_LARGURA,
+  }))
+
+  // histograma radial reusado a cada quadro (sem alocar): ver `update`
+  const BINS = 48
+  const histo = new Int32Array(BINS)
 
   const update = (cam: THREE.Vector3) => {
     const contagens = new Array(vivas.length).fill(0)
     let nLonge = 0
+    // ⚠️ PASSO 1, O CORTE POR DISTÂNCIA. Histograma de 48 anéis até
+    // `FLORESTA_R_CHEIA` e soma acumulada até estourar o teto: devolve o raio
+    // em que cabem ~`FLORESTA_TETO_PERTO` árvores. É O(n) com aritmética
+    // inteira, sem ordenar nada (ordenar 2.684 por quadro seria o caminho
+    // óbvio e o caro). O raio anda macio com a câmera, então a troca de LOD
+    // continua acontecendo por distância, como sempre aconteceu.
+    histo.fill(0)
+    const largura = FLORESTA_R_CHEIA / BINS
     for (const c of candidatos) {
       const d = Math.hypot(c.x - cam.x, c.z - cam.z)
-      const perto = d < FLORESTA_R_CHEIA && paraPertoSet.has(c)
+      if (d < FLORESTA_R_CHEIA) histo[Math.min(BINS - 1, (d / largura) | 0)]++
+    }
+    let soma = 0
+    let corte = 0
+    for (let b = 0; b < BINS; b++) {
+      if (soma + histo[b] > FLORESTA_TETO_PERTO) break
+      soma += histo[b]
+      corte = (b + 1) * largura
+    }
+    for (const c of candidatos) {
+      const d = Math.hypot(c.x - cam.x, c.z - cam.z)
+      const perto = d < corte && contagens[c.especieIdx] < capPerto[c.especieIdx]
       const especie = vivas[c.especieIdx].especie
       const esc = especie.escMin + c.tEsc * (especie.escMax - especie.escMin)
       vp.set(c.x, c.y, c.z)
       ve.set(0, c.giro, 0)
       vq.setFromEuler(ve)
-      vs.set(esc, esc, esc)
-      m4.compose(vp, vq, vs)
-      const inst = perto ? instPerto[c.especieIdx] : null
-      if (inst) inst.setMatrixAt(contagens[c.especieIdx]++, m4)
-      else longe.setMatrixAt(nLonge++, m4)
+      const malhas = perto ? instPerto[c.especieIdx] : null
+      if (malhas) {
+        vs.set(esc, esc, esc)
+        m4.compose(vp, vq, vs)
+        const k = contagens[c.especieIdx]++
+        const partes = vivas[c.especieIdx].malha.partes
+        for (let p = 0; p < malhas.length; p++) {
+          mParte.multiplyMatrices(m4, partes[p].local)
+          malhas[p].setMatrixAt(k, mParte)
+        }
+      } else {
+        const e = escalaLonge[c.especieIdx]
+        vs.set(esc * e.xz, esc * e.y, esc * e.xz)
+        m4.compose(vp, vq, vs)
+        longe.setMatrixAt(nLonge++, m4)
+      }
     }
     for (let i = 0; i < vivas.length; i++) {
-      const inst = instPerto[i]
-      if (!inst) continue
-      inst.count = contagens[i]
-      inst.instanceMatrix.needsUpdate = true
+      const malhas = instPerto[i]
+      if (!malhas) continue
+      for (const inst of malhas) {
+        inst.count = contagens[i]
+        inst.instanceMatrix.needsUpdate = true
+      }
     }
     longe.count = nLonge
     longe.instanceMatrix.needsUpdate = true
   }
   update(new THREE.Vector3(0, 0, 0))
-  for (const inst of instPerto) inst?.computeBoundingSphere()
+  for (const malhas of instPerto) malhas?.forEach((inst) => inst.computeBoundingSphere())
   longe.computeBoundingSphere()
 
   saida.floresta = { group, triangulos: Math.round(triangulos), arvores: candidatos.length, update }
@@ -1896,21 +2417,34 @@ function* instanciarPenhascos(
  *  distância — cada árvore da silhueta cobre um ângulo minúsculo daquele
  *  arco, então 220 pontos bem espalhados (reaproveitando o MESMO sorteio de
  *  posição da floresta cheia, por passo, não uma segunda grade) bastam pra
- *  quebrar a sensação de "montanha pelada" sem custar mais que 220 × 8 tri
- *  = 1.760 triângulos. Ver "ACHADO 3" no cabeçalho. */
-const FLORESTA_TETO_LONGE = 220
+ *  quebrar a sensação de "montanha pelada". ERRADO, E MEDIDO ERRADO EM 04/09:
+ *  são 5.671 candidatos, e 220 deles é UMA ÁRVORE A CADA 236 m numa cunha de
+ *  12,28 km². Isso não é "silhueta quebrada", é savana, e é literalmente o que
+ *  a chapa de contrato fotografa toda vez que a câmera está além de
+ *  `INVERNO_R_DET` (a camada densa nem chegou a existir). O teto novo é maior
+ *  que a contagem de candidatos DE PROPÓSITO: a camada esparsa passa a levar
+ *  todo mundo. O preço é 5.671 × 8 = 45.368 triângulos (contra 1.760), ou
+ *  1,2% da praça, e 0,80 ms de CPU no laço de matriz (medido offline, Node 20
+ *  com o `THREE.Matrix4` de verdade, 20 repetições), ainda barato o bastante
+ *  para não precisar ceder em fatias. Ver "ACHADO 3" no cabeçalho. */
+const FLORESTA_TETO_LONGE = 6000
 
-/** ⚠️ O RAIO DA CAMADA PERTO, medido a partir do mesmo ponto que já ancora o
- *  culler do grupo inteiro (`r=7800, az=268`, definido logo abaixo). É mais
- *  que o triplo de `FLORESTA_R_CHEIA` (1.300 m, o raio em que a floresta
- *  cheia já troca cone por malha real, ponto a ponto): dá margem pra a
- *  `Obra` privada da camada perto (ver `invernoComoTrabalho`) terminar de
- *  construir ANTES de a câmera chegar perto o bastante pra notar a malha de
- *  longe ainda em pé. Comparado ao raio de descarte do grupo inteiro
- *  (26.000 m, `culler?.add` abaixo), 4.000 m ainda é bem menor, então o
- *  gatilho nunca dispara depois que o parque já teria sumido por distância.
- *  Ver "ACHADO 3" no cabeçalho pra justificativa completa. */
-const INVERNO_R_DET = 4000
+/** ⚠️ 4.000 -> 6.000 EM 04/09, E O NÚMERO SAI DAS CHAPAS DE CONTRATO, não de
+ *  gosto. `INVERNO_R_DET` é medido a partir de (`INVERNO_CX`, `INVERNO_CZ`) =
+ *  r 7.800, azimute 268, que é (-7.795, 272). Distâncias medidas das câmeras
+ *  de `scripts/city/chapas.mjs` até esse ponto:
+ *
+ *    inverno    câmera (-3.800, 400)    3.997 m   passava por 3 m
+ *    silhueta   câmera (-3.220,  54)    4.580 m   NÃO passava
+ *    florestaolho (-7.096, -248)          871 m   passava
+ *
+ *  Ou seja a chapa de contrato da CADEIA INTEIRA nunca via a camada perto:
+ *  nem floresta densa, nem penhasco, nem estação. E a chapa `inverno` passava
+ *  por três metros, o que é sorte, não projeto. 6.000 m cobre as duas com
+ *  folga e continua muito abaixo do raio de descarte do grupo inteiro
+ *  (26.000 m, `culler?.add` abaixo), então o gatilho nunca dispara depois que
+ *  o parque já teria sumido por distância. Ver "ACHADO 3" no cabeçalho. */
+const INVERNO_R_DET = 6000
 const [INVERNO_CX, INVERNO_CZ] = pontoEmRumo(7800, 268)
 
 /**
@@ -1923,7 +2457,7 @@ const [INVERNO_CX, INVERNO_CZ] = pontoEmRumo(7800, 268)
  * fora).
  */
 interface AtivosDoInverno {
-  arvores: { especie: EspecieArvore; dados: { geo: THREE.BufferGeometry; mat: THREE.Material } }[]
+  arvores: { especie: EspecieArvore; malha: MalhaArvore }[]
   rochas: { geo: THREE.BufferGeometry; mat: THREE.Material } | null
 }
 

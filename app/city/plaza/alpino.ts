@@ -31,7 +31,15 @@
 // precisa de altura em 210 mil candidatos: chamar `heightAt` nos dois seria meio
 // milhão de consultas na construção. Aqui a grade de 40 m (a MESMA célula da
 // grade do terreno, então não se perde informação) é amostrada uma vez dentro do
-// anel e a mata lê dela por bilinear. NÃO MEDI o tempo de construção resultante.
+// anel e a mata lê dela por bilinear.
+//
+// ⚠️ AGORA MEDIDO (04/09, Node 20 + tsx, sem navegador): 103.674 chamadas de
+// `superficieAt` na grade, e `buildAlpino` inteiro em 1.523 ms com o terreno
+// REAL (`buildTerrain` sobre o heightmap da NASA em disco + `alturaInvernoAt`
+// com as três feições carregadas de `public/`). No maciço uma chamada de
+// `superficieAt` custa 56,3 µs (contra 11,4 µs de `heightAt`: ela lineariza a
+// malha e paga 3 a 4 `heightAt` por consulta). Quem mexer neste arquivo tem de
+// contar chamada, não linha.
 //
 // ⚠️ A ALTURA VEM DE `superficieAt`, NÃO DE `heightAt`. Regra da casa, e já
 // custou um erro de 42 m: quem desenha coisa que ENCOSTA no chão tem de usar a
@@ -66,6 +74,30 @@
 // medida em `terrain.ts`), lia como "sem neve nenhuma" numa chapa, mesmo com
 // a malha de fato desenhada por baixo. Script e números completos no
 // relatório desta rodada.
+//
+// ⚠️⚠️ ACHADO 04/09, E É O QUE FALTAVA: A NEVE ESTAVA ENTERRADA NA PEDRA.
+// Depois do conserto do material a chapa continuou sem neve, e a causa é
+// GEOMÉTRICA, não de máscara nem de cor. Medido com o terreno REAL em Node
+// (grade da casca contra `superficieAt`, 22.074 triângulos, 8 pontos de
+// amostra por triângulo):
+//
+//   acima de 250 m   30,6% dos triângulos com o terreno FURANDO a casca
+//   acima de 600 m   46,3% furando, 39,7% por mais de 2 m, máximo 143,0 m
+//
+// A conta é simples: a casca tem célula de 40 m e a corda de um quad é uma
+// RETA, enquanto o terreno por baixo tem talude de até 60° e detalhe fino. O
+// `LEVANTE` era um número FIXO (0,4 m fora do parque, 9 m dentro dele) e um
+// número fixo não pode cobrir um erro que varia de 0 a 143 m. Quase metade da
+// neve do corpo alto ficava debaixo da rocha, e o que sobrava aparecia em
+// retalhos: exatamente o que o fundador viu.
+//
+// O CONSERTO É MEDIR O ERRO EM VEZ DE CHUTAR O LEVANTE, ver "FOLGA
+// ADAPTATIVA" na seção 2b. Resultado com o mesmo medidor:
+//
+//   acima de 250 m   30,6% → 2,3% de furo, máximo 143,0 → 29,7 m
+//   acima de 600 m   46,3% → 6,1%
+//   e a casca FLUTUA MENOS que antes (mediana 5,31 → 3,66 m), porque a folga
+//   local substituiu os 9 m constantes que o parque levantava em toda parte.
 //
 // O CONSERTO: a neve não usa mais NENHUM mapa de albedo emprestado. A cor
 // sai só da cor por vértice (branco quase puro, ver `COR_NEVE_PO` abaixo),
@@ -114,6 +146,26 @@ const R_EXT = DOME_R          // 9.050
 /** a célula da grade do terreno como construído */
 const PASSO = 40
 
+// ── a folga adaptativa da casca de neve (ver o achado 04/09 no cabeçalho) ────
+/** ⚠️ SUB-AMOSTRAGEM DENTRO DA CÉLULA, e o número saiu de medição, não de
+ *  gosto: 40/2 = 20 m. Medido com o terreno real, o custo e o ganho de cada
+ *  passo fino (furo acima de 250 m, contra 30,6% de hoje):
+ *    20 m   +29.362 chamadas de `heightAt` (+28%)   furo 1,6%
+ *    10 m  +115.044 chamadas de `heightAt` (+111%)  furo 0,4%
+ *  Quadruplicar a amostragem para ganhar 1,2 ponto não paga: 20 m. */
+const SUB_CORDA = 2
+/** ⚠️ MARGEM SOBRE O ERRO MEDIDO, porque o déficit é amostrado a 20 m e o
+ *  terreno ainda pode subir ENTRE duas amostras. Medido: sem margem sobra 4,9%
+ *  de furo, com 1,2 sobra 1,6%. Não é fator de segurança inventado, é a
+ *  diferença medida entre o que a amostragem vê e o que a chapa vê. */
+const FATOR_FOLGA = 1.2
+/** ⚠️ TETO DA FOLGA = UM PASSO DE GRADE. Subir mais que 40 m num quad de 40 m
+ *  é levantar a casca acima de 45° de corda, e a essa altura a célula é PAREDE:
+ *  `neveEm` já está apagando a neve ali pela regra de inclinação (cheia até
+ *  30°, zero em 55°). Medido: sem teto o furo cai de 1,6% para 1,4% e a
+ *  flutuação do pior caso sobe de 166 para 181 m. Não vale. */
+const TETO_FOLGA = PASSO
+
 const COTA_NEVE = 250
 /** meia largura da faixa de mistura: 235 a 265 */
 const FAIXA_NEVE = 15
@@ -138,16 +190,65 @@ const COTA_NEVE_INVERNO = 70
 const MATA_BAIXO = 150
 const MATA_ALTO = 250
 const PLUMA_MATA = 25
-/** espaçamento do candidato a conífera, antes das máscaras */
-const PASSO_MATA = 26
-/** teto duro de instâncias */
-const TETO_ARVORES = 14000
+
+// ── A DENSIDADE DA MATA, E ELA ESTAVA ERRADA POR CONSTRUÇÃO (04/09) ──────────
+//
+// ⚠️ O TETO NUNCA FOI O GARGALO: O ESPAÇAMENTO ERA. Medido com o terreno real
+// (14.000 árvores plantadas, ou seja o teto de 14.000 batendo): a mata ocupava
+// 1.892 hectares com MÉDIA DE 7,4 ÁRVORES POR HECTARE (p90 = 14). Mata de
+// conífera madura fica entre 300 e 1.000 árvores/ha; bosque aberto, 50 a 150.
+// Sete por hectare é savana, não mata, e é exatamente a queixa do fundador.
+//
+// E o teto não podia consertar isso sozinho: com `PASSO_MATA = 26` o candidato
+// nasce um a cada 676 m², ou seja NO MÁXIMO 14,8 por hectare mesmo que TODOS
+// passassem em todas as máscaras. O espaçamento era o teto real.
+//
+// ⚠️ E A MANCHA ESTAVA MOLE. `mancha = 0,35 + 0,9 × ruído` nunca chega a zero:
+// aceita em toda parte, só que pouco. Isso espalha a mesma pouca árvore por
+// TODO o anel, que é a receita de "pontinhos verdes". Mata de verdade é o
+// contrário: talhão fechado ao lado de clareira vazia. Agora a mancha é um
+// LIMIAR (`suave01` sobre o ruído), então há terra sem nenhuma árvore e talhão
+// com a densidade cheia.
+//
+/** espaçamento do candidato: 3,3× mais candidatos por hectare que os 26 m
+ *  antigos (30,9 contra 14,8 por hectare) */
+const PASSO_MATA = 18
+/** ⚠️ MOITA, NÃO ÁRVORE SOLTA. Conífera se regenera em grupo (a semente cai
+ *  perto da mãe), e a moita é o que dobra a densidade sem dobrar a VARREDURA,
+ *  que é o item caro: cada ponto aceito vira de 1 a 4 troncos num raio de 6 m,
+ *  e o custo por tronco extra é uma bilinear na grade, não uma consulta ao
+ *  terreno. */
+const MOITA_MAX = 5
+const RAIO_MOITA = 6
+/** ⚠️ TETO DURO DE INSTÂNCIAS, MEDIDO E NÃO CHUTADO. Ver a tabela de custo no
+ *  relatório: 52 mil coníferas de 8 triângulos são 416 mil triângulos e
+ *  3,33 MB de matriz de instância, e dão 96 árvores/ha na mancha (bosque
+ *  aberto denso). O desbaste continua determinístico e uniforme se a varredura
+ *  render mais que isto. */
+const TETO_ARVORES = 52000
+/** ⚠️ O BALDE DE PERTO TEM TETO PRÓPRIO, e ele é pequeno de propósito: a
+ *  câmera só entra na mata voando até o maciço, e ali cabem no máximo alguns
+ *  milhares de árvores dentro de `R_CHEIA`. Alocar o balde de perto com a
+ *  capacidade INTEIRA (o que este arquivo fazia) reservava 3,33 MB de matriz
+ *  para um `count` que fica em ZERO a viagem toda: medido com a câmera na
+ *  praça, `alpino:conifera:perto` tem count = 0. */
+const TETO_PERTO = 6000
 /** além disto a conífera vira o volume de longe (8 triângulos) */
 const R_CHEIA = 1400
-/** ⚠️ O LOD NÃO SE REBALANCEIA POR QUADRO. Refazer 14 mil matrizes custa alguns
- *  ms; a mata está a 6 km da praça, então na prática o balde de perto fica vazio
- *  a viagem inteira. O passo é largo de propósito. NÃO MEDI o custo do refaz. */
+/** ⚠️ O LOD NÃO SE REBALANCEIA POR QUADRO, e agora o custo está MEDIDO: 2,87 ms
+ *  para 14 mil matrizes, ou seja 0,205 ms por mil. Com 52 mil isso daria 10,7 ms,
+ *  um soluço de quadro a cada 400 m de câmera, e é por isso que existe a porta
+ *  de `longeDeTudo` abaixo: a mata está a 6 a 9 km da praça, então enquanto a
+ *  câmera não chega perto do maciço NÃO HÁ NADA A REFAZER e o laço inteiro é
+ *  pulado. O custo só é pago por quem voa até lá. */
 const PASSO_REBALANCE = 400
+/** ⚠️ SUB-BOSQUE SÓ DE PERTO, E A CONTA DE PIXEL MANDA NISSO. A vista de
+ *  contrato do maciço está a 4.560 m do alvo; com 60° de campo e 1.080 px de
+ *  altura, um pixel vale 0,00097 rad, então uma moita de 1,5 m mede 0,34 px a
+ *  4.560 m e 1,1 px no limite de `R_CHEIA`. Sub-bosque desenhado além disso é
+ *  triângulo pago para não aparecer. Dentro de `R_CHEIA` ele é o que separa
+ *  "mata" de "árvore espetada em chão pelado", que era a queixa. */
+const TETO_SUBBOSQUE = 2600
 
 // ── ruído determinístico: a montanha é a mesma em toda visita ───────────────
 function hash01(i: number): number {
@@ -203,6 +304,12 @@ const COR_NEVE_SUJA = new THREE.Color('#9A948B')
  *  porque é isso que separa a mata do morro da arborização de rua na mesma vista */
 const COR_AGULHA = new THREE.Color('#3E5140')
 const COR_FUSTE = new THREE.Color('#4A423A')
+/** folhagem baixa do sub-bosque: mais quente e mais clara que a agulha, porque
+ *  arbusto pega mais sol que copa e é isso que separa os dois planos */
+const COR_MOITA = new THREE.Color('#4E5B3C')
+/** matacão solto: a MESMA pedra exposta que `terrain.ts` mistura no talude
+ *  (`ROCHA_PICO = #6E6A63`), não um cinza novo sem relação com o chão */
+const COR_MATACAO = new THREE.Color('#6E6A63')
 
 // ── pó fresco vs pista compactada ────────────────────────────────────────────
 // ⚠️ MESMA LÓGICA DE VARIAÇÃO DE MUNDO QUE `materiais.ts` USA NO ASFALTO
@@ -324,8 +431,6 @@ function gerarNormalNeve(): THREE.CanvasTexture {
  *  (o cristal é um detalhe fino, não uma macro-variação como a do regolito) */
 const TILE_SPARKLE = 6
 
-interface Arvore { x: number; z: number; y: number; esc: number; escXZ: number; giro: number }
-
 /**
  * A coroa de neve e a mata do maciço oeste.
  *
@@ -401,20 +506,17 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
   // modelo de terreno de outro módulo. A casca sobe e vai com `polygonOffset`,
   // que é o par de cintos que a cena já usa em chão sobre chão.
   //
-  // ⚠️ 0,4 m FIXO ENTERRAVA A NEVE NO FLANCO ÍNGREME, medido em 03/09: esta
-  // grade (PASSO=40) interpola `superficieAt` nos SEUS próprios cantos, e a
-  // malha grossa do terreno interpola os DELA (cell aprox 59 m). As duas são
-  // aproximações diferentes da MESMA `heightAt`, e onde o relevo é raso (a
-  // cidade) elas quase coincidem; onde é íngreme (o maciço, até 130% de
-  // rampa) elas divergem de verdade. Varredura de 1.802 pontos fora da grade
-  // no flanco do parque: divergência média 0,617 m, MÁXIMA 7,62 m (0,4% das
-  // amostras acima de 5 m). 0,4 m de folga não cobre isso: a neve ficava
-  // enterrada exatamente nos pontos mais íngremes, que também são os mais
-  // visíveis de longe. A folga agora escala com `zonaEsquiavelAt` (0 fora do
-  // parque, bit a bit os mesmos 0,4 m de sempre; até 9 m dentro dele, folga
-  // sobre o pior caso medido).
+  // ⚠️ O LEVANTE VOLTOU A SER SÓ A FOLGA DE Z-FIGHT, 0,4 m. Até 03/09 ele
+  // carregava DOIS papéis: a folga de profundidade (que é o que o
+  // `polygonOffset` e estes 0,4 m resolvem) e a compensação do erro de corda,
+  // que virou `LEVANTE_INVERNO = 9` dentro da zona do parque. Nove metros
+  // constantes é errado nas duas pontas, e agora está medido: 73,4% das
+  // células da casca precisam de MENOS de 2 m e 6,2% precisam de MAIS de 10 m
+  // (300 células precisam de 10 a 25 m, 115 de 25 a 60 e 22 de mais de 60).
+  // Um número só não serve para uma distribuição assim. O erro de corda agora
+  // é MEDIDO célula a célula na seção 2b e some sozinho quando a montanha
+  // suavizar, que é o que a frente da montanha está fazendo agora.
   const LEVANTE_BASE = 0.4
-  const LEVANTE_INVERNO = 9
   const pos: number[] = []
   const nor: number[] = []
   const uv: number[] = []
@@ -455,16 +557,113 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
     }
   }
 
+  // ── 2b. A FOLGA ADAPTATIVA: o erro de corda MEDIDO, não um levante chutado ─
+  //
+  // ⚠️ ESTA É A CORREÇÃO DO ACHADO 04/09 (ver o cabeçalho). O quad de 40 m é
+  // uma RETA entre quatro amostras; o terreno por baixo não é. Para cada célula
+  // que vira quad, o terreno é reamostrado a 20 m (`SUB_CORDA`) e o DÉFICIT é
+  // o quanto o terreno passa por cima do plano do triângulo naquele ponto.
+  //
+  // ⚠️ POR QUE ISTO É PROVADAMENTE SUFICIENTE, e não um empurrão a esmo:
+  // levantar os TRÊS vértices de um triângulo pelo mesmo `d` levanta o plano
+  // inteiro por `d` (o plano é afim). Então dar a cada NÓ o maior déficit
+  // entre as células que o tocam garante, em toda célula, que o plano subiu
+  // pelo menos o déficit dela. É a menor folga que resolve, e ela é ZERO em
+  // terreno plano: quando a frente da montanha alargar os carimbos e o talude
+  // cair de 55° para 30°, esta conta encolhe sozinha. Não há número calibrado
+  // para a montanha de hoje neste bloco.
+  //
+  // ⚠️ E A DIAGONAL DO QUAD TAMBÉM É ESCOLHIDA, não fixa, o que é de graça:
+  // partir o quad pela diagonal que passa mais ALTO segue a crista em vez de
+  // cortá-la. Medido: derruba a folga p90 de 16,75 para 11,74 m sem gastar
+  // uma amostra a mais.
+  // ⚠️ DUAS ECONOMIAS MEDIDAS, e as duas mudam o custo de verdade:
+  //  1. o canto da célula fina JÁ ESTÁ em `h` (é nó da grade grossa): pedi-lo
+  //     de novo a `heightAt` custaria 12.417 chamadas a mais, 27% do total
+  //     desta seção. Sai da grade;
+  //  2. o meio de aresta é canto de DUAS células e o resto é interno: sem
+  //     cache o mesmo ponto seria amostrado duas vezes. Com cache o custo
+  //     fica em 3,09 chamadas novas por célula (medido: 34.151 chamadas para
+  //     11.038 células), que é o mínimo possível para um retículo de 20 m.
+  // ⚠️ E O CENTRO SOZINHO NÃO SERVE, testado antes de escolher: das células
+  // com déficit acima de 0,5 m, a amostra do centro captura a MEDIANA de 0%
+  // do déficit e perde mais de 2 m em 45,2% delas. O pico do erro de corda
+  // quase nunca cai no centro do quad, cai na aresta.
+  const NSUB = (N - 1) * SUB_CORDA + 1
+  const caixaFina = new Map<number, number>()
+  const finoEm = (fi: number, fj: number): number => {
+    if (fi % SUB_CORDA === 0 && fj % SUB_CORDA === 0) {
+      const k = idx(fi / SUB_CORDA, fj / SUB_CORDA)
+      if (valido[k]) return h[k]
+    }
+    const chave = fj * NSUB + fi
+    const v = caixaFina.get(chave)
+    if (v !== undefined) return v
+    const y = o.heightAt(-R_EXT + (fi * PASSO) / SUB_CORDA, -R_EXT + (fj * PASSO) / SUB_CORDA)
+    caixaFina.set(chave, y)
+    return y
+  }
+  /** a célula (i, j) vira quad? guardado no índice do nó de baixo-esquerda */
+  const emite = new Uint8Array(N * N)
+  /** 1 = partir pela diagonal (i+1,j)-(i,j+1) em vez da (i,j)-(i+1,j+1) */
+  const diagB = new Uint8Array(N * N)
+  const folga = new Float32Array(N * N)
+  for (let j = 1; j < N - 2; j++) {
+    for (let i = 1; i < N - 2; i++) {
+      const a = idx(i, j), b = idx(i + 1, j), c = idx(i, j + 1), d = idx(i + 1, j + 1)
+      if (!valido[a] || !valido[b] || !valido[c] || !valido[d]) continue
+      if (cobertura[a] + cobertura[b] + cobertura[c] + cobertura[d] <= 0.004) continue
+      emite[a] = 1
+      const h00 = h[a], h10 = h[b], h01 = h[c], h11 = h[d]
+      const usaB = h10 + h01 > h00 + h11
+      if (usaB) diagB[a] = 1
+      let def = 0
+      for (let sb = 0; sb <= SUB_CORDA; sb++) {
+        for (let sa = 0; sa <= SUB_CORDA; sa++) {
+          const u = sa / SUB_CORDA, v = sb / SUB_CORDA
+          const t = finoEm(i * SUB_CORDA + sa, j * SUB_CORDA + sb)
+          const y = usaB
+            ? (u + v <= 1
+              ? h00 + (h10 - h00) * u + (h01 - h00) * v
+              : h11 + (h01 - h11) * (1 - u) + (h10 - h11) * (1 - v))
+            : (v <= u
+              ? h00 + (h10 - h00) * u + (h11 - h10) * v
+              : h00 + (h11 - h01) * u + (h01 - h00) * v)
+          if (t - y > def) def = t - y
+        }
+      }
+      if (def <= 0) continue
+      const ff = Math.min(TETO_FOLGA, def * FATOR_FOLGA)
+      if (ff > folga[a]) folga[a] = ff
+      if (ff > folga[b]) folga[b] = ff
+      if (ff > folga[c]) folga[c] = ff
+      if (ff > folga[d]) folga[d] = ff
+    }
+  }
+  caixaFina.clear()
+
   let quads = 0
   const nv = new THREE.Vector3()
   const corPonto = new THREE.Color()
-  const empurra = (i: number, j: number) => {
+  // ⚠️ MALHA INDEXADA, e a economia é medida: cada nó da grade é canto de até
+  // quatro quads, e a versão não indexada empurrava o MESMO vértice até seis
+  // vezes (dois triângulos por quad, três vértices cada). Todos os atributos
+  // aqui são função de (i, j) e de mais nada, então indexar é idêntico pixel a
+  // pixel. Medido no terreno real: 66.222 vértices e 3,03 MB viram 11.457
+  // vértices e 0,78 MB, com a MESMA contagem de triângulos.
+  const indiceDe = new Int32Array(N * N).fill(-1)
+  const ind: number[] = []
+  let nVert = 0
+  const vert = (i: number, j: number): number => {
     const k = idx(i, j)
+    if (indiceDe[k] >= 0) return indiceDe[k]
     const x = xDe(i), z = xDe(j)
-    const zona = INVERNO_ATIVO ? zonaEsquiavelAt(x, z) : 0
-    const levante = LEVANTE_BASE + (LEVANTE_INVERNO - LEVANTE_BASE) * zona
-    pos.push(x, h[k] + levante, z)
-    // normal da grade, não do quad: a casca acompanha o morro sem facetar
+    pos.push(x, h[k] + LEVANTE_BASE + folga[k], z)
+    // ⚠️ NORMAL DA GRADE DO TERRENO, SEM A FOLGA DE PROPÓSITO. A folga é uma
+    // correção de casco local (o máximo entre as células vizinhas), não
+    // relevo: somá-la aqui faria o sombreado seguir o degrau da correção em
+    // vez de seguir o morro, e a coroa ficaria manchada de facetas onde o
+    // terreno é liso. A casca acompanha o morro sem facetar.
     const dx = (h[idx(i + 1, j)] - h[idx(i - 1, j)]) / (2 * PASSO)
     const dz = (h[idx(i, j + 1)] - h[idx(i, j - 1)]) / (2 * PASSO)
     nv.set(-dx, 1, -dz).normalize()
@@ -481,14 +680,18 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
     const borda = Math.min(1, cobertura[k] / 0.7)
     corPonto.lerp(COR_NEVE_SUJA, 1 - borda)
     cor.push(corPonto.r, corPonto.g, corPonto.b, cobertura[k])
+    indiceDe[k] = nVert
+    return nVert++
   }
   for (let j = 1; j < N - 2; j++) {
     for (let i = 1; i < N - 2; i++) {
-      const a = idx(i, j), b = idx(i + 1, j), c = idx(i, j + 1), d = idx(i + 1, j + 1)
-      if (!valido[a] || !valido[b] || !valido[c] || !valido[d]) continue
-      if (cobertura[a] + cobertura[b] + cobertura[c] + cobertura[d] <= 0.004) continue
-      empurra(i, j); empurra(i + 1, j); empurra(i + 1, j + 1)
-      empurra(i, j); empurra(i + 1, j + 1); empurra(i, j + 1)
+      const k = idx(i, j)
+      if (!emite[k]) continue
+      const a = vert(i, j), b = vert(i + 1, j), c = vert(i + 1, j + 1), d = vert(i, j + 1)
+      // as duas partições preservam o mesmo sentido de giro (a face é única,
+      // o material não é `DoubleSide`)
+      if (diagB[k]) ind.push(a, b, d, b, c, d)
+      else ind.push(a, b, c, a, c, d)
       quads++
     }
   }
@@ -535,6 +738,7 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
     g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
     // itemSize 4: o three liga USE_COLOR_ALPHA e o alfa por vértice vale
     g.setAttribute('color', new THREE.Float32BufferAttribute(cor, 4))
+    g.setIndex(ind)
     g.computeBoundingSphere()
     neve = new THREE.Mesh(g, matNeve)
     neve.name = 'alpino:neve'
@@ -545,7 +749,12 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
   }
 
   // ── 3. a mata: candidatos em grade jitterada, filtrados pela faixa ────────
-  const arvores: Arvore[] = []
+  // ⚠️ ARMAZENADA EM `Float32Array`, NÃO EM ARRAY DE OBJETO. Seis campos por
+  // árvore (x, z, y, esc, escXZ, giro): como objeto o V8 gasta cerca de 72 B
+  // por muda (cabeçalho mais seis slots de double mais o ponteiro do array),
+  // como float são 24 B. Em 52 mil árvores isso é 1,25 MB contra 3,6 MB, e o
+  // laço do LOD percorre memória contígua em vez de perseguir ponteiro.
+  const bruto: number[] = []
   const passos = Math.floor((2 * R_EXT) / PASSO_MATA)
   for (let j = 0; j <= passos; j++) {
     for (let i = 0; i <= passos; i++) {
@@ -570,30 +779,62 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
       const dens = suave01((alt - (MATA_BAIXO - PLUMA_MATA)) / (2 * PLUMA_MATA))
         * (1 - suave01((alt - (MATA_ALTO - PLUMA_MATA)) / (2 * PLUMA_MATA)))
       if (dens <= 0.02) continue
-      // manchado: mata de verdade tem clareira e adensamento
-      const mancha = 0.35 + 0.9 * ruido(x, z, 180, 41)
+      // ⚠️ MANCHA COM LIMIAR, NÃO COM PISO. A versão antiga
+      // (`0,35 + 0,9 × ruído`) nunca zerava: aceitava em toda parte, pouco, e
+      // o resultado é pontinho espalhado por 1.892 hectares. Aqui o ruído de
+      // célula 210 m passa por um limiar: abaixo de 0,44 é clareira de
+      // verdade (nenhuma árvore) e acima de 0,62 é talhão cheio. A mesma
+      // árvore concentrada em menos terra é o que lê como mata a 4 km.
+      const mancha = suave01((ruido(x, z, 210, 41) - 0.44) / 0.18)
+      if (mancha <= 0.01) continue
       if (hash2(i, j, 13) > dens * mancha) continue
       // face muito íngreme não segura mata alta
       const ii = Math.round((x + R_EXT) / PASSO), jj = Math.round((z + R_EXT) / PASSO)
       if (inclinacaoEm(ii, jj) > 42) continue
       if (o.molhado?.(x, z)) continue
       if (o.naVia?.(x, z, 2.5)) continue
-      const t = hash2(i, j, 17)
-      arvores.push({
-        x, z, y: alt,
-        esc: 0.75 + t * 0.85,
-        escXZ: 0.85 + hash2(i, j, 23) * 0.4,
-        giro: hash2(i, j, 31) * Math.PI * 2,
-      })
+      // ⚠️ A MOITA: o ponto aceito vira de 1 a `MOITA_MAX` troncos. O primeiro
+      // fica no ponto medido (que já passou por água, via e inclinação); os
+      // outros saem num disco de `RAIO_MOITA`, com raio por `sqrt` para o
+      // sorteio ficar uniforme na ÁREA e não amontoar tudo no centro. Eles
+      // herdam as máscaras do ponto-mãe de propósito: 6 m é menos que a folga
+      // de qualquer uma delas e reconferir custaria uma consulta a `naVia` por
+      // tronco, que é justamente o item caro.
+      const quantos = 1 + Math.floor(hash2(i, j, 43) * MOITA_MAX)
+      for (let q = 0; q < quantos; q++) {
+        let px = x, pz = z
+        if (q > 0) {
+          const ang = hash2(i, j, 47 + q * 13) * Math.PI * 2
+          const d = RAIO_MOITA * Math.sqrt(hash2(i, j, 59 + q * 17))
+          px = x + Math.cos(ang) * d
+          pz = z + Math.sin(ang) * d
+        }
+        const ay = q === 0 ? alt : alturaEm(px, pz)
+        if (!Number.isFinite(ay)) continue
+        const t = hash2(i, j, 17 + q * 7)
+        bruto.push(
+          px, pz, ay,
+          0.75 + t * 0.85,
+          0.85 + hash2(i, j, 23 + q * 5) * 0.4,
+          hash2(i, j, 31 + q * 3) * Math.PI * 2,
+        )
+      }
     }
   }
 
   // desbaste determinístico se passar do teto
-  let mata = arvores
-  if (arvores.length > TETO_ARVORES) {
-    const manter = TETO_ARVORES / arvores.length
-    mata = arvores.filter((_, i) => hash01(i * 2654435761) < manter)
+  const CAMPOS = 6
+  const brutas = bruto.length / CAMPOS
+  const manter = brutas > TETO_ARVORES ? TETO_ARVORES / brutas : 1
+  let nArv = 0
+  const mata = new Float32Array(Math.min(brutas, TETO_ARVORES) * CAMPOS)
+  for (let k = 0; k < brutas; k++) {
+    if (manter < 1 && hash01(k * 2654435761) >= manter) continue
+    if (nArv * CAMPOS + CAMPOS > mata.length) break
+    mata.set(bruto.slice(k * CAMPOS, k * CAMPOS + CAMPOS), nArv * CAMPOS)
+    nArv++
   }
+  bruto.length = 0
 
   // ── 4. duas geometrias, um material só ───────────────────────────────────
   const pinta = (g: THREE.BufferGeometry, c: THREE.Color) => {
@@ -604,34 +845,126 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
     return g
   }
   // conífera de perto: fuste de 5 lados + duas saias de cone de 7 lados. 34 tris.
+  //
+  // ⚠️ A COPA ABRIU DE 2,6 PARA 3,2 m DE RAIO (04/09), e a razão é de COBERTURA,
+  // não de gosto. A 4 km a árvore mede 2,6 px: nessa escala a mata não se lê por
+  // silhueta, se lê pela fração de chão que a copa cobre. Com raio 2,6 e a escala
+  // média das instâncias (1,23), cada copa cobria 25,1 m²; nos 7,4 troncos por
+  // hectare de antes isso dava 1,9% de cobertura de copa, ou seja chão pelado com
+  // pontinhos. Raio 3,2 leva a copa a 48,8 m², e com a densidade nova (73/ha no
+  // miolo do talhão) a cobertura vai a 35,6%: aí é mata. Conífera de 11,5 m com
+  // 3,2 m de raio continua sendo proporção de conífera real, não um guarda-chuva.
   const fuste = new THREE.CylinderGeometry(0.28, 0.42, 3.2, 5, 1, true)
   fuste.translate(0, 1.6, 0)
-  const saiaA = new THREE.ConeGeometry(2.6, 6.0, 7, 1, true)
+  const saiaA = new THREE.ConeGeometry(3.2, 6.0, 7, 1, true)
   saiaA.translate(0, 5.6, 0)
-  const saiaB = new THREE.ConeGeometry(1.6, 4.4, 7, 1, true)
+  const saiaB = new THREE.ConeGeometry(2.0, 4.4, 7, 1, true)
   saiaB.translate(0, 10.2, 0)
   const gPerto = mergeGeometries([
     pinta(fuste, COR_FUSTE), pinta(saiaA, COR_AGULHA), pinta(saiaB, COR_AGULHA),
   ], false)!
-  // conífera de longe: um cone de 4 lados, 8 triângulos, mesma silhueta a 1,4 km
-  const gLonge = pinta(new THREE.ConeGeometry(2.3, 11.5, 4, 1, false), COR_AGULHA)
-  gLonge.translate(0, 5.75, 0)
+  // ── A CONÍFERA DE LONGE, REDESENHADA (04/09) ──────────────────────────────
+  //
+  // ⚠️ ERA `ConeGeometry(2.3, 11.5, 4)`: DOZE triângulos, sendo QUATRO na tampa
+  // de baixo, que fica enterrada no chão e nunca é vista, e nenhum fuste. O
+  // volume de longe desta casa já tem uma resposta boa para isso, em
+  // `especies.ts` (`geoLonge`, lido como referência, não editado aqui): um
+  // OCTAEDRO alongado com o pé na cor do tronco e a cintura a 62% da altura.
+  // Oito triângulos, um contorno de copa em qualquer ângulo e um pé escuro.
+  //
+  // Aqui a cintura desce para 38% da altura, porque conífera não é copada: ela
+  // abre logo acima do chão e afina até a ponta. O pé em `COR_FUSTE` é o que dá
+  // o tronco sem gastar um triângulo: o degrau de valor entre o pé escuro e a
+  // agulha aparece no gradiente mesmo quando a árvore inteira mede poucos
+  // pixels.
+  //
+  // ⚠️ E A CONTA DE PIXEL DIZ QUE ISTO BASTA. A vista de contrato do maciço
+  // está a 4.560 m; com 60° de campo e 1.080 px de altura de tela, um pixel
+  // vale 0,00097 rad, então uma conífera de 11,5 m mede 2,6 px de altura ali e
+  // 8,5 px no limite de `R_CHEIA` (1.400 m). Nessa escala silhueta fina não
+  // existe: o que existe é MASSA e DENSIDADE, que é o que a seção 3 corrigiu.
+  // Gastar triângulo em detalhe de longe seria pagar por pixel que não há.
+  const gLonge = (() => {
+    const H = 11.5, R = 3.2, yc = H * 0.38   // o mesmo raio da saia de perto
+    const vs = [0, 0, 0]
+    const cs = [COR_FUSTE.r, COR_FUSTE.g, COR_FUSTE.b]
+    for (let k = 0; k < 4; k++) {
+      const a = (k / 4) * Math.PI * 2
+      vs.push(Math.cos(a) * R, yc, Math.sin(a) * R)
+      cs.push(COR_AGULHA.r, COR_AGULHA.g, COR_AGULHA.b)
+    }
+    vs.push(0, H, 0)
+    cs.push(COR_AGULHA.r, COR_AGULHA.g, COR_AGULHA.b)
+    const ix: number[] = []
+    for (let k = 0; k < 4; k++) {
+      const a = 1 + k, b = 1 + ((k + 1) % 4)
+      ix.push(0, b, a)   // a saia, para baixo
+      ix.push(a, b, 5)   // a ponta, para cima
+    }
+    const g = new THREE.BufferGeometry()
+    g.setAttribute('position', new THREE.Float32BufferAttribute(vs, 3))
+    g.setAttribute('color', new THREE.Float32BufferAttribute(cs, 3))
+    g.setIndex(ix)
+    g.computeVertexNormals()
+    return g
+  })()
+
+  // ── O SUB-BOSQUE: moita e matacão, UMA geometria só ───────────────────────
+  // ⚠️ UM OCTAEDRO ACHATADO, 8 TRIÂNGULOS, E A PEÇA É A MESMA PARA OS DOIS.
+  // Moita e matacão têm a mesma silhueta de bolha baixa nesta escala; o que
+  // separa os dois é a COR por instância e o achatamento da matriz. Uma
+  // geometria só é uma chamada de desenho só, que é a moeda desta cena.
+  // A cor do vértice fica branca de propósito: quem pinta é `setColorAt`.
+  const gSub = (() => {
+    const g = new THREE.OctahedronGeometry(1, 0)
+    const p = g.attributes.position
+    // quebra a simetria perfeita do diamante: pedra e moita não são poliedro
+    for (let k = 0; k < p.count; k++) {
+      p.setX(k, p.getX(k) * (0.78 + hash01(k * 977) * 0.5))
+      p.setY(k, p.getY(k) * (0.42 + hash01(k * 613) * 0.3))
+      p.setZ(k, p.getZ(k) * (0.78 + hash01(k * 331) * 0.5))
+    }
+    g.computeVertexNormals()
+    const n = p.count
+    const arr = new Float32Array(n * 3).fill(1)
+    g.setAttribute('color', new THREE.BufferAttribute(arr, 3))
+    return g
+  })()
 
   const matArvore = new THREE.MeshStandardMaterial({
     color: '#ffffff', vertexColors: true, roughness: 0.95, metalness: 0, flatShading: true,
   })
 
-  const cap = mata.length
-  const perto = new THREE.InstancedMesh(gPerto, matArvore, Math.max(1, cap))
-  const longe = new THREE.InstancedMesh(gLonge, matArvore, Math.max(1, cap))
+  const capPerto = Math.max(1, Math.min(nArv, TETO_PERTO))
+  const capSub = Math.max(1, Math.min(nArv * 2, TETO_SUBBOSQUE))
+  const perto = new THREE.InstancedMesh(gPerto, matArvore, capPerto)
+  const longe = new THREE.InstancedMesh(gLonge, matArvore, Math.max(1, nArv))
+  const subbosque = new THREE.InstancedMesh(gSub, matArvore, capSub)
   perto.name = 'alpino:conifera:perto'
   longe.name = 'alpino:conifera:longe'
-  for (const m of [perto, longe]) {
+  subbosque.name = 'alpino:subbosque'
+  for (const m of [perto, longe, subbosque]) {
     m.castShadow = o.sombra ?? false   // a mata está a 6 km: sombra dela não lê
     m.receiveShadow = false
     m.frustumCulled = false
     m.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
     group.add(m)
+  }
+  // ⚠️ TINTE POR INSTÂNCIA, e é ele que faz a mancha ler como mata e não como
+  // esmalte verde. Mata real não tem uma cor só: idade, exposição e espécie
+  // variam o valor de árvore para árvore, e a 3 px de altura é essa VARIAÇÃO
+  // que o olho lê como textura de floresta. O custo é 12 B por instância
+  // (0,60 MB em 52 mil), contra zero triângulo novo.
+  //
+  // ⚠️ O TINTE É DA ÁRVORE, NÃO DO SLOT, e a diferença não é sutil: o LOD
+  // reordena os slots toda vez que a câmera anda, então tinte por slot faria a
+  // mata inteira PISCAR de cor a cada rebalanceamento. Por isso ele é escrito
+  // dentro do laço do LOD, indexado pela árvore.
+  const tinta = new THREE.Color()
+  const tinteDe = (k: number, out: THREE.Color) => {
+    const v = 0.80 + hash01(k * 7919 + 13) * 0.34      // valor
+    const q = 0.94 + hash01(k * 5237 + 71) * 0.12      // temperatura
+    return out.setRGB(v * q, v, v * (2 - q))
   }
 
   // ── 5. LOD por distância, refeito só quando a câmera anda ────────────────
@@ -641,28 +974,119 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
   const ve = new THREE.Euler()
   const vs = new THREE.Vector3()
   const ultima = new THREE.Vector3(1e9, 1e9, 1e9)
+  // ⚠️ A PORTA RÁPIDA DO `update`, E ELA NÃO PODE SER UMA ESFERA. A primeira
+  // versão desta porta usava centro e raio da mancha, e não abria NUNCA: a
+  // mata é um ARCO de 180° no anel de 5,6 a 9,0 km, então a esfera que a
+  // envolve tem 9 km de raio e cobre a cidade inteira. O que serve é uma grade
+  // de OCUPAÇÃO grossa: 2.116 bytes (célula de 400 m sobre os 18,1 km do anel)
+  // que dizem, com uma leitura de byte, se existe árvore perto da câmera.
+  // Enquanto não existir, o balde de perto está correto vazio e o laço de
+  // 52 mil matrizes (7,5 ms medidos) é PULADO. É esta porta que paga o teto
+  // novo: só quem voa até o maciço gasta o rebalanceamento.
+  const CEL_OCUP = 400
+  const NO = Math.ceil((2 * R_EXT) / CEL_OCUP) + 1
+  const ocupado = new Uint8Array(NO * NO)
+  for (let k = 0; k < nArv; k++) {
+    const ci = Math.floor((mata[k * CAMPOS] + R_EXT) / CEL_OCUP)
+    const cj = Math.floor((mata[k * CAMPOS + 1] + R_EXT) / CEL_OCUP)
+    if (ci >= 0 && cj >= 0 && ci < NO && cj < NO) ocupado[cj * NO + ci] = 1
+  }
+  const RAIO_OCUP = Math.ceil((R_CHEIA + CEL_OCUP) / CEL_OCUP)
+  const temArvorePerto = (cx: number, cz: number): boolean => {
+    const ci = Math.floor((cx + R_EXT) / CEL_OCUP), cj = Math.floor((cz + R_EXT) / CEL_OCUP)
+    for (let dj = -RAIO_OCUP; dj <= RAIO_OCUP; dj++) {
+      const jj = cj + dj
+      if (jj < 0 || jj >= NO) continue
+      for (let di = -RAIO_OCUP; di <= RAIO_OCUP; di++) {
+        const ii = ci + di
+        if (ii < 0 || ii >= NO) continue
+        if (ocupado[jj * NO + ii]) return true
+      }
+    }
+    return false
+  }
+  let tudoLonge = false
+
+  // ⚠️ A MATRIZ É ESCRITA À MÃO NO BUFFER, sem `Matrix4.compose` nem
+  // `setMatrixAt`. Isto não é micro-otimização gratuita: são 52 mil matrizes
+  // por rebalanceamento, e `compose` monta a rotação a partir de um
+  // quatérnio genérico (nove multiplicações e um `setFromEuler` antes) para
+  // depois COPIAR 16 floats. Aqui a rotação é só em Y e a escala é diagonal,
+  // então a matriz tem forma fechada e vai direto no `array` do atributo.
+  // Convenção coluna-a-coluna do three: e[0..2] é a primeira coluna.
+  const porMatriz = (arr: Float32Array, slot: number,
+                     x: number, y: number, z: number,
+                     sx: number, sy: number, sz: number, giro: number) => {
+    const c = Math.cos(giro), s = Math.sin(giro)
+    const e = slot * 16
+    arr[e] = c * sx; arr[e + 1] = 0; arr[e + 2] = -s * sx; arr[e + 3] = 0
+    arr[e + 4] = 0; arr[e + 5] = sy; arr[e + 6] = 0; arr[e + 7] = 0
+    arr[e + 8] = s * sz; arr[e + 9] = 0; arr[e + 10] = c * sz; arr[e + 11] = 0
+    arr[e + 12] = x; arr[e + 13] = y; arr[e + 14] = z; arr[e + 15] = 1
+  }
+  const mPerto = perto.instanceMatrix.array as Float32Array
+  const mLonge = longe.instanceMatrix.array as Float32Array
+  const mSub = subbosque.instanceMatrix.array as Float32Array
 
   const rebalancear = (cam: THREE.Vector3) => {
-    let np = 0, nl = 0
-    for (const a of mata) {
-      const d = Math.hypot(a.x - cam.x, a.z - cam.z)
-      const alvo = d < R_CHEIA ? perto : longe
-      vp.set(a.x, a.y, a.z)
-      ve.set(0, a.giro, 0)
-      vq.setFromEuler(ve)
-      vs.set(a.esc * a.escXZ, a.esc, a.esc * a.escXZ)
-      m4.compose(vp, vq, vs)
-      if (alvo === perto) perto.setMatrixAt(np++, m4)
-      else longe.setMatrixAt(nl++, m4)
+    let np = 0, nl = 0, ns = 0
+    for (let k = 0; k < nArv; k++) {
+      const b = k * CAMPOS
+      const ax = mata[b], az = mata[b + 1], ay = mata[b + 2]
+      const esc = mata[b + 3], escXZ = mata[b + 4], giro = mata[b + 5]
+      const dx = ax - cam.x, dz = az - cam.z
+      const daPerto = dx * dx + dz * dz < R_CHEIA * R_CHEIA && np < capPerto
+      const sxz = esc * escXZ
+      if (daPerto) {
+        porMatriz(mPerto, np, ax, ay, az, sxz, esc, sxz, giro)
+        perto.setColorAt(np, tinteDe(k, tinta))
+        np++
+        // ⚠️ SUB-BOSQUE SÓ PARA QUEM ESTÁ NO BALDE DE PERTO. Ver `TETO_SUBBOSQUE`:
+        // além de `R_CHEIA` a moita mede menos de 1,1 px. Duas peças em cada
+        // terceira árvore, no pé dela, com a mesma herança de máscara que a
+        // moita de rua usa em `arborizacao.ts` (o arbusto nasce da árvore, não
+        // de uma grade própria: canteiro solto no meio do terreno vira mato).
+        if (hash01(k * 913 + 17) < 0.62) {
+          const pecas = 1 + Math.floor(hash01(k * 2287) * 2)
+          for (let q = 0; q < pecas && ns < capSub; q++) {
+            const ang = hash01(k * 331 + q * 97) * Math.PI * 2
+            const dd = 1.4 + hash01(k * 613 + q * 53) * 2.6
+            const px = ax + Math.cos(ang) * dd, pz = az + Math.sin(ang) * dd
+            const py = alturaEm(px, pz)
+            if (!Number.isFinite(py)) continue
+            // matacão em 28% dos casos: mais baixo, mais largo e cinza
+            const pedra = hash01(k * 149 + q * 11) < 0.28
+            const s = pedra
+              ? 0.9 + hash01(k * 71 + q * 29) * 1.5
+              : 1.1 + hash01(k * 71 + q * 29) * 1.6
+            porMatriz(mSub, ns, px, py, pz,
+              s, s * (pedra ? 0.55 : 0.95), s * (0.8 + hash01(k * 401 + q * 7) * 0.5),
+              hash01(k * 977 + q * 13) * Math.PI * 2)
+            subbosque.setColorAt(ns, pedra ? tinta.copy(COR_MATACAO) : tinta.copy(COR_MOITA))
+            ns++
+          }
+        }
+      } else {
+        porMatriz(mLonge, nl, ax, ay, az, sxz, esc, sxz, giro)
+        longe.setColorAt(nl, tinteDe(k, tinta))
+        nl++
+      }
     }
     perto.count = np
     longe.count = nl
+    subbosque.count = ns
     perto.instanceMatrix.needsUpdate = true
     longe.instanceMatrix.needsUpdate = true
+    subbosque.instanceMatrix.needsUpdate = true
+    if (perto.instanceColor) perto.instanceColor.needsUpdate = true
+    if (longe.instanceColor) longe.instanceColor.needsUpdate = true
+    if (subbosque.instanceColor) subbosque.instanceColor.needsUpdate = true
+    tudoLonge = np === 0
   }
   rebalancear(new THREE.Vector3(0, 0, 0))
   perto.computeBoundingSphere()
   longe.computeBoundingSphere()
+  subbosque.computeBoundingSphere()
 
   // ⚠️ REGISTRO NO CULLING COM DISTÂNCIA GENEROSA, DE PROPÓSITO. Esta coroa é
   // FUNDO: ela existe pra ser vista da cidade inteira, de 6 a 9 km. Cortá-la na
@@ -671,19 +1095,27 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
 
   const trisPerto = gPerto.attributes.position.count / 3
   const trisLonge = gLonge.index ? gLonge.index.count / 3 : gLonge.attributes.position.count / 3
-  // custo declarado: a coroa em quads + a mata toda no volume de longe (o pior
-  // caso do balde de perto, com a câmera dentro da mata, sobe cada árvore de
-  // trisLonge para trisPerto)
-  const triangulos = quads * 2 + Math.round(mata.length * trisLonge)
+  const trisSub = gSub.index ? gSub.index.count / 3 : gSub.attributes.position.count / 3
+  // custo declarado: a coroa em quads + a mata toda no volume de longe + o
+  // sub-bosque no teto dele. O pior caso do balde de perto (câmera dentro da
+  // mata) troca `TETO_PERTO` árvores de `trisLonge` para `trisPerto`, o que
+  // soma `TETO_PERTO × (trisPerto - trisLonge)` a este número.
+  const triangulos = quads * 2 + nArv * trisLonge + capSub * trisSub
   void trisPerto
 
   return {
     group,
-    arvores: mata.length,
+    arvores: nArv,
     neveKm2: (quads * PASSO * PASSO) / 1e6,
     triangulos,
     update(cam: THREE.Vector3) {
       if (cam.distanceTo(ultima) < PASSO_REBALANCE) return
+      // porta rápida: nenhuma árvore ao alcance e tudo já no balde de longe,
+      // não há troca de LOD possível. Ver `temArvorePerto`.
+      if (tudoLonge && !temArvorePerto(cam.x, cam.z)) {
+        ultima.copy(cam)
+        return
+      }
       ultima.copy(cam)
       rebalancear(cam)
     },
@@ -693,9 +1125,11 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
       texNeve.dispose()
       gPerto.dispose()
       gLonge.dispose()
+      gSub.dispose()
       matArvore.dispose()
       perto.dispose()
       longe.dispose()
+      subbosque.dispose()
       group.clear()
     },
   }

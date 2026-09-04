@@ -118,6 +118,114 @@ terreno PRÓPRIO (ver o comentário na linha 63), e `superficieAt` ali devolve o
 regolito rebaixado sob ele. Para medir o parque é preciso um hook que leia a altura
 da malha do parque. Fica anotado para não medir errado de novo.
 
+## Fase 1: o diagnóstico, e as cinco queixas têm apenas TRÊS causas
+
+Sete especialistas leram o código sem abrir navegador, cada relatório conferido por
+um adversário que reabriu as linhas citadas. Catorze agentes, 1,7 milhão de tokens,
+nenhuma alucinação sobreviveu à conferência. O que ficou de pé:
+
+### Causa 1: o carregador guarda uma malha e joga o resto fora
+
+`carregarInstanciavel()` em `app/city/plaza/inverno.ts:1558` percorre o GLB e para na
+PRIMEIRA malha:
+
+```ts
+let achado: THREE.Mesh | null = null
+cena.traverse((o) => { if (!achado && (o as THREE.Mesh).isMesh) achado = o as THREE.Mesh })
+```
+
+O exportador glTF quebra a malha em uma primitiva por material. Árvore tem duas:
+tronco (material Wood, opaco) e folha (TreeBranch, alphaMode MASK). Em 8 dos 9
+arquivos `sq-*.glb` a folha vem primeiro, então **o tronco é descartado**. É a queixa
+nº 1, e a causa é uma linha de código, não o asset.
+
+**E o pinheiro é muito pior.** `tree-pine.glb` tem 4 primitivas; a primeira tem 11
+triângulos e a dominante tem 2.917. O carregador guarda os 11. O pinheiro é 231 das
+~450 árvores próximas, metade da floresta, e está sendo desenhado como **0,3% do
+modelo**. Isso, e não a densidade, é o que mais pesa na queixa nº 4.
+
+Números medidos por decodificação dos GLB no nível de accessor glTF:
+
+| | triângulos |
+|---|---|
+| o que a cena desenha hoje | ~403.616 |
+| o que o comentário do próprio arquivo já declara | 1.328.152 |
+
+Ou seja o orçamento escrito no código sempre foi o da árvore inteira: hoje roda a 30%
+dele porque está quebrado. Consertar multiplica por 3,29 e cai no número já previsto.
+
+⚠️ E o conserto já existe nesta casa: `app/city/plaza/props.ts:381` resolveu o mesmo
+bug com uma InstancedMesh por parte, com o comentário "instanciar só a primeira
+deixava as palmeiras sem folha e as colunas sem capitel". `inverno.ts` nunca recebeu
+esse padrão.
+
+### Causa 2: a montanha é feita de três carimbos rápidos demais
+
+O relevo não é ruído nem cone: são três scans fotogramétricos reais estampados por
+`amostrarFeicao` (`inverno.ts:917`) e combinados por `Math.max`.
+
+| carimbo | raioM | pesoAltura | talude implícito |
+|---|---|---|---|
+| Zwölfernock (o principal) | 820 | 900 | 47,7° na borda, 56,7° no disco pleno |
+| Weisse Wand A | 620 | 640 | 45,9° / 55,1° |
+| Weisse Wand B | 520 | 430 | 39,6° / 49,0° |
+| Fuji (o avental) | 6.600 | 420 | 3,6° a 5,0° |
+
+A minha medição independente na cena viva bate: 53,9° a 61,1° nos primeiros 400 m.
+Duas rotas diferentes, o mesmo número.
+
+**O avental está certo e o defeito está isolado nos três carimbos de crista.** Isso é
+a melhor notícia do diagnóstico: o refino é cirúrgico, como o fundador pediu. A fonte
+do Weisse Wand é literalmente uma parede (o scan bruto mede 900 × 901 × 902 m, razão
+altura/largura 0,997), então ali reescalar não basta.
+
+Some-se que o envelope radial cai de 100% a 0% em apenas 370 m com expoente 2,4
+(`inverno.ts:518-552`), e que os três carimbos ficam a 16 a 18 graus de azimute um do
+outro **sem nenhuma crista os conectando**: entre eles só existe o envelope liso. Por
+isso são três agulhas, e não uma cordilheira.
+
+### Causa 3: a neve não está faltando, está enterrada
+
+A hipótese de que a inclinação apagava a neve foi **refutada** pelo conferente, que
+reconstruiu o algoritmo sobre o dado real: no ponto medido a inclinação dá 30,7°, e
+pela fórmula `s = 1 - suave01((inc - 30) / 25)` a cobertura ali deveria ser de 99,8%.
+Pela regra, tem neve. Na tela, não tem.
+
+A causa é geométrica e está medida. `alpino.ts` desenha a neve como uma CASCA numa
+grade de `PASSO = 40` m (linha 115), levantada `LEVANTE_BASE = 0.4` m fora da zona do
+parque e `LEVANTE_INVERNO = 9` m dentro dela (linhas 416-417). O terreno por baixo tem
+detalhe de 10 m e taludes de 50 graus. A corda do quad passa por dentro da rocha:
+
+| onde | terreno fura a casca |
+|---|---|
+| acima de 250 m, por mais de 0,4 m (levante de fora) | **46,5%** das células |
+| acima de 600 m, por mais de 9 m (o levante máximo) | **46,6%** das células |
+| erro de corda acima de 600 m | mediano 8,0 m, máximo 108,7 m |
+
+Quase metade da neve do corpo alto da montanha está debaixo da pedra, e o que sobra
+aparece em retalhos. É exatamente o que se vê.
+
+⚠️ **E as causas 2 e 3 são a mesma doença:** o erro de corda cresce com o talude.
+Alargar os carimbos (causa 2) derruba o erro de corda sozinho, e a neve reaparece sem
+que ninguém toque no `alpino.ts`. A ordem da obra importa.
+
+### O que mais ficou provado
+
+- **Densidade**: `TETO_ARVORES = 14.000` (`alpino.ts:144`) num anel de 157 km²; e
+  `FLORESTA_R_CHEIA = 1.300` m contra uma vista de contrato a 4.560 m do alvo, ou seja
+  a chapa oficial do maciço **sempre** fotografa o orçamento esparso de longe.
+- **Sub-bosque**: zero peças no maciço. Árvore espetada em chão pelado lê como maquete.
+- **LOD de longe**: `gLonge = ConeGeometry(2.3, 11.5, 4)` (`alpino.ts:617`), um cone de
+  4 lados sem fuste, e a mata do maciço está sempre além do `R_CHEIA = 1.400` m.
+- **KTX2 está certo**: 89 de 89 assets espelhados, zero 404 silencioso. Não é causa de
+  nada aqui. O padrão do celular está mantido.
+- **Sombra**: o CSM (`sombra.ts`) está atrás de `?csm=1`, desligado por padrão. No
+  caminho normal o maciço quase não tem sombra própria, e relevo sem sombra lê chapado.
+- **Lagoa**: não existe uma linha de código de água na região. A água da cidade nasce
+  por flood-fill abaixo de uma cota única (-40 m), o que não serve para lagoa de
+  montanha: precisa de mecanismo próprio. E `inverno.ts` é o único sistema vizinho que
+  NÃO consulta `lagos.naAgua`, então hoje pista e floresta passariam por cima da água.
+
 ## Regras de trabalho desta rodada
 
 1. **Agente não abre navegador.** Um `next dev`, um `.next`, uma GPU para todo mundo.
@@ -142,7 +250,7 @@ da malha do parque. Fica anotado para não medir errado de novo.
        Coletor de janela topográfica (`scripts/city/topo-janela.mjs`,
       novo) e três janelas finas: maciço (célula 10 m), parque (12 m), cordilheira (12,5 m).
       Mais a carta geral e as chapas de contrato.
-- [ ] **Fase 1, diagnóstico.** Sete especialistas, um por subsistema, cada achado conferido
+- [x] **Fase 1, diagnóstico.** FECHADA. Sete especialistas, um por subsistema, cada achado conferido
       por um adversário antes de virar tarefa.
 - [ ] **Fase 2, projeto.** O que a região deve ser, decidido contra a evidência da fase 1.
 - [ ] **Fase 3, obra.** Rodadas de refino, uma frente por arquivo.
