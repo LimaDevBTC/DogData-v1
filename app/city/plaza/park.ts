@@ -146,8 +146,36 @@ export function crystalMaterialFor(tier: (typeof TIERS)[number], bcTex: THREE.Te
   return m
 }
 
-/** As duas texturas da pedra (as do runestone3d.gltf), prontas para glTF (flipY off). */
+/**
+ * As duas texturas da pedra (as do runestone3d.gltf), prontas para glTF (flipY off).
+ *
+ * ⚠️ MEMOIZADAS POR PÁGINA, e isto é memória de verdade no celular. O Parque
+ * Runestone (`baixaAtivos`, logo abaixo) e o Jardim Ordinal (`monuments.ts`, na
+ * caixa `cxOrdinal`) pedem as MESMAS duas imagens, e são os dois únicos
+ * chamadores do repositório. Sem cache o telefone sobe QUATRO texturas de
+ * 1024x1024 no lugar de duas: `THREE.Cache` nunca é ligado nesta casa e o
+ * `ImageLoader` não tem mapa de requisição em voo, então são dois `new Image()`,
+ * dois `Source` e duas subidas para a GPU. Medido: 5,33 MiB de VRAM por textura,
+ * ou seja 10,67 MiB desperdiçados, mais 8 MiB de bitmap decodificado e metade do
+ * pico simultâneo de decodificação.
+ *
+ * ⚠️ E AQUI O CACHE DE MÓDULO É SEGURO, ao contrário do que seria em `loadSf`.
+ * A diferença é que esta função NÃO RECEBE PARÂMETRO: não há vestimenta por
+ * chamador para um colapsar em cima do outro. Nenhum consumidor configura a
+ * textura depois de recebê-la (`crystalMaterialFor` só pendura em `map` e
+ * `normalMap`; `monuments.ts` só registrava), não há `repeat`, `wrap`, `flipY`
+ * nem `colorSpace` escritos fora daqui, e identidade de textura não entra na
+ * chave de cache de programa: nada recompila, nada muda de bit, no celular nem
+ * no desktop.
+ *
+ * ⚠️ QUEM CHAMA NÃO PODE DAR `dispose` NELAS. As duas saíram do `dispose()` do
+ * parque (logo abaixo) e do `track()` do Jardim Ordinal justamente por isto: com
+ * o cache, descartar por um caminho serviria textura morta ao outro. Se alguém
+ * devolver o `dispose` numa limpeza futura, o defeito volta calado.
+ */
+let cacheCristal: Promise<[THREE.Texture, THREE.Texture]> | null = null
 export function loadCrystalTextures(): Promise<[THREE.Texture, THREE.Texture]> {
+  if (cacheCristal) return cacheCristal
   const texLoader = new THREE.TextureLoader()
   const loadTex = (url: string, srgb: boolean) => new Promise<THREE.Texture>((res, rej) => texLoader.load(url, (t) => {
     t.flipY = false // UVs de glTF: origem no canto superior esquerdo
@@ -155,7 +183,12 @@ export function loadCrystalTextures(): Promise<[THREE.Texture, THREE.Texture]> {
     t.anisotropy = 4
     res(t)
   }, undefined, rej))
-  return Promise.all([loadTex('/city/park/crystal-basecolor.webp', true), loadTex('/city/park/crystal-normal.webp', false)])
+  const p = Promise.all([loadTex('/city/park/crystal-basecolor.webp', true), loadTex('/city/park/crystal-normal.webp', false)]) as Promise<[THREE.Texture, THREE.Texture]>
+  // o ERRO não fica em cache: senão uma falha de rede no primeiro boot condenaria
+  // o parque E o Jardim Ordinal pelo resto da vida da página
+  p.catch(() => { cacheCristal = null })
+  cacheCristal = p
+  return p
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -716,7 +749,10 @@ function* constroiParque(a: AtivosDoParque, opts: ParkOpts, saida: SaidaDoParque
       lodTerrain(dist)
       cave?.update(t)
     },
-    dispose() { cave?.dispose(); for (const d of disposables) d.dispose(); bcTex.dispose(); nmTex.dispose(); crystals.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) m.geometry?.dispose() }) },
+    // ⚠️ `bcTex` e `nmTex` NÃO são descartadas aqui: elas vêm do cache de módulo
+    // de `loadCrystalTextures` e são as MESMAS que o Jardim Ordinal usa. Ver a
+    // nota lá em cima; devolver o dispose aqui serve textura morta ao jardim.
+    dispose() { cave?.dispose(); for (const d of disposables) d.dispose(); crystals.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) m.geometry?.dispose() }) },
   }
 }
 

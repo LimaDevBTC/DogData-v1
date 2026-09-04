@@ -828,7 +828,10 @@ export function monumentosEmObra(opts: MonumentsOpts): MonumentosEmObra {
     rel.reinicia()
     const crystals = carga[0]
     const bcTex = carga[1][0], nmTex = carga[1][1]
-    track(bcTex); track(nmTex)
+    // ⚠️ AS DUAS NÃO ENTRAM NO `track`, e isso é de propósito: elas vêm do cache
+    // de módulo de `loadCrystalTextures` (park.ts) e são o MESMO objeto que o
+    // Parque Runestone usa. Registrar aqui faria o teardown deste jardim
+    // descartar a textura do parque. Ver a nota na função lá.
     const geos: THREE.BufferGeometry[] = []
     crystals.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) { const idx = Number((o.name.match(/CRYSTAL_(\d+)/) || [])[1]); if (!Number.isNaN(idx)) geos[idx] = m.geometry } })
     if (rel.estourou()) { yield; rel.reinicia() }

@@ -3272,7 +3272,34 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         const texLoader = new THREE.TextureLoader()
         const loadTex = (url: string) =>
           new Promise<THREE.Texture>((res, rej) => texLoader.load(url, (t) => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; res(t) }, undefined, rej))
-        const lf = await loadTex('/city/cards/logo-front.png')
+        // ⚠️ ARQUIVO PRÓPRIO EM METADE, NÃO REDUÇÃO NO CLIENTE, pelo motivo já
+        // anotado em dsc-gallery.ts: o navegador decodifica o tamanho cheio
+        // primeiro e é o PICO que derruba o contexto. 1488x2080 são 15,74 MiB de
+        // VRAM com mipmap e 11,81 MiB de RGBA na decodificação; 744x1040 são 3,94
+        // e 2,95. Saem 11,81 MiB de VRAM e 8,85 MiB de pico, e eles saem no
+        // instante certo: esta textura já está residente quando a barra trava.
+        //
+        // ⚠️ A ESCOLHA É POR `cortaTextura`, NUNCA POR `texLado`. O teto do perfil
+        // mobile é `tetoDe(2048)`, que devolve 1488 para 1488 (cabe) e 1040 para
+        // 2080 (não cabe): daria 1488x1040, só a altura cortada, e a carta
+        // ESMAGA. É exatamente o aviso de perf.ts sobre os dois lados terem que
+        // cair pelo mesmo fator.
+        //
+        // ⚠️ E O `catch` NÃO É ZELO, É O CONSERTO DE UMA ARMADILHA. Este `await`
+        // é nu, dentro do try que termina em `setBoot({ failed: true })`: se o
+        // `.webp` não subir no deploy, ou o nome sair com outra caixa, o celular
+        // não perderia o Chalé, perderia A PRAÇA INTEIRA. Os dois precedentes da
+        // casa fazem o contrário de propósito (dsc-gallery.ts devolve null;
+        // monuments.ts tem "a praça nunca deixa de abrir por causa de uma
+        // imagem"), e o arquivo novo entra justo no único ponto onde a falha é
+        // fatal. Aqui ele cai de volta para o PNG cheio, que sempre existiu.
+        const cartaMeia = profile.cortaTextura
+        const lf = await (cartaMeia
+          ? loadTex('/city/cards/logo-front-half.webp').catch((err) => {
+            console.warn('[plaza] carta em metade não carregou, voltando ao arquivo cheio', err)
+            return loadTex('/city/cards/logo-front.png')
+          })
+          : loadTex('/city/cards/logo-front.png'))
         if (disposed) return
         // ⚠️ O CHALÉ MEDIU 2,6 a 3,9 ms DE JAVASCRIPT, e não os 7,6 s que a
         // etapa dele bloqueava. O tempo estava no laço de render pagando o
