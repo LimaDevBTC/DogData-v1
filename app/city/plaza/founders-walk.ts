@@ -112,7 +112,19 @@ export function buildFoundersWalk(opts: { heightAt: (x: number, z: number) => nu
   const seg = (Math.PI * 2) / N
   const PW = R0 * seg * 0.82        // a largura útil da placa no arco
   const PH = 2.0
-  const COLS = 8, ROWS = 6, TW = 512, TH = 352
+  // ⚠️ O ATLAS É A MAIOR TEXTURA DA CENA e por isso ele obedece ao teto do
+  // perfil. 8 x 512 por 6 x 352 dá 4096 x 2112 em RGBA: ~46 MB de VRAM com
+  // mipmap, o item nº 1 dos 455 MB que derrubavam o contexto WebGL do celular
+  // aos 68% do portão. No celular o teto de 2.048 leva o atlas a 2048 x 1056,
+  // ~12 MB. Placa de fundador é TEXTO, e texto a 256 px de altura por placa
+  // num telefone já está acima do que a tela resolve: aqui o corte não custa
+  // leitura nenhuma, que é o que faz esta ser a primeira textura a cair.
+  //
+  // ⚠️ OS DOIS LADOS CAEM PELO MESMO FATOR. Escalar só o maior deformaria cada
+  // célula do atlas, e o UV de cada placa é calculado a partir de COLS/ROWS.
+  const COLS = 8, ROWS = 6
+  const escT = (opts.profile?.texLado?.(COLS * 512) ?? COLS * 512) / (COLS * 512)
+  const TW = Math.round(512 * escT), TH = Math.round(352 * escT)
   const atlas = document.createElement('canvas')
   atlas.width = COLS * TW; atlas.height = ROWS * TH
   const actx = atlas.getContext('2d')!
@@ -125,7 +137,12 @@ export function buildFoundersWalk(opts: { heightAt: (x: number, z: number) => nu
     const x = Math.cos(a) * R0, z = Math.sin(a) * R0
     const f = founders[k] ?? null
     const col = k % COLS, row = Math.floor(k / COLS)
-    actx.drawImage(plaqueTile(f, k + 1), col * TW, row * TH)
+    // ⚠️ COM O TAMANHO EXPLÍCITO, senão o teto do perfil não vale de nada:
+    // `plaqueTile` desenha a placa no tamanho NATIVO dela (512 x 352) e um
+    // `drawImage` de três argumentos usa esse tamanho, não o da célula. Com o
+    // atlas reduzido no celular, cada placa transbordaria para a célula
+    // vizinha e o mural sairia embaralhado em vez de menor.
+    actx.drawImage(plaqueTile(f, k + 1), col * TW, row * TH, TW, TH)
     const u0 = col / COLS, u1 = (col + 1) / COLS
     const v0 = 1 - (row + 1) / ROWS, v1 = 1 - row / ROWS
     // a placa na face EXTERNA do muro, à altura dos olhos

@@ -205,6 +205,12 @@ export interface DomeOpts {
   rib?: number
   /** distância (m) em que a casca apaga; é o anti-cintilação */
   fade?: number
+  /** ⚠️ TETO DE TEXTURA DO PERFIL (`texLado` em perf.ts). O favo é 4096² em
+   *  RedFormat: 16,8 MB mais 5,6 de mipmap. No celular o teto de 2.048 leva
+   *  isso a ~5,6 MB, e a casca é justamente onde a perda não se vê — o mipmap
+   *  já funde a nervura em média a partir de poucos quilômetros, que é o
+   *  mecanismo anti-cintilação descrito no cabeçalho deste arquivo. */
+  texLado?: (base: number) => number
 }
 
 export interface Dome {
@@ -444,8 +450,13 @@ function texturaFavo(
   celulas: { cx: number; cz: number; pol: [number, number][] }[],
   R: number,
   ribM: number,
+  texLado?: (base: number) => number,
 ): THREE.DataTexture {
-  const L = FAVO_LADO
+  // ⚠️ O LADO OBEDECE AO TETO DO PERFIL, e o resto do desenho já é RELATIVO a
+  // `L` (a escala do Voronoi e a largura da nervura saem de `L / (2R)`), então
+  // reduzir aqui reduz a textura inteira em proporção, sem descalibrar a
+  // nervura em metros. Ver `texLado` em perf.ts.
+  const L = texLado?.(FAVO_LADO) ?? FAVO_LADO
   const cv = document.createElement('canvas')
   cv.width = L; cv.height = L
   const g = cv.getContext('2d', { willReadFrequently: true })!
@@ -906,14 +917,40 @@ export function buildDome(o: DomeOpts): Dome {
   // porque `setOrbitFloor(domo.coroa - 180)` em plaza-scene.tsx lê o valor
   // DEVOLVIDO por `buildDome`, não uma constante duplicada: a órbita sobe
   // sozinha com a coroa, sem precisar tocar naquele arquivo.
+  // ⚠️ 5.500 VIROU O PADRÃO EM 03/09, E NÃO POR GOSTO: A MONTANHA NÃO CABIA.
+  //
+  // O item (c) acima ficou obsoleto no dia em que foi escrito. Ele media o pico
+  // do maciço oeste em 321,7 m e concluía "177,4 m de vão livre" com a flecha de
+  // 2.566. O parque de inverno cresceu desde então: medido na superfície como
+  // construída, o cume está em 1.109 m. Varredura de 10.814 pontos de terreno
+  // acima de 200 m dentro da casca:
+  //
+  //   flecha 2.566 (o padrão até aqui):  464 pontos FURAM a casca (4,3%),
+  //                                      o pior por 504 m (r 8.254, rumo 264:
+  //                                      terreno a 1.109 m, casca a 605)
+  //   flecha 5.500:                      0 pontos furam, folga mínima 324 m
+  //
+  // Ou seja a montanha atravessava o vidro por meio quilômetro, em produção. A
+  // flecha não é mais proposta de acabamento: é o que faz a peça caber. Os três
+  // argumentos de leitura, estrutura e montanha já estavam medidos acima; o que
+  // faltava era a necessidade, e ela chegou.
+  //
+  // ⚠️ SÓ A FLECHA SAIU DA BANDEIRA. `?casca=2` continua ligando a PELE que
+  // infla (o relevo especular por célula, `texturaRelevo`), que é acabamento e
+  // não estrutura. Separar os dois é o que impede esta promoção de arrastar
+  // junto uma mudança de textura que ninguém pediu.
   const FLECHA_HOJE = 2566
   const FLECHA_PROPOSTA = 5500
+  const FLECHA_PADRAO = FLECHA_PROPOSTA
   // ⚠️ REFERÊNCIA FIXA, NÃO `o.crown`. Se alguém combinar `?flecha=` com
   // `?casca=2`, o `crown` recebido de fora pode não ser o 2.619 de hoje; o
   // fade tem de escalar contra o valor que CALIBROU o desvanecimento
   // original, não contra um número arbitrário digitado na URL.
   const CROWN_HOJE_REF = PODIO_Y + PARAPEITO + FLECHA_HOJE
-  const crown = CASCA2 ? rim + FLECHA_PROPOSTA : (o.crown ?? CROWN_HOJE_REF)
+  // ⚠️ O `o.crown` RECEBIDO DE FORA CONTINUA MANDANDO, e é assim que `?flecha=`
+  // segue funcionando para experimentar. O que mudou é o DEFAULT de quem não
+  // passa nada: era a flecha rasa, agora é a que a montanha exige.
+  const crown = o.crown ?? (rim + FLECHA_PADRAO)
   const ribW = o.rib ?? 0.9
   // ⚠️ O FADE ESCALA COM A COROA ATRÁS DA BANDEIRA, SENÃO A BARRIGA LAVA. O
   // desvanecimento de longe (`uFade*0,45` a `uFade*2,6`) foi calibrado para a
@@ -925,8 +962,14 @@ export function buildDome(o: DomeOpts): Dome {
   // o fator no topo volta a bater 0,80: a conta é `fade_novo = fade_base ×
   // (coroa_nova / coroa_de_hoje)`, então o desenho do desvanecimento não muda,
   // só a distância em que ele acontece.
+  // ⚠️ O FADE ESCALA COM A COROA DE VERDADE, não com a bandeira. Ele era
+  // condicionado a `CASCA2`, e com a flecha promovida isso deixaria a coroa
+  // subir para 5.553 com o desvanecimento ainda calibrado para 2.619 — a
+  // barriga da casca voltaria lavada de neblina, que é exatamente o defeito
+  // que a escala foi escrita para evitar. Agora a razão é medida contra a
+  // coroa que a casca REALMENTE tem, qualquer que seja a origem dela.
   const fadeBase = o.fade ?? 2200
-  const fade = CASCA2 ? fadeBase * (crown / CROWN_HOJE_REF) : fadeBase
+  const fade = fadeBase * (crown / CROWN_HOJE_REF)
 
   const group = new THREE.Group()
   group.name = 'abobada'
@@ -1279,7 +1322,7 @@ export function buildDome(o: DomeOpts): Dome {
     // necessidade.
     if (levanteAtivo) geoCalota.computeVertexNormals()
 
-    const texFavo = texturaFavo(celulas, DOME_R, 4.0)
+    const texFavo = texturaFavo(celulas, DOME_R, 4.0, o.texLado)
     // ⚠️ O RELEVO SÓ NASCE ATRÁS DA BANDEIRA. Gerar a textura custa uma
     // passada de canvas a mais no boot; sem `?casca=2` esse custo nem existe.
     const texRelevo = CASCA2 ? texturaRelevo(celulas, DOME_R) : null

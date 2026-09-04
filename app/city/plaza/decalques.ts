@@ -317,6 +317,8 @@ import * as THREE from 'three'
 // ═══════════════════════════════════════════════════════════════════════════
 
 export interface DecalquesOpts {
+  /** teto de textura do perfil (`perf.ts`); sem ele o atlas sai no tamanho cheio */
+  texLado?: (base: number) => number
   /** ⚠️ Mesma exigência de lotes.ts: use `terrain.superficieAt`, que é o
    *  plano que a malha do terreno realmente desenha, não `heightAt` cru. */
   heightAt: (x: number, z: number) => number
@@ -695,7 +697,7 @@ const POR_SUPERFICIE: Record<Superficie, TipoDecal[]> = {
 }
 
 /** gera o atlas 2048×2048 em canvas, uma vez, no boot — igual materiais.ts */
-function gerarAtlas(): THREE.CanvasTexture {
+function gerarAtlas(texLado?: (b: number) => number): THREE.CanvasTexture {
   const dados = new Uint8ClampedArray(ATLAS_PX * ATLAS_PX * 4) // zero = transparente
   for (const tipo of TIPOS) {
     const gx = tipo.cel % GRID, gy = Math.floor(tipo.cel / GRID)
@@ -710,10 +712,23 @@ function gerarAtlas(): THREE.CanvasTexture {
       }
     }
   }
+  // ⚠️ TETO DO PERFIL: 2048² em RGBA são ~22 MB de VRAM com mipmap. Ver
+  // `texLado` em perf.ts para o censo e o motivo.
+  //
+  // ⚠️ E A REDUÇÃO PASSA POR UM CANVAS INTERMEDIÁRIO, de propósito.
+  // `putImageData` NÃO escala — ele copia pixel a pixel e ignora o tamanho do
+  // canvas de destino. Escrever a `ImageData` de 2048² direto num canvas de
+  // 1024² recortaria o atlas no canto superior esquerdo em vez de reduzi-lo, e
+  // o sintoma seria um quarto dos decalques certos e o resto sumido. Quem
+  // escala é `drawImage`.
+  const LADO = texLado?.(ATLAS_PX) ?? ATLAS_PX
+  const cheio = document.createElement('canvas')
+  cheio.width = ATLAS_PX; cheio.height = ATLAS_PX
+  cheio.getContext('2d')!.putImageData(new ImageData(dados, ATLAS_PX, ATLAS_PX), 0, 0)
   const cv = document.createElement('canvas')
-  cv.width = ATLAS_PX; cv.height = ATLAS_PX
+  cv.width = LADO; cv.height = LADO
   const ctx = cv.getContext('2d')!
-  ctx.putImageData(new ImageData(dados, ATLAS_PX, ATLAS_PX), 0, 0)
+  ctx.drawImage(cheio, 0, 0, LADO, LADO)
   const tex = new THREE.CanvasTexture(cv)
   tex.colorSpace = THREE.SRGBColorSpace
   // ⚠️ CLAMP, NÃO REPEAT: cada célula é uma ilha isolada dentro do atlas; s
@@ -744,7 +759,7 @@ export function buildDecalques(o: DecalquesOpts): Decalques {
   const sobreQue = o.sobreQue
   const RAIO = o.raio ?? RAIO_PADRAO
 
-  const atlas = gerarAtlas()
+  const atlas = gerarAtlas(o.texLado)
 
   const base = new THREE.PlaneGeometry(1, 1)
   base.rotateX(-Math.PI / 2) // deitado, normal pra cima; ver lotes.ts

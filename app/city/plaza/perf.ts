@@ -22,6 +22,27 @@ export type Tier = 'mobile' | 'desktop'
 export type Quality = 'high' | 'balanced' | 'low'
 
 export interface PerfProfile {
+  /**
+   * ⚠️ O TETO DE TEXTURA, EM TEXELS POR LADO, e ele é a frente que a nota de
+   * 03/09 logo abaixo deixou explicitamente em aberto: "isto NÃO resolve os
+   * 455 MB de textura, que é o item dominante e vem do CONTEÚDO... cortar isso
+   * precisa de um teto de resolução por aparelho".
+   *
+   * ⚠️ E O TETO É POR LADO, NÃO POR ÁREA, porque quem paga é o quadrado: uma
+   * textura cai a UM QUARTO da memória quando o lado cai à metade. Censo das
+   * quatro maiores da cena, em VRAM com mipmap:
+   *
+   *   founders-walk  4096 x 2112 RGBA   ~46 MB   as placas dos fundadores
+   *   dsc-atlas      4096 x 1280 RGBA   ~28 MB   a parede da coleção
+   *   decalques      2048 x 2048 RGBA   ~22 MB
+   *   dome (favo)    4096 x 4096 R      ~22 MB
+   *                                     ~118 MB somadas
+   *
+   * Com teto de 2.048 no celular as quatro caem para ~31 MB: 87 MB a menos,
+   * numa cena que o iPhone 13 emulado media em 455 MB de textura e derrubava o
+   * contexto WebGL aos 68% do portão.
+   */
+  texLado: (base: number) => number
   tier: Tier
   quality: Quality
   /** teto e piso da resolução dinâmica (DPR); o piso é alto de propósito: DPR é o
@@ -76,6 +97,22 @@ export function parseQuality(q: string | null | undefined): Quality {
  *  bonito e fluido; HIGH é o modo cinematográfico; LOW é para máquina fraca.
  *  As otimizações estruturais (batching, instâncias, culling, LOD, atlas) valem
  *  nos três; o que muda é o quanto cada uma aperta. */
+/**
+ * ⚠️ O TETO SÓ VALE PARA BAIXO E EM POTÊNCIA DE DOIS. Nunca aumenta uma textura
+ * (`Math.min`), e mantém a potência de dois porque quem perde ela perde o
+ * mipmap em WebGL1 e o `RepeatWrapping` em textura não-quadrada — o remédio
+ * viraria dois defeitos. Um atlas retangular tem os DOIS lados escalados pelo
+ * mesmo fator, senão o quadro de cada célula dele deforma.
+ */
+function tetoDe(maxLado: number) {
+  return (base: number) => {
+    if (base <= maxLado) return base
+    let v = base
+    while (v > maxLado) v >>= 1
+    return v
+  }
+}
+
 export function profileFor(tier: Tier, quality: Quality = 'balanced'): PerfProfile {
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
   const mobile = tier === 'mobile'
@@ -84,7 +121,7 @@ export function profileFor(tier: Tier, quality: Quality = 'balanced'): PerfProfi
       tier, quality, maxPixelRatio: Math.min(dpr, 3), minPixelRatio: 1.5, antialias: true,
       shadowMapSize: 2048, softShadows: true, shadowUpdateEvery: 1,
       censusPoints: true, jetParticles: 900, smallCull: 3400, textCull: 1700, parkDetailCull: 3800, lodDistance: 4800,
-      crystalLod: [1, 0.6, 0.3, 0.15], domeCell: 42,
+      crystalLod: [1, 0.6, 0.3, 0.15], domeCell: 42, texLado: (b) => b,
     }
   }
   if (quality === 'low') {
@@ -92,7 +129,7 @@ export function profileFor(tier: Tier, quality: Quality = 'balanced'): PerfProfi
       tier, quality, maxPixelRatio: 1.25, minPixelRatio: 0.9, antialias: true,
       shadowMapSize: 1024, softShadows: false, shadowUpdateEvery: 2,
       censusPoints: false, jetParticles: 300, smallCull: 1200, textCull: 600, parkDetailCull: 2200, lodDistance: 1300,
-      crystalLod: [0.6, 0.2, 0.1, 0.05], domeCell: 130,
+      crystalLod: [0.6, 0.2, 0.1, 0.05], domeCell: 130, texLado: tetoDe(1024),
     }
   }
   // balanced
@@ -125,13 +162,13 @@ export function profileFor(tier: Tier, quality: Quality = 'balanced'): PerfProfi
       tier, quality, maxPixelRatio: 1.5, minPixelRatio: 1, antialias: true,
       shadowMapSize: 1024, softShadows: false, shadowUpdateEvery: 1,
       censusPoints: false, jetParticles: 600, smallCull: 2200, textCull: 1000, parkDetailCull: 2800, lodDistance: 2600,
-      crystalLod: [1, 0.3, 0.15, 0.08], domeCell: 96,
+      crystalLod: [1, 0.3, 0.15, 0.08], domeCell: 96, texLado: tetoDe(2048),
     }
     : {
       tier, quality, maxPixelRatio: 2, minPixelRatio: 1.25, antialias: true,
       shadowMapSize: 2048, softShadows: true, shadowUpdateEvery: 1,
       censusPoints: true, jetParticles: 900, smallCull: 2600, textCull: 1300, parkDetailCull: 3000, lodDistance: 3200,
-      crystalLod: [1, 0.35, 0.15, 0.08], domeCell: 58,
+      crystalLod: [1, 0.35, 0.15, 0.08], domeCell: 58, texLado: (b) => b,
     }
 }
 

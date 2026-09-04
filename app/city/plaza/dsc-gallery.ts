@@ -34,10 +34,22 @@ export async function buildDscGallery(opts: {
   heightAt: (x: number, z: number) => number
   profile?: PerfProfile
   culler?: DistanceCuller
+  /** teto de textura do perfil (`perf.ts`): decide o atlas cheio ou o metade */
+  texLado?: (base: number) => number
 }): Promise<DscGallery | null> {
   const [meta, tex] = await Promise.all([
     fetch('/city/dsc-atlas.json').then((r) => (r.ok ? (r.json() as Promise<AtlasMeta>) : null)).catch(() => null),
-    new Promise<THREE.Texture | null>((res) => new THREE.TextureLoader().load('/city/dsc-atlas.webp', (t) => { t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.anisotropy = 8; res(t) }, undefined, () => res(null))),
+    // ⚠️ NO CELULAR ENTRA O ARQUIVO METADE, NÃO A REDUÇÃO NO CLIENTE. O atlas
+    // cheio é 4096 x 1280: 21,0 MB de VRAM mais mipmap. Reduzir depois de
+    // carregar não serve aqui — o navegador decodifica os 21 MB PRIMEIRO, e é
+    // justamente o PICO de memória que derruba o contexto WebGL do telefone
+    // (ver `texLado` em perf.ts). `dsc-atlas-half.webp` é 2048 x 640, 5,2 MB, e
+    // nunca existe o pico. A parede da coleção é vista de longe e com
+    // `NearestFilter` de propósito: o pixel do ordinal continua legível.
+    new Promise<THREE.Texture | null>((res) => {
+      const meio = (opts.texLado?.(4096) ?? 4096) < 4096
+      new THREE.TextureLoader().load(meio ? '/city/dsc-atlas-half.webp' : '/city/dsc-atlas.webp', (t) => { t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.anisotropy = 8; res(t) }, undefined, () => res(null))
+    }),
   ])
   if (!meta || !tex) { console.warn('[plaza] Dog Social Club: atlas ausente'); return null }
 

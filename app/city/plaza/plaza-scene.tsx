@@ -1740,7 +1740,12 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               superficieAt: terrain.superficieAt,
               contorno: _malhaDomo.contorno,
               cell: num('celula', profile.domeCell),
-              crown: num('flecha', 2619),
+              texLado: profile.texLado,
+              // ⚠️ 2.619 -> 5.553 EM 03/09: a coroa acompanha a flecha que virou
+              // padrão em dome.ts (rim 53 + 5.500). Com 2.619 o maciço oeste
+              // furava a casca em 464 pontos, o pior por 504 m. `?flecha=` segue
+              // valendo para experimentar.
+              crown: num('flecha', 5553),
               rim: num('borda', 53),
               rib: num('nervura', 0.9),
             })
@@ -2434,6 +2439,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                       heightAt: terrain.superficieAt,
                       naVia: (x, z, folga) => v.naVia(x, z, folga),
                       sombra: qDomo.get('sombra') !== '0',
+                      texLado: profile.texLado,
                     })
                     scene.add(decal.group)
                   }).catch((err) => console.error('[decalques] não subiu', err)))
@@ -3342,7 +3348,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           : Promise.resolve(stepDone('props'))
         // a galeria do Dog Social Club (item 10): a coleção inteira num muro do
         // jardim ao lado da Kray; entra junto com os adereços
-        const pDsc = buildDscGallery({ heightAt, profile, culler })
+        const pDsc = buildDscGallery({ heightAt, profile, culler, texLado: profile.texLado })
           .then((g) => { if (!g || disposed) { g?.dispose(); return } dsc = g; scene.add(g.group) })
           .catch((err) => console.warn('[plaza] dsc', err))
         // ⚠️ PRAZO OBRIGATÓRIO: este fetch mora DENTRO do portão de carga; no
