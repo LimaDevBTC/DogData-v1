@@ -968,11 +968,6 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
   }
 
   // ── 5. LOD por distância, refeito só quando a câmera anda ────────────────
-  const m4 = new THREE.Matrix4()
-  const vp = new THREE.Vector3()
-  const vq = new THREE.Quaternion()
-  const ve = new THREE.Euler()
-  const vs = new THREE.Vector3()
   const ultima = new THREE.Vector3(1e9, 1e9, 1e9)
   // ⚠️ A PORTA RÁPIDA DO `update`, E ELA NÃO PODE SER UMA ESFERA. A primeira
   // versão desta porta usava centro e raio da mancha, e não abria NUNCA: a
