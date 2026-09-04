@@ -33,13 +33,18 @@
 // grade do terreno, então não se perde informação) é amostrada uma vez dentro do
 // anel e a mata lê dela por bilinear.
 //
-// ⚠️ AGORA MEDIDO (04/09, Node 20 + tsx, sem navegador): 103.674 chamadas de
-// `superficieAt` na grade, e `buildAlpino` inteiro em 1.523 ms com o terreno
-// REAL (`buildTerrain` sobre o heightmap da NASA em disco + `alturaInvernoAt`
-// com as três feições carregadas de `public/`). No maciço uma chamada de
-// `superficieAt` custa 56,3 µs (contra 11,4 µs de `heightAt`: ela lineariza a
-// malha e paga 3 a 4 `heightAt` por consulta). Quem mexer neste arquivo tem de
-// contar chamada, não linha.
+// ⚠️ AGORA MEDIDO (04/09, Node 20 + tsx, sem navegador), com o terreno REAL:
+// `buildTerrain` sobre o heightmap da NASA em disco mais `alturaInvernoAt` com
+// as três feições lidas de `public/`, e `heightAt` = `terrain.superficieAt`.
+//
+//     103.674 chamadas de `superficieAt`, 1.453 ms   antes desta rodada
+//     138.340 chamadas,                   2.890 ms   com a folga adaptativa
+//
+// O custo é de CHAMADA, não de laço: no maciço uma consulta a `superficieAt`
+// custa 56,3 µs (contra 11,4 µs de `heightAt`, porque ela lineariza a malha e
+// paga 3 a 4 `heightAt` por consulta). Quem mexer neste arquivo tem de contar
+// chamada, não linha. O +1,4 s de construção é o preço da neve deixar de estar
+// enterrada (ver o achado 04/09 mais abaixo); é caro e está declarado.
 //
 // ⚠️ A ALTURA VEM DE `superficieAt`, NÃO DE `heightAt`. Regra da casa, e já
 // custou um erro de 42 m: quem desenha coisa que ENCOSTA no chão tem de usar a
@@ -47,10 +52,11 @@
 // passa `terrain.superficieAt` no campo `heightAt` das opções, como fazem vias,
 // praças, lotes e a arborização.
 //
-// Orçamento: 3 chamadas de desenho novas (neve, conífera de perto, conífera de
-// longe) e 2 programas (a neve tem material próprio, transparente; as duas
-// coníferas dividem um material só). Três, não cinco: os dois níveis de LOD da
-// árvore são InstancedMesh sobre o MESMO material.
+// Orçamento: 4 chamadas de desenho novas (neve, conífera de perto, conífera de
+// longe, sub-bosque) e 2 programas (a neve tem material próprio, transparente;
+// as duas coníferas E o sub-bosque dividem um material só). Quatro, não seis:
+// os dois níveis de LOD da árvore e a moita são InstancedMesh sobre o MESMO
+// material, e o que separa moita de matacão é cor por instância, não peça.
 //
 // ⚠️ ACHADO 03/09, A CAUSA DA CHAPA SEM NEVE, MEDIDA COM SCRIPT OFFLINE (node
 // importando terrain.ts + inverno.ts de verdade, sobre o heightmap real):
@@ -75,36 +81,54 @@
 // a malha de fato desenhada por baixo. Script e números completos no
 // relatório desta rodada.
 //
-// ⚠️⚠️ ACHADO 04/09, E É O QUE FALTAVA: A NEVE ESTAVA ENTERRADA NA PEDRA.
-// Depois do conserto do material a chapa continuou sem neve, e a causa é
-// GEOMÉTRICA, não de máscara nem de cor. Medido com o terreno REAL em Node
-// (grade da casca contra `superficieAt`, 22.074 triângulos, 8 pontos de
-// amostra por triângulo):
-//
-//   acima de 250 m   30,6% dos triângulos com o terreno FURANDO a casca
-//   acima de 600 m   46,3% furando, 39,7% por mais de 2 m, máximo 143,0 m
-//
-// A conta é simples: a casca tem célula de 40 m e a corda de um quad é uma
-// RETA, enquanto o terreno por baixo tem talude de até 60° e detalhe fino. O
-// `LEVANTE` era um número FIXO (0,4 m fora do parque, 9 m dentro dele) e um
-// número fixo não pode cobrir um erro que varia de 0 a 143 m. Quase metade da
-// neve do corpo alto ficava debaixo da rocha, e o que sobrava aparecia em
-// retalhos: exatamente o que o fundador viu.
-//
-// O CONSERTO É MEDIR O ERRO EM VEZ DE CHUTAR O LEVANTE, ver "FOLGA
-// ADAPTATIVA" na seção 2b. Resultado com o mesmo medidor:
-//
-//   acima de 250 m   30,6% → 2,3% de furo, máximo 143,0 → 29,7 m
-//   acima de 600 m   46,3% → 6,1%
-//   e a casca FLUTUA MENOS que antes (mediana 5,31 → 3,66 m), porque a folga
-//   local substituiu os 9 m constantes que o parque levantava em toda parte.
-//
 // O CONSERTO: a neve não usa mais NENHUM mapa de albedo emprestado. A cor
 // sai só da cor por vértice (branco quase puro, ver `COR_NEVE_PO` abaixo),
 // que agora também carrega DUAS variações (pó fresco vs pista compactada, e
 // a borda suja perto da rocha), ver a seção de cor mais abaixo. A textura
 // nova que entrou é só um NORMAL MAP de alta frequência (o brilho de
 // cristal), não um albedo: ver "A TEXTURA DO BRILHO" mais abaixo.
+//
+// ⚠️⚠️ ACHADO 04/09, E É O QUE FALTAVA: A NEVE ESTAVA ENTERRADA NA PEDRA.
+// Depois do conserto do material a chapa continuou sem neve, e a causa é
+// GEOMÉTRICA, não de máscara nem de cor.
+//
+// MEDIDO OFFLINE (Node 20, `tsx`, sem navegador) com o TERRENO REAL: o próprio
+// `buildTerrain` sobre `public/lunar/btc-core-heightmap.f32` mais
+// `alturaInvernoAt` com as três feições lidas de `public/city/inverno/`, e a
+// casca de neve conferida triângulo a triângulo (22.538 triângulos, 45 pontos
+// de amostra em cada, altura de referência = `superficieAt`, a MESMA superfície
+// que a malha do regolito desenha):
+//
+//   toda a casca      26,1% dos triângulos com o terreno FURANDO a neve
+//   acima de 250 m    30,4% furando, 21,8% por mais de 0,4 m
+//   acima de 600 m    22,9% furando, 17,5% por mais de 2 m, máximo 37,3 m
+//
+// A conta é simples: a casca tem célula de 40 m e a corda de um quad é uma
+// RETA, enquanto o terreno por baixo tem talude de até 60°. O `LEVANTE` era um
+// número FIXO (0,4 m fora do parque, 9 m dentro dele) e um número fixo não pode
+// cobrir um erro que varia de 0 a dezenas de metros. Um quarto da neve do corpo
+// alto ficava debaixo da rocha, e o que sobrava aparecia em retalhos: exatamente
+// o que o fundador viu.
+//
+// O CONSERTO É MEDIR O ERRO EM VEZ DE CHUTAR O LEVANTE, ver "FOLGA ADAPTATIVA"
+// na seção 2b. Antes e depois na MESMA carga (o terreno tem ruído de execução,
+// ver a armadilha abaixo, então comparar dois processos diferentes não vale):
+//
+//   toda a casca      26,1% → 2,8% de furo, p99 12,3 → 0,8 m, máximo 37,3 → 6,2
+//   acima de 250 m    30,4% → 3,6%
+//   acima de 600 m    22,9% → 6,5%, e ZERO triângulo furando por mais de 9 m
+//   e a casca FLUTUA MENOS que antes (mediana 5,80 → 4,41 m), porque a folga
+//   local substituiu os 9 m constantes que o parque levantava em toda parte.
+//
+// ⚠️ ARMADILHA DE MEDIÇÃO, E ELA CUSTOU MEIA HORA AQUI: entre duas execuções o
+// pico do maciço mediu 1.017,9 m e depois 1.026,6 m, com o mesmo código deste
+// arquivo. A primeira suspeita (falta de reprodutibilidade em ponto flutuante)
+// foi TESTADA E REFUTADA: três execuções seguidas devolvem `pico = 1.023,4115`
+// e `superficieAt(-8325, 291) = 761,770532` idênticos ao sexto decimal. O que
+// mudava era o TERRENO: `inverno.ts` estava sendo reescrito por outra frente da
+// mesma rodada enquanto eu media. Regra que fica: comparar antes e depois SEMPRE
+// dentro da MESMA carga, com o mesmo objeto de terreno, e não entre dois
+// processos.
 //
 // Three.js puro (regra da casa: nada de react-three-fiber).
 // ═══════════════════════════════════════════════════════════════════════════
@@ -148,22 +172,28 @@ const PASSO = 40
 
 // ── a folga adaptativa da casca de neve (ver o achado 04/09 no cabeçalho) ────
 /** ⚠️ SUB-AMOSTRAGEM DENTRO DA CÉLULA, e o número saiu de medição, não de
- *  gosto: 40/2 = 20 m. Medido com o terreno real, o custo e o ganho de cada
- *  passo fino (furo acima de 250 m, contra 30,6% de hoje):
- *    20 m   +29.362 chamadas de `heightAt` (+28%)   furo 1,6%
- *    10 m  +115.044 chamadas de `heightAt` (+111%)  furo 0,4%
- *  Quadruplicar a amostragem para ganhar 1,2 ponto não paga: 20 m. */
+ *  gosto: 40/2 = 20 m. As duas opções, medidas com o terreno real, contra os
+ *  26,1% de furo da versão sem folga adaptativa:
+ *    20 m   138.340 chamadas de `superficieAt`, 2.890 ms de construção, furo 2,8%
+ *    10 m   275.286 chamadas,                  10.182 ms,               furo 0,1%
+ *  Dobrar a resolução custa o DOBRO de chamadas e 3,5× o tempo de construção
+ *  para ganhar 2,7 pontos de furo num defeito que já saiu de 26% para 3%. Não
+ *  paga: 20 m. */
 const SUB_CORDA = 2
 /** ⚠️ MARGEM SOBRE O ERRO MEDIDO, porque o déficit é amostrado a 20 m e o
- *  terreno ainda pode subir ENTRE duas amostras. Medido: sem margem sobra 4,9%
- *  de furo, com 1,2 sobra 1,6%. Não é fator de segurança inventado, é a
- *  diferença medida entre o que a amostragem vê e o que a chapa vê. */
+ *  terreno ainda pode subir ENTRE duas amostras. Medido no terreno real, com o
+ *  MESMO número de chamadas nos dois casos: sem margem (1,0) sobram 7,2% de
+ *  furo, com 1,2 sobram 2,8%. Não é fator de segurança inventado, é a diferença
+ *  medida entre o que a amostragem vê e o que a chapa vê, e ela é de graça. */
 const FATOR_FOLGA = 1.2
 /** ⚠️ TETO DA FOLGA = UM PASSO DE GRADE. Subir mais que 40 m num quad de 40 m
  *  é levantar a casca acima de 45° de corda, e a essa altura a célula é PAREDE:
  *  `neveEm` já está apagando a neve ali pela regra de inclinação (cheia até
- *  30°, zero em 55°). Medido: sem teto o furo cai de 1,6% para 1,4% e a
- *  flutuação do pior caso sobe de 166 para 181 m. Não vale. */
+ *  30°, zero em 55°). ⚠️ E ELE NÃO PEGA NO TERRENO DE HOJE: medido, com teto e
+ *  sem teto o resultado é IDÊNTICO (2,8% de furo, 6,2 m de máximo), porque o
+ *  déficit máximo medido é 30,9 m e 30,9 × 1,2 ainda cabe. Fica como
+ *  guarda-corpo para o dia em que a montanha mudar, não como número calibrado
+ *  para a de agora. */
 const TETO_FOLGA = PASSO
 
 const COTA_NEVE = 250
@@ -195,7 +225,8 @@ const PLUMA_MATA = 25
 //
 // ⚠️ O TETO NUNCA FOI O GARGALO: O ESPAÇAMENTO ERA. Medido com o terreno real
 // (14.000 árvores plantadas, ou seja o teto de 14.000 batendo): a mata ocupava
-// 1.892 hectares com MÉDIA DE 7,4 ÁRVORES POR HECTARE (p90 = 14). Mata de
+// 1.880 hectares com MÉDIA DE 7,4 ÁRVORES POR HECTARE (p90 = 14, máximo 19).
+// Mata de
 // conífera madura fica entre 300 e 1.000 árvores/ha; bosque aberto, 50 a 150.
 // Sete por hectare é savana, não mata, e é exatamente a queixa do fundador.
 //
@@ -221,26 +252,35 @@ const PASSO_MATA = 18
 const MOITA_MAX = 5
 const RAIO_MOITA = 6
 /** ⚠️ TETO DURO DE INSTÂNCIAS, MEDIDO E NÃO CHUTADO. Ver a tabela de custo no
- *  relatório: 52 mil coníferas de 8 triângulos são 416 mil triângulos e
- *  3,33 MB de matriz de instância, e dão 96 árvores/ha na mancha (bosque
- *  aberto denso). O desbaste continua determinístico e uniforme se a varredura
- *  render mais que isto. */
+ *  relatório. Medido com o terreno real: 51.947 coníferas plantadas (a
+ *  varredura rende um pouco mais que isto e o desbaste determinístico corta),
+ *  415.576 triângulos no volume de longe e 3,77 MB de matriz mais tinte de
+ *  instância. Densidade resultante na mancha, em árvores por hectare ocupado:
+ *  p50 = 27, p90 = 83, p99 = 100, máximo 107, média 35,9, contra p50 = 7,
+ *  p90 = 14, máximo 19 e média 7,4 de antes. O miolo do talhão passou a ter
+ *  densidade de bosque aberto de verdade (a faixa citada é 50 a 150/ha) e a
+ *  borda continua rala, que é o que borda de mata é. */
 const TETO_ARVORES = 52000
 /** ⚠️ O BALDE DE PERTO TEM TETO PRÓPRIO, e ele é pequeno de propósito: a
  *  câmera só entra na mata voando até o maciço, e ali cabem no máximo alguns
- *  milhares de árvores dentro de `R_CHEIA`. Alocar o balde de perto com a
- *  capacidade INTEIRA (o que este arquivo fazia) reservava 3,33 MB de matriz
- *  para um `count` que fica em ZERO a viagem toda: medido com a câmera na
- *  praça, `alpino:conifera:perto` tem count = 0. */
+ *  milhares de árvores dentro de `R_CHEIA`. Medido com a câmera POUSADA em
+ *  cima de uma árvore da mata: 2.390 no balde de perto, ou seja 6.000 é folga
+ *  de 2,5×. Alocar o balde de perto com a capacidade INTEIRA (o que este
+ *  arquivo fazia) reservaria 3,77 MB para um `count` que fica em ZERO a viagem
+ *  toda: medido com a câmera na praça, `alpino:conifera:perto` tem count = 0. */
 const TETO_PERTO = 6000
 /** além disto a conífera vira o volume de longe (8 triângulos) */
 const R_CHEIA = 1400
-/** ⚠️ O LOD NÃO SE REBALANCEIA POR QUADRO, e agora o custo está MEDIDO: 2,87 ms
- *  para 14 mil matrizes, ou seja 0,205 ms por mil. Com 52 mil isso daria 10,7 ms,
- *  um soluço de quadro a cada 400 m de câmera, e é por isso que existe a porta
- *  de `longeDeTudo` abaixo: a mata está a 6 a 9 km da praça, então enquanto a
- *  câmera não chega perto do maciço NÃO HÁ NADA A REFAZER e o laço inteiro é
- *  pulado. O custo só é pago por quem voa até lá. */
+/** ⚠️ O LOD NÃO SE REBALANCEIA POR QUADRO, e agora o custo está MEDIDO, com a
+ *  câmera andando em passos de 400 m (mediana de 12 chamadas, aquecido):
+ *
+ *      dentro da cidade   antes 1,96 ms por passo   agora 0,01 ms
+ *      dentro da mata     antes 1,17 ms (14 mil)    agora 2,66 ms (52 mil)
+ *
+ *  Na cidade, que é onde o visitante passa a sessão inteira, o rebalanceamento
+ *  deixou de existir: quem paga isso é a porta de `temArvorePerto` abaixo.
+ *  Dentro da mata o custo POR ÁRVORE caiu (0,084 para 0,051 µs), porque a
+ *  matriz passou a ser escrita à mão no buffer e o tinte é assado uma vez. */
 const PASSO_REBALANCE = 400
 /** ⚠️ SUB-BOSQUE SÓ DE PERTO, E A CONTA DE PIXEL MANDA NISSO. A vista de
  *  contrato do maciço está a 4.560 m do alvo; com 60° de campo e 1.080 px de
@@ -510,12 +550,20 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
   // carregava DOIS papéis: a folga de profundidade (que é o que o
   // `polygonOffset` e estes 0,4 m resolvem) e a compensação do erro de corda,
   // que virou `LEVANTE_INVERNO = 9` dentro da zona do parque. Nove metros
-  // constantes é errado nas duas pontas, e agora está medido: 73,4% das
-  // células da casca precisam de MENOS de 2 m e 6,2% precisam de MAIS de 10 m
-  // (300 células precisam de 10 a 25 m, 115 de 25 a 60 e 22 de mais de 60).
-  // Um número só não serve para uma distribuição assim. O erro de corda agora
-  // é MEDIDO célula a célula na seção 2b e some sozinho quando a montanha
-  // suavizar, que é o que a frente da montanha está fazendo agora.
+  // constantes é errado nas DUAS pontas, e agora a distribuição está medida no
+  // terreno real (11.269 células de neve, déficit de corda por célula):
+  //
+  //     0 a  2 m   76,7% das células      p50 do déficit = 0,47 m
+  //     2 a  5 m   13,6%                  p90            = 4,87 m
+  //     5 a 10 m    7,0%                  p99            = 13,76 m
+  //    10 a 25 m    2,7%                  máximo         = 30,91 m
+  //    25 a 60 m    0,1%
+  //
+  // Ou seja: 9 m constantes levantavam à toa três quartos da coroa (que
+  // precisava de menos de 2) e ainda enterravam os 2,8% que precisavam de mais
+  // de 10. Um número só não serve para uma distribuição assim. O erro de corda
+  // agora é MEDIDO célula a célula na seção 2b, e ele some sozinho quando a
+  // montanha suavizar, que é o que a frente da montanha está fazendo agora.
   const LEVANTE_BASE = 0.4
   const pos: number[] = []
   const nor: number[] = []
@@ -575,16 +623,21 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
   //
   // ⚠️ E A DIAGONAL DO QUAD TAMBÉM É ESCOLHIDA, não fixa, o que é de graça:
   // partir o quad pela diagonal que passa mais ALTO segue a crista em vez de
-  // cortá-la. Medido: derruba a folga p90 de 16,75 para 11,74 m sem gastar
-  // uma amostra a mais.
+  // cortá-la, então o triângulo precisa de MENOS folga para cobrir o mesmo
+  // terreno. Medido na mesma carga, contra a diagonal fixa de sempre e sem
+  // gastar uma amostra a mais, a casca ENCOSTA MAIS NA ROCHA:
+  //     flutuação   p50 5,41 → 4,41 m   p90 20,89 → 16,89   p99 40,23 → 33,13
+  // com o furo praticamente igual (2,4% contra 2,8%, ambos irrelevantes ao
+  // lado dos 26,1% de onde se partiu). Menos flutuação é neve pousada em vez
+  // de neve pairando, que é o defeito que sobra depois do enterro.
   // ⚠️ DUAS ECONOMIAS MEDIDAS, e as duas mudam o custo de verdade:
   //  1. o canto da célula fina JÁ ESTÁ em `h` (é nó da grade grossa): pedi-lo
-  //     de novo a `heightAt` custaria 12.417 chamadas a mais, 27% do total
-  //     desta seção. Sai da grade;
+  //     de novo a `heightAt` custava 46.568 chamadas em vez de 34.666, ou seja
+  //     11.902 a mais, 25,6% desta seção. Sai da grade;
   //  2. o meio de aresta é canto de DUAS células e o resto é interno: sem
-  //     cache o mesmo ponto seria amostrado duas vezes. Com cache o custo
-  //     fica em 3,09 chamadas novas por célula (medido: 34.151 chamadas para
-  //     11.038 células), que é o mínimo possível para um retículo de 20 m.
+  //     cache o mesmo ponto seria amostrado duas vezes. Com cache o custo fica
+  //     em 3,08 chamadas novas por célula (medido: 34.666 chamadas para 11.269
+  //     células de neve), que é o mínimo possível para um retículo de 20 m.
   // ⚠️ E O CENTRO SOZINHO NÃO SERVE, testado antes de escolher: das células
   // com déficit acima de 0,5 m, a amostra do centro captura a MEDIANA de 0%
   // do déficit e perde mais de 2 m em 45,2% delas. O pico do erro de corda
@@ -649,8 +702,8 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
   // quatro quads, e a versão não indexada empurrava o MESMO vértice até seis
   // vezes (dois triângulos por quad, três vértices cada). Todos os atributos
   // aqui são função de (i, j) e de mais nada, então indexar é idêntico pixel a
-  // pixel. Medido no terreno real: 66.222 vértices e 3,03 MB viram 11.457
-  // vértices e 0,78 MB, com a MESMA contagem de triângulos.
+  // pixel. Medido no terreno real, mesma carga: 67.614 vértices e 3,10 MB viram
+  // 12.111 vértices e 0,68 MB, com a MESMA contagem de triângulos (22.538).
   const indiceDe = new Int32Array(N * N).fill(-1)
   const ind: number[] = []
   let nVert = 0
@@ -781,7 +834,7 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
       if (dens <= 0.02) continue
       // ⚠️ MANCHA COM LIMIAR, NÃO COM PISO. A versão antiga
       // (`0,35 + 0,9 × ruído`) nunca zerava: aceitava em toda parte, pouco, e
-      // o resultado é pontinho espalhado por 1.892 hectares. Aqui o ruído de
+      // o resultado é pontinho espalhado por 1.880 hectares. Aqui o ruído de
       // célula 210 m passa por um limiar: abaixo de 0,44 é clareira de
       // verdade (nenhuma árvore) e acima de 0,62 é talhão cheio. A mesma
       // árvore concentrada em menos terra é o que lê como mata a 4 km.
@@ -800,23 +853,26 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
       // herdam as máscaras do ponto-mãe de propósito: 6 m é menos que a folga
       // de qualquer uma delas e reconferir custaria uma consulta a `naVia` por
       // tronco, que é justamente o item caro.
+      // ⚠️ FAIXAS DE SEMENTE DISJUNTAS (101, 151, 201, 251, 301 mais 7 por
+      // tronco): com as faixas encavaladas que a primeira versão tinha, dois
+      // sorteios diferentes caíam na MESMA semente e a árvore saía com escala
+      // vertical igual à horizontal, ou com o giro amarrado ao porte.
       const quantos = 1 + Math.floor(hash2(i, j, 43) * MOITA_MAX)
       for (let q = 0; q < quantos; q++) {
         let px = x, pz = z
         if (q > 0) {
-          const ang = hash2(i, j, 47 + q * 13) * Math.PI * 2
-          const d = RAIO_MOITA * Math.sqrt(hash2(i, j, 59 + q * 17))
+          const ang = hash2(i, j, 101 + q * 7) * Math.PI * 2
+          const d = RAIO_MOITA * Math.sqrt(hash2(i, j, 151 + q * 7))
           px = x + Math.cos(ang) * d
           pz = z + Math.sin(ang) * d
         }
         const ay = q === 0 ? alt : alturaEm(px, pz)
         if (!Number.isFinite(ay)) continue
-        const t = hash2(i, j, 17 + q * 7)
         bruto.push(
           px, pz, ay,
-          0.75 + t * 0.85,
-          0.85 + hash2(i, j, 23 + q * 5) * 0.4,
-          hash2(i, j, 31 + q * 3) * Math.PI * 2,
+          0.75 + hash2(i, j, 201 + q * 7) * 0.85,
+          0.85 + hash2(i, j, 251 + q * 7) * 0.4,
+          hash2(i, j, 301 + q * 7) * Math.PI * 2,
         )
       }
     }
@@ -831,12 +887,12 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
   for (let k = 0; k < brutas; k++) {
     if (manter < 1 && hash01(k * 2654435761) >= manter) continue
     if (nArv * CAMPOS + CAMPOS > mata.length) break
-    mata.set(bruto.slice(k * CAMPOS, k * CAMPOS + CAMPOS), nArv * CAMPOS)
+    for (let c = 0; c < CAMPOS; c++) mata[nArv * CAMPOS + c] = bruto[k * CAMPOS + c]
     nArv++
   }
   bruto.length = 0
 
-  // ── 4. duas geometrias, um material só ───────────────────────────────────
+  // ── 4. três geometrias, um material só ───────────────────────────────────
   const pinta = (g: THREE.BufferGeometry, c: THREE.Color) => {
     const n = g.attributes.position.count
     const arr = new Float32Array(n * 3)
@@ -848,12 +904,13 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
   //
   // ⚠️ A COPA ABRIU DE 2,6 PARA 3,2 m DE RAIO (04/09), e a razão é de COBERTURA,
   // não de gosto. A 4 km a árvore mede 2,6 px: nessa escala a mata não se lê por
-  // silhueta, se lê pela fração de chão que a copa cobre. Com raio 2,6 e a escala
-  // média das instâncias (1,23), cada copa cobria 25,1 m²; nos 7,4 troncos por
-  // hectare de antes isso dava 1,9% de cobertura de copa, ou seja chão pelado com
-  // pontinhos. Raio 3,2 leva a copa a 48,8 m², e com a densidade nova (73/ha no
-  // miolo do talhão) a cobertura vai a 35,6%: aí é mata. Conífera de 11,5 m com
-  // 3,2 m de raio continua sendo proporção de conífera real, não um guarda-chuva.
+  // silhueta, se lê pela FRAÇÃO DE CHÃO que a copa cobre. Com raio 2,6 e a escala
+  // média das instâncias (1,234), cada copa cobria 25,3 m²; nos 7,4 troncos por
+  // hectare de antes isso dava 1,9% de cobertura (3,5% no p90), ou seja chão
+  // pelado com pontinhos. Raio 3,2 leva a copa a 49,0 m², e com a densidade nova
+  // a cobertura vai a 17,6% na média e 40,7% no p90 do talhão: aí é mata.
+  // Conífera de 11,5 m com 3,2 m de raio continua sendo proporção de conífera
+  // real, não um guarda-chuva.
   const fuste = new THREE.CylinderGeometry(0.28, 0.42, 3.2, 5, 1, true)
   fuste.translate(0, 1.6, 0)
   const saiaA = new THREE.ConeGeometry(3.2, 6.0, 7, 1, true)
@@ -883,7 +940,10 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
   // vale 0,00097 rad, então uma conífera de 11,5 m mede 2,6 px de altura ali e
   // 8,5 px no limite de `R_CHEIA` (1.400 m). Nessa escala silhueta fina não
   // existe: o que existe é MASSA e DENSIDADE, que é o que a seção 3 corrigiu.
-  // Gastar triângulo em detalhe de longe seria pagar por pixel que não há.
+  // Gastar triângulo em detalhe de longe seria pagar por pixel que não há; o
+  // caminho certo é o contrário, e é o que está feito aqui: 8 triângulos em vez
+  // de 12 (as quatro da tampa enterrada saíram), 33% mais barato POR ÁRVORE
+  // exatamente na hora em que o número de árvores subiu quase quatro vezes.
   const gLonge = (() => {
     const H = 11.5, R = 3.2, yc = H * 0.38   // o mesmo raio da saia de perto
     const vs = [0, 0, 0]
@@ -914,16 +974,32 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
   // Moita e matacão têm a mesma silhueta de bolha baixa nesta escala; o que
   // separa os dois é a COR por instância e o achatamento da matriz. Uma
   // geometria só é uma chamada de desenho só, que é a moeda desta cena.
-  // A cor do vértice fica branca de propósito: quem pinta é `setColorAt`.
+  // A cor do vértice fica branca de propósito: quem pinta é a cor por
+  // instância, escrita no laço do LOD.
   const gSub = (() => {
     const g = new THREE.OctahedronGeometry(1, 0)
     const p = g.attributes.position
-    // quebra a simetria perfeita do diamante: pedra e moita não são poliedro
+    // ⚠️ QUEBRA A SIMETRIA DO DIAMANTE PELO PONTO, NÃO PELO ÍNDICE. A
+    // `OctahedronGeometry` do three vem SEM índice: o mesmo canto aparece em
+    // quatro triângulos, com quatro índices diferentes. Deslocar por índice
+    // (o jeito óbvio) rasgaria o poliedro em oito triângulos soltos. A chave
+    // do ruído é a coordenada arredondada, então cantos coincidentes recebem
+    // o MESMO deslocamento e a casca continua fechada.
+    const chave = (v: number) => Math.round(v * 1000)
+    const jj = (x: number, y: number, z: number, s: number) =>
+      hash01((chave(x) * 73856093) ^ (chave(y) * 19349663) ^ (chave(z) * 83492791) ^ (s * 2654435761))
     for (let k = 0; k < p.count; k++) {
-      p.setX(k, p.getX(k) * (0.78 + hash01(k * 977) * 0.5))
-      p.setY(k, p.getY(k) * (0.42 + hash01(k * 613) * 0.3))
-      p.setZ(k, p.getZ(k) * (0.78 + hash01(k * 331) * 0.5))
+      const x = p.getX(k), y = p.getY(k), z = p.getZ(k)
+      p.setX(k, x * (0.78 + jj(x, y, z, 977) * 0.5))
+      p.setY(k, y * (0.42 + jj(x, y, z, 613) * 0.3))
+      p.setZ(k, z * (0.78 + jj(x, y, z, 331) * 0.5))
     }
+    // ⚠️ SOBE 0,45 PARA NÃO FICAR METADE ENTERRADO. O octaedro nasce centrado
+    // na origem, e a instância é pousada na altura do chão: sem este
+    // deslocamento a moita ficaria com 50% do volume debaixo da terra. Com
+    // 0,45 sobra um quarto do corpo enterrado, que é como arbusto e matacão de
+    // verdade assentam (nenhum dos dois fica pousado em cima do solo).
+    g.translate(0, 0.45, 0)
     g.computeVertexNormals()
     const n = p.count
     const arr = new Float32Array(n * 3).fill(1)
@@ -958,14 +1034,27 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
   //
   // ⚠️ O TINTE É DA ÁRVORE, NÃO DO SLOT, e a diferença não é sutil: o LOD
   // reordena os slots toda vez que a câmera anda, então tinte por slot faria a
-  // mata inteira PISCAR de cor a cada rebalanceamento. Por isso ele é escrito
-  // dentro do laço do LOD, indexado pela árvore.
-  const tinta = new THREE.Color()
-  const tinteDe = (k: number, out: THREE.Color) => {
+  // mata inteira PISCAR de cor a cada rebalanceamento. Por isso ele é indexado
+  // pela ÁRVORE e assado aqui, uma vez: recalcular dois hashes por árvore a
+  // cada rebalanceamento custava mais que o próprio cálculo da matriz.
+  const tinte = new Float32Array(nArv * 3)
+  for (let k = 0; k < nArv; k++) {
     const v = 0.80 + hash01(k * 7919 + 13) * 0.34      // valor
     const q = 0.94 + hash01(k * 5237 + 71) * 0.12      // temperatura
-    return out.setRGB(v * q, v, v * (2 - q))
+    tinte[k * 3] = v * q
+    tinte[k * 3 + 1] = v
+    tinte[k * 3 + 2] = v * (2 - q)
   }
+  // ⚠️ `setColorAt` UMA VEZ SÓ PARA ALOCAR o `instanceColor` (o three cria o
+  // atributo na primeira chamada); daí em diante o laço escreve direto no
+  // buffer, como faz com a matriz. Medido: com `setColorAt` e o tinte
+  // recalculado por chamada, um rebalanceamento dentro da mata custava
+  // 10,69 ms; escrevendo no buffer com o tinte assado, 2,66 ms.
+  const brancoInicial = new THREE.Color('#ffffff')
+  for (const m of [perto, longe, subbosque]) m.setColorAt(0, brancoInicial)
+  const cPerto = perto.instanceColor!.array as Float32Array
+  const cLonge = longe.instanceColor!.array as Float32Array
+  const cSub = subbosque.instanceColor!.array as Float32Array
 
   // ── 5. LOD por distância, refeito só quando a câmera anda ────────────────
   const ultima = new THREE.Vector3(1e9, 1e9, 1e9)
@@ -973,11 +1062,13 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
   // versão desta porta usava centro e raio da mancha, e não abria NUNCA: a
   // mata é um ARCO de 180° no anel de 5,6 a 9,0 km, então a esfera que a
   // envolve tem 9 km de raio e cobre a cidade inteira. O que serve é uma grade
-  // de OCUPAÇÃO grossa: 2.116 bytes (célula de 400 m sobre os 18,1 km do anel)
-  // que dizem, com uma leitura de byte, se existe árvore perto da câmera.
-  // Enquanto não existir, o balde de perto está correto vazio e o laço de
-  // 52 mil matrizes (7,5 ms medidos) é PULADO. É esta porta que paga o teto
-  // novo: só quem voa até o maciço gasta o rebalanceamento.
+  // de OCUPAÇÃO grossa: 2.209 bytes (grade de 47 × 47, célula de 400 m sobre os
+  // 18,1 km do anel) que dizem, com no máximo 121 leituras de byte, se existe
+  // árvore ao alcance da câmera. Enquanto não existir, o balde de perto está
+  // corretamente vazio e o laço de 52 mil matrizes (2,66 ms medidos) é PULADO.
+  // Medido: 1,54 ms por passo de câmera dentro da cidade antes, 0,02 ms agora.
+  // É esta porta que paga o teto novo: só quem voa até o maciço gasta o
+  // rebalanceamento.
   const CEL_OCUP = 400
   const NO = Math.ceil((2 * R_EXT) / CEL_OCUP) + 1
   const ocupado = new Uint8Array(NO * NO)
@@ -1034,7 +1125,9 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
       const sxz = esc * escXZ
       if (daPerto) {
         porMatriz(mPerto, np, ax, ay, az, sxz, esc, sxz, giro)
-        perto.setColorAt(np, tinteDe(k, tinta))
+        cPerto[np * 3] = tinte[k * 3]
+        cPerto[np * 3 + 1] = tinte[k * 3 + 1]
+        cPerto[np * 3 + 2] = tinte[k * 3 + 2]
         np++
         // ⚠️ SUB-BOSQUE SÓ PARA QUEM ESTÁ NO BALDE DE PERTO. Ver `TETO_SUBBOSQUE`:
         // além de `R_CHEIA` a moita mede menos de 1,1 px. Duas peças em cada
@@ -1057,13 +1150,16 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
             porMatriz(mSub, ns, px, py, pz,
               s, s * (pedra ? 0.55 : 0.95), s * (0.8 + hash01(k * 401 + q * 7) * 0.5),
               hash01(k * 977 + q * 13) * Math.PI * 2)
-            subbosque.setColorAt(ns, pedra ? tinta.copy(COR_MATACAO) : tinta.copy(COR_MOITA))
+            const cc = pedra ? COR_MATACAO : COR_MOITA
+            cSub[ns * 3] = cc.r; cSub[ns * 3 + 1] = cc.g; cSub[ns * 3 + 2] = cc.b
             ns++
           }
         }
       } else {
         porMatriz(mLonge, nl, ax, ay, az, sxz, esc, sxz, giro)
-        longe.setColorAt(nl, tinteDe(k, tinta))
+        cLonge[nl * 3] = tinte[k * 3]
+        cLonge[nl * 3 + 1] = tinte[k * 3 + 1]
+        cLonge[nl * 3 + 2] = tinte[k * 3 + 2]
         nl++
       }
     }

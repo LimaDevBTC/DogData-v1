@@ -307,7 +307,7 @@
 // linha), mas com `?inverno=1` ligado — exatamente o link que o fundador vai
 // mandar pro hype deste fim de semana — o visitante ficava preso na tela de
 // carga até TODA a construção terminar: pistas, halfpipe, vila, dois
-// teleféricos, a floresta inteira (até 1.303 candidatos) e os penhascos
+// teleféricos, a floresta inteira (5.637 candidatos, medidos em 04/09) e os penhascos
 // (até 140 instâncias), mais a rede e o parse Draco de 12 arquivos `.glb`
 // (10 espécies de árvore + estação + pacote de rochas), tudo numa função
 // `async` só, sem um `yield` sequer. Isso contraria a decisão do fundador.
@@ -379,10 +379,10 @@
 //   então mesmo esse custo nunca trava um quadro.
 //
 // CAMADA PERTO (só entra quando a câmera cruza `INVERNO_R_DET`, pela MESMA
-// `Obra`, fatiada, nunca de uma vez): a floresta densa completa (até 1.303
+// `Obra`, fatiada, nunca de uma vez): a floresta densa completa (5.637
 // candidatos, MEDIDO em `gerarCandidatosFloresta` com o `heightAt` real, nota
-// de `FLORESTA_TETO_PERTO` mais abaixo: 450 instâncias reais + resto em
-// cone), o pacote de rochas (até 140 instâncias, até 430.640 triângulos no
+// de `FLORESTA_TETO_PERTO` mais abaixo: as 450 MAIS PRÓXIMAS da câmera em
+// malha real, o resto em cone com a silhueta da espécie), o pacote de rochas (até 140 instâncias, até 430.640 triângulos no
 // pior caso, ambos já medidos e documentados na seção "OS PENHASCOS"), e a
 // estação em detalhe (troca a caixa placeholder pela estação real de
 // `estacao-inverno.ts`, integrada pelo coordenador em 03/09). Nada disso é
@@ -390,15 +390,17 @@
 // mundo" que o fundador pediu, só adiado pra quando alguém está perto o
 // bastante pra ver a diferença.
 //
-// `INVERNO_R_DET = 4000` (4 km), medido a partir do mesmo ponto que já ancora
-// o culler do grupo inteiro (`r=7800, az=268`, ver o fim do arquivo).
-// Justificativa: é mais que o triplo de `FLORESTA_R_CHEIA` (1.300 m, o raio
-// em que a floresta cheia já troca cone por malha real, ponto a ponto) — dá
-// margem pra a `Obra` terminar de construir a camada perto (fatiada, poucos
-// ms por quadro) ANTES de a câmera chegar perto o bastante pra notar a malha
-// de longe ainda em pé. Comparado ao raio de descarte do grupo inteiro
-// (26.000 m, `o.culler?.add`), 4.000 m ainda é bem menor, então o gatilho
-// nunca dispara depois que o parque já teria sumido por distância.
+// `INVERNO_R_DET = 6000` (6 km, era 4.000 até 04/09), medido a partir do mesmo
+// ponto que já ancora o culler do grupo inteiro (`r=7800, az=268`, ver o fim do
+// arquivo). Justificativa antiga: dar margem pra a `Obra` terminar de construir
+// a camada perto ANTES de a câmera chegar perto o bastante pra notar a malha de
+// longe ainda em pé. Justificativa NOVA, e ela é medida: as câmeras de contrato
+// de `scripts/city/chapas.mjs` ficam a 3.997 m (`inverno`) e 4.580 m
+// (`silhueta`) deste ponto, ou seja a chapa da CADEIA INTEIRA nunca via a
+// camada perto e a outra passava por três metros. Ver a nota da constante.
+// Comparado ao raio de descarte do grupo inteiro (26.000 m, `o.culler?.add`),
+// 6.000 m ainda é bem menor, então o gatilho nunca dispara depois que o parque
+// já teria sumido por distância.
 //
 // ⚠️ A CAMADA PERTO NÃO PODE USAR A `Obra` COMPARTILHADA (a mesma instância
 // que `plaza-scene.tsx` cria em `boot()` e passa pra chalé/monumentos/parque):
@@ -477,6 +479,47 @@ function comLimiteDeTempo<T>(p: Promise<T>, ms: number, rotulo: string): Promise
 // agora são `fetch('/city/inverno/*.json')`, carregados só quando
 // `INVERNO_ATIVO`, e o arquivo mudou de `app/city/plaza/dados/` pra
 // `public/city/inverno/` porque só `public/` é servido por URL.
+
+// ═══════════════════════════════════════════════════════════════════════════
+// A RODADA DA MONTANHA, 04/09/2026. Quartel em `montanha.md`, na raiz do repo.
+// O fundador nomeou cinco defeitos; três moram neste arquivo, e o que segue é
+// o que mudou aqui, sempre com o número MEDIDO OFFLINE (Node 20, `tsx`,
+// `heightAt` REAL de `terrain.ts` sobre o heightmap real, sem abrir navegador).
+//
+// 1. "AS SEQUOIAS ESTÃO SEM TRONCO". `carregarInstanciavel` parava na PRIMEIRA
+//    malha do GLB, e o exportador glTF quebra a malha em uma primitiva POR
+//    MATERIAL. Em 8 dos 9 `sq-*.glb` a folha vem primeiro e o tronco ia fora;
+//    o pinheiro (metade da floresta) era desenhado com 11 dos 3.199 triângulos
+//    dele, 0,3% do modelo. Agora é uma `InstancedMesh` por parte, o padrão que
+//    `props.ts:381` já usava. A árvore média foi de 917 para 2.957 triângulos.
+//
+// 2. "OS PICOS ESTÃO ABSURDAMENTE PONTIAGUDOS". Talude médio nos primeiros
+//    400 m do cume, média de 32 rumos: 57,5 graus antes, 34,5 depois. Em 500 m:
+//    54,0 antes, 35,5 depois. Cume 1.147,7 -> 1.043,8 m (a faixa pedida era
+//    1.000 a 1.150). Área do maciço acima de 400 m: 9,2% -> 18,7% da cunha, ou
+//    seja a montanha ganhou CORPO em vez de perder altura. Três mecanismos
+//    novos, cada um documentado onde vive: `faixaR` (perfil radial próprio da
+//    crista, fora do envelope do avental), `contraste` (desbaste do gume no
+//    VALOR do dado assado) e `suavizaCelula` (passa-baixa de uma célula, que
+//    era uma agulha de 152 m em 50 m). Mais quatro feições novas (duas selas e
+//    dois contrafortes) ligando os três cumes: a cadeia deixou de ser três
+//    agulhas soltas e passou a ter crista e colo.
+//
+// 3. "A VEGETAÇÃO É COMPLETAMENTE ESPARSA". Três causas medidas e as três
+//    consertadas: a camada esparsa levava 220 cones para 5.637 candidatos (uma
+//    árvore a cada 236 m, e é ELA que toda chapa de contrato fotografava,
+//    porque `INVERNO_R_DET` era menor que a distância das câmeras de contrato);
+//    o cone de longe tinha 60% da altura e 42% da largura da árvore que
+//    substitui; e as 450 árvores de malha real eram um SORTEIO FIXO, então 92%
+//    do que estava ao redor do visitante era cone mesmo a 30 m. A faixa de
+//    plantio também ia só até 190 m num maciço de 1.044.
+//
+// O que NÃO mudou, de propósito: o avental do Fuji (raioM 6.600, peso 420) e o
+// `envelopeRadial` inteiro estão bit a bit como estavam, e a adição em r < 6.900
+// continua medindo os mesmos 146,3 m. A regra desta rodada era não crescer para
+// dentro do tecido da cidade, e ela é verificável a qualquer hora com o mesmo
+// laudo offline.
+// ═══════════════════════════════════════════════════════════════════════════
 
 // ── A BANDEIRA ───────────────────────────────────────────────────────────────
 // ⚠️ PADRÃO INVERTIDO EM 03/09/2026, decisão do fundador: o parque virou o
@@ -566,8 +609,9 @@ const R_AVENTAL = 5500
  *  avental, que em r 8.280 já é baixo, a cauda fina é o pé macio que se quer. */
 const EXP_FACE_ROCHA = 2.4
 /** expoente da face EXTERNA da crista (a queda de `faixaR`, de r2 a r3).
- *  Menor que 1 de propósito, e o motivo é aritmético: entre o cume (r ~8.070)
- *  e `R_QUEDA` sobram 580 m de corrida para ~830 m de relevo, e um `suave01`
+ *  Menor que 1 de propósito, e o motivo é aritmético: entre o fim do platô da
+ *  faixa (r 8.110) e `R_QUEDA` sobram 540 m de corrida para ~824 m de relevo,
+ *  e um `suave01`
  *  puro gasta essa corrida devagar no começo, deixando a queda inteira para o
  *  fim. Medido no envelope: em r 8.570 o suave01 puro retém 5,8% do peso e
  *  ^0,7 retém 13,5%, o que tira ~100 m da queda de cada rumo externo. Abaixo de
@@ -585,9 +629,9 @@ function suave01(t: number): number {
  * Rampa de 0 a 1 com um TRECHO RETO no meio e as duas pontas arredondadas em
  * `macio` (fração do percurso). Existe porque `suave01` não serve para desenhar
  * uma encosta longa: ele é plano nas duas pontas e paga isso com o dobro no
- * meio, com derivada máxima 1,5 vezes a média. Numa encosta de 830 m em 1.250 m
- * (a subida interna da crista, ver `faixaR`) isso significa 33,6 graus de
- * talude médio virando 44,9 no meio da encosta, e era esse trecho do meio que
+ * meio, com derivada máxima 1,5 vezes a média. Numa encosta de 824 m em 1.250 m
+ * (a subida interna da crista, ver `faixaR`) isso significa 33,4 graus de
+ * talude médio virando 44,7 no meio da encosta, e era esse trecho do meio que
  * aparecia como parede. Com `macio` 0,20 a derivada máxima cai para 1,25 vezes
  * a média (39,7 graus no mesmo caso) e as pontas continuam suaves, sem vinco.
  *
@@ -711,50 +755,75 @@ function gerarSerpentina(e: EspecPista): { r: number; az: number }[] {
 // Slalom) foram por isso realocadas para o FLANCO onde o relevo esculpido já
 // é íngreme de verdade (r ≈ 7.500 a 8.000), não empurradas à força com
 // serpentina. Números finais, medidos, no relatório.
+//
+// ⚠️ TODAS AS SETE FORAM REVÃOS EM 04/09, E NÃO POR GOSTO: a crista saiu de
+// r 8.280 para r ~8.150 e o flanco esquiável passou a ocupar de 6.700 a 8.200
+// (ver `faixaR`). Com os raios antigos, a Descida COMEÇAVA 130 m fora do cume e
+// SUBIA antes de descer (medido: 92 m de subida no pior passo) e as provas
+// curtas perdiam metade do desnível de homologação (Super-G 615 -> 285 m,
+// Gigante 493 -> 198 m). Números medidos com `medirPista` sobre o `heightAt`
+// REAL de `terrain.ts` (offline, Node 20, sem abrir navegador), antes e depois:
+//
+//   pista                   norma FIS      antes          depois
+//   Descida                 até 1.100 m    855 m          890 m
+//   Super-G                 400 a 650      615            564
+//   Slalom Gigante          250 a 450      493 (fora)     413
+//   Slalom                  180 a 220      193            204
+//   Boardercross            100 a 250      257 (fora)     227
+//   Slopestyle              sem norma      108            236
+//   Verde                   16 a 25% grau  4,0° (7%)      9,0° (16%)
+//
+// E a monotonia, que é o que decide se a fita é esquiável: a maior SUBIDA num
+// passo caiu de 92/82/72/41 m (Descida/Super-G/Gigante/Slalom) para
+// 47/13/5/10 m.
 const ESPECIFICACOES: EspecPista[] = [
   {
     nome: 'Descida do Mar da Tranquilidade', dificuldade: 'preta', largura: 30,
-    rInicio: 8330, rFim: 7150, azCentro: 268, amplitude: 6, oscilacoes: 1, amostras: 90,
+    // ⚠️ COMEÇA NO CUME MEDIDO, não 130 m depois dele: o máximo do rumo 268 fica
+    // em r 8.200 (911 m, medido de 50 em 50 m). 890 m de desnível medidos.
+    rInicio: 8200, rFim: 6850, azCentro: 268, amplitude: 6, oscilacoes: 1, amostras: 90,
   },
   {
     nome: 'Super-G Regolito', dificuldade: 'preta', largura: 27,
-    // ⚠️ RETUNADO EM 03/09, SEGUNDA VEZ: a troca do relevo por dado real
-    // (Zwölfernock/Weisse Wand) moveu o flanco íngreme de novo. Medido de
-    // novo por `medirPista`: 565 m de desnível, dentro de 400-650.
-    rInicio: 7900, rFim: 7600, azCentro: 268, amplitude: 2, oscilacoes: 1, amostras: 60,
+    // ⚠️ RETUNADO EM 04/09, TERCEIRA VEZ, agora sobre a crista larga. Medido
+    // por `medirPista`: 564 m de desnível, dentro de 400-650.
+    rInicio: 8150, rFim: 7350, azCentro: 268, amplitude: 2, oscilacoes: 1, amostras: 60,
   },
   {
     nome: 'Slalom Gigante Cratera Rasa', dificuldade: 'vermelha', largura: 22,
-    // ⚠️ RETUNADO EM 03/09, SEGUNDA VEZ, mesmo motivo. Medido: 408 m, dentro
-    // de 250-450.
-    rInicio: 7780, rFim: 7600, azCentro: 268, amplitude: 2, oscilacoes: 1, amostras: 50,
+    // ⚠️ RETUNADO EM 04/09, mesmo motivo. Medido: 413 m, dentro de 250-450
+    // (com os raios antigos dava 493, fora da norma).
+    rInicio: 7700, rFim: 7250, azCentro: 268, amplitude: 2, oscilacoes: 1, amostras: 50,
   },
   {
     nome: 'Slalom Poeira Fina', dificuldade: 'azul', largura: 18,
-    // ⚠️ RETUNADO EM 03/09, SEGUNDA VEZ. Medido: 208 m, dentro de 180-220.
-    rInicio: 7650, rFim: 7530, azCentro: 268, amplitude: 2, oscilacoes: 1, amostras: 40,
+    // ⚠️ RETUNADO EM 04/09. Medido: 204 m, dentro de 180-220.
+    rInicio: 7430, rFim: 7200, azCentro: 268, amplitude: 2, oscilacoes: 1, amostras: 40,
   },
   {
     nome: 'Boardercross Baixa Gravidade', dificuldade: 'parque', largura: 30,
-    // ⚠️ RETUNADO EM 03/09, SEGUNDA VEZ. Medido: 1.192 m de percurso (alvo
-    // 800-1.200), 249 m de desnível (alvo 100-250), 11,8° de grau médio
-    // (alvo FIS 7-11°, 0,8° acima: os três critérios juntos não fecham
-    // perfeito no relevo novo, e ficar 0,8° acima do teto de uma
-    // RECOMENDAÇÃO, não de uma regra de homologação, foi a troca aceita
-    // em vez de furar o percurso ou o desnível).
-    rInicio: 7650, rFim: 7350, azCentro: 268, amplitude: 2, oscilacoes: 1, amostras: 50,
+    // ⚠️ RETUNADO EM 04/09. Medido: 1.127 m de percurso (alvo 800-1.200),
+    // 227 m de desnível (alvo 100-250), 11,4° de grau médio (alvo FIS 7-11°,
+    // 0,4° acima). Os três critérios juntos continuam não fechando perfeito, e
+    // ficar 0,4° acima do teto de uma RECOMENDAÇÃO, não de uma regra de
+    // homologação, continua sendo a troca aceita: era 0,8° antes.
+    rInicio: 7500, rFim: 7270, azCentro: 268, amplitude: 2, oscilacoes: 1, amostras: 50,
   },
   {
     nome: 'Slopestyle Um Sexto', dificuldade: 'parque', largura: 24,
-    // ⚠️ RETUNADO EM 03/09, SEGUNDA VEZ. Sem norma FIS estrita; 164 m de
-    // queda numa progressão razoável de freestyle.
-    rInicio: 7850, rFim: 7600, azCentro: 260, amplitude: 2, oscilacoes: 1, amostras: 40,
+    // ⚠️ RETUNADO EM 04/09. Sem norma FIS estrita; 236 m de queda medidos,
+    // numa progressão razoável de freestyle.
+    rInicio: 7420, rFim: 7180, azCentro: 260, amplitude: 2, oscilacoes: 1, amostras: 40,
   },
   {
     nome: 'Pista Verde de Acesso', dificuldade: 'verde', largura: 20,
-    // o anel que o pódio da abóbada já deixa plano (r ≤ 7.150): o retorno
-    // manso até a vila-base, de graça, em cima do nivelamento que já existe.
-    rInicio: 7150, rFim: 6850, azCentro: 266, amplitude: 1, oscilacoes: 0.5, amostras: 30,
+    // o anel que o pódio da abóbada já deixa plano: o retorno manso até a
+    // vila-base, em cima do nivelamento que já existe. ⚠️ RECUADO 50 m EM
+    // 04/09 (7.150-6.850 para 7.100-6.800) porque a crista nova encosta o pé
+    // dela em r 7.150: com os raios antigos a "verde" media 13,7 graus (24% de
+    // grau, o limite da cor); recuada, mede 9,0 graus (16%), que é verde de
+    // verdade.
+    rInicio: 7100, rFim: 6800, azCentro: 266, amplitude: 1, oscilacoes: 0.5, amostras: 30,
   },
 ]
 
@@ -773,7 +842,6 @@ function envelopeRadial(r: number): number {
   // são zero por construção antes de r 6.700. Quem existe na faixa nova é o
   // carimbo do avental, que tem raio grande de propósito. Sem abrir aqui, o
   // avental nasceria recortado no pé.
-  //
   if (r <= R_AVENTAL || r >= R_QUEDA) return 0
   if (r <= R_CRISTA_PICO) return suave01((r - R_AVENTAL) / (R_CRISTA_PICO - R_AVENTAL))
   const t = suave01((R_QUEDA - r) / (R_QUEDA - R_CRISTA_PICO))
@@ -832,11 +900,12 @@ interface FeicaoReal {
    * ⚠️ A CONTA QUE DECIDIU OS QUATRO NÚMEROS, e ela é dura: a crista só pode
    * existir entre r 6.700 (abaixo disso a adição tem de ficar sob a do avental,
    * senão o tecido da cidade sobe) e r 8.650 (`R_QUEDA`, antes da fratura do
-   * rim da casca). São 1.950 m de corrida para ~830 m de relevo. O cume não vai
-   * no meio: ele vai onde as PISTAS precisam dele, r ~8.070, porque as sete
-   * fitas de `ESPECIFICACOES` descem de r 8.330 para r 6.850 e um cume mais
+   * rim da casca). São 1.950 m de corrida para ~824 m de relevo. O cume não vai
+   * no meio: ele vai onde as PISTAS precisam dele, r ~8.100, porque as sete
+   * fitas de `ESPECIFICACOES` descem de r 8.200 para r 6.800 e um cume mais
    * para dentro faria a Super-G e o slalom gigante subirem antes de descer.
-   * Com o cume em 8.070 sobram 1.370 m de corrida para dentro e 530 para fora,
+   * Com o platô da faixa em 7.950-8.110 sobram 1.250 m de corrida para dentro
+   * (6.700 a 7.950) e 540 para fora (8.110 a 8.650),
    * e é por isso que a face externa é a íngreme: ela é a FACE DE ROCHA, que é o
    * que o projeto sempre quis ali, e a encosta esquiável é a de dentro.
    *
@@ -861,9 +930,9 @@ interface FeicaoReal {
    *
    * Ou seja: o Zwölfernock não é um cone, é um PLANALTO de ~0,85 com uma rede
    * de vales cavados até 0,36, e o pico é uma célula solta em 1,00. Esticar
-   * esse arquivo de `raioM` 820 para 1.500 estica a PLANTA dos vales por 1,83
-   * mas não mexe na altura deles: com peso 820, aquele intervalo de 0,64
-   * normalizado vira 525 m de ravina dentro do carimbo, e o pico vira uma
+   * esse arquivo de `raioM` 820 para 1.900 estica a PLANTA dos vales por 2,3
+   * mas não mexe na altura deles: com peso 950, aquele intervalo de 0,64
+   * normalizado vira 608 m de ravina dentro do carimbo, e o pico vira uma
    * agulha de ~280 m sobre o próprio entorno. Não adianta alargar a montanha se
    * a textura da fonte carrega meio quilômetro de relevo por conta própria.
    *
@@ -996,10 +1065,26 @@ function montarFeicoes(weisse: DadosRelevo, zwoelfernock: DadosRelevo,
     // da crista; o radial fica íngreme, que é o que uma cordilheira de região
     // de lagos faz mesmo.
     //
-    // ⚠️ CENTRO PUXADO PARA DENTRO (8.280 -> 7.860): é a única direção com
-    // espaço. Para fora só existem 370 m até `R_QUEDA`, e um cume ali obriga a
-    // face externa a despejar 850 m nesses 370 m (67 graus). Puxando para
-    // dentro, a face externa ganha 790 m de corrida.
+    // ⚠️ CENTRO PUXADO PARA DENTRO (8.280 -> 8.070): é a única direção com
+    // espaço. Com o centro em 8.280 sobravam 370 m até `R_QUEDA`, e um cume ali
+    // obriga a face externa a despejar 824 m nesses 370 m, 66 graus. Com o
+    // centro em 8.070 e o platô da faixa terminando em 8.110, a face externa
+    // ganha 540 m de corrida, e o cume MEDIDO acabou em r 8.016 (a massa do
+    // arquivo puxa um pouco mais para dentro que o centro do carimbo), o que dá
+    // 634 m reais de corrida externa.
+    //
+    // ⚠️ E A HIERARQUIA DA CADEIA NÃO SE LÊ EM `pesoAltura`, porque cada feição
+    // tem `contraste` e `mediaDisco` diferentes. A cota de pico EFETIVA de cada
+    // uma é `pesoAltura · (mediaDisco + (máximo - mediaDisco) · contraste)`,
+    // e é ela que decide quem é cume e quem é colo:
+    //
+    //   Zwölfernock  (266)   950 × 0,820 = 779 m   cume principal
+    //   Weisse A     (254)   930 × 0,644 = 599 m   secundário norte
+    //   Weisse B     (278)   850 × 0,644 = 548 m   secundário sul
+    //   Fuji sela    (260)   900 × 0,534 = 481 m   colo norte
+    //   Fuji sela    (272)   870 × 0,534 = 465 m   colo sul
+    //   Weisse contraf. (246) 700 × 0,644 = 451 m  ombro de ponta norte
+    //   Weisse contraf. (286) 660 × 0,644 = 425 m  ombro de ponta sul
     { cx: x1, cz: z1, giro: 0.35, raioM: 1900, pesoAltura: 950, inicioQueda: 0.34, faixaR: [6700, 7950, 8110, 8650], suavizaCelula: true, contraste: 0.20, mediaDisco: mZ, dados: zwoelfernock },
     { cx: x2, cz: z2, giro: 1.10, raioM: 1550, pesoAltura: 930, inicioQueda: 0.40, faixaR: [6700, 7950, 8110, 8650], suavizaCelula: true, contraste: 0.25, mediaDisco: mW, dados: weisse },
     // ⚠️ MESMO ARQUIVO QUE A FEIÇÃO ANTERIOR, GIRO E RAIO DIFERENTES: é a
@@ -1022,10 +1107,13 @@ function montarFeicoes(weisse: DadosRelevo, zwoelfernock: DadosRelevo,
     // Os contrafortes de ponta usam o Weisse porque ali a chapa QUER pedra
     // quebrada, e o patamar de 0,52 dele é justamente um ombro.
     //
-    // ⚠️ PESO ABAIXO DOS CUMES, DE PROPÓSITO: 620/600 nas selas contra 900 do
-    // principal. Com `Math.max`, uma sela só aparece onde os cumes já não
-    // alcançam, então o peso dela é literalmente a cota do colo. Colo a ~300 m
-    // abaixo do cume é o que separa cordilheira de serra dentada.
+    // ⚠️ COTA EFETIVA ABAIXO DOS CUMES, DE PROPÓSITO (481 e 465 m contra os
+    // 779 do principal, ver a tabela acima). Com `Math.max`, uma sela só
+    // aparece onde os cumes já não alcançam, então a cota dela é literalmente
+    // a cota do colo. Medido na crista final, cota máxima por rumo de 2 em 2
+    // graus: 1.023 m em 262, 993 em 270, 965 em 266, contra 736 em 258 e 724
+    // em 278. Colo de 250 a 300 m abaixo do cume é o que separa cordilheira de
+    // serra dentada, e é onde a Fase 2 vai procurar a bacia da lagoa.
     { cx: s1x, cz: s1z, giro: 2.60, raioM: 1300, pesoAltura: 900, inicioQueda: 0.44, faixaR: [6700, 7950, 8110, 8650], suavizaCelula: true, contraste: 0.34, mediaDisco: mF, dados: fuji },
     { cx: s2x, cz: s2z, giro: 5.10, raioM: 1300, pesoAltura: 870, inicioQueda: 0.44, faixaR: [6700, 7950, 8110, 8650], suavizaCelula: true, contraste: 0.34, mediaDisco: mF, dados: fuji },
     { cx: c1x, cz: c1z, giro: 3.30, raioM: 1350, pesoAltura: 700, inicioQueda: 0.42, faixaR: [6700, 7950, 8110, 8650], suavizaCelula: true, contraste: 0.25, mediaDisco: mW, dados: weisse },
@@ -1684,14 +1772,14 @@ const FLORESTA_BAIXO = 15
  * MEDIDO OFFLINE (`heightAt` real de `terrain.ts`, varredura completa da cunha):
  *
  *   FLORESTA_ALTO   candidatos   cota mediana   cone (8 tri cada)
- *        190           2.684         137 m         21.472
- *        320           3.956         158 m         31.648
- *        430           5.014         178 m         40.112
- *        550           5.728         202 m         45.824
+ *        190           2.483         135 m         19.864
+ *        320           3.893         158 m         31.144
+ *        430           4.929         178 m         39.432
+ *        550           5.637         204 m         45.096
  *
  * O custo de perto NÃO muda com isto (o teto de 450 é quem manda); o que
- * cresce é o balde de cone, 8 triângulos por árvore. Dobrar a mata inteira
- * custou 24.352 triângulos, que é 0,6% da praça.
+ * cresce é o balde de cone, 8 triângulos por árvore. Mais que dobrar a mata
+ * custou 25.232 triângulos, que é 0,65% da praça.
  */
 const FLORESTA_ALTO = 550
 /** ⚠️ 22 -> 70. A pluma é o desvanece da densidade nas duas pontas da faixa de
@@ -1707,9 +1795,9 @@ const FLORESTA_PASSO = 30
  * hash, e o resto ficava cone para sempre; agora são as 450 MAIS PRÓXIMAS da
  * câmera (ver `instanciarFlorestaDensa`). Com a floresta de hoje, medida
  * offline (Node 20, `tsx`, `heightAt` real de `terrain.ts` sobre o heightmap
- * real, sem abrir navegador): 5.671 candidatos numa cunha de 12,28 km², ou 462
- * árvores por km². As 450 mais próximas cobrem 0,97 km² em volta de quem olha,
- * um raio de 557 m de mata REAL, e além disso o cone com a silhueta certa.
+ * real, sem abrir navegador): 5.637 candidatos numa cunha de 12,28 km², ou 459
+ * árvores por km². As 450 mais próximas cobrem 0,98 km² em volta de quem olha,
+ * um raio de 559 m de mata REAL, e além disso o cone com a silhueta certa.
  *
  * ⚠️ E O CUSTO DELAS TRIPLICOU DE PROPÓSITO. Com o carregador consertado
  * (`carregarInstanciavel`), a árvore média custa 2.960 triângulos em vez de
@@ -1719,9 +1807,9 @@ const FLORESTA_PASSO = 30
  * medido, e ele fica registrado para quem for mexer:
  *
  *   teto   malha real   + cones     total      contra a praça inteira (3,88 M)
- *    450    1.330.587    45.368    1.375.955        35%
- *    600    1.774.116    45.368    1.819.484        47%
- *    800    2.365.488    45.368    2.410.856        62%
+ *    450    1.330.587    45.096    1.375.683        35%
+ *    600    1.774.116    45.096    1.819.212        47%
+ *    800    2.365.487    45.096    2.410.583        62%
  *
  * A abóbada sozinha já é 2,1 M dos 3,88 M da praça (`perf.ts`), então passar
  * de 450 antes de a chapa pedir seria gastar metade de um orçamento de cena
@@ -2140,13 +2228,13 @@ function construirFlorestaEsparsa(candidatos: CandidatoFloresta[], teto: number)
 
 /**
  * A CAMADA PERTO da floresta: a malha real das espécies vivas, instanciada
- * pros `candidatosBase` inteiros (até 1.303, `FLORESTA_TETO_PERTO` = 450 com
- * malha real e o resto no balde de longe interno, MESMA régua de sempre —
- * ver a nota de `FLORESTA_TETO_PERTO` mais abaixo). Idêntica, item por item,
- * ao antigo `construirFloresta`: só mudou de forma (gerador que cede, recebe
- * `vivas`/`candidatosBase` já prontos em vez de carregar e gerar sozinha) e
- * de lugar (não roda mais durante o boot, só quando a câmera cruza
- * `INVERNO_R_DET`). Escreve o resultado em `saida.floresta`, padrão de
+ * pros `candidatosBase` inteiros (5.637 medidos hoje), com
+ * `FLORESTA_TETO_PERTO` = 450 delas em malha real e o resto no balde de cone
+ * interno. Três coisas mudaram em 04/09 e estão explicadas onde acontecem:
+ * uma `InstancedMesh` POR PARTE do modelo (o tronco existir), o cone de longe
+ * com a silhueta da espécie que ele substitui, e as 450 de perto sendo as
+ * MAIS PRÓXIMAS da câmera em vez de um sorteio fixo. Escreve o resultado em
+ * `saida.floresta`, padrão de
  * `constroiParque` em `park.ts` (gerador não pode `return` valor com
  * `--downlevelIteration` desligado; `saida` sai da mesma forma sem depender
  * disso).
@@ -2173,7 +2261,7 @@ function* instanciarFlorestaDensa(
   // "vegetação completamente esparsa" VISTA DE DENTRO. Antes, 450 candidatos
   // eram escolhidos POR HASH, uma vez, e só eles podiam virar malha real; os
   // outros ficavam cone para sempre, inclusive a 30 m do visitante. Medido com
-  // a floresta de hoje (2.684 candidatos), isso quer dizer que 83% das árvores
+  // a floresta de hoje (5.637 candidatos), isso quer dizer que 92% das árvores
   // ao redor de quem está DENTRO do maciço eram pirâmides de 8 triângulos.
   // Nenhum aumento de teto conserta isso: o problema não era quantas, era
   // QUAIS. Agora o teto é um ORÇAMENTO e quem entra nele são as MAIS PERTO da
@@ -2261,9 +2349,10 @@ function* instanciarFlorestaDensa(
     // ⚠️ PASSO 1, O CORTE POR DISTÂNCIA. Histograma de 48 anéis até
     // `FLORESTA_R_CHEIA` e soma acumulada até estourar o teto: devolve o raio
     // em que cabem ~`FLORESTA_TETO_PERTO` árvores. É O(n) com aritmética
-    // inteira, sem ordenar nada (ordenar 2.684 por quadro seria o caminho
-    // óbvio e o caro). O raio anda macio com a câmera, então a troca de LOD
-    // continua acontecendo por distância, como sempre aconteceu.
+    // inteira, sem ordenar nada (ordenar 5.637 por quadro seria o caminho
+    // óbvio e o caro), e custa 0,164 ms por quadro medidos offline com a
+    // contagem real de 5.637. O raio anda macio com a câmera, então a troca
+    // de LOD continua acontecendo por distância, como sempre aconteceu.
     histo.fill(0)
     const largura = FLORESTA_R_CHEIA / BINS
     for (const c of candidatos) {
@@ -2271,7 +2360,11 @@ function* instanciarFlorestaDensa(
       if (d < FLORESTA_R_CHEIA) histo[Math.min(BINS - 1, (d / largura) | 0)]++
     }
     let soma = 0
-    let corte = 0
+    // piso de um anel: se o primeiro anel sozinho já estourasse o teto (uma
+    // moita densa colada na câmera), sem isto o corte seria 0 e QUEM ESTÁ
+    // DENTRO DA MATA veria só cone, que é o defeito que este bloco existe pra
+    // consertar. O `capPerto` por espécie segura o excesso de qualquer jeito.
+    let corte = largura
     for (let b = 0; b < BINS; b++) {
       if (soma + histo[b] > FLORESTA_TETO_PERTO) break
       soma += histo[b]
@@ -2418,14 +2511,14 @@ function* instanciarPenhascos(
  *  arco, então 220 pontos bem espalhados (reaproveitando o MESMO sorteio de
  *  posição da floresta cheia, por passo, não uma segunda grade) bastam pra
  *  quebrar a sensação de "montanha pelada". ERRADO, E MEDIDO ERRADO EM 04/09:
- *  são 5.671 candidatos, e 220 deles é UMA ÁRVORE A CADA 236 m numa cunha de
+ *  são 5.637 candidatos, e 220 deles é UMA ÁRVORE A CADA 236 m numa cunha de
  *  12,28 km². Isso não é "silhueta quebrada", é savana, e é literalmente o que
  *  a chapa de contrato fotografa toda vez que a câmera está além de
  *  `INVERNO_R_DET` (a camada densa nem chegou a existir). O teto novo é maior
  *  que a contagem de candidatos DE PROPÓSITO: a camada esparsa passa a levar
- *  todo mundo. O preço é 5.671 × 8 = 45.368 triângulos (contra 1.760), ou
+ *  todo mundo. O preço é 5.637 × 8 = 45.096 triângulos (contra 1.760), ou
  *  1,2% da praça, e 0,80 ms de CPU no laço de matriz (medido offline, Node 20
- *  com o `THREE.Matrix4` de verdade, 20 repetições), ainda barato o bastante
+ *  com o `THREE.Matrix4` de verdade, 20 repetições com 5.671 itens), ainda barato o bastante
  *  para não precisar ceder em fatias. Ver "ACHADO 3" no cabeçalho. */
 const FLORESTA_TETO_LONGE = 6000
 
@@ -2626,7 +2719,7 @@ export async function invernoComoTrabalho(
       // ⚠️ INVERNO-DETALHE (corduroy da pista, rastro de esqui, pegada,
       // 2 rochas de granito de destaque) MONTA JÁ NA CAMADA LONGE, e isso é
       // deliberado: o módulo se esconde SOZINHO por um raio próprio de 120 m
-      // (ver o cabeçalho dele), bem menor que os 4.000 m de `INVERNO_R_DET`,
+      // (ver o cabeçalho dele), bem menor que os 6.000 m de `INVERNO_R_DET`,
       // então esperar pela camada perto só atrasaria o momento em que ele
       // aparece pra quem já estiver perto quando a camada perto disparar. O
       // custo de construção dele é barato (quads + 2 GLB pequenos), não
@@ -2670,7 +2763,7 @@ export async function invernoComoTrabalho(
                 disposeGrupo(florestaEsparsa.group)
                 group.add(saidaFl.floresta.group)
                 florestaAtual = saidaFl.floresta
-                console.log(`[inverno] camada perto: floresta densa, ${saidaFl.floresta.arvores.toLocaleString('pt-BR')} árvores`)
+                console.log(`[inverno] camada perto: floresta densa, ${saidaFl.floresta.arvores.toLocaleString('pt-BR')} árvores, ${saidaFl.floresta.triangulos.toLocaleString('pt-BR')} triângulos (${FLORESTA_TETO_PERTO} em malha real, o resto em cone)`)
               }
             }
             if (ativos.rochas) {
@@ -2697,8 +2790,13 @@ export async function invernoComoTrabalho(
           heightAt: o.heightAt, gltf: o.gltf, sombra: o.sombra ?? true, culler: o.culler,
           vilaBase: { r: 6920, az: 273 },
           cabos: [
-            { rBase: 7000, azBase: 268, rTopo: 8280, azTopo: 268, nCabines: 10 },
-            { rBase: 6950, azBase: 273, rTopo: 8220, azTopo: 261, nCabines: 6 },
+            // ⚠️ OS TOPOS DESCERAM DE 8.280/8.220 PARA 8.200/8.150 EM 04/09:
+            // a crista nova culmina em r 8.200 (rumo 268) e r ~8.150 (rumo
+            // 261), medido de 50 em 50 m no `heightAt` real. Um topo de
+            // teleférico depois do cume ficaria pendurado do lado de fora, na
+            // face de rocha, com o cabo atravessando a montanha.
+            { rBase: 7000, azBase: 268, rTopo: 8200, azTopo: 268, nCabines: 10 },
+            { rBase: 6950, azBase: 273, rTopo: 8150, azTopo: 261, nCabines: 6 },
           ],
           trilhas: PISTAS,
         })
