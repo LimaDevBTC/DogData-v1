@@ -17,6 +17,7 @@ import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { createBattlefield, type Battlefield } from '../war/battlefield'
 import WarLegend from './war-legend'
@@ -1467,8 +1468,44 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
 
     const draco = new DRACOLoader()
     draco.setDecoderPath('/draco/')
-    const gltf = new GLTFLoader()
+    // ⚠️ O ESPELHO KTX2 DO ACERVO, e ele é o remédio para o defeito que o teto de
+    // textura não alcança. As imagens do Sketchfab são 512x512: cabem folgadas em
+    // `texLado(2048)`, então nenhum teto por lado toca nelas, e mesmo assim são
+    // 178 imagens e 197,7 MiB no boot padrão. O que muda não é o tamanho, é o
+    // FORMATO. Um KTX2/ETC1S é transcodificado direto para ETC2 no iPhone
+    // (KTX2Loader escolhe `etc2Supported` para ETC1S; ASTC tem prioridade
+    // infinita e nunca ganha), 4 a 8 bits por texel contra 32, e o pixel NUNCA
+    // materializa em RGBA8 no caminho: o upload é `compressedTexImage2D` nível a
+    // nível. Some a VRAM e some o PICO de decodificação, que é o que derruba o
+    // contexto.
+    //
+    // ⚠️ A TROCA É POR URL, DE PROPÓSITO, e é o que mantém o desktop bit a bit
+    // igual. `public/city/sf-ktx2/` é ESPELHO: os arquivos originais continuam
+    // lá e o desktop continua carregando exatamente eles, porque ETC1S é
+    // compressão com perda e o desktop não precisa pagar esse preço. Um
+    // `setURLModifier` no gerente deste loader resolve em uma linha, sem que
+    // props.ts, monuments.ts, park.ts ou montanha.ts precisem saber que existe
+    // um segundo acervo. Gerar o espelho: `node scripts/city/ktx2.mjs`.
+    //
+    // ⚠️ O ESPELHO TEM DE ESTAR COMPLETO. Um arquivo que falte vira 404, `loadSf`
+    // devolve null e a peça some da praça em silêncio; por isso o conversor
+    // falha ruidosamente quando não converte tudo.
+    const gerente = new THREE.LoadingManager()
+    if (profile.cortaTextura) {
+      gerente.setURLModifier((url) => (url.includes('/city/sf/') ? url.replace('/city/sf/', '/city/sf-ktx2/') : url))
+    }
+    // ⚠️ `setWorkerLimit(2)`: o KTX2Loader copia o binário do transcodificador
+    // POR WORKER (`transcoderBinary.slice(0)`) e o WorkerPool nasce com 4, ou
+    // seja 4 cópias de 500 KB mais 4 heaps de wasm num aparelho que já está sem
+    // memória. E o transcodificador só é BAIXADO quando o primeiro .ktx2 chega:
+    // no desktop, que nunca recebe um, isto custa zero byte de rede.
+    const ktx2 = new KTX2Loader()
+    ktx2.setTranscoderPath('/basis/')
+    ktx2.setWorkerLimit(2)
+    ktx2.detectSupport(renderer)
+    const gltf = new GLTFLoader(gerente)
     gltf.setDRACOLoader(draco)
+    gltf.setKTX2Loader(ktx2)
 
     const pulses: { m: THREE.MeshStandardMaterial; base: number; rate: number; phase: number }[] = []
     const sways: { o: THREE.Object3D; y0: number; amp: number }[] = []
@@ -4187,6 +4224,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       founders?.dispose()
       campo?.dispose()
       draco.dispose()
+      // solta os workers e o heap de wasm do transcodificador junto com o draco
+      ktx2.dispose()
       lunarEnv.dispose()
       scene.traverse((o) => {
         const m = o as THREE.Mesh
