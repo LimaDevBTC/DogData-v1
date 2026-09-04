@@ -18,12 +18,39 @@ export const LUNAR_SITE = {
   creditLine: "Terrain data: NASA/GSFC/ASU · LRO LOLA · JAXA/SELENE · SLDEM2015",
 }
 
-// Holder segmentation captured for the masterplan (lot rights at launch).
-export const LOT_SEGMENTATION = {
-  total: 97_673,
-  btc: 86_029,
-  sol: 11_303,
-  stx: 341,
+// ⚠️ NENHUMA CONTAGEM DE LOTE VAI PARA A TELA ANTES DO SNAPSHOT, e é por isso
+// que a constante LOT_SEGMENTATION foi APAGADA daqui em 04/09 em vez de
+// corrigida.
+//
+// Ela publicava 97.673 lotes (uma soma antiga de BTC + SOL + STX) em quatro
+// seções. O número certo não é 85.843 nem 85.830 nem 85.824: os três foram
+// medidos em dias diferentes e todos envelhecem, porque o conjunto de holders
+// muda a cada bloco. Quantidade de lotes, área e forma são SAÍDAS do snapshot,
+// não entradas dele. A única coisa decidida antes do bloco 966.670 é o terreno,
+// que vive em LUNAR_SITE logo acima.
+//
+// Regra para quem for mexer: se o número depende de quem está segurando DOG,
+// ele não pode ser impresso antes da altura alvo. Diga onde ele vai aparecer,
+// não chute o valor.
+
+// ── O SNAPSHOT ─────────────────────────────────────────────────────────────
+// A altura é o COMPROMISSO. Tudo o mais nesta constante é derivado ou
+// estimado, e a página tem que dizer qual é qual.
+//
+// ⚠️ NÃO TROCAR ESTE NÚMERO POR UMA DATA. O anúncio público inteiro se apoia
+// em "a date is our word, a Bitcoin block is Bitcoin's word": no instante em
+// que a landing prometer um horário, ela devolve para o projeto uma promessa
+// que o projeto não controla. A hora aparece na página como estimativa
+// rotulada, calculada na hora a partir da ponta da chain, nunca gravada aqui.
+export const SNAPSHOT = {
+  // altura alvo, imutável, anunciada publicamente em 04/09
+  block: 966_670,
+  // minutos por bloco usados na estimativa. É a premissa que a página imprime
+  // ao lado do resultado, para que um ETA que se move seja lido como medição e
+  // não como erro.
+  minutesPerBlock: 10,
+  // confirmações em cima do bloco alvo antes de publicar o registry
+  confirmations: 6,
 }
 
 // ── $DOG Galaxy (app/galaxy) ───────────────────────────────────────────────

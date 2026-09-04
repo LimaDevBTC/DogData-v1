@@ -56,7 +56,6 @@ import {
   Counter, DrawRule, EASE, EASE_CSS, HAIR_SOFT, Reveal, SplitLine,
   useMagnetic, useOnce,
 } from "../motion"
-import { LOT_SEGMENTATION } from "../dogcity-data"
 
 // ── the registration corner — team SKYLINE's shared mark ───────────────────
 // Four L-ticks struck INSIDE a plate's hairline before its contents ink in.
@@ -246,7 +245,7 @@ export default function Section({}) {
         y={6}
         blur={false}
       >
-        <Counter value={LOT_SEGMENTATION.total} /> LOTS DEMARCATED
+        SNAPSHOT AT BLOCK 966,670
       </Reveal>
 
       <div className="relative max-w-6xl mx-auto px-6 md:px-10 py-24 md:py-32 text-center">
@@ -307,11 +306,15 @@ export default function Section({}) {
             >
               Build DogCity
             </a>
+            {/* ⚠️ ERA "Find Your Lot" apontando para #deed. A seção do deed saiu
+                da landing em 04/09: mostrar posição antes do bloco 966.670 é
+                publicar um lote que ainda pode mudar. O fecho da página volta
+                para o mesmo lugar onde ela abre, que é o relógio. */}
             <a
-              href="#deed"
+              href="#snapshot"
               className="inline-flex items-center gap-2 px-7 py-3.5 font-mono text-sm text-snow border border-white/20 hover:border-white/[0.45]"
             >
-              Find Your Lot
+              The Snapshot
             </a>
           </div>
         </Reveal>

@@ -43,7 +43,7 @@ import {
   DrawRule, EASE, GRIDLINE, HAIR, HAIR_SOFT,
   Reveal, Scramble, SplitLine, Stagger, StaggerItem, useOnce,
 } from "../motion"
-import { FEATURES, LOT_SEGMENTATION } from "../dogcity-data"
+import { FEATURES } from "../dogcity-data"
 
 // ── the only two colours in this section ───────────────────────────────────
 const C_LIVE = "#F56E0F"      // lava   — it exists
@@ -278,12 +278,10 @@ const LEDGER: LedgerColumn[] = [
       { id: "lookup", text: <>District &amp; lot lookup derived from real on-chain history</> },
       {
         id: "lots",
-        text: (
-          <>
-            <span className="tabular-nums">{LOT_SEGMENTATION.total.toLocaleString()}</span>{" "}
-            lots demarcated across BTC, SOL and STX holders
-          </>
-        ),
+        // ⚠️ SEM CONTAGEM. Esta linha imprimia LOT_SEGMENTATION.total, uma soma
+        // de 04/07 que a cidade gerada nunca teve. Quantos lotes existem é
+        // saída do snapshot, ver ../dogcity-data.ts.
+        text: <>One demarcated lot per self-custody DOG wallet, counted at the snapshot block</>,
       },
     ],
   },

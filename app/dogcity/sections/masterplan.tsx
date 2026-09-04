@@ -21,12 +21,6 @@
 // drawn over the plate. `GRID F-04` is then true by construction, and the page
 // keeps its surveyor's voice without inventing a measurement.
 //
-// THE SHARE BARS ARE COMPUTED, NOT TYPED.
-// Under each chain count sits a hairline whose width is that chain's real
-// share of LOT_SEGMENTATION.total. The STX bar being a barely-visible sliver
-// is the memorable, honest fact of "one city, three chains" — and because it
-// is derived, it cannot drift out of sync with the numbers above it.
-//
 // PERF / SAFETY
 //   · ONE rAF, and it is pointer-gated: it starts on pointerenter, runs the
 //     presence tween down on pointerleave, then cancels. An IntersectionObserver
@@ -50,7 +44,6 @@ import {
   Counter, DrawRule, EASE, GRIDLINE, HAIR, HAIR_SOFT,
   Reveal, Scramble, SplitLine, Stagger, StaggerItem, useOnce,
 } from "../motion"
-import { LOT_SEGMENTATION } from "../dogcity-data"
 
 // ── the section-head grammar — identical in every sheet of the folio ────────
 function SectionHead({ eyebrow, title, sub }: { eyebrow: string; title: string; sub?: string }) {
@@ -369,30 +362,6 @@ function SurveyPlate() {
   )
 }
 
-// ═══ the four counts, with computed share bars ═════════════════════════════
-const CELLS = [
-  { k: "TOTAL LOTS", v: LOT_SEGMENTATION.total, share: 1, color: "#F0F0F2" },
-  { k: "BITCOIN DISTRICTS", v: LOT_SEGMENTATION.btc, share: LOT_SEGMENTATION.btc / LOT_SEGMENTATION.total, color: "#F56E0F" },
-  { k: "SOLANA DISTRICT", v: LOT_SEGMENTATION.sol, share: LOT_SEGMENTATION.sol / LOT_SEGMENTATION.total, color: "#FB923C" },
-  { k: "STACKS DISTRICT", v: LOT_SEGMENTATION.stx, share: LOT_SEGMENTATION.stx / LOT_SEGMENTATION.total, color: "#FFAD42" },
-]
-
-function ShareBar({ share, color, delay }: { share: number; color: string; delay: number }) {
-  const reduce = useReducedMotion()
-  const { ref, inView } = useOnce("-5% 0px")
-  return (
-    <span ref={ref as never} aria-hidden className="block mt-2 h-[2px] w-full bg-white/[0.06]">
-      <motion.span
-        className="block h-full origin-left"
-        style={{ background: color, width: `${Math.max(share * 100, 0.35)}%` }}
-        initial={reduce ? false : { scaleX: 0 }}
-        animate={inView || reduce ? { scaleX: 1 } : undefined}
-        transition={{ duration: 1.0, delay, ease: EASE }}
-      />
-    </span>
-  )
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 export default function Masterplan() {
   return (
@@ -403,30 +372,23 @@ export default function Masterplan() {
         <SectionHead
           eyebrow="THE MASTERPLAN"
           title="The city follows the terrain."
-          sub="Eight organic districts radiate from the Central Event Plaza. Solana and Stacks holders build in satellite districts of the same city: one map, three chains."
+          sub="Organic districts radiate from the Central Event Plaza. Placement is read from Bitcoin, at one block height, for every wallet at once."
         />
 
         <SurveyPlate />
 
-        <Stagger
-          className={`mt-4 grid grid-cols-2 md:grid-cols-4 gap-px ${GRIDLINE} border ${HAIR} font-mono`}
-          step={0.075}
-          delay={0.2}
-        >
-          {CELLS.map((c, i) => (
-            <StaggerItem key={c.k} className="bg-void p-4">
-              <div className="text-[9px] tracking-[0.25em] text-dusty">{c.k}</div>
-              <div className="font-display font-bold text-xl text-snow mt-1 tabular-nums">
-                <Counter value={c.v} />
-              </div>
-              <ShareBar share={c.share} color={c.color} delay={0.3 + i * 0.075} />
-            </StaggerItem>
-          ))}
-        </Stagger>
-
+        {/* ⚠️ AQUI HAVIA UMA GRADE DE QUATRO CONTAGENS com barras de participação
+            (total de lotes, e a fatia de BTC, SOL e STX). Ela saiu inteira em
+            04/09, e não foi substituída por outra contagem de propósito:
+            quantos lotes existem, que área cada um tem e que forma ele toma são
+            RESULTADOS do snapshot no bloco 966.670. A única coisa que esta
+            seção pode afirmar antes do bloco é o terreno, que é o que a chapa
+            acima desenha. Ver o comentário de LOT_SEGMENTATION em
+            ../dogcity-data.ts para a regra completa. */}
         <Reveal delay={0.4} y={10}>
           <p className="mt-3 font-mono text-[10px] text-dusty">
-            One demarcated lot per eligible holder, segmented by chain at survey time.
+            The ground is surveyed. How many lots, how large and what shape are
+            answered by block 966,670, not before it.
           </p>
         </Reveal>
       </div>

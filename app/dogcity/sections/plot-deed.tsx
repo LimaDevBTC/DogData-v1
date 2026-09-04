@@ -56,7 +56,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { motion, useInView, useReducedMotion } from "framer-motion"
 import { ArrowRight, Loader2, Search } from "lucide-react"
 import PlotMap from "./plot-map"
-import { LOT_SEGMENTATION, LUNAR_SITE, formatDog, shortAddr } from "../dogcity-data"
+import { LUNAR_SITE, formatDog, shortAddr } from "../dogcity-data"
 import {
   DUR, EASE, EASE_CSS, GRIDLINE, HAIR, HAIR_SOFT,
   DrawRule, Reveal, Scramble, SplitLine,
@@ -389,8 +389,8 @@ export default function Section({}) {
           </h2>
           <Reveal delay={0.3} y={14}>
             <p className="text-sm text-mist mt-3 leading-relaxed">
-              Every eligible DOG wallet holds one of the {LOT_SEGMENTATION.total.toLocaleString()} demarcated
-              lots. Paste your address to see your district; placement is derived from your on-chain history, live.
+              Every self-custody DOG wallet gets one demarcated lot. Paste your address to see your
+              district; placement is derived from your on-chain history, live.
             </p>
           </Reveal>
         </div>

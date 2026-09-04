@@ -30,6 +30,13 @@ export interface MempoolSnapshot {
   fee_fast: number | null
   fee_slow: number | null
   tip_height: number | null
+  // ⚠️ A ROTA SEMPRE SERVIU tip_hash (route.ts:118) e esta interface não o
+  // declarava, então ele chegava e era descartado pelo TypeScript. Ele entrou
+  // aqui em 04/09 porque o estado pós snapshot de sections/snapshot.tsx publica
+  // o hash do bloco alvo: é o que transforma "a Bitcoin block is Bitcoin's
+  // word" de retórica em um dado que qualquer pessoa confere contra o próprio
+  // nó, sem depender de nós.
+  tip_hash: string | null
   dog_pending: number
   dog_pending_amount: number
   last_dog_block: number | null

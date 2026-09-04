@@ -20,11 +20,11 @@ import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { Layout } from "@/components/layout"
 import MempoolBand from "./sections/mempool-band"
+import Snapshot from "./sections/snapshot"
 import HeroLive from "./sections/hero-live"
 import PlazaLive from "./sections/plaza-live"
 import Galaxy from "./sections/galaxy"
 import ConstructionFund from "./sections/construction-fund"
-import PlotDeed from "./sections/plot-deed"
 import HowItWorks from "./sections/how-it-works"
 import Tiers from "./sections/tiers"
 import FoundersRegister from "./sections/founders-register"
@@ -36,6 +36,8 @@ import Partners from "./sections/partners"
 import Park from "./sections/park"
 import FinalCta from "./sections/final-cta"
 import { ResumePill } from "@/components/resume-pill"
+import { useMempoolFeed } from "./use-mempool"
+import { SNAPSHOT } from "./dogcity-data"
 import type { LeaderboardData } from "./types"
 
 export default function LandingPage() {
@@ -86,7 +88,11 @@ export default function LandingPage() {
     } catch {
       // some browsers disallow it; the reset below still runs
     }
-    if (!window.location.hash) window.scrollTo(0, 0)
+    // ⚠️ #snapshot conta como topo: desde 04/09 a seção do snapshot é a hero,
+    // e o anúncio público manda todo mundo para essa âncora. Mesma regra do
+    // script pré hidratação em ./layout.tsx, e as duas têm que concordar.
+    const h = window.location.hash
+    if (!h || h === "#snapshot") window.scrollTo(0, 0)
     return () => {
       try {
         if (prev !== undefined) history.scrollRestoration = prev
@@ -139,9 +145,22 @@ export default function LandingPage() {
   // rodapé da página volta a ser escuro e o Safari fica escuro junto. O medo
   // original de cobrir conteúdo já não existe: o pb-14 reservado lá embaixo
   // garante que nada termina atrás dela.
+  //
+  // ⚠️ ENQUANTO A JANELA DO BLOCO 966.670 ESTIVER ABERTA A PÍLULA É O RELÓGIO,
+  // não o pedido de dinheiro. Ela é a única peça que acompanha a pessoa pelas
+  // dezessete telas da página, e durante esta semana o próximo evento não custa
+  // nada: o snapshot não pede doação, pede autocustódia. Pedir dinheiro em cima
+  // de um countdown que não depende de dinheiro é a forma mais fácil de esta
+  // página sugerir que doar melhora o lote, o que é falso e é proibido pelo
+  // §0.1 do masterplan. Passado o bloco, ela volta a ser "Build DogCity"
+  // sozinha, porque `faltam` fica negativo.
+  const { feed } = useMempoolFeed()
+  const tipAgora = feed?.snapshot?.tip_height ?? null
+  const faltam = tipAgora == null ? null : SNAPSHOT.block - tipAgora
+  const emJanela = faltam != null && faltam > 0
   const cta = (
     <a
-      href="#build"
+      href={emJanela ? "#snapshot" : "#build"}
       aria-hidden={!showCta}
       tabIndex={showCta ? 0 : -1}
       className={`fixed z-[100] font-mono font-bold text-void bg-lava hover:bg-lava-light transition-all duration-500
@@ -152,7 +171,7 @@ export default function LandingPage() {
         showCta ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3 pointer-events-none"
       }`}
     >
-      Build DogCity
+      {emJanela ? `${faltam!.toLocaleString("en-US")} blocks to snapshot` : "Build DogCity"}
     </a>
   )
 
@@ -162,10 +181,20 @@ export default function LandingPage() {
           page can never sit underneath it */}
       <div data-dogcity-landing className="bg-void text-snow pb-14 md:pb-0">
         <MempoolBand />
-        <HeroLive />
+
+        {/* ⚠️ A HERO É O SNAPSHOT ENQUANTO A JANELA DO BLOCO 966.670 ESTIVER
+            ABERTA. O anúncio de 04/09 publicou o link /dogcity#snapshot, então
+            a âncora precisa existir E precisa ser a primeira coisa que a
+            página diz. As três portas de HeroLive não morreram: elas continuam
+            sendo a melhor peça de navegação da casa e passam a viver logo
+            abaixo, onde deixam de disputar a primeira dobra com o evento que
+            tem prazo. */}
+        <Snapshot />
 
         {/* sentinel: everything past this point is allowed to show page chrome */}
         <div ref={afterHero} aria-hidden className="h-px w-full" />
+
+        <HeroLive />
 
         {/* The news sheet first: since 2026-08-18 the plaza the hero just built
             is open at /city with the DOG mempool in orbit above it. Say so
@@ -178,7 +207,18 @@ export default function LandingPage() {
             and the genealogy is where that history is mapped. */}
         <Galaxy />
         <ConstructionFund lb={lb} />
-        <PlotDeed />
+        {/* ⚠️ <PlotDeed /> SAIU DA LANDING EM 04/09 E NÃO VOLTA ANTES DO
+            SNAPSHOT. Ela colava um endereço em /api/plot e desenhava o lote da
+            pessoa com distrito e pino no mapa. Enquanto o snapshot era uma
+            promessa distante isso era uma prévia simpática; agora que existe
+            uma altura alvo, é uma POSIÇÃO PUBLICADA ANTES DE SER DECIDIDA. O
+            lote de cada carteira nasce do estado da chain no bloco 966.670, e
+            qualquer pino mostrado antes disso muda quando alguém recebe,
+            gasta ou consolida uma moeda. Mostrar hoje e outro amanhã é como se
+            lê "mexeram no meu lote", e essa acusação custa mais do que a
+            seção rende. O arquivo continua no repositório de propósito: ele
+            volta quando o registry existir, e aí como REGISTRO, não previsão.
+            Ver ./sections/plot-deed.tsx. */}
         <HowItWorks />
         <Tiers />
         <FoundersRegister lb={lb} />

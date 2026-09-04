@@ -253,8 +253,88 @@ que ninguém toque no `alpino.ts`. A ordem da obra importa.
 - [x] **Fase 1, diagnóstico.** FECHADA. Sete especialistas, um por subsistema, cada achado conferido
       por um adversário antes de virar tarefa.
 - [ ] **Fase 2, projeto.** O que a região deve ser, decidido contra a evidência da fase 1.
-- [ ] **Fase 3, obra.** Rodadas de refino, uma frente por arquivo.
+- [x] **Fase 3, obra.** Obra 1 fechada, obra 2 em curso. Rodadas de refino, uma frente por arquivo.
 - [ ] **Fase 4, conferência.** Chapas contra os enquadramentos de contrato, antes e depois.
+
+## Fase 3: a obra 1, e o que ela mediu
+
+Tres frentes, um arquivo por dono, medindo offline com `tsx` sem abrir navegador.
+Commitada pelo bot em 04/09 as 17:37. `npx tsc --noEmit` limpo.
+
+### Frente A, `inverno.ts` (aprovada pelo revisor)
+
+| o que | antes | depois |
+|---|---|---|
+| talude medio 0 a 500 m do cume, 32 rumos | 54,0 graus | **35,5 graus** |
+| talude medio 0 a 400 m | 57,5 graus | 34,5 graus |
+| cota do cume | 1.147,7 m | 1.043,8 m |
+| corpo da cunha acima de 400 m | 9,18% | **18,71%** |
+| triangulo da arvore media | 917 | 2.957 |
+| floresta de perto | 412.567 tri | 1.330.587 tri |
+| folga minima contra a casca | 177,5 m | 383,7 m |
+
+A cadeia deixou de ser tres agulhas com vazio entre elas: hoje e crista continua de
+azimute 246 a 288, com colos 250 a 300 m abaixo dos cumes. As sete pistas voltaram
+para dentro da norma FIS e a maior subida indevida num passo caiu de 92 para 47 m.
+
+⚠️ O alvo era 28 a 35 graus e ficou em 35,5. Nao foi falta de tentativa: a montanha so
+pode existir entre r 6.700 e r 8.650, e um cone simetrico nessa corrida de 1.950 m para
+824 m de relevo mede 41 graus no melhor caso. O que salva a metrica e a crista deitada
+no azimute. Baixar mais exige mexer em R_QUEDA, que esbarra na fratura do rim da casca.
+
+**A causa raiz do tronco, consertada:** `carregarInstanciavel` passou a devolver TODAS
+as primitivas do GLB (uma InstancedMesh por parte, padrao trazido de `props.ts:381`).
+O pinheiro, que e metade da floresta, saiu de 11 triangulos para 3.199.
+
+### Frente B, `alpino.ts` (REPROVADA na revisao, corrigida na obra 2)
+
+| o que | antes | depois |
+|---|---|---|
+| terreno furando a casca de neve | 26,2% dos triangulos | **2,8%** |
+| furo acima da cota 600 m | 22,9% | 6,5% |
+| p99 do furo | 12,3 m | 0,8 m |
+| vertices da casca | 67.614 (3,10 MB) | 12.111 (0,68 MB) |
+| arvores na mata do macico | 14.000 | 51.947 |
+| densidade por hectare ocupado | 7,4 media | 35,9 media |
+| cobertura de copa | 1,9% | **17,6%** |
+| pecas de sub-bosque | 0 | 2.208 |
+
+Reprovada por tres defeitos: o balde de arvores de perto enchia na ordem de varredura da
+grade e nao por distancia da camera (medido: 7.414 arvores perto caindo no LOD pobre, e
+as 6.000 boas todas de um lado), o mesmo vicio no sub-bosque, e o modulo aceitar
+`profile?: PerfProfile` sem nunca ler um campo dele (51.947 instancias com sombra e sem
+culling, iguais no celular e no desktop).
+
+### Frente C, `chapas.mjs` (REPROVADA, corrigida na obra 2)
+
+As cinco vistas novas foram calculadas contra o relevo ANTIGO e com uma base lunar
+constante de 254 m. Medido: no alvo de `vagalagoa` a superficie real e 146,3 m e a base
+local e 11,9 m. Erro de ate 242 m. A correcao nao e recalcular a constante, e perguntar
+a cota para a cena com `__plazaChao`, como a tabela OLHOS do proprio arquivo ja faz.
+
+## ⚠️ A armadilha que travou a conferencia de 04/09
+
+`next build` foi rodado as 12:13 e sobrescreveu o `.next` que o `next dev` usa desde a
+vespera. O servidor local passou a servir 404 nos proprios chunks (o navegador pede
+`main-app.js`, que e nome de dev, e o build deixou `main-app-<hash>.js`), e a chapa da
+rodada inteira ficou bloqueada. Producao nao foi afetada (`dogdata.xyz/city` respondeu
+200 em 0,41 s).
+
+**Regra, e ela e absoluta nesta casa: NINGUEM roda `next build` nesta maquina.** O portao
+de qualidade e `npx tsc --noEmit`, que nao escreve nada. Quem buildar derruba o dev, e o
+dev e o que alimenta a captura da live do fundador.
+
+E a segunda metade da regra: **nao se reinicia o `next dev` com a live no ar.** O hot
+reload pode mandar recarga para a aba que esta sendo transmitida. Em 04/09 a live estava
+no ar havia 5h18min quando o defeito apareceu, e a conferencia esperou.
+
+## Fase 4: a obra 2 (em curso)
+
+Corrige os tres defeitos da revisao, poe teto por tier de maquina nas duas frentes de
+vegetacao, arruma os topos de teleferico contra o maximo real de cada rumo, e abre a
+**lagoa alpina**: a frente do relevo escolhe e esculpe a bacia e exporta `LAGOA_CENTRO`,
+`LAGOA_RAIO` e `LAGOA_COTA`; a frente da agua importa esses valores e monta a lamina, a
+margem molhada e `naLagoa(x, z)`, tudo atras de `?lagoa=1` ate alguem VER.
 
 ## Registro
 

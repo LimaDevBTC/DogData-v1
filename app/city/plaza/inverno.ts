@@ -519,6 +519,22 @@ function comLimiteDeTempo<T>(p: Promise<T>, ms: number, rotulo: string): Promise
 // continua medindo os mesmos 146,3 m. A regra desta rodada era não crescer para
 // dentro do tecido da cidade, e ela é verificável a qualquer hora com o mesmo
 // laudo offline.
+//
+// ── OBRA 2, MESMO DIA: o que os revisores acharam, e a lagoa ────────────────
+// 4. "A CAMADA PERTO TRIPLICOU DE CUSTO E NÃO OLHA PARA A MÁQUINA". Ela nunca
+//    tinha lido `PerfProfile`: celular e desktop instanciavam as mesmas 450
+//    árvores em 22 chamadas de desenho, as mesmas 140 rochas, tudo com
+//    `castShadow`. Agora o orçamento sai do perfil (`orcamentoPerto`, com a
+//    tabela medida de ponta a ponta): o desktop fica IGUAL ao de antes, o
+//    celular cai para 35% do custo e sai do passe de sombra, o LOW para 25%.
+// 5. "OS TOPOS DE TELEFÉRICO NÃO ESTÃO NO TOPO". Estavam, além disso, escritos
+//    em DOIS lugares com números diferentes (cabo em r 8.280/8.220, cabines em
+//    8.200/8.150). Virou uma tabela só, `VAOS_TELEFERICO`, e os dois topos
+//    foram para o máximo MEDIDO de cada rumo, de 25 em 25 m.
+// 6. A LAGOA ALPINA ganhou a BACIA (a água é da frente seguinte, que importa
+//    `LAGOA_CENTRO`, `LAGOA_RAIO` e `LAGOA_COTA` daqui): 5,41 ha de lâmina a
+//    407 m de cota, 21,2 m de profundidade máxima e 14,2 graus de orla nos
+//    primeiros 30 m, na sela entre o cume sul e o contraforte sul.
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ── A BANDEIRA ───────────────────────────────────────────────────────────────
@@ -776,12 +792,24 @@ function gerarSerpentina(e: EspecPista): { r: number; az: number }[] {
 // E a monotonia, que é o que decide se a fita é esquiável: a maior SUBIDA num
 // passo caiu de 92/82/72/41 m (Descida/Super-G/Gigante/Slalom) para
 // 47/13/5/10 m.
+//
+// ⚠️ UMA LINHA MUDOU DE NOVO EM 04/09, NA OBRA 2, e só uma: a DESCIDA. O cume
+// do rumo 268 foi remedido de 25 em 25 m (a nota de `VAOS_TELEFERICO` traz a
+// tabela) e ele está em r 8.150, não em r 8.200. Com a partida no 8.200 a fita
+// subia 21 m antes de descer. Remedido na MESMA régua da tabela acima
+// (`heightAt`, Node 20, offline): 890 -> 885 m de desnível e a maior subida num
+// passo de 47 -> 36 m. As outras seis não foram tocadas e continuam medindo o
+// mesmo, conferido nesta rodada: 564 / 413 / 204 / 227 / 236 / 9,0°.
 const ESPECIFICACOES: EspecPista[] = [
   {
     nome: 'Descida do Mar da Tranquilidade', dificuldade: 'preta', largura: 30,
-    // ⚠️ COMEÇA NO CUME MEDIDO, não 130 m depois dele: o máximo do rumo 268 fica
-    // em r 8.200 (911 m, medido de 50 em 50 m). 890 m de desnível medidos.
-    rInicio: 8200, rFim: 6850, azCentro: 268, amplitude: 6, oscilacoes: 1, amostras: 90,
+    // ⚠️ COMEÇA NO CUME MEDIDO, e o cume MUDOU DE CÉLULA EM 04/09 (obra 2). A
+    // nota anterior dizia "o máximo do rumo 268 fica em r 8.200 (911 m, medido
+    // de 50 em 50 m)"; remedido de 25 em 25 m no `superficieAt` real, o máximo
+    // está em r 8.150 (906,6 m) e r 8.200 já vale 886 m. Com a partida em 8.200
+    // a fita SUBIA 21 m antes de descer, que é exatamente o defeito que o
+    // retune de 04/09 dizia ter consertado. Ver a tabela de desníveis acima.
+    rInicio: 8150, rFim: 6850, azCentro: 268, amplitude: 6, oscilacoes: 1, amostras: 90,
   },
   {
     nome: 'Super-G Regolito', dificuldade: 'preta', largura: 27,
@@ -1404,6 +1432,161 @@ function pistaProximidade01(x: number, z: number): number {
   return suave01(1 - t)
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// A LAGOA ALPINA: a BACIA, que é a parte de relevo. A água em si é da frente
+// seguinte, que lê `LAGOA_CENTRO`, `LAGOA_RAIO` e `LAGOA_COTA` daqui em vez de
+// adivinhar. Pedido do fundador na rodada da montanha: "a cadeia de montanhas
+// que são características de lagos... gostaria de floresta e lagoa naquela
+// região".
+//
+// ── ONDE, E POR QUE ALI (varredura offline, `heightAt` REAL de `terrain.ts`) ─
+// A varredura testou 115 centros que passavam nos filtros duros (≥ 280 m do
+// eixo de qualquer das 7 pistas, ≥ 280 m dos dois vãos de teleférico, cota
+// entre 380 e 620 m, resíduo do ajuste da base ≤ 4 m) e ordenou por terra
+// movida. O escolhido, r 8.000 / azimute 285, é o melhor da lista:
+//
+//   sítio (r, az)     cota   aterro máx   aterro médio   corte médio   lábio
+//   8.050 / 284       394 m     48 m          3,4 m        27,4 m      +4,7 m
+//   8.000 / 285       407 m     64 m          6,4 m        21,6 m      +6,2 m  ←
+//   7.950 / 285       398 m     70 m          5,3 m        23,0 m      +6,0 m
+//   7.850 / 286       432 m    104 m         19,1 m        14,7 m      +7,1 m
+//   7.700 / 281       414 m    124 m         30,2 m         8,7 m      +6,5 m
+//
+// (a coluna "lábio" da tabela é a da varredura, com o ajuste que ela usava; o
+// valor final, medido na bacia CONSTRUÍDA, está na nota de `LAGOA_ORLA_ALT`.)
+// O 8.050/284 move menos terra mas deixa só 1,2 m de folga entre o lábio e o
+// pior resíduo do ajuste, ou seja a lagoa vazaria por um erro de meio metro.
+// O escolhido deixa 2,6 m na mesma conta, e +4,1 m medidos no fim.
+//
+// E ele é uma SELA DE VERDADE, não um ponto qualquer: a 285 graus a lagoa mora
+// na depressão entre o cume sul (`Weisse Wand B`, az 278) e o contraforte sul
+// (az 286). Medido na superfície ANTES de a bacia entrar, cota por rumo em
+// r 8.000: az 279 → 457 m, az 283 → 531, az 285 → 362, az 287 → 568. O colo já
+// existe; a bacia só o fecha.
+//
+// ⚠️ POR QUE A BACIA PRECISA DE UM AJUSTE DA BASE NATURAL, e isto é o miolo do
+// problema: `alturaInvernoAt` devolve a ADIÇÃO, não a cota. Água parada é
+// NIVELADA, ou seja precisa de cota absoluta, e a cota absoluta é
+// `base natural + adição`. Este módulo não pode ler a base (seria importar
+// `terrain.ts`, que já importa este arquivo). A saída é medir a base offline e
+// carregar aqui a superfície que melhor a descreve: um ajuste QUADRÁTICO por
+// mínimos quadrados, 6 coeficientes, sobre 2.232 amostras da base real no disco
+// de 150 m em volta do centro. Erro medido do ajuste: 0,65 m em média, 3,22 m
+// no pior ponto (contra 1,95 / 11,66 m de um plano simples e 0,44 / 2,86 m de
+// um cúbico de 10 termos, que não paga os 4 coeficientes a mais). A lâmina sai
+// nivelada dentro desse erro, e é ele que decide a folga do lábio.
+//
+// ⚠️ E É POR CAUSA DESSE ERRO QUE `LAGOA_RAIO` NÃO É O RAIO DE PROJETO. O
+// desenho põe a linha d'água em 130 m; o resíduo do ajuste faz a linha real
+// oscilar entre 122 e 147 m (medido, 180 rumos). Um disco de água de 130 m
+// ficaria FLUTUANDO sobre terra seca no rumo em que a margem fecha em 122. O
+// que se exporta é o raio INSCRITO, o maior disco que está submerso em todos
+// os rumos, e é por isso que ele é medido, não escolhido.
+// ═══════════════════════════════════════════════════════════════════════════
+const [LAGOA_CX, LAGOA_CZ] = pontoEmRumo(8000, 285)
+
+/** O centro da lâmina, em coordenada de mundo. Medido, não escolhido a olho:
+ *  ver a tabela de sítios acima. */
+export const LAGOA_CENTRO: { x: number; z: number } = { x: LAGOA_CX, z: LAGOA_CZ }
+/** Raio ÚTIL da lâmina, em metros, MEDIDO e não escolhido: é o maior disco
+ *  centrado em `LAGOA_CENTRO` cujo terreno está abaixo de `LAGOA_COTA` em
+ *  TODOS os rumos (varredura de 180 rumos, passo de 0,5 m, sobre o `heightAt`
+ *  real). Quem desenhar a água pode usá-lo direto: um disco deste raio nunca
+ *  flutua sobre terra seca. A lâmina de verdade é maior e irregular (a linha
+ *  d'água vai de 122 a 145 m conforme o rumo, 5,41 ha no total); a faixa entre
+ *  o raio inscrito e a margem real é praia de leito exposto, que é o que uma
+ *  margem de lagoa é mesmo. */
+export const LAGOA_RAIO: number = 120
+/** Cota da lâmina, em metros. É o alvo que a bacia esculpe e o valor que a
+ *  frente da água deve usar para o plano d'água: medida na superfície
+ *  construída, não estimada. */
+export const LAGOA_COTA: number = 407
+
+/** raio do fundo plano (dentro dele a profundidade é a máxima) */
+const LAGOA_FUNDO_R = 78
+/** profundidade máxima da cuba, em metros abaixo de `LAGOA_COTA` */
+const LAGOA_PROF = 20
+/** ⚠️ O RAIO DE PROJETO DA LINHA D'ÁGUA, que NÃO é `LAGOA_RAIO` (ver a nota do
+ *  export): é onde o perfil cruza a cota. π·130² = 5,31 ha, e a lâmina medida
+ *  saiu em 5,41 ha, dentro da faixa pedida de 4 a 12 ha. */
+const LAGOA_RAIO_PROJETO = 130
+/** largura da orla, da linha d'água até o lábio */
+const LAGOA_ORLA = 40
+/** ⚠️ ALTURA DO LÁBIO SOBRE A LÂMINA, E ELE É A TRAVA CONTRA VAZAMENTO. 9 m em
+ *  40 m de orla dão 12,7 graus de talude nominal, e a margem MEDIDA nos
+ *  primeiros 30 m fora da linha d'água deu 14,2 graus (o resto vem do terreno
+ *  que volta no desvanece). É o que a frente da mata precisa: uma orla de 40
+ *  graus vira banheira e nenhuma árvore encosta na água. E 9 m é maior que o
+ *  pior resíduo do ajuste da base no anel do lábio (5,40 m), então o lábio fica
+ *  acima da lâmina em TODOS os rumos, medido: mínimo +4,1 m. */
+const LAGOA_ORLA_ALT = 9
+/** quanto a bacia leva para voltar ao terreno natural depois do lábio */
+const LAGOA_FADE = 260
+const LAGOA_ALCANCE = LAGOA_RAIO_PROJETO + LAGOA_ORLA + LAGOA_FADE
+
+/**
+ * A BASE NATURAL SOB A BACIA, ajustada offline (ver o cabeçalho da seção).
+ * `[c0, cx, cz, cxx, cxz, czz]` sobre o deslocamento em metros a partir de
+ * `LAGOA_CENTRO`. A base ali varia de 86,0 a 189,0 m no mesmo disco: NÃO é um
+ * plano, e é por isso que os termos quadráticos existem.
+ */
+const LAGOA_BASE_AJUSTE = [141.673, -0.124475, -0.316860, 5.71731e-5, 3.74732e-4, -4.02521e-4]
+
+function lagoaBaseAt(dx: number, dz: number): number {
+  const c = LAGOA_BASE_AJUSTE
+  return c[0] + c[1] * dx + c[2] * dz + c[3] * dx * dx + c[4] * dx * dz + c[5] * dz * dz
+}
+
+/** o perfil da bacia em metros RELATIVOS a `LAGOA_COTA`: cuba de fundo plano,
+ *  banco submerso até a linha d'água, orla mansa e lábio. */
+function lagoaPerfil(d: number): number {
+  if (d <= LAGOA_FUNDO_R) return -LAGOA_PROF
+  if (d <= LAGOA_RAIO_PROJETO) return -LAGOA_PROF * (1 - suave01((d - LAGOA_FUNDO_R) / (LAGOA_RAIO_PROJETO - LAGOA_FUNDO_R)))
+  if (d <= LAGOA_RAIO_PROJETO + LAGOA_ORLA) return LAGOA_ORLA_ALT * rampaReta((d - LAGOA_RAIO_PROJETO) / LAGOA_ORLA, 0.3)
+  return LAGOA_ORLA_ALT
+}
+
+/**
+ * A bacia entra SUBSTITUINDO o relevo dentro da lâmina e da orla, não somando
+ * por cima dele, e isso é deliberado: `temperoFino` tem 85 m de amplitude na
+ * crista, e ruído de 85 m sob um fundo de lagoa de 20 m deixaria pedra saindo
+ * da água. Subtrair uma constante não achata bump (é a mesma lição que a cava
+ * da pista já tinha aprendido); substituir, sim. Do lábio para fora o peso cai
+ * em `suave01` até 0 em `LAGOA_FADE`, e ali o terreno de sempre volta inteiro.
+ *
+ * ⚠️ NÃO FURA NADA DO QUE JÁ EXISTE, e cada guarda tem número: a pegada
+ * inteira (430 m de raio) fica em r 7.570 a 8.430, dentro do envelope do
+ * maciço (`R_AVENTAL` 5.500 a `R_QUEDA` 8.650) e longe da faixa que o pódio da
+ * abóbada suprime; a zona de substituição plena (170 m) cobre só az 283,8 a
+ * 286,2, dentro da janela angular (`AZ0` 248 a `AZ1` 288); e o centro está a
+ * 1.527 m do eixo da pista mais próxima e a 1.879 m do vão de teleférico mais
+ * próximo, contra os 280 m que a varredura exigia.
+ */
+function comBaciaDaLagoa(x: number, z: number, relevo: number): number {
+  const dx = x - LAGOA_CX, dz = z - LAGOA_CZ
+  // porta rápida em caixa antes da raiz quadrada: `alturaInvernoAt` é chamada
+  // por vértice da malha do terreno inteiro, e a lagoa é um ponto dele.
+  if (dx <= -LAGOA_ALCANCE || dx >= LAGOA_ALCANCE || dz <= -LAGOA_ALCANCE || dz >= LAGOA_ALCANCE) return relevo
+  const d = Math.hypot(dx, dz)
+  if (d >= LAGOA_ALCANCE) return relevo
+  const w = d <= LAGOA_RAIO_PROJETO + LAGOA_ORLA
+    ? 1
+    : 1 - suave01((d - (LAGOA_RAIO_PROJETO + LAGOA_ORLA)) / LAGOA_FADE)
+  const alvo = LAGOA_COTA + lagoaPerfil(d) - lagoaBaseAt(dx, dz)
+  return relevo * (1 - w) + alvo * w
+}
+
+/** true quando o ponto está debaixo d'água (ou na faixa de 1,5 m que a onda
+ *  molha). Serve para floresta e penhasco não nascerem dentro da lagoa: é o
+ *  MESMO teste de cota que a linha d'água usa, então a borda da mata segue a
+ *  margem de verdade, e não um círculo aproximado. */
+function naLagoa(x: number, z: number, y: number): boolean {
+  const dx = x - LAGOA_CX, dz = z - LAGOA_CZ
+  if (dx <= -LAGOA_ALCANCE || dx >= LAGOA_ALCANCE || dz <= -LAGOA_ALCANCE || dz >= LAGOA_ALCANCE) return false
+  const alcance = LAGOA_RAIO_PROJETO + LAGOA_ORLA
+  return dx * dx + dz * dz < alcance * alcance && y <= LAGOA_COTA + 1.5
+}
+
 /**
  * A altura ADICIONADA pelo parque de inverno, em metros, para somar direto a
  * `heightAt` (mesmo contrato de `microRelevoAt`): 0 bit a bit sem a
@@ -1451,7 +1634,12 @@ export function alturaInvernoAt(x: number, z: number): number {
   const baseReal = Math.max(comEnvelope * envR, comFaixa) * envAz
   const pesoPista = pistaProximidade01(x, z)
   const relevo = baseReal + temperoFino(x, z, env, pesoPista)
-  return relevo - PROFUNDIDADE_CORTE * pesoPista
+  // ⚠️ A BACIA DA LAGOA ENTRA AQUI, no MESMO ponto em que as feições e o
+  // tempero já entram, e ANTES da cava da pista: a lagoa fica a 1.086 m da
+  // pista mais próxima, então a ordem não muda um milímetro hoje, mas se
+  // alguém puxar uma pista para perto dela um dia é a cava que tem de vencer
+  // (a fita é a peça que o atleta pisa), não a água.
+  return comBaciaDaLagoa(x, z, relevo) - PROFUNDIDADE_CORTE * pesoPista
 }
 
 /**
@@ -1657,6 +1845,45 @@ function construirHalfpipe(
 // teleférico, dito por honestidade, não por descuido).
 const PILONE_ALTURA = 16
 
+/**
+ * ⚠️ OS DOIS VÃOS VIRARAM UMA FONTE SÓ EM 04/09, E ISSO CONSERTA UM DEFEITO
+ * MEDIDO, não é arrumação. Os pilones e o cabo nasciam de números escritos à
+ * mão dentro de `*fatia()` (topos em r 8.280 e r 8.220) e as CABINES nasciam de
+ * outros números, escritos à mão na chamada de `buildEstacaoInverno` (topos em
+ * r 8.200 e r 8.150): 80 e 70 m de divergência entre o cabo desenhado e as
+ * cabines penduradas nele. O cabeçalho de `estacao-inverno.ts` já previa
+ * exatamente este caso e já dizia o conserto: "se os dois módulos divergirem
+ * visualmente, o conserto é `inverno.ts` exportar os vãos e este arquivo
+ * importar, não uma segunda adivinhação daqui".
+ *
+ * ⚠️ E OS DOIS TOPOS ESTAVAM FORA DO CUME NOS DOIS CONJUNTOS DE NÚMEROS. O
+ * comentário anterior afirmava que "a crista nova culmina em r 8.200 (rumo 268)
+ * e r ~8.150 (rumo 261)", medido de 50 em 50 m. Remedido de 25 em 25 m, e nas
+ * DUAS réguas que esta cena tem, porque elas discordam pela flecha da corda:
+ *
+ *   rumo   régua           máximo    r 8.100   r 8.150   r 8.200   r 8.280
+ *    268   superficieAt    8.150     ---       906,6     879,5     804,6
+ *    268   heightAt        8.150     ---       922,2     910,6     788,1
+ *    261   superficieAt    8.100     977,4     959,4     928,9     811,3
+ *    261   heightAt        8.050     ---       955,0     928,3     808,3
+ *
+ * No rumo 268 as duas réguas apontam a MESMA célula. No 261 elas ficam a uma
+ * célula de distância (8.050 contra 8.100), e o topo vai no 8.100: `o.heightAt`
+ * é `terrain.superficieAt` (é o que `plaza-scene.tsx` passa), e é sobre a
+ * superfície DESENHADA que o pilone, o cabo e a cabine assentam. Uma estação de
+ * topo 50 m depois do cume já está na descida da face oposta, que é o defeito
+ * que a nota antiga dizia estar evitando e não evitava.
+ */
+export interface VaoTeleferico {
+  rBase: number; azBase: number
+  rTopo: number; azTopo: number
+  nPilones: number; nCabines: number
+}
+export const VAOS_TELEFERICO: VaoTeleferico[] = [
+  { rBase: 7000, azBase: 268, rTopo: 8150, azTopo: 268, nPilones: 6, nCabines: 10 },
+  { rBase: 6950, azBase: 273, rTopo: 8100, azTopo: 261, nPilones: 4, nCabines: 6 },
+]
+
 function construirTeleferico(
   deR: number, deAz: number, paraR: number, paraAz: number, nPilones: number,
   heightAt: (x: number, z: number) => number,
@@ -1780,6 +2007,15 @@ const FLORESTA_BAIXO = 15
  * O custo de perto NÃO muda com isto (o teto de 450 é quem manda); o que
  * cresce é o balde de cone, 8 triângulos por árvore. Mais que dobrar a mata
  * custou 25.232 triângulos, que é 0,65% da praça.
+ *
+ * ⚠️ A CONTAGEM DE HOJE É 6.340, NÃO 5.637, e as duas estão certas na data
+ * delas: a bacia da lagoa (ver `LAGOA_CENTRO`) pôs 516 candidatos novos na
+ * pegada dela (banco plano e orla mansa dentro da faixa de plantio, onde antes
+ * era rocha em pé reprovada pelo filtro de 42 graus) e a partida da Descida
+ * recuada de r 8.200 para 8.150 mexeu no resto. Medido com
+ * `gerarCandidatosFloresta` sobre o `superficieAt` real. Todo número de "5.637"
+ * que sobrou nos comentários abaixo é de 04/09 de manhã, antes da lagoa, e está
+ * marcado como histórico, não como o estado de hoje.
  */
 const FLORESTA_ALTO = 550
 /** ⚠️ 22 -> 70. A pluma é o desvanece da densidade nas duas pontas da faixa de
@@ -1814,8 +2050,84 @@ const FLORESTA_PASSO = 30
  * A abóbada sozinha já é 2,1 M dos 3,88 M da praça (`perf.ts`), então passar
  * de 450 antes de a chapa pedir seria gastar metade de um orçamento de cena
  * numa coisa só.
+ *
+ * ⚠️ E ESTE NÚMERO PASSOU A SER O TETO DO DESKTOP, NÃO O TETO DE TODO MUNDO,
+ * em 04/09 (obra 2): ver `orcamentoPerto`. Até aqui a camada perto não olhava
+ * para `PerfProfile` uma vez sequer, e o celular pagava exatamente a conta do
+ * desktop.
  */
 const FLORESTA_TETO_PERTO = 450
+
+/**
+ * ⚠️ O ORÇAMENTO DA CAMADA PERTO POR APARELHO, E ELE FALTAVA INTEIRO. A camada
+ * perto (floresta densa em malha real + penhascos) triplicou de custo quando
+ * `carregarInstanciavel` foi consertado, e nada disso passava por `PerfProfile`:
+ * um celular no LOW instanciava as MESMAS 450 árvores de malha real, as MESMAS
+ * 22 chamadas de desenho e as MESMAS 140 rochas que um desktop no HIGH, todas
+ * com `castShadow` ligado. O celular desta cena acabou de ser consertado com o
+ * espelho KTX2 e não pode voltar a levar carga de desktop.
+ *
+ * MEDIDO DE PONTA A PONTA, não estimado: `buildInverno` rodado offline (Node 20,
+ * `tsx`) com o `superficieAt` REAL de `terrain.ts` e um `GLTFLoader` falso cujas
+ * malhas têm a contagem de triângulo e o `alphaTest` de CADA primitiva dos 11
+ * `.glb` de verdade (decodificação no nível de accessor glTF: pinheiro
+ * 11/37/234 opacos + 2.917 MASK, sequoia 860 opaco + 1.676-1.928 MASK, sq-rh
+ * 1.851 opaco + 1.488 MASK, rocha 3.076 opaco). Depois a câmera é posta dentro
+ * do maciço, a `Obra` da camada perto roda até o fim e a árvore de objetos é
+ * contada instância por instância:
+ *
+ *   perfil             floresta densa   malhas   passe de sombra   penhascos
+ *   desktop HIGH        1.318.828 tri      23    1.247.800 em 22   114 = 350.664
+ *   desktop BALANCED    1.318.828 tri      23    1.247.800 em 22   114 = 350.664
+ *   mobile  BALANCED      459.574 tri      11            0 em  0    41 = 126.116
+ *   qualquer LOW          328.314 tri      11            0 em  0    29 =  89.204
+ *   sem `profile`       1.318.828 tri      23    1.247.800 em 22   114 = 350.664
+ *
+ * Somando a rocha, o que a GPU desenha na camada perto sai de 1.669.492 tri
+ * (desktop) para 585.690 (celular, 35%) e 417.518 (LOW, 25%), e o que entra no
+ * PASSE DE SOMBRA sai de 1.598.464 para ZERO nos dois perfis fracos. As
+ * chamadas de desenho da floresta caem de 23 para 11.
+ *
+ * ⚠️ AS ROCHAS PARAM ANTES DO TETO NO DESKTOP: o teto é 140 e a varredura só
+ * acha 114 candidatos com o relevo de hoje, ou seja no desktop quem manda é a
+ * oferta, não o orçamento. No celular (45) e no LOW (35) o teto é que manda, e
+ * o filtro é por hash, então saem 41 e 29.
+ *
+ * ⚠️ O TOPO NÃO PIORA, E ISSO É REGRA DESTA RODADA: `desktop HIGH` está bit a
+ * bit como estava antes desta obra (450, 140, 10 espécies, sombra em tudo,
+ * folha inclusive). `desktop BALANCED` também ficou intacto, e de propósito: é
+ * o perfil da máquina do fundador e o das chapas de contrato, e a medição que
+ * justificaria cortá-lo é tempo de quadro, que só o navegador dá e esta frente
+ * não abre navegador. Cortar sem medir seria trocar um palpite por outro.
+ *
+ * ⚠️ POR QUE A SOMBRA CAI INTEIRA NOS PERFIS FRACOS, em vez de "só o tronco
+ * projeta". A conta é do texel: no celular o mapa de sombra é 1.024
+ * (`perf.ts`), e com a caixa de 650 m que `followShadow` usa quando alguém está
+ * dentro da mata o texel mede 1,27 m. Um tronco tem menos de 1 m de largura, ou
+ * seja a sombra dele não chega a um texel; quem se vê é a COPA, e a copa é
+ * `alphaMode: MASK`, o passe caro (alpha-test no mapa de profundidade mata o
+ * early-Z, que é justamente o que uma GPU de celular menos perdoa). Deixar só o
+ * tronco projetando pagaria o passe e não entregaria imagem: ou vai a árvore
+ * inteira, ou não vai nada. No desktop vai inteira.
+ */
+interface OrcamentoPerto {
+  arvores: number
+  rochas: number
+  /** elenco enxuto de espécies (ver `EspecieArvore.noEnxuto`) */
+  enxuto: boolean
+  /** a floresta densa e os penhascos entram no passe de sombra */
+  sombra: boolean
+}
+function orcamentoPerto(p?: PerfProfile): OrcamentoPerto {
+  // ⚠️ SEM PERFIL É DESKTOP BALANCED, e isso não é chute: o único caminho que
+  // não passa `profile` é `buildInverno` (a função de compatibilidade) e a
+  // medição offline. Os dois precisam do comportamento de hoje, bit a bit.
+  const tier = p?.tier ?? 'desktop'
+  const quality = p?.quality ?? 'balanced'
+  if (quality === 'low') return { arvores: 110, rochas: 35, enxuto: true, sombra: false }
+  if (tier === 'mobile') return { arvores: 150, rochas: 45, enxuto: true, sombra: false }
+  return { arvores: FLORESTA_TETO_PERTO, rochas: TETO_ROCHA, enxuto: false, sombra: true }
+}
 /** folga da capacidade por espécie sobre a fatia esperada do teto: as N mais
  *  próximas não respeitam a mistura de pesos exatamente, e faltar buffer
  *  faria a espécie sumir no lugar de virar cone. Custa buffer, não triângulo. */
@@ -1856,20 +2168,43 @@ const FLORESTA_FOLGA_PISTA = 10
  * rariíssimo), não medidos, dito por honestidade: é a única parte deste
  * módulo que não vem de conta.
  */
-interface EspecieArvore { id: string; url: string; peso: number; escMin: number; escMax: number }
+interface EspecieArvore {
+  id: string; url: string; peso: number; escMin: number; escMax: number
+  /**
+   * ⚠️ SOBREVIVE NO ELENCO ENXUTO, o do celular e do LOW (ver `orcamentoPerto`).
+   * As quatro marcadas foram escolhidas por SILHUETA, não pelas quatro maiores
+   * fatias do sorteio: uma de cada porte (pinheiro, pequena, média, grande),
+   * porque quatro sequoias médias com textura diferente leem como uma árvore
+   * repetida quatro vezes, e o defeito que a floresta densa existe para
+   * consertar é justamente a repetição.
+   *
+   * O que o corte economiza, MEDIDO nos binários (decodificação do GLB no nível
+   * de accessor, `.glb` e imagens embutidas): 6 arquivos a menos, 1.154 KB de
+   * rede, 12 chamadas de desenho a menos (22 -> 10) e 26,7 MB de textura no
+   * caminho SEM o espelho KTX2. Com o espelho ligado (que é o caso do celular
+   * hoje, `plaza-scene.tsx` troca `/city/sf/` por `/city/sf-ktx2/`) as mesmas
+   * 512x512 viram ETC2 e custam 0,17 MB cada em vez de 1,33: a economia de
+   * textura cai para ~3,3 MB e quem manda passa a ser a rede e a chamada de
+   * desenho. Está escrito assim de propósito, para ninguém repetir a conta do
+   * caminho errado.
+   */
+  noEnxuto?: boolean
+}
 const ARVORES: EspecieArvore[] = [
-  { id: 'pinheiro', url: '/city/sf/tree-pine.glb', peso: 0.50, escMin: 0.80, escMax: 1.35 },
-  { id: 'sq-small-1', url: '/city/sf/sq-small-1.glb', peso: 0.16, escMin: 0.85, escMax: 1.15 },
-  { id: 'sq-med-1', url: '/city/sf/sq-med-1.glb', peso: 0.065, escMin: 0.85, escMax: 1.10 },
+  { id: 'pinheiro', url: '/city/sf/tree-pine.glb', peso: 0.50, escMin: 0.80, escMax: 1.35, noEnxuto: true },
+  { id: 'sq-small-1', url: '/city/sf/sq-small-1.glb', peso: 0.16, escMin: 0.85, escMax: 1.15, noEnxuto: true },
+  { id: 'sq-med-1', url: '/city/sf/sq-med-1.glb', peso: 0.065, escMin: 0.85, escMax: 1.10, noEnxuto: true },
   { id: 'sq-med-2', url: '/city/sf/sq-med-2.glb', peso: 0.065, escMin: 0.85, escMax: 1.10 },
   { id: 'sq-med-3', url: '/city/sf/sq-med-3.glb', peso: 0.06, escMin: 0.85, escMax: 1.10 },
   { id: 'sq-med-4', url: '/city/sf/sq-med-4.glb', peso: 0.06, escMin: 0.85, escMax: 1.10 },
-  { id: 'sq-big-1', url: '/city/sf/sq-big-1.glb', peso: 0.03, escMin: 0.90, escMax: 1.08 },
+  { id: 'sq-big-1', url: '/city/sf/sq-big-1.glb', peso: 0.03, escMin: 0.90, escMax: 1.08, noEnxuto: true },
   { id: 'sq-big-2', url: '/city/sf/sq-big-2.glb', peso: 0.025, escMin: 0.90, escMax: 1.08 },
   { id: 'sq-big-3', url: '/city/sf/sq-big-3.glb', peso: 0.02, escMin: 0.90, escMax: 1.08 },
   // ⚠️ RARO DE PROPÓSITO: 80 m é quase a escala do bosque que este módulo
   // usava antes. Peso de 0,3% num sorteio de ~1.300 candidatos dá uns 3 a 5
-  // exemplares no maciço inteiro: marco visual, não repetição.
+  // exemplares no maciço inteiro: marco visual, não repetição. Fora do elenco
+  // enxuto porque é o arquivo mais caro dos dez (443 KB, 5 texturas) para 0,3%
+  // do sorteio.
   { id: 'sq-rh', url: '/city/sf/sq-rh.glb', peso: 0.003, escMin: 0.95, escMax: 1.05 },
 ]
 
@@ -1946,7 +2281,15 @@ function* varrerCandidatosFloresta(
           const dhx = (heightAt(x + d, z) - heightAt(x - d, z)) / (2 * d)
           const dhz = (heightAt(x, z + d) - heightAt(x, z - d)) / (2 * d)
           const inc = (Math.atan(Math.hypot(dhx, dhz)) * 180) / Math.PI
-          if (inc <= FLORESTA_INC_MAX && distanciaAPistaMaisProxima(x, z) >= FLORESTA_FOLGA_PISTA) {
+          // ⚠️ NÃO PLANTA DENTRO DA LAGOA, e o teste é de COTA, não de raio: a
+          // linha d'água oscila de 122 a 145 m conforme o rumo (ver
+          // `LAGOA_RAIO`), então um círculo deixaria árvore com o pé submerso
+          // num rumo e um anel pelado no outro. `naLagoa` pergunta se o chão
+          // do candidato está abaixo da lâmina, que é a mesma pergunta que a
+          // margem responde. O fundo da bacia mede 386 m de cota e a faixa de
+          // plantio vai até 550, então sem esta guarda a mata nasceria no leito
+          // inteiro no instante em que a água subir.
+          if (inc <= FLORESTA_INC_MAX && distanciaAPistaMaisProxima(x, z) >= FLORESTA_FOLGA_PISTA && !naLagoa(x, z, y)) {
             aoAchar({
               x, z, y,
               giro: hash2(ir, Math.round(azz * 10), 506) * Math.PI * 2,
@@ -2132,16 +2475,21 @@ function disposeGrupo(group: THREE.Group) {
  * pé, ver "ACHADO 3" no cabeçalho).
  */
 async function carregarEspeciesArvore(
-  gltf: GLTFLoader,
+  gltf: GLTFLoader, enxuto: boolean,
 ): Promise<{ especie: EspecieArvore; malha: MalhaArvore }[]> {
-  const carregadas = await Promise.all(ARVORES.map((esp) => carregarInstanciavel(gltf, esp)))
-  const vivas = ARVORES
+  // ⚠️ O ELENCO É ESCOLHIDO ANTES DA REDE, não depois: no perfil enxuto os seis
+  // arquivos que não entram nem são BAIXADOS (1.154 KB e 6 parses de Draco a
+  // menos). Filtrar depois de carregar economizaria triângulo e não economizaria
+  // nem rede nem memória, que é o que dói no celular. Ver `EspecieArvore.noEnxuto`.
+  const elenco = enxuto ? ARVORES.filter((a) => a.noEnxuto) : ARVORES
+  const carregadas = await Promise.all(elenco.map((esp) => carregarInstanciavel(gltf, esp)))
+  const vivas = elenco
     .map((esp, i) => ({ especie: esp, malha: carregadas[i] }))
     .filter((v): v is { especie: EspecieArvore; malha: MalhaArvore } => v.malha !== null)
   if (vivas.length === 0) {
     console.error('[inverno] floresta: NENHUMA espécie carregou. A camada perto sobe sem árvore real; a esparsa (cone) continua de pé.')
-  } else if (vivas.length < ARVORES.length) {
-    console.warn(`[inverno] floresta: subiu com ${vivas.length}/${ARVORES.length} espécies (ver os erros acima por nome de arquivo).`)
+  } else if (vivas.length < elenco.length) {
+    console.warn(`[inverno] floresta: subiu com ${vivas.length}/${elenco.length} espécies (ver os erros acima por nome de arquivo).`)
   }
   return vivas
 }
@@ -2243,6 +2591,8 @@ function* instanciarFlorestaDensa(
   vivas: { especie: EspecieArvore; malha: MalhaArvore }[],
   candidatosBase: CandidatoFloresta[],
   sombra: boolean,
+  /** teto de árvores em malha real, POR PERFIL DE APARELHO (ver `orcamentoPerto`) */
+  teto: number,
   saida: { floresta: Floresta | null },
 ): Tarefa {
   const pesoTotal = vivas.reduce((s, v) => s + v.especie.peso, 0)
@@ -2291,7 +2641,7 @@ function* instanciarFlorestaDensa(
   for (const it = emFatias(vivas, (v, i) => {
     const cap = Math.min(
       candidatos.length,
-      Math.max(4, Math.ceil((FLORESTA_TETO_PERTO * v.especie.peso / pesoTotal) * FOLGA_CAP)),
+      Math.max(4, Math.ceil((teto * v.especie.peso / pesoTotal) * FOLGA_CAP)),
     )
     capPerto[i] = cap
     const malhas: THREE.InstancedMesh[] = []
@@ -2303,10 +2653,10 @@ function* instanciarFlorestaDensa(
       inst.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
       group.add(inst)
       // ⚠️ O ORÇAMENTO DECLARADO É O QUE A GPU PAGA, não o que o buffer aloca:
-      // `count` nunca passa de `FLORESTA_TETO_PERTO` somado sobre as espécies,
-      // então a conta usa a fatia ESPERADA da espécie, não a capacidade com
-      // folga. Alocar a mais custa memória de matriz, não triângulo.
-      triangulos += parte.tri * (FLORESTA_TETO_PERTO * v.especie.peso / pesoTotal)
+      // `count` nunca passa do `teto` do perfil somado sobre as espécies, então
+      // a conta usa a fatia ESPERADA da espécie, não a capacidade com folga.
+      // Alocar a mais custa memória de matriz, não triângulo.
+      triangulos += parte.tri * (teto * v.especie.peso / pesoTotal)
       malhas.push(inst)
     })
     instPerto[i] = malhas
@@ -2347,8 +2697,8 @@ function* instanciarFlorestaDensa(
     const contagens = new Array(vivas.length).fill(0)
     let nLonge = 0
     // ⚠️ PASSO 1, O CORTE POR DISTÂNCIA. Histograma de 48 anéis até
-    // `FLORESTA_R_CHEIA` e soma acumulada até estourar o teto: devolve o raio
-    // em que cabem ~`FLORESTA_TETO_PERTO` árvores. É O(n) com aritmética
+    // `FLORESTA_R_CHEIA` e soma acumulada até estourar o teto do perfil:
+    // devolve o raio em que cabem ~`teto` árvores. É O(n) com aritmética
     // inteira, sem ordenar nada (ordenar 5.637 por quadro seria o caminho
     // óbvio e o caro), e custa 0,164 ms por quadro medidos offline com a
     // contagem real de 5.637. O raio anda macio com a câmera, então a troca
@@ -2366,7 +2716,7 @@ function* instanciarFlorestaDensa(
     // consertar. O `capPerto` por espécie segura o excesso de qualquer jeito.
     let corte = largura
     for (let b = 0; b < BINS; b++) {
-      if (soma + histo[b] > FLORESTA_TETO_PERTO) break
+      if (soma + histo[b] > teto) break
       soma += histo[b]
       corte = (b + 1) * largura
     }
@@ -2449,7 +2799,9 @@ function* varrerCandidatosRocha(
         const inc = (Math.atan(Math.hypot(dhx, dhz)) * 180) / Math.PI
         // só nas faces expostas (a mesma faixa da rocha exposta), e um pouco
         // além, pra ancorar visualmente o pé do penhasco também
-        if (inc >= 28 && pistaProximidade01(x, z) <= 0.15 && hash2(ir, Math.round(azz * 10), 603) <= 0.35) {
+        // mesma guarda da floresta: pedra dentro da lâmina vira pedra boiando
+        // assim que a água subir (ver `naLagoa`)
+        if (inc >= 28 && pistaProximidade01(x, z) <= 0.15 && !naLagoa(x, z, y) && hash2(ir, Math.round(azz * 10), 603) <= 0.35) {
           aoAchar({
             x, z, y,
             esc: 0.6 + hash2(ir, Math.round(azz * 10), 604) * 1.2,
@@ -2475,11 +2827,13 @@ const TETO_ROCHA = 140
 function* instanciarPenhascos(
   geoRocha: THREE.BufferGeometry, matRocha: THREE.Material,
   candidatosRocha: CandidatoRocha[], sombra: boolean,
+  /** teto de instâncias, POR PERFIL DE APARELHO (ver `orcamentoPerto`) */
+  teto: number,
   saida: { mesh: THREE.InstancedMesh | null; triangulos: number },
 ): Tarefa {
   let usar = candidatosRocha
-  if (candidatosRocha.length > TETO_ROCHA) {
-    const manter = TETO_ROCHA / candidatosRocha.length
+  if (candidatosRocha.length > teto) {
+    const manter = teto / candidatosRocha.length
     usar = candidatosRocha.filter((_, i) => hash01(i * 2654435761 + 17) < manter)
   }
   yield
@@ -2519,8 +2873,26 @@ function* instanciarPenhascos(
  *  todo mundo. O preço é 5.637 × 8 = 45.096 triângulos (contra 1.760), ou
  *  1,2% da praça, e 0,80 ms de CPU no laço de matriz (medido offline, Node 20
  *  com o `THREE.Matrix4` de verdade, 20 repetições com 5.671 itens), ainda barato o bastante
- *  para não precisar ceder em fatias. Ver "ACHADO 3" no cabeçalho. */
-const FLORESTA_TETO_LONGE = 6000
+ *  para não precisar ceder em fatias. Ver "ACHADO 3" no cabeçalho.
+ *
+ *  ⚠️ 6.000 -> 8.000 EM 04/09 (obra 2), E ESTE TETO TINHA ACABADO DE VIRAR UMA
+ *  ARMADILHA. `construirFlorestaEsparsa` amostra por PASSO
+ *  (`ceil(candidatos / teto)`), então ele não corta o excedente: ele PULA DE UM
+ *  EM UM assim que a contagem passa do teto. A bacia da lagoa (516 candidatos
+ *  novos na pegada dela, medidos) levou a floresta de 5.637 para 6.340
+ *  candidatos, e com o teto em 6.000 o passo viraria 2, ou seja a camada
+ *  esparsa cairia para 3.170 cones: METADE da mata, e justamente na camada que
+ *  TODA chapa de contrato fotografa. 8.000 recoloca o passo em 1 e ainda deixa
+ *  folga para a próxima feição.
+ *
+ *  ⚠️ E O CONE CUSTA 12 TRIÂNGULOS, NÃO 8. O "8 tri cada" repetido nos
+ *  comentários desta seção desde 03/09 é conta de papel; medido na geometria de
+ *  verdade (`geoConeLonge().index.count / 3`, offline), `ConeGeometry(2,3;
+ *  11,5; 4, 1, false)` emite 8 triângulos de flanco mais 4 de tampa = 12. A
+ *  camada esparsa de hoje mede, então, 6.340 × 12 = 76.080 triângulos numa
+ *  chamada de desenho só (1,96% da praça), e o grupo inteiro da camada longe
+ *  mede 78.348. Os dois números saem do objeto construído, não da fórmula. */
+const FLORESTA_TETO_LONGE = 8000
 
 /** ⚠️ 4.000 -> 6.000 EM 04/09, E O NÚMERO SAI DAS CHAPAS DE CONTRATO, não de
  *  gosto. `INVERNO_R_DET` é medido a partir de (`INVERNO_CX`, `INVERNO_CZ`) =
@@ -2560,10 +2932,10 @@ interface AtivosDoInverno {
 // própria rede de vários `.glb` e não precisa entrar em `Promise.all` com o
 // resto: ela é disparada dentro de `dispararCamadaPerto`, fire-and-forget,
 // e substitui a caixa placeholder quando terminar (ver lá embaixo).
-async function baixaAtivosInverno(o: InvernoOpts): Promise<AtivosDoInverno> {
+async function baixaAtivosInverno(o: InvernoOpts, orc: OrcamentoPerto): Promise<AtivosDoInverno> {
   void carregarRelevo()
   const [arvores, rochas] = await Promise.all([
-    o.gltf ? carregarEspeciesArvore(o.gltf) : Promise.resolve([]),
+    o.gltf ? carregarEspeciesArvore(o.gltf, orc.enxuto) : Promise.resolve([]),
     carregarPacoteRochas(o.gltf),
   ])
   return { arvores, rochas }
@@ -2630,7 +3002,11 @@ export async function invernoComoTrabalho(
   // ── REDE: suspensa até o portão da cidade abrir, depois dispara tudo em
   // paralelo e decodifica antes de entrar na fila de construção. ──────────
   await portaoInvernoAberto
-  const ativos = await baixaAtivosInverno(o)
+  // ⚠️ O ORÇAMENTO DA CAMADA PERTO SAI DO `PerfProfile` E É LIDO AQUI, ANTES DA
+  // REDE, porque o elenco de espécies (que decide QUANTOS `.glb` baixar) faz
+  // parte dele. Ver `orcamentoPerto`.
+  const orc = orcamentoPerto(o.profile)
+  const ativos = await baixaAtivosInverno(o, orc)
 
   const saida: { parque: Inverno | null } = { parque: null }
   return {
@@ -2689,14 +3065,18 @@ export async function invernoComoTrabalho(
       }
       yield
 
-      // os teleféricos
-      const t1 = construirTeleferico(7000, 268, 8280, 268, 6, o.heightAt)
+      // os teleféricos: os DOIS vãos saem de `VAOS_TELEFERICO`, a mesma
+      // tabela que as cabines de `estacao-inverno.ts` recebem lá embaixo.
+      // Ver a nota da constante: antes eram dois pares de números escritos à
+      // mão em lugares diferentes, e eles divergiam em 80 e 70 m.
+      const v1 = VAOS_TELEFERICO[0], v2 = VAOS_TELEFERICO[1]
+      const t1 = construirTeleferico(v1.rBase, v1.azBase, v1.rTopo, v1.azTopo, v1.nPilones, o.heightAt)
       t1.pilones.name = 'inverno:teleferico:principal:pilones'
       t1.cabo.name = 'inverno:teleferico:principal:cabo'
       group.add(t1.pilones, t1.cabo)
       triangulos += t1.triangulos
 
-      const t2 = construirTeleferico(6950, 273, 8220, 261, 4, o.heightAt)
+      const t2 = construirTeleferico(v2.rBase, v2.azBase, v2.rTopo, v2.azTopo, v2.nPilones, o.heightAt)
       t2.pilones.name = 'inverno:teleferico:parque:pilones'
       t2.cabo.name = 'inverno:teleferico:parque:cabo'
       group.add(t2.pilones, t2.cabo)
@@ -2756,21 +3136,25 @@ export async function invernoComoTrabalho(
           *fatia() {
             if (ativos.arvores.length > 0) {
               const saidaFl: { floresta: Floresta | null } = { floresta: null }
-              const g = instanciarFlorestaDensa(ativos.arvores, candidatos, o.sombra ?? true, saidaFl)
+              // ⚠️ A SOMBRA DA CAMADA PERTO É `o.sombra` **E** O PERFIL, não só
+              // `o.sombra`: `?sombra=0` continua desligando tudo, mas o celular
+              // e o LOW ficam fora do passe mesmo com a sombra ligada (a conta
+              // do texel está em `orcamentoPerto`).
+              const g = instanciarFlorestaDensa(ativos.arvores, candidatos, (o.sombra ?? true) && orc.sombra, orc.arvores, saidaFl)
               while (!g.next().done) yield
               if (saidaFl.floresta) {
                 group.remove(florestaEsparsa.group)
                 disposeGrupo(florestaEsparsa.group)
                 group.add(saidaFl.floresta.group)
                 florestaAtual = saidaFl.floresta
-                console.log(`[inverno] camada perto: floresta densa, ${saidaFl.floresta.arvores.toLocaleString('pt-BR')} árvores, ${saidaFl.floresta.triangulos.toLocaleString('pt-BR')} triângulos (${FLORESTA_TETO_PERTO} em malha real, o resto em cone)`)
+                console.log(`[inverno] camada perto: floresta densa, ${saidaFl.floresta.arvores.toLocaleString('pt-BR')} árvores, ${saidaFl.floresta.triangulos.toLocaleString('pt-BR')} triângulos (${orc.arvores} em malha real no perfil ${o.profile?.tier ?? 'desktop'}/${o.profile?.quality ?? 'balanced'}, ${ativos.arvores.length} espécies, sombra ${(o.sombra ?? true) && orc.sombra ? 'sim' : 'não'}; o resto em cone)`)
               }
             }
             if (ativos.rochas) {
               const candidatosRocha: CandidatoRocha[] = []
               for (const it2 = varrerCandidatosRocha(o.heightAt, (c) => candidatosRocha.push(c)); !it2.next().done; ) yield
               const saidaRo: { mesh: THREE.InstancedMesh | null; triangulos: number } = { mesh: null, triangulos: 0 }
-              const g2 = instanciarPenhascos(ativos.rochas.geo, ativos.rochas.mat, candidatosRocha, o.sombra ?? true, saidaRo)
+              const g2 = instanciarPenhascos(ativos.rochas.geo, ativos.rochas.mat, candidatosRocha, (o.sombra ?? true) && orc.sombra, orc.rochas, saidaRo)
               while (!g2.next().done) yield
               if (saidaRo.mesh) {
                 group.add(saidaRo.mesh)
@@ -2789,15 +3173,15 @@ export async function invernoComoTrabalho(
         buildEstacaoInverno({
           heightAt: o.heightAt, gltf: o.gltf, sombra: o.sombra ?? true, culler: o.culler,
           vilaBase: { r: 6920, az: 273 },
-          cabos: [
-            // ⚠️ OS TOPOS DESCERAM DE 8.280/8.220 PARA 8.200/8.150 EM 04/09:
-            // a crista nova culmina em r 8.200 (rumo 268) e r ~8.150 (rumo
-            // 261), medido de 50 em 50 m no `heightAt` real. Um topo de
-            // teleférico depois do cume ficaria pendurado do lado de fora, na
-            // face de rocha, com o cabo atravessando a montanha.
-            { rBase: 7000, azBase: 268, rTopo: 8200, azTopo: 268, nCabines: 10 },
-            { rBase: 6950, azBase: 273, rTopo: 8150, azTopo: 261, nCabines: 6 },
-          ],
+          // ⚠️ A MESMA TABELA QUE OS PILONES E O CABO USAM, não uma segunda
+          // cópia: ver a nota de `VAOS_TELEFERICO`. Enquanto eram duas listas
+          // escritas à mão, o cabo terminava em r 8.280/8.220 e as cabines em
+          // r 8.200/8.150, ou seja as cabines penduravam fora do cabo por 80 e
+          // 70 m. Os topos de hoje são o MÁXIMO MEDIDO de cada rumo (r 8.150 no
+          // 268 e r 8.100 no 261, grade de 25 m).
+          cabos: VAOS_TELEFERICO.map((v) => ({
+            rBase: v.rBase, azBase: v.azBase, rTopo: v.rTopo, azTopo: v.azTopo, nCabines: v.nCabines,
+          })),
           trilhas: PISTAS,
         })
           .then((est) => {

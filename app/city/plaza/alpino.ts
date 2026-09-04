@@ -130,6 +130,72 @@
 // dentro da MESMA carga, com o mesmo objeto de terreno, e não entre dois
 // processos.
 //
+// ⚠️⚠️ OBRA 2, 04/09: OS TRÊS DEFEITOS QUE O REVISOR ACHOU NA OBRA 1, E OS
+// TRÊS ERAM DE ORDEM E DE ORÇAMENTO, NÃO DE FORMA. A mata de 51.947 árvores e a
+// casca com 2,8% de furo ficaram como estavam; o que estava errado era QUEM
+// entrava em cada balde e QUANTO cada aparelho pagava. Tudo medido na mesma
+// carga (mesmo processo, mesmo objeto de terreno, `alpino.ts` de HEAD e o novo
+// importados lado a lado), com a câmera em (-3037, 8090), o pior caso real:
+//
+//   1. O BALDE DE PERTO ENCHIA PELA ORDEM DA GRADE (z crescente), não pela
+//      distância à câmera. Das 13.414 árvores dentro de `R_CHEIA`, 6.000
+//      entravam em malha cheia, TODAS com z entre 6.873 e 7.845, e 7.414 que
+//      estavam perto caíam no volume de 8 triângulos. Em fração do que o
+//      visitante tem em volta:
+//
+//        a menos de   100 m    antes    0,0% em malha cheia   agora 100%
+//        a menos de   200 m    antes    0,0%                  agora 100%
+//        a menos de   400 m    antes   19,6%                  agora 100%
+//        a menos de   729 m    antes   39,6%                  agora 100%
+//
+//      e o balde saiu de 4 setores de 45° ocupados (2.008, 2.452, 1.032, 508,
+//      0, 0, 0, 0) para os 8. Varrendo 60 posições DENTRO da mata, a fração em
+//      malha cheia a 200 m tinha PIOR CASO de 0,0% e agora tem 100,0%.
+//
+//   2. O SUB-BOSQUE TINHA O MESMO VÍCIO, porque era emitido dentro do laço do
+//      balde de perto: 2.600 de 2.600 saturados, moita e matacão em 3 setores
+//      de 8, com peça a até 1.399 m. Agora ele tem CORTE PRÓPRIO (histograma de
+//      peças, não de árvores): 8 setores de 8, e a peça mais distante a 469 m,
+//      que é onde ela ainda mede mais de 1 px.
+//
+//   3. O PERFIL DE MÁQUINA CHEGAVA E NÃO ERA LIDO. Ver `orcamentoDe`: teto de
+//      árvore, de balde de perto, de sub-bosque e sombra agora saem dele.
+//
+//   E O `frustumCulled = false` ERA UMA MENTIRA ÚTIL: a esfera é que estava
+//   errada (calculada uma vez com `count = 0`). Ver o bloco das InstancedMesh.
+//   Com a esfera refeita a cada rebalanceamento, o culling ligou, e o que ele
+//   paga é o PASSE DE SOMBRA: com a câmera na praça, 415.576 triângulos por
+//   quadro viravam mapa de sombra de uma mata a 6 km, fora da caixa do sol.
+//   Agora são ZERO. Provado por varredura, não por argumento: 400 posições de
+//   câmera × 3 malhas, a folga mínima de QUALQUER instância dentro da esfera é
+//   +2,949 m (nunca negativa), e as 640 checagens com `count = 0` devolvem
+//   esfera vazia, que é o que corta.
+//
+//   O custo por quadro do histograma, mínimo de 40 amostras aquecidas (mínimo,
+//   não mediana: a máquina estava com load entre 4 e 10 e a mediana mentia): o
+//   rebalanceamento dentro da mata foi de 2,59 para 2,98 ms com 51.947 árvores
+//   na execução mais leve, e o MESMO par mediu 3,68 → 4,15 ms com a máquina
+//   mais ocupada. O nível não é comparável entre execuções; a DIFERENÇA é, e
+//   ela ficou entre 0,39 e 0,48 ms para os dois histogramas mais a caixa das
+//   três esferas. Na cidade continua em 0,01 ms, porque a porta de
+//   `temArvorePerto` não mudou.
+//
+//   ⚠️ E A CONSTRUÇÃO NÃO MUDOU: 138.340 chamadas de `superficieAt` antes e
+//   depois, 51.947 árvores, 18,030 km² de neve e 458.914 triângulos declarados,
+//   idênticos. O tempo de parede oscilou de 3,3 a 5,1 s entre execuções na
+//   MESMA versão do código (a máquina estava carregada), então quem for medir
+//   isto de novo conte CHAMADA, não segundo. A repartição, essa é estável e é
+//   nova nesta rodada:
+//
+//       fase grade (103.570 chamadas)        1.560 ms   15,1 µs por chamada
+//       folga adaptativa (34.770 chamadas)   2.313 ms   66,5 µs por chamada
+//       mata + geometria + LOD                 246 ms
+//
+//   Ou seja o item caro NÃO é a grade do anel, é a sub-amostragem da folga: 25%
+//   das chamadas e 56% do tempo, porque toda ela cai dentro do maciço, onde
+//   `superficieAt` custa quatro vezes mais que na planície. Quem for atrás do
+//   tempo de carga tem de atacar ESSA fase.
+//
 // Three.js puro (regra da casa: nada de react-three-fiber).
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
@@ -261,13 +327,18 @@ const RAIO_MOITA = 6
  *  densidade de bosque aberto de verdade (a faixa citada é 50 a 150/ha) e a
  *  borda continua rala, que é o que borda de mata é. */
 const TETO_ARVORES = 52000
-/** ⚠️ O BALDE DE PERTO TEM TETO PRÓPRIO, e ele é pequeno de propósito: a
- *  câmera só entra na mata voando até o maciço, e ali cabem no máximo alguns
- *  milhares de árvores dentro de `R_CHEIA`. Medido com a câmera POUSADA em
- *  cima de uma árvore da mata: 2.390 no balde de perto, ou seja 6.000 é folga
- *  de 2,5×. Alocar o balde de perto com a capacidade INTEIRA (o que este
- *  arquivo fazia) reservaria 3,77 MB para um `count` que fica em ZERO a viagem
- *  toda: medido com a câmera na praça, `alpino:conifera:perto` tem count = 0. */
+/** ⚠️ O BALDE DE PERTO É UM ORÇAMENTO, NÃO UMA FOLGA, E ISSO MUDOU EM 04/09
+ *  (obra 2). Até aqui este número era defendido como "folga de 2,5× sobre as
+ *  2.390 medidas com a câmera pousada numa árvore"; a medição do revisor, com a
+ *  câmera em (-3037, 8090), mostrou 13.414 árvores dentro de `R_CHEIA` e o
+ *  balde SATURADO em 6.000. Ele nunca foi folga: é teto, e teto que enchia pela
+ *  ordem errada (ver o cabeçalho e o bloco do histograma em `rebalancear`).
+ *  Agora quem entra são as 6.000 MAIS PRÓXIMAS, o que naquela câmera dá um raio
+ *  de mata REAL de 729 m em volta do visitante, com 100% de malha cheia dentro
+ *  dele. Alocar o balde com a capacidade inteira (o que este arquivo já não
+ *  faz) reservaria 3,95 MB para um `count` que fica em ZERO a viagem toda:
+ *  medido com a câmera na praça, `alpino:conifera:perto` tem count = 0, e agora
+ *  a esfera vazia dele ainda o tira do passe de sombra. */
 const TETO_PERTO = 6000
 /** além disto a conífera vira o volume de longe (8 triângulos) */
 const R_CHEIA = 1400
@@ -280,15 +351,105 @@ const R_CHEIA = 1400
  *  Na cidade, que é onde o visitante passa a sessão inteira, o rebalanceamento
  *  deixou de existir: quem paga isso é a porta de `temArvorePerto` abaixo.
  *  Dentro da mata o custo POR ÁRVORE caiu (0,084 para 0,051 µs), porque a
- *  matriz passou a ser escrita à mão no buffer e o tinte é assado uma vez. */
+ *  matriz passou a ser escrita à mão no buffer e o tinte é assado uma vez.
+ *
+ *  ⚠️ 04/09, OBRA 2: o histograma de distância somou de 0,39 a 0,48 ms a este
+ *  número (2,59 → 2,98 ms na execução mais leve, 3,68 → 4,15 ms na mais
+ *  carregada, com 51.947 árvores), medido pelo MÍNIMO de 40 amostras aquecidas
+ *  e não pela mediana, porque a máquina estava compartilhada com as outras
+ *  frentes da rodada e a mediana oscilava entre 6,8 e 10,9 ms na MESMA versão
+ *  do código. Mínimo é o número honesto quando a máquina não é sua, e o que se
+ *  compara entre execuções é a diferença, não o nível. Na cidade nada mudou. */
 const PASSO_REBALANCE = 400
 /** ⚠️ SUB-BOSQUE SÓ DE PERTO, E A CONTA DE PIXEL MANDA NISSO. A vista de
  *  contrato do maciço está a 4.560 m do alvo; com 60° de campo e 1.080 px de
  *  altura, um pixel vale 0,00097 rad, então uma moita de 1,5 m mede 0,34 px a
  *  4.560 m e 1,1 px no limite de `R_CHEIA`. Sub-bosque desenhado além disso é
  *  triângulo pago para não aparecer. Dentro de `R_CHEIA` ele é o que separa
- *  "mata" de "árvore espetada em chão pelado", que era a queixa. */
+ *  "mata" de "árvore espetada em chão pelado", que era a queixa.
+ *
+ *  ⚠️ E ESTE TETO TAMBÉM SATURAVA PELA ORDEM ERRADA (obra 2, 04/09): 2.600 de
+ *  2.600, com peça a até 1.399 m e só 3 dos 8 setores de 45° em volta da câmera
+ *  ocupados, porque a emissão acontecia dentro do laço do balde de perto, na
+ *  mesma ordem de k. A demanda é conhecida (62% das árvores pedem sub-bosque e
+ *  cada uma pede 1 ou 2 peças, 0,93 por árvore: com o balde cheio em 6.000 são
+ *  ~5.580 peças pedidas para 2.600 slots), então o corte dele sai de um
+ *  histograma PRÓPRIO, que soma peças por anel. Medido depois: 8 setores de 8
+ *  ocupados e a peça mais distante a 469 m, dentro da faixa em que ela ainda
+ *  mede mais de 1 px. */
 const TETO_SUBBOSQUE = 2600
+/** ⚠️ QUANTOS ANÉIS O HISTOGRAMA DE DISTÂNCIA USA. 48 sobre `R_CHEIA` = 1.400 m
+ *  dá anel de 29,2 m, que é menos que o espaçamento de candidato (`PASSO_MATA`
+ *  = 18 m mais a moita de 6 m): o corte anda praticamente contínuo com a
+ *  câmera, então a troca de LOD continua acontecendo por distância e não em
+ *  degrau visível. Mesmo número que `instanciarFlorestaDensa` usa em
+ *  `inverno.ts` (lido como referência, não editado aqui). */
+const ANEIS_LOD = 48
+
+// ── O ORÇAMENTO SAI DO PERFIL, E ATÉ 04/09 NÃO SAÍA (defeito 3 da obra 2) ────
+//
+// ⚠️ `AlpinoOpts.profile` EXISTIA E NENHUM CAMPO DELE ERA LIDO. Medido antes
+// de consertar, com o terreno real e `profileFor('desktop','balanced')`:
+// 51.947 instâncias, `frustumCulled = false` nas três malhas, `castShadow =
+// true` nas três e o único culling era o registro de distância de 26 km, que
+// nunca corta (o diâmetro da abóbada é 18,1 km). Celular e desktop pagavam a
+// MESMA conta: 415.576 triângulos no passe principal MAIS o mesmo tanto no
+// passe de sombra, de qualquer ponto da cidade.
+//
+// ⚠️ E O QUE ESCALA NÃO É SÓ TRIÂNGULO, É CPU. `rebalancear` percorre a mata
+// inteira: 2,98 a 4,15 ms medidos para 52 mil neste desktop (mínimo de 40
+// amostras aquecidas), uma vez a cada 400 m de câmera. Num telefone isso é a
+// diferença entre um engasgo e um travamento, e é a razão principal de o teto
+// de árvore cair no celular, não a GPU.
+//
+// ⚠️ O FATOR NÃO É GOSTO, É A DENSIDADE QUE SOBRA. O desbaste é uniforme
+// (`hash01(k)` contra `manter`), então a densidade por hectare escala junto
+// com o teto. Medido com o terreno real, na mancha, em árvores por hectare
+// ocupado, e o resto medido com a câmera em (-3037, 8090):
+//
+//   perfil     árvores  p50/ha  p90/ha   tris desenhados  sombra   matriz+tinte
+//   desktop     51.947     27      83        590.430      222.526    6,42 MB
+//   celular     33.914     18      54        386.014            0    4,19 MB
+//   low         19.997     12      32        226.658            0    2,47 MB
+//
+// 52 mil é o número que a obra 1 defendeu e ele fica intacto no desktop e em
+// `?q=high`. No celular 34 mil ainda deixa o miolo do talhão com mais que o
+// dobro da densidade da mata ANTES da obra 1 (p50 era 7/ha, p90 14), e é o que
+// a memória e a CPU do aparelho aguentam.
+interface OrcamentoAlpino {
+  arvores: number
+  perto: number
+  subbosque: number
+  /** a mata entra no mapa de sombra? */
+  sombra: boolean
+}
+/** ⚠️ SEM PERFIL, O ORÇAMENTO CHEIO: quem chama `buildAlpino` sem `profile`
+ *  (teste, script de medição) recebe exatamente o que este arquivo fazia antes
+ *  desta função existir. Nada muda em silêncio para quem não passa o campo. */
+function orcamentoDe(p?: PerfProfile): OrcamentoAlpino {
+  // ⚠️ `high` GANHA DO TIER, e isso segue `profileFor` em `perf.ts` (lido como
+  // referência, não editado aqui): lá o modo cinematográfico devolve DPR 3,
+  // sombra suave e mapa de 2.048 mesmo num aparelho `mobile`, porque `?q=high`
+  // é escolha explícita de quem está olhando. Baixar o teto da mata aí seria a
+  // única peça da cena a desobedecer o pedido.
+  const alto = !!p && p.quality === 'high'
+  const f = !p || alto ? 1 : p.quality === 'low' ? 0.385 : p.tier === 'mobile' ? 0.654 : 1
+  return {
+    arvores: Math.round(TETO_ARVORES * f),
+    perto: Math.round(TETO_PERTO * f),
+    subbosque: Math.round(TETO_SUBBOSQUE * f),
+    // ⚠️ SOMBRA DA MATA SÓ NO DESKTOP FORA DO MODO LOW (e em `?q=high`), e o
+    // motivo é a caixa do sol: `plaza-scene.tsx` usa uma ortográfica de
+    // meia-largura 1.000 a 4.600 m centrada no alvo da câmera, com um texel de
+    // até 4,5 m no mapa de 2.048 (e o dobro disso nos 1.024 do celular). Sombra
+    // de conífera de 3,2 m de raio num texel de 4,5 m não é sombra, é ruído.
+    // ⚠️ SEM PERFIL, LIBERADO: quem chama sem `profile` (teste, script de
+    // medição) fica com o `o.sombra` dele valendo, que é o contrato que este
+    // arquivo tinha antes de `orcamentoDe` existir. O tier só TIRA sombra,
+    // nunca dá.
+    sombra: !p || alto || (p.tier === 'desktop' && p.quality !== 'low'),
+  }
+}
 
 // ── ruído determinístico: a montanha é a mesma em toda visita ───────────────
 function hash01(i: number): number {
@@ -480,6 +641,10 @@ const TILE_SPARKLE = 6
 export function buildAlpino(o: AlpinoOpts): Alpino {
   const group = new THREE.Group()
   group.name = 'alpino'
+  // ⚠️ O PERFIL É LIDO AQUI E EM MAIS NENHUM LUGAR, de propósito: um objeto só
+  // com os quatro números que este módulo escala, resolvido uma vez. Ver
+  // `orcamentoDe` e a tabela de densidade por tier lá em cima.
+  const orc = orcamentoDe(o.profile)
 
   // ── 1. a grade de altura, amostrada UMA VEZ dentro do anel ────────────────
   const N = Math.ceil((2 * R_EXT) / PASSO) + 1
@@ -642,6 +807,16 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
   // com déficit acima de 0,5 m, a amostra do centro captura a MEDIANA de 0%
   // do déficit e perde mais de 2 m em 45,2% delas. O pico do erro de corda
   // quase nunca cai no centro do quad, cai na aresta.
+  //
+  // ⚠️ E TAMPOUCO DÁ PRA JOGAR O CENTRO FORA, medido na obra 2 justamente
+  // porque ele é a única das três chamadas novas por célula que NÃO é
+  // compartilhada com a vizinha (as duas de aresta são), ou seja seria um
+  // terço desta fase de graça. Rodando as duas contas na mesma amostragem, com
+  // o terreno real: o déficit por célula quase não muda na distribuição (p50
+  // 0,23 → 0,23 m, p90 1,65 → 1,62, p99 9,60 → 9,36, máximo 30,91 nos dois),
+  // MAS a pior célula perde 11,96 m de folga. Onze metros e noventa e seis é
+  // exatamente o tipo de célula que este bloco inteiro existe pra salvar. O
+  // centro fica.
   const NSUB = (N - 1) * SUB_CORDA + 1
   const caixaFina = new Map<number, number>()
   const finoEm = (fi: number, fj: number): number => {
@@ -881,9 +1056,9 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
   // desbaste determinístico se passar do teto
   const CAMPOS = 6
   const brutas = bruto.length / CAMPOS
-  const manter = brutas > TETO_ARVORES ? TETO_ARVORES / brutas : 1
+  const manter = brutas > orc.arvores ? orc.arvores / brutas : 1
   let nArv = 0
-  const mata = new Float32Array(Math.min(brutas, TETO_ARVORES) * CAMPOS)
+  const mata = new Float32Array(Math.min(brutas, orc.arvores) * CAMPOS)
   for (let k = 0; k < brutas; k++) {
     if (manter < 1 && hash01(k * 2654435761) >= manter) continue
     if (nArv * CAMPOS + CAMPOS > mata.length) break
@@ -1011,18 +1186,44 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
     color: '#ffffff', vertexColors: true, roughness: 0.95, metalness: 0, flatShading: true,
   })
 
-  const capPerto = Math.max(1, Math.min(nArv, TETO_PERTO))
-  const capSub = Math.max(1, Math.min(nArv * 2, TETO_SUBBOSQUE))
+  const capPerto = Math.max(1, Math.min(nArv, orc.perto))
+  const capSub = Math.max(1, Math.min(nArv * 2, orc.subbosque))
   const perto = new THREE.InstancedMesh(gPerto, matArvore, capPerto)
   const longe = new THREE.InstancedMesh(gLonge, matArvore, Math.max(1, nArv))
   const subbosque = new THREE.InstancedMesh(gSub, matArvore, capSub)
   perto.name = 'alpino:conifera:perto'
   longe.name = 'alpino:conifera:longe'
   subbosque.name = 'alpino:subbosque'
+  // ⚠️⚠️ `frustumCulled = false` ERA LOAD-BEARING, E ELE MENTIA: A ESFERA
+  // ESTAVA ERRADA, NÃO O CULLING. Conferido no three 0.162 antes de mexer
+  // (`Frustum.intersectsObject`: se `object.boundingSphere` existe, é ELA que
+  // decide; `InstancedMesh.computeBoundingSphere` percorre só até `this.count`).
+  // O arquivo chamava `computeBoundingSphere()` uma única vez, logo depois do
+  // `rebalancear(0,0,0)` de boot, e naquele instante `perto.count` e
+  // `subbosque.count` são ZERO (não há árvore a 1.400 m do centro da cidade):
+  // a esfera nascia VAZIA (`makeEmpty`, raio -Infinity) e nunca era refeita.
+  // Ligar o culling com essa esfera apagaria as duas malhas para sempre, que
+  // é exatamente o que a nota de risco da obra 2 suspeitava. Desligar o
+  // culling escondia o defeito e cobrava o preço em toda parte: as três
+  // malhas entravam no passe principal E no passe de sombra
+  // (`WebGLShadowMap`, linha 339, testa `!object.frustumCulled ||
+  // _frustum.intersectsObject`) de QUALQUER ponto da cidade, mesmo com a mata
+  // a 6 km e fora da caixa de 1.000 a 4.600 m do sol.
+  //
+  // O conserto é calcular a esfera CERTA a cada rebalanceamento (ver
+  // `aplicarEsfera` lá embaixo: caixa dos centros medida no mesmo laço que já
+  // escreve a matriz, mais o raio da peça vezes a maior escala de instância),
+  // e aí o culling pode ligar.
+  perto.castShadow = orc.sombra && (o.sombra ?? false)
+  subbosque.castShadow = orc.sombra && (o.sombra ?? false)
+  // ⚠️ O VOLUME DE LONGE NUNCA PROJETA SOMBRA, em nenhum tier. Ele é um
+  // octaedro de 8 triângulos que só existe para dar MASSA a mais de 1,4 km:
+  // a sombra dele não seria a sombra de uma conífera, seria a de um losango.
+  // São 45.947 instâncias fora do passe de sombra na medição de hoje.
+  longe.castShadow = false
   for (const m of [perto, longe, subbosque]) {
-    m.castShadow = o.sombra ?? false   // a mata está a 6 km: sombra dela não lê
     m.receiveShadow = false
-    m.frustumCulled = false
+    m.frustumCulled = true
     m.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
     group.add(m)
   }
@@ -1044,6 +1245,18 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
     tinte[k * 3] = v * q
     tinte[k * 3 + 1] = v
     tinte[k * 3 + 2] = v * (2 - q)
+  }
+  // ⚠️ QUANTAS PEÇAS DE SUB-BOSQUE CADA ÁRVORE PEDE, ASSADO AQUI PELO MESMO
+  // MOTIVO DO TINTE: o histograma de distância (ver `rebalancear`) precisa
+  // SOMAR peças por anel antes de decidir o corte, e recalcular dois hashes
+  // por árvore duas vezes por rebalanceamento seria pagar a conta em dobro.
+  // 62% das árvores pedem sub-bosque e cada uma pede 1 ou 2 peças, ou seja
+  // 0,93 peça por árvore em média: com o balde de perto cheio em 6.000, a
+  // demanda é de ~5.580 peças para um teto de 2.600, e é essa disputa que o
+  // corte próprio do sub-bosque resolve.
+  const pecasArv = new Uint8Array(nArv)
+  for (let k = 0; k < nArv; k++) {
+    pecasArv[k] = hash01(k * 913 + 17) < 0.62 ? 1 + Math.floor(hash01(k * 2287) * 2) : 0
   }
   // ⚠️ `setColorAt` UMA VEZ SÓ PARA ALOCAR o `instanceColor` (o three cria o
   // atributo na primeira chamada); daí em diante o laço escreve direto no
@@ -1114,58 +1327,194 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
   const mLonge = longe.instanceMatrix.array as Float32Array
   const mSub = subbosque.instanceMatrix.array as Float32Array
 
+  // ── O CORTE POR DISTÂNCIA, E ELE ERA A ORDEM DA VARREDURA (defeito 1) ──────
+  //
+  // ⚠️ O BALDE DE PERTO ENCHIA PELA ORDEM DA GRADE, NÃO PELA CÂMERA. A grade de
+  // candidatos é varrida em z crescente e `mata` guarda essa ordem, então o
+  // `np < capPerto` de antes servia os primeiros 6.000 slots a quem tem o menor
+  // z e virava a porta na cara de todo o resto. Medido com a câmera em
+  // (-3037, 8090), o pior caso real (a câmera dentro da mata):
+  //
+  //   13.414 árvores dentro de `R_CHEIA`, `perto.count` saturado em 6.000,
+  //   TODAS com z entre 6.873 e 7.845, e 7.414 árvores a menos de 1.400 m
+  //   caindo no volume de longe.
+  //
+  // Ou seja: metade da mata em volta do visitante com geometria de 8
+  // triângulos, e a metade boa toda de um lado só. É o mesmo defeito que
+  // `instanciarFlorestaDensa` (`inverno.ts`, lido como referência, não editado
+  // aqui) consertou hoje, e a receita vem de lá.
+  //
+  // ⚠️ HISTOGRAMA DE ANÉIS E SOMA ACUMULADA, NÃO ORDENAÇÃO. Ordenar 52 mil
+  // distâncias por rebalanceamento seria o caminho óbvio e o caro (O(n log n)
+  // com alocação). Aqui são dois passos O(n) com aritmética inteira: contar
+  // quantas árvores caem em cada um dos `ANEIS_LOD` anéis, somar do centro
+  // para fora até estourar o orçamento e devolver o RAIO em que ele acaba.
+  //
+  // ⚠️ E O SUB-BOSQUE PRECISA DO CORTE DELE (defeito 2), não do mesmo. Ele era
+  // emitido DENTRO do laço do balde de perto, na mesma ordem de k, e saturava
+  // igual: 2.600 de 2.600, moita e matacão nascendo só de um lado da câmera.
+  // Como a demanda por árvore é conhecida (`pecasArv`, assado acima), o
+  // segundo histograma soma PEÇAS por anel em vez de árvores e devolve um
+  // corte próprio, sempre menor ou igual ao da árvore.
+  const histoArv = new Int32Array(ANEIS_LOD)
+  const histoSub = new Int32Array(ANEIS_LOD)
+  /** distância à câmera por árvore, calculada no passo 1 e reusada no passo 2:
+   *  208 KB em 52 mil, contra 52 mil raízes quadradas a mais por chamada */
+  const distCam = new Float32Array(nArv)
+
+  // ── A ESFERA DE CULLING, MEDIDA NO MESMO LAÇO QUE ESCREVE A MATRIZ ─────────
+  //
+  // ⚠️ A CAIXA É DOS CENTROS DAS INSTÂNCIAS; A PEÇA SOBRA PARA FORA DELA, e é
+  // por isso que existe uma margem por balde. A margem é o raio da caixa da
+  // geometria (a partir da origem dela, que é onde a instância pousa) vezes a
+  // MAIOR escala que o laço pode aplicar. Nada disto é chute: as escalas saem
+  // das mesmas expressões que `rebalancear` usa.
+  //   árvore   `esc` ≤ 1,60 e `escXZ` ≤ 1,25, então `sxz` ≤ 2,00
+  //   moita    `s` ≤ 2,70 e o eixo z ganha mais `(0,8 + 0,5)`, então ≤ 3,51
+  /** ⚠️ O CANTO MAIS LONGE DA ORIGEM, POR EIXO E NÃO POR CANTO ENUMERADO:
+   *  `max(|min|, |max|)` em cada eixo dá exatamente o canto extremo da caixa,
+   *  sem precisar listar os oito (listar quatro deles, que era a versão óbvia,
+   *  pode perder o pior em caixa assimétrica). */
+  const raioGeo = (g: THREE.BufferGeometry): number => {
+    g.computeBoundingBox()
+    const bb = g.boundingBox!
+    return Math.hypot(
+      Math.max(Math.abs(bb.min.x), Math.abs(bb.max.x)),
+      Math.max(Math.abs(bb.min.y), Math.abs(bb.max.y)),
+      Math.max(Math.abs(bb.min.z), Math.abs(bb.max.z)),
+    )
+  }
+  const margemPerto = raioGeo(gPerto) * 2.0
+  const margemLonge = raioGeo(gLonge) * 2.0
+  const margemSub = raioGeo(gSub) * 3.51
+  /** caixa de cada balde, na ordem x0,y0,z0,x1,y1,z1 */
+  const caixa = new Float32Array(18)
+  const zerarCaixa = () => {
+    for (let b = 0; b < 3; b++) {
+      caixa[b * 6] = caixa[b * 6 + 1] = caixa[b * 6 + 2] = Infinity
+      caixa[b * 6 + 3] = caixa[b * 6 + 4] = caixa[b * 6 + 5] = -Infinity
+    }
+  }
+  const engolir = (b: number, x: number, y: number, z: number) => {
+    const o6 = b * 6
+    if (x < caixa[o6]) caixa[o6] = x
+    if (y < caixa[o6 + 1]) caixa[o6 + 1] = y
+    if (z < caixa[o6 + 2]) caixa[o6 + 2] = z
+    if (x > caixa[o6 + 3]) caixa[o6 + 3] = x
+    if (y > caixa[o6 + 4]) caixa[o6 + 4] = y
+    if (z > caixa[o6 + 5]) caixa[o6 + 5] = z
+  }
+  /** ⚠️ COUNT ZERO PRECISA DE ESFERA VAZIA, NÃO DE ESFERA GRANDE: sem instância
+   *  não há nada a desenhar, e `makeEmpty` (raio -Infinity) é justamente o que
+   *  faz `Frustum.intersectsSphere` devolver `false` sempre. É o estado em que
+   *  o balde de perto passa a viagem inteira quando o visitante fica na praça. */
+  const aplicarEsfera = (m: THREE.InstancedMesh, n: number, b: number, margem: number) => {
+    if (!m.boundingSphere) m.boundingSphere = new THREE.Sphere()
+    if (n === 0) { m.boundingSphere.makeEmpty(); return }
+    const o6 = b * 6
+    const cx = (caixa[o6] + caixa[o6 + 3]) / 2
+    const cy = (caixa[o6 + 1] + caixa[o6 + 4]) / 2
+    const cz = (caixa[o6 + 2] + caixa[o6 + 5]) / 2
+    m.boundingSphere.center.set(cx, cy, cz)
+    m.boundingSphere.radius =
+      Math.hypot(caixa[o6 + 3] - cx, caixa[o6 + 4] - cy, caixa[o6 + 5] - cz) + margem
+  }
+
   const rebalancear = (cam: THREE.Vector3) => {
+    // ── passo 1: o histograma radial e os dois cortes ──────────────────────
+    histoArv.fill(0)
+    histoSub.fill(0)
+    const largura = R_CHEIA / ANEIS_LOD
+    for (let k = 0; k < nArv; k++) {
+      const b = k * CAMPOS
+      const dx = mata[b] - cam.x, dz = mata[b + 1] - cam.z
+      const d = Math.sqrt(dx * dx + dz * dz)
+      distCam[k] = d
+      if (d < R_CHEIA) {
+        const anel = (d / largura) | 0
+        histoArv[anel]++
+        histoSub[anel] += pecasArv[k]
+      }
+    }
+    // ⚠️ PISO DE UM ANEL, e ele existe pelo mesmo motivo que em `inverno.ts`:
+    // se o primeiro anel sozinho já estourasse o orçamento (uma moita densa
+    // colada na câmera), o corte sairia 0 e quem está DENTRO da mata veria só
+    // o volume de longe, que é o defeito que este bloco existe pra consertar.
+    // O `np < capPerto` lá embaixo continua sendo o cinto de segurança.
+    let soma = 0
+    let corteArv = largura
+    for (let a = 0; a < ANEIS_LOD; a++) {
+      if (soma + histoArv[a] > capPerto) break
+      soma += histoArv[a]
+      corteArv = (a + 1) * largura
+    }
+    let somaS = 0
+    let corteSub = largura
+    for (let a = 0; a < ANEIS_LOD; a++) {
+      if (somaS + histoSub[a] > capSub) break
+      somaS += histoSub[a]
+      corteSub = (a + 1) * largura
+    }
+    if (corteSub > corteArv) corteSub = corteArv
+
+    // ── passo 2: as matrizes, agora com quem está perto de verdade ─────────
+    zerarCaixa()
     let np = 0, nl = 0, ns = 0
     for (let k = 0; k < nArv; k++) {
       const b = k * CAMPOS
       const ax = mata[b], az = mata[b + 1], ay = mata[b + 2]
       const esc = mata[b + 3], escXZ = mata[b + 4], giro = mata[b + 5]
-      const dx = ax - cam.x, dz = az - cam.z
-      const daPerto = dx * dx + dz * dz < R_CHEIA * R_CHEIA && np < capPerto
+      const d = distCam[k]
+      const daPerto = d < corteArv && np < capPerto
       const sxz = esc * escXZ
       if (daPerto) {
         porMatriz(mPerto, np, ax, ay, az, sxz, esc, sxz, giro)
         cPerto[np * 3] = tinte[k * 3]
         cPerto[np * 3 + 1] = tinte[k * 3 + 1]
         cPerto[np * 3 + 2] = tinte[k * 3 + 2]
+        engolir(0, ax, ay, az)
         np++
-        // ⚠️ SUB-BOSQUE SÓ PARA QUEM ESTÁ NO BALDE DE PERTO. Ver `TETO_SUBBOSQUE`:
-        // além de `R_CHEIA` a moita mede menos de 1,1 px. Duas peças em cada
-        // terceira árvore, no pé dela, com a mesma herança de máscara que a
-        // moita de rua usa em `arborizacao.ts` (o arbusto nasce da árvore, não
-        // de uma grade própria: canteiro solto no meio do terreno vira mato).
-        if (hash01(k * 913 + 17) < 0.62) {
-          const pecas = 1 + Math.floor(hash01(k * 2287) * 2)
-          for (let q = 0; q < pecas && ns < capSub; q++) {
-            const ang = hash01(k * 331 + q * 97) * Math.PI * 2
-            const dd = 1.4 + hash01(k * 613 + q * 53) * 2.6
-            const px = ax + Math.cos(ang) * dd, pz = az + Math.sin(ang) * dd
-            const py = alturaEm(px, pz)
-            if (!Number.isFinite(py)) continue
-            // matacão em 28% dos casos: mais baixo, mais largo e cinza
-            const pedra = hash01(k * 149 + q * 11) < 0.28
-            const s = pedra
-              ? 0.9 + hash01(k * 71 + q * 29) * 1.5
-              : 1.1 + hash01(k * 71 + q * 29) * 1.6
-            porMatriz(mSub, ns, px, py, pz,
-              s, s * (pedra ? 0.55 : 0.95), s * (0.8 + hash01(k * 401 + q * 7) * 0.5),
-              hash01(k * 977 + q * 13) * Math.PI * 2)
-            const cc = pedra ? COR_MATACAO : COR_MOITA
-            cSub[ns * 3] = cc.r; cSub[ns * 3 + 1] = cc.g; cSub[ns * 3 + 2] = cc.b
-            ns++
-          }
+        // ⚠️ SUB-BOSQUE SÓ PARA QUEM ESTÁ NO BALDE DE PERTO E DENTRO DO CORTE
+        // DELE. Ver `TETO_SUBBOSQUE`: além de `R_CHEIA` a moita mede menos de
+        // 1,1 px. Duas peças em cada terceira árvore, no pé dela, com a mesma
+        // herança de máscara que a moita de rua usa em `arborizacao.ts` (o
+        // arbusto nasce da árvore, não de uma grade própria: canteiro solto no
+        // meio do terreno vira mato).
+        const quantasPecas = d < corteSub ? pecasArv[k] : 0
+        for (let q = 0; q < quantasPecas && ns < capSub; q++) {
+          const ang = hash01(k * 331 + q * 97) * Math.PI * 2
+          const dd = 1.4 + hash01(k * 613 + q * 53) * 2.6
+          const px = ax + Math.cos(ang) * dd, pz = az + Math.sin(ang) * dd
+          const py = alturaEm(px, pz)
+          if (!Number.isFinite(py)) continue
+          // matacão em 28% dos casos: mais baixo, mais largo e cinza
+          const pedra = hash01(k * 149 + q * 11) < 0.28
+          const s = pedra
+            ? 0.9 + hash01(k * 71 + q * 29) * 1.5
+            : 1.1 + hash01(k * 71 + q * 29) * 1.6
+          porMatriz(mSub, ns, px, py, pz,
+            s, s * (pedra ? 0.55 : 0.95), s * (0.8 + hash01(k * 401 + q * 7) * 0.5),
+            hash01(k * 977 + q * 13) * Math.PI * 2)
+          const cc = pedra ? COR_MATACAO : COR_MOITA
+          cSub[ns * 3] = cc.r; cSub[ns * 3 + 1] = cc.g; cSub[ns * 3 + 2] = cc.b
+          engolir(2, px, py, pz)
+          ns++
         }
       } else {
         porMatriz(mLonge, nl, ax, ay, az, sxz, esc, sxz, giro)
         cLonge[nl * 3] = tinte[k * 3]
         cLonge[nl * 3 + 1] = tinte[k * 3 + 1]
         cLonge[nl * 3 + 2] = tinte[k * 3 + 2]
+        engolir(1, ax, ay, az)
         nl++
       }
     }
     perto.count = np
     longe.count = nl
     subbosque.count = ns
+    aplicarEsfera(perto, np, 0, margemPerto)
+    aplicarEsfera(longe, nl, 1, margemLonge)
+    aplicarEsfera(subbosque, ns, 2, margemSub)
     perto.instanceMatrix.needsUpdate = true
     longe.instanceMatrix.needsUpdate = true
     subbosque.instanceMatrix.needsUpdate = true
@@ -1175,13 +1524,24 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
     tudoLonge = np === 0
   }
   rebalancear(new THREE.Vector3(0, 0, 0))
-  perto.computeBoundingSphere()
-  longe.computeBoundingSphere()
-  subbosque.computeBoundingSphere()
 
   // ⚠️ REGISTRO NO CULLING COM DISTÂNCIA GENEROSA, DE PROPÓSITO. Esta coroa é
   // FUNDO: ela existe pra ser vista da cidade inteira, de 6 a 9 km. Cortá-la na
   // distância de mobiliário apagaria justamente o horizonte que ela desenha.
+  //
+  // ⚠️ E DISTÂNCIA NÃO É A RÉGUA ÚTIL AQUI, O FRUSTUM É, o que responde por que
+  // este 26.000 continua onde está em vez de virar um número do perfil. O
+  // `DistanceCuller` mede do CENTRO registrado, e o centro de um arco de 180°
+  // no anel de 5,6 a 9,0 km não fica em lugar nenhum do arco: qualquer
+  // distância que corte a mata vista do leste também a corta da praça, que é o
+  // enquadramento de contrato. Medido: dentro da abóbada o ponto mais distante
+  // do maciço está a 17,3 km, então baixar o registro para 14.000 só apagaria a
+  // mata na borda leste, onde uma conífera de 11,5 m mede 0,7 px. Não paga o
+  // risco de a montanha mudar de cor num voo.
+  // Quem faz o corte de verdade agora é o `frustumCulled = true` das três
+  // malhas da mata (ver o bloco da esfera lá em cima): ele é exato, não tem
+  // pop, e tira as três do passe de sombra sempre que a caixa do sol não as
+  // alcança, que é o caso em toda a cidade.
   o.culler?.add(group, 26000, new THREE.Vector3(0, 0, 0))
 
   const trisPerto = gPerto.attributes.position.count / 3
@@ -1189,8 +1549,8 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
   const trisSub = gSub.index ? gSub.index.count / 3 : gSub.attributes.position.count / 3
   // custo declarado: a coroa em quads + a mata toda no volume de longe + o
   // sub-bosque no teto dele. O pior caso do balde de perto (câmera dentro da
-  // mata) troca `TETO_PERTO` árvores de `trisLonge` para `trisPerto`, o que
-  // soma `TETO_PERTO × (trisPerto - trisLonge)` a este número.
+  // mata) troca `orc.perto` árvores de `trisLonge` para `trisPerto`, o que
+  // soma `orc.perto × (trisPerto - trisLonge)` a este número.
   const triangulos = quads * 2 + nArv * trisLonge + capSub * trisSub
   void trisPerto
 
