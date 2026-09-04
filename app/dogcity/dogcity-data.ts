@@ -51,6 +51,12 @@ export const SNAPSHOT = {
   minutesPerBlock: 10,
   // confirmações em cima do bloco alvo antes de publicar o registry
   confirmations: 6,
+  // ⚠️ A PONTA DA CHAIN NO DIA DO ANÚNCIO, medida em 04/09 às 20h39 UTC contra
+  // o nosso nó (mempool.space concordava). Serve de RÉGUA: é o zero do trilho
+  // de progresso da hero, para que a janela inteira tenha começo, meio e fim
+  // em vez de só um número solto que decresce. Não é estimativa e não muda:
+  // é a altura em que a contagem começou a valer.
+  announcedTip: 965_522,
 }
 
 // ── $DOG Galaxy (app/galaxy) ───────────────────────────────────────────────

@@ -37,6 +37,12 @@ export interface MempoolSnapshot {
   // word" de retórica em um dado que qualquer pessoa confere contra o próprio
   // nó, sem depender de nós.
   tip_hash: string | null
+  // ⚠️ tip_time entrou junto, pelo mesmo motivo: sections/snapshot.tsx desenha o
+  // BLOCO EM CURSO a partir dele (quanto tempo faz que a ponta andou). Sem esse
+  // campo o instrumento do countdown só teria um número que muda a cada dez
+  // minutos, e um instrumento que não se mexe é lido como imagem, não como
+  // medição. O ritmo da chain é o que está vivo entre um bloco e o próximo.
+  tip_time: string | null
   dog_pending: number
   dog_pending_amount: number
   last_dog_block: number | null

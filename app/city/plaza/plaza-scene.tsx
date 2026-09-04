@@ -62,6 +62,7 @@ import type { Decalques } from './decalques'
 import { FUNDIR, fundirMalhasLisas, NOME_PISCA } from './fusao'
 import { buildLagos, type Lagos } from './lagos'
 import { buildAlpino, type Alpino } from './alpino'
+import { buildLagoa, LAGOA_ATIVA, type Lagoa } from './lagoa'
 import { buildAutopistas, type Autopistas } from './autopistas'
 import { buildEclusas, type Eclusas } from './eclusas'
 import { buildMetro, type Metro } from './metro'
@@ -1591,6 +1592,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let campoVivo = false
     let emblemaGuerra: THREE.Group | null = null
     let alpino: Alpino | null = null
+    let lagoa: Lagoa | null = null
     let autopistas: Autopistas | null = null
     let eclusas: Eclusas | null = null
     let metro: Metro | null = null
@@ -2632,6 +2634,50 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                   .catch((err) => console.error('[inverno] não subiu', err))
               }
               console.log(`[alpino] ${alpino.neveKm2.toFixed(2)} km² de neve, ${alpino.arvores.toLocaleString('pt-BR')} coníferas, ${alpino.triangulos.toLocaleString('pt-BR')} tris`)
+            }
+
+            // ── A LAGOA ALPINA (`?lagoa=1`, OPT-IN) ──────────────────────────
+            //
+            // O pedido do fundador na rodada da montanha: "a cadeia de montanhas
+            // que são características de lagos, e gostaria de floresta e lagoa
+            // naquela região". A floresta subiu com o parque de inverno; esta é
+            // a água, na sela de r 8.000 / azimute 285: 5,42 ha de lâmina a 407 m
+            // de cota, com 20,72 m de fundo. Todos os três números são medidos
+            // offline com `superficieAt` real, e a bacia que os produz é de
+            // `inverno.ts`, não daqui. (O console imprime 5,47 ha porque a malha
+            // entra 0,6 m por baixo do barranco de propósito; ver `LAMINA_SOBRA`.)
+            //
+            // ⚠️ ELA É OPT-IN E ISSO É DELIBERADO, decisão desta rodada: a
+            // conferência visual ficou bloqueada (o `.next` do dev foi
+            // sobrescrito por um `next build` com o fundador ao vivo) e o bot de
+            // auto-commit publica de hora em hora. Nada novo entra no caminho
+            // padrão antes de alguém VER. `buildLagoa` devolve grupo vazio sem a
+            // bandeira, então o `if` aqui é só para não pagar a chamada.
+            //
+            // ⚠️ FORA DO `if (qDomo.get('neve') !== '0')` DE PROPÓSITO. A lagoa
+            // não depende de neve nenhuma; ela depende da BACIA, que é parte de
+            // `alturaInvernoAt` e sobe com `?inverno` ligado. Quem desligasse a
+            // neve para tirar uma chapa da água perderia a água junto, e o
+            // módulo já avisa no console se a bacia não estiver lá.
+            //
+            // ⚠️ ELA PEDE `superficieAt`, NÃO `heightAt`, pelo mesmo motivo que
+            // o alpino logo acima: a linha d'água é MEDIDA rumo a rumo contra a
+            // superfície que a CÂMERA vê, e medir contra o `heightAt` analítico
+            // deixaria a lâmina flutuando sobre a margem pela flecha da corda.
+            // São dois modelos de terreno, e misturá-los já custou 42 m de erro
+            // no spaceport. (A posição no arquivo é só leitura: a lagoa não
+            // depende de nada que o bloco do maciço construa, só do `terrain`.)
+            if (LAGOA_ATIVA) {
+              lagoa = buildLagoa({
+                heightAt: terrain.superficieAt,
+                sombra: qDomo.get('sombra') !== '0',
+              })
+              scene.add(lagoa.group)
+              if (lagoa.triangulos > 0) {
+                console.log(`[lagoa] ${(lagoa.area / 1e4).toFixed(2)} ha de lâmina a `
+                  + `${lagoa.profMax.toFixed(1)} m de fundo, `
+                  + `${lagoa.triangulos.toLocaleString('pt-BR')} triângulos`)
+              }
             }
 
             // ── as praças de quarto (?pracas=0 desliga) ──────────────────────
@@ -3986,6 +4032,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       lago?.update(t)
       canais?.update(t)
       lagos?.update(t)
+      lagoa?.update(t)   // mesmo contrato das outras águas: só adianta o relógio da onda
       obras?.update(t, camera.position)
       if (!controls.autoRotate && performance.now() - lastInteraction > 25_000) controls.autoRotate = true
       if (fly.on) {
@@ -4240,6 +4287,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       lago?.dispose()
       canais?.dispose()
       lagos?.dispose()
+      lagoa?.dispose()
       obras?.dispose()
       ilhas?.dispose()
       programa?.dispose()

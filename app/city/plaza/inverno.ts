@@ -553,6 +553,16 @@ function comLimiteDeTempo<T>(p: Promise<T>, ms: number, rotulo: string): Promise
 // do runtime Node do SSR, que não tem base para resolver e lança. Mantendo o
 // `typeof window` do jeito que sempre foi, o servidor nunca vê `INVERNO_ATIVO`
 // como verdadeiro, e só o navegador decide.
+// ⚠️ A LAGOA É OPT-IN, E A BANDEIRA MORA AQUI POR UM DEFEITO MEDIDO EM 04/09.
+// A bacia (relevo) e a água (malha) nasceram em frentes diferentes na mesma
+// rodada: a água ficou atrás de `?lagoa=1` e a bacia entrou pelo caminho
+// padrão de `alturaInvernoAt`. O que foi ao ar foi uma COVA SECA de 5,4 ha e
+// 20,7 m de profundidade na encosta, sem uma gota dentro. As duas metades
+// passam a ler a MESMA constante, e `lagoa.ts` importa esta em vez de reler a
+// query: duas leituras da mesma bandeira é como o defeito nasceu.
+export const LAGOA_ATIVA =
+  typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('lagoa') === '1'
+
 export const INVERNO_ATIVO =
   typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('inverno') !== '0'
 
@@ -1563,6 +1573,9 @@ function lagoaPerfil(d: number): number {
  * próximo, contra os 280 m que a varredura exigia.
  */
 function comBaciaDaLagoa(x: number, z: number, relevo: number): number {
+  // sem a bandeira não há água, e cova sem água é buraco: devolve o relevo
+  // intacto, bit a bit, antes de qualquer conta.
+  if (!LAGOA_ATIVA) return relevo
   const dx = x - LAGOA_CX, dz = z - LAGOA_CZ
   // porta rápida em caixa antes da raiz quadrada: `alturaInvernoAt` é chamada
   // por vértice da malha do terreno inteiro, e a lagoa é um ponto dele.
@@ -1581,6 +1594,9 @@ function comBaciaDaLagoa(x: number, z: number, relevo: number): number {
  *  MESMO teste de cota que a linha d'água usa, então a borda da mata segue a
  *  margem de verdade, e não um círculo aproximado. */
 function naLagoa(x: number, z: number, y: number): boolean {
+  // idem: sem bandeira não existe lâmina, e responder `true` aqui abriria uma
+  // clareira de 5,4 ha na mata por causa de uma água que não foi construída.
+  if (!LAGOA_ATIVA) return false
   const dx = x - LAGOA_CX, dz = z - LAGOA_CZ
   if (dx <= -LAGOA_ALCANCE || dx >= LAGOA_ALCANCE || dz <= -LAGOA_ALCANCE || dz >= LAGOA_ALCANCE) return false
   const alcance = LAGOA_RAIO_PROJETO + LAGOA_ORLA

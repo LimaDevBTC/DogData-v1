@@ -336,6 +336,71 @@ vegetacao, arruma os topos de teleferico contra o maximo real de cada rumo, e ab
 `LAGOA_RAIO` e `LAGOA_COTA`; a frente da agua importa esses valores e monta a lamina, a
 margem molhada e `naLagoa(x, z)`, tudo atras de `?lagoa=1` ate alguem VER.
 
+## Fase 4: a obra 2, o que fechou e o que ficou
+
+### `alpino.ts`: APROVADO pelo revisor
+
+| o que | antes | depois |
+|---|---|---|
+| arvores em malha cheia a 100 m da camera | 0 de 145 | **145 de 145** |
+| a 200 m / 400 m | 0% / 19,6% | 100% / 100% |
+| setores de 45 graus com mata boa em volta | 4 de 8 | **8 de 8** |
+| sub-bosque: setores ocupados | 3 de 8 | 8 de 8 |
+| triangulos da mata no passe de sombra, camera na praca | 415.576 por quadro | **0** |
+| arvores por tier | 51.947 igual em tudo | desktop 51.947 / celular 33.914 / low 19.997 |
+| densidade p50 por hectare | 27 em qualquer aparelho | desktop 27, celular 18, low 12 |
+
+O balde de perto passou a escolher as mais proximas da camera (histograma de aneis,
+O(n)) em vez de encher na ordem de varredura da grade. E o `frustumCulled = false` era
+mesmo deliberado: a correcao foi calcular a boundingSphere certa, provada em 1.200
+checagens (folga sempre positiva, +2,949 m no pior caso), nao desligar o culling.
+
+### `inverno.ts` e a lagoa: REPROVADOS, com um defeito que foi ao ar
+
+Ganhos reais: o orcamento da camada perto passou a sair do perfil de maquina (desktop
+1.669.492 triangulos, celular 585.690, LOW 417.518; celular e LOW saem do passe de
+sombra e nem baixam 6 dos 10 GLB, 1.154 KB e 6 parses de Draco a menos). Os topos de
+teleferico foram para o maximo real de cada rumo, e de quebra apareceu que os vaos
+estavam escritos em DOIS lugares com numeros diferentes (80 e 70 m de divergencia entre
+o cabo desenhado e a cabine pendurada nele): viraram uma fonte so, `VAOS_TELEFERICO`.
+
+A lagoa nasceu: lamina de 5,42 ha a 407 m de cota, profundidade media 11,37 m e maxima
+20,72, labio mais baixo 5,9 m acima da lamina (contida em todos os 360 rumos), agua
+escura de verdade (#102C36 no fundo contra o #1D4A66 unico da cidade), onda 3,25 vezes
+menor que a do lago da praca e fresnel 0,78, porque o ceu desta cena e PRETO e o que a
+lagoa reflete e a casca e a neve.
+
+⚠️ **O DEFEITO QUE FOI AO AR, e a licao vale mais que ele.** A bacia (relevo) e a agua
+(malha) nasceram em frentes diferentes na mesma rodada. A agua ficou atras de
+`?lagoa=1`; a bacia entrou pelo caminho padrao de `alturaInvernoAt`. O que o bot
+publicou as 18:37 foi uma **cova seca de 5,4 ha e 20,7 m de profundidade** na encosta,
+sem uma gota dentro. E `naLagoa` respondia `true` ali, entao a mata tambem abria uma
+clareira de 5,4 ha em volta do nada.
+
+Corrigido pelo coordenador no mesmo turno: `LAGOA_ATIVA` passou a morar em
+`inverno.ts` como fonte unica, `lagoa.ts` importa em vez de reler a query, e as duas
+guardas (`comBaciaDaLagoa` e `naLagoa`) saem na primeira linha sem a bandeira. Provado
+offline com `tsx`, no ponto da lagoa: sem bandeira 219,77 m, com bandeira 245,33 m, e a
+600 m os dois batem em 179,82 m, ou seja o alcance esta contido.
+
+**REGRA NOVA: bandeira de feature e UMA constante, num dono so.** Duas leituras da
+mesma query em arquivos diferentes foi exatamente como as duas metades divergiram.
+
+### Aberto para a obra 3
+
+1. **A Descida ainda sobe.** O revisor rodou a serpentina real (rInicio, rFim 6.850, az
+   268, amplitude 6, 90 amostras) e o conserto do `rInicio` nao resolveu o defeito que
+   ele nomeia. Caminho padrao, precisa fechar.
+2. **A lagoa esta debaixo da neve.** Na pegada dela `zonaEsquiavelAt` vale 0,921 a
+   0,998, o que derruba a cota de neve do `alpino.ts` para 70 m; a lagoa vive a 407 m,
+   entao a casca de neve passa por cima da agua. So aparece com `?lagoa=1`, mas e o
+   proximo item da agua.
+3. **O alvo do `cumenevado` nao e mais o cume.** Varredura no relevo de hoje: o maximo
+   de `superficieAt` esta em (-8041, 1130) com 1.018,0 m, e a vista aponta para
+   (-8230, 887). Alem disso o terreno na corda tapa o proprio alvo.
+4. **A conferencia visual inteira**, que segue bloqueada pelo `next build` de 12:13 e
+   pela live no ar.
+
 ## Registro
 
 ### 04/09/2026

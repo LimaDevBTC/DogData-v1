@@ -45,7 +45,23 @@
 //    isso não passa. `tip_height` já vem de graça no feed que a página inteira
 //    consome, então o countdown custa zero rede.
 //
-// 7. HORA LOCAL SÓ DEPOIS DE MONTAR. Formatar no fuso do visitante durante o
+// 7. O QUE SE MEXE É O BLOCO EM CURSO, NÃO A ESTIMATIVA. O número de blocos
+//    restantes muda a cada ~10 minutos, então sozinho ele é uma imagem, e o
+//    fundador leu a primeira versão como "muito parada". A resposta NÃO é
+//    animar o número nem pôr um relógio regressivo em segundos, que é
+//    justamente o que a regra 2 proíbe. É mostrar o que de fato está
+//    acontecendo no intervalo: a rede está minerando o próximo bloco AGORA, e
+//    o tempo desde a última ponta corre de verdade. Esse é o pulso, ele é
+//    medido contra `tip_time` do nosso nó, e ele é honesto porque cresce em
+//    vez de prometer.
+//
+//    ⚠️ DOIS RELÓGIOS, DOIS RITMOS, DE PROPÓSITO. `relogio` bate a cada
+//    segundo e alimenta SÓ o bloco em curso. `agora` só se move quando a ponta
+//    da chain anda, e alimenta SÓ a estimativa. Ligar a estimativa no relógio
+//    de um segundo a faria escorregar continuamente na tela, que é a definição
+//    de countdown disfarçado.
+//
+// 8. HORA LOCAL SÓ DEPOIS DE MONTAR. Formatar no fuso do visitante durante o
 //    render do servidor dá hydration mismatch garantido. O primeiro quadro sai
 //    em UTC e a linha troca para o fuso da pessoa no efeito.
 // ═══════════════════════════════════════════════════════════════════════════
@@ -146,6 +162,17 @@ export default function Snapshot() {
     if (tip != null) setAgora(new Date())
   }, [tip])
 
+  // ── o relógio do bloco em curso ─────────────────────────────────────────
+  // Um setState por segundo, e nada mais: sem rAF, sem canvas, sem layout
+  // thrash. A barra abaixo é uma transform de largura, então o custo por tick
+  // é uma pintura de composição. Fora da aba o navegador já estrangula o
+  // intervalo sozinho.
+  const [relogio, setRelogio] = useState<number>(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setRelogio(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [])
+
   const blocos = tip == null ? null : SNAPSHOT.block - tip
   const passou = blocos != null && blocos <= 0
 
@@ -162,6 +189,28 @@ export default function Snapshot() {
   )
 
   const cidade = fuso ? fuso.split("/").pop()?.replace(/_/g, " ") : null
+
+  // ── o bloco em curso ────────────────────────────────────────────────────
+  // `tip_time` é o carimbo da última ponta. O que está sendo minerado agora é
+  // tip + 1, e o tempo decorrido é a única coisa nesta seção que anda sozinha.
+  // A fração satura em 1: passar de dez minutos não é erro, é o comportamento
+  // normal de um processo de Poisson, e o rótulo passa a dizer isso em vez de
+  // esconder.
+  const tMs = feed?.snapshot?.tip_time ? Date.parse(feed.snapshot.tip_time) : NaN
+  const decorridoS = Number.isFinite(tMs) ? Math.max(0, Math.floor((relogio - tMs) / 1000)) : null
+  const alvoS = SNAPSHOT.minutesPerBlock * 60
+  const fracao = decorridoS == null ? 0 : Math.min(decorridoS / alvoS, 1)
+  const atrasado = decorridoS != null && decorridoS > alvoS
+  const mmss =
+    decorridoS == null ? null : `${Math.floor(decorridoS / 60)}m ${String(decorridoS % 60).padStart(2, "0")}s`
+
+  // ── o trilho da janela ──────────────────────────────────────────────────
+  // Quantos blocos já foram minerados desde o anúncio, sobre o total da
+  // janela. É o único jeito de a semana ter forma: sem ele a página mostra um
+  // número que só encolhe, sem começo nem fim visíveis.
+  const janela = SNAPSHOT.block - SNAPSHOT.announcedTip
+  const andados = tip == null ? 0 : Math.max(0, Math.min(tip - SNAPSHOT.announcedTip, janela))
+  const progresso = janela > 0 ? andados / janela : 0
 
   return (
     <section
@@ -193,6 +242,19 @@ export default function Snapshot() {
             segundo tem que sair com o número de BLOCOS na cabeça, não com uma
             data. */}
         <div className={`mt-5 md:mt-10 border ${HAIR} bg-white/[0.02]`}>
+          {/* o trilho da janela inteira, colado na borda de cima do quadro.
+              Não tem rótulo próprio de propósito: ele é a moldura do
+              instrumento, não mais um número para ler. */}
+          {!passou && (
+            <div className="h-[3px] w-full bg-white/[0.06]" aria-hidden>
+              <motion.div
+                className="h-full bg-lava/70"
+                initial={false}
+                animate={{ width: `${Math.max(progresso * 100, 0.4)}%` }}
+                transition={{ duration: reduce ? 0 : 1.1, ease: [0.16, 1, 0.3, 1] }}
+              />
+            </div>
+          )}
           <div className="px-5 py-5 md:px-8 md:py-8">
             {passou ? (
               // ── estado pós bloco ─────────────────────────────────────────
@@ -228,11 +290,17 @@ export default function Snapshot() {
                       Reading the chain
                     </div>
                   ) : (
+                    // ⚠️ `key={blocos}` remonta o nó a cada bloco novo, e é o
+                    // que dá a BATIDA: quando a chain anda, o número entra
+                    // deslocado e assenta. É o único momento em que o valor
+                    // grande se mexe, e ele se mexe porque um bloco foi
+                    // minerado de verdade. Sem a key, o React só troca o texto
+                    // e a chegada do bloco passa despercebida.
                     <motion.div
                       key={blocos}
-                      initial={reduce ? false : { opacity: 0.35 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                      initial={reduce ? false : { opacity: 0, y: 10, filter: "blur(6px)" }}
+                      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                      transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
                       className="font-display font-bold text-snow text-[54px] md:text-[86px] leading-none tracking-tight tabular-nums"
                     >
                       {en(blocos)}
@@ -245,6 +313,47 @@ export default function Snapshot() {
                     THE SNAPSHOT
                   </div>
                 </div>
+
+                {/* ═══ O PULSO ═══════════════════════════════════════════
+                    A única coisa desta seção que se mexe sozinha, e ela se
+                    mexe porque a rede está trabalhando, não porque a página
+                    quer parecer viva. Ver regra dura 7. */}
+                {decorridoS != null && (
+                  <div className="mt-6">
+                    <div className="flex items-baseline justify-between gap-3 font-mono text-[9px] md:text-[10px] tracking-[0.16em]">
+                      <span className={atrasado ? "text-lava" : "text-mist"}>
+                        {atrasado ? "OVERDUE · " : "MINING NOW · "}
+                        <span className="tabular-nums">BLOCK {tip == null ? "" : en(tip + 1)}</span>
+                      </span>
+                      <span className="tabular-nums text-snow">{mmss}</span>
+                    </div>
+                    {/* barra do bloco em curso: enche em tempo real e reseta
+                        quando a ponta anda. `key={tip}` é o que faz o reset ser
+                        um corte seco em vez de a barra "voltar" animando para
+                        trás, que leria como a chain andando ao contrário. */}
+                    <div className="mt-2 h-[2px] w-full bg-white/[0.06]" aria-hidden>
+                      <motion.div
+                        key={tip ?? "sem-tip"}
+                        // ⚠️ CHEIA E PARADA SERIA O PIOR ESTADO POSSÍVEL. Um
+                        // bloco pode passar bem dos dez minutos, e nessa hora a
+                        // barra satura: sem isto ela vira uma faixa laranja
+                        // imóvel exatamente quando a espera é a informação. A
+                        // respiração diz "ainda estamos esperando" sem
+                        // inventar progresso que não existe, e some sozinha
+                        // quando o bloco cai.
+                        className={`h-full ${atrasado ? "bg-lava snapshot-espera" : "bg-lava/60"}`}
+                        initial={false}
+                        animate={{ width: `${Math.max(fracao * 100, 1)}%` }}
+                        transition={{ duration: reduce ? 0 : 0.9, ease: "linear" }}
+                      />
+                    </div>
+                    <div className="mt-2 font-mono text-[9px] text-dusty">
+                      {atrasado
+                        ? `this block is past the ${SNAPSHOT.minutesPerBlock} minute average, which is normal`
+                        : `blocks arrive on a ${SNAPSHOT.minutesPerBlock} minute average, never on schedule`}
+                    </div>
+                  </div>
+                )}
 
                 {/* nível 3: a verificação. É o que prova que o número acima não
                     é enfeite: alvo, ponta e a idade da leitura, do nosso nó. */}
@@ -339,6 +448,20 @@ export default function Snapshot() {
           )}
         </div>
       </div>
+
+      {/* ⚠️ <style jsx> não existe neste projeto e um keyframe em Tailwind
+          exigiria tocar no config, que é compartilhado com o site inteiro. Um
+          bloco local resolve, e `prefers-reduced-motion` desliga a respiração
+          para quem pediu para o sistema não animar nada. */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+        @keyframes snapshot-espera { 0%, 100% { opacity: 1 } 50% { opacity: 0.42 } }
+        .snapshot-espera { animation: snapshot-espera 2.4s ease-in-out infinite }
+        @media (prefers-reduced-motion: reduce) { .snapshot-espera { animation: none } }
+      `,
+        }}
+      />
     </section>
   )
 }
