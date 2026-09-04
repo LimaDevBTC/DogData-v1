@@ -43,6 +43,21 @@ export interface PerfProfile {
    * contexto WebGL aos 68% do portão.
    */
   texLado: (base: number) => number
+  /**
+   * ⚠️ "ESTE PERFIL CORTA TEXTURA?" — E ELE EXISTE PORQUE A PERGUNTA FEITA COM
+   * `texLado` ERROU DUAS VEZES SEGUIDAS. O teto é `<=`: `texLado(768)` devolve
+   * 768 e `texLado(2048)` devolve 2048, então `texLado(n) < n` é FALSO para
+   * tudo que já cabe no teto. As páginas do whitepaper (768) e os três mapas da
+   * Terra (2048) foram trocados por versões metade e continuaram carregando o
+   * arquivo cheio, em silêncio, porque a condição nunca acendia.
+   *
+   * ⚠️ E TETO NÃO ENXERGA FAMÍLIA. Ele decide pela maior PEÇA; as nove páginas
+   * do whitepaper cabem folgadas em 2.048 uma a uma e somam 37 MB, mais que
+   * qualquer textura individual da cena. Quem troca por arquivo menor precisa
+   * decidir por CONTEÚDO ("isto é texto que ninguém lê no telefone"), e para
+   * isso a única pergunta útil é esta: o perfil corta ou não.
+   */
+  cortaTextura: boolean
   tier: Tier
   quality: Quality
   /** teto e piso da resolução dinâmica (DPR); o piso é alto de propósito: DPR é o
@@ -121,7 +136,7 @@ export function profileFor(tier: Tier, quality: Quality = 'balanced'): PerfProfi
       tier, quality, maxPixelRatio: Math.min(dpr, 3), minPixelRatio: 1.5, antialias: true,
       shadowMapSize: 2048, softShadows: true, shadowUpdateEvery: 1,
       censusPoints: true, jetParticles: 900, smallCull: 3400, textCull: 1700, parkDetailCull: 3800, lodDistance: 4800,
-      crystalLod: [1, 0.6, 0.3, 0.15], domeCell: 42, texLado: (b) => b,
+      crystalLod: [1, 0.6, 0.3, 0.15], domeCell: 42, texLado: (b) => b, cortaTextura: false,
     }
   }
   if (quality === 'low') {
@@ -129,7 +144,7 @@ export function profileFor(tier: Tier, quality: Quality = 'balanced'): PerfProfi
       tier, quality, maxPixelRatio: 1.25, minPixelRatio: 0.9, antialias: true,
       shadowMapSize: 1024, softShadows: false, shadowUpdateEvery: 2,
       censusPoints: false, jetParticles: 300, smallCull: 1200, textCull: 600, parkDetailCull: 2200, lodDistance: 1300,
-      crystalLod: [0.6, 0.2, 0.1, 0.05], domeCell: 130, texLado: tetoDe(1024),
+      crystalLod: [0.6, 0.2, 0.1, 0.05], domeCell: 130, texLado: tetoDe(1024), cortaTextura: true,
     }
   }
   // balanced
@@ -162,13 +177,13 @@ export function profileFor(tier: Tier, quality: Quality = 'balanced'): PerfProfi
       tier, quality, maxPixelRatio: 1.5, minPixelRatio: 1, antialias: true,
       shadowMapSize: 1024, softShadows: false, shadowUpdateEvery: 1,
       censusPoints: false, jetParticles: 600, smallCull: 2200, textCull: 1000, parkDetailCull: 2800, lodDistance: 2600,
-      crystalLod: [1, 0.3, 0.15, 0.08], domeCell: 96, texLado: tetoDe(2048),
+      crystalLod: [1, 0.3, 0.15, 0.08], domeCell: 96, texLado: tetoDe(2048), cortaTextura: true,
     }
     : {
       tier, quality, maxPixelRatio: 2, minPixelRatio: 1.25, antialias: true,
       shadowMapSize: 2048, softShadows: true, shadowUpdateEvery: 1,
       censusPoints: true, jetParticles: 900, smallCull: 2600, textCull: 1300, parkDetailCull: 3000, lodDistance: 3200,
-      crystalLod: [1, 0.35, 0.15, 0.08], domeCell: 58, texLado: (b) => b,
+      crystalLod: [1, 0.35, 0.15, 0.08], domeCell: 58, texLado: (b) => b, cortaTextura: false,
     }
 }
 

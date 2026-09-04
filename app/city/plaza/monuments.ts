@@ -299,7 +299,20 @@ export function monumentosEmObra(opts: MonumentsOpts): MonumentosEmObra {
   const carregaCena = (url: string) => new Promise<THREE.Object3D | null>((res) => gl.load(url, (gg) => res(gg.scene), undefined, () => res(null)))
   /** as nove páginas do PDF. Uma que falhe vira `null` e a estela nasce lisa: a
    *  praça nunca deixa de abrir por causa de uma imagem. */
-  const cxPages = caixa(Promise.all(STELAE.map((s) => loadTex(`/city/whitepaper/p${s.page}.webp`).catch((err) => {
+  // ⚠️ AS NOVE PÁGINAS SÃO A MAIOR FAMÍLIA DA CENA: 768x994 cada, 4,1 MB, 37 MB
+  // somados — mais que qualquer textura individual. Num celular a estela é lida
+  // de longe e a página é TEXTO que ninguém consegue ler ali de qualquer forma.
+  // `-half` é arquivo próprio (384x497, ~1 MB cada) e não redução no cliente,
+  // porque o que derruba o telefone é o PICO da decodificação.
+  // ⚠️ A PERGUNTA É "O PERFIL CORTA?", NÃO "ESTE TAMANHO SERIA CORTADO?".
+  // `texLado` é um TETO, então ele devolve 768 para uma entrada de 768 e a
+  // primeira versão desta linha (`texLado(768) < 768`) era sempre falsa: as
+  // páginas nunca trocavam. E teto é o instrumento errado para elas de
+  // qualquer forma — cada uma cabe folgada em 2.048, mas são NOVE, e nove
+  // vezes 4,1 MB são 37 MB, a maior família da cena inteira. Teto não vê
+  // família; ele só vê a maior peça. Por isso a decisão aqui é explícita.
+  const meiaPag = opts.profile?.cortaTextura ?? false
+  const cxPages = caixa(Promise.all(STELAE.map((s) => loadTex(`/city/whitepaper/p${s.page}${meiaPag ? '-half' : ''}.webp`).catch((err) => {
     console.warn('[plaza] página do white paper não carregou', s.page, err)
     return null
   }))))

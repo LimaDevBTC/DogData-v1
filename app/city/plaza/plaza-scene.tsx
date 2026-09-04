@@ -1446,7 +1446,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     // para cima de propósito; mais baixo, e ela vira lua nascendo. Continua sendo
     // Mare Tranquillitatis (o mar vai até uns 30° N), e o azimute sai da mesma
     // conta: 243°, a sudoeste, na direção do ponto sub-terrestre.
-    const earth = buildEarth()
+    const earth = buildEarth(profile.cortaTextura)
     const EARTH_AZ = 243, EARTH_EL = 44
     const EARTH_DIR = new THREE.Vector3(
       Math.sin(THREE.MathUtils.degToRad(EARTH_AZ)) * Math.cos(THREE.MathUtils.degToRad(EARTH_EL)),
@@ -3348,7 +3348,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           : Promise.resolve(stepDone('props'))
         // a galeria do Dog Social Club (item 10): a coleção inteira num muro do
         // jardim ao lado da Kray; entra junto com os adereços
-        const pDsc = buildDscGallery({ heightAt, profile, culler, texLado: profile.texLado })
+        const pDsc = buildDscGallery({ heightAt, profile, culler, cortaTextura: profile.cortaTextura })
           .then((g) => { if (!g || disposed) { g?.dispose(); return } dsc = g; scene.add(g.group) })
           .catch((err) => console.warn('[plaza] dsc', err))
         // ⚠️ PRAZO OBRIGATÓRIO: este fetch mora DENTRO do portão de carga; no
@@ -3731,6 +3731,58 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           }
           return { n, raio, min, max, alturas: Array.from(alturas) }
         }
+      // ?stats=1 → window.__plazaTexturas(): O CENSO DE VRAM POR TEXTURA.
+      //
+      // ⚠️ EXISTE PORQUE `renderer.info.memory.textures` CONTA E NÃO PESA. Ele
+      // devolve "233 texturas" e nada mais, e 233 texturas podem ser 20 MB ou
+      // 450: quem paga é a ÁREA vezes o formato. Sem esta lista, cortar memória
+      // vira caça por grep no código, que foi como as quatro primeiras foram
+      // achadas — e grep não vê textura que vem de arquivo nem de biblioteca.
+      //
+      // ⚠️ A CONTA INCLUI O MIPMAP (fator 4/3) e assume 4 bytes por texel, o
+      // que é o caso de tudo que esta cena carrega (RGBA8), menos onde o
+      // formato diz outra coisa — aí ele é lido de `tex.format`.
+      ;(window as unknown as { __plazaTexturas?: () => unknown }).__plazaTexturas = () => {
+        const vistas = new Map<string, { w: number; h: number; mb: number; onde: string[] }>()
+        const bytesPorTexel = (t: THREE.Texture): number => {
+          const f = (t as unknown as { format?: number }).format
+          if (f === THREE.RedFormat) return 1
+          if (f === THREE.RGFormat) return 2
+          return 4
+        }
+        const anota = (t: THREE.Texture | null | undefined, onde: string) => {
+          if (!t || !t.image) return
+          const w = (t.image as { width?: number }).width ?? 0
+          const h = (t.image as { height?: number }).height ?? 0
+          if (!w || !h) return
+          // ⚠️ A CHAVE É A IDENTIDADE DA TEXTURA, não o nome: a MESMA textura
+          // aparece em dezenas de materiais (o ladrilho do regolito, por
+          // exemplo) e contá-la uma vez por material inflaria o total em
+          // ordens de grandeza. `t.uuid` é o que o driver aloca uma vez só.
+          const k = t.uuid
+          const j = vistas.get(k)
+          if (j) { if (j.onde.length < 4 && !j.onde.includes(onde)) j.onde.push(onde); return }
+          const mip = t.generateMipmaps === false ? 1 : 4 / 3
+          vistas.set(k, { w, h, mb: (w * h * bytesPorTexel(t) * mip) / 1e6, onde: [onde] })
+        }
+        scene.traverse((o) => {
+          const m = (o as THREE.Mesh).material
+          if (!m) return
+          const nome = o.name || o.parent?.name || o.type
+          for (const mm of (Array.isArray(m) ? m : [m]) as THREE.Material[]) {
+            for (const [ch, val] of Object.entries(mm as unknown as Record<string, unknown>)) {
+              if (val && (val as THREE.Texture).isTexture) anota(val as THREE.Texture, `${nome}.${ch}`)
+            }
+          }
+        })
+        const lista = Array.from(vistas.values()).sort((a, b) => b.mb - a.mb)
+        return {
+          total: +lista.reduce((a, t) => a + t.mb, 0).toFixed(1),
+          quantas: lista.length,
+          contadasPeloRenderer: renderer.info.memory.textures,
+          maiores: lista.slice(0, 24).map((t) => ({ px: `${t.w}x${t.h}`, mb: +t.mb.toFixed(1), onde: t.onde.join(' | ') })),
+        }
+      }
       ;(window as unknown as { __plazaAltura?: (r: number) => unknown }).__plazaAltura = (r: number) => {
         const a = 0.9, x = Math.sin(a) * r, z = -Math.cos(a) * r
         return { r, heightAt: +heightAt(x, z).toFixed(2), superficieAt: +superficieAt(x, z).toFixed(2), lago: lagoGeo }
@@ -4756,7 +4808,7 @@ function buildStars(): THREE.Points {
   return p
 }
 
-function buildEarth(): THREE.Group {
+function buildEarth(corta = false): THREE.Group {
   const g = new THREE.Group()
   g.name = 'Earth'
   // ⚠️ O TAMANHO É LICENÇA POÉTICA MEDIDA, e não um número solto. Da Lua a Terra
@@ -4772,12 +4824,22 @@ function buildEarth(): THREE.Group {
     t.anisotropy = 4
     return t
   }
+  // ⚠️ NO CELULAR A TERRA VAI A METADE, e ela era a segunda maior família de
+  // textura da cena: três mapas de 2048x1024, 11,2 MB cada, 33,6 MB somados
+  // para um globo que num telefone ocupa poucos por cento da tela. O censo
+  // (`scripts/city/texturas.mjs`) só a achou porque ela vem de ARQUIVO — não
+  // existe um único "2048" no fonte para um grep encontrar.
+  //
+  // ⚠️ E SÃO ARQUIVOS METADE, não redução no cliente, pelo mesmo motivo do
+  // atlas da coleção: o navegador decodifica o tamanho cheio primeiro e é o
+  // PICO de memória que derruba o contexto WebGL, não o residente.
+  const terraMeio = corta ? '1024' : '2048'
   const globe = new THREE.Mesh(
     new THREE.SphereGeometry(R, 64, 48),
     new THREE.MeshPhongMaterial({
-      map: tex('/city/earth/earth_atmos_2048.jpg'),
-      specularMap: tex('/city/earth/earth_specular_2048.jpg', false),
-      normalMap: tex('/city/earth/earth_normal_2048.jpg', false),
+      map: tex(`/city/earth/earth_atmos_${terraMeio}.jpg`),
+      specularMap: tex(`/city/earth/earth_specular_${terraMeio}.jpg`, false),
+      normalMap: tex(`/city/earth/earth_normal_${terraMeio}.jpg`, false),
       normalScale: new THREE.Vector2(0.6, 0.6),
       specular: new THREE.Color(0x333333),
       shininess: 18,

@@ -34,8 +34,8 @@ export async function buildDscGallery(opts: {
   heightAt: (x: number, z: number) => number
   profile?: PerfProfile
   culler?: DistanceCuller
-  /** teto de textura do perfil (`perf.ts`): decide o atlas cheio ou o metade */
-  texLado?: (base: number) => number
+  /** o perfil corta textura? (`cortaTextura` em perf.ts) decide cheio ou metade */
+  cortaTextura?: boolean
 }): Promise<DscGallery | null> {
   const [meta, tex] = await Promise.all([
     fetch('/city/dsc-atlas.json').then((r) => (r.ok ? (r.json() as Promise<AtlasMeta>) : null)).catch(() => null),
@@ -47,7 +47,7 @@ export async function buildDscGallery(opts: {
     // nunca existe o pico. A parede da coleção é vista de longe e com
     // `NearestFilter` de propósito: o pixel do ordinal continua legível.
     new Promise<THREE.Texture | null>((res) => {
-      const meio = (opts.texLado?.(4096) ?? 4096) < 4096
+      const meio = opts.cortaTextura ?? false
       new THREE.TextureLoader().load(meio ? '/city/dsc-atlas-half.webp' : '/city/dsc-atlas.webp', (t) => { t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.anisotropy = 8; res(t) }, undefined, () => res(null))
     }),
   ])
