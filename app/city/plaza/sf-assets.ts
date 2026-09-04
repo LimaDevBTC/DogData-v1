@@ -305,7 +305,7 @@ export function podarMapasSecundarios(root: THREE.Object3D): { texturas: number 
     (Array.isArray(m.material) ? m.material : [m.material]) as THREE.MeshStandardMaterial[]
 
   // 1) o que fica: tudo que carrega COR ou dado de canal que não tem fator substituto
-  const manter = new Set<THREE.Texture>()
+  const manter = new Set<THREE.Source<unknown>>()
   root.traverse((o) => {
     const m = o as THREE.Mesh
     if (!m.isMesh) return
@@ -313,12 +313,20 @@ export function podarMapasSecundarios(root: THREE.Object3D): { texturas: number 
       if (!mat) continue
       for (const campo of ['map', 'emissiveMap', 'alphaMap', 'metalnessMap', 'roughnessMap', 'aoMap', 'lightMap'] as const) {
         const t = mat[campo] as THREE.Texture | null | undefined
-        if (t) manter.add(t)
+        // ⚠️ A GUARDA É POR `source`, NÃO PELO OBJETO `Texture`. `Texture.copy()`
+        // compartilha o `Source` por REFERÊNCIA, e o `GLTFLoader` clona a
+        // textura em dois casos (`texCoord > 0` e KHR_texture_transform). Hoje o
+        // acervo não tem nenhum caso desses, mas ele cresce por download do
+        // Sketchfab: no dia em que entrar um asset com a mesma imagem em dois
+        // slots com texCoord diferente, a guarda por objeto deixaria passar e a
+        // poda apagaria um mapa de COR. O sintoma seria uma peça preta no
+        // celular, sem uma linha no console.
+        if (t?.source) manter.add(t.source)
       }
     }
   })
 
-  // 2) o que sai
+  // 2) o que sai (o conjunto guarda a TEXTURA, mas quem decide é o `source` dela)
   const soltas = new Set<THREE.Texture>()
   root.traverse((o) => {
     const m = o as THREE.Mesh
@@ -330,19 +338,34 @@ export function podarMapasSecundarios(root: THREE.Object3D): { texturas: number 
         if (!t) continue
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ;(mat as any)[campo] = null
-        if (!manter.has(t)) soltas.add(t)
+        if (t.source && !manter.has(t.source)) soltas.add(t)
       }
       mat.needsUpdate = true
     }
   })
 
-  // ⚠️ `dispose()` E `close()`, NESTA ORDEM, e o `close()` quase nunca existe no
-  // aparelho que interessa: `GLTFLoader` detecta Safari e usa `TextureLoader`
-  // (HTMLImageElement) em vez de `ImageBitmapLoader`, e HTMLImageElement não tem
-  // `close()`. No iPhone quem solta o pixel é o coletor de lixo, então zerar a
-  // referência é o que resta; no Chrome do Android o `close()` solta na hora.
+  // ⚠️ DOIS CAMINHOS, PORQUE O PIXEL NÃO MORA NO MESMO LUGAR NOS DOIS.
+  //
+  // Textura NÃO comprimida (o desktop, e o celular antes do espelho KTX2): o
+  // pixel está em `source.data`. O `close()` quase nunca existe no aparelho que
+  // interessa, porque o `GLTFLoader` detecta Safari e usa `TextureLoader`
+  // (HTMLImageElement) em vez de `ImageBitmapLoader`; no iPhone quem solta é o
+  // coletor de lixo e zerar a referência é o que resta.
+  //
+  // ⚠️ Textura COMPRIMIDA (o celular com o espelho): `source.data` NÃO é o pixel.
+  // O construtor de `CompressedTexture` faz `super(null, ...)` e guarda um
+  // `{width, height}` ali; os níveis de verdade ficam em `texture.mipmaps`, que
+  // é por onde o `WebGLTextures` sobe o dado. Zerar `source.data` não soltaria
+  // nada, e sem esta linha a poda tinha virado inócua justamente no caminho novo.
+  // `mipmaps` é um array por textura (`Texture.copy` faz `slice(0)`) e a textura
+  // já saiu do material, então esvaziar é seguro.
   for (const t of soltas) {
     t.dispose()
+    const comp = t as THREE.CompressedTexture
+    if (comp.isCompressedTexture && Array.isArray(comp.mipmaps)) {
+      comp.mipmaps.length = 0
+      continue
+    }
     const dado = t.source?.data as { close?: () => void } | null
     if (dado && typeof dado.close === 'function') dado.close()
     if (t.source) t.source.data = null

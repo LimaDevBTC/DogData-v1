@@ -1490,19 +1490,46 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     // ⚠️ O ESPELHO TEM DE ESTAR COMPLETO. Um arquivo que falte vira 404, `loadSf`
     // devolve null e a peça some da praça em silêncio; por isso o conversor
     // falha ruidosamente quando não converte tudo.
-    const gerente = new THREE.LoadingManager()
-    if (profile.cortaTextura) {
-      gerente.setURLModifier((url) => (url.includes('/city/sf/') ? url.replace('/city/sf/', '/city/sf-ktx2/') : url))
-    }
     // ⚠️ `setWorkerLimit(2)`: o KTX2Loader copia o binário do transcodificador
     // POR WORKER (`transcoderBinary.slice(0)`) e o WorkerPool nasce com 4, ou
     // seja 4 cópias de 500 KB mais 4 heaps de wasm num aparelho que já está sem
-    // memória. E o transcodificador só é BAIXADO quando o primeiro .ktx2 chega:
-    // no desktop, que nunca recebe um, isto custa zero byte de rede.
+    // memória. E o TRANSCODIFICADOR só é baixado quando o primeiro .ktx2 chega
+    // (`init()` roda dentro do `load`): no desktop, que nunca recebe um, ele não
+    // custa byte nenhum de rede. O MÓDULO, esse sim, entra no pacote da /city
+    // para todo mundo (cerca de 29 KB gzip com o ktx-parse e o zstddec).
     const ktx2 = new KTX2Loader()
     ktx2.setTranscoderPath('/basis/')
     ktx2.setWorkerLimit(2)
+    // ⚠️ `detectSupport` ANTES DE ARMAR A TROCA, e a ordem é o conserto de uma
+    // armadilha. Ele é síncrono e preenche `workerConfig` na hora, o que permite
+    // PERGUNTAR se este aparelho aceita algum formato comprimido. Se não aceitar
+    // nenhum, `getTranscoderFormat` cai no fim do laço e transcodifica para
+    // RGBA32: o telefone receberia os MESMOS 4 bytes por texel do original, mais
+    // 500 KB de wasm, mais dois workers, e ainda por cima sobre uma imagem já
+    // degradada por ETC1S. Seria o pior dos dois mundos, e o único aviso é uma
+    // linha de console num aparelho que ninguém está lendo.
     ktx2.detectSupport(renderer)
+    const cfg = ktx2.workerConfig
+    const temFormatoComprimido = !!cfg && (cfg.etc2Supported || cfg.etc1Supported || cfg.astcSupported || cfg.bptcSupported || cfg.dxtSupported || cfg.pvrtcSupported)
+
+    // ⚠️ `tier === 'mobile'` E NÃO SÓ `cortaTextura`, e isto é a regra do desktop
+    // levada a sério. `cortaTextura` é TRUE em `quality === 'low'` para QUALQUER
+    // aparelho (perf.ts:147), e o próprio HUD da cena oferece o link
+    // `/city?quality=low`: um desktop em LOW passaria a comer o acervo ETC1S,
+    // que num PC vira BC7 ou BC1, ou seja perda por cima de perda. LOW já
+    // significa degradado, mas a régua do fundador é bit a bit e a decisão de
+    // servir acervo comprimido ao desktop não é desta frente.
+    const espelhoLigado = profile.tier === 'mobile' && profile.cortaTextura && temFormatoComprimido
+    const gerente = new THREE.LoadingManager()
+    if (espelhoLigado) {
+      // ⚠️ `.glb` NO TESTE, e não só o prefixo do caminho. O espelho tem os 89
+      // GLB e mais nada; `public/city/sf/_silhueta/` são 18 PNG que não foram
+      // espelhados. Hoje ninguém os carrega, então trocar por prefixo não
+      // quebraria nada, mas é uma mina esperando o primeiro consumidor.
+      gerente.setURLModifier((url) => (url.endsWith('.glb') && url.includes('/city/sf/') ? url.replace('/city/sf/', '/city/sf-ktx2/') : url))
+    } else if (profile.cortaTextura && !temFormatoComprimido) {
+      console.warn('[plaza] aparelho sem formato de textura comprimida: carregando o acervo original')
+    }
     const gltf = new GLTFLoader(gerente)
     gltf.setDRACOLoader(draco)
     gltf.setKTX2Loader(ktx2)
@@ -4224,8 +4251,14 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       founders?.dispose()
       campo?.dispose()
       draco.dispose()
-      // solta os workers e o heap de wasm do transcodificador junto com o draco
-      ktx2.dispose()
+      // ⚠️ SÓ SE O ESPELHO FOI LIGADO. `KTX2Loader.dispose()` decrementa o
+      // contador de módulo `_activeLoaders` incondicionalmente, mas quem o
+      // incrementa é o `init()`, que só roda quando o primeiro .ktx2 chega. No
+      // desktop, que nunca recebe um, chamar dispose deixaria o contador
+      // negativo para sempre (a variável é de módulo e sobrevive à navegação do
+      // Next), desarmando o aviso de "múltiplos KTX2Loader" que o three usa para
+      // diagnóstico. Guardado, ele só é chamado quando de fato houve carga.
+      if (espelhoLigado) ktx2.dispose()
       lunarEnv.dispose()
       scene.traverse((o) => {
         const m = o as THREE.Mesh

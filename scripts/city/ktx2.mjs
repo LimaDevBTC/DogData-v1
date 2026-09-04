@@ -37,6 +37,21 @@
 //      lossy") e o arquivo dobra de tamanho. Sem reaplicar, troca-se memória de
 //      textura por download de geometria.
 //
+// ⚠️ O ESPELHO É MAIOR NO DISCO, e o passo 3 não muda isso: ele evita que o
+// arquivo DOBRE, não garante arquivo menor. Medido: 19,17 MB para 19,61 MB, ou
+// seja +2,3% de download, com 48 dos 89 arquivos crescendo (os piores são
+// peixe-palhaco +111%, coral-set +74%, bench-classic +72%). ETC1S é bloco de
+// tamanho fixo e não compete com WebP em BYTE DE ARQUIVO; ele ganha em VRAM, que
+// é onde o telefone estava morrendo. A troca é 0,44 MB de rede por 392 MiB de
+// RGBA8, e é por isso que ela vale.
+//
+// ⚠️ O ESPELHO É UNIVERSAL, A PODA NÃO. `podarMapasSecundarios` descarta os mapas
+// de normal depois da carga, mas ela só cobre dois dos caminhos de GLB da cena
+// (props.ts e monuments.ts). Quem for tentado a economizar tirando os normais
+// daqui: NÃO. Os outros caminhos (inverno, caverna, montanha, park) carregam do
+// mesmo espelho e não passam pela poda, e ficariam sem relevo sem que ninguém
+// tivesse pedido.
+//
 // FERRAMENTA. Nada disso está no package.json de propósito: é ferramenta de
 // build de asset, não dependência de runtime. Fica em ~/.cache/dogcity-ktx2:
 //   node   v24 (o CLI 4.x usa import attributes, que o node 18 do sistema não lê)
