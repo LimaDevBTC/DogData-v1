@@ -266,6 +266,90 @@ export function firstGeometry(root: THREE.Object3D): { geo: THREE.BufferGeometry
   return found
 }
 
+/**
+ * PODA OS MAPAS SECUNDÁRIOS DE UM MODELO IMPORTADO, e ela existe porque o
+ * celular não abre a praça: o contexto WebGL cai aos 68% do portão por falta de
+ * memória, e o teto de textura de 03/09 não alcança este balde. As imagens do
+ * acervo Sketchfab são 512x512, ou seja já cabem folgadas em `texLado(2048)`;
+ * quem paga não é o TAMANHO de cada uma, é a QUANTIDADE. Medido abrindo o chunk
+ * glTF dos arquivos reais: o boot padrão sobe 178 imagens e 197,7 MiB, dos quais
+ * 56,92 MiB são mapa de normal e 3,33 MiB são as extensões de especular.
+ *
+ * ⚠️ SÓ SAI O QUE TEM FATOR ESCALAR SUBSTITUINDO, e o escopo desta função é
+ * exatamente essa fronteira. Sem `normalMap` o three usa a normal de vértice;
+ * sem `specularIntensityMap`/`specularColorMap` ele usa os fatores do material.
+ * A peça fica mais macia e continua lendo como ela mesma.
+ *
+ * ⚠️ E POR ISSO `metalnessMap`, `roughnessMap` E `aoMap` FICAM. Foi a primeira
+ * versão desta poda e ela pintava a praça de preto: 45 materiais do acervo têm
+ * `metallicRoughnessTexture` e 22 DELES têm `metallicFactor = 1`. Em glTF o
+ * fator MULTIPLICA a textura, então esses 22 dependem inteiramente do canal B do
+ * mapa para dizer "isto não é metal". Sem ele o three fica com `metalness = 1`,
+ * e em PBR o difuso é `albedo * (1 - metalness)`, ou seja ZERO: a cor some e a
+ * peça vira condutor puro, que num céu lunar escuro lê como silhueta. A lista é
+ * o que se vê de perto na praça: bench-classic, btc-atm, torch-pillar, brazier,
+ * lamp-stone, pedestal, armillary, buxo-bola, cycas-vaso, sp-dish, sp-tank,
+ * tree-gnarled, tree-maple e heliconia. Folha de bordo virava metal.
+ * Tirar essa família (48,91 MiB) exige escrever `metalness` e `roughness` de
+ * volta no mesmo passo, e isso é decisão de gosto com chapa lado a lado.
+ *
+ * ⚠️ O DESCARTE É POR OBJETO E COM GUARDA, NÃO POR CAMPO. `GLTFLoader` devolve a
+ * MESMA instância de `THREE.Texture` para índices iguais: em `pine-umbrella` a
+ * imagem de 128x256 é `baseColorTexture` E `KHR_materials_specular.specularColorTexture`
+ * ao mesmo tempo. Descartar pelo nome do campo mataria a cor base do pinheiro do
+ * Jardim Italiano. Por isso primeiro se junta tudo que NÃO pode sair e só então
+ * se descarta o que sobra, uma vez por objeto.
+ */
+export function podarMapasSecundarios(root: THREE.Object3D): { texturas: number } {
+  const materiais = (m: THREE.Mesh) =>
+    (Array.isArray(m.material) ? m.material : [m.material]) as THREE.MeshStandardMaterial[]
+
+  // 1) o que fica: tudo que carrega COR ou dado de canal que não tem fator substituto
+  const manter = new Set<THREE.Texture>()
+  root.traverse((o) => {
+    const m = o as THREE.Mesh
+    if (!m.isMesh) return
+    for (const mat of materiais(m)) {
+      if (!mat) continue
+      for (const campo of ['map', 'emissiveMap', 'alphaMap', 'metalnessMap', 'roughnessMap', 'aoMap', 'lightMap'] as const) {
+        const t = mat[campo] as THREE.Texture | null | undefined
+        if (t) manter.add(t)
+      }
+    }
+  })
+
+  // 2) o que sai
+  const soltas = new Set<THREE.Texture>()
+  root.traverse((o) => {
+    const m = o as THREE.Mesh
+    if (!m.isMesh) return
+    for (const mat of materiais(m)) {
+      if (!mat) continue
+      for (const campo of ['normalMap', 'bumpMap', 'specularColorMap', 'specularIntensityMap', 'clearcoatNormalMap', 'sheenColorMap'] as const) {
+        const t = mat[campo as keyof THREE.MeshStandardMaterial] as THREE.Texture | null | undefined
+        if (!t) continue
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ;(mat as any)[campo] = null
+        if (!manter.has(t)) soltas.add(t)
+      }
+      mat.needsUpdate = true
+    }
+  })
+
+  // ⚠️ `dispose()` E `close()`, NESTA ORDEM, e o `close()` quase nunca existe no
+  // aparelho que interessa: `GLTFLoader` detecta Safari e usa `TextureLoader`
+  // (HTMLImageElement) em vez de `ImageBitmapLoader`, e HTMLImageElement não tem
+  // `close()`. No iPhone quem solta o pixel é o coletor de lixo, então zerar a
+  // referência é o que resta; no Chrome do Android o `close()` solta na hora.
+  for (const t of soltas) {
+    t.dispose()
+    const dado = t.source?.data as { close?: () => void } | null
+    if (dado && typeof dado.close === 'function') dado.close()
+    if (t.source) t.source.data = null
+  }
+  return { texturas: soltas.size }
+}
+
 /** Ajusta os materiais de um modelo importado ao ambiente da praça. */
 export function dressSf(root: THREE.Object3D, opts: { envMapIntensity?: number; roughness?: number; castShadow?: boolean } = {}) {
   root.traverse((o) => {

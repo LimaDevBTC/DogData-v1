@@ -84,7 +84,7 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-import { loadSf, dressSf } from './sf-assets'
+import { loadSf, dressSf, podarMapasSecundarios } from './sf-assets'
 import type { PerfProfile, DistanceCuller } from './perf'
 
 /** Uma peça posta na praça. `at` são pontos (x, z) em metros no quadro three. */
@@ -308,10 +308,64 @@ export async function buildProps(opts: {
   const yAt = opts.heightAt
   const SMALL = opts.profile?.smallCull ?? 2600
 
+  // ⚠️ UM ARQUIVO, UM PARSE, E O CACHE MORA AQUI DENTRO DE PROPÓSITO.
+  //
+  // A tabela pede o MESMO .glb mais de uma vez, por dois caminhos: `tree-cypress`,
+  // `lamp-stone`, `garden-urn` e `fountain-basin` aparecem duas vezes cada em
+  // `props-table.ts`, e o precinto (`precinct.ts:645`) repete as SEIS árvores que
+  // a tabela já pediu (tree-maple, tree-medit, tree-cypress, tree-olive,
+  // tree-blossom, palm-date). As duas listas caem neste mesmo `buildProps`
+  // (plaza-scene.tsx:3342). Sem cache, cada spec reparseia o arquivo e aloca
+  // outra cópia de TODAS as texturas dele: 39,58 MiB de VRAM só nas seis árvores,
+  // mais 16,33 MiB nos quatro repetidos, mais uma decodificação Draco por vez.
+  //
+  // ⚠️ E ELE NÃO PODE SUBIR PARA `loadSf`, por mais tentador que seja. Um cache no
+  // escopo do MÓDULO compartilharia o material entre TODOS os chamadores, e
+  // `dressSf` muta o material no lugar: `brazier.glb` é vestido aqui com
+  // `envMapIntensity` 1,0 e na soleira da caverna (`leonidas-cave.ts:598`) com
+  // 0,3 e `roughness` 0,8. O último a escrever ganharia, e os quatro braseiros do
+  // inlay do Bitcoin, no centro do deck, perderiam 70% do reflexo de ambiente ao
+  // vivo, no meio da sessão, INCLUSIVE NO DESKTOP. Confinado a esta função, o
+  // compartilhamento só alcança linhas da mesma tabela.
+  //
+  // ⚠️ NÃO ECONOMIZA REDE, e dizer que economiza seria mentira: o `FileLoader` do
+  // three já deduplica requisição em voo por conta própria, e as chamadas saem no
+  // mesmo tique síncrono. O que se economiza é PARSE e MEMÓRIA, que é o que mata
+  // o telefone.
+  const carregados = new Map<string, Promise<THREE.Object3D | null>>()
+  const carregar = (file: string) => {
+    const url = `/city/sf/${file}.glb`
+    let p = carregados.get(url)
+    if (!p) {
+      p = loadSf(gltf, url).then((root) => {
+        // a poda roda UMA VEZ, na base, antes de qualquer cópia: assim nenhuma
+        // textura é descartada duas vezes e toda cópia já nasce podada
+        if (root && opts.profile?.cortaTextura) podarMapasSecundarios(root)
+        return root
+      })
+      carregados.set(url, p)
+    }
+    return p
+  }
+
   await Promise.all(opts.specs.map(async (spec) => {
     if (!spec.at.length) return
-    const root = await loadSf(gltf, `/city/sf/${spec.file}.glb`)
-    if (!root) return
+    const base = await carregar(spec.file)
+    if (!base) return
+    // ⚠️ CÓPIA POR SPEC, COM MATERIAL PRÓPRIO. `clone()` compartilha geometria e
+    // textura por referência (que é justamente a economia) mas `dressSf` escreve
+    // `envMapIntensity` e `roughness` NO MATERIAL, então duas linhas da tabela
+    // com vestimentas diferentes brigariam pelo mesmo objeto. Clonar o material
+    // custa algumas centenas de bytes e devolve a cada spec o estado que ele
+    // tinha antes deste cache existir: nada muda um pixel, aqui nem no desktop.
+    const root = base.clone()
+    root.traverse((o) => {
+      const m = o as THREE.Mesh
+      if (!m.isMesh || !m.material) return
+      m.material = Array.isArray(m.material)
+        ? m.material.map((x) => x.clone())
+        : (m.material as THREE.Material).clone()
+    })
     dressSf(root, { envMapIntensity: spec.envMapIntensity ?? 1.0, castShadow: spec.castShadow ?? true })
     const o = new THREE.Object3D()
     const place = (x: number, z: number) => {

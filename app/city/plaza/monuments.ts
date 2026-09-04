@@ -51,7 +51,7 @@ import {
   ORDINAL_CENTER, ORDINAL_RING_R, ORDINAL_STONES, ORDINAL_PLAQUES, QUADRANT_ANGLE, POOL_R,
   BUST_POS, HERO_PALMS,
 } from './garden-plan'
-import { SF, loadSf, dressSf, firstGeometry } from './sf-assets'
+import { SF, loadSf, dressSf, firstGeometry, podarMapasSecundarios } from './sf-assets'
 import { TIERS, crystalMaterialFor, loadCrystalTextures } from './park'
 import { buildLeonidas } from './statues'
 import type { PerfProfile, DistanceCuller } from './perf'
@@ -296,7 +296,13 @@ export function monumentosEmObra(opts: MonumentsOpts): MonumentosEmObra {
   // ── A REDE, TODA JUNTA, ANTES DA PRIMEIRA FATIA ───────────────────────────
   // Ver o cabeçalho: os quatro `await` da versão antiga eram uma fila.
   const gl = opts.gltf ?? new GLTFLoader()
-  const carregaCena = (url: string) => new Promise<THREE.Object3D | null>((res) => gl.load(url, (gg) => res(gg.scene), undefined, () => res(null)))
+  // a mesma poda de mapa secundário que `buildProps` faz no acervo, pela porta do
+  // Leonidas: `leonidas-skull.glb` traz um mapa de normal de 1024 (5,33 MiB) que
+  // no celular não paga o que custa. `leonidas-body.glb` tem só cor e sai ileso.
+  const carregaCena = (url: string) => new Promise<THREE.Object3D | null>((res) => gl.load(url, (gg) => {
+    if (opts.profile?.cortaTextura) podarMapasSecundarios(gg.scene)
+    res(gg.scene)
+  }, undefined, () => res(null)))
   /** as nove páginas do PDF. Uma que falhe vira `null` e a estela nasce lisa: a
    *  praça nunca deixa de abrir por causa de uma imagem. */
   // ⚠️ AS NOVE PÁGINAS SÃO A MAIOR FAMÍLIA DA CENA: 768x994 cada, 4,1 MB, 37 MB
