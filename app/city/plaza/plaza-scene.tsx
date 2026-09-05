@@ -76,6 +76,7 @@ import { look2 } from './look'
 import { instalarAtmosfera } from './atmosfera'
 import { setAnisotropia } from './materiais'
 import { montarPos, type Pos } from './pos'
+import { rotaLive, duracaoLive, TOUR_LIVE_DERIVA, TOUR_LIVE_OCIO_MS } from './tour-live'
 import { assentarEstadio, estadioCull, estadioParcela, estadioSitio } from './estadio'
 import { CityChat } from '@/components/wallet/city-chat'
 
@@ -461,6 +462,26 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
     // o hipódromo visto do alto, do lado da praça: a forma e as duas bocas
     case 'coliseu':
       return { pos: new THREE.Vector3(-1380, 620 + dy, 2860), target: new THREE.Vector3(-2120, 40 + dy, 2120) }
+    // ⚠️ AS VISTAS DO ESTÁDIO SAEM DO MÓDULO DA TEIA, não de número escrito à
+    // mão: `estadioSitio()` devolve o centro do bloco, e a câmera se afasta na
+    // direção radial para o prédio cair no meio do quadro. Se a peça mudar de
+    // módulo, o enquadramento acompanha.
+    case 'estadio': case 'estadioalto': case 'estadiorasante': {
+      const s = estadioSitio()
+      const a = THREE.MathUtils.degToRad(s.rumoDeg)
+      const rx = Math.sin(a), rz = -Math.cos(a)
+      const solo = 0
+      if (name === 'estadioalto') {
+        return { pos: new THREE.Vector3(s.x + rx * 300, 980 + solo, s.z + rz * 300),
+                 target: new THREE.Vector3(s.x, solo, s.z) }
+      }
+      if (name === 'estadiorasante') {
+        return { pos: new THREE.Vector3(s.x + rx * 620, 120 + solo, s.z + rz * 620),
+                 target: new THREE.Vector3(s.x, 40 + solo, s.z) }
+      }
+      return { pos: new THREE.Vector3(s.x + rx * 900, 430 + solo, s.z + rz * 900),
+               target: new THREE.Vector3(s.x, 20 + solo, s.z) }
+    }
     // a mesma casca vista de fora, do lado do parque: a silhueta e a saia
     case 'abobadafora':
       return { pos: new THREE.Vector3(4600, 1250, 4600), target: new THREE.Vector3(0, 380, 0) }
@@ -1101,8 +1122,12 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     // deslocamento entre eles não muda, então não existe deriva.
     const LOOK_UP = 0.85 // 49 graus de céu, o bastante para a Terra e as naves
     controls.maxPolarAngle = Math.PI / 2 + LOOK_UP
+    // ⚠️ A ÓRBITA DE ABERTURA VAI NA VELOCIDADE DA DERIVA, não nos 0,18 antigos.
+    // Ela existe só para a cena não abrir congelada nos primeiros 60 s, até o
+    // tour da live assumir; nos 0,18 ela dava quase um quarto de volta por
+    // minuto sobre o MESMO ponto, que é o que o fundador viu na transmissão.
     controls.autoRotate = true
-    controls.autoRotateSpeed = 0.18
+    controls.autoRotateSpeed = TOUR_LIVE_DERIVA
     controls.enabled = false // só depois que o portão abrir (ver `boot.ready`)
     controls.update()
     let lastInteraction = 0
@@ -3911,7 +3936,59 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       controls.enabled = false
       nextTourStep()
     }
-    const cancelTourOnInput = () => { if (tourTimer) stopTour() }
+    // ── O TOUR DA LIVE ─────────────────────────────────────────────────────
+    // ⚠️ ELE ENTRA NO LUGAR DA ÓRBITA OCIOSA. Antes, 25 s parado ligavam
+    // `controls.autoRotate` e a câmera girava em torno de UM ponto para sempre:
+    // numa transmissão de horas isso é o mesmo enquadramento repetido. O
+    // fundador, 05/09: "no momento ele fica circulando sobre um único ponto, ele
+    // deveria ficar um tempo em cada ponto".
+    //
+    // ⚠️ E ELE NÃO É O TOUR DO MENU. Aquele é para quem clicou: tem texto, voa em
+    // 4,2 s e segura 6,4 s. Este é para quem está assistindo: sem legenda, voo de
+    // 6 a 18 s, parada de 10 a 14 s, e volta ao começo sem fim.
+    let liveTimer: ReturnType<typeof setTimeout> | null = null
+    let liveStep = -1
+    let liveRunning = false
+    const rotaDaLive = rotaLive(profile.tier)
+    const pararLive = () => {
+      if (liveTimer) clearTimeout(liveTimer)
+      liveTimer = null
+      liveStep = -1
+      liveRunning = false
+      shadowDirty = true
+      controls.enabled = true
+      controls.autoRotate = false
+      controls.autoRotateSpeed = 0.18   // devolve o valor de fábrica da cena
+    }
+    const proximaLive = () => {
+      // ⚠️ O LAÇO DÁ A VOLTA, não termina: `% length`. A live É este tour em
+      // loop, e o fim do roteiro não pode devolver a câmera parada.
+      liveStep = (liveStep + 1) % rotaDaLive.length
+      const st = rotaDaLive[liveStep]
+      // ⚠️ A DERIVA DESLIGA NO VOO E LIGA NA PARADA. Somar a órbita ao
+      // deslocamento do `flyTo` daria dois movimentos brigando pela mesma
+      // câmera, e o resultado é uma curva que não é nenhuma das duas.
+      controls.autoRotate = false
+      flyTo(viewFor(st.key, camera.aspect, chaoGuerra), st.voo)
+      liveTimer = setTimeout(() => {
+        if (!liveRunning) return
+        controls.autoRotate = true
+        controls.autoRotateSpeed = TOUR_LIVE_DERIVA
+        liveTimer = setTimeout(proximaLive, st.parada * 1000)
+      }, st.voo * 1000)
+    }
+    const comecarLive = () => {
+      if (liveRunning || tourRunning) return
+      if (liveTimer) clearTimeout(liveTimer)
+      liveRunning = true
+      controls.enabled = false
+      controls.autoRotate = false
+      liveStep = -1
+      proximaLive()
+      console.log(`[tour-live] ${rotaDaLive.length} paradas, volta de `
+        + `${Math.round(duracaoLive(profile.tier))} s (${(duracaoLive(profile.tier) / 60).toFixed(1)} min)`)
+    }
+    const cancelTourOnInput = () => { if (tourTimer) stopTour(); if (liveRunning) pararLive() }
     renderer.domElement.addEventListener('pointerdown', cancelTourOnInput)
     renderer.domElement.addEventListener('wheel', cancelTourOnInput, { passive: true })
     window.addEventListener('keydown', cancelTourOnInput)
@@ -4219,7 +4296,12 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       lagos?.update(t)
       lagoa?.update(t)   // mesmo contrato das outras águas: só adianta o relógio da onda
       obras?.update(t, camera.position)
-      if (!controls.autoRotate && performance.now() - lastInteraction > 25_000) controls.autoRotate = true
+      // ⚠️ AQUI FICAVA `controls.autoRotate = true` DEPOIS DE 25 s. A órbita
+      // ociosa foi substituída pelo tour da live, que mostra a cidade inteira em
+      // vez de girar sobre um ponto só. O ócio subiu para 1 minuto porque abaixo
+      // disso a câmera sai andando no meio de um gesto.
+      if (!liveRunning && !tourRunning && !fly.on
+          && performance.now() - lastInteraction > TOUR_LIVE_OCIO_MS) comecarLive()
       if (fly.on) {
         const u = Math.min(1, (performance.now() - fly.t0) / (fly.dur * 1000))
         const k = u * u * (3 - 2 * u)
