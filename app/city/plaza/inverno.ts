@@ -535,6 +535,21 @@ function comLimiteDeTempo<T>(p: Promise<T>, ms: number, rotulo: string): Promise
 //    `LAGOA_CENTRO`, `LAGOA_RAIO` e `LAGOA_COTA` daqui): 5,41 ha de lâmina a
 //    407 m de cota, 21,2 m de profundidade máxima e 14,2 graus de orla nos
 //    primeiros 30 m, na sela entre o cume sul e o contraforte sul.
+//
+// ── OBRA 3, 05/09: o fundador viu o pico EM PRODUÇÃO e aprovou a forma ──────
+// "Acabei de ver o pico em produção, está ótimo. Muito realista." A FORMA está
+// fechada, e nada aqui a toca. Faltavam duas coisas, e as duas eram desta
+// frente:
+// 7. "OS LAGOS DA REGIÃO DAS MONTANHAS", no plural, como o pedido original já
+//    dizia. A bacia única virou a tabela `BACIAS`, com CINCO corpos de 1,17 a
+//    5,46 ha em cotas de 256 a 683 m, três deles num degrau só. 18,18 ha de
+//    água contra 5,41. O primeiro corpo é o de ontem, bit a bit, e os três
+//    exports antigos viraram apelidos dele. Ver a seção "OS LAGOS ALPINOS".
+// 8. "A DESCIDA AINDA SOBE", achado do revisor da obra 2 e defeito que qualquer
+//    pessoa que esquia vê na hora. Mexer no `rInicio` nunca ia resolver, porque
+//    az 268 não é o eixo do cume: o alto da cadeia está em az 262, 82 m acima.
+//    A pista mudou de RUMO e passou de 189,07 m de subida somada para 0,00, em
+//    90 passos. Ver a tabela do conserto acima de `ESPECIFICACOES`.
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ── A BANDEIRA ───────────────────────────────────────────────────────────────
@@ -1495,164 +1510,279 @@ function pistaProximidade01(x: number, z: number): number {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// A LAGOA ALPINA: a BACIA, que é a parte de relevo. A água em si é da frente
-// seguinte, que lê `LAGOA_CENTRO`, `LAGOA_RAIO` e `LAGOA_COTA` daqui em vez de
-// adivinhar. Pedido do fundador na rodada da montanha: "a cadeia de montanhas
-// que são características de lagos... gostaria de floresta e lagoa naquela
-// região".
+// OS LAGOS ALPINOS: as BACIAS, que são a parte de relevo. A água em si é da
+// frente seguinte, que lê a tabela `LAGOS` daqui (e os três exports antigos,
+// enquanto ela não migrar) em vez de adivinhar. Pedido do fundador na rodada da
+// montanha: "a cadeia de montanhas que são características de lagos... gostaria
+// de floresta e lagoa naquela região", e reforçado em 05/09 depois de ver o
+// pico em produção: "outra coisa são os LAGOS da região das montanhas".
 //
-// ── ONDE, E POR QUE ALI (varredura offline, `heightAt` REAL de `terrain.ts`) ─
-// A varredura testou 115 centros que passavam nos filtros duros (≥ 280 m do
-// eixo de qualquer das 7 pistas, ≥ 280 m dos dois vãos de teleférico, cota
-// entre 380 e 620 m, resíduo do ajuste da base ≤ 4 m) e ordenou por terra
-// movida. O escolhido, r 8.000 / azimute 285, é o melhor da lista:
+// ⚠️ ERA UMA BACIA SÓ ATÉ 05/09, E O PLURAL SEMPRE FOI O PEDIDO. Região de lagos
+// não tem um espelho d'água, tem uma FAMÍLIA: corpos de tamanhos diferentes, em
+// cotas diferentes, encaixados nas selas e nos degraus entre os cumes. A bacia
+// única virou a TABELA `BACIAS` abaixo, com cinco corpos, e `LAGOA_CENTRO`,
+// `LAGOA_RAIO` e `LAGOA_COTA` passaram a ser apelidos do PRIMEIRO deles, que é
+// o que já existia, bit a bit. Nada do que a frente da água mediu se move.
 //
-//   sítio (r, az)     cota   aterro máx   aterro médio   corte médio   lábio
-//   8.050 / 284       394 m     48 m          3,4 m        27,4 m      +4,7 m
-//   8.000 / 285       407 m     64 m          6,4 m        21,6 m      +6,2 m  ←
-//   7.950 / 285       398 m     70 m          5,3 m        23,0 m      +6,0 m
-//   7.850 / 286       432 m    104 m         19,1 m        14,7 m      +7,1 m
-//   7.700 / 281       414 m    124 m         30,2 m         8,7 m      +6,5 m
+// ── COMO OS CINCO SÍTIOS FORAM ESCOLHIDOS (varredura offline, `heightAt` REAL
+//    de `terrain.ts`, contra o relevo e as SETE PISTAS de hoje) ──────────────
+// A varredura testou 6 classes de tamanho (raio de projeto 60 a 210 m) em cada
+// ponto de uma grade polar de r 7.100 a 8.450, de 25 em 25 m, e az 249 a 287, de
+// meio em meio grau. Cinco filtros duros, todos medidos:
 //
-// (a coluna "lábio" da tabela é a da varredura, com o ajuste que ela usava; o
-// valor final, medido na bacia CONSTRUÍDA, está na nota de `LAGOA_ORLA_ALT`.)
-// O 8.050/284 move menos terra mas deixa só 1,2 m de folga entre o lábio e o
-// pior resíduo do ajuste, ou seja a lagoa vazaria por um erro de meio metro.
-// O escolhido deixa 2,6 m na mesma conta, e +4,1 m medidos no fim.
+//   1. a PEGADA inteira (não o centro) a ≥ 280 m do eixo das sete pistas e dos
+//      dois vãos de teleférico;
+//   2. a pegada inteira dentro do envelope do maciço e da janela angular;
+//   3. cota da lâmina entre 200 e 700 m;
+//   4. aterro máximo ≤ 62 m, ou seja MENOS terra movida que a lagoa que já
+//      existe (74,8 m na mesma régua);
+//   5. resíduo p99 do ajuste da base ≤ lábio − 3 m, que é a trava contra
+//      vazamento: se o resíduo passar do lábio, a lâmina fura o próprio anel.
 //
-// E ele é uma SELA DE VERDADE, não um ponto qualquer: a 285 graus a lagoa mora
-// na depressão entre o cume sul (`Weisse Wand B`, az 278) e o contraforte sul
-// (az 286). Medido na superfície ANTES de a bacia entrar, cota por rumo em
-// r 8.000: az 279 → 457 m, az 283 → 531, az 285 → 362, az 287 → 568. O colo já
-// existe; a bacia só o fecha.
+// E um sexto filtro, este entre os corpos: o ALCANCE de qualquer bacia não pode
+// entrar na zona de substituição plena de outra (`raio + orla + fade` de uma
+// contra `raio + orla` da outra, mais 20 m). Sem isso duas bacias se pisariam e
+// a lâmina de uma seria reescrita pela orla da outra. A pior folga da família é
+// de 30 m, medida par a par.
 //
-// ⚠️ POR QUE A BACIA PRECISA DE UM AJUSTE DA BASE NATURAL, e isto é o miolo do
-// problema: `alturaInvernoAt` devolve a ADIÇÃO, não a cota. Água parada é
+// A cota de cada corpo NÃO foi escolhida: é a mediana ponderada de
+// `superfície − perfil da cuba` na pegada, ou seja o nível que minimiza a terra
+// movida. O que se lê abaixo é o resultado dessa conta, arredondado ao metro.
+//
+//   corpo              r     az   cota   raio  prof  ha    terra movida (média)
+//   Saddle Lake     8.000  285,0   407    130    20   5,31        37,9 m
+//   Twin Lake       7.875  280,0   388    130    20   5,31        33,0 m
+//   North Tarn      8.125  251,0   683    110    14   3,80        25,4 m
+//   Step Tarn       8.400  282,0   381     85    10   2,27        12,6 m
+//   Lower Pool      7.500  283,0   256     60     7   1,13        12,7 m
+//
+// ⚠️ TRÊS DELES SÃO UM DEGRAU SÓ, e é isso que faz região de lagos parecer
+// região de lagos em vez de poça isolada: Saddle Lake (407 m), Twin Lake (388) e
+// Step Tarn (381) ficam dentro de um triângulo de 587 a 704 m de lado, com 26 m
+// de cota entre o mais alto e o mais baixo. North Tarn é o extremo oposto: 683 m
+// de cota, na ponta NORTE da cadeia, 4,7 km dali. Lower Pool fecha a escada por
+// baixo, a 256 m.
+//
+// ── E O QUE SAIU DA TERRA, MEDIDO NA BACIA CONSTRUÍDA ──────────────────────
+// Não é o projeto: é `heightAt` real com `?lagoa=1`, varrido em 180 rumos com
+// passo de 0,5 m para a linha d'água e 360 rumos no anel do lábio.
+//
+//   corpo         cota  raio inscrito  lâmina   prof máx  prof média  lábio mín
+//   Saddle Lake    407      121,0 m    5,36 ha   21,16 m    15,08 m     +4,05 m
+//   Twin Lake      388      118,5 m    5,46 ha   22,65 m    15,44 m     +3,86 m
+//   North Tarn     683       99,0 m    3,92 ha   15,64 m    11,09 m     +4,27 m
+//   Step Tarn      381       79,5 m    2,27 ha   10,76 m     7,47 m     +5,64 m
+//   Lower Pool     256       57,0 m    1,17 ha    7,10 m     5,04 m     +5,76 m
+//
+// 18,18 ha de água em cinco corpos, contra 5,41 ha em um. O lábio fica ACIMA da
+// lâmina em TODOS os 360 rumos de todos os cinco: nenhum vaza. E a lâmina é
+// irregular de propósito (a margem de Saddle Lake vai de 121 a 145 m conforme o
+// rumo, a de Twin Lake de 119 a 151): a faixa entre o raio inscrito e a margem
+// real é praia de leito exposto, que é o que margem de lago é mesmo.
+//
+// ⚠️ E A SAIA DE NENHUM DELES É MAIS ÍNGREME QUE A MONTANHA QUE ELA SUBSTITUI,
+// que é o teste de "isto lê como obra?". Talude médio do anel de desvanece, 180
+// rumos, passo de 4 m, terreno natural contra terreno com a bacia:
+// 31,8 → 21,5 / 33,3 → 24,7 / 36,3 → 29,1 / 31,3 → 30,1 / 33,9 → 30,8 graus. Os
+// cinco AMANSAM a encosta; e o talude máximo não sobe (78,6 → 73,4 no maior),
+// porque o pico dele é o tempero fino, não a saia.
+//
+// ⚠️ O PRIMEIRO CORPO FOI RECONFERIDO E NÃO SE MOVEU: 5,36 ha medidos aqui
+// contra os 5,41 que a frente da água publicou em 04/09 (régua de amostragem
+// diferente, mesma água), lâmina em 407, lábio +4,05 contra +4,1. O
+// `raioInscrito` dele fica em 120 e não nos 121,0 medidos, de propósito: é o
+// número que `lagoa.ts` já usa, e arredondar para baixo nunca faz um disco
+// flutuar.
+//
+// ⚠️ NÃO EXISTE CORPO MAIOR QUE 5,4 ha, E ISSO FOI MEDIDO, NÃO ASSUMIDO. As
+// classes de 9,08 e 13,85 ha foram varridas junto com as outras. A de 13,85
+// não devolveu um sítio sequer; a de 9,08 só devolveu sítios em r 7.275 a 7.300
+// / az 251 a 253, e todos movem de 56,5 a 66,5 m de terra em média, contra os
+// 37,9 da lagoa que já existe. Um terraço desses lê como obra, não como lago:
+// a montanha simplesmente não tem uma cova grande e rasa para oferecer.
+//
+// ⚠️ POR QUE CADA BACIA PRECISA DE UM AJUSTE DA BASE NATURAL, e isto é o miolo
+// do problema: `alturaInvernoAt` devolve a ADIÇÃO, não a cota. Água parada é
 // NIVELADA, ou seja precisa de cota absoluta, e a cota absoluta é
 // `base natural + adição`. Este módulo não pode ler a base (seria importar
 // `terrain.ts`, que já importa este arquivo). A saída é medir a base offline e
 // carregar aqui a superfície que melhor a descreve: um ajuste QUADRÁTICO por
-// mínimos quadrados, 6 coeficientes, sobre 2.232 amostras da base real no disco
-// de 150 m em volta do centro. Erro medido do ajuste: 0,65 m em média, 3,22 m
-// no pior ponto (contra 1,95 / 11,66 m de um plano simples e 0,44 / 2,86 m de
-// um cúbico de 10 termos, que não paga os 4 coeficientes a mais). A lâmina sai
-// nivelada dentro desse erro, e é ele que decide a folga do lábio.
+// mínimos quadrados, 6 coeficientes por corpo, sobre a base real no disco da
+// pegada mais 20 m. Resíduo p99 medido, corpo a corpo: 4,92 / 4,83 / 4,27 /
+// 1,36 / 0,30 m, todos abaixo do lábio de cada um (9 / 9 / 8 / 7 / 6 m). É essa
+// diferença que vira a folga do lábio, e é por isso que ela é medida.
 //
-// ⚠️ E É POR CAUSA DESSE ERRO QUE `LAGOA_RAIO` NÃO É O RAIO DE PROJETO. O
-// desenho põe a linha d'água em 130 m; o resíduo do ajuste faz a linha real
-// oscilar entre 122 e 147 m (medido, 180 rumos). Um disco de água de 130 m
-// ficaria FLUTUANDO sobre terra seca no rumo em que a margem fecha em 122. O
-// que se exporta é o raio INSCRITO, o maior disco que está submerso em todos
-// os rumos, e é por isso que ele é medido, não escolhido.
+// ⚠️ E É POR CAUSA DESSE RESÍDUO QUE `raioInscrito` NÃO É O RAIO DE PROJETO. O
+// desenho põe a linha d'água no `raio`; o resíduo faz a linha real oscilar
+// conforme o rumo. Um disco do raio de projeto ficaria FLUTUANDO sobre terra
+// seca no rumo em que a margem fecha mais cedo. O que se exporta é o raio
+// INSCRITO, o maior disco submerso em TODOS os rumos, medido na bacia
+// CONSTRUÍDA com varredura de 180 rumos e passo de 0,5 m.
 // ═══════════════════════════════════════════════════════════════════════════
-const [LAGOA_CX, LAGOA_CZ] = pontoEmRumo(8000, 285)
+interface Bacia {
+  nome: string
+  cx: number
+  cz: number
+  /** cota da lâmina, em metros */
+  cota: number
+  /** raio de PROJETO da linha d'água (onde o perfil cruza a cota) */
+  raio: number
+  /** raio do fundo plano: dentro dele a profundidade é a máxima */
+  fundoR: number
+  /** profundidade máxima da cuba, em metros abaixo de `cota` */
+  prof: number
+  /** largura da orla, da linha d'água até o lábio */
+  orla: number
+  /** ⚠️ ALTURA DO LÁBIO SOBRE A LÂMINA, E ELE É A TRAVA CONTRA VAZAMENTO: tem
+   *  de ser maior que o resíduo do ajuste da base neste sítio (ver o cabeçalho).
+   *  E não pode ser grande demais: uma orla de 40 graus vira banheira e nenhuma
+   *  árvore encosta na água. Os cinco ficam entre 11,3 e 12,7 graus nominais. */
+  orlaAlt: number
+  /** quanto a bacia leva para voltar ao terreno natural depois do lábio. É a
+   *  saia externa do dique, e por isso é maior nos corpos maiores. */
+  fade: number
+  /** raio INSCRITO MEDIDO na bacia construída: o maior disco submerso em TODOS
+   *  os rumos. É este que a frente da água recebe. */
+  raioInscrito: number
+  /** os 6 coeficientes do ajuste quadrático da base natural, em METROS de
+   *  deslocamento a partir do centro: `[c0, cx, cz, cxx, cxz, czz]` */
+  base: readonly number[]
+}
 
-/** O centro da lâmina, em coordenada de mundo. Medido, não escolhido a olho:
- *  ver a tabela de sítios acima. */
-export const LAGOA_CENTRO: { x: number; z: number } = { x: LAGOA_CX, z: LAGOA_CZ }
-/** Raio ÚTIL da lâmina, em metros, MEDIDO e não escolhido: é o maior disco
- *  centrado em `LAGOA_CENTRO` cujo terreno está abaixo de `LAGOA_COTA` em
- *  TODOS os rumos (varredura de 180 rumos, passo de 0,5 m, sobre o `heightAt`
- *  real). Quem desenhar a água pode usá-lo direto: um disco deste raio nunca
- *  flutua sobre terra seca. A lâmina de verdade é maior e irregular (a linha
- *  d'água vai de 122 a 145 m conforme o rumo, 5,41 ha no total); a faixa entre
- *  o raio inscrito e a margem real é praia de leito exposto, que é o que uma
- *  margem de lagoa é mesmo. */
-export const LAGOA_RAIO: number = 120
-/** Cota da lâmina, em metros. É o alvo que a bacia esculpe e o valor que a
- *  frente da água deve usar para o plano d'água: medida na superfície
- *  construída, não estimada. */
-export const LAGOA_COTA: number = 407
+const BACIAS: readonly Bacia[] = [
+  // ⚠️ O PRIMEIRO CORPO É O DE ONTEM, BIT A BIT: mesmo centro (`pontoEmRumo(8000,
+  // 285)`), mesma cota, mesma cuba e os MESMOS coeficientes de ajuste que a
+  // frente da água mediu em 04/09 (lâmina de 5,41 ha, lábio mínimo +4,1 m). A
+  // pluralização não pode mover a única água que já foi medida.
+  { nome: 'Saddle Lake', cx: -7727.407, cz: -2070.552, cota: 407, raio: 130, fundoR: 78, prof: 20, orla: 40, orlaAlt: 9, fade: 260, raioInscrito: 120,
+    base: [141.673, -0.124475, -0.316860, 5.71731e-5, 3.74732e-4, -4.02521e-4] },
+  { nome: 'Twin Lake', cx: -7755.361, cz: -1367.479, cota: 388, raio: 130, fundoR: 78, prof: 20, orla: 40, orlaAlt: 9, fade: 260, raioInscrito: 118,
+    base: [-1.34943, -0.0946840, 0.0635577, 6.12678e-4, -1.22212e-3, 2.98777e-4] },
+  { nome: 'North Tarn', cx: -7682.338, cz: 2645.241, cota: 683, raio: 110, fundoR: 66, prof: 14, orla: 38, orlaAlt: 8, fade: 190, raioInscrito: 99,
+    base: [235.258, -0.214067, 0.0681174, -3.63589e-4, 2.90615e-4, 7.35683e-5] },
+  // ⚠️ ESTE RECUOU 25 m EM 05/09, E A SAIA ENCURTOU DE 150 PARA 130, POR UM
+  // DEGRAU MEDIDO. Na primeira escolha (r 8.425, saia 150) o alcance da bacia ia
+  // até r 8.694, e `R_QUEDA` é 8.650: `alturaInvernoAt` devolve 0 antes de a
+  // bacia entrar dali para fora, então a saia era DECEPADA. Corte radial no rumo
+  // 282, de 2 em 2 m: 28,2 m acima do terreno natural em r 8.640 e zero em
+  // r 8.650, ou seja um paredão de 21,32 m em 10 m de corrida. Com r 8.400 e
+  // saia 130 o alcance para em r 8.649 e o peso ali já é 0: a saia morre sozinha,
+  // dentro do envelope. E o sítio novo é melhor em tudo: aterro máximo 34,5 m
+  // contra 48,4, resíduo p99 do ajuste 1,36 m contra 1,96.
+  { nome: 'Step Tarn', cx: -8216.440, cz: -1746.458, cota: 381, raio: 85, fundoR: 51, prof: 10, orla: 34, orlaAlt: 7, fade: 130, raioInscrito: 79,
+    base: [168.754, -0.493587, -0.151774, 3.80001e-5, -6.13674e-4, 2.62902e-4] },
+  { nome: 'Lower Pool', cx: -7307.775, cz: -1687.133, cota: 256, raio: 60, fundoR: 36, prof: 7, orla: 30, orlaAlt: 6, fade: 120, raioInscrito: 57,
+    base: [33.3932, -0.0835847, -0.0960709, -1.44996e-4, 3.91558e-4, 3.31144e-5] },
+]
 
-/** raio do fundo plano (dentro dele a profundidade é a máxima) */
-const LAGOA_FUNDO_R = 78
-/** profundidade máxima da cuba, em metros abaixo de `LAGOA_COTA` */
-const LAGOA_PROF = 20
-/** ⚠️ O RAIO DE PROJETO DA LINHA D'ÁGUA, que NÃO é `LAGOA_RAIO` (ver a nota do
- *  export): é onde o perfil cruza a cota. π·130² = 5,31 ha, e a lâmina medida
- *  saiu em 5,41 ha, dentro da faixa pedida de 4 a 12 ha. */
-const LAGOA_RAIO_PROJETO = 130
-/** largura da orla, da linha d'água até o lábio */
-const LAGOA_ORLA = 40
-/** ⚠️ ALTURA DO LÁBIO SOBRE A LÂMINA, E ELE É A TRAVA CONTRA VAZAMENTO. 9 m em
- *  40 m de orla dão 12,7 graus de talude nominal, e a margem MEDIDA nos
- *  primeiros 30 m fora da linha d'água deu 14,2 graus (o resto vem do terreno
- *  que volta no desvanece). É o que a frente da mata precisa: uma orla de 40
- *  graus vira banheira e nenhuma árvore encosta na água. E 9 m é maior que o
- *  pior resíduo do ajuste da base no anel do lábio (5,40 m), então o lábio fica
- *  acima da lâmina em TODOS os rumos, medido: mínimo +4,1 m. */
-const LAGOA_ORLA_ALT = 9
-/** quanto a bacia leva para voltar ao terreno natural depois do lábio */
-const LAGOA_FADE = 260
-const LAGOA_ALCANCE = LAGOA_RAIO_PROJETO + LAGOA_ORLA + LAGOA_FADE
+/** alcance total de cada bacia (lâmina + orla + desvanece), pré-calculado: a
+ *  porta rápida de `comBaciaDosLagos` roda por vértice da malha do terreno
+ *  inteiro, e `raio + orla + fade` é constante. */
+const BACIA_ALCANCE: readonly number[] = BACIAS.map((b) => b.raio + b.orla + b.fade)
 
 /**
- * A BASE NATURAL SOB A BACIA, ajustada offline (ver o cabeçalho da seção).
- * `[c0, cx, cz, cxx, cxz, czz]` sobre o deslocamento em metros a partir de
- * `LAGOA_CENTRO`. A base ali varia de 86,0 a 189,0 m no mesmo disco: NÃO é um
- * plano, e é por isso que os termos quadráticos existem.
+ * A TABELA PÚBLICA DOS CORPOS D'ÁGUA. `lagoa.ts` (a lâmina) e `alpino.ts` (o
+ * furo na casca de neve) leem isto pelo MÓDULO, não por importação nomeada, e
+ * os dois já trazem a queda para os três exports antigos: ver o comentário de
+ * `tabelaDoRelevo` em `lagoa.ts`. O `raio` publicado é o INSCRITO medido, nunca
+ * o de projeto, porque quem desenha um disco precisa de um que não flutue.
  */
-const LAGOA_BASE_AJUSTE = [141.673, -0.124475, -0.316860, 5.71731e-5, 3.74732e-4, -4.02521e-4]
+export const LAGOS: readonly { nome: string; centro: { x: number; z: number }; raio: number; cota: number; prof: number }[] =
+  BACIAS.map((b) => ({ nome: b.nome, centro: { x: b.cx, z: b.cz }, raio: b.raioInscrito, cota: b.cota, prof: b.prof }))
 
-function lagoaBaseAt(dx: number, dz: number): number {
-  const c = LAGOA_BASE_AJUSTE
+// ── OS TRÊS EXPORTS ANTIGOS, APONTANDO PARA O PRIMEIRO CORPO ────────────────
+// ⚠️ FICAM ATÉ `lagoa.ts` E `alpino.ts` MIGRAREM PARA `LAGOS`, e a razão é de
+// calendário, não de gosto: as três frentes correm na mesma rodada, o bot de
+// auto-commit publica de hora em hora e `tsc --noEmit` limpo é portão de saída
+// de cada uma. Tirar estes três hoje derrubaria a árvore no minuto seguinte.
+// Eles são DERIVADOS de `LAGOS[0]`, nunca valor copiado: a dívida de constante
+// craveada é exatamente a que custou 242 m de erro nas vistas de `chapas.mjs`
+// nesta mesma rodada.
+/** @deprecated use `LAGOS`. Apelido do primeiro corpo. */
+export const LAGOA_CENTRO: { x: number; z: number } = LAGOS[0].centro
+/** @deprecated use `LAGOS`. Apelido do primeiro corpo. */
+export const LAGOA_RAIO: number = LAGOS[0].raio
+/** @deprecated use `LAGOS`. Apelido do primeiro corpo. */
+export const LAGOA_COTA: number = LAGOS[0].cota
+
+function lagoBaseAt(b: Bacia, dx: number, dz: number): number {
+  const c = b.base
   return c[0] + c[1] * dx + c[2] * dz + c[3] * dx * dx + c[4] * dx * dz + c[5] * dz * dz
 }
 
-/** o perfil da bacia em metros RELATIVOS a `LAGOA_COTA`: cuba de fundo plano,
- *  banco submerso até a linha d'água, orla mansa e lábio. */
-function lagoaPerfil(d: number): number {
-  if (d <= LAGOA_FUNDO_R) return -LAGOA_PROF
-  if (d <= LAGOA_RAIO_PROJETO) return -LAGOA_PROF * (1 - suave01((d - LAGOA_FUNDO_R) / (LAGOA_RAIO_PROJETO - LAGOA_FUNDO_R)))
-  if (d <= LAGOA_RAIO_PROJETO + LAGOA_ORLA) return LAGOA_ORLA_ALT * rampaReta((d - LAGOA_RAIO_PROJETO) / LAGOA_ORLA, 0.3)
-  return LAGOA_ORLA_ALT
+/** o perfil da cuba em metros RELATIVOS a `b.cota`: fundo plano, banco submerso
+ *  até a linha d'água, orla mansa e lábio. */
+function lagoPerfil(b: Bacia, d: number): number {
+  if (d <= b.fundoR) return -b.prof
+  if (d <= b.raio) return -b.prof * (1 - suave01((d - b.fundoR) / (b.raio - b.fundoR)))
+  if (d <= b.raio + b.orla) return b.orlaAlt * rampaReta((d - b.raio) / b.orla, 0.3)
+  return b.orlaAlt
 }
 
 /**
- * A bacia entra SUBSTITUINDO o relevo dentro da lâmina e da orla, não somando
+ * Cada bacia entra SUBSTITUINDO o relevo dentro da lâmina e da orla, não somando
  * por cima dele, e isso é deliberado: `temperoFino` tem 85 m de amplitude na
  * crista, e ruído de 85 m sob um fundo de lagoa de 20 m deixaria pedra saindo
  * da água. Subtrair uma constante não achata bump (é a mesma lição que a cava
  * da pista já tinha aprendido); substituir, sim. Do lábio para fora o peso cai
- * em `suave01` até 0 em `LAGOA_FADE`, e ali o terreno de sempre volta inteiro.
+ * em `suave01` até 0 no fim do desvanece, e ali o terreno de sempre volta
+ * inteiro, bit a bit.
  *
- * ⚠️ NÃO FURA NADA DO QUE JÁ EXISTE, e cada guarda tem número: a pegada
- * inteira (430 m de raio) fica em r 7.570 a 8.430, dentro do envelope do
- * maciço (`R_AVENTAL` 5.500 a `R_QUEDA` 8.650) e longe da faixa que o pódio da
- * abóbada suprime; a zona de substituição plena (170 m) cobre só az 283,8 a
- * 286,2, dentro da janela angular (`AZ0` 248 a `AZ1` 288); e o centro está a
- * 1.527 m do eixo da pista mais próxima e a 1.879 m do vão de teleférico mais
- * próximo, contra os 280 m que a varredura exigia.
+ * ⚠️ AS BACIAS SE APLICAM EM SEQUÊNCIA, UMA SOBRE O RESULTADO DA ANTERIOR, e não
+ * somadas nem escolhidas por proximidade. Somar duas contaminaria a lâmina de
+ * uma com a orla da outra; escolher a mais próxima abriria um degrau exatamente
+ * na linha em que os dois pesos se igualam, porque os dois alvos são diferentes
+ * ali. Encadear é contínuo em todo ponto (cada passo é uma interpolação) e é
+ * EXATO dentro de cada lâmina: onde o peso vale 1 o resultado é o alvo daquele
+ * corpo, não importa o que veio antes. É por isso que o filtro de separação da
+ * família exige que o alcance de uma bacia nunca entre na zona de substituição
+ * plena de outra: assim a ordem da tabela só decide a mistura no desvanece, que
+ * é onde ela não muda cota nenhuma de água.
+ *
+ * ⚠️ NENHUMA DELAS FURA O QUE JÁ EXISTE, e cada guarda tem número: as cinco
+ * pegadas ficam a ≥ 1.139 m do eixo da pista mais próxima e a ≥ 1.123 m do vão
+ * de teleférico mais próximo (o filtro exigia 280 m), todas dentro do envelope
+ * radial do maciço e da janela angular `AZ0` 248 a `AZ1` 288.
  */
-function comBaciaDaLagoa(x: number, z: number, relevo: number): number {
+function comBaciaDosLagos(x: number, z: number, relevo: number): number {
   // sem a bandeira não há água, e cova sem água é buraco: devolve o relevo
-  // intacto, bit a bit, antes de qualquer conta.
+  // intacto, bit a bit, antes de qualquer conta. Foi a cova seca de 5,4 ha que
+  // ensinou isto em 04/09.
   if (!LAGOA_ATIVA) return relevo
-  const dx = x - LAGOA_CX, dz = z - LAGOA_CZ
-  // porta rápida em caixa antes da raiz quadrada: `alturaInvernoAt` é chamada
-  // por vértice da malha do terreno inteiro, e a lagoa é um ponto dele.
-  if (dx <= -LAGOA_ALCANCE || dx >= LAGOA_ALCANCE || dz <= -LAGOA_ALCANCE || dz >= LAGOA_ALCANCE) return relevo
-  const d = Math.hypot(dx, dz)
-  if (d >= LAGOA_ALCANCE) return relevo
-  const w = d <= LAGOA_RAIO_PROJETO + LAGOA_ORLA
-    ? 1
-    : 1 - suave01((d - (LAGOA_RAIO_PROJETO + LAGOA_ORLA)) / LAGOA_FADE)
-  const alvo = LAGOA_COTA + lagoaPerfil(d) - lagoaBaseAt(dx, dz)
-  return relevo * (1 - w) + alvo * w
+  let h = relevo
+  for (let i = 0; i < BACIAS.length; i++) {
+    const b = BACIAS[i]
+    const alcance = BACIA_ALCANCE[i]
+    const dx = x - b.cx, dz = z - b.cz
+    // porta rápida em caixa antes da raiz quadrada: `alturaInvernoAt` é chamada
+    // por vértice da malha do terreno inteiro, e os lagos são um ponto dela.
+    if (dx <= -alcance || dx >= alcance || dz <= -alcance || dz >= alcance) continue
+    const d = Math.hypot(dx, dz)
+    if (d >= alcance) continue
+    const cheio = b.raio + b.orla
+    const w = d <= cheio ? 1 : 1 - suave01((d - cheio) / b.fade)
+    const alvo = b.cota + lagoPerfil(b, d) - lagoBaseAt(b, dx, dz)
+    h = h * (1 - w) + alvo * w
+  }
+  return h
 }
 
-/** true quando o ponto está debaixo d'água (ou na faixa de 1,5 m que a onda
- *  molha). Serve para floresta e penhasco não nascerem dentro da lagoa: é o
- *  MESMO teste de cota que a linha d'água usa, então a borda da mata segue a
- *  margem de verdade, e não um círculo aproximado. */
+/** true quando o ponto está debaixo d'água de QUALQUER corpo (ou na faixa de
+ *  1,5 m que a onda molha). Serve para floresta e penhasco não nascerem dentro
+ *  dos lagos: é o MESMO teste de cota que a linha d'água usa, então a borda da
+ *  mata segue a margem de verdade, e não um círculo aproximado. */
 function naLagoa(x: number, z: number, y: number): boolean {
   // idem: sem bandeira não existe lâmina, e responder `true` aqui abriria uma
-  // clareira de 5,4 ha na mata por causa de uma água que não foi construída.
+  // clareira na mata por causa de uma água que não foi construída.
   if (!LAGOA_ATIVA) return false
-  const dx = x - LAGOA_CX, dz = z - LAGOA_CZ
-  if (dx <= -LAGOA_ALCANCE || dx >= LAGOA_ALCANCE || dz <= -LAGOA_ALCANCE || dz >= LAGOA_ALCANCE) return false
-  const alcance = LAGOA_RAIO_PROJETO + LAGOA_ORLA
-  return dx * dx + dz * dz < alcance * alcance && y <= LAGOA_COTA + 1.5
+  for (const b of BACIAS) {
+    if (y > b.cota + 1.5) continue
+    const alcance = b.raio + b.orla
+    const dx = x - b.cx, dz = z - b.cz
+    if (dx <= -alcance || dx >= alcance || dz <= -alcance || dz >= alcance) continue
+    if (dx * dx + dz * dz < alcance * alcance) return true
+  }
+  return false
 }
 
 /**
@@ -1702,12 +1832,12 @@ export function alturaInvernoAt(x: number, z: number): number {
   const baseReal = Math.max(comEnvelope * envR, comFaixa) * envAz
   const pesoPista = pistaProximidade01(x, z)
   const relevo = baseReal + temperoFino(x, z, env, pesoPista)
-  // ⚠️ A BACIA DA LAGOA ENTRA AQUI, no MESMO ponto em que as feições e o
-  // tempero já entram, e ANTES da cava da pista: a lagoa fica a 1.086 m da
-  // pista mais próxima, então a ordem não muda um milímetro hoje, mas se
-  // alguém puxar uma pista para perto dela um dia é a cava que tem de vencer
-  // (a fita é a peça que o atleta pisa), não a água.
-  return comBaciaDaLagoa(x, z, relevo) - PROFUNDIDADE_CORTE * pesoPista
+  // ⚠️ AS BACIAS DOS LAGOS ENTRAM AQUI, no MESMO ponto em que as feições e o
+  // tempero já entram, e ANTES da cava da pista: a pegada mais próxima de uma
+  // fita está a 1.287 m dela, então a ordem não muda um milímetro hoje, mas se
+  // alguém puxar uma pista para perto de um lago um dia é a cava que tem de
+  // vencer (a fita é a peça que o atleta pisa), não a água.
+  return comBaciaDosLagos(x, z, relevo) - PROFUNDIDADE_CORTE * pesoPista
 }
 
 /**

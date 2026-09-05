@@ -325,8 +325,11 @@ export interface Alpino {
   group: THREE.Group
   /** coníferas plantadas */
   arvores: number
-  /** área da coroa de neve efetivamente desenhada, em km² */
+  /** área da coroa de neve NATURAL efetivamente desenhada, em km² */
   neveKm2: number
+  /** área das sete faixas de pista (neve trabalhada), em km². Zero sem
+   *  `?inverno=1`: sem estação não há máquina que a produza. */
+  pistaKm2: number
   triangulos: number
   update(cam: THREE.Vector3): void
   dispose(): void
@@ -439,9 +442,10 @@ const INC_NEVE_ZERO = 65
 //
 // ⚠️ E A PISTA NÃO CABE NESTA GRADE, medido antes de tentar: as sete pistas têm
 // 18 a 30 m de largura e esta casca tem célula de 40 m. Uma fita de 30 m numa
-// grade de 40 m sai como salpico, não como fita. Desenhar pista branca é
-// trabalho de `inverno.ts`, que tem a geometria real e pinta a pista em cor
-// sólida por dificuldade; aqui a estação entra só como o desconto abaixo.
+// grade de 40 m sai como salpico, não como fita. Por isso a pista deixou de ser
+// um caso especial DESTA grade e virou malha PRÓPRIA, com a geometria das sete
+// pistas: ver a seção 2c, `faixasDePista`. Aqui a estação entra só como o
+// desconto abaixo, que é o que a neve NATURAL deve à estação.
 /** quanto a linha de neve desce no CORAÇÃO da zona preparada (`zonaEsquiavelAt`
  *  = 1), interpolado pela zona e nada mais. Teto duro de 120 m: com ele a linha
  *  mais baixa possível é 560 − 120 − 45 − 55 − 26 − 30 = 284 m, contra os 112,8
@@ -664,6 +668,8 @@ interface OrcamentoAlpino {
   subbosque: number
   /** a mata entra no mapa de sombra? */
   sombra: boolean
+  /** passo longitudinal da faixa de pista, em metros (ver `faixasDePista`) */
+  passoPista: number
 }
 /** ⚠️ SEM PERFIL, O ORÇAMENTO CHEIO: quem chama `buildAlpino` sem `profile`
  *  (teste, script de medição) recebe exatamente o que este arquivo fazia antes
@@ -690,6 +696,14 @@ function orcamentoDe(p?: PerfProfile): OrcamentoAlpino {
     // arquivo tinha antes de `orcamentoDe` existir. O tier só TIRA sombra,
     // nunca dá.
     sombra: !p || alto || (p.tier === 'desktop' && p.quality !== 'low'),
+    // ⚠️ AQUI O PERFIL NÃO COMPRA TRIÂNGULO, COMPRA ADERÊNCIA, e por isso o
+    // corte é raso: a faixa inteira custa 11.152 triângulos no passo do
+    // desktop, que é ruído ao lado dos 442.998 declarados. O que o passo maior
+    // troca é a faixa encostar na rocha (flutuação p90 1,94 m a 12 m contra
+    // 2,73 m a 18 m) e, principalmente, CHAMADAS DE `heightAt` na construção
+    // (11.912 contra 7.917), que é o item caro deste arquivo. Nenhum aparelho
+    // fica sem as sete pistas: elas são a estação inteira.
+    passoPista: !p || alto ? 12 : p.quality === 'low' ? 18 : p.tier === 'mobile' ? 15 : 12,
   }
 }
 
@@ -881,6 +895,364 @@ function gerarNormalNeve(): THREE.CanvasTexture {
 /** tamanho do ladrilho do brilho, em metros de mundo: pequeno de propósito
  *  (o cristal é um detalhe fino, não uma macro-variação como a do regolito) */
 const TILE_SPARKLE = 6
+
+// ═══ 2c. A FAIXA DE PISTA: NEVE TRABALHADA, QUE NÃO É NEVE NATURAL ═════════
+//
+// ⚠️ POR QUE ESTA MALHA EXISTE, E O NÚMERO QUE A PEDIU (05/09). A linha de neve
+// nova subiu para 560 m e resolveu a queixa "a neve não aparece"; o efeito
+// colateral, MEDIDO reamostrando a linha de centro das sete pistas de 10 em 10
+// m contra a casca real, foi a estação de esqui ficar sem neve:
+//
+//   Descida do Mar da Tranquilidade   cobertura média 0,570
+//   Super-G Regolito                                  0,863
+//   Slalom Gigante Cratera Rasa                       0,635
+//   Slalom Poeira Fina                                0,257
+//   Boardercross Baixa Gravidade                      0,454
+//   Slopestyle Um Sexto                               0,010
+//   Pista Verde de Acesso                             0,000
+//   média das sete, ponderada por amostra             0,475  (844 amostras)
+//
+// Duas pistas inteiras sem um floco. E a resposta NÃO é baixar a linha de neve
+// de volta (a cota velha de 70 m dentro da zona esquiável espalhava 5,3 km² de
+// branco pelo pé da montanha e era o defeito da rodada anterior): é separar as
+// duas coisas, porque elas são físicas diferentes.
+//
+//   NEVE NATURAL  cai onde a cota, a exposição, o sulco e a inclinação deixam.
+//                 É a casca da seção 2, e ela não muda uma vírgula aqui.
+//   NEVE DE PISTA  existe porque uma MÁQUINA passou. Ela desce abaixo da linha
+//                 natural (é isso que canhão e pisa-neve fazem numa estação de
+//                 verdade), é mais LISA (menos ruído, menos brilho de cristal,
+//                 mais compactação) e tem BORDA, que é o que faz uma pista ser
+//                 legível de longe numa montanha.
+//
+// ⚠️ E ELA NÃO CABE NA GRADE DE 40 m DA CASCA (por isso não é um remendo na
+// seção 2, é malha própria): a fita mais estreita tem 18 m. A faixa segue a
+// geometria REAL das sete pistas de `inverno.ts`, com o perfil transversal
+// abaixo.
+//
+// ⚠️ O PERFIL TRANSVERSAL, E CADA COLUNA TEM RAZÃO DE SER (meia largura `m` =
+// `p.largura / 2`, que é a MESMA meia largura da fita de `inverno.ts`):
+//
+//   |v| de 0 a m          NÚCLEO PISADO: alfa 1, cor de neve compactada. É a
+//                         pista propriamente dita, na largura homologada.
+//   |v| de m a m+4        BANCO DE BORDA: alfa 1, virando pó fresco (mais
+//                         claro). É a neve que a máquina empurra para fora da
+//                         fita, e é ELE que desenha a borda: o contraste entre
+//                         o cinza da pista pisada e o branco do banco é o que
+//                         se enxerga a 6 km, não o contorno geométrico.
+//   |v| de m+4 a m+7      ESVAZIA: alfa 1 → 0 em 3 m, cor puxando para o tom
+//                         do regolito. Três metros, não trinta: a borda de uma
+//                         pista é dura, e uma pluma longa devolveria o "bolo de
+//                         açúcar" que a linha de neve nova acabou de matar.
+//
+// ⚠️ E O LEVANTE FICA ACIMA DA FITA DE `inverno.ts` (0,5 m) DE PROPÓSITO, com
+// um motivo medido e não com gosto: `construirFita` (`inverno.ts:1938`) dá aos
+// DOIS vértices da borda a altura da LINHA DE CENTRO, ou seja a seção
+// transversal da fita é HORIZONTAL. Numa encosta de través isso enterra a
+// metade de cima e faz a de baixo voar. Medido, amostrando as sete fitas
+// contra `superficieAt`:
+//
+//   pista                            fura em   p90     máximo
+//   Descida do Mar da Tranquilidade   39,0%    7,97 m   23,33 m
+//   Super-G Regolito                  39,4%    7,44 m   19,37 m
+//   Boardercross Baixa Gravidade      40,7%   12,96 m   16,43 m
+//   Pista Verde de Acesso             30,2%    1,72 m    8,29 m
+//
+// Ou seja de 30% a 42% da fita colorida JÁ ESTÁ dentro da montanha hoje, em
+// qualquer versão deste arquivo. A faixa de neve não tem como esconder o que
+// sobra dela (a metade que voa fica acima de qualquer neve pousada); o que ela
+// pode, e faz, é ser a superfície CERTA: amostrada vértice a vértice, com folga
+// medida, e por cima da fita no eixo, que é onde a fita está sempre a 0,5 m do
+// chão. Consertar a seção da fita é trabalho de `inverno.ts`, está no relatório.
+/** o banco de neve empurrada, em metros para fora da largura homologada */
+const PISTA_BANCO = 4
+/** a esvazia da borda: 3 m de alfa 1 → 0. Borda dura, ver acima. */
+const PISTA_ESVAZIA = 3
+/** ⚠️ 0,9 m: a fita de `inverno.ts` está a 0,5 m no eixo, então 0,4 m de folga
+ *  sobre ela. Menos que isso arrisca z-fight nos 6 km de distância da praça;
+ *  mais que isso é neve pairando (a casca natural, para comparar, flutua uma
+ *  mediana de 4,41 m sobre a rocha). */
+const PISTA_LEVANTE = 0.9
+/** sobra da faixa antes da largada e depois da chegada, em metros: a área de
+ *  partida e a de frenagem também são pisadas */
+const PISTA_SOBRA = 8
+/** ⚠️ MESMA DOUTRINA DA FOLGA ADAPTATIVA DA SEÇÃO 2b, e a mesma margem de 1,2:
+ *  o quad é reta, o terreno não. Medido no perfil de hoje, o déficit de corda
+ *  dentro do corredor é p90 = 0,04 m (o corredor é cavado por `inverno.ts` e
+ *  por isso é liso) mas chega a 6,09 m onde uma quina do relevo o atravessa.
+ *  Número fixo não cobre uma distribuição assim: é a lição de 04/09. */
+const PISTA_FATOR_FOLGA = 1.2
+
+/** ⚠️ A COR DO NÚCLEO PISADO. Reusa `COR_NEVE_COMPACTADA`, que este arquivo já
+ *  desenhou para exatamente isto; o banco de borda usa `COR_NEVE_PO`, e a
+ *  esvazia morre em `COR_NEVE_SUJA`. Nenhuma cor nova: as três já são a mesma
+ *  família da coroa, então faixa e coroa não brigam onde se encontram. */
+interface FaixaPista {
+  geometria: THREE.BufferGeometry
+  /** área em planta efetivamente coberta, em m² */
+  areaM2: number
+  triangulos: number
+  /** quantas consultas ao terreno custou */
+  chamadas: number
+}
+
+/**
+ * As sete faixas de pista, numa geometria só.
+ *
+ * ⚠️ `passoA` VEM DO PERFIL DE MÁQUINA (ver `orcamentoDe`), e o que ele compra
+ * não é triângulo, é ADERÊNCIA: com o levante adaptativo o furo já é ~0 em
+ * qualquer passo, e o que piora quando o passo cresce é a faixa PAIRAR sobre a
+ * rocha. Medido nas sete pistas, contra a superfície real:
+ *
+ *   passo   vértices  triângulos  chamadas  furo    flutuação p50 / p90 / máx
+ *    10 m     7.596     13.392     14.292   0,00%    0,96 / 1,72 /  8,18 m
+ *    12 m     6.336     11.152     11.912   0,02%    1,00 / 1,94 /  8,68 m
+ *    15 m     5.058      8.880      9.498   0,01%    1,09 / 2,31 / 13,27 m
+ *    18 m     4.221      7.392      7.917   0,01%    1,20 / 2,73 / 16,26 m
+ *    22 m     3.474      6.064      6.506   0,05%    1,37 / 3,32 / 19,65 m
+ *
+ * A área em planta é a mesma em todos (0,327 a 0,332 km²): o passo não muda o
+ * que a pista cobre, muda o quanto ela encosta.
+ */
+function faixasDePista(
+  heightAt: (x: number, z: number) => number,
+  ehAgua: (x: number, z: number, y: number) => boolean,
+  passoA: number,
+): FaixaPista | null {
+  if (PISTAS.length === 0) return null
+  const pos: number[] = [], nor: number[] = [], uv: number[] = [], cor: number[] = [], ind: number[] = []
+  let areaM2 = 0, chamadas = 0
+  const c0 = new THREE.Color(), c1 = new THREE.Color()
+
+  for (const p of PISTAS) {
+    // ── a linha de centro, reamostrada de `passoA` em `passoA` metros ──────
+    // ⚠️ SOBRE A MESMA POLILINHA QUE A FITA USA, não sobre a serpentina
+    // paramétrica: `inverno.ts` desenha a fita ligando `p.pontos` em reta, e
+    // uma faixa que seguisse a curva teórica se descolaria da fita nas curvas.
+    const bruto: [number, number][] = p.pontos.map((pt) => pontoEmRumoNeve(pt.r, pt.az))
+    const eixo: [number, number][] = []
+    let resto = 0
+    for (let i = 0; i < bruto.length - 1; i++) {
+      const [ax, az] = bruto[i], [bx, bz] = bruto[i + 1]
+      const dx = bx - ax, dz = bz - az
+      const L = Math.hypot(dx, dz)
+      if (L < 1e-6) continue
+      let t = resto
+      while (t < L) { eixo.push([ax + (dx * t) / L, az + (dz * t) / L]); t += passoA }
+      resto = t - L
+    }
+    eixo.push(bruto[bruto.length - 1])
+    if (eixo.length < 2) continue
+    // ⚠️ A FAIXA COMEÇA ANTES E ACABA DEPOIS DA FITA, 8 m em cada ponta, e não é
+    // enfeite: a máquina pisa a área de partida e a de chegada, que é onde o
+    // atleta para. Sem isso a última fileira de vértices cai EM CIMA do ponto
+    // inicial da pista e a cobertura medida no metro zero dá zero por
+    // arredondamento (aconteceu em 4 das 7 na primeira medição), além de a
+    // pista terminar num corte reto no meio da montanha.
+    const estende = (de: [number, number], para: [number, number]): [number, number] => {
+      const dx = de[0] - para[0], dz = de[1] - para[1]
+      const l = Math.hypot(dx, dz) || 1
+      return [de[0] + (dx / l) * PISTA_SOBRA, de[1] + (dz / l) * PISTA_SOBRA]
+    }
+    eixo.unshift(estende(eixo[0], eixo[1]))
+    eixo.push(estende(eixo[eixo.length - 1], eixo[eixo.length - 2]))
+
+    // ── as colunas do perfil transversal (ver o comentário do bloco) ───────
+    const m = p.largura / 2
+    const COL = [
+      -(m + PISTA_BANCO + PISTA_ESVAZIA), -(m + PISTA_BANCO), -m, -m / 2,
+      0,
+      m / 2, m, m + PISTA_BANCO, m + PISTA_BANCO + PISTA_ESVAZIA,
+    ]
+    const nC = COL.length, nA = eixo.length
+    const meiaB = m + PISTA_BANCO + PISTA_ESVAZIA
+
+    // ⚠️ O ESTREITAMENTO NA CURVA FECHADA, E ELE NÃO É ZELO: SEM ELE A FAIXA
+    // DOBRA SOBRE SI MESMA. Medido na primeira versão: 34 dos 11.488 triângulos
+    // saíam com a normal geométrica para BAIXO, e os 34 estavam em 23-27% e
+    // 74-79% do percurso de quatro pistas, que é exatamente onde a serpentina
+    // de `gerarSerpentina` inverte o rumo. A causa é aritmética de deslocamento
+    // de polilinha: afastar o eixo por `d` num vértice que vira `Δθ` faz o
+    // ponto de dentro ANDAR PARA TRÁS quando `d > L / Δθ` (L = passo). Com
+    // Δθ de 60° num passo de 12 m, o limite é 11,5 m e a meia largura pedida é
+    // 16: a borda de dentro cruza a de trás e o quad nasce virado, ou seja
+    // invisível num material `FrontSide`. É a mesma família do defeito de
+    // 05/09, agora por geometria de curva e não por convenção de índice.
+    //
+    // ⚠️ E O ESTREITAMENTO É SÓ DO LADO DE DENTRO, de propósito: numa curva de
+    // verdade a pista é mais larga por fora (é onde o esquiador sai) e mais
+    // estreita por dentro. Cortar os dois lados encolheria a pista inteira num
+    // ponto onde só metade dela tem problema.
+    //
+    // ⚠️ E A CURVA FECHADA É DEFEITO DE AUTORIA DE `inverno.ts`, NÃO DAQUI: com
+    // `amplitude` 2° a r 7.300 a serpentina varre ±255 m de arco enquanto desce
+    // 230 m de raio, ou seja o raio de curvatura no ápice fica na casa de 5 a
+    // 25 m numa pista de 18 a 30 m de largura. Uma pista não vira mais fechado
+    // que a própria largura. Está no relatório da rodada; aqui a faixa só se
+    // defende.
+    const kLado = new Float64Array(nA * 2).fill(1)   // [a*2] = lado negativo, [a*2+1] = positivo
+    for (let a = 1; a < nA - 1; a++) {
+      const ax = eixo[a][0] - eixo[a - 1][0], az = eixo[a][1] - eixo[a - 1][1]
+      const bx = eixo[a + 1][0] - eixo[a][0], bz = eixo[a + 1][1] - eixo[a][1]
+      const la = Math.hypot(ax, az), lb = Math.hypot(bx, bz)
+      if (la < 1e-6 || lb < 1e-6) continue
+      const cruz = (ax * bz - az * bx) / (la * lb)
+      const ponto = (ax * bx + az * bz) / (la * lb)
+      const dTeta = Math.atan2(Math.abs(cruz), ponto)
+      if (dTeta < 1e-3) continue
+      const dMax = (PISTA_FATOR_DOBRA * Math.min(la, lb)) / dTeta
+      const k = Math.min(1, dMax / meiaB)
+      // `cruz` > 0 = a curva vai para o lado positivo do `lado` calculado
+      // abaixo, que é o lado de DENTRO
+      const idx = cruz > 0 ? a * 2 + 1 : a * 2
+      if (k < kLado[idx]) kLado[idx] = k
+    }
+    // ⚠️ E O LIMITE VAZA PARA O VIZINHO: o quad vive ENTRE duas estações, então
+    // estreitar só a do ápice deixaria o quad anterior ainda cruzado. Uma
+    // passada de mínimo com os vizinhos resolve, e é o que a medição confirma
+    // (34 triângulos virados → 0).
+    const kSuave = Float64Array.from(kLado)
+    for (let a = 0; a < nA; a++) {
+      for (let s = 0; s < 2; s++) {
+        const ant = a > 0 ? kLado[(a - 1) * 2 + s] : 1
+        const dep = a < nA - 1 ? kLado[(a + 1) * 2 + s] : 1
+        kSuave[a * 2 + s] = Math.min(kLado[a * 2 + s], ant, dep)
+      }
+    }
+
+    const X = new Float64Array(nA * nC), Z = new Float64Array(nA * nC), Y = new Float64Array(nA * nC)
+    const molhado = new Uint8Array(nA * nC)
+    for (let a = 0; a < nA; a++) {
+      // tangente por diferença central, como `construirFita` faz: sem isso a
+      // faixa ganha uma quina em cada junta da polilinha reamostrada
+      const ant = eixo[Math.max(0, a - 1)], dep = eixo[Math.min(nA - 1, a + 1)]
+      let tx = dep[0] - ant[0], tz = dep[1] - ant[1]
+      const tl = Math.hypot(tx, tz) || 1
+      tx /= tl; tz /= tl
+      const lx = -tz, lz = tx      // lado = up × tangente
+      for (let t = 0; t < nC; t++) {
+        const v = COL[t] * kSuave[a * 2 + (COL[t] > 0 ? 1 : 0)]
+        const x = eixo[a][0] + lx * v, z = eixo[a][1] + lz * v
+        const k = a * nC + t
+        X[k] = x; Z[k] = z
+        Y[k] = heightAt(x, z); chamadas++
+        molhado[k] = ehAgua(x, z, Y[k]) ? 1 : 0
+      }
+    }
+
+    // ── a folga adaptativa, uma amostra por quad (ver `PISTA_FATOR_FOLGA`) ──
+    const folga = new Float64Array(nA * nC)
+    for (let a = 0; a < nA - 1; a++) {
+      for (let t = 0; t < nC - 1; t++) {
+        const k00 = a * nC + t, k10 = (a + 1) * nC + t, k01 = k00 + 1, k11 = k10 + 1
+        const cx = (X[k00] + X[k10] + X[k01] + X[k11]) / 4
+        const cz = (Z[k00] + Z[k10] + Z[k01] + Z[k11]) / 4
+        const plano = (Y[k00] + Y[k10] + Y[k01] + Y[k11]) / 4
+        const def = heightAt(cx, cz) - plano; chamadas++
+        if (def > 0) {
+          const ff = def * PISTA_FATOR_FOLGA
+          if (ff > folga[k00]) folga[k00] = ff
+          if (ff > folga[k10]) folga[k10] = ff
+          if (ff > folga[k01]) folga[k01] = ff
+          if (ff > folga[k11]) folga[k11] = ff
+        }
+        areaM2 += Math.abs((X[k10] - X[k00]) * (Z[k01] - Z[k00]) - (Z[k10] - Z[k00]) * (X[k01] - X[k00]))
+      }
+    }
+
+    // ── vértices ───────────────────────────────────────────────────────────
+    const base = pos.length / 3
+    const acumNor = new Float64Array(nA * nC * 3)
+    for (let a = 0; a < nA; a++) {
+      for (let t = 0; t < nC; t++) {
+        const k = a * nC + t
+        pos.push(X[k], Y[k] + PISTA_LEVANTE + folga[k], Z[k])
+        // ⚠️ UV EM METROS DE MUNDO, o MESMO ladrilho da coroa: faixa e coroa
+        // se encontram em cima da montanha, e um ladrilho por fita faria a
+        // costura aparecer justamente ali.
+        uv.push(X[k] / TILE_SPARKLE, Z[k] / TILE_SPARKLE)
+        // cor e alfa pelo perfil: núcleo pisado → banco de pó → esvazia
+        const v = Math.abs(COL[t])
+        if (v <= m) {
+          c0.copy(COR_NEVE_COMPACTADA)
+        } else if (v <= m + PISTA_BANCO) {
+          c0.copy(COR_NEVE_COMPACTADA).lerp(COR_NEVE_PO, (v - m) / PISTA_BANCO)
+        } else {
+          c0.copy(COR_NEVE_PO).lerp(COR_NEVE_SUJA, (v - m - PISTA_BANCO) / PISTA_ESVAZIA)
+        }
+        // ⚠️ RUÍDO DE UM TERÇO DO DA COROA (±4% contra ±12%), e é a tradução
+        // literal de "a pista é mais lisa": neve pisada tem manchado, mas o
+        // manchado dela é a marca da máquina, não o pó soprado pelo vento.
+        const g = 0.96 + 0.08 * ruido(X[k], Z[k], 90, 53)
+        c1.setRGB(c0.r * g, c0.g * g, c0.b * g)
+        const borda = t === 0 || t === nC - 1 ? 0 : 1
+        cor.push(c1.r, c1.g, c1.b, molhado[k] ? 0 : borda)
+      }
+    }
+    // ── índices, e o giro conferido pela mesma regra da coroa ──────────────
+    for (let a = 0; a < nA - 1; a++) {
+      for (let t = 0; t < nC - 1; t++) {
+        const k00 = base + a * nC + t, k10 = base + (a + 1) * nC + t
+        const k01 = k00 + 1, k11 = k10 + 1
+        // ⚠️ O SENTIDO SAI DE CONTA, NÃO DE TENTATIVA (a lição de 05/09: 22.544
+        // triângulos com a normal para baixo e material `FrontSide` = casca
+        // inteira descartada). `lado` = up × tangente, então (tangente, lado, up)
+        // é levógiro em XZ: o triângulo cuja normal aponta para CIMA é
+        // (k00, k01, k10), não (k00, k10, k01). O guarda-corpo no fim da função
+        // mede e corrige se alguém mexer aqui.
+        ind.push(k00, k01, k10, k10, k01, k11)
+      }
+    }
+    // ⚠️ NORMAL SOBRE O Y SEM A FOLGA, mesma razão da coroa: a folga é correção
+    // de casco (o máximo entre os quads vizinhos), não relevo. Somá-la faria o
+    // sombreado seguir o degrau da correção e a pista sairia facetada onde o
+    // corredor é liso, que é justamente onde ela tem de parecer varrida.
+    for (let a = 0; a < nA - 1; a++) {
+      for (let t = 0; t < nC - 1; t++) {
+        const i00 = a * nC + t, i10 = (a + 1) * nC + t, i01 = i00 + 1, i11 = i10 + 1
+        for (const [ia, ib, ic] of [[i00, i01, i10], [i10, i01, i11]] as const) {
+          const ux = X[ib] - X[ia], uy = Y[ib] - Y[ia], uz = Z[ib] - Z[ia]
+          const vx = X[ic] - X[ia], vy = Y[ic] - Y[ia], vz = Z[ic] - Z[ia]
+          const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx
+          for (const k of [ia, ib, ic]) { acumNor[k * 3] += nx; acumNor[k * 3 + 1] += ny; acumNor[k * 3 + 2] += nz }
+        }
+      }
+    }
+    for (let k = 0; k < nA * nC; k++) {
+      let nx = acumNor[k * 3], ny = acumNor[k * 3 + 1], nz = acumNor[k * 3 + 2]
+      const l = Math.hypot(nx, ny, nz)
+      if (l < 1e-9) { nx = 0; ny = 1; nz = 0 } else { nx /= l; ny /= l; nz /= l }
+      if (ny < 0) { nx = -nx; ny = -ny; nz = -nz }
+      nor.push(nx, ny, nz)
+    }
+  }
+
+  if (ind.length === 0) return null
+  // ⚠️ MESMO GUARDA-CORPO DA COROA (e de `terrain.ts:722`): a faixa é uma
+  // altura sobre o terreno, então a normal geométrica de qualquer triângulo não
+  // degenerado tem de apontar para CIMA. Custou 22.544 triângulos invisíveis
+  // uma vez; não custa duas.
+  for (let t = 0; t + 2 < ind.length; t += 3) {
+    const ia = ind[t] * 3, ib = ind[t + 1] * 3, ic = ind[t + 2] * 3
+    const e1x = pos[ib] - pos[ia], e1z = pos[ib + 2] - pos[ia + 2]
+    const e2x = pos[ic] - pos[ia], e2z = pos[ic + 2] - pos[ia + 2]
+    const ny = e1z * e2x - e1x * e2z
+    if (Math.abs(ny) < 0.5) continue
+    if (ny < 0) {
+      console.warn('[alpino] giro da faixa de pista invertido, corrigindo os', ind.length / 3, 'triângulos')
+      for (let q = 0; q + 2 < ind.length; q += 3) { const s = ind[q + 1]; ind[q + 1] = ind[q + 2]; ind[q + 2] = s }
+    }
+    break
+  }
+  const g = new THREE.BufferGeometry()
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3))
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
+  g.setAttribute('color', new THREE.Float32BufferAttribute(cor, 4))
+  g.setIndex(ind)
+  g.computeBoundingSphere()
+  return { geometria: g, areaM2, triangulos: ind.length / 3, chamadas }
+}
 
 /**
  * A coroa de neve e a mata do maciço oeste.
@@ -1315,6 +1687,66 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
     neve.receiveShadow = false
     neve.renderOrder = 1
     group.add(neve)
+  }
+
+  // ── 2c. as sete faixas de pista (ver o bloco de `faixasDePista`) ──────────
+  //
+  // ⚠️ SÓ COM `?inverno=1`. Sem a estação não existe máquina de pisar neve, e
+  // faixa de neve trabalhada sem estação é o defeito da cova seca de novo: uma
+  // metade da feature no ar sem a outra. `PISTAS` é uma tabela que existe
+  // sempre; quem manda aqui é a bandeira.
+  //
+  // ⚠️ MALHA E MATERIAL PRÓPRIOS, MAS ZERO PROGRAMA NOVO: é
+  // `MeshStandardMaterial` com os MESMOS defines da coroa (cor por vértice com
+  // alfa, normal map, transparente), então o three reusa o programa compilado.
+  // O que muda são dois números, e os dois são a diferença física entre pó e
+  // pista: `roughness` 0,42 contra 0,55 (neve prensada é mais densa e reflete
+  // mais direcionada) e `normalScale` 0,45 contra 0,9 (metade do brilho de
+  // cristal: a pisa-neve quebra o cristal solto, é isso que deixa a pista mais
+  // lisa que o pó ao lado dela).
+  //
+  // ⚠️ O QUE ELA NÃO TEM, E É DE PROPÓSITO: o rastro de corduroy da pisa-neve
+  // (as ranhuras de ~20 cm). Não cabe: o vértice mais fino desta faixa está a
+  // 3 m, e corduroy por vértice exigiria 15× mais malha. Sairia de textura
+  // própria, que é memória nova para um detalhe que a 6 km mede muito menos
+  // que um pixel. Fica declarado como não feito, não como esquecido.
+  let pista: THREE.Mesh | null = null
+  let matPista: THREE.MeshStandardMaterial | null = null
+  let pistaM2 = 0
+  let trisPista = 0
+  if (INVERNO_ATIVO) {
+    const faixa = faixasDePista(
+      o.heightAt,
+      (x, z, y) => sobreLagoa(lagosAlpinos, x, z, y) || !!o.molhado?.(x, z),
+      orc.passoPista,
+    )
+    if (faixa) {
+      matPista = new THREE.MeshStandardMaterial({
+        color: '#ffffff',
+        vertexColors: true,
+        roughness: 0.42,
+        metalness: 0,
+        transparent: true,
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -3,
+        polygonOffsetUnits: -3,
+      })
+      matPista.normalMap = texNeve
+      matPista.normalScale = new THREE.Vector2(0.45, 0.45)
+      pista = new THREE.Mesh(faixa.geometria, matPista)
+      pista.name = 'alpino:neve-pista'
+      pista.castShadow = false
+      pista.receiveShadow = false
+      // ⚠️ DEPOIS DA COROA (`renderOrder` 1) E DA FITA DE `inverno.ts`: onde as
+      // duas neves se encontram, no corpo alto, quem manda é a trabalhada, que
+      // é a que tem borda. As duas são brancas, então a ordem só decide a
+      // borda, não o tom.
+      pista.renderOrder = 2
+      group.add(pista)
+      pistaM2 = faixa.areaM2
+      trisPista = faixa.triangulos
+    }
   }
 
   // ── 3. a mata: candidatos em grade jitterada, filtrados pela faixa ────────
@@ -1892,13 +2324,21 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
   // sub-bosque no teto dele. O pior caso do balde de perto (câmera dentro da
   // mata) troca `orc.perto` árvores de `trisLonge` para `trisPerto`, o que
   // soma `orc.perto × (trisPerto - trisLonge)` a este número.
-  const triangulos = quads * 2 + nArv * trisLonge + capSub * trisSub
+  const triangulos = quads * 2 + trisPista + nArv * trisLonge + capSub * trisSub
   void trisPerto
+  if (pista) {
+    console.log(`[alpino] faixa de pista: ${(pistaM2 / 1e4).toFixed(2)} ha em 7 pistas, ${trisPista.toLocaleString('pt-BR')} triângulos, passo ${orc.passoPista} m`)
+  }
 
   return {
     group,
     arvores: nArv,
+    // ⚠️ `neveKm2` CONTINUA SENDO SÓ A COROA NATURAL, de propósito: é o número
+    // que a rodada da linha de neve persegue (18,035 → 5,298 km²) e misturar a
+    // faixa de pista nele faria a próxima medição comparar duas coisas
+    // diferentes. A faixa tem campo próprio.
     neveKm2: (quads * PASSO * PASSO) / 1e6,
+    pistaKm2: pistaM2 / 1e6,
     triangulos,
     update(cam: THREE.Vector3) {
       if (cam.distanceTo(ultima) < PASSO_REBALANCE) return
@@ -1914,6 +2354,8 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
     dispose() {
       neve?.geometry.dispose()
       matNeve.dispose()
+      pista?.geometry.dispose()
+      matPista?.dispose()
       texNeve.dispose()
       gPerto.dispose()
       gLonge.dispose()

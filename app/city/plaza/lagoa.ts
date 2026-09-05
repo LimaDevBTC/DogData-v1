@@ -75,6 +75,31 @@
 // `zonaEsquiavelAt` e não tem consulta de água nenhuma. Não é editável nesta
 // frente; fica escrito no relatório o que ele precisa receber.
 //
+// ── ⚠️ O SENTIDO DE GIRO, E ELE JÁ TINHA CUSTADO TRÊS RODADAS NO VIZINHO ───
+// Medido em 05/09 sobre a malha REAL que `buildLagoa` constrói (relevo de hoje,
+// `superficieAt` de verdade, sem navegador): as DUAS malhas saíam com a normal
+// geométrica apontando para BAIXO em 100,00% dos triângulos, contra material
+// `FrontSide`. `lagoa:agua` 22.808 de 22.808, normal geométrica média
+// (0,0000, −1,0000, 0,0000); `lagoa:margem` 9.184 de 9.184, média
+// (0,0020, −1,0000, 0,0077). Com `?lagoa=1` não havia água rasterizada de
+// NENHUMA câmera acima dela: a GPU descartava as duas malhas inteiras como face
+// de trás antes de virarem fragmento.
+//
+// É o MESMO defeito, do MESMO dia, do arquivo vizinho: a casca de neve de
+// `alpino.ts` ficou invisível por três rodadas de conserto (máscara, material,
+// levante, folga adaptativa) porque todas consertavam elos a montante de um
+// triângulo que nunca era desenhado. A trava contra isso já existia nesta casa,
+// em `terrain.ts:722`, e nenhum dos dois módulos a tinha recebido.
+//
+// ⚠️ E A MARGEM ERRAVA DUAS VEZES: ela chama `computeVertexNormals`, que deriva
+// a normal DO ENROLAMENTO, então o atributo que ilumina também saía apontando
+// para baixo (média medida (0,0024, −1,0000, 0,0080)). Mesmo desenhada, a rocha
+// molhada estaria iluminada pelo lado de dentro do morro.
+//
+// O conserto está na EMISSÃO do índice (ver `acumularLamina` e
+// `acumularMargem`), com `travarGiro` de guarda-corpo em cima, e ela grita no
+// console quando dispara.
+//
 // ── A BANDEIRA ─────────────────────────────────────────────────────────────
 // `?lagoa=1`, OPT-IN, e isso é deliberado: quem decide ligar é o fundador,
 // depois de VER. Sem a bandeira, `buildLagoa` devolve um grupo vazio e
@@ -527,8 +552,12 @@ function planejar(
   const grosso = trava(raio * BUSCA_GROSSO_FRAC, BUSCA_GROSSO, BUSCA_GROSSO_MAX)
   let soma = 0, rMax = 0, secos = 0, truncados = 0
   let alcance = raio * BUSCA_FATOR
+  /** rumo que chegou ao teto da busca sem o terreno voltar a subir acima da
+   *  cota: por ali a bacia não fecha, ou seja é por ali que ela VAZA */
+  const vaza = new Uint8Array(nAz)
   for (let tentativa = 0; ; tentativa++) {
     soma = 0; rMax = 0; secos = 0; truncados = 0
+    vaza.fill(0)
     for (let i = 0; i < nAz; i++) {
       const a = (i / nAz) * Math.PI * 2
       const r = raioDaMargem(heightAt, cx, cz, cota, raio, alcance, grosso, Math.cos(a), Math.sin(a))
@@ -537,16 +566,62 @@ function planejar(
       if (r > rMax) rMax = r
       if (r <= 0) secos++
       // rumo que parou EM CIMA do teto: a bacia continua para fora dele
-      else if (r >= alcance - grosso) truncados++
+      else if (r >= alcance - grosso) { truncados++; vaza[i] = 1 }
     }
     if (truncados === 0 || tentativa >= BUSCA_DOBRAS) break
     alcance *= 2
   }
-  if (truncados > 0) {
-    // não é erro fatal: a água sobe do jeito que deu. Mas é um número que a
-    // frente do relevo precisa ver, porque quem sabe o raio certo é a tabela.
-    console.warn(`[lagoa] "${lago.nome ?? `lago ${indice + 1}`}": ${truncados} de ${nAz} rumos ainda batem no teto de busca `
-      + `(${alcance.toFixed(0)} m). O raio da tabela (${raio} m) subestima esta bacia, ou ela não é fechada nesta cota.`)
+  // ⚠️ RUMO TRUNCADO NÃO VIRA LINHA D'ÁGUA, E ISTO É CONSERTO DE UM DEFEITO
+  // MEDIDO NO RELEVO DE HOJE, não zelo. O teto da busca é uma decisão DESTE
+  // arquivo; gravá-lo como margem é publicar um número que o terreno nunca
+  // disse. O `North Tarn` da tabela (cota 683 m) vaza: varredura fina de 0,5 m
+  // em 360 rumos contra `superficieAt` real mostra 7 rumos (azimute local 130 a
+  // 136 graus) em que o terreno NUNCA volta a 683 m dentro de 2.000 m, e o
+  // lábio mais baixo do corpo fica em 682,1 m, ou seja **0,86 m ABAIXO da
+  // lâmina**; dali para fora a encosta cai a 273 m em 660 m de corrida. Com o
+  // teto gravado, `planejar` publicava 7,64 ha de lâmina com "fundo" de
+  // 411,75 m: água desenhada descendo a montanha, e `naLagoa` respondendo
+  // `true` sobre 7,64 ha de rocha seca. É a mesma família da cova seca de
+  // 04/09, ao contrário.
+  //
+  // O reparo é ANGULAR e conservador: cada rumo que vaza recebe a interpolação
+  // entre os dois rumos FECHADOS mais próximos de cada lado. Não há risco de
+  // lâmina flutuando, e a razão é geométrica: num rumo truncado o terreno está
+  // ABAIXO da cota em toda a corrida, então qualquer raio até o teto continua
+  // submerso. O que se escolhe é onde PARAR, e parar junto com a margem
+  // vizinha é a única resposta que o terreno sustenta. Medido: North Tarn volta
+  // de 7,64 ha e "fundo" 411,75 m para 3,99 ha e fundo 15,02 m, que é o corpo
+  // de 3,92 ha que a frente do relevo publicou em `inverno.ts` (a diferença é
+  // a mesma sobra de costura de `LAMINA_SOBRA` que os outros quatro têm).
+  //
+  // ⚠️ E O CONSERTO É DAQUI, O DEFEITO NÃO: quem levanta o lábio é a frente do
+  // relevo. Por isso o aviso sai com o número que ela precisa (quanto falta ao
+  // lábio), e não só com "deu ruim".
+  if (truncados > 0 && truncados < nAz) {
+    const orig = Float32Array.from(raios)
+    const fechado = (i: number) => !vaza[((i % nAz) + nAz) % nAz]
+    for (let i = 0; i < nAz; i++) {
+      if (!vaza[i]) continue
+      let ka = 1, kb = 1
+      while (ka < nAz && !fechado(i - ka)) ka++
+      while (kb < nAz && !fechado(i + kb)) kb++
+      const ra = orig[((i - ka) % nAz + nAz) % nAz]
+      const rb = orig[((i + kb) % nAz + nAz) % nAz]
+      raios[i] = (ra * kb + rb * ka) / (ka + kb)
+    }
+    soma = 0; rMax = 0
+    for (let i = 0; i < nAz; i++) { soma += raios[i]; if (raios[i] > rMax) rMax = raios[i] }
+    console.warn(`[lagoa] "${lago.nome ?? `lago ${indice + 1}`}" VAZA: ${truncados} de ${nAz} rumos não fecham em `
+      + `${alcance.toFixed(0)} m, ou seja o lábio da bacia está ABAIXO da lâmina (${cota} m) naquele setor e a água `
+      + `escorreria por ali. A margem desses rumos foi costurada com a dos vizinhos fechados (lâmina agora até `
+      + `${rMax.toFixed(0)} m). Conserto de verdade é do relevo: subir o lábio deste sítio acima de ${cota} m em `
+      + 'TODOS os rumos, ou baixar a cota da tabela.')
+  } else if (truncados >= nAz) {
+    // nenhum rumo fecha: não existe bacia aqui, existe uma encosta inteira
+    // abaixo da cota. Nada a costurar, e o corpo é pulado logo abaixo.
+    console.warn(`[lagoa] "${lago.nome ?? `lago ${indice + 1}`}": NENHUM dos ${nAz} rumos fecha em ${alcance.toFixed(0)} m. `
+      + `Isto não é uma bacia na cota ${cota} m, é encosta aberta. Pulado.`)
+    return null
   }
   // sem cova não há água: o relevo publicou o registro mas a bacia não subiu
   // (relevo real que não carregou, ou uma rodada que mexeu na tabela sem
@@ -605,6 +680,62 @@ function planejar(
 interface Acumulador {
   pos: number[]
   idx: number[]
+}
+
+/** ⚠️ QUANTOS TRIÂNGULOS A TRAVA OLHA. Amostra e não varredura, porque o giro é
+ *  propriedade do LAÇO que emitiu o índice e não de cada triângulo: 512 amostras
+ *  por passo constante caem em todos os corpos da tabela e em todos os anéis de
+ *  cada um. As duas malhas somam 31.992 triângulos no relevo de hoje; olhar
+ *  todos custaria o mesmo nada, mas amostra não fica cara quando a tabela
+ *  crescer. */
+const GIRO_AMOSTRA = 512
+
+/**
+ * A TRAVA DE ENROLAMENTO, E ELA É A MESMA DE `terrain.ts:722` E DE
+ * `alpino.ts:1249`. Ver a seção do cabeçalho: as duas malhas daqui nasceram com
+ * 100,00% dos triângulos virados para baixo contra material `FrontSide`, que é
+ * o mesmo defeito que deixou a casca de neve invisível por três rodadas no
+ * arquivo vizinho, escrito no mesmo dia.
+ *
+ * As duas malhas são alturas sobre a planta (a lâmina é literalmente plana, um
+ * leque numa cota só), então a normal geométrica de todo triângulo não
+ * degenerado tem de apontar para CIMA. Se a maioria da amostra apontar para
+ * baixo, o índice inteiro é invertido.
+ *
+ * ⚠️ E NÃO SE CONSERTA COM `side: THREE.DoubleSide`. Isso esconderia o defeito
+ * em vez de corrigi-lo: dobra o custo de fragmento de duas malhas
+ * TRANSPARENTES (as duas mais caras por pixel da cena), e a face de trás fica
+ * com a normal invertida, ou seja iluminada ao contrário. A água ainda escreve
+ * profundidade (`depthWrite: true`, ver `materialDaAgua`), então desenhar a
+ * face de baixo dela é pagar por um lado que nunca é olhado.
+ *
+ * ⚠️ E ELA GRITA, SEMPRE. O defeito da neve atravessou três revisões
+ * exatamente por ser silencioso.
+ */
+function travarGiro(pos: number[], idx: number[], nome: string): number {
+  const tri = idx.length / 3
+  if (tri === 0) return 0
+  const passo = Math.max(1, Math.floor(tri / GIRO_AMOSTRA))
+  let baixo = 0, olhados = 0
+  for (let t = 0; t < tri; t += passo) {
+    const k = t * 3
+    const a = idx[k] * 3, b = idx[k + 1] * 3, c = idx[k + 2] * 3
+    const e1x = pos[b] - pos[a], e1z = pos[b + 2] - pos[a + 2]
+    const e2x = pos[c] - pos[a], e2z = pos[c + 2] - pos[a + 2]
+    // só a componente Y da normal geométrica (e1 × e2): é a única que decide
+    // de que lado a face está, e ela é o DOBRO da área em planta com sinal
+    const ny = e1z * e2x - e1x * e2z
+    if (Math.abs(ny) < 1e-3) continue          // degenerado em planta: não vota
+    olhados++
+    if (ny < 0) baixo++
+  }
+  if (olhados === 0 || baixo * 2 <= olhados) return 0
+  console.warn(`[lagoa] ⚠️ GIRO INVERTIDO em "${nome}": ${baixo} de ${olhados} triângulos amostrados saíram com a normal `
+    + `geométrica para BAIXO, e o material é FrontSide — a malha inteira seria descartada como face de trás, de toda `
+    + `câmera acima da água. Invertendo os ${tri} triângulos. (Mesmo defeito da casca de neve de \`alpino.ts\`; quem `
+    + 'mexeu na ordem de emissão de `acumularLamina`/`acumularMargem` precisa reconferir.)')
+  for (let k = 0; k + 2 < idx.length; k += 3) { const s = idx[k + 1]; idx[k + 1] = idx[k + 2]; idx[k + 2] = s }
+  return tri
 }
 
 /**
@@ -669,11 +800,23 @@ function acumularLamina(
   const i0 = ac.idx.length
   for (let i = 0; i < nAz; i++) {
     const i2 = (i + 1) % nAz
-    ac.idx.push(base, base + 1 + i, base + 1 + i2)
+    // ⚠️ O SENTIDO DE GIRO, E ELE ERA A CAUSA DE A ÁGUA NÃO APARECER (05/09,
+    // ver o cabeçalho e `travarGiro`). O vértice do rumo `i` está em
+    // (cos a, sin a) e o do rumo `i2` em (cos(a+da), sin(a+da)), com da > 0. A
+    // ordem antiga do leque (`centro, i, i2`) dava normal geométrica
+    // (v1−v0)×(v2−v0) com Y = −r²·sin(da), ou seja face virada para BAIXO em
+    // 22.808 de 22.808 triângulos, e o material é `FrontSide`. Trocados os dois
+    // últimos índices, sai +r²·sin(da).
+    //
+    // As duas partições do quad seguem o MESMO sentido, e as contas fecham nas
+    // duas (r = raio do anel de dentro, dr = passo radial, da = passo angular):
+    //   (a0,b1,b0): Y = +r·dr·da        (a0,a1,b1): Y = +r·dr·da
+    // (as ordens antigas, `a0,b0,b1` e `a0,b1,a1`, davam −r·dr·da nas duas.)
+    ac.idx.push(base, base + 1 + i2, base + 1 + i)
     for (let j = 0; j < aneis - 1; j++) {
       const a0 = base + 1 + j * nAz + i, a1 = base + 1 + j * nAz + i2
       const b0 = base + 1 + (j + 1) * nAz + i, b1 = base + 1 + (j + 1) * nAz + i2
-      ac.idx.push(a0, b0, b1, a0, b1, a1)
+      ac.idx.push(a0, b1, b0, a0, a1, b1)
     }
   }
 
@@ -832,7 +975,15 @@ function acumularMargem(
       const i2 = (i + 1) % nAz
       const a0 = base + j * nAz + i, a1 = base + j * nAz + i2
       const b0 = base + (j + 1) * nAz + i, b1 = base + (j + 1) * nAz + i2
-      ac.idx.push(a0, b0, b1, a0, b1, a1)
+      // ⚠️ MESMO GIRO DA LÂMINA, E PELO MESMO MOTIVO MEDIDO: a ordem antiga
+      // (`a0,b0,b1` / `a0,b1,a1`) dava Y = −r·dr·da nas duas partições, e a
+      // faixa saía com 9.184 de 9.184 triângulos virados para baixo contra
+      // material `FrontSide`. Aqui o erro custava DOBRADO: a margem chama
+      // `computeVertexNormals`, que deriva a normal DO ENROLAMENTO, então o
+      // atributo que ilumina também apontava para baixo (média medida
+      // (0,0024, −1,0000, 0,0080)). Mesmo se fosse desenhada, a rocha molhada
+      // estaria iluminada pelo lado de dentro do morro.
+      ac.idx.push(a0, b1, b0, a0, a1, b1)
       tri += 2
     }
   }
@@ -956,6 +1107,10 @@ export function buildLagoa(o: LagoaOpts): Lagoa {
       raioMedio: p.raioMedio, triangulos: m.triangulos,
     })
   }
+  // ⚠️ A TRAVA DE ENROLAMENTO, ANTES DE A GEOMETRIA EXISTIR. Ver `travarGiro`:
+  // é a trava de `terrain.ts:722`, que este módulo não tinha, e sem ela a
+  // lâmina inteira era descartada como face de trás.
+  travarGiro(acAgua.pos, acAgua.idx, 'lagoa:agua')
   const nA = acAgua.pos.length / 3
   const geoAgua = new THREE.BufferGeometry()
   geoAgua.setAttribute('position', new THREE.BufferAttribute(new Float32Array(acAgua.pos), 3))
@@ -985,6 +1140,10 @@ export function buildLagoa(o: LagoaOpts): Lagoa {
   const passo = superficie('pedra').metros
   let triMargem = 0
   for (const p of planos) triMargem += acumularMargem(heightAt, p, acMar, cor, uv, molh, passo)
+  // ⚠️ ANTES DO `computeVertexNormals` LÁ EMBAIXO, E A ORDEM É OBRIGATÓRIA:
+  // ele deriva a normal do ENROLAMENTO, então corrigir o índice depois dele
+  // deixaria a faixa desenhada e iluminada ao contrário.
+  travarGiro(acMar.pos, acMar.idx, 'lagoa:margem')
   const geoMar = new THREE.BufferGeometry()
   geoMar.setAttribute('position', new THREE.BufferAttribute(new Float32Array(acMar.pos), 3))
   // ⚠️ QUATRO COMPONENTES, e o three só respeita o alfa da cor por vértice se
