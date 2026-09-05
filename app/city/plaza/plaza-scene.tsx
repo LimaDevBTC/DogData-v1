@@ -68,7 +68,7 @@ import { buildEclusas, type Eclusas } from './eclusas'
 import { buildMetro, type Metro } from './metro'
 import { Obra, aquece } from './obra'
 import { buildMontanha, type Montanha } from './montanha'
-import { buildLago, type Lago } from './lago'
+import { buildLago, type Lago, LARG_ORLA } from './lago'
 import { buildAquario, type Aquario } from './aquario'
 import { buildCaverna, type Caverna } from './caverna'
 import { PROPS, SP_DECK_TOP } from './props-table'
@@ -1967,6 +1967,17 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               heightAt: terrain.superficieAt,
               lago: terrain.lago,
               sombra: qDomo.get('sombra') !== '0',
+              // ⚠️ OS TRÊS RADIAIS QUE DESAGUAM AQUI, PARA A PRAIA E O ANEL DA
+              // ORLA SABEREM QUE ALI É CANAL. Ver a nota grande em
+              // `LagoOpts.canaisRadiais`: sem isto a praia lia o leito plano
+              // do canal como "sem declividade" e desenhava areia até o teto
+              // (`PRAIA_MAX`) na boca dele, e o Anel da Orla descia para
+              // dentro do canal em vez de o atravessar. `_cn` já é a mesma
+              // malha que a cava do terreno usa (fetch no topo de `boot`); só
+              // o `rumo`/`secao` importam aqui, então não precisa do clamp de
+              // `LAGO_R1` que `rInicio` recebe nos outros três consumidores.
+              canaisRadiais: (_cn?.radiais ?? []).map(
+                (r: { rumo: number; secao: number }) => ({ rumo: r.rumo, secao: r.secao })),
             })
             scene.add(lago.group)
             // ── OS CANAIS ────────────────────────────────────────────────────
@@ -2148,8 +2159,20 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                   aneisPhi: mc?.constantes?.aneisPhi ?? [],
                   // ⚠️ os anéis VIÁRIOS vão junto: sem eles três avenidas
                   // circulares ficam sem ponte sobre os canais radiais.
-                  aneisViarios: ((mc?.aneisViarios ?? []) as { r: number; larg: number }[])
-                    .map((a) => ({ r: a.r, larg: a.larg })),
+                  //
+                  // ⚠️ O ANEL DA ORLA (`lago.rAnelOrla`) ENTRA AQUI TAMBÉM, e é
+                  // NOVO. Ele não vem do gerador (`mc.aneisViarios`): é
+                  // construído por `lago.ts`, que agora abre vão nos três
+                  // rumos do canal (ver a nota em `aneisDeMargem`) e espera
+                  // ESTA ponte para cobrir o vão — regra da casa, "toda via
+                  // que cruza um canal ganha ponte". O raio vem do PRÓPRIO
+                  // `lago` já construído (não recalculado aqui), para o vão e
+                  // o tabuleiro nunca discordarem de novo.
+                  aneisViarios: [
+                    ...((mc?.aneisViarios ?? []) as { r: number; larg: number }[])
+                      .map((a) => ({ r: a.r, larg: a.larg })),
+                    ...(lago ? [{ r: lago.rAnelOrla, larg: LARG_ORLA }] : []),
+                  ],
                   raioEmPhi: _raioEmPhi,
                   rFimRadial: rFim,
                   sombra: qDomo.get('sombra') !== '0',
@@ -3240,9 +3263,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
 
         // ── $DOG ARENA ────────────────────────────────────────────────────────
         // ⚠️ A POSIÇÃO VEM DA RESERVA, NÃO DO GOSTO. O centro é o da peça `E03`
-        // do gerador (`data/dogcity_programa_congelado.json`) e o giro é o `rot`
-        // dela invertido; a conta está em `estadio.ts`. O culler leva o centro
-        // dela porque a peça está a 2,8 km da praça e o padrão do
+        // do gerador (`data/dogcity_programa_congelado.json`), e o giro é o
+        // `rot` dela invertido; a conta está em `estadio.ts`. O culler leva o
+        // centro dela porque a peça está a 2,8 km da praça e o padrão do
         // `DistanceCuller` é medir do (0,0,0).
         if (arena) {
           tameEnv(arena)

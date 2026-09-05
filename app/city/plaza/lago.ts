@@ -56,6 +56,23 @@ export interface LagoOpts {
   heightAt: (x: number, z: number) => number
   lago: { r0: number; r1: number; agua: number; fundo: number }
   sombra?: boolean
+  /** ⚠️ OS CANAIS RADIAIS QUE DESAGUAM NESTE LAGO (rumo + seção), a MESMA fonte
+   *  que `canais.ts` desenha, com o `rInicio` já grampeado em `LAGO_R1` (ver
+   *  `plaza-scene.tsx`). SEM ISTO A PRAIA E O ANEL DA ORLA NÃO SABEM QUE ALI É
+   *  CANAL, e o defeito medido em 05/09 (terceira rodada) foi este: a bisseção
+   *  de margem (`linhaDagua`) e a sonda de declividade da praia caem dentro do
+   *  leito do canal (plano, −44, sempre abaixo da lâmina) e leem isso como
+   *  "sem declividade nenhuma" — a fórmula então desenha o MÁXIMO de areia
+   *  (`PRAIA_MAX`) bem em cima da água do canal, com uma crista que sobe acima
+   *  da lâmina: banco de areia onde devia haver água aberta, medido nos três
+   *  rumos do canal (25/55/85): margem crua saltando de ~1.394 para 1.444,
+   *  declividade sonda = 0 e areia = 40 m (o teto), contra 29–34 m no rumo
+   *  vizinho, sem canal. O Anel da Orla (`R_ANEL_ORLA`) tem o mesmo problema
+   *  por outro lado: ele segue o chão cru, e o chão cru ali É o leito do
+   *  canal (medido: −44 m nos três rumos do canal contra −38,5 m no rumo
+   *  vizinho) — o anel desce para dentro do canal em vez de atravessá-lo, que
+   *  é a "entrada entrando pra dentro do canal" que o fundador viu. */
+  canaisRadiais?: { rumo: number; secao: number }[]
 }
 
 export interface Ilha { id: string; nome: string; x: number; z: number; r: number; dono: string | null }
@@ -85,8 +102,18 @@ export interface Lago {
   ilhas: Ilha[]
   areaHa: number
   triangulos: number
+  /** ⚠️ O RAIO DO ANEL DA ORLA, CALCULADO AQUI E SÓ AQUI (`L.r1 + 75`). Quem
+   *  precisa dele fora deste módulo (a ponte que `canais.ts` constrói onde os
+   *  três radiais cruzam este anel) lê ESTE campo, e não recalcula `L.r1 + 75`
+   *  por conta própria: número repetido em dois arquivos foi a causa de três
+   *  defeitos nesta mesma semana (ver `LAGO_R1` em `terrain.ts`). */
+  rAnelOrla: number
   dispose(): void
 }
+
+/** a largura do Anel da Orla, exportada para quem monta a ponte sobre ele
+ *  (`canais.ts`, via `aneisViarios` em `plaza-scene.tsx`) usar a MESMA seção. */
+export const LARG_ORLA = 26
 
 // ⚠️ A ÁGUA DO LAGO NÃO USA O AZUL DAS PEÇAS.
 // (ver também `aguaDeVerdade()` no fim do arquivo: o azul sozinho não resolve) `#16283C` é o azul de lâmina
@@ -230,6 +257,19 @@ export function buildLago(o: LagoOpts): Lago {
   const P = (x: number, z: number, y: number) => [x, y, z]
   const NO = (x: number, z: number, off: number) => [x, o.heightAt(x, z) + off, z]
 
+  // ⚠️ A DISTÂNCIA AO EIXO DE UM CANAL RADIAL, MEDIDA AQUI PORQUE A PRAIA E O
+  // ANEL DA ORLA PRECISAM DOS DOIS DE FORMAS DIFERENTES (ver a nota grande em
+  // `LagoOpts.canaisRadiais`). Mesma fórmula de `cavaEm` em `terrain.ts` e de
+  // `_foraDoCanal` em `plaza-scene.tsx`: `|x·dz − z·dx|` é a distância
+  // perpendicular do ponto à reta que passa pela origem no rumo do canal.
+  const _canais = (o.canaisRadiais ?? []).map((c) => {
+    const g = (c.rumo * Math.PI) / 180
+    return { dx: Math.sin(g), dz: -Math.cos(g), secao: c.secao }
+  })
+  /** `folga` metros somados à meia-seção molhada de cada canal. */
+  const noCorredor = (x: number, z: number, folga: number): boolean =>
+    _canais.some((c) => Math.abs(x * c.dz - z * c.dx) < c.secao / 2 + folga)
+
   // ⚠️ A LINHA D'ÁGUA SE MEDE, NÃO SE CALCULA. O talude varia com o rumo (ver
   // `bacia` em terrain.ts: dois harmônicos mexem no comprimento dele e na altura
   // do banco seco), então o raio em que o chão cruza a cota da lâmina muda de
@@ -254,6 +294,41 @@ export function buildLago(o: LagoOpts): Lago {
         else h = m
       }
       out[k] = (l + h) / 2
+    }
+    // ⚠️ ONDE O RUMO CRUZA UM CANAL RADIAL, A BISSEÇÃO NÃO TEM ONDE CONVERGIR.
+    // O leito do canal fica sempre abaixo da lâmina (nunca "seca" dentro da
+    // janela `[L.r1, L.r1+90]`), então a busca empurra o resultado até o TETO
+    // da janela em vez de achar a margem natural. Medido nos três radiais
+    // (rumo 25/55/85, 05/09 terceira rodada): margem crua saltando de ~1.394
+    // para 1.444, uma bolha de 50 m bem na boca do canal — e como `rMargemE`
+    // é o MÁXIMO de todo o array, a bolha de UM rumo empurrava a lâmina do
+    // lago inteiro. Corrige por INTERPOLAÇÃO dos vizinhos válidos: o que a
+    // bisseção mediu ali é o leito do canal, não a praia, então o valor certo
+    // é o que a praia teria se o canal não estivesse lá.
+    //
+    // ⚠️ SÓ POR FORA. `noCorredor` mede DISTÂNCIA A UMA RETA INFINITA, sem
+    // saber que o canal só existe a partir de `rInicio` (1.354): por dentro
+    // (margem interna, ~1.144) o eixo do canal passa pelo mesmo lugar
+    // geométrico, mas ali é praça normal, terreno intocado (`cavaEm` em
+    // `terrain.ts` corta em `rInicio − 40`, bem depois). Corrigir os dois
+    // lados apagaria areia de praia genuína nos rumos 25/55/85 por dentro,
+    // onde não há defeito nenhum para consertar.
+    if (fora && _canais.length) {
+      const invalido: boolean[] = new Array(NA_MARGEM)
+      for (let k = 0; k < NA_MARGEM; k++) {
+        const a = (k / NA_MARGEM) * Math.PI * 2
+        invalido[k] = noCorredor(Math.sin(a) * out[k], -Math.cos(a) * out[k], 6)
+      }
+      for (let k = 0; k < NA_MARGEM; k++) {
+        if (!invalido[k]) continue
+        let e = k
+        do { e = (e + 1) % NA_MARGEM } while (invalido[e] && e !== k)
+        let d = k
+        do { d = (d - 1 + NA_MARGEM) % NA_MARGEM } while (invalido[d] && d !== k)
+        const passos = (e - d + NA_MARGEM) % NA_MARGEM
+        const t = passos === 0 ? 0 : ((k - d + NA_MARGEM) % NA_MARGEM) / passos
+        out[k] = out[d] + (out[e] - out[d]) * t
+      }
     }
     return out
   }
@@ -385,10 +460,21 @@ export function buildLago(o: LagoOpts): Lago {
   // e é mais barato que recortar o disco. Em r 1.465 a aresta interna do anel
   // fica em 1.452, e o pé do talude externo vai no máximo até 1.447: 5 m livres
   // no pior rumo.
-  const R_ANEL_ORLA = L.r1 + 75, LARG_ORLA = 26
+  const R_ANEL_ORLA = L.r1 + 75
   const aneisDeMargem = [
-    { r: R_ANEL_PRACA, larg: LARG_PRACA },
-    { r: R_ANEL_ORLA, larg: LARG_ORLA },
+    { r: R_ANEL_PRACA, larg: LARG_PRACA, ponte: false },
+    // ⚠️ `ponte: true` AQUI PORQUE ESTE ANEL CRUZA OS TRÊS CANAIS RADIAIS, E O
+    // DA PRAÇA (975) NÃO — o canal só começa em `LAGO_R1` (1.354), 379 m mais
+    // para fora. Sem o vão, este anel seguia `heightAt` cru nos três rumos do
+    // canal, e `heightAt` ali É o leito escavado: medido, −44 m contra −38,5 m
+    // no rumo vizinho, ou seja o asfalto descia 5,5 m e entrava dentro d'água
+    // — a "entrada entrando pra dentro do canal" que o fundador viu. O vão
+    // abre exatamente a largura que `canais.ts` usa para a ponte que cruza
+    // este mesmo anel (`r.secao + 24`, ver `buildCanais`), passado por
+    // `aneisViarios` em `plaza-scene.tsx` com `rAnelOrla`/`LARG_ORLA`
+    // exportados daqui: a MESMA fonte para o vão e para o tabuleiro que o
+    // cobre, ou os dois voltam a discordar como já aconteceu esta semana.
+    { r: R_ANEL_ORLA, larg: LARG_ORLA, ponte: true },
   ]
   for (const an of aneisDeMargem) {
     const seg = Math.max(160, Math.ceil((2 * Math.PI * an.r) / 18))
@@ -400,6 +486,15 @@ export function buildLago(o: LagoOpts): Lago {
     ]
     for (let k = 0; k < seg; k++) {
       const a0 = (k / seg) * Math.PI * 2, a1 = ((k + 1) / seg) * Math.PI * 2
+      // ⚠️ O VÃO TESTA AS DUAS PONTAS E O MEIO, mesma cautela de `noVao` em
+      // `canais.ts`: o corredor é mais estreito que um segmento (18 m de
+      // arco), e testar só o meio deixaria passar trecho de pista sobre o
+      // canal num lado ou outro.
+      if (an.ponte && _canais.length) {
+        const meio = (a0 + a1) / 2
+        const emCanal = (a: number) => noCorredor(Math.sin(a) * an.r, -Math.cos(a) * an.r, 12)
+        if (emCanal(a0) || emCanal(a1) || emCanal(meio)) continue
+      }
       for (const [de, ate, alt, cor] of bandas) {
         const b = B(cor)
         const p = (t: number, a: number) => {
@@ -489,6 +584,20 @@ export function buildLago(o: LagoOpts): Lago {
         // ⚠️ A MODULAÇÃO MULTIPLICA, NÃO SOMA: onde a medida é zero continua
         // zero, e a areia nunca é inventada em cima de rocha.
         W[k] = w * (0.75 + 0.5 * onda(SX[k] * rr[k], SZ[k] * rr[k], 70))
+      }
+      // ⚠️ ONDE A SONDA CAI DENTRO DE UM CANAL RADIAL, A AREIA ZERA. A sonda
+      // (6 e 16 m além da margem, no MESMO rumo) mede o leito do canal, que é
+      // plano e sempre abaixo da lâmina: `decl` sai 0 e `w` vira `PRAIA_MAX`,
+      // o TETO, bem na boca do canal — o banco de areia que o fundador viu.
+      // Zera ANTES do alisamento (não depois): os 6 passes de `PRAIA_ALISA`
+      // (3 amostras cada) espalham o zero por ±3 rumos de cada lado sozinhos,
+      // então a areia se apaga em rampa suave até a boca, sem penhasco.
+      //
+      // ⚠️ SÓ POR FORA (`fora`), pelo mesmo motivo do bloco irmão em
+      // `linhaDagua`: por dentro o canal não chegou lá, e apagar areia ali
+      // seria estragar praça que está certa.
+      if (fora && _canais.length) for (let k = 0; k < M; k++) {
+        if (noCorredor(SX[k] * rr[k], SZ[k] * rr[k], 6)) W[k] = 0
       }
       // ⚠️ ALISAR É O QUE MATA A LASCA, e o laço é CIRCULAR: deixar a emenda dos
       // 720 rumos de fora guardaria uma quina não alisada por margem, e uma
@@ -981,7 +1090,7 @@ export function buildLago(o: LagoOpts): Lago {
   const areaHa = (Math.PI * (rAguaE * rAguaE - rAguaI * rAguaI)) / 1e4
   const relogios = feitas.map((m) => aguaDeVerdade(m)).filter(Boolean) as { value: number }[]
   return {
-    group, pontes, ilhas, areaHa, triangulos,
+    group, pontes, ilhas, areaHa, triangulos, rAnelOrla: R_ANEL_ORLA,
     update(t: number) { for (const u of relogios) u.value = t },
     dispose() {
       for (const m of feitas) { m.geometry.dispose(); (m.material as THREE.Material).dispose() }
