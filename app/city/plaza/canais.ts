@@ -23,11 +23,25 @@
 // verdadeiramente plana ou afundaria de um lado ou transbordaria do outro. O dia
 // em que houver eclusa desenhada, isto vira degrau por trecho.
 //
+// ⚠️ O RADIAL TROCOU MURO POR PRAIA EM 05/09 (QUARTA RODADA). O muro vertical
+// (`COR_MURO`, o que restou dele hoje é só o pé submerso e a foz) fazia sentido
+// contra um talude de 40 m: o chão ao lado da água já estava perto da cota da
+// rua, então "muro curto + cais" bastava. Com o relevo real do sítio (a sonda
+// mediu até 53 m de diferença entre o leito e a borda em menos de 100 m), aquele
+// muro vertical de dezenas de metros era exatamente o que lia como "fosso",
+// palavra do fundador. `terrain.ts` agora esculpe a margem com perfil absoluto
+// (`canalRadialAbsAt`, ver a nota grande em `CANAL_BANDA`) até 950 m de cada
+// lado; este módulo só precisa pintar a faixa de areia (`CANAL_PRAIA`, 40 m) que
+// já existe no chão, não mais erguer parede nenhuma. O muro que sobra aqui é só
+// o pé debaixo d'água (a face que a lancha encosta) e a foz, que continua com
+// cais de verdade porque ali é rio encontrando baía, não margem de casa.
+//
 // Three.js puro (regra da casa: nada de react-three-fiber).
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
-import { COR_AGUA, aguaDeVerdade } from './lago'
+import { COR_AGUA, aguaDeVerdade, AREIA_SECA, AREIA_MOLHADA } from './lago'
 import { look2 } from './look'
+import { CANAL_PRAIA, CANAL_BANDA } from './terrain'
 
 export interface CanalRadial {
   id: string; rumo: number; secao: number; lamina: number
@@ -104,13 +118,14 @@ const COR_WERF = '#A79C86'     // o cais baixo, na água
 //   GUIA     meio-fio e faixa de árvore, encostando no lote
 const FUNDO = 4.0        // o leito: 3 m de lâmina, que aceita calado de lancha
 const LAMINA = 1.0       // a água, abaixo do passeio: altura de convés (modo antigo)
-const RUA_ALT = 0.35     // o nível do passeio, acima do chão (modo antigo)
 const DECK = 2.2         // o cais acima da lâmina: o MESMO valor da orla da baía
 // ⚠️ 40 m, NÃO 16. O cais fica a −37,8 e a cidade ao redor a −28: são quase 10 m
 // para subir, e em 16 m isso é uma rampa de 61%, que lê como parede e ainda deixa
 // o regolito furar. Em 40 m dá 25%, que é talude de aterro de verdade.
 const TALUDE = 40        // onde o cais encontra o chão de verdade
-const CABECO_CADA = 24   // um cabeço de amarração a cada tantos metros
+// ⚠️ `RUA_ALT` E `CABECO_CADA` SAÍRAM EM 05/09 (QUINTA RODADA), junto com o
+// muro que as usava: a margem virou praia (ver a nota grande em "a margem:
+// PRAIA, não parede", abaixo), e um cabeço de amarração não pousa em areia.
 
 class Balde {
   vs: number[] = []; ix: number[] = []
@@ -223,73 +238,44 @@ export function buildCanais(o: CanaisOpts): Canais {
       const wB = (COTA !== undefined ? COTA : yb - LAMINA) + VIES_AGUA
       B(COR_AGUA).quad(p(ax, az, -meiaA, wA), p(bx, bz, -meiaA, wB),
                        p(bx, bz, +meiaA, wB), p(ax, az, +meiaA, wA))
-      // ── a margem: DUAS PAREDES VERTICAIS, e nada mais ─────────────────
+      // ── a margem: PRAIA, não parede ──────────────────────────────────
       //
-      // ⚠️ ESTA É A QUARTA VERSÃO DA SEÇÃO E AS TRÊS ANTERIORES SERRILHARAM, cada
-      // uma por um motivo, todas pelo mesmo vício: tentar acompanhar o terreno.
-      //   v1: a água tirava a cota do terreno a cada 18 m -> escada de água.
-      //   v2: água plana, mas o CAIS ainda seguia o terreno -> passeio em zigue-
-      //       zague ao longo de um canal reto.
-      //   v3: cais plano, mas o TALUDE era um quad entre dois pontos amostrados,
-      //       e o regolito furava essa reta no meio do vão -> a fita d'água
-      //       aparecia só nos furos.
+      // ⚠️ ESTA É A QUINTA VERSÃO DA SEÇÃO, E A MUDANÇA NÃO É DE DESENHO, É DE
+      // TERRENO. As quatro anteriores (a última delas o muro vertical: ver o
+      // histórico no header do arquivo) todas erguiam alguma PAREDE porque o
+      // chão do lado de fora subia rápido demais para deixar exposto, e é
+      // exatamente isso que o fundador leu como "vala seca por causa da
+      // margem" (05/09, quarta rodada). A resposta não foi desenhar uma praia
+      // em cima da parede: foi tirar a razão de a parede existir. `terrain.ts`
+      // agora esculpe o MERGULHO (leito → lâmina) e a PRAIA (lâmina → crista
+      // seca, `CANAL_PRAIA` = 40 m) como parte do próprio relevo
+      // (`canalRadialAbsAt`), então debaixo d'água e na faixa seca o chão JÁ
+      // é a forma certa, e este bloco só PINTA a faixa de areia que já existe,
+      // não constrói nada em cima dela. Sem isso ela sairia com a cor comum
+      // do regolito, que não lê como praia nenhuma.
       //
-      // O que não pode serrilhar é uma PAREDE VERTICAL num deslocamento FIXO: ela
-      // não interpola terreno em nenhuma direção. A seção virou o mínimo que
-      // descreve um canal: lâmina plana em `COTA`, e de cada lado uma parede que
-      // sobe do leito até o chão daquele ponto. O chão em volta continua sendo o
-      // terreno da cidade, que já está cavado; a parede só impede que ele apareça
-      // por dentro do canal.
-      //
-      // ⚠️ A PAREDE É AMOSTRADA NO MESMO PASSO DA ÁGUA (18 m) e no MESMO
-      // deslocamento (±meiaC). Como os dois vértices de cima de um painel são o
-      // terreno naqueles dois pontos e os de baixo são a cota do leito, o painel
-      // encosta no chão por construção nas duas pontas — e entre elas ele fica
-      // ACIMA do chão, nunca abaixo, porque o leito é plano e o chão sobe.
-      // ⚠️ NA FOZ A PAREDE PARA, e sem isto ela continua desenhada POR CIMA da
-      // água aberta: o fundador viu a linha do canal atravessando a baía, mais um
-      // banco de areia na frente dele. A parede só existe onde há TERRA para
-      // conter — se os dois lados já estão abaixo da lâmina, a margem acabou e o
-      // canal virou baía. É o mesmo princípio do talude: quem negocia com o
-      // relevo é a parede, e onde não há relevo não há parede.
-      const _terraA = Math.max(o.heightAt(ax + px * meiaC, az + pz * meiaC),
-                               o.heightAt(ax - px * meiaC, az - pz * meiaC))
-      const _terraB = Math.max(o.heightAt(bx + px * meiaC, bz + pz * meiaC),
-                               o.heightAt(bx - px * meiaC, bz - pz * meiaC))
-      // ⚠️ NO LOOK 2 A PAREDE NÃO DESISTE, ELA VIRA CAIS SOBRE A ÁGUA. O caminho
-      // antigo saía fora aqui e o passeio evaporava no ponto mais fotografado da
-      // cidade. Com o piso mínimo em −37,8 a parede sempre tem onde encostar em
-      // cima, e o trecho já para na foz, então este caso quase não acontece: ele
-      // fica de pé como muro de cais, que é o certo, em vez de sumir.
-      if (!FOZ2 && _terraA < wA + 0.5 && _terraB < wB + 0.5) continue
-      const _piso = FOZ2 ? PISO : -Infinity
+      // ⚠️ O QUE SE PERDE: o cabeço de amarração e o convés elevado (o "parar
+      // a lancha na frente de casa" do pedido original) saem daqui. Não
+      // cabem numa margem de areia: isso é o preço explícito do pedido novo,
+      // e fica registrado: se o produto quiser doca por lote de novo, ela
+      // precisa de projeto próprio agora que a margem é praia, não cais.
       for (const sg of [-1, 1]) {
-        const w = sg * meiaC
-        const ta = Math.max(o.heightAt(ax + px * w, az + pz * w), wA + 0.5, _piso)
-        const tb2 = Math.max(o.heightAt(bx + px * w, bz + pz * w), wB + 0.5, _piso)
-        B(COR_MURO).quad(p(ax, az, w, wA - 4.0), p(bx, bz, w, wB - 4.0),
-                         p(bx, bz, w, tb2), p(ax, az, w, ta))
-        // a guia de 2,5 m no topo da parede: é ela que dá a linha clara da margem
-        const wg = sg * (meiaC + 2.5)
-        const ga = Math.max(o.heightAt(ax + px * wg, az + pz * wg), ta, _piso)
-        const gb = Math.max(o.heightAt(bx + px * wg, bz + pz * wg), tb2, _piso)
-        B(COR_CAIS).quad(p(ax, az, w, ta), p(bx, bz, w, tb2),
-                         p(bx, bz, wg, gb), p(ax, az, wg, ga))
-      }
-      // ⚠️ O CABEÇO É O QUE FAZ A MARGEM SER ATRACADOURO e não beira. Sem ele a
-      // promessa de parar a lancha na frente de casa não tem onde amarrar.
-      if (Math.floor((i * L) / n / CABECO_CADA) !== Math.floor(((i + 1) * L) / n / CABECO_CADA)) {
-        for (const sg of [-1, 1]) {
-          const wb = sg * (meiaA + 1.1)
-          const cx = ax + px * wb, cz = az + pz * wb
-          const y0 = FOZ2 ? Math.max(ya + RUA_ALT, PISO) : ya + RUA_ALT, y1 = y0 + 0.85
-          for (let f = 0; f < 4; f++) {
-            const b0 = (f / 4) * Math.PI * 2, b1 = ((f + 1) / 4) * Math.PI * 2
-            const q = (bb: number, yy: number) =>
-              P(cx + Math.cos(bb) * 0.28, cz + Math.sin(bb) * 0.28, yy)
-            B(COR_MURO).quad(q(b0, y0), q(b1, y0), q(b1, y1), q(b0, y1))
-          }
-        }
+        const w0 = sg * meiaA
+        const w1 = sg * (meiaA + CANAL_PRAIA)
+        const y0a = Math.max(o.heightAt(ax + px * w0, az + pz * w0), wA)
+        const y0b = Math.max(o.heightAt(bx + px * w0, bz + pz * w0), wB)
+        const y1a = o.heightAt(ax + px * w1, az + pz * w1)
+        const y1b = o.heightAt(bx + px * w1, bz + pz * w1)
+        B(AREIA_SECA).quad(p(ax, az, w0, y0a), p(bx, bz, w0, y0b),
+                           p(bx, bz, w1, y1b), p(ax, az, w1, y1a))
+        // a franja molhada, os 6 m mais próximos da água: mesma distinção de
+        // tom que a praia do Lago da Praça usa, pra as duas areias lerem como
+        // a mesma peça.
+        const wm = sg * (meiaA + Math.min(6, CANAL_PRAIA))
+        const yma = o.heightAt(ax + px * wm, az + pz * wm)
+        const ymb = o.heightAt(bx + px * wm, bz + pz * wm)
+        B(AREIA_MOLHADA).quad(p(ax, az, w0, y0a), p(bx, bz, w0, y0b),
+                              p(bx, bz, wm, ymb), p(ax, az, wm, yma))
       }
     }
   }
@@ -521,10 +507,16 @@ export function buildCanais(o: CanaisOpts): Canais {
     // A ±meiaC o chão JÁ É a vala, cavada a −44, ou seja abaixo da lâmina: com
     // essa amostra os três canais "chegavam à água" logo depois do começo (medido:
     // CR01 em r 1.730, CR02 em 1.788, CR03 em 1.626, todos a menos de 350 m do
-    // rInicio 1.450) e o canal inteiro virava foz. A vala tem talude de 40 m de
-    // cada lado, então terra de verdade só existe a partir de meiaC + 40. Amostro
-    // a meiaC + 50, o mesmo lugar de onde `_foraDoCanal` tira a máscara do lago.
-    const fora = meiaC + 50
+    // rInicio 1.450) e o canal inteiro virava foz.
+    //
+    // ⚠️ 50 m DEIXOU DE BASTAR NA QUARTA RODADA (05/09): o talude fixo de 40 m
+    // virou perfil absoluto de até `CANAL_BANDA` (950 m: ver a nota grande em
+    // `canalRadialAbsAt`, `terrain.ts`), e a 100 m a amostra ainda caía dentro
+    // da PRAIA do próprio canal (que sobe suave rumo ao relevo natural), lendo
+    // "seco" quase no início de novo, o mesmo defeito antigo, por outro
+    // motivo. Agora a amostra sai depois da banda inteira, o mesmo raio de
+    // onde `_foraDoCanal` (`plaza-scene.tsx`) tira a máscara da orla da baía.
+    const fora = meiaC + CANAL_BANDA + 10
     const seco = (r: number) => {
       const x = sx * r, z = sz * r
       return Math.max(o.heightAt(x + px * fora, z + pz * fora),

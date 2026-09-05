@@ -21,7 +21,7 @@ import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { createBattlefield, type Battlefield } from '../war/battlefield'
 import WarLegend from './war-legend'
-import { loadTerrain, PRACA_Y, LAGO_R1 } from './terrain'
+import { loadTerrain, PRACA_Y, LAGO_R1, CANAL_LAMINA, CANAL_BANDA, CANAL_PRAIA } from './terrain'
 import { criarTerrenoFino, ligarNaVia, type TerrenoFino } from './terreno-fino'
 import type { SombraCascata } from './sombra'  // mesma razão do decalques: 747 linhas fora do pacote
 import { invernoComoTrabalho, abrirPortaoInverno, aguardaRelevoInverno, type Inverno } from './inverno'
@@ -1735,18 +1735,25 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           // estreita nesta segunda rodada, para dar corrida à praia e à subida
           // da cidade; ver `bacia()` em terrain.ts).
           //
-          // ⚠️ A DÍVIDA COM `gerar_cidade.py` CONTINUA EM ABERTO. O script ainda
-          // publica `rInicio: 1450` e a máscara de reserva dele também; não
-          // regerei a cidade nesta rodada (o fundador já autorizou realocar
-          // lotes e o coordenador roda o gerador depois, numa passada só). Ele
-          // precisa nascer lendo o `LAGO_R1` novo (1.354) na próxima geração.
+          // ⚠️ A DÍVIDA COM `gerar_cidade.py` CONTINUA EM ABERTO, E CRESCEU EM
+          // 05/09 (QUINTA RODADA). O script ainda publica `rInicio: 1450` e
+          // `secao/lamina: 60` nos três radiais; este código agora ignora os
+          // dois e usa `LAGO_R1` (1.354) e `CANAL_LAMINA` (100, "alargue a
+          // lâmina", palavra do fundador) na vez deles. O fundador autorizou
+          // por escrito divergir do JSON com nota, "não existe lote fixo em
+          // nenhum lugar da cidade... os lotes de teste não são restrição",
+          // e o gerador precisa nascer lendo os DOIS números novos na próxima
+          // passada (pós-snapshot), ou a máscara de reserva dele volta a
+          // discordar da vala de novo.
           radiais: (_cn.radiais ?? []).map(
             (r: { rumo: number; secao: number; rInicio: number; rFim?: number }) =>
-            ({ rumo: r.rumo, secao: r.secao, rInicio: Math.min(r.rInicio, LAGO_R1),
+            ({ rumo: r.rumo, secao: CANAL_LAMINA, rInicio: Math.min(r.rInicio, LAGO_R1),
                rFim: r.rFim ?? _rFimCanal })),
-          // ⚠️ O TALUDE VEM DO GERADOR. Estava 26 m fixo aqui e 0 na máscara do
-          // gerador: cavava-se mais do que se reservava, e o lote da margem
-          // nascia na rampa.
+          // ⚠️ O TALUDE PUBLICADO (40 m) NÃO SERVE MAIS PARA O RADIAL: a vala
+          // dele agora usa `CANAL_BANDA` (950 m), fixo em `canalRadialAbsAt`
+          // (`terrain.ts`), porque o perfil é absoluto e não um blend por
+          // peso. Este `talude` só continua valendo para os anéis de canal
+          // (`cava.aneis`, hoje vazio), que ainda usam o `cavaEm` antigo.
           talude: _cn.talude,
           // ⚠️ O LEITO É COTA ABSOLUTA, 4 m abaixo da lâmina. É o que tira o
           // serrilhado do canal: cavar uma PROFUNDIDADE fixa abaixo de um terreno
@@ -1974,10 +1981,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               // (`PRAIA_MAX`) na boca dele, e o Anel da Orla descia para
               // dentro do canal em vez de o atravessar. `_cn` já é a mesma
               // malha que a cava do terreno usa (fetch no topo de `boot`); só
-              // o `rumo`/`secao` importam aqui, então não precisa do clamp de
-              // `LAGO_R1` que `rInicio` recebe nos outros três consumidores.
+              // o `rumo` importa dela: o `secao` é `CANAL_LAMINA`, a MESMA
+              // largura alargada que a cava e `canais.ts` usam, não o 60 m
+              // que o JSON ainda publica (ver a nota grande na cava, acima).
               canaisRadiais: (_cn?.radiais ?? []).map(
-                (r: { rumo: number; secao: number }) => ({ rumo: r.rumo, secao: r.secao })),
+                (r: { rumo: number }) => ({ rumo: r.rumo, secao: CANAL_LAMINA })),
             })
             scene.add(lago.group)
             // ── OS CANAIS ────────────────────────────────────────────────────
@@ -2043,7 +2051,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 // raio, ou a fronteira de um discorda da do outro de novo.
                 const _cnr = (mc?.canais?.radiais ?? []).map(
                   (r: { rumo: number; secao: number; rInicio: number; rFim: number }) =>
-                  ({ ...r, rInicio: Math.min(r.rInicio, LAGO_R1) })) as {
+                  ({ ...r, secao: CANAL_LAMINA, rInicio: Math.min(r.rInicio, LAGO_R1) })) as {
                   rumo: number; secao: number; rInicio: number; rFim: number }[]
                 // ⚠️ A EXCLUSÃO ACABA ANTES DA FOZ, NÃO DEPOIS. Ela ia até
                 // `rFim + 40`, e o canal desenha a própria água só até `rFim`:
@@ -2060,6 +2068,16 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 // entra pela boca e cobre o último trecho, então as duas águas se
                 // encontram sobrepostas em vez de deixarem vão. Sobreposição de
                 // duas lâminas na MESMA cota não tem custo visual nenhum; vão tem.
+                // ⚠️ A FOLGA CRESCEU DE `talude+6` (46 m) PARA `CANAL_BANDA` (950 m)
+                // NA QUARTA RODADA (05/09), MESMA FONTE DE `canalRadialAbsAt`
+                // (`terrain.ts`). O canal deixou de ter margem estreita: agora ele
+                // esculpe o chão até 950 m de cada lado (perfil absoluto, sem
+                // barranco). Com a folga velha, a orla construída da BAÍA (cais,
+                // muro, passeio) podia nascer em cima da praia nova do canal, bem
+                // longe do eixo, o mesmo defeito da "entrada entrando pra dentro
+                // do canal", só que do lado de fora, na foz. Larga de propósito:
+                // sobrepor não custa nada (a máscara só tira MARGEM, a água
+                // continua entrando, ver o cabeçalho de `lagos.ts`).
                 const _foraDoCanal = (x: number, z: number) => {
                   const r = Math.hypot(x, z)
                   for (const c of _cnr) {
@@ -2067,7 +2085,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                     const a2 = (c.rumo * Math.PI) / 180
                     // distância do ponto ao eixo radial daquele rumo
                     const d = Math.abs(x * Math.cos(a2) + z * Math.sin(a2))
-                    if (d < c.secao / 2 + (mc?.canais?.talude ?? 12) + 6) return true
+                    if (d < c.secao / 2 + CANAL_BANDA) return true
                   }
                   return false
                 }
@@ -2164,7 +2182,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                   // NOVO. Ele não vem do gerador (`mc.aneisViarios`): é
                   // construído por `lago.ts`, que agora abre vão nos três
                   // rumos do canal (ver a nota em `aneisDeMargem`) e espera
-                  // ESTA ponte para cobrir o vão — regra da casa, "toda via
+                  // ESTA ponte para cobrir o vão: regra da casa, "toda via
                   // que cruza um canal ganha ponte". O raio vem do PRÓPRIO
                   // `lago` já construído (não recalculado aqui), para o vão e
                   // o tabuleiro nunca discordarem de novo.

@@ -77,6 +77,58 @@ export const PRACA_Y = -35
 // de novo.
 export const LAGO_R1 = 1354
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ⚠️ O CANAL RADIAL GANHOU PERFIL ABSOLUTO EM 05/09 (QUARTA RODADA), e não é
+// gosto: é o defeito que o fundador chamou de "vala seca por causa da
+// margem". A conta que ele pediu pra confirmar: 60 m de lâmina (a seção
+// publicada) contra uma parede que sobe, medido, até 53 m em menos de
+// 100 m de talude (a seção velha misturava a escavação com o relevo real da
+// Lua, que varia −182 a +230 m no sítio): RAZÃO lâmina/profundidade de
+// 1,1 a 2,4 no pior trecho, contra 5,4 do anel central (pior lado) e 43 no
+// melhor. Isso lê como fosso, não como água, exatamente como ele descreveu.
+//
+// A palavra dele, 05/09: "se os canais estiverem muito fundos no terreno,
+// deixe os com água na borda, para termos praias em todas as margens, se
+// precisar terraplane mais, não queremos barrancos, aproveita pra mexer
+// agora e nivela a porra toda", e depois, sobre o traçado: "não existe lote
+// fixo em nenhum lugar da cidade... se a margem boa precisar de 300 m de
+// cada lado, use 300." Os lotes de teste (`cidade-lotes.bin` e companhia)
+// não são restrição: nascem de novo no snapshot, sobre o terreno que existir
+// naquele dia.
+//
+// ⚠️ POR QUE PERFIL ABSOLUTO, E NÃO SÓ ALARGAR O `talude` ANTIGO: o desenho
+// velho (`cavaEm`, abaixo, ainda vale para anéis de canal) MISTURA a
+// escavação com o relevo NATURAL do ponto: o peso `k` interpola entre
+// "chão daquele pixel" e "leito", então onde o relevo tem uma quina dentro
+// da faixa de mistura, a quina sobrevive e vira barranco de qualquer jeito,
+// não importa quão larga a faixa seja. Um canal "reto e nivelado" (a
+// diretriz dele) precisa de um perfil que IGNORA o relevo dentro do
+// corredor e só volta a consultá-lo na BORDA de fora, exatamente como
+// `bacia()` já faz pela Praça: por isso a rampa de subida usa UMA amostra
+// de referência (a borda), não o relevo picotado do meio do caminho.
+//
+// Medido (harness `calibra2.ts`, 348 pontos nos três radiais, passo 100 m):
+// com `CANAL_BANDA` = 950 m (a MESMA folga da subida da cidade em `bacia()`,
+// reaproveitada de propósito) a pior subida seca fica em 5,9%, dentro do
+// teto de 6% que o fundador já deu para a praça. Passar de 700 m para 900 m
+// derrubou o pior caso de 7,7% para 5,9%; 500 m dava 11,1%, barranco de
+// verdade.
+export const CANAL_MERGULHO = 20    // leito -> lâmina, embaixo d'água: pode ser íngreme, ninguém vê
+export const CANAL_PRAIA = 40       // lâmina -> crista da praia seca, no meio de 20-60 m pedido
+export const CANAL_PRAIA_ALT = 2    // altura da crista da praia acima da lâmina
+export const CANAL_BANDA = 950      // crista da praia -> relevo natural, ≤6% medido (ver nota acima)
+// ⚠️ A LÂMINA TAMBÉM ALARGOU, DE 60 PARA 100 m ("alargue a lâmina", palavra do
+// fundador). `plaza-scene.tsx` publica ESTE número no lugar do `secao`/`lamina`
+// que vem de `cidade-malha.json` (hoje 60), para a cava do terreno, a água de
+// `canais.ts` e o corredor de `lago.ts` nascerem todos do MESMO valor, e é o
+// número que este arquivo declara como divergente do JSON: `gerar_cidade.py`
+// ainda publica 60 e só vai nascer certo na passada de regeneração pós-snapshot
+// (dívida igual à de `LAGO_R1`, ver a nota dela). Os lotes de teste que hoje
+// existem (`cidade-lotes.bin` e companhia) NÃO são restrição: o fundador foi
+// explícito, "não existe lote fixo em nenhum lugar da cidade", e nascem de
+// novo, uma vez só, no snapshot.
+export const CANAL_LAMINA = 100
+
 export interface Terrain {
   group: THREE.Group
   /** Altura do chão em (x, z), em qualquer lugar: sítio, saia, horizonte. */
@@ -229,11 +281,17 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
   const _fundoC = cava?.fundo ?? 4.6
   const _tal = cava?.talude ?? 26
   const _leitoAbs = cava?.leito
-  const _radiais = (cava?.radiais ?? []).map((r) => ({
-    ...r, dx: Math.sin((r.rumo * Math.PI) / 180), dz: -Math.cos((r.rumo * Math.PI) / 180),
-    // ⚠️ SEM ESTE FIM A VALA VAI ATÉ O INFINITO. Ver o comentário em plaza-scene.
-    rFim: r.rFim ?? Infinity,
-  }))
+  const _radiais = (cava?.radiais ?? []).map((r) => {
+    const dx = Math.sin((r.rumo * Math.PI) / 180), dz = -Math.cos((r.rumo * Math.PI) / 180)
+    return {
+      ...r, dx, dz,
+      // a perpendicular ao eixo, para decompor qualquer ponto em (t, s)
+      px: -dz, pz: dx,
+      meia: r.secao / 2,
+      // ⚠️ SEM ESTE FIM A VALA VAI ATÉ O INFINITO. Ver o comentário em plaza-scene.
+      rFim: r.rFim ?? Infinity,
+    }
+  })
   // ⚠️ PERFIL DE COSSENO, NÃO CONE. Cone dá aresta na base e ponta no topo: a
   // aresta vira degrau visível de longe e a ponta não tem onde pôr o teleférico.
   // `1 − cos` sobe suave do pé e arredonda o cume, que é a forma de montanha.
@@ -267,17 +325,14 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
     }
     return false
   }
-  /** quanto o chão desce naquele ponto, de 0 (fora) a 1 (no eixo) */
+  /** quanto o chão desce naquele ponto, de 0 (fora) a 1 (no eixo). ⚠️ SÓ OS
+   *  ANÉIS DE CANAL, DESDE A QUARTA RODADA (05/09): os radiais saíram daqui
+   *  e ganharam perfil ABSOLUTO (`canalRadialAbsAt`, definida mais abaixo,
+   *  perto de `bacia`, porque precisa dela). Ver a nota grande em
+   *  `CANAL_BANDA` acima para o motivo. Esta função continua existindo para
+   *  o dia em que houver anel de canal de novo (`cava.aneis`, hoje vazio). */
   const cavaEm = (x: number, z: number): number => {
     let k = 0
-    for (const r of _radiais) {
-      const t = x * r.dx + z * r.dz
-      if (t < r.rInicio - 40 || t > r.rFim + _tal) continue
-      const d = Math.abs(x * r.dz - z * r.dx)     // distância ao eixo
-      const meia = r.secao / 2
-      if (d < meia) k = Math.max(k, 1)
-      else if (d < meia + _tal) k = Math.max(k, 1 - (d - meia) / _tal)
-    }
     for (const an of _aneis) {
       if (!an.pts.length || _noVao(an.vaos as [number, number][], x, z)) continue
       const ang = Math.atan2(z, x)
@@ -477,6 +532,64 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
     if (r <= R_CIDADE_SECA) return retaGrampeada(r, R_AGUA_OUT, 40, R_CIDADE_SECA, 0)
     return 0
   }
+
+  // ⚠️ O CHÃO SEM CANAL NENHUM, e é a peça que faltava para o canal radial ter
+  // perfil absoluto: `canalRadialAbsAt`, logo abaixo, precisa saber "o que
+  // este ponto seria se não houvesse canal" para subir até lá na borda da
+  // faixa, exatamente o que `heightAt` monta antes de aplicar a vala
+  // (`baseAt − bacia + monte`). Extraída para não repetir a conta.
+  const bbAt = (x: number, z: number): number => baseAt(x, z) - bacia(x, z) + monteEm(x, z)
+
+  // ── O CANAL RADIAL, PERFIL ABSOLUTO ──────────────────────────────────────
+  // Ver a nota grande em `CANAL_BANDA` (topo do arquivo) para o "porquê".
+  // Devolve `null` fora de qualquer canal (usa o chão normal); dentro, devolve
+  // a cota já pronta, ignorando o relevo local do meio do caminho e só
+  // consultando-o na BORDA da faixa (`bbAt` no ponto espelhado), como
+  // `bacia()` já faz com a praça.
+  // ⚠️ O LEITO É O MESMO QUE `_leitoAbs` (a cota absoluta que `plaza-scene.tsx`
+  // já publica como `leito: (lagos.cota − 4)`), não um número novo. Sem
+  // fonte publicada, cai para 4 m abaixo da lâmina, a mesma profundidade que
+  // `canais.ts` usa para o convés da lancha (`FUNDO = 4.0`).
+  const leitoCanal = _leitoAbs ?? (LAGO_AGUA_Y - 4)
+  const canalRadialAbsAt = (x: number, z: number): number | null => {
+    let melhor: number | null = null
+    for (const r of _radiais) {
+      const tt = x * r.dx + z * r.dz
+      if (tt < r.rInicio - 40 || tt > r.rFim + CANAL_BANDA) continue
+      const s = x * r.px + z * r.pz
+      const d = Math.abs(s)
+      const meia = r.meia
+      const rBanda = meia + CANAL_BANDA
+      if (d > rBanda) continue
+      const sinal = s < 0 ? -1 : 1
+      let h: number
+      const rMerg = meia - CANAL_MERGULHO
+      const rPraia = meia + CANAL_PRAIA
+      if (d <= rMerg) {
+        h = leitoCanal          // leito plano, embaixo d'água
+      } else if (d <= meia) {
+        h = retaGrampeada(d, rMerg, leitoCanal, meia, LAGO_AGUA_Y)
+      } else if (d <= rPraia) {
+        h = retaGrampeada(d, meia, LAGO_AGUA_Y, rPraia, LAGO_AGUA_Y + CANAL_PRAIA_ALT)
+      } else {
+        // ⚠️ A REFERÊNCIA É O PONTO NA BORDA DA FAIXA, MESMO (t, sinal·rBanda),
+        // NÃO O RELEVO NO MEIO DO CAMINHO. É isto que garante a inclinação
+        // constante medida (`calibra2.ts`): o relevo real pode ter qualquer
+        // quina entre a praia e a borda, ela nunca aparece na rampa.
+        const xRef = tt * r.dx + sinal * rBanda * r.px
+        const zRef = tt * r.dz + sinal * rBanda * r.pz
+        const hRef = bbAt(xRef, zRef)
+        h = retaGrampeada(d, rPraia, LAGO_AGUA_Y + CANAL_PRAIA_ALT, rBanda, hRef)
+      }
+      // ⚠️ DOIS CANAIS PODEM SE SOBREPOR PERTO DO LAGO (25° e 55° só têm 30°
+      // de abertura, e `CANAL_BANDA` é bem mais larga que isso). O MENOR
+      // (mais escavado) VENCE, mesmo critério de `Math.max(k,...)` que o
+      // resto do arquivo usa para a vala, só que em cota absoluta em vez de
+      // peso: aqui "mais fundo" é "menor h".
+      melhor = melhor === null ? h : Math.min(melhor, h)
+    }
+    return melhor
+  }
   // ⚠️ A FAIXA REFINADA, DECLARADA AQUI PORQUE O `superficieAt` PRECISA DELA.
   // Quem pousa peça pergunta ao `superficieAt`, e ele interpola a MALHA, não a
   // curva. Se ele continuasse lendo a grade de 59 m onde a curva analítica tem
@@ -577,13 +690,18 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
   const heightAt = (x: number, z: number): number => {
     // ⚠️ A VALA DO CANAL ENTRA JUNTO COM A BACIA DO LAGO, no mesmo ponto e pelo
     // mesmo motivo: os dois são água, e água só aparece se o chão for cavado.
-    // ⚠️ COM `leito`, A VALA VAI ATÉ UMA COTA, NÃO ATÉ UMA PROFUNDIDADE. `cavaEm`
-    // devolve o peso da vala (1 no eixo, caindo a 0 no fim do talude), e o corte
-    // interpola do chão até a cota do leito por esse peso: no eixo o fundo é
-    // exatamente `leito`, na borda do talude é o chão, e no meio é a rampa.
+    //
+    // ⚠️ OS RADIAIS SAEM DAQUI DESDE A QUARTA RODADA (05/09): `canalRadialAbsAt`
+    // já devolve a cota PRONTA (perfil absoluto, ver a nota grande em
+    // `CANAL_BANDA`), então quando ela responde não nulo é ELA que manda, sem
+    // passar pelo peso `_kc`. `cavaEm` continua servindo só os anéis de canal
+    // (hoje nenhum), com o mesmo blend por peso de sempre.
+    const _bb = bbAt(x, z)
+    const _canalAbs = canalRadialAbsAt(x, z)
     const _kc = cavaEm(x, z)
-    const _bb = baseAt(x, z) - bacia(x, z) + monteEm(x, z)
-    const b0 = _leitoAbs !== undefined && _kc > 0
+    const b0 = _canalAbs !== null
+      ? _canalAbs
+      : _leitoAbs !== undefined && _kc > 0
       ? _bb - _kc * Math.max(0, _bb - _leitoAbs)
       : _bb - _fundoC * _kc
     const _w = podioPeso(x, z)
