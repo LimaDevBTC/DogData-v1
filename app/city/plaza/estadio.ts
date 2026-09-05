@@ -3,37 +3,87 @@
 //
 // O modelo vem de `blender/build_estadio.py` (bacia calculada pela linha de
 // visada em `scripts/bacia_estadio.py`) e entra na praça como GLB, igual às
-// torres. A posição NÃO é escolhida aqui: ela é a da reserva `E03` que já está
-// gravada em `data/dogcity_programa_congelado.json`, e é o gerador quem manda.
-// Mudar o número aqui sem mudar a reserva põe o estádio em cima de lote.
+// torres.
+//
+// ⚠️ A POSIÇÃO É UM MÓDULO DA TEIA, NÃO UMA COORDENADA. A primeira versão punha
+// o estádio numa coordenada escolhida pelo relevo e pelo programa, e o fundador
+// apontou o resultado na chapa: TRÊS AVENIDAS PASSANDO POR DENTRO DELE. A causa
+// é que eu testei colisão contra as PEÇAS do programa e não contra a malha
+// viária. A regra da casa já existia e está em `programa.ts`:
+//
+//     TODA PEÇA OCUPA UM NÚMERO INTEIRO DE MÓDULOS DA TEIA.
+//     Os lados da peça SÃO ruas, porque os lados do módulo são ruas.
+//
+// Então o estádio deixa de ter coordenada própria: ele tem um MÓDULO, e o centro
+// e o giro saem da teia. Se a teia mudar, ele acompanha sozinho.
 //
 // Plano em `estadio.md`.
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
-
-/** Centro da reserva E03, em coordenadas de mundo. */
-export const ESTADIO_X = 2398.4
-export const ESTADIO_Z = 1481.2
+import { caixaDoModulo, polyDoModulo, type Modulo } from './teia'
 
 /**
- * ⚠️ O GIRO DA PEÇA É O NEGATIVO DO `rot` DA RESERVA. O gerador escreve a peça
- * com `x = lx·cos(rot) − lz·sin(rot)`, `z = lx·sin(rot) + lz·cos(rot)`, ou seja
- * o eixo longo dela aponta para `(cos rot, sin rot)` no plano (x, z). Em three
- * um objeto com `rotation.y = φ` manda o próprio X local para
- * `(cos φ, 0, −sin φ)`, então alinhar os dois pede `φ = −rot`.
+ * O bloco de 3 x 3 módulos do estádio, escolhido por varredura de toda a teia
+ * entre os raios 1.900 e 3.800: é o que fica mais perto do Parque Central (714 m
+ * do centro dele) entre os que comportam o prédio inteiro com folga. A caixa
+ * mede 528 m no radial por 669 m de arco para um prédio de 303 x 261 m, o que
+ * deixa **134 m livres até a rua mais próxima em qualquer direção**.
  */
-export const ESTADIO_ROT_DEG = 285.0
+export const ESTADIO_MOD: Modulo = { i: 11, nr: 3, j: 46, ns: 3 }
+
+/** o envelope construído, para quem precisa medir sem carregar o GLB */
+export const ESTADIO_ENV_X = 303
+export const ESTADIO_ENV_Z = 261
 
 /** A peça tem 300 m de envelope: some bem depois das torres. */
 export const ESTADIO_CULL = 7000
 
-/** Assenta o GLB no terreno, no centro da reserva, com o giro dela. */
+/** Centro e giro do bloco, direto da teia. */
+export function estadioSitio(): { x: number; z: number; rumoDeg: number } {
+  const c = caixaDoModulo(ESTADIO_MOD)
+  const am = (c.a0 + c.a1) / 2
+  return {
+    x: Math.sin(am) * c.rm,
+    z: -Math.cos(am) * c.rm,
+    rumoDeg: (THREE.MathUtils.radToDeg(am) + 360) % 360,
+  }
+}
+
+/** O polígono do bloco, que vira máscara de via: a rua para na divisa dele. */
+export function estadioParcela(): { poly: [number, number][] } {
+  return { poly: polyDoModulo(ESTADIO_MOD) }
+}
+
+/**
+ * Assenta o GLB no sítio, alinhado com as ruas do entorno.
+ *
+ * ⚠️ O EIXO LONGO VAI NA TANGENTE, que é a direção da rua de anel: é isso que
+ * deixa o prédio paralelo à malha em vez de enviesado. Em three um objeto com
+ * `rotation.y = φ` manda o próprio X local para `(cos φ, 0, −sin φ)`, e a
+ * tangente no rumo `a` é `(cos a, sin a)`, então `φ = −a`. É a mesma conta que
+ * `pecas.ts:253` já usa para desenhar qualquer peça do programa.
+ *
+ * ⚠️ E O PÉ É A COTA MÁXIMA, não a do centro. Regra da casa para peça grande
+ * (`loteamento.md:253`): o terreno varia 14,4 m sob o prédio, e assentar pela
+ * média deixaria o canto alto furando o platô. O que sobra embaixo é a saia,
+ * que já vem no modelo.
+ */
 export function assentarEstadio(
   root: THREE.Object3D,
   alturaEm: (x: number, z: number) => number,
 ): THREE.Object3D {
+  const s = estadioSitio()
+  const rad = THREE.MathUtils.degToRad(s.rumoDeg)
+  const c = Math.cos(-rad), sn = Math.sin(-rad)
+  const hx = ESTADIO_ENV_X / 2, hz = ESTADIO_ENV_Z / 2
+  let alto = -Infinity
+  for (const [dx, dz] of [[0, 0], [-hx, -hz], [hx, -hz], [hx, hz], [-hx, hz]]) {
+    const x = s.x + dx * c - dz * sn
+    const z = s.z + dx * sn + dz * c
+    alto = Math.max(alto, alturaEm(x, z))
+  }
   root.name = 'DOG_ARENA'
-  root.position.set(ESTADIO_X, alturaEm(ESTADIO_X, ESTADIO_Z), ESTADIO_Z)
-  root.rotation.y = -(ESTADIO_ROT_DEG * Math.PI) / 180
+  root.position.set(s.x, alto, s.z)
+  root.rotation.y = -rad
   return root
 }

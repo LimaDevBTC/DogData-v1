@@ -694,3 +694,56 @@ Fica registrado o que se aprendeu, caso volte:
    espelhado, "NOOM 3HT" no lugar de "THE MOON".
 5. **A cobertura tampa a arquibancada vista de cima**, então mosaico só aparece de
    dentro ou pela abertura.
+
+---
+
+## 14. ⚠️ O sítio foi REFEITO em 05/09: três avenidas passavam por dentro
+
+O fundador apontou na primeira chapa de implantação: **"tem 3 avenidas passando
+dentro do estádio. Cheio de lugar vazio em volta e vocês colocam ele onde tem
+rua."** Ele estava certo, e a causa é um erro meu de método.
+
+⚠️ **Testei colisão contra as PEÇAS do programa e não contra a MALHA VIÁRIA.** As
+121 peças foram todas verificadas com retângulos girados, e nenhuma colidia. Mas
+rua não é peça: a teia tem 27 anéis e 84 radiais cobrindo o sítio inteiro, e
+qualquer retângulo solto de 300 m cai em cima de várias.
+
+A regra que resolve já existia, em `programa.ts:22`, e eu não a segui:
+
+> TODA PEÇA OCUPA UM NÚMERO INTEIRO DE MÓDULOS DA TEIA. Os lados da peça SÃO
+> ruas, porque os lados do módulo são ruas.
+
+### O que mudou
+
+O estádio **deixou de ter coordenada e passou a ter um módulo**: `{ i: 11, nr: 3,
+j: 46, ns: 3 }`, um bloco de 3 x 3. Centro e giro saem de `caixaDoModulo()`, então
+se a teia mudar ele acompanha sozinho em vez de ficar para trás.
+
+| | |
+|---|---|
+| centro | (3184 ; 853), raio 3.296 m, rumo 105,0 graus |
+| caixa do bloco | 528 m radial x 669 m de arco |
+| prédio | 303 x 261 m |
+| **folga até a rua** | **134 m em qualquer direção** |
+| ao Parque Central | 714 m do centro dele |
+| escolha | varredura de toda a teia entre os raios 1.900 e 3.800: 1.702 blocos comportam o prédio, este é o mais perto do parque |
+
+⚠️ **E a parcela precisou entrar na máscara das vias.** Um bloco de 3 x 3 tem ruas
+INTERNAS entre os nove módulos, e elas continuariam sendo desenhadas por dentro do
+estádio. Quem resolve é o parâmetro `parcelas` de `buildVias`: onde há parcela, a
+rua para na divisa. As peças de `cidade.json` chegam lá pelo `encaixaPrograma`; o
+estádio não está no `cidade.json` (que é saída do gerador e não foi regerado),
+então ele é acrescentado à lista à mão, em `plaza-scene`.
+
+⚠️ **Nenhum módulo único desta cidade comporta o estádio.** O maior tem 286 m de
+profundidade radial para um prédio de 261 mais recuo, e o arco no raio dele não
+passa de 178 m para uma peça de 303. Daí o bloco de 3 x 3 ser obrigatório, e daí
+a máscara ser obrigatória junto.
+
+### Terraplanagem
+
+Autorizada pelo fundador ("se precisar terraplane"). O terreno varia **14,4 m sob
+o prédio** e 16,4 m no bloco inteiro. O modelo ganhou platô com talude de 1:0,85
+descendo 26 m, e o assentamento segue a regra da casa para peça grande
+(`loteamento.md:253`): **cota máxima dos cantos mais o centro**, não a média, que
+deixaria o canto alto furando o piso.

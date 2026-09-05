@@ -81,6 +81,13 @@ const VISTAS = {
   // é a silhueta de fora. Coordenadas copiadas de `viewFor()`, e a do oeste é
   // espelhada da `abobadafora` para pegar o lado que mudou.
   abobada:   [0, 900, 3000, 0, 620, 0, 45],
+  // ⚠️ O ESTADIO, acrescentado em 05/09 quando o $DOG ARENA entrou na cena. O
+  // centro e o da reserva E03 (2.398, 1.481), raio 2.819 m, rumo 121,7 graus, ao
+  // lado do Parque Central. `estadio` mostra a IMPLANTACAO (a peca com o parque
+  // e o tecido em volta) e `estadioperto` julga o predio.
+  estadio:   [4053, 620, 1086, 3184, 10, 853, 45],
+  estadioalto:[3435, 1150, 920, 3184, 0, 853, 45],
+  estadioperto:[3599, 175, 964, 3184, 25, 853, 42],
   // ⚠️ ENQUADRAMENTOS NOVOS, 03/09, e o motivo é o que o cabeçalho do terrain.ts
   // avisa: MEXER NA ALTURA MOVE O MUNDO. A coroa foi de 2.619 para 5.513 m e a
   // `abobada` acima, calibrada para a casca velha, passou a fotografar céu preto:

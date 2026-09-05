@@ -76,7 +76,7 @@ import { look2 } from './look'
 import { instalarAtmosfera } from './atmosfera'
 import { setAnisotropia } from './materiais'
 import { montarPos, type Pos } from './pos'
-import { assentarEstadio, ESTADIO_CULL, ESTADIO_X, ESTADIO_Z } from './estadio'
+import { assentarEstadio, estadioParcela, estadioSitio, ESTADIO_CULL } from './estadio'
 import { CityChat } from '@/components/wallet/city-chat'
 
 // ── framing ────────────────────────────────────────────────────────────────────
@@ -2396,6 +2396,12 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 programa = desenhaPrograma(parcelas, terrain.superficieAt)
                 scene.add(programa.group)
               }
+              // ⚠️ O ESTÁDIO ENTRA NA MÁSCARA DAS VIAS COMO PARCELA. Ele não está
+              // em `cidade.json` (que é saída do gerador e não foi regerado), então
+              // não passa pelo `encaixaPrograma` junto com as outras. Sem esta
+              // linha a teia desenha as ruas internas do bloco POR DENTRO dele,
+              // que foi exatamente o defeito que o fundador apontou na chapa.
+              parcelas = [...parcelas, estadioParcela() as PecaEncaixada]
               console.log(`[programa] ${parcelas.length} de ${_prog.length} peças `
                 + `encaixadas em módulo inteiro da teia`
                 + (programa ? `, ${programa.triangulos.toLocaleString('pt-BR')} triângulos` : ' (só o encaixe; ?programa=1 desenha)'))
@@ -3295,7 +3301,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           })
           assentarEstadio(arena, (x, z) => terrain.heightAt(x, z))
           scene.add(arena)
-          culler.add(arena, ESTADIO_CULL, new THREE.Vector3(ESTADIO_X, 0, ESTADIO_Z))
+          const _st = estadioSitio()
+          culler.add(arena, ESTADIO_CULL, new THREE.Vector3(_st.x, 0, _st.z))
         }
 
         if (btcMark) {
