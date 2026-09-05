@@ -35,8 +35,23 @@ export const ESTADIO_MOD: Modulo = { i: 11, nr: 3, j: 46, ns: 3 }
 export const ESTADIO_ENV_X = 303
 export const ESTADIO_ENV_Z = 261
 
-/** A peça tem 300 m de envelope: some bem depois das torres. */
-export const ESTADIO_CULL = 7000
+/**
+ * A distância em que a peça some, POR PERFIL.
+ *
+ * ⚠️ NÚMERO FIXO AQUI É DEFEITO DE CELULAR. A peça tem 300 m de envelope e 85
+ * mil triângulos, e o perfil mobile já corta o resto da cidade muito antes
+ * (`perf.ts`: `smallCull` 1.200 e `lodDistance` 1.300 contra 3.400 e 4.800 do
+ * desktop). Deixar o estádio aparecendo a 7 km no telefone faz o aparelho
+ * desenhar de graça o que ele não aguenta.
+ *
+ * ⚠️ E O KTX2 NÃO SE APLICA A ESTA PEÇA: o espelho de `scripts/city/ktx2.mjs`
+ * existe para GLB com IMAGEM embutida, que é o que estourava a memória de
+ * textura do telefone. `dog-arena.glb` tem 415 KB, ZERO imagens e ZERO texturas,
+ * só cor de material. Se um dia ele ganhar textura, ela entra por lá.
+ */
+export function estadioCull(tier: 'mobile' | 'desktop'): number {
+  return tier === 'mobile' ? 2600 : 7000
+}
 
 /** Centro e giro do bloco, direto da teia. */
 export function estadioSitio(): { x: number; z: number; rumoDeg: number } {

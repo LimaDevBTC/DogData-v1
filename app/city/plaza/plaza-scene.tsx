@@ -76,7 +76,7 @@ import { look2 } from './look'
 import { instalarAtmosfera } from './atmosfera'
 import { setAnisotropia } from './materiais'
 import { montarPos, type Pos } from './pos'
-import { assentarEstadio, estadioParcela, estadioSitio, ESTADIO_CULL } from './estadio'
+import { assentarEstadio, estadioCull, estadioParcela, estadioSitio } from './estadio'
 import { CityChat } from '@/components/wallet/city-chat'
 
 // ── framing ────────────────────────────────────────────────────────────────────
@@ -3302,7 +3302,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           assentarEstadio(arena, (x, z) => terrain.heightAt(x, z))
           scene.add(arena)
           const _st = estadioSitio()
-          culler.add(arena, ESTADIO_CULL, new THREE.Vector3(_st.x, 0, _st.z))
+          culler.add(arena, estadioCull(profile.tier), new THREE.Vector3(_st.x, 0, _st.z))
         }
 
         if (btcMark) {
