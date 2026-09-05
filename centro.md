@@ -81,10 +81,25 @@ VEX cravado na prancha, o platô no par velho, e a lagoa alpina que foi ao ar co
 porque a bacia e a água nasceram em frentes diferentes. `altura()` do gerador não conhece
 bacia nenhuma: escrever o perfil da ria uma segunda vez em Python é comprar a divergência.
 
-## O custo humano, dito em voz alta
+## ⚠️ O custo de lote NAO EXISTE, e isto corrige o que esta escrito acima
 
-Dos 11.105 lotes realocados, **4.337 são da coorte 0 e 2.969 da coorte 1**, as duas mais
-antigas, porque a regra da Fundação põe a carteira mais velha no menor raio. São justamente
-os donos com mais tempo de cadeia que mudam de lugar. Eles ganham em troca uma frente
-d'água que hoje não existe, mas a troca precisa ser decidida por quem responde pelo mint,
-não por um agente.
+Registrado em 05/09/2026, palavra do fundador: **"esqueça lotes, lotes serão gerados
+somente no snapshot, faltam 7 dias"**.
+
+Os 85.830 lotes de `cidade-lotes.bin` são provisórios: eles serão **regerados do zero no
+snapshot**, sobre o terreno que existir naquele dia. Então:
+
+- os 11.105 lotes "realocados" que a especificação contabiliza **não são custo nenhum**;
+- a conta por coorte (4.337 da coorte 0, 2.969 da coorte 1) é sobre dados descartáveis e
+  não representa dono nenhum;
+- não é preciso trancar o bot por causa do `cidade-lotes.bin`;
+- e a ordem certa inverte: **primeiro o terreno, depois os lotes**. O gerador roda uma vez,
+  depois do snapshot, sobre o relevo final.
+
+**A consequência prática é que o terreno não tem mais restrição de traçado.** A borda do
+tecido pode ir para onde o projeto quiser, a praia pode ter a largura que precisar e a ria
+pode ter a forma que a paisagem pedir. Onde a especificação escolheu a variante enxuta para
+poupar lote, ela deve ser lida na versão cheia.
+
+**O prazo é o que manda agora: 7 dias até o snapshot.** O terreno precisa estar fechado e
+conferido antes dele, porque é sobre o terreno fechado que a Fundação inteira vai nascer.

@@ -163,6 +163,17 @@ export const HERO_PALMS: [number, number][] = (() => {
 // deck é a laje do plaza.glb: PlazaPodium termina em y 39,3 e o piso onde a
 // Needle assenta está em 39,9, medido no GLB.
 export const DECK_Y = 39.95
+// ⚠️ ESTE NÚMERO NÃO MUDOU EM 05/09 (SEGUNDA RODADA), QUANDO A PRAÇA DESCEU
+// PARA PRACA_Y (terrain.ts). DECK_Y é a distância da laje ao zero do MODELO
+// (plaza.glb), e continua sendo essa distância; o que mudou foi a cota do
+// CHÃO onde o modelo pousa. Os dois consumidores tratam isso de dois jeitos:
+//   - props-table.ts:61 (`deckLift = DECK_Y`) soma DECK_Y à altura LOCAL do
+//     terreno em cada ponto (`terrainY + DECK_Y`), então já acompanha sozinho
+//     quando `terrainY` passa a valer PRACA_Y ali. NÃO MEXER.
+//   - plaza-scene.tsx (o marco do Bitcoin, os dois refletores dele) usa
+//     DECK_Y como cota ABSOLUTA (esses objetos não são filhos do grupo do
+//     plaza.glb, então movê-lo não os move); ali a conta virou
+//     `PRACA_Y + DECK_Y`, corrigida na própria plaza-scene.tsx.
 // Medido no central-tower.glb: NEEDLE_PLINTH é um tambor de raio 56 que vai de
 // y 47,9 a 57,9 (a torre assenta em 39,9), e WATER_JET_RING tem raio 81,3. O
 // círculo das placas vive ENTRE os dois, no piso do deck, andável.

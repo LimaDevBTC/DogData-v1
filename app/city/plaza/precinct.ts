@@ -24,6 +24,12 @@ import {
 import type { PerfProfile, DistanceCuller } from './perf'
 import { makeGlowTexture } from './light-pool'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+// ⚠️ PRACA_Y VEM DE terrain.ts, NÃO DE UM LITERAL AQUI. As âncoras nascem
+// (este módulo é avaliado) antes de o terreno carregar (`loadTerrain` é
+// assíncrono), então elas não podem perguntar a `heightAt`; mas o VALOR da
+// cota da praça é o mesmo dos dois lados, e `terrain.ts` já o exporta para
+// isso. Uma fonte só: mudar `PRACA_Y` lá muda as âncoras aqui sozinho.
+import { PRACA_Y } from './terrain'
 
 export const R_DECK = 300
 export const R_GARDEN_IN = 332
@@ -33,12 +39,18 @@ export const R_ANCHOR = 620
 export const BOULEVARD_W = 42
 export const R_EDGE = 900
 
-/** Onde cada âncora fica e para onde olha (rotação em y). Frentes voltadas para o centro. */
+/** Onde cada âncora fica e para onde olha (rotação em y). Frentes voltadas para o centro.
+ *  ⚠️ y = PRACA_Y, NÃO MAIS 0: em 05/09 (segunda rodada) a praça inteira desceu
+ *  para −35 (o fundador viu a ilha alta demais e mandou abaixar; ver o
+ *  cabeçalho de `bacia()` em terrain.ts). As três âncoras construídas
+ *  (BitFlow, Kray, Chalé) são objetos SEPARADOS do chão do precinto e não
+ *  seguem `heightAt` sozinhas: sem este ajuste elas ficariam de pé no ar, 35 m
+ *  acima do jardim que desceu ao redor delas. */
 export const ANCHORS = {
-  west: { pos: new THREE.Vector3(-R_ANCHOR, 0, 0), rotY: Math.PI / 2 },   // BitFlow, frente para +x
-  east: { pos: new THREE.Vector3(R_ANCHOR, 0, 0), rotY: -Math.PI / 2 },   // Kray, frente para −x
-  south: { pos: new THREE.Vector3(0, 0, R_ANCHOR), rotY: 0 },              // Chalé, frente para −z
-  north: { pos: new THREE.Vector3(0, 0, -R_ANCHOR), rotY: Math.PI },      // jardim, por enquanto
+  west: { pos: new THREE.Vector3(-R_ANCHOR, PRACA_Y, 0), rotY: Math.PI / 2 },   // BitFlow, frente para +x
+  east: { pos: new THREE.Vector3(R_ANCHOR, PRACA_Y, 0), rotY: -Math.PI / 2 },   // Kray, frente para −x
+  south: { pos: new THREE.Vector3(0, PRACA_Y, R_ANCHOR), rotY: 0 },              // Chalé, frente para −z
+  north: { pos: new THREE.Vector3(0, PRACA_Y, -R_ANCHOR), rotY: Math.PI },      // jardim, por enquanto
 } as const
 
 const ICE = new THREE.Color('#F2EAD6')      // luz de poste, branco quente
@@ -118,19 +130,32 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   const disposables: { dispose: () => void }[] = []
   const track = <T extends { dispose: () => void }>(o: T): T => { disposables.push(o); return o }
   const yAt = (x: number, z: number) => opts.heightAt(x, z)
+  // ⚠️ Y0, EM 05/09 (SEGUNDA RODADA): A PRAÇA DESCEU E O PRECINTO INTEIRO
+  // (r ≤ 900, dentro do disco plano da bacia) DESCEU JUNTO. A maioria das
+  // peças daqui usa `yAt(x, z)` por peça e já acompanha sozinha, porque
+  // `opts.heightAt` agora devolve a cota nova em qualquer ponto do precinto
+  // (o disco é plano, então o valor é o MESMO em todo lugar aqui dentro). Mas
+  // um bom número de malhas planas (o anel, o leque das âncoras, o passeio
+  // circular, as calçadas dos lotes) foram desenhadas com `position.y` CRAVADO
+  // em 0,2 a 1,62 (a altura do meio-fio acima do chão), sem nunca consultar
+  // `yAt`, porque todo o precinto vivia no platô 0. `Y0` é essa mesma consulta
+  // feita UMA vez (o disco é plano, então uma sonda no centro vale para
+  // qualquer ponto do precinto): somada a cada um desses cravados, eles voltam
+  // a encostar no chão novo em vez de flutuar 35 m no ar.
+  const Y0 = opts.heightAt(0, 0)
 
   // ── pavimento: anel e radiais ──────────────────────────────────────────────
   const paveMat = track(new THREE.MeshStandardMaterial({ color: 0x17181d, roughness: 0.75, metalness: 0.15 }))
   const kerbMat = track(new THREE.MeshBasicMaterial({ color: ICE, toneMapped: false, transparent: true, opacity: 0.55 }))
   const ring = new THREE.Mesh(track(new THREE.RingGeometry(R_RING - RING_W / 2, R_RING + RING_W / 2, 192)), paveMat)
   ring.rotation.x = -Math.PI / 2
-  ring.position.y = 0.35
+  ring.position.y = Y0 + 0.35
   ring.receiveShadow = true
   group.add(ring)
   for (const rr of [R_RING - RING_W / 2, R_RING + RING_W / 2]) {
     const k = new THREE.Mesh(track(new THREE.RingGeometry(rr - 0.35, rr + 0.35, 192)), kerbMat)
     k.rotation.x = -Math.PI / 2
-    k.position.y = 0.42
+    k.position.y = Y0 + 0.42
     group.add(k)
   }
   const radialGeo = track(new THREE.PlaneGeometry(BOULEVARD_W, R_ANCHOR - 100 - R_GARDEN_IN + 40))
@@ -150,7 +175,7 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
       g.add(k)
       // a linha de luz do meio-fio, e postes
     }
-    g.position.set(Math.sin(a) * mid, 0.36, Math.cos(a) * mid)
+    g.position.set(Math.sin(a) * mid, Y0 + 0.36, Math.cos(a) * mid)
     g.rotation.y = a
     group.add(g)
   }
@@ -185,7 +210,7 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
         paveMat,
       )
       floor.rotation.x = -Math.PI / 2
-      floor.position.y = 0.34
+      floor.position.y = Y0 + 0.34
       floor.receiveShadow = true
       g.add(floor)
 
@@ -199,7 +224,7 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
           track(new THREE.MeshStandardMaterial({ color: 0x23242b, roughness: 0.7, metalness: 0.2 })),
         )
         band.rotation.x = -Math.PI / 2
-        band.position.y = 0.36
+        band.position.y = Y0 + 0.36
         g.add(band)
       }
 
@@ -210,7 +235,7 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
         const len = FAN_OUT - FAN_IN
         const k = new THREE.Mesh(track(new THREE.PlaneGeometry(0.7, len)), kerbMat)
         k.rotation.x = -Math.PI / 2
-        k.position.set(Math.cos(a) * (FAN_IN + len / 2), 0.42, -Math.sin(a) * (FAN_IN + len / 2))
+        k.position.set(Math.cos(a) * (FAN_IN + len / 2), Y0 + 0.42, -Math.sin(a) * (FAN_IN + len / 2))
         k.rotation.z = -a
         g.add(k)
       }
@@ -219,7 +244,7 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
         kerbMat,
       )
       mouth.rotation.x = -Math.PI / 2
-      mouth.position.y = 0.42
+      mouth.position.y = Y0 + 0.42
       g.add(mouth)
       group.add(g)
     }
@@ -244,7 +269,7 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
       k.position.set(sx * (ALLEE_W / 2), 0.07, 0)
       g.add(k)
     }
-    g.position.set(Math.sin(a) * mid, 0.36, Math.cos(a) * mid)
+    g.position.set(Math.sin(a) * mid, Y0 + 0.36, Math.cos(a) * mid)
     g.rotation.y = a
     group.add(g)
   }
@@ -258,13 +283,13 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
     const seg = Math.max(8, Math.round(((a1 - a0) * R_PROM) / 6))
     const p = new THREE.Mesh(track(new THREE.RingGeometry(R_PROM - PROM_W / 2, R_PROM + PROM_W / 2, seg, 1, a0, a1 - a0)), paveMat)
     p.rotation.x = -Math.PI / 2
-    p.position.y = 0.35
+    p.position.y = Y0 + 0.35
     p.receiveShadow = true
     group.add(p)
     for (const rr of [R_PROM - PROM_W / 2, R_PROM + PROM_W / 2]) {
       const k = new THREE.Mesh(track(new THREE.RingGeometry(rr - 0.3, rr + 0.3, seg, 1, a0, a1 - a0)), kerbMat)
       k.rotation.x = -Math.PI / 2
-      k.position.y = 0.42
+      k.position.y = Y0 + 0.42
       group.add(k)
     }
   }
@@ -292,7 +317,7 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
     const k = new THREE.Mesh(track(new THREE.PlaneGeometry(0.6, len)), kerbMat)
     k.rotation.x = -Math.PI / 2
     k.rotation.z = -Math.atan2(x1 - x0, z1 - z0)
-    k.position.set((x0 + x1) / 2, y, (z0 + z1) / 2)
+    k.position.set((x0 + x1) / 2, Y0 + y, (z0 + z1) / 2)
     group.add(k)
   }
   for (const [cx, cz] of [[-R_ANCHOR, 0], [R_ANCHOR, 0], [0, R_ANCHOR]] as const) {
@@ -304,7 +329,7 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
     ] as const) {
       const p = new THREE.Mesh(track(new THREE.PlaneGeometry(w, d)), paveMat)
       p.rotation.x = -Math.PI / 2
-      p.position.set(cx + dx, 0.36, cz + dz)
+      p.position.set(cx + dx, Y0 + 0.36, cz + dz)
       p.receiveShadow = true
       group.add(p)
     }
@@ -319,12 +344,12 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
     const cx = Math.cos(a) * 560, cz = Math.sin(a) * 560
     const p = new THREE.Mesh(track(new THREE.RingGeometry(POOL_R + 2, POOL_R + 8, 96)), paveMat)
     p.rotation.x = -Math.PI / 2
-    p.position.set(cx, 0.35, cz)
+    p.position.set(cx, Y0 + 0.35, cz)
     p.receiveShadow = true
     group.add(p)
     const k = new THREE.Mesh(track(new THREE.RingGeometry(POOL_R + 7.7, POOL_R + 8.3, 96)), kerbMat)
     k.rotation.x = -Math.PI / 2
-    k.position.set(cx, 0.42, cz)
+    k.position.set(cx, Y0 + 0.42, cz)
     group.add(k)
   }
 
@@ -436,35 +461,35 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   const lawnMat = track(new THREE.MeshStandardMaterial({ color: LAWN, roughness: 0.95, metalness: 0 }))
   const lawnIn = new THREE.Mesh(track(new THREE.RingGeometry(R_GARDEN_IN - 4, R_RING - RING_W / 2 + 2, 192)), lawnMat)
   lawnIn.rotation.x = -Math.PI / 2
-  lawnIn.position.y = 0.2
+  lawnIn.position.y = Y0 + 0.2
   lawnIn.receiveShadow = true
   group.add(lawnIn)
   const lawnOut = new THREE.Mesh(track(new THREE.RingGeometry(R_RING + RING_W / 2 - 2, R_EDGE - 6, 256)), lawnMat)
   lawnOut.rotation.x = -Math.PI / 2
-  lawnOut.position.y = 0.2
+  lawnOut.position.y = Y0 + 0.2
   lawnOut.receiveShadow = true
   group.add(lawnOut)
   // ── a borda do jardim: passeio perimetral, muralha baixa de pedra e postes ──
   // Um jardim de palácio termina numa linha desenhada, não desmancha no regolito.
   const edgePath = new THREE.Mesh(track(new THREE.RingGeometry(R_EDGE - 7, R_EDGE + 8, 256)), paveMat)
   edgePath.rotation.x = -Math.PI / 2
-  edgePath.position.y = 0.34
+  edgePath.position.y = Y0 + 0.34
   edgePath.receiveShadow = true
   group.add(edgePath)
   const wall = new THREE.Mesh(
     track(new THREE.CylinderGeometry(R_EDGE + 9.4, R_EDGE + 9.4, 1.6, 256, 1, true)),
     track(new THREE.MeshStandardMaterial({ color: 0x1c1c21, roughness: 0.8, metalness: 0.15, side: THREE.DoubleSide })),
   )
-  wall.position.y = 0.8
+  wall.position.y = Y0 + 0.8
   wall.castShadow = wall.receiveShadow = true
   group.add(wall)
   const wallCap = new THREE.Mesh(track(new THREE.RingGeometry(R_EDGE + 8.4, R_EDGE + 10.4, 256)), track(new THREE.MeshStandardMaterial({ color: 0x2a2a30, roughness: 0.6, metalness: 0.2 })))
   wallCap.rotation.x = -Math.PI / 2
-  wallCap.position.y = 1.62
+  wallCap.position.y = Y0 + 1.62
   group.add(wallCap)
   const edgeLine = new THREE.Mesh(track(new THREE.RingGeometry(R_EDGE - 7.4, R_EDGE - 6.6, 256)), kerbMat)
   edgeLine.rotation.x = -Math.PI / 2
-  edgeLine.position.y = 0.42
+  edgeLine.position.y = Y0 + 0.42
   group.add(edgeLine)
 
   // onde pode nascer: cinturão 332..440 (fora dos radiais e do anel), e setores

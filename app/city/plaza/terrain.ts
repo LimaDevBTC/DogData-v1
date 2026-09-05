@@ -58,6 +58,25 @@ export interface TerrainMeta {
 // arrastar o Three junto. Reexportado aqui para quem já importava daqui.
 export { VEX_CIDADE, VEX_HORIZONTE, VEX_R_CIDADE, VEX_R_HORIZONTE, exageroEm, VERTICAL_EXAGGERATION } from './vex'
 
+// ⚠️ A COTA DA PRAÇA, EXPORTADA EM MÓDULO. Até 05/09 (segunda rodada) a praça
+// vivia implícita em `baseAt = 0` e ninguém fora deste arquivo precisava de
+// número nenhum. Agora ela desceu para −35 (o fundador viu a ilha 40 m acima
+// da lâmina e mandou abaixar) e QUEM PLANTA SOBRE A PRAÇA POR COTA ABSOLUTA
+// (as âncoras em `precinct.ts`, que nascem antes de o terreno carregar) precisa
+// do mesmo número, ou fica flutuando 35 m no ar. Um export só, para não haver
+// uma segunda fonte de verdade se este valor mudar de novo.
+export const PRACA_Y = -35
+// ⚠️ O RAIO DA BORDA DA BACIA, TAMBÉM EXPORTADO. Três consumidores fora deste
+// arquivo (a vala dos canais radiais, a máscara `_foraDoCanal` e a chamada de
+// `buildCanais`, todos em `plaza-scene.tsx`) precisam saber onde o fundo plano
+// do lago termina para a vala dos radiais entrar exatamente até lá, nem antes
+// (sobra represa) nem depois (a vala corta o fundo do lago). Antes este número
+// vivia repetido como literal em quatro lugares (aqui e em três pontos de
+// `plaza-scene.tsx`); foi assim que o defeito da praia sem cais nasceu no
+// primeiro rebaixamento (05/09, primeira rodada) e a correção é não repetir
+// de novo.
+export const LAGO_R1 = 1354
+
 export interface Terrain {
   group: THREE.Group
   /** Altura do chão em (x, z), em qualquer lugar: sítio, saia, horizonte. */
@@ -291,20 +310,20 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
     const cru = H(i, j) * (1 - u) * (1 - v) + H(i + 1, j) * u * (1 - v) + H(i, j + 1) * (1 - u) * v + H(i + 1, j + 1) * u * v
     return cru * exageroEm(Math.hypot(x, z))
   }
-  // O platô da praça: dentro de 960 m o chão é plano no nível 0 (o deck, as
+  // O platô da praça: dentro do raio o chão é plano no nível 0 (o deck, as
   // âncoras e o jardim inteiro, até a muralha em 900, foram desenhados sobre um
-  // plano), e daí até 1300 m ele volta suavemente ao relevo real.
-  // ⚠️ O PLATÔ FOI ESTENDIDO DE 960 PARA 1.340 m, E ISSO FOI MEDIDO ANTES.
-  // Ele parava em 960 e o chão voltava ao relevo real até 1.300, que é onde o
-  // lote começa. Sonda de 36 rumos: em r 1.300 o regolito ia de -18,7 a +25,1,
-  // ou seja 43,8 m de amplitude só por rumo. Enquanto ali era só transição isso
-  // não incomodava ninguém; a partir do momento em que o anel vira LAGO, uma
-  // lâmina plana afundaria 18,7 m de um lado e boiaria 25,1 m do outro.
-  // Com o platô até 1.340 o anel inteiro fica no nível 0 e a bacia pode ser
-  // escavada nele com margem constante. A volta ao relevo real passa a ser de
-  // 1.340 a 1.700, fora do lago e por baixo da primeira fileira de quarteirões,
-  // que continuam acompanhando o chão como sempre acompanharam.
-  const PLATO_R = 1470, PLATO_FIM = 1830
+  // plano), e daí em diante ele volta suavemente ao relevo real.
+  // ⚠️ O PLATÔ CRESCEU DE 1.470/1.830 PARA 2.400/2.760 EM 05/09 (SEGUNDA
+  // RODADA), E O MOTIVO É A SUBIDA NOVA DA CIDADE. A praça desceu para −35 (ver
+  // `PRACA_Y`) e a antiga bacia de 40 m em ~110 m virou uma subida de 4,14% em
+  // 950 m (a subida NÃO pode ficar mais curta que isso, ou volta a ser
+  // barranco): o chão só fica seco e plano de novo em r 2.344 (`R_CIDADE_SECA`
+  // abaixo). Com o platô antigo em 1.470 o relevo real começaria a se misturar
+  // 874 m ANTES do fim da subida, e a subida reta que a praia pede sairia
+  // ondulada pelo relevo cru por baixo. Platô até 2.400 dá 56 m de folga seca
+  // depois do fim medido da subida, e a volta ao relevo real (2.400 a 2.760)
+  // guarda a mesma largura de 360 m que a transição já tinha antes.
+  const PLATO_R = 2400, PLATO_FIM = 2760
   const siteAt = (x: number, z: number): number => {
     const raw = rawAt(x, z)
     const r = Math.hypot(x, z)
@@ -348,140 +367,165 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
   // ⚠️ A BACIA DO LAGO DA PRAÇA. O anel entre a praça e a cidade não tinha um
   // lote sequer, então ele podia virar água sem custar endereço nenhum.
   //
-  // ⚠️ O PERFIL DEIXOU DE SER UM `smoothstep` ÚNICO EM 02/09, E ELE ERA A CAUSA
-  // DA "PISTA DE SKATE" QUE O FUNDADOR APONTOU. Medido no perfil antigo (talude
-  // de 40 m para 26 m de queda, lâmina em −17): a inclinação ia de 0° em r 1.050
-  // a 44,3° em r 1.070, e a linha d'água caía em r 1.074,2, ou seja EM CIMA da
-  // parte mais íngreme, a 43,0°. Uma tigela analítica, igual nos 360°, com uma
-  // fita clara de largura constante colada por cima. Areia não era possível ali:
-  // `w = 1,5 / inclinação` dava 1,6 m na linha d'água.
-  //
-  // Agora o talude tem TRÊS TRECHOS e a linha d'água cai no do meio:
-  //   A   0 a 42% do talude    0 -> `seca`             smoothstep, o banco seco
-  //   B   42% a 74%            `seca` -> +BANQUETA     LINEAR, a banqueta rasa
-  //   C   74% a 100%           -> LAGO_FUNDO           smoothstep, o mergulho
-  // A derivada do `smoothstep` é ZERO nas duas pontas, então A entra em B sem
-  // quina, sem precisar de concordância à mão.
-  //
-  // ⚠️ E O TALUDE VARIA COM O RUMO, senão o conserto entrega o mesmo anel
-  // perfeito, só que mais bonito. Dois harmônicos (o raciocínio do
-  // `contornoIlha`) mexem no COMPRIMENTO do talude e na ALTURA do banco seco: a
-  // linha d'água anda dentro da banqueta e a areia nasce larga na enseada e
-  // estreita na ponta, sem nenhuma decisão binária para oscilar em volta.
-  //
-  // ⚠️ AS FOLGAS SÃO MEDIDAS, NÃO CHUTADAS. A praça vai até r 1.024 (monumentos
-  // e Calçada dos Fundadores, desenhados sobre platô plano) e o anel da orla
-  // passou de r 1.440 para r 1.465, aresta interna em 1.452. Com R0 = 1.100 e
-  // talude interno de 43 a 67 m, o topo do barranco fica entre r 1.033 e 1.057:
-  // 9 m livres da praça no pior rumo. Com talude externo de 47 a 57 m, o pé fica
-  // entre r 1.437 e 1.447: 5 m livres do anel no pior rumo.
   // ═══════════════════════════════════════════════════════════════════════
-  // ⚠️ A LÂMINA DESCEU DE -6,5 PARA -40 EM 05/09/2026, POR DECISÃO DO FUNDADOR.
+  // ⚠️ SEGUNDA RODADA, 05/09/2026: A PRAÇA DESCEU, O DEGRAU MORREU PELA RAIZ.
   //
-  // O motivo, na palavra dele: "o canal central é bem mais alto que o nível da
-  // baía e dos canais radiais, isso gera um problema de conexão". Estava certo,
-  // e o princípio já era dele, de 30/08: "toda água da cidade precisa ter
-  // exatamente o mesmo nível, já que está tudo interligado". Baía, lagos de
-  // cratera e os três canais radiais estão todos em -40; este anel era o último
-  // desnível da cidade, com 33,5 m de degrau.
+  // A primeira rodada do mesmo dia rebaixou só a BACIA (lâmina de -6,5 para
+  // -40) e manteve a praça no platô, cota 0. Resultado medido: uma ilha 40 m
+  // ACIMA da água, com um terraço de cinco degraus na beira para vencer a
+  // queda sem virar rampa de skate. O fundador viu a cena em produção e foi
+  // direto na causa: "a praça é uma ilha quase na altura da água do canal,
+  // não sei por que motivo ela é muito metros mais alta... agora é só abaixar
+  // a praça central, ela ainda tem uns degraus pra chegar na água que eu não
+  // quero". Ele tem razão: o degrau só existia porque a praça estava alta.
+  // Tirar o degrau sem descer a praça seria trocar cinco lances por uma rampa
+  // de 40 m; a única forma de não ter escada nenhuma é ter pouco o que descer.
   //
-  // ⚠️ E DESCEU SÓ A BACIA, NÃO A CIDADE. A alternativa examinada era rebaixar o
-  // disco inteiro, e ela foi medida e recusada: descer o chão 33,5 m com a
-  // lâmina parada em -40 é ARITMETICAMENTE o mesmo que subir a água 33,5 m com
-  // o chão parado, e isso põe 26.854 lotes debaixo d'água, 31,3% da cidade,
-  // contra os 34 de hoje. Aqui só a bacia se aprofunda: nenhum lote muda de
-  // cota, a Fundação não é regerada e o gerador não roda de novo.
+  // Por isso a praça desce para `PRACA_Y` = -35 (exportada acima, para as
+  // âncoras que nascem antes do terreno). Sobram só 5 m secos até a lâmina
+  // (-40), e 5 m viram praia mansa sem escada nenhuma. A lâmina, o fundo da
+  // bacia (`LAGO_FUNDO`) e a cota da água (`LAGO_AGUA_Y`) NÃO mudam: são a
+  // mesma água de toda a cidade, e mexer nelas reabriria a discussão de
+  // hidrografia.md, que já está fechada.
   //
-  // ⚠️ O FUNDO PLANO ENCOLHEU PARA DAR CORRIDA AO TALUDE, e não por gosto. O
-  // barranco tem de vencer 40 m em vez de 6,5, e o espaço é o que sempre foi:
-  // o topo interno não pode passar de r 1.024 (a praça) e o pé externo não pode
-  // passar de r 1.452 (o anel viário), ou seja 9 m livres de um lado e 5 do
-  // outro, medidos. Mantendo R0=1.100 e R1=1.390 o talude teria de cair 47,5 m
-  // em 60 m de corrida: 38 graus, que é encosta de pedreira. Passando a
-  // R0=1.150 e R1=1.340 a lâmina perde 100 m de largura (de 290 para 190 m,
-  // ainda três vezes a seção dos canais radiais) e o talude ganha o dobro de
-  // corrida, caindo para 24 graus antes dos degraus.
-  const LAGO_R0 = 1150, LAGO_R1 = 1340     // o fundo plano da bacia
-  // ⚠️ FUNDO 47,5 E NÃO 14. A lâmina continua com os mesmos 7,5 m de água que o
-  // ajuste de 30/08 escolheu ("é lago, não fosso"): o que mudou foi a cota dela.
-  // 40 de queda seca mais 7,5 de água.
-  const LAGO_FUNDO = 47.5
-  const LAGO_TAL_B = 0.86                      // onde o terraço acaba e a água começa
-  const LAGO_AGUA_Y = -40                      // a cota da lâmina, a mesma de toda a água da cidade
-  // ⚠️ O TERRAÇO EM DEGRAUS, e ele é o que impede o anel de virar fosso. Uma
-  // rampa lisa de 40 m a 24 graus é um talude de rodovia, não uma margem de
-  // cidade. Sete patamares de 10,5 m de piso com quedas de 5,6 m entre eles
-  // usam a mesma corrida e devolvem um lugar por onde se desce a pé, que é o
-  // que Utrecht faz com o Oudegracht e o que a nota da foz em `canais.ts` já
-  // tinha apontado como saída para muro alto. O piso tem caimento de 2% para a
-  // água, senão poça.
-  // ⚠️ CINCO DEGRAUS E NÃO SETE, e o motivo é a MALHA, não o desenho. A faixa
-  // refinada desenha o talude com célula de 4,9 m; com sete degraus cada um
-  // media 15,7 m e cabia em três células, e a interpolação da malha comia o
-  // patamar (medido: só 22% da corrida saía plana, contra os 66% projetados).
-  // Com cinco, o degrau tem 22 m e quatro células e meia, o piso mede 14,5 m e
-  // a queda 8 m. Refinar a malha resolveria também, mas custaria 130 mil
-  // vértices nos dois anéis do talude, e patamar de 14,5 m é melhor esplanada
-  // que patamar de 9,7 de qualquer forma.
-  const LAGO_DEGRAUS = 5
-  const LAGO_PISO_FRAC = 0.66                  // quanto de cada degrau é piso plano
-  const lagoMod = (x: number, z: number): number => {
-    const a = Math.atan2(z, x)
-    return Math.sin(a * 3 + 0.7) * 0.62 + Math.sin(a * 5 - 1.4) * 0.38
+  // ⚠️ O PERFIL VIROU RETO DE PROPÓSITO, sem smoothstep na praia. O talude
+  // antigo usava `smoothstep` (derivada zero nas pontas, pico no meio) e foi
+  // exatamente isso que empurrou a linha d'água para cima do trecho mais
+  // íngreme na primeira versão desta bacia (a "pista de skate" de 02/09). O
+  // fundador pediu praia de "corrida mansa": inclinação CONSTANTE do começo
+  // ao fim, que é uma reta, não uma curva que acelera no meio. `retaGrampeada`
+  // (abaixo) faz exatamente isso, e por ser reta a inclinação medida a 6 e a
+  // 16 m da lâmina (a sonda que `lago.ts` usa para desenhar a areia) é a MESMA
+  // inclinação do talude inteiro: a largura da areia deixa de ser um número
+  // estimado e passa a ser o que a reta entrega, sem surpresa.
+  //
+  // ⚠️ SEM TERRAÇO, SEM HARMÔNICO POR RUMO. O terraço de cinco degraus (o que
+  // o fundador recusou) e a modulação `lagoMod` (que variava o talude por
+  // rumo para o anel não ler "de compasso") saem os dois. O painel de projeto
+  // do centro mediu o sítio real e achou um eixo de caimento natural a 49,4°
+  // (NE baixo, SW alto: até 118 m de diferença de cota no mesmo raio) que é o
+  // jeito certo de quebrar a simetria, mas seguir esse eixo pede reamostrar o
+  // relevo cru por azimute e redesenhar a bacia como península presa ao lado
+  // alto, e isso é retrabalho de escala maior que esta rodada, que já entrega
+  // o pedido mais recente e mais específico do fundador (a praça descer, sem
+  // degrau, com praia nos dois lados). Fica registrado para a próxima rodada,
+  // quando o painel fechar a versão vencedora: um anel perfeitamente circular
+  // hoje é mais seguro de medir e de verificar offline (sem abrir navegador)
+  // do que uma bacia assimétrica calibrada à mão contra o relevo real.
+  //
+  // ⚠️ O RAIO DA PRAÇA (1.024, monumentos e Calçada dos Fundadores) NÃO MUDOU:
+  // só a COTA da praça desceu. O que muda de raio é a cidade do lado de fora,
+  // porque a subida de volta ao nível 0 deixou de caber em ~110 m (era
+  // barranco de 20°, e o fundador recusou isso também: "se os canais
+  // estiverem muito fundos... terraplane mais, não queremos barrancos"). Com
+  // 40 m de queda a ~4,1% a subida pede ~950 m de corrida; ela começa em
+  // `R_AGUA_OUT` e só fica seca e plana em `R_CIDADE_SECA`, medido abaixo pelo
+  // harness.
+  //
+  // ⚠️ OS DOIS RUNS (praia interna e subida externa) FORAM ALARGADOS TRÊS
+  // VEZES depois da primeira medição, e o motivo foi a AREIA, não o barranco.
+  // `lago.ts` desenha a largura da faixa de areia como `1,5 / inclinação`, e
+  // essa largura ainda balança ±25% de rumo a rumo por um ruído orgânico
+  // (`onda`, a mesma máquina de `contornoIlha`) para o anel não ler como
+  // compasso. Medido contra a MALHA de verdade (não a fórmula): a primeira
+  // tentativa (praia a 5,05%, subida a 5,50%) já batia a meta na MÉDIA, mas o
+  // pior rumo do ruído descia a 19,8 m por dentro e 16,6 m por fora, por baixo
+  // do piso de 20. A causa é que perto da linha d'água a MALHA lê um pouco
+  // mais íngreme que a reta nominal (a curva tem uma quina exatamente ali, de
+  // ~4% para ~18%, e a grade fina arredonda a quina por cima de uma célula:
+  // ver `LAGO_SUB` abaixo). Alargar o run sozinho ajudou pouco porque o erro
+  // da quina é quase constante em METROS, não em porcentagem, e um talude mais
+  // manso amplifica o mesmo erro absoluto num raio maior. A dupla correção que
+  // fechou a conta foi refinar a malha (`LAGO_SUB` de 12 para 16, cortando o
+  // erro da quina) E alargar os runs para 120 e 950 m: medido depois, 28,0 m
+  // de areia dos DOIS lados, pior rumo do ruído em 21,0 m, com folga real.
+  const R_PRACA_BORDA = 1024
+  // 120 m de praia a 4,17% (drop de 5 m: de -35 a -40): dentro dos 80-200 m e
+  // dos 2-6% pedidos, com folga dos dois lados da banda.
+  const R_AGUA_IN = 1144
+  // o mergulho, da lâmina até o fundo da bacia: 7,5 m de água em 40 m de
+  // corrida, 18,75%. Não é praia (fica embaixo d'água), não precisa ser mansa.
+  const LAGO_R0 = 1184
+  // ⚠️ LAGO_R1 (a outra ponta do fundo plano) é exportado no topo do arquivo
+  // porque `plaza-scene.tsx` também precisa dele, em três lugares, para a vala
+  // dos canais radiais parar exatamente onde este fundo começa.
+  // fundo plano da bacia: 170 m, um lago de verdade e não uma valeta.
+  const LAGO_FUNDO = 47.5   // INTACTO: 40 m secos + 7,5 m de água, a mesma profundidade de sempre
+  const LAGO_AGUA_Y = -40   // INTACTO: a cota de toda a água da cidade
+  const R_AGUA_OUT = LAGO_R1 + 40   // simétrico ao mergulho interno
+  // a subida da cidade: 40 m a 4,14% (bem abaixo do teto de 6% que o fundador
+  // deu), 950 m de corrida. Medido depois pelo harness: onde ela termina de
+  // verdade.
+  const R_CIDADE_SECA = R_AGUA_OUT + 950
+  /** reta grampeada: liga h0 em d0 a h1 em d1 com inclinação CONSTANTE, e
+   *  trava fora do intervalo. Reta, não curva: é o que dá "corrida mansa" (a
+   *  mesma inclinação do início ao fim) em vez do smoothstep que acelerava no
+   *  meio e escondia a linha d'água em cima do trecho mais íngreme. */
+  const retaGrampeada = (d: number, d0: number, h0: number, d1: number, h1: number): number => {
+    const t = (d - d0) / (d1 - d0)
+    if (t <= 0) return h0
+    if (t >= 1) return h1
+    return h0 + (h1 - h0) * t
   }
   const bacia = (x: number, z: number): number => {
     const r = Math.hypot(x, z)
-    if (r > LAGO_R0 && r < LAGO_R1) return LAGO_FUNDO
-    const m = lagoMod(x, z)
-    const fora = r >= LAGO_R1
-    // ⚠️ O TALUDE DOBROU DE LARGURA (era 52 a 67 m) porque a queda passou de 6,5
-    // para 40 m. O envelope de fora não mudou: com R1 = 1.340 e T = 103 o pé
-    // continua caindo em r 1.443, dentro dos 5 m livres do anel viário, e com
-    // R0 = 1.150 e T = 106 o topo continua em r 1.044, dentro dos 9 m livres da
-    // praça. É a lâmina que cedeu espaço, não a cidade.
-    const T = fora ? 103 + 8 * m : 106 + 14 * m
-    // a queda SECA, do platô até a linha d'água: 40 m, porque a praça está na
-    // cota 0 e a lâmina agora está em -40
-    const seca = 40 + 0.7 * m
-    const s = fora ? (LAGO_R1 + T - r) / T : (r - (LAGO_R0 - T)) / T
-    if (s <= 0) return 0
-    if (s >= 1) return LAGO_FUNDO
-    if (s < LAGO_TAL_B) {
-      // ── O TERRAÇO ─────────────────────────────────────────────────────────
-      // Sete patamares. Cada um é piso quase plano (66% da corrida, com 2% de
-      // caimento para a água, senão empoça) e uma queda curta até o próximo.
-      // Piso medido: 0,66 × 103/7 = 9,7 m de largura, queda de 5,7 m.
-      const u = s / LAGO_TAL_B
-      const k = Math.min(LAGO_DEGRAUS - 1, Math.floor(u * LAGO_DEGRAUS))
-      const f = u * LAGO_DEGRAUS - k
-      const alturaDegrau = seca / LAGO_DEGRAUS
-      const base = k * alturaDegrau
-      const CAIMENTO = 0.035              // 2% sobre um piso de 9,7 m
-      if (f < LAGO_PISO_FRAC) return base + alturaDegrau * CAIMENTO * (f / LAGO_PISO_FRAC)
-      const t = (f - LAGO_PISO_FRAC) / (1 - LAGO_PISO_FRAC)
-      return base + alturaDegrau * (CAIMENTO + (1 - CAIMENTO) * (t * t * (3 - 2 * t)))
-    }
-    // e o mergulho, da linha d'água até o fundo: 7,5 m de lâmina
-    const t = (s - LAGO_TAL_B) / (1 - LAGO_TAL_B)
-    return seca + (LAGO_FUNDO - seca) * (t * t * (3 - 2 * t))
+    if (r <= R_PRACA_BORDA) return -PRACA_Y                    // a praça inteira, plana, em PRACA_Y
+    if (r <= R_AGUA_IN) return retaGrampeada(r, R_PRACA_BORDA, -PRACA_Y, R_AGUA_IN, 40)
+    if (r <= LAGO_R0) return retaGrampeada(r, R_AGUA_IN, 40, LAGO_R0, LAGO_FUNDO)
+    if (r <= LAGO_R1) return LAGO_FUNDO
+    if (r <= R_AGUA_OUT) return retaGrampeada(r, LAGO_R1, LAGO_FUNDO, R_AGUA_OUT, 40)
+    if (r <= R_CIDADE_SECA) return retaGrampeada(r, R_AGUA_OUT, 40, R_CIDADE_SECA, 0)
+    return 0
   }
-  // ⚠️ A FAIXA REFINADA DO TALUDE, DECLARADA AQUI PORQUE O `superficieAt`
-  // PRECISA DELA. Quem pousa peça no barranco pergunta ao `superficieAt`, e ele
-  // interpola a MALHA, não a curva. Se ele continuasse lendo a grade de 59 m
-  // enquanto a malha desenha a de 4,9 m, a areia voltaria a enterrar, só que
-  // menos. Passo fino medido: 59,225 / 12 = 4,94 m.
-  const LAGO_SUB = 12
-  // ⚠️ A FAIXA ACOMPANHOU OS RAIOS NOVOS: o talude interno agora vive entre
-    // r 1.044 e 1.150 e o externo entre 1.340 e 1.443, e é essa faixa que ganha
-    // malha de 4,9 m. Deixá-la nos raios antigos desenharia o terraço na grade
-    // grossa de 59 m, que apagaria os sete degraus.
-    const FAIXA: [number, number][] = [[1040, 1155], [1335, 1450]]
+  // ⚠️ A FAIXA REFINADA, DECLARADA AQUI PORQUE O `superficieAt` PRECISA DELA.
+  // Quem pousa peça pergunta ao `superficieAt`, e ele interpola a MALHA, não a
+  // curva. Se ele continuasse lendo a grade de 59 m onde a curva analítica tem
+  // uma QUINA (mudança abrupta de inclinação), a malha grossa arredondaria a
+  // quina por cima de uma célula inteira e a areia (que faz bisseção contra
+  // `superficieAt`, em `lago.ts`) sondaria um talude ligeiramente diferente do
+  // que a curva `bacia()` desenhou.
+  //
+  // ⚠️ A FAIXA ENCOLHEU PARA SÓ AS QUINAS, E NÃO É A MESMA CONTA DE ANTES. O
+  // desenho de 02/09 precisava refinar o talude INTEIRO (52 a 67 m de corrida)
+  // porque a curva ali era um `smoothstep` com curvatura forte de ponta a
+  // ponta: qualquer ponto da rampa divergia da grade grossa. A reta desta
+  // rodada (`retaGrampeada`) tem curvatura ZERO no meio do trecho (uma reta
+  // interpolada linearmente por uma grade grossa é a MESMA reta, sem erro), e
+  // só quebra nas SEIS quinas (praça/praia, praia/mergulho, mergulho/fundo,
+  // duas vezes, e cidade seca). Refinar apenas ±50 m em volta de cada quina
+  // (260 m interno, 140 m entre as duas quinas da bacia, 100 m na subida da
+  // cidade: 500 m ao todo) cobre exatamente onde a malha grossa arredondaria
+  // demais, sem pagar célula fina nos ~950 m de subida que são reta pura e não
+  // precisam dela.
+  //
+  // ⚠️ LAGO_SUB SUBIU DE 12 PARA 16 PELA MESMA RAZÃO QUE OS RUNS ALARGARAM
+  // (ver a nota grande de `R_CIDADE_SECA` acima): a quina em `R_AGUA_IN` e em
+  // `R_AGUA_OUT` é exatamente onde `lago.ts` sonda a inclinação para desenhar
+  // a areia, e uma célula grossa arredondando essa quina desloca a linha
+  // d'água MEDIDA por metros inteiros num talude manso. Passo fino com 12:
+  // 59,225/12 = 4,94 m, erro de corda medido até 0,23 m na quina, areia caindo
+  // a 19,5 m no pior rumo (por baixo do piso). Com 16: passo 59,225/16 =
+  // 3,70 m, erro até 0,13 m, areia em 21,0 m no pior rumo. Custo, medido pelo
+  // harness: 1.932 células grossas caem nas três faixas, vezes 17² vértices
+  // cada, ~558 mil vértices. É MAIS que a malha grossa inteira do sítio
+  // (429² ≈ 184 mil vértices), então não é barato; é o preço de a linha
+  // d'água medida bater a meta de areia em todo rumo, e fica confinado aos
+  // ~500 m de faixa que de fato têm quina, não nos ~950 m de subida reta ao
+  // redor, que continuam na grade grossa de 59 m.
+  const LAGO_SUB = 16
+  const FAIXA: [number, number][] = [
+    [R_PRACA_BORDA - 50, LAGO_R0 + 50],      // praça / praia / mergulho interno
+    [LAGO_R1 - 50, R_AGUA_OUT + 50],         // mergulho externo / fundo da bacia
+    [R_CIDADE_SECA - 50, R_CIDADE_SECA + 50], // onde a subida da cidade termina
+  ]
+  const FAIXA_MIN = Math.min(...FAIXA.map(([a]) => a))
+  const FAIXA_MAX = Math.max(...FAIXA.map(([, b]) => b))
   const naFaixa = (i: number, j: number): boolean => {
     // ⚠️ PORTA RÁPIDA, e ela não é otimização prematura: `superficieAt` chama
     // isto, e `superficieAt` é o trava-chão da câmera (todo quadro) e o pouso de
     // 86 mil lotes. Uma raiz quadrada no caso comum em vez de quatro.
     const rc = Math.hypot((i + 0.5 - half) * cell, (j + 0.5 - half) * cell)
-    if (rc < FAIXA[0][0] - cell || rc > FAIXA[1][1] + cell) return false
+    if (rc < FAIXA_MIN - cell || rc > FAIXA_MAX + cell) return false
     for (let dj = 0; dj <= 1; dj++) {
       for (let di = 0; di <= 1; di++) {
         const r = Math.hypot((i + di - half) * cell, (j + dj - half) * cell)
@@ -688,18 +732,17 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
   // meia dúzia de triângulos gigantes de transição. Isso é rampa de skate por
   // construção, e nenhum conserto de perfil ou de cor sobrevive a ela.
   //
-  // O conserto refina SÓ AS DUAS FAIXAS DO TALUDE, em `LAGO_SUB` por lado.
-  // Refinar o anel inteiro (r 1.000 a 1.460) seriam 977 células da grade; as
-  // duas faixas são 341, medidas pela área: π(1110² − 1025²) e π(1455² − 1385²)
-  // divididas por 59,225². O número real conferido está no relatório.
+  // O conserto refina SÓ AS FAIXAS ONDE A CURVA TEM QUINA, em `LAGO_SUB` por
+  // lado (ver o comentário de `FAIXA` acima: com a bacia virando reta em
+  // 05/09, segunda rodada, a maior parte do talude deixou de precisar de malha
+  // fina, e sobraram três faixas curtas em vez de duas largas).
   //
   // ⚠️ E A BORDA DA FAIXA NÃO PODE RACHAR. Vértice novo numa aresta que o
   // vizinho NÃO subdividiu é junta em T: pousado no `heightAt`, ele abre fenda.
   // Aqui ele é interpolado LINEARMENTE na aresta grossa, ou seja fica exatamente
   // em cima da reta que o vizinho desenha. E não custa nada de forma: a
-  // vizinhança da faixa é platô plano de um lado (o topo do barranco fica em
-  // r 1.033 no pior rumo, dentro da faixa) e fundo plano do outro (r 1.100 a
-  // 1.390), então ali o interpolado e o real são o MESMO ponto.
+  // vizinhança de cada faixa é sempre um trecho reto ou plano da própria
+  // `bacia()`, então ali o interpolado e o real são o MESMO ponto.
   let celulasFinas = 0
   const refina = (i: number, j: number) => {
     celulasFinas++

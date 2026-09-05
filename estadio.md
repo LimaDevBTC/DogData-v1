@@ -427,3 +427,115 @@ depois do mint sem risco nenhum, porque encolher é seguro e crescer não é.
 1. **O critério de distribuição dos níveis**, depois do snapshot, passando pelo
    programa de rótulos para que camarote não caia em carteira de exchange.
 2. **Coordenar com a frente de água** a vizinhança de 126 m com o parque.
+
+---
+
+## 10. Fase 0, executada em 05/09/2026
+
+**A reserva está declarada.** Peça `E03`, nome de obra `$DOG ARENA`, tipo
+`esporte`, gravada em dois lugares:
+
+1. `scripts/gerar_cidade.py:1270`, na lista `PROGRAMA_MALHA`, como
+   `('E03', '$DOG ARENA', 'esporte', 38, -6, 14, 3, 2)` (setor, ix, iz, w, h em
+   células de 180 m), que é a fonte legível da decisão;
+2. `data/dogcity_programa_congelado.json`, que é o arquivo que o gerador de fato
+   lê antes de plantar lote (`gerar_cidade.py:1426`) e portanto é o que reserva
+   terra de verdade.
+
+| | |
+|---|---|
+| centro | (2398,4 ; 1481,2) |
+| raio e rumo | 2.819 m, 121,7 graus |
+| tamanho | 540 x 360 m = **19,44 ha** |
+| rotação | 285 graus, 16,7 graus de desalinho da tangente local |
+| terreno | desnível de **8,8 m** em 540 m |
+| vizinho | **20 m** do Parque Central e Lago Maior |
+| colisão | **nenhuma**, testada contra as 121 peças com retângulos girados |
+| folga sobre o envelope | 176 m e 38 m além dos 364 x 322 com esplanada |
+| lotes a replantar | **344** (8,20 ha, coortes 4 e 5) |
+
+O estádio entra girado 90 graus dentro da reserva: o envelope de 364 m vai no
+lado de 540 e o de 322 no lado de 360.
+
+⚠️ **Nenhum holder perde lote.** Os 344 lotes que hoje caem ali são replantados no
+terreno restante quando o gerador rodar, porque nada foi mintado. É a regra de
+ouro funcionando (`masterplan.md:268`), e é por isso que fazer agora custa zero.
+
+### ⚠️ O que FALTA, e é o único passo com prazo de bloco
+
+A reserva está declarada mas **ainda não materializada**: os 344 lotes só saem
+dali quando `python3 scripts/gerar_cidade.py` rodar inteiro. E aí está o
+conflito: o gerador reescreve `public/city/cidade-malha.json`, que grava
+**lagos, canais e a baía** (`gerar_cidade.py:3468` e `:3477-3489`), e há outra
+frente trabalhando em corpos d'água agora. Rodar sem combinar sobrescreveria o
+trabalho dela.
+
+Portanto a rodada do gerador precisa ser **combinada com a frente de água e
+acontecer antes do bloco 966.670**. A reserva já está escrita e versionada, então
+quem rodar por último leva o estádio junto, seja quem for.
+
+### ⚠️ Armadilha achada aqui: `DUMP_PROGRAMA=1` move as peças de borda
+
+O caminho óbvio para gravar a peça nova seria acrescentar a linha na lista do
+`.py` e rodar `DUMP_PROGRAMA=1`, que regrava o congelado a partir das listas.
+**Não faça isso.** Medido: além de acrescentar o E03, ele mexeu em **48 campos de
+peças já existentes**, porque as 16 peças de borda passam por
+`assenta_no_cinturao()` a cada regravação e o contorno mudou desde que elas foram
+congeladas. A B02 saltou de rumo 118 para 92 graus, a B15 andou quase 2 km.
+
+O jeito certo, e o que foi feito: gerar a peça nova com o dump, restaurar o
+congelado do backup, e **inserir só a peça nova no JSON**. Conferido depois:
+51 peças viraram 52, com **zero campos alterados** nas 51 antigas.
+
+---
+
+## 11. O modelo, 05/09/2026
+
+`blender/build_estadio.py`, rodando com `blender -b -P blender/build_estadio.py`.
+Sai em `public/city/dog-arena.glb` (192 KB, Draco) e em `blender/dog-arena.blend`.
+
+**71.692 triângulos**, contra o teto de projeto de 250.000 e contra os 2,1 milhões
+que a casca da abóbada já gasta sozinha em perfil high.
+
+⚠️ **A geometria não é desenhada no script.** As 73 fileiras vêm de
+`scripts/bacia_estadio.py`, que as calcula pela linha de visada. Modelo e
+documento consomem a mesma fonte, então não existe estádio bonito contradizendo a
+planta.
+
+O que está no modelo: bacia de 4 níveis com assento em relevo e mosaico por
+setor, escadas de arquibancada, parapeitos, faixa de camarotes envidraçada,
+cobertura de 77 m de balanço com anel de tração, vigas radiais, nervuras e uma
+faixa de ETFE translúcido junto à abertura, pele de brise sobre parede contínua,
+8 portões de 16,4 m com marquise, painel e letreiro trocável, campo com marcação
+FIFA e listras de corte, esplanada de 30,5 m e postes de 11 m.
+
+### As cinco armadilhas medidas na modelagem
+
+1. **Sem relevo de assento a arquibancada lê como rampa.** Com o degrau liso a
+   bacia inteira virou uma rampa creme e o estádio perdeu escala. Cada fileira
+   precisa de piso mais banco contínuo, e é o listrado do banco que diz que ali
+   senta gente.
+2. **Vomitório modelado como sólido vira cubo boiando.** As caixas escuras
+   ficaram flutuando sobre os degraus. O que dá ritmo a uma aérea de estádio é a
+   escada, não o buraco.
+3. **Escada de largura "um segmento do anel" sai com 60 m.** O contorno tinha um
+   único segmento em cada lado reto, então a escada era o lado inteiro na reta e
+   4 m no canto. Largura em metros, e lados retos subdivididos.
+4. **Lâmina solta não é pele, é cerca de palito.** Com 1,35 m de vão via-se a
+   estrutura interna de fora e o prédio ficava oco. A pele é parede contínua com
+   o brise na frente, que é como o Bernabéu resolve.
+5. **Viga horizontal atravessa cobertura inclinada.** Caixa na altura média
+   aparece por cima da membrana como espinho. Barra que segue a inclinação.
+
+Duas de calibragem, que valem para qualquer peça desta casa: **letra de 11 m não
+cabe em faixa de 4,2 m** (o nome saiu ilegível no coroamento e foi para a pele,
+onde o patrocinador quer mesmo), e **três cremes a menos de 8% de luminância um
+do outro não são mosaico** (a bacia leu como uma cor só até os tons ganharem
+degrau de valor).
+
+### O que falta para o nível final
+
+Torcida (o modelo de bloco animado do acervo falhou na conversão), iluminação
+noturna com a pele acesa, entorno com o parque e a esplanada tratados, assentos
+do acervo instanciados no anel de perto, e o mosaico escrevendo a marca em vez de
+apenas alternar tons.

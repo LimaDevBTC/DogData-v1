@@ -113,7 +113,18 @@ const COR_PRAIA = AREIA_SECA          // a faixa do look 1, chapada, como sempre
 const PRAIA_SUBIDA = 1.5
 const PRAIA_SONDA = 6.0
 const PRAIA_SONDA2 = 16.0
-const PRAIA_MAX = 18.0
+// ⚠️ PRAIA_MAX SUBIU DE 18 PARA 40 EM 05/09 (SEGUNDA RODADA), E AQUI ELA
+// DIVERGE DE `lagos.ts` DE PROPÓSITO, pela primeira vez desde que a nota
+// acima foi escrita. O motivo é a inclinação: a baía tem taludes que ainda
+// vencem dezenas de metros em poucas dezenas de corrida (praia estreita,
+// terreno de cratera), enquanto o anel da praça agora é uma reta de ~4,2%
+// (ver `terrain.ts`, `bacia()`), pedida pelo fundador ("a praia não precisa
+// ter faixa de areia enorme, mas ocupa toda a margem"). Com o teto em 18 a
+// fórmula `1,5 / inclinação` cortava a areia real (28 m medidos pelo harness
+// contra a MALHA, nos dois lados) na metade. 40 dá folga para os dois lados
+// da modulação orgânica (`onda`, ±25%: 21 a 35 m) sem deixar a areia crescer
+// sem limite se algum rumo futuro ficar mais manso ainda.
+const PRAIA_MAX = 40.0
 const PRAIA_MIN = 2.5
 const PRAIA_FUNDO = 0.9
 const PRAIA_ALISA = 6
@@ -293,10 +304,31 @@ export function buildLago(o: LagoOpts): Lago {
   // dentro), um raio constante tirado de `L.r0` voltaria a errar nos dois
   // sentidos: sobra de fora num rumo, fresta de água no outro.
   const rAguaI = rMargemI - 30, rAguaE = rMargemE + 30
+  // ⚠️ Z-FIGHTING CONTRA `lagos.ts`, MEDIDO EM 05/09/2026, DEPOIS DE A BACIA
+  // DESCER PARA -40. Enquanto o Lago da Praça vivia em -6,5 ele não tinha como
+  // se encontrar com a água da cidade; com os dois na mesma cota (-40) e a
+  // vala dos radiais entrando até o fundo plano do anel, o leito da bacia
+  // ficou contíguo por baixo d'água com o resto da rede, e o flood-fill de
+  // `lagos.ts` (que varre a cidade inteira abaixo de `cota`) passou a achar e
+  // desenhar a MESMA lâmina aqui. Medido com `npx tsx`, sem navegador, sobre o
+  // `buildLagos` de verdade: 26.123 dos 528.468 vértices de `lagos:agua` caem
+  // dentro do raio 1.100 a 1.460 do Lago da Praça, coplanares em Y=-40 com
+  // esta lâmina. Duas cascas iguais na mesma cota brigam pelo depth buffer em
+  // toda a volta do anel, não só numa costura: é a "falha no encontro" que o
+  // fundador viu, só que espalhada pela lâmina inteira, não concentrada numa
+  // borda.
+  //
+  // A mesma receita de `canais.ts` (lá é `VIES_AGUA`, 3 cm, e o canal sempre
+  // ganha da baía): aqui o lago ganha da baía com um viés menor, 1,5 cm, de
+  // propósito. Os dois módulos já se sobrepõem hoje, medido, entre r 1.450 e
+  // 1.460 (a borda da lâmina do lago encosta no início da água do canal): com
+  // 1,5 cm o lago sobe da baía sem empatar com o canal, que continua ganhando
+  // ali. A ordem fica: baía perde de tudo, lago perde só do canal.
+  const VIES_LAGO = 0.015
   {
     const b = B(COR_AGUA)
     const seg = 240
-    const p = (r: number, a: number) => P(Math.sin(a) * r, -Math.cos(a) * r, L.agua)
+    const p = (r: number, a: number) => P(Math.sin(a) * r, -Math.cos(a) * r, L.agua + VIES_LAGO)
     if (!look2) {
       for (let k = 0; k < seg; k++) {
         const a0 = (k / seg) * Math.PI * 2, a1 = ((k + 1) / seg) * Math.PI * 2
@@ -558,7 +590,7 @@ export function buildLago(o: LagoOpts): Lago {
   // ⚠️ A PONTE VAI DE ANEL A ANEL, e não de praia a praia. Antes ela começava em
   // L.r0 - 70 e terminava em L.r1 + 70, ou seja no meio do nada dos dois lados.
   const R_PONTE_I = R_ANEL_PRACA, R_PONTE_E = R_ANEL_ORLA
-  const LARG = 26, Y_DECK = 7.0
+  const LARG = 26
   //
   // ⚠️ O TABULEIRO NÃO TINHA RAMPA, E ISSO SÓ APARECEU NA SONDA. Levar a ponte de
   // anel a anel resolveu O PLANO (ela passou a encostar em via dos dois lados),
@@ -571,12 +603,21 @@ export function buildLago(o: LagoOpts): Lago {
   // (130 m para 6,2 m, ou 4,8%), patamar no meio. A concordância é suavizada
   // (`3k² − 2k³`) porque emenda reta deixa QUINA na crista, e quina numa peça de
   // 465 m aparece de longe.
-  const Y_ENC = 0.8                 // o nível do anel, onde o tabuleiro encosta
+  //
+  // ⚠️ Y_ENC DEIXOU DE SER UMA CONSTANTE ÚNICA EM 05/09 (SEGUNDA RODADA), E
+  // O MOTIVO É QUE OS DOIS ANÉIS PARARAM DE TER A MESMA COTA. Até aqui
+  // `R_ANEL_PRACA` (975) e `R_ANEL_ORLA` (L.r1+75) viviam os dois no platô
+  // plano em 0, e uma constante servia às duas cabeceiras. Com a praça em
+  // −35 e a orla pousada na subida nova da cidade (a poucos metros da lâmina:
+  // medido, −38,5 no eixo do bulevar norte), as duas cabeceiras ficam a
+  // ALTURAS DIFERENTES. Uma constante só faria o tabuleiro flutuar de um lado
+  // ou afundar no chão do outro; cada cabeceira lê agora a SUA cota local
+  // (`o.heightAt`, a mesma função que a rotatória usa para o piso), e o arco
+  // por cima é sempre a mesma altura de sempre (6,2 m: `Y_DECK` 7,0 menos
+  // `Y_ENC` 0,8, os números antigos), só que somada ao encontro de cada lado
+  // em vez de a um platô comum que não existe mais.
+  const ALTURA_ARCO = 6.2
   const RAMPA = 0.28
-  const yDeck = (t: number) => {
-    const k = t < RAMPA ? t / RAMPA : t > 1 - RAMPA ? (1 - t) / RAMPA : 1
-    return Y_ENC + (Y_DECK - Y_ENC) * (k * k * (3 - 2 * k))
-  }
   const TORRES = [0.30, 0.70]        // fração do vão onde cada torre sobe
   const H_TORRE = 74
   let pontes = 0
@@ -588,6 +629,17 @@ export function buildLago(o: LagoOpts): Lago {
     const eixo = (t: number) => {
       const r = R_PONTE_I + (R_PONTE_E - R_PONTE_I) * t
       return [dx * r, dz * r] as const
+    }
+    // ⚠️ CADA CABECEIRA, A SUA COTA. `+0,8` é o mesmo colchão de guia que a
+    // rotatória usa (`P2(..., 0.65)`/`P2(..., 0.9)` acima); manter o mesmo
+    // valor aqui é o que faz o tabuleiro encostar exatamente na pista, sem
+    // degrau nem fresta, em QUALQUER cota que a cabeceira esteja.
+    const yEncI = o.heightAt(dx * R_PONTE_I, dz * R_PONTE_I) + 0.8
+    const yEncE = o.heightAt(dx * R_PONTE_E, dz * R_PONTE_E) + 0.8
+    const encAt = (t: number) => yEncI + (yEncE - yEncI) * t
+    const yDeck = (t: number) => {
+      const k = t < RAMPA ? t / RAMPA : t > 1 - RAMPA ? (1 - t) / RAMPA : 1
+      return encAt(t) + ALTURA_ARCO * (k * k * (3 - 2 * k))
     }
     // tabuleiro
     {
@@ -612,7 +664,10 @@ export function buildLago(o: LagoOpts): Lago {
           const y0 = yDeck(k / n), y1 = yDeck((k + 1) / n)
           // ⚠️ NA RAMPA A SAIA TEM DE MORRER NO CHÃO e não acompanhar o tabuleiro:
           // uma viga de 3,2 m pendurada sob o encontro fica boiando sobre a via.
-          const e0 = Math.min(3.2, y0 - Y_ENC + 0.6), e1 = Math.min(3.2, y1 - Y_ENC + 0.6)
+          // ⚠️ `encAt`, NÃO MAIS `Y_ENC`: o "chão" que a saia persegue é o
+          // encontro LOCAL (que agora varia de uma cabeceira a outra), não um
+          // platô comum.
+          const e0 = Math.min(3.2, y0 - encAt(k / n) + 0.6), e1 = Math.min(3.2, y1 - encAt((k + 1) / n) + 0.6)
           be.quad(
             P(x0 + ox, z0 + oz, y0), P(x1 + ox, z1 + oz, y1),
             P(x1 + ox, z1 + oz, y1 - e1), P(x0 + ox, z0 + oz, y0 - e0),
@@ -633,8 +688,12 @@ export function buildLago(o: LagoOpts): Lago {
           const a = (f / 4) * Math.PI * 2, a2 = ((f + 1) / 4) * Math.PI * 2
           const c1x = tx + ox + Math.cos(a) * lado, c1z = tz + oz + Math.sin(a) * lado
           const c2x = tx + ox + Math.cos(a2) * lado, c2z = tz + oz + Math.sin(a2) * lado
+          // ⚠️ `yDeck(t)`, NÃO MAIS `Y_DECK`: o topo da torre é o arco naquele
+          // PONTO do vão (as duas torres ficam dentro do patamar plano do
+          // arco, então isto lê igual ao valor fixo de antes onde as duas
+          // cabeceiras tinham a mesma cota, e some sozinho onde não têm mais).
           b.quad(P(c1x, c1z, base), P(c2x, c2z, base),
-                 P(c2x, c2z, Y_DECK + H_TORRE), P(c1x, c1z, Y_DECK + H_TORRE))
+                 P(c2x, c2z, yDeck(t) + H_TORRE), P(c1x, c1z, yDeck(t) + H_TORRE))
         }
         // tirantes: seis fitas finas do topo da torre até o tabuleiro
         for (let k = 1; k <= 6; k++) {
@@ -645,8 +704,8 @@ export function buildLago(o: LagoOpts): Lago {
             const w = 0.9
             // o tirante ancora ONDE O TABULEIRO ESTÁ, que na rampa já não é 7 m
             b.quad(
-              P(tx + ox - px * w, tz + oz - pz * w, Y_DECK + H_TORRE),
-              P(tx + ox + px * w, tz + oz + pz * w, Y_DECK + H_TORRE),
+              P(tx + ox - px * w, tz + oz - pz * w, yDeck(t) + H_TORRE),
+              P(tx + ox + px * w, tz + oz + pz * w, yDeck(t) + H_TORRE),
               P(ax + ox + px * w, az + oz + pz * w, yDeck(ta)),
               P(ax + ox - px * w, az + oz - pz * w, yDeck(ta)),
             )

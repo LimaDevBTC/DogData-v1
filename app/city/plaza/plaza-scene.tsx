@@ -21,7 +21,7 @@ import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { createBattlefield, type Battlefield } from '../war/battlefield'
 import WarLegend from './war-legend'
-import { loadTerrain } from './terrain'
+import { loadTerrain, PRACA_Y, LAGO_R1 } from './terrain'
 import { criarTerrenoFino, ligarNaVia, type TerrenoFino } from './terreno-fino'
 import type { SombraCascata } from './sombra'  // mesma razão do decalques: 747 linhas fora do pacote
 import { invernoComoTrabalho, abrirPortaoInverno, aguardaRelevoInverno, type Inverno } from './inverno'
@@ -84,8 +84,14 @@ import { CityChat } from '@/components/wallet/city-chat'
 // From the north-north-east, down the monumental axis: deck in front, the towers
 // framing it, the Castle of Cards beyond the deck, the spaceport at the horizon
 // behind the castle, and the Earth in the south-western sky.
-const HOME_POS = new THREE.Vector3(560, 640, -1480)
-const HOME_TARGET = new THREE.Vector3(0, 100, 480)
+// ⚠️ AS DUAS COTAS SOMAM PRACA_Y, EM 05/09 (SEGUNDA RODADA). A cena que este
+// enquadramento mostra (deck, torres, praça) desceu inteira para PRACA_Y; sem
+// somar aqui a câmera continuaria mirando a ALTURA antiga (0), 35 m acima de
+// onde a cidade agora está, e o quadro perderia o deck por baixo em vez de
+// abrir com ele. Somar a MESMA constante na câmera e no alvo é uma translação
+// rígida: o ângulo e a composição não mudam, só a cota do que é fotografado.
+const HOME_POS = new THREE.Vector3(560, 640 + PRACA_Y, -1480)
+const HOME_TARGET = new THREE.Vector3(0, 100 + PRACA_Y, 480)
 // A phone in portrait sees a narrow slice: pull in closer and look a little
 // lower so the deck and the towers fill the width instead of floating mid-frame.
 type View = { pos: THREE.Vector3; target: THREE.Vector3 }
@@ -193,30 +199,39 @@ const TOUR_HOLD_MS = 6400
 const CHAO_DO_ENQUADRAMENTO = 99
 function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUADRAMENTO): View {
   const dy = chaoGuerra - CHAO_DO_ENQUADRAMENTO
+  // ⚠️ AS VISTAS DA PRAÇA SOMAM `PY` (= PRACA_Y) NA CÂMERA E NO ALVO, EM 05/09
+  // (SEGUNDA RODADA). Cada uma destas vistas fotografa alguma coisa que fica
+  // dentro do disco da praça (r ≤ 1.024: deck, marco, jardins, âncoras), e
+  // esse disco inteiro desceu de 0 para PRACA_Y. Somar a MESMA constante nos
+  // dois pontos (câmera e alvo) é uma translação rígida: o ângulo, a distância
+  // e a composição continuam EXATAMENTE os mesmos, só a cota do assunto muda.
+  // As vistas de fora da praça (baía, canais, tecido, parque, spaceport, a
+  // guerra) não entram aqui: a água e a cidade fora do anel não desceram.
+  const PY = PRACA_Y
   switch (name) {
     case 'castle': case 'south': case 'chalet':
-      return { pos: new THREE.Vector3(-560, 300, 1260), target: new THREE.Vector3(0, 110, 620) }
+      return { pos: new THREE.Vector3(-560, 300 + PY, 1260), target: new THREE.Vector3(0, 110 + PY, 620) }
     case 'chaletback': // conferência: a água que olha para o spaceport
-      return { pos: new THREE.Vector3(420, 300, 1560), target: new THREE.Vector3(0, 150, 660) }
+      return { pos: new THREE.Vector3(420, 300 + PY, 1560), target: new THREE.Vector3(0, 150 + PY, 660) }
     case 'north':
-      return { pos: new THREE.Vector3(160, 120, -140), target: new THREE.Vector3(0, 10, -520) }
+      return { pos: new THREE.Vector3(160, 120 + PY, -140), target: new THREE.Vector3(0, 10 + PY, -520) }
     case 'founders': // de pé no deck, diante do muro: o lado NORTE é onde estão
       // as placas já ocupadas (o primeiro fundador entra ao norte e o círculo
       // segue no sentido horário)
-      return { pos: new THREE.Vector3(6, 42.3, -84), target: new THREE.Vector3(0, 41.7, -67) }
+      return { pos: new THREE.Vector3(6, 42.3 + PY, -84), target: new THREE.Vector3(0, 41.7 + PY, -67) }
     case 'deck':
-      return { pos: new THREE.Vector3(-260, 120, 380), target: new THREE.Vector3(0, 60, 0) }
+      return { pos: new THREE.Vector3(-260, 120 + PY, 380), target: new THREE.Vector3(0, 60 + PY, 0) }
     // De pé no eixo norte, um pouco além do marco, olhando para ele com a Needle
     // subindo atrás: é o enquadramento para o qual a peça foi desenhada.
     case 'mark':
-      return { pos: new THREE.Vector3(0, 40 + 16, -228), target: new THREE.Vector3(0, 40 + 12, -150) }
-    case 'whitepaper': { const [x, z] = onDiagonal('NE', 598, 4); const [tx, tz] = onDiagonal('NE', 690); return { pos: new THREE.Vector3(x, 7, z), target: new THREE.Vector3(tx, 4, tz) } }
-    case 'genesis': { const [x, z] = onDiagonal('NE', 838, 9); return { pos: new THREE.Vector3(x, 6, z), target: new THREE.Vector3(GENESIS_POS[0], 4.5, GENESIS_POS[1]) } }
-    case 'satoshi': { const [x, z] = onDiagonal('NW', 492, 3); return { pos: new THREE.Vector3(x, 6, z), target: new THREE.Vector3(SATOSHI_POOL[0], 9, SATOSHI_POOL[1]) } }
-    case 'paw': { const [x, z] = onDiagonal('SE', 430, -30); return { pos: new THREE.Vector3(x, 95, z), target: new THREE.Vector3(PAW_PALM[0], 0, PAW_PALM[1]) } }
-    case 'leonidas': { const [x, z] = onDiagonal('SE', 700, 5); return { pos: new THREE.Vector3(x, 4, z), target: new THREE.Vector3(LEONIDAS_POS[0], 8, LEONIDAS_POS[1]) } }
-    case 'satoshiside': { const [x, z] = onDiagonal('NW', 560, 62); return { pos: new THREE.Vector3(x, 8, z), target: new THREE.Vector3(SATOSHI_POOL[0], 6, SATOSHI_POOL[1]) } }
-    case 'bust': { const [x, z] = onDiagonal('NW', 462, 8); return { pos: new THREE.Vector3(x, 4.5, z), target: new THREE.Vector3(BUST_POS[0], 4, BUST_POS[1]) } }
+      return { pos: new THREE.Vector3(0, 40 + PY + 16, -228), target: new THREE.Vector3(0, 40 + PY + 12, -150) }
+    case 'whitepaper': { const [x, z] = onDiagonal('NE', 598, 4); const [tx, tz] = onDiagonal('NE', 690); return { pos: new THREE.Vector3(x, 7 + PY, z), target: new THREE.Vector3(tx, 4 + PY, tz) } }
+    case 'genesis': { const [x, z] = onDiagonal('NE', 838, 9); return { pos: new THREE.Vector3(x, 6 + PY, z), target: new THREE.Vector3(GENESIS_POS[0], 4.5 + PY, GENESIS_POS[1]) } }
+    case 'satoshi': { const [x, z] = onDiagonal('NW', 492, 3); return { pos: new THREE.Vector3(x, 6 + PY, z), target: new THREE.Vector3(SATOSHI_POOL[0], 9 + PY, SATOSHI_POOL[1]) } }
+    case 'paw': { const [x, z] = onDiagonal('SE', 430, -30); return { pos: new THREE.Vector3(x, 95 + PY, z), target: new THREE.Vector3(PAW_PALM[0], 0 + PY, PAW_PALM[1]) } }
+    case 'leonidas': { const [x, z] = onDiagonal('SE', 700, 5); return { pos: new THREE.Vector3(x, 4 + PY, z), target: new THREE.Vector3(LEONIDAS_POS[0], 8 + PY, LEONIDAS_POS[1]) } }
+    case 'satoshiside': { const [x, z] = onDiagonal('NW', 560, 62); return { pos: new THREE.Vector3(x, 8 + PY, z), target: new THREE.Vector3(SATOSHI_POOL[0], 6 + PY, SATOSHI_POOL[1]) } }
+    case 'bust': { const [x, z] = onDiagonal('NW', 462, 8); return { pos: new THREE.Vector3(x, 4.5 + PY, z), target: new THREE.Vector3(BUST_POS[0], 4 + PY, BUST_POS[1]) } }
     case 'temple': {
       // a BOCA da caverna (o salão está lá dentro); a altura vem do parque
       // quando ele carrega. A câmera fica no eixo da boca, do lado de fora.
@@ -263,23 +278,26 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
         target: t.clone().addScaledVector(d, -72).setY(t.y + 7),
       }
     }
-    case 'satoshiclose': { const [x, z] = onDiagonal('NW', 536, 1); return { pos: new THREE.Vector3(x, 5, z), target: new THREE.Vector3(SATOSHI_POOL[0], 6.5, SATOSHI_POOL[1]) } }
-    case 'satoshisideclose': { const [x, z] = onDiagonal('NW', 560, 26); return { pos: new THREE.Vector3(x, 6, z), target: new THREE.Vector3(SATOSHI_POOL[0], 6, SATOSHI_POOL[1]) } }
-    case 'leonidasclose': { const [x, z] = onDiagonal('SE', 714, 4); return { pos: new THREE.Vector3(x, 5, z), target: new THREE.Vector3(LEONIDAS_POS[0], 9, LEONIDAS_POS[1]) } }
+    case 'satoshiclose': { const [x, z] = onDiagonal('NW', 536, 1); return { pos: new THREE.Vector3(x, 5 + PY, z), target: new THREE.Vector3(SATOSHI_POOL[0], 6.5 + PY, SATOSHI_POOL[1]) } }
+    case 'satoshisideclose': { const [x, z] = onDiagonal('NW', 560, 26); return { pos: new THREE.Vector3(x, 6 + PY, z), target: new THREE.Vector3(SATOSHI_POOL[0], 6 + PY, SATOSHI_POOL[1]) } }
+    case 'leonidasclose': { const [x, z] = onDiagonal('SE', 714, 4); return { pos: new THREE.Vector3(x, 5 + PY, z), target: new THREE.Vector3(LEONIDAS_POS[0], 9 + PY, LEONIDAS_POS[1]) } }
+    // ⚠️ 'dsc' NÃO SOMA PY: a ilha do Dog Social Club vive na LÂMINA da baía
+    // (DSC_CENTER, ver dsc-gallery.ts), e a água da baía não desceu nesta
+    // rodada, só a bacia da praça.
     case 'dsc': {
       const d = DSC_CENTER
       const f = Math.atan2(-d.x, -d.z)
       return { pos: new THREE.Vector3(d.x + Math.sin(f) * 58, 20, d.z + Math.cos(f) * 58), target: new THREE.Vector3(d.x, 11, d.z) }
     }
-    case 'ordinal': { const [x, z] = onDiagonal('SW', 606, 6); return { pos: new THREE.Vector3(x, 5.5, z), target: new THREE.Vector3(ORDINAL_CENTER[0], 6, ORDINAL_CENTER[1]) } }
+    case 'ordinal': { const [x, z] = onDiagonal('SW', 606, 6); return { pos: new THREE.Vector3(x, 5.5 + PY, z), target: new THREE.Vector3(ORDINAL_CENTER[0], 6 + PY, ORDINAL_CENTER[1]) } }
     case 'kray':
-      return { pos: new THREE.Vector3(300, 140, 420), target: new THREE.Vector3(620, 90, 0) }
+      return { pos: new THREE.Vector3(300, 140 + PY, 420), target: new THREE.Vector3(620, 90 + PY, 0) }
     case 'bitflow':
-      return { pos: new THREE.Vector3(-300, 140, 420), target: new THREE.Vector3(-620, 90, 0) }
+      return { pos: new THREE.Vector3(-300, 140 + PY, 420), target: new THREE.Vector3(-620, 90 + PY, 0) }
     case 'bitflowback': // a face de trás, onde entrou a assinatura
-      return { pos: new THREE.Vector3(-980, 320, -180), target: new THREE.Vector3(-620, 300, 0) }
+      return { pos: new THREE.Vector3(-980, 320 + PY, -180), target: new THREE.Vector3(-620, 300 + PY, 0) }
     case 'top':
-      return { pos: new THREE.Vector3(60, 2600, 900), target: new THREE.Vector3(0, 0, 100) }
+      return { pos: new THREE.Vector3(60, 2600 + PY, 900), target: new THREE.Vector3(0, 0 + PY, 100) }
     // ── conferência da abóbada (?domo=1) ──────────────────────────────────────
     // De pé no deck, olhando para cima: é o único enquadramento que mostra a
     // colmeia como abóbada e não como véu no alto do quadro.
@@ -564,7 +582,7 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
                target: new THREE.Vector3(PAD_MAIN.x + 275, PAD_MAIN.y + 60, PAD_MAIN.z - 2100) }
   }
   if (aspect >= 1) return { pos: HOME_POS.clone(), target: HOME_TARGET.clone() }
-  return { pos: new THREE.Vector3(430, 760, -1300), target: new THREE.Vector3(0, 40, 420) }
+  return { pos: new THREE.Vector3(430, 760 + PY, -1300), target: new THREE.Vector3(0, 40 + PY, 420) }
 }
 function homeFor(aspect: number): View {
   const view = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('view') : null
@@ -1703,19 +1721,27 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           // ACIMA da lâmina. Água no mesmo nível com barragem no meio não é
           // ligação, é coincidência de cota.
           //
-          // `ENTRADA_ANEL = 1340` é o `LAGO_R1` de `terrain.ts`: a vala vai até
-          // a borda do fundo plano do anel e a passagem se abre sozinha, porque
-          // o leito dela (-44) é mais fundo que a lâmina (-40).
+          // ⚠️ O CLAMP AGORA IMPORTA `LAGO_R1` DE `terrain.ts` EM VEZ DE REPETIR
+          // O LITERAL 1.340. Na primeira rodada de 05/09 este era o ÚNICO dos
+          // três lugares que recebia o clamp: `buildCanais` (a água estruturada
+          // do canal, cais e passeio) e a máscara `_foraDoCanal` (mais abaixo)
+          // continuavam com o `rInicio` cru de 1.450, e outra frente mediu o
+          // resultado: a vala já estava molhada desde r 1.340, mas o cais só
+          // nascia em r 1.450, sobrando 70 a 110 m de corredor com só a praia
+          // natural da baía desenhada, o cais aparecendo "do nada". Os TRÊS
+          // consumidores usam agora a MESMA fonte, e ela muda sozinha se a bacia
+          // mudar de novo: hoje `LAGO_R1` = 1.354 (a bacia ficou 20 m mais
+          // estreita nesta segunda rodada, para dar corrida à praia e à subida
+          // da cidade; ver `bacia()` em terrain.ts).
           //
-          // ⚠️ E ISSO DIVERGE DO DADO PUBLICADO DE PROPÓSITO, o que é dívida e
-          // está registrado como tal: `gerar_cidade.py` ainda publica 1.450, e
-          // a máscara de reserva dele também. É seguro hoje porque não há lote
-          // entre r 1.340 e 1.450 (o lote mais próximo do anel está em r 1.489,
-          // medido), mas na próxima geração o script tem de nascer com o mesmo
-          // número, ou a reserva e a vala voltam a discordar.
+          // ⚠️ A DÍVIDA COM `gerar_cidade.py` CONTINUA EM ABERTO. O script ainda
+          // publica `rInicio: 1450` e a máscara de reserva dele também; não
+          // regerei a cidade nesta rodada (o fundador já autorizou realocar
+          // lotes e o coordenador roda o gerador depois, numa passada só). Ele
+          // precisa nascer lendo o `LAGO_R1` novo (1.354) na próxima geração.
           radiais: (_cn.radiais ?? []).map(
             (r: { rumo: number; secao: number; rInicio: number; rFim?: number }) =>
-            ({ rumo: r.rumo, secao: r.secao, rInicio: Math.min(r.rInicio, 1340),
+            ({ rumo: r.rumo, secao: r.secao, rInicio: Math.min(r.rInicio, LAGO_R1),
                rFim: r.rFim ?? _rFimCanal })),
           // ⚠️ O TALUDE VEM DO GERADOR. Estava 26 m fixo aqui e 0 na máscara do
           // gerador: cavava-se mais do que se reservava, e o lote da margem
@@ -1991,7 +2017,21 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 // desenham água na MESMA cota e o canal já desenha a dele, reta.
                 // Sem esta máscara o lago inunda a vala (leito a −44) e traça a
                 // borda irregular da escavação por cima do canal.
-                const _cnr = (mc?.canais?.radiais ?? []) as {
+                //
+                // ⚠️ MESMO CLAMP DE `LAGO_R1` DA CAVA DO TERRENO, E POR ISSO É
+                // MAPEADO AQUI. Até 05/09 (segunda rodada) só a cava recebia
+                // `Math.min(r.rInicio, LAGO_R1)`; esta máscara (o `semMargem`
+                // que `buildLagos` usa para não desenhar a orla da baía por cima
+                // do canal) continuava com o `rInicio` de 1.450 cru, então a
+                // margem da baía era excluída só depois do ponto onde o canal
+                // JÁ estava molhado (desde 1.340/1.354): medido por outra
+                // frente, 70 a 110 m de corredor com praia natural da baía e sem
+                // cais nenhum, o cais aparecendo "do nada" no meio do canal. Os
+                // dois lados da exclusão (aqui e a vala) têm de nascer do MESMO
+                // raio, ou a fronteira de um discorda da do outro de novo.
+                const _cnr = (mc?.canais?.radiais ?? []).map(
+                  (r: { rumo: number; secao: number; rInicio: number; rFim: number }) =>
+                  ({ ...r, rInicio: Math.min(r.rInicio, LAGO_R1) })) as {
                   rumo: number; secao: number; rInicio: number; rFim: number }[]
                 // ⚠️ A EXCLUSÃO ACABA ANTES DA FOZ, NÃO DEPOIS. Ela ia até
                 // `rFim + 40`, e o canal desenha a própria água só até `rFim`:
@@ -2092,7 +2132,15 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                   heightAt: terrain.superficieAt,
                   // ⚠️ A MESMA COTA DOS LAGOS. Água interligada tem um nível só.
                   cota: mc?.lagos?.cota ?? -40,
-                  radiais: cn.radiais ?? [],
+                  // ⚠️ TERCEIRO E ÚLTIMO CONSUMIDOR DO MESMO CLAMP (ver a nota
+                  // grande em `_cnr`, acima, e na cava do terreno). Esta é a
+                  // água ESTRUTURADA do canal em si (cais, muro, passeio); sem
+                  // o clamp ela desenhava o próprio corpo d'água até r 1.450,
+                  // 96 a 116 m ALÉM de onde a vala e a exclusão da baía já
+                  // concordam, voltando a abrir a mesma fresta de antes.
+                  radiais: (cn.radiais ?? []).map(
+                    (r: { rumo: number; secao: number; rInicio: number; rFim?: number }) =>
+                    ({ ...r, rInicio: Math.min(r.rInicio, LAGO_R1) })),
                   aneis: cn.aneis,   // com os vãos: ver canais.ts
                   avenidas: (mc?.bulevares ?? []).map((b: { rumo: number; largura: number }) =>
                     ({ rumo: b.rumo, largura: b.largura })),
@@ -2960,6 +3008,17 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           loadGlb('/city/btc-mark.glb').catch(() => null),
         ])
         if (disposed) return
+        // ⚠️ O GRUPO DO plaza.glb DESCEU PARA PRACA_Y EM 05/09 (SEGUNDA
+        // RODADA). O modelo entra na cena em (0,0,0) com a laje assada em cota
+        // ABSOLUTA (39,95 no espaço local dele, ver DECK_Y em garden-plan.ts);
+        // com a praça descendo para -35 no terreno, mover só o GRUPO resolve
+        // de uma vez toda a geometria que o Blender já assou dentro do GLB
+        // (o pódio, o anel de pedra, as escadarias, o inlay do Bitcoin no
+        // piso): tudo isso é filho do grupo e desce junto, sem precisar achar
+        // cada peça. O que NÃO é filho do grupo (btcMark, os spots do marco,
+        // needleLod, o Círculo dos Fundadores) é outro objeto e é corrigido
+        // à parte, abaixo, cada um pela sua própria cota absoluta.
+        plaza.position.y = PRACA_Y
         // The Needle's own site slab would double the deck; the tower stands on the
         // deck alone. BitFlow and Kray keep their whole sites (gardens, kerbs, cars):
         // out at the anchor radius there is nothing for them to collide with.
@@ -3142,7 +3201,13 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         const MARK_R = 150
         if (btcMark) {
           btcMark.name = 'BtcMark'
-          btcMark.position.set(0, DECK_Y, -MARK_R)
+          // ⚠️ PRACA_Y + DECK_Y, NÃO SÓ DECK_Y: btcMark não é filho de `plaza`
+          // (é adicionado direto à `scene`, ver mais abaixo), então mover o
+          // grupo do plaza.glb não o move. DECK_Y continua sendo a distância
+          // da laje ao zero do MODELO (e não pode mudar: props-table.ts usa o
+          // mesmo valor como lift relativo); a cota ABSOLUTA do deck no mundo
+          // agora é PRACA_Y + DECK_Y, porque a praça desceu.
+          btcMark.position.set(0, PRACA_Y + DECK_Y, -MARK_R)
           // ⚠️ MEIA VOLTA, E ISSO CONSERTOU O QUE PARECIA SER MATERIAL. No Blender
           // o glifo foi levantado olhando para -Y, e o `export_yup` manda -Y do
           // Blender para +Z do glTF: na praça ele nascia de COSTAS para a
@@ -3179,8 +3244,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             // 0,5: dois refletores fortes lavaram o selo inteiro de branco. Aqui o
             // refletor só precisa separar o bronze do céu, não iluminar o deck.
             const spot = new THREE.SpotLight(0xffc98a, 46, 210, Math.PI / 9, 0.62, 2)
-            spot.position.set(sx * 26, DECK_Y + 7, -MARK_R + 30)
-            spot.target.position.set(0, DECK_Y + 11, -MARK_R)
+            // ⚠️ mesma correção do btcMark logo acima: PRACA_Y + DECK_Y.
+            spot.position.set(sx * 26, PRACA_Y + DECK_Y + 7, -MARK_R + 30)
+            spot.target.position.set(0, PRACA_Y + DECK_Y + 11, -MARK_R)
             spot.castShadow = false
             scene.add(spot)
             scene.add(spot.target)
@@ -3238,7 +3304,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           return lod
         }
         const needleLod = lodOf(needle, needleLod1)
-        needleLod.position.set(0, 39.9, 0)
+        // ⚠️ PRACA_Y + 39,9, NÃO SÓ 39,9: `needle` não é filho de `plaza`, e
+        // 39,9 é a mesma cota do deck medida no GLB da torre (praça-jardins.md
+        // e o cabeçalho de DECK_Y em garden-plan.ts concordam nesse número).
+        // Com a praça em PRACA_Y, a base da Needle tem de descer junto.
+        needleLod.position.set(0, PRACA_Y + 39.9, 0)
         const bitflowLod = lodOf(bitflow, bitflowLod1)
         bitflowLod.position.copy(ANCHORS.west.pos)
         bitflowLod.rotation.y = ANCHORS.west.rotY
@@ -3534,6 +3604,14 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           .then((data) => {
             if (disposed) return
             founders = buildFoundersWalk({ heightAt, data, profile, culler })
+            // ⚠️ ACHADO NESTA RODADA, NÃO ESTAVA NA LISTA: `founders-walk.ts`
+            // usa `DECK_Y` como cota ABSOLUTA (`void opts.heightAt`, a função
+            // não consulta o terreno) e não é filho de `plaza`, então nada o
+            // move sozinho. Como `founders-walk.ts` não está entre os arquivos
+            // desta rodada, o conserto é aqui, no MESMO caminho barato do
+            // plaza.glb: mover o GRUPO inteiro, que já sai pronto do módulo
+            // com toda a geometria em cota relativa a DECK_Y.
+            founders.group.position.y = PRACA_Y
             scene.add(founders.group)
           })
           .finally(() => stepDone('founders'))
