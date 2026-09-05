@@ -86,6 +86,71 @@ de 33,5 m desenhadas, que é o que já acontece hoje, sem projeto.
 
 Fora esses dois gatilhos, não reabrir.
 
+## A DECISÃO, e o que foi executado em 05/09/2026
+
+O fundador leu o estudo e escolheu **rebaixar só a bacia**, depois de uma descoberta que
+mudou a pergunta: ele havia pedido "rebaixar tudo, o disco inteiro", e a medição mostrou
+que isso é **aritmeticamente idêntico a subir a água 33,5 m**. O que importa é a distância
+entre o chão e a lâmina, e a água externa vive no terreno natural, fora do disco: ela não
+desce junto. Descer a cidade até a água e subir a água até a cidade dão o mesmo resultado,
+que já estava medido como a opção descartada: **26.854 lotes submersos, 31,3% da cidade**,
+contra os 34 de hoje.
+
+### O que mudou no código
+
+| constante | antes | depois |
+|---|---|---|
+| `LAGO_AGUA_Y` (terrain.ts) | -6,5 | **-40** |
+| `LAGO_FUNDO` | 14 | **47,5** |
+| `LAGO_R0` / `LAGO_R1` | 1.100 / 1.390 | **1.150 / 1.340** |
+| perfil da margem | rampa lisa com duas dobras | **terraço de 5 degraus** |
+| faixa de malha refinada | [1025,1110] e [1385,1455] | [1040,1155] e [1335,1450] |
+| `rInicio` da vala dos três radiais (plaza-scene) | 1.450 (do JSON) | **1.340** |
+
+O fundo plano encolheu de propósito: o barranco passou a vencer 40 m em vez de 6,5, e o
+espaço é o que sempre foi (9 m livres da praça de um lado, 5 m do anel viário do outro).
+Cedendo 100 m de lâmina, o talude ganhou o dobro de corrida e caiu de 38 para 23 graus.
+
+### Medido depois, na superfície que a cena desenha
+
+| o que | medida |
+|---|---|
+| lâmina do anel | de r 1.140 a r 1.355, **215 m de largura** |
+| cota da lâmina | **-40**, a mesma da baía, dos lagos e dos radiais |
+| profundidade da água | 7,5 m (os mesmos de antes: mudou a cota, não o lago) |
+| talude interno | 47,1 m de queda em 110 m, **23,2 graus**, 33% da corrida em patamar |
+| talude externo | 47,3 m em 110 m, 23,3 graus, 31% em patamar |
+| cota da praça | 0,0 m, **intacta** |
+| lotes afetados | **zero** |
+
+### E a conexão, que era a queixa original
+
+Rebaixar sozinho NÃO conectou nada, e isso só apareceu porque foi medido. Com o anel em
+-40 e os radiais em -40, os dois corpos ficaram no mesmo nível **e ainda separados por
+95 m de terra**: no rumo 25 a crista entre o fim da água do anel (r 1.355) e o começo da
+vala (r 1.450) subia a -16 m, ou seja 24 m ACIMA da lâmina. Água no mesmo nível com
+barragem no meio não é ligação, é coincidência de cota.
+
+A vala dos três radiais passou a entrar até r 1.340. Medido depois nos três rumos (25, 55
+e 85): a água é **contínua do anel central até a baía**, sem crista, toda em -40. E no
+rumo 150, sem canal, o anel continua contido (a água sai em r 1.355 e o terreno sobe a 0
+em r 1.450), o que prova que a passagem se abriu só onde deveria.
+
+⚠️ **DÍVIDA REGISTRADA:** `gerar_cidade.py` ainda publica `rInicio: 1450` e a máscara de
+reserva dele também. É seguro hoje porque não há lote entre r 1.340 e 1.450 (o mais
+próximo está em r 1.489, medido), mas na próxima geração o script tem de nascer com 1.340,
+ou a reserva e a vala voltam a discordar.
+
+### O que ficou para a conferência visual
+
+- As quatro pontes acompanharam sozinhas: as torres nascem em `L.fundo` e passaram de 95
+  para 128,5 m, com o tabuleiro parado na cota das vias (0,8 a 7,0 m). Elas deixaram de
+  cruzar um lago raso e passaram a cruzar um cânion de 47 m. É dramático, e só a chapa diz
+  se ficou bom.
+- A praia de areia do anel é desenhada por bisseção contra a lâmina. Agora ela cai sobre o
+  terraço, e areia sobre degrau pode ler estranho.
+- `aquario.ts` assenta em `L.fundo` e `L.agua`: acompanha, mas num lago 33,5 m mais fundo.
+
 ## Duas notas de vocabulário e de honestidade
 
 **"Eclusa" tem dois sentidos nesta cidade** e isso já produziu contradição entre dois

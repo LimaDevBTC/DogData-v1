@@ -1692,9 +1692,30 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // `?inverno=1` isto resolve na hora, sem round-trip nenhum.
         await aguardaRelevoInverno()
         const terrain = await loadTerrain(_cn ? {
+          // ⚠️ A VALA ENTRA ATÉ O ANEL CENTRAL, e isso é de 05/09/2026. O JSON
+          // publica `rInicio: 1450` nos três radiais, e isso estava certo
+          // enquanto o Lago da Praça vivia em -6,5: o canal não tinha o que
+          // encontrar lá dentro. Com a lâmina do anel descendo para -40 (a
+          // mesma cota da baía, dos lagos e dos próprios radiais), os dois
+          // corpos passaram a estar no MESMO NÍVEL e mesmo assim separados por
+          // 95 m de terra: medido no rumo 25, a crista entre r 1.355 (fim da
+          // água do anel) e r 1.450 (começo da vala) sobe a -16 m, ou seja 24 m
+          // ACIMA da lâmina. Água no mesmo nível com barragem no meio não é
+          // ligação, é coincidência de cota.
+          //
+          // `ENTRADA_ANEL = 1340` é o `LAGO_R1` de `terrain.ts`: a vala vai até
+          // a borda do fundo plano do anel e a passagem se abre sozinha, porque
+          // o leito dela (-44) é mais fundo que a lâmina (-40).
+          //
+          // ⚠️ E ISSO DIVERGE DO DADO PUBLICADO DE PROPÓSITO, o que é dívida e
+          // está registrado como tal: `gerar_cidade.py` ainda publica 1.450, e
+          // a máscara de reserva dele também. É seguro hoje porque não há lote
+          // entre r 1.340 e 1.450 (o lote mais próximo do anel está em r 1.489,
+          // medido), mas na próxima geração o script tem de nascer com o mesmo
+          // número, ou a reserva e a vala voltam a discordar.
           radiais: (_cn.radiais ?? []).map(
             (r: { rumo: number; secao: number; rInicio: number; rFim?: number }) =>
-            ({ rumo: r.rumo, secao: r.secao, rInicio: r.rInicio,
+            ({ rumo: r.rumo, secao: r.secao, rInicio: Math.min(r.rInicio, 1340),
                rFim: r.rFim ?? _rFimCanal })),
           // ⚠️ O TALUDE VEM DO GERADOR. Estava 26 m fixo aqui e 0 na máscara do
           // gerador: cavava-se mais do que se reservava, e o lote da margem

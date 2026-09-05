@@ -375,14 +375,56 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
   // talude interno de 43 a 67 m, o topo do barranco fica entre r 1.033 e 1.057:
   // 9 m livres da praça no pior rumo. Com talude externo de 47 a 57 m, o pé fica
   // entre r 1.437 e 1.447: 5 m livres do anel no pior rumo.
-  const LAGO_R0 = 1100, LAGO_R1 = 1390     // o fundo plano da bacia
-  // ⚠️ FUNDO 14 E NÃO 26. Com 26 o trecho C caía 12,4 m em 14,3 m (52°) logo
-  // depois da praia, e areia rasa que vira penhasco a 5 m da beira lê como
-  // piscina. Com 14 o mergulho fica em 34° e a lâmina tem 7,5 m: é lago, não fosso.
-  const LAGO_FUNDO = 14
-  const LAGO_TAL_A = 0.42, LAGO_TAL_B = 0.74   // as duas dobras, em fração do talude
-  const LAGO_BANQUETA = 1.6                    // a queda dentro da banqueta
-  const LAGO_AGUA_Y = -6.5                     // a cota da lâmina
+  // ═══════════════════════════════════════════════════════════════════════
+  // ⚠️ A LÂMINA DESCEU DE -6,5 PARA -40 EM 05/09/2026, POR DECISÃO DO FUNDADOR.
+  //
+  // O motivo, na palavra dele: "o canal central é bem mais alto que o nível da
+  // baía e dos canais radiais, isso gera um problema de conexão". Estava certo,
+  // e o princípio já era dele, de 30/08: "toda água da cidade precisa ter
+  // exatamente o mesmo nível, já que está tudo interligado". Baía, lagos de
+  // cratera e os três canais radiais estão todos em -40; este anel era o último
+  // desnível da cidade, com 33,5 m de degrau.
+  //
+  // ⚠️ E DESCEU SÓ A BACIA, NÃO A CIDADE. A alternativa examinada era rebaixar o
+  // disco inteiro, e ela foi medida e recusada: descer o chão 33,5 m com a
+  // lâmina parada em -40 é ARITMETICAMENTE o mesmo que subir a água 33,5 m com
+  // o chão parado, e isso põe 26.854 lotes debaixo d'água, 31,3% da cidade,
+  // contra os 34 de hoje. Aqui só a bacia se aprofunda: nenhum lote muda de
+  // cota, a Fundação não é regerada e o gerador não roda de novo.
+  //
+  // ⚠️ O FUNDO PLANO ENCOLHEU PARA DAR CORRIDA AO TALUDE, e não por gosto. O
+  // barranco tem de vencer 40 m em vez de 6,5, e o espaço é o que sempre foi:
+  // o topo interno não pode passar de r 1.024 (a praça) e o pé externo não pode
+  // passar de r 1.452 (o anel viário), ou seja 9 m livres de um lado e 5 do
+  // outro, medidos. Mantendo R0=1.100 e R1=1.390 o talude teria de cair 47,5 m
+  // em 60 m de corrida: 38 graus, que é encosta de pedreira. Passando a
+  // R0=1.150 e R1=1.340 a lâmina perde 100 m de largura (de 290 para 190 m,
+  // ainda três vezes a seção dos canais radiais) e o talude ganha o dobro de
+  // corrida, caindo para 24 graus antes dos degraus.
+  const LAGO_R0 = 1150, LAGO_R1 = 1340     // o fundo plano da bacia
+  // ⚠️ FUNDO 47,5 E NÃO 14. A lâmina continua com os mesmos 7,5 m de água que o
+  // ajuste de 30/08 escolheu ("é lago, não fosso"): o que mudou foi a cota dela.
+  // 40 de queda seca mais 7,5 de água.
+  const LAGO_FUNDO = 47.5
+  const LAGO_TAL_B = 0.86                      // onde o terraço acaba e a água começa
+  const LAGO_AGUA_Y = -40                      // a cota da lâmina, a mesma de toda a água da cidade
+  // ⚠️ O TERRAÇO EM DEGRAUS, e ele é o que impede o anel de virar fosso. Uma
+  // rampa lisa de 40 m a 24 graus é um talude de rodovia, não uma margem de
+  // cidade. Sete patamares de 10,5 m de piso com quedas de 5,6 m entre eles
+  // usam a mesma corrida e devolvem um lugar por onde se desce a pé, que é o
+  // que Utrecht faz com o Oudegracht e o que a nota da foz em `canais.ts` já
+  // tinha apontado como saída para muro alto. O piso tem caimento de 2% para a
+  // água, senão poça.
+  // ⚠️ CINCO DEGRAUS E NÃO SETE, e o motivo é a MALHA, não o desenho. A faixa
+  // refinada desenha o talude com célula de 4,9 m; com sete degraus cada um
+  // media 15,7 m e cabia em três células, e a interpolação da malha comia o
+  // patamar (medido: só 22% da corrida saía plana, contra os 66% projetados).
+  // Com cinco, o degrau tem 22 m e quatro células e meia, o piso mede 14,5 m e
+  // a queda 8 m. Refinar a malha resolveria também, mas custaria 130 mil
+  // vértices nos dois anéis do talude, e patamar de 14,5 m é melhor esplanada
+  // que patamar de 9,7 de qualquer forma.
+  const LAGO_DEGRAUS = 5
+  const LAGO_PISO_FRAC = 0.66                  // quanto de cada degrau é piso plano
   const lagoMod = (x: number, z: number): number => {
     const a = Math.atan2(z, x)
     return Math.sin(a * 3 + 0.7) * 0.62 + Math.sin(a * 5 - 1.4) * 0.38
@@ -392,19 +434,36 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
     if (r > LAGO_R0 && r < LAGO_R1) return LAGO_FUNDO
     const m = lagoMod(x, z)
     const fora = r >= LAGO_R1
-    const T = fora ? 52 + 5 * m : 55 + 12 * m
-    const seca = 5.7 + 0.7 * m
+    // ⚠️ O TALUDE DOBROU DE LARGURA (era 52 a 67 m) porque a queda passou de 6,5
+    // para 40 m. O envelope de fora não mudou: com R1 = 1.340 e T = 103 o pé
+    // continua caindo em r 1.443, dentro dos 5 m livres do anel viário, e com
+    // R0 = 1.150 e T = 106 o topo continua em r 1.044, dentro dos 9 m livres da
+    // praça. É a lâmina que cedeu espaço, não a cidade.
+    const T = fora ? 103 + 8 * m : 106 + 14 * m
+    // a queda SECA, do platô até a linha d'água: 40 m, porque a praça está na
+    // cota 0 e a lâmina agora está em -40
+    const seca = 40 + 0.7 * m
     const s = fora ? (LAGO_R1 + T - r) / T : (r - (LAGO_R0 - T)) / T
     if (s <= 0) return 0
     if (s >= 1) return LAGO_FUNDO
-    if (s < LAGO_TAL_A) {
-      const t = s / LAGO_TAL_A
-      return seca * (t * t * (3 - 2 * t))
+    if (s < LAGO_TAL_B) {
+      // ── O TERRAÇO ─────────────────────────────────────────────────────────
+      // Sete patamares. Cada um é piso quase plano (66% da corrida, com 2% de
+      // caimento para a água, senão empoça) e uma queda curta até o próximo.
+      // Piso medido: 0,66 × 103/7 = 9,7 m de largura, queda de 5,7 m.
+      const u = s / LAGO_TAL_B
+      const k = Math.min(LAGO_DEGRAUS - 1, Math.floor(u * LAGO_DEGRAUS))
+      const f = u * LAGO_DEGRAUS - k
+      const alturaDegrau = seca / LAGO_DEGRAUS
+      const base = k * alturaDegrau
+      const CAIMENTO = 0.035              // 2% sobre um piso de 9,7 m
+      if (f < LAGO_PISO_FRAC) return base + alturaDegrau * CAIMENTO * (f / LAGO_PISO_FRAC)
+      const t = (f - LAGO_PISO_FRAC) / (1 - LAGO_PISO_FRAC)
+      return base + alturaDegrau * (CAIMENTO + (1 - CAIMENTO) * (t * t * (3 - 2 * t)))
     }
-    if (s < LAGO_TAL_B) return seca + LAGO_BANQUETA * ((s - LAGO_TAL_A) / (LAGO_TAL_B - LAGO_TAL_A))
+    // e o mergulho, da linha d'água até o fundo: 7,5 m de lâmina
     const t = (s - LAGO_TAL_B) / (1 - LAGO_TAL_B)
-    const d0 = seca + LAGO_BANQUETA
-    return d0 + (LAGO_FUNDO - d0) * (t * t * (3 - 2 * t))
+    return seca + (LAGO_FUNDO - seca) * (t * t * (3 - 2 * t))
   }
   // ⚠️ A FAIXA REFINADA DO TALUDE, DECLARADA AQUI PORQUE O `superficieAt`
   // PRECISA DELA. Quem pousa peça no barranco pergunta ao `superficieAt`, e ele
@@ -412,7 +471,11 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
   // enquanto a malha desenha a de 4,9 m, a areia voltaria a enterrar, só que
   // menos. Passo fino medido: 59,225 / 12 = 4,94 m.
   const LAGO_SUB = 12
-  const FAIXA: [number, number][] = [[1025, 1110], [1385, 1455]]
+  // ⚠️ A FAIXA ACOMPANHOU OS RAIOS NOVOS: o talude interno agora vive entre
+    // r 1.044 e 1.150 e o externo entre 1.340 e 1.443, e é essa faixa que ganha
+    // malha de 4,9 m. Deixá-la nos raios antigos desenharia o terraço na grade
+    // grossa de 59 m, que apagaria os sete degraus.
+    const FAIXA: [number, number][] = [[1040, 1155], [1335, 1450]]
   const naFaixa = (i: number, j: number): boolean => {
     // ⚠️ PORTA RÁPIDA, e ela não é otimização prematura: `superficieAt` chama
     // isto, e `superficieAt` é o trava-chão da câmera (todo quadro) e o pouso de
