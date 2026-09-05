@@ -1266,6 +1266,14 @@ PROGRAMA_MALHA = [
   # ── esporte ─────────────────────────────────────────────
   ('E01', 'Parque Olímpico',               'esporte',       6,    4,   10, 6, 6),
   ('E02', 'Hipódromo',                     'esporte',       4,   13,    4, 6, 3),
+  # ⚠️ A RESERVA DO ESTADIO, 05/09/2026. Ela entra ANTES do lote porque depois
+  # do snapshot aumentar pegada colide com lote de holder e so encolher e seguro
+  # (masterplan.md:268). 540 x 360 m contra um envelope de 364 x 322 com
+  # esplanada: a sobra e proposital, e o desenho fino encolhe dentro dela.
+  # Sitio escolhido por varredura do relevo real: desnivel 8,8 m em 540 m, sem
+  # colisao com nenhuma das 121 pecas, a 20 m do Parque Central e Lago Maior.
+  # Plano em estadio.md; bacia em scripts/bacia_estadio.py.
+  ('E03', '$DOG ARENA',                     'esporte',      38,   -6,   14, 3, 2),
   # ── financeiro ─────────────────────────────────────────────
   ('F01', 'Distrito Financeiro',           'financeiro',    7,   -1,   12, 6, 2),
   # ── jardim ─────────────────────────────────────────────

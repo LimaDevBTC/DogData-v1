@@ -197,6 +197,9 @@ export const SF_CREDITS: readonly Credit[] = [
   // pelo mesmo motivo da sequoia: acervo com textura ganha de solido sem.
   { title: 'Realistic HD Royal poinciana (40/40)', author: 'PlantCatalog', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/realistic-hd-royal-poinciana-4040-b4668f3739494f0e826666f1f01342ea' },
   { title: 'Flamboyant, floração (camada gerada por código sobre o acervo acima)', author: 'DogCity (blender/compor_flamboyant.py)', license: 'proprio, gerado por codigo nesta casa', url: 'blender/compor_flamboyant.py' },
+  // ── o estádio (05/09) ─────
+  { title: 'Low poly stadium/sports arena seats', author: 'anDDDres', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/low-poly-stadiumsports-arena-seats-6bbe4c85d2a4489dbe5918831be5d886' },
+  { title: 'AH Roof Truss', author: 'Steel Frame Solutions Limited', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/ah-roof-truss-7871cb9fb1bb4c2fba77e0d584ba88cb' },
 ]
 
 export const SF = {
