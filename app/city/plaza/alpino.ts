@@ -976,6 +976,12 @@ const PISTA_LEVANTE = 0.9
 /** sobra da faixa antes da largada e depois da chegada, em metros: a área de
  *  partida e a de frenagem também são pisadas */
 const PISTA_SOBRA = 8
+/** ⚠️ MARGEM CONTRA A DOBRA NA CURVA FECHADA (ver o bloco no corpo da função).
+ *  O limite teórico do deslocamento de polilinha é `L / Δθ`; 0,8 dele é a
+ *  margem, e ela foi MEDIDA, não escolhida: com 1,0 sobravam triângulos
+ *  virados, com 0,8 são zero em todos os três passos de perfil (12, 15 e
+ *  18 m). */
+const PISTA_FATOR_DOBRA = 0.8
 /** ⚠️ MESMA DOUTRINA DA FOLGA ADAPTATIVA DA SEÇÃO 2b, e a mesma margem de 1,2:
  *  o quad é reta, o terreno não. Medido no perfil de hoje, o déficit de corda
  *  dentro do corredor é p90 = 0,04 m (o corredor é cavado por `inverno.ts` e
