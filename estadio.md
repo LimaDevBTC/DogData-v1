@@ -155,11 +155,49 @@ Por que esta e não a treliça exposta tipo Ninho:
    com o coroamento aceso, é o que se enxerga do bulevar a 2 km. Renda estrutural
    vira ruído nessa distância e some no LOD.
 
-### ⚠️ O letreiro é um contrato, não uma textura
+### ⚠️ O letreiro é uma fita de LED que dá a volta inteira
 
-O nome do patrocinador precisa nascer como **slot**, nunca assado na malha:
+Decisão do fundador em 05/09, corrigindo a primeira versão: o nome não fica em
+duas placas nas faces longas, **ele dá a volta completa no perímetro**, com
+`• $DOG ARENA •` repetido numa faixa contínua de LED entre as cotas 27,0 e 34,4 m.
+Assim o estádio se identifica de qualquer ângulo, e não só de quem está de frente.
 
-- geometria própria, ancorada no coroamento, com caixa de medida fixa;
+### ⚠️ E é letreiro ELETRÔNICO, em matriz de LED, não tipografia
+
+Segunda correção do fundador no mesmo dia: **"letreiro eletrônico igual a torre
+central tem"**. A Torre Central resolve isso com pixel de verdade numa matriz
+5 x 7 (`blender/build_central_tower.py:339`), e não com fonte vetorial. O pixel é
+o que faz o painel ler como LED em vez de placa pintada, e de quebra é mais
+legível de longe, porque cada traço tem a mesma espessura.
+
+A fonte da torre só tinha as letras de "DOG GO TO THE MOON". Aqui ela ganhou o
+alfabeto inteiro, os dígitos e o cifrão, para caber `$DOG ARENA` e qualquer nome
+de patrocinador que venha depois.
+
+Números fechados: pixel de 1,05 m, letra de 5,25 x 7,35 m, **134 caracteres** em
+volta, 840 blocos de LED, **10.080 triângulos**. Pixels vizinhos da mesma linha
+viram uma caixa só, que é a mesma economia que a torre faz.
+
+⚠️ **A faixa é dimensionada pela letra, e não o contrário.** A letra tem 7 pixels
+de altura, então a faixa precisa de 7 vezes o pixel mais margem: 10,5 m de faixa
+para 7,35 m de letra.
+
+⚠️ **Cada caractere é assentado sobre a curva.** Um texto só, esticado, sai reto e
+atravessa a fachada curva, entrando no prédio nos cantos.
+
+⚠️ **Não adivinhe o sentido do contorno.** Tentei `ang`, `ang+90` e `ang+180` e as
+três saíram erradas: letra de perfil, letra espelhada e letra virada para dentro.
+A normal se **mede**: pega-se a candidata perpendicular à tangente e, se ela
+apontar para o centro, inverte. E isso importa porque **emissão só sai pela frente
+da face**: letra virada para dentro vira uma forma escura sobre painel escuro e o
+nome simplesmente some.
+
+⚠️ **Letra rente ao painel.** A 1 m de distância, com sol rasante, cada caractere
+projetava a própria sombra ao lado e a fita lia como texto duplicado.
+
+O nome do patrocinador continua nascendo como **slot**, nunca assado na malha:
+
+- geometria própria, saindo como objeto separado (`LETREIRO_FITA`), para trocar o nome sem reexportar a casca do prédio;
 - o texto entra por atlas de letras ou por textura de canal único, trocável sem
   reexportar o GLB;
 - a pele tem uma cor de marca parametrizada, para "Kraken Arena" ficar roxo e
@@ -198,7 +236,7 @@ planicidade e raio urbano:
 | 5 | 6,6 m | 2665 | -2014 | 3.340 m | 52,9 graus | 7,1 graus | 348 x 488 m | 1.423 m da Central de Distribuição 4 |
 | 6 | 7,6 m | 474 | -2665 | 2.707 m | 10,1 graus | 10,1 graus | 348 x 393 m | 539 m da Central de Distribuição 1 |
 
-**DECIDIDO pelo fundador em 05/09: o sítio 1.** Fica a 1,8 grau do bulevar de 120 graus (ou seja,
+**DECIDIDO E CONFIRMADO pelo fundador em 05/09: o sítio do parque.** Fica a 1,8 grau do bulevar de 120 graus (ou seja,
 tem avenida de chegada pronta), a 2,76 km da praça (o Bernabéu está a 5 km da
 Puerta del Sol; o Camp Nou a 4 km do centro de Barcelona), o bloco de 2 x 2
 módulos entrega 348 x 400 m para um envelope que precisa de 366 x 324, e o
@@ -417,9 +455,18 @@ depois do mint sem risco nenhum, porque encolher é seguro e crescer não é.
    for público: quem senta do seu lado, setor por coorte, mapa da torcida por
    família de carteira. Assento privado seria um número sem uso.
 
-1. **Sítio 1, colado ao Parque Central e ao Lago Maior.** Custa menos terra de
-   holder, atinge coortes recentes em vez do bairro antigo, e ganha o parque como
-   praça de escoamento e campo de estacionamento de dia de jogo.
+1. **Sítio do parque, confirmado.** Reconfirmado depois de uma varredura sem a
+   restrição de lotes, que achou 44.362 posições válidas no sítio inteiro. Ele
+   ganha por três razões que a alternativa na água não tem: fica a 1,8 grau de um
+   bulevar (avenida de chegada pronta), a 2,8 km da praça (a mesma distância do
+   Bernabéu ao centro de Madri) e encosta em 86,9 ha de parque, que é a praça de
+   escoamento e o campo de estacionamento de dia de jogo.
+
+   ⚠️ **E o reflexo na água não existe ali.** O "Lago Maior" da peça A01 é um lago
+   desenhado dentro do parque; a água do terreno é tudo abaixo da cota -40 (60,12
+   km² no sítio) e o corpo mais próximo está a **2,2 km**. A alternativa encostada
+   na lâmina existe, em (4324, -829), raio 4.403, mas custa 4,4 km de distância da
+   praça e 10,9 graus fora do bulevar. Recusada com números.
 4. **Três níveis de acesso**: geral, VIP e camarote, com circulação separada.
 
 **Aberto:**
@@ -461,7 +508,7 @@ lado de 540 e o de 322 no lado de 360.
 terreno restante quando o gerador rodar, porque nada foi mintado. É a regra de
 ouro funcionando (`masterplan.md:268`), e é por isso que fazer agora custa zero.
 
-### ⚠️ O que FALTA, e é o único passo com prazo de bloco
+### ⚠️ O que falta
 
 A reserva está declarada mas **ainda não materializada**: os 344 lotes só saem
 dali quando `python3 scripts/gerar_cidade.py` rodar inteiro. E aí está o
@@ -470,9 +517,10 @@ conflito: o gerador reescreve `public/city/cidade-malha.json`, que grava
 frente trabalhando em corpos d'água agora. Rodar sem combinar sobrescreveria o
 trabalho dela.
 
-Portanto a rodada do gerador precisa ser **combinada com a frente de água e
-acontecer antes do bloco 966.670**. A reserva já está escrita e versionada, então
-quem rodar por último leva o estádio junto, seja quem for.
+Portanto a rodada do gerador precisa ser **combinada com a frente de água**. Não
+há pressa de bloco: como os lotes de hoje são teste, o que importa é que a reserva
+esteja declarada quando a geração real acontecer, e ela já está escrita e
+versionada. Quem rodar por último leva o estádio junto, seja quem for.
 
 ### ⚠️ Armadilha achada aqui: `DUMP_PROGRAMA=1` move as peças de borda
 
@@ -539,3 +587,110 @@ Torcida (o modelo de bloco animado do acervo falhou na conversão), iluminação
 noturna com a pele acesa, entorno com o parque e a esplanada tratados, assentos
 do acervo instanciados no anel de perto, e o mosaico escrevendo a marca em vez de
 apenas alternar tons.
+
+---
+
+## 12. Acabamento premium dos materiais, 05/09/2026
+
+Pedido do fundador: "acabamento top nos materiais da parte externa, melhorar a
+qualidade dos materiais mesmo".
+
+⚠️ **Um modelo, dois acabamentos, e nenhum dos dois mente sobre o outro.** A regra
+do `PIPELINE.md` é dura e está certa: o exportador glTF só entende Principled com
+valor fixo ou uma textura de imagem por soquete, e qualquer nó procedural exporta
+como cinza chapado. Então o prédio que roda no navegador continua com material
+calibrado e liso, e o prédio das chapas ganha o tratamento completo, aplicado por
+`blender/mat_premium.py` sobre a cena de render.
+
+O que muda a leitura de um material metálico não é a cor: é a **variação de
+rugosidade** (metal perfeito não existe), a **anisotropia** (metal escovado risca
+numa direção só) e **ter o que refletir**, que é por que o céu virou físico em vez
+de cor chapada.
+
+Materiais reescritos: pele e coroamento (metal escovado com risco anisotrópico e
+verniz), aço, concreto do embasamento e da esplanada (mancha larga, poro fino e
+bump), membrana e ETFE da cobertura, vidro dos camarotes com transmissão real,
+gramado com variação de tom, assentos em plástico com verniz, e os emissivos do
+LED, do letreiro, dos refletores e dos telões.
+
+### ⚠️ Sete armadilhas medidas, cinco delas do Blender 5
+
+1. **O compositor mudou de endereço.** `scene.node_tree` não existe mais e
+   `scene.use_nodes` está marcado para sair no 6.0: agora é um node group em
+   `scene.compositing_node_group`.
+2. **E o Render Layers precisa estar DENTRO do grupo.** Montado com Group Input, o
+   soquete de entrada não recebe o render e vale o default dele, que para cor é
+   branco. **A chapa inteira saiu branca duas rodadas seguidas por isso.**
+3. **O Glare não tem mais propriedade nenhuma:** tipo e qualidade são soquetes de
+   menu, e o valor é string (`'Bloom'`, `'High'`), não índice.
+4. **O Sky Texture perdeu o NISHITA:** virou `MULTIPLE_SCATTERING`, e
+   `dust_density` virou `aerosol_density`.
+5. **O motor é `BLENDER_EEVEE`**, não `BLENDER_EEVEE_NEXT`, que não existe no
+   enum do 5.1.
+6. **`try/except` em volta de API que mudou é o que transforma erro em mistério.**
+   Os itens 4 e 5 estavam silenciados por um `except: pass`, o céu ficou no padrão
+   e a chapa saiu estourada sem nenhuma mensagem. Erro de API tem que aparecer.
+7. **Ruído fino em superfície grande vira moiré.** Escala 260 numa cobertura de
+   300 m pôs a frequência abaixo do pixel e o telhado saiu com chiado branco.
+   Trama de tecido se sugere com ruído largo.
+
+Mais duas de material: **transmissão em EEVEE pontilha** (o anel de ETFE saiu com
+dithering e virou plástico leitoso opaco, que é o que ETFE é mesmo), e **chão
+espelhado é pior que chão nenhum** (o plano devolvia o prédio inteiro e a chapa
+virou maquete sobre gelo).
+
+### ⚠️ E a tamareira do acervo é só um tronco
+
+Pedido do fundador para trocar os cones procedurais pelas tamareiras da cidade.
+Renderizado isolado em EEVEE, o `tree-date-hero.glb` **não tem copa**: é um toco
+de fotogrametria, e plantou 36 colunas bege em volta do estádio. A tamareira
+inteira do acervo é **`palm-date.glb`** (2.725 vértices, 14 m, com copa), e é ela
+que está plantada. Vale conferir onde mais o `tree-date-hero` foi usado na cidade.
+
+E a torcida foi **recusada pelo fundador** com a implementação pronta e medida
+(549.516 triângulos, só na cena de render). A DogCity não põe gente na rua e o
+estádio segue a cidade: o que dá vida aqui é luz, LED, telão e a marca no assento.
+
+### Performance, que não mudou
+
+O GLB continua **sem textura nenhuma**: zero imagens embutidas, 26 materiais, 416
+KB com Draco. Ele não toca no problema de memória de textura que o espelho KTX2
+de `scripts/city/ktx2.mjs` resolve, porque não tem imagem para comprimir. Se algum
+dia ganhar textura, ela entra por lá.
+
+---
+
+## 13. Assentos, mosaico e o que foi recusado
+
+**Assento laranja de marca em todo o nível geral.** O que fez a arquibancada
+finalmente ler laranja, e não cinza, foram três coisas medidas nesta ordem:
+
+1. ⚠️ **O piso da fileira é maior que o banco e é ele que decide a cor.** Com o
+   concreto claro da cidade ali, a bacia inteira lia branca mesmo com o assento
+   colorido. O degrau ganhou material próprio e escuro.
+2. ⚠️ **A frente do banco também é assento.** É a face que se vê do outro lado do
+   estádio, e deixá-la no tom do nível manteve a arquibancada apagada mesmo com o
+   topo já laranja.
+3. ⚠️ **O banco precisa ganhar do piso em área**: 0,54 m de banco contra 0,26 m de
+   piso, que é a proporção de uma arquibancada de verdade vista do outro lado.
+
+### O mosaico de texto, implementado e depois retirado
+
+Pedido do fundador e retirado por ele no mesmo dia, com a implementação
+funcionando: **"esqueça o texto, deixe só os assentos laranja, já tá legal"**.
+Fica registrado o que se aprendeu, caso volte:
+
+1. **O texto não pode se esticar para preencher o setor.** Com as colunas como
+   fração da janela angular e as linhas como fração da faixa de fileiras, a letra
+   deformava com o tamanho do setor e virava renda branca. O pixel precisa de
+   tamanho fixo: tantos metros de arco por coluna, tantas fileiras por linha, e o
+   bloco centrado, com laranja sobrando em volta.
+2. **A frase inteira não cabe legível num lado só:** 19 caracteres em 124 graus
+   dão 2,5 m por coluna numa superfície curva. Partida em dois blocos, um por
+   lateral, a letra mais que dobra.
+3. **Texto que dá a volta no perímetro não se lê de lugar nenhum**, porque cada
+   letra cai num pedaço diferente da curva.
+4. **O arco cresce ao contrário da leitura:** sem inverter a coluna o mosaico sai
+   espelhado, "NOOM 3HT" no lugar de "THE MOON".
+5. **A cobertura tampa a arquibancada vista de cima**, então mosaico só aparece de
+   dentro ou pela abertura.

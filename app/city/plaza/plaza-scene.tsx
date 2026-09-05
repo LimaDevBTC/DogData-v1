@@ -76,6 +76,7 @@ import { look2 } from './look'
 import { instalarAtmosfera } from './atmosfera'
 import { setAnisotropia } from './materiais'
 import { montarPos, type Pos } from './pos'
+import { assentarEstadio, ESTADIO_CULL, ESTADIO_X, ESTADIO_Z } from './estadio'
 import { CityChat } from '@/components/wallet/city-chat'
 
 // ── framing ────────────────────────────────────────────────────────────────────
@@ -2999,13 +3000,14 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // landing-grade GLBs the /dogcity partners section shows (D6). Each tower
         // GLB ships with its own site slab; on the plaza those slabs would fight
         // the deck, so only the buildings are kept.
-        const [plaza, spaceport, needle, bitflow, kray, btcMark] = await Promise.all([
+        const [plaza, spaceport, needle, bitflow, kray, btcMark, arena] = await Promise.all([
           loadGlb('/city/plaza.glb'),
           loadGlb('/city/spaceport.glb'),
           loadGlb('/city/central-tower.glb'),
           loadGlb('/city/bitflow-hq.glb'),
           loadGlb('/city/kray-tower.glb'),
           loadGlb('/city/btc-mark.glb').catch(() => null),
+          loadGlb('/city/dog-arena.glb').catch(() => null),
         ])
         if (disposed) return
         // ⚠️ O GRUPO DO plaza.glb DESCEU PARA PRACA_Y EM 05/09 (SEGUNDA
@@ -3234,7 +3236,28 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           })
           scene.add(btcMark)
           culler.add(btcMark, 3200)
+        }
 
+        // ── $DOG ARENA ────────────────────────────────────────────────────────
+        // ⚠️ A POSIÇÃO VEM DA RESERVA, NÃO DO GOSTO. O centro é o da peça `E03`
+        // do gerador (`data/dogcity_programa_congelado.json`) e o giro é o `rot`
+        // dela invertido; a conta está em `estadio.ts`. O culler leva o centro
+        // dela porque a peça está a 2,8 km da praça e o padrão do
+        // `DistanceCuller` é medir do (0,0,0).
+        if (arena) {
+          tameEnv(arena)
+          arena.traverse((o) => {
+            const mesh = o as THREE.Mesh
+            if (!mesh.isMesh) return
+            mesh.castShadow = true
+            mesh.receiveShadow = true
+          })
+          assentarEstadio(arena, (x, z) => terrain.heightAt(x, z))
+          scene.add(arena)
+          culler.add(arena, ESTADIO_CULL, new THREE.Vector3(ESTADIO_X, 0, ESTADIO_Z))
+        }
+
+        if (btcMark) {
           // ⚠️ MONUMENTO SE ILUMINA, NÃO SE ACENDE. A primeira tentativa foi uma
           // lâmina emissiva atrás do glifo e saiu como logotipo de apresentação.
           // O que faz um bronze escuro existir de noite são dois refletores
