@@ -531,7 +531,15 @@ export async function buildEstacaoInverno(o: EstacaoInvernoOpts): Promise<Estaca
   }
 
   // a placa da vila: nomes reais de `trilhas` quando vier, senão o snapshot
-  {
+  //
+  // ⚠️ LISTA VAZIA NÃO É LISTA AUSENTE, e a diferença passou a importar em
+  // 05/09/2026, quando o fundador mandou tirar as pistas ("descendo a montanha
+  // completamente artificial abaixo da linha da neve"). `inverno.ts` passa
+  // `trilhas: PISTAS`, e PISTAS agora sai VAZIA por padrão. Sem esta guarda o
+  // fallback entrava e a vila anunciava numa placa sete pistas que não existem
+  // mais na montanha, que é o tipo de lixo que só aparece na chapa.
+  // Ausente (`undefined`) continua caindo no snapshot, que é o contrato antigo.
+  if (!(o.trilhas && o.trilhas.length === 0)) {
     const listaPlaca = (o.trilhas && o.trilhas.length ? o.trilhas : PISTAS_SNAPSHOT).slice(0, 7)
     const alturaLinha = 640 / Math.max(4, listaPlaca.length + 1)
     const linhas = listaPlaca.map((p, i) => ({

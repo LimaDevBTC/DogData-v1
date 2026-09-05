@@ -932,9 +932,39 @@ const ESPECIFICACOES: EspecPista[] = [
   },
 ]
 
-export const PISTAS: Pista[] = ESPECIFICACOES.map((e) => ({
-  nome: e.nome, dificuldade: e.dificuldade, largura: e.largura, pontos: gerarSerpentina(e),
-}))
+/**
+ * ⚠️ AS PISTAS SAIRAM DA CENA EM 05/09/2026, POR DECISAO DO FUNDADOR, e o
+ * motivo esta na palavra dele: "as pista de esqui descendo a montanha
+ * completamente artificial abaixo da linha da neve, pode tirar".
+ *
+ * O defeito que ele viu e real e tem causa medida. A reforma da linha de neve
+ * (obra 3) levou a neve para o alto: 53,6% dela passou a morar acima de 600 m
+ * e so 4,8% abaixo de 400 m, que e como uma montanha de 1.043 m se comporta.
+ * As sete fitas, porem, continuaram descendo ate r 6.800, muito abaixo da
+ * linha. Uma pista e uma faixa de neve compactada; sem neve embaixo ela vira
+ * uma calha de 3,2 m cavada na rocha, sete cicatrizes retas na face de uma
+ * montanha que o fundador tinha acabado de aprovar como "muito realista".
+ *
+ * ⚠️ NAO APAGUEI NADA. A tabela `ESPECIFICACOES`, a serpentina, a homologacao
+ * FIS, os teleféricos e a estacao continuam inteiros e testados: o que mudou e
+ * que a LISTA sai vazia por padrao. `?pistas=1` devolve tudo como estava.
+ * Vazia, ela desliga sozinha os quatro consumidores, porque todos iteram sobre
+ * ela: a cava do relevo aqui (`pistaProximidade01` devolve 0 e a subtracao de
+ * `PROFUNDIDADE_CORTE` vira zero), a neve de pista de `alpino.ts`, as fitas de
+ * `inverno-detalhe.ts` e as cercas de `estacao-inverno.ts`.
+ *
+ * ⚠️ E `zonaEsquiavelAt` NAO depende desta lista (so do envelope), entao a
+ * forma da montanha, a mata e a linha de neve ficam bit a bit como estao.
+ * Isto e a retirada das cicatrizes, nao uma mudanca de relevo.
+ */
+export const PISTAS_ATIVAS =
+  typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('pistas') === '1'
+
+export const PISTAS: Pista[] = PISTAS_ATIVAS
+  ? ESPECIFICACOES.map((e) => ({
+      nome: e.nome, dificuldade: e.dificuldade, largura: e.largura, pontos: gerarSerpentina(e),
+    }))
+  : []
 
 /** envelope radial ASSIMÉTRICO: sobe em cosseno do pé até a crista (o
  *  versante esquiável, moderado), cai em `Math.pow(suave01, EXP_FACE_ROCHA)`
