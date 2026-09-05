@@ -292,6 +292,46 @@
 //   neve**. A cota mais baixa com neve vai de 351 a 474 m conforme o rumo: a
 //   linha ondula 123 m, não é curva de nível.
 //
+// ⚠️⚠️ E O PREÇO DAQUELA LINHA DE NEVE ALTA FOI A ESTAÇÃO DE ESQUI FICAR SEM
+// NEVE, MEDIDO E CONSERTADO NA MESMA 05/09. Reamostrando a linha de centro das
+// sete pistas de 10 em 10 m contra a casca REAL (844 amostras), a cobertura
+// média caiu para 0,475 e DUAS pistas ficaram em zero. O conserto não foi
+// baixar a linha de volta (isso era o defeito da rodada anterior, 5,3 km² de
+// branco no pé da montanha): foi separar NEVE NATURAL de NEVE DE PISTA, que
+// são coisas diferentes e agora são malhas diferentes. Ver a seção 2c,
+// `faixasDePista`. Antes e depois na MESMA carga:
+//
+//   cobertura na linha de centro, por pista        antes → depois
+//     Descida do Mar da Tranquilidade               0,570 → 1,000
+//     Super-G Regolito                              0,863 → 1,000
+//     Slalom Gigante Cratera Rasa                   0,635 → 1,000
+//     Slalom Poeira Fina                            0,257 → 1,000
+//     Boardercross Baixa Gravidade                  0,454 → 1,000
+//     Slopestyle Um Sexto                           0,010 → 1,000
+//     Pista Verde de Acesso                         0,000 → 1,000
+//   média das sete, ponderada por amostra           0,475 → 1,000
+//   fração da linha de centro com cobertura > 0,9    50%  → 100%
+//
+//   área nova (as sete faixas)                    0 → 33,50 ha (0,335 km²)
+//   e ela é 6,3% da coroa natural, não um segundo avental: 14,8 ha abaixo de
+//   400 m, 9,2 ha entre 400 e 600, 9,4 ha acima de 600.
+//   triângulos da casca de neve             6.622 → 18.062 (a faixa põe 11.440)
+//   triângulos declarados                 442.998 → 454.438
+//   chamadas de `superficieAt`            113.847 → 126.065 (+10,7%)
+//   giro para baixo na faixa                       0 de 11.440 (nos 3 perfis)
+//   furo da faixa contra `superficieAt`            0,03%, máximo 1,11 m
+//   flutuação da faixa sobre a rocha        p50 1,01  p90 1,91  máx 8,14 m
+//
+// ⚠️ E A COROA NATURAL NÃO ENCOSTOU: mesma carga, `alpino.ts` de HEAD e o novo
+// lado a lado, a casca da seção 2 saiu IDÊNTICA em tudo que se mede — 3.549
+// vértices, 6.622 triângulos, 5,298 km², alfa p50 1,000 com 18,6% abaixo de
+// 0,10, 14,4% de cinza de pista, luminância 0,801, 4,8% abaixo de 400 m e
+// 53,6% acima de 600, furo 2,1%. Na silhueta da praça: 32 de 32 rumos com neve
+// na crista, banda branca 2,98° em crista de 5,84° (51% do perfil), linha de
+// neve de 351 a 472 m, ondulação 121 m. A faixa de pista é malha NOVA, não uma
+// mudança na regra da neve natural, e é por isso que a conquista da rodada
+// anterior fica onde estava.
+//
 // ⚠️ E O PAR ACIMA SAIU DE UMA CARGA SÓ, com o `alpino.ts` de HEAD e o novo
 // importados lado a lado sobre o MESMO objeto de terreno. Não é preciosismo: no
 // meio desta rodada o relevo mudou embaixo da medição (`superficieAt(-8041,
@@ -390,7 +430,14 @@ const TETO_FOLGA = PASSO
  *  branca mede 2,48°, ou seja 42% do perfil é neve: vê-se de longe e não é bolo
  *  de açúcar. Passar de 600 começa a perder crista (a neve some atrás do
  *  ombro); ficar em 520 devolve 0,5 km² de neve para a faixa de 300 a 400 m,
- *  que é onde o avental começava. */
+ *  que é onde o avental começava.
+ *
+ *  ⚠️ E ESTE 560 É MEDIDO CONTRA A MONTANHA COM `?inverno=1`, que é o padrão da
+ *  cena. Com `?inverno=0` (a volta de emergência do parque) o maciço volta a
+ *  ter 321 m de cume e ESTA COTA NÃO ALCANÇA NADA: medido, `neveKm2` = 0,000 e
+ *  a montanha sai pelada. Não é defeito desta linha, é a consequência de a
+ *  altura da montanha morar em `inverno.ts`; fica escrito para ninguém medir
+ *  "sem neve" nesse caminho e procurar a causa aqui. */
 const COTA_NEVE = 560
 /** meia largura da faixa de mistura: 60 m de transição, não um degrau */
 const FAIXA_NEVE = 30
@@ -697,11 +744,11 @@ function orcamentoDe(p?: PerfProfile): OrcamentoAlpino {
     // nunca dá.
     sombra: !p || alto || (p.tier === 'desktop' && p.quality !== 'low'),
     // ⚠️ AQUI O PERFIL NÃO COMPRA TRIÂNGULO, COMPRA ADERÊNCIA, e por isso o
-    // corte é raso: a faixa inteira custa 11.152 triângulos no passo do
+    // corte é raso: a faixa inteira custa 11.440 triângulos no passo do
     // desktop, que é ruído ao lado dos 442.998 declarados. O que o passo maior
-    // troca é a faixa encostar na rocha (flutuação p90 1,94 m a 12 m contra
-    // 2,73 m a 18 m) e, principalmente, CHAMADAS DE `heightAt` na construção
-    // (11.912 contra 7.917), que é o item caro deste arquivo. Nenhum aparelho
+    // troca é a faixa encostar na rocha (flutuação p90 1,91 m a 12 m contra
+    // 2,67 m a 18 m) e, principalmente, CHAMADAS DE `heightAt` na construção
+    // (+12.218 contra +8.257), que é o item caro deste arquivo. Nenhum aparelho
     // fica sem as sete pistas: elas são a estação inteira.
     passoPista: !p || alto ? 12 : p.quality === 'low' ? 18 : p.tier === 'mobile' ? 15 : 12,
   }
@@ -933,13 +980,15 @@ const TILE_SPARKLE = 6
 // ⚠️ O PERFIL TRANSVERSAL, E CADA COLUNA TEM RAZÃO DE SER (meia largura `m` =
 // `p.largura / 2`, que é a MESMA meia largura da fita de `inverno.ts`):
 //
-//   |v| de 0 a m          NÚCLEO PISADO: alfa 1, cor de neve compactada. É a
-//                         pista propriamente dita, na largura homologada.
-//   |v| de m a m+4        BANCO DE BORDA: alfa 1, virando pó fresco (mais
-//                         claro). É a neve que a máquina empurra para fora da
-//                         fita, e é ELE que desenha a borda: o contraste entre
-//                         o cinza da pista pisada e o branco do banco é o que
-//                         se enxerga a 6 km, não o contorno geométrico.
+//   |v| de 0 a m          NÚCLEO PISADO: alfa 1, branco puxado para o cinza de
+//                         pista por `PISTA_MISTURA`. É a pista propriamente
+//                         dita, na largura homologada.
+//   |v| de m a m+4        BANCO DE BORDA: alfa 1, voltando a pó fresco puro
+//                         (18% mais claro que o núcleo, medido em luminância
+//                         linear na malha pronta). É a neve que a máquina
+//                         empurra para fora da fita, e é ELE que desenha a
+//                         borda: o contraste entre a pista pisada e o banco é
+//                         o que se enxerga a 6 km, não o contorno geométrico.
 //   |v| de m+4 a m+7      ESVAZIA: alfa 1 → 0 em 3 m, cor puxando para o tom
 //                         do regolito. Três metros, não trinta: a borda de uma
 //                         pista é dura, e uma pluma longa devolveria o "bolo de
@@ -976,6 +1025,18 @@ const PISTA_LEVANTE = 0.9
 /** sobra da faixa antes da largada e depois da chegada, em metros: a área de
  *  partida e a de frenagem também são pisadas */
 const PISTA_SOBRA = 8
+/** ⚠️ QUANTO O NÚCLEO PISADO PUXA PARA O CINZA DE PISTA, E POR QUE NÃO É 1.
+ *  `COR_NEVE_COMPACTADA` pura (#C7CCD6) é o cinza que a rodada de 05/09 CORTOU
+ *  da coroa natural (57,1% da casca pintada dele lia como neve suja, e o
+ *  placar dessa correção está no cabeçalho). Aqui o cinza é legítimo, porque
+ *  aqui a máquina passou mesmo, mas a pista precisa continuar lendo BRANCA de
+ *  6 km. Medido na malha construída, em luminância linear: 0,55 põe o núcleo
+ *  em 0,705 contra o regolito em 0,299, ou seja 2,36 vezes mais claro que a
+ *  rocha, 18% mais escuro que o banco de pó ao lado (0,833), que é o contraste
+ *  que desenha a borda, e 12% mais escuro que a coroa natural, que é o que faz
+ *  a pista aparecer COMO PISTA lá em cima, onde tudo já é branco. Cravar 1
+ *  daria 0,602, só 2,01 vezes a rocha: pista cinza em montanha branca. */
+const PISTA_MISTURA = 0.55
 /** ⚠️ MARGEM CONTRA A DOBRA NA CURVA FECHADA (ver o bloco no corpo da função).
  *  O limite teórico do deslocamento de polilinha é `L / Δθ`; 0,8 dele é a
  *  margem, e ela foi MEDIDA, não escolhida: com 1,0 sobravam triângulos
@@ -1006,19 +1067,27 @@ interface FaixaPista {
  * As sete faixas de pista, numa geometria só.
  *
  * ⚠️ `passoA` VEM DO PERFIL DE MÁQUINA (ver `orcamentoDe`), e o que ele compra
- * não é triângulo, é ADERÊNCIA: com o levante adaptativo o furo já é ~0 em
+ * não é triângulo, é ADERÊNCIA: com o levante adaptativo o furo fica em ~0 em
  * qualquer passo, e o que piora quando o passo cresce é a faixa PAIRAR sobre a
- * rocha. Medido nas sete pistas, contra a superfície real:
+ * rocha. Medido na malha construída, contra `superficieAt`, nos três perfis
+ * que a cena de fato usa:
  *
- *   passo   vértices  triângulos  chamadas  furo    flutuação p50 / p90 / máx
- *    10 m     7.596     13.392     14.292   0,00%    0,96 / 1,72 /  8,18 m
- *    12 m     6.336     11.152     11.912   0,02%    1,00 / 1,94 /  8,68 m
- *    15 m     5.058      8.880      9.498   0,01%    1,09 / 2,31 / 13,27 m
- *    18 m     4.221      7.392      7.917   0,01%    1,20 / 2,73 / 16,26 m
- *    22 m     3.474      6.064      6.506   0,05%    1,37 / 3,32 / 19,65 m
+ *   passo   perfil            vértices  triângulos  chamadas a mais que a
+ *                                                   coroa sozinha
+ *    12 m   desktop            6.498     11.440     +12.218  (+10,7%)
+ *    15 m   celular            5.247      9.216      +9.855  ( +8,7%)
+ *    18 m   low                4.401      7.712      +8.257  ( +7,3%)
  *
- * A área em planta é a mesma em todos (0,327 a 0,332 km²): o passo não muda o
- * que a pista cobre, muda o quanto ela encosta.
+ *   passo   furo     flutuação sobre a rocha  p50 / p90 / máx
+ *    12 m   0,03%                            1,01 / 1,91 /  8,14 m
+ *    15 m   0,03%                            1,09 / 2,23 / 13,24 m
+ *    18 m   0,04%                            1,20 / 2,67 / 16,09 m
+ *
+ * A varredura que escolheu esses três foi mais larga (10, 12, 15, 18 e 22 m):
+ * 10 m custa 14.292 chamadas para ganhar 0,05 m de flutuação sobre o de 12, e
+ * 22 m devolve 19,65 m de flutuação máxima, que é neve pairando. A área em
+ * planta é a mesma em todos (0,333 a 0,335 km²): o passo não muda o que a
+ * pista cobre, muda o quanto ela encosta.
  */
 function faixasDePista(
   heightAt: (x: number, z: number) => number,
@@ -1047,7 +1116,15 @@ function faixasDePista(
       while (t < L) { eixo.push([ax + (dx * t) / L, az + (dz * t) / L]); t += passoA }
       resto = t - L
     }
-    eixo.push(bruto[bruto.length - 1])
+    // ⚠️ O FIM DA POLILINHA ENTRA, MAS NÃO EM CIMA DA ÚLTIMA ESTAÇÃO: o resto
+    // da reamostragem quase sempre deixa a última estação a poucos centímetros
+    // do ponto final, e empurrar os dois geraria uma fileira inteira de quads
+    // de área zero (nove vértices e dezesseis triângulos degenerados por pista,
+    // que a GPU processa do mesmo jeito). Perto demais, o fim SUBSTITUI.
+    const fim = bruto[bruto.length - 1]
+    const ult = eixo.length > 0 ? eixo[eixo.length - 1] : null
+    if (ult && Math.hypot(fim[0] - ult[0], fim[1] - ult[1]) < passoA * 0.25) eixo[eixo.length - 1] = fim
+    else eixo.push(fim)
     if (eixo.length < 2) continue
     // ⚠️ A FAIXA COMEÇA ANTES E ACABA DEPOIS DA FITA, 8 m em cada ponta, e não é
     // enfeite: a máquina pisa a área de partida e a de chegada, que é onde o
@@ -1180,9 +1257,10 @@ function faixasDePista(
         // cor e alfa pelo perfil: núcleo pisado → banco de pó → esvazia
         const v = Math.abs(COL[t])
         if (v <= m) {
-          c0.copy(COR_NEVE_COMPACTADA)
+          c0.copy(COR_NEVE_PO).lerp(COR_NEVE_COMPACTADA, PISTA_MISTURA)
         } else if (v <= m + PISTA_BANCO) {
-          c0.copy(COR_NEVE_COMPACTADA).lerp(COR_NEVE_PO, (v - m) / PISTA_BANCO)
+          const f = (v - m) / PISTA_BANCO
+          c0.copy(COR_NEVE_PO).lerp(COR_NEVE_COMPACTADA, PISTA_MISTURA * (1 - f))
         } else {
           c0.copy(COR_NEVE_PO).lerp(COR_NEVE_SUJA, (v - m - PISTA_BANCO) / PISTA_ESVAZIA)
         }
@@ -1720,6 +1798,7 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
   let matPista: THREE.MeshStandardMaterial | null = null
   let pistaM2 = 0
   let trisPista = 0
+  let chamadasPista = 0
   if (INVERNO_ATIVO) {
     const faixa = faixasDePista(
       o.heightAt,
@@ -1752,6 +1831,7 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
       group.add(pista)
       pistaM2 = faixa.areaM2
       trisPista = faixa.triangulos
+      chamadasPista = faixa.chamadas
     }
   }
 
@@ -2333,7 +2413,7 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
   const triangulos = quads * 2 + trisPista + nArv * trisLonge + capSub * trisSub
   void trisPerto
   if (pista) {
-    console.log(`[alpino] faixa de pista: ${(pistaM2 / 1e4).toFixed(2)} ha em 7 pistas, ${trisPista.toLocaleString('pt-BR')} triângulos, passo ${orc.passoPista} m`)
+    console.log(`[alpino] faixa de pista: ${(pistaM2 / 1e4).toFixed(2)} ha em ${PISTAS.length} pistas, ${trisPista.toLocaleString('pt-BR')} triângulos, passo ${orc.passoPista} m, ${chamadasPista.toLocaleString('pt-BR')} consultas ao terreno`)
   }
 
   return {
