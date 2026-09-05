@@ -2636,16 +2636,26 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               console.log(`[alpino] ${alpino.neveKm2.toFixed(2)} km² de neve, ${alpino.arvores.toLocaleString('pt-BR')} coníferas, ${alpino.triangulos.toLocaleString('pt-BR')} tris`)
             }
 
-            // ── A LAGOA ALPINA (`?lagoa=1`, OPT-IN) ──────────────────────────
+            // ── AS LAGOAS ALPINAS (`?lagoa=1`, OPT-IN) ───────────────────────
             //
             // O pedido do fundador na rodada da montanha: "a cadeia de montanhas
             // que são características de lagos, e gostaria de floresta e lagoa
-            // naquela região". A floresta subiu com o parque de inverno; esta é
-            // a água, na sela de r 8.000 / azimute 285: 5,42 ha de lâmina a 407 m
-            // de cota, com 20,72 m de fundo. Todos os três números são medidos
-            // offline com `superficieAt` real, e a bacia que os produz é de
-            // `inverno.ts`, não daqui. (O console imprime 5,47 ha porque a malha
-            // entra 0,6 m por baixo do barranco de propósito; ver `LAMINA_SOBRA`.)
+            // naquela região". E em 05/09, vendo o pico em produção: "outra
+            // coisa são os LAGOS da região das montanhas". Plural, e é o que
+            // sobe aqui: `buildLagoa` monta UM corpo por registro da tabela do
+            // relevo (`LAGOS`, em `inverno.ts`), cada um na SUA cota.
+            //
+            // A floresta subiu com o parque de inverno; esta é a água. O corpo
+            // que calibrou cor, onda e margem é a sela de r 8.000 / azimute 285:
+            // 5,42 ha de lâmina a 407 m de cota, com 20,72 m de fundo, todos
+            // medidos offline com `superficieAt` real. (O console imprime 5,47 ha
+            // porque a malha entra 0,6 m por baixo do barranco de propósito; ver
+            // `LAMINA_SOBRA`.)
+            //
+            // ⚠️ O CONSOLE LISTA CORPO A CORPO, e isso não é enfeite: a tabela é
+            // do relevo e pode mudar sem ninguém avisar esta linha. Um registro
+            // cuja bacia não foi escavada é PULADO com aviso, então a lista aqui
+            // é a única prova de que a água que subiu é a água que a tabela pediu.
             //
             // ⚠️ ELA É OPT-IN E ISSO É DELIBERADO, decisão desta rodada: a
             // conferência visual ficou bloqueada (o `.next` do dev foi
@@ -2654,11 +2664,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             // padrão antes de alguém VER. `buildLagoa` devolve grupo vazio sem a
             // bandeira, então o `if` aqui é só para não pagar a chamada.
             //
-            // ⚠️ FORA DO `if (qDomo.get('neve') !== '0')` DE PROPÓSITO. A lagoa
-            // não depende de neve nenhuma; ela depende da BACIA, que é parte de
-            // `alturaInvernoAt` e sobe com `?inverno` ligado. Quem desligasse a
-            // neve para tirar uma chapa da água perderia a água junto, e o
-            // módulo já avisa no console se a bacia não estiver lá.
+            // ⚠️ FORA DO `if (qDomo.get('neve') !== '0')` DE PROPÓSITO. As
+            // lagoas não dependem de neve nenhuma; elas dependem das BACIAS, que
+            // são parte de `alturaInvernoAt` e sobem com `?inverno` ligado. Quem
+            // desligasse a neve para tirar uma chapa da água perderia a água
+            // junto, e o módulo já avisa no console se a bacia não estiver lá.
             //
             // ⚠️ ELA PEDE `superficieAt`, NÃO `heightAt`, pelo mesmo motivo que
             // o alpino logo acima: a linha d'água é MEDIDA rumo a rumo contra a
@@ -2674,9 +2684,14 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               })
               scene.add(lagoa.group)
               if (lagoa.triangulos > 0) {
-                console.log(`[lagoa] ${(lagoa.area / 1e4).toFixed(2)} ha de lâmina a `
-                  + `${lagoa.profMax.toFixed(1)} m de fundo, `
-                  + `${lagoa.triangulos.toLocaleString('pt-BR')} triângulos`)
+                console.log(`[lagoa] ${lagoa.corpos.length} ${lagoa.corpos.length === 1 ? 'corpo' : 'corpos'}, `
+                  + `${(lagoa.area / 1e4).toFixed(2)} ha de lâmina, `
+                  + `${lagoa.profMax.toFixed(1)} m no fundo mais fundo, `
+                  + `${lagoa.triangulos.toLocaleString('pt-BR')} triângulos em 2 chamadas de desenho`)
+                for (const c of lagoa.corpos) {
+                  console.log(`  [lagoa] ${c.nome}: ${(c.area / 1e4).toFixed(2)} ha a ${c.cota.toFixed(0)} m de cota, `
+                    + `raio médio ${c.raioMedio.toFixed(0)} m, fundo ${c.profMax.toFixed(1)} m`)
+                }
               }
             }
 

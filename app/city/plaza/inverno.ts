@@ -810,16 +810,68 @@ function gerarSerpentina(e: EspecPista): { r: number; az: number }[] {
 // (`heightAt`, Node 20, offline): 890 -> 885 m de desnível e a maior subida num
 // passo de 47 -> 36 m. As outras seis não foram tocadas e continuam medindo o
 // mesmo, conferido nesta rodada: 564 / 413 / 204 / 227 / 236 / 9,0°.
+//
+// ⚠️ E AQUELE CONSERTO DE 04/09 NÃO RESOLVEU: A DESCIDA CONTINUAVA SUBINDO,
+// 05/09. Mexer no `rInicio` só trocava o degrau de lugar, porque o defeito nunca
+// esteve no ponto de partida: estava no TRAÇADO. Medida ponto a ponto no eixo da
+// fita (91 amostras, `heightAt` real de `terrain.ts`, offline), a serpentina de
+// az 268 / amplitude 6 subia em 18 dos 90 passos, 189,1 m de subida somada, com
+// dois degraus grandes e ambos estruturais, não ruído:
+//
+//   passos  1 a  7   r 8.150 -> 8.049   +79,9 m   a fita entra no ombro de az 271
+//   passos 27 a 36   r 7.774 -> 7.630   +75,5 m   o contraforte interno de az 272
+//
+// (o tempero fino não entra nessa conta: a cava da pista o desliga no eixo, ver
+// `temperoFino`, então o que sobe ali é a montanha, não o ruído.)
+//
+// A CAUSA, e ela é geográfica: az 268 NÃO é o eixo do cume. Varrendo a
+// superfície macro de 2,5 em 2,5 m de raio e de 0,02 em 0,02 grau de rumo
+// (326.851 amostras), o alto da cadeia mora em az 261 a 262, e é o mesmo ponto
+// que `montanha.md` já tinha achado por outro caminho (o máximo de
+// `superficieAt` em (-8.041, 1.130), que é r 8.120 / az 262). Em az 268 o topo
+// vale 925,4 m; em az 261, 1.007,8 m. Descer 880 m a partir de um ombro, com o
+// cume 82 m acima e ao lado, obriga a fita a subir antes: qualquer serpentina
+// que saia de az 268 esbarra no ombro ou no contraforte, e por isso mexer no
+// `rInicio` nunca ia resolver.
+//
+// O CONSERTO: a Descida mudou de RUMO, não de ponto de partida. Ela desceu do
+// ombro para a linha do cume, az 262, ao lado do topo do teleférico 2
+// (`VAOS_TELEFERICO[1]`, r 8.100 / az 261, a 183 m da largada). Varredura de
+// 1,7 milhão de traçados (rInicio × rFim × azCentro × amplitude × oscilações),
+// triados numa grade polar e os finalistas reconferidos um a um na função real,
+// com TRÊS filtros duros: zero subida, desnível dentro da norma FIS e folga de
+// eixo contra as outras seis pistas. O escolhido é o de MAIOR percurso entre os
+// que passam nos três, que é a doutrina desta tabela (na Lua a dificuldade vem
+// de percurso, não de ângulo, porque a rampa acelera 6,035 vezes menos).
+//
+//   Descida                    antes (az 268)   depois (az 262)
+//   maior subida num passo         35,76 m          0,00 m
+//   subida somada                 189,07 m          0,00 m
+//   passos que sobem               18 de 90         0 de 90
+//   desnível                      885,4 m          854,6 m   (FIS: até 1.100)
+//   percurso                      3.799 m          2.459 m
+//   grau médio                     13,1°            19,2°
+//   cota da largada               922,2 m          992,2 m
+//   folga de eixo à pista vizinha       0 m          101 m
+//   folga entre as BORDAS das fitas   -30 m           +74 m
+//
+// ⚠️ A LINHA DA FOLGA É A QUE QUASE PASSOU DESPERCEBIDA. O primeiro traçado que
+// zerou a subida (az 261, amplitude 3,25) cruzava o Slopestyle a 4 m de eixo, ou
+// seja as duas fitas se sobrepunham por 23 m: consertar a subida e entregar uma
+// pista de velocidade atravessando o parque de manobras é trocar um defeito por
+// outro. A folga entrou como filtro da varredura, não como conferência depois.
 const ESPECIFICACOES: EspecPista[] = [
   {
     nome: 'Descida do Mar da Tranquilidade', dificuldade: 'preta', largura: 30,
-    // ⚠️ COMEÇA NO CUME MEDIDO, e o cume MUDOU DE CÉLULA EM 04/09 (obra 2). A
-    // nota anterior dizia "o máximo do rumo 268 fica em r 8.200 (911 m, medido
-    // de 50 em 50 m)"; remedido de 25 em 25 m no `superficieAt` real, o máximo
-    // está em r 8.150 (906,6 m) e r 8.200 já vale 886 m. Com a partida em 8.200
-    // a fita SUBIA 21 m antes de descer, que é exatamente o defeito que o
-    // retune de 04/09 dizia ter consertado. Ver a tabela de desníveis acima.
-    rInicio: 8150, rFim: 6850, azCentro: 268, amplitude: 6, oscilacoes: 1, amostras: 90,
+    // ⚠️ AZ 262 É O CUME MEDIDO, E AZ 268 NUNCA FOI. Ver a tabela do conserto de
+    // 05/09 acima: 0,00 m de subida em 90 passos, contra 189,07 m. A largada fica
+    // a 183 m do topo do teleférico 2 (r 8.100 / az 261), e a chegada a 454 m da
+    // Pista Verde de Acesso, que é o retorno manso para a vila-base.
+    // ⚠️ AMPLITUDE 1,75 COM DUAS OSCILAÇÕES, e os dois números são o mínimo que
+    // serve, não o gosto: a serpentina existe para alongar o percurso, e cada
+    // décimo a mais de amplitude neste eixo empurra a fita de volta para o
+    // contraforte de az 264 e reintroduz subida. Medido, não estimado.
+    rInicio: 8050, rFim: 6875, azCentro: 262.25, amplitude: 1.75, oscilacoes: 2, amostras: 90,
   },
   {
     nome: 'Super-G Regolito', dificuldade: 'preta', largura: 27,

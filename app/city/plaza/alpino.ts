@@ -3,29 +3,85 @@
 // pedaço de relevo que entrou pra dentro da abóbada quando ela cresceu de 7.050
 // pra 9.050 m de raio.
 //
-// ⚠️ NÃO EXISTEM ALPES AQUI, E ESSE É O PARTIDO INTEIRO. Medido sobre a grade do
-// terreno COMO CONSTRUÍDO (célula 40,1 m), recortada pelo interior da abóbada:
-//   pico dentro da casca      321,7 m   (x = -8.234, z = -902; r = 8.283 m, azimute 264°)
-//   mediana do terreno         10,6 m   (o chão da cidade é pódio plano)
-//   p90 / p95 / p99     140,9 / 212,3 / 263,3 m
-//   acima de 250 m       5,29 km², 2,06% da área, TUDO no anel de 6.032 a 9.050 m
-//   acima de 300 m       0,09 km², desprezível
-// 320 m de pico com a cidade a 10 m é um MORRO GRANDE, não um alpe. Pico nevado
-// pontudo nessa proporção lê como brinquedo. Por isso a neve aqui é uma COROA
-// no arco oeste, fundo encostado na casca, e não um destino.
+// ⚠️⚠️ 05/09/2026: A PREMISSA DESTE ARQUIVO CADUCOU, E ESTE BLOCO É A VIRADA.
+// Até 04/09 o cabeçalho abria com "NÃO EXISTEM ALPES AQUI, E ESSE É O PARTIDO
+// INTEIRO", e o argumento era honesto para o relevo daquele dia: o pico dentro
+// da casca media 321,7 m sobre uma cidade a 10,6 m de mediana, com só 5,29 km²
+// acima de 250 m e 0,09 km² acima de 300. Um morro de 320 m não tem linha de
+// neve; tem, no máximo, uma COROA de fundo, e era isso que `COTA_NEVE = 250`
+// desenhava (o alto dos 22% de cima).
 //
-// ⚠️ A COTA DE NEVE NÃO É UM CORTE NA COTA. Corte duro em h = 250 desenha uma
-// CURVA DE NÍVEL, que a olho vira um círculo perfeito no morro e denuncia a
-// conta. Três coisas quebram isso, e as três estão implementadas:
-//   1. faixa de mistura de 30 m (235 a 265), não um degrau;
-//   2. modulação por INCLINAÇÃO: neve não gruda em face íngreme, então a
-//      cobertura cai de cheia em até 30° pra zero em 55°;
-//   3. ruído de mundo de célula ~240 m deslocando o limiar em ±16 m.
+// A obra 1 alargou os carimbos do maciço e a montanha virou outra coisa. Medido
+// AGORA, na mesma grade de 40 m, com `superficieAt` de HEAD 4c194c21e0:
+//   pico da grade      1.015,6 m   (x = -8.050, z = 1.110; r 8.126, azimute 262°)
+//   acima de   300 m    7,66 km²      acima de   600 m   2,74 km²
+//   acima de   400 m    5,70 km²      acima de   700 m   1,71 km²
+//   acima de   500 m    3,94 km²      acima de 1.000 m   0,01 km²
+//   talude p50 acima de 700 m: 40,2°   (p90 55,9°, p99 61,8°)
+// O MESMO 250 que marcava 78% da altura do pico passou a marcar 25% dela. A
+// coroa virou avental: medido na casca construída de 04/09, 69,7% de toda a
+// neve estava abaixo de 400 m e só 15,0% acima de 600, com a neve começando na
+// cota 112,8 m no rumo 280-300. Linha de neve a 112 m numa montanha de 1.015 m
+// não lê como linha de neve, lê como mancha de chão.
+//
+// ⚠️ O PARTIDO NOVO, E ELE É O DE UMA MONTANHA DE VERDADE: **a montanha tem
+// LINHA DE NEVE**. Acima dela, branco contínuo, interrompido só pela face muito
+// íngreme onde a neve não gruda; abaixo, rocha e mata. E a linha NÃO é uma
+// curva de nível, porque curva de nível denuncia a conta na hora. Quatro coisas
+// a quebram, e as quatro estão implementadas em `neveEm`:
+//   1. EXPOSIÇÃO: a linha sobe ±45 m na face que olha para o sol da cena
+//      (azimute 306) e desce na sombreada. A cara que a cidade vê aponta para
+//      leste-nordeste, ou seja está na sombra, ou seja é a que fica MAIS branca;
+//   2. SULCO: o frio escorre para o vale. A linha desce até 55 m onde o terreno
+//      está abaixo da vizinhança de 120 m (ravina, calha de avalanche) e sobe na
+//      costela varrida pelo vento. É isto que faz a neve descer em LÍNGUAS pelos
+//      sulcos em vez de fechar um anel;
+//   3. INCLINAÇÃO: cheia até 45°, zero em 65°. A faixa velha (30° a 55°) foi
+//      calibrada para um morro de talude manso e apagava metade da neve
+//      exatamente no corpo alto, que hoje tem talude mediano de 40°;
+//   4. ruído de mundo de célula 300 m deslocando o limiar em ±26 m.
+// Medido com estes números na grade de hoje, 15 rumos de 4 em 4 graus: a cota
+// mais baixa com neve vai de 374 a 483 m, ou seja a linha ONDULA 109 m entre
+// rumos. Não é curva de nível.
+//
+// ⚠️ E A ESTAÇÃO DE ESQUI NÃO É MAIS UMA SEGUNDA COTA, É UM DESCONTO LIMITADO.
+// Ver `DESCE_ESQUI`.
+//
+// ⚠️⚠️⚠️ E ANTES DE TUDO ISSO, A CAUSA DE "A NEVE NÃO APARECEU EM MOMENTO
+// NENHUM": A CASCA INTEIRA ESTAVA COM O GIRO INVERTIDO E NUNCA FOI RASTERIZADA.
+// Medido offline em 05/09 sobre a malha REAL que `buildAlpino` constrói (mesmo
+// `tsx`, mesmo terreno, sem navegador): a normal GEOMÉTRICA, que é a que o
+// rasterizador usa, apontava para BAIXO em 22.536 de 22.536 triângulos
+// (100,00%), contra o atributo `normal` do vértice, que aponta para cima, nos
+// mesmos 100,00%. Com `MeshStandardMaterial` sem `side` (ou seja `FrontSide`,
+// lido do objeto: `side = 0`) e a face de frente CCW do three, a casca é
+// back-face para QUALQUER câmera acima do terreno: zero fragmento, sempre, em
+// todo enquadramento.
+//
+// O quad era emitido como `a, b, c` / `a, c, d` com a = (i, j), b = (i+1, j),
+// c = (i+1, j+1), d = (i, j+1), e (b−a)×(c−a) dá −P² em Y. A referência da
+// própria casa, no mesmo relevo: `terrain.ts` emite `a, c, b` com c = (i, j+1)
+// e a normal geométrica sai +P². As três rodadas anteriores de conserto
+// (máscara, material sem `map`, levante, folga adaptativa) mediram tudo menos
+// isto, e por isso nenhuma delas mudou um pixel: todas consertaram elos a
+// montante de um triângulo que nunca era desenhado.
+//
+// O conserto está na emissão do índice, e vai com a MESMA trava que
+// `terrain.ts:722` já tinha (`flipWinding` medido, não adivinhado): depois de
+// montar o índice, a normal geométrica do primeiro triângulo não degenerado é
+// conferida e o buffer inteiro é invertido se ela apontar para baixo. Quem
+// mexer na ordem dos vértices daqui para frente não consegue mais quebrar a
+// casca em silêncio.
 //
 // ⚠️ A MATA ENTRA ABAIXO DA NEVE, E ELA É QUEM DÁ A LEITURA DE MONTANHA. A faixa
-// de 150 a 250 m é exatamente onde moram o p95 e o p99: é a última banda com
-// área de verdade antes do branco. Sem ela o morro sobe do pódio direto pro
-// gelo, e 320 m sozinhos não contam a história.
+// de 150 a 250 m era, no morro de 320 m, a última banda com área de verdade
+// antes do branco. Na montanha de hoje ela é o pé: entre o topo da mata (275 m
+// com a pluma) e a linha de neve nova (a mais baixa medida, 374 m) sobra uma
+// banda de rocha, que é o pedregulho entre o limite da árvore e a neve, e é
+// morfologia certa. Se alguém quiser fechar essa banda, o caminho NÃO é subir
+// `MATA_ALTO` com o mesmo teto de árvore (espalharia as mesmas 51.947 coníferas
+// por mais terra e devolveria a queixa de "vegetação esparsa"): é orçamento de
+// mata, não linha de neve.
 //
 // ⚠️ UMA GRADE DE ALTURA SÓ, AMOSTRADA UMA VEZ. A neve precisa da grade e a mata
 // precisa de altura em 210 mil candidatos: chamar `heightAt` nos dois seria meio
@@ -196,13 +252,61 @@
 //   `superficieAt` custa quatro vezes mais que na planície. Quem for atrás do
 //   tempo de carga tem de atacar ESSA fase.
 //
+// ⚠️ E ESSA TABELA MUDOU EM 05/09, POR TABELA E NÃO DE PROPÓSITO: a linha de
+// neve alta emite menos célula, e a sub-amostragem da folga só roda em célula
+// que vira quad. Medido na mesma carga, mesmo terreno, contando CHAMADA como o
+// bloco acima manda:
+//
+//     chamadas de `superficieAt`   138.347 → 113.847   (−24.500, −17,7%)
+//     triângulos da casca           22.544 →   6.622   (−70,6%)
+//     vértices da casca             12.112 →   3.549
+//     área da casca               18,035 km² → 5,298 km²
+//     triângulos declarados        458.920 → 442.998
+//
+//   As 51.947 árvores e o orçamento por perfil não mudaram: esta rodada não
+//   tocou em mata.
+//
+// ⚠️ O PLACAR DA RODADA DE 05/09, MEDIDO NA MESMA CARGA (mesmo processo, mesmo
+// objeto de terreno, `buildAlpino` de verdade sobre `terrain.superficieAt`, sem
+// navegador e sem build), para quem entrar depois não medir contra o que este
+// arquivo diz e sim contra o que ele faz:
+//
+//   giro: triângulos com normal geométrica para baixo   22.544 de 22.544 → 0
+//   área da casca                                    18,035 km² → 5,298 km²
+//   neve abaixo de 400 m                                  69,6% → 4,8%
+//   neve acima de 600 m                                   15,1% → 53,6%
+//   alfa por vértice, p50                                 0,554 → 1,000
+//   vértices com alfa abaixo de 0,10                      25,2% → 18,6% (é a
+//     orla da mancha, não desperdício: o alfa satura em 0,45 de cobertura)
+//   fração da casca pintada de cinza de pista             57,1% → 14,3%
+//   luminância linear média da cor por vértice            0,690 → 0,801
+//   neve sobre a lâmina da lagoa, com `?lagoa=1`       50.400 m² → 0 m²
+//   furo contra `superficieAt`                             0,9% → 2,1% (a neve
+//     mudou de endereço: agora ela toda mora no corpo alto, onde a corda erra
+//     mais. `TETO_FOLGA` continua a 93% de carga, folga máxima 37,09 de 40 m)
+//
+//   E na silhueta, que é como o fundador vê a montanha (olho a 1,7 m na praça,
+//   rumo a rumo, contra o horizonte do terreno de hoje): dos 32 rumos cujo cume
+//   passa de 600 m, **32 têm neve NA CRISTA**, a crista média está a 5,84° de
+//   elevação e a banda branca mede 2,99°, ou seja **51% do perfil da montanha é
+//   neve**. A cota mais baixa com neve vai de 351 a 474 m conforme o rumo: a
+//   linha ondula 123 m, não é curva de nível.
+//
+// ⚠️ E O PAR ACIMA SAIU DE UMA CARGA SÓ, com o `alpino.ts` de HEAD e o novo
+// importados lado a lado sobre o MESMO objeto de terreno. Não é preciosismo: no
+// meio desta rodada o relevo mudou embaixo da medição (`superficieAt(-8041,
+// 1130)` foi de 1.018,07 para 1.016,59 m enquanto outra frente reescrevia
+// `inverno.ts`), e quem comparar dois processos vai atribuir à neve um número
+// que é da montanha.
+//
 // Three.js puro (regra da casa: nada de react-three-fiber).
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { DOME_R } from './dome'
 import type { DistanceCuller, PerfProfile } from './perf'
-import { INVERNO_ATIVO, zonaEsquiavelAt, PISTAS } from './inverno'
+import * as relevo from './inverno'
+import { INVERNO_ATIVO, zonaEsquiavelAt, PISTAS, LAGOA_ATIVA } from './inverno'
 
 export interface AlpinoOpts {
   /** ⚠️ passe `terrain.superficieAt`, não `terrain.heightAt`. Ver cabeçalho. */
@@ -262,25 +366,163 @@ const FATOR_FOLGA = 1.2
  *  para a de agora. */
 const TETO_FOLGA = PASSO
 
-const COTA_NEVE = 250
-/** meia largura da faixa de mistura: 235 a 265 */
-const FAIXA_NEVE = 15
+/** ⚠️ A LINHA DE NEVE MÉDIA, EM METROS, E O NÚMERO É MEDIDO CONTRA A MONTANHA
+ *  DE HOJE (ver a virada de 05/09 no cabeçalho). 560 m é 55% da altura do pico
+ *  (1.015,6 m na grade de 40 m). Varredura das candidatas sobre a MESMA grade
+ *  de 40 m amostrada de `superficieAt` (a varredura roda a regra isolada, para
+ *  comparar cinco linhas sem cinco construções; o par antes/depois do placar
+ *  mais abaixo é que sai do `buildAlpino` de verdade), com o resto da regra
+ *  fixo. O que decidiu foi a leitura DE LONGE, que é como o fundador vê a
+ *  montanha (olho a 1,7 m na praça, marcha radial de 20 m com teste de
+ *  oclusão, arco 238° a 300°):
+ *
+ *    linha   área > 0   abaixo de 400 m   crista nevada   banda branca visível
+ *     250      18,03 km²    69,7%          60 de 64        3,79° (é o avental)
+ *     520       5,58          0,2%         64 de 64        2,76°
+ *     560       4,86          0,0%         64 de 64        2,48°
+ *     600       4,26          0,0%         63 de 64        2,16°
+ *     700       2,03          0,0%         57 de 64        0,98°
+ *
+ *  A 560 a montanha inteira mede 5,84° de altura angular da praça e a banda
+ *  branca mede 2,48°, ou seja 42% do perfil é neve: vê-se de longe e não é bolo
+ *  de açúcar. Passar de 600 começa a perder crista (a neve some atrás do
+ *  ombro); ficar em 520 devolve 0,5 km² de neve para a faixa de 300 a 400 m,
+ *  que é onde o avental começava. */
+const COTA_NEVE = 560
+/** meia largura da faixa de mistura: 60 m de transição, não um degrau */
+const FAIXA_NEVE = 30
 /** deslocamento do limiar pelo ruído de mundo */
-const RUIDO_NEVE = 16
+const RUIDO_NEVE = 26
 /** célula do ruído que quebra a curva de nível */
-const CELULA_RUIDO = 240
+const CELULA_RUIDO = 300
 
-// ⚠️ A COTA DE NEVE DO PARQUE DE INVERNO É OUTRA, E SÓ VALE DENTRO DA ZONA
-// ESCULPIDA POR `inverno.ts`. 250 m fazia sentido para um morro de 321,7 m de
-// pico (cobria só o 22% de cima, o que este cabeçalho já defendia: "coroa no
-// arco oeste, não um destino"). A montanha nova sobe a ~1.066 m sobre uma base
-// a 13 m: uma estação de esqui de verdade é nevada da base ao cume nas pistas
-// preparadas, não só no topo. `COTA_NEVE_INVERNO = 70` cobre praticamente todo
-// o relevo esculpido; fora da zona (`zonaEsquiavelAt` = 0) a conta volta a
-// `COTA_NEVE = 250` de sempre, sem gelar encosta que não é do parque.
-// Sem `?inverno=1`, `zonaEsquiavelAt` devolve 0 em qualquer ponto e esta
-// mistura devolve `COTA_NEVE` puro: bit a bit o que já rodava.
-const COTA_NEVE_INVERNO = 70
+// ── as três modulações que fazem a linha ondular (ver o cabeçalho) ──────────
+/** ⚠️ AZIMUTE DO SOL DA CENA, COPIADO DE `plaza-scene.tsx` (`SUN_AZ = 306`),
+ *  que não o exporta. Se o sol da praça mudar de rumo, este número tem de
+ *  mudar junto: ele é o que decide qual face da montanha é a ensolarada. */
+const SOL_AZ = 306
+/** quanto a linha SOBE na face que olha para o sol (e desce na sombreada). 45 m
+ *  em 560 é 8% da linha, que é a ordem de grandeza de uma vertente sul contra
+ *  uma vertente norte numa montanha de verdade. Efeito medido e desejado: a
+ *  cara que a cidade vê aponta para leste-nordeste, ou seja fica na sombra do
+ *  sol de noroeste, ou seja é a que ganha a linha mais baixa. */
+const ASPECTO_NEVE = 45
+/** quanto a linha DESCE no sulco (e sobe na costela). O frio escorre para o
+ *  vale e a avalanche deposita nele; a costela é varrida pelo vento. É esta
+ *  parcela que faz a neve descer em língua pela ravina. */
+const SULCO_NEVE = 55
+/** raio da vizinhança que define sulco/costela, em células de 40 m: 3 = 120 m,
+ *  que é a escala da ravina neste relevo. Medido acima de 300 m: o relevo
+ *  relativo nesse raio tem p05 −28,4 m e p95 +45,6 m, então dividir por 25 m e
+ *  cortar em ±1 usa a faixa inteira sem saturar tudo. */
+const RAIO_SULCO = 3
+const SULCO_ESCALA = 25
+/** ⚠️ NEVE NÃO GRUDA EM PAREDE: cheia até 45°, zero em 65°. A faixa velha era
+ *  30° a 55°, calibrada para um morro cujo talude médio era manso. A montanha
+ *  de hoje tem talude p50 de 40,2° acima de 700 m: com 30/55 a regra apagava
+ *  metade da neve no corpo alto (alfa mediano medido: 0,54 acima de 400 m).
+ *  Com 45/65 sobram 1,38 km² de branco forte (cobertura > 0,7) dos 1,71 km² de
+ *  terreno acima de 700 m, ou seja 81%, e os 19% que ficam pelados são as faces
+ *  acima de 55°, que é exatamente o "interrompido só por face muito íngreme". */
+const INC_NEVE_CHEIA = 45
+const INC_NEVE_ZERO = 65
+
+// ⚠️ A ESTAÇÃO DE ESQUI NÃO É UMA SEGUNDA COTA DE NEVE, É UM DESCONTO LIMITADO,
+// E A DIFERENÇA É O DEFEITO INTEIRO DA VERSÃO ANTERIOR. Até 04/09 existia
+// `COTA_NEVE_INVERNO = 70` e a conta era `250 − 180 × zonaEsquiavelAt`: dentro
+// da zona a cota de neve caía para 70 m. O argumento escrito ali era correto
+// (estação de verdade é nevada da base ao cume NAS PISTAS PREPARADAS), mas a
+// zona não é a pista: medido, `zonaEsquiavelAt > 0,01` cobre 20,675 km² com
+// média 0,481, ou seja quase todo o maciço. A regra que valia para a pista
+// virou a regra do morro inteiro, e ela sozinha respondia por 5,285 km² de neve
+// abaixo de 250 m.
+//
+// ⚠️ E A PISTA NÃO CABE NESTA GRADE, medido antes de tentar: as sete pistas têm
+// 18 a 30 m de largura e esta casca tem célula de 40 m. Uma fita de 30 m numa
+// grade de 40 m sai como salpico, não como fita. Desenhar pista branca é
+// trabalho de `inverno.ts`, que tem a geometria real e pinta a pista em cor
+// sólida por dificuldade; aqui a estação entra só como o desconto abaixo.
+/** quanto a linha de neve desce no CORAÇÃO da zona preparada (`zonaEsquiavelAt`
+ *  = 1), interpolado pela zona e nada mais. Teto duro de 120 m: com ele a linha
+ *  mais baixa possível é 560 − 120 − 45 − 55 − 26 − 30 = 284 m, contra os 112,8
+ *  m medidos na versão anterior, e a linha MEDIDA no relevo de hoje vai de 374
+ *  a 483 m conforme o rumo. Sem `?inverno=1`, `zonaEsquiavelAt` devolve 0 em
+ *  qualquer ponto e o desconto some inteiro. */
+const DESCE_ESQUI = 120
+
+// ── NEVE NÃO POUSA EM LÂMINA D'ÁGUA ─────────────────────────────────────────
+//
+// ⚠️ DEFEITO MEDIDO EM 05/09, E ELE JÁ EXISTIA: com `?lagoa=1`, a casca cobria
+// 50.400 m² da lâmina da lagoa alpina, que tem 54.100 m². Ou seja a lagoa
+// inteira estava debaixo de neve. A causa é a de sempre: a lagoa vive a 407 m
+// de cota e `zonaEsquiavelAt` vale 0,921 a 0,998 na pegada dela, o que derrubava
+// a cota de neve para perto de 70 m ali.
+//
+// ⚠️ DUAS FONTES DE ÁGUA, E AS DUAS SÃO CONSULTADAS. `o.molhado` (que vem de
+// `lagos.naAgua`, fonte única com quem desenha a água da cidade) é o canal da
+// água baixa e já chega por `AlpinoOpts`. Ele não alcança a lagoa alpina porque
+// a água da cidade nasce de flood-fill abaixo de −40 m e a lagoa está a +407,
+// então os lagos de montanha entram pelo segundo canal, a tabela que
+// `inverno.ts` publica (ver `lagosDoRelevo`).
+//
+// ⚠️ E É POR COTA, NÃO POR DISCO. `inverno.ts` mede que a linha d'água real
+// oscila entre 122 e 145 m conforme o rumo (por isso o raio publicado é o
+// INSCRITO, não o de projeto). Um disco de raio fixo deixaria neve boiando num
+// rumo e um anel pelado no outro. Aqui o disco é só a porta rápida, generoso de
+// propósito, e quem decide é a COTA: tudo que está em `cota + MARGEM` para
+// baixo dentro desse disco é água ou praia molhada.
+/** margem acima da lâmina: 6 m sobe cerca de 27 m de praia na orla de 40 m que
+ *  `inverno.ts` esculpe, ou seja mais que meia célula desta grade. É ela que
+ *  garante que a pluma de alfa do quad da borda caia em terra e não na água. */
+const LAGOA_MARGEM_NEVE = 6
+/** ⚠️ FOLGA DO DISCO SOBRE O RAIO INSCRITO. `inverno.ts` publica o raio
+ *  INSCRITO (o maior disco submerso em TODOS os rumos, 120 m na lagoa da sela
+ *  285), e a linha d'água real dele oscila entre 122 e 145 m conforme o rumo.
+ *  1,6 × põe a porta em 192 m, com folga sobre os 170 m de lâmina mais orla:
+ *  ela é só a porta rápida, quem decide é a cota. */
+const LAGOA_FOLGA_DISCO = 1.6
+/** ⚠️ A TABELA DE ÁGUA É LIDA PELO MÓDULO (`relevo.LAGOS`) E NÃO POR IMPORTAÇÃO
+ *  NOMEADA, e é o MESMO padrão que `lagoa.ts` adotou nesta rodada, pelo mesmo
+ *  motivo de calendário: a frente do relevo está pluralizando os lagos agora,
+ *  o bot publica de hora em hora e `tsc --noEmit` limpo é portão de saída de
+ *  cada frente. Um `import { LAGOS }` derrubaria a árvore enquanto a tabela não
+ *  existisse, e um `import { LAGOA_CENTRO }` a derrubaria no dia em que os três
+ *  exports antigos saíssem. Assim as duas ordens de chegada compilam, e quando
+ *  a tabela plural existir ela passa a valer sem mais uma edição aqui.
+ *
+ *  ⚠️ E NÃO SE COPIA VALOR: sem tabela, o corpo único vem dos exports do
+ *  próprio relevo; sem nenhum dos dois, a lista é VAZIA e a máscara não corta
+ *  nada. Cravar centro ou cota aqui é a dívida que já custou 242 m de erro
+ *  nas vistas de `chapas.mjs` nesta mesma rodada.
+ *
+ *  ⚠️ LIDA DENTRO DE `buildAlpino`, nunca na avaliação do módulo: ler na carga
+ *  amarraria este arquivo à ordem de inicialização de `inverno.ts`. */
+interface LagoNeve { x: number; z: number; cota: number; alcance: number }
+function lagosDoRelevo(): LagoNeve[] {
+  // sem a bandeira não há lâmina nenhuma, e abrir buraco de neve por causa de
+  // uma água que não foi construída é o defeito da cova seca de novo
+  if (!LAGOA_ATIVA) return []
+  const m = relevo as unknown as {
+    LAGOS?: readonly { centro: { x: number; z: number }; raio: number; cota: number }[]
+    LAGOA_CENTRO?: { x: number; z: number }
+    LAGOA_RAIO?: number
+    LAGOA_COTA?: number
+  }
+  if (m.LAGOS && m.LAGOS.length > 0)
+    return m.LAGOS.map((l) => ({ x: l.centro.x, z: l.centro.z, cota: l.cota, alcance: l.raio * LAGOA_FOLGA_DISCO }))
+  if (m.LAGOA_CENTRO && typeof m.LAGOA_RAIO === 'number' && typeof m.LAGOA_COTA === 'number')
+    return [{ x: m.LAGOA_CENTRO.x, z: m.LAGOA_CENTRO.z, cota: m.LAGOA_COTA, alcance: m.LAGOA_RAIO * LAGOA_FOLGA_DISCO }]
+  return []
+}
+function sobreLagoa(lagos: readonly LagoNeve[], x: number, z: number, alt: number): boolean {
+  for (const l of lagos) {
+    if (alt > l.cota + LAGOA_MARGEM_NEVE) continue
+    const dx = x - l.x, dz = z - l.z
+    if (dx <= -l.alcance || dx >= l.alcance || dz <= -l.alcance || dz >= l.alcance) continue
+    if (dx * dx + dz * dz < l.alcance * l.alcance) return true
+  }
+  return false
+}
 
 /** faixa da mata, com pluma nas duas pontas */
 const MATA_BAIXO = 150
@@ -535,7 +777,14 @@ function pontoEmRumoNeve(r: number, azGraus: number): [number, number] {
   return [Math.sin(a) * r, -Math.cos(a) * r]
 }
 function compactacaoEm(x: number, z: number, inc: number, zona: number): number {
-  if (zona > 0.01 && PISTAS.length > 0) {
+  // ⚠️ SEM ESTAÇÃO, SEM PISOTEIO: PÓ EM TODA PARTE (05/09). Antes, o substituto
+  // de inclinação valia no maciço inteiro, e o resultado medido foi 42,2% da
+  // coroa pintada com `COR_NEVE_COMPACTADA` (o cinza de pista) em vez do branco
+  // de pó, justamente no avental manso abaixo de 300 m, que é onde a rampa é
+  // mansa. Compactação é marca de máquina e de esquiador; fora da zona
+  // preparada não há nem uma nem outro, e neve intocada em montanha é pó.
+  if (zona <= 0.01) return 0
+  if (PISTAS.length > 0) {
     let melhorDist = Infinity
     let melhorMeia = 0
     for (const p of PISTAS) {
@@ -556,9 +805,10 @@ function compactacaoEm(x: number, z: number, inc: number, zona: number): number 
     const alcance = melhorMeia + FAIXA_PISOTEIO
     if (melhorDist < alcance) return suave01(1 - melhorDist / alcance)
   }
-  // sem pista real por perto: rampa mansa (< 8°) lê como pisoteada, íngreme
-  // (> 28°) lê como pó intocado
-  return 1 - suave01((inc - 8) / 20)
+  // dentro da zona mas fora do alcance de qualquer pista: rampa mansa (< 8°) lê
+  // como pisoteada, íngreme (> 28°) lê como pó intocado, e o resultado ainda é
+  // pesado pela zona, para o cinza morrer junto com a estação na borda dela
+  return (1 - suave01((inc - 8) / 20)) * zona
 }
 
 // ── a textura do brilho ─────────────────────────────────────────────────────
@@ -688,21 +938,77 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
     return (Math.atan(Math.hypot(dx, dz)) * 180) / Math.PI
   }
 
-  /** cobertura de neve em 0..1: cota + faixa + inclinação + ruído */
-  const neveEm = (x: number, z: number, alt: number, inc: number): number => {
-    // ⚠️ COTA MISTURADA PELA ZONA DO PARQUE. Sem `?inverno=1`,
-    // `zonaEsquiavelAt` é 0 em qualquer (x, z) e `cotaBase` é `COTA_NEVE` puro:
-    // bit a bit a conta de sempre.
+  // ⚠️ AS DUAS LEITURAS DE FORMA QUE A LINHA DE NEVE PRECISA, E AS DUAS SAEM DA
+  // GRADE QUE JÁ ESTÁ NA MÃO: nenhuma consulta nova a `heightAt`, que é o item
+  // caro deste arquivo (56,3 µs por chamada no maciço, ver o cabeçalho).
+
+  /** o quanto a encosta em (i, j) olha para o sol da cena: +1 de cara para ele,
+   *  −1 de costas, 0 em terreno plano ou de perfil. Sem `atan2` e sem `cos`: é
+   *  o produto escalar do rumo da encosta com o rumo do sol, e o rumo da
+   *  encosta é (−dx, −dz), a projeção horizontal da normal. */
+  const SOL_X = Math.sin((SOL_AZ * Math.PI) / 180)
+  const SOL_Z = -Math.cos((SOL_AZ * Math.PI) / 180)
+  const solEm = (i: number, j: number): number => {
+    if (i <= 0 || j <= 0 || i + 1 >= N || j + 1 >= N) return 0
+    const kxp = idx(i + 1, j), kxm = idx(i - 1, j), kzp = idx(i, j + 1), kzm = idx(i, j - 1)
+    if (!valido[kxp] || !valido[kxm] || !valido[kzp] || !valido[kzm]) return 0
+    const dx = h[kxp] - h[kxm], dz = h[kzp] - h[kzm]
+    const l = Math.hypot(dx, dz)
+    if (l < 1e-6) return 0
+    return (-dx * SOL_X - dz * SOL_Z) / l
+  }
+
+  /** relevo relativo: quanto a célula está acima (costela) ou abaixo (sulco) da
+   *  média da vizinhança de `RAIO_SULCO` células. É a leitura de concavidade
+   *  mais barata que existe sobre uma grade já amostrada: 49 leituras de array,
+   *  zero consulta ao terreno. */
+  const relativoEm = (i: number, j: number): number => {
+    let soma = 0, n = 0
+    for (let b = -RAIO_SULCO; b <= RAIO_SULCO; b++) {
+      const jj = j + b
+      if (jj < 0 || jj >= N) continue
+      for (let a = -RAIO_SULCO; a <= RAIO_SULCO; a++) {
+        const ii = i + a
+        if (ii < 0 || ii >= N) continue
+        const k = idx(ii, jj)
+        if (!valido[k]) continue
+        soma += h[k]; n++
+      }
+    }
+    if (n === 0) return 0
+    return h[idx(i, j)] - soma / n
+  }
+
+  /** cobertura de neve em 0..1 (ver "O PARTIDO NOVO" no cabeçalho): a linha de
+   *  neve, ondulada por exposição, sulco e ruído, apagada por inclinação e
+   *  cortada onde há água. */
+  // a tabela de água é lida UMA vez, aqui dentro da construção (ver a nota de
+  // `lagosDoRelevo`), e não na avaliação do módulo
+  const lagosAlpinos = lagosDoRelevo()
+
+  const neveEm = (x: number, z: number, alt: number, inc: number, i: number, j: number): number => {
+    // ⚠️ ÁGUA ANTES DE TUDO, E É A PRIMEIRA CONTA DE PROPÓSITO: neve por cima de
+    // lâmina d'água é defeito na chapa e não custa nada evitar. Os dois canais
+    // (ver `lagosDoRelevo`): a água da cidade por `o.molhado`, os lagos de
+    // montanha pela tabela que `inverno.ts` publica.
+    if (sobreLagoa(lagosAlpinos, x, z, alt)) return 0
+    if (o.molhado?.(x, z)) return 0
+    // ⚠️ A ZONA DO PARQUE DESCONTA, NÃO SUBSTITUI. Sem `?inverno=1`,
+    // `zonaEsquiavelAt` é 0 em qualquer (x, z) e o desconto some inteiro.
     const zona = INVERNO_ATIVO ? zonaEsquiavelAt(x, z) : 0
-    const cotaBase = COTA_NEVE - (COTA_NEVE - COTA_NEVE_INVERNO) * zona
-    const limiar = cotaBase + (ruido(x, z, CELULA_RUIDO, 11) * 2 - 1) * RUIDO_NEVE
+    const sulco = Math.max(-1, Math.min(1, relativoEm(i, j) / SULCO_ESCALA))
+    const limiar = COTA_NEVE
+      - DESCE_ESQUI * zona
+      + ASPECTO_NEVE * solEm(i, j)
+      + SULCO_NEVE * sulco
+      + (ruido(x, z, CELULA_RUIDO, 11) * 2 - 1) * RUIDO_NEVE
     const t = suave01((alt - (limiar - FAIXA_NEVE)) / (2 * FAIXA_NEVE))
     if (t <= 0) return 0
-    // neve não gruda em face muito íngreme: cheia até 30°, zero em 55°
-    const s = 1 - suave01((inc - 30) / 25)
+    // neve não gruda em face muito íngreme: cheia até 45°, zero em 65°
+    const s = 1 - suave01((inc - INC_NEVE_CHEIA) / (INC_NEVE_ZERO - INC_NEVE_CHEIA))
     // manchado fino, senão a coroa vira um esmalte uniforme
-    const m = 0.82 + 0.18 * ruido(x, z, 70, 29)
-    return Math.min(0.96, t * s * m)
+    const m = 0.88 + 0.12 * ruido(x, z, 70, 29)
+    return Math.min(1, t * s * m)
   }
 
   // ── 2. a coroa: uma casca de quads sobre o terreno, alfa = cobertura ──────
@@ -740,21 +1046,17 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
   // inteira só pra isto. Ver `compactacaoEm` acima.
   const compact = new Float32Array(N * N)
 
-  // ⚠️ ACHADO 03/09, medido offline antes de mexer: o pre-corte abaixo usava
-  // `COTA_NEVE` (250) sozinho como piso, e isso e um limiar DIFERENTE do que
-  // `neveEm` de fato usa quando a zona do parque baixa a cota para
-  // `COTA_NEVE_INVERNO` (70). Resultado medido: qualquer ponto com altura
-  // entre 39 e 219 m DENTRO da zona (cotaBase baixo, ainda deveria nevar)
-  // nunca chegava a `neveEm`, porque o pre-corte já tinha descartado a
-  // célula. Isso reduzia a área nevada, mas sozinho NAO explica zero neve
-  // (a varredura offline com o mesmo bug ainda deu 13,258 km² > 0): é bug
-  // real, corrigido aqui, mas não é a causa de "nem um pixel branco" sozinho.
-  // O piso do pre-corte agora usa o MENOR limiar possível (o da zona do
-  // parque, quando `?inverno=1` está ligado); é só uma otimização de
-  // descarte, `neveEm` continua sendo quem decide de verdade.
-  const pisoPreCorte = INVERNO_ATIVO
-    ? Math.min(COTA_NEVE, COTA_NEVE_INVERNO) - FAIXA_NEVE - RUIDO_NEVE
-    : COTA_NEVE - FAIXA_NEVE - RUIDO_NEVE
+  // ⚠️ O PISO DO PRE-CORTE É O MENOR LIMIAR QUE `neveEm` PODE PRODUZIR, e ele
+  // tem de ser recalculado sempre que uma parcela nova entrar na conta da
+  // linha, senão a célula é descartada antes de `neveEm` decidir. Foi assim que
+  // um pre-corte em `COTA_NEVE` puro apagava, em 03/09, a neve que a zona do
+  // parque deveria ter posto entre 39 e 219 m. Somando o pior caso de cada
+  // parcela: 560 − 120 (esqui) − 45 (exposição) − 55 (sulco) − 26 (ruído) − 30
+  // (meia faixa de mistura) = 284 m. É só otimização de descarte; quem decide
+  // continua sendo `neveEm`.
+  const pisoPreCorte = COTA_NEVE
+    - (INVERNO_ATIVO ? DESCE_ESQUI : 0)
+    - ASPECTO_NEVE - SULCO_NEVE - RUIDO_NEVE - FAIXA_NEVE
   for (let j = 0; j < N; j++) {
     for (let i = 0; i < N; i++) {
       const k = idx(i, j)
@@ -762,7 +1064,7 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
       const x = xDe(i), z = xDe(j)
       if (Math.hypot(x, z) > R_EXT) continue
       const inc = inclinacaoEm(i, j)
-      cobertura[k] = neveEm(x, z, h[k], inc)
+      cobertura[k] = neveEm(x, z, h[k], inc, i, j)
       if (cobertura[k] > 0) {
         const zona = INVERNO_ATIVO ? zonaEsquiavelAt(x, z) : 0
         compact[k] = compactacaoEm(x, z, inc, zona)
@@ -904,10 +1206,21 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
     // (`cobertura` já carrega a mistura de cota + inclinação + ruído, então
     // reusar ela aqui é reusar o MESMO sinal que já decide "quão dentro da
     // neve" este ponto está, não inventar uma segunda métrica de borda).
+    // ⚠️ ALFA E COR NÃO CAEM MAIS PELO MESMO SINAL, e este era um defeito real,
+    // medido em 05/09 na malha construída: a `cobertura` decidia a OPACIDADE e
+    // o quanto o vértice era puxado para `COR_NEVE_SUJA` (que é a cor da
+    // própria rocha), então a atenuação entrava ao quadrado. Com cobertura 0,30
+    // o vértice ficava 57% cor de pedra E 70% transparente, ou seja contribuía
+    // 13% de neve. Na casca inteira: alfa p50 0,552 e 25,1% dos vértices abaixo
+    // de 0,10, ou seja um quarto da casca custava desenho e não pintava nada.
+    // Agora quem carrega a borda é a COR (neve rareando entre a pedra é o que
+    // uma orla de derretimento é mesmo) e o ALFA satura: acima de 0,45 de
+    // cobertura a neve é opaca.
+    const c = cobertura[k]
     corPonto.copy(COR_NEVE_PO).lerp(COR_NEVE_COMPACTADA, compact[k])
-    const borda = Math.min(1, cobertura[k] / 0.7)
-    corPonto.lerp(COR_NEVE_SUJA, 1 - borda)
-    cor.push(corPonto.r, corPonto.g, corPonto.b, cobertura[k])
+    const borda = Math.min(1, c / 0.45)
+    corPonto.lerp(COR_NEVE_SUJA, (1 - borda) * 0.85)
+    cor.push(corPonto.r, corPonto.g, corPonto.b, suave01(c / 0.45))
     indiceDe[k] = nVert
     return nVert++
   }
@@ -916,12 +1229,40 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
       const k = idx(i, j)
       if (!emite[k]) continue
       const a = vert(i, j), b = vert(i + 1, j), c = vert(i + 1, j + 1), d = vert(i, j + 1)
-      // as duas partições preservam o mesmo sentido de giro (a face é única,
-      // o material não é `DoubleSide`)
-      if (diagB[k]) ind.push(a, b, d, b, c, d)
-      else ind.push(a, b, c, a, c, d)
+      // ⚠️ O SENTIDO DE GIRO, E ELE É A CAUSA DA QUEIXA DE 05/09 (ver o
+      // cabeçalho). Com a = (i, j), b = (i+1, j), c = (i+1, j+1), d = (i, j+1),
+      // a ordem antiga (`a, b, c` / `a, c, d`) dava normal geométrica
+      // (b−a)×(c−a) = −PASSO² em Y, ou seja face virada para BAIXO em 100% dos
+      // 22.536 triângulos, e o material é `FrontSide`: a casca inteira era
+      // descartada como back-face antes de virar fragmento. Invertidos os dois
+      // últimos índices de cada triângulo, as quatro contas dão +PASSO²:
+      //   (a,c,b): (c−a)×(b−a) = +PASSO²    (a,d,c): (d−a)×(c−a) = +PASSO²
+      //   (a,d,b): (d−a)×(b−a) = +PASSO²    (b,d,c): (d−b)×(c−b) = +PASSO²
+      // As duas partições preservam o mesmo sentido entre si, como antes; o que
+      // faltava era conferir o sentido em si.
+      if (diagB[k]) ind.push(a, d, b, b, d, c)
+      else ind.push(a, c, b, a, d, c)
       quads++
     }
+  }
+
+  // ⚠️ ENROLAMENTO MEDIDO, NÃO ADIVINHADO, e é a MESMA trava que `terrain.ts`
+  // já tinha na linha 722 e que este arquivo nunca recebeu. O bloco acima já
+  // emite o giro certo; isto aqui é o guarda-corpo para quem mexer nele depois.
+  // A casca é uma altura sobre a grade, então a normal geométrica de qualquer
+  // triângulo não degenerado tem de apontar para CIMA: se o primeiro que der
+  // área não degenerada apontar para baixo, o buffer inteiro é invertido.
+  for (let t = 0; t + 2 < ind.length; t += 3) {
+    const ia = ind[t] * 3, ib = ind[t + 1] * 3, ic = ind[t + 2] * 3
+    const e1x = pos[ib] - pos[ia], e1z = pos[ib + 2] - pos[ia + 2]
+    const e2x = pos[ic] - pos[ia], e2z = pos[ic + 2] - pos[ia + 2]
+    const ny = e1z * e2x - e1x * e2z
+    if (Math.abs(ny) < 1) continue          // triângulo degenerado em planta
+    if (ny < 0) {
+      console.warn('[alpino] giro da casca de neve invertido, corrigindo os', ind.length / 3, 'triângulos')
+      for (let q = 0; q + 2 < ind.length; q += 3) { const s = ind[q + 1]; ind[q + 1] = ind[q + 2]; ind[q + 2] = s }
+    }
+    break
   }
 
   let neve: THREE.Mesh | null = null
