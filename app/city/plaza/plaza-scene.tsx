@@ -80,6 +80,7 @@ import { montarPos, type Pos } from './pos'
 import { rotaLive, duracaoLive, TOUR_LIVE_DERIVA, TOUR_LIVE_OCIO_MS } from './tour-live'
 import { assentarEstadio, estadioCull, estadioParcela, estadioSitio } from './estadio'
 import { assentarGeode, geodeCull, geodeParcela, geodeSitio, podarGeode } from './geode'
+import { ILHAS_RAIO, ILHAS_RUMO } from './lago'
 import { CityChat } from '@/components/wallet/city-chat'
 
 // ── framing ────────────────────────────────────────────────────────────────────
@@ -294,8 +295,17 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
       return { pos: new THREE.Vector3(d.x + Math.sin(f) * 58, 20, d.z + Math.cos(f) * 58), target: new THREE.Vector3(d.x, 11, d.z) }
     }
     case 'ordinal': { const [x, z] = onDiagonal('SW', 606, 6); return { pos: new THREE.Vector3(x, 5.5 + PY, z), target: new THREE.Vector3(ORDINAL_CENTER[0], 6 + PY, ORDINAL_CENTER[1]) } }
+    // ⚠️ REENQUADRADA EM 06/09: O TOPO DA TORRE ESTAVA SENDO CORTADO. O
+    // fundador viu na live, "pegando muito chão e o topo da torre não". Medido
+    // no GLB: `kray-tower.glb` tem 356 m de bbox e o ponto mais alto dele fica
+    // em +332 no espaço local, ancorado em `ANCHORS.east` na cota da praça. A
+    // câmera antiga ficava a 528 m com o alvo em +55: sobravam 55 m de mira para
+    // 332 m de prédio, e três quartos da torre saíam por cima do quadro.
+    // Agora o alvo vai para a MEIA ALTURA e a câmera recua para 738 m, o que dá
+    // 25 graus de altura angular: a torre inteira cabe com folga em cima e o
+    // chão para de dominar.
     case 'kray':
-      return { pos: new THREE.Vector3(300, 140 + PY, 420), target: new THREE.Vector3(620, 90 + PY, 0) }
+      return { pos: new THREE.Vector3(140, 150 + PY, 560), target: new THREE.Vector3(620, 175 + PY, 0) }
     case 'bitflow':
       return { pos: new THREE.Vector3(-300, 140 + PY, 420), target: new THREE.Vector3(-620, 90 + PY, 0) }
     case 'bitflowback': // a face de trás, onde entrou a assinatura
@@ -484,6 +494,61 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
       return { pos: new THREE.Vector3(s.x + rx * 900, 430 + solo, s.z + rz * 900),
                target: new THREE.Vector3(s.x, 20 + solo, s.z) }
     }
+    // ⚠️ AS VISTAS DE THE GEODE SAEM DO MÓDULO DA TEIA, mesma disciplina do
+    // estádio: `geodeSitio()` devolve o centro do bloco e a câmera se afasta na
+    // radial. Se a peça mudar de módulo, o enquadramento acompanha sozinho.
+    //
+    // ⚠️ E A APROXIMAÇÃO É PELO LADO DA PRAÇA (radial NEGATIVA), não pelo lado de
+    // fora. A peça está a 2.754 m do centro e o visitante vem de dentro: olhar
+    // de fora para dentro põe o cume contra o cinturão vazio e deixa a cidade
+    // fora de quadro. De dentro para fora, o estádio entra ao fundo.
+    case 'geode': case 'geodealto': case 'geoderasante': {
+      const g = geodeSitio()
+      const a = THREE.MathUtils.degToRad(g.rumoDeg)
+      const rx = Math.sin(a), rz = -Math.cos(a)
+      if (name === 'geodealto') {
+        return { pos: new THREE.Vector3(g.x - rx * 260, 720, g.z - rz * 260),
+                 target: new THREE.Vector3(g.x, 30, g.z) }
+      }
+      if (name === 'geoderasante') {
+        // rasante na esplanada: a lapidação de perto e o letreiro legível
+        return { pos: new THREE.Vector3(g.x - rx * 330, 46, g.z - rz * 330),
+                 target: new THREE.Vector3(g.x, 44, g.z) }
+      }
+      return { pos: new THREE.Vector3(g.x - rx * 760, 330, g.z - rz * 760),
+               target: new THREE.Vector3(g.x, 34, g.z) }
+    }
+
+    // ⚠️ POR DENTRO DO ESTÁDIO, pedido do fundador para a live. A câmera fica
+    // ACIMA da última fila e olha para o gramado atravessando a bacia: dentro da
+    // casca, mas alta o bastante para a cobertura de 77 m de balanço não tapar o
+    // quadro. Mais baixo que isso e o brise da pele entra na frente.
+    case 'estadiodentro': {
+      const s2 = estadioSitio()
+      const a = THREE.MathUtils.degToRad(s2.rumoDeg)
+      const rx = Math.sin(a), rz = -Math.cos(a)
+      return { pos: new THREE.Vector3(s2.x + rx * 96, 62, s2.z + rz * 96),
+               target: new THREE.Vector3(s2.x - rx * 40, 8, s2.z - rz * 40) }
+    }
+
+    // ⚠️ AS ILHAS DE PERTO, no rumo 10 (a que fica de frente para quem chega).
+    // O raio vem de `ILHAS_RAIO`, publicado por `lago.ts` depois de MEDIR a
+    // margem: cravar 1.180 aqui pararia de valer no dia em que o lago mudar.
+    case 'ilhasrasante': {
+      const a = THREE.MathUtils.degToRad(ILHAS_RUMO[0])
+      const ix = Math.sin(a) * ILHAS_RAIO, iz = -Math.cos(a) * ILHAS_RAIO
+      const f = Math.hypot(ix, iz) || 1
+      return { pos: new THREE.Vector3(ix * (1 - 330 / f), 52, iz * (1 - 330 / f)),
+               target: new THREE.Vector3(ix, -22, iz) }
+    }
+
+    // ⚠️ RASANTE NA MONTANHA NEVADA, pedido do fundador. A `montanha` olha o
+    // maciço de 900 m de altura e 2,3 km de distância, ou seja de longe; esta
+    // corre a 210 m sobre o vale, perto da face, que é onde a neve e o talude
+    // se leem como relevo e não como mancha branca.
+    case 'montanharasante':
+      return { pos: new THREE.Vector3(-1120, 210, 11960), target: new THREE.Vector3(-2394, 380, 10672) }
+
     // a mesma casca vista de fora, do lado do parque: a silhueta e a saia
     case 'abobadafora':
       return { pos: new THREE.Vector3(4600, 1250, 4600), target: new THREE.Vector3(0, 380, 0) }
@@ -602,8 +667,13 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
       // "segue a estação no lugar novo" e não seguia nada: eram números cravados.
       // Agora é relativo ao PAD_MAIN e acompanha sozinho.
       // deslocamento positivo pelo mesmo motivo do `padtour`: ver a nota longa lá.
-      return { pos: new THREE.Vector3(PAD_MAIN.x + 1015, PAD_MAIN.y + 330, PAD_MAIN.z - 1490),
-               target: new THREE.Vector3(PAD_MAIN.x + 275, PAD_MAIN.y + 60, PAD_MAIN.z - 2100) }
+      // ⚠️ APROXIMADA EM 06/09, a pedido do fundador ("pode ser um pouco mais
+      // perto"). Os afastamentos caíram para 62% e a altura para 74%: a nave e o
+      // pátio ganham o quadro, e a estação continua inteira porque a mira também
+      // veio junto. Mexer só na posição, sem mexer no alvo, giraria a câmera em
+      // vez de aproximá-la.
+      return { pos: new THREE.Vector3(PAD_MAIN.x + 630, PAD_MAIN.y + 245, PAD_MAIN.z - 1000),
+               target: new THREE.Vector3(PAD_MAIN.x + 210, PAD_MAIN.y + 55, PAD_MAIN.z - 1720) }
   }
   if (aspect >= 1) return { pos: HOME_POS.clone(), target: HOME_TARGET.clone() }
   return { pos: new THREE.Vector3(430, 760 + PY, -1300), target: new THREE.Vector3(0, 40 + PY, 420) }

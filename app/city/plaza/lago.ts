@@ -85,6 +85,18 @@ export interface Ilha { id: string; nome: string; x: number; z: number; r: numbe
  * é uma função exportada, e não uma conta repetida em dois arquivos.
  * `k` é o índice da ilha (cada uma deforma diferente), `a` o ângulo em radianos.
  */
+/**
+ * O raio do ANEL em que as seis ilhas ficam, e os rumos delas.
+ *
+ * ⚠️ ISTO EXISTE PARA A CÂMERA, e é publicado em vez de cravado. `viewFor` em
+ * `plaza-scene.tsx` é função pura e não enxerga o `Lago` construído; sem esta
+ * exportação, um enquadramento de ilha viraria número escrito à mão que para de
+ * valer no dia em que a margem do lago mudar. O valor é escrito por
+ * `buildLago`, que é quem mede a margem; o padrão só vale antes dela rodar.
+ */
+export let ILHAS_RAIO = 1180
+export const ILHAS_RUMO: readonly number[] = [10, 70, 130, 190, 250, 310]
+
 export function contornoIlha(k: number, a: number, base: number): number {
   return base * (1 + 0.062 * Math.sin(a * 3 + k) + 0.038 * Math.sin(a * 5 - k * 2))
 }
@@ -892,6 +904,7 @@ export function buildLago(o: LagoOpts): Lago {
   // que estão. Círculo perfeito de margem já foi recusado antes, por outro
   // motivo; isto não reabre aquela decisão.
   const rIlha = (rAguaI + rAguaE) / 2
+  ILHAS_RAIO = rIlha
   const RAIO_RESERVADA = [58, 66, 74, 82, 90] // uma por ilha reservada, k = 1 a 5
   const ilhas: Ilha[] = []
   for (let k = 0; k < 6; k++) {

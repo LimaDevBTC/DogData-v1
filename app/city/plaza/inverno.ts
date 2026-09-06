@@ -2634,27 +2634,8 @@ async function carregarInstanciavel(
   gltf: GLTFLoader, especie: EspecieArvore,
 ): Promise<MalhaArvore | null> {
   try {
-    // ⚠️ SONDA TEMPORARIA (06/09): separa REDE de DECODIFICACAO. Com o teto em
-    // 45 s as doze cargas continuam estourando, entao a hipotese de
-    // congestionamento caiu. Esta sonda mede os dois lados no mesmo instante:
-    // se o fetch cru volta em milissegundos e o `gltf.load` nao volta nunca, o
-    // problema esta no parse (Draco/KTX2/textura), nao na rede nem no arquivo.
-    const _t0 = performance.now()
-    try {
-      const r = await fetch(especie.url)
-      const b = await r.arrayBuffer()
-      console.warn(`[sonda] ${especie.url}: fetch ${r.status}, ${b.byteLength} bytes em ${(performance.now() - _t0).toFixed(0)} ms`)
-    } catch (e) {
-      console.warn(`[sonda] ${especie.url}: fetch FALHOU`, e)
-    }
-    const _t1 = performance.now()
     const cena = await comLimiteDeTempo(
-      new Promise<THREE.Group>((res, rej) => gltf.load(
-        especie.url,
-        (g) => { console.warn(`[sonda] ${especie.url}: parse OK em ${(performance.now() - _t1).toFixed(0)} ms`); res(g.scene) },
-        (ev) => { if (ev.loaded === ev.total) console.warn(`[sonda] ${especie.url}: bytes completos em ${(performance.now() - _t1).toFixed(0)} ms, parse comecou`) },
-        (e) => { console.warn(`[sonda] ${especie.url}: onError em ${(performance.now() - _t1).toFixed(0)} ms`, e); rej(e as Error) },
-      )),
+      new Promise<THREE.Group>((res, rej) => gltf.load(especie.url, (g) => res(g.scene), undefined, rej)),
       TETO_CARGA, `[inverno] floresta: ${especie.url}`,
     )
     cena.updateMatrixWorld(true)
@@ -2761,7 +2742,31 @@ async function carregarEspeciesArvore(
   // menos). Filtrar depois de carregar economizaria triângulo e não economizaria
   // nem rede nem memória, que é o que dói no celular. Ver `EspecieArvore.noEnxuto`.
   const elenco = enxuto ? ARVORES.filter((a) => a.noEnxuto) : ARVORES
-  const carregadas = await Promise.all(elenco.map((esp) => carregarInstanciavel(gltf, esp)))
+  // ⚠️ EM FILA DE DOIS, NÃO TODAS DE UMA VEZ. Com `Promise.all` as onze espécies
+  // disparavam juntas no instante em que o portão abre, que é o instante em que
+  // a `Obra` está fatiando parque, chalé, monumentos e adereços. O worker do
+  // Draco termina, mas o CALLBACK precisa da thread principal, e onze callbacks
+  // disputando uma thread ocupada é uma fila em que ninguém chega.
+  //
+  // Medido em 06/09, na conferência de chapa: com teto de 8 s falhavam as 11;
+  // subindo o teto para 45 s passaram 3 (entre elas o pinheiro, que é metade da
+  // floresta) e falharam 8. Ou seja não era o teto, era a CONCORRÊNCIA: quem
+  // chega primeiro passa, o resto morre de fome esperando a thread.
+  //
+  // Em fila de dois, cada carga pega a thread por vez e termina bem dentro do
+  // teto. O tempo total de parede cresce, e não custa nada: a floresta sobe
+  // FORA da fila da cidade (ver "FORA DE `daCidade`" em `plaza-scene.tsx`), o
+  // visitante já está andando pela praça enquanto ela carrega.
+  const carregadas: (MalhaArvore | null)[] = new Array(elenco.length).fill(null)
+  let proxima = 0
+  async function trabalhador() {
+    for (;;) {
+      const i = proxima++
+      if (i >= elenco.length) return
+      carregadas[i] = await carregarInstanciavel(gltf, elenco[i])
+    }
+  }
+  await Promise.all([trabalhador(), trabalhador()])
   const vivas = elenco
     .map((esp, i) => ({ especie: esp, malha: carregadas[i] }))
     .filter((v): v is { especie: EspecieArvore; malha: MalhaArvore } => v.malha !== null)

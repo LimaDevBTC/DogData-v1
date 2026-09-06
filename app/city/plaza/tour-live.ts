@@ -46,16 +46,27 @@ export const TOUR_LIVE: readonly ParadaLive[] = [
   { key: 'warentry',   voo: 14.0, parada: 26 },
   { key: 'war',        voo: 22.0, parada: 24 },
   { key: 'coliseu',    voo: 24.0, parada: 22 },
-  // o estádio, a peça nova
+  // ⚠️ O DISTRITO ESPORTIVO É UMA SEQUÊNCIA SÓ, não duas visitas separadas. O
+  // estádio e THE GEODE ficam a 540 m no mesmo radial: encadeados, o voo entre
+  // eles é curto e a câmera conta que são vizinhos. Separados no roteiro, o
+  // espectador não faz a ligação.
   { key: 'estadioalto', voo: 30.0, parada: 24 },
-  { key: 'estadio',    voo: 18.0, parada: 26 },
-  { key: 'estadiorasante', voo: 16.0, parada: 22 },
-  // a água: lago, ilhas e a orla
+  { key: 'estadio',    voo: 18.0, parada: 24 },
+  { key: 'estadiorasante', voo: 16.0, parada: 20 },
+  // por dentro do estádio, pedido do fundador em 06/09
+  { key: 'estadiodentro', voo: 14.0, parada: 26 },
+  // THE GEODE, a arena coberta
+  { key: 'geodealto',  voo: 20.0, parada: 22 },
+  { key: 'geode',      voo: 16.0, parada: 26 },
+  { key: 'geoderasante', voo: 14.0, parada: 28 },
+  // a água: lago, ilhas de longe e de perto, e a orla
   { key: 'lago',       voo: 28.0, parada: 24 },
-  { key: 'ilhas',      voo: 24.0, parada: 24, soDesktop: true },
+  { key: 'ilhas',      voo: 24.0, parada: 22, soDesktop: true },
+  { key: 'ilhasrasante', voo: 18.0, parada: 26, soDesktop: true },
   // a montanha e a estação de inverno
-  { key: 'montanha',   voo: 32.0, parada: 26, soDesktop: true },
-  { key: 'montanhatopo', voo: 20.0, parada: 24, soDesktop: true },
+  { key: 'montanha',   voo: 32.0, parada: 24, soDesktop: true },
+  { key: 'montanharasante', voo: 18.0, parada: 26, soDesktop: true },
+  { key: 'montanhatopo', voo: 20.0, parada: 22, soDesktop: true },
   // o parque, a 9,8 km
   { key: 'park',       voo: 36.0, parada: 28, soDesktop: true },
   { key: 'parkclose',  voo: 20.0, parada: 26, soDesktop: true },
