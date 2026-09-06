@@ -91,7 +91,10 @@ const VISTAS = {
   // THE GEODE, a arena coberta. Sitio em (2.660, 713), raio 2.754, mesmo radial
   // do estadio e 540 m dele. `geode` julga a IMPLANTACAO (a peca com a malha em
   // volta e o estadio ao fundo); `geodeperto` julga o predio e o letreiro.
-  geode:     [3529, 480, 946, 2660, 20, 713, 45],
+  // ⚠️ ENQUADRAMENTO CORRIGIDO: a primeira tentativa olhava de FORA para dentro,
+  // de cima do estadio, e a peca saia fora de quadro. A implantacao se julga do
+  // lado da PRACA, que e de onde a cidade e vista, com o estadio ao fundo.
+  geode:     [1463, 420, 392, 2660, 30, 713, 50],
   geodeperto:[3210, 118, 848, 2660, 34, 713, 42],
   // ⚠️ ENQUADRAMENTOS NOVOS, 03/09, e o motivo é o que o cabeçalho do terrain.ts
   // avisa: MEXER NA ALTURA MOVE O MUNDO. A coroa foi de 2.619 para 5.513 m e a

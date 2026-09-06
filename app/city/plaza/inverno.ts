@@ -463,11 +463,43 @@ import { buildInvernoDetalhe } from './inverno-detalhe'
 // TRAVAR A CENA PARA SEMPRE. Toda promessa de carga precisa de um teto de
 // tempo, e estourar o teto é uma FALHA COMO QUALQUER OUTRA (a espécie fica de
 // fora, o peso dela é redistribuído), nunca um travamento silencioso.
+/**
+ * ⚠️ 8.000 ms ERA CURTO DEMAIS, E O DIAGNÓSTICO ESTAVA ERRADO NA MENSAGEM.
+ *
+ * Em 06/09 as ONZE espécies da floresta e o pacote de rochas estouravam o teto
+ * numa conferência de chapa, todas juntas, e a mensagem culpava "rede lenta".
+ * Medido: os arquivos existem e o `next dev` os entrega em **2 ms**
+ * (`curl` direto), e o loader é o da cena, com `DRACOLoader`. Ou seja, nem rede
+ * nem decodificador faltando.
+ *
+ * O que acontece é STARVATION DA THREAD PRINCIPAL. O portão do inverno abre no
+ * mesmo instante em que a cidade abre, e nesse instante a `Obra` está fatiando
+ * o parque, o chalé, os monumentos e os adereços. Os 12 GLB são Draco + WebP:
+ * o worker termina, mas o CALLBACK precisa da thread principal, e ela está
+ * ocupada. O relógio de 8 s é de PAREDE e vence a corrida sem que nada esteja
+ * quebrado.
+ *
+ * O teto continua existindo, e pelo motivo original: um recurso externo nunca
+ * pode travar a cena PARA SEMPRE. Mas 8 s não é "para sempre" numa cena que
+ * leva 40 s para montar. `TETO_CARGA` é a nova referência, e a mensagem agora
+ * diz quanto tempo passou de verdade, para a próxima pessoa não voltar a
+ * culpar a rede.
+ */
+const TETO_CARGA = 45000
+
 function comLimiteDeTempo<T>(p: Promise<T>, ms: number, rotulo: string): Promise<T> {
+  const t0 = performance.now()
   return Promise.race([
-    p,
+    p.then((v) => {
+      const dt = performance.now() - t0
+      if (dt > 4000) console.warn(`${rotulo}: subiu em ${(dt / 1000).toFixed(1)} s (thread principal congestionada)`)
+      return v
+    }),
     new Promise<T>((_res, rej) => setTimeout(
-      () => rej(new Error(`${rotulo}: sem resposta em ${ms} ms (decodificador travado ou rede lenta)`)),
+      () => rej(new Error(
+        `${rotulo}: sem resposta em ${ms} ms. Antes de culpar a rede, confira: `
+        + `o arquivo existe em public/? o loader tem DRACOLoader? Se as duas forem sim, `
+        + `é a thread principal congestionada e o teto é que está curto.`)),
       ms,
     )),
   ])
@@ -2604,7 +2636,7 @@ async function carregarInstanciavel(
   try {
     const cena = await comLimiteDeTempo(
       new Promise<THREE.Group>((res, rej) => gltf.load(especie.url, (g) => res(g.scene), undefined, rej)),
-      8000, `[inverno] floresta: ${especie.url}`,
+      TETO_CARGA, `[inverno] floresta: ${especie.url}`,
     )
     cena.updateMatrixWorld(true)
     const partes: ParteArvore[] = []
@@ -2739,7 +2771,7 @@ async function carregarPacoteRochas(gltf?: GLTFLoader): Promise<{ geo: THREE.Buf
   try {
     const cena = await comLimiteDeTempo(
       new Promise<THREE.Group>((res, rej) => gltf.load('/city/sf/rocks-stylized-pack.glb', (g) => res(g.scene), undefined, rej)),
-      8000, '[inverno] penhascos (rocks-stylized-pack.glb)',
+      TETO_CARGA, '[inverno] penhascos (rocks-stylized-pack.glb)',
     )
     let malha: THREE.Mesh | null = null
     cena.traverse((k) => { if (!malha && (k as THREE.Mesh).isMesh) malha = k as THREE.Mesh })
