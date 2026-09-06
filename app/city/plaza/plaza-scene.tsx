@@ -4488,7 +4488,16 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       // ociosa foi substituída pelo tour da live, que mostra a cidade inteira em
       // vez de girar sobre um ponto só. O ócio subiu para 1 minuto porque abaixo
       // disso a câmera sai andando no meio de um gesto.
-      if (!liveRunning && !tourRunning && !fly.on
+      // ⚠️ `?live=0` DESLIGA O TOUR DE ÓCIO, e ele existe por um defeito medido
+      // em 06/09: o PORTÃO DE CONFERÊNCIA estava sendo sequestrado. Uma chapa da
+      // cidade leva vários minutos entre carregar a cena e posicionar a câmera,
+      // e passado 1 minuto de ócio o tour começa e VOA a câmera para a primeira
+      // parada, que é a batalha. Duas conferências seguidas do sítio de THE
+      // GEODE saíram fotografando a batalha, e a conclusão errada foi "a peça
+      // sumiu". Com a bandeira, o portão pede a cena parada e a chapa mostra o
+      // que foi pedido. Mesmo padrão de `?inverno=0` e `?domo=0`.
+      if (qDomo.get('live') !== '0'
+          && !liveRunning && !tourRunning && !fly.on
           && performance.now() - lastInteraction > TOUR_LIVE_OCIO_MS) comecarLive()
       if (fly.on) {
         const u = Math.min(1, (performance.now() - fly.t0) / (fly.dur * 1000))

@@ -12,7 +12,7 @@ regra de que não podia ser "arena".
 | cume | 60 m |
 | piso de show | 48 x 28 m livres, grid de som e luz a 45 m |
 | malha | **31.348 triângulos, 182 KB, ZERO texturas** |
-| sítio | módulo `{i:8, nr:3, j:46, ns:3}` da teia, 130 m livres até a rua |
+| sítio | módulo `{i:11, nr:3, j:52, ns:2}` da teia, 309 m até a via grande |
 
 Fonte em `blender/build_arena.py`, bacia em `scripts/bacia_arena.py`, sítio e
 poda em `app/city/plaza/geode.ts`, chapas em `blender/render_arena.py`.
@@ -220,21 +220,45 @@ no aro, e só.
 
 ### 6.1 O módulo
 
-`{i:8, nr:3, j:46, ns:3}`, escolhido por varredura de toda a teia. Dos 5.574
-blocos que comportam a peça com 45 m de folga, este ganha pelo conjunto:
+⚠️ **A TEIA NÃO É A ÚNICA MALHA VIÁRIA DA CIDADE, E FOI ISSO QUE ERROU O SÍTIO
+NA PRIMEIRA VEZ.**
 
-- caixa de **528 m no radial por 606 m de arco** para uma peça de 292 x 269, o
-  que deixa **130 m livres até a rua** em qualquer direção;
-- fica no **mesmo radial do estádio** (`j: 46`), 540 m dele: os dois formam um
-  distrito esportivo servido pela mesma avenida, em vez de duas peças grandes
-  disputando acesso em pontos opostos da cidade;
-- está a **2.754 m do centro** contra 3.294 do estádio, ou seja mais perto da
-  praça, que é de onde a cidade é vista;
-- água mais próxima a **1.469 m** e canal radial a **962 m** de afastamento
-  lateral, medidos contra `cidade-malha.json`.
+A primeira escolha foi `{i:8, nr:3, j:46, ns:3}`, varrida contra a teia e contra
+as peças do programa, e o fundador viu na chapa: a peça em cima de uma via.
+Medido depois contra `cidade-malha.json`, que é onde moram as OUTRAS três
+famílias de via:
+
+- o **Anel Médio** (`AN2`, r 2.750, 26 m de largura) passava a **4 m** do centro
+  da peça, ou seja por cima dela: **-144 m de folga**;
+- o **bulevar BUL04** (44 m, rumo 106,875) passava a 90 m, e a peça precisa de
+  146.
+
+Nenhuma das duas aparece em `teia.ts`. Bulevares, autopistas e anéis viários são
+publicados pelo gerador em `cidade-malha.json` e desenhados por outro caminho,
+então a máscara de parcela não os detém. **Caber num módulo da teia é necessário
+e não suficiente.**
+
+O sítio corrigido é `{i:11, nr:3, j:52, ns:2}`. A varredura refeita
+(`scripts/_sitio2.ts`) cobre as três famílias mais os corpos d'água e os canais;
+dos 1.753 blocos aprovados, este ganha por folga:
+
+- **309 m** até a via grande mais próxima (`AN3`, o Anel Exterior), contra -144
+  do sítio anterior;
+- caixa de **528 m no radial por 481 m de arco** para uma peça de 292 x 269:
+  130 m livres no radial e 94 no arco até a rua do próprio módulo;
+- **mesmo anel do estádio** (r 3.294), 615 m dele: os dois seguem formando um
+  distrito esportivo, agora sem nenhum dos dois em cima de via;
+- água a **1.097 m** e o canal mais próximo (`CR03`) a **1.652 m** de afastamento
+  lateral.
+
+⚠️ **E A MESMA MEDIÇÃO REPROVOU O ESTÁDIO.** `{i:11, nr:3, j:46, ns:3}` tem
+**-60 m** contra o BUL04: o bulevar de 44 m passa por dentro dele. Defeito
+anterior a esta peça, achado aqui e ainda NÃO corrigido.
 
 ⚠️ **A posição é um MÓDULO, não uma coordenada.** Regra já paga pelo estádio:
-coordenada escolhida a olho põe avenida dentro do prédio.
+coordenada escolhida a olho põe avenida dentro do prédio. O que esta rodada
+acrescenta é que o módulo tem de ser conferido contra TODAS as malhas, não só a
+que o define.
 
 ⚠️ **E a parcela entra na máscara das vias.** Sem isso a teia desenha rua por
 dentro da arena.
@@ -263,13 +287,13 @@ um dia a pele ganhar textura, ela entra por lá.
 
 ⚠️ **A distância se mede de onde a peça é VISTA.** A conta:
 
-    THE GEODE está a 2.754 m do centro
+    THE GEODE está a 3.294 m do centro
     o visitante fica na praça, raio até 1.024 m
-    logo ele a vê de 1.730 a 3.778 m
+    logo ele a vê de 2.270 a 4.318 m
 
 O corte tem de ser maior que o PIOR caso, não que a média: foi cortando pela
-média que o estádio sumiu do celular em 06/09. **4.200 no celular, 6.500 no
-desktop.**
+média que o estádio sumiu do celular em 06/09. **4.700 no celular, 7.000 no
+desktop.** Este número acompanha o sítio: mudou o módulo, refaça a conta.
 
 ---
 

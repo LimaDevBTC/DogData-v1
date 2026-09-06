@@ -88,14 +88,15 @@ const VISTAS = {
   estadio:   [4053, 620, 1086, 3184, 10, 853, 45],
   estadioalto:[3435, 1150, 920, 3184, 0, 853, 45],
   estadioperto:[3599, 175, 964, 3184, 25, 853, 42],
-  // THE GEODE, a arena coberta. Sitio em (2.660, 713), raio 2.754, mesmo radial
-  // do estadio e 540 m dele. `geode` julga a IMPLANTACAO (a peca com a malha em
-  // volta e o estadio ao fundo); `geodeperto` julga o predio e o letreiro.
+  // THE GEODE, a arena coberta. Sitio CORRIGIDO em 06/09 para (2.968, 1.429),
+  // raio 3.294: o anterior tinha o Anel Medio passando por cima. Mesmo anel do
+  // estadio e 615 m dele. `geode` julga a IMPLANTACAO (a peca com a malha em
+  // volta), `geodeperto` julga o predio e o letreiro.
   // ⚠️ ENQUADRAMENTO CORRIGIDO: a primeira tentativa olhava de FORA para dentro,
   // de cima do estadio, e a peca saia fora de quadro. A implantacao se julga do
   // lado da PRACA, que e de onde a cidade e vista, com o estadio ao fundo.
-  geode:     [1463, 420, 392, 2660, 30, 713, 50],
-  geodeperto:[3210, 118, 848, 2660, 34, 713, 42],
+  geode:     [1840, 420, 886, 2968, 30, 1429, 50],
+  geodeperto:[2671, 130, 1286, 2968, 34, 1429, 42],
   // ⚠️ ENQUADRAMENTOS NOVOS, 03/09, e o motivo é o que o cabeçalho do terrain.ts
   // avisa: MEXER NA ALTURA MOVE O MUNDO. A coroa foi de 2.619 para 5.513 m e a
   // `abobada` acima, calibrada para a casca velha, passou a fotografar céu preto:
@@ -396,7 +397,12 @@ mkdirSync(saida, { recursive: true })
 // SOBRESCREVE o `__plazaOlhar`: a primeira execução do portão, em 02/09, saiu com
 // as três chapas mostrando o campo de guerra em vez dos enquadramentos pedidos.
 // Qualquer `?view=` explícito desliga a entrada da guerra.
-const url = `http://localhost:3000/city?stats=1&quality=high&view=deck&look=${look}${extra}`
+// ⚠️ `live=0` E OBRIGATORIO AQUI. Sem ele o tour da live comeca depois de 1
+// minuto de ocio e VOA a camera para a primeira parada, que e a batalha: uma
+// carga da cena leva minutos, entao o tour rouba o quadro antes de o portao
+// posicionar a camera. Em 06/09 duas conferencias seguidas do sitio de THE GEODE
+// sairam fotografando a batalha, e a conclusao errada foi "a peca sumiu".
+const url = `http://localhost:3000/city?stats=1&quality=high&view=deck&live=0&look=${look}${extra}`
 
 const nav = await chromium.launch()
 const pag = await (await nav.newContext({ viewport: { width: largura, height: altura }, deviceScaleFactor: escala })).newPage()

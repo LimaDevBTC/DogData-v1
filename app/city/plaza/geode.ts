@@ -16,20 +16,41 @@ import * as THREE from 'three'
 import { caixaDoModulo, polyDoModulo, type Modulo } from './teia'
 
 /**
- * O bloco de 3 x 3 módulos, escolhido por varredura de toda a teia (5.574
- * blocos comportam a peça com 45 m de folga; este é o melhor pelo conjunto):
+ * ⚠️ A TEIA NÃO É A ÚNICA MALHA VIÁRIA DA CIDADE, E FOI ISSO QUE ERROU O SÍTIO.
  *
- *  · **caixa de 528 m no radial por 606 m de arco** para uma peça de 292 x 269,
- *    o que deixa **130 m livres até a rua** em qualquer direção;
- *  · fica no MESMO radial do estádio (`j: 46`), 540 m dele: os dois formam um
- *    distrito esportivo servido pela mesma avenida de aproximação, em vez de
- *    duas peças grandes disputando acesso em pontos opostos da cidade;
- *  · está a 2.754 m do centro contra 3.294 do estádio, ou seja MAIS PERTO da
- *    praça, que é de onde a cidade é vista;
- *  · água mais próxima a 1.469 m e canal radial a 962 m de afastamento lateral,
- *    medidos contra `cidade-malha.json`. Não pisa na frente de água.
+ * A primeira escolha foi `{i:8, nr:3, j:46, ns:3}`, varrida contra a teia e
+ * contra as peças do programa. O fundador viu na chapa: **a peça em cima de uma
+ * via**. Medido depois, contra `cidade-malha.json`, que é onde moram as OUTRAS
+ * três famílias de via:
+ *
+ *   · o **Anel Médio** (`AN2`, r 2.750, 26 m) passava a 4 m do centro da peça,
+ *     ou seja POR CIMA dela: **-144 m de folga**;
+ *   · o **bulevar BUL04** (44 m, rumo 106,875) passava a 90 m, e a peça precisa
+ *     de 146.
+ *
+ * Nenhuma das duas aparece em `teia.ts`: bulevares, autopistas e anéis viários
+ * são publicados pelo gerador em `cidade-malha.json` e desenhados por outro
+ * caminho, então a máscara de parcela (`geodeParcela`) não os detém. Caber num
+ * módulo da teia é NECESSÁRIO E NÃO SUFICIENTE.
+ *
+ * A varredura refeita cobre as três famílias mais os corpos d'água e os canais.
+ * Dos 1.753 blocos aprovados, este ganha por folga:
+ *
+ *  · **309 m** até a via grande mais próxima (`AN3`, o Anel Exterior), contra
+ *    -144 do sítio anterior;
+ *  · caixa de **528 m no radial por 481 m de arco** para uma peça de 292 x 269:
+ *    130 m livres no radial e 94 no arco até a rua do próprio módulo;
+ *  · **mesmo anel do estádio** (r 3.294), 615 m dele: os dois seguem formando um
+ *    distrito esportivo, agora sem nenhum dos dois em cima de via;
+ *  · água a 1.097 m e o canal mais próximo (`CR03`) a 1.652 m de afastamento
+ *    lateral.
+ *
+ * ⚠️ E A MESMA MEDIÇÃO REPROVOU O ESTÁDIO: `{i:11, nr:3, j:46, ns:3}` tem
+ * **-60 m** contra o BUL04, ou seja o bulevar de 44 m passa por dentro dele.
+ * Defeito anterior a esta peça e não corrigido aqui; a varredura que o acha está
+ * em `scripts/_sitio2.ts`.
  */
-export const GEODE_MOD: Modulo = { i: 8, nr: 3, j: 46, ns: 3 }
+export const GEODE_MOD: Modulo = { i: 11, nr: 3, j: 52, ns: 2 }
 
 /** o envelope construído, para medir sem carregar o GLB */
 export const GEODE_ENV_X = 224   // a saia de cristal, que é mais larga que o tambor
@@ -42,24 +63,24 @@ export const GEODE_ENV_Z = 201
  * lado para o micro-relevo. Foi por medir a cota só no PRÉDIO que a calçada do
  * estádio saiu furada.
  */
-export const GEODE_PECA_X = 292
-export const GEODE_PECA_Z = 269
+export const GEODE_PECA_X = 292   // no ARCO (tangencial), que é o eixo longo
+export const GEODE_PECA_Z = 269   // no RADIAL
 
 /**
  * A distância em que a peça some, POR PERFIL.
  *
  * ⚠️ A DISTÂNCIA SE MEDE DE ONDE A PEÇA É VISTA. A conta, igual à do estádio:
  *
- *     THE GEODE está a 2.754 m do centro
+ *     THE GEODE está a 3.294 m do centro (era 2.754 antes da correção de sítio)
  *     o visitante fica na praça, raio até 1.024 m
- *     logo ele a vê de 1.730 a 3.778 m
+ *     logo ele a vê de 2.270 a 4.318 m
  *
  * O corte tem de ser maior que o PIOR caso, não que a média: foi cortando pela
- * média que o estádio sumiu do celular em 06/09. 4.200 cobre os 3.778 com 11%
- * de folga.
+ * média que o estádio sumiu do celular em 06/09. 4.700 cobre os 4.318 com 9% de
+ * folga. ⚠️ Este número acompanha o SÍTIO: mudou o módulo, refaça a conta.
  */
 export function geodeCull(tier: 'mobile' | 'desktop'): number {
-  return tier === 'mobile' ? 4200 : 6500
+  return tier === 'mobile' ? 4700 : 7000
 }
 
 /** Centro e giro do bloco, direto da teia. */
