@@ -835,9 +835,30 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   // (light-pool.ts), que é o que faz a cidade parecer acesa sem cobrar por pixel.
   const lights: THREE.PointLight[] = []
 
-  const update = (t: number) => {
+  // ⚠️ AS FONTES CONGELAM DE LONGE, NO CELULAR. Elas rodavam a conta inteira em
+  // TODO quadro, a qualquer distância: `frustumCulled` é `false` (e tem de ser,
+  // porque a esfera envolvente nasce dos zeros e o three cortaria a fonte de
+  // perto) e o laço nunca olhou a câmera. Resultado: com a câmera na cratera da
+  // guerra, a 3 km, que é a ENTRADA PADRÃO da cidade, o telefone reescrevia
+  // 4.000 posições e fazia ~12 mil senos e cossenos por quadro para animar água
+  // que ocupa um pixel.
+  //
+  // ⚠️ E CONGELAR NÃO É ESCONDER: a fonte continua desenhada, com as partículas
+  // paradas onde estavam. A `SMALL` do perfil (2.200 m no celular) deixa a
+  // partícula mais próxima a uns 1.600 m, onde ela mede cerca de 1,8 pixel na
+  // tela do telefone: movimento de um ponto desse tamanho não se percebe.
+  //
+  // ⚠️ SÓ NO CELULAR, de propósito. No desktop a conta continua rodando a
+  // qualquer distância, e o quadro sai idêntico ao de antes, ponto a ponto.
+  const soCelular = opts.profile?.tier === 'mobile'
+  const _wp = new THREE.Vector3()
+  const longe = (o: THREE.Object3D, cam?: THREE.Vector3) =>
+    soCelular && !!cam && o.getWorldPosition(_wp).distanceTo(cam) > SMALL
+
+  const update = (t: number, camPos?: THREE.Vector3) => {
     // fontes: cada partícula sobe e cai numa parábola, com fase própria
     for (const j of jets) {
+      if (longe(j, camPos)) continue
       const seed = j.userData.seed as Float32Array
       const pa = j.geometry.attributes.position as THREE.BufferAttribute
       const n = pa.count
