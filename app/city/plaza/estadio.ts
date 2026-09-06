@@ -23,13 +23,37 @@ import * as THREE from 'three'
 import { caixaDoModulo, polyDoModulo, type Modulo } from './teia'
 
 /**
- * O bloco de 3 x 3 módulos do estádio, escolhido por varredura de toda a teia
- * entre os raios 1.900 e 3.800: é o que fica mais perto do Parque Central (714 m
- * do centro dele) entre os que comportam o prédio inteiro com folga. A caixa
- * mede 528 m no radial por 669 m de arco para um prédio de 303 x 261 m, o que
- * deixa **134 m livres até a rua mais próxima em qualquer direção**.
+ * ⚠️ CORRIGIDO EM 06/09: O BULEVAR BUL04 PASSAVA POR DENTRO DO ESTÁDIO.
+ *
+ * O bloco anterior, `{i:11, nr:3, j:46, ns:3}`, foi escolhido por varredura da
+ * TEIA, e a teia não é a única malha viária da cidade. Bulevares, autopistas e
+ * anéis viários são publicados pelo gerador em `cidade-malha.json` e desenhados
+ * por outro caminho, então nem a máscara de parcela (`estadioParcela`) nem a
+ * varredura original os viam. Medido:
+ *
+ *     BUL04, bulevar de 44 m no rumo 106,875, contra a peça de 418 x 376:
+ *     -123 m de folga, ou seja o eixo do bulevar cai DENTRO do estádio.
+ *
+ * O mesmo defeito derrubou o primeiro sítio de THE GEODE, e o fundador viu os
+ * dois na live. A regra que sai daqui: **caber num módulo da teia é necessário e
+ * não suficiente**; o bloco tem de ser conferido contra as TRÊS famílias de via
+ * mais os corpos d'água e os canais. A varredura que faz isso está em
+ * `scripts/_sitio_est.ts`.
+ *
+ * O bloco novo, dos 929 aprovados:
+ *
+ *  · **123 m livres** até a via grande mais próxima (o próprio BUL04), contra
+ *    -123 do anterior;
+ *  · caixa de **528 m no radial por 727 m de arco** para uma peça de 418 x 376:
+ *    76 m no radial e 155 m no arco até a rua do próprio módulo;
+ *  · **mesmo anel** (r 3.294) e 860 m de THE GEODE, então o distrito esportivo
+ *    continua de pé, agora sem nenhuma das duas peças em cima de via;
+ *  · água a 1.099 m e o canal `CR03` a 862 m de afastamento lateral.
+ *
+ * ⚠️ O RAIO NÃO MUDOU (3.294 nos dois), então `estadioCull` continua valendo sem
+ * refazer a conta. Se um dia o bloco sair deste anel, refaça.
  */
-export const ESTADIO_MOD: Modulo = { i: 11, nr: 3, j: 46, ns: 3 }
+export const ESTADIO_MOD: Modulo = { i: 11, nr: 3, j: 44, ns: 3 }
 
 /** o envelope construído, para quem precisa medir sem carregar o GLB */
 export const ESTADIO_ENV_X = 303
