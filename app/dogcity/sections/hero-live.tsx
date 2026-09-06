@@ -127,7 +127,11 @@ function useWarTicker(): Ticker | null {
 const PORTAS = [
   {
     idx: "01",
-    nome: "DOGCITY",
+    // ⚠️ AS TRÊS PORTAS SÃO UMA FAMÍLIA SÓ, e o cifrão é o fio (decisão do
+    // fundador, 05/09). Antes eram três gramáticas diferentes na mesma dobra:
+    // `DOGCITY` sem nada, `THE PRICE WAR` com artigo e `$DOG GALAXY` com cifrão.
+    // Agora as três abrem por `$DOG`, que é o ticker e o dono de tudo isto.
+    nome: "$DOG CITY",
     verbo: "ENTER",
     // ⚠️ NUNCA /city cru: sem ?view= a câmera entra em cima da batalha
     // (plaza-scene.tsx:452) e esta porta abriria no mesmo quadro da porta 02.
@@ -145,7 +149,7 @@ const PORTAS = [
   },
   {
     idx: "02",
-    nome: "THE PRICE WAR",
+    nome: "$DOG PRICE WAR",
     verbo: "WATCH",
     // ⚠️ A BATALHA DA VITRINE É A DA CIDADE. /city/war é o palco solo, feito
     // para o navegador de carteira, onde a cidade inteira não roda.
@@ -541,7 +545,7 @@ export default function HeroLive() {
         <div className="hidden md:flex items-center gap-3 mt-5 font-mono text-[11px] tracking-[0.14em] text-dusty">
           <span>Want to help build it?</span>
           <a href="#build" className="text-lava hover:text-lava-light transition-colors">
-            BUILD DOGCITY ↓
+            BUILD $DOG CITY ↓
           </a>
         </div>
       </div>
