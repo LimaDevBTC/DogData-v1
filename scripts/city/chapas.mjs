@@ -88,6 +88,11 @@ const VISTAS = {
   estadio:   [4053, 620, 1086, 3184, 10, 853, 45],
   estadioalto:[3435, 1150, 920, 3184, 0, 853, 45],
   estadioperto:[3599, 175, 964, 3184, 25, 853, 42],
+  // THE GEODE, a arena coberta. Sitio em (2.660, 713), raio 2.754, mesmo radial
+  // do estadio e 540 m dele. `geode` julga a IMPLANTACAO (a peca com a malha em
+  // volta e o estadio ao fundo); `geodeperto` julga o predio e o letreiro.
+  geode:     [3529, 480, 946, 2660, 20, 713, 45],
+  geodeperto:[3210, 118, 848, 2660, 34, 713, 42],
   // ⚠️ ENQUADRAMENTOS NOVOS, 03/09, e o motivo é o que o cabeçalho do terrain.ts
   // avisa: MEXER NA ALTURA MOVE O MUNDO. A coroa foi de 2.619 para 5.513 m e a
   // `abobada` acima, calibrada para a casca velha, passou a fotografar céu preto:

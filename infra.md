@@ -116,14 +116,23 @@ possível:
 ## 5. O que já saiu desta lista
 
 **A arena poliesportiva coberta**, escolhida pelo fundador em 06/09 na frente do
-Colosso. Fechou modelada no mesmo dia como **"A Pedra"**, um runestone colossal
-de 7 faces com 84 m de altura, cânion de entrada e óculo no topo. Plano completo
-em `arena.md`; fonte em `blender/build_arena.py`; peça em
-`public/city/dog-stone-arena.glb`, **17.998 triângulos, 110 KB, zero textura**.
+Colosso. Fechou no mesmo dia como **THE GEODE**: um cume de obsidiana facetado,
+simétrico, com 28.240 lugares e piso de show de 48 x 28 m. Plano completo em
+`geode.md`; fonte em `blender/build_arena.py`; peça em
+`public/city/dog-geode.glb`, **31.348 triângulos, 182 KB, zero textura**; sítio e
+poda de celular em `app/city/plaza/geode.ts`.
 
-Ela mudou uma coisa nesta lista: provou que a linguagem de OBSIDIANA do Parque
-Runestone escala para edifício. Peça de infra da DogCity não precisa procurar
-identidade fora, e as próximas devem ser julgadas por isso também.
+Ela mudou três coisas nesta lista, e as três valem para as próximas peças:
+
+- **A linguagem de OBSIDIANA do Parque Runestone escala para edifício.** Peça de
+  infra da DogCity não precisa procurar identidade fora.
+- **Mas forma emprestada, não.** Duas versões foram descartadas por tentar que a
+  arena FOSSE a runestone: um monólito parecido com ela e depois a pedra
+  original deitada. O fundador cortou a segunda pelo motivo certo, "o prédio tem
+  que ser funcional, não pode apenas ter formato". A regra virou: **a bacia
+  desenha a planta, a planta desenha a pele**, e da referência sobra o material.
+- **Capacidade se mede contra a casca.** Os 12.000 do programa eram pequenos para
+  o envelope que a pele desenhou, e isso só apareceu com o prédio pronto.
 
 ## 6. O que eu recomendo começar depois
 
