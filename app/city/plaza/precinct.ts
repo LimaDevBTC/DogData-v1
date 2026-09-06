@@ -817,7 +817,7 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   cull(uplights, SMALL)
 
   // ── a grande fonte do norte, no lugar da quarta âncora ───────────────────
-  const fountain = buildGrandFountain(rnd, track, jetTex)
+  const fountain = buildGrandFountain(rnd, track, jetTex, Math.round(((opts.profile?.jetParticles ?? 900) * 16) / 9))
   const fy = yAt(0, -R_ANCHOR)
   fountain.group.position.set(0, fy, -R_ANCHOR)
   group.add(fountain.group)
@@ -938,7 +938,7 @@ function makeDotTexture(): THREE.Texture {
 /** A grande fonte do norte: uma bacia larga com um jato central alto e um anel de
  *  jatos, coroada por um anel de palmeiras; o marco de palácio no ponto cardeal
  *  cuja âncora ainda não existe. */
-function buildGrandFountain(rnd: () => number, track: <T extends { dispose: () => void }>(o: T) => T, jetTex: THREE.Texture) {
+function buildGrandFountain(rnd: () => number, track: <T extends { dispose: () => void }>(o: T) => T, jetTex: THREE.Texture, jatos: number) {
   const group = new THREE.Group()
   group.name = 'GrandFountain'
   const R = 70
@@ -964,7 +964,17 @@ function buildGrandFountain(rnd: () => number, track: <T extends { dispose: () =
     group.add(stem)
   }
   // jatos: um central alto, um anel médio, um anel baixo na borda
-  const NJ = 1600
+  //
+  // ⚠️ ERA `1600` FIXO, E ESTA ERA A MAIOR FONTE DA CENA DESOBEDECENDO O PERFIL.
+  // Os quatro espelhos das diagonais já liam `jetParticles` desde sempre (600 no
+  // celular contra 900 no desktop), e só esta, que é a mais pesada das cinco,
+  // ficava de fora: o telefone reescrevia 1.600 posições por quadro, a conta
+  // inteira do desktop. Somando as cinco eram 4.000 partículas e cerca de 12 mil
+  // senos e cossenos POR QUADRO num aparelho que já não abria.
+  //
+  // O fator 16/9 preserva o desktop EXATO: `jetParticles` 900 devolve 1.600,
+  // bit a bit o que era. No celular 600 devolve 1.067, e no `low` 300 devolve 533.
+  const NJ = jatos
   const pos = new Float32Array(NJ * 3)
   const seed = new Float32Array(NJ * 2)
   for (let k = 0; k < NJ; k++) { seed[k * 2] = rnd(); seed[k * 2 + 1] = rnd() }
