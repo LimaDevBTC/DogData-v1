@@ -36,6 +36,17 @@ export const ESTADIO_ENV_X = 303
 export const ESTADIO_ENV_Z = 261
 
 /**
+ * ⚠️ A PEÇA COBRE MUITO MAIS QUE O PRÉDIO, e foi por não olhar isso que a
+ * calçada saiu furada. O envelope tem 303 x 261, mas a esplanada avança 30,5 m
+ * além da pele e o talude do platô mais 22, o que dá **418 x 376** de chão
+ * ocupado. Medindo a cota só no prédio, o piso ficou 0,6 m abaixo do ponto mais
+ * alto que ele cobre, e o terreno atravessou a calçada num trecho: é a mancha
+ * que o fundador viu na chapa ("a calçada em torno do estádio tem uma falha").
+ */
+export const ESTADIO_PECA_X = 418
+export const ESTADIO_PECA_Z = 376
+
+/**
  * A distância em que a peça some, POR PERFIL.
  *
  * ⚠️ NÚMERO FIXO AQUI É DEFEITO DE CELULAR. A peça tem 300 m de envelope e 85
@@ -90,13 +101,21 @@ export function assentarEstadio(
   const s = estadioSitio()
   const rad = THREE.MathUtils.degToRad(s.rumoDeg)
   const c = Math.cos(-rad), sn = Math.sin(-rad)
-  const hx = ESTADIO_ENV_X / 2, hz = ESTADIO_ENV_Z / 2
+  // ⚠️ E A COTA SE MEDE EM GRADE, NÃO NOS CANTOS. Cinco pontos do prédio deixam
+  // passar o cume que cai no meio da esplanada; a grade de 14 m sobre a peça
+  // inteira custa ~800 consultas uma vez no boot e não deixa buraco. A folga de
+  // 0,4 m é a margem para o micro-relevo que o `terreno=fino` acrescenta depois.
+  const hx = ESTADIO_PECA_X / 2, hz = ESTADIO_PECA_Z / 2
   let alto = -Infinity
-  for (const [dx, dz] of [[0, 0], [-hx, -hz], [hx, -hz], [hx, hz], [-hx, hz]]) {
-    const x = s.x + dx * c - dz * sn
-    const z = s.z + dx * sn + dz * c
-    alto = Math.max(alto, alturaEm(x, z))
+  for (let dx = -hx; dx <= hx; dx += 14) {
+    for (let dz = -hz; dz <= hz; dz += 14) {
+      const x = s.x + dx * c - dz * sn
+      const z = s.z + dx * sn + dz * c
+      const y = alturaEm(x, z)
+      if (y > alto) alto = y
+    }
   }
+  alto += 0.4
   root.name = 'DOG_ARENA'
   root.position.set(s.x, alto, s.z)
   root.rotation.y = -rad
