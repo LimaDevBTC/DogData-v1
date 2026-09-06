@@ -4362,7 +4362,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       for (const s of sways) { s.o.rotation.y = Math.sin(t * 0.22) * 0.95; s.o.position.y = s.y0 + Math.sin(t * 0.8) * s.amp }
       for (const j of jets) j.o.scale.y = j.y0 * (0.88 + 0.12 * Math.sin(t * 1.4))
       chalet?.update(t)
-      precinct?.update(t)
+      precinct?.update(t, camera.position)
       monuments?.update(t)
       founders?.update(t)
       dsc?.update(t)

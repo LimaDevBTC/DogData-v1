@@ -75,7 +75,8 @@ function mulberry(seed: number) {
 
 export interface Precinct {
   group: THREE.Group
-  update: (t: number) => void
+  /** `camPos` liga o congelamento das fontes por distância (só no celular) */
+  update: (t: number, camPos?: THREE.Vector3) => void
   dispose: () => void
   /** Com `realTrees`, os pontos semeados dos setores saem daqui como MODELOS a
    *  plantar (props.ts os instancia). O gerador procedural de árvore e palmeira
@@ -873,7 +874,8 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
       }
       pa.needsUpdate = true
     }
-    fountain.update(t)
+    // a Grande Fonte é a mais pesada das cinco: 1.600 partículas no desktop
+    if (!longe(fountain.group, camPos)) fountain.update(t)
     for (const l of lights) l.intensity = 1.1 * (0.92 + 0.08 * Math.sin(t * 0.9 + l.position.x))
   }
 
