@@ -2634,8 +2634,27 @@ async function carregarInstanciavel(
   gltf: GLTFLoader, especie: EspecieArvore,
 ): Promise<MalhaArvore | null> {
   try {
+    // ⚠️ SONDA TEMPORARIA (06/09): separa REDE de DECODIFICACAO. Com o teto em
+    // 45 s as doze cargas continuam estourando, entao a hipotese de
+    // congestionamento caiu. Esta sonda mede os dois lados no mesmo instante:
+    // se o fetch cru volta em milissegundos e o `gltf.load` nao volta nunca, o
+    // problema esta no parse (Draco/KTX2/textura), nao na rede nem no arquivo.
+    const _t0 = performance.now()
+    try {
+      const r = await fetch(especie.url)
+      const b = await r.arrayBuffer()
+      console.warn(`[sonda] ${especie.url}: fetch ${r.status}, ${b.byteLength} bytes em ${(performance.now() - _t0).toFixed(0)} ms`)
+    } catch (e) {
+      console.warn(`[sonda] ${especie.url}: fetch FALHOU`, e)
+    }
+    const _t1 = performance.now()
     const cena = await comLimiteDeTempo(
-      new Promise<THREE.Group>((res, rej) => gltf.load(especie.url, (g) => res(g.scene), undefined, rej)),
+      new Promise<THREE.Group>((res, rej) => gltf.load(
+        especie.url,
+        (g) => { console.warn(`[sonda] ${especie.url}: parse OK em ${(performance.now() - _t1).toFixed(0)} ms`); res(g.scene) },
+        (ev) => { if (ev.loaded === ev.total) console.warn(`[sonda] ${especie.url}: bytes completos em ${(performance.now() - _t1).toFixed(0)} ms, parse comecou`) },
+        (e) => { console.warn(`[sonda] ${especie.url}: onError em ${(performance.now() - _t1).toFixed(0)} ms`, e); rej(e as Error) },
+      )),
       TETO_CARGA, `[inverno] floresta: ${especie.url}`,
     )
     cena.updateMatrixWorld(true)
