@@ -3,18 +3,19 @@
 // central, por pedido do fundador em 06/09.
 //
 // ⚠️ O DIAGNÓSTICO ERA FÁCIL E ELE ESTAVA CERTO. A "mata" de `lago.ts` (bloco
-// "4. as ilhas") é uma FAIXA DE COR (`COR_MATO`) pintada num quad entre a praia
-// e a trilha: zero árvore, zero arbusto, zero pedra. De cima isso lê como grama
-// chapada, que foi exatamente a queixa dele. `aquario.ts` já planta palmeira,
-// samambaia, feto e grama-alta nas mesmas ilhas, mas (a) está atrás de
-// `?aquario=1`, ou seja OFF em produção, e (b) mesmo ligado é raro demais para
-// virar dossel: 16 a 30 indivíduos por espécie por ilha, em anéis largos de
-// dezenas de metros, lê como jardim pontilhado, não como mata.
+// "4. as ilhas") era uma FAIXA DE COR (`COR_MATO`) pintada num quad: zero
+// árvore, zero arbusto, zero pedra. De cima isso lia como grama chapada, que
+// foi exatamente a queixa dele. `aquario.ts` já plantava palmeira, samambaia,
+// feto e grama-alta nas mesmas ilhas, mas (a) está atrás de `?aquario=1`, ou
+// seja OFF em produção, e (b) mesmo ligado era raro demais para virar dossel.
 //
-// ⚠️ NENHUMA CONSTRUÇÃO. O fundador foi explícito: preservar as ilhas, só
-// natureza. Este módulo planta árvore, arbusto, touceira e rocha; não desenha
-// nada que pareça programa (sem plataforma, sem cerca, sem trilha nova: a
-// trilha de saibro e o píer de `lago.ts` continuam intocados).
+// ⚠️ NENHUMA CONSTRUÇÃO, E ISSO INCLUI ACESSO. O fundador foi explícito duas
+// vezes: primeiro "preservar as ilhas", depois (06/09, segunda correção)
+// "sem deck ou pedaço de rua/estrada". A queixa original já dizia isso:
+// "elas parecem ter um pedaço de estrada pra algum lugar, mas que na verdade
+// não é nada". `lago.ts` tirou a trilha de saibro, o desembarque e o píer
+// (e, na ilha do Dog Social Club, o átrio/espelho d'água/pódio); este módulo
+// planta árvore, arbusto, touceira e rocha, nunca piso, nunca caminho.
 //
 // ⚠️ SEIS ILHAS, NÃO OITO, DESDE 06/09: `lago.ts` reordenou o anel (a do Dog
 // Social Club estava em cima da junção de um canal, e oito não cabiam sem
@@ -27,9 +28,9 @@
 // ⚠️ A COTA NÃO VEM DE `heightAt` + UM `lift` CONSTANTE, e essa era a segunda
 // imprecisão de `aquario.ts` (`LIFT_ILHA`, um único deslocamento para toda a
 // floresta, quando a ilha sobe de +0,15 na praia a +3,1 na clareira). Aqui
-// cada planta recebe a cota EXATA do patamar em que nasceu, pela mesma régua
-// de `yTerraco` do desembarque em `lago.ts` (`alturaPatamar` abaixo): sem isso
-// uma palmeira da praia nasceria até 0,9 m acima da areia ou enterrada na
+// cada planta recebe a cota EXATA do patamar em que nasceu (`alturaPatamar`
+// abaixo, a mesma régua da mata contínua de `lago.ts`): sem isso uma
+// palmeira da praia nasceria até 0,9 m acima da areia ou enterrada na
 // clareira.
 //
 // ⚠️ COR POR INSTÂNCIA SEMPRE LIGADA, SEM BANDEIRA. `props.ts` só chama
@@ -51,8 +52,9 @@
 // ⚠️ AS SEIS NÃO SÃO IGUAIS. Cinco arquétipos nomeados (uma por ilha
 // reservada, ver `ARQUETIPOS`) variam densidade, quais espécies emergem do
 // dossel, quantas rochas e o quanto a borda da clareira é irregular. A sexta
-// (Dog Social Club) tem tratamento próprio, mais rala, sem miolo fechado (a
-// clareira dela é a praça do parceiro, não um lote guardado).
+// (Dog Social Club) tem tratamento próprio, mais rala, mas desde 06/09 GANHA
+// miolo fechado como as outras: sem praça, a clareira dela também é vazio de
+// mata, só um pouco maior.
 //
 // Three.js puro (regra da casa: nada de react-three-fiber).
 // ═══════════════════════════════════════════════════════════════════════════
@@ -60,7 +62,7 @@ import * as THREE from 'three'
 import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { loadSf, dressSf, podarMapasSecundarios } from './sf-assets'
 import { hash01, geoLonge } from './especies'
-import { contornoIlha, anguloDesembarque, type Ilha } from './lago'
+import { contornoIlha, type Ilha } from './lago'
 import type { Tier, Quality, DistanceCuller } from './perf'
 
 export interface IlhaMataOpts {
@@ -89,20 +91,25 @@ export interface IlhaMata {
   dispose(): void
 }
 
-// ── a cota do patamar, a MESMA régua de `yTerraco` no desembarque de lago.ts ─
+// ── a cota do patamar, a MESMA régua da mata contínua em lago.ts ───────────
 //
 // ⚠️ REPRODUZIDA, NÃO IMPORTADA: `lago.ts` calcula isso dentro do laço da
 // ilha, fechado sobre `L.agua` e `dsc` daquela iteração, sem exportar uma
-// função. Duplicar cinco linhas de aritmética é mais barato e mais claro do
-// que abrir o fecho de `buildLago` para exportar um closure. Os CINCO cortes
-// (fCl, 0,655, 0,70, 0,88, 1,00) e os QUATRO coeficientes são cópia literal.
+// função. Duplicar três linhas de aritmética é mais barato e mais claro do
+// que abrir o fecho de `buildLago` para exportar um closure.
+//
+// ⚠️ SÓ TRÊS CORTES AGORA, NÃO MAIS CINCO. Até 06/09 a ilha tinha cinco
+// patamares (clareira / mata interna / TRILHA / mata externa / praia), cada
+// um com sua própria régua. Sem trilha, a mata virou UMA faixa contínua e
+// LINEAR entre a borda da praia (f 0,88, cota agua+1,5) e a borda da
+// clareira (`fCl`, cota agua+3,0): é exatamente a `yMata(t)` de `lago.ts`,
+// só escrita em função de `f` em vez de `t`. A praia (acima de 0,88) e a
+// clareira (abaixo de `fCl`) continuam com a régua de sempre.
 function alturaPatamar(agua: number, dsc: boolean, f: number): number {
   const fCl = dsc ? 0.42 : 0.34
   const ff = Math.min(1, Math.max(0, f))
   if (ff <= fCl) return agua + 3.1
-  if (ff <= 0.655) return agua + 3.0 - (0.3 * (ff - fCl)) / (0.655 - fCl)
-  if (ff <= 0.70) return agua + 2.6
-  if (ff <= 0.88) return agua + 2.4 - (0.9 * (ff - 0.70)) / 0.18
+  if (ff <= 0.88) return agua + 1.5 + (1.5 * (0.88 - ff)) / (0.88 - fCl)
   return agua + 1.5 - (1.35 * (ff - 0.88)) / 0.12
 }
 
@@ -290,16 +297,19 @@ interface Ponto {
 /** um bosque de `n` indivíduos entre `fMinFn(a)` e `fMax`, em clareiras de
  *  2 a 6 (a mesma lição dos afloramentos do Parque Runestone e da floresta
  *  velha de `aquario.ts`: densidade constante lê como cerca-viva, bosque com
- *  claro lê como mata). Evita o ângulo do píer com a mesma folga de 10 m que
- *  `aquario.ts` usa. */
+ *  claro lê como mata).
+ *
+ *  ⚠️ SEM DESVIO DE PÍER, DESDE 06/09: a ilha não tem mais píer nenhum (o
+ *  fundador tirou, junto com a trilha), então não há mais ângulo para evitar.
+ *  A faixa de ~20° que antes ficava careca (reservada para a rampa que nunca
+ *  chegou a existir de verdade nesta função) agora planta como qualquer
+ *  outra: é exatamente o "feche a mata ali" do pedido. */
 function bosque(
   ilha: Ilha, k: number, dsc: boolean, semente: number, n: number,
   fMinFn: (a: number) => number, fMax: number, agua: number,
 ): Ponto[] {
   if (n <= 0) return []
   const out: Ponto[] = []
-  const aPier = anguloDesembarque(k)
-  const meiaPier = 10 / ilha.r
   let feito = 0, tentativa = 0
   while (feito < n && tentativa < n * 5 + 20) {
     tentativa++
@@ -307,8 +317,6 @@ function bosque(
     const quantos = Math.min(n - feito, 2 + Math.floor(hash01(semente + tentativa * 11) * 5))
     for (let j = 0; j < quantos && feito < n; j++) {
       const a = ga + (hash01(semente + tentativa * 31 + j * 3) - 0.5) * (24 / ilha.r)
-      const dd = Math.abs(((a - aPier + Math.PI * 3) % (Math.PI * 2)) - Math.PI)
-      if (dd < meiaPier) continue
       const fMin = fMinFn(a)
       if (fMin >= fMax) continue
       const f = fMin + hash01(semente + tentativa * 53 + j * 7) * (fMax - fMin)
@@ -321,13 +329,19 @@ function bosque(
   return out
 }
 
-/** o bambu não é bosque, é TELA: um anel raso rente à trilha por dentro,
- *  como a tela do Jardim Japonês (`JB_BAMBOO` em `props-table.ts`). Ele é o
- *  que dá o "fechado" da floresta fechada e o miolo do bosque de bambu. */
+/** o bambu não é bosque, é TELA: um anel raso no meio da mata, como a tela
+ *  do Jardim Japonês (`JB_BAMBOO` em `props-table.ts`). Ele é o que dá o
+ *  "fechado" da floresta fechada e o miolo do bosque de bambu.
+ *
+ *  ⚠️ O RAIO NÃO MUDOU QUANDO A TRILHA SAIU, DE PROPÓSITO. Ele estava "logo
+ *  por dentro da trilha"; sem trilha, ele é só um anel a meio caminho entre
+ *  a clareira e a beira da mata, que continua sendo um lugar razoável para
+ *  um cinturão de bambu (o miolo mais fechado fica mais perto da clareira,
+ *  a mata mais aberta perto da praia). */
 function telaBambu(ilha: Ilha, k: number, dsc: boolean, n: number, agua: number): Ponto[] {
   if (n <= 0) return []
   const fCl = dsc ? 0.42 : 0.34
-  const f = (0.655 + fCl + 0.02) / 2 + 0.03 // logo por dentro da trilha
+  const f = (0.67 + fCl + 0.02) / 2 + 0.03
   const out: Ponto[] = []
   for (let j = 0; j < n; j++) {
     const a = (j / n) * Math.PI * 2 + hash01(k * 41 + j) * 0.2
@@ -339,18 +353,14 @@ function telaBambu(ilha: Ilha, k: number, dsc: boolean, n: number, agua: number)
 
 /** as rochas da praia: mais largas de escala, um pouco além da faixa de
  *  vegetação (f até 0,92), para os matacões aparecerem na areia como pedra de
- *  verdade e não só na mata */
+ *  verdade e não só na mata. Sem desvio de píer, ver a nota em `bosque`. */
 function rochasPraia(ilha: Ilha, k: number, dsc: boolean, n: number, agua: number): Ponto[] {
   if (n <= 0) return []
   const out: Ponto[] = []
-  const aPier = anguloDesembarque(k)
-  const meiaPier = 10 / ilha.r
   let feito = 0, tentativa = 0
   while (feito < n && tentativa < n * 6 + 10) {
     tentativa++
     const a = hash01(k * 971 + tentativa * 13) * Math.PI * 2
-    const dd = Math.abs(((a - aPier + Math.PI * 3) % (Math.PI * 2)) - Math.PI)
-    if (dd < meiaPier) continue
     const f = 0.78 + hash01(k * 971 + tentativa * 13 + 5) * 0.14
     const r = contornoIlha(k, a, ilha.r * f)
     out.push({ x: ilha.x + Math.cos(a) * r, z: ilha.z + Math.sin(a) * r, a, y: alturaPatamar(agua, dsc, f) })
@@ -384,14 +394,10 @@ function rochasPraia(ilha: Ilha, k: number, dsc: boolean, n: number, agua: numbe
 function palmeirasInclinadas(ilha: Ilha, k: number, dsc: boolean, n: number, agua: number): Ponto[] {
   if (n <= 0) return []
   const out: Ponto[] = []
-  const aPier = anguloDesembarque(k)
-  const meiaPier = 10 / ilha.r
   let feito = 0, tentativa = 0
   while (feito < n && tentativa < n * 6 + 10) {
     tentativa++
     const a = hash01(k * 733 + tentativa * 17) * Math.PI * 2
-    const dd = Math.abs(((a - aPier + Math.PI * 3) % (Math.PI * 2)) - Math.PI)
-    if (dd < meiaPier) continue
     // bem na beira, f 0,855 a 0,885: ainda mata, tronco já debruçando na praia
     const f = 0.855 + hash01(k * 733 + tentativa * 17 + 9) * 0.03
     const r = contornoIlha(k, a, ilha.r * f)
@@ -445,15 +451,24 @@ export async function buildIlhaMata(o: IlhaMataOpts): Promise<IlhaMata> {
     const semKExt = 20_000 + k * 977
     const semKPraia = 30_000 + k * 977
 
-    if (!dsc) {
-      for (const [file, base] of BASE_MIOLO) {
-        const n = Math.round(base * arq.mult * mulPara(PAPEL[file]))
-        add(file, bosque(ilha, k, dsc, semKMiolo + hashNome(file), n, fMinMiolo, 0.635, agua))
-      }
+    // ⚠️ MIOLO E EXT AGORA SE TOCAM EM 0,67, SEM VÃO NO MEIO. Até 06/09 havia
+    // uma faixa de 0,635 a 0,705 deliberadamente vazia, reservada para a
+    // trilha de saibro que corria ali; sem trilha, aquele vão viraria a
+    // "cicatriz careca" que o fundador pediu para evitar. As duas faixas
+    // agora dividem a mesma fronteira, e a mata lê como UMA mancha, não duas
+    // com um corte no meio.
+    //
+    // ⚠️ E O MIOLO ENTRA PARA A ILHA DO DOG SOCIAL CLUB TAMBÉM, desde 06/09.
+    // Ela não tem mais praça (saiu junto com o resto do que era construído);
+    // a clareira dela é vazio de mata como as outras, só um pouco maior
+    // (`fCl = 0,42`), e por isso ela também ganha a mata fechada do miolo.
+    for (const [file, base] of BASE_MIOLO) {
+      const n = Math.round(base * arq.mult * mulPara(PAPEL[file]))
+      add(file, bosque(ilha, k, dsc, semKMiolo + hashNome(file), n, fMinMiolo, 0.67, agua))
     }
     for (const [file, base] of BASE_EXT) {
       const n = Math.round(base * arq.mult * mulPara(PAPEL[file]))
-      add(file, bosque(ilha, k, dsc, semKExt + hashNome(file), n, () => 0.705, 0.85, agua))
+      add(file, bosque(ilha, k, dsc, semKExt + hashNome(file), n, () => 0.67, 0.85, agua))
     }
     for (const [file, base] of BASE_PRAIA) {
       const n = Math.round(base * arq.mult * mulPara(PAPEL[file]))
@@ -461,8 +476,8 @@ export async function buildIlhaMata(o: IlhaMataOpts): Promise<IlhaMata> {
     }
     for (const em of arq.emergentes) {
       const n = Math.round(em.n * mulPara('emergente'))
-      // a emergente nasce BEM no miolo (f até 0,55), longe da borda e do píer:
-      // ela é o pico do dossel, não faz sentido rente à clareira
+      // a emergente nasce BEM no miolo (f até 0,55), longe da borda: ela é o
+      // pico do dossel, não faz sentido rente à clareira
       add(em.file, bosque(ilha, k, dsc, 40_000 + k * 131 + hashNome(em.file), n, () => fCl + 0.03, 0.55, agua))
     }
     {
@@ -479,13 +494,22 @@ export async function buildIlhaMata(o: IlhaMataOpts): Promise<IlhaMata> {
     // BASE_PRAIA: soma ao `palm` já plantado, não substitui
     add('palm', palmeirasInclinadas(ilha, k, dsc, Math.round(arq.praiaLean * mulPara('dossel')), agua))
     // o acento de oleandro na borda, reuso do cacho que já veste a limonaia
-    // do Jardim Italiano (ver a nota em `TRI_GLB.oleander`). ⚠️ FAIXA FIXA
-    // (0,705 a 0,84), A MESMA DA MATA EXTERNA: `fMinMiolo` ia do miolo até a
-    // praia e ATRAVESSAVA A TRILHA (0,655 a 0,70) no meio do caminho, ou
-    // seja o oleandro podia nascer EM CIMA do saibro. "Borda" aqui é a borda
-    // de fora, entre a trilha e a praia, não qualquer ponto da ilha.
+    // do Jardim Italiano (ver a nota em `TRI_GLB.oleander`). Faixa fixa
+    // (0,67 a 0,84, a mesma da mata externa): oleandro é acento raro, não
+    // plantio de canteiro, então fica perto da praia de propósito em vez de
+    // se espalhar pela ilha inteira.
     add('oleander', bosque(ilha, k, dsc, 60_000 + k * 191, Math.round(arq.oleandro * mulPara('medio')),
-      () => 0.705, 0.84, agua))
+      () => 0.67, 0.84, agua))
+    // ⚠️ A PRÓPRIA CLAREIRA GANHA UM POUCO DE VEGETAÇÃO BAIXA E ROCHA, DESDE
+    // 06/09: sem caminho nenhum atravessando, mas também sem ficar pelada,
+    // por pedido do fundador. `fCl − 0,03` deixa uma faixa fina (3% do raio)
+    // sem planta nenhuma bem na fronteira com o miolo, só para os dois
+    // geradores independentes (este e `fMinMiolo`) não brigarem pelo mesmo
+    // pixel; o resto da clareira é aberto, como um campo.
+    add('grama-alta', bosque(ilha, k, dsc, 70_000 + k * 211, Math.round(8 * arq.mult * mulPara('chao')),
+      () => 0, Math.max(0.05, fCl - 0.03), agua))
+    add('rocks-stylized-pack', bosque(ilha, k, dsc, 80_000 + k * 233, Math.round(2 * mulPara('rocha')),
+      () => 0, Math.max(0.05, fCl - 0.03), agua))
 
     let depois = 0
     for (const l of porArquivo.values()) depois += l.length
@@ -525,8 +549,9 @@ export async function buildIlhaMata(o: IlhaMataOpts): Promise<IlhaMata> {
   ]
   // ⚠️ CORTE APERTADO, PORQUE ISTO NÃO TEM LOD DE LONGE (só o dossel tem, ver
   // 3b). Medido: o chão (feto/samambaia/capim) é a maior CONTAGEM de
-  // indivíduos do módulo (947 no desktop, orçamento em scratchpad) e um raio
-  // de corte de 2.500 m os deixava TODOS ligados na vista padrão da praça
+  // indivíduos do módulo (736 no desktop balanceado, orçamento em
+  // scratchpad) e um raio de corte de 2.500 m os deixava TODOS ligados na
+  // vista padrão da praça
   // (~1.250 m), pagando ~410 mil triângulos por folhagem de 0,4 a 1 m de
   // altura, invisível a essa distância. Cortando em 600/900/1.100 m (chão,
   // médio, rocha) a vista padrão da praça sobra só com o octaedro do dossel:
@@ -633,11 +658,12 @@ export async function buildIlhaMata(o: IlhaMataOpts): Promise<IlhaMata> {
 
   // ⚠️ RAIO DE TROCA 650 m, NÃO OS 150 m DE `arborizacao.ts`. Lá a fileira
   // urbana é vista de rua, a poucos metros; aqui o objeto é a ILHA vista do
-  // barco ou da praça, e a troca perto demais do observador (que se aproxima
-  // do píer) faria a copa "estourar" de octaedro para malha bem diante dele.
-  // NÃO MEDI o ponto exato em que a diferença deixa de incomodar; 650 m é a
-  // metade da distância ilha-praça, ponto em que a maioria das vistas já
-  // decidiu se está "perto" (passeio de barco) ou "longe" (vista da praça).
+  // barco ou da praça (não há mais píer para atracar, mas ainda se chega
+  // de barco na areia), e a troca perto demais do observador faria a copa
+  // "estourar" de octaedro para malha bem diante dele. NÃO MEDI o ponto
+  // exato em que a diferença deixa de incomodar; 650 m é a metade da
+  // distância ilha-praça, ponto em que a maioria das vistas já decidiu se
+  // está "perto" (passeio de barco) ou "longe" (vista da praça).
   const R_PERTO = 650
   let ultima = new THREE.Vector3(1e9, 1e9, 1e9)
   let perto = 0

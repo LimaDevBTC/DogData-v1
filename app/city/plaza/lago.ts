@@ -89,19 +89,12 @@ export function contornoIlha(k: number, a: number, base: number): number {
   return base * (1 + 0.062 * Math.sin(a * 3 + k) + 0.038 * Math.sin(a * 5 - k * 2))
 }
 
-/** o ângulo LOCAL da ilha `k` onde o píer encosta: nada de mato pode nascer nele
- *
- * ⚠️ `10 + k * 60`, NÃO MAIS `22,5 + k * 45`, DESDE 06/09 (seis ilhas, não
- * oito, ver a nota grande em "4. as ilhas" acima). Esta função reproduz o
- * `rumo` do laço de construção por conta própria (é o mesmo cálculo, cópia
- * literal): se as duas fórmulas divergirem, o píer aponta para um rumo e a
- * máscara que protege o desembarque (usada por `arborizacao.ts`, `aquario.ts`
- * e `ilha-mata.ts`) protege outro, e a vegetação nasce em cima do píer de
- * novo. */
-export function anguloDesembarque(k: number): number {
-  const ang = ((10 + k * 60) * Math.PI) / 180
-  return Math.atan2(Math.cos(ang), -Math.sin(ang))
-}
+// ⚠️ `anguloDesembarque` SAIU DAQUI EM 06/09. Ela existia para manter mato
+// fora do ângulo em que o píer encostava (`aquario.ts` e `ilha-mata.ts` a
+// consultavam); sem píer (o fundador tirou: "sem deck ou pedaço de rua"), não
+// há mais ângulo nenhum para proteger, e a função virava exportação órfã.
+// Quem procurar por ela: a proteção de pier nos dois módulos consumidores
+// saiu junto, não ficou como máscara morta.
 
 export interface Lago {
   group: THREE.Group
@@ -185,7 +178,10 @@ const NA_MARGEM = 720                 // rumos em que a linha d'água é medida
 const COR_PISO = '#CBC4B6'
 const COR_ESTRUTURA = '#8F8879'
 const COR_PISTA = '#57534B'
-const COR_TRILHA = '#A79C86'   // saibro: a trilha da ilha não é pista de atletismo
+// ⚠️ `COR_TRILHA` (saibro) SAIU DAQUI EM 06/09, junto com a trilha e o
+// desembarque das ilhas: era a única coisa que a usava, e uma cor sem
+// nenhum `quad()` a chamar é exatamente a função órfã que o fundador pediu
+// para não deixar sobrar.
 const COR_MATO = '#6C7A5B'     // o verde fechado da mata, mais escuro que o gramado
 const COR_TERRA = '#7E8A6B'
 
@@ -848,16 +844,22 @@ export function buildLago(o: LagoOpts): Lago {
   // ── 4. as ilhas ──────────────────────────────────────────────────────────
   //
   // ⚠️ ELAS ERAM DISCOS DE TERRA E O FUNDADOR CHAMOU DE GENÉRICAS, com razão: um
-  // disco verde com mato jogado em cima não é ilha, é mancha. Ilha de verdade tem
-  // ORLA (praia, e a praia é o que faz a água ter margem), tem MIOLO (a floresta),
-  // tem CLAREIRA (senão não há para onde ir), tem TRILHA ligando as duas, e tem
-  // um jeito de CHEGAR. Sem os cinco ela continua sendo mancha por mais palmeira
-  // que se plante.
+  // disco verde com mato jogado em cima não é ilha, é mancha. Ilha de verdade
+  // tem ORLA (praia, e a praia é o que faz a água ter margem), tem MIOLO (a
+  // mata) e tem CLAREIRA (o vazio no meio, senão a mata é parede sólida até o
+  // centro). Sem os três ela continua sendo mancha por mais palmeira que se
+  // plante. `ilha-mata.ts` planta os três; este arquivo só desenha o sítio.
   //
-  // ⚠️ E ELAS CONTINUAM SENDO RESERVA. O que está desenhado é o SÍTIO: praia,
-  // trilha, clareira e píer. Projeto de parceiro entra na clareira, que é
-  // exatamente o pedaço deixado livre. A primeira é do Dog Social Club por
-  // decisão do fundador, e por isso ela é maior e tem praça em vez de clareira.
+  // ⚠️ E ELAS SÃO RESERVA, SEM NENHUM ACESSO CONSTRUÍDO (06/09, segunda
+  // correção do fundador: uma trilha de saibro e um píer chegaram a existir
+  // aqui, e ele mandou tirar os dois: "elas parecem ter um pedaço de estrada
+  // pra algum lugar, mas que na verdade não é nada"; a resposta que ele quer
+  // ouvir é que ficam "sem deck ou pedaço de rua"). O que está desenhado é só
+  // o SÍTIO: praia, mata e clareira. Projeto de parceiro entra na clareira,
+  // que é exatamente o vazio deixado livre; chega-se de barco na areia, ou
+  // não se chega. A primeira é do Dog Social Club por decisão do fundador, e
+  // por isso ela é maior; a praça dela saiu junto com o píer e volta quando
+  // houver projeto de verdade.
   //
   // ⚠️ SEIS ILHAS, NÃO OITO, DESDE 06/09. O fundador viu a Ilha do Dog Social
   // Club (rumo 22,5) em cima da junção do canal central com o radial de 25°:
@@ -909,61 +911,69 @@ export function buildLago(o: LagoOpts): Lago {
     // suficiente para a ilha ter enseada e ponta, e é o que separa terra de moeda.
     const rr = (a: number, base: number) => contornoIlha(k, a, base)
     // ⚠️ RELEVO LEVE DA MATA, PEDIDO DO FUNDADOR EM 06/09: "de cima só vejo a
-    // praia e uma mancha verde que parece grama". Medido: as duas faixas de
-    // `COR_MATO` eram um FRUSTO DE CONE, cota CONSTANTE POR ÂNGULO (`quad()`
-    // só variava a cota entre as duas bordas, nunca ao longo de uma mesma
-    // borda): zero sombra própria numa vista de topo, e é exatamente isso
-    // que lê como tinta em vez de terreno. Dois harmônicos PRÓPRIOS (4 e 7),
-    // DIFERENTES dos de `contornoIlha` (3 e 5): se a colina batesse palma com
-    // a onda da costa, a ilha inteira "respiraria" junto e o relevo pareceria
-    // só uma cópia menor do litoral, não terreno com vida própria.
-    //
-    // ⚠️ A EMENDA COM A PRAIA E COM A TRILHA NÃO MUDA UM MILÍMETRO. O bulto
-    // mora num raio do MEIO, NOVO, entre as duas bordas de cada faixa; as
-    // bordas em si (`R1`/`R2` e `R3`/`R4`) continuam na MESMA cota constante
-    // de antes. Por isso a costura que já existia (a praia bate em `R1`,
-    // ambas em `L.agua + 1,5`) e o degrau que já existia de propósito contra a
-    // trilha (0,1 a 0,2 m, ver as notas de `R2`/`R3` acima) continuam do
-    // jeito que estavam: ninguém testou essa emenda de novo, então ela não
-    // pode ter mudado.
+    // praia e uma mancha verde que parece grama". Medido: a mata era um
+    // FRUSTO DE CONE, cota CONSTANTE POR ÂNGULO (`quad()` só variava a cota
+    // entre as duas bordas, nunca ao longo de uma mesma borda): zero sombra
+    // própria numa vista de topo, e é exatamente isso que lê como tinta em
+    // vez de terreno. Dois harmônicos PRÓPRIOS (4 e 7), DIFERENTES dos de
+    // `contornoIlha` (3 e 5): se a colina batesse palma com a onda da costa,
+    // a ilha inteira "respiraria" junto e o relevo pareceria só uma cópia
+    // menor do litoral, não terreno com vida própria.
     const ondulaMata = (a: number) =>
       1.1 * (0.6 * Math.sin(a * 4.0 + k * 2.7) + 0.4 * Math.sin(a * 7.0 - k * 1.9 + 1.3))
+    // ⚠️ SEM TRILHA E SEM PÍER, DESDE 06/09 (segunda correção do fundador: a
+    // primeira instrução dizia para preservar os dois, e estava errada). A
+    // queixa ORIGINAL dele já era esta: "elas parecem ter um pedaço de
+    // estrada pra algum lugar, mas que na verdade não é nada". Ele confirmou
+    // depois perguntando se as ilhas ficam "sem deck ou pedaço de rua", e a
+    // resposta é sim: ilha intocada, sem acesso construído. Chega-se de barco
+    // na areia, ou não se chega.
+    //
+    // ⚠️ A MATA É UMA FAIXA SÓ, CONTÍNUA DA PRAIA ATÉ A CLAREIRA, não duas
+    // faixas com um anel de saibro no meio: `fClareira` marca só o limite
+    // INTERNO da mata (onde ela encontra a clareira vazia), sem raio de
+    // trilha nenhum entre os dois. A colina da ondulação mora num raio do
+    // MEIO de cada sub-faixa (abaixo); as duas bordas de verdade da mata (a
+    // que encosta na praia e a que encosta na clareira) ficam em cota
+    // constante, sem ondulação, e é por isso que a costura com a praia
+    // continua batendo exatamente onde já batia.
+    const fClareira = dsc ? 0.42 : 0.34
     for (let j = 0; j < seg; j++) {
       const a0 = (j / seg) * Math.PI * 2, a1 = ((j + 1) / seg) * Math.PI * 2
-      const R0 = (a: number) => rr(a, raio)           // linha d'água
-      const R1 = (a: number) => rr(a, raio * 0.88)    // fim da praia
-      const R2 = (a: number) => rr(a, raio * 0.70)    // trilha
-      const R3 = (a: number) => rr(a, raio * 0.655)  // ⚠️ 4,5% do raio, não 8%:
-                                                     // a trilha larga lia como
-                                                     // pista de atletismo
-      const fClareira = dsc ? 0.42 : 0.34
-      const R4 = (a: number) => rr(a, raio * fClareira)  // clareira
-      // o raio do MEIO de cada faixa de mata, onde mora a colina
-      const R1m = (a: number) => rr(a, raio * 0.79)             // entre 0,88 e 0,70
-      const R3m = (a: number) => rr(a, raio * (0.655 + fClareira) / 2) // entre 0,655 e a clareira
+      const R0 = (a: number) => rr(a, raio)              // linha d'água
+      const R1 = (a: number) => rr(a, raio * 0.88)       // fim da praia, início da mata
+      const R4 = (a: number) => rr(a, raio * fClareira)  // fim da mata, início da clareira
       // praia: da linha d'água para dentro, subindo
       B(COR_PRAIA).quad(p(R0(a0), a0, L.agua + 0.15), p(R0(a1), a1, L.agua + 0.15),
                         p(R1(a1), a1, L.agua + 1.5), p(R1(a0), a0, L.agua + 1.5))
-      // mata externa: da praia até a trilha, em DUAS faixas para caber a
-      // colina do meio (agua+1,95 na cota reta, mais a ondulação)
-      B(COR_MATO).quad(p(R1(a0), a0, L.agua + 1.5), p(R1(a1), a1, L.agua + 1.5),
-                       p(R1m(a1), a1, L.agua + 1.95 + ondulaMata(a1)), p(R1m(a0), a0, L.agua + 1.95 + ondulaMata(a0)))
-      B(COR_MATO).quad(p(R1m(a0), a0, L.agua + 1.95 + ondulaMata(a0)), p(R1m(a1), a1, L.agua + 1.95 + ondulaMata(a1)),
-                       p(R2(a1), a1, L.agua + 2.4), p(R2(a0), a0, L.agua + 2.4))
-      // trilha: um anel de saibro, que é o que faz a ilha ser percorrível
-      B(COR_TRILHA).quad(p(R2(a0), a0, L.agua + 2.6), p(R2(a1), a1, L.agua + 2.6),
-                         p(R3(a1), a1, L.agua + 2.6), p(R3(a0), a0, L.agua + 2.6))
-      // mata interna: entre a trilha e a clareira, mesma ideia (agua+2,85 na
-      // cota reta)
-      B(COR_MATO).quad(p(R3(a0), a0, L.agua + 2.7), p(R3(a1), a1, L.agua + 2.7),
-                       p(R3m(a1), a1, L.agua + 2.85 + ondulaMata(a1)), p(R3m(a0), a0, L.agua + 2.85 + ondulaMata(a0)))
-      B(COR_MATO).quad(p(R3m(a0), a0, L.agua + 2.85 + ondulaMata(a0)), p(R3m(a1), a1, L.agua + 2.85 + ondulaMata(a1)),
-                       p(R4(a1), a1, L.agua + 3.0), p(R4(a0), a0, L.agua + 3.0))
-      // ⚠️ A CLAREIRA DAS CINCO RESERVADAS É GRAMADO E NÃO LAJE. Laje clara num
-      // lote vazio lê como estacionamento; grama lê como terreno guardado.
-      if (!dsc)
-        B(COR_TERRA).quad(p(R4(a0), a0, L.agua + 3.1), p(R4(a1), a1, L.agua + 3.1),
-                          p(0, a1, L.agua + 3.1), p(0, a0, L.agua + 3.1))
+      // ⚠️ MATA CONTÍNUA, EM QUATRO SUB-FAIXAS RADIAIS SÓ PARA CABER A
+      // ONDULAÇÃO (`ondulaMata`, relevo de até 1,1 m). As DUAS emendas de
+      // verdade continuam intocadas: a externa (`s === 0`) bate na praia em
+      // `L.agua + 1,5`, a mesma cota de sempre; a interna (`s === N_MATA-1`)
+      // bate em `L.agua + 3,0`, 0,1 m abaixo do piso da clareira (o mesmo
+      // degrau que já existia antes, de propósito). Só as TRÊS costuras do
+      // MEIO (entre uma sub-faixa e a seguinte) recebem a colina cheia, e nos
+      // dois lados dela com o MESMO valor, então elas não racham.
+      const N_MATA = 4
+      const yMata = (t: number) => L.agua + 1.5 + (3.0 - 1.5) * t
+      for (let s = 0; s < N_MATA; s++) {
+        const t0 = s / N_MATA, t1 = (s + 1) / N_MATA
+        const f0 = 0.88 + (fClareira - 0.88) * t0, f1 = 0.88 + (fClareira - 0.88) * t1
+        const Ra = (a: number) => rr(a, raio * f0), Rb = (a: number) => rr(a, raio * f1)
+        const bOut = (a: number) => (s === 0 ? 0 : ondulaMata(a))
+        const bIn = (a: number) => (s === N_MATA - 1 ? 0 : ondulaMata(a))
+        B(COR_MATO).quad(
+          p(Ra(a0), a0, yMata(t0) + bOut(a0)), p(Ra(a1), a1, yMata(t0) + bOut(a1)),
+          p(Rb(a1), a1, yMata(t1) + bIn(a1)), p(Rb(a0), a0, yMata(t1) + bIn(a0)),
+        )
+      }
+      // ⚠️ A CLAREIRA É VAZIO DE MATA, GRAMADO EM TODAS AS SEIS, inclusive na
+      // do Dog Social Club: ela não tem mais praça (a praça saiu junto com o
+      // resto do que era construído; volta quando houver projeto de
+      // parceiro). Laje clara num lote vazio lê como estacionamento; grama lê
+      // como clareira natural.
+      B(COR_TERRA).quad(p(R4(a0), a0, L.agua + 3.1), p(R4(a1), a1, L.agua + 3.1),
+                        p(0, a1, L.agua + 3.1), p(0, a0, L.agua + 3.1))
     }
 
     // ⚠️ AS ILHAS ERAM TAMPAS DE PAPEL. A praia delas começa em `L.agua + 0,15` e
@@ -979,111 +989,20 @@ export function buildLago(o: LagoOpts): Lago {
         p(rr(a1, raio), a1, L.fundo), p(rr(a0, raio), a0, L.fundo))
     }
 
-    // ── o desembarque: a ponte de tábuas encontra a trilha ──────────────────
+    // ⚠️ SEM DESEMBARQUE, SEM PROGRAMA, SEM PÍER, DESDE 06/09. Os três saíram
+    // juntos (ver a nota grande no início do bloco "4. as ilhas"): a faixa de
+    // saibro que costurava o píer à trilha, o átrio/espelho d'água/pódio da
+    // Ilha do Dog Social Club, e o próprio píer de tábuas com os pilares. Ela
+    // deixou de ter praça pela mesma razão que as outras cinco deixaram de
+    // ter trilha: nada construído, ilha intocada. `anguloDesembarque` saiu de
+    // `lago.ts` (não existe mais pier para apontar) e dos dois módulos que a
+    // consultavam só para desviar mato do píer (`aquario.ts`, `ilha-mata.ts`);
+    // sem píer, não há mais ângulo nenhum para proteger.
     //
-    // ⚠️ ISTO É O MESMO DEFEITO DAS PONTES DO LAGO, EM MINIATURA. O píer parava
-    // na areia e a trilha corria em anel sem tocar nele: quem desembarcava caía
-    // no mato. Uma faixa radial de saibro costura os dois, e é o que transforma
-    // praia + trilha + clareira em percurso em vez de três desenhos soltos.
-    const aPier = anguloDesembarque(k)
-    {
-      const meia = 5.5 / raio                       // 5,5 m de meia-largura
-      // ⚠️ A COTA DA FAIXA DE DESEMBARQUE VINHA DE UMA RAMPA RETA E ELA NÃO
-      // ENCOSTAVA NA ILHA EM LUGAR NENHUM, e é a segunda margem deformada que
-      // achei. A ilha é feita de patamares (clareira +3,1 / mata +2,7 a +3,0 /
-      // trilha +2,6 / mata +1,5 a +2,4 / praia +0,15 a +1,5), e a faixa descia
-      // de +3,0 a +2,5 em linha reta por cima de tudo: no começo ela ficava 10 cm
-      // ENTERRADA na clareira, e na beira d'água (f 0,92) ficava +2,5 sobre uma
-      // praia de +1,05, ou seja uma tábua de saibro flutuando 1,45 m acima da
-      // areia, oito vezes, uma por ilha. Agora a cota SAI DO PATAMAR que está
-      // embaixo, mais 5 cm, e o passo caiu de 10 para 22 porque com 10 cada
-      // degrau saltava 45 cm perto da praia.
-      const fCl = dsc ? 0.42 : 0.34
-      const yTerraco = (f: number) => {
-        if (f <= fCl) return L.agua + 3.1
-        if (f <= 0.655) return L.agua + 3.0 - (0.3 * (f - fCl)) / (0.655 - fCl)
-        if (f <= 0.70) return L.agua + 2.6
-        if (f <= 0.88) return L.agua + 2.4 - (0.9 * (f - 0.70)) / 0.18
-        return L.agua + 1.5 - (1.35 * (f - 0.88)) / 0.12
-      }
-      const passos = 22
-      for (let j = 0; j < passos; j++) {
-        const f0 = 0.30 + (0.64 * j) / passos, f1 = 0.30 + (0.64 * (j + 1)) / passos
-        const q = (f: number, da: number) =>
-          p(rr(aPier + da, raio * f), aPier + da, yTerraco(f) + 0.05)
-        B(COR_TRILHA).quad(q(f0, -meia), q(f1, -meia), q(f1, meia), q(f0, meia))
-      }
-    }
-
-    // ── o programa da Ilha do Dog Social Club ──────────────────────────────
-    //
-    // ⚠️ A CLAREIRA DELA ERA UMA LAJE BRANCA VAZIA OCUPANDO 40% DA ILHA, e um
-    // vazio desse tamanho no meio de um cartão de visita não lê como reserva,
-    // lê como esquecimento. As outras cinco continuam guardadas (gramado, para o
-    // projeto do parceiro entrar depois); esta é do Dog Social Club por decisão
-    // do fundador, então ela é a única que já tem desenho.
-    //
-    // A composição é concêntrica e olha bem de cima, que é de onde a cidade é
-    // vista: átrio de laje, banco corrido em anel, ESPELHO D'ÁGUA e pódio no
-    // centro. O espelho repete a água do lago dentro da ilha, que é o truque que
-    // faz a peça pertencer ao lago em vez de estar pousada nele.
-    if (dsc) {
-      const aro = (rf0: number, rf1: number, y0: number, y1: number, cor: string) => {
-        for (let j = 0; j < seg; j++) {
-          const a0 = (j / seg) * Math.PI * 2, a1 = ((j + 1) / seg) * Math.PI * 2
-          B(cor).quad(p(rr(a0, raio * rf0), a0, y0), p(rr(a1, raio * rf0), a1, y0),
-                      p(rr(a1, raio * rf1), a1, y1), p(rr(a0, raio * rf1), a0, y1))
-        }
-      }
-      const Y0 = L.agua + 3.1
-      aro(0.42, 0.345, Y0, Y0, COR_PISO)              // átrio
-      aro(0.345, 0.335, Y0, Y0 + 0.55, COR_ESTRUTURA) // espelda do banco corrido
-      aro(0.335, 0.315, Y0 + 0.55, Y0 + 0.55, COR_ESTRUTURA)
-      aro(0.315, 0.305, Y0 + 0.55, Y0, COR_ESTRUTURA)
-      // ⚠️ ESPELHO D'ÁGUA NO NÍVEL DO PISO É UM DISCO AZUL PINTADO. Sem parede
-      // e sem recuo não há sombra na borda, e sem sombra na borda o olho lê
-      // tinta e não líquido. A bacia desce 1,6 m e a lâmina fica 35 cm abaixo
-      // do átrio: é o degrau que faz a água existir.
-      aro(0.305, 0.295, Y0, Y0 - 1.6, COR_ESTRUTURA)  // a parede da bacia
-      aro(0.295, 0.145, Y0 - 0.35, Y0 - 0.35, COR_AGUA)
-      aro(0.145, 0.135, Y0 - 1.6, Y0 + 1.2, COR_PISO) // o pé do pódio, dentro da água
-      aro(0.135, 0.0, Y0 + 1.2, Y0 + 1.2, COR_PISO)   // o pódio
-      // os doze mastros do átrio: é o que dá altura e é o que se vê de longe
-      for (let j = 0; j < 12; j++) {
-        const a = (j / 12) * Math.PI * 2
-        const mx = x + Math.cos(a) * rr(a, raio * 0.385), mz = z + Math.sin(a) * rr(a, raio * 0.385)
-        for (let f = 0; f < 4; f++) {
-          const b0 = (f / 4) * Math.PI * 2, b1 = ((f + 1) / 4) * Math.PI * 2
-          const q = (bb: number, yy: number) => P(mx + Math.cos(bb) * 0.7, mz + Math.sin(bb) * 0.7, yy)
-          B(COR_ESTRUTURA).quad(q(b0, Y0), q(b1, Y0), q(b1, Y0 + 15), q(b0, Y0 + 15))
-        }
-      }
-    }
-
-    // ⚠️ O PÍER APONTA PARA A PRAÇA, e não para um rumo qualquer: quem chega de
-    // barco vem de lá, que é onde estão as pontes e a cidade velha.
-    const dirX = -Math.sin(ang), dirZ = Math.cos(ang)
-    const perX = Math.cos(ang), perZ = Math.sin(ang)
-    const pIni = raio * 0.92, pFim = raio + 34, w = 4.5
-    B(COR_ESTRUTURA).quad(
-      P(x + dirX * pIni - perX * w, z + dirZ * pIni - perZ * w, L.agua + 1.4),
-      P(x + dirX * pFim - perX * w, z + dirZ * pFim - perZ * w, L.agua + 1.4),
-      P(x + dirX * pFim + perX * w, z + dirZ * pFim + perZ * w, L.agua + 1.4),
-      P(x + dirX * pIni + perX * w, z + dirZ * pIni + perZ * w, L.agua + 1.4))
-    // os pilares do píer, que é o que o faz ler como píer e não como tábua
-    for (let j = 0; j <= 5; j++) {
-      const t = pIni + ((pFim - pIni) * j) / 5
-      for (const sgn of [-1, 1]) {
-        const px2 = x + dirX * t + perX * w * 0.8 * sgn
-        const pz2 = z + dirZ * t + perZ * w * 0.8 * sgn
-        for (let f = 0; f < 4; f++) {
-          const b0 = (f / 4) * Math.PI * 2, b1 = ((f + 1) / 4) * Math.PI * 2
-          const q = (bb: number, yy: number) =>
-            P(px2 + Math.cos(bb) * 0.5, pz2 + Math.sin(bb) * 0.5, yy)
-          B(COR_ESTRUTURA).quad(q(b0, L.fundo), q(b1, L.fundo), q(b1, L.agua + 1.4), q(b0, L.agua + 1.4))
-        }
-      }
-    }
+    // Medido o que saiu, por ilha: trilha 88 triângulos, desembarque 44,
+    // píer (tabuleiro + 12 pilares) 98; a Ilha do Dog Social Club levava mais
+    // 800 do átrio/espelho/mastros, só ela. Total nas seis: 6 × (88+44+98) +
+    // 800 = 2.180 triângulos a menos.
   }
 
   // ── 5. uma malha por cor ─────────────────────────────────────────────────

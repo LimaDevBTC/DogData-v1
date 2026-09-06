@@ -79,6 +79,7 @@ import { setAnisotropia } from './materiais'
 import { montarPos, type Pos } from './pos'
 import { rotaLive, duracaoLive, TOUR_LIVE_DERIVA, TOUR_LIVE_OCIO_MS } from './tour-live'
 import { assentarEstadio, estadioCull, estadioParcela, estadioSitio } from './estadio'
+import { assentarGeode, geodeCull, geodeParcela, geodeSitio, podarGeode } from './geode'
 import { CityChat } from '@/components/wallet/city-chat'
 
 // ── framing ────────────────────────────────────────────────────────────────────
@@ -2510,7 +2511,10 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               // não passa pelo `encaixaPrograma` junto com as outras. Sem esta
               // linha a teia desenha as ruas internas do bloco POR DENTRO dele,
               // que foi exatamente o defeito que o fundador apontou na chapa.
-              parcelas = [...parcelas, estadioParcela() as PecaEncaixada]
+              // ⚠️ E O MESMO VALE PARA THE GEODE: sem a parcela dele na máscara,
+              // a teia desenha rua por dentro da arena.
+              parcelas = [...parcelas, estadioParcela() as PecaEncaixada,
+                          geodeParcela() as PecaEncaixada]
               console.log(`[programa] ${parcelas.length} de ${_prog.length} peças `
                 + `encaixadas em módulo inteiro da teia`
                 + (programa ? `, ${programa.triangulos.toLocaleString('pt-BR')} triângulos` : ' (só o encaixe; ?programa=1 desenha)'))
@@ -3156,7 +3160,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // landing-grade GLBs the /dogcity partners section shows (D6). Each tower
         // GLB ships with its own site slab; on the plaza those slabs would fight
         // the deck, so only the buildings are kept.
-        const [plaza, spaceport, needle, bitflow, kray, btcMark, arena] = await Promise.all([
+        const [plaza, spaceport, needle, bitflow, kray, btcMark, arena, geode] = await Promise.all([
           loadGlb('/city/plaza.glb'),
           loadGlb('/city/spaceport.glb'),
           loadGlb('/city/central-tower.glb'),
@@ -3164,6 +3168,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           loadGlb('/city/kray-tower.glb'),
           loadGlb('/city/btc-mark.glb').catch(() => null),
           loadGlb('/city/dog-arena.glb').catch(() => null),
+          loadGlb('/city/dog-geode.glb').catch(() => null),
         ])
         if (disposed) return
         // ⚠️ O GRUPO DO plaza.glb DESCEU PARA PRACA_Y EM 05/09 (SEGUNDA
@@ -3412,6 +3417,26 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           scene.add(arena)
           const _st = estadioSitio()
           culler.add(arena, estadioCull(profile.tier), new THREE.Vector3(_st.x, 0, _st.z))
+        }
+
+        // ── THE GEODE ─────────────────────────────────────────────────────────
+        // A arena coberta, 28.240 lugares. Mesmo radial do estádio, 540 m dele:
+        // os dois formam o distrito esportivo servido pela mesma avenida. Sítio,
+        // corte e poda de celular estão em `geode.ts`.
+        if (geode) {
+          tameEnv(geode)
+          const podados = podarGeode(geode, profile.tier)
+          geode.traverse((o) => {
+            const mesh = o as THREE.Mesh
+            if (!mesh.isMesh) return
+            mesh.castShadow = true
+            mesh.receiveShadow = true
+          })
+          assentarGeode(geode, (x, z) => terrain.heightAt(x, z))
+          scene.add(geode)
+          const _gd = geodeSitio()
+          culler.add(geode, geodeCull(profile.tier), new THREE.Vector3(_gd.x, 0, _gd.z))
+          if (podados) console.log(`[geode] interior podado no celular: -${podados.toLocaleString('pt-BR')} triangulos`)
         }
 
         if (btcMark) {
