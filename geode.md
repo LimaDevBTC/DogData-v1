@@ -251,11 +251,12 @@ dos 1.753 blocos aprovados, este ganha por folga:
 - água a **1.097 m** e o canal mais próximo (`CR03`) a **1.652 m** de afastamento
   lateral.
 
-⚠️ **A MESMA MEDIÇÃO REPROVOU O ESTÁDIO, E ELE FOI CORRIGIDO JUNTO.** Com a peça
-real dele (418 x 376, não 292 x 269), `{i:11, nr:3, j:46, ns:3}` dava **-123 m**
-contra o BUL04: o eixo do bulevar de 44 m caía dentro do prédio. O fundador viu
-na live. Bloco novo: `{i:11, nr:3, j:44, ns:3}`, com 123 m livres, mesmo anel e
-860 m de THE GEODE. Ver `app/city/plaza/estadio.ts`.
+⚠️ **A MESMA MEDIÇÃO REPROVOU O ESTÁDIO, E O FUNDADOR DECIDIU NÃO MEXER.** Com a
+peça real dele (418 x 376, não 292 x 269), `{i:11, nr:3, j:46, ns:3}` dá **-123 m**
+contra o BUL04: o eixo do bulevar de 44 m cai dentro do bloco. A peça chegou a
+ser movida para `{i:11, nr:3, j:44, ns:3}` e o fundador mandou voltar em 06/09,
+"confirme o estádio na mesma posição de antes". O número fica registrado em
+`app/city/plaza/estadio.ts` para quem um dia decidir mexer.
 
 ⚠️ **A posição é um MÓDULO, não uma coordenada.** Regra já paga pelo estádio:
 coordenada escolhida a olho põe avenida dentro do prédio. O que esta rodada

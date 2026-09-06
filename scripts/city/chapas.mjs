@@ -85,14 +85,9 @@ const VISTAS = {
   // centro e o da reserva E03 (2.398, 1.481), raio 2.819 m, rumo 121,7 graus, ao
   // lado do Parque Central. `estadio` mostra a IMPLANTACAO (a peca com o parque
   // e o tecido em volta) e `estadioperto` julga o predio.
-  // ⚠️ REENQUADRADAS EM 06/09 com o sitio corrigido: o bloco antigo tinha o
-  // bulevar BUL04 passando por dentro do estadio. Centro agora em (3.237, 612),
-  // mesmo raio 3.294. E a aproximacao passou a ser pelo LADO DA PRACA, igual a
-  // de THE GEODE: o visitante vem de dentro, e de fora para dentro o predio fica
-  // contra o cinturao vazio com a cidade fora de quadro.
-  estadio:   [2353, 620, 445, 3237, 10, 612, 45],
-  estadioalto:[2982, 1150, 564, 3237, 0, 612, 45],
-  estadioperto:[2814, 175, 532, 3237, 25, 612, 42],
+  estadio:   [4053, 620, 1086, 3184, 10, 853, 45],
+  estadioalto:[3435, 1150, 920, 3184, 0, 853, 45],
+  estadioperto:[3599, 175, 964, 3184, 25, 853, 42],
   // THE GEODE, a arena coberta. Sitio CORRIGIDO em 06/09 para (2.968, 1.429),
   // raio 3.294: o anterior tinha o Anel Medio passando por cima. Mesmo anel do
   // estadio e 615 m dele. `geode` julga a IMPLANTACAO (a peca com a malha em
