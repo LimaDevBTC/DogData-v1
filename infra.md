@@ -39,10 +39,27 @@ cidade pela primeira vez. Todas já têm reserva no programa.
 
 | # | Peça | Por que é a primeira linha |
 |---|---|---|
-| 1 | **Colosso do Portão** | a estátua colossal do $DOG na chegada. É a Estátua da Liberdade desta cidade: silhueta única, reconhecível em miniatura, e fica exatamente por onde todo mundo entra. Nenhuma outra peça rende tanta imagem por metro cúbico |
+| 1 | **Colosso do $DOG** | a estátua colossal na chegada. É a Estátua da Liberdade desta cidade: silhueta única, reconhecível em miniatura, e fica exatamente por onde todo mundo entra. Nenhuma outra peça rende tanta imagem por metro cúbico. ⚠️ **Sítio corrigido em 06/09, ver abaixo**: não existe "portão" |
 | 2 | **DOG DATA HQ** | a **fachada-ticker ao vivo**: preço, holders, LTH/STH, tudo dado real que o site já publica. É o único prédio que PROVA que a cidade está ligada na cadeia. Para parceiro, vale mais que dez prédios bonitos |
 | 3 | **Casa da Moeda** (*The City Mint*) | onde os deeds nascem. A interface de mint leva o holder até a porta dela, então ela é a única peça que participa do produto em vez de ilustrá-lo |
 | 4 | **Museu da Runa** | etching, airdrop, halvings e as transações históricas viram espaço. É o lugar onde a história do $DOG fica guardada, e é conteúdo de marca que não se improvisa depois |
+
+> ### ⚠️ Correção de 06/09: não existe portão
+>
+> Esta lista nasceu com duas peças ancoradas num "Portão" da cidade, e o
+> fundador desfez a premissa: **a DogCity é fechada, e a ligação com o exterior
+> é só por TÚNEL, com eclusas internas de controle de pressão.** Não há muralha,
+> não há arco de entrada, não há estrada chegando do horizonte.
+>
+> O que isso muda: a peça continua boa, o SÍTIO dela é que estava errado. O
+> ponto de chegada real da cidade é a **eclusa** e o **spaceport** da Praça
+> Central, que é onde a cena já mostra gente e nave chegando. O Colosso vai para
+> a esplanada de desembarque, e o farol vira farol de pouso.
+>
+> Vale como regra e não só como conserto: peça de infra desta cidade não pode
+> ser desenhada a partir de uma cidade genérica. Muralha, portão, porto, estrada
+> de entrada e chaminé não existem aqui, e uma lista que os assume vende uma
+> cidade que não é esta.
 
 ### Onda 2 · o cartão-postal noturno
 
@@ -51,7 +68,7 @@ existem para a foto das 3 da manhã.
 
 | # | Peça | O que ela entrega |
 |---|---|---|
-| 5 | **Farol do Portão** | luz girando de verdade. Um farol é a peça mais barata que existe em triângulo e a mais cara em imagem |
+| 5 | **Farol do Spaceport** | luz girando de verdade. Um farol é a peça mais barata que existe em triângulo e a mais cara em imagem. Aqui ele não guia navio: guia POUSO, e o spaceport da praça já tem tráfego (a mempool orbita e desce nele) |
 | 6 | **Observatório do Cinturão** | no alto, mirando a Terra. Liga direto ao `DOG•GO•TO•THE•MOON` sem precisar escrever a frase |
 | 7 | **Teatro Municipal** | a única fachada NOBRE do programa: colunata, escadaria, praça própria. É o contraponto clássico às três torres de vidro |
 | 8 | **Mirante do Cinturão** | o ponto de onde se fotografa a cidade inteira. Ele existe para a câmera, e é honesto que seja assim |
@@ -96,11 +113,23 @@ possível:
 6. **A peça entra no tour da live.** Cada parada nova é exposição contínua na
    transmissão, e isso é metade do valor de marketing de modelar.
 
-## 5. O que eu recomendo começar amanhã
+## 5. O que já saiu desta lista
 
-**O Colosso do Portão.** Ele é o maior retorno de imagem por hora de trabalho de
-toda a lista, não depende de dado ao vivo nem de sistema nenhum, e é a peça que
-um patrocinador vê primeiro ao abrir a cidade.
+**A arena poliesportiva coberta**, escolhida pelo fundador em 06/09 na frente do
+Colosso. Fechou modelada no mesmo dia como **"A Pedra"**, um runestone colossal
+de 7 faces com 84 m de altura, cânion de entrada e óculo no topo. Plano completo
+em `arena.md`; fonte em `blender/build_arena.py`; peça em
+`public/city/dog-stone-arena.glb`, **17.998 triângulos, 110 KB, zero textura**.
+
+Ela mudou uma coisa nesta lista: provou que a linguagem de OBSIDIANA do Parque
+Runestone escala para edifício. Peça de infra da DogCity não precisa procurar
+identidade fora, e as próximas devem ser julgadas por isso também.
+
+## 6. O que eu recomendo começar depois
+
+**O Colosso do $DOG**, agora na esplanada de desembarque. Ele é o maior retorno
+de imagem por hora de trabalho de toda a lista e não depende de dado ao vivo nem
+de sistema nenhum.
 
 Logo depois, o **DOG DATA HQ**, porque ele é o único que precisa de integração
 (a fachada lê o dado real) e portanto é o que mais ganha em ser começado cedo.
