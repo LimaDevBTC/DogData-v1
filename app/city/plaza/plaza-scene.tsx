@@ -655,7 +655,30 @@ const BOOT_STEPS = [
   { key: 'shaders', label: 'Lighting DogCity', weight: 6 },
 ] as const
 type BootKey = (typeof BOOT_STEPS)[number]['key']
-const BOOT_TOTAL = BOOT_STEPS.reduce((a, b) => a + b.weight, 0)
+/**
+ * ⚠️ ESTAS TRÊS NÃO SEGURAM O PORTÃO, e a barra não pode fingir que seguram.
+ *
+ * Elas entram pela `Obra`, que constrói com orçamento de quadro e a câmera já
+ * andando (a razão longa está no corpo do efeito, onde a obra é criada). O que
+ * mudou em 06/09 é a CONTA: enquanto elas pesavam no denominador, a barra
+ * fechava em 110 de 144, ou seja **a cortina caía com 76% na tela e o número
+ * nunca chegava a 100**. O fundador viu e descreveu exatamente assim, "os
+ * percentuais estão desconectados da barra".
+ *
+ * Agora a barra mede só o que de fato segura a entrada, e por isso fecha em 100%
+ * no instante em que a cidade abre. O que continua subindo depois disso é dito
+ * em voz baixa na cena, não escondido: ver `AINDA_SUBINDO` no HUD.
+ */
+const EM_OBRA: readonly BootKey[] = ['chalet', 'monuments', 'park']
+/** as etapas que realmente seguram a cortina, e a régua da barra */
+const BOOT_PORTAO = BOOT_STEPS.filter((st) => !EM_OBRA.includes(st.key))
+const BOOT_PORTAO_TOTAL = BOOT_PORTAO.reduce((a, b) => a + b.weight, 0)
+/** nome curto para a linha de "still building": o rótulo do portão é uma frase */
+const NOME_CURTO: Record<string, string> = {
+  chalet: 'the chalet',
+  monuments: 'the monuments',
+  park: 'runestone park',
+}
 
 // lite: navegador embutido de carteira no celular (memória curtíssima). A cena
 // nasce na qualidade mínima, DPR 1 e sem o campo de batalha; ?lite=1 força.
@@ -1077,6 +1100,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let chaoGuerra = CHAO_DO_ENQUADRAMENTO
     // o pouso cinematográfico da entrada, guardado até a cena estar pronta
     let pousoDaEntrada: (() => void) | null = null
+    /** rede de segurança do pouso: se uma das três de `EM_OBRA` nunca terminar,
+     *  a câmera não pode ficar presa no enquadramento de casa para sempre */
+    let relogioDoPouso: ReturnType<typeof setTimeout> | null = null
     const home = entradaGuerra ? viewFor('warentry', camera.aspect, chaoGuerra) : homeFor(camera.aspect)
     camera.position.copy(home.pos)
     if (entradaGuerra) {
@@ -1670,7 +1696,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     // ⚠️ E O NÚMERO QUE JUSTIFICA ABRIR SEM ELAS: as três somam 40 s dos 60 s de
     // thread bloqueada que medi no boot, e NENHUMA delas é vista da praça no
     // primeiro quadro. O parque fica a 9,8 km a nordeste.
-    const EM_OBRA: BootKey[] = ['chalet', 'monuments', 'park']
+    // A lista subiu para o escopo do módulo em 06/09, porque a BARRA precisa
+    // dela para não contar peso que não segura a cortina. Ver `EM_OBRA` lá.
 
     // marca uma etapa como pronta; quando todas terminam, o portão abre
     const stepDone = (key: BootKey) => {
@@ -1690,12 +1717,34 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // tela de carga; `abrirPortaoInverno()` é idempotente, então chamar
         // aqui, no mesmo instante em que `pronto` vira verdadeiro, é seguro.
         if (pronto) abrirPortaoInverno()
-        // ⚠️ o pouso da guerra sai daqui, e só uma vez: a cena está montada, o
-        // relevo já respondeu qual é o chão, e é agora que a tela aparece
-        if (pronto && entradaGuerra && pousoDaEntrada) {
+        // ⚠️ O POUSO ESPERA AS TRÊS DE `EM_OBRA`, e isto é de 06/09. Antes ele
+        // saía junto com a cortina, e o fundador descreveu o resultado: "mostra
+        // um flash da cidade e carrega tudo de novo". Não era recarga nenhuma
+        // (medido: o brilho da tela nunca volta ao nível da tela de carga); era
+        // a câmera saindo em voo de 4,2 s no MESMO minuto em que o chalé, os
+        // monumentos e o parque ainda somavam 40 s de thread bloqueada. Cidade
+        // se movendo sozinha e engasgando lê como recomeço.
+        // Agora a cortina cai e a cidade fica PARADA no enquadramento de casa
+        // enquanto o resto sobe; o voo começa quando ela está de fato inteira.
+        const tudoPronto = BOOT_STEPS.every((st) => done.includes(st.key))
+        if (tudoPronto && entradaGuerra && pousoDaEntrada) {
+          if (relogioDoPouso) { clearTimeout(relogioDoPouso); relogioDoPouso = null }
           const disparar = pousoDaEntrada
           pousoDaEntrada = null
           requestAnimationFrame(() => disparar())
+        } else if (pronto && entradaGuerra && pousoDaEntrada && !relogioDoPouso) {
+          // ⚠️ E ELE NÃO PODE ESPERAR PARA SEMPRE. Se uma das três falhar (a rede
+          // cai, um GLB não vem), `tudoPronto` nunca chega e a câmera ficaria
+          // parada em casa até alguém mexer. 45 s é folga larga sobre os 40 s
+          // medidos, e o pior caso é o voo começar com o parque ainda subindo,
+          // que é exatamente o comportamento de antes deste bloco existir.
+          relogioDoPouso = setTimeout(() => {
+            relogioDoPouso = null
+            if (disposed || !pousoDaEntrada) return
+            const d = pousoDaEntrada
+            pousoDaEntrada = null
+            d()
+          }, 45000)
         }
         return { ...b, done, label: next?.label ?? 'Ready', ready: pronto }
       })
@@ -4535,6 +4584,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       // pendurado no `animate` de uma cena que já foi desmontada.
       obra.descarta()
       disposed = true
+      if (relogioDoPouso) { clearTimeout(relogioDoPouso); relogioDoPouso = null }
       cancelAnimationFrame(raf)
       feed.stop()
       for (const t of demoTimers) clearTimeout(t)
@@ -4601,7 +4651,15 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
   const s = hud.snapshot
   const tipAge = minutesAgo(s?.tip_time ?? null)
   const lastDogAge = minutesAgo(s?.last_dog_block_time ?? null)
-  const bootPct = Math.min(99.5, (BOOT_STEPS.filter((st) => boot.done.includes(st.key)).reduce((a, b) => a + b.weight, 0) / BOOT_TOTAL) * 100)
+  // ⚠️ A BARRA MEDE O PORTÃO, NÃO A CENA INTEIRA. Contando as três de `EM_OBRA`
+  // no denominador ela fechava em 110 de 144 e a cortina caía com 76% na tela.
+  // Agora 100% quer dizer exatamente o que o visitante vê acontecer: a cidade
+  // abriu. O que ainda sobe depois é dito pela linha de `aindaSubindo`.
+  const bootPct = (BOOT_PORTAO.filter((st) => boot.done.includes(st.key)).reduce((a, b) => a + b.weight, 0) / BOOT_PORTAO_TOTAL) * 100
+  // as que continuam subindo com a cidade já aberta, para a linha discreta do HUD
+  const aindaSubindo = boot.ready
+    ? BOOT_STEPS.filter((st) => EM_OBRA.includes(st.key) && !boot.done.includes(st.key))
+    : []
   const live = hud.stale != null && hud.stale < 40 && !hud.error
 
   const submitFollow = (e: React.FormEvent) => {
@@ -4644,13 +4702,30 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               <span className="tabular-nums text-white/35">{Math.round(bootPct)}%</span>
             </div>
           </div>
+          {/* ⚠️ ESTA FRASE MENTIA, e a mentira era a raiz da queixa. Ela dizia
+              "monuments and the park" entre o que carrega ANTES de abrir, e as
+              duas estão em `EM_OBRA`, ou seja sobem DEPOIS. Quem lia isso
+              esperava uma cidade inteira e recebia uma cidade engasgando. */}
           <p className="max-w-xs font-mono text-[10px] leading-relaxed text-white/25">
-            The whole plaza loads before it opens: terrain, towers, gardens, monuments and the park.
+            The city loads before it opens: terrain, avenues, towers and gardens. The chalet, the
+            monuments and the park keep building once you are already inside.
           </p>
         </div>
       )}
 
       {boot.ready && <>
+
+      {/* ── o que ainda sobe com a cidade já aberta ──────────────────────────
+          ⚠️ ISTO EXISTE PORQUE O SILÊNCIO ERA O DEFEITO. A cortina caía e o
+          aparelho penava mais 40 s montando chalé, monumentos e parque, sem
+          nada na tela dizendo por quê; o fundador leu aquilo como "carrega tudo
+          de novo". A linha some sozinha quando as três terminam, não recebe
+          clique e fica fora do caminho do HUD da guerra. */}
+      {aindaSubindo.length > 0 && (
+        <div className="pointer-events-none absolute bottom-[calc(4.5rem+env(safe-area-inset-bottom))] left-3 z-30 font-mono text-[10px] uppercase tracking-[0.2em] text-white/30 sm:left-6">
+          <span className="text-[#F7931A]/70">◦</span> still building · {aindaSubindo.map((st) => NOME_CURTO[st.key]).join(' · ')}
+        </div>
+      )}
 
       {!plate && <>
       {/* ── o modo jogo: invisível até a câmera chegar perto da cratera ── */}
