@@ -4125,6 +4125,10 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     // ⚠️ E ELE NÃO É O TOUR DO MENU. Aquele é para quem clicou: tem texto, voa em
     // 4,2 s e segura 6,4 s. Este é para quem está assistindo: sem legenda, voo de
     // 6 a 18 s, parada de 10 a 14 s, e volta ao começo sem fim.
+    // ⚠️ LIDO UMA VEZ, FORA DO LAÇO. `new URLSearchParams(...)` dentro do laço de
+    // quadro seria uma alocação e um parse por FRAME, 60 vezes por segundo, para
+    // uma bandeira que não muda enquanto a página está aberta.
+    const liveLigado = new URLSearchParams(window.location.search).get('live') !== '0'
     let liveTimer: ReturnType<typeof setTimeout> | null = null
     let liveStep = -1
     let liveRunning = false
@@ -4496,7 +4500,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       // GEODE saíram fotografando a batalha, e a conclusão errada foi "a peça
       // sumiu". Com a bandeira, o portão pede a cena parada e a chapa mostra o
       // que foi pedido. Mesmo padrão de `?inverno=0` e `?domo=0`.
-      if (qDomo.get('live') !== '0'
+      if (liveLigado
           && !liveRunning && !tourRunning && !fly.on
           && performance.now() - lastInteraction > TOUR_LIVE_OCIO_MS) comecarLive()
       if (fly.on) {
