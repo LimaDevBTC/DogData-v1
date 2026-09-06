@@ -1791,7 +1791,17 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           // mesmo motivo: é relevo, e relevo mora no terreno. O monte do Vale do
           // Poente levanta 380 m porque o chão real ali dá 1,7° e isso não é pista.
           montes: _malhaCava?.vale?.monte ? [_malhaCava.vale.monte] : [],
-        } : undefined)
+        } : undefined,
+        // ⚠️ NO CELULAR A FAIXA SECA DO REFINO NÃO ENTRA, e este é o primeiro
+        // botão de GEOMETRIA que o perfil ganha (até aqui ele cortava DPR,
+        // sombra, partícula e textura, e nunca malha). O refino do talude custa
+        // 558 mil vértices, mais que a malha grossa inteira do sítio, e o
+        // telefone vinha pagando a conta do desktop porque `terrain.ts` não
+        // recebia perfil nenhum. Sai só a terceira faixa, a de `R_CIDADE_SECA`:
+        // 38% do custo, e é a única que nenhuma sonda de areia lê. As duas
+        // faixas da água ficam inteiras, então a linha d'água e a praia medidas
+        // continuam idênticas às do desktop.
+        { faixaSeca: profile.tier !== 'mobile' })
         chaoGuerra = terrain.heightAt(WAR_POS.x, WAR_POS.z)
         if (disposed) return
         heightAt = terrain.heightAt

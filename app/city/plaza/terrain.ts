@@ -259,7 +259,7 @@ export interface CanalCava {
   montes?: Monte[]
 }
 
-export async function loadTerrain(cava?: CanalCava): Promise<Terrain> {
+export async function loadTerrain(cava?: CanalCava, refino?: RefinoTerreno): Promise<Terrain> {
   const [meta, buf] = await Promise.all([
     fetch('/lunar/btc-core-heightmap.json').then((r) => {
       if (!r.ok) throw new Error('heightmap meta missing')
@@ -270,10 +270,39 @@ export async function loadTerrain(cava?: CanalCava): Promise<Terrain> {
       return r.arrayBuffer()
     }),
   ])
-  return buildTerrain(meta, new Float32Array(buf), cava)
+  return buildTerrain(meta, new Float32Array(buf), cava, refino)
 }
 
-export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: CanalCava): Terrain {
+/**
+ * O QUANTO DE MALHA FINA ESTE APARELHO AGUENTA.
+ *
+ * ⚠️ ESTE ARQUIVO NÃO CONHECIA O PERFIL, E ISSO ERA O DEFEITO. O refino do
+ * talude (`LAGO_SUB`, abaixo) custa 558 mil vértices, MAIS que a malha grossa
+ * inteira do sítio (429² ≈ 184 mil), e até 06/09 o celular pagava exatamente a
+ * mesma conta do desktop porque `terrain.ts` não recebia `PerfProfile` nenhum.
+ * Medido: 985 mil triângulos e 34,7 MiB na GPU, mais os MESMOS 34,7 MiB no heap
+ * do JS, porque nada aqui chama `onUpload`.
+ *
+ * ⚠️ E O CORTE NÃO PODE SER NO `sub`, POR MAIS TENTADOR QUE SEJA. O refino não é
+ * cosmético: `lago.ts` sonda a inclinação contra `superficieAt` (ver a nota em
+ * `lago.ts`, "o.heightAt AQUI É O superficieAt do terreno"), e `superficieAt`
+ * reproduz a malha DESENHADA. Baixar `sub` move a linha d'água MEDIDA e muda a
+ * largura da areia: os próprios números desta casa dizem que com 12 a praia cai
+ * para 19,5 m no pior rumo contra 21,0 m com 16.
+ *
+ * O que dá para cortar sem tocar na água é a FAIXA SECA, a terceira: ela fica
+ * em `R_CIDADE_SECA`, a 2,3 km, onde a subida da cidade termina, e nenhuma sonda
+ * de areia chega lá. Medido por faixa: B1 (praça/praia) 656 células, B2 (bacia)
+ * 548, e a seca 744, ou seja **38% do custo do refino inteiro** está na faixa
+ * que não mede nada. Sem ela: 21,4 MiB em vez de 34,7, e a linha d'água fica
+ * IDÊNTICA à do desktop.
+ */
+export type RefinoTerreno = {
+  /** refina a quina de `R_CIDADE_SECA` (longe da água). Falso no celular. */
+  faixaSeca?: boolean
+}
+
+export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: CanalCava, refino?: RefinoTerreno): Terrain {
   // ── a vala dos canais ─────────────────────────────────────────────────────
   // ⚠️ SE ESTE BLOCO NÃO RODAR, O CANAL FICA ENTERRADO E NADA ACUSA. A água é
   // desenhada por outro módulo, então o regolito por cima dela não gera erro:
@@ -626,11 +655,20 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
   // ~500 m de faixa que de fato têm quina, não nos ~950 m de subida reta ao
   // redor, que continuam na grade grossa de 59 m.
   const LAGO_SUB = 16
+  // ⚠️ A TERCEIRA FAIXA É OPCIONAL, E É A MAIOR DAS TRÊS. Ver `RefinoTerreno` no
+  // topo: 744 das 1.932 células caem nela, 38% do custo do refino, e ela é a
+  // única que nenhuma sonda de areia lê. No celular ela sai; a quina de
+  // `R_CIDADE_SECA` volta a ser interpolada pela grade de 59 m, que é o que ela
+  // era antes de 05/09 e ninguém reclamou. As duas faixas da água ficam
+  // intactas em `sub` 16, então a linha d'água e a praia medidas são as MESMAS
+  // do desktop, bit a bit.
   const FAIXA: [number, number][] = [
     [R_PRACA_BORDA - 50, LAGO_R0 + 50],      // praça / praia / mergulho interno
     [LAGO_R1 - 50, R_AGUA_OUT + 50],         // mergulho externo / fundo da bacia
-    [R_CIDADE_SECA - 50, R_CIDADE_SECA + 50], // onde a subida da cidade termina
   ]
+  if (refino?.faixaSeca !== false) {
+    FAIXA.push([R_CIDADE_SECA - 50, R_CIDADE_SECA + 50]) // onde a subida da cidade termina
+  }
   const FAIXA_MIN = Math.min(...FAIXA.map(([a]) => a))
   const FAIXA_MAX = Math.max(...FAIXA.map(([, b]) => b))
   const naFaixa = (i: number, j: number): boolean => {
