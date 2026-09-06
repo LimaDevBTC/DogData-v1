@@ -49,11 +49,22 @@ export const ESTADIO_PECA_Z = 376
 /**
  * A distância em que a peça some, POR PERFIL.
  *
- * ⚠️ NÚMERO FIXO AQUI É DEFEITO DE CELULAR. A peça tem 300 m de envelope e 85
- * mil triângulos, e o perfil mobile já corta o resto da cidade muito antes
- * (`perf.ts`: `smallCull` 1.200 e `lodDistance` 1.300 contra 3.400 e 4.800 do
- * desktop). Deixar o estádio aparecendo a 7 km no telefone faz o aparelho
- * desenhar de graça o que ele não aguenta.
+ * ⚠️ A DISTÂNCIA SE MEDE DE ONDE A PEÇA É VISTA, não por analogia com o resto da
+ * cena. Em 06/09 pus 2.600 m no mobile copiando a lógica do `smallCull` (1.200)
+ * e do `lodDistance` (1.300) de `perf.ts`, e o resultado foi o fundador
+ * reportando que **o estádio não aparecia no celular**. A conta que faltou:
+ *
+ *     o estádio está a 3.294 m do centro da cidade
+ *     o visitante fica na praça, raio até 1.024 m
+ *     logo ele o vê de 2.270 a 4.318 m de distância
+ *
+ * Com o corte em 2.600 a peça sumia de quase toda a praça, inclusive da vista
+ * de entrada (3.196 m) e do deck (3.204 m). O corte tem de ser maior que o pior
+ * caso de onde alguém olha, e não menor que a distância média da cena.
+ *
+ * ⚠️ E O CUSTO É PEQUENO: são 85 mil triângulos numa cena de milhões, ou seja
+ * menos de 2%. O que quebra celular nesta casa é textura e contagem de chamada,
+ * não uma malha sem imagem nenhuma.
  *
  * ⚠️ E O KTX2 NÃO SE APLICA A ESTA PEÇA: o espelho de `scripts/city/ktx2.mjs`
  * existe para GLB com IMAGEM embutida, que é o que estourava a memória de
@@ -61,7 +72,7 @@ export const ESTADIO_PECA_Z = 376
  * só cor de material. Se um dia ele ganhar textura, ela entra por lá.
  */
 export function estadioCull(tier: 'mobile' | 'desktop'): number {
-  return tier === 'mobile' ? 2600 : 7000
+  return tier === 'mobile' ? 4500 : 7000
 }
 
 /** Centro e giro do bloco, direto da teia. */
