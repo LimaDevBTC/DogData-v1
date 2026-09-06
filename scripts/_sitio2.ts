@@ -1,5 +1,12 @@
-import { ANEIS, N_RAD, passoNoRaio, caixaDoModulo, type Modulo } from '/home/bitmax/Projects/bitcoin-fullstack/DogData-v1/app/city/plaza/teia'
+import { ANEIS, N_RAD, passoNoRaio, caixaDoModulo, type Modulo } from '../app/city/plaza/teia'
 import { readFileSync } from 'node:fs'
+
+// ⚠️ IMPORT RELATIVO, NUNCA ABSOLUTO. Este arquivo entra no `include` do
+// tsconfig (`**/*.ts`), ou seja o `next build` TYPECHECA ele. Com um caminho
+// absoluto da máquina de quem escreveu, o `tsc` local passa (o caminho existe
+// aqui) e o build da Vercel QUEBRA, porque lá o repositório mora noutro lugar.
+// Foi assim que três deploys de producao seguidos falharam em 06/09 e a live
+// ficou uma hora servindo a versao anterior de THE GEODE.
 
 const M = JSON.parse(readFileSync('public/city/cidade-malha.json', 'utf8'))
 const PECA_X = 292, PECA_Z = 269      // arco x radial
