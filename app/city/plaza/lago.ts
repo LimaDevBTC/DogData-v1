@@ -32,7 +32,7 @@
 // possível ali (`w = 1,5 / inclinação` dava 1,6 m). Agora o banco seco tem 6,5 m
 // em 22,4° de pico e a linha d'água cai numa BANQUETA de 5,9 a 15,3°, que dá de
 // 5,5 a 14,4 m de areia conforme o rumo. As cotas dependentes (as quatro pontes,
-// as oito ilhas, o pé do píer e o espelho d'água do Dog Social Club) saem todas
+// as seis ilhas, o pé do píer e o espelho d'água do Dog Social Club) saem todas
 // de `L.agua` e acompanharam sozinhas.
 //
 // ⚠️ AS QUATRO PONTES CAEM NOS BULEVARES, nos rumos 0, 90, 180 e 270. Não é
@@ -42,7 +42,7 @@
 //
 // AS ILHAS são reservas nomeadas, e é assim que elas têm de ler antes de
 // existir projeto: um disco de terra com cais, sem construção em cima. A
-// primeira é do Dog Social Club por decisão do fundador; as outras sete ficam
+// primeira é do Dog Social Club por decisão do fundador; as outras cinco ficam
 // marcadas para projeto parceiro.
 //
 // Three.js puro (regra da casa: nada de react-three-fiber).
@@ -89,9 +89,17 @@ export function contornoIlha(k: number, a: number, base: number): number {
   return base * (1 + 0.062 * Math.sin(a * 3 + k) + 0.038 * Math.sin(a * 5 - k * 2))
 }
 
-/** o ângulo LOCAL da ilha `k` onde o píer encosta: nada de mato pode nascer nele */
+/** o ângulo LOCAL da ilha `k` onde o píer encosta: nada de mato pode nascer nele
+ *
+ * ⚠️ `10 + k * 60`, NÃO MAIS `22,5 + k * 45`, DESDE 06/09 (seis ilhas, não
+ * oito, ver a nota grande em "4. as ilhas" acima). Esta função reproduz o
+ * `rumo` do laço de construção por conta própria (é o mesmo cálculo, cópia
+ * literal): se as duas fórmulas divergirem, o píer aponta para um rumo e a
+ * máscara que protege o desembarque (usada por `arborizacao.ts`, `aquario.ts`
+ * e `ilha-mata.ts`) protege outro, e a vegetação nasce em cima do píer de
+ * novo. */
 export function anguloDesembarque(k: number): number {
-  const ang = ((22.5 + k * 45) * Math.PI) / 180
+  const ang = ((10 + k * 60) * Math.PI) / 180
   return Math.atan2(Math.cos(ang), -Math.sin(ang))
 }
 
@@ -850,15 +858,46 @@ export function buildLago(o: LagoOpts): Lago {
   // trilha, clareira e píer. Projeto de parceiro entra na clareira, que é
   // exatamente o pedaço deixado livre. A primeira é do Dog Social Club por
   // decisão do fundador, e por isso ela é maior e tem praça em vez de clareira.
+  //
+  // ⚠️ SEIS ILHAS, NÃO OITO, DESDE 06/09. O fundador viu a Ilha do Dog Social
+  // Club (rumo 22,5) em cima da junção do canal central com o radial de 25°:
+  // medido, a folga até a boca do canal era 2,5° a r 1.247,5, ou seja 54 m
+  // para uma ilha de 92 m de raio: ela estava DENTRO da junção. E oito não
+  // cabem: os canais radiais (25°, 55°, 85°, repetidos a cada 90°) caem em
+  // 25°, 10° e 40° módulo 45°, cortando o arco de cada vão de ponte em três
+  // pedaços de 15°; o melhor deslocamento possível para oito ilhas dá 7,5° de
+  // folga (163 m de arco a r 1.247,5), menos que os 184 m de diâmetro da
+  // maior. Não existe arranjo de oito, igualmente espaçadas, que evite os
+  // três canais.
+  //
+  // O arranjo novo, medido pelo fundador: SEIS ilhas a cada 60°, rumo inicial
+  // 10° (rumos 10, 70, 130, 190, 250, 310). Folga mínima até a boca de um
+  // canal: 15° (326 m). Folga mínima até uma ponte: 10° (218 m). A do Dog
+  // Social Club continua a MAIOR, continua a PRIMEIRA e continua com 92 m de
+  // raio, agora no rumo 10° (o que fica de frente para quem chega).
+  //
+  // ⚠️ AS DUAS QUE SAÍRAM NÃO LEVARAM A ÁREA JUNTO. As sete reservadas de
+  // antes tinham raio 54, 63 ou 72 m (`54 + (k % 3) * 9`), somando 28.107 m²
+  // de área (proporcional a r²) em sete ilhas. As cinco que ficam somam
+  // 28.020 m² em CINCO raios TODOS DIFERENTES (58, 66, 74, 82, 90), a favor
+  // da variação: 0,3% de diferença de área, e nenhuma repete o tamanho de
+  // outra, o que as sete de antes não conseguiam (63 m aparecia três vezes).
+  //
+  // ⚠️ DUAS SIMETRIAS DIFERENTES, NÃO CONFUNDIR. O fundador pediu simetria na
+  // DISPOSIÇÃO (espaçamento igual, alinhamento regular) e continua QUERENDO
+  // variação na FORMA de cada uma: raio variado aqui, e os dois harmônicos
+  // que deformam o contorno em ±9% (`contornoIlha`, acima) continuam do jeito
+  // que estão. Círculo perfeito de margem já foi recusado antes, por outro
+  // motivo; isto não reabre aquela decisão.
   const rIlha = (rAguaI + rAguaE) / 2
+  const RAIO_RESERVADA = [58, 66, 74, 82, 90] // uma por ilha reservada, k = 1 a 5
   const ilhas: Ilha[] = []
-  for (let k = 0; k < 8; k++) {
-    const rumo = 22.5 + k * 45                    // entre as pontes, nunca sob elas
+  for (let k = 0; k < 6; k++) {
+    const rumo = 10 + k * 60                      // entre canal e ponte, nunca sob nenhum
     const ang = (rumo * Math.PI) / 180
     const x = Math.sin(ang) * rIlha, z = -Math.cos(ang) * rIlha
     const dsc = k === 0
-    const raio = dsc ? 92 : 54 + (k % 3) * 9      // ⚠️ raio VARIADO: oito ilhas do
-                                                  // mesmo tamanho leem como carimbo
+    const raio = dsc ? 92 : RAIO_RESERVADA[k - 1]
     ilhas.push({
       id: `ILHA${String(k + 1).padStart(2, '0')}`,
       nome: dsc ? 'Ilha do Dog Social Club' : `Ilha ${k + 1}, reservada`,
@@ -869,6 +908,26 @@ export function buildLago(o: LagoOpts): Lago {
     // ⚠️ A MARGEM NÃO É UM CÍRCULO. Dois harmônicos deformam o raio em ±9%: é o
     // suficiente para a ilha ter enseada e ponta, e é o que separa terra de moeda.
     const rr = (a: number, base: number) => contornoIlha(k, a, base)
+    // ⚠️ RELEVO LEVE DA MATA, PEDIDO DO FUNDADOR EM 06/09: "de cima só vejo a
+    // praia e uma mancha verde que parece grama". Medido: as duas faixas de
+    // `COR_MATO` eram um FRUSTO DE CONE, cota CONSTANTE POR ÂNGULO (`quad()`
+    // só variava a cota entre as duas bordas, nunca ao longo de uma mesma
+    // borda): zero sombra própria numa vista de topo, e é exatamente isso
+    // que lê como tinta em vez de terreno. Dois harmônicos PRÓPRIOS (4 e 7),
+    // DIFERENTES dos de `contornoIlha` (3 e 5): se a colina batesse palma com
+    // a onda da costa, a ilha inteira "respiraria" junto e o relevo pareceria
+    // só uma cópia menor do litoral, não terreno com vida própria.
+    //
+    // ⚠️ A EMENDA COM A PRAIA E COM A TRILHA NÃO MUDA UM MILÍMETRO. O bulto
+    // mora num raio do MEIO, NOVO, entre as duas bordas de cada faixa; as
+    // bordas em si (`R1`/`R2` e `R3`/`R4`) continuam na MESMA cota constante
+    // de antes. Por isso a costura que já existia (a praia bate em `R1`,
+    // ambas em `L.agua + 1,5`) e o degrau que já existia de propósito contra a
+    // trilha (0,1 a 0,2 m, ver as notas de `R2`/`R3` acima) continuam do
+    // jeito que estavam: ninguém testou essa emenda de novo, então ela não
+    // pode ter mudado.
+    const ondulaMata = (a: number) =>
+      1.1 * (0.6 * Math.sin(a * 4.0 + k * 2.7) + 0.4 * Math.sin(a * 7.0 - k * 1.9 + 1.3))
     for (let j = 0; j < seg; j++) {
       const a0 = (j / seg) * Math.PI * 2, a1 = ((j + 1) / seg) * Math.PI * 2
       const R0 = (a: number) => rr(a, raio)           // linha d'água
@@ -877,20 +936,30 @@ export function buildLago(o: LagoOpts): Lago {
       const R3 = (a: number) => rr(a, raio * 0.655)  // ⚠️ 4,5% do raio, não 8%:
                                                      // a trilha larga lia como
                                                      // pista de atletismo
-      const R4 = (a: number) => rr(a, raio * (dsc ? 0.42 : 0.34))  // clareira
+      const fClareira = dsc ? 0.42 : 0.34
+      const R4 = (a: number) => rr(a, raio * fClareira)  // clareira
+      // o raio do MEIO de cada faixa de mata, onde mora a colina
+      const R1m = (a: number) => rr(a, raio * 0.79)             // entre 0,88 e 0,70
+      const R3m = (a: number) => rr(a, raio * (0.655 + fClareira) / 2) // entre 0,655 e a clareira
       // praia: da linha d'água para dentro, subindo
       B(COR_PRAIA).quad(p(R0(a0), a0, L.agua + 0.15), p(R0(a1), a1, L.agua + 0.15),
                         p(R1(a1), a1, L.agua + 1.5), p(R1(a0), a0, L.agua + 1.5))
-      // mata: da praia até a trilha
+      // mata externa: da praia até a trilha, em DUAS faixas para caber a
+      // colina do meio (agua+1,95 na cota reta, mais a ondulação)
       B(COR_MATO).quad(p(R1(a0), a0, L.agua + 1.5), p(R1(a1), a1, L.agua + 1.5),
+                       p(R1m(a1), a1, L.agua + 1.95 + ondulaMata(a1)), p(R1m(a0), a0, L.agua + 1.95 + ondulaMata(a0)))
+      B(COR_MATO).quad(p(R1m(a0), a0, L.agua + 1.95 + ondulaMata(a0)), p(R1m(a1), a1, L.agua + 1.95 + ondulaMata(a1)),
                        p(R2(a1), a1, L.agua + 2.4), p(R2(a0), a0, L.agua + 2.4))
       // trilha: um anel de saibro, que é o que faz a ilha ser percorrível
       B(COR_TRILHA).quad(p(R2(a0), a0, L.agua + 2.6), p(R2(a1), a1, L.agua + 2.6),
                          p(R3(a1), a1, L.agua + 2.6), p(R3(a0), a0, L.agua + 2.6))
-      // mata de novo, entre a trilha e a clareira
+      // mata interna: entre a trilha e a clareira, mesma ideia (agua+2,85 na
+      // cota reta)
       B(COR_MATO).quad(p(R3(a0), a0, L.agua + 2.7), p(R3(a1), a1, L.agua + 2.7),
+                       p(R3m(a1), a1, L.agua + 2.85 + ondulaMata(a1)), p(R3m(a0), a0, L.agua + 2.85 + ondulaMata(a0)))
+      B(COR_MATO).quad(p(R3m(a0), a0, L.agua + 2.85 + ondulaMata(a0)), p(R3m(a1), a1, L.agua + 2.85 + ondulaMata(a1)),
                        p(R4(a1), a1, L.agua + 3.0), p(R4(a0), a0, L.agua + 3.0))
-      // ⚠️ A CLAREIRA DAS SETE RESERVADAS É GRAMADO E NÃO LAJE. Laje clara num
+      // ⚠️ A CLAREIRA DAS CINCO RESERVADAS É GRAMADO E NÃO LAJE. Laje clara num
       // lote vazio lê como estacionamento; grama lê como terreno guardado.
       if (!dsc)
         B(COR_TERRA).quad(p(R4(a0), a0, L.agua + 3.1), p(R4(a1), a1, L.agua + 3.1),
@@ -950,7 +1019,7 @@ export function buildLago(o: LagoOpts): Lago {
     //
     // ⚠️ A CLAREIRA DELA ERA UMA LAJE BRANCA VAZIA OCUPANDO 40% DA ILHA, e um
     // vazio desse tamanho no meio de um cartão de visita não lê como reserva,
-    // lê como esquecimento. As outras sete continuam guardadas (gramado, para o
+    // lê como esquecimento. As outras cinco continuam guardadas (gramado, para o
     // projeto do parceiro entrar depois); esta é do Dog Social Club por decisão
     // do fundador, então ela é a única que já tem desenho.
     //

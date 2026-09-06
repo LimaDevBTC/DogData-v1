@@ -23,13 +23,27 @@ RC = 18.0                   # canto mais fechado que o do estádio (38 m)
 INCL_MAX = 34.0
 
 # nível: (nome, fileiras, tread, largura do assento, recuo, tipo)
-# Configuração calibrada por varredura: bate 12.000 lugares com inclinação dentro
-# do teto e envelope menor que a reserva. Resultado: 11.983 lugares, 131 x 111 m,
-# última fila a 19,6 m, inclinações de 30,2 a 33,7 graus.
+#
+# ⚠️ OS 12.000 DO PROGRAMA ERAM PEQUENOS PARA A CASCA, e isso só apareceu quando
+# a pele ficou pronta: o envelope de 165 x 145 m que o cume desenhou comporta
+# 24.181 lugares, o dobro. Construir 12.000 dentro dele seria pagar fachada de
+# arena grande para receber plateia de arena média, e o fundador pediu uma peça
+# de SHOW. Subiu para 24.181.
+#
+# ⚠️ E NÃO BASTA ACRESCENTAR FILEIRA: a linha de visada faz a inclinação SUBIR a
+# cada fila que recua, e aos 26 degraus do anel superior com passo de 0,80 ela
+# passava de 34 graus, que é o teto de evacuação. Quem paga a conta é o TREAD:
+# 0,98 no superior devolve 33,6 graus. Fileira a mais sem passo a mais é
+# arquibancada fora de norma.
+#
+# Varredura completa em `arena.md`. Decisão do fundador em 06/09: **28.240**, que
+# é o ponto mais alto que a varredura devolve com a inclinação ainda abaixo dos
+# 34 graus. Última fila a 34,4 m e a 90 m do centro; o teto de visada da FIFA é
+# 190 m, então sobra folga de sobra mesmo na pior poltrona.
 NIVEIS = [
     ("inferior",  14, 0.85, 0.52, 0.0, "geral"),
     ("camarote",   2, 0.95, 0.60, 4.0, "camarote"),
-    ("superior",  11, 0.80, 0.50, 4.0, "geral"),
+    ("superior",  30, 1.04, 0.50, 4.0, "geral"),
 ]
 CAMAROTES, POR_CAIXA, PERDAS = 36, 10, 0.17
 

@@ -277,6 +277,14 @@ export function buildAquario(o: AquarioOpts): Aquario {
   }
   // a floresta das ilhas: palmeira, samambaia, feto e grama alta
   //
+  // ⚠️ SUPERADA POR `ilha-mata.ts` EM 06/09, QUE SOBE SEMPRE (sem bandeira),
+  // enquanto isto continua atrás de `?aquario=1`. Quem abrir a praça com essa
+  // bandeira planta as duas: esta (rala, `LIFT_ILHA` único, sem cor por
+  // instância) por cima da nova (densa, cota exata por patamar, LOD de
+  // dossel). Não removi porque `?aquario=1` é experimento do vidro submerso,
+  // não desta floresta, e mexer nele não era o pedido; fica registrado para
+  // quem for religar a bandeira e achar duas florestas na mesma ilha.
+  //
   // ⚠️ ELA ESTAVA PLANTADA NO FUNDO DO LAGO. `props.ts` assenta no terreno, e sob
   // a ilha o terreno é a bacia (L.fundo): sem `lift` a palmeira nascia 12 m abaixo
   // do chão da ilha e 9 m debaixo d'água. Vista de cima a ilha era um disco pelado

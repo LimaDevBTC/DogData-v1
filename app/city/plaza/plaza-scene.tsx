@@ -70,6 +70,7 @@ import { Obra, aquece } from './obra'
 import { buildMontanha, type Montanha } from './montanha'
 import { buildLago, type Lago, LARG_ORLA } from './lago'
 import { buildAquario, type Aquario } from './aquario'
+import { buildIlhaMata, type IlhaMata } from './ilha-mata'
 import { buildCaverna, type Caverna } from './caverna'
 import { PROPS, SP_DECK_TOP } from './props-table'
 import { look2 } from './look'
@@ -1649,6 +1650,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let parcelas: PecaEncaixada[] = []
     let montanha: Montanha | null = null
     let aquario: Aquario | null = null
+    let ilhaMata: IlhaMata | null = null
     let caverna: Caverna | null = null
     let specsDoAquario: import('./props').PropSpec[] = []
     let props: Props | null = null
@@ -2355,6 +2357,29 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             }
             if (aquario) console.log(`[aquário] ${aquario.recife} peças de recife, ${aquario.peixes} peixes, ${aquario.floresta} na floresta das ilhas, ${aquario.triangulos.toLocaleString('pt-BR')} triângulos de vidro e estrutura`)
             console.log(`[lago] ${lago.areaHa.toFixed(0)} ha de lâmina, ${lago.pontes} pontes, ${lago.ilhas.length} ilhas (${lago.ilhas.filter((i) => i.dono).length} com dono), ${lago.triangulos.toLocaleString('pt-BR')} triângulos`)
+
+            // ⚠️ A MATA DAS ILHAS, SEM BANDEIRA (pedido do fundador, 06/09: "de
+            // cima só vejo a praia e uma mancha verde que parece grama"). Ao
+            // contrário do aquário, que é experimento e fica atrás de
+            // `?aquario=1`, isto é a resposta ao pedido e entra por padrão,
+            // assim que o lago existe (`lago.ilhas` é a única dependência).
+            // Não bloqueia o portão da praça: é aditivo e decorativo, como o
+            // aquário, então sobe pelo mesmo padrão de `buildArborizacao`
+            // (promessa disparada, `scene.add` quando resolver).
+            buildIlhaMata({
+              ilhas: lago.ilhas,
+              lago: terrain.lago,
+              gltf,
+              tier: profile.tier,
+              quality: profile.quality,
+              cortaTextura: profile.cortaTextura,
+              sombra: qDomo.get('sombra') !== '0',
+              culler,
+            }).then((im) => {
+              if (disposed) { im.dispose(); return }
+              ilhaMata = im
+              scene.add(im.group)
+            }).catch((err) => console.error('[ilha-mata] não subiu', err))
           } catch (err) {
             console.error('[lago] não subiu', err)
           }
@@ -4350,6 +4375,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       campo?.lod(camera.position)
       tecido?.update(camera.position)
       arvores?.update(camera.position)
+      ilhaMata?.update(camera.position)
       alpino?.update(camera.position)
       autopistas?.update(camera.position)
       inverno?.update(camera.position)   // mesmo contrato do alpino: troca o LOD da floresta
@@ -4628,6 +4654,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       programa?.dispose()
       montanha?.dispose()
       aquario?.dispose()
+      ilhaMata?.dispose()
       caverna?.dispose()
       props?.dispose()
       dsc?.dispose()
