@@ -112,13 +112,41 @@ export interface Modulo {
 export function caixaDoModulo(m: Modulo) {
   const rmBruto = (ANEIS[m.i] + ANEIS[Math.min(ANEIS.length - 1, m.i + m.nr)]) / 2
   const passo = passoNoRaio(rmBruto)
-  const mitra = 1 / Math.cos(Math.PI / (N_RAD / passo))
-  const r0 = (ANEIS[m.i] + HR) * mitra
-  const r1 = (ANEIS[Math.min(ANEIS.length - 1, m.i + m.nr)] - HR) * mitra
+  // ⚠️ `r0` e `r1` SÃO APÓTEMAS, não raios de círculo. A mitra de 1/cos(π/84)
+  // que estava aqui corrigia a esquadria do polígono de 84 lados; com 12 faces
+  // quem faz essa correção é `raioDodeca()`, no ponto, porque a diferença entre
+  // apótema e raio agora depende do RUMO e chega a 3,5%.
+  const r0 = ANEIS[m.i] + HR
+  const r1 = ANEIS[Math.min(ANEIS.length - 1, m.i + m.nr)] - HR
   const rm = (r0 + r1) / 2
   const a0 = anguloDe(m.j) + HR / rm
   const a1 = anguloDe(m.j + m.ns * passo) - HR / rm
   return { r0, r1, a0, a1, rm, passo }
+}
+
+/**
+ * O raio do ANEL DODECAGONAL no rumo `ang`, dado o raio do círculo inscrito.
+ *
+ * ⚠️ A MALHA INTEIRA SEGUE 12 FACES, e isso é decisão do fundador (06/09): "a
+ * malha viária da cidade inteira tem que seguir a base original de 12 faces, com
+ * arestas e esquinas bem definidas". Antes o anel era um polígono de 84 lados,
+ * um por radial, e 84 lados não é polígono aos olhos de ninguém: a flecha da
+ * corda ia de 1,0 m no anel interno a 4,7 m no externo, ou seja 0,03% do raio.
+ * Lia como círculo, e era isso que ele não queria. Com 12 faces a flecha vai a
+ * 229 m e a esquina existe.
+ *
+ * ⚠️ OS VÉRTICES CAEM NAS 12 AVENIDAS, não entre elas. A esquina do anel
+ * acontece no cruzamento com a avenida radial, que é onde uma cidade de verdade
+ * põe a praça de esquina. Por isso o deslocamento de 15° em `_rel`: a 30° exatos
+ * (`AVENIDAS`) fica o vértice, e a 15° dele fica o meio da face.
+ *
+ * `r` é a APÓTEMA (a menor distância do centro à face). No vértice o raio sobe
+ * para `r / cos(15°)`, 3,5% a mais.
+ */
+export function raioDodeca(r: number, ang: number): number {
+  const PASSO = Math.PI / 6            // 30°, o setor de uma face
+  let rel = ((ang % PASSO) + PASSO) % PASSO - PASSO / 2
+  return r / Math.cos(rel)
 }
 
 /** a área em m² de um bloco de módulos (trapézio circular) */
@@ -137,10 +165,25 @@ export function areaDoModulo(m: Modulo): number {
  */
 export function polyDoModulo(m: Modulo): [number, number][] {
   const c = caixaDoModulo(m)
-  const pt = (r: number, a: number): [number, number] => [Math.sin(a) * r, -Math.cos(a) * r]
+  // ⚠️ O PONTO SAI SOBRE A FACE DO DODECÁGONO, não sobre o círculo: `raioDodeca`
+  // é quem converte apótema em raio naquele rumo. Sem isso a parcela ficaria
+  // encolhida em relação à rua que a limita, e a diferença aparece justamente na
+  // quina, que é onde o olho vai.
+  const pt = (r: number, a: number): [number, number] => {
+    const rr = raioDodeca(r, a)
+    return [Math.sin(a) * rr, -Math.cos(a) * rr]
+  }
   const out: [number, number][] = []
-  for (let k = 0; k <= m.ns; k++) out.push(pt(c.r0, c.a0 + ((c.a1 - c.a0) * k) / m.ns))
-  for (let k = m.ns; k >= 0; k--) out.push(pt(c.r1, c.a0 + ((c.a1 - c.a0) * k) / m.ns))
+  // ⚠️ E O VÉRTICE DA AVENIDA ENTRA NA LISTA. Um bloco largo pode atravessar uma
+  // quina do dodecágono, e ligar as duas pontas em reta cortaria a esquina fora.
+  const quinas: number[] = []
+  for (let q = Math.ceil(c.a0 / (Math.PI / 6)); q * (Math.PI / 6) < c.a1; q++) {
+    const a = q * (Math.PI / 6)
+    if (a > c.a0 && a < c.a1) quinas.push(a)
+  }
+  const angs = [c.a0, ...quinas, c.a1]
+  for (const a of angs) out.push(pt(c.r0, a))
+  for (let k = angs.length - 1; k >= 0; k--) out.push(pt(c.r1, angs[k]))
   return out
 }
 

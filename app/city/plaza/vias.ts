@@ -49,7 +49,7 @@
 import * as THREE from 'three'
 import { LIMIAR_PRACA } from './pracas'
 import type { DistanceCuller } from './perf'
-import { ANEIS, AVENIDAS, HR, N_RAD, anguloDe, avenidasGeom, nasceEm } from './teia'
+import { ANEIS, AVENIDAS, HR, N_RAD, anguloDe, avenidasGeom, nasceEm, raioDodeca } from './teia'
 import { look2 } from './look'
 import { superficie, vestir, type Superficie } from './materiais'
 
@@ -504,15 +504,19 @@ const OMBRO_POUSO = 0.03
 // devolve 2 para qualquer raio acima de 1.450 (o laço casa no primeiro nível e
 // nunca chega ao segundo), então a cidade inteira usa 1/cos(pi/84). Uso o mesmo
 // valor para a rua nascer exatamente na divisa que `programa.ts` publica.
-const TEIA_MITRA = 1 / Math.cos(Math.PI / (N_RAD / 2))
-/** os raios dos anéis da teia, já com a esquadria do polígono */
-const RAIOS_TEIA: readonly number[] = ANEIS.map((r) => r * TEIA_MITRA)
+// ⚠️ A MITRA DE 84 LADOS SAIU EM 06/09. Ela corrigia a esquadria de um polígono
+// de 84 lados; a malha agora tem 12 faces e quem converte apótema em raio é
+// `raioDodeca()`, que precisa do RUMO e por isso não cabe numa constante.
 /** meia abertura da boca que a teia pede no ombro alheio: a seção mais uma folga */
 const TEIA_BOCA = HR + 4
-/** o raio está em cima de um anel da teia? (a boca do ombro da avenida) */
+/** o raio está em cima de um anel da teia? (a boca do ombro da avenida)
+ *  ⚠️ COM 12 FACES O ANEL NÃO TEM UM RAIO SÓ: ele depende do rumo do ponto, e a
+ *  diferença entre a apótema e a quina é de 3,5%, que num anel de 6.900 são 240
+ *  m. Comparar contra o raio do círculo abriria a boca no lugar errado. */
 function noAnelDaTeia(x: number, z: number): boolean {
   const r = Math.hypot(x, z)
-  for (const rr of RAIOS_TEIA) if (Math.abs(r - rr) < TEIA_BOCA) return true
+  const a = Math.atan2(x, -z)
+  for (const ap of ANEIS) if (Math.abs(r - raioDodeca(ap, a)) < TEIA_BOCA) return true
   return false
 }
 /** o rumo está em cima de um radial da teia? (a boca do ombro do anel viário) */
@@ -2061,8 +2065,11 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   })()
   /** quantos índices de 168 vale um passo de módulo naquele anel */
   const teiaPasso = (i: number) => (i < TEIA_DOBRA ? 2 : 1)
+  // ⚠️ O NÓ DA TEIA CAI NA FACE DO DODECÁGONO. A malha inteira segue 12 faces
+  // (fundador, 06/09), então o raio no rumo `a` é `raioDodeca(apótema, a)` e não
+  // um raio constante com a mitra de 84 lados que estava aqui.
   const teiaPt = (i: number, j: number): [number, number] => {
-    const a = anguloDe(j), R = ANEIS[i] * TEIA_MITRA
+    const a = anguloDe(j), R = raioDodeca(ANEIS[i], a)
     return [Math.sin(a) * R, -Math.cos(a) * R]
   }
 
@@ -2307,6 +2314,11 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     return n
   }
   const teiaArestas: ArestaTeia[] = []
+  // ⚠️ COM 12 FACES O NÓ TEM DE EXISTIR NA QUINA. `N_RAD` é 168 e o passo é 2,
+  // ou seja um nó a cada 4,286°: as avenidas ficam a 30°, que é múltiplo exato
+  // disso (j = 14, 28, 42...), então a quina JÁ cai em cima de um nó e a aresta
+  // nunca a atravessa. Sem essa coincidência a esquina seria cortada em chanfro,
+  // e é por isso que ela está conferida aqui e não suposta.
   for (let i = 0; i < ANEIS.length; i++) {
     const p = teiaPasso(i)
     for (let j = 0; j < N_RAD; j += p) {

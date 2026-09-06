@@ -4014,6 +4014,14 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       liveTimer = null
       liveStep = -1
       liveRunning = false
+      // ⚠️ CANCELAR O TOUR TEM DE PARAR O VOO TAMBÉM, e isto foi medido: sem
+      // `fly.on = false` o gesto encerrava o roteiro mas o `flyTo` em curso
+      // continuava levando a câmera até o destino da parada seguinte. Quem tocou
+      // a tela via a cidade continuar viajando sozinha por mais alguns segundos,
+      // que é o contrário do que "qualquer gesto encerra" promete. Apareceu numa
+      // chapa: pedi um enquadramento e recebi o da batalha, porque o voo do tour
+      // sobrescreveu a câmera depois do meu comando.
+      fly.on = false
       shadowDirty = true
       controls.enabled = true
       controls.autoRotate = false
