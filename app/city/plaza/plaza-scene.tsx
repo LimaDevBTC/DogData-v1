@@ -4321,6 +4321,23 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           }
           return { n, raio, min, max, alturas: Array.from(alturas) }
         }
+      // ?stats=1 → window.__plazaPerfil([[x,z],...]): a superfície COMO
+      // CONSTRUÍDA em pontos ARBITRÁRIOS.
+      //
+      // ⚠️ POR QUE NÃO BASTA O `__plazaGrade`. Ele amostra uma grade regular
+      // centrada na origem, e com n=600 sobre 24 km a célula tem 40 m: um canal
+      // de 60 m de lâmina cabe em uma célula e meia, então a grade não enxerga
+      // nem o leito, nem o muro, nem a praia. Para auditar canal é preciso
+      // andar ALINHADO ao eixo dele e cortar transversal de metro em metro, e
+      // isso é ponto arbitrário, não grade.
+      //
+      // ⚠️ E TEM DE SER AQUI DENTRO, não replicado fora. `superficieAt` é a
+      // mesma função que assenta lote, rua e peça, e replicá-la fora da cena já
+      // errou por 75 m uma vez (ver a nota do `__plazaGrade`). A sonda devolve o
+      // número que a cidade usa, não uma reconstrução dele.
+      ;(window as unknown as { __plazaPerfil?: (p: [number, number][]) => number[] })
+        .__plazaPerfil = (pontos) => pontos.map(([x, z]) => superficieAt(x, z))
+
       // ?stats=1 → window.__plazaTexturas(): O CENSO DE VRAM POR TEXTURA.
       //
       // ⚠️ EXISTE PORQUE `renderer.info.memory.textures` CONTA E NÃO PESA. Ele
