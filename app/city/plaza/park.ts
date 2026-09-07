@@ -428,21 +428,55 @@ function* constroiParque(a: AtivosDoParque, opts: ParkOpts, saida: SaidaDoParque
   const CAVE_FLOOR = groundRaw(CAVE_LOCAL.x, CAVE_LOCAL.z) - 0.15
   const AX = Math.cos(CAVE_YAW), AZ = -Math.sin(CAVE_YAW)
   const A0X = CAVE_LOCAL.x + AX * 30, A0Z = CAVE_LOCAL.z + AZ * 30   // à frente da boca
-  // ⚠️ 140, não 78: a caverna foi reformada em 26/08 e o fundo da câmara foi
-  // de 78 m para 141 m atrás da boca. Com o eixo curto, a encosta voltava a
-  // subir DENTRO do salão novo e aparecia como piso cinza no meio do pátio.
-  const A1X = CAVE_LOCAL.x - AX * 140, A1Z = CAVE_LOCAL.z - AZ * 140   // o fundo da câmara
+  // ⚠️ 230, não 140, e o geodo de 07/09 é quem exigiu: a cavidade passou de
+  // 141 m para 336 m atrás da boca e de 81 m para 216 m de largura de piso.
+  // Medido no mapa de altura, na cota da soleira: a encosta sobe +25 m aos 60 m
+  // de fundura, +43 aos 100 e +90 aos 200, ou seja ela voltava a entrar DENTRO
+  // do salão novo (pé direito de 92 m) e apareceria como piso cinza no meio do
+  // pátio, que é exatamente o defeito que a reforma de 26/08 já tinha consertado
+  // uma vez em escala menor.
+  // ⚠️ E 230 NÃO É 336 DE PROPÓSITO. `d` é a distância ao SEGMENTO, então além
+  // de A1 o corte vira uma calota de raio 178: com A1 em −230 o escavado alcança
+  // −350, que é a borda da casca do geodo (−342,6). Pôr A1 no fundo da cavidade
+  // abriria 120 m de prateleira lisa ATRÁS da rocha, sem nada em cima dela.
+  const A1X = CAVE_LOCAL.x - AX * 230, A1Z = CAVE_LOCAL.z - AZ * 230   // o fundo da câmara
   const axisLen2 = (A1X - A0X) ** 2 + (A1Z - A0Z) ** 2
+  /** distância de um ponto do parque ao EIXO da caverna (o segmento boca→fundo).
+   *  O maciço deixou de ser redondo: com 353 m de comprimento e 256 de largura,
+   *  um raio a partir da boca mede a coisa errada nas duas pontas. */
+  const noEixoDaCaverna = (lx: number, lz: number): { t: number; d: number } => {
+    const t = THREE.MathUtils.clamp(((lx - A0X) * (A1X - A0X) + (lz - A0Z) * (A1Z - A0Z)) / axisLen2, 0, 1)
+    return { t, d: Math.hypot(lx - (A0X + (A1X - A0X) * t), lz - (A0Z + (A1Z - A0Z) * t)) }
+  }
+  const dEixoDaCaverna = (lx: number, lz: number): number => noEixoDaCaverna(lx, lz).d
+  /** ⚠️ O ESCAVADO AFUNDA 2,6 m DEPOIS DA SOLEIRA, e sem isto o chão do parque
+   *  aparecia POR CIMA do piso do salão. O corte sempre nivelou o terreno na cota
+   *  da soleira, e a câmara velha tinha o piso exatamente nela (topo em y = 0
+   *  local): as duas superfícies ficavam coplanares e brigavam em z. O piso do
+   *  geodo é MAIS BAIXO que a soleira: medido na malha, a superfície de topo vai
+   *  de −1,40 m (o ponto mais fundo) a −0,28, mediana −0,60. Um terreno na cota da
+   *  soleira taparia o salão inteiro com uma laje cinza a 0,8 m do chão.
+   *  Então o alvo do corte desce 2,6 m (1,2 m de folga sob o ponto mais fundo)
+   *  entre a soleira e 40 m de fundura. Na frente da boca ele não muda: terraço,
+   *  trilhas e caminho secreto continuam lendo a mesma cota de sempre. */
+  const AFUNDA = 2.6
   const groundLocal = (lx: number, lz: number): number => {
     const h = groundRaw(lx, lz)
-    if (h <= CAVE_FLOOR) return h
-    const t = THREE.MathUtils.clamp(((lx - A0X) * (A1X - A0X) + (lz - A0Z) * (A1Z - A0Z)) / axisLen2, 0, 1)
-    const d = Math.hypot(lx - (A0X + (A1X - A0X) * t), lz - (A0Z + (A1Z - A0Z) * t))
-    // raio de influência acompanha o salão novo (83,5 m de largura de piso):
-    // 120 cobre a câmara inteira mais folga de encosta
-    if (d > 120) return h
-    const k = THREE.MathUtils.clamp((120 - d) / 58, 0, 1)
-    return h + (CAVE_FLOOR - h) * (k * k * (3 - 2 * k))
+    if (h <= CAVE_FLOOR - AFUNDA) return h
+    const { t, d } = noEixoDaCaverna(lx, lz)
+    // ⚠️ o raio de influência acompanha o salão, e o do geodo tem 216 m de
+    // largura de piso (±108) dentro de uma casca de ±128. 178 com a mesma rampa
+    // de 58 m dá corte CHEIO até 120 m do eixo e natural a partir de 178: o
+    // aro do escavado cai onde a casca do geodo encontra a cota da soleira, e a
+    // encosta volta a subir apoiada no pé da rocha em vez de num degrau.
+    // Era 120/58 (corte cheio até 62), feito para uma câmara de 81 m de largura.
+    if (d > 178) return h
+    // 30/260 é a SOLEIRA no parâmetro do eixo (o segmento começa 30 m à frente
+    // dela e tem 260 m); 70/260 são 40 m de fundura, onde o piso do salão começa
+    const alvo = CAVE_FLOOR - AFUNDA * THREE.MathUtils.smoothstep(t, 30 / 260, 70 / 260)
+    if (h <= alvo) return h
+    const k = THREE.MathUtils.clamp((178 - d) / 58, 0, 1)
+    return h + (alvo - h) * (k * k * (3 - 2 * k))
   }
   yield
 
@@ -522,10 +556,13 @@ function* constroiParque(a: AtivosDoParque, opts: ParkOpts, saida: SaidaDoParque
     // 117 m (2026-08-19), um dos cristais vizinhos passou a atravessar a parede
     // da câmara e a furar o teto: por dentro via-se a lasca branca e a luz de
     // fora. O escudo é o raio da massa mais folga.
-    // ⚠️ 150, não 78: com a reforma de 26/08 o maciço passou a 152 x 129 m
-    // (fundo a 141 m atrás da boca), e o escudo antigo deixava cristal nascer
-    // dentro da parede da câmara de novo.
-    if (Math.hypot(p.x - CAVE_LOCAL.x, p.z - CAVE_LOCAL.z) < 150) return
+    // ⚠️ E O ESCUDO DEIXOU DE SER UM CÍRCULO em 07/09, porque o maciço deixou de
+    // ser redondo: a casca do geodo tem 353 x 256 m (bbox medido no GLB, de
+    // x = −342,6 a +11,6 e z = ±130,2). Um raio de 150 m a partir da boca
+    // protegia a frente e deixava as duas baias e a abside inteiramente
+    // descobertas. Agora é distância ao EIXO, com 140 m = os 130 da casca mais
+    // 10 de folga, a mesma régua que o corte do terreno usa.
+    if (dEixoDaCaverna(p.x, p.z) < 140) return
     const list = byVariant.get(v) ?? []
     list.push(Mt)
     byVariant.set(v, list)
@@ -747,7 +784,11 @@ function* constroiParque(a: AtivosDoParque, opts: ParkOpts, saida: SaidaDoParque
       const dist = camPos.distanceTo(PARK_CENTER)
       lodCrystals(dist)
       lodTerrain(dist)
-      cave?.update(t)
+      // ⚠️ A CÂMERA VAI JUNTO, e não é enfeite: as duas peças de dentro da
+      // caverna (o geodo e a fortaleza-caveira, 3,4 MB e 315.498 triângulos)
+      // carregam por PROXIMIDADE e são descartadas ao sair. Sem `camPos` aqui a
+      // caverna nunca abre o portão e o visitante entra num buraco vazio.
+      cave?.update(t, camPos)
     },
     // ⚠️ `bcTex` e `nmTex` NÃO são descartadas aqui: elas vêm do cache de módulo
     // de `loadCrystalTextures` e são as MESMAS que o Jardim Ordinal usa. Ver a

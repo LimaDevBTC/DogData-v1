@@ -1,26 +1,37 @@
-// O TEMPLO LEONIDAS DENTRO DA CAVERNA (praca-ajustes.md item 14).
+// O TEMPLO LEONIDAS DENTRO DA CAVERNA (praca-ajustes.md item 14, leonidas.md F4).
 //
 // O pedido do fundador: "o templo será preto e laranja, entre as monarcas, dentro
-// de uma caverna", com caminho secreto. Então o salão saiu do pódio (onde estava
-// à vista, e torto) e entrou numa câmara escavada no flanco leste do maciço do
-// Monarca, entre as pedras grandes:
+// de uma caverna", com caminho secreto. Em 07/09/2026 as duas peças de dentro
+// foram trocadas, e é isto que a F4 ligou na cena:
 //
-//   · a ROCHA vem de `blender/build_leonidas_cave.py` → leonidas-cave.glb:
-//     basalto preto. Em 2026-08-26 ela virou três peças (boca pequena de 7,2 m
-//     de vão, corredor em S de 65 m que corta a linha de visão, e um SALÃO de
-//     90 x 81 m de piso com 42 m de pé direito), mais matacões que escondem a
-//     entrada de quem passa longe;
-//   · o JARDIM DO PÁTIO é vegetação de caverna em volta do templo: cogumelos de
-//     textura emissiva e crostas de líquen, tudo em azul frio contra o âmbar do
-//     prédio. Ver `buildCaveGarden`;
-//   · o SALÃO é o mesmo modelo japonês (carolinefangel, CC-BY-4.0), repintado:
-//     todas as superfícies vão para o preto e o laranja entra como LUZ e como
-//     fio de brasa (cumeeira, portal, lanternas). Preto e laranja, a marca;
+//   · o GEODO (`leonidas-geode.glb`, 287,6 x 204 x 92,4 m, 143.790 tris, 5
+//     materiais) no lugar da câmara de basalto de 64 m. Ele NÃO é um buraco: é
+//     uma cavidade dentro da própria formação das runestones, com drusas do
+//     mesmo tier das pedras marcadas crescendo para dentro. Traz o corredor em
+//     S que corta a linha de visão, o mirante onde ele desemboca, a escadaria
+//     de 20 degraus (a única régua humana da sala) e os matacões que escondem a
+//     boca. Ver `blender/build_leonidas_geode.py`;
+//   · a FORTALEZA-CAVEIRA (`leonidas-fortress.glb`, 121,2 x 124,5 x 62,86 m,
+//     171.708 tris) no lugar do pagode japonês, que o fundador recusou ("esse
+//     mini templo japonês não está à altura dele"). A caveira é FACHADA e a
+//     nave é escavada no maciço atrás dela; a boca é a porta. Ver
+//     `blender/build_leonidas_fortress.py`;
+//   · o JARDIM DO PÁTIO é vegetação de caverna em volta da fortaleza: cogumelos
+//     de textura emissiva e crostas de líquen, tudo em azul frio contra o âmbar
+//     do templo. Ver `buildCaveGarden`;
 //   · o CAMINHO SECRETO é uma fieira de lajes que sai do pódio do precinto e
 //     vai rareando até a boca: quem não procurar, não acha.
 //
+// ⚠️ AS DUAS PEÇAS DE DENTRO NÃO ENTRAM NO BOOT, e é pedido explícito do
+// fundador: "a cabeceira só vai ser vista por quem entrar na caverna, então
+// podemos otimizar o carregamento". Elas carregam por PROXIMIDADE (ver o bloco
+// do PORTÃO em `buildLeonidasCave`) e são descartadas ao sair, com dispose de
+// geometria e material. O que fica no boot é só a boca: monólitos, fio de brasa,
+// lanternas, braseiros, terraço e caminho secreto, que somam 146 KB de GLB.
+//
 // Quadro: tudo em LOCAL do parque (o mesmo de park.ts). O grupo é posto na
-// soleira da boca, com +X saindo dela.
+// soleira da boca, com +X saindo dela. Os três GLB (geodo, fortaleza e a câmara
+// velha) usam a MESMA convenção, então nada aqui gira ou escala peça de dentro.
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
@@ -58,36 +69,120 @@ const SPORE = 0x4a90d9
  *  luz do salão, jardim) passou a ser MEDIDO da malha do piso em `chamberPlan`,
  *  justamente para não precisar de outra rodada de números na próxima ampliação. */
 const S = 2.0
+/** a cor da marca, a MESMA de park.ts:94 (as pedras marcadas do parque). O
+ *  cristal do geodo é da família delas pelos parâmetros do tier, e é nesta cor
+ *  que ele acende. */
+const MARK = new THREE.Color(0.93, 0.91, 0.86)
+
+// ── O CONTRATO DAS DUAS PEÇAS DE DENTRO ─────────────────────────────────────
+// Tudo medido no GLB pronto (`blender/verify_leonidas_*.py`), não copiado de
+// script nenhum. Quadro local do grupo, metros finais, +X saindo da boca.
+const GEODO_URL = '/city/park/leonidas-geode.glb'
+const FORTALEZA_URL = '/city/park/leonidas-fortress.glb'
+/** Onde a fortaleza é assentada em X, e este número é a razão de ser da caverna
+ *  nova. `build_leonidas_geode.py` escavou o geodo EM VOLTA da fortaleza posta
+ *  em x = −213 (constante `FORT_AT` de lá), e a conta que manda é o
+ *  enquadramento da chegada:
+ *
+ *   · o plano do rosto é o max x de FORT_Skull, **+22,93** local → −190,07;
+ *   · o mirante (onde o corredor desemboca) fica em **x = −56**;
+ *   · logo o visitante sai do corredor a **134,07 m** da fachada.
+ *
+ *  ⚠️ E O NÚMERO EXIGIDO É 133,6 m, NÃO OS 101,2 QUE O BRIEFING DIZIA. Os 101,2
+ *  saem de D = (S/2)/tan(22,5)/0,75 com S = 62,86, que é só a ALTURA. A peça tem
+ *  124,50 m de LARGURA, o dobro; num quadro 3:2 com fov vertical de 45 graus a
+ *  meia-largura vale 1,5 x tan(22,5) = 0,6213 x D, então caber a 75% pede
+ *  D = 62,25 / (0,75 x 0,6213) = 133,6 m. Medido em chapa: a 104 m a fortaleza
+ *  ocupava 63,3% da altura e **192,5% da largura**, ou seja não cabia. */
+const FORT_AT_X = -213
+/** o plano do rosto no quadro LOCAL da fortaleza (max x de FORT_Skull, medido) */
+const FORT_ROSTO_X = 22.93
+/** a soleira do corredor, medida no geodo (LEDGE_X[0] + 4 m de passo) */
+const MIRANTE_X = -56
+/** o contrato de enquadramento: a distância mínima da soleira à fachada */
+const D_LEITURA = 133.6
+
+/** O EIXO DO CORREDOR EM S, em coordenadas do three (three.z = −blender.y), com
+ *  a cota do piso junto. É o contrato de `build_leonidas_geode.py` (CORREDOR e
+ *  CORREDOR_Z), e ele SOBE: quem entra sobe no escuro de 0 a 6,2 m e o salão se
+ *  abre abaixo dele. A lista antiga tinha cinco pontos e cota fixa, e com ela as
+ *  lanternas do fim do corredor ficariam 6 m dentro do piso novo. */
+const CORREDOR: [number, number, number][] = [
+  [34, 0.0, 0], [20, 0.6, 0], [8, 1.5, -1], [-5, 3.2, -10],
+  [-18, 4.8, -16.5], [-31, 5.7, -13], [-42, 6.15, -6], [-52, 6.2, -1],
+]
+/** meia-largura do túnel na boca: vão de 7,2 m, pequeno de propósito */
+const CORREDOR_MEIA = 3.6
+/** ⚠️ O ALARGAMENTO NÃO É LINEAR, e uma reta aqui põe lanterna dentro da rocha.
+ *  `build_leonidas_geode.py` abre o túnel em 2,35x mas SÓ DEPOIS DE 55% DO
+ *  CAMINHO ("alargar desde a boca entregaria o interior de fora"), com um
+ *  smoothstep nos 45% finais. Interpolando em reta, a meia-largura no meio do
+ *  corredor daria 6,03 m contra os 3,6 m reais: uma lanterna a 0,8 disso ficaria
+ *  1,2 m dentro da pedra. */
+function alargamento(u: number): number {
+  const s = THREE.MathUtils.clamp((u - 0.55) / 0.45, 0, 1)
+  return 1 + 1.35 * (s * s * (3 - 2 * s))
+}
+
+/** Um ponto no eixo do corredor pelo parâmetro u ∈ [0,1], com a meia-largura. */
+function noCorredor(u: number): { x: number; y: number; z: number; meia: number } {
+  const t = THREE.MathUtils.clamp(u, 0, 1) * (CORREDOR.length - 1)
+  const k = Math.min(CORREDOR.length - 2, Math.floor(t))
+  const f = t - k
+  const a = CORREDOR[k], b = CORREDOR[k + 1]
+  return {
+    x: a[0] + (b[0] - a[0]) * f, y: a[1] + (b[1] - a[1]) * f, z: a[2] + (b[2] - a[2]) * f,
+    meia: CORREDOR_MEIA * alargamento(THREE.MathUtils.clamp(u, 0, 1)),
+  }
+}
+
+/** A cota do piso do corredor no x pedido. O eixo é monótono em x da boca até o
+ *  mirante, então dá para perguntar por x sem parametrizar o caminho. */
+function corredorEmX(x: number): number {
+  for (let k = 0; k < CORREDOR.length - 1; k++) {
+    const a = CORREDOR[k], b = CORREDOR[k + 1]
+    if (x <= a[0] && x >= b[0]) return a[1] + (b[1] - a[1]) * ((a[0] - x) / Math.max(1e-6, a[0] - b[0]))
+  }
+  return x > CORREDOR[0][0] ? CORREDOR[0][1] : CORREDOR[CORREDOR.length - 1][1]
+}
 
 export interface LeonidasCave {
   group: THREE.Group
   /** o ponto de mundo da boca, para o menu Places */
   mouthLocal: THREE.Vector3
-  update: (t: number) => void
+  /** `camWorld` é a câmera em MUNDO: é ela que abre e fecha o portão do interior.
+   *  Sem ela a caverna anima o que já existe e não carrega nada. */
+  update: (t: number, camWorld?: THREE.Vector3) => void
   dispose: () => void
 }
 
-/** Repinta o salão: tudo preto (a textura continua, só multiplicada para baixo),
- *  nada de brilho frio. O laranja é acrescentado depois, como brasa. */
-function blacken(root: THREE.Object3D) {
-  const seen = new Set<THREE.Material>()
+/** Descarta uma hierarquia inteira: geometria, material e as texturas dele.
+ *
+ *  ⚠️ AS TEXTURAS SAEM PORQUE ESTAS PEÇAS NÃO SÃO COMPARTILHADAS. Os dois GLB do
+ *  interior têm ZERO imagem embutida (medido no chunk glTF: nenhum `images`), e
+ *  os dois cogumelos do jardim só são usados aqui e não passam por cache de
+ *  módulo nenhum (`loadSf` refaz o `gltf.load` a cada chamada). Se um dia uma
+ *  destas peças for compartilhada com outro módulo, esta função tem de parar de
+ *  descartar textura, senão serve mapa morto para o outro. */
+function descarta(root: THREE.Object3D) {
+  const mats = new Set<THREE.Material>()
   root.traverse((o) => {
     const m = o as THREE.Mesh
     if (!m.isMesh) return
-    const mats = Array.isArray(m.material) ? m.material : [m.material]
-    m.material = mats.map((mm) => {
-      const src = mm as THREE.MeshStandardMaterial
-      if (seen.has(src)) return src
-      const mat = src.clone()
-      seen.add(mat)
-      mat.color = new THREE.Color(0x0e0e12)
-      mat.roughness = Math.min(0.95, (mat.roughness ?? 0.6) + 0.3)
-      mat.metalness = Math.min(0.2, mat.metalness ?? 0)
-      mat.envMapIntensity = 0.25
-      return mat
-    }) as THREE.Material[]
-    if ((m.material as THREE.Material[]).length === 1) m.material = (m.material as THREE.Material[])[0]
+    m.geometry?.dispose()
+    for (const mm of Array.isArray(m.material) ? m.material : [m.material]) if (mm) mats.add(mm)
   })
+  for (const mm of mats) { soltaTexturas(mm as THREE.MeshStandardMaterial); mm.dispose() }
+  root.removeFromParent()
+}
+
+/** Os mapas de um material. `Material.dispose()` NÃO leva textura junto, e é por
+ *  isso que esta função existe separada: quem descarta uma peça inteira chama as
+ *  duas, e quem descarta só o material de um clone chama esta na hora certa. */
+function soltaTexturas(m: THREE.MeshStandardMaterial) {
+  for (const k of ['map', 'normalMap', 'emissiveMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'alphaMap'] as const) {
+    (m[k] as THREE.Texture | null)?.dispose()
+  }
 }
 
 /** A planta do SALÃO, lida da malha do piso em tempo de execução: onde é o meio
@@ -103,18 +198,18 @@ function blacken(root: THREE.Object3D) {
  *  corda) e a do corredor é estreita (11,6 m no ponto mais aberto). Fica só o que
  *  for largo. A conta não sabe nada sobre a caverna de hoje: valeu para a laje
  *  redonda de ontem, vale para a elipse com rabo de hoje e vale para a próxima. */
-function chamberPlan(mesh: THREE.Mesh): { cx: number; cz: number; r: number; top: number } | null {
+function chamberPlan(mesh: THREE.Mesh, paraLocal: THREE.Matrix4, piso: PisoDoSalao): { cx: number; cz: number; r: number; top: number } | null {
   const pos = mesh.geometry.getAttribute('position') as THREE.BufferAttribute | undefined
   if (!pos) return null
-  mesh.updateMatrixWorld(true)
-  const box = new THREE.Box3().setFromObject(mesh)
+  const v = new THREE.Vector3()
+  const box = new THREE.Box3()
+  for (let i = 0; i < pos.count; i++) box.expandByPoint(v.fromBufferAttribute(pos, i).applyMatrix4(paraLocal))
   const x0 = box.min.x, span = Math.max(1e-6, box.max.x - x0)
   const BINS = 48
   const lo = new Float64Array(BINS).fill(Infinity)
   const hi = new Float64Array(BINS).fill(-Infinity)
-  const v = new THREE.Vector3()
   for (let i = 0; i < pos.count; i++) {
-    v.fromBufferAttribute(pos, i).applyMatrix4(mesh.matrixWorld)
+    v.fromBufferAttribute(pos, i).applyMatrix4(paraLocal)
     const b = THREE.MathUtils.clamp(Math.floor(((v.x - x0) / span) * BINS), 0, BINS - 1)
     if (v.z < lo[b]) lo[b] = v.z
     if (v.z > hi[b]) hi[b] = v.z
@@ -136,7 +231,78 @@ function chamberPlan(mesh: THREE.Mesh): { cx: number; cz: number; r: number; top
   // não sobra fresta entre piso e rocha": 100 x 90 m de laje para 90 x 81 m de
   // salão). Então o pátio pisável é 0,88 da laje, não a laje inteira.
   const r = Math.min(ax1 - ax0, zMax - zMin) * 0.5 * 0.88
-  return { cx: (ax0 + ax1) * 0.5, cz: (zMin + zMax) * 0.5, r, top: box.max.y }
+  const cx = (ax0 + ax1) * 0.5, cz = (zMin + zMax) * 0.5
+  // ⚠️ `top` NÃO É MAIS `box.max.y`, E O GEODO É QUEM DERRUBOU AQUELA LINHA. A
+  // malha do piso traz a RAMPA do corredor, que sobe até o mirante: medido no
+  // GLB novo, `box.max.y` devolve 6,87 m (o parapeito do mirante) para um salão
+  // cujo piso está em −0,82 m. Plantar por ele poria o jardim 7,7 m no ar.
+  // Agora `top` é a cota medida no MEIO do salão, e cada peça pergunta a altura
+  // no ponto dela em `piso.h`.
+  return { cx, cz, r, top: piso.h(cx, cz) }
+}
+
+/** A ALTURA DO PISO, ponto a ponto, medida da malha e não presumida.
+ *
+ *  O piso do geodo NÃO é um plano: ele leva deslocamento (medido sob a pegada da
+ *  fortaleza: de −1,28 a −0,28 m, mediana −0,82) e uma rampa de corredor que sobe
+ *  de 0 a 6,2 m. Um número só para o salão inteiro afunda ou levanta cada peça
+ *  por até meio metro, e cogumelo de 42 cm some.
+ *
+ *  Grade de 6 m guardando o MAIOR y de cada célula: a laje tem fundo também (a
+ *  bacia desce a −7 m), e quem interessa é a superfície de cima. Fora da grade,
+ *  a mediana. */
+export interface PisoDoSalao {
+  h: (x: number, z: number) => number
+  mediana: number
+  /** o MENOR y do piso dentro de uma pegada: é assim que uma peça se assenta sem
+   *  pairar em ponto nenhum dela */
+  minEm: (b: THREE.Box3) => number
+}
+
+function amostraPiso(mesh: THREE.Mesh, paraLocal: THREE.Matrix4): PisoDoSalao {
+  const CEL = 6
+  const grid = new Map<string, number>()
+  const ys: number[] = []
+  const pos = mesh.geometry.getAttribute('position') as THREE.BufferAttribute | undefined
+  if (pos) {
+    const v = new THREE.Vector3()
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(paraLocal)
+      const k = `${Math.round(v.x / CEL)},${Math.round(v.z / CEL)}`
+      const cur = grid.get(k)
+      if (cur === undefined || v.y > cur) grid.set(k, v.y)
+      ys.push(v.y)
+    }
+  }
+  ys.sort((a, b) => a - b)
+  const mediana = ys.length ? ys[ys.length >> 1] : 0
+  const h = (x: number, z: number): number => {
+    const cx = Math.round(x / CEL), cz = Math.round(z / CEL)
+    // anel crescente: a célula exata, depois a vizinhança. Duas voltas bastam
+    // (12 m), e além disso a peça está fora do piso e a mediana é a resposta
+    for (let r = 0; r <= 2; r++) {
+      let soma = 0, n = 0
+      for (let i = -r; i <= r; i++) {
+        for (let j = -r; j <= r; j++) {
+          if (r > 0 && Math.max(Math.abs(i), Math.abs(j)) !== r) continue
+          const y = grid.get(`${cx + i},${cz + j}`)
+          if (y !== undefined) { soma += y; n++ }
+        }
+      }
+      if (n) return soma / n
+    }
+    return mediana
+  }
+  const minEm = (b: THREE.Box3): number => {
+    let m = Infinity
+    for (const [k, y] of grid) {
+      const c = k.split(',')
+      const x = Number(c[0]) * CEL, z = Number(c[1]) * CEL
+      if (x >= b.min.x && x <= b.max.x && z >= b.min.z && z <= b.max.z) m = Math.min(m, y)
+    }
+    return Number.isFinite(m) ? m : mediana
+  }
+  return { h, mediana, minEm }
 }
 
 /** Ruído determinístico por índice. `Math.random` é proibido nas cenas da praça:
@@ -202,16 +368,17 @@ function buildCaveGarden(opts: {
   cluster: THREE.Object3D | null
   /** a planta do salão, de `chamberPlan` */
   plan: { cx: number; cz: number; r: number; top: number }
-  /** a caixa do salão JÁ assentado */
+  /** a caixa da FORTALEZA já assentada (era a do pagode) */
   hallBox: THREE.Box3 | null
+  /** a altura do piso ponto a ponto: o geodo não tem piso plano */
+  piso: PisoDoSalao
   low: boolean
 }): { group: THREE.Group; mats: THREE.MeshStandardMaterial[]; lights: THREE.PointLight[]; junk: { dispose: () => void }[]; instances: number; draws: number } | null {
-  const { plan, hallBox: hb, low } = opts
+  const { plan, hallBox: hb, piso, low } = opts
 
   // ── a régua ──────────────────────────────────────────────────────────────
   const floorC = new THREE.Vector3(plan.cx, plan.top, plan.cz)
   const floorR = plan.r
-  const floorTop = plan.top
   const hallC = new THREE.Vector3()
   // a calçada nua rente ao templo: a PLANTA dele mais 3,5 m de passeio. Guardado
   // como meia-caixa e não como raio de propósito: ver `hallRadius` abaixo.
@@ -251,17 +418,32 @@ function buildCaveGarden(opts: {
 
   /** Encaixa um ponto no pátio: empurra para fora da PLANTA do templo, prende no
    *  aro do pátio, prende dentro do disco do piso e RECUSA o que cai na clareira
-   *  da entrada. */
+   *  da entrada.
+   *
+   *  ⚠️ A ORDEM DAS DUAS PRISÕES ERA UM DEFEITO ESCONDIDO, e a fortaleza o
+   *  acendeu. A versão de ontem empurrava para fora do templo e SÓ DEPOIS
+   *  prendia no disco do piso, e o segundo passo desfazia o primeiro: com o
+   *  pagode de 30 m dentro de um salão de 90 m a diferença era centimétrica,
+   *  mas com uma fortaleza de 121 x 124 m num salão de 288 x 204 a conta
+   *  medida diz que um ponto atrás dela (135 m do meio do piso) voltava para
+   *  93,5 m, ou seja para DENTRO da muralha. Agora o raio é preso de uma vez
+   *  só, dentro da faixa que existe naquele ângulo: do passeio do templo até
+   *  onde o disco do piso acaba. Se não sobrar faixa, não nasce planta ali. */
   const fit = (px: number, pz: number): { x: number; z: number } | null => {
-    let dx = px - hallC.x, dz = pz - hallC.z
-    const d = Math.hypot(dx, dz) || 1
-    const need = hallRadius(Math.atan2(dz, dx))
-    const k = THREE.MathUtils.clamp(d, need, outer) / d
-    dx *= k; dz *= k
-    let x = hallC.x + dx, z = hallC.z + dz
-    const ex = x - floorC.x, ez = z - floorC.z
-    const ed = Math.hypot(ex, ez) || 1
-    if (ed > floorR - 1.5) { const s = (floorR - 1.5) / ed; x = floorC.x + ex * s; z = floorC.z + ez * s }
+    const dx0 = px - hallC.x, dz0 = pz - hallC.z
+    const d = Math.hypot(dx0, dz0) || 1
+    const ux = dx0 / d, uz = dz0 / d
+    const need = hallRadius(Math.atan2(dz0, dx0))
+    // até onde o disco do piso deixa ir NESTA direção (interseção raio/círculo)
+    const ox = hallC.x - floorC.x, oz = hallC.z - floorC.z
+    const b = ox * ux + oz * uz
+    const c = ox * ox + oz * oz - (floorR - 1.5) * (floorR - 1.5)
+    const disc = b * b - c
+    if (disc <= 0) return null
+    const cap = -b + Math.sqrt(disc)
+    if (cap <= need) return null      // a fortaleza encosta na parede neste ângulo
+    const rr = THREE.MathUtils.clamp(d, need, Math.min(outer, cap))
+    const x = hallC.x + ux * rr, z = hallC.z + uz * rr
     if (x > hallC.x && Math.abs(z - hallC.z) < laneHalf) return null
     return { x, z }
   }
@@ -293,8 +475,10 @@ function buildCaveGarden(opts: {
   const mCap: THREE.Matrix4[] = []
   const mPad: THREE.Matrix4[] = []
   const o = new THREE.Object3D()
+  // ⚠️ a cota vem de `piso.h(x, z)`, e não de um `floorTop` só para o salão
+  // inteiro: o piso do geodo varia meio metro e a rampa do corredor sobe 6,2 m
   const push = (arr: THREE.Matrix4[], x: number, z: number, y: number, s: number, yaw: number, flat = 1) => {
-    o.position.set(x, floorTop + y, z)
+    o.position.set(x, piso.h(x, z) + y, z)
     o.rotation.set(0, yaw, 0)
     o.scale.set(s, s * flat, s)
     o.updateMatrix()
@@ -421,7 +605,7 @@ function buildCaveGarden(opts: {
   for (const bed of strong) {
     const l = new THREE.PointLight(SPORE, 34, 44, 1.7)
     l.layers.enable(CAVE_LAYER) // acende os dois: a rocha (camada 0) e o pátio
-    l.position.set(bed.x, floorTop + 2.6, bed.z)
+    l.position.set(bed.x, piso.h(bed.x, bed.z) + 2.6, bed.z)
     group.add(l)
     lights.push(l)
   }
@@ -442,108 +626,13 @@ export async function buildLeonidasCave(opts: {
   culler?: DistanceCuller
 }): Promise<LeonidasCave | null> {
   const loadGlb = (url: string) => new Promise<THREE.Object3D | null>((res) => opts.gltf.load(url, (g) => res(g.scene), undefined, () => { console.warn('[plaza] caverna ausente', url); res(null) }))
-  const [rock, hall, shroomTall, shroomClump] = await Promise.all([
-    loadGlb('/city/park/leonidas-cave.glb'), loadSf(opts.gltf, SF.templeHall),
-    loadSf(opts.gltf, SF.shroomTall), loadSf(opts.gltf, SF.shroomCluster),
-  ])
-  if (!rock) return null
-
   const group = new THREE.Group()
   group.name = 'LeonidasCave'
   const disposables: { dispose: () => void }[] = []
   const track = <T extends { dispose: () => void }>(o: T): T => { disposables.push(o); return o }
-
-  // ── a rocha ───────────────────────────────────────────────────────────────
-  // O sol da praça é uma direcional sem oclusão: ele entra pela rocha e acende o
-  // piso da câmara como se não houvesse teto. Como sombra a 5 km não é opção
-  // (o mapa de sombra é da praça), o interior se defende pelo ALBEDO: piso quase
-  // preto, e a casca só um pouco mais clara para a rocha continuar lendo por fora.
-  // o piso é também a planta do PÁTIO: o jardim mede o disco dele em vez de
-  // chutar raio, e assim acompanha a rocha quando ela é assada maior
-  let floorMesh: THREE.Mesh | null = null
-  dressSf(rock, { envMapIntensity: 0.12, roughness: 0.95, castShadow: true })
-  rock.traverse((o) => {
-    const m = o as THREE.Mesh
-    if (!m.isMesh) return
-    m.receiveShadow = true
-    const mat = m.material as THREE.MeshStandardMaterial
-    if (mat?.name === 'CaveFloor') { mat.color = new THREE.Color(0x101014); m.layers.set(CAVE_LAYER); floorMesh = m }
-    else if (mat?.name === 'CaveRock') {
-      // 0x060608 e não 0x0c: a garganta é uma face virada PARA O SOL, e com
-      // albedo médio ela lia cinza-claro dentro de uma caverna. Aqui o basalto
-      // fica quase preto, e quem acende o interior é a brasa.
-      mat.color = new THREE.Color(0x060608)
-    } else if (mat) {
-      // qualquer outra peça que a assadeira acrescentar DENTRO da câmara (as
-      // estalactites, `CaveDrip`, entraram em 2026-08-26) é interior e vai para a
-      // camada da caverna. Sem isto o sol da praça a acende como se não houvesse
-      // teto: é o mesmo bug que o piso já teve, e ele volta a cada peça nova.
-      mat.color = new THREE.Color(0x08080b)
-      m.layers.set(CAVE_LAYER)
-    }
-  })
-  group.add(rock)
-  // a planta do pátio, medida do piso de verdade: é dela que saem o lugar do
-  // templo, a luz do salão e o anel do jardim
-  group.updateMatrixWorld(true)
-  const plan = floorMesh ? chamberPlan(floorMesh) : null
-
-  // ── o salão, preto, no fundo da câmara ───────────────────────────────────
+  /** o que respira e não é do interior: a brasa da boca */
   const emissives: THREE.Material[] = []
-  /** a caixa do salão DEPOIS de assentado: é dela que sai o anel do jardim */
-  let hallBox: THREE.Box3 | null = null
-  if (hall) {
-    blacken(hall)
-    hall.traverse((o) => o.layers.set(CAVE_LAYER)) // só as brasas iluminam o salão
-    dressSf(hall, { envMapIntensity: 0.2, castShadow: true })
-    const box = new THREE.Box3().setFromObject(hall)
-    const size = box.getSize(new THREE.Vector3())
-    // a câmara tem 64 x 53 x 45 m e o salão fica em 30 m de frente: sobra nave
-    // em volta dele, que é o que faz a caverna ser uma CAVERNA e não uma caixa
-    const k = Math.min(30 / Math.max(size.x, size.z), 24 / Math.max(0.001, size.y))
-    hall.scale.setScalar(k)
-    // a frente do modelo olha para −z; girar −90° põe a frente na boca (+x)
-    hall.rotation.y = -Math.PI / 2
-    hall.position.set(0, 0, 0)
-    group.add(hall)
-    // assenta MEDINDO de novo, já girado e escalado: a conta feita na caixa de
-    // antes deixava o salão pairando (o modelo traz transformação própria, e a
-    // caixa medida antes do giro não é a mesma caixa)
-    group.updateMatrixWorld(true)
-    const wb = new THREE.Box3().setFromObject(hall)
-    const wc = wb.getCenter(new THREE.Vector3())
-    // O MEIO DO PÁTIO, medido, e não um número. Era `-22 * S`, um ponto fixo
-    // casado com a caverna de 2026-08-19. A assadeira de 2026-08-26 mudou o
-    // contrato (o salão passou a sair em METROS FINAIS, sem o multiplicador que o
-    // `S` daqui espelhava, e o meio andou de −44 para ~−71): com o número velho o
-    // templo encostava na parede da frente, que é a queixa que gerou a ampliação
-    // ("o templo continua muito apertado dentro da caverna"). Medido, ele
-    // acompanha qualquer assadeira futura.
-    const cx = plan ? plan.cx : -22 * S
-    const cz = plan ? plan.cz : 0
-    hall.position.set(cx - wc.x, (plan ? plan.top : 0) - wb.min.y, cz - wc.z)
-    // mede DE NOVO, já assentado: `wb` foi lido antes do último empurrão e serve
-    // para tamanho, não para lugar. O jardim precisa do lugar.
-    group.updateMatrixWorld(true)
-    hallBox = new THREE.Box3().setFromObject(hall)
 
-    // a cumeeira em brasa: o único traço aceso do prédio, no eixo do telhado
-    // fio de brasa, não tubo de luz: com 0,82 do comprimento e intensidade alta
-    // ele lia como uma barra fluorescente pairando sobre o telhado
-    const ridgeMat = track(new THREE.MeshStandardMaterial({ color: 0x1a1207, emissive: ORANGE, emissiveIntensity: 0.55, roughness: 0.5 }))
-    // a cumeeira é emissiva: fica na camada 0 para não depender de luz nenhuma
-    emissives.push(ridgeMat)
-    // ⚠️ eixo X, não Z: depois do giro Ry(-PI/2) o eixo LONGO do templo (30 m)
-    // é o X; em Z ele tem 24,6 m. Com a barra em Z ela cruzava o telhado de
-    // lado a lado, perpendicular à cumeeira real e 2 m abaixo dela, que é
-    // exatamente a "barra fluorescente" que o comentário acima diz evitar.
-    // 0,46 do lado longo dá 13,8 m, e a cumeeira do modelo tem 13,64 m.
-    const ridge = new THREE.Mesh(track(new THREE.BoxGeometry((wb.max.x - wb.min.x) * 0.46, 0.22, 0.22)), ridgeMat)
-    // segue o telhado, não um número: o salão andou junto com o meio do pátio
-    ridge.position.set(hallBox.getCenter(new THREE.Vector3()).x, hallBox.min.y + (wb.max.y - wb.min.y) * 0.985, cz)
-    ridge.layers.set(0)
-    group.add(ridge)
-  }
 
   // ── a soleira: dois monólitos, o fio de brasa no chão, brasa nas paredes ──
   // A primeira versão tinha uma verga atravessada de ponta a ponta: de longe
@@ -567,26 +656,38 @@ export async function buildLeonidasCave(opts: {
     // o fio de brasa da soleira: uma linha no chão, atravessando a boca
     // 7,6 m e não 18,5: o fio atravessa a BOCA (vão de 7,2 m), e não o vão
     // antigo. Com 18,5 ele sobrava 5,6 m para cada lado, entrando na rocha.
-    const sill = new THREE.Mesh(track(new THREE.BoxGeometry(0.5, 0.16, 7.6)), track(new THREE.MeshStandardMaterial({ color: 0x120c04, emissive: ORANGE, emissiveIntensity: 0.4, roughness: 0.6 })))
-    sill.position.set(5.5 * S, 0.1, 0)
+    //
+    // ⚠️ E ELE SUBIU 1,2 m COM O GEODO, senão ficava ENTERRADO. A fita do
+    // corredor novo é uma RAMPA: medida na malha, a superfície em x = 11 vai de
+    // 1,03 a 1,50 m (o eixo do contrato dá 1,28), contra os 0 m da câmara velha.
+    // Um fio a y = 0,1 sumia debaixo do piso. Ele agora é mais alto que fino
+    // (0,6 em vez de 0,16) e fica meio enterrado de propósito: assentado em 1,295
+    // ele vai de 0,995 a 1,595, ou seja aparece de 10 a 57 cm ao longo dos 7,6 m
+    // e não flutua em ponto nenhum do deslocamento de ±0,24 m da laje.
+    const sill = new THREE.Mesh(track(new THREE.BoxGeometry(0.5, 0.6, 7.6)), track(new THREE.MeshStandardMaterial({ color: 0x120c04, emissive: ORANGE, emissiveIntensity: 0.4, roughness: 0.6 })))
+    sill.position.set(5.5 * S, corredorEmX(5.5 * S) + 0.02, 0)
     group.add(sill)
     // as lanternas da garganta: brasa nas paredes, sem custo de luz
     const lampGeo = track(new THREE.SphereGeometry(0.2, 10, 8))
-    // ⚠️ o corredor agora faz uma CURVA em S: uma fileira reta em z = +-8,6
-    // punha 4 das 6 lanternas dentro da rocha maciça. Elas seguem o eixo do
-    // corredor (contrato da assadeira nova, em coordenadas do three, onde
-    // three.z = -blender.y) e encostam na parede pela meia-largura local.
-    const EIXO: [number, number][] = [[20, 0], [6, -0.8], [-8, -6.5], [-19, -11.5], [-30, -9]]
+    // ⚠️ O CORREDOR NOVO SOBE, e não só serpenteia. O eixo de cinco pontos com
+    // cota fixa (y = 6,2) foi feito para um corredor plano de 65 m; o do geodo
+    // tem 86 m, desvia 16,5 m do eixo e SOBE de 0 a 6,2 m até o mirante. Com a
+    // lista velha, as duas primeiras lanternas boiavam 6 m acima do chão da boca
+    // e as últimas ficavam dentro da rampa. Agora elas seguem `CORREDOR`, que é
+    // o contrato da assadeira, e encostam na parede pela meia-largura local, com
+    // 20% de folga para o deslocamento de ±0,75 m que o túnel levou.
+    // A altura fica entre 3,2 e 4,2 m acima do piso: o perfil do túnel é uma
+    // parede reta até 4,6 m e só depois vira meia-cana, então a lanterna encosta
+    // no trecho vertical e não some dentro da abóbada.
     for (let i = 0; i < 6; i++) {
       const side = i % 2 === 0 ? -1 : 1
-      const u = (i / 5) * (EIXO.length - 1)
-      const k = Math.min(EIXO.length - 2, Math.floor(u))
-      const f = u - k
-      const x = EIXO[k][0] + (EIXO[k + 1][0] - EIXO[k][0]) * f
-      const z = EIXO[k][1] + (EIXO[k + 1][1] - EIXO[k][1]) * f
+      // ⚠️ o passeio começa em u = 0,30 e não na boca: a face da rocha está em
+      // x = +8,4 a +10,7 (medida a raio pelo verificador), que é u ≈ 0,29. As duas
+      // primeiras lanternas da versão antiga caíam em x = 28 e 12, ou seja FORA
+      // da caverna, boiando a 4 m do chão do terraço sem parede atrás.
+      const p = noCorredor(0.30 + (i / 5) * 0.62)
       const lamp = new THREE.Mesh(lampGeo, glow)
-      // meia-largura do corredor abre em funil de 3,6 para 5,6 ao longo do S
-      lamp.position.set(x, 6.2 - (i % 3) * 0.5, z + side * (3.2 + (i / 5) * 1.6))
+      lamp.position.set(p.x, p.y + 4.2 - (i % 3) * 0.5, p.z + side * p.meia * 0.8)
       group.add(lamp)
     }
   }
@@ -610,41 +711,6 @@ export async function buildLeonidasCave(opts: {
       }
     }
   }
-
-  // ── o JARDIM DO PÁTIO ────────────────────────────────────────────────────
-  // Medido AQUI, antes do grupo sair da origem: enquanto `group` está em (0,0,0)
-  // sem giro, a caixa de mundo de qualquer filho já é a caixa local, que é o
-  // quadro em que o jardim é construído.
-  group.updateMatrixWorld(true)
-  const garden = plan ? buildCaveGarden({
-    tall: shroomTall, cluster: shroomClump, plan, hallBox,
-    low: opts.profile?.quality === 'low',
-  }) : null
-  // a intensidade com que cada material NASCEU: a respiração multiplica esta, e
-  // não a do quadro anterior (multiplicar a corrente faz o brilho derivar até
-  // apagar em alguns minutos de cena aberta)
-  const gardenBase = garden ? garden.mats.map((m) => m.emissiveIntensity) : []
-  if (garden) {
-    group.add(garden.group)
-    for (const d of garden.junk) disposables.push(d)
-  }
-
-  // ── a luz: três brasas, sem sombra (o orçamento de sombra é das torres) ───
-  const lights: THREE.PointLight[] = []
-  const addLight = (x: number, y: number, z: number, inten: number, dist: number) => {
-    const l = new THREE.PointLight(EMBER, inten, dist, 1.7)
-    l.layers.enable(CAVE_LAYER) // acende os dois: a rocha (camada 0) e o interior
-    l.position.set(x, y, z)
-    group.add(l)
-    lights.push(l)
-  }
-  // a de dentro segue o templo (o meio do pátio andou com a assadeira nova); as
-  // outras duas são da garganta e da soleira, que continuam na origem
-  addLight(plan ? plan.cx + 14 : -16 * S, 13, plan ? plan.cz : 0, 320, 190) // dentro, lavando o salão
-  // ⚠️ a garganta CURVA: (-4, 10, 0) caía dentro da rocha e acima do teto do
-  // corredor (arco de 8,2 m). O ponto abaixo está no eixo do S, na curva.
-  addLight(-19, 5.5, -11.5, 140, 120)   // a garganta, no cotovelo do corredor
-  addLight(9 * S, 7, 0, 70, 95)      // o derrame na soleira, o que se vê de longe
 
   group.position.set(CAVE_LOCAL.x, opts.groundLocal(CAVE_LOCAL.x, CAVE_LOCAL.z), CAVE_LOCAL.z)
   group.rotation.y = CAVE_YAW
@@ -752,25 +818,414 @@ export async function buildLeonidasCave(opts: {
   const holder = new THREE.Group()
   holder.name = 'LeonidasCaveSite'
   holder.add(group, apron, path)
+  const CULL = (opts.profile?.parkDetailCull ?? 4200) * 1.3
   const cullAt = new THREE.Vector3(CAVE_LOCAL.x, 0, CAVE_LOCAL.z).add(opts.parkCenter)
-  opts.culler?.add(group, (opts.profile?.parkDetailCull ?? 4200) * 1.3, cullAt)
-  opts.culler?.add(apron, (opts.profile?.parkDetailCull ?? 4200) * 1.3, cullAt)
+  opts.culler?.add(group, CULL, cullAt)
+  opts.culler?.add(apron, CULL, cullAt)
   opts.culler?.add(path, opts.profile?.parkDetailCull ?? 4200, cullAt)
-  // o jardim é miúdo dentro de uma câmara: some antes da rocha, que ainda precisa
-  // ler de longe como um contraforte. Fica dentro do grupo, então some duas vezes
-  // (com o grupo, e antes dele).
-  if (garden) opts.culler?.add(garden.group, (opts.profile?.parkDetailCull ?? 4200) * 0.7, cullAt)
+  // ⚠️ O JARDIM ENTRA NO CULLING POR UM PORTA-COPOS QUE NUNCA MORRE, e a razão é
+  // que `DistanceCuller` só sabe `add`: ele guarda a referência para sempre.
+  // Registrar o grupo do jardim direto (como era ontem, quando ele nascia uma vez
+  // só) vazaria um grupo descartado a cada entrada e saída da caverna. Este nó
+  // fica vazio quando o jardim não existe.
+  // Ele é miúdo dentro de uma câmara: some antes da rocha, que ainda precisa ler
+  // de longe como um contraforte.
+  const jardimHolder = new THREE.Group()
+  jardimHolder.name = 'CaveGardenHolder'
+  group.add(jardimHolder)
+  opts.culler?.add(jardimHolder, (opts.profile?.parkDetailCull ?? 4200) * 0.7, cullAt)
+
+  // ══ O PORTÃO: as duas peças de dentro entram por PROXIMIDADE ═══════════════
+  //
+  // Pedido do fundador, 07/09: "a cabeceira só vai ser vista por quem entrar na
+  // caverna, então podemos otimizar o carregamento". As duas somam 3.466.180
+  // bytes de GLB e 315.498 triângulos, e NENHUM dos dois byte entra no boot: a
+  // câmera nasce na praça, a 11.800 m do centro do parque, e o gatilho mais
+  // largo daqui é de 6.825 m da boca.
+  //
+  // ⚠️ SÃO DOIS GATILHOS PORQUE SÃO DUAS FUNÇÕES, e um número só erraria os dois:
+  //
+  //  · o GEODO é o MACIÇO. A casca dele é a rocha que se vê de fora (a cavidade
+  //    fica dentro dela), então ele tem de existir sempre que o sítio for
+  //    desenhado. O gatilho é o próprio raio do culling vezes 1,25: assim ele
+  //    chega ANTES de o culling mostrar o sítio, e nunca se vê o pátio sem pedra.
+  //    Medido com o perfil padrão: culling a 5.460 m, gatilho a 6.825 m.
+  //  · a FORTALEZA é invisível de fora, e isto foi MEDIDO e não suposto: dos 600
+  //    raios que o verificador do geodo atira de fora, ZERO alcança o salão. O
+  //    gatilho dela não é visibilidade, é TEMPO DE REDE: 2.540.024 bytes precisam
+  //    chegar antes do mirante. De 420 m da boca até o mirante há 420 + 86 m de
+  //    corredor = 506 m de caminhada, folgado até em rede de 1 Mbps.
+  //
+  // A histerese (sair só 200 m / 15% depois de entrar) existe para quem anda na
+  // fronteira não ficar baixando e descartando o mesmo arquivo.
+  //
+  // ⚠️ O QUE ISTO CUSTA, DECLARADO. As oito PointLight desta caverna (cinco do
+  // salão, três do jardim) nascem e morrem com o interior, e a contagem de luzes
+  // faz parte da chave de cache de programa do three (a nota grande de
+  // `DistanceCuller.add` em perf.ts conta a história: uma ida e volta de câmera
+  // subiu os programas compilados de 444 para 480). Aqui a troca é deliberada e
+  // as duas pontas foram pesadas:
+  //  · sem o portão, 8 pontuais ficam no laço de fragmento da praça INTEIRA para
+  //    sempre, e hoje já são 6 (as 3 da câmara mais as 3 do jardim);
+  //  · com o portão, são ZERO enquanto o visitante não está na caverna, ao preço
+  //    de DUAS famílias de programa (com caverna e sem), que é um número fechado
+  //    e não uma família nova por travessia, porque a histerese impede o
+  //    liga-desliga na fronteira.
+  // O que sobra de dívida é pequeno e fica registrado: o inventário de luz do
+  // culling guarda a referência das luzes que já morreram (ele só sabe somar),
+  // então cada ida e volta completa deixa 8 entradas mortas na lista dele.
+  // Custam duas escritas de propriedade por quadro cada uma e nada mais.
+  const GEO_IN = CULL * 1.25, GEO_OUT = CULL * 1.45
+  const FORT_IN = 420, FORT_OUT = 620
+
+  /** o interior, que nasce vazio e pode voltar a ficar vazio */
+  let geodo: THREE.Object3D | null = null
+  let fortaleza: THREE.Object3D | null = null
+  let baixandoGeodo = false, baixandoFort = false
+  let piso: PisoDoSalao | null = null
+  let plan: { cx: number; cz: number; r: number; top: number } | null = null
+  let garden: ReturnType<typeof buildCaveGarden> = null
+  let gardenBase: number[] = []
+  let lights: { l: THREE.PointLight; base: number; fase: number; ritmo: number }[] = []
+  let ambiente: THREE.AmbientLight | null = null
+  /** o emissivo do INTERIOR, cada um com a força com que nasceu (o cristal do
+   *  geodo é um sussurro de 0,016 e a órbita da fortaleza é 1,35: uma respiração
+   *  única para os dois apagaria um e estouraria o outro) */
+  let brasas: { m: THREE.MeshStandardMaterial; base: number }[] = []
+  let dist = Infinity
+
+  /** ⚠️ O QUADRO. Enquanto o grupo estava na origem, `Box3.setFromObject` já
+   *  devolvia a caixa LOCAL e o código de ontem dependia disso ("medido AQUI,
+   *  antes do grupo sair da origem"). O interior agora chega TARDE, com o grupo
+   *  já em CAVE_LOCAL e girado 10°: medir em mundo devolveria a caixa 335 m fora
+   *  do lugar. Esta matriz leva do mundo de volta ao local do grupo. */
+  const paraLocalDe = (obj: THREE.Object3D): THREE.Matrix4 => {
+    group.updateMatrixWorld(true)
+    obj.updateMatrixWorld(true)
+    return new THREE.Matrix4().copy(group.matrixWorld).invert().multiply(obj.matrixWorld)
+  }
+  /** a caixa de uma peça no quadro LOCAL do grupo, medida na malha JÁ girada e
+   *  escalada (que é a lição que este arquivo já pagou uma vez: a caixa medida
+   *  antes do giro deixou o salão pairando) */
+  const caixaLocal = (obj: THREE.Object3D): THREE.Box3 => {
+    group.updateMatrixWorld(true)
+    obj.updateMatrixWorld(true)
+    const inv = new THREE.Matrix4().copy(group.matrixWorld).invert()
+    const m = new THREE.Matrix4()
+    const box = new THREE.Box3()
+    obj.traverse((o) => {
+      const mesh = o as THREE.Mesh
+      if (!mesh.isMesh || !mesh.geometry) return
+      if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox()
+      const bb = mesh.geometry.boundingBox
+      if (!bb) return
+      m.multiplyMatrices(inv, mesh.matrixWorld)
+      box.union(bb.clone().applyMatrix4(m))
+    })
+    return box
+  }
+
+  /**
+   * ⚠️ O CORTE POR TIER, E ELE LÊ UM CAMPO DO PERFIL DE VERDADE. Aceitar o perfil
+   * só por ele existir é defeito que esta casa já teve duas vezes (ver a nota de
+   * `cortaTextura` em perf.ts). Aqui a pergunta é explícita: `quality` e `tier`.
+   *
+   * 88.072 dos 143.790 triângulos do geodo (61,3%) são descartáveis SEM REASSAR
+   * NADA, porque `GEO_Drusas` (51.032), `GEO_Talus` (18.980), `GEO_Vein` (12.980)
+   * e `GEO_Stalactites` (5.080) são objetos separados com material próprio. Sem
+   * eles a caverna cai para 55.718 tris e continua sendo a mesma caverna, só mais
+   * nua: a casca (46.016), o piso (5.862) e os três matacões (3.840) ficam.
+   *
+   * ⚠️ E OS DOIS NÚMEROS DO DOSSIÊ ESTAVAM ERRADOS, conferidos aqui na soma dos
+   * mesmos objetos que ele lista: 51.032 + 18.980 + 12.980 + 5.080 = 88.072, e
+   * não 80.072; logo o resto é 55.718 e não "~63.700". Os valores por objeto
+   * dele batem com o GLB; a subtração é que não fechava.
+   *
+   * A fortaleza NÃO entra neste corte, e é regra escrita da F4: "teto por tier
+   * vale para o que ACOMPANHA a fortaleza, não para ela mesma". Ela é vista de
+   * 20 m do rosto, e é a peça.
+   */
+  const ORNAMENTO = new Set(['GEO_Drusas', 'GEO_Talus', 'GEO_Vein', 'GEO_Stalactites'])
+  const magro = (() => {
+    const p = opts.profile
+    if (!p) return false
+    if (p.quality === 'high') return false          // quem pediu HIGH pediu tudo
+    return p.quality === 'low' || p.tier === 'mobile'
+  })()
+
+  async function abreGeodo() {
+    baixandoGeodo = true
+    const [rock, shroomTall, shroomClump] = await Promise.all([
+      loadGlb(GEODO_URL), loadSf(opts.gltf, SF.shroomTall), loadSf(opts.gltf, SF.shroomCluster),
+    ])
+    baixandoGeodo = false
+    if (!rock) return
+    // o visitante pode ter ido embora enquanto a rede respondia
+    if (dist > GEO_OUT) { descarta(rock); if (shroomTall) descarta(shroomTall); if (shroomClump) descarta(shroomClump); return }
+
+    // ── a rocha ─────────────────────────────────────────────────────────────
+    // O sol da praça é uma direcional sem oclusão: ele entra pela rocha e acende
+    // o piso da câmara como se não houvesse teto. Como sombra a 5 km não é opção
+    // (o mapa de sombra é da praça), o interior se defende pelo ALBEDO.
+    let floorMesh: THREE.Mesh | null = null
+    const podados: THREE.Object3D[] = []
+    dressSf(rock, { envMapIntensity: 0.12, roughness: 0.95, castShadow: true })
+    rock.traverse((o) => {
+      const m = o as THREE.Mesh
+      if (!m.isMesh) return
+      if (magro && ORNAMENTO.has(o.name)) { podados.push(o); return }
+      m.receiveShadow = true
+      const mat = m.material as THREE.MeshStandardMaterial
+      if (!mat) return
+      // ⚠️ SÓ A ROCHA LANÇA SOMBRA, e é a mesma conta da fortaleza: o passe de
+      // sombra da praça é da direcional, que não entra na caverna, e ele testa a
+      // camada da CÂMERA (que tem a CAVE_LAYER ligada), então tudo o que estiver
+      // com `castShadow` é redesenhado nele. Deixar o `dressSf` valer para o
+      // interior inteiro mandaria 93.934 triângulos de drusa, talus, veio,
+      // estalactite e piso para o mapa de sombra a cada quadro, para produzir
+      // sombra nenhuma. A casca e os matacões ficam: eles são o maciço que o sol
+      // do parque vê de fora.
+      m.castShadow = mat.name === 'CaveRock'
+      if (mat.name === 'CaveFloor') { mat.color = new THREE.Color(0x101014); m.layers.set(CAVE_LAYER); floorMesh = m }
+      else if (mat.name === 'CaveRock') {
+        // 0x060608 e não 0x0c: a garganta é uma face virada PARA O SOL, e com
+        // albedo médio ela lia cinza-claro dentro de uma caverna. Aqui o basalto
+        // fica quase preto, e quem acende o interior é a brasa.
+        //
+        // ⚠️ E `CaveRock` É A ÚNICA PEÇA DO INTERIOR QUE FICA NA CAMADA 0, de
+        // propósito. A casca do geodo é UMA malha só que carrega as duas faces:
+        // a parede da cavidade (normal para dentro) e o MACIÇO que se vê de fora
+        // (normal para fora, e o bbox dela bate com o elipsóide externo:
+        // 354 x 256 x 175 m). Mandá-la para a CAVE_LAYER apagaria a montanha
+        // inteira vista do parque; deixá-la na camada 0 deixa o sol tocar as
+        // faces da cavidade que olham para cima, e o albedo 0,024 é a defesa
+        // medida contra isso, a mesma da câmara velha.
+        mat.color = new THREE.Color(0x060608)
+      } else if (mat.name === 'CaveCrystal' || mat.name === 'CaveVein') {
+        // ⚠️ O CRISTAL NÃO É REPINTADO. Ele sai do GLB com os parâmetros do TIER
+        // das runestones (`CaveCrystal` = M_T4, dark 0,20/metal 0,30/rough 0,13;
+        // `CaveVein` = M_T5, dark 0,09), que é o que o faz ser da mesma família
+        // das pedras marcadas. Pintá-lo de 0x08080b, como o laço de ontem fazia
+        // com "qualquer outra peça", apagaria justamente isso.
+        // Quem acende é o .ts, e os dois valores vêm da chapa do escultor:
+        // drusa 0,0157 (um sussurro: ela RESPONDE à brasa, não brilha sozinha) e
+        // veio 0,077 (o dobro em cima, porque ele está a 90 m da luz mais
+        // próxima e é a fonte fria declarada do teto).
+        mat.emissive = MARK.clone()   // clone: a constante é compartilhada
+        mat.emissiveIntensity = mat.name === 'CaveVein' ? 0.077 : 0.0157
+        brasas.push({ m: mat, base: mat.emissiveIntensity })
+        m.layers.set(CAVE_LAYER)
+      } else {
+        // as estalactites e o talus (`CaveDrip`) são interior e vão para a camada
+        // da caverna. Sem isto o sol da praça as acende como se não houvesse
+        // teto: é o mesmo bug que o piso já teve, e ele volta a cada peça nova.
+        mat.color = new THREE.Color(0x08080b)
+        m.layers.set(CAVE_LAYER)
+      }
+    })
+    // ⚠️ o corte sai INTEIRO por material: `GEO_Talus` e `GEO_Stalactites`
+    // dividem o `CaveDrip`, e `descarta` descarta material junto. Cortar só um
+    // dos dois serviria material morto ao outro. Os quatro nomes de ORNAMENTO
+    // cobrem os dois usuários de cada material que eles tocam.
+    for (const o of podados) descarta(o)
+    geodo = rock
+    group.add(rock)
+
+    // a planta do pátio, medida do piso de verdade: é dela que saem o lugar da
+    // luz e o anel do jardim
+    if (floorMesh) {
+      const fm: THREE.Mesh = floorMesh
+      piso = amostraPiso(fm, paraLocalDe(fm))
+      plan = chamberPlan(fm, paraLocalDe(fm), piso)
+    }
+
+    // ── a luz ───────────────────────────────────────────────────────────────
+    // ⚠️ TRÊS PointLight NÃO ENCHEM 288 m, e a chapa da abside do escultor é a
+    // prova: ela saiu PRETA com manchas brancas boiando, e a medição de pixel deu
+    // o veredito (drusa em RGB 60-80 contra fundo em 0-5). O cristal nunca esteve
+    // claro demais; a sala é que não existia atrás dele. As três luzes de ontem
+    // foram calculadas para uma câmara de 64 m e a única do salão ficava na
+    // frente do templo, que fazia sombra em 40 m de nave.
+    // Este é o plano declarado da F3, o MESMO que as chapas do geodo usam, com o
+    // mapeamento de unidade do escultor (1 de intensidade no three ≈ 812 W no
+    // EEVEE). Cada luz tem função; nenhuma é "para clarear".
+    // ⚠️ E A POSIÇÃO VALE MAIS QUE A INTENSIDADE: com a `rosto` solta no meio do
+    // salão (x = −150), a mesma potência acendia a caverna inteira por igual e a
+    // sala virava argila bege. Em x = −176 ela fica DENTRO do pátio da muralha,
+    // entre o rosto (−190) e a frente da muralha (−164): a muralha de 18 m faz o
+    // abat-jour e o que se vê é uma brasa SAINDO do templo.
+    const acende = (x: number, y: number, z: number, base: number, alcance: number, ritmo: number, fase: number) => {
+      const l = new THREE.PointLight(EMBER, base, alcance, 1.7)
+      l.layers.enable(CAVE_LAYER) // acende os dois: a rocha (camada 0) e o interior
+      l.position.set(x, y, z)
+      group.add(l)
+      lights.push({ l, base, fase, ritmo })
+    }
+    // (as posições vêm em quadro do escultor, z para cima; aqui three.z = −blender.y)
+    acende(-176, 16, 0, 700, 320, 1.7, 0)      // rosto: o derrame do templo
+    acende(-292, 26, 0, 140, 180, 2.6, 1)      // abside: o contraluz atrás do crânio
+    acende(-256, 76, 0, 70, 260, 2.2, 2)       // abóbada: acende o teto e o veio
+    acende(-18, 6, -16.5, 60, 120, 2.6, 3)     // garganta: o cotovelo do corredor
+    acende(18, 7, 0, 70, 95, 3.1, 4)           // soleira: o que se vê de longe
+    // ⚠️ O AMBIENTE NÃO É OPCIONAL, e é a segunda metade da mesma descoberta. No
+    // EEVEE o emissivo do cristal ainda ilumina o que está em volta; no three,
+    // `emissive` de MeshStandardMaterial não ilumina NADA. Sem ele a sala fica
+    // MAIS preta no navegador do que na chapa.
+    // Ele não é PointLight, não gera sombra e não entra no orçamento de ≤ 10 da
+    // praça. O valor declarado é 0,006 de radiância âmbar no fundo de mundo do
+    // EEVEE; o AmbientLight do three recebe IRRADIÂNCIA, que é π vezes isso, daí
+    // 0,019. Fica SÓ na CAVE_LAYER: na camada 0 ele seria um véu âmbar sobre a
+    // Lua inteira, porque luz ambiente não tem posição para limitar alcance.
+    ambiente = new THREE.AmbientLight(EMBER, 0.019)
+    ambiente.layers.set(CAVE_LAYER)
+    group.add(ambiente)
+
+  }
+
+  async function abreFortaleza() {
+    baixandoFort = true
+    // ⚠️ O JARDIM VEM COM A FORTALEZA, E NÃO COM O GEODO. Ele é um anel em volta
+    // do templo: sem a pegada dela medida, `buildCaveGarden` cai no ramo "sem
+    // salão" e abre a clareira do meio pelo raio do piso (38 m), o que poria
+    // canteiro dentro de uma muralha de 121 x 124 m. E ele é miúdo, então só é
+    // visto por quem está dentro, exatamente como ela.
+    const [forte, shroomTall, shroomClump] = await Promise.all([
+      loadGlb(FORTALEZA_URL), loadSf(opts.gltf, SF.shroomTall), loadSf(opts.gltf, SF.shroomCluster),
+    ])
+    baixandoFort = false
+    if (!forte) { if (shroomTall) descarta(shroomTall); if (shroomClump) descarta(shroomClump); return }
+    if (dist > FORT_OUT || !geodo) {
+      descarta(forte)
+      if (shroomTall) descarta(shroomTall)
+      if (shroomClump) descarta(shroomClump)
+      return
+    }
+    // tudo dela é INTERIOR: nada da fortaleza é visto de fora da caverna
+    //
+    // ⚠️ E ELA NÃO ENTRA NO PASSE DE SOMBRA, nem para lançar nem para receber. O
+    // mapa de sombra da praça é da DIRECIONAL, que aqui dentro não existe (é para
+    // isso que a CAVE_LAYER foi criada), e as cinco pontuais desta caverna não
+    // lançam sombra. Com `castShadow` ligado seriam 171.708 triângulos redesenhados
+    // no passe de sombra a cada quadro para produzir sombra nenhuma. O filtro de
+    // camada não salva: o passe de sombra testa a camada da CÂMERA, e a câmera
+    // da praça tem a CAVE_LAYER habilitada.
+    dressSf(forte, { envMapIntensity: 0.15, roughness: 0.9, castShadow: false })
+    forte.traverse((o) => {
+      const m = o as THREE.Mesh
+      o.layers.set(CAVE_LAYER)
+      if (!m.isMesh) return
+      m.receiveShadow = false
+      const mat = m.material as THREE.MeshStandardMaterial
+      if (!mat) return
+      // ⚠️ o emissivo foi ZERADO no GLB de propósito (o laranja é luz, nunca tinta
+      // assada no arquivo: a rodada 1 da fortaleza quebrou essa regra e foi
+      // reprovada por isso). Quem acende é aqui, com os dois números da chapa.
+      // A coroa fica MAIS FRACA que as órbitas, senão ela rouba o primeiro sinal.
+      if (mat.name === 'FortressCrystal') { mat.emissive = new THREE.Color(ORANGE); mat.emissiveIntensity = 1.35; brasas.push({ m: mat, base: 1.35 }) }
+      else if (mat.name === 'FortressCrown') { mat.emissive = new THREE.Color(ORANGE); mat.emissiveIntensity = 0.40; brasas.push({ m: mat, base: 0.40 }) }
+    })
+    group.add(forte)
+    fortaleza = forte
+
+    // ── o assentamento, MEDIDO na malha já no lugar ─────────────────────────
+    // ⚠️ NADA AQUI GIRA OU ESCALA: os dois GLB saem no mesmo quadro (metros
+    // finais, +X para fora da boca), então a fortaleza entra em rotação zero e
+    // escala 1. Mas a caixa é medida DEPOIS de assentada, porque é assim que este
+    // arquivo já errou uma vez (o pagode ficou pairando por ter sido medido antes
+    // do giro).
+    forte.position.set(FORT_AT_X, 0, 0)
+    const bx = caixaLocal(forte)
+    // O X: `build_leonidas_geode.py` escavou a caverna em volta de x = −213 e é
+    // esse número que entrega o enquadramento. Aqui ele é CONFERIDO, não
+    // presumido: a soleira do corredor está em x = −56 e o plano do rosto no max
+    // x do crânio; se a peça for reassada mais funda, o aviso acende.
+    const rosto = FORT_AT_X + FORT_ROSTO_X
+    const dLeitura = MIRANTE_X - rosto
+    if (dLeitura < D_LEITURA) console.warn('[plaza] fortaleza perto demais da soleira:', dLeitura.toFixed(1), 'm, o quadro pede', D_LEITURA)
+    // O Y: o piso do geodo NÃO é plano. Medido nos vértices sob a pegada dela, ele
+    // vai de −1,28 a −0,28 m (mediana −0,82), e a fortaleza sai do arquivo com a
+    // base em y = 0. Assentá-la em zero a deixaria PAIRANDO 0,8 m em quase toda a
+    // pegada, que é o defeito que este arquivo já registrou uma vez.
+    // Ela desce até o ponto MAIS BAIXO do piso sob ela (pela grade de 6 m: −1,12
+    // nas 408 células da pegada): assim a laje de base dela, que tem 0,8 m de
+    // espessura, vai de −1,12 a −0,32 e encosta em tudo, sobrando como soco de
+    // meio metro onde o piso é mais alto. É o que uma base de maciço faz.
+    const alvoY = piso ? piso.minEm(bx) : 0
+    forte.position.y += alvoY - bx.min.y
+
+    // ── o JARDIM DO PÁTIO, agora que a pegada do templo existe ──────────────
+    if (plan && piso) {
+      garden = buildCaveGarden({
+        tall: shroomTall, cluster: shroomClump, plan, hallBox: caixaLocal(forte),
+        piso, low: opts.profile?.quality === 'low',
+      })
+      // a intensidade com que cada material NASCEU: a respiração multiplica esta,
+      // e não a do quadro anterior (multiplicar a corrente faz o brilho derivar
+      // até apagar em alguns minutos de cena aberta)
+      gardenBase = garden ? garden.mats.map((m) => m.emissiveIntensity) : []
+      if (garden) jardimHolder.add(garden.group)
+    }
+    // ⚠️ OS COGUMELOS DE ORIGEM NÃO PASSAM POR `descarta`, e não é esquecimento.
+    // `buildCaveGarden` já descartou a GEOMETRIA deles (as instâncias ficaram com
+    // uma cópia), e as TEXTURAS têm de sobreviver: `shroomMat` clona o material e
+    // o clone compartilha a referência dos mapas com o original. Descartá-las aqui
+    // apagaria o emissivo do jardim que acabou de nascer. Elas saem em
+    // `fechaFortaleza`, quando o jardim inteiro morre.
+    if (!garden) { for (const s of [shroomTall, shroomClump]) if (s) descarta(s) }
+  }
+
+  function fechaFortaleza() {
+    if (garden) {
+      garden.group.removeFromParent()
+      for (const d of garden.junk) d.dispose()
+      // as texturas do cogumelo saem AQUI, e só aqui: elas vieram do GLB de
+      // origem e são compartilhadas com os clones que o jardim usa. `dispose()`
+      // de material não leva mapa junto.
+      for (const m of garden.mats) soltaTexturas(m)
+      for (const l of garden.lights) l.dispose()
+      garden = null
+      gardenBase = []
+    }
+    if (!fortaleza) return
+    const alvo = fortaleza
+    fortaleza = null
+    brasas = brasas.filter((b) => !/^Fortress/.test(b.m.name))
+    descarta(alvo)
+  }
+
+  function fechaGeodo() {
+    fechaFortaleza()
+    for (const { l } of lights) { l.removeFromParent(); l.dispose() }
+    lights = []
+    ambiente?.removeFromParent(); ambiente?.dispose(); ambiente = null
+    brasas = []
+    piso = null
+    plan = null
+    if (geodo) { const g = geodo; geodo = null; descarta(g) }
+  }
 
   return {
     group: holder,
     mouthLocal: new THREE.Vector3(CAVE_LOCAL.x, group.position.y, CAVE_LOCAL.z),
-    update(t) {
+    update(t, camWorld) {
+      // ── o portão ──────────────────────────────────────────────────────────
+      // distância HORIZONTAL até a boca: a câmera voa, e uma altura de voo não
+      // deve descarregar a caverna de quem está parado em cima dela. É a mesma
+      // âncora que o culling usa (o parque não gira: PARK_ROT_Y = 0).
+      if (camWorld) {
+        dist = Math.hypot(camWorld.x - cullAt.x, camWorld.z - cullAt.z)
+        if (!geodo && !baixandoGeodo && dist < GEO_IN) void abreGeodo()
+        else if (geodo && dist > GEO_OUT) fechaGeodo()
+        if (geodo && !fortaleza && !baixandoFort && dist < FORT_IN) void abreFortaleza()
+        else if (fortaleza && dist > FORT_OUT) fechaFortaleza()
+      }
       // brasa: a luz respira, o material não (o material é o que lê de longe)
-      const f = 0.9 + 0.1 * Math.sin(t * 1.7) + 0.05 * Math.sin(t * 4.3)
-      lights[0].intensity = 320 * f
-      lights[1].intensity = 140 * (0.92 + 0.08 * Math.sin(t * 2.6 + 1))
-      lights[2].intensity = 70 * (0.9 + 0.1 * Math.sin(t * 3.1 + 2))
+      for (const { l, base, fase, ritmo } of lights) l.intensity = base * (0.9 + 0.1 * Math.sin(t * ritmo + fase))
       for (const m of emissives) (m as THREE.MeshStandardMaterial).emissiveIntensity = 1.35 * (0.94 + 0.06 * Math.sin(t * 2.2))
+      // o interior respira em torno da força com que NASCEU: o cristal do geodo é
+      // um sussurro de 0,016 e a órbita da fortaleza é 1,35, e um valor único
+      // apagaria uma e estouraria a outra.
+      for (let i = 0; i < brasas.length; i++) brasas[i].m.emissiveIntensity = brasas[i].base * (0.94 + 0.06 * Math.sin(t * 2.2 + i * 0.7))
       // o jardim respira em outro compasso, mais lento que a brasa: fungo não
       // pisca como fogo. Cada família com sua fase, senão o pátio inteiro pulsa
       // junto e vira um pisca-pisca.
@@ -782,6 +1237,6 @@ export async function buildLeonidasCave(opts: {
         for (let i = 0; i < garden.lights.length; i++) garden.lights[i].intensity = 34 * (0.82 + 0.18 * Math.sin(t * 0.42 + i * 2.3))
       }
     },
-    dispose() { for (const d of disposables) d.dispose() },
+    dispose() { fechaGeodo(); for (const d of disposables) d.dispose() },
   }
 }

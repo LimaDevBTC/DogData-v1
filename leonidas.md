@@ -64,7 +64,7 @@ tem 144 por 43. A câmara de hoje não chega à metade de uma catedral.
 - [x] **F1. A fortaleza-caveira** (`blender/build_leonidas_fortress.py` + GLB), 07/09
 - [x] **F2. A caverna-geodo** (`blender/build_leonidas_geode.py` + GLB), 07/09
 - [ ] **F3. Material e luz** (cristal das runestones, preto e laranja, a chegada)
-- [ ] **F4. Integração na cena** (regras escritas na seção acima) (`app/city/plaza/leonidas-cave.ts`)
+- [x] **F4. Integração na cena** (`app/city/plaza/leonidas-cave.ts`), 07/09
 - [ ] **F5. Conferência** (chapas, orçamento por tier, zoom out provado)
 
 Cada fase fecha com: arquivo em disco, número medido escrito aqui, e commit. Nenhuma
@@ -597,3 +597,205 @@ caveira, de lado e de trás vê-se fortaleza.
 **Chapas de conferência** (clay de frente, clay de três quartos, e a chegada em
 EEVEE com a brasa) ficam em `/tmp/.../scratchpad/fortress-*.png` e o script as
 regrava a cada rodada.
+
+## F4 FECHADA, 07/09: as duas pecas ligadas na cena
+
+`app/city/plaza/leonidas-cave.ts` deixou de carregar `leonidas-cave.glb` (a camara
+de basalto de 64 m) e `SF.templeHall` (o pagode japones). Nenhum arquivo do repo
+aponta mais para eles. No lugar entraram `leonidas-geode.glb` e
+`leonidas-fortress.glb`, e o portao de proximidade que o fundador pediu.
+
+Portao: `npx tsc --noEmit` limpo. Nenhum navegador foi aberto; tudo abaixo foi
+medido offline, decodificando o Draco dos GLB e o mapa de altura do parque com
+`node`.
+
+### 1. O assentamento, e ele foi CONFERIDO e nao presumido
+
+| o que | medido |
+|---|---|
+| fortaleza em x | **−213**, o mesmo `FORT_AT` em volta do qual o geodo foi escavado |
+| plano do rosto | −213 + 22,93 = **−190,07** |
+| soleira do corredor (mirante) | **−56** (`LEDGE_X[0] + 4`) |
+| distancia de leitura entregue | **134,07 m**, contra os **133,6** que o quadro 3:2 exige (o `.ts` avisa no console se algum reasse encolher isso) |
+| giro / escala aplicados na peca | **nenhum**: os dois GLB saem no mesmo quadro (metros finais, +X para fora da boca) |
+| piso sob a pegada da fortaleza | de **−1,28 a −0,28 m** nos vertices, **−1,12** pela grade de 6 m das 408 celulas da pegada |
+| y da fortaleza | desce **1,12 m**: a laje de base dela (0,8 m) vai de −1,12 a −0,32 e encosta em tudo, sobrando como soco de meio metro onde o piso e mais alto |
+
+⚠️ **A caixa e medida DEPOIS de assentada**, e agora em quadro LOCAL por matriz
+inversa do grupo, nao por `Box3.setFromObject`. O codigo de ontem so acertava
+porque media enquanto o grupo ainda estava na origem ("medido AQUI, antes do
+grupo sair da origem"); com carregamento sob demanda a peca chega com o grupo ja
+em `CAVE_LOCAL` e girado 10 graus, e medir em mundo devolveria a caixa 335 m fora
+do lugar.
+
+### 2. O carregamento sob demanda: quanto o boot economiza
+
+| | bytes |
+|---|---|
+| boot da caverna ANTES (cave + temple-hall + 2 cogumelos + braseiro) | **1.071.056** |
+| boot da caverna DEPOIS (so o braseiro) | **146.380** |
+| **economia de boot** | **924.676 B = 903 KiB, 86,3%** |
+| adiado para o gatilho (geodo 926.156 + fortaleza 2.540.024 + cogumelos 99.504) | **3.565.684 B = 3,40 MiB** |
+
+E o que sai do boot nao e so byte de rede: o pagode trazia **14 imagens
+embutidas** (doze 512x512, duas 512x128, uma 256x256), ou seja **~15,7 MiB de
+VRAM estimada com mipmap**, numa cena que o iPhone 13 emulado ja derrubava por
+memoria. Agora sao zero, e nenhum dos dois GLB novos tem uma unica imagem.
+
+Triangulos no boot: **25.436 a menos** (cave 17.048 + pagode 8.388), mais o
+jardim inteiro, que tambem deixou de nascer no boot.
+
+**As duas distancias, e o porque de serem duas:**
+
+| peca | entra | sai | por que |
+|---|---|---|---|
+| geodo | **`parkDetailCull` x 1,3 x 1,25 = 6.825 m** no perfil padrao | 7.917 m | ele e o MACICO: a casca dele e a rocha que se ve de fora, entao tem de existir sempre que o sitio for desenhado. O culling mostra o sitio a 5.460 m, e o gatilho fica 1.365 m antes dele, de proposito |
+| fortaleza | **420 m** | 620 m | ela e invisivel de fora, e isso e medido: **0 de 600 raios** de fora alcancam o salao. O gatilho dela e tempo de rede, nao visibilidade: 2,54 MB tem de chegar nos 506 m de caminhada que separam o gatilho do mirante (420 + 86 m de corredor) |
+
+Nenhum dos dois entra no boot porque a camera nasce na praca, a **11.800 m** do
+centro do parque. O jardim do patio passou a nascer COM A FORTALEZA e nao com o
+geodo: sem a pegada dela medida, `buildCaveGarden` cai no ramo "sem salao" e abre
+a clareira do meio pelo raio do piso (38 m), o que poria canteiro dentro de uma
+muralha de 121 x 124 m.
+
+**O que o portao custa, declarado:** as oito PointLight da caverna (cinco do
+salao, tres do jardim) nascem e morrem com o interior, e contagem de luz e chave
+de cache de programa no three. A troca foi pesada nas duas pontas: sem o portao
+sao 6 pontuais no laco de fragmento da praca inteira para sempre (3 da camara +
+3 do jardim, que e o que existe hoje); com ele sao ZERO fora da caverna, ao preco
+de DUAS familias de programa, numero fechado porque a histerese impede o
+liga-desliga na fronteira. Divida registrada: o inventario de luz do culling so
+sabe somar, entao cada ida e volta completa deixa 8 entradas mortas na lista dele.
+
+### 3. A luz: o plano da F3 implementado
+
+Cinco PointLight ambar (EMBER `0xff8a2b`, decay 1,7, a convencao da praca) mais
+**um AmbientLight**, todos so enquanto o geodo existe. As posicoes vem do quadro
+do escultor convertidas para o three (three.z = −blender.y):
+
+| luz | posicao (three) | intensidade | alcance |
+|---|---|---|---|
+| rosto | (−176, 16, 0) | 700 | 320 |
+| abside | (−292, 26, 0) | 140 | 180 |
+| abobada | (−256, 76, 0) | 70 | 260 |
+| garganta | (−18, 6, −16,5) | 60 | 120 |
+| soleira | (18, 7, 0) | 70 | 95 |
+| **ambiente** | sem posicao, so na `CAVE_LAYER` | **0,019** | sem alcance |
+
+⚠️ **O AmbientLight vale 0,019 e nao 0,006**, e a conta esta no arquivo: o valor
+declarado pelo escultor e 0,006 de RADIANCIA no fundo de mundo do EEVEE, e o
+`AmbientLight` do three recebe IRRADIANCIA, que e π vezes isso. Ele fica **so na
+CAVE_LAYER**: na camada 0 seria um veu ambar sobre a Lua inteira, porque luz
+ambiente nao tem posicao para limitar alcance.
+
+**Teste de raio nas 11 posicoes** (paridade contra os 46.016 triangulos da casca):
+as cinco luzes e as seis lanternas do corredor estao **todas no vazio**, nenhuma
+dentro da rocha.
+
+Emissivo, com a forca com que cada material nasce e respirando em torno dela (um
+valor unico apagaria um e estouraria o outro):
+`CaveCrystal` **0,0157** e `CaveVein` **0,077** na cor MARK de park.ts;
+`FortressCrystal` **1,35** e `FortressCrown` **0,40** em ORANGE. Os quatro estao
+zerados no GLB de proposito.
+
+⚠️ **`CaveRock` e a unica peca do interior que fica na camada 0**, e e decisao
+com custo declarado: a casca do geodo e UMA malha so que carrega as duas faces, a
+parede da cavidade e o macico externo (o bbox dela bate com o elipsoide de
+354 x 256 x 175 m). Manda-la para a `CAVE_LAYER` apagaria a montanha vista do
+parque. O preco e o sol tocar as faces da cavidade que olham para cima, e a defesa
+continua sendo o albedo 0,024, a mesma da camara velha.
+
+### 4. Tier de maquina, com os numeros do dossie CORRIGIDOS
+
+⚠️ **A conta da F2 estava errada por 8.000 triangulos.** Somando os mesmos quatro
+objetos que ela lista: 51.032 + 18.980 + 12.980 + 5.080 = **88.072**, e nao
+80.072. Logo o resto e **55.718** e nao "~63.700". Os valores por objeto do
+dossie batem com o GLB; a subtracao e que nao fechava.
+
+| perfil | geodo | + fortaleza |
+|---|---|---|
+| desktop / HIGH | 143.790 | **315.498** |
+| `quality === 'low'` ou `tier === 'mobile'` (e nao HIGH) | **55.718** | **227.426** |
+
+O corte le `profile.quality` E `profile.tier`, campo a campo, e um perfil ausente
+nao vira "corte ligado" nem "corte desligado" por acidente: sem perfil, nada e
+cortado. Ele tira `GEO_Drusas`, `GEO_Talus`, `GEO_Vein` e `GEO_Stalactites`, que
+sao objetos separados com material proprio, e sai INTEIRO por material
+(`GEO_Talus` e `GEO_Stalactites` dividem o `CaveDrip`, e descartar so um serviria
+material morto ao outro). A fortaleza nunca entra no corte, que e regra escrita
+da F4.
+
+**Sombra:** so `CaveRock` lanca. O passe de sombra da praca testa a camada da
+CAMERA, que tem a `CAVE_LAYER` ligada, entao tudo com `castShadow` e redesenhado
+nele. Deixar o `dressSf` valer para o interior mandaria **93.934 triangulos** do
+geodo mais os **171.708 da fortaleza** para o mapa de sombra a cada quadro, para
+produzir sombra nenhuma (a direcional nao entra na caverna e as cinco pontuais
+daqui nao lancam sombra).
+
+### 5. As pecas que assentavam na geometria VELHA, uma a uma
+
+| peca | o que quebrava na caverna nova | conserto |
+|---|---|---|
+| **jardim: cota** | `plan.top` era `box.max.y` da malha do piso, que no geodo devolve **6,87 m** (o parapeito do mirante) para um salao cujo piso esta em −0,82: o jardim inteiro nasceria **7,7 m no ar** | grade de 6 m com o maior y por celula, e cada peca pergunta a altura no ponto dela |
+| **jardim: anel** | com o pagode de 30 m a diferenca era centimetrica; com uma fortaleza de 121 x 124 m num salao de 288 x 204, **78 das 213 pecas (37%) caiam DENTRO da muralha**, porque o `fit` prendia no disco do piso DEPOIS de empurrar para fora do templo, e o segundo passo desfazia o primeiro | o raio e preso de uma vez so, dentro da faixa que existe naquele angulo (intersecao raio/circulo); onde nao sobra faixa, nao nasce planta. Medido depois: **5 canteiros, 111 pecas, 0 dentro da fortaleza, 0 fora do disco** |
+| **lanternas do corredor** | eixo de 5 pontos com cota fixa 6,2 m, feito para um corredor plano de 65 m. O do geodo tem 86 m, desvia 16,5 e SOBE de 0 a 6,2: as primeiras boiavam 6 m acima do chao e as ultimas ficavam dentro da rampa. E o alargamento nao e linear (so comeca depois de 55% do caminho): interpolar em reta poria a lanterna do meio **1,2 m dentro da pedra** | seguem `CORREDOR` + `CORREDOR_Z` da assadeira, com a lei de alargamento dela, comecando em u = 0,30 (a face da rocha, medida em x = +8,4 a +10,7). Conferidas a raio: **6 de 6 no vazio** |
+| **fio de brasa da soleira** | a fita do corredor virou RAMPA: a superficie em x = 11 vai de **1,03 a 1,50 m** contra os 0 m da camara velha, e um fio a y = 0,1 ficava **enterrado** | assentado em 1,295 e mais alto que fino (0,6 m): aparece de 10 a 57 cm ao longo dos 7,6 m e nao flutua em ponto nenhum |
+| **monolitos, braseiros, terraco, caminho secreto, matacoes** | nao dependiam da malha da camara | intactos, e conferidos a raio: no vazio |
+
+### 6. ⚠️ O QUE SO A MEDICAO PEGOU: o parque entrava dentro do salao
+
+Esta e a descoberta cara da F4, e ela esta em `park.ts` e nao no arquivo da
+caverna. O corte de terreno da caverna foi feito para uma camara de 141 m de
+fundura e 81 m de largura. O geodo tem **336 m de fundura e 216 m de largura de
+piso**, e o flanco do macico sobe: medido no mapa de altura, na cota da soleira,
+o terreno esta **+25 m aos 60 m de fundura, +43 aos 100 e +90 aos 200**.
+
+**Medido celula a celula nas 1.307 celulas de piso do salao: em 1.262 delas
+(96,6%) o chao do parque ficava ACIMA do piso da caverna.** O visitante veria
+uma encosta cinza atravessando a nave.
+
+Tres numeros mudaram em `park.ts`, e os tres estao comentados la:
+
+1. **fundura do corte: 140 → 230 m.** Nao 336 de proposito: `d` e a distancia ao
+   SEGMENTO, entao alem do fim o corte vira calota de raio 178, e com 230 o
+   escavado alcanca −350, que e a borda da casca (−342,6). Por o fim no fundo da
+   cavidade abriria 120 m de prateleira lisa ATRAS da rocha.
+2. **raio de influencia: 120 → 178 m** (corte cheio ate 120, natural a partir de
+   178). O aro do escavado cai onde a casca encontra a cota da soleira.
+3. **o alvo do corte AFUNDA 2,6 m depois da soleira.** O corte sempre nivelou o
+   terreno na cota da soleira, e a camara velha tinha o piso exatamente nela
+   (topo em y = 0 local): as duas superficies ficavam coplanares e brigavam em z.
+   O piso do geodo e MAIS BAIXO: a superficie de topo vai de **−1,40 a −0,28 m**.
+   Sem afundar, o terreno taparia o salao inteiro com uma laje cinza a 0,8 m do
+   chao. Na frente da boca nada muda: terraco, trilhas e caminho secreto continuam
+   lendo a mesma cota de sempre.
+
+Resultado medido: **0 de 1.307 celulas** com terreno furando o piso. A cova fica
+com **12,84 ha** e corte maximo de **136,8 m**, e quem a preenche e a propria
+casca do geodo, que tem a mesma pegada.
+
+E o **escudo das pedras marcadas deixou de ser um circulo**: um raio de 150 m a
+partir da boca protegia a frente e deixava as duas baias e a abside descobertas.
+Agora e distancia ao eixo < 140 m (os 130 da casca mais folga), e o numero de
+pedras removidas do parque vai de **30 para 45** em 1.009.
+
+### 7. O que NAO foi feito, e esta declarado
+
+- **Nenhuma chapa.** A F4 e ligacao, e as regras da casa proibem abrir navegador
+  aqui. Toda afirmacao acima e conta offline sobre a malha e sobre o mapa de
+  altura. **A F5 tem de tirar chapa** pelo portao `scripts/city/chapas.mjs`, e as
+  tres que importam sao: a chegada no mirante (o cranio inteiro no quadro), o
+  interior sem encosta cinza, e o macico visto de fora do parque, que e a unica
+  que a medicao nao alcanca.
+- **A calibragem de intensidade continua sendo da F3.** As cinco luzes entraram
+  com os numeros da chapa do escultor e o mapeamento dele (1 de intensidade no
+  three ≈ 812 W no EEVEE), mas o EEVEE cai com o quadrado da distancia e a praca
+  usa decay 1,7: aos 134 m do rosto isso e 5,7x mais luz no navegador do que na
+  chapa. Os alcances foram escolhidos por funcao, nao medidos.
+- **`revealAll()` nao alcanca mais o interior.** O culling liga tudo no boot para
+  o `compileAsync` compilar shader do que esta escondido; o que nao existe nao
+  compila. A primeira entrada na caverna compila os materiais do geodo e da
+  fortaleza. E o preco do carregamento sob demanda e nao foi medido.
+- **O jardim perdeu quase metade das pecas** (213 → 111) porque as que caiam
+  dentro da muralha deixaram de nascer, e nao houve rodada de reposicao para
+  recuperar densidade nas baias. Fica para quem for olhar a chapa.
