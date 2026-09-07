@@ -98,6 +98,49 @@ distância de leitura, a casca cai para material emissivo liso, preservando cor 
 ⚠️ Ela **não** carrega sob demanda como a caverna do Leônidas. Sumir do boot mataria a razão
 de ela existir, que é ser vista de muitos pontos. O que escalona é o DETALHE, não a peça.
 
+## A grade de conteudo, fechada pelo fundador em 07/09
+
+> "A esfera mostra preco, volume mais alguns dados, reage a tx feitas pra nossa carteira,
+> avisa bloco BTC minerado com X tx de dog com volume de x dog, passa propaganda, por
+> enquanto da Kray Space, aviso do snapshot bloco 966.670 com countdown."
+
+### O que roda em ciclo (o estado)
+
+| bloco | conteudo | fonte, ja publicada |
+|---|---|---|
+| PRECO | preco do DOG | `/api/price/kraken` (mais 9 fontes), cache 30 s |
+| VOLUME | volume 24h, maxima e minima | `/api/war/ticker`, cache 60 s |
+| PULSO | mempool DOG: pendentes, pousos, taxa | `/api/mempool/dog`, o MESMO feed que a /city ja consome a cada 6 s |
+| SNAPSHOT | contagem ate o bloco 966.670 | derivado do `tip_height` que vem no mesmo payload |
+
+### O que interrompe o ciclo (o evento)
+
+| evento | o que anuncia |
+|---|---|
+| **compra ou envio para a carteira** | a transacao, com valor e remetente. `DONATION_WALLET` mais a consulta que `app/api/donate/leaderboard/route.ts` ja faz |
+| **bloco BTC minerado** | o bloco, com **quantas transacoes DOG entraram nele e o volume em DOG**. Agregacao por `block_height` sobre `dog_transactions`, que ja guarda os dois campos |
+| **mint de terreno** | depois do snapshot; o mecanismo nasce pronto |
+
+### O intervalo comercial
+
+Por enquanto um parceiro so: **Kray Space**. A Kray ja e parceira do projeto e ja tem torre
+na cidade, entao a peca dela na Sphere conversa com uma presenca que ja existe no tecido.
+
+⚠️ A proporcao de tempo de tela entre dado e propaganda e garantida no CODIGO, nao em
+politica comercial. Anuncio paga e dado nao, e essa pressao esvazia a diferenciacao sozinha
+se ficar a criterio de quem vende.
+
+## ⚠️ O countdown do snapshot e EM BLOCOS, nunca em segundos
+
+O fundador pediu "aviso do snapshot bloco 966.670 com countdown", e a forma certa ja e
+doutrina desta casa, escrita e paga: a contagem se faz **em blocos, pelo `tip_height`**, e
+nao em tempo. Motivo: o intervalo entre blocos e uma media, nao uma promessa, e um relogio
+regressivo em segundos finge uma precisao que a rede nao tem. Quando a rede atrasa, o
+relogio mente; quando adianta, ele salta.
+
+Entao a peca mostra **quantos blocos faltam** e, se quiser dar noção de tempo, uma
+estimativa declarada como estimativa. Nada tiqueteia.
+
 ## Aberto
 
 - [ ] varrer `cidade-malha.json` (bulevares, anéis, canais) antes de fechar o sítio. O
