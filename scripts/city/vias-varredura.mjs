@@ -173,7 +173,39 @@ try {
       const g = comp.get(amChave[k])
       porComp.set(g, (porComp.get(g) || 0) + 1)
     }
-    return { cel: CEL, totalCelulas: cel.size, molhadas, molhadasPorComp: [...porComp].sort((a, b) => b[1] - a[1]).slice(0, 10), grupos: ficha }
+    // ⚠️ E ONDE ESTA O PAVIMENTO MOLHADO. Somar km2 nao diz nada acionavel: o
+    // que decide e SE ELE E UM ANEL INTEIRO deitado na agua ou pingos de
+    // cabeceira de ponte. A faixa de raio separa os dois na hora.
+    const porFaixa = new Map()
+    const porAnel = new Map()
+    const ANEIS_R = [1750, 2750, 3750, 4450, 5620, 6300, 7600]
+    const NOMES = ['AN1', 'AN2', 'AN3', 'AN4', 'AN5', 'AN6', 'AN7']
+    for (let k = 0; k < ys.length; k++) {
+      const [x, z] = amostra[k]
+      const rr = Math.hypot(x, z)
+      const molhado = ys[k] <= -40
+      const faixa = Math.floor(rr / 1000)
+      const f = porFaixa.get(faixa) || [0, 0]
+      f[0]++; if (molhado) f[1]++
+      porFaixa.set(faixa, f)
+      // de qual anel esta celula e? o dodecagono no rumo dela
+      const ang = Math.atan2(x, -z)
+      const PASSO = Math.PI / 6
+      const rel = ((ang % PASSO) + PASSO) % PASSO - PASSO / 2
+      for (let a = 0; a < ANEIS_R.length; a++) {
+        const rAnel = (ANEIS_R[a] * Math.cos(PASSO / 2)) / Math.cos(rel)
+        if (Math.abs(rr - rAnel) <= 22) {
+          const g = porAnel.get(NOMES[a]) || [0, 0]
+          g[0]++; if (molhado) g[1]++
+          porAnel.set(NOMES[a], g)
+          break
+        }
+      }
+    }
+    return { cel: CEL, totalCelulas: cel.size, molhadas,
+      porFaixa: [...porFaixa].sort((a, b) => a[0] - b[0]),
+      porAnel: NOMES.map((n) => [n, ...(porAnel.get(n) || [0, 0])]),
+      grupos: ficha }
   }, { CEL })
 
   writeFileSync(`${SAIDA}/conexao.json`, JSON.stringify(res, null, 1))
@@ -197,6 +229,17 @@ try {
   console.log('')
   console.log(`soma das ilhas: ${km2(somaIlhas)} km2 (${(100 * somaIlhas / res.totalCelulas).toFixed(1)}% do pavimento)`)
   console.log(`pavimento abaixo da lamina (-40): ${km2(res.molhadas)} km2 (${(100 * res.molhadas / res.totalCelulas).toFixed(1)}%)`)
+  console.log('')
+  console.log('pavimento molhado por faixa de raio:')
+  for (const [f, [tot, mol]] of res.porFaixa) {
+    if (!mol) continue
+    console.log(`  r ${String(f * 1000).padStart(5)}-${String(f * 1000 + 999).padStart(5)}  ${String(Math.round(mol * res.cel * res.cel)).padStart(7)} m2 molhados de ${String(Math.round(tot * res.cel * res.cel)).padStart(8)} (${(100 * mol / tot).toFixed(1)}%)`)
+  }
+  console.log('')
+  console.log('e o quanto de cada ANEL VIARIO desenhado esta na agua:')
+  for (const [n, tot, mol] of res.porAnel) {
+    console.log(`  ${n}  ${String(Math.round(tot * res.cel * res.cel)).padStart(7)} m2 de pavimento, ${String(Math.round(mol * res.cel * res.cel)).padStart(7)} m2 na agua (${tot ? (100 * mol / tot).toFixed(1) : '0.0'}%)`)
+  }
 } finally {
   await nav.close()
 }

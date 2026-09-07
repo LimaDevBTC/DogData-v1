@@ -2266,6 +2266,12 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                   // do arquipélago nasciam em terra seca. Agora acompanha o
                   // `DOME_R`, que é a fonte da casca.
                   raio: DOME_R,
+                  // ⚠️ OS ANÉIS ENTRAM NA CLASSIFICAÇÃO DA ÁGUA. Ver a nota em
+                  // `LagosOpts.aneisViarios`: sem esta linha o corpo de água
+                  // além de `R_FORA` (6.900) não é tocado por amostra nenhuma e
+                  // a Pista de Serviço atravessa 436 mil m² de lâmina em
+                  // viaduto automático.
+                  aneisViarios: (mc?.aneisViarios ?? []) as { r: number; larg: number }[],
                   // ⚠️ E A BAÍA PASSA A SER ELEITA PELO PONTO PUBLICADO. Ver a nota
                   // em `LagosOpts.baiaEm`: com o raio maior, um anel de água
                   // externo de 34,5 km² ganharia da baía do fundador na regra de

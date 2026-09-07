@@ -54,6 +54,21 @@ export interface LagosOpts {
   baiaEm?: [number, number]
   /** passo da amostragem em metros; 30 dá orla lisa sem pesar */
   passo?: number
+  /** ⚠️ OS ANÉIS VIÁRIOS, E ELES ENTRAM NA MEDIÇÃO DE `LIMIAR_PONTE`.
+   *
+   *  A classificação "empurra a malha ou ganha ponte" era varrida SÓ contra a
+   *  teia, e a teia morre em `R_FORA` (6.900). A Pista de Serviço (AN7) está em
+   *  7.600: o corpo de água externo, de 34,5 km², nunca era tocado por nenhuma
+   *  amostra, saía com vão ZERO e portanto entrava na classe "ganha ponte" — o
+   *  que na prática vira o viaduto automático de `cotaVia`. Medido em 07/09:
+   *  436.788 m² de asfalto da AN7 deitados na lâmina, 29% do anel, contra menos
+   *  de 4,3% em todos os outros. Um anel de 15 km com um terço de aterro sobre
+   *  água aberta é exatamente a estrada em cima da baía que o fundador mandou
+   *  tirar em 31/08, só que fora do alcance da régua que media.
+   *
+   *  ⚠️ E O ANEL É DODECÁGONO, então a varredura anda na CORDA entre vértices,
+   *  não no arco. Ver `anelRaio` em teia.ts. */
+  aneisViarios?: readonly { r: number; larg: number }[]
   /** ⚠️ ONDE A MARGEM NÃO SE DESENHA, mas a ÁGUA ENTRA.
    *
    *  ⚠️ ESTA DISTINÇÃO É O CONSERTO DA BOCA DO CANAL. A versão anterior tirava a
@@ -415,6 +430,20 @@ export function buildLagos(o: LagosOpts): Lagos {
       const p = passoNoRaio(rr)
       for (let i = 0; i < N_RAD; i += p) {
         varrer(0, 0, 0, 0, { r: rr, a0: anguloDe(i), a1: anguloDe(i + p) })
+      }
+    }
+    // ⚠️ E OS ANÉIS VIÁRIOS, que vivem FORA da teia. Ver a nota em
+    // `LagosOpts.aneisViarios`: sem eles a água além de `R_FORA` nunca era
+    // medida contra via nenhuma.
+    for (const an of o.aneisViarios ?? []) {
+      for (let k = 0; k < 12; k++) {
+        const a0 = (k / 12) * Math.PI * 2, a1 = ((k + 1) / 12) * Math.PI * 2
+        // `an.r` é o raio do VÉRTICE: as pontas da corda saem nele.
+        // ⚠️ ESTE MÓDULO USA (cos, sin) COMO (x, z), e não a convenção de rumo
+        // da cidade: `varrer` é chamado assim nos arcos logo acima. O anel é
+        // simétrico nos 12 rumos, então a corda é a mesma dos dois jeitos.
+        varrer(Math.cos(a0) * an.r, Math.sin(a0) * an.r,
+               Math.cos(a1) * an.r, Math.sin(a1) * an.r, null)
       }
     }
     // os trechos radiais, de anel a anel, a partir do raio em que cada um nasce
