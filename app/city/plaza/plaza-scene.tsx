@@ -83,7 +83,7 @@ import { assentarEstadio, estadioCull, estadioSitio } from './estadio'
 import { assentarGeode, geodeCull, geodeSitio, podarGeode } from './geode'
 import { atletismoSitio } from './atletismo'
 import { criarAtletismo, type Atletismo } from './atletismo-loader'
-import { campusParcela, comPodio, criarCampus } from './campus'
+import { campusParcela, comPodio, criarCampus, GIRO_CAMPUS } from './campus'
 import { buildSphere, sphereCull, sphereParcela, sphereSitio, spherePxAng, type Sphere } from './sphere'
 import { criarProgramacao } from './sphere-conteudo'
 import { ILHAS_RAIO, ILHAS_RUMO } from './lago'
@@ -3574,6 +3574,12 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             mesh.receiveShadow = true
           })
           assentarEstadio(arena, comPodio((x, z) => terrain.heightAt(x, z)))
+          // ⚠️ O GIRO VEM DO CAMPUS, NÃO DA TANGENTE DA PRÓPRIA PEÇA. Ver
+          // `CAMPUS_RUMO` em `campus.ts`: com pódio único as três têm de ser
+          // paralelas entre si, senão leem tortas umas contra as outras. O
+          // pouso não muda, porque a laje é plana e a sonda devolve a mesma
+          // cota em qualquer giro.
+          arena.rotation.y = GIRO_CAMPUS
           scene.add(arena)
           const _st = estadioSitio()
           culler.add(arena, estadioCull(profile.tier), new THREE.Vector3(_st.x, 0, _st.z))
@@ -3607,6 +3613,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             mesh.receiveShadow = true
           })
           assentarGeode(geode, comPodio((x, z) => terrain.heightAt(x, z)))
+          geode.rotation.y = GIRO_CAMPUS
           scene.add(geode)
           const _gd = geodeSitio()
           culler.add(geode, geodeCull(profile.tier), new THREE.Vector3(_gd.x, 0, _gd.z))
@@ -3627,6 +3634,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               await aquece(renderer, scene, camera, root)
             },
           })
+          atletismo.group.rotation.y = GIRO_CAMPUS
           scene.add(atletismo.group)
         }
 

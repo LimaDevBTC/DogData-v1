@@ -163,6 +163,30 @@ export function campusAlturaAt(x: number, z: number, natural: number): number {
   return k <= 0 ? natural : natural * (1 - k) + CAMPUS_Y * k
 }
 
+/**
+ * O RUMO DO CAMPUS: o eixo da laje, e desde 07/09 o giro das TRÊS peças.
+ *
+ * ⚠️ ANTES CADA PEÇA SEGUIA A PRÓPRIA TANGENTE, E ISSO FICOU TORTO. A regra
+ * original (`estadio.ts`) manda o eixo longo do prédio na tangente do anel,
+ * porque é isso que o deixa paralelo à rua de anel do próprio quarteirão. Com
+ * três quarteirões vizinhos as tangentes são diferentes: 94,286° no atletismo,
+ * 105° no ARENA e 115,714° na GEODE, ou seja **10,714° de torção para cada
+ * lado**. Enquanto cada peça tinha a sua rua em volta, cada uma lia como certa.
+ *
+ * No pódio único não existe mais rua interna: a referência do olho passou a ser
+ * a LAJE, e contra ela o ARENA (que por acaso está no rumo do meio) parece
+ * perfeito e os outros dois parecem tortos. O fundador viu na chapa: "a posição
+ * do the geode e da pista de atletismo não estão devidamente alinhadas com o
+ * estádio, e já estava assim, um pouco torto".
+ *
+ * Agora as três giram no rumo do meio do bloco. A regra da casa continua
+ * respeitada, só que o alinhamento é com a rua que EXISTE: as duas avenidas que
+ * limitam o campus, que são paralelas a este eixo.
+ */
+export const CAMPUS_RUMO = ((_cx.a0 + _cx.a1) / 2) * 180 / Math.PI
+/** o giro em radianos que as três peças recebem, na convenção do Three */
+export const GIRO_CAMPUS = -((_cx.a0 + _cx.a1) / 2)
+
 /** o topo da laje: é aqui que as três peças pousam */
 export const PODIO_TOPO = CAMPUS_Y + PODIO_H
 
@@ -357,7 +381,19 @@ export function criarCampus(alturaEm: (x: number, z: number) => number): THREE.G
   const mesh = new THREE.Mesh(g, mat)
   mesh.name = 'CAMPUS_PODIO'
   mesh.receiveShadow = true
-  mesh.castShadow = true
+  // ⚠️ A LAJE NÃO PROJETA SOMBRA, E ISSO NÃO É ECONOMIA: É CONSERTO. Com
+  // `castShadow = true` a chapa de produção saiu com o CHÃO DA CIDADE INTEIRA
+  // preto, em pleno `hour=day`. A causa é o tamanho do projetor: a sombra em
+  // cascata ajusta o frustum ao que projeta, e uma peça de 1,8 km por 476 m,
+  // com muro descendo 29 m, obriga o mapa a cobrir uma caixa que a resolução
+  // dele não alcança. O resultado é acne de sombra em toda a cena, que lê como
+  // escuridão. Com os três pódios pequenos da versão anterior isso não
+  // acontecia, e é essa a única diferença relevante entre as duas chapas.
+  //
+  // ⚠️ E NÃO SE PERDE NADA: a laje é CHÃO. O que ela projetaria seria sombra no
+  // terreno logo abaixo dela, que ninguém vê. Quem projeta sombra sobre ela são
+  // as três peças, e essas continuam com `castShadow` ligado.
+  mesh.castShadow = false
   const grupo = new THREE.Group()
   grupo.name = 'CAMPUS'
   grupo.add(mesh)

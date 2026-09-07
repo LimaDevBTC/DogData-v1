@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import { caixaDoModulo, polyDoModulo, AVENIDAS, anelPonto } from '../../app/city/plaza/teia'
-import { CAMPUS_MOD, CAMPUS_Y, PODIO_TOPO, FRANJA, CALCADA, PECAS, comPodio, pecaSitio, lajeDoCampus, naLaje, muroDoCampus, criarCampus } from '../../app/city/plaza/campus'
+import { CAMPUS_MOD, CAMPUS_Y, PODIO_TOPO, FRANJA, CALCADA, CAMPUS_RUMO, PECAS, comPodio, pecaSitio, lajeDoCampus, naLaje, muroDoCampus, criarCampus } from '../../app/city/plaza/campus'
 import { assentarEstadio } from '../../app/city/plaza/estadio'
 import { assentarGeode } from '../../app/city/plaza/geode'
 import { assentarAtletismo, ATLETISMO_FOLGA_Y } from '../../app/city/plaza/atletismo'
@@ -70,7 +70,11 @@ async function main() {
   const pecas = PECAS.map((p) => {
     const s = pecaSitio(p.mod)
     const y = assentar[p.id as keyof typeof assentar](new THREE.Group(), alt).position.y
-    const C = Math.cos(s.a), S = Math.sin(s.a)
+    // ⚠️ A PEGADA SE MEDE COM O GIRO DO CAMPUS, não com a tangente do próprio
+    // módulo: desde 07/09 as três peças giram no eixo da laje (`CAMPUS_RUMO`),
+    // e medir com o ângulo antigo daria uma pegada que não é a desenhada.
+    const eixo = CAMPUS_RUMO * Math.PI / 180
+    const C = Math.cos(eixo), S = Math.sin(eixo)
     const mundo = (lx: number, lz: number): Pt => [s.x + C * lx - S * lz, s.z + S * lx + C * lz]
     // ⚠️ O QUE TEM DE ESTAR NA LAJE É A PEGADA DA PEÇA, não um quadrado de
     // conveniência. Com pódio único a "calçada de 12 m" deixou de ser geometria
@@ -80,7 +84,7 @@ async function main() {
     const cantos: Pt[] = [[-p.x / 2, -p.z / 2], [p.x / 2, -p.z / 2], [p.x / 2, p.z / 2], [-p.x / 2, p.z / 2]]
       .map(([lx, lz]) => mundo(lx, lz))
     const folga = Math.min(...laje.map((p2, i) => Math.min(...cantos.map((c) => pointSeg(c, p2, laje[(i + 1) % laje.length])))))
-    return { id: p.id, x: s.x, z: s.z, rumo: (s.a * 180 / Math.PI + 360) % 360,
+    return { id: p.id, x: s.x, z: s.z, rumoDoModulo: (s.a * 180 / Math.PI + 360) % 360, rumoDesenhado: CAMPUS_RUMO,
       pegada: [p.x, p.z], pousadoEm: y, folgaDePouso: y - PODIO_TOPO,
       pegadaNaLaje: cantos.every((c) => naLaje(c[0], c[1])),
       folgaAteABordaDaLaje: folga, sobraParaCalcada: folga - CALCADA }
