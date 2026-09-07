@@ -49,7 +49,7 @@
 import * as THREE from 'three'
 import { LIMIAR_PRACA } from './pracas'
 import type { DistanceCuller } from './perf'
-import { ANEIS, AVENIDAS, HR, N_RAD, anguloDe, avenidasGeom, nasceEm, raioDodeca } from './teia'
+import { ANEIS, AVENIDAS, HR, N_RAD, aneisDaCidade, anguloDe, avenidasGeom, nasceEm, noArcoDoAnel, raioDodeca } from './teia'
 import { look2 } from './look'
 import { superficie, vestir, type Superficie } from './materiais'
 
@@ -736,7 +736,22 @@ export interface Malha {
   diagonais?: Diagonal[]
   contorno?: [number, number][]
 }
-export interface Anel { id: string; nome: string; r: number; larg: number }
+/**
+ * ⚠️ O ANEL É DODECÁGONO POR PADRÃO, E A EXCEÇÃO TEM DONO. Fundador, 06/09: "o
+ * dodecaedro é a malha viária da cidade toda". A única via que foge disso é a
+ * avenida da alça, e ela foge porque a TERRA é redonda ali: medido em 07/09 nos
+ * 262 rumos do arco, o dodecágono de vértice 7.600 cai na água em 209 deles, e
+ * um círculo em r 6.950 cai na terra em todos, com 40 m de folga de cada lado.
+ * Ver `alca-varredura.mjs`.
+ *
+ * `circulo` troca o polígono por arco de círculo; `arco` limita o anel a um
+ * trecho de rumo, em GRAUS, e pode cruzar o zero (346 a 116,5 é o arco da alça).
+ */
+export interface Anel {
+  id: string; nome: string; r: number; larg: number
+  circulo?: boolean
+  arco?: [number, number]
+}
 export interface Meta { programa: Peca[]; raioBorda: number; aneis?: Anel[] }
 
 /** acumulador de triângulos: uma malha só por superfície */
@@ -914,6 +929,11 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   // mesmo JSON por conta própria: nunca via a troca e plantava nas 9 costuras de
   // distrito enquanto a rua saía nas 12 avenidas. Ver a nota em teia.ts.
   malha.bulevares = avenidasGeom() as Bulevar[]
+  // ⚠️ E A EXCEÇÃO DA ALÇA ENTRA NA MESMA LINHA, PELO MESMO MOTIVO. Ver
+  // `AVENIDA_ALCA` em teia.ts: a AN7 publicada pelo gerador é um dodecágono de
+  // vértice 7.600 que cai na água em 209 dos 262 rumos do arco. Aqui ela vira o
+  // círculo de r 6.950 que segue a alça.
+  meta.aneis = aneisDaCidade(meta.aneis ?? []) as Anel[]
 
   const K = malha.constantes
   // ⚠️ `meio` ERA GLOBAL E VALIA 84 PARA A CIDADE INTEIRA. Com o quarteirão
@@ -1738,6 +1758,33 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     const base = _bulRumos.length ? _bulRumos : [0, 90, 180, 270]
     return base.map((g) => (g * Math.PI) / 180)
   }
+  /**
+   * ⚠️ E OS VÉRTICES DA AVENIDA DA ALÇA SÃO OUTROS, porque ela é círculo e não
+   * fecha os 360°. O laço do anel desenha uma corda entre vértices consecutivos;
+   * para o círculo os "vértices" são só amostras densas do arco, e a flecha da
+   * corda entre duas delas cai abaixo de meio metro, que é o que faz o olho ler
+   * curva em vez de polígono. Os rumos das 12 avenidas entram na lista à força:
+   * sem eles a rotatória cairia no meio de uma corda e a boca não fecharia.
+   */
+  const verticesDoArco = (an: Anel): number[] => {
+    const [g0b, g1b] = an.arco ?? [0, 360]
+    const g0 = (g0b * Math.PI) / 180
+    const g1 = ((g1b < g0b ? g1b + 360 : g1b) * Math.PI) / 180
+    // ⚠️ 60 m DE CORDA, E O NÚMERO SAI DA FLECHA: r(1 − cos(θ/2)) com r 6.950 e
+    // corda de 60 m dá 6,5 cm. Corda de 300 m daria 1,6 m, que já se vê na
+    // guia. 60 m é o mesmo passo que a subdivisão do lado do dodecágono usa.
+    const n = Math.max(2, Math.ceil((an.r * (g1 - g0)) / 60))
+    const out: number[] = []
+    for (let k = 0; k <= n; k++) out.push(g0 + ((g1 - g0) * k) / n)
+    for (const b of _bulRumos) {
+      for (const volta of [-2 * Math.PI, 0, 2 * Math.PI]) {
+        const a = (b * Math.PI) / 180 + volta
+        if (a > g0 + 1e-6 && a < g1 - 1e-6) out.push(a)
+      }
+    }
+    out.sort((x, y) => x - y)
+    return out
+  }
   // ⚠️ O ANEL PARA NA BOCA DA ROTATÓRIA. Sem isso a faixa dele passaria por cima
   // da faixa do bulevar, duas superfícies coplanares no mesmo Y, e o z-buffer
   // decide por pixel: aparece listra piscando exatamente no cruzamento, que é
@@ -1750,8 +1797,13 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     const esc = an.larg / SEC_ANEL[SEC_ANEL.length - 1].ate
     const secao = esc === 1 ? SEC_ANEL : SEC_ANEL.map((b) => ({ ...b, de: b.de * esc, ate: b.ate * esc }))
     const r0 = an.r - an.larg / 2
-    const verts = verticesDoAnel(an.r)
-    const passos = verts.length
+    const arco = !!an.circulo
+    const verts = arco ? verticesDoArco(an) : verticesDoAnel(an.r)
+    // ⚠️ O ARCO NÃO FECHA. O dodecágono percorre `passos` lados e o último volta
+    // ao primeiro (por isso o `% passos` e o `+2π` adiante); a avenida da alça
+    // tem começo e fim, e fechá-la desenharia uma corda de 229,5° por cima da
+    // água, que é exatamente o aterro que este trabalho veio tirar.
+    const passos = arco ? verts.length - 1 : verts.length
     let desenhou = false
     // ⚠️ CADA LADO SE SUBDIVIDE, E ISSO CONSERTA DOIS DEFEITOS DE UMA VEZ.
     //
@@ -1770,7 +1822,8 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     // ⚠️ A SUBDIVISÃO É CARTESIANA, entre as duas pontas da corda — interpolar o
     // ÂNGULO devolveria a curva que a teia acabou de perder.
     for (let k = 0; k < passos; k++) {
-      const a0 = verts[k], a1 = verts[(k + 1) % passos] + (k + 1 === passos ? Math.PI * 2 : 0)
+      const a0 = verts[k]
+      const a1 = arco ? verts[k + 1] : verts[(k + 1) % passos] + (k + 1 === passos ? Math.PI * 2 : 0)
       const am = (a0 + a1) / 2
       const mx = Math.sin(am) * an.r, mz = -Math.cos(am) * an.r
       // ⚠️ A PARCELA NÃO CORTA VIA PRINCIPAL. A rua é a estrutura primária desta
@@ -1913,7 +1966,21 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
       // ⚠️ A ROTATÓRIA DO CINTURÃO FICA ALÉM DE rMax DE PROPÓSITO: a Avenida do
       // Cinturão mora em 4.450, fora do tecido, e é lá que os doze bulevares
       // terminam. Cortar por rMax deixaria a avenida sem nenhuma entrada.
-      if (emPeca(cx, cz) || Math.hypot(cx, cz) > 4520) continue
+      //
+      // ⚠️ E A AVENIDA DA ALÇA PASSA POR CIMA DESSE TETO, POR NECESSIDADE. O teto
+      // de 4.520 vale enquanto o anel estiver DENTRO do tecido: ali a teia cruza
+      // o anel a cada 108 m e costura tudo, então a boca da rotatória pode ficar
+      // aberta sem desligar nada. A alça está em 6.950, FORA do tecido (`R_FORA`
+      // 6.900), e as únicas ligações dela com a cidade são estes quatro
+      // cruzamentos. Medido em 07/09 por componente conexo: sem a rotatória a
+      // avenida de 15,9 km ficava partida em ilhas a 18 m da rede, porque
+      // `naBoca` abre 92 m de arco (ROT_RAIO + 6, dos dois lados) e a avenida
+      // radial que deveria preencher tem 34 a 44 m — sobravam 24 m de regolito
+      // de cada lado do cruzamento.
+      if (emPeca(cx, cz)) continue
+      if (Math.hypot(cx, cz) > 4520 && !an.circulo) continue
+      // e fora do arco da alça não há avenida para receber rotatória
+      if (an.arco && !noArcoDoAnel(an, ang)) continue
       nRot++
       // ⚠️ PUBLICADA PARA A TEIA (seção 2c). O disco tem 80 m de diâmetro e nem
       // `emAvenidaPav` nem `emAnelPav` sabem dele: sem esta lista a rua da teia
@@ -2123,6 +2190,13 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
       // seção 2b), então somar a berma aqui só o faria parar 6 m antes da guia.
       const ombro = folga > 0 ? OMBRO_ANEL * (an.larg / SEC_ANEL[SEC_ANEL.length - 1].ate) : 0
       const meia = an.larg / 2 + ombro
+      // ⚠️ A AVENIDA DA ALÇA É CÍRCULO: aplicar `kf` nela a empurraria 3,5% para
+      // fora no meio de cada face imaginária, e ela não tem face nenhuma.
+      if (an.circulo) {
+        if (!noArcoDoAnel(an, Math.atan2(px, -pz))) continue
+        if (Math.abs(r - an.r) <= meia + folga) return true
+        continue
+      }
       if (r > (an.r + meia) * kf + folga) continue
       if (r >= (an.r - meia) * kf - folga) return true
     }

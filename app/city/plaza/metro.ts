@@ -206,7 +206,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
 import { vestir } from './materiais'
-import { anelRaio } from './teia'
+import { anelRaio, noArcoDoAnel } from './teia'
 
 // ── as normas, com fonte ────────────────────────────────────────────────────
 /** captação a pé de estação sobre trilhos, em metros. APTA-SUDS-UD-RP-001-09. */
@@ -240,7 +240,12 @@ export interface CanalDado {
   id: string; rumo: number; secao: number; lamina: number
   cota: number; rInicio: number; rFim: number
 }
-export interface AnelViarioDado { r: number; larg: number }
+/** ⚠️ `circulo` e `arco` são a exceção da alça: ver `AVENIDA_ALCA` em teia.ts */
+export interface AnelViarioDado {
+  r: number; larg: number
+  circulo?: boolean
+  arco?: [number, number]
+}
 
 // ── o grafo ─────────────────────────────────────────────────────────────────
 export interface NoRede {
@@ -1483,7 +1488,9 @@ export function calcularDocas(o: {
     // rua, e o passageiro desembarcava a três quarteirões da avenida que o
     // nome da doca promete.
     for (const an of aneis) {
-      const rAn = anelRaio(an.r, (c.rumo * Math.PI) / 180)
+      // a avenida da alça é círculo e só existe no arco dela
+      if (an.arco && !noArcoDoAnel(an, (c.rumo * Math.PI) / 180)) continue
+      const rAn = an.circulo ? an.r : anelRaio(an.r, (c.rumo * Math.PI) / 180)
       if (rAn < c.rInicio + 60 || rAn > c.rFim - 60) continue
       emitir(rAn, an.id ?? `R${Math.round(an.r)}`, nomeDoAnel(an), an.id ?? null)
     }

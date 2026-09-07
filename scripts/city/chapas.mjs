@@ -144,7 +144,11 @@ const VISTAS = {
   // ⚠️ O ENCONTRO DA AVENIDA COM O ANEL DE SERVICO (AN7, vertice em r 7.600 no
   // rumo 0). Ate 06/09 nao existia: a avenida morria em R_FORA 6.900 e o anel
   // inteiro ficava ilhado. Esta chapa e a prova de que ele encostou na cidade.
-  anelservico:[760, 300, -6820, 0, 20, -7600, 45],
+  // ⚠️ A AVENIDA DA ALCA (AN7 virou circulo em r 6.950 no arco 346 a 116,5). O
+  // enquadramento olha de dentro da cidade para fora, cortando a secao inteira:
+  // baia, praia, fileira de lote, avenida, fileira de lote, praia, agua externa.
+  alca:      [3900, 700, -3900, 5300, 0, -5300, 45],
+  alcalongo: [2600, 1500, -6600, 5600, 0, -3100, 50],
   // a ponte do anel viario sobre canal radial, que antes boiava fora do asfalto
   pontecanal: [3260, 210, -140, 2898, -30, -205, 45],
   cidadetoda: [0, 9000, 13000, 0, 0, -500, 45],

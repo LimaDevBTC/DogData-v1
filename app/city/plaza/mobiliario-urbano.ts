@@ -34,7 +34,12 @@ import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { AVENIDAS, avenidasGeom } from './teia'
 import { look2 } from './look'
 
-export interface AnelViario { r: number; larg: number }
+/** ⚠️ `circulo` e `arco` são a exceção da alça: ver `AVENIDA_ALCA` em teia.ts */
+export interface AnelViario {
+  r: number; larg: number
+  circulo?: boolean
+  arco?: [number, number]
+}
 export interface MobiliarioUrbanoOpts {
   heightAt: (x: number, z: number) => number
   /** A malha viária termina na baía; iluminação também. */
@@ -199,10 +204,27 @@ export function buildMobiliarioUrbano(o: MobiliarioUrbanoOpts): MobiliarioUrbano
 
   // Os anéis são polígonos, como as vias em vias.ts: a iluminação percorre cada
   // corda entre rotatórias, em vez de desenhar um círculo que escaparia da rua.
+  /** o arco do anel em radianos: 2π para o dodecágono fechado */
+  const faixaDoAnel = (an: { arco?: [number, number] }): [number, number] => {
+    if (!an.arco) return [0, Math.PI * 2]
+    const [a, b] = an.arco
+    const g0 = (a * Math.PI) / 180
+    const g1 = ((b < a ? b + 360 : b) * Math.PI) / 180
+    return [g0, g1]
+  }
+  const arcoRad = (an: { arco?: [number, number] }) => {
+    const [g0, g1] = faixaDoAnel(an)
+    return g1 - g0
+  }
   for (const anel of o.aneis) {
-    for (let i = 0; i < AVENIDAS.length; i++) {
-      const a0 = (i / AVENIDAS.length) * Math.PI * 2
-      const a1 = ((i + 1) / AVENIDAS.length) * Math.PI * 2
+    // ⚠️ A AVENIDA DA ALÇA É CÍRCULO COM ARCO (ver `AVENIDA_ALCA` em teia.ts):
+    // ela se percorre em cordas curtas do arco, não nos 12 lados do dodecágono,
+    // senão o poste sai da pista em até 259 m e some nos 229,5° que ela não tem.
+    const nLados = anel.circulo ? Math.max(2, Math.ceil((anel.r * arcoRad(anel)) / 120)) : AVENIDAS.length
+    for (let i = 0; i < nLados; i++) {
+      const [gi, gf] = faixaDoAnel(anel)
+      const a0 = anel.circulo ? gi + ((gf - gi) * i) / nLados : (i / AVENIDAS.length) * Math.PI * 2
+      const a1 = anel.circulo ? gi + ((gf - gi) * (i + 1)) / nLados : ((i + 1) / AVENIDAS.length) * Math.PI * 2
       const x0 = Math.sin(a0) * anel.r, z0 = -Math.cos(a0) * anel.r
       const x1 = Math.sin(a1) * anel.r, z1 = -Math.cos(a1) * anel.r
       const dx = x1 - x0, dz = z1 - z0, L = Math.hypot(dx, dz)

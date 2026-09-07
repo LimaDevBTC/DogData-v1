@@ -182,6 +182,72 @@ export function anelPonto(r: number, ang: number): [number, number] {
   return [Math.sin(ang) * rr, -Math.cos(ang) * rr]
 }
 
+/**
+ * A AVENIDA DA ALÇA: a única via da cidade que não é dodecágono.
+ *
+ * ⚠️ FUNDADOR, 07/09: "o último anel do dodecaedro fica exatamente sobre a alça
+ * de terra que temos dentro da baía. Poderíamos abrir uma exceção e termos a via
+ * em formato circular, arredondado, pra ela acompanhar o trajeto da alça, e a
+ * via deve passar exatamente no meio, e terrenos de um lado e do outro. Os
+ * terrenos terão praia de um lado e pista do outro."
+ *
+ * ⚠️ E A PREMISSA ESTAVA ERRADA POR 300 m, O QUE SÓ MELHORA A IDEIA. A AN7 NÃO
+ * estava sobre a alça: medido em 07/09 nos 262 rumos do arco
+ * (`scripts/city/alca-varredura.mjs`), o dodecágono de vértice 7.600 cai na
+ * terra em 53 rumos e NA ÁGUA EM 209. A margem externa da alça está em r 7.300 e
+ * o anel passava por fora dela. Era esse o aterro de 436.788 m² que a
+ * classificação de água deixava passar.
+ *
+ * ⚠️ OS NÚMEROS DA ALÇA, MEDIDOS E NÃO ESTIMADOS:
+ *     arco    rumo 346° a 116,5°, 15,91 km
+ *     largura mínima 680 m · mediana 740 · máxima 1.560
+ *     margem interna (baía) r 6.580 · margem externa r 7.300
+ *     meio    r 6.950, com desvio de 32 m ao longo dos 130,5°
+ * Um círculo único em r 6.950 cai na terra nos 262 rumos com 40 m de folga de
+ * cada lado; o desvio ao meio real é 10 m na mediana e 150 m no pior ponto. A
+ * alça é um anel quase perfeito, então o círculo do fundador não é só mais
+ * bonito, é a forma que o terreno tem.
+ *
+ * ⚠️ E O ORÇAMENTO DE TERRA FECHA COM FOLGA. Na largura mediana, tirando 30 m de
+ * praia mais recuo de cada lado e os 44 m da via, sobram 318 m de profundidade
+ * de lote POR LADO; no ponto mais estreito, 288 m. A classe mais funda de
+ * quarteirão da cidade é 286 m. Cabe a fileira mais nobre que existe, dos dois
+ * lados. No trecho mais largo (1.560 m) sobra tanto que uma fileira só ficaria
+ * com 728 m de fundo: ali é caso de duas fileiras.
+ */
+export const AVENIDA_ALCA = {
+  id: 'AN7',
+  r: 6950,
+  larg: 44,
+  circulo: true,
+  arco: [346, 116.5] as [number, number],
+}
+
+/**
+ * A lista de anéis do gerador com a exceção da alça já aplicada.
+ *
+ * ⚠️ PASSA POR AQUI QUEM DESENHA E QUEM SEGUE O ANEL, e isso é a lição de
+ * `avenidasGeom()` logo abaixo: enquanto `vias.ts` corrigia a sua CÓPIA do JSON,
+ * a arborização lia o JSON cru e plantava onde não havia rua. Substituir num
+ * módulo só é substituir para quem lembra de olhar.
+ */
+export function aneisDaCidade<T extends { id?: string; r: number; larg: number }>(
+  aneis: readonly T[],
+): (T & { circulo?: boolean; arco?: [number, number] })[] {
+  return aneis.map((a) =>
+    a.id === AVENIDA_ALCA.id
+      ? { ...a, r: AVENIDA_ALCA.r, larg: AVENIDA_ALCA.larg, circulo: true, arco: AVENIDA_ALCA.arco }
+      : { ...a })
+}
+
+/** o rumo (em radianos) cai dentro do arco deste anel? */
+export function noArcoDoAnel(an: { arco?: [number, number] }, ang: number): boolean {
+  if (!an.arco) return true
+  const g = (((ang * 180) / Math.PI) % 360 + 360) % 360
+  const [a, b] = an.arco
+  return a <= b ? g >= a && g <= b : g >= a || g <= b
+}
+
 /** a área em m² de um bloco de módulos (trapézio circular) */
 export function areaDoModulo(m: Modulo): number {
   const c = caixaDoModulo(m)
@@ -257,10 +323,16 @@ export const AV_R_INICIO = 1420
  * desde 31/08, "um carro tem que conseguir transitar entre todas as estradas do
  * mapa", e quebrava calado, porque na chapa um anel completo parece ligado.
  *
- * ⚠️ E O NÚMERO É O VÉRTICE DO ANEL MAIS MEIA SEÇÃO. Os 12 rumos de `AVENIDAS`
- * são exatamente os vértices do dodecágono (ver `anelRaio`), então a avenida
- * encontra AN7 no raio CHEIO, 7.600, e não em 96,6% dele. Os 15 m de sobra são
- * meia largura do anel, para a avenida entrar na rotatória em vez de encostar.
+ * ⚠️ E O NÚMERO MUDOU DE 7.615 PARA 6.972 QUANDO A AN7 MUDOU DE RAIO. Ela era
+ * um dodecágono de vértice 7.600 e virou a avenida circular da alça, em r 6.950
+ * (ver `AVENIDA_ALCA` logo acima): 6.950 mais meia seção de 44 m dá 6.972, que é
+ * onde a avenida radial entra na rotatória em vez de encostar nela.
+ *
+ * ⚠️ E ELA PARA AÍ, NÃO SEGUE ATÉ A PRAIA EXTERNA. O programa da alça é lote com
+ * praia de um lado e pista do outro: uma radial furando até r 7.300 cortaria a
+ * fileira de lotes ao meio e daria fundo de quarteirão para a praia. O acesso à
+ * alça é pela avenida circular, nas quatro rotatórias que caem dentro do arco
+ * (rumos 0, 30, 60 e 90).
  *
  * ⚠️ ISTO NÃO MEXE NO TECIDO NEM NO LOTE. `AV_R_INICIO` e `AV_R_FIM` são lidos
  * só dentro de `avenidasGeom()`; quem desenha o tecido é `ANEIS`, que continua
@@ -268,7 +340,7 @@ export const AV_R_INICIO = 1420
  * lotável, para chegar ao anel de serviço — que é para isso que serve uma
  * pista de serviço.
  */
-export const AV_R_FIM = 7615
+export const AV_R_FIM = 6972
 
 export interface AvenidaGeom {
   id: string

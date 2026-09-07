@@ -59,7 +59,7 @@
 // Three.js puro (regra da casa: nada de react-three-fiber).
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
-import { AVENIDAS, anelRaio, avenidasGeom, emAvenida } from './teia'
+import { AVENIDAS, anelRaio, aneisDaCidade, avenidasGeom, emAvenida, noArcoDoAnel } from './teia'
 import { look2 } from './look'
 import type { DistanceCuller } from './perf'
 import {
@@ -212,7 +212,11 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
   }
   const rMax = meta.raioBorda ?? 4400
   const rMin = (meta.raioInicio ?? 1300) - 40
-  const aneis = meta.aneis ?? []
+  // ⚠️ PELA MESMA PORTA QUE `vias.ts`. Ver `aneisDaCidade` em teia.ts: sem esta
+  // linha a fileira e a máscara seguiriam o dodecágono de 7.600 (na água) e não
+  // a avenida circular da alça, que é o defeito de fonte dupla que a nota de
+  // `avenidasGeom()` já descreve.
+  const aneis = aneisDaCidade(meta.aneis ?? [])
   // ⚠️ ESTA MÁSCARA ESTAVA MORTA, E CALADA. Ela varria `K.setores`, e
   // `constantes` publica `setoresLegado`, não `setores`: `s < undefined` é falso
   // na primeira volta, o laço nunca rodava e a função só respondia `r < 40`. Ou
@@ -238,7 +242,11 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
   const noAnel = (px: number, pz: number, folga = 3) => {
     const r = Math.hypot(px, pz)
     const ang = Math.atan2(px, -pz)
-    for (const a of aneis) if (Math.abs(r - anelRaio(a.r, ang)) <= a.larg / 2 + folga) return true
+    for (const a of aneis) {
+      if (!noArcoDoAnel(a, ang)) continue
+      const ra = a.circulo ? a.r : anelRaio(a.r, ang)
+      if (Math.abs(r - ra) <= a.larg / 2 + folga) return true
+    }
     return false
   }
 
@@ -560,12 +568,17 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
       const t = (k / n) * Math.PI * 2
       // projeta o ângulo na corda do dodecágono: o vértice fica no raio cheio e
       // o meio da aresta em cos(π/12) dele
+      // ⚠️ A AVENIDA DA ALÇA É CÍRCULO E TEM ARCO. Projetar ela na corda do
+      // dodecágono plantaria a fileira fora da pista; e fora do arco não há
+      // avenida nenhuma para arborizar.
+      if (a.circulo && !noArcoDoAnel(a, t)) continue
       const lado = Math.floor((t / (Math.PI * 2)) * _VERT)
       const g0 = (lado / _VERT) * Math.PI * 2, g1 = ((lado + 1) / _VERT) * Math.PI * 2
       const u = (t - g0) / (g1 - g0)
       const P0x = Math.sin(g0) * a.r, P0z = -Math.cos(g0) * a.r
       const P1x = Math.sin(g1) * a.r, P1z = -Math.cos(g1) * a.r
-      const x = P0x + (P1x - P0x) * u, z = P0z + (P1z - P0z) * u
+      const x = a.circulo ? Math.sin(t) * a.r : P0x + (P1x - P0x) * u
+      const z = a.circulo ? -Math.cos(t) * a.r : P0z + (P1z - P0z) * u
       if (Math.hypot(x, z) < rMin || Math.hypot(x, z) > rMax) continue
       if (emPeca(x, z) || molhado(x, z) || noBulevar(x, z)) continue
       // ⚠️ A FILEIRA DO ANEL SÓ TEM DIREITO AO CANTEIRO DO PRÓPRIO ANEL. Fora da
@@ -581,6 +594,13 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
       // inteira aparecia como "fora da própria faixa" e ia toda para a máscara.
       // Aqui a distância é ao SEGMENTO P0P1, que é onde a via realmente está.
       const noCanteiroDoAnel = (px: number, pz: number) => {
+        // ⚠️ NA AVENIDA DA ALÇA A FAIXA PRÓPRIA É O CÍRCULO, não a corda: medir
+        // contra a corda do dodecágono aqui devolveria a mesma "fora da própria
+        // faixa" que custou 12.855 árvores na primeira medição, só que ao
+        // contrário.
+        if (a.circulo) {
+          return Math.abs(Math.hypot(px, pz) - a.r) <= a.larg / 2 && !emAvenida(px, pz, 18)
+        }
         const ex = P1x - P0x, ez = P1z - P0z
         const L2 = ex * ex + ez * ez
         const u2 = L2 > 0 ? Math.max(0, Math.min(1, ((px - P0x) * ex + (pz - P0z) * ez) / L2)) : 0
@@ -594,7 +614,9 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
         // a fileira do anel corre pela corda: `ao` é a direção da aresta do
         // dodecágono, `tr` é o radial
         const cl = Math.hypot(P1x - P0x, P1z - P0z) || 1
-        const aoX = (P1x - P0x) / cl, aoZ = (P1z - P0z) / cl
+        // na alça a direção "ao longo" é a TANGENTE do círculo no ponto
+        const aoX = a.circulo ? Math.cos(t) : (P1x - P0x) / cl
+        const aoZ = a.circulo ? Math.sin(t) : (P1z - P0z) / cl
         const p = empurrar(x, z, [aoX, aoZ], [-aoZ, aoX], noCanteiroDoAnel)
         if (!p) continue
         salvas++

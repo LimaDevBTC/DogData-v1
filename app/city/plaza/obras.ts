@@ -28,7 +28,7 @@ const COR_PILHA = '#7E786B'     // a pilha de material no canteiro
 export interface ObrasOpts {
   heightAt: (x: number, z: number) => number
   /** anéis viários e bulevares publicados: é sobre eles que a obra acontece */
-  aneis: { r: number; larg: number }[]
+  aneis: { r: number; larg: number; circulo?: boolean; arco?: [number, number] }[]
   bulevares: { x0: number; z0: number; x1: number; z1: number; largura: number }[]
   /** quantos trabalhadores; o padrão é o que o fundador pediu */
   gente?: number
@@ -84,12 +84,20 @@ export function buildObras(o: ObrasOpts): Obras {
     for (const a of aneis) {
       const c = 2 * Math.PI * a.r
       if (d < c) {
-        const ang = (d / a.r)
+        let ang = (d / a.r)
+        // ⚠️ A AVENIDA DA ALÇA SÓ EXISTE NO ARCO DELA. Sortear nos 360° punha
+        // 64% dos postos de obra na água, porque 229,5° dos 360 não têm via.
+        if (a.arco) {
+          const [g0, g1b] = a.arco
+          const g1 = g1b < g0 ? g1b + 360 : g1b
+          ang = ((g0 + ((g1 - g0) * (ang / (2 * Math.PI)))) * Math.PI) / 180
+        }
         // ⚠️ ENCOSTADO NO MEIO-FIO DO DODECÁGONO, NÃO DO CÍRCULO. `a.r` é o raio
         // do VÉRTICE (ver `anelRaio` em teia.ts): no meio de cada face o asfalto
         // está 3,5% mais para dentro, então o cone e a placa nasciam até 259 m
         // fora da rua que estão dizendo interditar.
-        const rr = anelRaio(a.r, ang) + (r() < 0.5 ? -1 : 1) * (a.larg / 2 + 2 + r() * 7)
+        const rr = (a.circulo ? a.r : anelRaio(a.r, ang))
+          + (r() < 0.5 ? -1 : 1) * (a.larg / 2 + 2 + r() * 7)
         return { x: Math.sin(ang) * rr, z: -Math.cos(ang) * rr, ang: ang + Math.PI / 2 }
       }
       d -= c

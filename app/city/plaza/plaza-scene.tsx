@@ -52,6 +52,7 @@ import { buildPracas, type Pracas } from './pracas'
 import { buildArborizacao, type Arborizacao, type Cova } from './arborizacao'
 import { buildCanais, type Canais } from './canais'
 import { buildMobiliarioUrbano, type MobiliarioUrbano } from './mobiliario-urbano'
+import { aneisDaCidade } from './teia'
 // ⚠️ SÓ O TIPO, E ISSO É ORÇAMENTO DE REDE, NÃO ESTILO. `type` é apagado na
 // compilação e não custa um byte no pacote; a função entra por `import()`
 // dinâmico lá embaixo, dentro da bandeira. O padrão é o de `pos.ts`, que já
@@ -2271,7 +2272,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                   // além de `R_FORA` (6.900) não é tocado por amostra nenhuma e
                   // a Pista de Serviço atravessa 436 mil m² de lâmina em
                   // viaduto automático.
-                  aneisViarios: (mc?.aneisViarios ?? []) as { r: number; larg: number }[],
+                  aneisViarios: aneisDaCidade((mc?.aneisViarios ?? []) as
+                    { id?: string; r: number; larg: number }[]),
                   // ⚠️ E A BAÍA PASSA A SER ELEITA PELO PONTO PUBLICADO. Ver a nota
                   // em `LagosOpts.baiaEm`: com o raio maior, um anel de água
                   // externo de 34,5 km² ganharia da baía do fundador na regra de
@@ -2309,7 +2311,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                 if (qDomo.get('obras') !== '0') {
                   obras = buildObras({
                     heightAt: terrain.superficieAt,
-                    aneis: (mc?.aneisViarios ?? []) as { r: number; larg: number }[],
+                    // ⚠️ PELA EXCEÇÃO DA ALÇA (`aneisDaCidade`, teia.ts): sem
+                    // ela o cone e a placa de obra nascem no dodecágono de
+                    // 7.600, que está na água.
+                    aneis: aneisDaCidade((mc?.aneisViarios ?? []) as
+                      { id?: string; r: number; larg: number }[]),
                     bulevares: (mc?.bulevares ?? []) as {
                       x0: number; z0: number; x1: number; z1: number; largura: number
                     }[],
@@ -2350,8 +2356,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                   // `lago` já construído (não recalculado aqui), para o vão e
                   // o tabuleiro nunca discordarem de novo.
                   aneisViarios: [
-                    ...((mc?.aneisViarios ?? []) as { r: number; larg: number }[])
-                      .map((a) => ({ r: a.r, larg: a.larg })),
+                    ...aneisDaCidade((mc?.aneisViarios ?? []) as
+                      { id?: string; r: number; larg: number }[])
+                      .map((a) => ({ r: a.r, larg: a.larg, circulo: a.circulo })),
                     // ⚠️ `circulo` PORQUE ELE É UM DE VERDADE. Os anéis viários
                     // são dodecágonos (ver `anelRaio` em teia.ts); o da orla é
                     // construído por `lago.ts` em volta de uma lâmina redonda e
@@ -2683,7 +2690,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               reamostrar: true,
               vao: 800,
               canais: _malhaCava?.canais?.radiais ?? [],
-              aneisViarios: _malhaCava?.aneisViarios ?? [],
+              // ⚠️ PELA EXCEÇÃO DA ALÇA, como todo o resto que segue anel
+              aneisViarios: aneisDaCidade((_malhaCava?.aneisViarios ?? []) as
+                { id?: string; r: number; larg: number; nome?: string }[]),
               aguaCota: _malhaCava?.lagos?.cota ?? -40,
               molhado: lagos ? (x, z) => lagos!.naAgua(x, z, 2) : undefined,
               bocasPorEstacao: 2,
@@ -2852,8 +2861,12 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             // o decodificador falha com "No DRACOLoader instance provided".
             // Sem ele o look 2 cai calado no poste de primitiva.
             if (qDomo.get('postes') !== '0') {
-              const _aneisViarios = ((_cidadeJson?.aneis ?? []) as { r: number; larg: number }[])
-                .map((a) => ({ r: a.r, larg: a.larg }))
+              // ⚠️ PELA EXCEÇÃO DA ALÇA, como `vias.ts` e `arborizacao.ts`. Ver
+              // `aneisDaCidade` em teia.ts: o poste segue o anel, e o anel da
+              // AN7 mudou de forma e de raio.
+              const _aneisViarios = aneisDaCidade(
+                (_cidadeJson?.aneis ?? []) as { id?: string; r: number; larg: number }[])
+                .map((a) => ({ r: a.r, larg: a.larg, circulo: a.circulo, arco: a.arco }))
               mob = buildMobiliarioUrbano({
                 heightAt: terrain.superficieAt,
                 molhado: lagos ? (x, z) => lagos!.naAgua(x, z, 2) : undefined,
