@@ -81,7 +81,10 @@ import { montarPos, type Pos } from './pos'
 import { rotaLive, duracaoLive, TOUR_LIVE_DERIVA, TOUR_LIVE_OCIO_MS } from './tour-live'
 import { assentarEstadio, estadioCull, estadioParcela, estadioSitio } from './estadio'
 import { assentarGeode, geodeCull, geodeParcela, geodeSitio, podarGeode } from './geode'
+import { atletismoParcela, atletismoSitio } from './atletismo'
+import { criarAtletismo, type Atletismo } from './atletismo-loader'
 import { buildSphere, sphereCull, sphereParcela, sphereSitio, spherePxAng, type Sphere } from './sphere'
+import { criarProgramacao } from './sphere-conteudo'
 import { ILHAS_RAIO, ILHAS_RUMO } from './lago'
 import { CityChat } from '@/components/wallet/city-chat'
 
@@ -156,6 +159,8 @@ const VISOR: React.CSSProperties = {
 
 export const PLACES: ReadonlyArray<{ key: string; label: string; hint: string }> = [
   { key: 'home', label: 'Satoshi Plaza', hint: 'the whole precinct' },
+  { key: 'esportes', label: 'Sports district', hint: 'football, The Geode and athletics' },
+  { key: 'atletismo', label: 'DOG Athletics', hint: '400 m track, eight lanes, field events' },
   { key: 'deck', label: 'The deck', hint: 'the Needle, up close' },
   { key: 'mark', label: 'The Bitcoin Mark', hint: 'the seal on the deck, north axis' },
   { key: 'founders', label: "Founders' Circle", hint: 'the donors, at the tower foot' },
@@ -521,6 +526,23 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
                target: new THREE.Vector3(g.x, 34, g.z) }
     }
 
+    // O endereço acompanha as células. A cota medida é somada por vistaDaCidade
+    // depois de o terreno existir, inclusive na entrada por ?view=atletismo.
+    case 'atletismo': case 'atletismoalto': case 'atletismoperto': {
+      const s = atletismoSitio(), a = THREE.MathUtils.degToRad(s.rumoDeg)
+      const rx = Math.sin(a), rz = -Math.cos(a)
+      const distancia = name === 'atletismoalto' ? 70 : name === 'atletismoperto' ? 280 : 440
+      const altura = name === 'atletismoalto' ? 520 : name === 'atletismoperto' ? 88 : 240
+      return { pos: new THREE.Vector3(s.x - rx * distancia, altura, s.z - rz * distancia),
+               target: new THREE.Vector3(s.x, 8, s.z) }
+    }
+    case 'esportes': {
+      const a = atletismoSitio(), e = estadioSitio(), g = geodeSitio()
+      const x = (a.x + e.x + g.x) / 3, z = (a.z + e.z + g.z) / 3
+      return { pos: new THREE.Vector3(x + 1100, 1050, z + 1200),
+               target: new THREE.Vector3(x, 10, z) }
+    }
+
     // ⚠️ POR DENTRO DO ESTÁDIO, pedido do fundador para a live. A câmera fica
     // ACIMA da última fila e olha para o gramado atravessando a bacia: dentro da
     // casca, mas alta o bastante para a cobertura de 77 m de balanço não tapar o
@@ -876,6 +898,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     const mount = mountRef.current
     if (!mount) return
     let disposed = false
+    let cidadeAtletismoAberta = false
 
     // ── renderer ────────────────────────────────────────────────────────────
     // Log depth: a cena vai do deck (2 m) ao parque (9 km) e ao horizonte (60 km);
@@ -1715,6 +1738,17 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let pracas: Pracas | null = null
     let arvores: Arborizacao | null = null
     let sphere: Sphere | null = null   // THE SPHERE; nasce no bloco das peças de infra
+    // ⚠️ O PROGRAMA NASCE ANTES DA PEÇA, DE PROPÓSITO. A esfera só existe depois
+    // do `await` dos GLBs, e o feed começa a responder antes disso; com o
+    // programa já de pé, nada de dado se perde no meio, e `repintar()` põe o
+    // quadro corrente na peça no instante em que ela aparece. PULSO, SNAPSHOT e
+    // os dois eventos de cadeia saem do MESMO feed que a órbita já consome, sem
+    // uma requisição a mais. Ver `sphere-conteudo.ts`.
+    const programaSphere = criarProgramacao({
+      pintar: (c) => sphere?.pintar(c),
+      ganhar: (g) => sphere?.ganhar(g),
+    })
+    let atletismo: Atletismo | null = null
     let lago: Lago | null = null
     let canais: Canais | null = null
     let lagos: Lagos | null = null
@@ -2614,6 +2648,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               parcelas = [...parcelas, estadioParcela() as PecaEncaixada,
                           geodeParcela() as PecaEncaixada,
                           sphereParcela() as PecaEncaixada]
+              if (qDomo.get('atletismo') !== '0') parcelas.push(atletismoParcela() as PecaEncaixada)
               console.log(`[programa] ${parcelas.length} de ${_prog.length} peças `
                 + `encaixadas em módulo inteiro da teia`
                 + (programa ? `, ${programa.triangulos.toLocaleString('pt-BR')} triângulos` : ' (só o encaixe; ?programa=1 desenha)'))
@@ -3536,6 +3571,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           const _sp = sphereSitio()
           culler.add(sphere.group, sphereCull(), new THREE.Vector3(_sp.x, 0, _sp.z))
         }
+        programaSphere.repintar()   // a peça nasceu depois do programa: pega o quadro corrente
 
         // ── THE GEODE ─────────────────────────────────────────────────────────
         // A arena coberta, 28.240 lugares. Mesmo radial do estádio, 540 m dele:
@@ -3555,6 +3591,23 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           const _gd = geodeSitio()
           culler.add(geode, geodeCull(profile.tier), new THREE.Vector3(_gd.x, 0, _gd.z))
           if (podados) console.log(`[geode] interior podado no celular: -${podados.toLocaleString('pt-BR')} triangulos`)
+        }
+
+        // ── DOG ATHLETICS: rede só depois de abrir, detalhe só perto/desktop ──
+        // A base de 59 KB é um GLB próprio. O telefone nunca baixa o detalhe
+        // para depois removê-lo. A superfície e o bloco são os mesmos das vias.
+        if (new URLSearchParams(window.location.search).get('atletismo') !== '0') {
+          atletismo = criarAtletismo({
+            profile,
+            alturaEm: terrain.superficieAt,
+            carregar: loadGlb,
+            economizarDados: (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData,
+            preparar: async (root) => {
+              tameEnv(root)
+              await aquece(renderer, scene, camera, root)
+            },
+          })
+          scene.add(atletismo.group)
         }
 
         if (btcMark) {
@@ -4046,12 +4099,13 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         const cutoff = Date.now() - 12 * 60_000
         for (const tx of p.landed) if (tx.confirmed_at && new Date(tx.confirmed_at).getTime() > cutoff) orbit.park(tx)
       },
-      onEnter: (tx) => orbit.enter(tx),
-      onLand: (tx) => orbit.land(tx),
+      onEnter: (tx) => { orbit.enter(tx); programaSphere.transacao(tx, 'entrou') },
+      onLand: (tx) => { orbit.land(tx); programaSphere.transacao(tx, 'pousou') },
       onDrop: (tx) => orbit.drop(tx),
       onSnapshot(s, stale) {
         fees = { fast: s?.fee_fast ?? null, slow: s?.fee_slow ?? null }
         setHud((h) => ({ ...h, snapshot: s, stale, error: null }))
+        programaSphere.snapshot(s, stale)
       },
       onError: (message) => setHud((h) => ({ ...h, error: `Feed: ${message}` })),
     })
@@ -4232,8 +4286,17 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     renderer.domElement.addEventListener('wheel', cancelTourOnInput, { passive: true })
     window.addEventListener('keydown', cancelTourOnInput)
 
+    const vistaDaCidade = (name: string | null) => {
+      const v = viewFor(name, camera.aspect, chaoGuerra)
+      if (/^(atletismo|esportes)/.test(name ?? '')) {
+        const cota = atletismo?.group.position.y ?? 0
+        v.pos.y += cota
+        v.target.y += cota
+      }
+      return v
+    }
     apiRef.current = {
-      flyTo(name) { flyTo(viewFor(name, camera.aspect, chaoGuerra)) },
+      flyTo(name) { flyTo(vistaDaCidade(name)) },
       async follow(txid) {
         const inScene = orbit.follow(txid)
         if (inScene) {
@@ -4499,14 +4562,15 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     // existe depois que o parque carrega — pedidas na abertura, elas caíam na
     // estimativa e a câmera parava 86 m abaixo do chão.
     readyRef.current = () => {
+      cidadeAtletismoAberta = true
       controls.enabled = true
       const want = new URLSearchParams(window.location.search).get('view')
       // ⚠️ A VISITA GUIADA NUNCA DISPARA SOZINHA. Ela abria automaticamente na
       // primeira visita da sessão e sequestrava a câmera de quem só queria
       // andar (o fundador vetou: tour só se o usuário clicar em TOUR). O botão
       // no topo é a única porta.
-      if (want && /^temple/.test(want)) {
-        const v = viewFor(want, camera.aspect, chaoGuerra)
+      if (want && /^(temple|atletismo|esportes)/.test(want)) {
+        const v = vistaDaCidade(want)
         camera.position.copy(v.pos)
         controls.target.copy(v.target)
         controls.update()
@@ -4542,6 +4606,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       ilhaMata?.update(camera.position)
       alpino?.update(camera.position)
       autopistas?.update(camera.position)
+      atletismo?.update(camera.position, cidadeAtletismoAberta, nowMs)
       // ⚠️ `spherePxAng` NÃO É ENFEITE: o shader de LED decide se desenha o
       // ponto pelo tamanho dele EM PIXEL DE TELA, então ele precisa saber o
       // tamanho do pixel. Sem esta linha a peça usa o padrão do perfil e lê
@@ -4800,6 +4865,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       if (relogioDoPouso) { clearTimeout(relogioDoPouso); relogioDoPouso = null }
       cancelAnimationFrame(raf)
       feed.stop()
+      programaSphere.parar()
       for (const t of demoTimers) clearTimeout(t)
       window.removeEventListener('resize', onResize)
       renderer.domElement.removeEventListener('pointerdown', onDown)
@@ -4820,6 +4886,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       pracas?.dispose()
       arvores?.dispose()
       sphere?.dispose()
+      atletismo?.dispose()
       mob?.dispose()
       decal?.dispose()
       terrenoFino?.dispose()
