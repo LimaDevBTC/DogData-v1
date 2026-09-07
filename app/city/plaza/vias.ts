@@ -49,7 +49,7 @@
 import * as THREE from 'three'
 import { LIMIAR_PRACA } from './pracas'
 import type { DistanceCuller } from './perf'
-import { ANEIS, AVENIDAS, HR, N_RAD, aneisDaCidade, anguloDe, avenidasGeom, nasceEm, noArcoDoAnel, raioDodeca } from './teia'
+import { ANEIS, AVENIDAS, AVENIDA_ALCA, HR, N_RAD, aneisDaCidade, anguloDe, avenidasGeom, nasceEm, noArcoDoAnel, raioDodeca } from './teia'
 import { look2 } from './look'
 import { superficie, vestir, type Superficie } from './materiais'
 
@@ -1017,6 +1017,58 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     return emCorredorAvenida(px, pz, 3)
   }
   const rMax = (meta.raioBorda ?? 4400) + 10
+
+  // ── A ALÇA SÓ TEM A AVENIDA CENTRAL ──────────────────────────────────────
+  //
+  // ⚠️ FUNDADOR, 07/09: "as outras ruas devem sair por completo da alça de terra.
+  // Lá, por enquanto, teremos apenas a via central. Não quero nenhuma outra via
+  // lá."
+  //
+  // ⚠️ E ELAS ESTAVAM LÁ POR UM MOTIVO GEOMÉTRICO, NÃO POR DESCUIDO: o tecido vai
+  // até `R_FORA` (6.900) em TODOS os rumos, e a margem interna da alça está entre
+  // 6.490 e 6.600. Os últimos 300 m do tecido caem em cima da alça. Medido em
+  // 07/09 por perfil radial de `superficieAt` nos rumos 0 a 105 (o probe está no
+  // corpo do commit), o pavimento da teia aparecia de 6.590 a 6.730, ou seja
+  // entre a praia da baía e a avenida, bem no meio da fileira de lotes que a
+  // alça vai receber. As radiais também punham 380 m de toco lá dentro, indo da
+  // rotatória até a praia da baía e morrendo.
+  //
+  // ⚠️ O LIMITE INTERNO É 6.400 E ELE TEM FOLGA DE PROPÓSITO. A margem da baía
+  // varia de 6.490 (rumo 105) a 6.600 (rumo 60): cortar em 6.400 pega a alça
+  // inteira em todos os rumos e a sobra cai dentro d'água, onde já não se
+  // desenha nada. Um limite justo teria de seguir a linha d'água rumo a rumo, e
+  // isso é uma segunda máquina de traçar margem para ganhar 100 m.
+  //
+  // ⚠️ NÃO VALE PARA O ANEL CIRCULAR. A avenida da alça É a via central: quem
+  // consulta esta máscara é o bulevar, a teia local e a via de orla, nunca a
+  // seção 2b.
+  //
+  // ⚠️ E A EXCEÇÃO DA EXCEÇÃO SÃO AS DUAS PONTAS, senão a avenida não chega a
+  // lugar nenhum. Com a máscara fechada nos 130,5° inteiros, medido por
+  // componente conexo em 07/09, os 15,9 km viravam DUAS ILHAS: 453.060 m² a 54 m
+  // da rede e 233.676 m² a 186 m. E os dois pontos de aproximação caíam
+  // exatamente nas extremidades do arco, (6.198, 3.090) no rumo 116,5 e
+  // (-1.680, -6.726) no rumo 346, que é onde a alça deixa de ser alça e encosta
+  // no continente. Ou seja o acesso já existe na natureza do sítio: falta um
+  // trecho curto em cada tampa.
+  //
+  // ⚠️ E A ABERTURA É UM CÍRCULO DE 300 m NA PONTA, NÃO UM ARCO. Abrir por ângulo
+  // liberaria uma cunha que vai da praia da baía até a praia externa e reabriria
+  // rua no meio da fileira de lotes, que é o que o fundador acabou de mandar
+  // tirar. O círculo na ponta libera só a tampa, onde não há fileira porque a
+  // alça está acabando.
+  const ALCA_R_DENTRO = 6400
+  const ALCA_PONTA = 300
+  const _pontas = (AVENIDA_ALCA.arco).map((g) => {
+    const a = (g * Math.PI) / 180
+    return [Math.sin(a) * AVENIDA_ALCA.r, -Math.cos(a) * AVENIDA_ALCA.r] as [number, number]
+  })
+  const naAlca = (px: number, pz: number): boolean => {
+    if (Math.hypot(px, pz) < ALCA_R_DENTRO) return false
+    if (!noArcoDoAnel(AVENIDA_ALCA, Math.atan2(px, -pz))) return false
+    for (const [tx, tz] of _pontas) if (Math.hypot(px - tx, pz - tz) < ALCA_PONTA) return false
+    return true
+  }
   // Vão máximo de uma face de via, em metros: ver a nota em faixa(). Depois que
   // o chão passou a ser `superficieAt` o vão deixou de precisar ser curto por
   // causa da flecha (a superfície virou a mesma) e passou a precisar só de não
@@ -1384,6 +1436,9 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
       // ⚠️ A AVENIDA PARA NA ORLA. Ver `bloqueiaMalha` nas opções: era só a
       // baía, e agora é todo corpo cujo vão passa de `LIMIAR_PONTE`.
       if (paraNaAgua(mx, mz)) continue
+      // ⚠️ E A ALÇA SÓ TEM A AVENIDA CENTRAL. A radial entra na rotatória em
+      // 6.972 e para ali; sem isto ela seguia até a praia da baía e morria lá.
+      if (naAlca(mx, mz)) continue
       // ⚠️ A PARCELA NÃO CORTA A AVENIDA. Auditado por raycast em 31/08: 15
       // interrupções nas 12 avenidas, com vãos de até 600 m, todas onde uma
       // parcela do programa cai em cima da via. A rua é a estrutura primária
@@ -2312,6 +2367,7 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     // quando a classificação não vem. Não são duas perguntas somadas: quando as
     // duas existem, a primeira já responde pela segunda.
     if (paraNaAgua(px, pz)) return true
+    if (naAlca(px, pz)) return true
     if (naOrlaPav(px, pz, folga)) return true
     if (emCorredorAvenida(px, pz, 0)) return true
     if (emAnelPav(px, pz, folga)) return true
@@ -2750,6 +2806,7 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
         // buraco no cruzamento em vez de fechá-lo.
         if (Math.hypot(mx, mz) > rMax) continue
         if (paraNaAgua(mx, mz)) continue
+        if (naAlca(mx, mz)) continue
         if (emCorredorAvenida(mx, mz, 0) || emAnelPav(mx, mz, meia) || naRotatoriaPav(mx, mz, meia)) continue
         if (emParcela(mx, mz)) continue
         teiaBraco(fx[2 * k], fz[2 * k], fx[2 * k + 1], fz[2 * k + 1],

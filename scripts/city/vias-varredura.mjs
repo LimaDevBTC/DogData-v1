@@ -147,17 +147,20 @@ try {
       }
       const cx = sx / m.length, cz = sz / m.length
       // a distancia ate a rede: so faz sentido para ilha, e so a menor delas
-      let d = null
+      let d = null, onde = null
       if (g > 0) {
         d = Infinity
-        for (const c of m) { const dd = perto(c); if (dd !== null && dd < d) d = dd }
-        if (d === Infinity) d = null
+        for (const c of m) {
+          const dd = perto(c)
+          if (dd !== null && dd < d) { d = dd; const [i, j] = dechave(c); onde = [Math.round(i * CEL), Math.round(j * CEL)] }
+        }
+        if (d === Infinity) { d = null; onde = null }
       }
       ficha.push({
         celulas: m.length, area: Math.round(m.length * CEL * CEL),
         centro: [Math.round(cx), Math.round(cz)], r: Math.round(Math.hypot(cx, cz)),
         extensao: [Math.round(xa - xi), Math.round(za - zi)],
-        fontes: [...fontes], ateARede: d,
+        fontes: [...fontes], ateARede: d, ondeMaisPerto: onde,
       })
     }
 
@@ -223,7 +226,9 @@ try {
   for (const i of grandes.slice(0, 40)) {
     console.log(`  ${String(i.area).padStart(7)} m2  r ${String(i.r).padStart(5)}  centro (${i.centro[0]},${i.centro[1]})`
       + `  ${String(i.extensao[0]).padStart(4)}x${String(i.extensao[1]).padStart(4)} m`
-      + `  a ${i.ateARede === null ? '>240' : i.ateARede} m da rede  [${i.fontes.join(' ')}]`)
+      + `  a ${i.ateARede === null ? '>240' : i.ateARede} m da rede`
+      + `${i.ondeMaisPerto ? ` em (${i.ondeMaisPerto[0]},${i.ondeMaisPerto[1]}) rumo ${((Math.atan2(i.ondeMaisPerto[0], -i.ondeMaisPerto[1]) * 180 / Math.PI + 360) % 360).toFixed(1)} r ${Math.round(Math.hypot(i.ondeMaisPerto[0], i.ondeMaisPerto[1]))}` : ''}`
+      + `  [${i.fontes.join(' ')}]`)
   }
   const somaIlhas = ilhas.reduce((s, i) => s + i.celulas, 0)
   console.log('')
