@@ -1,19 +1,28 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // THE SPHERE na cena da cidade.
 //
-// Um telão de LED esférico de **160 m de diâmetro**, emergindo de um
+// Um telão de LED esférico de **196 m de diâmetro**, emergindo de um
 // embasamento sobre um deck apertado, com praça caminhável em volta. Referência
 // declarada: a Sphere de Las Vegas (elipsóide de 157 x 112 m, ~1,2 milhão de
-// pontos de LED a ~20 cm de passo). A nossa é ESFERA, mostra 111,0 m acima do
+// pontos de LED a ~20 cm de passo). A nossa é ESFERA, mostra 136,7 m acima do
 // colar (a de Vegas mostra 112) e tem 1,34 milhão de LEDs. Dossiê em
 // `sphere.md`.
 //
-// ⚠️ ELA MEDIA 135 m E ERA QUASE UMA BOLA INTEIRA POUSADA NO CHÃO até 07/09 à
-// tarde, quando o fundador viu a peça em produção: com o centro a 0,88 R ela
-// mostrava 94% da própria altura, e a referência real mostra 71%. A correção
-// (0,43 R, 160 m de diâmetro, embasamento, deck apertado) refez o corte, a
-// faixa de texto, o passo de LED e a cota do tabuleiro, e cada um desses
+// ⚠️ ELA CRESCEU DUAS VEZES EM 07/09, E AS DUAS FORAM O FUNDADOR VENDO A PEÇA
+// EM PRODUÇÃO. De manhã ela media 135 m com o centro a 0,88 R (uma bola inteira
+// pousada no chão, 94% da altura à vista contra os 71% da referência); à tarde
+// virou 160 m com o centro a 0,43 R; à noite ele fechou **196 m**, que é o
+// máximo que deixa PRAÇA e não beirada. Cada salto refez o corte, a faixa de
+// texto, o passo de LED, o orçamento de escrita e o fillrate, e cada um desses
 // números está medido no comentário da própria constante.
+//
+// ⚠️ E ELA NUNCA MORRE, POR REQUISITO ESCRITO. Palavra do fundador em 07/09:
+// *"ela e seus detalhes devem ser vistos de qualquer lugar, mesmo que só parte,
+// mas ela não pode desaparecer por completo em momento nenhum"*, com o limite
+// *"algo LEVE"*. Isso é `uVida` (ver a seção 6): a respiração do anel e o pulso
+// de evento custam UM uniforme, não um shader, e por isso valem também no
+// material liso do perfil fraco, que é justamente onde a peça virava bola
+// parada. Nada pisca: 0,083 Hz.
 //
 // ⚠️ SÓ A CASCA. Sem auditório, sem plateia, sem interior. O Geode é o interior
 // da cidade e a Sphere é o exterior; uma é sala, a outra é casca, e por isso não
@@ -71,29 +80,34 @@ export const SPHERE_ENVELOPE_RADIAL = _CX.r1 - _CX.r0
 export const SPHERE_ENVELOPE_ARCO = (_CX.a1 - _CX.a0) * _CX.rm
 
 /**
- * ⚠️ 160 m, E NÃO OS 135 DE 07/09 DE MANHÃ. O fundador viu a peça em produção e
- * apontou duas coisas na mesma frase: *"ela me parece pequena em relação ao
- * terreno que ela ocupa, e o mais importante, o ponto de corte dela com o solo
- * está bem mais embaixo: a nossa esfera é quase uma esfera completa, enquanto a
- * esfera real é pouco mais de meia esfera"*.
+ * ⚠️ 196 m, DECISÃO FECHADA DO FUNDADOR EM 07/09 À NOITE, e o número tem um
+ * limite duro atrás dele: **o menor lado do lote**. A caixa do módulo mede
+ * 227,0 m no radial (o arco tem 370,8 e nunca é quem aperta), e com o centro a
+ * 0,43 R a esfera encosta no tabuleiro numa linha de `2R·√(1−0,43²)` =
+ * **1,8057 R**. Medido, para os três diâmetros que estavam na mesa:
  *
- * Ele está certo, e a conta prova. Com 135 m e enterro de 0,88 R a peça mostrava
- * **94% da própria altura**, ou seja uma bola inteira POUSADA no chão. A de Las
- * Vegas mede 157 x 112 m, isto é mostra **71%** e tem o centro a 0,43 R: ela não
- * pousa, ela EMERGE de um embasamento, e é a base larga encontrando o terreno
- * que dá a leitura de monumento assentado.
+ *     diâmetro   base no chão   praça no radial, por lado (contra os 227,0)
+ *       160 m      144,5 m        41,3 m
+ *     **196 m      177,0 m        25,0 m  ← escolhido**
+ *       218 m      196,8 m        15,1 m
  *
- * Corrigido o enterro para 0,43 R, manter 135 m derrubaria o topo de 126,9 para
- * 96,5 m, e a queixa era justamente de tamanho. Com 160 m o topo fica em
- * **114,4 m acima do tabuleiro** (111,0 acima do colar que resolve o encontro),
- * praticamente a altura da referência, e a esfera encosta no chão numa linha de
- * **147,5 m de largura** em vez dos 64,1 m de antes.
+ * ⚠️ E OS 218 FORAM RECUSADOS PELO MOTIVO CERTO: com 15 m de folga sobra
+ * BEIRADA, não praça. Medido contra o deck de verdade, os 218 deixariam
+ * **1,4 m** entre o embasamento e a divisa radial do lote, ou seja o pódio
+ * encostaria na rua. A base tem de ser caminhável porque a cidade vai para
+ * terceira pessoa, e isso é o que trava a escala, não a esfera.
  *
- * ⚠️ E OS 160 CABEM, já estava medido: sobram 33,5 m no radial e 105,4 m no arco
- * contra a caixa do módulo. O que aperta a praça não é a esfera, é o
- * embasamento, e essa conta está em `SPHERE_PRACA_*`.
+ * O que 196 entrega, medido:
+ *
+ *     topo acima do tabuleiro                  140,1 m   (a de Vegas tem 112)
+ *     topo acima do colar (o que se vê)        136,7 m   = 69,8% da altura
+ *     largura no plano do tabuleiro            177,0 m
+ *     largura na linha do colar                180,0 m
+ *
+ * ⚠️ NÃO AUMENTAR ALÉM DISTO SEM O FUNDADOR. O limite não é estrutural nem de
+ * fillrate: é a praça.
  */
-export const SPHERE_DIAM = 160
+export const SPHERE_DIAM = 196
 export const SPHERE_R = SPHERE_DIAM / 2
 
 /**
@@ -109,7 +123,7 @@ export const SPHERE_R = SPHERE_DIAM / 2
  * `public/lunar/btc-core-heightmap.f32`, com o mesmo `heightAt` da cena:
  *
  *     sobre o MÓDULO INTEIRO (227,0 x 370,8)    97,13 a 117,39 m   desnível 20,3
- *     **sobre o DECK APERTADO (230,5 x 248,6)   99,78 a 116,00 m   desnível 16,2**
+ *     **sobre o DECK APERTADO (229,6 x 254,2)   99,78 a 116,00 m   desnível 16,2**
  *
  * A cota máxima do módulo cai numa QUINA do arco (o vértice 2 do polígono mede
  * 117,39 m), e é justamente a quina que o deck novo não cobre mais. Por isso o
@@ -126,18 +140,25 @@ export const SPHERE_PLATAFORMA_Y = 116.4
  * fundador: *"ela me parece pequena EM RELAÇÃO AO TERRENO QUE ELA OCUPA"*. O
  * deck cobria o módulo inteiro (227,0 x 370,8) e a esfera nadava dentro dele.
  *
- * Medido, a razão entre a largura da esfera no chão e a largura do deck:
+ * Medido sobre o polígono de verdade (`polyDoModulo`, não a caixa), a razão
+ * entre a largura da esfera na linha do colar e a largura do deck:
  *
  *                        no radial   no arco
- *     antes (135 m, deck do módulo inteiro)     28,2%      17,3%
- *     **agora (160 m, deck apertado)**          **64,0%**  **59,3%**
- *     contando o embasamento construído          75,7%      70,2%
+ *     135 m, deck do módulo inteiro             28,2%      17,3%
+ *     160 m, deck apertado                      64,2%      58,0%
+ *     **196 m, deck apertado**                  **78,4%**  **70,8%**
+ *     196 m contando o embasamento construído    88,9%      80,3%
  *
  * O radial não muda (a caixa do módulo já era apertada nesse eixo e os dois
  * lados dele SÃO rua). Quem encolhe é o arco, em 16,5% de cada ponta, e o
- * resultado é um deck de 230,5 m no radial por 248,6 m no arco: um lote quase
+ * resultado é um deck de **229,6 m no radial por 254,2 m no arco**: um lote quase
  * quadrado para uma peça de revolução, em vez de uma laje de quarteirão inteiro
  * com uma bola no meio.
+ *
+ * ⚠️ ESTES 229,6 x 254,2 SÃO MEDIDOS NO POLÍGONO, e o dossiê chegou a publicar
+ * 230,5 x 248,6, que sai da CAIXA (`caixaDoModulo`, 227,0 x 370,8) e não do
+ * dodecágono. É a mesma diferença de 58 m que já derrubou o centro da peça uma
+ * vez (ver `sphereSitio`): quem constrói é o polígono.
  *
  * ⚠️ E O RESTO DO MÓDULO CONTINUA SENDO O LOTE. `sphereParcela()` ainda devolve
  * o polígono INTEIRO, então a teia continua sem desenhar rua por dentro; as duas
@@ -150,6 +171,11 @@ export const SPHERE_PLATAFORMA_Y = 116.4
  * **116,4** (116,00 + 0,4 de margem) e o talude da quina baixa cai de 20,6 para
  * **16,6 m**. Continua sendo saia reta, e terraçar continua sendo dívida
  * declarada; só ficou 4 m menor de graça.
+ *
+ * ⚠️ E A ESCALA DE 196 m NÃO MEXEU EM NADA DISTO, de propósito: o deck é o mesmo
+ * polígono, então a cota é a mesma, o talude é o mesmo 16,6 m e a terraplenagem
+ * é a mesma. Quem cresceu foi a peça DENTRO do deck. É o que permitiu subir de
+ * 160 para 196 sem remedir o heightmap.
  */
 export const SPHERE_DECK_ENCOLHE = 0.165
 
@@ -164,11 +190,16 @@ export const SPHERE_DECK_ENCOLHE = 0.165
  *
  * O que sai desta constante, medido:
  *
- *     centro acima do tabuleiro                 34,4 m  (0,43 x 80)
- *     topo acima do tabuleiro                  114,4 m  (71,5% da altura total)
- *     largura no plano do tabuleiro            144,5 m
+ *     centro acima do tabuleiro                 42,14 m  (0,43 x 98)
+ *     topo acima do tabuleiro                  140,1 m   (71,5% da altura total)
+ *     largura no plano do tabuleiro            177,0 m
  *     latitude do plano de corte              −25,47°
- *     calota que sai da malha (thetaLength)     29,3% da área
+ *     calota que sai da malha (thetaLength)     29,1% da área
+ *
+ * ⚠️ A LATITUDE DO CORTE NÃO DEPENDE DE R, e isso é bom saber antes da próxima
+ * mudança de escala: ela é `asin(−0,43)` e vale −25,47° em qualquer diâmetro. O
+ * que mudou de 160 para 196 foi o OCLUSOR, porque o colar tem altura fixa: ver
+ * `SPHERE_FAIXA_LINHA0`.
  *
  * ⚠️ E ESSE PLANO DE CORTE MOVEU A FAIXA DE TEXTO. A faixa antiga vivia entre as
  * latitudes −11,95° e −33,05°, e com o corte em −25,47° ela ficaria METADE
@@ -180,18 +211,19 @@ export const SPHERE_ENTERRO = 0.43
  * O EMBASAMENTO, e ele é requisito e não enfeite.
  *
  * ⚠️ COM O CORTE MAIS BAIXO A LINHA DE ENCONTRO COM O CHÃO FICA VISÍVEL E LONGA
- * (147,5 m), e uma intersecção seca entre uma esfera de 160 m e um piso plano lê
- * como bug de modelagem. A de Las Vegas resolve isso com o embasamento do
+ * (**180,0 m no topo do colar**, contra 147,5 na esfera de 160), e uma
+ * intersecção seca entre uma esfera de 196 m e um piso plano lê como bug de
+ * modelagem. A de Las Vegas resolve isso com o embasamento do
  * edifício. Aqui são duas peças:
  *
- *   · **pódio**: anel de 14,0 m de largura e **2,2 m** de altura, de r 73,23
- *     (onde a esfera passa pela cota +2,2) a r 87,23. É o terraço que envolve a
+ *   · **pódio**: anel de 12,6 m de largura e **2,2 m** de altura, de r 89,49
+ *     (onde a esfera passa pela cota +2,2) a r 102,09. É o terraço que envolve a
  *     base, e ele é caminhável porque a cidade vai para terceira pessoa.
  *   · **colar**: um chanfro de 3,0 m de largura e 1,2 m de altura sobre o pódio,
- *     inclinado a **25,8°**, que sobe até encostar na esfera em r 73,75. É ele
+ *     inclinado a **25,9°**, que sobe até encostar na esfera em r 90,02. É ele
  *     que resolve o encontro: a esfera EMERGE de um bisel, não corta um plano.
  *
- * Resultado medido: **111,0 m de esfera acima do topo do colar, 69,4% da altura
+ * Resultado medido: **136,7 m de esfera acima do topo do colar, 69,8% da altura
  * total**, contra os 71% da referência. E a casca é cortada 1,0 m ABAIXO do topo
  * do pódio, então o aro da malha nunca briga em profundidade com o piso.
  *
@@ -199,7 +231,25 @@ export const SPHERE_ENTERRO = 0.43
  * pé, e escada/rampa é programa de praça, que o dossiê já lista em aberto.
  */
 export const SPHERE_PODIO_H = 2.2
-export const SPHERE_PODIO_LARG = 14.0
+/**
+ * ⚠️ 12,6 m, E NÃO OS 14,0 DA ESFERA DE 160. A largura do pódio não escala com
+ * a esfera: ela é escala HUMANA (um terraço que alguém pisa), e o que a define
+ * é o que sobra de deck do lado de fora. Com 196 m a esfera encosta em r 88,50 e
+ * o pódio começa em r 89,49; o deck tem 229,6 m no radial, logo 114,80 m de meia
+ * largura, e a conta de repartir o que sobra em DUAS faixas caminháveis iguais é
+ *
+ *     114,80 − 89,49 = 25,31 m para dividir  →  12,6 m de pódio + 12,7 m de deck
+ *
+ * Medido: o terraço do pódio fica com **12,6 m** e o anel de praça no nível do
+ * tabuleiro com **12,7 m** no radial e **25,0 m** no arco. Com os 14,0 antigos o
+ * anel de deck caía para 11,3 m e o embasamento passava a ocupar 90,1% da
+ * largura radial do deck; com 12,6 são 88,9%, e as duas faixas leem como duas
+ * faixas em vez de uma calçada sobrando ao lado de um terraço.
+ *
+ * ⚠️ A ALTURA NÃO MUDOU, e nem podia: 2,2 m é degrau de gente, não proporção de
+ * esfera. Continua sem escada, e continua dívida declarada.
+ */
+export const SPHERE_PODIO_LARG = 12.6
 export const SPHERE_COLAR_LARG = 3.0
 export const SPHERE_COLAR_H = 1.2
 
@@ -216,46 +266,70 @@ export const SPHERE_R_COLAR = sphereRaioNaCota(SPHERE_PODIO_H + SPHERE_COLAR_H)
 
 /**
  * A praça RESERVADA em volta do EMBASAMENTO, por lado, contra o deck apertado.
- * Medido: 230,5/2 − 87,23 = **28,0 m no radial** e 248,6/2 − 87,23 = **37,0 m no
- * arco**. É menos do que os 46,0 x 117,9 de antes, e é assim de propósito: o que
- * sobrava antes não era praça, era laje.
+ *
+ * ⚠️ ELA ENCOLHEU COM OS 196 m, E ISSO É O PREÇO DECLARADO DA ESCALA. Medido
+ * sobre `sphereDeckPoly()` (229,6 m no radial x 254,2 no arco, medidos, não
+ * lidos) contra o pódio em r 102,09:
+ *
+ *                        radial      arco
+ *     esfera de 160       27,6 m     39,9 m
+ *     **esfera de 196     12,7 m     25,0 m**
+ *
+ * A esses 12,7 m soma-se o terraço do pódio, que também é chão de pisar: são
+ * **12,6 + 12,7 = 25,3 m** de faixa caminhável do costado da esfera até a rua,
+ * que é exatamente a conta de 25,0 m que o fundador fez à mão contra a caixa do
+ * módulo (227,0 m). O que o dossiê chamava de praça grande era, antes, laje.
+ *
+ * ⚠️ E A ASSIMETRIA ENTRE OS EIXOS É CONHECIDA: 12,7 no radial contra 25,0 no
+ * arco. Quadrar o deck pediria `SPHERE_DECK_ENCOLHE = 0,1904` (229,6 x 229,6),
+ * o que muda a pegada da terraplenagem e obriga a remedir `SPHERE_PLATAFORMA_Y`
+ * no heightmap. Fica declarado, não feito: os lados radiais SÃO rua e não se
+ * mexem, e encolher o arco só melhora a cota, nunca piora.
  */
-export const SPHERE_PRACA_RADIAL = 28.0
-export const SPHERE_PRACA_ARCO = 37.0
+export const SPHERE_PRACA_RADIAL = 12.7
+export const SPHERE_PRACA_ARCO = 25.0
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 2. A GRADE DE LED
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * ⚠️ O PASSO DO LED É 24,54 cm, E QUEM MANDA É A GRADE, NÃO O PASSO.
+ * ⚠️ O PASSO DO LED É 30,07 cm, E QUEM MANDA É A GRADE, NÃO O PASSO.
  *
- * ⚠️ ELE ERA 20,71 cm ATÉ A ESFERA CRESCER DE 135 PARA 160 m. O passo não é uma
- * constante escolhida: ele CAI da grade em potência de dois, que é o que faz a
- * célula ser quadrada por construção. Com R = 80 m: a circunferência do equador
- * mede 2πR = 502,65 m, e 502,65 / 2.048 = **24,54 cm**; do polo ao polo são
- * πR = 251,33 m, e 251,33 / 1.024 = **24,54 cm** também. Manter os 20,71 cm
- * exigiria 2.427 colunas, que não é potência de dois e quebraria a queda por
- * oitava de latitude e o encaixe do mipmap.
+ * ⚠️ ELE FOI 20,71 → 24,54 → **30,07 cm** nas três escalas de 07/09. O passo não
+ * é uma constante escolhida: ele CAI da grade em potência de dois, que é o que
+ * faz a célula ser quadrada por construção. Com R = 98 m: a circunferência do
+ * equador mede 2πR = 615,75 m, e 615,75 / 2.048 = **30,07 cm**; do polo ao polo
+ * são πR = 307,88 m, e 307,88 / 1.024 = **30,07 cm** também.
  *
- * E as duas pontas que o dossiê exige continuam entregues, remedidas. A câmera
- * da praça tem **FOV vertical de 42°** (`plaza-scene.tsx:1125`); num quadro de
+ * ⚠️ E O NÚMERO DE LEDs NÃO MUDA COM A ESCALA, medido: `4πR² / passo²` com
+ * `passo = 2πR/2048` dá `2048²/π` = **1.335.088 pontos**, sem R nenhum na conta.
+ * Crescer a esfera não compra pixel, compra ÁREA: a casca foi de 80.425 para
+ * **120.687 m²** com o mesmo painel esticado. É por isso que o passo engrossa, e
+ * é a única forma de manter a célula quadrada numa grade de potência de dois.
+ *
+ * As duas pontas que o dossiê exige continuam entregues, remedidas. A câmera da
+ * praça tem **FOV vertical de 42°** (`plaza-scene.tsx:1125`); num quadro de
  * 1080 px isso dá **678,7 µrad por pixel**, e um LED ocupa `p / D / 678,7e-6`:
  *
- *      20 m    18,08 px    painel resolvido, dá para contar puck
- *     100 m     3,62 px    **o padrão de disco aparece e lê como PAINEL**
- *     200 m     1,81 px    transição
- *     361 m     1,00 px    o ponto encosta no pixel: o padrão morre aqui
- *   1.000 m     0,36 px    ponto de luz
- *   3.000 m     0,12 px    **sub-pixel, ela lê como ponto de luz**
- *   5.118 m     0,07 px    (a distância da praça central)
+ *      20 m    22,15 px    painel resolvido, dá para contar puck
+ *     100 m     4,43 px    **o padrão de disco aparece e lê como PAINEL**
+ *     200 m     2,21 px    transição
+ *     443 m     1,00 px    o ponto encosta no pixel: o padrão morre aqui
+ *   1.000 m     0,44 px    ponto de luz
+ *   3.000 m     0,15 px    **sub-pixel, ela lê como ponto de luz**
+ *   5.175 m     0,09 px    (a distância da praça central)
  *
- * ⚠️ E O PASSO MAIS GROSSO NÃO PIOROU NADA, MELHOROU: com 20,71 cm o padrão
- * morria a 305 m, agora morre a 361 m, ou seja a leitura de painel dura 18% mais
- * longe. O que se perde é densidade de perto, e a 20 m ainda são 18 px por LED.
+ * ⚠️ O PADRÃO DURA MAIS LONGE, E ISSO NÃO É GANHO DE GRAÇA: ele morria a 361 m e
+ * agora morre a **443 m**, mas o degrau para o material liso do perfil fraco
+ * continua em `lodDistance` (298 a 381 m), ou seja ele passou a cair com o padrão
+ * ainda em **k = 0,195** (era 0,037). Medido, e é dívida declarada: o degrau
+ * ficou 5x mais visível no perfil fraco. Fazê-lo esperar o padrão morrer custaria
+ * o shader completo sobre 95 a 100% da tela de um celular entre 298 e 443 m, que
+ * é caro demais para o que se ganha.
  *
- * Painel físico resultante: **1.335.088 LEDs** sobre **80.425 m² de casca**. A
- * de Las Vegas tem 1,2 milhão a ~20 cm sobre um elipsóide menor.
+ * Painel físico resultante: **1.335.088 LEDs** sobre **120.687 m² de casca**. A
+ * de Las Vegas tem 1,2 milhão a ~20 cm sobre um elipsóide bem menor.
  */
 export const SPHERE_GRADE_COLS = 2048
 export const SPHERE_GRADE_ROWS = 1024
@@ -264,11 +338,14 @@ export const SPHERE_PASSO = (2 * Math.PI * SPHERE_R) / SPHERE_GRADE_COLS  // 0,2
 /**
  * ⚠️ A FAIXA DE TEXTO NÃO FICA NO EQUADOR, E A CONTA MANDA.
  *
- * ⚠️ E A FAIXA MUDOU DE LUGAR EM 07/09, POR CAUSA DO CORTE NOVO. Ela vivia nas
- * linhas 580 a 700 (latitude −11,95° a −33,05°), medida com o centro a 0,88 R.
- * Com o centro em 0,43 R o plano de corte subiu para a latitude **−25,47°**, e a
- * faixa antiga ficaria **metade enterrada**. Não é ajuste fino: é consequência
- * direta da geometria nova, e foi remedida inteira.
+ * ⚠️ E A FAIXA FICOU ONDE ESTAVA QUANDO A ESFERA FOI PARA 196 m, E ISSO FOI
+ * MEDIDO, NÃO ASSUMIDO. Ela desceu para cá quando o corte passou para 0,43 R (as
+ * linhas 580-700 de antes ficariam metade enterradas). Com R = 98 o corte no
+ * chão continua na latitude **−25,47°**, porque `asin(−0,43)` não depende de R;
+ * o que MUDA é o oclusor, porque o colar tem altura fixa (3,4 m) e uma esfera
+ * maior o esconde menos: o limite de oclusão desceu de **−22,80° para −23,29°**
+ * (linha 641,7 → 644,5). A faixa 540-640 acaba em −22,50° e continua inteira à
+ * vista; a 545-645 acaba em −23,38° e continua OCLUÍDA. Remedido, não herdado.
  *
  * O pedido é "faixa equatorial", e a razão dela existir é que os polos sofrem
  * escorço de perspectiva. Só que o mesmo escorço atinge o equador, porque TODO
@@ -284,38 +361,35 @@ export const SPHERE_PASSO = (2 * Math.PI * SPHERE_R) / SPHERE_GRADE_COLS  // 0,2
  * dispensa varrer azimute. O embasamento entra na conta como OCLUSOR: uma
  * latitude que o pódio ou o colar escondem vale zero, não vale "quase".
  *
- * Compressão da altura da letra na faixa escolhida (1,00 = de frente):
+ * ⚠️ A JANELA DE LEITURA NÃO COMEÇA MAIS NA BORDA DO DECK, e a razão é medida.
+ * Com a esfera de 196 m, quem está a 114,8 m do eixo (a divisa radial do lote)
+ * vê a faixa com compressão **0,55**: letra pela metade. Só que a 114,8 m nem
+ * texto cabe, porque o arco legível ali dá **5,0 casas** de 32 e o orçamento é
+ * de 7 (ver `SPHERE_ORCAMENTO_*`). A janela honesta é a que o ORÇAMENTO DE
+ * ESCRITA define, e ela vai de **315 m** (onde 7 caracteres fecham) a
+ * **2.756 m** (onde a letra de 16,84 m cai abaixo de ~9 px, 500 m mais longe do
+ * que a esfera de 160 alcançava).
  *
- *   lat \ d     115 m   150 m   200 m   300 m   500 m  1000 m  2250 m
- *    −4,92°      0,86    0,97    0,99    1,00    1,00    1,00    1,00
- *   −13,71°      0,99    1,00    0,99    0,98    0,98    0,97    0,97
- *   −22,50°      0,94    0,93    0,93    0,93    0,92    0,92    0,92
+ * Varridas as faixas de 100 linhas dentro dessa janela, com R = 98:
  *
- * A faixa de leitura vai de **115,25 m** (a borda do deck no eixo radial, o
- * ponto mais afastado do eixo que ainda é chão desta peça) a **2.250 m** (além
- * disso a letra de 13,74 m cai abaixo de ~9 px de altura e nenhuma latitude
- * salva; com a letra maior isso é 450 m mais longe do que a peça de 135 m
- * alcançava). Varridas as faixas de 100 linhas dentro dessa janela:
- *
- *     linhas 520-620   lat  −1,41 a −18,98    pior compressão 0,770
- *     linhas 530-630   lat  −3,16 a −20,74    pior compressão 0,814
- *     **linhas 540-640 lat  −4,92 a −22,50    pior compressão 0,856**
+ *     linhas 520-620   lat  −1,41 a −18,98    pior compressão 0,79
+ *     linhas 530-630   lat  −3,16 a −20,74    pior compressão 0,84
+ *     **linhas 540-640 lat  −4,92 a −22,50    pior compressão 0,895**
  *     linhas 545-645   lat  −5,80 a −23,38    **OCLUÍDA pelo embasamento**
  *
  * Escolhida a **540 a 640**: é a mais baixa que o embasamento ainda deixa ver
  * inteira, e ser a mais baixa é o que maximiza a compressão, porque o observador
- * está sempre embaixo. Uma linha a mais para baixo e o pódio come a faixa.
+ * está sempre embaixo. Uma linha a mais para baixo e o colar come a faixa.
  *
- * ⚠️ E A LEITURA MELHOROU COM A PEÇA MAIOR: o pior caso passou de 0,950 numa
- * faixa de 24,7 m para **0,856 numa faixa de 24,54 m** com a MESMA altura
- * física, mas com letra 18% maior (13,74 m contra 11,60) e alcance 25% maior.
- * O 0,856 é pior que o 0,950 antigo porque agora o pior caso é a borda do deck a
- * 115 m, e ali a esfera de 160 m se vê muito mais de baixo do que a de 135.
+ * ⚠️ A FAIXA CRESCEU JUNTO COM A ESFERA, SEM MUDAR DE LINHA: as mesmas 100 linhas
+ * medem **30,07 m** de altura física (eram 24,54), e a letra grande vai a
+ * **12,03 x 16,84 m** (era 9,82 x 13,74). Alcance de leitura: 2.756 m contra
+ * 2.250.
  *
  * ⚠️ DO PÉ DA ESFERA NÃO SE LÊ NADA, em latitude nenhuma: quem está encostado no
  * pódio olha para cima em mais de 55° e vê a faixa de perfil. Isso é geometria,
  * não defeito, e vale igual para a de Las Vegas. A leitura começa onde a praça
- * acaba.
+ * acaba, e com 196 m ela começa mais longe do que com 160.
  */
 export const SPHERE_FAIXA_LINHA0 = 540
 export const SPHERE_FAIXA_LINHA1 = 640
@@ -346,13 +420,13 @@ const FX_VAO = 8
  * vão generoso de propósito porque LED perde contraste entre traços vizinhos):
  *
  *     linha grande: 8 x 8 = 64 LEDs por caractere, 2048/64 = **32 caracteres**
- *                   letra de 5x7 glifos = **9,82 x 13,74 m**
+ *                   letra de 5x7 glifos = **12,03 x 16,84 m**
  *     linha pequena: 8 x 4 = 32 LEDs por caractere, 2048/32 = **64 caracteres**
- *                   letra de **4,91 x 6,87 m**
+ *                   letra de **6,01 x 8,42 m**
  *
  * O alcance de leitura sai do pixel de glifo, que precisa de ~1,5 px de tela:
- * **1.929 m** para a linha grande, **964 m** para a pequena. Pelo critério mais
- * frouxo da altura da letra (9 px), **2.250 m** e **1.125 m**.
+ * **2.362 m** para a linha grande, **1.181 m** para a pequena. Pelo critério
+ * mais frouxo da altura da letra (9 px), **2.756 m** e **1.378 m**.
  *
  * ⚠️ NÃO ROLA. A doutrina de design da DogCity proíbe marquee, e a doutrina do
  * dado proíbe qualquer coisa que tiqueteie. O texto fica parado; quem gira é
@@ -366,41 +440,48 @@ export const SPHERE_CHARS_PEQUENA = SPHERE_GRADE_COLS / (8 * FX_PEQUENA_ESCALA) 
  *
  * De um azimute só não se lê a volta inteira. Medida a compressão da LARGURA da
  * letra (mesma conta da altura, na tangente de longitude), o arco em que ela
- * fica acima de 0,5 mede, na geometria de 160 m:
+ * fica acima de 0,5 mede, na geometria de **196 m**:
  *
- *     200 m     81°     7,2 de 32 casas grandes, 14,5 de 64 pequenas
- *     **300 m   94°     8,4 casas grandes, 16,8 pequenas**
- *     400 m    101°     9,0 casas grandes, 17,9 pequenas
- *   1.000 m    112°    10,0 casas grandes, 20,0 pequenas
+ *     150 m     56°     5,0 de 32 casas grandes, 10,0 de 64 pequenas
+ *     200 m     73°     6,4 casas grandes, 12,9 pequenas
+ *     300 m     89°     7,9 casas grandes, 15,7 pequenas
+ *     **315 m   90°     8,0 casas grandes, 16,0 pequenas ← o ponto de projeto**
+ *     400 m     96°     8,6 casas grandes, 17,1 pequenas
+ *   1.000 m    111°     9,8 casas grandes, 19,7 pequenas
  *
- * Como `repetirNaVolta()` distribui `floor(nChars / (len + 1))` cópias e cada
- * cópia ocupa um período de `nChars / cópias` casas, a garantia de ver UMA cópia
- * inteira é **janela ≥ período**. Daí sai o orçamento, e ele DEPENDE DA
- * DISTÂNCIA MÍNIMA que se queira garantir:
+ * ⚠️ E O ORÇAMENTO APERTOU COM A PEÇA MAIOR, não afrouxou, PORQUE ELE DEPENDE DE
+ * `d/R` E NÃO DE `d`. Esfera maior significa que, à mesma distância, se enxerga
+ * uma fatia MENOR da circunferência: o mesmo 7/15 que fechava a 257 m com 160 m
+ * de esfera só fecha a **315 m** com 196. O orçamento em CARACTERES não muda; o
+ * que anda é a distância em que ele fecha, e ela anda proporcional a R.
  *
- *     garantindo desde 200 m    grande ≤ 5,  pequena ≤ 11
- *     **garantindo desde 300 m  grande ≤ 7,  pequena ≤ 15**
+ * ⚠️ E A REGRA "JANELA ≥ PERÍODO" DO DOSSIÊ ESTAVA ERRADA, medida em 07/09.
+ * `repetirNaVolta()` distribui `floor(nChars/(len+1))` cópias de período
+ * `nChars/cópias`; para a janela conter uma cópia INTEIRA em QUALQUER azimute a
+ * condição é `janela ≥ período + comprimento`, não `janela ≥ período`. Com 7
+ * caracteres o período é 8 casas e a condição pede 15, e a janela nunca passa de
+ * ~10 casas em distância nenhuma. Medido por azimute, com a janela de 8,0 casas
+ * dos 315 m:
  *
- * ⚠️ ESCOLHIDO O DE 300 m, E A ESCOLHA TEM PREÇO DECLARADO. O de 200 m dá cinco
- * casas para o valor, e cinco casas obrigam o preço do DOG a 2 algarismos
- * significativos (`.00042`), ou seja o preço teria de andar 2,4% para o painel
- * mudar de dígito: um telão com número congelado. Entre isso e mover a garantia
- * de 200 para 300 m, vale mais mover a garantia. Entre 115 e 300 m o leitor pode
- * pegar uma cópia cortada de um lado e precisa andar; a 300 m ele lê a linha
- * grande com 67 px de altura de tela, que é letra enorme.
+ *     cópia inteira à vista              13% dos azimutes
+ *     cortada na FRENTE (falta o 1º)     44%
+ *     cortada atrás (falta o último)     44%
+ *     pior azimute                       3,5 dos 7 caracteres
  *
- * ⚠️ E O ORÇAMENTO APERTOU COM A PEÇA MAIOR, não afrouxou: na esfera de 135 m a
- * janela a 200 m era de 92° e o mesmo 7/15 valia desde os 200. Esfera maior
- * significa que, à mesma distância, se enxerga uma fatia MENOR da circunferência.
+ * ⚠️ ENTÃO A GARANTIA NÃO É GEOMÉTRICA, É TIPOGRÁFICA, e é por isso que ela mora
+ * no formato e não aqui. Duas travas, as duas em `sphere-conteudo.ts`:
+ * `repetirNaVolta` separa as cópias com `·` em vez de vão vazio, de modo que uma
+ * cópia cortada se ANUNCIA cortada em vez de virar outro número; e `fmtPreco`
+ * paga um algarismo para manter o zero da frente, porque `.001126` sem o
+ * primeiro caractere lê `001126` e `0.00113` sem ele lê `.00113`.
  *
- * É por isso que a linha grande carrega o VALOR e a pequena o RÓTULO, e não o
- * contrário: valor é curto e precisa ser visto de todo lado. Texto mais longo
- * continua funcionando, mas vira faixa de leitura por setor (lados diferentes da
- * esfera dizem coisas diferentes), que é uma decisão de conteúdo e não um
- * acidente.
+ * A linha grande carrega o VALOR e a pequena o RÓTULO, e não o contrário: valor
+ * é curto e precisa ser visto de todo lado. Texto mais longo continua
+ * funcionando, mas vira faixa de leitura por setor (lados diferentes da esfera
+ * dizem coisas diferentes), que é uma decisão de conteúdo e não um acidente.
  */
-export const SPHERE_ARCO_LEGIVEL_GRAUS = 94
-export const SPHERE_ORCAMENTO_DIST_M = 300
+export const SPHERE_ARCO_LEGIVEL_GRAUS = 90
+export const SPHERE_ORCAMENTO_DIST_M = 315
 export const SPHERE_ORCAMENTO_GRANDE = 7
 export const SPHERE_ORCAMENTO_PEQUENA = 15
 
@@ -564,22 +645,107 @@ export interface SphereConteudo {
 }
 
 /**
- * O conteúdo de TESTE desta rodada: números plausíveis, nada ligado em dado
- * vivo. Serve para provar o shader e nada mais.
+ * O conteúdo com que a peça NASCE, antes de o programa de conteúdo falar.
  *
- * ⚠️ E ELE JÁ RESPEITA O ORÇAMENTO DE CARACTERES medido acima: 7 na linha
- * grande (4 cópias na volta) e 13 na pequena (4 cópias), que é o que garante
- * uma cópia inteira legível de qualquer azimute.
+ * ⚠️ ELE NÃO TEM NÚMERO, E ISSO É CONSERTO DE DEFEITO DE PRODUÇÃO. Até 07/09
+ * esta constante era `{ grande: '0.00042', pequena: '$DOG USD SPOT' }`, um preço
+ * de teste cravado com o rótulo de preço de verdade em cima. O fundador viu a
+ * peça no ar e disse que *"o preço do DOG lá está errado"*: estava, e não por
+ * pouco, porque o valor real da rota naquele dia era **0,001126**, ou seja 2,7
+ * vezes o que o telão dizia. Número inventado com rótulo verdadeiro numa peça de
+ * 196 m é a pior falha possível desta casa.
+ *
+ * ⚠️ E A REGRA VALE PARA SEMPRE: **esta constante não escreve valor**. Quem
+ * escreve valor é `sphere-conteudo.ts`, contra rota, com validade. O que nasce
+ * aqui é o mesmo ESTADO NEUTRO que o programa usa quando nenhuma fonte está
+ * fresca: a identidade da peça e nada mais. Ela vive por poucos quadros (a cena
+ * chama `repintar()` no instante em que a esfera entra), e mesmo assim não pode
+ * mentir nesses quadros.
  *
  * ⚠️ GANHO 0,42 É O ESTADO OCIOSO, e ele é sóbrio de propósito. É o contraste
  * entre este número e o do intervalo comercial que separa marco de cidade de
  * bola de discoteca.
  */
-export const SPHERE_CONTEUDO_TESTE: SphereConteudo = {
-  grande: '0.00042',
-  pequena: '$DOG USD SPOT',
+export const SPHERE_CONTEUDO_NEUTRO: SphereConteudo = {
+  grande: 'DOGCITY',
+  pequena: 'THE SPHERE',
   ganho: 0.42,
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 5.1 A VIDA DE LONGE: o requisito de "ela nunca morre"
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * ⚠️ REQUISITO ESCRITO DO FUNDADOR, 07/09: *"nela vamos precisar gastar
+ * orçamento visual, pois ela e seus detalhes devem ser vistos de qualquer lugar,
+ * mesmo que só parte, mas ela não pode desaparecer por completo em momento
+ * nenhum"*, com o limite *"196 com algo LEVE aparecendo em qualquer lugar que
+ * ela seja vista"*.
+ *
+ * ⚠️ O DEFEITO QUE ISSO CORRIGE É REAL E ESTAVA MEDIDO. Além do `textCull` (600
+ * a 1.700 m conforme o perfil) o texto desvanece, e além de `lodDistance` (298 a
+ * 381 m no perfil fraco) a casca troca para o material liso. Dali para fora a
+ * peça só se mexia quando o QUADRO trocava, ou seja de 16 em 16 segundos, em
+ * degrau. Uma esfera de 196 m que é o marco da cidade não pode ser bola parada
+ * em 4 das 5 configurações de perfil.
+ *
+ * ⚠️ E A CORREÇÃO NÃO É LIGAR O SHADER CARO DE LONGE, é fazer o modo BARATO
+ * continuar vivo. Tudo isto é **um uniforme** (`uVida`) que multiplica só a
+ * FAIXA, calculado na CPU dentro do `update()` que já roda por quadro:
+ *
+ *   · no fragmento cheio custa `mix` + `mul` = 2 instruções sobre ~70 ALU e
+ *     2 buscas de textura, ou seja **~3% do shader**;
+ *   · no fragmento LISO custa as mesmas 2 sobre ~40 ALU, **~5%**;
+ *   · na CPU custa um `Math.sin` e três comparações por quadro, dentro de uma
+ *     função que já existia;
+ *   · **zero** textura nova, **zero** varying novo, **zero** chamada de desenho.
+ *
+ * Por que a FAIXA e não a casca inteira: de longe a faixa é a única parte acesa
+ * (medida em 4,01x a média da esfera) e é ela que sobra depois do `textCull`.
+ * A 3 km a esfera é um disco de 96 px e a faixa mede 14,8 px dele; da praça
+ * central (5.175 m) são 56 px de disco e 8,6 px de faixa. É esse anel que se
+ * mexe.
+ */
+
+/**
+ * A RESPIRAÇÃO DO ANEL, no estado ocioso.
+ *
+ * ⚠️ 0,083 Hz, E ESSE NÚMERO É O LIMITE DE GOSTO, NÃO UMA PREFERÊNCIA. Um ciclo
+ * de 12 s é uma ordem de grandeza abaixo de qualquer coisa que o olho leia como
+ * piscada (a percepção de cintilação começa perto de 3 Hz), então isto é uma
+ * maré e não um estroboscópio. É o contraste entre ocioso sóbrio e evento que dá
+ * o efeito, e é isso que separa marco de cidade de bola de discoteca.
+ */
+export const SPHERE_VIDA_PERIODO_MS = 12_000
+/**
+ * A amplitude, e ela é MENOR DE PERTO de propósito.
+ *
+ * ⚠️ DE PERTO A FAIXA É O INSTRUMENTO, e um instrumento não respira: ali o que
+ * se mexe é o dado. A amplitude cheia (0,16) só vale além de `textCull`, onde a
+ * letra já morreu; dentro da distância de leitura ela cai para um quarto disso
+ * (0,04), que é imperceptível sobre o número e ainda assim cumpre o "em qualquer
+ * lugar". A rampa é calculada na CPU, então não custa instrução de shader.
+ */
+export const SPHERE_VIDA_AMP = 0.16
+
+/**
+ * O PULSO DE EVENTO, e ele é a razão de a peça existir atravessando a distância.
+ *
+ * Bloco minerado, compra para a carteira da cidade e mint são raros (144 blocos
+ * por dia, compra mais rara ainda) e são o motivo de a Sphere estar de pé. O
+ * conteúdo deles já entra na faixa, mas texto morre no `textCull`: de 3 km
+ * ninguém leria `#965501`. Um swell de brilho no anel, ao contrário, chega.
+ *
+ * ⚠️ UM SWELL, NÃO UMA PISCADA: sobe em 600 ms, desce em 2,6 s, uma vez por
+ * evento, pico de **1,85x** no anel. Para comparar, o intervalo comercial é
+ * 2,14x do ocioso o TEMPO TODO. Ou seja o evento levanta a voz por três segundos
+ * e o anúncio fala alto por 72: quem grita continua sendo o anúncio, e o evento
+ * continua sendo notícia.
+ */
+export const SPHERE_PULSO_AMP = 0.85
+export const SPHERE_PULSO_SOBE_MS = 600
+export const SPHERE_PULSO_MS = 3_200
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 6. O SHADER DE LED
@@ -667,6 +833,7 @@ const FS = /* glsl */`
   uniform float uPasso;
   uniform float uPxAng;
   uniform float uGanho;
+  uniform float uVida;
   uniform float uRaioPonto;
   uniform float uPreenche;
   uniform float uAA;
@@ -737,31 +904,41 @@ const FS = /* glsl */`
     // esfera escura sem borda perde a silhueta e vira recorte. Um pow resolve.
     float sol = max(dot(normalize(vN), uSol), 0.0);
     float borda = pow(1.0 - face, 3.0);
+    // ⚠️ uVida MULTIPLICA SO A FAIXA, e e o requisito de "ela nunca morre"
+    // (ver SPHERE_VIDA_*). Duas instrucoes: a respiracao do anel e o pulso de
+    // evento vivem inteiros num uniforme calculado na CPU, entao valem igual
+    // aqui e no material liso, que e onde a peca virava bola parada.
     vec3 cor = uPainel * (uAmb + uSolCor * sol + borda * 1.5)
-             + conteudo * (sinal * uGanho);
+             + conteudo * (sinal * uGanho * mix(1.0, uVida, naFaixa));
     gl_FragColor = vec4(cor, 1.0);
     #include <fog_fragment>
   }`
 
 /**
  * ⚠️ O MATERIAL LISO É O DEGRAU DE FILLRATE, e ele existe medido. A conta está
- * em `sphereCusto()`: a 300 m a esfera ocupa **29,9° do campo e 23,4%** de uma
- * tela de 1080p, mas **90,0% da tela de um celular** de 390 x 844 em dpr 1,5
- * (eram 25,4°, 16,6% e 64,1% com a esfera de 135 m: crescer para 160 custa 41%
- * mais fragmento à mesma distância, e é no celular que a conta aparece). Cada um
- * desses fragmentos roda o shader completo (duas buscas de textura, um `atan`,
- * um `asin`, dois `log2`), e nessa distância o padrão de ponto já morreu de
- * qualquer jeito, porque um LED ali mede 1,02 px.
+ * em `sphereCusto()`: a 300 m a esfera ocupa **36,4° do campo e 35,1%** de uma
+ * tela de 1080p, e **100% da tela de um celular** de 390 x 844 em dpr 1,5 (eram
+ * 29,9°, 23,4% e 90,0% com a esfera de 160: crescer para 196 custa **50% mais
+ * fragmento à mesma distância**, porque o fillrate vai com R², e é no celular
+ * que a conta aparece). Cada um desses fragmentos roda o shader completo (duas
+ * buscas de textura, um `atan`, um `asin`, dois `log2`).
  *
  * Então no perfil fraco, além da distância de leitura, a casca troca para ESTE
- * material: mesma cor, mesmo brilho, mesma forma no sol, zero textura e ~6
- * instruções. Não é "sumir": a peça continua inteira, o que sai é o detalhe.
+ * material: mesma cor, mesmo brilho, mesma forma no sol, zero textura, ~40 ALU.
+ * Não é "sumir": a peça continua inteira, o que sai é o detalhe.
+ *
+ * ⚠️ E ELE NÃO É MAIS UM MODO PARADO. Era, e era esse o defeito que o fundador
+ * apontou: de 298 m para fora, no celular, a peça virava bola lisa. Agora o
+ * `uVida` da seção 5.1 vale aqui também, pelo mesmo uniforme e por um `mul` a
+ * mais, então o anel respira e o evento pulsa no modo BARATO. É o modo barato
+ * que precisava ficar vivo, não o caro que precisava ser ligado de longe.
  */
 const FS_LISO = /* glsl */`
   #include <common>
   #include <logdepthbuf_pars_fragment>
   #include <fog_pars_fragment>
   uniform float uGanho;
+  uniform float uVida;
   uniform vec3 uCam;
   uniform vec3 uSol;
   uniform vec3 uSolCor;
@@ -788,8 +965,11 @@ const FS_LISO = /* glsl */`
     float meio = (uFaixaV.x + uFaixaV.y) * 0.5;
     float meia = (uFaixaV.y - uFaixaV.x) * 0.5;
     float naFaixa = 1.0 - smoothstep(meia * 0.75, meia * 1.15, abs(v - meio));
+    // ⚠️ E A VIDA MORA AQUI TAMBEM, com o MESMO uniforme e a mesma conta: e
+    // justamente neste material que a peca ficava parada, porque ele e o que o
+    // perfil fraco usa de 298 m para fora. Um mul a mais num shader de ~40 ALU.
     gl_FragColor = vec4(uPainel * (uAmb + uSolCor * sol + borda * 1.5)
-                        + mix(uMedia, uCorFaixa, naFaixa) * uGanho, 1.0);
+                        + mix(uMedia, uCorFaixa * uVida, naFaixa) * uGanho, 1.0);
     #include <fog_fragment>
   }`
 
@@ -840,7 +1020,7 @@ export interface SphereEscalonamento {
   /** distância em que a letra desvanece */
   distTexto: number
   /** distância em que o mobiliário da praça some. ⚠️ O EMBASAMENTO NÃO OBEDECE:
-   *  ele tem 174,5 m de diâmetro e é silhueta, não mobiliário. */
+   *  ele tem 204,2 m de diâmetro e é silhueta, não mobiliário. */
   distMiudo: number
   /** suavização da borda do disco, em pixels de tela */
   aa: number
@@ -850,7 +1030,7 @@ export interface SphereEscalonamento {
 export function sphereEscalonamento(p: PerfProfile): SphereEscalonamento {
   // ── malha ──────────────────────────────────────────────────────────────
   // ⚠️ TRIÂNGULO NÃO É O VILÃO AQUI, e a conta prova: com 128 gomos no equador
-  // a flecha da corda mede R·(1−cos(1,406°)) = **2,4 cm** numa esfera de 80 m
+  // a flecha da corda mede R·(1−cos(1,406°)) = **2,95 cm** numa esfera de 98 m
   // de raio, ou seja invisível de qualquer distância. O que custa é FILLRATE.
   // Por isso a malha é generosa e barata, e quem escalona é o fragmento.
   const alta = p.quality === 'high'
@@ -915,8 +1095,9 @@ export function sphereSitio(): { x: number; z: number; rumoDeg: number } {
  * ⚠️ NÃO É O MÓDULO INTEIRO, e essa é a correção de 07/09 (ver
  * `SPHERE_DECK_ENCOLHE`). Os lados radiais ficam intactos porque eles SÃO rua; o
  * arco recua `SPHERE_DECK_ENCOLHE` de cada ponta, o que leva o deck de
- * 227,0 x 370,8 para **230,5 x 248,6 m** e faz a esfera ocupar 64,0% da largura
- * dele no radial e 59,3% no arco, contra 28,2% e 17,3% de antes.
+ * 227,0 x 370,8 para **229,6 x 254,2 m** (medidos no polígono) e faz a esfera de
+ * 196 m ocupar 78,4% da largura dele no radial e 70,8% no arco, contra 28,2% e
+ * 17,3% na primeira versão da peça.
  */
 export function sphereDeckPoly(): [number, number][] {
   const q = polyDoModulo(SPHERE_MOD)
@@ -997,7 +1178,17 @@ export function sphereCull(): number {
  * A esfera não tem "costas" onde esconder uma emenda. Aqui o número de cópias é
  * `floor(nChars / (len + 1))` e a sobra é distribuída ENTRE as cópias, centrada,
  * pelo mesmo arredondamento acumulado que a teia usa: fecha exato, sempre.
+ *
+ * ⚠️ O VÃO ENTRE CÓPIAS LEVA `·`, E ISSO CUSTA ZERO CASA. Medido em 07/09: com 7
+ * caracteres a janela legível de um azimute só contém uma cópia INTEIRA em 13%
+ * dos azimutes; nos outros 87% o leitor pega uma cópia cortada de uma ponta (ver
+ * a nota de `SPHERE_ORCAMENTO_*`). Com o vão VAZIO, um `418.2M` cortado na
+ * frente vira `18.2M`, que é um número plausível e errado por vinte vezes; com o
+ * separador o leitor vê `·18.2M` e sabe que aquilo é um pedaço. Ele ocupa uma
+ * casa que já era vão, então o número de cópias e o período não mudam em nada: é
+ * aviso de corte de graça.
  */
+const SEPARADOR = '·'
 function repetirNaVolta(texto: string, nChars: number): string {
   const t = texto.toUpperCase()
   if (!t.length) return ' '.repeat(nChars)
@@ -1008,7 +1199,10 @@ function repetirNaVolta(texto: string, nChars: number): string {
     const larg = Math.floor((nChars * (k + 1)) / rep) - Math.floor((nChars * k) / rep)
     const vao = larg - t.length
     const esq = Math.floor(vao / 2)
-    out += ' '.repeat(esq) + t + ' '.repeat(vao - esq)
+    // o separador mora na primeira casa de vão à direita da cópia; sem vão
+    // nenhum a volta continua fechando exata, só sem o aviso de corte.
+    const dir = vao - esq
+    out += ' '.repeat(esq) + t + (dir > 0 ? SEPARADOR + ' '.repeat(dir - 1) : '')
   }
   return out
 }
@@ -1122,7 +1316,7 @@ export interface SphereOpts {
   heightAt: (x: number, z: number) => number
   /** direção do sol da cena (normalizada), para o painel apagado ter forma */
   sol?: THREE.Vector3
-  /** conteúdo inicial; o padrão é o de teste desta rodada */
+  /** conteúdo inicial; o padrão é o estado NEUTRO, que não diz número nenhum */
   conteudo?: SphereConteudo
 }
 
@@ -1155,6 +1349,19 @@ export interface Sphere {
    * dissolve de verdade sem tocar no shader e sem corte seco.
    */
   ganhar(g: number): void
+  /**
+   * Um swell de brilho no ANEL, uma vez, para um evento.
+   *
+   * ⚠️ É ISTO QUE FAZ O EVENTO ATRAVESSAR A DISTÂNCIA. O texto do evento morre
+   * no `textCull` (600 a 1.700 m); o pulso não morre, porque ele é um uniforme
+   * e vale igual no material liso. De 3 km ninguém lê `#965501`, mas todo mundo
+   * vê o anel da cidade subir 1,85x por três segundos. Ver `SPHERE_PULSO_*`.
+   *
+   * `intensidade` escala o pico (1 = evento normal). Chamar de novo no meio de
+   * um pulso REINICIA o swell, e é o comportamento certo: dois eventos juntos
+   * são duas notícias, não uma onda quadrada.
+   */
+  pulsar(intensidade?: number): void
   /**
    * Alinha o painel apagado com a luz da cena.
    *
@@ -1199,7 +1406,7 @@ export function buildSphere(o: SphereOpts): Sphere {
   const cv = document.createElement('canvas')
   cv.width = esc.texW; cv.height = esc.texH
   const f = esc.texW / SPHERE_GRADE_COLS      // pixels de canvas por LED
-  const conteudo0 = o.conteudo ?? SPHERE_CONTEUDO_TESTE
+  const conteudo0 = o.conteudo ?? SPHERE_CONTEUDO_NEUTRO
   const med = pintarTextura(cv, conteudo0, f)
   const tex = new THREE.CanvasTexture(cv)
   tex.colorSpace = THREE.SRGBColorSpace
@@ -1233,6 +1440,9 @@ export function buildSphere(o: SphereOpts): Sphere {
     uPasso: { value: SPHERE_PASSO },
     uPxAng: { value: spherePxAng(42, 1080, p.maxPixelRatio) },
     uGanho: { value: conteudo0.ganho ?? 0.42 },
+    // ⚠️ A VIDA DO ANEL. Nasce em 1,0 (nem respirando nem pulsando) e é escrita
+    // por quadro em `update()`, que já roda. Ver a seção 5.1.
+    uVida: { value: 1 },
     // ⚠️ RAIO 0,40 DA CÉLULA, ou seja preenchimento π·0,40² = 0,503. É o que um
     // painel de LED de verdade entrega (puck menor que o passo, vão escuro
     // entre eles), e é o número que faz o pico valer 1/0,503 = 1,99 vezes a
@@ -1289,7 +1499,7 @@ export function buildSphere(o: SphereOpts): Sphere {
   // ── o embasamento: pódio e colar ─────────────────────────────────────────
   // ⚠️ ELE NÃO É DETALHE DE PERTO, E POR ISSO NÃO OBEDECE MAIS AO `smallCull`. O
   // plinto antigo era um anel de 2,6 m em volta de um círculo de 32 m e sumia
-  // sem custo; o embasamento tem **174,5 m de diâmetro** e é ele que dá à peça a
+  // sem custo; o embasamento tem **204,2 m de diâmetro** e é ele que dá à peça a
   // leitura de monumento assentado em vez de bola largada. Sumir com ele a 2 km
   // devolveria exatamente o defeito que o fundador apontou.
   const podio = construirPodio(PLAT)
@@ -1315,10 +1525,23 @@ export function buildSphere(o: SphereOpts): Sphere {
   let liso = false
   // arte de corpo desliga o degrau: ver a nota em update()
   let temArte = !!conteudo0.pintarCorpo
+  // ── a vida do anel: respiração + pulso de evento (ver a seção 5.1) ──────
+  let pulsoT0 = 0
+  let pulsoAmp = 0
+  const relogio = () =>
+    typeof performance !== 'undefined' ? performance.now() : Date.now()
+  const suave = (a: number, b: number, x: number) => {
+    const t = THREE.MathUtils.clamp((x - a) / (b - a), 0, 1)
+    return t * t * (3 - 2 * t)
+  }
   return {
     group, casca, base, custo,
     ganhar(g: number) {
       uniformes.uGanho.value = g
+    },
+    pulsar(intensidade = 1) {
+      pulsoT0 = relogio()
+      pulsoAmp = SPHERE_PULSO_AMP * Math.max(0, intensidade)
     },
     pintar(c: SphereConteudo) {
       const m = pintarTextura(cv, c, f)
@@ -1360,6 +1583,29 @@ export function buildSphere(o: SphereOpts): Sphere {
         casca.material = liso ? matLiso : matLed
         custo.distLisoM = limite
       }
+      // ── a vida do anel ───────────────────────────────────────────────────
+      // ⚠️ ELA CUSTA UM `Math.sin` E TRÊS COMPARAÇÕES, dentro de uma função que
+      // já rodava por quadro. A amplitude da respiração sobe com a distância
+      // porque de perto quem se mexe é o DADO, e um instrumento não respira: de
+      // 0,25 x SPHERE_VIDA_AMP dentro da leitura a 1,0 x além dela. A rampa é
+      // calculada aqui, na CPU, e não no fragmento, justamente para o custo
+      // ficar do lado barato.
+      const t = relogio()
+      const kLonge = suave(esc.distTexto * 0.5, esc.distTexto * 1.15, d)
+      const amp = SPHERE_VIDA_AMP * (0.25 + 0.75 * kLonge)
+      let vida = 1 + amp * Math.sin((2 * Math.PI * t) / SPHERE_VIDA_PERIODO_MS)
+      if (pulsoT0 > 0) {
+        const dt = t - pulsoT0
+        if (dt >= SPHERE_PULSO_MS) pulsoT0 = 0
+        else {
+          // sobe rápido, desce devagar: swell, não piscada. Ver SPHERE_PULSO_*.
+          const sobe = suave(0, SPHERE_PULSO_SOBE_MS, dt)
+          const desce = 1 - suave(SPHERE_PULSO_SOBE_MS, SPHERE_PULSO_MS, dt)
+          vida += pulsoAmp * sobe * desce
+        }
+      }
+      uniformes.uVida.value = vida
+
       // ⚠️ NADA SOME AQUI. O embasamento é parte da silhueta, não mobiliário:
       // ver a nota em `construirPodio`. `esc.distMiudo` volta a mandar quando a
       // praça ganhar programa (banco, guarda-corpo, luminária), que é a frente
@@ -1379,8 +1625,8 @@ export function buildSphere(o: SphereOpts): Sphere {
  * como defeito: *"ela me parece pequena EM RELAÇÃO AO TERRENO QUE ELA OCUPA"*.
  * Com 227,0 x 370,8 de laje e uma esfera de 64 m no chão, a peça ocupava 17,3%
  * da largura do próprio deck no eixo do arco. Agora o deck é
- * `sphereDeckPoly()`, 230,5 x 248,6 m, e a esfera ocupa **64,0% no radial e
- * 59,3% no arco** (75,7% e 70,2% contando o embasamento).
+ * `sphereDeckPoly()`, **229,6 x 254,2 m**, e a esfera de 196 m ocupa **78,4% no
+ * radial e 70,8% no arco** (88,9% e 80,3% contando o embasamento).
  *
  * ⚠️ O QUE FICOU DE FORA CONTINUA SENDO LOTE, NÃO BURACO. `sphereParcela()`
  * ainda devolve o módulo inteiro, então a teia segue sem desenhar rua por
@@ -1479,18 +1725,20 @@ function construirBase(
  *
  * ⚠️ ELE EXISTE PORQUE O CORTE DESCEU. Com o centro a 0,88 R a esfera tocava o
  * piso num círculo de 32 m e um plinto de 2,6 m dava conta; com o centro a
- * 0,43 R ela toca numa linha de **147,5 m de largura**, e uma esfera de 160 m
+ * 0,43 R ela toca numa linha de **180,0 m de largura**, e uma esfera de 196 m
  * cortando um plano liso lê como bug de modelagem, não como arquitetura. A de
  * Las Vegas resolve isso com o embasamento do edifício, e é o mesmo recurso:
  *
- *     pódio    anel de 14,0 m de largura, **2,2 m** de altura, de r 73,23 a
- *              r 87,23. Terraço caminhável em volta da base.
+ *     pódio    anel de 12,6 m de largura, **2,2 m** de altura, de r 89,49 a
+ *              r 102,09. Terraço caminhável em volta da base, e a largura sai da
+ *              conta de repartir o que sobra de deck em duas faixas iguais (ver
+ *              `SPHERE_PODIO_LARG`).
  *     colar    chanfro de 3,0 m de largura e 1,2 m de altura sobre o pódio,
- *              inclinado a **25,8°**, subindo até encostar na esfera em r 73,75.
+ *              inclinado a **25,9°**, subindo até encostar na esfera em r 90,02.
  *              É ele que faz a esfera EMERGIR de um bisel em vez de furar um
  *              plano.
  *
- * Medido: sobram **111,0 m de esfera acima do topo do colar, 69,4% da altura
+ * Medido: sobram **136,7 m de esfera acima do topo do colar, 69,8% da altura
  * total**, contra os 71% da Sphere de Las Vegas. A casca é cortada 1,0 m abaixo
  * do topo do pódio, então o aro da malha nunca briga em profundidade com o piso.
  *

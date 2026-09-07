@@ -49,18 +49,24 @@ import { SNAPSHOT } from '../../dogcity/dogcity-data'
 
 /**
  * ⚠️ ESTES DOIS NÚMEROS MANDAM EM TODA A COPY DESTE ARQUIVO, e eles são
- * medição, não gosto: `sphere.ts` mediu que o arco legível de um azimute só é
- * **94° a 300 m**, ou seja **8,4 das 32 casas grandes e 16,8 das 64 pequenas**.
- * Como o texto é distribuído em cópias inteiras na volta
- * (`floor(nChars/(len+1))`) e cada cópia ocupa um período de `nChars/cópias`, a
- * regra que garante UMA cópia inteira é `janela ≥ período`: 7 caracteres na
- * linha grande (4 cópias, 8 casas de período) e 15 na pequena.
+ * medição, não gosto: com a esfera de **196 m**, `sphere.ts` mediu que o arco
+ * legível de um azimute só é **90° a 315 m**, ou seja **8,0 das 32 casas grandes
+ * e 16,0 das 64 pequenas**. O texto é distribuído em cópias inteiras na volta
+ * (`floor(nChars/(len+1))`), e com 7 caracteres saem 4 cópias de 8 casas de
+ * período: é aí que o orçamento fecha.
  *
- * ⚠️ A GARANTIA VALE DE 300 m PARA FORA, e isso é declarado, não esquecido: com
- * a esfera de 160 m, a 200 m se enxerga só 7,2 casas grandes e o mesmo texto de
- * 7 pode chegar cortado de um lado. A alternativa era um orçamento de 5 casas,
- * que obriga o preço a dois algarismos significativos e congela o painel. A
- * conta inteira está em `SPHERE_ORCAMENTO_*`.
+ * ⚠️ E A DISTÂNCIA EM QUE ELE FECHA ANDOU DE 257 PARA 315 m COM A PEÇA MAIOR,
+ * porque o arco legível depende de `d/R` e não de `d`. O orçamento em CARACTERES
+ * não mudou; o que mudou foi de onde ele vale.
+ *
+ * ⚠️ E NEM MESMO A 315 m EXISTE GARANTIA GEOMÉTRICA. A regra "janela ≥ período"
+ * do dossiê estava errada: para conter uma cópia inteira em QUALQUER azimute a
+ * janela precisa de `período + comprimento` = 15 casas, e ela nunca passa de ~10.
+ * Medido por azimute a 315 m: cópia inteira em **13%**, cortada na frente em
+ * 44%, cortada atrás em 44%, e no pior azimute só 3,5 dos 7 caracteres. A
+ * garantia real é TIPOGRÁFICA e mora em dois lugares: o separador `·` entre
+ * cópias (`repetirNaVolta`, que faz um pedaço se anunciar pedaço) e o zero da
+ * frente do preço (`fmtPreco`). A conta inteira está em `SPHERE_ORCAMENTO_*`.
  *
  * Consequência de projeto, e ela é dura: **preço cabe, frase não cabe**. É por
  * isso que este arquivo escreve em QUADROS (valor + rótulo, um de cada vez) em
@@ -266,7 +272,7 @@ export function fracaoNominalAnuncio(nModulos = 4): number {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * ⚠️ UMA PEÇA DE 135 m MOSTRANDO DADO ERRADO COM CONFIANÇA É PIOR DO QUE UMA
+ * ⚠️ UMA PEÇA DE 196 m MOSTRANDO DADO ERRADO COM CONFIANÇA É PIOR DO QUE UMA
  * MOSTRANDO QUE NÃO SABE. Não existe, nesta faixa de texto, espaço para um
  * carimbo de idade honesto: sete caracteres não comportam "há 4 min" ao lado do
  * número, e um número velho sem carimbo é uma mentira. Então a regra aqui é
@@ -308,28 +314,55 @@ const MS_RETENTA = 20_000
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * ⚠️ O PREÇO DO DOG NÃO CABE EM 7 CASAS SEM UMA DECISÃO, e a decisão está
- * medida. Com o preço na ordem de US$ 0,0004:
+ * ⚠️ O PREÇO DO DOG NÃO CABE EM 7 CASAS SEM UMA DECISÃO, e a decisão MUDOU em
+ * 07/09, contra medição. A regra antiga era "a maior precisão que couber",
+ * sacrificando sempre o zero da frente; ela dava, para o preço real de hoje
+ * (**0,001126**):
  *
- *     `0.00042`   7 casas, 2 algarismos significativos, granularidade **2,4%**
- *     `.000421`   7 casas, 3 algarismos significativos, granularidade **0,24%**
+ *     `.001126`   4 algarismos, granularidade **0,089%**   ← o que a regra antiga fazia
+ *     `0.00113`   3 algarismos, granularidade **0,888%**   ← o que esta faz
  *
- * A primeira forma deixaria o telão da cidade com um número CONGELADO: o preço
- * teria de andar 2,4% para o painel mudar de dígito, e isso acontece algumas
- * vezes por dia. A segunda respira. O zero à esquerda é o que se paga por isso,
- * e ele é o dígito que menos informa numa linha rotulada `$DOG USD SPOT`.
+ * ⚠️ E O ZERO DA FRENTE NÃO É ENFEITE, É PROTEÇÃO DO PONTO DECIMAL. Medido em
+ * `sphere.ts`: uma cópia INTEIRA do texto só se vê de 13% dos azimutes; de 44%
+ * deles o leitor pega a cópia cortada NA FRENTE. E aí:
  *
- * Então a regra é: a maior precisão que couber em 7 casas, preferindo manter o
- * zero à esquerda, e sacrificando o zero SÓ quando ele compra um algarismo.
+ *     `.001126`  sem o primeiro caractere lê `001126`  → erro de 10⁶
+ *     `0.00113`  sem o primeiro caractere lê `.00113`  → CERTO
+ *     `0.00113`  sem o último caractere   lê `0.0011`  → erro de 2,3%
+ *
+ * O zero é um caractere de sacrifício: ele é o que sobra na mão de quem cortou.
+ * Num telão de 196 m, um preço que pode ser lido como um número mil vezes maior
+ * é pior do que um preço com um algarismo a menos.
+ *
+ * ⚠️ MAS ELE SÓ VALE ENQUANTO NÃO CONGELAR O PAINEL, e é isso que `GRAN_MAX`
+ * mede. Quando o DOG valia 0,00042 o formato com zero dava `0.00042`, ou seja
+ * granularidade de **2,4%**: o preço teria de andar 2,4% para o painel mudar de
+ * dígito, e um telão com número congelado é o defeito oposto. Então a regra é:
+ * **mantém o zero enquanto a granularidade couber em 1%; acima disso sacrifica o
+ * zero para comprar um algarismo.** Com 0,001126 o zero fica (0,89% ≤ 1%); com
+ * 0,00042 ele cai e volta o `.000421` de antes. A regra decide sozinha nas duas
+ * pontas, em vez de alguém ter de escolher de novo a cada ordem de grandeza.
  */
+const GRAN_MAX = 0.01
+
 export function fmtPreco(v: number): string {
   if (!Number.isFinite(v) || v <= 0) return ''
+  let comZero: { s: string; d: number } | null = null
+  let semZero: { s: string; d: number } | null = null
   for (let d = 8; d >= 0; d--) {
-    const com = v.toFixed(d)
-    if (com.length <= ORC_GRANDE) return aparar(com)
-    const sem = com.startsWith('0.') ? com.slice(1) : com
-    if (sem.length <= ORC_GRANDE) return aparar(sem)
+    const s = v.toFixed(d)
+    if (!comZero && s.length <= ORC_GRANDE) comZero = { s, d }
+    if (!semZero && s.startsWith('0.') && s.length - 1 <= ORC_GRANDE) {
+      semZero = { s: s.slice(1), d }
+    }
+    if (comZero && semZero) break
   }
+  // a granularidade é o passo do último dígito sobre o valor: o quanto o preço
+  // precisa andar para o painel mudar de algarismo.
+  const gran = (x: { d: number } | null) => (x ? 10 ** -x.d / v : Infinity)
+  if (comZero && gran(comZero) <= GRAN_MAX) return aparar(comZero.s)
+  if (semZero) return aparar(semZero.s)
+  if (comZero) return aparar(comZero.s)
   return v.toPrecision(2)
 }
 
@@ -639,8 +672,8 @@ const eventoBase: Partial<SphereConteudo> = { ganho: GANHO_EVENTO, cor: COR_DADO
  * do fundador é literal: *quem acabou de comprar vê a cidade inteira reagir à
  * compra dele*. Então o que a peça mostra não é "uma doação chegou": é o VALOR
  * dela e a CAUDA DO ENDEREÇO de quem mandou, que é a parte que a pessoa
- * reconhece porque é a que a carteira dela mostra no truncado. De 200 m ela lê
- * os próprios seis caracteres num painel de 135 m.
+ * reconhece porque é a que a carteira dela mostra no truncado. De 400 m ela lê
+ * os próprios seis caracteres num painel de 196 m.
  *
  * ⚠️ E O VALOR É LÍQUIDO, TROCO DESCONTADO. `donationDog()` soma só o que foi
  * PARA o endereço da cidade. O bruto é a confusão que o fundador apontou em
@@ -747,6 +780,17 @@ export interface ProgramacaoOpts {
    * uma escrita de uniforme em vez de um envio de 8 MB.
    */
   ganhar: (g: number) => void
+  /**
+   * um swell de brilho no anel, para o evento atravessar a distância. É
+   * `sphere.pulsar`, e é opcional porque o programa nasce antes da peça.
+   *
+   * ⚠️ ELE EXISTE PORQUE TEXTO MORRE E BRILHO NÃO. `#965501` / `BITCOIN BLOCK`
+   * desvanece no `textCull` (600 a 1.700 m conforme o perfil); da praça central,
+   * a 5.175 m, a esfera é um disco de 56 px e a faixa mede 8,6 px dele. O quadro
+   * do evento não chega ali, mas o anel subindo 1,85x por três segundos chega.
+   * Custa um uniforme, não um shader: ver `SPHERE_PULSO_*` em `sphere.ts`.
+   */
+  pulsar?: (intensidade?: number) => void
   /** para teste offline: substitui o `fetch` do navegador */
   buscar?: typeof fetch
   /** para teste offline: substitui `Date.now` */
@@ -940,6 +984,11 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
     slot = s
     iQuadro = 0
     fimQuadro = t + s.quadros[0].ms
+    // ⚠️ UM PULSO POR EVENTO, NA ENTRADA DO SLOT, e só para evento. O intervalo
+    // comercial já sobe para ganho 0,90 o tempo todo e não precisa de swell; o
+    // módulo de dado é o estado sóbrio por definição. Pulsar em tudo seria
+    // exatamente a bola de discoteca que o dossiê proíbe.
+    if (s.classe === 'evento') o.pulsar?.(1)
     trocarPara(s.quadros[0], t)
   }
 
