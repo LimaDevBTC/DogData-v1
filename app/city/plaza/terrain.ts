@@ -29,6 +29,7 @@ import { look2 } from './look'
 import { vestir } from './materiais'
 import { microRelevoAt, TERRENO_FINO_ATIVO } from './terreno-fino'
 import { alturaInvernoAt, zonaEsquiavelAt, fatorRochaAt } from './inverno'
+import { campusAlturaAt } from './campus'
 
 export interface TerrainMeta {
   cols: number
@@ -900,7 +901,14 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
     // hoje com a bandeira desligada. Somado DEPOIS do micro-relevo, na mesma
     // ordem em que `terreno-fino.ts` já soma depois de tudo o mais: os dois
     // relevos aditivos não competem, eles se empilham.
-    return bParque + microRelevoAt(x, z) + alturaInvernoAt(x, z)
+    // ⚠️ O CAMPUS ESPORTIVO ENTRA AQUI, DEPOIS DO PARQUE E ANTES DO MICRO-RELEVO.
+    // É terraplanagem de verdade e não laje flutuante: os três terraços que
+    // `campus.ts` declara mexem no CHÃO, então rua, calçada, poste, árvore e
+    // câmera pousam neles pelo mesmo `heightAt` de sempre, sem saber que o
+    // campus existe. Fora do anel r 2.850..3.740 a função devolve `bParque`
+    // bit a bit, com uma comparação de raio e nada mais (ver a porta rápida no
+    // cabeçalho de `campusAlturaAt`).
+    return campusAlturaAt(x, z, bParque) + microRelevoAt(x, z) + alturaInvernoAt(x, z)
   }
 
   // ⚠️ CONTRATO NOVO, DEPOIS DE A MALHA GROSSA SER MASCARADA (não mais

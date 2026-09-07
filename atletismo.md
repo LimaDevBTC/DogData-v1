@@ -15,28 +15,42 @@ homologação de instalação física.
 
 ## Endereço na cidade
 
-`ATLETISMO_MOD = { i: 15, nr: 2, j: 50, ns: 3 }`: bloco de seis células,
-definido em `app/city/plaza/atletismo.ts`. Centro, giro e polígono derivam de
-`caixaDoModulo`/`polyDoModulo`; nenhuma coordenada absoluta assenta o prédio.
-Os endereços do estádio de futebol, da Geode e da Sphere permanecem os mesmos.
+`ATLETISMO_MOD = { i: 11, nr: 3, j: 42, ns: 2 }`: o bloco entre a avenida de 90°
+e o $DOG ARENA, definido em `app/city/plaza/atletismo.ts`. Centro, giro e
+polígono derivam de `caixaDoModulo`/`polyDoModulo`; nenhuma coordenada absoluta
+assenta o prédio.
 
-Medição em 07/09/2026 contra a malha local: centro derivado em
-(3704,745; 1616,364), cerca de 760 m da Geode e 926 m do futebol. A implantação
-física mede 304 × 220 m; a verificação considera 320 × 240 m. A pegada tem
-136 m de afastamento da via principal mais próxima, contando a margem de
-berma. O bloco é registrado na máscara de parcelas das vias para suprimir
-as ruas finas internas. A faixa de proteção da avenida de 120° alcança uma
-borda do bloco reservado; fica fora da implantação física e não é removida.
+⚠️ **Mudou em 07/09/2026.** O primeiro endereço era `{i:15, nr:2, j:50, ns:3}`,
+no anel de fora (r 4.042), 760 m da Geode e 926 m do futebol. Passava em toda a
+verificação e ainda assim estava errado na chapa: as três arenas liam como três
+ilhas soltas, cada uma com base de formato diferente, e aquele bloco tinha
+466 × 895 m para uma peça de 320 × 240, ou seja a peça ocupava 18% dele. O sítio
+novo põe as três no mesmo anel (r 3.294), 615,079 m uma da outra, dentro de uma
+parcela só. O plano do conjunto está em `campus.md`.
 
-O assentamento sonda a superfície desenhada do terreno a cada 8 m, incluindo
-as bordas. Uma conferência independente a cada 2 m (19.481 amostras) encontrou
-4,012 m de desnível, nenhum ponto molhado e 0,346 m de folga mínima sob o
-zero do modelo. A saia desce 5,5 m para fechar o contato com o terreno.
+Medição em 07/09/2026: centro derivado em (3.284,79; 246,16), rumo 94,286°,
+615,08 m do $DOG ARENA e 1.224,79 m de THE GEODE. A implantação física mede
+304 × 220 m; a verificação considera 320 × 240 m, e o pódio quadrado do campus
+tem 344 m de lado. A peça tem 49,6 m de folga até a avenida de 90°, que é a via
+grande mais próxima, e 250,9 m até a peça de programa mais próxima. Nenhum ponto
+molhado.
 
-O verificador cruza vias publicadas, avenidas ativas, anéis, autopistas,
-canais, 70 reservas publicadas, 69 reservas reencaixadas e as três parcelas
-de infra existentes. Não regenera o loteamento nem fixa lotes de holders
-antes do snapshot; o gerador futuro deve consumir também esta reserva.
+O bloco não entra mais sozinho na máscara de parcelas das vias: quem entra é a
+parcela do campus (`CAMPUS_MOD`), que cobre as três peças e apaga também as duas
+ruas radiais que separavam uma da outra.
+
+O terreno sob a peça é terraplanado na cota −26,0 m (terraço do campus), com
+0,004 m de desnível residual em 19.481 sondas. O assentamento continua sondando
+a superfície a cada 8 m incluindo as bordas, só que agora a superfície que ele
+encontra é o topo do pódio, e a folga de pouso é 0,40 m. A saia de 5,5 m do
+modelo fica enterrada.
+
+O verificador cruza vias publicadas, avenidas ativas, anéis, autopistas, canais,
+70 reservas publicadas, 69 reservas reencaixadas e a Sphere. O $DOG ARENA e THE
+GEODE saíram da lista de ocupação porque agora dividem a parcela do atletismo por
+construção; quem confere o conjunto é `scripts/city/verificar-campus.ts`. Não
+regenera o loteamento nem fixa lotes de holders antes do snapshot; o gerador
+futuro deve consumir também esta reserva.
 
 ## Modelo e carga
 
@@ -55,7 +69,8 @@ O script valida os orçamentos antes de publicar cada arquivo atomicamente.
 um arquivo separado, aditivo, solicitado após permanecer 600 ms a menos de
 1.100 m da peça. Celular, qualidade baixa e economia de dados nunca o pedem.
 O detalhe se oculta a 1.400 m e reaparece a 1.100 m, reutilizando o download.
-A base permanece visível a até 5.500 m no celular e 7.000 m no desktop.
+A base permanece visível a até 4.700 m no celular e 7.000 m no desktop (eram
+5.500 no sítio antigo; o corte acompanha o raio da peça sozinho).
 O grupo é filho direto da cena, requisito para o cálculo de distância.
 
 Os atributos descomprimidos ocupam 506.940 bytes na base e 724.416 bytes no
@@ -77,6 +92,7 @@ sombras global, evitando pontos pretos na superfície clara.
 
 ```bash
 npx tsc --noEmit --incremental false -p tsconfig.json
+npx tsx scripts/city/verificar-campus.ts
 npx tsx scripts/city/verificar-atletismo.ts
 npx tsx scripts/city/verificar-atletismo-carga.ts
 node scripts/city/conferir-atletismo.mjs

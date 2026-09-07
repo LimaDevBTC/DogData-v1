@@ -171,7 +171,7 @@ const CORTE1 = lerCorte()
 // à calçada daqui para que quem anda na rua entre na praça sem degrau; mexer
 // aqui quebra as 128 praças de lá em silêncio.
 const Y_PISTA = 0.18
-const Y_CALCADA = 0.33
+export const Y_CALCADA = 0.33
 const Y_CANTEIRO = 0.40
 
 // ⚠️ 0,02 m É A CONSTANTE ÚNICA DE FOLGA, E ELA FOI MEDIDA. Só ALTURA resolve
@@ -190,14 +190,14 @@ const FOLGA = 0.02
 // Paleta: a pista é o valor mais escuro da cidade e a calçada o mais claro. O
 // lote (PEDRA em tecido.ts) fica entre os dois de propósito, senão a teia some.
 // Razões medidas: calçada/pista 4,41:1, marca/pista 5,08:1, verde/pista 2,09:1.
-const COR_PISTA = '#57534B'
-const COR_CALCADA = '#CBC4B6'
-const COR_MEIOFIO = '#8F8879'
+export const COR_PISTA = '#57534B'
+export const COR_CALCADA = '#CBC4B6'
+export const COR_MEIOFIO = '#8F8879'
 const COR_CANTEIRO = '#7E8A6B'
 const COR_MARCA = '#D8D2C4'
 // ⚠️ O PLATÔ DO QUARTEIRÃO: a plataforma terraplenada, esperando prédio.
 // Ele é MAIS CLARO que a pista de propósito, e é isso que faz a malha existir.
-const COR_PLATO = '#9E968A'
+export const COR_PLATO = '#9E968A'
 
 type Alvo = 'pista' | 'calcada' | 'canteiro' | 'meiofio' | 'marca' | 'plato'
 

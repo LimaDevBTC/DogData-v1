@@ -26,7 +26,14 @@ for(const b of M.bulevares)radial(`json:${b.id}`,b.rumo,b.rInicio,b.rFim,b.largu
 for(const b of AVENIDAS)radial(`ativa:${b.rumo}`,b.rumo,1420,8000,b.largura/2+6)
 for(const a of M.autopistas){const r=a.rumo*Math.PI/180,c=Math.cos(r),s=Math.sin(r),o=a.afastamento??0;roads.push({id:a.id,a:[c*o+s*-12000,s*o-c*-12000],b:[c*o+s*12000,s*o-c*12000],half:a.largura/2+6})}
 for(const a of M.aneisViarios){for(let i=0;i<12;i++)roads.push({id:a.id,a:anelPonto(a.r,i*Math.PI/6),b:anelPonto(a.r,(i+1)*Math.PI/6),half:a.larg/2+8})}
-const occupied:{id:string;poly:Pt[]}[]=[{id:'DOG_ARENA',poly:polyDoModulo(ESTADIO_MOD)},{id:'THE_GEODE',poly:polyDoModulo(GEODE_MOD)},{id:'SPHERE',poly:polyDoModulo(SPHERE_MOD)},...C.programa.filter((p:any)=>p.poly?.length).map((p:any)=>({id:`programa:${p.id}`,poly:p.poly}))]
+// ⚠️ O ARENA E A GEODE SAÍRAM DESTA LISTA EM 07/09, e não por descuido: as três
+// peças passaram a dividir a MESMA parcela (o campus esportivo, `campus.ts`), e
+// os blocos delas agora encostam no do atletismo por construção. Enquanto elas
+// estavam aqui, `evaluate` reprovava o sítio novo por "colisão" com os vizinhos
+// de campus, que é exatamente o arranjo que o fundador pediu. Quem confere o
+// campus inteiro, incluindo a distância entre os três pódios, é
+// `scripts/city/verificar-campus.ts`; aqui ficou a peça do atletismo sozinha.
+const occupied:{id:string;poly:Pt[]}[]=[{id:'SPHERE',poly:polyDoModulo(SPHERE_MOD)},...C.programa.filter((p:any)=>p.poly?.length).map((p:any)=>({id:`programa:${p.id}`,poly:p.poly}))]
 function evaluate(m:Modulo){const s=site(m),p=rect(m),parcel=polyDoModulo(m); if(!p.every(q=>inside(q,parcel)))return null;const occ=occupied.filter(o=>polyDist(parcel,o.poly)<1); if(occ.length)return null;const road=roads.map(r=>({id:r.id,clearance:segmentDist(p,r.a,r.b)-r.half})).sort((a,b)=>a.clearance-b.clearance)[0];if(road.clearance<15)return null;const es=estadioSitio(),gs=geodeSitio();return{m,x:s.x,z:s.z,radial:s.c.r1-s.c.r0,arc:(s.c.a1-s.c.a0)*s.c.rm,road,distEstadio:Math.hypot(s.x-es.x,s.z-es.z),distGeode:Math.hypot(s.x-gs.x,s.z-gs.z)}}
 if(process.argv.includes('--scan')){const result=[];for(let i=6;i<18;i++)for(let nr=1;nr<=3;nr++)for(let ns=1;ns<=3;ns++){const step=passoNoRaio((ANEIS[i]+ANEIS[i+nr])/2);for(let j=36;j<66;j+=step){const e=evaluate({i,nr,j,ns});if(e&&e.distGeode<2000&&e.distEstadio<2000)result.push(e)}}result.sort((a,b)=>Math.max(a.distGeode,a.distEstadio)-Math.max(b.distGeode,b.distEstadio));console.log(JSON.stringify(result.slice(0,15),null,2))}
 async function terrainCheck(){

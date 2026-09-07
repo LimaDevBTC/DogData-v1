@@ -79,10 +79,11 @@ import { instalarAtmosfera } from './atmosfera'
 import { setAnisotropia } from './materiais'
 import { montarPos, type Pos } from './pos'
 import { rotaLive, duracaoLive, TOUR_LIVE_DERIVA, TOUR_LIVE_OCIO_MS } from './tour-live'
-import { assentarEstadio, estadioCull, estadioParcela, estadioSitio } from './estadio'
-import { assentarGeode, geodeCull, geodeParcela, geodeSitio, podarGeode } from './geode'
-import { atletismoParcela, atletismoSitio } from './atletismo'
+import { assentarEstadio, estadioCull, estadioSitio } from './estadio'
+import { assentarGeode, geodeCull, geodeSitio, podarGeode } from './geode'
+import { atletismoSitio } from './atletismo'
 import { criarAtletismo, type Atletismo } from './atletismo-loader'
+import { campusParcela, comPodio, criarCampus } from './campus'
 import { buildSphere, sphereCull, sphereParcela, sphereSitio, spherePxAng, type Sphere } from './sphere'
 import { criarProgramacao } from './sphere-conteudo'
 import { ILHAS_RAIO, ILHAS_RUMO } from './lago'
@@ -1747,6 +1748,10 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     const programaSphere = criarProgramacao({
       pintar: (c) => sphere?.pintar(c),
       ganhar: (g) => sphere?.ganhar(g),
+      // o swell do anel quando entra um evento: e o que faz bloco minerado e
+      // compra serem percebidos de 3 km, onde o texto ja morreu. Ver
+      // SPHERE_PULSO_* em sphere.ts.
+      pulsar: (i) => sphere?.pulsar(i),
     })
     let atletismo: Atletismo | null = null
     let lago: Lago | null = null
@@ -2645,10 +2650,16 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               // a teia desenha rua por dentro da arena.
               // ⚠️ E O MESMO VALE PARA THE SPHERE, pela mesma razão: sem a
               // parcela dela, a teia desenha rua por dentro do tabuleiro.
-              parcelas = [...parcelas, estadioParcela() as PecaEncaixada,
-                          geodeParcela() as PecaEncaixada,
+              // ⚠️ AS TRÊS ARENAS ENTRAM COMO UMA PARCELA SÓ DESDE 07/09. Era
+              // uma parcela por peça, e entre elas sobravam duas ruas radiais
+              // finas cortando o que hoje é um campus contínuo. A parcela do
+              // campus é o bloco inteiro entre a avenida de 90° e a de 120°
+              // (`CAMPUS_MOD` em `campus.ts`), então a teia para nas duas
+              // avenidas e não desenha rua nenhuma por dentro. `estadioParcela`,
+              // `geodeParcela` e `atletismoParcela` continuam existindo para
+              // quem precisa medir peça isolada; aqui elas não são mais usadas.
+              parcelas = [...parcelas, campusParcela() as PecaEncaixada,
                           sphereParcela() as PecaEncaixada]
-              if (qDomo.get('atletismo') !== '0') parcelas.push(atletismoParcela() as PecaEncaixada)
               console.log(`[programa] ${parcelas.length} de ${_prog.length} peças `
                 + `encaixadas em módulo inteiro da teia`
                 + (programa ? `, ${programa.triangulos.toLocaleString('pt-BR')} triângulos` : ' (só o encaixe; ?programa=1 desenha)'))
@@ -3539,6 +3550,15 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           culler.add(btcMark, 3200)
         }
 
+        // ── O CAMPUS ESPORTIVO ────────────────────────────────────────────────
+        // O chão que as três arenas dividem: três terraços terraplanados (o
+        // relevo em si já saiu por `campusAlturaAt`, dentro do `heightAt`) e,
+        // sobre cada um, o pódio quadrado com topo de calçada e face de
+        // meio-fio. Uma geometria, um material, 36 triângulos. Ele não entra no
+        // culler de propósito: é chão, e chão que some deixa buraco na silhueta
+        // do distrito visto da praça.
+        scene.add(criarCampus((x, z) => terrain.heightAt(x, z)))
+
         // ── $DOG ARENA ────────────────────────────────────────────────────────
         // ⚠️ A POSIÇÃO VEM DA RESERVA, NÃO DO GOSTO. O centro é o da peça `E03`
         // do gerador (`data/dogcity_programa_congelado.json`), e o giro é o
@@ -3553,14 +3573,14 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             mesh.castShadow = true
             mesh.receiveShadow = true
           })
-          assentarEstadio(arena, (x, z) => terrain.heightAt(x, z))
+          assentarEstadio(arena, comPodio((x, z) => terrain.heightAt(x, z)))
           scene.add(arena)
           const _st = estadioSitio()
           culler.add(arena, estadioCull(profile.tier), new THREE.Vector3(_st.x, 0, _st.z))
         }
 
         // ── THE SPHERE ────────────────────────────────────────────────────────
-        // O telão esférico de 135 m. Sítio, tabuleiro, shader de LED e
+        // O telão esférico de 196 m. Sítio, tabuleiro, shader de LED e
         // escalonamento por perfil estão todos em `sphere.ts`; aqui só nasce,
         // entra na cena e recebe a câmera por quadro.
         // ⚠️ ELA NÃO CARREGA SOB DEMANDA e o corte é maior que a cidade: 81% do
@@ -3574,9 +3594,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         programaSphere.repintar()   // a peça nasceu depois do programa: pega o quadro corrente
 
         // ── THE GEODE ─────────────────────────────────────────────────────────
-        // A arena coberta, 28.240 lugares. Mesmo radial do estádio, 540 m dele:
-        // os dois formam o distrito esportivo servido pela mesma avenida. Sítio,
-        // corte e poda de celular estão em `geode.ts`.
+        // A arena coberta, 28.240 lugares. Mesmo anel do estádio, 615,08 m dele:
+        // os dois, mais o atletismo, formam o campus esportivo de uma parcela só
+        // (`campus.md`). Sítio, corte e poda de celular estão em `geode.ts`.
         if (geode) {
           tameEnv(geode)
           const podados = podarGeode(geode, profile.tier)
@@ -3586,7 +3606,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             mesh.castShadow = true
             mesh.receiveShadow = true
           })
-          assentarGeode(geode, (x, z) => terrain.heightAt(x, z))
+          assentarGeode(geode, comPodio((x, z) => terrain.heightAt(x, z)))
           scene.add(geode)
           const _gd = geodeSitio()
           culler.add(geode, geodeCull(profile.tier), new THREE.Vector3(_gd.x, 0, _gd.z))
@@ -3599,7 +3619,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         if (new URLSearchParams(window.location.search).get('atletismo') !== '0') {
           atletismo = criarAtletismo({
             profile,
-            alturaEm: terrain.superficieAt,
+            alturaEm: comPodio(terrain.superficieAt),
             carregar: loadGlb,
             economizarDados: (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData,
             preparar: async (root) => {

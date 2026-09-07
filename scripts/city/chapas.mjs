@@ -96,6 +96,13 @@ const VISTAS = {
   // de cima do estadio, e a peca saia fora de quadro. A implantacao se julga do
   // lado da PRACA, que e de onde a cidade e vista, com o estadio ao fundo.
   geode:     [1840, 420, 886, 2968, 30, 1429, 50],
+  // ⚠️ O CAMPUS ESPORTIVO, acrescentado em 07/09, quando as tres arenas passaram
+  // a dividir uma parcela so. Os tres centros ficam no anel r 3.294, 615,1 m um
+  // do outro: atletismo (3.285, 246), ARENA (3.182, 853) e GEODE (2.968, 1.429).
+  // O centroide e (3.145, 843). `campus` julga o CONJUNTO do lado da praca (que
+  // e de onde a cidade e vista) e `campustopo` julga o alinhamento e a calcada.
+  campus:    [1599, 900, 429, 3145, 10, 843, 45],
+  campustopo:[3145, 2200, 844, 3145, 0, 843, 45],
   // OS TRES CANAIS RADIAIS E A BAIA, de cima. Enquadra da praca (origem) ate a
   // borda externa da agua, ~9 km de vao: e a vista em que a foz de cada canal e
   // a continuidade da lamina se leem de uma vez.

@@ -47,7 +47,7 @@ export const TOUR_LIVE: readonly ParadaLive[] = [
   { key: 'war',        voo: 22.0, parada: 24 },
   { key: 'coliseu',    voo: 24.0, parada: 22 },
   // ⚠️ O DISTRITO ESPORTIVO É UMA SEQUÊNCIA SÓ, não duas visitas separadas. O
-  // estádio e THE GEODE ficam a 540 m no mesmo radial: encadeados, o voo entre
+  // estádio e THE GEODE ficam a 615 m no mesmo anel: encadeados, o voo entre
   // eles é curto e a câmera conta que são vizinhos. Separados no roteiro, o
   // espectador não faz a ligação.
   { key: 'estadioalto', voo: 30.0, parada: 24 },

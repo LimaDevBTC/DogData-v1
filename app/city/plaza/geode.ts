@@ -159,8 +159,17 @@ export function assentarGeode(
   let alto = -Infinity
   for (let dx = -hx; dx <= hx; dx += 14) {
     for (let dz = -hz; dz <= hz; dz += 14) {
-      const x = s.x + dx * c - dz * sn
-      const z = s.z + dx * sn + dz * c
+      // ⚠️ A MATRIZ TEM DE SER A DO THREE, E ATÉ 07/09 ESTA NÃO ERA. Um objeto
+      // com `rotation.y = φ` manda o próprio X local para `(cos φ, 0, −sin φ)`,
+      // ou seja `(wx, wz) = (c·dx + sn·dz, −sn·dx + c·dz)` com `c, sn` de φ. O
+      // que estava aqui, `(c·dx − sn·dz, sn·dx + c·dz)`, é a rotação INVERSA:
+      // sondava um retângulo girado 2φ fora do lugar. Ficou invisível enquanto o
+      // terreno sob a peça era liso, e apareceu no dia em que o campus criou um
+      // talude ao lado: a sonda pegava a subida do terraço vizinho e o $DOG
+      // ARENA pousava 0,61 m ACIMA do próprio pódio, flutuando. A conta certa é
+      // a mesma que `atletismo.ts` já usava e documentava.
+      const x = s.x + c * dx + sn * dz
+      const z = s.z - sn * dx + c * dz
       const y = alturaEm(x, z)
       if (y > alto) alto = y
     }
