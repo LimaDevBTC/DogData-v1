@@ -173,6 +173,19 @@ GTA"*. Isso muda o projeto da base: ela não é pedestal visto de longe, é chã
 vai pisar, a 1,7 m de altura do olho. Escala humana, acesso, calçada, e detalhe que aguenta
 ser visto de perto.
 
+## ⚠️ DIAMETRO FECHADO: 135 m
+
+Escolhido pelo fundador em 07/09, entre as tres opcoes medidas (110, 135, 160).
+
+Com 135 m no modulo escolhido sobram, por lado: **46,0 m de praca no lado radial** e
+**117,9 m no lado do arco**. E o meio-termo entre imponencia e espaco de chao: os 160 m da
+Sphere de Las Vegas cabiam, mas deixariam so 33,5 m de praca radial, e a base tem de ser
+caminhavel porque a cidade vai para terceira pessoa.
+
+Referencia de escala: a de Las Vegas tem 157 m de largura por 112 de altura (ela e um
+elipsoide achatado, nao uma esfera perfeita). A nossa, sendo esfera de 135, fica **mais
+alta que a original** e um pouco mais estreita.
+
 ## Como se faz o LED (rota escolhida)
 
 **Shader procedural de ponto** na casca inteira: a esfera continua sendo uma malha barata e
