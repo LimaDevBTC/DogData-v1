@@ -332,9 +332,16 @@ export function buildCanais(o: CanaisOpts): Canais {
   for (const r of o.radiais) {
     const g = (r.rumo * Math.PI) / 180
     const dx = Math.sin(g), dz = -Math.cos(g)
+    // ⚠️ PONTE SÓ ONDE HÁ CANAL PARA CRUZAR. Os dois laços abaixo eram limitados
+    // por um raio FIXO (`rFimBridge`, 4.300) ou por nada, nunca pela foz. O
+    // resultado é o que o fundador viu na chapa: "pontes do nada pra lugar
+    // nenhum". Na pior rodada foram 87 pontes com ZERO metro de canal embaixo.
+    // Além da foz não existe canal: existe baía, e travessia de baía é outra
+    // obra, com outro vão e outro custo, não uma ponte de 12 m de canal.
+    const fzR = o.fozDe ? o.fozDe(r.rumo) : Infinity
     for (const ph of o.aneisPhi ?? []) {
       const rr = rEm ? rEm(g, ph) : 0
-      if (!rr || rr < r.rInicio) continue
+      if (!rr || rr < r.rInicio || rr > fzR) continue
       // a ponte corre TANGENTE, cruzando o canal radial
       ponte(dx * rr, dz * rr, Math.cos(g), Math.sin(g), 12, r.secao + 24)
     }
@@ -346,7 +353,7 @@ export function buildCanais(o: CanaisOpts): Canais {
     // na água oito vezes ao tentar dar a volta. Sem isto, "levar DOG a qualquer
     // endereço da cidade" é falso e nada acusa.
     for (const av of o.aneisViarios ?? []) {
-      if (av.r < r.rInicio || av.r > rFimBridge) continue
+      if (av.r < r.rInicio || av.r > Math.min(rFimBridge, fzR)) continue
       ponte(dx * av.r, dz * av.r, Math.cos(g), Math.sin(g), av.larg, r.secao + 24)
     }
   }
