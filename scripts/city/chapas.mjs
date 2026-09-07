@@ -147,6 +147,14 @@ const VISTAS = {
   // ⚠️ A AVENIDA DA ALCA (AN7 virou circulo em r 6.950 no arco 346 a 116,5). O
   // enquadramento olha de dentro da cidade para fora, cortando a secao inteira:
   // baia, praia, fileira de lote, avenida, fileira de lote, praia, agua externa.
+  // ⚠️ DE CIMA, A REGIAO INTEIRA DA ALCA. O arco vai do rumo 346 ao 116,5 em
+  // r 6.950: x de -1.682 a 6.950 e z de -6.950 a 3.103, entao o centro cai em
+  // (2.634, -1.924) e 9.600 m de altura com fov 60 cobrem os 11 km do lado maior.
+  // ⚠️ O ALVO LEVA 1 m DE DESLOCAMENTO EM z, como `cidadeplano`: camera
+  // exatamente a prumo degenera o vetor "para cima" e a chapa sai girada.
+  alcatopo:  [2634, 9600, -1923, 2634, 0, -1924, 60],
+  // e o corte de perto, no meio do arco (rumo 45): praia, lote, via, lote, praia
+  alcatopoperto: [4914, 2600, -4913, 4914, 0, -4914, 50],
   alca:      [3900, 700, -3900, 5300, 0, -5300, 45],
   alcalongo: [2600, 1500, -6600, 5600, 0, -3100, 50],
   // a ponte do anel viario sobre canal radial, que antes boiava fora do asfalto
