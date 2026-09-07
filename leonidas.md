@@ -173,6 +173,122 @@ tambem resolve o bloqueio 1 da revisao, porque o cranio deixa de precisar ser oc
 - a mandibula deixa de ser problema: ela funde na base do macico, e a boca continua sendo a
   porta na cota do piso.
 
+## F1 RODADA 2, 07/09: os cinco bloqueios de fachada e os cinco defeitos tecnicos
+
+`blender/build_leonidas_fortress.py` -> `public/city/park/leonidas-fortress.glb`
+(2.480 KB, **171.708 triangulos**, 5 materiais, 6 objetos). Reproduz com
+`blender -b -P build_leonidas_fortress.py`. Confere com
+`blender -b -P verify_leonidas_fortress.py`, que le o GLB por fora e NAO confia em
+nada que o escultor tenha dito.
+
+### A decisao que reorganizou tudo
+
+A caveira e FACHADA. O elipsoide de 38 m que a rodada 1 chamava de santuario saiu
+inteiro e no lugar dele entrou uma NAVE escavada no maciço ATRAS do rosto: secao de
+ogiva, 30 m de vao, 27,1 m do piso a chave, 53 m de comprimento, com seis nichos de
+parede em ritmo e uma abside no fundo. Isso derruba o bloqueio 1 sem escadaria de 33 m
+e sem soterrar a mandibula, e o interior fica generico por decisao do fundador.
+
+### Os cinco bloqueios de fachada
+
+| bloqueio | rodada 1 | rodada 2, medido |
+|---|---|---|
+| 3. abobada estreita | biparietal 30,2 contra bizigomatica 40,2, razao **0,75** | **42,18 contra 40,16, razao 1,05** (cranio humano fica em 1,05 a 1,10) |
+| 2. orbita de confete | 8 lascas soltas, sem soquete | soquete de **8,0 m de profundidade** com anel orbital soerguido e apice em ROCHA SOLIDA (raio no eixo para em x = 12,13); dentro dele um cacho de 5 poliedros, recuado 7 m atras da borda |
+| 1. calota de balao | 2 suturas tracejadas + 34 crateras | sutura CONTINUA (96 amostras de 0,84 m com placa de 1,6 m, 0,90 de largura por 1,05 de profundidade, serrilhada), mais lambdoide e linha temporal, mais **92 crateras em lei de potencia + 52 cadeias + 16 lascamentos**, mais uma oitava de erosao de 0,62 m presa a um grupo de vertices so acima da cota 40 |
+| 4. maciço de tapume | 13 bandas horizontais em 120 m de fachada | leitura VERTICAL: 5 sulcos de 3,2 a 4,9 m de largura por 2,4 de profundidade em passo sorteado na frente e 5 em cada flanco, 2 cintas horizontais partidas em segmentos, 4 paineis rebaixados, e ameia com largura, altura, passo e giro sorteados com 1 em cada 6 faltando |
+| 5. templinho na boca | portal com pilastra, lintel e escadaria com pinaculo | o portal DEIXOU DE EXISTIR: a fissura de 15 m vai sozinha de x = 30 a x = 4 e a garganta E a boca; as pilastras viraram presas conicas penduradas na abobada (uma delas quebrada); os muretes viraram meio-fio de 1,5 m |
+
+### Os cinco defeitos tecnicos, medidos no GLB pelo verificador
+
+| | rodada 1 | rodada 2 |
+|---|---|---|
+| `doubleSided` | **5 de 5 materiais** | **0 de 5** (`use_backface_culling = True`) |
+| emissivo assado | 2 materiais | **0** (o laranja da chapa e zerado antes do export) |
+| `TEXCOORD_0` sem textura | 6 meshes, 3,0 MB de VRAM | **0** (`export_texcoords=False`) |
+| aviso `Mesh ... is not valid` | toda rodada | **nenhuma das 7 rodadas emitiu**, e o `mesh.validate()` roda em laco no fim |
+| arestas de fronteira (buracos) | **1.574** | **8**, todas em FORT_Walls; cranio, podio, dente, cristal e coroa em **zero** |
+| triangulos de area zero | **12.893 na muralha (46,5%)**, 7,9% no arquivo | **16 (0,01%)** |
+
+### As quatro causas que so a medicao encontrou
+
+1. **O que fechou os buracos do cranio nao foi limpar, foi nao produzir.** Tres
+   tentativas medidas: desligar `use_hole_tolerant` PIOROU (1.589 -> 2.831);
+   `bmesh.ops.holes_fill` mais `bpy.ops.mesh.fill_holes` levou 13.006 a 2.331 e parou,
+   porque nenhum dos dois tem laco para percorrer quando um vertice de fronteira tem
+   tres ou mais arestas abertas; e o limpador do 3D-Print Toolbox NAO EXISTE nesta
+   instalacao. A saida foi um **remesh voxel de 0,32 m depois do talhe**: reconstrucao
+   volumetrica nao remenda casca, constroi outra, e o que sai e fechado por definicao.
+   Custa a aresta viva do boolean, o que em pedra erodida e ganho e nao perda.
+2. **Quem fabricava os triangulos de area zero era o DRACO, nao o Blender.** A malha
+   saia com zero e o arquivo chegava com 46,5% na muralha: o Draco quantiza posicao em
+   14 bits, e em 124 m isso e 7,6 mm de passo. Duas correcoes: quantizacao em 16 bits
+   (1,9 mm) e, na origem, o Bevel de 0,26 m sobre mais de cem caixas que se
+   interpenetram, que encolhia para largura nula em cada emenda (agora 0,12 m com
+   limite de 46 graus).
+3. **Sliver nao se apaga, se COLAPSA.** Apagar por area abre um buraco de tres
+   arestas, o preenchimento tapa com outro sliver e o contador oscila (a muralha foi de
+   5.120 para 6.685 assim). `dissolve_degenerate` a 4 mm solda a aresta curta e a face
+   some sem deixar buraco: 5.020 -> 17 numa passada.
+4. **`hasattr(bpy.ops.mesh, "x")` NAO prova que o operador existe.** `bpy.ops` resolve
+   nome preguicosamente e so falha na chamada, e o add-on ausente passou pelo teste.
+
+### A chapa de prova, e por que ela agora prova alguma coisa
+
+A rodada 1 renderizou a chegada com duas luzes pontuais de **9.000 W POR DENTRO das
+orbitas**. A rodada 2 separa as duas coisas e declara qual e qual:
+
+- as chapas **clay** (frente, tres quartos, calota, rosto) sao Workbench com luz de
+  estudio, e nao afirmam nada sobre a cena: servem para julgar silhueta e relevo;
+- a chapa **de chegada** e EEVEE com as **tres PointLight que `leonidas-cave.ts` ja
+  declara** (linhas 643, 646 e 647: salao, garganta e derrame na soleira), cor EMBER
+  `0xff8a2b`, mais o mesmo emissivo que o `.ts` aplica ao cristal (1,35 e 0,40).
+  **NAO HA NENHUMA LUZ DENTRO DE ORBITA OU DE CRANIO.** O olho acende nela porque o
+  material acende, que e como vai acender no navegador. O script imprime a lista de
+  luzes a cada rodada.
+
+### Contrato medido na malha pronta
+
+| o que | medido |
+|---|---|
+| abobada (biparietal) x face (bizigomatica) | **42,18 x 40,16 m**, razao 1,05 |
+| altura total (piso da nave a ponta da coroa) | **62,86 m** (cranio 60,22; coroa +2,6) |
+| frente / profundidade | 124,5 / 121,2 m |
+| porta livre por varredura de raios | **10,6 x 11,2 m** (contrato 9,0 x 11,0) |
+| soquete da orbita | 8,0 m de profundidade, apice em rocha solida |
+| nave | 30 x 27,1 x 53 m; **596 de 600 raios do centro param em pedra** (0,7% escapa, e e a boca) |
+| normais | **100,0%** em face frontal nos tres testes (2.000 de fora, 115 de dentro, 1.200 na muralha) |
+| triangulos / materiais / imagens embutidas | 171.708 / 5 / **0** |
+| **distancia de leitura (fov 45, 75% do quadro)** | **101,2 m**, e continua sendo o contrato da F2 (a rodada 1 pedia 105,5) |
+
+### Como retomar se a maquina cair
+
+Tudo o que importa esta em disco e versionado no proprio script, que e deterministico:
+
+1. `blender/build_leonidas_fortress.py` e a fonte unica da peca. Rodar
+   `blender -b -P build_leonidas_fortress.py` (cerca de 25 min) regrava o GLB e as
+   seis chapas do zero. Nada e feito a mao na cena.
+2. `blender/verify_leonidas_fortress.py` confere o GLB pronto por fora, sem confiar no
+   escultor: le o chunk JSON byte a byte (doubleSided, emissiveFactor, TEXCOORD,
+   imagens) e reimporta a malha num Blender limpo para medir fronteira, area zero e
+   dimensao. **Ele solda a 0,5 mm antes de medir topologia**, porque glTF guarda um
+   vertice por canto e sem soldar a mesma malha que sai com fronteira zero chega com
+   480.730 arestas de fronteira, que e formato de arquivo e nao buraco.
+3. Copia de seguranca da rodada 1 (script e GLB) e da rodada 2 esta no scratchpad da
+   sessao, como `fortress-r1-backup.py`, `leonidas-fortress-r1.glb`,
+   `fortress-r2-final.py` e `leonidas-fortress-r2.glb`.
+
+### O que NAO foi corrigido, e esta declarado
+
+- **8 arestas de fronteira e 16 triangulos abaixo de 1 cm2 sobram em FORT_Walls**
+  (0,03% e 0,01%). Vem do Bevel sobre caixas que se interpenetram. O conserto
+  estrutural e biselar cada caixa ANTES do join, e ele nao foi tentado.
+- **O terco medio do rosto ainda le como lobos lisos.** Nao era um dos cinco
+  bloqueios, e mexer nele sem chapa por iteracao arrisca regressao. E o primeiro item
+  da proxima rodada.
+- **212 arestas nao-manifold na muralha** (faces internas de boolean). Nao esta no
+  portao e nao produz buraco visivel, mas e triangulo gasto dentro da pedra.
+
 ## Registro
 
 ### 06/09/2026
