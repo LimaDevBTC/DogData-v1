@@ -61,8 +61,8 @@ tem 144 por 43. A câmara de hoje não chega à metade de uma catedral.
 
 ## Fases e checkpoints
 
-- [x] **F1. A fortaleza-caveira** (`blender/build_leonidas_fortress.py` + GLB) — 07/09
-- [~] **F2. A caverna-geodo** EM OBRA, medidas fechadas na seção acima (`blender/build_leonidas_cave.py` v2 + GLB)
+- [x] **F1. A fortaleza-caveira** (`blender/build_leonidas_fortress.py` + GLB), 07/09
+- [x] **F2. A caverna-geodo** (`blender/build_leonidas_geode.py` + GLB), 07/09
 - [ ] **F3. Material e luz** (cristal das runestones, preto e laranja, a chegada)
 - [ ] **F4. Integração na cena** (regras escritas na seção acima) (`app/city/plaza/leonidas-cave.ts`)
 - [ ] **F5. Conferência** (chapas, orçamento por tier, zoom out provado)
@@ -321,13 +321,210 @@ linha de visao de proposito) tem de desembocar a cerca de 101 m da fachada e DE 
 para o rosto. A primeira coisa que o visitante ve ao sair do corredor e o cranio inteiro,
 na distancia exata em que ele cabe no quadro.
 
+
+## F2 FECHADA, 07/09: o geodo
+
+`blender/build_leonidas_geode.py` -> `public/city/park/leonidas-geode.glb`
+(904 KB, **143.790 triangulos**, 5 materiais, 9 objetos). Reproduz com
+`blender -b -P build_leonidas_geode.py` (1m22 na maquina da casa). Confere com
+`blender -b -P verify_leonidas_geode.py`, que le o GLB por fora e NAO confia em
+nada que o escultor tenha dito.
+
+⚠️ O arquivo NOVO nao substitui `leonidas-cave.glb`: os dois convivem ate a F4
+trocar o `loadGlb` de `leonidas-cave.ts`. Trocar o caminho e a unica linha
+obrigatoria, porque os tres nomes de material que o `.ts` ja conhece
+(`CaveRock`, `CaveFloor`, `CaveDrip`) foram mantidos de proposito.
+
+### As duas contas do briefing que estavam trocadas, e a que faltava
+
+| o que o briefing dizia | o que o GLB da fortaleza diz |
+|---|---|
+| "124,5 = profundidade da fortaleza" | 124,50 e a **LARGURA** (y); a profundidade (x) e **121,20** |
+| "180 = 121,2 + 29 de cada lado" | os dois eixos estavam trocados; ambos ainda cabem, mas a conta estava errada |
+| "101,2 m de distancia de leitura" | so cobre a ALTURA (S = 62,86). A peca tem **124,50 m de largura**, e num quadro 3:2 com fov vertical de 45 graus caber a 75% pede **D = 133,6 m** |
+
+A terceira e a que importa: com a fortaleza a 104 m do mirante, a chapa mediu
+**63,3% da altura do quadro e 192,5% da largura**, ou seja o crânio cabia e a
+muralha nao. A fortaleza foi recuada para **134,07 m** e agora ocupa 49,7% da
+altura e 137,1% da largura, dentro dos 150% que uma tela 3:2 oferece.
+
+### Contrato medido a raio na malha pronta
+
+| o que | alvo | medido |
+|---|---|---|
+| comprimento livre no eixo da chegada | 250 | **287,6 m** (o verificador, com outra amostragem, acha 303,1) |
+| largura livre (varia de proposito) | 180 | **204 m** na nave, **206 m** nas baias |
+| pe direito sobre a nave | 90 | **92,4 m** (verificador: 93,4, teto na cota 95,7) |
+| ar acima da coroa da fortaleza | 27 | **29,6 m** (verificador: 32,8) |
+| distancia do mirante ao plano do rosto | >= 101,2 | **134,07 m** |
+| face da rocha na boca (x) | ~ +7 a +10 | **+8,4 / +9,4 / +10,7**, medida a raio e nao presumida |
+| linha de visao de fora | 0 | **0 de 600** raios alcancam o salao (verificador: 0 de 800) |
+| normais apontando para o INTERIOR | 100% | **100,00%**, 8.858 de 8.858 raios no verificador, e 4.497 de 4.497 no escultor, das 5 ancoras |
+| arestas de fronteira / area zero / nao-manifold | 0 | **0 / 0 / 0** no escultor; no arquivo reimportado, 5 triangulos abaixo de 1 cm2 (0,00%) |
+| `doubleSided` / emissivo assado / TEXCOORD sem textura / imagem embutida | 0 | **0 / 0 / 0 / 0** |
+
+### O que faz dele um GEODO e nao um buraco
+
+1. **A cavidade e a UNIAO DE CINCO LOBOS** (nave, abside, duas baias, lobo da
+   chegada), nao um elipsoide. O bloqueio 3 da F1 foi "a calota e um balao liso";
+   um elipsoide de 288 m seria o mesmo defeito dez vezes maior. O lobo da chegada
+   tem teto BAIXO (64 m contra os 92 da nave) de proposito: compressao e liberacao.
+2. **Drusas crescendo PARA DENTRO**, ancoradas na normal da parede medida a raio.
+   Tres formacoes grandes (abside, flanco da nave, teto da chegada), doze manchas
+   medias e nove linhas de fratura: **3.392 lascas**.
+3. **O cristal e da familia das runestones pelos PARAMETROS dos TIERS de park.ts**:
+   `CaveCrystal` = M_T4 (dark 0,20 0,20 0,22 / metal 0,30 / rough 0,13), que e o
+   mesmo valor de base do `FortressCrystal`; `CaveVein` = M_T5 (dark 0,09).
+   A massa e a MESMA rocha do `FortressRock` (0,045 / rough 0,62 / metal 0,05).
+4. **Escala legivel**: 3 estalactites de 26 a 40 m, 16 de 11 a 22, 44 de 3,5 a 9,
+   **2 colunas inteiras de piso a teto**, 14 estalagmites de meia-distancia,
+   96 blocos desabados mais 16 de cascalho na orla da raia, e uma **escadaria de
+   20 degraus de 0,31 m** no mirante, que e a unica peca com medida de corpo
+   humano e a regua da sala.
+5. **A chegada e enquadramento**: o corredor em S desemboca num MIRANTE 6,2 m
+   acima do piso, de frente para o rosto. Dos 273 raios do quadro de chegada,
+   **62 param na fortaleza, 2 tem peca da caverna na frente dela** (0,7%, e sao
+   pontas de estalactite no canto do quadro).
+
+### ⚠️ POR QUE NAO EXPORTEI UV PARA `crystalMaterialFor`
+
+A ideia era exportar UV nas drusas para que o `.ts` chamasse `crystalMaterialFor`
+com as texturas da runestone, que ja estao memoizadas (custo zero de VRAM).
+**Nao da, e o motivo esta na imagem:** `crystal-basecolor.webp` NAO e uma textura
+tileavel, e o ATLAS DE UV do `runestone3d.gltf`, com as facetas escuras da pedra
+espalhadas num fundo CINZA CLARO de margem nao usada. E o shader de
+`crystalMaterialFor` transforma luminancia alta em MARCA BRANCA
+(`crystalMk = clamp((lum - 0.42)/0.30)`): projetar esse atlas em UV de caixa poria
+a margem cinza (lum ~0,78, ou seja marca a 100%) por cima das drusas inteiras.
+"Mesma familia" aqui e cumprido pelos PARAMETROS do tier, nao pelo mapa, e o GLB
+sai com ZERO imagem e ZERO TEXCOORD, como o da fortaleza.
+
+### ⚠️ A FRESTA NO TETO FOI RECUSADA, e o que entrou no lugar
+
+O briefing pedia para considerar uma fresta como fonte fria. Recusada, e o motivo
+esta escrito no proprio `leonidas-cave.ts`: *"O sol da praca e uma direcional SEM
+OCLUSAO: ele atravessa a rocha e acende o piso da camara como se nao houvesse
+teto"*. A `CAVE_LAYER` existe so por causa disso. Um furo de verdade no teto nao
+acrescenta um facho, reintroduz o bug; e o ceu da praca e preto (Lua), entao a
+"luz fria do ceu" seria um retangulo preto.
+
+No lugar dela entrou um **VEIO DE CRISTAL de 214 m atravessando o teto no eixo da
+nave** (`CaveVein`, tier M_T5, cor MARK). Entrega o que a fresta entregaria (fonte
+alta, fria, contrastando com o ambar de baixo, marcando o eixo da chegada) sem
+furo, sem vazamento de sol, e usando a fisica que o parque ja tem: runestone
+acende com a marca.
+
+### ⚠️ A DESCOBERTA QUE A F3 HERDA: TRES POINTLIGHT NAO ENCHEM 288 m
+
+A chapa da abside da rodada 3 saiu PRETA com manchas brancas boiando, e a medicao
+de pixel deu o veredito: a drusa estava em RGB 60-80 (0,25 em sRGB, **escura**) e o
+fundo em 0-5 (**preto**). O defeito nunca foi o cristal brilhar demais; era a sala
+nao existir atras dele. A unica luz do salao ficava na frente da fortaleza e a
+propria fortaleza fazia sombra em 40 m de salao e na maior formacao de drusa da
+caverna.
+
+O plano de luz que a chapa de chegada usa, DECLARADO, e que a F3 herda:
+
+| luz | posicao (quadro local) | intensidade three | funcao |
+|---|---|---|---|
+| `rosto` | (-176, 0, 16) | 700 | o derrame do templo. **Dentro do patio da muralha**, nao solta no salao: com ela em x = -150 a caverna inteira acendia por igual e virava um modelo de argila bege |
+| `abside` | (-292, 0, 26) | 140 | o contraluz atras do cranio, que acende a maior drusa |
+| `abobada` | (-256, 0, 76) | 70 | acende o teto e o veio; sem ela 92 m de pe direito e um numero que ninguem ve |
+| `garganta` | (-18, 16,5, 6) | 60 | o cotovelo do corredor |
+| `soleira` | (18, 0, 7) | 70 | o derrame da boca, o que se ve de longe |
+| **ambiente** | (sem posicao) | AmbientLight ~0,006 ambar na `CAVE_LAYER` | o quique de uma sala fechada. **Nao e PointLight e nao entra no orcamento de <= 10 da praca** |
+
+Cinco PointLight cabem porque a regra 3 da F4 ja esta escrita: dentro da caverna o
+resto da cidade nao e visivel, entao o que esta fora e suspenso.
+
+⚠️ **O AmbientLight nao e opcional.** No EEVEE o emissivo do cristal ainda ilumina
+o que esta em volta; no three, `emissive` de `MeshStandardMaterial` nao ilumina
+nada. Sem o ambiente, no navegador a sala fica MAIS preta que na chapa.
+
+### ⚠️ A ARMADILHA DE GOSTO, e as quatro rodadas que ela custou
+
+"Cobrir tudo de cristal vira joia gigante" ja estava registrado. O que NAO estava
+e que existe um defeito simetrico, e as chapas o encontraram nesta ordem:
+
+1. **confete** (rodada 1): 46 a 80 lascas de ate 1,5 m espalhadas por manchas de
+   ate 24 m de raio = uma lasca a cada 24 m2, ou seja respingos soltos;
+2. **borrao** (rodada 2): densidade dez vezes maior e desvio angular apertado para
+   0,12 = todas as lascas recebem a brasa no mesmo angulo e a mancha sai com UM
+   valor so, o que a 130 m le papel rasgado de borda dura;
+3. **o conserto** (rodada 3): densidade da 2 + leque da 1 (0,28), mancha ALONGADA
+   em vez de disco (drusa nasce ao longo de uma fratura), e **32% das lascas de
+   cada drusa sao ROCHA e nao cristal** (vao para `GEO_Talus`, material fosco):
+   numa drusa de verdade parte dos cristais esta encapada pela matriz, e o
+   salpicado e o que o olho le como pedra.
+
+**A meta de "10 a 20% de cobertura" foi APAGADA e nao substituida por outra.** A
+conta a matou: cobrir 15% de ~90.000 m2 de parede com cristal de verdade custaria
+10.500 lascas e 210.000 triangulos, mais que a fortaleza inteira, e o resultado e a
+joia gigante. A estrategia virou CONCENTRACAO, e o numero medido (**2,4% da esfera
+de visao**) e reportado como medida, nao como meta cumprida.
+
+### Orcamento no quadro
+
+| | tris |
+|---|---|
+| GEO_Shell (a rocha) | 46.016 |
+| GEO_Drusas (`CaveCrystal`) | 51.032 |
+| GEO_Talus (blocos + matriz das drusas) | 18.980 |
+| GEO_Vein (`CaveVein`) | 12.980 |
+| GEO_Floor (laje, fita, mirante, escadaria, meio-fio) | 5.862 |
+| GEO_Stalactites | 5.080 |
+| 3 matacoes de fora | 3.840 |
+| **GEODO TOTAL** | **143.790** |
+| fortaleza (medida no GLB dela) | 171.708 |
+| **SOMA NO QUADRO** | **315.498** |
+
+**80.072 tris (56%) sao descartaveis por tier sem reassar nada**: `GEO_Drusas`,
+`GEO_Vein`, `GEO_Stalactites` e `GEO_Talus` sao objetos separados com material
+proprio. Num aparelho fraco a caverna cai para ~63.700 tris e continua sendo a
+mesma caverna, so mais nua.
+
+### Como retomar se a maquina cair
+
+1. `blender/build_leonidas_geode.py` e a fonte unica, deterministico (SEED
+   20260907). `blender -b -P build_leonidas_geode.py` regrava o GLB e as sete
+   chapas do zero, em 1m22. Nada e feito a mao na cena.
+2. `blender/verify_leonidas_geode.py` confere o arquivo pronto por fora: le o
+   chunk JSON byte a byte e reimporta a malha num Blender limpo. Ele **descobre
+   sozinho onde e o vazio** (um ponto e interior se acha teto acima e chao abaixo,
+   pelas normais) e nao recebe uma coordenada sequer do escultor. Ele **solda a
+   0,5 mm antes de medir topologia**, porque glTF guarda um vertice por canto.
+3. Copias no scratchpad da sessao: `geode-final-script.py`,
+   `leonidas-geode-final.glb`, `verify-final.txt` e os logs `geode-run*.log` das
+   onze rodadas.
+4. As chapas ficam em `/tmp/.../scratchpad/geode-*.png` e o script as regrava a
+   cada rodada: `geode-chegada`, `geode-aproximacao`, `geode-corredor`,
+   `geode-teto`, `geode-baia` (EEVEE, com a luz declarada acima) e
+   `geode-clay-chegada`, `geode-clay-planta`, `geode-clay-corte` (Workbench, que
+   nao afirmam nada sobre a luz da cena).
+
+### O que NAO foi feito, e esta declarado
+
+- **O tunel do corredor ainda le liso.** Levou um deslocamento de +-0,75 m na
+  rodada final, mas com o `shade_smooth_by_angle` de 34 graus e a luz da garganta
+  batendo de perto ele continua parecendo tubulacao. Conserto: aumentar a
+  tesselacao do perfil e do passo do caminho antes de deslocar.
+- **2 dos 273 raios do quadro de chegada tem estalactite na frente da fortaleza**
+  (0,7%, e sao pontas no canto). Nao foi corrigido porque mexer no sorteio delas
+  arrisca regressao no resto do teto.
+- **A chapa da abside foi retirada** depois de tres tentativas: a abside tem 40 m
+  de fundo atras de uma peca de 121 m, e qualquer camera posta la fica a menos de
+  15 m de uma parede ou dentro de uma estalactite de 40 m. Aquela parede se ve da
+  nave, de longe, e e assim que ela foi projetada.
+- **A calibragem final de material e luz e da F3.** Os numeros acima sao um ponto
+  de partida medido, nao um acabamento.
+
 ## Registro
 
 ### 06/09/2026
 - Obra aberta. Diagnóstico medido, decisões 1 a 5 tomadas, busca de acervo encerrada sem
   candidato aprovado.
 
-### 07/09/2026 — F1 fechada
+### 07/09/2026: F1 fechada
 
 `blender/build_leonidas_fortress.py` → `public/city/park/leonidas-fortress.glb`
 (1.719 KB, 165.228 triângulos, 5 materiais, 6 objetos). Reproduz com
@@ -338,7 +535,7 @@ na distancia exata em que ele cabe no quadro.
 
 | o que | medido na malha pronta |
 |---|---|
-| crânio (largura entre arcos zigomáticos x altura) | 40,2 x 60,3 m — razão **1,50** |
+| crânio (largura entre arcos zigomáticos x altura) | 40,2 x 60,3 m, razão **1,50** |
 | altura total (piso do salão à ponta do cristal da coroa) | **65,5 m** |
 | frente total / profundidade total | **124,5 m** / 121,2 m (x de −72,2 a +49,0) |
 | porta: vão livre medido por varredura de raios | **8,8 x 10,0 m** |
