@@ -62,7 +62,7 @@ tem 144 por 43. A câmara de hoje não chega à metade de uma catedral.
 ## Fases e checkpoints
 
 - [x] **F1. A fortaleza-caveira** (`blender/build_leonidas_fortress.py` + GLB) — 07/09
-- [ ] **F2. A caverna-geodo** (`blender/build_leonidas_cave.py` v2 + GLB)
+- [~] **F2. A caverna-geodo** EM OBRA, medidas fechadas na seção acima (`blender/build_leonidas_cave.py` v2 + GLB)
 - [ ] **F3. Material e luz** (cristal das runestones, preto e laranja, a chegada)
 - [ ] **F4. Integração na cena** (regras escritas na seção acima) (`app/city/plaza/leonidas-cave.ts`)
 - [ ] **F5. Conferência** (chapas, orçamento por tier, zoom out provado)
@@ -288,6 +288,38 @@ Tudo o que importa esta em disco e versionado no proprio script, que e determini
   da proxima rodada.
 - **212 arestas nao-manifold na muralha** (faces internas de boolean). Nao esta no
   portao e nao produz buraco visivel, mas e triangulo gasto dentro da pedra.
+
+## F2: a caverna-geodo, com as medidas fechadas
+
+A fortaleza esta esculpida e medida, entao a caverna deixa de ser um numero de desejo e
+passa a ser conta:
+
+| entrada | valor |
+|---|---|
+| fortaleza | 121,2 (largura) x 124,5 (profundidade) x 62,86 (altura) m |
+| distancia de leitura do rosto (fov 45, peca a 75% do quadro) | **101,2 m** |
+| comprimento minimo do salao | 124,5 + 101,2 = **225,7 m** |
+| a camara de hoje | 64 m, ou seja oferece 32 m de recuo contra os 101,2 exigidos |
+
+**Alvo: 250 x 180 x 90 m**, e cada eixo tem motivo medido:
+
+- **250 m de comprimento**: os 225,7 do minimo mais 24 m de folga atras da fortaleza e na
+  soleira. Menos que isso e o visitante nao consegue recuar o bastante para o rosto caber
+  no quadro, que e a queixa original ("se o cara tenta dar zoom out ele sai da caverna").
+- **180 m de largura**: a fortaleza tem 121,2, sobram 29 m de cada lado para contornar. E
+  o minimo para a peca ser circundavel; se ficar apertado na chapa, abre para 200.
+- **90 m de pe direito**: 62,86 da fortaleza mais 27 m de ar acima da calota. Cranio
+  encostado no teto le como brinquedo em caixa.
+
+**E ela e um GEODO, nao um buraco.** Paredes de cristal da mesma familia das runestones
+(`crystalMaterialFor` em park.ts), crescendo para dentro da cavidade. A caverna deixa de
+ser basalto colado na formacao e passa a ser a mesma pedra: e isso que mata a leitura de
+puxadinho.
+
+**A chegada e enquadramento, nao acaso.** O corredor em S existente (65 m, que corta a
+linha de visao de proposito) tem de desembocar a cerca de 101 m da fachada e DE FRENTE
+para o rosto. A primeira coisa que o visitante ve ao sair do corredor e o cranio inteiro,
+na distancia exata em que ele cabe no quadro.
 
 ## Registro
 
