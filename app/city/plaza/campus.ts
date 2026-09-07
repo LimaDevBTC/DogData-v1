@@ -166,12 +166,17 @@ function pesoParcela(x: number, z: number): number {
  * deploy por tentativa. A leitura acontece uma vez, no módulo, como o resto da
  * casa faz (`TERRENO_FINO_ATIVO` em `terreno-fino.ts`).
  */
-export const CAMPUS_ATIVO = typeof window === 'undefined'
-  || new URLSearchParams(window.location.search).get('campus') !== '0'
+const _flagCampus = typeof window === 'undefined' ? '' : (new URLSearchParams(window.location.search).get('campus') ?? '')
+/** a terraplanagem entra? (`?campus=0` e `?campus=laje` desligam) */
+export const CAMPUS_CHAO = _flagCampus !== '0' && _flagCampus !== 'laje'
+/** a laje entra? (`?campus=0` e `?campus=chao` desligam) */
+export const CAMPUS_LAJE = _flagCampus !== '0' && _flagCampus !== 'chao'
+/** compatibilidade: verdadeiro quando qualquer metade está ligada */
+export const CAMPUS_ATIVO = CAMPUS_CHAO || CAMPUS_LAJE
 
 /** a cota do chão depois da terraplanagem, dada a cota natural */
 export function campusAlturaAt(x: number, z: number, natural: number): number {
-  if (!CAMPUS_ATIVO) return natural
+  if (!CAMPUS_CHAO) return natural
   const k = pesoParcela(x, z)
   return k <= 0 ? natural : natural * (1 - k) + CAMPUS_Y * k
 }
