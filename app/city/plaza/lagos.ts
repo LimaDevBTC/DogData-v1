@@ -23,7 +23,7 @@ import * as THREE from 'three'
 import { COR_AGUA, aguaDeVerdade } from './lago'
 import { look2 } from './look'
 import { superficie, quebrarRepeticao } from './materiais'
-import { ANEIS, N_RAD, anguloDe, nasceEm, passoNoRaio } from './teia'
+import { ALCA_TERRA, ANEIS, N_RAD, anguloDe, nasceEm, noArcoDoAnel, passoNoRaio } from './teia'
 
 const COR_AREIA = '#8E856F'    // a faixa de praia, no mesmo tom do cais dos canais
 const COR_FUNDO = '#243B47'    // o raso junto à margem, para a água não virar chapa
@@ -924,8 +924,22 @@ export function buildLagos(o: LagosOpts): Lagos {
         // De brinde o muro fica escarpado em vez de vertical, que é como muro de
         // arrimo de cais real se apoia.
         faixa(-1.8, L - ORLA_PE, 0, yD, posM, idxM)       // o muro, dentro d'água
+        // ⚠️ DENTRO DA ALÇA O CAIS NÃO TEM PISTA, SÓ PASSEIO. Fundador, 07/09: "as
+        // outras ruas devem sair por completo da alça de terra, lá teremos apenas
+        // a via central". A faixa de rolamento do cais é uma via, e ela corria
+        // pela margem da baía do lado de dentro da alça: medido em 07/09,
+        // 37.368 m² de `orla:pista` lá, a mais de 240 m de qualquer outra rua.
+        //
+        // ⚠️ E ELA VIRA PASSEIO EM VEZ DE SUMIR. Só pular a banda deixaria um
+        // rasgo de 14 m entre o passeio e o talude, com o miolo da laje à mostra
+        // virado para quem anda na orla. Trocar o destino mantém a seção inteira
+        // e o cais continua sendo cais; o que muda é o piso.
+        const _mx = px(k, (w1 + w2) / 2), _mz = pz(k, (w1 + w2) / 2)
+        const _naAlca = Math.hypot(_mx, _mz) >= 6400
+          && noArcoDoAnel({ arco: ALCA_TERRA }, Math.atan2(_mx, -_mz))
         faixa(0, yD, w1, yD, posC, idxC)                  // o passeio
-        faixa(w1, yD - 0.15, w2, yD - 0.15, posR, idxR)   // a faixa de rolamento
+        if (_naAlca) faixa(w1, yD, w2, yD, posC, idxC)    // na alça, passeio também
+        else faixa(w1, yD - 0.15, w2, yD - 0.15, posR, idxR)   // a faixa de rolamento
         faixa(w2, yD, w3, yD, posM, idxM, true)           // o talude encontra o chão
       }
     }

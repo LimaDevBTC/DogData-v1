@@ -1814,10 +1814,20 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
     const n = Math.max(2, Math.ceil((an.r * (g1 - g0)) / 60))
     const out: number[] = []
     for (let k = 0; k <= n; k++) out.push(g0 + ((g1 - g0) * k) / n)
+    // ⚠️ E TAMBÉM AS DUAS BORDAS DA BOCA DE CADA ROTATÓRIA, senão o corte sai em
+    // quantum de corda. `naBoca` é testado no MEIO de cada corda, e a corda tem
+    // 60 m: a boca pede 38 m de raio e o corte real saía entre 30 e 90 m, ou
+    // seja até 50 m de buraco entre o disco e a via. Medido em 07/09 por
+    // componente conexo: os 15,9 km ficavam a 12 m da rede, desligados por essa
+    // fresta. Com o vértice na borda exata, a corda ou está inteira na boca ou
+    // inteira fora dela.
+    const mordida = (ROT_RAIO - 2) / an.r
     for (const b of _bulRumos) {
       for (const volta of [-2 * Math.PI, 0, 2 * Math.PI]) {
         const a = (b * Math.PI) / 180 + volta
-        if (a > g0 + 1e-6 && a < g1 - 1e-6) out.push(a)
+        for (const q of [a, a - mordida, a + mordida]) {
+          if (q > g0 + 1e-6 && q < g1 - 1e-6) out.push(q)
+        }
       }
     }
     out.sort((x, y) => x - y)
@@ -1881,10 +1891,20 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
       // avenida de 15,9 km saía partida em QUATRO pedaços de ~154 mil m², dois
       // deles a mais de 240 m da rede. Onde não há rotatória a via passa direto,
       // que é o que uma via faz quando não cruza ninguém.
+      //
+      // ⚠️ E NA AVENIDA DA ALÇA A BOCA ENCOSTA NO DISCO, em vez de abrir 6 m além
+      // dele. Os `+6` são folga contra coplanaridade e dentro do tecido não
+      // custam nada, porque a teia cruza ali e tampa. Nas duas tampas da alça não
+      // há teia: sobrava um anel de 6 m de regolito entre a avenida e a própria
+      // rotatória, e a auditoria via os 15,9 km a 12 m da rede, ou seja
+      // desligados por uma fresta. `-2` faz as duas superfícies se sobreporem
+      // numa faixa fina, que é o lado certo de errar quando a escolha é entre
+      // costura visível e buraco.
+      const folgaBoca = an.circulo ? ROT_RAIO - 2 : ROT_RAIO + 6
       let naBoca = false
       for (let b = 0; b < 12; b++) {
         const d = Math.abs(((am * 180) / Math.PI - b * 30 + 180) % 360 - 180)
-        if ((d * Math.PI) / 180 * an.r < ROT_RAIO + 6) { naBoca = true; break }
+        if ((d * Math.PI) / 180 * an.r < folgaBoca) { naBoca = true; break }
       }
       if (naBoca && !naAlca(mx, mz)) continue
       desenhou = true

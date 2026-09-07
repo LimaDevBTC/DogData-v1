@@ -347,10 +347,17 @@ export const AV_R_INICIO = 1420
  * desde 31/08, "um carro tem que conseguir transitar entre todas as estradas do
  * mapa", e quebrava calado, porque na chapa um anel completo parece ligado.
  *
- * ⚠️ E O NÚMERO MUDOU DE 7.615 PARA 6.972 QUANDO A AN7 MUDOU DE RAIO. Ela era
- * um dodecágono de vértice 7.600 e virou a avenida circular da alça, em r 6.950
- * (ver `AVENIDA_ALCA` logo acima): 6.950 mais meia seção de 44 m dá 6.972, que é
- * onde a avenida radial entra na rotatória em vez de encostar nela.
+ * ⚠️ O NÚMERO MUDOU DE 7.615 PARA 7.050 QUANDO A AN7 MUDOU DE RAIO. Ela era um
+ * dodecágono de vértice 7.600 e virou a avenida circular da alça, em r 6.950
+ * (ver `AVENIDA_ALCA` logo acima).
+ *
+ * ⚠️ E 7.050 É CRUZAR, NÃO ENCOSTAR. O primeiro valor foi 6.972, que é 6.950 mais
+ * meia seção de 44 m, ou seja a borda externa do anel: as duas superfícies
+ * terminavam na MESMA linha e a auditoria por componente conexo achou os 15,9 km
+ * a 12 m da rede, desligados por uma fresta que nenhum dos dois lados assumia.
+ * `faixa()` testa o MEIO de cada passo, então uma via que termina exatamente na
+ * borda do outro pavimento na verdade para 12 m antes dela. 7.050 põe 78 m de
+ * radial do lado de fora do anel e o cruzamento passa a existir de verdade.
  *
  * ⚠️ E ELA PARA AÍ, NÃO SEGUE ATÉ A PRAIA EXTERNA. O programa da alça é lote com
  * praia de um lado e pista do outro: uma radial furando até r 7.300 cortaria a
@@ -364,7 +371,7 @@ export const AV_R_INICIO = 1420
  * lotável, para chegar ao anel de serviço — que é para isso que serve uma
  * pista de serviço.
  */
-export const AV_R_FIM = 6972
+export const AV_R_FIM = 7050
 
 export interface AvenidaGeom {
   id: string

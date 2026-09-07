@@ -704,7 +704,42 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
         // terreno natural já está abaixo da lâmina, então continuar escavando
         // ali não custa nada (é fundo de baía) e manter a boca aberta é o que
         // se quer. Quem tem de sumir é a CRISTA, que é o que vira aterro.
-        const k = Math.min(1, Math.max(0, (fz - tt) / CANAL_ARREMATE))
+        //
+        //
+        // ⚠️ E ELA SE DISSOLVE NO ARRANQUE TAMBÉM, PELO MOTIVO OPOSTO.
+        //
+        // Fundador, 07/09: "o canal central atrás da torre da Kray está picotado,
+        // a borda dele serrilhada, como se fosse um dodecaedro, não um corpo
+        // d'água, inclusive quebrando a junção dos canais 2 e 3. O serrilhado
+        // parece o terreno avançando sobre a água, vindo da cidade para a água."
+        //
+        // ⚠️ E A CAUSA É GEOMÉTRICA. `CANAL_BANDA` é uma meia-largura
+        // PERPENDICULAR de 950 m, razoável a 5 km do centro. A 1.400 m, que é
+        // onde o canal nasce, 980 m de afastamento perpendicular valem QUARENTA
+        // GRAUS de céu: as bandas dos três radiais (25°, 55° e 85°) se somavam e
+        // sobrescreviam a bacia do Lago da Praça com o próprio talude. Sondada a
+        // linha d'água externa do lago em 720 rumos: 1.396 m em 260° do círculo,
+        // redonda, e de 0 a 105 ela desabava para 1.316, com a margem sumindo de
+        // vez na boca dos três canais. Com o arremate: 1.396 em todos os rumos,
+        // menos os ±2,5° de cada eixo, que é a boca do canal e tem de ser molhada.
+        //
+        // ⚠️ TRÊS VERSÕES, E O NÚMERO ESCOLHEU. O risco aqui é trocar a serrilha
+        // por SALPICO: superfície passeando pela cota da lâmina vira poça na
+        // terra e ilhota na água. Medido em grade de 24.476 pontos por setor
+        // entre r 1.350 e 2.500, fração das amostras a menos de 2 m e a menos de
+        // 10 m de −40, no setor dos canais (o setor 180-285, sem canal, fica em
+        // 5,17% e 25,00% nas quatro):
+        //     original, com a serrilha .......... 10,35%  67,72%
+        //     mistura linear (esta) ............. 11,42%  48,81%
+        //     só cavar, `Math.min(h, bbAt)` ..... 14,21%  67,96%
+        //     banda abrindo de zero em largura .. 13,52%  59,58%
+        // A mistura empata com o original no rente e derruba o ≤10 m em 19
+        // pontos, ou seja o setor fica com MENOS chão pairando na água do que
+        // tinha antes, e com a margem do lago de volta. As outras duas cavam um
+        // avental largo rente à lâmina e pioram os dois números.
+        const kIni = Math.min(1, Math.max(0, (tt - r.rInicio) / CANAL_ARREMATE))
+        const kFim = Math.min(1, Math.max(0, (fz - tt) / CANAL_ARREMATE))
+        const k = Math.min(kIni, kFim)
         h = k >= 1 ? hBanda : hBanda * k + bbAt(x, z) * (1 - k)
       }
       // ⚠️ DOIS CANAIS PODEM SE SOBREPOR PERTO DO LAGO (25° e 55° só têm 30°

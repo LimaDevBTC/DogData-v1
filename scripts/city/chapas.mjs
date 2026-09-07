@@ -152,6 +152,10 @@ const VISTAS = {
   // (2.634, -1.924) e 9.600 m de altura com fov 60 cobrem os 11 km do lado maior.
   // ⚠️ O ALVO LEVA 1 m DE DESLOCAMENTO EM z, como `cidadeplano`: camera
   // exatamente a prumo degenera o vetor "para cima" e a chapa sai girada.
+  // ⚠️ O LAGO DA PRACA DE CIMA, com as bocas dos tres canais radiais (25, 55 e
+  // 85 graus). E aqui que a banda do canal comia a bacia ate 07/09.
+  lagotopo:  [0, 3400, 1, 0, 0, 0, 60],
+  lagobocas: [1500, 1500, -1500, 1500, -40, -900, 50],
   alcatopo:  [2634, 9600, -1923, 2634, 0, -1924, 60],
   // e o corte de perto, no meio do arco (rumo 45): praia, lote, via, lote, praia
   alcatopoperto: [4914, 2600, -4913, 4914, 0, -4914, 50],
