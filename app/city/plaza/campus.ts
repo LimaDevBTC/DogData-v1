@@ -237,6 +237,55 @@ function recuar(poly: Pt[], d: number): Pt[] {
 const _laje = recuar(_poly, FRANJA)
 const _lajeMiolo = recuar(_laje, CALCADA)
 
+/**
+ * O EIXO DO LOSANGO, e é sobre ele que as três peças se alinham.
+ *
+ * ⚠️ O CENTRO DO MÓDULO NÃO É O CENTRO DA LAJE, E A DIFERENÇA É DE 57,4 m. Os
+ * três módulos têm o mesmo raio (3.294), ou seja os centros deles estão num
+ * ARCO. A laje é um quadrilátero de lados RETOS, porque o anel da cidade é uma
+ * face de dodecágono: a linha do meio dela passa em 3.294 no centro e em 3.408
+ * nas pontas. Resultado medido: o ARENA (que está no rumo do meio) cai exato
+ * sobre o eixo, e o atletismo e a GEODE ficam os dois 57,4 m fora dele, para o
+ * mesmo lado.
+ *
+ * O fundador viu na chapa de cima: "a gente tem um losango, ele precisa estar
+ * alinhado e centralizado com as laterais reais; é visível que o centro do
+ * geodo e o centro do estádio de atletismo não estão centralizados na largura
+ * do losango".
+ *
+ * ⚠️ E A CORREÇÃO É PROJEÇÃO, NÃO COORDENADA NOVA. A posição AO LONGO do eixo
+ * continua vindo da teia (é a projeção do centro do módulo), e só a componente
+ * perpendicular é zerada. Se a teia mudar, as três acompanham sozinhas, que é a
+ * regra da casa.
+ */
+const _eixo = (() => {
+  const n = _laje.length
+  const arestas = _laje.map((p, i) => {
+    const q = _laje[(i + 1) % n]
+    return { i, L: Math.hypot(q[0] - p[0], q[1] - p[1]),
+      m: [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2] as [number, number] }
+  })
+  // as duas arestas CURTAS são as pontas do losango; o eixo liga os meios delas
+  const curtas = [...arestas].sort((a, b) => a.L - b.L).slice(0, 2).sort((a, b) => a.i - b.i)
+  const M1 = curtas[0].m, M2 = curtas[1].m
+  const L = Math.hypot(M2[0] - M1[0], M2[1] - M1[1])
+  return { cx: (M1[0] + M2[0]) / 2, cz: (M1[1] + M2[1]) / 2,
+    dx: (M2[0] - M1[0]) / L, dz: (M2[1] - M1[1]) / L, L }
+})()
+
+/** o comprimento do eixo da laje, para quem for distribuir coisa em cima dela */
+export const EIXO_CAMPUS = { x: _eixo.cx, z: _eixo.cz, dx: _eixo.dx, dz: _eixo.dz, comprimento: _eixo.L }
+
+/**
+ * O sítio de uma peça JÁ ALINHADO no eixo da laje: mantém a posição ao longo do
+ * eixo que a teia dá e zera o desvio perpendicular.
+ */
+export function sitioNoCampus(mod: Modulo): { x: number; z: number } {
+  const s = pecaSitio(mod)
+  const t = (s.x - _eixo.cx) * _eixo.dx + (s.z - _eixo.cz) * _eixo.dz
+  return { x: _eixo.cx + _eixo.dx * t, z: _eixo.cz + _eixo.dz * t }
+}
+
 function dentroDoPoly(x: number, z: number, poly: Pt[]): boolean {
   let dentro = false
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {

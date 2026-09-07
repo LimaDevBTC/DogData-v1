@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import { caixaDoModulo, polyDoModulo, AVENIDAS, anelPonto } from '../../app/city/plaza/teia'
-import { CAMPUS_MOD, CAMPUS_Y, PODIO_TOPO, FRANJA, CALCADA, CAMPUS_RUMO, PECAS, comPodio, pecaSitio, lajeDoCampus, naLaje, muroDoCampus, criarCampus } from '../../app/city/plaza/campus'
+import { CAMPUS_MOD, CAMPUS_Y, PODIO_TOPO, FRANJA, CALCADA, CAMPUS_RUMO, PECAS, comPodio, pecaSitio, sitioNoCampus, EIXO_CAMPUS, lajeDoCampus, naLaje, muroDoCampus, criarCampus } from '../../app/city/plaza/campus'
 import { assentarEstadio } from '../../app/city/plaza/estadio'
 import { assentarGeode } from '../../app/city/plaza/geode'
 import { assentarAtletismo, ATLETISMO_FOLGA_Y } from '../../app/city/plaza/atletismo'
@@ -68,7 +68,10 @@ async function main() {
 
   // 2. as três peças pousam no topo da laje?
   const pecas = PECAS.map((p) => {
-    const s = pecaSitio(p.mod)
+    // ⚠️ O SÍTIO DESENHADO É O PROJETADO NO EIXO DA LAJE, não o centro do
+    // módulo: os três módulos estão num arco e a laje tem lados retos.
+    const s = sitioNoCampus(p.mod)
+    const mod = pecaSitio(p.mod)
     const y = assentar[p.id as keyof typeof assentar](new THREE.Group(), alt).position.y
     // ⚠️ A PEGADA SE MEDE COM O GIRO DO CAMPUS, não com a tangente do próprio
     // módulo: desde 07/09 as três peças giram no eixo da laje (`CAMPUS_RUMO`),
@@ -84,8 +87,10 @@ async function main() {
     const cantos: Pt[] = [[-p.x / 2, -p.z / 2], [p.x / 2, -p.z / 2], [p.x / 2, p.z / 2], [-p.x / 2, p.z / 2]]
       .map(([lx, lz]) => mundo(lx, lz))
     const folga = Math.min(...laje.map((p2, i) => Math.min(...cantos.map((c) => pointSeg(c, p2, laje[(i + 1) % laje.length])))))
-    return { id: p.id, x: s.x, z: s.z, rumoDoModulo: (s.a * 180 / Math.PI + 360) % 360, rumoDesenhado: CAMPUS_RUMO,
+    return { id: p.id, x: s.x, z: s.z, rumoDoModulo: (mod.a * 180 / Math.PI + 360) % 360, rumoDesenhado: CAMPUS_RUMO,
       pegada: [p.x, p.z], pousadoEm: y, folgaDePouso: y - PODIO_TOPO,
+      foraDoEixoAntes: Number((((mod.x - EIXO_CAMPUS.x) * -EIXO_CAMPUS.dz + (mod.z - EIXO_CAMPUS.z) * EIXO_CAMPUS.dx)).toFixed(1)),
+      foraDoEixoAgora: Number((((s.x - EIXO_CAMPUS.x) * -EIXO_CAMPUS.dz + (s.z - EIXO_CAMPUS.z) * EIXO_CAMPUS.dx)).toFixed(3)),
       pegadaNaLaje: cantos.every((c) => naLaje(c[0], c[1])),
       folgaAteABordaDaLaje: folga, sobraParaCalcada: folga - CALCADA }
   })
@@ -110,6 +115,7 @@ async function main() {
     if (p.sobraParaCalcada < 0) avisos.push(`${p.id}: só ${p.folgaAteABordaDaLaje.toFixed(0)} m até a borda da laje, menos que os ${CALCADA} m de calçada`)
   }
   assert(Math.abs(espacamento[0] - espacamento[1]) < 0.5, 'o trio deixou de ser igualmente espaçado')
+  for (const p of pecas) assert(Math.abs(p.foraDoEixoAgora) < 0.01, `${p.id}: ${p.foraDoEixoAgora} m fora do eixo do losango`)
   assert(piorDesvio < 0.01, `o terreno sob a laje foge da cota em ${piorDesvio.toFixed(3)} m`)
   assert(paraBaixo === 0, `${paraBaixo} triângulos com a normal para baixo: tampa virada`)
   assert(Math.min(...dentro) > M.lagos.cota + 1.2, 'água na parcela')

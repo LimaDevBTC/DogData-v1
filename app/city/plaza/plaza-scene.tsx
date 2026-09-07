@@ -83,7 +83,10 @@ import { assentarEstadio, estadioCull, estadioSitio } from './estadio'
 import { assentarGeode, geodeCull, geodeSitio, podarGeode } from './geode'
 import { atletismoSitio } from './atletismo'
 import { criarAtletismo, type Atletismo } from './atletismo-loader'
-import { campusParcela, comPodio, criarCampus, CAMPUS_ATIVO, GIRO_CAMPUS } from './campus'
+import { campusParcela, comPodio, criarCampus, CAMPUS_ATIVO, GIRO_CAMPUS, sitioNoCampus } from './campus'
+import { ESTADIO_MOD } from './estadio'
+import { GEODE_MOD } from './geode'
+import { ATLETISMO_MOD } from './atletismo'
 import { buildSphere, sphereCull, sphereParcela, sphereSitio, spherePxAng, type Sphere } from './sphere'
 import { criarProgramacao } from './sphere-conteudo'
 import { ILHAS_RAIO, ILHAS_RUMO } from './lago'
@@ -3580,6 +3583,12 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           // pouso não muda, porque a laje é plana e a sonda devolve a mesma
           // cota em qualquer giro.
           arena.rotation.y = GIRO_CAMPUS
+          // ⚠️ E A POSIÇÃO TAMBÉM VEM DO CAMPUS. Ver `sitioNoCampus`: os três
+          // módulos estão num ARCO e a laje tem lados RETOS, então quem está na
+          // ponta fica 57,4 m fora do eixo do losango. A projeção zera isso sem
+          // inventar coordenada: a posição ao longo do eixo continua sendo a que
+          // a teia dá.
+          { const q = sitioNoCampus(ESTADIO_MOD); arena.position.x = q.x; arena.position.z = q.z }
           scene.add(arena)
           const _st = estadioSitio()
           culler.add(arena, estadioCull(profile.tier), new THREE.Vector3(_st.x, 0, _st.z))
@@ -3614,6 +3623,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           })
           assentarGeode(geode, comPodio((x, z) => terrain.heightAt(x, z)))
           geode.rotation.y = GIRO_CAMPUS
+          { const q = sitioNoCampus(GEODE_MOD); geode.position.x = q.x; geode.position.z = q.z }
           scene.add(geode)
           const _gd = geodeSitio()
           culler.add(geode, geodeCull(profile.tier), new THREE.Vector3(_gd.x, 0, _gd.z))
@@ -3635,6 +3645,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             },
           })
           atletismo.group.rotation.y = GIRO_CAMPUS
+          { const q = sitioNoCampus(ATLETISMO_MOD); atletismo.group.position.x = q.x; atletismo.group.position.z = q.z }
           scene.add(atletismo.group)
         }
 
