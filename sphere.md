@@ -34,20 +34,128 @@ preço e o contador do snapshot também já estão publicados.
 
 ## O sítio
 
-Recomendação do estudo, com número: **rumo 320 (noroeste), r 3.800 m**.
+⚠️ **A recomendação de 06/09 (rumo 320, r 3.800) está REPROVADA, medida em 07/09.** Ela
+nunca foi varrida contra a malha viária, só contra Geode e Estádio, e é exatamente o
+defeito que já custou os dois: o **Anel Exterior (AN3, r 3.750, seção de 26 m) passa por
+dentro do bloco inteiro**, em qualquer rumo daquela banda da teia (`ANEIS[14]=3.564` a
+`ANEIS[15]=3.803`, com o AN3 quase no meio dela). Medido: **-97 m de folga contra o AN3**,
+ou seja o anel corta o prédio, não a calçada. O relevo ali também não ajuda: -8,7 a 5,8 m,
+praticamente ao nível do datum. Trocado pelo sítio abaixo, achado varrendo a teia inteira
+(1.900 a 6.900 m de raio) contra as TRÊS famílias de via que moram em `cidade-malha.json`
+(bulevares, autopistas, anéis) mais canais radiais, eclusas e metrô, e contra as 70 peças
+de `cidade.json` mais Geode e Estádio (que entram à mão, como sempre).
 
-O motivo é que já existe um distrito esportivo a leste-sudeste: o Geode em r 3.294 rumo
-115,7, e o Estádio em r 3.296 rumo 105,0, a **615 m um do outro**. Um terceiro marco
-gigante no mesmo azimute seria ruído de horizonte, não skyline. A 320 a folga medida é de
-**6.936 m até o Geode e 6.769 até o Estádio**, ou seja onze vezes a folga que eles têm
-entre si.
+### O módulo escolhido
 
-Altura não limita: a abóbada é calota rasa e a 3.800 m o teto está a 4.818 m.
+`{ i: 20, nr: 1, j: 108, ns: 1 }`, na mesma função `caixaDoModulo()` que o Geode e o
+Estádio usam.
 
-⚠️ E a visibilidade obedece outra física: **sem atmosfera não há névoa**, e o limite por
-curvatura da Lua para um objeto de 112 m é de 22,1 km, muito além dos 9 km da cidade. Quem
-limita a visada é **oclusão** (prédios e os 118 m de diferença de cota entre quadrantes),
-então o sítio certo é o mais alto e desobstruído, não o mais vazio.
+| | |
+|---|---|
+| centro | (-4.117,5 ; 3.038,9), raio **5.117,5 m**, rumo **233,57°** (sudoeste) |
+| caixa do módulo, já com recuo de rua | **227,0 m no radial x 370,8 m no arco** (r0=5.004, r1=5.231) |
+| ao Geode (r 3.294, rumo 115,7) | 7.266 m, **117,9°** de separação angular |
+| ao Estádio (r 3.296, rumo 105,0) | 7.621 m, **128,6°** de separação |
+| à praça central | 5.118 m |
+| ao rumo do portão do Parque (43°) | **169,4°** de separação, quase o lado oposto da cidade |
+
+A separação do distrito esportivo é MELHOR que a do sítio reprovado (7.266/7.621 m contra
+os 6.936/6.769 do estudo original), e a separação do Parque também (169,4° contra 83° que
+o sítio antigo tinha, ou seja o sítio antigo brigava de esquina com o próprio Parque).
+
+### A conta de cabimento
+
+A peça reservada é o módulo inteiro, 227,0 m no radial por 370,8 m no arco, com a base
+tendo praça nos dois eixos:
+
+| diâmetro | sobra no radial (cada lado) | sobra no arco (cada lado) |
+|---|---|---|
+| 110 m | 58,5 m | 130,4 m |
+| 135 m | 46,0 m | 117,9 m |
+| **160 m** (a largura da Sphere de Vegas é 157) | **33,5 m** | **105,4 m** |
+
+Mesmo os 160 m cabem folgado: 33,5 m de sobra no eixo mais apertado é da mesma ordem que os
+34 a 58 m que o Geode e o Estádio já constroem de calçada em produção, e no arco sobra o
+triplo disso. Qualquer diâmetro entre 110 e 160 m cabe com praça de sobra nos dois eixos.
+
+### A validação contra tudo, com número
+
+| contra o quê | folga medida | quem é o mais próximo |
+|---|---|---|
+| bulevar | 637 m | BUL07 (rumo 241,875) |
+| autopista | 3.363 m | AU3 |
+| anel viário | 406 m | AN5 (r 5.620) |
+| canal radial | fora de alcance (CR01/02/03 ficam a nordeste, rumo 25 a 85) | |
+| eclusa | 1.621 m | ECExtracao (rumo 214) |
+| metrô radial | 2.953 m | linha do rumo 270 |
+| metrô circular | 1.544 m | anel r 3.488 |
+| água (lagos) | 4.310 m | o lago mais próximo |
+| as 70 peças de `cidade.json` + Geode + Estádio | 2.296 m | E01 (Parque Olímpico) |
+| casca da abóbada (DOME_R 9.050, flecha 5.500) | teto a **4.175,7 m**, sobre um tabuleiro a ~107-111 m: **mais de 4 km de folga vertical** | nunca é o limite |
+| relevo dentro da peça (grade 5x5 sobre 160x160 m) | **100,7 a 111,0 m, desnível de 10,3 m** | terraplenagem mínima |
+
+Contra os -97 m do sítio reprovado e o relevo quase ao nível do mar dele, este sítio está
+**cerca de 108 m mais alto** e não colide com nenhuma das seis famílias de via nem com
+nenhuma peça construída.
+
+### A visibilidade
+
+Medida por linha de visada reta sobre o relevo real (`public/lunar/btc-core-heightmap.f32`,
+sem prédio no meio, olho de pedestre a 1,7 m, os mesmos 1,7 m do resto da cidade):
+
+- **da praça central** (5.118 m): visível, coroa e equador claros acima do relevo em toda
+  a extensão do trajeto.
+- **do portal interno da eclusa do Distrito de Extração** (rumo 214, só 1.754 m do sítio):
+  visível, e é o ponto de chegada mais próximo e mais alinhado com ele.
+- **do portal interno da eclusa do Spaceport** (rumo 183, 4.131 m): visível.
+- **do portal interno da eclusa do Parque** (rumo 43, 9.527 m): ⚠️ oclusa nos primeiros
+  ~700 m de caminho, porque o PRÓPRIO PORTAL fica num rebaixo do relevo (a mesma cova que
+  o Parque escava para chegar); passado esse trecho a visada abre com dezenas de metros de
+  folga pelo resto do trajeto. Não é defeito do sítio, é a geometria do portal.
+- **no tecido da cidade** (grade de 400 m, 733 pontos amostrados entre r 1.450 e 6.900,
+  fora d'água): **81,0% enxergam o topo de uma esfera de 135 m**. O sítio reprovado media
+  82,5% no mesmo teste, ou seja a visibilidade BRUTA é parecida entre os dois; a diferença
+  real não é quantos pontos veem, é que este sítio está 108 m mais alto (lê melhor contra o
+  céu, pega mais luz) e, sobretudo, que o outro não é construível.
+
+⚠️ Confirmando a física que o estudo original já citava: a curvatura não limita (folga de
+dezenas de km contra os 9 km do sítio) e a abóbada também não (4,2 km de teto livre). Quem
+decide é oclusão por relevo, e o platô encontrado aqui é o mais alto que a varredura achou
+livre de via na faixa de raio 1.900-6.900 m.
+
+### As constantes prontas
+
+```ts
+// THE SPHERE: modulo da teia, mesma regra do Geode e do Estadio (peca ocupa
+// numero inteiro de modulos, os lados do modulo SAO rua). Substitui o rumo
+// 320 / r 3.800 de 06/09, que colidia com o Anel Exterior: medido em 07/09,
+// -97 m de folga contra o AN3 (r 3.750) em qualquer rumo daquela banda da
+// teia. Achado varrendo TODA a malha viaria de cidade-malha.json (bulevar,
+// autopista, anel, canal, eclusa, metro) mais as 70 pecas de cidade.json e
+// o Geode/Estadio a mao: e o mesmo erro de metodo que ja custou os dois.
+export const SPHERE_MOD: Modulo = { i: 20, nr: 1, j: 108, ns: 1 }
+
+// caixa do modulo, direto de caixaDoModulo(SPHERE_MOD): 227,0 m no radial por
+// 370,8 m no arco, centro em raio 5.117,5 m, rumo 233,57 graus (sudoeste).
+// Folga medida contra a malha inteira: 637 m ate o bulevar mais perto
+// (BUL07), 406 m ate o anel mais perto (AN5), 3.363 m ate autopista, 4.310 m
+// ate agua, 1.621 m ate a eclusa mais perto. Contra as 70 pecas de
+// cidade.json mais Geode e Estadio: 2.296 m.
+export const SPHERE_ENVELOPE_RADIAL = 227.0
+export const SPHERE_ENVELOPE_ARCO = 370.8
+
+// faixa de diametro estudada (Sphere de Las Vegas mede 157 m): mesmo o maior
+// dos tres, 160 m, cabe com 33,5 m de praca de sobra no radial e 105,4 m no
+// arco, de cada lado.
+export const SPHERE_DIAM_MIN = 110
+export const SPHERE_DIAM_REF = 160
+
+// tabuleiro assenta na cota MAXIMA medida na peca (regra da casa, ver
+// assentarGeode/assentarEstadio: canto alto fura o piso se for pela media),
+// nao na media: 111,0 m (grade 5x5 sobre 160x160 m; desnivel de so 10,3 m
+// dentro da peca, terraplenagem minima).
+export const SPHERE_PLATAFORMA_Y = 111.0
+```
 
 ## A base tem praça, e ela é chão de verdade
 
