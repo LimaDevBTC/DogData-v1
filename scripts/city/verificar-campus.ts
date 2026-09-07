@@ -1,19 +1,17 @@
 /**
- * Confere o campus esportivo inteiro: DOG Athletics, $DOG ARENA e THE GEODE
- * sobre a mesma parcela, com pódio quadrado e terreno terraplanado.
+ * Confere o campus esportivo: UMA laje sobre a parcela inteira, com DOG
+ * Athletics, $DOG ARENA e THE GEODE pousando nela.
  *
  *   npx tsx scripts/city/verificar-campus.ts
  *
  * O que ele NÃO faz: não valida lotes do snapshot, não mede FPS nem GPU, não
- * abre navegador e não olha os GLB — a peça aqui é o CHÃO. A conferência da peça
- * do atletismo sozinha (matriz de sondagem, corte de distância, água) continua em
- * `verificar-atletismo.ts`.
+ * abre navegador e não olha os GLB. A peça aqui é o CHÃO.
  */
 import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import { caixaDoModulo, polyDoModulo, AVENIDAS, anelPonto } from '../../app/city/plaza/teia'
-import { CAMPUS_MOD, TERRACOS, BERMA, FRANJA, comPodio, podioTopo, terracoSitio, saiasDoCampus } from '../../app/city/plaza/campus'
+import { CAMPUS_MOD, CAMPUS_Y, PODIO_TOPO, FRANJA, CALCADA, PECAS, comPodio, pecaSitio, lajeDoCampus, naLaje, muroDoCampus, criarCampus } from '../../app/city/plaza/campus'
 import { assentarEstadio } from '../../app/city/plaza/estadio'
 import { assentarGeode } from '../../app/city/plaza/geode'
 import { assentarAtletismo, ATLETISMO_FOLGA_Y } from '../../app/city/plaza/atletismo'
@@ -33,12 +31,6 @@ for (const b of AVENIDAS) radial(`avenida:${b.rumo}`, b.rumo, 1420, 8000, b.larg
 for (const a of M.autopistas) { const r = a.rumo * Math.PI / 180, c = Math.cos(r), s = Math.sin(r), o = a.afastamento ?? 0; roads.push({ id: `autopista:${a.id}`, a: [c * o + s * -12000, s * o - c * -12000], b: [c * o + s * 12000, s * o - c * 12000], half: a.largura / 2 + 6 }) }
 for (const a of M.aneisViarios) for (let i = 0; i < 12; i++) roads.push({ id: `anel:${a.id}`, a: anelPonto(a.r, i * Math.PI / 6), b: anelPonto(a.r, (i + 1) * Math.PI / 6), half: a.larg / 2 + 8 })
 
-/** o quadrado do pódio no mundo, na MESMA matriz que o Three usa para o GLB */
-function quadrado(t: (typeof TERRACOS)[number], lado: number): Pt[] {
-  const s = terracoSitio(t), C = Math.cos(s.a), S = Math.sin(s.a), h = lado / 2
-  return ([[-h, -h], [h, -h], [h, h], [-h, h]] as Pt[]).map(([lx, lz]) => [s.x + C * lx - S * lz, s.z + S * lx + C * lz])
-}
-
 async function main() {
   Object.assign(globalThis, { document: { createElement: () => ({ width: 0, height: 0, getContext: () => ({ putImageData() {} }) }) }, ImageData: class { constructor(public data: Uint8ClampedArray, public width: number, public height: number) {} } })
   const { buildTerrain, CANAL_LAMINA, LAGO_R1 } = await import('../../app/city/plaza/terrain')
@@ -48,83 +40,88 @@ async function main() {
     radiais: M.canais.radiais.map((r: { rumo: number; rInicio: number; rFim?: number }) => ({ rumo: r.rumo, secao: CANAL_LAMINA, rInicio: Math.min(r.rInicio, LAGO_R1), rFim: r.rFim ?? 4300 })),
     aneis: M.canais.aneis, talude: M.canais.talude, leito: M.lagos.cota - 4,
   }, { faixaSeca: false })
+  const alturaEm = (x: number, z: number) => terrain.heightAt(x, z)
 
   const caixa = caixaDoModulo(CAMPUS_MOD)
   const parcela = polyDoModulo(CAMPUS_MOD) as Pt[]
-  const alturaComPodio = comPodio((x, z) => terrain.heightAt(x, z))
+  const laje = lajeDoCampus() as unknown as Pt[]
+  const alt = comPodio(alturaEm)
   const assentar = { DOG_ARENA: assentarEstadio, THE_GEODE: assentarGeode, DOG_ATHLETICS: assentarAtletismo } as const
 
-  const podios = TERRACOS.map((t) => {
-    const s = terracoSitio(t)
-    const foot = quadrado(t, t.lado)
-    // o pódio inteiro dentro da parcela, e a menor folga até a divisa
-    const dentro = foot.every((p) => inside(p, parcela))
-    const folgaDivisa = Math.min(...parcela.map((p, i) => Math.min(...foot.map((q) => pointSeg(q, p, parcela[(i + 1) % parcela.length])))))
-    // o terreno sob o pódio depois da terraplanagem
-    const C = Math.cos(s.a), S = Math.sin(s.a), h = t.lado / 2
-    let mn = Infinity, mx = -Infinity, molhado = 0, n = 0
-    for (let i = 0; i <= 50; i++) for (let k = 0; k <= 50; k++) {
-      const lx = -h + 2 * h * i / 50, lz = -h + 2 * h * k / 50
-      const y = terrain.heightAt(s.x + C * lx - S * lz, s.z + S * lx + C * lz)
-      mn = Math.min(mn, y); mx = Math.max(mx, y); n++
-      if (y < M.lagos.cota + 1.2) molhado++
+  // 1. o chão da parcela ficou plano na cota única?
+  const dentro: number[] = []
+  let piorDesvio = 0
+  const xs = parcela.map((p) => p[0]), zs = parcela.map((p) => p[1])
+  for (let x = Math.min(...xs); x <= Math.max(...xs); x += 10)
+    for (let z = Math.min(...zs); z <= Math.max(...zs); z += 10) {
+      if (!inside([x, z], parcela)) continue
+      const y = alturaEm(x, z)
+      dentro.push(y)
+      // ⚠️ A PERGUNTA CERTA É "O CHÃO SOB A LAJE ESTÁ NA COTA?", e não "qual o
+      // declive?". Medir declive por diferença de 6 m encosta na borda da laje e
+      // lê a rampa da franja, que é do lado de fora: deu 14,3% de falso positivo.
+      // O que a laje exige é que nada do terreno a atravesse, e isso se mede
+      // contra a cota, ponto a ponto.
+      if (naLaje(x, z)) piorDesvio = Math.max(piorDesvio, Math.abs(y - CAMPUS_Y))
     }
-    const pousado = assentar[t.id as keyof typeof assentar](new THREE.Group(), alturaComPodio).position.y
-    const via = roads.map((r) => ({ id: r.id, folga: segmentDist(foot, r.a, r.b) - r.half })).sort((a, b) => a.folga - b.folga)[0]
-    return { id: t.id, lado: t.lado, cota: t.y, x: s.x, z: s.z, rumo: (s.a * 180 / Math.PI + 360) % 360,
-      dentroDaParcela: dentro, folgaAteDivisa: folgaDivisa, terreno: { min: mn, max: mx, desnivel: mx - mn, molhado, amostras: n },
-      pousadoEm: pousado, topoDoPodio: podioTopo(t), folgaDePouso: pousado - podioTopo(t), viaMaisProxima: via }
+
+
+  // 2. as três peças pousam no topo da laje?
+  const pecas = PECAS.map((p) => {
+    const s = pecaSitio(p.mod)
+    const y = assentar[p.id as keyof typeof assentar](new THREE.Group(), alt).position.y
+    const C = Math.cos(s.a), S = Math.sin(s.a)
+    const mundo = (lx: number, lz: number): Pt => [s.x + C * lx - S * lz, s.z + S * lx + C * lz]
+    // ⚠️ O QUE TEM DE ESTAR NA LAJE É A PEGADA DA PEÇA, não um quadrado de
+    // conveniência. Com pódio único a "calçada de 12 m" deixou de ser geometria
+    // (não existe mais um quadrado por prédio) e virou só uma medida de folga:
+    // ela pode passar da borda sem que nada fique pendurado. Quem não pode
+    // passar é o chão que o prédio ocupa.
+    const cantos: Pt[] = [[-p.x / 2, -p.z / 2], [p.x / 2, -p.z / 2], [p.x / 2, p.z / 2], [-p.x / 2, p.z / 2]]
+      .map(([lx, lz]) => mundo(lx, lz))
+    const folga = Math.min(...laje.map((p2, i) => Math.min(...cantos.map((c) => pointSeg(c, p2, laje[(i + 1) % laje.length])))))
+    return { id: p.id, x: s.x, z: s.z, rumo: (s.a * 180 / Math.PI + 360) % 360,
+      pegada: [p.x, p.z], pousadoEm: y, folgaDePouso: y - PODIO_TOPO,
+      pegadaNaLaje: cantos.every((c) => naLaje(c[0], c[1])),
+      folgaAteABordaDaLaje: folga, sobraParaCalcada: folga - CALCADA }
   })
 
-  // o declive dentro da parcela, que é o custo da terraplanagem
-  let pior = 0, ondeR = 0, ondeRumo = 0, acima15 = 0, total = 0
-  for (let r = caixa.r0 + 2; r <= caixa.r1 - 2; r += 6) for (let k = 0; k <= 600; k++) {
-    const a = caixa.a0 + (caixa.a1 - caixa.a0) * k / 600
-    const x = Math.sin(a) * r, z = -Math.cos(a) * r, y = terrain.heightAt(x, z)
-    const g = Math.max(Math.abs(terrain.heightAt(x + 6, z) - y), Math.abs(terrain.heightAt(x, z + 6) - y)) / 6
-    total++; if (g > 0.15) acima15++
-    if (g > pior) { pior = g; ondeR = r; ondeRumo = a * 180 / Math.PI }
-  }
+  // 3. o muro, e o que ele tem de cobrir
+  const muro = muroDoCampus(alturaEm)
+  const grupo = criarCampus(alturaEm)
+  const malha = grupo.children[0] as THREE.Mesh
+  const tri = (malha.geometry.getAttribute('position').count) / 3
+  const normais = malha.geometry.getAttribute('normal')
+  let paraBaixo = 0
+  for (let i = 0; i < normais.count; i += 3) if (normais.getY(i) < -0.9) paraBaixo++
 
   const d = (a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(a.x - b.x, a.z - b.z)
-  const espacamento = [d(podios[0], podios[1]), d(podios[1], podios[2])]
-
+  const espacamento = [d(pecas[0], pecas[1]), d(pecas[1], pecas[2])]
+  const via = roads.map((r) => ({ id: r.id, folga: segmentDist(laje, r.a, r.b) - r.half })).sort((a, b) => a.folga - b.folga)
   const avisos: string[] = []
-  const saias = saiasDoCampus((x, z) => terrain.heightAt(x, z))
-  for (const p of podios) {
-    assert(p.dentroDaParcela, `${p.id}: o pódio sai da parcela do campus`)
-    assert(p.terreno.molhado === 0, `${p.id}: água sob o pódio`)
-    assert(p.terreno.desnivel < 0.01, `${p.id}: o terraço não ficou plano (${p.terreno.desnivel.toFixed(3)} m)`)
-    assert(Math.abs(p.folgaDePouso - ATLETISMO_FOLGA_Y) < 1e-6, `${p.id}: a peça não pousou no topo do pódio (${p.folgaDePouso.toFixed(3)} m)`)
-    // ⚠️ O BUL04 CRUZA O BLOCO DO $DOG ARENA e isso é anterior a este arquivo:
-    // está medido em `estadio.ts` e o fundador mandou manter a peça onde está
-    // ("confirme o estádio na mesma posição de antes", 06/09). Não se relitiga
-    // aqui; o que se faz é RELATAR, para ninguém redescobrir sozinho.
-    if (p.viaMaisProxima.folga <= 15) avisos.push(`${p.id}: ${p.viaMaisProxima.id} passa a ${p.viaMaisProxima.folga.toFixed(0)} m do pódio`)
-    // ⚠️ A FOLGA ATÉ A DIVISA NÃO É ASSERÇÃO, É NÚMERO RELATADO, e a razão está
-    // em `campus.ts`: o anel interno é uma FACE do dodecágono, então o canto do
-    // pódio quadrado do atletismo fica a 5,6 m da divisa. Quem resolve isso é a
-    // saia do pódio, que desce até o terreno; o que se exige aqui é que ela
-    // alcance, não que o pódio tenha folga que a geometria da cidade não dá.
-    assert(p.folgaAteDivisa > 0, `${p.id}: o pódio sai da parcela`)
+  for (const v of via.filter((q) => q.folga < 0)) avisos.push(`${v.id} cruza a laje do pódio (${v.folga.toFixed(0)} m)`)
+  for (const p of pecas) {
+    assert(Math.abs(p.folgaDePouso - ATLETISMO_FOLGA_Y) < 1e-6, `${p.id}: não pousou no topo da laje (${p.folgaDePouso.toFixed(3)} m)`)
+    assert(p.pegadaNaLaje, `${p.id}: a pegada do prédio sai da laje`)
+    if (p.sobraParaCalcada < 0) avisos.push(`${p.id}: só ${p.folgaAteABordaDaLaje.toFixed(0)} m até a borda da laje, menos que os ${CALCADA} m de calçada`)
   }
   assert(Math.abs(espacamento[0] - espacamento[1]) < 0.5, 'o trio deixou de ser igualmente espaçado')
-  // a saia tem de passar abaixo do terreno mais baixo em volta do pódio
-  for (const s of saias) {
-    const p = podios.find((q) => q.id === s.id)!
-    assert(s.pe < p.terreno.min, `${s.id}: a saia do pódio não alcança o terreno`)
-  }
+  assert(piorDesvio < 0.01, `o terreno sob a laje foge da cota em ${piorDesvio.toFixed(3)} m`)
+  assert(paraBaixo === 0, `${paraBaixo} triângulos com a normal para baixo: tampa virada`)
+  assert(Math.min(...dentro) > M.lagos.cota + 1.2, 'água na parcela')
 
   console.log(JSON.stringify({
     ok: true,
     parcela: { modulo: CAMPUS_MOD, radial: caixa.r1 - caixa.r0, arcoInterno: (caixa.a1 - caixa.a0) * caixa.r0,
-      rumoDe: caixa.a0 * 180 / Math.PI, rumoAte: caixa.a1 * 180 / Math.PI },
-    podios, espacamento, saias, avisos,
-    vaoEntrePodios: [espacamento[0] - (podios[0].lado + podios[1].lado) / 2, espacamento[1] - (podios[1].lado + podios[2].lado) / 2],
-    terraplanagem: { berma: BERMA, franja: FRANJA, degrauEntreTerracos: [podios[1].cota - podios[0].cota, podios[2].cota - podios[1].cota],
-      declive: { pior: pior, ondeRaio: ondeR, ondeRumo, fracaoAcimaDe15pct: acima15 / total, amostras: total } },
+      hectares: dentro.length * 100 / 1e4 },
+    podio: { cotaTerraplanada: CAMPUS_Y, topo: PODIO_TOPO, franja: FRANJA, calcada: CALCADA,
+      triangulos: tri, normaisParaBaixo: paraBaixo, desvioDoChaoSobALaje: Number(piorDesvio.toFixed(4)),
+      muro: muro.map((m) => ({ aresta: m.aresta, comprimento: Math.round(m.comprimento),
+        alturaMinima: Number(m.minima.toFixed(1)), alturaMaxima: Number(m.maxima.toFixed(1)) })) },
+    pecas, espacamento,
+    viaMaisProxima: via[0], avisos,
     limites: ['Não valida lotes do snapshot nem os GLB; a peça aqui é o chão.',
-      'O pior declive cai no canto do rumo 120°, onde o terreno natural já tinha 28,5% de caimento.'],
+      'O corte e o aterro (2,74M m³ de cada lado) foram medidos contra o terreno natural em 07/09/2026 e não são recalculados aqui: depois da terraplanagem a cota natural não é recuperável sob a laje.'],
   }, null, 2))
   terrain.group.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) m.geometry.dispose() }); terrain.material.dispose()
 }

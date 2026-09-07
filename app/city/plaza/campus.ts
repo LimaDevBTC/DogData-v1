@@ -40,276 +40,314 @@ import { caixaDoModulo, polyDoModulo, type Modulo } from './teia'
 import { ESTADIO_MOD, ESTADIO_PECA_X, ESTADIO_PECA_Z } from './estadio'
 import { GEODE_MOD, GEODE_PECA_X, GEODE_PECA_Z } from './geode'
 import { ATLETISMO_MOD, ATLETISMO_PECA_X, ATLETISMO_PECA_Z } from './atletismo'
-import { COR_CALCADA, COR_MEIOFIO, Y_CALCADA } from './vias'
+import { COR_CALCADA, COR_MEIOFIO, COR_PLATO } from './vias'
 
 /** a parcela inteira: da avenida de 90° à de 120°, na faixa de anel do ARENA */
 export const CAMPUS_MOD: Modulo = { i: 11, nr: 3, j: 42, ns: 7 }
 
+
 /**
- * ⚠️ A CALÇADA PADRONIZADA É ESTA MEDIDA, E É A ÚNICA COISA QUE DEFINE O LADO DO
- * PÓDIO. Cada peça já declara o chão que ocupa (`*_PECA_X/Z`, que inclui
- * esplanada e talude do próprio modelo); o pódio é o quadrado que circunscreve
- * essa pegada mais 12 m de calçada por lado. Não é número escolhido: mudou a
- * peça, muda o pódio sozinho.
+ * ⚠️ UM PÓDIO SÓ, E ISSO SUBSTITUIU TRÊS. A primeira versão dava a cada peça um
+ * pódio quadrado próprio, em três terraços de cota diferente. O fundador viu a
+ * chapa de produção e recusou: "ta muito feio separado assim, se preciso
+ * terraplane e aterre". Agora a parcela inteira é UMA laje, numa cota só, e as
+ * três peças pousam nela.
+ *
+ * ⚠️ E A COTA ÚNICA SE PAGA EM TERRA, que é o que ele autorizou. Medido sobre os
+ * 92,3 ha da parcela, o terreno natural vai de −34,0 a −0,9 m, ou seja 33,1 m de
+ * amplitude. A cota que EQUILIBRA corte e aterro é −17,7: 2,74 milhões de m³ de
+ * cada lado, sem importar nem exportar terra. Ela custa 16,8 m de corte em 64%
+ * da área e 16,3 m de aterro nos outros 36%.
+ *
+ * As alternativas foram medidas e recusadas: −14,0 deixaria o muro do lado da
+ * cidade mais baixo, mas pede 4,80M m³ de aterro contra 1,39M de corte, ou seja
+ * 3,4 milhões de m³ de terra que teriam de vir de outro lugar da Lua.
  */
+export const CAMPUS_Y = -17.7
+
+/** a espessura da laje sobre o chão terraplanado */
+export const PODIO_H = 1.5
+
+/**
+ * ⚠️ A TERRAPLANAGEM PARA NA DIVISA, E ISSO SALVA AS DUAS AVENIDAS. Sem esta
+ * franja o talude transbordava e pegava a avenida de 120° com 18,88 m de
+ * caimento transversal nos 44 m de largura dela, 42,9%. A avenida é a DIVISA do
+ * campus, não parte dele: ela continua no chão natural.
+ *
+ * ⚠️ E A LAJE É RECUADA DA DIVISA NESTA MESMA MEDIDA, para a borda dela pousar
+ * em chão já plano. O que fica entre a laje e a divisa é a rampa da franja, e
+ * ela some atrás do muro do pódio.
+ */
+export const FRANJA = 34
+
+/** a faixa de calçada na borda da laje, a mesma medida da calçada da cidade */
 export const CALCADA = 12
 
-/** o degrau do pódio sobre o terraço, e a berma plana em volta dele */
-export const PODIO_H = 1.2
-export const BERMA = 24
+/** quanto o muro do pódio desce abaixo do chão mais baixo que ele encontra */
+const RESERVA_MURO = 2.5
 
-/**
- * ⚠️ O TALUDE É 80 m E O NÚMERO SAIU DO VÃO, não do gosto. Entre os pódios do
- * atletismo e do ARENA sobram 222 m; tirando as duas bermas de 24, restam 174
- * para dois taludes. 80 + 80 = 160 cabe, 90 + 90 = 180 não cabia e os dois
- * terraços se comeriam.
- */
-export const TALUDE = 80
+type Pt = readonly [number, number]
 
-/**
- * OS TRÊS TERRAÇOS.
- *
- * ⚠️ UMA COTA SÓ PARA OS TRÊS NÃO SERVE, E O TERRENO É QUE DIZ ISSO. O declive
- * do sítio é TANGENCIAL, não radial: no raio 3.294 o chão sobe de −34 m na
- * avenida de 90° para −10 no rumo 105° e segue até −5, enquanto no radial ele
- * varia menos de 3 m sob o ARENA. Um platô único a uma cota só (a equilibrada
- * seria −17,5, com 16,9 m de corte contra 17,1 de aterro) precisaria de 24 m de
- * aterro na ponta do 90°, e o talude desse aterro só teria os ~50 m que sobram
- * entre o pódio e a avenida: 1:2, que é muro, não terreno.
- *
- * ⚠️ ENTÃO SÃO TRÊS TERRAÇOS, E O DEGRAU É CONSTANTE DE PROPÓSITO: 9,00 m entre
- * um e outro. O fundador prefere elemento repetido igualmente espaçado, e aqui
- * isso também é o que barateia a terraplanagem — nenhum dos três passa de 9,5 m
- * de corte nem de 7,4 m de aterro, contra os 24 do platô único. O degrau vence
- * os 222/236 m de vão a 11%, que é rampa de caminhar.
- */
-export interface Terraco {
-  /** o nome do objeto na cena, para casar com o GLB que pousa em cima */
-  readonly id: string
-  readonly mod: Modulo
-  /** lado do pódio quadrado: a pegada da peça mais 12 m de calçada por lado */
-  readonly lado: number
-  /** a cota terraplanada deste terraço */
-  readonly y: number
-}
+const _cx = caixaDoModulo(CAMPUS_MOD)
+const _poly = polyDoModulo(CAMPUS_MOD) as Pt[]
 
-const ladoDe = (x: number, z: number) => Math.max(x, z) + 2 * CALCADA
-
-export const TERRACOS: readonly Terraco[] = [
-  { id: 'DOG_ATHLETICS', mod: ATLETISMO_MOD, lado: ladoDe(ATLETISMO_PECA_X, ATLETISMO_PECA_Z), y: -26.0 },
-  { id: 'DOG_ARENA', mod: ESTADIO_MOD, lado: ladoDe(ESTADIO_PECA_X, ESTADIO_PECA_Z), y: -17.0 },
-  { id: 'THE_GEODE', mod: GEODE_MOD, lado: ladoDe(GEODE_PECA_X, GEODE_PECA_Z), y: -8.0 },
-]
-
-/** centro e giro de um terraço, direto da teia — nunca de coordenada escrita */
-export function terracoSitio(t: Terraco): { x: number; z: number; a: number } {
-  const c = caixaDoModulo(t.mod)
-  const a = (c.a0 + c.a1) / 2
-  return { x: Math.sin(a) * c.rm, z: -Math.cos(a) * c.rm, a }
-}
-
-/** o polígono da parcela única, que vira máscara de via */
+/** o polígono da parcela, que vira máscara de via */
 export function campusParcela(): { poly: [number, number][] } {
   return { poly: polyDoModulo(CAMPUS_MOD) }
+}
+
+/** onde cada peça pousa: continua vindo da teia, nunca de coordenada escrita */
+export const PECAS = [
+  { id: 'DOG_ATHLETICS', mod: ATLETISMO_MOD, x: ATLETISMO_PECA_X, z: ATLETISMO_PECA_Z },
+  { id: 'DOG_ARENA', mod: ESTADIO_MOD, x: ESTADIO_PECA_X, z: ESTADIO_PECA_Z },
+  { id: 'THE_GEODE', mod: GEODE_MOD, x: GEODE_PECA_X, z: GEODE_PECA_Z },
+] as const
+
+export function pecaSitio(mod: Modulo): { x: number; z: number; a: number } {
+  const c = caixaDoModulo(mod)
+  const a = (c.a0 + c.a1) / 2
+  return { x: Math.sin(a) * c.rm, z: -Math.cos(a) * c.rm, a }
 }
 
 // ── a terraplanagem ─────────────────────────────────────────────────────────
 // ⚠️ PORTA RÁPIDA ANTES DE QUALQUER CONTA. `campusAlturaAt` é chamada de dentro
 // de `heightAt`, que é o trava-chão da câmera (todo quadro) e o pouso de toda
 // peça, poste e árvore da cidade. Quase todo ponto do mapa está fora do campus,
-// e o teste de raio resolve isso com uma comparação, sem atan2 e sem raiz.
-const _sitios = TERRACOS.map((t) => ({ t, s: terracoSitio(t), meia: t.lado / 2 + BERMA }))
-const _rMin = Math.min(..._sitios.map((o) => Math.hypot(o.s.x, o.s.z) - o.meia - TALUDE))
-const _rMax = Math.max(..._sitios.map((o) => Math.hypot(o.s.x, o.s.z) + o.meia + TALUDE))
+// e o teste de raio resolve isso com duas comparações, sem atan2 e sem raiz.
+const _rDentro = _cx.r0 - 40
+const _rFora = Math.max(..._poly.map((p) => Math.hypot(p[0], p[1]))) + 40
 
 const _suave = (k: number) => k * k * (3 - 2 * k)
 
 /**
- * ⚠️ A TERRAPLANAGEM PARA NA DIVISA DA PARCELA, E ISSO NÃO É ZELO: É O QUE SALVA
- * AS DUAS AVENIDAS. Sem esta máscara o talude de 80 m dos terraços das pontas
- * transbordava para fora do bloco e pegava a avenida de 120° no meio da subida:
- * medido, **18,88 m de caimento transversal nos 44 m de largura dela**, ou seja
- * 42,9% de through-fall numa via principal. A avenida é a DIVISA do campus, não
- * parte dele; ela tem de continuar no chão natural.
+ * 1 no miolo da parcela, caindo a 0 na divisa ao longo da franja.
  *
- * Com a máscara, o aterro da ponta desce dentro da parcela e o pódio continua
- * plano: o pódio mais afastado da divisa está a 43 m dela (o do ARENA, no
- * radial) e a franja tem 30, então nenhum dos três encosta na descida.
+ * ⚠️ A DISTÂNCIA SE MEDE CONTRA O POLÍGONO, NÃO CONTRA O SETOR ANULAR, e isso é
+ * conserto de defeito medido. A primeira versão usava a métrica (raio, ângulo):
+ * `min(r − r0, r1 − r, (a − a0)·r, (a1 − a)·r)`. Só que a parcela DESENHADA é um
+ * quadrilátero de lados retos (o anel da cidade é uma face de dodecágono, não um
+ * arco), e a laje é recuada perpendicular a essas retas. Num bloco de 30° as
+ * duas métricas divergem por mais de 100 m nas quinas: o verificador pegou a
+ * borda da laje pousada num trecho de rampa com **66,2% de declive**.
+ *
+ * Medindo contra as mesmas quatro retas que `recuar()` usa, a franja chega a 1
+ * exatamente onde a laje começa, por construção. São quatro produtos escalares.
  */
-const _cx = caixaDoModulo(CAMPUS_MOD)
-export const FRANJA = 34
+const _arestas = _poly.map((p, i) => {
+  const q = _poly[(i + 1) % _poly.length]
+  const dx = q[0] - p[0], dz = q[1] - p[1]
+  const L = Math.hypot(dx, dz) || 1
+  return { px: p[0], pz: p[1], nx: dz / L, nz: -dx / L }
+})
+
+function dentroDaParcela(x: number, z: number): number {
+  let d = Infinity
+  for (const a of _arestas) {
+    const t = (x - a.px) * a.nx + (z - a.pz) * a.nz
+    if (t < d) d = t
+  }
+  return d
+}
 
 function pesoParcela(x: number, z: number): number {
   const r = Math.hypot(x, z)
-  if (r <= _cx.r0 || r >= _cx.r1) return 0
-  let a = Math.atan2(x, -z)
-  if (a < 0) a += Math.PI * 2
-  if (a <= _cx.a0 || a >= _cx.a1) return 0
-  const dentro = Math.min(r - _cx.r0, _cx.r1 - r, (a - _cx.a0) * r, (_cx.a1 - a) * r)
+  if (r <= _rDentro || r >= _rFora) return 0
+  const dentro = dentroDaParcela(x, z)
+  if (dentro <= 0) return 0
   return dentro >= FRANJA ? 1 : _suave(dentro / FRANJA)
 }
 
-/**
- * O peso da terraplanagem de um terraço em (x, z): 1 no quadrado plano (pódio
- * mais berma), caindo por smoothstep ao longo do talude, 0 fora dele.
- *
- * ⚠️ A CAIXA É MEDIDA NO EIXO LOCAL DA PEÇA, e a matriz tem de ser a MESMA que
- * `assentarEstadio`/`assentarGeode`/`assentarAtletismo` usam para pousar o GLB
- * (rotation.y = −rumo). Se os sinais divergirem, o platô fica girado em relação
- * ao prédio e o canto do prédio pousa no talude. A ida é
- * `(wx, wz) = (C·lx − S·lz, S·lx + C·lz)`; esta é a volta.
- */
-function pesoDoTerraco(o: (typeof _sitios)[number], x: number, z: number): number {
-  const C = Math.cos(o.s.a), S = Math.sin(o.s.a)
-  const dx = x - o.s.x, dz = z - o.s.z
-  const lx = Math.abs(C * dx + S * dz) - o.meia
-  const lz = Math.abs(-S * dx + C * dz) - o.meia
-  if (lx <= 0 && lz <= 0) return 1
-  const fora = Math.hypot(Math.max(lx, 0), Math.max(lz, 0))
-  if (fora >= TALUDE) return 0
-  return _suave(1 - fora / TALUDE)
-}
-
-/**
- * A cota do chão depois da terraplanagem, dada a cota natural.
- *
- * ⚠️ OS TERRAÇOS NÃO SE SOBREPÕEM, e isso é garantido pelo TALUDE de 80 m contra
- * os vãos de 222 e 236 m. Por isso a soma dos pesos nunca passa de 1 e não
- * precisa de normalização; se um dia um pódio crescer, o `Math.min(1, ...)`
- * abaixo degrada para a média em vez de estourar a cota.
- */
+/** a cota do chão depois da terraplanagem, dada a cota natural */
 export function campusAlturaAt(x: number, z: number, natural: number): number {
-  const r = Math.hypot(x, z)
-  if (r < _rMin || r > _rMax) return natural
-  const mascara = pesoParcela(x, z)
-  if (mascara <= 0) return natural
-  let peso = 0, alvo = 0
-  for (const o of _sitios) {
-    const w = pesoDoTerraco(o, x, z)
-    if (w > 0) { peso += w; alvo += w * o.t.y }
-  }
-  if (peso <= 0) return natural
-  const k = Math.min(1, peso) * mascara
-  return natural * (1 - k) + (alvo / peso) * k
+  const k = pesoParcela(x, z)
+  return k <= 0 ? natural : natural * (1 - k) + CAMPUS_Y * k
 }
 
-/** a cota em que o GLB de cada peça pousa: o topo do pódio, não o terreno */
-export function podioTopo(t: Terraco): number {
-  return t.y + Y_CALCADA + PODIO_H
+/** o topo da laje: é aqui que as três peças pousam */
+export const PODIO_TOPO = CAMPUS_Y + PODIO_H
+
+// ── o polígono da laje ──────────────────────────────────────────────────────
+/**
+ * Recua um polígono CONVEXO para dentro por `d`, deslocando cada aresta e
+ * cruzando as retas vizinhas. Convexo é o caso aqui: a parcela é um quadrilátero.
+ *
+ * ⚠️ O RECUO NÃO É "PUXAR O VÉRTICE PARA O CENTRO". Isso encolheria a peça por
+ * fator, e num quadrilátero alongado como este (1,6 km por 0,5 km) o recuo sairia
+ * três vezes maior num eixo do que no outro.
+ */
+function recuar(poly: Pt[], d: number): Pt[] {
+  const n = poly.length
+  const retas = poly.map((p, i) => {
+    const q = poly[(i + 1) % n]
+    const dx = q[0] - p[0], dz = q[1] - p[1]
+    const L = Math.hypot(dx, dz) || 1
+    // normal para DENTRO: o polígono vem no sentido que dá normal +Y (medido),
+    // então (dz, −dx)/L aponta para o miolo.
+    const nx = dz / L, nz = -dx / L
+    return { px: p[0] + nx * d, pz: p[1] + nz * d, dx, dz }
+  })
+  const out: Pt[] = []
+  for (let i = 0; i < n; i++) {
+    const a = retas[(i + n - 1) % n], b = retas[i]
+    const det = a.dx * b.dz - a.dz * b.dx
+    if (Math.abs(det) < 1e-9) { out.push([b.px, b.pz]); continue }
+    const t = ((b.px - a.px) * b.dz - (b.pz - a.pz) * b.dx) / det
+    out.push([a.px + a.dx * t, a.pz + a.dz * t])
+  }
+  return out
 }
+
+const _laje = recuar(_poly, FRANJA)
+const _lajeMiolo = recuar(_laje, CALCADA)
+
+function dentroDoPoly(x: number, z: number, poly: Pt[]): boolean {
+  let dentro = false
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i], b = poly[j]
+    if ((a[1] > z) !== (b[1] > z) && x < ((b[0] - a[0]) * (z - a[1])) / (b[1] - a[1]) + a[0]) dentro = !dentro
+  }
+  return dentro
+}
+
+/** o polígono da laje, para quem precisa medir sem desenhar */
+export function lajeDoCampus(): Pt[] { return _laje }
+export function naLaje(x: number, z: number): boolean { return dentroDoPoly(x, z, _laje) }
 
 /**
  * Envolve o `superficieAt` do terreno para que quem pousa peça encontre o TOPO
- * DO PÓDIO dentro do quadrado dele, e o chão normal fora.
+ * DA LAJE dentro dela, e o chão normal fora.
  *
- * ⚠️ É ASSIM QUE OS TRÊS PASSAM A DIVIDIR O MESMO PISO SEM QUE `estadio.ts`,
- * `geode.ts` e `atletismo.ts` PRECISEM SABER DO CAMPUS. Cada um continua
- * varrendo a própria peça em grade e pegando a cota máxima, exatamente como
- * antes; só que a cota que eles encontram agora é a laje, que é plana, então a
- * varredura devolve o mesmo número em todos os pontos e o prédio assenta rente.
+ * ⚠️ É ASSIM QUE OS TRÊS DIVIDEM O MESMO PISO SEM QUE `estadio.ts`, `geode.ts` e
+ * `atletismo.ts` PRECISEM SABER DO CAMPUS. Cada um continua varrendo a própria
+ * peça em grade e pegando a cota máxima, exatamente como antes; só que a cota
+ * que eles encontram agora é a laje, que é plana, então a varredura devolve o
+ * mesmo número em todos os pontos e o prédio assenta rente.
  */
 export function comPodio(base: (x: number, z: number) => number) {
-  return (x: number, z: number): number => {
-    for (const o of _sitios) {
-      const C = Math.cos(o.s.a), S = Math.sin(o.s.a)
-      const dx = x - o.s.x, dz = z - o.s.z
-      const meia = o.t.lado / 2
-      if (Math.abs(C * dx + S * dz) <= meia && Math.abs(-S * dx + C * dz) <= meia) {
-        return podioTopo(o.t)
-      }
-    }
-    return base(x, z)
-  }
+  return (x: number, z: number): number => (naLaje(x, z) ? PODIO_TOPO : base(x, z))
 }
 
 // ── o desenho ───────────────────────────────────────────────────────────────
-// Uma geometria só, cor por vértice, um material: o campus inteiro é uma chamada
-// de desenho. A paleta é a da rua (`vias.ts`), e é isso que faz a calçada dos
-// três ser a MESMA calçada da cidade e não um cinza inventado aqui.
+/**
+ * ⚠️ A NORMAL SAI DO WINDING, NÃO DE UM VETOR ESCRITO À MÃO, e isso é conserto
+ * de defeito medido. A versão anterior declarava a normal num parâmetro e
+ * montava o triângulo na ordem "natural": para a tampa, com A(-m,-m), B(m,-m) e
+ * D(m,m), o produto vetorial (B−A)×(D−A) dá −Y contra o +Y declarado. Three
+ * descarta por WINDING e não pela normal declarada, então a tampa era back-face
+ * e sumia: a chapa de produção mostrou o INTERIOR escuro da caixa, e o fundador
+ * viu "um quadrado com cor diferente do resto do terreno, não é calçada, não é
+ * platô, é outra coisa". Era o avesso.
+ *
+ * Calculando a normal a partir dos próprios vértices, declarado e desenhado não
+ * podem mais divergir: ou os dois estão certos, ou os dois estão errados juntos
+ * e o teste de tampa (abaixo) pega.
+ */
+function tri(pos: number[], nor: number[], cor: number[], a: Pt3, b: Pt3, c: Pt3, k: THREE.Color) {
+  const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2]
+  const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2]
+  let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx
+  const L = Math.hypot(nx, ny, nz) || 1
+  nx /= L; ny /= L; nz /= L
+  for (const p of [a, b, c]) pos.push(p[0], p[1], p[2])
+  for (let i = 0; i < 3; i++) { nor.push(nx, ny, nz); cor.push(k.r, k.g, k.b) }
+  return ny
+}
+type Pt3 = readonly [number, number, number]
+
+/** leque a partir do vértice 0: o polígono é convexo, então isto basta */
+function tampa(pos: number[], nor: number[], cor: number[], poly: Pt[], y: number, k: THREE.Color) {
+  let pior = 1
+  for (let i = 1; i + 1 < poly.length; i++) {
+    const ny = tri(pos, nor, cor,
+      [poly[0][0], y, poly[0][1]], [poly[i][0], y, poly[i][1]], [poly[i + 1][0], y, poly[i + 1][1]], k)
+    pior = Math.min(pior, ny)
+  }
+  return pior
+}
+
+/** o anel entre dois polígonos concêntricos, no mesmo plano */
+function faixa(pos: number[], nor: number[], cor: number[], fora: Pt[], dentro: Pt[], y: number, k: THREE.Color) {
+  let pior = 1
+  for (let i = 0; i < fora.length; i++) {
+    const j = (i + 1) % fora.length
+    const A: Pt3 = [fora[i][0], y, fora[i][1]], B: Pt3 = [fora[j][0], y, fora[j][1]]
+    const C: Pt3 = [dentro[j][0], y, dentro[j][1]], D: Pt3 = [dentro[i][0], y, dentro[i][1]]
+    pior = Math.min(pior, tri(pos, nor, cor, A, B, C, k), tri(pos, nor, cor, A, C, D, k))
+  }
+  return pior
+}
 
 /**
- * ⚠️ A SAIA DO PÓDIO DESCE ATÉ O TERRENO, E NÃO TEM ALTURA FIXA. A primeira
- * versão era uma caixa de 1,2 m e ela FLUTUAVA, por causa de uma armadilha que
- * só apareceu quando a medição foi feita: o anel interno da cidade é uma FACE do
- * dodecágono, não um arco. Entre a avenida de 90° e a de 120° a face é uma reta
- * só, então o raio útil no rumo do bloco é menor que a apótema que
- * `caixaDoModulo` devolve. Medido: o canto de dentro do pódio do atletismo fica
- * a **5,6 m** da divisa (o do ARENA a 36 e o da GEODE a 21), e logo depois da
- * divisa o chão volta ao natural e cai 7 m. Caixa de altura fixa ali é laje
- * pendurada no ar.
- *
- * Com a saia medida contra o terreno em volta, o pódio vira o que ele é de fato
- * num terraço em encosta: laje por cima, muro de arrimo por baixo, e a altura do
- * muro é o que a encosta pedir. É a mesma solução que `build_estadio.py` já usa
- * na `plataforma()` do ARENA, com 26 m de saia.
+ * O MURO. Desce de `y` até `pe` ao longo de cada aresta, com a face virada para
+ * FORA. A altura não é constante e não pode ser: o terreno em volta do campus
+ * varia 26 m, então o muro tem 19 m na ponta da avenida de 90° e some quase por
+ * completo no anel de fora.
  */
-const RESERVA_SAIA = 2.5
-
-function saiaAte(alturaEm: (x: number, z: number) => number, o: (typeof _sitios)[number]): number {
-  const C = Math.cos(o.s.a), S = Math.sin(o.s.a)
-  const meia = o.t.lado / 2
-  let baixo = Infinity
-  // uma faixa em volta do pódio, da borda dele até o fim da berma: é onde o
-  // terreno pode fugir para baixo, e é o que a saia tem de alcançar.
-  for (let passo = 0; passo <= BERMA; passo += 6) {
-    const d = meia + passo
-    for (let k = 0; k < 96; k++) {
-      const a = (k / 96) * Math.PI * 2
-      const lx = Math.max(-d, Math.min(d, Math.cos(a) * d * 1.5))
-      const lz = Math.max(-d, Math.min(d, Math.sin(a) * d * 1.5))
-      baixo = Math.min(baixo, alturaEm(o.s.x + C * lx - S * lz, o.s.z + S * lx + C * lz))
+function muro(pos: number[], nor: number[], cor: number[], poly: Pt[], y: number, pe: (x: number, z: number) => number, k: THREE.Color) {
+  for (let i = 0; i < poly.length; i++) {
+    const j = (i + 1) % poly.length
+    const p = poly[i], q = poly[j]
+    // subdivide a aresta: o pé acompanha o terreno, que não é reto
+    const n = Math.max(2, Math.ceil(Math.hypot(q[0] - p[0], q[1] - p[1]) / 60))
+    for (let s = 0; s < n; s++) {
+      const t0 = s / n, t1 = (s + 1) / n
+      const x0 = p[0] + (q[0] - p[0]) * t0, z0 = p[1] + (q[1] - p[1]) * t0
+      const x1 = p[0] + (q[0] - p[0]) * t1, z1 = p[1] + (q[1] - p[1]) * t1
+      const b0 = pe(x0, z0), b1 = pe(x1, z1)
+      // ordem escolhida para a normal apontar para FORA do polígono
+      tri(pos, nor, cor, [x0, y, z0], [x0, b0, z0], [x1, b1, z1], k)
+      tri(pos, nor, cor, [x0, y, z0], [x1, b1, z1], [x1, y, z1], k)
     }
   }
-  return baixo - RESERVA_SAIA
-}
-
-function caixa(
-  pos: number[], nor: number[], cor: number[],
-  cx: number, cz: number, ang: number, meia: number,
-  y0: number, y1: number, topo: THREE.Color, lateral: THREE.Color,
-) {
-  const C = Math.cos(ang), S = Math.sin(ang)
-  const p = (lx: number, lz: number, y: number) => [cx + C * lx - S * lz, y, cz + S * lx + C * lz]
-  // ⚠️ A ORDEM É (a, c, b) E (a, d, c), OU SEJA HORÁRIA NA LISTA. A versão
-  // anterior era a ordem "natural" (a, b, c, a, c, d) e ela produzia a normal
-  // GEOMÉTRICA ao contrário: para a face de cima, com A(-m,-m), B(m,-m) e
-  // D(m,m), o produto vetorial (B−A)×(D−A) dá (0, −4m², 0), ou seja −Y, contra
-  // o +Y declarado no atributo. Three descarta por winding, não pela normal
-  // declarada, então a tampa do pódio era back-face e sumia: o que a chapa de
-  // produção mostrou foi o INTERIOR escuro da caixa, e os três pódios saíram
-  // cinza-escuros no lugar da cor de calçada. Invertida, a mesma face dá +4m².
-  const quad = (a: number[], b: number[], c: number[], d: number[], n: number[], k: THREE.Color) => {
-    for (const v of [a, c, b, a, d, c]) pos.push(v[0], v[1], v[2])
-    for (let i = 0; i < 6; i++) { nor.push(n[0], n[1], n[2]); cor.push(k.r, k.g, k.b) }
-  }
-  const A = p(-meia, -meia, y1), B = p(meia, -meia, y1)
-  const D = p(meia, meia, y1), E = p(-meia, meia, y1)
-  quad(A, B, D, E, [0, 1, 0], topo)
-  const a0 = p(-meia, -meia, y0), b0 = p(meia, -meia, y0)
-  const d0 = p(meia, meia, y0), e0 = p(-meia, meia, y0)
-  quad(a0, A, E, e0, [-C, 0, -S], lateral)
-  quad(b0, d0, D, B, [C, 0, S], lateral)
-  quad(a0, b0, B, A, [S, 0, -C], lateral)
-  quad(e0, E, D, d0, [-S, 0, C], lateral)
 }
 
 /**
- * O campus desenhado: o pódio quadrado de cada peça, topo de calçada e face de
- * meio-fio, com a saia descendo até o terreno em volta.
+ * A cota em que o muro do pódio tem de pousar num ponto da borda.
  *
- * ⚠️ O PÓDIO É QUADRADO NOS TRÊS E O LADO É A ÚNICA COISA QUE MUDA. É o que o
- * fundador pediu: a base padroniza, o prédio é que é diferente. A esplanada oval
- * do ARENA e o disco da GEODE continuam dentro dos GLBs e pousam em cima desta
- * laje; a faixa de 12 m que sobra em volta deles é a calçada comum.
+ * ⚠️ ELE PROCURA O CHÃO MAIS BAIXO NUMA FAIXA EM VOLTA, não só embaixo da
+ * aresta. Entre a aresta da laje e a divisa da parcela existe a rampa da franja,
+ * e depois dela o terreno natural, que na ponta da avenida de 90° está a
+ * −35,6 m. Um muro que parasse na cota da própria aresta (que é o chão já
+ * terraplanado, −17,7) deixaria 18 m de rampa à mostra por baixo dele.
+ */
+export function peDoMuro(alturaEm: (x: number, z: number) => number, x: number, z: number): number {
+  let baixo = alturaEm(x, z)
+  const r = Math.hypot(x, z) || 1
+  const ux = x / r, uz = z / r
+  for (const d of [FRANJA * 0.5, FRANJA, FRANJA + 40, FRANJA + 90]) {
+    baixo = Math.min(baixo, alturaEm(x + ux * d, z + uz * d), alturaEm(x - ux * d, z - uz * d),
+      alturaEm(x - uz * d, z + ux * d), alturaEm(x + uz * d, z - ux * d))
+  }
+  return baixo - RESERVA_MURO
+}
+
+/**
+ * O campus desenhado: UMA laje sobre a parcela inteira, no cinza de platô da
+ * cidade, com a faixa de calçada na borda e o muro descendo até o terreno.
+ *
+ * ⚠️ O MURO PROCURA O CHÃO MAIS BAIXO NUMA FAIXA EM VOLTA, não só embaixo da
+ * aresta. Entre a aresta da laje e a divisa da parcela existe a rampa da franja,
+ * e depois dela o terreno natural, que na ponta do 90° está a −35,6 m. Um muro
+ * que parasse na cota da própria aresta deixaria a rampa à mostra por baixo.
  */
 export function criarCampus(alturaEm: (x: number, z: number) => number): THREE.Group {
   const pos: number[] = [], nor: number[] = [], cor: number[] = []
+  const kPlato = new THREE.Color(COR_PLATO)
   const kCalcada = new THREE.Color(COR_CALCADA)
   const kMeiofio = new THREE.Color(COR_MEIOFIO)
-  for (const o of _sitios) {
-    caixa(pos, nor, cor, o.s.x, o.s.z, -o.s.a, o.t.lado / 2,
-      saiaAte(alturaEm, o), podioTopo(o.t), kCalcada, kMeiofio)
+
+  const nyMiolo = tampa(pos, nor, cor, _lajeMiolo, PODIO_TOPO, kPlato)
+  const nyFaixa = faixa(pos, nor, cor, _laje, _lajeMiolo, PODIO_TOPO, kCalcada)
+
+  muro(pos, nor, cor, _laje, PODIO_TOPO, (x, z) => peDoMuro(alturaEm, x, z), kMeiofio)
+
+  // ⚠️ PORTÃO DE TAMPA VIRADA. Custa uma comparação no boot e teria pego sozinho
+  // o defeito que a chapa de produção pegou. Se a tampa alguma vez sair com a
+  // normal para baixo, o console diz, em vez de a peça simplesmente sumir.
+  if (nyMiolo < 0.9 || nyFaixa < 0.9) {
+    console.error(`[campus] TAMPA VIRADA: normal.y miolo ${nyMiolo.toFixed(2)}, faixa ${nyFaixa.toFixed(2)}`)
   }
+
   const g = new THREE.BufferGeometry()
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
   g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3))
@@ -317,7 +355,7 @@ export function criarCampus(alturaEm: (x: number, z: number) => number): THREE.G
   g.computeBoundingSphere()
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0 })
   const mesh = new THREE.Mesh(g, mat)
-  mesh.name = 'CAMPUS_ESPORTIVO'
+  mesh.name = 'CAMPUS_PODIO'
   mesh.receiveShadow = true
   mesh.castShadow = true
   const grupo = new THREE.Group()
@@ -326,8 +364,16 @@ export function criarCampus(alturaEm: (x: number, z: number) => number): THREE.G
   return grupo
 }
 
-/** a profundidade da saia de cada pódio, para quem quiser medir sem desenhar */
-export function saiasDoCampus(alturaEm: (x: number, z: number) => number) {
-  return _sitios.map((o) => ({ id: o.t.id, topo: podioTopo(o.t), pe: saiaAte(alturaEm, o),
-    altura: podioTopo(o.t) - saiaAte(alturaEm, o) }))
+/** a altura do muro em volta da laje, amostrada, para medir sem desenhar */
+export function muroDoCampus(alturaEm: (x: number, z: number) => number) {
+  return _laje.map((p, i) => {
+    const q = _laje[(i + 1) % _laje.length]
+    let baixa = Infinity, alta = -Infinity
+    for (let s = 0; s <= 20; s++) {
+      const t = s / 20
+      const h = PODIO_TOPO - peDoMuro(alturaEm, p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t)
+      baixa = Math.min(baixa, h); alta = Math.max(alta, h)
+    }
+    return { aresta: i, comprimento: Math.hypot(q[0] - p[0], q[1] - p[1]), minima: baixa, maxima: alta }
+  })
 }

@@ -46,54 +46,58 @@ separavam as três peças. A regra da casa continua obedecida: a parcela é um
 número inteiro de módulos da teia e os lados dela são ruas, só que agora são as
 duas avenidas e os dois anéis.
 
-## A terraplanagem é em três terraços, não num platô só
+## Um pódio só, e a terraplanagem que ele custa
 
-O declive do sítio é tangencial, não radial: no raio 3.294 o chão sobe de −34 m
-na avenida de 90° para −10 no rumo 105° e segue até −5, enquanto no radial varia
-menos de 3 m sob o ARENA. Um platô único a uma cota só (a equilibrada seria
-−17,5, com 16,9 m de corte contra 17,1 de aterro) pediria 24 m de aterro na
-ponta do 90°, e o talude desse aterro só teria os ~50 m que sobram até a avenida:
-1:2, que é muro e não terreno.
+A primeira versão dava a cada peça um pódio quadrado próprio, em três terraços
+de cota diferente (−26,0 / −17,0 / −8,0, degrau constante de 9 m). Ela foi ao ar
+e o fundador recusou na chapa: "ta muito feio separado assim, se preciso
+terraplane e aterre".
 
-São três terraços com degrau constante de 9,00 m: −26,0 (atletismo), −17,0
-(ARENA) e −8,0 (GEODE). Nenhum passa de 9,5 m de corte nem de 7,4 m de aterro.
-O degrau vence os vãos de 222 e 236 m a 11%, que é rampa de caminhar.
+Agora a parcela inteira é **uma laje só**, e as três peças pousam nela na mesma
+cota. Medido sobre os 92,3 ha, o terreno natural ia de −34,0 a −0,9 m, ou seja
+33,1 m de amplitude. A cota escolhida é a que **equilibra corte e aterro**:
 
-A terraplanagem para na divisa da parcela (`FRANJA = 34 m`), e isso salva as
-avenidas: sem a máscara o talude transbordava e pegava a avenida de 120° com
-18,88 m de caimento transversal nos 44 m de largura dela. Medido depois da
-máscara, o caimento é 4,92 m na avenida de 90° (11,2%, contra 1,25 m natural) e
-15,98 m na de 120° (36,3%, contra **12,52 m que já eram naturais** ali).
+| | |
+|---|---|
+| cota terraplanada | **−17,7 m** |
+| topo da laje | −16,2 m (laje de 1,5 m) |
+| corte | 16,8 m no máximo, em 64% da área, **2,74M m³** |
+| aterro | 16,3 m no máximo, nos outros 36%, **2,74M m³** |
+| muro do pódio | 4 a 29 m de geometria, ~19 m visíveis na ponta da avenida de 90° |
 
-Dentro da parcela, 96,2% do chão fica abaixo de 15% de declive. O pior ponto é
-63,7%, no raio 3.356 rumo 119,5°, que é o canto onde o terreno natural já tinha
-28,5%.
+A alternativa de subir a cota para −14,0, que deixaria o muro mais baixo do lado
+da cidade, foi medida e recusada: pede 4,80M m³ de aterro contra 1,39M de corte,
+ou seja 3,4 milhões de m³ de terra vindos de fora do sítio.
 
-## O pódio
+A terraplanagem continua parando na divisa da parcela (`FRANJA = 34 m`), e é isso
+que mantém as duas avenidas no chão natural. A laje é recuada essa mesma medida,
+para a borda dela pousar em chão já plano; o que fica entre a laje e a divisa é a
+rampa da franja, e ela some atrás do muro.
 
-Quadrado nos três, e o lado é a única coisa que muda: a pegada declarada da peça
-(`*_PECA_X/Z`, que já inclui esplanada e talude do próprio modelo) circunscrita
-num quadrado mais 12 m de calçada por lado. Topo na cor de calçada da cidade
-(`COR_CALCADA`, `vias.ts`) e face em meio-fio. Uma geometria, um material, 72
-triângulos no total.
+⚠️ **A máscara da franja e o recuo da laje têm de usar a MESMA geometria.** A
+primeira tentativa media a franja na métrica (raio, ângulo) e recuava a laje
+perpendicular às retas do polígono. O anel da cidade é uma face de dodecágono e
+não um arco, então num bloco de 30° as duas métricas divergem por mais de 100 m
+nas quinas: o verificador pegou a borda da laje pousada num trecho de rampa com
+66,2% de declive. Hoje as duas usam as quatro retas do polígono.
 
-A esplanada oval do ARENA e o disco da GEODE continuam dentro dos GLBs e pousam
-em cima da laje; a faixa de 12 m que sobra em volta deles é a calçada comum. Se
-um dia essas bases próprias forem aparadas, é em `blender/build_estadio.py` e
-`blender/build_arena.py`.
+## O piso
 
-### A saia desce até o terreno, e o motivo é o dodecágono
+Campo no cinza de platô da cidade (`COR_PLATO`), faixa de calçada de 12 m na
+borda (`COR_CALCADA`) e muro em meio-fio (`COR_MEIOFIO`), todos de `vias.ts`. A
+laje inteira tem 156 triângulos e uma chamada de desenho.
 
-A primeira versão do pódio era uma caixa de 1,2 m e ela flutuava. O anel interno
-da cidade é uma **face** do dodecágono, não um arco: entre a avenida de 90° e a
-de 120° é uma reta só, então o raio útil no rumo do bloco é menor que a apótema
-que `caixaDoModulo` devolve. Medido, a folga do canto do pódio até a divisa é de
-**5,6 m** no atletismo, 36 m no ARENA e 21 m na GEODE, e logo depois da divisa o
-chão volta ao natural e cai 7 m.
+Folga da pegada de cada peça até a borda da laje: 42 m no $DOG ARENA, 25 m no
+atletismo e **13 m em THE GEODE**, que é o ponto mais apertado.
 
-Por isso a saia é medida contra o terreno em volta em vez de ter altura fixa.
-Alturas resultantes: 4,26 m no atletismo, 9,12 m no ARENA e 4,03 m na GEODE. É a
-mesma solução que `build_estadio.py` já usava na `plataforma()` do ARENA.
+⚠️ **A normal de cada triângulo sai do winding, não de um vetor escrito à mão.**
+A versão anterior declarava a normal num parâmetro e montava o triângulo na
+ordem "natural", e as duas divergiam: a tampa era back-face, sumia, e o que
+aparecia era o interior escuro da caixa. O fundador viu na chapa de produção
+("um quadrado com cor diferente do resto do terreno, não é calçada, não é platô,
+é outra coisa") e era o avesso. Calculando a normal a partir dos próprios
+vértices os dois não podem mais divergir, e o verificador conta triângulos com
+normal para baixo.
 
 ## Um defeito que ficou, e que é anterior a este trabalho
 
