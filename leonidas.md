@@ -64,11 +64,48 @@ tem 144 por 43. A câmara de hoje não chega à metade de uma catedral.
 - [ ] **F1. A fortaleza-caveira** (`blender/build_leonidas_fortress.py` + GLB)
 - [ ] **F2. A caverna-geodo** (`blender/build_leonidas_cave.py` v2 + GLB)
 - [ ] **F3. Material e luz** (cristal das runestones, preto e laranja, a chegada)
-- [ ] **F4. Integração na cena** (`app/city/plaza/leonidas-cave.ts`)
+- [ ] **F4. Integração na cena** (regras escritas na seção acima) (`app/city/plaza/leonidas-cave.ts`)
 - [ ] **F5. Conferência** (chapas, orçamento por tier, zoom out provado)
 
 Cada fase fecha com: arquivo em disco, número medido escrito aqui, e commit. Nenhuma
 fase começa sem a anterior estar escrita neste arquivo.
+
+## F4: como a fortaleza carrega, e por que KTX2 nao entra aqui
+
+Requisito do fundador, 07/09: *"a cabeceira so vai ser vista por quem entrar na caverna,
+entao podemos otimizar o carregamento, lembre se do KTX2 se for necessario e a otimizacao
+pra nao derrubar o celular"*.
+
+**Medido no GLB exportado:**
+
+| | |
+|---|---|
+| dimensoes | 121,2 x 124,5 x 65,6 m |
+| triangulos | 173.994 em 6 malhas |
+| materiais | 5 (FortressRock, FortressCrystal, FortressCrown, FortressTooth, FortressFloor) |
+| **imagens embutidas** | **ZERO** |
+| arquivo | 1,72 MB |
+
+⚠️ **KTX2 NAO SE APLICA A ESTA PECA, e o motivo e simples: ela nao tem textura.** Os cinco
+materiais sao procedurais, sem uma unica imagem embutida. O espelho ETC1S existe para
+trocar o FORMATO de imagem, e aqui nao ha imagem para trocar. Os 1,72 MB sao geometria
+pura. Dizer que "passou por KTX2" seria mentira confortavel.
+
+**O que otimiza de verdade nesta peca, entao, e o CARREGAMENTO SOB DEMANDA**, que e
+exatamente o que o fundador apontou: ela so existe para quem entra na caverna.
+
+Regras da F4:
+1. A fortaleza NAO entra no boot. Ela carrega quando o visitante se aproxima da boca da
+   caverna, e o gatilho e distancia, nao bandeira de URL.
+2. Ela e DESCARTADA ao sair (dispose de geometria e material), porque quem saiu da caverna
+   nao volta a ver 174 mil triangulos tao cedo.
+3. Dentro da caverna o resto da cidade nao e visivel: a caverna e fechada. Entao a peca
+   pode gastar o orcamento inteiro do quadro sem competir com o tecido urbano, desde que o
+   que esta fora seja suspenso enquanto se esta dentro.
+4. LOD invertido: esta peca e vista de PERTO, nunca de longe. O LOD tradicional (simplifica
+   com a distancia) e inutil aqui; o que importa e a malha cheia funcionar a 20 m do rosto.
+5. Teto por tier de maquina continua valendo para o que ACOMPANHA a fortaleza (jardim de
+   caverna, cristais, brasas), nao para ela mesma.
 
 ## Registro
 
