@@ -2350,6 +2350,12 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                   ],
                   raioEmPhi: _raioEmPhi,
                   rFimRadial: rFim,
+                  // ⚠️ A MESMA FOZ QUE LIMITA A TERRAPLANAGEM. Sem esta linha os
+                  // dois lados voltam a calcular cada um a sua e o canal
+                  // desenhado desencontra do movimento de terra, que foi o
+                  // defeito de 06/09: 6,6 km de vala sem canal em cima,
+                  // atravessando a baía.
+                  fozDe: terrain.fozCanal,
                   sombra: qDomo.get('sombra') !== '0',
                 })
                 scene.add(canais.group)

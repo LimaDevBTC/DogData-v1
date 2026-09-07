@@ -117,6 +117,22 @@ export const CANAL_MERGULHO = 20    // leito -> lâmina, embaixo d'água: pode s
 export const CANAL_PRAIA = 40       // lâmina -> crista da praia seca, no meio de 20-60 m pedido
 export const CANAL_PRAIA_ALT = 2    // altura da crista da praia acima da lâmina
 export const CANAL_BANDA = 950      // crista da praia -> relevo natural, ≤6% medido (ver nota acima)
+// ⚠️ O ARREMATE DA FOZ. A banda ergue o terreno até 48 m acima da lâmina; se ela
+// simplesmente PARASSE na foz, o que sobraria seria um degrau desse tamanho na
+// linha d'água. Nos últimos metros antes da boca ela se dissolve no relevo
+// natural, e aí a margem da baía passa por ali sem costura.
+//
+// ⚠️ 1.000 m E NÃO 500, E O CRITÉRIO É A INCLINAÇÃO. A banda inteira é
+// calibrada em ≤6% (ver a nota de `CANAL_BANDA`), e a dissolução da foz é uma
+// rampa como qualquer outra: com 500 m ela chegava perto de 10%, uma quina que o
+// resto do terreno não tem. Medido com 1.000 m, na crista a 960 m do eixo: CR01
+// 4,81%, CR03 3,01%, CR02 1,42%. Dentro do padrão da casa.
+//
+// ⚠️ E NÃO É ESTE NÚMERO QUE TIRA O ATERRO. Passar de 500 para 1.000 não mudou
+// UM METRO do que sobrou dentro d'água (medido nas duas rodadas: 1.210 m nas
+// duas), porque o que sobra ali não é banda de canal, é ilha natural da baía.
+// Quem tirou o aterro foi o limite da foz, logo abaixo.
+export const CANAL_ARREMATE = 1000
 // ⚠️ A LÂMINA TAMBÉM ALARGOU, DE 60 PARA 100 m ("alargue a lâmina", palavra do
 // fundador). `plaza-scene.tsx` publica ESTE número no lugar do `secao`/`lamina`
 // que vem de `cidade-malha.json` (hoje 60), para a cava do terreno, a água de
@@ -165,6 +181,11 @@ export interface Terrain {
   superficieAt: (x: number, z: number) => number
   /** O chão SEM a cova do parque: o parque funde a borda dele neste valor. */
   baseAt: (x: number, z: number) => number
+  /** O raio em que o canal radial daquele rumo encontra a lâmina, medido no
+   *  terreno SEM canal. Publicado para `canais.ts` desenhar a boca no mesmo
+   *  ponto em que a terraplanagem para: enquanto os dois calculavam separado,
+   *  um parava na foz e o outro seguia baía adentro. */
+  fozCanal: (rumo: number) => number
   /** altura média do sítio: a régua do relevo em `regolithColor` */
   meanHeight: number
   halfExtent: number
@@ -569,6 +590,53 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
   // (`baseAt − bacia + monte`). Extraída para não repetir a conta.
   const bbAt = (x: number, z: number): number => baseAt(x, z) - bacia(x, z) + monteEm(x, z)
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // A FOZ DE CADA RADIAL, CALCULADA UMA VEZ E PUBLICADA
+  //
+  // ⚠️ A FOZ É A LINHA D'ÁGUA DO TERRENO SEM CANAL, não um teste de largura da
+  // baía. A versão anterior morava em `canais.ts` e perguntava "há água a 990 m
+  // dos DOIS lados do eixo?". Ela existia para não ler a escavação do próprio
+  // canal como água, e resolvia isso, mas exigia que a baía tivesse 2 km de
+  // largura para admitir que o canal tinha chegado. Medido em 06/09, com a
+  // varredura de 31.545 pontos (`scripts/city/canais-varredura.mjs`):
+  //
+  //     CR01 parava em r 3.657 e a água começa em 4.870: morria 1.213 m antes
+  //     CR02 parava em r 1.576 e a água começa em 1.980: 126 m de canal, só
+  //     CR03 parava em r 5.500 e a água começa em 5.110: este acertava
+  //
+  // Aqui a pergunta é outra e é direta: em que raio o terreno QUE EXISTIRIA SEM
+  // O CANAL cruza a lâmina, no próprio eixo. `bbAt` é exatamente esse terreno, e
+  // é a mesma função que a banda já usa como referência. Não há como ler a
+  // própria vala, porque a vala não está em `bbAt`.
+  //
+  // ⚠️ E ELA MORA AQUI, NÃO EM `canais.ts`, porque quem precisa dela primeiro é
+  // a TERRAPLANAGEM. Enquanto a foz vivia lá, `canalRadialAbsAt` não sabia onde
+  // o canal acabava e escavava até `rFim + CANAL_BANDA` (r 8.150), enquanto o
+  // canal desenhado parava na foz: eram 6,6 km de vala e banda sem canal em
+  // cima, atravessando a baía. `canais.ts` agora LÊ este número.
+  const _foz = new Map<number, number>()
+  const fozCanal = (rumo: number): number => {
+    const achado = _foz.get(rumo)
+    if (achado !== undefined) return achado
+    const r = _radiais.find((k) => k.rumo === rumo)
+    if (!r) return Infinity
+    const molhado = (t: number) => bbAt(t * r.dx, t * r.dz) <= LAGO_AGUA_Y
+    const teto = Math.min(r.rFim, halfExtent)
+    let out = teto
+    let ant = r.rInicio
+    for (let t = r.rInicio + 15; t <= teto; t += 15) {
+      if (molhado(t)) {
+        let a = ant, b = t
+        for (let k = 0; k < 7; k++) { const m = (a + b) / 2; if (molhado(m)) b = m; else a = m }
+        out = b
+        break
+      }
+      ant = t
+    }
+    _foz.set(rumo, out)
+    return out
+  }
+
   // ── O CANAL RADIAL, PERFIL ABSOLUTO ──────────────────────────────────────
   // Ver a nota grande em `CANAL_BANDA` (topo do arquivo) para o "porquê".
   // Devolve `null` fora de qualquer canal (usa o chão normal); dentro, devolve
@@ -584,7 +652,14 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
     let melhor: number | null = null
     for (const r of _radiais) {
       const tt = x * r.dx + z * r.dz
-      if (tt < r.rInicio - 40 || tt > r.rFim + CANAL_BANDA) continue
+      // ⚠️ O LIMITE É A FOZ, NÃO `rFim + CANAL_BANDA`. Com o teto antigo a
+      // terraplanagem ia a r 8.150 e o canal desenhado parava na foz: sobravam
+      // até 6,6 km de vala e banda erguida atravessando a baía, e como a água é
+      // "tudo abaixo de -40", a crista da banda virava terra seca DENTRO d'água.
+      // Medido: 6.440 m de estrada dentro da baía, com até 48 m acima da lâmina,
+      // e era isso que partia a baía nos dois corpos que o gerador reportava.
+      const fz = fozCanal(r.rumo)
+      if (tt < r.rInicio - 40 || tt > fz) continue
       const s = x * r.px + z * r.pz
       const d = Math.abs(s)
       const meia = r.meia
@@ -608,7 +683,13 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
         const xRef = tt * r.dx + sinal * rBanda * r.px
         const zRef = tt * r.dz + sinal * rBanda * r.pz
         const hRef = bbAt(xRef, zRef)
-        h = retaGrampeada(d, rPraia, LAGO_AGUA_Y + CANAL_PRAIA_ALT, rBanda, hRef)
+        const hBanda = retaGrampeada(d, rPraia, LAGO_AGUA_Y + CANAL_PRAIA_ALT, rBanda, hRef)
+        // ⚠️ SÓ A BANDA SE DISSOLVE, o leito e a praia não. Perto da foz o
+        // terreno natural já está abaixo da lâmina, então continuar escavando
+        // ali não custa nada (é fundo de baía) e manter a boca aberta é o que
+        // se quer. Quem tem de sumir é a CRISTA, que é o que vira aterro.
+        const k = Math.min(1, Math.max(0, (fz - tt) / CANAL_ARREMATE))
+        h = k >= 1 ? hBanda : hBanda * k + bbAt(x, z) * (1 - k)
       }
       // ⚠️ DOIS CANAIS PODEM SE SOBREPOR PERTO DO LAGO (25° e 55° só têm 30°
       // de abertura, e `CANAL_BANDA` é bem mais larga que isso). O MENOR
@@ -1023,7 +1104,7 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
 
   const group = new THREE.Group()
   group.add(mesh)
-  return { group, heightAt, horizonAt: heightAt, superficieAt, baseAt, meanHeight: mean, halfExtent,
+  return { group, heightAt, horizonAt: heightAt, superficieAt, baseAt, fozCanal, meanHeight: mean, halfExtent,
            lago: { r0: LAGO_R0, r1: LAGO_R1, agua: LAGO_AGUA_Y, fundo: -LAGO_FUNDO },
            corAt: corVertice, uvEscala: UV_ESCALA, material: mat }
 }

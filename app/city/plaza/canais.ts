@@ -80,6 +80,11 @@ export interface CanaisOpts {
   aneis: CanalAnel[]
   /** até onde o radial vai, em raio de mundo. Vem do maior anel de canal. */
   rFimRadial?: number
+  /** ⚠️ A FOZ VEM DO TERRENO, NÃO É CALCULADA AQUI. `terrain.ts` a publica em
+   *  `fozCanal(rumo)`, medida no relevo SEM canal, e é a MESMA que limita a
+   *  terraplanagem. Enquanto cada lado calculava a sua, o desenho parava na foz
+   *  e o movimento de terra seguia baía adentro por até 6,6 km. */
+  fozDe?: (rumo: number) => number
   sombra?: boolean
 }
 export interface Canais {
@@ -497,42 +502,17 @@ export function buildCanais(o: CanaisOpts): Canais {
     escada(ex, ez, px, pz, -ux, -uz, 5, 3.2, top)
   }
 
-  /** ⚠️ A FOZ SE MEDE, NÃO SE DECLARA. É o primeiro raio em que as DUAS margens
-   *  já estão abaixo da lâmina: dali para fora não há terra para conter e o canal
-   *  virou baía. Passo grosso de 15 m e refino por bisseção, para a boca não
-   *  ficar dependendo de onde caiu a amostra. Devolve −1 se o canal morre seco. */
-  const acharFoz = (sx: number, sz: number, r0: number, r1: number, meiaC: number) => {
-    const px = -sz, pz = sx
-    // ⚠️ AMOSTRA FORA DA ESCAVAÇÃO, e este é o erro que me custou uma medição.
-    // A ±meiaC o chão JÁ É a vala, cavada a −44, ou seja abaixo da lâmina: com
-    // essa amostra os três canais "chegavam à água" logo depois do começo (medido:
-    // CR01 em r 1.730, CR02 em 1.788, CR03 em 1.626, todos a menos de 350 m do
-    // rInicio 1.450) e o canal inteiro virava foz.
-    //
-    // ⚠️ 50 m DEIXOU DE BASTAR NA QUARTA RODADA (05/09): o talude fixo de 40 m
-    // virou perfil absoluto de até `CANAL_BANDA` (950 m: ver a nota grande em
-    // `canalRadialAbsAt`, `terrain.ts`), e a 100 m a amostra ainda caía dentro
-    // da PRAIA do próprio canal (que sobe suave rumo ao relevo natural), lendo
-    // "seco" quase no início de novo, o mesmo defeito antigo, por outro
-    // motivo. Agora a amostra sai depois da banda inteira, o mesmo raio de
-    // onde `_foraDoCanal` (`plaza-scene.tsx`) tira a máscara da orla da baía.
-    const fora = meiaC + CANAL_BANDA + 10
-    const seco = (r: number) => {
-      const x = sx * r, z = sz * r
-      return Math.max(o.heightAt(x + px * fora, z + pz * fora),
-                      o.heightAt(x - px * fora, z - pz * fora)) >= NIVEL + 0.5
-    }
-    let ant = r0
-    for (let r = r0 + 15; r <= r1; r += 15) {
-      if (!seco(r)) {
-        let a = ant, b = r
-        for (let k = 0; k < 6; k++) { const m = (a + b) / 2; if (seco(m)) a = m; else b = m }
-        return b
-      }
-      ant = r
-    }
-    return -1
-  }
+  // ⚠️ `acharFoz` VIVIA AQUI E SAIU EM 06/09. Ela perguntava "há água a 990 m dos
+  // DOIS lados do eixo?", amostra larga o bastante para não ler a escavação do
+  // próprio canal como água. Resolvia aquilo e criava outra coisa: exigia que a
+  // baía tivesse 2 km de largura para admitir que o canal tinha chegado nela.
+  // Medido com a varredura de 31.545 pontos (`scripts/city/canais-varredura.mjs`):
+  // o CR01 morria 1.213 m antes da água e o CR02 tinha 126 m de comprimento.
+  //
+  // Agora a foz vem de `terrain.ts`, medida no relevo que existiria SEM o canal
+  // (`bbAt`), no próprio eixo. Não há como ler a própria vala, porque a vala não
+  // está nesse relevo. E, principalmente, é o MESMO número que limita a
+  // terraplanagem: os dois lados do problema passaram a parar no mesmo ponto.
 
   // ── os radiais: do lago para fora, até a foz (ou até a cabeceira) ─────────
   const rFim = o.rFimRadial ?? 4300
@@ -547,7 +527,8 @@ export function buildCanais(o: CanaisOpts): Canais {
     // ⚠️ CADA CANAL TEM O SEU `rFim`, e usar o maior de todos é o que jogava CR01
     // e CR02 baía adentro. O `rFimRadial` continua valendo como teto de segurança.
     const rSeu = Math.min(r.rFim ?? rFim, rFim)
-    const rF = acharFoz(sx, sz, r.rInicio, rSeu, r.secao / 2)
+    const fz = o.fozDe ? o.fozDe(r.rumo) : Infinity
+    const rF = Number.isFinite(fz) && fz > r.rInicio && fz <= rSeu + 4000 ? fz : -1
     const rPara = rF > 0 ? rF : rSeu
     trecho(sx * r.rInicio, sz * r.rInicio, sx * rPara, sz * rPara, r.secao, r.lamina)
     if (rF > 0) {
