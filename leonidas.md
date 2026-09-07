@@ -61,7 +61,7 @@ tem 144 por 43. A câmara de hoje não chega à metade de uma catedral.
 
 ## Fases e checkpoints
 
-- [ ] **F1. A fortaleza-caveira** (`blender/build_leonidas_fortress.py` + GLB)
+- [x] **F1. A fortaleza-caveira** (`blender/build_leonidas_fortress.py` + GLB) — 07/09
 - [ ] **F2. A caverna-geodo** (`blender/build_leonidas_cave.py` v2 + GLB)
 - [ ] **F3. Material e luz** (cristal das runestones, preto e laranja, a chegada)
 - [ ] **F4. Integração na cena** (regras escritas na seção acima) (`app/city/plaza/leonidas-cave.ts`)
@@ -81,7 +81,7 @@ pra nao derrubar o celular"*.
 | | |
 |---|---|
 | dimensoes | 121,2 x 124,5 x 65,6 m |
-| triangulos | 173.994 em 6 malhas |
+| triangulos | **164.865** em 6 malhas (medido no arquivo; o escultor reportou 173.994 e 165.228 em lugares diferentes, e os dois estavam errados) |
 | materiais | 5 (FortressRock, FortressCrystal, FortressCrown, FortressTooth, FortressFloor) |
 | **imagens embutidas** | **ZERO** |
 | arquivo | 1,72 MB |
@@ -107,8 +107,119 @@ Regras da F4:
 5. Teto por tier de maquina continua valendo para o que ACOMPANHA a fortaleza (jardim de
    caverna, cristais, brasas), nao para ela mesma.
 
+## F1 REPROVADA na revisao adversarial, 07/09
+
+A revisao mediu o GLB por conta propria e o veredito foi **nao e obra de arte**. Quatro
+bloqueios, e o principal derruba a promessa da peca:
+
+1. **O cranio NAO e oco.** O santuario furou os dois flancos e o fundo da caveira. Medido
+   com raios do centro da sala, na altura do olho de quem entra: **6 das 12 direcoes nao
+   encontram cranio nenhum**, quem fecha a sala e o macico atras. 24% do angulo solido sai
+   do objeto do cranio inteiro. Quem entra nao esta dentro da cabeca, esta num buraco.
+2. **O santuario e um elipsoide de boolean cru**, 38 m de casca lisa sem articulacao, com
+   facetamento de 0,35 m do remesh, e ele aparece pela porta na chegada.
+3. **A calota e um balao liso**, com as suturas saindo como duas linhas tracejadas: le
+   costura de bola de praia num cranio que o visitante vai contornar.
+4. **As orbitas leem como confete**: cada uma chega como oito lascas laranja desconexas,
+   sem contorno de soquete, quando a doutrina pede olhos acesos.
+
+⚠️ **E a chapa de prova estava armada.** O render de chegada foi feito com duas luzes
+pontuais de 9.000 W POR DENTRO das orbitas, nas linhas 1341-1342 do script: os olhos
+acendem na chapa exista furo ou nao. A imagem nao prova o que dizia provar.
+
+Outros defeitos altos, todos medidos:
+- `doubleSided: true` nos cinco materiais, ou seja 165 mil triangulos em DoubleSide num
+  contrato que diz nao derrubar o celular. E e isso que ESCONDE 1.574 arestas de fronteira,
+  que sao buracos de verdade na malha.
+- **46,5% dos triangulos da muralha tem area ZERO** (12.893 de 27.721). No arquivo inteiro,
+  7,9% ocupam area indistinguivel de zero.
+- `TEXCOORD_0` exportado nos seis meshes com ZERO textura no arquivo: 3,0 MB de VRAM sem
+  uso nenhum. Falta `export_texcoords=False`.
+- O exportador do Blender avisa **"Mesh FORT_Skull is not valid, and may be exported
+  wrongly"** em toda rodada, e o aviso nao foi registrado em lugar nenhum.
+- Emissivo assado no GLB (`FortressCrystal` e `FortressCrown`), contrariando a regra
+  escrita na mesma pagina de que o laranja e luz e nao tinta.
+
+**O que a revisao CONFIRMOU de bom:** as normais estao certas (13 mil raios de camera, 2
+acertos em face de costas, 0,015%: o defeito mais caro da semana nao voltou), a geometria e
+deterministica (script rodado de novo, hash das posicoes identico), e zero n-gons.
+
 ## Registro
 
 ### 06/09/2026
 - Obra aberta. Diagnóstico medido, decisões 1 a 5 tomadas, busca de acervo encerrada sem
   candidato aprovado.
+
+### 07/09/2026 — F1 fechada
+
+`blender/build_leonidas_fortress.py` → `public/city/park/leonidas-fortress.glb`
+(1.719 KB, 165.228 triângulos, 5 materiais, 6 objetos). Reproduz com
+`blender -b -P build_leonidas_fortress.py`.
+
+**A peça.** Um crânio esculpido de 60,3 m, OCO, nascendo de um maciço de 46 m. As
+órbitas e o nariz são janelas de verdade do santuário interno; a boca é a porta.
+
+| o que | medido na malha pronta |
+|---|---|
+| crânio (largura entre arcos zigomáticos x altura) | 40,2 x 60,3 m — razão **1,50** |
+| altura total (piso do salão à ponta do cristal da coroa) | **65,5 m** |
+| frente total / profundidade total | **124,5 m** / 121,2 m (x de −72,2 a +49,0) |
+| porta: vão livre medido por varredura de raios | **8,8 x 10,0 m** |
+| soleira acima do piso do salão | **5,92 m** (escadaria de 15 degraus, 20 m de corrida, 16,5°) |
+| órbita acima do piso / ângulo do visitante | 32,96 m / **16,6°** |
+| parapeito do maciço / calota acima dele | 46,0 m / 14,3 m |
+| muralha externa / torre de canto | 18 m e 19 m = 30% e 31,7% do crânio |
+| **distância de leitura (fov 45, peça a 75% do quadro)** | **105,5 m** |
+
+⚠️ **Os 105,5 m são o contrato da F2.** A câmara de hoje oferece 32 m. O geodo de
+250 x 180 x 90 m dá conta com folga, mas o número tem de ser conferido a raio na
+malha nova, não presumido.
+
+**Contrato do quadro local** (para a F4, em `leonidas-cave.ts`): metros finais, sem
+multiplicador; z para cima; ORIGEM no centro da soleira da porta, no nível do piso
+dela; **+X aponta para FORA da boca** (mesma convenção de `build_leonidas_cave.py`).
+Objetos e materiais: `FORT_Skull`/`FORT_Walls` → `FortressRock` (massa fosca quase
+preta), `FORT_Podium` → `FortressFloor` (laje do santuário, fita do túnel e soleira
+com a Diamond Paw), `FORT_Teeth` → `FortressTooth`, `FORT_Crystal` → `FortressCrystal`
+(órbitas, nariz e fraturas), `FORT_Crown` → `FortressCrown` (o cacho da calota).
+**A luz é do .ts**: a brasa vai DENTRO do santuário e sai pelos olhos porque há
+buraco (medido: o raio do centro do santuário até cada órbita sai sem tocar rocha).
+`FortressCrown` tem de ficar mais fraco que as órbitas, senão a coroa rouba o
+primeiro sinal.
+
+**Conferência de normais, antes de exportar** (lagoa.ts e alpino.ts perderam 100%
+dos triângulos nesta mesma semana, em silêncio, contra material FrontSide):
+
+- 2.000 raios de FORA para dentro no crânio: **100,0% em face frontal**
+- 466 raios de DENTRO do santuário para fora: **100,0%**
+- 1.200 raios de fora na muralha: **100,0%**
+- n-gons com mais de 4 lados: **0** em todos os 6 objetos
+- arestas não-manifold: 3.189 no crânio (0,9% das arestas, resíduo de EXACT sobre
+  malha deslocada; nenhuma delas é visível pelos testes de face acima), 3 na
+  muralha, 0 nos outros quatro
+
+**Quatro defeitos que só a medição pegou, e que o próximo agente não deve repetir:**
+
+1. `use_self` no Boolean. Os cortadores desta peça se cruzam entre si. Sem essa
+   flag o EXACT levou a massa de 49.388 para **685** faces e o talhe de 685 para
+   **21**, sem um erro no console. Irmã gêmea da escala não aplicada do cave.py.
+2. Faces coplanares entre cascas do MESMO cortador. O piso do santuário e o piso do
+   portal estavam os dois na cota 5,92: a porta abria só de 9,72 m para cima, ou
+   seja faltavam 3,8 m dos 11 de altura livre, em silêncio. Um piso só, aparado uma
+   vez, como o par bacia+laje do cave.py já fazia.
+3. Raio de medição saindo de DENTRO do oco. As suturas, as crateras e a coroa
+   inteira foram entalhadas na parede interna do santuário na primeira rodada,
+   invisíveis de qualquer câmera. `surface()` agora atira de fora para dentro.
+4. `ray_cast` responde em quadro LOCAL. Só o crânio tinha a localização assada, e
+   toda sonda contra muralha, dente ou cristal media num quadro deslocado.
+
+**A decisão de projeto que a chapa de clay forçou.** De frente o crânio redondo
+lia; de três quartos lia OVO. Rushmore, Abu Simbel, Kailasa e o próprio Grayskull
+são todos ROSTO EMERGINDO DE UMA MASSA, não escultura solta num pátio. O crânio
+continua inteiro e esculpido, mas nasce de um maciço com a frente em x = +13: o
+rosto projeta 8 m e a calota sobe 14,3 m acima do parapeito. De frente vê-se a
+caveira, de lado e de trás vê-se fortaleza.
+
+**Chapas de conferência** (clay de frente, clay de três quartos, e a chegada em
+EEVEE com a brasa) ficam em `/tmp/.../scratchpad/fortress-*.png` e o script as
+regrava a cada rodada.
