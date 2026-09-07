@@ -145,6 +145,12 @@ export const CANAL_ARREMATE = 1000
 // explícito, "não existe lote fixo em nenhum lugar da cidade", e nascem de
 // novo, uma vez só, no snapshot.
 export const CANAL_LAMINA = 100
+/**
+ * Metros de água SEM INTERRUPÇÃO que a foz de um canal exige para admitir que
+ * chegou na baía. Ver a nota dentro de `fozCanal`: é o que separa corpo d'água
+ * de poça, e o que impedia o CR02 de fechar o molhe 198 m antes da baía.
+ */
+export const FOZ_CONTINUA = 600
 
 export interface Terrain {
   group: THREE.Group
@@ -630,13 +636,35 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
     //
     // O que separa lago de baía não é a cota, é a PERSISTÊNCIA. Saindo da borda
     // do lago para fora o terreno sobe em poucas dezenas de metros; a baía tem
-    // quilômetros. Exijo que 70% dos 400 m seguintes também estejam abaixo da
-    // lâmina, tolerância que engole as ilhas e os bancos que a baía tem de
-    // verdade sem engolir a beira do lago.
+    // quilômetros.
+    //
+    // ⚠️ E A PERSISTÊNCIA É CONTINUIDADE, NÃO PORCENTAGEM. A primeira versão
+    // pedia 70% dos 400 m seguintes abaixo da lâmina, e uma tolerância assim
+    // atravessa uma SOLEIRA: a janela cai metade na poça, metade na baía, e a
+    // média aprova a poça.
+    //
+    // Fundador, 07/09: "o canal radial central não está indo até a baía, ele
+    // para num pequeno corpo d'água que tem alguns metros antes dele chegar à
+    // baía." Medido no eixo do CR02 (rumo 55), de 25 em 25 m: água de 3.527 a
+    // 3.625 (a poça, 98 m), soleira SECA de 3.650 a 3.700 com a crista em
+    // −40,0 (zero metro acima da lâmina), e a baía de 3.725 a 6.600 sem
+    // interrupção. A janela de 400 m a partir de 3.527 dava 8 amostras
+    // molhadas em 9 — 89%, aprovada com folga — e o canal fechava o molhe na
+    // poça, 198 m antes da baía e com 75 m de terra no meio.
+    //
+    // ⚠️ 600 m, E O NÚMERO SEPARA OS DOIS CASOS COM FOLGA DOS DOIS LADOS: a
+    // poça mede 98 m de corrida contínua e a baía mede 2.875. Qualquer valor
+    // entre 150 e 2.800 daria a mesma resposta neste rumo; 600 é a ordem de
+    // grandeza de "corpo d'água", não de "poça".
+    //
+    // ⚠️ E A RESPOSTA BATE COM A DO GERADOR, que é a conferência que importa.
+    // `_fim_no_lago` em `scripts/gerar_cidade.py` mede a máscara `em_baia`
+    // contra o relevo cru e publica a baía encontrando o CR02 em r 3.730; esta
+    // regra, medida no relevo vivo, devolve 3.725. Duas fontes independentes
+    // no mesmo ponto é o que faltava.
     const persiste = (t: number) => {
-      let mol = 0, n = 0
-      for (let u = t; u <= t + 400; u += 50) { n++; if (molhado(u)) mol++ }
-      return mol / n >= 0.7
+      for (let u = t; u <= t + FOZ_CONTINUA; u += 50) if (!molhado(u)) return false
+      return true
     }
     const teto = Math.min(r.rFim, halfExtent)
     let out = teto

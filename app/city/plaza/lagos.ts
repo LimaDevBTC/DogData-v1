@@ -23,7 +23,7 @@ import * as THREE from 'three'
 import { COR_AGUA, aguaDeVerdade } from './lago'
 import { look2 } from './look'
 import { superficie, quebrarRepeticao } from './materiais'
-import { ALCA_TERRA, ANEIS, N_RAD, anguloDe, nasceEm, noArcoDoAnel, passoNoRaio } from './teia'
+import { ANEIS, N_RAD, anguloDe, naAlcaDeTerra, nasceEm, passoNoRaio } from './teia'
 
 const COR_AREIA = '#8E856F'    // a faixa de praia, no mesmo tom do cais dos canais
 const COR_FUNDO = '#243B47'    // o raso junto à margem, para a água não virar chapa
@@ -935,8 +935,7 @@ export function buildLagos(o: LagosOpts): Lagos {
         // virado para quem anda na orla. Trocar o destino mantém a seção inteira
         // e o cais continua sendo cais; o que muda é o piso.
         const _mx = px(k, (w1 + w2) / 2), _mz = pz(k, (w1 + w2) / 2)
-        const _naAlca = Math.hypot(_mx, _mz) >= 6400
-          && noArcoDoAnel({ arco: ALCA_TERRA }, Math.atan2(_mx, -_mz))
+        const _naAlca = naAlcaDeTerra(_mx, _mz)
         faixa(0, yD, w1, yD, posC, idxC)                  // o passeio
         if (_naAlca) faixa(w1, yD, w2, yD, posC, idxC)    // na alça, passeio também
         else faixa(w1, yD - 0.15, w2, yD - 0.15, posR, idxR)   // a faixa de rolamento

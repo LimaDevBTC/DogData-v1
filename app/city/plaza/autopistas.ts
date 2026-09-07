@@ -194,7 +194,7 @@
 import * as THREE from 'three'
 import { superficie, vestir, type Superficie } from './materiais'
 import type { DistanceCuller } from './perf'
-import { ANEIS, AVENIDAS } from './teia'
+import { ANEIS, AVENIDAS, naAlcaDeTerra } from './teia'
 
 // ── as constantes do projeto ───────────────────────────────────────────────
 
@@ -439,6 +439,30 @@ function cruzaRaio(afastamento: number, R: number): number[] {
  * AU1: o terreno na ponta nordeste está em −48 m já em r 4.379 e continua
  * caindo até −76 m em r 6.745, e a lâmina da cidade é −40. Sem esta busca o
  * portal abriria no fundo da baía.
+ *
+ * ⚠️ E A ALÇA DE TERRA NÃO CONTA COMO TERRA, DESDE 07/09. A alça é a faixa
+ * entre a baía e a água externa (r 6.580 a 7.300), e a busca começa em
+ * `R_SAIDA` = 6.900, ou seja EM CIMA DELA: seco lá, pátio de 300 m para dentro
+ * ainda seco por 20 m, e a boca da AU2 se mudou para r 6.900 no rumo 81,7°.
+ * O que ficou entre a boca nova e a antiga foi 1.700 m de tronco a céu aberto
+ * ATRAVESSANDO A BAÍA, com o fundo a −80 m: sem cobertura não há túnel, então
+ * o greide sai da alça, mergulha na água e some no meio do corpo d'água.
+ *
+ * Fundador, 07/09: "tem uma ponte saindo da alça de terra que vai ser o
+ * condomínio luxuoso e entrando baía adentro e terminando no meio da baía...
+ * do nada."
+ *
+ * ⚠️ E A REGRA JÁ EXISTIA, ESCRITA PARA OUTRA VIA: "as outras ruas devem sair
+ * por completo da alça de terra. Lá, por enquanto, teremos apenas a via
+ * central" (fundador, 07/09). Portal de expressa é a mais pesada das outras
+ * ruas. Reprovando a alça, a busca continua para dentro e a boca volta a cair
+ * na ORLA da baía — medido contra o `heightAt` vivo, r 4.934 no rumo 74,5°,
+ * que é o mesmo lugar que o cabeçalho deste arquivo registrou em 03/09
+ * (r 4.980) e a frente construída da cidade.
+ *
+ * ⚠️ SÓ UMA DAS SEIS PONTAS MUDA. Medidas as seis com e sem a reprovação:
+ * AU1A r 3.196, AU1B 6.900, AU2B 6.900, AU3A 6.900 e AU3B 6.900 não se movem
+ * um metro (nenhuma delas cai no arco da alça); só a AU2A anda.
  */
 function bocaSeca(
   nx: number, nz: number, dx: number, dz: number, off: number,
@@ -450,7 +474,9 @@ function bocaSeca(
     let seco = true
     for (let k = 0; k <= n && seco; k++) {
       const tt = t - sinal * k * passo
-      if (heightAt(nx * off + dx * tt, nz * off + dz * tt) < agua + BORDA_LIVRE) seco = false
+      const px = nx * off + dx * tt, pz = nz * off + dz * tt
+      if (heightAt(px, pz) < agua + BORDA_LIVRE) seco = false
+      else if (naAlcaDeTerra(px, pz)) seco = false
     }
     if (seco) return t
   }

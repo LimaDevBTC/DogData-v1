@@ -49,7 +49,7 @@
 import * as THREE from 'three'
 import { LIMIAR_PRACA } from './pracas'
 import type { DistanceCuller } from './perf'
-import { ALCA_TERRA, ANEIS, AVENIDAS, HR, N_RAD, aneisDaCidade, anguloDe, avenidasGeom, nasceEm, noArcoDoAnel, raioDodeca } from './teia'
+import { ANEIS, AVENIDAS, HR, N_RAD, aneisDaCidade, anguloDe, avenidasGeom, naAlcaDeTerra, nasceEm, noArcoDoAnel, raioDodeca } from './teia'
 import { look2 } from './look'
 import { superficie, vestir, type Superficie } from './materiais'
 
@@ -1047,11 +1047,11 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   // alça para achar as radiais de 330 e 120 (ver a nota em `AVENIDA_ALCA`); a
   // proibição vale só onde a alça é alça. Fechar os dois no mesmo arco deixava os
   // 15,9 km ilhados, medido: 453.060 m² a 54 m da rede e 233.676 m² a 186 m.
-  const ALCA_R_DENTRO = 6400
-  const naAlca = (px: number, pz: number): boolean => {
-    if (Math.hypot(px, pz) < ALCA_R_DENTRO) return false
-    return noArcoDoAnel({ arco: ALCA_TERRA }, Math.atan2(px, -pz))
-  }
+  //
+  // ⚠️ E A CONTA MUDOU DE ENDEREÇO EM 07/09, sem mudar de valor: ela virou
+  // `naAlcaDeTerra` em `teia.ts` porque as AUTOPISTAS precisavam da mesma
+  // pergunta e não sabiam fazê-la. Ver a nota de `ALCA_R_DENTRO` lá.
+  const naAlca = naAlcaDeTerra
   // Vão máximo de uma face de via, em metros: ver a nota em faixa(). Depois que
   // o chão passou a ser `superficieAt` o vão deixou de precisar ser curto por
   // causa da flecha (a superfície virou a mesma) e passou a precisar só de não

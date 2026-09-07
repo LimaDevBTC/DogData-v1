@@ -248,6 +248,23 @@ export const AVENIDA_ALCA = {
 export const ALCA_TERRA: [number, number] = [346, 116.5]
 
 /**
+ * O raio a partir do qual `ALCA_TERRA` vale como máscara.
+ *
+ * ⚠️ ELE SAIU DE DENTRO DE `vias.ts` EM 07/09 E VIROU EXPORT PELO MOTIVO DE
+ * SEMPRE NESTE ARQUIVO: dois módulos precisavam da mesma pergunta e o segundo
+ * não sabia que o primeiro já tinha a resposta. A margem interna da alça está
+ * medida em r 6.580 (`scripts/city/alca-varredura.mjs`); 6.400 é ela com 180 m
+ * de folga, o suficiente para a máscara pegar a praia da baía antes da terra.
+ */
+export const ALCA_R_DENTRO = 6400
+
+/** o ponto cai na alça de terra, onde só a via central existe? */
+export function naAlcaDeTerra(px: number, pz: number): boolean {
+  if (Math.hypot(px, pz) < ALCA_R_DENTRO) return false
+  return noArcoDoAnel({ arco: ALCA_TERRA }, Math.atan2(px, -pz))
+}
+
+/**
  * A lista de anéis do gerador com a exceção da alça já aplicada.
  *
  * ⚠️ PASSA POR AQUI QUEM DESENHA E QUEM SEGUE O ANEL, e isso é a lição de
