@@ -157,8 +157,21 @@ function pesoParcela(x: number, z: number): number {
   return dentro >= FRANJA ? 1 : _suave(dentro / FRANJA)
 }
 
+/**
+ * ⚠️ CHAVE DE DIAGNÓSTICO: `?campus=0` desliga a terraplanagem E a laje. Ela
+ * existe porque em 07/09 a chapa de produção mostrou o terreno da cidade INTEIRA
+ * escurecendo pela metade (RGB 111 para 48, medido longe do campus) quando o
+ * pódio único entrou, com a MESMA contagem de triângulos e de chamadas de
+ * desenho. Sem uma chave, separar "foi o campus" de "foi outra coisa" custa um
+ * deploy por tentativa. A leitura acontece uma vez, no módulo, como o resto da
+ * casa faz (`TERRENO_FINO_ATIVO` em `terreno-fino.ts`).
+ */
+export const CAMPUS_ATIVO = typeof window === 'undefined'
+  || new URLSearchParams(window.location.search).get('campus') !== '0'
+
 /** a cota do chão depois da terraplanagem, dada a cota natural */
 export function campusAlturaAt(x: number, z: number, natural: number): number {
+  if (!CAMPUS_ATIVO) return natural
   const k = pesoParcela(x, z)
   return k <= 0 ? natural : natural * (1 - k) + CAMPUS_Y * k
 }

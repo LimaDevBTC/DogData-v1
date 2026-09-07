@@ -83,7 +83,7 @@ import { assentarEstadio, estadioCull, estadioSitio } from './estadio'
 import { assentarGeode, geodeCull, geodeSitio, podarGeode } from './geode'
 import { atletismoSitio } from './atletismo'
 import { criarAtletismo, type Atletismo } from './atletismo-loader'
-import { campusParcela, comPodio, criarCampus, GIRO_CAMPUS } from './campus'
+import { campusParcela, comPodio, criarCampus, CAMPUS_ATIVO, GIRO_CAMPUS } from './campus'
 import { buildSphere, sphereCull, sphereParcela, sphereSitio, spherePxAng, type Sphere } from './sphere'
 import { criarProgramacao } from './sphere-conteudo'
 import { ILHAS_RAIO, ILHAS_RUMO } from './lago'
@@ -3557,7 +3557,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // meio-fio. Uma geometria, um material, 36 triângulos. Ele não entra no
         // culler de propósito: é chão, e chão que some deixa buraco na silhueta
         // do distrito visto da praça.
-        scene.add(criarCampus((x, z) => terrain.heightAt(x, z)))
+        if (CAMPUS_ATIVO) scene.add(criarCampus((x, z) => terrain.heightAt(x, z)))
 
         // ── $DOG ARENA ────────────────────────────────────────────────────────
         // ⚠️ A POSIÇÃO VEM DA RESERVA, NÃO DO GOSTO. O centro é o da peça `E03`
