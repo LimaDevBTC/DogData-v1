@@ -144,6 +144,35 @@ Outros defeitos altos, todos medidos:
 acertos em face de costas, 0,015%: o defeito mais caro da semana nao voltou), a geometria e
 deterministica (script rodado de novo, hash das posicoes identico), e zero n-gons.
 
+## A decisao anatomica, 07/09: a caveira e FACHADA, a nave e escavada atras
+
+O fundador levantou o problema que a revisao nao tinha nomeado:
+
+> "Sendo um cranio de verdade, as orbitas e a parte do cerebro estarao num segundo andar,
+> visto que a maxila vai estar encostada no solo, ou entao ela teria que estar parcialmente
+> soterrada. Em relacao a opcao 2, se for bem feita, a entrada tiver realmente um belo
+> aspecto de caveira em cristal, o interior pode ser generico nessa fase, afinal e uma
+> caveira dentro de uma caverna, podemos ir melhorando com o tempo."
+
+Ele esta certo e o numero confirma: as orbitas estao a **32,96 m** acima do piso. Um cranio
+anatomicamente honesto com a mandibula no chao poe a caixa craniana dez andares acima de
+quem entra pela boca. So ha tres saidas: escadaria interna de 33 m (caro e nao foi pedido),
+cranio parcialmente soterrado ate a linha dos olhos (perde a mandibula e a boca como porta),
+ou **fachada**.
+
+**DECISAO: opcao 2.** A caveira e a FACHADA, e a nave e escavada no macico ATRAS dela. E o
+que o Castelo de Grayskull sempre foi: a cara e a frente, o castelo e o interior. Isso
+tambem resolve o bloqueio 1 da revisao, porque o cranio deixa de precisar ser oco.
+
+**O que isso muda nas prioridades:**
+- a FACHADA passa a ser onde vai todo o esforco de acabamento. Ela e o que o visitante ve,
+  e o fundador foi explicito: "se a entrada tiver realmente um belo aspecto de caveira em
+  cristal". Calota esculpida, orbitas com soquete de verdade, superficie que aguenta zoom.
+- o INTERIOR pode ser generico NESTA FASE, por decisao dele. Nave escavada, honesta, sem
+  elipsoide de boolean cru aparecendo pela porta. Melhora com o tempo.
+- a mandibula deixa de ser problema: ela funde na base do macico, e a boca continua sendo a
+  porta na cota do piso.
+
 ## Registro
 
 ### 06/09/2026
