@@ -81,6 +81,7 @@ import { montarPos, type Pos } from './pos'
 import { rotaLive, duracaoLive, TOUR_LIVE_DERIVA, TOUR_LIVE_OCIO_MS } from './tour-live'
 import { assentarEstadio, estadioCull, estadioParcela, estadioSitio } from './estadio'
 import { assentarGeode, geodeCull, geodeParcela, geodeSitio, podarGeode } from './geode'
+import { buildSphere, sphereCull, sphereParcela, sphereSitio, spherePxAng, type Sphere } from './sphere'
 import { ILHAS_RAIO, ILHAS_RUMO } from './lago'
 import { CityChat } from '@/components/wallet/city-chat'
 
@@ -1713,6 +1714,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let csm: SombraCascata | null = null
     let pracas: Pracas | null = null
     let arvores: Arborizacao | null = null
+    let sphere: Sphere | null = null   // THE SPHERE; nasce no bloco das peças de infra
     let lago: Lago | null = null
     let canais: Canais | null = null
     let lagos: Lagos | null = null
@@ -2607,8 +2609,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               // que foi exatamente o defeito que o fundador apontou na chapa.
               // ⚠️ E O MESMO VALE PARA THE GEODE: sem a parcela dele na máscara,
               // a teia desenha rua por dentro da arena.
+              // ⚠️ E O MESMO VALE PARA THE SPHERE, pela mesma razão: sem a
+              // parcela dela, a teia desenha rua por dentro do tabuleiro.
               parcelas = [...parcelas, estadioParcela() as PecaEncaixada,
-                          geodeParcela() as PecaEncaixada]
+                          geodeParcela() as PecaEncaixada,
+                          sphereParcela() as PecaEncaixada]
               console.log(`[programa] ${parcelas.length} de ${_prog.length} peças `
                 + `encaixadas em módulo inteiro da teia`
                 + (programa ? `, ${programa.triangulos.toLocaleString('pt-BR')} triângulos` : ' (só o encaixe; ?programa=1 desenha)'))
@@ -3517,6 +3522,19 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           scene.add(arena)
           const _st = estadioSitio()
           culler.add(arena, estadioCull(profile.tier), new THREE.Vector3(_st.x, 0, _st.z))
+        }
+
+        // ── THE SPHERE ────────────────────────────────────────────────────────
+        // O telão esférico de 135 m. Sítio, tabuleiro, shader de LED e
+        // escalonamento por perfil estão todos em `sphere.ts`; aqui só nasce,
+        // entra na cena e recebe a câmera por quadro.
+        // ⚠️ ELA NÃO CARREGA SOB DEMANDA e o corte é maior que a cidade: 81% do
+        // tecido enxerga o topo dela, e sumir do boot mataria a razão de existir.
+        sphere = buildSphere({ perfil: profile, heightAt: (x, z) => terrain.heightAt(x, z) })
+        scene.add(sphere.group)
+        {
+          const _sp = sphereSitio()
+          culler.add(sphere.group, sphereCull(), new THREE.Vector3(_sp.x, 0, _sp.z))
         }
 
         // ── THE GEODE ─────────────────────────────────────────────────────────
@@ -4524,6 +4542,12 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       ilhaMata?.update(camera.position)
       alpino?.update(camera.position)
       autopistas?.update(camera.position)
+      // ⚠️ `spherePxAng` NÃO É ENFEITE: o shader de LED decide se desenha o
+      // ponto pelo tamanho dele EM PIXEL DE TELA, então ele precisa saber o
+      // tamanho do pixel. Sem esta linha a peça usa o padrão do perfil e lê
+      // errado em tela densa ou em janela pequena.
+      sphere?.update(camera.position,
+        spherePxAng(camera.fov, mount.clientHeight, governor.pixelRatio))
       inverno?.update(camera.position)   // mesmo contrato do alpino: troca o LOD da floresta
       // só faz trabalho quando a câmera anda mais que o passo dele; fora
       // disso retorna na primeira linha
@@ -4795,6 +4819,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       vias?.dispose()
       pracas?.dispose()
       arvores?.dispose()
+      sphere?.dispose()
       mob?.dispose()
       decal?.dispose()
       terrenoFino?.dispose()

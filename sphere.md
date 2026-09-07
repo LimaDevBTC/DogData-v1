@@ -150,11 +150,12 @@ export const SPHERE_ENVELOPE_ARCO = 370.8
 export const SPHERE_DIAM_MIN = 110
 export const SPHERE_DIAM_REF = 160
 
-// tabuleiro assenta na cota MAXIMA medida na peca (regra da casa, ver
-// assentarGeode/assentarEstadio: canto alto fura o piso se for pela media),
-// nao na media: 111,0 m (grade 5x5 sobre 160x160 m; desnivel de so 10,3 m
-// dentro da peca, terraplenagem minima).
-export const SPHERE_PLATAFORMA_Y = 111.0
+// ⚠️ ESTE NUMERO ESTAVA ERRADO E FOI CORRIGIDO PARA 118,3 EM 07/09. Ver
+// "A correcao do tabuleiro", abaixo: 111,0 vem de uma grade sobre 160x160 m,
+// que e a pegada da ESFERA, mas o tabuleiro cobre o LOTE INTEIRO (227,0 x
+// 370,8) e ali o relevo vai a 117,85 m. O valor de producao esta em
+// app/city/plaza/sphere.ts.
+export const SPHERE_PLATAFORMA_Y = 111.0   // ← SUBSTITUIDO POR 118,3
 ```
 
 ## A base tem praça, e ela é chão de verdade
@@ -262,11 +263,249 @@ relogio mente; quando adianta, ele salta.
 Entao a peca mostra **quantos blocos faltam** e, se quiser dar noção de tempo, uma
 estimativa declarada como estimativa. Nada tiqueteia.
 
+# EXECUTADO em 07/09/2026: a peça e o shader de LED
+
+Tudo abaixo está em `app/city/plaza/sphere.ts` (arquivo novo) e ligado por 27 linhas em
+`plaza-scene.tsx`. `npx tsc --noEmit` limpo. Nenhum número aqui é estimado: todos saíram de
+medição offline com `npx tsx`, contra o mesmo `public/lunar/btc-core-heightmap.f32` e a
+mesma `caixaDoModulo()` que o Geode e o Estádio usam.
+
+## ⚠️ A correção do tabuleiro: 111,0 estava errado, é 118,3
+
+O `SPHERE_PLATAFORMA_Y = 111,0` do estudo de sítio foi medido numa grade sobre **160 x 160
+m**, que é a pegada da esfera. Só que o tabuleiro não cobre a esfera: ele cobre o **lote
+inteiro**, porque a praça reservada é o resto do módulo e o fundador pediu o chão
+"normalizado no lote inteiro que o elemento ocupa". Medido em grade de 2 m sobre
+`polyDoModulo(SPHERE_MOD)`:
+
+| onde | mínimo | máximo | desnível |
+|---|---|---|---|
+| pegada de 160 x 160 (o que o estudo mediu) | 100,79 m | 111,15 m | 10,4 m |
+| **o módulo inteiro, 227,0 x 370,8** | **97,69 m** | **117,85 m** | **20,2 m** |
+
+A cota máxima cai numa **quina** do módulo (o vértice 2 do polígono mede 117,39 m). Um
+tabuleiro em 111,0 deixaria essa quina **furando o piso em 6,85 m**, que é exatamente a
+falha de calçada que o fundador apontou na chapa do Estádio, só que descoberta antes de ir
+à chapa. Valor de produção: **118,3 m** (117,85 + 0,4 de margem, arredondado).
+
+⚠️ **E o preço está medido, não escondido:** o talude na quina baixa chega a **20,6 m**.
+Hoje ele é saia reta. Escalonar em terraços é dívida declarada.
+
+## A peça assentada
+
+| | |
+|---|---|
+| diâmetro | 135 m (esfera) |
+| assentamento | enterrada em 0,88 R: polo sul 8,10 m abaixo do tabuleiro |
+| encontro com o piso | círculo de **32,06 m** de raio, onde o plinto assenta |
+| **altura acima do tabuleiro** | **126,9 m** (a de Las Vegas tem 112) |
+| calota escondida | 6,0% da área, tirada da malha pelo `thetaLength` |
+| praça reservada | 46,0 m no radial e 117,9 m no arco, por lado, caminhável |
+
+## O shader de LED
+
+**Passo de 20,71 cm**, e o número não é gosto: fechar a grade em potência de dois dá
+`2πR / 2048 = 20,71 cm` no equador e `πR / 1024 = 20,71 cm` do polo ao polo, ou seja célula
+**quadrada por construção**. Painel resultante: **1,34 milhão de LEDs** sobre 57.256 m² de
+casca (a de Las Vegas tem 1,2 milhão a ~20 cm). Com FOV de 42° e 1080 px:
+
+| distância | LED na tela | leitura |
+|---|---|---|
+| 20 m | 15,26 px | painel resolvido |
+| **100 m** | **3,05 px** | **o padrão de disco aparece e lê como PAINEL** |
+| 152 m | 2,01 px | transição |
+| 305 m | 1,00 px | o padrão morre aqui |
+| 1.000 m | 0,31 px | ponto de luz |
+| **3.000 m** | **0,10 px** | **sub-pixel: ponto de luz, fisicamente correto** |
+
+As quatro decisões que fazem o padrão nascer no fragmento sem a rota preguiçosa:
+
+1. **O tamanho do ponto na tela é analítico, não `fwidth`.** A longitude sai de
+   `atan(p.z, p.x)` e tem costura em ±π, onde `fwidth` explode e desenharia uma linha de
+   erro no meridiano para sempre. `uPasso · face / (vD · uPxAng)` não precisa de derivada.
+2. **A máscara desvanece para a PRÓPRIA MÉDIA.** De perto o sinal vale `1/0,503 = 1,99`
+   dentro do disco e 0 no vão; de longe vale 1,0 liso. Verificado numericamente: média
+   1,000 nas duas pontas, desvio máximo de 3,5% na transição. Por isso a esfera não muda de
+   brilho ao se afastar, ela só perde a granulação.
+3. **As colunas caem por oitava de latitude, ARREDONDADA.** Com `floor()` puro a célula ia
+   a 0,500 de quadrada logo abaixo de lat 60° (medido), ou seja meia célula de largura, que é o
+   aliasing que a oitava veio evitar. Com arredondamento fica entre 0,707 e 1,414.
+4. **Duas amostras da mesma textura**, uma encaixada no centro da célula (LOD ~0, dá a
+   leitura de painel) e uma contínua (mipmap faz a média de longe), com limiares próprios.
+
+## A faixa de texto: a conta que a moveu para baixo do equador
+
+Todo observador da cidade está **abaixo** do centro da esfera (centro em y = 177,70 m,
+olho a 1,7 m). Medida a compressão exata da altura da letra, `√(1 − (t̂·v̂)²)`, e ela é a
+mesma **em qualquer azimute** porque a esfera é de revolução e a faixa é de latitude
+constante, e é essa simetria que dispensa varrer azimute.
+
+| lat \ d | 33 m | 60 m | 113 m | 200 m | 400 m | 1000 m | 1800 m |
+|---|---|---|---|---|---|---|---|
+| +15° | 0,00 | 0,00 | 0,30 | 0,65 | 0,86 | 0,94 | 0,95 |
+| **0° (equador)** | 0,00 | 0,00 | **0,62** | 0,87 | 0,97 | 1,00 | 1,00 |
+| **−20°** | 0,00 | 0,25 | **0,97** | 1,00 | 0,98 | 0,96 | 0,95 |
+| −30° | 0,00 | 0,55 | 0,99 | 0,97 | 0,92 | 0,89 | 0,88 |
+| −40° | 0,00 | 0,94 | 0,89 | 0,89 | 0,82 | 0,79 | 0,78 |
+
+Faixa de leitura: **113,5 m** (borda do lote) a **1.800 m** (além disso a letra de 11,60 m
+cai abaixo de ~9 px). Sobre ela, a latitude ótima é **−20,0°, pior compressão 0,950**, e as
+janelas por limiar são:
+
+| limiar | latitudes | altura de faixa |
+|---|---|---|
+| 0,90 | −27,25 a −15,50 | 13,8 m |
+| **0,85** | **−33,00 a −12,00** | **24,7 m ← escolhida** |
+| 0,80 | −37,75 a −8,75 | 34,2 m |
+| 0,70 | −46,25 a −3,75 | 50,1 m |
+
+⚠️ **Uma faixa realmente equatorial (−8° a +8°) tem pior compressão 0,451**, ou seja letra
+na metade da altura vista do próprio lote. É esta medição que move a faixa para baixo. Em
+produção ela vai das **linhas 580 a 700** da grade de 1.024, isto é **latitude −11,95° a
+−33,05°, 24,85 m**.
+
+⚠️ **De 33 m não se lê nada, em latitude nenhuma:** quem está no pé olha para cima em 60° e
+vê tudo de perfil. Geometria, não defeito, e vale igual para a de Las Vegas.
+
+### O texto, reusando a matriz 5x7 do Estádio
+
+A tabela é a mesma da Torre Central e do letreiro do Estádio (a versão em TypeScript vive
+em `app/dogcity/sections/construction-fund.tsx:209`), mais `$ : / + #`, que preço e altura
+de bloco exigem. Avanço de 8 pixels de glifo (5 + 3 de vão):
+
+| linha | pixel de glifo | letra | casas na volta | alcance |
+|---|---|---|---|---|
+| grande | 8 LED = 1,657 m | 8,28 x 11,60 m | **32, fecham exatas** | 1.627 m |
+| pequena | 4 LED = 0,828 m | 4,14 x 5,80 m | **64, fecham exatas** | 814 m |
+
+⚠️ **O orçamento de caracteres é apertado, e a próxima frente precisa dele.** Medida a
+compressão da largura, o arco legível de um azimute só é **96° a 200 m** (27% da volta),
+106° a 400 m e 114° a 1.000 m. Em casas: **8,5 de 32 grandes e 17,1 de 64 pequenas**. Como
+`repetirNaVolta()` distribui `floor(nChars/(len+1))` cópias, a regra que garante uma cópia
+inteira de qualquer ponto da cidade é **≤ 7 caracteres na linha grande e ≤ 15 na pequena**.
+É por isso que a grande carrega o VALOR e a pequena o RÓTULO: valor é curto e precisa ser
+visto de todo lado.
+
+## Os três defeitos que a renderização offline pegou
+
+A peça foi renderizada fora do navegador (traçador de raio próprio rodando o mesmo
+fragment shader, dirigindo o código real com um canvas 2D falso). Três defeitos que
+nenhuma revisão de código teria achado:
+
+1. **O texto saía ESPELHADO**, e não um pouco: "0.00042" lia "24000.0". Visto de FORA da
+   esfera, um observador em −x tem a direita da tela em +z, e ali `atan(p.z, p.x)`
+   DECRESCE. A longitude entra negada.
+2. **A casca lia como buraco preto.** `#15161A` em linear é 0,007, abaixo da refletância de
+   5 a 8% de um painel de LED real, e o termo de luz era uma constante cravada no shader
+   (`0.16 + 0.55·sol`), ou seja a peça ficava fora do ciclo de dia da cidade. Virou
+   `#2A2C33` mais `uAmb`/`uSolCor` alimentados de fora por `iluminar()`, mais realce de
+   borda (contra o céu preto da Lua, esfera escura sem borda perde a silhueta).
+3. **A 3 km ela lia como ponto ESCURO, não de luz.** Quando o texto some no `textCull`, a
+   faixa desvanecia para o CHÃO dela (`#241A14`, marrom quase preto), e a faixa é a única
+   parte acesa e só 12% da altura projetada. Agora ela desvanece para a **média medida da
+   própria faixa**, que é o mesmo princípio do padrão de ponto. Medido: a faixa fica **4,01x
+   mais luminosa** que a média da esfera, e o que sobra de longe é um anel aceso.
+
+E dois defeitos que a tabela de custo pegou:
+
+4. **O degrau de fillrate disparava no perfil forte**, porque `min(distLiso, distPadrao)`
+   com `distLiso = Infinity` ainda dá um número finito. Ganho: deixar de pagar o shader em
+   1,5% da tela. Preço: estalo visível numa peça que se vê de 5 km. Só troca no perfil
+   fraco agora, que é o que o dossiê pede.
+5. **O material liso apagava o anel.** Ele não tem textura, então a assinatura da peça
+   sumia no degrau. Agora ele desenha a faixa **proceduralmente** (um `asin` e dois
+   `smoothstep`, zero textura), e arte de corpo pintada (o anúncio) **desliga o degrau**,
+   porque anúncio é justamente o conteúdo que não pode sumir no meio do intervalo.
+
+## Custo por tier, medido
+
+| perfil | tri casca | tri base | chamadas | textura | dpr | 1 LED = 1 px em | liso a partir de | texto some em |
+|---|---|---|---|---|---|---|---|---|
+| desktop HIGH | 25.440 | 704 | 3 | 2048x1024 (10,7 MB) | 1 | 305 m | nunca | 1.700 m |
+| desktop BALANCED | 16.256 | 704 | 3 | 2048x1024 (10,7 MB) | 2 | 610 m | nunca | 1.300 m |
+| desktop LOW | 16.256 | 704 | 3 | 1024x512 (2,7 MB) | 1,25 | 381 m | 381 m | 600 m |
+| celular BALANCED | 9.120 | 704 | 3 | 1024x512 (2,7 MB) | 1,5 | 358 m | 358 m | 1.000 m |
+| celular LOW | 9.120 | 704 | 3 | 1024x512 (2,7 MB) | 1,25 | 298 m | 298 m | 600 m |
+
+⚠️ **E o fillrate é o vilão, confirmado com número.** Fração da tela que roda o shader:
+
+| perfil | tela | 100 m | 300 m | 1.000 m | 3.000 m |
+|---|---|---|---|---|---|
+| desktop HIGH | 1920x1080@1 | **100%** | 16,6% | 1,5% | 0,2% |
+| desktop BALANCED | 1920x1080@2 | **100%** | 16,6% | 1,5% | 0,2% |
+| desktop LOW | 1920x1080@1,25 | **100%** | 16,6% | 1,5% liso | 0,2% liso |
+| celular BALANCED | 390x844@1,5 | **100%** | **64,1%** | 5,8% liso | 0,6% liso |
+| celular LOW | 390x844@1,25 | **100%** | **64,1% liso** | 5,8% liso | 0,6% liso |
+
+Graus de campo: 68,0° a 100 m, 25,4° a 300 m, 7,7° a 1 km, 2,6° a 3 km.
+
+⚠️ **A 100 m ela ocupa a tela inteira em todo perfil**, e isso não tem escapatória: é a
+distância em que o padrão de ponto tem de aparecer, que é a razão de ela existir. O que
+segura o custo é o fragmento ser barato POR NATUREZA: sem laço de luz, sem amostra de
+sombra, duas buscas de textura, um `atan`, um `asin`, dois `log2`. É menos por fragmento do
+que um `MeshStandardMaterial` da própria cidade, que carrega 12 pontuais e 2 spots.
+
+⚠️ **Triângulo não é o vilão, e a conta prova:** com 128 gomos no equador a flecha da corda
+mede **2,0 cm** numa esfera de 67,5 m de raio. Invisível de qualquer distância. Por isso a
+malha é generosa e barata e quem escalona é o fragmento.
+
+## O perfil, lido campo a campo
+
+Esta casa já teve duas vezes o defeito de um módulo receber o `PerfProfile` e nunca ler
+nada dele, então está escrito e é conferível.
+
+**Lidos:** `tier` e `quality` (segmentos, se o liso está armado, suavização do disco);
+`cortaTextura` (escolhe o lado BASE da textura, e é o campo certo por definição, porque
+`perf.ts` diz que `texLado` "não enxerga família" e que quem troca por arquivo menor
+"precisa decidir por CONTEÚDO"); `texLado` (teto duro por cima, com os dois lados escalados
+pelo mesmo fator, porque a textura é 2:1); `textCull` (distância em que a letra desvanece);
+`lodDistance` (teto do degrau de fillrate); `maxPixelRatio` (piso do tamanho do pixel
+quando o chamador não mede: tela mais densa lê o ponto de mais longe, e isso é físico);
+`smallCull` (o plinto some); `antialias` (sem MSAA a borda do disco precisa de mais
+suavização); `shadowMapSize` e `softShadows` (decidem a sombra).
+
+**Não lidos, e por quê:** `censusPoints`, `jetParticles`, `crystalLod`, `parkDetailCull` e
+`domeCell` são de outras peças; `shadowUpdateEvery` e `minPixelRatio` são do
+`FrameGovernor`, que é global.
+
+## A interface de conteúdo, pronta e não ligada
+
+`pintar(c: SphereConteudo)` recebe `{ grande, pequena, ganho, cor, corRotulo, pintarCorpo }`
+e redesenha a textura. **Não chamar por quadro**: é um canvas de até 2.048 x 1.024 e um
+envio de até 8 MB. Ele existe para ser chamado quando o DADO muda, que é a cada dezenas de
+segundos no melhor caso (`/api/price/kraken` tem cache de 30 s). Nada tiqueteia.
+
+Conteúdo desta rodada, só para provar o shader: `{ grande: '0.00042', pequena: '$DOG USD
+SPOT', ganho: 0.42 }`. **Ganho 0,42 é o estado ocioso**, e é sóbrio de propósito: é o
+contraste entre ele e o do intervalo comercial que separa marco de cidade de bola de
+discoteca.
+
+## Ligação em `plaza-scene.tsx` (mudança mínima, 27 linhas)
+
+1. o `import`;
+2. `let sphere: Sphere | null = null`;
+3. o bloco que constrói, adiciona à cena e registra no `DistanceCuller` com corte de
+   14.000 m (ela **não** some: 81% do tecido enxerga o topo dela);
+4. `sphereParcela()` na lista de parcelas, junto do Estádio e do Geode, senão a teia
+   desenha rua por dentro do tabuleiro;
+5. `sphere?.update(camera.position, spherePxAng(...))` no laço, porque o shader decide se
+   desenha o ponto pelo tamanho dele **em pixel de tela** e precisa saber o tamanho do pixel;
+6. `sphere?.dispose()` na limpeza.
+
+`teia.ts` e `vias.ts` **não** foram tocados.
+
 ## Aberto
 
-- [ ] varrer `cidade-malha.json` (bulevares, anéis, canais) antes de fechar o sítio. O
-      Estádio errou exatamente aqui na primeira tentativa: testou colisão contra as peças e
-      esqueceu a malha viária.
+- [x] varrer `cidade-malha.json` (bulevares, anéis, canais) antes de fechar o sítio. Feito
+      em 07/09, e é o que reprovou o rumo 320 / r 3.800.
+- [ ] **o conteúdo vivo**: a grade (PREÇO, VOLUME, PULSO, SNAPSHOT), os três eventos e o
+      intervalo comercial. A interface está pronta; nada está ligado.
 - [ ] a proporção 70/30 entre dado e propaganda deve ser garantida no CÓDIGO, não em
       política comercial: anúncio paga e dado não, e essa pressão esvazia a diferenciação
       sozinha com o tempo.
+- [ ] **o talude de 20,6 m na quina baixa do lote** vira terraço. Hoje é saia reta.
+- [ ] **o programa da praça da base**. Esta rodada garantiu o espaço (46,0 x 117,9 m por
+      lado) e o chão caminhável, e nada além disso. A cidade vai para terceira pessoa e
+      alguém vai pisar aqui a 1,7 m de altura de olho.
+- [ ] `iluminar()` precisa ser chamado com a hora do ar da cena. Enquanto ninguém chamar, a
+      esfera usa um dia lunar padrão e não acompanha o entardecer da cidade.
