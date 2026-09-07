@@ -49,7 +49,7 @@
 import * as THREE from 'three'
 import { LIMIAR_PRACA } from './pracas'
 import type { DistanceCuller } from './perf'
-import { ANEIS, AVENIDAS, AVENIDA_ALCA, HR, N_RAD, aneisDaCidade, anguloDe, avenidasGeom, nasceEm, noArcoDoAnel, raioDodeca } from './teia'
+import { ALCA_TERRA, ANEIS, AVENIDAS, HR, N_RAD, aneisDaCidade, anguloDe, avenidasGeom, nasceEm, noArcoDoAnel, raioDodeca } from './teia'
 import { look2 } from './look'
 import { superficie, vestir, type Superficie } from './materiais'
 
@@ -1043,31 +1043,14 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
   // consulta esta máscara é o bulevar, a teia local e a via de orla, nunca a
   // seção 2b.
   //
-  // ⚠️ E A EXCEÇÃO DA EXCEÇÃO SÃO AS DUAS PONTAS, senão a avenida não chega a
-  // lugar nenhum. Com a máscara fechada nos 130,5° inteiros, medido por
-  // componente conexo em 07/09, os 15,9 km viravam DUAS ILHAS: 453.060 m² a 54 m
-  // da rede e 233.676 m² a 186 m. E os dois pontos de aproximação caíam
-  // exatamente nas extremidades do arco, (6.198, 3.090) no rumo 116,5 e
-  // (-1.680, -6.726) no rumo 346, que é onde a alça deixa de ser alça e encosta
-  // no continente. Ou seja o acesso já existe na natureza do sítio: falta um
-  // trecho curto em cada tampa.
-  //
-  // ⚠️ E A ABERTURA É UM CÍRCULO DE 300 m NA PONTA, NÃO UM ARCO. Abrir por ângulo
-  // liberaria uma cunha que vai da praia da baía até a praia externa e reabriria
-  // rua no meio da fileira de lotes, que é o que o fundador acabou de mandar
-  // tirar. O círculo na ponta libera só a tampa, onde não há fileira porque a
-  // alça está acabando.
+  // ⚠️ E A MÁSCARA USA `ALCA_TERRA`, NÃO O ARCO DA VIA. A via passa das tampas da
+  // alça para achar as radiais de 330 e 120 (ver a nota em `AVENIDA_ALCA`); a
+  // proibição vale só onde a alça é alça. Fechar os dois no mesmo arco deixava os
+  // 15,9 km ilhados, medido: 453.060 m² a 54 m da rede e 233.676 m² a 186 m.
   const ALCA_R_DENTRO = 6400
-  const ALCA_PONTA = 300
-  const _pontas = (AVENIDA_ALCA.arco).map((g) => {
-    const a = (g * Math.PI) / 180
-    return [Math.sin(a) * AVENIDA_ALCA.r, -Math.cos(a) * AVENIDA_ALCA.r] as [number, number]
-  })
   const naAlca = (px: number, pz: number): boolean => {
     if (Math.hypot(px, pz) < ALCA_R_DENTRO) return false
-    if (!noArcoDoAnel(AVENIDA_ALCA, Math.atan2(px, -pz))) return false
-    for (const [tx, tz] of _pontas) if (Math.hypot(px - tx, pz - tz) < ALCA_PONTA) return false
-    return true
+    return noArcoDoAnel({ arco: ALCA_TERRA }, Math.atan2(px, -pz))
   }
   // Vão máximo de uma face de via, em metros: ver a nota em faixa(). Depois que
   // o chão passou a ser `superficieAt` o vão deixou de precisar ser curto por
@@ -1886,14 +1869,24 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
       // de uma avenida, quem cede é a parcela. Cortar a avenida quebra a regra
       // que o fundador cobra, que é poder dirigir de qualquer ponto a qualquer
       // ponto. `emPeca` continua valendo para o que não é via principal.
-      void mx; void mz
+      // `mx, mz` é o meio do lado, e ele deixou de ser descartado: a boca da
+      // rotatória agora precisa saber SE aquele cruzamento existe (ver adiante).
       // a boca da rotatória: o anel para antes de entrar no bulevar
+      //
+      // ⚠️ MAS SÓ ONDE EXISTE ROTATÓRIA. A boca abre 92 m de arco (`ROT_RAIO + 6`
+      // dos dois lados) para não desenhar duas superfícies coplanares no mesmo Y;
+      // se ninguém preenche esse vão, ela vira buraco. Dentro da alça as radiais
+      // de 0, 30, 60 e 90 foram retiradas por ordem do fundador e a rotatória
+      // saiu junto, então a boca ficou aberta contra nada: medido em 07/09, a
+      // avenida de 15,9 km saía partida em QUATRO pedaços de ~154 mil m², dois
+      // deles a mais de 240 m da rede. Onde não há rotatória a via passa direto,
+      // que é o que uma via faz quando não cruza ninguém.
       let naBoca = false
       for (let b = 0; b < 12; b++) {
         const d = Math.abs(((am * 180) / Math.PI - b * 30 + 180) % 360 - 180)
         if ((d * Math.PI) / 180 * an.r < ROT_RAIO + 6) { naBoca = true; break }
       }
-      if (naBoca) continue
+      if (naBoca && !naAlca(mx, mz)) continue
       desenhou = true
       metros += an.r * (a1 - a0)
       const pt = (rr: number, aa: number) => [Math.sin(aa) * rr, -Math.cos(aa) * rr] as const
@@ -2034,6 +2027,10 @@ export async function buildVias(o: ViasOpts): Promise<Vias> {
       // de cada lado do cruzamento.
       if (emPeca(cx, cz)) continue
       if (Math.hypot(cx, cz) > 4520 && !an.circulo) continue
+      // ⚠️ E NENHUMA ROTATÓRIA DENTRO DA ALÇA. As radiais de 0, 30, 60 e 90 foram
+      // retiradas de lá; um disco de 80 m sem perna nenhuma é a pior das ruas
+      // que o fundador mandou tirar, porque parece cruzamento e não é.
+      if (naAlca(cx, cz)) continue
       // e fora do arco da alça não há avenida para receber rotatória
       if (an.arco && !noArcoDoAnel(an, ang)) continue
       nRot++

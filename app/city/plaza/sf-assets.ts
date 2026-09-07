@@ -206,6 +206,12 @@ export const SF = {
   bust: '/city/sf/satoshi-bust.glb',
   palm: '/city/sf/palm.glb',
   rocket: '/city/sf/v2-rocket.glb',
+  /** ⚠️ APOSENTADO EM 07/09/2026 E SEM NENHUM CHAMADOR. Era o salão do Templo
+   *  Leonidas (o pagode japonês), recusado pelo fundador: "esse mini templo
+   *  japonês não está à altura dele. Leônidas é uma caveira". No lugar dele entrou
+   *  a fortaleza-caveira esculpida (`/city/park/leonidas-fortress.glb`). Fica aqui
+   *  como registro do acervo; o arquivo continua no disco e não custa nada
+   *  enquanto ninguém o carregar (ele trazia 14 imagens e ~15,7 MiB de textura). */
   templeHall: '/city/sf/temple-hall.glb',
   // o jardim do pátio da caverna do Leonidas. Os dois foram escolhidos por
   // trazerem TEXTURA EMISSIVA de fábrica: lá dentro não há sol, e a planta que

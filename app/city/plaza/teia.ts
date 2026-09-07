@@ -220,8 +220,32 @@ export const AVENIDA_ALCA = {
   r: 6950,
   larg: 44,
   circulo: true,
-  arco: [346, 116.5] as [number, number],
+  // ⚠️ O ARCO DA VIA VAI ALÉM DO ARCO DA ALÇA, E ISSO É O ACESSO. A alça medida
+  // vai de 346 a 116,5 (`ALCA_TERRA`), mas nenhum dos 12 rumos de `AVENIDAS` cai
+  // nas pontas dela: os vizinhos são 330 e 120, os dois DE FORA. Terminando no
+  // arco da alça a avenida de 15,9 km virava duas ilhas, medido em 07/09 por
+  // componente conexo: 453.060 m² a 54 m da rede e 233.676 m² a 186 m, com os
+  // dois pontos de aproximação exatamente nas tampas. Levando as pontas até 330
+  // e 120 ela morre EM CIMA das duas avenidas radiais, que já correm até 6.972,
+  // e o acesso sai de graça, sem uma rua a mais na alça.
+  //
+  // ⚠️ E O TERRENO AGUENTA: sondados os rumos 320 a 135 de meio em meio grau nas
+  // três cotas 6.928, 6.950 e 6.972, nenhuma amostra abaixo da lâmina.
+  arco: [330, 120] as [number, number],
 }
+
+/**
+ * O arco em que a alça É alça, ou seja onde há água dos dois lados.
+ *
+ * ⚠️ FUNDADOR, 07/09: "as outras ruas devem sair por completo da alça de terra.
+ * Lá, por enquanto, teremos apenas a via central."
+ *
+ * ⚠️ E ELE NÃO É O MESMO ARCO DA VIA, de propósito. Este é o pedaço medido em
+ * que a faixa de terra tem baía de um lado e água externa do outro, e é dentro
+ * DELE que nenhuma outra rua pode existir. A via passa disso nas duas pontas
+ * justamente para achar as radiais e sair da alça ligada.
+ */
+export const ALCA_TERRA: [number, number] = [346, 116.5]
 
 /**
  * A lista de anéis do gerador com a exceção da alça já aplicada.
