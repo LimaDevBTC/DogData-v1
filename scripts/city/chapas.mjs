@@ -96,6 +96,15 @@ const VISTAS = {
   // de cima do estadio, e a peca saia fora de quadro. A implantacao se julga do
   // lado da PRACA, que e de onde a cidade e vista, com o estadio ao fundo.
   geode:     [1840, 420, 886, 2968, 30, 1429, 50],
+  // OS TRES CANAIS RADIAIS E A BAIA, de cima. Enquadra da praca (origem) ate a
+  // borda externa da agua, ~9 km de vao: e a vista em que a foz de cada canal e
+  // a continuidade da lamina se leem de uma vez.
+  canais:    [1200, 8240, 1800, 3800, -40, -3000, 50],
+  canaisfoz: [1500, 3400, 900, 4200, -40, -2600, 45],
+  // cada canal pelo EIXO, de dentro para a boca: e a unica vista em que se ve o
+  // canal chegar na baia em vez de atravessa-la
+  cr02:      [983, 520, -688, 2568, -40, -1798, 45],
+  cr03:      [3985, 700, -349, 6087, -40, -533, 45],
   geodeperto:[2671, 130, 1286, 2968, 34, 1429, 42],
   // ⚠️ ENQUADRAMENTOS NOVOS, 03/09, e o motivo é o que o cabeçalho do terrain.ts
   // avisa: MEXER NA ALTURA MOVE O MUNDO. A coroa foi de 2.619 para 5.513 m e a

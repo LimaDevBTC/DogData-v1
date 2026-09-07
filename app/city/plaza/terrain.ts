@@ -621,13 +621,29 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
     const r = _radiais.find((k) => k.rumo === rumo)
     if (!r) return Infinity
     const molhado = (t: number) => bbAt(t * r.dx, t * r.dz) <= LAGO_AGUA_Y
+    // ⚠️ ÁGUA NO PRIMEIRO PASSO É O LAGO DA PRAÇA, NÃO A BAÍA, e isso custou uma
+    // rodada inteira em produção. O canal NASCE na borda do lago (`rInicio` vem
+    // do cava e vale 1.354, que é `LAGO_R1`), então a primeira amostra já está
+    // molhada e a foz saía em r 1.354 nos três: `0 m de canal`, os três leitos
+    // apagados, e as pontes penduradas sobre terra seca.
+    //
+    // O que separa lago de baía não é a cota, é a PERSISTÊNCIA. Saindo da borda
+    // do lago para fora o terreno sobe em poucas dezenas de metros; a baía tem
+    // quilômetros. Exijo que 70% dos 400 m seguintes também estejam abaixo da
+    // lâmina, tolerância que engole as ilhas e os bancos que a baía tem de
+    // verdade sem engolir a beira do lago.
+    const persiste = (t: number) => {
+      let mol = 0, n = 0
+      for (let u = t; u <= t + 400; u += 50) { n++; if (molhado(u)) mol++ }
+      return mol / n >= 0.7
+    }
     const teto = Math.min(r.rFim, halfExtent)
     let out = teto
     let ant = r.rInicio
     for (let t = r.rInicio + 15; t <= teto; t += 15) {
-      if (molhado(t)) {
+      if (molhado(t) && persiste(t)) {
         let a = ant, b = t
-        for (let k = 0; k < 7; k++) { const m = (a + b) / 2; if (molhado(m)) b = m; else a = m }
+        for (let k = 0; k < 7; k++) { const m = (a + b) / 2; if (molhado(m) && persiste(m)) b = m; else a = m }
         out = b
         break
       }
