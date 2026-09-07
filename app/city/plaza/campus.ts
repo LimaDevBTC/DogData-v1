@@ -270,8 +270,16 @@ function caixa(
 ) {
   const C = Math.cos(ang), S = Math.sin(ang)
   const p = (lx: number, lz: number, y: number) => [cx + C * lx - S * lz, y, cz + S * lx + C * lz]
+  // ⚠️ A ORDEM É (a, c, b) E (a, d, c), OU SEJA HORÁRIA NA LISTA. A versão
+  // anterior era a ordem "natural" (a, b, c, a, c, d) e ela produzia a normal
+  // GEOMÉTRICA ao contrário: para a face de cima, com A(-m,-m), B(m,-m) e
+  // D(m,m), o produto vetorial (B−A)×(D−A) dá (0, −4m², 0), ou seja −Y, contra
+  // o +Y declarado no atributo. Three descarta por winding, não pela normal
+  // declarada, então a tampa do pódio era back-face e sumia: o que a chapa de
+  // produção mostrou foi o INTERIOR escuro da caixa, e os três pódios saíram
+  // cinza-escuros no lugar da cor de calçada. Invertida, a mesma face dá +4m².
   const quad = (a: number[], b: number[], c: number[], d: number[], n: number[], k: THREE.Color) => {
-    for (const v of [a, b, c, a, c, d]) pos.push(v[0], v[1], v[2])
+    for (const v of [a, c, b, a, d, c]) pos.push(v[0], v[1], v[2])
     for (let i = 0; i < 6; i++) { nor.push(n[0], n[1], n[2]); cor.push(k.r, k.g, k.b) }
   }
   const A = p(-meia, -meia, y1), B = p(meia, -meia, y1)
