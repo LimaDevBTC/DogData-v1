@@ -206,6 +206,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
 import { vestir } from './materiais'
+import { anelRaio } from './teia'
 
 // ── as normas, com fonte ────────────────────────────────────────────────────
 /** captação a pé de estação sobre trilhos, em metros. APTA-SUDS-UD-RP-001-09. */
@@ -1477,9 +1478,14 @@ export function calcularDocas(o: {
       }
     }
     // ── doca de RUA: todo cruzamento com anel viário ──────────────────────
+    // ⚠️ O ANEL É DODECÁGONO (`anelRaio` em teia.ts), e a doca é o CRUZAMENTO
+    // do canal com ele. Com o raio do vértice a doca saía até 259 m antes da
+    // rua, e o passageiro desembarcava a três quarteirões da avenida que o
+    // nome da doca promete.
     for (const an of aneis) {
-      if (an.r < c.rInicio + 60 || an.r > c.rFim - 60) continue
-      emitir(an.r, an.id ?? `R${Math.round(an.r)}`, nomeDoAnel(an), an.id ?? null)
+      const rAn = anelRaio(an.r, (c.rumo * Math.PI) / 180)
+      if (rAn < c.rInicio + 60 || rAn > c.rFim - 60) continue
+      emitir(rAn, an.id ?? `R${Math.round(an.r)}`, nomeDoAnel(an), an.id ?? null)
     }
     // ── doca de METRÔ: todo cruzamento com circular ───────────────────────
     //

@@ -35,12 +35,18 @@ try {
   await pag.waitForTimeout(4000)
   console.log('cena pronta, rasterizando o pavimento')
 
+  await pag.evaluate((d) => { window.__dilata = d }, +arg('dilata', 0))
   const res = await pag.evaluate(async ({ CEL }) => {
     const cena = window.__plazaScene
     const THREE = window.__plazaTHREE
     // ⚠️ SO SUPERFICIE DIRIGIVEL. Calcada, meio-fio e canteiro nao ligam nada:
     // incluir a calcada costuraria trechos que um carro nao percorre.
-    const DIRIGIVEL = new Set(['via:pista', 'orla:pista', 'eclusas:pista'])
+    // ⚠️ `canais:#8E856F` ENTRA PORQUE E O TABULEIRO DA PONTE. Em canais.ts a
+    // ponte e desenhada com `B(COR_CAIS)`, que vira essa malha por cor; sem ela
+    // toda travessia de canal aparece como interrupcao da rede e o relatorio
+    // acusa buraco onde existe ponte. O passeio de cima do canal compartilha a
+    // cor, entao componente que so existe por causa dessa fonte fica marcado.
+    const DIRIGIVEL = new Set(['via:pista', 'orla:pista', 'eclusas:pista', 'canais:#8E856F'])
     const cel = new Map()               // chave -> nome da fonte
     const chave = (i, j) => (i + 4096) * 16384 + (j + 4096)
     const dechave = (c) => [Math.floor(c / 16384) - 4096, (c % 16384) - 4096]
@@ -72,6 +78,24 @@ try {
         }
       }
     })
+
+    // ⚠️ A DILATACAO DE UMA CELULA E DIAGNOSTICO, NAO COSMETICA. Rodar com e sem
+    // separa dois defeitos que a contagem crua confunde: pavimento que de fato
+    // nao se liga, e pavimento que se liga mas cujo triangulo nao cobriu o
+    // centro de uma celula da grade. Se a ilha some com 6 m de dilatacao ela era
+    // artefato de medida, nao buraco na cidade.
+    const DILATA = +(new URLSearchParams(location.search).get('_') || 0) || window.__dilata || 0
+    for (let d = 0; d < DILATA; d++) {
+      const add = []
+      for (const q of cel.keys()) {
+        const i = Math.floor(q / 16384) - 4096, j = (q % 16384) - 4096
+        for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nq = chave(i + di, j + dj)
+          if (!cel.has(nq)) add.push([nq, cel.get(q)])
+        }
+      }
+      for (const [q, f] of add) if (!cel.has(q)) cel.set(q, f)
+    }
 
     // ⚠️ 8-CONEXO, E NAO 4. Duas fitas que se cruzam em diagonal (anel x bulevar
     // fora do angulo reto) podem se tocar so pela quina de uma celula; com

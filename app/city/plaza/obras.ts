@@ -17,6 +17,7 @@
 // Three.js puro (regra da casa: nada de react-three-fiber).
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
+import { anelRaio } from './teia'
 
 const COR_MACACAO = '#C8722E'   // o macacão, laranja de obra: é o que se enxerga
 const COR_CAPACETE = '#E8D9A8'
@@ -84,8 +85,11 @@ export function buildObras(o: ObrasOpts): Obras {
       const c = 2 * Math.PI * a.r
       if (d < c) {
         const ang = (d / a.r)
-        // encostado no meio-fio, de um lado ou do outro
-        const rr = a.r + (r() < 0.5 ? -1 : 1) * (a.larg / 2 + 2 + r() * 7)
+        // ⚠️ ENCOSTADO NO MEIO-FIO DO DODECÁGONO, NÃO DO CÍRCULO. `a.r` é o raio
+        // do VÉRTICE (ver `anelRaio` em teia.ts): no meio de cada face o asfalto
+        // está 3,5% mais para dentro, então o cone e a placa nasciam até 259 m
+        // fora da rua que estão dizendo interditar.
+        const rr = anelRaio(a.r, ang) + (r() < 0.5 ? -1 : 1) * (a.larg / 2 + 2 + r() * 7)
         return { x: Math.sin(ang) * rr, z: -Math.cos(ang) * rr, ang: ang + Math.PI / 2 }
       }
       d -= c

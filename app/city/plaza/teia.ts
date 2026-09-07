@@ -149,6 +149,39 @@ export function raioDodeca(r: number, ang: number): number {
   return r / Math.cos(rel)
 }
 
+/**
+ * O raio do ANEL VIÁRIO DESENHADO no rumo `ang`, dado o raio do VÉRTICE.
+ *
+ * ⚠️ ESTA É A ÚNICA VERDADE DO ANEL, E ELA EXISTE PORQUE HAVIA TRÊS. Fundador,
+ * 06/09: "o dodecaedro é a malha viária da cidade toda, o outro modelo gerava
+ * círculos, pode excluir". Antes daqui conviviam:
+ *   · `vias.ts`, que DESENHA o anel como dodecágono com o vértice em `an.r` e a
+ *     face em `an.r·cos(15°)`, ou seja 96,6% dele;
+ *   · cinco consumidores (ponte de canal, arborização, poste, estação de metrô,
+ *     obra) que liam o mesmo `an.r` como CÍRCULO;
+ *   · `raioDodeca()`, logo acima, que é o mesmo polígono mas com `r` valendo a
+ *     APÓTEMA, o que devolve o dodecágono INSCRITO no círculo errado.
+ * O círculo passa pelos 12 vértices e some do desenho no meio de cada face: o
+ * erro é a flecha da corda, 3,5% do raio, de 61 m no Anel Interior a 259 m na
+ * Pista de Serviço. Era isso que punha ponte de canal fora do asfalto e fileira
+ * de árvore no meio do quarteirão.
+ *
+ * ⚠️ `r` AQUI É O VÉRTICE, NÃO A APÓTEMA, porque é assim que `vias.ts` desenha
+ * (`pt(an.r, a0)` nos 12 rumos de `AVENIDAS`). Quem tiver apótema em mãos usa
+ * `raioDodeca`; quem tiver `aneisViarios[].r` usa esta.
+ */
+export function anelRaio(r: number, ang: number): number {
+  const PASSO = Math.PI / 6            // 30°, o setor de uma face
+  const rel = ((ang % PASSO) + PASSO) % PASSO - PASSO / 2
+  return (r * Math.cos(PASSO / 2)) / Math.cos(rel)
+}
+
+/** o ponto (x,z) do anel viário desenhado, no rumo `ang` */
+export function anelPonto(r: number, ang: number): [number, number] {
+  const rr = anelRaio(r, ang)
+  return [Math.sin(ang) * rr, -Math.cos(ang) * rr]
+}
+
 /** a área em m² de um bloco de módulos (trapézio circular) */
 export function areaDoModulo(m: Modulo): number {
   const c = caixaDoModulo(m)
@@ -210,9 +243,32 @@ export const AVENIDAS: readonly { rumo: number; largura: number; papel: string }
     papel: i % 3 === 0 ? 'distrito' : 'ponte',
   }))
 
-/** onde a avenida nasce (rente ao platô) e onde ela morre (a borda do tecido) */
+/** onde a avenida nasce (rente ao platô) e onde ela morre */
 export const AV_R_INICIO = 1420
-export const AV_R_FIM = R_FORA
+/**
+ * ⚠️ A AVENIDA PASSOU A MORRER NO ANEL DE SERVIÇO, E NÃO NA BORDA DO TECIDO.
+ *
+ * Era `R_FORA` (6.900), a borda do tecido, e por isso o ANEL DE SERVIÇO (AN7,
+ * vértice em r 7.600) não tinha uma única avenida chegando nele: 15,2 km de
+ * asfalto desenhado, 0,83 km² de pavimento, sem nenhuma ligação com o resto da
+ * cidade. Auditado em 06/09 por componente conexo do pavimento desenhado
+ * (`scripts/city/vias-varredura.mjs`): ele era, sozinho, a maior ilha do mapa,
+ * a mais de 240 m de qualquer outra rua. Quebrava a regra que o fundador cobra
+ * desde 31/08, "um carro tem que conseguir transitar entre todas as estradas do
+ * mapa", e quebrava calado, porque na chapa um anel completo parece ligado.
+ *
+ * ⚠️ E O NÚMERO É O VÉRTICE DO ANEL MAIS MEIA SEÇÃO. Os 12 rumos de `AVENIDAS`
+ * são exatamente os vértices do dodecágono (ver `anelRaio`), então a avenida
+ * encontra AN7 no raio CHEIO, 7.600, e não em 96,6% dele. Os 15 m de sobra são
+ * meia largura do anel, para a avenida entrar na rotatória em vez de encostar.
+ *
+ * ⚠️ ISTO NÃO MEXE NO TECIDO NEM NO LOTE. `AV_R_INICIO` e `AV_R_FIM` são lidos
+ * só dentro de `avenidasGeom()`; quem desenha o tecido é `ANEIS`, que continua
+ * indo de `R_DENTRO` a `R_FORA`. A avenida atravessa a coroa externa, que não é
+ * lotável, para chegar ao anel de serviço — que é para isso que serve uma
+ * pista de serviço.
+ */
+export const AV_R_FIM = 7615
 
 export interface AvenidaGeom {
   id: string

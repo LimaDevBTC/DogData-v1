@@ -59,7 +59,7 @@
 // Three.js puro (regra da casa: nada de react-three-fiber).
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
-import { AVENIDAS, avenidasGeom, emAvenida } from './teia'
+import { AVENIDAS, anelRaio, avenidasGeom, emAvenida } from './teia'
 import { look2 } from './look'
 import type { DistanceCuller } from './perf'
 import {
@@ -228,9 +228,17 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
     if (Math.hypot(px, pz) < 40) return true
     return emAvenida(px, pz, 3)
   }
+  // ⚠️ E A MÁSCARA DO ANEL TAMBÉM É DODECÁGONO. Ela comparava `hypot` com `a.r`,
+  // que é o raio do VÉRTICE: no meio de cada face a rua está a 96,6% dele e a
+  // máscara ficava 3,5% do raio fora do asfalto — 61 m no Anel Interior, 259 m
+  // na Pista de Serviço. Ou seja ela protegia uma faixa de regolito vazio e
+  // deixava a rua desprotegida, que é o pior dos dois erros de uma vez. A
+  // fileira DO anel já usava a corda certa (adiante); só esta consulta ficou
+  // para trás.
   const noAnel = (px: number, pz: number, folga = 3) => {
     const r = Math.hypot(px, pz)
-    for (const a of aneis) if (Math.abs(r - a.r) <= a.larg / 2 + folga) return true
+    const ang = Math.atan2(px, -pz)
+    for (const a of aneis) if (Math.abs(r - anelRaio(a.r, ang)) <= a.larg / 2 + folga) return true
     return false
   }
 

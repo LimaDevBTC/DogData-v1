@@ -141,6 +141,12 @@ const VISTAS = {
   // tecido (r 6.900), então o sítio inteiro cabe com folga e a casca ainda faz
   // silhueta. `cidadeplano` é a mesma coisa em NADIR, para ler a malha como
   // prancha; rode-a com `--url-extra='&domo=0'`, senão a casca lava o quadro.
+  // ⚠️ O ENCONTRO DA AVENIDA COM O ANEL DE SERVICO (AN7, vertice em r 7.600 no
+  // rumo 0). Ate 06/09 nao existia: a avenida morria em R_FORA 6.900 e o anel
+  // inteiro ficava ilhado. Esta chapa e a prova de que ele encostou na cidade.
+  anelservico:[760, 300, -6820, 0, 20, -7600, 45],
+  // a ponte do anel viario sobre canal radial, que antes boiava fora do asfalto
+  pontecanal: [3260, 210, -140, 2898, -30, -205, 45],
   cidadetoda: [0, 9000, 13000, 0, 0, -500, 45],
   cidadeplano:[0, 17000, 1, 0, 0, 0, 60],
   // ⚠️ AS VISTAS DA RODADA DA MONTANHA (04/09/2026), CORRIGIDAS NA OBRA 2. O

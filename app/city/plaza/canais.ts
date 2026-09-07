@@ -42,6 +42,7 @@ import * as THREE from 'three'
 import { COR_AGUA, aguaDeVerdade, AREIA_SECA, AREIA_MOLHADA } from './lago'
 import { look2 } from './look'
 import { CANAL_PRAIA, CANAL_BANDA } from './terrain'
+import { anelRaio } from './teia'
 
 export interface CanalRadial {
   id: string; rumo: number; secao: number; lamina: number
@@ -67,7 +68,7 @@ export interface CanaisOpts {
    *  `aneisPhi`: aqueles são as linhas de anel da teia, estes são as avenidas
    *  circulares (Anel Interior, Médio, Exterior, Cinturão, Doca, Escoamento,
    *  Pista de Serviço). Sem eles aqui, três avenidas ficam sem travessia. */
-  aneisViarios?: { r: number; larg: number }[]
+  aneisViarios?: { r: number; larg: number; circulo?: boolean }[]
   /** φ -> raio naquele rumo, para achar onde a rua de anel cruza o canal */
   raioEmPhi?: (ang: number, phi: number) => number
   /** ⚠️ `superficieAt`, NUNCA `heightAt`: é o chão que a câmera vê */
@@ -296,7 +297,52 @@ export function buildCanais(o: CanaisOpts): Canais {
   // Regra: TODA via que cruza um canal ganha ponte. Avenida radial x anel de
   // canal, e rua de anel x canal radial. É o que Amsterdam faz, onde há ponte em
   // praticamente cada quarteirão.
-  const ponte = (cx: number, cz: number, dirX: number, dirZ: number, larg: number, vao: number) => {
+  //
+  // ⚠️ E A REGRA GANHOU UMA EXCEÇÃO MEDIDA, 06/09: PONTE SÓ ONDE A RUA ATRAVESSA.
+  // A regra acima ("toda via que cruza um canal ganha ponte") brigava com a
+  // regra de `lagos.ts` ("acima de `LIMIAR_PONTE` a via PARA na linha d'água"),
+  // e as duas rodavam sem se conhecer: a rua parava na margem e a ponte era
+  // desenhada assim mesmo, sozinha no meio da lâmina. Auditado em 06/09 por
+  // componente conexo do pavimento desenhado: nove tabuleiros de ~84 x 66 m
+  // boiando de 18 a mais de 240 m de qualquer asfalto. É a "ponte do nada pra
+  // lugar nenhum" na forma mais pura, e ela sobreviveu ao corte da foz porque
+  // ali existe canal de verdade embaixo — o que não existe é via em cima.
+  //
+  // ⚠️ E O VÃO SE MEDE, NÃO SE ESTIMA. `vao` chegava como `secao + 24`, ou seja
+  // a seção NOMINAL do canal mais 12 m de encabeçamento de cada lado. Perto da
+  // foz o canal abre muito além da seção: o tabuleiro de 84 m ficava curto e as
+  // duas cabeceiras caíam dentro d'água mesmo onde a rua atravessa. Agora a
+  // sonda anda no sentido da travessia e acha a margem seca dos dois lados.
+  const LIMIAR = 150            // LIMIAR_PONTE de lagos.ts, a mesma linha
+  const AGUA = o.cota ?? -40
+  /** o trecho molhado que a travessia teria de vencer, ou `null` se for grande
+   *  demais: aí a rua parou na margem e ponte nenhuma faz sentido */
+  const vaoMolhado = (cx: number, cz: number, dirX: number, dirZ: number): number | null => {
+    const PASSO = 6
+    const seco = (t: number) => o.heightAt(cx + dirX * t, cz + dirZ * t) > AGUA
+    // se o ponto de cruzamento já está seco não há o que atravessar
+    if (seco(0)) return 0
+    let a = 0, b = 0
+    while (a > -LIMIAR * 1.5 && !seco(a)) a -= PASSO
+    while (b < LIMIAR * 1.5 && !seco(b)) b += PASSO
+    if (!seco(a) || !seco(b)) return null      // molhado além do alcance da sonda
+    const v = b - a
+    return v > LIMIAR ? null : v
+  }
+
+  const ponte = (cx: number, cz: number, dirX: number, dirZ: number, larg: number, vaoNominal: number) => {
+    // ⚠️ A DIREÇÃO DA SONDA É A DA TRAVESSIA, que é `dirX,dirZ`: é ao longo dela
+    // que o tabuleiro se estende, e é ela que tem de sair da água nas duas pontas.
+    const medido = vaoMolhado(cx, cz, dirX, dirZ)
+    if (medido === null) return
+    // ⚠️ O ENCABEÇAMENTO É 30 m POR LADO, E O NÚMERO É MEDIDO. Com 12 m (os
+    // `+24` de origem) o tabuleiro chegava à terra mas não à RUA: a via para
+    // onde `lagos.ts` classifica o corpo, alguns metros além da linha d'água de
+    // −40, e sobrava uma fresta. Auditado por componente conexo em 06/09: 20
+    // tabuleiros ficavam a 12 m do asfalto, ou seja ponte e rua desencostadas
+    // por um vão de meia pista. 30 m cobrem a folga e ainda apoiam a cabeceira.
+    const ENCAB = 30
+    const vao = Math.max(vaoNominal, medido + 2 * ENCAB)
     const px = -dirZ, pz = dirX
     const y = o.heightAt(cx, cz) + 1.9            // acima da lâmina, que está a −2,6
     const n = 6
@@ -352,9 +398,21 @@ export function buildCanais(o: CanaisOpts): Canais {
     // desembocam os três túneis de eclusa, então o veículo saía do túnel e batia
     // na água oito vezes ao tentar dar a volta. Sem isto, "levar DOG a qualquer
     // endereço da cidade" é falso e nada acusa.
+    //
+    // ⚠️ E O ANEL É DODECÁGONO, NÃO CÍRCULO. Fundador, 06/09: "o dodecaedro é a
+    // malha viária da cidade toda, o outro modelo gerava círculos, pode
+    // excluir". `av.r` é o raio do VÉRTICE; no meio da face o asfalto está em
+    // 96,6% dele, e era ali que a ponte não estava: 61 m fora do pavimento no
+    // Anel Interior, 259 m na Pista de Serviço. Ponte a 259 m da rua é
+    // exatamente a "ponte do nada pra lugar nenhum" da chapa, e ela sobrevivia
+    // ao corte da foz porque o canal ABAIXO dela existe — o que não existe é a
+    // via EM CIMA. Quem responde agora é `anelRaio`, a mesma conta que
+    // `vias.ts` usa para desenhar.
     for (const av of o.aneisViarios ?? []) {
-      if (av.r < r.rInicio || av.r > Math.min(rFimBridge, fzR)) continue
-      ponte(dx * av.r, dz * av.r, Math.cos(g), Math.sin(g), av.larg, r.secao + 24)
+      // o anel da orla do lago central é círculo de verdade e entra sem correção
+      const rAv = av.circulo ? av.r : anelRaio(av.r, g)
+      if (rAv < r.rInicio || rAv > Math.min(rFimBridge, fzR)) continue
+      ponte(dx * rAv, dz * rAv, Math.cos(g), Math.sin(g), av.larg, r.secao + 24)
     }
   }
 

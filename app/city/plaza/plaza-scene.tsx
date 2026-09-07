@@ -2346,7 +2346,12 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
                   aneisViarios: [
                     ...((mc?.aneisViarios ?? []) as { r: number; larg: number }[])
                       .map((a) => ({ r: a.r, larg: a.larg })),
-                    ...(lago ? [{ r: lago.rAnelOrla, larg: LARG_ORLA }] : []),
+                    // ⚠️ `circulo` PORQUE ELE É UM DE VERDADE. Os anéis viários
+                    // são dodecágonos (ver `anelRaio` em teia.ts); o da orla é
+                    // construído por `lago.ts` em volta de uma lâmina redonda e
+                    // seria deformado por uma correção de esquadria que não lhe
+                    // cabe.
+                    ...(lago ? [{ r: lago.rAnelOrla, larg: LARG_ORLA, circulo: true }] : []),
                   ],
                   raioEmPhi: _raioEmPhi,
                   rFimRadial: rFim,
