@@ -1,0 +1,71 @@
+[materiais] regolito gerado em 177.7 ms (512×512, 3 mapas: albedo/normal/rugosidade)
+{
+  "ok": true,
+  "module": {
+    "i": 15,
+    "nr": 2,
+    "j": 50,
+    "ns": 3
+  },
+  "envelope": {
+    "x": 320,
+    "z": 240
+  },
+  "m": {
+    "i": 15,
+    "nr": 2,
+    "j": 50,
+    "ns": 3
+  },
+  "x": 3704.744638226444,
+  "z": 1616.363562300393,
+  "radial": 466,
+  "arc": 895.0226789864242,
+  "road": {
+    "id": "AN4",
+    "clearance": 136.0092656491808
+  },
+  "distEstadio": 925.7021837622638,
+  "distGeode": 760.3455264575383,
+  "terrain": {
+    "source": "btc-core-heightmap.f32 + buildTerrain/cava real; superficieAt",
+    "samples": 19481,
+    "min": -20.924663800841586,
+    "max": -16.912668346627456,
+    "range": 4.01199545421413,
+    "settledY": -16.56686254019323,
+    "minimumFloorClearance": 0.34580580643422465,
+    "maximumSkirtDepth": 4.357801260648355
+  },
+  "nearestProgram": {
+    "id": "B02",
+    "clearance": 199.12448123348824
+  },
+  "canalClearance": [
+    {
+      "id": "CR01",
+      "clearance": 3977.317467170169
+    },
+    {
+      "id": "CR02",
+      "clearance": 3173.1772052205943
+    },
+    {
+      "id": "CR03",
+      "clearance": 1645.196652413573
+    }
+  ],
+  "nearestParcelRoad": {
+    "id": "ativa:120",
+    "clearance": -17.148735242828565
+  },
+  "checks": {
+    "publishedPrograms": 70,
+    "reallocatedPrograms": 69,
+    "existingSportsAndSphere": 3
+  },
+  "limits": [
+    "Não valida lotes futuros do snapshot nem modelos GLB dinâmicos ausentes do programa; reservas cívicas de praça/ilhas ficam fora deste raio.",
+    "Canvas apenas simulado para alojar material; não mede FPS/GPU ou rasterização."
+  ]
+}

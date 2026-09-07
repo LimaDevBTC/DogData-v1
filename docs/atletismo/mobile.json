@@ -1,0 +1,90 @@
+{
+  "perfil": "mobile",
+  "requests": [
+    {
+      "url": "http://localhost:3000/city/dog-athletics-base.glb",
+      "ms": 24327
+    }
+  ],
+  "errors": [
+    "[obra] \"Winter Park\" caiu e foi descartada TypeError: Cannot read properties of undefined (reading 'pontos')\n    at buildInvernoDetalhe (webpack-internal:///(app-pages-browser)/./app/city/plaza/inverno-detalhe.ts:724:35)\n    at Object.fatia (webpack-internal:///(app-pages-browser)/./app/city/plaza/inverno.ts:3262:98)\n    at fatia.next (<anonymous>)\n    at Obra.passo (webpack-internal:///(app-pages-browser)/./app/city/plaza/obra.ts:81:44)\n    at PlazaScene.useEffect.animate (webpack-internal:///(app-pages-browser)/./app/city/plaza/plaza-scene.tsx:6225:33)"
+  ],
+  "warnings": [
+    "THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.",
+    "THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.",
+    "Canvas2D: Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true. See: https://html.spec.whatwg.org/multipage/canvas.html#concept-canvas-will-read-frequently",
+    "[plaza] asset não carregou /city/sf/torch-pillar.glb Cannot read properties of undefined (reading 'uri')",
+    "[plaza] asset não carregou /city/sf/pedestal.glb Cannot read properties of undefined (reading 'uri')"
+  ],
+  "logs": [
+    "[atletismo] base pronta (mobile)"
+  ],
+  "renderer": "ANGLE (NVIDIA Corporation, NVIDIA GeForce GTX 1650/PCIe/SSE2, OpenGL 4.5.0)",
+  "cityReadyMs": 24310,
+  "far": {
+    "state": {
+      "base": "ready",
+      "detalhe": "disabled"
+    },
+    "visible": true,
+    "position": [
+      3704.744638226444,
+      -16.56686254019323,
+      1616.363562300393
+    ],
+    "triangles": 13146,
+    "meshes": 12,
+    "textures": 0,
+    "contextLost": 0,
+    "stats": {
+      "fps": 60,
+      "calls": 394,
+      "triangles": 4300535,
+      "points": 7468,
+      "lines": 207,
+      "programs": 395,
+      "textures": 57,
+      "geometries": 361,
+      "dpr": 1,
+      "tier": "mobile",
+      "quality": "balanced",
+      "shadowEvery": 2,
+      "pos": "composer"
+    },
+    "detailVisible": false
+  },
+  "near": {
+    "state": {
+      "base": "ready",
+      "detalhe": "disabled"
+    },
+    "visible": true,
+    "position": [
+      3704.744638226444,
+      -16.56686254019323,
+      1616.363562300393
+    ],
+    "triangles": 13146,
+    "meshes": 12,
+    "textures": 0,
+    "contextLost": 0,
+    "stats": {
+      "fps": 60,
+      "calls": 99,
+      "triangles": 4077468,
+      "points": 7468,
+      "lines": 207,
+      "programs": 409,
+      "textures": 87,
+      "geometries": 382,
+      "dpr": 1,
+      "tier": "mobile",
+      "quality": "balanced",
+      "shadowEvery": 1,
+      "pos": "composer"
+    },
+    "detailVisible": false
+  },
+  "ok": true,
+  "elapsedMs": 32292
+}
