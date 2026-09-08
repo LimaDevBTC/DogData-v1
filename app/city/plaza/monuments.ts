@@ -141,11 +141,31 @@ interface TextSpec {
   bg?: string
   lines: { text: string; size: number; color?: string; font?: string; y: number; align?: CanvasTextAlign; x?: number; letterSpacing?: number }[]
 }
+/**
+ * ⚠️ A PLACA DESENHA EM 1024 E PODE SER GRAVADA MENOR, e isso é o maior corte de
+ * memória de vídeo da cena no celular. O censo de 07/09 (Pixel 7, balanced,
+ * produção) deu **62,6 MB em 39 texturas só no grupo Monuments**, quase o dobro
+ * do segundo colocado, e a esmagadora maioria são estas placas: 1024x560 e
+ * 1024x512 em RGBA8 com mipmap custam 3,1 e 2,8 MB CADA, cruas. Elas são texto
+ * lido de perto, num aparelho que desenha a 1,26 de dpr.
+ *
+ * ⚠️ E A REDUÇÃO É NA TELA, NÃO NAS MEDIDAS. Todo o desenho abaixo continua em
+ * coordenadas de W x H (tamanho da fonte, quebra de linha, espaçamento entre
+ * letras, o encolhimento de 92% da largura); quem muda é a resolução de
+ * gravação, via `ctx.scale`. Mexer nos números do texto para "caber" seria
+ * refazer a auditoria de placas do item 5 inteira, e por nada.
+ *
+ * Com fator 0,5 a mesma placa cai para 0,78 MB: um quarto.
+ */
+let ESCALA_PLACA = 1
+
 function textTexture(spec: TextSpec): THREE.CanvasTexture {
   const W = spec.w ?? 1024, H = spec.h ?? 512
   const c = document.createElement('canvas')
-  c.width = W; c.height = H
+  c.width = Math.max(2, Math.round(W * ESCALA_PLACA))
+  c.height = Math.max(2, Math.round(H * ESCALA_PLACA))
   const ctx = c.getContext('2d')!
+  ctx.scale(c.width / W, c.height / H)
   ctx.fillStyle = spec.bg ?? '#0c0c0f'
   ctx.fillRect(0, 0, W, H)
   for (const l of spec.lines) {
@@ -229,6 +249,10 @@ function makePlaque(opts: { title: string; body: string; foot?: string; w?: numb
 export function monumentosEmObra(opts: MonumentsOpts): MonumentosEmObra {
   const group = new THREE.Group()
   group.name = 'Monuments'
+  // ⚠️ O FATOR DA PLACA É LIGADO AQUI, UMA VEZ, e vale para todas as placas que
+  // nascerem depois. `cortaTextura` é a mesma bandeira que já manda podar mapa
+  // secundário e é true nos dois perfis de celular (perf.ts:147 e 180).
+  ESCALA_PLACA = opts.profile?.cortaTextura ? 0.5 : 1
   const TEXT_CULL = opts.profile?.textCull ?? 1300
   const cullText = (o: THREE.Object3D, x: number, z: number) => opts.culler?.add(o, TEXT_CULL, new THREE.Vector3(x, 0, z))
   const disposables: { dispose: () => void }[] = []
@@ -556,10 +580,15 @@ export function monumentosEmObra(opts: MonumentsOpts): MonumentosEmObra {
   // fatia da Pata não ser a soma das seis.
   function* marcaDoDog(): Generator<void, THREE.CanvasTexture, unknown> {
     const rel = novoRelogio()
+    // ⚠️ MESMO FATOR DA PLACA, e pela mesma razão: 1024x1024 em RGBA8 com mipmap
+    // são 5,6 MB crus. O disco é desenhado em coordenadas de S e gravado em
+    // `S * ESCALA_PLACA`, então nenhum raio nem nenhuma parada do gradiente muda.
     const S = 1024
     const c = document.createElement('canvas')
-    c.width = S; c.height = S
+    c.width = Math.max(2, Math.round(S * ESCALA_PLACA))
+    c.height = c.width
     const ctx = c.getContext('2d')!
+    ctx.scale(c.width / S, c.height / S)
     const R = S / 2
     // fundo: só dentro do círculo (fora fica transparente e não aparece borda)
     ctx.beginPath(); ctx.arc(R, R, R - 2, 0, Math.PI * 2); ctx.closePath()
