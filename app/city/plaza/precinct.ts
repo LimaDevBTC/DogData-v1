@@ -33,9 +33,36 @@ import { PRACA_Y } from './terrain'
 
 export const R_DECK = 300
 export const R_GARDEN_IN = 332
-export const R_RING = 452
+/**
+ * ⚠️ 419, E NÃO 452, DESDE 08/09: A VIA ENCOSTOU NA PRAÇA PARA A ESFERA CRESCER.
+ * O fundador viu no mapa: *"entre a esfera e a praça tem uma via e mais um
+ * espaço. Otimize o espaço ali, encoste a via mais próxima da praça que a esfera
+ * vai conseguir crescer."*
+ *
+ * A esfera mora na âncora norte, em r 620, e é limitada pelas DUAS vias anelares:
+ * o bulevar daqui por dentro e o passeio de `R_PROM` por fora. Medido, com 3 m de
+ * folga para cada uma:
+ *
+ *     anel   passeio   raio no chão   diâmetro   altura   % da torre
+ *      452     745        116,0 m      257,0 m   183,7 m     61%
+ *      430     780        151,0 m      334,5 m   239,2 m     79%
+ *    **419     810        181,0 m      401,0 m   286,7 m     95%**
+ *      405     829        195,0 m      432,0 m   308,9 m    102%
+ *      400     850        200,0 m      443,1 m   316,8 m    105%
+ *
+ * ⚠️ E A CONFIGURAÇÃO ANTIGA ESTAVA ESTOURADA, o que ninguém tinha visto: com o
+ * anel em 452 e o passeio em 745 o orçamento era de 257,0 m, e a esfera estava em
+ * 326,0. Ela pisava no passeio, que só abria um recorte de 4,6° em volta da
+ * âncora quando precisava de 13,2°.
+ *
+ * O cinturão de jardim continua existindo: `lawnIn` vai de 328 a 404, ou seja
+ * 76 m de gramado entre o jardim interno e a pista.
+ */
+export const R_RING = 419
 export const RING_W = 34
 export const R_ANCHOR = 620
+/** o raio do passeio-anel, publicado para a máscara de plantio não cravar número */
+export const R_PROM_RESERVA = 810
 export const BOULEVARD_W = 42
 export const R_EDGE = 900
 
@@ -148,26 +175,18 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   // ── pavimento: anel e radiais ──────────────────────────────────────────────
   const paveMat = track(new THREE.MeshStandardMaterial({ color: 0x17181d, roughness: 0.75, metalness: 0.15 }))
   const kerbMat = track(new THREE.MeshBasicMaterial({ color: ICE, toneMapped: false, transparent: true, opacity: 0.55 }))
-  // ⚠️ O ANEL ABRE VÃO NO NORTE DESDE 08/09, e é a esfera que manda. Com 355,7 m
-  // ela encosta no piso num círculo de 160,6 m de raio; a partir da âncora em
-  // r 620 isso alcança r 459,4, ou seja MORDE a borda externa do anel (469) em
-  // 9,6 m. Medido, o setor mordido vai de −95,8° a −84,2°: **11,6° de arco**.
+  // ⚠️ O ANEL VOLTOU A SER FECHADO EM 08/09, E A ESFERA É QUE CEDEU. Ela chegou a
+  // 355,7 m e mordia a borda externa daqui em 9,6 m, num setor de 11,6°, e a
+  // primeira solução foi abrir vão de 16° no norte. O fundador preferiu o
+  // contrário: *"se precisar reduza ela minimamente pra não colidir com a via"*.
   //
-  // Um `RingGeometry` fechado poria pista por baixo de um prédio de 355 m. O anel
-  // passa a ser desenhado em DOIS arcos que pulam esse setor, que é o mesmo
-  // movimento que o passeio-anel já fazia no norte por causa da Grande Fonte (ver
-  // `promenadeArc` logo abaixo). Um monumento interrompendo um anel é gesto
-  // urbano, não defeito: quem contorna é a via, não a peça.
-  //
-  // ⚠️ O VÃO É 16°, E NÃO OS 11,6 MEDIDOS: 2,2° de folga por ponta, para a
-  // aresta da pista não encostar na silhueta da esfera num rumo qualquer, já que
-  // ela é de revolução e o corte é reto.
-  const VAO_NORTE = (16 * Math.PI) / 180
-  // `RingGeometry` mede theta a partir de +x; o norte fica em −z, ou seja em
-  // theta = −π/2 depois do `rotation.x = −π/2` que a peça leva adiante.
-  const t0 = -Math.PI / 2 + VAO_NORTE / 2
-  const ring = new THREE.Mesh(track(new THREE.RingGeometry(
-    R_RING - RING_W / 2, R_RING + RING_W / 2, 192, 1, t0, Math.PI * 2 - VAO_NORTE)), paveMat)
+  // É a decisão melhor, e o número explica por quê: o vão custava 16° de uma via
+  // que dá a volta na praça, e a esfera custou 8,3% de diâmetro. Uma via
+  // interrompida é permanente e se vê de todo lugar; 8% de diâmetro numa peça de
+  // 326 m ninguém mede a olho. `SPHERE_DIAM` está em 326,0, que deixa a esfera
+  // encostando no piso em r 472,8 contra os 469 da borda externa daqui: **3,84 m
+  // de folga**. O teto absoluto seria 334,5 m, com folga zero.
+  const ring = new THREE.Mesh(track(new THREE.RingGeometry(R_RING - RING_W / 2, R_RING + RING_W / 2, 192)), paveMat)
   ring.rotation.x = -Math.PI / 2
   ring.position.y = Y0 + 0.35
   ring.receiveShadow = true
@@ -298,7 +317,12 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
     allee(a, R_RING + RING_W / 2 - 2, 560 - 52) // do anel ao espelho d'água
     allee(a, 560 + 52, R_EDGE - 6)              // do espelho à muralha
   }
-  const R_PROM = 745, PROM_W = 12
+  // ⚠️ 810, E NÃO 745: o passeio recuou para a esfera crescer, na mesma rodada em
+  // que o bulevar anelar veio para 419. Ver a tabela em `R_RING`. Com 810 o
+  // passeio passa a 190 m da âncora norte, ou seja **nunca mais é cortado por
+  // ela** (o recorte de `free` só dispara abaixo de 128), e volta a ser um anel
+  // inteiro em vez de arcos com um vão.
+  const R_PROM = 810, PROM_W = 12
   const promenadeArc = (a0: number, a1: number) => {
     const seg = Math.max(8, Math.round(((a1 - a0) * R_PROM) / 6))
     const p = new THREE.Mesh(track(new THREE.RingGeometry(R_PROM - PROM_W / 2, R_PROM + PROM_W / 2, seg, 1, a0, a1 - a0)), paveMat)
@@ -528,8 +552,11 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
     // árvore dentro das quinas do avental. O número fica literal aqui de
     // propósito: `sphere.ts` já importa `R_ANCHOR` deste arquivo, e importar de
     // volta fecharia um ciclo de módulo.
-    if (Math.hypot(x, z + R_ANCHOR) < 180) return false // o avental de THE SPHERE
-    if (Math.abs(r - 745) < 6 + 5) return false // o passeio-anel
+    if (Math.hypot(x, z + R_ANCHOR) < 195) return false // o avental de THE SPHERE (186 m de raio)
+    // ⚠️ O RAIO DO PASSEIO SAI DA CONSTANTE, e não mais cravado em 745: ele foi
+    // para 810 em 08/09 e esta linha ficaria reservando gramado onde não há mais
+    // passeio, e plantando em cima do que há.
+    if (Math.abs(r - R_PROM_RESERVA) < 6 + 5) return false // o passeio-anel
     // as alamedas diagonais: distância ao eixo diagonal mais próximo
     if (r > R_RING && Math.min(Math.abs(x - z), Math.abs(x + z)) / Math.SQRT2 < 7 + 5) return false
     if (inSiteWalk(x, z)) return false
