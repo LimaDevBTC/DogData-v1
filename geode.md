@@ -12,7 +12,9 @@ regra de que não podia ser "arena".
 | cume | 60 m |
 | piso de show | 48 x 28 m livres, grid de som e luz a 45 m |
 | quadra | **28 x 15 m em medida FIBA**, pintada dentro do piso de show |
-| malha | **31.936 triângulos, 185 KB, ZERO texturas** |
+| pintura | preto, garrafão laranja #E8660D, linhas brancas, `$DOG` nos dois aventais |
+| tabelas | duas, medida FIBA: 1,80 x 1,05 m, aro a 3,05 m, suporte atrás do fundo |
+| malha | **32.706 triângulos, 189 KB, ZERO texturas** |
 | sítio | módulo `{i:11, nr:3, j:52, ns:2}` da teia, 309 m até a via grande |
 
 Fonte em `blender/build_arena.py`, bacia em `scripts/bacia_arena.py`, sítio e
