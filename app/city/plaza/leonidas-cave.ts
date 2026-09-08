@@ -151,8 +151,11 @@ export interface LeonidasCave {
   /** o ponto de mundo da boca, para o menu Places */
   mouthLocal: THREE.Vector3
   /** `camWorld` é a câmera em MUNDO: é ela que abre e fecha o portão do interior.
-   *  Sem ela a caverna anima o que já existe e não carrega nada. */
-  update: (t: number, camWorld?: THREE.Vector3) => void
+   *  Sem ela a caverna anima o que já existe e não carrega nada.
+   *
+   *  ⚠️ `alvoWorld` É PARA ONDE A CÂMERA VAI, e ele não é enfeite: é o conserto
+   *  do travamento que o fundador relatou em 08/09. Ver o bloco do PORTÃO. */
+  update: (t: number, camWorld?: THREE.Vector3, alvoWorld?: THREE.Vector3) => void
   dispose: () => void
 }
 
@@ -875,8 +878,36 @@ export async function buildLeonidasCave(opts: {
   // culling guarda a referência das luzes que já morreram (ele só sabe somar),
   // então cada ida e volta completa deixa 8 entradas mortas na lista dele.
   // Custam duas escritas de propriedade por quadro cada uma e nada mais.
+  // ⚠️ OS 420 m DA FORTALEZA MORRERAM EM 08/09, E A PREMISSA DELES ERA FALSA.
+  // O fundador: *"quando dispara de uma vez só, agarra, pq o user chega nele
+  // muito rápido (…) em 2 ou 3 duplos cliques ele sai do centro da cidade e já
+  // tá no castelo"*. Estava certo, e a aritmética confirma.
+  //
+  // `focusAt` (o duplo clique, `plaza-scene.tsx`) leva a câmera para 32% da
+  // distância até o ponto clicado. Da praça, a 11.800 m daqui:
+  //
+  //     duplo clique 1   →  3.776 m    o geodo dispara
+  //     duplo clique 2   →  1.208 m
+  //     **duplo clique 3 →    387 m    a fortaleza dispara, E É A CHEGADA**
+  //
+  // A justificativa antiga era "de 420 m da boca até o mirante há 506 m de
+  // caminhada, folgado até em rede de 1 Mbps". Não existe caminhada: o visitante
+  // TELEPORTA em três gestos. Os 2.481 KB e os 171.708 triângulos da fortaleza
+  // começavam a baixar depois que ele já tinha chegado, e o resultado é o
+  // engasgo.
+  //
+  // ⚠️ ENTÃO A FORTALEZA DISPARA JUNTO COM O GEODO, que é o pedido literal do
+  // fundador ("o disparo pra começar a carregar tem que ser junto com o próprio
+  // parque Runestone"). O gatilho dos dois passa a ser o raio de culling do
+  // parque vezes 1,25, ou seja **6.825 m**: quem está a essa distância já está
+  // baixando o parque inteiro, e a caverna é uma fração dele. O escalonamento em
+  // dois estágios só fazia sentido para um visitante que caminha.
+  //
+  // ⚠️ E A HISTERESE DE SAÍDA CONTINUA SEPARADA, de propósito: descarregar é
+  // barato e não engasga, então a fortaleza ainda sai antes do geodo (620 m
+  // contra 7.917) e as oito PointLight morrem cedo. O que muda é só a ENTRADA.
   const GEO_IN = CULL * 1.25, GEO_OUT = CULL * 1.45
-  const FORT_IN = 420, FORT_OUT = 620
+  const FORT_IN = GEO_IN, FORT_OUT = 620
 
   /** o interior, que nasce vazio e pode voltar a ficar vazio */
   let geodo: THREE.Object3D | null = null
@@ -1207,16 +1238,42 @@ export async function buildLeonidasCave(opts: {
   return {
     group: holder,
     mouthLocal: new THREE.Vector3(CAVE_LOCAL.x, group.position.y, CAVE_LOCAL.z),
-    update(t, camWorld) {
+    update(t, camWorld, alvoWorld) {
       // ── o portão ──────────────────────────────────────────────────────────
       // distância HORIZONTAL até a boca: a câmera voa, e uma altura de voo não
       // deve descarregar a caverna de quem está parado em cima dela. É a mesma
       // âncora que o culling usa (o parque não gira: PARK_ROT_Y = 0).
+      //
+      // ⚠️ ENTRA PELA INTENÇÃO E SAI PELA POSIÇÃO, e essa assimetria é o
+      // conserto. O portão antigo lia onde a câmera ESTÁ, e num voo de 1,1 s
+      // isso só cruza o limiar no último quadro: o download começava na
+      // chegada. Agora a ENTRADA usa a menor distância entre onde a câmera está
+      // e para onde ela vai (`alvoWorld`, o destino do `flyTo`), então o duplo
+      // clique que aponta para cá dispara a rede no instante do gesto, com o
+      // voo inteiro de folga. A SAÍDA continua lendo só a posição, senão um voo
+      // que passa longe descarregaria a caverna de quem está dentro dela.
       if (camWorld) {
         dist = Math.hypot(camWorld.x - cullAt.x, camWorld.z - cullAt.z)
-        if (!geodo && !baixandoGeodo && dist < GEO_IN) void abreGeodo()
+        const dAlvo = alvoWorld
+          ? Math.hypot(alvoWorld.x - cullAt.x, alvoWorld.z - cullAt.z)
+          : Infinity
+        const entrada = Math.min(dist, dAlvo)
+        if (!geodo && !baixandoGeodo && entrada < GEO_IN) void abreGeodo()
         else if (geodo && dist > GEO_OUT) fechaGeodo()
-        if (geodo && !fortaleza && !baixandoFort && dist < FORT_IN) void abreFortaleza()
+        // ⚠️ A FORTALEZA CONTINUA ESPERANDO O GEODO, E ISSO É DE PROPÓSITO. Ela
+        // parece uma serialização a eliminar (905 KB antes de 2.481 KB), e eu
+        // cheguei a tirar: é bug. `abreFortaleza` DESCARTA o que baixou se o
+        // geodo não estiver montado (o jardim precisa da pegada dela e o mount
+        // testa `!geodo`), então disparar as duas juntas baixaria 2,5 MB para
+        // jogar fora e tentaria de novo no quadro seguinte, em laço.
+        //
+        // Serializado NÃO custa mais nada agora, porque o que mudou foi a
+        // ENTRADA: as duas começam a 6.825 m em vez de 420, então o geodo baixa,
+        // monta, e a fortaleza sai atrás com quilômetros de folga em vez de
+        // milissegundos. Sobrepor os dois downloads é ganho REAL mas pede
+        // separar `abreFortaleza` em baixar e montar, com o objeto esperando o
+        // geodo em vez de ser descartado. Fica declarado, não feito.
+        if (geodo && !fortaleza && !baixandoFort && entrada < FORT_IN) void abreFortaleza()
         else if (fortaleza && dist > FORT_OUT) fechaFortaleza()
       }
       // brasa: a luz respira, o material não (o material é o que lê de longe)

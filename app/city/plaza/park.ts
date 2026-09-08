@@ -57,7 +57,11 @@ export { PARK_CENTER, PARK_ROT_Y }
 
 export interface Park {
   group: THREE.Group
-  update: (t: number, halfHeightPx: number, camPos: THREE.Vector3) => void
+  /** ⚠️ `alvoPos` É PARA ONDE A CÂMERA VAI (o destino do voo), e ele existe só
+   *  para a caverna do Leonidas: o portão dela ENTRA pela intenção e SAI pela
+   *  posição. Sem isso o duplo clique chega antes do download. Ver o bloco do
+   *  PORTÃO em `leonidas-cave.ts`. */
+  update: (t: number, halfHeightPx: number, camPos: THREE.Vector3, alvoPos?: THREE.Vector3) => void
   /** ⚠️ A COTA DO CHÃO DO PARQUE, EM MUNDO, ou null fora da pegada dele.
    *
    *  Ela existe porque o parque tem TERRENO PRÓPRIO. `terrain.heightAt` e
@@ -779,7 +783,7 @@ function* constroiParque(a: AtivosDoParque, opts: ParkOpts, saida: SaidaDoParque
   saida.park = {
     group,
     alturaEm,
-    update(t, halfHeightPx, camPos) {
+    update(t, halfHeightPx, camPos, alvoPos) {
       scatterMat.uniforms.uHalfH.value = halfHeightPx
       const dist = camPos.distanceTo(PARK_CENTER)
       lodCrystals(dist)
@@ -788,7 +792,7 @@ function* constroiParque(a: AtivosDoParque, opts: ParkOpts, saida: SaidaDoParque
       // caverna (o geodo e a fortaleza-caveira, 3,4 MB e 315.498 triângulos)
       // carregam por PROXIMIDADE e são descartadas ao sair. Sem `camPos` aqui a
       // caverna nunca abre o portão e o visitante entra num buraco vazio.
-      cave?.update(t, camPos)
+      cave?.update(t, camPos, alvoPos)
     },
     // ⚠️ `bcTex` e `nmTex` NÃO são descartadas aqui: elas vêm do cache de módulo
     // de `loadCrystalTextures` e são as MESMAS que o Jardim Ordinal usa. Ver a

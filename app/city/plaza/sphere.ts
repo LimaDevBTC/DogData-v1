@@ -43,6 +43,8 @@
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
 import { caixaDoModulo, polyDoModulo, type Modulo } from './teia'
+import { R_ANCHOR } from './precinct'
+import { PRACA_Y } from './terrain'
 import type { PerfProfile } from './perf'
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -232,7 +234,27 @@ export const SPHERE_ENTERRO = 0.43
  * ⚠️ ACESSO AO PÓDIO É DÍVIDA DECLARADA. 2,2 m de face vertical não se sobe a
  * pé, e escada/rampa é programa de praça, que o dossiê já lista em aberto.
  */
-export const SPHERE_PODIO_H = 2.2
+/**
+ * ⚠️ O PÓDIO ACABOU EM 08/09, POR DECISÃO DO FUNDADOR: *"creio que a praça seja
+ * completamente plana, e talvez podemos abrir mão do pódio e colocá-la
+ * diretamente no solo, ou algo próximo disso"*. A praça é plana mesmo
+ * (`PRACA_Y`), então o embasamento perdeu a função que o justificava: ele
+ * existia para resolver uma peça de 196 m pousada em terreno com 16,2 m de
+ * desnível sob ela, com saia reta até o relevo. Nada disso existe na âncora.
+ *
+ * ⚠️ E O "ALGO PRÓXIMO DISSO" É O COLAR, QUE FICA. A esfera encontrando um piso
+ * plano numa linha de 180 m lê como bug de modelagem, e não é gosto: é o mesmo
+ * motivo pelo qual a de Las Vegas tem embasamento. O colar não é pódio, é um
+ * chanfro de 3,0 m de largura e 1,2 m de altura, ou seja um FILETE no pé: a
+ * esfera EMERGE de um bisel em vez de cortar um plano, e quem chega pisa no
+ * mesmo chão da praça. Zero degrau, zero terraço, zero escada.
+ *
+ * ⚠️ COM O PÓDIO EM ZERO, A ESCADARIA DO JARDIM VIROU ZERO DEGRAU SOZINHA: ela
+ * era dimensionada por `SPHERE_PODIO_H / ESCADA_ESPELHOS`, e agora não há
+ * desnível para vencer. É o resultado certo, e é por isso que a constante fica
+ * em 0 em vez de a escadaria ser apagada à mão.
+ */
+export const SPHERE_PODIO_H = 0
 /**
  * ⚠️ 12,6 m, E NÃO OS 14,0 DA ESFERA DE 160. A largura do pódio não escala com
  * a esfera: ela é escala HUMANA (um terraço que alguém pisa), e o que a define
@@ -1154,75 +1176,82 @@ export function sphereEscalonamento(p: PerfProfile): SphereEscalonamento {
 // 8. O SÍTIO NA TEIA (mesma disciplina do Geode e do Estádio)
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** Centro e giro do bloco, direto da teia. */
+/**
+ * ⚠️ A ESFERA MUDOU DE ENDEREÇO EM 08/09: ELA É A QUARTA ÂNCORA DA PRAÇA CENTRAL.
+ *
+ * Decisão do fundador: *"a esfera vai sair de onde ela está e vai completar a
+ * praça central, sendo o quarto prédio ali, onde hoje tem uma fonte"*. A vaga já
+ * estava reservada no código, e literalmente escrita assim em `precinct.ts`:
+ * `north: { pos: (0, PRACA_Y, -R_ANCHOR) }, // jardim, por enquanto`. As outras
+ * três âncoras do anel r 620 são a BitFlow a oeste, a Kray a leste e o Chalé ao
+ * sul; o norte era a Grande Fonte segurando o lugar.
+ *
+ * ⚠️ O QUE MORREU COM A MUDANÇA, e é bom saber antes de procurar: `SPHERE_MOD`
+ * e toda a varredura da teia que escolheu aquele módulo (folga contra bulevar,
+ * anel, autopista, eclusa, água e as 70 peças de `cidade.json`). O anel da teia
+ * começa em r 1.900 e o precinto acaba em r 900: a peça saiu do domínio da teia
+ * e entrou no da praça, onde quem manda é `precinct.ts`. A constante fica
+ * declarada logo abaixo, sem uso, porque a conta que ela carrega é a memória de
+ * como se escolhe um sítio nesta cidade, e ela vai ser precisa de novo.
+ *
+ * ⚠️ E O GIRO É O DA ÂNCORA, não o rumo do módulo. `ANCHORS.north.rotY` é π (a
+ * frente olha para o centro da praça, ou seja para +z). Como a esfera é sólido
+ * de revolução, o giro não muda a casca: ele existe para o deck, o jardim e as
+ * escadarias, que têm frente.
+ */
 export function sphereSitio(): { x: number; z: number; rumoDeg: number } {
-  const c = caixaDoModulo(SPHERE_MOD)
-  const am = (c.a0 + c.a1) / 2
-  // ⚠️ O CENTRO É O CENTROIDE DO POLÍGONO, NÃO O PONTO POLAR (sin·rm, −cos·rm),
-  // e a diferença NÃO é acadêmica: medido em 07/09, o ponto polar cai a **58 m**
-  // do centroide de `polyDoModulo`, porque o anel é DODECÁGONO e `raioDodeca()`
-  // move os vértices para a face. Com a esfera de 64 m de largura no chão isso
-  // passava despercebido; com 147,5 m ela ficava visivelmente encostada num lado
-  // do próprio lote, que é metade da queixa de "pequena em relação ao terreno".
-  const q = polyDoModulo(SPHERE_MOD)
-  return {
-    x: q.reduce((a, p) => a + p[0], 0) / q.length,
-    z: q.reduce((a, p) => a + p[1], 0) / q.length,
-    rumoDeg: (THREE.MathUtils.radToDeg(am) + 360) % 360,
-  }
+  return { x: 0, z: -R_ANCHOR, rumoDeg: 180 }
 }
 
 /**
- * O polígono do DECK: o módulo encolhido no arco, centrado no lote.
+ * O AVENTAL da esfera na praça, um quadrado centrado na âncora.
  *
- * ⚠️ NÃO É O MÓDULO INTEIRO, e essa é a correção de 07/09 (ver
- * `SPHERE_DECK_ENCOLHE`). Os lados radiais ficam intactos porque eles SÃO rua; o
- * arco recua `SPHERE_DECK_ENCOLHE` de cada ponta, o que leva o deck de
- * 227,0 x 370,8 para **229,6 x 254,2 m** (medidos no polígono) e faz a esfera de
- * 196 m ocupar 78,4% da largura dele no radial e 70,8% no arco, contra 28,2% e
- * 17,3% na primeira versão da peça.
+ * ⚠️ ELE SUBSTITUI O TABULEIRO DA TEIA, que era o quadrilátero do módulo
+ * (229,6 x 254,2 m, com saia até o relevo). Na praça não existe módulo nem
+ * relevo: o chão do precinto é laje construída e PLANA em `PRACA_Y`, então não
+ * há terraplenagem, não há talude e não há saia. O que sobra é o avental que o
+ * jardim precisa para existir, e ele é QUADRADO porque a esfera é de revolução
+ * e o anel viário do precinto é concêntrico: qualquer torção que o dodecágono da
+ * teia impunha desapareceu junto com o módulo.
+ *
+ * ⚠️ 254,2 m DE LADO, E O NÚMERO É HERANÇA DELIBERADA: é o lado maior do deck
+ * antigo. Manter a medida faz o jardim que o `sphere-jardim-plano.ts` desenhou
+ * continuar valendo peça por peça (a coroa de 40 tamareiras, as 36 topiárias, os
+ * 10 ciprestes, os 24 postes e as quatro escadarias), em vez de virar um
+ * redesenho no mesmo dia em que a peça mudou de lugar.
  */
+export const SPHERE_AVENTAL_LADO = 254.2
+
 export function sphereDeckPoly(): [number, number][] {
-  const q = polyDoModulo(SPHERE_MOD)
-  const f = SPHERE_DECK_ENCOLHE
-  const lerp = (a: [number, number], b: [number, number], k: number): [number, number] =>
-    [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k]
-  // as arestas 0-1 e 2-3 são as do ARCO (interna e externa); 1-2 e 3-0 são radiais
-  return [lerp(q[0], q[1], f), lerp(q[1], q[0], f), lerp(q[2], q[3], f), lerp(q[3], q[2], f)]
+  const s = sphereSitio()
+  const h = SPHERE_AVENTAL_LADO / 2
+  // no sentido que `recuar()` do jardim espera (normal para dentro)
+  return [
+    [s.x - h, s.z - h], [s.x + h, s.z - h],
+    [s.x + h, s.z + h], [s.x - h, s.z + h],
+  ]
 }
 
+
 /**
- * A cota do tabuleiro, MEDIDA no relevo sob o deck.
+ * A cota do piso, que na praça é uma CONSTANTE e não uma medição.
  *
- * ⚠️ ELA É MEDIDA E NÃO CRAVADA PORQUE A PEÇA VAI MUDAR DE LUGAR. O fundador
- * avisou em 07/09 que estuda trazer a Sphere para perto da praça central; com a
- * cota saindo daqui, trocar `SPHERE_MOD` basta, e a regra da casa (cota MÁXIMA
- * sobre a peça inteira + 0,4 m de margem para o micro-relevo do `terreno=fino`)
- * continua valendo sozinha.
+ * ⚠️ A PRAÇA É PLANA, E O FUNDADOR ESTAVA CERTO AO SUPOR ISSO: o chão do
+ * precinto é laje construída em `PRACA_Y = -35` (ver `terrain.ts` e a nota de
+ * `ANCHORS` em `precinct.ts`, que põe as três âncoras construídas nessa mesma
+ * cota justamente porque elas não seguem `heightAt`). Não há relevo para sondar,
+ * então a varredura de 3,6 mil chamadas de `heightAt` que media o módulo da teia
+ * saiu inteira: ela media um chão que a peça não pisa mais.
  *
- * Custo MEDIDO com `npx tsx` contra o `heightAt` real da cena: **5,18 ms**, uma
- * vez no boot (uma grade de 4 m sobre 230,5 x 248,6 m são ~3,6 mil chamadas). Os quatro vértices entram à mão porque a quina é
- * onde a cota extrema mora e uma grade pode passar ao lado dela: foi assim que o
- * Estádio furou a própria calçada.
+ * ⚠️ O PARÂMETRO CONTINUA NA ASSINATURA, e de propósito. `buildSphere` passa o
+ * `heightAt` da cena e o jardim repete a chamada; mudar a assinatura obrigaria
+ * os dois a mudar por nada. Ele fica declarado como não usado, que é honesto, em
+ * vez de a peça fingir que sonda.
  */
-export function sphereAssentar(heightAt: (x: number, z: number) => number): number {
-  const q = sphereDeckPoly()
-  const dentro = (x: number, z: number) => {
-    let s = false
-    for (let i = 0, j = q.length - 1; i < q.length; j = i++) {
-      const [xi, zi] = q[i], [xj, zj] = q[j]
-      if ((zi > z) !== (zj > z) && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) s = !s
-    }
-    return s
-  }
-  let mx = -Infinity
-  for (const p of q) mx = Math.max(mx, heightAt(p[0], p[1]))
-  const xs = q.map((p) => p[0]), zs = q.map((p) => p[1])
-  for (let x = Math.min(...xs); x <= Math.max(...xs); x += 4)
-    for (let z = Math.min(...zs); z <= Math.max(...zs); z += 4)
-      if (dentro(x, z)) mx = Math.max(mx, heightAt(x, z))
-  return Math.round((mx + 0.4) * 10) / 10
+export function sphereAssentar(_heightAt?: (x: number, z: number) => number): number {
+  return PRACA_Y
 }
+
 
 /**
  * A MESMA COTA, COM MEMÓRIA, para quem precisa dela fora de `buildSphere`.
@@ -1249,12 +1278,16 @@ export function sphereCotaDeck(heightAt: (x: number, z: number) => number): numb
   return y
 }
 
-/** O polígono do bloco, que vira máscara de via: a rua para na divisa dele.
- *  ⚠️ Sem isto na lista de parcelas, a teia desenha rua POR DENTRO da peça, que
- *  foi exatamente o defeito que o fundador apontou na chapa do Estádio. */
-export function sphereParcela(): { poly: [number, number][] } {
-  return { poly: polyDoModulo(SPHERE_MOD) }
-}
+/**
+ * ⚠️ NÃO EXISTE MAIS PARCELA DE TEIA, E DEVOLVER UMA SERIA MENTIRA. Enquanto a
+ * esfera morava num módulo, ela precisava entrar na lista de parcelas para a
+ * teia parar de desenhar rua por dentro do tabuleiro. Na âncora norte da praça
+ * ela está em r 620, e a teia só começa em r 1.900: não há rua dela para parar.
+ * Devolver o polígono do `SPHERE_MOD` mascararia um módulo VAZIO lá longe, e o
+ * efeito seria um buraco sem rua no meio do tecido.
+ */
+export function sphereParcela(): null { return null }
+
 
 /**
  * A distância em que a peça some, POR PERFIL.

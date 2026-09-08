@@ -2859,8 +2859,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               // que foi exatamente o defeito que o fundador apontou na chapa.
               // ⚠️ E O MESMO VALE PARA THE GEODE: sem a parcela dele na máscara,
               // a teia desenha rua por dentro da arena.
-              // ⚠️ E O MESMO VALE PARA THE SPHERE, pela mesma razão: sem a
-              // parcela dela, a teia desenha rua por dentro do tabuleiro.
+              // ⚠️ THE SPHERE SAIU DESTA LISTA EM 08/09, e o motivo é que ela
+              // saiu da TEIA: o fundador a mudou para a quarta âncora da praça
+              // central (r 620), e a teia só começa em r 1.900. `sphereParcela()`
+              // devolve `null` de propósito, porque mascarar o módulo antigo
+              // abriria um buraco sem rua no tecido, longe de onde a peça está.
               // ⚠️ AS TRÊS ARENAS ENTRAM COMO UMA PARCELA SÓ DESDE 07/09. Era
               // uma parcela por peça, e entre elas sobravam duas ruas radiais
               // finas cortando o que hoje é um campus contínuo. A parcela do
@@ -2869,8 +2872,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               // avenidas e não desenha rua nenhuma por dentro. `estadioParcela`,
               // `geodeParcela` e `atletismoParcela` continuam existindo para
               // quem precisa medir peça isolada; aqui elas não são mais usadas.
-              parcelas = [...parcelas, campusParcela() as PecaEncaixada,
-                          sphereParcela() as PecaEncaixada]
+              parcelas = [...parcelas, campusParcela() as PecaEncaixada]
               console.log(`[programa] ${parcelas.length} de ${_prog.length} peças `
                 + `encaixadas em módulo inteiro da teia`
                 + (programa ? `, ${programa.triangulos.toLocaleString('pt-BR')} triângulos` : ' (só o encaixe; ?programa=1 desenha)'))
@@ -4996,7 +4998,16 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       monuments?.update(t)
       founders?.update(t)
       dsc?.update(t)
-      park?.update(t, renderer.domElement.clientHeight / 2, camera.position)
+      // ⚠️ O DESTINO DO VOO VAI JUNTO, e é o conserto do travamento do castelo do
+      // Leonidas (fundador, 08/09: "quando dispara de uma vez só, agarra, pq o
+      // user chega nele muito rápido"). `focusAt` leva a câmera para 32% da
+      // distância até o ponto do duplo clique, então da praça bastam TRÊS gestos
+      // para cair a 387 m da caverna, e o portão da fortaleza (2.481 KB,
+      // 171.708 triângulos) ficava em 420 m: ele disparava na chegada. Passando
+      // `fly.p1`, o portão vê o destino no instante do gesto e baixa durante o
+      // voo. Fora do voo vai `undefined`, e aí ele volta a ler só a posição.
+      park?.update(t, renderer.domElement.clientHeight / 2, camera.position,
+        fly.on ? fly.p1 : undefined)
       // ── a guerra acorda por proximidade e a interface muda de modo ────────
       // O feed liga a 1,4 km e desliga ao se afastar; o HUD do modo jogo entra
       // em fade de 1,1 km até 600 m, escrito DIRETO no DOM (zero re-render).

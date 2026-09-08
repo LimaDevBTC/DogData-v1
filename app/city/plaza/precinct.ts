@@ -503,7 +503,13 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
       const a = Math.PI / 4 + (i * Math.PI) / 2
       if (Math.hypot(x - Math.cos(a) * 560, z - Math.sin(a) * 560) < 62) return false
     }
-    if (Math.hypot(x, z + R_ANCHOR) < 120) return false // a grande fonte do norte
+    // ⚠️ 180 m, E NÃO OS 120 DA FONTE. A âncora norte virou THE SPHERE em 08/09 e
+    // o avental dela é um QUADRADO de 254,2 m de lado (`SPHERE_AVENTAL_LADO`),
+    // cuja meia-diagonal mede 179,7 m. Com os 120 m antigos o precinto plantava
+    // árvore dentro das quinas do avental. O número fica literal aqui de
+    // propósito: `sphere.ts` já importa `R_ANCHOR` deste arquivo, e importar de
+    // volta fecharia um ciclo de módulo.
+    if (Math.hypot(x, z + R_ANCHOR) < 180) return false // o avental de THE SPHERE
     if (Math.abs(r - 745) < 6 + 5) return false // o passeio-anel
     // as alamedas diagonais: distância ao eixo diagonal mais próximo
     if (r > R_RING && Math.min(Math.abs(x - z), Math.abs(x + z)) / Math.SQRT2 < 7 + 5) return false
@@ -817,11 +823,22 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   group.add(uplights)
   cull(uplights, SMALL)
 
-  // ── a grande fonte do norte, no lugar da quarta âncora ───────────────────
-  const fountain = buildGrandFountain(rnd, track, jetTex, Math.round(((opts.profile?.jetParticles ?? 900) * 16) / 9))
-  const fy = yAt(0, -R_ANCHOR)
-  fountain.group.position.set(0, fy, -R_ANCHOR)
-  group.add(fountain.group)
+  // ── A ÂNCORA NORTE AGORA É THE SPHERE, E A GRANDE FONTE SAIU ──────────────
+  //
+  // Decisão do fundador em 08/09: *"a esfera vai sair de onde ela está e vai
+  // completar a praça central, sendo o quarto prédio ali, onde hoje tem uma
+  // fonte"*. A Grande Fonte sempre foi o inquilino provisório desta vaga, e o
+  // próprio comentário de `ANCHORS` dizia isso: `north: ... // jardim, por
+  // enquanto`. Agora as quatro âncoras do anel r 620 são prédio: BitFlow a
+  // oeste, Kray a leste, o Chalé ao sul e THE SPHERE ao norte.
+  //
+  // ⚠️ `buildGrandFountain` FICA NO ARQUIVO, sem chamada. Ela é a maior peça de
+  // água da cidade e o fundador pode querê-la em outro lugar; apagar a função
+  // jogaria fora o desenho junto com a posição. O que sai é a instância.
+  //
+  // ⚠️ E OS QUATRO ESPELHOS D'ÁGUA DAS DIAGONAIS CONTINUAM, então a praça não
+  // ficou sem água: o que saiu foi o jato de 120 m de raio que ocupava a vaga da
+  // quarta âncora.
 
   // ⚠️ A GRANDE FONTE TINHA DUAS LUZES A METROS UMA DA OUTRA, e agora tem uma.
   //
@@ -874,8 +891,10 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
       }
       pa.needsUpdate = true
     }
-    // a Grande Fonte é a mais pesada das cinco: 1.600 partículas no desktop
-    if (!longe(fountain.group, camPos)) fountain.update(t)
+    // ⚠️ A GRANDE FONTE SAIU DAQUI EM 08/09 (a âncora norte virou THE SPHERE), e
+    // com ela saíram as 1.600 partículas do desktop, que eram a mais pesada das
+    // cinco fontes. Restam os quatro espelhos d'água das diagonais, tratados no
+    // laço acima.
     for (const l of lights) l.intensity = 1.1 * (0.92 + 0.08 * Math.sin(t * 0.9 + l.position.x))
   }
 
@@ -914,7 +933,7 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
     group,
     update,
     treeSpots,
-    dispose() { for (const d of disposables) d.dispose(); jetTex.dispose(); glowTex.dispose(); fountain.dispose() },
+    dispose() { for (const d of disposables) d.dispose(); jetTex.dispose(); glowTex.dispose() },
   }
 }
 

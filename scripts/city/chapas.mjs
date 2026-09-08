@@ -123,9 +123,14 @@ const VISTAS = {
   //   `sphererua`   pedestre a 500 m (y=0 é elevado para chão+1,7 pela cena)
   //   `spherealto`  de cima, 700 m e 500 m de altura: o pior caso da faixa baixa
   //   `spherelonge` 1.600 m, onde só sobra o anel aceso
-  sphere:     [-3746, 158, 2764, -4165, 150, 3072, 42],
-  spherealto: [-3602, 500, 2657, -4165, 158, 3072, 42],
-  spherelonge:[-2877, 400, 2123, -4165, 158, 3072, 42],
+  // ⚠️ REENDEREÇADAS EM 08/09: a esfera saiu do módulo da teia (-4.164,8, 3.072,5,
+  // deck 116,4) e virou a QUARTA ÂNCORA da praça central, em (0, -620), sobre a
+  // laje plana `PRACA_Y = -35`. As antigas fotografavam chão vazio. Cada uma
+  // guarda o MESMO enquadramento relativo à peça que tinha antes; o que mudou é
+  // só a origem. Centro da esfera agora em y = -35 + 0,43 x 98 = 7,14.
+  sphere:     [0, 7, -100, 0, 0, -620, 42],
+  spherealto: [0, 465, 80, 0, 7, -620, 42],
+  spherelonge:[0, 365, 980, 0, 7, -620, 42],
   // ⚠️ TRÊS VISTAS NOVAS, 07/09, PARA O JARDIM DO PÓDIO, e elas existem porque
   // as quatro acima NÃO julgam o que o fundador pediu. Todas as quatro miram o
   // centro da esfera de 500 m ou mais: nelas o embasamento tem 20 pixels e o
@@ -148,9 +153,11 @@ const VISTAS = {
   //                   longo da coroa de tamareiras: é a chapa do pedido
   //   `spherechao`    de 700 m de altura e r 265, para ler o DESENHO do deck:
   //                   os quatro compartimentos, os quatro portões e o cinto
-  spherejardim:[-3998, 118.1, 3092.9, -4164.8, 148.4, 3072.5, 55],
-  spherepodio:[-4090.9, 120.3, 3012.7, -4072.8, 127.6, 3111.5, 60],
-  spherechao: [-3924.6, 816.4, 2960.5, -4164.8, 116.4, 3072.5, 42],
+  // as três do jardim, transladadas pelo mesmo vetor: o deslocamento do sítio
+  // (-4.164,8 -> 0 em x, 3.072,5 -> -620 em z) e a queda de cota (116,4 -> -35).
+  spherejardim:[166.8, -33.3, -599.6, 0, -3, -620, 55],
+  spherepodio:[73.9, -31.1, -679.8, 92, -23.8, -581, 60],
+  spherechao: [240.2, 665, -732, 0, -35, -620, 42],
   // ⚠️ ENQUADRAMENTOS NOVOS, 03/09, e o motivo é o que o cabeçalho do terrain.ts
   // avisa: MEXER NA ALTURA MOVE O MUNDO. A coroa foi de 2.619 para 5.513 m e a
   // `abobada` acima, calibrada para a casca velha, passou a fotografar céu preto:
@@ -422,7 +429,10 @@ const OLHOSFIXOS = {
   // volta do sítio da Sphere vai de 99,8 a 116,0 m e o deck está em 116,4, então
   // aqui `y` é sempre chão ao vivo, como no resto de OLHOSFIXOS. Ponto a 500 m do
   // centro na direção da praça central, rumo 233,7° (o mesmo radial do módulo).
-  sphererua:  [-3762, 2776, 233.7, 55],
+  // ⚠️ NA PRAÇA A COTA AO VIVO É A LAJE (-35), não relevo: `__plazaChao` devolve
+  // o mesmo valor em todo o precinto, então este ponto continua honesto. 500 m ao
+  // sul da âncora, olhando para o norte (rumo 0: dir = [sin 0, -cos 0] = (0,-1)).
+  sphererua:  [0, -120, 0, 55],
 }
 
 /** Resolve uma semente de OLHOSFIXOS: pergunta a cota ao vivo no PONTO DADO
