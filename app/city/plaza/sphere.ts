@@ -443,6 +443,46 @@ const FX_PEQUENA_ESCALA = 4
 const FX_VAO = 8
 
 /**
+ * ⚠️ A LETRA MORRE POR PIXEL DE TELA, NÃO POR CONSTANTE DE PERFIL, E ATÉ 08/09
+ * ERA O CONTRÁRIO. Defeito visto pelo fundador em produção: *"a esfera não tem
+ * nada escrito, olhando pelo celular"*. Estava certo, e a causa é uma troca de
+ * categoria.
+ *
+ * `uTextoDist` nascia de `p.textCull`, um campo GLOBAL de `perf.ts` calibrado
+ * para a letra miúda da cidade (placa, rótulo, letreiro de rua). A letra desta
+ * peça tem **16,84 m de altura**, a maior do projeto por uma ordem de grandeza.
+ * Emprestar a constante da placa para ela erra, e erra muito.
+ *
+ * Medido, com `pxAng = fov / (altura_css · dpr)` e a letra grande de 16,84 m,
+ * a distância em que ela cai a 9 px de tela (o MESMO critério que a tabela de
+ * alcance de `SPHERE_FAIXA_LINHA0` publica):
+ *
+ *     tela                          alcance real   textCull do perfil   erro
+ *     celular 844 css, dpr 1,5        3.232 m            600 m          5,4x
+ *     **celular 844 css, dpr 2        4.309 m            600 m          7,2x**
+ *     celular 844 css, dpr 3          6.463 m            600 m         10,8x
+ *     desktop 1080, dpr 1             2.757 m          1.700 m          1,6x
+ *
+ * ⚠️ E O SINAL ESTAVA INVERTIDO, QUE É O PIOR DA HISTÓRIA. `perf.ts` corta mais
+ * cedo no celular porque celular é mais fraco, e para fillrate isso é certo. Só
+ * que legibilidade de texto vai com DENSIDADE DE PIXEL, e telefone tem dpr 2 ou
+ * 3 contra o dpr 1 do monitor: o celular enxerga a letra MAIS LONGE, não menos.
+ * A peça estava punindo justamente a tela que lê melhor.
+ *
+ * ⚠️ E CORRIGIR ISSO CUSTA ZERO DE FILLRATE. O `mix` do fragmento não pula as
+ * buscas de textura: `conteudo` já é amostrado duas vezes antes, sempre, e o
+ * corte só decide se o resultado vira `uCorFaixa`. Subir a distância não
+ * acrescenta uma instrução sequer, só deixa de apagar o que já foi lido.
+ *
+ * O corte continua existindo, e pelo motivo que sempre teve: letra abaixo de um
+ * punhado de pixels não vira texto, vira borra que cintila a cada passo da
+ * câmera. O que muda é que agora ele é MEDIDO na tela de quem está olhando.
+ */
+export const SPHERE_TEXTO_PX = 9
+/** 7 linhas de glifo x 8 linhas de LED x o passo do meridiano = 16,84 m */
+export const SPHERE_LETRA_ALTURA = 7 * FX_GRANDE_ESCALA * (Math.PI * SPHERE_R / SPHERE_GRADE_ROWS)
+
+/**
  * ⚠️ O TEXTO FECHA A VOLTA EXATA, e isso não é enfeite: um texto que não fecha
  * deixa uma emenda visível no meridiano, e a esfera não tem "costas" para
  * escondê-la. O avanço é de 8 pixels de glifo (5 de largura + 3 de vão, que é
@@ -1029,7 +1069,13 @@ const FS_LISO = /* glsl */`
  *                    conteúdo é justamente o que dá para servir mais grosso.
  *   · `texLado`      teto duro por cima dessa escolha, com os DOIS lados
  *                    escalados pelo mesmo fator (a textura é 2:1)
- *   · `textCull`     distância em que a letra da faixa desvanece para faixa lisa
+ *   · `textCull`     ⚠️ SÓ COMO SEMENTE, desde 08/09. Ele preenche `uTextoDist`
+ *                    no boot e é sobrescrito no PRIMEIRO `update()` pela
+ *                    distância MEDIDA na tela (ver `SPHERE_TEXTO_PX`). Ele é um
+ *                    campo global calibrado para letra miúda de placa, e a letra
+ *                    desta peça tem 16,84 m: no celular ele errava por 7,2x e
+ *                    deixava a esfera sem nada escrito, que foi o que o fundador
+ *                    viu em produção. Não volte a mandar nele.
  *   · `lodDistance`  teto da distância em que o material liso entra
  *   · `maxPixelRatio` piso do tamanho do pixel de tela quando o chamador não
  *                    passa `uPxAng` medido: tela mais densa lê o ponto de mais
@@ -1663,7 +1709,21 @@ export function buildSphere(o: SphereOpts): Sphere {
       const limite = Number.isFinite(esc.distLiso) && !temArte
         ? Math.min(esc.distLiso, uniformes.uPasso.value / uniformes.uPxAng.value)
         : esc.distLiso
-      const querLiso = d > limite * 1.15
+      // ⚠️ A DISTÂNCIA DE TEXTO É MEDIDA NA TELA DE QUEM OLHA, por quadro, e não
+      // lida do perfil. A conta e o defeito que ela conserta estão em
+      // `SPHERE_TEXTO_PX`. `uPxAng` já é escrito duas linhas acima: a peça sempre
+      // teve o número da tela na mão e não o usava para isto.
+      const distTexto = SPHERE_LETRA_ALTURA / (SPHERE_TEXTO_PX * uniformes.uPxAng.value)
+      uniformes.uTextoDist.value = distTexto
+      // ⚠️ E O DEGRAU DE FILLRATE NÃO PODE ENTRAR ENQUANTO A LETRA AINDA É
+      // LEGÍVEL, porque `FS_LISO` não tem textura nenhuma: trocar de material ali
+      // apagaria o texto do mesmo jeito que o corte apagava. No celular isto leva
+      // o degrau de `lodDistance` (1.300 m) para a distância medida (2.656 m em
+      // dpr 2), e o preço está medido: o disco da esfera mede 7,2% da tela de um
+      // 390x844 em dpr 2 a 1.300 m, 3,0% a 2.000 m e 1,7% a 2.656 m. É o shader
+      // cheio sobre menos de um vigésimo da tela, na faixa em que antes ele nem
+      // rodava.
+      const querLiso = d > Math.max(limite, distTexto) * 1.15
       if (querLiso !== liso) {
         liso = querLiso
         casca.material = liso ? matLiso : matLed
@@ -1677,7 +1737,10 @@ export function buildSphere(o: SphereOpts): Sphere {
       // calculada aqui, na CPU, e não no fragmento, justamente para o custo
       // ficar do lado barato.
       const t = relogio()
-      const kLonge = suave(esc.distTexto * 0.5, esc.distTexto * 1.15, d)
+      // a respiração do anel acompanha a MESMA distância medida: se o texto
+      // agora morre mais longe, a amplitude cheia também tem de começar mais
+      // longe, senão o anel respira por cima do número que ainda se lê.
+      const kLonge = suave(distTexto * 0.5, distTexto * 1.15, d)
       const amp = SPHERE_VIDA_AMP * (0.25 + 0.75 * kLonge)
       let vida = 1 + amp * Math.sin((2 * Math.PI * t) / SPHERE_VIDA_PERIODO_MS)
       if (pulsoT0 > 0) {

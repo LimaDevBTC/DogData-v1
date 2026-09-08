@@ -83,7 +83,7 @@ import { assentarEstadio, estadioCull, estadioSitio } from './estadio'
 import { assentarGeode, geodeCull, geodeSitio, podarGeode } from './geode'
 import { atletismoSitio } from './atletismo'
 import { criarAtletismo, type Atletismo } from './atletismo-loader'
-import { campusParcela, comPodio, criarCampus, covasDoCampus, CAMPUS_LAJE, GIRO_CAMPUS, sitioNoCampus } from './campus'
+import { campusParcela, comPodio, criarCampus, CAMPUS_LAJE, EIXO_CAMPUS, GIRO_CAMPUS, sitioNoCampus } from './campus'
 import { ESTADIO_MOD } from './estadio'
 import { GEODE_MOD } from './geode'
 import { ATLETISMO_MOD } from './atletismo'
@@ -541,11 +541,23 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
       return { pos: new THREE.Vector3(s.x - rx * distancia, altura, s.z - rz * distancia),
                target: new THREE.Vector3(s.x, 8, s.z) }
     }
+    // ⚠️ O CONJUNTO SAI DO EIXO DA LAJE, NÃO DA MÉDIA DOS TRÊS SÍTIOS.
+    //
+    // ⚠️ E ISSO É O MESMO DEFEITO QUE `sitioNoCampus` CONSERTOU NO ASSENTAMENTO,
+    // agora do lado da câmera. `atletismoSitio()` e `geodeSitio()` devolvem o
+    // PONTO POLAR do módulo, e `plaza-scene` reposiciona as duas peças com
+    // `sitioNoCampus()` logo depois de assentá-las: as duas estão **57,4 m**
+    // adiante do que estas funções dizem (ver a nota de `EIXO_CAMPUS` em
+    // campus.ts, e o mesmo desvio registrado em `sphereSitio`). Para uma vista
+    // externa a 1,6 km isso é descentramento de 2%; para a câmera DENTRO do
+    // prédio é a diferença entre estar na arquibancada e estar do lado de fora
+    // dela, que foi como a primeira tentativa de `atletismodentro` saiu.
+    //
+    // `EIXO_CAMPUS` é o centro da própria laje, ou seja a âncora que não depende
+    // de qual das três peças se olha.
     case 'esportes': {
-      const a = atletismoSitio(), e = estadioSitio(), g = geodeSitio()
-      const x = (a.x + e.x + g.x) / 3, z = (a.z + e.z + g.z) / 3
-      return { pos: new THREE.Vector3(x + 1100, 1050, z + 1200),
-               target: new THREE.Vector3(x, 10, z) }
+      return { pos: new THREE.Vector3(EIXO_CAMPUS.x + 842, 756, EIXO_CAMPUS.z + 971),
+               target: new THREE.Vector3(EIXO_CAMPUS.x, -8, EIXO_CAMPUS.z) }
     }
 
     // ⚠️ POR DENTRO DO ESTÁDIO, pedido do fundador para a live. A câmera fica
@@ -558,6 +570,34 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
       const rx = Math.sin(a), rz = -Math.cos(a)
       return { pos: new THREE.Vector3(s2.x + rx * 96, 62, s2.z + rz * 96),
                target: new THREE.Vector3(s2.x - rx * 40, 8, s2.z - rz * 40) }
+    }
+
+    // ── POR DENTRO DAS OUTRAS DUAS DO CAMPUS (08/09) ─────────────────────────
+    //
+    // Fundador, 07/09: "o complexo esportivo, que agora tem pista de atletismo,
+    // arena e the geode num mesmo patamar. Quero tour interno nos 3."
+    //
+    // ⚠️ AS DUAS SAEM DE `sitioNoCampus`, NÃO DO SÍTIO POLAR, e a razão está na
+    // nota de `esportes` logo acima: as peças estão 57,4 m adiante do que
+    // `atletismoSitio()`/`geodeSitio()` devolvem. A primeira tentativa usou o
+    // polar e a câmera saiu do lado de fora da arquibancada, com um terço do
+    // quadro em laje vazia.
+    //
+    // ⚠️ E AS COTAS SÃO MEDIDAS, NÃO ESTIMADAS. Sondado em produção com
+    // `__plazaPerfil`: a laje do campus está em −17,7 (é `CAMPUS_Y`), o piso da
+    // GEODE em −16 e a última fila dela em +24, com a casca fechando em +47. Uma
+    // câmera em +30 a 92 m do centro fica DENTRO da saia de cristal, fora do
+    // volume, e o quadro sai preto — foi assim que a primeira rodada saiu.
+    case 'atletismodentro': {
+      // ⚠️ A ALTURA É 18 m, e o prédio é aberto: aqui a câmera fica acima da
+      // última fila e o quadro pega a pista inteira, o infield com salto em
+      // altura e vara, e a torre da Kray com a cordilheira no horizonte. É o
+      // único interior do campus que devolve a cidade junto.
+      const q = sitioNoCampus(ATLETISMO_MOD)
+      const a = THREE.MathUtils.degToRad(atletismoSitio().rumoDeg)
+      const rx = Math.sin(a), rz = -Math.cos(a)
+      return { pos: new THREE.Vector3(q.x + rx * 135, 18, q.z + rz * 135),
+               target: new THREE.Vector3(q.x - rx * 25, -13, q.z - rz * 25) }
     }
 
     // ⚠️ AS ILHAS DE PERTO, no rumo 10 (a que fica de frente para quem chega).
@@ -577,6 +617,73 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
     // se leem como relevo e não como mancha branca.
     case 'montanharasante':
       return { pos: new THREE.Vector3(-1120, 210, 11960), target: new THREE.Vector3(-2394, 380, 10672) }
+
+    // ── A CORDILHEIRA, E ELA ESTÁ DENTRO DA CÚPULA (08/09) ───────────────────
+    //
+    // Fundador, 07/09: "quero voo rasante sobre a cordilheira, sem sair da
+    // cúpula". A frase é literal, e as três vistas `montanha*` acima é que
+    // estavam erradas.
+    //
+    // ⚠️ AS `montanha*` MIRAM UM MORRO DE 240 m FORA DA CÚPULA. Sondado em
+    // produção com `__plazaPerfil`: o alvo delas, (−2.394, 10.672), tem **240,9 m**
+    // e está em r 10.937; a cúpula mede 9.054 de raio (caixa medida da malha
+    // `abobada`: 18.109 m de lado). O maciço de verdade é o do `inverno.ts`, que
+    // o próprio arquivo declara em "r=8.330, az 262": medido no eixo, **961,4 m**
+    // em r 7.900 no rumo 262°. As três paradas gastavam 2,2 min do laço olhando
+    // regolito ondulado a 11-13 km, do lado de fora, que é exatamente o "ponto
+    // fraco" que o fundador apontou.
+    //
+    // ⚠️ E A CRISTA É UM ARCO, NÃO UM PICO. Perfil medido ao longo de r 7.900, de
+    // 5 em 5 graus: 208 m em 240°, 476 em 245, 648 em 250, 602 em 255, 829 em
+    // 260, 842 em 265, **903 em 270**, 583 em 275, 352 em 280. O cume isolado
+    // mais alto fica em (−8.040, 1.110) com 1.017,7 m. Por isso as duas vistas
+    // correm AO LONGO do arco em vez de encarar um cume: é o que faz a cadeia
+    // ler como cordilheira.
+    case 'cordilheira':
+      return { pos: new THREE.Vector3(-5049, 689, 3740), target: new THREE.Vector3(-7840, 750, 686) }
+    // a mesma cadeia mais ao sul e mais baixa, com o bulevar da cidade correndo
+    // no pé dela: é a que prova que a serra é DENTRO da cidade
+    case 'cordilheirarasante':
+      return { pos: new THREE.Vector3(-5473, 592, 2318), target: new THREE.Vector3(-7857, 650, -826) }
+
+    // ── THE SPHERE, e ela é vizinha da cordilheira ───────────────────────────
+    //
+    // Fundador, 07/09: "tem agora também the sphere, perto das montanhas". A
+    // geografia confirma: a peça está em r 5.118 no rumo 233,6°, e a cadeia
+    // ocupa 245° a 295° entre r 7 e 8,2 km, ou seja logo atrás dela.
+    //
+    // ⚠️ `sphereSitio()` É O CENTROIDE, e a vista TEM de sair dele. Ver a nota
+    // do próprio `sphereSitio` em sphere.ts: o ponto polar do módulo cai 58 m
+    // fora, e com a esfera medindo 147,5 m na linha do chão isso a deixa
+    // visivelmente encostada num lado do lote.
+    case 'sphere': {
+      // aberta, de dentro da cidade para fora: a esfera recortada contra a neve
+      const s = sphereSitio()
+      return { pos: new THREE.Vector3(s.x + 2512, 288, s.z + 405),
+               target: new THREE.Vector3(s.x, 168, s.z) }
+    }
+    case 'sphereperto': {
+      // de perto, pelo lado da praça: a faixa de LED legível, com a serra à direita
+      const s = sphereSitio()
+      return { pos: new THREE.Vector3(s.x + 365, 232, s.z - 269),
+               target: new THREE.Vector3(s.x, 178, s.z) }
+    }
+
+    // ── A ALÇA, RASANTE (08/09) ──────────────────────────────────────────────
+    //
+    // Fundador, 07/09: "um rasante sobre a alça nobre dos futuros condôminos
+    // luxuosos". A alça é a faixa de terra entre a baía e a água externa, arco
+    // 346° a 116,5°, e a avenida central corre em r 6.950 (ver `AVENIDA_ALCA` em
+    // teia.ts). O chão dela é plano: medido em três rumos do arco, 12,8 · 12,8 ·
+    // 12,9 m.
+    //
+    // ⚠️ O RASANTE PRECISA DE PICADA, NÃO DE ALTURA. A primeira versão corria a
+    // 90 m com o alvo a 2,4 km: 1,8° de mergulho, horizonte no meio do quadro e
+    // 45% de céu preto. A 253 m com o alvo a 1,45 km são 9,3° e o horizonte sobe
+    // para o terço de cima, que é onde a via, a praia e as duas águas cabem
+    // juntas. O eixo vai do rumo 36° ao 48°, dentro do arco em que a alça é alça.
+    case 'alca':
+      return { pos: new THREE.Vector3(4000, 272, -5699), target: new THREE.Vector3(5165, 15, -4650) }
 
     // a mesma casca vista de fora, do lado do parque: a silhueta e a saia
     case 'abobadafora':
@@ -701,8 +808,25 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
       // pátio ganham o quadro, e a estação continua inteira porque a mira também
       // veio junto. Mexer só na posição, sem mexer no alvo, giraria a câmera em
       // vez de aproximá-la.
-      return { pos: new THREE.Vector3(PAD_MAIN.x + 630, PAD_MAIN.y + 245, PAD_MAIN.z - 1000),
-               target: new THREE.Vector3(PAD_MAIN.x + 210, PAD_MAIN.y + 55, PAD_MAIN.z - 1720) }
+      //
+      // ⚠️ E EM 08/09 A CHAPA MOSTROU QUE ELA NÃO ESTAVA LONGE: ESTAVA VIRADA AO
+      // CONTRÁRIO. Fundador, 07/09: "o take do spaceport está muito distante".
+      // A causa não era a distância. A câmera ficava 1.000 m ADIANTE do pátio no
+      // sentido da cidade e o alvo 1.720 m adiante dela, ou seja o spaceport
+      // ficava ATRÁS da lente: o que entrava no quadro era 70% de regolito vazio
+      // com a silhueta da cidade no horizonte, e nenhum foguete. Aproximar mais
+      // uma vez não teria consertado nada, porque o assunto não estava lá.
+      //
+      // Agora o alvo é o próprio pátio (`+ 60` em y é o deck) e a câmera fica a
+      // 1.081 m dele em diagonal. O pátio inteiro cabe no quadro com as duas
+      // torres, os foguetes e a estrada do túnel da eclusa.
+      return { pos: new THREE.Vector3(PAD_MAIN.x + 561, PAD_MAIN.y + 211, PAD_MAIN.z - 885),
+               target: new THREE.Vector3(PAD_MAIN.x, PAD_MAIN.y + 60, PAD_MAIN.z) }
+    // o mesmo pátio de perto, a 763 m: o pórtico, o strongback e os foguetes
+    // enchem o quadro. É a parada em que o spaceport deixa de ser silhueta.
+    case 'spaceportperto':
+      return { pos: new THREE.Vector3(PAD_MAIN.x + 389, PAD_MAIN.y + 131, PAD_MAIN.z - 632),
+               target: new THREE.Vector3(PAD_MAIN.x, PAD_MAIN.y + 70, PAD_MAIN.z) }
   }
   if (aspect >= 1) return { pos: HOME_POS.clone(), target: HOME_TARGET.clone() }
   return { pos: new THREE.Vector3(430, 760 + PY, -1300), target: new THREE.Vector3(0, 40 + PY, 420) }
