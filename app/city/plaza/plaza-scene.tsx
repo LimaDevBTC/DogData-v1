@@ -4309,6 +4309,13 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             chalet = c
             c.group.position.copy(ANCHORS.south.pos)
             c.group.rotation.y = ANCHORS.south.rotY
+            // ⚠️ -10% EM 08/09, na mesma rodada em que a esfera subiu para 355,7 m.
+            // Pedido do fundador: a proporção da praça de novo, agora com o Chalé
+            // entrando na conta junto com a torre (-45%) e as duas âncoras (-25%).
+            // O Chalé é construído em `chalet.ts` com a origem NA linha do chão,
+            // então escalar em torno dela não levanta nem afunda a peça: ao
+            // contrário da torre, aqui não há compensação a fazer.
+            c.group.scale.setScalar(0.9)
             c.group.visible = false
             scene.add(c.group)
             revela(c.group)

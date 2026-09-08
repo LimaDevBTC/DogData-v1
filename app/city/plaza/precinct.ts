@@ -148,7 +148,26 @@ export function buildPrecinct(opts: { heightAt: (x: number, z: number) => number
   // ── pavimento: anel e radiais ──────────────────────────────────────────────
   const paveMat = track(new THREE.MeshStandardMaterial({ color: 0x17181d, roughness: 0.75, metalness: 0.15 }))
   const kerbMat = track(new THREE.MeshBasicMaterial({ color: ICE, toneMapped: false, transparent: true, opacity: 0.55 }))
-  const ring = new THREE.Mesh(track(new THREE.RingGeometry(R_RING - RING_W / 2, R_RING + RING_W / 2, 192)), paveMat)
+  // ⚠️ O ANEL ABRE VÃO NO NORTE DESDE 08/09, e é a esfera que manda. Com 355,7 m
+  // ela encosta no piso num círculo de 160,6 m de raio; a partir da âncora em
+  // r 620 isso alcança r 459,4, ou seja MORDE a borda externa do anel (469) em
+  // 9,6 m. Medido, o setor mordido vai de −95,8° a −84,2°: **11,6° de arco**.
+  //
+  // Um `RingGeometry` fechado poria pista por baixo de um prédio de 355 m. O anel
+  // passa a ser desenhado em DOIS arcos que pulam esse setor, que é o mesmo
+  // movimento que o passeio-anel já fazia no norte por causa da Grande Fonte (ver
+  // `promenadeArc` logo abaixo). Um monumento interrompendo um anel é gesto
+  // urbano, não defeito: quem contorna é a via, não a peça.
+  //
+  // ⚠️ O VÃO É 16°, E NÃO OS 11,6 MEDIDOS: 2,2° de folga por ponta, para a
+  // aresta da pista não encostar na silhueta da esfera num rumo qualquer, já que
+  // ela é de revolução e o corte é reto.
+  const VAO_NORTE = (16 * Math.PI) / 180
+  // `RingGeometry` mede theta a partir de +x; o norte fica em −z, ou seja em
+  // theta = −π/2 depois do `rotation.x = −π/2` que a peça leva adiante.
+  const t0 = -Math.PI / 2 + VAO_NORTE / 2
+  const ring = new THREE.Mesh(track(new THREE.RingGeometry(
+    R_RING - RING_W / 2, R_RING + RING_W / 2, 192, 1, t0, Math.PI * 2 - VAO_NORTE)), paveMat)
   ring.rotation.x = -Math.PI / 2
   ring.position.y = Y0 + 0.35
   ring.receiveShadow = true

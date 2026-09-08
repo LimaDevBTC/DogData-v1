@@ -140,7 +140,7 @@ export const SPHERE_ENVELOPE_ARCO = (_CX.a1 - _CX.a0) * _CX.rm
  * de R. A letra grande vai de 16,84 para 18,52 m, e o alcance de leitura sobe na
  * mesma proporção.
  */
-export const SPHERE_DIAM = 323.4
+export const SPHERE_DIAM = 355.7
 export const SPHERE_R = SPHERE_DIAM / 2
 
 /**
@@ -1350,7 +1350,7 @@ export const SPHERE_AVENTAL_LADO = 254.2
  * fundador pediu a esfera como foco, e o entorno dela agora é o jardim da CIDADE,
  * não um jardim próprio. Ver a remoção da coroa em `props-table.ts`.
  */
-export const SPHERE_AVENTAL_R = 151
+export const SPHERE_AVENTAL_R = 165
 
 export function sphereDeckPoly(): [number, number][] {
   const s = sphereSitio()
