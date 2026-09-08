@@ -4500,12 +4500,45 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       // que é o caso de tudo que esta cena carrega (RGBA8), menos onde o
       // formato diz outra coisa — aí ele é lido de `tex.format`.
       ;(window as unknown as { __plazaTexturas?: () => unknown }).__plazaTexturas = () => {
-        const vistas = new Map<string, { w: number; h: number; mb: number; onde: string[] }>()
+        const vistas = new Map<string, { w: number; h: number; mb: number; comprimida: boolean; onde: string[] }>()
+        // ⚠️ A RÉGUA CONHECIA SÓ TEXTURA CRUA, E POR ISSO MENTIA NO CELULAR. Ela
+        // assumia 4 bytes por texel para tudo que não fosse Red/RG, e o acervo
+        // do telefone vem TODO comprimido pelo espelho ETC1S (a troca de URL
+        // para `/city/sf-ktx2/`, ver a nota grande lá em cima). Uma 2048x2048
+        // ETC2 ocupa 5,6 MB e era relatada como 22,4: o censo inflava por 4 a 8
+        // justamente no aparelho em que a conta importa. Medido em 07/09, o
+        // total do perfil mobile saía 334 MB com a régua velha.
+        //
+        // ⚠️ E O MIPMAP DE TEXTURA COMPRIMIDA NÃO VEM DE `generateMipmaps`: o
+        // KTX2 traz os níveis prontos no arquivo, e `generateMipmaps` é false
+        // justamente porque não há o que gerar. Quem diz se há pirâmide é
+        // `mipmaps.length`.
         const bytesPorTexel = (t: THREE.Texture): number => {
           const f = (t as unknown as { format?: number }).format
-          if (f === THREE.RedFormat) return 1
-          if (f === THREE.RGFormat) return 2
-          return 4
+          switch (f) {
+            // 4 bits por texel: um bloco de 4x4 em 8 bytes
+            case THREE.RGB_ETC1_Format:
+            case THREE.RGB_ETC2_Format:
+            case THREE.RGB_S3TC_DXT1_Format:
+            case THREE.RGBA_S3TC_DXT1_Format:
+            case THREE.RGB_PVRTC_4BPPV1_Format:
+            case THREE.RGBA_PVRTC_4BPPV1_Format:
+              return 0.5
+            // 8 bits por texel: um bloco de 4x4 em 16 bytes
+            case THREE.RGBA_ETC2_EAC_Format:
+            case THREE.RGBA_S3TC_DXT3_Format:
+            case THREE.RGBA_S3TC_DXT5_Format:
+            case THREE.RGBA_BPTC_Format:
+            case THREE.RGBA_ASTC_4x4_Format:
+              return 1
+            case THREE.RedFormat: return 1
+            case THREE.RGFormat: return 2
+            default: return 4
+          }
+        }
+        const temPiramide = (t: THREE.Texture): boolean => {
+          const mm = (t as unknown as { mipmaps?: unknown[] }).mipmaps
+          return mm ? mm.length > 1 : t.generateMipmaps !== false
         }
         const anota = (t: THREE.Texture | null | undefined, onde: string) => {
           if (!t || !t.image) return
@@ -4519,8 +4552,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           const k = t.uuid
           const j = vistas.get(k)
           if (j) { if (j.onde.length < 4 && !j.onde.includes(onde)) j.onde.push(onde); return }
-          const mip = t.generateMipmaps === false ? 1 : 4 / 3
-          vistas.set(k, { w, h, mb: (w * h * bytesPorTexel(t) * mip) / 1e6, onde: [onde] })
+          const mip = temPiramide(t) ? 4 / 3 : 1
+          const comprimida = (t as unknown as { isCompressedTexture?: boolean }).isCompressedTexture === true
+          vistas.set(k, { w, h, comprimida, mb: (w * h * bytesPorTexel(t) * mip) / 1e6, onde: [onde] })
         }
         scene.traverse((o) => {
           const m = (o as THREE.Mesh).material
@@ -4537,7 +4571,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           total: +lista.reduce((a, t) => a + t.mb, 0).toFixed(1),
           quantas: lista.length,
           contadasPeloRenderer: renderer.info.memory.textures,
-          maiores: lista.slice(0, 24).map((t) => ({ px: `${t.w}x${t.h}`, mb: +t.mb.toFixed(1), onde: t.onde.join(' | ') })),
+          comprimidas: lista.filter((t) => t.comprimida).length,
+          mbComprimidas: +lista.filter((t) => t.comprimida).reduce((a, t) => a + t.mb, 0).toFixed(1),
+          maiores: lista.slice(0, 24).map((t) => ({ px: `${t.w}x${t.h}`, mb: +t.mb.toFixed(1), comp: t.comprimida, onde: t.onde.join(' | ') })),
         }
       }
       ;(window as unknown as { __plazaAltura?: (r: number) => unknown }).__plazaAltura = (r: number) => {
