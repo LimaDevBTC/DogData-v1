@@ -1073,12 +1073,12 @@ tamareira) entra o modelo.
 
 | | chamadas | triângulos |
 |---|---|---|
-| hardscape, desktop | **6** | **14.340** |
-| hardscape, celular | 6 | 11.524 |
+| hardscape, desktop | **6** | **14.344** |
+| hardscape, celular | 6 | 11.534 |
 | `palm-date` x 40 | 4 | 104.000 |
 | `buxo-bola` x 36 | 1 | 38.880 |
 | `tree-cypress` x 10 | 2 | 26.000 |
-| **total** | **13** | **183.220** |
+| **total** | **13** | **183.224** |
 
 ⚠️ **ZERO PROGRAMA DE SHADER NOVO**, e isso é o orçamento inteiro desta entrega. Em 07/09 a
 cena de perto media **555 programas compilados e 4,87 M de triângulos a 13 fps** numa máquina
@@ -1092,6 +1092,23 @@ próprio. Os 183 mil triângulos são **3,8%** dos 4,87 M, e os das plantas só 
 
 Construção no boot: **88 ms no desktop, 39 ms no celular**, medidos. Sebe: 360 instâncias,
 uma chamada.
+
+⚠️ **E O "ZERO PROGRAMA" É RACIOCÍNIO, NÃO MEDIÇÃO ATRIBUÍDA, e fica declarado
+assim.** O portão de 07/09 registrou, na MESMA sessão: 272 programas na vista
+`sphere` (longe), 579 a 580 nas três vistas de contrato, e **638** nas duas vistas
+de perto do jardim. A conta de programa é CUMULATIVA na sessão e a aproximação da
+câmera muda a contagem de LUZES ATIVAS, que faz parte da chave de cache do three
+(está escrito em `DistanceCuller`: *"uma viagem de ida e volta subiu os programas
+compilados de 444 para 480"*). Ou seja o salto de 580 para 638 é da APROXIMAÇÃO, e
+separar a fatia do jardim exige uma corrida A/B com o jardim desligado, que não foi
+feita. O que se afirma com segurança é o que não depende de medição: o jardim não
+acrescenta **nenhuma luz** e nenhuma combinação de material que a praça já não
+compile.
+
+⚠️ **Também não confundir com o total de triângulos das chapas.** `spherelonge`
+mediu 5.085.586 e `spherejardim` 5.175.780, mas as duas são posições de câmera
+diferentes e o que muda entre elas é o culling, não só o jardim. O número honesto
+do jardim é o de cima, contado no buffer que a cena recebe.
 
 ⚠️ **Parapeito cheio, não balaustrada.** 500 balaústres a 1,2 m de passo custariam 25.000
 triângulos e uma chamada a mais, para uma peça que na chapa de 500 m (o chão ali está 34,0 m
@@ -1130,6 +1147,87 @@ pergunta a cota ao vivo, e a cota ao vivo é o RELEVO (82 a 116 m por ali), não
 olho pedido ao terreno em cima do deck sai DEBAIXO dele, em até 16,6 m de rocha. As cotas são
 as duas construídas, deck 116,4 e pódio 118,6, mais 1,7 m de olho. Se `SPHERE_MOD` mudar,
 recalcule com `doJardim(r, φ)` de `sphere-jardim-plano.ts`.
+
+## O que a primeira rodada de chapas mostrou (07/09, 23:37 a 23:45)
+
+Sete vistas numa carga só, em `/tmp/jardim/`: as quatro de contrato mais as três
+novas. Nenhum erro de console. O que se lê nelas, e vale separar o que passou do
+que não passou:
+
+**Passou, e passou bem:**
+
+- **A COROA É O GESTO CERTO.** Na `spherejardim` a fileira de tamareiras aparece
+  igualmente espaçada contra a casca de LED, com os ciprestes na frente e os
+  globos de luz entre eles: a esfera ganhou régua. É a confirmação de que o
+  partido de anel concêntrico com passo constante era o desenho certo para uma
+  peça de revolução.
+- **A `spherechao` LÊ A PLANTA.** De 700 m vê-se o cinto em volta do embasamento,
+  os quatro compartimentos desenhados pela sebe e pela topiária, os quatro
+  portões e o parapeito fechando o lote. O partido é legível de cima, que é o
+  teste do plot-map.
+- **A escadaria, o parapeito, a balaustrada, o aro e as floreiras** aparecem todos
+  e na escala certa.
+
+**Não passou:** o piso e o gramado **não existiam na chapa**, pela inversão de
+sentido de índice descrita na seção seguinte. No lugar deles aparecia a laje da
+própria Sphere. Corrigido no mesmo turno (uma linha), com `tsc --noEmit` limpo,
+`next build` verde e o verificador fechando.
+
+## ✅ A segunda rodada, com a correção (08/09, 01:35 a 01:38)
+
+`/tmp/jardim2/`, as três vistas do jardim, sem erro de console. A conferência é
+por PIXEL, porque foi assim que o defeito apareceu:
+
+| ponto na `spherejardim` | antes da correção | depois |
+|---|---|---|
+| primeiro plano (300, 800) | (214, 206, 193) **a laje da Sphere** | **(58, 75, 57) relva** |
+| (700, 700) | (81, 68, 60) | **(81, 94, 77) relva** |
+| (1200, 750) | (217, 211, 199) | **(91, 102, 85) relva** |
+
+E a `spherechao` fecha o argumento: de 700 m o desenho lê inteiro, os **quatro
+canteiros verdes nas quinas**, o **cinto claro** em volta do embasamento, os
+**quatro corredores de portão** cortando o verde, o passeio e o parapeito
+contornando o lote, e a **coroa de tamareiras** como um anel em volta do pódio. É
+o partido quadripartido no chão, legível de cima, que era o teste.
+
+Custo na chapa da segunda rodada: `spherepodio` e `spherejardim` a **199 chamadas,
+5,08 M de triângulos**; `spherechao` a **185 chamadas, 5,14 M**. Os 10 fps são da
+máquina disputada, não da peça.
+
+⚠️ **Duas tentativas falharam antes desta, e por motivo de máquina, não de
+código:** a primeira estourou o prazo de carga de 480 s (a cena recompilava depois
+da edição) e a segunda morreu com *"Execution context was destroyed"*, que é o
+`next dev` recarregando a página no meio da corrida. Quem for reconferir precisa de
+`--prazo-carga=1500000` e de **não editar arquivo nenhum enquanto o portão roda**.
+
+## ⚠️ A ARMADILHA QUE A PRIMEIRA CHAPA PEGOU: sentido de índice, não normal
+
+A primeira rodada de chapas saiu com o jardim **sem piso e sem gramado**, e vale
+registrar porque o defeito é invisível numa revisão de código.
+
+O three descarta a face de trás quando o material é `FrontSide` (o padrão), e
+"de trás" se decide pelo **sentido dos índices**, não pela normal do atributo.
+O acumulador de quadriláteros emitia `(k, k+1, k+2)`, e para uma faixa
+horizontal com raio crescente e φ crescente a conta dá
+
+    (b − a) × (c − a) = (0, −dr·r·dφ, 0)      ou seja normal para BAIXO
+
+⚠️ **E o jardim parecia quase certo na chapa.** A alvenaria é `DoubleSide` (o
+parapeito, o aro, a floreira, a balaustrada e o degrau apareceram todos) e a
+sebe é `InstancedMesh` de `BoxGeometry`, que vem do three com o sentido certo.
+Sumiram exatamente os DOIS materiais `FrontSide`, e no lugar deles aparecia a
+laje da própria Sphere (`#B4AC9E`), que é clara e passa por piso. Foi preciso
+**medir o pixel** para ver: o canteiro lia (214, 206, 193) onde `COR_RELVA` é
+(24, 49, 33).
+
+O conserto é uma linha, `(k, k+2, k+1)`, e ela arruma as duas coisas de uma vez:
+com o sentido antigo `parede()` com `fora = +1` também produzia normal
+geométrica para DENTRO. As paredes não denunciavam porque são `DoubleSide`.
+
+⚠️ **A lição operacional: geometria própria em `FrontSide` só se julga na
+chapa.** `npx tsc --noEmit` passa, o verificador offline passa (a geometria
+EXISTE: o teste de ponto em triângulo sob a câmera dava SIM), o `next build`
+passa. Nada disso enxerga winding.
 
 ## Aberto no jardim
 
