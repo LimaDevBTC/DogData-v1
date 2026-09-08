@@ -155,6 +155,7 @@
 // Worley.
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
+import { detectTier } from './perf'
 
 export type Superficie =
   | 'regolito'   // o pó lunar fora do pódio
@@ -213,7 +214,37 @@ function fbm(x: number, y: number, oct: number, per: number): number {
 //   rug  rugosidade em 0..1
 type Amostra = { h: number; r: number; g: number; b: number; rug: number }
 
-const S = 512 // lado do ladrilho em pixels
+/**
+ * ⚠️ O LADRILHO CAI PARA 256 NO CELULAR, e isto é o maior corte de textura crua
+ * que sobrou. Cada superfície gera TRÊS mapas (albedo, normal, rugosidade) de
+ * S x S em RGBA8 com mipmap: em 512 são 1,4 MB por mapa, 4,2 MB por superfície.
+ * O censo de 07/09 no perfil de celular (produção, Pixel 7) achou 42 MB só nas
+ * quatro famílias de via:
+ *
+ *     vias        16,8 MB   12 texturas   4 superfícies
+ *     metro        8,4 MB    6 texturas   2 superfícies
+ *     eclusas      8,4 MB    6 texturas   2 superfícies
+ *     autopistas   8,4 MB    6 texturas   2 superfícies
+ *
+ * Em 256 cada superfície passa a 1,05 MB. São ladrilhos REPETIDOS por metro de
+ * mundo, vistos quase sempre em ângulo rasante e com anisotropia 8: é onde meia
+ * resolução menos se paga.
+ *
+ * ⚠️ E A FORÇA DO NORMAL SE AJUSTA SOZINHA. `FORCA` já é `relevoM * S / (8 *
+ * metros)`, ou seja proporcional a S, porque o gradiente é medido POR TEXEL.
+ * Com metade da resolução cada texel cobre o dobro de mundo e a conta devolve
+ * metade da força: o relevo FÍSICO fica igual. Não mexa em `FORCA` para
+ * "compensar" — isso o dobraria.
+ *
+ * ⚠️ LIDO NO MÓDULO, COM GUARDA DE SSR, como `ASFALTO_NOVO` logo acima. Em node
+ * (os verificadores offline) `window` não existe e o ladrilho fica em 512, que é
+ * o valor que eles esperam.
+ */
+const S = (() => {
+  if (typeof window === 'undefined') return 512
+  const q = new URLSearchParams(window.location.search).get('quality')
+  return detectTier() === 'mobile' || q === 'low' ? 256 : 512
+})() // lado do ladrilho em pixels
 
 function amostraRegolito(u: number, v: number): Amostra {
   // ⚠️ ESTA RECEITA TINHA 56 CRATERAS CARIMBADAS E ELAS FORAM REMOVIDAS EM
