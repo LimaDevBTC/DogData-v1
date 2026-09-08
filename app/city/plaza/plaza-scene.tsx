@@ -599,6 +599,26 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
       return { pos: new THREE.Vector3(q.x + rx * 135, 18, q.z + rz * 135),
                target: new THREE.Vector3(q.x - rx * 25, -13, q.z - rz * 25) }
     }
+    case 'geodedentro': {
+      // ⚠️ A GEODE É FECHADA, ENTÃO A CÂMERA TEM DE FICAR DENTRO DO VOLUME, e a
+      // faixa é estreita: a 92 m do centro ela já está na saia de cristal, fora
+      // do tambor, e o quadro sai preto. A 40 m e a 38 m de altura ela fica sob
+      // a casca (que fecha em +47) e acima da última fila (+24), olhando para o
+      // piso de show em −16. Rasante pela arquibancada, tentado, não serve: a
+      // 2 m de altura a própria rampa de assentos tapa o quadro inteiro.
+      //
+      // ⚠️ O TELÃO ENTRA NO QUADRO E NÃO HÁ ÂNGULO QUE O EVITE. `AR_TELA`
+      // (`GEODE_INTERIOR_10`) é uma caixa de ~100 m pendurada no centro de uma
+      // bacia de 184 m, sem textura: de perto ela lê como uma parede branca.
+      // Testados sete enquadramentos, os quatro que mostram a bacia inteira têm
+      // o telão no meio. Este é o que o deixa menor. A peça é do modelo, não
+      // desta vista.
+      const q = sitioNoCampus(GEODE_MOD)
+      const a = THREE.MathUtils.degToRad(geodeSitio().rumoDeg)
+      const rx = Math.sin(a), rz = -Math.cos(a)
+      return { pos: new THREE.Vector3(q.x + rx * 40, 38, q.z + rz * 40),
+               target: new THREE.Vector3(q.x - rx * 25, -14, q.z - rz * 25) }
+    }
 
     // ⚠️ AS ILHAS DE PERTO, no rumo 10 (a que fica de frente para quem chega).
     // O raio vem de `ILHAS_RAIO`, publicado por `lago.ts` depois de MEDIR a
@@ -684,6 +704,25 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
     // juntas. O eixo vai do rumo 36° ao 48°, dentro do arco em que a alça é alça.
     case 'alca':
       return { pos: new THREE.Vector3(4000, 272, -5699), target: new THREE.Vector3(5165, 15, -4650) }
+
+    // ── A BANDA DE ÓRBITA DA MEMPOOL (08/09) ─────────────────────────────────
+    //
+    // Fundador, 07/09: a saída da cúpula "deve sair, mostra o spaceport, os
+    // foguetes da mempool e descer". Esta é a terceira batida: a descida.
+    //
+    // ⚠️ AS NAVES NÃO ESTÃO NO SPACEPORT, ESTÃO SOBRE A PRAÇA. Medido em
+    // produção: elas giram em r 911 m a **4.828 m** de altura (`orbit-layer.ts`
+    // põe a órbita em `330..760 + pisoOrbita`, e `pisoOrbita` é `coroa − 180`).
+    // O spaceport fica a 11,2 km, no rumo 183°: são dois lugares diferentes, e
+    // por isso duas paradas.
+    //
+    // ⚠️ E ELA NÃO PODE DEPENDER DE HAVER NAVE, que é a regra que o `padtour` já
+    // registra em nota longa. De 5.100 m olhando para a praça, o quadro é a
+    // zenital do disco inteiro — lago, canais radiais, torres — e as naves
+    // cruzam por cima com o rastro. Com a mempool vazia continua sendo uma boa
+    // chapa; com movimento, é a melhor da volta.
+    case 'orbita':
+      return { pos: new THREE.Vector3(2600, 5100, 1500), target: new THREE.Vector3(0, 1200, 0) }
 
     // a mesma casca vista de fora, do lado do parque: a silhueta e a saia
     case 'abobadafora':

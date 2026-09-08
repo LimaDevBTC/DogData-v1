@@ -41,42 +41,89 @@ export interface ParadaLive {
  * câmera orbita o alvo devagar (`TOUR_LIVE_DERIVA`), que é o movimento que uma
  * grua faria enquanto o operador segura o plano.
  */
+/**
+ * ⚠️ O ROTEIRO FOI REESCRITO EM 08/09/2026, e o pedido do fundador tem uma
+ * frase que organiza tudo: **"o ponto fraco do tour de hoje são os momentos que
+ * ele sai da cúpula. Deve sair, mostra o spaceport, os foguetes da mempool e
+ * descer."** Ou seja: sair é permitido UMA vez, com assunto, e voltando.
+ *
+ * ⚠️ E A MEDIÇÃO DEU RAZÃO A ELE DE UM JEITO QUE EU NÃO ESPERAVA. As três
+ * paradas `montanha*` do roteiro antigo miravam (−2.394, 10.672), que sondado
+ * em produção com `__plazaPerfil` tem **240,9 m** de cota e fica em r 10.937 —
+ * do lado de fora da cúpula, que mede 9.054 de raio. O maciço nevado de verdade
+ * é o do `inverno.ts`, declarado lá em "r=8.330, az 262" e medido em **961,4 m**
+ * no rumo 262°, r 7.900: DENTRO da cúpula. As três paradas gastavam 2,2 min do
+ * laço olhando regolito ondulado a 11-13 km. Saíram, e no lugar entraram duas
+ * de `cordilheira`, que é o mesmo assunto no lugar certo.
+ *
+ * ⚠️ `abobadafora` TAMBÉM SAIU, pelo mesmo critério: é literalmente a casca
+ * vista de fora, o plano que o fundador chama de ponto fraco.
+ *
+ * O que entrou, na ordem do pedido dele:
+ *   · o campus esportivo com as três peças e os TRÊS interiores;
+ *   · a caverna do Leônidas, por dentro;
+ *   · o rasante sobre a cordilheira, sem sair da cúpula;
+ *   · o rasante sobre a alça dos condomínios;
+ *   · THE SPHERE, que é vizinha da cordilheira;
+ *   · e a saída única: spaceport de perto, a banda de órbita e a descida.
+ *
+ * Uma volta passou de 15 para **~22 min** no desktop. Para uma transmissão que
+ * fica horas no ar isso é a favor, não contra: repetição é o que cansa.
+ */
 export const TOUR_LIVE: readonly ParadaLive[] = [
-  // abre em cima da batalha, que é onde a live começa
+  // ── 1. a batalha, que é onde a live começa ────────────────────────────────
   { key: 'warentry',   voo: 14.0, parada: 26 },
   { key: 'war',        voo: 22.0, parada: 24 },
   { key: 'coliseu',    voo: 24.0, parada: 22 },
-  // ⚠️ O DISTRITO ESPORTIVO É UMA SEQUÊNCIA SÓ, não duas visitas separadas. O
-  // estádio e THE GEODE ficam a 615 m no mesmo anel: encadeados, o voo entre
-  // eles é curto e a câmera conta que são vizinhos. Separados no roteiro, o
-  // espectador não faz a ligação.
-  { key: 'estadioalto', voo: 30.0, parada: 24 },
-  { key: 'estadio',    voo: 18.0, parada: 24 },
-  { key: 'estadiorasante', voo: 16.0, parada: 20 },
-  // por dentro do estádio, pedido do fundador em 06/09
-  { key: 'estadiodentro', voo: 14.0, parada: 26 },
-  // THE GEODE, a arena coberta
-  { key: 'geodealto',  voo: 20.0, parada: 22 },
-  { key: 'geode',      voo: 16.0, parada: 26 },
-  { key: 'geoderasante', voo: 14.0, parada: 28 },
-  // a água: lago, ilhas de longe e de perto, e a orla
-  { key: 'lago',       voo: 28.0, parada: 24 },
-  { key: 'ilhas',      voo: 24.0, parada: 22, soDesktop: true },
-  { key: 'ilhasrasante', voo: 18.0, parada: 26, soDesktop: true },
-  // a montanha e a estação de inverno
-  { key: 'montanha',   voo: 32.0, parada: 24, soDesktop: true },
-  { key: 'montanharasante', voo: 18.0, parada: 26, soDesktop: true },
-  { key: 'montanhatopo', voo: 20.0, parada: 22, soDesktop: true },
-  // o parque, a 9,8 km
-  { key: 'park',       voo: 36.0, parada: 28, soDesktop: true },
-  { key: 'parkclose',  voo: 20.0, parada: 26, soDesktop: true },
-  // volta para o centro: spaceport, torres e a praça
-  { key: 'spaceport',  voo: 32.0, parada: 24 },
-  { key: 'kray',       voo: 28.0, parada: 22 },
-  { key: 'deck',       voo: 22.0, parada: 24 },
-  { key: 'top',        voo: 18.0, parada: 26 },
-  // a silhueta da casca, de fora, antes de recomeçar
-  { key: 'abobadafora', voo: 28.0, parada: 24 },
+
+  // ── 2. o campus esportivo: as três peças num pódio só ─────────────────────
+  // ⚠️ É UMA SEQUÊNCIA SÓ, não três visitas. As três estão no MESMO anel
+  // (r 3.294), a 615,1 m uma da outra, sobre uma laje única em −17,7. O voo
+  // entre elas é curto de propósito: é assim que a câmera conta que são
+  // vizinhas. Separadas no roteiro, o espectador não faz a ligação.
+  { key: 'esportes',        voo: 30.0, parada: 26 },
+  { key: 'atletismoperto',  voo: 20.0, parada: 22 },
+  { key: 'atletismodentro', voo: 16.0, parada: 28 },
+  { key: 'estadiorasante',  voo: 18.0, parada: 22 },
+  { key: 'estadiodentro',   voo: 14.0, parada: 28 },
+  { key: 'geoderasante',    voo: 18.0, parada: 22 },
+  { key: 'geodedentro',     voo: 14.0, parada: 28 },
+
+  // ── 3. a água: o lago, as ilhas e a alça ──────────────────────────────────
+  { key: 'lago',            voo: 28.0, parada: 24 },
+  { key: 'ilhasrasante',    voo: 22.0, parada: 24, soDesktop: true },
+  { key: 'alca',            voo: 30.0, parada: 28 },
+
+  // ── 4. THE SPHERE e a cordilheira, as duas dentro da cúpula ───────────────
+  { key: 'sphere',          voo: 32.0, parada: 24 },
+  { key: 'sphereperto',     voo: 16.0, parada: 26 },
+  { key: 'cordilheira',     voo: 26.0, parada: 26, soDesktop: true },
+  { key: 'cordilheirarasante', voo: 20.0, parada: 26, soDesktop: true },
+
+  // ── 5. o parque e a caverna do Leônidas ───────────────────────────────────
+  // ⚠️ ESTE ATO É DE CHÃO, e é por isso que ele não conta como "sair da
+  // cúpula": `park` corre a 30 m de altura e as três do templo são de dentro da
+  // caverna. Em nenhuma delas a casca aparece por fora.
+  { key: 'park',            voo: 36.0, parada: 24, soDesktop: true },
+  { key: 'parkclose',       voo: 20.0, parada: 24, soDesktop: true },
+  { key: 'temple',          voo: 22.0, parada: 22, soDesktop: true },
+  { key: 'templein',        voo: 16.0, parada: 28, soDesktop: true },
+  { key: 'templegarden',    voo: 14.0, parada: 26, soDesktop: true },
+
+  // ── 6. A SAÍDA, e ela é uma só: spaceport, foguetes e a descida ───────────
+  { key: 'spaceport',       voo: 34.0, parada: 24 },
+  { key: 'spaceportperto',  voo: 16.0, parada: 26 },
+  // ⚠️ A BANDA DE ÓRBITA MEDIDA: as naves da mempool giram em r 911 m a
+  // **4.828 m** de altura, sobre a praça. Esta parada olha para baixo de 5.100:
+  // pega a praça inteira, os canais radiais e as naves com o rastro cruzando o
+  // quadro. E ela NÃO depende de haver nave (mesma regra do `padtour`): sem
+  // mempool, continua sendo a zenital da praça.
+  { key: 'orbita',          voo: 30.0, parada: 26 },
+
+  // ── 7. a descida ao centro ───────────────────────────────────────────────
+  { key: 'kray',            voo: 26.0, parada: 22 },
+  { key: 'deck',            voo: 20.0, parada: 24 },
+  { key: 'top',             voo: 18.0, parada: 24 },
 ]
 
 /** ⚠️ O celular perde as paradas caras, do mesmo jeito que o tour da interface. */
