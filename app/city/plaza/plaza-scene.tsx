@@ -1698,7 +1698,27 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       // GLB e mais nada; `public/city/sf/_silhueta/` são 18 PNG que não foram
       // espelhados. Hoje ninguém os carrega, então trocar por prefixo não
       // quebraria nada, mas é uma mina esperando o primeiro consumidor.
-      gerente.setURLModifier((url) => (url.endsWith('.glb') && url.includes('/city/sf/') ? url.replace('/city/sf/', '/city/sf-ktx2/') : url))
+      // ⚠️ E OS GLB PRÓPRIOS DA CIDADE TAMBÉM, DESDE 07/09. O espelho cobria só
+      // `/city/sf/` (o acervo Sketchfab) e deixava de fora `/city/*.glb`, que são
+      // os modelos feitos nesta casa. O censo de VRAM no perfil de celular
+      // mostrou 157 MB de textura CRUA contra 41,5 MB comprimida, e quatro
+      // arquivos concentravam 48,8 MB disso: `leonidas-body` sozinho tem uma
+      // imagem 2048x2048 (o traje) que pesa 22,4 MB crua e 5,6 em ETC2.
+      //
+      // ⚠️ A LISTA É EXPLÍCITA, E NÃO UM PREFIXO. Trocar `/city/` inteiro por
+      // prefixo mandaria os outros 14 GLB (que não têm imagem embutida nenhuma e
+      // por isso não foram espelhados) para um 404, e a nota logo acima já diz
+      // o que 404 faz aqui: `loadSf` devolve null e a peça some da praça em
+      // silêncio. Esta lista tem de casar com `CIDADE_COM_TEXTURA` em
+      // `scripts/city/ktx2.mjs`, que falha ruidosamente se o arquivo sumir.
+      const CIDADE_ESPELHADA = new Set(['leonidas-body.glb', 'leonidas-skull.glb', 'bitflow-hq.glb', 'bitflow-hq-lod1.glb'])
+      gerente.setURLModifier((url) => {
+        if (!url.endsWith('.glb')) return url
+        if (url.includes('/city/sf/')) return url.replace('/city/sf/', '/city/sf-ktx2/')
+        const m = /\/city\/([^/]+\.glb)$/.exec(url)
+        if (m && CIDADE_ESPELHADA.has(m[1])) return url.replace(`/city/${m[1]}`, `/city/ktx2/${m[1]}`)
+        return url
+      })
     } else if (profile.cortaTextura && !temFormatoComprimido) {
       console.warn('[plaza] aparelho sem formato de textura comprimida: carregando o acervo original')
     }

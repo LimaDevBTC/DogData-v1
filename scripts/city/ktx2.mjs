@@ -69,6 +69,28 @@ import { homedir, tmpdir } from 'node:os'
 const RAIZ = new URL('../../', import.meta.url).pathname
 const ORIGEM = join(RAIZ, 'public/city/sf')
 const DESTINO = join(RAIZ, 'public/city/sf-ktx2')
+
+// ⚠️ OS GLB PRÓPRIOS DA CIDADE TAMBÉM PRECISAM DE ESPELHO, e ficaram de fora até
+// 07/09. O censo de VRAM no perfil de celular mostrou 157 MB de textura CRUA
+// contra 41,5 MB comprimida: o espelho cobria `/city/sf/` (o acervo Sketchfab) e
+// não cobria `/city/*.glb`, que são os modelos feitos nesta casa. Medido lendo
+// as imagens embutidas, quatro arquivos concentram TUDO:
+//
+//     leonidas-body.glb     22,4 MB   (uma imagem 2048x2048, o traje)
+//     leonidas-skull.glb    12,6 MB   (tres imagens)
+//     bitflow-hq.glb         6,9 MB   (a placa da coroa)
+//     bitflow-hq-lod1.glb    6,9 MB   (a MESMA placa, de novo)
+//
+//     total 48,8 MB cru  ->  12,2 MB em ETC2  =  36,6 MB de economia
+//
+// Os outros 14 GLB da cidade nao tem imagem embutida nenhuma (so cor de
+// material), entao nao entram: espelhar arquivo sem textura so gastaria disco.
+// ⚠️ ESTA LISTA TEM DE CASAR COM A DO `plaza-scene.tsx` (procure por
+// CIDADE_ESPELHADA la). Arquivo que entre aqui e nao entre la nao e usado;
+// arquivo que entre la e nao aqui vira 404 e a peca some em silencio.
+const ORIGEM_CIDADE = join(RAIZ, 'public/city')
+const DESTINO_CIDADE = join(RAIZ, 'public/city/ktx2')
+const CIDADE_COM_TEXTURA = ['leonidas-body.glb', 'leonidas-skull.glb', 'bitflow-hq.glb', 'bitflow-hq-lod1.glb']
 const FERRAMENTA = join(homedir(), '.cache/dogcity-ktx2')
 const GLTF = join(FERRAMENTA, 'node_modules/.bin/gltf-transform')
 const BIN_KTX = join(FERRAMENTA, 'ktxsw/bin')
@@ -97,6 +119,7 @@ const ambiente = {
 const passo = (args) => execFileSync(GLTF, args, { env: ambiente, stdio: ['ignore', 'pipe', 'pipe'] })
 
 mkdirSync(DESTINO, { recursive: true })
+mkdirSync(DESTINO_CIDADE, { recursive: true })
 const trabalho = join(tmpdir(), 'dogcity-ktx2-work')
 mkdirSync(trabalho, { recursive: true })
 
@@ -119,16 +142,27 @@ mkdirSync(trabalho, { recursive: true })
 const QUEBRADOS = new Set(['pedestal.glb', 'torch-pillar.glb'])
 
 const arquivos = readdirSync(ORIGEM).filter((f) => f.endsWith('.glb')).sort()
-const alvos = filtro ? arquivos.filter((f) => filtro.has(basename(f, '.glb'))) : arquivos
+const doAcervo = (filtro ? arquivos.filter((f) => filtro.has(basename(f, '.glb'))) : arquivos)
+  .map((f) => ({ nome: f, de: ORIGEM, para: DESTINO }))
+const daCidade = CIDADE_COM_TEXTURA
+  .filter((f) => existsSync(join(ORIGEM_CIDADE, f)) && (!filtro || filtro.has(basename(f, '.glb'))))
+  .map((f) => ({ nome: f, de: ORIGEM_CIDADE, para: DESTINO_CIDADE }))
+const alvos = [...doAcervo, ...daCidade]
 
-console.log(`acervo: ${arquivos.length} arquivos, convertendo ${alvos.length}\n`)
+const faltando = CIDADE_COM_TEXTURA.filter((f) => !existsSync(join(ORIGEM_CIDADE, f)))
+if (faltando.length) {
+  console.error(`\n⚠️ CIDADE_COM_TEXTURA aponta para arquivo que nao existe: ${faltando.join(', ')}\n`)
+  process.exit(1)
+}
+console.log(`acervo: ${arquivos.length} arquivos · cidade: ${daCidade.length} · convertendo ${alvos.length}\n`)
 
 let antes = 0, depois = 0, feitos = 0, pulados = 0
 const falhas = []
 
-for (const [i, nome] of alvos.entries()) {
-  const entrada = join(ORIGEM, nome)
-  const saida = join(DESTINO, nome)
+for (const [i, alvo] of alvos.entries()) {
+  const nome = alvo.nome
+  const entrada = join(alvo.de, nome)
+  const saida = join(alvo.para, nome)
   const tamEntrada = statSync(entrada).size
 
   if (!forcar && existsSync(saida) && statSync(saida).mtimeMs > statSync(entrada).mtimeMs) {
