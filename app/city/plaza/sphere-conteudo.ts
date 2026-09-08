@@ -207,7 +207,14 @@ export const COR_ANUNCIO = '#F2F4F7'
  *     evento   0,62   1,48x: um evento levanta a voz, não grita
  *     anúncio  0,90   2,14x: a ÚNICA coisa que sobe de saturação
  */
-export const GANHO_OCIOSO = 0.42
+/**
+ * ⚠️ 0,50 DESDE 08/09, E O TETO É 0,511. Ver a nota de `uGanho` em sphere.ts: o
+ * limite não é estético nem de contraste, é o CLIPPING do canal vermelho dentro
+ * do disco do LED com `uVida` no pico. Em 0,50 o contraste efetivo do dado sobe
+ * 12% e o vale da respiração sai de 2,59x para 2,88x, ou seja o texto ao sol
+ * deixa de cair abaixo de 3:1 no fundo da respiração. NÃO passar de 0,51.
+ */
+export const GANHO_OCIOSO = 0.50
 export const GANHO_QUEDA = 0.38
 export const GANHO_ALTA = 0.50
 export const GANHO_EVENTO = 0.62

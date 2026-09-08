@@ -1097,6 +1097,7 @@ const FS = /* glsl */`
   uniform vec3 uSolCor;
   uniform vec3 uAmb;
   uniform vec3 uPainel;
+  uniform float uPainelFaixa;
   varying vec3 vP; varying vec3 vN; varying vec3 vW; varying float vD;
 
   void main() {
@@ -1160,7 +1161,32 @@ const FS = /* glsl */`
     // (ver SPHERE_VIDA_*). Duas instrucoes: a respiracao do anel e o pulso de
     // evento vivem inteiros num uniforme calculado na CPU, entao valem igual
     // aqui e no material liso, que e onde a peca virava bola parada.
-    vec3 cor = uPainel * (uAmb + uSolCor * sol + borda * 1.5)
+  // ⚠️ O PAINEL É ATENUADO SÓ DENTRO DA FAIXA, E SÓ ONDE O CONTEÚDO É ESCURO.
+  // Este é o conserto do que o fundador viu: "de longe tá ficando tudo preto",
+  // com o dado laranja sobre fundo cinza.
+  //
+  // A causa, medida: uPainel * (uAmb + uSolCor*sol + borda*1.5) é ADITIVO e
+  // independe da textura, então entra igual no glifo e no vão. Ele vale
+  // Y = 0,04836 ao sol pleno, e o chão da faixa emite 0,006: o piso de painel é
+  // 8x o chão. O contraste efetivo do dado é **3,15x ao sol**, não os 44x que a
+  // conta da textura sugere. Escurecer mais o chão não resolve nada, porque o
+  // denominador não é o chão, é o painel.
+  //
+  // ⚠️ E A ATENUAÇÃO É CONDICIONADA AO CONTEÚDO, senão ela vira um sulco. Se o
+  // painel caísse na faixa inteira, o anel aceso (que é a assinatura da peça além
+  // do textCull) ficaria mais ESCURO que a casca em volta. O mix interno
+  // devolve o painel cheio onde há tinta: no glifo o painel volta a 1,0, no vão
+  // ele cai para uPainelFaixa. Além do textCull o conteúdo vira uCorFaixa,
+  // que é claro, e o painel volta sozinho: o anel não vira sulco.
+  //
+  // O clamp não é zelo: sem ele o * 4.0 extrapola o mix sob a
+  // COR_ANUNCIO #F2F4F7, e o painel passaria de 1,0.
+    float meioFx = (uFaixaV.x + uFaixaV.y) * 0.5;
+    float meiaFx = (uFaixaV.y - uFaixaV.x) * 0.5;
+    float faixaSuave = 1.0 - smoothstep(meiaFx * 0.75, meiaFx * 1.15, abs(uv.y - meioFx));
+    float tinta = clamp(dot(conteudo, vec3(0.2126, 0.7152, 0.0722)) * 4.0, 0.0, 1.0);
+    float painelK = mix(1.0, mix(uPainelFaixa, 1.0, tinta), faixaSuave);
+    vec3 cor = uPainel * painelK * (uAmb + uSolCor * sol + borda * 1.5)
              + conteudo * (sinal * uGanho * mix(1.0, uVida, naFaixa));
     // ⚠️ O EVENTO TOMA A CASCA INTEIRA, e é ele que atravessa onde a letra nao
     // atravessa mais. Tres instrucoes: um mix da cor e dois mul. O disco do LED
@@ -1234,6 +1260,7 @@ const FS_LISO = /* glsl */`
   uniform vec3 uSolCor;
   uniform vec3 uAmb;
   uniform vec3 uPainel;
+  uniform float uPainelFaixa;
   uniform vec3 uMedia;
   uniform vec3 uCorFaixa;
   uniform vec2 uFaixaV;
@@ -1258,7 +1285,11 @@ const FS_LISO = /* glsl */`
     // ⚠️ E A VIDA MORA AQUI TAMBEM, com o MESMO uniforme e a mesma conta: e
     // justamente neste material que a peca ficava parada, porque ele e o que o
     // perfil fraco usa de 298 m para fora. Um mul a mais num shader de ~40 ALU.
-    vec3 cor = uPainel * (uAmb + uSolCor * sol + borda * 1.5)
+    // mesma atenuacao do shader cheio, com uCorFaixa no lugar do conteudo: aqui
+    // nao ha textura, e uCorFaixa E a media medida da faixa
+    float tintaL = clamp(dot(uCorFaixa, vec3(0.2126, 0.7152, 0.0722)) * 4.0, 0.0, 1.0);
+    float painelKL = mix(1.0, mix(uPainelFaixa, 1.0, tintaL), naFaixa);
+    vec3 cor = uPainel * painelKL * (uAmb + uSolCor * sol + borda * 1.5)
              + mix(uMedia, uCorFaixa * uVida, naFaixa) * uGanho;
     // ⚠️ O EVENTO TAMBEM AQUI, e este e o material que o perfil fraco usa alem do
     // degrau de fillrate. Sem ele o celular ficaria sem evento exatamente na
@@ -1978,7 +2009,19 @@ export function buildSphere(o: SphereOpts): Sphere {
     uGrade: { value: new THREE.Vector2(SPHERE_GRADE_COLS, SPHERE_GRADE_ROWS) },
     uPasso: { value: SPHERE_PASSO },
     uPxAng: { value: spherePxAng(42, 1080, p.maxPixelRatio) },
-    uGanho: { value: conteudo0.ganho ?? 0.42 },
+    uGanho: {
+      /**
+       * ⚠️ 0,50 E NÃO 0,42, e o teto real é 0,511. `uGanho` multiplica só o
+       * conteúdo emitido, então ele sobe numerador e denominador do contraste
+       * pelo mesmo delta absoluto e o retorno trava; mas o limite duro não é o
+       * contraste, é o CLIPPING do canal vermelho: dentro do disco do LED, ao
+       * sol, o R do dado vale `0,807 · 1,9894 · g` e estoura com `uVida` no pico
+       * acima de 0,511. Em 0,50 estamos a 98% do teto e o contraste efetivo sobe
+       * 12%, tirando o vale da respiração de 2,59x para 2,88x: o texto ao sol
+       * deixa de cair abaixo de 3:1 no fundo da respiração.
+       */
+      value: conteudo0.ganho ?? 0.50,
+    },
     // ⚠️ A VIDA DO ANEL. Nasce em 1,0 (nem respirando nem pulsando) e é escrita
     // por quadro em `update()`, que já roda. Ver a seção 5.1.
     uVida: { value: 1 },
@@ -1991,6 +2034,14 @@ export function buildSphere(o: SphereOpts): Sphere {
     // marca perderia o registro.
     uCorEvento: { value: new THREE.Color(COR_DADO).convertSRGBToLinear() },
     // ── FX-EIXO, ver `SPHERE_FX_*` e o bloco no shader ────────────────────────
+    /**
+     * ⚠️ 0,45: quanto do painel refletido SOBRA no vão da faixa. O painel é o
+     * denominador inteiro do contraste, e atenuá-lo só onde não há tinta é a
+     * alavanca de +109% que nenhuma técnica de textura alcança (a dilatação paga
+     * +6,6% e o halo escuro +5,4%). Os outros 87,5% da casca continuam em
+     * `uPainel` cheio, então a silhueta contra o céu preto da Lua não muda.
+     */
+    uPainelFaixa: { value: 0.45 },
     uFxAtivo: { value: 0 },
     uFxEixo: { value: new THREE.Vector4(0, 1, 0, 1) },
     uFxFrente: { value: new THREE.Vector4(2, 0, 0, 0) },
