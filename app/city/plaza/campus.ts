@@ -214,6 +214,41 @@ export const CAMPUS_RUMO = ((_cx.a0 + _cx.a1) / 2) * 180 / Math.PI
 /** o giro em radianos que as três peças recebem, na convenção do Three */
 export const GIRO_CAMPUS = -((_cx.a0 + _cx.a1) / 2)
 
+/**
+ * AS COVAS DO CAMPUS: onde a cidade NÃO planta sozinha.
+ *
+ * ⚠️ HAVIA 458 ÁRVORES E 115 POSTES ENTERRADOS SOB A LAJE. Contados em produção
+ * em 07/09, no perfil de celular: a arborização da cidade plantou dentro do
+ * bloco pela cota do TERRENO, que a terraplanagem deixou em −17,7, e o topo da
+ * laje está em −16,2. Ou seja tudo nasceu 1,5 m abaixo do pódio e sumiu debaixo
+ * dele. Defeito de integração meu: criei um piso novo e não avisei quem planta
+ * que o chão daquele bloco tinha subido.
+ *
+ * ⚠️ E LEVANTAR NÃO É O CONSERTO. Aquelas 458 mudas seguem as LINHAS DAS RUAS
+ * que a parcela única apagou: a arborização alinha muda com meio-fio, e as ruas
+ * internas do bloco não existem mais. Levantadas para a cota da laje, elas
+ * desenhariam fileiras de rua fantasma sobre um pódio cívico. O campus tem de
+ * ser plantado de propósito, com desenho próprio.
+ *
+ * ⚠️ E A VEDAÇÃO SAI EM CÍRCULOS PORQUE É ASSIM QUE `arborizacao.ts` ACEITA. Ela
+ * tem duas máscaras: `pecas` (retângulo girado, alimentada por dentro pelo
+ * programa do gerador) e `covas` (círculos, que praça e peça pedem de fora). A
+ * laje é um quadrilátero de 1.682 x 476 m; uma corrente de círculos de raio 250
+ * a cada 152 m cobre a largura inteira, porque no meio de dois vizinhos a
+ * cobertura vale √(250² − 76²) = 238 m, que é exatamente a meia-largura. O
+ * transbordo é de 12 m por lado, e cai na franja, onde não se planta mesmo.
+ */
+export function covasDoCampus(): { x: number; z: number; r: number }[] {
+  const R = 250, PASSO = 152
+  const n = Math.ceil(_eixo.L / PASSO)
+  const out: { x: number; z: number; r: number }[] = []
+  for (let i = 0; i <= n; i++) {
+    const t = -_eixo.L / 2 + (_eixo.L * i) / n
+    out.push({ x: _eixo.cx + _eixo.dx * t, z: _eixo.cz + _eixo.dz * t, r: R })
+  }
+  return out
+}
+
 /** o topo da laje: é aqui que as três peças pousam */
 export const PODIO_TOPO = CAMPUS_Y + PODIO_H
 

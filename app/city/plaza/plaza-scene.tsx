@@ -83,7 +83,7 @@ import { assentarEstadio, estadioCull, estadioSitio } from './estadio'
 import { assentarGeode, geodeCull, geodeSitio, podarGeode } from './geode'
 import { atletismoSitio } from './atletismo'
 import { criarAtletismo, type Atletismo } from './atletismo-loader'
-import { campusParcela, comPodio, criarCampus, CAMPUS_LAJE, GIRO_CAMPUS, sitioNoCampus } from './campus'
+import { campusParcela, comPodio, criarCampus, covasDoCampus, CAMPUS_LAJE, GIRO_CAMPUS, sitioNoCampus } from './campus'
 import { ESTADIO_MOD } from './estadio'
 import { GEODE_MOD } from './geode'
 import { ATLETISMO_MOD } from './atletismo'
@@ -2576,7 +2576,13 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             // ⚠️ TERCEIRO PORTÃO, NOVO: a via também. Ver a nota em `viasAssentou`.
             if (!viasAssentou) return
             if (qDomo.get('arvores') === '0') return
-            const todas = [...covasDasPecas, ...covasDasPracas]
+            // ⚠️ O CAMPUS ESPORTIVO ENTRA COMO COVA, e a nota de `covasDoCampus`
+            // diz por quê: a cidade tinha plantado 458 árvores dentro do bloco,
+            // pela cota do terreno, e a laje do pódio as enterrou. O campus é
+            // plantado de propósito, com desenho próprio, não pela regra de
+            // fileira de rua — as ruas internas dele nem existem mais.
+            const todas = [...covasDasPecas, ...covasDasPracas,
+                           ...(CAMPUS_LAJE ? covasDoCampus() : [])]
             // ⚠️ A CONSULTA DE ÁGUA VEM DE `lagos`, LIDA NA HORA DA CHAMADA. Ela
             // é a mesma rotulagem por preenchimento que desenha a lâmina, então
             // as duas pontas não podem divergir. A folga de 10 m tira a muda com
