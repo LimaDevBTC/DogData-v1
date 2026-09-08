@@ -140,7 +140,7 @@ export const SPHERE_ENVELOPE_ARCO = (_CX.a1 - _CX.a0) * _CX.rm
  * de R. A letra grande vai de 16,84 para 18,52 m, e o alcance de leitura sobe na
  * mesma proporção.
  */
-export const SPHERE_DIAM = 215.6
+export const SPHERE_DIAM = 323.4
 export const SPHERE_R = SPHERE_DIAM / 2
 
 /**
@@ -1022,6 +1022,8 @@ const FS = /* glsl */`
   uniform float uPxAng;
   uniform float uGanho;
   uniform float uVida;
+  uniform float uEvento;
+  uniform vec3 uCorEvento;
   uniform float uRaioPonto;
   uniform float uPreenche;
   uniform float uAA;
@@ -1098,6 +1100,11 @@ const FS = /* glsl */`
     // aqui e no material liso, que e onde a peca virava bola parada.
     vec3 cor = uPainel * (uAmb + uSolCor * sol + borda * 1.5)
              + conteudo * (sinal * uGanho * mix(1.0, uVida, naFaixa));
+    // ⚠️ O EVENTO TOMA A CASCA INTEIRA, e é ele que atravessa onde a letra nao
+    // atravessa mais. Tres instrucoes: um mix da cor e dois mul. O disco do LED
+    // continua mandando na textura (o sinal do disco), entao a esfera nao vira
+    // uma bola de tinta lisa: ela vira um PAINEL laranja, com a grade a vista.
+    cor = mix(cor, uCorEvento * (0.35 + 0.65 * sinal), uEvento * 0.88);
     gl_FragColor = vec4(cor, 1.0);
     #include <fog_fragment>
   }`
@@ -1127,6 +1134,8 @@ const FS_LISO = /* glsl */`
   #include <fog_pars_fragment>
   uniform float uGanho;
   uniform float uVida;
+  uniform float uEvento;
+  uniform vec3 uCorEvento;
   uniform vec3 uCam;
   uniform vec3 uSol;
   uniform vec3 uSolCor;
@@ -1156,8 +1165,13 @@ const FS_LISO = /* glsl */`
     // ⚠️ E A VIDA MORA AQUI TAMBEM, com o MESMO uniforme e a mesma conta: e
     // justamente neste material que a peca ficava parada, porque ele e o que o
     // perfil fraco usa de 298 m para fora. Um mul a mais num shader de ~40 ALU.
-    gl_FragColor = vec4(uPainel * (uAmb + uSolCor * sol + borda * 1.5)
-                        + mix(uMedia, uCorFaixa * uVida, naFaixa) * uGanho, 1.0);
+    vec3 cor = uPainel * (uAmb + uSolCor * sol + borda * 1.5)
+             + mix(uMedia, uCorFaixa * uVida, naFaixa) * uGanho;
+    // ⚠️ O EVENTO TAMBEM AQUI, e este e o material que o perfil fraco usa alem do
+    // degrau de fillrate. Sem ele o celular ficaria sem evento exatamente na
+    // faixa de distancia em que o evento e a unica coisa que ainda se ve.
+    cor = mix(cor, uCorEvento, uEvento * 0.88);
+    gl_FragColor = vec4(cor, 1.0);
     #include <fog_fragment>
   }`
 
@@ -1310,6 +1324,21 @@ export function sphereSitio(): { x: number; z: number; rumoDeg: number } {
  * redesenho no mesmo dia em que a peça mudou de lugar.
  */
 export const SPHERE_AVENTAL_LADO = 254.2
+/**
+ * ⚠️ O AVENTAL VIROU DISCO EM 08/09, E O QUADRADO DEIXOU DE SERVIR. Com a esfera
+ * em 323,4 m ela encosta no piso num círculo de **146,0 m de raio**, maior que a
+ * meia-largura do quadrado antigo (127,1): a peça transbordava o próprio avental.
+ * E crescer o quadrado é pior, porque quem chega primeiro no anel viário é a
+ * QUINA: um quadrado que contenha 146 m de raio tem meia-diagonal de 206 m e
+ * cruzaria o anel (borda externa em r 469) em 37 m.
+ *
+ * ⚠️ 151 m É O RAIO QUE ENCOSTA NO ANEL SEM ENTRAR NELE: 620 − 469 = 151. Sobram
+ * **5,0 m** de piso caminhável em volta da esfera, e isso é a morte declarada da
+ * "praça caminhável" que o dossiê antigo prometia. Foi troca consciente: o
+ * fundador pediu a esfera como foco, e o entorno dela agora é o jardim da CIDADE,
+ * não um jardim próprio. Ver a remoção da coroa em `props-table.ts`.
+ */
+export const SPHERE_AVENTAL_R = 151
 
 export function sphereDeckPoly(): [number, number][] {
   const s = sphereSitio()
@@ -1725,6 +1754,14 @@ export function buildSphere(o: SphereOpts): Sphere {
     // ⚠️ A VIDA DO ANEL. Nasce em 1,0 (nem respirando nem pulsando) e é escrita
     // por quadro em `update()`, que já roda. Ver a seção 5.1.
     uVida: { value: 1 },
+    // ⚠️ O EVENTO NA CASCA INTEIRA. 0 em repouso; o swell do `pulsar()` escreve
+    // aqui. Ver a nota no `update()`.
+    uEvento: { value: 0 },
+    // ⚠️ A COR DO EVENTO É A DO DADO, e isso não é economia de constante: a peça
+    // tem UMA cor quente, `#E8660D`, e o evento é o momento em que ela toma a
+    // esfera inteira. Uma cor de evento própria criaria um segundo laranja e a
+    // marca perderia o registro.
+    uCorEvento: { value: new THREE.Color(COR_DADO).convertSRGBToLinear() },
     // ⚠️ RAIO 0,40 DA CÉLULA, ou seja preenchimento π·0,40² = 0,503. É o que um
     // painel de LED de verdade entrega (puck menor que o passo, vão escuro
     // entre eles), e é o número que faz o pico valer 1/0,503 = 1,99 vezes a
@@ -1772,8 +1809,8 @@ export function buildSphere(o: SphereOpts): Sphere {
   casca.receiveShadow = false
   group.add(casca)
 
-  // ── o tabuleiro e a praça ────────────────────────────────────────────────
-  const base = construirBase(PLAT, o.heightAt)
+  // ── o avental: um disco no piso plano da praça ───────────────────────────
+  const base = construirBase(PLAT)
   descartar.push(base.geometry)
   descartar.push(base.material as THREE.Material)
   group.add(base)
@@ -1917,6 +1954,22 @@ export function buildSphere(o: SphereOpts): Sphere {
       const kLonge = suave(distTexto * 0.5, distTexto * 1.15, d)
       const amp = SPHERE_VIDA_AMP * (0.25 + 0.75 * kLonge)
       let vida = 1 + amp * Math.sin((2 * Math.PI * t) / SPHERE_VIDA_PERIODO_MS)
+      // ⚠️ O EVENTO DEIXOU DE SER SÓ DO ANEL EM 08/09. Pedido do fundador: *"na
+      // hora que minera o bloco do Bitcoin ela fica laranja, pisca e chama
+      // atenção, assim como quando nossa carteira recebe uma tx"*.
+      //
+      // Até aqui o swell entrava em `uVida`, que multiplica SÓ a faixa. A faixa é
+      // 12% da altura projetada: a 8 km ela mede 2 px e o evento passava
+      // despercebido justamente onde ele é a única coisa que ainda atravessa. O
+      // envelope agora sai em DOIS uniformes do mesmo cálculo: `uVida` continua
+      // no anel (é a leitura de perto, onde o dado manda) e `uEvento` tinge a
+      // CASCA INTEIRA (é a leitura de longe, onde não há letra que resolva).
+      //
+      // ⚠️ E ELE VALE NOS DOIS MATERIAIS, o cheio e o liso. O liso é o que o
+      // perfil fraco usa além do degrau de fillrate: sem `uEvento` lá, o celular
+      // ficaria sem evento exatamente na faixa de distância em que o evento é
+      // tudo o que resta.
+      let evento = 0
       if (pulsoT0 > 0) {
         const dt = t - pulsoT0
         if (dt >= SPHERE_PULSO_MS) pulsoT0 = 0
@@ -1924,10 +1977,13 @@ export function buildSphere(o: SphereOpts): Sphere {
           // sobe rápido, desce devagar: swell, não piscada. Ver SPHERE_PULSO_*.
           const sobe = suave(0, SPHERE_PULSO_SOBE_MS, dt)
           const desce = 1 - suave(SPHERE_PULSO_SOBE_MS, SPHERE_PULSO_MS, dt)
-          vida += pulsoAmp * sobe * desce
+          const env = sobe * desce
+          vida += pulsoAmp * env
+          evento = env
         }
       }
       uniformes.uVida.value = vida
+      uniformes.uEvento.value = evento
 
       // ⚠️ NADA SOME AQUI. O embasamento é parte da silhueta, não mobiliário:
       // ver a nota em `construirPodio`. `esc.distMiudo` volta a mandar quando a
@@ -1961,86 +2017,38 @@ export function buildSphere(o: SphereOpts): Sphere {
  * Por isso o deck é subdividido (permite terraceamento depois sem refazer a
  * peça) e a saia desce colada no relevo em vez de cortar no ar.
  */
-function construirBase(
-  PLAT: number,
-  heightAt: (x: number, z: number) => number,
-): THREE.Mesh {
-  const poly = sphereDeckPoly()
-  const pos: number[] = []
-  const nor: number[] = []
-  const idx: number[] = []
-
-  // ── o deck: grade bilinear sobre o quadrilátero do módulo ────────────────
-  // ⚠️ O SENTIDO DO POLÍGONO SE MEDE, NÃO SE ADIVINHA. `polyDoModulo` não promete
-  // horário nem anti-horário, e um deck com a normal para baixo some por
-  // `backface culling` e leva junto a sombra que ele deveria receber.
-  let area2 = 0
-  for (let i = 0; i < poly.length; i++) {
-    const a = poly[i], b = poly[(i + 1) % poly.length]
-    area2 += a[0] * b[1] - b[0] * a[1]
-  }
-  const q = area2 > 0 ? poly : [...poly].reverse()
-
-  const NU = 16, NV = 12
-  const lerp2 = (a: [number, number], b: [number, number], t: number): [number, number] =>
-    [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]
-  for (let j = 0; j <= NV; j++) {
-    const t = j / NV
-    const e0 = lerp2(q[0], q[3], t)
-    const e1 = lerp2(q[1], q[2], t)
-    for (let i = 0; i <= NU; i++) {
-      const pnt = lerp2(e0, e1, i / NU)
-      pos.push(pnt[0], PLAT, pnt[1])
-      nor.push(0, 1, 0)
-    }
-  }
-  for (let j = 0; j < NV; j++) {
-    for (let i = 0; i < NU; i++) {
-      const a = j * (NU + 1) + i, b = a + 1, c = a + NU + 1, d = c + 1
-      idx.push(a, c, b, b, c, d)
-    }
-  }
-
-  // ── a saia: da divisa do lote até o relevo ───────────────────────────────
-  // ⚠️ ELA DESCE 1,5 m ABAIXO DO RELEVO. Parar exatamente na cota do terreno
-  // deixa uma fresta de luz por causa do micro-relevo que o `terreno=fino`
-  // acrescenta depois; enterrar resolve e não custa nada.
-  const N_SAIA = 22
-  for (let e = 0; e < q.length; e++) {
-    const a = q[e], b = q[(e + 1) % q.length]
-    const base0 = pos.length / 3
-    for (let i = 0; i <= N_SAIA; i++) {
-      const t = i / N_SAIA
-      const x = a[0] + (b[0] - a[0]) * t
-      const z = a[1] + (b[1] - a[1]) * t
-      pos.push(x, PLAT, z)
-      pos.push(x, heightAt(x, z) - 1.5, z)
-      // normal para fora: perpendicular à aresta, no plano
-      const ex = b[0] - a[0], ez = b[1] - a[1]
-      const L = Math.hypot(ex, ez) || 1
-      nor.push(ez / L, 0, -ex / L)
-      nor.push(ez / L, 0, -ex / L)
-    }
-    for (let i = 0; i < N_SAIA; i++) {
-      const k = base0 + i * 2
-      idx.push(k, k + 1, k + 2, k + 2, k + 1, k + 3)
-    }
-  }
-
-  const geo = new THREE.BufferGeometry()
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
-  geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3))
-  geo.setIndex(idx)
-  geo.computeBoundingSphere()
-
-  const mat = new THREE.MeshStandardMaterial({
-    color: COR_PISO, roughness: 0.94, metalness: 0.0, side: THREE.DoubleSide,
-  })
-  const mesh = new THREE.Mesh(geo, mat)
-  mesh.name = 'SPHERE_TABULEIRO'
-  mesh.receiveShadow = true
-  mesh.castShadow = false
-  return mesh
+/**
+ * O AVENTAL: um DISCO no piso da praça, e nada mais.
+ *
+ * ⚠️ ELE ERA UM TABULEIRO COM SAIA E NÃO PRECISA MAIS SER. A versão antiga era
+ * uma grade bilinear de 16 x 12 sobre o quadrilátero do módulo da teia, mais uma
+ * saia descendo colada no relevo: existia porque a peça pousava em terreno com
+ * 16,2 m de desnível sob ela. Na âncora norte o chão é laje construída e PLANA
+ * (`PRACA_Y`): não há relevo para acompanhar, não há terraplenagem, não há
+ * talude. Uma grade bilinear e uma saia sobre um plano são 400 triângulos para
+ * desenhar um disco.
+ *
+ * ⚠️ E O QUADRILÁTERO PASSOU A SER ERRADO, não só desnecessário. Com a esfera em
+ * 323,4 m ela encosta no piso num círculo de 146,0 m; um quadrado que a contenha
+ * tem meia-diagonal de 206 m e cruzaria o anel viário do precinto (borda externa
+ * em r 469) em 37 m. Disco de 151 m encosta no anel sem entrar nele. Ver
+ * `SPHERE_AVENTAL_R`.
+ */
+function construirBase(PLAT: number): THREE.Mesh {
+  const s = sphereSitio()
+  // ⚠️ 96 GOMOS, E NÃO É EXAGERO: a borda do disco tem 949 m de perímetro e fica
+  // à vista de quem passa pelo anel. Com 48 a corda mede 9,9 m e o polígono se
+  // lê; com 96 ela cai para 4,9 m, que a essa distância some. São 96 triângulos.
+  const geo = new THREE.CircleGeometry(SPHERE_AVENTAL_R, 96)
+  geo.rotateX(-Math.PI / 2)
+  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+    color: COR_PISO, roughness: 0.94, metalness: 0.0,
+  }))
+  m.position.set(s.x, PLAT, s.z)
+  m.receiveShadow = true
+  m.castShadow = false
+  m.name = 'SPHERE_AVENTAL'
+  return m
 }
 
 /**

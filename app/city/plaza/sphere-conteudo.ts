@@ -83,6 +83,10 @@ export const ORC_PEQUENA = 15
  * que o fundador pediu por escrito).
  */
 export const ROTULOS = {
+  marcaBtc: 'THE CHAIN THAT CARRIES $DOG',
+  marcaBtcAlt: 'BITCOIN BLOCK HEIGHT',
+  marcaDog: 'THE RUNE ON BITCOIN',
+  marcaDogAlt: 'MARE TRANQUILLITATIS',
   precoSpot: '$DOG USD SPOT',      // 13
   precoVar: '24H CHANGE',          // 10
   volume: '24H VOLUME DOG',        // 14
@@ -536,6 +540,168 @@ function pintarCorpoKray(g: CanvasRenderingContext2D, w: number, h: number) {
   g.fillRect(0, Math.round(563 * L), w, Math.round(24 * L))
 }
 
+/**
+ * ⚠️ A CASCA INTEIRA COMO TELA, E NÃO SÓ A FAIXA. Pedido do fundador em 08/09:
+ * *"em algum momento ele muda por completo de cor? Quero ele todo em laranja com
+ * logo do Bitcoin em algum momento, em outros quero ele escrevendo $DOG"*.
+ *
+ * O mecanismo já existia e estava subaproveitado: `SphereConteudo.pintarCorpo`
+ * recebe o contexto do canvas de 2.048 x 1.024 INTEIRO, antes de a faixa ser
+ * desenhada por cima. Até aqui só o intervalo da Kray usava, para pôr duas
+ * cintas brancas num casco preto. Estas duas peles usam a casca toda.
+ *
+ * ⚠️ A MARCA SE REPETE NA VOLTA, E ISSO NÃO É ENFEITE: a esfera é vista de
+ * qualquer azimute e não tem costas. Uma marca só apareceria de um lado e
+ * deixaria os outros 270° em cor chapada. `N_MARCAS` é o número de cópias
+ * igualmente espaçadas, que é a regra de simetria da casa (elementos repetidos
+ * igualmente espaçados; excluir é melhor que desalinhar).
+ *
+ * ⚠️ E A DISTORÇÃO EQUIRETANGULAR É COMPENSADA NA LARGURA. A textura é uma grade
+ * de latitude x longitude: um círculo desenhado nela vira uma elipse achatada na
+ * esfera, tanto mais quanto mais perto do polo. A marca fica centrada na latitude
+ * do CENTRO ÓPTICO (+16,56°, linha 418), e a largura dela é dividida por
+ * `cos(lat)` para o glifo sair redondo onde ele é visto. Sem isso o ₿ sai gordo.
+ */
+const N_MARCAS = 6
+/** a latitude do centro óptico da silhueta, em linha de LED (ver sphere.ts) */
+const LINHA_CENTRO = 418
+
+/** Desenha o ₿ do Bitcoin com traçado, sem depender de fonte instalada. */
+function marcaBitcoin(g: CanvasRenderingContext2D, cx: number, cy: number, h: number, cor: string) {
+  // ⚠️ TRAÇADO E NÃO `fillText`, porque fonte não é garantia: `₿` (U+20BF) falta
+  // em boa parte das famílias, e o que aparece no lugar é o retângulo de
+  // caractere ausente. Aqui o desenho é geometria: haste, dois bojos e as duas
+  // barras que atravessam em cima e embaixo.
+  const w = h * 0.62
+  const t = h * 0.155           // espessura do traço
+  g.fillStyle = cor
+  g.strokeStyle = cor
+  g.lineWidth = t
+  g.lineCap = 'butt'
+  const x0 = cx - w / 2, y0 = cy - h / 2
+  // a haste vertical
+  g.fillRect(x0, y0 + h * 0.12, t, h * 0.76)
+  // as duas barras que furam em cima e embaixo
+  g.fillRect(x0 + t * 0.9, y0, t * 0.8, h * 0.14)
+  g.fillRect(x0 + t * 2.4, y0, t * 0.8, h * 0.14)
+  g.fillRect(x0 + t * 0.9, y0 + h * 0.86, t * 0.8, h * 0.14)
+  g.fillRect(x0 + t * 2.4, y0 + h * 0.86, t * 0.8, h * 0.14)
+  // os dois bojos, um por cima do outro
+  for (const [yy, hh, ww] of [[0.12, 0.38, 0.86], [0.50, 0.38, 1.0]] as [number, number, number][]) {
+    const by = y0 + h * yy, bh = h * hh, bw = w * ww
+    g.beginPath()
+    g.moveTo(x0 + t, by + t / 2)
+    g.lineTo(x0 + bw - bh * 0.42, by + t / 2)
+    g.arc(x0 + bw - bh * 0.42, by + bh / 2, bh / 2 - t / 2, -Math.PI / 2, Math.PI / 2)
+    g.lineTo(x0 + t, by + bh - t / 2)
+    g.stroke()
+  }
+}
+
+/**
+ * PELE 1: A ESFERA INTEIRA EM LARANJA, COM O ₿ EM NEGATIVO.
+ *
+ * ⚠️ O LARANJA É O FUNDO E A MARCA É O BURACO, e não o contrário. Um ₿ laranja
+ * sobre casco escuro seria mais um logo aceso; a esfera INTEIRA acesa em
+ * `#E8660D`, com a marca recortada em quase preto, é a peça inteira virando
+ * sinal. É esse quadro que responde ao "muda por completo de cor".
+ */
+function pintarCorpoBitcoin(g: CanvasRenderingContext2D, w: number, h: number) {
+  g.fillStyle = '#E8660D'
+  g.fillRect(0, 0, w, h)
+  const L = h / 1024
+  const cy = LINHA_CENTRO * L
+  const lat = (90 - (180 * LINHA_CENTRO) / 1024) * Math.PI / 180
+  const alt = 300 * L                                  // 300 linhas de LED
+  // ⚠️ A LARGURA COMPENSA A LATITUDE: ver a nota de N_MARCAS.
+  const escalaX = 1 / Math.max(Math.cos(lat), 0.2)
+  for (let i = 0; i < N_MARCAS; i++) {
+    const cx = ((i + 0.5) / N_MARCAS) * w
+    g.save()
+    g.translate(cx, cy)
+    g.scale(escalaX, 1)
+    marcaBitcoin(g, 0, 0, alt, '#140B04')
+    g.restore()
+  }
+}
+
+/**
+ * PELE 2: `$DOG` DANDO A VOLTA, EM LETRA DE 90 LINHAS.
+ *
+ * ⚠️ ELA USA A MESMA FONTE 5x7 DA FAIXA, e de propósito: a Sphere tem UMA
+ * tipografia, e ela é a matriz do letreiro do Estádio e da Torre Central. Uma
+ * fonte vetorial aqui faria a casca falar uma língua e a faixa outra.
+ *
+ * A letra tem 90 linhas de LED de altura contra as 56 da linha grande da faixa,
+ * ou seja **1,6x**, e ela é o único conteúdo da casca: a faixa continua por cima
+ * com o dado, porque quem vê de perto quer o número e quem vê de longe quer a
+ * marca. Os dois registros não brigam, eles moram em latitudes diferentes.
+ */
+function pintarCorpoDog(g: CanvasRenderingContext2D, w: number, h: number) {
+  const L = h / 1024
+  g.fillStyle = '#0A0B0D'
+  g.fillRect(0, 0, w, h)
+  const alt = 90 * L
+  g.fillStyle = COR_DADO
+  g.textAlign = 'center'
+  g.textBaseline = 'middle'
+  g.font = `bold ${Math.round(alt)}px ui-monospace, "JetBrains Mono", monospace`
+  // ⚠️ QUATRO CÓPIAS E NÃO SEIS: `$DOG` é largo, e seis se encostariam. Quatro
+  // dão uma cópia por quadrante, ou seja sempre uma inteira à vista.
+  const cyTopo = 235 * L      // acima da faixa, em latitude de boa leitura
+  for (let i = 0; i < 4; i++) g.fillText('$DOG', ((i + 0.5) / 4) * w, cyTopo)
+}
+
+/**
+ * OS DOIS QUADROS DE MARCA, que são os que mudam a casca inteira.
+ *
+ * ⚠️ ELES ENTRAM NO ANEL DE DADO, NÃO NO INTERVALO COMERCIAL, e a diferença é de
+ * princípio: o intervalo é tempo VENDIDO, contado no livro-caixa de
+ * `podeAnunciar`, e a marca da casa não pode consumir cota de parceiro nem se
+ * disfarçar de anúncio. Eles são identidade, e identidade é conteúdo próprio.
+ *
+ * ⚠️ E O GANHO É ALTO NOS DOIS, POR DESENHO. O estado sóbrio é o do dado; estes
+ * são os dois momentos em que a peça levanta a voz sozinha. Ainda assim ficam
+ * ABAIXO do intervalo comercial (0,90), porque a regra da casa é que quem grita
+ * mais alto é o anúncio, e a diferença entre marca e propaganda tem de ser
+ * visível sem legenda.
+ */
+const GANHO_MARCA = 0.78
+
+function slotBitcoin(altura: number | null): Slot {
+  const base: Partial<SphereConteudo> = {
+    ganho: GANHO_MARCA,
+    // ⚠️ A FAIXA INVERTE NA PELE LARANJA: sobre `#E8660D` o texto laranja some.
+    // O escuro do próprio recorte do ₿ é o que dá contraste aqui.
+    cor: '#140B04',
+    corRotulo: '#140B04',
+    pintarCorpo: pintarCorpoBitcoin,
+  }
+  return {
+    classe: 'dado',
+    nome: 'marca-btc',
+    quadros: [
+      quadro('BITCOIN', ROTULOS.marcaBtc, MS_MODULO / 2, base),
+      quadro(altura ? '#' + altura : 'BITCOIN', ROTULOS.marcaBtcAlt, MS_MODULO / 2, base),
+    ],
+  }
+}
+
+function slotDog(): Slot {
+  const base: Partial<SphereConteudo> = {
+    ganho: GANHO_MARCA,
+    pintarCorpo: pintarCorpoDog,
+  }
+  return {
+    classe: 'dado',
+    nome: 'marca-dog',
+    quadros: [
+      quadro('$DOG', ROTULOS.marcaDog, MS_MODULO / 2, base),
+      quadro('DOGCITY', ROTULOS.marcaDogAlt, MS_MODULO / 2, base),
+    ],
+  }
+}
+
 function slotAnuncio(): Slot {
   const ms = Math.round(MS_ANUNCIO / 3)   // 24 s por quadro
   const base: Partial<SphereConteudo> = {
@@ -836,7 +1002,11 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
   const ultimaTentativa = new Map<string, number>()
 
   // ── o estado do escalonador ──────────────────────────────────────────────
-  const ANEL = ['preco', 'volume', 'pulso', 'snapshot', 'anuncio'] as const
+  // ⚠️ AS DUAS MARCAS ENTRAM ENTRE OS MÓDULOS DE DADO, e a posição é escolhida:
+  // uma no meio e outra no fim, para a casca inteira acender duas vezes por volta
+  // do anel em vez de duas seguidas. Com sete posições de 48 s, a esfera muda de
+  // cor por completo a cada ~2,8 min.
+  const ANEL = ['preco', 'marca-btc', 'volume', 'pulso', 'marca-dog', 'snapshot', 'anuncio'] as const
   let iAnel = 0
   let slot: Slot = { classe: 'dado', nome: 'ocioso', quadros: [quadroOcioso()] }
   let iQuadro = 0
@@ -967,6 +1137,12 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
   // ── o anel ───────────────────────────────────────────────────────────────
   const montar = (nome: string, t: number): Slot | null => {
     if (nome === 'anuncio') return podeAnunciar(t) ? slotAnuncio() : null
+    // ⚠️ AS MARCAS NÃO DEPENDEM DE FONTE VIVA, e por isso não podem devolver
+    // `null`: elas são identidade, não dado. É o único módulo do anel que nunca
+    // some, e é justamente o que garante que a peça tenha o que mostrar mesmo com
+    // a rede inteira fora do ar.
+    if (nome === 'marca-btc') return slotBitcoin(fCadeia?.tip ?? null)
+    if (nome === 'marca-dog') return slotDog()
     const q =
       nome === 'preco' ? moduloPreco(fPreco, t)
       : nome === 'volume' ? moduloVolume(fVolume, t)

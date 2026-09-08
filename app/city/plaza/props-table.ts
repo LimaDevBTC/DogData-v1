@@ -550,28 +550,23 @@ export const PROPS: readonly PropSpec[] = [
   // de perto media 555 programas compilados; estas três linhas somam **zero**.
   // O que elas somam é 7 chamadas de desenho (4 + 2 + 1 primitivas) e 168.880
   // triângulos, e os três `cull` abaixo garantem que esse custo só existe perto.
-  {
-    file: 'palm-date',
-    why: 'a COROA: 40 tamareiras em floreira alta sobre o pódio, 48 vagas de 7,50° menos as 8 dos portões. É a régua humana de uma esfera de 196 m e o gesto principal do jardim',
-    at: SPHERE_COROA_PALMEIRAS as [number, number][],
-    jitter: 0.10, cull: 2600, cota: sphereCotaDeck, lift: SPHERE_PODIO_H,
-    center: sphereJardimCentro() as [number, number],
-  },
-  {
-    file: 'buxo-bola',
-    why: 'a topiária que dá borda aos quatro parterres: 36 vagas de 7,50° na primeira fileira do canteiro, 9 por compartimento',
-    at: SPHERE_TOPIARIAS as [number, number][],
-    yaw: 'center', jitter: 0.05, cull: 1400, castShadow: false, cota: sphereCotaDeck,
-    lift: JARDIM_TERRA_H,
-    center: sphereJardimCentro() as [number, number],
-  },
-  {
-    file: 'tree-cypress',
-    why: 'a vertical escura do parterre, 10 vagas de 15° com fundo de canteiro suficiente: é ela que aparece acima do parapeito para quem olha do chão, 34,0 m abaixo',
-    at: SPHERE_CIPRESTES as [number, number][],
-    jitter: 0.12, cull: 2600, cota: sphereCotaDeck, lift: JARDIM_TERRA_H,
-    center: sphereJardimCentro() as [number, number],
-  },
+  // ⚠️ AS TRÊS LINHAS DO JARDIM DA ESFERA SAÍRAM EM 08/09, POR PEDIDO DIRETO:
+  // *"a coroa de tamareiras que está próxima à base da esfera deve sair. Deixe
+  // apenas o jardim da cidade, aquelas tamareiras atrapalham a visualizar a
+  // esfera. Deixe o entorno dele limpo."*
+  //
+  // Eram a coroa de 40 tamareiras, 36 topiárias e 10 ciprestes. Elas foram
+  // desenhadas para uma esfera de 196 m com pódio, quando havia 25,3 m de faixa
+  // caminhável em volta: eram a régua humana da peça. Com a esfera em 323,4 m
+  // sobram **5,0 m** entre o costado e o anel viário, então não existe mais
+  // canteiro onde plantar, e o que existia passava na frente da peça.
+  //
+  // ⚠️ E ISSO DEVOLVE ORÇAMENTO: 7 chamadas de desenho e 168.880 triângulos, os
+  // mesmos que a entrega do jardim tinha somado. Zero programa de shader nos dois
+  // sentidos, porque as três espécies continuam na cena servindo o precinto.
+  //
+  // O desenho não foi apagado: `sphere-jardim-plano.ts` continua no repo com a
+  // conta inteira, para o dia em que a peça voltar a ter faixa em volta.
   // ── o spaceport: torre, tanques e antenas ──────────────────────────────────
   // ⚠️ AS TRÊS ESCALAS DOBRARAM EM 01/09, E NÃO POR GOSTO: elas ACOMPANHAM o
   // foguete. `sizeFor()` em orbit-layer.ts saiu da faixa 16 a 60 m para 32 a

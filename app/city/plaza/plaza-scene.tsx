@@ -3891,12 +3891,17 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // a coroa) recebe exatamente esta mesma referência. Passando a mesma, a
         // varredura de 9 ms do relevo sob o deck roda duas vezes no boot em vez
         // de três.
-        sphereJardim = buildSphereJardim({ heightAt, perfil: profile, culler })
-        scene.add(sphereJardim.group)
-        {
-          const _sp = sphereSitio()
-          culler.add(sphereJardim.group, sphereCull(), new THREE.Vector3(_sp.x, 0, _sp.z))
-        }
+        // ⚠️ O JARDIM DA ESFERA SAIU DE CENA EM 08/09, pelo mesmo pedido que tirou
+        // a coroa de tamareiras: *"deixe apenas o jardim da cidade (…) deixe o
+        // entorno dele limpo"*. Ele foi projetado para uma esfera de 196 m com
+        // 25,3 m de faixa caminhável em volta; com 323,4 m sobram 5,0 m até o
+        // anel viário, e o desenho inteiro (promenade, canteiro, parapeito,
+        // escadaria) não tem mais onde existir. O entorno agora é o jardim do
+        // PRECINTO, que já cerca as outras três âncoras.
+        //
+        // `sphere-jardim.ts` e `sphere-jardim-plano.ts` ficam no repo, com o
+        // desenho e o verificador de "move junto com SPHERE_MOD" intactos: o dia
+        // em que a peça voltar a ter faixa, é uma linha para religar.
 
         // ── THE GEODE ─────────────────────────────────────────────────────────
         // A arena coberta, 28.240 lugares. Mesmo anel do estádio, 615,08 m dele:
