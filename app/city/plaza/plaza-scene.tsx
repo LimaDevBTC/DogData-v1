@@ -729,8 +729,31 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
     }
     case 'sphereperto': {
       // de perto: a faixa de LED legível, com a câmera na altura dela
+      //
+      // ⚠️ A ESFERA CRESCEU E ESTA PARADA NÃO ACOMPANHOU, e o fundador viu:
+      // "o tour está dando um zoom muito agressivo na esfera, a imagem e a info
+      // que ela emite não são legíveis tão de perto". Medido em 08/09, com
+      // `SPHERE_DIAM` em 323,4 (raio 161,7) e a câmera da cena em fov 42:
+      //
+      //     a 320 m do centro (158 m da SUPERFÍCIE) a esfera ocupa 60,7 graus
+      //     num campo de 42, ou seja TRANSBORDA O QUADRO EM 45%
+      //
+      // Não era falta de resolução: a letra grande tem 18,52 m e ficava com
+      // 71 px de altura. Era enquadramento — a mensagem saía pelos quatro lados
+      // e não havia como ler o conteúdo, que precisa da esfera inteira.
+      //
+      // ⚠️ A DISTÂNCIA SAI DA GEOMETRIA, NÃO DO GOSTO: enquadrar a esfera
+      // inteira num fov de 42 pede `R / sen(21°)` = 451 m no limite, com ela
+      // tocando as bordas. 637 m deixa a esfera em 29,4 graus, ou seja 70% da
+      // altura do quadro, com respiro, e a letra grande em 36 px. A direção da
+      // câmera é a MESMA de antes (o vetor foi só reescalado), então o ângulo
+      // de vista e a altura relativa à faixa não mudam.
+      //
+      // ⚠️ E O ALVO É O CENTRO DA ESFERA, não a base: o equador está em
+      // `SPHERE_ENTERRO * SPHERE_R` = 69,5 m acima do assentamento, que é o que
+      // este `y + 71` já mirava.
       const s = sphereSitio(), y = sphereAssentar()
-      return { pos: new THREE.Vector3(s.x + 210, y + 95, s.z + 240),
+      return { pos: new THREE.Vector3(s.x + 418, y + 119, s.z + 478),
                target: new THREE.Vector3(s.x, y + 71, s.z) }
     }
     // ⚠️ O JARDIM DA ESFERA NÃO TINHA PARADA NENHUMA, e ele é a maior peça
