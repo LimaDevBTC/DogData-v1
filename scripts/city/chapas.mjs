@@ -113,6 +113,14 @@ const VISTAS = {
   cr02:      [983, 520, -688, 2568, -40, -1798, 45],
   cr03:      [3985, 700, -349, 6087, -40, -533, 45],
   geodeperto:[2671, 130, 1286, 2968, 34, 1429, 42],
+  // ⚠️ OS TRÊS INTERIORES DO CAMPUS, acrescentados em 08/09 quando o fundador
+  // reprovou os takes do tour. Eles NÃO cravam coordenada: pedem o mesmo
+  // `viewFor` que o tour usa, por `?view=`, senão a chapa julga um enquadramento
+  // que o espectador nunca vê. Ver a nota de `sitioNoCampus` em plaza-scene.
+  estadiodentro:  'view',
+  geodedentro:    'view',
+  atletismodentro:'view',
+  atletismoperto: 'view',
   // ⚠️ THE SPHERE, acrescentada em 07/09 quando o fundador apontou em produção
   // que "o texto está somente na parte de baixo". O sítio é o módulo
   // {i:20, j:108}: centroide medido em (-4.164,8, 3.072,5), r 5.175,5, e o
@@ -128,7 +136,13 @@ const VISTAS = {
   // laje plana `PRACA_Y = -35`. As antigas fotografavam chão vazio. Cada uma
   // guarda o MESMO enquadramento relativo à peça que tinha antes; o que mudou é
   // só a origem. Centro da esfera agora em y = -35 + 0,43 x 98 = 7,14.
-  sphere:     [0, 7, -100, 0, 0, -620, 42],
+  // ⚠️ A `sphere` USA O MESMO ENQUADRAMENTO DO TOUR, e isso é de propósito: o
+  // `viewFor('sphere')` de `plaza-scene.tsx` é o que o espectador da live vê, e
+  // a chapa de contrato tem de julgar exatamente aquilo. A primeira tentativa de
+  // reendereçar manteve os 520 m de distância da peça e pôs a câmera em r 100,
+  // ou seja DENTRO do inlay do Bitcoin no deck: o ₿ tapava metade do quadro.
+  sphere:     [380, 175, 70, 0, 20, -620, 42],
+  spherelive: [210, 60, -380, 0, 36, -620, 42],
   spherealto: [0, 465, 80, 0, 7, -620, 42],
   spherelonge:[0, 365, 980, 0, 7, -620, 42],
   // ⚠️ TRÊS VISTAS NOVAS, 07/09, PARA O JARDIM DO PÓDIO, e elas existem porque
@@ -551,6 +565,16 @@ for (const v of lista) {
     achouEm = r.olho
     achouAlvo = r.alvo
     await pag.evaluate((a) => window.__plazaOlhar(...a), r.args)
+  } else if (VISTAS[v] === 'view') {
+    // ⚠️ A CHAPA PEDE O MESMO `viewFor` QUE O TOUR USA, em vez de coordenada
+    // própria. Existe porque em 08/09 o fundador reprovou os takes dos três
+    // interiores do campus: julgar aquilo por uma câmera escrita aqui julgaria
+    // outra coisa. `__plazaFly` é o gêmeo de `viewFor` exposto por `?stats=1`.
+    // ⚠️ `__plazaFly(nome)` VOA, não teleporta: ele chama o mesmo `flyTo` do menu
+    // (1,4 s de tween). Sem esperar, a chapa sai no meio do caminho.
+    const ok = await pag.evaluate((k) => { const f = window.__plazaFly; return f ? (f(k), true) : false }, v)
+    if (!ok) { console.error(`  ${v}: __plazaFly não existe (a cena é velha?)`); relatorio.vistas[v] = { erro: 'sem __plazaFly' }; continue }
+    await pag.waitForTimeout(4000)
   } else {
     await pag.evaluate((a) => window.__plazaOlhar(...a), VISTAS[v])
   }

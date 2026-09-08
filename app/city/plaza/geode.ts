@@ -117,7 +117,30 @@ export function geodeParcela(): { poly: [number, number][] } {
  * de material. Se um dia a pele ganhar textura, ela entra por lá.
  */
 export function podarGeode(root: THREE.Object3D, tier: 'mobile' | 'desktop'): number {
+  // ⚠️ A PODA FOI DESLIGADA EM 08/09, POR DECISÃO DO FUNDADOR ("vamos pagar").
+  //
+  // Ela removia o `GEODE_INTERIOR` INTEIRO no celular, e isso era defeito de
+  // integração desde que o tour da live ganhou paradas de interior: as três
+  // (`geodedentro`, `estadiodentro`, `atletismodentro`) rodam no celular, ou
+  // seja a transmissão voava para dentro da arena e mostrava uma CASCA VAZIA no
+  // telefone, sem quadra, sem assento e sem telão. E a maior parte de quem
+  // assiste a live no X está no telefone.
+  //
+  // Piorou quando outro agente customizou a quadra em 08/09: o modelo novo tem
+  // `AR_QUADRA`, `AR_LINHA`, `AR_ASSENTO` (laranja DOG), `AR_CAMAROTE`, `AR_ACO`
+  // e `AR_TELA`, ou seja o interior virou justamente a peça a mostrar, e o
+  // celular era o único que não a via.
+  //
+  // ⚠️ O PREÇO ESTÁ MEDIDO E É PEQUENO NA ESCALA DA CENA: 29.334 triângulos
+  // contra 3.372 da casca, num GLB de 184 KB inteiro. A cena de perto já roda
+  // com mais de 5 M de triângulos, então o interior é **0,6%** disso. O que
+  // custava caro nesta peça nunca foi o interior: era o cristal do parque.
+  //
+  // A função fica, com o corte desarmado, porque a poda por tier é a ferramenta
+  // certa para o dia em que o interior crescer. Quem religar precisa tirar as
+  // três paradas de interior do roteiro do celular no mesmo commit.
   if (tier !== 'mobile') return 0
+  return 0
   let tirados = 0
   const alvos: THREE.Object3D[] = []
   root.traverse((o) => { if (o.name.startsWith('GEODE_INTERIOR')) alvos.push(o) })
@@ -179,4 +202,72 @@ export function assentarGeode(
   root.position.set(s.x, alto, s.z)
   root.rotation.y = -rad
   return root
+}
+
+/**
+ * O TELÃO DO PLACAR, acendido com a marca.
+ *
+ * ⚠️ PEDIDO DO FUNDADOR EM 08/09: *"a câmera para e fica mostrando a quadra (…)
+ * e mostrando o telão em branco no centro do take. Colocar ao menos um $DOG
+ * laranja no telão preto."*
+ *
+ * ⚠️ O GANCHO É O MATERIAL, E NÃO O NOME DO NÓ, E ISSO FOI CONSERTO NO MESMO
+ * DIA. A primeira versão procurava a malha `GEODE_INTERIOR_10`, que era como o
+ * `dog-geode.glb` antigo publicava o telão. Horas depois outro agente REGEROU o
+ * modelo com a quadra customizada, e o GLB novo tem **dois nós só**
+ * (`GEODE_CASCA` e `GEODE_INTERIOR`, 8 e 11 primitivas): `GEODE_INTERIOR_10`
+ * deixou de existir e a função virou código morto sem ninguém notar, porque ela
+ * falha em silêncio devolvendo `false`.
+ *
+ * Nome de MATERIAL sobrevive à fusão de malha; nome de nó não. O telão é o
+ * material **`AR_TELA`** (índice 15 dos 16), e ele continua sendo `AR_TELA` em
+ * qualquer reexportação que mantenha a nomenclatura do `.blend`. É por isso que
+ * o gancho mudou de eixo.
+ *
+ * ⚠️ E ELE NÃO ESTÁ MAIS BRANCO: o modelo novo já entrega o telão com emissivo
+ * AZUL (0,297 / 0,534 / 0,961). O defeito deixou de ser "apagado" e passou a ser
+ * "cor errada": azul frio não é cor desta casa, e num painel que domina o centro
+ * do quadro ele tinge a bacia inteira. Fundo `#0A0B0D`, glifo `#E8660D`, que é a
+ * cor do DADO (a mesma da Sphere, e nunca o lava `#F56E0F`).
+ *
+ * ⚠️ UMA TEXTURA, UM MATERIAL, ZERO PROGRAMA NOVO. Canvas 512x256 e
+ * `MeshBasicMaterial`: telão não recebe luz, ele EMITE, e básico fica fora do
+ * laço de iluminação da cena, então não soma custo por luz.
+ */
+export function acenderTelaoGeode(root: THREE.Object3D): number {
+  const cv = document.createElement('canvas')
+  cv.width = 512; cv.height = 256
+  const g = cv.getContext('2d')!
+  g.fillStyle = '#0A0B0D'
+  g.fillRect(0, 0, 512, 256)
+  // ⚠️ A MOLDURA ESCURA NÃO É ENFEITE: sem ela o glifo encosta na borda e o
+  // painel lê como adesivo colado, não como tela dentro de uma carcaça.
+  g.strokeStyle = '#1A1D24'; g.lineWidth = 10
+  g.strokeRect(5, 5, 502, 246)
+  g.fillStyle = '#E8660D'
+  g.textAlign = 'center'
+  g.textBaseline = 'middle'
+  g.font = 'bold 132px "JetBrains Mono", ui-monospace, monospace'
+  g.fillText('$DOG', 256, 132)
+  const tex = new THREE.CanvasTexture(cv)
+  tex.colorSpace = THREE.SRGBColorSpace
+  tex.anisotropy = 4
+  // ⚠️ UM MATERIAL PARA TODAS AS FACES DO TELÃO. Ele aparece em mais de uma
+  // primitiva (a caixa tem quatro lados), e criar um material por face pagaria
+  // chamada e programa por lado sem imagem nenhuma a mais.
+  const novo = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false })
+  let trocados = 0
+  root.traverse((o) => {
+    const m = o as THREE.Mesh
+    if (!m.isMesh) return
+    const mats = Array.isArray(m.material) ? m.material : [m.material]
+    let mexeu = false
+    const saida = mats.map((mat) => {
+      if (mat && mat.name === 'AR_TELA') { mexeu = true; trocados++; mat.dispose(); return novo }
+      return mat
+    })
+    if (mexeu) m.material = Array.isArray(m.material) ? saida : saida[0]
+  })
+  if (!trocados) tex.dispose()
+  return trocados
 }

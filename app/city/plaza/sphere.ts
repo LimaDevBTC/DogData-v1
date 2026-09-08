@@ -676,7 +676,15 @@ const FONTE: Map<string, number[]> = (() => {
  * ⚠️ ROXO É BANIDO.
  */
 const COR_DADO = '#E8660D'
-const COR_ROTULO = '#C6BFB1'   // o mesmo creme do piso da praça (`pracas.ts`)
+/** ⚠️ O RÓTULO SAIU DO CREME EM 08/09, E ISTO É SUPOSIÇÃO MINHA, DECLARADA. O
+ *  fundador padronizou "cinza chumbo com letras laranjas"; ele não falou da
+ *  linha pequena. `#C6BFB1` era o creme quente do piso da praça, e numa peça
+ *  agora neutra ele era o único resto de calor que não é o dado. Passou a um
+ *  cinza claro neutro de MESMA luminância (0,524), então a hierarquia entre
+ *  valor e rótulo não mudou em nada: o que mudou é que o calor da peça é
+ *  exclusividade do laranja. Se a intenção era o rótulo laranja também, é
+ *  trocar esta linha por `COR_DADO`. */
+const COR_ROTULO = '#BEC0C3'
 const COR_STATUS = '#3E7F52'   // reservado a status; JAMAIS a valor
 /**
  * O LED apagado.
@@ -688,7 +696,11 @@ const COR_STATUS = '#3E7F52'   // reservado a status; JAMAIS a valor
  * termo de sol e o realce de borda fecha num grafite que tem volume contra o céu
  * preto da Lua sem competir com o dado.
  */
-const COR_PAINEL = new THREE.Color('#2A2C33')
+/** ⚠️ O LED APAGADO, TAMBÉM NEUTRALIZADO EM 08/09. Ele era `#2A2C33` e carregava
+ *  o mesmo viés azul do corpo; como ele multiplica a luz da cena em TODO
+ *  fragmento da casca, o viés dele tingia a peça inteira mesmo com o conteúdo
+ *  neutro. Mesma luminância linear, croma neutra. */
+const COR_PAINEL = new THREE.Color('#2C2C2D')
 const COR_PISO = new THREE.Color('#B4AC9E')
 const COR_PLINTO = new THREE.Color('#4A4A52')
 
@@ -1412,11 +1424,22 @@ function pintarTextura(
   // escuro que o corpo em volta e o anel aceso da seção 5.1 viraria anel
   // apagado. O pico foi para t 0,18 (linha 184), bem acima do miolo de texto, e
   // o corpo chega na faixa já em queda.
+  // ⚠️ CINZA CHUMBO, E O AZUL SAIU EM 08/09 POR DECISÃO DO FUNDADOR: *"esfera
+  // cinza chumbo com letras laranjas, padronizado pra nossa comunicação"*. A
+  // versão anterior tinha 1,84 de azul para cada 1 de vermelho em linear, o que
+  // contra o regolito quente da Lua lia como bola azul-marinho, não como painel.
+  //
+  // ⚠️ A NEUTRALIZAÇÃO PRESERVOU A LUMINÂNCIA, TERMO A TERMO, e é por isso que
+  // nada do que foi calibrado antes precisou ser remedido: a ondulação da grade
+  // continua em 34% do painel ao sol, o chão da faixa continua valendo 1,84x o
+  // corpo em volta e o dado continua com 7,2x de contraste (era 7,3). O que
+  // mudou foi só a CROMA: a razão azul/vermelho caiu de 1,84 para 1,04, ou seja
+  // um sussurro de frio (3,5% no azul) em vez de um viés.
   const grad = g.createLinearGradient(0, 0, 0, H)
-  grad.addColorStop(0.00, '#262C35')
-  grad.addColorStop(0.18, '#343945')
-  grad.addColorStop(0.37, '#222730')
-  grad.addColorStop(1.00, '#1D2027')
+  grad.addColorStop(0.00, '#2B2C2C')
+  grad.addColorStop(0.18, '#39393A')
+  grad.addColorStop(0.37, '#262727')
+  grad.addColorStop(1.00, '#202021')
   g.fillStyle = grad
   g.fillRect(0, 0, W, H)
   c.pintarCorpo?.(g, W, H)
@@ -1428,7 +1451,13 @@ function pintarTextura(
   // este vale **1,84x** o corpo em volta, então ele existe mesmo sem texto. E o
   // dado continua mandando na faixa: **7,3x** de contraste contra o chão, e 14,3x
   // no rótulo creme.
-  const corFaixa = '#453225'
+  // ⚠️ O CHÃO DA FAIXA TAMBÉM É CHUMBO AGORA. Ele era `#453225`, um marrom
+  // quente escolhido para conversar com o laranja do dado, e virou o único ponto
+  // quente de uma peça que o fundador padronizou em chumbo e laranja: com o
+  // corpo neutro ele lia como faixa de terra. Mesma luminância, mesma razão de
+  // 1,84x contra o corpo, mesmos 7,2x de contraste para o dado. Quem carrega o
+  // calor da peça é a LETRA, e só ela.
+  const corFaixa = '#363637'
   const y0 = SPHERE_FAIXA_LINHA0 * f, y1 = SPHERE_FAIXA_LINHA1 * f
   g.fillStyle = corFaixa
   g.fillRect(0, Math.round(y0), W, Math.round(y1 - y0))

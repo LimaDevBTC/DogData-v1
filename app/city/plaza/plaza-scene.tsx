@@ -80,14 +80,14 @@ import { setAnisotropia } from './materiais'
 import { montarPos, type Pos } from './pos'
 import { rotaLive, duracaoLive, TOUR_LIVE_DERIVA, TOUR_LIVE_OCIO_MS } from './tour-live'
 import { assentarEstadio, estadioCull, estadioSitio } from './estadio'
-import { assentarGeode, geodeCull, geodeSitio, podarGeode } from './geode'
+import { acenderTelaoGeode, assentarGeode, geodeCull, geodeSitio, podarGeode } from './geode'
 import { atletismoSitio } from './atletismo'
 import { criarAtletismo, type Atletismo } from './atletismo-loader'
-import { campusParcela, comPodio, criarCampus, CAMPUS_LAJE, EIXO_CAMPUS, GIRO_CAMPUS, sitioNoCampus } from './campus'
+import { campusParcela, comPodio, criarCampus, CAMPUS_LAJE, CAMPUS_RUMO, EIXO_CAMPUS, GIRO_CAMPUS, sitioNoCampus } from './campus'
 import { ESTADIO_MOD } from './estadio'
 import { GEODE_MOD } from './geode'
 import { ATLETISMO_MOD } from './atletismo'
-import { buildSphere, sphereCull, sphereParcela, sphereSitio, spherePxAng, type Sphere } from './sphere'
+import { buildSphere, sphereCull, sphereSitio, sphereAssentar, spherePxAng, type Sphere } from './sphere'
 import { criarProgramacao } from './sphere-conteudo'
 import { buildSphereJardim, type SphereJardim } from './sphere-jardim'
 import { ILHAS_RAIO, ILHAS_RUMO } from './lago'
@@ -490,9 +490,28 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
     // mão: `estadioSitio()` devolve o centro do bloco, e a câmera se afasta na
     // direção radial para o prédio cair no meio do quadro. Se a peça mudar de
     // módulo, o enquadramento acompanha.
+    // ⚠️ AS VISTAS DO CAMPUS SAEM DE `sitioNoCampus()` E DE `CAMPUS_RUMO`, E NÃO
+    // DO SÍTIO PRÓPRIO DE CADA PEÇA. Isto foi medido em 08/09 depois de o
+    // fundador dizer que os takes das três estavam ruins ("a câmera para em cima
+    // do telhado e mostra metade do campo", "a borda inferior esquerda cortada",
+    // "de cima do telhado não dá pra ver o estádio direito"). O erro é real e
+    // vem da consolidação do pódio: desde 07/09 a cena posiciona as três em
+    // `sitioNoCampus(MOD)` e gira TODAS em `CAMPUS_RUMO` (105,00°), mas estas
+    // vistas continuavam lendo `<peca>Sitio()`. Medido:
+    //
+    //     peça         erro de posição   rumo próprio   rumo real   erro
+    //     ESTADIO           0,0 m          105,00°       105,00°     0,0°
+    //     ATLETISMO      **57,4 m**         94,29°       105,00°  **10,7°**
+    //     GEODE          **57,4 m**        115,71°       105,00°  **10,7°**
+    //
+    // Os 57,4 m são a mesma diferença que `campus.ts` já documenta: os três
+    // módulos estão num ARCO de raio 3.294 e a laje tem lados RETOS, então quem
+    // está na ponta fica fora do eixo do losango. O ESTADIO é o do meio e por
+    // isso escapava; as outras duas enquadravam um lugar onde a peça não está,
+    // com o quadro 10,7° torto, que é exatamente o corte de quina que ele viu.
     case 'estadio': case 'estadioalto': case 'estadiorasante': {
-      const s = estadioSitio()
-      const a = THREE.MathUtils.degToRad(s.rumoDeg)
+      const s = sitioNoCampus(ESTADIO_MOD)
+      const a = THREE.MathUtils.degToRad(CAMPUS_RUMO)
       const rx = Math.sin(a), rz = -Math.cos(a)
       const solo = 0
       if (name === 'estadioalto') {
@@ -515,8 +534,8 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
     // de fora para dentro põe o cume contra o cinturão vazio e deixa a cidade
     // fora de quadro. De dentro para fora, o estádio entra ao fundo.
     case 'geode': case 'geodealto': case 'geoderasante': {
-      const g = geodeSitio()
-      const a = THREE.MathUtils.degToRad(g.rumoDeg)
+      const g = sitioNoCampus(GEODE_MOD)
+      const a = THREE.MathUtils.degToRad(CAMPUS_RUMO)
       const rx = Math.sin(a), rz = -Math.cos(a)
       if (name === 'geodealto') {
         return { pos: new THREE.Vector3(g.x - rx * 260, 720, g.z - rz * 260),
@@ -534,7 +553,7 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
     // O endereço acompanha as células. A cota medida é somada por vistaDaCidade
     // depois de o terreno existir, inclusive na entrada por ?view=atletismo.
     case 'atletismo': case 'atletismoalto': case 'atletismoperto': {
-      const s = atletismoSitio(), a = THREE.MathUtils.degToRad(s.rumoDeg)
+      const s = sitioNoCampus(ATLETISMO_MOD), a = THREE.MathUtils.degToRad(CAMPUS_RUMO)
       const rx = Math.sin(a), rz = -Math.cos(a)
       const distancia = name === 'atletismoalto' ? 70 : name === 'atletismoperto' ? 280 : 440
       const altura = name === 'atletismoalto' ? 520 : name === 'atletismoperto' ? 88 : 240
@@ -565,11 +584,28 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
     // casca, mas alta o bastante para a cobertura de 77 m de balanço não tapar o
     // quadro. Mais baixo que isso e o brise da pele entra na frente.
     case 'estadiodentro': {
-      const s2 = estadioSitio()
-      const a = THREE.MathUtils.degToRad(s2.rumoDeg)
+      // ⚠️ A CÂMERA ESTAVA EM CIMA DO TELHADO, e a chapa provou: com y 62 e 96 m
+      // de raio ela ficava ACIMA da borda da cobertura, olhando por cima da
+      // arquibancada. O terço de cima do quadro era estrutura de telhado e
+      // cidade lá fora, e o campo saía cortado embaixo. Fundador, 08/09: *"a
+      // câmera para em cima do telhado e mostra metade do campo (…) entrar dentro
+      // do estádio e girar, mostrar como tá bonito por dentro"*.
+      //
+      // ⚠️ E O ALVO PASSOU A SER O CENTRO DO GRAMADO, não um ponto do outro lado
+      // da bacia. Isso não é detalhe de enquadramento: na parada, o tour liga
+      // `controls.autoRotate` (ver `TOUR_LIVE_DERIVA`), e a deriva orbita em
+      // torno de `controls.target`. Com o alvo descentrado, o giro varria a
+      // arquibancada de um lado só; com ele no meio do campo, a mesma deriva
+      // varre a bacia inteira, que é o "girar por dentro" que ele pediu.
+      //
+      // y 40 põe a câmera abaixo da cobertura e acima da última fila; 74 m de
+      // raio a deixa dentro do volume, com a arquibancada oposta fechando o
+      // fundo do quadro em vez do horizonte.
+      const s2 = sitioNoCampus(ESTADIO_MOD)
+      const a = THREE.MathUtils.degToRad(CAMPUS_RUMO)
       const rx = Math.sin(a), rz = -Math.cos(a)
-      return { pos: new THREE.Vector3(s2.x + rx * 96, 62, s2.z + rz * 96),
-               target: new THREE.Vector3(s2.x - rx * 40, 8, s2.z - rz * 40) }
+      return { pos: new THREE.Vector3(s2.x + rx * 74, 40, s2.z + rz * 74),
+               target: new THREE.Vector3(s2.x, 3, s2.z) }
     }
 
     // ── POR DENTRO DAS OUTRAS DUAS DO CAMPUS (08/09) ─────────────────────────
@@ -594,7 +630,7 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
       // altura e vara, e a torre da Kray com a cordilheira no horizonte. É o
       // único interior do campus que devolve a cidade junto.
       const q = sitioNoCampus(ATLETISMO_MOD)
-      const a = THREE.MathUtils.degToRad(atletismoSitio().rumoDeg)
+      const a = THREE.MathUtils.degToRad(CAMPUS_RUMO)
       const rx = Math.sin(a), rz = -Math.cos(a)
       return { pos: new THREE.Vector3(q.x + rx * 135, 18, q.z + rz * 135),
                target: new THREE.Vector3(q.x - rx * 25, -13, q.z - rz * 25) }
@@ -614,7 +650,7 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
       // o telão no meio. Este é o que o deixa menor. A peça é do modelo, não
       // desta vista.
       const q = sitioNoCampus(GEODE_MOD)
-      const a = THREE.MathUtils.degToRad(geodeSitio().rumoDeg)
+      const a = THREE.MathUtils.degToRad(CAMPUS_RUMO)
       const rx = Math.sin(a), rz = -Math.cos(a)
       return { pos: new THREE.Vector3(q.x + rx * 40, 38, q.z + rz * 40),
                target: new THREE.Vector3(q.x - rx * 25, -14, q.z - rz * 25) }
@@ -672,21 +708,45 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
     // geografia confirma: a peça está em r 5.118 no rumo 233,6°, e a cadeia
     // ocupa 245° a 295° entre r 7 e 8,2 km, ou seja logo atrás dela.
     //
-    // ⚠️ `sphereSitio()` É O CENTROIDE, e a vista TEM de sair dele. Ver a nota
-    // do próprio `sphereSitio` em sphere.ts: o ponto polar do módulo cai 58 m
-    // fora, e com a esfera medindo 147,5 m na linha do chão isso a deixa
-    // visivelmente encostada num lado do lote.
+    // ⚠️ AS DUAS SAEM DE `sphereSitio()` E DE `sphereAssentar()`, E ISSO NÃO É
+    // ZELO: em 08/09 a esfera mudou de endereço (virou a quarta âncora da praça,
+    // em (0, -620)) e estas vistas seguiram sozinhas em x e z, porque já liam o
+    // sítio. Só que o `y` estava CRAVADO para o sítio velho, cujo deck ficava em
+    // 116,4: com o piso novo em -35, a câmera olhava 200 m acima da peça e o
+    // tour da live fotografava céu. Agora a cota também vem da peça, então a
+    // próxima mudança de lugar não quebra o roteiro.
+    //
+    // ⚠️ E A NARRATIVA MUDOU JUNTO. As duas diziam "recortada contra a neve" e
+    // "com a serra à direita", porque o sítio antigo era vizinho da cordilheira.
+    // Na praça central não há serra: a vizinhança dela agora são as outras três
+    // âncoras. Por isso as duas paradas saíram do ato da cordilheira e foram
+    // para o ato da descida ao centro, ao lado da Kray. Ver `tour-live.ts`.
     case 'sphere': {
-      // aberta, de dentro da cidade para fora: a esfera recortada contra a neve
-      const s = sphereSitio()
-      return { pos: new THREE.Vector3(s.x + 2512, 288, s.z + 405),
-               target: new THREE.Vector3(s.x, 168, s.z) }
+      // aberta, do sul: a quarta âncora fechando a praça, com o deck no meio
+      const s = sphereSitio(), y = sphereAssentar()
+      return { pos: new THREE.Vector3(s.x + 380, y + 210, s.z + 690),
+               target: new THREE.Vector3(s.x, y + 55, s.z) }
     }
     case 'sphereperto': {
-      // de perto, pelo lado da praça: a faixa de LED legível, com a serra à direita
-      const s = sphereSitio()
-      return { pos: new THREE.Vector3(s.x + 365, 232, s.z - 269),
-               target: new THREE.Vector3(s.x, 178, s.z) }
+      // de perto: a faixa de LED legível, com a câmera na altura dela
+      const s = sphereSitio(), y = sphereAssentar()
+      return { pos: new THREE.Vector3(s.x + 210, y + 95, s.z + 240),
+               target: new THREE.Vector3(s.x, y + 71, s.z) }
+    }
+    // ⚠️ O JARDIM DA ESFERA NÃO TINHA PARADA NENHUMA, e ele é a maior peça
+    // construída em 08/09. Auditado o roteiro contra o que se fez no dia, esta
+    // era a única obra visível sem cobertura: o campus tem sete paradas, a
+    // caverna do Leonidas tem três, a faixa nova aparece em `sphereperto`, e o
+    // jardim (coroa de 40 tamareiras, 36 topiárias, 10 ciprestes, 24 postes,
+    // 1.302 m de aro que é banco) não aparecia em quadro nenhum.
+    //
+    // Esta é de CHÃO, na altura do olho sobre o passeio, com a esfera subindo
+    // atrás: é a única do trio em escala humana, e é ela que mostra que a peça
+    // pousa no piso da praça em vez de num pódio.
+    case 'spherejardim': {
+      const s = sphereSitio(), y = sphereAssentar()
+      return { pos: new THREE.Vector3(s.x + 167, y + 1.7, s.z + 20),
+               target: new THREE.Vector3(s.x, y + 32, s.z) }
     }
 
     // ── A ALÇA, RASANTE (08/09) ──────────────────────────────────────────────
@@ -3851,6 +3911,10 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             mesh.castShadow = true
             mesh.receiveShadow = true
           })
+          // o telão do placar deixa de ser parede branca: ver `acenderTelaoGeode`
+          { const n = acenderTelaoGeode(geode)
+            if (!n) console.warn('[geode] nenhum material AR_TELA no GLB: o telão ficou como o modelo entrega')
+            else console.log(`[geode] telão aceso: ${n} face(s) com $DOG`) }
           assentarGeode(geode, comPodio((x, z) => terrain.heightAt(x, z)))
           geode.rotation.y = GIRO_CAMPUS
           { const q = sitioNoCampus(GEODE_MOD); geode.position.x = q.x; geode.position.z = q.z }
@@ -4503,12 +4567,20 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let liveTimer: ReturnType<typeof setTimeout> | null = null
     let liveStep = -1
     let liveRunning = false
+    // ⚠️ DECLARADO AQUI, JUNTO DAS OUTRAS DA LIVE, e não lá embaixo perto de quem
+    // escreve nele: `pararLive` lê esta variável e é definida ACIMA de
+    // `proximaLive`. Com o `let` no meio do bloco, uma chamada de `pararLive`
+    // antes de a declaração executar cairia na zona morta temporal, e o `tsc`
+    // não acusa isso porque o acesso é de dentro de uma closure.
+    let alvoLive: THREE.Vector3 | null = null
     const rotaDaLive = rotaLive(profile.tier)
     const pararLive = () => {
       if (liveTimer) clearTimeout(liveTimer)
       liveTimer = null
       liveStep = -1
       liveRunning = false
+      // sem roteiro não há próxima parada: o portão volta a ler só a posição
+      alvoLive = null
       // ⚠️ CANCELAR O TOUR TEM DE PARAR O VOO TAMBÉM, e isto foi medido: sem
       // `fly.on = false` o gesto encerrava o roteiro mas o `flyTo` em curso
       // continuava levando a câmera até o destino da parada seguinte. Quem tocou
@@ -4522,11 +4594,29 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       controls.autoRotate = false
       controls.autoRotateSpeed = 0.18   // devolve o valor de fábrica da cena
     }
+    // ⚠️ A ROTA É CONHECIDA, ENTÃO A CARGA NÃO PRECISA DE GARGALO. Pedido do
+    // fundador em 08/09: *"como já sabe a rota, carregue sem gargalo"*. Um
+    // roteiro em laço é a única navegação desta cena em que o PRÓXIMO destino é
+    // certo, e não uma aposta. `alvoLive` publica a posição da parada seguinte
+    // enquanto a atual ainda está PARADA, então os portões de proximidade (hoje
+    // a caverna do Leonidas) ganham a parada inteira de folga além do voo.
+    //
+    // Medido no roteiro de hoje: a menor parada é 22 s e o menor voo é 12 s, ou
+    // seja o pior caso avisa **34 s antes** de a câmera chegar. O portão da
+    // fortaleza-caveira baixa 2.481 KB; em 1 Mbps são 20 s, e cabe no pior caso.
+    //
+    // ⚠️ E ELE NÃO SUBSTITUI O `fly.p1`, SOMA COM ELE. Durante o VOO quem manda é
+    // o destino corrente (senão o portão carregaria a parada seguinte e largaria
+    // a atual pela metade); durante a PARADA manda o próximo. A troca é a mesma
+    // linha do `park.update`.
     const proximaLive = () => {
       // ⚠️ O LAÇO DÁ A VOLTA, não termina: `% length`. A live É este tour em
       // loop, e o fim do roteiro não pode devolver a câmera parada.
       liveStep = (liveStep + 1) % rotaDaLive.length
       const st = rotaDaLive[liveStep]
+      // o destino da parada SEGUINTE, calculado agora e publicado quando esta
+      // parar de voar. `viewFor` é puro: chamá-lo aqui não mexe na câmera.
+      const seguinte = rotaDaLive[(liveStep + 1) % rotaDaLive.length]
       // ⚠️ A DERIVA DESLIGA NO VOO E LIGA NA PARADA. Somar a órbita ao
       // deslocamento do `flyTo` daria dois movimentos brigando pela mesma
       // câmera, e o resultado é uma curva que não é nenhuma das duas.
@@ -4536,6 +4626,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         if (!liveRunning) return
         controls.autoRotate = true
         controls.autoRotateSpeed = TOUR_LIVE_DERIVA
+        // chegou: a partir daqui o que interessa aos portões é a parada seguinte
+        try { alvoLive = viewFor(seguinte.key, camera.aspect, chaoGuerra).pos.clone() }
+        catch { alvoLive = null }
         liveTimer = setTimeout(proximaLive, st.parada * 1000)
       }, st.voo * 1000)
     }
@@ -5007,7 +5100,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       // `fly.p1`, o portão vê o destino no instante do gesto e baixa durante o
       // voo. Fora do voo vai `undefined`, e aí ele volta a ler só a posição.
       park?.update(t, renderer.domElement.clientHeight / 2, camera.position,
-        fly.on ? fly.p1 : undefined)
+        fly.on ? fly.p1 : (alvoLive ?? undefined))
       // ── a guerra acorda por proximidade e a interface muda de modo ────────
       // O feed liga a 1,4 km e desliga ao se afastar; o HUD do modo jogo entra
       // em fade de 1,1 km até 600 m, escrito DIRETO no DOM (zero re-render).

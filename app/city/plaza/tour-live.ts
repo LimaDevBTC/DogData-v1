@@ -64,7 +64,8 @@ export interface ParadaLive {
  *   · a caverna do Leônidas, por dentro;
  *   · o rasante sobre a cordilheira, sem sair da cúpula;
  *   · o rasante sobre a alça dos condomínios;
- *   · THE SPHERE, que é vizinha da cordilheira;
+ *   · THE SPHERE, que em 08/09 virou a quarta âncora da praça e por isso migrou
+ *     do ato da cordilheira para o da descida ao centro;
  *   · e a saída única: spaceport de perto, a banda de órbita e a descida.
  *
  * Uma volta passou de 15 para **~22 min** no desktop. Para uma transmissão que
@@ -94,9 +95,15 @@ export const TOUR_LIVE: readonly ParadaLive[] = [
   { key: 'ilhasrasante',    voo: 22.0, parada: 24, soDesktop: true },
   { key: 'alca',            voo: 30.0, parada: 28 },
 
-  // ── 4. THE SPHERE e a cordilheira, as duas dentro da cúpula ───────────────
-  { key: 'sphere',          voo: 32.0, parada: 24 },
-  { key: 'sphereperto',     voo: 16.0, parada: 26 },
+  // ── 4. a cordilheira, dentro da cúpula ────────────────────────────────────
+  // ⚠️ THE SPHERE SAIU DESTE ATO EM 08/09, e a razão é geográfica e não de
+  // ritmo: o fundador mudou a peça para a QUARTA ÂNCORA da praça central
+  // (r 620, onde estava a Grande Fonte). Ela era vizinha da cordilheira quando
+  // morava em r 5.118 no rumo 233,6°; agora a vizinhança dela são as outras três
+  // âncoras, e as duas paradas foram para o ato 7, a descida ao centro.
+  //
+  // Manter aqui custaria duas travessias de 5 km em cada volta do laço, ida e
+  // volta, para depois voltar ao mesmo lugar no fim.
   { key: 'cordilheira',     voo: 26.0, parada: 26, soDesktop: true },
   { key: 'cordilheirarasante', voo: 20.0, parada: 26, soDesktop: true },
 
@@ -120,8 +127,25 @@ export const TOUR_LIVE: readonly ParadaLive[] = [
   // mempool, continua sendo a zenital da praça.
   { key: 'orbita',          voo: 30.0, parada: 26 },
 
-  // ── 7. a descida ao centro ───────────────────────────────────────────────
-  { key: 'kray',            voo: 26.0, parada: 22 },
+  // ── 7. a descida ao centro, e agora ela tem QUATRO âncoras ────────────────
+  // ⚠️ THE SPHERE ENTROU AQUI EM 08/09, vinda do ato 4. Ela é a âncora NORTE do
+  // anel r 620, então a descida passa a contar a praça fechada: Kray a leste,
+  // a esfera ao norte, o deck no meio e a zenital por cima. As duas paradas
+  // dela ficam ANTES da Kray porque a órbita (parada anterior) desce do zênite,
+  // e o norte é o primeiro quadrante que a câmera encontra vindo de cima.
+  //
+  // ⚠️ O VOO ATÉ ELA ENCOLHEU DE 32 PARA 18 s, e não é aperto de ritmo: é a
+  // distância que mudou. No ato 4 a câmera vinha da cordilheira, a 5 km; aqui
+  // ela vem da órbita, direto por cima da praça.
+  // ⚠️ TRÊS PARADAS E NÃO DUAS, em escala descendente: aberta (787 m, a quarta
+  // âncora fechando a praça), média (318 m, a faixa de LED legível) e CHÃO (170 m,
+  // dentro do jardim, olho a 1,7 m). A terceira entrou em 08/09 numa auditoria do
+  // roteiro contra a obra do dia: o jardim do avental era a única peça visível
+  // construída naquele dia sem uma parada sequer.
+  { key: 'sphere',          voo: 18.0, parada: 24 },
+  { key: 'sphereperto',     voo: 14.0, parada: 26 },
+  { key: 'spherejardim',    voo: 12.0, parada: 26 },
+  { key: 'kray',            voo: 22.0, parada: 22 },
   { key: 'deck',            voo: 20.0, parada: 24 },
   { key: 'top',             voo: 18.0, parada: 24 },
 ]
