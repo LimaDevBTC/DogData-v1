@@ -19,6 +19,15 @@ import { PAD_MAIN } from './orbit-layer'
 // `especies.ts`): um valor, um lugar, lido por quem precisar.
 import { verde, hash01 } from './especies'
 import { palmeirasDoCampus, PODIO_H, EIXO_CAMPUS } from './campus'
+// ⚠️ O JARDIM DO PÓDIO DE THE SPHERE (07/09): o desenho mora em
+// `sphere-jardim-plano.ts`, que não importa `three` justamente para esta tabela
+// e o construtor de geometria lerem o MESMO papel. Ver o bloco das três linhas
+// mais abaixo.
+import { sphereCotaDeck, SPHERE_PODIO_H } from './sphere'
+import {
+  SPHERE_COROA_PALMEIRAS, SPHERE_TOPIARIAS, SPHERE_CIPRESTES,
+  sphereJardimCentro, TERRA_H as JARDIM_TERRA_H,
+} from './sphere-jardim-plano'
 
 const rad = (d: number) => (d * Math.PI) / 180
 
@@ -516,6 +525,52 @@ export const PROPS: readonly PropSpec[] = [
     file: 'lamp-stone', why: 'lanternas de pedra ao longo da alameda do Jardim Ordinal',
     at: [...alongAllee('SW', [500, 540, 580, 620, 660, 700], 11), ...alongAllee('SW', [500, 540, 580, 620, 660, 700], -11)],
     scale: 1, cull: 1100, castShadow: false,
+  },
+  // ═══════════════════════════════════════════════════════════════════════════
+  // O JARDIM DO PÓDIO DE THE SPHERE (07/09/2026)
+  //
+  // Pedido do fundador: *"paisagismo proposital sobre o pódio que a esfera está
+  // em cima. Não adianta colocar de qq jeito, pois o solo está a alguns metros
+  // abaixo no solo (...) e que possa ser movido junto com ela pra outro lugar"*.
+  // O desenho inteiro está em `sphere-jardim-plano.ts` e a alvenaria em
+  // `sphere-jardim.ts`; aqui entram só as três espécies.
+  //
+  // ⚠️ `cota` É O QUE FAZ ESTAS TRÊS LINHAS FUNCIONAREM, e sem ela ninguém deve
+  // copiá-las. O deck da Sphere é NIVELADO em 116,4 m sobre relevo que vai de
+  // 99,78 a 116,00: um `lift` escalar sobre `heightAt` enterraria a metade baixa
+  // da coroa em até 16,6 m. `sphereCotaDeck` é a MESMA medição que a peça faz no
+  // boot, então trocar `SPHERE_MOD` move estas três linhas em x, z e y de uma
+  // vez. Ver a nota de `PropSpec.cota` em `props.ts`.
+  //
+  // ⚠️ AS TRÊS ESPÉCIES JÁ ESTÃO NA CENA, e isso é o orçamento inteiro desta
+  // entrega. `palm-date` planta as alamedas dos bulevares, `tree-cypress` a nave
+  // do White Paper e `buxo-bola` a topiária do Jardim Italiano: o arquivo, a
+  // textura e o PROGRAMA DE SHADER de cada uma já foram pagos, e `buildProps`
+  // deduplica o parse por arquivo (o cache está documentado lá). Em 07/09 a cena
+  // de perto media 555 programas compilados; estas três linhas somam **zero**.
+  // O que elas somam é 7 chamadas de desenho (4 + 2 + 1 primitivas) e 168.880
+  // triângulos, e os três `cull` abaixo garantem que esse custo só existe perto.
+  {
+    file: 'palm-date',
+    why: 'a COROA: 40 tamareiras em floreira alta sobre o pódio, 48 vagas de 7,50° menos as 8 dos portões. É a régua humana de uma esfera de 196 m e o gesto principal do jardim',
+    at: SPHERE_COROA_PALMEIRAS as [number, number][],
+    jitter: 0.10, cull: 2600, cota: sphereCotaDeck, lift: SPHERE_PODIO_H,
+    center: sphereJardimCentro() as [number, number],
+  },
+  {
+    file: 'buxo-bola',
+    why: 'a topiária que dá borda aos quatro parterres: 36 vagas de 7,50° na primeira fileira do canteiro, 9 por compartimento',
+    at: SPHERE_TOPIARIAS as [number, number][],
+    yaw: 'center', jitter: 0.05, cull: 1400, castShadow: false, cota: sphereCotaDeck,
+    lift: JARDIM_TERRA_H,
+    center: sphereJardimCentro() as [number, number],
+  },
+  {
+    file: 'tree-cypress',
+    why: 'a vertical escura do parterre, 10 vagas de 15° com fundo de canteiro suficiente: é ela que aparece acima do parapeito para quem olha do chão, 34,0 m abaixo',
+    at: SPHERE_CIPRESTES as [number, number][],
+    jitter: 0.12, cull: 2600, cota: sphereCotaDeck, lift: JARDIM_TERRA_H,
+    center: sphereJardimCentro() as [number, number],
   },
   // ── o spaceport: torre, tanques e antenas ──────────────────────────────────
   // ⚠️ AS TRÊS ESCALAS DOBRARAM EM 01/09, E NÃO POR GOSTO: elas ACOMPANHAM o

@@ -197,13 +197,15 @@ export const SPHERE_DECK_ENCOLHE = 0.165
  *     calota que sai da malha (thetaLength)     29,1% da área
  *
  * ⚠️ A LATITUDE DO CORTE NÃO DEPENDE DE R, e isso é bom saber antes da próxima
- * mudança de escala: ela é `asin(−0,43)` e vale −25,47° em qualquer diâmetro. O
- * que mudou de 160 para 196 foi o OCLUSOR, porque o colar tem altura fixa: ver
- * `SPHERE_FAIXA_LINHA0`.
+ * mudança de escala: ela é `asin(−0,43)` e vale −25,47° em qualquer diâmetro.
  *
- * ⚠️ E ESSE PLANO DE CORTE MOVEU A FAIXA DE TEXTO. A faixa antiga vivia entre as
- * latitudes −11,95° e −33,05°, e com o corte em −25,47° ela ficaria METADE
- * ENTERRADA. A faixa nova está em `SPHERE_FAIXA_LINHA0/1`, remedida.
+ * ⚠️ E É ESTE CORTE QUE DECIDE ONDE A FAIXA MORA, mas não pelo motivo que este
+ * comentário deu até 07/09. Ele dizia que o corte tinha EMPURRADO a faixa para
+ * baixo (para ela não ficar meio enterrada) e que o limite era o OCLUSOR, o
+ * colar. Isso resolvia o problema errado: o que o corte realmente faz é tirar a
+ * calota de baixo da silhueta e, com isso, subir a metade da altura aparente
+ * para **+16,56°**. A faixa foi para lá em 07/09 à noite, e a conta inteira, com
+ * a chapa de produção que a motivou, está em `SPHERE_FAIXA_LINHA0`.
  */
 export const SPHERE_ENTERRO = 0.43
 
@@ -336,63 +338,87 @@ export const SPHERE_GRADE_ROWS = 1024
 export const SPHERE_PASSO = (2 * Math.PI * SPHERE_R) / SPHERE_GRADE_COLS  // 0,2454 m
 
 /**
- * ⚠️ A FAIXA DE TEXTO NÃO FICA NO EQUADOR, E A CONTA MANDA.
+ * ⚠️ A FAIXA MORA NO CENTRO ÓPTICO DA SILHUETA, E ESSE PONTO NÃO É O EQUADOR.
  *
- * ⚠️ E A FAIXA FICOU ONDE ESTAVA QUANDO A ESFERA FOI PARA 196 m, E ISSO FOI
- * MEDIDO, NÃO ASSUMIDO. Ela desceu para cá quando o corte passou para 0,43 R (as
- * linhas 580-700 de antes ficariam metade enterradas). Com R = 98 o corte no
- * chão continua na latitude **−25,47°**, porque `asin(−0,43)` não depende de R;
- * o que MUDA é o oclusor, porque o colar tem altura fixa (3,4 m) e uma esfera
- * maior o esconde menos: o limite de oclusão desceu de **−22,80° para −23,29°**
- * (linha 641,7 → 644,5). A faixa 540-640 acaba em −22,50° e continua inteira à
- * vista; a 545-645 acaba em −23,38° e continua OCLUÍDA. Remedido, não herdado.
+ * ⚠️ ELA ESTEVE EM 540-640 ATÉ 07/09 À NOITE, E FOI DEFEITO DE PRODUÇÃO. O
+ * fundador viu a peça no ar e disse: *"o texto que estamos imprimindo na nossa
+ * sphere está somente na parte de baixo (…) exatamente onde tem aquela tarja
+ * branca me parece ser o local de maior visibilidade"*. Estava, e a tarja que
+ * ele apontou é a cinta da Kray em 400-424. Ele leu a peça certo, e dá para
+ * provar por número.
  *
- * O pedido é "faixa equatorial", e a razão dela existir é que os polos sofrem
- * escorço de perspectiva. Só que o mesmo escorço atinge o equador, porque TODO
- * observador da cidade está ABAIXO do centro da esfera: o centro fica em
- * y = 150,80 m (tabuleiro 116,4 + 0,43 R) e o olho de pedestre está a 1,7 m.
+ * ⚠️ A METADE DA ALTURA APARENTE FICA EM +16,56°, LINHA 418. A casca é cortada
+ * em −24,69° (`thetaMax`, ver `buildSphere`), então a silhueta visível vai de
+ * `sin = −0,43` a `sin = +1,00` e o meio dela cai em `sin = 0,285`, que é
+ * latitude **+16,56°** e não o equador. Medida a linha que cai no meio da altura
+ * aparente, por ponto de vista:
  *
- * Medido exatamente, sem aproximação de observador distante: para um ponto de
- * latitude φ e um olho a distância horizontal `d`, a compressão da ALTURA da
- * letra é `√(1 − (t̂·v̂)²)`, onde `t̂` é a tangente na direção da latitude e `v̂`
- * a direção do olhar. **A conta é a mesma em qualquer azimute**, porque a esfera
- * é de revolução e a faixa é de latitude constante: qualquer observador vê,
- * no meridiano que o encara, exatamente esta geometria. É essa simetria que
- * dispensa varrer azimute. O embasamento entra na conta como OCLUSOR: uma
- * latitude que o pódio ou o colar escondem vale zero, não vale "quase".
+ *     olho\dist    200    315    500   1000   2000   3000   5175
+ *       1,7 m      572    533    496    459    439    432    426
+ *       150 m      496    469    451    435    426    424    421
+ *       250 m      369    400    411    416    417    418    418
+ *       400 m      248    307    353    389    404    409    413
  *
- * ⚠️ A JANELA DE LEITURA NÃO COMEÇA MAIS NA BORDA DO DECK, e a razão é medida.
- * Com a esfera de 196 m, quem está a 114,8 m do eixo (a divisa radial do lote)
- * vê a faixa com compressão **0,55**: letra pela metade. Só que a 114,8 m nem
- * texto cabe, porque o arco legível ali dá **5,0 casas** de 32 e o orçamento é
- * de 7 (ver `SPHERE_ORCAMENTO_*`). A janela honesta é a que o ORÇAMENTO DE
- * ESCRITA define, e ela vai de **315 m** (onde 7 caracteres fecham) a
- * **2.756 m** (onde a letra de 16,84 m cai abaixo de ~9 px, 500 m mais longe do
- * que a esfera de 160 alcançava).
+ * Converge para **418-426 em qualquer altura de câmera**, e só desce para 533-572
+ * para quem está de pé no chão a menos de 315 m, que é onde o próprio dossiê já
+ * dizia que não se lê nada.
  *
- * Varridas as faixas de 100 linhas dentro dessa janela, com R = 98:
+ * ⚠️ E O ERRO ANTERIOR FOI OTIMIZAR ESMAGAMENTO ONDE LEGIBILIDADE NÃO CORRIA
+ * RISCO. A versão de 540-640 escolheu a faixa MAIS BAIXA que o colar deixava,
+ * para minimizar a compressão da altura da letra para um pedestre de 1,7 m a
+ * 315 m. Só que a 315 m a letra de 16,84 m mede **78,8 px** de tela (fov 42 em
+ * 1080, 678,7 µrad/px): esmagar para 0,43 ainda deixa **33,9 px**, quatro vezes
+ * o piso de ~9 px. Comprou 0,44 de compressão num lugar onde ela não valia nada
+ * e pagou com a tela inteira em todo lugar onde ela valia.
  *
- *     linhas 520-620   lat  −1,41 a −18,98    pior compressão 0,79
- *     linhas 530-630   lat  −3,16 a −20,74    pior compressão 0,84
- *     **linhas 540-640 lat  −4,92 a −22,50    pior compressão 0,895**
- *     linhas 545-645   lat  −5,80 a −23,38    **OCLUÍDA pelo embasamento**
+ * Compressão PIOR da banda, medida (`X` = latitude oclusa ou de costas):
  *
- * Escolhida a **540 a 640**: é a mais baixa que o embasamento ainda deixa ver
- * inteira, e ser a mais baixa é o que maximiza a compressão, porque o observador
- * está sempre embaixo. Uma linha a mais para baixo e o colar come a faixa.
+ *     olho      dist    315    500   1000   2000   2756
+ *     antes    1,7 m   0,87   0,96   0,97   0,95   0,94
+ *     antes  158,5 m   0,85   0,89   0,91   0,92   0,92
+ *     antes    400 m   0,28   0,55   0,77   0,86   0,88
+ *     agora    1,7 m   0,43   0,65   0,81   0,87   0,88
+ *     agora  158,5 m   0,83   0,87   0,90   0,91   0,91
+ *     agora    400 m   0,74   0,90   0,98   0,95   0,94
  *
- * ⚠️ A FAIXA CRESCEU JUNTO COM A ESFERA, SEM MUDAR DE LINHA: as mesmas 100 linhas
- * medem **30,07 m** de altura física (eram 24,54), e a letra grande vai a
- * **12,03 x 16,84 m** (era 9,82 x 13,74). Alcance de leitura: 2.756 m contra
- * 2.250.
+ * ⚠️ OS 158,5 m SÃO A COTA DO CENTRO DA ESFERA, E É DE LÁ QUE A CHAPA DO
+ * FUNDADOR FOI TIRADA. A câmera da praça não é um pedestre: `controls` deixa
+ * subir sem teto (`maxDistance` 16.000, `minPolarAngle` 0) e a cidade se olha de
+ * cima. Contra a câmera de verdade a faixa antiga era a PIOR das candidatas, e a
+ * 400 m de altura ela chegava a **0,28**, ou seja de perfil.
  *
- * ⚠️ DO PÉ DA ESFERA NÃO SE LÊ NADA, em latitude nenhuma: quem está encostado no
- * pódio olha para cima em mais de 55° e vê a faixa de perfil. Isso é geometria,
- * não defeito, e vale igual para a de Las Vegas. A leitura começa onde a praça
- * acaba, e com 196 m ela começa mais longe do que com 160.
+ * ⚠️ O ALCANCE DE LEITURA NÃO MUDOU, e isso é o que fecha a conta. Com o
+ * critério de 9 px de altura JÁ COMPRIMIDA para a letra de 16,84 m:
+ *
+ *     olho        1,7 m    158,5 m    400 m
+ *     antes      2.706 m   2.669 m   2.590 m
+ *     **agora    2.565 m   2.624 m   2.691 m**
+ *
+ * Perde 141 m para o pedestre e ganha 101 m para a câmera aérea. É empate, e o
+ * que se compra com o empate é a peça deixar de ter o conteúdo no rodapé.
+ *
+ * ⚠️ O QUE SE PERDE DE VERDADE É O PEDESTRE COLADO. Abaixo de ~200 m, no chão, a
+ * faixa nova fica de perfil e não se lê em azimute nenhum (a antiga ainda dava
+ * 11,7 casas a 150 m). Isso está DENTRO do contrato já publicado, que abre a
+ * janela de leitura em 315 m e diz que do pé da esfera não se lê nada; a
+ * diferença é que agora a geometria impõe o que o orçamento já dizia. Fica
+ * declarado, não escondido.
+ *
+ * ⚠️ QUEM É CENTRADA É A LINHA GRANDE, NÃO A CAIXA DA FAIXA, e a escolha tem
+ * motivo: a linha grande carrega o VALOR, e valor é o que se lê. Com
+ * `LINHA0 = 378` o miolo grande ocupa 386-442 e o centro dele cai em **414**,
+ * a 1,14 m dos 417,8 do centro óptico numa esfera de 196 m. Centrar a CAIXA em
+ * vez da linha (366-474) poria o valor em 402 e o anel aceso no lugar exato;
+ * medido, a diferença de compressão entre as duas é ≤0,04 em toda a tabela, e
+ * então ganha a que serve a leitura.
+ *
+ * ⚠️ NÃO EXISTE OCLUSOR AQUI. O limite que mandava na versão antiga era o topo
+ * do colar (latitude −23,29°, linha 644,5), e a faixa nova acaba em 486: sobram
+ * **166 linhas, 50,1 m** até o corte da malha. O que limita a faixa para CIMA é
+ * só o escorço do polo, e ele começa a doer bem acima de 378.
  */
-export const SPHERE_FAIXA_LINHA0 = 540
-export const SPHERE_FAIXA_LINHA1 = 640
+export const SPHERE_FAIXA_LINHA0 = 378
+export const SPHERE_FAIXA_LINHA1 = 486
 
 /** latitude, em graus, de uma linha da grade contada do polo norte */
 export function sphereLatDaLinha(linha: number): number {
@@ -403,11 +429,14 @@ export function sphereLatDaLinha(linha: number): number {
 // ⚠️ A FAIXA É DIMENSIONADA PELA LETRA, e não o contrário: doutrina do letreiro
 // do Estádio (`estadio.md`), que a pagou com um painel de 10,5 m para letra de
 // 7,35. Aqui: margem 8, linha grande 56 (7 x 8), vão 8, linha pequena 28
-// (7 x 4), margem 8 = **100 linhas exatas**.
-// ⚠️ ERAM 120 LINHAS ATÉ A FAIXA DESCER: a janela que o embasamento deixa livre
-// tem 101 linhas, então o miolo apertou de 120 para 100. A ALTURA FÍSICA não
-// mudou (24,54 m contra 24,85), porque o passo cresceu junto com a esfera, e a
-// letra ficou 18% maior: as escalas 8 e 4 continuam intactas.
+// (7 x 4), margem 8 = **108 linhas**, e a soma fecha.
+// ⚠️ ERAM 108 NA CONTA E 100 NO CÓDIGO, E ISSO ERA DEFEITO. Enquanto o limite
+// era o colar (a janela livre tinha 101 linhas) a faixa foi cravada em 100, e a
+// conta acima nunca bateu: 8+56+8+28 = 100 já sem margem NENHUMA embaixo, ou
+// seja a linha pequena encostava na borda do painel. Com a faixa no centro
+// óptico o oclusor sumiu, então a margem de baixo passou a existir de verdade e
+// a faixa mede 108 linhas = **32,47 m**. As escalas 8 e 4 continuam intactas e a
+// letra não mudou de tamanho (12,03 x 16,84 m a grande, 6,01 x 8,42 a pequena).
 const FX_MARGEM = 8
 const FX_GRANDE_ESCALA = 8   // linhas de LED por pixel de glifo
 const FX_PEQUENA_ESCALA = 4
@@ -701,8 +730,16 @@ export const SPHERE_CONTEUDO_NEUTRO: SphereConteudo = {
  *     função que já existia;
  *   · **zero** textura nova, **zero** varying novo, **zero** chamada de desenho.
  *
- * Por que a FAIXA e não a casca inteira: de longe a faixa é a única parte acesa
- * (medida em 4,01x a média da esfera) e é ela que sobra depois do `textCull`.
+ * Por que a FAIXA e não a casca inteira: de longe é ela que sobra depois do
+ * `textCull`, e ela continua sendo a parte ACESA da peça por construção.
+ *
+ * ⚠️ O NÚMERO QUE ESTAVA AQUI (4,01x a média da esfera) VIROU O NÚMERO ERRADO EM
+ * 07/09, quando o corpo passou a ler como painel ligado (ver `pintarTextura`). A
+ * razão faixa/esfera COM TEXTO nunca foi uma constante desta seção: ela é MEDIDA
+ * do canvas a cada repintura, por `mediaDe`, e acompanha o conteúdo do quadro. O
+ * que este comentário pode fixar é o CHÃO da faixa contra o corpo em volta, e
+ * esse subiu de **1,03x para 1,84x**: antes o anel só existia por causa da letra,
+ * agora ele existe sem ela, que é exatamente o que este requisito pede.
  * A 3 km a esfera é um disco de 96 px e a faixa mede 14,8 px dele; da praça
  * central (5.175 m) são 56 px de disco e 8,6 px de faixa. É esse anel que se
  * mexe.
@@ -1141,6 +1178,31 @@ export function sphereAssentar(heightAt: (x: number, z: number) => number): numb
   return Math.round((mx + 0.4) * 10) / 10
 }
 
+/**
+ * A MESMA COTA, COM MEMÓRIA, para quem precisa dela fora de `buildSphere`.
+ *
+ * ⚠️ ELA EXISTE POR CAUSA DO JARDIM DO PÓDIO (07/09). Quem planta sobre a laje
+ * precisa saber em que cota ela está, e a resposta certa NÃO é
+ * `SPHERE_PLATAFORMA_Y`: essa constante é o valor esperado, conferível offline,
+ * e quem manda é a medição, para a peça sobreviver a uma troca de módulo sem
+ * ninguém lembrar de remedir. Também não é `heightAt(x, z)`: sob o deck o
+ * relevo vai de 99,78 a 116,00 m, então uma árvore plantada na superfície
+ * ficaria enterrada em até 16,6 m.
+ *
+ * ⚠️ A MEMÓRIA É POR REFERÊNCIA DE FUNÇÃO, e é o bastante: `sphereAssentar`
+ * custa 9 ms medidos (uma grade de 4 m sobre o deck), e hoje ela seria chamada
+ * três vezes no boot (a peça, o jardim e a tabela de adereços). Guardar por
+ * referência mantém a resposta correta se o terreno for reconstruído, porque
+ * um terreno novo traz um `heightAt` novo.
+ */
+let _cotaDeck: { fn: unknown; y: number } | null = null
+export function sphereCotaDeck(heightAt: (x: number, z: number) => number): number {
+  if (_cotaDeck && _cotaDeck.fn === heightAt) return _cotaDeck.y
+  const y = sphereAssentar(heightAt)
+  _cotaDeck = { fn: heightAt, y }
+  return y
+}
+
 /** O polígono do bloco, que vira máscara de via: a rua para na divisa dele.
  *  ⚠️ Sem isto na lista de parcelas, a teia desenha rua POR DENTRO da peça, que
  *  foi exatamente o defeito que o fundador apontou na chapa do Estádio. */
@@ -1252,18 +1314,42 @@ function pintarTextura(
   const g = cv.getContext('2d')!
   const W = cv.width, H = cv.height
 
-  // o corpo: o painel apagado, com um leve gradiente para a esfera ter volume
-  // mesmo no estado ocioso. Os polos ficam SÓ para cor, por decisão medida.
+  // ⚠️ O CORPO É UM PAINEL LIGADO, NÃO UM CASCO, e isso é decisão do fundador em
+  // 07/09: no estado ocioso a peça tem de ler como TELA ACESA em nível baixo, e
+  // não como bola preta com um anel. Medido, o que estava aqui (#101318 /
+  // #1A1D24 / #0C0E12) emitia 0,0047 de luminância linear contra os 0,0491 do
+  // painel apagado ao sol: 9,5%. O corpo era casco e só o dado era tela.
+  //
+  // ⚠️ E QUEM ACENDE NÃO É O NÍVEL MÉDIO, É A AMPLITUDE DO PONTO. O que faz a
+  // casca ler como PAINEL é o disco do LED ter contraste contra o próprio fundo:
+  // `sinal` vale `1/uPreenche` = 1,99 dentro do disco e 0 no vão, então a
+  // ondulação da grade vale `corpo x uGanho x 1,99`. Com o corpo antigo ela media
+  // **19%** do painel ao sol; com este, **34%**. Quem aparece é a grade de LED, e
+  // não uma esfera embranquecida: a média do corpo sobe 2,6x e para por aí.
+  //
+  // ⚠️ O PICO SAIU DE CIMA DA FAIXA, E AGORA ISSO É OBRIGATÓRIO. O stop de 0,42
+  // caía na linha 430, que era ACIMA da faixa antiga (540-640) e virou o MEIO da
+  // faixa nova (378-486). Deixado onde estava, o chão da faixa ficaria mais
+  // escuro que o corpo em volta e o anel aceso da seção 5.1 viraria anel
+  // apagado. O pico foi para t 0,18 (linha 184), bem acima do miolo de texto, e
+  // o corpo chega na faixa já em queda.
   const grad = g.createLinearGradient(0, 0, 0, H)
-  grad.addColorStop(0.00, '#101318')
-  grad.addColorStop(0.42, '#1A1D24')
-  grad.addColorStop(1.00, '#0C0E12')
+  grad.addColorStop(0.00, '#262C35')
+  grad.addColorStop(0.18, '#343945')
+  grad.addColorStop(0.37, '#222730')
+  grad.addColorStop(1.00, '#1D2027')
   g.fillStyle = grad
   g.fillRect(0, 0, W, H)
   c.pintarCorpo?.(g, W, H)
 
-  // a faixa: um chão levemente aceso, para ela existir mesmo sem texto legível
-  const corFaixa = '#241A14'
+  // ⚠️ O CHÃO DA FAIXA SOBE JUNTO, E POR REQUISITO ESCRITO. `uCorFaixa` é o que a
+  // peça mostra além do `textCull` e no material liso, e a seção 5.1 exige que
+  // esse anel seja a parte ACESA da esfera. Medido: o chão antigo (#241A14) valia
+  // **1,03x** o corpo debaixo dele, ou seja o anel só existia por causa da letra;
+  // este vale **1,84x** o corpo em volta, então ele existe mesmo sem texto. E o
+  // dado continua mandando na faixa: **7,3x** de contraste contra o chão, e 14,3x
+  // no rótulo creme.
+  const corFaixa = '#453225'
   const y0 = SPHERE_FAIXA_LINHA0 * f, y1 = SPHERE_FAIXA_LINHA1 * f
   g.fillStyle = corFaixa
   g.fillRect(0, Math.round(y0), W, Math.round(y1 - y0))

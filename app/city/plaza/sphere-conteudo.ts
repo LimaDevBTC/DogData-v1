@@ -512,15 +512,28 @@ function pintarCorpoKray(g: CanvasRenderingContext2D, w: number, h: number) {
   g.fillStyle = coroa
   g.fillRect(0, 0, w, 120 * L)
 
-  // duas cintas de casco, em latitude de puro escorço: linhas 400-424
-  // (lat +19,7° a +15,5°, 4,97 m de altura) e 760-772 (lat -43,6° a -45,7°,
-  // 2,48 m). Elas são o que SOBRA a 3 km, quando o texto já morreu no textCull:
-  // de longe o intervalo comercial continua sendo uma esfera preta com anéis
-  // brancos, e não uma esfera apagada.
+  // ⚠️ AS DUAS CINTAS MUDARAM DE LINHA EM 07/09, E AS DUAS ESTAVAM ERRADAS.
+  //
+  // ⚠️ A DE BAIXO NUNCA FOI DESENHADA, DESDE O DIA EM QUE FOI ESCRITA. Ela
+  // morava em 760-772, e a casca é cortada em `thetaMax` = 114,70° do polo
+  // (`buildSphere`), ou seja a ÚLTIMA LINHA DA MALHA É A 652,5. As linhas
+  // 760-772 caem 32 m abaixo do corte: aquele "esfera preta com anéis brancos a
+  // 3 km" sempre teve UM anel só, e o comentário que dizia o contrário nunca foi
+  // conferido contra a geometria.
+  //
+  // ⚠️ E A DE CIMA IA FICAR DEBAIXO DO TEXTO. A faixa de dado subiu para 378-486
+  // (o centro óptico da silhueta, ver `SPHERE_FAIXA_LINHA0`) e 400-424 caiu
+  // dentro dela; como a faixa é pintada DEPOIS de `pintarCorpo`, a cinta seria
+  // simplesmente apagada.
+  //
+  // As novas são IGUAIS e simétricas EM PROJEÇÃO em torno do meio da faixa, que
+  // é como o olho as compara numa esfera: 260-284 (lat +44,30° a +40,08°) e
+  // 563-587 (lat −8,97° a −13,18°), as duas de 24 linhas = **7,22 m**, as duas
+  // com o mesmo `sin` de distância (**0,432**) do meio da faixa (sin 0,2397). A
+  // de baixo ainda sobra **65 linhas, 19,7 m** acima do corte da malha.
   g.fillStyle = '#F2F4F7'
-  g.fillRect(0, Math.round(400 * L), w, Math.round(24 * L))
-  g.fillStyle = 'rgba(242,244,247,0.72)'
-  g.fillRect(0, Math.round(760 * L), w, Math.round(12 * L))
+  g.fillRect(0, Math.round(260 * L), w, Math.round(24 * L))
+  g.fillRect(0, Math.round(563 * L), w, Math.round(24 * L))
 }
 
 function slotAnuncio(): Slot {

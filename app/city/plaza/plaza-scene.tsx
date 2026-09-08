@@ -89,6 +89,7 @@ import { GEODE_MOD } from './geode'
 import { ATLETISMO_MOD } from './atletismo'
 import { buildSphere, sphereCull, sphereParcela, sphereSitio, spherePxAng, type Sphere } from './sphere'
 import { criarProgramacao } from './sphere-conteudo'
+import { buildSphereJardim, type SphereJardim } from './sphere-jardim'
 import { ILHAS_RAIO, ILHAS_RUMO } from './lago'
 import { CityChat } from '@/components/wallet/city-chat'
 
@@ -1762,6 +1763,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let pracas: Pracas | null = null
     let arvores: Arborizacao | null = null
     let sphere: Sphere | null = null   // THE SPHERE; nasce no bloco das peças de infra
+    let sphereJardim: SphereJardim | null = null   // o jardim do pódio dela
     // ⚠️ O PROGRAMA NASCE ANTES DA PEÇA, DE PROPÓSITO. A esfera só existe depois
     // do `await` dos GLBs, e o feed começa a responder antes disso; com o
     // programa já de pé, nada de dado se perde no meio, e `repintar()` põe o
@@ -2576,13 +2578,30 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             // ⚠️ TERCEIRO PORTÃO, NOVO: a via também. Ver a nota em `viasAssentou`.
             if (!viasAssentou) return
             if (qDomo.get('arvores') === '0') return
-            // ⚠️ O CAMPUS ESPORTIVO ENTRA COMO COVA, e a nota de `covasDoCampus`
-            // diz por quê: a cidade tinha plantado 458 árvores dentro do bloco,
-            // pela cota do terreno, e a laje do pódio as enterrou. O campus é
-            // plantado de propósito, com desenho próprio, não pela regra de
-            // fileira de rua — as ruas internas dele nem existem mais.
-            const todas = [...covasDasPecas, ...covasDasPracas,
-                           ...(CAMPUS_LAJE ? covasDoCampus() : [])]
+            // ⚠️ O CAMPUS SAIU DAQUI EM 07/09, E ELE NUNCA DEVIA TER ENTRADO.
+            // `covasDoCampus()` foi escrita para VEDAR o bloco, e o comentário
+            // dela ainda dizia que `covas` era uma das duas máscaras de
+            // `arborizacao.ts`. Não é: `covas` é LISTA DE PLANTIO. O laço que a
+            // consome (`arborizacao.ts:432`) faz `mudas.push(criarMuda(...))` em
+            // cada círculo e, pior, ele é o único que NÃO consulta `emPeca`, por
+            // decisão escrita ali ("a cova escapa da máscara de PEÇA, foi a peça
+            // que a pediu"). Ou seja o que era para ser uma vedação virou plantio
+            // imune à máscara, bem no eixo onde as três arenas estão.
+            //
+            // Medido em 07/09 contra `sitioNoCampus()` e o giro real da cena
+            // (`rotation.y = GIRO_CAMPUS`): das 13 covas do eixo, **7 caíam
+            // dentro do ENVELOPE CONSTRUÍDO** de uma arena. Três no ARENA
+            // (envelope 303 x 261), duas no atletismo (320 x 240) e duas no
+            // GEODE (224 x 201). Foi o que o fundador viu em produção: "temos
+            // árvores dentro do campo de futebol e tb no estádio de atletismo, e
+            // provavelmente dentro do geode também".
+            //
+            // ⚠️ E TIRAR ISTO NÃO DEVOLVE AS 458 ÁRVORES ENTERRADAS. Aquelas
+            // nasciam das passadas de FILEIRA, que consultam `emPeca` (linhas
+            // 331, 365, 522 e 583); a vedação delas é a parcela do campus, que já
+            // entra em `parcelas` como `campusParcela()`. Estas 13 eram dano
+            // puro: somavam árvore errada sem tirar nenhuma errada.
+            const todas = [...covasDasPecas, ...covasDasPracas]
             // ⚠️ A CONSULTA DE ÁGUA VEM DE `lagos`, LIDA NA HORA DA CHAMADA. Ela
             // é a mesma rotulagem por preenchimento que desenha a lâmina, então
             // as duas pontas não podem divergir. A folga de 10 m tira a muda com
@@ -3633,6 +3652,26 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           culler.add(sphere.group, sphereCull(), new THREE.Vector3(_sp.x, 0, _sp.z))
         }
         programaSphere.repintar()   // a peça nasceu depois do programa: pega o quadro corrente
+
+        // ── O JARDIM DO PÓDIO ────────────────────────────────────────────────
+        // Pedido do fundador em 07/09: paisagismo PROPOSITAL sobre o pódio, com
+        // o cuidado de que "o solo está a alguns metros abaixo" e de que tudo
+        // possa ser movido junto com a peça. Desenho em `sphere-jardim-plano.ts`
+        // (sem `three`), alvenaria em `sphere-jardim.ts`, e as três espécies em
+        // `props-table.ts`. Seis chamadas de desenho e nenhum programa novo.
+        // ⚠️ ELE NASCE AQUI, junto da peça, e não no bloco dos adereços: o
+        // jardim é o EMBASAMENTO da Sphere e some com ela, não com a praça.
+        // ⚠️ `terrain.heightAt` DIRETO, e não uma arrow nova: `sphereCotaDeck`
+        // guarda a medição POR REFERÊNCIA de função, e `buildProps` (que planta
+        // a coroa) recebe exatamente esta mesma referência. Passando a mesma, a
+        // varredura de 9 ms do relevo sob o deck roda duas vezes no boot em vez
+        // de três.
+        sphereJardim = buildSphereJardim({ heightAt, perfil: profile, culler })
+        scene.add(sphereJardim.group)
+        {
+          const _sp = sphereSitio()
+          culler.add(sphereJardim.group, sphereCull(), new THREE.Vector3(_sp.x, 0, _sp.z))
+        }
 
         // ── THE GEODE ─────────────────────────────────────────────────────────
         // A arena coberta, 28.240 lugares. Mesmo anel do estádio, 615,08 m dele:
@@ -4987,6 +5026,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       pracas?.dispose()
       arvores?.dispose()
       sphere?.dispose()
+      sphereJardim?.dispose()
       atletismo?.dispose()
       mob?.dispose()
       decal?.dispose()

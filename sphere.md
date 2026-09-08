@@ -867,11 +867,292 @@ porque só a ponta da chain a alimenta. Passado o alvo, o módulo vira `#966670`
 `SNAPSHOT TAKEN` mais os blocos decorridos.
 
 
+# EXECUTADO em 07/09/2026: O JARDIM DO PÓDIO
+
+Pedido do fundador, à noite: *"precisamos de um agente para fazer o paisagismo proposital
+sobre o pódio que a esfera está em cima. Não adianta colocar de qq jeito, pois o solo está a
+alguns metros abaixo no solo. Precisamos de paisagismo profissional no pódio da esfera, e
+que possa ser 'movido' junto com ela pra outro lugar por exemplo."*
+
+Três arquivos novos: `app/city/plaza/sphere-jardim-plano.ts` (o desenho, sem `three`),
+`app/city/plaza/sphere-jardim.ts` (a geometria) e
+`scripts/city/verificar-sphere-jardim.ts` (a prova). Mais três linhas em `props-table.ts`
+(as espécies), um campo novo em `PropSpec` (`cota`), `sphereCotaDeck()` em `sphere.ts` e
+7 linhas em `plaza-scene.tsx`. `npx tsc --noEmit` limpo.
+
+## O partido, em uma frase
+
+**Tudo é anel concêntrico com a esfera, de passo angular constante, e o portão se faz
+APAGANDO vagas, nunca movendo as que ficam.**
+
+As duas metades são pagas. CONCÊNTRICO porque a esfera é sólido de revolução e o pódio é
+anel, e porque é a lógica que o pátio em leque do precinto já usa e o fundador já aprovou
+(*"por construção ele é concêntrico com tudo o mais, então não existe alinhamento para
+errar"*). APAGAR VAGA porque é a regra de gosto escrita: *"elementos repetidos igualmente
+espaçados; excluir é melhor que desalinhar"*.
+
+## ⚠️ O eixo do jardim NÃO é o radial da teia, e a diferença é 8,57°
+
+Primeira versão errada, corrigida na mesma noite. `sphereSitio().rumoDeg` dá a bissetriz
+angular do módulo, mas o deck é um **trapézio torto**: o anel da teia é dodecágono e o
+módulo cai atravessado numa face. Medidas as quatro normais externas do deck:
+
+| face | distância do centro | comprimento | normal (do radial da teia) |
+|---|---|---|---|
+| **rua EXTERNA** | **113,50 m** | 259,83 m | 351,43° |
+| ponta do arco + | 125,18 m | 230,48 m | 91,40° |
+| **rua INTERNA** (olha a praça central) | **113,50 m** | 248,55 m | 171,43° |
+| ponta do arco − | 126,10 m | 228,80 m | 268,62° |
+
+| | |
+|---|---|
+| círculo inscrito no deck | **113,50 m** |
+| vértice mais distante | 185,75 m |
+| área do deck | **57.701 m²** |
+
+Com o eixo no radial da teia os quatro compartimentos saíam **74,2 / 57,1 / 74,2 / 57,1°** e
+a escadaria principal ficava 8,57° torta em relação à rua que ela serve. Com o eixo na
+NORMAL DA RUA os compartimentos saem **65,7° cada um, os quatro**, e os portões enfrentam a
+divisa de esquadro. As duas faces de 113,50 são as ruas (o lado do módulo É rua, e
+`sphereDeckPoly` só encurta o ARCO); além das outras duas ainda há 58 a 65 m de terreno
+natural dentro do próprio lote.
+
+⚠️ **113,50 não é "229,6 / 2".** Os 229,6 do cabeçalho de `sphere.ts` são o COMPRIMENTO
+médio das arestas radiais; 113,50 é a DISTÂNCIA PERPENDICULAR do centro à aresta, que é o
+número de que um jardim precisa. Usar o primeiro no lugar do segundo põe o parapeito 1,30 m
+fora do lote.
+
+## O pódio: o que o fundador pediu, literalmente (y = 118,60)
+
+| faixa | r | largura |
+|---|---|---|
+| colar (a esfera encosta) | 90,02 | |
+| **bordadura** (buxo rasteiro, aro de 0,35) | 90,02 → 91,62 | 1,60 |
+| **promenade livre, 360°, contra a casca de LED** | 91,62 → 98,19 | **6,57** |
+| **a COROA**: 40 floreiras de tamareira | 98,19 → 101,59 | 3,40 |
+| parapeito | 101,59 → 102,09 | 0,50 x 1,10 alt |
+
+**A COROA é o gesto principal.** Uma esfera de 196 m não tem régua: quem chega não sabe se
+ela tem 50 ou 500 m até haver uma coisa de tamanho conhecido ao pé dela. Quarenta tamareiras
+de 14 a 18 m, igualmente espaçadas num anel concêntrico, são essa régua.
+
+| | |
+|---|---|
+| vagas | 48, de **7,50°**, deslocadas meio passo dos eixos |
+| apagadas | 8 (as duas mais próximas de cada portão) |
+| **plantadas** | **40** |
+| passo entre elas | **13,08 m** (copa de 6 a 8 m: nunca se tocam) |
+| floreira | tambor de 1,70 m de raio, **1,10 m de substrato** |
+
+⚠️ **1,10 m é o mínimo de terra para árvore sobre laje**, e é o número que separa canteiro de
+vaso decorativo. A bordadura do colar resolve outras duas coisas de ofício: parede não
+encontra piso pelado (a junta colar/piso tem 566 m de comprimento e é vista a 1,7 m de olho)
+e ela é o afastamento da tela, 1,60 m de canteiro entre o pé de quem anda e o painel de LED,
+sem grade e sem placa.
+
+## O deck (y = 116,40 medido)
+
+| faixa | r | largura |
+|---|---|---|
+| **cinto**: piso livre, contínuo nos 360° | 102,09 → 109,00 | **6,91** |
+| **canteiros**: 4 compartimentos | 109,00 → divisa recuada | 6,0 a 72 |
+| passeio de borda | | 3,60 |
+| parapeito | | 0,90 x 1,10 alt |
+
+`R_CINTO_EXT = 109,00` não é gosto: é `113,50 − 0,90 − 3,60`, o círculo inscrito no deck
+menos o parapeito e o passeio. O disco do embasamento mais o cinto ficam **inscritos** no
+lote, encostando nas duas ruas, e o jardim é o que sobra nas quatro quinas. É o desenho
+clássico de círculo inscrito em retângulo, e aqui ele CAIU do lote em vez de ser imposto.
+
+| compartimento | φ | amplitude | profundidade no meio |
+|---|---|---|---|
+| 1 | 18,6° a 84,3° | **65,7°** | 65,90 m |
+| 2 | 95,8° a 161,5° | **65,7°** | 28,55 m |
+| 3 | 198,6° a 264,3° | **65,7°** | 65,22 m |
+| 4 | 275,8° a 341,5° | **65,7°** | 33,56 m |
+
+| | |
+|---|---|
+| área de canteiro | **15.215 m², 26,4% do deck** |
+| área de piso | 9.742 m² |
+| **aro construído** | **1.302 m** |
+
+⚠️ **O ARO É A RESPOSTA A "O SOLO ESTÁ ALGUNS METROS ABAIXO".** Não existe cova neste
+jardim: o canteiro é construído sobre a laje, aro de alvenaria de **0,45 m** e **0,35 m** de
+terra dentro. E 0,45 m é altura de assento, então os 1.302 m de aro são o **banco** deste
+jardim: nenhuma espécie de mobiliário precisou entrar (`bench-classic` custaria 3 chamadas
+de desenho por 16 assentos).
+
+⚠️ **`arborizacao.ts` não serve aqui, e o motivo tem número.** Ela planta em
+`o.heightAt(m.x, m.z)`, a SUPERFÍCIE do relevo; sob o deck o relevo vai de 99,78 a 116,00 m,
+então a árvore da borda ficaria enterrada em até 16,6 m. Nada no jardim consulta `heightAt`
+para achar o próprio y, com UMA exceção declarada (as soleiras, abaixo).
+
+## ✅ FECHADA: a dívida do acesso ao pódio
+
+Quatro escadarias, uma por eixo do deck. A conta é de norma, não de gosto:
+
+| | |
+|---|---|
+| desnível | 2,20 m (`SPHERE_PODIO_H`, já em produção) |
+| espelhos | **14 x 15,71 cm** |
+| pisos | **13 x 36 cm** |
+| avanço | **4,68 m** |
+| inclinação | 23,6° |
+| **Blondel (2e + p)** | **67,4 cm** (a faixa confortável é 63 a 68) |
+| largura | 22,00 m |
+| pé | r **106,77** |
+| sobra de cinto na frente dela | **2,23 m**, mais o passeio de borda ou o corredor inteiro |
+
+O piso é contínuo do pódio ao parapeito em qualquer portão. A geometria do pódio já estava
+subdividida em 96 gomos justamente para isto.
+
+## ⚠️ E APARECEU UM DEFEITO MAIOR, QUE NÃO ESTAVA NA LISTA: o DECK não tinha acesso
+
+O deck é uma laje nivelada com saia **VERTICAL** em toda a divisa (`construirBase` põe os
+dois vértices da saia no MESMO x, z), e por isso ninguém subia nela vindo da cidade. Medida
+a saia aresta por aresta, contra o `heightAt` real:
+
+| aresta | mínimo | máximo | média |
+|---|---|---|---|
+| **rua EXTERNA (φ = 0)** | **0,40 m** | **1,46 m** | **1,05 m** |
+| ponta do arco (φ ≈ 100) | 0,40 m | 10,89 m | 6,83 m |
+| **rua INTERNA (φ = 180, a praça central)** | 10,66 m | 16,62 m | 12,67 m |
+| ponta do arco (φ ≈ 269) | 1,46 m | 16,62 m | 10,10 m |
+
+A peça senta num alto INCLINADO: pela rua de fora o deck está praticamente no nível do
+asfalto, e pela rua de dentro ele é um muro de 16,6 m. E o chão cai muito mais longe dali:
+medida a cota ao vivo pelo portão de chapas em (−3.762, 2.776), 500 m na direção da praça
+central, ela dá **82,38 m**, ou seja o deck está **34,0 m acima do chão** a essa distância.
+
+Então a regra não é abrir os quatro portões nem fechar todos: é **MEDIR a boca de cada
+portão no boot e abrir a que o chão alcançar**. Limiar `SOLEIRA_SAIA_MAX = 3,0 m`, que é o
+que um lance curto resolve. Medido hoje:
+
+| portão | desnível na boca | resultado |
+|---|---|---|
+| **φ 0° (rua externa)** | **0,86 m** | **abre: 5 degraus, o parapeito tem vão de 22 m** |
+| φ 90° | acima de 3,0 | fechado |
+| φ 180° | acima de 3,0 | fechado |
+| φ 270° | acima de 3,0 | fechado |
+
+Os degraus descem nos últimos metros DENTRO do lote, não avançam sobre a calçada. E a regra
+continua valendo se a peça mudar de lugar: num sítio novo os portões que abrem podem ser
+outros, e o código decide sozinho.
+
+## O que se planta, e a contagem que o lote decidiu
+
+| espécie | anel | vagas | plantadas | por compartimento |
+|---|---|---|---|---|
+| `palm-date` (tamareira) | r 99,89, pódio | 48 de 7,50° | **40** | |
+| `buxo-bola` (topiária) | r 112,20 | 48 de 7,50° | **36** | **9 / 9 / 9 / 9** |
+| `tree-cypress` | leque a 55% do fundo | 24 de 15,00° | **10** | **3 / 2 / 3 / 2** |
+| poste de luz | r 108,20 | 24 de 15,00° | **24** | |
+
+⚠️ **O cipreste sai 3 / 2 / 3 / 2 e isso é o lote falando.** Medida a profundidade nas 20
+vagas de 15° que caem em canteiro, o deck entrega dois tipos de quina:
+
+    compartimento 1    8,98  28,39  69,52  34,04  17,51   → 3 acima de 22 m
+    compartimento 2   11,79  14,62  27,09  28,39   8,98   → 2
+    compartimento 3    8,98  28,39  62,03  30,97  16,70   → 3
+    compartimento 4   12,60  17,07  31,85  28,39   8,98   → 2
+
+O limiar de 22,0 m não é redondo à toa: as profundidades se separam em dois grupos, um até
+17,51 e outro a partir de 27,09. Empurrar uma árvore de 18 m para um canteiro de 9 m seria
+mentir no desenho. **As 24 vagas de poste ficaram todas**, porque a 15° de passo a vaga mais
+próxima de um portão cai a 14,12 m do eixo dele e o corredor tem 11,00 m de meia largura:
+nenhuma precisou ser apagada.
+
+⚠️ **A sebe é caixa procedural, e o cipreste é modelo de acervo.** `buxo-sebe.glb` custa
+1.824 triângulos por módulo; com 360 módulos seriam **656.640 triângulos** para uma massa
+aparada que a 5 m de distância lê igual a uma caixa de 12. A caixa fica, e é o mesmo recurso
+que o precinto já usa em produção. Onde a SILHUETA importa (a bola de buxo, o cipreste, a
+tamareira) entra o modelo.
+
+## O custo, medido construindo a malha fora do navegador
+
+| | chamadas | triângulos |
+|---|---|---|
+| hardscape, desktop | **6** | **14.340** |
+| hardscape, celular | 6 | 11.524 |
+| `palm-date` x 40 | 4 | 104.000 |
+| `buxo-bola` x 36 | 1 | 38.880 |
+| `tree-cypress` x 10 | 2 | 26.000 |
+| **total** | **13** | **183.220** |
+
+⚠️ **ZERO PROGRAMA DE SHADER NOVO**, e isso é o orçamento inteiro desta entrega. Em 07/09 a
+cena de perto media **555 programas compilados e 4,87 M de triângulos a 13 fps** numa máquina
+disputada, ou seja o teto de ~400 do dossiê já tinha sido estourado por outra frente. As três
+espécies JÁ estão na cena (`palm-date` nas alamedas dos bulevares, `tree-cypress` na nave do
+White Paper, `buxo-bola` no Jardim Italiano), então arquivo, textura e programa já foram
+pagos e `buildProps` deduplica o parse por arquivo. O hardscape usa exatamente as quatro
+combinações que a praça já compila, sem `vertexColors`, sem `instanceColor` e sem shader
+próprio. Os 183 mil triângulos são **3,8%** dos 4,87 M, e os das plantas só existem dentro do
+`cull` (1.400 a 2.600 m).
+
+Construção no boot: **88 ms no desktop, 39 ms no celular**, medidos. Sebe: 360 instâncias,
+uma chamada.
+
+⚠️ **Parapeito cheio, não balaustrada.** 500 balaústres a 1,2 m de passo custariam 25.000
+triângulos e uma chamada a mais, para uma peça que na chapa de 500 m (o chão ali está 34,0 m
+abaixo) vira uma linha cinza de qualquer jeito.
+
+## A prova de que move junto
+
+`scripts/city/verificar-sphere-jardim.ts` troca `SPHERE_MOD` por um módulo vizinho
+(j 108 → 112, um deslocamento medido de **780,0 m**), reavalia o plano num segundo registro
+do módulo e compara peça a peça a coordenada LOCAL de cada uma das 110 plantadas.
+
+| | |
+|---|---|
+| pior desvio em coordenada local | **0,00e+0 m** |
+| contagem antes e depois | idêntica nas quatro listas |
+
+O teste é em coordenada local e não "andou o mesmo vetor" porque o módulo novo também GIRA:
+o que tem de ser idêntico é a transformação rígida, não a translação. Uma única coordenada de
+mundo cravada faz o teste falhar. O mesmo script confere que nada passa da divisa
+(folga mínima medida: tamareira 14,13 m, topiária 6,16 m, cipreste 15,26 m, poste 5,68 m),
+que nada invade o embasamento e que o cinto é contínuo nos 360°.
+
+## As chapas
+
+Três enquadramentos novos em `scripts/city/chapas.mjs`, porque as quatro que existiam miram o
+centro da esfera de 500 m ou mais e nelas o jardim inteiro cabe numa linha:
+
+| vista | o que julga |
+|---|---|
+| `spherepodio` | pedestre SOBRE o pódio (r 95), olhando ao longo da coroa: é a chapa do pedido |
+| `spherejardim` | pedestre DENTRO do canteiro 3 (r 168, φ 232): aro, relva, sebe, topiária, cipreste, escadaria e coroa no mesmo quadro |
+| `spherechao` | de 700 m de altura: o DESENHO do deck, os quatro compartimentos e os quatro portões |
+
+⚠️ **As três têm `y` cravado, ao contrário de `sphererua`, de propósito.** `OLHOSFIXOS`
+pergunta a cota ao vivo, e a cota ao vivo é o RELEVO (82 a 116 m por ali), não a laje: um
+olho pedido ao terreno em cima do deck sai DEBAIXO dele, em até 16,6 m de rocha. As cotas são
+as duas construídas, deck 116,4 e pódio 118,6, mais 1,7 m de olho. Se `SPHERE_MOD` mudar,
+recalcule com `doJardim(r, φ)` de `sphere-jardim-plano.ts`.
+
+## Aberto no jardim
+
+- [ ] **água.** Um espelho d'água ao pé de um telão de LED de 196 m é a melhor peça que este
+      jardim ainda não tem: ele dobra a tela. Não entrou porque não há eixo para ele. Medido:
+      o corredor do arco tem **12,60 m** de fundo e a única profundidade de verdade está nas
+      quinas (**54,9 a 72 m**), onde uma lâmina viraria um lago de canto em vez de um eixo.
+      Um anel de lâmina d'água de 2,00 m sobre o PÓDIO cabe (r 93 a 95) e custaria uma
+      chamada, mas parte a promenade de 6,57 m em duas de 2,98 e 3,20: é a troca a fazer com
+      o fundador, não sozinho.
+- [ ] **o avental do talude.** As duas pontas do arco do lote têm 58 a 65 m de terreno natural
+      entre o deck e a divisa, com relevo de 97,2 a 115,7 m: é onde caberia um bosque plantado
+      no chão de verdade, que mascararia a saia vertical vista de baixo. Não entrou nesta
+      rodada porque plantar em terreno natural é trabalho de `arborizacao.ts` e do modelo de
+      custo dela, e misturar colocação à mão num lote que ela também toca é como se planta
+      duas árvores no mesmo buraco.
+- [ ] **os três portões que não abrem** (φ 90, 180, 270) continuam sem ligação com o chão:
+      10,66 a 16,62 m de saia. Escadaria monumental ou rampa longa, obra de outro porte.
+
 ## Aberto depois da correção
 
-- [ ] **acesso ao pódio**: 2,2 m de face vertical não se sobe a pé. A geometria já está
-      subdividida em 96 gomos para receber o corte de uma escadaria sem refazer a peça, mas
-      escada/rampa é programa de praça, que continua em aberto.
+- [x] **acesso ao pódio**: FEITO em 07/09 à noite, com o jardim. Quatro escadarias de 22 m,
+      14 espelhos de 15,71 cm e 13 pisos de 36 cm (Blondel 67,4). Ver "O JARDIM DO PÓDIO".
 - [ ] **a posição**: o fundador avisou que estuda trazer a peça para perto da praça central.
       O sítio está parametrizado (tudo sai de `SPHERE_MOD`, a cota é medida), então mudar é
       trocar uma linha **e varrer a malha viária de novo**, que é o passo que já custou o
@@ -886,10 +1167,14 @@ porque só a ponta da chain a alimenta. Passado o alvo, o módulo vira `#966670`
 - [x] a proporção entre dado e propaganda garantida no CÓDIGO: `TETO_ANUNCIO = 0,30` mais
       `podeAnunciar()`, com livro-caixa de tempo de tela e a regra "sem dado não existe
       intervalo". Medido em três cenários de falha.
-- [ ] **o talude na quina baixa do lote** vira terraço. Hoje é saia reta. Ele caiu de 20,6
-      para **16,6 m** com o deck apertado, mas continua sendo saia.
-- [ ] **o programa da praça da base**. O espaço agora é **28,0 m no radial e 37,0 no arco**
-      por lado, contra o embasamento, e o chão é caminhável; nada além disso. A cidade vai para terceira pessoa e
-      alguém vai pisar aqui a 1,7 m de altura de olho.
+- [ ] **o talude na quina baixa do lote** vira terraço. Hoje é saia reta, e a medição de
+      07/09 à noite mostrou que ela é VERTICAL, não inclinada (`construirBase` põe os dois
+      vértices no mesmo x, z). Por aresta: rua externa 0,40 a 1,46, ponta do arco 0,40 a
+      10,89, rua interna 10,66 a 16,62, ponta do arco 1,46 a 16,62. O jardim abriu a única
+      que o chão alcança (φ 0, 0,86 m, 5 degraus); as outras três continuam muro.
+- [x] **o programa da praça da base**: FEITO em 07/09 à noite. Cinto de 6,91 m livre nos
+      360°, quatro compartimentos de canteiro de 65,7° cada (15.215 m², 26,4% do deck),
+      1.302 m de aro que é o banco, 40 tamareiras sobre o pódio, 36 topiárias, 10 ciprestes,
+      24 postes e parapeito em todo o perímetro. Ver "O JARDIM DO PÓDIO".
 - [ ] `iluminar()` precisa ser chamado com a hora do ar da cena. Enquanto ninguém chamar, a
       esfera usa um dia lunar padrão e não acompanha o entardecer da cidade.

@@ -230,13 +230,32 @@ export const GIRO_CAMPUS = -((_cx.a0 + _cx.a1) / 2)
  * desenhariam fileiras de rua fantasma sobre um pódio cívico. O campus tem de
  * ser plantado de propósito, com desenho próprio.
  *
- * ⚠️ E A VEDAÇÃO SAI EM CÍRCULOS PORQUE É ASSIM QUE `arborizacao.ts` ACEITA. Ela
- * tem duas máscaras: `pecas` (retângulo girado, alimentada por dentro pelo
- * programa do gerador) e `covas` (círculos, que praça e peça pedem de fora). A
- * laje é um quadrilátero de 1.682 x 476 m; uma corrente de círculos de raio 250
- * a cada 152 m cobre a largura inteira, porque no meio de dois vizinhos a
- * cobertura vale √(250² − 76²) = 238 m, que é exatamente a meia-largura. O
- * transbordo é de 12 m por lado, e cai na franja, onde não se planta mesmo.
+ * ⚠️⚠️ ESTA FUNÇÃO NÃO VEDA NADA, E ACREDITAR QUE VEDAVA CUSTOU ÁRVORE DENTRO
+ * DE PRÉDIO. Ela foi escrita supondo que `arborizacao.ts` tem duas máscaras,
+ * `pecas` e `covas`. **`covas` NÃO é máscara: é LISTA DE PLANTIO.** O laço que a
+ * consome (`arborizacao.ts:432`) faz `mudas.push(criarMuda(c.x, c.z, ...))` em
+ * cada círculo, e é o ÚNICO laço do arquivo que não chama `emPeca` (as passadas
+ * de fileira chamam, nas linhas 331, 365, 522 e 583). O `r` do círculo é
+ * ignorado pelo plantio. Então a corrente de 13 círculos de raio 250 sobre o
+ * eixo não vedou nada: plantou 13 árvores no eixo, imunes à máscara de peça, e
+ * o eixo é exatamente onde as três arenas estão.
+ *
+ * Medido em 07/09 contra `sitioNoCampus()` e o giro real da cena: **7 das 13
+ * caíam dentro do envelope CONSTRUÍDO** de uma arena, três no ARENA (303 x 261),
+ * duas no atletismo (320 x 240) e duas no GEODE (224 x 201). O fundador viu em
+ * produção antes de qualquer conferência nossa.
+ *
+ * ⚠️ A CHAMADA FOI REMOVIDA DE `plaza-scene.tsx`. A função fica aqui, sem uso,
+ * porque a conta de cobertura dela continua correta e serve para o dia em que
+ * existir uma máscara de exclusão de verdade: a laje é um quadrilátero de
+ * 1.682 x 476 m, e círculos de raio 250 a cada 152 m cobrem a largura inteira,
+ * porque no meio de dois vizinhos a cobertura vale √(250² − 76²) = 238 m, que é
+ * a meia-largura, com transbordo de 12 m por lado caindo na franja.
+ *
+ * ⚠️ QUEM VEDA O CAMPUS HOJE É `campusParcela()`, que entra em `parcelas` e vira
+ * `emPeca` pelo `cidade.json`. As 458 árvores enterradas sob a laje eram das
+ * passadas de FILEIRA, e são elas que a parcela resolve. NÃO reintroduza esta
+ * chamada esperando vedação.
  */
 export function covasDoCampus(): { x: number; z: number; r: number }[] {
   const R = 250, PASSO = 152

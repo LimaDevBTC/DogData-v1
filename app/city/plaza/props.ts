@@ -101,6 +101,27 @@ export interface PropSpec {
   jitter?: number
   /** metros acima do terreno (para peça que deve afundar ou flutuar) */
   lift?: number
+  /**
+   * ⚠️ A COTA DE POUSO, PARA A PEÇA QUE MORA SOBRE LAJE E NÃO SOBRE O RELEVO.
+   *
+   * Sem isto, `place()` pousa tudo em `heightAt(x, z) + lift`, ou seja na
+   * SUPERFÍCIE do terreno, e `lift` é um escalar. Isso está certo para toda a
+   * praça e continua sendo o padrão; e está certo até para o pódio do campus
+   * esportivo, porque lá o verificador garante que o chão sob a laje não foge
+   * da cota em mais de 1 cm.
+   *
+   * Não serve para THE SPHERE. O deck dela é nivelado em 116,4 m sobre relevo
+   * que vai de **99,78 a 116,00 m** (medido em `sphereAssentar`), ou seja 16,2 m
+   * de variação sob uma laje plana: nenhum `lift` escalar acerta os dois lados.
+   * Uma tamareira da coroa ficaria enterrada ou pendurada conforme a quina.
+   *
+   * A cota é uma FUNÇÃO do `heightAt`, e não um número, porque a tabela é
+   * avaliada na importação do módulo, muito antes de o terreno carregar. Quem
+   * usa hoje: as três linhas do jardim do pódio, todas com
+   * `cota: sphereCotaDeck`. `lift` continua valendo POR CIMA dela, e é assim que
+   * a coroa sobe do deck para o pódio (`lift: SPHERE_PODIO_H`).
+   */
+  cota?: (heightAt: (x: number, z: number) => number) => number
   /** a partir de quantos metros some; padrão: o `smallCull` do perfil */
   cull?: number
   /**
@@ -377,11 +398,14 @@ export async function buildProps(opts: {
     })
     dressSf(root, { envMapIntensity: spec.envMapIntensity ?? 1.0, castShadow: spec.castShadow ?? true })
     const o = new THREE.Object3D()
+    // a cota da laje, se a linha declarar uma: uma consulta por SPEC, não por
+    // peça (`sphereCotaDeck` já tem memória própria, mas nem toda função terá)
+    const cotaLaje = spec.cota ? spec.cota(yAt) : null
     const place = (x: number, z: number) => {
       const h = hash(x, z)
       const s = (spec.scale ?? 1) * (1 + (spec.jitter ?? 0) * (h - 0.5) * 2)
       const yaw = spec.yaw === 'center' ? Math.atan2(-x, -z) : spec.yaw === 'out' ? Math.atan2(x, z) : THREE.MathUtils.degToRad(spec.yaw ?? 0) + (spec.jitter ? h * 6.28 : 0)
-      o.position.set(x, yAt(x, z) + (spec.lift ?? 0), z)
+      o.position.set(x, (cotaLaje ?? yAt(x, z)) + (spec.lift ?? 0), z)
       o.rotation.set(0, yaw, 0)
       o.scale.setScalar(s)
       o.updateMatrix()

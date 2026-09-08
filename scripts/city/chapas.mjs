@@ -113,6 +113,44 @@ const VISTAS = {
   cr02:      [983, 520, -688, 2568, -40, -1798, 45],
   cr03:      [3985, 700, -349, 6087, -40, -533, 45],
   geodeperto:[2671, 130, 1286, 2968, 34, 1429, 42],
+  // ⚠️ THE SPHERE, acrescentada em 07/09 quando o fundador apontou em produção
+  // que "o texto está somente na parte de baixo". O sítio é o módulo
+  // {i:20, j:108}: centroide medido em (-4.164,8, 3.072,5), r 5.175,5, e o
+  // CENTRO da esfera a y = 158,54 (tabuleiro 116,4 + 0,43 R). As quatro vistas
+  // são contrato e existem porque a queixa é de LATITUDE: onde a faixa cai na
+  // silhueta muda com a altura do olho, então uma chapa só não julga a peça.
+  //   `sphere`      a chapa do fundador: olho na cota do CENTRO, 520 m
+  //   `sphererua`   pedestre a 500 m (y=0 é elevado para chão+1,7 pela cena)
+  //   `spherealto`  de cima, 700 m e 500 m de altura: o pior caso da faixa baixa
+  //   `spherelonge` 1.600 m, onde só sobra o anel aceso
+  sphere:     [-3746, 158, 2764, -4165, 150, 3072, 42],
+  spherealto: [-3602, 500, 2657, -4165, 158, 3072, 42],
+  spherelonge:[-2877, 400, 2123, -4165, 158, 3072, 42],
+  // ⚠️ TRÊS VISTAS NOVAS, 07/09, PARA O JARDIM DO PÓDIO, e elas existem porque
+  // as quatro acima NÃO julgam o que o fundador pediu. Todas as quatro miram o
+  // centro da esfera de 500 m ou mais: nelas o embasamento tem 20 pixels e o
+  // jardim inteiro cabe numa linha. O pedido é de PAISAGISMO SOBRE O PÓDIO, e
+  // paisagismo se julga a 1,7 m de altura de olho, que é para onde a cidade vai
+  // (terceira pessoa estilo GTA).
+  //
+  // ⚠️ E AS TRÊS TÊM `y` CRAVADO, ao contrário de `sphererua`, DE PROPÓSITO:
+  // `OLHOSFIXOS` pergunta a cota ao vivo, e a cota ao vivo é o RELEVO (82 a
+  // 116 m por ali), não a laje. Um olho pedido ao terreno em cima do deck sai
+  // DEBAIXO dele, em até 16,6 m de rocha. As cotas aqui são as duas construídas
+  // e medidas: deck 116,4 (mais 1,7 de olho = 118,1) e pódio 118,6 (mais 1,7 =
+  // 120,3). Se `SPHERE_MOD` mudar, estas três linhas mudam com ele, e o jeito
+  // de recalculá-las é `doJardim(r, φ)` de `sphere-jardim-plano.ts`.
+  //
+  //   `spherejardim`  pedestre DENTRO do canteiro 3 (r 168, φ 232), olhando a
+  //                   esfera por cima do parterre: julga aro, relva, sebe,
+  //                   topiária, cipreste, escadaria e coroa no mesmo quadro
+  //   `spherepodio`   pedestre SOBRE o pódio, na promenade (r 95), olhando ao
+  //                   longo da coroa de tamareiras: é a chapa do pedido
+  //   `spherechao`    de 700 m de altura e r 265, para ler o DESENHO do deck:
+  //                   os quatro compartimentos, os quatro portões e o cinto
+  spherejardim:[-3998, 118.1, 3092.9, -4164.8, 148.4, 3072.5, 55],
+  spherepodio:[-4090.9, 120.3, 3012.7, -4072.8, 127.6, 3111.5, 60],
+  spherechao: [-3924.6, 816.4, 2960.5, -4164.8, 116.4, 3072.5, 42],
   // ⚠️ ENQUADRAMENTOS NOVOS, 03/09, e o motivo é o que o cabeçalho do terrain.ts
   // avisa: MEXER NA ALTURA MOVE O MUNDO. A coroa foi de 2.619 para 5.513 m e a
   // `abobada` acima, calibrada para a casca velha, passou a fotografar céu preto:
@@ -379,6 +417,12 @@ const acharRua = (pag, [x0, z0, rumo, fov]) =>
 //                 ser o que importa nesta vista.)
 const OLHOSFIXOS = {
   florestaolho: [-7096, -248, 225, 55],
+  // ⚠️ A DA ESFERA NÃO PODE TER `y` À MÃO, e a primeira tentativa provou: cravar
+  // 0 (esperando que a cena elevasse para chão+1,7) deu chapa preta. O terreno em
+  // volta do sítio da Sphere vai de 99,8 a 116,0 m e o deck está em 116,4, então
+  // aqui `y` é sempre chão ao vivo, como no resto de OLHOSFIXOS. Ponto a 500 m do
+  // centro na direção da praça central, rumo 233,7° (o mesmo radial do módulo).
+  sphererua:  [-3762, 2776, 233.7, 55],
 }
 
 /** Resolve uma semente de OLHOSFIXOS: pergunta a cota ao vivo no PONTO DADO
