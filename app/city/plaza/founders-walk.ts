@@ -123,7 +123,23 @@ export function buildFoundersWalk(opts: { heightAt: (x: number, z: number) => nu
   // ⚠️ OS DOIS LADOS CAEM PELO MESMO FATOR. Escalar só o maior deformaria cada
   // célula do atlas, e o UV de cada placa é calculado a partir de COLS/ROWS.
   const COLS = 8, ROWS = 6
-  const escT = (opts.profile?.texLado?.(COLS * 512) ?? COLS * 512) / (COLS * 512)
+  // ⚠️ TETO PRÓPRIO NO CELULAR, ABAIXO DO TETO DO PERFIL, e ele é o corte com o
+  // PIOR CUSTO POR MB de toda a limpeza de 07/09. O censo em produção mediu
+  // 11,5 MB numa textura só (2048 x 1056), o maior sobrevivente da cena; com
+  // 1.024 ela cai para 2,9 MB. O preço: cada placa passa de 256 x 176 para
+  // 128 x 88 px, e placa daqui é o NOME DO FUNDADOR, lido de perto, que é a
+  // única coisa que importa neste lugar.
+  //
+  // ⚠️ ENTÃO O NÚMERO FICA AQUI, SOZINHO E NOMEADO. Se a chapa de perto mostrar
+  // nome borrado, suba `TETO_ATLAS_MOVEL` para 1536 (6,5 MB, 192 px por placa)
+  // ou 2048 (o que era antes) e nada mais precisa mudar. Não mexa em `texLado`
+  // de `perf.ts` para consertar isto: aquele teto também governa a abóbada, os
+  // decalques e a Sphere, que não foram medidos nesta rodada.
+  const TETO_ATLAS_MOVEL = 1024
+  const base = COLS * 512
+  const tetoPerfil = opts.profile?.texLado?.(base) ?? base
+  const teto = opts.profile?.cortaTextura ? Math.min(tetoPerfil, TETO_ATLAS_MOVEL) : tetoPerfil
+  const escT = teto / base
   const TW = Math.round(512 * escT), TH = Math.round(352 * escT)
   const atlas = document.createElement('canvas')
   atlas.width = COLS * TW; atlas.height = ROWS * TH
