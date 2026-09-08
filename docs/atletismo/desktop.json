@@ -3,15 +3,15 @@
   "requests": [
     {
       "url": "http://localhost:3000/city/dog-athletics-base.glb",
-      "ms": 26853
+      "ms": 66484
     },
     {
       "url": "http://localhost:3000/city/dog-athletics-detail.glb",
-      "ms": 31440
+      "ms": 81786
     }
   ],
   "errors": [
-    "[obra] \"Winter Park\" caiu e foi descartada TypeError: Cannot read properties of undefined (reading 'pontos')\n    at buildInvernoDetalhe (webpack-internal:///(app-pages-browser)/./app/city/plaza/inverno-detalhe.ts:724:35)\n    at Object.fatia (webpack-internal:///(app-pages-browser)/./app/city/plaza/inverno.ts:3262:98)\n    at fatia.next (<anonymous>)\n    at Obra.passo (webpack-internal:///(app-pages-browser)/./app/city/plaza/obra.ts:81:44)\n    at PlazaScene.useEffect.animate (webpack-internal:///(app-pages-browser)/./app/city/plaza/plaza-scene.tsx:6225:33)"
+    "[obra] \"Winter Park\" caiu e foi descartada TypeError: Cannot read properties of undefined (reading 'pontos')\n    at buildInvernoDetalhe (webpack-internal:///(app-pages-browser)/./app/city/plaza/inverno-detalhe.ts:724:35)\n    at Object.fatia (webpack-internal:///(app-pages-browser)/./app/city/plaza/inverno.ts:3262:98)\n    at fatia.next (<anonymous>)\n    at Obra.passo (webpack-internal:///(app-pages-browser)/./app/city/plaza/obra.ts:81:44)\n    at PlazaScene.useEffect.animate (webpack-internal:///(app-pages-browser)/./app/city/plaza/plaza-scene.tsx:6776:33)"
   ],
   "warnings": [
     "THREE.BufferGeometry.toNonIndexed(): BufferGeometry is already non-indexed.",
@@ -25,7 +25,7 @@
     "[atletismo] detalhe pronta (desktop)"
   ],
   "renderer": "ANGLE (NVIDIA Corporation, NVIDIA GeForce GTX 1650/PCIe/SSE2, OpenGL 4.5.0)",
-  "cityReadyMs": 26831,
+  "cityReadyMs": 65977,
   "far": {
     "state": {
       "base": "ready",
@@ -33,23 +33,23 @@
     },
     "visible": true,
     "position": [
-      3704.744638226444,
-      -16.56686254019323,
-      1616.363562300393
+      3340.25860031831,
+      -15.799999999999999,
+      261.0238803779258
     ],
-    "triangles": 13146,
+    "triangles": 13370,
     "meshes": 12,
     "textures": 0,
     "contextLost": 0,
     "stats": {
-      "fps": 60,
-      "calls": 403,
-      "triangles": 4849827,
-      "points": 9201,
+      "fps": 55,
+      "calls": 358,
+      "triangles": 5059263,
+      "points": 7601,
       "lines": 207,
-      "programs": 391,
-      "textures": 58,
-      "geometries": 370,
+      "programs": 329,
+      "textures": 65,
+      "geometries": 327,
       "dpr": 1,
       "tier": "desktop",
       "quality": "balanced",
@@ -65,31 +65,31 @@
     },
     "visible": true,
     "position": [
-      3704.744638226444,
-      -16.56686254019323,
-      1616.363562300393
+      3340.25860031831,
+      -15.799999999999999,
+      261.0238803779258
     ],
-    "triangles": 26442,
+    "triangles": 25706,
     "meshes": 19,
     "textures": 0,
     "contextLost": 0,
     "stats": {
-      "fps": 60,
-      "calls": 106,
-      "triangles": 4614730,
-      "points": 9201,
+      "fps": 75,
+      "calls": 111,
+      "triangles": 4907808,
+      "points": 7601,
       "lines": 207,
-      "programs": 405,
-      "textures": 98,
-      "geometries": 397,
+      "programs": 404,
+      "textures": 107,
+      "geometries": 375,
       "dpr": 1,
       "tier": "desktop",
       "quality": "balanced",
-      "shadowEvery": 1,
+      "shadowEvery": 2,
       "pos": "composer"
     },
     "detailVisible": true
   },
   "ok": true,
-  "elapsedMs": 36617
+  "elapsedMs": 87044
 }

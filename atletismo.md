@@ -111,12 +111,13 @@ navegador no `finally`. Grava imagens, requisições,
 contagem de primitivas/triângulos e console em `/tmp/dogcity-atletismo/browser/`.
 O perfil mobile é emulado; não equivale a uma medição em telefone físico.
 
-Conferência de 07/09/2026 aprovada em Chrome com GTX 1650: TypeScript,
-implantação e ciclo de carga; no navegador, base solicitada após o portão,
-um download no mobile e dois no desktop após aproximação, sem texturas da
-peça, pedidos duplicados ou perda de contexto WebGL. Os testes de ciclo
-cobrem também economia de dados, qualidade baixa, passagem rápida,
-reaproximação, falha de rede e descarte durante uma carga pendente.
+Conferência de 08/09/2026 aprovada em Chrome com GTX 1650 após a implantação
+da coroa orbital: TypeScript, implantação e ciclo de carga; no navegador, base
+solicitada após o portão, um download no mobile e dois no desktop após
+aproximação, sem texturas da peça, pedidos duplicados ou perda de contexto
+WebGL. Os testes de ciclo cobrem também economia de dados, qualidade baixa,
+passagem rápida, reaproximação, falha de rede e descarte durante uma carga
+pendente.
 
 Evidências finais: [complexo](docs/atletismo/desktop-complexo.jpg),
 [desktop próximo](docs/atletismo/desktop-perto.jpg),
