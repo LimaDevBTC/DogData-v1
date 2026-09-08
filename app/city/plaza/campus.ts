@@ -249,6 +249,50 @@ export function covasDoCampus(): { x: number; z: number; r: number }[] {
   return out
 }
 
+/**
+ * A ALAMEDA DO CAMPUS: as tamareiras nas duas bordas longas do pódio.
+ *
+ * Partido definido pelo fundador em 07/09: "mais árido, pedra e tamareira",
+ * "espaçada e monumental, grandes e grossas, com o corte diamante tradicional na
+ * copa". Sem gramado, sem canteiro: o chão é a pedra da laje e o verde é só a
+ * palmeira.
+ *
+ * ⚠️ A ESPÉCIE É `palm-tall`, E A ESCOLHA FOI VISTA, NÃO DEDUZIDA. As três
+ * tamareiras do acervo foram renderizadas lado a lado em EEVEE antes de decidir:
+ *
+ *   · `palm-date`   14,0 m de altura, copa de 10,4 m, tronco fino e esguio;
+ *   · `tree-date-hero` 15,0 m e copa de 4,7 m porque É SÓ UM TRONCO: a
+ *     digitalização fotogramétrica veio sem copa nenhuma (defeito do acervo,
+ *     registrado aqui porque onde ela estiver plantada aparece como um toco);
+ *   · `palm-tall`   16,1 m de altura, copa de 14,6 m, tronco grosso COM o corte
+ *     diamante das bainhas podadas. É a que o fundador descreveu.
+ *
+ * ⚠️ E ELAS VÃO NAS BORDAS, NÃO NO EIXO. O eixo é onde as três arenas estão; uma
+ * alameda central passaria por dentro delas. Nas bordas longas a fileira
+ * emoldura o pódio e dá escala aos 1,68 km sem disputar espaço com nada.
+ */
+export function palmeirasDoCampus(passo = 80): [number, number][] {
+  const borda = recuar(_laje, 40)
+  const n = borda.length
+  const arestas = borda.map((p, i) => {
+    const q = borda[(i + 1) % n]
+    return { p, q, L: Math.hypot(q[0] - p[0], q[1] - p[1]) }
+  })
+  // as duas arestas LONGAS são as bordas do pódio; as curtas são as pontas
+  const longas = [...arestas].sort((a, b) => b.L - a.L).slice(0, 2)
+  const out: [number, number][] = []
+  for (const a of longas) {
+    // ⚠️ O PASSO SE AJUSTA AO COMPRIMENTO, e não o contrário: a fileira tem de
+    // fechar simétrica nas duas pontas, senão sobra um vão torto num lado só.
+    const k = Math.max(2, Math.round(a.L / passo))
+    for (let i = 0; i <= k; i++) {
+      const t = i / k
+      out.push([a.p[0] + (a.q[0] - a.p[0]) * t, a.p[1] + (a.q[1] - a.p[1]) * t])
+    }
+  }
+  return out
+}
+
 /** o topo da laje: é aqui que as três peças pousam */
 export const PODIO_TOPO = CAMPUS_Y + PODIO_H
 

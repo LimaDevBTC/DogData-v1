@@ -18,6 +18,7 @@ import { PAD_MAIN } from './orbit-layer'
 // bandeira `?verde=1` que `arborizacao.ts` usa (ver a nota dela em
 // `especies.ts`): um valor, um lugar, lido por quem precisar.
 import { verde, hash01 } from './especies'
+import { palmeirasDoCampus, PODIO_H, EIXO_CAMPUS } from './campus'
 
 const rad = (d: number) => (d * Math.PI) / 180
 
@@ -419,6 +420,22 @@ export const PROPS: readonly PropSpec[] = [
   {
     file: 'palm-tall', why: 'oito palmeiras altas nas quatro portas do deck, para marcar a subida',
     at: DECK_GATE_PALMS, jitter: 0.08, cull: 1700,
+  },
+  // ── A ALAMEDA DO CAMPUS ESPORTIVO ────────────────────────────────────────
+  // Partido do fundador em 07/09: "mais árido, pedra e tamareira", "espaçada e
+  // monumental, grandes e grossas, com o corte diamante tradicional na copa".
+  // O chão é a pedra do pódio; o verde é só a palmeira. A escolha da espécie foi
+  // VISTA em EEVEE antes de decidir, e a nota está em `palmeirasDoCampus`.
+  //
+  // ⚠️ `lift` É A ESPESSURA DA LAJE, e só funciona porque o chão sob ela é plano.
+  // O prop pousa em `heightAt + lift`, e o verificador do campus garante que o
+  // terreno sob o pódio não foge da cota em mais de 1 cm.
+  // ⚠️ E `center` NÃO É OPCIONAL AQUI: sem ele o corte mede da praça e a alameda
+  // sumiria justamente quando alguém chegasse ao campus. Ver `PropSpec.center`.
+  {
+    file: 'palm-tall', why: 'a alameda do campus esportivo: 42 tamareiras nas duas bordas longas do pódio',
+    at: palmeirasDoCampus(), jitter: 0.10, lift: PODIO_H, cull: 2400,
+    center: [EIXO_CAMPUS.x, EIXO_CAMPUS.z],
   },
   // ── o deck central, DEPOIS DA LIMPEZA (2026-08-19) ─────────────────────────
   // O deck ficou com o que significa: podium, escadarias, colunata e o inlay do

@@ -103,6 +103,15 @@ export interface PropSpec {
   lift?: number
   /** a partir de quantos metros some; padrão: o `smallCull` do perfil */
   cull?: number
+  /**
+   * ⚠️ DE ONDE O CORTE É MEDIDO, e sem isto ele mede da PRAÇA. `DistanceCuller`
+   * esconde a peça quando a CÂMERA se afasta mais de `cull` do centro, e o
+   * centro padrão é (0,0,0). Para tudo que mora na praça isso está certo. Para
+   * uma peça que mora a quilômetros dali (a alameda do campus esportivo está a
+   * r 3.294) o padrão inverte o sentido: ela apareceria vista da praça e sumiria
+   * justamente quando alguém chegasse perto. Declare o centro dela aqui.
+   */
+  center?: [number, number]
   castShadow?: boolean
   envMapIntensity?: number
   /** Atrás de `?copa=1` (ver `COPA` abaixo): a faixa de variação de cor POR
@@ -414,7 +423,8 @@ export async function buildProps(opts: {
         im.receiveShadow = true
         im.name = `prop:${spec.file}`
         group.add(im)
-        opts.culler?.add(im, spec.cull ?? SMALL)
+        opts.culler?.add(im, spec.cull ?? SMALL,
+          spec.center ? new THREE.Vector3(spec.center[0], 0, spec.center[1]) : undefined)
       }
     } else {
       // Antes: `root.clone(true)` reaproveitava a hierarquia inteira do GLB.
