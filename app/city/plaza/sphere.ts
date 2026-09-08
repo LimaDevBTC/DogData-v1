@@ -496,49 +496,30 @@ export function sphereLatDaLinha(linha: number): number {
 // ── o interior da faixa, em linhas de LED ──────────────────────────────────
 // ⚠️ A FAIXA É DIMENSIONADA PELA LETRA, e não o contrário: doutrina do letreiro
 // do Estádio (`estadio.md`), que a pagou com um painel de 10,5 m para letra de
-// 7,35. Aqui: margem 8, linha grande 56 (7 x 8), vão 8, linha pequena 28
-// (7 x 4), margem 8 = **108 linhas**, e a soma fecha.
-// ⚠️ ERAM 108 NA CONTA E 100 NO CÓDIGO, E ISSO ERA DEFEITO. Enquanto o limite
-// era o colar (a janela livre tinha 101 linhas) a faixa foi cravada em 100, e a
-// conta acima nunca bateu: 8+56+8+28 = 100 já sem margem NENHUMA embaixo, ou
-// seja a linha pequena encostava na borda do painel. Com a faixa no centro
-// óptico o oclusor sumiu, então a margem de baixo passou a existir de verdade e
-// a faixa mede 108 linhas = **32,47 m**. As escalas 8 e 4 continuam intactas e a
-// letra não mudou de tamanho (12,03 x 16,84 m a grande, 6,01 x 8,42 a pequena).
-const FX_MARGEM = 8
+// 7,35. Aqui: margem 18, linha grande 56 (7 x 8), vão 8, linha pequena 28
+// (7 x 4), margem 18 = **128 linhas**, e a soma fecha.
+//
+// ⚠️ OS NÚMEROS FÍSICOS DESTE BLOCO SÃO DE `SPHERE_DIAM`, E ELE JÁ MUDOU CINCO
+// VEZES. Com 401,0 m: passo do LED **61,51 cm**, linha grande **34,45 m**,
+// pequena **17,22 m**, faixa **78,74 m** de altura. Comentário anterior publicava
+// os números da esfera de 196 m e sobreviveu a três mudanças de escala sem
+// ninguém remedir, o que fez dois especialistas herdarem o corte errado.
 const FX_GRANDE_ESCALA = 8   // linhas de LED por pixel de glifo
 const FX_PEQUENA_ESCALA = 4
 const FX_VAO = 8
 
 /**
- * ⚠️ O REGISTRO DE LONGE: UMA LINHA SÓ, DOBRO DA ESCALA, SÓ O VALOR.
+ * ⚠️ A MARGEM É 18 E ISSO É GEOMETRIA, NÃO SOBRA. Com 18 o miolo da linha grande
+ * cai na LINHA 414, a 2,18 m do centro óptico da silhueta (linha 418): o valor
+ * fica exatamente onde o olho pousa, de qualquer altura de câmera.
  *
- * Medido na tela da live (1080 px, fov 42, `pxAng` 6,787e-4), com o critério de
- * 9 px de altura de letra que esta casa usa:
- *
- *     escala 8 (perto)   letra 16,84 m   32 casas   legível até **2.757 m**
- *     escala 16 (longe)  letra 33,69 m   16 casas   legível até **5.515 m**
- *
- * ⚠️ E 16 NÃO É ESCOLHA DE GOSTO, É A PRÓXIMA QUE FECHA A VOLTA. O texto tem de
- * dar a volta num número inteiro de casas: `2048 / (8 x escala)` só é inteiro
- * para escala em potência de dois. 8 dá 32 casas, 16 dá 16, e 15 daria 17,07, ou
- * seja emenda visível no meridiano. Não existe meio termo entre 2.757 e 5.515 m.
- *
- * ⚠️ O QUE ELE MOSTRA É O VALOR E MAIS NADA. O rótulo (a linha pequena) já é
- * ilegível bem antes: com 8,42 m ele morre em 1.378 m. Insistir nele de longe
- * gastaria metade da faixa com borrão. 16 casas cobrem qualquer valor que esta
- * peça publica (o orçamento de perto já era 7).
- *
- * ⚠️ E EXISTE UM TETO FÍSICO ACIMA DISTO, DECLARADO. Para ler a 9 px a letra
- * precisa de 30,5 m aos 5 km, 48,9 m aos 8 km e **67,2 m aos 11,8 km** (a
- * distância do spaceport). Os 67 m são um terço do diâmetro da esfera: ali não
- * há texto, há um caractere gigante. Além de 5,5 km quem carrega significado é o
- * ANEL: a cor da faixa, a respiração e o pulso de evento, que já existem e não
- * dependem de resolver letra. Ver a seção 5.1.
+ * ⚠️ NÃO ENCOLHA A FAIXA DE VOLTA PARA 108 LINHAS. Ela cresceu para 128 em 08/09
+ * para caber um REGISTRO DE LONGE que foi removido no mesmo dia; quem ler só a
+ * história vai querer desfazer. A razão nova é melhor que a antiga: 128 linhas
+ * com margem 18 põem o valor no centro óptico, e 108 com margem 8 o poriam em
+ * 404, 8,6 m acima dele.
  */
-const FX_LONGE_ESCALA = 16
-/** margem do modo perto dentro da faixa nova; o de longe usa 8 */
-const FX_MARGEM_PERTO = 18
+const FX_MARGEM = 18
 
 /**
  * ⚠️ A LETRA MORRE POR PIXEL DE TELA, NÃO POR CONSTANTE DE PERFIL, E ATÉ 08/09
@@ -601,7 +582,6 @@ export const SPHERE_LETRA_ALTURA = 7 * FX_GRANDE_ESCALA * (Math.PI * SPHERE_R / 
  */
 export const SPHERE_CHARS_GRANDE = SPHERE_GRADE_COLS / (8 * FX_GRANDE_ESCALA)   // 32
 export const SPHERE_CHARS_PEQUENA = SPHERE_GRADE_COLS / (8 * FX_PEQUENA_ESCALA) // 64
-export const SPHERE_CHARS_LONGE = SPHERE_GRADE_COLS / (8 * FX_LONGE_ESCALA)     // 16
 
 /**
  * ⚠️ O ORÇAMENTO DE CARACTERES DO CONTEÚDO, e ele é apertado.
@@ -948,6 +928,59 @@ export const SPHERE_PULSO_SOBE_MS = 600
 export const SPHERE_PULSO_MS = 3_200
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 5.2 FX-EIXO: os gestos de casca inteira
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * ⚠️ TRÊS GESTOS, E SÓ TRÊS. Pedido do fundador: *"a esfera de Las Vegas chama a
+ * atenção quando ela inteira vira um emoji (…) quero mais efeitos que usam a
+ * esfera inteira"*. A tentação é uma biblioteca de efeitos; a disciplina é o
+ * contrário. Cada gesto novo é um vocabulário a mais que o espectador precisa
+ * aprender, e a doutrina desta peça separa marco de cidade de bola de discoteca
+ * pelo CONTRASTE entre o estado sóbrio e o momento, não pela variedade.
+ *
+ *   VARREDURA  eixo (0,1,0), a frente corre de polo a polo. É o gesto do BLOCO.
+ *   RADIAL     eixo câmera, um anel que sai de quem olha. É o gesto da CARTEIRA.
+ *   CORTINA    meia-largura zero, a casca inteira de uma vez. É a TROCA DE PELE.
+ *
+ * ⚠️ A CORTINA NÃO É EFEITO, É INFRAESTRUTURA. Hoje a troca de pele derruba o
+ * ganho até o vale e APAGA a esfera para repintar (o dissolve de
+ * `sphere-conteudo.ts`). Com ela, a repintura de 7 ms acontece coberta: a
+ * cobertura sobe, a textura troca, a cobertura desce. A janela de cobertura total
+ * tem 70 ms, e a repintura tem de ser disparada de dentro do `update()`, nunca do
+ * tique de 250 ms do programa, senão ela cai fora da janela.
+ */
+export const SPHERE_FX_MS = { varredura: 1400, radial: 1100, cortina: 700 } as const
+export type SphereFx = keyof typeof SPHERE_FX_MS
+
+/**
+ * O menor valor de `s = dot(p, (0,1,0))` que a casca tem, ou seja o corte.
+ *
+ * ⚠️ DERIVADO, NUNCA CRAVADO: ele é a mesma conta de `thetaMax` em `buildSphere`,
+ * e já mudou junto com o pódio e com a escala. Com `SPHERE_PODIO_H = 0` vale
+ * **-0,43499**, e o meio do campo visível cai em `(-0,43499 + 1)/2 = 0,28251`
+ * contra `sin(16,56°) = 0,28502` do centro óptico: 0,5 m de casca de diferença.
+ * O centro óptico já era o meio do campo, e isso é coincidência de projeto que
+ * vale reconhecer em vez de remedir.
+ */
+export const SPHERE_S_MIN = -(SPHERE_ENTERRO * SPHERE_R - (SPHERE_PODIO_H - 1.0)) / SPHERE_R
+
+/**
+ * ⚠️ A FRENTE ENGORDA COM A DISTÂNCIA, e sem isso ela some. `hw` é a meia-largura
+ * em unidades de `s`. O piso de 0,008 são cerca de 5 linhas de LED: abaixo disso
+ * a frente bate de frente com o padrão de disco do próprio shader e cintila. O
+ * termo que cresce é `1,5 · d · pxAng / R`, a mesma lógica com que `uVida` engorda
+ * a amplitude de longe: o que é fino demais para ser resolvido tem de engrossar,
+ * não desaparecer.
+ */
+/** rascunho do FX, para o laço de quadro não alocar `Vector3` */
+const _fxTmp = new THREE.Vector3()
+
+function fxMeiaLargura(d: number, pxAng: number): number {
+  return Math.max(0.008, (1.5 * d * pxAng) / SPHERE_R)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // 6. O SHADER DE LED
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1036,6 +1069,23 @@ const FS = /* glsl */`
   uniform float uVida;
   uniform float uEvento;
   uniform vec3 uCorEvento;
+  uniform vec3 uMedia;
+  // ══ FX-EIXO: o campo escalar que gera a familia de efeitos de casca inteira ══
+  //
+  // ⚠️ UM dot RESOLVE TUDO, e e por isso que este sistema cabe em ~28 ALU sem
+  // programa de shader novo. p (a posicao normalizada) ja existe nos dois
+  // materiais; s = dot(p, eixo) e um campo escalar de -1 a 1 sobre a casca, e
+  // TODO gesto vira uma frente de nivel constante nesse campo:
+  //   eixo (0,1,0)      -> varredura por latitude, de polo a polo
+  //   eixo camera-centro -> anel radial saindo de quem olha
+  //   meia-largura 0     -> mascara cheia, a casca inteira de uma vez
+  // Sem atan, sem costura de meridiano, sem fwidth, sem derivada, sem busca
+  // de textura dentro de ramo. O salto e por uniforme, entao os ~555 programas
+  // compilados continuam ~555.
+  uniform float uFxAtivo;
+  uniform vec4 uFxEixo;      // xyz eixo unitario, w poupa-faixa (0 passa por cima, 1 poupa)
+  uniform vec4 uFxFrente;    // x s0, y 1/meia-largura, z tinta, w brilho
+  uniform vec4 uFxTinta;     // rgb em LINEAR
   uniform float uRaioPonto;
   uniform float uPreenche;
   uniform float uAA;
@@ -1117,6 +1167,21 @@ const FS = /* glsl */`
     // continua mandando na textura (o sinal do disco), entao a esfera nao vira
     // uma bola de tinta lisa: ela vira um PAINEL laranja, com a grade a vista.
     cor = mix(cor, uCorEvento * (0.35 + 0.65 * sinal), uEvento * 0.88);
+
+    // ⚠️ O GATE DA FAIXA E SUAVE, E naFaixa AQUI NAO SERVE: ele e
+    // step()*step(), aresta dura. Gatear um clarao com aresta dura desenha DUAS
+    // LINHAS SERRILHADAS atravessando a esfera durante o efeito inteiro, que e
+    // exatamente o motivo pelo qual o material liso usa smoothstep na dele.
+    if (uFxAtivo > 0.5) {
+      float meioF = (uFaixaV.x + uFaixaV.y) * 0.5;
+      float meiaF = (uFaixaV.y - uFaixaV.x) * 0.5;
+      float faixaSuave = 1.0 - smoothstep(meiaF * 0.75, meiaF * 1.15, abs(uv.y - meioF));
+      float sfx = dot(p, uFxEixo.xyz);
+      float m = 1.0 - smoothstep(0.0, 1.0, abs(sfx - uFxFrente.x) * uFxFrente.y);
+      m *= mix(1.0, 1.0 - faixaSuave, uFxEixo.w);
+      cor = mix(cor, uFxTinta.rgb, m * uFxFrente.z);
+      cor += uFxTinta.rgb * (m * uFxFrente.w);
+    }
     gl_FragColor = vec4(cor, 1.0);
     #include <fog_fragment>
   }`
@@ -1148,6 +1213,22 @@ const FS_LISO = /* glsl */`
   uniform float uVida;
   uniform float uEvento;
   uniform vec3 uCorEvento;
+  // ══ FX-EIXO: o campo escalar que gera a familia de efeitos de casca inteira ══
+  //
+  // ⚠️ UM dot RESOLVE TUDO, e e por isso que este sistema cabe em ~28 ALU sem
+  // programa de shader novo. p (a posicao normalizada) ja existe nos dois
+  // materiais; s = dot(p, eixo) e um campo escalar de -1 a 1 sobre a casca, e
+  // TODO gesto vira uma frente de nivel constante nesse campo:
+  //   eixo (0,1,0)      -> varredura por latitude, de polo a polo
+  //   eixo camera-centro -> anel radial saindo de quem olha
+  //   meia-largura 0     -> mascara cheia, a casca inteira de uma vez
+  // Sem atan, sem costura de meridiano, sem fwidth, sem derivada, sem busca
+  // de textura dentro de ramo. O salto e por uniforme, entao os ~555 programas
+  // compilados continuam ~555.
+  uniform float uFxAtivo;
+  uniform vec4 uFxEixo;      // xyz eixo unitario, w poupa-faixa (0 passa por cima, 1 poupa)
+  uniform vec4 uFxFrente;    // x s0, y 1/meia-largura, z tinta, w brilho
+  uniform vec4 uFxTinta;     // rgb em LINEAR
   uniform vec3 uCam;
   uniform vec3 uSol;
   uniform vec3 uSolCor;
@@ -1183,6 +1264,23 @@ const FS_LISO = /* glsl */`
     // degrau de fillrate. Sem ele o celular ficaria sem evento exatamente na
     // faixa de distancia em que o evento e a unica coisa que ainda se ve.
     cor = mix(cor, uCorEvento, uEvento * 0.88);
+
+    // ⚠️ MESMO CAMPO, TERMO A TERMO, e isso deixou de ser disciplina e virou
+    // requisito: com a remocao do registro de longe o degrau de fillrate voltou a
+    // existir de verdade no celular (entra em 7.602 m em dpr 1,5 e 10.136 m em
+    // dpr 2). Um efeito que so vive no material cheio sumiria justamente na faixa
+    // de distancia em que ele e a unica coisa que ainda se ve.
+    //
+    // ⚠️ E p AQUI E O MESMO normalize(vP) DO OUTRO SHADER, nao uma
+    // reconstrucao a partir de v. (v-0.5)*2 seria 2*lat/PI e nao sin(lat):
+    // divergencia de ate 0,21 em s, 66 m de arco entre os dois materiais.
+    if (uFxAtivo > 0.5) {
+      float sfx = dot(normalize(vP), uFxEixo.xyz);
+      float m = 1.0 - smoothstep(0.0, 1.0, abs(sfx - uFxFrente.x) * uFxFrente.y);
+      m *= mix(1.0, 1.0 - naFaixa, uFxEixo.w);
+      cor = mix(cor, uFxTinta.rgb, m * uFxFrente.z);
+      cor += uFxTinta.rgb * (m * uFxFrente.w);
+    }
     gl_FragColor = vec4(cor, 1.0);
     #include <fog_fragment>
   }`
@@ -1460,22 +1558,72 @@ export function sphereCull(): number {
  * aviso de corte de graça.
  */
 const SEPARADOR = '·'
+
+/**
+ * ⚠️ A JANELA DE LEITURA SATURA EM UM TERÇO DA VOLTA, e esse número é o que
+ * governa tudo aqui. Medido: o arco em que a compressão de largura da letra fica
+ * acima de 0,5 cresce com a distância mas SATURA em 116,5°, ou seja 10,35 das 32
+ * casas da linha grande e 20,71 das 64 da pequena. Os dois dão `nChars / 3,09`,
+ * porque a razão não depende da escala da letra, só da geometria da esfera.
+ */
+const JANELA_FRACAO = 3.09
+
+/**
+ * ⚠️ O SEPARADOR SAI DOS DOIS LADOS DESDE 08/09, E ANTES SÓ SAÍA DA DIREITA.
+ * O comentário acima afirma que o `·` avisa o corte, e a afirmação era falsa para
+ * metade dos azimutes: o corte perigoso é o da FRENTE, e ali não havia aviso
+ * nenhum. Simulado: `418.2M` gerava `| 418.2M· 418.2M·|` e **50,0%** dos azimutes
+ * entregavam fragmento colado na borda esquerda; `0.00113` dava **62,5%**. É
+ * exatamente o erro de 20x que a nota dizia ter consertado.
+ *
+ * ⚠️ E O TETO DE CÓPIAS É O CONSERTO REAL DO "KRAY, KRAY, KRAY". O fundador viu a
+ * propaganda "toda segmentada". A causa não é o separador, é o número de cópias:
+ * com 6 cópias de `KRAY` cabem DUAS inteiras no campo de um azimute, e o olho lê
+ * repetição em vez de marca. Impondo `período + L > janela`, nunca cabem duas
+ * cópias inteiras em azimute nenhum: o leitor vê UMA marca, com as vizinhas
+ * caindo no limbo. Medido: `KRAY` cai de 6 cópias para 5 e a leitura da cópia
+ * inteira a 1 km vai de 4% para **76%**.
+ *
+ * ⚠️ A FASE NÃO É SORTEADA, É CONSTANTE DE BUILD. A casca leva
+ * `rotation.y = -π` e o sítio é `(0, -R_ANCHOR)`: a coluna que encara o centro da
+ * praça é sempre `u = 0,75`. Deslocando a volta ciclicamente, uma cópia nasce
+ * CENTRADA no azimute de onde a cidade olha a peça. Custo zero, a volta já
+ * fechava exata.
+ */
 function repetirNaVolta(texto: string, nChars: number): string {
   const t = texto.toUpperCase()
   if (!t.length) return ' '.repeat(nChars)
   if (t.length >= nChars) return t.slice(0, nChars)
-  const rep = Math.max(1, Math.floor(nChars / (t.length + 1)))
-  let out = ''
+
+  const L = t.length
+  const janela = nChars / JANELA_FRACAO
+  // quantas cópias cabem com os dois separadores, e quantas o teto de leitura
+  // permite. Se o texto sozinho já enche a janela, uma cópia é o melhor possível.
+  const porEspaco = Math.floor(nChars / (L + 2))
+  // ⚠️ A MARGEM DE 1,10 NÃO É CHUTE, E SEM ELA A SEGMENTAÇÃO SOBREVIVE. O teto
+  // justo (`período + L > janela`) fica no fio da navalha: com `KRAY` em 32 casas
+  // dá 10,4 contra uma janela de 10,35, e a simulação mostrou **duas cópias
+  // inteiras ainda visíveis em 9% dos azimutes**, ou seja o "kray, kray" que o
+  // fundador viu. Com 1,10 o teto cai de 5 cópias para 4 e as duas cópias somem
+  // em 100% dos azimutes, ao preço de a cópia inteira cair de 100% para 88%.
+  // Medido em 1,20 também: nenhum ganho a mais, e a leitura cai para 66%.
+  const porLeitura = L >= janela ? 1 : Math.floor(nChars / (janela * 1.10 - L))
+  const rep = Math.max(1, Math.min(porEspaco, porLeitura))
+
+  const casas: string[] = []
   for (let k = 0; k < rep; k++) {
     const larg = Math.floor((nChars * (k + 1)) / rep) - Math.floor((nChars * k) / rep)
-    const vao = larg - t.length
-    const esq = Math.floor(vao / 2)
-    // o separador mora na primeira casa de vão à direita da cópia; sem vão
-    // nenhum a volta continua fechando exata, só sem o aviso de corte.
-    const dir = vao - esq
-    out += ' '.repeat(esq) + t + (dir > 0 ? SEPARADOR + ' '.repeat(dir - 1) : '')
+    const vao = larg - L - 2                       // 2 casas dos separadores
+    const esq = Math.max(0, Math.floor(vao / 2))
+    const dir = Math.max(0, vao - esq)
+    casas.push(' '.repeat(esq) + SEPARADOR + t + SEPARADOR + ' '.repeat(dir))
   }
-  return out
+  const volta = casas.join('')
+
+  // a fase: leva o MEIO da primeira cópia para a coluna que encara a praça
+  const periodo = nChars / rep
+  const desloc = ((Math.round(0.75 * nChars) - Math.round(periodo / 2)) % nChars + nChars) % nChars
+  return volta.slice(nChars - desloc) + volta.slice(0, nChars - desloc)
 }
 
 /** Escreve uma cadeia na grade de LED, em pixels de glifo de `escala` LEDs. */
@@ -1519,7 +1667,6 @@ function pintarTextura(
   cv: HTMLCanvasElement,
   c: SphereConteudo,
   f: number,
-  longe = false,
 ): { media: THREE.Color; corFaixa: THREE.Color } {
   const g = cv.getContext('2d')!
   const W = cv.width, H = cv.height
@@ -1609,33 +1756,66 @@ function pintarTextura(
     g.fillRect(0, Math.round(y0), W, Math.round(y1 - y0))
   }
 
-  // ⚠️ DOIS REGISTROS, UM DE CADA VEZ, E QUEM ESCOLHE É A DISTÂNCIA. Ver
-  // `FX_LONGE_ESCALA` para a conta e para o teto físico. De perto vão as duas
-  // linhas (valor e rótulo); de longe vai UMA linha do dobro da altura com só o
-  // valor, porque o rótulo já morreu em 1.378 m e ocuparia metade da faixa com
-  // borrão.
-  if (longe) {
-    const lLonge = SPHERE_FAIXA_LINHA0 + FX_MARGEM
-    escrever(g, c.grande, lLonge, FX_LONGE_ESCALA, SPHERE_CHARS_LONGE,
-      c.cor ?? COR_DADO, f)
-  } else {
-    const lGrande = SPHERE_FAIXA_LINHA0 + FX_MARGEM_PERTO
-    const lPequena = lGrande + 7 * FX_GRANDE_ESCALA + FX_VAO
-    escrever(g, c.grande, lGrande, FX_GRANDE_ESCALA, SPHERE_CHARS_GRANDE,
-      c.cor ?? COR_DADO, f)
-    escrever(g, c.pequena, lPequena, FX_PEQUENA_ESCALA, SPHERE_CHARS_PEQUENA,
-      c.corRotulo ?? COR_ROTULO, f)
-  }
+  // as duas linhas de texto, posicionadas em LEDs (ver o bloco FX_* acima)
+  //
+  // ⚠️ UM REGISTRO SÓ, E O DE LONGE FOI REMOVIDO EM 08/09 POR DOIS MOTIVOS. O
+  // fundador vetou a troca de layout ("o fato dela trocar de tipo de visualização
+  // pro mesmo dado, enquanto o user navega, é horrível"), e a medição mostrou que
+  // ele também estava QUEBRADO: com 16 casas na volta e um valor de 7 caracteres,
+  // a janela legível de um azimute satura em casas/3 = 5,33, e são precisas 7.
+  // Ele entregava **0% de azimutes com o valor inteiro**, contra 42% da escala 8.
+  //
+  // ⚠️ E NÃO EXISTE VERSÃO CONSERTADA DELE. Numa fonte 5x7 sobre grade
+  // equirretangular vale o invariante `casas x altura = 1,75 x π x R`, que não
+  // depende da grade: comprar alcance VENDE janela de leitura, sempre, e a janela
+  // já é o gargalo. A escala 8 é o único ponto da curva em que um valor de 7
+  // caracteres chega a aparecer inteiro.
+  const lGrande = SPHERE_FAIXA_LINHA0 + FX_MARGEM
+  const lPequena = lGrande + 7 * FX_GRANDE_ESCALA + FX_VAO
+  escrever(g, c.grande, lGrande, FX_GRANDE_ESCALA, SPHERE_CHARS_GRANDE,
+    c.cor ?? COR_DADO, f)
+  escrever(g, c.pequena, lPequena, FX_PEQUENA_ESCALA, SPHERE_CHARS_PEQUENA,
+    c.corRotulo ?? COR_ROTULO, f)
 
   // ── as duas médias, e as duas são MEDIDAS do canvas, nunca estimadas ─────
   const amostra = g.getImageData(0, 0, W, H).data
+  /**
+   * ⚠️ A MÉDIA É EM LINEAR, E ATÉ 08/09 ERA EM sRGB. Este era o maior defeito
+   * silencioso do arquivo, e cabe numa linha: o laço somava BYTES sRGB, dividia,
+   * e só então chamava `convertSRGBToLinear()`. Média de sRGB não é a média da
+   * luz. Quem faz o análogo disto na GPU é o mipmap, e ele opera em LINEAR
+   * porque a textura é `SRGBColorSpace`: os dois uniformes que descrevem a peça
+   * de longe divergiam do que a própria GPU calcula, e sempre para baixo.
+   *
+   * Medido pelo especialista, com LUT de 256 entradas:
+   *
+   *     uniforme / pele                   como estava   verdadeiro    erro
+   *     uCorFaixa, faixa de dado             0,03027      0,08676     -65,1%
+   *     uCorFaixa, faixa de anúncio          0,03418      0,14058     **-75,7%**
+   *     uMedia, esfera ociosa                0,00539      0,01406     -61,7%
+   *     uMedia, pele marca-dog               0,00599      0,01914     -68,7%
+   *     uMedia, pele marca-btc               0,20724      0,23533     -11,9%
+   *
+   * Efeito na razão anel contra casco: ao sol **1,206 vira 1,563**; na sombra
+   * **1,938 vira 3,065**. É o defeito que a nota logo abaixo declara resolvido e
+   * que na verdade só tinha sido atenuado.
+   *
+   * ⚠️ E O PASSO DE AMOSTRAGEM ERA 8, QUE TRAVA FASE COM A LETRA PEQUENA. Com
+   * `i += 8 * 4` as colunas amostradas são 0, 8, 16, e a célula da linha pequena
+   * tem 4 px (`FX_PEQUENA_ESCALA`): as colunas 1 e 3 da matriz 5x7 nunca entravam
+   * na conta. 5 é primo com 8 e com 4, mantém 409 amostras por linha e tira o
+   * travamento.
+   */
+  const s2l = (b: number) => { const c = b / 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4) }
+  const LUT = new Float32Array(256)
+  for (let i = 0; i < 256; i++) LUT[i] = s2l(i)
   const mediaDe = (linha0: number, linha1: number) => {
     let r = 0, vd = 0, b = 0, n = 0
     const i0 = Math.max(0, Math.round(linha0)) * W * 4
     const i1 = Math.min(H, Math.round(linha1)) * W * 4
-    for (let i = i0; i < i1; i += 8 * 4) { r += amostra[i]; vd += amostra[i + 1]; b += amostra[i + 2]; n++ }
-    const c = new THREE.Color(r / n / 255, vd / n / 255, b / n / 255)
-    return c.convertSRGBToLinear()
+    for (let i = i0; i < i1; i += 5 * 4) { r += LUT[amostra[i]]; vd += LUT[amostra[i + 1]]; b += LUT[amostra[i + 2]]; n++ }
+    // já em linear: o `THREE.Color` recebe o valor final, sem conversão a mais
+    return new THREE.Color(r / n, vd / n, b / n)
   }
 
   // ⚠️ A MÉDIA DA ESFERA INTEIRA é o que o material liso mostra de longe.
@@ -1713,6 +1893,14 @@ export interface Sphere {
    * são duas notícias, não uma onda quadrada.
    */
   pulsar(intensidade?: number): void
+  /**
+   * Dispara um gesto de casca inteira. Ver `SPHERE_FX_MS` e a seção 5.2.
+   *
+   * ⚠️ `aoCobrir` SÓ VALE NA CORTINA, e é o motivo de ela existir: a repintura de
+   * 7 ms roda dentro da janela em que a casca está coberta, então a troca de pele
+   * deixa de apagar a esfera. Passar `aoCobrir` em outro gesto não faz nada.
+   */
+  fx(tipo: SphereFx, peso?: number, aoCobrir?: () => void): void
   /**
    * Alinha o painel apagado com a luz da cena.
    *
@@ -1802,6 +1990,11 @@ export function buildSphere(o: SphereOpts): Sphere {
     // esfera inteira. Uma cor de evento própria criaria um segundo laranja e a
     // marca perderia o registro.
     uCorEvento: { value: new THREE.Color(COR_DADO).convertSRGBToLinear() },
+    // ── FX-EIXO, ver `SPHERE_FX_*` e o bloco no shader ────────────────────────
+    uFxAtivo: { value: 0 },
+    uFxEixo: { value: new THREE.Vector4(0, 1, 0, 1) },
+    uFxFrente: { value: new THREE.Vector4(2, 0, 0, 0) },
+    uFxTinta: { value: new THREE.Vector4(0, 0, 0, 0) },
     // ⚠️ RAIO 0,40 DA CÉLULA, ou seja preenchimento π·0,40² = 0,503. É o que um
     // painel de LED de verdade entrega (puck menor que o passo, vão escuro
     // entre eles), e é o número que faz o pico valer 1/0,503 = 1,99 vezes a
@@ -1885,12 +2078,17 @@ export function buildSphere(o: SphereOpts): Sphere {
   /** o conteúdo corrente, para a peça poder se repintar sozinha ao trocar de
    *  registro sem ninguém chamar `pintar()` */
   let atual: SphereConteudo = conteudo0
-  /** registro de LONGE ligado? Ver `FX_LONGE_ESCALA` e a troca em `update()`. */
-  let longe = false
   // arte de corpo desliga o degrau: ver a nota em update()
   let temArte = !!conteudo0.pintarCorpo
   // ── a vida do anel: respiração + pulso de evento (ver a seção 5.1) ──────
   let pulsoT0 = 0
+  // ── FX-EIXO: o estado do gesto corrente ──────────────────────────────────
+  let fxTipo: SphereFx | null = null
+  let fxT0 = 0
+  let fxPeso = 1
+  const fxEixo = new THREE.Vector3(0, 1, 0)
+  /** o que rodar quando a cortina estiver fechada (a repintura coberta) */
+  let fxNoEscuro: (() => void) | null = null
   let pulsoAmp = 0
   const relogio = () =>
     typeof performance !== 'undefined' ? performance.now() : Date.now()
@@ -1906,10 +2104,22 @@ export function buildSphere(o: SphereOpts): Sphere {
     pulsar(intensidade = 1) {
       pulsoT0 = relogio()
       pulsoAmp = SPHERE_PULSO_AMP * Math.max(0, intensidade)
+    },    fx(tipo: SphereFx, peso = 1, aoCobrir?: () => void) {
+      // ⚠️ O GESTO NÃO INTERROMPE O EVENTO. Ver a nota no `update()`: dois donos
+      // pintando a mesma casca somam duas tintas e o resultado não é nenhuma das
+      // duas. Se um evento está no ar, o gesto é descartado, e a repintura da
+      // cortina roda na hora para não ficar pendurada.
+      if (uniformes.uEvento.value > 0.05) { aoCobrir?.(); return }
+      fxTipo = tipo
+      fxT0 = relogio()
+      fxPeso = Math.max(0, Math.min(2, peso))
+      fxNoEscuro = tipo === 'cortina' ? aoCobrir ?? null : null
+      if (tipo !== 'cortina') aoCobrir?.()
     },
+
     pintar(c: SphereConteudo) {
       atual = c
-      const m = pintarTextura(cv, c, f, longe)
+      const m = pintarTextura(cv, c, f)
       uniformes.uMedia.value = m.media
       uniformes.uCorFaixa.value = m.corFaixa
       uniformes.uGanho.value = c.ganho ?? 0.42
@@ -1947,25 +2157,15 @@ export function buildSphere(o: SphereOpts): Sphere {
       // `SPHERE_TEXTO_PX`. `uPxAng` já é escrito duas linhas acima: a peça sempre
       // teve o número da tela na mão e não o usava para isto.
       const distTexto = SPHERE_LETRA_ALTURA / (SPHERE_TEXTO_PX * uniformes.uPxAng.value)
-      // ⚠️ A TROCA DE REGISTRO CUSTA UMA REPINTURA, ENTÃO ELA TEM HISTERESE
-      // LARGA. `pintarTextura` é um canvas de até 2.048 x 1.024 e um envio de até
-      // 8 MB (~7 ms de thread principal, medido): por quadro seria inaceitável.
-      // A banda morta vai de 0,85 a 1,15 do limiar, ou seja 30% da distância
-      // (827 m dos 2.757 na tela da live). Uma volta do tour cruza isso duas
-      // vezes: 14 ms por volta de 22 min. O que a banda impede é a câmera parar
-      // em cima do limiar e repintar a cada quadro.
-      const queroLonge = longe ? d > distTexto * 0.85 : d > distTexto * 1.15
-      if (queroLonge !== longe) {
-        longe = queroLonge
-        const m = pintarTextura(cv, atual, f, longe)
-        uniformes.uMedia.value = m.media
-        uniformes.uCorFaixa.value = m.corFaixa
-        tex.needsUpdate = true
-      }
-      // ⚠️ E O CORTE DE TEXTO ACOMPANHA O REGISTRO: no modo de longe a letra tem
-      // o DOBRO da altura, então vive o dobro da distância. Usar o mesmo
-      // `distTexto` apagaria justamente o registro que existe para não apagar.
-      uniformes.uTextoDist.value = longe ? distTexto * 2 : distTexto
+      // ⚠️ O CORTE DE TEXTO É UM VALOR SÓ, e a troca de registro que existia aqui
+      // saiu em 08/09. Além do veto do fundador, ela tinha um defeito que ninguém
+      // tinha visto: `distTexto` sai de `uPxAng`, que vem de
+      // `spherePxAng(fov, alturaCss, governor.pixelRatio)`, e o `FrameGovernor`
+      // mexe no `pixelRatio` sozinho por carga de quadro, em passos de x0,9 e
+      // x1,08. A amplitude que ele percorre é MAIOR que a banda morta da
+      // histerese, então o layout trocava com a câmera PARADA, só porque a taxa
+      // de quadro caiu. Pior que a queixa original.
+      uniformes.uTextoDist.value = distTexto
       // ⚠️ E O DEGRAU DE FILLRATE NÃO PODE ENTRAR ENQUANTO A LETRA AINDA É
       // LEGÍVEL, porque `FS_LISO` não tem textura nenhuma: trocar de material ali
       // apagaria o texto do mesmo jeito que o corte apagava. No celular isto leva
@@ -1974,7 +2174,14 @@ export function buildSphere(o: SphereOpts): Sphere {
       // 390x844 em dpr 2 a 1.300 m, 3,0% a 2.000 m e 1,7% a 2.656 m. É o shader
       // cheio sobre menos de um vigésimo da tela, na faixa em que antes ele nem
       // rodava.
-      const querLiso = d > Math.max(limite, longe ? distTexto * 2 : distTexto) * 1.15
+      // ⚠️ SEM A DUPLICAÇÃO DO REGISTRO DE LONGE, O DEGRAU VOLTA A EXISTIR DE
+      // VERDADE NO CELULAR. Medido pelo especialista: o termo `distTexto * 2`
+      // fazia o limiar dar 17.981 m em dpr 2, além do `sphereCull()` de 14.000, ou
+      // seja o material liso NUNCA entrava. Agora ele entra em 7.602 m (dpr 1,5) e
+      // 10.136 m (dpr 2). Dentro da cidade nada muda (o tecido acaba em 7.520 m do
+      // sítio), mas a paridade termo a termo entre `FS` e `FS_LISO` deixou de ser
+      // disciplina e virou requisito operacional.
+      const querLiso = d > Math.max(limite, distTexto) * 1.15
       if (querLiso !== liso) {
         liso = querLiso
         casca.material = liso ? matLiso : matLed
@@ -2024,6 +2231,66 @@ export function buildSphere(o: SphereOpts): Sphere {
       }
       uniformes.uVida.value = vida
       uniformes.uEvento.value = evento
+
+      // ── FX-EIXO ────────────────────────────────────────────────────────────
+      // ⚠️ DOIS DONOS NÃO PODEM PINTAR A MESMA CASCA. `uEvento` já tinge a esfera
+      // inteira; um gesto por cima dele soma duas tintas e o resultado não é
+      // nenhuma das duas. O evento ganha, porque ele é notícia e o gesto é
+      // gramática.
+      if (fxTipo && evento > 0.05) fxTipo = null
+      if (fxTipo) {
+        const dt = t - fxT0
+        const dur = SPHERE_FX_MS[fxTipo]
+        const k = dt / dur
+        if (k >= 1) {
+          fxTipo = null
+        } else {
+          const hw = fxMeiaLargura(d, uniformes.uPxAng.value)
+          // ⚠️ A PORTA DE COMPOSIÇÃO: de MUITO perto uma frente por pixel não
+          // rola. Medido: o disco da esfera ocupa mais de meia tela abaixo de
+          // 1.094 m, e ali o gesto vira um clarão sem forma. Nessa faixa ele
+          // degrada para o canal chapado do `uEvento`, que já existe e já foi
+          // pago, em vez de inventar um caminho novo.
+          const perto = d < 1094
+          let s0 = 2, ampT = 0, ampB = 0
+          if (fxTipo === 'cortina') {
+            // sobe em 30%, segura 10%, desce em 60%: a janela de cobertura total
+            // tem 70 ms e é dentro dela que a repintura acontece
+            const cob = k < 0.3 ? k / 0.3 : k < 0.4 ? 1 : 1 - (k - 0.4) / 0.6
+            s0 = 0
+            ampT = cob
+            uniformes.uFxFrente.value.set(0, 0, cob * 0.92, cob * 0.22)
+            if (k >= 0.3 && fxNoEscuro) { fxNoEscuro(); fxNoEscuro = null }
+          } else {
+            if (fxTipo === 'varredura') {
+              fxEixo.set(0, 1, 0)
+              s0 = SPHERE_S_MIN - hw + k * (1 - SPHERE_S_MIN + 2 * hw)
+            } else {
+              // RADIAL: o eixo é a direção de quem olha, então a frente sai do
+              // ponto que encara a câmera. `cos(πk)` e não `k`, para a frente ter
+              // velocidade constante SOBRE A SUPERFÍCIE e não no campo `s`.
+              // ⚠️ SEM ALOCAR POR QUADRO: `casca.position` é local ao grupo e o
+              // grupo está no sítio, então o centro em mundo é o sítio mais a
+              // cota. `_fxTmp` é o rascunho do módulo.
+              fxEixo.copy(cam).sub(_fxTmp.set(s.x, YC, s.z)).normalize()
+              s0 = Math.cos(Math.PI * k)
+            }
+            // entra e sai suave, para o gesto não nascer nem morrer em degrau
+            const env = Math.sin(Math.PI * Math.min(1, Math.max(0, k)))
+            ampT = fxPeso * env * (perto ? 0.0 : 0.55)
+            ampB = fxPeso * env * (perto ? 0.0 : 0.30)
+            uniformes.uFxFrente.value.set(s0, 1 / hw, ampT, ampB)
+          }
+          uniformes.uFxEixo.value.set(fxEixo.x, fxEixo.y, fxEixo.z, fxTipo === 'cortina' ? 0 : 1)
+          const c = uniformes.uCorEvento.value as THREE.Color
+          uniformes.uFxTinta.value.set(c.r, c.g, c.b, 0)
+          uniformes.uFxAtivo.value = ampT > 0.001 || ampB > 0.001 ? 1 : 0
+        }
+      }
+      if (!fxTipo) {
+        uniformes.uFxAtivo.value = 0
+        if (fxNoEscuro) { fxNoEscuro(); fxNoEscuro = null }
+      }
 
       // ⚠️ NADA SOME AQUI. O embasamento é parte da silhueta, não mobiliário:
       // ver a nota em `construirPodio`. `esc.distMiudo` volta a mandar quando a

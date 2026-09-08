@@ -74,51 +74,85 @@ import { SNAPSHOT } from '../../dogcity/dogcity-data'
  * pedaços; é uma sequência de leituras, cada uma completa em si.
  */
 export const ORC_GRANDE = 7
-export const ORC_PEQUENA = 15
+export const ORC_PEQUENA = 10
 
 /**
- * Todo rótulo estático deste arquivo passa por aqui, e o comprimento medido vai
- * ao lado. Conferido offline com `npx tsx`: o maior é `DOG TX IN BLOCK`, com
- * 15 caracteres exatos, encostado no teto e não por acaso (é o rótulo do evento
- * que o fundador pediu por escrito).
+ * ⚠️ O TETO CAIU DE 15 PARA 10 EM 08/09, E QUATRO RÓTULOS JÁ IAM AO AR CORTADOS.
+ * O docstring anterior afirmava que o maior tinha "15 caracteres exatos", e era
+ * falso: `marcaBtc` tinha 27, `marcaBtcAlt` e `marcaDogAlt` 20, `marcaDog` 19. A
+ * esfera publicava `THE CHAIN THAT `, `BITCOIN BLOCK H`, `THE RUNE ON BIT` e
+ * `MARE TRANQUILLI`, porque `quadro()` faz `slice()` em silêncio.
+ *
+ * ⚠️ E O TETO NÃO É DE ESPAÇO, É DE LEITURA. Medido, fração de azimutes que veem
+ * o rótulo INTEIRO, com a janela da linha pequena (9,44 casas a 315 m, 14,11 a
+ * 500, 17,78 a 1 km, 20,71 na saturação):
+ *
+ *     L=5   28%  57%  80%  98%
+ *     L=7   15%  44%  67%  86%
+ *     L=9    3%  40%  69%  91%
+ *     L=10   0%  32%  61%  84%
+ *     L=12   0%  13%  36%  54%
+ *     L=15   0%   0%  17%  36%
+ *
+ * A 315 m um rótulo de 15 é lido por NINGUÉM, em azimute nenhum. Curto não é
+ * economia, é o que faz a mensagem existir.
+ *
+ * ⚠️ `orcamentoViolado()` EXISTIA SEM UM ÚNICO CHAMADOR. Ele é chamado agora, e
+ * em desenvolvimento ele grita: um rótulo longo demais é defeito de produto numa
+ * peça que vende anúncio, não detalhe de acabamento.
  */
 export const ROTULOS = {
-  marcaBtc: 'THE CHAIN THAT CARRIES $DOG',
-  marcaBtcAlt: 'BITCOIN BLOCK HEIGHT',
-  marcaDog: 'THE RUNE ON BITCOIN',
-  marcaDogAlt: 'MARE TRANQUILLITATIS',
-  precoSpot: '$DOG USD SPOT',      // 13
-  precoVar: '24H CHANGE',          // 10
-  volume: '24H VOLUME DOG',        // 14
-  alta: '24H HIGH USD',            // 12
-  baixa: '24H LOW USD',            // 11
-  pendentes: 'DOG IN MEMPOOL',     // 14
-  emVoo: 'DOG IN FLIGHT',          // 13
-  taxa: 'FEE SATS/VB',             // 11
-  blocosFaltam: 'BLOCKS TO GO',    // 12
-  blocoAlvo: 'SNAPSHOT BLOCK',     // 14
-  estimativa: 'ESTIMATE ONLY',     // 13
-  snapshotFeito: 'SNAPSHOT TAKEN', // 14
-  blocosDesde: 'BLOCKS SINCE',     // 12
-  doacao: 'DOG TO DOGCITY',        // 14
-  doadorDe: 'FROM WALLET',         // 11
-  doacaoOk: 'TX CONFIRMED',        // 12
-  bloco: 'BITCOIN BLOCK',          // 13
-  blocoTx: 'DOG TX IN BLOCK',      // 15  ← o teto, e é o rótulo pedido
-  blocoVol: 'DOG MOVED',           // 9
-  mintLotes: 'PLOTS MINTED',       // 12
-  mintDono: 'NEW LANDOWNER',       // 13
-  krayNome: 'KRAY WALLET',         // 11
-  krayCustodia: 'SELF CUSTODY',    // 12
-  krayTorre: 'SATOSHI PLAZA',      // 13
-  ocioso: 'THE SPHERE',            // 10
+  marcaBtc: 'BITCOIN',            // 7
+  marcaBtcAlt: 'BTC BLOCK',       // 9
+  marcaDog: 'BTC RUNE',           // 8
+  marcaDogAlt: 'THE MOON',        // 8
+  precoSpot: 'USD SPOT',          // 8
+  precoVar: '24H',                // 3
+  volume: '24H VOL',              // 7
+  alta: '24H HIGH',               // 8
+  baixa: '24H LOW',               // 7
+  pendentes: 'MEMPOOL',           // 7
+  emVoo: 'IN FLIGHT',             // 9
+  taxa: 'SATS/VB',                // 7
+  blocosFaltam: 'TO GO',          // 5
+  blocoAlvo: 'TARGET',            // 6
+  estimativa: 'ESTIMATE',         // 8
+  snapshotFeito: 'SNAPSHOT',      // 8
+  blocosDesde: 'SINCE',           // 5
+  doacao: 'DONATED',              // 7
+  doadorDe: 'FROM',               // 4
+  doacaoOk: 'CONFIRMED',          // 9
+  bloco: 'BTC BLOCK',             // 9
+  blocoTx: 'DOG TX',              // 6
+  blocoVol: 'DOG MOVED',          // 9
+  mintLotes: 'MINTED',            // 6
+  mintDono: 'NEW OWNER',          // 9
+  krayNome: 'THE WALLET',         // 10
+  krayCustodia: 'YOUR KEYS',      // 9
+  krayTorre: 'THE TOWER',         // 9
+  ocioso: 'SPHERE',               // 6
 } as const
 
-/** Quem estourou o orçamento. Vazio é o esperado; serve para medir offline. */
+/** Quem estourou o orçamento. Vazio é o esperado. */
 export function orcamentoViolado(): string[] {
   return Object.entries(ROTULOS)
     .filter(([, v]) => v.length > ORC_PEQUENA)
     .map(([k, v]) => `${k}=${v.length}`)
+}
+
+// ⚠️ ELE PASSA A TER CHAMADOR, e essa é a metade que faltava. A função existia
+// desde o começo e NUNCA foi chamada por ninguém: enquanto isso, quatro rótulos
+// de marca foram ao ar cortados por meses. Regra que não roda não é regra, é
+// comentário. Aqui ele grita em desenvolvimento, no carregamento do módulo, que
+// é quando o autor do rótulo ainda está com o arquivo aberto.
+if (process.env.NODE_ENV !== 'production') {
+  const maus = orcamentoViolado()
+  if (maus.length) {
+    console.error(
+      `[sphere] ${maus.length} rótulo(s) acima de ORC_PEQUENA=${ORC_PEQUENA} e serão CORTADOS `
+      + `em silêncio no ar: ${maus.join(', ')}`,
+    )
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -562,9 +596,22 @@ function pintarCorpoKray(g: CanvasRenderingContext2D, w: number, h: number) {
  * do CENTRO ÓPTICO (+16,56°, linha 418), e a largura dela é dividida por
  * `cos(lat)` para o glifo sair redondo onde ele é visto. Sem isso o ₿ sai gordo.
  */
-const N_MARCAS = 6
+const N_MARCAS = 4
 /** a latitude do centro óptico da silhueta, em linha de LED (ver sphere.ts) */
 const LINHA_CENTRO = 418
+/**
+ * ⚠️ A MARCA FICA EM 230 E NÃO NO CENTRO ÓPTICO, E ISSO É DÍVIDA DECLARADA. Com
+ * 418 ela cairia em cima da faixa de dado (linhas 368 a 496) e os dois viravam
+ * sujeira. O preço, medido: a 33,0° do centro óptico, a borda de cima do glifo
+ * sofre escorço `cos(54,98°) = 0,574` contra `cos(11,04°) = 0,982` da de baixo,
+ * ou seja a altura aparente da base é 1,71x a do topo mesmo com a largura certa.
+ *
+ * O conserto de verdade é o quadro do Bitcoin SUPRIMIR a faixa (ele é identidade,
+ * não dado) ou baixá-la para as linhas 590 a 640, que ainda cabem antes do corte
+ * da casca na linha 658,7. Fica em aberto: mexer em `SPHERE_FAIXA_LINHA0/1` por
+ * quadro faria o anel do `FS_LISO` saltar 172 linhas a cada volta do anel.
+ */
+const LINHA_MARCA = 230
 
 /** Desenha o ₿ do Bitcoin com traçado, sem depender de fonte instalada. */
 function marcaBitcoin(g: CanvasRenderingContext2D, cx: number, cy: number, h: number, cor: string) {
@@ -610,25 +657,63 @@ function pintarCorpoBitcoin(g: CanvasRenderingContext2D, w: number, h: number) {
   g.fillStyle = '#E8660D'
   g.fillRect(0, 0, w, h)
   const L = h / 1024
-  // ⚠️ A MARCA FICA ACIMA DA FAIXA, E NÃO NO CENTRO ÓPTICO, e isso é conserto de
-  // colisão. Centrada na linha 418 ela ocupava 268 a 568, e a faixa de dado vive
-  // em 368-496: o texto caía em cima do ₿ e os dois viravam sujeira. Centrada na
-  // linha 230 ela ocupa 105 a 355 e sobra folga de 13 linhas até a faixa, então a
-  // esfera fica com a coroa de marcas em cima e o dado embaixo, cada um no seu
-  // registro.
-  const LINHA_MARCA = 230
-  const cy = LINHA_MARCA * L
-  const lat = (90 - (180 * LINHA_MARCA) / 1024) * Math.PI / 180
-  const alt = 250 * L                                  // 250 linhas de LED
-  // ⚠️ A LARGURA COMPENSA A LATITUDE: ver a nota de N_MARCAS.
-  const escalaX = 1 / Math.max(Math.cos(lat), 0.2)
+
+  // ⚠️ A LARGURA É POR LINHA, E O ESCALAR ÚNICO ERA O DEFEITO QUE O FUNDADOR VIU.
+  // Ele disse: "o símbolo do Bitcoin sai distorcido, a parte de cima do B sai
+  // menor". Estava, e por 2,80x.
+  //
+  // A versão anterior calculava `escalaX = 1/cos(lat)` UMA vez, na linha do centro
+  // da marca, e aplicava `g.scale(escalaX, 1)` ao glifo inteiro. Só que numa
+  // textura equirretangular a largura FÍSICA de N texels vale `N · passo · cos(lat)`
+  // metros de arco: com N constante ela varia ao longo da ALTURA do glifo. Medido
+  // na marca de 250 linhas que estava aqui (linha 105 a 355, 43,95° de latitude):
+  // topo cos 0,3166, base cos 0,8862, ou seja a base saía **2,7992x mais larga
+  // que o topo**. Não era um ₿, era uma cunha que fechava para cima.
+  //
+  // ⚠️ E OS BOJOS 0,86 E 1,00 NÃO SÃO O PROBLEMA: eles respondem por 1,163x contra
+  // 2,799x da latitude, e são INTENCIONAIS (no símbolo real o lobo de cima é mesmo
+  // menor). Ficam como estão.
+  //
+  // A regra certa fixa a largura em ARCO e converte por linha:
+  //     larg_em_texels(v) = arcoW / cos(lat(v)),  lat(v) = π/2 − π(v+0,5)/1024
+  // A cunha correta ABRE para cima, o inverso do que estava aqui. O erro residual
+  // dentro de uma fatia de uma linha é `tan(lat)·π/1024`, pior caso 0,73%.
+  const ALT_L = 200
+  const ARCO_W = 0.62 * ALT_L        // largura alvo, em passos de LED
+  const TOPO_L = LINHA_MARCA - ALT_L / 2
+
+  // ⚠️ O GLIFO É RASTERIZADO FORA, EM ASPECTO VERDADEIRO, E DEPOIS BLITADO FATIA A
+  // FATIA. `g.scale` é afim e não sabe variar com y, então não há como pedir isto
+  // ao canvas de uma vez. O 2x horizontal é supersampling: sem ele a borda do
+  // bojo serrilha ao ser esticada nas linhas de cima.
+  const off = document.createElement('canvas')
+  off.width = Math.max(2, Math.ceil(ARCO_W * L * 2))
+  off.height = Math.max(2, Math.ceil(ALT_L * L))
+  const og = off.getContext('2d')!
+  marcaBitcoin(og, off.width / 2, off.height / 2, off.height, '#140B04')
+  g.imageSmoothingEnabled = true
+  g.imageSmoothingQuality = 'high'
+
+  // ⚠️ QUATRO MARCAS, NÃO SEIS, E É A COMPENSAÇÃO CERTA QUE OBRIGA. Com a largura
+  // por linha, a linha de cima do glifo pede 319,7 texels, ou seja 56,2° de
+  // longitude; quatro cópias com passo de 90° deixam 33,8° de laranja pleno entre
+  // elas, que é a leitura de Las Vegas (uma marca de frente, as vizinhas caindo no
+  // limbo). Seis somariam 337° de 360 e a casca viraria estampa, não logo.
+  //
+  // O código antigo só cabia com seis porque a compensação errada espremia o topo.
   for (let i = 0; i < N_MARCAS; i++) {
     const cx = ((i + 0.5) / N_MARCAS) * w
-    g.save()
-    g.translate(cx, cy)
-    g.scale(escalaX, 1)
-    marcaBitcoin(g, 0, 0, alt, '#140B04')
-    g.restore()
+    for (let k = 0; k < ALT_L; k++) {
+      const v = TOPO_L + k + 0.5
+      const lat = Math.PI / 2 - (Math.PI * v) / 1024
+      const larg = (ARCO_W / Math.max(Math.cos(lat), 0.05)) * L
+      const dy = Math.round((TOPO_L + k) * L)
+      const dh = Math.max(1, Math.round((TOPO_L + k + 1) * L) - dy)
+      g.drawImage(
+        off, 0, (k * off.height) / ALT_L, off.width, off.height / ALT_L,
+        Math.round(cx - larg / 2), dy, Math.round(larg), dh,
+      )
+    }
   }
 }
 
@@ -656,7 +741,21 @@ function pintarCorpoDog(g: CanvasRenderingContext2D, w: number, h: number) {
   // ⚠️ QUATRO CÓPIAS E NÃO SEIS: `$DOG` é largo, e seis se encostariam. Quatro
   // dão uma cópia por quadrante, ou seja sempre uma inteira à vista.
   const cyTopo = 235 * L      // acima da faixa, em latitude de boa leitura
-  for (let i = 0; i < 4; i++) g.fillText('$DOG', ((i + 0.5) / 4) * w, cyTopo)
+  // ⚠️ ESTA FUNÇÃO NÃO COMPENSAVA LATITUDE NENHUMA, e foi citada duas vezes como
+  // referência de "N = 4" sem ninguém olhar a largura. Em `cyTopo` a latitude é
+  // +48,68° e `cos = 0,6606`: o `$DOG` saía **34% mais estreito** do que foi
+  // desenhado. Aqui o glifo é uma linha só de 90 linhas de LED (5,1° de latitude),
+  // então um escalar único basta: o erro residual entre o topo e a base da letra
+  // é de 4,6%, contra os 280% que a marca do Bitcoin tinha com 250 linhas.
+  const latDog = Math.PI / 2 - (Math.PI * 235) / 1024
+  const escX = 1 / Math.max(Math.cos(latDog), 0.2)
+  for (let i = 0; i < 4; i++) {
+    g.save()
+    g.translate(((i + 0.5) / 4) * w, cyTopo)
+    g.scale(escX, 1)
+    g.fillText('$DOG', 0, 0)
+    g.restore()
+  }
 }
 
 /**
@@ -693,7 +792,7 @@ function slotBitcoin(altura: number | null): Slot {
     nome: 'marca-btc',
     quadros: [
       quadro('BITCOIN', ROTULOS.marcaBtc, MS_MODULO / 2, base),
-      quadro(altura ? '#' + altura : 'BITCOIN', ROTULOS.marcaBtcAlt, MS_MODULO / 2, base),
+      quadro(altura ? String(altura) : 'BITCOIN', ROTULOS.marcaBtcAlt, MS_MODULO / 2, base),
     ],
   }
 }
@@ -727,9 +826,19 @@ function slotAnuncio(): Slot {
     classe: 'anuncio',
     nome: 'kray',
     quadros: [
+      // ⚠️ A LINHA GRANDE FICA NO ANUNCIANTE OS 72 s INTEIROS, e trocá-la era
+      // defeito de PRODUTO, não de estética. Ela era `KRAY`, depois `WALLET`,
+      // depois `TOWER`: o anunciante saía da tela em 48 dos 72 s comprados, e o
+      // espectador via "kray, self custody, wallet, tower" como quatro coisas
+      // soltas. Foi exatamente o que o fundador relatou vendo a peça no ar.
+      //
+      // ⚠️ E `KRAY` É O TEXTO CERTO POR MEDIÇÃO, não por ser o nome. Com 4
+      // caracteres ele é lido inteiro em 76% dos azimutes a 1 km, contra 36% de
+      // `WALLET` (6) e 49% de `TOWER` (5): quanto mais curto, mais azimutes veem
+      // a marca fechada. Quem varia é o RÓTULO, que é onde a mensagem cabe.
       quadro('KRAY', ROTULOS.krayNome, ms, base),
-      quadro('WALLET', ROTULOS.krayCustodia, ms, base),
-      quadro('TOWER', ROTULOS.krayTorre, ms, base),
+      quadro('KRAY', ROTULOS.krayCustodia, ms, base),
+      quadro('KRAY', ROTULOS.krayTorre, ms, base),
     ],
   }
 }
@@ -827,7 +936,7 @@ function moduloSnapshot(f: FonteCadeia | null, agora: number): Quadro[] | null {
   const alvo = SNAPSHOT.block
   if (f.tip >= alvo) {
     return dividir([
-      quadro('#' + alvo, ROTULOS.snapshotFeito, 0),
+      quadro(String(alvo), ROTULOS.snapshotFeito, 0),
       quadro(String(f.tip - alvo), ROTULOS.blocosDesde, 0),
     ], MS_MODULO)
   }
@@ -838,7 +947,7 @@ function moduloSnapshot(f: FonteCadeia | null, agora: number): Quadro[] | null {
     : `${Math.max(1, Math.round(min / 1440))} DAYS`
   return dividir([
     quadro(String(faltam), ROTULOS.blocosFaltam, 0),
-    quadro('#' + alvo, ROTULOS.blocoAlvo, 0),
+    quadro(String(alvo), ROTULOS.blocoAlvo, 0),
     quadro(eta, ROTULOS.estimativa, 0),
   ], MS_MODULO)
 }
@@ -893,7 +1002,7 @@ function eventoDoacaoConfirmou(tx: DogTx): Slot | null {
     classe: 'evento',
     nome: 'doacao-ok',
     quadros: [
-      quadro('#' + tx.block_height, ROTULOS.doacaoOk, MS_EVENTO_QUADRO, eventoBase),
+      quadro(String(tx.block_height), ROTULOS.doacaoOk, MS_EVENTO_QUADRO, eventoBase),
     ],
   }
 }
@@ -921,7 +1030,13 @@ function eventoBloco(s: Snapshot, altura: number): Slot {
   const temDog = s.last_dog_block === altura
   const n = temDog ? Number(s.last_dog_block_count ?? 0) : 0
   const q: Quadro[] = [
-    quadro('#' + altura, ROTULOS.bloco, MS_EVENTO_QUADRO, eventoBase),
+    // ⚠️ SEM O `#`, E ISSO É CONSERTO DE NÚMERO ERRADO, não de gosto. `quadro()`
+    // faz `slice(0, ORC_GRANDE)` em silêncio: com ORC_GRANDE = 7, o bloco
+    // 1.000.000 virava `#100000`, ou seja um número errado por 10x publicado em
+    // 401 m de altura. Sem o `#` cabem 7 dígitos até o bloco 9.999.999, e o
+    // rótulo já diz que é bloco. Ganho medido de quebra: o texto cai de 7 para 6
+    // caracteres e a leitura a 1 km sobe de 18% para 36% dos azimutes.
+    quadro(String(altura), ROTULOS.bloco, MS_EVENTO_QUADRO, eventoBase),
     quadro(String(n), ROTULOS.blocoTx, MS_EVENTO_QUADRO, eventoBase),
   ]
   const vol = temDog ? Number(s.last_dog_block_amount ?? 0) : 0

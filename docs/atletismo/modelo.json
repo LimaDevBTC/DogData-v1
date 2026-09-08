@@ -11,10 +11,19 @@
   "track_lanes": 8,
   "track_straights": 84.39,
   "track_lane_1_measurement": 400.00121930420875,
+  "crown": {
+    "type": "continuous orbital oculus",
+    "sectors": 88,
+    "outer_radius": 83.0,
+    "straight_width": 28.5,
+    "end_width": 20.5,
+    "textures": 0,
+    "runtime_lights": 0
+  },
   "base": {
     "file": "dog-athletics-base.glb",
-    "bytes": 59816,
-    "triangles": 13146,
+    "bytes": 60816,
+    "triangles": 13370,
     "draw_calls": 12,
     "materials": 12,
     "textures": 0,
@@ -36,20 +45,20 @@
   },
   "detail": {
     "file": "dog-athletics-detail.glb",
-    "bytes": 70768,
-    "triangles": 13296,
+    "bytes": 68356,
+    "triangles": 12336,
     "draw_calls": 7,
     "materials": 7,
     "textures": 0,
     "bbox_three": {
       "min": [
-        -119.53500366210938,
+        -125.2835464477539,
         0.7200000286102295,
         -105.1500015258789
       ],
       "max": [
         125.5,
-        25.579761505126953,
+        25.418947219848633,
         105.1500015258789
       ]
     },
@@ -57,7 +66,7 @@
       "KHR_draco_mesh_compression"
     ]
   },
-  "total_triangles": 26442,
+  "total_triangles": 25706,
   "total_draw_calls": 19,
-  "total_bytes": 130584
+  "total_bytes": 129172
 }

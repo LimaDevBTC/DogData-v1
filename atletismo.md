@@ -1,10 +1,11 @@
 # DOG Athletics
 
-Estádio aberto de atletismo do complexo esportivo da DogCity. Pista nominal de
-400 m com oito raias, reta de 100 m, corredores de salto em distância/triplo,
-salto com vara, salto em altura e áreas de lançamento. Não há campo, gols ou
-marcação de futebol. Arquibancada com 18 fileiras e duas coberturas laterais;
-capacidade de público não foi calculada nem publicada.
+Estádio de atletismo do complexo esportivo da DogCity. Pista nominal de 400 m
+com oito raias, reta de 100 m, corredores de salto em distância/triplo, salto
+com vara, salto em altura e áreas de lançamento. Não há campo, gols ou marcação
+de futebol. A arquibancada de 18 fileiras é fechada visualmente por uma fachada
+contínua e por uma coroa orbital com grande óculo central; capacidade de público
+não foi calculada nem publicada.
 
 O desenho usa raio interno de 36,50 m, retas de 84,39 m e raias de 1,22 m. A
 linha de medição da raia 1, a 0,30 m da borda, resulta em 400,0012 m no desenho
@@ -61,9 +62,9 @@ O script valida os orçamentos antes de publicar cada arquivo atomicamente.
 
 | Fase | Arquivo | Transferência | Triângulos | Primitivas | Texturas |
 |---|---|---:|---:|---:|---:|
-| Base, todos os aparelhos | `dog-athletics-base.glb` | 59.816 bytes | 13.146 | 12 | 0 |
-| Detalhe, desktop próximo | `dog-athletics-detail.glb` | 70.768 bytes | 13.296 | 7 | 0 |
-| Total próximo no desktop | ambos | 130.584 bytes | 26.442 | 19 | 0 |
+| Base, todos os aparelhos | `dog-athletics-base.glb` | 60.816 bytes | 13.370 | 12 | 0 |
+| Detalhe, desktop próximo | `dog-athletics-detail.glb` | 68.356 bytes | 12.336 | 7 | 0 |
+| Total próximo no desktop | ambos | 129.172 bytes | 25.706 | 19 | 0 |
 
 `atletismo-loader.ts` só inicia a base depois de a cidade abrir. O detalhe é
 um arquivo separado, aditivo, solicitado após permanecer 600 ms a menos de
@@ -73,9 +74,10 @@ A base permanece visível a até 4.700 m no celular e 7.000 m no desktop (eram
 5.500 no sítio antigo; o corte acompanha o raio da peça sozinho).
 O grupo é filho direto da cena, requisito para o cálculo de distância.
 
-Os atributos descomprimidos ocupam 506.940 bytes na base e 724.416 bytes no
+Os atributos descomprimidos ocupam 515.388 bytes na base e 672.576 bytes no
 detalhe. Contando uma cópia no JavaScript e outra na GPU, são aproximadamente
-0,97 MiB para a base; não inclui estruturas do renderer ou programas de shader.
+0,98 MiB no mobile e 2,27 MiB com as duas fases no desktop próximo; não inclui
+estruturas do renderer ou programas de shader.
 
 Sem novas luzes, imagens ou trabalho de animação contínua. A sondagem de
 distância roda cinco vezes por segundo. Os materiais recebem o ambiente da
@@ -84,9 +86,11 @@ isoladas e não bloqueiam o portão; resultados assíncronos tardios são
 descartados ao sair da cena. `?atletismo=0` desliga peça e reserva de vias.
 
 A arquibancada tem faces voltadas para dentro, validadas no gerador, e pisos
-de concreto para reduzir padrões de interferência no mapa mobile. As nervuras
-ficam sob as coberturas. A membrana projeta sombra, mas não recebe o mapa de
-sombras global, evitando pontos pretos na superfície clara.
+de concreto para reduzir padrões de interferência no mapa mobile. A coroa tem
+88 módulos, 28,5 m de largura nas retas e 20,5 m nas cabeceiras, preserva o
+óculo e permanece inteira na base mobile. Nervuras radiais e juntas verticais
+esparsas ficam no detalhe desktop. A membrana projeta sombra, mas não recebe o
+mapa de sombras global, evitando pontos pretos na superfície clara.
 
 ## Conferência
 
