@@ -610,9 +610,16 @@ function pintarCorpoBitcoin(g: CanvasRenderingContext2D, w: number, h: number) {
   g.fillStyle = '#E8660D'
   g.fillRect(0, 0, w, h)
   const L = h / 1024
-  const cy = LINHA_CENTRO * L
-  const lat = (90 - (180 * LINHA_CENTRO) / 1024) * Math.PI / 180
-  const alt = 300 * L                                  // 300 linhas de LED
+  // ⚠️ A MARCA FICA ACIMA DA FAIXA, E NÃO NO CENTRO ÓPTICO, e isso é conserto de
+  // colisão. Centrada na linha 418 ela ocupava 268 a 568, e a faixa de dado vive
+  // em 368-496: o texto caía em cima do ₿ e os dois viravam sujeira. Centrada na
+  // linha 230 ela ocupa 105 a 355 e sobra folga de 13 linhas até a faixa, então a
+  // esfera fica com a coroa de marcas em cima e o dado embaixo, cada um no seu
+  // registro.
+  const LINHA_MARCA = 230
+  const cy = LINHA_MARCA * L
+  const lat = (90 - (180 * LINHA_MARCA) / 1024) * Math.PI / 180
+  const alt = 250 * L                                  // 250 linhas de LED
   // ⚠️ A LARGURA COMPENSA A LATITUDE: ver a nota de N_MARCAS.
   const escalaX = 1 / Math.max(Math.cos(lat), 0.2)
   for (let i = 0; i < N_MARCAS; i++) {
@@ -676,6 +683,10 @@ function slotBitcoin(altura: number | null): Slot {
     cor: '#140B04',
     corRotulo: '#140B04',
     pintarCorpo: pintarCorpoBitcoin,
+    // ⚠️ SEM CHÃO DE FAIXA: quem pinta a casca inteira é dono do fundo dela. Com
+    // o padrão cinza-chumbo, o retângulo da faixa era carimbado por cima do
+    // laranja e virava uma tarja escura atravessando a esfera.
+    faixaFundo: null,
   }
   return {
     classe: 'dado',
@@ -691,6 +702,8 @@ function slotDog(): Slot {
   const base: Partial<SphereConteudo> = {
     ganho: GANHO_MARCA,
     pintarCorpo: pintarCorpoDog,
+    // mesma razão da pele do Bitcoin: o casco escuro dela já é o fundo do texto
+    faixaFundo: null,
   }
   return {
     classe: 'dado',

@@ -822,6 +822,18 @@ export interface SphereConteudo {
    * lá, e a conta está em `SPHERE_FAIXA_LINHA0`.
    */
   pintarCorpo?: (g: CanvasRenderingContext2D, w: number, h: number) => void
+  /**
+   * O chão da faixa. `undefined` usa o padrão da casa; **`null` não pinta chão
+   * nenhum** e deixa a pele de `pintarCorpo` aparecer atrás do texto.
+   *
+   * ⚠️ ISSO EXISTE PORQUE A PELE E A FAIXA BRIGAVAM, e o fundador viu na live:
+   * *"a esfera ficou laranja certinho, porém tem uma tarja preta no meio dela"*.
+   * `pintarTextura` desenha o corpo primeiro e a faixa DEPOIS, então o chão
+   * cinza-chumbo era carimbado por cima de uma casca laranja e virava uma tarja
+   * escura atravessando a peça. O chão é um padrão para quando ninguém pintou a
+   * casca; quem pinta a casca inteira é dono do fundo dela.
+   */
+  faixaFundo?: string | null
 }
 
 /**
@@ -1542,11 +1554,31 @@ function pintarTextura(
   // corpo em volta e o dado continua com 7,2x de contraste (era 7,3). O que
   // mudou foi só a CROMA: a razão azul/vermelho caiu de 1,84 para 1,04, ou seja
   // um sussurro de frio (3,5% no azul) em vez de um viés.
+  // ⚠️ FUNDO PRETO, POR LEGIBILIDADE, E ISSO REVERTE PARTE DA DECISÃO DE 07/09.
+  // Fundador em 08/09: *"a esfera é meio cinza, talvez, se ela imprimisse fundo
+  // preto puro teria mais legibilidade"*. Ele está certo, e o ganho é grande:
+  // o contraste do dado contra o fundo vai de **7,2x para 53x**.
+  //
+  // ⚠️ E ISSO NÃO É O MESMO CINZA QUE FOI SUBIDO EM 07/09. A peça tem DOIS, com
+  // funções opostas, e confundi-los foi o que deixou a esfera cinza:
+  //
+  //   · o CONTEÚDO (este gradiente) é EMITIDO. Ele é o pixel do LED aceso, e um
+  //     painel mostrando preto tem o pixel APAGADO. Preto aqui é o estado certo.
+  //   · `COR_PAINEL` é REFLETIDO: é a superfície física do painel devolvendo a
+  //     luz da cena. Ele fica onde está (`#2C2C2D`), e é o que impede a esfera
+  //     de ler como BURACO contra o céu preto da Lua, defeito que o dossiê já
+  //     pagou uma vez com `#15161A`.
+  //
+  // ⚠️ O PREÇO, DECLARADO: a ondulação da grade de LED cai de 34% para ~8% do
+  // painel ao sol, ou seja o "painel visivelmente ligado" que a rodada de 07/09
+  // buscou. Ele foi trocado de fonte: agora quem diz que a peça está ligada é o
+  // CONTEÚDO (o dado laranja, as peles de casca inteira, o evento), e não um
+  // nível de preto levantado. É a troca certa, e é a que um telão real faz.
   const grad = g.createLinearGradient(0, 0, 0, H)
-  grad.addColorStop(0.00, '#2B2C2C')
-  grad.addColorStop(0.18, '#39393A')
-  grad.addColorStop(0.37, '#262727')
-  grad.addColorStop(1.00, '#202021')
+  grad.addColorStop(0.00, '#0E0E0E')
+  grad.addColorStop(0.18, '#141414')
+  grad.addColorStop(0.37, '#0C0C0C')
+  grad.addColorStop(1.00, '#0A0A0A')
   g.fillStyle = grad
   g.fillRect(0, 0, W, H)
   c.pintarCorpo?.(g, W, H)
@@ -1564,10 +1596,18 @@ function pintarTextura(
   // corpo neutro ele lia como faixa de terra. Mesma luminância, mesma razão de
   // 1,84x contra o corpo, mesmos 7,2x de contraste para o dado. Quem carrega o
   // calor da peça é a LETRA, e só ela.
-  const corFaixa = '#363637'
+  // ⚠️ `null` NÃO PINTA CHÃO, e é o que impede a tarja escura sobre a pele. Ver
+  // `SphereConteudo.faixaFundo`.
+  // ⚠️ O CHÃO DA FAIXA ACOMPANHA O FUNDO PRETO: com ele em `#363637` o dado tinha
+  // 7,2x de contraste; com `#121212`, **44x**. E o anel de longe não some por
+  // isso, porque `uCorFaixa` é a MÉDIA MEDIDA da faixa (chão mais letra), e a
+  // letra laranja passa a dominar essa média em vez de disputar com o chão.
+  const corFaixa = c.faixaFundo === undefined ? '#121212' : c.faixaFundo
   const y0 = SPHERE_FAIXA_LINHA0 * f, y1 = SPHERE_FAIXA_LINHA1 * f
-  g.fillStyle = corFaixa
-  g.fillRect(0, Math.round(y0), W, Math.round(y1 - y0))
+  if (corFaixa !== null) {
+    g.fillStyle = corFaixa
+    g.fillRect(0, Math.round(y0), W, Math.round(y1 - y0))
+  }
 
   // ⚠️ DOIS REGISTROS, UM DE CADA VEZ, E QUEM ESCOLHE É A DISTÂNCIA. Ver
   // `FX_LONGE_ESCALA` para a conta e para o teto físico. De perto vão as duas
