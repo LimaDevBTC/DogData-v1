@@ -80,7 +80,7 @@ import { setAnisotropia } from './materiais'
 import { montarPos, type Pos } from './pos'
 import { rotaLive, duracaoLive, TOUR_LIVE_DERIVA, TOUR_LIVE_OCIO_MS } from './tour-live'
 import { assentarEstadio, estadioCull, estadioSitio } from './estadio'
-import { acenderTelaoGeode, assentarGeode, geodeCull, geodeSitio, podarGeode } from './geode'
+import { acenderGeode, acenderTelaoGeode, assentarGeode, geodeCull, geodeSitio, podarGeode } from './geode'
 import { atletismoSitio } from './atletismo'
 import { criarAtletismo, type Atletismo } from './atletismo-loader'
 import { campusParcela, comPodio, criarCampus, CAMPUS_LAJE, CAMPUS_RUMO, EIXO_CAMPUS, GIRO_CAMPUS, sitioNoCampus } from './campus'
@@ -3912,6 +3912,10 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             mesh.receiveShadow = true
           })
           // o telão do placar deixa de ser parede branca: ver `acenderTelaoGeode`
+          // ⚠️ EMISSIVO NÃO ILUMINA: sem estas pontuais a quadra fica preta. Ver
+          // `acenderGeode`. Elas entram no culler e somem de verdade de longe.
+          { const _g = geodeSitio()
+            acenderGeode(geode, culler, new THREE.Vector3(_g.x, 0, _g.z)) }
           { const n = acenderTelaoGeode(geode)
             if (!n) console.warn('[geode] nenhum material AR_TELA no GLB: o telão ficou como o modelo entrega')
             else console.log(`[geode] telão aceso: ${n} face(s) com $DOG`) }
@@ -4024,6 +4028,46 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         const krayLod = lodOf(kray, krayLod1)
         krayLod.position.copy(ANCHORS.east.pos)
         krayLod.rotation.y = ANCHORS.east.rotY
+
+        // ══ A PROPORÇÃO DA PRAÇA, REFEITA EM 08/09 ═══════════════════════════
+        //
+        // Fundador: *"os prédios parecem altos demais e a esfera precisa ser o
+        // foco das atenções"*. Medido acima do piso da praça, ANTES:
+        //
+        //     torre central   525,4 m     a esfera era 27% dela
+        //     BitFlow         343,9 m     41%
+        //     Kray            332,2 m     42%
+        //     THE SPHERE      140,1 m
+        //
+        // ⚠️ O DESEQUILÍBRIO NÃO ESTAVA ESPALHADO, ESTAVA NA TORRE. Ela tem 3,75x
+        // a altura da esfera e fica no MEIO da praça, competindo de frente,
+        // enquanto as duas âncoras laterais são um caso bem mais leve. Por isso o
+        // corte não é uniforme: a torre leva 45% e as laterais 25%. Um corte
+        // igual em todos ou deixava a torre esmagando, ou transformava as
+        // laterais em tocos para resolver um problema que não era delas.
+        //
+        // Resultado, com a esfera em 215,6 m (154,2 m de altura):
+        //
+        //     torre central   289,0 m     a esfera passa a ser 53% dela
+        //     BitFlow         257,9 m     60%
+        //     Kray            249,2 m     62%
+        //
+        // ⚠️ E A ESCALA PRESERVA A LINHA DO CHÃO, o que não é automático. Escalar
+        // em torno da origem funciona para BitFlow e Kray porque a origem do
+        // modelo É a linha do chão (o `y` negativo deles é fundação enterrada,
+        // que encolhe junto e ninguém vê). A torre NÃO: ela é posta em
+        // `PRACA_Y + 39,9` e o modelo começa em −8,5, então escalar em torno da
+        // origem levantaria a base em 3,8 m e ela ficaria boiando. A compensação
+        // devolve o mínimo do modelo à mesma cota de mundo.
+        const ESCALA_TORRE = 0.55, ESCALA_ANCORA = 0.75
+        for (const [root, k, minY] of [
+          [needleLod, ESCALA_TORRE, -8.5],
+          [bitflowLod, ESCALA_ANCORA, -25.5],
+          [krayLod, ESCALA_ANCORA, -24.0],
+        ] as [THREE.Object3D, number, number][]) {
+          root.scale.setScalar(k)
+          root.position.y += minY * (1 - k)
+        }
         for (const root of [plaza, spaceport, needleLod, bitflowLod, krayLod]) {
           tameEnv(root)
           root.traverse((o) => {

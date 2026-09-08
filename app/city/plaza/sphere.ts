@@ -109,7 +109,38 @@ export const SPHERE_ENVELOPE_ARCO = (_CX.a1 - _CX.a0) * _CX.rm
  * ⚠️ NÃO AUMENTAR ALÉM DISTO SEM O FUNDADOR. O limite não é estrutural nem de
  * fillrate: é a praça.
  */
-export const SPHERE_DIAM = 196
+/**
+ * ⚠️ 215,6 m DESDE 08/09, E O MOTIVO MUDOU DE NATUREZA. Os 196 m eram travados
+ * pela PRAÇA do sítio antigo: a caixa do módulo da teia tinha 227,0 m no radial e
+ * crescer mais deixaria beirada em vez de praça caminhável. Esse limite morreu
+ * junto com o módulo: na âncora norte quem manda é o anel viário do precinto.
+ *
+ * ⚠️ E O QUE PEDIU O CRESCIMENTO FOI PROPORÇÃO, NÃO ESCALA. O fundador: *"os
+ * prédios parecem altos demais e a esfera precisa ser o foco das atenções"*.
+ * Medido acima do piso da praça, antes: torre central 525,4 m, BitFlow 343,9,
+ * Kray 332,2, e a esfera 140,1, ou seja **27% do prédio mais alto**. Crescer a
+ * esfera sozinha não resolvia (para empatar com a torre ela precisaria de 735 m
+ * de diâmetro, 3,75x), então isto anda junto com o corte dos prédios em
+ * `plaza-scene.tsx`: torre central −45%, âncoras laterais −25%.
+ *
+ * O que 215,6 entrega, medido:
+ *
+ *     altura acima do piso da praça             154,1 m  (era 140,1)
+ *     largura no plano do piso                  194,7 m
+ *     encosta no chão em                        r 522,6
+ *     folga contra o anel viário (borda 469)    **53,6 m**  (era 23,9)
+ *
+ * ⚠️ A FOLGA MELHOROU AO CRESCER, e isso não é engano: o avental é um quadrado
+ * de lado fixo e é ELE que definia a folga antes, não a esfera. A esfera cresceu
+ * dentro do avental.
+ *
+ * ⚠️ E O JARDIM ACOMPANHA SOZINHO, porque tudo nele sai de `sphereRaioNaCota` e
+ * do sítio. O passo do LED também: ele é `2πR/2048` e vai de 30,07 para 33,08 cm,
+ * com a contagem de LEDs inalterada em 1.335.088, que é `2048²/π` e não depende
+ * de R. A letra grande vai de 16,84 para 18,52 m, e o alcance de leitura sobe na
+ * mesma proporção.
+ */
+export const SPHERE_DIAM = 215.6
 export const SPHERE_R = SPHERE_DIAM / 2
 
 /**
@@ -439,8 +470,23 @@ export const SPHERE_PASSO = (2 * Math.PI * SPHERE_R) / SPHERE_GRADE_COLS  // 0,2
  * **166 linhas, 50,1 m** até o corte da malha. O que limita a faixa para CIMA é
  * só o escorço do polo, e ele começa a doer bem acima de 378.
  */
-export const SPHERE_FAIXA_LINHA0 = 378
-export const SPHERE_FAIXA_LINHA1 = 486
+export const SPHERE_FAIXA_LINHA0 = 368
+export const SPHERE_FAIXA_LINHA1 = 496
+
+/**
+ * ⚠️ A FAIXA FOI DE 108 PARA 128 LINHAS EM 08/09, E NÃO PARA DAR AR AO TEXTO DE
+ * PERTO: foi para caber o REGISTRO DE LONGE. Pedido do fundador: *"só tá faltando
+ * a esfera mostrar os dados mesmo a grandes distâncias"*.
+ *
+ * ⚠️ O MIOLO DE PERTO NÃO ANDOU UM PIXEL. A faixa cresceu 10 linhas para cada
+ * lado e a margem do modo perto subiu de 8 para 18, então a linha grande continua
+ * em 386-442 com centro em 414 e a pequena em 450-478, exatamente como estavam.
+ * O que mudou foi só o espaço em volta.
+ *
+ * A altura física passou de 32,47 para **38,49 m**, e isso tem um efeito de
+ * borda bem-vindo: o anel aceso que sobra além do `textCull` ficou 18% mais
+ * alto, e é ele a assinatura da peça a 8 km.
+ */
 
 /** latitude, em graus, de uma linha da grade contada do polo norte */
 export function sphereLatDaLinha(linha: number): number {
@@ -463,6 +509,36 @@ const FX_MARGEM = 8
 const FX_GRANDE_ESCALA = 8   // linhas de LED por pixel de glifo
 const FX_PEQUENA_ESCALA = 4
 const FX_VAO = 8
+
+/**
+ * ⚠️ O REGISTRO DE LONGE: UMA LINHA SÓ, DOBRO DA ESCALA, SÓ O VALOR.
+ *
+ * Medido na tela da live (1080 px, fov 42, `pxAng` 6,787e-4), com o critério de
+ * 9 px de altura de letra que esta casa usa:
+ *
+ *     escala 8 (perto)   letra 16,84 m   32 casas   legível até **2.757 m**
+ *     escala 16 (longe)  letra 33,69 m   16 casas   legível até **5.515 m**
+ *
+ * ⚠️ E 16 NÃO É ESCOLHA DE GOSTO, É A PRÓXIMA QUE FECHA A VOLTA. O texto tem de
+ * dar a volta num número inteiro de casas: `2048 / (8 x escala)` só é inteiro
+ * para escala em potência de dois. 8 dá 32 casas, 16 dá 16, e 15 daria 17,07, ou
+ * seja emenda visível no meridiano. Não existe meio termo entre 2.757 e 5.515 m.
+ *
+ * ⚠️ O QUE ELE MOSTRA É O VALOR E MAIS NADA. O rótulo (a linha pequena) já é
+ * ilegível bem antes: com 8,42 m ele morre em 1.378 m. Insistir nele de longe
+ * gastaria metade da faixa com borrão. 16 casas cobrem qualquer valor que esta
+ * peça publica (o orçamento de perto já era 7).
+ *
+ * ⚠️ E EXISTE UM TETO FÍSICO ACIMA DISTO, DECLARADO. Para ler a 9 px a letra
+ * precisa de 30,5 m aos 5 km, 48,9 m aos 8 km e **67,2 m aos 11,8 km** (a
+ * distância do spaceport). Os 67 m são um terço do diâmetro da esfera: ali não
+ * há texto, há um caractere gigante. Além de 5,5 km quem carrega significado é o
+ * ANEL: a cor da faixa, a respiração e o pulso de evento, que já existem e não
+ * dependem de resolver letra. Ver a seção 5.1.
+ */
+const FX_LONGE_ESCALA = 16
+/** margem do modo perto dentro da faixa nova; o de longe usa 8 */
+const FX_MARGEM_PERTO = 18
 
 /**
  * ⚠️ A LETRA MORRE POR PIXEL DE TELA, NÃO POR CONSTANTE DE PERFIL, E ATÉ 08/09
@@ -525,6 +601,7 @@ export const SPHERE_LETRA_ALTURA = 7 * FX_GRANDE_ESCALA * (Math.PI * SPHERE_R / 
  */
 export const SPHERE_CHARS_GRANDE = SPHERE_GRADE_COLS / (8 * FX_GRANDE_ESCALA)   // 32
 export const SPHERE_CHARS_PEQUENA = SPHERE_GRADE_COLS / (8 * FX_PEQUENA_ESCALA) // 64
+export const SPHERE_CHARS_LONGE = SPHERE_GRADE_COLS / (8 * FX_LONGE_ESCALA)     // 16
 
 /**
  * ⚠️ O ORÇAMENTO DE CARACTERES DO CONTEÚDO, e ele é apertado.
@@ -1401,6 +1478,7 @@ function pintarTextura(
   cv: HTMLCanvasElement,
   c: SphereConteudo,
   f: number,
+  longe = false,
 ): { media: THREE.Color; corFaixa: THREE.Color } {
   const g = cv.getContext('2d')!
   const W = cv.width, H = cv.height
@@ -1462,13 +1540,23 @@ function pintarTextura(
   g.fillStyle = corFaixa
   g.fillRect(0, Math.round(y0), W, Math.round(y1 - y0))
 
-  // as duas linhas de texto, posicionadas em LEDs (ver o bloco FX_* acima)
-  const lGrande = SPHERE_FAIXA_LINHA0 + FX_MARGEM
-  const lPequena = lGrande + 7 * FX_GRANDE_ESCALA + FX_VAO
-  escrever(g, c.grande, lGrande, FX_GRANDE_ESCALA, SPHERE_CHARS_GRANDE,
-    c.cor ?? COR_DADO, f)
-  escrever(g, c.pequena, lPequena, FX_PEQUENA_ESCALA, SPHERE_CHARS_PEQUENA,
-    c.corRotulo ?? COR_ROTULO, f)
+  // ⚠️ DOIS REGISTROS, UM DE CADA VEZ, E QUEM ESCOLHE É A DISTÂNCIA. Ver
+  // `FX_LONGE_ESCALA` para a conta e para o teto físico. De perto vão as duas
+  // linhas (valor e rótulo); de longe vai UMA linha do dobro da altura com só o
+  // valor, porque o rótulo já morreu em 1.378 m e ocuparia metade da faixa com
+  // borrão.
+  if (longe) {
+    const lLonge = SPHERE_FAIXA_LINHA0 + FX_MARGEM
+    escrever(g, c.grande, lLonge, FX_LONGE_ESCALA, SPHERE_CHARS_LONGE,
+      c.cor ?? COR_DADO, f)
+  } else {
+    const lGrande = SPHERE_FAIXA_LINHA0 + FX_MARGEM_PERTO
+    const lPequena = lGrande + 7 * FX_GRANDE_ESCALA + FX_VAO
+    escrever(g, c.grande, lGrande, FX_GRANDE_ESCALA, SPHERE_CHARS_GRANDE,
+      c.cor ?? COR_DADO, f)
+    escrever(g, c.pequena, lPequena, FX_PEQUENA_ESCALA, SPHERE_CHARS_PEQUENA,
+      c.corRotulo ?? COR_ROTULO, f)
+  }
 
   // ── as duas médias, e as duas são MEDIDAS do canvas, nunca estimadas ─────
   const amostra = g.getImageData(0, 0, W, H).data
@@ -1717,6 +1805,11 @@ export function buildSphere(o: SphereOpts): Sphere {
   }
 
   let liso = false
+  /** o conteúdo corrente, para a peça poder se repintar sozinha ao trocar de
+   *  registro sem ninguém chamar `pintar()` */
+  let atual: SphereConteudo = conteudo0
+  /** registro de LONGE ligado? Ver `FX_LONGE_ESCALA` e a troca em `update()`. */
+  let longe = false
   // arte de corpo desliga o degrau: ver a nota em update()
   let temArte = !!conteudo0.pintarCorpo
   // ── a vida do anel: respiração + pulso de evento (ver a seção 5.1) ──────
@@ -1738,7 +1831,8 @@ export function buildSphere(o: SphereOpts): Sphere {
       pulsoAmp = SPHERE_PULSO_AMP * Math.max(0, intensidade)
     },
     pintar(c: SphereConteudo) {
-      const m = pintarTextura(cv, c, f)
+      atual = c
+      const m = pintarTextura(cv, c, f, longe)
       uniformes.uMedia.value = m.media
       uniformes.uCorFaixa.value = m.corFaixa
       uniformes.uGanho.value = c.ganho ?? 0.42
@@ -1776,7 +1870,25 @@ export function buildSphere(o: SphereOpts): Sphere {
       // `SPHERE_TEXTO_PX`. `uPxAng` já é escrito duas linhas acima: a peça sempre
       // teve o número da tela na mão e não o usava para isto.
       const distTexto = SPHERE_LETRA_ALTURA / (SPHERE_TEXTO_PX * uniformes.uPxAng.value)
-      uniformes.uTextoDist.value = distTexto
+      // ⚠️ A TROCA DE REGISTRO CUSTA UMA REPINTURA, ENTÃO ELA TEM HISTERESE
+      // LARGA. `pintarTextura` é um canvas de até 2.048 x 1.024 e um envio de até
+      // 8 MB (~7 ms de thread principal, medido): por quadro seria inaceitável.
+      // A banda morta vai de 0,85 a 1,15 do limiar, ou seja 30% da distância
+      // (827 m dos 2.757 na tela da live). Uma volta do tour cruza isso duas
+      // vezes: 14 ms por volta de 22 min. O que a banda impede é a câmera parar
+      // em cima do limiar e repintar a cada quadro.
+      const queroLonge = longe ? d > distTexto * 0.85 : d > distTexto * 1.15
+      if (queroLonge !== longe) {
+        longe = queroLonge
+        const m = pintarTextura(cv, atual, f, longe)
+        uniformes.uMedia.value = m.media
+        uniformes.uCorFaixa.value = m.corFaixa
+        tex.needsUpdate = true
+      }
+      // ⚠️ E O CORTE DE TEXTO ACOMPANHA O REGISTRO: no modo de longe a letra tem
+      // o DOBRO da altura, então vive o dobro da distância. Usar o mesmo
+      // `distTexto` apagaria justamente o registro que existe para não apagar.
+      uniformes.uTextoDist.value = longe ? distTexto * 2 : distTexto
       // ⚠️ E O DEGRAU DE FILLRATE NÃO PODE ENTRAR ENQUANTO A LETRA AINDA É
       // LEGÍVEL, porque `FS_LISO` não tem textura nenhuma: trocar de material ali
       // apagaria o texto do mesmo jeito que o corte apagava. No celular isto leva
@@ -1785,7 +1897,7 @@ export function buildSphere(o: SphereOpts): Sphere {
       // 390x844 em dpr 2 a 1.300 m, 3,0% a 2.000 m e 1,7% a 2.656 m. É o shader
       // cheio sobre menos de um vigésimo da tela, na faixa em que antes ele nem
       // rodava.
-      const querLiso = d > Math.max(limite, distTexto) * 1.15
+      const querLiso = d > Math.max(limite, longe ? distTexto * 2 : distTexto) * 1.15
       if (querLiso !== liso) {
         liso = querLiso
         casca.material = liso ? matLiso : matLed

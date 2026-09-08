@@ -14,6 +14,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
 import { caixaDoModulo, polyDoModulo, type Modulo } from './teia'
+import type { DistanceCuller } from './perf'
 
 /**
  * ⚠️ A TEIA NÃO É A ÚNICA MALHA VIÁRIA DA CIDADE, E FOI ISSO QUE ERROU O SÍTIO.
@@ -266,8 +267,93 @@ export function acenderTelaoGeode(root: THREE.Object3D): number {
       if (mat && mat.name === 'AR_TELA') { mexeu = true; trocados++; mat.dispose(); return novo }
       return mat
     })
-    if (mexeu) m.material = Array.isArray(m.material) ? saida : saida[0]
+    if (!mexeu) return
+    m.material = Array.isArray(m.material) ? saida : saida[0]
+    uvPlanar(m.geometry)
   })
   if (!trocados) tex.dispose()
   return trocados
+}
+
+/**
+ * ⚠️ O TELÃO NÃO TEM UV, E ISSO DEIXOU A TELA PRETA EM PRODUÇÃO. Conferido no
+ * GLB: a primitiva do `AR_TELA` tem só `POSITION` e `NORMAL`, sem `TEXCOORD_0`.
+ * Sem UV, `map` amostra sempre o texel (0,0), que no canvas do placar é o fundo.
+ * O fundador viu na live: *"o telão está todo preto"*. Defeito meu, e do tipo que
+ * não aparece em typecheck nem em build: só olhando.
+ *
+ * O conserto é projeção PLANAR pelos dois maiores eixos da caixa da peça. O
+ * telão é uma caixa larga e baixa, então os dois maiores eixos são justamente a
+ * face que se olha; as faces finas das bordas recebem a mesma projeção e ficam
+ * com o pixel esticado, que a essa distância não se vê. Gerar UV de verdade
+ * pediria reexportar o modelo, e o modelo é de outra frente.
+ */
+function uvPlanar(g: THREE.BufferGeometry) {
+  const pos = g.getAttribute('position')
+  if (!pos) return
+  g.computeBoundingBox()
+  const bb = g.boundingBox!
+  const tam = new THREE.Vector3(); bb.getSize(tam)
+  // os dois maiores eixos da caixa, que é onde a imagem tem de ficar direita
+  const eixos = [0, 1, 2].sort((a, b) => tam.getComponent(b) - tam.getComponent(a))
+  const [u, v] = [eixos[0], eixos[1]]
+  const du = tam.getComponent(u) || 1, dv = tam.getComponent(v) || 1
+  const uv = new Float32Array(pos.count * 2)
+  for (let i = 0; i < pos.count; i++) {
+    uv[i * 2] = (pos.getComponent(i, u) - bb.min.getComponent(u)) / du
+    // v invertido: textura do canvas cresce para BAIXO e a UV do three para cima
+    uv[i * 2 + 1] = 1 - (pos.getComponent(i, v) - bb.min.getComponent(v)) / dv
+  }
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
+}
+
+/**
+ * A LUZ DE DENTRO DA ARENA.
+ *
+ * ⚠️ EMISSIVO BRILHA, NÃO ILUMINA, e é essa confusão que deixou o interior no
+ * escuro. O fundador viu na live: *"tá faltando luz dentro do the geode, uma
+ * escuridão tremenda"*. O modelo novo tem cinco materiais emissivos (`AR_LUZ` com
+ * força 9, `AR_AMBAR` 5,5, `AR_LETRA` 7,3), e em three.js emissivo acende o
+ * PRÓPRIO material e não joga um fóton em nada. Sem uma luz de verdade a quadra
+ * fica preta, e ela é preta por desenho: `AR_QUADRA` tem cor base 0,0075, ou
+ * seja o material mais escuro do modelo depois da obsidiana.
+ *
+ * ⚠️ E AS LUZES SÃO GATILHADAS POR DISTÂNCIA, pela mesma razão que a caverna do
+ * Leonidas gatilha as dela: a contagem de luzes entra na chave de cache de
+ * programa do three e custa em TODO fragmento iluminado da cena, não só aqui.
+ * Elas entram no `DistanceCuller`, que zera `visible` além do raio; o
+ * `projectObject` do renderizador pula subárvore invisível, então a luz some do
+ * `lightsArray` e para de custar de verdade, não só de aparecer.
+ *
+ * Três pontuais, warm white de `AR_LUZ` (1 / 0,896 / 0,745): duas altas nas
+ * pontas do eixo longo e uma no centro, todas acima do plano da quadra.
+ */
+export function acenderGeode(
+  root: THREE.Object3D,
+  culler?: DistanceCuller,
+  ancora?: THREE.Vector3,
+): THREE.PointLight[] {
+  let alvo: THREE.Object3D | null = null
+  root.traverse((o) => { if (o.name === 'GEODE_INTERIOR') alvo = o })
+  const pai = (alvo ?? root) as THREE.Object3D
+  const caixa = new THREE.Box3().setFromObject(pai)
+  const c = caixa.getCenter(new THREE.Vector3())
+  const t = caixa.getSize(new THREE.Vector3())
+  // o eixo longo no plano, para espalhar as duas das pontas
+  const longo = t.x >= t.z ? 'x' : 'z'
+  const meio = (longo === 'x' ? t.x : t.z) * 0.28
+  const alturaLuz = caixa.min.y + t.y * 0.72
+  const COR = 0xffe4be
+  const feitas: THREE.PointLight[] = []
+  const alcance = Math.max(t.x, t.z) * 1.1
+  for (const dz of [-meio, 0, meio]) {
+    const l = new THREE.PointLight(COR, dz === 0 ? 3.2 : 2.4, alcance, 1.6)
+    l.position.set(longo === 'x' ? c.x + dz : c.x, alturaLuz, longo === 'z' ? c.z + dz : c.z)
+    pai.add(l)
+    feitas.push(l)
+  }
+  // ⚠️ O RAIO DO GATILHO É A PRÓPRIA PEÇA COM FOLGA: elas só interessam a quem
+  // está dentro ou na porta, e de fora a casca é opaca.
+  if (culler && ancora) for (const l of feitas) culler.add(l, Math.max(t.x, t.z) * 1.6, ancora)
+  return feitas
 }
