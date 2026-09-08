@@ -2023,6 +2023,10 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       // compra serem percebidos de 3 km, onde o texto ja morreu. Ver
       // SPHERE_PULSO_* em sphere.ts.
       pulsar: (i) => sphere?.pulsar(i),
+      // ⚠️ O GESTO DE CASCA INTEIRA. Ver `SPHERE_FX_MS` em sphere.ts: varredura
+      // para o bloco de Bitcoin, radial para o que toca a carteira da cidade, e
+      // cortina para cobrir a repintura na troca de pele.
+      fx: (tipo, peso, aoCobrir) => sphere?.fx(tipo, peso, aoCobrir),
     })
     let atletismo: Atletismo | null = null
     let lago: Lago | null = null

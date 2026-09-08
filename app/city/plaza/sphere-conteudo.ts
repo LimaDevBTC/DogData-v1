@@ -102,7 +102,7 @@ export const ORC_PEQUENA = 10
  * peça que vende anúncio, não detalhe de acabamento.
  */
 export const ROTULOS = {
-  marcaBtc: 'BITCOIN',            // 7
+  marcaBtc: 'THE CHAIN',          // 9
   marcaBtcAlt: 'BTC BLOCK',       // 9
   marcaDog: 'BTC RUNE',           // 8
   marcaDogAlt: 'THE MOON',        // 8
@@ -791,6 +791,11 @@ function slotBitcoin(altura: number | null): Slot {
     classe: 'dado',
     nome: 'marca-btc',
     quadros: [
+      // ⚠️ O VALOR E O RÓTULO NÃO PODEM DIZER A MESMA COISA. Ao encurtar os
+      // rótulos para o teto de 10, `marcaBtc` virou `BITCOIN` e o quadro passou a
+      // publicar `BITCOIN` em cima de `BITCOIN`: duas linhas gastas com uma
+      // palavra, numa peça em que a linha pequena é lida por 100% dos azimutes.
+      // A casca já carrega o ₿; a faixa carrega o que o ₿ não diz.
       quadro('BITCOIN', ROTULOS.marcaBtc, MS_MODULO / 2, base),
       quadro(altura ? String(altura) : 'BITCOIN', ROTULOS.marcaBtcAlt, MS_MODULO / 2, base),
     ],
@@ -1088,6 +1093,11 @@ export interface ProgramacaoOpts {
    */
   ganhar: (g: number) => void
   /**
+   * um gesto de casca inteira. É `sphere.fx`, e é opcional porque o programa
+   * nasce antes da peça. Ver `SPHERE_FX_MS` em sphere.ts.
+   */
+  fx?: (tipo: 'varredura' | 'radial' | 'cortina', peso?: number, aoCobrir?: () => void) => void
+  /**
    * um swell de brilho no anel, para o evento atravessar a distância. É
    * `sphere.pulsar`, e é opcional porque o programa nasce antes da peça.
    *
@@ -1157,6 +1167,10 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
   let fadeDur = 0
   let pendente: Quadro | null = null
   let ganhoAtual = GANHO_OCIOSO
+  /** a pele que está na textura AGORA, para saber quando a troca é de casca */
+  let peleAtual: SphereConteudo['pintarCorpo'] | null = null
+  /** quantas tx de DOG o último bloco trouxe, para o peso do gesto */
+  let ultimoBlocoTx = 0
 
   const suave = (t: number) => t * t * (3 - 2 * t)
 
@@ -1175,11 +1189,24 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
     if (k < 1) return
     fadeDur = 0
     if (pendente) {
-      // a troca de textura mora no fundo do vale: os ~7 ms de repaint caem onde
-      // o olho tem menos a que se agarrar
-      o.pintar(pendente.c)
-      const alvo = pendente.c.ganho ?? GANHO_OCIOSO
+      // ⚠️ TROCA DE PELE VAI SOB A CORTINA; troca de NÚMERO continua no vale.
+      // O dissolve por ganho resolve bem a troca de um valor na faixa, que é uma
+      // mudança pequena. Trocar a CASCA INTEIRA por ele é outra coisa: o ganho
+      // cai ao vale e a esfera apaga por 7 ms com a pele antiga ainda na
+      // textura. A cortina cobre a peça, a repintura acontece coberta, e a
+      // cobertura desce já com a pele nova. Ver `SPHERE_FX_MS.cortina`.
+      const q = pendente
+      const trocaDePele = (q.c.pintarCorpo ?? null) !== (peleAtual ?? null)
+      const alvo = q.c.ganho ?? GANHO_OCIOSO
       pendente = null
+      if (trocaDePele && o.fx) {
+        peleAtual = q.c.pintarCorpo ?? null
+        o.fx('cortina', 1, () => o.pintar(q.c))
+      } else {
+        // a troca de textura mora no fundo do vale: os ~7 ms de repaint caem onde
+        // o olho tem menos a que se agarrar
+        o.pintar(q.c)
+      }
       fadeT0 = t; fadeDe = ganhoAtual; fadePara = alvo; fadeDur = MS_ENTRA
     }
   }
@@ -1296,6 +1323,24 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
     return { classe: 'dado', nome: 'ocioso', quadros: [quadroOcioso()] }
   }
 
+  /**
+   * ⚠️ O PESO DO EVENTO, e ele existe para o gesto não virar rotina. Bloco sem
+   * DOG dentro é notícia menor e sai em 0,45; a mediana da janela de 144 amostras
+   * (um dia de blocos) sai em 1,0; acima do percentil 90 sai em 1,6. Zero chamada
+   * de rede nova: `last_dog_block_count` já vem no mesmo payload do feed.
+   */
+  const historicoTx: number[] = []
+  const pesoDoEvento = (s: Slot): number => {
+    if (s.nome !== 'bloco') return 1
+    const n = ultimoBlocoTx
+    historicoTx.push(n)
+    if (historicoTx.length > 144) historicoTx.shift()
+    if (n <= 0) return 0.45
+    const ord = [...historicoTx].sort((a, b) => a - b)
+    const p90 = ord[Math.min(ord.length - 1, Math.floor(ord.length * 0.9))]
+    return n >= p90 && ord.length >= 8 ? 1.6 : 1
+  }
+
   const entrarNo = (s: Slot, t: number) => {
     fecharConta(t)
     slot = s
@@ -1305,7 +1350,19 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
     // comercial já sobe para ganho 0,90 o tempo todo e não precisa de swell; o
     // módulo de dado é o estado sóbrio por definição. Pulsar em tudo seria
     // exatamente a bola de discoteca que o dossiê proíbe.
-    if (s.classe === 'evento') o.pulsar?.(1)
+    if (s.classe === 'evento') {
+      // ⚠️ O PESO SAI DO DADO, E CRAVAR 1 ERA O DEFEITO. Com 144 blocos por dia
+      // todos idênticos, o gesto mais RARO da peça virava o mais repetido, e a
+      // raridade é justamente o que o faz funcionar. `pulsar` já aceitava o
+      // argumento e ninguém passava.
+      o.pulsar?.(pesoDoEvento(s))
+      // ⚠️ E CADA CLASSE DE EVENTO TEM O SEU GESTO, para o espectador aprender a
+      // ler a peça sem legenda. Bloco de Bitcoin varre de polo a polo, porque ele
+      // é da CADEIA e vem de fora. O que toca a carteira da cidade (doação, tx,
+      // mint) sai em anel a partir de quem olha, porque ele é DAQUI.
+      if (s.nome === 'bloco') o.fx?.('varredura', pesoDoEvento(s))
+      else o.fx?.('radial', pesoDoEvento(s))
+    }
     trocarPara(s.quadros[0], t)
   }
 
@@ -1426,6 +1483,8 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
       // presente, não faz a chamada dos ausentes.
       const tip = typeof s.tip_height === 'number' ? s.tip_height : null
       if (tip !== null && !primeiroSnapshot && tipVisto !== null && tip > tipVisto) {
+        // o peso do gesto sai daqui: quantas tx de DOG este bloco trouxe
+        ultimoBlocoTx = s.last_dog_block === tip ? Number(s.last_dog_block_count ?? 0) : 0
         empilhar(eventoBloco(s, tip), t)
       }
       if (tip !== null) tipVisto = tip
