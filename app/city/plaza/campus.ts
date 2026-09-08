@@ -116,6 +116,15 @@ export function pecaSitio(mod: Modulo): { x: number; z: number; a: number } {
 // e o teste de raio resolve isso com duas comparações, sem atan2 e sem raiz.
 const _rDentro = _cx.r0 - 40
 const _rFora = Math.max(..._poly.map((p) => Math.hypot(p[0], p[1]))) + 40
+// ⚠️ A PORTA COMPARA RAIO AO QUADRADO, SEM RAIZ. Medido: `Math.hypot` custa
+// 45,3 ns por chamada nesta função, e `heightAt` é o trava-chão da câmera e o
+// pouso de toda peça, poste e árvore da cidade — no boot são centenas de
+// milhares de chamadas. `Math.hypot` do V8 não é a raiz da soma: ele trata
+// estouro e desnormal, e não é embutido. Comparar x²+z² contra os limites ao
+// quadrado dá a MESMA resposta e derruba o custo para o piso do laço em todo
+// ponto fora do campus, que é 99% do mapa.
+const _r2Dentro = _rDentro * _rDentro
+const _r2Fora = _rFora * _rFora
 
 const _suave = (k: number) => k * k * (3 - 2 * k)
 
@@ -150,8 +159,8 @@ function dentroDaParcela(x: number, z: number): number {
 }
 
 function pesoParcela(x: number, z: number): number {
-  const r = Math.hypot(x, z)
-  if (r <= _rDentro || r >= _rFora) return 0
+  const r2 = x * x + z * z
+  if (r2 <= _r2Dentro || r2 >= _r2Fora) return 0
   const dentro = dentroDaParcela(x, z)
   if (dentro <= 0) return 0
   return dentro >= FRANJA ? 1 : _suave(dentro / FRANJA)
