@@ -532,3 +532,353 @@ Cartas que eu recomendo, na ordem de custo: (a) as duas atuais; (b) polaridade i
 4. **Peso do bloco:** dar cerimônia só acima da mediana de tx de DOG derruba o gesto grande de ~6 para ~3 vezes por hora. É a diferença entre marco e notificação, e é escolha editorial.
 5. **THE HOUR** (24 s na virada da hora UTC, 0,67% do ar) fica de fora deste plano por ser recurso e não conserto. Se entrar, tem de passar por `fila.push` direto e **não pode escrever `ultimoDadoValido`**: relógio não é dado de cadeia, e escrever ali mantém o anúncio vivo para sempre com zero dado no ar.
 6. **`temArte`** (`sphere.ts:1938-1942`) não desliga o degrau como o comentário afirma, ele sobe o limiar. Hoje é inerte porque `distTexto` domina. Depois de A1 vale confirmar que a pele de parceiro além de 7,6 km em celular pode ler como média chapada, que é o comportamento correto mas é o conteúdo comprado.
+
+---
+
+# Rodada 3 (wf_6641272b-c5d): o baralho de peles
+
+
+
+## cartas:marca
+
+{
+ "cartas": [
+  {
+   "nome": "THE EPOCH",
+   "oQueSeVe": "Um anel de 24,6 m em que cada coluna de LED acesa e um bloco minerado do epoch corrente, e ele fecha a volta no bloco do retarget.",
+   "porQueSurpreende": "2016 blocos contra 2048 colunas: o epoch de dificuldade cabe quase exato na volta da esfera, um bloco por LED. Nao e uma barra de progresso desenhada, e a grade fisica da peca virando odometro da cadeia. Quem pega ve o anel completo e a costura de 32 colunas fechando; nos 13,9 dias seguintes ele nasce vazio de novo. Sentimento: peguei o dia em que o relogio do Bitcoin zera.",
+   "desenho": "Campo #0A0A0A na casca toda, faixaFundo fica no padrao #121212 (campo escuro nao precisa de null). ANEL: linhas 296 a 336 (40 linhas, 24,6 m), lat +37,97 a +30,94 graus, centro na linha 316 (lat +34,45, cos 0,8246). Uma coluna de textura por bloco: colunas 0 a 2015 sao o epoch, minerado em #E8660D, por minerar em #2A1206; as 32 colunas restantes ficam em #141414 e sao a COSTURA do epoch, centrada no meridiano 0. Repeticoes na volta: 2016 (uma por bloco) mais 8 marcas de oitavo igualmente espacadas a cada 252 colunas, 2 colunas de largura, subindo das linhas 280 a 352 (72 linhas, 44,3 m) em #C6BFB1. COMPENSACAO DE LARGURA: nenhuma, e por deducao e nao por preguica. Esta e a unica carta que quer largura constante em TEXEL e nao em arco, porque um bloco nao tem largura fisica; na linha 316 cada coluna vale 0,61511 x 0,8246 = 0,507 m de arco e o epoch inteiro mede 1.022,5 m dos 1.038,7 m da circunferencia naquela latitude. Media linear estimada 0,038 contra os 0,01406 da esfera ociosa, entao ela nao vira ponto escuro a 3 km. Faixa: grande = String(tip) (7 casas), pequena = RETARGET (8, dentro do teto de 10).",
+   "quando": "Evento de bloco, em snapshot(), quando tip % 2016 === 0, mais os 6 blocos de vespera (tip % 2016 >= 2010) para nao ser um piscar de 8 s. Classe evento, gesto varredura (e da cadeia, vem de fora), peso 1,6, ganho GANHO_EVENTO 0,62. Frequencia alvo: 26 vezes por ano, uma a cada 13,9 dias, janela de cerca de 1 h.",
+   "risco": "Alguem vai querer esticar 2016 para 2048 e fechar a costura; no dia em que isso acontecer uma coluna deixa de ser um bloco e a carta comeca a mentir bonito. A costura e o dado, nao o defeito. Segundo risco: feed velho atrasa o preenchimento, e 20 blocos de atraso sao 10,1 m de anel faltando; a carta so pode entrar com snapshot fresco, pela mesma regra de validade que os modulos de dado ja usam."
+  },
+  {
+   "nome": "WHALE",
+   "oQueSeVe": "Dois anexos solidos emoldurando a faixa e, acima deles, uma escada de degraus contaveis: um degrau por 10 milhoes de DOG movidos na transacao que acabou de chegar.",
+   "porQueSurpreende": "O valor ja esta escrito na faixa, mas a faixa nao diz TAMANHO, diz numero. A escada diz tamanho: de 1 km a pessoa nao le o numero e mesmo assim conta cinco degraus e entende cinquenta milhoes. O que faz a carta e a raridade: se ela aparecesse toda hora viraria decoracao. Sentimento: a esfera de 401 m parou o que estava fazendo por causa de uma transacao.",
+   "desenho": "Campo #0A0A0A. ANEL DE BASE: linhas 340 a 366 (26 linhas, 16,0 m), lat +30,23 a +25,66, em #E8660D, encostado no topo da faixa (368). ANEL ESPELHO: linhas 497 a 523, mesma espessura, escolhido por igual distancia em SENO do meio da faixa (linha 432, sin 0,2430) e nao por igual distancia em linha, que e como o olho compara dois aneis numa esfera. DEGRAUS: 4 linhas acesas e 4 apagadas, empilhando para cima a partir da linha 336; degrau 1 em 333 a 336, degrau 2 em 325 a 328, ate o degrau 12 em 245 a 248 (lat +47,0). Cada degrau 2,46 m de espessura, passo 4,92 m, cor #C6BFB1 creme para separar contagem de moldura. O degrau 12 sai com 8 linhas em vez de 4: ele significa 12 OU MAIS e nao pode ser lido como valor exato. Repeticoes na volta: 1 por elemento, todos sao paralelos completos. COMPENSACAO DE LARGURA: nao se aplica, anel de latitude tem largura infinita em longitude e nao distorce. Media linear so dos dois aneis: 52/1024 = 5,1% x 0,307 = 0,0156, acima dos 0,01406 do ocioso mesmo com zero degrau. Contagem legivel ate cerca de 1,5 km (2,46 m rendem 3,6 px a 1 km com 678,7 urad/px).",
+   "quando": "No evento de transacao que ja existe, em transacao(tx, 'entrou'), quando donationDog(tx) passa do piso. Classe evento, gesto radial (e daqui, nao da cadeia), peso 1,6, ganho 0,62. Frequencia alvo: no maximo 1 por semana, e ela NAO se garante por limiar e sim por trava de recorrencia de 72 h; o piso sai do percentil 99 medido offline em dog_transactions, nunca de uma EMA de sessao.",
+   "risco": "O valor tem de ser LIQUIDO. Uma baleia falsa nasce de publicar o UTXO inteiro em vez do delta por endereco, que e exatamente o erro de 24/08 (doacao de 10 mil saindo de um UTXO de 600 mil, sessenta vezes maior na tela). Segundo risco: o piso envelhece. Se o preco do DOG andar, 10 milhoes deixa de ser baleia, a carta vira comum e morre como carta; o piso precisa de data de remedicao, nao de constante eterna."
+  },
+  {
+   "nome": "AFTER DARK",
+   "oQueSeVe": "A esfera em modo de espera: so a grade de LED piloto acesa, um ponto a cada 4 texels, com dois fios de luz creme dando a volta, e a faixa mostrando a hora LOCAL de quem esta olhando.",
+   "porQueSurpreende": "E a unica carta que nao vem da cadeia, vem do relogio do espectador. As 3 da manha ele ve um telao de 401 m dormindo e mostrando 03:14 para ele, e ninguem mais no mundo esta vendo aquele numero. A captura de tela e a prova. Sentimento: a cidade sabe que horas sao pra mim.",
+   "desenho": "Campo #0A0A0A. RETICULA PILOTO: um texel aceso a cada 4 colunas e a cada 4 linhas, em #E8660D, ou seja 1/16 dos texels, passo de 2,46 m nos dois eixos. FIOS: dois aneis cheios de 4 linhas (2,46 m) em #C6BFB1, nas linhas 300 a 303 (lat +37,27) e 547 a 550 (lat -6,15), escolhidos por igual distancia em SENO do meio da faixa (0,3588 para cada lado a partir de sin 0,2430). Repeticoes na volta: 512 colunas de ponto, 2 aneis. COMPENSACAO DE LARGURA: nenhuma, e aqui isso nao e aproximacao e sim definicao: a reticula E a grade de texel da propria peca, ja em coordenada de LED, entao ela e por construcao a estrutura fisica do painel. Media linear 0,0625 x 0,307 = 0,0192, acima dos 0,01406 do ocioso, que e o que impede a carta de virar buraco preto contra o ceu da Lua. Faixa: grande = hora local em 5 casas com o glifo ':' que a fonte ja tem (03:14), pequena = AFTER DARK (10, no teto exato).",
+   "quando": "Nao e evento. Ela troca a PELE do slot ocioso e do modulo pulso quando a hora local do navegador esta entre 02:00 e 05:59. Ganho fica em GANHO_OCIOSO 0,50: o escuro vem da pele, nunca do ganho, senao ela some. Nunca substitui o intervalo comercial, porque o parceiro comprou uma aparencia. Frequencia: 16,7% do relogio, alvo declarado de menos de 1 em 15 sessoes.",
+   "risco": "E a carta com maior chance de violar o requisito escrito de 07/09 (ela nao pode desaparecer por completo em momento nenhum). Toda mudanca nesta pele tem de ser remedida com o mesmo mediaDe(0, H) em LINEAR que pintarTextura ja usa, e ficar em ou acima de 0,01406; baixar a reticula para 1 em 8 ja derruba para 0,0048 e mata a peca a 3 km. Segundo risco: ela publica um numero que nao e da cadeia. So pode publicar a hora, jamais um dado de dinheiro, para nao ensinar o espectador que a faixa as vezes fala de outra fonte."
+  },
+  {
+   "nome": "THE ETCH",
+   "oQueSeVe": "A idade da rune em anos, um algarismo unico de 103,3 m de altura, quatro vezes na volta, e a faixa publicando o bloco 840000.",
+   "porQueSurpreende": "A carta se reescreve sozinha uma vez por ano: quem viu o 2 em 2026 nao vai ver o 2 de novo nunca mais. E ela e o exercicio limpo da distorcao equirretangular, aquele que o fundador pegou a olho no simbolo do Bitcoin. Sentimento: a esfera esta comemorando um aniversario que eu tambem tenho.",
+   "desenho": "Campo #0A0A0A. ALGARISMO: a mesma matriz 5x7 da faixa, em escala 24 (24 linhas de LED por pixel de glifo), ou seja 7 x 24 = 168 linhas de altura = 103,3 m, ocupando as linhas 146 a 313, centrado na linha 230. Cor #E8660D. Largura nominal 5 x 24 = 120 texels. COMPENSACAO DE LARGURA, por LINHA: larg(v) = 120 / cos(lat(v)), com lat(v) = pi/2 - pi(v+0,5)/1024. Na linha 146 (lat +64,34, cos 0,4331) isso da 277,1 texels; na linha 313 (lat +34,98, cos 0,8193) da 146,5. A cunha ABRE para cima, razao 1,90, exatamente o inverso do defeito que pintarCorpoBitcoin corrigiu. Implementacao identica a que ja funciona: rasterizar o glifo num canvas fora de tela em aspecto verdadeiro e blitar fatia por fatia com drawImage, uma linha por vez, com 2x de supersampling horizontal. Repeticoes na volta: 4, igualmente espacadas; na linha de cima somam 4 x 277,1 = 1.108 dos 2.048 texels, 54,1%, sobrando 45,9% de campo entre elas. Mais dois aneis de piso de 12 linhas em #E8660D nas linhas 340 a 352 e 511 a 523, que e o que segura a media linear em cerca de 0,0157. Faixa: grande = 840000, pequena = THE ETCH (8).",
+   "quando": "Entra no anel de dado no lugar do slot marca-dog durante as 24 h do dia 20 de abril em UTC, com ganho GANHO_MARCA 0,78 (identidade, nao anuncio, e nunca consome cota de parceiro). Frequencia: 1 vez por ano.",
+   "risco": "A data e o bloco tem de ser conferidos contra o dado da propria casa antes de subir. Publicar um aniversario errado num painel de 401 m e a pior falha possivel desta casa, e ja aconteceu uma vez com o preco de teste cravado. Segundo risco, e ele tem data: quando a idade chegar a 2 algarismos, 4 copias pedem 4 x 554 = 2.216 texels na linha de cima e nao cabem nos 2.048; N tem de cair para 3 antes de abril de 2034, com a mesma regra de espacamento igual. Terceiro: FONTE e GLIFOS sao privados de sphere.ts, entao ou se exporta a matriz ou se redeclara os 10 digitos, e redeclarar cria duas fontes na mesma peca."
+  },
+  {
+   "nome": "FIRST LOT",
+   "oQueSeVe": "A casca inteira vira mapa de lote: uma graticula alaranjada de ruas dando a volta, com exatamente UMA celula acesa em creme, e a cauda do endereco do dono na faixa.",
+   "porQueSurpreende": "Ela acontece uma vez na historia da cidade e nunca mais. E ela recompensa quem se mexe: a celula acesa esta em um azimute so, entao a pessoa tem de girar a camera para achar o primeiro lote mintado da DogCity. Sentimento: existe uma celula acesa naquela esfera, e ela tem dono.",
+   "desenho": "Campo #0A0A0A. GRATICULA: aneis a cada 32 linhas (32 aneis, da linha 0 a 1023) com 2 texels de espessura, e meridianos a cada 32 colunas (64 meridianos) com 2 texels de largura, tudo em #E8660D. A malha e cortada na linha 652,5 (o briefing traz 658,7; a diferenca de 6 linhas, 3,8 m, some no corte e nao muda nada aqui). Celula de 32 x 32 texels = 19,7 x 19,7 m, contra os cerca de 778 m2 por carteira do tecido real (66,767 km2 sobre 85.824 carteiras): e emblema, nao escala de lote. O LOTE: a celula das linhas 304 a 336, com a coluna sorteada de forma deterministica pelo txid do mint, preenchida em #C6BFB1 creme, que e o creme do letreiro. COMPENSACAO DE LARGURA, por LINHA, e SO na celula: larg(v) = 32 / cos(lat(v)), o que da 39,8 texels na linha 304 (lat +36,56) e 37,3 na linha 336 (lat +30,94); sem isso o lote sai trapezio. A graticula NAO e compensada de proposito: graticula que converge para o polo e o que faz a peca ler como globo. Repeticoes na volta: 64 meridianos, 32 aneis, 1 celula. Media linear cerca de 0,037, folgada. Faixa: grande = fmtCauda(endereco) em 6 casas, pequena = FIRST LOT (9).",
+   "quando": "No gancho mint() que ja existe e nunca foi chamado, quando o contador de mints do servidor for exatamente 1. Classe evento, gesto radial, peso 1,6, ganho 0,62, e depois a carta e aposentada para sempre.",
+   "risco": "Ela dispara uma vez e nao tem segunda chance, entao tem de ser ensaiada contra um mint falso antes do dia do mint, com um portao de previa do tipo ?pele=firstlot. E o primeiro tem de ser decidido no SERVIDOR: um contador no cliente reinicia a cada recarga e faria a carta de uma vez na historia disparar para cada visitante, que e o jeito mais rapido de transformar a peca mais rara do baralho na mais comum."
+  },
+  {
+   "nome": "THE HALVING",
+   "oQueSeVe": "Uma pilha de sete aneis cheios em que cada um tem metade da espessura do anterior, de 39,4 m ate 0,62 m, convergindo para dentro da faixa de dado.",
+   "porQueSurpreende": "E a curva de emissao do Bitcoin desenhada em latitude, e ela termina exatamente onde o numero comeca: a faixa e o limite da convergencia. Nada tiquetea, nada gira, e mesmo assim a peca conta uma historia de 4 anos numa imagem. Sentimento: eu estava olhando a esfera no halving, e tenho a chapa.",
+   "desenho": "Campo #0A0A0A. ANEIS em #E8660D, cada um com metade da espessura e metade do vao do anterior: linhas 150 a 213 (64 linhas, 39,4 m, lat +63,63 a +52,56), 246 a 277 (32 linhas, 19,7 m), 294 a 309 (16, 9,8 m), 318 a 325 (8, 4,9 m), 330 a 333 (4, 2,5 m), 336 a 337 (2, 1,2 m) e 339 (1 linha, 0,62 m). O ultimo anel para na linha 339 e a faixa comeca na 368: 28 linhas, 17,2 m, de folga limpa. Total aceso 127 linhas = 78,1 m. Repeticoes na volta: 1 por anel, e essa e a simetria mais forte que a peca tem, porque um paralelo completo e igual de todo azimute. COMPENSACAO DE LARGURA: nenhuma e nenhuma e necessaria, e esta carta e a que ensina a outra metade da regra: a distorcao equirretangular so existe para forma LOCAL; anel de latitude e meridiano nao distorcem. Media linear 127/1024 = 12,4% x 0,307 = 0,038, a carta mais acesa do baralho. Faixa na vespera: grande = blocos que faltam, pequena = TO GO (rotulo que ja existe); no bloco: grande = 1050000, pequena = HALVING (7).",
+   "quando": "Substitui o slot marca-btc no anel de dado durante os 144 blocos anteriores (cerca de 24 h) com ganho GANHO_MARCA 0,78, e vira evento de classe evento com gesto varredura e peso 1,6 no bloco exato. Frequencia: 1 vez a cada 210.000 blocos, 3,99 anos. A proxima e o bloco 1.050.000, 83.330 blocos depois do snapshot 966.670, cerca de 579 dias.",
+   "risco": "Ela e escrita hoje e roda daqui a mais de um ano e meio, quando ninguem lembrar que existe. Sem um portao de previa (?pele=halving) e um teste do gatilho na suite, ela e codigo morto que estreia errado no dia de maior audiencia da cadeia. Segundo risco: a tentacao de antecipar a vespera para 2016 blocos para ver a carta mais cedo; isso a poe no ar por 14 dias e queima justamente a raridade que e todo o valor dela."
+  }
+ ]
+}
+
+## cartas:dado
+
+{
+ "cartas": [
+  {
+   "nome": "O GLIFO DE 181 M",
+   "oQueSeVe": "A esfera inteira vira UM caractere: um mais, um menos ou um algarismo de 180,8 m de altura, quatro vezes na volta.",
+   "porQueSurpreende": "Hoje o maior conteudo da peca e a letra de 90 linhas do $DOG (55,4 m). Este glifo tem 294 linhas e le a 24,7 km, ou seja de fora da cidade: e o unico formato em que a esfera nao mostra um dado, ela E o dado. E o + e o - dizem a direcao do dia sem verde nem vermelho, so peso (GANHO_ALTA 0,50 contra GANHO_QUEDA 0,38) e temperatura (COR_DADO_FRACO), que e a regra ja escrita da casa.",
+   "desenho": "Faixa APAGADA: grande:'' e pequena:'' (string vazia; NUNCA ' ', porque repetirNaVolta com um espaco tem t.length=1 e desenha tres grupos de '· ·' na esfera), faixaFundo:null. Casco #0A0B0D. Glifo da matriz 5x7 de sphere.ts:652 em escala 42 linhas de LED por pixel de glifo: altura 7x42 = 294 linhas = 180,8 m, centrado na LINHA 418 (o centro optico), ocupando as linhas 271 a 565, lat +42,36 a -9,32, cos 0,739 a 0,987. Arco do glifo 5x42 = 210 texels = 36,9 graus; a largura em TEXTURA sai por linha, larg(v) = 210/cos(lat(v)), o que da 284 texels na linha 271 e 213 na 565 (a cunha ABRE para cima). Implementacao: rasterizar o glifo em aspecto verdadeiro num offscreen de 2x horizontal e blitar fatia a fatia com drawImage, exatamente o laco de pintarCorpoBitcoin em sphere-conteudo.ts:663, so trocando o conteudo do offscreen; sao 294 drawImage por copia, 1.176 no total, contra os 800 que o ₿ ja faz. Quatro copias em (i+0,5)/4 da volta: periodo 512 texels, folga de 228 na linha mais larga. Tinta #E8660D. O '-' e a linha 3 de 7: vira quatro barras de 42 linhas (25,8 m) por 123 m de arco, separadas por 178 m de vao, o que NAO se confunde com a cinta continua da Kray. O grupo de 210 texels cabe na janela legivel (que satura em 116,5 graus, 663 texels) ja aos 315 m do orcamento.",
+   "quando": "Quadro 2 do slot 'preco' (24 s), no lugar do fmtPct atual; no evento 'bloco' quando o bloco trouxe de 0 a 9 tx de DOG (o '0' e noticia, como o codigo ja diz); e nos ultimos nove blocos antes do bloco 966.670, uma vez na historia.",
+   "risco": "ARMADILHA REAL: pele parametrizada por dado e um CLOSURE novo a cada quadro, e trocaDePele compara identidade de funcao ((q.c.pintarCorpo ?? null) !== peleAtual). Toda troca de valor vai disparar a cortina de 700 ms. Ou memoiza por valor num Map<string, fn>, ou aceita uma cortina por quadro. Segundo risco: a 24,7 km o espectador ve o sinal e nao a magnitude, entao o quadro 1 (o preco na faixa) e obrigatorio antes dele."
+  },
+  {
+   "nome": "O REGRESSIVO GIGANTE",
+   "oQueSeVe": "Os tres digitos que faltam para o snapshot, com 103,3 m de altura, dando a volta na esfera tres vezes.",
+   "porQueSurpreende": "E o unico numero do projeto que todo mundo esta esperando, e hoje ele sai na faixa em 34,45 m, lido a 4,7 km. Aqui ele le a 14,1 km e ocupa a peca inteira: o predio do DogData vira o relogio do snapshot. Nada tiquetea, ele so anda quando a ponta da chain anda, que e a doutrina de snapshot.tsx.",
+   "desenho": "Faixa apagada (grande:'', pequena:'', faixaFundo:null). Casco #0A0B0D, digitos #E8660D. Matriz 5x7 em escala 24: altura 168 linhas = 103,3 m, centrada na 418, linhas 334 a 502, lat +31,3 a -0,3, cos 0,854 a 1,000. Grupo de 3 digitos = 2x(8x24) + 5x24 = 504 texels = 88,6 graus de longitude; largura por linha larg(v) = 504/cos(lat(v)), 590 texels na linha de cima e 504 na de baixo. Tres copias, periodo 683 texels, folga de 93 na linha mais larga. O grupo INTEIRO entra na janela legivel a partir de ~640 m (interpolando a tabela de janela do proprio arquivo: 302 texels a 315 m, 452 a 500 m, 569 a 1 km, 663 na saturacao). Bonus medido de graca: uCorFaixa e a media das linhas 368 a 496, e o digito atravessa essa banda, entao o anel que sobra alem do textCull passa a ser laranja em vez de chumbo.",
+   "quando": "Quadro 1 do slot 'snapshot', no lugar do quadro('744','TO GO'); os quadros 2 e 3 (TARGET, ESTIMATE) seguem na faixa normal, com a pele saindo.",
+   "risco": "So vale ate 999 blocos. Com 4 digitos o grupo vai a 672 texels e so entra na janela alem de 1,3 km, e um regressivo cortado na frente publica '44' onde faltam 744, que e exatamente a classe de erro que o zero da frente do fmtPreco existe para evitar. Regra: acima de 999 este quadro nao entra e a carta UMA LUZ POR UNIDADE assume."
+  },
+  {
+   "nome": "A SUA CAUDA NO LARANJA",
+   "oQueSeVe": "A casca inteira acende em laranja e a cauda de 6 caracteres do endereco de quem acabou de comprar aparece recortada em quase preto, 51,7 m de altura.",
+   "porQueSurpreende": "O requisito escrito do fundador e que quem comprou veja a cidade reagir a compra dele. Hoje a cauda sai na faixa, dividindo a peca com o resto; aqui ela e a UNICA coisa em 120.687 m2 de casca. E o mecanismo do recorte ja esta provado: a pele do Bitcoin e exatamente isto, laranja pleno com a marca em negativo.",
+   "desenho": "Pele: g.fillStyle #E8660D sobre o canvas inteiro, cauda recortada em #140B04 (o mesmo par da pele do ₿). Faixa apagada (grande:'', pequena:'', faixaFundo:null; o casco laranja e dono do fundo). Matriz 5x7 em escala 12: altura 84 linhas = 51,7 m, centrada na 418, linhas 376 a 460, lat +23,91 a +9,14, cos 0,914 a 0,987. Grupo de 6 caracteres = 5x(8x12) + 5x12 = 540 texels = 94,9 graus; largura por linha larg(v) = 540/cos(lat(v)), 591 texels em cima e 547 embaixo. Tres copias, periodo 683, folga 92. Leitura: pixel de glifo de 7,38 m, 7,0 km, contra 4,7 km da mesma cauda na faixa; e o grupo inteiro entra na janela a partir de ~800 m. Ganho GANHO_EVENTO 0,62, que fica abaixo do 0,78 das peles de marca e do 0,90 do anuncio, entao a hierarquia de voz nao quebra.",
+   "quando": "Quadro 2 do evento 'doacao' (ROTULOS.doadorDe) e quadro 2 do evento 'mint' (ROTULOS.mintDono); o quadro 1 continua sendo o VALOR na faixa normal, para o valor nao virar pele.",
+   "risco": "Casca laranja plena e a assinatura do ₿; a diferenca aqui e a latitude do conteudo (418 contra 230) e o ganho (0,62 contra 0,78). Se o fundador achar que colidiu, o conserto e trocar o fundo por #0A0B0D e a cauda por #E8660D, sem mexer na geometria. Risco 2: a cauda e dado de uma pessoa em 401 m de tela; ja e doutrina publicada, mas mint em lote (varios lotes, varios donos) precisa de regra de qual endereco sobe."
+  },
+  {
+   "nome": "UMA LUZ POR UNIDADE",
+   "oQueSeVe": "A casca vira uma reticula de quadrados de luz e cada quadrado aceso e UMA coisa: uma tx de DOG parada na mempool, ou um bloco que ainda falta para o snapshot.",
+   "porQueSurpreende": "E o numero virando imagem sem nenhum algarismo: da para VER a mempool encher e a contagem esvaziar, e a cada bloco minerado o muro perde uma luz sozinho. E o mesmo idioma do estadio (1 assento por carteira) e do The Tally (1.000 cartas), so que em 401 m. Nao e grafico porque nao ha eixo nem escala: cada luz e um objeto.",
+   "desenho": "Faixa apagada, casco #141414, celula acesa #E8660D, celula morta #1F1F1F, com 3 texels de rego para a reticula ler como grade. A compensacao de largura se resolve na CONSTRUCAO da celula, nao na pintura: cada fileira tem altura h em linhas e a largura da celula e w = h/cos(lat da fileira), arredondada para COLS/n de modo que a volta feche exata, o que faz TODA celula ser um quadrado de verdade na casca. Versao MEMPOOL, 10 fileiras na banda 168 a 628: celula de 46 linhas = 28,30 m, colunas por fileira 24, 29, 33, 37, 40, 42, 44, 44, 44, 42, TOTAL 379 celulas, cada uma legivel a 27,0 km. Versao SNAPSHOT, 20 fileiras na mesma banda: celula de 23 linhas = 14,15 m, colunas de 46 (lat +58,4) a 88 (equador), TOTAL 1.524 celulas, legiveis a 13,5 km, ou seja 1 celula = 1 bloco enquanto faltarem ate 1.524 blocos (10,6 dias). Ordem de aceso, seguindo a simetria da casa: da fileira mais proxima da linha 418 para fora, e dentro da fileira a partir da coluna que encara a praca (u = 0,75, a fase que repetirNaVolta ja usa), alternando para os dois lados. Custo: 1.524 fillRect contra os ~3.360 que o texto da faixa ja faz.",
+   "quando": "Quadro 1 do slot 'pulso' (ROTULOS.pendentes) na versao de 379; e quadro 1 do slot 'snapshot' na versao de 1.524, assumindo quando faltam mais de 999 blocos e o REGRESSIVO GIGANTE nao pode entrar.",
+   "risco": "O muro e quase estatico: uma luz morre a cada ~10 min no snapshot, o que e imperceptivel numa visita. Ele vale como retrato, nao como noticia, e depende do evento de bloco (varredura + pulso) para ter movimento. Risco 2: sem legenda, 1.100 luzes acesas nao dizem 1.100; a faixa precisa voltar com o numero pelo menos num dos quadros do slot. Risco 3: com dog_pending acima de 379 a versao mempool satura e mente por saturacao; acima disso, apagar o excedente e escrever o numero."
+  },
+  {
+   "nome": "A COR DA PRESSAO",
+   "oQueSeVe": "Nenhum desenho: a esfera inteira assume um tom, e o tom e a taxa da rede naquele momento, em cinco degraus.",
+   "porQueSurpreende": "E a unica carta que continua falando a 8 km, onde todo texto ja morreu: uCorFaixa e uMedia passam a ser o proprio tom, entao o disco distante inteiro muda de cor. E a mais barata do baralho, um fillRect. Efeito de marketing: a cidade aprende a olhar para o predio do DogData e saber, sem ler, se a rede esta cara hoje.",
+   "desenho": "Unica carta que NAO apaga a faixa: pintarCorpo faz um fillRect do tom no canvas inteiro, faixaFundo recebe o MESMO tom (nao null e nao o padrao #121212, senao volta a tarja escura que o fundador ja apontou), e o texto segue normal. Escada de cinco degraus, misturados de #141414 para #E8660D em sRGB, com a luminancia relativa medida e a razao contra o painel apagado refletido #2C2C2D (Y 0,0253): t 0,26 = #4B2912 (Y 0,0313, 1,24x), t 0,44 = #713811 (Y 0,0638, 2,53x), t 0,62 = #974710 (Y 0,1112, 4,40x), t 0,80 = #BE560E (Y 0,1763, 6,98x), t 0,94 = #DB610D (Y 0,2364, 9,36x). O degrau mais baixo fica ACIMA do painel refletido de proposito: a peca nunca pode ler como apagada. Cortes por sats/vB: menos de 4, 4 a 10, 10 a 25, 25 a 60, acima de 60, que e a mesma logica de escada honesta do ETA do snapshot. Nos degraus 4 e 5 a faixa INVERTE (cor e corRotulo em #140B04), pela mesma razao que slotBitcoin inverte: laranja sobre laranja some.",
+   "quando": "Quadro 3 do slot 'pulso' (ROTULOS.taxa, SATS/VB). Pode tambem virar o tom de fundo permanente do slot 'pulso' inteiro, os tres quadros.",
+   "risco": "E uma escala sem legenda: ninguem le 40 sats/vB num tom. Ela so vale acompanhada, e por isso a faixa fica viva. Risco 2: o degrau 5 (#DB610D) fica a 0,03 de luminancia do #E8660D da pele do ₿ e, sem a marca recortada, pode ser lido como a pele do Bitcoin; se incomodar, capar em #BE560E e deixar o ultimo passo por conta do ganho. Risco 3: casca chapada e o unico caso em que a ondulacao da grade de LED (hoje ~8% do painel ao sol) fica sozinha, e a esfera arrisca ler como bola lisa em vez de tela."
+  },
+  {
+   "nome": "O PRECO EM SATS",
+   "oQueSeVe": "O preco do DOG na unidade nativa, quatro caracteres de 77,5 m dando a volta tres vezes, com SATS na faixa.",
+   "porQueSurpreende": "E uma descoberta de produto, nao de desenho: 0.00113 tem 7 caracteres, gasta a linha grande inteira e so aparece inteiro para uma minoria dos azimutes; o MESMO preco em sats tem 4 caracteres e vira pele de casca inteira. A esfera de 401 m nao consegue publicar o preco em dolar como imagem, e consegue publicar em sats. E e a unidade certa para uma rune, dita do predio do DogData.",
+   "desenho": "Faixa com grande:'' e pequena:'SATS' (4 caracteres, dentro do teto ORC_PEQUENA de 10), faixaFundo:null; o rotulo continua nas linhas 450 a 478 e a pele fica com o resto. Casco #0A0B0D, digitos #E8660D. Matriz 5x7 em escala 18: altura 126 linhas = 77,5 m, centrada na 418, linhas 355 a 481, lat +27,6 a +5,4, cos 0,886 a 0,996. Grupo de 4 caracteres (por exemplo 10.2, com o ponto valendo uma casa cheia) = 3x(8x18) + 5x18 = 522 texels = 91,8 graus; largura por linha larg(v) = 522/cos(lat(v)), 589 texels em cima e 524 embaixo. Tres copias, periodo 683, folga 94. Leitura: pixel de glifo de 11,07 m, 10,6 km; grupo inteiro dentro da janela a partir de ~710 m. Mesmo laco de blit por linha do ₿.",
+   "quando": "Alternando com o quadro 1 do slot 'preco': um ciclo publica 0.00113 / USD SPOT na faixa, o seguinte publica a pele de sats. Um ciclo tem 264 s, entao a esfera troca de unidade a cada ~9 min.",
+   "risco": "Precisa de BTC/USD, que este arquivo NAO tem: /api/price/kraken so entrega price_usd do DOG. Sao duas fontes multiplicadas, ou seja um numero DERIVADO publicado em 401 m, que e a mesma classe do preco falso de 0,00042 que ja foi ao ar. Regra dura: so entra com as duas fontes dentro da validade, e se qualquer uma vencer o quadro e PULADO sem lapide. Risco 2: sats por DOG nao e um par cotado em lugar nenhum, entao alguem vai comparar com uma corretora e achar erro; o rotulo SATS ajuda pouco, e o denominador precisa estar escrito em algum lugar do site."
+  }
+ ]
+}
+
+## cartas:momento
+
+{
+ "cartas": [
+  {
+   "nome": "A LUA CHEIA",
+   "oQueSeVe": "A esfera vira a Lua cheia, com os mares nas posicoes selenograficas reais e a face que todo mundo conhece de cor virada para a praca.",
+   "porQueSurpreende": "E a peca inteira virando um objeto que ninguem precisa aprender, e ela esta EM CIMA do objeto: o telao mostra o chao em que a cidade foi construida. Fecha o ticker DOG GO TO THE MOON sem gastar um caractere com a frase, e o Mar da Tranquilidade, que e o distrito BTC da cidade, cai exatamente sob a faixa de dado.",
+   "desenho": "Casca inteira em #9A9488 (planalto aceso); os mares entram em #101010, que e literalmente LED apagado. Cada mar e uma elipse desenhada POR LINHA, sem canvas auxiliar: meiaLarg(v) = a*sqrt(1-((v-vc)/a)^2)/cos(lat(v)) texels, um fillRect por linha, cerca de 1.800 no total (o B de hoje ja faz 800 blits). Conversao 1:1, porque grau de Lua e grau de esfera: 1 grau = 5,689 linhas. Centro em linha / altura em linhas / longitude: Procellarum 407 / 482 / -57 (entra como 3 elipses sobrepostas, e oceano e nao circo), Imbrium 325 / 215 / -15,6, Frigoris 193 / 271 / +1,4, Serenitatis 352 / 133 / +17,5, Crisium 415 / 104 / +59,1, Tranquillitatis 463 / 164 / +31,4, Fecunditatis 556 / 158 / +51,3, Nectaris 598 / 63 / +34,6, Nubium 633 / 134 / -16,6, Humorum 650 / 73 / -38,6. Coluna = ((0,75 + lon/360) mod 1)*2048, entao lon 0 cai na coluna 1.536, que e a que encara a praca pela mesma constante de fase que repetirNaVolta usa. Costa irregular de graca: multiplicar a meia largura por (1 + 0,06*sin(3,1k) + 0,04*sin(7,7k+1,3)), semente fixa, nada sorteado por quadro. Faixa: faixaFundo aceita qualquer fillStyle, entao 'rgba(6,6,6,0.70)' e VEU e nao tarja (o mesmo truque resolve a tarja de 07/09 sem apagar o chao); sob o veu o #E8660D fica em 4,2:1 contra o planalto e em 53:1 contra o mar. Um ponto #E8660D de 6 texels dentro de Tranquillitatis marca a cidade. Copy: '$DOG' / 'THE MOON', que ja existe.",
+   "quando": "Segundo quadro do slot marca-dog, 24 s, no lugar do casco escuro de pintarCorpoDog. E troca de uma linha: pintarCorpo: pintarCorpoLua.",
+   "risco": "Bola branca. O planalto a ganho 0,78 e a coisa mais clara que a peca ja emitiu e pode ler como esfera embranquecida de longe; medir uMedia contra a pele marca-btc (0,2353) e cair para 0,62 se passar do intervalo comercial. E tudo abaixo de -25,9 graus esta fora da casca: Tycho e os raios do sul nao existem nesta Lua."
+  },
+  {
+   "nome": "O SIMBOLO DE UMA FACE SO",
+   "oQueSeVe": "Um unico simbolo do Bitcoin ocupando 77% da altura e 34% da largura da silhueta, virado para a praca, e a peca inteira sem uma letra.",
+   "porQueSurpreende": "E o movimento de Las Vegas, e ele contraria de proposito a simetria da casa: uma forma so, uma face, as costas em laranja pleno. De quebra ele conserta um defeito medido: o B de hoje aparece 1,54x GORDO para qualquer olho distante.",
+   "desenho": "A compensacao de LARGURA ja existe no arquivo; falta a de ALTURA, e ela e a maior das duas. Medido: o B atual (200 linhas na 230, arco 124 passos) aparece com 75,2 m de largura por 78,7 m de altura, aspecto 0,956 contra os 0,620 do glifo, ou seja 1,54x gordo, e nenhuma conta de cos(lat) conserta porque o erro e da PROJECAO e nao da textura. A regra certa distribui as linhas do glifo por sen(lat) constante: linha k de K vai para sen = s0 - (k+0,5)/K*(s0-s1), e a largura continua sendo arco/cos(lat). Com s0 = +0,80 e s1 = -0,30 o glifo mora nas linhas 209 a 611 (402 linhas de textura para 220,6 m aparentes), arco central de 227,2 passos, saindo 379 colunas na linha do topo, 235 no meio e 238 na base. Aparente 136,7 x 220,6 m, aspecto 0,620 por construcao. N = 1 e cx = 0,75*w (coluna 1.536). Fundo #E8660D, glifo #140B04, marcaBitcoin() sem mudanca nenhuma. Silencio total na faixa: grande e pequena em string VAZIA, porque repetirNaVolta devolve espacos e a FONTE nao tem glifo para espaco, entao nada e desenhado, mais faixaFundo null.",
+   "quando": "Primeiro quadro do slot marca-btc, 24 s, seguido do quadro de altura de bloco com as 4 marcas de hoje. Grita, depois informa.",
+   "risco": "Tres dos quatro azimutes veem laranja liso por 24 s. E a intencao, mas quem esta do outro lado da praca nao ve marca nenhuma, e isso precisa ser aceito antes do ar. E a peca fica sem dado por 24 s: o teto de anuncio nao conta esse tempo como propaganda, mas ele tambem nao e dado."
+  },
+  {
+   "nome": "UM LED POR CARTEIRA",
+   "oQueSeVe": "Casca preta coberta por dezenas de milhares de pontos acesos, um por carteira, com a contagem na faixa.",
+   "porQueSurpreende": "E o DogData virando forma em vez de virar frase. A densidade E o dado, o maior ponto e a maior carteira, e um estranho le 'isto conta uma multidao' antes de ler a legenda. E a unica pele em que a peca fala do que a casa faz.",
+   "desenho": "Fundo #0A0A0A. Aqui a compensacao nao e de largura, e de DISTRIBUICAO: sortear a linha por AREA, v = linha(asin(s)) com s uniforme em [-0,4365, +1], que e o intervalo de sen da casca visivel. Prova de que esta certo: a mediana cai na linha 418,4, que e o centro optico da silhueta. Sorteando linha uniforme os pontos empilhariam no polo. Coluna uniforme em [0, 2048). PRNG de semente fixa (mulberry32), entao o ceu e o MESMO em toda repintura e nada cintila. Tamanho por saldo: 1 texel na cauda, 3x3 acima de 1M DOG, 9x9 na maior (a Kraken quente com 12,69B vira o ponto que sobrevive a 1 km). Cor #E8660D para carteira que ja gastou e #C6BFB1 para a que nunca enviou (as 6.035 diamond paws), que e status por familia de cor e nao por matiz nova. Densidade medida: 958.927 LEDs visiveis, 86 mil pontos = 8,98%, um a cada 11,1. Com os 260.982 da Galaxia daria 27,2% e viraria ruido, entao tem teto. Custo: 86 mil fillRects nao cabem nos 7 ms, entao o ceu e montado UMA vez num canvas de fora e entra por um drawImage; 8 MB a mais de RAM, declarado, remontado so quando a contagem muda. Copy: grande com a contagem (6 caracteres, a FONTE tem virgula), pequena 'HOLDERS'.",
+   "quando": "Quinto modulo de dado do anel, 48 s em dois quadros (contagem e a fatia da maior carteira). Isso leva a fatia de propaganda de 27,27% para 23,08%, ou seja para o lado certo do teto.",
+   "risco": "O ponto de 1 texel morre a 443 m, que e onde o LED encosta em 1 px, entao de 5 km isto e um brilho medio e nao um censo; so os pontos grandes atravessam. A faixa cobre 26,4% da AREA visivel (nao os 12,5% da altura), porque ela mora onde a area e densa: se incomodar, faixaFundo 'rgba(10,10,10,0.85)' deixa os pontos grandes fantasmarem por tras do texto. E a contagem tem de vir de rota com validade, nunca de constante: foi assim que o preco mentiu em 07/09."
+  },
+  {
+   "nome": "A PLANTA NO POLO",
+   "oQueSeVe": "O topo da esfera e a planta da DogCity vista de cima, aneis e radiais, com um ponto laranja exatamente onde o espectador esta.",
+   "porQueSurpreende": "Transforma o polo, que ate hoje so podia ser cor, na melhor superficie da peca: a camera da /city sobe sem teto e desce ate o zenite (minPolarAngle 0), e e de cima que esta cidade e olhada. E a projecao azimutal polar e o unico caso em que a compensacao de largura DESAPARECE: anel vira linha horizontal, radial vira barra vertical, e a esfera usa a cartografia da bandeira da ONU.",
+   "desenho": "Fundo #0A0A0A, escala 20 m por linha, centro da cidade no polo. Aneis sao DODECAGONOS, com r sendo o VERTICE e a face em 96,59%, entao cada anel e uma senoide de 12 periodos na volta com amplitude r*0,0341/20 linhas: r 2.000 oscila entre as linhas 96,6 e 100,0; r 3.500 entre 169,0 e 175,0; r 5.000 entre 241,5 e 250,0; a AN7 em 6.950 entre 335,7 e 347,5. Traco de 2 linhas em #6E6A60. Radiais: 12 barras de 2 colunas a cada 170,67 colunas, da linha 45 (dominio da praca, r 900) ate o anel que servem. Sitio phi 5.500 na linha 275, contorno de 1 linha em #C6BFB1. Baia: mancha #0A0A0A com borda #2C2C2D entre as linhas 300 e 347 no azimute dela. O lote da Sphere fica em r 5.117,5, linha 256, e o mapa e girado para esse azimute cair na coluna 1.536: ponto #E8660D de 6x6 texels, que e o 'voce esta aqui' no meio exato do que se ve da praca. Nada abaixo da linha 350, entao a faixa fica intacta com o chao padrao #121212. Copy: 'DOGCITY' / 'THE CITY'.",
+   "quando": "Estado ocioso e modulo SNAPSHOT. Hoje o ocioso e casca preta com DOGCITY escrito; com a planta ele passa a dizer o que a peca e sem gastar caractere, e o estado neutro deixa de ser ausencia.",
+   "risco": "As vias saem 4 a 6 vezes mais largas que a escala (2 linhas = 40 m contra asfalto de 6 a 10 m): isto e diagrama, nao planta, e nao pode virar argumento de terreno. A azimutal equidistante espreme o azimute em 18% na borda (sin(theta)/theta em 61,08 graus). E nao desenhar lote nenhum: lote so nasce no snapshot."
+  },
+  {
+   "nome": "A ESFERA ENCHENDO",
+   "oQueSeVe": "A esfera enche de laranja de baixo para cima, um degrau visivel a cada bloco de Bitcoin, no ultimo dia antes do snapshot.",
+   "porQueSurpreende": "E um medidor que dispensa legenda: qualquer pessoa entende 'esta enchendo'. E respeita a doutrina de nada tiquetear, porque quem move o nivel e o bloco e nao o relogio, exatamente como o countdown da landing.",
+   "desenho": "A linha do nivel NAO e latitude proporcional, e area de SILHUETA. A casca e cortada em sen -0,4365, entao a area aparente vale F(1)-F(-0,4365) = 2,4126 R^2, com F(y) = y*sqrt(1-y^2) + asin(y). Resolvendo F(t) = F(-0,4365) + p*2,4126: 25% cai na linha 550,6; 50% na 451,4 (e nao no equador, e essa e a armadilha); 75% na 338,4; 90% na 240,4. Abaixo da linha #E8660D, acima #0A0A0A, com 3 linhas de menisco em #C6BFB1 na borda para ler como nivel e nao como corte. Janela de 144 blocos (o ultimo dia): cada bloco move cerca de 4 linhas, 2,5 m de casca, degrau visivel que some antes de virar animacao. A faixa e um DEGRAU do medidor e nao um obstaculo: com o nivel abaixo da linha 496 (p < 38,8%) a faixa fica normal; quando o nivel entra nela, a faixa acende inteira com faixaFundo '#E8660D' e cor '#140B04'; acima de p 69,1% o preenchimento continua por cima. Tres estados de conteudo, zero mecanismo novo. Copy: grande com os blocos que faltam, pequena 'TO GO', que ja existe.",
+   "quando": "Slot proprio com prioridade nos 144 blocos antes do bloco 966.670, repintando no evento de bloco que o feed ja entrega (custo de rede zero). Fora dessa janela ele nao existe.",
+   "risco": "Medidor vazio e a pior imagem possivel de uma peca de 401 m, entao a janela tem de ser curta o bastante para o nivel ja nascer alto (144 blocos, nunca 10.000). E se ele for reapontado para arrecadacao em vez de contagem de bloco, o denominador vira promessa e a esfera passa a publicar quanto falta para os 10M, que e decisao comercial e nao de cena."
+  },
+  {
+   "nome": "A COROA DO PARCEIRO",
+   "oQueSeVe": "O casco preto da Kray com a coroa branca dela repetida 4 vezes na volta, logo acima das duas cintas.",
+   "porQueSurpreende": "O parceiro deixa de ser duas cintas e um nome escrito e ganha a mesma cerimonia geometrica que o Bitcoin tem. E o que muda de verdade e que o baralho vira produto: a compensacao sai de dentro de pintarCorpoBitcoin e vira peleMarca(), entao o proximo parceiro entra sem ninguem tocar em trigonometria de novo.",
+   "desenho": "peleMarca(g, w, h, { fundo, tinta, desenhar, n, s0, s1 }) faz o laco que hoje esta enterrado no Bitcoin, com as DUAS compensacoes: linhas distribuidas por sen(lat) constante e largura por arco/cos(lat). Kray: fundo #07080A, tinta #F2F4F7, n = 4, s0 = +0,92 e s1 = +0,72, ou seja linhas 131 a 250, com 52,1 m de largura por 40,1 m de altura aparentes (a coroa e mais larga que alta, razao 1,30) e arco de 85,5 passos. Largura em colunas: 218 na linha do topo, 149 no meio, 123 na base, contra as 512 do passo de 4 copias, ou seja 43% de duty no pior caso e preto de sobra entre elas. O caminho vem do mesmo KRAY_CROWN_ICON que ja gira no topo da torre da praca, entrando como Path2D: uma fonte de verdade so para a marca do parceiro. Ficam de pe a coroa de polo (linhas 0 a 120, 3,3% da area) e as duas cintas em 260-284 e 563-587; a pele nova encosta na cinta de cima com 10 linhas de folga.",
+   "quando": "O mesmo intervalo comercial de 72 s, ganho 0,90, os 3 quadros com KRAY na linha grande. Nenhuma mudanca no livro-caixa nem no teto de propaganda.",
+   "risco": "E a marca do parceiro em geometria propria, entao precisa do aval visual deles antes do ar: a coroa esticada por 1/cos(lat) e CORRETA na esfera e estranha no canvas, e quem abrir a textura vai jurar que esta errada. Acima de s 0,92 ela entra no escorco do polo, onde a peca ja mediu que forma vira mancha."
+  }
+ ]
+}
+
+## crivo
+
+## BARALHO FINAL, na ordem de exibição
+
+Dois ciclos alternados de 264 s (4 módulos de 48 s + intervalo de 72 s). Ninguém que fica 5 min vê a mesma sequência duas vezes, e a alternância de média fica resolvida por posição e não por sorte.
+
+| # | ciclo A | média | ciclo B | média |
+|---|---|---|---|---|
+| P1 | MARCA-BTC (₿ laranja, já existe, corrigida) | **CLARA** 0,240 | idem | **CLARA** |
+| P2 | PREÇO (faixa, chão #121212) | escura 0,014 | **O TIPO GIGANTE** (regressivo) | escura 0,04 |
+| P3 | **A LUA CHEIA** | **CLARA** 0,258 | idem | **CLARA** |
+| P4 | **O CENSO** (holders) | escura 0,022 | MARCA-DOG ($DOG, já existe) | escura 0,03 |
+| P5 | INTERVALO KRAY | escura 0,03 (ganho 0,90) | idem | escura |
+
+Fora do anel, por gatilho:
+- **A CAUDA NO LARANJA**, média **CLARA**, eventos `doacao` e `mint`, quadro 2.
+- **A ESFERA ENCHENDO**, média que sobe de escura para CLARA, só nos 144 blocos antes do 966.670, no lugar de P2 do ciclo B.
+- **O CENSO / AFTER DARK**: mesma pele, ganho 0,50 e faixa com hora local, entre 02:00 e 05:59 do relógio do espectador.
+
+Achado estrutural que muda o plano: só existem **duas** peles claras permanentes (₿ e LUA), e nenhuma das duas é dado. Por isso a alternância não pode ser módulo a módulo. A regra implementável é mais fraca e honesta: **nunca duas claras adjacentes, no máximo duas escuras seguidas**, e a única emenda escura-escura de cada ciclo é P4 colando no intervalo, aceita porque a Kray é branco cravado sobre preto (a silhueta muda mesmo com a média igual). Intervalo comercial fica em 72/264 = 27,27%, o de hoje; acrescentar um quinto módulo leva a 23,08%.
+
+E a alternância não deve ser lista cravada. `pintarTextura` já calcula a média com `mediaDe` em linear por repintura: cada pele roda uma vez na carga contra um canvas de descarte, o programa guarda o número e recusa emendar duas do mesmo lado. Evento chega fora de ordem, então a CAUDA nasce com as duas versões (laranja pleno e casco escuro) e o motor escolhe pela média do quadro que está saindo.
+
+## O QUE CAIU
+
+**O SIMBOLO DE UMA FACE SO** e **A COROA DO PARCEIRO**: não são cartas, são a mesma infraestrutura, e ela é adotada inteira. Laranja pleno com um ₿ tem silhueta idêntica à `pintarCorpoBitcoin` que já está no ar (critério 3), e "N = 1" é o mesmo laço com outro parâmetro. O que sobrevive das duas é `peleMarca(g, w, h, { fundo, tinta, desenhar, n, s0, s1 })` com as **duas** compensações, e o defeito que elas apontaram é real: o ₿ de hoje sai **1,54x gordo** porque a compensação de altura não existe. Ver seção de adoções.
+
+**A PLANTA NO POLO**: o conteúdo mora onde `sphere.ts` já mediu que letra e forma viram mancha por escorço, e a peça tem 401 m de altura num terreno de praça, ou seja o polo raramente entra no enquadramento. Segundo motivo, mais duro: publica malha viária e célula de lote antes do snapshot, exatamente o que `LOT_SEGMENTATION` foi apagada para não fazer.
+
+**UMA LUZ POR UNIDADE** e **THE EPOCH**: cortadas por silhueta repetida contra O CENSO. A célula de 28,3 m tem rego de 3 texels (1,85 m), que some em 0,6 px a 3 km; passado isso as três peles são a mesma mancha escura salpicada de laranja. O EPOCH ainda leva um agravante próprio: a informação dele é a **posição** de uma fronteira de 0,507 m num anel de 3,9% da altura, publicada 26 vezes por ano em janelas de 1 h, ou seja 0,3% do tempo de peça. Escrever anel de progresso vale a pena uma vez, e o slot que paga por isso é A ESFERA ENCHENDO.
+
+**WHALE**: colide com o parceiro, que é o pior lugar do baralho para colidir. Dois anéis cheios simétricos em seno em torno da faixa é literalmente a pele da Kray de hoje (260-284 e 563-587, mesmo `sin` de distância). E os degraus contáveis têm 4 linhas (2,46 m), que rendem 3,6 px a 1 km e nada a 3 km: a contagem, que é o valor inteiro da carta, morre antes da distância em que a peça é vista.
+
+**AFTER DARK**: absorvida, não cortada. Retícula de 1 em 16 sobre casco escuro é a mesma silhueta do CENSO, então ela vira **estado** do CENSO (mesma pele, ganho 0,50, faixa com a hora local) em vez de pele própria. Resolve o risco declarado de média junto: a pele fica a 0,022 e nunca cai perto do piso de 0,01406.
+
+**FIRST LOT**: dissolvida. Uma célula de 19,7 m é 4 px a 5 km, e a carta inteira é achar esse pixel. Dispara uma vez, sem ensaio, e depende de contador de servidor que ainda não existe. A gratícula (anéis a cada 32 linhas, meridianos a cada 32 colunas, sem compensação, para a peça ler como globo) fica anotada como pele do **dia do mint** com N células acesas, não como a peça do primeiro lote.
+
+**O PRECO EM SATS**: desenho aprovado, fonte reprovada. Exige BTC/USD, que este arquivo não tem, e publicar produto de duas rotas em 401 m é a mesma classe do preço de teste que foi ao ar. Volta quando existir uma rota única que entregue sats por DOG com validade.
+
+**A COR DA PRESSAO**: casca chapada é a única condição em que a peça arrisca ler como bola lisa em vez de tela, e o degrau 5 (#DB610D) fica a 0,03 de luminância da pele do ₿, ou seja é a marca do Bitcoin sem a marca. Sobra um uso legítimo e restrito: o tom da pressão como `faixaFundo` do slot pulso, que colore sem chapar a casca.
+
+**THE HALVING**: bom desenho, prazo errado. Estreia em 579 dias, e o pedido é surpreender quem está olhando agora. Sete anéis paralelos também disputam a assinatura de anel do parceiro. O motor de "N anéis com espessura em progressão geométrica" custa 7 `fillRect` e pode ser escrito no dia, com prévia, sem ficar 1,5 ano parado no repositório.
+
+**THE ETCH**: não é carta, é um **uso** do TIPO GIGANTE (um algarismo, escala grande, 20 de abril em UTC). Custo zero depois que a máquina existe, e resolve sozinho o risco de fonte que ela mesma levantou, porque a máquina já precisa da matriz 5x7 exportada.
+
+## CORREÇÕES QUE O CRIVO IMPÕE ÀS CARTAS APROVADAS
+
+**A elipse da Lua não pode ser desenhada pela aproximação `a/cos(lat)`.** Ela é de primeira ordem e engorda a mancha nas latitudes altas. Medido em Procellarum (ρ 42,36°, centro na linha 407), na linha 250: exata 443,7 texels, aproximada 526,5 texels, **erro de 18,7%**. É a mesma classe do ₿ gordo que o fundador pegou a olho. A forma exata é um `acos` por linha e custa nada. Ver pseudocódigo.
+
+**O corte da casca é a linha 652,5, não 658,7.** `sphere-conteudo.ts:563` traz a conta contra `thetaMax` = 114,70°. A diferença de 6,2 linhas (3,8 m) não muda nada em quase tudo, mas na Lua ela decide: com 652,5, **Humorum some quase inteiro** (centro na 650,9) e **Nubium é cortado ao meio** (566 a 700). O sul da Lua não existe nesta casca, e não adianta desenhar.
+
+**Metade da textura é o lado oculto.** Com lon 0 na coluna 1.536, a face visível ocupa as colunas 1.024 a 2.048 e a outra metade é o lado que ninguém conhece: planalto liso, sem mares. Isso é surpresa de produto de graça (quem gira a câmera 180° acha o outro lado da Lua), e é também o que puxa a média para cima.
+
+**A Lua entra com ganho 0,62, não 0,78.** Medido: planalto #9A9488 tem Y linear 0,2989; com mares em ~14% da casca a média é **0,2575**, contra **0,2402** da pele marca-btc, ou seja 7% mais clara e **acromática**, que é o que produz a leitura de bola branca. O ajuste é no ganho e não na cor do planalto, porque planalto mais escuro deixa de ler como Lua.
+
+**O TIPO GIGANTE precisa de memo por valor.** `trocaDePele` compara identidade de função (`(q.c.pintarCorpo ?? null) !== peleAtual`), e pele parametrizada por dado é closure novo a cada quadro, o que dispara a cortina de 700 ms a cada troca de valor. Um `Map<string, fn>` com a chave sendo o texto resolve.
+
+**Altura aparente não é arco.** O regressivo "de 103,3 m" mede 103,3 m de arco e **98,1 m de projeção** (R vezes a diferença de senos). O número que vai para copy e para chapa é o de projeção.
+
+## PSEUDOCÓDIGO
+
+Comuns a todas: `L = h/1024`; `lat(v) = π/2 - π(v+0,5)/1024`; `R = 200,5`; 1 texel no equador = 0,6151 m; corte da malha na linha 652,5.
+
+### 1. A LUA CHEIA (P3, CLARA, ganho 0,62)
+
+```
+pintarCorpoLua(g, w, h):
+  L = h/1024
+  g.fillStyle = '#9A9488'; g.fillRect(0,0,w,h)     // planalto, os dois lados
+  MARES = [ // nome, lat0°, lon0°, diametro em graus de arco
+    ['PROCELLARUM', 18.37, -57.0, 84.72],   // 3 elipses sobrepostas, e oceano
+    ['IMBRIUM',     32.80, -15.6, 37.79],
+    ['FRIGORIS',    56.00,  +1.4, 47.63],
+    ['SERENITATIS', 28.00, +17.5, 23.32],
+    ['CRISIUM',     17.00, +59.1, 18.34],
+    ['TRANQUILL',    8.50, +31.4, 28.82],
+    ['FECUNDITAT',  -2.00, +51.3, 27.77],
+    ['NECTARIS',   -15.20, +34.6, 10.98],
+    ['NUBIUM',     -21.30, -16.6, 23.55],
+  ]
+  g.fillStyle = '#101010'                          // LED apagado, literal
+  para cada mar:
+    ρ  = rad(diam/2);  φ0 = rad(lat0)
+    v0 = (90-lat0)/180*1024                        // linha do centro
+    vTopo = max(0,     v0 - ρ*(1024/π))
+    vBase = min(652.5, v0 + ρ*(1024/π))            // ⚠ corte, nao 1024
+    para v de floor(vTopo) ate ceil(vBase):
+      φ = lat(v)
+      arg = (cos ρ - sin φ0 * sin φ) / (cos φ0 * cos φ)   // ⚠ EXATA
+      se arg >  1: continua                        // linha fora do circulo
+      se arg < -1: Δλ = π                          // circulo envolve o polo
+      senao:       Δλ = acos(arg)
+      meia = Δλ/(2π) * 2048                        // ja em texels de TEXTURA
+      meia *= 1 + 0.06*sin(3.1*v) + 0.04*sin(7.7*v+1.3)   // costa, semente fixa
+      cx = ((0.75 + lon0/360) mod 1) * 2048        // lon 0 na coluna 1536
+      g.fillRect((cx-meia)*L, v*L, 2*meia*L, L)    // envolve na volta se sair
+  // a cidade
+  g.fillStyle = '#E8660D'
+  g.fillRect(colunaDe(+31.4)*L - 3*L, 463*L - 3*L, 6*L, 6*L)  // em Tranquillitatis
+```
+`faixaFundo: 'rgba(6,6,6,0.70)'` (véu, não tarja: sob ele o #E8660D fica em 4,2:1 contra o planalto). Copy: `'$DOG'` / `'THE MOON'`. Compensação de largura: resolvida dentro do `acos`, que já devolve longitude e não arco, então não há divisão por `cos` em lugar nenhum. Cerca de 1.800 `fillRect`, contra os 800 blits que o ₿ já faz.
+
+### 2. O TIPO GIGANTE (P2 do ciclo B, escura; e A CAUDA, invertida)
+
+A compensação é dupla e as duas saem da mesma projeção: vista do lado, a altura aparente de um ponto é `R·sen φ` e a largura aparente de um arco é `R·cos φ·Δλ`. Logo linha por **seno constante**, largura por **1/cos φ**.
+
+```
+peleTipo(g, w, h, { texto, escala, fundo, tinta, n, s0, s1 }):
+  g.fillStyle = fundo; g.fillRect(0,0,w,h)
+  // REGRESSIVO: texto='744', s0=0.5338 (lat 32.26, linha 328.5),
+  //             s1=0.0350 (lat  2.01, linha 501.0), n=3
+  //   altura aparente = R*(s0-s1) = 200.5*0.4988 = 100.0 m
+  //   coluna de glifo  = 100.0/7 = 14.29 m de arco = 23.23 texels
+  //   grupo 3 digitos  = 17 colunas = 394.9 texels de arco = 69.4 graus
+  //   3 copias, periodo 682.7; na linha do topo (cos 0.8459) o grupo pede
+  //   466.8 texels de textura, folga 215.9. Entra na janela legivel a ~420 m.
+  // CAUDA: texto=fmtCauda(addr), 6 casas, fundo #E8660D, tinta #140B04,
+  //   s0=0.4050 s1=0.1640 (altura aparente 48.3 m), n=3, ganho 0.62
+  K = 7 * escala                                   // fatias verticais do glifo
+  off = canvas( ceil(colsGlifo*passoTexel*L*2), ceil(K*L) )   // 2x supersample
+  desenhaMatriz5x7(off, texto, tinta)              // aspecto VERDADEIRO
+  para i de 0 a n-1:
+    cx = ((i+0.5)/n) * w
+    para k de 0 a K-1:
+      s   = s0 - (k+0.5)/K * (s0-s1)               // ⚠ ALTURA por SENO
+      φ   = asin(s)
+      v   = (90 - deg(φ))/180 * 1024               // linha de textura da fatia
+      vN  = (90 - deg(asin(s0-(k+1)/K*(s0-s1))))/180*1024
+      larg = (arcoTotalTexels / max(cos φ, 0.05)) * L   // ⚠ LARGURA por 1/cos
+      dy = round(v*L); dh = max(1, round(vN*L) - dy)
+      g.drawImage(off, 0, k*off.height/K, off.width, off.height/K,
+                       round(cx-larg/2), dy, round(larg), dh)
+```
+`faixaFundo: null`, `grande: ''`, `pequena: ''`. Nunca `' '`: `repetirNaVolta` com um espaço tem `length` 1 e desenha `'· ·'` na casca. Trava dura: acima de 999 blocos o grupo passa da janela e o quadro **não entra**, porque regressivo cortado na frente publica `44` onde faltam `744`. Memoizar por valor num `Map<string,fn>`, senão a cortina de 700 ms dispara a cada troca de dígito.
+
+### 3. O CENSO (P4 do ciclo A, escura, ganho 0,50)
+
+```
+// montado UMA vez fora do caminho critico; chave de cache = contagem
+montarCenso(holders):
+  off = canvas(2048, 1024); og = off.getContext('2d')
+  og.fillStyle = '#0A0A0A'; og.fillRect(0,0,2048,1024)
+  rnd = mulberry32(0xD06DA7A)                      // semente fixa: nada cintila
+  S0 = sin(rad(-24.70)) = -0.4179                  // ⚠ corte da malha (652.5)
+  para cada carteira:
+    s = S0 + rnd()*(1 - S0)                        // ⚠ AMOSTRA POR AREA
+    v = (90 - deg(asin(s)))/180 * 1024             // mediana cai na linha 415.8,
+    u = floor(rnd()*2048)                          //   ou seja no centro optico
+    lado = saldo > 1e9 ? 9 : saldo > 1e6 ? 3 : 1   // 5.5 m / 1.85 m / 0.62 m
+    og.fillStyle = jaGastou ? '#E8660D' : '#C6BFB1'  // 6.035 diamond paws
+    og.fillRect(u - lado/2, floor(v) - lado/2, lado, lado)
+  retorna off
+pintarCorpoCenso(g,w,h): g.drawImage(cache, 0, 0, w, h)   // 1 drawImage, ~1,5 ms
+```
+Densidade real: 86.000 pontos sobre 1.336.320 texels acima do corte = **6,44%**, um a cada 15,5. Sem compensação de largura, e aqui isso é definição e não descuido: a amostragem por área já é a distribuição correta na casca, e ponto de 1 texel não tem forma para distorcer. Faixa: `grande` = contagem vinda de rota com validade (nunca constante), `pequena` = `'HOLDERS'`. Estado noturno: mesma pele, ganho 0,50, `grande` = hora local em 5 casas (o `:` existe na `FONTE`), `pequena` = `'AFTER DARK'`, exatos 10 caracteres do teto.
+
+### 4. A ESFERA ENCHENDO (substitui P2 do ciclo B nos 144 blocos finais)
+
+O nível é área de **silhueta**, não latitude proporcional. `F(y) = y√(1-y²) + asin(y)`, casca de `y0 = -0,4179` a `1`, área total `F(1) - F(y0) = 1,5708 - (-0,8107) = 2,3815`.
+
+```
+pintarCorpoNivel(g, w, h, p):        // p = fracao ja cheia, 0..1
+  alvo = -0.8107 + p*2.3815
+  t = resolve F(t) = alvo por bissecao em [-0.4179, 1]   // ~20 passos
+  vN = (90 - deg(asin(t)))/180 * 1024
+  g.fillStyle = '#0A0A0A'; g.fillRect(0, 0, w, vN*L)
+  g.fillStyle = '#E8660D'; g.fillRect(0, vN*L, w, h - vN*L)
+  g.fillStyle = '#C6BFB1'; g.fillRect(0, vN*L, w, 3*L)   // menisco, 1.85 m
+```
+Níveis medidos com o corte 652,5: **p 25% na linha 547,1; p 50% na 449,4 e não no equador, que é a armadilha; p 75% na 337,2; p 90% na 239,8**. A faixa é degrau do medidor e não obstáculo: abaixo de **p 38,1%** o nível está sob a linha 496 e a faixa fica normal; entre 38,1% e **68,7%** ela acende inteira (`faixaFundo: '#E8660D'`, `cor: '#140B04'`, o mesmo par invertido do ₿); acima disso o preenchimento passa por cima. Sem compensação de largura, e nenhuma é necessária: paralelo de latitude não distorce. Janela de 144 blocos, cerca de 4 linhas por bloco, 2,5 m de casca por bloco, degrau visível que some antes de virar animação. Repinta no evento de bloco que o feed já entrega, custo de rede zero. Copy: blocos restantes / `'TO GO'`.
+
+## AS DUAS ADOÇÕES DE INFRAESTRUTURA
+
+1. **`peleMarca()` com as duas compensações**, extraída de `pintarCorpoBitcoin` (`sphere-conteudo.ts:663`). O laço de blit por linha já está certo na largura; o que falta é a distribuição por seno. Com ela o ₿ de hoje deixa de sair 1,54x gordo, e o próximo parceiro entra por parâmetro sem ninguém tocar em trigonometria. A coroa da Kray é o primeiro cliente (`n=4`, `s0=+0,92`, `s1=+0,72`, `Path2D` vindo do mesmo `KRAY_CROWN_ICON` que já gira no topo da torre), mas ela é entrega de parceiro e precisa de aval visual antes do ar, porque a coroa esticada por `1/cos φ` é correta na esfera e parece errada quando se abre a textura.
+
+2. **`pintarCorpoDog` também está sem compensação de altura.** O comentário do arquivo diz que um escalar único basta porque a letra tem 90 linhas e o erro residual é 4,6%. Isso vale para a largura. A altura aparente da letra na linha 235 (lat 48,68°) é `R·Δsen` = 200,5·(sen 52,63 - sen 44,74) = 200,5·(0,7946 - 0,7038) = **18,2 m**, e não os 55,4 m de arco que a doutrina do baralho vem repetindo. O `$DOG` da casa é três vezes menor do que se supõe. Não é urgente, mas o número está errado em toda conversa sobre a peça.
+
+Arquivos lidos: `/home/bitmax/Projects/bitcoin-fullstack/DogData-v1/app/city/plaza/sphere-conteudo.ts` (peles em 542, 663, 739; slots em 782-840; `trocaDePele` em 1206) e `/home/bitmax/Projects/bitcoin-fullstack/DogData-v1/app/city/plaza/sphere.ts` (`SphereConteudo` em 777, `GLIFOS`/`FONTE` em 652-720, `SPHERE_FAIXA_LINHA0/1` em 473, `pintarTextura` em 1762).

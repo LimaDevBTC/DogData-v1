@@ -40,6 +40,7 @@
 // diferenciação sozinha com o tempo.
 // ═══════════════════════════════════════════════════════════════════════════
 import type { SphereConteudo } from './sphere'
+import { escreverGlifos } from './sphere'
 import { isDonation, donationDog, type DogTx, type Snapshot } from './feed'
 import { SNAPSHOT } from '../../dogcity/dogcity-data'
 
@@ -501,15 +502,23 @@ const quadro = (
   pequena: string,
   ms: number,
   extra: Partial<SphereConteudo> = {},
-): Quadro => ({
-  ms,
-  c: {
-    grande: grande.slice(0, ORC_GRANDE),
-    pequena: pequena.slice(0, ORC_PEQUENA),
-    ganho: GANHO_OCIOSO,
-    ...extra,
-  },
-})
+): Quadro => {
+  const g = grande.slice(0, ORC_GRANDE)
+  return {
+    ms,
+    c: {
+      grande: g,
+      pequena: pequena.slice(0, ORC_PEQUENA),
+      ganho: GANHO_OCIOSO,
+      // ⚠️ O TIPO GIGANTE NAO ENTRA NO PADRAO, e a razao e do fundador: *"o dado
+      // não precisa ficar gigante, ele só não pode apagar"*. O defeito era o
+      // apagamento deliberado no shader (ver `pintarTextura` e a nota do
+      // `textCull` em sphere.ts), não o tamanho da letra. `peleValor` fica no
+      // arquivo como carta aprovada do baralho e fora da rotação.
+      ...extra,
+    },
+  }
+}
 
 /**
  * ⚠️ O ESTADO NEUTRO, e ele não é uma tela de erro. Quando nenhuma fonte está
@@ -604,6 +613,10 @@ function pintarCorpoKray(g: CanvasRenderingContext2D, w: number, h: number) {
  * `cos(lat)` para o glifo sair redondo onde ele é visto. Sem isso o ₿ sai gordo.
  */
 const N_MARCAS = 4
+/** o raio da esfera em metros, para as contas de projeção das peles */
+const SPHERE_R_M = 200.5
+/** um texel da grade equirretangular, em metros de arco no equador */
+const PASSO_LED = 0.6151
 /** a latitude do centro óptico da silhueta, em linha de LED (ver sphere.ts) */
 const LINHA_CENTRO = 418
 /**
@@ -660,68 +673,78 @@ function marcaBitcoin(g: CanvasRenderingContext2D, cx: number, cy: number, h: nu
  * `#E8660D`, com a marca recortada em quase preto, é a peça inteira virando
  * sinal. É esse quadro que responde ao "muda por completo de cor".
  */
-function pintarCorpoBitcoin(g: CanvasRenderingContext2D, w: number, h: number) {
-  g.fillStyle = '#E8660D'
-  g.fillRect(0, 0, w, h)
+/**
+ * ⚠️ A COMPENSAÇÃO É DUPLA, E ATÉ AGORA SÓ A METADE EXISTIA. A largura foi
+ * consertada em 08/09 (era um escalar único e a base saía 2,80x mais larga que o
+ * topo), mas a de ALTURA nunca existiu, e ela é a maior das duas. Medido no ₿ que
+ * foi ao ar: 76,3 m de largura aparente por 78,5 m de altura, aspecto **0,971**
+ * contra os 0,620 do glifo, ou seja **1,57x gordo** para qualquer olho distante.
+ *
+ * As duas saem da MESMA projeção. Visto de fora, um ponto de latitude φ aparece a
+ * altura `R·sen φ` e um arco de longitude aparece com largura `R·cos φ·Δλ`. Logo:
+ *
+ *   ALTURA   as fatias do glifo se distribuem por SENO constante, não por
+ *            latitude constante. Latitude constante é o que aperta o glifo perto
+ *            do polo, e é o defeito que sobrava.
+ *   LARGURA  cada fatia leva `arco / cos φ` texels de textura.
+ *
+ * ⚠️ `s0` E `s1` SÃO SENO, NÃO LINHA, e é por isso que a marca é declarada assim.
+ * Com `s0 = 0,92` e `s1 = 0,44` o glifo aparece com **96,2 m de altura e 59,7 m de
+ * largura**, aspecto 0,620 por construção, ocupando as linhas 131 a 363, ou seja
+ * acima da faixa de dado (368) com 5 linhas de folga. Na linha do topo ele pede
+ * 43,5° de longitude; 4 cópias somam 174° dos 360, deixando 46,5° de laranja
+ * pleno entre marcas, que é a leitura da referência de Las Vegas.
+ */
+function peleMarca(
+  g: CanvasRenderingContext2D, w: number, h: number,
+  o: {
+    fundo: string; tinta: string; n: number; s0: number; s1: number
+    desenhar: (og: CanvasRenderingContext2D, larg: number, alt: number, cor: string) => void
+    aspecto: number
+  },
+) {
   const L = h / 1024
+  g.fillStyle = o.fundo
+  g.fillRect(0, 0, w, h)
 
-  // ⚠️ A LARGURA É POR LINHA, E O ESCALAR ÚNICO ERA O DEFEITO QUE O FUNDADOR VIU.
-  // Ele disse: "o símbolo do Bitcoin sai distorcido, a parte de cima do B sai
-  // menor". Estava, e por 2,80x.
-  //
-  // A versão anterior calculava `escalaX = 1/cos(lat)` UMA vez, na linha do centro
-  // da marca, e aplicava `g.scale(escalaX, 1)` ao glifo inteiro. Só que numa
-  // textura equirretangular a largura FÍSICA de N texels vale `N · passo · cos(lat)`
-  // metros de arco: com N constante ela varia ao longo da ALTURA do glifo. Medido
-  // na marca de 250 linhas que estava aqui (linha 105 a 355, 43,95° de latitude):
-  // topo cos 0,3166, base cos 0,8862, ou seja a base saía **2,7992x mais larga
-  // que o topo**. Não era um ₿, era uma cunha que fechava para cima.
-  //
-  // ⚠️ E OS BOJOS 0,86 E 1,00 NÃO SÃO O PROBLEMA: eles respondem por 1,163x contra
-  // 2,799x da latitude, e são INTENCIONAIS (no símbolo real o lobo de cima é mesmo
-  // menor). Ficam como estão.
-  //
-  // A regra certa fixa a largura em ARCO e converte por linha:
-  //     larg_em_texels(v) = arcoW / cos(lat(v)),  lat(v) = π/2 − π(v+0,5)/1024
-  // A cunha correta ABRE para cima, o inverso do que estava aqui. O erro residual
-  // dentro de uma fatia de uma linha é `tan(lat)·π/1024`, pior caso 0,73%.
-  const ALT_L = 200
-  const ARCO_W = 0.62 * ALT_L        // largura alvo, em passos de LED
-  const TOPO_L = LINHA_MARCA - ALT_L / 2
+  const altAparente = SPHERE_R_M * (o.s0 - o.s1)
+  const arcoTexels = (o.aspecto * altAparente) / PASSO_LED
 
-  // ⚠️ O GLIFO É RASTERIZADO FORA, EM ASPECTO VERDADEIRO, E DEPOIS BLITADO FATIA A
-  // FATIA. `g.scale` é afim e não sabe variar com y, então não há como pedir isto
-  // ao canvas de uma vez. O 2x horizontal é supersampling: sem ele a borda do
-  // bojo serrilha ao ser esticada nas linhas de cima.
+  // ⚠️ O GLIFO É RASTERIZADO FORA EM ASPECTO VERDADEIRO. `g.scale` é afim e não
+  // sabe variar com y, então não há como pedir isto ao canvas de uma vez. O 2x
+  // horizontal é supersampling: sem ele a borda serrilha ao ser esticada.
+  const K = 240                                   // fatias verticais
   const off = document.createElement('canvas')
-  off.width = Math.max(2, Math.ceil(ARCO_W * L * 2))
-  off.height = Math.max(2, Math.ceil(ALT_L * L))
-  const og = off.getContext('2d')!
-  marcaBitcoin(og, off.width / 2, off.height / 2, off.height, '#140B04')
+  off.width = Math.max(2, Math.ceil(arcoTexels * L * 2))
+  off.height = Math.max(2, Math.ceil(K * L))
+  o.desenhar(off.getContext('2d')!, off.width, off.height, o.tinta)
   g.imageSmoothingEnabled = true
   g.imageSmoothingQuality = 'high'
 
-  // ⚠️ QUATRO MARCAS, NÃO SEIS, E É A COMPENSAÇÃO CERTA QUE OBRIGA. Com a largura
-  // por linha, a linha de cima do glifo pede 319,7 texels, ou seja 56,2° de
-  // longitude; quatro cópias com passo de 90° deixam 33,8° de laranja pleno entre
-  // elas, que é a leitura de Las Vegas (uma marca de frente, as vizinhas caindo no
-  // limbo). Seis somariam 337° de 360 e a casca viraria estampa, não logo.
-  //
-  // O código antigo só cabia com seis porque a compensação errada espremia o topo.
-  for (let i = 0; i < N_MARCAS; i++) {
-    const cx = ((i + 0.5) / N_MARCAS) * w
-    for (let k = 0; k < ALT_L; k++) {
-      const v = TOPO_L + k + 0.5
-      const lat = Math.PI / 2 - (Math.PI * v) / 1024
-      const larg = (ARCO_W / Math.max(Math.cos(lat), 0.05)) * L
-      const dy = Math.round((TOPO_L + k) * L)
-      const dh = Math.max(1, Math.round((TOPO_L + k + 1) * L) - dy)
+  const linhaDe = (sen: number) => ((90 - (Math.asin(sen) * 180) / Math.PI) / 180) * 1024
+  for (let i = 0; i < o.n; i++) {
+    const cx = ((i + 0.5) / o.n) * w
+    for (let k = 0; k < K; k++) {
+      const sA = o.s0 - (k / K) * (o.s0 - o.s1)
+      const sB = o.s0 - ((k + 1) / K) * (o.s0 - o.s1)
+      const phi = Math.asin((sA + sB) / 2)
+      const larg = (arcoTexels / Math.max(Math.cos(phi), 0.05)) * L
+      const dy = Math.round(linhaDe(sA) * L)
+      const dh = Math.max(1, Math.round(linhaDe(sB) * L) - dy)
       g.drawImage(
-        off, 0, (k * off.height) / ALT_L, off.width, off.height / ALT_L,
+        off, 0, (k * off.height) / K, off.width, off.height / K,
         Math.round(cx - larg / 2), dy, Math.round(larg), dh,
       )
     }
   }
+}
+
+function pintarCorpoBitcoin(g: CanvasRenderingContext2D, w: number, h: number) {
+  peleMarca(g, w, h, {
+    fundo: '#E8660D', tinta: '#140B04', n: N_MARCAS, s0: 0.92, s1: 0.44,
+    aspecto: 0.62,
+    desenhar: (og, larg, alt, cor) => marcaBitcoin(og, larg / 2, alt / 2, alt, cor),
+  })
 }
 
 /**
@@ -736,6 +759,130 @@ function pintarCorpoBitcoin(g: CanvasRenderingContext2D, w: number, h: number) {
  * com o dado, porque quem vê de perto quer o número e quem vê de longe quer a
  * marca. Os dois registros não brigam, eles moram em latitudes diferentes.
  */
+/**
+ * CARTA: A LUA CHEIA.
+ *
+ * ⚠️ A ESFERA VIRA O CHÃO EM QUE A CIDADE FOI CONSTRUÍDA, e é a única pele que
+ * não precisa ser aprendida: todo mundo já sabe o que é. O Mar da Tranquilidade,
+ * que é o distrito BTC da DogCity, cai exatamente sob a faixa de dado, e um ponto
+ * laranja de 6 texels marca a cidade dentro dele. Ela fecha o "DOG to the moon"
+ * sem gastar um caractere com a frase.
+ *
+ * ⚠️ A ELIPSE NÃO PODE SER APROXIMADA POR `a/cos(lat)`, e essa é a mesma classe de
+ * erro do ₿ gordo. A aproximação é de primeira ordem e engorda a mancha nas
+ * latitudes altas: medido em Procellarum, na linha 250, a meia largura exata é
+ * 443,7 texels e a aproximada 526,5, **erro de 18,7%**. A forma exata sai de um
+ * `acos` por linha e custa nada:
+ *
+ *     Δλ = acos( (cos ρ − sen φ0 · sen φ) / (cos φ0 · cos φ) )
+ *
+ * Ela devolve LONGITUDE, não arco, então não há divisão por cosseno em lugar
+ * nenhum: a compensação de largura já está dentro dela.
+ *
+ * ⚠️ O SUL DA LUA NÃO EXISTE NESTA CASCA. O corte da malha é a linha 652,5, e com
+ * ele Humorum some quase inteiro (centro na 650,9) e Nubium é cortado ao meio.
+ * Desenhar abaixo disso é pintar o que não é desenhado.
+ *
+ * ⚠️ E METADE DA TEXTURA É O LADO OCULTO. Com longitude 0 na coluna 1.536 (a mesma
+ * constante de fase que `repetirNaVolta` usa para encarar a praça), a face
+ * visível ocupa as colunas 1.024 a 2.048, e a outra metade é planalto liso: quem
+ * girar a câmera 180° acha o lado que ninguém conhece. Surpresa de graça.
+ */
+const MARES: [string, number, number, number][] = [
+  // nome, latitude, longitude, diâmetro em graus de arco (selenográficos reais)
+  ['PROCELLARUM', 18.37, -57.0, 84.72],
+  ['IMBRIUM', 32.80, -15.6, 37.79],
+  ['FRIGORIS', 56.00, 1.4, 47.63],
+  ['SERENITATIS', 28.00, 17.5, 23.32],
+  ['CRISIUM', 17.00, 59.1, 18.34],
+  ['TRANQUILLITATIS', 8.50, 31.4, 28.82],
+  ['FECUNDITATIS', -2.00, 51.3, 27.77],
+  ['NECTARIS', -15.20, 34.6, 10.98],
+  ['NUBIUM', -21.30, -16.6, 23.55],
+]
+/** a linha em que a malha da casca acaba; abaixo disso não há o que pintar */
+const LINHA_CORTE = 652.5
+
+function pintarCorpoLua(g: CanvasRenderingContext2D, w: number, h: number) {
+  const L = h / 1024
+  g.fillStyle = '#9A9488'                    // o planalto aceso, nos dois lados
+  g.fillRect(0, 0, w, h)
+  const rad = (d: number) => (d * Math.PI) / 180
+  const latDaLinha = (v: number) => Math.PI / 2 - (Math.PI * (v + 0.5)) / 1024
+  const colunaDe = (lon: number) => (((0.75 + lon / 360) % 1) + 1) % 1 * 2048
+
+  g.fillStyle = '#101010'                    // LED apagado, literalmente
+  for (const [, lat0, lon0, diam] of MARES) {
+    const rho = rad(diam / 2), phi0 = rad(lat0)
+    const v0 = ((90 - lat0) / 180) * 1024
+    const vTopo = Math.max(0, v0 - rho * (1024 / Math.PI))
+    const vBase = Math.min(LINHA_CORTE, v0 + rho * (1024 / Math.PI))
+    const cx = colunaDe(lon0)
+    for (let v = Math.floor(vTopo); v <= Math.ceil(vBase); v++) {
+      const phi = latDaLinha(v)
+      const arg = (Math.cos(rho) - Math.sin(phi0) * Math.sin(phi)) / (Math.cos(phi0) * Math.cos(phi))
+      if (arg > 1) continue                                    // a linha passa fora
+      const dl = arg < -1 ? Math.PI : Math.acos(arg)            // o círculo envolve o polo
+      // ⚠️ A COSTA É IRREGULAR POR SEMENTE FIXA, nunca por sorteio: a textura é
+      // repintada dezenas de vezes por hora e um mar que muda de forma a cada
+      // repintura seria a única coisa que o olho enxergaria.
+      const meia = (dl / (2 * Math.PI)) * 2048
+        * (1 + 0.06 * Math.sin(3.1 * v) + 0.04 * Math.sin(7.7 * v + 1.3))
+      // envolve na volta, porque a mancha pode cruzar a costura do meridiano
+      for (const off of [-2048, 0, 2048]) {
+        g.fillRect((cx - meia + off) * L, v * L, 2 * meia * L, L + 1)
+      }
+    }
+  }
+  // a cidade, dentro do Mar da Tranquilidade
+  g.fillStyle = COR_DADO
+  g.fillRect(colunaDe(31.4) * L - 3 * L, 463 * L - 3 * L, 6 * L, 6 * L)
+}
+
+/**
+ * O TIPO GIGANTE: o mesmo dado da faixa, em escala que atravessa a cidade.
+ *
+ * ⚠️ ISTO NÃO É TROCAR DE LAYOUT COM A DISTÂNCIA, e a diferença importa porque o
+ * fundador vetou aquilo com razão. Os dois registros existem AO MESMO TEMPO, o
+ * tempo todo: de perto o olho lê a faixa, de longe ele lê o gigante, e nada
+ * comuta enquanto o visitante navega. É a mesma informação em duas escalas, como
+ * um painel de estádio tem placar grande e ficha técnica pequena.
+ *
+ * ⚠️ E SEM ELE O DADO SIMPLESMENTE NÃO EXISTE ALÉM DE 5 km. Medido: a letra da
+ * faixa tem 34,45 m e cai a **6,8 px a 7,5 km**, enquanto o critério de leitura
+ * pede 9. Para ler ali a letra precisa de 46 m. A daqui tem **60 m** e lê até
+ * **9.847 m**, que cobre o tecido inteiro da cidade (o ponto mais distante fica a
+ * 7.520 m do sítio).
+ *
+ * ⚠️ DUAS CÓPIAS, E É O QUE CABE. Com 6 casas a 60 m de altura o grupo ocupa 118°
+ * de longitude; duas cópias somam 236° dos 360, com 62° de folga cada. Três não
+ * cabem, e uma só deixaria metade da cidade sem ver o número.
+ *
+ * ⚠️ MEMOIZADO POR VALOR, e isso não é otimização, é conserto. `tickFade` decide
+ * a cortina comparando a IDENTIDADE da função `pintarCorpo`; uma closure nova a
+ * cada valor dispararia a cortina de 700 ms a cada troca de dígito, e o preço é
+ * uma repintura de 7 ms por cima.
+ */
+const _cacheGigante = new Map<string, (g: CanvasRenderingContext2D, w: number, h: number) => void>()
+
+function peleValor(valor: string) {
+  const t = valor.slice(0, 6).toUpperCase()
+  const posto = _cacheGigante.get(t)
+  if (posto) return posto
+  const fn = (g: CanvasRenderingContext2D, w: number, h: number) => {
+    peleMarca(g, w, h, {
+      fundo: '#141414', tinta: COR_DADO, n: 2, s0: 0.74, s1: 0.44,
+      // 6 casas de 8 pixels de glifo, e 7 de altura: a razão da caixa inteira
+      aspecto: (t.length * 8) / 7,
+      desenhar: (og, larg, alt, cor) => escreverGlifos(og, t, larg, alt, cor),
+    })
+  }
+  // ⚠️ TETO DE CACHE: preço muda o tempo todo e um `Map` sem teto é vazamento.
+  if (_cacheGigante.size > 24) _cacheGigante.clear()
+  _cacheGigante.set(t, fn)
+  return fn
+}
+
 function pintarCorpoDog(g: CanvasRenderingContext2D, w: number, h: number) {
   const L = h / 1024
   g.fillStyle = '#0A0B0D'
@@ -789,6 +936,7 @@ function slotBitcoin(altura: number | null): Slot {
     cor: '#140B04',
     corRotulo: '#140B04',
     pintarCorpo: pintarCorpoBitcoin,
+    peleId: 'marca-btc',
     // ⚠️ SEM CHÃO DE FAIXA: quem pinta a casca inteira é dono do fundo dela. Com
     // o padrão cinza-chumbo, o retângulo da faixa era carimbado por cima do
     // laranja e virava uma tarja escura atravessando a esfera.
@@ -813,6 +961,7 @@ function slotDog(): Slot {
   const base: Partial<SphereConteudo> = {
     ganho: GANHO_MARCA,
     pintarCorpo: pintarCorpoDog,
+    peleId: 'marca-dog',
     // mesma razão da pele do Bitcoin: o casco escuro dela já é o fundo do texto
     faixaFundo: null,
   }
@@ -821,7 +970,25 @@ function slotDog(): Slot {
     nome: 'marca-dog',
     quadros: [
       quadro('$DOG', ROTULOS.marcaDog, MS_MODULO / 2, base),
-      quadro('DOGCITY', ROTULOS.marcaDogAlt, MS_MODULO / 2, base),
+      // ⚠️ A LUA ENTRA AQUI, e o ganho dela é 0,62 e não os 0,78 das outras
+      // marcas. Medido: o planalto `#9A9488` tem Y linear 0,2989, e com os mares
+      // em cerca de 14% da casca a média fica em **0,2575**, contra 0,2402 da
+      // pele do Bitcoin: 7% mais clara e ACROMÁTICA, que é a receita de ler como
+      // bola branca. O ajuste é no ganho e não na cor do planalto, porque
+      // planalto mais escuro deixa de ler como Lua.
+      //
+      // ⚠️ E A FAIXA É VÉU, NÃO TARJA. `faixaFundo` aceita qualquer `fillStyle`,
+      // então um preto a 70% escurece o planalto sob o texto sem apagá-lo: o
+      // dado fica em 4,2:1 contra o planalto e em 53:1 contra o mar. Foi assim
+      // que a tarja de 08/09 devia ter sido resolvida desde o começo.
+      quadro('$DOG', ROTULOS.marcaDogAlt, MS_MODULO / 2, {
+        ganho: 0.62,
+        pintarCorpo: pintarCorpoLua,
+        peleId: 'lua',
+        faixaFundo: 'rgba(6,6,6,0.70)',
+        cor: COR_DADO,
+        corRotulo: '#EDE7DA',
+      }),
     ],
   }
 }
@@ -833,6 +1000,12 @@ function slotAnuncio(): Slot {
     cor: COR_ANUNCIO,
     corRotulo: COR_ANUNCIO,
     pintarCorpo: pintarCorpoKray,
+    peleId: 'kray',
+    // ⚠️ O PARCEIRO USA A PALETA DELE, e por isso ele pede o chão explicitamente.
+    // O padrão da casa virou faixa LARANJA com letra escura em 08/09 (ver
+    // `pintarTextura`); a Kray é casco preto com marca branca, e branco sobre
+    // laranja seria a peça da casa vestida de parceiro.
+    faixaFundo: '#0A0B0D',
   }
   return {
     classe: 'anuncio',
@@ -1175,7 +1348,7 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
   let pendente: Quadro | null = null
   let ganhoAtual = GANHO_OCIOSO
   /** a pele que está na textura AGORA, para saber quando a troca é de casca */
-  let peleAtual: SphereConteudo['pintarCorpo'] | null = null
+  let peleAtual: string | null = null
   /** quantas tx de DOG o último bloco trouxe, para o peso do gesto */
   let ultimoBlocoTx = 0
 
@@ -1203,11 +1376,14 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
       // textura. A cortina cobre a peça, a repintura acontece coberta, e a
       // cobertura desce já com a pele nova. Ver `SPHERE_FX_MS.cortina`.
       const q = pendente
-      const trocaDePele = (q.c.pintarCorpo ?? null) !== (peleAtual ?? null)
+      // ⚠️ POR FAMÍLIA, NÃO POR REFERÊNCIA DE FUNÇÃO. Ver `SphereConteudo.peleId`:
+      // o tipo gigante gera uma função por valor, e comparar referência faria a
+      // cortina cobrir a peça a cada troca de dígito.
+      const trocaDePele = (q.c.peleId ?? null) !== (peleAtual ?? null)
       const alvo = q.c.ganho ?? GANHO_OCIOSO
       pendente = null
       if (trocaDePele && o.fx) {
-        peleAtual = q.c.pintarCorpo ?? null
+        peleAtual = q.c.peleId ?? null
         o.fx('cortina', 1, () => o.pintar(q.c))
       } else {
         // a troca de textura mora no fundo do vale: os ~7 ms de repaint caem onde

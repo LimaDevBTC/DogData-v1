@@ -741,6 +741,8 @@ const COR_DADO = '#E8660D'
  *  valor e rótulo não mudou em nada: o que mudou é que o calor da peça é
  *  exclusividade do laranja. Se a intenção era o rótulo laranja também, é
  *  trocar esta linha por `COR_DADO`. */
+/** a tinta sobre a faixa acesa: escura, porque agora o fundo é que é o laranja */
+const COR_TINTA_FAIXA = '#140B04'
 const COR_ROTULO = '#BEC0C3'
 const COR_STATUS = '#3E7F52'   // reservado a status; JAMAIS a valor
 /**
@@ -814,6 +816,17 @@ export interface SphereConteudo {
    * casca; quem pinta a casca inteira é dono do fundo dela.
    */
   faixaFundo?: string | null
+  /**
+   * A FAMÍLIA da pele, para quem observa a troca saber o que é troca de verdade.
+   *
+   * ⚠️ SEM ISTO A CORTINA DISPARA A CADA TROCA DE VALOR. `tickFade` decide cobrir
+   * a peça comparando a IDENTIDADE da função `pintarCorpo`, e o tipo gigante gera
+   * uma função por valor: o preço mudando faria a esfera ser coberta a cada 24 s,
+   * que é exatamente a bola de discoteca que a doutrina proíbe. Duas peles da
+   * mesma família trocam no vale do ganho, como sempre foi; só a troca de FAMÍLIA
+   * paga a cortina.
+   */
+  peleId?: string
 }
 
 /**
@@ -1141,12 +1154,25 @@ const FS = /* glsl */`
     vec3 conteudo = mix(texture2D(uConteudo, uv).rgb,
                         texture2D(uConteudo, uvEncaixe).rgb, kc);
 
-    // ⚠️ O TEXTO SOME NO textCull DO PERFIL, e vira faixa acesa lisa. E a razao
-    // e a mesma que criou o campo em perf.ts: letra abaixo de um punhado de
-    // pixels nao vira texto, vira borra que cintila a cada passo da camera.
+    // ⚠️ O TEXTO NAO E MAIS APAGADO DE PROPOSITO, E ISSO FOI PEDIDO DIRETO DO
+    // FUNDADOR: "o dado nao precisa ficar gigante, ele so nao pode apagar. O
+    // problema era esse, apagava. Desvanecia".
+    //
+    // O que estava aqui era um mix para uCorFaixa comandado por
+    // smoothstep(0,75d, 1,15d, vD). Medido com uTextoDist = 5.639 m: comecava a
+    // apagar em 4.229 m, estava 68% apagado em 5.639 e sumia por completo em
+    // 6.485. Apagamento deliberado, nao limite fisico.
+    //
+    // ⚠️ E ELE ERA REDUNDANTE COM O MIPMAP. A justificativa escrita era que letra
+    // abaixo de um punhado de pixels vira borra que cintila; so que a textura tem
+    // mipmap e anisotropia 8, e o hardware JA faz exatamente essa media quando o
+    // texel encolhe abaixo do pixel. O mix fazia a mesma coisa duas vezes, e mais
+    // cedo do que a fisica pede: a diferenca e que o mipmap dissolve quando o olho
+    // nao resolve mais, e o mix dissolvia por decreto.
+    //
+    // uTextoDist continua vivo, porque ele ainda comanda a amplitude da
+    // respiracao do anel (kLonge) e o degrau de fillrate.
     float naFaixa = step(uFaixaV.x, uv.y) * step(uv.y, uFaixaV.y);
-    conteudo = mix(conteudo, uCorFaixa,
-                   naFaixa * smoothstep(uTextoDist * 0.75, uTextoDist * 1.15, vD));
 
     // ⚠️ O PAINEL APAGADO LE A LUZ DA CENA, NAO UMA CONSTANTE INVENTADA. A
     // primeira versao tinha 0.16 + 0.55*sol cravado no shader e a esfera
@@ -1657,6 +1683,41 @@ function repetirNaVolta(texto: string, nChars: number): string {
   return volta.slice(nChars - desloc) + volta.slice(0, nChars - desloc)
 }
 
+/**
+ * Desenha a matriz 5x7 num canvas qualquer, preenchendo a caixa dada.
+ *
+ * ⚠️ ELE EXISTE PARA AS PELES DE CASCA INTEIRA, e é a metade de baixo do
+ * `peleMarca`: aqui o glifo sai em ASPECTO VERDADEIRO, sem saber nada de esfera,
+ * e quem distorce é o blit por fatia de seno. Misturar as duas coisas numa função
+ * só foi o que produziu o ₿ gordo.
+ *
+ * A caixa é `nChars * 8` pixels de glifo de largura (5 de traço, 3 de vão) por 7
+ * de altura, exatamente a mesma métrica da faixa: a peça tem UMA tipografia.
+ */
+export function escreverGlifos(
+  g: CanvasRenderingContext2D, texto: string, larg: number, alt: number, cor: string,
+) {
+  const t = texto.toUpperCase()
+  if (!t.length) return
+  const px = larg / (t.length * 8)   // um pixel de glifo, em pixels de canvas
+  const py = alt / 7
+  g.fillStyle = cor
+  for (let i = 0; i < t.length; i++) {
+    const glifo = FONTE.get(t[i])
+    if (!glifo) continue
+    for (let c = 0; c < 5; c++) {
+      const mask = glifo[c]
+      for (let r = 0; r < 7; r++) {
+        if (!((mask >> r) & 1)) continue
+        g.fillRect(
+          Math.round((i * 8 + c) * px), Math.round(r * py),
+          Math.ceil(px), Math.ceil(py),
+        )
+      }
+    }
+  }
+}
+
 /** Escreve uma cadeia na grade de LED, em pixels de glifo de `escala` LEDs. */
 function escrever(
   g: CanvasRenderingContext2D,
@@ -1780,7 +1841,28 @@ function pintarTextura(
   // 7,2x de contraste; com `#121212`, **44x**. E o anel de longe não some por
   // isso, porque `uCorFaixa` é a MÉDIA MEDIDA da faixa (chão mais letra), e a
   // letra laranja passa a dominar essa média em vez de disputar com o chão.
-  const corFaixa = c.faixaFundo === undefined ? '#121212' : c.faixaFundo
+  // ⚠️ A FAIXA É LARANJA COM A LETRA ESCURA, E O CONTRÁRIO ERA O DEFEITO. O
+  // fundador, olhando a peça de dentro da abóbada: *"era pra ela estar toda
+  // laranja com o efeito do Bitcoin, foi só eu me afastar que ela ficou toda
+  // preta, sem qualquer informação visível"*.
+  //
+  // Medido, e o número é constrangedor: com o chão preto (`#121212`) a média da
+  // casca num quadro de dado vale **0,0141**, contra **0,0490** do próprio painel
+  // apagado refletindo o sol. A esfera ficava **3,5x mais escura que a superfície
+  // dela mesma**: de longe ela não era uma esfera escura, ela sumia. A pele do
+  // Bitcoin vale 0,2353, ou seja 17x mais, e é exatamente o contraste que ele viu
+  // ao se afastar.
+  //
+  // ⚠️ E O CONTRASTE DA LETRA NÃO PIORA, PORQUE ELE É SIMÉTRICO. O painel é um
+  // termo ADITIVO que entra igual no glifo e no vão, então trocar quem é fundo e
+  // quem é tinta dá o mesmo 3,5:1. O que muda é a ÁREA: a faixa ocupa 26,7% da
+  // área visível da casca (não os 12,5% da altura, porque ela mora onde a área é
+  // densa), e com ela acesa a média sobe para **0,0774**, ou seja 5,5x. A razão
+  // entre conteúdo e painel sai de 0,14x para 0,79x: a peça deixa de ser um
+  // buraco e passa a ser um objeto aceso.
+  //
+  // Quem quiser o inverso pede explicitamente, como a Kray faz com a paleta dela.
+  const corFaixa = c.faixaFundo === undefined ? COR_DADO : c.faixaFundo
   const y0 = SPHERE_FAIXA_LINHA0 * f, y1 = SPHERE_FAIXA_LINHA1 * f
   if (corFaixa !== null) {
     g.fillStyle = corFaixa
@@ -1804,9 +1886,9 @@ function pintarTextura(
   const lGrande = SPHERE_FAIXA_LINHA0 + FX_MARGEM
   const lPequena = lGrande + 7 * FX_GRANDE_ESCALA + FX_VAO
   escrever(g, c.grande, lGrande, FX_GRANDE_ESCALA, SPHERE_CHARS_GRANDE,
-    c.cor ?? COR_DADO, f)
+    c.cor ?? COR_TINTA_FAIXA, f)
   escrever(g, c.pequena, lPequena, FX_PEQUENA_ESCALA, SPHERE_CHARS_PEQUENA,
-    c.corRotulo ?? COR_ROTULO, f)
+    c.corRotulo ?? COR_TINTA_FAIXA, f)
 
   // ── as duas médias, e as duas são MEDIDAS do canvas, nunca estimadas ─────
   const amostra = g.getImageData(0, 0, W, H).data

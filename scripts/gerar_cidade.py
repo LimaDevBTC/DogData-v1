@@ -2192,7 +2192,33 @@ for _i in range(12 if SERIE_NUMERADA else 0):
 # cinturão produtivo é onde isso cabe sem tirar lote: ele tem 2.600 m de faixa e
 # estava ralo demais para ler como cinturão, que é o defeito que eu mesmo apontei
 # na última chapa. Golfe é verde, é grande e é lazer: ocupa bem e dá conteúdo.
-_PROD.append(('GF', 'Campo de Golfe', 'lazer', rumo_de_raio(300.0), 5700.0, 620.0, 340.0))
+#
+# ⚠️ MUDOU DE TAMANHO E DE LUGAR EM 08/09/2026, e as duas coisas são medição.
+# Plano em golfe.md. O fundador travou a escala em 18 buracos CURTOS (par 3
+# lunar), e é a física que dá o tamanho: em 1/6 g o alcance vai a 6,035x, então
+# o buraco médio tem 480 m e o corredor de jogo 100 m de largura, contra 361 e
+# 60 na Terra. São 8,64 km de jogo em 18 corredores, 86,4 ha só de corredor, e
+# 160 ha com green, rough, bunker e clubhouse. Os 84,32 ha de antes eram a área
+# de um campo TERRESTRE, onde um único drive voa 1.509 m e atravessa quatro
+# buracos.
+#
+# ⚠️ E O SÍTIO ANTIGO ERA NO DISTRITO INDUSTRIAL. Medido: rumo 315° punha a
+# Fábrica de Célula Solar a 1.377 m e a Fundição a 2.306 m do centro do campo.
+# O rumo novo é o único trecho do cinturão que junta as cinco coisas que golfe
+# pede, varrido em 21 rumos x 3 raios com a pegada nova sondada a cada 25 m:
+# seco (0,0% abaixo da lâmina), declive mediano de 2,72° com p90 de 8,06° (o
+# fairway acompanha o chão e só os greens são escavados), 2.081 m de folga até o
+# lote mais externo, o Lago do Poente a 783 m de borda, e a indústria a mais de
+# 3,6 km. Dentro da casca, logo com ar.
+#
+# ⚠️ O φ AQUI É PONTO DE PARTIDA, NÃO ENDEREÇO. Quem decide é
+# `assenta_no_cinturao`: ele encosta a peça num anel viário por um lado e num
+# bulevar pelo outro. Com meia_b 400 a vaga escolhida é AN6 + (34/2 + 400 + 25)
+# = r 6.742, e φ 7.650 é o número que põe r0 exatamente ali, para o custo de
+# raio ser zero. No rumo, a vaga é o Bulevar 180° menos o meio-arco de 8,855°,
+# ou seja 171,145°: o campo encosta no bulevar e o clubhouse nasce nessa ponta.
+# Mexer em meia_a ou meia_b MOVE A PEÇA, porque as duas entram na conta da vaga.
+_PROD.append(('GF', 'Campo de Golfe', 'lazer', rumo_de_raio(171.0), 7650.0, 1000.0, 400.0))
 for _i in range(6 if SERIE_NUMERADA else 0):
     _PROD.append(('LP', f'Lago de Pesca {_i+1}', 'agua',
                   rumo_de_raio(30.0 + _i * 60.0), 6550.0, 460.0, 260.0))
