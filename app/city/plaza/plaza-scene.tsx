@@ -83,6 +83,8 @@ import { assentarEstadio, estadioCull, estadioSitio } from './estadio'
 import { acenderGeode, acenderTelaoGeode, assentarGeode, geodeCull, geodeSitio, podarGeode } from './geode'
 import { atletismoSitio } from './atletismo'
 import { criarAtletismo, type Atletismo } from './atletismo-loader'
+import { criarDerby, type Derby } from './derby-loader'
+import { DERBY_ID, type PecaDoGerador } from './derby'
 import { campusParcela, comPodio, criarCampus, CAMPUS_LAJE, CAMPUS_RUMO, EIXO_CAMPUS, GIRO_CAMPUS, sitioNoCampus } from './campus'
 import { ESTADIO_MOD } from './estadio'
 import { GEODE_MOD } from './geode'
@@ -2029,6 +2031,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       fx: (tipo, peso, aoCobrir) => sphere?.fx(tipo, peso, aoCobrir),
     })
     let atletismo: Atletismo | null = null
+    let derby: Derby | null = null
+    // ⚠️ A PARCELA DO DERBY VEM DO GERADOR, NÃO DA TEIA. Ela é a peça E02 de
+    // cidade.json e é lida no bloco do programa, muito antes de o loader nascer:
+    // sem guardar aqui, o `_cidadeJson` já saiu de escopo.
+    let pecaDerby: PecaDoGerador | null = null
     let lago: Lago | null = null
     let canais: Canais | null = null
     let lagos: Lagos | null = null
@@ -2921,6 +2928,12 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               const _prog = (_cidadeJson?.programa ?? []) as {
                 id: string; nome: string; tipo: string; x: number; z: number
                 a?: number; b?: number; ha?: number }[]
+              {
+                const q = _prog.find((r) => r.id === DERBY_ID) as
+                  (typeof _prog[number] & { rot?: number }) | undefined
+                if (q && typeof q.rot === 'number') pecaDerby = { x: q.x, z: q.z, rot: q.rot }
+                else console.warn('[derby] peça E02 sem rot em cidade.json: o canódromo fica fora')
+              }
               parcelas = encaixaPrograma(_prog.map((q) => ({
                 id: q.id, nome: q.nome, tipo: q.tipo, x: q.x, z: q.z,
                 area: (q.ha ?? 0) * 1e4 || 4 * (q.a ?? 100) * (q.b ?? 100),
@@ -3977,6 +3990,25 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           atletismo.group.rotation.y = GIRO_CAMPUS
           { const q = sitioNoCampus(ATLETISMO_MOD); atletismo.group.position.x = q.x; atletismo.group.position.z = q.z }
           scene.add(atletismo.group)
+        }
+
+        // ── DOG DERBY: mesmo contrato de rede do atletismo ────────────────
+        // A base de 35 KB traz a peça inteira; o detalhe (42 KB) é aditivo e só
+        // desktop. O sítio é a parcela E02 mais o deslocamento medido dentro
+        // dela, e o assentamento pousa no ponto MAIS ALTO da pegada.
+        if (pecaDerby && new URLSearchParams(window.location.search).get('derby') !== '0') {
+          derby = criarDerby({
+            profile,
+            peca: pecaDerby,
+            alturaEm: comPodio(terrain.superficieAt),
+            carregar: loadGlb,
+            economizarDados: (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData,
+            preparar: async (root) => {
+              tameEnv(root)
+              await aquece(renderer, scene, camera, root)
+            },
+          })
+          scene.add(derby.group)
         }
 
         if (btcMark) {
@@ -5088,6 +5120,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       alpino?.update(camera.position)
       autopistas?.update(camera.position)
       atletismo?.update(camera.position, cidadeAtletismoAberta, nowMs)
+      derby?.update(camera.position, cidadeAtletismoAberta, nowMs)
       // ⚠️ `spherePxAng` NÃO É ENFEITE: o shader de LED decide se desenha o
       // ponto pelo tamanho dele EM PIXEL DE TELA, então ele precisa saber o
       // tamanho do pixel. Sem esta linha a peça usa o padrão do perfil e lê
@@ -5378,6 +5411,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       sphere?.dispose()
       sphereJardim?.dispose()
       atletismo?.dispose()
+      derby?.dispose()
       mob?.dispose()
       decal?.dispose()
       terrenoFino?.dispose()

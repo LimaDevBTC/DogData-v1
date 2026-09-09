@@ -30,7 +30,6 @@ import { desenhar as D01 } from './D01'
 import { desenhar as D02 } from './D02'
 import { desenhar as D03 } from './D03'
 import { desenhar as E01 } from './E01'
-import { desenhar as E02 } from './E02'
 import { desenhar as F01 } from './F01'
 import { desenhar as deposito } from './deposito'
 import { desenhar as horta } from './horta'
@@ -66,7 +65,14 @@ export const MODULOS: Record<string, Modulo> = {
   D02,
   D03,
   E01,
-  E02,
+  // ⚠️ E02 SAIU DAQUI EM 09/09/2026, e a saída é a regra da casa, não exceção.
+  // O DOG Derby ganhou modelo 3D próprio (`blender/build_derby.py`, carregado
+  // por `derby-loader.ts`), e peça com modelo não entra no registro da
+  // prancheta: as duas geometrias nasceriam no mesmo lugar, uma dentro da outra,
+  // sempre que alguém abrisse `?pecas3d=1`. É por isso que o $DOG ARENA e o DOG
+  // Athletics também não estão nesta lista. `pecas/E02.ts` continua no
+  // repositório como o estudo de planta que gerou o projeto, e derby.md registra
+  // o que ele resolveu.
   F01,
 
   // ⚠️ MÓDULO COMPARTILHADO: peça que se repete em tamanho diferente usa o mesmo
