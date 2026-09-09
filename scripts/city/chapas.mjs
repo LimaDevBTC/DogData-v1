@@ -69,6 +69,13 @@ const VISTAS = {
   derby:      'view',
   derbyalto2: 'view',
   derbyperto: 'view',
+  // ⚠️ AS QUATRO DE DOG AQUATICS TAMBÉM PEDEM `viewFor`, e pelo mesmo motivo que
+  // as do derby: o que a live mostra é o enquadramento do tour, então julgar por
+  // uma câmera escrita aqui julgaria outra coisa.
+  aquatics:        'view',
+  aquaticsrasante: 'view',
+  aquaticstorre:   'view',
+  aquaticsdentro:  'view',
   // pedidos pelos agentes da água em 02/09, para conferir borda molhada e fusão
   // da areia no chão. Rasante de verdade: a câmera fica NA cota da lâmina.
   aguarase: [-971.93, -36, -5400, -842.47, -40.5, -5400, 55],

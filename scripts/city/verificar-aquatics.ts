@@ -177,6 +177,16 @@ async function main() {
   assert(Math.abs(media - AQUATICS_Y) < 4.0,
     `a cota ${AQUATICS_Y} está ${(media - AQUATICS_Y).toFixed(2)} m fora do chão em volta: remeça o equilíbrio de corte e aterro`)
 
+  // 11. os dois GLB publicados, e dentro do orçamento
+  const { statSync, existsSync } = await import('node:fs')
+  for (const [arquivo, teto] of [['dog-aquatics-base.glb', 220000], ['dog-aquatics-detail.glb', 280000]] as const) {
+    const caminho = `public/city/${arquivo}`
+    assert(existsSync(caminho), `${arquivo} não foi publicado em public/city`)
+    const bytes = statSync(caminho).size
+    assert(bytes <= teto, `${arquivo} passou do teto: ${bytes} > ${teto}`)
+    console.log(`11. ${arquivo}: ${bytes.toLocaleString('pt-BR')} bytes (teto ${teto.toLocaleString('pt-BR')})`)
+  }
+
   if (avisos.length) console.log('\navisos:\n' + avisos.map((a) => '  · ' + a).join('\n'))
   console.log('\nDOG AQUATICS: parcela conferida.')
 }

@@ -26,7 +26,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
 import { montarPodio, dentroDoPoly, type Pt } from './podio'
-import type { Modulo } from './teia'
+import { caixaDoModulo, type Modulo } from './teia'
 
 /** a parcela: dois módulos da banda Bairro, r 3.024 a 3.564, rumo 72,96 a 81,32 */
 export const AQUATICS_MOD: Modulo = { i: 11, nr: 3, j: 34, ns: 2 }
@@ -106,6 +106,19 @@ export function aquaticsAlturaAt(x: number, z: number, natural: number): number 
 /** envolve `alturaEm` para que quem pousa peça encontre o topo da laje */
 export function comPodioAquatics(base: (x: number, z: number) => number) {
   return P.comPodio(base)
+}
+
+/**
+ * Até onde a peça continua desenhada, por perfil.
+ *
+ * ⚠️ O ALCANCE SAI DO RAIO DO BLOCO, não de um número escolhido: a peça tem de
+ * sobreviver à vista da praça (r 1.024 dali até a borda) mais a folga da própria
+ * peça. É a mesma conta do atletismo, e ela acompanha sozinha se a teia mudar.
+ */
+export function aquaticsCull(tier: 'mobile' | 'desktop'): number {
+  const c = caixaDoModulo(AQUATICS_MOD)
+  const alcancePraca = Math.ceil((c.rm + 1024 + 350) / 100) * 100
+  return tier === 'mobile' ? alcancePraca : Math.max(7000, alcancePraca)
 }
 
 /** o sítio da peça: o centro do bloco, como toda peça desta cidade */

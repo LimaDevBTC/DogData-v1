@@ -108,7 +108,10 @@ try {
   // regressão; teto justo acusa.
   assert(report.near.triangles <= (mobile ? 7000 : 20000),
     `triângulos visíveis: ${report.near.triangles}`)
-  assert(report.near.meshes <= (mobile ? 10 : 16), `malhas visíveis: ${report.near.meshes}`)
+  // ⚠️ O TETO DE MALHAS SUBIU DE 10 PARA 11 EM 09/09, e o motivo é o letreiro:
+  // "$DOG DERBY" é material próprio (emissivo forte no laranja de marca), e
+  // material novo é uma chamada de desenho nova. A base foi de 9 para 10.
+  assert(report.near.meshes <= (mobile ? 11 : 16), `malhas visíveis: ${report.near.meshes}`)
   await page.screenshot({ path: `${out}/${perfil}-derby.jpg`, type: 'jpeg', quality: 90, timeout: 180000 })
   // Vista baixa e aproximada, por contrato de câmera local da própria peça.
   await page.evaluate(() => {

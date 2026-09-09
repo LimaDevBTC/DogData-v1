@@ -86,7 +86,8 @@ import { criarAtletismo, type Atletismo } from './atletismo-loader'
 import { criarDerby, type Derby } from './derby-loader'
 import { DERBY_MOD, derbyParcela, derbySitio } from './derby'
 import { campusParcela, comPodio, criarCampus, CAMPUS_LAJE, CAMPUS_RUMO, EIXO_CAMPUS, GIRO_CAMPUS, sitioNoCampus } from './campus'
-import { aquaticsParcela, criarAquatics, AQUATICS_LAJE } from './aquatics'
+import { aquaticsParcela, criarAquatics, comPodioAquatics, aquaticsSitio, AQUATICS_LAJE, AQUATICS_ATIVO } from './aquatics'
+import { criarAquatics as carregarAquatics, type Aquatics } from './aquatics-loader'
 import { ESTADIO_MOD } from './estadio'
 import { GEODE_MOD } from './geode'
 import { ATLETISMO_MOD } from './atletismo'
@@ -170,6 +171,7 @@ export const PLACES: ReadonlyArray<{ key: string; label: string; hint: string }>
   { key: 'esportes', label: 'Sports district', hint: 'football, The Geode and athletics' },
   { key: 'atletismo', label: 'DOG Athletics', hint: '400 m track, eight lanes, field events' },
   { key: 'derby', label: 'DOG Derby', hint: 'the greyhound track, banked 35 degrees' },
+  { key: 'aquatics', label: 'DOG Aquatics', hint: '50 m tank, 60 m dive tower, 60 m free-dive well' },
   { key: 'deck', label: 'The deck', hint: 'the Needle, up close' },
   { key: 'mark', label: 'The Bitcoin Mark', hint: 'the seal on the deck, north axis' },
   { key: 'founders', label: "Founders' Circle", hint: 'the donors, at the tower foot' },
@@ -565,6 +567,33 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
       const altura = name === 'derbyalto2' ? 560 : name === 'derbyperto' ? 96 : 260
       return { pos: new THREE.Vector3(s.x - rx * distancia, altura, s.z - rz * distancia),
                target: new THREE.Vector3(s.x, 12, s.z) }
+    }
+
+    // ⚠️ AS QUATRO DE DOG AQUATICS MIRAM AS PONTAS, NÃO O CENTRO, e essa é a
+    // diferença desta peça para as outras do distrito. Ela tem 324 m de
+    // comprimento com programa DIFERENTE em cada ponta (a nave coberta de um
+    // lado, a torre de saltos de 60,35 m do outro), então uma câmera mirada no
+    // meio não conta nenhuma das duas.
+    //
+    // ⚠️ E OS EIXOS SÃO OS DA PEÇA, na MESMA matriz que `assentarAquatics` usa:
+    // +X local é a tangente do anel e aponta para a ponta da torre, +Z local
+    // aponta de volta para o centro da cidade, que é de onde a câmera vem.
+    // Girar a peça com uma conta e a câmera com outra é o defeito que
+    // `campus.ts` registra em `assentarEstadio`, e ele só aparece quando o chão
+    // ao lado deixa de ser liso.
+    case 'aquatics': case 'aquaticsrasante': case 'aquaticstorre': case 'aquaticsdentro': {
+      const s = aquaticsSitio(), a = THREE.MathUtils.degToRad(s.rumoDeg)
+      const tx = Math.cos(a), tz = Math.sin(a)
+      const nx = -Math.sin(a), nz = Math.cos(a)
+      const p = (dx: number, dz: number, y: number) =>
+        new THREE.Vector3(s.x + tx * dx + nx * dz, y, s.z + tz * dx + nz * dz)
+      // a torre: câmera baixa e de lado, que é o que faz 60 m lerem como 60 m
+      if (name === 'aquaticstorre') return { pos: p(58, 178, 30), target: p(122, 0, 40) }
+      // dentro da nave, no alto da bancada superior, olhando o tanque de 50 m
+      if (name === 'aquaticsdentro') return { pos: p(-77.5, 52, 15), target: p(-77.5, -6, 2) }
+      // rasante na fachada longa, com a casca curva contra o céu
+      if (name === 'aquaticsrasante') return { pos: p(-150, 250, 46), target: p(-40, 0, 26) }
+      return { pos: p(-120, 560, 300), target: p(20, 0, 28) }
     }
 
     // O endereço acompanha as células. A cota medida é somada por vistaDaCidade
@@ -2046,6 +2075,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       fx: (tipo, peso, aoCobrir) => sphere?.fx(tipo, peso, aoCobrir),
     })
     let atletismo: Atletismo | null = null
+    let aquatics: Aquatics | null = null
     let derby: Derby | null = null
     let lago: Lago | null = null
     let canais: Canais | null = null
@@ -3888,9 +3918,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // ── DOG AQUATICS ──────────────────────────────────────────────────────
         // A parcela espelhada do campus, do outro lado da avenida de 90°: mesma
         // gramática de laje (platô, calçada de borda, muro de meio-fio), 6% da
-        // terraplanagem que o campus custou. A peça ainda não pousa aqui: o GLB
-        // está gerado e verificado em `blender/build_aquatics.py`, mas não foi
-        // publicado nem tem loader. O chão vem primeiro, de propósito.
+        // terraplanagem que o campus custou. A laje entra aqui e a peça logo
+        // abaixo, com o contrato de rede do atletismo.
         if (AQUATICS_LAJE) scene.add(criarAquatics((x, z) => terrain.heightAt(x, z)))
 
         // ── $DOG ARENA ────────────────────────────────────────────────────────
@@ -4011,6 +4040,25 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           atletismo.group.rotation.y = GIRO_CAMPUS
           { const q = sitioNoCampus(ATLETISMO_MOD); atletismo.group.position.x = q.x; atletismo.group.position.z = q.z }
           scene.add(atletismo.group)
+        }
+
+        // ── DOG AQUATICS: mesmo contrato de rede do atletismo ─────────────
+        // A base de 28 KB traz a peça inteira, com a nave, a torre de saltos e
+        // os poços; o detalhe (46 KB) é aditivo e só o desktop perto pede. Ela
+        // pousa na laje da própria parcela, então `comPodioAquatics` devolve o
+        // topo do pódio e a peça assenta rente sem saber que existe um pódio.
+        if (AQUATICS_ATIVO) {
+          aquatics = carregarAquatics({
+            profile,
+            alturaEm: comPodioAquatics(terrain.superficieAt),
+            carregar: loadGlb,
+            economizarDados: (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData,
+            preparar: async (root) => {
+              tameEnv(root)
+              await aquece(renderer, scene, camera, root)
+            },
+          })
+          scene.add(aquatics.group)
         }
 
         // ── DOG DERBY: mesmo contrato de rede do atletismo ────────────────
@@ -4790,6 +4838,14 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         v.pos.y += cota
         v.target.y += cota
       }
+      // ⚠️ A PEÇA AQUÁTICA PRECISA DA MESMA SOMA, e mais que as outras: ela
+      // pousa numa laje em −32,4, então uma câmera declarada a 15 m ficaria 47 m
+      // acima do assento de onde ela deveria estar olhando.
+      if (/^aquatics/.test(name ?? '')) {
+        const cota = aquatics?.group.position.y ?? 0
+        v.pos.y += cota
+        v.target.y += cota
+      }
       return v
     }
     apiRef.current = {
@@ -5141,6 +5197,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       autopistas?.update(camera.position)
       atletismo?.update(camera.position, cidadeAtletismoAberta, nowMs)
       derby?.update(camera.position, cidadeAtletismoAberta, nowMs)
+      aquatics?.update(camera.position, cidadeAtletismoAberta, nowMs)
       // ⚠️ `spherePxAng` NÃO É ENFEITE: o shader de LED decide se desenha o
       // ponto pelo tamanho dele EM PIXEL DE TELA, então ele precisa saber o
       // tamanho do pixel. Sem esta linha a peça usa o padrão do perfil e lê
@@ -5431,6 +5488,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       sphere?.dispose()
       sphereJardim?.dispose()
       atletismo?.dispose()
+      aquatics?.dispose()
       derby?.dispose()
       mob?.dispose()
       decal?.dispose()

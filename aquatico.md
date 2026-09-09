@@ -293,10 +293,21 @@ Evidências: [oblíqua](docs/aquatics/oblique.jpg), [planta](docs/aquatics/plan.
 [interior sem cobertura](docs/aquatics/interior.jpg),
 [orçamento](docs/aquatics/modelo.json).
 
-**O que este modelo ainda NÃO é:** não está assentado na cidade (não há reserva,
-não há `aquatics.ts`, loader nem verificador de implantação), não foi visto em
-navegador, não tem cais nem casa de barcos para THE REACH, e o GLB não foi
-publicado em `public/city`. O `.blend` e as chapas são o entregável.
+**A peça está na cidade desde 09/09/2026, à noite.** O fundador viu a laje vazia
+em produção e apontou: "o parque aquático aparece em produção apenas como a placa
+branca, não tem nada em cima". Estava certo, e era o que faltava fechar:
+
+| | |
+|---|---|
+| GLB publicados | `public/city/dog-aquatics-base.glb` (27.900 B) e `-detail.glb` (46.472 B) |
+| loader | `aquatics-loader.ts`, o contrato de rede do atletismo |
+| detalhe | só desktop, fora de economia de dados, a menos de 1.100 m e após 600 ms parado |
+| sombra | a casca projeta mas não recebe (acne em superfície clara e curva) |
+| pouso | por `comPodioAquatics`: a peça acha o topo do pódio e assenta rente |
+| chapa | 267 chamadas e 4,85M triângulos na oblíqua, **sem erro de console** |
+
+O que ainda NÃO existe: cais e casa de barcos para THE REACH, a reserva publicada
+no gerador, e a peça não foi vista em telefone físico.
 
 ## A parcela do Sítio A, fechada em 09/09/2026
 
@@ -399,6 +410,27 @@ só a laje.
 9. laje desenhada: 72 triângulos, 0 com normal para baixo, castShadow false
 10. chão em volta da parcela: 440 sondas, média -35.35 m contra a cota -34.3 m
 ```
+
+### A parcela vista na cena
+
+Portão de chapas, duas vistas novas (`aquatics` e `aquaticstopo` em
+`scripts/city/chapas.mjs`), Chrome com aceleração, qualidade alta:
+
+| vista | chamadas | triângulos | evidência |
+|---|---:|---:|---|
+| oblíqua, do lado da praça | 341 | 6,15M | [cidade-obliqua.jpg](docs/aquatics/cidade-obliqua.jpg) |
+| de cima, sobre a parcela | 77 | 4,64M | [cidade-topo.jpg](docs/aquatics/cidade-topo.jpg) |
+
+O que as duas confirmam: a laje está no lugar com a calçada de borda legível, as
+ruas internas do bloco sumiram (a máscara de parcela funcionou) e as de fora
+continuam inteiras, e a oblíqua mostra a relação que justifica o sítio, com o
+canal radial de 85° correndo entre a parcela e o campus esportivo.
+
+⚠️ **Sete erros de console, nenhum desta frente.** São tempos de espera vencidos
+no carregamento de GLB do Winter Park (`inverno.ts`: `tree-pine`, quatro
+`sq-*` e `rocks-stylized-pack`, todos "sem resposta em 45.000 ms"), que é
+congestionamento de thread principal em servidor de desenvolvimento e já aparece
+em conferências anteriores desta cidade. Nenhum deles cita a parcela nova.
 
 ⚠️ **O custo de terra não é conferível depois que a terraplanagem entra em vigor,
 e duas versões deste teste erraram até isso ficar claro.** `heightAt` já passa

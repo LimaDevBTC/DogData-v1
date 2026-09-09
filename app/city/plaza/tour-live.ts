@@ -77,7 +77,23 @@ export const TOUR_LIVE: readonly ParadaLive[] = [
   { key: 'war',        voo: 22.0, parada: 24 },
   { key: 'coliseu',    voo: 24.0, parada: 22 },
 
-  // ── 2. o campus esportivo: as três peças num pódio só ─────────────────────
+  // ── 2. o distrito esportivo, e ele deixou de ser só o campus ──────────────
+  //
+  // ⚠️ A ORDEM É GEOGRÁFICA, E ISSO É O QUE ECONOMIZA VOO. As frentes novas
+  // estão no MESMO arco das três antigas: DOG AQUATICS em 77,143°, o campus
+  // entre 90° e 120°, o DOG Derby em 140,6°. Percorridas nessa ordem, a câmera
+  // faz um arco contínuo de 63° sem voltar; intercaladas, atravessaria o mesmo
+  // anel três vezes por volta.
+  //
+  // ⚠️ E A PEÇA AQUÁTICA PEDE TRÊS PARADAS, não uma, porque ela tem programa
+  // diferente em cada ponta dos 324 m: a nave coberta de um lado, a torre de
+  // saltos de 60,35 m do outro, e o tanque de 50 m que só existe por dentro.
+  // Uma parada só mostraria uma caixa branca comprida.
+  { key: 'aquatics',        voo: 28.0, parada: 26 },
+  { key: 'aquaticstorre',   voo: 16.0, parada: 24 },
+  { key: 'aquaticsdentro',  voo: 14.0, parada: 26 },
+
+  // ── o campus esportivo: as três peças num pódio só ────────────────────────
   // ⚠️ É UMA SEQUÊNCIA SÓ, não três visitas. As três estão no MESMO anel
   // (r 3.294), a 615,1 m uma da outra, sobre uma laje única em −17,7. O voo
   // entre elas é curto de propósito: é assim que a câmera conta que são
@@ -89,6 +105,13 @@ export const TOUR_LIVE: readonly ParadaLive[] = [
   { key: 'estadiodentro',   voo: 14.0, parada: 28 },
   { key: 'geoderasante',    voo: 18.0, parada: 22 },
   { key: 'geodedentro',     voo: 14.0, parada: 28 },
+
+  // ⚠️ O DERBY FECHA O ARCO, e ele estava fora do roteiro desde que foi
+  // construído: o galgódromo é a peça de 60,26 ha em 140,6°, vizinha imediata
+  // da GEODE no mesmo anel. Duas paradas, a aberta e a de perto, no mesmo par
+  // que as outras peças do distrito usam.
+  { key: 'derby',           voo: 22.0, parada: 24 },
+  { key: 'derbyperto',      voo: 16.0, parada: 26 },
 
   // ── 3. a água: o lago, as ilhas e a alça ──────────────────────────────────
   { key: 'lago',            voo: 28.0, parada: 24 },
