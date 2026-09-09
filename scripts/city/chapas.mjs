@@ -119,6 +119,13 @@ const VISTAS = {
   // e de onde a cidade e vista) e `campustopo` julga o alinhamento e a calcada.
   campus:    [1599, 900, 429, 3145, 10, 843, 45],
   campustopo:[3145, 2200, 844, 3145, 0, 843, 45],
+  // ⚠️ A PARCELA DE DOG AQUATICS, 09/09. Ela fica do outro lado da avenida de
+  // 90°, centro medido em (3.211,4; −733,0), r 3.294, rumo 77,143°. `aquatics`
+  // olha do lado da praça, que é de onde a cidade vê; `aquaticstopo` julga a
+  // laje, a calçada de borda e o muro. A parcela tem 460 m de eixo, um quarto
+  // do campus, então o olho de cima desce na mesma proporção.
+  aquatics:    [1605, 700, -366, 3211, 10, -733, 45],
+  aquaticstopo:[3211, 1100, -732, 3211, 0, -733, 45],
   // OS TRES CANAIS RADIAIS E A BAIA, de cima. Enquadra da praca (origem) ate a
   // borda externa da agua, ~9 km de vao: e a vista em que a foz de cada canal e
   // a continuidade da lamina se leem de uma vez.

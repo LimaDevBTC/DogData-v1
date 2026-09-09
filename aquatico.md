@@ -298,13 +298,124 @@ não há `aquatics.ts`, loader nem verificador de implantação), não foi visto
 navegador, não tem cais nem casa de barcos para THE REACH, e o GLB não foi
 publicado em `public/city`. O `.blend` e as chapas são o entregável.
 
+## A parcela do Sítio A, fechada em 09/09/2026
+
+`AQUATICS_MOD = { i: 11, nr: 3, j: 34, ns: 2 }`, em `app/city/plaza/aquatics.ts`.
+Dois módulos da banda Bairro, rumo **72,96 a 81,32°**, r 3.024 a 3.564,
+**25,47 ha**. O chão está no ar; a peça ainda não.
+
+### Por que dois módulos e não cinco
+
+O primeiro levantamento recomendava cinco módulos (a faixa inteira entre as
+avenidas de 60° e 90°). **A medição contra as vias publicadas derrubou isso:**
+
+| parcela | rumo | área | via mais próxima |
+|---|---|---:|---|
+| **j=34, ns=2** | 72,96 a 81,32° | **25,47 ha** | anel AN3 a **+43,2 m** |
+| j=32, ns=3 | 68,68 a 81,32° | 38,4 ha | anel AN3 a +43,2 m |
+| j=30, ns=4 | 64,39 a 81,32° | 51,4 ha | autopista AU2 a **−19,0 m** |
+| j=28, ns=5 | 60,10 a 81,32° | 64,4 ha | bulevar BUL02 a **−28,0 m** |
+
+Negativo é invasão: nas parcelas de quatro e cinco módulos o eixo da via cai
+dentro da parcela, que é exatamente o defeito que o BUL04 tem no $DOG ARENA e
+que `campus.md` registra como "um defeito que ficou". Escolher a parcela grande
+seria repetir de propósito um problema que a casa já paga em outro lugar.
+
+E os dois módulos ainda são o terreno mais plano da faixa: **7,10 m de
+amplitude**, contra 13,1 m dos recortes maiores e 33,1 m do campus.
+
+### A cota, e o que ela custa
+
+| | |
+|---|---|
+| terreno natural na parcela | −37,21 a −30,11 m |
+| cota de equilíbrio medida | **−34,31**, publicada como −34,3 |
+| corte | **0,175 Mm³**, 45,3% da área, máximo de 4,20 m |
+| aterro | **0,171 Mm³**, máximo de 2,90 m |
+| campus, para comparar | 2,74 Mm³ de cada lado |
+
+**São 6% do que o campus custou**, e a diferença não é mérito de projeto: é o
+terreno. Deste lado da avenida de 90° a amplitude é 7,10 m; do outro, 33,1 m.
+
+### A laje e o sítio da peça
+
+Mesma gramática do campus: franja de 34 m entre a divisa e a laje, calçada de
+12 m na borda, laje de 1,5 m, muro de meio-fio descendo até o chão mais baixo em
+volta. Topo do pódio em **−32,8 m**, e é aí que a peça pousa.
+
+| | |
+|---|---|
+| lados da laje | 380,4 / 462,8 / 447,8 / 460,3 m |
+| peça 324 × 180, centrada | rumo **77,143°**, folga de quina **38,0 m** |
+| muro do pódio | 4,00 a 10,16 m |
+| pior declive junto à borda da laje | **3,3%** |
+| laje desenhada | 72 triângulos, uma chamada de desenho, sem sombra projetada |
+
+Os 3,3% são o número que mais importa aqui: o campus registrou uma borda de laje
+pousada em rampa de **66,2%** quando a franja foi medida na métrica errada, e é
+esse defeito que o pódio novo não pode repetir.
+
+**O comprimento da peça vai na tangente do anel**, como `estadio.ts` manda, e
+isso põe a Torre de Saltos, que fica na ponta de maior rumo, virada para o canal
+radial de 85°, a 147 m dali, que é onde THE REACH desemboca.
+
+### `podio.ts`: a laje virou peça de biblioteca
+
+As primitivas do pódio (recuo de polígono, franja contra as retas, tampa e
+calçada pelo winding, muro que procura o chão mais baixo, porta rápida por raio
+ao quadrado) saíram para `app/city/plaza/podio.ts`. Repetir isso na mão para cada
+peça nova seria repetir também os três defeitos que o campus pagou para achar: a
+franja medida em (raio, ângulo), a normal declarada em vez de tirada do winding,
+e a laje projetando sombra.
+
+⚠️ **`campus.ts` NÃO foi migrado**, de propósito: ele está no ar com três peças
+pousadas em cima e a migração é risco sem ganho imediato. Dívida registrada.
+
+### Onde ela entra na cidade
+
+1. `terrain.ts`, dentro do `heightAt`: a terraplanagem entra depois do campus e
+   antes do micro-relevo, com porta rápida própria. As duas parcelas não se
+   tocam, então a ordem entre elas não importa;
+2. `plaza-scene.tsx`, na máscara: `aquaticsParcela()` entra em `parcelas`, o que
+   apaga as ruas internas do bloco e veda plantio;
+3. `plaza-scene.tsx`, na cena: `criarAquatics()` desenha a laje.
+
+`?aquatics=0` desliga as duas metades, `=chao` deixa só a terraplanagem e `=laje`
+só a laje.
+
+### O verificador
+
+`npx tsx scripts/city/verificar-aquatics.ts`, dez testes, todos passando:
+
+```
+1. laje plana em -34.3 m: 5291 sondas, pior desvio 0.0000 m, nenhuma molhada
+2. franja para na divisa: 6 m fora dela o chão está em -33.67 m
+3. pior declive medido junto à borda da laje: 3.3%
+4. peça 324 × 180 dentro da laje, rumo 77.143°, folga de quina 38.0 m
+5. nenhuma via invade a parcela; a mais próxima é anel:AN3 a 43.2 m
+6. nenhuma das 41 reservas publicadas colide com a parcela
+7. muro do pódio: 4.00 a 10.16 m
+8. peça pousa em y=-32.400 (topo -32.8 + folga 0.4), giro -77.143°
+9. laje desenhada: 72 triângulos, 0 com normal para baixo, castShadow false
+10. chão em volta da parcela: 440 sondas, média -35.35 m contra a cota -34.3 m
+```
+
+⚠️ **O custo de terra não é conferível depois que a terraplanagem entra em vigor,
+e duas versões deste teste erraram até isso ficar claro.** `heightAt` já passa
+por `aquaticsAlturaAt` e devolve a cota dentro da laje, então a conta media a
+rampa da franja e acusava 48% de desequilíbrio; `baseAt` erra para o outro lado,
+porque é o heightmap com a saia e sem o pódio da abóbada, e diz que o natural
+ali vai de −70,68 a −21,09 quando o chão que a cidade tem vai de −37,21 a
+−30,11. `campus.md` já registrava a mesma lição nos limites dele. O teste 10 é o
+que sobrevive: a cota tem de ficar perto do chão em volta da divisa.
+
 ## O que falta decidir antes do primeiro traço
 
 1. **Alargar ou não o trecho de prova do canal** de 100 para 108 m, o que troca
    0,08 Mm³ de terra por conformidade com as 8 raias da norma.
 2. **Se a marina da baía entra nesta frente** ou vira uma terceira peça depois.
-3. **Onde a parcela do Sítio A começa e termina**, o que é o passo que destrava a
-   reserva, o assentamento e o verificador.
+3. **Publicar a reserva no gerador** (`gerar_cidade.py`), para que o loteamento
+   futuro do snapshot já nasça conhecendo a parcela.
 
 ## Limites deste documento
 

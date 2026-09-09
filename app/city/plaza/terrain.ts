@@ -30,6 +30,7 @@ import { vestir } from './materiais'
 import { microRelevoAt, TERRENO_FINO_ATIVO } from './terreno-fino'
 import { alturaInvernoAt, zonaEsquiavelAt, fatorRochaAt } from './inverno'
 import { campusAlturaAt } from './campus'
+import { aquaticsAlturaAt } from './aquatics'
 
 export interface TerrainMeta {
   cols: number
@@ -936,7 +937,12 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
     // campus existe. Fora do anel r 2.850..3.740 a função devolve `bParque`
     // bit a bit, com uma comparação de raio e nada mais (ver a porta rápida no
     // cabeçalho de `campusAlturaAt`).
-    return campusAlturaAt(x, z, bParque) + microRelevoAt(x, z) + alturaInvernoAt(x, z)
+    // ⚠️ DOG AQUATICS ENTRA NA MESMA FILA, e a ordem entre as duas parcelas não
+    // importa porque elas não se tocam: o campus vive entre as avenidas de 90° e
+    // 120° e a parcela aquática entre 72,96° e 81,32°, do outro lado da de 90°.
+    // Cada uma tem a própria porta rápida por raio ao quadrado.
+    const bCampus = campusAlturaAt(x, z, bParque)
+    return aquaticsAlturaAt(x, z, bCampus) + microRelevoAt(x, z) + alturaInvernoAt(x, z)
   }
 
   // ⚠️ CONTRATO NOVO, DEPOIS DE A MALHA GROSSA SER MASCARADA (não mais

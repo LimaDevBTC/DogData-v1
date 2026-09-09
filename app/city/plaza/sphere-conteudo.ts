@@ -130,7 +130,6 @@ export const ROTULOS = {
   mintDono: 'NEW OWNER',          // 9
   krayNome: 'THE WALLET',         // 10
   krayCustodia: 'YOUR KEYS',      // 9
-  krayTorre: 'THE TOWER',         // 9
   ocioso: 'SPHERE',               // 6
 } as const
 
@@ -549,45 +548,24 @@ const quadroOcioso = (): Quadro => quadro('DOGCITY', ROTULOS.ocioso, MS_MODULO)
  * parceiro fica MAIS parecido consigo mesmo, não menos.
  */
 function pintarCorpoKray(g: CanvasRenderingContext2D, w: number, h: number) {
-  const L = h / 1024   // pixels de canvas por linha de LED da grade de 1.024
-
-  // o casco: preto de verdade, para o branco ter contra o que brilhar
-  g.fillStyle = '#07080A'
-  g.fillRect(0, 0, w, h)
-
-  // ⚠️ A COROA ACENDE NO POLO, e o polo é o único lugar onde isso pode ser
-  // feito: `sphere.ts` mediu que letra ali é ilegível por escorço, então polo é
-  // SÓ COR. Esta calota vai da linha 0 à 120, ou seja da latitude 90° à 68,9°,
-  // que são (1 - sen 68,9°)/2 = **3,3% da área da esfera**. É um chapéu, não uma
-  // bola branca.
-  const coroa = g.createLinearGradient(0, 0, 0, 120 * L)
-  coroa.addColorStop(0.0, 'rgba(242,244,247,0.95)')
-  coroa.addColorStop(1.0, 'rgba(242,244,247,0.0)')
-  g.fillStyle = coroa
-  g.fillRect(0, 0, w, 120 * L)
-
-  // ⚠️ AS DUAS CINTAS MUDARAM DE LINHA EM 07/09, E AS DUAS ESTAVAM ERRADAS.
+  // ⚠️ A CAMPANHA É A MARCA E O NOME, E MAIS NADA. Pedido do fundador em 09/09:
+  // *"a campanha kray tem elementos diferentes de ·KRAY·KRAY· e a logo da Kray.
+  // Não precisa tower nem nada disso"*. O que estava aqui eram duas cintas
+  // brancas de casco, que são gesto de peça e não de anunciante, e três quadros
+  // que trocavam a linha grande. Agora o parceiro tem UMA imagem: casco preto,
+  // marca branca repetida na volta, e o nome dele na faixa.
   //
-  // ⚠️ A DE BAIXO NUNCA FOI DESENHADA, DESDE O DIA EM QUE FOI ESCRITA. Ela
-  // morava em 760-772, e a casca é cortada em `thetaMax` = 114,70° do polo
-  // (`buildSphere`), ou seja a ÚLTIMA LINHA DA MALHA É A 652,5. As linhas
-  // 760-772 caem 32 m abaixo do corte: aquele "esfera preta com anéis brancos a
-  // 3 km" sempre teve UM anel só, e o comentário que dizia o contrário nunca foi
-  // conferido contra a geometria.
-  //
-  // ⚠️ E A DE CIMA IA FICAR DEBAIXO DO TEXTO. A faixa de dado subiu para 378-486
-  // (o centro óptico da silhueta, ver `SPHERE_FAIXA_LINHA0`) e 400-424 caiu
-  // dentro dela; como a faixa é pintada DEPOIS de `pintarCorpo`, a cinta seria
-  // simplesmente apagada.
-  //
-  // As novas são IGUAIS e simétricas EM PROJEÇÃO em torno do meio da faixa, que
-  // é como o olho as compara numa esfera: 260-284 (lat +44,30° a +40,08°) e
-  // 563-587 (lat −8,97° a −13,18°), as duas de 24 linhas = **7,22 m**, as duas
-  // com o mesmo `sin` de distância (**0,432**) do meio da faixa (sin 0,2397). A
-  // de baixo ainda sobra **65 linhas, 19,7 m** acima do corte da malha.
-  g.fillStyle = '#F2F4F7'
-  g.fillRect(0, Math.round(260 * L), w, Math.round(24 * L))
-  g.fillRect(0, Math.round(563 * L), w, Math.round(24 * L))
+  // ⚠️ E A MARCA É O ARQUIVO DELA, não um desenho meu. `public/wallets/kray.jpg`
+  // já vive no repo, servindo o seletor de carteira: marca branca sobre preto, ou
+  // seja a própria luminância é o alfa. `public/city/kray-marca.png` é ela
+  // recortada na caixa do traço, com alfa suave para a borda não serrilhar ao ser
+  // esticada pelas fatias de seno.
+  const im = arte('/city/kray-marca.png')
+  peleMarca(g, w, h, {
+    fundo: '#07080A', tinta: COR_ANUNCIO, n: 6, s0: 0.90, s1: 0.46,
+    aspecto: 1,
+    desenhar: (og, larg, alt) => { if (im) og.drawImage(im, 0, 0, larg, alt) },
+  })
 }
 
 /**
@@ -941,21 +919,28 @@ function peleValor(valor: string) {
  * devolve `null` e o anel gira para o próximo, que é o mesmo contrato que os
  * módulos de dado sem fonte fresca já usam.
  */
-let _mascote: HTMLImageElement | null = null
-let _mascotePedido = false
-
-function pedirMascote() {
-  if (_mascotePedido || typeof window === 'undefined') return
-  _mascotePedido = true
-  const im = new Image()
-  im.decoding = 'async'
-  im.onload = () => { _mascote = im }
-  im.onerror = () => console.warn('[sphere] o mascote não carregou; a carta fica fora do baralho')
-  im.src = '/city/dog-mascote.png'
+/**
+ * ⚠️ UM CARREGADOR SÓ PARA TODA ARTE DE PELE. Cada carta que usa imagem precisa da
+ * mesma dança (pedir uma vez, guardar, e ficar fora do baralho enquanto não
+ * chegou), e duplicá-la por carta é como se perdem casos: basta um `onerror` sem
+ * tratamento para a peça travar num quadro vazio.
+ */
+const _artes = new Map<string, HTMLImageElement | null>()
+function arte(url: string): HTMLImageElement | null {
+  if (typeof window === 'undefined') return null
+  if (!_artes.has(url)) {
+    _artes.set(url, null)
+    const im = new Image()
+    im.decoding = 'async'
+    im.onload = () => _artes.set(url, im)
+    im.onerror = () => console.warn(`[sphere] ${url} não carregou; a carta fica fora do baralho`)
+    im.src = url
+  }
+  return _artes.get(url) ?? null
 }
 
 function pintarCorpoMascote(g: CanvasRenderingContext2D, w: number, h: number) {
-  const im = _mascote
+  const im = arte('/city/dog-mascote.png')
   peleMarca(g, w, h, {
     // ⚠️ FUNDO LARANJA, E ELE NÃO É ENFEITE: o mascote é recortado, então sem um
     // fundo aceso a casca seria preta em volta dele e a peça voltaria a ser o
@@ -1059,8 +1044,7 @@ function slotBitcoin(altura: number | null): Slot {
  * repaint.
  */
 function slotMascote(): Slot | null {
-  pedirMascote()
-  if (!_mascote) return null
+  if (!arte('/city/dog-mascote.png')) return null
   const base: Partial<SphereConteudo> = {
     ganho: GANHO_MARCA,
     pintarCorpo: pintarCorpoMascote,
@@ -1116,7 +1100,7 @@ function slotDog(): Slot {
 }
 
 function slotAnuncio(): Slot {
-  const ms = Math.round(MS_ANUNCIO / 3)   // 24 s por quadro
+  const ms = Math.round(MS_ANUNCIO / 2)   // 36 s por quadro, dois quadros
   const base: Partial<SphereConteudo> = {
     ganho: GANHO_ANUNCIO,
     cor: COR_ANUNCIO,
@@ -1143,9 +1127,11 @@ function slotAnuncio(): Slot {
       // caracteres ele é lido inteiro em 76% dos azimutes a 1 km, contra 36% de
       // `WALLET` (6) e 49% de `TOWER` (5): quanto mais curto, mais azimutes veem
       // a marca fechada. Quem varia é o RÓTULO, que é onde a mensagem cabe.
+      // ⚠️ DOIS QUADROS, NÃO TRÊS, E O DA TORRE SAIU. O fundador: "não precisa
+      // tower nem nada disso". Sobra o que o anunciante vende: o nome dele e a
+      // custódia própria. O tempo comprado não muda, os 72 s se dividem em dois.
       quadro('KRAY', ROTULOS.krayNome, ms, base),
       quadro('KRAY', ROTULOS.krayCustodia, ms, base),
-      quadro('KRAY', ROTULOS.krayTorre, ms, base),
     ],
   }
 }

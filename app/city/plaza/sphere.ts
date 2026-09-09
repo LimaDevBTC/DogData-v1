@@ -1656,10 +1656,12 @@ const JANELA_FRACAO = 3.09
  * CENTRADA no azimute de onde a cidade olha a peça. Custo zero, a volta já
  * fechava exata.
  */
-function repetirNaVolta(texto: string, nChars: number): string {
+function repetirNaVolta(
+  texto: string, nChars: number, repAlvo?: number, fracAlvo?: number,
+): { volta: string; rep: number; frac: number } {
   const t = texto.toUpperCase()
-  if (!t.length) return ' '.repeat(nChars)
-  if (t.length >= nChars) return t.slice(0, nChars)
+  if (!t.length) return { volta: ' '.repeat(nChars), rep: 1, frac: 0.75 }
+  if (t.length >= nChars) return { volta: t.slice(0, nChars), rep: 1, frac: 0.75 }
 
   const L = t.length
   const janela = nChars / JANELA_FRACAO
@@ -1674,7 +1676,17 @@ function repetirNaVolta(texto: string, nChars: number): string {
   // em 100% dos azimutes, ao preço de a cópia inteira cair de 100% para 88%.
   // Medido em 1,20 também: nenhum ganho a mais, e a leitura cai para 66%.
   const porLeitura = L >= janela ? 1 : Math.floor(nChars / (janela * 1.10 - L))
-  const rep = Math.max(1, Math.min(porEspaco, porLeitura))
+  // ⚠️ `repAlvo` ALINHA O RÓTULO COM O VALOR, e sem ele os dois desgarram. O
+  // fundador viu: *"em alguns momentos o número acima e a legenda abaixo ficam
+  // completamente desalinhados"*. A causa é que cada linha calculava as cópias
+  // sozinha, e as duas têm orçamentos diferentes (32 casas contra 64): medido,
+  // `0.00113` sai em 3 cópias e `USD SPOT` em 4, então o rótulo nunca fica
+  // debaixo do seu valor, ele passeia.
+  //
+  // Com o mesmo número de cópias a fase se resolve sozinha, e a conta mostra por
+  // quê: `desloc/n = 0,75 − 1/(2·rep)` não depende de `n`. Basta impor `rep`, e é
+  // a linha GRANDE que manda, porque ela carrega o valor.
+  const rep = Math.max(1, Math.min(porEspaco, repAlvo ?? porLeitura))
 
   const casas: string[] = []
   for (let k = 0; k < rep; k++) {
@@ -1684,12 +1696,23 @@ function repetirNaVolta(texto: string, nChars: number): string {
     const dir = Math.max(0, vao - esq)
     casas.push(' '.repeat(esq) + SEPARADOR + t + SEPARADOR + ' '.repeat(dir))
   }
-  const volta = casas.join('')
+  const volta0 = casas.join('')
 
   // a fase: leva o MEIO da primeira cópia para a coluna que encara a praça
   const periodo = nChars / rep
-  const desloc = ((Math.round(0.75 * nChars) - Math.round(periodo / 2)) % nChars + nChars) % nChars
-  return volta.slice(nChars - desloc) + volta.slice(0, nChars - desloc)
+  // ⚠️ O DESLOCAMENTO É EM FRAÇÃO DA VOLTA, E ARREDONDAR CEDO DEMAIS DESALINHA.
+  // Com `round()` na grade de cada linha sobra meia casa de erro, e a casa da
+  // linha pequena tem METADE do tamanho da grande: medido, o valor centrava em
+  // 0,760 da volta e o rótulo em 0,745, ou seja 5,4° de deriva, 19 m de casca. A
+  // linha pequena herda a fração que a grande CONSEGUIU e arredonda uma vez só,
+  // na grade dela.
+  const frac = fracAlvo ?? (0.75 - 1 / (2 * rep))
+  const desloc = ((Math.round(frac * nChars) % nChars) + nChars) % nChars
+  return {
+    volta: volta0.slice(nChars - desloc) + volta0.slice(0, nChars - desloc),
+    rep,
+    frac: fracAlvo ?? desloc / nChars,
+  }
 }
 
 /**
@@ -1736,11 +1759,13 @@ function escrever(
   nChars: number,
   cor: string,
   f: number,
-) {
+  repAlvo?: number,
+  fracAlvo?: number,
+): { rep: number; frac: number } {
   g.fillStyle = cor
   const avanco = 8 * escala          // 5 de largura + 3 de vão, em LEDs
   const s = escala * f               // pixels de canvas por pixel de glifo
-  const volta = repetirNaVolta(texto, nChars)
+  const { volta, rep, frac } = repetirNaVolta(texto, nChars, repAlvo, fracAlvo)
   for (let i = 0; i < nChars; i++) {
     const glifo = FONTE.get(volta[i])
     if (!glifo) continue
@@ -1754,6 +1779,7 @@ function escrever(
       }
     }
   }
+  return { rep, frac }
 }
 
 /**
@@ -1894,10 +1920,13 @@ function pintarTextura(
   // caracteres chega a aparecer inteiro.
   const lGrande = SPHERE_FAIXA_LINHA0 + FX_MARGEM
   const lPequena = lGrande + 7 * FX_GRANDE_ESCALA + FX_VAO
-  escrever(g, c.grande, lGrande, FX_GRANDE_ESCALA, SPHERE_CHARS_GRANDE,
+  // ⚠️ A GRANDE MANDA E A PEQUENA SEGUE. O valor define quantas cópias dão a
+  // volta, e o rótulo herda o número: é isso que põe cada legenda debaixo do seu
+  // número em vez de deixar as duas passeando em passos diferentes.
+  const valor = escrever(g, c.grande, lGrande, FX_GRANDE_ESCALA, SPHERE_CHARS_GRANDE,
     c.cor ?? COR_TINTA_FAIXA, f)
   escrever(g, c.pequena, lPequena, FX_PEQUENA_ESCALA, SPHERE_CHARS_PEQUENA,
-    c.corRotulo ?? COR_TINTA_FAIXA, f)
+    c.corRotulo ?? COR_TINTA_FAIXA, f, valor.rep, valor.frac)
 
   // ── as duas médias, e as duas são MEDIDAS do canvas, nunca estimadas ─────
   const amostra = g.getImageData(0, 0, W, H).data

@@ -86,6 +86,7 @@ import { criarAtletismo, type Atletismo } from './atletismo-loader'
 import { criarDerby, type Derby } from './derby-loader'
 import { DERBY_MOD, derbyParcela, derbySitio } from './derby'
 import { campusParcela, comPodio, criarCampus, CAMPUS_LAJE, CAMPUS_RUMO, EIXO_CAMPUS, GIRO_CAMPUS, sitioNoCampus } from './campus'
+import { aquaticsParcela, criarAquatics, AQUATICS_LAJE } from './aquatics'
 import { ESTADIO_MOD } from './estadio'
 import { GEODE_MOD } from './geode'
 import { ATLETISMO_MOD } from './atletismo'
@@ -2983,7 +2984,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               // apaga as ruas de dentro do bloco: quem faz isso é a parcela na
               // máscara, e é esta linha. As duas coisas são necessárias.
               parcelas = [...parcelas, campusParcela() as PecaEncaixada,
-                          derbyParcela() as PecaEncaixada]
+                          derbyParcela() as PecaEncaixada,
+                          aquaticsParcela() as PecaEncaixada]
               console.log(`[programa] ${parcelas.length} de ${_prog.length} peças `
                 + `encaixadas em módulo inteiro da teia`
                 + (programa ? `, ${programa.triangulos.toLocaleString('pt-BR')} triângulos` : ' (só o encaixe; ?programa=1 desenha)'))
@@ -3882,6 +3884,14 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // culler de propósito: é chão, e chão que some deixa buraco na silhueta
         // do distrito visto da praça.
         if (CAMPUS_LAJE) scene.add(criarCampus((x, z) => terrain.heightAt(x, z)))
+
+        // ── DOG AQUATICS ──────────────────────────────────────────────────────
+        // A parcela espelhada do campus, do outro lado da avenida de 90°: mesma
+        // gramática de laje (platô, calçada de borda, muro de meio-fio), 6% da
+        // terraplanagem que o campus custou. A peça ainda não pousa aqui: o GLB
+        // está gerado e verificado em `blender/build_aquatics.py`, mas não foi
+        // publicado nem tem loader. O chão vem primeiro, de propósito.
+        if (AQUATICS_LAJE) scene.add(criarAquatics((x, z) => terrain.heightAt(x, z)))
 
         // ── $DOG ARENA ────────────────────────────────────────────────────────
         // ⚠️ A POSIÇÃO VEM DA RESERVA, NÃO DO GOSTO. O centro é o da peça `E03`
