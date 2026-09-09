@@ -330,16 +330,15 @@ superfícies coplanares empilhadas deixaram de existir.
 
 ### Evidências
 
-Seis rodadas de chapa em 08 e 09/09/2026, pelo portão `scripts/city/chapas.mjs`
-com `--url-extra=&pecas3d=1`. As quatro que valem estão guardadas:
-[aéreo](docs/derby/aereo.jpg), [curva com o peralte](docs/derby/curva-peralte.jpg),
-[tribuna](docs/derby/tribuna.jpg), [fachada](docs/derby/fachada.jpg), mais o
-[relatório do portão](docs/derby/chapas.json).
+Seis rodadas de chapa em 08/09/2026, pelo portão `scripts/city/chapas.mjs` com
+`--url-extra=&pecas3d=1`. As chapas da prancheta **não estão guardadas**: elas
+foram substituídas pelas do modelo 3D, listadas na seção "O modelo" abaixo, e
+guardar as duas gerações só criaria dúvida sobre qual é a peça de hoje.
 
-⚠️ **As vistas do Derby só mostram algo com `pecas3d=1`.** As parcelas do
-programa saíram da cena em 31/08 e a peça 3D está atrás dessa flag: sem ela as
-quatro chapas saem com o terreno pelado, e a conclusão errada é "a peça não foi
-desenhada". Está anotado em `chapas.mjs`, ao lado dos enquadramentos.
+⚠️ **`pecas3d=1` era necessário e deixou de ser.** Enquanto a peça era
+prancheta, as chapas só mostravam algo com essa flag, porque as parcelas do
+programa saíram da cena em 31/08. Com o modelo 3D o carregamento é próprio, como
+o do DOG Athletics: as vistas do Derby funcionam sem flag nenhuma.
 
 ⚠️ **Quatro das seis rodadas foram gastas em ENQUADRAMENTO, não em desenho**, e
 isso é o registro que interessa para a próxima peça grande: uma câmera a 90 m ou
@@ -385,13 +384,7 @@ centro do módulo encaixado.
 4. Medir a divergência entre centro publicado e centro do módulo encaixado, nas
    71 peças, e decidir se o Derby ganha parcela dedicada na máscara de vias como
    o campus ganhou.
-5. **O modelo 3D próprio, no padrão do DOG Athletics**: gerador paramétrico em
-   `blender/build_derby.py`, GLB base e detalhe com orçamento de carga, loader
-   com corte por distância e verificadores. É nesta fase que fachada, estrutura
-   da marquise e assentos passam a existir, e é ela que entrega o "prédio
-   pensado, não uma coisa genérica" que o pedido cobra. **A prancheta é massa por
-   definição** (`kit.ts`: "volume sem fachada, que é como plano de massas mostra
-   obra pública"), e nenhuma iteração dela chega lá.
+5. ~~O modelo 3D próprio~~ **FEITO em 09/09/2026.** Ver "O modelo" abaixo.
 6. ~~Renomear a peça~~ **FEITO em 08/09/2026.** O fundador escolheu **DOG
    DERBY**. Trocado em `scripts/gerar_cidade.py` (a tabela do programa e o
    comentário do critério de identidade), em `data/dogcity_programa_congelado.json`
@@ -401,6 +394,131 @@ centro do módulo encaixado.
    `programa.ts` e `gerar_cidade.py:202` e `:1476`: ali "hipódromo" é o nome da
    TIPOLOGIA arquitetônica (o circo romano) e se refere ao Coliseu da Batalha,
    não a esta peça.
+
+## O modelo, construído em 09/09/2026
+
+Gerador paramétrico em `blender/build_derby.py`, no padrão do DOG Athletics:
+1 metro Blender = 1 metro de cidade, origem no centro da pegada, pista em Z = 0,
+convenção `(x,y,z)` Blender para `(x,z,-y)` Three, exportação Draco, validação
+numérica antes de publicar e substituição atômica por arquivo.
+
+| | arquivo | transferência | triângulos | chamadas | texturas |
+|---|---|---:|---:|---:|---:|
+| base, peça completa | `dog-derby-base.glb` | 36.380 bytes | 5.306 | 9 | 0 |
+| detalhe, desktop perto | `dog-derby-detail.glb` | 42.172 bytes | 12.432 | 5 | 0 |
+| **total** | | **78.552 bytes** | **17.738** | 14 | **0** |
+
+Para comparar: o DOG Athletics soma 129.172 bytes e 25.706 triângulos. O
+canódromo é maior em terra (15,20 ha contra 6,7) e mais leve em carga.
+
+O que a base traz, e nada disso é decoração: platô com saia, pista peraltada com
+a parede externa fechada, borda de concreto, canteiros nas quatro quinas, miolo
+com pista de treino e reta de aferição, mureta e trilho da lebre, 16 fileiras de
+arquibancada, a lâmina de três níveis, a marquise, a cabine do juiz, a torre de
+controle, o paddock com cobertura em anel, a passarela do cão, os canis com
+pátio, o pórtico de entrada com oito bilheterias e o letreiro, as seis caixas de
+largada em duas posições, o telão e quatro torres de luz. O detalhe acrescenta
+608 assentos, mullions, nervuras da marquise, juntas da parede do peralte, raias
+e guarda-corpos.
+
+### O que o gerador verifica antes de publicar
+
+`peralte 35,00° verificado; sobe 8,4025 m; v_max 21,13 m/s contra pico 19,4`,
+`volta 1008,32 m; largada 165,4 m em reta de 190 m`, e os espelhos da
+arquibancada voltados para a pista (109 faces). Mais os tetos de triângulo, byte
+e chamada, zero textura e a presença do Draco.
+
+### Cinco defeitos que só o render e a chapa mostraram
+
+1. **A pista saiu PRETA na cidade.** As faces das curvas nasciam com a normal
+   para baixo, porque a ordem natural ali é tangente-depois-radial e
+   `e_theta × e_r = -z`. No Cycles isso não aparece (ele renderiza os dois
+   lados); no Three, com backface culling, a pista inteira desaparece.
+2. ⚠️ **E o primeiro conserto foi pior que o defeito.** Escrevi um passe que,
+   depois de construir, virava toda face com `normal.z < -0,5`. Ele "consertou"
+   348 faces e **152 delas eram as faces inferiores de caixas e cilindros**, que
+   devem apontar para baixo: o passe furava os sólidos para acertar os pisos.
+   Sólido fechado e superfície aberta não têm a mesma regra, e só quem escreve a
+   face sabe qual das duas ela é. O conserto certo é uma função `piso()` na
+   criação, que é exatamente o que `pecas/kit.ts` faz no `quad()`, e as 16
+   superfícies de chão passam por ela.
+3. **A torre do juiz cortava a arquibancada em duas** e atravessava a marquise.
+   A chegada é no meio da reta por medida, então quem tinha de sair do meio era a
+   cabine: ela virou um voladiço na fachada a 11 m, e o vertical do partido virou
+   uma torre de controle solta na quina leste, com 34 m.
+4. **608 assentos em âmbar** viraram uma massa laranja que puxava o olho para
+   longe da pista. Grafite no geral e âmbar só no setor central, o da chegada:
+   assim a cor diz onde a prova acaba.
+5. **O platô era 6 ha de concreto vazio** em volta do oval, e lia como
+   estacionamento numa cidade que não tem carro particular. Canteiros nas quatro
+   quinas devolveram a área ao sistema verde.
+
+### Dois erros de implantação que o verificador pegou, não o olho
+
+⚠️ **A saia de 5,5 m do atletismo não serve aqui.** A peça pousa no ponto MAIS
+ALTO da pegada (é o que impede qualquer parte de enterrar), então a saia tem de
+alcançar o mais BAIXO. Na pegada real a amplitude é **8,63 m**: copiar o número
+do atletismo deixaria a saia flutuando 3 m acima do regolito na ponta baixa. São
+9,5 m.
+
+⚠️ **A parcela não é um retângulo, e a primeira posição saía dela.** A varredura
+usava `|lz| + Z/2 <= b − 6`, ou seja tratava os 1.156 × 521 m como uma caixa. O
+polígono publicado tem 26 pontos e é um trapézio de lados curvos: a borda interna
+vai de r 2.810 a 2.911 e a externa de r 3.293 a 3.494, então a profundidade
+radial real varia de 480 a 580 m conforme o rumo e o `b` publicado é a média. Com
+`(-175, -75)` uma quina do envelope caía **2 m fora** da borda externa, e nada na
+cena acusaria. Refeita com o polígono como critério (perímetro amostrado a cada
+20 m, folga mínima de 6 m), sobraram 1.467 posições válidas de 1.647, e a
+escolhida é **`(-180, -55)`**: 8,63 m de amplitude contra 8,55 m da mais plana,
+em troca de **18,2 m de folga de borda contra 8,3 m**.
+
+### O que passou na conferência
+
+```bash
+blender -b -t 2 -P blender/build_derby.py            # o modelo e os orçamentos
+npx tsc --noEmit --incremental false -p tsconfig.json
+npx tsx scripts/city/verificar-derby.ts              # sítio, terreno, carga
+node scripts/city/chapas.mjs --vistas=derbyalto,derbytribuna,derbycurva
+```
+
+Medido em 09/09/2026: sítio em (2.150,0; 2.336,3), envelope de 15,20 ha inteiro
+dentro da parcela, **AN2 a 241 m**, vizinho mais próximo **E03 $DOG ARENA a
+136 m**, terreno de 3,93 a 12,56 m em 4.260 sondas de 6 m, **zero água**, corte
+de distância 4.500 m no celular e 7.000 no desktop.
+
+Evidências: [aéreo na cidade](docs/derby/modelo-aereo.jpg),
+[tribuna](docs/derby/modelo-tribuna.jpg),
+[curva com o peralte](docs/derby/modelo-curva.jpg),
+[fachada](docs/derby/modelo-fachada.jpg), o
+[render do gerador](docs/derby/blender-overview.png), o
+[orçamento do modelo](docs/derby/modelo.json) e o
+[relatório do portão](docs/derby/chapas.json).
+
+⚠️ **As cinco vistas do `chapas.mjs` foram realinhadas** depois de a peça se
+mudar 30 m: enquadramento que aponta para o sítio antigo fotografa chão, e foi o
+que a primeira chapa da curva fez. As coordenadas saem do sítio mais o quadro do
+modelo, com o deslocamento de 41,25 m entre o centro do oval e o centro da
+pegada. Nenhuma é medida à mão.
+
+⚠️ **A prancheta saiu do registro.** `pecas/E02.ts` foi tirada de
+`pecas/index.ts`: peça com modelo 3D não entra no registro da prancheta, senão as
+duas geometrias nascem uma dentro da outra em `?pecas3d=1`. É por isso que o
+$DOG ARENA e o DOG Athletics também não estão naquela lista. O arquivo continua
+no repositório como o estudo de planta que gerou este projeto.
+
+### O que continua aberto
+
+- **Não existe portão de navegador** (`conferir-derby.mjs`), que é o que mede o
+  ciclo de carga real: base depois do portão, um download no celular e dois no
+  desktop, sem pedido duplicado e sem perda de contexto WebGL. O atletismo tem;
+  este não.
+- **O entorno da parcela ficou pelado.** O platô ocupa 15,20 ha dos 60,26 da
+  parcela e o resto é terreno natural sem tratamento: a prancheta plantava
+  árvores ali (ela fornecia `covas` para o módulo de arborização) e o modelo não
+  fornece nenhuma.
+- O acesso segue sendo o defeito de fundo: **241 m até o AN2** e a estação de
+  metrô a 1.977 m.
+- As ruas da teia continuam cruzando a parcela.
 
 ## Limites
 

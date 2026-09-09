@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import type { PerfProfile } from './perf'
-import { assentarDerby, derbyCull, type PecaDoGerador } from './derby'
+import { assentarDerby, derbyCull } from './derby'
 
 export const DERBY_BASE_URL = '/city/dog-derby-base.glb'
 export const DERBY_DETAIL_URL = '/city/dog-derby-detail.glb'
@@ -16,7 +16,6 @@ export interface Derby {
 
 interface Opcoes {
   profile: Pick<PerfProfile, 'tier' | 'quality'>
-  peca: PecaDoGerador
   alturaEm(x: number, z: number): number
   carregar(url: string): Promise<THREE.Object3D>
   preparar(root: THREE.Object3D): Promise<void>
@@ -50,7 +49,7 @@ function descartar(root: THREE.Object3D) {
  */
 export function criarDerby(o: Opcoes): Derby {
   const group = new THREE.Group()
-  assentarDerby(group, o.peca, o.alturaEm)
+  assentarDerby(group, o.alturaEm)
   group.name = 'DOG_DERBY'
   group.visible = false
   const permiteDetalhe = o.profile.tier === 'desktop' && o.profile.quality !== 'low' && !o.economizarDados
@@ -63,7 +62,7 @@ export function criarDerby(o: Opcoes): Derby {
   let pertoDesde: number | null = null
   let proximaSonda = 0
   let ultimoD2 = Infinity
-  const alcance2 = derbyCull(o.peca, o.profile.tier) ** 2
+  const alcance2 = derbyCull(o.profile.tier) ** 2
 
   async function carregar(fase: 'base' | 'detalhe') {
     estado[fase] = 'loading'

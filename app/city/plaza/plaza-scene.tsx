@@ -84,7 +84,7 @@ import { acenderGeode, acenderTelaoGeode, assentarGeode, geodeCull, geodeSitio, 
 import { atletismoSitio } from './atletismo'
 import { criarAtletismo, type Atletismo } from './atletismo-loader'
 import { criarDerby, type Derby } from './derby-loader'
-import { DERBY_ID, type PecaDoGerador } from './derby'
+import { DERBY_MOD, derbyParcela, derbySitio } from './derby'
 import { campusParcela, comPodio, criarCampus, CAMPUS_LAJE, CAMPUS_RUMO, EIXO_CAMPUS, GIRO_CAMPUS, sitioNoCampus } from './campus'
 import { ESTADIO_MOD } from './estadio'
 import { GEODE_MOD } from './geode'
@@ -168,6 +168,7 @@ export const PLACES: ReadonlyArray<{ key: string; label: string; hint: string }>
   { key: 'home', label: 'Satoshi Plaza', hint: 'the whole precinct' },
   { key: 'esportes', label: 'Sports district', hint: 'football, The Geode and athletics' },
   { key: 'atletismo', label: 'DOG Athletics', hint: '400 m track, eight lanes, field events' },
+  { key: 'derby', label: 'DOG Derby', hint: 'the greyhound track, banked 35 degrees' },
   { key: 'deck', label: 'The deck', hint: 'the Needle, up close' },
   { key: 'mark', label: 'The Bitcoin Mark', hint: 'the seal on the deck, north axis' },
   { key: 'founders', label: "Founders' Circle", hint: 'the donors, at the tower foot' },
@@ -550,6 +551,19 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
       }
       return { pos: new THREE.Vector3(g.x - rx * 760, 330, g.z - rz * 760),
                target: new THREE.Vector3(g.x, 34, g.z) }
+    }
+
+    // ⚠️ AS TRÊS DO DERBY SAEM DO MÓDULO, como as do atletismo, e por isso elas
+    // acompanham a peça se ela mudar de célula de novo. Enquanto o endereço veio
+    // da parcela do gerador, os enquadramentos do `chapas.mjs` tiveram de ser
+    // recalculados à mão duas vezes e uma chapa saiu fotografando o chão.
+    case 'derby': case 'derbyalto2': case 'derbyperto': {
+      const s = derbySitio(), a = THREE.MathUtils.degToRad(s.rumoDeg)
+      const rx = Math.sin(a), rz = -Math.cos(a)
+      const distancia = name === 'derbyalto2' ? 80 : name === 'derbyperto' ? 300 : 520
+      const altura = name === 'derbyalto2' ? 560 : name === 'derbyperto' ? 96 : 260
+      return { pos: new THREE.Vector3(s.x - rx * distancia, altura, s.z - rz * distancia),
+               target: new THREE.Vector3(s.x, 12, s.z) }
     }
 
     // O endereço acompanha as células. A cota medida é somada por vistaDaCidade
@@ -2032,10 +2046,6 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     })
     let atletismo: Atletismo | null = null
     let derby: Derby | null = null
-    // ⚠️ A PARCELA DO DERBY VEM DO GERADOR, NÃO DA TEIA. Ela é a peça E02 de
-    // cidade.json e é lida no bloco do programa, muito antes de o loader nascer:
-    // sem guardar aqui, o `_cidadeJson` já saiu de escopo.
-    let pecaDerby: PecaDoGerador | null = null
     let lago: Lago | null = null
     let canais: Canais | null = null
     let lagos: Lagos | null = null
@@ -2928,12 +2938,6 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               const _prog = (_cidadeJson?.programa ?? []) as {
                 id: string; nome: string; tipo: string; x: number; z: number
                 a?: number; b?: number; ha?: number }[]
-              {
-                const q = _prog.find((r) => r.id === DERBY_ID) as
-                  (typeof _prog[number] & { rot?: number }) | undefined
-                if (q && typeof q.rot === 'number') pecaDerby = { x: q.x, z: q.z, rot: q.rot }
-                else console.warn('[derby] peça E02 sem rot em cidade.json: o canódromo fica fora')
-              }
               parcelas = encaixaPrograma(_prog.map((q) => ({
                 id: q.id, nome: q.nome, tipo: q.tipo, x: q.x, z: q.z,
                 area: (q.ha ?? 0) * 1e4 || 4 * (q.a ?? 100) * (q.b ?? 100),
@@ -2972,7 +2976,14 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               // avenidas e não desenha rua nenhuma por dentro. `estadioParcela`,
               // `geodeParcela` e `atletismoParcela` continuam existindo para
               // quem precisa medir peça isolada; aqui elas não são mais usadas.
-              parcelas = [...parcelas, campusParcela() as PecaEncaixada]
+              // ⚠️ E O DERBY ENTRA AQUI DESDE 09/09, pelo defeito que o fundador
+              // apontou: "ele está em cima de uma rua, mesmo com terreno
+              // sobrando em volta". Mudar o endereço da peça para um módulo
+              // inteiro da teia (`DERBY_MOD`) alinha a peça às ruas, mas NÃO
+              // apaga as ruas de dentro do bloco: quem faz isso é a parcela na
+              // máscara, e é esta linha. As duas coisas são necessárias.
+              parcelas = [...parcelas, campusParcela() as PecaEncaixada,
+                          derbyParcela() as PecaEncaixada]
               console.log(`[programa] ${parcelas.length} de ${_prog.length} peças `
                 + `encaixadas em módulo inteiro da teia`
                 + (programa ? `, ${programa.triangulos.toLocaleString('pt-BR')} triângulos` : ' (só o encaixe; ?programa=1 desenha)'))
@@ -3996,10 +4007,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // A base de 35 KB traz a peça inteira; o detalhe (42 KB) é aditivo e só
         // desktop. O sítio é a parcela E02 mais o deslocamento medido dentro
         // dela, e o assentamento pousa no ponto MAIS ALTO da pegada.
-        if (pecaDerby && new URLSearchParams(window.location.search).get('derby') !== '0') {
+        if (new URLSearchParams(window.location.search).get('derby') !== '0') {
           derby = criarDerby({
             profile,
-            peca: pecaDerby,
             alturaEm: comPodio(terrain.superficieAt),
             carregar: loadGlb,
             economizarDados: (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData,

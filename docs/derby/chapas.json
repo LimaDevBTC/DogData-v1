@@ -1,21 +1,21 @@
 {
-  "url": "http://localhost:3000/city?stats=1&quality=high&view=deck&live=0&look=2&pecas3d=1",
-  "quando": "2026-09-09T03:32:21.540Z",
+  "url": "http://localhost:3000/city?stats=1&quality=high&view=deck&live=0&look=2",
+  "quando": "2026-09-09T16:10:28.613Z",
   "vistas": {
-    "derbyfachada": {
-      "arquivo": "/tmp/claude-1000/-home-bitmax-Projects-bitcoin-fullstack/c3d10ce2-9d38-47ff-b473-51d5ec506096/scratchpad/derby6/derbyfachada-look2.jpeg",
+    "derbycurva": {
+      "arquivo": "/tmp/claude-1000/-home-bitmax-Projects-bitcoin-fullstack/c3d10ce2-9d38-47ff-b473-51d5ec506096/scratchpad/derby10/derbycurva-look2.jpeg",
       "fps": 10,
-      "calls": 332,
-      "tris": 5858919,
-      "programas": 503,
+      "calls": 333,
+      "tris": 6106722,
+      "programas": 457,
       "pos": "composer+ao"
     },
-    "derbyalto": {
-      "arquivo": "/tmp/claude-1000/-home-bitmax-Projects-bitcoin-fullstack/c3d10ce2-9d38-47ff-b473-51d5ec506096/scratchpad/derby6/derbyalto-look2.jpeg",
+    "derbyfachada": {
+      "arquivo": "/tmp/claude-1000/-home-bitmax-Projects-bitcoin-fullstack/c3d10ce2-9d38-47ff-b473-51d5ec506096/scratchpad/derby10/derbyfachada-look2.jpeg",
       "fps": 10,
-      "calls": 332,
-      "tris": 5858919,
-      "programas": 503,
+      "calls": 333,
+      "tris": 6106722,
+      "programas": 457,
       "pos": "composer+ao"
     }
   },
@@ -28,8 +28,14 @@
     "[vias] via de orla: 395 trechos, 10.24 km costurando a margem dos lagos que empurram a malha",
     "[vias] 1.783 quarteirões + 0 praças + 12 bulevares + 7 anéis + 49 rotatórias + 2.189 cruzamentos, 1080.0 km de via, 868.694 triângulos; 3 quarteirões a mais de 200 m de pavimento",
     "[praças] 0 praças, 0 covas de árvore, 0 triângulos",
-    "[arborização] 39.065 árvores (paisagismo off): 1.664 de cova, 21.176 de bulevar, 16.225 de anel, 0 de contorno, 0 de travessa; 2.272 recusadas pela máscara de via (1.523 salvas pelo empurrão, 749 perdidas); espécies Alameda 15.975 (92 tri, teto 2200), Conífera 7.634 (80 tri, teto 1100), Guarda-chuva 10.123 (92 tri, teto 1200), Colunar 5.333 (82 tri, teto 800); 41.192 arbustos de 40 tri; 6 chamadas de desenho, 834.920 triângulos de pior caso, look 2",
+    "[arborização] 37.401 árvores (paisagismo off): 0 de cova, 21.176 de bulevar, 16.225 de anel, 0 de contorno, 0 de travessa; 1.924 recusadas pela máscara de via (1.429 salvas pelo empurrão, 495 perdidas); espécies Alameda 15.429 (92 tri, teto 2200), Conífera 7.633 (80 tri, teto 1100), Guarda-chuva 9.024 (92 tri, teto 1200), Colunar 5.315 (82 tri, teto 800); 41.029 arbustos de 40 tri; 6 chamadas de desenho, 821.608 triângulos de pior caso, look 2",
     "[mobiliário] 7.200 postes ao longo de avenida e anel"
   ],
-  "erros": []
+  "erros": [
+    "[inverno] floresta: /city/sf/tree-pine.glb NÃO CARREGOU (espécie 'pinheiro'). Ela fica de fora e o peso dela é redistribuído entre as outras; a densidade não cai, só perde essa silhueta. Motivo: Error: [inverno] floresta: /city/sf/tree-pine.glb: sem resposta em 45000 ms. Antes de culpar a rede, confira: o arquivo existe em public/? o loader tem DRACOLoader? Se as duas forem sim, é a thread principal congestionada e o teto é que está curto.\n    at eval (webpack-internal:///(app-pages-browser)/./app/city/plaza/inverno.ts:518:53)",
+    "[inverno] floresta: /city/sf/sq-small-1.glb NÃO CARREGOU (espécie 'sq-small-1'). Ela fica de fora e o peso dela é redistribuído entre as outras; a densidade não cai, só perde essa silhueta. Motivo: Error: [inverno] floresta: /city/sf/sq-small-1.glb: sem resposta em 45000 ms. Antes de culpar a rede, confira: o arquivo existe em public/? o loader tem DRACOLoader? Se as duas forem sim, é a thread principal congestionada e o teto é que está curto.\n    at eval (webpack-internal:///(app-pages-browser)/./app/city/plaza/inverno.ts:518:53)",
+    "[inverno] penhascos (rocks-stylized-pack.glb) NÃO CARREGARAM. A face fica só com a cor de rocha, sem volume. Error: [inverno] penhascos (rocks-stylized-pack.glb): sem resposta em 45000 ms. Antes de culpar a rede, confira: o arquivo existe em public/? o loader tem DRACOLoader? Se as duas forem sim, é a thread principal congestionada e o teto é que está curto.\n    at eval (webpack-internal:///(app-pages-browser)/./app/city/plaza/inverno.ts:518:53)",
+    "[inverno] floresta: /city/sf/sq-med-3.glb NÃO CARREGOU (espécie 'sq-med-3'). Ela fica de fora e o peso dela é redistribuído entre as outras; a densidade não cai, só perde essa silhueta. Motivo: Error: [inverno] floresta: /city/sf/sq-med-3.glb: sem resposta em 45000 ms. Antes de culpar a rede, confira: o arquivo existe em public/? o loader tem DRACOLoader? Se as duas forem sim, é a thread principal congestionada e o teto é que está curto.\n    at eval (webpack-internal:///(app-pages-browser)/./app/city/plaza/inverno.ts:518:53)",
+    "[inverno] floresta: /city/sf/sq-med-4.glb NÃO CARREGOU (espécie 'sq-med-4'). Ela fica de fora e o peso dela é redistribuído entre as outras; a densidade não cai, só perde essa silhueta. Motivo: Error: [inverno] floresta: /city/sf/sq-med-4.glb: sem resposta em 45000 ms. Antes de culpar a rede, confira: o arquivo existe em public/? o loader tem DRACOLoader? Se as duas forem sim, é a thread principal congestionada e o teto é que está curto.\n    at eval (webpack-internal:///(app-pages-browser)/./app/city/plaza/inverno.ts:518:53)"
+  ]
 }
