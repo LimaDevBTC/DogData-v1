@@ -822,7 +822,7 @@ export function bandaDe(r: number, bandas: readonly { de: number; ate: number; n
  * acento:
  *
  *   0  Cais Norte (logística, sem monumento)         → cone, robusto, utilitário
- *   1  Universidade/Hospital/Hipódromo, Lago Maior    → copada, parque e sombra
+ *   1  Universidade/Hospital/DOG Derby, Lago Maior    → copada, parque e sombra
  *   2  HQ, Museu, Casa da Moeda, Fundadores (o maior) → colunar, cívico e vertical
  *   3  City Hall, Distrito Financeiro, Lago do Poente → esfera, formal e disciplinado
  *   4  Memorial, Mercado, Jardim Botânico             → esfera, quieto e refletido

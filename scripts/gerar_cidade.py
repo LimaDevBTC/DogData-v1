@@ -304,7 +304,7 @@ def phi(x, z):
 #
 # ⚠️ O CRITÉRIO É IDENTIDADE, NÃO TIPO NEM TAMANHO. Fica tudo que tem NOME
 # PRÓPRIO, mesmo ainda sem desenho 3D: DOG University, City Hall, Casa da Moeda,
-# Museu da Runa, Distrito Financeiro, Parque Olímpico, Hipódromo, os sete elos da
+# Museu da Runa, Distrito Financeiro, Parque Olímpico, DOG Derby, os sete elos da
 # cadeia industrial, os jardins. Essas não são enchimento, são programa à espera
 # de desenho. E ficam também as 6 Bocas de Autopista, que são numeradas mas têm
 # FUNÇÃO: são as bocas dos túneis.
@@ -1265,7 +1265,14 @@ PROGRAMA_MALHA = [
   ('D15', 'Central de Distribuição 12',    'distribuicao', 11,  -12,    1, 1, 1),
   # ── esporte ─────────────────────────────────────────────
   ('E01', 'Parque Olímpico',               'esporte',       6,    4,   10, 6, 6),
-  ('E02', 'Hipódromo',                     'esporte',       4,   13,    4, 6, 3),
+  # ⚠️ O NOME MUDOU EM 08/09/2026 E O ID NÃO PODE MUDAR. O fundador travou "DOG
+  # Derby": a prova é de galgo, não de cavalo, e "hipódromo" carrega cavalo em
+  # português. O id `E02` fica porque ele é a CHAVE que `app/city/plaza/pecas/
+  # index.ts` usa para achar o desenho da peça, e o cabeçalho de lá avisa que
+  # trocar o id faz o módulo parar de ser chamado EM SILÊNCIO. Plano em derby.md.
+  # ⚠️ E O NOME TAMBÉM VIVE EM data/dogcity_programa_congelado.json, que é o que
+  # este gerador LÊ quando o arquivo existe. Mudar só aqui não muda nada.
+  ('E02', 'DOG Derby',                     'esporte',       4,   13,    4, 6, 3),
   # ⚠️ A RESERVA DO ESTADIO, 05/09/2026. Ela entra ANTES do lote porque depois
   # do snapshot aumentar pegada colide com lote de holder e so encolher e seguro
   # (masterplan.md:268). 540 x 360 m contra um envelope de 364 x 322 com

@@ -6,7 +6,7 @@ a física, o sítio novo medido e as decisões travadas.
 
 ## O pedido, e a decisão de escala
 
-O fundador abriu a frente em 08/09/2026 junto com o hipódromo e travou a escala:
+O fundador abriu a frente em 08/09/2026 junto com o DOG Derby e travou a escala:
 **18 buracos curtos**, o par 3 lunar. As outras duas saídas medidas foram
 recusadas com número na mesa:
 

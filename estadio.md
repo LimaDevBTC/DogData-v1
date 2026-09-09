@@ -320,7 +320,7 @@ demolir lote de holder".
 
 Hoje **não existe reserva nenhuma** do estádio de futebol. Não é código, não é
 dado gerado, é uma linha de texto em duas tabelas. O que existe em geometria é o
-E01 Parque Olímpico, que tem um estádio de atletismo dentro, e o E02 Hipódromo.
+E01 Parque Olímpico, que tem um estádio de atletismo dentro, e o E02 DOG Derby.
 
 Tip em 965.630, snapshot em 966.670: **1.040 blocos, cerca de 7 dias.**
 

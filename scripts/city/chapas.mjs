@@ -53,6 +53,15 @@ const VISTAS = {
   // a parada do tour, exatamente como o visitante a recebe
   padtour:  [-388, 227, 11618, -528, 299, 11148, 42],
   zenite:   [0, 300, 0, 0, 1200, 0, 60],
+  // ⚠️ AS TRÊS DO DOG DERBY (08/09/2026) SÓ MOSTRAM ALGO COM `--url-extra=&pecas3d=1`.
+  // A peça E02 é planta de prancheta, e as parcelas do programa saíram da cena em
+  // 31/08 ("retire todos os elementos extras"): sem a flag estas chapas saem com
+  // o terreno pelado e a conclusão errada é "a peça não foi desenhada".
+  // Coordenadas derivadas do quadro local pela fórmula de buildPecas, não medidas
+  // à mão: centro do oval (2187,4; 2389,7), tribuna (2101,8; 2285,4).
+  derbyalto:   [2432, 400, 2687, 2187, 10, 2390, 45],
+  derbytribuna:[2283, 45, 2506, 2102, 14, 2285, 45],
+  derbycurva:  [1973, 40, 2617, 2033, 6, 2517, 50],
   // pedidos pelos agentes da água em 02/09, para conferir borda molhada e fusão
   // da areia no chão. Rasante de verdade: a câmera fica NA cota da lâmina.
   aguarase: [-971.93, -36, -5400, -842.47, -40.5, -5400, 55],

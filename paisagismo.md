@@ -197,7 +197,7 @@ originais antes de virarem 6. Cruzei o programa cívico de `cidade.json` (70 pe�
 | Distrito | Rumo | Programa dominante | Acento |
 |---|---|---|---|
 | 0 | 0° a 61,875° | só logística (Central de Distribuição 2 e 3), sem monumento | **conífera**, robusto e utilitário |
-| 1 | 61,875° a 106,875° | DOG University, Hospital, Hipódromo, Parque Central e Lago Maior | **guarda-chuva**, parque e sombra |
+| 1 | 61,875° a 106,875° | DOG University, Hospital, DOG Derby, Parque Central e Lago Maior | **guarda-chuva**, parque e sombra |
 | 2 | 106,875° a 185,625° | HQ, Museu da Runa, Casa da Moeda, Teatro, Colosso do Portão, Parque Olímpico, Alameda dos Fundadores (o maior distrito) | **colunar**, cívico e vertical |
 | 3 | 185,625° a 241,875° | City Hall, Distrito Financeiro, Lago do Poente | **esfera**, formal e disciplinado |
 | 4 | 241,875° a 309,375° | Memorial do DOG Perdido, Mercado Municipal, **Jardim Botânico** | **esfera**, quieto e refletido |
