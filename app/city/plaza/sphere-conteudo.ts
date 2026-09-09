@@ -564,7 +564,7 @@ function pintarCorpoKray(g: CanvasRenderingContext2D, w: number, h: number) {
   peleMarca(g, w, h, {
     fundo: '#07080A', tinta: COR_ANUNCIO, n: 6, s0: 0.90, s1: 0.46,
     aspecto: 1,
-    desenhar: (og, larg, alt) => { if (im) og.drawImage(im, 0, 0, larg, alt) },
+    desenhar: (og, larg, alt) => desenharArte(og, im, larg, alt),
   })
 }
 
@@ -611,70 +611,6 @@ const LINHA_CENTRO = 418
  */
 const LINHA_MARCA = 230
 
-/**
- * O ₿ do Bitcoin, desenhado como CAMINHO PREENCHIDO.
- *
- * ⚠️ TERCEIRA VERSÃO, E AS DUAS ANTERIORES ERAM TRAÇO. O fundador reclamou duas
- * vezes que "a parte de cima do B sai diferente da de baixo". A primeira causa
- * foi a compensação de latitude (consertada), a segunda é esta: o glifo era
- * `stroke()` sobre arcos, e traço tem espessura CONSTANTE enquanto o bojo de cima
- * é menor que o de baixo. Com a mesma espessura em bojos de tamanhos diferentes,
- * o de cima fica proporcionalmente mais gordo e fecha o vazio: some o buraco, e a
- * letra deixa de ler como B.
- *
- * ⚠️ AGORA CADA BOJO É UM ANEL PREENCHIDO por regra par-ímpar: contorno externo no
- * sentido horário, contorno interno no anti-horário, um `fill()` só. A espessura
- * passa a ser PROPORCIONAL ao bojo, que é o que a tipografia real faz.
- *
- * Proporções do logo oficial, medidas na caixa de 1 x 1,613 (largura por altura):
- * haste em x 0 a 0,175; bojo de cima de y 0,155 a 0,485, avançando até x 0,80;
- * bojo de baixo de y 0,485 a 0,845, até x 1,0; quatro hastes de 0,155 de altura
- * saindo em cima e embaixo, nas colunas 0,26 e 0,55.
- */
-function marcaBitcoin(g: CanvasRenderingContext2D, cx: number, cy: number, h: number, cor: string) {
-  const W = h * 0.62                       // a caixa do glifo
-  const x0 = cx - W / 2, y0 = cy - h / 2
-  const X = (u: number) => x0 + u * W
-  const Y = (v: number) => y0 + v * h
-  g.fillStyle = cor
-  g.beginPath()
-
-  // a haste vertical, e as quatro que furam em cima e embaixo
-  g.rect(X(0), Y(0.155), W * 0.175, h * 0.69)
-  for (const u of [0.26, 0.55]) {
-    g.rect(X(u), Y(0), W * 0.155, h * 0.175)
-    g.rect(X(u), Y(0.825), W * 0.155, h * 0.175)
-  }
-
-  // ⚠️ OS DOIS BOJOS SÃO ANÉIS, e o vazio de dentro sai por par-ímpar: o contorno
-  // externo vai num sentido e o interno no contrário, e um `fill` só resolve. Foi
-  // isto que substituiu o `stroke` de espessura fixa.
-  const bojo = (vTopo: number, vBase: number, uDir: number, esp: number) => {
-    const yT = Y(vTopo), yB = Y(vBase), r = (yB - yT) / 2, ym = (yT + yB) / 2
-    const xd = X(uDir) - r
-    // externo, horário
-    g.moveTo(X(0), yT)
-    g.lineTo(xd, yT)
-    g.arc(xd, ym, r, -Math.PI / 2, Math.PI / 2, false)
-    g.lineTo(X(0), yB)
-    g.closePath()
-    // interno, anti-horário: o mesmo desenho recuado pela espessura
-    const e = h * esp
-    const ri = Math.max(1, r - e)
-    g.moveTo(X(0) + W * 0.175, yT + e)
-    g.lineTo(X(0) + W * 0.175, yB - e)
-    g.lineTo(xd, yB - e)
-    g.arc(xd, ym, ri, Math.PI / 2, -Math.PI / 2, true)
-    g.lineTo(X(0) + W * 0.175, yT + e)
-    g.closePath()
-  }
-  // ⚠️ A ESPESSURA É PROPORCIONAL: 0,088 do bojo de cima contra 0,096 do de baixo,
-  // que é o que mantém os dois vazios com a MESMA leitura apesar de alturas
-  // diferentes. Espessura igual nos dois foi o defeito das versões anteriores.
-  bojo(0.155, 0.485, 0.80, 0.088)
-  bojo(0.485, 0.845, 1.00, 0.096)
-  g.fill('evenodd')
-}
 
 /**
  * PELE 1: A ESFERA INTEIRA EM LARANJA, COM O ₿ EM NEGATIVO.
@@ -750,24 +686,50 @@ function peleMarca(
   }
 }
 
+/**
+ * PINTAR UMA ARTE DE ALFA DENTRO DA TELA OFFSCREEN DO `peleMarca`.
+ *
+ * ⚠️ ELA PREENCHE A TELA INTEIRA, e isso não é descuido de enquadramento: é a
+ * largura inteira do offscreen que mapeia para `arcoTexels`, ou seja para a
+ * largura pretendida da marca no casco. Desenhar "no aspecto certo" dentro dela
+ * deixaria sobra dos dois lados e a marca sairia estreita.
+ *
+ * ⚠️ E O `cor` REPINTA POR `source-in` em vez de multiplicar: as PNG de marca são
+ * silhueta branca com alfa, então trocar a tinta é preencher o retângulo por
+ * dentro do alfa que já está lá. Sem `cor`, a arte vai como está, que é o caso do
+ * mascote (imagem colorida) e da Kray (branca sobre casco preto).
+ */
+function desenharArte(
+  og: CanvasRenderingContext2D, im: HTMLImageElement | null,
+  larg: number, alt: number, cor?: string,
+) {
+  if (!im) return
+  og.drawImage(im, 0, 0, larg, alt)
+  if (!cor) return
+  og.globalCompositeOperation = 'source-in'
+  og.fillStyle = cor
+  og.fillRect(0, 0, larg, alt)
+  og.globalCompositeOperation = 'source-over'
+}
+
 function pintarCorpoBitcoin(g: CanvasRenderingContext2D, w: number, h: number) {
+  // ⚠️ A MARCA É A LOGO OFICIAL, NÃO UM DESENHO MEU. Eu errei este glifo três
+  // vezes seguidas à mão e o fundador reclamou as três: escala em X constante
+  // sobre 44° de latitude, falta da compensação de altura, e `stroke` de espessura
+  // fixa fechando o vazio da volta menor. A quarta reclamação, em 09/09, foi "a
+  // volta de cima do B menor ainda", e essa era desenho mesmo: eu levava a volta
+  // de cima até u=0,80 e a de baixo até u=1,00.
+  //
+  // `public/city/btc-marca.png` é o glifo recortado de `public/BTC.png`, que já
+  // vivia no repo: inundação a partir de fora marca o exterior, o que sobra em
+  // branco DENTRO do disco é a letra, e o alfa sai da distância relativa entre o
+  // laranja da moeda e o branco, para a borda não serrilhar. Conferido contra o
+  // original no mesmo enquadramento, pixel a pixel. Vem inclinado, como o oficial.
+  const im = arte('/city/btc-marca.png')
   peleMarca(g, w, h, {
     fundo: '#E8660D', tinta: '#140B04', n: N_MARCAS, s0: 0.92, s1: 0.44,
-    aspecto: 0.62,
-    // ⚠️ O DESENHO PREENCHE A TELA OFFSCREEN INTEIRA, e não pode ser feito "no
-    // aspecto certo" dentro dela. É a LARGURA INTEIRA do offscreen que mapeia
-    // para `arcoTexels`, ou seja para a largura pretendida da marca no casco.
-    // Desenhar o ₿ com W = 0.62·alt centrado deixava sobra dos dois lados, e essa
-    // sobra vinha do supersample de 2x na horizontal: o ₿ ia ao ar a
-    // 240·PASSO_LED/(2·altAparente) = 0,767 do que o `aspecto` prometia, 23% mais
-    // estreito. Repare que `aspecto` se cancela nessa fração, então o erro não
-    // dependia da marca: era do offscreen. O `scale` devolve o 0,62 real no casco.
-    desenhar: (og, larg, alt, cor) => {
-      og.save()
-      og.scale(larg / (alt * 0.62), 1)
-      marcaBitcoin(og, (alt * 0.62) / 2, alt / 2, alt, cor)
-      og.restore()
-    },
+    aspecto: 474 / 629,                       // a caixa medida do glifo oficial
+    desenhar: (og, larg, alt, cor) => desenharArte(og, im, larg, alt, cor),
   })
 }
 
@@ -977,7 +939,7 @@ function pintarCorpoMascote(g: CanvasRenderingContext2D, w: number, h: number) {
     fundo: COR_DADO, tinta: '#140B04', n: 6, s0: 0.94, s1: 0.44,
     // a proporção da arte recortada: 1359 por 2159
     aspecto: 1359 / 2159,
-    desenhar: (og, larg, alt) => { if (im) og.drawImage(im, 0, 0, larg, alt) },
+    desenhar: (og, larg, alt) => desenharArte(og, im, larg, alt),
   })
 }
 
@@ -1026,7 +988,12 @@ function pintarCorpoDog(g: CanvasRenderingContext2D, w: number, h: number) {
  */
 const GANHO_MARCA = 0.78
 
-function slotBitcoin(altura: number | null): Slot {
+function slotBitcoin(altura: number | null): Slot | null {
+  // ⚠️ SEM A ARTE O SLOT NÃO ENTRA, ele cede a vez para o próximo do anel. A pele
+  // sem a marca seria só laranja liso: não mente, mas gasta 48 s de uma volta de
+  // 408 s dizendo nada. Com o precarregamento isto não deve acontecer nunca; é
+  // rede de segurança, e é a mesma regra de `slotMascote`.
+  if (!arte('/city/btc-marca.png')) return null
   const base: Partial<SphereConteudo> = {
     ganho: GANHO_MARCA,
     // ⚠️ A FAIXA INVERTE NA PELE LARANJA: sobre `#E8660D` o texto laranja some.
@@ -1431,6 +1398,8 @@ export interface ProgramacaoSphere {
   repintar(): void
   /** o livro-caixa do tempo de tela, que é onde o teto de propaganda se prova */
   contabilidade(): { msDado: number; msAnuncio: number; fracao: number }
+  /** só para medir: entra num slot pelo nome, sem esperar a vez dele no anel */
+  forcar(nome: string): boolean
   parar(): void
 }
 
@@ -1461,7 +1430,7 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
   // pior, porque anúncio é inventário vendido. Medido em produção com sonda de
   // rede: em 75 s de página aberta nenhuma das duas PNG chegou a ser pedida.
   // 280 KB somados, prioridade baixa, e quando a vez chega elas já estão prontas.
-  for (const u of ['/city/dog-mascote.png', '/city/kray-marca.png']) arte(u)
+  for (const u of ['/city/btc-marca.png', '/city/dog-mascote.png', '/city/kray-marca.png']) arte(u)
   let iAnel = 0
   let slot: Slot = { classe: 'dado', nome: 'ocioso', quadros: [quadroOcioso()] }
   let iQuadro = 0
@@ -1845,6 +1814,21 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
       const q = slot.quadros[Math.min(iQuadro, slot.quadros.length - 1)]
       o.pintar(q.c)
       o.ganhar(ganhoAtual)
+    },
+
+    /**
+     * ⚠️ ISTO É INSTRUMENTO, NÃO PROGRAMA, e existe porque não dava para VER o que
+     * se muda aqui. Uma volta do anel leva 408 s, então a chapa não pode esperar a
+     * vez de uma pele: eu subi QUATRO versões do glifo do ₿ sem nunca ter visto
+     * nenhuma, e o fundador reclamou as quatro. `?stats=1` expõe isto como
+     * `__plazaPele(nome)`, e o portão de chapas usa para enquadrar a pele que
+     * interessa. Não mexe na fila de evento; entra no slot e pronto.
+     */
+    forcar(nome) {
+      const t = agora()
+      const s = montar(nome, t)
+      if (s) entrarNo(s, t)
+      return !!s
     },
 
     contabilidade() {
