@@ -633,36 +633,69 @@ const LINHA_CENTRO = 418
  */
 const LINHA_MARCA = 230
 
-/** Desenha o ₿ do Bitcoin com traçado, sem depender de fonte instalada. */
+/**
+ * O ₿ do Bitcoin, desenhado como CAMINHO PREENCHIDO.
+ *
+ * ⚠️ TERCEIRA VERSÃO, E AS DUAS ANTERIORES ERAM TRAÇO. O fundador reclamou duas
+ * vezes que "a parte de cima do B sai diferente da de baixo". A primeira causa
+ * foi a compensação de latitude (consertada), a segunda é esta: o glifo era
+ * `stroke()` sobre arcos, e traço tem espessura CONSTANTE enquanto o bojo de cima
+ * é menor que o de baixo. Com a mesma espessura em bojos de tamanhos diferentes,
+ * o de cima fica proporcionalmente mais gordo e fecha o vazio: some o buraco, e a
+ * letra deixa de ler como B.
+ *
+ * ⚠️ AGORA CADA BOJO É UM ANEL PREENCHIDO por regra par-ímpar: contorno externo no
+ * sentido horário, contorno interno no anti-horário, um `fill()` só. A espessura
+ * passa a ser PROPORCIONAL ao bojo, que é o que a tipografia real faz.
+ *
+ * Proporções do logo oficial, medidas na caixa de 1 x 1,613 (largura por altura):
+ * haste em x 0 a 0,175; bojo de cima de y 0,155 a 0,485, avançando até x 0,80;
+ * bojo de baixo de y 0,485 a 0,845, até x 1,0; quatro hastes de 0,155 de altura
+ * saindo em cima e embaixo, nas colunas 0,26 e 0,55.
+ */
 function marcaBitcoin(g: CanvasRenderingContext2D, cx: number, cy: number, h: number, cor: string) {
-  // ⚠️ TRAÇADO E NÃO `fillText`, porque fonte não é garantia: `₿` (U+20BF) falta
-  // em boa parte das famílias, e o que aparece no lugar é o retângulo de
-  // caractere ausente. Aqui o desenho é geometria: haste, dois bojos e as duas
-  // barras que atravessam em cima e embaixo.
-  const w = h * 0.62
-  const t = h * 0.155           // espessura do traço
+  const W = h * 0.62                       // a caixa do glifo
+  const x0 = cx - W / 2, y0 = cy - h / 2
+  const X = (u: number) => x0 + u * W
+  const Y = (v: number) => y0 + v * h
   g.fillStyle = cor
-  g.strokeStyle = cor
-  g.lineWidth = t
-  g.lineCap = 'butt'
-  const x0 = cx - w / 2, y0 = cy - h / 2
-  // a haste vertical
-  g.fillRect(x0, y0 + h * 0.12, t, h * 0.76)
-  // as duas barras que furam em cima e embaixo
-  g.fillRect(x0 + t * 0.9, y0, t * 0.8, h * 0.14)
-  g.fillRect(x0 + t * 2.4, y0, t * 0.8, h * 0.14)
-  g.fillRect(x0 + t * 0.9, y0 + h * 0.86, t * 0.8, h * 0.14)
-  g.fillRect(x0 + t * 2.4, y0 + h * 0.86, t * 0.8, h * 0.14)
-  // os dois bojos, um por cima do outro
-  for (const [yy, hh, ww] of [[0.12, 0.38, 0.86], [0.50, 0.38, 1.0]] as [number, number, number][]) {
-    const by = y0 + h * yy, bh = h * hh, bw = w * ww
-    g.beginPath()
-    g.moveTo(x0 + t, by + t / 2)
-    g.lineTo(x0 + bw - bh * 0.42, by + t / 2)
-    g.arc(x0 + bw - bh * 0.42, by + bh / 2, bh / 2 - t / 2, -Math.PI / 2, Math.PI / 2)
-    g.lineTo(x0 + t, by + bh - t / 2)
-    g.stroke()
+  g.beginPath()
+
+  // a haste vertical, e as quatro que furam em cima e embaixo
+  g.rect(X(0), Y(0.155), W * 0.175, h * 0.69)
+  for (const u of [0.26, 0.55]) {
+    g.rect(X(u), Y(0), W * 0.155, h * 0.175)
+    g.rect(X(u), Y(0.825), W * 0.155, h * 0.175)
   }
+
+  // ⚠️ OS DOIS BOJOS SÃO ANÉIS, e o vazio de dentro sai por par-ímpar: o contorno
+  // externo vai num sentido e o interno no contrário, e um `fill` só resolve. Foi
+  // isto que substituiu o `stroke` de espessura fixa.
+  const bojo = (vTopo: number, vBase: number, uDir: number, esp: number) => {
+    const yT = Y(vTopo), yB = Y(vBase), r = (yB - yT) / 2, ym = (yT + yB) / 2
+    const xd = X(uDir) - r
+    // externo, horário
+    g.moveTo(X(0), yT)
+    g.lineTo(xd, yT)
+    g.arc(xd, ym, r, -Math.PI / 2, Math.PI / 2, false)
+    g.lineTo(X(0), yB)
+    g.closePath()
+    // interno, anti-horário: o mesmo desenho recuado pela espessura
+    const e = h * esp
+    const ri = Math.max(1, r - e)
+    g.moveTo(X(0) + W * 0.175, yT + e)
+    g.lineTo(X(0) + W * 0.175, yB - e)
+    g.lineTo(xd, yB - e)
+    g.arc(xd, ym, ri, Math.PI / 2, -Math.PI / 2, true)
+    g.lineTo(X(0) + W * 0.175, yT + e)
+    g.closePath()
+  }
+  // ⚠️ A ESPESSURA É PROPORCIONAL: 0,088 do bojo de cima contra 0,096 do de baixo,
+  // que é o que mantém os dois vazios com a MESMA leitura apesar de alturas
+  // diferentes. Espessura igual nos dois foi o defeito das versões anteriores.
+  bojo(0.155, 0.485, 0.80, 0.088)
+  bojo(0.485, 0.845, 1.00, 0.096)
+  g.fill('evenodd')
 }
 
 /**
@@ -883,6 +916,68 @@ function peleValor(valor: string) {
   return fn
 }
 
+/**
+ * CARTA: O MASCOTE.
+ *
+ * ⚠️ A ESFERA INTEIRA VIRA O CACHORRO, e é o movimento literal da referência de
+ * Las Vegas virando um emoji. Pedido do fundador com a arte oficial do $DOG na
+ * mão: *"essa imagem é do $DOG oficial, conseguimos projetar ela ali?"*.
+ *
+ * ⚠️ O FUNDO JÁ VEM TRANSPARENTE, então não houve remoção de fundo: medido no
+ * PNG original, 65% dos pixels estão em alfa zero. O arquivo foi recortado na
+ * caixa do que é opaco (2269x2269 para 1359x2159) e reduzido para 322x512, que é
+ * o bastante para os cerca de 400 texels de altura que ele ocupa e evita carregar
+ * 2 MB numa cena que já briga por memória de textura no celular.
+ *
+ * ⚠️ ELE É BLITADO PELA MESMA MÁQUINA DAS OUTRAS PELES. `peleMarca` já resolve as
+ * duas compensações (altura por seno constante, largura por 1/cos φ), então o
+ * mascote não precisa de conta nova: ele entra como um `desenhar` que faz um
+ * `drawImage` em aspecto verdadeiro, e a esfera cuida da projeção. Foi para isso
+ * que `peleMarca` virou máquina em vez de código do ₿.
+ *
+ * ⚠️ A IMAGEM CARREGA FORA DO CAMINHO DA REPINTURA. `pintarCorpo` é síncrona e
+ * roda dentro dos 7 ms do repaint: esperar rede ali travaria a thread. A carta só
+ * entra na rotação depois que a imagem está pronta, e antes disso `slotMascote`
+ * devolve `null` e o anel gira para o próximo, que é o mesmo contrato que os
+ * módulos de dado sem fonte fresca já usam.
+ */
+let _mascote: HTMLImageElement | null = null
+let _mascotePedido = false
+
+function pedirMascote() {
+  if (_mascotePedido || typeof window === 'undefined') return
+  _mascotePedido = true
+  const im = new Image()
+  im.decoding = 'async'
+  im.onload = () => { _mascote = im }
+  im.onerror = () => console.warn('[sphere] o mascote não carregou; a carta fica fora do baralho')
+  im.src = '/city/dog-mascote.png'
+}
+
+function pintarCorpoMascote(g: CanvasRenderingContext2D, w: number, h: number) {
+  const im = _mascote
+  peleMarca(g, w, h, {
+    // ⚠️ FUNDO LARANJA, E ELE NÃO É ENFEITE: o mascote é recortado, então sem um
+    // fundo aceso a casca seria preta em volta dele e a peça voltaria a ser o
+    // buraco que ela era. Laranja pleno é a mesma leitura da pele do Bitcoin, e a
+    // média da casca fica alta, que é o que a faz existir a 7 km.
+    // ⚠️ SEIS CÓPIAS, E O NÚMERO SAI DA JANELA DE LEITURA. Uma marca alta e
+    // estreita cobre pouca longitude: o mascote mede 100 m de altura por 63 de
+    // largura, ou seja 18,0° cada. Com período de 60° e a janela de um azimute
+    // saturando em 116°, sempre há uma cópia INTEIRA à vista, de qualquer lado da
+    // cidade. Com duas cópias (o que eu tinha posto primeiro) a cobertura seria de
+    // 36° em 360, e cinco sextos dos azimutes veriam laranja liso.
+    //
+    // ⚠️ E ELE PARA ANTES DA FAIXA: `s1 = 0,44` põe a base na linha 363, com 5
+    // linhas de folga até a faixa de dado em 368. Atravessá-la cortaria o cachorro
+    // com o texto, que foi o que a primeira medição pegou.
+    fundo: COR_DADO, tinta: '#140B04', n: 6, s0: 0.94, s1: 0.44,
+    // a proporção da arte recortada: 1359 por 2159
+    aspecto: 1359 / 2159,
+    desenhar: (og, larg, alt) => { if (im) og.drawImage(im, 0, 0, larg, alt) },
+  })
+}
+
 function pintarCorpoDog(g: CanvasRenderingContext2D, w: number, h: number) {
   const L = h / 1024
   g.fillStyle = '#0A0B0D'
@@ -953,6 +1048,33 @@ function slotBitcoin(altura: number | null): Slot {
       // A casca já carrega o ₿; a faixa carrega o que o ₿ não diz.
       quadro('BITCOIN', ROTULOS.marcaBtc, MS_MODULO / 2, base),
       quadro(altura ? String(altura) : 'BITCOIN', ROTULOS.marcaBtcAlt, MS_MODULO / 2, base),
+    ],
+  }
+}
+
+/**
+ * ⚠️ A CARTA SÓ ENTRA COM A IMAGEM PRONTA, e devolver `null` é o contrato do anel:
+ * `montar()` já trata módulo sem fonte fresca assim, e o anel gira para o
+ * próximo. Esperar rede dentro de `pintarCorpo` travaria a thread nos 7 ms do
+ * repaint.
+ */
+function slotMascote(): Slot | null {
+  pedirMascote()
+  if (!_mascote) return null
+  const base: Partial<SphereConteudo> = {
+    ganho: GANHO_MARCA,
+    pintarCorpo: pintarCorpoMascote,
+    peleId: 'mascote',
+    // sobre o laranja pleno, a tinta da faixa é a escura, como na pele do ₿
+    cor: '#140B04',
+    corRotulo: '#140B04',
+  }
+  return {
+    classe: 'dado',
+    nome: 'marca-mascote',
+    quadros: [
+      quadro('$DOG', ROTULOS.marcaDog, MS_MODULO / 2, base),
+      quadro('DOGCITY', ROTULOS.marcaDogAlt, MS_MODULO / 2, base),
     ],
   }
 }
@@ -1324,7 +1446,7 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
   // uma no meio e outra no fim, para a casca inteira acender duas vezes por volta
   // do anel em vez de duas seguidas. Com sete posições de 48 s, a esfera muda de
   // cor por completo a cada ~2,8 min.
-  const ANEL = ['preco', 'marca-btc', 'volume', 'pulso', 'marca-dog', 'snapshot', 'anuncio'] as const
+  const ANEL = ['preco', 'marca-btc', 'volume', 'marca-mascote', 'pulso', 'marca-dog', 'snapshot', 'anuncio'] as const
   let iAnel = 0
   let slot: Slot = { classe: 'dado', nome: 'ocioso', quadros: [quadroOcioso()] }
   let iQuadro = 0
@@ -1481,6 +1603,7 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
     // a rede inteira fora do ar.
     if (nome === 'marca-btc') return slotBitcoin(fCadeia?.tip ?? null)
     if (nome === 'marca-dog') return slotDog()
+    if (nome === 'marca-mascote') return slotMascote()
     const q =
       nome === 'preco' ? moduloPreco(fPreco, t)
       : nome === 'volume' ? moduloVolume(fVolume, t)

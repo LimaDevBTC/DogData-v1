@@ -1,0 +1,104 @@
+{
+  "site_metres": [
+    324.0,
+    180.0
+  ],
+  "height_metres": 65.7699966430664,
+  "setout_blender_z": 0,
+  "skirt_bottom_blender_z": -59.584999084472656,
+  "hall": {
+    "plan": [
+      140.0,
+      140.0
+    ],
+    "wall_head": 23.0,
+    "shell_crown": 38.6,
+    "tiers": [
+      18,
+      14
+    ],
+    "vomitories_per_bank": 2,
+    "seats_modelled": 9888
+  },
+  "tank": {
+    "length": 50.0,
+    "width": 25.0,
+    "lanes": 10,
+    "lane_width": 2.5,
+    "depth": 3.0
+  },
+  "dive": {
+    "tower_height": 60.35,
+    "platforms": [
+      6.04,
+      18.11,
+      30.18,
+      45.26,
+      60.35
+    ],
+    "pit": [
+      40.0,
+      30.0,
+      5.0
+    ],
+    "entry_speed": 14.004909853333581,
+    "drift": 12.927609095384845,
+    "entry_x": 85.07239090461516,
+    "one_atm_depth": 62.353846153846156,
+    "clear_height_over_water": 38.18
+  },
+  "free_dive_well": {
+    "diameter": 30.0,
+    "depth": 60.0,
+    "depth_rings": 5
+  },
+  "base": {
+    "file": "dog-aquatics-base.glb",
+    "bytes": 27900,
+    "triangles": 3602,
+    "draw_calls": 12,
+    "materials": 12,
+    "textures": 0,
+    "bbox_three": {
+      "min": [
+        -162,
+        -59.584999084472656,
+        -90
+      ],
+      "max": [
+        162,
+        65.7699966430664,
+        90
+      ]
+    },
+    "required_extensions": [
+      "KHR_draco_mesh_compression"
+    ]
+  },
+  "detail": {
+    "file": "dog-aquatics-detail.glb",
+    "bytes": 46472,
+    "triangles": 13248,
+    "draw_calls": 8,
+    "materials": 8,
+    "textures": 0,
+    "bbox_three": {
+      "min": [
+        -146.85000610351562,
+        -2.569999933242798,
+        -75.6500015258789
+      ],
+      "max": [
+        144.6999969482422,
+        60.89500045776367,
+        75.6500015258789
+      ]
+    },
+    "required_extensions": [
+      "KHR_draco_mesh_compression"
+    ]
+  },
+  "total_triangles": 16850,
+  "total_draw_calls": 20,
+  "total_bytes": 74372
+}

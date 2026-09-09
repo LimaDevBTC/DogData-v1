@@ -182,15 +182,129 @@ o jogador sai quase inteiro da água na pernada, o que quebra a piscina de 30 ×
 da norma sem que exista norma substituta. É regra de jogo, não geometria, e pode
 ser decidida depois da peça, como o copo do golfe.
 
+## As três travas de 09/09/2026, e o que elas mudaram
+
+O fundador decidiu, na ordem em que a geometria pedia:
+
+1. **A torre fica FORA da nave.** Ela carrega a silhueta do distrito e, dentro,
+   exigiria 70 m de vão livre coberto contra os 40 m do $DOG ARENA. A nave ficou
+   com 24 m de altura e um lanternim, e a torre virou peça exposta sob a abóbada.
+2. **A peça é arena de competição**, com arquibancada. São duas bancadas
+   longitudinais de 20 fileiras sobre o tanque de 50 m, mais uma bancada externa
+   de 12 fileiras de cada lado do poço de saltos, virada para a torre.
+3. **Os nomes são DOG AQUATICS e THE REACH**, o primeiro seguindo DOG Athletics e
+   o segundo sendo o termo inglês do trecho reto de água onde se rema.
+
+## A deriva: o achado que redesenhou o poço de saltos
+
+⚠️ **O POÇO DE SALTOS LUNAR CRESCE PARA O LADO, NÃO PARA BAIXO.** Um saltador
+deixa a plataforma com cerca de 1,5 m/s na horizontal e fica **8,62 s** no ar
+vindo da plataforma de cima, então ele entra na água **12,93 m adiante** da borda.
+Na Terra esse número é 2,1 m, e por isso a norma pede só 1,5 m de balanço da
+plataforma sobre a água.
+
+Consequência medida e travada no gerador: o poço tem **40 m no eixo do salto por
+30 m de largura, com os mesmos 5,0 m de profundidade da norma**. A profundidade
+não precisa crescer porque a água freia igual e o peso que empurra o saltador
+para o fundo é 1/6. A verificação do gerador falha se o ponto de entrada
+calculado sair do poço: hoje ele cai em x = 85,1 num poço que vai de 65 a 105.
+
+## O modelo
+
+Gerador: `../blender/build_aquatics.py`, paramétrico, no padrão de
+`build_atletismo.py`. Fonte editável: `../blender/dog-aquatics.blend`.
+Rodar com `blender -b -t 2 -P blender/build_aquatics.py [-- --render] [-- --cutaway]`.
+
+**Acervo antes de modelar, como manda a regra da casa.** Busca na API do Sketchfab
+em 09/09/2026 por "olympic swimming pool", "diving tower platform", "aquatic
+center" e "swimming pool stadium": nada aproveitável com licença aceita. O que
+volta é ponto de ônibus da London Aquatics Centre, enfeite de aquário e uma
+piscina em voxel de 1940. Construção paramétrica, mesma conclusão do atletismo.
+
+### A peça, medida
+
+| | |
+|---|---|
+| sítio | 324 × 180 m, calçada de 12 m e saia enterrada de 5,5 m |
+| nave coberta | 140 × 140 m; parede de 23,0 m, casca até **38,6 m** |
+| casca | arco de 12 gomos com clarabóia longitudinal e clerestório perimetral |
+| altura livre sobre a água | **38,2 m** |
+| arquibancada | dois níveis por lado, 18 + 14 fileiras, **2 vomitórios por bancada** |
+| lugares assentados | **9.888**, contados pelo gerador, não estimados |
+| tanque de competição | 50 × 25, 10 raias de 2,50, 3,0 m, com canaleta de borda |
+| tanque de aquecimento | 50 × 25 atravessado, dentro da nave |
+| galeria submersa | 3,0 m de pé-direito, vidro contra o tanque, clarabóia no deck |
+| poço de apneia | 30 m de diâmetro, **60 m**, com anéis de profundidade a cada 10 m |
+| poço de saltos | 40 × 30, 5,0 m, bancada de 16 fileiras coberta por pergolado |
+| torre | 60,35 m, plataformas em 6,04 / 18,11 / 30,18 / 45,26 / 60,35 |
+| praça | 4 mastros de luz de 26 m, placar sobre a cabine de arbitragem |
+| altura total | 65,77 m |
+
+As cinco plataformas **são** as cinco terrestres (1, 3, 5, 7,5 e 10 m)
+multiplicadas por 9,81/1,625, e o build falha se alguma divergir por mais de 5 cm.
+A de cima entrega 14,00 m/s de entrada, os mesmos da plataforma de 10 m terrestre.
+
+### Orçamento de carga
+
+| fase | arquivo | transferência | triângulos | primitivas | texturas |
+|---|---|---:|---:|---:|---:|
+| base | `dog-aquatics-base.glb` | 27.900 bytes | 3.602 | 13 | 0 |
+| detalhe | `dog-aquatics-detail.glb` | 46.472 bytes | 13.248 | 7 | 0 |
+| total | | **74.372 bytes** | **16.850** | 20 | 0 |
+
+Contra DOG Athletics (25.706 triângulos em 129.172 bytes), esta peça é maior em
+planta e continua **58% do peso de transferência**, porque não usa textura nenhuma
+e a casca inteira sai de 12 gomos.
+
+### O que o build verifica sozinho, e falha se mudar
+
+1. as cinco alturas de plataforma contra a razão de gravidade, 5 cm de tolerância;
+2. a velocidade de entrada da plataforma de cima contra os 14,00 m/s terrestres;
+3. o ponto de entrada com a deriva de 12,93 m caindo dentro do poço;
+4. os 60 m do poço de apneia contra a profundidade de 1 atm (62,4 m);
+5. o nível superior da bancada acima do inferior, e a parede acima dos assentos;
+6. altura livre sobre a água de pelo menos 25 m;
+7. a bancada inteira dentro da nave;
+8. o pergolado sem avançar sobre a água do poço;
+9. **nenhum mastro dentro da nave, dentro de bacia ou fora do piso**;
+10. contagem de lugares entre 8.000 e 12.000;
+11. envelope do sítio, orçamento de triângulos, bytes, primitivas e Draco.
+
+### Cinco defeitos que só a chapa pegou
+
+Registrados porque custam caro quando voltam, e todos já consertados:
+
+1. **o piso do pódio era uma face inteira** e enterrou toda a água da peça; hoje
+   ele se decompõe em bandas de Y que desviam das bacias;
+2. **a tampa do `ring_loft` do pódio** tapava as bacias por baixo do piso;
+3. **as nervuras da casca eram caixas alinhadas aos eixos** e saíram como espinhos
+   cravados no telhado, porque o `box` do lib só gira em Z; agora elas seguem o
+   arco, e existe um `beam()` para barra entre dois pontos quaisquer;
+4. **o placar estava dentro do poço de saltos**, uma parede preta plantada na água;
+5. **dois dos quatro mastros de luz caíam dentro da nave coberta**, porque eram
+   postos como deslocamento a partir do poço em vez de ponto fixo.
+
+Mais um que era de arquitetura e não de código: a marquise da bancada dos saltos
+era uma laje plana de 26 m em balanço e lia como uma mesa gigante escondendo a
+bancada inteira. Virou pergolado inclinado.
+
+Evidências: [oblíqua](docs/aquatics/oblique.jpg), [planta](docs/aquatics/plan.jpg),
+[fachada](docs/aquatics/facade.jpg), [torre](docs/aquatics/tower.jpg),
+[interior sem cobertura](docs/aquatics/interior.jpg),
+[orçamento](docs/aquatics/modelo.json).
+
+**O que este modelo ainda NÃO é:** não está assentado na cidade (não há reserva,
+não há `aquatics.ts`, loader nem verificador de implantação), não foi visto em
+navegador, não tem cais nem casa de barcos para THE REACH, e o GLB não foi
+publicado em `public/city`. O `.blend` e as chapas são o entregável.
+
 ## O que falta decidir antes do primeiro traço
 
-1. **Os nomes.** O campus usa DOG Athletics, $DOG ARENA e THE GEODE. Para a peça:
-   `DOG AQUATICS`. Para a raia no canal: `THE REACH`, que é como se chama o trecho
-   reto de água de prova em inglês. Os dois são sugestão, não decisão.
-2. **Torre dentro ou fora da nave** (acima).
-3. **Alargar ou não o trecho de prova do canal** de 100 para 108 m, o que troca
+1. **Alargar ou não o trecho de prova do canal** de 100 para 108 m, o que troca
    0,08 Mm³ de terra por conformidade com as 8 raias da norma.
-4. **Se a marina da baía entra nesta frente** ou vira uma terceira peça depois.
+2. **Se a marina da baía entra nesta frente** ou vira uma terceira peça depois.
+3. **Onde a parcela do Sítio A começa e termina**, o que é o passo que destrava a
+   reserva, o assentamento e o verificador.
 
 ## Limites deste documento
 

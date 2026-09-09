@@ -1172,7 +1172,17 @@ const FS = /* glsl */`
     //
     // uTextoDist continua vivo, porque ele ainda comanda a amplitude da
     // respiracao do anel (kLonge) e o degrau de fillrate.
-    float naFaixa = step(uFaixaV.x, uv.y) * step(uv.y, uFaixaV.y);
+    // ⚠️ A ARESTA DURA FOI EMBORA, E ELA DESENHAVA UMA TARJA NA ESFERA INTEIRA.
+    // O fundador viu na pele do $DOG: "tem uma tarja de emenda cortando a esfera
+    // inteira". A causa era esta: naFaixa era step()*step(), e ela comandava o
+    // mix(1.0, uVida, ...) do conteudo. Como uVida RESPIRA (amplitude ate
+    // 0,16) e PULSA (ate +0,85), o brilho dava um degrau seco nas duas bordas da
+    // faixa, e o degrau atravessa a casca de lado a lado.
+    //
+    // Na pele do dado a faixa e laranja e o degrau se esconde nela; na pele do
+    // $DOG, que pede faixaFundo: null, nao ha o que esconda e a emenda aparece
+    // no casco escuro. faixaSuave ja existia logo abaixo, calculada para o
+    // painel, e agora manda nos dois: uma borda so, e macia.
 
     // ⚠️ O PAINEL APAGADO LE A LUZ DA CENA, NAO UMA CONSTANTE INVENTADA. A
     // primeira versao tinha 0.16 + 0.55*sol cravado no shader e a esfera
@@ -1213,7 +1223,7 @@ const FS = /* glsl */`
     float tinta = clamp(dot(conteudo, vec3(0.2126, 0.7152, 0.0722)) * 4.0, 0.0, 1.0);
     float painelK = mix(1.0, mix(uPainelFaixa, 1.0, tinta), faixaSuave);
     vec3 cor = uPainel * painelK * (uAmb + uSolCor * sol + borda * 1.5)
-             + conteudo * (sinal * uGanho * mix(1.0, uVida, naFaixa));
+             + conteudo * (sinal * uGanho * mix(1.0, uVida, faixaSuave));
     // ⚠️ O EVENTO TOMA A CASCA INTEIRA, e é ele que atravessa onde a letra nao
     // atravessa mais. Tres instrucoes: um mix da cor e dois mul. O disco do LED
     // continua mandando na textura (o sinal do disco), entao a esfera nao vira
@@ -1225,9 +1235,8 @@ const FS = /* glsl */`
     // LINHAS SERRILHADAS atravessando a esfera durante o efeito inteiro, que e
     // exatamente o motivo pelo qual o material liso usa smoothstep na dele.
     if (uFxAtivo > 0.5) {
-      float meioF = (uFaixaV.x + uFaixaV.y) * 0.5;
-      float meiaF = (uFaixaV.y - uFaixaV.x) * 0.5;
-      float faixaSuave = 1.0 - smoothstep(meiaF * 0.75, meiaF * 1.15, abs(uv.y - meioF));
+      // faixaSuave ja foi calculada acima, para o painel e para a vida: uma
+      // borda de faixa por fragmento, nunca tres contas da mesma coisa
       float sfx = dot(p, uFxEixo.xyz);
       float m = 1.0 - smoothstep(0.0, 1.0, abs(sfx - uFxFrente.x) * uFxFrente.y);
       m *= mix(1.0, 1.0 - faixaSuave, uFxEixo.w);
