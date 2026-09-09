@@ -754,7 +754,20 @@ function pintarCorpoBitcoin(g: CanvasRenderingContext2D, w: number, h: number) {
   peleMarca(g, w, h, {
     fundo: '#E8660D', tinta: '#140B04', n: N_MARCAS, s0: 0.92, s1: 0.44,
     aspecto: 0.62,
-    desenhar: (og, larg, alt, cor) => marcaBitcoin(og, larg / 2, alt / 2, alt, cor),
+    // ⚠️ O DESENHO PREENCHE A TELA OFFSCREEN INTEIRA, e não pode ser feito "no
+    // aspecto certo" dentro dela. É a LARGURA INTEIRA do offscreen que mapeia
+    // para `arcoTexels`, ou seja para a largura pretendida da marca no casco.
+    // Desenhar o ₿ com W = 0.62·alt centrado deixava sobra dos dois lados, e essa
+    // sobra vinha do supersample de 2x na horizontal: o ₿ ia ao ar a
+    // 240·PASSO_LED/(2·altAparente) = 0,767 do que o `aspecto` prometia, 23% mais
+    // estreito. Repare que `aspecto` se cancela nessa fração, então o erro não
+    // dependia da marca: era do offscreen. O `scale` devolve o 0,62 real no casco.
+    desenhar: (og, larg, alt, cor) => {
+      og.save()
+      og.scale(larg / (alt * 0.62), 1)
+      marcaBitcoin(og, (alt * 0.62) / 2, alt / 2, alt, cor)
+      og.restore()
+    },
   })
 }
 
@@ -932,6 +945,11 @@ function arte(url: string): HTMLImageElement | null {
     _artes.set(url, null)
     const im = new Image()
     im.decoding = 'async'
+    // ⚠️ PRIORIDADE BAIXA DE PROPÓSITO: a arte só é NECESSÁRIA minutos adentro do
+    // anel, enquanto os GLB da praça são necessários no primeiro quadro. Sem isso
+    // o precarregamento abaixo passaria na frente da cidade na fila da rede.
+    // (o cast existe porque o lib.dom desta versão do TS ainda não conhece o campo)
+    ;(im as HTMLImageElement & { fetchPriority?: string }).fetchPriority = 'low'
     im.onload = () => _artes.set(url, im)
     im.onerror = () => console.warn(`[sphere] ${url} não carregou; a carta fica fora do baralho`)
     im.src = url
@@ -1433,6 +1451,17 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
   // do anel em vez de duas seguidas. Com sete posições de 48 s, a esfera muda de
   // cor por completo a cada ~2,8 min.
   const ANEL = ['preco', 'marca-btc', 'volume', 'marca-mascote', 'pulso', 'marca-dog', 'snapshot', 'anuncio'] as const
+
+  // ⚠️ A ARTE É PEDIDA AGORA, NÃO NA VEZ DELA, e este é o conserto de um defeito
+  // que foi ao ar em 09/09: `arte()` disparava o download no instante em que o
+  // slot entrava, e naquele instante devolvia nulo. Com MS_MODULO de 48 s, uma
+  // volta do anel leva 408 s, então a PRIMEIRA aparição de cada carta com imagem
+  // saía errada e a segunda chance vinha quase sete minutos depois: o mascote era
+  // pulado por `slotMascote` e a Kray ia ao ar com o casco preto e vazio, que é
+  // pior, porque anúncio é inventário vendido. Medido em produção com sonda de
+  // rede: em 75 s de página aberta nenhuma das duas PNG chegou a ser pedida.
+  // 280 KB somados, prioridade baixa, e quando a vez chega elas já estão prontas.
+  for (const u of ['/city/dog-mascote.png', '/city/kray-marca.png']) arte(u)
   let iAnel = 0
   let slot: Slot = { classe: 'dado', nome: 'ocioso', quadros: [quadroOcioso()] }
   let iQuadro = 0
