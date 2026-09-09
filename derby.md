@@ -349,6 +349,100 @@ quadro inteiro tomado pela **face inferior da marquise**, que na época tinha 84
 de profundidade a 21 m de altura, e o diagnóstico na hora foi "terreno
 bloqueando", que estava errado.
 
+## O reendereçamento de 09/09, e as otimizações de celular
+
+O fundador apontou dois defeitos na peça construída: **"ele está em cima de uma
+rua, mesmo com terreno sobrando em volta"** e **"precisamos fazer as otimizações
+padrão como os outros elementos têm, caso contrário a cidade quebra no celular"**.
+
+### A peça mudou de grade, não só de lugar
+
+A implantação usava a parcela do GERADOR mais um deslocamento dentro dela. Ela
+passava em todo o verificador e ainda assim estava errada, pelo motivo que
+`programa.ts` documenta desde 31/08 e que eu ignorei: **a peça vinha posicionada
+pela grade do gerador e a rua é desenhada pela TEIA da cena** (26 anéis × 168
+radiais). Duas grades, então a peça cai rente às ruas em vez de emoldurada por
+elas.
+
+O endereço passou a ser `DERBY_MOD = {i:11, nr:3, j:62, ns:2}`, um bloco inteiro
+da teia, escolhido por varredura:
+
+| | |
+|---|---|
+| candidatos válidos | **70** de 1.647 combinações testadas |
+| critérios | envelope inteiro dentro do módulo com 8 m de folga, seco, sem colisão com programa/Sphere/**campus**, testada de via principal, nenhuma via entrando no envelope |
+| escolhido | **120 m** do sítio anterior, bloco de 481 × 528 m |
+| ocupação | **60% do bloco** |
+| via mais próxima | AN3 a **227 m** do envelope |
+| vizinho | E03 $DOG ARENA a **243 m** |
+
+⚠️ **Duas medidas diferentes, e confundi-las foi o primeiro erro da varredura.**
+Uma peça precisa de **testada** (via principal encostando na parcela) e de
+**folga** (nenhuma via entrando no envelope construído). A primeira rodada só
+media testada e aprovou 76 módulos, entre eles vários onde o AN3 passava 21 m
+DENTRO da parcela: como os lados do módulo são o EIXO da rua e o envelope estava
+a 14 m da borda, o asfalto invadia a peça por 7 m. Exatamente o defeito que o
+fundador apontou, reproduzido por uma varredura que se dizia válida.
+
+⚠️ **E o campus não está em `cidade.json`.** As três arenas dividem `CAMPUS_MOD`,
+uma parcela criada na cena e nunca publicada pelo gerador. Varrer só o programa
+publicado aprovava 6 módulos em cima delas.
+
+⚠️ **Mudar o endereço não apaga as ruas de dentro do bloco.** Quem faz isso é
+`derbyParcela()` registrada em `buildVias.parcelas`, do mesmo jeito que
+`campusParcela()`. As duas coisas são necessárias, e só uma delas é o
+endereço.
+
+O sítio novo custou **11,04 m de amplitude** de terreno contra 8,63 do anterior,
+e a saia do modelo foi de 9,5 para **12 m** para alcançar. Havia módulos com
+4,24 m de amplitude, mas com a peça ocupando 26% do bloco: é o defeito que
+reprovou o primeiro sítio do atletismo em 07/09, quando as arenas liam como
+ilhas soltas. **60% de ocupação é o que faz a peça ler como emoldurada.**
+
+### As otimizações, medidas no navegador de verdade
+
+O que faltava era o instrumento: **nenhuma conta offline responde "quebra no
+celular?"**. `scripts/city/conferir-derby.mjs` abre a cidade num Chrome com GPU,
+nos dois perfis, e mede o ciclo real.
+
+| | celular | desktop |
+|---|---:|---:|
+| transferências | **1** (só a base) | 2 |
+| bytes | **36.376** | 78.548 |
+| triângulos visíveis de perto | **5.306** | 17.738 |
+| malhas visíveis | **9** | 13 |
+| texturas | **0** | 0 |
+| contexto WebGL perdido | 0 | 0 |
+| fps na medição | 60 | 60 |
+| estado do detalhe | **`disabled`** | `ready` |
+
+O celular **nunca pede o arquivo de detalhe**, e o estado `disabled` prova que
+não é sorte de distância: é o contrato do loader (desktop, qualidade acima de
+baixa, sem economia de dados). A base só é pedida **depois de a cidade abrir**
+(67,2 s na medição, contra 65,3 s de abertura), então ela não entra no boot.
+
+E o par offline, `scripts/city/verificar-derby-carga.ts`, cobre o que o navegador
+não consegue provocar de propósito: rede que falha (uma tentativa, sem
+tempestade), resposta que chega depois de a câmera ir embora, dispose duplo e
+passagem voando sem baixar detalhe.
+
+### O que ainda faltava de paridade, e agora existe
+
+| item | antes | agora |
+|---|---|---|
+| endereço em módulo da teia | não | `DERBY_MOD` |
+| parcela na máscara de vias | não | `derbyParcela()` |
+| entrada no menu Places | não | "DOG Derby" |
+| enquadramento por `viewFor` | coordenada crua no `chapas.mjs` | `?view=derby`, `derbyalto2`, `derbyperto` |
+| portão de navegador | não | `conferir-derby.mjs` |
+| teste do ciclo de carga | não | `verificar-derby-carga.ts` |
+
+⚠️ **As vistas do `chapas.mjs` viraram `'view'`.** Enquanto o endereço era
+coordenada crua, os cinco enquadramentos tiveram de ser recalculados à mão a cada
+vez que a peça se mexeu, e numa dessas a chapa saiu fotografando o chão.
+Marcadas como `'view'`, elas pedem o mesmo `viewFor` que o tour usa e acompanham
+a peça sozinhas.
+
 ## Um defeito de fundo que a chapa revelou e que NÃO é desta peça
 
 **Há ruas da teia cruzando a parcela do E02.** Visível nas três chapas de
@@ -364,10 +458,10 @@ que ela deveria contornar. É a mesma classe de problema que `campus.md` resolve
 dando ao conjunto das três arenas **uma parcela dedicada** na máscara
 (`CAMPUS_MOD`), que apaga as ruas internas por construção.
 
-**Não consertado nesta frente**, e de propósito: mexer na máscara de vias sem
-medir a divergência peça por peça troca um defeito visível por um invisível. O
-que falta é medir, para as 71 peças, a distância entre o centro publicado e o
-centro do módulo encaixado.
+**Resolvido para o Derby em 09/09** pelo reendereçamento acima: a peça saiu da
+grade do gerador e foi para um módulo da teia, com a parcela registrada na
+máscara. **Continua aberto para as outras 70 peças**, e o que falta é medir, para
+cada uma, a distância entre o centro publicado e o centro do módulo encaixado.
 
 ## Sequência proposta
 
@@ -508,17 +602,20 @@ no repositório como o estudo de planta que gerou este projeto.
 
 ### O que continua aberto
 
-- **Não existe portão de navegador** (`conferir-derby.mjs`), que é o que mede o
-  ciclo de carga real: base depois do portão, um download no celular e dois no
-  desktop, sem pedido duplicado e sem perda de contexto WebGL. O atletismo tem;
-  este não.
+- ~~Não existe portão de navegador~~ **FEITO em 09/09**: `conferir-derby.mjs`
+  mede o ciclo real nos dois perfis, e `verificar-derby-carga.ts` cobre a lógica
+  do loader sem navegador. Os números estão na seção acima.
 - **O entorno da parcela ficou pelado.** O platô ocupa 15,20 ha dos 60,26 da
   parcela e o resto é terreno natural sem tratamento: a prancheta plantava
   árvores ali (ela fornecia `covas` para o módulo de arborização) e o modelo não
   fornece nenhuma.
-- O acesso segue sendo o defeito de fundo: **241 m até o AN2** e a estação de
-  metrô a 1.977 m.
-- As ruas da teia continuam cruzando a parcela.
+- O acesso segue sendo o defeito de fundo: **227 m até o AN3** e a estação de
+  metrô longe.
+- A reserva E02 do gerador ficou a **265 m** do sítio da peça, porque a peça foi
+  para a teia e a reserva mora na grade do gerador. O DOG Athletics tem a mesma
+  divergência desde que nasceu; o verificador imprime a distância a cada rodada
+  para ela não ser esquecida. Quem fecha isso é uma rodada do gerador movendo a
+  reserva.
 
 ## Limites
 
