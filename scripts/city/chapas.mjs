@@ -59,9 +59,20 @@ const VISTAS = {
   // o terreno pelado e a conclusão errada é "a peça não foi desenhada".
   // Coordenadas derivadas do quadro local pela fórmula de buildPecas, não medidas
   // à mão: centro do oval (2187,4; 2389,7), tribuna (2101,8; 2285,4).
-  derbyalto:   [2432, 400, 2687, 2187, 10, 2390, 45],
-  derbytribuna:[2283, 45, 2506, 2102, 14, 2285, 45],
-  derbycurva:  [1973, 40, 2617, 2033, 6, 2517, 50],
+  derbyalto:   [2458, 430, 2720, 2160, 10, 2357, 45],
+  // ⚠️ 3/4 ALTO E NÃO RASANTE. A primeira tentativa punha a câmera a 26 m atrás
+  // da reta de fundo e a chapa saiu com o quadro tomado por terreno: a peça tem
+  // 400 m e uma câmera baixa a 300 m dela não vê o prédio, vê o chão. 90 m de
+  // altura a 210 m de distância mostra a lâmina inteira contra o oval.
+  derbytribuna:[2245, 90, 2455, 2085, 12, 2265, 42],
+  derbycurva:  [1961, 22, 2517, 2033, 8, 2510, 45],
+  derbypaddock:[2106, 40, 2228, 2154, 4, 2141, 45],
+  // ⚠️ A ÚNICA QUE JULGA O PRÉDIO. As outras três olham de 90 a 430 m de altura
+  // e de cima só se vê a laje de cobertura: a fachada não existe no quadro. Esta
+  // fica DENTRO do miolo do oval, a 121 m e a 34 m de altura, que é a altura do
+  // próprio edifício. Com a marquise antiga (21 m, 84 m de profundidade) uma
+  // câmera nesta faixa saía com o quadro tomado pela face inferior dela.
+  derbyfachada:[2134, 34, 2388, 2093, 14, 2275, 45],
   // pedidos pelos agentes da água em 02/09, para conferir borda molhada e fusão
   // da areia no chão. Rasante de verdade: a câmera fica NA cota da lâmina.
   aguarase: [-971.93, -36, -5400, -842.47, -40.5, -5400, 55],

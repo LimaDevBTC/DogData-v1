@@ -55,16 +55,23 @@ const OX = -175, OZ = -75
 // ── A PISTA ────────────────────────────────────────────────────────────────
 const RETA = 190          // cabe a largada de 165,4 m inteira dentro dela
 const RAIO = 100          // linha de medição; a curva segura 21,13 m/s a 35°
-const LARG = 10           // sem raias: galgo corre solto atrás da lebre
-const PERALTE = 7.0       // 10 × tan 35°
+// ⚠️ 12 m DE LARGURA, E O NÚMERO SUBIU DEPOIS DA PRIMEIRA CHAPA. Com 10 m a
+// pista virava uma fita: 1.008 m de perímetro contra 10 de largura é 1:100,
+// contra 1:41 da pista de atletismo, e na chapa aérea de 08/09 o que se lia era
+// um campo verde com uma borda vermelha. 12 m é a razão 1:84 de canódromo
+// terrestre, cabe 6 cães com folga, e o peralte cresce junto.
+const LARG = 12
+const PERALTE = 8.4       // 12 × tan 35°
 const RI = RAIO - LARG / 2, RE = RAIO + LARG / 2
-// o oval fica 45 m para dentro do centro do conjunto, e os 90 m que sobram atrás
-// dele são a tribuna (40) e os canis (25), com as folgas
-const PZ = OZ - 45
+// o oval fica 40 m para dentro do centro do conjunto; o que sobra atrás dele é
+// a arquibancada, a tribuna e os canis
+const PZ = OZ - 40
 const CX_L = OX - RETA / 2, CX_R = OX + RETA / 2   // centros das duas curvas
+// a pista de treino, dentro do miolo: sem peralte, porque treino não é prova
+const RT_I = 52, RT_E = 58
 
 /** o peralte entra e sai por smoothstep no primeiro e no último quarto da curva,
- *  senão a pista teria um degrau de 7 m na boca dela */
+ *  senão a pista teria um degrau de 8,4 m na boca dela */
 function peralteEm(u: number): number {
   const s = (t: number) => t * t * (3 - 2 * t)
   if (u < 0.25) return s(u / 0.25)
@@ -78,7 +85,7 @@ export function desenhar(c: Ctx): Desenho {
   const P = (x: number, z: number, y: number) => [x, c.alt(x, z) + y, z]
 
   /** volume pousado na cota `y0` acima da parcela: é o que permite empilhar os
-   *  três níveis da tribuna, que `p.vol()` sozinho não faz (ele sempre assenta) */
+   *  níveis da tribuna, que `p.vol()` sozinho não faz (ele sempre assenta) */
   const bloco = (cor: string, cx: number, cz: number, sx: number, sz: number,
                  y0: number, h: number) => {
     const g = new THREE.BoxGeometry(sx, h, sz)
@@ -86,21 +93,33 @@ export function desenhar(c: Ctx): Desenho {
     p.solto(cor, g)
   }
 
+  /** o contorno de "estádio" (duas retas e dois semicírculos) numa faixa radial:
+   *  é a forma da pista, da borda dela e da pista de treino */
+  const oval = (cor: string, ri: number, re: number, y: number) => {
+    p.chao(cor, CX_L, PZ + ri, CX_R, PZ + re, y)
+    p.chao(cor, CX_L, PZ - re, CX_R, PZ - ri, y)
+    p.anel(cor, CX_R, PZ, ri, re, y, 0, Math.PI)
+    p.anel(cor, CX_L, PZ, ri, re, y, Math.PI, Math.PI * 2)
+  }
+
   p.moldura()
 
   // ── o chão ───────────────────────────────────────────────────────────────
-  // a parcela inteira é verde: os 48 ha que sobram do conjunto ficam no chão
-  // natural e a inclinação deles vira paisagem, não aterro
+  // ⚠️ NÃO EXISTE MAIS ESPLANADA POR BAIXO DE TUDO, e a primeira chapa é o
+  // motivo. A versão anterior punha um retângulo de 400 × 300 em Y.L1 e o miolo
+  // verde em Y.L2 por cima: 12 cm de folga não bastam numa peça de 400 m vista
+  // de 400, e o miolo saiu estilhaçado de manchas claras, que é a mesma
+  // armadilha que rasgou a Praça das Medalhas em 28/08. Aqui o miolo do oval É
+  // a parcela (mesma cor, mesma camada, geometria nenhuma) e o concreto só
+  // aparece onde tem trabalho: a borda da pista, o piso da tribuna, o paddock e
+  // o pátio dos canis. Duas superfícies coplanares empilhadas deixam de existir.
   p.chao(COR.VERDE, -a + 6, -b + 6, a - 6, b - 6, Y.PARCELA)
-  // a esplanada do conjunto, 400 × 300
-  p.chao(COR.CLARO, OX - 200, OZ - 150, OX + 200, OZ + 150, Y.L1)
+  oval(COR.CLARO, RE, RE + 8, Y.L1)          // a borda de concreto da pista
 
   // ── a pista, e o peralte que é a peça ────────────────────────────────────
-  // retas: planas, 190 m, uma de cada lado
   p.chao(COR.TERRACOTA, CX_L, PZ + RI, CX_R, PZ + RE, Y.L2)
   p.chao(COR.TERRACOTA, CX_L, PZ - RE, CX_R, PZ - RI, Y.L2)
 
-  // curvas: 180° cada, com a borda externa subindo PERALTE
   const FAIXAS = 4, SEG = 36
   const curva = (cx: number, a0: number, a1: number) => {
     for (let k = 0; k < SEG; k++) {
@@ -109,95 +128,105 @@ export function desenhar(c: Ctx): Desenho {
       const e0 = peralteEm(u0), e1 = peralteEm(u1)
       for (let f = 0; f < FAIXAS; f++) {
         const r0 = RI + ((RE - RI) * f) / FAIXAS, r1 = RI + ((RE - RI) * (f + 1)) / FAIXAS
-        // altura da faixa: fração radial vezes o peralte daquele ponto do arco
         const h = (rr: number, ee: number) => Y.L2 + ((rr - RI) / LARG) * PERALTE * ee
         const Q = (rr: number, tt: number, ee: number) =>
           P(cx + Math.sin(tt) * rr, PZ - Math.cos(tt) * rr, h(rr, ee))
         p.quad(COR.TERRACOTA, Q(r0, t0, e0), Q(r0, t1, e1), Q(r1, t1, e1), Q(r1, t0, e0))
       }
       // ⚠️ A PAREDE EXTERNA PRECISA SER FECHADA. Sem esta face a pista peraltada
-      // vira uma fita flutuando a 7 m do chão vista de fora, que foi o defeito da
-      // primeira tentativa: por baixo dela aparecia a esplanada.
-      const yTopo = (ee: number) => Y.L2 + PERALTE * ee
-      const A0 = P(cx + Math.sin(t0) * RE, PZ - Math.cos(t0) * RE, yTopo(e0))
-      const A1 = P(cx + Math.sin(t1) * RE, PZ - Math.cos(t1) * RE, yTopo(e1))
+      // vira uma fita flutuando a 8,4 m do chão vista de fora, e por baixo dela
+      // aparece o verde da parcela.
+      const yT = (ee: number) => Y.L2 + PERALTE * ee
+      const A0 = P(cx + Math.sin(t0) * RE, PZ - Math.cos(t0) * RE, yT(e0))
+      const A1 = P(cx + Math.sin(t1) * RE, PZ - Math.cos(t1) * RE, yT(e1))
       const B0 = P(cx + Math.sin(t0) * RE, PZ - Math.cos(t0) * RE, Y.L1)
       const B1 = P(cx + Math.sin(t1) * RE, PZ - Math.cos(t1) * RE, Y.L1)
       p.quad(COR.CLARO, B0, B1, A1, A0)
     }
   }
-  curva(CX_R, 0, Math.PI)                  // curva leste
-  curva(CX_L, Math.PI, Math.PI * 2)        // curva oeste
+  curva(CX_R, 0, Math.PI)
+  curva(CX_L, Math.PI, Math.PI * 2)
 
-  // ── o miolo é campo de treino, não jardim ────────────────────────────────
-  p.chao(COR.VERDE, CX_L, PZ - RI, CX_R, PZ + RI, Y.L2)
-  p.anel(COR.VERDE, CX_R, PZ, 0, RI, Y.L2, 0, Math.PI)
-  p.anel(COR.VERDE, CX_L, PZ, 0, RI, Y.L2, Math.PI, Math.PI * 2)
-  // a reta de aferição tem 165,4 m: é a distância exata em que o cão chega ao
-  // pico, e é nela que o desempenho de um cão se mede
-  p.chao(COR.ESCURO, OX - 82.7, PZ - 4, OX + 82.7, PZ + 4, Y.L3)
-  // trilho da lebre, por dentro do bordo interno
-  p.anel(COR.ESCURO, CX_R, PZ, RI - 2.2, RI - 0.6, Y.L3, 0, Math.PI)
-  p.anel(COR.ESCURO, CX_L, PZ, RI - 2.2, RI - 0.6, Y.L3, Math.PI, Math.PI * 2)
-  p.chao(COR.ESCURO, CX_L, PZ + RI - 2.2, CX_R, PZ + RI - 0.6, Y.L3)
-  p.chao(COR.ESCURO, CX_L, PZ - RI + 0.6, CX_R, PZ - RI + 2.2, Y.L3)
+  // ── o miolo trabalha: pista de treino e reta de aferição ─────────────────
+  // ⚠️ O MIOLO VAZIO ERA O SEGUNDO DEFEITO DA PRIMEIRA CHAPA: 6,45 ha de grama
+  // com uma linha escura no meio lê como campo de futebol sem marcação. Aqui ele
+  // tem o programa que o jogo usa, porque treino é mecânica de jogo.
+  oval(COR.ESCURO, RT_I, RT_E, Y.L2)                       // pista de treino, 6 m
+  p.chao(COR.TERRACOTA, OX - 82.7, PZ - 6, OX + 82.7, PZ + 6, Y.L3)  // aferição
+  // trilho da lebre, por dentro do bordo interno da pista de prova
+  oval(COR.ESCURO, RI - 2.2, RI - 0.6, Y.L2)
 
-  // ── a lâmina: o edifício, 190 × 40 em três níveis ────────────────────────
-  // ⚠️ 190 m é a MEDIDA DA RETA, e a coincidência é o projeto: a horizontal do
-  // prédio responde à inclinação do anel, e as duas têm o mesmo comprimento.
-  const TZ = PZ + RE + 30            // 20 m de recuo da borda externa da pista
-  // N1: a arquibancada, degraus voltados para a pista
-  const DEG = 14, PISO = 1.6, ESPELHO = 0.46
+  // ── a lâmina: o edifício ─────────────────────────────────────────────────
+  // ⚠️ A ALTURA SUBIU DE 13 PARA 21 m DEPOIS DA PRIMEIRA CHAPA. 190 × 13 é a
+  // proporção 1:14,6 e na chapa de 08/09 leu como muro, não como prédio: a
+  // tribuna ocupava 2,6° de um quadro de 45°. Três níveis de 7 m dão 1:9, que é
+  // a proporção em que a horizontal ainda é o partido mas o volume existe.
+  const AB0 = PZ + RE + 12          // pé da arquibancada, 4 m depois da borda
+  const DEG = 16, PISO = 1.5, ESPELHO = 0.62
   for (let i = 0; i < DEG; i++) {
-    const z0 = TZ - 20 + i * PISO
-    p.chao(COR.CLARO, OX - 95, z0, OX + 95, z0 + PISO, Y.L3 + i * ESPELHO)
+    p.chao(COR.CLARO, OX - 95, AB0 + i * PISO, OX + 95, AB0 + (i + 1) * PISO,
+           Y.L2 + i * ESPELHO)
   }
-  // N0 e N2: o volume atrás da arquibancada, recuado no alto
-  bloco(COR.CLARO, OX, TZ + 8, 190, 24, 0, 6.5)      // salão de apostas
-  bloco(COR.CLARO, OX, TZ + 10, 190, 20, 6.5, 6.5)   // lounge e restaurante
-  // a cobertura em balanço de 12 m sobre a arquibancada: a linha horizontal que
-  // define a peça vista da pista
-  bloco(COR.CLARO, OX, TZ - 4, 194, 52, 17.2, 0.8)
+  const TZ = AB0 + DEG * PISO + 20   // centro do volume, atrás dos degraus
+  // ⚠️ OS TRÊS NÍVEIS COMPARTILHAM O PLANO DE FACHADA, e o recuo é só PARA TRÁS.
+  // A versão com recuo simétrico de 2 m por nível parecia mais rica em planta e
+  // na chapa de fachada de 08/09 destruiu o prédio: vista de qualquer ângulo
+  // acima de 21 m, cada recuo virava uma faixa horizontal de topo de laje, e o
+  // edifício lia como uma PILHA DE LAJES sem parede nenhuma. Com as três faces
+  // alinhadas em `TZ - 20` a fachada é um plano vertical de 190 × 21 m, que é o
+  // que faz uma tribuna ler como tribuna de qualquer altura de câmera. É também
+  // o que toda tribuna de estádio faz, e a marquise sai desse plano.
+  bloco(COR.CLARO, OX, TZ, 190, 40, 0, 7)         // N0: salão de apostas
+  bloco(COR.CLARO, OX, TZ - 2, 190, 36, 7, 7)     // N1: circulação e camarotes
+  bloco(COR.CLARO, OX, TZ - 4, 190, 32, 14, 7)    // N2: lounge e restaurante
+  // ⚠️ A MARQUISE FICA MAIS BAIXA QUE O PRÉDIO, e isto é a terceira correção do
+  // mesmo elemento. Primeiro ela tinha 84 m de profundidade e começava 8 m
+  // DENTRO da pista, então avançava sobre a raia. Encurtada para 34 m, ela ainda
+  // sumia como elemento: estava na MESMA cota de 21 m do topo da lâmina, e vista
+  // de cima as duas viravam uma única chapa branca de 69 m, com o prédio sem
+  // volume nenhum. A 15 m ela é o que uma marquise é, pendurada na fachada e
+  // abaixo do topo, e o volume dos três níveis volta a existir na silhueta.
+  bloco(COR.CLARO, OX, AB0 + 12, 196, 34, 15, 1.2)
 
-  // ── a torre do juiz, único elemento vertical, na linha de chegada ────────
-  // a chegada fica no meio da reta principal, em frente ao centro da tribuna
-  p.cilindro(COR.CLARO, OX, PZ + RE + 9, 5.5, 22, 12)
+  // ── a torre do juiz, único vertical, na linha de chegada ─────────────────
+  // ⚠️ FINA E ALTA, senão não é torre. Com r 5,5 e 24 m ela saiu na chapa como um
+  // tanque de água atarracado no meio da arquibancada. 4,2 m de raio para 30 m de
+  // altura é a proporção 1:7 em que ela lê como o vertical do partido.
+  p.cilindro(COR.CLARO, OX, PZ + RE + 4, 4.2, 30, 12)
 
-  // ── o paddock de exibição: é a peça que o jogo mais usa ──────────────────
-  // 60 m de diâmetro, na ponta oeste da tribuna, junto à saída para as caixas.
-  // Apostar é olhar o cão aqui antes da prova.
-  const PDX = OX - 130, PDZ = TZ + 34
-  p.disco(COR.CLARO, PDX, PDZ, 32, Y.L2)
-  p.disco(COR.VERDE, PDX, PDZ, 30, Y.L3)
-  p.guardaCorpo(Array.from({ length: 20 }, (_, i) => {
-    const t = (i / 20) * Math.PI * 2
-    return [PDX + Math.cos(t) * 31, PDZ + Math.sin(t) * 31] as [number, number]
+  // ── o paddock de exibição: a peça que o jogo mais usa ────────────────────
+  const PDX = OX - 132, PDZ = TZ + 46
+  p.disco(COR.CLARO, PDX, PDZ, 32, Y.L1)
+  p.disco(COR.TERRACOTA, PDX, PDZ, 29, Y.L2)
+  p.guardaCorpo(Array.from({ length: 24 }, (_, i) => {
+    const t = (i / 24) * Math.PI * 2
+    return [PDX + Math.cos(t) * 30.5, PDZ + Math.sin(t) * 30.5] as [number, number]
   }), Y.L4)
 
-  // ── canis, veterinário e pesagem: barra de serviço, sem cruzar o público ──
-  bloco(COR.MEDIO, OX + 20, TZ + 52, 120, 25, 0, 9)
-  p.chao(COR.CLARO, OX - 60, TZ + 40, OX + 20, TZ + 80, Y.L2)   // pátio de soltura
+  // ── canis, veterinário e pesagem: barra de serviço ───────────────────────
+  p.chao(COR.CLARO, OX - 40, TZ + 30, OX + 100, TZ + 66, Y.L1)   // pátio de soltura
+  bloco(COR.MEDIO, OX + 30, TZ + 48, 120, 25, 0, 9)
 
   // ── as duas caixas de largada, uma no início de cada reta ────────────────
-  // ⚠️ SÃO DUAS PORQUE AS PROVAS SÃO DUAS e as duas terminam na mesma linha de
-  // chegada: 600 m largando na reta de fundo, 1.100 m na reta principal.
-  bloco(COR.MEDIO, CX_R - 3, PZ + RAIO, 3, LARG, 0, 2.2)
-  bloco(COR.MEDIO, CX_L + 3, PZ - RAIO, 3, LARG, 0, 2.2)
+  bloco(COR.MEDIO, CX_R - 4, PZ + RAIO, 4, LARG, 0, 2.4)
+  bloco(COR.MEDIO, CX_L + 4, PZ - RAIO, 4, LARG, 0, 2.4)
 
   // ── o telão, na reta de fundo, virado para a tribuna ─────────────────────
-  p.placar(OX, PZ - RE - 26, 40, 14, 0)
+  p.placar(OX, PZ - RE - 18, 44, 16, 0)
 
-  // ── iluminação: quatro torres nas quinas da esplanada ────────────────────
-  p.refletor(OX - 190, OZ - 140, 34)
-  p.refletor(OX + 190, OZ - 140, 34)
-  p.refletor(OX - 190, PZ + RE + 6, 34)
-  p.refletor(OX + 190, PZ + RE + 6, 34)
+  // ── iluminação: quatro torres nas quinas do envelope ─────────────────────
+  p.refletor(CX_L - RE - 20, PZ - RE - 16, 36)
+  p.refletor(CX_R + RE + 20, PZ - RE - 16, 36)
+  p.refletor(CX_L - RE - 20, PZ + RE + 16, 36)
+  p.refletor(CX_R + RE + 20, PZ + RE + 16, 36)
 
-  // ── arborização: fora do conjunto, nas duas bordas longas da parcela ─────
-  p.alinhamento(-a + 20, -b + 20, a - 20, -b + 20, 14)
-  p.alinhamento(-a + 20, b - 20, a - 20, b - 20, 14)
-  // e a alameda de chegada do público, do lado curto da parcela até a tribuna
-  p.alinhamento(OX + 210, OZ + 40, a - 40, OZ + 40, 16)
+  // ── arborização: fora do conjunto ────────────────────────────────────────
+  // ⚠️ PASSO 22 E NÃO 14. Com 14 m as covas escuras de 3,2 m se fundem numa
+  // faixa serrilhada contínua na chapa, porque a árvore em si nasce no módulo de
+  // arborização e o que a peça desenha é só a marca no chão.
+  p.alinhamento(-a + 20, -b + 20, a - 20, -b + 20, 22)
+  p.alinhamento(-a + 20, b - 20, a - 20, b - 20, 22)
+  p.alinhamento(OX + 215, TZ, a - 40, TZ, 22)
 
   return p.fechar()
 }

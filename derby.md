@@ -119,9 +119,9 @@ largada que dá a medida dela.
 | desenvolvimento da pista | **1.008,32 m** (2 × 190 + 2π × 100) |
 | curvas | duas de 180°, raio 100 m na linha de medição, inclinadas **35°** |
 | retas | **190 m** cada, e é dentro delas que cabem os 165,4 m de largada |
-| largura da pista | 10 m, sem raias: galgo corre solto atrás da lebre |
-| desnível da curva, borda a borda | **7,00 m** (10 × tan 35°) |
-| envelope da pista | **400 × 210 m = 8,40 ha** |
+| largura da pista | **12 m**, sem raias: galgo corre solto atrás da lebre |
+| desnível da curva, borda a borda | **8,40 m** (12 × tan 35°) |
+| envelope da pista | **402 × 212 m = 8,52 ha** |
 | miolo livre dentro do oval | **6,45 ha** |
 | velocidade máxima que a curva segura | 21,13 m/s, **8,9% de folga** sobre o pico |
 
@@ -234,11 +234,16 @@ A lâmina, em três níveis:
 | nível | cota | programa | por que aqui |
 |---|---:|---|---|
 | N0 | 0,00 | **salão de apostas**, bilheteria, acesso | é o maior vão coberto: a taxa da casa nasce nele |
-| N1 | +6,50 | arquibancada em degraus, virada para a pista | o público sentado fica acima do paddock e enxerga por cima dele |
-| N2 | +13,00 | lounge e restaurante panorâmico, fachada contínua | vista da curva 4 e da chegada, que é onde a prova vira |
-| cobertura | +18,00 | laje em balanço de 12 m sobre a arquibancada | sombra e a linha horizontal que define a peça |
+| N1 | +7,00 | circulação e camarotes | o público sentado fica acima do paddock e enxerga por cima dele |
+| N2 | +14,00 | lounge e restaurante panorâmico, fachada contínua | vista da curva 4 e da chegada, que é onde a prova vira |
+| cobertura | +21,00 | laje em balanço de 22 m sobre a arquibancada | sombra e a linha horizontal que define a peça |
 
-Medidas: **190 × 40 m de planta, 18 m de altura**.
+A arquibancada não é nível do prédio: são **16 degraus de 1,50 × 0,62 m** no
+chão, entre a borda da pista e o pé da lâmina, subindo 9,9 m em 24 m de
+profundidade.
+
+Medidas: **190 × 40 m de planta, 22,2 m de altura** (três níveis de 7 m mais a
+laje de cobertura), com os pavimentos recuando 2 m a cada nível.
 
 O resto do conjunto, atrás e ao lado dela:
 
@@ -273,16 +278,121 @@ Capacidade de público: **não calculada**, pelo mesmo critério do DOG Athletic
 Escoamento pelo Green Guide, que o plano diretor já usa: 82 pessoas por metro de
 largura por minuto. **Não dimensionado**, porque depende da capacidade.
 
+## O que a primeira chapa derrubou
+
+Desenhado em `pecas/E02.ts` e fotografado em 08/09/2026 pelo portão
+`scripts/city/chapas.mjs`, com `--url-extra=&pecas3d=1`. Três defeitos, todos de
+escala, e nenhum deles aparecia nos números:
+
+1. **A pista de 10 m era uma fita.** 1.008 m de perímetro contra 10 m de largura
+   é a razão 1:100; a pista de atletismo é 1:41 e um canódromo terrestre é 1:84.
+   Na chapa aérea o que se lia era um campo verde com uma borda vermelha, não uma
+   pista. **Foi para 12 m**, o que também levou o peralte de 7,00 para 8,40 m.
+2. **O prédio de 13 m lia como muro.** 190 × 13 é a proporção 1:14,6, e na chapa
+   a tribuna ocupava **2,6° de um quadro de 45°**. Foi para três níveis de 7 m,
+   ou seja 1:9, mantendo a horizontal como partido.
+3. **O miolo de 6,45 ha era um vazio.** Uma reta escura no meio de um campo lê
+   como campo de futebol sem marcação. Ganhou a **pista de treino** (oval interno
+   de 6 m, sem peralte, porque treino não é prova) e a reta de aferição alargada.
+
+4. **A marquise sumiu o prédio, três vezes seguidas.** Primeiro ela tinha 84 m
+   de profundidade e começava 8 m dentro da pista, avançando sobre a raia.
+   Encurtada para 34 m, continuou sumindo como elemento por um motivo que só a
+   chapa mostra: estava na **mesma cota de 21 m do topo da lâmina**, e vista de
+   cima as duas viravam uma chapa branca única de 69 m, com o prédio sem volume
+   nenhum na silhueta. Desceu para **15 m**, que é onde uma marquise fica:
+   pendurada na fachada, abaixo do topo.
+5. **A torre do juiz lia como caixa d'água.** Raio 5,5 para 24 m de altura é a
+   proporção 1:4,4, e atarracada no meio da arquibancada ela não marcava nada.
+   Foi para 4,2 m de raio e **30 m**, ou seja 1:7.
+6. **As fileiras de árvore viraram uma faixa serrilhada.** Com passo de 14 m as
+   covas escuras de 3,2 m se fundem numa listra contínua, porque a peça desenha
+   a marca no chão e a árvore em si nasce no módulo de arborização. Passo 22.
+
+7. **Os recuos escalonados destruíram a fachada, e este foi o último a cair.**
+   Os três níveis recuavam 2 m cada um, o que em planta parecia mais rico. Na
+   chapa de fachada, vista de 34 m, cada recuo virou uma faixa horizontal de topo
+   de laje e o edifício leu como **pilha de lajes sem parede nenhuma**. As três
+   faces frontais foram alinhadas num plano só: 190 × 21 m de fachada vertical,
+   com o recuo indo todo para trás e a marquise saindo desse plano. É o que toda
+   tribuna de estádio faz, e é o que a faz ler como tribuna de qualquer altura
+   de câmera.
+
+⚠️ **E um defeito de render que não era de projeto: a esplanada.** A versão
+desenhada punha o platô de 400 × 300 em `Y.L1` e o miolo verde em `Y.L2` por
+cima. Os 12 cm de folga entre camadas do kit **não bastam numa peça de 400 m
+vista de 400 m**: o miolo saiu estilhaçado de manchas claras irregulares, que é
+a mesma armadilha que rasgou a Praça das Medalhas em 28/08. O conserto não foi
+aumentar a folga, foi **remover a sobreposição**: o miolo do oval agora É a
+parcela, mesma cor e mesma camada, sem geometria própria, e o concreto só aparece
+onde tem trabalho (borda da pista, arquibancada, paddock, pátio dos canis). Duas
+superfícies coplanares empilhadas deixaram de existir.
+
+### Evidências
+
+Seis rodadas de chapa em 08 e 09/09/2026, pelo portão `scripts/city/chapas.mjs`
+com `--url-extra=&pecas3d=1`. As quatro que valem estão guardadas:
+[aéreo](docs/derby/aereo.jpg), [curva com o peralte](docs/derby/curva-peralte.jpg),
+[tribuna](docs/derby/tribuna.jpg), [fachada](docs/derby/fachada.jpg), mais o
+[relatório do portão](docs/derby/chapas.json).
+
+⚠️ **As vistas do Derby só mostram algo com `pecas3d=1`.** As parcelas do
+programa saíram da cena em 31/08 e a peça 3D está atrás dessa flag: sem ela as
+quatro chapas saem com o terreno pelado, e a conclusão errada é "a peça não foi
+desenhada". Está anotado em `chapas.mjs`, ao lado dos enquadramentos.
+
+⚠️ **Quatro das seis rodadas foram gastas em ENQUADRAMENTO, não em desenho**, e
+isso é o registro que interessa para a próxima peça grande: uma câmera a 90 m ou
+mais só mostra topo de laje, e uma câmera baixa a 300 m de uma peça de 400 m
+mostra chão. A única que julga o volume é a de dentro do miolo, a 121 m e na
+altura do próprio edifício. A primeira tentativa de câmera baixa saiu com o
+quadro inteiro tomado pela **face inferior da marquise**, que na época tinha 84 m
+de profundidade a 21 m de altura, e o diagnóstico na hora foi "terreno
+bloqueando", que estava errado.
+
+## Um defeito de fundo que a chapa revelou e que NÃO é desta peça
+
+**Há ruas da teia cruzando a parcela do E02.** Visível nas três chapas de
+08/09/2026: faixas de calçada e leito atravessam o gramado da parcela e uma delas
+entra no miolo do oval.
+
+A causa provável, e ela é estrutural: `encaixaPrograma` em
+`app/city/plaza/programa.ts` **reencaixa** cada peça num número inteiro de
+módulos da teia e é esse encaixe que serve de máscara para a rua se desenhar. O
+desenho da peça, porém, sai de `p.x` e `p.z` publicados em `cidade.json`. Quando
+os dois divergem, a máscara fica num lugar e a peça noutro, e a rua atravessa o
+que ela deveria contornar. É a mesma classe de problema que `campus.md` resolveu
+dando ao conjunto das três arenas **uma parcela dedicada** na máscara
+(`CAMPUS_MOD`), que apaga as ruas internas por construção.
+
+**Não consertado nesta frente**, e de propósito: mexer na máscara de vias sem
+medir a divergência peça por peça troca um defeito visível por um invisível. O
+que falta é medir, para as 71 peças, a distância entre o centro publicado e o
+centro do módulo encaixado.
+
 ## Sequência proposta
 
-1. Reescrever `pecas/E02.ts` com a geometria de 30° e raio 120 m (prancheta, que
-   é o registro de planta que o fundador travou em 31/08).
-2. Assentar a pista no ponto medido (arco −150, radial +120) e publicar o
-   terraplano de 77 mil m³ como pódio local, no padrão de `campus.ts`.
-3. Resolver o acesso: alameda de 105 m até o AN2 ou reendereçamento.
-4. Só então decidir se a peça ganha modelo 3D próprio, como o atletismo ganhou,
-   ou fica em massa.
-5. ~~Renomear a peça~~ **FEITO em 08/09/2026.** O fundador escolheu **DOG
+1. ~~Reescrever `pecas/E02.ts`~~ **FEITO em 08/09/2026.** A prancheta desenha a
+   pista de 1.008,32 m com peralte de 35°, a pista de treino, a reta de aferição,
+   a lâmina de três níveis, a marquise, a torre do juiz, o paddock, os canis, as
+   duas caixas de largada, o telão e as quatro torres de luz. Assentada no ponto
+   medido (`lx −175, lz −75`). Conferida em três chapas e corrigida em três
+   iterações, registradas acima. `npx tsc --noEmit` limpo.
+2. **O terraplano ainda não existe em geometria.** A prancheta segue o terreno,
+   como todas as peças; o platô de 400 × 300 na cota 9,00 com 172 mil m³ é
+   trabalho da fase 3D, com pódio próprio no padrão de `campus.ts`.
+3. Resolver o acesso: alameda de 105 m até o AN2 ou reendereçamento da parcela.
+4. Medir a divergência entre centro publicado e centro do módulo encaixado, nas
+   71 peças, e decidir se o Derby ganha parcela dedicada na máscara de vias como
+   o campus ganhou.
+5. **O modelo 3D próprio, no padrão do DOG Athletics**: gerador paramétrico em
+   `blender/build_derby.py`, GLB base e detalhe com orçamento de carga, loader
+   com corte por distância e verificadores. É nesta fase que fachada, estrutura
+   da marquise e assentos passam a existir, e é ela que entrega o "prédio
+   pensado, não uma coisa genérica" que o pedido cobra. **A prancheta é massa por
+   definição** (`kit.ts`: "volume sem fachada, que é como plano de massas mostra
+   obra pública"), e nenhuma iteração dela chega lá.
+6. ~~Renomear a peça~~ **FEITO em 08/09/2026.** O fundador escolheu **DOG
    DERBY**. Trocado em `scripts/gerar_cidade.py` (a tabela do programa e o
    comentário do critério de identidade), em `data/dogcity_programa_congelado.json`
    (que é quem o gerador de fato LÊ), no cabeçalho de `pecas/E02.ts`, na tabela
