@@ -370,6 +370,86 @@ com a aba da transmissão aberta, três corridas do portão estouradas em 480 s)
 evidências desta rodada são os renders do próprio gerador, em Cycles CPU.
 
 
+
+## A cobertura, refeita em 10/09/2026: a abóbada de vela em malha lamela
+
+⚠️ **O FUNDADOR REPROVOU O TELHADO EM UMA FRASE:** *"o teto genérico do galpão das
+piscinas parece uma fábrica"*. Foram chamados três projetos independentes, com
+cadeiras diferentes (casca estrutural, luz e matéria, forma como sinal urbano), e
+**os três acharam a mesma causa sem falar entre si**, que não era acabamento:
+
+> A casca era uma EXTRUSÃO. Um arco de 12 gomos arrastado ao longo de X, com dois
+> tímpanos cegos nas cabeceiras e um monitor longitudinal no topo. Monitor contínuo
+> sobre planta quadrada é o arquétipo literal do galpão, e nenhuma nervura conserta
+> isso, porque o defeito é a lei de formação da superfície.
+
+E os três apontaram o mesmo agravante, que é o mais constrangedor: **casca opaca,
+lanternim e clerestório existem para resolver chuva, vento e neve, e esta cidade é
+pressurizada sob uma abóbada.** A cobertura imitava um invólucro de intempérie num
+lugar sem intempérie. A rodada de 09/09 (nervura de 0,55 para 1,15 m, lanternim
+virando volume) tratou o sintoma e deixou a causa de pé.
+
+### Os três partidos, e por que este
+
+| partido | o que era | custo | por que não |
+|---|---|---:|---|
+| duas naves cruzadas | envelope `max(arco(u), arco(v))`, quinas caindo na parede, lunette nas quatro fachadas | +1.000 tri | o mais seguro e o menos radical: continua casca fechada, e a 3 km a mudança são 9 px de bisel |
+| sete lajes e seis rasgos | relógio solar: pente de cinco lâminas de sol varrendo os 50 m durante 81 h por mês lunar | 27.176 tri | o mais bonito no papel, com o melhor achado (a lâmina atravessa a clarabóia da galeria submersa 5x por mês), mas tem risco **binário**: se a casca da cidade difunde em vez de transmitir, não existe lâmina nenhuma, e isso vive no material do domo |
+| **malha lamela vazada** | **a cobertura deixa de vedar e vira só estrutura** | **28.924 tri** | **escolhido pelo fundador** |
+
+### O que foi construído
+
+| | |
+|---|---|
+| superfície | abóbada de vela, calota de **R 243,8 m** cortada pelos quatro planos da parede |
+| nasce em | **23,00 m nos quatro cantos**, exato |
+| meio de cada lado | 33,74 m |
+| coroa | **44,00 m** (era 38,60) |
+| vazado | **94%**: o que enche os losangos é a abóbada da cidade |
+| apoio | quatro pilares de canto de 4,0 × 4,0 m |
+| nervura primária | 0,30 × 1,30, paralela às diagonais, malha de 16 m |
+| nervura secundária | 0,16 × 0,55, intercalada a 8 m |
+| arco de borda | 0,55 × 2,20, que recolhe o empuxo e leva aos cantos |
+| lunetas | quatro, 140 m × 10,74 m no meio, **4.010 m² de vão livre, sem uma placa de vidro** |
+| brise | lâminas a cada 1,20 m, corta tudo abaixo de 31° |
+| altura livre sobre a água | **38,8 m no pior canto**, contra o mínimo de 25,0 |
+
+⚠️ **A ESBELTEZ É O ARGUMENTO, E ELA SÓ EXISTE A 1/6 g.** O arco diagonal vence
+**198 m de vão com 1,30 m de altura, ou seja 1/152**; um arco terrestre do mesmo
+vão pede de 2,5 a 3,3 m. O empuxo de **3,81 MN por lado** é segurado por 20
+cordoalhas de 15,2 mm escondidas na cabeça da parede, e é por isso que a cinta
+protendida virou apenas uma cornija escura de 60 cm. Na Terra a mesma casca pesa
+1.407 Pa em vez de 230, o anel pediria **201 cordoalhas** (vira viga de borda, que
+vira pilar, que vira contraforte) e o fator contra flambagem global cai de **15,0
+para 1,46**: na Terra este desenho não fica caro, ele **flamba**.
+
+⚠️ **E A ACÚSTICA FOI O GANHO QUE NINGUÉM TINHA PEDIDO.** A nave tem 69 m³ por
+lugar (uma sala de concerto trabalha com 8 a 12) e nenhum forro resolveria isso. Com
+teto sólido o RT60 calculado é de **14,9 s**; vazada, **3,30 s**. O número é razão
+de projeto e não promessa: Eyring pressupõe campo difuso em sala fechada, e aqui um
+quarto da superfície é buraco de verdade. Medir isso direito é trabalho em aberto,
+como o Froude do nadador.
+
+### O que morreu, e por que não volta
+
+A casca CANOPY opaca de 12 gomos, o lanternim de 11,0 m com vidro vertical, os dois
+gomos de vidro da crista e a faixa de clerestório de 1,6 m que existia só para
+fechar uma fresta. Nenhum deles tinha função sob a abóbada. Quem trouxer qualquer um
+de volta está reintroduzindo a resposta de intempérie que fez o fundador reprovar a
+peça.
+
+### Aberto
+
+- [ ] **o mapa de sombra pode cintilar.** Mapa de 2.048 sobre um sítio de 324 m dá
+      **0,158 m por texel**: a nervura primária de 0,30 m ocupa 1,9 texel e a
+      secundária 1,0, abaixo do que qualquer PCF resolve. A base é um objeto só,
+      então `castShadow` é tudo ou nada. Medir com `?stats=1` na `/city` e decidir
+      entre aceitar o cintilar da trama ou perder a sombra de 140 m que assenta o
+      prédio. **Não medido: a live estava no ar e a GPU não comporta as duas cidades.**
+- [ ] a peça vazada mostra o interior de cima, o que é ganho, mas nunca foi visto
+      na cena.
+
+
 ## A parcela do Sítio A, fechada em 09/09/2026
 
 `AQUATICS_MOD = { i: 11, nr: 3, j: 34, ns: 2 }`, em `app/city/plaza/aquatics.ts`.
