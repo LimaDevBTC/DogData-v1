@@ -799,3 +799,85 @@ pedras removidas do parque vai de **30 para 45** em 1.009.
 - **O jardim perdeu quase metade das pecas** (213 → 111) porque as que caiam
   dentro da muralha deixaram de nascer, e nao houve rodada de reposicao para
   recuperar densidade nas baias. Fica para quem for olhar a chapa.
+
+## Rodada de 10/09/2026: o olho, o nariz, a solda e as pedras de dentro
+
+⚠️ **O PEDIDO DO FUNDADOR, PALAVRA POR PALAVRA:** *"a caveira em si merece subir de
+nível. Hoje os olhos são como se fossem formados por losangos"*, *"a caveira deve ter
+os olhos VERMELHOS e não devem ser arcaicos"*, *"as fossas nasais parecem ter
+polígonos não simétricos e genéricos ali"*, *"o acabamento desse castelo deve ser
+nível Taj Mahal"* e *"queria que o geodo fosse mais escondido por runestone"*.
+
+Três equipes independentes de parque temático foram consultadas (rockwork, show
+lighting e show design) e **as três acharam a mesma raiz sem falar entre si**: a
+caverna não tem UMA sombra projetada, então toda a escultura do soquete existe na
+malha e é invisível na tela.
+
+### O que foi feito, com número
+
+| item | antes | depois |
+|---|---|---|
+| **olho** | um material a 1,35 para órbita, nariz e fraturas | **cinco zonas**, rampa de 63:1: forro 0,107, bulbo 0,42, núcleo **1,20** |
+| **cor do olho** | `#F6C34E` na tela (amarelo-ouro) | vermelho de verdade |
+| **faceta do bulbo** | ico subdiv 1: aresta 3,2 m, **31 px** a 134 m | subdiv 3: aresta 0,8 m |
+| **nariz** | assimétrico por bug de tipo, **3 m de desnível** | espinha nasal no eixo + duas conchas simétricas |
+| **arco zigomático** | 0,95 m DENTRO da silhueta | bizigomática **42,73** contra biparietal 41,36 |
+| **transferência da fortaleza** | **2.501 KB** | **727 KB** |
+| **runestones dentro do salão** | 0 | **3**, descendo do teto medido |
+
+### ⚠️ O TETO DO VERMELHO É 1,20 EM LINEAR, E É FÍSICA
+
+`0xf7931a` a 1,35, passado pelo ACES e pela exposição 1,12 da cena, satura o canal
+vermelho em 4,5 vezes o ponto de branco, e o ACES desatura tudo que estoura: sai
+`#F6C34E`. Acima de **1,2 qualquer vermelho vira salmão**; acima de 2,5, branco. E a
+regra que faz o olho ser a coisa mais brilhante da caverna não é a intensidade dele:
+é **nada mais na sala passar de 0,05**, o que estava violado pela coroa (0,40) e
+pelas fraturas (1,35, o mesmo valor da órbita).
+
+### ⚠️ O BUG QUE VALIA 1.774 KB: UM OPERADOR QUE NUNCA RODOU
+
+`shade_smooth` e `shade_smooth_by_angle` operam sobre a **seleção**, não sobre o
+objeto ativo, e o script só tornava o crânio ativo. Os dois não faziam nada e a malha
+ia FLAT para o export: **480.862 vértices para 160.680 triângulos, razão 2,95**, ou
+seja cada triângulo carregando os próprios três. Numa malha soldada essa razão fica
+perto de 0,5.
+
+O sintoma que denunciou foi um NÃO resultado: trocar o ângulo de 58 para 74 graus não
+mudou **um único byte** do arquivo. Parâmetro que não muda nada é parâmetro que não
+está sendo lido. E o comentário do gerador discutia a escolha entre 34 e 58 graus com
+números medidos, ou seja **uma decisão documentada sobre um parâmetro morto**.
+
+Com a seleção corrigida, o ângulo passou a valer:
+
+| ângulo | arquivo | razão v/tri | leitura |
+|---|---:|---:|---|
+| operador quebrado | 2.501 KB | 2,95 | casca facetada |
+| 74° | 637 KB | 0,64 | plástico derretido, sem sutura nem talhe |
+| **40°** | **713 KB** | — | **solda a rocha, preserva o entalhe** |
+
+### ⚠️ O PASSE DE PLANOS DO ROSTO FOI TENTADO E REVERTIDO
+
+O diagnóstico do rockwork continua de pé e é a maior dívida da peça: **não existe um
+único plano na caveira**, as 21 primitivas são todas elipsoides, e cabeça monumental
+lê por plano e por terminador, não por volume. A execução é que falhou: nove
+cortadores `plate` de 7 m entraram na lista `cav`, ou seja antes do remesh de
+fechamento, e **abriram a malha** (buraco na calota, malar solto, mandíbula rasgada).
+Duas causas, as duas de método: caixa reta contra superfície curva atravessa a peça
+nas pontas, e plano que atravessa não é cavidade, então o remesh não lhe dá tampa.
+
+O caminho medido para a próxima tentativa está escrito no gerador: superfície de raio
+22 a 30 m no lugar de caixa, profundidade máxima de 2,0 m, e **uma chapa de clay por
+plano** antes de somar o seguinte. E o plano zigomático só volta medido contra o
+arco: na tentativa ele derrubou a bizigomática de 42,73 para 31,66.
+
+### Aberto
+
+- [ ] os planos do rosto, pelo caminho acima
+- [ ] as 28 runestones FORA, para esconder a cúpula: elas dependem da regra
+      `park.ts:569` (`d < 140`), que apaga **45 pedras, entre elas 8 das 10 maiores
+      do parque**, incluindo a de 715 m. A regra existe porque um cristal furou o
+      teto, então ela não se afrouxa às cegas: o teste tem de virar volumétrico
+- [ ] o patamar de entrada, com o programa de sete peças que o show design desenhou
+- [ ] o tour, que hoje passa ao lado da obra: uma das paradas olha para a boca com a
+      fortaleza inteira atrás da câmera
+
