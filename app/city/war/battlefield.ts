@@ -208,7 +208,7 @@ export function createBattlefield(
   const group = new THREE.Group()
   // ⚠️ NOME PRA MEDIR (10/09/2026): sem isto o grupo aparecia em
   // `window.__plazaDump()` como "Group" genérico, empatado com qualquer outro
-  // grupo sem nome da cena — dava pra ver o custo (até 1,9 milhão de
+  // grupo sem nome da cena. Dava pra ver o custo (até 1,9 milhão de
   // triângulos e 5 luzes na praça, quando a batalha está cheia) mas não dava
   // pra saber QUAL peça cortar. `campo-de-batalha` no padrão das outras
   // (`vias`, `arborizacao`, `orla-nobre`): minúsculo, com hífen, em português.
