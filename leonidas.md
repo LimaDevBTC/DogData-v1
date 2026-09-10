@@ -881,3 +881,33 @@ arco: na tentativa ele derrubou a bizigomática de 42,73 para 31,66.
 - [ ] o tour, que hoje passa ao lado da obra: uma das paradas olha para a boca com a
       fortaleza inteira atrás da câmera
 
+### Continuação de 10/09: os planos entraram, e duas lições
+
+⚠️ **O PASSE DE PLANOS FUNCIONOU NA SEGUNDA TENTATIVA, e o que mudou foi o
+INSTRUMENTO.** Em vez de caixa (`plate`), **calota**: esfera de raio 30 tangente à
+superfície, que é o que `cut_bochecha` desta peça sempre usou sem dar problema.
+Esfera é fechada e o boolean sai limpo; caixa de 26 m sobre calota de raio 20 afunda
+no centro e atravessa nas pontas. A conta é `centro = ponto + normal · (R − d)`, com
+**d = 2,0 m de teto declarado** (com 3,5 a primeira tentativa comeu o soquete).
+
+Entraram três, e não nove: frontal e dois temporais, em z = 43, ou seja acima da
+fossa temporal e do arco. Medido depois: biparietal 41,19, bizigomática **intacta em
+42,73**, razão 0,964.
+
+⚠️ **DENSIDADE É ÁREA, NÃO CONTAGEM, e mexer num número sem o outro estragou a
+calota.** As 92 crateras foram calibradas quando o piso do raio era 0,60 m, e nessa
+lei **78 delas não chegavam ao arquivo**: uma esfera afundada abre 0,28 r de fundura,
+e o remesh de 0,32 apaga tudo que não abre dois voxels. O que se via na chapa eram as
+14 sobreviventes.
+
+Ao subir o piso para 1,60 m (a conta do consultor, para que cada cratera exista de
+verdade), as 92 passaram a existir TODAS de uma vez e a chapa frontal mostrou a
+calota virando **esponja**, com cratera comendo cratera. A correção é a outra metade:
+**34 crateras**, que cobrem a mesma fração de calota que as 14 antigas cobriam, cada
+uma agora com borda.
+
+| | piso 0,60 / 92 un. | piso 1,60 / 92 un. | **piso 1,60 / 34 un.** |
+|---|---|---|---|
+| chegam ao arquivo | 14 | 92 | 34 |
+| leitura da calota | picotado sem borda | esponja | **rocha erodida** |
+
