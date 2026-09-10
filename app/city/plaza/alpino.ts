@@ -1739,8 +1739,30 @@ export function buildAlpino(o: AlpinoOpts): Alpino {
     vertexColors: true,
     roughness: 0.55,
     metalness: 0,
-    transparent: true,
-    depthWrite: false,
+    // ⚠️ `alphaTest` NO LUGAR DE TRANSPARÊNCIA, DESDE 10/09/2026, E ISTO CONSERTA
+    // UM DEFEITO DE CENA INTEIRA. O manto era `transparent` com
+    // `depthWrite: false`, ou seja não deixava nada no buffer de profundidade.
+    // Como o three desenha primeiro por `renderOrder` e só depois por distância,
+    // TUDO que vem depois dele passava por cima dele mesmo estando ATRÁS: os
+    // decalques de chão (2), a fita de cor do inverno (3), os decalques de neve
+    // (4), o domo (5 e 6) e o vidro do aquário (12). O fundador viu e descreveu
+    // exato: *"parece que a neve passa à frente de outros objetos que estão
+    // próximos, mesmo estando atrás"*.
+    //
+    // ⚠️ E A CAUSA DE FUNDO ERA DE MÉTODO, não deste arquivo: cada par de camadas
+    // desta cena foi calibrado com cuidado (margem 0 contra água 1, fita 3 contra
+    // neve 4) e **nenhuma família olhou a tabela da outra**. `renderOrder` é
+    // global; lagoa, alpino e inverno escolheram números isoladamente.
+    //
+    // ⚠️ O CORTE É 0,30 E NÃO O PADRÃO 0,50, e o número sai da transição que este
+    // arquivo já tinha calibrado: o vértice de borda fica "57% cor de pedra e 70%
+    // transparente", ou seja alfa 0,30. Cortar em 0,50 comeria a franja inteira
+    // de neve fina sobre rocha, que é justamente o que faz a montanha ler como
+    // montanha nevada e não como bolo de gelo. Em 0,30 a franja sobrevive e a
+    // borda endurece só no último passo.
+    transparent: false,
+    alphaTest: 0.30,
+    depthWrite: true,
     polygonOffset: true,
     polygonOffsetFactor: -2,
     polygonOffsetUnits: -2,

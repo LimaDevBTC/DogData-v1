@@ -737,8 +737,24 @@ export function buildInvernoDetalhe(o: InvernoDetalheOpts): InvernoDetalhe {
   const ALTURA_DECAL = 0.02 // mesmo epsilon medido/herdado por lotes.ts/decalques.ts
   const ALTURA_DECAL_PISTA = ALTURA_OVERLAY + ALTURA_DECAL + 0.02 // acima do sulco também
 
+  // ⚠️ `alphaTest` E PROFUNDIDADE ESCRITA, DESDE 10/09/2026. O decalque era
+  // `transparent` sem `depthWrite` e com `renderOrder = 4`, o que o punha depois
+  // de quase toda a cena: ele pintava por cima da margem da lagoa (0), do manto
+  // alpino (1), dos decalques comuns (2) e da fita de cor (3) mesmo quando estava
+  // ATRÁS deles, porque nenhum desses deixava profundidade no buffer para
+  // rejeitá-lo. Agora ele escreve, e quem vier depois é rejeitado corretamente.
+  //
+  // ⚠️ O CORTE É 0,20, MAIS BAIXO QUE O DO MANTO, e a razão é a borda: rastro,
+  // monte e pegada têm pluma esfumaçada de propósito, e é ela que faz a neve
+  // parecer pousada em vez de colada. Em 0,50 a pluma vira recorte de adesivo.
+  // Em 0,20 morre só a cauda quase invisível do alfa, e o que se ganha em troca é
+  // a peça parar de flutuar sobre o que está na frente dela.
+  //
+  // ⚠️ O `polygonOffset` CONTINUA, e agora ele passa a valer de verdade: com
+  // `depthWrite: false` ele empurrava um fragmento que nem chegava a ser gravado.
+  // Ele é o que impede o decalque de brigar em z com o chão logo abaixo.
   const matNeve = new THREE.MeshStandardMaterial({
-    roughness: 0.80, metalness: 0, transparent: true, depthWrite: false,
+    roughness: 0.80, metalness: 0, transparent: false, alphaTest: 0.20, depthWrite: true,
     polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3,
   })
   matNeve.map = atlasNeve
