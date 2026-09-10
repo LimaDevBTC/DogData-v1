@@ -303,15 +303,16 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
   // `vias.ts:noRadialDaTeia` já usa para o defeito irmão (buraco no ombro nos
   // 168 radiais teóricos). Aqui a fonte é outra: as 4 avenidas radiais que
   // caem dentro do arco (rumos 0, 30, 60 e 90, ver a nota de `AVENIDA_ALCA`
-  // em teia.ts) atravessam 350 m de alça (r 6.700 a 7.050) para chegar às
-  // rotatórias de acesso, e o laço de bulevar (item 2) plantava cone no
-  // canteiro e esfera na calçada ao longo delas, sem saber que ali a rua
-  // cruza a orla e não a acompanha. MEDIDO antes do conserto, reproduzindo a
-  // mesma matemática em `scripts/city/_tmp_medir_orla_arvores.ts`: 1.020 de
-  // 26.676 pontos de bulevar caem dentro do arco, exatamente nos 4 rumos
-  // (255 cada), e 2.008 de 22.659 pontos de anel, todos no anel único com
-  // `circulo = true` (a própria alça, AN7): a fileira do canteiro central
-  // dela, que é o defeito 2. `rejAlca` conta quanto cada máscara barrou.
+  // em teia.ts) atravessam a alça (da máscara `ALCA_R_DENTRO`, 6.400, até
+  // `AV_R_FIM`, 7.050) para chegar às rotatórias de acesso, e o laço de
+  // bulevar (item 2) plantava cone no canteiro e esfera na calçada ao longo
+  // delas, sem saber que ali a rua cruza a orla e não a acompanha. MEDIDO
+  // antes do conserto, reproduzindo a mesma matemática em
+  // `scripts/city/_tmp_medir_orla_arvores.ts`: 1.020 de 26.676 pontos de
+  // bulevar caem dentro do arco, exatamente nos 4 rumos (255 cada), e 2.008 de
+  // 22.659 pontos de anel, todos no anel único com `circulo = true` (a própria
+  // alça, AN7): a fileira do canteiro central dela, que é o defeito 2.
+  // `rejAlca` conta quanto cada máscara barrou.
   let rejAlca = 0
 
   // ⚠️ RECUSAR NÃO PODE SER O FIM DA HISTÓRIA, E A PRIMEIRA VERSÃO DESTA MÁSCARA

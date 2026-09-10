@@ -544,9 +544,9 @@ function noRadialDaTeia(x: number, z: number): boolean {
   // ⚠️ CONSERTO (10/09/2026, DEFEITO 2 DA ALÇA): DENTRO DA ALÇA NÃO HÁ RADIAL
   // NENHUM, NEM O FINO. O comentário logo abaixo já resolvia o mesmo problema
   // para r < `nasceEm(1)` (a teia fina só nasce lá para fora); faltava a
-  // mesma exceção para a alça, que fica bem DENTRO desse alcance (r ~ 6.700,
-  // contra `nasceEm(1)` bem menor) mas onde o fundador tirou toda rua local
-  // (07/09: "lá, por enquanto, teremos apenas a via central"). Sem esta
+  // mesma exceção para a alça, que fica bem DENTRO desse alcance (r 6.580 a
+  // 7.316, contra `nasceEm(1)` bem menor) mas onde o fundador tirou toda rua
+  // local (07/09: "lá, por enquanto, teremos apenas a via central"). Sem esta
   // linha, a conta abaixo continua abrindo a boca do ombro nos 168 rumos
   // TEÓRICOS da teia fina mesmo onde nenhum deles foi construído, e o
   // resultado é buraco no gramado sem rua nenhuma saindo dali. MEDIDO: 84 de

@@ -65,7 +65,7 @@ fundação — não são reproduzíveis).
 |---|---|
 | Elegibilidade | `S ≥ 1 DOG` (abaixo = poeira, sem lote) — igual ao registry atual (`DUST_MAX`) |
 | **position_score** | Block height do **UTXO mais antigo ≥ 20.000 DOG** 🔒 (constante única, alinhada ao gatilho de construção; substitui o 10k do reorganizecity/registry). Carteiras sem UTXO ≥20k → **periferia**, ordenadas pelo UTXO mais antigo de qualquer valor 🔒 |
-| Distrito | Banda do ranking de position_score (10 coortes centro→borda, Genesis Core → Fresh Arrivals) + **anel 0** dos 85 "Satoshi Visionary" colado à plaza (reorganizecity §2) |
+| Distrito | Banda do ranking de position_score (10 coortes centro→borda, Genesis Core → Fresh Arrivals). ⚠️ O **anel 0** dos 85 "Satoshi Visionary" colado à plaza foi REVOGADO em 2026-09-10: essa coorte mora na Orla Nobre da alça (§10), e o anel 0 fica só com o núcleo cívico. Ver o registro no §9 |
 | **lot_area** | `área = 40 + 7960 · √(S / supply)`; lado = `√área` (curva atual de `footprintWidth` — piso 40 visível, teto 8.000 campus-de-baleia; já validada visualmente) |
 | Coordenadas | `(x, z, rot)` determinísticos do gerador (phyllotaxis/idade centro→fora, append-only) + endereço de rua (`streetAddress`) |
 | **Tipologia** | Derivada do `utxo_count` no snapshot e CONGELADA 🔒: poucos UTXOs = torre concentrada; muitos = condomínio horizontal (reorganizecity §forma). Consolidar UTXOs depois NÃO morfa o prédio |
@@ -286,6 +286,16 @@ de renda** (parcerias, naming rights, features futuras).
   desde o dia 1 (protege o princípio "placement can't be bought").
 - **Regra de uso:** reserva vira prédio comercial/parceiro — **nunca** lote de carteira,
   **nunca** engole equipamento cívico.
+- **Dotação da Orla Nobre (65 parcelas, 2026-09-10):** a alça da baía tem land bank
+  próprio, decidido junto com a orla no §10. Substitui a linha "4 na orla/waterfront"
+  acima, que foi escrita antes de a alça existir como projeto. Divisão: **25 na fileira
+  da frente** (5 blocos de 5, igualmente espaçados no arco) e **40 na de trás**. Os
+  blocos da frente existem para a orla ter destino público: sem eles são 15,5 km de
+  lotes privados em fila, e os 30 acessos à praia viram passagem sem chegada. O gabarito
+  de 2 pavimentos da fileira da frente decide sozinho o programa de cada face, e não é
+  restrição de verdade: marina, clube, píer, restaurante e praça de orla são horizontais
+  por natureza. O que for alto (hotel, sede, torre) vai para a fileira de trás, onde não
+  há limite.
 
 ---
 
@@ -306,8 +316,12 @@ ilhas; observatório usa a montanha existente; Founders Pool preservado.
    position_score (20k), tipologia congelada, terra cívica + Reserva subtraídas antes
    dos lotes, anel 0 provisório. **Rodado contra as 86.252 carteiras reais** → achou e
    corrigiu bug de colisão geométrica (§2.1); 0 colisões no resultado final. Pendente
-   ainda dentro deste passo: join do anel 0 com o cohort real "Satoshi Visionary"
-   (hoje é proxy pelos 85 position_score mais antigos).
+   ainda dentro deste passo: o join com o cohort comportamental real, que em
+   2026-09-10 deixou de ser "preencher o anel 0" e passou a ser "preencher a Orla
+   Nobre" (§10). O proxy pelos 85 position_score mais antigos continua no código e
+   agora está SOBRANDO: o anel 0 não tem mais dono, e o dataset que falta para o
+   join é `data/forensic_behavioral_analysis.json`, que já existe e é atualizado
+   pelo `update_forensic_analysis.py`.
 3. Topografia + âncoras cívicas P1 no 3D (`/city/explore`).
 4. Schema final do deed + pipeline de mint (Modelo B) + janelas do ord.
 4.1. **Editor de customização (§4.1):** schema JSON + catálogo de peças por tipologia +
@@ -390,3 +404,77 @@ Shackleton (polo sul) e Stacks em Peary (polo norte), a milhares de quilômetros
 fundador, no mesmo mare, e não sítios polares isolados. Isso casa com a decisão 4: expansão
 é domo novo ao lado, não cidade nova em outro hemisfério. NÃO IMPLEMENTADO: `sites.ts`
 continua polar até alguém mexer.
+
+🔒 **2026-09-10, dono: A ORLA NOBRE DA ALÇA.** A alça de terra que abraça a baía passa a
+ser o endereço mais nobre da cidade, acima do centro. Ver o desenho inteiro no §10.
+
+**1. O centro deixa de ser o prêmio.** O Ring 0 do `foundation_generator` guardava 85
+assentos para os "Satoshi Visionary" e o próprio cabeçalho marcava o preenchimento como
+proxy provisório. A alça ganha porque tem o que o centro não pode ter: frente de água,
+vista da cidade inteira do outro lado da baía e uma via só de acesso. O centro fica
+cívico, que é para o que já tem 200 `CIVIC_CORE_SLOTS` reservados ao lado.
+
+**2. Quem mora lá são os três primeiros tiers do classificador de airdrop**, ou seja
+Satoshi Visionary (88), BTC Maximalist (99) e Rune Master (258): **445 carteiras**, todas
+ainda holders. Não é escolha estética, é o que a testada comporta. A frente de água é o
+recurso escasso e é fixa em 14,93 km na face da baía: 445 carteiras dão 33,5 m de testada
+cada, que é lote nobre de verdade; incluir o 4º tier derruba para 12,9 m, que é casa
+geminada; e Diamond Paws (19.289) daria 0,7 m, fisicamente impossível. **A regra que se
+explica em uma frase: quem MULTIPLICOU o airdrop mora na alça.** DOG Supporter, que só
+somou algo acima de zero, fica na cidade.
+
+**3. A coorte é estável o bastante para dimensionar em cima dela.** Medido nos 3.057
+snapshots de `forensic_history.json` desde 30/04/2026: a soma dos três tiers oscila entre
+440 e 456, amplitude de 3,6%. Não é um número que dança.
+
+**4. A via voltou para o meio da faixa, em r 6.950** (`AVENIDA_ALCA` em teia.ts,
+implementado). A 120 m da água ela não deixava terreno dos dois lados, que era o pedido
+original: medido nos 523 rumos, a fileira interna ficava com 16 m de fundo mediano e
+NEGATIVO no pior rumo, e a praia de 80 m passava da guia da via em 22,6% do arco. Em 6.950
+as duas fileiras têm 214 e 246 m de fundo garantidos em todo rumo e a testada útil dobra,
+de 15,3 para 31,1 km.
+
+**5. As duas fileiras olham para DENTRO.** Dono: "a face externa não olha mar aberto, ela
+olha uma faixa de água e a escuridão total". A de trás vira-se para a cidade também, com a
+praia nos fundos como quintal privado. Funciona porque o alvo é alto e distante: a baía tem
+2,7 km de lâmina e a casa da frente fica a 272 m, então a skyline se vê do TÉRREO nas duas
+fileiras. **Daí o gabarito de 2 pavimentos na fileira da frente:** com 3 na frente, a de
+trás só alcança a lâmina no 4º andar. O que a de trás perde é só a água imediata.
+
+**Pendente desta rodada, ainda NÃO decidido:** (a) o programa de cada bloco do projeto
+(qual é marina, qual é clube, qual é píer); (b) a regra de encaixe entre a coorte e a
+geometria, para quando o snapshot não devolver exatamente 445. Se vierem menos, os lotes
+que sobram são reserva do projeto e o caso é trivial; se vierem mais, é preciso decidir
+entre alargar o número de lotes ou cortar por saldo dentro do tier de menor prioridade.
+
+---
+
+## §10 — A Orla Nobre da alça 🔒
+
+A faixa de terra entre a baía e a água externa, arco 346° a 116,5°, 15,85 km de eixo.
+Decidida em 2026-09-10 (registro no §9). Os números são medidos, não estimados: vêm das
+tabelas por rumo de `alca.ts` e dos verificadores `verificar-alca.ts` e `verificar-orla.ts`.
+
+**510 lotes: 445 de carteira e 65 do projeto.** Os 65 do projeto são o land bank do §6.
+
+| | FILEIRA DA FRENTE | FILEIRA DE TRÁS |
+|---|---|---|
+| orientação | praia da baía → casa → pista | pista → casa → praia dos fundos |
+| carteiras | Satoshi Visionary + BTC Maximalist (187) | Rune Master (258) |
+| projeto | 25 (5 blocos de 5) | 40 |
+| total | 212 lotes | 298 lotes |
+| testada | 73,2 m | 52,4 m |
+| fundo garantido | 214 m | 246 m |
+| área do lote | 1,57 ha | 1,29 ha |
+| gabarito | **2 pavimentos** | livre |
+
+⚠️ **O gabarito da frente não é decoração, é o que faz a fileira de trás existir.** Ele
+protege a vista dos 298 lotes que estão atrás. Quem quiser altura compra na de trás.
+
+⚠️ **Nenhuma rua nova entra na alça.** Dono, 07/09: "lá, por enquanto, teremos apenas a
+via central". Os dois lados acessam a mesma AN7, e é por isso que a via tem de ficar no
+meio: é ela que dá frente aos dois. Uma terceira fileira exigiria rua de fundo e está
+fora até que essa regra mude.
+
+⚠️ **A face externa é quintal, não fachada.** Não vender lote, não enquadrar câmera e não
+escrever copy tratando a água de fora como orla nobre. Ver a nota em `ALCA_R_MAR`.

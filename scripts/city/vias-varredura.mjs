@@ -16,7 +16,19 @@
 // Uso:  node scripts/city/vias-varredura.mjs [--cel=6] [--saida=...]
 // ═══════════════════════════════════════════════════════════════════════════
 import { chromium } from '/home/bitmax/.npm/_npx/705bc6b22212b352/node_modules/playwright/index.mjs'
-import { writeFileSync, mkdirSync } from 'node:fs'
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
+
+// ⚠️ O RAIO E O ARCO DA AN7 SAEM DE `teia.ts`, NAO DE UMA COPIA AQUI. A via da
+// alca ja mudou de lugar quatro vezes (dodecagono 7.600 -> circulo 6.950 ->
+// 6.700 -> 6.950 de volta), e toda vez que o valor ficou copiado neste script
+// o auditor passou a medir o lugar errado em silencio.
+const _teia = readFileSync('app/city/plaza/teia.ts', 'utf8')
+const _blocoAN7 = _teia.slice(_teia.indexOf('export const AVENIDA_ALCA'))
+const AN7 = {
+  r: +_blocoAN7.match(/\br:\s*(\d+)/)[1],
+  arco: _blocoAN7.match(/arco:\s*\[\s*(\d+)\s*,\s*(\d+)\s*\]/).slice(1, 3).map(Number),
+}
+console.log(`AN7 lida de teia.ts: r ${AN7.r}, arco ${AN7.arco[0]} a ${AN7.arco[1]}`)
 
 const arg = (k, d) => (process.argv.find((a) => a.startsWith(`--${k}=`)) || `--${k}=${d}`).split('=')[1]
 const CEL = +arg('cel', 6)
@@ -36,7 +48,7 @@ try {
   console.log('cena pronta, rasterizando o pavimento')
 
   await pag.evaluate((d) => { window.__dilata = d }, +arg('dilata', 0))
-  const res = await pag.evaluate(async ({ CEL }) => {
+  const res = await pag.evaluate(async ({ CEL, AN7 }) => {
     const cena = window.__plazaScene
     const THREE = window.__plazaTHREE
     // ⚠️ SO SUPERFICIE DIRIGIVEL. Calcada, meio-fio e canteiro nao ligam nada:
@@ -181,8 +193,19 @@ try {
     // cabeceira de ponte. A faixa de raio separa os dois na hora.
     const porFaixa = new Map()
     const porAnel = new Map()
-    const ANEIS_R = [1750, 2750, 3750, 4450, 5620, 6300, 7600]
-    const NOMES = ['AN1', 'AN2', 'AN3', 'AN4', 'AN5', 'AN6', 'AN7']
+    // ⚠️ AN7 NAO E DODECAGONO E NAO ESTA EM 7.600, E POR ISSO ELA MEDIA ZERO.
+    // Os seis primeiros aneis sao dodecagonos e a conta abaixo (vertice sobre
+    // cos(rel)) acha o meio da corda no rumo. A AN7 deixou de ser um deles em
+    // 07/09: virou CIRCULO puro sobre a alca, e o vertice de 7.600 que estava
+    // aqui e justamente o valor abandonado naquele dia (o dodecagono de 7.600
+    // caia na agua em 209 dos 262 rumos do arco, ver `AVENIDA_ALCA` em
+    // teia.ts). Resultado: por duas rodadas o auditor procurou pavimento a
+    // 7.600 num rumo, nao achava nada, e publicava "AN7 0 m2" como se a via
+    // nao existisse — bem na unica via que ja virou duas ilhas de verdade.
+    // O raio sai de teia.ts em vez de ficar copiado aqui, senao a proxima
+    // rodada da via traz o mesmo zero de volta.
+    const ANEIS_R = [1750, 2750, 3750, 4450, 5620, 6300]
+    const NOMES = ['AN1', 'AN2', 'AN3', 'AN4', 'AN5', 'AN6']
     for (let k = 0; k < ys.length; k++) {
       const [x, z] = amostra[k]
       const rr = Math.hypot(x, z)
@@ -195,21 +218,36 @@ try {
       const ang = Math.atan2(x, -z)
       const PASSO = Math.PI / 6
       const rel = ((ang % PASSO) + PASSO) % PASSO - PASSO / 2
+      let achou = false
       for (let a = 0; a < ANEIS_R.length; a++) {
         const rAnel = (ANEIS_R[a] * Math.cos(PASSO / 2)) / Math.cos(rel)
         if (Math.abs(rr - rAnel) <= 22) {
           const g = porAnel.get(NOMES[a]) || [0, 0]
           g[0]++; if (molhado) g[1]++
           porAnel.set(NOMES[a], g)
+          achou = true
           break
         }
       }
+      // AN7: circulo puro (sem a correcao de corda), e so dentro do arco dela
+      if (!achou && Math.abs(rr - AN7.r) <= 22) {
+        const g = ((Math.atan2(x, -z) * 180) / Math.PI + 360) % 360
+        const dentro = AN7.arco[0] > AN7.arco[1]
+          ? (g >= AN7.arco[0] || g <= AN7.arco[1])
+          : (g >= AN7.arco[0] && g <= AN7.arco[1])
+        if (dentro) {
+          const h = porAnel.get('AN7') || [0, 0]
+          h[0]++; if (molhado) h[1]++
+          porAnel.set('AN7', h)
+        }
+      }
     }
+    NOMES.push('AN7')
     return { cel: CEL, totalCelulas: cel.size, molhadas,
       porFaixa: [...porFaixa].sort((a, b) => a[0] - b[0]),
       porAnel: NOMES.map((n) => [n, ...(porAnel.get(n) || [0, 0])]),
       grupos: ficha }
-  }, { CEL })
+  }, { CEL, AN7 })
 
   writeFileSync(`${SAIDA}/conexao.json`, JSON.stringify(res, null, 1))
   const km2 = (n) => ((n * res.cel * res.cel) / 1e6).toFixed(2)

@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // A ORLA NOBRE: o plantio da alça, projeto fechado pelo paisagista em
 // 10/09/2026. Duas fileiras únicas (uma espécie cada, passo regular, sem
-// mistura) ladeando a avenida da alça (`AVENIDA_ALCA` em teia.ts, r 6.700,
+// mistura) ladeando a avenida da alça (`AVENIDA_ALCA` em teia.ts, r 6.950,
 // arco 346° a 116,5°), mais 30 nós de acesso à praia a cada ~500 m, e (desde
 // o mesmo dia, defeito 2 do relatório de arborização) uma terceira fileira
 // no CANTEIRO CENTRAL da própria avenida, passo mais largo, espécie própria:
@@ -11,40 +11,46 @@
 // offset e passo; a única conta refeita aqui é ONDE o meio-fio realmente
 // fica, porque a instrução veio com o valor marcado como "aproximado".
 //
-// ⚠️ O MEIO-FIO NÃO ESTÁ EM r 6.700. `AVENIDA_ALCA.r` é o CENTRO da via, não a
+// ⚠️ O MEIO-FIO NÃO ESTÁ EM r 6.950. `AVENIDA_ALCA.r` é o CENTRO da via, não a
 // guia: `vias.ts` desenha a seção do anel com meia largura para cada lado
 // (`r0 = an.r - an.larg/2`, a mesma conta usada para todo anel da cidade), e a
 // seção inteira (calçada + pista + canteiro + pista + calçada) cabe nesses
-// 44 m. Logo a guia do lado da praia fica em 6.700 − 22 = 6.678, e a do lado
-// das mansões em 6.700 + 22 = 6.722. A instrução chegou com "offset 5 m do
-// meio-fio, ou seja r aproximado 6.705": 6.705 é 6.700 + 5, ou seja usa o
+// 44 m. Logo a guia do lado da praia fica em 6.950 − 22 = 6.928, e a do lado
+// das mansões em 6.950 + 22 = 6.972. A instrução do paisagista chegou com
+// "offset 5 m do meio-fio, ou seja r aproximado <centro> + 5", ou seja usando o
 // CENTRO da via como se fosse a guia, um erro de 22 m (a mesma classe de erro
 // que a memória da casa já registrou uma vez: "o consultor contou seção como
-// pista"). Um r de 6.705 cairia DENTRO da segunda faixa de pista (6.702,5 a
-// 6.716,1 na seção esticada), violando o próprio portão 2 deste trabalho
-// ("nenhuma palmeira dentro da pista"). Este módulo usa a guia de verdade:
-//     `ORLA_R_FILEIRA_A` = 6.678 − 5 = 6.673 (lado da praia)
-//     `ORLA_R_FILEIRA_B` = 6.722 + 5 = 6.727 (lado das mansões)
+// pista"). Um r assim cairia DENTRO da segunda faixa de pista, violando o
+// próprio portão 2 deste trabalho ("nenhuma palmeira dentro da pista"). Este
+// módulo usa a guia de verdade:
+//     `ORLA_R_FILEIRA_A` = 6.928 − 5 = 6.923 (lado da praia)
+//     `ORLA_R_FILEIRA_B` = 6.972 + 5 = 6.977 (lado das mansões)
 // A REGRA ("offset 5 m do meio-fio") é o que manda; o número aproximado era
 // só um chute do paisagista sobre onde o meio-fio está.
 //
-// ⚠️ 848 E 694 SÃO CONTAGEM, NÃO PASSO. Dividindo o comprimento do arco em
-// r = 6.700 (o valor que o paisagista tinha à mão) por 18 e por 22 m batem
-// exatamente 848 e 694 (15.260,2 / 18 = 847,8 → 848; / 22 = 693,6 → 694),
-// confirmando que a contagem foi calculada contra a avenida, não contra a
-// guia real. Aqui o passo é o que fecha exato: cada fileira recebe o número
-// de unidades DADO (848 e 694) espalhado em passo REGULAR sobre o
+// ⚠️ 879 E 720 SÃO CONTAGEM, NÃO PASSO. Dividindo o comprimento do arco no
+// EIXO da via por 18 e por 22 m saem 879 e 720 (15.829,7 / 18 = 879,4 → 879;
+// / 22 = 719,5 → 720). A conta é feita contra a avenida, não contra a guia
+// real, e é a mesma convenção do projeto original do paisagista (em r 6.700
+// ela dava 848 e 694). Aqui o passo é o que fecha exato: cada fileira recebe o
+// número de unidades DADO (879 e 720) espalhado em passo REGULAR sobre o
 // comprimento real do arco na guia própria de cada fileira. O desvio contra
 // os 18/22 m nominais sai pequeno e consistente (ver `orlaPassoReal()`
-// abaixo, ~0,08 m, a diferença de raio entre 6.673/6.727 e 6.700): é o preço
+// abaixo, ~0,07 m, a diferença de raio entre 6.923/6.977 e 6.950): é o preço
 // de manter a CONTAGEM exata em vez do passo cru, e fica bem dentro de
 // "alinhamento exato" pedido no portão 3.
+//
+// ⚠️ 10/09/2026, QUARTA RODADA DA VIA: a AN7 voltou de 6.700 para 6.950 (ver
+// `AVENIDA_ALCA` em teia.ts), então TODA guia deste módulo andou 250 m para
+// fora e as duas contagens subiram com o arco (848 → 879, 694 → 720). Nada
+// aqui foi reprojetado: a regra do paisagista é a mesma, o raio de entrada é
+// que mudou.
 //
 // ⚠️ LOD POR DISTÂNCIA, NÃO POR BALDE FIXO. Os outros plantios da cidade
 // (`arborizacao.ts`, `ilha-mata.ts`) rebalanceiam perto/longe quando a câmera
 // anda mais que um limiar (150 m e 650 m, respectivamente): útil quando o
 // objeto é pequeno ou fixo no mapa (uma ilha inteira, uma alameda de bairro).
-// Aqui o objeto é uma LINHA DE 15,26 km: a câmera pode estar a 50 m de um
+// Aqui o objeto é uma LINHA DE 15,83 km: a câmera pode estar a 50 m de um
 // trecho e a 12 km de outro ao mesmo tempo, e um único raio de rebalance por
 // grupo não serve. A malha cheia entra numa JANELA de ±500 m ao redor da
 // câmera (medido de verdade, incluindo altura: câmera a 272 m sobre o chão
@@ -88,15 +94,15 @@ export const ORLA_ARCO: [number, number] = ALCA_TERRA
 export const ORLA_ARCO_LARGURA_GRAUS = ((ORLA_ARCO[1] - ORLA_ARCO[0]) + 360) % 360 // 130,5°
 
 /** as duas guias reais da avenida (não o r do centro dela, ver o cabeçalho) */
-export const ORLA_R_MEIO_FIO_PRAIA = AVENIDA_ALCA.r - AVENIDA_ALCA.larg / 2   // 6.678
-export const ORLA_R_MEIO_FIO_MANSAO = AVENIDA_ALCA.r + AVENIDA_ALCA.larg / 2  // 6.722
+export const ORLA_R_MEIO_FIO_PRAIA = AVENIDA_ALCA.r - AVENIDA_ALCA.larg / 2   // 6.928
+export const ORLA_R_MEIO_FIO_MANSAO = AVENIDA_ALCA.r + AVENIDA_ALCA.larg / 2  // 6.972
 export const ORLA_OFFSET_MEIO_FIO = 5
 
-export const ORLA_R_FILEIRA_A = ORLA_R_MEIO_FIO_PRAIA - ORLA_OFFSET_MEIO_FIO   // 6.673, palm-tall
-export const ORLA_R_FILEIRA_B = ORLA_R_MEIO_FIO_MANSAO + ORLA_OFFSET_MEIO_FIO  // 6.727, palm-date
+export const ORLA_R_FILEIRA_A = ORLA_R_MEIO_FIO_PRAIA - ORLA_OFFSET_MEIO_FIO   // 6.923, palm-tall
+export const ORLA_R_FILEIRA_B = ORLA_R_MEIO_FIO_MANSAO + ORLA_OFFSET_MEIO_FIO  // 6.977, palm-date
 
-export const ORLA_N_FILEIRA_A = 848
-export const ORLA_N_FILEIRA_B = 694
+export const ORLA_N_FILEIRA_A = 879
+export const ORLA_N_FILEIRA_B = 720
 export const ORLA_PASSO_A_NOMINAL = 18
 export const ORLA_PASSO_B_NOMINAL = 22
 /** quantas vagas da Fileira A cada nó consome para abrir a clareira de 40 m
@@ -124,7 +130,7 @@ const ORLA_CLAREIRA_VAGAS = 2
 // não competir com as duas fileiras que já fecham a moldura da orla. A
 // contagem (não um número redondo) é o arco real dividido pelo passo
 // nominal, a MESMA técnica de `ORLA_N_FILEIRA_A/B` (ver `orlaPassoReal`).
-export const ORLA_R_CANTEIRO = AVENIDA_ALCA.r // 6.700, o eixo da via, não uma guia
+export const ORLA_R_CANTEIRO = AVENIDA_ALCA.r // 6.950, o eixo da via, não uma guia
 export const ORLA_PASSO_CANTEIRO_NOMINAL = 36
 export const ORLA_N_CANTEIRO = Math.round(
   (ORLA_R_CANTEIRO * (ORLA_ARCO_LARGURA_GRAUS * Math.PI / 180)) / ORLA_PASSO_CANTEIRO_NOMINAL,
@@ -204,7 +210,7 @@ function indicesClareiraFileiraA(): Set<number> {
   return rem
 }
 
-/** Fileira A: `palm-tall`, lado da praia, r 6.673, 848 vagas menos as
+/** Fileira A: `palm-tall`, lado da praia, r 6.923, 879 vagas menos as
  *  clareiras dos 30 nós (60 vagas, 2 por nó) = ≈ 788 unidades plantadas. */
 export function orlaFileiraA(): OrlaPonto[] {
   const clareira = indicesClareiraFileiraA()
@@ -219,7 +225,7 @@ export function orlaFileiraA(): OrlaPonto[] {
   return pts
 }
 
-/** Fileira B: `palm-date`, lado das mansões, r 6.727, 694 unidades, sem
+/** Fileira B: `palm-date`, lado das mansões, r 6.977, 720 unidades, sem
  *  clareira (o nó marca o acesso à praia, não à fachada das mansões). */
 export function orlaFileiraB(): OrlaPonto[] {
   const pts: OrlaPonto[] = []
@@ -232,7 +238,7 @@ export function orlaFileiraB(): OrlaPonto[] {
   return pts
 }
 
-/** Canteiro: `palm` ereta, eixo da avenida (r 6.700), `ORLA_N_CANTEIRO`
+/** Canteiro: `palm` ereta, eixo da avenida (r 6.950), `ORLA_N_CANTEIRO`
  *  unidades em passo regular, ritmo secundário (ver a nota de
  *  `ORLA_PASSO_CANTEIRO_NOMINAL` acima). Sem clareira: os nós de acesso
  *  vivem na areia, do outro lado da via, e não cruzam o canteiro. */

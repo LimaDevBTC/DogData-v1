@@ -117,16 +117,25 @@ export const ALCA_PRAIA_LARGURA = 80
  * rumos. ESCOLHA DE DESENHO do fundador, 10/09/2026, não conta de terreno: é
  * a MEDIANA já medida da margem real (`ALCA_TABELA_BAIA`, 5.918 a 6.634), o
  * ponto em que o movimento de terra fica equilibrado entre escavar e aterrar.
- * A praia (`ALCA_PRAIA_LARGURA`) e a via da alça (`AVENIDA_ALCA` em teia.ts,
- * 120 m além deste círculo) partem dele.
+ * A praia (`ALCA_PRAIA_LARGURA`) parte dele. A via da alça (`AVENIDA_ALCA` em
+ * teia.ts) chegou a nascer daqui também, 120 m além, mas voltou para o MEIO da
+ * faixa em 6.950 na quarta rodada de 10/09: a 120 m da água ela não deixava
+ * terreno dos dois lados, que é o pedido original. Ver a nota lá.
  */
 export const ALCA_R_BAIA = 6580
 
 /**
- * O CÍRCULO DA MARGEM EXTERNA (o mar aberto), pelo mesmo critério do círculo
- * da baía: mediana medida (`ALCA_TABELA_MAR`, 7.298 a 7.758). Com os dois
- * círculos fixos a alça vira um anel de largura constante de
- * `ALCA_R_MAR − ALCA_R_BAIA` = 736 m ao longo dos 15,26 km do arco.
+ * O CÍRCULO DA MARGEM EXTERNA, pelo mesmo critério do círculo da baía: mediana
+ * medida (`ALCA_TABELA_MAR`, 7.298 a 7.758). Com os dois círculos fixos a alça
+ * vira um anel de largura constante de `ALCA_R_MAR − ALCA_R_BAIA` = 736 m ao
+ * longo dos 15,83 km do arco (medido no eixo da faixa, r 6.948).
+ *
+ * ⚠️ ESTA MARGEM NÃO É VISTA, É FUNDO. Fundador, 10/09: "a face externa não
+ * olha mar aberto, ela olha uma faixa de água e a escuridão total". Por isso as
+ * DUAS fileiras de mansões viram-se para dentro (a de trás enxerga a cidade por
+ * cima da da frente; ver a conta na nota de `AVENIDA_ALCA`) e esta água aqui é
+ * quintal, não fachada. Não vender lote nem enquadrar câmera como se fosse orla
+ * nobre deste lado.
  */
 export const ALCA_R_MAR = 7316
 

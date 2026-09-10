@@ -52,6 +52,11 @@ export const SF_CREDITS: readonly Credit[] = [
   { title: 'Coconut tree', author: 'Rafael Benites de Souza', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/coconut-tree-a03863e070df4094939d37e60e4a8926' },
   { title: 'Japanese Lowpoly temple', author: 'carolinefangel', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/japanese-lowpoly-temple-cc26af7781344e908d356030e84e4121' },
   { title: 'V2 Rocket', author: 'Diccbudd', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/v2-rocket-c12726a34e534e53af7134e22b1f9cca' },
+  // ⚠️ O TRONO DA FORTALEZA DO LEÔNIDAS, 10/09. Entrou no lugar de sete caixas
+  // empilhadas que o fundador reprovou em chapa. O GLB do acervo traz 4 imagens
+  // embutidas; em `blender/build_leonidas_grayskull.py` entra SÓ A MALHA, com
+  // material da casa, porque GLB de cidade tem `images = 0` por convenção.
+  { title: 'Demon King Throne – Dark Fantasy Gothic Chair', author: 'UNREAL JOELAB', license: 'CC BY 4.0', url: 'https://sketchfab.com/3d-models/demon-king-throne-dark-fantasy-gothic-chair-83ccfc1c656644278655b113f4083700' },
   // ⚠️ ROCHA DE DESTAQUE DO PARQUE DE INVERNO, 03/09, frente PISTA E ROCHA.
   // Escaneamentos reais de granito, com veio e cor mosqueada visíveis de perto:
   // peça única, não pacote de massa. Usadas na base da estação e na chegada da

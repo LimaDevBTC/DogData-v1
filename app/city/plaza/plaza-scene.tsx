@@ -871,15 +871,19 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
         const a = THREE.MathUtils.degToRad(rumoDeg)
         return new THREE.Vector3(Math.sin(a) * r, y, -Math.cos(a) * r)
       }
-      // r 6.673 e 6.727 são as guias das duas fileiras (ver `orla.ts`); a via
-      // fica entre elas, com o eixo em 6.700.
+      // r 6.923 e 6.977 são as guias das duas fileiras (ver `orla.ts`); a via
+      // fica entre elas, com o eixo em 6.950. ⚠️ OS RAIOS AQUI ANDARAM 250 m
+      // PARA FORA em 10/09 junto com a AN7 (quarta rodada, ver `AVENIDA_ALCA`
+      // em teia.ts): o enquadramento é o mesmo, medido em offset contra o eixo
+      // da avenida, e não um ponto absoluto escolhido a olho.
       if (name === 'alcarasante') {
         // nível de quem dirige: 8 m de altura, sobre o eixo da avenida
-        return { pos: pAlca(58.0, 6700, 8), target: pAlca(61.0, 6700, 5) }
+        return { pos: pAlca(58.0, 6950, 8), target: pAlca(61.0, 6950, 5) }
       }
       // aberta, mas dentro da janela de malha cheia: 55 m de altura, do lado
-      // das mansões, olhando a fileira da praia e a água ao fundo
-      return { pos: pAlca(57.5, 6762, 55), target: pAlca(62.0, 6686, 12) }
+      // das mansões (eixo + 62), olhando a fileira da praia (eixo − 14) e a
+      // água ao fundo
+      return { pos: pAlca(57.5, 7012, 55), target: pAlca(62.0, 6936, 12) }
     }
 
     // ── A BANDA DE ÓRBITA DA MEMPOOL (08/09) ─────────────────────────────────

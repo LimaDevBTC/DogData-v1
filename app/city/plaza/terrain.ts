@@ -881,14 +881,23 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
     // ⚠️ CONSERTO 1 (10/09/2026): AS QUATRO QUINAS DA ALÇA. `alca.ts` desenha o
     // platô, a praia e o talude 1:8 com quinas exatas em ALCA_R_BAIA (6.580),
     // ALCA_R_BAIA+ALCA_PRAIA_LARGURA (6.660), ALCA_R_MAR-ALCA_PRAIA_LARGURA
-    // (7.236) e ALCA_R_MAR (7.316). A avenida da alça (`AVENIDA_ALCA.r` em
-    // teia.ts) fica em r 6.700, a só 40 m da quina de 6.660, menos que uma
-    // célula da malha grossa (59,2 m): a célula fica a cavalo entre o platô
-    // plano e a rampa da praia, e `superficieAt` interpolava um valor
-    // intermediário que não existe no desenho analítico de `alcaAlturaAt`.
-    // MEDIDO antes deste conserto, ao longo do eixo da avenida: p90 de 28,2 cm
-    // e máximo de 100,1 cm de diferença contra `heightAt`, num terreno que é
-    // plano de verdade.
+    // (7.236) e ALCA_R_MAR (7.316). O defeito apareceu porque a avenida da alça
+    // (`AVENIDA_ALCA.r` em teia.ts) estava então em r 6.700, a só 40 m da quina
+    // de 6.660, menos que uma célula da malha grossa (59,2 m): a célula ficava a
+    // cavalo entre o platô plano e a rampa da praia, e `superficieAt`
+    // interpolava um valor intermediário que não existe no desenho analítico de
+    // `alcaAlturaAt`. MEDIDO antes deste conserto, ao longo do eixo da avenida:
+    // p90 de 28,2 cm e máximo de 100,1 cm de diferença contra `heightAt`, num
+    // terreno que é plano de verdade.
+    //
+    // ⚠️ A AVENIDA JÁ SAIU DE PERTO, E MESMO ASSIM O REFINO FICA. Na quarta
+    // rodada (10/09) a AN7 voltou para r 6.950, e as distâncias dela às quatro
+    // quinas passaram de 120/40/536/616 m para 370/290/286/366 m: nenhuma quina
+    // está mais debaixo da via. O refino continua porque o que os CONSERTOS 1 e
+    // 2 mediram não foi a via, foi a fidelidade do TERRENO na quina em si
+    // (ponto a ponto contra `heightAt`, passo de 0,05°, ver o CONSERTO 2 logo
+    // abaixo) — a quina existe com ou sem avenida em cima, e é o salto de
+    // `ALCA_AGUA` para `ALCA_LEITO_Y` que a célula grossa borra.
     //
     // ⚠️ CONSERTO 2 (10/09/2026): SÓ A QUINA DE 6.660 PRECISA DOS ±50 M. As
     // outras três ficam a 120 m (6.580), 536 m (7.236) e 616 m (7.316) do eixo

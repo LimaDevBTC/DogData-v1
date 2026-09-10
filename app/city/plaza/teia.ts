@@ -243,10 +243,33 @@ export function anelPonto(r: number, ang: number): [number, number] {
  * seja `ALCA_R_BAIA` (6.580, em `alca.ts`) mais os 120 m pedidos — as mansões
  * ficam de frente para a cidade, com a praia da baía entre elas e a água.
  * Continua um raio único: nenhum consumidor de `AVENIDA_ALCA` muda de API.
+ *
+ * ⚠️ 10/09/2026, QUARTA RODADA: A VIA VOLTA PARA O MEIO, EM 6.950, E O MOTIVO É
+ * CAPACIDADE. A 120 m da água a via não deixava terreno dos DOIS lados, que é o
+ * pedido original ("via deve passar exatamente no meio, e terrenos de um lado e
+ * do outro; os terrenos terão praia de um lado e pista do outro"). Medido nos
+ * 523 rumos da tabela de `alca.ts`, com a via em 6.700:
+ *     fileira interna   fundo mediano de 16 m, e NEGATIVO (−36 m) no pior rumo
+ *     fileira externa   fundo de 512 m, o dobro do que um lote usa
+ *     praia de 80 m passava da guia da via em 118 rumos (22,6% do arco)
+ * Ou seja o lado de dentro não existia como lote e o de fora sobrava. Em 6.950
+ * as duas fileiras ficam com 214 e 246 m de fundo GARANTIDOS em todo rumo, a
+ * testada útil dobra (15,3 → 31,1 km) e a via para de encostar na areia.
+ *
+ * ⚠️ E AS DUAS FILEIRAS OLHAM PARA DENTRO, não uma para cada lado. Fundador:
+ * "a face externa não olha mar aberto, ela olha uma faixa de água e a escuridão
+ * total". A de trás vira-se para a cidade também, com a praia nos fundos como
+ * quintal privado. A baía está exatamente em frente (centro em r 6.135, rumo
+ * 52,5°, contra 51,2° do meio da alça) e tem 2,7 km de lâmina, então a skyline
+ * se vê do TÉRREO nas duas fileiras: a casa da frente fica a 272 m e um alvo a
+ * 3 km só é encoberto por ela até ~1 m de altura do observador. O que a fileira
+ * de trás perde é a água imediata (precisaria de 38 m para ver a lâmina logo
+ * depois da praia), e é por isso que a fileira da FRENTE tem gabarito de 2
+ * pavimentos: com 3 na frente, a de trás só alcança a lâmina no 4º andar.
  */
 export const AVENIDA_ALCA = {
   id: 'AN7',
-  r: 6700,
+  r: 6950,
   larg: 44,
   circulo: true,
   // ⚠️ O ARCO DA VIA VAI ALÉM DO ARCO DA ALÇA, E ISSO É O ACESSO. A alça medida
