@@ -594,7 +594,26 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
       if (name === 'aquaticsdentro') return { pos: p(-77.5, 52, 15), target: p(-77.5, -6, 2) }
       // rasante na fachada longa, com a casca curva contra o céu
       if (name === 'aquaticsrasante') return { pos: p(-150, 250, 46), target: p(-40, 0, 26) }
-      return { pos: p(-120, 560, 300), target: p(20, 0, 28) }
+      // ⚠️ A PARADA GERAL VINHA DE LADO E BAIXA, E A QUEIXA DO FUNDADOR FOI
+      // LITERAL: *"de lado não dá pra ver a piscina, fica mostrando somente a
+      // trama do telhado durante uma cena inteira"*. Medido no enquadramento
+      // antigo: câmera a **577 m de distância horizontal com 25,2 graus de
+      // elevação**, do lado do arco. Duas consequências, e as duas são geometria:
+      //
+      //  1. **a 25 graus a lâmina d'água some.** A área aparente de uma piscina
+      //     deitada vale `sen(elevação)`: 43% a 25 graus, contra 58% a 35. Água
+      //     vista de rasante não é água, é um risco escuro no chão;
+      //  2. **a nave fica NO CAMINHO.** Ela ocupa o lado oeste do sítio (dx de
+      //     −147,5 a −7,5) e sobe a 44 m com a abóbada nova; a água toda mora a
+      //     leste (dx de +10 a +150). Olhando do lado, a trama de 140 m de vão se
+      //     interpõe entre a câmera e as bacias, e é ela que enche o quadro.
+      //
+      // O novo enquadramento vem de SUDESTE, ou seja pelo lado da água, com a
+      // nave ao fundo: 35,6 graus de elevação a 419 m. A praça inteira entra em
+      // primeiro plano (poço de apneia, os dois lidos, o poço de saltos) e a
+      // abóbada vazada aparece atrás, que é a ordem certa de leitura para uma
+      // peça cujo nome é parque aquático.
+      return { pos: p(210, -290, 250), target: p(30, 0, 6) }
     }
 
     // O endereço acompanha as células. A cota medida é somada por vistaDaCidade
@@ -2167,9 +2186,39 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     // A lista subiu para o escopo do módulo em 06/09, porque a BARRA precisa
     // dela para não contar peso que não segura a cortina. Ver `EM_OBRA` lá.
 
+    // ⚠️ O CRONÔMETRO DO BOOT, E ELE FALTAVA. Os `weight` de `BOOT_STEPS` são
+    // ESTIMATIVA de peso relativo, não medição: servem para a barra andar liso e
+    // não dizem nada sobre onde os segundos são gastos. O boot já caiu de 147 s
+    // (02/09) para cerca de 105, e cada uma dessas quedas foi achada por sonda
+    // ad hoc que depois se perdeu. Sem um relógio que fique no código, a próxima
+    // frente recomeça do zero e a regressão volta calada.
+    //
+    // ⚠️ ELE MEDE TEMPO DE PAREDE, NÃO CPU, e isso é de propósito: o que atrasa a
+    // cortina é o relógio do visitante. Uma etapa que espera rede aparece aqui
+    // com número alto e pouco custo de thread, e é justamente essa diferença que
+    // diz se o conserto é PARALELIZAR ou EMAGRECER.
+    //
+    // `?stats=1` → `window.__plazaBoot()` devolve a tabela.
+    const bootT0 = performance.now()
+    const bootRelogio: { etapa: string; ms: number; desde: number }[] = []
+    let bootUltimo = bootT0
+    if (wantStats) {
+      ;(window as unknown as { __plazaBoot?: () => unknown }).__plazaBoot = () => ({
+        totalMs: +(performance.now() - bootT0).toFixed(0),
+        etapas: bootRelogio.map((e) => ({ ...e })),
+      })
+    }
+
     // marca uma etapa como pronta; quando todas terminam, o portão abre
     const stepDone = (key: BootKey) => {
       if (disposed) return
+      {
+        const agoraB = performance.now()
+        if (!bootRelogio.some((e) => e.etapa === key)) {
+          bootRelogio.push({ etapa: key, ms: +(agoraB - bootUltimo).toFixed(0), desde: +(agoraB - bootT0).toFixed(0) })
+          bootUltimo = agoraB
+        }
+      }
       setBoot((b) => {
         if (b.done.includes(key)) return b
         const done = [...b.done, key]
@@ -5161,6 +5210,66 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           comprimidas: lista.filter((t) => t.comprimida).length,
           mbComprimidas: +lista.filter((t) => t.comprimida).reduce((a, t) => a + t.mb, 0).toFixed(1),
           maiores: lista.slice(0, 24).map((t) => ({ px: `${t.w}x${t.h}`, mb: +t.mb.toFixed(1), comp: t.comprimida, onde: t.onde.join(' | ') })),
+        }
+      }
+      // ?stats=1 → window.__plazaGeometria(): O CENSO DE MEMÓRIA POR PEÇA.
+      //
+      // ⚠️ O IRMÃO QUE FALTAVA DO `__plazaTexturas`, E A FALTA DELE TEM PREÇO
+      // MEDIDO. O censo de VRAM existe desde 03/09 e foi ele que levou ao
+      // espelho KTX2; a frente de textura ficou instrumentada e resolvida. A de
+      // GEOMETRIA nunca teve instrumento nenhum: cada peça nova é medida à mão,
+      // no seu próprio `verificar-*.ts`, contra o seu próprio GLB. Dá para
+      // provar que o Derby cabe em 560 KB no celular e continuar sem saber que
+      // uma torre da praça custa 18 MiB, porque ninguém nunca somou as peças.
+      //
+      // ⚠️ E O QUE PESA É O ATRIBUTO CRU, NÃO O .glb. Draco morre no destino: o
+      // arquivo comprime, a memória não. Cada geometria vive DUAS vezes (a cópia
+      // JS do BufferAttribute e a cópia que o driver sobe), então a régua honesta
+      // é `bytes x 2`, que é a mesma régua de `feedback_medir_memoria_residente`.
+      //
+      // ⚠️ UM `THREE.LOD` GUARDA TODOS OS NÍVEIS. Ele baixa custo de DESENHO e
+      // não baixa memória nenhuma: os dois níveis são baixados e ficam
+      // residentes. Por isso o censo conta os dois, que é o que o aparelho paga.
+      ;(window as unknown as { __plazaGeometria?: () => unknown }).__plazaGeometria = () => {
+        // ⚠️ A CHAVE É O `uuid` DA GEOMETRIA, pela mesma razão que o censo de
+        // textura usa o da textura: geometria compartilhada (toda instância, todo
+        // poste repetido) é alocada UMA vez e contá-la por malha infla o total.
+        const vistas = new Set<string>()
+        const por = new Map<string, { tris: number; bytes: number; malhas: number }>()
+        // o dono é o ancestral NOMEADO mais alto, que é como a peça se chama na
+        // cena; sem isso o censo vira uma lista de "Mesh" sem endereço
+        const dono = (o: THREE.Object3D) => {
+          let n = 'sem-nome'
+          for (let p: THREE.Object3D | null = o; p; p = p.parent) if (p.name) n = p.name
+          return n
+        }
+        let totTris = 0, totBytes = 0
+        scene.traverse((o) => {
+          const g = (o as THREE.Mesh).geometry as THREE.BufferGeometry | undefined
+          if (!g || !g.attributes?.position) return
+          if (vistas.has(g.uuid)) return
+          vistas.add(g.uuid)
+          const tris = Math.floor((g.index ? g.index.count : g.attributes.position.count) / 3)
+          let bytes = g.index ? (g.index.array as ArrayLike<number> & { byteLength: number }).byteLength : 0
+          for (const k in g.attributes) {
+            bytes += ((g.attributes[k] as THREE.BufferAttribute).array as unknown as { byteLength: number }).byteLength
+          }
+          const n = dono(o)
+          const r = por.get(n) || { tris: 0, bytes: 0, malhas: 0 }
+          r.tris += tris; r.bytes += bytes; r.malhas++
+          por.set(n, r)
+          totTris += tris; totBytes += bytes
+        })
+        const lista = [...por.entries()].map(([nome, r]) => ({ nome, ...r })).sort((a, b) => b.bytes - a.bytes)
+        return {
+          mibResidente: +((totBytes * 2) / 1048576).toFixed(2),
+          mibAtributo: +(totBytes / 1048576).toFixed(2),
+          triangulos: totTris,
+          geometrias: vistas.size,
+          pecas: lista.length,
+          maiores: lista.slice(0, 40).map((l) => ({
+            peca: l.nome, mib: +((l.bytes * 2) / 1048576).toFixed(2), tris: l.tris, malhas: l.malhas,
+          })),
         }
       }
       ;(window as unknown as { __plazaAltura?: (r: number) => unknown }).__plazaAltura = (r: number) => {

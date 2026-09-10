@@ -138,7 +138,16 @@ const VISTAS = {
   // olha do lado da praça, que é de onde a cidade vê; `aquaticstopo` julga a
   // laje, a calçada de borda e o muro. A parcela tem 460 m de eixo, um quarto
   // do campus, então o olho de cima desce na mesma proporção.
-  aquatics:    [1605, 700, -366, 3211, 10, -733, 45],
+  // ⚠️ A ENTRADA `aquatics` COM COORDENADAS SAIU EM 10/09, E ELA ERA UMA CHAVE
+  // DUPLICADA. O objeto `VISTAS` já declara `aquatics: 'view'` mais acima, com um
+  // comentário dizendo por quê: "o que a live mostra é o enquadramento do tour,
+  // então julgar por uma câmera escrita aqui julgaria outra coisa". Só que em JS
+  // a ÚLTIMA chave vence, e esta linha vinha depois: a intenção foi anulada em
+  // silêncio e **toda chapa de `aquatics` desde então julgou outro enquadramento**,
+  // a 1.647 m do sítio, enquanto o tour parava a 419 m. É a mesma classe de defeito
+  // do operador de smooth que nunca rodava: a decisão estava escrita, comentada, e
+  // não valia. `aquaticstopo` fica, porque ela tem trabalho próprio (julga a laje,
+  // a calçada de borda e o muro) e não duplica chave nenhuma.
   aquaticstopo:[3211, 1100, -732, 3211, 0, -733, 45],
   // OS TRES CANAIS RADIAIS E A BAIA, de cima. Enquadra da praca (origem) ate a
   // borda externa da agua, ~9 km de vao: e a vista em que a foz de cada canal e
