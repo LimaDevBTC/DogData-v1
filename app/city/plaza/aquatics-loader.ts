@@ -100,10 +100,16 @@ export function criarAquatics(o: Opcoes): Aquatics {
     update(camera, cidadeAberta, agoraMs = performance.now()) {
       if (disposed) return
       if (!cidadeAberta) { group.visible = false; pertoDesde = null; return }
-      if (estado.base === 'pending') void carregar('base')
       if (agoraMs < proximaSonda) return
       proximaSonda = agoraMs + 200
       ultimoD2 = camera.distanceToSquared(group.position)
+      // ⚠️ A BASE SÓ BAIXA DENTRO DO ALCANCE, E ANTES BAIXAVA SEMPRE. O pedido
+      // saía no primeiro quadro com a cidade aberta, sem olhar distância: quem
+      // entra na praça central e nunca cruza a avenida de 90° pagava 55 KB por
+      // uma peça que o `cull` esconde. A margem de 20% no raio (44% em distância
+      // ao quadrado) existe para a carga terminar ANTES de a peça entrar no
+      // alcance, senão o conserto viraria pop-in, que é pior que o desperdício.
+      if (estado.base === 'pending' && ultimoD2 < alcance2 * 1.44) void carregar('base')
       group.visible = estado.base === 'ready' && ultimoD2 < alcance2
       if (detalhe) {
         if (ultimoD2 > AQUATICS_DETAIL_OUT ** 2) detalhe.visible = false

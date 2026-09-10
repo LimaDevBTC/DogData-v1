@@ -450,6 +450,52 @@ peça.
       na cena.
 
 
+
+## Árvore genérica sai, e a peça é otimizada, 10/09/2026
+
+⚠️ **A REGRA QUE FICA: ESTA PEÇA NÃO CARREGA ÁRVORE NO GLB.** O gerador plantava 36
+árvores com `D.palm` e `D.street_tree` do `lib_dogcity`, e o fundador cortou:
+*"temos muitas árvores no projeto, essas genéricas não devem ser usadas"*. A cidade
+tem acervo (`palm-tall`, a tamareira de 16,1 m com o corte diamante, escolhida
+vendo as três candidatas em EEVEE) e tem quem plante (`props-table.ts`, com
+instância, LOD e corte por distância). As 20 palmeiras da orla entram por
+`palmeirasDoAquatics()`, em coordenadas de mundo, e custam uma matriz cada num
+InstancedMesh que a cena já tem carregado.
+
+### O que a otimização achou, e ela só foi possível porque passou a medir
+
+O build imprimia o total e nunca o custo POR BLOCO, e sem isso cortar detalhe é
+palpite. Com a medição por função, o alvo apareceu na primeira linha:
+
+| bloco | antes | depois | o que mudou |
+|---|---:|---:|---|
+| `detail/seating` | 9.888 tri, **74.888 B** | 3.296 tri | a caixa de assento tinha 12 triângulos e **metade nunca foi vista**: numa fileira contínua encostada no degrau, fundo, laterais e costas são cegos. Sobra topo e frente, 4 triângulos |
+| `detail/structure` | 3.760 tri | 3.088 tri | o brise virou duas faces em vez de caixa, e ganhou as DUAS cores que o projeto pedia: GRAPHITE embaixo (é ela que mata o véu na lâmina) e CANOPY em cima |
+| `detail/furniture` | 1.792 tri | 1.312 tri | os dois pés de 9 cm da espreguiçadeira saíram: vivem sob um assento a 30 cm do chão e não são vistos de pé nenhum |
+| árvores | 4.280 tri, 46.488 B | **0** | saíram para o acervo |
+
+### O resultado
+
+| | antes do parque | com parque e abóbada | **agora** | teto |
+|---|---:|---:|---:|---:|
+| triângulos | 16.850 | 28.924 | **16.900** | 70.000 |
+| transferência | 74.372 B | 168.596 B | **101.736 B** | 500.000 B |
+| chamadas de desenho | 20 | 27 | **25** | 16 na base |
+| texturas | 0 | 0 | **0** | 0 |
+
+**A peça ganhou abóbada nova, parque, piscina de ondas, átrio e mobiliário pelo
+mesmo número de triângulos que tinha antes de tudo isso.**
+
+### E a carga ficou preguiçosa de verdade
+
+⚠️ **A BASE BAIXAVA SEMPRE, E AGORA SÓ BAIXA DENTRO DO ALCANCE.** O pedido saía no
+primeiro quadro com a cidade aberta, sem olhar distância: quem entra na praça
+central e nunca cruza a avenida de 90° pagava 55 KB por uma peça que o `cull` nem
+desenha. A margem de 20% no raio (44% em distância ao quadrado) existe para a carga
+terminar antes de a peça entrar no alcance, senão o conserto viraria pop-in, que é
+pior que o desperdício.
+
+
 ## A parcela do Sítio A, fechada em 09/09/2026
 
 `AQUATICS_MOD = { i: 11, nr: 3, j: 34, ns: 2 }`, em `app/city/plaza/aquatics.ts`.

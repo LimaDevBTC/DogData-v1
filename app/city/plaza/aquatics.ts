@@ -240,3 +240,38 @@ export function assentarAquatics(root: THREE.Object3D, alturaEm: (x: number, z: 
 export function criarAquatics(alturaEm: (x: number, z: number) => number): THREE.Group {
   return P.criar(alturaEm)
 }
+
+/**
+ * AS PALMEIRAS DO PARQUE AQUÁTICO, em coordenadas de MUNDO.
+ *
+ * ⚠️ ELAS NÃO MORAM NO GLB, E ISSO É REGRA E NÃO DETALHE. O gerador chegou a
+ * plantar 36 árvores com o kit genérico do `lib_dogcity`, e o fundador cortou:
+ * *"temos muitas árvores no projeto, essas genéricas não devem ser usadas"*. A
+ * cidade tem acervo (`palm-tall`, a tamareira de 16,1 m com o corte diamante das
+ * bainhas podadas, escolhida vendo as três candidatas em EEVEE) e tem quem plante
+ * (`props-table.ts`, com instância, LOD e corte por distância). Árvore dentro do
+ * GLB é geometria duplicada que a cena já tem carregada.
+ *
+ * ⚠️ A ORLA É O LUGAR, E O NÚMERO SAI DELA. Dez por lido, igualmente espaçadas na
+ * borda externa da orla de madeira, que é a regra de simetria da casa. Elas ficam
+ * no lado de FORA de cada bacia, nunca entre a bacia e a promenade: sombra sobre
+ * espreguiçadeira é o que uma palmeira faz, e sombra sobre a lâmina de competição
+ * é o que ela não pode fazer.
+ */
+export function palmeirasDoAquatics(): [number, number][] {
+  const s = aquaticsSitio()
+  const giro = -THREE.MathUtils.degToRad(s.rumoDeg)
+  const c = Math.cos(giro), sn = Math.sin(giro)
+  // as coordenadas locais são as do gerador: x no comprimento, y no arco
+  const LIDO_CY = 62.0, LIDO_L = 50.0, LIDO_W = 21.0, WELL_CX = 34.0, DECK_W = 6.0
+  const out: [number, number][] = []
+  for (const sy of [-1, 1]) {
+    const yBorda = sy * (LIDO_CY + LIDO_W / 2 + DECK_W - 1.6)
+    for (let k = 0; k < 10; k++) {
+      const dx = WELL_CX - LIDO_L / 2 - DECK_W + (LIDO_L + 2 * DECK_W) * ((k + 0.5) / 10)
+      // local (dx, yBorda) para mundo, com o mesmo giro de `assentarAquatics`
+      out.push([s.x + c * dx + sn * yBorda, s.z - sn * dx + c * yBorda])
+    }
+  }
+  return out
+}

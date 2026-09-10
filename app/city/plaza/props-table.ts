@@ -19,6 +19,7 @@ import { PAD_MAIN } from './orbit-layer'
 // `especies.ts`): um valor, um lugar, lido por quem precisar.
 import { verde, hash01 } from './especies'
 import { palmeirasDoCampus, PODIO_H, EIXO_CAMPUS } from './campus'
+import { palmeirasDoAquatics, aquaticsSitio, PODIO_H as AQU_PODIO_H } from './aquatics'
 // ⚠️ O JARDIM DO PÓDIO DE THE SPHERE (07/09): o desenho mora em
 // `sphere-jardim-plano.ts`, que não importa `three` justamente para esta tabela
 // e o construtor de geometria lerem o MESMO papel. Ver o bloco das três linhas
@@ -445,6 +446,21 @@ export const PROPS: readonly PropSpec[] = [
     file: 'palm-tall', why: 'a alameda do campus esportivo: 42 tamareiras nas duas bordas longas do pódio',
     at: palmeirasDoCampus(), jitter: 0.10, lift: PODIO_H, cull: 2400,
     center: [EIXO_CAMPUS.x, EIXO_CAMPUS.z],
+  },
+  // ── A ORLA DO DOG AQUATICS ───────────────────────────────────────────────
+  // ⚠️ ESTAS 20 SUBSTITUEM AS 36 ÁRVORES GENÉRICAS QUE ESTAVAM DENTRO DO GLB DA
+  // PEÇA. O gerador as construía com o kit do `lib_dogcity`, e o fundador cortou:
+  // "temos muitas árvores no projeto, essas genéricas não devem ser usadas".
+  // Aqui elas custam uma matriz por árvore num InstancedMesh que a cena já tem,
+  // em vez de geometria duplicada em cada transferência do modelo.
+  //
+  // ⚠️ `center` NÃO É OPCIONAL, pela mesma razão do campus: sem ele o corte por
+  // distância mede da praça central, que está a 3,1 km, e a orla sumiria
+  // justamente para quem chegou ao parque.
+  {
+    file: 'palm-tall', why: 'a orla dos dois lidos do parque aquático: dez tamareiras por bacia',
+    at: palmeirasDoAquatics(), jitter: 0.10, lift: AQU_PODIO_H, cull: 1800,
+    center: [aquaticsSitio().x, aquaticsSitio().z],
   },
   // ── o deck central, DEPOIS DA LIMPEZA (2026-08-19) ─────────────────────────
   // O deck ficou com o que significa: podium, escadarias, colunata e o inlay do
