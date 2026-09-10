@@ -47,6 +47,7 @@
 // Three.js puro (regra da casa: nada de react-three-fiber).
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
+import { corCurta, normalCurta } from './atributos'
 import { LIMIAR_PRACA } from './pracas'
 import type { DistanceCuller } from './perf'
 import { ANEIS, AVENIDAS, HR, N_RAD, aneisDaCidade, anguloDe, avenidasGeom, naAlcaDeTerra, nasceEm, noArcoDoAnel, raioDodeca } from './teia'
@@ -926,6 +927,14 @@ class Fita {
     if (this.comBandaAttr) g.setAttribute('aVia', new THREE.Float32BufferAttribute(this.bs, 1))
     g.setIndex(this.ix)
     g.computeVertexNormals()
+    // ⚠️ SEMPRE DEPOIS DE `computeVertexNormals`. `vias` é a segunda maior peça
+    // da cidade (164 MiB residentes, medidos em 10/09) e a normal sozinha era 50
+    // desses MiB. Aqui a cor pode ir em 8 bits: ela pinta faixa, meio-fio e
+    // sarjeta, que são áreas pequenas e chapadas, não rampa lisa como o terreno.
+    // `uv` e `aVia` NÃO entram: ver o cabeçalho de `atributos.ts` para o motivo
+    // de cada um, que é de intervalo e não de orçamento.
+    normalCurta(g)
+    corCurta(g, 8)
     const m = new THREE.Mesh(g, mat)
     m.name = nome
     return m

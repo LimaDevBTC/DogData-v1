@@ -22,6 +22,7 @@
 // `terreno-fino.ts`: a primeira versão do Bloco A supôs, com o número errado,
 // que um único nível de clipmap extra cobriria o sítio inteiro, e não cobre.
 import * as THREE from 'three'
+import { corCurta, normalCurta } from './atributos'
 import { PODIO_Y, PODIO_R0, PODIO_R1, PODIO_R2, PODIO_R3, PODIO_R3_PARQUE } from './dome'
 import { exageroEm, VEX_HORIZONTE } from './vex'
 import { PARK_CENTER, PARK_PIT, parkReach, parkCore } from './park-site'
@@ -241,6 +242,30 @@ const BASE = new THREE.Color('#3f3d3a') // regolito iluminado pelo sol; o materi
 // (que mede 0,0497 linear); pedra fraturada lê mais clara que regolito fino
 // sob a mesma luz, então clarear é a direção certa, não medi o albedo exato.
 const ROCHA_PICO = new THREE.Color('#6E6A63')
+
+// ⚠️ CONSERTO DA ORLA DA ALÇA (10/09/2026), MESMO PADRÃO DE `ROCHA_PICO` ACIMA:
+// vértice manda numa faixa fixa por posição, a textura continua sendo a de
+// 'regolito' (não existe textura de areia declarada em `materiais.ts`). O
+// `Regolith` tem 1.374.658 vértices e cobre a praia da alça (a malha dedicada
+// `lagos:praia` tem só 32.064, é minoria ali); `regolithColor` não conhece a
+// alça e colore pelo relevo NATURAL e pela distância à praça, dessincronizado
+// do platô raso que `alcaAlturaAt` (`alca.ts`) desenha por cima, e é isso que
+// lia como manchas escuras na cena viva, provado por eliminação (sombra
+// desligada e meshes de `lagos:` escondidos não mudaram nada; só some
+// escondendo este mesh). Cor no mesmo tom de `lagos.ts:AREIA_SECA`, repetida
+// aqui em vez de importada: a instrução foi não tocar em `lagos.ts`.
+const COR_AREIA_ORLA = new THREE.Color('#847A66')
+/** A largura da mistura, para FORA dos dois lados da faixa de praia
+ *  (`ALCA_PRAIA_LARGURA`, 80 m em `alca.ts`). 60 m é a `cellSizeM` medida
+ *  acima (59,225 m) arredondada para cima: é o mínimo que garante pelo menos
+ *  uma fileira inteira de vértice dentro da transição, qualquer que seja a
+ *  fase da grade contra o círculo, sem inventar um número maior que a
+ *  resolução da malha consegue mostrar. A faixa oficial (0 a 80 m da margem)
+ *  fica 100% areia, SEM mistura: o diagnóstico pediu "sem exceção" ali. */
+const ALCA_ORLA_MISTURA = 60
+const _suaveOrla = (k: number) => k * k * (3 - 2 * k)
+const _R_ORLA_DENTRO = ALCA_R_BAIA - ALCA_PRAIA_LARGURA - ALCA_ORLA_MISTURA
+const _R_ORLA_FORA = ALCA_R_MAR + ALCA_PRAIA_LARGURA + ALCA_ORLA_MISTURA
 
 /** metros de mundo por unidade de UV da malha do regolito. Ver `push`. */
 const UV_ESCALA = 1000
@@ -1300,6 +1325,14 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
     idx.needsUpdate = true
     geo.computeVertexNormals()
   }
+  // ⚠️ DEPOIS DA ÚLTIMA `computeVertexNormals`, NUNCA ANTES: ela escreve um
+  // Float32 novo por cima e desfaz a compressão em silêncio. O terreno é a maior
+  // peça da cidade (172 MiB residentes medidos em 10/09, 35% de tudo) e estes
+  // dois atributos eram 63 desses MiB em ponto flutuante de 32 bits sem precisar.
+  // A cor vai em 16 bits e não em 8 porque aqui ela é uma rampa lisa de regolito
+  // atravessando quilômetros: ver a nota de `corCurta` em `atributos.ts`.
+  normalCurta(geo)
+  corCurta(geo, 16)
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0 })
   if (look2) {
     // ⚠️ 90 m DE LADRILHO, E O NÚMERO É O TRABALHO TODO. O padrão da receita é
