@@ -1172,8 +1172,34 @@ export async function buildLeonidasCave(opts: {
       // assada no arquivo: a rodada 1 da fortaleza quebrou essa regra e foi
       // reprovada por isso). Quem acende é aqui, com os dois números da chapa.
       // A coroa fica MAIS FRACA que as órbitas, senão ela rouba o primeiro sinal.
-      if (mat.name === 'FortressCrystal') { mat.emissive = new THREE.Color(ORANGE); mat.emissiveIntensity = 1.35; brasas.push({ m: mat, base: 1.35 }) }
-      else if (mat.name === 'FortressCrown') { mat.emissive = new THREE.Color(ORANGE); mat.emissiveIntensity = 0.40; brasas.push({ m: mat, base: 0.40 }) }
+      // ⚠️ A TABELA DE BRILHO POR ZONA, DESDE 10/09/2026, E ELA SUBSTITUI UM
+      // MATERIAL SÓ A 1,35 PARA A PEÇA INTEIRA. Duas descobertas do consultor de
+      // show lighting mandaram aqui:
+      //
+      //  1. **O olho não era laranja na tela, era `#F6C34E`, amarelo-ouro.**
+      //     `0xf7931a` a 1,35, passado pelo ACES e pela exposição 1,12 desta
+      //     cena, satura o vermelho em 4,5x o ponto de branco, e o ACES desatura
+      //     o que estoura. Acima de **1,2 em linear qualquer vermelho vira
+      //     salmão**, e acima de 2,5 vira branco. Por isso o núcleo para em 1,20:
+      //     é o teto físico do vermelho nesta cadeia, não um gosto.
+      //  2. **Nada na sala pode passar de 0,05, exceto o olho.** É essa regra, e
+      //     não a intensidade do olho, que faz o olho ser a coisa mais brilhante
+      //     da caverna. Ela estava violada em dois lugares: a coroa a 0,40 e as
+      //     fraturas a 1,35, que é o mesmo valor da órbita.
+      //
+      // A rampa medida, do fundo do soquete ao núcleo, dá 63:1 e cinco diafragmas
+      // e meio, que é a banda que a fotografia chama de dramático. Antes era
+      // 1,256 contra preto absoluto, ou seja infinita: o nome técnico de recorte.
+      const zona: Record<string, [number, number]> = {
+        FortressEyeCore: [0xff1005, 1.20],   // o glóbulo quente, 13% da boca
+        FortressEye: [0xff2a12, 0.42],       // o bulbo, 41% da boca
+        FortressSocket: [0x8a0f0a, 0.42],    // o forro: a superfície de queda
+        FortressNose: [0xff2a12, 0.10],      // 8% do núcleo: presente, sem competir
+        FortressCrystal: [ORANGE, 0.06],     // as fraturas: âmbar, um sussurro
+        FortressCrown: [ORANGE, 0.14],       // a coroa perde o primeiro sinal
+      }
+      const z = zona[mat.name]
+      if (z) { mat.emissive = new THREE.Color(z[0]); mat.emissiveIntensity = z[1]; brasas.push({ m: mat, base: z[1] }) }
     })
     group.add(forte)
     fortaleza = forte
