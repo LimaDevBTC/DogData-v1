@@ -2,7 +2,10 @@
 // A ORLA NOBRE: o plantio da alça, projeto fechado pelo paisagista em
 // 10/09/2026. Duas fileiras únicas (uma espécie cada, passo regular, sem
 // mistura) ladeando a avenida da alça (`AVENIDA_ALCA` em teia.ts, r 6.700,
-// arco 346° a 116,5°), mais 30 nós de acesso à praia a cada ~500 m.
+// arco 346° a 116,5°), mais 30 nós de acesso à praia a cada ~500 m, e (desde
+// o mesmo dia, defeito 2 do relatório de arborização) uma terceira fileira
+// no CANTEIRO CENTRAL da própria avenida, passo mais largo, espécie própria:
+// ver `ORLA_R_CANTEIRO` mais abaixo pelo porquê.
 //
 // ⚠️ ESTE MÓDULO NÃO REPROJETA A ORLA, EXECUTA. O paisagista fechou espécie,
 // offset e passo; a única conta refeita aqui é ONDE o meio-fio realmente
@@ -99,6 +102,33 @@ export const ORLA_PASSO_B_NOMINAL = 22
 /** quantas vagas da Fileira A cada nó consome para abrir a clareira de 40 m
  *  ("pula duas vagas", literal do pedido) */
 const ORLA_CLAREIRA_VAGAS = 2
+
+// ⚠️ 10/09/2026, DEFEITO 2 DA ORLA NOBRE: "as árvores do meio da pista
+// completamente genéricos" (fundador). Até aqui o canteiro central da
+// avenida da alça era plantado por `arborizacao.ts` (laço do anel, ramo
+// `a.circulo`), com a mesma conífera de qualquer canteiro de bairro: 2.008
+// unidades genéricas medidas dentro do arco antes do conserto. Esse laço
+// agora recusa o arco inteiro (`naAlcaDeTerra`, ver `arborizacao.ts`) e o
+// canteiro passa a ser desta fileira, com palmeira de verdade.
+//
+// ⚠️ ESPÉCIE: `palm`, NÃO `palm-date`. As duas espécies do acervo cabem no
+// orçamento (`palm-date` 14 m/2.600 tri, `palm` 13 m/2.264 tri), mas
+// `palm-date` já É a Fileira B (mansões): repeti-la no canteiro faria o
+// terceiro traço ler como a MESMA fileira dobrada ao meio, não como um
+// ritmo à parte. `palm` não aparece em nenhuma das duas fileiras (só nos 30
+// nós, inclinada), fica mais barata (2.264 contra 2.600 tri) e, ereta e no
+// meio, lê como camada secundária, exatamente o pedido.
+//
+// ⚠️ PASSO 2× MAIOR, DE PROPÓSITO. 36 m é o dobro do passo da Fileira A (18)
+// e é maior que o da B (22): metade da densidade de qualquer lateral, para
+// não competir com as duas fileiras que já fecham a moldura da orla. A
+// contagem (não um número redondo) é o arco real dividido pelo passo
+// nominal, a MESMA técnica de `ORLA_N_FILEIRA_A/B` (ver `orlaPassoReal`).
+export const ORLA_R_CANTEIRO = AVENIDA_ALCA.r // 6.700, o eixo da via, não uma guia
+export const ORLA_PASSO_CANTEIRO_NOMINAL = 36
+export const ORLA_N_CANTEIRO = Math.round(
+  (ORLA_R_CANTEIRO * (ORLA_ARCO_LARGURA_GRAUS * Math.PI / 180)) / ORLA_PASSO_CANTEIRO_NOMINAL,
+)
 
 export const ORLA_N_NOS = 30
 
@@ -202,17 +232,35 @@ export function orlaFileiraB(): OrlaPonto[] {
   return pts
 }
 
+/** Canteiro: `palm` ereta, eixo da avenida (r 6.700), `ORLA_N_CANTEIRO`
+ *  unidades em passo regular, ritmo secundário (ver a nota de
+ *  `ORLA_PASSO_CANTEIRO_NOMINAL` acima). Sem clareira: os nós de acesso
+ *  vivem na areia, do outro lado da via, e não cruzam o canteiro. */
+export function orlaFileiraCanteiro(): OrlaPonto[] {
+  const pts: OrlaPonto[] = []
+  for (let k = 0; k < ORLA_N_CANTEIRO; k++) {
+    const u = (k + 0.5) / ORLA_N_CANTEIRO
+    const angDeg = ORLA_ARCO[0] + u * ORLA_ARCO_LARGURA_GRAUS
+    const [x, z] = pontoOrla(ORLA_R_CANTEIRO, angDeg)
+    pts.push({ x, z, a: normDeg(angDeg) * (Math.PI / 180) })
+  }
+  return pts
+}
+
 /** o passo real de cada fileira (arco verdadeiro na guia própria, dividido
- *  pela contagem dada), e o desvio contra o nominal (18 e 22 m). Exportado
- *  para o relatório e para o verificador conferirem o MESMO número. */
+ *  pela contagem dada), e o desvio contra o nominal (18, 22 e 36 m).
+ *  Exportado para o relatório e para o verificador conferirem o MESMO
+ *  número. */
 export function orlaPassoReal() {
   const arcoRad = ORLA_ARCO_LARGURA_GRAUS * (Math.PI / 180)
   const passoA = (ORLA_R_FILEIRA_A * arcoRad) / ORLA_N_FILEIRA_A
   const passoB = (ORLA_R_FILEIRA_B * arcoRad) / ORLA_N_FILEIRA_B
+  const passoC = (ORLA_R_CANTEIRO * arcoRad) / ORLA_N_CANTEIRO
   return {
-    passoA, passoB,
+    passoA, passoB, passoC,
     desvioA: Math.abs(passoA - ORLA_PASSO_A_NOMINAL),
     desvioB: Math.abs(passoB - ORLA_PASSO_B_NOMINAL),
+    desvioC: Math.abs(passoC - ORLA_PASSO_CANTEIRO_NOMINAL),
   }
 }
 
@@ -431,13 +479,21 @@ export async function buildOrla(o: OrlaOpts): Promise<Orla> {
     ...p,
     inclinacao: { eixoX: todasPalmasDosNos[i].eixoX, eixoZ: todasPalmasDosNos[i].eixoZ, angulo: todasPalmasDosNos[i].angulo },
   }))
+  // ⚠️ O CANTEIRO USA A MESMA ESPÉCIE `palm` DOS NÓS, NA MESMA ENTRADA DE
+  // `especies`, NÃO NUMA SEGUNDA. `loadSf` não tem cache (`props.ts` já
+  // documenta o motivo), então uma segunda entrada com o mesmo arquivo
+  // carregaria o mesmo GLB duas vezes de graça. Juntar os pontos é seguro
+  // porque `inclinacao` é opcional (`giroDe` já trata a ausência: só gira em
+  // pé, sem tombo): a palmeira do canteiro fica ereta, a do nó continua
+  // tombada rumo à água.
+  const canteiro = comY(orlaFileiraCanteiro())
   const noOleandro = comY(nos.map((n) => n.oleandro))
   const noGrama = comY(nos.flatMap((n) => n.grama))
 
   const especies: Especie[] = [
     { file: 'palm-tall', pts: filA, estado: new Uint8Array(filA.length), partes: [], near: [] },
     { file: 'palm-date', pts: filB, estado: new Uint8Array(filB.length), partes: [], near: [] },
-    { file: 'palm', pts: noPalmas, estado: new Uint8Array(noPalmas.length), partes: [], near: [] },
+    { file: 'palm', pts: [...noPalmas, ...canteiro], estado: new Uint8Array(noPalmas.length + canteiro.length), partes: [], near: [] },
     { file: 'oleander', pts: noOleandro, estado: new Uint8Array(noOleandro.length), partes: [], near: [] },
     { file: 'grama-alta', pts: noGrama, estado: new Uint8Array(noGrama.length), partes: [], near: [] },
   ]
@@ -452,8 +508,14 @@ export async function buildOrla(o: OrlaOpts): Promise<Orla> {
   // de novo depois disto). Se um dia a janela crescer e estourar a
   // capacidade, o sintoma é sub-render silencioso, não crash: por isso a
   // folga é generosa (quase 2× o pior caso medido). ─────────────────────────
+  // ⚠️ `palm` SUBIU DE 16 PARA 96 QUANDO O CANTEIRO ENTROU NA MESMA ESPÉCIE.
+  // Pior caso teórico na janela de 620 m (diâmetro 1.240 m): 1.240/36 ≈ 35
+  // do canteiro (passo novo) + até 3 dos 30 nós de acesso dentro da mesma
+  // janela (espaçamento de nó ≈ 502 m no arco) × 3 palmas cada = 9, total 44.
+  // 96 é quase o dobro, a mesma folga que as outras quatro linhas desta
+  // tabela já usam.
   const CAPACIDADE_PERTO: Record<Especie['file'], number> = {
-    'palm-tall': 90, 'palm-date': 75, 'palm': 16, 'oleander': 6, 'grama-alta': 48,
+    'palm-tall': 90, 'palm-date': 75, 'palm': 96, 'oleander': 6, 'grama-alta': 48,
   }
   await Promise.all(especies.map(async (e) => {
     e.partes = await carregarPartes(e.file)
@@ -478,7 +540,7 @@ export async function buildOrla(o: OrlaOpts): Promise<Orla> {
   // escala muda por espécie, igual ao octaedro de longe de `ilha-mata.ts`),
   // um para a touceira. Capacidade = todo o plantio daquele tipo, porque no
   // pior caso (câmera longe de tudo) TUDO cai no proxy. ────────────────────
-  const capPalmProxy = filA.length + filB.length + noPalmas.length + noOleandro.length
+  const capPalmProxy = filA.length + filB.length + noPalmas.length + canteiro.length + noOleandro.length
   const capTufoProxy = noGrama.length
   const geoPalmProxy = proxyPalmeira()
   const geoTufoProxy = proxyTufo()
@@ -581,11 +643,13 @@ export async function buildOrla(o: OrlaOpts): Promise<Orla> {
 
   rebalancear(new THREE.Vector3(1e9, 1e9, 1e9)) // primeira passada: tudo no proxy, câmera nasce longe da alça
 
-  const { passoA, passoB, desvioA, desvioB } = orlaPassoReal()
+  const { passoA, passoB, passoC, desvioA, desvioB, desvioC } = orlaPassoReal()
   console.log(
     `[orla] ${individuos.toLocaleString('pt-BR')} indivíduos (Fileira A ${filA.length} palm-tall, `
-    + `Fileira B ${filB.length} palm-date, ${ORLA_N_NOS} nós): passo A ${passoA.toFixed(3)} m `
-    + `(desvio ${desvioA.toFixed(3)} m de 18), passo B ${passoB.toFixed(3)} m (desvio ${desvioB.toFixed(3)} m de 22); `
+    + `Fileira B ${filB.length} palm-date, Canteiro ${canteiro.length} palm, ${ORLA_N_NOS} nós): `
+    + `passo A ${passoA.toFixed(3)} m (desvio ${desvioA.toFixed(3)} m de 18), `
+    + `passo B ${passoB.toFixed(3)} m (desvio ${desvioB.toFixed(3)} m de 22), `
+    + `passo Canteiro ${passoC.toFixed(3)} m (desvio ${desvioC.toFixed(3)} m de 36); `
     + `${chamadas} chamadas de desenho, ${Math.round(trianguloPiorCaso).toLocaleString('pt-BR')} triângulos de pior caso`,
   )
 

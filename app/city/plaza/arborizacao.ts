@@ -59,7 +59,7 @@
 // Three.js puro (regra da casa: nada de react-three-fiber).
 // ═══════════════════════════════════════════════════════════════════════════
 import * as THREE from 'three'
-import { AVENIDAS, anelRaio, aneisDaCidade, avenidasGeom, emAvenida, noArcoDoAnel } from './teia'
+import { AVENIDAS, anelRaio, aneisDaCidade, avenidasGeom, emAvenida, naAlcaDeTerra, noArcoDoAnel } from './teia'
 import { look2 } from './look'
 import type { DistanceCuller } from './perf'
 import {
@@ -298,6 +298,21 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
     return propria ? !propria(px, pz) : true
   }
   let rejVia = 0, salvas = 0
+  // ⚠️ CONSERTO (10/09/2026, DEFEITO 1 DA ORLA NOBRE): NENHUMA ÁRVORE DE
+  // BAIRRO ENTRA NO ARCO DA ALÇA (`naAlcaDeTerra`), o mesmo mecanismo que
+  // `vias.ts:noRadialDaTeia` já usa para o defeito irmão (buraco no ombro nos
+  // 168 radiais teóricos). Aqui a fonte é outra: as 4 avenidas radiais que
+  // caem dentro do arco (rumos 0, 30, 60 e 90, ver a nota de `AVENIDA_ALCA`
+  // em teia.ts) atravessam 350 m de alça (r 6.700 a 7.050) para chegar às
+  // rotatórias de acesso, e o laço de bulevar (item 2) plantava cone no
+  // canteiro e esfera na calçada ao longo delas, sem saber que ali a rua
+  // cruza a orla e não a acompanha. MEDIDO antes do conserto, reproduzindo a
+  // mesma matemática em `scripts/city/_tmp_medir_orla_arvores.ts`: 1.020 de
+  // 26.676 pontos de bulevar caem dentro do arco, exatamente nos 4 rumos
+  // (255 cada), e 2.008 de 22.659 pontos de anel, todos no anel único com
+  // `circulo = true` (a própria alça, AN7): a fileira do canteiro central
+  // dela, que é o defeito 2. `rejAlca` conta quanto cada máscara barrou.
+  let rejAlca = 0
 
   // ⚠️ RECUSAR NÃO PODE SER O FIM DA HISTÓRIA, E A PRIMEIRA VERSÃO DESTA MÁSCARA
   // ERA. Medido em 01/09, com a máscara recém-ligada: 14.633 mudas recusadas
@@ -333,12 +348,17 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
     // mudas perdidas, bem na boca da travessia, que é onde o olho vai.
     [15.2, 0], [-15.2, 0], [22.8, 0], [-22.8, 0],
   ]
-  /** o ponto vale? raio, peça, água e via alheia, na ordem mais barata */
+  /** o ponto vale? raio, peça, água, ALÇA e via alheia, na ordem mais barata.
+   *  ⚠️ `naAlcaDeTerra` entra aqui também para o EMPURRÃO não salvar uma muda
+   *  jogando-a para dentro do arco: sem isto uma muda rejeitada por via alheia
+   *  bem na margem do arco (`ALCA_R_DENTRO` ou uma das duas pontas) podia
+   *  "empurrar" para um ponto legal que ainda cai na orla. */
   const vale = (px: number, pz: number, propria?: (x: number, z: number) => boolean) => {
     const r = Math.hypot(px, pz)
     if (r < rMin || r > rMax) return false
     if (emPeca(px, pz)) return false
     if (molhado(px, pz)) return false
+    if (naAlcaDeTerra(px, pz)) return false
     return !emViaAlheia(px, pz, FOLGA_VIA, propria)
   }
   /** empurra a muda recusada para o ponto legal mais próximo, ao longo da fileira
@@ -373,6 +393,10 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
     if (r < rMin || r > rMax) return
     if (emPeca(x, z)) return
     if (molhado(x, z)) return
+    // ⚠️ ZERO ÁRVORE DE BAIRRO NO ARCO DA ALÇA, EM NENHUMA PASSADA (cova,
+    // canteiro de bulevar, contorno de quarteirão ou travessa passam todos
+    // por aqui): a orla nobre é plantada só por `orla.ts`.
+    if (naAlcaDeTerra(x, z)) { rejAlca++; return }
     if (evitaVia && (noBulevar(x, z) || noAnel(x, z))) return
     if (emViaAlheia(x, z, FOLGA_VIA, propria)) {
       rejVia++
@@ -529,6 +553,12 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
         const x = bx + perpX * t, z = bz + perpZ * t
         if (Math.hypot(x, z) < rMin || Math.hypot(x, z) > rMax) continue
         if (emPeca(x, z) || molhado(x, z)) continue
+        // ⚠️ AS 4 AVENIDAS QUE CAEM DENTRO DO ARCO (rumos 0, 30, 60, 90, ver
+        // `AVENIDA_ALCA` em teia.ts) atravessam 350 m de alça para chegar à
+        // rotatória de acesso: sem este corte a calçada de bulevar planta
+        // esfera genérica em fileira reta, perpendicular à avenida circular
+        // da orla, os 350 m inteiros. MEDIDO: 1.020 pontos (255 por rumo).
+        if (naAlcaDeTerra(x, z)) { rejAlca++; continue }
         if (mudas.length >= TETO) break
         if (emViaAlheia(x, z, FOLGA_VIA, naSecaoDoBulevar)) {
           rejVia++
@@ -588,6 +618,15 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
       const P1x = Math.sin(g1) * a.r, P1z = -Math.cos(g1) * a.r
       const x = a.circulo ? Math.sin(t) * a.r : P0x + (P1x - P0x) * u
       const z = a.circulo ? -Math.cos(t) * a.r : P0z + (P1z - P0z) * u
+      // ⚠️ DEFEITO 2 DA ORLA NOBRE: O CANTEIRO CENTRAL DA ALÇA (o único anel
+      // com `circulo = true`, AN7) NÃO PLANTA MAIS AQUI. Era cone genérico, a
+      // mesma espécie de qualquer canteiro de bairro, no meio de uma orla de
+      // altíssimo padrão. MEDIDO antes do conserto: 2.008 dos pontos deste
+      // laço caíam dentro do arco. `orla.ts` assume a fileira de palmeira do
+      // canteiro sobre o mesmo arco (`naAlcaDeTerra`); fora dele (as duas
+      // pontas de acesso, 330° a 346° e 116,5° a 120°) o anel continua
+      // plantando normalmente, porque ali é rotatória de verdade, não orla.
+      if (a.circulo && naAlcaDeTerra(x, z)) { rejAlca++; continue }
       if (Math.hypot(x, z) < rMin || Math.hypot(x, z) > rMax) continue
       if (emPeca(x, z) || molhado(x, z) || noBulevar(x, z)) continue
       // ⚠️ A FILEIRA DO ANEL SÓ TEM DIREITO AO CANTEIRO DO PRÓPRIO ANEL. Fora da
@@ -1011,7 +1050,8 @@ export async function buildArborizacao(o: ArborizacaoOpts): Promise<Arborizacao>
     `${doAnel.toLocaleString('pt-BR')} de anel, ${doContorno.toLocaleString('pt-BR')} de contorno, ` +
     `${doTravessa.toLocaleString('pt-BR')} de travessa; ` +
     `${rejVia.toLocaleString('pt-BR')} recusadas pela máscara de via ` +
-    `(${salvas.toLocaleString('pt-BR')} salvas pelo empurrão, ${(rejVia - salvas).toLocaleString('pt-BR')} perdidas)` +
+    `(${salvas.toLocaleString('pt-BR')} salvas pelo empurrão, ${(rejVia - salvas).toLocaleString('pt-BR')} perdidas); ` +
+    `${rejAlca.toLocaleString('pt-BR')} recusadas por caírem no arco da orla nobre (quem planta ali é orla.ts)` +
     `${naVia ? '' : ' (MÁSCARA AUSENTE: o campo `naVia` não chegou por opts)'}` +
     `; espécies ` + vivas.map((e) =>
       `${ESPECIES[e].nome} ${nPor[e].toLocaleString('pt-BR')} (${tri(geos[e])} tri, teto ${CAP[e]})`,

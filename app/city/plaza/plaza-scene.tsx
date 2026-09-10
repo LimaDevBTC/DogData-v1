@@ -832,8 +832,36 @@ function viewFor(name: string | null, aspect: number, chaoGuerra = CHAO_DO_ENQUA
     // 45% de céu preto. A 253 m com o alvo a 1,45 km são 9,3° e o horizonte sobe
     // para o terço de cima, que é onde a via, a praia e as duas águas cabem
     // juntas. O eixo vai do rumo 36° ao 48°, dentro do arco em que a alça é alça.
-    case 'alca':
-      return { pos: new THREE.Vector3(4000, 272, -5699), target: new THREE.Vector3(5165, 15, -4650) }
+    // ⚠️ AS DUAS DA ORLA SAEM DA GEOMETRIA DELA, e passaram a correr PERTO,
+    // decisão do fundador em 10/09 ("tour passando mais perto").
+    //
+    // ⚠️ E O MOTIVO É O NÍVEL DE DETALHE, não gosto. A orla foi plantada com 848
+    // palmeiras numa fileira e 694 na outra, e fora de uma janela de 500 m cada
+    // uma vira um proxy de 12 triângulos. O enquadramento antigo ficava a
+    // **1.570 m** do alvo, ou seja mostrava a orla inteira em proxy: na chapa as
+    // palmeiras liam como bolhas verdes. Correndo perto e ao longo da curva, o
+    // primeiro plano vem em malha cheia e o proxy fica pequeno no fundo, que é
+    // como nível de detalhe deve aparecer.
+    //
+    // ⚠️ A CÂMERA OLHA AO LONGO DO ARCO, não para fora dele: com alvo alguns
+    // graus adiante no mesmo raio, a avenida corre para o fundo do quadro e as
+    // duas fileiras enquadram a estrada. Mirando para fora, a orla vira uma
+    // faixa atravessada e some em duas palmeiras.
+    case 'alca': case 'alcarasante': {
+      const pAlca = (rumoDeg: number, r: number, y: number) => {
+        const a = THREE.MathUtils.degToRad(rumoDeg)
+        return new THREE.Vector3(Math.sin(a) * r, y, -Math.cos(a) * r)
+      }
+      // r 6.673 e 6.727 são as guias das duas fileiras (ver `orla.ts`); a via
+      // fica entre elas, com o eixo em 6.700.
+      if (name === 'alcarasante') {
+        // nível de quem dirige: 8 m de altura, sobre o eixo da avenida
+        return { pos: pAlca(58.0, 6700, 8), target: pAlca(61.0, 6700, 5) }
+      }
+      // aberta, mas dentro da janela de malha cheia: 55 m de altura, do lado
+      // das mansões, olhando a fileira da praia e a água ao fundo
+      return { pos: pAlca(57.5, 6762, 55), target: pAlca(62.0, 6686, 12) }
+    }
 
     // ── A BANDA DE ÓRBITA DA MEMPOOL (08/09) ─────────────────────────────────
     //
@@ -3670,6 +3698,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               }),
             )
             farol.position.set(fx, terrain.heightAt(fx, fz) + 280, fz)
+            // nome pra medir: `window.__plazaDump()` mostrava "Mesh" sem pista
+            // nenhuma de qual peça era.
+            farol.name = 'campo-de-batalha:farol'
             scene.add(farol)
 
             // ⚠️ O SÍMBOLO DA BATALHA (fundador, 25/08): espadas cruzadas em
@@ -3691,6 +3722,9 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
             }
             emblema.position.set(fx, terrain.heightAt(fx, fz) + 640, fz)
             emblema.traverse((o) => { (o as any).raycast = () => {} })
+            // mesma razão do farol: sem nome, "Group" de 48 triângulos some no
+            // meio de qualquer outro grupo vazio da lista.
+            emblema.name = 'campo-de-batalha:emblema'
             scene.add(emblema)
             emblemaGuerra = emblema
           }
@@ -4188,12 +4222,17 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // e o cabeçalho de DECK_Y em garden-plan.ts concordam nesse número).
         // Com a praça em PRACA_Y, a base da Needle tem de descer junto.
         needleLod.position.set(0, PRACA_Y + 39.9, 0)
+        // nome pra medir: as três eram só "LOD" em `window.__plazaDump()`
+        // (198 mil e 140 mil triângulos, indistinguíveis uma da outra).
+        needleLod.name = 'NeedleTower'
         const bitflowLod = lodOf(bitflow, bitflowLod1)
         bitflowLod.position.copy(ANCHORS.west.pos)
         bitflowLod.rotation.y = ANCHORS.west.rotY
+        bitflowLod.name = 'BitFlowTower'
         const krayLod = lodOf(kray, krayLod1)
         krayLod.position.copy(ANCHORS.east.pos)
         krayLod.rotation.y = ANCHORS.east.rotY
+        krayLod.name = 'KrayTower'
 
         // ══ A PROPORÇÃO DA PRAÇA, REFEITA EM 08/09 ═══════════════════════════
         //

@@ -116,7 +116,13 @@ export const TOUR_LIVE: readonly ParadaLive[] = [
   // ── 3. a água: o lago, as ilhas e a alça ──────────────────────────────────
   { key: 'lago',            voo: 28.0, parada: 24 },
   { key: 'ilhasrasante',    voo: 22.0, parada: 24, soDesktop: true },
-  { key: 'alca',            voo: 30.0, parada: 28 },
+  // ⚠️ DUAS PARADAS NA ORLA DESDE 10/09, e elas correm PERTO. O enquadramento
+  // antigo ficava a 1.570 m, distância em que as 1.542 palmeiras da orla
+  // aparecem como proxy de 12 triângulos: a chapa mostrava bolhas verdes onde
+  // há alameda. A aberta agora corre a 55 m de altura ao longo do arco, e a
+  // rasante desce para 8 m, que é a altura de quem dirige na avenida.
+  { key: 'alca',            voo: 30.0, parada: 26 },
+  { key: 'alcarasante',     voo: 14.0, parada: 26 },
 
   // ── 4. a cordilheira, dentro da cúpula ────────────────────────────────────
   // ⚠️ THE SPHERE SAIU DESTE ATO EM 08/09, e a razão é geográfica e não de

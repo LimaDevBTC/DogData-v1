@@ -206,6 +206,13 @@ export function createBattlefield(
   // então os sistemas novos usam esse limiar pra decidir a própria redução
   const low = orc.cap <= 1200
   const group = new THREE.Group()
+  // ⚠️ NOME PRA MEDIR (10/09/2026): sem isto o grupo aparecia em
+  // `window.__plazaDump()` como "Group" genérico, empatado com qualquer outro
+  // grupo sem nome da cena — dava pra ver o custo (até 1,9 milhão de
+  // triângulos e 5 luzes na praça, quando a batalha está cheia) mas não dava
+  // pra saber QUAL peça cortar. `campo-de-batalha` no padrão das outras
+  // (`vias`, `arborizacao`, `orla-nobre`): minúsculo, com hífen, em português.
+  group.name = 'campo-de-batalha'
   // ═══════════════════════════════════════════════════════════════════════
   // ⚠️⚠️ MUNDO NÃO É LOCAL, E ESTE MOTOR RODA EM DOIS ANFITRIÕES.
   //

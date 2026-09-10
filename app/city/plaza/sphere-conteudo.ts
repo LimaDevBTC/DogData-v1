@@ -654,46 +654,62 @@ function pintarCorpoKray(g: CanvasRenderingContext2D, w: number, h: number) {
  * Uma marca de largura fixa em METROS ocupa mais LONGITUDE quanto mais perto do
  * polo (`larg / (R·cos φ)`), então repetir 19 vezes em toda faixa faria as de
  * cima se comerem e as de baixo abrirem vão. Cada faixa recebe
- * `360 / (longitude da cópia × 1,55)`, com 1,55 de respiro, que é o que mantém o
- * espaçamento igual visto de fora. Medido, de 0,90 a −0,34 em 6 faixas de 41,4 m:
- * 11, 15, 18, 19, 19 e 19 cópias, ou seja **101 marcas na casca**.
+ * `360 / (longitude da cópia × respiro)`, que é o que mantém o espaçamento igual
+ * visto de fora. Medido na Kray, de 0,90 a −0,34 em 6 células de 41,4 m com marca
+ * de 27,3 m e 14,1 m de folga entre fileiras: 13, 17, 20, 21, 21 e 21 cópias, ou
+ * seja **113 marcas na casca**.
  *
  * ⚠️ E A REGRA DE SIMETRIA DA CASA CONTINUA VALENDO por faixa, não entre faixas:
  * dentro de cada latitude as cópias são igualmente espaçadas
  * (`(i + 0,5)/n` em `peleMarca`), que é o que o fundador pede em elemento
  * repetido. Entre faixas o número muda porque a esfera manda.
+ *
+ * ⚠️ O PADRÃO É BOLINHA ALTERNADA, E A FOLGA VERTICAL PRECISOU SER INVENTADA.
+ * Pedido do fundador em 10/09, depois da primeira chapa da Kray miúda: *"não
+ * tinha respiro, as logos se emendavam umas às outras. O que queremos é mais um
+ * estilo polcadot, sim/não intercalados vertical e horizontalmente"*.
+ *
+ * A causa era estrutural, não de gosto. `respiro` só afastava na HORIZONTAL; na
+ * vertical as faixas eram contíguas por construção (o `s1` de uma era o `s0` da
+ * seguinte) e a marca preenchia a faixa inteira, então as fileiras se tocavam
+ * sempre, em qualquer valor de `respiro`. `ocupa` é a folga que faltava: a marca
+ * passa a valer essa fração da altura da CÉLULA, centrada, e o resto é casca.
+ *
+ * ⚠️ E A FASE VOLTOU A SER MEIO PASSO, o oposto do que estava aqui. A razão
+ * áurea `(i · 0,618) mod 1` foi escrita para nenhuma fileira repetir a fase de
+ * nenhuma outra, e é boa contra COLUNA, mas o resultado é ruído: cada fileira
+ * cai num lugar arbitrário e o olho não acha lei nenhuma. Bolinha é o contrário
+ * disso, é lei visível: `(i % 2) · 0,5` põe a marca da fileira ímpar exatamente
+ * no VÃO da fileira par, que é o sim/não nos dois eixos que foi pedido. Que as
+ * fileiras 0 e 2 voltem a alinhar entre si não é defeito aqui, é o xadrez.
  */
 function gradeMiuda(
   g: CanvasRenderingContext2D, w: number, h: number,
   o: {
     fundo: string; tinta: string; aspecto: number
     s0: number; s1: number; faixas: number; respiro: number
+    /** fração da ALTURA da célula que a marca ocupa; o resto é folga vertical */
+    ocupa: number
     desenhar: (og: CanvasRenderingContext2D, larg: number, alt: number, cor: string) => void
   },
 ) {
+  const passo = (o.s0 - o.s1) / o.faixas
+  const folga = (passo * (1 - o.ocupa)) / 2
   for (let i = 0; i < o.faixas; i++) {
-    const s0 = o.s0 - ((o.s0 - o.s1) * i) / o.faixas
-    const s1 = o.s0 - ((o.s0 - o.s1) * (i + 1)) / o.faixas
+    const s0 = o.s0 - passo * i - folga
+    const s1 = o.s0 - passo * (i + 1) + folga
     const sm = (s0 + s1) / 2
     const alt = SPHERE_R_M * (s0 - s1)
     const lon = ((alt * o.aspecto) / (SPHERE_R_M * Math.max(Math.cos(Math.asin(sm)), 0.08)))
       * (180 / Math.PI)
     const n = Math.max(3, Math.floor(360 / (lon * o.respiro)))
-    // ⚠️ AS FILEIRAS SÃO EMBARALHADAS, E NÃO É ENFEITE. Pedido do fundador em
-    // 10/09: *"lembre de embaralhar as fileiras, não colocar uma logo exatamente
-    // abaixo da outra"*. Sem isto, faixas vizinhas com o mesmo `n` (na Kray são
-    // 19, 19 e 19 nas três de baixo) nascem na MESMA longitude e a grade lê como
-    // colunas, que é o padrão que o olho pega primeiro e o que faz a casca
-    // parecer papel de parede barato.
-    //
-    // ⚠️ E A FASE É A RAZÃO ÁUREA, NÃO MEIO PASSO ALTERNADO. Com 0, ½, 0, ½ as
-    // faixas 1 e 3 voltam a alinhar entre si, que é o mesmo defeito uma linha
-    // adiante. `(i · 0,618) mod 1` dá 0, 0,618, 0,236, 0,854, 0,472 e 0,090 nas
-    // seis: nenhuma repete e nenhuma fica perto da outra.
+    // ⚠️ MEIO PASSO ALTERNADO, QUE É O XADREZ DA BOLINHA. A marca da fileira
+    // ímpar cai no VÃO da fileira par: é isso, e não o ruído da razão áurea, que
+    // o fundador chamou de polcadot. Ver a nota do cabeçalho.
     //
     // ⚠️ O ESPAÇAMENTO DENTRO DA FAIXA CONTINUA IGUAL, que é a regra de simetria
     // da casa para elemento repetido. O que se desloca é a fileira inteira.
-    const fase = (i * 0.6180339887) % 1
+    const fase = (i % 2) * 0.5
     peleMarca(g, w, h, {
       // ⚠️ SÓ A PRIMEIRA FAIXA PINTA O FUNDO. As outras passam `null`, que é o
       // contrato de empilhamento do `peleMarca`: pintar de novo apagaria as
@@ -709,36 +725,37 @@ function pintarCorpoKrayMiudo(g: CanvasRenderingContext2D, w: number, h: number)
   const im = arte('/city/kray-marca.png')
   gradeMiuda(g, w, h, {
     fundo: '#07080A', tinta: COR_ANUNCIO, aspecto: 1,
-    s0: 0.90, s1: -0.34, faixas: 6, respiro: 1.55,
+    s0: 0.90, s1: -0.34, faixas: 6, respiro: 2.10, ocupa: 0.66,
     desenhar: (og, larg, altura) => desenharArte(og, im, larg, altura),
   })
 }
 
-/** O ₿ miúdo: 136 marcas brancas sobre o laranja da moeda. Mesma grade da Kray,
- *  e o aspecto do glifo oficial (474/629) faz caber mais por faixa. */
+/** O ₿ miúdo: 151 marcas brancas sobre o laranja da moeda. Mesma célula da Kray,
+ *  e o aspecto do glifo oficial (474/629) faz caber mais por faixa: 20,6 m de
+ *  largura contra 27,3 m, então a bolinha fica mais miúda e mais densa. */
 function pintarCorpoBitcoinMiudo(g: CanvasRenderingContext2D, w: number, h: number) {
   const im = arte('/city/btc-marca.png')
   gradeMiuda(g, w, h, {
     fundo: COR_BITCOIN, tinta: '#FFFFFF', aspecto: 474 / 629,
-    s0: 0.90, s1: -0.34, faixas: 6, respiro: 1.55,
+    s0: 0.90, s1: -0.34, faixas: 6, respiro: 2.10, ocupa: 0.66,
     desenhar: (og, larg, altura, cor) => desenharArte(og, im, larg, altura, cor),
   })
 }
 
 /**
- * O `$DOG` miúdo: 47 marcas na casca.
+ * O `$DOG` miúdo: 60 marcas na casca.
  *
  * ⚠️ ELE PRECISA DE MAIS FAIXAS E MENOS RESPIRO, e a razão é o aspecto. `$DOG`
  * são 4 casas de glifo, aspecto **4,57**, contra 1,00 da Kray: com a mesma
  * altura de faixa cada cópia ficaria 4,6x mais larga e caberiam 3 por faixa, o
- * que não é grade, é anel. Oito faixas de 29,6 m com respiro 1,30 devolvem
- * 4 a 7 cópias por latitude e 47 no total, que é a mesma leitura de "muitas" com
+ * que não é grade, é anel. Oito células de 29,6 m com respiro 1,45 devolvem
+ * 5 a 9 cópias por latitude e 60 no total, que é a mesma leitura de "muitas" com
  * a marca continuando legível de perto.
  */
 function pintarCorpoDogMiudo(g: CanvasRenderingContext2D, w: number, h: number) {
   gradeMiuda(g, w, h, {
     fundo: COR_DADO, tinta: '#140B04', aspecto: (4 * 8) / 7,
-    s0: 0.88, s1: -0.30, faixas: 8, respiro: 1.30,
+    s0: 0.88, s1: -0.30, faixas: 8, respiro: 1.45, ocupa: 0.70,
     desenhar: (og, larg, alt, cor) => escreverGlifos(og, '$DOG', larg, alt, cor ?? '#140B04'),
   })
 }
@@ -1271,7 +1288,7 @@ function slotAnuncio(): Slot {
       // `MS_ANUNCIO`; a grade miúda entra DENTRO desse tempo, com 24 dos 72 s,
       // e não como um quarto de minuto a mais de graça.
       quadro('KRAY SPACE', '', MS_ANUNCIO - MS_GRADE_MIUDA, base, 10),
-      // ⚠️ O NOME SAI NA GRADE, e é escolha de leitura. Com 101 marcas na casca,
+      // ⚠️ O NOME SAI NA GRADE, e é escolha de leitura. Com 113 marcas na casca,
       // um friso de texto por cima disputa com elas e as duas coisas pioram: a
       // grade é a marca falando sozinha, de perto, que foi o pedido. O nome
       // volta no quadro seguinte, que ocupa dois terços do intervalo.
@@ -1776,7 +1793,15 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
 
   // ── o anel ───────────────────────────────────────────────────────────────
   const montar = (nome: string, t: number): Slot | null => {
-    if (nome === 'anuncio') return podeAnunciar(t) ? slotAnuncio() : null
+    // ⚠️ A TRAVA PASSA POR CIMA DO TETO, E SÓ ELA. Descoberto em 10/09: com
+    // `?pele=anuncio` nenhum módulo de dado chega a entrar, logo `ultimoDadoValido`
+    // fica em -Infinity para sempre e `podeAnunciar` recusa o slot em toda volta.
+    // O portão devolvia a carta OCIOSA e a chapa saía com `DOGCITY SPHERE` na
+    // tela: a única carta que o portão existe para conferir, a vendida, era a
+    // única que ele não conseguia fotografar. Isto não afrouxa o teto de
+    // propaganda, porque `TRAVA` é nulo em produção (ver a trava de conferência
+    // acima): o livro-caixa continua intacto para quem abre a cidade.
+    if (nome === 'anuncio') return TRAVA === 'anuncio' || podeAnunciar(t) ? slotAnuncio() : null
     // ⚠️ AS MARCAS NÃO DEPENDEM DE FONTE VIVA, e por isso não podem devolver
     // `null`: elas são identidade, não dado. É o único módulo do anel que nunca
     // some, e é justamente o que garante que a peça tenha o que mostrar mesmo com

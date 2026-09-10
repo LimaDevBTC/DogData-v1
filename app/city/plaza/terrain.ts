@@ -863,13 +863,45 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
     // intermediário que não existe no desenho analítico de `alcaAlturaAt`.
     // MEDIDO antes deste conserto, ao longo do eixo da avenida: p90 de 28,2 cm
     // e máximo de 100,1 cm de diferença contra `heightAt`, num terreno que é
-    // plano de verdade. Quatro faixas, mesma folga de ±50 m que as duas acima,
-    // e todas presas ao arco: fora dele `alcaAlturaAt` devolve o natural sem
-    // quina nenhuma (ver a guarda `noArcoDoAnel` logo no início da função), e
-    // refinar ali seria pagar malha por uma quina que não existe.
-    { r0: ALCA_R_BAIA - 50, r1: ALCA_R_BAIA + 50, arco: ALCA_TERRA },
+    // plano de verdade.
+    //
+    // ⚠️ CONSERTO 2 (10/09/2026): SÓ A QUINA DE 6.660 PRECISA DOS ±50 M. As
+    // outras três ficam a 120 m (6.580), 536 m (7.236) e 616 m (7.316) do eixo
+    // da avenida, todas mais longe que a folga antiga inteira, então nenhuma
+    // delas contribui para o p90/máximo medidos no eixo. Também CONFERIDO que
+    // nenhuma via lê essas três de perto: os únicos outros eixos que entram no
+    // arco `ALCA_TERRA` são os 4 bulevares radiais (rumos 0/30/60/90, ver
+    // `AVENIDAS` em teia.ts), a caminho do anel de serviço, e eles morrem em
+    // `AV_R_FIM` = 7.050 (também em teia.ts): cruzam a quina de 6.580 quase
+    // PERPENDICULAR (a faixa que tocam no raio é a largura da pista, até 44 m,
+    // projetada num arco de fração de grau) e nem chegam perto de 7.236 ou
+    // 7.316.
+    //
+    // ⚠️ E AINDA ASSIM SÓ DUAS DAS TRÊS ENCOLHERAM. Tentativa inicial: ±25 m
+    // nas três. MEDIDO ponto a ponto contra `heightAt` nas quinas inteiras
+    // (passo de 0,05°, a resolução da malha): 6.580 e 7.236 ficam bem, p90
+    // 7,68 cm e 12,50 cm, máximo 32,98 cm e 32,84 cm, na mesma faixa do que já
+    // era antes de qualquer conserto (a ponta do arco sempre teve erro nessa
+    // ordem, questão da franja, não desta folga). Mas 7.316 rachou: em duas
+    // faixas de rumo (perto de 0° e de 88 a 92°) o erro pulou para 105 a
+    // 113 cm, porque bem ALI o alinhamento da grade de 59,225 m faz uma célula
+    // inteira ficar com os quatro cantos fora da janela de ±25 m ao mesmo
+    // tempo (a quina passa pelo MEIO da célula, os quatro cantos caem a mais
+    // de 25 m dela para os dois lados), e sem nenhum canto refinado a célula
+    // vira grossa bem em cima do salto de `ALCA_AGUA` (−40) para
+    // `ALCA_LEITO_Y` (−44) que `_R2_GATE_FORA` teria escondido. Com ±50 m
+    // de volta em 7.316 (a mesma folga de antes, largura 100 m, maior que o
+    // pior espalhamento de cantos medido ali) o problema some: p90 volta a
+    // 10,12 cm e o máximo aos mesmos ~32 cm das outras duas. 6.580 e 7.236 não
+    // têm essa célula ruim no mesmo lugar (a grade não se repete igual em
+    // todo raio) e continuam seguros em ±25 m.
+    //
+    // MEDIDO NO TOTAL: terreno de 2.584.062 para 2.473.902 triângulos,
+    // 110.160 a menos (só as duas quinas que ficaram em ±25 m, 6.580 e
+    // 7.236; 6.660 e 7.316 continuam em ±50 m).
+    { r0: ALCA_R_BAIA - 25, r1: ALCA_R_BAIA + 25, arco: ALCA_TERRA },
     { r0: ALCA_R_BAIA + ALCA_PRAIA_LARGURA - 50, r1: ALCA_R_BAIA + ALCA_PRAIA_LARGURA + 50, arco: ALCA_TERRA },
-    { r0: ALCA_R_MAR - ALCA_PRAIA_LARGURA - 50, r1: ALCA_R_MAR - ALCA_PRAIA_LARGURA + 50, arco: ALCA_TERRA },
+    { r0: ALCA_R_MAR - ALCA_PRAIA_LARGURA - 25, r1: ALCA_R_MAR - ALCA_PRAIA_LARGURA + 25, arco: ALCA_TERRA },
     { r0: ALCA_R_MAR - 50, r1: ALCA_R_MAR + 50, arco: ALCA_TERRA },
   ]
   if (refino?.faixaSeca !== false) {
@@ -1299,6 +1331,10 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
   mesh.frustumCulled = false
 
   const group = new THREE.Group()
+  // nome pra medir (10/09/2026): sem isto o terreno (2,47 milhões de
+  // triângulos nesta rodada) aparecia em `window.__plazaDump()` como "Group"
+  // genérico, indistinguível de qualquer outro grupo sem nome da cena.
+  group.name = 'terreno'
   group.add(mesh)
   return { group, heightAt, horizonAt: heightAt, superficieAt, baseAt, fozCanal, meanHeight: mean, halfExtent,
            lago: { r0: LAGO_R0, r1: LAGO_R1, agua: LAGO_AGUA_Y, fundo: -LAGO_FUNDO },

@@ -547,7 +547,16 @@ mkdirSync(saida, { recursive: true })
 // sairam fotografando a batalha, e a conclusao errada foi "a peca sumiu".
 const url = `http://localhost:3000/city?stats=1&quality=high&view=deck&live=0&look=${look}${extra}`
 
-const nav = await chromium.launch()
+// ⚠️ CHROME COM GPU, NÃO O headless-shell PADRÃO. `chromium.launch()` sem canal
+// sobe o headless-shell, e nesta máquina ele força SwiftShader: a cidade tem
+// ~6M de triângulos e o portão passou a estourar o prazo, saindo com a CORTINA
+// de carga na foto em vez da cena. Medido em 10/09: sete chapas seguidas em
+// branco, inclusive com a máquina em load 9, enquanto o mesmo boot instrumentado
+// com `channel: 'chrome'` abriu em **105 s e sem um erro de console**.
+// `conferir-atletismo.mjs` já usava esta linha desde que nasceu, com a
+// justificativa escrita (docs/gpu/using-gpu-hardware-in-headless-chrome.md);
+// este portão é que tinha ficado para trás.
+const nav = await chromium.launch({ channel: 'chrome', args: ['--enable-gpu'] })
 const pag = await (await nav.newContext({ viewport: { width: largura, height: altura }, deviceScaleFactor: escala })).newPage()
 const erros = [], logs = []
 pag.on('console', (m) => {
