@@ -918,7 +918,7 @@ export async function buildLeonidasCave(opts: {
   let garden: ReturnType<typeof buildCaveGarden> = null
   let gardenBase: number[] = []
   let lights: { l: THREE.PointLight; base: number; fase: number; ritmo: number }[] = []
-  let ambiente: THREE.AmbientLight | null = null
+  let ambiente: THREE.HemisphereLight | null = null
   /** o emissivo do INTERIOR, cada um com a força com que nasceu (o cristal do
    *  geodo é um sussurro de 0,016 e a órbita da fortaleza é 1,35: uma respiração
    *  única para os dois apagaria um e estouraria o outro) */
@@ -1093,7 +1093,17 @@ export async function buildLeonidasCave(opts: {
       lights.push({ l, base, fase, ritmo })
     }
     // (as posições vêm em quadro do escultor, z para cima; aqui three.z = −blender.y)
-    acende(-176, 16, 0, 700, 320, 1.7, 0)      // rosto: o derrame do templo
+    // ⚠️ ALCANCE 150 E NÃO 320, DESDE 10/09/2026, E O MOTIVO SAI DA CAVERNA.
+    // `layers` NÃO filtra iluminação no three: em `projectObject` a camada decide
+    // se a luz é COLETADA, não quais objetos ela ilumina. Como a câmera da praça
+    // mantém a CAVE_LAYER habilitada, estas cinco pontuais iluminam a LUA INTEIRA
+    // enquanto o geodo existir, e rocha não oclui PointLight. Com 700 de
+    // intensidade e 320 m de alcance, esta aqui alcançava encosta a 70 m dela com
+    // 0,51 de irradiância âmbar, ou seja cerca de 51 de 255 num terreno de albedo
+    // 0,2: um halo laranja saindo da montanha, visto de fora, durante as paradas
+    // `park` do tour. Em 150 m ela entrega no rosto (a 14 m) o mesmo que entregava,
+    // porque a janela de corte do three só morde perto do limite, e para de vazar.
+    acende(-176, 16, 0, 700, 150, 1.7, 0)      // rosto: o derrame do templo
     acende(-292, 26, 0, 140, 180, 2.6, 1)      // abside: o contraluz atrás do crânio
     acende(-256, 76, 0, 70, 260, 2.2, 2)       // abóbada: acende o teto e o veio
     acende(-18, 6, -16.5, 60, 120, 2.6, 3)     // garganta: o cotovelo do corredor
@@ -1107,7 +1117,17 @@ export async function buildLeonidasCave(opts: {
     // EEVEE; o AmbientLight do three recebe IRRADIÂNCIA, que é π vezes isso, daí
     // 0,019. Fica SÓ na CAVE_LAYER: na camada 0 ele seria um véu âmbar sobre a
     // Lua inteira, porque luz ambiente não tem posição para limitar alcance.
-    ambiente = new THREE.AmbientLight(EMBER, 0.019)
+    // ⚠️ E ELE NUNCA FEZ O TRABALHO QUE ESTE COMENTÁRIO DIZ QUE FAZ. Medido em
+    // 10/09: 0,019 de irradiância sobre albedo 0,03 devolve radiância 0,00018, ou
+    // seja **menos de 1 de 255**. Ambiente também é um valor só, e num salão de
+    // 92 m de pé-direito é justamente a separação vertical que faz o volume
+    // existir. Vira HEMISFÉRICA: céu no creme do veio (o que está em cima), chão
+    // no âmbar (o que está embaixo). A face virada para cima recebe creme, a
+    // barriga da estalactite recebe âmbar. 0,45 devolve 0,0043, ou seja 19 de 255:
+    // um piso escuro que EXISTE. Custo: a família de programa que já existe muda
+    // de chave, sem família nova, sem laço de distância e sem sombra. É a luz mais
+    // barata do three e a única que resolve 92 m de altura.
+    ambiente = new THREE.HemisphereLight(0xD9D6CE, 0xFF7A22, 0.45)
     ambiente.layers.set(CAVE_LAYER)
     group.add(ambiente)
 
@@ -1279,10 +1299,24 @@ export async function buildLeonidasCave(opts: {
       // brasa: a luz respira, o material não (o material é o que lê de longe)
       for (const { l, base, fase, ritmo } of lights) l.intensity = base * (0.9 + 0.1 * Math.sin(t * ritmo + fase))
       for (const m of emissives) (m as THREE.MeshStandardMaterial).emissiveIntensity = 1.35 * (0.94 + 0.06 * Math.sin(t * 2.2))
+      // (o laço acima é o cristal do geodo; a fortaleza respira logo abaixo, com
+      // outra lei, porque ela é a coisa que dorme e o geodo é a sala)
       // o interior respira em torno da força com que NASCEU: o cristal do geodo é
       // um sussurro de 0,016 e a órbita da fortaleza é 1,35, e um valor único
       // apagaria uma e estouraria a outra.
-      for (let i = 0; i < brasas.length; i++) brasas[i].m.emissiveIntensity = brasas[i].base * (0.94 + 0.06 * Math.sin(t * 2.2 + i * 0.7))
+      // ⚠️ DUAS FREQUÊNCIAS INCOMENSURÁVEIS E FASE POR PEÇA, DESDE 10/09/2026. A
+      // lei antiga era `0,94 + 0,06 sin(t · 2,2)`: 6% de amplitude a 0,35 Hz, ciclo
+      // de 2,9 s, tudo na mesma fase. Isso não lê como brasa, lê como dimmer
+      // global, e no rosto lia como **lâmpada com mau contato**. A nova tem ciclo
+      // principal de 10,1 s (0,25 Hz), 10% de amplitude, e um segundo termo a
+      // 0,68 Hz que nunca fecha com o primeiro: a soma não se repete, que é o que
+      // separa respiração de piscada. A fase por índice mantém as duas órbitas
+      // fora de sincronia, senão elas leem como duas lâmpadas do mesmo circuito.
+      for (let i = 0; i < brasas.length; i++) {
+        const f = i * 2.1
+        brasas[i].m.emissiveIntensity = brasas[i].base
+          * (0.90 + 0.07 * Math.sin(t * 0.62 + f) + 0.03 * Math.sin(t * 4.3 + f * 2.7))
+      }
       // o jardim respira em outro compasso, mais lento que a brasa: fungo não
       // pisca como fogo. Cada família com sua fase, senão o pátio inteiro pulsa
       // junto e vira um pisca-pisca.
