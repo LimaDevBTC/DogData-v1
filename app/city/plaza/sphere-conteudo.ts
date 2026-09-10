@@ -724,8 +724,18 @@ function gradeMiuda(
 function pintarCorpoKrayMiudo(g: CanvasRenderingContext2D, w: number, h: number) {
   const im = arte('/city/kray-marca.png')
   gradeMiuda(g, w, h, {
+    // ⚠️ ATÉ −0,40 E NÃO −0,34: a casca é cortada em seno −0,435, então parar em
+    // −0,34 deixava 33 linhas de casca sem marca no pé da esfera. Agora a grade
+    // vai até 3,5 linhas do corte, ou seja **até embaixo**, que foi o pedido.
+    // ⚠️ E O RESPIRO SUBIU: 2,35 na horizontal (era 2,10) e `ocupa` 0,58 na
+    // vertical (era 0,66). São os dois eixos do mesmo pedido, e eles são
+    // independentes por construção: `respiro` afasta dentro da fileira, `ocupa`
+    // encolhe a marca dentro da célula e devolve o resto como folga entre
+    // fileiras. Com 7 faixas em vez de 6 a célula fica mais baixa e a bolinha
+    // mais miúda, que é o que mantém o padrão legível ao descer para o equador,
+    // onde cabe mais cópia por volta.
     fundo: '#07080A', tinta: COR_ANUNCIO, aspecto: 1,
-    s0: 0.90, s1: -0.34, faixas: 6, respiro: 2.10, ocupa: 0.66,
+    s0: 0.90, s1: -0.40, faixas: 7, respiro: 2.35, ocupa: 0.58,
     desenhar: (og, larg, altura) => desenharArte(og, im, larg, altura),
   })
 }
@@ -736,8 +746,10 @@ function pintarCorpoKrayMiudo(g: CanvasRenderingContext2D, w: number, h: number)
 function pintarCorpoBitcoinMiudo(g: CanvasRenderingContext2D, w: number, h: number) {
   const im = arte('/city/btc-marca.png')
   gradeMiuda(g, w, h, {
+    // os mesmos números da Kray miúda, e pela mesma razão: a casca é cortada em
+    // −0,435, e o respiro nos dois eixos foi pedido em 10/09. Ver a nota lá.
     fundo: COR_BITCOIN, tinta: '#FFFFFF', aspecto: 474 / 629,
-    s0: 0.90, s1: -0.34, faixas: 6, respiro: 2.10, ocupa: 0.66,
+    s0: 0.90, s1: -0.40, faixas: 7, respiro: 2.35, ocupa: 0.58,
     desenhar: (og, larg, altura, cor) => desenharArte(og, im, larg, altura, cor),
   })
 }
@@ -1292,7 +1304,21 @@ function slotAnuncio(): Slot {
       // um friso de texto por cima disputa com elas e as duas coisas pioram: a
       // grade é a marca falando sozinha, de perto, que foi o pedido. O nome
       // volta no quadro seguinte, que ocupa dois terços do intervalo.
-      quadro('', '', MS_GRADE_MIUDA, { ...base, pintarCorpo: pintarCorpoKrayMiudo }, 10),
+      // ⚠️ `faixaFundo: null` AQUI, E ISTO CONSERTA A METADE INFERIOR APAGADA. O
+      // fundador viu: *"esse banner só mostra as logos do meio pra cima, a parte
+      // inferior da esfera tá toda preta"*. A causa é o encontro de duas
+      // decisões que ninguém cruzou: `base` traz `faixaFundo: '#0A0B0D'` (a Kray
+      // pede a paleta dela) e, desde 09/09, `faixaLinhas: [530, 630]` (o friso do
+      // nome desceu para debaixo da logo grande). `pintarTextura` desenha o corpo
+      // PRIMEIRO e o chão da faixa DEPOIS, então o retângulo preto cobria das
+      // linhas 492 a 674, ou seja **de seno +0,061 para baixo**, e apagava a grade
+      // inteira da metade de baixo da casca.
+      //
+      // Aqui não há texto nenhum (a grade é a marca falando sozinha), então não há
+      // nada para o chão servir: quem pinta a casca é dono do fundo dela, que é a
+      // mesma regra que a pele do ₿ e a do mascote já seguem.
+      quadro('', '', MS_GRADE_MIUDA,
+             { ...base, pintarCorpo: pintarCorpoKrayMiudo, faixaFundo: null }, 10),
     ],
   }
 }

@@ -1108,6 +1108,91 @@ export async function buildLeonidasCave(opts: {
     acende(-256, 76, 0, 70, 260, 2.2, 2)       // abóbada: acende o teto e o veio
     acende(-18, 6, -16.5, 60, 120, 2.6, 3)     // garganta: o cotovelo do corredor
     acende(18, 7, 0, 70, 95, 3.1, 4)           // soleira: o que se vê de longe
+  // ── O PATAMAR: o ponto onde o tour para 28 s e não havia nada ────────────
+  // ⚠️ QUEIXA DO FUNDADOR, LITERAL: *"tem um patamar na entrada da caverna que
+  // não tem uma tocha, nada, o tour fica parado ali e não tem nada"*. E o número
+  // dá razão a ele: a fonte mais próxima é a `garganta`, a 38 m, que com decay
+  // 1,7 entrega **0,124 de irradiância** ali; sobre o albedo 0,03 do piso isso é
+  // radiância 0,0012, ou seja **11 de 255**. O visitante ficava 28 segundos
+  // parado num piso preto.
+  //
+  // ⚠️ E NÃO É TOCHA COM CHAMA, POR FÍSICA. Não há oxigênio livre nesta cidade e
+  // cesto de fogo é o clichê exato do parque de diversões barato. O que acende é
+  // um cacho de cristal levado a emissivo dentro de um braseiro de pedra, que é a
+  // mesma física que a caverna inteira já usa.
+  //
+  // ⚠️ UMA LUZ DINÂMICA, E SÓ UMA. Contagem de PointLight é chave de cache de
+  // programa no three: passar de 5 para 6 muda a chave da família que a caverna
+  // já tem, sem família nova, e custa uma iteração a mais no laço de fragmento.
+  // Duas não entregariam nada que a tacha emissiva não entregue.
+  {
+    const LEDGE_Y = 6.2          // o topo do mirante, medido no geodo (LEDGE_Z)
+    // ⚠️ O BRASEIRO É GEOMETRIA PRÓPRIA E NÃO O GLB DO ACERVO, e a razão é de
+    // contrato: o interior carrega DEPOIS, por `carregarInterior`, e ali não há
+    // `loadSf`. Um cesto de pedra é um tronco de cone com um aro; custa 96
+    // triângulos os dois e não pede um byte de rede.
+    const cestoGeo = track(new THREE.CylinderGeometry(1.30, 0.85, 1.10, 10, 1, true))
+    const pernaGeo = track(new THREE.CylinderGeometry(0.16, 0.22, 2.30, 6))
+    const cestoMat = track(new THREE.MeshStandardMaterial({ color: 0x14151a, roughness: 0.82, metalness: 0.12, side: THREE.DoubleSide }))
+    {
+      for (const sy of [-1, 1]) {
+        const g = new THREE.Group()
+        const cesto = new THREE.Mesh(cestoGeo, cestoMat)
+        cesto.position.y = 2.85
+        const perna = new THREE.Mesh(pernaGeo, cestoMat)
+        perna.position.y = 1.15
+        g.add(cesto, perna)
+        // ⚠️ z = ±7,6 NÃO É ARREDONDAMENTO: o mirante tem 30 m de largura e o vão
+        // da escadaria ocupa |z| < 7. Os braseiros ficam onde o meio-fio
+        // recomeça, e do enquadramento da parada eles caem nos terços externos do
+        // quadro, emoldurando sem entrar na frente do crânio.
+        g.position.set(-57.5, LEDGE_Y, sy * 7.6)
+        g.rotation.y = sy * 0.5
+        g.layers.set(CAVE_LAYER)
+        g.traverse((o) => o.layers.set(CAVE_LAYER))
+        group.add(g)
+        const brasa = new THREE.Mesh(
+          track(new THREE.SphereGeometry(0.45, 10, 8)),
+          track(new THREE.MeshStandardMaterial({
+            color: 0x120c04, emissive: 0xff6a18, emissiveIntensity: 2.0, roughness: 0.5,
+          })))
+        brasa.position.set(-57.5, LEDGE_Y + 3.15, sy * 7.6)
+        brasa.layers.set(CAVE_LAYER)
+        group.add(brasa)
+      }
+    }
+    // a poça de luz, deslocada para trás dos braseiros: o visitante fica 4,5x
+    // mais escuro que a coisa que ele olha, e a luz dele não alcança o salão
+    const luzPatamar = new THREE.PointLight(EMBER, 26, 40, 1.7)
+    luzPatamar.position.set(-59, LEDGE_Y + 2.6, 0)
+    luzPatamar.layers.enable(CAVE_LAYER)
+    group.add(luzPatamar)
+    lights.push({ l: luzPatamar, base: 26, fase: 5, ritmo: 5.4 })
+    // as tachas: 12 brasas rasas no piso, em duas fileiras, que dão ritmo e
+    // levam o olho até a boca da escada. Uma malha instanciada, um draw call.
+    const tachaGeo = track(new THREE.BoxGeometry(0.35, 0.22, 0.35))
+    const tachaMat = track(new THREE.MeshStandardMaterial({
+      color: 0x120c04, emissive: ORANGE, emissiveIntensity: 0.55, roughness: 0.6,
+    }))
+    const tachas = new THREE.InstancedMesh(tachaGeo, tachaMat, 12)
+    let ti = 0
+    for (const sz of [-1, 1]) {
+      for (let k = 0; k < 6; k++) {
+        const x = -36 - k * 4.6
+        tachas.setMatrixAt(ti++, new THREE.Matrix4().makeTranslation(x, LEDGE_Y + 0.06, sz * 6.4))
+      }
+    }
+    tachas.instanceMatrix.needsUpdate = true
+    tachas.computeBoundingSphere()
+    tachas.layers.set(CAVE_LAYER)
+    tachas.name = 'PatamarTachas'
+    group.add(tachas)
+    // ⚠️ A MALHA ENTRA NA LISTA DE DESCARTE. `InstancedMesh` tem `dispose`, e sem
+    // isto ela sobreviveria ao fechamento do interior: a caverna nasce e morre por
+    // distância, então tudo que ela cria precisa saber morrer.
+    track(tachas)
+  }
+
     // ⚠️ O AMBIENTE NÃO É OPCIONAL, e é a segunda metade da mesma descoberta. No
     // EEVEE o emissivo do cristal ainda ilumina o que está em volta; no three,
     // `emissive` de MeshStandardMaterial não ilumina NADA. Sem ele a sala fica
