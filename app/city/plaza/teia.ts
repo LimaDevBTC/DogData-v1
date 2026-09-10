@@ -235,10 +235,18 @@ export function anelPonto(r: number, ang: number): [number, number] {
  * quarteirão da cidade é 286 m. Cabe a fileira mais nobre que existe, dos dois
  * lados. No trecho mais largo (1.560 m) sobra tanto que uma fileira só ficaria
  * com 728 m de fundo: ali é caso de duas fileiras.
+ *
+ * ⚠️ 10/09/2026, TERCEIRA RODADA: A ALÇA VIROU CÍRCULO PERFEITO (ver o
+ * cabeçalho de `alca.ts`), e a via se move com ela. Fundador: "esquece isso de
+ * ter que seguir o terreno... a via toda circular, a 120 metros [do círculo da
+ * água]". `r` sai de 6.950 (o meio aproximado da faixa medida) para 6.700, ou
+ * seja `ALCA_R_BAIA` (6.580, em `alca.ts`) mais os 120 m pedidos — as mansões
+ * ficam de frente para a cidade, com a praia da baía entre elas e a água.
+ * Continua um raio único: nenhum consumidor de `AVENIDA_ALCA` muda de API.
  */
 export const AVENIDA_ALCA = {
   id: 'AN7',
-  r: 6950,
+  r: 6700,
   larg: 44,
   circulo: true,
   // ⚠️ O ARCO DA VIA VAI ALÉM DO ARCO DA ALÇA, E ISSO É O ACESSO. A alça medida

@@ -1,43 +1,39 @@
 {
   "url": "http://localhost:3000/city?stats=1&quality=high&view=deck&live=0&look=2",
-  "quando": "2026-09-09T23:52:53.686Z",
+  "quando": "2026-09-10T03:16:07.360Z",
   "vistas": {
-    "aquaticstopo": {
-      "arquivo": "chapas/aquaticstopo-look2.jpeg",
+    "alca": {
+      "arquivo": "chapas/alca-look2.jpeg",
       "fps": 10,
-      "calls": 332,
-      "tris": 6076140,
-      "programas": 426,
+      "calls": 285,
+      "tris": 5108944,
+      "programas": 287,
       "pos": "composer+ao"
     },
-    "aquatics": {
-      "arquivo": "chapas/aquatics-look2.jpeg",
+    "alcatopoperto": {
+      "arquivo": "chapas/alcatopoperto-look2.jpeg",
       "fps": 10,
-      "calls": 332,
-      "tris": 6076140,
-      "programas": 426,
+      "calls": 285,
+      "tris": 5108944,
+      "programas": 287,
       "pos": "composer+ao"
     }
   },
   "logs": [
     "[lagos] via de orla: 9 eixos, 11.34 km, recuados 26 m da linha d'agua",
-    "[lagos] agua contra a teia, limiar 150 m: 10 corpos empurram a malha [2409.0ha/3261m(baia) 3.8ha/184m 55.5ha/1024m 5.1ha/214m 18.3ha/302m 16.9ha/321m 12.6ha/338m 10.7ha/226m 17.4ha/468m 31.5ha/462m], 9 ganham ponte [1.7ha/6m 0.3ha/36m 1.3ha/125m 0.3ha/53m 3.6ha/141m 0.5ha/59m 0.5ha/88m 2.0ha/114m 0.5ha/66m]",
-    "[lagos] 60.7 km2 de agua, 164.142 tri",
+    "[lagos] agua contra a teia, limiar 150 m: 10 corpos empurram a malha [2417.9ha/3261m(baia) 3.8ha/184m 55.5ha/1024m 5.1ha/214m 18.3ha/302m 16.9ha/321m 12.6ha/338m 10.7ha/226m 17.4ha/468m 31.5ha/462m], 9 ganham ponte [1.7ha/6m 0.3ha/36m 1.3ha/125m 0.3ha/53m 3.6ha/141m 0.5ha/59m 0.5ha/88m 2.0ha/114m 0.5ha/66m]",
+    "[lagos] 61.0 km2 de agua, 164.824 tri",
     "[canais] look 2: CR01 foz em r 5442 | CR02 foz em r 3712 | CR03 foz em r 5321",
     "[canais] 10.412 m de canal, 70 pontes, 7.832 tri",
     "[vias] via de orla: 395 trechos, 10.24 km costurando a margem dos lagos que empurram a malha",
-    "[vias] 1.783 quarteirões + 0 praças + 12 bulevares + 7 anéis + 49 rotatórias + 2.184 cruzamentos, 1077.6 km de via, 867.428 triângulos; 3 quarteirões a mais de 200 m de pavimento",
+    "[vias] 1.783 quarteirões + 0 praças + 12 bulevares + 7 anéis + 49 rotatórias + 2.184 cruzamentos, 1077.6 km de via, 1.092.220 triângulos; 3 quarteirões a mais de 200 m de pavimento",
     "[praças] 0 praças, 0 covas de árvore, 0 triângulos",
-    "[arborização] 37.401 árvores (paisagismo off): 0 de cova, 21.176 de bulevar, 16.225 de anel, 0 de contorno, 0 de travessa; 1.924 recusadas pela máscara de via (1.429 salvas pelo empurrão, 495 perdidas); espécies Alameda 15.429 (92 tri, teto 2200), Conífera 7.633 (80 tri, teto 1100), Guarda-chuva 9.024 (92 tri, teto 1200), Colunar 5.315 (82 tri, teto 800); 41.029 arbustos de 40 tri; 6 chamadas de desenho, 821.608 triângulos de pior caso, look 2",
+    "[arborização] 37.392 árvores (paisagismo off): 0 de cova, 21.167 de bulevar, 16.225 de anel, 0 de contorno, 0 de travessa; 1.924 recusadas pela máscara de via (1.429 salvas pelo empurrão, 495 perdidas); espécies Alameda 15.404 (92 tri, teto 2200), Conífera 7.657 (80 tri, teto 1100), Guarda-chuva 9.018 (92 tri, teto 1200), Colunar 5.313 (82 tri, teto 800); 41.017 arbustos de 40 tri; 6 chamadas de desenho, 821.536 triângulos de pior caso, look 2",
     "[mobiliário] 7.200 postes ao longo de avenida e anel"
   ],
   "erros": [
     "[inverno] floresta: /city/sf/tree-pine.glb NÃO CARREGOU (espécie 'pinheiro'). Ela fica de fora e o peso dela é redistribuído entre as outras; a densidade não cai, só perde essa silhueta. Motivo: Error: [inverno] floresta: /city/sf/tree-pine.glb: sem resposta em 45000 ms. Antes de culpar a rede, confira: o arquivo existe em public/? o loader tem DRACOLoader? Se as duas forem sim, é a thread principal congestionada e o teto é que está curto.\n    at eval (webpack-internal:///(app-pages-browser)/./app/city/plaza/inverno.ts:518:53)",
     "[inverno] floresta: /city/sf/sq-small-1.glb NÃO CARREGOU (espécie 'sq-small-1'). Ela fica de fora e o peso dela é redistribuído entre as outras; a densidade não cai, só perde essa silhueta. Motivo: Error: [inverno] floresta: /city/sf/sq-small-1.glb: sem resposta em 45000 ms. Antes de culpar a rede, confira: o arquivo existe em public/? o loader tem DRACOLoader? Se as duas forem sim, é a thread principal congestionada e o teto é que está curto.\n    at eval (webpack-internal:///(app-pages-browser)/./app/city/plaza/inverno.ts:518:53)",
-    "[inverno] penhascos (rocks-stylized-pack.glb) NÃO CARREGARAM. A face fica só com a cor de rocha, sem volume. Error: [inverno] penhascos (rocks-stylized-pack.glb): sem resposta em 45000 ms. Antes de culpar a rede, confira: o arquivo existe em public/? o loader tem DRACOLoader? Se as duas forem sim, é a thread principal congestionada e o teto é que está curto.\n    at eval (webpack-internal:///(app-pages-browser)/./app/city/plaza/inverno.ts:518:53)",
-    "[inverno] floresta: /city/sf/sq-med-1.glb NÃO CARREGOU (espécie 'sq-med-1'). Ela fica de fora e o peso dela é redistribuído entre as outras; a densidade não cai, só perde essa silhueta. Motivo: Error: [inverno] floresta: /city/sf/sq-med-1.glb: sem resposta em 45000 ms. Antes de culpar a rede, confira: o arquivo existe em public/? o loader tem DRACOLoader? Se as duas forem sim, é a thread principal congestionada e o teto é que está curto.\n    at eval (webpack-internal:///(app-pages-browser)/./app/city/plaza/inverno.ts:518:53)",
-    "[inverno] floresta: /city/sf/sq-med-2.glb NÃO CARREGOU (espécie 'sq-med-2'). Ela fica de fora e o peso dela é redistribuído entre as outras; a densidade não cai, só perde essa silhueta. Motivo: Error: [inverno] floresta: /city/sf/sq-med-2.glb: sem resposta em 45000 ms. Antes de culpar a rede, confira: o arquivo existe em public/? o loader tem DRACOLoader? Se as duas forem sim, é a thread principal congestionada e o teto é que está curto.\n    at eval (webpack-internal:///(app-pages-browser)/./app/city/plaza/inverno.ts:518:53)",
-    "[inverno] floresta: /city/sf/sq-med-3.glb NÃO CARREGOU (espécie 'sq-med-3'). Ela fica de fora e o peso dela é redistribuído entre as outras; a densidade não cai, só perde essa silhueta. Motivo: Error: [inverno] floresta: /city/sf/sq-med-3.glb: sem resposta em 45000 ms. Antes de culpar a rede, confira: o arquivo existe em public/? o loader tem DRACOLoader? Se as duas forem sim, é a thread principal congestionada e o teto é que está curto.\n    at eval (webpack-internal:///(app-pages-browser)/./app/city/plaza/inverno.ts:518:53)",
-    "[inverno] floresta: /city/sf/sq-med-4.glb NÃO CARREGOU (espécie 'sq-med-4'). Ela fica de fora e o peso dela é redistribuído entre as outras; a densidade não cai, só perde essa silhueta. Motivo: Error: [inverno] floresta: /city/sf/sq-med-4.glb: sem resposta em 45000 ms. Antes de culpar a rede, confira: o arquivo existe em public/? o loader tem DRACOLoader? Se as duas forem sim, é a thread principal congestionada e o teto é que está curto.\n    at eval (webpack-internal:///(app-pages-browser)/./app/city/plaza/inverno.ts:518:53)"
+    "[inverno] penhascos (rocks-stylized-pack.glb) NÃO CARREGARAM. A face fica só com a cor de rocha, sem volume. Error: [inverno] penhascos (rocks-stylized-pack.glb): sem resposta em 45000 ms. Antes de culpar a rede, confira: o arquivo existe em public/? o loader tem DRACOLoader? Se as duas forem sim, é a thread principal congestionada e o teto é que está curto.\n    at eval (webpack-internal:///(app-pages-browser)/./app/city/plaza/inverno.ts:518:53)"
   ]
 }

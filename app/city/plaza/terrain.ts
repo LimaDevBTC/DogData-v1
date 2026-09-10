@@ -31,6 +31,7 @@ import { microRelevoAt, TERRENO_FINO_ATIVO } from './terreno-fino'
 import { alturaInvernoAt, zonaEsquiavelAt, fatorRochaAt } from './inverno'
 import { campusAlturaAt } from './campus'
 import { aquaticsAlturaAt } from './aquatics'
+import { alcaAlturaAt } from './alca'
 
 export interface TerrainMeta {
   cols: number
@@ -146,6 +147,22 @@ export const CANAL_ARREMATE = 1000
 // explícito, "não existe lote fixo em nenhum lugar da cidade", e nascem de
 // novo, uma vez só, no snapshot.
 export const CANAL_LAMINA = 100
+/** o filete da boca: ao longo de quantos metros de canal a concordância com o
+ *  Lago da Praça acontece. Ver a nota grande em `heightAt`. */
+export const BOCA_FILETE_R = 260
+/** o raio do filete, em metros de ALTURA: é o quanto as duas superfícies se
+ *  misturam antes de se cortarem. Zero devolve a aresta viva de antes. */
+export const BOCA_FILETE_K = 5.0
+/** e até que distância PERPENDICULAR ao eixo ele age. Sem este limite o filete
+ *  alcança a faixa inteira do canal (1.000 m) e mexe no lago todo. */
+export const BOCA_FILETE_W = 320
+
+/** mínimo suave: `Math.min` com um filete de raio `k`. Com k = 0 é o mínimo. */
+function smin(a: number, b: number, k: number): number {
+  if (k <= 0) return Math.min(a, b)
+  const h = Math.max(0, Math.min(1, 0.5 + (0.5 * (b - a)) / k))
+  return b * (1 - h) + a * h - k * h * (1 - h)
+}
 /**
  * Metros de água SEM INTERRUPÇÃO que a foz de um canal exige para admitir que
  * chegou na baía. Ver a nota dentro de `fozCanal`: é o que separa corpo d'água
@@ -899,8 +916,53 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
     const _bb = bbAt(x, z)
     const _canalAbs = canalRadialAbsAt(x, z)
     const _kc = cavaEm(x, z)
+    // ⚠️ A CONCORDÂNCIA DA BOCA: as duas superfícies deixam de se cortar em
+    // ângulo vivo onde o radial encontra o Lago da Praça.
+    //
+    // Fundador, 10/09, com a chapa marcada: a margem do lago chega, o canal
+    // chega perpendicular, e no encontro há um L. "Hoje parece um desenho que o
+    // traço passa o destino final." Medido: a linha d'água do lago está em
+    // 1.394 m em TODO rumo e salta para 1.700 na faixa de ±2,5° do eixo do
+    // canal. É corte reto, não foz.
+    //
+    // ⚠️ A CAUSA ESTAVA NESTA LINHA E NÃO NA GEOMETRIA DO CANAL. Quando
+    // `canalRadialAbsAt` responde, ela manda SOZINHA (o comentário acima diz
+    // isso com todas as letras). Ou seja: num ponto manda o perfil reto do
+    // canal, no ponto vizinho manda a bacia circular do lago, e entre os dois
+    // não há transição nenhuma. Duas superfícies que se cruzam sem se misturar
+    // produzem aresta, sempre.
+    //
+    // ⚠️ E ALARGAR A LÂMINA NÃO RESOLVE, JÁ FOI TENTADO E MEDIDO (10/09). Abrir
+    // a boca em trombeta empurra a CRISTA da praia para dentro do lago, porque
+    // `rPraia` é derivado de `meia` e a praia não se dissolve (só a banda se
+    // dissolve, ver a nota do `CANAL_ARREMATE` acima). Resultado medido: a linha
+    // d'água em 19° caiu de 1.394 para 1.322, ou seja nasceram duas línguas de
+    // areia dentro do lago. Pior que o defeito original.
+    //
+    // O que resolve é misturar as duas cotas em vez de escolher uma: `smin`
+    // devolve o mínimo com um filete de raio `k`, que é exatamente um raio de
+    // concordância. `k` só vale perto do arranque (`BOCA_FILETE_R` metros de
+    // canal), então o resto do traçado continua bit a bit como estava.
+    const _kBoca = _canalAbs === null ? 0 : (() => {
+      // ⚠️ O FILETE PRECISA DE DOIS LIMITES, e o perpendicular é o que faltava.
+      // Limitado só por `tt` (distância ao longo do canal), ele agia em toda a
+      // largura da FAIXA, e a faixa tem `meia + CANAL_BANDA` = 1.000 m de
+      // meia-largura. A 1.400 m do centro isso são ±45° de céu: medido, a margem
+      // do lago inteira ia de 1.394 para 1.422 num arco enorme, ou seja o
+      // conserto de três pontos virava uma mudança no lago todo.
+      let m = 0
+      for (const r of _radiais) {
+        const tt = x * r.dx + z * r.dz
+        const perp = Math.abs(x * r.px + z * r.pz)
+        if (perp > BOCA_FILETE_W) continue
+        const kL = 1 - Math.min(1, Math.max(0, (tt - r.rInicio) / BOCA_FILETE_R))
+        const kP = 1 - Math.min(1, Math.max(0, (perp - r.meia) / (BOCA_FILETE_W - r.meia)))
+        m = Math.max(m, kL * kP)
+      }
+      return m
+    })()
     const b0 = _canalAbs !== null
-      ? _canalAbs
+      ? (_kBoca > 0 ? smin(_canalAbs, _bb, BOCA_FILETE_K * _kBoca) : _canalAbs)
       : _leitoAbs !== undefined && _kc > 0
       ? _bb - _kc * Math.max(0, _bb - _leitoAbs)
       : _bb - _fundoC * _kc
@@ -942,7 +1004,12 @@ export function buildTerrain(meta: TerrainMeta, heights: Float32Array, cava?: Ca
     // 120° e a parcela aquática entre 72,96° e 81,32°, do outro lado da de 90°.
     // Cada uma tem a própria porta rápida por raio ao quadrado.
     const bCampus = campusAlturaAt(x, z, bParque)
-    return aquaticsAlturaAt(x, z, bCampus) + microRelevoAt(x, z) + alturaInvernoAt(x, z)
+    const bAquatics = aquaticsAlturaAt(x, z, bCampus)
+    // ⚠️ A ALÇA ENTRA DEPOIS, E TAMBÉM NÃO DISPUTA COM AS OUTRAS DUAS: ela vive
+    // entre r 5.700 e 7.900, bem fora do anel do campus (2.850 a 3.740) e da
+    // parcela aquática (r 3.024 a 3.564). Mesma porta rápida por raio ao
+    // quadrado, mais um filtro de ângulo pelo arco medido (ver `alca.ts`).
+    return alcaAlturaAt(x, z, bAquatics) + microRelevoAt(x, z) + alturaInvernoAt(x, z)
   }
 
   // ⚠️ CONTRATO NOVO, DEPOIS DE A MALHA GROSSA SER MASCARADA (não mais

@@ -66,6 +66,13 @@ const VISTAS = {
   // teia e quem devolve a câmera é `viewFor`, a partir de `derbySitio()`: estas
   // três pedem o MESMO enquadramento que o tour usa, pelo mecanismo `'view'`
   // logo abaixo, e acompanham a peça sozinhas se ela mudar de célula outra vez.
+  // ⚠️ AS TRÊS BOCAS DE CANAL, onde o radial encontra o Lago da Praça. Elas são
+  // o assunto de 10/09 ("o traço passa o destino final") e não havia
+  // enquadramento nenhum para julgá-las: as vistas `canais` e `canaisfoz` olham
+  // a FOZ, na baía, que é a outra ponta do mesmo canal.
+  boca1:      [1637, 150, -925, 592, -38, -1269, 45],
+  boca2:      [1880, 150, 17, 1147, -38, -803, 45],
+  boca3:      [1619, 150, 955, 1395, -38, -122, 45],
   derby:      'view',
   derbyalto2: 'view',
   derbyperto: 'view',
