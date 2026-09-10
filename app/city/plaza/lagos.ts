@@ -1266,7 +1266,7 @@ export function buildLagos(o: LagosOpts): Lagos {
   const feitas: THREE.Mesh[] = []
   const monta = (
     pos: number[], idx: number[], cor: string, agua: boolean, nome: string,
-    areia = false,
+    areia = false, chao = false,
   ) => {
     if (!idx.length) return
     const g = new THREE.BufferGeometry()
@@ -1319,15 +1319,28 @@ export function buildLagos(o: LagosOpts): Lagos {
     m.receiveShadow = !agua
     // ⚠️ AREIA NÃO PROJETA SOMBRA: é uma fita deitada no chão, a sombra dela cai
     // nela mesma, e ela pagaria passe de mapa de sombra em quilômetros de orla.
-    m.castShadow = (o.sombra ?? true) && !agua && !areia
+    //
+    // ⚠️ MURO/PASSEIO/PISTA TAMBÉM NÃO, PELO MESMO MOTIVO DO PÓDIO DO CAMPUS
+    // (`campus.ts`): medido em 10/09, a chapa a 22 m sobre a praia externa
+    // (r 7.180, rumo 57°) mostrava manchas escuras poligonais com borda em
+    // escada de pixel na areia, sem nenhuma peça visível projetando — sombra
+    // do talude (`orla:muro`) que separa a plataforma da alça (mais alta) da
+    // faixa de areia (mais baixa), esticada por quilômetros de orla sobre o
+    // mesmo mapa de sombra. `orla:muro` É o talude que `alca.ts` desenha (a
+    // rampa 1:8 entre `ALCA_PLATAFORMA_Y` e a praia); ele e as duas faixas
+    // pavimentadas ao lado (`orla:passeio`, `orla:pista`) são CHÃO da orla,
+    // não peça: o que projetariam é sombra sobre a areia ao lado, que ninguém
+    // pediu. Quem projeta sombra de verdade (palmeira, arena, torre) continua
+    // com `castShadow` ligado — este `chao` só tira as três faixas da orla.
+    m.castShadow = (o.sombra ?? true) && !agua && !areia && !chao
     m.frustumCulled = false
     group.add(m)
     feitas.push(m)
   }
   monta(posP, idxP, COR_AREIA, false, 'lagos:praia', look2)
-  monta(posM, idxM, COR_MURO, false, 'orla:muro')
-  monta(posC, idxC, COR_CAIS, false, 'orla:passeio')
-  monta(posR, idxR, COR_PISTA, false, 'orla:pista')
+  monta(posM, idxM, COR_MURO, false, 'orla:muro', false, true)
+  monta(posC, idxC, COR_CAIS, false, 'orla:passeio', false, true)
+  monta(posR, idxR, COR_PISTA, false, 'orla:pista', false, true)
   monta(posA, idxA, COR_AGUA, true, 'lagos:agua')
 
   // ⚠️ A CONSULTA USA A GRADE JÁ AMOSTRADA, não uma nova. Ela tem passo de 30 m e

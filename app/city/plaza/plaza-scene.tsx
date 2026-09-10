@@ -2215,8 +2215,18 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       {
         const agoraB = performance.now()
         if (!bootRelogio.some((e) => e.etapa === key)) {
-          bootRelogio.push({ etapa: key, ms: +(agoraB - bootUltimo).toFixed(0), desde: +(agoraB - bootT0).toFixed(0) })
+          const dur = +(agoraB - bootUltimo).toFixed(0)
+          const acum = +(agoraB - bootT0).toFixed(0)
+          bootRelogio.push({ etapa: key, ms: dur, desde: acum })
           bootUltimo = agoraB
+          // ⚠️ O CONSOLE É A FONTE, `__plazaBoot()` É CONVENIÊNCIA. A primeira
+          // leitura deste relógio saiu com UMA etapa de doze porque o efeito da
+          // cena roda mais de uma vez em desenvolvimento (StrictMode monta,
+          // desmonta e remonta) e quem lê `window.__plazaBoot` pode estar
+          // segurando o fechamento da instância ERRADA: a que foi descartada,
+          // cujo `stepDone` sai cedo por `disposed`. Uma linha de console não
+          // tem esse problema, porque ela é escrita por quem de fato montou.
+          if (wantStats) console.log(`[boot] ${key} ${(dur / 1000).toFixed(1)}s (acum ${(acum / 1000).toFixed(1)}s)`)
         }
       }
       setBoot((b) => {
@@ -3589,8 +3599,24 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           // uma batalha mais pobre que o palco solo /city/war. Agora que a
           // CHEGADA é a batalha, balanced e high recebem o campo cheio, igual
           // ao palco; só as luzes ficam em 2 (orçamento estrutural da cidade,
-          // ≤10 PointLights no total). O low continua enxuto: é o celular.
-          const orcCampo = profile.quality === 'low'
+          // ≤10 PointLights no total). O enxuto é para o celular.
+          //
+          // ⚠️ E A GUARDA ESTAVA NO EIXO ERRADO, MEDIDO EM 10/09. Ela perguntava
+          // `quality === 'low'` e o comentário aqui dizia "o low é o celular",
+          // mas celular NÃO cai em `low`: `parseQuality` devolve `balanced` para
+          // quem não pede nada na URL, e só o modo `lite` (WebView de carteira)
+          // força `low`. Ou seja, um iPhone em Safari montava o campo CHEIO:
+          // 4.200 unidades, 80 níveis, 700 detritos, 900 de poeira e 240 faíscas.
+          //
+          // ⚠️ E ISTO NÃO É MEMÓRIA, É CPU. O censo de geometria (`geometria.mjs`)
+          // mede o campo inteiro em 2,23 MiB residentes: como malha ele é
+          // irrelevante perto do terreno (172 MiB). O que ele custa é SIMULAÇÃO
+          // por quadro, e é isso que derruba o quadro e a bateria do telefone.
+          // Quem cortar aqui procurando MiB não vai achar e vai concluir errado.
+          //
+          // `tier` é a pergunta certa: é o aparelho, não a preferência. Quem quer
+          // o campo cheio no celular ainda pode pedir `?quality=high`.
+          const orcCampo = profile.quality === 'low' || (profile.tier === 'mobile' && profile.quality !== 'high')
             ? { cap: 900, niveis: 36, maxOndas: 6, maxLuzes: 1, detritos: 140, poeiraMax: 220, faiscaMax: 70 }
             : { cap: 4200, niveis: 80, maxOndas: 20, maxLuzes: 2, detritos: 700, poeiraMax: 900, faiscaMax: 240 }
           // rotação escolhida pra frente cruzar NW-SE: quem chega da praça vê os
@@ -5235,7 +5261,8 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
         // textura usa o da textura: geometria compartilhada (toda instância, todo
         // poste repetido) é alocada UMA vez e contá-la por malha infla o total.
         const vistas = new Set<string>()
-        const por = new Map<string, { tris: number; bytes: number; malhas: number }>()
+        const por = new Map<string, { tris: number; bytes: number; malhas: number; verts: number
+          attrs: Map<string, { bytes: number; tipo: string }> }>()
         // o dono é o ancestral NOMEADO mais alto, que é como a peça se chama na
         // cena; sem isso o censo vira uma lista de "Mesh" sem endereço
         const dono = (o: THREE.Object3D) => {
@@ -5250,13 +5277,30 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           if (vistas.has(g.uuid)) return
           vistas.add(g.uuid)
           const tris = Math.floor((g.index ? g.index.count : g.attributes.position.count) / 3)
-          let bytes = g.index ? (g.index.array as ArrayLike<number> & { byteLength: number }).byteLength : 0
-          for (const k in g.attributes) {
-            bytes += ((g.attributes[k] as THREE.BufferAttribute).array as unknown as { byteLength: number }).byteLength
-          }
           const n = dono(o)
-          const r = por.get(n) || { tris: 0, bytes: 0, malhas: 0 }
+          const r = por.get(n) || { tris: 0, bytes: 0, malhas: 0, verts: 0, attrs: new Map() }
+          // ⚠️ A QUEBRA POR ATRIBUTO É O QUE TORNA O CENSO ACIONÁVEL. Saber que
+          // uma peça custa 160 MiB não diz o que cortar; saber que 12 desses
+          // bytes por vértice são uma cor em Float32 que caberia em Uint8 diz.
+          const anotaAttr = (nome: string, arr: { byteLength: number; constructor: { name: string } }) => {
+            const j = r.attrs.get(nome) || { bytes: 0, tipo: arr.constructor.name }
+            j.bytes += arr.byteLength
+            r.attrs.set(nome, j)
+          }
+          let bytes = 0
+          if (g.index) {
+            const arr = g.index.array as unknown as { byteLength: number; constructor: { name: string } }
+            bytes += arr.byteLength
+            anotaAttr('(index)', arr)
+          }
+          for (const k in g.attributes) {
+            const at = g.attributes[k] as THREE.BufferAttribute
+            const arr = at.array as unknown as { byteLength: number; constructor: { name: string } }
+            bytes += arr.byteLength
+            anotaAttr(`${k}x${at.itemSize}`, arr)
+          }
           r.tris += tris; r.bytes += bytes; r.malhas++
+          r.verts += g.attributes.position.count
           por.set(n, r)
           totTris += tris; totBytes += bytes
         })
@@ -5269,6 +5313,11 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
           pecas: lista.length,
           maiores: lista.slice(0, 40).map((l) => ({
             peca: l.nome, mib: +((l.bytes * 2) / 1048576).toFixed(2), tris: l.tris, malhas: l.malhas,
+            verts: l.verts,
+            bytesPorVert: +(l.bytes / Math.max(1, l.verts)).toFixed(1),
+            attrs: [...l.attrs.entries()]
+              .map(([nome, j]) => ({ nome, tipo: j.tipo, mib: +((j.bytes * 2) / 1048576).toFixed(2) }))
+              .sort((x, y) => y.mib - x.mib),
           })),
         }
       }

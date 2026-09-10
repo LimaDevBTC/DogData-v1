@@ -73,6 +73,12 @@ const VISTAS = {
   boca1:      [1637, 150, -925, 592, -38, -1269, 45],
   boca2:      [1880, 150, 17, 1147, -38, -803, 45],
   boca3:      [1619, 150, 955, 1395, -38, -122, 45],
+  // ⚠️ AS DUAS DA GUERRA (10/09), e elas precisam de EFEITO NA TELA para servir:
+  // o campo dormindo não tem tiro, bola de fogo nem cicatriz, que é justamente o
+  // que se quer julgar. Use `--url-extra='&demo=1'`, que sintetiza tráfego sem
+  // tocar no feed nem no banco.
+  war:        'view',
+  warentry:   'view',
   derby:      'view',
   derbyalto2: 'view',
   derbyperto: 'view',
