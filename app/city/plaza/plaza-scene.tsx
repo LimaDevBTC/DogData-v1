@@ -72,6 +72,7 @@ import { buildMontanha, type Montanha } from './montanha'
 import { buildLago, type Lago, LARG_ORLA } from './lago'
 import { buildAquario, type Aquario } from './aquario'
 import { buildIlhaMata, type IlhaMata } from './ilha-mata'
+import { buildOrla, type Orla } from './orla'
 import { buildCaverna, type Caverna } from './caverna'
 import { PROPS, SP_DECK_TOP } from './props-table'
 import { look2 } from './look'
@@ -2087,6 +2088,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
     let montanha: Montanha | null = null
     let aquario: Aquario | null = null
     let ilhaMata: IlhaMata | null = null
+    let orla: Orla | null = null
     let caverna: Caverna | null = null
     let specsDoAquario: import('./props').PropSpec[] = []
     let props: Props | null = null
@@ -2839,6 +2841,24 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
               ilhaMata = im
               scene.add(im.group)
             }).catch((err) => console.error('[ilha-mata] não subiu', err))
+
+            // ⚠️ A ORLA NOBRE, PROJETO FECHADO PELO PAISAGISTA EM 10/09/2026
+            // (ver o cabeçalho de `orla.ts`): duas fileiras únicas ladeando a
+            // avenida da alça mais 30 nós de acesso à praia. Não depende de
+            // `lago.ilhas` (a alça é terreno, não ilha), mas sobe aqui porque
+            // `terrain`/`gltf`/`profile` já estão à mão neste bloco; aditivo
+            // e decorativo como a mata das ilhas, mesmo padrão de promessa.
+            buildOrla({
+              superficieAt: terrain.superficieAt,
+              gltf,
+              tier: profile.tier,
+              cortaTextura: profile.cortaTextura,
+              sombra: qDomo.get('sombra') !== '0',
+            }).then((o) => {
+              if (disposed) { o.dispose(); return }
+              orla = o
+              scene.add(o.group)
+            }).catch((err) => console.error('[orla] não subiu', err))
           } catch (err) {
             console.error('[lago] não subiu', err)
           }
@@ -5207,6 +5227,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       tecido?.update(camera.position)
       arvores?.update(camera.position)
       ilhaMata?.update(camera.position)
+      orla?.update(camera.position, nowMs)
       alpino?.update(camera.position)
       autopistas?.update(camera.position)
       atletismo?.update(camera.position, cidadeAtletismoAberta, nowMs)
@@ -5519,6 +5540,7 @@ export default function PlazaScene({ lite = false }: { lite?: boolean } = {}) {
       montanha?.dispose()
       aquario?.dispose()
       ilhaMata?.dispose()
+      orla?.dispose()
       caverna?.dispose()
       props?.dispose()
       dsc?.dispose()

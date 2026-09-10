@@ -540,6 +540,21 @@ function noAnelDaTeia(x: number, z: number): boolean {
 function noRadialDaTeia(x: number, z: number): boolean {
   const r = Math.hypot(x, z)
   if (r < 1) return false
+  // ⚠️ CONSERTO (10/09/2026, DEFEITO 2 DA ALÇA): DENTRO DA ALÇA NÃO HÁ RADIAL
+  // NENHUM, NEM O FINO. O comentário logo abaixo já resolvia o mesmo problema
+  // para r < `nasceEm(1)` (a teia fina só nasce lá para fora); faltava a
+  // mesma exceção para a alça, que fica bem DENTRO desse alcance (r ~ 6.700,
+  // contra `nasceEm(1)` bem menor) mas onde o fundador tirou toda rua local
+  // (07/09: "lá, por enquanto, teremos apenas a via central"). Sem esta
+  // linha, a conta abaixo continua abrindo a boca do ombro nos 168 rumos
+  // TEÓRICOS da teia fina mesmo onde nenhum deles foi construído, e o
+  // resultado é buraco no gramado sem rua nenhuma saindo dali. MEDIDO: 84 de
+  // 1.526 amostras a cada 10 m no eixo da AN7, todas dentro do arco da alça
+  // (`naAlcaDeTerra`), em 44 trechos de ~10 m cada, espaçados a cada ~2,14°
+  // (exatamente o passo dos 168 radiais). Fora do arco da alça (onde a
+  // avenida ainda corre mas a rua local existe de verdade) a contagem
+  // praticamente zera.
+  if (naAlcaDeTerra(x, z)) return false
   // ⚠️ O RADIAL FINO SÓ EXISTE DE ANEIS[13] PARA FORA (`nasceEm`), e abrir a boca
   // dele antes disso rasgaria a berma do Anel Interior e do Anel Médio em 84
   // pontos onde não chega rua nenhuma.

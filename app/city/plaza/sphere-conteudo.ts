@@ -287,6 +287,17 @@ export const QUADRO_MIN = 8_000
  */
 export const MS_MODULO = 48_000
 export const MS_ANUNCIO = 72_000
+/**
+ * Quanto de CADA carta com marca a grade miúda ocupa: a Kray tira dos 72 s
+ * comprados, o ₿ e o `$DOG` tiram dos 48 s do módulo.
+ *
+ * ⚠️ UM TERÇO, E NÃO METADE. A grade é o efeito de perto; a marca grande é o que
+ * se lê de longe, e é ela que carrega a identidade a 5 km. Metade do tempo em
+ * grade trocaria a leitura da cidade inteira por um efeito de aproximação.
+ */
+export const MS_GRADE_MIUDA = 16_000
+/** @deprecated use `MS_GRADE_MIUDA` */
+export const MS_KRAY_MIUDO = MS_GRADE_MIUDA
 export const MS_EVENTO_QUADRO = 8_000
 
 /** o dissolve. Ver `QUADRO_MIN`: a troca de textura mora no fundo do vale. */
@@ -626,6 +637,113 @@ function pintarCorpoKray(g: CanvasRenderingContext2D, w: number, h: number) {
 }
 
 /**
+ * A KRAY MIÚDA: a mesma marca, em grade, cobrindo a casca.
+ *
+ * Pedido do fundador em 10/09: *"consegue fazer ela dar uma piscada e aparecer
+ * dezenas de logo da kray pequenas... mesma coisa, só que pequenas, vão caber
+ * várias e pra quem tá mais perto vai dar um efeito legal"*.
+ *
+ * ⚠️ A PISCADA NÃO É EFEITO NOVO, É O VALE DO GANHO QUE JÁ EXISTE. `peleId`
+ * governa isso (ver a nota dele em `sphere.ts`): duas peles da MESMA família
+ * trocam no vale do ganho, e só a troca de família paga a cortina. Os dois
+ * quadros da Kray dividem `peleId: 'anuncio'`, então a casca escurece e volta
+ * com a grade, que é exatamente a piscada pedida. Um `peleId` novo aqui daria a
+ * cortina inteira, que é gesto de troca de anunciante, não de quadro.
+ *
+ * ⚠️ O NÚMERO DE CÓPIAS VARIA COM A LATITUDE, e sem isso a grade não é grade.
+ * Uma marca de largura fixa em METROS ocupa mais LONGITUDE quanto mais perto do
+ * polo (`larg / (R·cos φ)`), então repetir 19 vezes em toda faixa faria as de
+ * cima se comerem e as de baixo abrirem vão. Cada faixa recebe
+ * `360 / (longitude da cópia × 1,55)`, com 1,55 de respiro, que é o que mantém o
+ * espaçamento igual visto de fora. Medido, de 0,90 a −0,34 em 6 faixas de 41,4 m:
+ * 11, 15, 18, 19, 19 e 19 cópias, ou seja **101 marcas na casca**.
+ *
+ * ⚠️ E A REGRA DE SIMETRIA DA CASA CONTINUA VALENDO por faixa, não entre faixas:
+ * dentro de cada latitude as cópias são igualmente espaçadas
+ * (`(i + 0,5)/n` em `peleMarca`), que é o que o fundador pede em elemento
+ * repetido. Entre faixas o número muda porque a esfera manda.
+ */
+function gradeMiuda(
+  g: CanvasRenderingContext2D, w: number, h: number,
+  o: {
+    fundo: string; tinta: string; aspecto: number
+    s0: number; s1: number; faixas: number; respiro: number
+    desenhar: (og: CanvasRenderingContext2D, larg: number, alt: number, cor: string) => void
+  },
+) {
+  for (let i = 0; i < o.faixas; i++) {
+    const s0 = o.s0 - ((o.s0 - o.s1) * i) / o.faixas
+    const s1 = o.s0 - ((o.s0 - o.s1) * (i + 1)) / o.faixas
+    const sm = (s0 + s1) / 2
+    const alt = SPHERE_R_M * (s0 - s1)
+    const lon = ((alt * o.aspecto) / (SPHERE_R_M * Math.max(Math.cos(Math.asin(sm)), 0.08)))
+      * (180 / Math.PI)
+    const n = Math.max(3, Math.floor(360 / (lon * o.respiro)))
+    // ⚠️ AS FILEIRAS SÃO EMBARALHADAS, E NÃO É ENFEITE. Pedido do fundador em
+    // 10/09: *"lembre de embaralhar as fileiras, não colocar uma logo exatamente
+    // abaixo da outra"*. Sem isto, faixas vizinhas com o mesmo `n` (na Kray são
+    // 19, 19 e 19 nas três de baixo) nascem na MESMA longitude e a grade lê como
+    // colunas, que é o padrão que o olho pega primeiro e o que faz a casca
+    // parecer papel de parede barato.
+    //
+    // ⚠️ E A FASE É A RAZÃO ÁUREA, NÃO MEIO PASSO ALTERNADO. Com 0, ½, 0, ½ as
+    // faixas 1 e 3 voltam a alinhar entre si, que é o mesmo defeito uma linha
+    // adiante. `(i · 0,618) mod 1` dá 0, 0,618, 0,236, 0,854, 0,472 e 0,090 nas
+    // seis: nenhuma repete e nenhuma fica perto da outra.
+    //
+    // ⚠️ O ESPAÇAMENTO DENTRO DA FAIXA CONTINUA IGUAL, que é a regra de simetria
+    // da casa para elemento repetido. O que se desloca é a fileira inteira.
+    const fase = (i * 0.6180339887) % 1
+    peleMarca(g, w, h, {
+      // ⚠️ SÓ A PRIMEIRA FAIXA PINTA O FUNDO. As outras passam `null`, que é o
+      // contrato de empilhamento do `peleMarca`: pintar de novo apagaria as
+      // faixas já desenhadas.
+      fundo: i === 0 ? o.fundo : null,
+      tinta: o.tinta, n, s0, s1, aspecto: o.aspecto, fase,
+      desenhar: o.desenhar,
+    })
+  }
+}
+
+function pintarCorpoKrayMiudo(g: CanvasRenderingContext2D, w: number, h: number) {
+  const im = arte('/city/kray-marca.png')
+  gradeMiuda(g, w, h, {
+    fundo: '#07080A', tinta: COR_ANUNCIO, aspecto: 1,
+    s0: 0.90, s1: -0.34, faixas: 6, respiro: 1.55,
+    desenhar: (og, larg, altura) => desenharArte(og, im, larg, altura),
+  })
+}
+
+/** O ₿ miúdo: 136 marcas brancas sobre o laranja da moeda. Mesma grade da Kray,
+ *  e o aspecto do glifo oficial (474/629) faz caber mais por faixa. */
+function pintarCorpoBitcoinMiudo(g: CanvasRenderingContext2D, w: number, h: number) {
+  const im = arte('/city/btc-marca.png')
+  gradeMiuda(g, w, h, {
+    fundo: COR_BITCOIN, tinta: '#FFFFFF', aspecto: 474 / 629,
+    s0: 0.90, s1: -0.34, faixas: 6, respiro: 1.55,
+    desenhar: (og, larg, altura, cor) => desenharArte(og, im, larg, altura, cor),
+  })
+}
+
+/**
+ * O `$DOG` miúdo: 47 marcas na casca.
+ *
+ * ⚠️ ELE PRECISA DE MAIS FAIXAS E MENOS RESPIRO, e a razão é o aspecto. `$DOG`
+ * são 4 casas de glifo, aspecto **4,57**, contra 1,00 da Kray: com a mesma
+ * altura de faixa cada cópia ficaria 4,6x mais larga e caberiam 3 por faixa, o
+ * que não é grade, é anel. Oito faixas de 29,6 m com respiro 1,30 devolvem
+ * 4 a 7 cópias por latitude e 47 no total, que é a mesma leitura de "muitas" com
+ * a marca continuando legível de perto.
+ */
+function pintarCorpoDogMiudo(g: CanvasRenderingContext2D, w: number, h: number) {
+  gradeMiuda(g, w, h, {
+    fundo: COR_DADO, tinta: '#140B04', aspecto: (4 * 8) / 7,
+    s0: 0.88, s1: -0.30, faixas: 8, respiro: 1.30,
+    desenhar: (og, larg, alt, cor) => escreverGlifos(og, '$DOG', larg, alt, cor ?? '#140B04'),
+  })
+}
+
+/**
  * ⚠️ A CASCA INTEIRA COMO TELA, E NÃO SÓ A FAIXA. Pedido do fundador em 08/09:
  * *"em algum momento ele muda por completo de cor? Quero ele todo em laranja com
  * logo do Bitcoin em algum momento, em outros quero ele escrevendo $DOG"*.
@@ -704,6 +822,13 @@ function peleMarca(
     fundo: string | null; tinta: string; n: number; s0: number; s1: number
     desenhar: (og: CanvasRenderingContext2D, larg: number, alt: number, cor: string) => void
     aspecto: number
+    /**
+     * Deslocamento das cópias, em FRAÇÃO DO PASSO (0 a 1). O padrão é 0, que é a
+     * fase histórica `(i + 0,5)/n` e é ela que casa a logo da Kray com o nome no
+     * friso: quem mexer aqui numa pele de marca ÚNICA quebra aquele alinhamento.
+     * Existe para a grade miúda, onde faixas vizinhas não podem ficar em coluna.
+     */
+    fase?: number
   },
 ) {
   const L = h / 1024
@@ -728,7 +853,7 @@ function peleMarca(
 
   const linhaDe = (sen: number) => ((90 - (Math.asin(sen) * 180) / Math.PI) / 180) * 1024
   for (let i = 0; i < o.n; i++) {
-    const cx = ((i + 0.5) / o.n) * w
+    const cx = (((i + 0.5 + (o.fase ?? 0)) % o.n) / o.n) * w
     for (let k = 0; k < K; k++) {
       const sA = o.s0 - (k / K) * (o.s0 - o.s1)
       const sB = o.s0 - ((k + 1) / K) * (o.s0 - o.s1)
@@ -1024,9 +1149,21 @@ function slotBitcoin(_altura: number | null): Slot | null {
       // bloco. A altura continua publicada onde ela é notícia: no EVENTO de bloco
       // minerado (`eventoBloco`, com as tx de DOG dentro) e no módulo do
       // snapshot. Um quadro de 48 s, sem troca de layout no meio.
-      quadro('', '', MS_MODULO, {
+      // ⚠️ O QUADRO DE 48 s VIROU DOIS, E O TEMPO NÃO CRESCEU. Pedido do fundador
+      // em 10/09, o mesmo da Kray: *"quero a mesma coisa com o $DOG e o símbolo
+      // do Bitcoin"*. A grade miúda leva `MS_GRADE_MIUDA` dos 48, e a marca
+      // grande fica com o resto. Os dois dividem `peleId`, então a troca sai no
+      // vale do ganho (a piscada) e não na cortina, que é gesto de trocar de
+      // carta, não de quadro.
+      quadro('', '', MS_MODULO - MS_GRADE_MIUDA, {
         ganho: GANHO_MARCA,
         pintarCorpo: pintarCorpoBitcoin,
+        peleId: 'marca-btc',
+        faixaFundo: null,
+      }),
+      quadro('', '', MS_GRADE_MIUDA, {
+        ganho: GANHO_MARCA,
+        pintarCorpo: pintarCorpoBitcoinMiudo,
         peleId: 'marca-btc',
         faixaFundo: null,
       }),
@@ -1079,7 +1216,11 @@ function slotDog(): Slot {
       // saiu, e a faixa saiu junto: o texto da casca JÁ É `$DOG` em duas fileiras
       // de 56 m, e uma faixa por cima dele escreveria `$DOG` uma terceira vez no
       // meio das duas.
-      quadro('', '', MS_MODULO, base),
+      quadro('', '', MS_MODULO - MS_GRADE_MIUDA, base),
+      // ⚠️ A GRADE MIÚDA DO `$DOG`, mesma divisão de tempo do ₿ e da Kray. Ela
+      // herda `base` (ganho, `peleId` e a ausência de faixa) e só troca a pele,
+      // que é o que faz a troca sair no vale do ganho.
+      quadro('', '', MS_GRADE_MIUDA, { ...base, pintarCorpo: pintarCorpoDogMiudo }),
     ],
   }
 }
@@ -1126,7 +1267,15 @@ function slotAnuncio(): Slot {
       // vez de 4, e a fração de azimutes que veem o nome INTEIRO cai. Foi pedido
       // pelo nome certo do parceiro, e nome de anunciante não se abrevia por
       // orçamento tipográfico: quem paga escolhe como é chamado.
-      quadro('KRAY SPACE', '', MS_ANUNCIO, base, 10),
+      // ⚠️ OS 72 s COMPRADOS SE DIVIDEM, NÃO CRESCEM. O anunciante paga
+      // `MS_ANUNCIO`; a grade miúda entra DENTRO desse tempo, com 24 dos 72 s,
+      // e não como um quarto de minuto a mais de graça.
+      quadro('KRAY SPACE', '', MS_ANUNCIO - MS_GRADE_MIUDA, base, 10),
+      // ⚠️ O NOME SAI NA GRADE, e é escolha de leitura. Com 101 marcas na casca,
+      // um friso de texto por cima disputa com elas e as duas coisas pioram: a
+      // grade é a marca falando sozinha, de perto, que foi o pedido. O nome
+      // volta no quadro seguinte, que ocupa dois terços do intervalo.
+      quadro('', '', MS_GRADE_MIUDA, { ...base, pintarCorpo: pintarCorpoKrayMiudo }, 10),
     ],
   }
 }

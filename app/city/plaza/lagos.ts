@@ -623,6 +623,28 @@ export function buildLagos(o: LagosOpts): Lagos {
           // e só 36,0% no teto.
           const nx = dz / dl, nz = -dx / dl
           if (eDesvio) segsD.push(a[0], a[1], b[0], b[1])
+          // ⚠️ CONSERTO 4 (10/09/2026, DEFEITO 1 DA ALÇA): A EXCLUSÃO DA ALÇA
+          // VALE PARA OS DOIS LADOS, NÃO SÓ PARA QUEM É `eBaia`. O comentário
+          // do CONSERTO 2, alguns passos abaixo, parte de `"a alça inteira é
+          // eBaia (é a mesma baía)"` — MEDIDO, e é FALSO do lado do mar:
+          // `lagos.naBaia` devolve `false` em toda sonda além de `ALCA_R_MAR`,
+          // inclusive no fundo escavado (−44, bem abaixo da lâmina), porque o
+          // mar aberto ali é um CORPO SEPARADO da baía na rotulagem por
+          // preenchimento, não o mesmo corpo com outro nome. Com a guarda só
+          // dentro do `if (eBaia)`, toda aresta da margem do mar caía no
+          // `if (!eBaia)` ACIMA e virava areia NATURAL de `segsP` — sensor de
+          // declive próprio, sem saber do círculo exato de `alca.ts` — por
+          // cima da qual `correntesPraia`, adiante, ainda desenha a praia
+          // EXATA da alça (`arcoAlca`, incondicional). Duas praias
+          // semitransparentes empilhadas no mesmo lugar escurecem onde se
+          // sobrepõem: exatamente as manchas escuras da chapa. MEDIDO: sondando
+          // a margem do mar a cada 0,2° em 8 larguras, 667 de 5.224 pontos
+          // caíam dentro de DOIS triângulos de `lagos:praia` ao mesmo tempo
+          // (12,8%); a margem da baía, mesma sonda, zero. Subir a guarda para
+          // ANTES do `if (!eBaia)` tira a aresta dos dois destinos (`segs` E
+          // `segsP`) sempre que ela cai dentro do arco da alça, não só quando
+          // `eBaia` é verdadeiro.
+          if (naAlcaDeTerra((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)) continue
           if (!eBaia) {
             // ⚠️ EM `look2` A PRAIA TAMBÉM SÓ SE COLETA. Ver o bloco de constantes:
             // emitir por aresta é o defeito do leque, e a praia estava emitindo
@@ -638,14 +660,13 @@ export function buildLagos(o: LagosOpts): Lagos {
             idxP.push(bp, bp + 1, bp + 2, bp, bp + 2, bp + 3)
             continue
           }
-          // ⚠️ CONSERTO 2 (10/09/2026): DENTRO DA ALÇA NÃO NASCE CAIS. A alça
-          // inteira é `eBaia` (é a mesma baía), mas o fundador virou a exceção
-          // dela: as duas margens da faixa de mansões recebem PRAIA, nunca
-          // passeio de cais. A areia de verdade nasce mais abaixo (perto de
-          // `correntesPraia`), pelos círculos EXATOS que `alca.ts` exporta, não
-          // por esta varredura de 30 m; aqui só falta NÃO desenhar cais em cima
-          // dela, senão as duas peças ficariam sobrepostas.
-          if (naAlcaDeTerra((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)) continue
+          // ⚠️ CONSERTO 2 (10/09/2026): DENTRO DA ALÇA NÃO NASCE CAIS. A areia
+          // de verdade nasce mais abaixo (perto de `correntesPraia`), pelos
+          // círculos EXATOS que `alca.ts` exporta, não por esta varredura de
+          // 30 m; aqui só falta NÃO desenhar cais em cima dela, senão as duas
+          // peças ficariam sobrepostas. (A guarda em si subiu para antes do
+          // `if (!eBaia)` no CONSERTO 4, acima; este comentário fica porque a
+          // regra "cais nunca nasce na alça" continua valendo aqui embaixo.)
           // ⚠️ A ORLA NÃO SE EMITE AQUI, SÓ SE COLETA. Emitir por aresta foi a
           // primeira versão e o defeito apareceu na chapa de perto: cada aresta
           // calculava a própria normal e nas curvas elas DIVERGEM, então os
