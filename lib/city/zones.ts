@@ -23,10 +23,33 @@ export const CHAIN_TO_ZONE: Record<ChainId, ZoneId> = {
   stacks: 'stacks',
 }
 
-// ─── Districts (shared across chains — a whale is a whale on any chain) ─────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// ⚠️ LEGADO. ISTO NÃO É A REGRA DE POSIÇÃO DA FUNDAÇÃO. Ver `tiersposition.md`.
+//
+// ⚠️ E OS NOMES MENTEM. Os dois comentários originais deste bloco se contradiziam
+// dentro de cinco linhas: um dizia "a whale is a whale on any chain" (tamanho) e o
+// outro "Age cohorts (center = oldest)" (idade). Quem ganhou foi o código, e ele
+// corta por SALDO: `assignDistrict` só olha `totalDog`. Ou seja uma baleia que
+// comprou ontem recebe "Genesis Core / Oldest coins", e um holder de 2024 com
+// 5.000 DOG recebe "Fresh Arrivals / Just arrived". A afirmação está trocada.
+//
+// ⚠️ E A REPARTIÇÃO É INSERVÍVEL COMO BAIRRO. Medido em 10/09/2026 contra as
+// 85.795 carteiras reais: distrito 6 leva 36,9% da cidade, o 9 leva 33,2%, e o
+// distrito 0 fica com SETE carteiras. Dois bairros levariam 70% de tudo. O
+// desempate por `utxoCount > 3` quase nunca dispara: pega 11,3% das carteiras.
+//
+// ⚠️ QUEM AINDA CONSOME ISTO, e nenhum está na linha viva (a Praça e a Fundação):
+//     lib/city/registry.ts          registry da CrossChainCity (onda antiga)
+//     app/api/city/data/route.ts    serve /city/explore, que não é linkado
+//     app/api/plot/route.ts         serve <PlotDeed>, fora da landing desde 04/09
+//     scripts/lunar/generate_lots.ts   script manual
+// Por isso o conserto NÃO foi renomear nem trocar a fórmula: mexer no comportamento
+// mudaria quatro consumidores para arrumar um rótulo que ninguém vê hoje. O risco
+// real é outro, e é este aviso que o cobre: alguém reconstruir o gerador da fundação
+// e importar `assignDistrict` achando que é a fonte de verdade da posição. Não é.
+// A posição por tier está decidida e medida em `tiersposition.md` §3.
+// ═══════════════════════════════════════════════════════════════════════════════
 export interface DistrictDef { id: number; name: string; color: string; tag: string }
-// Age cohorts (center = oldest). Kept in sync with generator.ts DISTRICTS; used here
-// only for the shareable street-address label (BLOCO E).
 export const DISTRICTS: DistrictDef[] = [
   { id: 0, name: 'Genesis Core',   color: '#FDE047', tag: 'Oldest coins'     },
   { id: 1, name: 'Diamond Hands',  color: '#FBBF24', tag: 'Ancient HODLers'  },
@@ -42,6 +65,9 @@ export const DISTRICTS: DistrictDef[] = [
 
 // utxoCount is a Bitcoin-only activity signal; SOL/STX pass 0 → the inactive branch,
 // which only ever nudges the mid tiers (2↔3, 4↔5, 6↔7) and never changes the tier band.
+//
+// ⚠️ LEGADO: corta por SALDO, e os nomes de `DISTRICTS` falam de IDADE. Não use na
+// fundação; ver o bloco acima e `tiersposition.md` §3.
 export function assignDistrict(totalDog: number, utxoCount: number): number {
   const active = utxoCount > 3
   if (totalDog >= 1_000_000_000) return 0

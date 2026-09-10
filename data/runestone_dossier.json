@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-09-10T21:45:32+00:00",
- "tip_height": 966409,
- "tip_time": 1789076026,
+ "generated_at": "2026-09-10T22:45:36+00:00",
+ "tip_height": 966416,
+ "tip_time": 1789079629,
  "collection": {
   "parent_id": "fdb2df5d2b16db1ebcbf09e2d23b3f4e417db44b58e712c99b61f26b52c7cbb5i0",
   "parent_number": 63026232,
@@ -17,27 +17,27 @@
   "parent_fee_sats": 59838660
  },
  "custody": {
-  "holders": 62744,
+  "holders": 62748,
   "stones": 112384,
   "avg": 1.79,
   "median": 1,
   "max": 686,
-  "gini": 0.4179,
+  "gini": 0.4178,
   "buckets": [
    {
     "label": "1",
-    "holders": 52433,
-    "stones": 52433
+    "holders": 52438,
+    "stones": 52438
    },
    {
     "label": "2-4",
     "holders": 7734,
-    "stones": 18905
+    "stones": 18907
    },
    {
     "label": "5-9",
-    "holders": 1452,
-    "stones": 8918
+    "holders": 1451,
+    "stones": 8911
    },
    {
     "label": "10-49",
@@ -63,7 +63,7 @@
   "share_top10": 4.0,
   "share_top100": 12.28,
   "share_top1000": 27.48,
-  "singletons": 52433
+  "singletons": 52438
  },
  "dormancy": {
   "never_moved": 29617,
@@ -82,22 +82,22 @@
    },
    {
     "label": "6-12m",
-    "stones": 8773,
+    "stones": 8778,
     "pct": 7.81
    },
    {
     "label": "3-6m",
-    "stones": 2642,
+    "stones": 2636,
     "pct": 2.35
    },
    {
     "label": "1-3m",
-    "stones": 2133,
+    "stones": 2135,
     "pct": 1.9
    },
    {
     "label": "<30d",
-    "stones": 2105,
+    "stones": 2104,
     "pct": 1.87
    }
   ],
@@ -200,7 +200,7 @@
    },
    {
     "month": "2026-03",
-    "stones": 2264
+    "stones": 2263
    },
    {
     "month": "2026-04",
@@ -220,11 +220,11 @@
    },
    {
     "month": "2026-08",
-    "stones": 2045
+    "stones": 2043
    },
    {
     "month": "2026-09",
-    "stones": 528
+    "stones": 531
    }
   ]
  },
@@ -234,7 +234,7 @@
   "snapshot_block": 840000,
   "still_here": 44505,
   "left": 30992,
-  "entered": 18239,
+  "entered": 18243,
   "stones_veteran": 70222,
   "stones_new": 42162,
   "matrix": {
@@ -556,8 +556,8 @@
  },
  "verification": {
   "unique_outputs": 111885,
-  "outputs_unspent": 111885,
-  "outputs_spent": 0,
+  "outputs_unspent": 111884,
+  "outputs_spent": 1,
   "stones_without_height": 0,
   "independent_sample": {
    "n": 25,

@@ -64,13 +64,13 @@ Qualquer regra de posição baseada em tier PRECISA dizer o que fazer com os 68,
 | 4 | Ordinal Believer | 715 | Orla interna da baía, **de frente para as mansões** | 🔒 lugar decidido (§3.3) |
 | 5 | DOG Supporter (`dog_legend`) | 1.347 | Segunda faixa, **atrás do tier 4** | 🔒 lugar decidido (§3.3) |
 | 6 | Diamond Paws | 19.289 | **Tecido de bairros** (miolo entre a praça e o cinturão) | 🔒 lugar decidido (§3.4) |
-| 7 | HODL Hero | 301 | — | PENDENTE |
-| 8 | Steady Holder | 411 | — | PENDENTE |
-| 9 | Profit Taker | 823 | — | PENDENTE |
-| 10 | Early Exit | 824 | — | PENDENTE |
-| 11 | Panic Seller | 715 | — | PENDENTE |
-| 12 | Paper Hands | 50.627 (só 2.084 ainda holders) | — | PENDENTE |
-| — | **sem tier** (nunca receberam airdrop) | **58.837** | — | **PENDENTE, e é a maior fatia** |
+| 7 | HODL Hero | 301 | O Grupo (§3.5) | 🔒 regra decidida |
+| 8 | Steady Holder | 411 | O Grupo (§3.5) | 🔒 regra decidida |
+| 9 | Profit Taker | 823 | O Grupo (§3.5) | 🔒 regra decidida |
+| 10 | Early Exit | 824 | O Grupo (§3.5) | 🔒 regra decidida |
+| 11 | Panic Seller | 715 | O Grupo (§3.5) | 🔒 regra decidida |
+| 12 | Paper Hands | 50.627 (só 2.084 ainda holders) | O Grupo (§3.5) | 🔒 regra decidida |
+| — | **sem tier** (nunca receberam airdrop) | **58.827** + 15 de infra | O Grupo (§3.5) | 🔒 regra decidida |
 
 Os 6 primeiros somam **21.796 carteiras e 28,13% do supply**: a coorte OG.
 
@@ -261,6 +261,51 @@ idade, utxo_count, lth_pct). O `lost_analysis.json` usa dados de cadeia e separa
 vivas e dormentes, com gradação de intensidade dentro das vivas. **Existe eixo; ele mora em
 outro arquivo.**
 
+### 3.5 — O Grupo: tiers 7 a 12 e os sem tier (🔒 2026-09-10)
+
+**MEDIDO.** A conta da cidade fecha em três blocos:
+
+```
+infraestrutura (rotulada)         15   0,0%   18,49B  18,5% do supply
+tiers 1 a 6 (§3.1 a §3.4)     21.795  25,4%   28,13B  28,1%
+O GRUPO (7 a 12 + sem tier)   63.985  74,6%   53,36B  53,4%
+                              ──────         ───────
+                              85.795         99,98B
+```
+
+**DECIDIDO. Três regras, e a cidade fecha.**
+
+**1. Infraestrutura RECEBE lote como qualquer carteira.** Dono, 2026-09-10, recusando a
+proposta de excluí-la: *"acho muito agressivo. Fechamos todas as carteiras e o que sobrar é
+de infra básica"*. A terra que sobra depois de todas as carteiras é que vira infraestrutura
+básica da cidade.
+
+⚠️ **Consequência a saber, não a discutir:** cruzando com `dog_labels`, a **carteira #1 da
+cidade é a Kraken hot, com 13,02B DOG**, e a #2 é uma treasury cold com 3,11B. São 15
+endereços (Kraken, Binance, Bitget, CoinEx, Gate.io, 3 marketplaces, 4 desks, 3
+distributors) com **18,49% do supply**. Pela regra de área proporcional à raiz do saldo,
+a Kraken fica com o maior lote da cidade. Casa com o §0.1 do masterplan ("a localização não
+se compra; posição é história on-chain"): a cidade é retrato da cadeia, não clube curado.
+
+**2. Abaixo de 20k DOG: distribuição SEM ORDEM na periferia.** É a regra que o masterplan §2
+já define, e cobre a maior parte do Grupo.
+
+**3. Acima de 20k DOG: ordem pelo `position_score`**, ou seja o block height do UTXO mais
+antigo com 20.000+ DOG. **Quanto mais antigo esse UTXO, mais perto do centro.** Também já é
+o masterplan §2; o dono confirmou a regra em vez de criar outra.
+
+**MEDIDO.** O Grupo pelas bandas que essas regras produzem:
+
+| banda | carteiras | % | DOG |
+|---|---|---|---|
+| ≥ 20k, ordenadas por `position_score` | 31.092 | 48,6% | 53,26B |
+| 10k a 20k, constrói sem disputar centro | 4.457 | 7,0% | 0,06B |
+| 1 a 10k, lote à espera na periferia | 26.811 | 41,9% | 0,04B |
+| poeira < 1 DOG, sem lote (`DUST_MAX`) | 1.625 | 2,5% | ~0 |
+
+Ou seja **44% do Grupo já tinha destino escrito** antes desta rodada. A ordenação só importa
+para as 31.092 acima de 20k, que é onde estão 53,26B e as 631 carteiras com 10M+.
+
 ---
 
 ## 4. Pendências abertas
@@ -276,19 +321,29 @@ Numeradas para poder fechar uma por vez. Nada aqui foi decidido.
 trivial. Se vierem MAIS, é preciso escolher entre alargar o número de lotes ou cortar por
 saldo dentro do tier de menor prioridade. As duas opções estão abertas.
 
-**P6 — Os tiers 7 a 12.** Nenhum tem posição. São 5.158 carteiras que AINDA são holders
-(HODL Hero 301, Steady 411, Profit Taker 823, Early Exit 824, Panic Seller 715, e os 2.084
-Paper Hands que sobraram com saldo). Grupo pequeno perto do que já foi colocado, mas é o
-único que fala de quem VENDEU parte, e isso ainda não tem tradução no mapa.
+**P6 e P7 foram FECHADOS em 2026-09-10.** Ver §3.5. Todo tier e todo holder têm lugar.
 
-**P7 — Os 58.837 sem tier**, que são 68,6% dos holders. É a maior fatia da cidade e não
-tem nem regra nem bairro.
+**P8 foi FECHADO em 2026-09-10.** Os três defeitos das escadas antigas foram tratados, e o
+levantamento mudou o conserto: **nenhum consumidor de `assignDistrict` está na linha viva**
+(a Praça e a Fundação). `<PlotDeed>` saiu da landing em 04/09 e `/city/explore` não é
+linkado de lugar nenhum.
 
-**P8 — O que fazer com os defeitos das escadas antigas.** Levantados em 10/09, nenhum
-consertado: `assignDistrict` (`lib/city/zones.ts:45`) corta por SALDO mas usa nomes de
-IDADE ("Genesis Core / Oldest coins"), e ela alimenta o registry, `/api/plot`,
-`/api/city/data` e `scripts/lunar/generate_lots.ts` enquanto o `foundation_generator` usa
-decis de idade: duas definições de distrito na mesma cidade. Ver §5.
+1. **`assignDistrict` corta por saldo com nomes de idade.** Não foi renomeada nem trocada:
+   mexer no comportamento mudaria quatro consumidores para arrumar um rótulo que ninguém vê
+   hoje. Em vez disso ficou **marcada como LEGADO** em `lib/city/zones.ts` (e a segunda
+   cópia dos nomes em `lib/city/generator.ts`), com os números medidos e um aviso apontando
+   para cá. O risco que isso cobre é o único real: alguém reconstruir o gerador importando
+   `assignDistrict` achando que é a fonte de verdade da posição.
+2. **`getTierLabel` duplicado** virou `lib/dog/size-tiers.ts`, importado pelas rotas de
+   endereço e de transação. As duas cópias ainda estavam idênticas, e é esse o momento de
+   unificar: a mesma carteira é rotulada pelas duas.
+3. **As descrições "Top N" saíram.** Diziam "Top 10 / 50 / 100 / 1.000 / 10.000" e a
+   distribuição já desmentia (9, 58, 119, 855 e 8.438 carteiras). Viraram faixa de DOG, que
+   não envelhece. Rank de verdade continua vindo do dado, em `holder_rank`.
+
+⚠️ Fica aberto o que NÃO era defeito de rótulo: `assignDistrict` e o `foundation_generator`
+continuam sendo duas definições de distrito. Isso morre sozinho quando o gerador for
+reconstruído a partir do §3 deste arquivo, e não antes.
 
 ---
 
@@ -299,16 +354,29 @@ uma única referência a ela em `scripts/foundation_generator.ts`, `scripts/gera
 ou `lib/city/zones.ts`. O `RING0_SEATS = 85` continua lá com o proxy provisório, e o anel 0
 ficou sem dono depois da decisão 3.1.
 
-⚠️ **E o tecido atual não alcança a cidade.** `scripts/gerar_bairros.py` para em
-`R_SITIO = 3.500` e o `public/city/bairros.json` gerado tem 140 bairros e **52.996 lotes
-para 85.791 carteiras**: faltam 32.795. A orla interna da baía (§3.3) fica inteiramente
-fora desse raio. Isso não é urgente enquanto o loteamento é teste, mas vira bloqueio duro
-quando Diamond Paws (19.289) precisar de chão.
+⚠️ **O GERADOR USA 14,5% DA TERRA QUE TEM.** Medido em 10/09/2026 sobre todo o interior
+da abóbada (contorno de `cidade-malha.json`, `DOME_R` 9.050):
 
-⚠️ **Uma segunda fonte de dado entra em jogo a partir do tier 6.** A intensidade de uso
-vem de `data/diamond_paws_analysis/lost_analysis.json` (e do `chain_stats.jsonl` que o
-alimenta), não do `forensic_behavioral_analysis.json`. São dois datasets, e o gerador
-precisa dos dois.
+```
+área total sob a casca      240,71 km²
+  núcleo r<960 (praça)        2,90 km²
+  ÁGUA                       58,23 km²  (24,2%)
+  MONTANHA acima de 3°       39,27 km²  (16,3%)
+  reservado (parque, spaceport, guerra)  12,11 km²  (5,0%)
+  LIVRE E PLANA             128,20 km²  (53,3%)
+```
+
+`scripts/gerar_bairros.py` para em `R_SITIO = 3.500` e usa **18,59 km²**, ou seja 14,5% do
+que está livre. Sobram **109,61 km² planos e sem dono**. A 351 m²/lote a terra livre
+comporta **365 mil lotes** contra 85.795 carteiras, e mesmo descontando rua e verde na
+mesma proporção do tecido atual sobram ~66,7 km² lotáveis, o que bate com o orçamento de
+terra já registrado.
+
+⚠️ **CORREÇÃO DE UM ERRO DESTE ARQUIVO.** A versão anterior desta seção dizia que o tecido
+"não alcança a cidade" e tratava isso como bloqueio para Diamond Paws. Errado: o limite não
+é falta de terra, é o raio do gerador. Dono, 2026-09-10: *"nosso gerador não tá
+contemplando tudo que está abaixo da abóbada. Somente o que já reservamos, água e montanha
+não serão usados, o resto tem bastante coisa livre"*. Confirmado pela medição acima.
 
 Quando for reconstruir, o gerador precisa:
 
@@ -342,3 +410,11 @@ Quando for reconstruir, o gerador precisa:
 - **2026-09-10** — tier 6 ganhou lugar (§3.4): Diamond Paws no tecido de bairros, ordenado
   por intensidade de uso do centro para fora, sem separar os dormentes. Corrigido o erro do
   P6 anterior que dava os gêmeos como indistinguíveis.
+- **2026-09-10** — fechados P6 e P7 (§3.5): infraestrutura recebe lote como qualquer
+  carteira, abaixo de 20k distribui sem ordem na periferia, acima de 20k ordena por
+  `position_score`. Todo tier e todo holder passam a ter lugar. Corrigido o erro do §5 que
+  dava o tecido como bloqueio: há 128,20 km² livres e planos sob a abóbada, e o gerador usa
+  14,5% disso.
+- **2026-09-10** — fechado P8: `assignDistrict` marcada como legado (sem mudar
+  comportamento), `getTierLabel` deduplicado em `lib/dog/size-tiers.ts` e as descrições de
+  rank trocadas por faixa de DOG. `tsc --noEmit` limpo.

@@ -4,6 +4,7 @@ import path from 'path'
 import { createClient } from '@supabase/supabase-js'
 import { netTransfer } from '@/lib/dog/net-transfer'
 import { resolveIdentities } from '@/lib/dog/identity'
+import { sizeTierFor } from '@/lib/dog/size-tiers'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -56,13 +57,12 @@ async function getForensicMap(): Promise<Map<string, ForensicProfile>> {
 
 // ─── Labels ───────────────────────────────────────────────────────────────────
 
+// ⚠️ A ESCADA DE TAMANHO MORA EM `lib/dog/size-tiers.ts`. Era esta função,
+// duplicada palavra por palavra nas rotas de endereço e de transação, com
+// descrições de rank ("Top 50 holder") que a distribuição já desmentia. Ver o
+// cabeçalho de lá pelos números medidos.
 function getTierLabel(total_dog: number): AddressLabel {
-  if (total_dog >= 500_000_000) return { id: 'whale',   text: 'Whale',   description: 'Top 10 holder' }
-  if (total_dog >= 100_000_000) return { id: 'shark',   text: 'Shark',   description: 'Top 50 holder' }
-  if (total_dog >=  50_000_000) return { id: 'dolphin', text: 'Dolphin', description: 'Top 100 holder' }
-  if (total_dog >=  10_000_000) return { id: 'fish',    text: 'Fish',    description: 'Top 1,000 holder' }
-  if (total_dog >=   1_000_000) return { id: 'shrimp',  text: 'Shrimp',  description: 'Top 10,000 holder' }
-  return { id: 'plankton', text: 'Holder', description: 'DOG holder' }
+  return sizeTierFor(total_dog)
 }
 
 const behaviorLabels: Record<string, { text: string }> = {

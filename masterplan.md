@@ -529,3 +529,29 @@ que o dado não sustenta: nunca ter gastado não prova perda, e pode ser cold st
 disciplinado. A intensidade como gradiente contínuo põe os dormentes na borda sem rotular
 ninguém, que é o mesmo efeito no mapa sem a afirmação. Casa com o §0.5 ("Don't trust,
 verify"). Detalhe em `tiersposition.md` §3.4.
+
+🔒 **2026-09-10, dono: a cidade fecha.** Tiers 7 a 12 e os sem tier (o Grupo, **63.985
+carteiras, 74,6% da cidade, 53,4% do supply**) recebem três regras, e com elas todo holder
+tem lugar.
+
+**1. Infraestrutura RECEBE lote como qualquer carteira**, revogando a proposta de
+excluí-la: *"acho muito agressivo. Fechamos todas as carteiras e o que sobrar é de infra
+básica"*. A terra que sobra depois de todas as carteiras é que vira infraestrutura básica.
+⚠️ Consequência medida: a **carteira #1 da cidade é a Kraken hot (13,02B DOG)** e a #2 uma
+treasury cold (3,11B); são 15 endereços rotulados com 18,49% do supply, e pela área
+proporcional à raiz do saldo a Kraken fica com o maior lote. Casa com o §0.1 (a localização
+não se compra; posição é história on-chain).
+
+**2. Abaixo de 20k DOG, distribuição sem ordem na periferia** e **3. acima de 20k, ordem
+pelo `position_score`** (UTXO mais antigo com 20k+, mais antigo fica mais perto do centro).
+As duas já são o §2 deste documento: o dono confirmou a regra existente em vez de criar
+outra. **MEDIDO:** dentro do Grupo, 31.092 carteiras passam de 20k (53,26B) e 32.893 ficam
+abaixo, ou seja 44% do Grupo já tinha destino escrito.
+
+🔒 **2026-09-10, dono: o gerador usa 14,5% da terra que tem.** MEDIDO sobre todo o interior
+da abóbada (`DOME_R` 9.050, contorno de `cidade-malha.json`): **240,71 km² totais, dos quais
+58,23 de água, 39,27 de montanha acima de 3°, 12,11 reservados e 128,20 km² LIVRES E
+PLANOS**. O `gerar_bairros.py` para em `R_SITIO = 3.500` e usa 18,59 km². A terra livre
+comporta 365 mil lotes contra 85.795 carteiras. **O limite nunca foi falta de terra, é o
+raio do gerador**, e isso revoga a nota anterior que tratava o tecido como bloqueio para
+Diamond Paws.

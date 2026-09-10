@@ -20,6 +20,9 @@
 // The city is organised by holding age: the innermost ring is the oldest coins
 // (Genesis Core), fanning out to the freshest arrivals on the outskirts. Colours
 // rotate warm (old) → cool (new) so the age gradient reads at a glance from above.
+// ⚠️ SEGUNDA CÓPIA DESTES NOMES. A outra está em `lib/city/zones.ts`, onde o
+// aviso completo mora: eles descrevem IDADE, mas `assignDistrict` reparte por
+// SALDO. Legado; a posição por tier da fundação está em `tiersposition.md` §3.
 export const DISTRICTS = [
   { id: 0, name: 'Genesis Core',   color: '#FDE047', tag: 'Oldest coins'      },
   { id: 1, name: 'Diamond Hands',  color: '#FBBF24', tag: 'Ancient HODLers'   },
