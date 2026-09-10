@@ -58,12 +58,12 @@ Qualquer regra de posição baseada em tier PRECISA dizer o que fazer com os 68,
 
 | # | tier | carteiras | posição | estado |
 |---|---|---|---|---|
-| 1 | Satoshi Visionary | 88 | Orla Nobre, fileira da frente | 🔒 bairro decidido, ordem pendente |
-| 2 | BTC Maximalist | 99 | Orla Nobre, fileira da frente | 🔒 bairro decidido, ordem pendente |
-| 3 | Rune Master | 258 | Orla Nobre, fileira de trás | 🔒 bairro decidido, ordem pendente |
-| 4 | Ordinal Believer | 715 | — | PENDENTE |
-| 5 | DOG Supporter (`dog_legend`) | 1.347 | — | PENDENTE |
-| 6 | Diamond Paws | 19.289 | — | PENDENTE (é o cinturão da cidade) |
+| 1 | Satoshi Visionary | 88 | Orla Nobre, frente, **23,2° a 77,7°** (centro do arco) | 🔒 **fechado** (§3.1, §3.2) |
+| 2 | BTC Maximalist | 99 | Orla Nobre, frente, os dois flancos | 🔒 **fechado** (§3.1, §3.2) |
+| 3 | Rune Master | 258 | Orla Nobre, fileira de trás | 🔒 **fechado** (§3.1, §3.2) |
+| 4 | Ordinal Believer | 715 | Orla interna da baía, **de frente para as mansões** | 🔒 lugar decidido (§3.3) |
+| 5 | DOG Supporter (`dog_legend`) | 1.347 | Segunda faixa, **atrás do tier 4** | 🔒 lugar decidido (§3.3) |
+| 6 | Diamond Paws | 19.289 | **Tecido de bairros** (miolo entre a praça e o cinturão) | 🔒 lugar decidido (§3.4) |
 | 7 | HODL Hero | 301 | — | PENDENTE |
 | 8 | Steady Holder | 411 | — | PENDENTE |
 | 9 | Profit Taker | 823 | — | PENDENTE |
@@ -103,17 +103,17 @@ Registro completo no `masterplan.md` §10, com o 🔒 no §9. Resumo operacional
 |---|---|---|
 | orientação | praia da baía → casa → pista | pista → casa → praia dos fundos |
 | carteiras | SV (88) + BM (99) = 187 | Rune Master (258) |
-| projeto | 25 (5 blocos de 5) | 40 |
-| total | 212 lotes | 298 lotes |
-| testada | 73,2 m | 52,4 m |
+| projeto | 20 (4 blocos de 5) | 45 (9 blocos de 5) |
+| total | 207 lotes | 303 lotes |
+| testada | 74,9 m | 51,6 m |
 | fundo garantido | 214 m | 246 m |
-| área do lote | 1,57 ha | 1,29 ha |
+| área do lote | 1,60 ha | 1,27 ha |
 | gabarito | **2 pavimentos** | livre |
 
 **Invariantes que qualquer implementação tem de respeitar:**
 
 1. ⚠️ **O gabarito de 2 pavimentos na frente é estrutural**, não estético: ele protege a
-   vista dos 298 lotes de trás. Com 3 pavimentos na frente, a de trás só alcança a lâmina
+   vista dos 303 lotes de trás. Com 3 pavimentos na frente, a de trás só alcança a lâmina
    no 4º andar. **MEDIDO:** a baía tem 2,7 km de lâmina e a casa da frente fica a 272 m,
    então a skyline da cidade se vê do TÉRREO nas duas fileiras.
 2. ⚠️ **As duas fileiras olham para DENTRO.** Dono: *"a face externa não olha mar aberto,
@@ -122,10 +122,144 @@ Registro completo no `masterplan.md` §10, com o 🔒 no §9. Resumo operacional
 3. ⚠️ **Nenhuma rua nova entra na alça** (dono, 07/09). Os dois lados acessam a mesma AN7,
    e é por isso que ela fica no meio (r 6.950). Terceira fileira exigiria rua de fundo e
    está fora enquanto a regra valer.
-4. ⚠️ **Os 25 blocos do projeto na frente existem para a orla ter destino público.** Sem
+4. ⚠️ **Os 20 lotes do projeto na frente existem para a orla ter destino público.** Sem
    eles são 15,5 km de lotes privados em fila e os 30 acessos à praia viram passagem sem
    chegada. Programa da frente é horizontal (marina, clube, píer, restaurante); o que for
    alto vai para a fileira de trás.
+
+### 3.2 — O arranjo dentro da alça: P1, P2 e P3 (🔒 2026-09-10)
+
+**DECIDIDO. A ordem dentro do tier sai do próprio `change_pct`**, o mesmo número que já
+define o tier, em ordem decrescente **do centro do arco para as pontas**. Quem multiplicou
+mais o airdrop fica mais perto do centro. Não introduz critério novo: o tier diz o bairro
+e o mesmo campo diz o endereço dentro dele.
+
+**MEDIDO.** O campo ordena sem empate significativo:
+
+| tier | maior | mediana | menor |
+|---|---|---|---|
+| Satoshi Visionary | 3.169.318% | 1.566% | 1.013% |
+| BTC Maximalist | 989% | 669% | 500% |
+| Rune Master | 500% | 288% | 200% |
+
+⚠️ O maior Satoshi Visionary multiplicou o airdrop por **31.693 vezes**, contra 99x do
+segundo colocado. É essa carteira que fica no ponto central exato.
+
+**MEDIDO.** O melhor ponto do arco não é opinião: o meio fica em **51,25°** e o centro da
+baía em **52,5°**. Quem está ali olha o centro da baía e a cidade de frente, no ponto mais
+distante dos dois acessos.
+
+**DECIDIDO. Fileira da frente, 207 lotes, do rumo 346° ao 116,5°:**
+
+```
+346,0° ── P1(5) ── BTC Max (50) ── P2(5) ── SATOSHI VISIONARY (88) ── P3(5) ── BTC Max (49) ── P4(5) ── 116,5°
+          ponta                    junção     23,2° a 77,7°            junção                  ponta
+                                              centro em 51,25°
+```
+
+**DECIDIDO. Fileira de trás, 303 lotes:** 258 Rune Master pela mesma regra (`change_pct`
+decrescente do centro), mais 45 do projeto em 9 blocos de 5, sendo 4 alinhados com os
+blocos da frente para o equipamento ter anexo atrás.
+
+**Por que 4 blocos na frente e não 5** (dono, 2026-09-10): 5 blocos simétricos exigiriam um
+no centro EXATO do arco, e o centro é dos Satoshi Visionary. Com 4, os SV ficam num trecho
+**contínuo** de 54,5°, que de longe lê como "aquele trecho ali são os 88", sem legenda. Os
+5 lotes que saíram da frente foram para a fileira de trás (40 → 45), e a testada da frente
+subiu de 73,2 para 74,9 m.
+
+**Onde caem os 4 blocos (P3):** 2 nas pontas, que é onde entram os dois acessos e onde o
+público chega, e 2 nas junções entre SV e BM, que são pontos de vista ótimos e servem os
+dois trechos ao mesmo tempo.
+
+⚠️ **Ajuste fino de implementação:** com os blocos e os 6 acessos consumindo 2,18° do arco,
+o centro do trecho SV cai em 50,47°, 95 m fora do meio. A sobra dos acessos é distribuída
+de forma assimétrica para zerar esse desvio; o invariante é **o trecho SV centrado em
+51,25°**, não a repartição igual dos acessos.
+
+### 3.3 — Orla interna da baía, tiers 4 e 5 (🔒 2026-09-10)
+
+**DECIDIDO.** O **Ordinal Believer (715)** fica na margem oposta da baía, **de frente para
+as mansões da alça**. O **DOG Supporter (1.347)** fica na **segunda faixa, atrás dele**,
+repetindo o padrão que a alça estabeleceu: primeira fileira na água, segunda atrás olhando
+por cima.
+
+⚠️ Escopo desta decisão é **o lugar, não o lote.** Testada, área, gabarito e ordem interna
+ficam para quando o desenho daquela orla for feito. Dono, 2026-09-10: *"não precisamos
+definir posicionamento e tamanho exato dos lotes agora, só onde cada tier vai ficar"*.
+
+**MEDIDO.** A orla interna, varrendo o relevo com a lâmina em −40:
+
+```
+faixa de rumo        358,5° a 99,5°
+comprimento útil     8,62 km   (contra 14,93 km da alça, ou seja 58%)
+lâmina até a alça    1.084 m mediana, até 3.044 m no ponto mais largo
+margem               r 3.536 a 6.264, mediana 5.504
+```
+
+**MEDIDO.** Por que o tier 5 não divide a mesma frente: 715 sozinho na orla dá 12,1 m de
+testada, que já é casa urbana e não mansão. Os dois juntos dariam **4,2 m**, o que não
+existe. A segunda faixa é a única forma de os dois olharem a água.
+
+⚠️ **Doze metros é o ponto, não o defeito.** O tier 4 tem de ler como degrau abaixo da
+alça. Casa urbana com frente de água (no espírito dos canais de Amsterdam) contra estate
+de 1,6 ha é exatamente a distância que separa o tier 3 do tier 4.
+
+⚠️ **ESSA ORLA ESTÁ FORA DO TECIDO ATUAL.** `gerar_bairros.py` para em **R_SITIO = 3.500**
+e a margem mais próxima da baía está em r 3.536, 36 m além. Não é conflito de terra, é
+terra que o gerador ainda não alcança. Ver §5.
+
+### 3.4 — Tecido de bairros, tier 6 Diamond Paws (🔒 2026-09-10)
+
+**DECIDIDO.** Os **19.289 Diamond Paws** ocupam o **tecido de bairros propriamente dito**,
+o miolo entre a Praça Central e o cinturão. **A ordem é a intensidade de uso da carteira,
+do centro para fora.**
+
+**Por que não é orla:** os tiers 1 a 5 pegaram água porque eram poucos (2.507 somados,
+2,9% da cidade) e água é o recurso escasso. O tier 6 sozinho leva o acumulado a **25,4%**
+da cidade. Ele não é um bairro especial, **ele é a cidade**: mesma bag, mesmo
+comportamento, dezenove mil vezes. Bairro residencial é o que ele é.
+
+**MEDIDO.** 19.289 lotes = **36,4% do tecido atual** = 6,77 km² na densidade de hoje
+(351 m² por lote, com rua e recuo verde já descontados).
+
+**MEDIDO.** O que o tier realmente é, de `data/diamond_paws_analysis/lost_analysis.json`:
+
+```
+saldo exatamente igual ao airdrop em TODAS as 19.289   (nunca venderam DOG)
+
+VIVAS      13.396 (69,4%)   14,20B DOG
+           gastaram BTC e outros runes e não tocaram no DOG
+           nota do próprio dataset: "alive HODLers, not lost"
+DORMENTES   5.893 (30,6%)    5,61B DOG (5,61% do supply)
+           nunca gastaram nada desde o airdrop
+```
+
+**A intensidade que ordena** (transações gastas em outras coisas, com o DOG intacto):
+
+| tx gastas | carteiras |
+|---|---|
+| 100+ | 1.848 |
+| 21 a 100 | 3.637 |
+| 6 a 20 | 3.288 |
+| 2 a 5 | 2.687 |
+| 1 | 1.936 |
+
+As 1.848 do topo usam a carteira toda semana há dois anos e nunca encostaram no DOG. É a
+conviction mais demonstrável do dataset inteiro, e por isso ficam mais perto da praça.
+
+⚠️ **NÃO SEPARAR OS 5.893 DORMENTES EM SETOR PRÓPRIO.** Decisão do dono, 2026-09-10. Um
+bairro de "carteiras perdidas" seria uma afirmação que o dado não sustenta: nunca ter
+gastado não prova perda, prova só que ninguém gastou, e pode ser cold storage disciplinado.
+O próprio arquivo chama a categoria de `lost_relaxed` e anota que "incoming proves nothing
+about key control". Com a intensidade como gradiente contínuo, os dormentes acabam na borda
+do setor sem que ninguém seja rotulado: o efeito no mapa é o mesmo e a afirmação não é
+feita. Casa com o princípio §0.5 do masterplan ("Don't trust, verify").
+
+⚠️ **CORREÇÃO DE UM ERRO DESTE ARQUIVO.** A versão anterior do P6 dizia que os gêmeos eram
+"indistinguíveis em todo eixo disponível". Isso valia para `holders_by_age.csv` (saldo,
+idade, utxo_count, lth_pct). O `lost_analysis.json` usa dados de cadeia e separa o bloco em
+vivas e dormentes, com gradação de intensidade dentro das vivas. **Existe eixo; ele mora em
+outro arquivo.**
 
 ---
 
@@ -133,28 +267,7 @@ Registro completo no `masterplan.md` §10, com o 🔒 no §9. Resumo operacional
 
 Numeradas para poder fechar uma por vez. Nada aqui foi decidido.
 
-**P1 — A ordem dentro da fileira da frente.** 187 carteiras dividem 15,5 km, e os pontos
-não são iguais: as pontas do arco (346° e 116,5°) são onde a alça estreita e onde entram
-os dois acessos, com mais movimento e menos exclusividade.
-
-**MEDIDO,** e liga direto ao pedido do dono de que o Satoshi Visionary tenha o melhor
-ponto: o meio do arco fica em **51,25°** e o centro da baía em **52,5°**. Quem estiver ali
-olha o centro da baía e a cidade de frente, no ponto mais distante das duas entradas.
-
-```
-Satoshi Visionary   88 lotes = 53,3° do arco
-BTC Maximalist      99 lotes = 59,9°
-projeto (5 x 5)     25 lotes = 15,1°
-                            ────
-                            128,3° de 130,5° disponíveis
-```
-
-Proposta em cima da mesa (NÃO decidida): SV centrado no meio, ocupando de **24,6° a
-77,9°**, com BM nos dois flancos, 30° de cada lado. Simétrico.
-
-**P2 — A ordem dentro da fileira de trás.** Mesma pergunta para os 258 Rune Master.
-
-**P3 — Onde caem os 5 blocos do projeto** dentro do arranjo de P1.
+**P1, P2 e P3 foram FECHADOS em 2026-09-10.** Ver §3.2.
 
 **P4 — O programa de cada bloco** do projeto (qual é marina, qual é clube, qual é píer).
 
@@ -163,10 +276,10 @@ Proposta em cima da mesa (NÃO decidida): SV centrado no meio, ocupando de **24,
 trivial. Se vierem MAIS, é preciso escolher entre alargar o número de lotes ou cortar por
 saldo dentro do tier de menor prioridade. As duas opções estão abertas.
 
-**P6 — Os tiers 4 a 12.** Nenhum tem posição. O caso grande é Diamond Paws (19.289, 22,5%
-de quem tem tier): é o cinturão da cidade e a homogeneidade dele é característica, não
-defeito. **MEDIDO:** 17.865 carteiras têm 889.806 DOG exatos, 869,2 dias, 1 UTXO e 100%
-LTH, ou seja são indistinguíveis em todo eixo disponível.
+**P6 — Os tiers 7 a 12.** Nenhum tem posição. São 5.158 carteiras que AINDA são holders
+(HODL Hero 301, Steady 411, Profit Taker 823, Early Exit 824, Panic Seller 715, e os 2.084
+Paper Hands que sobraram com saldo). Grupo pequeno perto do que já foi colocado, mas é o
+único que fala de quem VENDEU parte, e isso ainda não tem tradução no mapa.
 
 **P7 — Os 58.837 sem tier**, que são 68,6% dos holders. É a maior fatia da cidade e não
 tem nem regra nem bairro.
@@ -185,6 +298,17 @@ Estado hoje, **MEDIDO** em 10/09/2026: **o gerador não sabe que a alça existe.
 uma única referência a ela em `scripts/foundation_generator.ts`, `scripts/gerar_bairros.py`
 ou `lib/city/zones.ts`. O `RING0_SEATS = 85` continua lá com o proxy provisório, e o anel 0
 ficou sem dono depois da decisão 3.1.
+
+⚠️ **E o tecido atual não alcança a cidade.** `scripts/gerar_bairros.py` para em
+`R_SITIO = 3.500` e o `public/city/bairros.json` gerado tem 140 bairros e **52.996 lotes
+para 85.791 carteiras**: faltam 32.795. A orla interna da baía (§3.3) fica inteiramente
+fora desse raio. Isso não é urgente enquanto o loteamento é teste, mas vira bloqueio duro
+quando Diamond Paws (19.289) precisar de chão.
+
+⚠️ **Uma segunda fonte de dado entra em jogo a partir do tier 6.** A intensidade de uso
+vem de `data/diamond_paws_analysis/lost_analysis.json` (e do `chain_stats.jsonl` que o
+alimenta), não do `forensic_behavioral_analysis.json`. São dois datasets, e o gerador
+precisa dos dois.
 
 Quando for reconstruir, o gerador precisa:
 
@@ -208,3 +332,13 @@ Quando for reconstruir, o gerador precisa:
   P1 a P8. Implementado no código nesta data: só a geometria da via (AN7 de volta a
   r 6.950, verificada por `verificar-orla.ts`, `verificar-alca.ts` e `vias-varredura.mjs`).
   A atribuição de lotes continua sendo papel.
+- **2026-09-10** — fechados P1, P2 e P3 (§3.2): ordem por `change_pct` do centro para as
+  pontas, SV contínuo no meio do arco, 4 blocos do projeto na frente em vez de 5. A
+  divisão do land bank passou de 25/40 para **20/45**.
+- **2026-09-10** — tiers 4 e 5 ganharam lugar (§3.3): Ordinal Believer na orla interna da
+  baía de frente para as mansões, DOG Supporter na segunda faixa atrás. Só o lugar; lote e
+  tamanho ficam para depois. Registrado que o tecido atual para em r 3.500 e não alcança
+  essa orla.
+- **2026-09-10** — tier 6 ganhou lugar (§3.4): Diamond Paws no tecido de bairros, ordenado
+  por intensidade de uso do centro para fora, sem separar os dormentes. Corrigido o erro do
+  P6 anterior que dava os gêmeos como indistinguíveis.

@@ -288,8 +288,8 @@ de renda** (parcerias, naming rights, features futuras).
   **nunca** engole equipamento cívico.
 - **Dotação da Orla Nobre (65 parcelas, 2026-09-10):** a alça da baía tem land bank
   próprio, decidido junto com a orla no §10. Substitui a linha "4 na orla/waterfront"
-  acima, que foi escrita antes de a alça existir como projeto. Divisão: **25 na fileira
-  da frente** (5 blocos de 5, igualmente espaçados no arco) e **40 na de trás**. Os
+  acima, que foi escrita antes de a alça existir como projeto. Divisão: **20 na fileira
+  da frente** (4 blocos de 5) e **45 na de trás** (9 blocos de 5). Os
   blocos da frente existem para a orla ter destino público: sem eles são 15,5 km de
   lotes privados em fila, e os 30 acessos à praia viram passagem sem chegada. O gabarito
   de 2 pavimentos da fileira da frente decide sozinho o programa de cada face, e não é
@@ -461,20 +461,71 @@ tabelas por rumo de `alca.ts` e dos verificadores `verificar-alca.ts` e `verific
 |---|---|---|
 | orientação | praia da baía → casa → pista | pista → casa → praia dos fundos |
 | carteiras | Satoshi Visionary + BTC Maximalist (187) | Rune Master (258) |
-| projeto | 25 (5 blocos de 5) | 40 |
-| total | 212 lotes | 298 lotes |
-| testada | 73,2 m | 52,4 m |
+| projeto | 20 (4 blocos de 5) | 45 (9 blocos de 5) |
+| total | 207 lotes | 303 lotes |
+| testada | 74,9 m | 51,6 m |
 | fundo garantido | 214 m | 246 m |
-| área do lote | 1,57 ha | 1,29 ha |
+| área do lote | 1,60 ha | 1,27 ha |
 | gabarito | **2 pavimentos** | livre |
 
 ⚠️ **O gabarito da frente não é decoração, é o que faz a fileira de trás existir.** Ele
-protege a vista dos 298 lotes que estão atrás. Quem quiser altura compra na de trás.
+protege a vista dos 303 lotes que estão atrás. Quem quiser altura compra na de trás.
 
 ⚠️ **Nenhuma rua nova entra na alça.** Dono, 07/09: "lá, por enquanto, teremos apenas a
 via central". Os dois lados acessam a mesma AN7, e é por isso que a via tem de ficar no
 meio: é ela que dá frente aos dois. Uma terceira fileira exigiria rua de fundo e está
 fora até que essa regra mude.
 
+### O arranjo dentro do arco (🔒 2026-09-10)
+
+Ordem dentro do tier: **`change_pct` decrescente, do centro do arco para as pontas**. É o
+mesmo campo que define o tier, então o tier diz o bairro e o mesmo número diz o endereço.
+O melhor ponto é medido, não opinado: o meio do arco fica em **51,25°** e o centro da baía
+em **52,5°**.
+
+```
+346,0° ── P1(5) ── BTC Max (50) ── P2(5) ── SATOSHI VISIONARY (88) ── P3(5) ── BTC Max (49) ── P4(5) ── 116,5°
+          ponta                    junção     23,2° a 77,7°            junção                  ponta
+```
+
+Fileira de trás: 258 Rune Master pela mesma regra, mais 45 do projeto em 9 blocos de 5,
+sendo 4 alinhados com os da frente. Detalhe e ajuste fino em `tiersposition.md` §3.2.
+
+⚠️ **São 4 blocos na frente e não 5 de propósito:** 5 simétricos exigiriam um no centro
+EXATO, e o centro é dos Satoshi Visionary. Com 4, os SV ficam num trecho contínuo de 54,5°.
+
 ⚠️ **A face externa é quintal, não fachada.** Não vender lote, não enquadrar câmera e não
 escrever copy tratando a água de fora como orla nobre. Ver a nota em `ALCA_R_MAR`.
+
+🔒 **2026-09-10, dono: tiers 4 e 5 ganham lugar.** Ordinal Believer (715) vai para a **orla
+interna da baía, de frente para as mansões da alça**; DOG Supporter (1.347) vai para a
+**segunda faixa, atrás dele**. Decidido o LUGAR, não o lote: testada, área e gabarito ficam
+para quando aquela orla for desenhada. **MEDIDO:** a orla interna tem 8,62 km úteis (rumo
+358,5° a 99,5°), 58% dos 14,93 km da alça, com 1.084 m de lâmina até as mansões na mediana.
+O tier 4 sozinho ali dá 12,1 m de testada, que é casa urbana e não mansão, e é essa a
+distância que tem de separar o tier 4 do tier 3; os dois tiers juntos na mesma frente
+dariam 4,2 m, por isso o 5 vai atrás. Detalhe e pendências em `tiersposition.md` §3.3.
+
+⚠️ **Achado colateral que vira bloqueio adiante:** `scripts/gerar_bairros.py` para em
+`R_SITIO = 3.500` e o `bairros.json` gerado tem 140 bairros e **52.996 lotes para 85.791
+carteiras** (faltam 32.795). A orla interna da baía fica inteiramente fora desse raio. Não
+atrapalha enquanto o loteamento é teste, mas é preciso resolver antes de Diamond Paws
+(19.289) precisar de chão.
+
+🔒 **2026-09-10, dono: tier 6 é o tecido da cidade.** Os **19.289 Diamond Paws** ocupam o
+tecido de bairros propriamente dito, entre a Praça Central e o cinturão, **ordenados pela
+intensidade de uso da carteira, do centro para fora**. Os tiers 1 a 5 pegaram água porque
+eram poucos (2.507 somados, 2,9% da cidade); o tier 6 sozinho leva o acumulado a **25,4%**,
+e bairro residencial é o que ele é. **MEDIDO:** 19.289 lotes são 36,4% do tecido atual, ou
+6,77 km² na densidade de hoje.
+
+**O que o tier é, medido:** saldo exatamente igual ao airdrop em todas as 19.289, ou seja
+nunca venderam DOG. **13.396 (69,4%) estão VIVAS** (gastaram BTC e outros runes sem tocar
+no DOG; 1.848 delas mais de cem vezes) e **5.893 (30,6%) nunca gastaram nada**, com 5,61B
+DOG, 5,61% do supply.
+
+⚠️ **Os dormentes NÃO viram setor próprio.** Um bairro de "carteiras perdidas" afirmaria o
+que o dado não sustenta: nunca ter gastado não prova perda, e pode ser cold storage
+disciplinado. A intensidade como gradiente contínuo põe os dormentes na borda sem rotular
+ninguém, que é o mesmo efeito no mapa sem a afirmação. Casa com o §0.5 ("Don't trust,
+verify"). Detalhe em `tiersposition.md` §3.4.
