@@ -1413,19 +1413,31 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
    * é a inversão exata do que o portão de `scripts/city/chapas.mjs` existe para
    * impedir.
    *
-   *   ?pele=marca-btc     trava o anel nessa carta, indefinidamente
-   *   ?pele=anuncio&quadro=0   trava também o quadro, para a chapa não depender
-   *                            de acertar a janela de 24 s de cada quadro
+   *   ?pele=marca-btc          trava o anel nessa carta, indefinidamente
+   *   ?pele=anuncio&quadro=0    trava também o quadro, para a chapa não depender
+   *                             de acertar a janela de 24 s de cada quadro
+   *   ?pele=marca-dog&eventos=0 recusa também os eventos
    *
-   * Nomes válidos: os do `ANEL`. Sem a trava nada muda, e ela não desliga evento:
-   * um bloco minerado ainda interrompe, porque a peça em conferência tem de
-   * continuar sendo a peça que vai ao ar.
+   * Nomes válidos: os do `ANEL`.
+   *
+   * ⚠️ `eventos=0` NASCEU DE UMA CHAPA PERDIDA, em 09/09. A trava de pele não
+   * desligava evento, de propósito, porque a peça em conferência tem de continuar
+   * sendo a peça que vai ao ar. Só que uma carga da cena leva cerca de 7 min e um
+   * bloco de Bitcoin chega a cada 10: a chapa da carta `$DOG CITY` saiu com
+   * `BTC BLOCK` na tela, porque o evento entrou entre a carga e a captura. Numa
+   * peça em que conferir custa 7 minutos de GPU, deixar o resultado no relógio da
+   * chain é perder a chapa uma vez a cada três.
+   *
+   * ⚠️ E ELE É SÓ PARA CONFERÊNCIA. Em produção a trava inteira fica fora: sem
+   * `?pele=` nada disto existe, e o evento continua tendo precedência sobre o
+   * anel, que é o coração da peça.
    */
   const busca = typeof window !== 'undefined'
     ? new URLSearchParams(window.location.search)
     : null
   const TRAVA = busca?.get('pele') ?? null
   const TRAVA_QUADRO = busca?.get('quadro') != null ? Number(busca.get('quadro')) : null
+  const SEM_EVENTO = TRAVA != null && busca?.get('eventos') === '0'
   if (TRAVA && !ANEL.includes(TRAVA as typeof ANEL[number])) {
     console.warn(`[sphere] ?pele=${TRAVA} não é carta do anel; ignorado. Válidos: ${ANEL.join(', ')}`)
   }
@@ -1609,6 +1621,9 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
 
   const proximoSlot = (t: number): Slot => {
     // evento tem precedência sobre o anel, sempre
+    // ⚠️ COM `eventos=0` A FILA É DESCARTADA, não represada: guardá-la faria os
+    // eventos entrarem todos juntos no fim da conferência.
+    if (SEM_EVENTO) fila.length = 0
     const ev = fila.shift()
     if (ev) return ev
     // ⚠️ A TRAVA VEM ANTES DO ANEL, e ela não tem plano B: se a carta travada não
@@ -1685,7 +1700,7 @@ export function criarProgramacao(o: ProgramacaoOpts): ProgramacaoSphere {
    * vezes pelo mesmo slot.
    */
   const empilhar = (s: Slot | null, t: number) => {
-    if (!s || parado) return
+    if (!s || parado || SEM_EVENTO) return
     fila.push(s)
     if (slot.classe === 'evento') return
     if (slot.classe === 'anuncio') {
